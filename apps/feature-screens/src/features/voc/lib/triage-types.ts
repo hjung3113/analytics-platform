@@ -1,6 +1,6 @@
 // triage-types.ts — triage input/output/snapshot types (issue #481).
 
-import type { VocListItem, VocSummaryEnvelope } from '@fops/shared';
+import type { VocListItem, VocSummaryEnvelope } from '@ap/feature-shared';
 
 export interface TriageConfirmInput {
   kind: 'confirm' | 'finding';

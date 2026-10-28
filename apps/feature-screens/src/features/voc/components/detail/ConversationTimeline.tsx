@@ -1,8 +1,8 @@
 // ConversationTimeline — tabbed public / internal conversation view.
 
+import type { VocDetailEnvelope } from '@ap/feature-shared';
+import { TabsList, TabsTrigger } from '@ap/feature-ui';
 import { PanelSectionTitle, Tabs, TabsContent } from '@ap/ui';
-import type { VocDetailEnvelope } from '@fops/shared';
-import { TabsList, TabsTrigger } from '@fops/ui';
 import * as React from 'react';
 import { InternalTimeline } from './InternalTimeline';
 import { PublicTimeline } from './PublicTimeline';

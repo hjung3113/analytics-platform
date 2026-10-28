@@ -1,6 +1,6 @@
 // HTTP list seam only; the conductor executes this with fops_app/fops_migrate.
 import { randomUUID } from 'node:crypto';
-import { listSurveysResponseSchema } from '@fops/shared';
+import { listSurveysResponseSchema } from '@ap/feature-shared';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { loadConfig } from '../../../config.js';

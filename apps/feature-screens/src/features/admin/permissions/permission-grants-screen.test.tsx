@@ -22,7 +22,7 @@ import {
   permissionGrantOptionsSchema,
   revokePermissionBodySchema,
   revokePermissionResultSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 
 const apiRequestMock = vi.hoisted(() => vi.fn());
 const fetchManagedSystemsMock = vi.hoisted(() => vi.fn());

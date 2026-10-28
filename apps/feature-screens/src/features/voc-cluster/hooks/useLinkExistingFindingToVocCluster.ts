@@ -1,7 +1,7 @@
 // useLinkExistingFindingToVocCluster — command-only association that refreshes
 // the cluster detail so its backend-authorized linked_findings are rendered.
 
-import type { LinkedFindingDto } from '@fops/shared';
+import type { LinkedFindingDto } from '@ap/feature-shared';
 import { type UseMutationResult, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { apiClient } from '@/lib/api/client';

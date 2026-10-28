@@ -1,14 +1,14 @@
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
-import { setFoApi } from '@ap/fo-bridge/fo-api';
+import { setFoApi } from '@ap/feature-bridge/fo-api';
 import { mountAt, warmPages } from '../test-support';
 
 /** Screens and the drawer are doubles that would request FeedbackOps data when mounted; the page value check (FeedbackOps' real search schema) is not mocked. */
 const mounted = vi.hoisted(() => ({ screens: 0, details: 0 }));
-vi.mock('@fops/frontend/operator-screens/voc-inbox', () => ({ InboxScreen: () => { mounted.screens += 1; return <div data-testid="inbox" />; } }));
-vi.mock('@fops/frontend/operator-screens/voc-triage', () => ({ TriageScreen: () => { mounted.screens += 1; return <div data-testid="triage" />; } }));
-vi.mock('@fops/frontend/operator-screens/voc-detail', () => ({
+vi.mock('@ap/feature-screens/operator-screens/voc-inbox', () => ({ InboxScreen: () => { mounted.screens += 1; return <div data-testid="inbox" />; } }));
+vi.mock('@ap/feature-screens/operator-screens/voc-triage', () => ({ TriageScreen: () => { mounted.screens += 1; return <div data-testid="triage" />; } }));
+vi.mock('@ap/feature-screens/operator-screens/voc-detail', () => ({
   useVocDetailParts: () => { mounted.details += 1; return { title: 'VOC', body: <p>본문</p>, requestClose: () => undefined, view: { kind: 'loading' } }; },
 }));
 

@@ -1,4 +1,4 @@
-import type { TaskDto, TaskStatus } from '@fops/shared';
+import type { TaskDto, TaskStatus } from '@ap/feature-shared';
 import { useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
 import type { TaskBoardGroupBy } from '../components/task-board/TaskBoardGroupByButton';

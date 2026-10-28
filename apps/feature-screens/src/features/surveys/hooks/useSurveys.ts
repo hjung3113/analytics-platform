@@ -2,7 +2,7 @@ import { apiClient, apiRequest } from '@/lib/api/client';
 import { mintIdempotencyKey } from '@/lib/api/idempotency';
 import { type ApiError, ApiParseError } from '@/lib/api/types';
 import { invalidateNavCounts } from '@/lib/query/navCounts';
-import type { ListSurveysQuery } from '@fops/shared';
+import type { ListSurveysQuery } from '@ap/feature-shared';
 import {
   type AnswerableSurveysResponse,
   type MySurveyResponsesResponse,
@@ -19,7 +19,7 @@ import {
   surveyResponseSubmittedDtoSchema,
   surveyResultDtoSchema,
   surveyTemplatesResponseSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useRef } from 'react';
 import { surveyResultsReadDenialKeys } from '../policy/resultsReadDenial';

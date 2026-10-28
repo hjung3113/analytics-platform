@@ -1,6 +1,6 @@
 // Permission-owned scope adapter for read-model filtering. The capability rule
 // lives in check-service.ts and is shared with GET /me/permissions/scope.
-import type { Capability } from '@fops/shared';
+import type { Capability } from '@ap/feature-shared';
 import type { Db } from '../../db/client.js';
 import type { Tx } from '../../db/tx.js';
 import { resolveCapabilityScope } from './check-service.js';

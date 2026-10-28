@@ -5,7 +5,7 @@ import type {
   EvidenceHighlightDto,
   LinkEvidenceRequest,
   ListEvidenceHighlightsResponse,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import { lockRecoveryCommand } from '../../db/recovery-command-lock.js';
 import type { Tx } from '../../db/tx.js';
 import { HttpError } from '../../lib/errors.js';

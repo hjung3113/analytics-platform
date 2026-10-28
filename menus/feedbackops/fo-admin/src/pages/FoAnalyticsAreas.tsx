@@ -1,6 +1,6 @@
-import { FoDetailDrawer, FoScreenPage, analyticsAreasRoute, useAnalyticsAreasHere, useAnalyticsAreasSearch } from '@ap/fo-bridge';
-import { AnalyticsAreasAdminPage, type AnalyticsAreasScreenProps } from '@fops/frontend/operator-screens/analytics-areas';
-import { isAnalyticsAreasSearchValueValid } from '@fops/frontend/operator-screens/admin-search';
+import { FoDetailDrawer, FoScreenPage, analyticsAreasRoute, useAnalyticsAreasHere, useAnalyticsAreasSearch } from '@ap/feature-bridge';
+import { AnalyticsAreasAdminPage, type AnalyticsAreasScreenProps } from '@ap/feature-screens/operator-screens/analytics-areas';
+import { isAnalyticsAreasSearchValueValid } from '@ap/feature-screens/operator-screens/admin-search';
 
 /** The screen owns the selected Analytics Area and its close (`focus` is its `selected`), so the drawer's close is `requestClose`. */
 const renderDetail: NonNullable<AnalyticsAreasScreenProps['renderDetail']> = parts => <FoDetailDrawer parts={parts} onClose={parts.requestClose} />;

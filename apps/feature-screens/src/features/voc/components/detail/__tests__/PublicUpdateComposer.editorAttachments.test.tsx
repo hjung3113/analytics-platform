@@ -16,7 +16,7 @@ vi.mock('@/features/voc/hooks/useVocPublicUpdateMutation', () => ({
 
 import { useVocPublicUpdateMutation } from '@/features/voc/hooks/useVocPublicUpdateMutation';
 import type { MeResponse } from '@/lib/auth/useMe';
-import type { VocDetailEnvelope } from '@fops/shared';
+import type { VocDetailEnvelope } from '@ap/feature-shared';
 import { PublicUpdateComposer } from '../PublicUpdateComposer';
 
 const REPORTER_ID = '00000000-0000-0000-0000-000000000001';

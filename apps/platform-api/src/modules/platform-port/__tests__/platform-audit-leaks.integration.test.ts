@@ -4,7 +4,7 @@
 // query filters on an actor or id this suite created, so other suites' rows never enter an assertion.
 
 import { randomUUID } from 'node:crypto';
-import { CAPABILITIES, isSensitiveCapability } from '@fops/shared';
+import { CAPABILITIES, isSensitiveCapability } from '@ap/feature-shared';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 

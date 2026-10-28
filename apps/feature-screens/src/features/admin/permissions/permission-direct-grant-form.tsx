@@ -1,3 +1,4 @@
+import type { PermissionGrantAdminItem, PermissionGrantOptions } from '@ap/feature-shared';
 import {
   Button,
   Checkbox,
@@ -17,7 +18,6 @@ import {
   SelectValue,
   Textarea,
 } from '@ap/ui';
-import type { PermissionGrantAdminItem, PermissionGrantOptions } from '@fops/shared';
 import { useQuery } from '@tanstack/react-query';
 import * as React from 'react';
 

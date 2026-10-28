@@ -14,7 +14,7 @@ import {
   findingDtoSchema,
   listEvidenceInventoryResponseSchema,
   surveyResultDtoSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 

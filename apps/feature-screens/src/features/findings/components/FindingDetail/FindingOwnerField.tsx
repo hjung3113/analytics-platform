@@ -7,6 +7,7 @@ import { FINDING_RESPONSIBILITY_COPY as COPY } from '@/lib/copy/finding-responsi
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { shortId } from '@/lib/identity';
 import { invalidateNavCounts } from '@/lib/query/navCounts';
+import { type FindingDto, findingDtoSchema } from '@ap/feature-shared';
 import {
   Button,
   Callout,
@@ -17,7 +18,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@ap/ui';
-import { type FindingDto, findingDtoSchema } from '@fops/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
 

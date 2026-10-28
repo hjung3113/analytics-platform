@@ -2,7 +2,7 @@ import { fetchPermissionCheck, getTask, resolveActors } from '@/lib/api';
 import { fetchManagedSystems } from '@/lib/api/managed-systems';
 import { assignTaskResponsibility } from '@/lib/api/tasks';
 import { TaskDetailPanel } from '@/test/host-adapters/features/tasks/components/TaskDetailPanel';
-import type { TaskDetailDto } from '@fops/shared';
+import type { TaskDetailDto } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';

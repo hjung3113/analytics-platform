@@ -1,11 +1,11 @@
 // useComposerVisibility — unit tests (C5.1 RED, slice3 #21)
 // Covers reporter ownership, role-based public/reply tabs, and canTriage-gated Internal.
 
-import { describe, it, expect } from 'vitest';
-import { renderHook } from '@testing-library/react';
-import { useComposerVisibility } from '../useComposerVisibility';
-import type { VocDetailEnvelope } from '@fops/shared';
 import type { MeResponse } from '@/lib/auth/useMe';
+import type { VocDetailEnvelope } from '@ap/feature-shared';
+import { renderHook } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
+import { useComposerVisibility } from '../useComposerVisibility';
 
 const REPORTER_ID = '00000000-0000-0000-0000-000000000001';
 const ADMIN_ID = '00000000-0000-0000-0000-000000000002';

@@ -1,5 +1,5 @@
+import { invalidDocs, validDocs } from '@ap/feature-shared';
 import { describe, expect, it } from 'vitest';
-import { invalidDocs, validDocs } from '@fops/shared';
 import { sanitizeTipTap } from '../sanitize.js';
 import type { RichContentFieldsCode } from '../sanitize.js';
 
@@ -12,13 +12,16 @@ describe('sanitizeTipTap canonical rich-content fixtures', () => {
   }
 
   for (const [surfaceName, docs] of Object.entries(invalidDocs)) {
-    it.each(docs)('%s rejects canonical invalid fixture %# with expected top-level code', (fixture) => {
-      const res = sanitizeTipTap({ surface: surfaceName as never, doc: fixture.doc });
-      expect(res.ok).toBe(false);
-      if (!res.ok) {
-        expect(res.error.code).toBe(fixture.expectedCode);
-      }
-    });
+    it.each(docs)(
+      '%s rejects canonical invalid fixture %# with expected top-level code',
+      (fixture) => {
+        const res = sanitizeTipTap({ surface: surfaceName as never, doc: fixture.doc });
+        expect(res.ok).toBe(false);
+        if (!res.ok) {
+          expect(res.error.code).toBe(fixture.expectedCode);
+        }
+      },
+    );
   }
 });
 
@@ -43,10 +46,15 @@ describe('sanitizeTipTap (voc-description)', () => {
   it('accepts bold + italic + underline + code + link marks', () => {
     const res = sanitizeTipTap({
       surface,
-      doc: doc(p('x', [
-        { type: 'bold' }, { type: 'italic' }, { type: 'underline' },
-        { type: 'code' }, { type: 'link', attrs: { href: 'https://ok.example' } },
-      ])),
+      doc: doc(
+        p('x', [
+          { type: 'bold' },
+          { type: 'italic' },
+          { type: 'underline' },
+          { type: 'code' },
+          { type: 'link', attrs: { href: 'https://ok.example' } },
+        ]),
+      ),
     });
     expect(res.ok).toBe(true);
   });
@@ -122,7 +130,11 @@ function mentionDoc(attrs: Record<string, unknown>) {
     content: [{ type: 'mention', attrs }],
   };
 }
-function leafNodeDoc(type: 'attachmentRef' | 'mention', attrs: Record<string, unknown>, content?: unknown[]) {
+function leafNodeDoc(
+  type: 'attachmentRef' | 'mention',
+  attrs: Record<string, unknown>,
+  content?: unknown[],
+) {
   return {
     type: 'doc' as const,
     content: [{ type, attrs, ...(content !== undefined ? { content } : {}) }],
@@ -148,22 +160,34 @@ function linkDoc(attrs: Record<string, unknown>) {
 
 describe('attr allowlist — positive cases', () => {
   it('attachmentRef with valid uuid id (voc-description)', () => {
-    const res = sanitizeTipTap({ surface: 'voc-description', doc: attachmentDoc({ id: VALID_UUID }) });
+    const res = sanitizeTipTap({
+      surface: 'voc-description',
+      doc: attachmentDoc({ id: VALID_UUID }),
+    });
     expect(res.ok).toBe(true);
   });
 
   it('mention with valid actor_id (internal-comment)', () => {
-    const res = sanitizeTipTap({ surface: 'internal-comment', doc: mentionDoc({ actor_id: VALID_UUID }) });
+    const res = sanitizeTipTap({
+      surface: 'internal-comment',
+      doc: mentionDoc({ actor_id: VALID_UUID }),
+    });
     expect(res.ok).toBe(true);
   });
 
   it('codeBlock with language null (internal-comment)', () => {
-    const res = sanitizeTipTap({ surface: 'internal-comment', doc: codeBlockDoc({ language: null }) });
+    const res = sanitizeTipTap({
+      surface: 'internal-comment',
+      doc: codeBlockDoc({ language: null }),
+    });
     expect(res.ok).toBe(true);
   });
 
   it('codeBlock with language string (internal-comment)', () => {
-    const res = sanitizeTipTap({ surface: 'internal-comment', doc: codeBlockDoc({ language: 'ts' }) });
+    const res = sanitizeTipTap({
+      surface: 'internal-comment',
+      doc: codeBlockDoc({ language: 'ts' }),
+    });
     expect(res.ok).toBe(true);
   });
 
@@ -178,17 +202,26 @@ describe('attr allowlist — positive cases', () => {
   });
 
   it('link mark with https href (voc-description)', () => {
-    const res = sanitizeTipTap({ surface: 'voc-description', doc: linkDoc({ href: 'https://example.com' }) });
+    const res = sanitizeTipTap({
+      surface: 'voc-description',
+      doc: linkDoc({ href: 'https://example.com' }),
+    });
     expect(res.ok).toBe(true);
   });
 
   it('link mark with http href (reporter-reply)', () => {
-    const res = sanitizeTipTap({ surface: 'reporter-reply', doc: linkDoc({ href: 'http://example.com' }) });
+    const res = sanitizeTipTap({
+      surface: 'reporter-reply',
+      doc: linkDoc({ href: 'http://example.com' }),
+    });
     expect(res.ok).toBe(true);
   });
 
   it('paragraph with absent attrs → output has no attrs field', () => {
-    const res = sanitizeTipTap({ surface: 'voc-description', doc: { type: 'doc', content: [{ type: 'paragraph' }] } });
+    const res = sanitizeTipTap({
+      surface: 'voc-description',
+      doc: { type: 'doc', content: [{ type: 'paragraph' }] },
+    });
     expect(res.ok).toBe(true);
     if (res.ok) {
       const para = (res.doc as { content: Array<{ attrs?: unknown }> }).content?.[0];
@@ -209,12 +242,18 @@ describe('attr allowlist — positive cases', () => {
   });
 
   it('attachmentRef with valid uuid (reporter-reply)', () => {
-    const res = sanitizeTipTap({ surface: 'reporter-reply', doc: attachmentDoc({ id: VALID_UUID }) });
+    const res = sanitizeTipTap({
+      surface: 'reporter-reply',
+      doc: attachmentDoc({ id: VALID_UUID }),
+    });
     expect(res.ok).toBe(true);
   });
 
   it('attachmentRef with valid uuid (internal-comment)', () => {
-    const res = sanitizeTipTap({ surface: 'internal-comment', doc: attachmentDoc({ id: VALID_UUID_2 }) });
+    const res = sanitizeTipTap({
+      surface: 'internal-comment',
+      doc: attachmentDoc({ id: VALID_UUID_2 }),
+    });
     expect(res.ok).toBe(true);
   });
 });
@@ -244,7 +283,9 @@ describe('leaf node enforcement', () => {
     ['internal-comment', 'mention', { actor_id: VALID_UUID }],
   ] as const)('%s accepts %s with absent or empty content[]', (surfaceName, type, attrs) => {
     expect(sanitizeTipTap({ surface: surfaceName, doc: leafNodeDoc(type, attrs) }).ok).toBe(true);
-    expect(sanitizeTipTap({ surface: surfaceName, doc: leafNodeDoc(type, attrs, []) }).ok).toBe(true);
+    expect(sanitizeTipTap({ surface: surfaceName, doc: leafNodeDoc(type, attrs, []) }).ok).toBe(
+      true,
+    );
   });
 });
 
@@ -272,7 +313,15 @@ describe('attr allowlist — canonical output', () => {
 });
 
 describe('attr allowlist — negative: disallowed keys', () => {
-  it.each<[string, string, Parameters<typeof sanitizeTipTap>[0], RichContentFieldsCode | undefined, string]>([
+  it.each<
+    [
+      string,
+      string,
+      Parameters<typeof sanitizeTipTap>[0],
+      RichContentFieldsCode | undefined,
+      string,
+    ]
+  >([
     [
       'attachmentRef with extra onclick key',
       'voc-description',
@@ -293,7 +342,10 @@ describe('attr allowlist — negative: disallowed keys', () => {
     [
       'link mark with extra target key',
       'voc-description',
-      { surface: 'voc-description', doc: linkDoc({ href: 'https://example.com', target: '_blank' }) },
+      {
+        surface: 'voc-description',
+        doc: linkDoc({ href: 'https://example.com', target: '_blank' }),
+      },
       'disallowed_attr_key',
       'marks[0].attrs.target',
     ],
@@ -307,16 +359,19 @@ describe('attr allowlist — negative: disallowed keys', () => {
       'disallowed_attr_key',
       'attrs.label',
     ],
-  ])('%s → 422 disallowed_attr, path ends %s', (_label, _surf, args, expectedFieldsCode, pathSuffix) => {
-    const res = sanitizeTipTap(args);
-    expect(res.ok).toBe(false);
-    if (!res.ok) {
-      expect(res.error.code).toBe('rich_content.disallowed_attr');
-      expect(res.error.fields_code).toBe(expectedFieldsCode);
-      expect(res.error.path).toBeDefined();
-      expect(res.error.path).toContain(pathSuffix);
-    }
-  });
+  ])(
+    '%s → 422 disallowed_attr, path ends %s',
+    (_label, _surf, args, expectedFieldsCode, pathSuffix) => {
+      const res = sanitizeTipTap(args);
+      expect(res.ok).toBe(false);
+      if (!res.ok) {
+        expect(res.error.code).toBe('rich_content.disallowed_attr');
+        expect(res.error.fields_code).toBe(expectedFieldsCode);
+        expect(res.error.path).toBeDefined();
+        expect(res.error.path).toContain(pathSuffix);
+      }
+    },
+  );
 });
 
 describe('attr allowlist — negative: invalid values', () => {
@@ -352,7 +407,10 @@ describe('attr allowlist — negative: invalid values', () => {
   });
 
   it('link.href = javascript:alert(1) → 422 (invalid scheme)', () => {
-    const res = sanitizeTipTap({ surface: 'voc-description', doc: linkDoc({ href: 'javascript:alert(1)' }) });
+    const res = sanitizeTipTap({
+      surface: 'voc-description',
+      doc: linkDoc({ href: 'javascript:alert(1)' }),
+    });
     expect(res.ok).toBe(false);
     if (!res.ok) {
       expect(res.error.code).toBe('rich_content.invalid_attr_value');
@@ -363,7 +421,7 @@ describe('attr allowlist — negative: invalid values', () => {
   it('link.href too long (>2048) → 422 invalid_attr_value', () => {
     const res = sanitizeTipTap({
       surface: 'voc-description',
-      doc: linkDoc({ href: 'http://' + 'a'.repeat(3000) }),
+      doc: linkDoc({ href: `http://${'a'.repeat(3000)}` }),
     });
     expect(res.ok).toBe(false);
     if (!res.ok) {
@@ -398,7 +456,10 @@ describe('attr allowlist — negative: invalid values', () => {
   it('link.href with percent-encoded scheme attempt → 422 (URL parse normalizes scheme; %6A%61… stays in path)', () => {
     // 'java%73cript:alert(1)' — `new URL()` rejects this as no valid scheme,
     // so the URL-parse branch fails before scheme allowlist check.
-    const res = sanitizeTipTap({ surface: 'voc-description', doc: linkDoc({ href: 'java%73cript:alert(1)' }) });
+    const res = sanitizeTipTap({
+      surface: 'voc-description',
+      doc: linkDoc({ href: 'java%73cript:alert(1)' }),
+    });
     expect(res.ok).toBe(false);
     if (!res.ok) {
       expect(res.error.code).toBe('rich_content.invalid_attr_value');
@@ -407,7 +468,10 @@ describe('attr allowlist — negative: invalid values', () => {
   });
 
   it('link.href with IPv6 literal (https://[::1]/) → accepted (URL parses, scheme ok, no creds)', () => {
-    const res = sanitizeTipTap({ surface: 'voc-description', doc: linkDoc({ href: 'https://[::1]/x' }) });
+    const res = sanitizeTipTap({
+      surface: 'voc-description',
+      doc: linkDoc({ href: 'https://[::1]/x' }),
+    });
     expect(res.ok).toBe(true);
   });
 
@@ -480,7 +544,7 @@ describe('attr allowlist — missing required keys', () => {
 // Max depth formula: 2*N + 2  (each loop adds 2 levels: bulletList + listItem)
 // N=15 → depth 32 = cap (ok), N=16 → paragraph at depth 33 > cap (fail).
 function nestedListDoc(depth: number) {
-  let node: any = { type: 'paragraph', content: [{ type: 'text', text: 'x' }] };
+  let node: Record<string, unknown> = { type: 'paragraph', content: [{ type: 'text', text: 'x' }] };
   for (let i = 0; i < depth; i++) {
     node = { type: 'bulletList', content: [{ type: 'listItem', content: [node] }] };
   }
@@ -492,7 +556,10 @@ function nestedListDoc(depth: number) {
 function wideDoc(width: number) {
   return {
     type: 'doc',
-    content: Array.from({ length: width }, () => ({ type: 'paragraph', content: [{ type: 'text', text: 'x' }] })),
+    content: Array.from({ length: width }, () => ({
+      type: 'paragraph',
+      content: [{ type: 'text', text: 'x' }],
+    })),
   };
 }
 
@@ -587,10 +654,18 @@ describe('depth / node / mark caps', () => {
       surface,
       doc: {
         type: 'doc',
-        content: [{
-          type: 'paragraph',
-          content: [{ type: 'text', text: 'x', marks: Array.from({ length: 100 }, () => ({ type: 'bold' })) }],
-        }],
+        content: [
+          {
+            type: 'paragraph',
+            content: [
+              {
+                type: 'text',
+                text: 'x',
+                marks: Array.from({ length: 100 }, () => ({ type: 'bold' })),
+              },
+            ],
+          },
+        ],
       } as never,
     });
     expect(res.ok).toBe(true);
@@ -601,10 +676,18 @@ describe('depth / node / mark caps', () => {
       surface,
       doc: {
         type: 'doc',
-        content: [{
-          type: 'paragraph',
-          content: [{ type: 'text', text: 'x', marks: Array.from({ length: 1500 }, () => ({ type: 'bold' })) }],
-        }],
+        content: [
+          {
+            type: 'paragraph',
+            content: [
+              {
+                type: 'text',
+                text: 'x',
+                marks: Array.from({ length: 1500 }, () => ({ type: 'bold' })),
+              },
+            ],
+          },
+        ],
       } as never,
     });
     expect(res.ok).toBe(false);
@@ -626,11 +709,13 @@ describe('depth / node / mark caps', () => {
         type: 'doc',
         content: Array.from({ length: 6 }, () => ({
           type: 'paragraph',
-          content: [{
-            type: 'text',
-            text: 'x',
-            marks: Array.from({ length: 200 }, () => ({ type: 'bold' })),
-          }],
+          content: [
+            {
+              type: 'text',
+              text: 'x',
+              marks: Array.from({ length: 200 }, () => ({ type: 'bold' })),
+            },
+          ],
         })),
       } as never,
     });

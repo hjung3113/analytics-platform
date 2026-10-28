@@ -1,6 +1,6 @@
 import type { PageProps } from '@ap/kernel';
-import { surveyBuilderRoute, useSurveyBuilderHere, useSurveyBuilderSearch } from '@ap/fo-bridge';
-import { SurveyBuilderScreen } from '@fops/frontend/operator-screens/survey-builder';
+import { surveyBuilderRoute, useSurveyBuilderHere, useSurveyBuilderSearch } from '@ap/feature-bridge';
+import { SurveyBuilderScreen } from '@ap/feature-screens/operator-screens/survey-builder';
 import { SurveyChildPage } from './SurveyChildPage';
 
 /**

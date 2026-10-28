@@ -6,7 +6,7 @@ import {
 import { IntegrationDashboardScreen } from '@/features/integration/routes/IntegrationDashboardScreen';
 // Test-local host adapter over retained Screen exports.
 import { type HostNavigate, HostSeamProvider, useHostSeam } from '@/lib/host/host-seam';
-import { useDetailPanelSlot } from '@fops/ui';
+import { useDetailPanelSlot } from '@ap/feature-ui';
 import { useNavigate } from '@tanstack/react-router';
 import * as React from 'react';
 

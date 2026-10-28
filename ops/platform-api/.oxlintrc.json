@@ -6,7 +6,7 @@
   "ignorePatterns": ["**/__tests__/**", "**/*.test.ts", "**/*.test.tsx"],
   "settings": {
     "shadcn": {
-      "ui": "@fops/ui",
+      "ui": "@ap/feature-ui",
       "note": "New tokens go in packages/feature-ui/src/styles/theme.css + tokens.css (ADR-0058)."
     }
   },

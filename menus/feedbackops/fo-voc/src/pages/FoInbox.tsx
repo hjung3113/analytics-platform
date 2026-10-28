@@ -1,7 +1,7 @@
 import { usePlatform } from '@ap/kernel';
-import { FoScreenPage, inboxRoute, useInboxHere, useInboxSearch } from '@ap/fo-bridge';
-import { InboxScreen } from '@fops/frontend/operator-screens/voc-inbox';
-import { isVocSearchValueValid } from '@fops/frontend/operator-screens/voc-search';
+import { FoScreenPage, inboxRoute, useInboxHere, useInboxSearch } from '@ap/feature-bridge';
+import { InboxScreen } from '@ap/feature-screens/operator-screens/voc-inbox';
+import { isVocSearchValueValid } from '@ap/feature-screens/operator-screens/voc-search';
 import { VocDetailDrawer } from './VocDetailDrawer';
 
 /** FO's `ListShell` would hand a returned node to the shell slot, which renders it outside the FeedbackOps providers; the page draws the detail itself, inside `FoBridge`. */

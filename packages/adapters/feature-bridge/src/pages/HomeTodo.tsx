@@ -1,4 +1,4 @@
-import { HomeTodoPanel } from '@fops/frontend/global-screens';
+import { HomeTodoPanel } from '@ap/feature-screens/global-screens';
 import { FoBridge } from '../fo/FoBridge';
 import { hostLinks, permissionRequestsTarget } from '../fo/links';
 import { surveyTarget } from '../fo/survey-links';

@@ -1,5 +1,5 @@
 import { registerTriageTestHost } from '@/test/triage-host';
-import { listVocsQuerySchema } from '@fops/shared';
+import { listVocsQuerySchema } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import { Toaster, toast } from 'sonner';

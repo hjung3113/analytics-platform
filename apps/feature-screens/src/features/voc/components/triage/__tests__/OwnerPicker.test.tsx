@@ -3,7 +3,7 @@
 // Renders Combobox when candidates > 5, RadioGroup-style rows otherwise.
 // "(미지정)" always at top. onChange passes { ownerUserId, ownerTeamId }.
 
-import { vocOwnerCandidatesSchema } from '@fops/shared';
+import { vocOwnerCandidatesSchema } from '@ap/feature-shared';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { OwnerPicker } from '../OwnerPicker';

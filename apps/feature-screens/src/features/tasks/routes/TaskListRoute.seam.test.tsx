@@ -4,9 +4,9 @@
 
 import { SEARCH_DEBOUNCE_MS } from '@/lib/forms/search-debounce';
 import { type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
+import type { TaskDto } from '@ap/feature-shared';
+import { useDetailPanelSlot } from '@ap/feature-ui';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
-import type { TaskDto } from '@fops/shared';
-import { useDetailPanelSlot } from '@fops/ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';

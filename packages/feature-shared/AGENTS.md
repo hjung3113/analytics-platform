@@ -11,7 +11,7 @@
 
 ## Forbidden Content
 
-- Imports from `apps/platform-api`, `apps/feature-screens`, or `@fops/ui` (enforced by `pnpm --filter @fops/ops check:boundaries`).
+- Imports from `apps/platform-api`, `apps/feature-screens`, or `@ap/feature-ui` (enforced by `pnpm --filter @ap/platform-api-ops check:boundaries`).
 - Database access.
 - HTTP clients.
 - React components or hooks.

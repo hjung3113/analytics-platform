@@ -42,7 +42,7 @@ describe.skipIf(!runIntegration)('checkService.checkCapability tx-scoped read (S
       .limit(1);
     const admin = adminRows[0];
     if (!admin) {
-      throw new Error('Seed missing: run `pnpm --filter @fops/backend db:seed`.');
+      throw new Error('Seed missing: run `pnpm --filter @ap/platform-api db:seed`.');
     }
     adminActor = {
       actor_id: admin.id,

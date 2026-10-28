@@ -3,7 +3,7 @@
 // or call `sendError` from a handler; application services raise the same
 // instance and a Fastify error handler renders the envelope.
 
-import type { ErrorCode, SimilarityPreviewBudgetDetail } from '@fops/shared';
+import type { ErrorCode, SimilarityPreviewBudgetDetail } from '@ap/feature-shared';
 import type { FastifyReply } from 'fastify';
 
 const STATUS_BY_PREFIX: ReadonlyArray<[string, number]> = [

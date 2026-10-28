@@ -1,7 +1,7 @@
 import { registerNoticeHost } from '@/test/notice-host';
 // #1175: confirm is available on a VOC that is not yet triaged even when no field changed
 // (confirming marks it triaged); an already triaged VOC with nothing changed stays disabled.
-import type { VocListItem } from '@fops/shared';
+import type { VocListItem } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';

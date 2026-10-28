@@ -21,7 +21,7 @@
 // on serialized HTML so we would re-render + re-parse, (c) the test surface is
 // the JSON we already validate on the server.
 
-// ADR-0016: @fops/ui MUST NOT import @fops/shared. The allowlist values are
+// ADR-0016: @ap/feature-ui MUST NOT import @ap/feature-shared. The allowlist values are
 // duplicated locally and kept in lockstep via drift tests on both sides
 // (backend↔shared and ui↔inline-fixture).
 import { type AttrSchema, type UISurface, UI_ALLOWLISTS } from './allowlist-local';

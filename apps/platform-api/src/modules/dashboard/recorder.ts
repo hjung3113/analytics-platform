@@ -1,4 +1,4 @@
-import type { RecoveryCategory } from '@fops/shared';
+import type { RecoveryCategory } from '@ap/feature-shared';
 import { sql } from 'drizzle-orm';
 import { requireRecoveryCommandLock } from '../../db/recovery-command-lock.js';
 import type { Tx } from '../../db/tx.js';

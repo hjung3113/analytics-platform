@@ -26,7 +26,7 @@ import {
   rejectPermissionRequestSchema,
   revokePermissionBodySchema,
   submitMoreInfoPermissionRequestSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import { HttpError, fieldsFromZodIssues, sendError } from '../../lib/errors.js';
 import { optionalIdempotencyKey } from '../../lib/http-headers.js';
 import { requireSession } from '../../middleware/require-session.js';

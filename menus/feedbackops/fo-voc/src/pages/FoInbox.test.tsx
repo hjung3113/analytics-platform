@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
-import { setFoApi } from '@ap/fo-bridge/fo-api';
-import { inboxRoute, triageRoute } from '@ap/fo-bridge';
+import { setFoApi } from '@ap/feature-bridge/fo-api';
+import { inboxRoute, triageRoute } from '@ap/feature-bridge';
 import { useHostSeam } from '@/lib/host/host-seam';
 import { manifests } from '../index';
 import { mountAt, warmPages } from '../test-support';
@@ -15,7 +15,7 @@ const fo = vi.hoisted(() => ({
   requestClose: vi.fn(),
   mounts: 0,
 }));
-vi.mock('@fops/frontend/operator-screens/voc-inbox', () => ({
+vi.mock('@ap/feature-screens/operator-screens/voc-inbox', () => ({
   InboxScreen: (props: { view: string; renderDetail: typeof fo.render }) => {
     fo.inboxProps.push(props);
     fo.render = props.renderDetail;
@@ -27,7 +27,7 @@ vi.mock('@fops/frontend/operator-screens/voc-inbox', () => ({
     </div>;
   },
 }));
-vi.mock('@fops/frontend/operator-screens/voc-detail', () => ({
+vi.mock('@ap/feature-screens/operator-screens/voc-detail', () => ({
   useVocDetailParts: (args: { vocId: string; managedSystemId?: string; onClose: () => void }) => {
     // Per-instance state: a new instance (remount) takes the next number.
     const [instance] = useState(() => ++fo.mounts);

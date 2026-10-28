@@ -1,7 +1,7 @@
 // promptForLink — the link button's prompt flow shared by the composer toolbars.
 // Cancel keeps the link, an empty URL clears the whole link, anything else sets it.
 
-import type { TipTapEditor } from '@fops/ui';
+import type { TipTapEditor } from '@ap/feature-ui';
 
 export function promptForLink(editor: TipTapEditor | null): void {
   if (!editor) return;

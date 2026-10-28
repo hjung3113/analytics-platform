@@ -1,4 +1,4 @@
-import { vocClusterSuggestionsResponseSchema } from '@fops/shared';
+import { vocClusterSuggestionsResponseSchema } from '@ap/feature-shared';
 
 export const clusterSuggestionsFixture = vocClusterSuggestionsResponseSchema.parse({
   available: true,

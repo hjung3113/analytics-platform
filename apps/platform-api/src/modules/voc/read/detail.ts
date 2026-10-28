@@ -1,5 +1,5 @@
 // VOC detail read and post-write envelope assembly.
-import type { VocDetailEnvelope, VocSummaryEnvelope } from '@fops/shared';
+import type { VocDetailEnvelope, VocSummaryEnvelope } from '@ap/feature-shared';
 import type { Tx } from '../../../db/tx.js';
 import { HttpError } from '../../../lib/errors.js';
 import { isRequestableDenial } from '../../permissions/index.js';

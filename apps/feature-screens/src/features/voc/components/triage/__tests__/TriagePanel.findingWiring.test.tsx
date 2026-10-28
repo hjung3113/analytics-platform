@@ -8,7 +8,7 @@
 // the parent (VocTriageScreen) can open CreateFindingModal instead.
 
 import { noticeHost, noticeMessages, registerNoticeHost } from '@/test/notice-host';
-import type { VocListItem } from '@fops/shared';
+import type { VocListItem } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type * as React from 'react';

@@ -4,7 +4,7 @@
 import { apiClient } from '@/lib/api/client';
 import type { ApiError } from '@/lib/api/types';
 import { invalidateNavCounts } from '@/lib/query/navCounts';
-import type { VocClusterDto } from '@fops/shared';
+import type { VocClusterDto } from '@ap/feature-shared';
 import { type UseMutationResult, useMutation, useQueryClient } from '@tanstack/react-query';
 
 export function useConfirmCluster(): UseMutationResult<VocClusterDto, ApiError, string> {

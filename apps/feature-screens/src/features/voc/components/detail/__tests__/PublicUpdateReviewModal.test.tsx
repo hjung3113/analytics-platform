@@ -1,4 +1,4 @@
-import type { VocDetailEnvelope } from '@fops/shared';
+import type { VocDetailEnvelope } from '@ap/feature-shared';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PublicUpdateReviewModal } from '../PublicUpdateReviewModal';

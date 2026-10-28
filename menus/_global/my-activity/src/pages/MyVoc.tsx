@@ -3,8 +3,8 @@ import { TriangleAlert } from 'lucide-react';
 import { PlatformLink, useI18n, usePlatform } from '@ap/kernel';
 import { DetailDrawer, PlatformPage, StateMessage } from '@ap/components';
 import { Button } from '@ap/ui';
-import { MyVocListScreen, ReporterVocDetail, type MyVocInitialFocus, type MyVocQuery } from '@fops/frontend/global-screens';
-import { FoBridge } from '@ap/fo-bridge';
+import { MyVocListScreen, ReporterVocDetail, type MyVocInitialFocus, type MyVocQuery } from '@ap/feature-screens/global-screens';
+import { FoBridge } from '@ap/feature-bridge';
 import { pagePatch, parseMyVocPage } from '../fo/voc-query';
 
 const CLEARED_FOCUS: Record<string, MyVocInitialFocus> = { q: 'q', status: 'status', sort: 'sort', focus: 'list' };

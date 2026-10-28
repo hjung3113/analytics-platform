@@ -4,6 +4,7 @@ import type { ApiError } from '@/lib/api/types';
 import { useIdempotencyKey } from '@/lib/api/useIdempotencyKey';
 import { useHostSeam } from '@/lib/host/host-seam';
 import { invalidateRecovery } from '@/lib/query/recovery';
+import type { FindingDto } from '@ap/feature-shared';
 import {
   Button,
   Dialog,
@@ -18,7 +19,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@ap/ui';
-import type { FindingDto } from '@fops/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
 

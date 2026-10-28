@@ -1,7 +1,7 @@
 import {
   managedSystemDefaultCandidatesSchema,
   managedSystemDefaultDiagnosticsSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import { apiRequest } from './client';
 // Managed Systems registry (Slice 2 #10).
 // The list read lives in ./registry-reads (bridge-safe, platform ADR-0071) and is re-exported here.

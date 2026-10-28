@@ -16,10 +16,10 @@
   "dependencies": {
     "@ap/components": "workspace:*",
     "@ap/contracts": "workspace:*",
-    "@ap/fo-bridge": "workspace:*",
+    "@ap/feature-bridge": "workspace:*",
     "@ap/kernel": "workspace:*",
     "@ap/ui": "workspace:*",
-    "@fops/frontend": "workspace:*",
+    "@ap/feature-screens": "workspace:*",
     "lucide-react": "^1.48.0"
   },
   "peerDependencies": {

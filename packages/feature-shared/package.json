@@ -1,5 +1,5 @@
 {
-  "name": "@fops/shared",
+  "name": "@ap/feature-shared",
   "version": "0.0.0",
   "private": true,
   "type": "module",

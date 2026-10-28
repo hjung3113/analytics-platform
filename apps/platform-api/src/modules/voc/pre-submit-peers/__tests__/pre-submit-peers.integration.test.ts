@@ -4,7 +4,7 @@ import { deleteRecoveryFixtureParents } from '../../../../test-support/recovery-
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-import { vocPreSubmitPeersResponseSchema } from '@fops/shared';
+import { vocPreSubmitPeersResponseSchema } from '@ap/feature-shared';
 
 import { loadConfig } from '../../../../config.js';
 import { type DbHandle, createDb } from '../../../../db/client.js';

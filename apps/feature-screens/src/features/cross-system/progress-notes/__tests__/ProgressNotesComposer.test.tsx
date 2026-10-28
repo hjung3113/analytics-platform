@@ -2,7 +2,7 @@
 // text; a successful one clears it and puts DOM focus back in the editable.
 
 import { useJsdomRangeGeometry } from '@/test/realEditor';
-import type { TipTapEditor } from '@fops/ui';
+import type { TipTapEditor } from '@ap/feature-ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';

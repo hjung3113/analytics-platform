@@ -43,7 +43,7 @@ noticeHost.notify.mockImplementation((notice) => {
 });
 beforeAll(registerNoticeHost);
 
-import type { VocListItem } from '@fops/shared';
+import type { VocListItem } from '@ap/feature-shared';
 import { TriagePanel } from '../TriagePanel';
 
 // ── shared fixtures ──────────────────────────────────────────────────────────

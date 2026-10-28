@@ -59,13 +59,13 @@ cp ops/platform-api/.env.example ops/platform-api/.env              # already po
 set -a; . ./ops/platform-api/.env; set +a                          # nothing loads .env for you
 ```
 
-`ops/platform-api/.env.example` carries working `DATABASE_URL`, `DATABASE_URL_MIGRATE`, and `WORKSPACE_ID` values for the compose database. Neither app reads `.env` itself, so export it in every shell you run the commands below from (`pnpm --filter @fops/backend test:integration` sources it on its own).
+`ops/platform-api/.env.example` carries working `DATABASE_URL`, `DATABASE_URL_MIGRATE`, and `WORKSPACE_ID` values for the compose database. Neither app reads `.env` itself, so export it in every shell you run the commands below from (`pnpm --filter @ap/platform-api test:integration` sources it on its own).
 
 Create the schema and load demo data:
 
 ```bash
-pnpm --filter @fops/backend db:migrate
-SEED_MODE=personas pnpm --filter @fops/backend db:seed
+pnpm --filter @ap/platform-api db:migrate
+SEED_MODE=personas pnpm --filter @ap/platform-api db:seed
 ```
 
 `SEED_MODE=personas` gives you six login personas across all three role levels with realistic permission grants — the fastest way to see how the product behaves for someone who is *not* an admin. See the User Manual's persona table for who can do what.
@@ -73,7 +73,7 @@ SEED_MODE=personas pnpm --filter @fops/backend db:seed
 Run both apps:
 
 ```bash
-pnpm --filter @fops/ops dev --env-mode=loose   # frontend on :3010, backend on :3011
+pnpm --filter @ap/platform-api-ops feature:dev --env-mode=loose   # frontend on :3010, backend on :3011
 ```
 
 `--env-mode=loose` is needed because Turborepo runs in strict env mode and would otherwise hide the exported `.env` variables from the backend. The backend port comes from `PORT` (`ops/platform-api/.env.example` sets `3011`; the code default is `3001`), and the Vite proxy targets `3011`.
@@ -84,7 +84,7 @@ The standalone route tree and its generator are retired (#597); the frontend pac
 
 Sign in from `/login`. Authentication is mock in local development; pick a persona by its external id (`mock-admin-1`, `mock-developer-1`, `mock-user-1`, …).
 
-> **Serving to other machines on your network?** The backend binds `0.0.0.0` (`HOST`), but the Vite dev server listens on localhost only; start it with `pnpm --filter @fops/frontend exec vite --host` for a colleague to reach it by IP. That origin is not a *secure context*, and browsers withhold `crypto.randomUUID` and `navigator.clipboard` there. Both are handled, but any new browser API you reach for should be checked against that constraint, because it will never reproduce on `localhost`.
+> **Serving to other machines on your network?** The backend binds `0.0.0.0` (`HOST`), but the Vite dev server listens on localhost only; start it with `pnpm --filter @ap/feature-screens exec vite --host` for a colleague to reach it by IP. That origin is not a *secure context*, and browsers withhold `crypto.randomUUID` and `navigator.clipboard` there. Both are handled, but any new browser API you reach for should be checked against that constraint, because it will never reproduce on `localhost`.
 
 ---
 
@@ -109,15 +109,15 @@ Two rules explain most of the structure:
 
 | Gate | Command |
 |---|---|
-| Backend unit + integration | `pnpm --filter @fops/backend test:integration` |
-| Frontend unit | `pnpm --filter @fops/frontend test` |
-| Frontend visual regression | `pnpm --filter @fops/frontend test:visual` |
-| Typecheck (whole monorepo) | `pnpm --filter @fops/ops typecheck` |
-| Frontend typecheck gate | `pnpm --filter @fops/ops gate:fe-typecheck` |
-| Lint gate (changed files) | `pnpm --filter @fops/ops gate:fe-lint --base origin/main` |
-| Design-system lint (warning cap) | `pnpm --filter @fops/ops lint:design` |
-| Module boundaries | `pnpm --filter @fops/ops check:boundaries` |
-| Migration drift | `pnpm --filter @fops/ops gate:db-migration-drift` |
+| Backend unit + integration | `pnpm --filter @ap/platform-api test:integration` |
+| Frontend unit | `pnpm --filter @ap/feature-screens test` |
+| Frontend visual regression | `pnpm --filter @ap/feature-screens test:visual` |
+| Typecheck (whole monorepo) | `pnpm --filter @ap/platform-api-ops feature:typecheck` |
+| Frontend typecheck gate | `pnpm --filter @ap/platform-api-ops gate:fe-typecheck` |
+| Lint gate (changed files) | `pnpm --filter @ap/platform-api-ops gate:fe-lint --base origin/main` |
+| Design-system lint (warning cap) | `pnpm --filter @ap/platform-api-ops lint:design` |
+| Module boundaries | `pnpm --filter @ap/platform-api-ops check:boundaries` |
+| Migration drift | `pnpm --filter @ap/platform-api-ops gate:db-migration-drift` |
 
 Backend integration tests need `DATABASE_URL`, `DATABASE_URL_MIGRATE`, and `WORKSPACE_ID`, and **the global setup resets and reseeds the database** — do not run them against data you care about.
 

@@ -2,7 +2,7 @@
 
 Cross-system commands/adapters shared by VOC/Findings/Tasks; must not import feature internals.
 
-- Everything under this directory is neutral shared surface: it may import `@/lib/*`, `@fops/*`, and its own files only.
+- Everything under this directory is neutral shared surface: it may import `@/lib/*`, `@ap/feature-shared`, `@ap/feature-ui`, `@ap/ui`, and its own files only.
 - Feature directories (`@/features/voc`, `@/features/integration`, `@/features/admin`, `@/features/tasks`) must never be imported from here.
 - Consumers in any feature may import from `@/features/cross-system/*` without creating a feature-to-feature edge.
 - `request-task/TaskRequestDraftCard.tsx` is the neutral Request Task form and pending-source read presentation. Source-specific mutations remain in the owning source feature; this component does not import Finding, VOC, Cluster, Tasks, or another feature.

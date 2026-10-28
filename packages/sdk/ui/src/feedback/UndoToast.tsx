@@ -1,4 +1,4 @@
-// UndoToast.tsx — Undo action toast primitive for @fops/ui.
+// UndoToast.tsx — Undo action toast primitive for @ap/feature-ui.
 //
 // Prototype ref: docs/design-prototype/screen-voc-create.jsx:699-730
 // Translated to Pack 17 / ADR-0021 tokens (no raw hex, no raw px outside spacing scale).

@@ -2,8 +2,8 @@ import { hrefWithManagedSystem } from '@/features/home/href';
 import { DASHBOARD_QUEUE_ACTION_LABELS, dashboardActionLabel } from '@/lib/copy/dashboard-actions';
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { HostLink, useHostSeam } from '@/lib/host/host-seam';
+import type { DashboardSummary } from '@ap/feature-shared';
 import { Button } from '@ap/ui';
-import type { DashboardSummary } from '@fops/shared';
 import { ArrowRight } from 'lucide-react';
 import type * as React from 'react';
 

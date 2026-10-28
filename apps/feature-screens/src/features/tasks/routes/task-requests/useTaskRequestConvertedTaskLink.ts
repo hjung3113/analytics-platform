@@ -1,6 +1,6 @@
 import { fetchTaskRequestEntityLinks } from '@/lib/api/entity-links';
 import { ApiParseError } from '@/lib/api/types';
-import type { EntityLinkTargetSummary, ListEntityLinksResponse } from '@fops/shared';
+import type { EntityLinkTargetSummary, ListEntityLinksResponse } from '@ap/feature-shared';
 import { useQuery } from '@tanstack/react-query';
 
 export type ConvertedTaskSummary = Extract<EntityLinkTargetSummary, { type: 'task' }>;

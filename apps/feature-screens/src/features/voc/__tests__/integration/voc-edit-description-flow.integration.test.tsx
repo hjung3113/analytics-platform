@@ -12,7 +12,7 @@
 // C6.3 of slice3 #21.
 // Test framework: Vitest + @testing-library/react (O-6 in PLAN-21).
 
-import type { VocDetailEnvelope } from '@fops/shared';
+import type { VocDetailEnvelope } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -32,7 +32,7 @@ vi.mock('sonner', () => ({
   Toaster: () => null,
 }));
 
-// ── @fops/ui RichEditor mock ─────────────────────────────────────────────────
+// ── @ap/feature-ui RichEditor mock ─────────────────────────────────────────────────
 vi.mock('@ap/ui', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@ap/ui')>();
   return {

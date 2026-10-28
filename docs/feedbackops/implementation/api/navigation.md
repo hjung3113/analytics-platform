@@ -54,7 +54,7 @@ Index and global rules: [03-api-contracts.md](../03-api-contracts.md). This file
   learns the counter, and plain users are stopped by the elevated-role gate before any
   TASK/REQ lookup. The endpoint guarantees an identical status, body, and headers for
   missing and unreadable records; it does **not** equalise latency.
-- Success response (shared schema `navResolveResponseSchema` in `@fops/shared`):
+- Success response (shared schema `navResolveResponseSchema` in `@ap/feature-shared`):
   `{ entity_type: 'voc' | 'finding' | 'task_request' | 'task', id: <uuid>,
   display_id: <normalised id>, route_intent: { route, search } }` — `route` is the path
   (`/vocs`, `/findings`, `/tasks`), `search` the deep-link query keys:

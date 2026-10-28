@@ -20,7 +20,7 @@ import {
   registerNoticeHost,
   undoNoticeRenderer,
 } from '@/test/notice-host';
-import { type VocListItem, patchVocRequestSchema } from '@fops/shared';
+import { type VocListItem, patchVocRequestSchema } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import * as React from 'react';

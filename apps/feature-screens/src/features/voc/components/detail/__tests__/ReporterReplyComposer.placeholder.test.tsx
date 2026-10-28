@@ -17,7 +17,7 @@ vi.mock('@ap/ui', async (importActual) => {
 });
 
 import type { MeResponse } from '@/lib/auth/useMe';
-import type { VocDetailEnvelope } from '@fops/shared';
+import type { VocDetailEnvelope } from '@ap/feature-shared';
 import { ReporterReplyComposer } from '../ReporterReplyComposer';
 
 const REPORTER_ID = '00000000-0000-0000-0000-000000000001';

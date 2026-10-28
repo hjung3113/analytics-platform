@@ -9,8 +9,8 @@
 
 import { ComposerToolbarButton } from '@/features/cross-system/composer-editor/ComposerToolbarButton';
 import { promptForLink } from '@/features/cross-system/composer-editor/promptForLink';
+import type { TipTapEditor } from '@ap/feature-ui';
 import { AttachButton } from '@ap/ui';
-import type { TipTapEditor } from '@fops/ui';
 import { AtSign, Bold, Code, Italic, Link, List } from 'lucide-react';
 import type * as React from 'react';
 

@@ -6,7 +6,7 @@
 // tree and a memory history entry, like RouteFallback.test.tsx does for
 // production wiring. Only the network is stubbed.
 
-import { listVocsQuerySchema } from '@fops/shared';
+import { listVocsQuerySchema } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory } from '@tanstack/react-router';
 import { render, screen, waitFor } from '@testing-library/react';

@@ -91,7 +91,7 @@ export { UserChip, type UserChipProps } from './identity/UserChip';
 export { ObjectRow, type ObjectRowProps, type ObjectRowDensity, type ObjectRowSeverity } from './data/ObjectRow';
 export { PermissionBlockedPanel, type PermissionBlockedPanelProps, type PermissionState } from './permissions/PermissionBlockedPanel';
 
-// FeedbackOps consumption surface (#466, ADR-0046): names FeedbackOps' `@fops/ui` exports that the platform itself does not use yet.
+// FeedbackOps consumption surface (#466, ADR-0046): names FeedbackOps' `@ap/feature-ui` exports that the platform itself does not use yet.
 // Opened because FeedbackOps is now their consumer (the "open when a consumer appears" condition in AGENTS.md).
 export * from './components/shadcn/alert-dialog';
 export * from './components/shadcn/avatar';

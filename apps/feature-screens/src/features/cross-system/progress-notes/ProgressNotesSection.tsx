@@ -12,8 +12,8 @@
 
 import { ApiError } from '@/lib/api/types';
 import { GLOSSARY } from '@/lib/copy/glossary';
+import type { FindingStatus, TaskStatus } from '@ap/feature-shared';
 import { Button, EmptyState, PermissionBlockedPanel } from '@ap/ui';
-import type { FindingStatus, TaskStatus } from '@fops/shared';
 import type * as React from 'react';
 import { ProgressNoteEntry, type RenderStatusBadge } from './ProgressNoteEntry';
 import { ProgressNotesComposer } from './ProgressNotesComposer';

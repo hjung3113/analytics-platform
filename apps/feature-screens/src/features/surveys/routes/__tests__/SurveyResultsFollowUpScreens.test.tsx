@@ -7,7 +7,7 @@ import {
   type HostSeam,
   HostSeamProvider,
 } from '@/lib/host/host-seam';
-import type { OutcomeFollowUpReadDto } from '@fops/shared';
+import type { OutcomeFollowUpReadDto } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';

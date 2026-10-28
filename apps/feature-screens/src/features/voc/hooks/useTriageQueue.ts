@@ -9,7 +9,7 @@
 //   - initialTriageQueueState — stable initial value
 //   - useTriageQueue — hook wiring useReducer + derived liveQueue
 
-import type { VocListItem } from '@fops/shared';
+import type { VocListItem } from '@ap/feature-shared';
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import type { TriageInput } from '../lib/triage-types';
 

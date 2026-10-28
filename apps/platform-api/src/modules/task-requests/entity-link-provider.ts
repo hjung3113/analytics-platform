@@ -1,4 +1,4 @@
-import type { EntityLinkTargetSummary } from '@fops/shared';
+import type { EntityLinkTargetSummary } from '@ap/feature-shared';
 
 import type { Db } from '../../db/client.js';
 import type { EntityLinkProvider } from '../entity-links/provider-types.js';

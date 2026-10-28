@@ -9,7 +9,11 @@ import { ScopeHost as AuthedLayout } from '@/test/scope-host';
 import { CoverageRoute } from '@/test/screen-host/features/integration/routes/CoverageRoute';
 import { validateIntegrationCoverageSearch } from '@/test/screen-host/routes/_authed/integration/coverage';
 import { TasksRouteView, validateTasksSearch } from '@/test/screen-host/routes/_authed/tasks';
-import { areaReportLink, dashboardAreaReportQuerySchema, listTasksQuerySchema } from '@fops/shared';
+import {
+  areaReportLink,
+  dashboardAreaReportQuerySchema,
+  listTasksQuerySchema,
+} from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   Outlet,

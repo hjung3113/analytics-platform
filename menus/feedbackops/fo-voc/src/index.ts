@@ -1,6 +1,6 @@
 /**
  * @ap/menu-fo-voc — foVoc group manifests (FeedbackOps space VOC: 수신함, Triage, Clusters; ADR-0081, #761).
- * The FeedbackOps operator VOC screens through the bridge; the page keys equal the route tables in `@ap/fo-bridge` (`inboxRoute`, `triageRoute`, `clustersRoute`; pinned by the page tests),
+ * The FeedbackOps operator VOC screens through the bridge; the page keys equal the route tables in `@ap/feature-bridge` (`inboxRoute`, `triageRoute`, `clustersRoute`; pinned by the page tests),
  * and the space carries `managedSystem` (ADR-0081 decision 4). `focus` is the selected VOC (06 §13).
  */
 import { lazy } from 'react';

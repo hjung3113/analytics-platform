@@ -7,7 +7,7 @@ import {
   listTaskRequestsQuerySchema,
   listTasksQuerySchema,
   listVocsQuerySchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 
 import type { Db } from '../../db/client.js';
 import { savedViews } from '../../db/schema/core.js';

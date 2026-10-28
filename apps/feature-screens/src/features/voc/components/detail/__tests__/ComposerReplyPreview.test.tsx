@@ -1,4 +1,4 @@
-import type { VocDetailEnvelope } from '@fops/shared';
+import type { VocDetailEnvelope } from '@ap/feature-shared';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { ComposerReplyPreview } from '../ComposerReplyPreview';

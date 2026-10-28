@@ -1,7 +1,7 @@
 // Idempotent bucket-create CLI for the MinIO (or any S3-compat) backend.
 //
 // Usage:
-//   pnpm --filter @fops/backend exec tsx src/cli/storage-bootstrap.ts
+//   pnpm --filter @ap/platform-api exec tsx src/cli/storage-bootstrap.ts
 //
 // Behavior:
 //   * HeadBucket → if 200, log `bucket ready: <name>` and exit 0.
@@ -11,11 +11,7 @@
 //     StorageUnavailableError-shaped messages so operators see the
 //     same diagnostic as the runtime route layer.
 
-import {
-  CreateBucketCommand,
-  HeadBucketCommand,
-  type S3Client,
-} from '@aws-sdk/client-s3';
+import { CreateBucketCommand, HeadBucketCommand, type S3Client } from '@aws-sdk/client-s3';
 
 import { parseStorageEnv } from '../lib/storage/factory.js';
 import { S3CompatStorageBackend } from '../lib/storage/s3-compat.js';
@@ -33,10 +29,7 @@ function isNotFound(err: unknown): boolean {
   return false;
 }
 
-export async function bootstrapBucket(
-  client: S3Client,
-  bucket: string,
-): Promise<BootstrapResult> {
+export async function bootstrapBucket(client: S3Client, bucket: string): Promise<BootstrapResult> {
   try {
     await client.send(new HeadBucketCommand({ Bucket: bucket }));
     return { bucket, created: false };

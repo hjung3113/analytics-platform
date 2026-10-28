@@ -3,6 +3,7 @@ import { mapUnknownError } from '@/lib/api/errorMapper';
 import { useMeBridge } from '@/lib/api/me';
 import { isPermissionDenied } from '@/lib/api/types';
 import { AREA_REPORT_COPY } from '@/lib/copy/area-report';
+import type { DashboardSummary } from '@ap/feature-shared';
 import {
   Button,
   PageShell,
@@ -11,7 +12,6 @@ import {
   ProgressMeter,
   Skeleton,
 } from '@ap/ui';
-import type { DashboardSummary } from '@fops/shared';
 import { useQuery } from '@tanstack/react-query';
 import { FileText, Layers, Link2, RefreshCw } from 'lucide-react';
 import * as React from 'react';

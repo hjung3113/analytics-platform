@@ -1,7 +1,7 @@
 import type { ComponentProps } from 'react';
-import { FoDetailDrawer, FoScreenPage, evidenceRoute, useEvidenceHere, useEvidenceSearch } from '@ap/fo-bridge';
-import { EvidenceScreen } from '@fops/frontend/operator-screens/evidence';
-import { isEvidenceSearchValueValid } from '@fops/frontend/operator-screens/integration-search';
+import { FoDetailDrawer, FoScreenPage, evidenceRoute, useEvidenceHere, useEvidenceSearch } from '@ap/feature-bridge';
+import { EvidenceScreen } from '@ap/feature-screens/operator-screens/evidence';
+import { isEvidenceSearchValueValid } from '@ap/feature-screens/operator-screens/integration-search';
 
 /** The screen owns the selected Evidence and its close (`focus` is its `selected`), so the drawer's close is `requestClose`. */
 const renderDetail: ComponentProps<typeof EvidenceScreen>['renderDetail'] = parts => <FoDetailDrawer parts={parts} onClose={parts.requestClose} />;

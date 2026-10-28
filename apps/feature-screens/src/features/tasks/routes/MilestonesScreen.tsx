@@ -8,6 +8,7 @@ import { managedSystemsCatalogQuery } from '@/lib/cross-system/useManagedSystemN
 import { useWorkspaceActors } from '@/lib/cross-system/useWorkspaceActors';
 import { useHostNavigate, useHostSearch } from '@/lib/host/host-seam';
 import { searchHref } from '@/lib/host/search';
+import type { MilestoneStatusFilter } from '@ap/feature-shared';
 import {
   Button,
   DirtyConfirmation,
@@ -17,7 +18,6 @@ import {
   type ListToolbarTab,
   PermissionBlockedPanel,
 } from '@ap/ui';
-import type { MilestoneStatusFilter } from '@fops/shared';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Filter, Plus, Search } from 'lucide-react';
 import * as React from 'react';

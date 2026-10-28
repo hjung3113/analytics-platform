@@ -32,7 +32,7 @@ concurrency:
 # `Platform workspace (pnpm monorepo)`는 병렬 두 Job(Platform static·Platform test)의 모음 Job이고, 하위 결과가 둘 다 정확히 success일 때만 통과한다.
 # E2E는 shard Job + 병합 Job(#666)이다. PR과 main push는 바뀐 것에 영향받는 spec만 돈다(`.github/scripts/select-e2e.mjs`, #1019): 판단하지 못하면 전부(shard 4개)이고, 전체는 `workflow_dispatch`의
 # `full=true`(릴리스 태그 전)에서도 돈다. main push의 기준은 직전 커밋이 아니라 CI가 green이었던 마지막 main SHA다(`last-green-main-sha.mjs`) — 실패한 spec은 green이 될 때까지 범위에 남는다.
-# FeedbackOps는 서브모듈이 아니라 일반 디렉터리(apps/{platform-api,feature-screens}·packages/feature-*·docs/feedbackops)라 checkout 옵션이 따로 없다(FeedbackOps CI는 feedbackops.yml). 프로토타입 4개 Job은 submodules: false를 명시한다.
+# FeedbackOps는 서브모듈이 아니라 일반 디렉터리(apps/{platform-api,feature-screens}·packages/feature-*·docs/feedbackops)라 checkout 옵션이 따로 없다(기능 게이트도 ci.yml이 소유). 프로토타입 4개 Job은 submodules: false를 명시한다.
 
 jobs:
   changes:
@@ -191,11 +191,14 @@ jobs:
     timeout-minutes: 30
     env:
       # 'false' only for a Markdown-only PR; empty (changes failed) or 'true' runs every step.
+      FEATURE_LINT_BASE: ${{ github.event.pull_request.base.sha || github.event.before || 'HEAD^' }}
       DOCS_ONLY: ${{ needs.changes.outputs.code == 'false' }}
       # Cold and whole when `full` is 'true' (release gate) or empty (changes failed): the turbo cache is neither restored nor trusted.
       TURBO_FORCE: ${{ needs.changes.outputs.full != 'false' }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
       # pnpm 버전은 루트 package.json의 packageManager를 따른다.
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v5
@@ -214,15 +217,19 @@ jobs:
           path: .turbo/cache
           key: turbo-${{ runner.os }}-node26.7.0-static-${{ github.sha }}
           restore-keys: turbo-${{ runner.os }}-node26.7.0-static-
-      - name: Guard FeedbackOps out of platform task graph
+      - name: Guard unified root task graphs
         if: ${{ env.DOCS_ONLY != 'true' }}
         run: |
           node .github/scripts/check-platform-turbo-scope.mjs
           node .github/scripts/check-platform-turbo-scope.mjs --self-test
+          node --test .github/scripts/check-unified-ci.test.mjs
       - run: pnpm lint
         if: ${{ env.DOCS_ONLY != 'true' }}
       - run: pnpm typecheck
         if: ${{ env.DOCS_ONLY != 'true' }}
+      - name: Additional feature static gates
+        if: ${{ env.DOCS_ONLY != 'true' }}
+        run: bash ops/platform-api/scripts/ci/gate.sh static-extra
       - run: pnpm build
         if: ${{ env.DOCS_ONLY != 'true' }}
       # ADR-0067 (#575): the Dockview engine stays a lazy chunk — no start-up chunk of the app contains it.
@@ -261,6 +268,9 @@ jobs:
         run: |
           if out=$(pnpm --filter @ap/platform-web exec node scripts/check-prod-graph.ts --force-mock-build 2>&1); then echo "$out"; exit 1; fi
           echo "$out" | grep -q 'failed as it must' && echo "$out" | grep -q 'production build bundles mock/dev code'
+      - name: Real production build (DB-free)
+        if: ${{ env.DOCS_ONLY != 'true' }}
+        run: pnpm --filter @ap/platform-web build:real-prod
       # Entries older than 7 days are dropped before the save (a failure here must not skip the save). GitHub evicts the least recently used caches above the repository limit (10 GB).
       - name: Prune turbo cache
         if: ${{ !cancelled() && github.event_name == 'push' && env.DOCS_ONLY != 'true' }}
@@ -312,11 +322,47 @@ jobs:
           path: .turbo/cache
           key: turbo-${{ runner.os }}-node26.7.0-test-${{ github.sha }}
 
+  feature-integration:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
+    name: FeedbackOps · Backend integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        # Google's Docker Hub mirror (same digest): GitHub runners hit Docker Hub's unauthenticated pull limit.
+        image: mirror.gcr.io/pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 2s
+          --health-timeout 2s
+          --health-retries 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: package.json
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+        working-directory: .
+      - run: bash ops/platform-api/scripts/ci/gate.sh integration
+        env:
+          CI_PG_ADMIN_URL: postgres://postgres:postgres@localhost:5432/postgres
+
   # The required check keeps its name (ruleset `main: required CI`). A required job skipped as a whole would report Success, so this one always runs
-  # and fails unless both halves are exactly `success` (a docs-only run is success: the halves run and skip their steps; skipped, cancelled, failure → red).
+  # and fails unless static, test and integration are success (docs-only permits only the intentional integration skip).
   platform-workspace:
     name: Platform workspace (pnpm monorepo)
-    needs: [changes, platform-static, platform-test]
+    needs: [changes, platform-static, platform-test, feature-integration]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -324,11 +370,15 @@ jobs:
       - uses: actions/checkout@v5
         with:
           sparse-checkout: .github/scripts
-      - name: Both halves succeeded
+      - name: All workspace gates succeeded
         env:
           STATIC: ${{ needs.platform-static.result }}
           TEST: ${{ needs.platform-test.result }}
-        run: .github/scripts/require-success.sh "static=$STATIC" "test=$TEST"
+          INTEGRATION: ${{ needs.feature-integration.result }}
+          CODE: ${{ needs.changes.outputs.code }}
+        run: |
+          .github/scripts/require-success.sh "static=$STATIC" "test=$TEST"
+          if [ "$CODE" != false ] || [ "$INTEGRATION" != skipped ]; then .github/scripts/require-success.sh "integration=$INTEGRATION"; fi
 
   # #666: the contract suite (~600 s of tests on one worker) runs as Playwright shards in parallel. Each shard starts
   # its own dev server and runs its contiguous slice serially (fullyParallel + workers: 1), so evidence stays in contract

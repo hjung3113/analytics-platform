@@ -7,9 +7,12 @@
 // text?, content?}) so unknown top-level fields cannot leak to the renderer.
 // Also validates per-attr value schemas (uuid, url, bounded string).
 
-import type { RichContentErrorCode as SharedRichContentErrorCode, TipTapDoc } from '@fops/shared';
+import type {
+  RichContentErrorCode as SharedRichContentErrorCode,
+  TipTapDoc,
+} from '@ap/feature-shared';
 
-import { SURFACE_ALLOWLISTS, type AttrSchema, type Surface } from './surface-allowlists.js';
+import { type AttrSchema, SURFACE_ALLOWLISTS, type Surface } from './surface-allowlists.js';
 
 export type RichContentErrorCode = SharedRichContentErrorCode;
 
@@ -28,9 +31,7 @@ export interface RichContentError {
   fields_code?: RichContentFieldsCode;
 }
 
-export type SanitizeResult =
-  | { ok: true; doc: TipTapDoc }
-  | { ok: false; error: RichContentError };
+export type SanitizeResult = { ok: true; doc: TipTapDoc } | { ok: false; error: RichContentError };
 
 // ── Internal types ────────────────────────────────────────────────────────────
 
@@ -70,13 +71,13 @@ function validateAttrValue(
 ): string | null /* null = ok, string = error reason */ {
   if (schema.kind === 'uuid') {
     if (typeof value !== 'string' || !UUID_RE.test(value)) {
-      return `must be a valid UUID string`;
+      return 'must be a valid UUID string';
     }
     return null;
   }
   if (schema.kind === 'url') {
     if (typeof value !== 'string') {
-      return `must be a string`;
+      return 'must be a string';
     }
     if (value.length > schema.maxLen) {
       return `exceeds max length ${schema.maxLen}`;
@@ -85,7 +86,7 @@ function validateAttrValue(
     try {
       parsed = new URL(value);
     } catch {
-      return `not a valid URL`;
+      return 'not a valid URL';
     }
     if (!schema.schemes.has(parsed.protocol)) {
       return `URL scheme ${parsed.protocol} not allowed`;
@@ -93,7 +94,7 @@ function validateAttrValue(
     // Phishing guard (cycle-1 M1): reject embedded credentials. `https://a@evil`
     // renders as evil but reads as a — the deception vector even when XSS is closed.
     if (parsed.username !== '' || parsed.password !== '') {
-      return `URL must not contain credentials`;
+      return 'URL must not contain credentials';
     }
     return null;
   }
@@ -102,14 +103,14 @@ function validateAttrValue(
       return null;
     }
     if (typeof value !== 'string') {
-      return schema.nullable ? `must be a string or null` : `must be a string`;
+      return schema.nullable ? 'must be a string or null' : 'must be a string';
     }
     if (value.length > schema.maxLen) {
       return `exceeds max length ${schema.maxLen}`;
     }
     return null;
   }
-  return `unknown schema kind`;
+  return 'unknown schema kind';
 }
 
 // ── Plain-object guard ────────────────────────────────────────────────────────
@@ -226,7 +227,10 @@ export function sanitizeTipTap(args: {
   let nodeCount = 0;
   let markCount = 0;
 
-  const visitMark = (raw: unknown, path: string): { mark: CleanMark } | { error: RichContentError } => {
+  const visitMark = (
+    raw: unknown,
+    path: string,
+  ): { mark: CleanMark } | { error: RichContentError } => {
     markCount++;
     if (markCount > allow.maxMarks) {
       return {

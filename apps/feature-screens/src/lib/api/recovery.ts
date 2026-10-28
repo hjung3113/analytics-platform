@@ -8,7 +8,7 @@ import {
   recoveryListQuerySchema,
   recoveryListSchema,
   recoveryPresentationPatchSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import { apiRequest } from './client';
 
 function serialize(query: Record<string, unknown>): string {

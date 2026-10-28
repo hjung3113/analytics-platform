@@ -15,7 +15,7 @@ import type {
   EntityLinkDto,
   TaskStatus,
   VocDetailEnvelope,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import { useQuery } from '@tanstack/react-query';
 import * as React from 'react';
 import type { TrailOpenKind } from './LinkedEntityTrailSection';

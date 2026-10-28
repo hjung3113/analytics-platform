@@ -36,7 +36,7 @@ vi.mock('@/features/cross-system/create-finding/CreateFindingModal', () => ({
   },
 }));
 
-import type { VocListItem } from '@fops/shared';
+import type { VocListItem } from '@ap/feature-shared';
 import { VocTriageScreen } from '../VocTriageScreen';
 
 const MOCK_VOC: VocListItem = {

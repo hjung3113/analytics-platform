@@ -8,7 +8,7 @@ import { randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-import { taskDetailDtoSchema } from '@fops/shared';
+import { taskDetailDtoSchema } from '@ap/feature-shared';
 
 import { loadConfig } from '../../../config.js';
 import { type DbHandle, createDb } from '../../../db/client.js';

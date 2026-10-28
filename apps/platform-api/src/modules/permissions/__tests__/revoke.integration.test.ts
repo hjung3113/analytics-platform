@@ -9,7 +9,7 @@ import {
   permissionDenyAdminItemSchema,
   permissionGrantAdminItemSchema,
   revokePermissionResultSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import { loadConfig } from '../../../config.js';
 import { type DbHandle, createDb } from '../../../db/client.js';
 import { SESSION_COOKIE_NAME } from '../../../middleware/require-session.js';

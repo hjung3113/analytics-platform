@@ -4,7 +4,7 @@
 // comment composers reduce each node to its `id` (`normalizeAttachmentRefs`) and list those ids with the dropzone's
 // (`mergeAttachmentIds`). `public-update` allows no `attachmentRef`, so its composer offers no editor attach (#745).
 
-import type { TipTapDoc } from '@fops/shared';
+import type { TipTapDoc } from '@ap/feature-shared';
 
 interface RichNode {
   type?: unknown;

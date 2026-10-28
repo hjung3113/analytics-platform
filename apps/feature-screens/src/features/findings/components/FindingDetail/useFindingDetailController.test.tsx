@@ -16,7 +16,7 @@ import type { VocDetailResult } from '@/lib/cross-system/useVocDetail';
 import { useVocDetail } from '@/lib/cross-system/useVocDetail';
 import { useWorkspaceActors } from '@/lib/cross-system/useWorkspaceActors';
 import type { UseWorkspaceActorsResult } from '@/lib/cross-system/useWorkspaceActors';
-import type { FindingDto, TaskDetailDto, VocClusterDto } from '@fops/shared';
+import type { FindingDto, TaskDetailDto, VocClusterDto } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';

@@ -3,8 +3,8 @@ import { FindingRequestTaskDraftHost } from '@/features/findings/components/Find
 import { useFindingDetail } from '@/features/findings/hooks/useFindingDetail';
 import { RATING_BAND_LABELS, SURVEY_RESULT_KIND_LABELS } from '@/lib/copy/enum-labels';
 import { HostLink, useHostHere, useHostSeam } from '@/lib/host/host-seam';
+import type { OutcomeFollowUpReadDto, SurveyResultDto } from '@ap/feature-shared';
 import { Button, EmptyState } from '@ap/ui';
-import type { OutcomeFollowUpReadDto, SurveyResultDto } from '@fops/shared';
 import { FilePlus } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import type { Survey } from '../../types';

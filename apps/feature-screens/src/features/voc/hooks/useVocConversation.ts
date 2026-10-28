@@ -1,5 +1,5 @@
 import { apiClient } from '@/lib/api/client';
-import type { ConversationEntry } from '@fops/shared';
+import type { ConversationEntry } from '@ap/feature-shared';
 import { type UseInfiniteQueryResult, useInfiniteQuery } from '@tanstack/react-query';
 
 export interface UseVocConversationParams {

@@ -1,4 +1,4 @@
-import { type TaskRequestStatus, convertTaskRequestRequestSchema } from '@fops/shared';
+import { type TaskRequestStatus, convertTaskRequestRequestSchema } from '@ap/feature-shared';
 
 export { isPermissionDenied } from '@/lib/api/types';
 

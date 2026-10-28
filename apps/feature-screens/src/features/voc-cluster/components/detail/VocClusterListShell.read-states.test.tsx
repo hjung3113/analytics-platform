@@ -1,5 +1,5 @@
 import { ApiError } from '@/lib/api';
-import { listVocClustersResponseSchema } from '@fops/shared';
+import { listVocClustersResponseSchema } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';

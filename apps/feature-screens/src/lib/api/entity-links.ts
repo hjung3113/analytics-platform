@@ -2,7 +2,7 @@ import {
   type EntityLinkEntityType,
   type ListEntityLinksResponse,
   listEntityLinksResponseSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 
 import { apiRequest } from './client';
 

@@ -1,6 +1,6 @@
 import { ClipboardList, ListTodo, MessagesSquare } from 'lucide-react';
 import type { SpaceId } from '@ap/contracts';
-import { isUuid } from '@ap/fo-bridge';
+import { isUuid } from '@ap/feature-bridge';
 import type { FeedbackOpsEntry, FeedbackOpsSlot } from '@ap/kernel';
 import type { SPACES } from './menus';
 

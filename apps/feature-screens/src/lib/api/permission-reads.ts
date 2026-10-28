@@ -3,7 +3,7 @@
 // `auth.ts` nor the `@/lib/api` barrel. `permissions.ts` re-exports the types and keeps its raw-`fetch` standalone
 // fetchers of the same names; the frontend never enforces permissions as truth (AGENTS.md), these only surface the answer.
 
-import type { PermissionRequestStatus } from '@fops/shared';
+import type { PermissionRequestStatus } from '@ap/feature-shared';
 
 import { apiClient, apiRequest } from './client';
 import { ApiError, ApiParseError } from './types';

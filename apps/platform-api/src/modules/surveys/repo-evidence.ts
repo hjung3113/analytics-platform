@@ -1,4 +1,4 @@
-import type { SurveyType } from '@fops/shared';
+import type { SurveyType } from '@ap/feature-shared';
 import { sql } from 'drizzle-orm';
 import { sqlUuidArray } from '../../db/sql-arrays.js';
 import type { Tx } from '../../db/tx.js';

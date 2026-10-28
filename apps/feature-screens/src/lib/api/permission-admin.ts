@@ -15,7 +15,7 @@ import {
   permissionRequestAdminDetailSchema,
   revokePermissionBodySchema,
   revokePermissionResultSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 
 import { apiRequest } from './client';
 import { permissionRequestAdminDetailKey } from './permission-requests';

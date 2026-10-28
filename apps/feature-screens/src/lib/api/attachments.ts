@@ -1,4 +1,4 @@
-import { AttachmentCreatedSchema, type AttachmentCreated } from '@fops/shared';
+import { type AttachmentCreated, AttachmentCreatedSchema } from '@ap/feature-shared';
 import { apiClient } from './client';
 
 export interface UploadAttachmentOpts {

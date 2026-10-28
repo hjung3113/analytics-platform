@@ -4,7 +4,7 @@ import { configureApiClient } from '@/lib/api/client';
 import { COVERAGE_METRIC_IDS } from '@/lib/copy/coverage';
 import { HOME_COPY, HOME_QUEUE_COPY } from '@/lib/copy/home';
 import { type HostLinkProps, type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
-import { dashboardSummarySchema } from '@fops/shared';
+import { dashboardSummarySchema } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';

@@ -9,7 +9,7 @@ import { VocDetailPanel } from '@/test/host-adapters/features/voc/components/det
 import { DOCUMENT_TITLE_COPY } from '@/test/host-adapters/lib/copy/document-titles';
 import { DocumentTitleProvider } from '@/test/host-adapters/lib/router/document-title';
 import { TaskRequestsRoute } from '@/test/screen-host/features/tasks/routes/TaskRequestsRoute';
-import type { TaskDetailDto, TaskRequestDto } from '@fops/shared';
+import type { TaskDetailDto, TaskRequestDto } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   Outlet,

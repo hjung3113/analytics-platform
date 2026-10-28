@@ -1,8 +1,8 @@
 import { render, cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
-import { setFoApi } from '@ap/fo-bridge/fo-api';
-import { foQueryClient } from '@ap/fo-bridge';
+import { setFoApi } from '@ap/feature-bridge/fo-api';
+import { foQueryClient } from '@ap/feature-bridge';
 import { useEffect } from 'react';
 import { I18nProvider, useI18n, PlatformProvider, createRegistry } from '@ap/kernel';
 import { testAdapter, testSession } from '@ap/kernel/testing';
@@ -12,7 +12,7 @@ import { dashboardLinks } from './FoDashboard';
 import { mountAt } from '../test-support';
 
 const dashboard = vi.hoisted(() => ({ props: [] as unknown[], refresh: vi.fn() }));
-vi.mock('@fops/frontend/operator-screens/dashboard', () => ({
+vi.mock('@ap/feature-screens/operator-screens/dashboard', () => ({
   DashboardScreen: (props: unknown) => { dashboard.props.push(props); return <div data-testid="dashboard" />; },
   refreshDashboard: dashboard.refresh,
 }));

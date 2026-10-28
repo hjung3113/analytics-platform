@@ -39,7 +39,7 @@
 
 ## v0.20.1 기능 통합
 
-범위 원본은 [#1096](https://github.com/hjung3113/analytics-platform/issues/1096)의 사용자 결정이다. 이름·호환 정책·소비자 루트는 [ADR-0097](../docs/adr/0097-platform-features-and-role-based-names.md)으로 결정했다(#1097 완료). 코드·인프라 이름 전환 진행 중: #597 독립 앱 은퇴 완료(플랫폼 브리지·인바운드 계약 유지) → #1098 b 폴더 이동 완료, r 패키지명·c 플랫폼 기능 루트 미구현 → #1099 공개 이름·공간·권한, #1100 인프라 이름, #1101 문서, #1102 ESLint 전환. 새 메뉴 배치는 실제 앱 시안 아티팩트의 사용자 선택을 따른다.
+범위 원본은 [#1096](https://github.com/hjung3113/analytics-platform/issues/1096)의 사용자 결정이다. 이름·호환 정책·소비자 루트는 [ADR-0097](../docs/adr/0097-platform-features-and-role-based-names.md)으로 결정했다(#1097 완료). 코드·인프라 이름 전환 진행 중: #597 독립 앱 은퇴 완료(플랫폼 브리지·인바운드 계약 유지) → #1098 OPEN: b 폴더 이동·r 패키지명/경계/루트 작업/CI 통합 완료, c 플랫폼 기능 루트 미구현 → #1099 공개 이름·공간·권한, #1100 인프라 이름, #1101 문서, #1102 ESLint 전환. 새 메뉴 배치는 실제 앱 시안 아티팩트의 사용자 선택을 따른다.
 
 **어댑터 포트 [#1103](https://github.com/hjung3113/analytics-platform/issues/1103) (포트·계약·mock·HTTP 어댑터·적합성·문서 범위 완료, `sdk-v0.21.0`용 — [ADR-0098](../docs/adr/0098-adapter-preferences-people-notices-ports.md)).** 결정 두 건을 닫았다(#1096): `defaultRangeTo`는 `string | null`(서버에 기준점 없음), 사용자 설정은 서버 포트와 1회 원자 가져오기. 계약·mock·HTTP 어댑터·적합성·문서가 이 이슈의 범위이고, 서버 모듈 #1104(설정, 브라우저 → 서버 이전 런타임 포함)·#1105(사람 조회 화면 연결)·#1106(공지, Home 배너 갱신)은 아직 구현 안 함(서버 영속·이전·공지 구현은 #1103 범위가 아니다).
 

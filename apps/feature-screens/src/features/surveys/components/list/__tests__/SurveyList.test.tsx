@@ -1,7 +1,7 @@
 import type { FrontendPermissionState } from '@/lib/api';
 import { SURVEY_TYPE_LABELS } from '@/lib/copy/enum-labels';
 import { registerAnchorLinkHost } from '@/test/anchor-link-host';
-import { surveyTypeSchema } from '@fops/shared';
+import { surveyTypeSchema } from '@ap/feature-shared';
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeAll, describe, expect, it, vi } from 'vitest';

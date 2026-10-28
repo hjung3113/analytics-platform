@@ -1,4 +1,4 @@
-import type { VocSummaryEnvelope } from '@fops/shared';
+import type { VocSummaryEnvelope } from '@ap/feature-shared';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { SummaryPermissionView } from '../SummaryPermissionView';

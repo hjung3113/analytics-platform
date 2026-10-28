@@ -17,8 +17,8 @@ const VOC_DETAIL_ENTRY = join(FRONTEND_SRC, 'operator-screens/voc-detail/index.t
 const TASK_DETAIL_ENTRY = join(FRONTEND_SRC, 'operator-screens/task-detail/index.ts');
 const FINDING_DETAIL_ENTRY = join(FRONTEND_SRC, 'operator-screens/finding-detail/index.ts');
 const PACKAGE_ENTRIES: Record<string, string> = {
-  '@fops/ui': join(FO, 'packages/feature-ui/src/index.ts'),
-  '@fops/shared': join(FO, 'packages/feature-shared/src/index.ts'),
+  '@ap/feature-ui': join(FO, 'packages/feature-ui/src/index.ts'),
+  '@ap/feature-shared': join(FO, 'packages/feature-shared/src/index.ts'),
 };
 const SPECIFIER = /(?:\bfrom\s*|\bimport\s*\(\s*|\bimport\s+)['"]([^'"]+)['"]/g;
 
@@ -58,14 +58,14 @@ const { files, specifiers, unresolved } = walk(ENTRIES);
 const reached = [...files.keys()].map(file => relative(FRONTEND_SRC, file));
 
 const EAGER_MODULES = ['notifications-slot.tsx', 'voc-compose-slot.tsx', 'home-todo-slot.tsx', 'scope-control.tsx', 'nav-counts.tsx', 'saved-views.tsx', 'fo/FoBridge.tsx', 'fo/session.ts'];
-const FOPS_FRONTEND_IMPORT = /\bimport\s+(?!type\b)[^;]*?from\s*['"]@fops\/frontend/;
-const FULL_ENTRY_IMPORT = /\bimport\s+(?!type\b)[^;]*?from\s*['"]@fops\/frontend\/global-screens['"]/;
+const FOPS_FRONTEND_IMPORT = /\bimport\s+(?!type\b)[^;]*?from\s*['"]@ap\/feature-screens/;
+const FULL_ENTRY_IMPORT = /\bimport\s+(?!type\b)[^;]*?from\s*['"]@ap\/feature-screens\/global-screens['"]/;
 
 describe('FeedbackOps bridge entry graph (ADR-0071)', () => {
   it.each(EAGER_MODULES)('keeps the eagerly loaded %s off the screen barrel (main chunk)', file => {
     const text = readFileSync(fileURLToPath(new URL(file, import.meta.url)), 'utf8');
     // An entry that imports FeedbackOps at all imports only the `core` subset; `voc-compose-slot.tsx` imports none (it lazy-loads its page).
-    if (FOPS_FRONTEND_IMPORT.test(text)) expect(text).toMatch(/from\s*['"]@fops\/frontend\/global-screens\/core['"]/);
+    if (FOPS_FRONTEND_IMPORT.test(text)) expect(text).toMatch(/from\s*['"]@ap\/feature-screens\/global-screens\/core['"]/);
     expect(FULL_ENTRY_IMPORT.test(text)).toBe(false);
   });
 

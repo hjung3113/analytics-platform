@@ -7,7 +7,7 @@
 // 422 validation.failed with fields[0] = { path: ['candidate_voc_id'],
 // code: 'out_of_scope' } means the pair spans two Managed Systems.
 
-import type { ConfirmVocRecommendationResponse } from '@fops/shared';
+import type { ConfirmVocRecommendationResponse } from '@ap/feature-shared';
 import { type UseMutationResult, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { apiClient } from '@/lib/api/client';

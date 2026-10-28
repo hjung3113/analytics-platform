@@ -3,7 +3,7 @@ import { performance } from 'node:perf_hooks';
 import {
   permissionRequestAdminDetailSchema,
   permissionRequestOwnerDetailSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';

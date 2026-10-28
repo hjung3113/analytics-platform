@@ -3,7 +3,7 @@ import type {
   NotificationDto,
   NotificationSubjectReference,
   NotificationEventType as SharedNotificationEventType,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 
 import type { Db } from '../../db/client.js';
 import { HttpError } from '../../lib/errors.js';

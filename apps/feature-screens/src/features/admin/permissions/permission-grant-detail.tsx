@@ -8,7 +8,7 @@ import { SCOPE_SELECTOR_COPY } from '@/lib/copy/managed-system-scope';
 import { formatDateOnly, formatDateTime } from '@/lib/format/datetime';
 import type { ClosableDetailParts } from '@/lib/host/detail-parts';
 import { shortId } from '@/lib/identity';
-import type { PermissionDenyAdminItem, PermissionGrantAdminItem } from '@fops/shared';
+import type { PermissionDenyAdminItem, PermissionGrantAdminItem } from '@ap/feature-shared';
 
 import { PermissionGrantActionForm } from './permission-grant-action-form.js';
 import type { ActivePermission } from './use-permission-grants-console.js';

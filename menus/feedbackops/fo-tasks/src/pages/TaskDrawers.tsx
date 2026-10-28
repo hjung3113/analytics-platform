@@ -1,5 +1,5 @@
-import { FoDetailDrawer } from '@ap/fo-bridge';
-import { useTaskDetailParts, useTaskManagedSystemNames, useWorkspaceActors } from '@fops/frontend/operator-screens/task-detail';
+import { FoDetailDrawer } from '@ap/feature-bridge';
+import { useTaskDetailParts, useTaskManagedSystemNames, useWorkspaceActors } from '@ap/feature-screens/operator-screens/task-detail';
 
 /** Actor id → display name, the map `useTaskDetailParts` shows assignees and reviewers from (only the screens hold it in FeedbackOps). */
 function useActorNames(): ReadonlyMap<string, string> {

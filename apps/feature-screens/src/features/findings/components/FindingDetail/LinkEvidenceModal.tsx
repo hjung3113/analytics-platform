@@ -4,6 +4,7 @@ import { useIdempotencyKey } from '@/lib/api/useIdempotencyKey';
 import { VOC_SOURCE_PICKER_COPY } from '@/lib/copy/voc';
 import { koreanZodErrorMap } from '@/lib/forms/zodIssueMessage';
 import { useHostSeam } from '@/lib/host/host-seam';
+import { type LinkEvidenceRequest, linkEvidenceRequestSchema } from '@ap/feature-shared';
 import {
   Button,
   Dialog,
@@ -13,7 +14,6 @@ import {
   DialogTitle,
   FieldLabel,
 } from '@ap/ui';
-import { type LinkEvidenceRequest, linkEvidenceRequestSchema } from '@fops/shared';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type * as React from 'react';
 import { useForm } from 'react-hook-form';

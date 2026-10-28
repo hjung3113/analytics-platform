@@ -16,7 +16,7 @@ import {
   type PermissionDecisionState,
   permissionDecisionSchema,
   vocSummarySelfDecisionSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 
 const FAIL_CLOSED_REASON = '권한 결정 데이터를 해석할 수 없습니다.';
 

@@ -12,7 +12,7 @@ import {
   type ListTaskCommentsResponse,
   createTaskCommentResponseSchema,
   listTaskCommentsResponseSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 
 import { apiRequest } from './client';
 

@@ -124,7 +124,7 @@ Navigation is a discovery surface; backend permission checks remain authoritativ
 
 Platform navigation, global command palette, identity bootstrap, login/logout and unknown-route/error composition belong to the platform Kernel/shell and application assembly. The retired standalone `NAV_TREE`, rail/sidebar, command palette and authenticated file-route guard are no longer runtime entry points. Backend session/OIDC and permission enforcement remain active.
 
-Count badges use the retained backend nav aggregation through the platform `@ap/fo-bridge/nav-counts` slot. Managed System selection uses `@ap/fo-bridge/scope-control` and the router-free `ManagedSystemScopePicker`; the host owns URL writes. Direct screen access still renders allowed content, summary-visible content, request-access, not-found or permission-denied states according to the backend and platform menu gates.
+Count badges use the retained backend nav aggregation through the platform `@ap/feature-bridge/nav-counts` slot. Managed System selection uses `@ap/feature-bridge/scope-control` and the router-free `ManagedSystemScopePicker`; the host owns URL writes. Direct screen access still renders allowed content, summary-visible content, request-access, not-found or permission-denied states according to the backend and platform menu gates.
 
 Search validation drops invalid and unrecognized fields independently, preserves valid fields and clears dropped values from the host URL. Test-local memory routers exercise this behavior without restoring the standalone host.
 

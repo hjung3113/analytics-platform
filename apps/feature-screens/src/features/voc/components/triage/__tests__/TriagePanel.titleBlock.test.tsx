@@ -14,7 +14,7 @@ vi.mock('@/lib/cross-system/useVocDetail', () => ({ useVocDetail: vi.fn() }));
 beforeAll(registerNoticeHost);
 
 import { useVocDetail } from '@/lib/cross-system/useVocDetail';
-import type { VocDetailEnvelope, VocListItem, VocSummaryEnvelope } from '@fops/shared';
+import type { VocDetailEnvelope, VocListItem, VocSummaryEnvelope } from '@ap/feature-shared';
 import { TriagePanel } from '../TriagePanel';
 
 const TRIAGE_VOC: VocListItem = {

@@ -1,7 +1,7 @@
 import { getMilestone, listMilestones } from '@/lib/api/milestones';
 import { type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
 import type { HostSearch } from '@/lib/host/search';
-import type { MilestoneDetailDto, MilestoneDto } from '@fops/shared';
+import type { MilestoneDetailDto, MilestoneDto } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';

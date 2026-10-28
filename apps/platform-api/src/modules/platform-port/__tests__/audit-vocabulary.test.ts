@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { AUDIT_EVENT_TYPES, CAPABILITIES, isSensitiveCapability } from '@fops/shared';
+import { AUDIT_EVENT_TYPES, CAPABILITIES, isSensitiveCapability } from '@ap/feature-shared';
 import { describe, expect, it } from 'vitest';
 
 import { AUDIT_ACTION_BY_EVENT_TYPE, PLATFORM_AUDIT_ACTIONS } from '../audit-actions.js';

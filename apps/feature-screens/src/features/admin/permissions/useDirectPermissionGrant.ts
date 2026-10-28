@@ -6,7 +6,7 @@ import { permissionRequestsMineKey } from '@/lib/api/permission-requests';
 import type { ApiError } from '@/lib/api/types';
 import { ADMIN_PERMISSIONS_COPY } from '@/lib/copy/admin-permissions';
 import { useHostNotice } from '@/lib/host/host-seam';
-import type { DirectPermissionGrant, PermissionGrantAdminItem } from '@fops/shared';
+import type { DirectPermissionGrant, PermissionGrantAdminItem } from '@ap/feature-shared';
 
 import { permissionRequestsReviewKey } from './useDecidePermissionRequest.js';
 import { permissionDeniesListKey, permissionGrantsListKey } from './useRevokePermission.js';

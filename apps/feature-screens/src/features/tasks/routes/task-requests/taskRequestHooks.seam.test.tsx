@@ -1,6 +1,6 @@
 import { TASK_REQUEST_COPY } from '@/lib/copy/task-requests';
 import { type HostNotice, type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
-import type { TaskDto, TaskRequestDto } from '@fops/shared';
+import type { TaskDto, TaskRequestDto } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, render, renderHook, screen, waitFor } from '@testing-library/react';
 import type { FormEvent, PropsWithChildren } from 'react';

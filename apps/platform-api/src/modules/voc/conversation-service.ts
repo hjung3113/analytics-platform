@@ -21,7 +21,7 @@ import type {
   ReporterReplyRequest,
   VocDetailEnvelope,
   VocSummaryEnvelope,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import type { Db } from '../../db/client.js';
 import type { Tx } from '../../db/tx.js';
 import { HttpError } from '../../lib/errors.js';

@@ -9,7 +9,7 @@ import {
   recoveryDetailSchema,
   recoveryHistorySchema,
   recoveryListSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import type { FastifyInstance, InjectOptions } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';

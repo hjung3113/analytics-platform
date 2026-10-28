@@ -1,7 +1,7 @@
 import { usePlatform } from '@ap/kernel';
-import { FoScreenPage, type OperatorRoute } from '@ap/fo-bridge';
-import { TaskListScreen } from '@fops/frontend/operator-screens/task-list';
-import { isTasksSearchValueValid } from '@fops/frontend/operator-screens/tasks-search';
+import { FoScreenPage, type OperatorRoute } from '@ap/feature-bridge';
+import { TaskListScreen } from '@ap/feature-screens/operator-screens/task-list';
+import { isTasksSearchValueValid } from '@ap/feature-screens/operator-screens/tasks-search';
 import { TaskDetailDrawer } from './TaskDrawers';
 
 /** FO's `ListShell` would hand a returned node to the shell slot, which renders it outside the FeedbackOps providers; the page draws the detail itself, inside `FoBridge`. */

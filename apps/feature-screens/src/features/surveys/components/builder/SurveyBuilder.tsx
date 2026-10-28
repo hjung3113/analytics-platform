@@ -1,8 +1,8 @@
 import { SURVEY_QUESTION_KIND_LABELS, SURVEY_TYPE_LABELS } from '@/lib/copy/enum-labels';
 import { SURVEY_BUILDER_COPY } from '@/lib/copy/survey-builder';
 import { formatTime } from '@/lib/format/datetime';
+import { surveyQuestionKindSchema } from '@ap/feature-shared';
 import { Button, DirtyConfirmation, Input, Textarea, WorkbenchShell } from '@ap/ui';
-import { surveyQuestionKindSchema } from '@fops/shared';
 import { Check, Megaphone } from 'lucide-react';
 import { useState } from 'react';
 import type { QuestionKind, Survey } from '../../types';

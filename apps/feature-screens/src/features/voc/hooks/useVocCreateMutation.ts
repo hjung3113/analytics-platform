@@ -1,8 +1,8 @@
-import { useMutation, useQueryClient, type UseMutationResult } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
 import type { ApiError } from '@/lib/api/types';
-import type { CreateVocRequest } from '@fops/shared';
 import { invalidateNavCounts } from '@/lib/query/navCounts';
+import type { CreateVocRequest } from '@ap/feature-shared';
+import { type UseMutationResult, useMutation, useQueryClient } from '@tanstack/react-query';
 
 // POST /vocs success shape — backend returns the created row's id + minimal
 // envelope. Slice 3 #13 BE returns at least { id, display_id, created_at };

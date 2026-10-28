@@ -7,12 +7,12 @@ import { useMe } from '@/lib/auth/useMe';
 import { TASK_PRIORITY_LABELS } from '@/lib/copy/enum-labels';
 import { TaskRequestsRoute } from '@/test/screen-host/features/tasks/routes/TaskRequestsRoute';
 import { taskRequestPage } from '@/test/task-request-pages';
-import type { ListTaskRequestsQuery } from '@fops/shared';
+import type { ListTaskRequestsQuery } from '@ap/feature-shared';
 import {
   type MilestoneDto,
   convertTaskRequestRequestSchema,
   taskPrioritySchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type * as React from 'react';
@@ -153,8 +153,8 @@ vi.mock('@ap/ui', async () => {
     ),
   };
 });
-vi.mock('@fops/ui', async () => {
-  const actual = await vi.importActual<typeof import('@fops/ui')>('@fops/ui');
+vi.mock('@ap/feature-ui', async () => {
+  const actual = await vi.importActual<typeof import('@ap/feature-ui')>('@ap/feature-ui');
   return {
     ...actual,
     useDetailPanelSlot: (node: import('react').ReactNode) => {

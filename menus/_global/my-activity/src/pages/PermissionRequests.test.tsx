@@ -1,7 +1,7 @@
 import { cleanup, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
-import { setFoApi } from '@ap/fo-bridge/fo-api';
+import { setFoApi } from '@ap/feature-bridge/fo-api';
 import { mountAt, stubFetch, switchableAdapter } from '../fo/test-support';
 
 beforeEach(() => {

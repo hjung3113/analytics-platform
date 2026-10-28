@@ -1,4 +1,4 @@
-import { errorCodeSchema } from '@fops/shared';
+import { errorCodeSchema } from '@ap/feature-shared';
 import type { FastifyInstance } from 'fastify';
 
 import { type ZodIssueShape, fieldsFromZodIssues, statusForCode } from './errors.js';
@@ -10,7 +10,7 @@ import { type ZodIssueShape, fieldsFromZodIssues, statusForCode } from './errors
 export function registerHttpErrorHandler(app: FastifyInstance): void {
   app.setErrorHandler((err, req, reply) => {
     // HttpError instances carry an ADR-0012 code. Use the zod enum schema
-    // (closed ErrorCode union from @fops/shared) so an unknown code like
+    // (closed ErrorCode union from @ap/feature-shared) so an unknown code like
     // `internal.something_new` falls through to the generic 500 branch
     // below instead of being silently widened by a regex+`as never` cast.
     const rawCode = (err as { code?: string }).code;

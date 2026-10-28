@@ -1,4 +1,4 @@
-import type { PermissionSourceSummary } from '@fops/shared';
+import type { PermissionSourceSummary } from '@ap/feature-shared';
 import { sql } from 'drizzle-orm';
 import type { Tx } from '../../db/tx.js';
 import { checkFindingManage } from '../findings/authorization.js';

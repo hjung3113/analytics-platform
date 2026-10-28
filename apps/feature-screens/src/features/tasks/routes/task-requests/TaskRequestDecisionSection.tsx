@@ -1,9 +1,9 @@
 import { TASK_PRIORITY_LABELS } from '@/lib/copy/enum-labels';
 import { TASK_REQUEST_REVIEW_DECISION_LABEL } from '@/lib/copy/task-requests';
 import type { WorkspaceActor } from '@/lib/cross-system/useWorkspaceActors';
+import type { TaskDto } from '@ap/feature-shared';
+import { InternalTaskBadge, UnassignedBadge } from '@ap/feature-ui';
 import { Button, ObjectRow, PanelSectionTitle } from '@ap/ui';
-import type { TaskDto } from '@fops/shared';
-import { InternalTaskBadge, UnassignedBadge } from '@fops/ui';
 import { Check, FileSearch, Link2, XCircle } from 'lucide-react';
 import type * as React from 'react';
 

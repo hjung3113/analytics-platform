@@ -1,7 +1,7 @@
 // #1175: Inbox and 내 VOC read GET /vocs in cursor pages of 50. Drives the real route,
 // router and query client; only fetch is stubbed.
 
-import { listVocsQuerySchema } from '@fops/shared';
+import { listVocsQuerySchema } from '@ap/feature-shared';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {

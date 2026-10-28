@@ -1,4 +1,4 @@
-import { managedSystemMarkColor } from '@fops/ui';
+import { managedSystemMarkColor } from '@ap/feature-ui';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { managedSystemsCatalogQuery } from './useManagedSystemNames';

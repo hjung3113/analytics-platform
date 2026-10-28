@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { ListTaskRequestsResponse } from '@fops/shared';
+import type { ListTaskRequestsResponse } from '@ap/feature-shared';
 import { lockRecoveryCommand } from '../../db/recovery-command-lock.js';
 import { decodeListCursor, encodeListCursor } from '../../lib/list-cursor.js';
 import type { RecoveryRecorder } from '../dashboard/recorder.js';
@@ -18,7 +18,7 @@ import {
   type TaskRequestSourceType,
   type TaskRequestStatus,
   registeredEntityLinkPairSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 
 import type { Db } from '../../db/client.js';
 import type { Tx } from '../../db/tx.js';

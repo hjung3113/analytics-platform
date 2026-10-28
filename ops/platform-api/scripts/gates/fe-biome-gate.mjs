@@ -13,7 +13,7 @@
 // Contract: every changed tracked file that biome understands must be free of
 // error diagnostics, except identities listed in the allowlist as pre-existing.
 //
-// Usage:   node ops/platform-api/scripts/gates/fe-biome-gate.mjs [--base <ref>] [--list]   (pnpm --filter @fops/ops gate:fe-lint)
+// Usage:   node ops/platform-api/scripts/gates/fe-biome-gate.mjs [--base <ref>] [--list]   (pnpm --filter @ap/platform-api-ops gate:fe-lint)
 // Allowlist: ops/platform-api/scripts/gates/frontend-biome-allowlist.txt, one `<path> <category>` per
 // line, `#` comments allowed. Each entry needs a reason on the same line after
 // ` -- `; the gate prints them so a stale exemption stays visible.

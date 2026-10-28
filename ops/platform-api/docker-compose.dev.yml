@@ -4,8 +4,8 @@
 #   docker compose -f docker-compose.dev.yml up -d
 #   export DATABASE_URL_MIGRATE='postgres://fops_migrate:fops_migrate@localhost:5434/feedbackops'
 #   export DATABASE_URL='postgres://fops_app:fops_app@localhost:5434/feedbackops'
-#   pnpm --filter @fops/backend db:migrate
-#   pnpm --filter @fops/backend db:seed
+#   pnpm --filter @ap/platform-api db:migrate
+#   pnpm --filter @ap/platform-api db:seed
 #
 # Why two roles: ADR-0008 requires that the application role cannot UPDATE or
 # DELETE rows in core.audit_log. The container initialises both roles up front;
@@ -40,7 +40,7 @@ services:
   # MinIO: S3-compatible object store for attachment storage (#22, ADR-0011 amended).
   # Console: http://localhost:9001  |  S3 API: http://localhost:9000
   # Bootstrap the bucket once with:
-  #   pnpm --filter @fops/backend exec tsx src/cli/storage-bootstrap.ts
+  #   pnpm --filter @ap/platform-api exec tsx src/cli/storage-bootstrap.ts
   minio:
     image: minio/minio:RELEASE.2024-12-18T13-15-44Z
     container_name: feedbackops-minio

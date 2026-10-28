@@ -1,6 +1,6 @@
 // detail-primitives — tiny presentation helpers shared across FindingDetail files.
 
-import { OutlineBadge } from '@fops/ui';
+import { OutlineBadge } from '@ap/feature-ui';
 import type * as React from 'react';
 
 export function FitBadge({

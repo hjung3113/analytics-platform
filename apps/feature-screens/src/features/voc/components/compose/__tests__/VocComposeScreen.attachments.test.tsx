@@ -5,7 +5,7 @@
 import { configureApiClient } from '@/lib/api/client';
 import { ApiError } from '@/lib/api/types';
 import { type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
-import { SHARED_ALLOWLISTS } from '@fops/shared';
+import { SHARED_ALLOWLISTS } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';

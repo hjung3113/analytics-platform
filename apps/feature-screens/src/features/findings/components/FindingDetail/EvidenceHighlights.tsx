@@ -5,8 +5,8 @@ import {
 } from '@/lib/copy/enum-labels';
 import { HostLink, useHostSeam } from '@/lib/host/host-seam';
 import { searchHref } from '@/lib/host/search';
+import type { EvidenceHighlightDto } from '@ap/feature-shared';
 import { EmptyState, SkeletonBlocks } from '@ap/ui';
-import type { EvidenceHighlightDto } from '@fops/shared';
 import type * as React from 'react';
 import { useEvidenceHighlights } from '../../hooks/useEvidenceHighlights';
 import { FitBadge } from './detail-primitives';

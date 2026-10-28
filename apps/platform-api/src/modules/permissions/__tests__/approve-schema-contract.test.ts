@@ -5,7 +5,7 @@ import {
   permissionApprovedDetailSchema,
   rejectPermissionRequestSchema,
   submitMoreInfoPermissionRequestSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import { describe, expect, test } from 'vitest';
 
 import { approvePermissionRequestBodySchema } from '../routes.js';

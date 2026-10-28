@@ -6,7 +6,7 @@ import {
   createEntityLinkRequestSchema,
   detachEntityLinkRequestSchema,
   listEntityLinksQuerySchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 
 import { HttpError, fieldsFromZodIssues, sendError } from '../../lib/errors.js';
 import { requireSession } from '../../middleware/require-session.js';

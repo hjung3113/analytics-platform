@@ -1,7 +1,7 @@
 import { usePlatform } from '@ap/kernel';
-import { FoScreenPage, surveysRoute, useSurveysHere, useSurveysSearch } from '@ap/fo-bridge';
-import { SurveysScreen } from '@fops/frontend/operator-screens/surveys';
-import { isSurveysSearchValueValid } from '@fops/frontend/operator-screens/surveys-search';
+import { FoScreenPage, surveysRoute, useSurveysHere, useSurveysSearch } from '@ap/feature-bridge';
+import { SurveysScreen } from '@ap/feature-screens/operator-screens/surveys';
+import { isSurveysSearchValueValid } from '@ap/feature-screens/operator-screens/surveys-search';
 import { SurveyDetailDrawer } from './SurveyDrawer';
 
 /** FO's `ListShell` would hand a returned node to the shell slot, which renders it outside the FeedbackOps providers (and over the list's denied and empty states); the page draws the detail itself, inside `FoBridge`. */

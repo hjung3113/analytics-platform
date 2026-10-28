@@ -1,5 +1,3 @@
-import { createAreaReportReader } from './area-report.js';
-import { recoveryHistoryWindowStart } from './history-window.js';
 import { createHash } from 'node:crypto';
 import { type SQL, sql } from 'drizzle-orm';
 import { HttpError } from '../../lib/errors.js';
@@ -21,6 +19,8 @@ import {
   vocRecoveryProjection,
   vocRecoveryRepairScope,
 } from '../voc/index.js';
+import { createAreaReportReader } from './area-report.js';
+import { recoveryHistoryWindowStart } from './history-window.js';
 
 import {
   type CoverageMetricId,
@@ -38,9 +38,14 @@ import {
   type RecoveryListQuery,
   recoveryDetailSchema,
   recoveryListSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import { z } from 'zod';
 
+import {
+  type RecoveryHistoryQuery,
+  type RecoveryPresentationPatch,
+  recoveryHistorySchema,
+} from '@ap/feature-shared';
 import type { Db } from '../../db/client.js';
 import { actorFindingReadScope } from '../findings/authorization.js';
 import { allManagedSystemIds } from '../managed-systems/read-projections.js';
@@ -59,10 +64,12 @@ import {
   checkSurveyRead,
 } from '../surveys/authorization.js';
 import { getResolvedWorkspaceSettings } from '../workspace-settings/index.js';
-import * as repo from './repo.js';
-import { recoveryIdentity as identity, decodeRecoveryIdentity as decodeIdentity } from './identity.js';
+import {
+  decodeRecoveryIdentity as decodeIdentity,
+  recoveryIdentity as identity,
+} from './identity.js';
 import { lockRecoveryIdentity } from './recorder.js';
-import { recoveryHistorySchema, type RecoveryHistoryQuery, type RecoveryPresentationPatch } from '@fops/shared';
+import * as repo from './repo.js';
 
 export interface DashboardActor {
   actor_id: string;

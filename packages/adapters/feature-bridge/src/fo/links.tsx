@@ -1,5 +1,5 @@
 import { PlatformLink, usePlatform } from '@ap/kernel';
-import type { HostLinkProps } from '@fops/frontend/global-screens/core';
+import type { HostLinkProps } from '@ap/feature-screens/global-screens/core';
 import { UnlinkedLink } from './FoBridge';
 import { isReachable } from './reachable';
 

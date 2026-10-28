@@ -2,7 +2,7 @@
 // Covers: dirty derivation on field change, reset on voc.id change.
 // TDD RED: these tests are written before the implementation file exists.
 
-import type { VocListItem } from '@fops/shared';
+import type { VocListItem } from '@ap/feature-shared';
 import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { useTriagePanelState } from '../useTriagePanelState';

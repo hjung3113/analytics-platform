@@ -4,7 +4,7 @@ import type {
   EntityLinkEntityType,
   EntityLinkRelationType,
   EntityLinkStatusCounts,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 
 import type { Db } from '../../db/client.js';
 import { vocs } from '../../db/schema/voc.js';

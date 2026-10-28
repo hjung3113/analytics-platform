@@ -1,4 +1,4 @@
-import type { ResponsibilityDefaultFailure } from '@fops/shared';
+import type { ResponsibilityDefaultFailure } from '@ap/feature-shared';
 import { and, eq } from 'drizzle-orm';
 import { actors, teams } from '../../db/schema/core.js';
 import type { Tx } from '../../db/tx.js';

@@ -1,5 +1,5 @@
 import { useFindingDetail } from '@/features/findings/hooks/useFindingDetail';
-import type { TaskDto, TaskRequestDto } from '@fops/shared';
+import type { TaskDto, TaskRequestDto } from '@ap/feature-shared';
 
 import { useTaskRequestConversion } from './useTaskRequestConversion';
 import { useTaskRequestConvertedTaskLink } from './useTaskRequestConvertedTaskLink';

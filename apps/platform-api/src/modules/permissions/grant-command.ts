@@ -2,7 +2,7 @@ import {
   type Capability,
   type PermissionGrantAdminItem,
   permissionGrantAdminItemSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 // Caller owns the transaction and recipient → request → policy locks.
 // Both approval and requestless grants retain expired provenance through reissue.
 import { and, eq, isNull } from 'drizzle-orm';

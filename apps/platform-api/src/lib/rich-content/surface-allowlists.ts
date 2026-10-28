@@ -3,11 +3,11 @@
 // Per-surface node + mark allowlists with per-attr value schemas.
 // Spec: docs/feedbackops/frontend/specs/voc.md §5.7. ADR-0011 names this layer authoritative.
 //
-// PLAN-22 C9: the canonical data now lives in `@fops/shared/rich-content/
+// PLAN-22 C9: the canonical data now lives in `@ap/feature-shared/rich-content/
 // allowlist.ts`. This file is a thin re-export so existing backend callers
 // (sanitize.ts and tests) keep their import paths and behavior. The FE
 // render-time sanitizer mirrors the same values locally because ADR-0016
-// forbids @fops/ui -> @fops/shared imports.
+// forbids @ap/feature-ui -> @ap/feature-shared imports.
 //
 // Layering note unchanged: the sanitizer enforces attr *shape* here (type,
 // format, length). Service-layer business rules (e.g. rejecting non-empty
@@ -17,16 +17,16 @@
 import {
   SHARED_ALLOWLISTS,
   SHARED_RICH_CONTENT_EXTENSION_CAPABILITIES,
-  SHARED_SURFACE_EXTENSION_CAPABILITIES,
   SHARED_SURFACES,
-  getExtensionsForSurface,
+  SHARED_SURFACE_EXTENSION_CAPABILITIES,
   type SharedAllowlists,
+  type AttrSchema as SharedAttrSchema,
   type SharedRichContentExtensionCapability,
   type SharedSurface,
-  type SharedSurfaceExtensionCapabilities,
   type SharedSurfaceAllowlist,
-  type AttrSchema as SharedAttrSchema,
-} from '@fops/shared';
+  type SharedSurfaceExtensionCapabilities,
+  getExtensionsForSurface,
+} from '@ap/feature-shared';
 
 // ── Re-exported public surface ───────────────────────────────────────────────
 

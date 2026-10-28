@@ -13,8 +13,8 @@
 import { createFindingComment, listFindingComments } from '@/lib/api/findings-comments';
 import { createTaskComment, listTaskComments } from '@/lib/api/tasks-comments';
 import type { ApiError } from '@/lib/api/types';
+import type { FindingCommentDto, TaskCommentDto } from '@ap/feature-shared';
 import type { TipTapDoc } from '@ap/ui';
-import type { FindingCommentDto, TaskCommentDto } from '@fops/shared';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { extractMentions } from '../mentions/extractMentions';

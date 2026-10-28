@@ -1,22 +1,70 @@
 {
   "$schema": "./node_modules/turbo/schema.json",
   "concurrency": "2",
-  "globalDependencies": ["package.json", "pnpm-workspace.yaml", ".nvmrc"],
-  "globalPassThroughEnv": ["VITEST_MAX_WORKERS", "VITEST_MAX_FORKS", "VITEST_MAX_THREADS", "VITEST_MIN_FORKS", "VITEST_MIN_THREADS"],
+  "globalDependencies": [
+    "package.json",
+    "pnpm-workspace.yaml",
+    ".nvmrc"
+  ],
+  "globalPassThroughEnv": [
+    "VITEST_MAX_WORKERS",
+    "VITEST_MAX_FORKS",
+    "VITEST_MAX_THREADS",
+    "VITEST_MIN_FORKS",
+    "VITEST_MIN_THREADS",
+    "FEATURE_LINT_BASE"
+  ],
   "tasks": {
-    "transit": { "dependsOn": ["^transit"] },
-    "typecheck": { "dependsOn": ["transit"] },
+    "transit": {
+      "dependsOn": [
+        "^transit"
+      ]
+    },
+    "typecheck": {
+      "dependsOn": [
+        "transit"
+      ]
+    },
     "lint": {
-      "dependsOn": ["transit"],
-      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/components.json", "$TURBO_ROOT$/apps/platform-web/src/style.css", "$TURBO_ROOT$/tooling/eslint/src/**", "$TURBO_ROOT$/packages/*/package.json", "$TURBO_ROOT$/packages/sdk/*/package.json", "$TURBO_ROOT$/packages/adapters/*/package.json", "$TURBO_ROOT$/menus/*/*/package.json"],
+      "dependsOn": [
+        "transit"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/components.json",
+        "$TURBO_ROOT$/apps/platform-web/src/style.css",
+        "$TURBO_ROOT$/tooling/eslint/src/**",
+        "$TURBO_ROOT$/packages/*/package.json",
+        "$TURBO_ROOT$/packages/sdk/*/package.json",
+        "$TURBO_ROOT$/packages/adapters/*/package.json",
+        "$TURBO_ROOT$/menus/*/*/package.json"
+      ],
       "outputs": []
     },
-    "test": { "dependsOn": ["transit"] },
-    "build": {
-      "dependsOn": ["transit", "^build"],
-      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/tooling/sdk/sdk-finalize-dist.mjs"],
-      "outputs": ["dist/**"]
+    "test": {
+      "dependsOn": [
+        "transit"
+      ]
     },
-    "dev": { "cache": false, "persistent": true }
+    "build": {
+      "dependsOn": [
+        "transit",
+        "^build"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/tooling/sdk/sdk-finalize-dist.mjs"
+      ],
+      "outputs": [
+        "dist/**"
+      ]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "@ap/platform-api-ops#lint": {
+      "cache": false
+    }
   }
 }

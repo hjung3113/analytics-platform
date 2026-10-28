@@ -4,7 +4,7 @@ import {
   type UnlinkExistingFindingFromVocClusterRequest,
   type VocClusterDto,
   registeredEntityLinkPairSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 
 import { lockRecoveryCommand } from '../../db/recovery-command-lock.js';
 import type { Tx } from '../../db/tx.js';

@@ -11,7 +11,7 @@ import {
   listFindingCommentsQuerySchema,
   listFindingsQuerySchema,
   patchFindingRequestSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 
 import { fieldsFromZodIssues, sendError } from '../../lib/errors.js';
 import { UUID_REGEX, requireIdempotencyKey } from '../../lib/http-headers.js';

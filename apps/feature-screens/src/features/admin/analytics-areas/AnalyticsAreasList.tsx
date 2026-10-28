@@ -1,4 +1,5 @@
 import { GLOSSARY } from '@/lib/copy/glossary';
+import { ManagedSystemMark, OutlineBadge } from '@ap/feature-ui';
 import {
   Button,
   Callout,
@@ -14,7 +15,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@ap/ui';
-import { ManagedSystemMark, OutlineBadge } from '@fops/ui';
 import { Filter, Layers, Plus, Shield } from 'lucide-react';
 import type * as React from 'react';
 

@@ -3,7 +3,7 @@
 // mounts <EditorHandle> there; the handle registers the editor from an effect (never during
 // render) and unregisters it on unmount.
 
-import type { TipTapEditor } from '@fops/ui';
+import type { TipTapEditor } from '@ap/feature-ui';
 import * as React from 'react';
 
 export interface ComposerEditorFocus {

@@ -1,4 +1,4 @@
-import { listFindingsQuerySchema, listTasksQuerySchema } from '@fops/shared';
+import { listFindingsQuerySchema, listTasksQuerySchema } from '@ap/feature-shared';
 import { describe, expect, it } from 'vitest';
 import { escapeLikePattern } from '../../../lib/sql-like.js';
 

@@ -18,8 +18,8 @@ import type {
   TaskRequestStatus,
   TaskStatus,
   TriageStateEnum,
-} from '@fops/shared';
-import { SEVERITY_LABELS } from '@fops/ui';
+} from '@ap/feature-shared';
+import { SEVERITY_LABELS } from '@ap/feature-ui';
 
 // #613 applies the Korean-first enum-label decisions from #579/#580 over prototype raw values.
 // #679 (ADR-0057 A2): role names are Korean chrome; this supersedes the prototype's `Role: User`.

@@ -1,6 +1,6 @@
 # docs/integration/platform-packages.md §3.
-# FeedbackOps joins this workspace (ADR-0066 decision 1, #642); its packages and its tool package (ops/platform-api, @fops/ops)
-# are @fops/* and the root scripts exclude them.
+# FeedbackOps joins this workspace (ADR-0066 decision 1, #642); its packages and its tool package (ops/platform-api, @ap/platform-api-ops)
+# use role-based @ap identities and participate in unified root tasks.
 # archive/* are standalone npm units.
 packages:
   - apps/*

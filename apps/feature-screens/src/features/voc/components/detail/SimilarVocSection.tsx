@@ -1,6 +1,6 @@
+import type { VocDetailEnvelope } from '@ap/feature-shared';
+import { OutlineBadge, ReporterStatusBadge, SeverityBadge } from '@ap/feature-ui';
 import { PanelSectionTitle } from '@ap/ui';
-import type { VocDetailEnvelope } from '@fops/shared';
-import { OutlineBadge, ReporterStatusBadge, SeverityBadge } from '@fops/ui';
 import { Layers } from 'lucide-react';
 import type * as React from 'react';
 

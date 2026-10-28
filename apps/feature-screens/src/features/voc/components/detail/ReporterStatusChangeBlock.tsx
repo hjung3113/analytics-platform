@@ -71,6 +71,12 @@ import {
   REPORTER_STATUS_LABELS,
 } from '@/lib/copy/reporter-status-labels';
 import {
+  type ReporterFacingStatusEnum,
+  type VocDetailEnvelope,
+  isTipTapDocStructurallyEmpty,
+} from '@ap/feature-shared';
+import { ReporterStatusBadge } from '@ap/feature-ui';
+import {
   Callout,
   RichContentRenderer,
   Select,
@@ -81,12 +87,6 @@ import {
   type TipTapDoc,
   UserAvatar,
 } from '@ap/ui';
-import {
-  type ReporterFacingStatusEnum,
-  type VocDetailEnvelope,
-  isTipTapDocStructurallyEmpty,
-} from '@fops/shared';
-import { ReporterStatusBadge } from '@fops/ui';
 import { Check, Megaphone, ShieldCheck, User } from 'lucide-react';
 import type * as React from 'react';
 

@@ -12,7 +12,7 @@ import {
   type ListFindingCommentsResponse,
   createFindingCommentResponseSchema,
   listFindingCommentsResponseSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 
 import { apiRequest } from './client';
 

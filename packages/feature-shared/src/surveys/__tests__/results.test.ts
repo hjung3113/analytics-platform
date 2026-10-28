@@ -254,7 +254,7 @@ describe('SurveyResultNextAction closed union', () => {
   });
 });
 
-describe('@fops/shared survey result public API', () => {
+describe('@ap/feature-shared survey result public API', () => {
   it('exports the result contract from the package root', () => {
     expect(surveyResultDtoSchema).toBeDefined();
     expect(getRatingBandPartition).toBeDefined();

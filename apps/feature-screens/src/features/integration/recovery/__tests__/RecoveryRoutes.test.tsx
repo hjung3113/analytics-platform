@@ -12,8 +12,8 @@ import {
   IntegrationDashboardRouteShell,
   validateIntegrationDashboardSearch,
 } from '@/test/screen-host/routes/_authed/integration/index';
+import type { FindingDto } from '@ap/feature-shared';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
-import type { FindingDto } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   Outlet,

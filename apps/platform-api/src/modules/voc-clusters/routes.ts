@@ -4,17 +4,17 @@ import {
   addVocClusterMemberRequestSchema,
   applyVocClusterPublicUpdateRequestSchema,
   createFindingFromVocClusterRequestSchema,
-  linkExistingFindingToVocClusterRequestSchema,
-  unlinkExistingFindingFromVocClusterRequestSchema,
   createTaskRequestFromVocClusterRequestSchema,
   createVocClusterRequestSchema,
+  linkExistingFindingToVocClusterRequestSchema,
   listSameManagedSystemCandidatePeersQuerySchema,
+  unlinkExistingFindingFromVocClusterRequestSchema,
   updateVocClusterRequestSchema,
   vocClusterPublicUpdateCandidateRequestSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 
 import { fieldsFromZodIssues, sendError } from '../../lib/errors.js';
-import { requireIdempotencyKey, UUID_REGEX } from '../../lib/http-headers.js';
+import { UUID_REGEX, requireIdempotencyKey } from '../../lib/http-headers.js';
 import { requireSession } from '../../middleware/require-session.js';
 import { requireWorkspace } from '../../middleware/require-workspace.js';
 import type { SessionService } from '../auth/session-service.js';

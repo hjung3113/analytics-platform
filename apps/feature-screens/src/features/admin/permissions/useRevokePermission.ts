@@ -5,7 +5,7 @@ import { revokePermission } from '@/lib/api/permission-admin';
 import type { ApiError } from '@/lib/api/types';
 import { ADMIN_PERMISSIONS_COPY } from '@/lib/copy/admin-permissions';
 import { useHostNotice } from '@/lib/host/host-seam';
-import type { RevokePermissionResult } from '@fops/shared';
+import type { RevokePermissionResult } from '@ap/feature-shared';
 
 export const permissionGrantsListKey = ['permission-grants', 'admin'] as const;
 export const permissionDeniesListKey = ['permission-denies', 'admin'] as const;

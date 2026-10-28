@@ -5,7 +5,7 @@
 // the REAL useVocClusterDetail + apiRequest against a scripted fetch: the
 // first read is authorized (200), the refetch is denied (403) or missing (404).
 
-import type { FindingDto, VocClusterDto } from '@fops/shared';
+import type { FindingDto, VocClusterDto } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import type * as React from 'react';

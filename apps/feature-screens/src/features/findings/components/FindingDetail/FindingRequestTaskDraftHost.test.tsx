@@ -1,5 +1,5 @@
 import { type HostLinkProps, type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
-import type { FindingDto } from '@fops/shared';
+import type { FindingDto } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';

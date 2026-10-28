@@ -10,7 +10,7 @@ import { TASK_REQUEST_COPY } from '@/lib/copy/task-requests';
 import { useHostNavigate, useHostNotice, useHostSeam } from '@/lib/host/host-seam';
 import { searchHref } from '@/lib/host/search';
 import { invalidateNavCounts } from '@/lib/query/navCounts';
-import type { TaskRequestDto } from '@fops/shared';
+import type { TaskRequestDto } from '@ap/feature-shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
 

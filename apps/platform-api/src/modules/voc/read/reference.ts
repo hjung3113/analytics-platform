@@ -1,5 +1,5 @@
 // VOC reference visibility resolution for cross-module read consumers.
-import type { ReporterFacingStatusEnum } from '@fops/shared';
+import type { ReporterFacingStatusEnum } from '@ap/feature-shared';
 import { HttpError } from '../../../lib/errors.js';
 import type {
   ReadActorContext,

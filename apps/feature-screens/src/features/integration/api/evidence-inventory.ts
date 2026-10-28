@@ -3,8 +3,8 @@ import { EVIDENCE_INVENTORY_QUERY_KEY } from '@/lib/query/evidence-inventory-key
 import {
   getEvidenceInventoryResponseSchema,
   listEvidenceInventoryResponseSchema,
-} from '@fops/shared';
-import type { EvidenceHighlightSourceType } from '@fops/shared';
+} from '@ap/feature-shared';
+import type { EvidenceHighlightSourceType } from '@ap/feature-shared';
 
 export interface EvidenceFilters {
   managedSystem?: string;

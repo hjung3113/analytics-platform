@@ -7,7 +7,7 @@ import { renderHook, waitFor } from '@testing-library/react';
 import * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// BE wire shape per @fops/shared `listActorsResponseSchema`. The hook keeps
+// BE wire shape per @ap/feature-shared `listActorsResponseSchema`. The hook keeps
 // id, display_name, email, and role_level. `kind` is not part of the cache.
 const MOCK_BE_ACTORS = [
   {

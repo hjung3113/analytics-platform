@@ -1,4 +1,4 @@
-import type { EntityLinkEntityType, EntityLinkRelationType } from '@fops/shared';
+import type { EntityLinkEntityType, EntityLinkRelationType } from '@ap/feature-shared';
 import { sql } from 'drizzle-orm';
 import type { Db } from '../../db/client.js';
 import type { Tx } from '../../db/tx.js';

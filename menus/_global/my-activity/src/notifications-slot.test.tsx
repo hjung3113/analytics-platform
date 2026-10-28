@@ -3,10 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider } from '@ap/kernel';
 import { memoryStorage, testAdapter } from '@ap/kernel/testing';
 import { manifests } from './index';
-import { setFoApi } from '@ap/fo-bridge/fo-api';
+import { setFoApi } from '@ap/feature-bridge/fo-api';
 import Notifications from './pages/Notifications';
-import { notificationsSlot } from '@ap/fo-bridge/notifications-slot';
-import { foQueryClient } from '@ap/fo-bridge';
+import { notificationsSlot } from '@ap/feature-bridge/notifications-slot';
+import { foQueryClient } from '@ap/feature-bridge';
 import { ID_A, ID_B, json, listOf, notification, registry, stubFetch, switchableAdapter } from './fo/test-support';
 
 const COUNT = '/api/fo/notifications?unread=true&limit=1';

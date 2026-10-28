@@ -5,7 +5,7 @@ import { useIdempotencyKey } from '@/lib/api/useIdempotencyKey';
 import { TASK_REQUEST_COPY } from '@/lib/copy/task-requests';
 import { useHostNotice, useHostSeam } from '@/lib/host/host-seam';
 import { searchHref } from '@/lib/host/search';
-import type { FindingDto } from '@fops/shared';
+import type { FindingDto } from '@ap/feature-shared';
 import type * as React from 'react';
 import { useRequestTaskFromFinding } from '../../hooks/useRequestTaskFromFinding';
 

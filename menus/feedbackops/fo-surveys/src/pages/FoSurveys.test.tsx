@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
-import { setFoApi } from '@ap/fo-bridge/fo-api';
+import { setFoApi } from '@ap/feature-bridge/fo-api';
 import { useHostSeam } from '@/lib/host/host-seam';
 import { mountAt, warmPages } from '../test-support';
 
@@ -17,34 +17,34 @@ const fo = vi.hoisted(() => ({
   followUp: [] as { surveyId: string; selection?: Selection; renderDetail?: (parts: Parts) => ReactNode }[],
   requestClose: vi.fn(),
 }));
-vi.mock('@fops/frontend/operator-screens/surveys', () => ({
+vi.mock('@ap/feature-screens/operator-screens/surveys', () => ({
   SurveysScreen: (props: { renderDetail: (selectedId: string | null, slot: unknown) => unknown }) => {
     fo.list.push(props);
     const seam = useHostSeam();
     return <div data-testid="list" data-here={seam.useHere!()} data-owns-title={String(seam.hostOwnsTitle)} />;
   },
 }));
-vi.mock('@fops/frontend/operator-screens/survey-detail', () => ({
+vi.mock('@ap/feature-screens/operator-screens/survey-detail', () => ({
   useSurveyDetailParts: (args: { surveyId: string; onClose: () => void }) => {
     fo.detailArgs.push(args);
     return { title: `Survey ${args.surveyId}`, body: <p>상세 본문 {args.surveyId}</p>, view: { kind: 'loading' } };
   },
 }));
-vi.mock('@fops/frontend/operator-screens/survey-builder', () => ({
+vi.mock('@ap/feature-screens/operator-screens/survey-builder', () => ({
   SurveyBuilderScreen: (props: { surveyId: string; onBack: () => void }) => {
     fo.builder.push(props);
     const seam = useHostSeam();
     return <div data-testid="builder" data-here={seam.useHere!()}><button type="button" onClick={props.onBack}>빌더 뒤로</button></div>;
   },
 }));
-vi.mock('@fops/frontend/operator-screens/survey-results', () => ({
+vi.mock('@ap/feature-screens/operator-screens/survey-results', () => ({
   SurveyResultsScreen: (props: { surveyId: string }) => {
     fo.results.push(props.surveyId);
     const seam = useHostSeam();
     return <div data-testid="results" data-here={seam.useHere!()} />;
   },
 }));
-vi.mock('@fops/frontend/operator-screens/survey-follow-up', () => ({
+vi.mock('@ap/feature-screens/operator-screens/survey-follow-up', () => ({
   SurveyFollowUpScreen: (props: { surveyId: string; selection?: Selection; renderDetail?: (parts: Parts) => ReactNode }) => {
     fo.followUp.push(props);
     const seam = useHostSeam();

@@ -1,4 +1,4 @@
-import { CAPABILITIES, type Capability } from '@fops/shared';
+import { CAPABILITIES, type Capability } from '@ap/feature-shared';
 import { describe, expect, it } from 'vitest';
 
 import { CAPABILITY_LABELS, getCapabilityDisplayLabel } from '../capabilities.js';

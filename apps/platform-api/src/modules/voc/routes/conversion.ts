@@ -5,7 +5,10 @@
 
 import type { FastifyPluginAsync } from 'fastify';
 
-import { createFindingRequestSchema, createTaskRequestFromVocRequestSchema } from '@fops/shared';
+import {
+  createFindingRequestSchema,
+  createTaskRequestFromVocRequestSchema,
+} from '@ap/feature-shared';
 
 import { HttpError, fieldsFromZodIssues, sendError } from '../../../lib/errors.js';
 import { UUID_REGEX, requireIdempotencyKey } from '../../../lib/http-headers.js';

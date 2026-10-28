@@ -15,7 +15,7 @@ import {
   type RevokePermissionResult,
   directPermissionGrantSchema,
   permissionGrantOptionsSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 
 import type { Db } from '../../db/client.js';
 import {

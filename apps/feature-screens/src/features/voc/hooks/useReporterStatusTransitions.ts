@@ -5,7 +5,7 @@
 // Spec: docs/feedbackops/frontend/specs/voc.md §5.10
 // Prototype ref: docs/feedbackops/design-prototype/screen-voc.jsx:522-534
 
-import type { ReporterFacingStatusEnum, VocDetailEnvelope } from '@fops/shared';
+import type { ReporterFacingStatusEnum, VocDetailEnvelope } from '@ap/feature-shared';
 
 export interface ReporterStatusGate {
   blocking_for: ReporterFacingStatusEnum[];

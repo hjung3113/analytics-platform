@@ -15,9 +15,9 @@
  * `tailwindcss` → tokens/base → theme is a consumer invariant, not an
  * optional arrangement (ADR-0058).
  *
- * Consumers: `@import 'tailwindcss'; @import '@fops/ui/styles/tokens.css'
- * layer(base); @import '@fops/ui/styles/semantic.css' layer(base); @import
- * '@fops/ui/styles/theme.css'; @import '@fops/ui/styles/compat.css';` then
+ * Consumers: `@import 'tailwindcss'; @import '@ap/feature-ui/styles/tokens.css'
+ * layer(base); @import '@ap/feature-ui/styles/semantic.css' layer(base); @import
+ * '@ap/feature-ui/styles/theme.css'; @import '@ap/feature-ui/styles/compat.css';` then
  * `@source` your component trees (including this package's `src`).
  *
  * Legacy-name compat shims (`leading-*`, `tracking-*`) and the v3 `space-y-*`
@@ -221,4 +221,4 @@
 
 /* The legacy-name `leading-*` / `tracking-*` shims moved to `./compat.css`
  * together with the v3 `space-y-*` and Preflight pins: they are consumer
- * parity rules every @fops/ui app needs, not theme mappings. */
+ * parity rules every @ap/feature-ui app needs, not theme mappings. */

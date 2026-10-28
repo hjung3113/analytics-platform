@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { inboxRoute, triageRoute } from '@ap/fo-bridge';
+import { inboxRoute, triageRoute } from '@ap/feature-bridge';
 import { manifests } from './index';
 
 const ROUTES = { 'fo-inbox': inboxRoute, 'fo-triage': triageRoute };

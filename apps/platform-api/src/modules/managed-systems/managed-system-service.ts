@@ -21,7 +21,7 @@
 import { and, asc, count, eq, isNull, sql } from 'drizzle-orm';
 import type { DatabaseError } from 'pg';
 
-import type { AuditEventType, ManagedSystemDefaultCandidates } from '@fops/shared';
+import type { AuditEventType, ManagedSystemDefaultCandidates } from '@ap/feature-shared';
 
 import type { Db } from '../../db/client.js';
 import { actors, managedSystems } from '../../db/schema/core.js';

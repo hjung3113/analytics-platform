@@ -2,7 +2,7 @@
 // DTOs; these types add the optional enriched fields the components render
 // (display ids, member titles, linked findings).
 
-import type { LinkedFindingDto, VocClusterMemberDto } from '@fops/shared';
+import type { LinkedFindingDto, VocClusterMemberDto } from '@ap/feature-shared';
 
 export type VocClusterMemberPresentation = VocClusterMemberDto & {
   display_id?: string | null;

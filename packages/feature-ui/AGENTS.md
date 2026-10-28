@@ -10,7 +10,7 @@
 ## Forbidden Content
 
 - API calls.
-- Imports from `@fops/shared` or `apps/{platform-api,feature-screens}` (ADR-0016, enforced by `pnpm --filter @fops/ops check:boundaries`); mirror the constant locally, as `src/rich-content/allowlist-local.ts` does.
+- Imports from `@ap/feature-shared` or `apps/{platform-api,feature-screens}` (ADR-0016, enforced by `pnpm --filter @ap/platform-api-ops check:boundaries`); mirror the constant locally, as `src/rich-content/allowlist-local.ts` does.
 - Backend permission decisions as truth.
 - Domain mutation orchestration.
 - Feature-specific route state.
@@ -20,20 +20,20 @@
 
 - Use semantic tokens, not raw hex values, outside token implementation files.
 - SDK-owned parts are imported from the workspace `@ap/ui` (`packages/sdk/ui`, `workspace:*` since #642) directly,
-  not through `@fops/ui` (#713q, ADR-0090). That covers the shadcn primitives, tokens and motion
+  not through `@ap/feature-ui` (#713q, ADR-0090). That covers the shadcn primitives, tokens and motion
   utilities (`cn`, `prefersReducedMotion`, ...), the panel, toolbar, forms, feedback and layout
   shells, the detail slot (`DetailPanelSlotProvider`, `useDetailPanelSlotHost`,
   `DetailPanelFullscreenContext`), `ObjectRow`, `UserAvatar`, `UserChip`, `ProgressMeter`,
   `SeverityIndicator`, `PermissionBlockedPanel`, `StatusBadgeFrame`, and the rich-content editor,
   renderer, attach button and extensions (upstream ADR-0050, ADR-0052). The compatibility re-export
   files that Bundles 1, 2a, 2b and 3a once kept here were removed: `src/index.ts` exports only the
-  FeedbackOps-owned names below, and `@fops/ui` must not re-export an `@ap/ui` name again. Import a
-  shared component from `@ap/ui` and a FeedbackOps component from `@fops/ui`; one import
+  FeedbackOps-owned names below, and `@ap/feature-ui` must not re-export an `@ap/ui` name again. Import a
+  shared component from `@ap/ui` and a FeedbackOps component from `@ap/feature-ui`; one import
   statement never mixes the two. A test that replaces a shared component (`ListShell`,
-  `RichEditor`, ...) mocks `@ap/ui`; a test that replaces a FeedbackOps name mocks `@fops/ui`. A
+  `RichEditor`, ...) mocks `@ap/ui`; a test that replaces a FeedbackOps name mocks `@ap/feature-ui`. A
   `@ap/ui` mock that spreads the real module reads every export, so a test that also mocks
   `sonner` must give that mock a `Toaster`.
-- What `@fops/ui` still exports: the FeedbackOps badges (`SeverityBadge`, `ReporterStatusBadge`,
+- What `@ap/feature-ui` still exports: the FeedbackOps badges (`SeverityBadge`, `ReporterStatusBadge`,
   `InternalTaskBadge`, `UnassignedBadge`, `ManagedSystem*`, `OutlineBadge`, `EntityIconBadge`),
   `LinkedEntityTrail`, the pickers (`ManagedSystemPicker`, `AnalyticsAreaPicker`), `SEVERITY_LABELS`,
   and the FeedbackOps-named aliases of `@ap/ui` parts: `useDetailPanelSlot(node)` is `@ap/ui`'s
@@ -51,7 +51,7 @@
 - `src/internal/useHorizontalOverflow.ts` and the rich-content drift anchors stay local. Rich-content
   uses TipTap per ADR-0011. The allowlist original stays in `packages/feature-shared`; the local
   `allowlist-local.ts`, `sanitizeClient.ts`, and `fixtures-local.ts` stay as the drift anchor. The
-  ADR-0016 package boundary still keeps `@fops/ui` from importing `@fops/shared`.
+  ADR-0016 package boundary still keeps `@ap/feature-ui` from importing `@ap/feature-shared`.
 - The frontend declares `@ap/ui` (`workspace:*`) directly so its stylesheet
   resolver can reach bundle-1 CSS. It imports
   `@ap/ui/styles/{tokens,semantic,theme,compat}.css` in that order, then

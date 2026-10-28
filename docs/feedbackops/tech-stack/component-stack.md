@@ -68,7 +68,7 @@ The primitive source and the shared display components `ObjectRow`, `UserAvatar`
 `UserChip`, `ProgressMeter`, `SeverityIndicator`, `PermissionBlockedPanel`, and
 `StatusBadgeFrame` live in the pinned `@ap/ui` package (analytics-platform's
 `packages/sdk/ui`, tag `sdk-v0.5.0`). FeedbackOps code imports them from `@ap/ui` directly;
-`@fops/ui` no longer re-exports them (#713q). The SDK ownership decision is recorded
+`@ap/feature-ui` no longer re-exports them (#713q). The SDK ownership decision is recorded
 upstream in ADR-0050. FeedbackOps-owned composed components live at:
 
 ```text
@@ -83,7 +83,7 @@ consumed from `@ap/ui` (upstream ADR-0052); `packages/feature-ui/src/rich-conten
 keeps only drift/sanitization helpers. `allowlist-local.ts` is the UI copy of the canonical shared
 contract and remains drift-tested.
 
-The shadcn primitives are not wrapped in `packages/feature-ui`; the `@fops/ui` public API (FeedbackOps-owned
+The shadcn primitives are not wrapped in `packages/feature-ui`; the `@ap/feature-ui` public API (FeedbackOps-owned
 components and aliases only) is assembled by `packages/feature-ui/src/index.ts`.
 
 Recommended source:
@@ -450,7 +450,7 @@ apps/feature-screens runtime dependencies:
 - lucide-react, sonner, cmdk
 - @dnd-kit/core
 - @fontsource-variable/inter, @fontsource-variable/jetbrains-mono, pretendard
-- @fops/ui, @fops/shared (workspace)
+- @ap/feature-ui, @ap/feature-shared (workspace)
 
 apps/feature-screens styling dev dependencies:
 - tailwindcss, @tailwindcss/vite (v4, ADR-0058)

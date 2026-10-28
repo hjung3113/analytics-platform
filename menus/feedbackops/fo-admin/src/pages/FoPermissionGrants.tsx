@@ -1,6 +1,6 @@
-import { FoDetailDrawer, FoScreenPage, permissionGrantsRoute, usePermissionGrantsHere, usePermissionGrantsSearch } from '@ap/fo-bridge';
-import { PermissionGrantsScreen, type PermissionGrantsScreenProps } from '@fops/frontend/operator-screens/permission-grants';
-import { isPermissionGrantsSearchValueValid } from '@fops/frontend/operator-screens/admin-search';
+import { FoDetailDrawer, FoScreenPage, permissionGrantsRoute, usePermissionGrantsHere, usePermissionGrantsSearch } from '@ap/feature-bridge';
+import { PermissionGrantsScreen, type PermissionGrantsScreenProps } from '@ap/feature-screens/operator-screens/permission-grants';
+import { isPermissionGrantsSearchValueValid } from '@ap/feature-screens/operator-screens/admin-search';
 
 /** The console owns the selected grant or deny and its close (`focus` is its `selected`), so the drawer's close is `requestClose`. */
 const renderDetail: NonNullable<PermissionGrantsScreenProps['renderDetail']> = parts => <FoDetailDrawer parts={parts} onClose={parts.requestClose} />;

@@ -58,7 +58,7 @@ vi.mock('@ap/ui', async (importActual) => {
 });
 
 import type { MeResponse } from '@/lib/auth/useMe';
-import { type VocDetailEnvelope, vocSummaryEnvelopeSchema } from '@fops/shared';
+import { type VocDetailEnvelope, vocSummaryEnvelopeSchema } from '@ap/feature-shared';
 import { PublicUpdateComposer } from '../PublicUpdateComposer';
 
 async function chooseReporterStatus(label: string): Promise<void> {

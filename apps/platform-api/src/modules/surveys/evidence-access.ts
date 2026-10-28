@@ -3,7 +3,7 @@ import {
   type SurveyResponseExcerptCandidateDto,
   approvedExcerptDtoSchema,
   surveyResponseExcerptCandidateDtoSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import type { Tx } from '../../db/tx.js';
 import { HttpError } from '../../lib/errors.js';
 import { getResolvedWorkspaceSettingsForUpdate } from '../workspace-settings/index.js';

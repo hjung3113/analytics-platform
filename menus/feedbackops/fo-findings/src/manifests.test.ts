@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
-import { findingsRoute } from '@ap/fo-bridge';
+import { findingsRoute } from '@ap/feature-bridge';
 import { manifests } from './index';
 
 const menu = manifests[0]!;

@@ -56,7 +56,7 @@ vi.mock('@/features/voc/hooks/useVocReporterReplyMutation', () => ({
 import { useVocReporterReplyMutation } from '@/features/voc/hooks/useVocReporterReplyMutation';
 import * as attachmentsApi from '@/lib/api/attachments';
 import type { MeResponse } from '@/lib/auth/useMe';
-import type { VocDetailEnvelope } from '@fops/shared';
+import type { VocDetailEnvelope } from '@ap/feature-shared';
 import { ReporterReplyComposer } from '../ReporterReplyComposer';
 
 const ADMIN_ID = '00000000-0000-0000-0000-000000000002';

@@ -8,7 +8,7 @@ import {
   stringifyAppSearch,
 } from '@/test/host-adapters/lib/router/search-serialization';
 import { TasksRouteView, validateTasksSearch } from '@/test/screen-host/routes/_authed/tasks';
-import { type TaskRequestDto, listTaskRequestsQuerySchema } from '@fops/shared';
+import { type TaskRequestDto, listTaskRequestsQuerySchema } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   RouterProvider,
@@ -55,8 +55,8 @@ vi.mock('@ap/ui', async (original) => ({
     </main>
   ),
 }));
-vi.mock('@fops/ui', async (original) => ({
-  ...(await original<typeof import('@fops/ui')>()),
+vi.mock('@ap/feature-ui', async (original) => ({
+  ...(await original<typeof import('@ap/feature-ui')>()),
   useDetailPanelSlot: (node: import('react').ReactNode) => {
     useLayoutEffect(() => {
       slot.set(node);

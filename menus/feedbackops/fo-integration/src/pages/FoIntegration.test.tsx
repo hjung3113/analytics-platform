@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { cleanup, fireEvent, screen, within } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
-import { setFoApi } from '@ap/fo-bridge/fo-api';
+import { setFoApi } from '@ap/feature-bridge/fo-api';
 import { useHostSeam } from '@/lib/host/host-seam';
 import { mountAt, warmPages } from '../test-support';
 
@@ -16,7 +16,7 @@ const fo = vi.hoisted(() => ({
   links: 0,
   renderRecoveryRequestAccess: vi.fn(),
 }));
-vi.mock('@fops/frontend/operator-screens/integration-dashboard', () => ({
+vi.mock('@ap/feature-screens/operator-screens/integration-dashboard', () => ({
   renderRecoveryRequestAccess: fo.renderRecoveryRequestAccess,
   IntegrationDashboardScreen: (props: { renderDetail: (parts: Parts) => ReactNode; renderRequestAccess?: unknown }) => {
     fo.dashboard.push(props);
@@ -27,7 +27,7 @@ vi.mock('@fops/frontend/operator-screens/integration-dashboard', () => ({
     </div>;
   },
 }));
-vi.mock('@fops/frontend/operator-screens/evidence', () => ({
+vi.mock('@ap/feature-screens/operator-screens/evidence', () => ({
   EvidenceScreen: (props: { renderDetail: (parts: Parts) => ReactNode }) => {
     fo.evidence.push(props);
     const seam = useHostSeam();
@@ -37,10 +37,10 @@ vi.mock('@fops/frontend/operator-screens/evidence', () => ({
     </div>;
   },
 }));
-vi.mock('@fops/frontend/operator-screens/coverage', () => ({
+vi.mock('@ap/feature-screens/operator-screens/coverage', () => ({
   CoverageScreen: () => { fo.coverage += 1; const seam = useHostSeam(); return <div data-testid="coverage" data-here={seam.useHere!()} />; },
 }));
-vi.mock('@fops/frontend/operator-screens/entity-links', () => ({
+vi.mock('@ap/feature-screens/operator-screens/entity-links', () => ({
   LinksScreen: () => { fo.links += 1; const seam = useHostSeam(); return <div data-testid="links" data-here={seam.useHere!()} />; },
 }));
 

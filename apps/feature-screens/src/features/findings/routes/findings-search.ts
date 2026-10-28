@@ -3,7 +3,7 @@
 
 import { vocSearchSchema } from '@/features/voc/routes/voc-search';
 import { isSearchFieldValueValid, parseRouteSearch } from '@/lib/host/search-fields';
-import { listFindingsQuerySchema } from '@fops/shared';
+import { listFindingsQuerySchema } from '@ap/feature-shared';
 import { z } from 'zod';
 
 // Selection + Managed System scope are URL state (docs/feedbackops/frontend/routes-and-layout.md

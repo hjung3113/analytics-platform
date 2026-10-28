@@ -5,7 +5,7 @@
 
 import { randomUUID } from 'node:crypto';
 
-import { milestoneCreatedDetailSchema } from '@fops/shared';
+import { milestoneCreatedDetailSchema } from '@ap/feature-shared';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 

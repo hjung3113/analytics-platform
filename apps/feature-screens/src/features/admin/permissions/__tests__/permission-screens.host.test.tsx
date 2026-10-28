@@ -5,7 +5,7 @@
 import type { AdminPermissionRequestRow } from '@/lib/api/permission-reads';
 import { type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
 import { adminDetailFixture } from '@/test/permission-details';
-import { permissionDenyAdminItemSchema, permissionGrantAdminItemSchema } from '@fops/shared';
+import { permissionDenyAdminItemSchema, permissionGrantAdminItemSchema } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import * as React from 'react';

@@ -11,6 +11,8 @@ import { GLOSSARY } from '@/lib/copy/glossary';
 import { HostLink, useHostSeam } from '@/lib/host/host-seam';
 import { searchHref } from '@/lib/host/search';
 import { shortId } from '@/lib/identity';
+import type { FindingDto, FindingStatus } from '@ap/feature-shared';
+import { ManagedSystemPill, SeverityBadge } from '@ap/feature-ui';
 import {
   Button,
   DetailPanelSectionNav,
@@ -20,8 +22,6 @@ import {
   type SeverityEnum,
   UserChip,
 } from '@ap/ui';
-import type { FindingDto, FindingStatus } from '@fops/shared';
-import { ManagedSystemPill, SeverityBadge } from '@fops/ui';
 import type * as React from 'react';
 import { useRef } from 'react';
 import { AddEvidenceModal } from './AddEvidenceModal';

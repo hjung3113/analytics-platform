@@ -2,7 +2,7 @@
 // platform bridge's entry import one definition. The route file re-exports `tasksSearchSchema` and `validateTasksSearch` for existing consumers.
 
 import { isSearchFieldValueValid, parseRouteSearch, returnToField } from '@/lib/host/search-fields';
-import { listTasksQuerySchema, taskStatusSchema } from '@fops/shared';
+import { listTasksQuerySchema, taskStatusSchema } from '@ap/feature-shared';
 import { z } from 'zod';
 
 export const tasksSearchSchema = z

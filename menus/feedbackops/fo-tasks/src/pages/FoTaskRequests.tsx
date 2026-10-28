@@ -1,7 +1,7 @@
 import type { ComponentProps } from 'react';
-import { FoDetailDrawer, FoScreenPage, taskRequestsRoute, useTaskRequestsHere, useTaskRequestsSearch } from '@ap/fo-bridge';
-import { TaskRequestsScreen } from '@fops/frontend/operator-screens/task-requests';
-import { isTasksSearchValueValid } from '@fops/frontend/operator-screens/tasks-search';
+import { FoDetailDrawer, FoScreenPage, taskRequestsRoute, useTaskRequestsHere, useTaskRequestsSearch } from '@ap/feature-bridge';
+import { TaskRequestsScreen } from '@ap/feature-screens/operator-screens/task-requests';
+import { isTasksSearchValueValid } from '@ap/feature-screens/operator-screens/tasks-search';
 
 /** The screen owns the close (focus return, `param` cleared through the seam), so the drawer's close is `requestClose`. Unkeyed: one drawer lifetime spans a queue advance. */
 const renderDetail: ComponentProps<typeof TaskRequestsScreen>['renderDetail'] = parts => <FoDetailDrawer parts={parts} onClose={parts.requestClose} />;

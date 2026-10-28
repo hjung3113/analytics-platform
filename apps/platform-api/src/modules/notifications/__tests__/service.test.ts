@@ -1,4 +1,4 @@
-import type { NotificationDto, NotificationSubjectReference } from '@fops/shared';
+import type { NotificationDto, NotificationSubjectReference } from '@ap/feature-shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Db } from '../../../db/client.js';

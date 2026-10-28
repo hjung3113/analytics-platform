@@ -1,12 +1,12 @@
-import { describe, it, expect } from 'vitest';
-import { ERROR_CODES, type ErrorCode } from '@fops/shared';
+import { ERROR_CODES, type ErrorCode } from '@ap/feature-shared';
+import { describe, expect, it } from 'vitest';
 import { UnauthenticatedError } from '../auth';
 import {
   CATALOG,
-  errorMapper,
   GENERIC_ERROR_MESSAGE,
-  mapUnknownError,
   RETIRED_OR_SERVER_ONLY_CODES,
+  errorMapper,
+  mapUnknownError,
 } from '../errorMapper';
 import { ApiError } from '../types';
 

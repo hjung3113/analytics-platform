@@ -4,10 +4,10 @@
 //
 // C6.1 of slice3 #21.
 
-import { describe, expect, it } from 'vitest';
+import type { VocListItem } from '@ap/feature-shared';
 import { renderHook } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
 import { useReporterCanEditDescription } from '../useReporterCanEditDescription';
-import type { VocListItem } from '@fops/shared';
 
 // Minimal VOC shape needed by the gate hook (subset of VocListItem)
 const BASE_VOC: Pick<VocListItem, 'reporter_id' | 'triage_state'> = {

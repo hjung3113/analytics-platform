@@ -1,4 +1,4 @@
-import type { VocPreSubmitPeersResponse } from '@fops/shared';
+import type { VocPreSubmitPeersResponse } from '@ap/feature-shared';
 
 import type { Db } from '../../../db/client.js';
 import { actorReadScope } from '../authorization.js';

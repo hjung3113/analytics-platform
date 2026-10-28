@@ -5,7 +5,7 @@ import { cn } from '@ap/ui';
  * C1 design contract: this component takes the RESOLVED data directly.
  * Callers resolve `mark` from the Managed System slug with
  * `managedSystemMarkColor`, keeping this package primitive free of data fetching.
- * This keeps `@fops/ui` free of domain data-fetching per AGENTS.md.
+ * This keeps `@ap/feature-ui` free of domain data-fetching per AGENTS.md.
  *
  * A known record with an unsupported slug gets the neutral default token.
  * A missing record can omit `mark` and renders in the muted version.

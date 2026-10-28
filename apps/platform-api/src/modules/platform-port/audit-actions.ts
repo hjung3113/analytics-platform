@@ -10,7 +10,7 @@
 //   voc_cluster_suggestion_* are user decisions); a future recompute event needs a decision.
 // update: everything else.
 
-import type { AuditEventType } from '@fops/shared';
+import type { AuditEventType } from '@ap/feature-shared';
 
 export const PLATFORM_AUDIT_ACTIONS = ['create', 'update', 'retire', 'sync', 'delete'] as const;
 export type PlatformAuditAction = (typeof PLATFORM_AUDIT_ACTIONS)[number];

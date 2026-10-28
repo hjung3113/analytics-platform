@@ -1,6 +1,6 @@
 import { EVIDENCE_COPY as COPY } from '@/lib/copy/evidence';
+import type { EvidenceInventoryItem } from '@ap/feature-shared';
 import { ObjectRow } from '@ap/ui';
-import type { EvidenceInventoryItem } from '@fops/shared';
 import type { Ref } from 'react';
 import { EvidenceMetadata } from './EvidenceContent';
 

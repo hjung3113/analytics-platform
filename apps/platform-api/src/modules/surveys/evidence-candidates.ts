@@ -2,7 +2,7 @@ import {
   type SurveyEvidenceCandidatesQuery,
   type SurveyEvidenceCandidatesResponse,
   surveyEvidenceCandidatesResponseSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import { z } from 'zod';
 import type { Tx } from '../../db/tx.js';
 import { HttpError } from '../../lib/errors.js';

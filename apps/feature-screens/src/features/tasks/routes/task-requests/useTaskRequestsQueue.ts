@@ -5,9 +5,9 @@ import { fetchTaskRequests, getTaskRequest } from '@/lib/api/task-requests';
 import { ApiError } from '@/lib/api/types';
 import { TASK_REQUEST_STATUS_LABELS } from '@/lib/copy/enum-labels';
 import { GLOSSARY } from '@/lib/copy/glossary';
+import type { ListTaskRequestsResponse } from '@ap/feature-shared';
+import type { TaskRequestDto, TaskRequestStatus } from '@ap/feature-shared';
 import type { ListToolbarTab } from '@ap/ui';
-import type { ListTaskRequestsResponse } from '@fops/shared';
-import type { TaskRequestDto, TaskRequestStatus } from '@fops/shared';
 import {
   type InfiniteData,
   useInfiniteQuery,

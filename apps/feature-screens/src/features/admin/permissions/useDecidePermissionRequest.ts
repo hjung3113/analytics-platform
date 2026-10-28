@@ -11,7 +11,7 @@ import {
 import type { ApiError } from '@/lib/api/types';
 import { useHostNotice } from '@/lib/host/host-seam';
 import { invalidateRecovery } from '@/lib/query/recovery';
-import type { ApprovePermissionRequest, PermissionDecisionResult } from '@fops/shared';
+import type { ApprovePermissionRequest, PermissionDecisionResult } from '@ap/feature-shared';
 import { type UseMutationResult, useMutation, useQueryClient } from '@tanstack/react-query';
 
 export const permissionRequestsReviewKey = ['permission-requests', 'review'] as const;

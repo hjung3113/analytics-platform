@@ -1,7 +1,7 @@
 // #1175: the Analytics Area single-select on the Inbox and Triage toolbars writes
 // `filter.analytics_area` to the URL and to GET /vocs. Real route, router and query client.
 
-import { listVocsQuerySchema } from '@fops/shared';
+import { listVocsQuerySchema } from '@ap/feature-shared';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Toaster, toast } from 'sonner';
 import { afterEach, describe, expect, it, vi } from 'vitest';

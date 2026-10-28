@@ -3,7 +3,7 @@
 @import "@eqv/platform-adapter/styles.css";
 @import "@ap/components/styles.css";
 @import "@ap/shell/styles.css";
-@import "@ap/fo-bridge/styles.css";
+@import "@ap/feature-bridge/styles.css";
 /* <gen:menu-styles> */
 @import "@ap/menu-home/styles.css";
 @import "@ap/menu-my-activity/styles.css";

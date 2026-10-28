@@ -4,7 +4,7 @@
 // (session, permission check) and writes only its own tables — `platform.usage_events`,
 // `platform.client_errors` — plus `core.sessions.csrf_token` (ADR-0069 decision 1).
 
-import { errorCodeSchema } from '@fops/shared';
+import { errorCodeSchema } from '@ap/feature-shared';
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 
 import type { Db } from '../../db/client.js';

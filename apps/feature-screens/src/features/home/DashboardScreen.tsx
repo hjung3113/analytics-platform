@@ -1,10 +1,10 @@
-import { Button, ProgressMeter } from '@ap/ui';
 import {
   DASHBOARD_HOP_ROUTES,
   type DashboardSummary,
   type TaskDto,
   type TaskRequestDto,
-} from '@fops/shared';
+} from '@ap/feature-shared';
+import { Button, ProgressMeter } from '@ap/ui';
 import { type QueryClient, useQuery } from '@tanstack/react-query';
 import { ArrowRight, ChevronRight } from 'lucide-react';
 import * as React from 'react';

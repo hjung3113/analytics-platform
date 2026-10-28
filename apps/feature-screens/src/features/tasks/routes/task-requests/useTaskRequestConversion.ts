@@ -18,7 +18,7 @@ import {
   type TaskRequestDto,
   convertTaskRequestRequestSchema,
   taskPrioritySchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
 

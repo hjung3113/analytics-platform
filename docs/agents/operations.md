@@ -32,7 +32,7 @@ Workers launched with `codex … -s workspace-write` cannot perform the followin
 
 - `orca worktree create --setup run|skip` does not install dependencies → run `pnpm install --frozen-lockfile --config.optimistic-repeat-install=false`. Close the default shell tab.
 - With pnpm 11, changing only `pnpm-workspace.yaml` makes `pnpm install` skip with `Already up to date` → run `pnpm install --config.optimistic-repeat-install=false`.
-- FeedbackOps (`apps/{platform-api,feature-screens}`, `packages/feature-*`) is part of the root workspace (ADR-0066, #642): one root `pnpm install` also installs FeedbackOps, and there is one lockfile. Root `lint`, `typecheck`, `test`, and `build` exclude FeedbackOps with `--filter='!@fops/*' --filter='!feedbackops'` ([repository structure](../integration/repository-layout.md)). The guard `.github/scripts/check-platform-turbo-scope.mjs` checks that `@fops/*` packages are not in the root task graph. The script-free `transit` task propagates dependency hashes (#390). Do not use `--only`: it also clears dependency hashes, so the local cache cannot match CI (#388).
+- Feature packages share the root workspace, lockfile and all four root tasks. The task-graph guard verifies each manifest leaf and rejects old names, exclusions and recursive ops aggregates. The script-free `transit` task propagates dependency hashes. The uncached ops lint leaf needs committed history and `FEATURE_LINT_BASE` (default `origin/main`); it fails if the comparison base is unavailable. Do not use `--only`: it clears dependency hashes, so local cache cannot match CI (#388).
 - Run the documentation-link check directly with `node .github/scripts/check-doc-links.mjs` if needed (`products/` is excluded from the check).
 
 ## macOS Shell (zsh and BSD)

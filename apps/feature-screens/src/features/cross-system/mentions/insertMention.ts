@@ -1,4 +1,4 @@
-import type { TipTapEditor } from '@fops/ui';
+import type { TipTapEditor } from '@ap/feature-ui';
 
 export interface MentionActor {
   id: string;

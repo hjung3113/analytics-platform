@@ -9,7 +9,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import * as React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { type VocDetailEnvelope, internalCommentRequestSchema } from '@fops/shared';
+import { type VocDetailEnvelope, internalCommentRequestSchema } from '@ap/feature-shared';
 import { DETAIL_ENVELOPE } from '../../components/detail/__tests__/_fixtures';
 import {
   type InternalCommentSuccess,

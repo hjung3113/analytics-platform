@@ -39,7 +39,7 @@ vi.mock('@ap/ui', async (importActual) => {
 
 import { useComposerVisibility } from '@/features/voc/hooks/useComposerVisibility';
 import { useMeBridge } from '@/lib/api/me';
-import type { VocDetailEnvelope } from '@fops/shared';
+import type { VocDetailEnvelope } from '@ap/feature-shared';
 import { ComposerSection } from '../ComposerSection';
 
 const REPORTER_ID = '00000000-0000-0000-0000-000000000001';

@@ -31,7 +31,7 @@ vi.mock('../TimelineEntry', () => ({
 
 import { useVocConversation } from '@/features/voc/hooks/useVocConversation';
 import { useMeBridge } from '@/lib/api/me';
-import type { ConversationEntry } from '@fops/shared';
+import type { ConversationEntry } from '@ap/feature-shared';
 import { ConversationTimeline } from '../ConversationTimeline';
 import { InternalTimeline } from '../InternalTimeline';
 import { PublicTimeline } from '../PublicTimeline';

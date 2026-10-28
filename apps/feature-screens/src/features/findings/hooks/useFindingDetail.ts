@@ -1,7 +1,7 @@
 import { apiRequest } from '@/lib/api/client';
 import { ApiError, ApiParseError } from '@/lib/api/types';
-import { findingDtoSchema } from '@fops/shared';
-import type { FindingDto } from '@fops/shared';
+import { findingDtoSchema } from '@ap/feature-shared';
+import type { FindingDto } from '@ap/feature-shared';
 import { type UseQueryResult, useQuery } from '@tanstack/react-query';
 
 export function useFindingDetail(id: string | null | undefined): UseQueryResult<FindingDto> {

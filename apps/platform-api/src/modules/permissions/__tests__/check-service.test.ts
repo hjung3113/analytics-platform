@@ -46,7 +46,7 @@ describe.skipIf(!runIntegration)('checkCapability', () => {
       .limit(1);
 
     if (!adminRows[0] || !userRows[0]) {
-      throw new Error('Seed missing: run `pnpm --filter @fops/backend db:seed`.');
+      throw new Error('Seed missing: run `pnpm --filter @ap/platform-api db:seed`.');
     }
     adminActor = {
       actor_id: adminRows[0].id,

@@ -1,5 +1,5 @@
 import { FINDING_SEVERITY_LABELS } from '@/lib/copy/enum-labels';
-import { findingSeveritySchema } from '@fops/shared';
+import { findingSeveritySchema } from '@ap/feature-shared';
 import { render, screen } from '@testing-library/react';
 import type * as React from 'react';
 import { describe, expect, it, vi } from 'vitest';

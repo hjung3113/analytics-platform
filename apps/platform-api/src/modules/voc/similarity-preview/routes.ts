@@ -1,4 +1,4 @@
-import { similarityPreviewRequestSchema } from '@fops/shared';
+import { similarityPreviewRequestSchema } from '@ap/feature-shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { HttpError, fieldsFromZodIssues, sendError } from '../../../lib/errors.js';
 import { requireIdempotencyKey } from '../../../lib/http-headers.js';

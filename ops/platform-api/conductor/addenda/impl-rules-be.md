@@ -4,7 +4,7 @@
    `docs/feedbackops/implementation/02-domain-module-boundaries.md` §Approved cross-module surfaces.
 2. Backend integration suites are env-gated: they skip without a DB. Your task names **your own throwaway issue
    database** (port 5439) and the exact command:
-   `FEEDBACKOPS_ENV_FILE=<abs worktree>/.review/env.verify pnpm --filter @fops/backend test:integration <files>`
+   `FEEDBACKOPS_ENV_FILE=<abs worktree>/.review/env.verify pnpm --filter @ap/platform-api test:integration <files>`
    (paths relative to `apps/platform-api`). Run **only the integration files you added or touched**, never the full
    suite, never another env file, never `.env`; the runner refuses port 5434 (the dev database). Each run
    truncates and re-seeds that database, which is expected. The suites run as the low-priv `fops_app` role: write
@@ -17,7 +17,7 @@
 4. Behaviour-preserving refactor: every existing test keeps its setup, fixtures and assertions. The error code, HTTP
    status and `fields[].path`/`code` of every existing failure path stay byte-identical.
 5. Shared seed helpers live in `apps/platform-api/src/test-support/`; reuse them instead of new ad-hoc seeds.
-6. You may run `pnpm --filter @fops/backend exec tsc --noEmit`, unit tests that need no DB, and rule 2's
+6. You may run `pnpm --filter @ap/platform-api exec tsc --noEmit`, unit tests that need no DB, and rule 2's
    integration files; never `git`, DB commands (`db:migrate`, `db:seed`, `psql`) or the full integration suite (the
    conductor runs that).
 7. Hand-written migration SQL is only executed by the conductor, so copy proven patterns (s78: two errors surfaced

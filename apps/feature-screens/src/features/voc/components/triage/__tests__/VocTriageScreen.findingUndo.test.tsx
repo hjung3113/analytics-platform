@@ -4,7 +4,7 @@ import {
   registerNoticeHost,
   undoNoticeRenderer,
 } from '@/test/notice-host';
-import type { VocListItem } from '@fops/shared';
+import type { VocListItem } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { ReactNode } from 'react';

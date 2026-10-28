@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # The CI gate (#794): root AGENTS.md → Verification, split into three stages any
-# CI can call. `.github/workflows/feedbackops.yml` (repo root) runs them on GitHub Actions; another CI
+# CI can call. `.github/workflows/ci.yml` (repo root) runs them on GitHub Actions; another CI
 # runs the same three commands after `pnpm install --frozen-lockfile` at the repo root (Node 26.7, root .nvmrc).
 # Run it from anywhere; it works from the repository root. Paths come from ops/platform-api/paths.sh.
 #
@@ -16,7 +16,7 @@
 #       suite runs in `integration`, where its DB-backed suites are live.
 #   bash ops/platform-api/scripts/ci/gate.sh integration
 #       bootstraps a throwaway Postgres from ops/platform-api/scripts/db/init.sql, migrates it, and
-#       runs `pnpm --filter backend test:integration`, which truncates and re-seeds.
+#       runs `pnpm --filter @ap/platform-api test:integration`, which truncates and re-seeds.
 #       Needs CI_PG_ADMIN_URL: a superuser URL for an EMPTY, disposable Postgres 16
 #       server with pgvector, e.g. postgres://postgres:postgres@localhost:5432/postgres.
 
@@ -27,8 +27,8 @@ ops_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 . "$ops_root/paths.sh"
 cd "$FO_REPO_ROOT"
 
-# Root scripts of the @fops/ops package (ops/platform-api/package.json); pnpm runs them from that directory.
-fo() { pnpm -s --filter @fops/ops run "$@"; }
+# Root scripts of the @ap/platform-api-ops package (ops/platform-api/package.json); pnpm runs them from that directory.
+fo() { pnpm -s --filter @ap/platform-api-ops run "$@"; }
 
 step() {
   printf '\n==> %s\n' "$*"
@@ -43,22 +43,24 @@ stage_static() {
     echo "gate.sh static: unknown argument $1" >&2
     exit 2
   fi
-  step fo typecheck
-  step node "$FO_OPS/scripts/check-boundaries.mjs"
+  step fo feature:typecheck
+  step stage_static_extra
+  step env FEATURE_LINT_BASE="${base:-${FEATURE_LINT_BASE:-origin/main}}" pnpm --filter @ap/platform-api-ops lint
+}
+
+# Unified root typecheck/lint/test already cover package suites and production boundaries.
+# This stage contains only additional gates required by CI.
+stage_static_extra() {
   step node "$FO_OPS/scripts/check-boundaries.test.mjs"
   step node "$FO_OPS/scripts/test-integration.test.mjs"
   step fo gate:db-migration-drift
   step fo gate:fe-typecheck
-  step fo lint:design
-  if [ -n "$base" ]; then
-    step fo gate:fe-lint --base "$base"
-  fi
 }
 
 stage_unit() {
-  step pnpm --filter @fops/frontend exec vitest run
-  step pnpm --filter @fops/ui exec vitest run
-  step pnpm --filter @fops/shared exec vitest run
+  step pnpm --filter @ap/feature-screens exec vitest run
+  step pnpm --filter @ap/feature-ui exec vitest run
+  step pnpm --filter @ap/feature-shared exec vitest run
 }
 
 stage_integration() {
@@ -88,13 +90,14 @@ stage_integration() {
     # shellcheck disable=SC1090
     . "$env_file"
     set +a
-    step pnpm --filter @fops/backend db:migrate
+    step pnpm --filter @ap/platform-api db:migrate
   )
-  step env FEEDBACKOPS_ENV_FILE="$env_file" pnpm --filter @fops/backend test:integration
+  step env FEEDBACKOPS_ENV_FILE="$env_file" pnpm --filter @ap/platform-api test:integration
 }
 
 case "${1:-}" in
   static) shift; stage_static "$@" ;;
+  static-extra) stage_static_extra ;;
   unit) stage_unit ;;
   integration) stage_integration ;;
   *)

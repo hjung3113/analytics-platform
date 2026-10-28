@@ -3,7 +3,7 @@
 // This module is the single source of truth for which TipTap nodes/marks/attrs
 // each surface accepts. The backend authoritative sanitizer
 // (apps/platform-api/src/lib/rich-content/sanitize.ts, ADR-0011) imports these
-// constants directly. ADR-0016 forbids @fops/ui -> @fops/shared imports, so
+// constants directly. ADR-0016 forbids @ap/feature-ui -> @ap/feature-shared imports, so
 // the FE render-time defence-in-depth sanitizer mirrors them locally and pins
 // the mirror with a drift test.
 //

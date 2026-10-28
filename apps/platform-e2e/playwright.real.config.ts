@@ -37,7 +37,7 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: `pnpm --filter @fops/backend run dev`,
+      command: `pnpm --filter @ap/platform-api run dev`,
       // `/health` (liveness), not `/health/ready`: readiness also requires attachment storage, which this harness
       // does not use. The global setup and real API checks validate the DB-backed behavior.
       url: `http://127.0.0.1:${BACKEND_PORT}/health`,

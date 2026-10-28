@@ -11,7 +11,7 @@ import { cleanupResponsibilityFailures } from '../../../test-support/responsibil
 // runs but skips audit-log assertions gracefully (matches POST suite).
 
 import { randomUUID } from 'node:crypto';
-import { vocOwnerCandidatesSchema } from '@fops/shared';
+import { vocOwnerCandidatesSchema } from '@ap/feature-shared';
 
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';

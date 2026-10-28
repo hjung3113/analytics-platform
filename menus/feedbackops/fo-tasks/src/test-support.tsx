@@ -1,6 +1,6 @@
 /** Fixtures shared by the Task page tests. */
 import { ClipboardList } from 'lucide-react';
-import { createFoMenuHarness } from '@ap/fo-bridge/testing';
+import { createFoMenuHarness } from '@ap/feature-bridge/testing';
 import { manifests } from './index';
 
 export const { registry, mountAt } = createFoMenuHarness({ manifests, homeMenuId: 'fo-tasks', group: { id: 'foTasks', label: { ko: 'Tasks', en: 'Tasks' }, icon: ClipboardList } });

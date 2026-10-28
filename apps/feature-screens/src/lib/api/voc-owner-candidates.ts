@@ -1,4 +1,4 @@
-import { vocOwnerCandidatesSchema } from '@fops/shared';
+import { vocOwnerCandidatesSchema } from '@ap/feature-shared';
 import { apiRequest } from './client';
 
 export async function fetchVocOwnerCandidates(vocId: string, signal?: AbortSignal) {

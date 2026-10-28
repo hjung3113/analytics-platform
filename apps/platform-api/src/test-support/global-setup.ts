@@ -4,7 +4,7 @@
 // See `reset-database.ts` for why (#205).
 //
 // No-op unless the full integration env is present. The default gate
-// (`pnpm --filter backend test` with no env exported) skips all 90 integration
+// (`pnpm --filter @ap/platform-api test` with no env exported) skips all 90 integration
 // suites anyway, so there is nothing to reset and nothing to seed — this must
 // stay silent and touch no database in that mode.
 

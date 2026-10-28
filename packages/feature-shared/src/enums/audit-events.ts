@@ -8,7 +8,7 @@
 // any event listed there. New events MUST take their name from that list,
 // or — if no policy-doc entry exists — adopt the same snake_case style.
 //
-// Both apps import the canonical list from `@fops/shared`.
+// Both apps import the canonical list from `@ap/feature-shared`.
 //
 // This file is the registry only. Each domain module under `src/audit/`
 // owns its event-type strings, detail schemas, and inferred types, and is

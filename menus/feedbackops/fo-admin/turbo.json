@@ -3,7 +3,7 @@
   "extends": ["//"],
   "tasks": {
     "transit": {
-      "dependsOn": ["@ap/components#transit", "@ap/contracts#transit", "@ap/fo-bridge#transit", "@ap/kernel#transit", "@ap/ui#transit"],
+      "dependsOn": ["@ap/components#transit", "@ap/contracts#transit", "@ap/feature-bridge#transit", "@ap/kernel#transit", "@ap/ui#transit"],
       "inputs": [
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/apps/feature-screens/src/**",
@@ -13,7 +13,7 @@
       ]
     },
     "build": {
-      "dependsOn": ["transit", "@ap/components#build", "@ap/contracts#build", "@ap/fo-bridge#build", "@ap/kernel#build", "@ap/ui#build"]
+      "dependsOn": ["transit", "@ap/components#build", "@ap/contracts#build", "@ap/feature-bridge#build", "@ap/kernel#build", "@ap/ui#build"]
     }
   }
 }

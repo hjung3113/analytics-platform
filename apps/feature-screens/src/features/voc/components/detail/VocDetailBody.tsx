@@ -1,5 +1,5 @@
+import type { VocDetailEnvelope } from '@ap/feature-shared';
 import { Button, DetailPanelSectionNav, DirtyConfirmation } from '@ap/ui';
-import type { VocDetailEnvelope } from '@fops/shared';
 import * as React from 'react';
 
 import { CreateFindingModal } from '@/features/cross-system/create-finding/CreateFindingModal';

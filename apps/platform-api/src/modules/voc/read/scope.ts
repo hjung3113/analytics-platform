@@ -1,5 +1,5 @@
 // VOC list view scope resolution and shared scope membership helper.
-import type { ListVocsQuery } from '@fops/shared';
+import type { ListVocsQuery } from '@ap/feature-shared';
 import { HttpError } from '../../../lib/errors.js';
 import { scopeIncludes, scopeIsNonEmpty } from '../../permissions/scope-service.js';
 import type { Scope } from '../authorization.js';

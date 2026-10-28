@@ -7,7 +7,7 @@
 //
 // C6.1 of slice3 #21.
 
-import type { TriageStateEnum } from '@fops/shared';
+import type { TriageStateEnum } from '@ap/feature-shared';
 
 // Minimum VOC fields this gate needs — avoids depending on the full
 // VocDetailEnvelope so the hook works with both VocListItem and VocDetailEnvelope.

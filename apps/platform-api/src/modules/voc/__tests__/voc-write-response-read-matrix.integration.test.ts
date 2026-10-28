@@ -12,7 +12,7 @@ import { randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-import { vocSummaryEnvelopeSchema, vocSummarySelfDecisionSchema } from '@fops/shared';
+import { vocSummaryEnvelopeSchema, vocSummarySelfDecisionSchema } from '@ap/feature-shared';
 
 import { loadConfig } from '../../../config.js';
 import { type DbHandle, createDb } from '../../../db/client.js';

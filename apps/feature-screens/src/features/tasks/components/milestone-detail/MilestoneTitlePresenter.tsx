@@ -1,6 +1,6 @@
 import { GLOSSARY } from '@/lib/copy/glossary';
+import type { MilestoneDetailDto } from '@ap/feature-shared';
 import { Button, Input, PanelTitleBlock } from '@ap/ui';
-import type { MilestoneDetailDto } from '@fops/shared';
 import { Pencil } from 'lucide-react';
 
 import { MilestoneManagedSystemPill, MilestoneOutlineBadge } from '../MilestoneIdentity';

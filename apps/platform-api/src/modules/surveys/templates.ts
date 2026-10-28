@@ -2,7 +2,7 @@ import {
   type SurveyTemplate,
   type SurveyTemplatesResponse,
   surveyTemplatesResponseSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 
 // Version 1 IDs and definitions are stable; content revisions require a new version.
 const catalog = surveyTemplatesResponseSchema.parse({

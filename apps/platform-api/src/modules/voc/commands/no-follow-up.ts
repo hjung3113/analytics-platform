@@ -1,4 +1,4 @@
-import type { RecordVocNoFollowUpRequest } from '@fops/shared';
+import type { RecordVocNoFollowUpRequest } from '@ap/feature-shared';
 import { HttpError } from '../../../lib/errors.js';
 import { runIdempotentCommand } from '../../core/idempotency/idempotent-command.js';
 import { lockManagedSystem } from '../../managed-systems/index.js';

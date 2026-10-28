@@ -4,7 +4,10 @@
 // required for cleanup of append-only core.entity_links and core.audit_log rows.
 
 import { randomUUID } from 'node:crypto';
-import { evidenceInventoryItemSchema, listEvidenceInventoryResponseSchema } from '@fops/shared';
+import {
+  evidenceInventoryItemSchema,
+  listEvidenceInventoryResponseSchema,
+} from '@ap/feature-shared';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 

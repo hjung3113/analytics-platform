@@ -2,7 +2,7 @@ import { apiClient } from '@/lib/api/client';
 import type { ApiError } from '@/lib/api/types';
 import { invalidateNavCounts } from '@/lib/query/navCounts';
 import { invalidateRecovery } from '@/lib/query/recovery';
-import type { CreateFindingFromSurveyResponseRequest, FindingDto } from '@fops/shared';
+import type { CreateFindingFromSurveyResponseRequest, FindingDto } from '@ap/feature-shared';
 import { type UseMutationResult, useMutation, useQueryClient } from '@tanstack/react-query';
 import { surveyKeys } from './useSurveys';
 

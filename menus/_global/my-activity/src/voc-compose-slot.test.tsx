@@ -2,9 +2,9 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, type VocComposeContext } from '@ap/kernel';
 import { memoryStorage } from '@ap/kernel/testing';
-import { setFoApi } from '@ap/fo-bridge/fo-api';
+import { setFoApi } from '@ap/feature-bridge/fo-api';
 import { json, registry, stubFetch, switchableAdapter } from './fo/test-support';
-import { vocComposeSlot } from '@ap/fo-bridge/voc-compose-slot';
+import { vocComposeSlot } from '@ap/feature-bridge/voc-compose-slot';
 
 const CONTEXT: VocComposeContext = { items: [], href: null, spaceId: null, menuId: null, carried: {} };
 

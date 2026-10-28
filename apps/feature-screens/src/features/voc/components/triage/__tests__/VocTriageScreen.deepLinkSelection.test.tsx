@@ -23,7 +23,7 @@ vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
 noticeHost.notify.mockImplementation(() => 'toast-deeplink-test');
 beforeAll(registerNoticeHost);
 
-import type { VocListItem } from '@fops/shared';
+import type { VocListItem } from '@ap/feature-shared';
 import { VocTriageScreen } from '../VocTriageScreen';
 
 function makeVoc(id: string, displayId: string, title: string): VocListItem {

@@ -6,7 +6,7 @@
 # Logs: <log-dir>/<step>.log — full output and final line `exit=<code>`. Stop at the first failure and return that step's code.
 # At the end, print `step=<name> exit=<n> seconds=<s>` to stdout for each step.
 # Exit codes: 0 success / that step's code / 3 if capacity.sh returns start=no (no lock is acquired; one-line reason) / 75 if heavy.lock is already held (the same value is returned if child test or build returns 75) / 2 if owner (ORCA_TERMINAL_HANDLE or WITH_LOCK_OWNER) is missing / 64 for invalid arguments.
-# Do not pass a worker count or --concurrency: turbo.json concurrency and the ~/.zshenv Vitest cap define them. The root package.json scripts already apply --filter='!@fops/*'.
+# Do not pass a worker count or --concurrency: turbo.json concurrency and the ~/.zshenv Vitest cap define them. Root package.json scripts cover the unified workspace; feature packages are included (ADR-0097, #1098 r).
 set -u
 
 light=0

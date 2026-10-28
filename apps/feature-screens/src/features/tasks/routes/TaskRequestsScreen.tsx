@@ -9,6 +9,7 @@ import { useHostTitle } from '@/lib/host/host-seam';
 import type { HostSearch } from '@/lib/host/search';
 import { useHostSearchWriter } from '@/lib/host/useHostSearchWriter';
 import { shortId } from '@/lib/identity';
+import type { TaskRequestDto } from '@ap/feature-shared';
 import {
   Button,
   ListShell,
@@ -23,7 +24,6 @@ import {
   SelectValue,
   useListMotion,
 } from '@ap/ui';
-import type { TaskRequestDto } from '@fops/shared';
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 
 import { LinkTargetMissingNotice } from '../components/LinkTargetMissingNotice';

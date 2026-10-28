@@ -68,7 +68,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
-// Narrow runtime parser (no `@fops/shared` schema exists for /me): the fields the shell reads must have the declared type.
+// Narrow runtime parser (no `@ap/feature-shared` schema exists for /me): the fields the shell reads must have the declared type.
 export function parseMeResponse(data: unknown): MeResponse {
   if (!isRecord(data) || !isRecord(data.actor) || typeof data.workspace_id !== 'string') {
     throw new TypeError('Malformed /me response');

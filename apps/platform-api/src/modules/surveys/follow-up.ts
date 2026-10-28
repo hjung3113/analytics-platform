@@ -31,7 +31,7 @@ import {
   outcomeFollowUpMarkedResultSchema,
   outcomeFollowUpReadDtoSchema,
   outcomeFollowUpReopenedResultSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import { and, eq, sql } from 'drizzle-orm';
 
 import { outcomeFollowUpDecisions } from '../../db/schema/survey.js';

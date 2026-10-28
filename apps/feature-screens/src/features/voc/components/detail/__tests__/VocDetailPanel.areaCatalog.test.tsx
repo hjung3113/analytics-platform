@@ -1,6 +1,6 @@
 import { useTaskRequestConversion } from '@/features/tasks/routes/task-requests/useTaskRequestConversion';
 import type { AnalyticsAreaDto } from '@/lib/api/analytics-areas';
-import type { TaskRequestDto } from '@fops/shared';
+import type { TaskRequestDto } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, render, renderHook, screen } from '@testing-library/react';
 import type * as React from 'react';

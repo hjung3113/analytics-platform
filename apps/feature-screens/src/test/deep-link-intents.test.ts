@@ -8,7 +8,7 @@ import {
   DASHBOARD_HOP_ROUTES,
   DASHBOARD_OUTCOME_SURVEYS_ROUTE,
   DASHBOARD_RELEASED_TASKS_ROUTE,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import { describe, expect, it } from 'vitest';
 const validators: Record<string, (raw: unknown) => unknown> = {
   '/findings': validateFindingsSearch,

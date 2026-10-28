@@ -1,4 +1,4 @@
-import type { ManagedSystemDefaultDiagnostics } from '@fops/shared';
+import type { ManagedSystemDefaultDiagnostics } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   Outlet,

@@ -9,7 +9,7 @@ import type {
   VocClusterMemberDto,
   VocClusterPublicUpdateCandidateRequest,
   VocClusterPublicUpdateOutcome,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import { lockRecoveryCommand } from '../../db/recovery-command-lock.js';
 import type { RecoveryRecorder } from '../dashboard/recorder.js';
 

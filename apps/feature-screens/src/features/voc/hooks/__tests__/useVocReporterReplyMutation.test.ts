@@ -11,7 +11,7 @@ import * as React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ApiError } from '@/lib/api';
-import { type VocDetailEnvelope, reporterReplyRequestSchema } from '@fops/shared';
+import { type VocDetailEnvelope, reporterReplyRequestSchema } from '@ap/feature-shared';
 import { DETAIL_ENVELOPE } from '../../components/detail/__tests__/_fixtures';
 import {
   type ReporterReplySuccess,

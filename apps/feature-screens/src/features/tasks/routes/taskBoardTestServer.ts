@@ -4,7 +4,7 @@ import {
   type TaskDto,
   listTasksQuerySchema,
   splitTaskListTokens,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 
 // Test double for GET /tasks as the bounded Task board uses it: it parses every request with the
 // shared query schema and answers by status / status_group / filters / limit / cursor, so a board

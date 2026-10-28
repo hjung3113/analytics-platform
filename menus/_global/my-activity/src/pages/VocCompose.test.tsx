@@ -2,10 +2,10 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, type VocComposeContext } from '@ap/kernel';
 import { memoryStorage, ToastProbe } from '@ap/kernel/testing';
-import { setFoApi } from '@ap/fo-bridge/fo-api';
-import { foQueryClient } from '@ap/fo-bridge';
+import { setFoApi } from '@ap/feature-bridge/fo-api';
+import { foQueryClient } from '@ap/feature-bridge';
 import { json, registry, stubFetch, switchableAdapter, type Call } from '../fo/test-support';
-import VocCompose from '@ap/fo-bridge/voc-compose-page';
+import VocCompose from '@ap/feature-bridge/voc-compose-page';
 
 // ProseMirror refuses text in jsdom, so the editor is a textarea (FeedbackOps' own compose tests do the same). FeedbackOps' compose screen takes `RichEditor` from `@ap/ui`.
 vi.mock('@ap/ui', async importOriginal => ({

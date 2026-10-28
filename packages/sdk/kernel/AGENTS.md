@@ -34,7 +34,7 @@ Platform Kernel 런타임(06 §4). 메뉴 목록도, 서버 구현도 모른다.
 
 ## 규칙
 
-- import 가능: `@ap/contracts`와 React·아이콘 라이브러리, 조회 엔진 `@tanstack/react-query`(정확 고정 `5.62.7`, `@ap/fo-bridge`와 같은 버전 — 함께 올린다. ADR-0086, 메뉴·메뉴 mock·components·shell·앱의 import는 lint `denyQueryEngine`이 막는다(fo-bridge 허용). 그 타입은 공개 `.d.ts`에 나가지 않는다). `ui`/`components`/`shell`/앱/mock import 금지.
+- import 가능: `@ap/contracts`와 React·아이콘 라이브러리, 조회 엔진 `@tanstack/react-query`(정확 고정 `5.62.7`, `@ap/feature-bridge`와 같은 버전 — 함께 올린다. ADR-0086, 메뉴·메뉴 mock·components·shell·앱의 import는 lint `denyQueryEngine`이 막는다(fo-bridge 허용). 그 타입은 공개 `.d.ts`에 나가지 않는다). `ui`/`components`/`shell`/앱/mock import 금지.
 - 서버·세션 접근은 `adapter`로만. 세션은 동기 snapshot + `subscribe`; 변경 알림을 받으면 revision을 올려 이전 결과를 숨긴다. 이 무효화 계약은 `adapter.test.tsx`가 고정하므로 바꾸면 테스트부터 고친다.
 - Registry 검증 규칙을 바꾸면 `registry.test.ts`에 실패 사례를 추가한다. 테스트는 fixture Registry만 쓰고 실제 메뉴를 import하지 않는다(실제 메뉴가 필요한 테스트는 앱 통합 테스트).
 - 전역 Context 키·URL 규칙은 06 §6 계약이다. 메뉴 요구 때문에 바꾸지 말고 플랫폼 결정으로 올린다.

@@ -1,6 +1,6 @@
-import { FoDetailDrawer, FoScreenPage, permissionRequestsRoute, usePermissionRequestsHere, usePermissionRequestsSearch } from '@ap/fo-bridge';
-import { PermissionRequestsScreen, type PermissionRequestsScreenProps } from '@fops/frontend/operator-screens/permission-requests';
-import { isPermissionRequestsSearchValueValid } from '@fops/frontend/operator-screens/admin-search';
+import { FoDetailDrawer, FoScreenPage, permissionRequestsRoute, usePermissionRequestsHere, usePermissionRequestsSearch } from '@ap/feature-bridge';
+import { PermissionRequestsScreen, type PermissionRequestsScreenProps } from '@ap/feature-screens/operator-screens/permission-requests';
+import { isPermissionRequestsSearchValueValid } from '@ap/feature-screens/operator-screens/admin-search';
 
 /** The review owns the selected request and its close (`focus` is its `selected`), so the drawer's close is `requestClose`. */
 const renderDetail: NonNullable<PermissionRequestsScreenProps['renderDetail']> = parts => <FoDetailDrawer parts={parts} onClose={parts.requestClose} />;

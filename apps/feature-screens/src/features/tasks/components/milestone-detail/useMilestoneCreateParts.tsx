@@ -3,6 +3,7 @@ import { createMilestone } from '@/lib/api/milestones';
 import { useIdempotencyKey } from '@/lib/api/useIdempotencyKey';
 import { GLOSSARY } from '@/lib/copy/glossary';
 import type { ClosableDetailParts } from '@/lib/host/detail-parts';
+import type { CreateMilestoneRequest, MilestoneDto } from '@ap/feature-shared';
 import {
   Button,
   DatePicker,
@@ -16,7 +17,6 @@ import {
   SelectValue,
   Textarea,
 } from '@ap/ui';
-import type { CreateMilestoneRequest, MilestoneDto } from '@fops/shared';
 import { useMutation } from '@tanstack/react-query';
 import * as React from 'react';
 import { MilestonePanelSectionTitle } from '../MilestoneIdentity';

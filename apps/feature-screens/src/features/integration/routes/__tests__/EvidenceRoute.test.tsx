@@ -3,7 +3,7 @@ import { validateEvidenceSearch } from '@/test/screen-host/routes/_authed/integr
 import {
   getEvidenceInventoryResponseSchema,
   listEvidenceInventoryResponseSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   Outlet,
@@ -46,8 +46,8 @@ vi.mock('@ap/ui', async (original) => ({
     </div>
   ),
 }));
-vi.mock('@fops/ui', async (original) => ({
-  ...(await original<typeof import('@fops/ui')>()),
+vi.mock('@ap/feature-ui', async (original) => ({
+  ...(await original<typeof import('@ap/feature-ui')>()),
   useDetailPanelSlot: (node: ReactNode) => {
     useLayoutEffect(() => {
       slot.set(node);

@@ -1,4 +1,8 @@
-import { type SurveyResultDto, getRatingBandForValue, surveyResultDtoSchema } from '@fops/shared';
+import {
+  type SurveyResultDto,
+  getRatingBandForValue,
+  surveyResultDtoSchema,
+} from '@ap/feature-shared';
 import { HttpError } from '../../lib/errors.js';
 import {
   actorFindingReadScope,

@@ -4,7 +4,7 @@ import { registerAnchorLinkHost } from '@/test/anchor-link-host';
 import { SurveyDetail } from '@/test/host-adapters/features/surveys/components/detail/SurveyDetail';
 import { SurveyDetailRoute } from '@/test/surveys-host/detail';
 import { CreateSurveyDialog, SurveysIndexRoute } from '@/test/surveys-host/screen';
-import { surveyQuestionKindSchema } from '@fops/shared';
+import { surveyQuestionKindSchema } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   type RouterHistory,

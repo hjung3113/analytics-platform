@@ -1,4 +1,4 @@
-import type { DashboardCoverageId } from '@fops/shared';
+import type { DashboardCoverageId } from '@ap/feature-shared';
 
 // #680 uses the accepted Korean-first labels while prototype data.js remains English.
 export const COVERAGE_METRIC_LABELS = {

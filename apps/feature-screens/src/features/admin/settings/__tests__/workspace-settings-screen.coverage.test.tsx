@@ -14,7 +14,7 @@ import {
   type CoverageThresholds,
   dashboardSummarySchema,
   resolveCoverageThresholds,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 
 import { ApiError } from '@/lib/api';
 

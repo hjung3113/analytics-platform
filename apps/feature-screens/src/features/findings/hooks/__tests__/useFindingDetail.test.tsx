@@ -3,7 +3,7 @@
 // assertion cannot pass vacuously (e.g. through a broken fetch mock).
 
 import { ApiError, ApiParseError } from '@/lib/api/types';
-import type { FindingDto } from '@fops/shared';
+import type { FindingDto } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import type * as React from 'react';

@@ -3,7 +3,7 @@
 // malformed cases so the error assertions cannot pass vacuously.
 
 import { ApiParseError } from '@/lib/api/types';
-import { listSurveysQuerySchema } from '@fops/shared';
+import { listSurveysQuerySchema } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import type * as React from 'react';

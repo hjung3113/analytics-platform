@@ -1,4 +1,4 @@
-import { mySurveyResponsesResponseSchema } from '@fops/shared';
+import { mySurveyResponsesResponseSchema } from '@ap/feature-shared';
 
 import { decodeSurveyResponseHistoryCursor, listMySurveyResponseHistory } from './repo-read.js';
 import type { SurveysActor, SurveysServiceDeps } from './service.js';

@@ -17,7 +17,7 @@ import {
   getConversationQuerySchema,
   listVocsQuerySchema,
   patchVocRequestSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 
 import { HttpError, fieldsFromZodIssues, sendError } from '../../../lib/errors.js';
 import { UUID_REGEX, requireIdempotencyKey, requireIfMatch } from '../../../lib/http-headers.js';

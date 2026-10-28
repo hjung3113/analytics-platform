@@ -1,5 +1,5 @@
 import { TASK_STATUS_LABELS } from '@/lib/copy/enum-labels';
-import { taskStatusSchema } from '@fops/shared';
+import { taskStatusSchema } from '@ap/feature-shared';
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 

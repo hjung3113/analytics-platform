@@ -1,4 +1,10 @@
 import {
+  type PermissionRequestAdminDetail,
+  isCapability,
+  isSensitiveCapability,
+} from '@ap/feature-shared';
+import { OutlineBadge } from '@ap/feature-ui';
+import {
   Button,
   DatePicker,
   Input,
@@ -13,12 +19,6 @@ import {
   SelectValue,
   Textarea,
 } from '@ap/ui';
-import {
-  type PermissionRequestAdminDetail,
-  isCapability,
-  isSensitiveCapability,
-} from '@fops/shared';
-import { OutlineBadge } from '@fops/ui';
 import * as React from 'react';
 
 import { mintIdempotencyKey } from '@/lib/api/idempotency';

@@ -1,5 +1,5 @@
 // Permission owns the write policy; source object fields are provenance only.
-import type { Capability, PermissionScopeCandidate } from '@fops/shared';
+import type { Capability, PermissionScopeCandidate } from '@ap/feature-shared';
 import type { Tx } from '../../db/tx.js';
 import { HttpError } from '../../lib/errors.js';
 import { allManagedSystemIds } from '../managed-systems/read-projections.js';

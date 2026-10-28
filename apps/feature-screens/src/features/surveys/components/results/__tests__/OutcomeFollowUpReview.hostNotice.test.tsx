@@ -4,8 +4,8 @@ import {
   type HostSeam,
   HostSeamProvider,
 } from '@/lib/host/host-seam';
+import type { OutcomeFollowUpReadDto, SurveyResultDto } from '@ap/feature-shared';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
-import type { OutcomeFollowUpReadDto, SurveyResultDto } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';

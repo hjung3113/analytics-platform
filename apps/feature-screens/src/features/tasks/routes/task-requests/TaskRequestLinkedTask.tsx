@@ -1,6 +1,6 @@
 import { HostLink } from '@/lib/host/host-seam';
 import { searchHref } from '@/lib/host/search';
-import type { TaskDto } from '@fops/shared';
+import type { TaskDto } from '@ap/feature-shared';
 
 export function TaskRequestLinkedTask({
   task,

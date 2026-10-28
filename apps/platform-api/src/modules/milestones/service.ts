@@ -5,7 +5,7 @@ import type {
   MilestoneDto,
   MilestoneProgress,
   PatchMilestoneRequest,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 
 import type { Db } from '../../db/client.js';
 import type { Tx } from '../../db/tx.js';

@@ -1,6 +1,9 @@
 import { apiRequest } from '@/lib/api/client';
 import { ApiError } from '@/lib/api/types';
-import { listSurveysResponseSchema, surveyEvidenceCandidatesResponseSchema } from '@fops/shared';
+import {
+  listSurveysResponseSchema,
+  surveyEvidenceCandidatesResponseSchema,
+} from '@ap/feature-shared';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 
 export const surveyEvidenceCandidatesKey = (surveyId: string | null) =>

@@ -1,4 +1,4 @@
-import type { PickerOption } from '@fops/ui';
+import type { PickerOption } from '@ap/feature-ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 

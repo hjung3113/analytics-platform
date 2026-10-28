@@ -1,5 +1,5 @@
 // VOC conversation page read method.
-import type { ConversationEntry, GetConversationQuery } from '@fops/shared';
+import type { ConversationEntry, GetConversationQuery } from '@ap/feature-shared';
 import { HttpError } from '../../../lib/errors.js';
 import { actorEffectiveScope, actorReadScope, actorTriageScope } from '../authorization.js';
 import type { ReadActorContext, VocReadServiceDeps } from '../read-service.js';

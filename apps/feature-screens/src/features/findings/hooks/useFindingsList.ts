@@ -5,8 +5,8 @@
 import { apiRequest } from '@/lib/api/client';
 import { ApiError, ApiParseError } from '@/lib/api/types';
 import { placeholderDataForSearchOnly } from '@/lib/query/placeholder-data-for-search';
-import { listFindingsResponseSchema } from '@fops/shared';
-import type { ListFindingsResponse } from '@fops/shared';
+import { listFindingsResponseSchema } from '@ap/feature-shared';
+import type { ListFindingsResponse } from '@ap/feature-shared';
 import { type UseQueryResult, useInfiniteQuery, useQuery } from '@tanstack/react-query';
 
 export function useFindingsList(

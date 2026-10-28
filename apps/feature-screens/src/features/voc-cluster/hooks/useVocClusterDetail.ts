@@ -3,8 +3,8 @@
 
 import { apiRequest } from '@/lib/api/client';
 import { ApiParseError } from '@/lib/api/types';
-import { vocClusterDtoSchema } from '@fops/shared';
-import type { VocClusterDto } from '@fops/shared';
+import { vocClusterDtoSchema } from '@ap/feature-shared';
+import type { VocClusterDto } from '@ap/feature-shared';
 import { type UseQueryResult, useQuery } from '@tanstack/react-query';
 
 export function useVocClusterDetail(id: string | null | undefined): UseQueryResult<VocClusterDto> {

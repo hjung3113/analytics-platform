@@ -4,7 +4,7 @@ import type {
   SurveyQuestionDto,
   SurveyQuestionKind,
   SurveyStartingPoint,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 
 export type SurveyType = SharedSurveyType;
 export type SurveyStatus = 'draft' | 'open' | 'closed';

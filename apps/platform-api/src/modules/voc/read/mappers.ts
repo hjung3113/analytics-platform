@@ -4,7 +4,7 @@ import type {
   LinkedAttachment,
   VocDetailEnvelope,
   VocListItem,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import type {
   ConversationRow,
   LinkedAttachmentReadRow,

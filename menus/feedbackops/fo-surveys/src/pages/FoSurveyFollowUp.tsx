@@ -1,8 +1,8 @@
 import { useCallback } from 'react';
 import type { ComponentProps } from 'react';
 import { usePlatform, type PageProps } from '@ap/kernel';
-import { FoDetailDrawer, surveyFollowUpRoute, useSurveyFollowUpHere, useSurveyFollowUpSearch } from '@ap/fo-bridge';
-import { SurveyFollowUpScreen } from '@fops/frontend/operator-screens/survey-follow-up';
+import { FoDetailDrawer, surveyFollowUpRoute, useSurveyFollowUpHere, useSurveyFollowUpSearch } from '@ap/feature-bridge';
+import { SurveyFollowUpScreen } from '@ap/feature-screens/operator-screens/survey-follow-up';
 import { SurveyChildPage } from './SurveyChildPage';
 
 /** The review owns the selected response and its close (`focus` is its `selectedId`), so the drawer's close is `requestClose`. */

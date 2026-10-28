@@ -1,7 +1,7 @@
 import { apiRequest } from '@/lib/api/client';
 import { invalidateNavCounts } from '@/lib/query/navCounts';
 import { invalidateRecovery } from '@/lib/query/recovery';
-import { recordVocNoFollowUpRequestSchema, vocNoFollowUpResponseSchema } from '@fops/shared';
+import { recordVocNoFollowUpRequestSchema, vocNoFollowUpResponseSchema } from '@ap/feature-shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 type DecisionIntent = { vocId: string; action: 'record' | 'withdraw'; reason: string; key: string };

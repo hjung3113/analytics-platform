@@ -38,10 +38,10 @@ describe('integration gate (#204)', () => {
         `Unset: ${missing.join(', ')}`,
         '',
         'Run the integration gate instead (loads .env, resets the database, re-seeds):',
-        '  pnpm --filter backend test:integration',
+        '  pnpm --filter @ap/platform-api test:integration',
         '',
         'Or, if this machine has no Postgres, opt out explicitly:',
-        '  ALLOW_SKIPPED_INTEGRATION=1 pnpm --filter backend test',
+        '  ALLOW_SKIPPED_INTEGRATION=1 pnpm --filter @ap/platform-api test',
         '',
       ].join('\n'),
     ).toEqual([]);

@@ -1,7 +1,7 @@
 import { VOC_READ_PERMISSION_REASONS } from '@/lib/copy/permission-reasons';
 import { getSummarySelfDecision } from '@/lib/cross-system/getPermissionDecision';
+import type { VocSummaryEnvelope } from '@ap/feature-shared';
 import { PermissionBlockedPanel } from '@ap/ui';
-import type { VocSummaryEnvelope } from '@fops/shared';
 import type * as React from 'react';
 
 import { DetailHeader } from './DetailHeader';

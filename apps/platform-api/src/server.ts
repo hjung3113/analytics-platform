@@ -1,4 +1,4 @@
-import type { NotificationSubjectReference } from '@fops/shared';
+import type { NotificationSubjectReference } from '@ap/feature-shared';
 import { resolveCorrelationId } from './lib/correlation-id.js';
 import { createOwnerRecoveryRecorder } from './modules/dashboard/truth.js';
 import { createOutcomeRecoveryRecorder } from './modules/surveys/recovery-presentation.js';

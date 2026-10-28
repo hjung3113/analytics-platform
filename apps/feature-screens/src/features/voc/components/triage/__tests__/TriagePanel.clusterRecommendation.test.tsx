@@ -17,7 +17,7 @@ vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
 
 beforeAll(registerNoticeHost);
 
-import { type VocListItem, vocRecommendationsResponseSchema } from '@fops/shared';
+import { type VocListItem, vocRecommendationsResponseSchema } from '@ap/feature-shared';
 import { TriagePanel } from '../TriagePanel';
 
 const VOC: VocListItem = {

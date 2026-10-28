@@ -18,7 +18,7 @@ vi.mock('@/lib/format/datetime', async (importOriginal) => ({
 }));
 
 import { useMeBridge } from '@/lib/api/me';
-import type { ConversationEntry } from '@fops/shared';
+import type { ConversationEntry } from '@ap/feature-shared';
 import { TimelineEntry } from '../TimelineEntry';
 import { ME_RESPONSE } from './_fixtures';
 

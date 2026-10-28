@@ -4,7 +4,7 @@
 // (docs/feedbackops/design-prototype/screen-admin.jsx → AdminAreasScreen +
 // AnalyticsAreaSlideOver). Live API data only; the prototype's window globals /
 // synthetic data are not ported (AGENTS.md → UI Authority). Maps the
-// prototype's dark-token components to the real @fops/ui light-token components
+// prototype's dark-token components to the real @ap/feature-ui light-token components
 // (ADR-0021 / Pack 17).
 //
 // Prototype-silent / locked deviations (recorded in the PR/commit body):

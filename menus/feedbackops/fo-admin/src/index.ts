@@ -1,6 +1,6 @@
 /**
  * @ap/menu-fo-admin — foAdmin group manifests (FeedbackOps space 관리자: Managed System, Analytics Area, 권한 요청 검토, 부여 목록, FeedbackOps 설정; ADR-0081, #764 p2).
- * The FeedbackOps admin screens through the bridge; the page keys equal the route tables in `@ap/fo-bridge` (`managedSystemsRoute`, `analyticsAreasRoute`, `permissionRequestsRoute`, `permissionGrantsRoute`, `settingsRoute`; pinned by the manifests test)
+ * The FeedbackOps admin screens through the bridge; the page keys equal the route tables in `@ap/feature-bridge` (`managedSystemsRoute`, `analyticsAreasRoute`, `permissionRequestsRoute`, `permissionGrantsRoute`, `settingsRoute`; pinned by the manifests test)
  * plus the two keys the space carries (`managedSystem`, `returnTo`; ADR-0081 decision 4). The group id `foAdmin` turns the 목록 범위 picker off (`ScopeControl`, decision 4), so the screens ignore the carried `managedSystem`.
  * `focus` is the selected row (06 §13); `system` is Analytics Area's own Managed System filter. The paths never alias `/admin/*` (the operations space owns it).
  * `console:access` (the `workspace-admin` rule) keeps the section out of reach for non-admins; the screens' own `PermissionGate` stays a display hint (the backend decides).

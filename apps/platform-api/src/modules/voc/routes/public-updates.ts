@@ -5,7 +5,7 @@
 
 import type { FastifyPluginAsync } from 'fastify';
 
-import { resolvePublicUpdateReviewCandidateRequestSchema } from '@fops/shared';
+import { resolvePublicUpdateReviewCandidateRequestSchema } from '@ap/feature-shared';
 
 import { HttpError, fieldsFromZodIssues, sendError } from '../../../lib/errors.js';
 import { UUID_REGEX } from '../../../lib/http-headers.js';

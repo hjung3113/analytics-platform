@@ -7,7 +7,7 @@ import {
   surveyCopySourcesResponseSchema,
   surveyDetailDtoSchema,
   surveyDtoSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 

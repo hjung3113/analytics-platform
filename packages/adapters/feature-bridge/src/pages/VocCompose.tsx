@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { spaceId } from '@ap/contracts';
 import type { VocComposeProps } from '@ap/kernel';
-import { VocComposeScreen } from '@fops/frontend/global-screens';
+import { VocComposeScreen } from '@ap/feature-screens/global-screens';
 import { FoBridge } from '../fo/FoBridge';
 import { foQueryClient } from '../fo/session';
 import { isUuid } from '../fo/uuid';

@@ -5,6 +5,8 @@
 // cannot open Findings (the platform until #763), closes with a success notice.
 
 import { FINDING_SEVERITY_LABELS } from '@/lib/copy/enum-labels';
+import type { CreateFindingRequest } from '@ap/feature-shared';
+import { createFindingRequestSchema, findingSeveritySchema } from '@ap/feature-shared';
 import {
   Button,
   Dialog,
@@ -21,8 +23,6 @@ import {
   SelectValue,
   Textarea,
 } from '@ap/ui';
-import type { CreateFindingRequest } from '@fops/shared';
-import { createFindingRequestSchema, findingSeveritySchema } from '@fops/shared';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type * as React from 'react';
 import { useForm } from 'react-hook-form';
@@ -34,7 +34,7 @@ import { useIdempotencyKey } from '@/lib/api/useIdempotencyKey';
 import { useHostNavigate, useHostSeam } from '@/lib/host/host-seam';
 
 // ── Severity options (mirrors CreateFindingModal) ─────────────────────────────
-// Built inside the component: FINDING_SEVERITY_LABELS re-exports @fops/ui, and
+// Built inside the component: FINDING_SEVERITY_LABELS re-exports @ap/feature-ui, and
 // evaluating it at module init breaks when this file loads early in the route
 // tree import chain (RouteFallback.test hit it via voc-clusters).
 

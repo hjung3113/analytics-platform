@@ -1,5 +1,5 @@
 // VOC list and navigation count read methods.
-import type { ListVocsQuery, VocListItem } from '@fops/shared';
+import type { ListVocsQuery, VocListItem } from '@ap/feature-shared';
 import { HttpError } from '../../../lib/errors.js';
 import {
   type Scope,

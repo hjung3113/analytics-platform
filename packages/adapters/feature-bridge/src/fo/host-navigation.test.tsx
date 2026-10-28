@@ -7,7 +7,7 @@ import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap
 import { noContext, testAdapter, testSession, testSpace, useToastsForTest } from '@ap/kernel/testing';
 import { groupId, spaceId } from '@ap/contracts';
 import { useHostSeam } from '@/lib/host/host-seam';
-import type { HostSeam } from '@fops/frontend/global-screens/core';
+import type { HostSeam } from '@ap/feature-screens/global-screens/core';
 import { setFoApi } from '../fo-api';
 import { FoBridge } from './FoBridge';
 import { hostLinks } from './links';

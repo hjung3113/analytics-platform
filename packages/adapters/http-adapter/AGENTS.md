@@ -14,7 +14,7 @@
 
 ## 규칙
 
-- 의존성은 `@ap/contracts` 하나뿐이다. React·DOM 컴포넌트·다른 `@ap/*`·`@fops/*`를 import하지 않는다.
+- 의존성은 `@ap/contracts` 하나뿐이다. React·DOM 컴포넌트·다른 `@ap/*`·`feature packages`를 import하지 않는다.
 - 쿠키·토큰을 저장소(`localStorage` 등)에 쓰지 않는다. 사용자 id·actor를 보내지 않는다.
 - 사용자에게 보이는 `message`는 짧은 코드(`client_timeout`·`network_error`·`session_expired`·`http_<status>`·`invalid_response`·`invalid_envelope`)뿐이다. URL·응답 본문·스택을 싣지 않는다(#101).
 - 이 패키지를 import하는 곳은 앱의 운영 조립 `apps/platform-web/src/real/**`(경계 lint)와 FeedbackOps 백엔드의 실서버 적합성 테스트(devDependency, 테스트 코드만 — ADR-0073, #674)뿐이다.

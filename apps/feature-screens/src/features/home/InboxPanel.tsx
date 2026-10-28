@@ -1,3 +1,4 @@
+import { type NotificationDto, isCapability } from '@ap/feature-shared';
 import {
   Button,
   SkeletonRows,
@@ -8,7 +9,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@ap/ui';
-import { type NotificationDto, isCapability } from '@fops/shared';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Archive, Check } from 'lucide-react';
 import * as React from 'react';

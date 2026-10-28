@@ -21,7 +21,7 @@ import {
   type NotificationDto,
   OPEN_PERMISSION_REQUEST_STATUSES,
   type PermissionRequestStatus,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import { useQuery } from '@tanstack/react-query';
 import * as React from 'react';
 

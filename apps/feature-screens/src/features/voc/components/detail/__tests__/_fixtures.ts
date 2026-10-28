@@ -3,7 +3,7 @@
 import type { ConversationPage } from '@/features/voc/hooks/useVocConversation';
 import type { MeResponse } from '@/lib/auth/useMe';
 import type { VocDetailResult } from '@/lib/cross-system/useVocDetail';
-import type { VocDetailEnvelope } from '@fops/shared';
+import type { VocDetailEnvelope } from '@ap/feature-shared';
 import type { UseInfiniteQueryResult, UseQueryResult } from '@tanstack/react-query';
 
 // ── Stub actors ──────────────────────────────────────────────────────────────

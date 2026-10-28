@@ -1,7 +1,7 @@
 import * as api from '@/lib/api';
 import { linkTaskToFinding, listTasks } from '@/lib/api';
 import { type HostLinkProps, HostSeamProvider } from '@/lib/host/host-seam';
-import type { FindingDto, TaskDto } from '@fops/shared';
+import type { FindingDto, TaskDto } from '@ap/feature-shared';
 // LinkTaskModal.test.tsx — the link-task mutation's success wiring lives inside
 // this modal component (invalidation + close), so it is covered with RTL
 // instead of controller-level spies. See useFindingDetailController.test.tsx.

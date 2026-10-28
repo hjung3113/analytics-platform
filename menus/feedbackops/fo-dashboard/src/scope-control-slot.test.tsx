@@ -2,8 +2,8 @@ import { cleanup, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { spaceId } from '@ap/contracts';
 import { memoryStorage } from '@ap/kernel/testing';
-import { setFoApi } from '@ap/fo-bridge/fo-api';
-import { scopeControlSlot } from '@ap/fo-bridge/scope-control';
+import { setFoApi } from '@ap/feature-bridge/fo-api';
+import { scopeControlSlot } from '@ap/feature-bridge/scope-control';
 import { mountAt } from './test-support';
 
 beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); });

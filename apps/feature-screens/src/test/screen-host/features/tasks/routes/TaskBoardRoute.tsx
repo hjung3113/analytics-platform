@@ -11,7 +11,7 @@ import {
 } from '@/lib/host/host-seam';
 import type { HostSearch } from '@/lib/host/search';
 import { TaskDetailPanel } from '@/test/host-adapters/features/tasks/components/TaskDetailPanel';
-import { useDetailPanelSlot } from '@fops/ui';
+import { useDetailPanelSlot } from '@ap/feature-ui';
 import { useNavigate } from '@tanstack/react-router';
 import * as React from 'react';
 

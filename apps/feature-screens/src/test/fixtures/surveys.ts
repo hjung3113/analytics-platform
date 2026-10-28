@@ -7,7 +7,7 @@ import {
   surveyQuestionKindSchema,
   surveyTemplatesResponseSchema,
   surveyTypeSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import { z } from 'zod';
 import { managedSystemVisualSchema } from './managed-system-owner';
 

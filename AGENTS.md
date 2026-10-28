@@ -70,7 +70,7 @@
 
 ## FeedbackOps (`apps/{platform-api,feature-screens}`·`packages/feature-*`·`docs/feedbackops/`·`ops/platform-api/`)
 
-FeedbackOps는 이 저장소의 일반 코드다(서브모듈 아님, [ADR-0066](docs/adr/0066-feedbackops-merges-into-platform.md), #592). 앱·패키지(`@fops/*`)는 `apps/platform-api`·`apps/feature-screens`·`packages/feature-shared`·`packages/feature-ui`, 문서는 `docs/feedbackops/`에 있다([ADR-0090](docs/adr/0090-repo-structure-by-branch.md), #713). 루트 pnpm workspace의 일부이고(#642) Node 26.7·pnpm 11·루트 lockfile·turbo를 함께 쓰며 `@ap/ui`는 `workspace:*`로 받는다. 린트는 자체 Biome이고, 루트 `lint|typecheck|test|build`는 FeedbackOps를 뺀다. FeedbackOps 루트 도구(스크립트·게이트·compose·conductor, 워크스페이스 패키지 `@fops/ops`)는 `ops/platform-api/`에 있고 FeedbackOps 명령은 저장소 루트에서 `pnpm --filter @fops/ops <script>`·`bash ops/platform-api/scripts/ci/gate.sh …`로 실행한다(앱·패키지 위치는 `ops/platform-api/paths.sh`·`paths.mjs` 한 곳, [ADR-0090](docs/adr/0090-repo-structure-by-branch.md)). 내부 작업은 `docs/feedbackops/AGENTS.md`와 각 앱·패키지의 `AGENTS.md`를 따르며, 플랫폼 규칙을 소급 적용하지 않는다. CI는 `.github/workflows/feedbackops.yml`(`docs/feedbackops/`·`apps/{platform-api,feature-screens}`·`packages/feature-*`·`ops/platform-api/`, `packages/sdk/{ui,contracts}`·`packages/adapters/{http-adapter,server-conformance}`, 루트 manifest·lockfile 등이 바뀔 때 — 경로 목록의 원본은 그 파일). 통합 계약이 충돌하면 한쪽을 임의로 고치지 말고 사용자에게 올린다. 구조는 `docs/integration/repository-layout.md`.
+FeedbackOps 코드는 이 저장소의 일반 코드다(서브모듈 아님, [ADR-0066](docs/adr/0066-feedbackops-merges-into-platform.md)). 코어 서버 `@ap/platform-api`, 화면 `@ap/feature-screens`, 공유 계약 `@ap/feature-shared`, 기능 UI `@ap/feature-ui`, 다리 `@ap/feature-bridge`, 도구 `@ap/platform-api-ops`가 루트 workspace·lockfile·Node 26.7·pnpm 11을 함께 쓴다([ADR-0097](docs/adr/0097-platform-features-and-role-based-names.md)). 루트 `lint|typecheck|test|build`는 기능 패키지까지 포함한다. 서버 `test`는 DB 환경 셋을 제거하고 `ALLOW_SKIPPED_INTEGRATION=1`로 비DB 경로만 실행하며, 실제 통합 검증은 격리 DB의 `test:integration` 결과가 필요하다. 운영 도구의 집계 명령은 `pnpm --filter @ap/platform-api-ops feature:build|feature:dev|feature:test|feature:typecheck`다. 루트 lint의 도구 leaf는 경계 검사·디자인 lint·커밋된 변경 파일 Biome를 수행한다(비캐시, `FEATURE_LINT_BASE` 기본 `origin/main`, 기준 이력 없으면 실패). 전체 Biome는 `lint:all`이고 ESLint 전환은 #1102 미구현이다. CI는 `.github/workflows/ci.yml`이 정적·단위·격리 통합 검사를 함께 소유하고 필수 workspace 상태에 합친다. 내부 규칙은 `docs/feedbackops/AGENTS.md`와 각 패키지 `AGENTS.md`, 구조·CI 세부는 [repository-layout](docs/integration/repository-layout.md)을 따른다. 통합 계약이 충돌하면 사용자에게 올린다.
 
 ## 폴더별 지침
 
@@ -84,7 +84,7 @@ FeedbackOps는 이 저장소의 일반 코드다(서브모듈 아님, [ADR-0066]
 | [`tooling/`](tooling/AGENTS.md) | 공유 tsconfig·경계 lint·메뉴 생성기(`pnpm gen:menu`)·CSS selector 비교 |
 | [`site/`](site/AGENTS.md) | 도입 소개 페이지(정적, workspace 밖)와 Pages 조립 |
 | [`archive/`](archive/AGENTS.md) | 통합 전 Kernel 단위 프로토타입(보존, 새 기능 금지) |
-| [`docs/feedbackops/`](docs/feedbackops/AGENTS.md) | FeedbackOps 문서와 규칙(앱·패키지는 `apps/{platform-api,feature-screens}`·`packages/feature-*`, 루트 workspace의 `@fops/*`, 위 경계 참조) |
+| [`docs/feedbackops/`](docs/feedbackops/AGENTS.md) | FeedbackOps 문서와 규칙(앱·패키지는 `apps/{platform-api,feature-screens}`·`packages/feature-*`, 루트 workspace의 기능 패키지 집합(`tooling/eslint/src/feature-packages.js`), 위 경계 참조) |
 
 ## 에이전트 자산
 

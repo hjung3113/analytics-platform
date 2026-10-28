@@ -6,7 +6,7 @@
 
 import { ApiError } from '@/lib/api/types';
 import { GLOSSARY } from '@/lib/copy/glossary';
-import type { FindingStatus } from '@fops/shared';
+import type { FindingStatus } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import * as React from 'react';

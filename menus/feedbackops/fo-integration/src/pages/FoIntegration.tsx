@@ -1,7 +1,7 @@
 import type { ComponentProps } from 'react';
-import { FoDetailDrawer, FoScreenPage, integrationDashboardRoute, useIntegrationDashboardHere, useIntegrationDashboardSearch } from '@ap/fo-bridge';
-import { IntegrationDashboardScreen, renderRecoveryRequestAccess } from '@fops/frontend/operator-screens/integration-dashboard';
-import { isIntegrationDashboardSearchValueValid } from '@fops/frontend/operator-screens/integration-search';
+import { FoDetailDrawer, FoScreenPage, integrationDashboardRoute, useIntegrationDashboardHere, useIntegrationDashboardSearch } from '@ap/feature-bridge';
+import { IntegrationDashboardScreen, renderRecoveryRequestAccess } from '@ap/feature-screens/operator-screens/integration-dashboard';
+import { isIntegrationDashboardSearchValueValid } from '@ap/feature-screens/operator-screens/integration-search';
 
 /** The screen owns the selected item and its close (`focus` is its `selected`), so the drawer's close is `requestClose`. */
 const renderDetail: ComponentProps<typeof IntegrationDashboardScreen>['renderDetail'] = parts => <FoDetailDrawer parts={parts} onClose={parts.requestClose} />;

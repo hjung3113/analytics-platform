@@ -1,8 +1,8 @@
 import { ROLE_LEVEL_DISPLAY_LABELS } from '@/lib/copy/enum-labels';
 import { GLOSSARY } from '@/lib/copy/glossary';
 
+import { OutlineBadge } from '@ap/feature-ui';
 import { Button, DetailPanelFullscreenToggle, FieldRow, PanelSectionTitle } from '@ap/ui';
-import { OutlineBadge } from '@fops/ui';
 import * as React from 'react';
 
 import { ADMIN_PERMISSIONS_COPY } from '@/lib/copy/admin-permissions';
@@ -10,7 +10,7 @@ import { getCapabilityDisplayLabel } from '@/lib/copy/capabilities';
 import { formatDateOnly, formatDateTime } from '@/lib/format/datetime';
 import type { ClosableDetailParts } from '@/lib/host/detail-parts';
 import { shortId } from '@/lib/identity';
-import type { PermissionRequestAdminDetail } from '@fops/shared';
+import type { PermissionRequestAdminDetail } from '@ap/feature-shared';
 
 import { PermissionRequestDecisionForm } from './permission-request-decision-form.js';
 import { permissionRequestStatusLabel } from './permission-requests-search.js';

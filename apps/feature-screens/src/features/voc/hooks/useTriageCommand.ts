@@ -19,7 +19,7 @@ import { invalidateRecovery } from '@/lib/query/recovery';
 import { ApiError } from '@/lib/api/types';
 import { useHostNotice } from '@/lib/host/host-seam';
 import { invalidateNavCounts } from '@/lib/query/navCounts';
-import type { VocListItem } from '@fops/shared';
+import type { VocListItem } from '@ap/feature-shared';
 import { useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
 import { runTriageCompensation } from '../lib/triage-compensation';

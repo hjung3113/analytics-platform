@@ -7,7 +7,7 @@
 // graph itself, resolving `.js` -> `.ts` during bundling, and keeps bare
 // imports (drizzle-orm) external.
 //
-// esbuild is not a direct dependency of @fops/backend, but drizzle-kit depends
+// esbuild is not a direct dependency of @ap/platform-api, but drizzle-kit depends
 // on it; resolve it through drizzle-kit's location so the versions stay pinned
 // together. Output lives in a gitignored directory and is regenerated on every
 // db:generate run, so it can never go stale for generate.

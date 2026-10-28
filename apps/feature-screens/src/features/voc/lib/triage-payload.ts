@@ -10,7 +10,7 @@
 //   confirm/finding → { triage_state:prior state, ...prior values }
 //   skip            → { postpone_review: false }
 
-import type { VocListItem } from '@fops/shared';
+import type { VocListItem } from '@ap/feature-shared';
 import type { TriageInput, TriageSnapshot } from './triage-types';
 
 /** Prior (pre-mutation) VOC fields the compensating PATCH must restore. */

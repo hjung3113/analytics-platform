@@ -13,7 +13,7 @@ const root = REPO_ROOT;
 const baselinePath = join(gateDir, 'frontend-typecheck-baseline.txt');
 let out = '';
 try {
-  out = execFileSync('pnpm', ['--filter', '@fops/frontend', 'exec', 'tsc', '--noEmit'], {
+  out = execFileSync('pnpm', ['--filter', '@ap/feature-screens', 'exec', 'tsc', '--noEmit'], {
     cwd: root,
     encoding: 'utf8',
     env: { ...process.env, NODE_OPTIONS: '' },

@@ -1,6 +1,6 @@
 import { listTasks } from '@/lib/api/tasks';
 import { placeholderDataForSearchOnly } from '@/lib/query/placeholder-data-for-search';
-import type { ListTasksResponse, TaskDto, TaskStatus } from '@fops/shared';
+import type { ListTasksResponse, TaskDto, TaskStatus } from '@ap/feature-shared';
 import { type QueryKey, useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import * as React from 'react';
 

@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
-import { setFoApi } from '@ap/fo-bridge/fo-api';
+import { setFoApi } from '@ap/feature-bridge/fo-api';
 import { HostLink } from '@/lib/host/host-seam';
 import { mountAt, warmPages } from '../test-support';
 
@@ -10,17 +10,17 @@ import { mountAt, warmPages } from '../test-support';
  * followed through the host seam's real `Link`: the list context must survive each hop and the way back (#764 p1). The screens are doubles that draw those hrefs; the
  * address checks (FeedbackOps' real surveys-search schemas) and the link seam are not mocked.
  */
-vi.mock('@fops/frontend/operator-screens/surveys', () => ({
+vi.mock('@ap/feature-screens/operator-screens/surveys', () => ({
   SurveysScreen: () => <div data-testid="list"><HostLink to={`/surveys/${SURVEY_A}?builder=true`}>빌더 열기</HostLink></div>,
 }));
-vi.mock('@fops/frontend/operator-screens/survey-detail', () => ({ useSurveyDetailParts: () => ({ title: 'Survey', body: null, view: { kind: 'loading' } }) }));
-vi.mock('@fops/frontend/operator-screens/survey-builder', () => ({
+vi.mock('@ap/feature-screens/operator-screens/survey-detail', () => ({ useSurveyDetailParts: () => ({ title: 'Survey', body: null, view: { kind: 'loading' } }) }));
+vi.mock('@ap/feature-screens/operator-screens/survey-builder', () => ({
   SurveyBuilderScreen: (props: { onBack: () => void }) => <div data-testid="builder"><button type="button" onClick={props.onBack}>빌더 뒤로</button></div>,
 }));
-vi.mock('@fops/frontend/operator-screens/survey-results', () => ({
+vi.mock('@ap/feature-screens/operator-screens/survey-results', () => ({
   SurveyResultsScreen: () => <div data-testid="results"><HostLink to={`/surveys/${SURVEY_A}/follow-up`}>후속 조치</HostLink></div>,
 }));
-vi.mock('@fops/frontend/operator-screens/survey-follow-up', () => ({
+vi.mock('@ap/feature-screens/operator-screens/survey-follow-up', () => ({
   SurveyFollowUpScreen: () => <div data-testid="follow-up"><HostLink to="/surveys">Surveys</HostLink><HostLink to={`/surveys/${SURVEY_A}/results`}>결과</HostLink></div>,
 }));
 

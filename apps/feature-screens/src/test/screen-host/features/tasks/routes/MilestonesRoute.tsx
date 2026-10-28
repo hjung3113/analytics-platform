@@ -7,7 +7,7 @@ import { type HostNavigate, HostSeamProvider, useHostSeam } from '@/lib/host/hos
 import type { HostSearch } from '@/lib/host/search';
 import { MilestoneCreateFrame } from '@/test/host-adapters/features/tasks/components/milestone-detail/MilestoneCreatePanel';
 import { MilestoneDetailFrame } from '@/test/host-adapters/features/tasks/components/milestone-detail/MilestoneDetailPanel';
-import { useDetailPanelSlot } from '@fops/ui';
+import { useDetailPanelSlot } from '@ap/feature-ui';
 import { useNavigate } from '@tanstack/react-router';
 import * as React from 'react';
 

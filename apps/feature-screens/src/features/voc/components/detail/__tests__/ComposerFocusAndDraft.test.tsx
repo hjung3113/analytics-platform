@@ -14,8 +14,8 @@ vi.mock('sonner', () => ({
 import * as attachmentsApi from '@/lib/api/attachments';
 import type { MeResponse } from '@/lib/auth/useMe';
 import { useJsdomRangeGeometry } from '@/test/realEditor';
-import type { VocDetailEnvelope } from '@fops/shared';
-import type { TipTapEditor } from '@fops/ui';
+import type { VocDetailEnvelope } from '@ap/feature-shared';
+import type { TipTapEditor } from '@ap/feature-ui';
 import { toast } from 'sonner';
 import { InternalCommentComposer } from '../InternalCommentComposer';
 import { PublicUpdateComposer } from '../PublicUpdateComposer';

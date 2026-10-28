@@ -1,4 +1,4 @@
-import { coverageThresholdsPatchSchema, coverageThresholdsSchema } from '@fops/shared';
+import { coverageThresholdsPatchSchema, coverageThresholdsSchema } from '@ap/feature-shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 

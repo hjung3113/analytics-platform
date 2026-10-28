@@ -2,7 +2,7 @@ import {
   listActorsResponseSchema,
   managedSystemDefaultCandidatesSchema,
   managedSystemDefaultDiagnosticsSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import { z } from 'zod';
 
 export const managedSystemOwnerVisualScenario = z

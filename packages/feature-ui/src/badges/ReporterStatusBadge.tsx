@@ -3,7 +3,7 @@ import type * as React from 'react';
 
 /**
  * Reporter-facing VOC status enum — mirrors `reporterFacingStatusEnumSchema`
- * from `@fops/shared/vocs/list-item`.
+ * from `@ap/feature-shared/vocs/list-item`.
  */
 export type ReporterFacingStatusEnum =
   | 'received'

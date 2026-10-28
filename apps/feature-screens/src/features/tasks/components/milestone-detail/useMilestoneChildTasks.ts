@@ -1,5 +1,5 @@
 import { listTasks } from '@/lib/api/tasks';
-import type { TaskDto } from '@fops/shared';
+import type { TaskDto } from '@ap/feature-shared';
 import { useQuery } from '@tanstack/react-query';
 
 export function useMilestoneChildTasks(milestoneId: string): {

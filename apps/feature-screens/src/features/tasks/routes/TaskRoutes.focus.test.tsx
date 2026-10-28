@@ -12,13 +12,13 @@ import {
 } from '@/test/host-adapters/lib/router/search-serialization';
 import { TasksRouteView, validateTasksSearch } from '@/test/screen-host/routes/_authed/tasks';
 import { taskRequestPage } from '@/test/task-request-pages';
-import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import {
   type TaskDetailDto,
   type TaskRequestDto,
   listTaskRequestsQuerySchema,
   listTasksQuerySchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
+import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   RouterProvider,

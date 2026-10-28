@@ -1,4 +1,4 @@
-import { notificationEventTypeSchema } from '@fops/shared';
+import { notificationEventTypeSchema } from '@ap/feature-shared';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { NotificationTx } from '../port.js';
