@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light" />
     <meta name="robots" content="noindex,nofollow" />
-    <title>Analytics Platform — 분석 메뉴를 위한 공통 플랫폼</title>
-    <meta name="description" content="분석 메뉴를 위한 공통 플랫폼의 분석 보드, Context, 딥링크, 공통 컴포넌트, 권한, 오류 처리, 플랫폼 메뉴와 이용 기록을 소개합니다." />
+    <title>Analytics Platform — 여러 업무 시스템을 하나의 플랫폼에 연결</title>
+    <meta name="description" content="분석 기능 재사용과 확장, 분석 보드, Context, 딥링크, 공통 컴포넌트, 권한, 오류 처리, 플랫폼 메뉴와 이용 기록을 소개합니다." />
     <link rel="icon" href="assets/favicon.svg" />
     <link rel="stylesheet" href="assets/tokens/fops-tokens.css" />
     <link rel="stylesheet" href="assets/tokens/ap-tokens.css" />
@@ -45,8 +45,8 @@
         <nav aria-label="모바일 목차">
           <p class="nav-group">개요</p>
           <a href="#intro">소개</a><a href="#features">기능 목차</a>
-          <p class="nav-group">기능 1–8</p>
-          <a href="#board">1. 분석 보드</a><a href="#context">2. 분석 Context 연결</a><a href="#deeplink">3. 딥링크</a><a href="#components">4. 공통 컴포넌트</a><a href="#permission">5. 권한·Scope</a><a href="#errors">6. 오류 처리</a><a href="#platform-menu">7. 플랫폼 메뉴</a><a href="#usage">8. 이용 기록·개인 설정</a>
+          <p class="nav-group">기능 1–9</p>
+          <a href="#panel-reuse">1. 분석 기능 재사용과 확장</a><a href="#board">2. 분석 보드</a><a href="#context">3. 분석 Context 연결</a><a href="#deeplink">4. 딥링크</a><a href="#components">5. 공통 컴포넌트</a><a href="#permission">6. 권한·Scope</a><a href="#errors">7. 오류 처리</a><a href="#platform-menu">8. 플랫폼 메뉴</a><a href="#usage">9. 이용 기록·개인 설정</a>
           <p class="nav-group">이어서</p>
           <a href="#next">준비 중인 기능</a><a href="#appendix">부록 · 참고 자료</a><a href="glossary.html">용어 페이지 ↗</a>
           <a class="toc-github" href="https://github.com/hjung3113/analytics-platform">GitHub</a>
@@ -60,66 +60,213 @@
       <nav aria-label="섹션 목차">
         <p class="nav-group">개요</p>
         <a href="#intro">소개</a><a href="#features">기능 목차</a>
-        <p class="nav-group">기능 1–8</p>
-        <a href="#board">1. 분석 보드</a><a href="#context">2. 분석 Context 연결</a><a href="#deeplink">3. 딥링크</a><a href="#components">4. 공통 컴포넌트</a><a href="#permission">5. 권한·Scope</a><a href="#errors">6. 오류 처리</a><a href="#platform-menu">7. 플랫폼 메뉴</a><a href="#usage">8. 이용 기록·개인 설정</a>
+        <p class="nav-group">기능 1–9</p>
+        <a href="#panel-reuse">1. 분석 기능 재사용과 확장</a><a href="#board">2. 분석 보드</a><a href="#context">3. 분석 Context 연결</a><a href="#deeplink">4. 딥링크</a><a href="#components">5. 공통 컴포넌트</a><a href="#permission">6. 권한·Scope</a><a href="#errors">7. 오류 처리</a><a href="#platform-menu">8. 플랫폼 메뉴</a><a href="#usage">9. 이용 기록·개인 설정</a>
         <p class="nav-group">이어서</p>
         <a href="#next">준비 중인 기능</a><a href="#appendix">부록 · 참고 자료</a><a href="glossary.html">용어 페이지 ↗</a>
       </nav>
     </aside>
     <main>
-<section id="intro" class="hero-section" aria-labelledby="intro-heading">
-  <div class="hero-grid">
-    <div class="hero-copy">
-      <p class="eyebrow">분석 플랫폼</p>
-      <h1 id="intro-heading">분석 화면을 위한 공통 플랫폼</h1>
-      <p class="hero-core">분석 <a class="glossary-term" href="glossary.html#menu">메뉴</a>들이 얹히는 공통 플랫폼입니다. 메뉴를 새로 만들면 아래 기능을 처음부터 갖습니다.</p>
-      <p class="hero-actions"><a class="button primary" href="#features">기능 목차 <span aria-hidden="true">↓</span></a><a class="text-link" data-demo hidden href="demo/" target="_blank" rel="noopener">데모 열기 ↗</a></p>
-      <div class="hero-status"><p><b>현재 데모</b> 예시 데이터로 동작합니다. 사내 서버 연결 전입니다.</p><details class="evidence-details evidence-inline"><summary>근거</summary><p>데모는 합성 데이터와 예시 서버 연결부를 사용합니다. <a class="source-ref" href="#source-L42">L42</a> · <a class="source-ref" href="#source-L73">L73</a> · <a class="source-ref" href="#source-L115">L115</a></p></details></div>
+<section id="intro" class="hero-section p1053-hero p1053-a" aria-labelledby="p1053-a-heading">
+    <div class="p1053-heading">
+      <p class="eyebrow">플랫폼 목적 · 안 A</p>
+      <h1 id="p1053-a-heading">여러 업무 시스템을 하나의 플랫폼에 연결</h1>
+      <p class="p1053-label">공통 기반 공유</p>
     </div>
-    <div class="hero-visual">
-      <!--HERO_STACK-->
-      <div class="hero-stack" role="group" aria-label="MARS, BRAVO, CLAS의 견본 화면">
-        <div class="stack-canvas">
-          <div class="stack-screens">
+    <div class="p1053-flow p1053-flow-a" role="group" aria-label="업무 시스템에서 플랫폼과 공통 가치로 이어지는 구조">
+      <section class="p1053-systems" aria-labelledby="p1053-a-systems">
+        <h2 id="p1053-a-systems" class="p1053-subhead">업무 시스템 · 각자 업무 기능</h2>
+        <!--HERO_STACK-->
+        <div class="p1053-system-grid">
+          <article class="p1053-system-card">
             <figure class="shot-figure stack-shot stack-mars" data-shot-fig="cycle-time-full"><!--shot:cycle-time-full--><figcaption class="stack-tag">MARS · 견본</figcaption></figure>
-            <figure class="shot-figure stack-shot stack-bravo" data-shot-fig="catalog"><!--shot:catalog--><figcaption class="stack-tag">BRAVO · 견본</figcaption></figure>
+            <div class="p1053-system-text"><h3>MARS</h3><p>생산성 분석</p><span class="badge">데모 제공</span></div>
+          </article>
+          <article class="p1053-system-card">
             <figure class="shot-figure stack-shot stack-clas" data-shot-fig="clas-operation-time"><!--shot:clas-operation-time--><figcaption class="stack-tag">CLAS · 견본</figcaption></figure>
-            <span class="stack-tie stack-tie-mars" aria-hidden="true"></span><span class="stack-tie stack-tie-bravo" aria-hidden="true"></span><span class="stack-tie stack-tie-clas" aria-hidden="true"></span>
-          </div>
-          <div class="stack-base" role="group" aria-label="공통 플랫폼 위의 업무 시스템">
-            <p class="stack-base-label"><a class="glossary-term" href="glossary.html#work-system">업무 시스템</a></p>
-            <ul class="stack-band" aria-label="데모에 등록된 업무 시스템">
-              <li>MARS</li><li>BRAVO</li><li>CLAS</li><li>운영 콘솔</li><li>표준 로그 개발 · 메뉴 예정</li><li>개선 실행 · 메뉴 예정</li>
-            </ul>
-          </div>
+            <div class="p1053-system-text"><h3>CLAS</h3><p>동작시간 분석</p><span class="badge">데모 제공</span></div>
+          </article>
+          <article class="p1053-system-card">
+            <figure class="shot-figure stack-shot stack-bravo" data-shot-fig="catalog"><!--shot:catalog--><figcaption class="stack-tag">BRAVO · 견본</figcaption></figure>
+            <div class="p1053-system-text"><h3>BRAVO</h3><p>지표 관리</p><span class="badge">데모 제공</span></div>
+          </article>
         </div>
-        <p class="stack-caption">화면은 예시 데이터입니다. 표준 로그 개발·개선 실행은 업무 시스템만 등록돼 있고 메뉴는 예정입니다.</p>
-      </div>
-      <!--/HERO_STACK-->
-      <!--HERO_FALLBACK-->
+        <!--/HERO_STACK-->
+        <!--HERO_FALLBACK-->
+      </section>
+      <span class="p1053-flow-arrow" aria-hidden="true">↓</span>
+      <section class="p1053-platform" aria-labelledby="p1053-a-platform">
+        <p class="p1053-overline">공통 기반 · SDK</p>
+        <h2 id="p1053-a-platform">AP Platform</h2>
+        <ul class="p1053-capabilities">
+          <li><b>인증·권한</b><span>데모 제공 · 사내 SSO 예정 <a href="https://github.com/hjung3113/analytics-platform/issues/150">#150</a></span></li>
+          <li><b>Context·탐색</b><span>데모 제공</span></li>
+          <li><b>표·차트 SDK</b><span>데모 제공</span></li>
+          <li><b>공통 서비스</b><span>데모 제공 · 실서버 연결 예정 <a href="https://github.com/hjung3113/analytics-platform/issues/157">#157</a></span></li>
+        </ul>
+      </section>
+      <span class="p1053-flow-arrow" aria-hidden="true">↓</span>
+      <section class="p1053-values" aria-labelledby="p1053-a-values">
+        <h2 id="p1053-a-values" class="p1053-subhead">플랫폼이 만드는 가치</h2>
+        <div class="p1053-value-grid">
+          <article class="p1053-value-card"><h3>사용자 · 허용된 데이터만</h3><p>한 번 로그인하면 내 권한 범위로 분석</p><span class="badge">데모 제공</span></article>
+          <article class="p1053-value-card"><h3>사용자 · 이어지는 분석</h3><p>메뉴를 옮겨도 보던 조건이 따라옴</p><span class="badge">데모 제공</span></article>
+          <article class="p1053-value-card"><h3>개발자 · 다시 만들지 않기</h3><p>화면마다 반복하던 부분을 가져다 씀</p><span class="badge">데모 제공 · 패널 재사용 예정 <a href="https://github.com/hjung3113/analytics-platform/issues/911">#911</a></span></article>
+          <article class="p1053-value-card"><h3>운영 · 한 곳에서 추적</h3><p>오류 · 문의 · 알림을 같은 흐름으로 처리</p><span class="badge">데모 제공</span></article>
+        </div>
+      </section>
+      <span class="p1053-flow-arrow" aria-hidden="true">↓</span>
+      <p class="p1053-goal"><span>장기 목표</span>플랫폼 소유 단일 Framework <a href="https://github.com/hjung3113/analytics-platform/issues/396">#396</a><small>검증된 범용 패턴만 공통 SDK로 선별 재사용</small></p>
     </div>
-  </div>
-</section>
+  </section>
+
+<template id="hero-fallback-source">
+  <figure class="diagram diagram-a">
+    <div class="hero-fallback-content">
+      <div><b>업무 시스템</b><span>MARS · 생산성 분석</span><span>CLAS · 동작시간 분석</span><span>BRAVO · 지표 관리</span></div>
+      <p aria-hidden="true">↓</p>
+      <div><b>AP Platform · 공통 기반</b><span>인증 · 권한</span><span>Context · 탐색 · 공통 SDK</span><span>공통 서비스</span></div>
+      <p aria-hidden="true">↓</p>
+      <div><b>플랫폼이 만드는 가치</b><span>허용된 데이터</span><span>이어지는 분석</span><span>기능 재사용</span><span>한 곳에서 추적</span></div>
+    </div>
+    <figcaption>설명용 도식 · 업무 기능과 데이터는 각 시스템 소유 · 사내 SSO #150과 서버 연결 #157은 예정 · 단일 Framework #396은 장기 목표</figcaption>
+  </figure>
+</template>
+
+<section id="panel-reuse" class="content-section p1053-benefit" aria-labelledby="p1053-a-benefit-heading">
+    <div class="section-head">
+      <p class="section-label">첫 번째 장점 · 동작시간분석 (HW Time)</p>
+      <h2 id="p1053-a-benefit-heading">지금은 메뉴 단위 · 앞으로는 패널 단위</h2>
+      <p class="p1053-case-note">HW Time의 네 메뉴는 같은 부품을 쓰지만, 다른 곳에서 쓰려면 지금은 메뉴 전체를 가져옵니다.</p>
+    </div>
+
+    <div class="p1053-ladder" role="group" aria-label="HW Time의 현재 메뉴 단위 사용, 예정된 패널 재사용, 사용자 조합 목표">
+      <article class="p1053-stage-card p1053-current-stage" aria-labelledby="p1053-current-heading">
+        <p class="p1053-stage-status">현재 · 데모 제공</p>
+        <h3 id="p1053-current-heading">메뉴 통째로</h3>
+        <figure class="p1053-menu-capture">
+          <div class="p1053-panel-map">
+            <img src="assets/panel-reuse/hw-time-compare-module-pm1.png" width="1148" height="850" alt="HW Time 비교 데모 화면의 본문. 왼쪽은 요약, 오른쪽 위는 구성, 오른쪽 아래는 상세 패널입니다.">
+            <span class="p1053-panel-outline" aria-hidden="true" style="--panel-left:1.509%;--panel-top:2.1%;--panel-width:32.74%;--panel-height:95.54%"><b>요약</b></span>
+            <span class="p1053-panel-outline p1053-panel-outline-key" aria-hidden="true" style="--panel-left:34.81%;--panel-top:2.1%;--panel-width:63.87%;--panel-height:45.47%"><b>구성</b></span>
+            <span class="p1053-panel-outline" aria-hidden="true" style="--panel-left:34.81%;--panel-top:48.43%;--panel-width:63.87%;--panel-height:49.21%"><b>상세</b></span>
+          </div>
+          <figcaption>HW Time 비교 = 한 덩어리 · 드릴 설비 → Module → Motion</figcaption>
+        </figure>
+        <p class="p1053-stage-note">다른 곳에서 쓰려면 → 분석 보드 칸에 메뉴 전체 · 패널만 꺼내기는 아직 안 됨</p>
+        <p class="p1053-actor">만드는 사람: 개발자 · 단위: 메뉴</p>
+      </article>
+
+      <span class="p1053-ladder-arrow" aria-hidden="true">→</span>
+
+      <article class="p1053-stage-card p1053-planned-stage" aria-labelledby="p1053-planned-heading">
+        <p class="p1053-stage-status">중간 · 예정 <a href="https://github.com/hjung3113/analytics-platform/issues/911">#911</a></p>
+        <h3 id="p1053-planned-heading">패널만 꺼내 쓰기</h3>
+        <p class="p1053-stage-copy">메뉴 조건 연결 · 패널별 조건 좁히기</p>
+        <p class="p1053-source-row"><span>HW Time 비교 · 구성 패널을 꺼내서</span><span aria-hidden="true">↓</span></p>
+        <div class="p1053-reuse-targets">
+          <section class="p1053-target-frame" aria-labelledby="p1053-clas-frame">
+            <h4 id="p1053-clas-frame">CLAS 설비 동작시간</h4>
+            <div class="p1053-existing-content">기존 메뉴 내용 자리</div>
+            <figure class="p1053-inserted-panel">
+              <img src="assets/panel-reuse/hw-time-composition-panel.png" width="677" height="316" alt="설명용 예시: CLAS 메뉴에 놓은 HW Time 구성 패널 캡처">
+              <figcaption><strong>HW Time · 구성</strong></figcaption>
+              <span class="p1053-user-control">단계: Module · 구성원: PM1, PM2</span>
+            </figure>
+          </section>
+          <section class="p1053-target-frame" aria-labelledby="p1053-board-frame">
+            <h4 id="p1053-board-frame">분석 보드 · 한 칸</h4>
+            <div class="p1053-board-cell">
+              <figure class="p1053-inserted-panel">
+                <img src="assets/panel-reuse/hw-time-composition-panel.png" width="677" height="316" alt="설명용 예시: 분석 보드 한 칸에 놓은 HW Time 구성 패널 캡처">
+                <figcaption><strong>HW Time · 구성</strong></figcaption>
+              </figure>
+            </div>
+          </section>
+        </div>
+        <p class="p1053-stage-note">사용자가 패널별로 좁힘 · 기본값은 개발자</p>
+        <p class="p1053-explainer-note">설명용 예시 · 제품 기능 미구현</p>
+        <p class="p1053-actor">개발자: 패널을 다른 메뉴에 연결 · 사용자: 메뉴가 허용한 패널 추가</p>
+      </article>
+
+      <span class="p1053-ladder-arrow" aria-hidden="true">→</span>
+
+      <article class="p1053-stage-card p1053-goal-stage" aria-labelledby="p1053-goal-heading">
+        <p class="p1053-stage-status">최종 · 목표</p>
+        <h3 id="p1053-goal-heading">사용자 조합</h3>
+        <p class="p1053-stage-copy">등록된 패널을 골라 내 메뉴를 구성</p>
+        <ul class="p1053-picker-chips" aria-label="고를 수 있는 패널">
+          <li>HW Time 상세</li>
+          <li>HW Time 구성</li>
+          <li>사이클타임 분포</li>
+          <li>이벤트 조회</li>
+        </ul>
+        <section class="p1053-user-menu" aria-labelledby="p1053-user-menu-heading">
+          <h4 id="p1053-user-menu-heading">지연 설비 조사</h4>
+          <div class="p1053-composed-panels">
+            <figure>
+              <img src="assets/panel-reuse/hw-time-composition-panel.png" width="677" height="316" alt="목표 예시 메뉴의 HW Time 구성 패널 캡처">
+              <figcaption><strong>HW Time 구성</strong><span class="p1053-link-label">메뉴 조건 따름</span></figcaption>
+            </figure>
+            <figure>
+              <div class="p1053-composed-placeholder">사이클타임 분포</div>
+              <figcaption><strong>사이클타임 분포</strong><span class="p1053-link-label">비교 조건 고정</span></figcaption>
+            </figure>
+          </div>
+          <button class="p1053-save-button" type="button" disabled>내 분석 구성으로 저장</button>
+          <p class="p1053-save-line">저장: 패널 · 배치 · 설정 · 조건 연결</p>
+        </section>
+        <p class="p1053-explainer-note">목표 · 미구현</p>
+        <p class="p1053-actor">구성하는 사람: 사용자 · 단위: 패널 조합</p>
+      </article>
+    </div>
+
+    <div class="p1053-more">
+      <details class="p1053-details">
+        <summary>화면 크게 보기</summary>
+        <div class="p1053-details-body p1053-details-shots">
+          <figure>
+            <img src="assets/panel-reuse/hw-time-compare-module-pm1.png" width="1148" height="850" loading="lazy" alt="HW Time 비교 데모 전체 화면">
+            <figcaption>HW Time 비교 전체 화면 · <a class="source-ref" href="#source-L147">L147</a></figcaption>
+          </figure>
+          <figure>
+            <img src="assets/panel-reuse/hw-time-summary-panel.png" width="347" height="664" loading="lazy" alt="HW Time 비교의 요약 패널 캡처">
+            <figcaption>요약 패널</figcaption>
+          </figure>
+          <figure class="shot-figure" data-shot-fig="board-mixed"><!--shot:board-mixed--><figcaption>분석 보드 칸에 MARS·CLAS·BRAVO 메뉴 전체를 둔 모습</figcaption></figure>
+        </div>
+      </details>
+      <details class="p1053-details">
+        <summary>사용자 설정 규칙</summary>
+        <p class="p1053-details-body">커스텀은 기본으로 열림 · 개발자는 범위만 제한 · 메뉴 Context·데이터 권한 밖으로는 못 넓힘 · <a class="source-ref" href="#source-L145">L145</a></p>
+      </details>
+      <details class="p1053-details">
+        <summary>근거</summary>
+        <p class="p1053-details-body">HW Time은 기존 동작시간분석을 플랫폼 SDK로 다시 만든 것입니다. 4개 메뉴(단계별 · 비교 · 개요 · 표)가 같은 데이터와 SDK 부품(차트 프레임 · 드릴 경로 · 패널 작업 영역 · 표)을 쓰고 배치만 다릅니다 · ADR-0078. <a href="https://github.com/hjung3113/analytics-platform/issues/912">#912</a> 완료 · HW Time 안에서 상위 문맥 유지 확인. <a class="source-ref" href="#source-L144">L144</a></p>
+      </details>
+    </div>
+  </section>
 
 <section id="features" class="content-section" aria-labelledby="features-heading">
-  <div class="section-head"><p class="section-label">개요 · 기능</p><h2 id="features-heading">기능 목차</h2><p class="section-lead">기능 이름을 선택하면 자세한 내용으로 이동합니다.</p></div>
-  <ol class="scene-grid scene-grid-mid topic-index-grid" aria-label="플랫폼 기능 여덟 가지와 준비 중인 기능">
-    <li class="scene-card scene-mid"><div class="scene-link"><span class="diagram scene-glyph" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#i-chart" /></svg></span><span class="scene-text"><span class="scene-title"><a href="#board">분석 보드</a></span><span class="scene-line">한 <a class="glossary-term" href="glossary.html#sheet">시트</a>에서 최대 네 <a class="glossary-term" href="glossary.html#pane">칸</a>의 분석 화면을 나란히 보고, 끌어서 배치합니다.</span><a class="scene-more" href="#board">자세히 보기 →</a></span></div></li>
-    <li class="scene-card scene-mid"><div class="scene-link"><span class="diagram scene-glyph" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#i-arrow" /></svg></span><span class="scene-text"><span class="scene-title"><a href="#context">분석 Context 연결</a></span><span class="scene-line">메뉴와 업무 시스템을 옮겨도 조건을 유지합니다.</span><a class="scene-more" href="#context">자세히 보기 →</a></span></div></li>
-    <li class="scene-card scene-mid"><div class="scene-link"><span class="diagram scene-glyph" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#i-link" /></svg></span><span class="scene-text"><span class="scene-title"><a href="#deeplink">딥링크</a></span><span class="scene-line">주소로 조건과 화면 위치를 복원합니다.</span><a class="scene-more" href="#deeplink">자세히 보기 →</a></span></div></li>
-    <li class="scene-card scene-mid"><div class="scene-link"><span class="diagram scene-glyph" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#i-table" /></svg></span><span class="scene-text"><span class="scene-title"><a href="#components">공통 컴포넌트 (SDK)</a></span><span class="scene-line">메뉴가 표·차트·상세·상태 화면을 조립해 씁니다.</span><a class="scene-more" href="#components">자세히 보기 →</a></span></div></li>
-    <li class="scene-card scene-mid"><div class="scene-link"><span class="diagram scene-glyph" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#i-check" /></svg></span><span class="scene-text"><span class="scene-title"><a href="#permission">권한·Scope</a></span><span class="scene-line">업무 시스템과 <a class="glossary-term" href="glossary.html#scope">Scope</a>를 서버가 확인합니다.</span><a class="scene-more" href="#permission">자세히 보기 →</a></span></div></li>
-    <li class="scene-card scene-mid"><div class="scene-link"><span class="diagram scene-glyph" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#i-info" /></svg></span><span class="scene-text"><span class="scene-title"><a href="#errors">오류 처리</a></span><span class="scene-line">오류 위치를 바로 찾고, 그 자리에서 VOC를 엽니다.</span><a class="scene-more" href="#errors">자세히 보기 →</a></span></div></li>
-    <li class="scene-card scene-mid"><div class="scene-link"><span class="diagram scene-glyph" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#i-bell" /></svg></span><span class="scene-text"><span class="scene-title"><a href="#platform-menu">플랫폼 메뉴</a></span><span class="scene-line">알림·설문·내 VOC를 어느 업무 시스템에서도 같은 자리에서 엽니다.</span><a class="scene-more" href="#platform-menu">자세히 보기 →</a></span></div></li>
-    <li class="scene-card scene-mid"><div class="scene-link"><span class="diagram scene-glyph" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#i-menu" /></svg></span><span class="scene-text"><span class="scene-title"><a href="#usage">이용 기록·개인 설정</a></span><span class="scene-line">어떤 메뉴를 쓰는지 기록하고, 즐겨찾기·최근 메뉴를 이 브라우저에 저장합니다.</span><a class="scene-more" href="#usage">자세히 보기 →</a></span></div></li>
+  <div class="section-head"><p class="section-label">개요 · 기능</p><h2 id="features-heading">기능 목차</h2><p class="section-lead">현재 기능 · 예정 기능 · 장기 목표</p></div>
+  <ol class="scene-grid scene-grid-mid topic-index-grid" aria-label="플랫폼 기능 아홉 가지와 준비 중인 기능">
+    <li class="scene-card scene-mid"><div class="scene-link"><span class="diagram scene-glyph" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#i-chart" /></svg></span><span class="scene-text"><span class="scene-title"><a href="#panel-reuse">분석 기능 재사용과 확장</a></span><span class="scene-line">현재 공통 부품 · 예정 패널 재사용 <a href="https://github.com/hjung3113/analytics-platform/issues/911">#911</a> · 목표 사용자 메뉴 <a href="https://github.com/hjung3113/analytics-platform/issues/294">#294</a></span><a class="scene-more" href="#panel-reuse">자세히 보기 →</a></span></div></li>
+    <li class="scene-card scene-mid"><div class="scene-link"><span class="diagram scene-glyph" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#i-chart" /></svg></span><span class="scene-text"><span class="scene-title"><a href="#board">분석 보드</a></span><span class="scene-line">다중 시스템 · 조건별 비교 · 최대 4칸</span><a class="scene-more" href="#board">자세히 보기 →</a></span></div></li>
+    <li class="scene-card scene-mid"><div class="scene-link"><span class="diagram scene-glyph" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#i-arrow" /></svg></span><span class="scene-text"><span class="scene-title"><a href="#context">분석 Context 연결</a></span><span class="scene-line">메뉴·시스템 간 분석 조건 유지</span><a class="scene-more" href="#context">자세히 보기 →</a></span></div></li>
+    <li class="scene-card scene-mid"><div class="scene-link"><span class="diagram scene-glyph" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#i-link" /></svg></span><span class="scene-text"><span class="scene-title"><a href="#deeplink">딥링크</a></span><span class="scene-line">화면 상태 · 조회 조건 복원</span><a class="scene-more" href="#deeplink">자세히 보기 →</a></span></div></li>
+    <li class="scene-card scene-mid"><div class="scene-link"><span class="diagram scene-glyph" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#i-table" /></svg></span><span class="scene-text"><span class="scene-title"><a href="#components">공통 컴포넌트 (SDK)</a></span><span class="scene-line">공통 차트 · 표 · 상세 · 상태 UI</span><a class="scene-more" href="#components">자세히 보기 →</a></span></div></li>
+    <li class="scene-card scene-mid"><div class="scene-link"><span class="diagram scene-glyph" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#i-check" /></svg></span><span class="scene-text"><span class="scene-title"><a href="#permission">권한·Scope</a></span><span class="scene-line">업무 시스템 · 메뉴 · Scope별 접근 제어</span><a class="scene-more" href="#permission">자세히 보기 →</a></span></div></li>
+    <li class="scene-card scene-mid"><div class="scene-link"><span class="diagram scene-glyph" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#i-info" /></svg></span><span class="scene-text"><span class="scene-title"><a href="#errors">오류 처리</a></span><span class="scene-line">오류 위치 · 추적 번호 · VOC 등록</span><a class="scene-more" href="#errors">자세히 보기 →</a></span></div></li>
+    <li class="scene-card scene-mid"><div class="scene-link"><span class="diagram scene-glyph" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#i-bell" /></svg></span><span class="scene-text"><span class="scene-title"><a href="#platform-menu">플랫폼 메뉴</a></span><span class="scene-line">알림 · 설문 · VOC 공통 메뉴</span><a class="scene-more" href="#platform-menu">자세히 보기 →</a></span></div></li>
+    <li class="scene-card scene-mid"><div class="scene-link"><span class="diagram scene-glyph" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#i-menu" /></svg></span><span class="scene-text"><span class="scene-title"><a href="#usage">이용 기록·개인 설정</a></span><span class="scene-line">이용 기록 · 즐겨찾기 · 최근 메뉴 · 브라우저 저장</span><a class="scene-more" href="#usage">자세히 보기 →</a></span></div></li>
     <li class="scene-card scene-mid scene-planned"><div class="scene-link"><span class="diagram scene-glyph" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#i-clock" /></svg></span><span class="scene-text"><span class="scene-title"><a href="#next">준비 중인 기능</a></span><span class="scene-line">데이터 자산 허브 · 사용자 조합 분석</span><a class="scene-more" href="#next">자세히 보기 →</a></span></div></li>
   </ol>
-  <p class="caption"><a href="glossary.html">용어 페이지</a>에서 본문 용어를 확인합니다.</p>
+  <p class="caption"><a href="glossary.html">용어 페이지</a></p>
 </section>
 
 <section id="board" class="content-section topic-section" aria-labelledby="board-heading">
   <span id="s5"></span><span id="scene-5"></span>
-  <div class="section-head"><p class="section-label">기능 1</p><h2 id="board-heading">분석 보드</h2><p class="section-lead">여러 업무 시스템의 메뉴를 한 화면에 나란히 놓고 조건별로 비교합니다.</p></div>
+  <div class="section-head"><p class="section-label">기능 2</p><h2 id="board-heading">분석 보드</h2><p class="section-lead">다중 시스템 · 조건별 비교 · 최대 4칸</p></div>
   <div class="topic-copy">
     <h3>나란히 보기</h3>
     <p>한 <a class="glossary-term" href="glossary.html#sheet">시트</a>에서 최대 네 <a class="glossary-term" href="glossary.html#pane">칸</a>을 사용합니다. 같은 메뉴 화면을 서로 다른 조건으로 비교하거나 다른 업무 시스템의 메뉴를 함께 놓습니다.</p>
@@ -156,7 +303,7 @@
 
 <section id="context" class="content-section topic-section" aria-labelledby="context-heading">
   <span id="s2"></span><span id="scene-2"></span><span id="scene-7"></span>
-  <div class="section-head"><p class="section-label">기능 2</p><h2 id="context-heading">분석 Context 연결</h2><p class="section-lead">분석 조건(<a class="glossary-term" href="glossary.html#analysis-context">분석 Context</a>)을 메뉴와 업무 시스템 사이에서 유지합니다.</p></div>
+  <div class="section-head"><p class="section-label">기능 3</p><h2 id="context-heading">분석 Context 연결</h2><p class="section-lead">메뉴·시스템 간 분석 Context 유지</p></div>
   <div class="topic-copy">
     <h3>조건 유지</h3>
     <p>지원하는 분석 조건은 다른 메뉴로 이동해도 유지합니다. 이 화면에서 쓰지 않는 조건은 지우지 않고 ‘미사용’으로 표시합니다.</p>
@@ -178,7 +325,7 @@
 
 <section id="deeplink" class="content-section topic-section" aria-labelledby="deeplink-heading">
   <span id="basic-link"></span><span id="scene-6"></span>
-  <div class="section-head"><p class="section-label">기능 3</p><h2 id="deeplink-heading">딥링크</h2><p class="section-lead"><a class="glossary-term" href="glossary.html#deep-link">딥링크</a>를 열면 저장된 화면 상태와 조회 조건을 복원합니다.</p></div>
+  <div class="section-head"><p class="section-label">기능 4</p><h2 id="deeplink-heading">딥링크</h2><p class="section-lead">화면 상태 · 조회 조건 복원</p></div>
   <div class="topic-copy">
     <h3>링크에 담기는 것</h3>
     <p><a class="glossary-term" href="glossary.html#main-screen">본 화면</a>의 분석 조건·정렬·쪽·탭·드릴 단계와 열린 설비 상세를 주소에 담습니다.</p>
@@ -197,7 +344,7 @@
 
 <section id="components" class="content-section topic-section" aria-labelledby="components-heading">
   <span id="s1"></span><span id="scene-1"></span><span id="s3"></span><span id="scene-3"></span><span id="machine"></span>
-  <div class="section-head"><p class="section-label">기능 4</p><h2 id="components-heading">공통 컴포넌트 (SDK)</h2><p class="section-lead">메뉴는 공개된 부품을 조합해 표·차트·상태 화면을 만듭니다.</p></div>
+  <div class="section-head"><p class="section-label">기능 5</p><h2 id="components-heading">공통 컴포넌트 (SDK)</h2><p class="section-lead">공통 차트 · 표 · 상세 · 상태 UI</p></div>
   <div class="topic-copy">
     <h3>메뉴가 받는 부품과 셸 전용 부품</h3>
     <div class="table-wrap"><table class="sdk-table"><tbody>
@@ -231,14 +378,14 @@
     <h3>같은 검사</h3>
     <p>새 메뉴도 등록할 때 선언이 맞는지, 가져다 쓰면 안 되는 코드를 쓰지 않는지, 공통 디자인을 지키는지 자동으로 검사합니다. 공통 동작은 자동 화면 테스트로 같은 기준에서 확인합니다.</p>
     <figure class="shot-figure" data-shot-fig="menu-registry"><!--shot:menu-registry--><figcaption>등록된 메뉴와 정의</figcaption></figure>
-    <details class="evidence-details diagram-details"><summary>도식으로 보기</summary><figure class="diagram diagram-compact"><div class="diagram-desktop"><svg role="img" aria-labelledby="fig-check-title fig-check-desc" viewBox="0 0 360 396" xmlns="http://www.w3.org/2000/svg"><title id="fig-check-title">화면 등록 때 기계가 검사하고 통과한 화면에 공통 동작이 따라오는 구조</title><desc id="fig-check-desc">새 화면은 선언 한 벌로 등록됩니다. 등록 검증, 공통 동작 화면 테스트, 경계 검사, 디자인 검사가 자동으로 돌고, 통과하면 열리고 어기면 등록이 거부됩니다. 공통 부품과 조건 선언을 쓰는 화면에는 상태 화면과 조건 유지가 따라옵니다.</desc><defs><marker id="arrow-check" viewBox="0 0 8 8" markerWidth="6" markerHeight="6" refX="8" refY="4" orient="auto"><path class="diagram-arrow-head" d="M0 0L8 4L0 8z"/></marker></defs><rect class="diagram-node" x="0" y="0" width="360" height="48" rx="12"/><text x="180" y="30" text-anchor="middle">새 화면 · 선언 한 벌로 등록</text><path class="diagram-arrow" marker-end="url(#arrow-check)" d="M180 48V72"/><rect class="diagram-contract" x="0" y="72" width="360" height="152" rx="14"/><text class="diagram-small" x="14" y="94" text-anchor="start">자동으로 확인</text><rect class="diagram-chip" x="12" y="106" width="164" height="52" rx="10"/><text x="94" y="128" text-anchor="middle">등록 검증</text><text class="diagram-small" x="94" y="147" text-anchor="middle">버전 · 기능 · 권한 이름</text><rect class="diagram-chip" x="184" y="106" width="164" height="52" rx="10"/><text x="266" y="128" text-anchor="middle">화면 테스트</text><text class="diagram-small" x="266" y="147" text-anchor="middle">공통 동작 · 항목 보고</text><rect class="diagram-chip" x="12" y="166" width="164" height="52" rx="10"/><text x="94" y="188" text-anchor="middle">경계 검사</text><text class="diagram-small" x="94" y="207" text-anchor="middle">가져다 쓰는 방향</text><rect class="diagram-chip" x="184" y="166" width="164" height="52" rx="10"/><text x="266" y="188" text-anchor="middle">디자인 검사</text><text class="diagram-small" x="266" y="207" text-anchor="middle">공통 디자인 규칙</text><path class="diagram-arrow" marker-end="url(#arrow-check)" d="M90 224V248"/><path class="diagram-arrow" marker-end="url(#arrow-check)" d="M270 224V248"/><rect class="diagram-node" x="0" y="248" width="170" height="48" rx="10"/><text x="85" y="278" text-anchor="middle">통과 · 열림</text><rect class="diagram-warning" x="190" y="248" width="170" height="48" rx="10"/><text x="275" y="278" text-anchor="middle">거부 · 등록 실패</text><path class="diagram-arrow" marker-end="url(#arrow-check)" d="M85 296V322"/><rect class="diagram-platform" x="0" y="322" width="360" height="68" rx="12"/><text x="180" y="352" text-anchor="middle">공통 부품 · 조건 선언을 쓰면</text><text class="diagram-small" x="180" y="371" text-anchor="middle">기능 2 · 4가 따라옴</text></svg></div><div class="diagram-mobile"><ol class="diagram-stack"><li>새 화면을 선언 한 벌로 등록합니다.</li><li>등록 검증 · 화면 테스트 · 경계 검사 · 디자인 검사가 자동으로 돕니다.</li><li>통과하면 열리고, 어기면 등록이 거부됩니다.</li><li>공통 부품과 조건 선언을 쓰면 상태 화면(기능 4)과 조건 유지(기능 2)가 따라옵니다.</li></ol></div><figcaption>설명용 도식 · 서버 적합성 검사는 포함하지 않음 · <a class="source-ref" href="#source-L37">L37</a> · <a class="source-ref" href="#source-L13">L13</a></figcaption></figure></details>
+    <details class="evidence-details diagram-details"><summary>도식으로 보기</summary><figure class="diagram diagram-compact"><div class="diagram-desktop"><svg role="img" aria-labelledby="fig-check-title fig-check-desc" viewBox="0 0 360 396" xmlns="http://www.w3.org/2000/svg"><title id="fig-check-title">화면 등록 때 기계가 검사하고 통과한 화면에 공통 동작이 따라오는 구조</title><desc id="fig-check-desc">새 화면은 선언 한 벌로 등록됩니다. 등록 검증, 공통 동작 화면 테스트, 경계 검사, 디자인 검사가 자동으로 돌고, 통과하면 열리고 어기면 등록이 거부됩니다. 공통 부품과 조건 선언을 쓰는 화면에는 상태 화면과 조건 유지가 따라옵니다.</desc><defs><marker id="arrow-check" viewBox="0 0 8 8" markerWidth="6" markerHeight="6" refX="8" refY="4" orient="auto"><path class="diagram-arrow-head" d="M0 0L8 4L0 8z"/></marker></defs><rect class="diagram-node" x="0" y="0" width="360" height="48" rx="12"/><text x="180" y="30" text-anchor="middle">새 화면 · 선언 한 벌로 등록</text><path class="diagram-arrow" marker-end="url(#arrow-check)" d="M180 48V72"/><rect class="diagram-contract" x="0" y="72" width="360" height="152" rx="14"/><text class="diagram-small" x="14" y="94" text-anchor="start">자동으로 확인</text><rect class="diagram-chip" x="12" y="106" width="164" height="52" rx="10"/><text x="94" y="128" text-anchor="middle">등록 검증</text><text class="diagram-small" x="94" y="147" text-anchor="middle">버전 · 기능 · 권한 이름</text><rect class="diagram-chip" x="184" y="106" width="164" height="52" rx="10"/><text x="266" y="128" text-anchor="middle">화면 테스트</text><text class="diagram-small" x="266" y="147" text-anchor="middle">공통 동작 · 항목 보고</text><rect class="diagram-chip" x="12" y="166" width="164" height="52" rx="10"/><text x="94" y="188" text-anchor="middle">경계 검사</text><text class="diagram-small" x="94" y="207" text-anchor="middle">가져다 쓰는 방향</text><rect class="diagram-chip" x="184" y="166" width="164" height="52" rx="10"/><text x="266" y="188" text-anchor="middle">디자인 검사</text><text class="diagram-small" x="266" y="207" text-anchor="middle">공통 디자인 규칙</text><path class="diagram-arrow" marker-end="url(#arrow-check)" d="M90 224V248"/><path class="diagram-arrow" marker-end="url(#arrow-check)" d="M270 224V248"/><rect class="diagram-node" x="0" y="248" width="170" height="48" rx="10"/><text x="85" y="278" text-anchor="middle">통과 · 열림</text><rect class="diagram-warning" x="190" y="248" width="170" height="48" rx="10"/><text x="275" y="278" text-anchor="middle">거부 · 등록 실패</text><path class="diagram-arrow" marker-end="url(#arrow-check)" d="M85 296V322"/><rect class="diagram-platform" x="0" y="322" width="360" height="68" rx="12"/><text x="180" y="352" text-anchor="middle">공통 부품 · 조건 선언을 쓰면</text><text class="diagram-small" x="180" y="371" text-anchor="middle">기능 3 · 5가 따라옴</text></svg></div><div class="diagram-mobile"><ol class="diagram-stack"><li>새 화면을 선언 한 벌로 등록합니다.</li><li>등록 검증 · 화면 테스트 · 경계 검사 · 디자인 검사가 자동으로 돕니다.</li><li>통과하면 열리고, 어기면 등록이 거부됩니다.</li><li>공통 부품과 조건 선언을 쓰면 상태 화면(기능 5)과 조건 유지(기능 3)가 따라옵니다.</li></ol></div><figcaption>설명용 도식 · 서버 적합성 검사는 포함하지 않음 · <a class="source-ref" href="#source-L37">L37</a> · <a class="source-ref" href="#source-L13">L13</a></figcaption></figure></details>
   </div>
   <details class="evidence-details scene-evidence"><summary>근거</summary><p>표·차트·상태 표시·신뢰 값·메뉴 검사 규칙입니다. <a class="source-ref" href="#source-L13">L13</a> · <a class="source-ref" href="#source-L14">L14</a> · <a class="source-ref" href="#source-L15">L15</a> · <a class="source-ref" href="#source-L16">L16</a> · <a class="source-ref" href="#source-L37">L37</a> · <a class="source-ref" href="#source-L103">L103</a> · <a class="source-ref" href="#source-L116">L116</a> · <a class="source-ref" href="#source-L119">L119</a></p></details>
 </section>
 
 <section id="permission" class="content-section topic-section" aria-labelledby="permission-heading">
   <span id="scene-8"></span>
-  <div class="section-head"><p class="section-label">기능 5</p><h2 id="permission-heading">권한·Scope</h2><p class="section-lead">업무 시스템과 <a class="glossary-term" href="glossary.html#scope">Scope</a>에 맞춰 화면과 데이터를 제한합니다.</p></div>
+  <div class="section-head"><p class="section-label">기능 6</p><h2 id="permission-heading">권한·Scope</h2><p class="section-lead">업무 시스템 · 메뉴 · <a class="glossary-term" href="glossary.html#scope">Scope</a>별 접근 제어</p></div>
   <div class="topic-copy">
     <h3>업무 시스템·메뉴·Scope</h3>
     <p>업무 시스템과 메뉴는 권한이 있는 사람에게만 열립니다. 데이터는 <a class="glossary-term" href="glossary.html#site">Site</a> 안에서 받은 <a class="glossary-term" href="glossary.html#room-name">공정</a> 범위만 조회합니다. 서버는 조회할 때마다 권한과 Scope를 다시 확인합니다.</p>
@@ -256,7 +403,7 @@
 
 <section id="errors" class="content-section topic-section" aria-labelledby="errors-heading">
   <span id="s4"></span><span id="scene-4"></span>
-  <div class="section-head"><p class="section-label">기능 6</p><h2 id="errors-heading">오류 처리</h2><p class="section-lead">오류가 나면 어느 메뉴·화면에서 났는지 바로 찾을 수 있습니다.</p></div>
+  <div class="section-head"><p class="section-label">기능 7</p><h2 id="errors-heading">오류 처리</h2><p class="section-lead">오류 위치 · 추적 번호 확인</p></div>
   <div class="topic-copy">
     <h3>오류는 그 칸(화면) 안에만</h3>
     <p>화면 렌더 오류는 그 화면의 칸 안에 표시합니다. 다른 칸의 화면은 계속 볼 수 있습니다.</p>
@@ -276,7 +423,7 @@
 </section>
 
 <section id="platform-menu" class="content-section topic-section" aria-labelledby="platform-menu-heading">
-  <div class="section-head"><p class="section-label">기능 7</p><h2 id="platform-menu-heading">플랫폼 메뉴</h2><p class="section-lead">알림·설문·내 VOC처럼 모든 사용자가 쓰는 화면을, 어느 업무 시스템에도 속하지 않는 <a class="glossary-term" href="glossary.html#platform-menu">플랫폼 메뉴</a>로 엽니다.</p></div>
+  <div class="section-head"><p class="section-label">기능 8</p><h2 id="platform-menu-heading">플랫폼 메뉴</h2><p class="section-lead">알림 · 설문 · VOC 공통 메뉴</p></div>
   <p class="key-line">데모(예시 데이터)에는 FeedbackOps 서버가 없어 이 화면들이 <code>실서버 필요</code>로 보입니다. VOC 등록 드로어는 열리고 화면 정보 칩도 보이지만 작성 화면 자리에 <code>실서버 필요</code>가 보입니다.</p>
   <div class="topic-copy">
     <h3>알림 종과 배지</h3>
@@ -310,7 +457,7 @@
 
 <section id="usage" class="content-section topic-section" aria-labelledby="usage-heading">
   <span id="basics"></span><span id="scene-basics"></span>
-  <div class="section-head"><p class="section-label">기능 8</p><h2 id="usage-heading">이용 기록·개인 설정</h2><p class="section-lead">메뉴 사용 기록과 사용자별 탐색 설정을 제공합니다.</p></div>
+  <div class="section-head"><p class="section-label">기능 9</p><h2 id="usage-heading">이용 기록·개인 설정</h2><p class="section-lead">이용 기록 · 개인 설정(브라우저 저장)</p></div>
   <div class="topic-copy">
     <h3>메뉴 진입·체류 기록</h3>
     <p>메뉴·업무 시스템·화면 경로·시각·세션·체류 시간을 기록합니다. 조회 조건 값은 수집하지 않습니다.</p>
@@ -326,7 +473,7 @@
 </section>
 
 <section id="next" class="content-section" aria-labelledby="next-heading">
-  <div class="section-head"><p class="section-label">다음 기능</p><h2 id="next-heading">준비 중인 기능</h2><p class="section-lead">설계·결정 단계에 있는 기능입니다.</p></div>
+  <div class="section-head"><p class="section-label">다음 기능</p><h2 id="next-heading">준비 중인 기능</h2><p class="section-lead">설계 중 · 결정 대기</p></div>
   <div class="topic-copy">
     <h3>데이터 자산 허브</h3>
     <p>엑셀로 관리하던 표를 올려 검증하고 버전을 남깁니다. 여러 셀 선택·붙여넣기·채우기·되돌리기로 엑셀처럼 고칩니다. 권한에 맞게 게시한 표는 다른 분석 메뉴가 그대로 읽어 씁니다.</p>
@@ -3028,7 +3175,7 @@ export type ModuleHost = {
           </p>
         </details>
         <details class="source-ledger">
-          <summary>콘텐츠 원장 L01–L143</summary>
+          <summary>콘텐츠 원장 L01–L147</summary>
           <div id="source-L01">
             <h3>L01</h3>
             <a href="https://github.com/hjung3113/analytics-platform/blob/main/.planning/README.md">공개 원본 보기</a>
@@ -3683,13 +3830,13 @@ export type ModuleHost = {
           <div id="source-L71"><h3>L71</h3><p>도입 근거로 보일 수 있는 범위와 아직 없는 것</p><p class="caption">docs/product/platform-requirements.md §6–7</p></div>
           <div id="source-L72"><h3>L72</h3><p>요구 ID R1.1–R10.8의 개별 상태와 여섯 상태 이름</p><p class="caption">docs/product/platform-requirements.md §0·§3.1–§3.9·§7</p></div>
           <div id="source-L73"><h3>L73</h3><p>히어로 h1 &quot;화면을 옮겨도 조건은 그대로, 숫자는 믿을 수 있게.&quot;는 R1.1·R1.2·R2.1·R2.2의 요약이고, 부제의 '화면 사이에서 생기는 일'은 02의 여덟 장면(L91–L98)으로 이어지고, 부제의 세 문장 순서(숫자 → 맥락 → 새 화면)는 핵심 장면 1·2·3의 순서다. 부제는 '플랫폼의 공통 부품으로 만든 화면은'으로 시작해 장면 1·2가 따라오는 범위를 한정한다(L93; 2026-10-20 라운드 C1에서 '이 저장소 안 화면이 공통 부품과 조건 선언을 쓰면'에서 바꿈. SDK 모듈이 못 받는 것은 03 두 길 줄과 12 대조표가 맡는다, L101). '어떤 메뉴를 만들든'은 이 단서 없이 사이트에서 쓰지 않는다(SDK 모듈은 아직 공통 표·차트·신뢰 표시 부품을 받지 못하고 조건은 읽기만, L101). eyebrow '사내망·사내 서버 위에서'는 R10.4(요구)·R9.5(서버는 계약만)의 요약이며 L101. &quot;플랫폼은 고치지 않습니다&quot;는 쓰지 않는다: 저장소 안 화면은 앱 조립 파일 <code>apps/platform-web/src/menus.ts</code>의 그룹·업무 시스템·권한 선언에 한 줄을 더하고, SDK 모듈만 <code>&lt;모듈&gt;:</code> 접두사로 플랫폼 파일을 고치지 않는다(ADR-0053). 히어로 한 줄 &quot;지금 동작하는 범위는 예시 데이터로 확인할 수 있습니다 · 실서버 연결 전&quot;은 L72의 상태와 같다</p><p class="caption"><code>docs/contract/platform-ui-contract.md</code> §30, <code>docs/product/platform-requirements.md</code> §1·§3.1–§3.2·§3.6 · 사이트의 해석 문장</p></div>
-          <div id="source-L74"><h3>L74</h3><p>도식 A(장면 3의 접힌 보기이자 캡처 없는 조립의 히어로 대체 그림)의 세 층: 플랫폼 안이라서 되는 장면 여덟 가지(L91–L98), 그것을 지키는 장치 4가지(등록할 때 거부 R9.3, 계약 E2E R8.4, 경계·디자인 검사 R8.5, 서버 적합성 검사 R8.4·R9.5 — 지금은 mock 어댑터를 판정), 화면을 올리는 길(SDK UI는 태그로 버전 고정 R9.6, 다른 저장소 앱은 같은 선언으로 · 고정 모듈로 검증 · 외부 앱 연결 대기 #332, 도식 안에 'SDK 모듈은 아직 공통 표·차트·신뢰 표시 부품을 못 받고 조건은 읽기만 — 12 대조표'를 적는다, L101). 맨 아래에 서버 약속과 사내 서버. 표·차트·상세 패널 띠에서 분석 보드는 뺀다(분석 보드는 본문 기능 1에 있다)</p><p class="caption"><code>docs/product/platform-requirements.md</code> §1.1·§3.8–§3.9, <code>tooling/AGENTS.md</code>, <code>docs/integration/sdk-git-tag-consumption.md</code> · 설명용 도식</p></div>
+          <div id="source-L74"><h3>L74</h3><p>도식 A(장면 3의 접힌 보기이자 캡처 없는 조립의 히어로 대체 그림)의 세 층: 플랫폼 안이라서 되는 장면 여덟 가지(L91–L98), 그것을 지키는 장치 4가지(등록할 때 거부 R9.3, 계약 E2E R8.4, 경계·디자인 검사 R8.5, 서버 적합성 검사 R8.4·R9.5 — 지금은 mock 어댑터를 판정), 화면을 올리는 길(SDK UI는 태그로 버전 고정 R9.6, 다른 저장소 앱은 같은 선언으로 · 고정 모듈로 검증 · 외부 앱 연결 대기 #332, 도식 안에 'SDK 모듈은 아직 공통 표·차트·신뢰 표시 부품을 못 받고 조건은 읽기만 — 12 대조표'를 적는다, L101). 맨 아래에 서버 약속과 사내 서버. 표·차트·상세 패널 띠에서 분석 보드는 뺀다(분석 보드는 본문 기능 2에 있다)</p><p class="caption"><code>docs/product/platform-requirements.md</code> §1.1·§3.8–§3.9, <code>tooling/AGENTS.md</code>, <code>docs/integration/sdk-git-tag-consumption.md</code> · 설명용 도식</p></div>
           <div id="source-L75"><h3>L75</h3><p>장면 각각의 '플랫폼 안에서는' 문장 근거는 L91–L98에 있고 아래는 그 요약이다(이전 L89 약속 칸을 이어받음): 조건은 사이트·공정·설비 그룹·설비·Lot·Recipe가 처음부터 조건이고 설비 시각과 보는 사람 시각을 구분(R1.1·R1.6, §4), 링크는 권한이 아니라 받는 사람 권한으로 다시 확인(R1.2·R1.4, L12), 모르는 값을 0으로 바꾸지 않고 지표는 정의와 버전으로 고정(R2.2·R2.4·R2.6, L55), 권한은 시스템·화면·Scope(사이트·공정)를 한 규칙으로 판정(R6.1), 감사는 공용 감사 저장소 하나(R6.2, ADR-0048)이고 활용률은 조회 조건 값을 남기지 않음(R6.3, ADR-0020). 지키는 장치는 L85</p><p class="caption"><code>docs/product/platform-requirements.md</code> §3·§4 · 효과 숫자 없음. 상태 단서는 R2.4(발행 쓰기는 사내 서버 뒤)·R6.1(예시 데이터 세션)</p></div>
           <div id="source-L76"><h3>L76</h3><p>FeedbackOps는 <code>sdk-v0.2.0</code>부터 SDK의 <code>@ap/ui</code>를 git 태그로 받아 썼다(전환 기록 FeedbackOps#1289·#1291·#1295·#1304·#1307, 1~3번 묶음). 지금 FeedbackOps는 이 저장소의 일반 코드(<code>apps/fo-*</code>·<code>packages/fo-*</code>·<code>docs/feedbackops/</code>)이고 루트 pnpm workspace의 일부라 <code>@ap/ui</code>를 <code>workspace:*</code>로 받는다(서브모듈 아님, ADR-0066·#642, 2026-10-23 갱신)</p><p class="caption"><code>docs/integration/sdk-git-tag-consumption.md</code>, <code>apps/fo-frontend/package.json</code>(<code>"@ap/ui": "workspace:*"</code>), <code>.planning/README.md</code>, https://github.com/hjung3113/FeedbackOps/pull/&lt;n&gt; · 네트워크 없이 작성: 번호가 PR인지 이슈인지(GitHub은 두 주소를 서로 넘긴다)와 묶음별 태그는 확인하지 못했고 태그 범위는 조정 지시를 따랐다. 로컬 태그 sdk-v0.1.0–v0.6.0 존재만 확인</p></div>
           <div id="source-L77"><h3>L77</h3><p>이전 체크리스트: 버리는 것(자체 화면 틀·전역 필터·권한 노출 판정·공통 표·차트·상태 화면·감사 기록), 바꾸는 것(조회 선언 R8.3, 공통 차트 ADR-0021, 공통 표, React 19 — <code>@ap/ui</code> peer <code>^19.0.0</code>, Kernel·셸·공통 컴포넌트 <code>^19.3.0</code>(각 <code>packages/*/package.json</code>) #470), 그대로(§5). 공존 방법은 SSO(#150) 결정 뒤, 화면 이전 비용은 미측정. 잃는 것은 L88. 버전 고정 정정(2026-10-23): <code>sdk-v0.12.0</code> 릴리스는 contracts·kernel·ui·components·shell 다섯 패키지 tarball과 <code>SHA256SUMS</code>를 낸다(L143). 범주: 빌드할 때 조립하는 모듈 셸(06 §5 Deferred·탑재 설계)</p><p class="caption"><code>docs/product/platform-requirements.md</code> §5·§3.8, <code>docs/integration/sdk-git-tag-consumption.md</code>, <code>packages/*/package.json</code> · 공존·비용은 근거 문서 없음</p></div>
           <div id="source-L78"><h3>L78</h3><p>도입 판단: 요청 5(시범 1개 팀·1 Site/Line #233 제안, 기준선 담당 #233, SSO #150, 배포 #151, 플랫폼 API #155·#149), 인력·기간·비용 미산정, 위험 5와 완화(근거 L26·L27·L28·L68·L70)</p><p class="caption">docs/product/platform-requirements.md §6·§7·§9, docs/integration/in-house-rollout.md · 미산정 항목은 숫자 없음</p></div>
-          <div id="source-L79"><h3>L79</h3><p>히어로 오른쪽 그림은 캡처된 견본 화면 세 장 — MARS 업무 시스템의 <code>cycle-time-full</code>, BRAVO 업무 시스템의 <code>catalog</code>, CLAS 업무 시스템의 <code>clas-operation-time</code> — 을 한 바탕에 겹치고, 공통 조건 띠(조건·링크·숫자 상태·권한·감사)가 셋을 가로지르게 CSS로 합성한 것이다(L100). 캡션에 '견본 화면 — 실제 메뉴는 사내에서 설계'를 한 번 표기하고, MARS·BRAVO·CLAS가 견본 업무 시스템임을 첫 등장에서 밝힌다. 번호·범례는 히어로에 두지 않고 02에만 둔다. 확대 조각 <code>inset-context</code>(전역 조건 바)·<code>menu-registry</code>는 02의 핵심 장면 카드에 쓴다</p><p class="caption"><code>site/scripts/shots.mjs</code>, <code>docs/product/platform-requirements.md</code> §3 · 합성 데이터</p></div>
-          <div id="source-L80"><h3>L80</h3><p>히어로 한 줄 &quot;지금: 동작하는 범위는 예시 데이터로 확인할 수 있습니다 · 실서버 연결 전 · 요청: 시범 1팀·1라인과 사내 담당 지정&quot;은 L72의 상태와 L78의 요청 요약이다. 히어로 합성 그림은 L100</p><p class="caption"><code>docs/product/platform-requirements.md</code> §6·§7, L72, L78, L79 · 사이트의 요약 문장</p></div>
+          <div id="source-L79"><h3>L79</h3><p>히어로는 MARS <code>cycle-time-full</code>(생산성 분석), CLAS <code>clas-operation-time</code>(동작시간 분석), BRAVO <code>catalog</code>(지표 관리) 견본 캡처를 나란히 둔다. 캡션·업무 시스템 이름·역할은 각 화면에 붙이고, 이미지는 합성 데이터의 얕은 견본이다(L100)</p><p class="caption"><code>site/scripts/shots.mjs</code>, <code>apps/platform-web/src/menus.ts</code>, <code>docs/product/platform-requirements.md</code> §3 · 합성 데이터</p></div>
+          <div id="source-L80"><h3>L80</h3><p>히어로 핵심 라벨은 "공통 기반 공유"다. 현재 데모는 예시 데이터이고 사내 SSO #150과 서버 연결 #157은 예정, 단일 Framework #396은 장기 목표다(L100·L146)</p><p class="caption">GitHub #1053, ADR-0043, GitHub #150·#157·#396, L72·L146 · 사이트의 요약 문장; 사내 운영 완료 주장이 아님</p></div>
           <div id="source-L81"><h3>L81</h3><p>상태 큰 숫자 &quot;동작(예시 데이터) 29 · 동작, 단서 있음 18 · 사내 서버 연결 0 (2026-10-23 이전 이름: 실서버 연결 0) · 실사용자 0&quot;(동작 47을 L87의 기준으로 둘로 나눈 값): 요구 63행을 상태별로 다시 센 값(동작 47·진행 중 0·계획 6·결정 대기 5·보류 3·요구 1·결정됨 1, 설계 확정 0; 17의 R4.1이 완료(v0.14.0)로 바뀐 것을 2026-10-22에 다시 셌다). 동작은 예시 데이터 서버 위에서 처음부터 끝까지 동작하고 테스트가 있다는 뜻이며, 실서버 연결과 실사용자는 아직 없다. 동작 47 중 단서가 붙은 행은 18, 단서 없는 행은 29(L87)</p><p class="caption"><code>docs/product/platform-requirements.md</code> §3.1–§3.9·§6·§7 · 17 문서 갱신 때 다시 센다</p></div>
           <div id="source-L82"><h3>L82</h3><p>옛 04 분석 흐름의 다섯 단계 나열은 FIX5에서 없앴다. 대표 장면 7단계(L65)는 메뉴를 차례로 따라가는 서술이 아니라 장면의 그림 속에 흡수했다: 내려가기·조건 복원은 장면 2(설명용 도식 + 조건 바 확대 캡처), 링크로 알리기는 장면 6, VOC 진입·Task 복귀·전후 비교는 장면 4, 전·후를 나란히는 장면 5, 변경 감사는 장면 8. 본문에 그 단계 나열은 남아 있지 않다. 캡처는 견본 화면이며 합성 데이터이고 권장 설계가 아니다</p><p class="caption"><code>docs/product/platform-requirements.md</code> §2, <code>site/scripts/shots.mjs</code> · 합성 데이터, 운영 사례 아님</p></div>
           <div id="source-L83"><h3>L83</h3><p>도입 판단의 단계형 승인(시범 승인 → 시범에서 잴 것 → 확장 결정)과 CLAS 화면 하나 시범 이전은 코디네이터 제안이다. 시범에서 잴 후보 지표(제안, #233 본문): 첫 응답까지 걸린 시간(VOC 등록 → 첫 공개 업데이트), VOC → Task 연결률, 새 화면 개발 기간과 그동안의 플랫폼 코드 수정 건수, CLAS 화면 하나 시범 이전의 화면당 이전 비용. 판정선은 시범 시작 때 기준선과 함께 정한다. 현업 참여: 시범 팀은 기존 화면과 병행해 쓰고(공존 방식은 SSO 결정 뒤) 현업 부담은 시범 범위 산정 때 정한다(미산정). 위험 표의 개발·유지 인력 의존은 미산정(크기 칸은 근거가 없어 두지 않는다), 보안·망분리 심사는 #151(본문에는 번호 없이 ‘사내 답을 기다림’), FeedbackOps 의존은 별도 제품(ADR-0027·ADR-0045)</p><p class="caption"><code>docs/product/platform-requirements.md</code> §6·§7·§9, GitHub #233, ADR-0027, ADR-0045 · 숫자는 만들지 않음, 제안은 제안으로 표시. #233 본문은 이 라운드 작업 지시문의 인용이며 이 환경에서 다시 읽지 못함</p></div>
@@ -3709,7 +3856,7 @@ export type ModuleHost = {
           <div id="source-L97"><h3>L97</h3><p>장면 7 '업무 시스템을 오가도 조건과 조작법은 그대로'(동작, 기본기; 2026-10-20 라운드 B5: 시스템 전환이지 기존 시스템 이전이 아님): R1.5(시스템 전환기·Ctrl+K·시스템별 마지막 화면 복원, 즐겨찾기·최근은 이 브라우저에만 저장), R3.1–R3.3(공통 표·차트·상세 패널, L13·L14), R7.1(MARS·BRAVO·CLAS·운영 콘솔 동작, L08·L67), 기존 CLAS 화면 이전은 R7.2 계획 — 이전 방식은 CLAS 팀과 정한다, 표준 로그 개발·개선 실행은 계획, 설비 Top View는 계획(R3.6). 엑셀과 같이 쓰는 길은 L86. MARS·BRAVO·CLAS·운영 콘솔의 메뉴는 견본이다(L67)</p><p class="caption"><code>docs/product/platform-requirements.md</code> §3.1·§3.3·§3.7, ADR-0042 · 예시 데이터</p></div>
           <div id="source-L98"><h3>L98</h3><p>장면 8 '권한 조회·감사·활용률은 한 곳에서'(동작, 기본기, 예시 데이터 세션; 2026-10-20 라운드 B6, 부여·회수는 결정 대기 단서 유지): R6.1·R6.2·R6.3·R6.4. 권한은 시스템·화면·Scope(사이트·공정)를 한 규칙으로 판정하고 서버가 조회마다 재확인(L11·L27), 설비·지표·차트 주석 변경이 공용 감사 저장소 하나에 남는다(R6.2, L46 — 모든 메뉴 행위가 자동 감사되는 것은 아님), 활용률은 식별 필드만 남기고 조회 조건 값은 수집하지 않음(L30). 권한·역할 조회는 동작이고 부여·회수 쓰기(R6.5)는 결정 대기, 적재 상태(R6.6)는 계획이며, '화면을 더해도 따로 만들 곳이 없다'는 것은 설계 성질이지 운영 비용을 잰 값이 아니다</p><p class="caption"><code>docs/product/platform-requirements.md</code> §3.6, ADR-0020, ADR-0048 · 효과 수치 없음</p></div>
           <div id="source-L99"><h3>L99</h3><p>만드는 분 12 '다른 제품도 같은 바탕으로'(장면 번호 없음): R9.1·R9.2. FeedbackOps는 같은 저장소 workspace로 <code>@ap/ui</code>를 받음(L76), 다른 저장소 앱 올리기는 고정 모듈로 검증했고 외부 앱 연결은 대기(#332, L84), 호스트 계약 설명은 L88</p><p class="caption"><code>docs/product/platform-requirements.md</code> §3.9, ADR-0043, ADR-0053 · 고정 모듈 검증까지</p></div>
-          <div id="source-L100"><h3>L100</h3><p>히어로 합성 그림: 견본 화면 세 장을 겹치고, 그 아래 전체 폭 한 층 '플랫폼 · 공통 바탕'(조건·링크·숫자 상태·권한·감사 칩)에서 세 화면으로 짧은 연결선을 이어 CSS로 합성했다. 띠는 화면 위를 덮지 않는다. 세 화면은 <code>apps/platform-web/src/menus.ts</code>의 SPACES 기준으로 MARS(analytics) 업무 시스템의 사이클타임 분석 <code>cycle-time-full</code>, BRAVO(metrics) 업무 시스템의 지표 카탈로그 <code>catalog</code>, CLAS 업무 시스템의 설비 동작시간 <code>clas-operation-time</code>이다. CLAS 화면에는 TopN 가로 막대와 LaneTimeline이 보인다(L116). 띠 위 다섯 칩은 장면 2(조건)·6(링크)·1(숫자 상태)·8(권한·감사)의 대상이며 새 기능 주장이 아니다. 캡처가 없는 조립에서는 도식 A로 대신한다. MARS·BRAVO·CLAS·운영 콘솔의 메뉴는 견본이다(L67)</p><p class="caption"><code>site/scripts/shots.mjs</code>, <code>apps/platform-web/src/menus.ts</code> · 합성 데이터, 실제 메뉴는 사내 설계</p></div>
+          <div id="source-L100"><h3>L100</h3><p>히어로는 MARS(생산성 분석)·CLAS(동작시간 분석)·BRAVO(지표 관리)의 견본 화면과 업무 설명을 AP Platform 공통 기반, 네 가지 가치, Framework 장기 목표로 연결한다. 업무 시스템 카드의 캡처 ID는 <code>cycle-time-full</code>·<code>clas-operation-time</code>·<code>catalog</code>이며 각 시스템의 얕은 화면 견본이다. 플랫폼은 인증·권한, Context·탐색, 표·차트 SDK, 공통 서비스를 제공한다. 네 가치는 허용된 데이터, 이어지는 분석, 개발 기능 재사용, 한 곳에서 추적이다. 사내 SSO #150과 실서버 연결 #157은 예정이며, 단일 Framework #396은 장기 목표다. 캡처가 없을 때는 정적 도식으로 대신하고 업무 기능과 데이터는 각 시스템 소유다(L08·L67)</p><p class="caption"><code>site/scripts/shots.mjs</code>, <code>apps/platform-web/src/menus.ts</code>, ADR-0043, <code>site/index.html</code> · 합성 데이터, 실제 메뉴는 사내 설계</p></div>
           <div id="source-L101"><h3>L101</h3><p>'왜 이 바탕인가' 3줄: ① 업무 시스템을 하나로 합치지 않는다 — 업무 내용·데이터는 각 팀에 남고(L68, 이전 체크리스트의 '그대로 두는 것') 화면은 같은 바탕 위로 옮겨 와 그 사이가 이어진다(자체 화면 틀·필터·표·차트는 '버리는 것'), ② 사내망·사내 서버 위에서 돌고 서버는 계약만 지키면 바꿀 수 있다 — R9.5는 동작·단서(전송 형식은 사내 합의 대기), R10.4는 요구(외부 네트워크 호출 없음, 사내 환경과 함께 검증, #151), ③ 반도체 조건과 숫자 상태가 처음부터 계약(06 §5–6·§15·§18·§19, L55). SDK로 오는 앱의 대조표(만드는 분 12): 받는 것 = <code>@ap/ui</code> 디자인 시스템(git 태그로 고정, R9.1·R9.6, L76), 호스트 포트(<code>ModuleHost</code>의 session·context 읽기·href/navigate·notify·reportError·query(선택)·detail(선택)·act(선택, 쓰기 — ADR-0054, 17 R9.7 비고, A2)), 등록 검사(R9.3). 아직 못 받는 것 = 첫 외부 앱 연결 없음(#332)과 사내 패키지 레지스트리 없음(다섯 패키지는 <code>sdk-v0.12.0</code> Release tarball로 받음, L143), 전역 조건 쓰기는 <code>ModuleHost</code>에 없음(<code>setPage</code>는 화면 자기 page key만, L88)</p><p class="caption"><code>docs/product/platform-requirements.md</code> §3.9·§3.10, <code>packages/sdk/contracts/src/host.ts</code>, <code>packages/*/package.json</code>, <code>docs/integration/platform-hosting-design.md</code> §2.2 · 상태 단어는 17과 같음</p></div>
           <div id="source-L102"><h3>L102</h3><p>장면 4의 FeedbackOps 쪽 복귀 지원은 있다: 플랫폼 쪽은 현재 화면 URL을 복귀 키 <code>platformReturn</code>에 실어 보낸다(<code>packages/sdk/contracts/src/feedbackops-link.ts</code>, #448). 받는 쪽 처리는 FeedbackOps 원본 <code>main</code> <code>8c2b32d</code>(FeedbackOps ADR-0071, #1281 "return-to-platform link with a deployment origin allowlist", <code>gh api</code>로 확인)에 있고 링크 계약은 배포된 FeedbackOps를 가리킨다(<code>docs/integration/feedbackops-deeplink.md</code> 3행·48행). FeedbackOps는 이제 이 저장소 안의 일반 디렉터리라 가리킬 포인터가 없다(ADR-0066, 2026-10-23 갱신). 앞선 판의 ‘포인터에 ADR-0071이 없으니 지원이 없다’는 추론은 틀렸다(링크 계약이 가리키는 것은 배포된 FeedbackOps). 복귀 링크가 보이는지는 FeedbackOps 배포의 <code>PLATFORM_RETURN_ORIGINS</code>에 플랫폼 origin이 있는지로 정해진다(그쪽 판정). 그래서 본문은 ‘링크 동작(양쪽 계약) · 실제 연결은 SSO 뒤(#150) · 복귀 링크 표시는 FeedbackOps 배포의 허용 origin 설정’으로 쓴다</p><p class="caption"><code>docs/integration/feedbackops-deeplink.md</code>, <code>packages/sdk/contracts/src/feedbackops-link.ts</code>, <code>.planning/README.md</code> 3a행 · FeedbackOps 원본 <code>main</code> 기준. 배포의 허용 origin 설정은 그쪽 판정</p></div>
           <div id="source-L103"><h3>L103</h3><p>정밀화(2026-10-20): ① 응답 상태 다섯 가지(0건·권한 없음·조회 한도 초과·시간 초과·오류; 본문 용어는 2026-10-20 라운드 A4에서 '조회 범위 초과'·'조회 과대'를 '조회 한도 초과'로 통일, 데모 화면·캡처 이름은 ‘조회 과대’ 그대로)는 <code>packages/sdk/contracts/src/response.ts</code>의 <code>Outcome</code>(<code>ok</code>를 뺀 <code>empty</code>·<code>forbidden</code>·<code>too_large</code>·<code>timeout</code>·<code>error</code>), '미확인'은 신뢰 표시의 상태 <code>unknown</code>(<code>packages/sdk/components/src/state/DataTrustIndicator.tsx</code>)이라 둘을 나눠 쓴다. ② 17 R2.6은 '차트의 데이터 표 보기와 내보내기가 차트와 같은 응답을 쓴다'이며 다른 화면의 표와 같은 숫자라는 뜻이 아니다. ③ 신뢰 표시의 값(기준 시각·채움·지표 버전)은 서버가 내야 보인다(<code>docs/integration/real-server-checklist.md</code>, L87). ④ React 하한: <code>@ap/ui</code>는 <code>^19.0.0</code>, kernel·shell·components는 <code>^19.3.0</code>(각 <code>package.json</code>)이고 자체 차트 라이브러리는 공통 차트 틀로 다시 쓴다(비용 미측정, 비교 L68). ⑤ 도입 판단의 인력 행: 저장소에 개발·유지 인력 구성의 근거가 없어(L78 '인력·기간·비용 미산정') 구성은 적지 않는다. ⑥ 메뉴 등록은 새 그룹·권한이면 <code>packages/sdk/contracts/src/menu.ts</code> 목록에 한 줄을 더한다(L73). ⑦ 02 카드 1·06·07 캡처의 크기와 자르는 위치는 <code>site/scripts/shots.mjs</code>의 열·행 경계 크롭이다</p><p class="caption"><code>packages/sdk/contracts/src/response.ts</code>, <code>packages/sdk/components/src/state/DataTrustIndicator.tsx</code>, <code>docs/product/platform-requirements.md</code> §3.2, <code>packages/*/package.json</code>, <code>docs/integration/real-server-checklist.md</code> · 사이트의 문구 정밀화</p></div>
@@ -3740,7 +3887,7 @@ export type ModuleHost = {
           <div id="source-L128"><h3>L128</h3><p>분석 보드의 기본 렌더러는 도킹 배치다. 묶음마다 한 줄 칸 머리(탭·업무 시스템 이름·선택 표시·<code>⋯</code> 메뉴·최대화 버튼)가 있고, 탭 겹치기·끌어 나누기·경계 크기 조절·칸 더하기와 닫기·읽는 순서 키보드 이동을 한다(PR #646·PR #647·PR #648). 1×1·1×2·2×1·2×2 격자는 대체 렌더러다. 캡처 <code>board-dock-tabs</code>(오른쪽 칸은 CLAS 동작시간·MARS 설비 마스터)·<code>board-dock-maximized</code>·<code>board-pane-menu</code>는 <code>site/scripts/shots.mjs</code>가 v2 저장 모양을 심어 mock 데모에서 찍는다(예시 데이터). 남은 것: 작업 영역 두 번째 소비자 #586, 격자 경로 정리(#575는 열려 있음)</p><p class="caption">ADR-0067, ADR-0049, GitHub #575·PR #646·PR #647·PR #648·#586, <code>packages/sdk/shell/src/board/</code>, <code>site/scripts/shots.mjs</code> · 2026-10-23 추가. 시안 5장(<code>assets/proto/</code>)은 삭제</p></div>
           <div id="source-L129"><h3>L129</h3><p>메뉴 작업 영역 <code>PanelWorkspace</code>는 프리셋 선택·패널 숨기기·기본 배치·로컬 선호 저장·명령 호스트(<code>WorkspaceCommandsHost</code>)·좁은 화면(compact)·높이 채움(fill)을 제공한다(PR #664). 메뉴는 패널·프리셋·기본 패널만 선언하고 조작은 플랫폼이 맡는다. 첫 소비자는 사이클타임 상세(PR #684, 프리셋 기본·집중·세로, <code>menus/mars/analytics/src/pages/CycleTimeDrilldown.tsx</code>의 <code>presets</code>)이고 보드 칸 <code>⋯</code> 메뉴에 <code>화면 배치</code> 명령이 있다. 캡처 <code>cycle-workspace</code>(mock 데모, 예시 데이터)</p><p class="caption">ADR-0067, GitHub PR #664·PR #684, <code>packages/sdk/components/src/</code>(<code>PanelWorkspace</code>), <code>tooling/sdk/api/components.root.api.txt</code>, <code>apps/platform-e2e/tests/contracts.spec.ts</code>(메뉴 작업 영역) · 2026-10-23 추가</p></div>
           <div id="source-L130"><h3>L130</h3><p>작업 영역의 높이 방식은 <code>화면 맞춤</code>(기본, 보이는 높이를 나눠 쓰고 경계 하나를 옮기면 이웃이 함께 변함)과 <code>아래로 쌓기</code>(줄마다 자기 px 높이, 페이지가 스크롤, 경계는 위 줄만 바꿈)다(#686·PR #721, ADR-0077). 높이를 채우는 화면에서는 페이지 머리가 한 줄로 접히고 얇은 결과 띠가 붙는다(#680, ADR-0075). 차트·탭 머리·작업 영역 표 위에서 휠이 바깥 스크롤을 막지 않는다(PR #707). 캡처 <code>cycle-workspace-stack</code>·<code>cycle-head-fold</code>·<code>cycle-head-open</code>(mock 데모, 예시 데이터). 아래로 쌓기에서는 줄 높이가 px로 고정돼 패널 안 내용이 넘치면 패널 안에서 스크롤된다</p><p class="caption">ADR-0075, ADR-0077, GitHub #680·#686·PR #707·PR #721, <code>GLOSSARY.md</code> 높이 방식·페이지 머리 · 2026-10-23 추가</p></div>
-          <div id="source-L131"><h3>L131</h3><p>플랫폼 메뉴 화면: 전환기에 <code>플랫폼 메뉴</code> 구역이 있고 전역 화면에는 플랫폼 사이드바가 열리며 언어 선택과 <code>FeedbackOps 전체</code>는 사용자 메뉴에 있다(PR #658). 시스템 레일의 알림 종과 팝오버, 플랫폼 메뉴의 읽지 않은 알림 배지(#652), 알림 페이지(#651), 설문 전체 화면(#653), 내 VOC와 신고자 VOC 상세(#654). FeedbackOps 화면을 플랫폼에 이은 것(<code>menus/_global/my-activity</code>)이고 데이터는 <code>/api/fo</code>의 FeedbackOps 백엔드에서 온다. mock 정책(ADR-0071 결정 7): mock 데모에서는 이 화면들이 <code>실서버 필요</code>를 보이고 종은 배지 없이 보이며 팝오버 본문도 <code>실서버 필요</code>다</p><p class="caption">ADR-0070, ADR-0071(결정 7), GitHub #651·#652·#653·#654·PR #658, <code>menus/_global/my-activity</code> · 2026-10-23 추가. 본문 기능 7</p></div>
+          <div id="source-L131"><h3>L131</h3><p>플랫폼 메뉴 화면: 전환기에 <code>플랫폼 메뉴</code> 구역이 있고 전역 화면에는 플랫폼 사이드바가 열리며 언어 선택과 <code>FeedbackOps 전체</code>는 사용자 메뉴에 있다(PR #658). 시스템 레일의 알림 종과 팝오버, 플랫폼 메뉴의 읽지 않은 알림 배지(#652), 알림 페이지(#651), 설문 전체 화면(#653), 내 VOC와 신고자 VOC 상세(#654). FeedbackOps 화면을 플랫폼에 이은 것(<code>menus/_global/my-activity</code>)이고 데이터는 <code>/api/fo</code>의 FeedbackOps 백엔드에서 온다. mock 정책(ADR-0071 결정 7): mock 데모에서는 이 화면들이 <code>실서버 필요</code>를 보이고 종은 배지 없이 보이며 팝오버 본문도 <code>실서버 필요</code>다</p><p class="caption">ADR-0070, ADR-0071(결정 7), GitHub #651·#652·#653·#654·PR #658, <code>menus/_global/my-activity</code> · 2026-10-23 추가. 본문 기능 8</p></div>
           <div id="source-L132"><h3>L132</h3><p>아직 안 된 것: 오류 화면에서 추적 번호를 담는 VOC 등록은 #606(열림), <code>#594</code>(모든 화면의 VOC 진입)는 드로어(PR #727)로 본문에서 뺐고 남은 것은 #606뿐이다. 홈의 공지 칸은 지금 Site의 공지를 한 줄씩 보이고 세션 동안 닫을 수 있다(mock 예시 2건, MEM·FDRY; <code>OperationsHome.tsx</code>). 실서버 모드에서는 메뉴 데이터 조회가 서버에 닿지 않아(<code>http_404</code>; FeedbackOps 백엔드가 메뉴 조회 포트를 구현하지 않음, ADR-0069) 홈 공지 칸이 오류를 보이고, 사내 서버 연결(#154, 열림) 때 함께 풀린다(#708은 고치지 않고 닫음, <code>.planning/backlog.md</code>). 권한 요청(<code>/permission-requests</code>)은 FeedbackOps 요청자 화면을 다리로 잇는 동작 화면이고(요청·내 요청 상태·철회; 승인은 FeedbackOps 관리자 화면에 남음), 홈 <code>내 할 일</code>(설문·바뀐 내 VOC·권한 요청)은 FeedbackOps 세션이 준비됐을 때만 보이고 mock에서는 아무것도 그리지 않는다(#657 닫힘, PR #729·#730, ADR-0070 결정 8, ADR-0076; <code>home-todo-slot.tsx</code>). <code>공지 목록</code>(<code>/notices</code>) 화면은 선언만 있고 부품이 없으며 맡은 이슈가 없다(조정자 결정 2026-10-24, <code>.planning/backlog.md</code>에 기록). VOC 등록 드로어는 앱에 연결됐다(#656 닫힘, PR #727, L141)</p><p class="caption">ADR-0070 결정 5, GitHub #594·#606·#656·#657·PR #727, 실서버 모드 캡처(<code>real-voc-detail</code>·<code>real-switcher</code>) · 2026-10-23 추가, 같은 날 드로어 연결(PR #727)로 갱신. 상태는 조정자가 2026-10-23에 확인해 전달한 값</p></div>
           <div id="source-L133"><h3>L133</h3><p>실서버 준비: <code>@ap/http-adapter</code>(PR #632)와 비동기 조립·<code>dev:real</code>(PR #636)로 플랫폼 앱이 FeedbackOps 백엔드를 서버 어댑터로 쓰는 실서버 모드로 돈다. 플랫폼 포트로 감사 읽기(PR #634), <code>getEntity</code>·<code>accessDirectory</code>(PR #637), 활용률·클라이언트 오류 기록(PR #639)이 있다. 서버 적합성 묶음을 FeedbackOps 백엔드로 돌린 결과는 통과 44·건너뜀 60·실패 0(PR #677, mock 쓰기 엔진 PR #711)이고, 건너뜀은 돌리지 않은 검사이고 통과로 세지 않는다: 그 백엔드가 구현하지 않은 포트, 사이트 권한 부여(<code>siteGrants: false</code>)가 없어 못 돌리는 사이트별 검사, 표본이 없는 검사다. 남은 것: 사내 테스트 서버 대상 하네스와 사내 SSO 값(#150), 배포(#151), 사내 FastAPI(#155)</p><p class="caption"><code>.planning/README.md</code> 0c 항목과 #154 행(숫자 출처), <code>packages/adapters/server-conformance/src/index.ts</code>(건너뜀 이유), <code>apps/fo-backend/src/modules/platform-port/__tests__/platform-conformance.integration.test.ts</code>, <code>docs/integration/real-server-checklist.md</code>, <code>docs/integration/http-adapter-contract.md</code>, GitHub #154 · 2026-10-23 추가. 숫자는 위 문서를 인용한 것이고 이 작업에서 다시 재지 않았다(측정 명령은 그 문서에 있음)</p></div>
           <div id="source-L134"><h3>L134</h3><p>FeedbackOps(<code>apps/fo-*</code>·<code>packages/fo-*</code>·<code>docs/feedbackops/</code>)는 서브모듈이 아닌 이 저장소의 일반 디렉터리이고 루트 pnpm workspace의 일부다(#642, ADR-0066). L76·L99·L102·L110의 서브모듈 문구를 이 사실로 고쳤다</p><p class="caption">ADR-0066, 루트 <code>AGENTS.md</code> FeedbackOps 절 · 2026-10-23 추가</p></div>
@@ -3753,6 +3900,10 @@ export type ModuleHost = {
           <div id="source-L141"><h3>L141</h3><p>시스템 레일의 <code>VOC 등록</code>은 본문 오른쪽에 도킹 드로어를 연다. 본문을 밀어내고(overlay 아님) 오른쪽 패널은 한 번에 하나다. 열 때 화면 Context(시스템·메뉴, URL page key, 집계 단위, 기간, 전역 Context, 열린 상세 엔티티, 보이는 Correlation ID)를 지울 수 있는 칩으로 고정하고 지운 칩은 첨부하지 않는다. 제출하면 남은 정보가 설명 끝의 <code>화면 정보</code>와 <code>화면 열기</code> 링크로 붙는다. 작성 화면은 FeedbackOps의 VOC 작성 화면이다. mock 데모에서는 드로어와 칩은 보이고 작성 화면 자리에 <code>실서버 필요</code>가 보인다(캡처 <code>voc-drawer</code>). 사이드바의 FeedbackOps 블록에서는 <code>VOC 등록</code> 항목이 빠졌다</p><p class="caption">ADR-0070 결정 4–5, <code>packages/sdk/shell/src/voc/VocDrawer.tsx</code>, <code>apps/platform-web/src/feedbackops-systems.ts</code>, GitHub #656·PR #727 · 2026-10-23 추가. 실서버 캡처 <code>real-voc-drawer</code>·<code>real-voc-detail</code>, mock 캡처 <code>voc-drawer</code></p></div>
           <div id="source-L142"><h3>L142</h3><p>알림·설문·내 VOC·VOC 등록 화면은 FeedbackOps 화면을 연결 모듈(<code>@fops/frontend/global-screens</code>, <code>menus/_global/my-activity</code>)로 플랫폼 안에 올린 것이고, 데이터는 <code>/api/fo</code> 앞단을 거쳐 FeedbackOps 백엔드에서 온다. 플랫폼이 FeedbackOps 데이터를 합치지는 않는다. VOC·Task 처리 화면은 업무 시스템 사이드바의 링크로 FeedbackOps에 연결한다</p><p class="caption">ADR-0071, ADR-0070, <code>apps/platform-web/src/feedbackops-systems.ts</code> · 2026-10-23 추가. 부록 위험 표 <code>FeedbackOps 의존</code> 행의 근거</p></div>
           <div id="source-L143"><h3>L143</h3><p><code>sdk-v0.12.0</code>(2026-10-23, PR #726) GitHub Release는 <code>ap-contracts</code>·<code>ap-kernel</code>·<code>ap-ui</code>·<code>ap-components</code>·<code>ap-shell</code> 다섯 tarball과 <code>SHA256SUMS</code>를 낸다(다섯 패키지는 같은 버전). 사내 패키지 레지스트리는 없고 첫 외부 앱 연결은 아직 없다(#332)</p><p class="caption"><code>docs/integration/sdk-git-tag-consumption.md</code> 「Release tarball로 받기」, ADR-0056, GitHub Release <code>sdk-v0.12.0</code> · 2026-10-23 추가. 릴리스 페이지는 조정자가 같은 날 확인한 내용이고 이 작업에서 네트워크로 조회하지 않음</p></div>
+          <div id="source-L144"><h3>L144</h3><p>HW Time은 같은 데이터와 공통 SDK 조각을 쓰는 메뉴 4종(단계별·비교·개요·표)이며, 각 메뉴가 화면 레이아웃을 따로 선언한다(ADR-0078). HW Time 비교는 요약·구성·상세 패널을 둔다</p><p class="caption">ADR-0078, <code>menus/mars/hw-time/src/pages/</code>, <code>menus/mars/hw-time/src/shared/</code> · 메뉴 화면은 각기 다름; 비교 안에서 상위 Context를 남기는 범위는 L145</p></div>
+          <div id="source-L145"><h3>L145</h3><p>분석 기능 재사용 단계: 현재는 개발자가 공통 컴포넌트로 메뉴를 만든다. 중간은 개발자가 패널을 여러 메뉴에서 재사용하고 사용자가 기존 메뉴에 추가 가능한 패널을 붙이는 계획(#911 열림). #912는 HW Time 안에서 드릴 상위 Context를 유지하는 동작만 끝났다. 최종은 사용자가 등록된 패널·배치·설정·조건 연결을 조합해 자기 메뉴로 저장하는 목표(#294)이며 저장된 뷰 #1011만으로 최종 단계가 되지 않는다. 사용자 커스텀은 기본 활성이고 개발자는 기본값과 선택적 범위 제한을 정한다. 메뉴 Context와 데이터 권한을 넓힐 수 없다</p><p class="caption">GitHub #911·#912·#957·#294·#1011, ADR-0092, <code>.planning/README.md</code> · 상태·사용자 방향은 작업 브리프에서 조정자가 확인해 전달(2026-10-28)</p></div>
+          <div id="source-L146"><h3>L146</h3><p>히어로의 네 가치와 플랫폼 책임은 기존 근거를 요약한다: 업무 시스템별 기능·데이터(L08·L67), Context·메뉴 이동(L10), 권한 판정(L11), 공통 UI·SDK(L13–L16·L99), 분석 보드(L70), 오류 추적(L117), 공통 서비스(L98·L142). 사내 SSO #150과 서버 연결 #157은 예정이고, SDK가 지향하는 단일 플랫폼 Framework #396은 ADR-0043의 장기 목표다</p><p class="caption">GitHub #1053, ADR-0043, GitHub #150·#157·#396, 기존 원장 L08·L10·L11·L13–L16·L67·L70·L98·L99·L117·L142 · 기존 사실의 요약; 완료 상태를 확대하지 않음</p></div>
+          <div id="source-L147"><h3>L147</h3><p>패널 재사용 도식의 HW Time 비교 화면, 요약 패널, 구성 패널 캡처. 캡처는 <code>mars/hw-time-compare</code>에서 <code>drillModule=PM1</code>로 얻은 데모 화면이다</p><p class="caption"><code>site/assets/panel-reuse/hw-time-compare-module-pm1.png</code>, <code>site/assets/panel-reuse/hw-time-summary-panel.png</code>, <code>site/assets/panel-reuse/hw-time-composition-panel.png</code> · 합성 데이터</p></div>
         </details>
       </footer>
 

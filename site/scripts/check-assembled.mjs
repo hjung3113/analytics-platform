@@ -310,7 +310,10 @@ if (options.browser) {
       await tab.evaluate(() => document.fonts.ready);
       const inDetails = await tab.evaluate(() => Boolean(document.getElementById("shot-dialog")?.closest("details")));
       inDetails ? fail(`${width}px: #shot-dialog가 <details> 안에 있음`) : pass(`${width}px: #shot-dialog는 <details> 밖`);
-      const sections = await tab.evaluate(() => [...document.querySelectorAll("section[id]")].filter((s) => [...s.querySelectorAll(".shot-zoom")].some((b) => b.offsetParent !== null)).map((s) => s.id));
+      // 닫힌 대화상자는 그려지지 않아야 한다(그려지면 autofocus 닫기 단추가 첫 포커스를 가져간다).
+      const closedHidden = await tab.evaluate(() => { const d = document.getElementById("shot-dialog"); return !d || (!d.open && getComputedStyle(d).display === "none" && !d.contains(document.activeElement)); });
+      closedHidden ? pass(`${width}px: 닫힌 #shot-dialog는 숨겨지고 포커스를 갖지 않음`) : fail(`${width}px: 닫힌 #shot-dialog가 그려지거나 포커스를 가짐`);
+      const sections = await tab.evaluate(() => [...document.querySelectorAll("section[id]")].filter((s) => [...s.querySelectorAll(".shot-zoom")].some((b) => b.offsetParent !== null && !b.closest("details:not([open])"))).map((s) => s.id));
       let tested = 0;
       for (const id of sections) {
         const button = tab.locator(`section#${id} .shot-zoom:visible`).first();
