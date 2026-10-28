@@ -17,7 +17,7 @@
 ## 결정
 
 - **원본은 A.** 방향은 한쪽뿐이다: Zod → JSON Schema(2020-12) → (선택) Pydantic. 06 §6.1의 "공개 스키마 구현 형식"은 이 방향으로 Decided가 된다. OpenAPI 문서는 원본이 아니다.
-- **새 패키지 `@ap/contract-schemas`**(런타임 의존은 zod만)에 envelope·Assessment·Trust·MenuQuery를 먼저 두고, 이어서 포트 DTO와 엔드포인트별 params/data를 둔다. `EndpointSpec`은 이 스키마를 참조하고 타입은 `z.infer`로 얻는다. 같은 모양을 손으로 두 번 쓰지 않는다.
+- **새 패키지 `@ap/contract-schemas`**(런타임 의존은 zod만)에 envelope·Assessment·Trust·MenuQuery를 먼저 두고, 이어서 포트 DTO와 엔드포인트별 params/data를 둔다. `EndpointSpec`의 선언부(`endpoints.json`의 모양)도 스키마로 둔다. 타입의 원본은 이 스키마이고 `@ap/contracts`의 기존 손으로 쓴 타입은 타입 동치 테스트(`z.infer`와 서로 대입 가능)로 묶는다. `@ap/contracts`는 외부 런타임 라이브러리를 import하지 않는 규칙이라 `z.infer`로 바로 바꾸지 않고, 바꾸는 시점은 `@ap/contract-schemas`가 tarball로 나가는 때(첫 Node 런타임 소비자)다. 그때까지 같은 모양이 두 곳에 있어도 동치 테스트가 어긋남을 막는다.
 - **산출물:** JSON Schema는 `schemas/*.json`, 그 밖에 `endpoints.json`·`vocab.json`을 `sdk-v*` Release에 싣는다. 산출물이 원본과 어긋나는 것은 스냅샷 drift 게이트가 막는다(EV 방식). 산출물 형식 규칙(2020-12, 정수·시각의 표현)은 구현 PR이 [`sdk-git-tag-consumption.md`](../integration/sdk-git-tag-consumption.md)에 적는다.
 - **Zod 버전:** 레포의 zod 3.25.x가 내는 `zod/v4` 서브패스의 `toJSONSchema`를 쓴다. 2026-10-28 PoC에서 `target: 'draft-2020-12'` 출력, 정수(`min/max`가 안전 정수 범위로 붙음), `datetime`(긴 `pattern`이 붙음), 판별 유니온(`anyOf`)을 확인했다. 기존 FeedbackOps의 `zod` 3 루트 import와는 서브패스가 달라 같이 설치돼도 충돌하지 않는다.
 - **SDK 범위를 넓힌다:** "서버는 계약만"에서 "계약 + 선택해서 쓰는 참조 구현"으로. 계약(산출물과 적합성 검사)이 의무이고 참조 구현은 쓰든 말든 서버 팀의 선택이다. 참조 구현의 대상은 FastAPI와 Node(Fastify) × PostgreSQL·MSSQL이고, 그 밖의 스택(Spring 등)은 HTTP 적합성 검사만 쓴다.
