@@ -666,7 +666,10 @@ describe.skipIf(!runIntegration)(
         const grantees = await migrateHandle.pool.query<{ grantee: string }>(
           "select distinct grantee from information_schema.role_table_grants where table_schema = 'platform'",
         );
-        expect(grantees.rows.map((r) => r.grantee).sort()).toEqual(['platform_app', 'platform_migrate']);
+        expect(grantees.rows.map((r) => r.grantee).sort()).toEqual([
+          'platform_app',
+          'platform_migrate',
+        ]);
       });
     });
   },

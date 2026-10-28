@@ -4,8 +4,8 @@ set -Eeuo pipefail
 repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 compose_file="$repo_root/docker-compose.release.yml"
 env_file="$repo_root/.env.release"
-project_name=feedbackops-release-1060
-backend_url=http://localhost:3001
+project_name="${RELEASE_PROJECT_NAME:-feedbackops-release-1060}"
+backend_url="http://localhost:${RELEASE_BACKEND_PORT:-3001}"
 status=failed
 reason=unexpected-command-failure
 
@@ -41,6 +41,10 @@ fi
 
 "${compose[@]}" build backend migrate >&2
 "${compose[@]}" up -d postgres oidc minio >&2
+# Fresh volume (#1100 a): staged immutable history as the bootstrap fops_migrate, the explicit admin role/database
+# rename, then the ordinary platform_migrate migration. The admin URL lives only in this one-off job container.
+"${compose[@]}" run --rm -T cutover >&2 || fail "cutover-failed"
+# The ordinary migration job must now be a no-op as platform_migrate, with no admin credential.
 "${compose[@]}" up -d migrate >&2
 
 migration_id="$("${compose[@]}" ps --all --quiet migrate)"

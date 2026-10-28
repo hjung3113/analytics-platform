@@ -66,14 +66,23 @@ stage_unit() {
 }
 
 stage_integration() {
-  local admin_url="${CI_PG_ADMIN_URL:?set CI_PG_ADMIN_URL to a disposable Postgres superuser URL}"
-  local host port
-  read -r host port < <(node -e 'const u = new URL(process.argv[1]); console.log(u.hostname, u.port || "5432")' "$admin_url")
+  local raw_admin_url="${CI_PG_ADMIN_URL:?set CI_PG_ADMIN_URL to a disposable Postgres superuser URL}"
+  local admin_url host port
+  # Validate the EFFECTIVE target before any connection (scripts/db/pg-target.mjs): query overrides, PGPORT defaults
+  # and zero-padded ports must not hide the development database from the check below.
+  admin_url="$(PG_TARGET_URL="$raw_admin_url" node "$FO_OPS/scripts/db/pg-target.mjs" canonical PG_TARGET_URL)" || {
+    echo "gate.sh integration: refusing CI_PG_ADMIN_URL (see the diagnosis above)" >&2
+    exit 2
+  }
+  host="$(PG_TARGET_URL="$admin_url" node "$FO_OPS/scripts/db/pg-target.mjs" part PG_TARGET_URL host)"
+  port="$(PG_TARGET_URL="$admin_url" node "$FO_OPS/scripts/db/pg-target.mjs" part PG_TARGET_URL port)"
   # 5434 is the development database (docker-compose.dev.yml); this stage truncates.
   if [ "$port" = "5434" ]; then
     echo "gate.sh integration: refusing port 5434 (the development database)" >&2
     exit 2
   fi
+  # psql and the cutover must connect where the check above looked.
+  unset PGHOST PGHOSTADDR PGPORT PGUSER PGDATABASE PGSERVICE PGSERVICEFILE PGOPTIONS
 
   step psql "$admin_url" -X -q -v ON_ERROR_STOP=1 -f "$FO_OPS/scripts/db/init.sql"
 

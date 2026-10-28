@@ -7,7 +7,6 @@
 
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { sql } from 'drizzle-orm';
 
 import { type DbHandle, createDb } from '../client.js';
 
@@ -37,22 +36,20 @@ describe.skipIf(!runIntegration)('Slice 3 vocs table', () => {
     if (WORKSPACE_ID) {
       workspaceId = WORKSPACE_ID;
     } else {
-      const ws = await handle.pool.query<{ id: string }>(
-        `select id from core.workspaces limit 1`,
-      );
+      const ws = await handle.pool.query<{ id: string }>('select id from core.workspaces limit 1');
       workspaceId = ws.rows[0]?.id ?? '';
     }
     expect(workspaceId).not.toBe('');
 
     const ms = await handle.pool.query<{ id: string }>(
-      `select id from core.managed_systems where workspace_id = $1 order by created_at limit 1`,
+      'select id from core.managed_systems where workspace_id = $1 order by created_at limit 1',
       [workspaceId],
     );
     msId = ms.rows[0]?.id ?? '';
     expect(msId).not.toBe('');
 
     const actor = await handle.pool.query<{ id: string }>(
-      `select id from core.actors where workspace_id = $1 limit 1`,
+      'select id from core.actors where workspace_id = $1 limit 1',
       [workspaceId],
     );
     actorId = actor.rows[0]?.id ?? '';
@@ -61,9 +58,7 @@ describe.skipIf(!runIntegration)('Slice 3 vocs table', () => {
 
   afterAll(async () => {
     // Clean up all test VOCs inserted by this suite.
-    await handle.pool.query(
-      `delete from voc.vocs where title like 'test-voc-foundation-%'`,
-    );
+    await handle.pool.query(`delete from voc.vocs where title like 'test-voc-foundation-%'`);
     if (transientCounterWorkspaceIds.length > 0) {
       try {
         await handle.pool.query(
@@ -120,8 +115,10 @@ describe.skipIf(!runIntegration)('Slice 3 vocs table', () => {
       ids.push(r.rows[0]?.display_id ?? '');
     }
     const nums = ids.map((s) => Number(s.replace('VOC-', '')));
-    expect(nums[1]).toBe(nums[0]! + 1);
-    expect(nums[2]).toBe(nums[1]! + 1);
+    const [n0, n1, n2] = nums;
+    expect(n0).toBeTypeOf('number');
+    expect(n1).toBe((n0 as number) + 1);
+    expect(n2).toBe((n1 as number) + 1);
   });
 
   it('display_id counters are contiguous and independent per workspace', async () => {
@@ -162,9 +159,7 @@ describe.skipIf(!runIntegration)('Slice 3 vocs table', () => {
       }),
     );
 
-    const nums = ids
-      .map((id) => Number(id.replace('VOC-', '')))
-      .sort((a, b) => a - b);
+    const nums = ids.map((id) => Number(id.replace('VOC-', ''))).sort((a, b) => a - b);
     expect(new Set(ids).size).toBe(ids.length);
     expect(nums).toEqual(Array.from({ length: 12 }, (_, i) => 1000 + i));
   });
@@ -197,7 +192,9 @@ describe.skipIf(!runIntegration)('Slice 3 vocs table', () => {
          )`,
         [workspaceId, msId, aaId, actorId],
       ),
-    ).rejects.toMatchObject({ message: expect.stringContaining('analytics_area_managed_system_mismatch') });
+    ).rejects.toMatchObject({
+      message: expect.stringContaining('analytics_area_managed_system_mismatch'),
+    });
   });
 
   it('rejects both owner_user_id and owner_team_id populated (error: vocs_owner_xor)', async () => {
@@ -226,14 +223,11 @@ describe.skipIf(!runIntegration)('Slice 3 vocs table', () => {
         ),
       ).rejects.toMatchObject({ message: expect.stringContaining('vocs_owner_xor') });
     } finally {
-      await handle.pool.query(
-        `delete from core.teams where id = $1`,
-        [teamId],
-      );
+      await handle.pool.query('delete from core.teams where id = $1', [teamId]);
     }
   });
 
-  it('rejects invalid severity \'extreme\' (error: vocs_severity_enum)', async () => {
+  it("rejects invalid severity 'extreme' (error: vocs_severity_enum)", async () => {
     await expect(
       handle.pool.query(
         `insert into voc.vocs (
@@ -275,7 +269,7 @@ describe.skipIf(!runIntegration)('Slice 3 conversation tables', () => {
     expect(workspaceId).not.toBe('');
 
     const ms = await migrateHandle.pool.query<{ id: string }>(
-      `select id from core.managed_systems where workspace_id = $1 order by created_at limit 1`,
+      'select id from core.managed_systems where workspace_id = $1 order by created_at limit 1',
       [workspaceId],
     );
     msId = ms.rows[0]?.id ?? '';
@@ -283,7 +277,7 @@ describe.skipIf(!runIntegration)('Slice 3 conversation tables', () => {
 
     // Pick two distinct actors: one will be reporter, the other will be the non-reporter.
     const actors = await migrateHandle.pool.query<{ id: string }>(
-      `select id from core.actors where workspace_id = $1 order by created_at limit 2`,
+      'select id from core.actors where workspace_id = $1 order by created_at limit 2',
       [workspaceId],
     );
     reporterId = actors.rows[0]?.id ?? '';
@@ -351,7 +345,7 @@ describe.skipIf(!runIntegration)('Slice 3 conversation tables', () => {
   it('reporter_reply trigger rejects non-reporter actor (voc_reporter_reply_actor_must_be_reporter)', async () => {
     // Use a different actor than the reporter.
     const otherActor = await migrateHandle.pool.query<{ id: string }>(
-      `select id from core.actors where id <> $1 and workspace_id = $2 limit 1`,
+      'select id from core.actors where id <> $1 and workspace_id = $2 limit 1',
       [reporterId, workspaceId],
     );
     const otherId = otherActor.rows[0]?.id ?? nonReporterId;
@@ -402,7 +396,7 @@ describe.skipIf(!runIntegration)('Slice 3 conversation tables', () => {
   it('platform_app cannot UPDATE voc_public_updates (permission denied)', async () => {
     await expect(
       appHandle.pool.query(
-        `update voc.voc_public_updates set skip_public_update = false where voc_id = $1`,
+        'update voc.voc_public_updates set skip_public_update = false where voc_id = $1',
         [vocId],
       ),
     ).rejects.toMatchObject({ message: expect.stringMatching(/permission denied/i) });
@@ -410,10 +404,7 @@ describe.skipIf(!runIntegration)('Slice 3 conversation tables', () => {
 
   it('platform_app cannot DELETE voc_internal_comments (permission denied)', async () => {
     await expect(
-      appHandle.pool.query(
-        `delete from voc.voc_internal_comments where voc_id = $1`,
-        [vocId],
-      ),
+      appHandle.pool.query('delete from voc.voc_internal_comments where voc_id = $1', [vocId]),
     ).rejects.toMatchObject({ message: expect.stringMatching(/permission denied/i) });
   });
 });
@@ -438,14 +429,14 @@ describe.skipIf(!runIntegration)('Slice 3 voc_attachments stub', () => {
     expect(workspaceId).not.toBe('');
 
     const ms = await handle.pool.query<{ id: string }>(
-      `select id from core.managed_systems where workspace_id = $1 order by created_at limit 1`,
+      'select id from core.managed_systems where workspace_id = $1 order by created_at limit 1',
       [workspaceId],
     );
     msId = ms.rows[0]?.id ?? '';
     expect(msId).not.toBe('');
 
     const actor = await handle.pool.query<{ id: string }>(
-      `select id from core.actors where workspace_id = $1 limit 1`,
+      'select id from core.actors where workspace_id = $1 limit 1',
       [workspaceId],
     );
     actorId = actor.rows[0]?.id ?? '';
@@ -484,9 +475,7 @@ describe.skipIf(!runIntegration)('Slice 3 voc_attachments stub', () => {
     await handle.pool.query(
       `delete from voc.voc_attachments where storage_key like 's3://test-task5/%'`,
     );
-    await handle.pool.query(
-      `delete from voc.vocs where title = 'test-voc-foundation-attachments'`,
-    );
+    await handle.pool.query(`delete from voc.vocs where title = 'test-voc-foundation-attachments'`);
     await handle.close();
   });
 
@@ -562,14 +551,14 @@ describe.skipIf(!runIntegration)('Slice 3 #12 integrity followups (migration 001
     expect(workspaceId).not.toBe('');
 
     const ms = await migrateHandle.pool.query<{ id: string }>(
-      `select id from core.managed_systems where workspace_id = $1 order by created_at limit 1`,
+      'select id from core.managed_systems where workspace_id = $1 order by created_at limit 1',
       [workspaceId],
     );
     msId = ms.rows[0]?.id ?? '';
     expect(msId).not.toBe('');
 
     const actor = await migrateHandle.pool.query<{ id: string }>(
-      `select id from core.actors where workspace_id = $1 limit 1`,
+      'select id from core.actors where workspace_id = $1 limit 1',
       [workspaceId],
     );
     actorId = actor.rows[0]?.id ?? '';
@@ -601,9 +590,7 @@ describe.skipIf(!runIntegration)('Slice 3 #12 integrity followups (migration 001
   });
 
   afterAll(async () => {
-    await migrateHandle.pool.query(
-      `delete from voc.vocs where title = 'test-voc-foundation-0011'`,
-    );
+    await migrateHandle.pool.query(`delete from voc.vocs where title = 'test-voc-foundation-0011'`);
     await migrateHandle.close();
     await appHandle.close();
   });
@@ -619,12 +606,15 @@ describe.skipIf(!runIntegration)('Slice 3 #12 integrity followups (migration 001
       [secondWorkspaceId],
     );
     // If INSERT returned nothing (conflict), look it up.
-    const ms2Id = ms2Result.rows[0]?.id ?? (
-      await migrateHandle.pool.query<{ id: string }>(
-        `select id from core.managed_systems where workspace_id = $1 limit 1`,
-        [secondWorkspaceId],
-      )
-    ).rows[0]?.id ?? '';
+    const ms2Id =
+      ms2Result.rows[0]?.id ??
+      (
+        await migrateHandle.pool.query<{ id: string }>(
+          'select id from core.managed_systems where workspace_id = $1 limit 1',
+          [secondWorkspaceId],
+        )
+      ).rows[0]?.id ??
+      '';
     expect(ms2Id).not.toBe('');
 
     // Insert an AA that belongs to the second workspace / second managed system.
@@ -635,12 +625,15 @@ describe.skipIf(!runIntegration)('Slice 3 #12 integrity followups (migration 001
        returning id`,
       [secondWorkspaceId, ms2Id],
     );
-    const aa2Id = aa2Result.rows[0]?.id ?? (
-      await migrateHandle.pool.query<{ id: string }>(
-        `select id from core.analytics_areas where workspace_id = $1 and managed_system_id = $2 limit 1`,
-        [secondWorkspaceId, ms2Id],
-      )
-    ).rows[0]?.id ?? '';
+    const aa2Id =
+      aa2Result.rows[0]?.id ??
+      (
+        await migrateHandle.pool.query<{ id: string }>(
+          'select id from core.analytics_areas where workspace_id = $1 and managed_system_id = $2 limit 1',
+          [secondWorkspaceId, ms2Id],
+        )
+      ).rows[0]?.id ??
+      '';
     expect(aa2Id).not.toBe('');
 
     // Attempt to attach an AA from workspace-2 to a VOC in workspace-1.
@@ -759,7 +752,7 @@ describe.skipIf(!runIntegration)('Slice 3 #12 integrity followups (migration 001
     // Archiving via UPDATE archived_at must succeed (migrate role can UPDATE).
     await expect(
       migrateHandle.pool.query(
-        `update voc.voc_attachments set archived_at = now(), archived_by_actor_id = $1 where id = $2`,
+        'update voc.voc_attachments set archived_at = now(), archived_by_actor_id = $1 where id = $2',
         [actorId, attId],
       ),
     ).resolves.toBeDefined();
@@ -782,10 +775,7 @@ describe.skipIf(!runIntegration)('Slice 3 #12 integrity followups (migration 001
     expect(attId).not.toBe('');
 
     await expect(
-      appHandle.pool.query(
-        `delete from voc.voc_attachments where id = $1`,
-        [attId],
-      ),
+      appHandle.pool.query('delete from voc.voc_attachments where id = $1', [attId]),
     ).resolves.toMatchObject({ rowCount: 1 });
   });
 });

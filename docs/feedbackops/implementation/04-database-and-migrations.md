@@ -64,8 +64,16 @@ role names byte for byte; this document names a role by its final name whenever 
 
 - **History replays first.** A fresh install runs `scripts/db/init.sql`, which creates database `platform` directly
   (no migration names the database) and the nine `fops_*` roles as *replay bootstrap only* with the final
-  development/CI passwords (`platform_migrate` / `platform_app`; production sets its own). They are not runtime
-  aliases: the runtime guard (`src/db/runtime-role.ts`) accepts only plain `platform_app`.
+  development/CI passwords (`platform_migrate` / `platform_app`; production sets its own). Init does **not** create
+  any `platform_*` role. They are not runtime aliases: the runtime guard (`src/db/runtime-role.ts`) accepts only
+  plain `platform_app`, and a plain `db:migrate` as `platform_migrate` fails on a fresh volume until the cutover ran.
+- **Every advertised fresh entry point runs the cutover.** Dev: `docker-compose.dev.yml` Usage (script run from the
+  host against the published port 5434, `CUTOVER_ALLOW_DEV_DB=1`). CI and `verify-db.sh`: `gate.sh integration` and
+  the template step call the script. Release: the Postgres service has no published host port, so the stack has a
+  job-only `cutover` service (compose profile `cutover`, same image as `migrate`, which ships `psql`, the script and
+  `pg-target.mjs`); `scripts/release/image-smoke.sh` runs `docker compose run --rm cutover` after Postgres is up and
+  before the `migrate` service. The superuser URL exists only in that one-off container; `migrate` and `backend`
+  never receive it, and afterwards `migrate` runs as plain `platform_migrate`.
 - **One ops entry point.** `ops/platform-api/scripts/db/cutover-0076-platform-identity.sh [all|history|rename|migrate]`
   handles every install that is not yet cut over (fresh, CI, `verify-db.sh`, existing). Stages:
   `history` replays `0000`–`0075` from a byte-identical staged copy of the migration folder as `fops_migrate`
@@ -75,10 +83,20 @@ role names byte for byte; this document names a role by its final name whenever 
   `db:migrate` as `platform_migrate` and applies `0076` and everything after it. From then on migrations run
   without any admin credential.
 - **Admin credential stays out of the backend.** Only the script reads `CUTOVER_ADMIN_URL`
-  (`postgres://<superuser>:<pw>@host:port/postgres`; never the database being renamed or a renamed role).
+  (`postgres://<superuser>[:<pw>]@host:port/postgres`; never the database being renamed or a renamed role). The password may be left out of the URL and given as libpq `PGPASSWORD` instead, which is how the release `cutover` job passes an existing password that contains URL-reserved characters; the script keeps `PGPASSWORD` for psql.
   `CUTOVER_OLD_MIGRATE_URL` (existing installs, `fops_migrate` against the current database) defaults to the final
   bootstrap password. `DATABASE_URL_MIGRATE` is the `platform_migrate` URL used by `migrate`. Port 5434 needs
-  `CUTOVER_ALLOW_DEV_DB=1`.
+  `CUTOVER_ALLOW_DEV_DB=1`. The database names are fixed (`feedbackops` → `platform`); `CUTOVER_OLD_DB` /
+  `CUTOVER_NEW_DB` are refused unless they repeat those names, so no name is ever interpolated into admin SQL.
+- **The effective target is validated before any connection.** `scripts/db/pg-target.mjs` reduces every URL
+  (`CUTOVER_ADMIN_URL`, `CUTOVER_OLD_MIGRATE_URL`, `DATABASE_URL_MIGRATE`, and `CI_PG_ADMIN_URL` in `gate.sh
+  integration`) to one canonical form: `postgres://` or `postgresql://`, one plain host, an explicit user and
+  database, a port that is explicit or comes from `PGPORT` (so `?port=5434`, `PGPORT=5434` and `05434` are all
+  port 5434), no fragment, and no query parameters except `sslmode` (`disable`, `require`, `verify-ca`,
+  `verify-full`), `sslrootcert`, `sslcert` and `sslkey`. `host`, `hostaddr`, `port`, `user`, `dbname`, `options`
+  and every other parameter are refused, because libpq lets them override the URL authority. The admin database
+  must be `postgres`. The PG* target variables are removed from the environment before psql, `pg` or drizzle-kit
+  run, so they connect where the checks looked. A refusal exits with code 2 before the first connection.
 - **Preconditions and refusals (nothing is changed when it refuses).** Backend and jobs stopped; all nine roles
   old or all nine new (mixed fails closed); exactly one of databases `feedbackops` / `platform` (both or neither
   fails); the ledger holds exactly `0000`–`0075` before the role rename; no MD5 password hashes (a role rename
@@ -104,11 +122,17 @@ role names byte for byte; this document names a role by its final name whenever 
   transaction as the new bodies.
 - **Later migrations** `0077` and after grant to `platform_*`; a later PR that merges after another migration
   renumbers to the next free slot and regenerates its journal entry; existing entries are never edited.
-- **Tests.** Unit: `runtime-role.test.ts`, `identity-readiness.test.ts`, `ops/platform-api/scripts/db/cutover-0076.test.mjs`,
-  `apps/platform-e2e/tests-real/database-safety.test.ts`. Integration (needs a cut-over database):
+- **Tests.** Unit: `runtime-role.test.ts`, `identity-readiness.test.ts`, `ops/platform-api/scripts/db/cutover-0076.test.mjs`
+  (hostile URLs, `PGPORT`, zero-padded ports and injected database names are refused with a private `psql` shim
+  recording that no connection was made; also covers `gate.sh integration`), `identity-cutover.guard.test.ts`
+  (rehearsal target and stage-gate refusals), `apps/platform-e2e/tests-real/database-safety.test.ts`. Integration (needs a cut-over database):
   `identity-final-state.integration.test.ts`. Host rehearsal on an exclusive 5449 cluster:
-  `identity-cutover.rehearsal.test.ts` (seeded upgrade, MD5/session/conflict refusals, rename invariants by OID,
-  readiness refusal before `0076` and success after, repeat runs).
+  `identity-cutover.rehearsal.test.ts` (seeded upgrade, MD5/session/conflict refusals, a forced database-rename
+  failure that leaves roles renamed / database old and a retry that resumes, rename invariants by OID, readiness
+  refusal before `0076` and success after, repeat runs, and a migration appended after `0076` in a private copy of
+  the migration folder that applies as plain `platform_migrate`). Its `beforeAll` accepts only
+  `postgres://postgres:<pw>@localhost:5449/postgres` with no query string on an empty cluster and otherwise stops
+  the suite before any mutation; stages run only after their predecessor passed.
 
 ### Local developer database recreation (explicit opt-in; nothing here runs automatically)
 
@@ -120,12 +144,16 @@ and the `fops_*` roles. Pick one path; neither is done for you.
    keeps its name until #1100 b). Then, with the container running:
 
    ```sh
-   export CUTOVER_ADMIN_URL='postgres://postgres:postgres@localhost:5434/postgres'
-   export CUTOVER_ALLOW_DEV_DB=1
-   export DATABASE_URL_MIGRATE='postgres://platform_migrate:<migrate password>@localhost:5434/platform'
-   # existing local roles had the passwords fops_migrate / fops_app: keep them (they are not changed); history logs in with this URL
-   export CUTOVER_OLD_MIGRATE_URL='postgres://fops_migrate:fops_migrate@localhost:5434/feedbackops'
-   bash ops/platform-api/scripts/db/cutover-0076-platform-identity.sh all
+   # The admin URL and the dev opt-in apply to this one command only (a subshell), so later seed/server commands
+   # do not inherit the superuser credential. A password with URL-reserved characters goes in PGPASSWORD instead.
+   (
+     export CUTOVER_ADMIN_URL='postgres://postgres:postgres@localhost:5434/postgres'
+     export CUTOVER_ALLOW_DEV_DB=1
+     export DATABASE_URL_MIGRATE='postgres://platform_migrate:<migrate password>@localhost:5434/platform'
+     # existing local roles had the passwords fops_migrate / fops_app: keep them (they are not changed); history logs in with this URL
+     export CUTOVER_OLD_MIGRATE_URL='postgres://fops_migrate:fops_migrate@localhost:5434/feedbackops'
+     bash ops/platform-api/scripts/db/cutover-0076-platform-identity.sh all
+   )
    ```
 
    Then point your ignored local `.env` at `platform_app` / `platform_migrate` and database `platform`. The
@@ -138,9 +166,11 @@ and the `fops_*` roles. Pick one path; neither is done for you.
    hand), then replay and cut over:
 
    ```sh
-   export CUTOVER_ADMIN_URL='postgres://postgres:postgres@localhost:<port>/postgres'
-   export DATABASE_URL_MIGRATE='postgres://platform_migrate:platform_migrate@localhost:<port>/platform'
-   bash ops/platform-api/scripts/db/cutover-0076-platform-identity.sh all
+   (
+     export CUTOVER_ADMIN_URL='postgres://postgres:postgres@localhost:<port>/postgres'
+     export DATABASE_URL_MIGRATE='postgres://platform_migrate:platform_migrate@localhost:<port>/platform'
+     bash ops/platform-api/scripts/db/cutover-0076-platform-identity.sh all
+   )
    pnpm --filter @ap/platform-api db:seed
    ```
 

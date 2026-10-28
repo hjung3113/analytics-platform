@@ -32,7 +32,9 @@ describe.skipIf(!runIntegration)('ADR-0068 inert Cluster suggestion storage', ()
   beforeAll(async () => {
     app = createDb(APP_URL);
     migrate = createDb(MIGRATE_URL);
-    expect((await app.pool.query('select current_user')).rows[0]?.current_user).toBe('platform_app');
+    expect((await app.pool.query('select current_user')).rows[0]?.current_user).toBe(
+      'platform_app',
+    );
     expect((await migrate.pool.query('select current_user')).rows[0]?.current_user).toBe(
       'platform_migrate',
     );

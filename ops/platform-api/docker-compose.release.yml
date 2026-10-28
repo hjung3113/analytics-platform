@@ -1,7 +1,9 @@
 name: feedbackops-release-1060
-# DB identity (#1100 a): scripts/db/init.sql creates database `platform` and the replay bootstrap roles.
-# Run scripts/db/cutover-0076-platform-identity.sh once before the `migrate` service; plain
-# drizzle-kit migrate as platform_migrate fails closed until the roles are renamed.
+# DB identity (#1100 a): scripts/db/init.sql creates database `platform` and the replay bootstrap roles (fops_*, with
+# the final dev passwords). Run the job-only `cutover` service once on a new volume, BEFORE the `migrate` service:
+#   docker compose --project-name feedbackops-release-1060 --env-file .env.release -f docker-compose.release.yml run --rm cutover
+# (scripts/release/image-smoke.sh does this). Plain drizzle-kit migrate as platform_migrate fails closed until the
+# roles are renamed; afterwards `migrate` is the only migration path and needs no admin credential.
 
 services:
   postgres:
@@ -26,8 +28,8 @@ services:
       JSON_CONFIG: >-
         {"interactiveLogin":true,"tokenCallbacks":[{"issuerId":"default","requestMappings":[{"requestParam":"subject","match":".*","claims":{"sub":"$${subject}","email":"$${subject}@example.local","email_verified":true,"name":"$${subject}"}}]}]}
     ports:
-      - "8080:8080"
-      - "3001:3001"
+      - "${RELEASE_OIDC_PORT:-8080}:8080"
+      - "${RELEASE_BACKEND_PORT:-3001}:3001"
     mem_limit: 512m
 
   migrate:
@@ -41,6 +43,27 @@ services:
       DATABASE_URL: postgresql://platform_app:platform_app@postgres:5432/platform
       DATABASE_URL_MIGRATE: postgresql://platform_migrate:platform_migrate@postgres:5432/platform
       WORKSPACE_ID: ${WORKSPACE_ID:?set WORKSPACE_ID in .env.release}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    mem_limit: 768m
+
+  # Job-only, never started by `up` (profile). The postgres superuser credential exists only in this one-off container,
+  # in the Postgres network; backend and migrate never receive it. The password is not placed in the URL (it may hold
+  # URL-reserved characters): libpq reads it from PGPASSWORD, set here only. In-network on purpose: the release
+  # Postgres has no published host port. Same image as `migrate`.
+  cutover:
+    profiles: ["cutover"]
+    image: feedbackops-release-1060-migrate:local
+    build:
+      context: ../..
+      dockerfile: apps/platform-api/Dockerfile
+      target: migrate
+    command: ["bash", "/workspace/ops/platform-api/scripts/db/cutover-0076-platform-identity.sh", "all"]
+    environment:
+      CUTOVER_ADMIN_URL: postgresql://postgres@postgres:5432/postgres
+      PGPASSWORD: ${POSTGRES_PASSWORD:?copy .env.release.example to .env.release}
+      DATABASE_URL_MIGRATE: postgresql://platform_migrate:platform_migrate@postgres:5432/platform
     depends_on:
       postgres:
         condition: service_healthy

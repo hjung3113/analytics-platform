@@ -27,12 +27,18 @@
 # Sessions are never terminated: if the old roles or database are in use the script lists counts and stops.
 #
 # Environment:
-#   CUTOVER_ADMIN_URL           required. postgres://<superuser>:<pw>@host:port/postgres  (never the target database)
+#   CUTOVER_ADMIN_URL           required. postgres://<superuser>[:<pw>]@host:port/postgres  (never the target database).
+#                               Without a password in the URL, libpq reads PGPASSWORD (kept; use it for reserved characters).
 #   CUTOVER_OLD_MIGRATE_URL     optional. Existing installs: postgres://fops_migrate:<pw>@host:port/<current db>.
 #                               Default: fops_migrate with the final bootstrap password (fresh installs).
 #   DATABASE_URL_MIGRATE        required for `migrate`/`all`: postgres://platform_migrate:<pw>@host:port/platform
-#   CUTOVER_OLD_DB / CUTOVER_NEW_DB   defaults feedbackops / platform
 #   CUTOVER_ALLOW_DEV_DB=1      required to operate on port 5434 (a developer's local database)
+#
+# The database names are fixed (feedbackops -> platform); CUTOVER_OLD_DB / CUTOVER_NEW_DB are refused unless they
+# repeat those names. Every URL is validated and reduced to its effective target BEFORE the first connection
+# (scripts/db/pg-target.mjs): query parameters that could redirect host, port, user, database or session options
+# are refused (an SSL allowlist is accepted), PGPORT and zero-padded ports are resolved, and the PG* target
+# variables are removed from the environment so psql, pg and drizzle-kit all connect where the checks looked.
 #
 # Usage: cutover-0076-platform-identity.sh [all|history|rename|migrate]
 
@@ -49,8 +55,9 @@ LAST_HISTORY_TAG='0075_platform_usage_client_errors'
 HISTORY_LEDGER_ROWS=76
 ROLE_SUFFIXES=(migrate app survey_aggregate_owner survey_evidence_reader_owner survey_provenance_mutator_owner
   entity_links_view_owner entity_links_survey_mutator_owner survey_derived_finding_reader_owner core_audit_reader_owner)
-OLD_DB="${CUTOVER_OLD_DB:-feedbackops}"
-NEW_DB="${CUTOVER_NEW_DB:-platform}"
+readonly OLD_DB=feedbackops
+readonly NEW_DB=platform
+TARGET_TOOL="$OPS_ROOT/scripts/db/pg-target.mjs"
 
 log() { printf '[%s] %s\n' "$LOG_TAG" "$*" >&2; }
 die() { printf '[%s] REFUSING: %s\n' "$LOG_TAG" "$1" >&2; exit "${2:-1}"; }
@@ -63,12 +70,14 @@ csv() { # csv <prefix>: quoted, comma-separated role names for SQL IN lists
 OLD_LIST="$(csv fops)"
 NEW_LIST="$(csv platform)"
 
-url_part() { # url_part <url> host|port|user|db
-  node -e '
-    const u = new URL(process.argv[1]);
-    const out = { host: u.hostname, port: u.port || "5432", user: decodeURIComponent(u.username), db: decodeURIComponent(u.pathname.slice(1)) };
-    process.stdout.write(out[process.argv[2]]);
-  ' "$1" "$2" 2>/dev/null || die 'a connection URL is not parseable'
+canon() { # canon <label> <url>: the validated canonical URL, or a refusal before any connection
+  local out
+  out="$(PG_TARGET_URL="$2" node "$TARGET_TOOL" canonical PG_TARGET_URL 2>&1)" || die "$1: $out" 2
+  printf '%s' "$out"
+}
+
+url_part() { # url_part <canonical url> host|port|user|db
+  PG_TARGET_URL="$1" node "$TARGET_TOOL" part PG_TARGET_URL "$2"
 }
 
 url_with_db() { # url_with_db <url> <database>
@@ -84,9 +93,15 @@ require_tools() {
   command -v node >/dev/null 2>&1 || die 'node is required'
 }
 
+require_fixed_names() {
+  [ "${CUTOVER_OLD_DB:-$OLD_DB}" = "$OLD_DB" ] || die "the old database name is fixed ($OLD_DB); CUTOVER_OLD_DB is not configurable" 2
+  [ "${CUTOVER_NEW_DB:-$NEW_DB}" = "$NEW_DB" ] || die "the new database name is fixed ($NEW_DB); CUTOVER_NEW_DB is not configurable" 2
+}
+
 require_admin() {
-  ADMIN_URL="${CUTOVER_ADMIN_URL:-}"
-  [ -n "$ADMIN_URL" ] || die 'set CUTOVER_ADMIN_URL to an admin connection to the postgres database (see the header of this script)'
+  local raw="${CUTOVER_ADMIN_URL:-}"
+  [ -n "$raw" ] || die 'set CUTOVER_ADMIN_URL to an admin connection to the postgres database (see the header of this script)'
+  ADMIN_URL="$(canon CUTOVER_ADMIN_URL "$raw")"
   ADMIN_HOST="$(url_part "$ADMIN_URL" host)"
   ADMIN_PORT="$(url_part "$ADMIN_URL" port)"
   local admin_db admin_user
@@ -98,9 +113,46 @@ require_admin() {
   case "$admin_db" in
     "$OLD_DB" | "$NEW_DB") die "the admin connection must not use the database being renamed ($admin_db); connect to postgres" 2 ;;
   esac
+  [ "$admin_db" = postgres ] || die "the admin connection must use the postgres database, not $admin_db" 2
   case "$admin_user" in
     fops_* | platform_*) die 'the admin connection must not use one of the roles being renamed' 2 ;;
   esac
+}
+
+same_server() { # same_server <label> <canonical url>
+  [ "$(url_part "$2" host):$(url_part "$2" port)" = "$ADMIN_HOST:$ADMIN_PORT" ] || die "$1 must target the same server as CUTOVER_ADMIN_URL" 2
+}
+
+# Validate the migrator URLs this run will use before any connection is made.
+prevalidate_urls() { # prevalidate_urls <stage>
+  OLD_URL=''
+  MIGRATE_URL=''
+  case "$1" in
+    history | all)
+      if [ -n "${CUTOVER_OLD_MIGRATE_URL:-}" ]; then
+        OLD_URL="$(canon CUTOVER_OLD_MIGRATE_URL "$CUTOVER_OLD_MIGRATE_URL")"
+        [ "$(url_part "$OLD_URL" user)" = fops_migrate ] || die 'CUTOVER_OLD_MIGRATE_URL must connect as fops_migrate' 2
+        same_server CUTOVER_OLD_MIGRATE_URL "$OLD_URL"
+      fi
+      ;;
+  esac
+  case "$1" in
+    migrate | all)
+      [ -n "${DATABASE_URL_MIGRATE:-}" ] || die 'set DATABASE_URL_MIGRATE to the platform_migrate connection of the platform database' 2
+      MIGRATE_URL="$(canon DATABASE_URL_MIGRATE "$DATABASE_URL_MIGRATE")"
+      [ "$(url_part "$MIGRATE_URL" user)" = platform_migrate ] || die 'DATABASE_URL_MIGRATE must connect as platform_migrate' 2
+      [ "$(url_part "$MIGRATE_URL" db)" = "$NEW_DB" ] || die "DATABASE_URL_MIGRATE must name the $NEW_DB database" 2
+      same_server DATABASE_URL_MIGRATE "$MIGRATE_URL"
+      ;;
+  esac
+}
+
+# drizzle-kit migrate; the installed binary is called directly when present (the migrate image has no usable pnpm).
+drizzle_migrate() {
+  (
+    cd "$BACKEND_DIR"
+    if [ -x node_modules/.bin/drizzle-kit ]; then node_modules/.bin/drizzle-kit migrate; else pnpm exec drizzle-kit migrate; fi
+  )
 }
 
 adm() { psql -X -v ON_ERROR_STOP=1 -tA "$ADMIN_URL" "$@"; }
@@ -153,14 +205,11 @@ stage_history() {
     log 'history: skipped, the roles are already renamed (history was replayed before the rename)'
     return 0
   fi
-  local old_url
-  old_url="${CUTOVER_OLD_MIGRATE_URL:-}"
+  local old_url="$OLD_URL"
   if [ -z "$old_url" ]; then
     old_url="postgres://fops_migrate:platform_migrate@${ADMIN_HOST}:${ADMIN_PORT}/${CUR_DB}"
   fi
-  [ "$(url_part "$old_url" user)" = fops_migrate ] || die 'CUTOVER_OLD_MIGRATE_URL must connect as fops_migrate'
-  [ "$(url_part "$old_url" db)" = "$CUR_DB" ] || die "CUTOVER_OLD_MIGRATE_URL must name the current database ($CUR_DB)"
-  [ "$(url_part "$old_url" host):$(url_part "$old_url" port)" = "$ADMIN_HOST:$ADMIN_PORT" ] || die 'CUTOVER_OLD_MIGRATE_URL must target the same server as CUTOVER_ADMIN_URL'
+  [ "$(url_part "$old_url" db)" = "$CUR_DB" ] || die "CUTOVER_OLD_MIGRATE_URL must name the current database ($CUR_DB)" 2
 
   local stage
   stage="$(mktemp -d)"
@@ -184,10 +233,7 @@ for (const entry of kept.entries) {
 console.error(`staged ${kept.entries.length} immutable migrations through ${lastTag}`);
 NODE
   log "history: replaying 0000..0075 as fops_migrate on $CUR_DB"
-  (
-    cd "$BACKEND_DIR"
-    DRIZZLE_OUT="$stage" DATABASE_URL_MIGRATE="$old_url" pnpm exec drizzle-kit migrate
-  )
+  DRIZZLE_OUT="$stage" DATABASE_URL_MIGRATE="$old_url" drizzle_migrate
   local rows
   rows="$(ledger_rows "$CUR_DB")"
   [ "$rows" = "$HISTORY_LEDGER_ROWS" ] || die "after history the ledger holds $rows rows, expected $HISTORY_LEDGER_ROWS" 4
@@ -230,13 +276,9 @@ stage_migrate() {
   detect_state
   [ "$ROLES" = new ] || die 'the roles are not renamed yet; run the rename stage first' 4
   [ "$DBS" = final ] || die "the database is still named $OLD_DB; run the rename stage first" 4
-  local url="${DATABASE_URL_MIGRATE:-}"
-  [ -n "$url" ] || die 'set DATABASE_URL_MIGRATE to the platform_migrate connection of the platform database' 2
-  [ "$(url_part "$url" user)" = platform_migrate ] || die 'DATABASE_URL_MIGRATE must connect as platform_migrate'
-  [ "$(url_part "$url" db)" = "$NEW_DB" ] || die "DATABASE_URL_MIGRATE must name the $NEW_DB database"
-  [ "$(url_part "$url" host):$(url_part "$url" port)" = "$ADMIN_HOST:$ADMIN_PORT" ] || die 'DATABASE_URL_MIGRATE must target the same server as CUTOVER_ADMIN_URL'
+  local url="$MIGRATE_URL"
   log 'migrate: db:migrate as platform_migrate (applies 0076 and later)'
-  (cd "$BACKEND_DIR" && pnpm exec drizzle-kit migrate)
+  DATABASE_URL_MIGRATE="$url" drizzle_migrate
   local marked
   marked="$(psql -X -v ON_ERROR_STOP=1 -tA "$url" -c "select count(*) from unnest(array['voc.guard_cluster_suggestion_bucket_delete()','voc.guard_similarity_preview_request_delete()','voc.guard_similarity_preview_budget_delete()']) s(sig) where obj_description(to_regprocedure(s.sig)::oid, 'pg_proc') = 'platform identity 0076: owner-based delete guard'")"
   [ "$marked" = 3 ] || die "0076 is not recorded after db:migrate ($marked of 3 guards attested)" 4
@@ -246,7 +288,11 @@ stage_migrate() {
 main() {
   local stage="${1:-all}"
   require_tools
+  require_fixed_names
   require_admin
+  prevalidate_urls "$stage"
+  # psql, pg and drizzle-kit must connect where the checks above looked: nothing in the environment may redirect them.
+  unset PGHOST PGHOSTADDR PGPORT PGUSER PGDATABASE PGSERVICE PGSERVICEFILE PGOPTIONS DRIZZLE_OUT
   case "$stage" in
     history) stage_history ;;
     rename) stage_rename ;;

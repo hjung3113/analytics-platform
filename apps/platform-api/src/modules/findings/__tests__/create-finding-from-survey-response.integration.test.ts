@@ -1175,7 +1175,9 @@ describe.skipIf(!runIntegration)('POST /survey-responses/:id/create-finding (#18
     const active = await approve(source, creator.cookie);
     // The Finding is inserted before evidence highlights. Removing only this
     // privilege makes the request fail after that insert and pins tx rollback.
-    await migrateHandle.pool.query('revoke insert on finding.evidence_highlights from platform_app');
+    await migrateHandle.pool.query(
+      'revoke insert on finding.evidence_highlights from platform_app',
+    );
     try {
       expect(
         (

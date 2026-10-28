@@ -26,11 +26,7 @@ const cases = [
 const devTargets = [
   ['query overrides authority', 'postgres://u:p@localhost:5432/platform?port=5434', {}],
   ['query without authority port', 'postgres://u:p@localhost/platform?port=5434', {}],
-  [
-    'at sign in query',
-    'postgres://u:p@localhost:5434/platform?application_name=review@host',
-    {},
-  ],
+  ['at sign in query', 'postgres://u:p@localhost:5434/platform?application_name=review@host', {}],
   ['zero-padded port', 'postgres://u:p@localhost:05434/platform', {}],
   ['PGPORT fallback', 'postgres://u:p@localhost/platform', { PGPORT: '5434' }],
 ];

@@ -227,7 +227,10 @@ describe.skipIf(!runIntegration)('Survey response evidence access 0039/0040/0057
       expect(fn.prosecdef).toBe(true);
       expect(fn.proconfig).toContain('search_path=pg_catalog');
       expect(fn.privilege_types).toEqual(['EXECUTE']);
-      expect(fn.execute_principals).toEqual(['platform_app', 'platform_survey_evidence_reader_owner']);
+      expect(fn.execute_principals).toEqual([
+        'platform_app',
+        'platform_survey_evidence_reader_owner',
+      ]);
     }
     expect(functions.map((fn) => [fn.proname, fn.provolatile])).toEqual([
       ['lock_response_evidence_subject', 'v'],

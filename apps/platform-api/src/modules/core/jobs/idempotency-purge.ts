@@ -14,7 +14,7 @@ import { sql } from 'drizzle-orm';
 import type { PgBoss } from 'pg-boss';
 
 import type { Db } from '../../../db/client.js';
-import { type JobLog, JOB_WORK_OPTIONS, withJobLogging } from '../../../lib/job-log.js';
+import { JOB_WORK_OPTIONS, type JobLog, withJobLogging } from '../../../lib/job-log.js';
 
 /** Queue name. Format: `<module>.<action>` per ADR-0009. */
 export const IDEMPOTENCY_PURGE_QUEUE = 'core.idempotency_purge';

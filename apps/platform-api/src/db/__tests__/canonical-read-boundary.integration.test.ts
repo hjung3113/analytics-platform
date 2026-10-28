@@ -105,7 +105,11 @@ describe.skipIf(!runIntegration)('ADR-0064 canonical read boundary', () => {
     }
     for (const [owner, table, expected] of [
       ['platform_entity_links_view_owner', 'core.entity_links', [true, true, true, false]],
-      ['platform_entity_links_survey_mutator_owner', 'core.entity_links', [true, true, false, false]],
+      [
+        'platform_entity_links_survey_mutator_owner',
+        'core.entity_links',
+        [true, true, false, false],
+      ],
       ['platform_core_audit_reader_owner', 'core.audit_log', [true, false, false, false]],
       ['platform_survey_evidence_reader_owner', 'core.entity_links', [false, false, false, false]],
       [
