@@ -447,7 +447,10 @@ for (const scope of [FO_FRONTEND, FO_SHARED, FO_UI, FO_OPS]) {
       }),
     },
     false,
-    `${scope}/src/port.ts:1`,
+    [
+      `${scope}/src/port.ts:1`,
+      `${scope}/package.json: optionalDependencies may list only @ap/ui from the platform; @ap/contract-schemas belongs in devDependencies`,
+    ],
   );
 }
 for (const source of ['@ap/feature-shared', '@ap/feature-shared/wire']) {
