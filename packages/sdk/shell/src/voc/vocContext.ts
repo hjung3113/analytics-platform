@@ -81,7 +81,7 @@ export function freezeVocContext(input: VocFreezeInput, removed: ReadonlySet<str
   const href = shared?.ok ? shared.href : null;
   // The raw page pairs, not the kept list: a removed chip does not change which values the frozen screen carried.
   const carried: Record<string, string> = {};
-  for (const key of space?.carriedPageKeys ?? []) {
+  for (const key of input.registry.carrySetOf(route.menu)?.pageKeys ?? []) {
     const pair = page.find(([pairKey]) => pairKey === key);
     if (pair) carried[key] = pair[1];
   }

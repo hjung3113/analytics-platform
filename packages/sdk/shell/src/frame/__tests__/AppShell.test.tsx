@@ -10,7 +10,7 @@ import { AppShell } from '../AppShell';
 import { AppRail } from '../AppRail';
 import { AppSidebar } from '../AppSidebar';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
-import { groupId, menuPermission, spaceId, type GroupId, type Permission, type PlatformAdapter, type Session } from '@ap/contracts';
+import { carrySetId, groupId, menuPermission, spaceId, type GroupId, type Permission, type PlatformAdapter, type Session } from '@ap/contracts';
 import { useEffect, useState, type ReactNode } from 'react';
 
 function menu(id: string, group: GroupId, path: string, permission: Permission) {
@@ -1085,5 +1085,31 @@ describe('toast stack placement and live regions (#886)', () => {
     const items = [...document.querySelectorAll('[data-toast-item]')].map(e => e.textContent);
     expect(items[0]).toContain('실패');
     expect(items[1]).toContain('안내');
+  });
+});
+
+
+describe('favorites inside a carry set (#1099b)', () => {
+  const SET = carrySetId('shared');
+  const setMenu = (id: string, path: string, primary: boolean) => ({ ...menu(id, groupId('overview'), path, 'platform:view'), primary, label: { ko: id, en: id }, pageKeys: ['managedSystem', 'returnTo'], carrySet: SET });
+  const carryRegistry = createRegistry({
+    carrySets: [{ id: SET, pageKeys: ['managedSystem', 'returnTo'] }],
+    spaces: [testSpace({ id: spaceId('mars'), label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'list' })],
+    groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
+    menus: [setMenu('list', '/list', true), setMenu('other', '/other', false)],
+  });
+
+  it('a same-set sidebar favorite opens the default view without managedSystem or returnTo, while a recent keeps its stored URL', () => {
+    localStorage.setItem('platform:favorites:u1', JSON.stringify(['other']));
+    window.history.replaceState(null, '', '/mars/list?v=1&managedSystem=ms1&returnTo=' + encodeURIComponent('/somewhere?v=1'));
+    mount(['platform:view'], false, carryRegistry);
+    const favorites = screen.getByRole('region', { name: '즐겨찾기' });
+    const href = within(favorites).getByRole('link', { name: 'other' }).getAttribute('href')!;
+    expect(href).toContain('/mars/other');
+    expect(href).not.toContain('managedSystem');
+    expect(href).not.toContain('returnTo');
+    // The plain menu row still carries within the set.
+    const primary = screen.getByRole('navigation', { name: '주 메뉴' });
+    expect(within(primary).getByRole('link', { name: 'other' }).getAttribute('href')).toContain('managedSystem=ms1');
   });
 });

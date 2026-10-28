@@ -39,7 +39,7 @@ function consecutiveDrillTrail(menu: MenuEntry, search: string): { label: Text; 
  * usage stay. The main screen feeds it the browser URL; a board pane feeds it its own `PaneScreen` (ADR-0049), so
  * the same rules run per screen.
  */
-export function useScreenState(app: AppValue, source: ScreenSource): { screen: ScreenState; sidebarSpace: SpaceDef | null } {
+export function useScreenState(app: AppValue, source: ScreenSource): { screen: ScreenState; sidebarSpace: SpaceDef | null; resolveEntryLink: (menuId: string, options?: LinkOptions) => LinkResolution } {
   const { registry, adapter, session, user, can, canOpen, toast, accessibleSpaces, defaultRangeTo, equipmentAxes } = app.pub;
   const { enters, usageSessionId, userIdRef, usageNav } = app.internal;
   const { matchRoute, menuById, safeReturnTo } = registry;
@@ -137,12 +137,12 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   }, [pathname, write, global, page, extras, dropContextResetKeys]);
 
   // Context Link helper (§22/§6.4): every registered global is preserved regardless of target support;
-  // page-owned state and unregistered extras are never copied implicitly — the one exception is a space's
-  // `carriedPageKeys` between menus of that same space (ADR-0081 decision 4). Changing the site applies the same
+  // page-owned state and unregistered extras are never copied implicitly — the one exception is a carry set's
+  // page keys between member menus of that same set, in any space (ADR-0081 decision 4 as replaced by #1099b). Changing the site applies the same
   // site boundary as setGlobal (ADR-0004) to the values carried over from the current URL — values the caller
   // passes explicitly are meant for the destination and stay. `allowed` is a display hint (permission, plus
   // space entry for a space menu — a global utility menu is permission only, 06 §9.1); the server re-checks on arrival.
-  const resolveLink = useCallback((menuId: string, options: LinkOptions = {}): LinkResolution => {
+  const resolveWith = useCallback((menuId: string, options: LinkOptions, carry: boolean): LinkResolution => {
     const target = menuById(menuId);
     const carried: GlobalContext = options.global && 'scopeId' in options.global && options.global.scopeId !== global.scopeId
       ? { ...global, roomNames: null, lineNames: null, prcGroups: null, condition: null, membershipBasis: null, selection: null, lotIds: null, recipeIds: null, ppid: null }
@@ -151,25 +151,28 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     const requested = Object.entries(options.page ?? {});
     const pagePairs: Pair[] = [];
     for (const [k, v] of requested) if (v !== null && target.pageKeys.includes(k)) pagePairs.push([k, v]);
-    // Carried keys: same space, space declares them, target declares them; explicit value wins, explicit null omits.
-    // A space that carries `returnTo` only carries it: inside that space `options.returnTo` never mints or replaces the origin (#760, ADR-0081 UX-10).
-    const targetSpace = registry.spaceOf(target);
-    let sameCarryingSpace = false;
-    if (route && targetSpace && registry.spaceOf(route.menu)?.id === targetSpace.id) {
-      sameCarryingSpace = carriesReturnTo(targetSpace);
-      for (const k of targetSpace.carriedPageKeys ?? []) {
+    // Carried keys: same carry set, every member declares them; explicit value wins, explicit null omits.
+    // A set that carries `returnTo` only carries it: inside that set `options.returnTo` never mints or replaces the origin (#760, ADR-0081 UX-10).
+    // `carry` is false only for kernel entries (space entry/resume): they start clean and never borrow the current set state. Favorites use the public resolver with explicit nulls.
+    const targetSet = registry.carrySetOf(target);
+    let sameCarryingSet = false;
+    if (carry && route && targetSet && registry.carrySetOf(route.menu)?.id === targetSet.id) {
+      sameCarryingSet = carriesReturnTo(targetSet);
+      for (const k of targetSet.pageKeys) {
         if (!target.pageKeys.includes(k) || options.page?.[k] !== undefined) continue;
         const current = page.find(([pk]) => pk === k);
         if (current) pagePairs.push(current);
       }
     }
-    if (options.returnTo && !sameCarryingSpace && target.pageKeys.includes(RETURN_TO_KEY) && !pagePairs.some(([k]) => k === RETURN_TO_KEY)) pagePairs.push([RETURN_TO_KEY, url]);
+    if (options.returnTo && !sameCarryingSet && target.pageKeys.includes(RETURN_TO_KEY) && !pagePairs.some(([k]) => k === RETURN_TO_KEY) && options.page?.[RETURN_TO_KEY] === undefined) pagePairs.push([RETURN_TO_KEY, url]);
     return {
       href: pathFor(target, options.params) + buildQuery(g, pagePairs),
       allowed: canOpen(menuId),
       droppedPageKeys: requested.map(([k]) => k).filter(k => !target.pageKeys.includes(k)),
     };
   }, [global, url, menuById, canOpen, page, route, registry]);
+  const resolveLink = useCallback((menuId: string, options: LinkOptions = {}): LinkResolution => resolveWith(menuId, options, true), [resolveWith]);
+  const resolveEntryLink = useCallback((menuId: string, options: LinkOptions = {}): LinkResolution => resolveWith(menuId, options, false), [resolveWith]);
   const linkTo = useCallback((menuId: string, options: LinkOptions = {}) => resolveLink(menuId, options).href, [resolveLink]);
 
   const currentSpace = useMemo(() => (route ? registry.spaceOf(route.menu) : null), [registry, route]);
@@ -367,5 +370,5 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     url, pathname, route, platformScreen, pageNavigation, contractError: routeContractError, metricInit, global, page, extras, pageParam, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, reportError, returnTarget, returnOrigin,
     currentSpace, scope: scopeView, retryScope, screenMode: mode, paneId, paneLabel,
   }), [queryDraft, queryHistory, queryPolicy, url, pathname, route, platformScreen, pageNavigation, routeContractError, metricInit, global, page, extras, pageParam, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, reportError, returnTarget, returnOrigin, currentSpace, scopeView, retryScope, mode, paneId, paneLabel]);
-  return { screen, sidebarSpace };
+  return { screen, sidebarSpace, resolveEntryLink };
 }

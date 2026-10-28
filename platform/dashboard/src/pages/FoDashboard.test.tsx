@@ -6,7 +6,7 @@ import { featureQueryClient } from '@ap/feature-bridge';
 import { useEffect } from 'react';
 import { I18nProvider, useI18n, PlatformProvider, createRegistry } from '@ap/kernel';
 import { testAdapter, testSession } from '@ap/kernel/testing';
-import { NO_FEATURES, contextCapabilities, groupId, spaceId } from '@ap/contracts';
+import { NO_FEATURES, contextCapabilities, groupId, spaceId, carrySetId } from '@ap/contracts';
 import type { MenuEntry } from '@ap/kernel';
 import { dashboardLinks } from './FoDashboard';
 import { mountAt } from '../test-support';
@@ -114,9 +114,10 @@ describe('대시보드 host links', () => {
 
   it('links the queue and coverage hrefs to 수신함 and Triage when the registry has them (#761)', () => {
     const live = createRegistry({
-      spaces: [{ id: spaceId('feedbackops'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'platform:view', carriedPageKeys: ['managedSystem'], homeMenuId: 'fo-inbox' }],
+      carrySets: [{ id: carrySetId('features'), pageKeys: ['managedSystem'] }],
+      spaces: [{ id: spaceId('feedbackops'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'platform:view', homeMenuId: 'fo-inbox' }],
       groups: [{ id: groupId('myActivity'), label: { ko: '내 활동', en: 'Mine' }, space: spaceId('feedbackops') }],
-      menus: [stub('fo-inbox', '/feedbackops/vocs', { primary: true, pageKeys: ['focus', 'tab', 'area', 'managedSystem'] }), stub('fo-triage', '/feedbackops/triage', { pageKeys: ['focus', 'tab', 'area', 'managedSystem'] })],
+      menus: [stub('fo-inbox', '/feedbackops/vocs', { primary: true, pageKeys: ['focus', 'tab', 'area', 'managedSystem'], carrySet: carrySetId('features') }), stub('fo-triage', '/feedbackops/triage', { pageKeys: ['focus', 'tab', 'area', 'managedSystem'], carrySet: carrySetId('features') })],
     } as never);
     const session = testSession(['platform:view']);
     window.history.replaceState(null, '', '/');
@@ -138,9 +139,10 @@ describe('대시보드 host links', () => {
 
   it('links the coverage href to 커버리지 when the registry has fo-coverage (#762 p2)', () => {
     const live = createRegistry({
-      spaces: [{ id: spaceId('feedbackops'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'platform:view', carriedPageKeys: ['managedSystem'], homeMenuId: 'fo-coverage' }],
+      carrySets: [{ id: carrySetId('features'), pageKeys: ['managedSystem'] }],
+      spaces: [{ id: spaceId('feedbackops'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'platform:view', homeMenuId: 'fo-coverage' }],
       groups: [{ id: groupId('myActivity'), label: { ko: '내 활동', en: 'Mine' }, space: spaceId('feedbackops') }],
-      menus: [stub('fo-coverage', '/feedbackops/coverage', { primary: true, pageKeys: ['view', 'area', 'cursor', 'managedSystem'] })],
+      menus: [stub('fo-coverage', '/feedbackops/coverage', { primary: true, pageKeys: ['view', 'area', 'cursor', 'managedSystem'], carrySet: carrySetId('features') })],
     } as never);
     const session = testSession(['platform:view']);
     window.history.replaceState(null, '', '/');
@@ -152,9 +154,10 @@ describe('대시보드 host links', () => {
 
   it('links 보드 to the Tasks board when the registry has fo-tasks (#763 p1)', () => {
     const live = createRegistry({
-      spaces: [{ id: spaceId('feedbackops'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'platform:view', carriedPageKeys: ['managedSystem'], homeMenuId: 'fo-tasks' }],
+      carrySets: [{ id: carrySetId('features'), pageKeys: ['managedSystem'] }],
+      spaces: [{ id: spaceId('feedbackops'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'platform:view', homeMenuId: 'fo-tasks' }],
       groups: [{ id: groupId('myActivity'), label: { ko: '내 활동', en: 'Mine' }, space: spaceId('feedbackops') }],
-      menus: [stub('fo-tasks', '/feedbackops/tasks', { primary: true, pageKeys: ['focus', 'q', 'publicUpdate', 'managedSystem'] })],
+      menus: [stub('fo-tasks', '/feedbackops/tasks', { primary: true, pageKeys: ['focus', 'q', 'publicUpdate', 'managedSystem'], carrySet: carrySetId('features') })],
     } as never);
     const session = testSession(['platform:view']);
     window.history.replaceState(null, '', '/');

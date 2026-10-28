@@ -1,6 +1,6 @@
 import type { ComponentType, LazyExoticComponent } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { GLOBAL_KEYS, KERNEL_PERMISSIONS, isAppRelativePath, parseQuery, requiredContextError, RETURN_TO_KEY, menuPermissions, type ContextKey, type GroupId, type HostFeature, type MenuMeta, type MenuPermission, type ModuleScopedId, type ModuleScreenProps, type PageType, type Permission, type SpaceDef, type SpaceId, type Text } from '@ap/contracts';
+import { GLOBAL_KEYS, KERNEL_PERMISSIONS, isAppRelativePath, parseQuery, requiredContextError, RETURN_TO_KEY, menuPermissions, type CarrySetDef, type CarrySetId, type ContextKey, type GroupId, type HostFeature, type MenuMeta, type MenuPermission, type ModuleScopedId, type ModuleScreenProps, type PageType, type Permission, type SpaceDef, type SpaceId, type Text } from '@ap/contracts';
 
 /** docs/06 §5: menus declare, the shell consumes. Metadata lives in @ap/contracts; this adds the React bindings. */
 export type PageProps = { params: Record<string, string> };
@@ -53,12 +53,16 @@ export type Registry = {
   groups: readonly GroupDef[];
   menus: readonly MenuEntry[];
   spaces: readonly SpaceDef[];
+  /** The app's declared carry sets (page keys that follow the user between member menus, any space). */
+  carrySets: readonly CarrySetDef[];
   /** Every permission a menu or space may name: the kernel's, then the app's declared ones, in declaration order. The one runtime list for selects and validators. */
   permissions: readonly Permission[];
   groupById: (id: AnyGroupId) => GroupDef;
   spaceById: (id: SpaceId) => SpaceDef;
   /** Space of the menu's group — membership lives on the group, never on the menu. Null when the group is a global utility (06 §9.1). */
   spaceOf: (menu: MenuEntry) => SpaceDef | null;
+  /** Carry set the menu joined with `carrySet`, or null. Independent of the menu's space. */
+  carrySetOf: (menu: MenuEntry) => CarrySetDef | null;
   menuById: (id: string) => MenuEntry;
   /** The menu at the platform home path, declared by `platformHomeMenuId`. Null when the app has no space-less `/` menu. */
   platformHome: MenuEntry | null;
@@ -101,7 +105,7 @@ export const isBoardPath = (pathname: string) => pathname.replace(/\/+$/, '') ==
  * Validates the declared IA once and returns the lookup functions the kernel and shell use
  * (docs/integration/platform-packages.md §5). Throws RegistryError on any violation.
  */
-export function createRegistry({ spaces, groups, menus: menusIn, permissions: declared = [], platformHomeMenuId, reservedRoots = [] }: { spaces: readonly SpaceDef[]; groups: readonly GroupDef[]; menus: readonly MenuEntry[]; /** The app's menu permissions. Omit when the menus use only kernel permissions. */ permissions?: readonly MenuPermission[]; /** Id of the menu at the platform home path. Required when a space-less menu declares `/`. */ platformHomeMenuId?: string; /** Roots the app serves outside the Registry (its menu roots, e.g. `voc`); a space id may not take one. Added to the platform's own `board`, `api` and `auth`. */ reservedRoots?: readonly string[] }): Registry {
+export function createRegistry({ spaces, groups, menus: menusIn, permissions: declared = [], carrySets = [], platformHomeMenuId, reservedRoots = [] }: { spaces: readonly SpaceDef[]; groups: readonly GroupDef[]; menus: readonly MenuEntry[]; /** The app's menu permissions. Omit when the menus use only kernel permissions. */ permissions?: readonly MenuPermission[]; /** The app's carry sets. Omit when no page key follows the user between menus. */ carrySets?: readonly CarrySetDef[]; /** Id of the menu at the platform home path. Required when a space-less menu declares `/`. */ platformHomeMenuId?: string; /** Roots the app serves outside the Registry (its menu roots, e.g. `voc`); a space id may not take one. Added to the platform's own `board`, `api` and `auth`. */ reservedRoots?: readonly string[] }): Registry {
   const fail = (message: string): never => { throw new RegistryError(message); };
   // Runtime config can hold non-strings the brand does not stop: check the shape before the namespace is taken.
   for (const p of declared) if (!isPermissionShape(p)) fail(`Declared permission "${String(p)}" must be "<namespace>:<action>" without whitespace or ? # & /`);
@@ -115,6 +119,20 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
     if (seenPermissions.has(p)) fail(`Duplicate declared permission "${p}"`);
     seenPermissions.add(p);
   }
+  const carrySetByIdMap = new Map<CarrySetId, CarrySetDef>();
+  for (const c of carrySets) {
+    if (!isIdShape(c?.id)) fail(`Carry set id "${String(c?.id)}" must be non-empty without whitespace or ? # & /`);
+    if (carrySetByIdMap.has(c.id)) fail(`Duplicate carry set id "${c.id}"`);
+    carrySetByIdMap.set(c.id, c);
+    if (!Array.isArray(c.pageKeys)) fail(`Carry set "${c.id}" pageKeys must be a list`);
+    const seenCarried = new Set<string>();
+    for (const key of c.pageKeys) {
+      if (!isIdShape(key)) fail(`Carry set "${c.id}" page key "${String(key)}" must be non-empty without whitespace or ? # & /`);
+      if (GLOBAL_KEYS.has(key)) fail(`Carry set "${c.id}" page key "${key}" collides with a global Context key`);
+      if (seenCarried.has(key)) fail(`Carry set "${c.id}" page key "${key}" is declared twice`);
+      seenCarried.add(key);
+    }
+  }
   const spaceByIdMap = new Map<SpaceId, SpaceDef>();
   for (const s of spaces) {
     if (!isIdShape(s.id)) fail(`Space id "${String(s.id)}" must be non-empty without whitespace or ? # & /`);
@@ -122,12 +140,6 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
     if (s.permission !== undefined && !isPlatformPermission(s.permission)) fail(`Space "${s.id}" permission "${s.permission}" is not a platform permission (kernel or declared)`);
     if (spaceByIdMap.has(s.id)) fail(`Duplicate space id "${s.id}"`);
     spaceByIdMap.set(s.id, s);
-    const seenCarried = new Set<string>();
-    for (const key of s.carriedPageKeys ?? []) {
-      if (GLOBAL_KEYS.has(key)) fail(`Space "${s.id}" carried page key "${key}" collides with a global Context key`);
-      if (seenCarried.has(key)) fail(`Space "${s.id}" carried page key "${key}" is declared twice`);
-      seenCarried.add(key);
-    }
   }
   const byId = new Map<string, MenuEntry>();
   for (const m of menusIn) {
@@ -220,13 +232,13 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
       }
     }
     if (clash) fail(`Menu "${m.id}" page key "${clash}" collides with a global Context key`);
-    const menuSpace = groupSpace.get(m.group);
-    const missingCarried = menuSpace ? (spaceByIdMap.get(menuSpace)?.carriedPageKeys ?? []).find(k => !m.pageKeys.includes(k)) : undefined;
-    if (missingCarried) fail(`Menu "${m.id}" does not declare space "${menuSpace}" carried page key "${missingCarried}" in pageKeys`);
+    const menuCarrySet = m.carrySet === undefined ? undefined : carrySetByIdMap.get(m.carrySet) ?? fail(`Menu "${m.id}" uses undeclared carry set "${String(m.carrySet)}"`);
+    const missingCarried = (menuCarrySet?.pageKeys ?? []).find(k => !m.pageKeys.includes(k));
+    if (missingCarried) fail(`Menu "${m.id}" does not declare carry set "${menuCarrySet?.id}" page key "${missingCarried}" in pageKeys`);
     // Sidebar sub-items: preset keys are the menu's own page keys, never carried or `focus`; ids unique (06 §8).
     if (m.navViews !== undefined) {
       if (m.navHidden && m.navViews.length > 0) fail(`Menu "${m.id}" is navHidden and cannot declare navViews`);
-      const carriedKeys = (menuSpace ? spaceByIdMap.get(menuSpace)?.carriedPageKeys : undefined) ?? [];
+      const carriedKeys = menuCarrySet?.pageKeys ?? [];
       const viewIds = new Set<string>();
       for (const view of m.navViews) {
         if (typeof view.id !== 'string' || view.id.trim() === '') fail(`Menu "${m.id}" navView id must not be blank`);
@@ -237,7 +249,7 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
         for (const key of Object.keys(view.page)) {
           if (key === 'focus') fail(`Menu "${m.id}" navView "${view.id}" preset key "focus" cannot be a view key`);
           if (!m.pageKeys.includes(key)) fail(`Menu "${m.id}" navView "${view.id}" preset key "${key}" is not a declared pageKeys entry`);
-          if (carriedKeys.includes(key)) fail(`Menu "${m.id}" navView "${view.id}" preset key "${key}" is a space carried page key`);
+          if (carriedKeys.includes(key)) fail(`Menu "${m.id}" navView "${view.id}" preset key "${key}" is a carry set page key`);
         }
       }
     }
@@ -321,6 +333,7 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
     const space = groupById(menu.group).space;
     return space === null ? null : spaceById(space);
   };
+  const carrySetOf = (menu: MenuEntry): CarrySetDef | null => (menu.carrySet === undefined ? null : carrySetByIdMap.get(menu.carrySet) ?? null);
   const menuById = (id: string) => byId.get(id) ?? fail(`Unknown menu ${id}`);
 
   // Static segments win over parameters, compared left to right, whatever the declaration order.
@@ -371,7 +384,7 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
     return value;
   };
 
-  return { groups, menus, spaces, permissions, groupById, spaceById, spaceOf, menuById, platformHome, matchRoute, canonicalHref, safeReturnTo };
+  return { groups, menus, spaces, carrySets, permissions, groupById, spaceById, spaceOf, carrySetOf, menuById, platformHome, matchRoute, canonicalHref, safeReturnTo };
 }
 
 /** Parameter names declared by route segments, in route order. */

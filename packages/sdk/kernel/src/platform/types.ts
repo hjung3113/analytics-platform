@@ -44,7 +44,7 @@ export type VocComposeContextItem = { id: string; label: string; value: string }
 /**
  * The Context frozen when the VOC drawer opened, minus the chips the user removed. `href` is the absolute URL of that screen rebuilt
  * from the kept items only (06 §8: a removed chip leaves the attached address too); null when there was no main screen (board) or the user removed the `menu` chip. `spaceId`/`menuId` describe the frozen screen for defaults only (e.g. the Managed System); they ignore chip removal and are never attached.
- * `carried` is the frozen screen's values of its space's `carriedPageKeys` (empty when none), including keys whose chips were removed; defaults only, never attached.
+ * `carried` is the frozen screen's values of its carry set's page keys (empty when it has no set), including keys whose chips were removed; defaults only, never attached.
  */
 export type VocComposeContext = { items: readonly VocComposeContextItem[]; href: string | null; spaceId: SpaceId | null; menuId: string | null; carried: Readonly<Record<string, string>> };
 export type VocComposeProps = {

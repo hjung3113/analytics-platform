@@ -8,7 +8,7 @@ import { render } from '@testing-library/react';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform, type MenuEntry } from '@ap/kernel';
 import { testAdapter, testSession } from '@ap/kernel/testing';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
-import { groupId, menuPermissions, spaceId, type Permission } from '@ap/contracts';
+import { carrySetId, groupId, menuPermissions, spaceId, type Permission } from '@ap/contracts';
 
 type Group = { id: string; label: { ko: string; en: string }; icon: LucideIcon };
 
@@ -34,7 +34,8 @@ export function createFeatureMenuHarness({ manifests, homeMenuId, group, detailS
   manifests: readonly MenuEntry[]; homeMenuId: string; group: Group; detailSlot?: boolean; permissions?: readonly Permission[];
 }) {
   const registry = createRegistry({
-    spaces: [{ id: spaceId('feedbackops'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'features:access', carriedPageKeys: ['managedSystem', 'returnTo'], homeMenuId }],
+    carrySets: [{ id: carrySetId('features'), pageKeys: ['managedSystem', 'returnTo'] }],
+    spaces: [{ id: spaceId('feedbackops'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'features:access', homeMenuId }],
     groups: [{ id: groupId(group.id), label: group.label, icon: group.icon, space: spaceId('feedbackops') }],
     menus: manifests,
   });

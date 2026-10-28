@@ -2,7 +2,7 @@ import { act, lazy } from 'react';
 import { Inbox } from 'lucide-react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { NO_FEATURES, contextCapabilities, groupId, spaceId } from '@ap/contracts';
+import { NO_FEATURES, contextCapabilities, carrySetId, groupId, spaceId } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import { memoryStorage, testAdapter, testSession, useToastsForTest } from '@ap/kernel/testing';
 import { featureApi, setFeatureApi } from './feature-api';
@@ -17,10 +17,11 @@ const section = savedViewsSlot.For(SPACE)!;
 const Body = section.Body;
 const menu = (id: string, path: string, pageKeys: string[], primary = false) => ({
   id, primary, group: GROUP, label: { ko: id, en: id }, description: { ko: id, en: id }, path, icon: Inbox, permission: 'features:access' as const,
-  requiresScope: false, pageType: 'management' as const, context: contextCapabilities(), features: NO_FEATURES, pageKeys, component: lazy(async () => ({ default: () => null })),
+  requiresScope: false, pageType: 'management' as const, context: contextCapabilities(), features: NO_FEATURES, pageKeys, carrySet: carrySetId('features'), component: lazy(async () => ({ default: () => null })),
 });
 const registry = createRegistry({
-  spaces: [{ id: SPACE, label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'features:access', carriedPageKeys: ['managedSystem', 'returnTo'], homeMenuId: 'fo-dashboard' }],
+  carrySets: [{ id: carrySetId('features'), pageKeys: ['managedSystem', 'returnTo'] }],
+  spaces: [{ id: SPACE, label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'features:access', homeMenuId: 'fo-dashboard' }],
   groups: [{ id: GROUP, label: { ko: 'VOC', en: 'VOC' }, icon: Inbox, space: SPACE }],
   menus: [
     menu('fo-dashboard', '/feedbackops', ['managedSystem', 'returnTo'], true),

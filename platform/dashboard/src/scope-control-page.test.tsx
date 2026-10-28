@@ -1,7 +1,7 @@
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { ListTodo } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { groupId, spaceId } from '@ap/contracts';
+import { groupId, spaceId, carrySetId } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { memoryStorage, testAdapter, testSession } from '@ap/kernel/testing';
 import { setFeatureApi } from '@ap/feature-bridge/feature-api';
@@ -43,7 +43,8 @@ describe('scope change (FO parity, #762 k)', () => {
   const FOCUS = '55555555-5555-4555-8555-555555555555';
   const probe = (id: string, path: string, pageKeys: string[]) => ({ ...manifests[0]!, id, primary: false, path, pageKeys });
   const registry = createRegistry({
-    spaces: [{ id: spaceId('feedbackops'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'features:access', carriedPageKeys: ['managedSystem', 'returnTo'], homeMenuId: 'fo-dashboard' }],
+    carrySets: [{ id: carrySetId('features'), pageKeys: ['managedSystem', 'returnTo'] }],
+    spaces: [{ id: spaceId('feedbackops'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'features:access', homeMenuId: 'fo-dashboard' }],
     groups: [{ id: groupId('foDashboard'), label: { ko: '대시보드', en: 'Dashboard' }, icon: ListTodo, space: spaceId('feedbackops') }],
     menus: [...manifests, probe('probe-area', '/feedbackops/probe-area', ['focus', 'managedSystem', 'area', 'returnTo']), probe('probe-cursor', '/feedbackops/probe-cursor', ['focus', 'managedSystem', 'cursor', 'returnTo'])],
   });
@@ -83,7 +84,8 @@ describe('관리자 group turns 목록 범위 off (#764 k, ADR-0081 d4)', () => 
   const S1 = '11111111-1111-4111-8111-111111111111';
   const probe = (id: string, path: string, group: string) => ({ ...manifests[0]!, id, primary: true, path, group: groupId(group), pageKeys: ['focus', 'managedSystem', 'returnTo'] }) as (typeof manifests)[number];
   const registry = createRegistry({
-    spaces: [{ id: spaceId('feedbackops'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'features:access', carriedPageKeys: ['managedSystem', 'returnTo'], homeMenuId: 'fo-dashboard' }],
+    carrySets: [{ id: carrySetId('features'), pageKeys: ['managedSystem', 'returnTo'] }],
+    spaces: [{ id: spaceId('feedbackops'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'features:access', homeMenuId: 'fo-dashboard' }],
     groups: ['foDashboard', 'foAdmin', 'foVoc'].map(id => ({ id: groupId(id), label: { ko: id, en: id }, icon: ListTodo, space: spaceId('feedbackops') })),
     menus: [...manifests, probe('probe-admin', '/feedbackops/probe-admin', 'foAdmin'), probe('probe-voc', '/feedbackops/probe-voc', 'foVoc')],
   });

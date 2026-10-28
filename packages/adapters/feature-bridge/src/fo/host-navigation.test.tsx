@@ -5,7 +5,7 @@ import { useState, type ReactElement, type ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import { noContext, testAdapter, testSession, testSpace, useToastsForTest } from '@ap/kernel/testing';
-import { groupId, spaceId } from '@ap/contracts';
+import { carrySetId, groupId, spaceId } from '@ap/contracts';
 import { useHostSeam } from '@/lib/host/host-seam';
 import type { HostSeam } from '@ap/feature-screens/global-screens/core';
 import { setFeatureApi } from '../feature-api';
@@ -13,13 +13,14 @@ import { FeatureBridge } from './FeatureBridge';
 import { hostLinks } from './links';
 import { operatorRoute, routeHere, routeSearch } from './operator-route';
 
-const space = testSpace({ homeMenuId: 'fo-inbox', carriedPageKeys: ['managedSystem'] });
+const space = testSpace({ homeMenuId: 'fo-inbox' });
 const menu = (id: string, path: string, pageKeys: string[], primary = false) => ({
   id, group: groupId('overview'), primary, label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House,
   permission: 'platform:view' as const, requiresScope: false, context: noContext, pageType: 'overview' as const,
-  features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys,
+  features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys, carrySet: carrySetId('features'),
 });
 const registry = createRegistry({
+  carrySets: [{ id: carrySetId('features'), pageKeys: ['managedSystem'] }],
   spaces: [space],
   groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
   menus: [menu('fo-inbox', '/inbox', ['focus', 'q', 'severity', 'managedSystem', 'returnTo'], true), menu('fo-triage', '/triage', ['focus', 'managedSystem']), menu('fo-clusters', '/clusters', ['focus', 'managedSystem'])],
@@ -111,7 +112,8 @@ describe('hostLinks().useNavigate on a mounted platform', () => {
 
 describe('a space that carries returnTo (#760)', () => {
   const carrying = createRegistry({
-    spaces: [testSpace({ homeMenuId: 'fo-inbox', carriedPageKeys: ['managedSystem', 'returnTo'] })],
+    carrySets: [{ id: carrySetId('features'), pageKeys: ['managedSystem', 'returnTo'] }],
+    spaces: [testSpace({ homeMenuId: 'fo-inbox' })],
     groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
     menus: [menu('fo-inbox', '/inbox', ['focus', 'q', 'severity', 'managedSystem', 'returnTo'], true), menu('fo-triage', '/triage', ['focus', 'managedSystem', 'returnTo'])],
   });
@@ -342,6 +344,7 @@ describe('routeSearch', () => {
 
 describe('a target whose menu is not in the registry', () => {
   const lone = createRegistry({
+    carrySets: [{ id: carrySetId('features'), pageKeys: ['managedSystem'] }],
     spaces: [space],
     groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
     menus: [menu('fo-inbox', '/inbox', ['focus', 'q', 'severity', 'managedSystem', 'returnTo'], true)],

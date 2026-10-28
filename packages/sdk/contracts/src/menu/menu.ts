@@ -30,10 +30,20 @@ export type GroupId = Brand<'GroupId'>;
 export type SpaceId = Brand<'SpaceId'>;
 /** A permission a menu app declares; the platform's own are `KernelPermission`. */
 export type MenuPermission = Brand<'MenuPermission'>;
+/** A carry set the app declares (`createRegistry({ carrySets })`); menus join one with `MenuMeta.carrySet`. */
+export type CarrySetId = Brand<'CarrySetId'>;
 /** Identity casts that keep the literal, so an app derives narrow types from its own declarations. Shape checks belong to `createRegistry`. */
 export const groupId = <const S extends string>(id: S) => id as S & GroupId;
 export const spaceId = <const S extends string>(id: S) => id as S & SpaceId;
 export const menuPermission = <const S extends string>(id: S) => id as S & MenuPermission;
+export const carrySetId = <const S extends string>(id: S) => id as S & CarrySetId;
+/**
+ * Page keys that stay in the URL when the user moves between member menus of one set, in any space or outside every space (ADR-0081 decision 4 as replaced by #1099b, 06 §6.4 exception).
+ * Set identity, not overlapping key names, decides propagation; two sets may reuse a key name. The registry rejects an unknown or duplicate set id, a global key, a key listed twice
+ * and a member menu that does not declare every key in `pageKeys`. Listing `returnTo` makes the set return-aware (ADR-0081 UX-10, #760): the way back survives moves between members
+ * (a link inside the set only carries it, never mints or replaces it), `PlatformPage` draws the return row for an accepted `returnTo`, and last-screen/recents never store it.
+ */
+export type CarrySetDef = { id: CarrySetId; pageKeys: readonly string[] };
 /** Sidebar-visible group set + entry permission (06 §9.1). Groups declare membership via GroupDef.space, menus never do. */
 export type SpaceDef = {
   id: SpaceId;
@@ -46,8 +56,6 @@ export type SpaceDef = {
   permission?: Permission;
   /** Landing menu inside this space whose path has no `:param`. */
   homeMenuId: string;
-  /** Page keys that stay in the URL when the user moves between menus of this space (ADR-0081 decision 4, 06 §6.4 exception): e.g. a list scope the whole space shares. Only keys a target menu declares in `pageKeys` are carried; the registry rejects a global key and a member menu that does not declare every carried key. Absent → nothing is carried (page-owned state stays per menu). Carrying `returnTo` makes the space "return-aware" (ADR-0081 UX-10, #760): the way back survives moves between its menus (a same-space link only carries it, never mints or replaces it), `PlatformPage` draws the return row for an accepted `returnTo`, and last-screen/recents never store it. */
-  carriedPageKeys?: readonly string[];
 };
 /** Permissions the platform's own features judge, whatever app is assembled — emitted to `vocab.json` for servers outside this workspace (#674). Canonical order. */
 export const KERNEL_PERMISSIONS = ['platform:view', 'notice:view', 'voc:view', 'console:access', 'features:access'] as const;
@@ -80,6 +88,8 @@ export type MenuMeta = {
   permission: Permission;
   /** Further grants the actor must also hold (AND with `permission`, never OR). Platform vocabulary only: the registry rejects an empty list, a repeat of the primary or another entry, an unknown grant and any list on a module menu (ADR-0053 keeps one permission). Read access through `menuPermissions`. */
   additionalPermissions?: readonly Permission[];
+  /** Carry set this menu belongs to (`createRegistry({ carrySets })`). Absent → nothing is carried to or from this menu. */
+  carrySet?: CarrySetId;
   /** Scope must be selected and server-validated before this page queries data. */
   requiresScope: boolean;
   context: Record<ContextKey, Capability>;
@@ -101,7 +111,7 @@ export type MenuMeta = {
   navHidden?: boolean;
   /**
    * Sub-items drawn under this menu's sidebar row (expanded sidebar only; 06 §8, ADR-0081). Each view links to this menu with its `page` preset.
-   * Each preset has at least one key; keys must be declared `pageKeys`, not a space `carriedPageKeys` entry (those follow the current screen) and not `focus`; ids are unique
+   * Each preset has at least one key; keys must be declared `pageKeys`, not a carry-set page key (those follow the current screen) and not `focus`; ids are unique
    * within the menu; labels are non-blank ko/en; a `navHidden` menu has none. A view is current when every preset key equals the URL's page value.
    * Views are not palette entries and not favorite/recent targets.
    */

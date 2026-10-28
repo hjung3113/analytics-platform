@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useState, type ReactNode } from 
 import { hasDotSegment } from '../context/location';
 import type { PageFocus } from '../context/pageNavigation';
 import { routeParamNames } from '../registry/registry';
-import { incompleteMetricPair, menuPermissions, isAppRelativePath, type ParsedQuery, parseQuery, type SpaceId } from '@ap/contracts';
+import { incompleteMetricPair, menuPermissions, isAppRelativePath, type ParsedQuery, parseQuery, RETURN_TO_KEY, type SpaceId } from '@ap/contracts';
 import { readSpaceLast, sameParams, writeSpaceLast } from './preferences';
 import { MainBoundContext, ScreenContext, type AppValue, type CommitOptions, type MainBound, type ScreenSource } from './contexts';
 import { useScreenState } from './useScreenState';
@@ -37,8 +37,8 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
   const go = useCallback((next: string, options?: { replace?: boolean; focus?: PageFocus }) => commit(next, options?.replace ? 'replace' : 'push', { focus: options?.focus }), [commit]);
 
   const source: ScreenSource = { mode: 'main', paneId: null, paneLabel: null, url, navigation: pageNavigation, commit, go, onScopeValid: rememberScope };
-  const { screen, sidebarSpace } = useScreenState(app, source);
-  const { pathname, route, contractError, resolveLink, navigate, currentSpace } = screen;
+  const { screen, sidebarSpace, resolveEntryLink } = useScreenState(app, source);
+  const { pathname, route, contractError, navigate, currentSpace } = screen;
 
   useEffect(() => {
     const onPop = () => {
@@ -63,7 +63,7 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
   }, [url, route, contractError, userId, can, enters, registry, recordVisit, spaceIdMigrations]);
 
   const visibleMenus = useMemo(() => (sidebarSpace === null ? [] : menusInSpace(sidebarSpace.id)), [menusInSpace, sidebarSpace]);
-  // Read at call time. Stored globals are not restored: resolveLink carries the current global and the menu's page keys only.
+  // Read at call time. Stored globals are not restored. Entries start clean: they carry the current global but never the current carry-set page state, and only the target's own stored page values come back.
   const spaceResume = useCallback((spaceId: SpaceId): { menuId: string; href: string } | null => {
     const stored = readSpaceLast(userId, spaceIdMigrations)[spaceId];
     if (typeof stored !== 'string' || !isAppRelativePath(stored)) return null;
@@ -80,27 +80,27 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
     try { parsed = parseQuery(search, matched.menu.pageKeys); } catch { return null; }
     if (incompleteMetricPair(matched.menu, parsed.global.metricId, parsed.global.metricVersion)) return null;
     const page: Record<string, string> = {};
-    for (const [key, value] of parsed.page) page[key] = value;
-    const href = resolveLink(matched.menu.id, { params: matched.params, page }).href;
+    for (const [key, value] of parsed.page) if (key !== RETURN_TO_KEY) page[key] = value;
+    const href = resolveEntryLink(matched.menu.id, { params: matched.params, page }).href;
     let normalized: string;
     try { normalized = new URL(href, 'http://x').pathname; } catch { return null; }
     const again = matchRoute(normalized);
     if (!again || again.menu.id !== matched.menu.id || !sameParams(again.params, matched.params)) return null;
     return { menuId: matched.menu.id, href };
-  }, [userId, matchRoute, registry, canOpen, resolveLink, spaceIdMigrations]);
+  }, [userId, matchRoute, registry, canOpen, resolveEntryLink, spaceIdMigrations]);
   const spaceEntry = useCallback((spaceId: SpaceId): { menuId: string; href: string; resumed: boolean } | null => {
     const space = accessibleSpaces.find(s => s.id === spaceId);
     if (!space) return null;
     const resume = spaceResume(spaceId);
     if (resume) return { ...resume, resumed: true };
-    if (canOpen(space.homeMenuId)) return { menuId: space.homeMenuId, href: resolveLink(space.homeMenuId).href, resumed: false };
+    if (canOpen(space.homeMenuId)) return { menuId: space.homeMenuId, href: resolveEntryLink(space.homeMenuId).href, resumed: false };
     for (const group of registry.groups) {
       if (group.space !== spaceId) continue;
       const menu = registry.menus.find(m => m.group === group.id && !m.navHidden && routeParamNames(m.path).length === 0 && canOpen(m.id));
-      if (menu) return { menuId: menu.id, href: resolveLink(menu.id).href, resumed: false };
+      if (menu) return { menuId: menu.id, href: resolveEntryLink(menu.id).href, resumed: false };
     }
     return null;
-  }, [accessibleSpaces, spaceResume, canOpen, resolveLink, registry]);
+  }, [accessibleSpaces, spaceResume, canOpen, resolveEntryLink, registry]);
   // Reselecting the current space never sends the user home; targets without an entry keep the URL.
   const switchSpace = useCallback((spaceId: SpaceId) => {
     if (currentSpace?.id === spaceId) return;

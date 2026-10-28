@@ -6,7 +6,7 @@ import { setFeatureApi } from '@ap/feature-bridge/feature-api';
 import { clustersRoute } from '@ap/feature-bridge';
 import { useHostSeam } from '@/lib/host/host-seam';
 import { createRegistry, type MenuEntry } from '@ap/kernel';
-import { NO_FEATURES, contextCapabilities, groupId, spaceId } from '@ap/contracts';
+import { NO_FEATURES, contextCapabilities, groupId, spaceId, carrySetId } from '@ap/contracts';
 import { manifests } from '../index';
 import { mountAt, warmPages } from '../test-support';
 
@@ -93,10 +93,11 @@ describe('Clusters through the FeedbackOps bridge', () => {
     const findings: MenuEntry = {
       id: 'fo-findings', group: groupId('foVoc'), label: { ko: '전체 Finding', en: 'All Findings' }, description: { ko: '목적', en: 'Purpose' },
       path: '/feedbackops/findings', icon: manifests[0]!.icon, permission: 'features:access', requiresScope: false, pageType: 'management',
-      context: contextCapabilities(), features: NO_FEATURES, pageKeys: ['focus', 'managedSystem', 'returnTo'],
+      context: contextCapabilities(), features: NO_FEATURES, pageKeys: ['focus', 'managedSystem', 'returnTo'], carrySet: carrySetId('features'),
     };
     const withFindings = createRegistry({
-      spaces: [{ id: spaceId('feedbackops'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'features:access', carriedPageKeys: ['managedSystem', 'returnTo'], homeMenuId: 'fo-inbox' }],
+      carrySets: [{ id: carrySetId('features'), pageKeys: ['managedSystem', 'returnTo'] }],
+      spaces: [{ id: spaceId('feedbackops'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'features:access', homeMenuId: 'fo-inbox' }],
       groups: [{ id: groupId('foVoc'), label: { ko: 'VOC', en: 'VOC' }, icon: findings.icon, space: spaceId('feedbackops') }],
       menus: [...manifests, findings],
     });

@@ -142,9 +142,15 @@ describe('workspace assembly (#260)', () => {
       label: { ko: 'FeedbackOps', en: 'FeedbackOps' },
       subtitle: { ko: '피드백 운영', en: 'Feedback operations' },
       permission: 'features:access',
-      carriedPageKeys: ['managedSystem', 'returnTo'],
       homeMenuId: 'fo-dashboard',
     });
+    // #1099b: the one production carry set; every FeedbackOps operator and feature-admin menu is a member, no other menu is, and the space declares nothing.
+    expect(registry.carrySets).toEqual([{ id: 'features', pageKeys: ['managedSystem', 'returnTo'] }]);
+    expect(SPACES[7]).not.toHaveProperty('carriedPageKeys');
+    const feedbackopsMenus = registry.menus.filter(menu => registry.spaceOf(menu)?.id === 'feedbackops');
+    expect(feedbackopsMenus.length).toBeGreaterThan(0);
+    expect(feedbackopsMenus.every(menu => menu.carrySet === 'features')).toBe(true);
+    expect(registry.menus.filter(menu => menu.carrySet !== undefined).map(menu => menu.id).sort()).toEqual(feedbackopsMenus.map(menu => menu.id).sort());
     expect(registry.menuById('fo-dashboard')).toMatchObject({ group: 'foDashboard', path: '/feedbackops/fo-dashboard', aliases: ['/feedbackops'], permission: 'features:access', requiresScope: false, pageKeys: ['managedSystem', 'returnTo'] });
     // #761 p1: the VOC group sits after 대시보드 in the FeedbackOps space; every feedbackops menu declares managedSystem and the VOC menus a focus.
     expect(registry.menus.filter(menu => menu.group === 'foVoc').map(menu => menu.id)).toEqual(['fo-inbox', 'fo-triage', 'fo-clusters']);

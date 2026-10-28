@@ -4,15 +4,16 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { PlatformPage } from '../PlatformPage';
 import { noContext, testAdapter, testSession, testSpace , useToastsForTest } from '@ap/kernel/testing';
-import { groupId, spaceId, type GroupId } from '@ap/contracts';
+import { carrySetId, groupId, spaceId, type GroupId } from '@ap/contracts';
 
 function menu(id: string, label: string, group: GroupId, path: string, over: object = {}) {
   return { id, group, primary: true, label: { ko: label, en: label }, description: { ko: '', en: '' }, path, icon: House, permission: 'platform:view' as const, requiresScope: false, context: noContext, pageType: 'overview' as const, features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [], ...over };
 }
 // `fo` carries `returnTo`; `mars` does not (like the real FeedbackOps space and the analysis spaces).
 const registry = createRegistry({
+  carrySets: [{ id: carrySetId('fo'), pageKeys: ['returnTo'] }],
   spaces: [
-    testSpace({ id: spaceId('fo'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, homeMenuId: 'fo-inbox', carriedPageKeys: ['returnTo'] }),
+    testSpace({ id: spaceId('fo'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, homeMenuId: 'fo-inbox' }),
     testSpace({ id: spaceId('mars'), label: { ko: 'MARS', en: 'MARS' }, homeMenuId: 'overview' }),
   ],
   groups: [
@@ -21,7 +22,7 @@ const registry = createRegistry({
     { id: groupId('global'), label: { ko: '전역', en: 'Global' }, icon: House, space: null },
   ],
   menus: [
-    menu('fo-inbox', '수신함', groupId('fo'), '/feedbackops/vocs', { pageKeys: ['returnTo'] }),
+    menu('fo-inbox', '수신함', groupId('fo'), '/feedbackops/vocs', { pageKeys: ['returnTo'], carrySet: carrySetId('fo') }),
     menu('overview', '생산성 개요', groupId('mars'), '/', { pageKeys: [] }),
     menu('mars-other', '다른 화면', groupId('mars'), '/other', { primary: false, pageKeys: ['returnTo'] }),
     menu('notices', '공지', groupId('global'), '/notices', { pageKeys: [] }),

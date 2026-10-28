@@ -29,6 +29,8 @@ AxisOptionsInput | type | type AxisOptionsInput = { axisId: string; cursor?: nul
 AxisOptionsPage | type | type AxisOptionsPage = { items: @ap/contracts#AxisOption[]; nextCursor: null | string; }
 CONTEXT_FIELDS | const | const CONTEXT_FIELDS: Readonly<Record<@ap/contracts#ContextKey, readonly (keyof @ap/contracts#GlobalContext)[]>>
 Capability | type | type Capability = 'apply' | 'reference' | 'unsupported'
+CarrySetDef | type | type CarrySetDef = { id: @ap/contracts#CarrySetId; pageKeys: readonly string[]; }
+CarrySetId | type | type CarrySetId = Brand<'CarrySetId'>
 ChangeLine | type | type ChangeLine = { after: @ap/contracts#JsonValue; before: @ap/contracts#JsonValue; key: string; note?: string; }
 ChartAnnotation | type | type ChartAnnotation = { at: string; chartId: string; from: string; id: string; mine: boolean; scopeId: string; text: string; to: string; }
 ClientErrorReport | type | type ClientErrorReport = { correlationId: string; menuId: string; name: string; path: string; spaceId: @ap/contracts#SpaceId | null; }
@@ -71,7 +73,7 @@ KernelPermission | type | type KernelPermission = (typeof @ap/contracts#KERNEL_P
 MeasureMeta | type | type MeasureMeta = { metricVersion?: string; reaggregation: @ap/contracts#Reaggregation; unit: string; }
 MembershipPeriod | type | type MembershipPeriod = { from: string; to: string; }
 MenuAction | type | type MenuAction<I = unknown> = { action: string; context: { scopeId?: null | string; }; expectedVersion?: string; idempotencyKey: string; input: I; }
-MenuMeta | type | type MenuMeta = { additionalPermissions?: readonly @ap/contracts#Permission[]; aliases?: readonly string[]; conditionPreset?: { default: string; key: string; }; conditionPresets?: readonly @ap/contracts#ConditionPreset[]; context: Record<@ap/contracts#ContextKey, @ap/contracts#Capability>; contextResetKeys?: readonly string[]; description: @ap/contracts#Text; drill?: { levels: readonly @ap/contracts#DrillLevel[]; resetKeys?: readonly string[]; }; features: { annotate: boolean; board?: boolean; compare: boolean; export: boolean; savedView: boolean; }; group: @ap/contracts#GroupId; id: string; initializesMetric?: boolean; label: @ap/contracts#Text; navHidden?: boolean; navViews?: readonly @ap/contracts#NavView[]; pageKeys: readonly string[]; pageType: @ap/contracts#PageType; parent?: string; path: string; permission: @ap/contracts#Permission; primary?: boolean; query?: { mode: 'apply'; required?: { context?: readonly @ap/contracts#ContextKey[]; page?: readonly { key: string; label: @ap/contracts#Text; }[]; }; }; requiresScope: boolean; }
+MenuMeta | type | type MenuMeta = { additionalPermissions?: readonly @ap/contracts#Permission[]; aliases?: readonly string[]; carrySet?: @ap/contracts#CarrySetId; conditionPreset?: { default: string; key: string; }; conditionPresets?: readonly @ap/contracts#ConditionPreset[]; context: Record<@ap/contracts#ContextKey, @ap/contracts#Capability>; contextResetKeys?: readonly string[]; description: @ap/contracts#Text; drill?: { levels: readonly @ap/contracts#DrillLevel[]; resetKeys?: readonly string[]; }; features: { annotate: boolean; board?: boolean; compare: boolean; export: boolean; savedView: boolean; }; group: @ap/contracts#GroupId; id: string; initializesMetric?: boolean; label: @ap/contracts#Text; navHidden?: boolean; navViews?: readonly @ap/contracts#NavView[]; pageKeys: readonly string[]; pageType: @ap/contracts#PageType; parent?: string; path: string; permission: @ap/contracts#Permission; primary?: boolean; query?: { mode: 'apply'; required?: { context?: readonly @ap/contracts#ContextKey[]; page?: readonly { key: string; label: @ap/contracts#Text; }[]; }; }; requiresScope: boolean; }
 MenuPermission | type | type MenuPermission = Brand<'MenuPermission'>
 MenuQuery | type | type MenuQuery<P = unknown> = { context: @ap/contracts#MenuQueryContext; endpoint: string; params: P; }
 MenuQueryContext | type | type MenuQueryContext = Partial<@ap/contracts#GlobalContext>
@@ -141,7 +143,7 @@ SelectionResolveResult | type | type SelectionResolveResult = { items: @ap/contr
 Session | type | type Session = { scopes: readonly @ap/contracts#ScopeOption[]; user: @ap/contracts#SessionUser; }
 SessionUser | type | type SessionUser = { id: string; name: string; permissions: readonly (@ap/contracts#ModuleScopedId | @ap/contracts#Permission)[]; title: @ap/contracts#Text; }
 SiteGrant | type | type SiteGrant = { grantedRooms: readonly string[]; id: string; label: string; totalRooms: number; }
-SpaceDef | type | type SpaceDef = { carriedPageKeys?: readonly string[]; description: @ap/contracts#Text; homeMenuId: string; id: @ap/contracts#SpaceId; label: @ap/contracts#Text; permission?: @ap/contracts#Permission; subtitle?: @ap/contracts#Text; }
+SpaceDef | type | type SpaceDef = { description: @ap/contracts#Text; homeMenuId: string; id: @ap/contracts#SpaceId; label: @ap/contracts#Text; permission?: @ap/contracts#Permission; subtitle?: @ap/contracts#Text; }
 SpaceId | type | type SpaceId = Brand<'SpaceId'>
 Text | type | type Text = { en: string; ko: string; }
 Trust | type | type Trust = { coverage: null | number; dataThrough: null | string; metricVersion?: string; provisional: boolean; source: string; sourceLogicVersions?: string[]; updatedAt: string; }
@@ -165,7 +167,8 @@ buildPlatformInboundLink | function | function buildPlatformInboundLink(input: {
 buildQuery | function | function buildQuery(g: @ap/contracts#GlobalContext, page?: @ap/contracts#Pair[], extras?: @ap/contracts#Pair[]): string
 canClientSum | function | function canClientSum(measure: Pick<@ap/contracts#MeasureMeta, 'reaggregation'>): boolean
 canTransition | function | function canTransition(approval: @ap/contracts#ViewApproval, action: @ap/contracts#ApprovalAction): boolean
-carriesReturnTo | function | function carriesReturnTo(space: Pick<@ap/contracts#SpaceDef, 'carriedPageKeys'> | null | undefined): boolean
+carriesReturnTo | function | function carriesReturnTo(carrySet: Pick<@ap/contracts#CarrySetDef, 'pageKeys'> | null | undefined): boolean
+carrySetId | const | const carrySetId: <const S extends string>(id: S) => S & @ap/contracts#CarrySetId
 clientCorrelationId | function | function clientCorrelationId(): string
 compareAuditEvents | function | function compareAuditEvents(a: @ap/contracts#AuditEvent, b: @ap/contracts#AuditEvent): number
 compareHistoryText | function | function compareHistoryText(a: string, b: string): number
