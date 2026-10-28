@@ -1,0 +1,28 @@
+{
+  "name": "@ap/contract-schemas",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "gen:schemas": "node scripts/gen-schemas.mjs",
+    "gen:endpoints": "UPDATE_ENDPOINTS=1 vitest run --config vitest.endpoints.config.mjs",
+    "check:endpoints": "vitest run --config vitest.endpoints.config.mjs",
+    "test": "node scripts/gen-schemas.mjs --check && vitest run"
+  },
+  "dependencies": {
+    "zod": "3.25.67"
+  },
+  "devDependencies": {
+    "@ap/contracts": "workspace:*",
+    "@ap/eslint-config": "workspace:*",
+    "@ap/tsconfig": "workspace:*",
+    "eslint": "^10.11.0",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7"
+  }
+}

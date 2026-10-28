@@ -28,7 +28,7 @@
 - `required-context.ts` — 필수 Context 판정 `CONTEXT_FIELDS`(capability → Context 필드)·`missingRequiredContext`·`requiredContextError`. 클라이언트 게이트와 서버 검증이 함께 쓴다([ADR-0061](../../../docs/adr/0061-query-draft-applied-address-and-required-gate.md)).
 - `selection-ports.ts` — 설비 선택 메타데이터 포트의 입출력 타입(축 선택지·설비 검색·선택 해석)과 판정 오류 `PortError`·`PORT_ERROR_CODES`·`isPortError`(구조 검사, `instanceof` 아님). 결정은 [ADR-0059](../../../docs/adr/0059-app-injected-equipment-axes-and-condition.md), 오류 판정은 [ADR-0074](../../../docs/adr/0074-port-failures-three-surfaces-structural-port-error.md).
 - `audit.ts`, `i18n.ts` — `AuditEvent`·`AUDIT_ACTIONS`, `Text`.
-- `vocab.json` — 생성 산출물(#674): 저장소 밖·다른 도구 체인의 서버가 따라야 하는 닫힌 어휘(`kernelPermissions`·`USAGE_VIAS`·`AUDIT_ACTIONS`·`OUTCOMES`; 앱의 공간·메뉴 권한은 서버가 모른다, ADR-0072). `@ap/contracts/vocab.json`으로 내보낸다. 원본은 각 `as const` 목록이고 `pnpm --filter @ap/contracts gen:vocab`(`scripts/vocab.mjs`)이 만든다. `test`가 최신인지 확인한다. 소비처: FeedbackOps 백엔드 어휘 drift 테스트.
+- `vocab.json` — 생성 산출물(#674): 저장소 밖·다른 도구 체인의 서버가 따라야 하는 닫힌 어휘(`kernelPermissions`·`USAGE_VIAS`·`AUDIT_ACTIONS`·`OUTCOMES`; 앱의 공간·메뉴 권한은 서버가 모른다, ADR-0072). `@ap/contracts/vocab.json`으로 내보낸다. 원본은 각 `as const` 목록이고 `pnpm --filter @ap/contracts gen:vocab`(`scripts/vocab.mjs`)이 만든다. `test`가 최신인지 확인한다. 소비처: FeedbackOps 백엔드 어휘 drift 테스트, `@ap/contract-schemas` 릴리스 자산(`pnpm sdk:schemas`가 그대로 복사, #1086).
 - `globals.d.ts` — DOM lib 없이 쓰는 최소 `URLSearchParams`·`URL`·`AbortSignal`·`crypto` 선언.
 
 ## 규칙

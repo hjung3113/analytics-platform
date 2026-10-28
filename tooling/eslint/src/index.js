@@ -400,6 +400,18 @@ export const contracts = [
   layerConfig({ restriction: { allow: [], denyReact: true, mockAllowed: false } }),
 ];
 
+// contract-schemas (ADR-0096): production code imports no other platform package and no React; "zod only" is held by the manifest and review, not lint.
+// Its tests compare the schemas with the hand-written types, so test files alone may import contracts and its vocab.json.
+const CONTRACT_SCHEMAS_RESTRICTION = { allow: [], denyReact: true, mockAllowed: false };
+const CONTRACT_SCHEMAS_TEST_RESTRICTION = { ...CONTRACT_SCHEMAS_RESTRICTION, allow: ['contracts'] };
+
+/** @type {import('eslint').Linter.Config[]} */
+export const contractSchemas = [
+  BUILD_OUTPUT,
+  layerConfig({ restriction: CONTRACT_SCHEMAS_RESTRICTION }),
+  testEntryOverride(CONTRACT_SCHEMAS_TEST_RESTRICTION, ['contracts/vocab.json'], ['**/*.test.ts']),
+];
+
 /** @type {import('eslint').Linter.Config[]} */
 export const ui = [
   REACT_HOOKS,
