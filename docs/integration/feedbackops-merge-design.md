@@ -190,7 +190,7 @@ FeedbackOps를 플랫폼 앱 하나·서버 하나·저장소 하나로 합친�
 | --- | --- | --- |
 | O2 | 역할 모델 통합과 역할 소속 원천 | #596 질문 2, #98(IdP 그룹 claim, #150) |
 | O3 | Managed System ↔ 업무 시스템 관계 | #596 질문 1, 공간 → Managed System 매핑(ADR-0045) |
-| O4 | 분석 메뉴 데이터 엔드포인트를 같은 서버에 두나, 사내 별도 서버로 두나 | #593 범위 밖. 데이터 원천은 `context_recognized_parser` 적재 DB — **Decided(Proposed): FastAPI 분석 데이터 서버를 Fastify 뒤 내부에 둔다, [ADR-0095](../adr/0095-dual-backend-fastify-core-fastapi-analytics.md)** |
+| O4 | 분석 메뉴 데이터 엔드포인트를 같은 서버에 두나, 사내 별도 서버로 두나 | #593 범위 밖. 데이터 원천은 `context_recognized_parser` 적재 DB — **Decided: FastAPI 분석 데이터 서버를 Fastify 뒤 내부에 둔다, [ADR-0095](../adr/0095-dual-backend-fastify-core-fastapi-analytics.md)** |
 | O5 | 라우팅 이전: TanStack Router 화면을 Kernel Registry·`PlatformLocation`으로. 잘못된 search 값 처리(FeedbackOps는 버림, 플랫폼은 거부·보존) | #594·#595 — **Decided: [ADR-0071](../adr/0071-feedbackops-screen-bridge-and-api-fo-edge-prefix.md)** 결정 1·9(#594 범위; #595는 같은 규칙) |
 | O6 | FeedbackOps git 이력 보존 방식(subtree 병합 권장) | #592 |
 | O7 | 업무 시스템 이름(`피드백 운영` Candidate) | #595 시안 — **Decided: [ADR-0081](../adr/0081-feedbackops-operator-screens-platform-frame.md)** 결정 1(`FeedbackOps`, 부제 `피드백 운영`) |
