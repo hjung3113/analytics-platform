@@ -73,7 +73,7 @@ describe.each([
 });
 
 describe('연동 액션 대시보드 through the FeedbackOps bridge', () => {
-  beforeEach(() => { setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
+  beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() }); });
 
   it('mounts the screen reading the page as the FO /integration path and passes the standalone request-access renderer', async () => {
     mountAt(`/feedbackops/integration?category=unassigned-voc&history=true&managedSystem=${SYSTEM}`);
@@ -97,7 +97,7 @@ describe('연동 액션 대시보드 through the FeedbackOps bridge', () => {
 });
 
 describe('Evidence through the FeedbackOps bridge', () => {
-  beforeEach(() => { setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
+  beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() }); });
 
   it('mounts the screen reading the page as the FO /integration/evidence path', async () => {
     mountAt(`/feedbackops/evidence?source=voc&q=pump&managedSystem=${SYSTEM}`);
@@ -119,7 +119,7 @@ describe('Evidence through the FeedbackOps bridge', () => {
 });
 
 describe('커버리지 and 엔티티 링크 through the FeedbackOps bridge', () => {
-  beforeEach(() => { setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
+  beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() }); });
 
   it('mounts Coverage reading view and area as the FO /integration/coverage path, with no drawer', async () => {
     mountAt(`/feedbackops/coverage?view=areas&managedSystem=${SYSTEM}`);
@@ -157,7 +157,7 @@ const REJECTED = [
 ] as const;
 
 describe('연동 pages with an invalid address value', () => {
-  beforeEach(() => { setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
+  beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() }); });
 
   it.each(REJECTED)('%s rejects %s=%s, keeps the address and mounts no screen', async (path, key, value, testId) => {
     const search = `?${key}=${encodeURIComponent(value)}`;

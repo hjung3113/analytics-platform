@@ -1,4 +1,4 @@
-// D1–D3 — the bridge-safe dashboard body and its refresh. fetch is mocked directly (house style) with the bridge's `/api/fo` base path.
+// D1–D3 — the bridge-safe dashboard body and its refresh. fetch is mocked directly (house style) with the bridge's `/api/features` base path.
 
 import { configureApiClient } from '@/lib/api/client';
 import { COVERAGE_METRIC_IDS } from '@/lib/copy/coverage';
@@ -50,12 +50,12 @@ function installFetch(overrides: Record<string, unknown> = {}) {
   globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
     const path = new URL(String(input), 'http://x').pathname;
     const body: Record<string, unknown> = {
-      '/api/fo/me': me,
-      '/api/fo/dashboard/summary': summary,
-      '/api/fo/tasks': { items: [], page: { has_more: false } },
-      '/api/fo/task-requests': { items: [], page: { has_more: false } },
-      '/api/fo/permission-requests/mine': { requests: [] },
-      '/api/fo/me/answerable-surveys': { items: [], page: { has_more: false } },
+      '/api/features/me': me,
+      '/api/features/dashboard/summary': summary,
+      '/api/features/tasks': { items: [], page: { has_more: false } },
+      '/api/features/task-requests': { items: [], page: { has_more: false } },
+      '/api/features/permission-requests/mine': { requests: [] },
+      '/api/features/me/answerable-surveys': { items: [], page: { has_more: false } },
       ...overrides,
     };
     return path in body ? json(body[path]) : new Response('not mocked', { status: 500 });
@@ -89,7 +89,7 @@ function mount(canLink: HostSeam['canLink'] = () => true, managedSystemId?: stri
 
 const originalFetch = globalThis.fetch;
 beforeEach(() => {
-  configureApiClient({ basePath: '/api/fo' });
+  configureApiClient({ basePath: '/api/features' });
   installFetch();
 });
 afterEach(() => {
@@ -113,7 +113,7 @@ describe('DashboardScreen', () => {
 
   it('D3 renders operator links through the seam: linked where canLink, plain text where not', async () => {
     installFetch({
-      '/api/fo/tasks': {
+      '/api/features/tasks': {
         items: [{ id: 't1', display_id: 'T-1', title: '복구', status: 'in_progress' }],
         page: { has_more: false },
       },
@@ -152,7 +152,7 @@ describe('DashboardScreen scope status', () => {
   const empty = { ...summary, action_queues: [], coverage: [] };
 
   it('D4 says why the queue and coverage are hidden when only personal work shows', async () => {
-    installFetch({ '/api/fo/dashboard/summary': empty });
+    installFetch({ '/api/features/dashboard/summary': empty });
     mount();
     expect((await screen.findByTestId('home-scope-status')).textContent).toBe(
       HOME_COPY.subtitle([], []),
@@ -176,7 +176,9 @@ describe('DashboardScreen scope status', () => {
     await waitFor(() => {
       const calls = vi.mocked(globalThis.fetch).mock.calls;
       expect(
-        calls.some(([input]) => new URL(String(input), 'http://x').pathname === '/api/fo/tasks'),
+        calls.some(
+          ([input]) => new URL(String(input), 'http://x').pathname === '/api/features/tasks',
+        ),
       ).toBe(true);
     });
     const url = new URL(
@@ -184,7 +186,7 @@ describe('DashboardScreen scope status', () => {
         vi
           .mocked(globalThis.fetch)
           .mock.calls.map(([input]) => String(input))
-          .find((input) => new URL(input, 'http://x').pathname === '/api/fo/tasks'),
+          .find((input) => new URL(input, 'http://x').pathname === '/api/features/tasks'),
       ),
       'http://x',
     );

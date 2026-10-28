@@ -99,9 +99,9 @@ function installFetch(post: Response) {
   posted = undefined;
   globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const path = new URL(String(input), 'http://x').pathname;
-    if (path === '/api/fo/managed-systems') return json({ items: [MS_ITEM], total: 1 });
-    if (path === '/api/fo/analytics-areas') return json({ items: [], total: 0 });
-    if (path === '/api/fo/vocs' && init?.method === 'POST') {
+    if (path === '/api/features/managed-systems') return json({ items: [MS_ITEM], total: 1 });
+    if (path === '/api/features/analytics-areas') return json({ items: [], total: 0 });
+    if (path === '/api/features/vocs' && init?.method === 'POST') {
       posted = { body: JSON.parse(String(init.body)) as Record<string, unknown> };
       return post.clone();
     }
@@ -160,7 +160,7 @@ function disallowedAttrs(node: RichNode): string[] {
 const originalFetch = globalThis.fetch;
 beforeEach(() => {
   toolbarOpts.current = undefined;
-  configureApiClient({ basePath: '/api/fo', onUnauthorized });
+  configureApiClient({ basePath: '/api/features', onUnauthorized });
 });
 afterEach(() => {
   globalThis.fetch = originalFetch;

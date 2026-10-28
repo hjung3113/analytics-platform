@@ -94,9 +94,9 @@ function installFetch(post: Response = json({ id: VOC_ID, display_id: 'VOC-7' },
       credentials: init?.credentials,
     });
     const path = new URL(url, 'http://x').pathname;
-    if (path === '/api/fo/managed-systems') return json({ items: [MS_ITEM], total: 1 });
-    if (path === '/api/fo/analytics-areas') return json({ items: [AA_ITEM], total: 1 });
-    if (path === '/api/fo/vocs' && init?.method === 'POST') return post.clone();
+    if (path === '/api/features/managed-systems') return json({ items: [MS_ITEM], total: 1 });
+    if (path === '/api/features/analytics-areas') return json({ items: [AA_ITEM], total: 1 });
+    if (path === '/api/features/vocs' && init?.method === 'POST') return post.clone();
     return new Response('not mocked', { status: 500 });
   }) as typeof fetch;
 }
@@ -199,14 +199,14 @@ const FORBIDDEN_BODY_KEYS = [
 ] as const;
 
 const originalFetch = globalThis.fetch;
-beforeEach(() => configureApiClient({ basePath: '/api/fo' }));
+beforeEach(() => configureApiClient({ basePath: '/api/features' }));
 afterEach(() => {
   globalThis.fetch = originalFetch;
   configureApiClient({ basePath: '' });
 });
 
 describe('<VocComposeScreen> submit (F1)', () => {
-  it('posts to /api/fo/vocs with the typed text first and the Context block after it, then reports success once', async () => {
+  it('posts to /api/features/vocs with the typed text first and the Context block after it, then reports success once', async () => {
     installFetch();
     const { seam, props } = mount();
     await fillAndPick();
@@ -218,7 +218,7 @@ describe('<VocComposeScreen> submit (F1)', () => {
     expect(seam.notifyError).not.toHaveBeenCalled();
 
     const post = calls.find((c) => c.method === 'POST');
-    expect(post?.url).toBe('/api/fo/vocs');
+    expect(post?.url).toBe('/api/features/vocs');
     expect(post?.headers['Idempotency-Key']).toBeTruthy();
     const body = postBody();
     expect(body).toMatchObject({
@@ -317,7 +317,8 @@ describe('<VocComposeScreen> Managed System default (F3)', () => {
     await waitFor(() => expect(radio.getAttribute('aria-checked')).toBe(String(preselected)));
     const areaRequested = calls.some(
       (c) =>
-        c.url.startsWith('/api/fo/analytics-areas') && c.url.includes(`managed_system_id=${MS_ID}`),
+        c.url.startsWith('/api/features/analytics-areas') &&
+        c.url.includes(`managed_system_id=${MS_ID}`),
     );
     expect(areaRequested).toBe(preselected);
     // No link to an Analytics Area exists, so none is ever chosen.
@@ -378,7 +379,9 @@ describe('<VocComposeScreen> network (F6)', () => {
     fireEvent.change(screen.getByTestId('mock-rich-editor'), { target: { value: '내용' } });
     const paths = calls.map((c) => new URL(c.url, 'http://x').pathname);
     expect(paths.filter((p) => /recommendations|similarity|\/me(\/|$)/.test(p))).toEqual([]);
-    expect(new Set(paths)).toEqual(new Set(['/api/fo/managed-systems', '/api/fo/analytics-areas']));
+    expect(new Set(paths)).toEqual(
+      new Set(['/api/features/managed-systems', '/api/features/analytics-areas']),
+    );
   });
 });
 
@@ -467,7 +470,7 @@ describe('<VocComposeScreen> Managed System list states (migrated from VocCreate
     installFetch();
     const base = globalThis.fetch;
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) =>
-      new URL(String(input), 'http://x').pathname === '/api/fo/managed-systems'
+      new URL(String(input), 'http://x').pathname === '/api/features/managed-systems'
         ? json({ items: [], total: 0 })
         : base(input, init),
     ) as typeof fetch;
@@ -481,7 +484,7 @@ describe('<VocComposeScreen> Managed System list states (migrated from VocCreate
     const base = globalThis.fetch;
     let listFails = false;
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) =>
-      listFails && new URL(String(input), 'http://x').pathname === '/api/fo/managed-systems'
+      listFails && new URL(String(input), 'http://x').pathname === '/api/features/managed-systems'
         ? json({ code: 'auth.session_required', message: 'Unauthorized' }, 401)
         : base(input, init),
     ) as typeof fetch;

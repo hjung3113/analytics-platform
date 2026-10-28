@@ -1,5 +1,5 @@
 // Managed System and Analytics Area list reads. Their own module so the platform bridge's compose screen
-// reaches them through `client.ts` (`/api/fo`, platform ADR-0071); `managed-systems.ts` and `analytics-areas.ts`
+// reaches them through `client.ts` (`/api/features`, platform ADR-0071); `managed-systems.ts` and `analytics-areas.ts`
 // re-export the reads and the `client.ts` write twins from `registry-writes.ts`.
 
 import { analyticsAreaListSchema, managedSystemListSchema } from '@ap/feature-shared';

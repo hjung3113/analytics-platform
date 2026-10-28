@@ -9,7 +9,7 @@ import { UnauthenticatedError } from '../unauthenticated';
 
 const originalFetch = global.fetch;
 const onUnauthorized = vi.fn();
-beforeEach(() => configureApiClient({ basePath: '/api/fo', onUnauthorized }));
+beforeEach(() => configureApiClient({ basePath: '/api/features', onUnauthorized }));
 afterEach(() => {
   global.fetch = originalFetch;
   configureApiClient({ basePath: '' });
@@ -31,7 +31,7 @@ describe('resolveActors with a base path', () => {
       resolveActors({ actorIds: ['a1', 'a2'], teamIds: ['t1'] }, controller.signal),
     ).resolves.toEqual(body);
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
-    expect(url).toBe('/api/fo/actors/resolve?actor_ids=a1%2Ca2&team_ids=t1');
+    expect(url).toBe('/api/features/actors/resolve?actor_ids=a1%2Ca2&team_ids=t1');
     expect(init.credentials).toBe('include');
     expect(init.signal).toBeDefined();
   });
@@ -42,7 +42,7 @@ describe('resolveActors with a base path', () => {
     );
     await resolveActors({ actorIds: [], teamIds: [] });
     const [url] = fetchMock.mock.calls[0] as unknown as [string];
-    expect(url).toBe('/api/fo/actors/resolve');
+    expect(url).toBe('/api/features/actors/resolve');
   });
 
   it('calls onUnauthorized on 401 and rejects with UnauthenticatedError', async () => {

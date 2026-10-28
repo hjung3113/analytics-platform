@@ -33,7 +33,7 @@ describe('Triage without a FeedbackOps API (mock preview)', () => {
 });
 
 describe('Triage through the FeedbackOps bridge', () => {
-  beforeEach(() => { setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
+  beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() }); });
 
   it('renders the triage screen with the page read as the triage FO path', async () => {
     mountAt(`/feedbackops/triage?tab=high-no-link&managedSystem=${SYSTEM}&area=unset`);

@@ -9,7 +9,7 @@ import { notificationsSlot } from '@ap/feature-bridge/notifications-slot';
 import { featureQueryClient } from '@ap/feature-bridge';
 import { ID_A, ID_B, json, listOf, notification, registry, stubFetch, switchableAdapter } from './fo/test-support';
 
-const COUNT = '/api/fo/notifications?unread=true&limit=1';
+const COUNT = '/api/features/notifications?unread=true&limit=1';
 const countOf = (n: number) => json({ items: [], page: { has_more: false }, unread_count: n });
 
 function Probe() {
@@ -44,7 +44,7 @@ describe('notifications slot', () => {
   });
 
   describe('with a FeedbackOps API', () => {
-    beforeEach(() => { setFeatureApi({ basePath: '/api/fo', onSessionLost }); });
+    beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost }); });
 
     it('shares one count request between two probes', async () => {
       const calls = stubFetch(() => countOf(3));
@@ -76,9 +76,9 @@ describe('notifications slot', () => {
       mount(switchableAdapter().adapter, <><Probe /><notificationsSlot.Recent /></>);
       const row = await screen.findByTestId(`home-inbox-row-${ID_A}`);
       await screen.findByRole('button', { name: 'count 3' });
-      expect(calls.map(c => `${c.method} ${c.path}`)).toContain('GET /api/fo/notifications?limit=10');
+      expect(calls.map(c => `${c.method} ${c.path}`)).toContain('GET /api/features/notifications?limit=10');
       fireEvent.click(within(row).getByRole('button', { name: '읽음으로 표시' }));
-      await waitFor(() => expect(calls.map(c => `${c.method} ${c.path}`)).toContain(`POST /api/fo/notifications/${ID_A}/read`));
+      await waitFor(() => expect(calls.map(c => `${c.method} ${c.path}`)).toContain(`POST /api/features/notifications/${ID_A}/read`));
       await screen.findByRole('button', { name: 'count 2' });
     });
 

@@ -14,7 +14,7 @@ export function readFeedbackOpsOrigin(value: string | undefined): string | null 
 declare global {
   interface ImportMetaEnv {
     /** FeedbackOps absolute origin (https, or http for loopback). Absent = links render disabled. */
-    readonly VITE_FEEDBACKOPS_ORIGIN?: string;
+    readonly VITE_PLATFORM_API_ORIGIN?: string;
   }
 
   interface ImportMeta {

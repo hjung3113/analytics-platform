@@ -29,10 +29,10 @@ const emptyPage = { items: [], page: { has_more: false } };
 /** Answers the respondent routes; `form` and `post` override the form and the submit answer. */
 function surveyFetch(over: { form?: () => Response; post?: () => Response } = {}) {
   return stubFetch((path, method) => {
-    if (path === '/api/fo/me/answerable-surveys') return json(answerable);
-    if (path === '/api/fo/me/survey-responses') return json(emptyPage);
-    if (path === `/api/fo/surveys/${ID_A}/form`) return over.form?.() ?? json(textForm);
-    if (path === `/api/fo/surveys/${ID_A}/responses` && method === 'POST') return over.post?.() ?? json({ id: ID_B, survey_id: ID_A, submitted_at: '2026-07-21T00:00:00.000Z', identity_protected: true }, 201);
+    if (path === '/api/features/me/answerable-surveys') return json(answerable);
+    if (path === '/api/features/me/survey-responses') return json(emptyPage);
+    if (path === `/api/features/surveys/${ID_A}/form`) return over.form?.() ?? json(textForm);
+    if (path === `/api/features/surveys/${ID_A}/responses` && method === 'POST') return over.post?.() ?? json({ id: ID_B, survey_id: ID_A, submitted_at: '2026-07-21T00:00:00.000Z', identity_protected: true }, 201);
     return json({ code: 'internal.unexpected', message: 'not mocked' }, 500);
   });
 }
@@ -75,13 +75,13 @@ describe('Surveys without a FeedbackOps API (mock preview) — S1', () => {
 
 describe('Surveys through the FeedbackOps bridge', () => {
   const onSessionLost = vi.fn();
-  beforeEach(() => { onSessionLost.mockReset(); setFeatureApi({ basePath: '/api/fo', onSessionLost }); });
+  beforeEach(() => { onSessionLost.mockReset(); setFeatureApi({ basePath: '/api/features', onSessionLost }); });
 
   it('S2: lists answerable surveys, links to the platform respond page with a returnTo, and opens the form', async () => {
     const calls = surveyFetch();
     mountAt(switchableAdapter().adapter, '/survey?v=1');
     const link = (await screen.findByRole('link', { name: '응답하기' })) as HTMLAnchorElement;
-    expect(calls.map(call => call.path)).toEqual(expect.arrayContaining(['/api/fo/me/answerable-surveys', '/api/fo/me/survey-responses']));
+    expect(calls.map(call => call.path)).toEqual(expect.arrayContaining(['/api/features/me/answerable-surveys', '/api/features/me/survey-responses']));
     expect(calls.every(call => call.credentials === 'include')).toBe(true);
     const href = new URL(link.getAttribute('href')!, origin());
     expect(href.pathname).toBe(RESPOND);
@@ -90,7 +90,7 @@ describe('Surveys through the FeedbackOps bridge', () => {
     fireEvent.click(link);
     const heading = await screen.findByRole('heading', { name: '설문 응답' });
     await waitFor(() => expect(document.activeElement).toBe(heading));
-    await waitFor(() => expect(calls.map(call => `${call.method} ${call.path}`)).toContain(`GET /api/fo/surveys/${ID_A}/form`));
+    await waitFor(() => expect(calls.map(call => `${call.method} ${call.path}`)).toContain(`GET /api/features/surveys/${ID_A}/form`));
   });
 
   it('S3: nothing is pre-selected', async () => {
@@ -113,7 +113,7 @@ describe('Surveys through the FeedbackOps bridge', () => {
     const successHeading = within(success).getByRole('heading');
     expect(document.activeElement).toBe(successHeading);
     expect(successHeading.closest('output')).not.toBeNull();
-    expect(posts(calls).map(call => `${call.method} ${call.path}`)).toEqual([`POST /api/fo/surveys/${ID_A}/responses`]);
+    expect(posts(calls).map(call => `${call.method} ${call.path}`)).toEqual([`POST /api/features/surveys/${ID_A}/responses`]);
     expect(window.location.pathname).toBe(RESPOND);
     expect(screen.getByRole('list', { name: 'toasts' }).children).toHaveLength(0);
     expect(calls.filter(call => call.path.includes('/vocs'))).toEqual([]);

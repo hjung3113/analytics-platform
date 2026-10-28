@@ -21,7 +21,7 @@ import {
 const VALID_ENV: StorageEnv = {
   STORAGE_S3_ENDPOINT: 'http://localhost:9000',
   STORAGE_S3_REGION: 'us-east-1',
-  STORAGE_S3_BUCKET: 'fops-attachments',
+  STORAGE_S3_BUCKET: 'platform-attachments',
   STORAGE_S3_ACCESS_KEY_ID: 'minio',
   STORAGE_S3_SECRET_ACCESS_KEY: 'super-secret-key-do-not-log',
   STORAGE_S3_FORCE_PATH_STYLE: 'true',
@@ -50,7 +50,7 @@ describe('factory', () => {
     expect(cfg).toEqual({
       endpoint: 'http://localhost:9000',
       region: 'us-east-1',
-      bucket: 'fops-attachments',
+      bucket: 'platform-attachments',
       accessKeyId: 'minio',
       secretAccessKey: 'super-secret-key-do-not-log',
       forcePathStyle: true,
@@ -114,7 +114,7 @@ describe('factory', () => {
     expect(materialized).toHaveLength(1);
     const meta = materialized[0]?.meta;
     expect(meta?.endpoint_origin).toBe('http://minio:9000');
-    expect(meta?.bucket).toBe('fops-attachments');
+    expect(meta?.bucket).toBe('platform-attachments');
     expect(meta?.region).toBe('us-east-1');
     expect(meta?.force_path_style).toBe(true);
 

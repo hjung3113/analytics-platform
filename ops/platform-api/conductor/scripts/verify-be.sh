@@ -34,7 +34,7 @@ run_check boundaries-test "$L/boundaries-test.log" node "$FO_OPS/scripts/check-b
 run_check drift "$L/drift.log" fo gate:db-migration-drift
 if { git diff --name-only origin/develop...HEAD; git status --short; } | grep -q "$FO_SHARED"; then
   run_check shared-vitest "$L/shared.log" run_vitest "$FO_SHARED"; fi
-run_check integration "$L/integration.log" env FEEDBACKOPS_ENV_FILE="$WAVE_STATE/env.verify.$N" pnpm --filter @ap/platform-api test:integration "$@"
+run_check integration "$L/integration.log" env PLATFORM_API_ENV_FILE="$WAVE_STATE/env.verify.$N" pnpm --filter @ap/platform-api test:integration "$@"
 print_summary > "$L/summary.txt"
 echo "be-tsc errors=$(grep -c 'error TS' "$L/be-tsc.log")" >> "$L/summary.txt"
 tail -1 "$L/boundaries.log" >> "$L/summary.txt"

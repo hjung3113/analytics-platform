@@ -7,7 +7,7 @@ import { UnauthenticatedError } from '../unauthenticated';
 
 const originalFetch = global.fetch;
 const onUnauthorized = vi.fn();
-beforeEach(() => configureApiClient({ basePath: '/api/fo', onUnauthorized }));
+beforeEach(() => configureApiClient({ basePath: '/api/features', onUnauthorized }));
 afterEach(() => {
   global.fetch = originalFetch;
   configureApiClient({ basePath: '' });
@@ -26,7 +26,7 @@ describe('fetchNavCounts with a base path', () => {
     const fetchMock = stub(new Response(JSON.stringify(body), { status: 200 }));
     await expect(fetchNavCounts({ managedSystemId: 'ms1' })).resolves.toEqual(body);
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
-    expect(url).toBe('/api/fo/nav/counts?managed_system_id=ms1');
+    expect(url).toBe('/api/features/nav/counts?managed_system_id=ms1');
     expect(init.credentials).toBe('include');
   });
 

@@ -1,5 +1,5 @@
 // The caller's permission reads — `GET /me/permissions/scope` and `/me/permissions/check` — on `apiRequest`, so the
-// platform bridge reaches them through `client.ts` (`/api/fo` base path, 401 hook — platform ADR-0071). Imports neither
+// platform bridge reaches them through `client.ts` (`/api/features` base path, 401 hook — platform ADR-0071). Imports neither
 // `auth.ts` nor the `@/lib/api` barrel. `permissions.ts` re-exports the types and keeps its raw-`fetch` standalone
 // fetchers of the same names; the frontend never enforces permissions as truth (AGENTS.md), these only surface the answer.
 

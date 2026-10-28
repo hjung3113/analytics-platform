@@ -1,5 +1,5 @@
 // The requester's permission-request calls. Their own module so the platform bridge's 권한 요청 page reaches
-// them through `client.ts` (`/api/fo`, platform ADR-0071); `permissions.ts` re-exports them, and its check,
+// them through `client.ts` (`/api/features`, platform ADR-0071); `permissions.ts` re-exports them, and its check,
 // scope and admin calls still use raw `fetch`.
 
 import {

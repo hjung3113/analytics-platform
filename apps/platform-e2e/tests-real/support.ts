@@ -51,7 +51,7 @@ export function waitForFoRead(
 ): Promise<Response> {
   return page.waitForResponse((response) => {
     const url = new URL(response.url());
-    if (url.pathname !== `/api/fo${path}` || response.request().method() !== 'GET') return false;
+    if (url.pathname !== `/api/features${path}` || response.request().method() !== 'GET') return false;
     return Object.entries(search).every(([key, value]) =>
       value === undefined ? !url.searchParams.has(key) : url.searchParams.get(key) === value,
     );

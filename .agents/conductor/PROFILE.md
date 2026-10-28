@@ -62,7 +62,7 @@ Every step must exit 0 before commit.
 4. If menu manifests, `menus.ts`, contract menu types or `tooling/gen-menu` change: run `node tooling/gen-menu/scripts/probe.ts`, never in a worktree with a live preview.
 5. Feature gates, when feature package or folded CI inputs change (`.github/workflows/ci.yml`):
    - `bash ops/platform-api/scripts/ci/gate.sh static-extra`; run `unit` only for package suites not already covered by the successful unified root test. Root lint already runs bounded committed changed-file Biome and root typecheck covers feature packages.
-   - Integration: `FEEDBACKOPS_ENV_FILE=$WAVE_STATE/env.verify.<n> pnpm --filter @ap/platform-api test:integration`. Never use `gate.sh integration`, because it truncates the source DB.
+   - Integration: `PLATFORM_API_ENV_FILE=$WAVE_STATE/env.verify.<n> pnpm --filter @ap/platform-api test:integration`. Never use `gate.sh integration`, because it truncates the source DB.
 6. Hygiene: `python3 $ENGINE/worker-hygiene.py <worktree>`.
 7. Gates that run only in CI — run them locally when their inputs change:
    - Public SDK types change → `pnpm build`, then `pnpm sdk:api` (on intended changes, `--update` plus one line in `docs/integration/sdk-git-tag-consumption.md`).

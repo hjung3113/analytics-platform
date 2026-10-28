@@ -53,7 +53,7 @@ describe('전체 Finding without a FeedbackOps API (mock preview)', () => {
 });
 
 describe('전체 Finding through the FeedbackOps bridge', () => {
-  beforeEach(() => { setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
+  beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() }); });
 
   it('mounts the list reading the page as the FO findings path, and gives the screen no detail node (denied and empty states included)', async () => {
     mountAt(`${PATH}?q=pump&execution=none&managedSystem=${SYSTEM}`);
@@ -112,7 +112,7 @@ describe('전체 Finding through the FeedbackOps bridge', () => {
 const REJECTED = [['status', 'bogus'], ['execution', 'x'], ['assignment', 'x'], ['managedSystem', 'x'], ['focus', 'not-a-uuid']] as const;
 
 describe('전체 Finding with an invalid address value', () => {
-  beforeEach(() => { setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
+  beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() }); });
 
   it.each(REJECTED)('rejects an invalid %s=%s, keeps the address and requests nothing', async (key, value) => {
     const search = `?${key}=${encodeURIComponent(value)}`;

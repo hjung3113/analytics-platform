@@ -19,7 +19,7 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 describe('real assembly (#154)', () => {
   it('ready → the adapter and FeedbackOps API with no mock SavedViewStore or top-bar tools (ADR-0071)', async () => {
     const outcome = await assemblyFor({ kind: 'ready', adapter }).create();
-    expect(outcome).toEqual({ adapter, topBarTools: null, featureApi: { basePath: '/api/fo', onSessionLost: expect.any(Function) } });
+    expect(outcome).toEqual({ adapter, topBarTools: null, featureApi: { basePath: '/api/features', onSessionLost: expect.any(Function) } });
     expect(outcome).not.toHaveProperty('savedViews');
     const replace = vi.fn();
     vi.stubGlobal('location', { ...window.location, replace });

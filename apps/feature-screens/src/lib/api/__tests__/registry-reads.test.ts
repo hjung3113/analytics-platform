@@ -1,4 +1,4 @@
-// F4 — the Managed System / Analytics Area list reads go through client.ts, so they honour the platform bridge's `/api/fo` base path.
+// F4 — the Managed System / Analytics Area list reads go through client.ts, so they honour the platform bridge's `/api/features` base path.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { configureApiClient } from '../client';
@@ -7,7 +7,7 @@ import { ApiError } from '../types';
 
 const originalFetch = global.fetch;
 const onUnauthorized = vi.fn();
-beforeEach(() => configureApiClient({ basePath: '/api/fo', onUnauthorized }));
+beforeEach(() => configureApiClient({ basePath: '/api/features', onUnauthorized }));
 afterEach(() => {
   global.fetch = originalFetch;
   configureApiClient({ basePath: '' });
@@ -24,12 +24,12 @@ describe.each([
   [
     'fetchManagedSystems',
     () => fetchManagedSystems({ includeArchived: true }),
-    '/api/fo/managed-systems?include_archived=true',
+    '/api/features/managed-systems?include_archived=true',
   ],
   [
     'fetchAnalyticsAreas',
     () => fetchAnalyticsAreas({ managedSystemId: 'ms-1', limit: 500 }),
-    '/api/fo/analytics-areas?managed_system_id=ms-1&limit=500',
+    '/api/features/analytics-areas?managed_system_id=ms-1&limit=500',
   ],
 ])('%s with a base path', (_name, call, url) => {
   it('requests the prefixed URL with credentials included', async () => {

@@ -1,4 +1,4 @@
-// F1–F5, X1–X6 — the platform 권한 요청 page. fetch is mocked directly (house style), with the bridge's `/api/fo` base path.
+// F1–F5, X1–X6 — the platform 권한 요청 page. fetch is mocked directly (house style), with the bridge's `/api/features` base path.
 
 import { configureApiClient } from '@/lib/api/client';
 import { type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
@@ -79,15 +79,15 @@ function installFetch() {
       body: typeof init?.body === 'string' ? JSON.parse(init.body) : undefined,
     });
     const path = new URL(url, 'http://x').pathname;
-    if (path === '/api/fo/managed-systems')
+    if (path === '/api/features/managed-systems')
       return json({
         items: [ms(MS_A, 'Alpha'), ms(MS_B, 'Beta'), ms(MS_ARCHIVED, 'Gamma', true)],
         total: 3,
       });
-    if (path === '/api/fo/permission-requests/mine') return json({ requests: listRows });
-    if (path === '/api/fo/permission-requests' && method === 'POST') return postResponse();
+    if (path === '/api/features/permission-requests/mine') return json({ requests: listRows });
+    if (path === '/api/features/permission-requests' && method === 'POST') return postResponse();
     if (path.endsWith('/cancel') && method === 'POST') return cancelResponse();
-    const detailId = /^\/api\/fo\/permission-requests\/([^/]+)$/.exec(path)?.[1];
+    const detailId = /^\/api\/features\/permission-requests\/([^/]+)$/.exec(path)?.[1];
     if (detailId !== undefined && method === 'GET')
       return json({
         ...row(detailId, 'needs_more_info'),
@@ -131,14 +131,15 @@ async function choose(user: ReturnType<typeof userEvent.setup>, name: string, op
 }
 
 const posts = () =>
-  calls.filter((c) => c.method === 'POST' && c.url === '/api/fo/permission-requests');
-const mineCalls = () => calls.filter((c) => c.url.startsWith('/api/fo/permission-requests/mine'));
+  calls.filter((c) => c.method === 'POST' && c.url === '/api/features/permission-requests');
+const mineCalls = () =>
+  calls.filter((c) => c.url.startsWith('/api/features/permission-requests/mine'));
 const submitButton = () => screen.getByRole('button', { name: '요청 보내기' });
 const reasonBox = () => screen.getByRole('textbox', { name: /사유/ });
 
 const originalFetch = globalThis.fetch;
 beforeEach(() => {
-  configureApiClient({ basePath: '/api/fo' });
+  configureApiClient({ basePath: '/api/features' });
   listRows = [];
   postResponse = () =>
     json({ id: ID_PENDING, status: 'pending', created_at: '2026-10-24T00:00:00.000Z' }, 201);
@@ -160,7 +161,7 @@ describe('새 권한 요청', () => {
   it('F1 posts the capability, Managed System and reason with an Idempotency-Key, then resets and refetches', async () => {
     const { seam, user } = mount();
     await waitFor(() => expect(mineCalls()).toHaveLength(1));
-    expect(mineCalls()[0]?.url).toBe('/api/fo/permission-requests/mine?status=all');
+    expect(mineCalls()[0]?.url).toBe('/api/features/permission-requests/mine?status=all');
     expect(submitButton()).toBeEnabled();
 
     await choose(user, '기능', 'VOC 조회');
@@ -336,7 +337,7 @@ describe('내 권한 요청', () => {
     await waitFor(() => expect(seam.notifySuccess).toHaveBeenCalledWith('요청이 철회되었습니다.'));
     const cancels = calls.filter((c) => c.url.endsWith('/cancel'));
     expect(cancels).toHaveLength(1);
-    expect(cancels[0]?.url).toBe(`/api/fo/permission-requests/${ID_PENDING}/cancel`);
+    expect(cancels[0]?.url).toBe(`/api/features/permission-requests/${ID_PENDING}/cancel`);
     expect(cancels[0]?.body).toEqual({ expected_revision: 3 });
     await waitFor(() => expect(mineCalls().length).toBeGreaterThan(before));
   });
@@ -512,7 +513,7 @@ describe('포커스·필수 입력·관리자 질문 (UX 검토)', () => {
     const detailUrls = calls
       .filter((c) => /\/permission-requests\/[^/?]+$/.test(c.url) && c.method === 'GET')
       .map((c) => c.url);
-    expect(detailUrls).toEqual([`/api/fo/permission-requests/${ID_MORE_INFO}`]);
+    expect(detailUrls).toEqual([`/api/features/permission-requests/${ID_MORE_INFO}`]);
   });
 
   it('X6 two open rows have distinct 요청 철회 names', async () => {

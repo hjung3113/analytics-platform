@@ -38,9 +38,9 @@ steps here are superseded by the platform profile. The tools in `scripts/` (veri
 - **`be` issues get their own throwaway database.** Run `verify-db.sh up` once per wave first. The launcher then runs
   `verify-db.sh create <n> --migrate-from <worktree>` (or reuses an existing `env.verify.<n>`), copies it to
   `<worktree>/.review/env.verify`, and puts the exact command in the task's first lines:
-  `FEEDBACKOPS_ENV_FILE=<abs worktree>/.review/env.verify pnpm --filter @ap/platform-api test:integration <files>`. Workers run
+  `PLATFORM_API_ENV_FILE=<abs worktree>/.review/env.verify pnpm --filter @ap/platform-api test:integration <files>`. Workers run
   only the integration files they added or touched (`addenda/impl-rules-be.md` rule 2). `scripts/test-integration.sh`
-  refuses port 5434 unless `FEEDBACKOPS_ALLOW_DEV_DB=1`; never set that for a worker.
+  refuses port 5434 unless `PLATFORM_API_ALLOW_DEV_DB=1`; never set that for a worker.
 - In flight: ≈5–7 workers is the ceiling for one conductor; 2–3 while the conductor also runs every harness
   (16 GB machine; vitest is capped at 2 workers by `~/.zshenv`).
 - Brief extras: name the exact error envelopes to keep; for "use the shared X" refactors say "replace only whole-set

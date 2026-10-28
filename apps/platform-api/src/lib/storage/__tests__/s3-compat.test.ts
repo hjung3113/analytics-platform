@@ -21,7 +21,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { StorageUnavailableError } from '../index.js';
 import { S3CompatStorageBackend } from '../s3-compat.js';
 
-const BUCKET = 'fops-attachments-test';
+const BUCKET = 'platform-attachments-test';
 
 function makeBackend(): { backend: S3CompatStorageBackend; mock: ReturnType<typeof mockClient> } {
   const client = new S3Client({ region: 'us-east-1' });
@@ -88,9 +88,9 @@ describe('s3-compat', () => {
   });
 
   it('delete() is idempotent on missing key', async () => {
-    ctx.mock.on(DeleteObjectCommand).rejects(
-      Object.assign(new Error('NoSuchKey'), { name: 'NoSuchKey' }),
-    );
+    ctx.mock
+      .on(DeleteObjectCommand)
+      .rejects(Object.assign(new Error('NoSuchKey'), { name: 'NoSuchKey' }));
     await expect(ctx.backend.delete('ws-1/uuid/missing.txt')).resolves.toBeUndefined();
   });
 

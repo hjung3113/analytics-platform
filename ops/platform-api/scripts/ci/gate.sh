@@ -53,6 +53,7 @@ stage_static() {
 stage_static_extra() {
   step node "$FO_OPS/scripts/check-boundaries.test.mjs"
   step node "$FO_OPS/scripts/test-integration.test.mjs"
+  step node "$FO_OPS/scripts/release/release-identity.test.mjs"
   step node "$FO_OPS/scripts/db/cutover-0076.test.mjs"
   step node apps/platform-e2e/tests-real/database-safety.test.ts
   step fo gate:db-migration-drift
@@ -105,7 +106,7 @@ stage_integration() {
     set +a
     step env CUTOVER_ADMIN_URL="$admin_url" bash "$FO_OPS/scripts/db/cutover-0076-platform-identity.sh" all
   )
-  step env FEEDBACKOPS_ENV_FILE="$env_file" pnpm --filter @ap/platform-api test:integration
+  step env PLATFORM_API_ENV_FILE="$env_file" pnpm --filter @ap/platform-api test:integration
 }
 
 case "${1:-}" in

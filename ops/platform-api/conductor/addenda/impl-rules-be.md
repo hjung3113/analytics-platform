@@ -4,7 +4,7 @@
    `docs/feedbackops/implementation/02-domain-module-boundaries.md` §Approved cross-module surfaces.
 2. Backend integration suites are env-gated: they skip without a DB. Your task names **your own throwaway issue
    database** (port 5439) and the exact command:
-   `FEEDBACKOPS_ENV_FILE=<abs worktree>/.review/env.verify pnpm --filter @ap/platform-api test:integration <files>`
+   `PLATFORM_API_ENV_FILE=<abs worktree>/.review/env.verify pnpm --filter @ap/platform-api test:integration <files>`
    (paths relative to `apps/platform-api`). Run **only the integration files you added or touched**, never the full
    suite, never another env file, never `.env`; the runner refuses port 5434 (the dev database). Each run
    truncates and re-seeds that database, which is expected. The suites run as the low-priv `platform_app` role: write

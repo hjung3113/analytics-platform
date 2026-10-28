@@ -103,7 +103,7 @@ describe.each(PAGES)('%s without a FeedbackOps API (mock preview)', (_name, path
 });
 
 describe.each([['내 Task', '/feedbackops/fo-my-tasks', 'my'], ['Task 목록', '/feedbackops/fo-task-list', 'backlog']] as const)('%s through the FeedbackOps bridge', (_name, path, view) => {
-  beforeEach(() => { setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
+  beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() }); });
 
   it(`mounts the list with view ${view}, no auto-select and no detail node for FO's ListShell`, async () => {
     mountAt(`${path}?q=pump&managedSystem=${SYSTEM}`);
@@ -149,7 +149,7 @@ describe.each([['내 Task', '/feedbackops/fo-my-tasks', 'my'], ['Task 목록', '
 });
 
 describe('Task Requests through the FeedbackOps bridge', () => {
-  beforeEach(() => { setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
+  beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() }); });
 
   it('mounts the queue without auto-select, reading the page as the FO requests path', async () => {
     mountAt(`/feedbackops/task-requests?reviewer=me&managedSystem=${SYSTEM}`);
@@ -173,7 +173,7 @@ describe('Task Requests through the FeedbackOps bridge', () => {
 });
 
 describe('Milestones through the FeedbackOps bridge', () => {
-  beforeEach(() => { setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
+  beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() }); });
 
   it('renders the detail parts on focus and the create parts of Milestone 생성 in the shell slot', async () => {
     mountAt('/feedbackops/milestones?focus=m-1');
@@ -194,7 +194,7 @@ describe('Milestones through the FeedbackOps bridge', () => {
 });
 
 describe('Tasks board through the FeedbackOps bridge', () => {
-  beforeEach(() => { setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
+  beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() }); });
 
   it('mounts the board with the page read as the FO board path', async () => {
     mountAt(`/feedbackops/tasks?publicUpdate=missing&managedSystem=${SYSTEM}`);
@@ -235,7 +235,7 @@ const REJECTED = [
 ] as const;
 
 describe('Task pages with an invalid address value', () => {
-  beforeEach(() => { setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
+  beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() }); });
 
   it.each(REJECTED)('%s (%s) rejects an invalid %s, keeps the address and requests nothing', async (_name, path, testId, key, value) => {
     const search = `?${key}=${encodeURIComponent(value)}`;
