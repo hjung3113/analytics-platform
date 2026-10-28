@@ -1641,6 +1641,9 @@ footer summary {
   color: rgb(var(--text-primary));
   background: rgb(var(--surface-card));
 }
+.shot-dialog:not([open]) {
+  display: none;
+}
 .shot-dialog::backdrop {
   background: rgb(var(--text-primary) / 0.6);
 }
