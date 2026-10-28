@@ -582,6 +582,7 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
     },
     lookupPeople: async ids => {
       const directory: Record<string, GroupMember> = { engineer: { userId: 'engineer', displayName: 'Engineer', affiliation: 'MEM' } };
+      if (breaks.has('people-empty')) return [];
       return ids.flatMap(id => {
         const person = directory[id];
         if (!person) return breaks.has('people-echo') ? [{ userId: id, displayName: id, affiliation: '' }] : [];
@@ -662,6 +663,7 @@ const PORTS: PortSamples = {
   usage: { name: 'entry', menuId: 'fixture', spaceId: spaceId('mars'), path: '/fixture', at: 0, sessionId: 'tab' },
   clientError: { correlationId: 'client-ref', menuId: 'fixture', spaceId: spaceId('mars'), path: '/fixture', name: 'Error' },
   otherGrantedScopeId: 'FDRY',
+  visiblePersonId: 'engineer',
 };
 
 function actors(state: RefState) {
@@ -863,12 +865,24 @@ describe('server conformance kit (#145)', () => {
     ['prefs-shared', ['port · preferences are per session user: a second user neither reads nor is changed by them']],
     ['people-echo', ['port · lookupPeople answers exact ids with GroupMember fields only; unknown ids are absent']],
     ['people-console-data', ['port · lookupPeople answers exact ids with GroupMember fields only; unknown ids are absent']],
+    ['people-empty', ['port · lookupPeople answers exact ids with GroupMember fields only; unknown ids are absent']],
     ['notice-replay', ['port · saveNotice with the same idempotency key replays without a second write']],
     ['notice-stale', ['port · notices: create, update under the version, stale update conflicts, delete, delete again not_found']],
     ['notice-author', ['port · saveNotice rejects a supplied author, id on create and unknown keys']],
     ['notice-forbidden', ['port · saveNotice without console:access → forbidden', 'port · deleteNotice without console:access → forbidden']],
   ])('catches a server that breaks %s', async (broken, expected) => {
     expect(await failing([broken])).toEqual(expect.arrayContaining(expected));
+  });
+
+  it('lookupPeople without a visiblePersonId fixture is a visible run-time skip with a reason, not a pass; a failing shape still fails', async () => {
+    const id = 'port · lookupPeople answers exact ids with GroupMember fields only; unknown ids are absent';
+    const without = (breaks: string[]) => runServerConformance({ ...harness(new Set(breaks)), ports: { ...PORTS, visiblePersonId: undefined } });
+    const skipped = (await without([])).find(r => r.id === id);
+    expect(skipped).toMatchObject({ status: 'skipped' });
+    expect(skipped?.reason).toMatch(/visiblePersonId/);
+    expect((await without(['people-empty'])).find(r => r.id === id)?.status).toBe('skipped');
+    expect((await without(['people-echo'])).find(r => r.id === id)?.status).toBe('failed');
+    expect((await runServerConformance(harness())).find(r => r.id === id)?.status).toBe('passed');
   });
 
   it('defaultRangeTo: a null anchor and a valid naive wall-clock pass; a zoned or non-string anchor fails', async () => {

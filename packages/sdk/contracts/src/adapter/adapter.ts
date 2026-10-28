@@ -285,8 +285,8 @@ export type PlatformAdapter = {
   readPreferences(signal?: AbortSignal): Promise<ApiResponse<PreferencesSnapshot>>;
   /**
    * Patches keys of the session user's preferences: `set` stores (null stores null), `remove` deletes; the other keys
-   * are untouched. A key in both `set` and `remove`, an out-of-grammar key or an oversized value is outcome `invalid`.
-   * Answers the whole snapshot after the write.
+   * are untouched. A key in both `set` and `remove`, an out-of-grammar key or a value that is not JSON is outcome `error`; an oversized value, request or an account total over
+   * the key limit is `too_large` (a failed patch changes nothing). Answers the whole snapshot after the write.
    */
   patchPreferences(patch: PreferencesPatch, signal?: AbortSignal): Promise<ApiResponse<PreferencesSnapshot>>;
   /**

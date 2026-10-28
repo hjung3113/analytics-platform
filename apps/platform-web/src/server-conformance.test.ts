@@ -122,6 +122,7 @@ describeServerConformance('server boundary conformance — mock adapter', {
     usage: { name: 'entry', menuId: 'equipment', spaceId: spaceId('mars'), path: '/equipment', at: Date.now(), sessionId: 'conformance-tab' },
     clientError: { correlationId: 'client-conformance', menuId: 'equipment', spaceId: spaceId('mars'), path: '/equipment', name: 'TypeError' },
     otherGrantedScopeId: 'FDRY',
+    visiblePersonId: GRANTED,
   },
   asGranted: async fn => {
     const previous = getRole();

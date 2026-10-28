@@ -21,6 +21,7 @@ import {
   updateNoticeInputSchema,
 } from './index.ts';
 import { PREFERENCE_KEY_SOURCE } from './service-ports.ts';
+import type { JsonValue } from './index.ts';
 import * as publicApi from './index.ts';
 
 const text = { ko: '제목', en: 'Title' };
@@ -59,6 +60,30 @@ describe('preferences', () => {
     expect(preferencesPatchSchema.safeParse({ set: { favorites: deep, lang: null } }).success).toBe(true);
     expect(jsonValueSchema.safeParse(Number.NaN).success).toBe(false);
     expect(jsonValueSchema.safeParse(undefined).success).toBe(false);
+  });
+
+  it('JSON depth is at most 32 like the mock and ADR-0098: 32 passes, 33 and a very deep input are rejected without throwing', () => {
+    const nest = (levels: number): JsonValue => {
+      let value: JsonValue = 'leaf';
+      for (let i = 0; i < levels; i += 1) value = [value];
+      return value;
+    };
+    expect(jsonValueSchema.safeParse(nest(32)).success).toBe(true);
+    expect(jsonValueSchema.safeParse(nest(33)).success).toBe(false);
+    expect(preferencesPatchSchema.safeParse({ set: { favorites: nest(32) } }).success).toBe(true);
+    expect(preferencesPatchSchema.safeParse({ set: { favorites: nest(33) } }).success).toBe(false);
+    expect(preferencesImportSchema.safeParse({ values: { favorites: nest(33) } }).success).toBe(false);
+    expect(preferencesSnapshotSchema.safeParse({ values: { favorites: nest(33) }, importedAt: null }).success).toBe(false);
+    const object32: JsonValue = Array.from({ length: 32 }).reduce<JsonValue>((value) => ({ k: value }), 'leaf');
+    expect(jsonValueSchema.safeParse(object32).success).toBe(true);
+    expect(jsonValueSchema.safeParse({ k: object32 }).success).toBe(false);
+    for (const levels of [10_000, 200_000]) {
+      const deep = nest(levels);
+      expect(() => jsonValueSchema.safeParse(deep)).not.toThrow();
+      expect(jsonValueSchema.safeParse(deep).success).toBe(false);
+      expect(() => preferencesPatchSchema.safeParse({ set: { favorites: deep } })).not.toThrow();
+      expect(preferencesPatchSchema.safeParse({ set: { favorites: deep } }).success).toBe(false);
+    }
   });
 
   it('snapshot: values and importedAt are required, importedAt may be null', () => {

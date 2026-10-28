@@ -70,6 +70,57 @@ describe('preferences', () => {
     expect((await importPreferences({ values: many }, undefined, as('engineer'))).outcome).toBe('too_large');
   });
 
+  describe('account-wide key cap', () => {
+    const keys = (from: number, to: number) => Object.fromEntries(Array.from({ length: to - from }, (_, i) => [`columns:k${from + i}`, i]));
+    const read = async () => (await readPreferences(undefined, as('engineer'))).data!;
+
+    it('patches across several requests stop at 200 keys; the 201st is too_large and changes nothing', async () => {
+      expect((await patchPreferences({ set: keys(0, 100) }, undefined, as('engineer'))).outcome).toBe('ok');
+      expect((await patchPreferences({ set: keys(100, 200) }, undefined, as('engineer'))).outcome).toBe('ok');
+      expect(Object.keys((await read()).values)).toHaveLength(PREFERENCE_KEYS_MAX);
+      const over = await patchPreferences({ set: { 'columns:k200': 1 } }, undefined, as('engineer'));
+      expect(over).toMatchObject({ outcome: 'too_large', data: null });
+      const after = await read();
+      expect(Object.keys(after.values)).toHaveLength(PREFERENCE_KEYS_MAX);
+      expect(after.values['columns:k200']).toBeUndefined();
+    });
+
+    it('overwriting an existing key at 200 is allowed; a remove in the same request frees capacity for a new key', async () => {
+      await patchPreferences({ set: keys(0, 200) }, undefined, as('engineer'));
+      expect((await patchPreferences({ set: { 'columns:k5': 'again' } }, undefined, as('engineer'))).outcome).toBe('ok');
+      const swap = await patchPreferences({ set: { 'columns:new': 1 }, remove: ['columns:k0'] }, undefined, as('engineer'));
+      expect(swap.outcome).toBe('ok');
+      expect(Object.keys((await read()).values)).toHaveLength(PREFERENCE_KEYS_MAX);
+      expect((await patchPreferences({ remove: ['columns:k1', 'columns:k2'] }, undefined, as('engineer'))).outcome).toBe('ok');
+      expect((await patchPreferences({ set: { 'columns:a': 1, 'columns:b': 2 } }, undefined, as('engineer'))).outcome).toBe('ok');
+      expect((await patchPreferences({ set: { 'columns:c': 3 } }, undefined, as('engineer'))).outcome).toBe('too_large');
+    });
+
+    it('a removal of an absent key frees nothing', async () => {
+      await patchPreferences({ set: keys(0, 200) }, undefined, as('engineer'));
+      const result = await patchPreferences({ set: { 'columns:extra': 1 }, remove: ['columns:absent'] }, undefined, as('engineer'));
+      expect(result.outcome).toBe('too_large');
+    });
+
+    it('a missing-only import that would pass 200 keys fails whole: no values, no importedAt', async () => {
+      await patchPreferences({ set: keys(0, 199) }, undefined, as('engineer'));
+      const before = await read();
+      const over = await importPreferences({ values: { ...keys(0, 1), 'columns:n1': 1, 'columns:n2': 2 } }, undefined, as('engineer'));
+      expect(over).toMatchObject({ outcome: 'too_large', data: null });
+      expect(await read()).toEqual(before);
+      expect(before.importedAt).toBeNull();
+    });
+
+    it('server-wins import keys that already exist do not count against the cap', async () => {
+      await patchPreferences({ set: keys(0, 200) }, undefined, as('engineer'));
+      const done = await importPreferences({ values: keys(0, 50) }, undefined, as('engineer'));
+      expect(done.outcome).toBe('ok');
+      expect(done.data!.importedAt).not.toBeNull();
+      expect(Object.keys(done.data!.values)).toHaveLength(PREFERENCE_KEYS_MAX);
+      expect(done.data!.values['columns:k3']).toBe(3);
+    });
+  });
+
   it('answers the scenario outcomes with null trust and no assessments', async () => {
     setScenario('error');
     const result = await readPreferences(undefined, as('engineer'));
@@ -85,10 +136,15 @@ describe('preferences', () => {
 
 describe('people lookup', () => {
   it('returns exactly the requested ids with only GroupMember fields; unknown ids are absent', async () => {
-    const found = await lookupPeople(['admin', 'nobody', 'admin'], undefined, as('viewer'));
+    const found = await lookupPeople(['admin', 'nobody'], undefined, as('viewer'));
     expect(found).toEqual([{ userId: 'admin', displayName: expect.any(String), affiliation: expect.any(String) }]);
     expect(Object.keys(found[0]!).sort()).toEqual(['affiliation', 'displayName', 'userId']);
     expect(await lookupPeople([], undefined, fast)).toEqual([]);
+  });
+
+  it('rejects a duplicate id as invalid_input like the runtime schema, instead of silently deduplicating', async () => {
+    await expect(lookupPeople(['admin', 'admin'], undefined, fast)).rejects.toMatchObject({ code: 'invalid_input' });
+    await expect(lookupPeople(['admin', 'nobody', 'admin'], undefined, fast)).rejects.toMatchObject({ code: 'invalid_input' });
   });
 
   it('rejects a malformed or over-cap id list instead of searching', async () => {
@@ -148,6 +204,25 @@ describe('notices', () => {
     expect((await listNotices(undefined, as('admin'))).data?.items).toHaveLength(3);
     const reused = await saveNotice({ ...draft, until: '2027-01-01T00:00:00', idempotencyKey: 'same' }, undefined, as('admin'));
     expect(reused.outcome).toBe('invalid');
+  });
+
+  it.each([
+    ['title.ko', { title: { ko: '다른 제목', en: 'Title' } }],
+    ['title.en', { title: { ko: '제목', en: 'Other' } }],
+    ['content.ko', { content: { ko: '다른 본문', en: 'Title' } }],
+    ['content.en', { content: { ko: '제목', en: 'Other body' } }],
+  ])('reusing an idempotency key with a changed nested %s is invalid, not a replay', async (_name, change) => {
+    const first = await saveNotice({ ...draft, idempotencyKey: 'nested' }, undefined, as('admin'));
+    expect(first.outcome).toBe('ok');
+    const reused = await saveNotice({ ...draft, ...change, idempotencyKey: 'nested' }, undefined, as('admin'));
+    expect(reused).toMatchObject({ outcome: 'invalid', replayed: false, fieldErrors: [{ path: ['idempotencyKey'], code: 'reused' }] });
+  });
+
+  it('a retry whose nested objects only reorder their keys is the same request and replays', async () => {
+    const first = await saveNotice({ ...draft, idempotencyKey: 'order' }, undefined, as('admin'));
+    const reordered = { until: draft.until, scopeId: draft.scopeId, content: { en: text.en, ko: text.ko }, title: { en: text.en, ko: text.ko } };
+    const retry = await saveNotice({ ...reordered, idempotencyKey: 'order' } as never, undefined, as('admin'));
+    expect(retry).toMatchObject({ outcome: 'ok', replayed: true, data: first.data });
   });
 
   it('delete enforces the version and replays safely', async () => {

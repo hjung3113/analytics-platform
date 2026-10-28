@@ -31,6 +31,12 @@ function scenarioFail(scenario: Pinned['scenario']): { outcome: 'timeout' | 'err
   return null;
 }
 
+/** Deterministic serialization: object keys sorted at every depth, so equal input is equal text whatever its key order. */
+function canonical(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
+  if (isPlain(value)) return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${canonical(value[key])}`).join(',')}}`;
+  return JSON.stringify(value) ?? 'null';
+}
 const isPlain = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
 const onlyKeys = (value: Record<string, unknown>, keys: readonly string[]) => Object.keys(value).every(key => keys.includes(key));
 const bytes = (value: unknown) => new TextEncoder().encode(JSON.stringify(value) ?? '').length;
@@ -78,20 +84,32 @@ function checkPatch(patch: unknown): Verdict {
   }
   return bytes(patch) > PREFERENCE_REQUEST_MAX_BYTES ? { outcome: 'too_large', message: 'request is too large' } : null;
 }
+/** The account total is bounded too (ADR-0098 §1): the state after the change, not the request alone, must fit, or nothing changes. */
+const overCap = (count: number): Verdict => (count > PREFERENCE_KEYS_MAX ? { outcome: 'too_large', message: `an account holds at most ${PREFERENCE_KEYS_MAX} keys` } : null);
+function projectPatch(patch: PreferencesPatch, store: PrefStore): Verdict {
+  const next = new Set(store.values.keys());
+  for (const key of patch.remove ?? []) next.delete(key);
+  for (const key of Object.keys(patch.set ?? {})) next.add(key);
+  return overCap(next.size);
+}
+function projectImport(input: PreferencesImport, store: PrefStore): Verdict {
+  if (store.importedAt !== null) return null;
+  return overCap(new Set([...store.values.keys(), ...Object.keys(input.values)]).size);
+}
 function checkImport(input: unknown): Verdict {
   if (!isPlain(input) || !onlyKeys(input, ['values'])) return { outcome: 'error', message: 'import has unknown keys' };
   return checkValues(input['values']) ?? (bytes(input) > PREFERENCE_REQUEST_MAX_BYTES ? { outcome: 'too_large', message: 'request is too large' } : null);
 }
 
-async function prefsCall(opts: ServiceOptions | undefined, signal: AbortSignal | undefined, judge: () => Verdict, run: (store: PrefStore) => void): Promise<ApiResponse<PreferencesSnapshot>> {
+async function prefsCall(opts: ServiceOptions | undefined, signal: AbortSignal | undefined, judge: (store: PrefStore) => Verdict, run: (store: PrefStore) => void): Promise<ApiResponse<PreferencesSnapshot>> {
   const pinned = pin(opts);
   await wait(pinned, signal, opts);
   const base = baseOf();
   const failed = scenarioFail(pinned.scenario);
   if (failed) return { ...base, ...failed };
-  const verdict = judge();
-  if (verdict) return { ...base, ...verdict };
   const store = storeOf(pinned.userId);
+  const verdict = judge(store);
+  if (verdict) return { ...base, ...verdict };
   run(store);
   return { ...base, outcome: 'ok', data: snapshotOf(store) };
 }
@@ -99,14 +117,14 @@ async function prefsCall(opts: ServiceOptions | undefined, signal: AbortSignal |
 export const readPreferences = (signal?: AbortSignal, opts?: ServiceOptions) => prefsCall(opts, signal, () => null, () => undefined);
 
 export const patchPreferences = (patch: PreferencesPatch, signal?: AbortSignal, opts?: ServiceOptions) =>
-  prefsCall(opts, signal, () => checkPatch(patch), store => {
+  prefsCall(opts, signal, store => checkPatch(patch) ?? projectPatch(patch, store), store => {
     for (const key of patch.remove ?? []) store.values.delete(key);
     for (const [key, value] of Object.entries(patch.set ?? {})) store.values.set(key, value);
   });
 
 /** The only write that stamps `importedAt`; after it the call changes nothing, so a key deleted later stays deleted. */
 export const importPreferences = (input: PreferencesImport, signal?: AbortSignal, opts?: ServiceOptions) =>
-  prefsCall(opts, signal, () => checkImport(input), store => {
+  prefsCall(opts, signal, store => checkImport(input) ?? projectImport(input, store), store => {
     if (store.importedAt !== null) return;
     for (const [key, value] of Object.entries(input.values)) if (!store.values.has(key)) store.values.set(key, value);
     store.importedAt = new Date().toISOString();
@@ -119,13 +137,12 @@ export async function lookupPeople(ids: readonly string[], signal?: AbortSignal,
   const pinned = pin(opts);
   await wait(pinned, signal, opts);
   if (!Array.isArray(ids) || ids.length > PEOPLE_LOOKUP_MAX || ids.some(id => typeof id !== 'string' || id.length === 0)) throw new PortError('invalid_input', `ids must be at most ${PEOPLE_LOOKUP_MAX} non-empty strings`, 'ids');
+  if (new Set(ids).size !== ids.length) throw new PortError('invalid_input', 'ids must be distinct', 'ids');
   const users = Object.values(activeWorld().users);
-  const found = new Map<string, GroupMember>();
-  for (const id of ids) {
+  return ids.flatMap(id => {
     const user = users.find(candidate => candidate.role === id);
-    if (user && !found.has(id)) found.set(id, { userId: user.role, displayName: user.name, affiliation: user.title.en });
-  }
-  return [...found.values()];
+    return user ? [{ userId: user.role, displayName: user.name, affiliation: user.title.en }] : [];
+  });
 }
 
 // ───────────────────────────── notices ─────────────────────────────
@@ -199,7 +216,7 @@ async function noticeWrite<T extends Notice | { id: string }>(input: unknown, si
   const body = input as Record<string, unknown>;
   const { idempotencyKey: _key, ...rest } = body;
   const recordKey = `${pinned.userId}\0${String(body['idempotencyKey'])}`;
-  const fingerprint = JSON.stringify(rest, Object.keys(rest).sort());
+  const fingerprint = canonical(rest);
   const seen = replays.get(recordKey);
   if (seen) {
     // Same key, other input is a client bug: the stored answer is for the first request only.

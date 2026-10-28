@@ -11,7 +11,7 @@
 
 - 서버가 보존하는 것은 인증된 세션 사용자의 키-값이다. 클라이언트는 사용자 id를 보내지 않으며(알 수 없는 키는 거부) 서버가 세션에서 읽는다.
 - **키 문법**: `favorites`, `recents`, `lastScope`, `lang`, `columns:<preferenceKey>`(`<preferenceKey>`는 `[A-Za-z0-9_.-]{1,100}`). 계정 식별자는 키에 들어가지 않는다. 데이터·필터·이력·보드 레이아웃 payload는 키 문법 밖이라 거부된다(보드 레이아웃은 #1096이 범위 밖으로 정했다). 문법을 넓히려면 이 ADR을 개정한다.
-- **크기 상한**(보안·자원 이유: 사용자가 보낸 JSON이 서버 메모리·DB 행·응답 크기를 키우는 입구이므로): 요청당·계정당 키 200개, 값 하나 직렬화 UTF-8 65,536 바이트, 요청 본문 262,144 바이트. 값은 유한한 JSON(깊이 32 이하)이다. 상수는 `@ap/contracts`(`PREFERENCE_*`)와 `@ap/contract-schemas`에 같은 값으로 있고 테스트가 일치를 확인한다. JSON Schema로 표현하지 못하는 제약(바이트 크기, set/remove 키 겹침)은 런타임 경계에서 강제한다.
+- **크기 상한**(보안·자원 이유: 사용자가 보낸 JSON이 서버 메모리·DB 행·응답 크기를 키우는 입구이므로): 요청당·계정당 키 200개, 값 하나 직렬화 UTF-8 65,536 바이트, 요청 본문 262,144 바이트. 값은 유한한 JSON(깊이 32 이하)이다. 상수는 `@ap/contracts`(`PREFERENCE_*`)와 `@ap/contract-schemas`에 같은 값으로 있고 테스트가 일치를 확인한다. JSON Schema로 표현하지 못하는 제약(바이트 크기, set/remove 키 겹침, 계정 전체 키 수 200, 값의 JSON 깊이 32)은 런타임 경계에서 강제한다. `@ap/contract-schemas`의 `jsonValueSchema`는 재귀 파싱 전에 깊이를 검사해 깊은 입력을 예외 없이 거부하지만, JSON 산출물(`jsonValue.json`)은 제한 없는 재귀 `$ref`만 담으므로 산출물만으로 검증하는 소비자는 깊이와 계정 전체 키 수를 직접 적용해야 한다. 계정 전체 키 수는 변경 뒤 상태로 판정하고, 초과하면 `too_large`와 함께 아무 값도 `importedAt`도 바꾸지 않는다.
 - **쓰기는 키 패치다**: `{ set?, remove? }`. `set`은 값을 저장하고(`null`은 `null`로 저장), `remove`는 삭제한다. 같은 키가 둘 다 있으면 거부한다. 계정 전체를 덮어쓰지 않는다. 읽기·패치·가져오기의 답은 `ApiResponse<PreferencesSnapshot>`(`trust: null`, `assessments: []`)이고 `PortError`를 쓰지 않는다. 판정 실패는 `error`(크기 초과는 `too_large`)다.
 - **읽기 모양**: `{ values, importedAt: string | null }`. `importedAt`은 가져오기가 커밋된 시각이다.
 

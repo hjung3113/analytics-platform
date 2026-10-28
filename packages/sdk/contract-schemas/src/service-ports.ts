@@ -3,7 +3,8 @@ import { z } from 'zod/v4';
 // Persistence, people and notices port schemas (ADR-0098; schema source boundary ADR-0097). Servers import these at runtime; they
 // never keep a second copy. Strict objects reject unknown keys, so a forged identity field (`userId`, `author`, `at`) is refused.
 // Not expressible in JSON Schema, enforced here at runtime only: set/remove key overlap, serialized-size bounds, the distinctness of
-// `remove`/`ids` entries beyond `uniqueItems`, and valid Unicode in strings.
+// `remove`/`ids` entries beyond `uniqueItems`, valid Unicode in strings, the account-wide key total, and the JSON nesting depth of
+// every preference value (JSON_MAX_DEPTH): a consumer using the JSON artifacts alone must enforce these itself.
 
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
@@ -30,10 +31,32 @@ export function jsonBytes(value: unknown): number {
   return bytes;
 }
 
-/** Any JSON value, recursively. Numbers are finite (Zod rejects NaN and Infinity). */
-export const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
-  z.union([z.null(), z.boolean(), z.number(), z.string(), z.array(jsonValueSchema), z.record(z.string(), jsonValueSchema)]),
+/** Nesting limit of a JSON value: the root is depth 0 and no value, scalar leaves included, sits deeper than 32 (ADR-0098 §1). */
+const JSON_MAX_DEPTH = 32;
+
+/** True when no container is nested deeper than JSON_MAX_DEPTH. Iterative, so a hostile input cannot overflow the stack, and it stops at the first violation. */
+function withinJsonDepth(value: unknown): boolean {
+  const pending: [unknown, number][] = [[value, 0]];
+  for (let next = pending.pop(); next !== undefined; next = pending.pop()) {
+    const [node, depth] = next;
+    if (depth > JSON_MAX_DEPTH) return false;
+    if (typeof node !== 'object' || node === null) continue;
+    for (const child of Array.isArray(node) ? node : Object.values(node)) pending.push([child, depth + 1]);
+  }
+  return true;
+}
+
+const jsonStructure: z.ZodType<JsonValue> = z.lazy(() =>
+  z.union([z.null(), z.boolean(), z.number(), z.string(), z.array(jsonStructure), z.record(z.string(), jsonStructure)]),
 );
+
+/**
+ * Any JSON value, recursively, nested at most JSON_MAX_DEPTH deep. Numbers are finite (Zod rejects NaN and Infinity). The depth
+ * is checked before the recursive parse (`abort: true` is what stops the pipe: a plain refine issue would not), so an over-deep input is rejected, never parsed into a stack overflow. The depth bound is
+ * a runtime-only rule: the JSON artifacts keep the unbounded recursive `$ref`, so a consumer validating with them alone must
+ * apply it itself.
+ */
+export const jsonValueSchema: z.ZodType<JsonValue> = z.unknown().refine(withinJsonDepth, { message: `nested at most ${JSON_MAX_DEPTH} deep`, abort: true }).pipe(jsonStructure);
 
 export const preferenceKeySchema = z.string().regex(new RegExp(PREFERENCE_KEY_SOURCE));
 

@@ -137,6 +137,15 @@ export function planServiceChecks(harness: ServerConformanceHarness): Conformanc
         if (person.userId !== own) return `asked for ${own} only, got ${person.userId} — an exact lookup is not a search`;
       }
       if ((await adapter.lookupPeople([])).length !== 0) return 'an empty id list answers an empty list';
+      // The shape checks above also pass for a port that always answers []: only a person the session can really see proves a lookup.
+      const visible = harness.ports.visiblePersonId;
+      if (visible === undefined) return { skipped: 'ports.visiblePersonId is not provided: no known visible person to look up, so an always-empty lookupPeople cannot be told apart from a working one' };
+      const asked = await adapter.lookupPeople([visible, '__conformance_unknown_person']);
+      if (!Array.isArray(asked)) return `lookupPeople answers an array, got ${typeof asked}`;
+      const row = asked.find(p => p.userId === visible);
+      if (!row) return `asked for the visible person ${visible}, got ${asked.length === 0 ? 'no rows' : asked.map(p => p.userId).join(', ')} — a visible id must be returned`;
+      if (JSON.stringify(Object.keys(row).sort()) !== JSON.stringify(MEMBER_KEYS) || ![row.displayName, row.affiliation].every(v => typeof v === 'string')) return `the visible person carries ${Object.keys(row).join(', ')} — exactly userId, displayName, affiliation, all strings`;
+      if (asked.length !== 1) return `asked for ${visible} and an unknown id, got ${asked.length} rows — only the visible person is returned`;
       return null;
     },
   });

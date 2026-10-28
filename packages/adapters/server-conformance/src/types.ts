@@ -57,6 +57,12 @@ export type PortSamples = {
   clientError: ClientErrorReport;
   /** A second site the granted actor holds a grant in (annotation isolation). */
   otherGrantedScopeId: string;
+  /**
+   * Optional: the `userId` of a person the granted session can see (it may be the session's own id). The lookupPeople check
+   * requires `lookupPeople([id, unknown])` to return exactly that person with the exact `GroupMember` shape; without it the
+   * check can only prove shape and absence, so an always-empty implementation passes — it ends as a run-time skip with this reason.
+   */
+  visiblePersonId?: string;
 };
 
 /** One `PlatformAdapter` member — the unit a server declares as implemented (#674). */
