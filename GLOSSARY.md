@@ -134,6 +134,10 @@ _Avoid_: FlowId — 파서(`context_recognized_parser`) 쪽 raw 필드명이며,
 업무 시스템들이 얹히는 공통 기반. 셸·Kernel·공통 컴포넌트·차트 계약·페이지 유형·메뉴 간 연결을 제공하고, 업무 화면 자체는 소유하지 않는다.
 _Avoid_: 포털, 앱 — 앱은 이 플랫폼을 조립해 띄우는 단위(`apps/*`)다.
 
+**플랫폼 기능** (platform feature):
+플랫폼이 공통으로 제공하는 VOC·설문·Task·Finding·관리 같은 사용자 기능. SDK 위에서 동작하는 Consumer이며 업무 시스템 메뉴와 구별한다([ADR-0097](docs/adr/0097-platform-features-and-role-based-names.md)).
+_Avoid_: FeedbackOps, 피드백 운영 — 과거 제품·업무 시스템 이름이다.
+
 **Kernel** (`@ap/kernel`):
 메뉴를 모르는 플랫폼 런타임 — Registry, 분석 Context, 딥링크·URL, 권한·Scope, 감사를 맡는다.
 _Avoid_: 플랫폼 — 플랫폼 전체와 섞인다.
@@ -145,7 +149,7 @@ _Avoid_: 플랫폼 — 플랫폼 전체와 섞인다.
 업무 시스템과 제품이 받아 쓰는 플랫폼 공개 패키지 묶음(`@ap/contracts`·`@ap/ui`·`@ap/kernel`·`@ap/components`·`@ap/shell`). 하나의 묶음 버전으로 릴리스한다([ADR-0043](docs/adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md), [ADR-0044](docs/adr/0044-sdk-source-in-platform-repo-released-separately.md)).
 
 **업무 시스템** (코드 이름 `Space`):
-플랫폼 위에 올라가는 독립된 업무 단위. 자기 메뉴 그룹·메뉴·업무 객체와 진입 권한을 소유하고, 다른 시스템의 객체를 흡수하지 않는다. 지금 등록된 것은 MARS·CLAS(생산성 분석), BRAVO(지표관리), 표준 로그 개발, 개선 실행, 운영 콘솔이고, 피드백 운영은 계획이다.
+플랫폼 위에 올라가는 독립된 업무 단위. 자기 메뉴 그룹·메뉴·업무 객체와 진입 권한을 소유하고, 다른 시스템의 객체를 흡수하지 않는다. 지금 등록된 것은 MARS·CLAS(생산성 분석), BRAVO(지표관리), 표준 로그 개발, 개선 실행, 운영 콘솔이다. VOC·설문·Task·Finding은 별도 피드백 운영 시스템이 아닌 플랫폼 기능이다([ADR-0097](docs/adr/0097-platform-features-and-role-based-names.md)).
 CLAS는 약어 그대로 쓰고 영어 풀이 이름은 쓰지 않는다(어차피 바뀔 이름, 사용자 2026-10-27). 메뉴·설명에도 `Equipment operation`·`operation time` 같은 풀이를 두지 않는다. MARS와 CLAS는 메뉴가 달라 별도 시스템으로 둔다(이 플랫폼의 CLAS에는 견본 메뉴 하나가 있고, 기존 CLAS 화면 이전은 계획).
 _Avoid_: 워크스페이스, 공간, 앱, 모듈 — 워크스페이스는 FeedbackOps의 workspace(테넌트)·작업 영역과, 모듈은 호스트 모듈·설비 Module과 섞인다. 화면 문구는 `업무 시스템`(짧게 `시스템`)이고, `Space`는 코드 이름으로만 쓴다.
 
