@@ -80,7 +80,7 @@ export async function registerIdempotencyPurge(
   boss: PgBoss,
   deps: { db: Db; log: JobLog },
 ): Promise<void> {
-  // F-010: fops_app no longer holds EXECUTE on `pgboss.create_queue` (per
+  // F-010: platform_app no longer holds EXECUTE on `pgboss.create_queue` (per
   // migration 0003) because that function performs DDL (CREATE TABLE,
   // ATTACH PARTITION). Slice 1's single queue (`core.idempotency_purge`)
   // is pre-created in migration 0003 itself, so this boot path only has

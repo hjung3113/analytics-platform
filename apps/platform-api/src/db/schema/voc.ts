@@ -281,7 +281,7 @@ export const vocClusterAutogenShadowCandidates = vocSchema.table(
 
 // ─────────────────────────────────────────────────────────────────────────
 // voc.voc_public_updates — append-only public status update records.
-// fops_app gets SELECT + INSERT only (no UPDATE/DELETE) per ADR-0019.
+// platform_app gets SELECT + INSERT only (no UPDATE/DELETE) per ADR-0019.
 // ─────────────────────────────────────────────────────────────────────────
 export const vocPublicUpdates = vocSchema.table(
   'voc_public_updates',
@@ -378,7 +378,7 @@ export const publicUpdateReviewCandidates = vocSchema.table(
 // ─────────────────────────────────────────────────────────────────────────
 // voc.voc_reporter_replies — append-only replies from the reporter.
 // actor_id must equal vocs.reporter_id — enforced by DB trigger.
-// fops_app gets SELECT + INSERT only per ADR-0019.
+// platform_app gets SELECT + INSERT only per ADR-0019.
 // ─────────────────────────────────────────────────────────────────────────
 export const vocReporterReplies = vocSchema.table(
   'voc_reporter_replies',
@@ -401,7 +401,7 @@ export const vocReporterReplies = vocSchema.table(
 // ─────────────────────────────────────────────────────────────────────────
 // voc.voc_internal_comments — append-only internal staff comments.
 // Any authenticated actor in the workspace may insert.
-// fops_app gets SELECT + INSERT only per ADR-0019.
+// platform_app gets SELECT + INSERT only per ADR-0019.
 // ─────────────────────────────────────────────────────────────────────────
 export const vocInternalComments = vocSchema.table(
   'voc_internal_comments',
@@ -428,7 +428,7 @@ export const vocInternalComments = vocSchema.table(
 // the comment_id; no SQL-level FK on comment_id (spans three tables).
 // A BEFORE INSERT trigger (IM-04) asserts comment_id resolves in the named
 // table. Archive-over-delete: archived_at / archived_by_actor_id added per
-// IM-03 / AGENTS.md; fops_app DELETE revoked.
+// IM-03 / AGENTS.md; platform_app DELETE revoked.
 // ─────────────────────────────────────────────────────────────────────────
 export const vocAttachments = vocSchema.table(
   'voc_attachments',
@@ -501,7 +501,7 @@ export const vocPermissionDecisionsSeedFixture = vocSchema.table(
 // transition matrix per docs/feedbackops/frontend/specs/voc.md §4.5.
 // nextReporterStates(currentStatus, tx) reads this table; service code
 // MUST NOT hard-code transitions.
-// fops_app gets SELECT only (data is seeded at migration time).
+// platform_app gets SELECT only (data is seeded at migration time).
 // ─────────────────────────────────────────────────────────────────────────
 export const reporterFacingStatusTransitions = vocSchema.table(
   'reporter_facing_status_transitions',

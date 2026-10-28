@@ -157,7 +157,7 @@ describe.skipIf(!runIntegration)('VOC embedding store migration 0042', () => {
     expect(rows.rowCount).toBe(0);
   });
 
-  it('grants fops_app DML but rejects its DDL', async () => {
+  it('grants platform_app DML but rejects its DDL', async () => {
     const vocId = await insertVoc();
     const role = await appHandle.pool.query<{
       current_user: string;
@@ -166,7 +166,7 @@ describe.skipIf(!runIntegration)('VOC embedding store migration 0042', () => {
       `select current_user, rolsuper
        from pg_roles where rolname = current_user`,
     );
-    expect(role.rows).toEqual([{ current_user: 'fops_app', rolsuper: false }]);
+    expect(role.rows).toEqual([{ current_user: 'platform_app', rolsuper: false }]);
     await appHandle.pool.query(
       `insert into voc.voc_embeddings (
          voc_id, workspace_id, embedding_version, provider, model, dimensions, embedding, source_hash

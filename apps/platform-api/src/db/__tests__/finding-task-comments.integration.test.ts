@@ -81,7 +81,7 @@ describe.skipIf(!runIntegration)('0048 finding/task comments role grants', () =>
     await appHandle?.close();
   });
 
-  it('fops_app may SELECT and INSERT but cannot UPDATE or DELETE finding comments', async () => {
+  it('platform_app may SELECT and INSERT but cannot UPDATE or DELETE finding comments', async () => {
     const privileges = await migrateHandle.pool.query<{
       can_select: boolean;
       can_insert: boolean;
@@ -90,11 +90,11 @@ describe.skipIf(!runIntegration)('0048 finding/task comments role grants', () =>
       can_truncate: boolean;
     }>(
       `select
-         has_table_privilege('fops_app', 'finding.finding_comments', 'SELECT') as can_select,
-         has_table_privilege('fops_app', 'finding.finding_comments', 'INSERT') as can_insert,
-         has_table_privilege('fops_app', 'finding.finding_comments', 'UPDATE') as can_update,
-         has_table_privilege('fops_app', 'finding.finding_comments', 'DELETE') as can_delete,
-         has_table_privilege('fops_app', 'finding.finding_comments', 'TRUNCATE') as can_truncate`,
+         has_table_privilege('platform_app', 'finding.finding_comments', 'SELECT') as can_select,
+         has_table_privilege('platform_app', 'finding.finding_comments', 'INSERT') as can_insert,
+         has_table_privilege('platform_app', 'finding.finding_comments', 'UPDATE') as can_update,
+         has_table_privilege('platform_app', 'finding.finding_comments', 'DELETE') as can_delete,
+         has_table_privilege('platform_app', 'finding.finding_comments', 'TRUNCATE') as can_truncate`,
     );
     expect(privileges.rows[0]).toEqual({
       can_select: true,
@@ -134,7 +134,7 @@ describe.skipIf(!runIntegration)('0048 finding/task comments role grants', () =>
     ).rejects.toMatchObject({ code: '42501' });
   });
 
-  it('fops_app may SELECT and INSERT but cannot UPDATE or DELETE task comments', async () => {
+  it('platform_app may SELECT and INSERT but cannot UPDATE or DELETE task comments', async () => {
     const privileges = await migrateHandle.pool.query<{
       can_select: boolean;
       can_insert: boolean;
@@ -143,11 +143,11 @@ describe.skipIf(!runIntegration)('0048 finding/task comments role grants', () =>
       can_truncate: boolean;
     }>(
       `select
-         has_table_privilege('fops_app', 'task.task_comments', 'SELECT') as can_select,
-         has_table_privilege('fops_app', 'task.task_comments', 'INSERT') as can_insert,
-         has_table_privilege('fops_app', 'task.task_comments', 'UPDATE') as can_update,
-         has_table_privilege('fops_app', 'task.task_comments', 'DELETE') as can_delete,
-         has_table_privilege('fops_app', 'task.task_comments', 'TRUNCATE') as can_truncate`,
+         has_table_privilege('platform_app', 'task.task_comments', 'SELECT') as can_select,
+         has_table_privilege('platform_app', 'task.task_comments', 'INSERT') as can_insert,
+         has_table_privilege('platform_app', 'task.task_comments', 'UPDATE') as can_update,
+         has_table_privilege('platform_app', 'task.task_comments', 'DELETE') as can_delete,
+         has_table_privilege('platform_app', 'task.task_comments', 'TRUNCATE') as can_truncate`,
     );
     expect(privileges.rows[0]).toEqual({
       can_select: true,

@@ -51,7 +51,7 @@ export async function purgeExpiredRateLimits(deps: {
 /**
  * Wire the handler + hourly cron into pg-boss. Idempotent — same contract
  * as `registerIdempotencyPurge`. Queue is pre-created in migration 0004
- * because fops_app does not hold EXECUTE on `pgboss.create_queue`'s DDL
+ * because platform_app does not hold EXECUTE on `pgboss.create_queue`'s DDL
  * branch (F-010 / ADR-0008).
  */
 export async function registerRateLimitsPurge(

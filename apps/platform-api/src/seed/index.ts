@@ -5,7 +5,7 @@
 //   * Seed is a SEPARATE command, not embedded in a migration. Migrations
 //     are for schema; seed is for canonical baseline data so the app boots
 //     on a freshly migrated database.
-//   * Runs as the fops_app role via DATABASE_URL — proves the app role can
+//   * Runs as the platform_app role via DATABASE_URL — proves the app role can
 //     write to non-audit tables. Never touches core.audit_log.
 //   * Three baseline actors per GLOSSARY.md vocabulary (Slice 1):
 //       - mock-admin-1 / admin@feedbackops.local  / admin / internal_member
@@ -248,12 +248,12 @@ export async function runSeed(handle: DbHandle): Promise<SeedResult> {
   // ── Slice 3 VOC fixtures ────────────────────────────────────────────────
   // ensureSeedTeam must run BEFORE seedSlice3Vocs so the '[seed] VOC owner
   // team' row exists for VOC fixtures that use a team owner. Uses
-  // fops_migrate role (DATABASE_URL_MIGRATE) because fops_app cannot INSERT
+  // platform_migrate role (DATABASE_URL_MIGRATE) because platform_app cannot INSERT
   // on core.teams per ADR-0019.
   if (!config.DATABASE_URL_MIGRATE) {
     throw new Error(
       'DATABASE_URL_MIGRATE is required for the Slice 3 seed (creates the ' +
-      'fixture team that fops_app cannot insert per ADR-0019).',
+      'fixture team that platform_app cannot insert per ADR-0019).',
     );
   }
   await ensureSeedTeam(workspaceId, config.DATABASE_URL_MIGRATE);

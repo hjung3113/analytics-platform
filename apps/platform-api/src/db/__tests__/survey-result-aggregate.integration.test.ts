@@ -186,7 +186,7 @@ describe.skipIf(!runIntegration)('Survey aggregate security boundary (0038, 0046
     await migrateHandle?.close();
   });
 
-  it('keeps fops_app from reading raw response or answer rows', async () => {
+  it('keeps platform_app from reading raw response or answer rows', async () => {
     for (const table of ['survey.survey_responses', 'survey.survey_response_answers']) {
       await expect(appHandle.pool.query(`select * from ${table}`)).rejects.toMatchObject({
         code: '42501',
@@ -305,11 +305,11 @@ describe.skipIf(!runIntegration)('Survey aggregate security boundary (0038, 0046
     }>(
       `select p.proname, owner_role.rolname as owner, p.prosecdef, p.proconfig, p.provolatile,
               pg_catalog.has_function_privilege('public', p.oid, 'EXECUTE') as public_execute,
-              pg_catalog.has_function_privilege('fops_app', p.oid, 'EXECUTE') as app_execute,
+              pg_catalog.has_function_privilege('platform_app', p.oid, 'EXECUTE') as app_execute,
               aggregate_owner.rolcanlogin, aggregate_owner.rolinherit,
-              pg_catalog.has_schema_privilege('fops_survey_aggregate_owner', 'survey', 'CREATE') as schema_create,
-              pg_catalog.has_schema_privilege('fops_survey_aggregate_owner', 'survey', 'USAGE') as schema_usage,
-              pg_catalog.has_schema_privilege('fops_survey_aggregate_owner', 'core', 'USAGE') as core_schema_usage,
+              pg_catalog.has_schema_privilege('platform_survey_aggregate_owner', 'survey', 'CREATE') as schema_create,
+              pg_catalog.has_schema_privilege('platform_survey_aggregate_owner', 'survey', 'USAGE') as schema_usage,
+              pg_catalog.has_schema_privilege('platform_survey_aggregate_owner', 'core', 'USAGE') as core_schema_usage,
               coalesce((
                 select array_agg(privilege_principal order by privilege_principal)
                   from (
@@ -324,7 +324,7 @@ describe.skipIf(!runIntegration)('Survey aggregate security boundary (0038, 0046
          from pg_catalog.pg_proc p
          join pg_catalog.pg_namespace n on n.oid = p.pronamespace
          join pg_catalog.pg_roles owner_role on owner_role.oid = p.proowner
-         join pg_catalog.pg_roles aggregate_owner on aggregate_owner.rolname = 'fops_survey_aggregate_owner'
+         join pg_catalog.pg_roles aggregate_owner on aggregate_owner.rolname = 'platform_survey_aggregate_owner'
         where n.nspname = 'survey'
           and p.proname in (
             'count_negative_outcome_without_followup',
@@ -338,7 +338,7 @@ describe.skipIf(!runIntegration)('Survey aggregate security boundary (0038, 0046
     );
     expect(rows).toHaveLength(6);
     for (const row of rows) {
-      expect(row.owner).toBe('fops_survey_aggregate_owner');
+      expect(row.owner).toBe('platform_survey_aggregate_owner');
       expect(row.prosecdef).toBe(true);
       expect(row.proconfig).toContain('search_path=pg_catalog');
       expect(row.provolatile).toBe('s');
@@ -349,13 +349,13 @@ describe.skipIf(!runIntegration)('Survey aggregate security boundary (0038, 0046
       expect(row.schema_create).toBe(false);
       expect(row.schema_usage).toBe(true);
       expect(row.core_schema_usage).toBe(true);
-      expect(row.execute_principals).toEqual(['fops_app', 'fops_survey_aggregate_owner']);
+      expect(row.execute_principals).toEqual(['platform_app', 'platform_survey_aggregate_owner']);
     }
 
     const columnPrivileges = await migrateHandle.pool.query<{ privilege: string }>(
       `select table_name || '.' || column_name || '.' || privilege_type as privilege
          from information_schema.column_privileges
-        where grantee = 'fops_survey_aggregate_owner'
+        where grantee = 'platform_survey_aggregate_owner'
           and table_schema = 'survey'
         order by table_name, column_name, privilege_type`,
     );
@@ -393,7 +393,7 @@ describe.skipIf(!runIntegration)('Survey aggregate security boundary (0038, 0046
     const linkColumnPrivileges = await migrateHandle.pool.query<{ privilege: string }>(
       `select table_name || '.' || column_name || '.' || privilege_type as privilege
          from information_schema.column_privileges
-        where grantee = 'fops_survey_aggregate_owner'
+        where grantee = 'platform_survey_aggregate_owner'
           and table_schema = 'core'
           and table_name = 'entity_links'
         order by table_name, column_name, privilege_type`,
@@ -413,7 +413,7 @@ describe.skipIf(!runIntegration)('Survey aggregate security boundary (0038, 0046
     const settingsColumnPrivileges = await migrateHandle.pool.query<{ privilege: string }>(
       `select column_name || '.' || privilege_type as privilege
          from information_schema.column_privileges
-        where grantee = 'fops_survey_aggregate_owner'
+        where grantee = 'platform_survey_aggregate_owner'
           and table_schema = 'core'
           and table_name = 'workspace_settings'
         order by privilege`,
@@ -426,7 +426,7 @@ describe.skipIf(!runIntegration)('Survey aggregate security boundary (0038, 0046
     const findingColumnPrivileges = await migrateHandle.pool.query<{ privilege: string }>(
       `select table_name || '.' || column_name || '.' || privilege_type as privilege
          from information_schema.column_privileges
-        where grantee = 'fops_survey_aggregate_owner'
+        where grantee = 'platform_survey_aggregate_owner'
           and table_schema = 'finding'
         order by privilege`,
     );
@@ -439,7 +439,7 @@ describe.skipIf(!runIntegration)('Survey aggregate security boundary (0038, 0046
       'findings.workspace_id.SELECT',
     ]);
     const findingSchemaUsage = await migrateHandle.pool.query<{ schema_usage: boolean }>(
-      `select pg_catalog.has_schema_privilege('fops_survey_aggregate_owner', 'finding', 'USAGE') as schema_usage`,
+      `select pg_catalog.has_schema_privilege('platform_survey_aggregate_owner', 'finding', 'USAGE') as schema_usage`,
     );
     expect(findingSchemaUsage.rows[0]?.schema_usage).toBe(true);
 
@@ -450,7 +450,7 @@ describe.skipIf(!runIntegration)('Survey aggregate security boundary (0038, 0046
     }>(
       `select table_schema, table_name, privilege_type
          from information_schema.table_privileges
-        where grantee = 'fops_survey_aggregate_owner'
+        where grantee = 'platform_survey_aggregate_owner'
         order by table_schema, table_name, privilege_type`,
     );
     expect(tablePrivileges.rows).toEqual([]);
@@ -459,8 +459,8 @@ describe.skipIf(!runIntegration)('Survey aggregate security boundary (0038, 0046
       migrate_is_owner_member: boolean;
       owner_is_migrate_member: boolean;
     }>(
-      `select pg_catalog.pg_has_role('fops_migrate', 'fops_survey_aggregate_owner', 'MEMBER') as migrate_is_owner_member,
-              pg_catalog.pg_has_role('fops_survey_aggregate_owner', 'fops_migrate', 'MEMBER') as owner_is_migrate_member`,
+      `select pg_catalog.pg_has_role('platform_migrate', 'platform_survey_aggregate_owner', 'MEMBER') as migrate_is_owner_member,
+              pg_catalog.pg_has_role('platform_survey_aggregate_owner', 'platform_migrate', 'MEMBER') as owner_is_migrate_member`,
     );
     expect(membership.rows).toEqual([
       { migrate_is_owner_member: true, owner_is_migrate_member: false },

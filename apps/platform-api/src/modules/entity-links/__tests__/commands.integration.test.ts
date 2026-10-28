@@ -4,7 +4,7 @@ import { deleteRecoveryFixtureParents } from '../../../test-support/recovery-fix
 // detachEntityLink — exercised inside db.transaction directly (not via HTTP).
 //
 // Gate: DATABASE_URL + DATABASE_URL_MIGRATE + WORKSPACE_ID. The migrate role is
-// required because core.entity_links is append-only to fops_app. Domain rows
+// required because core.entity_links is append-only to platform_app. Domain rows
 // are written inside a rolled-back transaction, so only seed rows (MS, actor)
 // need cleanup.
 

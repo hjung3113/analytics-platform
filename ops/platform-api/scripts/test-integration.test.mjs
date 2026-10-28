@@ -13,7 +13,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const SCRIPT = fileURLToPath(new URL('test-integration.sh', import.meta.url));
-const url = (role, port) => `postgres://${role}:${role}@localhost:${port}/feedbackops`;
+const url = (role, port) => `postgres://${role}:${role}@localhost:${port}/platform`;
 const connectionUrl = (role, target) => (typeof target === 'number' ? url(role, target) : target);
 
 const cases = [
@@ -24,15 +24,15 @@ const cases = [
 ];
 
 const devTargets = [
-  ['query overrides authority', 'postgres://u:p@localhost:5432/feedbackops?port=5434', {}],
-  ['query without authority port', 'postgres://u:p@localhost/feedbackops?port=5434', {}],
+  ['query overrides authority', 'postgres://u:p@localhost:5432/platform?port=5434', {}],
+  ['query without authority port', 'postgres://u:p@localhost/platform?port=5434', {}],
   [
     'at sign in query',
-    'postgres://u:p@localhost:5434/feedbackops?application_name=review@host',
+    'postgres://u:p@localhost:5434/platform?application_name=review@host',
     {},
   ],
-  ['zero-padded port', 'postgres://u:p@localhost:05434/feedbackops', {}],
-  ['PGPORT fallback', 'postgres://u:p@localhost/feedbackops', { PGPORT: '5434' }],
+  ['zero-padded port', 'postgres://u:p@localhost:05434/platform', {}],
+  ['PGPORT fallback', 'postgres://u:p@localhost/platform', { PGPORT: '5434' }],
 ];
 for (const variable of ['DATABASE_URL', 'DATABASE_URL_MIGRATE']) {
   for (const [shape, target, extraEnv] of devTargets) {
@@ -49,8 +49,8 @@ for (const variable of ['DATABASE_URL', 'DATABASE_URL_MIGRATE']) {
   for (const allow of [false, true]) {
     cases.push([
       `${variable}: invalid URL, opt-in=${allow}`,
-      variable === 'DATABASE_URL' ? 'postgres://u:p@[invalid/feedbackops' : 5439,
-      variable === 'DATABASE_URL_MIGRATE' ? 'postgres://u:p@[invalid/feedbackops' : 5439,
+      variable === 'DATABASE_URL' ? 'postgres://u:p@[invalid/platform' : 5439,
+      variable === 'DATABASE_URL_MIGRATE' ? 'postgres://u:p@[invalid/platform' : 5439,
       allow ? { FEEDBACKOPS_ALLOW_DEV_DB: '1' } : {},
       `refusing ${variable}: cannot resolve PostgreSQL port`,
     ]);
@@ -58,8 +58,8 @@ for (const variable of ['DATABASE_URL', 'DATABASE_URL_MIGRATE']) {
 }
 cases.push([
   'default port',
-  'postgres://u:p@localhost/feedbackops',
-  'postgres://u:p@localhost/feedbackops',
+  'postgres://u:p@localhost/platform',
+  'postgres://u:p@localhost/platform',
   {},
   'NODE_ENV=production',
 ]);
@@ -78,7 +78,7 @@ try {
     const envFile = join(dir, 'guard.env');
     writeFileSync(
       envFile,
-      `DATABASE_URL=${connectionUrl('fops_app', appPort)}\nDATABASE_URL_MIGRATE=${connectionUrl('fops_migrate', migratePort)}\nWORKSPACE_ID=00000000-0000-0000-0000-000000000001\n`,
+      `DATABASE_URL=${connectionUrl('platform_app', appPort)}\nDATABASE_URL_MIGRATE=${connectionUrl('platform_migrate', migratePort)}\nWORKSPACE_ID=00000000-0000-0000-0000-000000000001\n`,
     );
     const { FEEDBACKOPS_ALLOW_DEV_DB: _inherited, PGPORT: _pgport, ...inherited } = process.env;
     const env = {
@@ -112,8 +112,8 @@ process.stdout.write(JSON.stringify({ db: ['DATABASE_URL', 'DATABASE_URL_MIGRATE
   const caller = {
     ...process.env,
     PATH: `${dir}:${process.env.PATH}`,
-    DATABASE_URL: url('fops_app', 5439),
-    DATABASE_URL_MIGRATE: url('fops_migrate', 5439),
+    DATABASE_URL: url('platform_app', 5439),
+    DATABASE_URL_MIGRATE: url('platform_migrate', 5439),
     WORKSPACE_ID: 'test',
     ALLOW_SKIPPED_INTEGRATION: '1',
     NODE_ENV: 'test',
@@ -127,8 +127,8 @@ process.stdout.write(JSON.stringify({ db: ['DATABASE_URL', 'DATABASE_URL_MIGRATE
   const integrationEnv = join(dir, 'integration.env');
   writeFileSync(
     integrationEnv,
-    `DATABASE_URL=${url('fops_app', 5439)}
-DATABASE_URL_MIGRATE=${url('fops_migrate', 5439)}
+    `DATABASE_URL=${url('platform_app', 5439)}
+DATABASE_URL_MIGRATE=${url('platform_migrate', 5439)}
 WORKSPACE_ID=test
 ALLOW_SKIPPED_INTEGRATION=1
 `,

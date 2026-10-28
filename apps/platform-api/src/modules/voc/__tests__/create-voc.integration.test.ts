@@ -4,8 +4,8 @@ import { deleteRecoveryFixtureParents } from '../../../test-support/recovery-fix
 // Mirrors the live harness pattern from
 // modules/analytics-areas/__tests__/analytics-area.integration.test.ts:
 //   * buildServer + cookie session via POST /auth/mock-login (no Bearer).
-//   * fops_app pool for product-table cleanup.
-//   * fops_migrate pool for core.audit_log cleanup (fops_app cannot DELETE).
+//   * platform_app pool for product-table cleanup.
+//   * platform_migrate pool for core.audit_log cleanup (platform_app cannot DELETE).
 //
 // Gate: DATABASE_URL + WORKSPACE_ID. Without DATABASE_URL_MIGRATE the suite
 // still runs but skips audit-log assertions/cleanup gracefully.
@@ -803,7 +803,7 @@ describe.skipIf(!runIntegration)('POST /vocs (#13)', () => {
   it('archived MS → 409 conflict.parent_archived', async () => {
     const admin = await loginAs(app, 'mock-admin-1');
     const msId = await createMs(app, admin, 'it-voc-arch-ms', 'Arch MS');
-    // Archive via fops_migrate UPDATE (mirrors AA test pattern).
+    // Archive via platform_migrate UPDATE (mirrors AA test pattern).
     if (!MIGRATE_URL) return;
     const ops = createDb(MIGRATE_URL);
     try {

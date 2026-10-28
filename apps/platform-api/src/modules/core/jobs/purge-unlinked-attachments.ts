@@ -156,7 +156,7 @@ export async function purgeUnlinkedAttachments(
 /**
  * Wire the handler + hourly cron into pg-boss. Idempotent — same contract
  * as `registerIdempotencyPurge` / `registerRateLimitsPurge`. Queue is
- * pre-created in migration 0014 because fops_app cannot DDL via
+ * pre-created in migration 0014 because platform_app cannot DDL via
  * pgboss.create_queue (F-010 / ADR-0008).
  */
 export async function registerAttachmentsPurge(

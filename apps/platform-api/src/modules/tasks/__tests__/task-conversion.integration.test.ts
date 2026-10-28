@@ -2145,7 +2145,7 @@ describe.skipIf(!runIntegration)('task conversion and link-existing (#134)', () 
       expect(res.json<{ code: string }>().code).toBe('not_found.record');
       await expectNoConversionSideEffects(request.id);
     } finally {
-      // fops_app has no DELETE on task.milestones: use the migrate role.
+      // platform_app has no DELETE on task.milestones: use the migrate role.
       await migrateHandle.pool.query('delete from task.milestones where id = $1', [milestoneId]);
       await deleteRecoveryFixtureParents(
         migrateHandle,

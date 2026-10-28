@@ -118,7 +118,7 @@ describe.skipIf(!runIntegration)('Survey response submission migration 0037', ()
     ]);
   });
 
-  it('grants only INSERT to fops_app on response submission tables', async () => {
+  it('grants only INSERT to platform_app on response submission tables', async () => {
     for (const tableName of ['survey_responses', 'survey_response_answers']) {
       const { rows } = await migrateHandle.pool.query<{
         canInsert: boolean;
@@ -127,10 +127,10 @@ describe.skipIf(!runIntegration)('Survey response submission migration 0037', ()
         canDelete: boolean;
       }>(
         `select
-           has_table_privilege('fops_app', format('survey.%I', $1::text), 'INSERT') as "canInsert",
-           has_table_privilege('fops_app', format('survey.%I', $1::text), 'SELECT') as "canSelect",
-           has_table_privilege('fops_app', format('survey.%I', $1::text), 'UPDATE') as "canUpdate",
-           has_table_privilege('fops_app', format('survey.%I', $1::text), 'DELETE') as "canDelete"`,
+           has_table_privilege('platform_app', format('survey.%I', $1::text), 'INSERT') as "canInsert",
+           has_table_privilege('platform_app', format('survey.%I', $1::text), 'SELECT') as "canSelect",
+           has_table_privilege('platform_app', format('survey.%I', $1::text), 'UPDATE') as "canUpdate",
+           has_table_privilege('platform_app', format('survey.%I', $1::text), 'DELETE') as "canDelete"`,
         [tableName],
       );
       const privileges = rows[0];

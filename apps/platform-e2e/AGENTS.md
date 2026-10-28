@@ -29,8 +29,8 @@
 ## Real-server contract E2E (#593)
 
 - Real specs live in `tests-real/*.real.spec.ts`; `playwright.real.config.ts` uses `src/real/http-assembly.tsx` through Vite `--mode real`. The default config remains mock-only and must not discover `tests-real`.
-- Run from a caller-created throwaway database with `pnpm --filter @ap/platform-e2e run e2e:real`. The main config validates both database URLs before migration, core seed, and each rate-limit reset. It accepts only `fops_app` / `fops_migrate` roles on `localhost:5439`, with both URLs naming the same `feedbackops_<name>` database. It refuses the `feedbackops` template, other hosts/ports, URL overrides, and mismatches. Use `verify-db.sh create <name>`; never use `SEED_MODE=personas`.
-- The harness seeds core actors only (`mock-admin-1`, `mock-user-1`), logs them in through Vite, and saves separate storage states. It does not add grants. Before each test, `tests-real/support.ts` revalidates both URLs and deletes only `core.rate_limits` through the `fops_migrate` connection. Any browser response with status 429 fails the test.
+- Run from a caller-created throwaway database with `pnpm --filter @ap/platform-e2e run e2e:real`. The main config validates both database URLs before migration, core seed, and each rate-limit reset. It accepts only `platform_app` / `platform_migrate` roles on `localhost:5439`, with both URLs naming the same `platform_<name>` database. It refuses the `platform` template, other hosts/ports, URL overrides, and mismatches. Use `verify-db.sh create <name>`; never use `SEED_MODE=personas`.
+- The harness seeds core actors only (`mock-admin-1`, `mock-user-1`), logs them in through Vite, and saves separate storage states. It does not add grants. Before each test, `tests-real/support.ts` revalidates both URLs and deletes only `core.rate_limits` through the `platform_migrate` connection. Any browser response with status 429 fails the test.
 - Do not treat a shell heading as bridge success. Register the expected FeedbackOps GET before navigation, require its 2xx response, and assert that screen's loaded rows or explicit valid empty state. The usage table reads once per mount, so poll authenticated `GET /api/v1/platform/usage-summary?preset=all` directly when checking persisted visit deltas.
 - `E2E_PORT` selects the Vite port (default `4190`); `E2E_REAL_BACKEND_PORT` selects the backend port (default `3011`). `e2e:real` runs the backend-down screen in a separate Vite-only config after the healthy-backend specs.
 - Known audit contract defect [#1091](https://github.com/hjung3113/analytics-platform/issues/1091): the target-type filter test in `console.admin.real.spec.ts` is declared `test.fixme` and skipped (expected: HTTP 200 + `empty` + the explicit empty state). Active real specs are unaffected; the fixme is not claimed as passing. Remove `fixme` when #1091 is fixed.
@@ -38,16 +38,16 @@
 
 ### 준비와 실행
 
-1. 로컬 env 템플릿과 throwaway DB 컨테이너를 준비한다. 기존 `ops/platform-api/.env`가 있으면 읽어 보고 그대로 둔다. 없을 때만 `.env.example`을 복사한다. `up`은 포트 5439에 `fops-verify` 컨테이너를 만들고(메모리 기본 상한 2g, `VERIFY_DB_MEMORY`로 조정) 템플릿 DB를 migrate한다. 이 호출이 컨테이너를 새로 만들었는지 기록해 둔다. 이미 떠 있던 컨테이너(다른 세션 소유일 수 있다)는 쓰기만 하고 멈추지 않는다.
+1. 로컬 env 템플릿과 throwaway DB 컨테이너를 준비한다. 기존 `ops/platform-api/.env`가 있으면 읽어 보고 그대로 둔다. 없을 때만 `.env.example`을 복사한다. `up`은 포트 5439에 `platform-verify` 컨테이너를 만들고(메모리 기본 상한 2g, `VERIFY_DB_MEMORY`로 조정) 템플릿 DB를 migrate한다. 이 호출이 컨테이너를 새로 만들었는지 기록해 둔다. 이미 떠 있던 컨테이너(다른 세션 소유일 수 있다)는 쓰기만 하고 멈추지 않는다.
 
    ```sh
    [ -f ops/platform-api/.env ] || cp ops/platform-api/.env.example ops/platform-api/.env
    export WAVE_STATE=/path/to/wave-scratch
-   docker inspect fops-verify >/dev/null 2>&1 && CREATED_CONTAINER=0 || CREATED_CONTAINER=1
+   docker inspect platform-verify >/dev/null 2>&1 && CREATED_CONTAINER=0 || CREATED_CONTAINER=1
    bash ops/platform-api/conductor/scripts/verify-db.sh up
    ```
 
-2. 이름을 정해 throwaway DB를 만든다. helper는 `feedbackops_<name>`을 복제하고 `$WAVE_STATE/env.verify.<name>`을 만들며 해당 DB를 migrate한다. 생성된 env를 읽어 오고 core workspace ID와 포트를 정한다(`E2E_PORT` Vite 기본 `4190`, `E2E_REAL_BACKEND_PORT` 백엔드 기본 `3011`; 다른 세션이 쓰는 포트는 피한다).
+2. 이름을 정해 throwaway DB를 만든다. helper는 `platform_<name>`을 복제하고 `$WAVE_STATE/env.verify.<name>`을 만들며 해당 DB를 migrate한다. 생성된 env를 읽어 오고 core workspace ID와 포트를 정한다(`E2E_PORT` Vite 기본 `4190`, `E2E_REAL_BACKEND_PORT` 백엔드 기본 `3011`; 다른 세션이 쓰는 포트는 피한다).
 
    ```sh
    bash ops/platform-api/conductor/scripts/verify-db.sh create 593-real
@@ -58,15 +58,15 @@
    export E2E_PORT=4190 E2E_REAL_BACKEND_PORT=3011
    ```
 
-3. harness가 받아들이는 DB URL은 helper가 만드는 다음 모양이다. 양쪽은 `localhost:5439`의 같은 `feedbackops_<name>`을 가리켜야 한다. `DATABASE_URL`은 `fops_app`, `DATABASE_URL_MIGRATE`는 `fops_migrate` 역할을 써야 한다. 비밀번호는 helper가 생성한 값을 그대로 쓴다. URL query/fragment, 원격 호스트, 포트 5434나 다른 포트, `feedbackops` 템플릿, 서로 다른 DB 이름은 거부된다.
+3. harness가 받아들이는 DB URL은 helper가 만드는 다음 모양이다. 양쪽은 `localhost:5439`의 같은 `platform_<name>`을 가리켜야 한다. `DATABASE_URL`은 `platform_app`, `DATABASE_URL_MIGRATE`는 `platform_migrate` 역할을 써야 한다. 비밀번호는 helper가 생성한 값을 그대로 쓴다. URL query/fragment, 원격 호스트, 포트 5434나 다른 포트, `platform` 템플릿, 서로 다른 DB 이름은 거부된다.
 
    ```text
-   DATABASE_URL=postgres://fops_app:fops_app@localhost:5439/feedbackops_<name>
-   DATABASE_URL_MIGRATE=postgres://fops_migrate:fops_migrate@localhost:5439/feedbackops_<name>
+   DATABASE_URL=postgres://platform_app:platform_app@localhost:5439/platform_<name>
+   DATABASE_URL_MIGRATE=postgres://platform_migrate:platform_migrate@localhost:5439/platform_<name>
    WORKSPACE_ID=00000000-0000-0000-0000-000000000001  # 저장소 core workspace ID; 표준 UUID도 허용
    ```
 
-   설정은 전역 setup의 migration·core seed 전에, 그리고 매 테스트의 rate-limit cleanup 전에 두 URL을 다시 검사한다. 직접 SQL cleanup은 검증된 `DATABASE_URL_MIGRATE`의 `fops_migrate` 역할로 `DELETE FROM core.rate_limits`만 실행한다. seed는 `SEED_MODE=core`로 고정한다. `SEED_MODE=personas`는 사용하지 않는다. 검증을 우회해 로컬·원격 DB를 지정하지 않는다.
+   설정은 전역 setup의 migration·core seed 전에, 그리고 매 테스트의 rate-limit cleanup 전에 두 URL을 다시 검사한다. 직접 SQL cleanup은 검증된 `DATABASE_URL_MIGRATE`의 `platform_migrate` 역할로 `DELETE FROM core.rate_limits`만 실행한다. seed는 `SEED_MODE=core`로 고정한다. `SEED_MODE=personas`는 사용하지 않는다. 검증을 우회해 로컬·원격 DB를 지정하지 않는다.
 
 4. 실제 production build와 suite를 실행한다. `e2e:real`은 정상 백엔드 사양을 끝낸 뒤 DB 없는 별도 설정에서 연결 실패 화면도 확인한다. 백엔드 준비 확인은 `/health`(liveness)다. `/health/ready`는 첨부 저장소까지 요구하는데 이 harness는 쓰지 않는다.
 
@@ -97,3 +97,5 @@ core seed의 `mock-admin-1`·`mock-user-1`을 Vite origin의 `/auth/mock-login`�
 - CI Job `Platform contracts (E2E)`가 표를 Job 요약에 싣고 `platform-contract-report` 아티팩트로 올린다.
 - CI는 전체 실행에서 스위트를 shard 4개 Job(`Platform contracts (E2E shard i/4)`, `pnpm e2e --shard=i/4 --reporter=list,blob`)으로 나눠 돌리고, 병합 Job `Platform contracts (E2E)`가 blob을 `pnpm --filter @ap/platform-e2e e2e:merge`(`playwright.merge.config.ts`)로 합쳐 하나의 보고를 만든다(#666). 판정은 병합 Job이 shard 결과로 낸다. `fullyParallel: true`는 shard가 파일이 아니라 테스트 단위로 나뉘게 하려는 것이고, 워커가 1개라 실행 순서는 그대로다. shard 하나만 재현하려면 `pnpm e2e --shard=2/4` — 인자 앞에 `--`를 넣지 않는다(Playwright가 파일 필터로 읽는다). `e2e:base-path`는 마지막 shard에서 한 번만 돈다. PR과 main push는 영향받는 spec만 돌린다(`.github/scripts/select-e2e.mjs`): 고른 spec은 shard 하나(`i/1`)에 파일 경로(`tests/<x>.spec.ts`)로 넘기고, 그래서 `contract-report`도 그 spec만 담은 부분 보고다. 영향받는 spec이 없으면 shard Job을 건너뛰고 병합 Job이 판정한다. 전체 실행(shard 4개)은 `workflow_dispatch`의 `full=true`(릴리스 전 필수 cold 전체 게이트), `full=false` 수동 실행, `menus/**`·`packages/**`·`apps/**`·도구·워크플로·분류되지 않은 경로를 바꾼 PR/push, 선택·기준 SHA 계산 실패(fail-safe)에서 돈다. `tests/` 아래 spec이 아닌 파일(`contract-helpers.ts`·`support.ts`)과 설정·`package.json`을 바꾸면 전체다.
 - lint·typecheck는 루트 `pnpm lint`·`pnpm typecheck`에 포함된다. `pnpm test`에는 포함되지 않는다.
+
+The focused database safety checks (`node --test apps/platform-e2e/tests-real/database-safety.test.ts`) run in `gate.sh static-extra`; they do not connect to a database.

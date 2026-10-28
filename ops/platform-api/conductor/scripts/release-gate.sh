@@ -18,7 +18,7 @@ usage() {
 Usage: release-gate.sh <develop-checkout>
 
 Requires WAVE_STATE and a clean checkout at the current origin/develop tip.
-Fetches develop and main, starts the verify database, refreshes feedbackops_release,
+Fetches develop and main, starts the verify database, refreshes platform_release,
 then runs the release checks. On success it prints the complete gh command with
 the tested SHA; it never creates or merges the release PR.
 EOF

@@ -36,7 +36,7 @@ describe.skipIf(!runIntegration)('ADR-0064 canonical read boundary', () => {
       select attname from pg_catalog.pg_attribute
       where attrelid in ('core.entity_links'::regclass, 'core.audit_log'::regclass)
         and attnum > 0 and not attisdropped
-        and pg_catalog.has_column_privilege('fops_app', attrelid, attname, 'SELECT')
+        and pg_catalog.has_column_privilege('platform_app', attrelid, attname, 'SELECT')
     `);
     expect(columns.rows).toEqual([]);
     const publicView = await migrate.pool.query(`
@@ -50,7 +50,7 @@ describe.skipIf(!runIntegration)('ADR-0064 canonical read boundary', () => {
       privilege: string;
       allowed: boolean;
     }>(`
-      select name, privilege, pg_catalog.has_table_privilege('fops_app', name, privilege) as allowed
+      select name, privilege, pg_catalog.has_table_privilege('platform_app', name, privilege) as allowed
       from unnest(ARRAY['core.entity_links','core.entity_links_app','core.audit_log']) name
       cross join unnest(ARRAY['SELECT','INSERT','UPDATE','DELETE']) privilege
     `);
@@ -69,23 +69,23 @@ describe.skipIf(!runIntegration)('ADR-0064 canonical read boundary', () => {
       select pg_catalog.pg_get_userbyid(relowner) as owner, reloptions
       from pg_catalog.pg_class where oid = 'core.entity_links_app'::regclass
     `);
-    expect(view.rows[0]?.owner).toBe('fops_entity_links_view_owner');
+    expect(view.rows[0]?.owner).toBe('platform_entity_links_view_owner');
     expect(view.rows[0]?.reloptions).toEqual(
       expect.arrayContaining(['security_barrier=true', 'check_option=cascaded']),
     );
     const owners = [
-      'fops_entity_links_view_owner',
-      'fops_entity_links_survey_mutator_owner',
-      'fops_core_audit_reader_owner',
-      'fops_survey_derived_finding_reader_owner',
+      'platform_entity_links_view_owner',
+      'platform_entity_links_survey_mutator_owner',
+      'platform_core_audit_reader_owner',
+      'platform_survey_derived_finding_reader_owner',
     ];
     for (const owner of owners) {
       const roles = await migrate.pool.query(
         `
         select rolcanlogin, rolinherit, rolsuper, rolcreaterole, rolcreatedb, rolbypassrls,
-          pg_catalog.pg_has_role('fops_app', oid, 'MEMBER') as app_member,
-          pg_catalog.pg_has_role(oid, 'fops_migrate', 'MEMBER') as reverse_member,
-          pg_catalog.pg_has_role('fops_migrate', oid, 'MEMBER') as migrate_member
+          pg_catalog.pg_has_role('platform_app', oid, 'MEMBER') as app_member,
+          pg_catalog.pg_has_role(oid, 'platform_migrate', 'MEMBER') as reverse_member,
+          pg_catalog.pg_has_role('platform_migrate', oid, 'MEMBER') as migrate_member
         from pg_catalog.pg_roles where rolname = $1`,
         [owner],
       );
@@ -104,12 +104,12 @@ describe.skipIf(!runIntegration)('ADR-0064 canonical read boundary', () => {
       ]);
     }
     for (const [owner, table, expected] of [
-      ['fops_entity_links_view_owner', 'core.entity_links', [true, true, true, false]],
-      ['fops_entity_links_survey_mutator_owner', 'core.entity_links', [true, true, false, false]],
-      ['fops_core_audit_reader_owner', 'core.audit_log', [true, false, false, false]],
-      ['fops_survey_evidence_reader_owner', 'core.entity_links', [false, false, false, false]],
+      ['platform_entity_links_view_owner', 'core.entity_links', [true, true, true, false]],
+      ['platform_entity_links_survey_mutator_owner', 'core.entity_links', [true, true, false, false]],
+      ['platform_core_audit_reader_owner', 'core.audit_log', [true, false, false, false]],
+      ['platform_survey_evidence_reader_owner', 'core.entity_links', [false, false, false, false]],
       [
-        'fops_survey_derived_finding_reader_owner',
+        'platform_survey_derived_finding_reader_owner',
         'core.entity_links',
         [true, false, false, false],
       ],
@@ -141,7 +141,7 @@ describe.skipIf(!runIntegration)('ADR-0064 canonical read boundary', () => {
     const functions = await migrate.pool.query(`
       select p.proname, pg_catalog.pg_get_userbyid(p.proowner) as owner,
         p.prosecdef, p.proconfig,
-        pg_catalog.has_function_privilege('fops_app', p.oid, 'EXECUTE') as app_execute,
+        pg_catalog.has_function_privilege('platform_app', p.oid, 'EXECUTE') as app_execute,
         exists(select 1 from pg_catalog.aclexplode(coalesce(p.proacl,
           pg_catalog.acldefault('f', p.proowner))) a where a.grantee = 0
           and a.privilege_type = 'EXECUTE') as public_execute
@@ -158,11 +158,11 @@ describe.skipIf(!runIntegration)('ADR-0064 canonical read boundary', () => {
       expect(row.proconfig).toEqual(['search_path=pg_catalog']);
     }
     expect(functions.rows.map((r) => [r.proname, r.owner])).toEqual([
-      ['create_survey_finding_link', 'fops_entity_links_survey_mutator_owner'],
-      ['latest_permission_request_question', 'fops_core_audit_reader_owner'],
-      ['platform_audit_events', 'fops_core_audit_reader_owner'],
-      ['read_derived_findings', 'fops_survey_derived_finding_reader_owner'],
-      ['responsibility_configuration_changes', 'fops_core_audit_reader_owner'],
+      ['create_survey_finding_link', 'platform_entity_links_survey_mutator_owner'],
+      ['latest_permission_request_question', 'platform_core_audit_reader_owner'],
+      ['platform_audit_events', 'platform_core_audit_reader_owner'],
+      ['read_derived_findings', 'platform_survey_derived_finding_reader_owner'],
+      ['responsibility_configuration_changes', 'platform_core_audit_reader_owner'],
     ]);
   });
 
@@ -172,7 +172,7 @@ describe.skipIf(!runIntegration)('ADR-0064 canonical read boundary', () => {
       from pg_catalog.pg_attribute a join pg_catalog.pg_class c on c.oid = a.attrelid
       where a.attrelid in ('core.audit_log'::regclass, 'core.actors'::regclass)
         and a.attnum > 0 and not a.attisdropped
-        and pg_catalog.has_column_privilege('fops_core_audit_reader_owner', a.attrelid, a.attname, 'SELECT')
+        and pg_catalog.has_column_privilege('platform_core_audit_reader_owner', a.attrelid, a.attname, 'SELECT')
       order by c.relname, a.attname
     `);
     expect(columns.rows.map((r) => `${r.rel}.${r.col}`)).toEqual([
@@ -192,7 +192,7 @@ describe.skipIf(!runIntegration)('ADR-0064 canonical read boundary', () => {
     const appAuditColumns = await migrate.pool.query(`
       select 1 from pg_catalog.pg_attribute
       where attrelid = 'core.audit_log'::regclass and attnum > 0 and not attisdropped
-        and pg_catalog.has_column_privilege('fops_app', attrelid, attname, 'SELECT')
+        and pg_catalog.has_column_privilege('platform_app', attrelid, attname, 'SELECT')
     `);
     expect(appAuditColumns.rows).toEqual([]);
   });
@@ -276,16 +276,16 @@ describe.skipIf(!runIntegration)('ADR-0064 canonical read boundary', () => {
   it('pins the bounded inventory definer ACL without restoring private app reads', async () => {
     const metadata = await migrate.pool.query(
       `select pg_get_userbyid(p.proowner) as owner,p.prosecdef,p.proconfig,
-        has_function_privilege('fops_app',p.oid,'EXECUTE') as app_execute,
+        has_function_privilege('platform_app',p.oid,'EXECUTE') as app_execute,
         exists(select 1 from aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
           where a.grantee=0 and a.privilege_type='EXECUTE') as public_execute,
-        has_schema_privilege('fops_survey_evidence_reader_owner','survey','CREATE') as owner_create,
-        pg_has_role('fops_app','fops_survey_evidence_reader_owner','MEMBER') as app_member
+        has_schema_privilege('platform_survey_evidence_reader_owner','survey','CREATE') as owner_create,
+        pg_has_role('platform_app','platform_survey_evidence_reader_owner','MEMBER') as app_member
        from pg_proc p where p.oid='survey.read_inventory_highlight_evidence(uuid,uuid[])'::regprocedure`,
     );
     expect(metadata.rows).toEqual([
       {
-        owner: 'fops_survey_evidence_reader_owner',
+        owner: 'platform_survey_evidence_reader_owner',
         prosecdef: true,
         proconfig: ['search_path=pg_catalog'],
         app_execute: true,
@@ -321,17 +321,17 @@ describe.skipIf(!runIntegration)('ADR-0064 canonical read boundary', () => {
   it('#1109 pins the exact attachment link witness and consistency-check column grants', async () => {
     for (const [owner, table, expected] of [
       [
-        'fops_entity_links_survey_mutator_owner',
+        'platform_entity_links_survey_mutator_owner',
         'survey.highlight_response_bindings',
         ['highlight_id', 'response_id', 'workspace_id'],
       ],
       [
-        'fops_entity_links_survey_mutator_owner',
+        'platform_entity_links_survey_mutator_owner',
         'finding.evidence_highlights',
         ['finding_id', 'id', 'source_type', 'workspace_id'],
       ],
       [
-        'fops_survey_provenance_mutator_owner',
+        'platform_survey_provenance_mutator_owner',
         'core.entity_links',
         [
           'relation_type',

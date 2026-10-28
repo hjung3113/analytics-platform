@@ -89,7 +89,7 @@ describe.skipIf(!runIntegration)('POST /tasks/:id/milestone (#514 B1b)', () => {
   async function cleanupFixtures(): Promise<void> {
     if (!migrateHandle) return;
     if (foreignMilestoneId) {
-      // fops_app has no DELETE on task.milestones: use the migrate role.
+      // platform_app has no DELETE on task.milestones: use the migrate role.
       await migrateHandle.pool.query('delete from task.milestones where id = $1', [
         foreignMilestoneId,
       ]);

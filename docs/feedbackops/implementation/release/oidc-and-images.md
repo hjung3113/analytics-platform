@@ -13,9 +13,9 @@ From the repository root, create the local interpolation file and inspect the Co
 
 The example values are local-only. The Compose project is always named feedbackops-release-1060; its Postgres and MinIO named volumes are project-owned. The Postgres port is not published on the host, so this stack does not use the development database on port 5434. The --env-file supplies Compose interpolation only; selected values are passed to each service explicitly so the running backend never receives DATABASE_URL_MIGRATE.
 
-Postgres initialization mounts [scripts/db/init.sql](../../../../ops/platform-api/scripts/db/init.sql) and runs it as the postgres bootstrap superuser on an empty release-owned volume. Do not set POSTGRES_DB=feedbackops: init.sql creates that database itself. It also creates the fops_app and fops_migrate logins, their role memberships, and the vector extension. Their initial passwords are the literals fops_app and fops_migrate from that script; changing POSTGRES_PASSWORD changes only the bootstrap superuser password.
+Postgres initialization mounts [scripts/db/init.sql](../../../../ops/platform-api/scripts/db/init.sql) and runs it as the postgres bootstrap superuser on an empty release-owned volume. Do not set POSTGRES_DB: init.sql creates the `platform` database itself. It also creates the platform_app and platform_migrate logins, their role memberships, and the vector extension. Their initial passwords are the literals platform_app and platform_migrate from that script; changing POSTGRES_PASSWORD changes only the bootstrap superuser password.
 
-The initialization script runs only for an empty Postgres volume. Before reusing an existing volume, provision feedbackops owned by fops_migrate, both login roles with the script's passwords and NOINHERIT, all NOLOGIN owner roles and one-way memberships from the script, and the vector extension in feedbackops as a superuser. Do not assume the init script will repair an existing volume.
+The initialization script runs only for an empty Postgres volume. Before reusing an existing volume, provision `platform` (or run the cutover below on an existing `feedbackops` database) owned by the migrate role, both login roles with the script's passwords and NOINHERIT, all NOLOGIN owner roles and one-way memberships from the script, and the vector extension in the database as a superuser. Do not assume the init script will repair an existing volume.
 
 ## Build, migrate, seed, and start
 
@@ -27,7 +27,7 @@ The migration job runs only drizzle-kit migrate; it never seeds. After it succee
 
     docker compose --project-name feedbackops-release-1060 --env-file .env.release -f docker-compose.release.yml run --rm -e SEED_MODE=core migrate node_modules/.bin/tsx src/seed/index.ts
 
-The tools image includes the backend development dependency closure because db:seed uses tsx. The command receives both DATABASE_URL (the fops_app runtime role used by the core seed) and DATABASE_URL_MIGRATE (the fops_migrate role used to create the seed team). It also receives the same WORKSPACE_ID as the backend. Core mode creates the Workspace, baseline Actors, Tableau and Power BI Managed Systems, Analytics Areas, team, and core VOC fixtures; it does not create personas or scale data.
+The tools image includes the backend development dependency closure because db:seed uses tsx. The command receives both DATABASE_URL (the platform_app runtime role used by the core seed) and DATABASE_URL_MIGRATE (the platform_migrate role used to create the seed team). It also receives the same WORKSPACE_ID as the backend. Core mode creates the Workspace, baseline Actors, Tableau and Power BI Managed Systems, Analytics Areas, team, and core VOC fixtures; it does not create personas or scale data.
 
 Before the backend starts, the release stack runs the existing idempotent apps/platform-api/src/cli/storage-bootstrap.ts command against MinIO. It checks the configured bucket and creates it only when it is missing.
 
@@ -60,8 +60,8 @@ Register the exact callback URI https://<public-host>/auth/callback. The company
 For Kubernetes, supply non-secret runtime config through the workload environment and secrets through Kubernetes Secret objects per ADR-0013:
 
 - Runtime config: NODE_ENV=production, HOST, PORT, AUTH_PROVIDER=oidc, WORKSPACE_ID, TRUSTED_PROXY_HOPS, PUBLIC_ATTACHMENT_ORIGIN, OIDC_ISSUER_URL, OIDC_CLIENT_ID, OIDC_REDIRECT_URI, OIDC_SCOPES, and STORAGE_S3_ENDPOINT, STORAGE_S3_REGION, STORAGE_S3_BUCKET, STORAGE_S3_FORCE_PATH_STYLE.
-- Runtime secrets: DATABASE_URL for fops_app, OIDC_CLIENT_SECRET, STORAGE_S3_ACCESS_KEY_ID, and STORAGE_S3_SECRET_ACCESS_KEY. If enabled, also supply SMTP_PASSWORD with SMTP_HOST, SMTP_PORT, SMTP_USERNAME, and SMTP_FROM; or EMBEDDING_API_KEY when EMBEDDING_PROVIDER=voyage.
-- Migration job only: DATABASE_URL_MIGRATE for fops_migrate. Do not mount it in the backend workload.
+- Runtime secrets: DATABASE_URL for platform_app, OIDC_CLIENT_SECRET, STORAGE_S3_ACCESS_KEY_ID, and STORAGE_S3_SECRET_ACCESS_KEY. If enabled, also supply SMTP_PASSWORD with SMTP_HOST, SMTP_PORT, SMTP_USERNAME, and SMTP_FROM; or EMBEDDING_API_KEY when EMBEDDING_PROVIDER=voyage.
+- Migration job only: DATABASE_URL_MIGRATE for platform_migrate. Do not mount it in the backend workload.
 
 The images emit backend structured JSON logs to stdout per ADR-0013. They do not add metrics or tracing. No ADR-0013 amendment is needed for this local stack: its deployment, health, logging, and secret-handling facts remain accurate.
 

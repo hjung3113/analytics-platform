@@ -38,7 +38,7 @@ owns requester lifecycle/risk; Core must not import Permission or decide access.
 
 ## Audit and cached Survey responses (ADR-0064; coordinated cutover)
 
-#740 revokes raw `core.audit_log` SELECT from `fops_app`, retaining INSERT and
+#740 revokes raw `core.audit_log` SELECT from `platform_app`, retaining INSERT and
 no UPDATE/DELETE. Preserve canonical Actor/subject/detail identifiers, append-only
 history and same-transaction accountability; controlled migrate/operator reads
 supply test observations. Core exposes only the latest Permission Request question and responsibility

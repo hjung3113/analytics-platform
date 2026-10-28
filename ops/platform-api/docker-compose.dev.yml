@@ -2,8 +2,10 @@
 #
 # Usage:
 #   docker compose -f docker-compose.dev.yml up -d
-#   export DATABASE_URL_MIGRATE='postgres://fops_migrate:fops_migrate@localhost:5434/feedbackops'
-#   export DATABASE_URL='postgres://fops_app:fops_app@localhost:5434/feedbackops'
+#   (a pre-existing local volume still holds the old `feedbackops` database and fops_* roles: see
+#    docs/feedbackops/implementation/04-database-and-migrations.md, "Local developer database recreation")
+#   export DATABASE_URL_MIGRATE='postgres://platform_migrate:platform_migrate@localhost:5434/platform'
+#   export DATABASE_URL='postgres://platform_app:platform_app@localhost:5434/platform'
 #   pnpm --filter @ap/platform-api db:migrate
 #   pnpm --filter @ap/platform-api db:seed
 #
@@ -21,7 +23,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       # We deliberately do NOT set POSTGRES_DB; the init script creates the
-      # `feedbackops` database owned by fops_migrate so the migration role
+      # `platform` database owned by platform_migrate so the migration role
       # has DDL on its own DB without piggybacking on the superuser.
     ports:
       # Host 5434 -> container 5432 avoids clashing with a system-installed

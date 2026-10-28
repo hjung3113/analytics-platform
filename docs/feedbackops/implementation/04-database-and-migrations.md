@@ -19,16 +19,16 @@ Applied migrations are the final database authority.
 - Migrations must be reversible when practical.
 - Sensitive decisions append audit log entries.
 - Inline images are stored as governed attachment records and referenced from rich content; never store base64 body images.
-- Survey response and answer tables remain outside direct `fops_app` read
+- Survey response and answer tables remain outside direct `platform_app` read
   access. Aggregate projections use narrow `SECURITY DEFINER` functions owned
-  by `fops_survey_aggregate_owner`. The `survey.read_approved_result_excerpts_personal`,
+  by `platform_survey_aggregate_owner`. The `survey.read_approved_result_excerpts_personal`,
   `survey.read_my_survey_response_history`, and `survey.read_my_answerable_surveys`
   functions are narrow
-  `SECURITY DEFINER` projections owned by `fops_survey_evidence_reader_owner`:
+  `SECURITY DEFINER` projections owned by `platform_survey_evidence_reader_owner`:
   the first returns `response_id` with approved excerpts; the API projects
   `response_id` and writes the per-row personal-read audits only for
   `survey.read_personal_responses` holders (an app-layer gate, not a SQL-level
-  one — `fops_app` holds EXECUTE),
+  one — `platform_app` holds EXECUTE),
   the second returns only `survey_id`, Survey title, `submitted_at`, and
   `identity_protected` for the session Actor's responses after the Surveys
   service supplies the session `workspace_id` and `actor_id`, and does
@@ -37,27 +37,125 @@ Applied migrations are the final database authority.
   app reads respondent-safe Survey metadata and question counts through its
   existing `survey.surveys` and `survey.survey_questions` access, then applies
   `opened_at DESC, survey_id DESC` ordering and cursor pagination. This split
-  keeps the response table hidden from `fops_app` without adding column grants
+  keeps the response table hidden from `platform_app` without adding column grants
   to the definer owner. None of these functions return answer bodies or
   respondent Actor IDs.
-- `survey.survey_response_excerpt_approvals` grants `fops_app` `INSERT`, column-level
+- `survey.survey_response_excerpt_approvals` grants `platform_app` `INSERT`, column-level
   `SELECT` on every column except `response_id`, and column-level `UPDATE ("revoked_at")`
   (0057; before 0057 the `SELECT` was table-wide). The **direct table join** on
-  `survey_response_excerpt_approvals.response_id` is therefore denied to `fops_app`;
+  `survey_response_excerpt_approvals.response_id` is therefore denied to `platform_app`;
   this is not SQL-level unlinkability: app-executable Survey definers remain
   composable. The historical audit/Finding/highlight/link direct-read residuals
   are superseded by ADR-0064 and must close in the coordinated #739/#740 cutover;
   every per-response binding read — highlight projections, the stored-highlight
   active check, and the revoke binding check — runs through the
   `survey.read_approved_response_excerpts` and `survey.read_response_excerpt_approval`
-  `SECURITY DEFINER` readers owned by `fops_survey_evidence_reader_owner`.
+  `SECURITY DEFINER` readers owned by `platform_survey_evidence_reader_owner`.
 ```
+
+### Database and role identity (#1100 a, ADR-0097; migration 0076)
+
+The final identity is database `platform` and nine roles `platform_*`: `platform_migrate`, `platform_app`,
+`platform_survey_aggregate_owner`, `platform_survey_evidence_reader_owner`,
+`platform_survey_provenance_mutator_owner`, `platform_entity_links_view_owner`,
+`platform_entity_links_survey_mutator_owner`, `platform_survey_derived_finding_reader_owner` and
+`platform_core_audit_reader_owner`. Migrations `0000`–`0075` are immutable history and keep the old `fops_*`
+role names byte for byte; this document names a role by its final name whenever it describes current privileges.
+
+- **History replays first.** A fresh install runs `scripts/db/init.sql`, which creates database `platform` directly
+  (no migration names the database) and the nine `fops_*` roles as *replay bootstrap only* with the final
+  development/CI passwords (`platform_migrate` / `platform_app`; production sets its own). They are not runtime
+  aliases: the runtime guard (`src/db/runtime-role.ts`) accepts only plain `platform_app`.
+- **One ops entry point.** `ops/platform-api/scripts/db/cutover-0076-platform-identity.sh [all|history|rename|migrate]`
+  handles every install that is not yet cut over (fresh, CI, `verify-db.sh`, existing). Stages:
+  `history` replays `0000`–`0075` from a byte-identical staged copy of the migration folder as `fops_migrate`
+  (`drizzle-kit migrate` has no target version); `rename` uses an admin connection to the `postgres` database to
+  rename the nine roles in one transaction, then renames the database in a separate statement outside any
+  transaction (PostgreSQL forbids renaming the database or login you are connected to); `migrate` is the ordinary
+  `db:migrate` as `platform_migrate` and applies `0076` and everything after it. From then on migrations run
+  without any admin credential.
+- **Admin credential stays out of the backend.** Only the script reads `CUTOVER_ADMIN_URL`
+  (`postgres://<superuser>:<pw>@host:port/postgres`; never the database being renamed or a renamed role).
+  `CUTOVER_OLD_MIGRATE_URL` (existing installs, `fops_migrate` against the current database) defaults to the final
+  bootstrap password. `DATABASE_URL_MIGRATE` is the `platform_migrate` URL used by `migrate`. Port 5434 needs
+  `CUTOVER_ALLOW_DEV_DB=1`.
+- **Preconditions and refusals (nothing is changed when it refuses).** Backend and jobs stopped; all nine roles
+  old or all nine new (mixed fails closed); exactly one of databases `feedbackops` / `platform` (both or neither
+  fails); the ledger holds exactly `0000`–`0075` before the role rename; no MD5 password hashes (a role rename
+  clears them, so reset them to SCRAM first with `SET password_encryption = 'scram-sha-256'; ALTER ROLE <name>
+  PASSWORD '<new>'`); no session on the old roles or database. The script never terminates sessions. Passwords,
+  ownership, ACLs, memberships, role OIDs, NOLOGIN/NOINHERIT, the app DDL ban, audit append-only and raw survey
+  privacy are untouched because roles are renamed in place.
+- **Resumable.** State is read from the catalog: old roles → history/rename pending; new roles with `feedbackops` →
+  only the database rename is pending; new roles with `platform` → `migrate` applies what is missing. Repeat
+  `all` after any failure; finished stages are no-ops.
+- **What 0076 repairs.** A rename cannot update role names written as text inside function bodies. `0076`
+  asserts the nine new roles exist and no `fops_*` role remains, then rebuilds exactly three delete guards
+  (`voc.guard_cluster_suggestion_bucket_delete`, `voc.guard_similarity_preview_request_delete`,
+  `voc.guard_similarity_preview_budget_delete`; origin `0062` and `0070`) with `CREATE OR REPLACE`, keeping OID,
+  owner, ACL and trigger bindings. The guards no longer name a role: only the table owner (`pg_class.relowner`)
+  may delete rows that are still live, so any other role, including `platform_app`, fails closed. It finishes by
+  failing if any other persisted function still names a `fops_` role (only the message text of
+  `pgboss.create_queue` is allow-listed; the pgboss schema is untouched).
+- **Readiness fails closed.** Between the rename and `0076` the old guards would never fire. `src/index.ts` runs
+  `assertPlatformIdentityReady` (`src/db/identity-readiness.ts`) after the role guard and before pg-boss or HTTP:
+  it refuses unless the three guards carry the `0076` comment and an owner-based body. The runtime role cannot read
+  the ledger and is not granted it; the comments are the catalog-visible attestation committed in the same
+  transaction as the new bodies.
+- **Later migrations** `0077` and after grant to `platform_*`; a later PR that merges after another migration
+  renumbers to the next free slot and regenerates its journal entry; existing entries are never edited.
+- **Tests.** Unit: `runtime-role.test.ts`, `identity-readiness.test.ts`, `ops/platform-api/scripts/db/cutover-0076.test.mjs`,
+  `apps/platform-e2e/tests-real/database-safety.test.ts`. Integration (needs a cut-over database):
+  `identity-final-state.integration.test.ts`. Host rehearsal on an exclusive 5449 cluster:
+  `identity-cutover.rehearsal.test.ts` (seeded upgrade, MD5/session/conflict refusals, rename invariants by OID,
+  readiness refusal before `0076` and success after, repeat runs).
+
+### Local developer database recreation (explicit opt-in; nothing here runs automatically)
+
+An existing local volume (for example the development database on port 5434) still holds database `feedbackops`
+and the `fops_*` roles. Pick one path; neither is done for you.
+
+1. **Keep the data: cut it over in place.** Stop the backend and jobs and close every `psql` session. Back up
+   first (`pg_dump -Fc` of `feedbackops`, and a copy of the Docker volume `feedbackops_feedbackops-db-data`, which
+   keeps its name until #1100 b). Then, with the container running:
+
+   ```sh
+   export CUTOVER_ADMIN_URL='postgres://postgres:postgres@localhost:5434/postgres'
+   export CUTOVER_ALLOW_DEV_DB=1
+   export DATABASE_URL_MIGRATE='postgres://platform_migrate:<migrate password>@localhost:5434/platform'
+   # existing local roles had the passwords fops_migrate / fops_app: keep them (they are not changed); history logs in with this URL
+   export CUTOVER_OLD_MIGRATE_URL='postgres://fops_migrate:fops_migrate@localhost:5434/feedbackops'
+   bash ops/platform-api/scripts/db/cutover-0076-platform-identity.sh all
+   ```
+
+   Then point your ignored local `.env` at `platform_app` / `platform_migrate` and database `platform`. The
+   passwords stay what they were; to change them use `ALTER ROLE platform_app PASSWORD '...'` as an admin and
+   update `.env` to match. If the script refuses (MD5 hash, active session, conflicting names) fix that and run the
+   same command again.
+2. **Start fresh.** Keep the old volume as a backup (never `docker compose down -v`, never delete it). Start an
+   empty pgvector Postgres 16 with `scripts/db/init.sql` mounted into `/docker-entrypoint-initdb.d/` on a free port
+   (a container and volume of your own, or the compose `db` service after you have moved the old volume aside by
+   hand), then replay and cut over:
+
+   ```sh
+   export CUTOVER_ADMIN_URL='postgres://postgres:postgres@localhost:<port>/postgres'
+   export DATABASE_URL_MIGRATE='postgres://platform_migrate:platform_migrate@localhost:<port>/platform'
+   bash ops/platform-api/scripts/db/cutover-0076-platform-identity.sh all
+   pnpm --filter @ap/platform-api db:seed
+   ```
+
+   The compose project, container and volume names belong to #1100 b; the volume name
+   `feedbackops_feedbackops-db-data` is preserved on purpose to protect data.
+
+Order for both paths: backup → stop services → cutover (or fresh volume then cutover) → update `.env` →
+start the backend (readiness refuses until `0076` is committed) → run `db:seed` only on throwaway data. Recovery: a
+failed run is resumed by running `all` again; to abandon, restore the dump or the saved volume.
 
 ### Database prerequisite: pgvector (ADR-0034 D1)
 
 `voc.voc_embeddings` stores vectors, so every database that runs migrations
 must already have the `vector` extension installed. pgvector is not a trusted
-extension: `CREATE EXTENSION vector` requires superuser, and `fops_migrate`
+extension: `CREATE EXTENSION vector` requires superuser, and `platform_migrate`
 deliberately is not one. Bootstrap owns it — `scripts/db/init.sql` installs it
 when the volume is first created, and migration 0042 only asserts it is
 present, failing with a directive message when it is not.
@@ -194,7 +292,7 @@ VOC status.
 
 ## Adding a Field to an Owned Entity
 
-Update the owning Drizzle table in `apps/platform-api/src/db/schema/<schema>.ts`, and update the wire contract separately: use `packages/feature-shared/src/<entity>/` where that shared schema exists; otherwise update the module's `routes.ts` request schemas and the frontend `apps/feature-screens/src/lib/api/<entity>.ts` request types/response DTO. Generate the SQL migration and Drizzle metadata with `pnpm --filter @ap/platform-api db:generate`; if SQL is hand-written, follow [Migration Naming](#migration-naming) for the journal registration and snapshot refresh—never hand-edit `apps/platform-api/migrations/meta/*.json`—and run `pnpm gate:db-migration-drift`. If the table uses column-level privileges, add the new column to the corresponding column-level grant for `fops_app` in the same migration; do not widen it to a table-level grant. Then update the owning service and required audit detail, the consuming UI, and the affected design/API docs in the same change. For example, `apps/platform-api/src/db/schema/core.ts` defines the Drizzle table, `apps/platform-api/migrations/0005_slice2_registry.sql` creates `core.managed_systems`, `apps/platform-api/src/modules/managed-systems/routes.ts` defines its request schemas, `apps/feature-screens/src/lib/api/managed-systems.ts` defines its wire DTO, `apps/platform-api/src/modules/managed-systems/managed-system-service.ts` persists and audits it, `packages/feature-shared/src/audit/managed-system.ts` defines the audit detail schema (a column missing there is silently dropped from the audit snapshot), and `apps/feature-screens/src/features/admin/managed-systems/ManagedSystemsScreen.tsx` exposes it. Amend an ADR when recording a compatible addition that leaves its decision in force; reopen the decision with a new ADR when changing or reversing it. For `managed_systems`, adding a column requires a dated amendment to ADR-0017 that updates the column list and audit detail; changing the semantics of `id`, `slug`, or `external_key` requires a new ADR reopening ADR-0017.
+Update the owning Drizzle table in `apps/platform-api/src/db/schema/<schema>.ts`, and update the wire contract separately: use `packages/feature-shared/src/<entity>/` where that shared schema exists; otherwise update the module's `routes.ts` request schemas and the frontend `apps/feature-screens/src/lib/api/<entity>.ts` request types/response DTO. Generate the SQL migration and Drizzle metadata with `pnpm --filter @ap/platform-api db:generate`; if SQL is hand-written, follow [Migration Naming](#migration-naming) for the journal registration and snapshot refresh—never hand-edit `apps/platform-api/migrations/meta/*.json`—and run `pnpm gate:db-migration-drift`. If the table uses column-level privileges, add the new column to the corresponding column-level grant for `platform_app` in the same migration; do not widen it to a table-level grant. Then update the owning service and required audit detail, the consuming UI, and the affected design/API docs in the same change. For example, `apps/platform-api/src/db/schema/core.ts` defines the Drizzle table, `apps/platform-api/migrations/0005_slice2_registry.sql` creates `core.managed_systems`, `apps/platform-api/src/modules/managed-systems/routes.ts` defines its request schemas, `apps/feature-screens/src/lib/api/managed-systems.ts` defines its wire DTO, `apps/platform-api/src/modules/managed-systems/managed-system-service.ts` persists and audits it, `packages/feature-shared/src/audit/managed-system.ts` defines the audit detail schema (a column missing there is silently dropped from the audit snapshot), and `apps/feature-screens/src/features/admin/managed-systems/ManagedSystemsScreen.tsx` exposes it. Amend an ADR when recording a compatible addition that leaves its decision in force; reopen the decision with a new ADR when changing or reversing it. For `managed_systems`, adding a column requires a dated amendment to ADR-0017 that updates the column list and audit detail; changing the semantics of `id`, `slug`, or `external_key` requires a new ADR reopening ADR-0017.
 
 ## Rich Content And Attachments
 
@@ -209,7 +307,7 @@ Update the owning Drizzle table in `apps/platform-api/src/db/schema/<schema>.ts`
 
 ### Archive over delete on `voc.voc_attachments` (migration 0016)
 
-Migration `0016_voc_attachments_grants.sql` grants `DELETE ON voc.voc_attachments TO fops_app`. The grant exists strictly to let the **hourly `core.attachments_purge` worker** reclaim unlinked attachment rows older than 24h (rows with `voc_id IS NULL AND comment_id IS NULL`). It is **not** a relaxation of the project-wide "archive over hard delete" rule:
+Migration `0016_voc_attachments_grants.sql` grants `DELETE ON voc.voc_attachments TO platform_app`. The grant exists strictly to let the **hourly `core.attachments_purge` worker** reclaim unlinked attachment rows older than 24h (rows with `voc_id IS NULL AND comment_id IS NULL`). It is **not** a relaxation of the project-wide "archive over hard delete" rule:
 
 - **User-initiated paths** (Triage Console "remove attachment", EditDescriptionModal, etc.) MUST go through the service-layer archive: set `archived_at = now()`, `archived_by_actor_id = caller`. They never issue a `DELETE`.
 - **The purge worker** is the only legitimate row-deleter, and only against truly orphaned uploads that were never linked to a parent VOC or comment.
@@ -296,7 +394,7 @@ the real name before use.
 `voc.public_update_review_candidates` is a VOC-owned durable queue of human
 review obligations. Its permanent `(workspace_id, release_event_id, voc_id)`
 unique key makes pg-boss retries safe; its partial pending Task/VOC key prevents
-two unresolved obligations for the same Task/VOC. `fops_app` has SELECT and
+two unresolved obligations for the same Task/VOC. `platform_app` has SELECT and
 INSERT plus column-scoped UPDATE only for `status`, resolver/timestamp, dismissal
 reason, and actioned Public Update fields (migration 0033); it has no DELETE,
 TRUNCATE, or table-wide UPDATE. Migration `0032_task_released_review_candidates.sql` also
@@ -312,7 +410,7 @@ Migration `0051_voc_cluster_autogen_shadow.sql` pre-creates the hourly
 `voc.cluster_autogen_shadow` queue with ADR-0009 retry defaults and creates
 `voc.voc_cluster_autogen_shadow_candidates` as a separate non-domain measurement
 table. Rows are unique by workspace, sorted VOC pair, and embedding version;
-`fops_app` has `SELECT`, `INSERT`, and `UPDATE`, with no `DELETE`. The shadow
+`platform_app` has `SELECT`, `INSERT`, and `UPDATE`, with no `DELETE`. The shadow
 handler never writes cluster, membership, recommendation-decision, VOC, or audit
 rows; see ADR-0054 for its eligibility and reporting rules.
 
@@ -327,9 +425,9 @@ predicate: low rating band via the IMMUTABLE `survey.rating_band_for_value`
 helper (parity-tested against `getRatingBandForValue`), closed outcome
 surveys only, workspace `survey_anonymity_threshold` respected, resolution
 only by an active `generated_finding` link to a `draft`/`active`/`converted`
-Finding or a current `no_follow_up` decision. `fops_app` holds `SELECT`,
+Finding or a current `no_follow_up` decision. `platform_app` holds `SELECT`,
 `INSERT`, and `UPDATE` scoped to `state`, `reason`, `decided_by_actor_id`,
-`updated_at`, with no `DELETE`; `fops_survey_aggregate_owner` gained only the
+`updated_at`, with no `DELETE`; `platform_survey_aggregate_owner` gained only the
 column grants the new predicate reads (`surveys.status`,
 `survey_questions.rating_max`, `entity_links.relation_type`/`target_id`,
 `finding.findings(id, workspace_id, status)` plus schema `USAGE`,
@@ -337,7 +435,7 @@ column grants the new predicate reads (`surveys.status`,
 column-scoped `SELECT` on the decision table).
 
 Migration `0053_outcome_follow_up_read.sql` adds the part C read surface as
-two more `SECURITY DEFINER` functions owned by `fops_survey_aggregate_owner`
+two more `SECURITY DEFINER` functions owned by `platform_survey_aggregate_owner`
 (chosen over the evidence-reader owner because its grants already cover the
 whole ADR-0055 classifier predicate; the items reader crosses no raw-text or
 excerpt boundary): `survey.read_outcome_follow_up_survey_state` returns only
@@ -363,9 +461,9 @@ workspace and recipient Actor foreign key, a UUID `correlation_id`, and the
 unique idempotency key `(workspace_id, actor_id, event_type, subject_id,
 correlation_id)`. The table intentionally has no database CHECK on
 `event_type`; the application catalogue owns that allowlist. Its inbox index
-is `(workspace_id, actor_id, read_at, created_at DESC)`. `fops_app` has
+is `(workspace_id, actor_id, read_at, created_at DESC)`. `platform_app` has
 `SELECT`, `INSERT`, and column-scoped `UPDATE` on `read_at`, `archived_at`, and
-`email_sent_at`, with no `DELETE` or table-wide `UPDATE`; `fops_migrate` retains
+`email_sent_at`, with no `DELETE` or table-wide `UPDATE`; `platform_migrate` retains
 `ALL` on the table.
 
 The same migration pre-creates the `notifications.dispatch` pg-boss queue
@@ -397,7 +495,7 @@ The seed is a separate, idempotent command (`pnpm --filter @ap/platform-api db:s
 - actors: mock-admin-1 (admin), mock-user-1 (user), system (admin, system actor)
 - managed systems: Tableau and Power BI, default owner mock-admin-1
 - 5 analytics areas: Permission Management, Usage Analytics, and Dashboard Catalog under Tableau; Permission Management and Usage Analytics under Power BI
-- one fixture team, "[seed] VOC owner team", inserted through the fops_migrate URL because fops_app cannot insert core.teams (ADR-0019)
+- one fixture team, "[seed] VOC owner team", inserted through the platform_migrate URL because platform_app cannot insert core.teams (ADR-0019)
 - 12 deterministic VOC fixtures (display_id VOC-SEED-*) with three conversation rows each, and two permission-decision fixtures (apps/platform-api/src/seed/voc-fixtures.ts)
 - SEED_MODE=personas or scale: mock-admin-2, mock-user-2, mock-developer-1, mock-developer-2, and permission grants for the two developers
 ```
@@ -473,7 +571,7 @@ retains ADR-0055 state/definer/grant protections, not duplicated Dashboard resol
 
 No report tables, lifecycle storage, Area backfill, mandatory classification or Task Request Area
 column are introduced. Grouped owner reads and metadata batching produce the API projection.
-Survey classification remains behind protected owner readers; `fops_app` gains no direct response/answer
+Survey classification remains behind protected owner readers; `platform_app` gains no direct response/answer
 read grant. If batching requires a new protected reader, register it
 in `apps/platform-api/migrations/meta/_journal.json`, narrowly grant the owner's
 needed columns, fix `search_path = pg_catalog`, revoke PUBLIC and preserve existing capability gates.
@@ -492,7 +590,7 @@ standing gap: no standalone legacy-upgrade harness exists yet.
 - Survey-owned protected Finding and highlight extensions retain
   workspace-qualified response/approval bindings and historical generated text.
   Fields, NULL conditions and consistency rules are in `docs/design/15-data-contracts.md`.
-  `fops_app` has no SELECT/INSERT/UPDATE/DELETE on these extensions; use scoped
+  `platform_app` has no SELECT/INSERT/UPDATE/DELETE on these extensions; use scoped
   functions with least-privileged NOLOGIN reader/separate mutator owners,
   `search_path=pg_catalog`, qualified tables, no dynamic SQL, PUBLIC EXECUTE
   revoked and explicit app EXECUTE only. Do not widen existing owner writes.
@@ -541,10 +639,10 @@ archive/text/MS changes require application current-eligibility checks. Freshnes
 disjoint/cap admission, revision advancement, legal review transitions and five-minute
 restore belong to item 2's shipped commands, not the storage guards.
 
-`fops_app` has SELECT/INSERT/UPDATE on suggestions, occupancy and cursors, and
+`platform_app` has SELECT/INSERT/UPDATE on suggestions, occupancy and cursors, and
 SELECT/INSERT/UPDATE/DELETE on hourly admissions. An invoker guard permits app DELETE
 only after the hour ends. No app TRUNCATE or durable suggestion DELETE is granted;
-`fops_migrate` retains operator teardown privileges. Policy changes serialize under
+`platform_migrate` retains operator teardown privileges. Policy changes serialize under
 the existing settings singleton, preserve Coverage/other settings, audit boolean
 effective diffs only and never spend counters or advance cursors. The conductor
 owns migration numbering/reconciliation and actual app/migrate throwaway-DB checks.
@@ -628,9 +726,9 @@ composition is the accepted limit; stolen-app-credential unlinkability is not cl
 ### #621 platform audit projection (0074)
 
 `0074_platform_audit_projection.sql` adds `core.platform_audit_events(...)`, a `SECURITY DEFINER`
-function owned by `fops_core_audit_reader_owner` (`fops_app` holds EXECUTE only). The owner gains
+function owned by `platform_core_audit_reader_owner` (`platform_app` holds EXECUTE only). The owner gains
 column SELECT on `core.audit_log(actor_id)` and `core.actors(id, external_id, actor_type)` and
-nothing else; `fops_app` still has no SELECT on `core.audit_log`. The allowlist (18 subject types,
+nothing else; `platform_app` still has no SELECT on `core.audit_log`. The allowlist (18 subject types,
 no `survey_response*` rows, no `entity_link` whose `detail.source/target.type` is missing or
 `survey_response`, permission rows only for the non-sensitive `detail.capability` list (pinned to
 `CAPABILITY_META` by a test), no `detail.sensitive = true`, no `summary`/`detail` output) is in the
@@ -655,7 +753,7 @@ Migration `0072_normal_captain_marvel.sql` adds VOC-owned
 `voc.no_follow_up_decisions` with composite workspace/VOC primary key, required
 bounded reason, deciding Actor/time, creation/update timestamps and nullable
 `withdrawn_at`. The row is re-used for subsequent decisions; source audit is
-append-only history. `fops_app` has SELECT/INSERT and UPDATE only on decision,
+append-only history. `platform_app` has SELECT/INSERT and UPDATE only on decision,
 reason, actor and transition timestamps, with no DELETE or key updates. Existing
 table grants are unchanged. Drizzle-generated journal/snapshot accompany the SQL.
 
@@ -668,7 +766,7 @@ server actor and `received_at`, client `at`/`entered_at` kept but never read for
 merges into the earlier one of the same stay through two partial unique indexes — keyed by `stay_id`
 when present, else by `(workspace, actor, session, menu, entered_at)` — and the route picks the
 matching `ON CONFLICT … WHERE` per row. `platform.client_errors` holds the five report fields plus
-actor and the server request id. Grants: `fops_app` has `INSERT, SELECT, UPDATE` on `usage_events` and
-`INSERT` only on `client_errors`; `USAGE` on the schema for `fops_app` and `fops_migrate`. There is no
+actor and the server request id. Grants: `platform_app` has `INSERT, SELECT, UPDATE` on `usage_events` and
+`INSERT` only on `client_errors`; `USAGE` on the schema for `platform_app` and `platform_migrate`. There is no
 retention job (usage is unlimited with a manual delete path, docs/05; client-error retention is in
 `.planning/backlog.md`) and no annotation table.

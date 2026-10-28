@@ -1,12 +1,12 @@
 // Integration tests for ADR-0008 role separation.
 //
-// Requires a running Postgres with both fops_app and fops_migrate roles, the
+// Requires a running Postgres with both platform_app and platform_migrate roles, the
 // Slice 1 migration applied, and the baseline seed in place. The repo ships
 // docker-compose.dev.yml for exactly this purpose:
 //
 //   docker compose -f docker-compose.dev.yml up -d
-//   export DATABASE_URL_MIGRATE='postgres://fops_migrate:fops_migrate@localhost:5434/feedbackops'
-//   export DATABASE_URL='postgres://fops_app:fops_app@localhost:5434/feedbackops'
+//   export DATABASE_URL_MIGRATE='postgres://platform_migrate:platform_migrate@localhost:5434/platform'
+//   export DATABASE_URL='postgres://platform_app:platform_app@localhost:5434/platform'
 //   export WORKSPACE_ID='11111111-1111-1111-1111-111111111111'
 //   pnpm --filter @ap/platform-api db:migrate
 //   pnpm --filter @ap/platform-api db:seed
@@ -39,7 +39,7 @@ describe.skipIf(!runIntegration)('ADR-0008 role separation', () => {
     await migrateHandle?.close();
   });
 
-  it('fops_app may INSERT into core.audit_log', async () => {
+  it('platform_app may INSERT into core.audit_log', async () => {
     const systemActor = await appHandle.pool.query<{ id: string }>(
       `select id from core.actors where external_id = 'system' and workspace_id = $1`,
       [WORKSPACE_ID],
@@ -55,7 +55,7 @@ describe.skipIf(!runIntegration)('ADR-0008 role separation', () => {
     expect(result.rowCount).toBe(1);
   });
 
-  it('fops_app must NOT SELECT core.audit_log, including identifiers', async () => {
+  it('platform_app must NOT SELECT core.audit_log, including identifiers', async () => {
     await expect(appHandle.pool.query('select id from core.audit_log')).rejects.toMatchObject({
       code: '42501',
     });
@@ -65,7 +65,7 @@ describe.skipIf(!runIntegration)('ADR-0008 role separation', () => {
     expect(history.rowCount).toBeGreaterThan(0);
   });
 
-  it('fops_app must NOT UPDATE core.audit_log', async () => {
+  it('platform_app must NOT UPDATE core.audit_log', async () => {
     await expect(
       appHandle.pool.query(
         `update core.audit_log set summary = 'tampered' where event_type = 'test.app_insert'`,
@@ -73,13 +73,13 @@ describe.skipIf(!runIntegration)('ADR-0008 role separation', () => {
     ).rejects.toMatchObject({ code: '42501' }); // insufficient_privilege
   });
 
-  it('fops_app must NOT DELETE from core.audit_log', async () => {
+  it('platform_app must NOT DELETE from core.audit_log', async () => {
     await expect(
       appHandle.pool.query(`delete from core.audit_log where event_type = 'test.app_insert'`),
     ).rejects.toMatchObject({ code: '42501' });
   });
 
-  it('fops_app may UPDATE core.workspaces (non-audit tables stay writable)', async () => {
+  it('platform_app may UPDATE core.workspaces (non-audit tables stay writable)', async () => {
     const before = await appHandle.pool.query<{ name: string }>(
       'select name from core.workspaces where id = $1',
       [WORKSPACE_ID],
@@ -100,59 +100,59 @@ describe.skipIf(!runIntegration)('ADR-0008 role separation', () => {
     ]);
   });
 
-  it('fops_app has full DML on Slice 2 registry tables (managed_systems, analytics_areas)', async () => {
+  it('platform_app has full DML on Slice 2 registry tables (managed_systems, analytics_areas)', async () => {
     // ADR-0008 + ADR-0017 role grants: app role can SELECT/INSERT/
     // UPDATE/DELETE the registry tables that Slice 2 services write to.
     for (const fq of ['core.managed_systems', 'core.analytics_areas']) {
       const [schema, table] = fq.split('.');
       const { rows } = await appHandle.pool.query<{ privilege_type: string }>(
         `select privilege_type from information_schema.role_table_grants
-          where grantee = 'fops_app' and table_schema = $1 and table_name = $2`,
+          where grantee = 'platform_app' and table_schema = $1 and table_name = $2`,
         [schema, table],
       );
       const got = new Set(rows.map((r) => r.privilege_type));
       for (const p of ['SELECT', 'INSERT', 'UPDATE', 'DELETE']) {
-        expect(got.has(p), `${fq} missing ${p} for fops_app`).toBe(true);
+        expect(got.has(p), `${fq} missing ${p} for platform_app`).toBe(true);
       }
     }
   });
 
-  it('fops_app has SELECT-only on core.teams (ADR-0019 Section C / review DB-003)', async () => {
+  it('platform_app has SELECT-only on core.teams (ADR-0019 Section C / review DB-003)', async () => {
     // The placeholder narrative in ADR-0018 says no Slice 2 service writes
     // to core.teams. Migration 0009 revokes INSERT/UPDATE/DELETE so the
     // grant matches the service surface. The team CRUD slice restores the
     // write grants in its own migration alongside the management service.
     const { rows } = await appHandle.pool.query<{ privilege_type: string }>(
       `select privilege_type from information_schema.role_table_grants
-        where grantee = 'fops_app' and table_schema = 'core' and table_name = 'teams'`,
+        where grantee = 'platform_app' and table_schema = 'core' and table_name = 'teams'`,
     );
     const got = new Set(rows.map((r) => r.privilege_type));
     expect(got.has('SELECT')).toBe(true);
     for (const p of ['INSERT', 'UPDATE', 'DELETE']) {
-      expect(got.has(p), `core.teams should not grant ${p} to fops_app post-0009`).toBe(false);
+      expect(got.has(p), `core.teams should not grant ${p} to platform_app post-0009`).toBe(false);
     }
   });
 
-  it('fops_app must NOT EXECUTE pgboss._create_queue_unsafe (raw DDL-capable function)', async () => {
+  it('platform_app must NOT EXECUTE pgboss._create_queue_unsafe (raw DDL-capable function)', async () => {
     // F-010 follow-up: migration 0007 renamed the raw function to
-    // `_create_queue_unsafe` and revoked EXECUTE from fops_app + PUBLIC.
-    // Only fops_migrate (owner) can call it directly.
+    // `_create_queue_unsafe` and revoked EXECUTE from platform_app + PUBLIC.
+    // Only platform_migrate (owner) can call it directly.
     const { rows } = await appHandle.pool.query<{ has: boolean }>(
-      "select has_function_privilege('fops_app', 'pgboss._create_queue_unsafe(text, jsonb)', 'execute') as has",
+      "select has_function_privilege('platform_app', 'pgboss._create_queue_unsafe(text, jsonb)', 'execute') as has",
     );
     expect(rows[0]?.has).toBe(false);
   });
 
-  it('fops_app may EXECUTE the pgboss.create_queue SECURITY DEFINER shim', async () => {
+  it('platform_app may EXECUTE the pgboss.create_queue SECURITY DEFINER shim', async () => {
     const { rows } = await appHandle.pool.query<{ has: boolean }>(
-      "select has_function_privilege('fops_app', 'pgboss.create_queue(text, jsonb)', 'execute') as has",
+      "select has_function_privilege('platform_app', 'pgboss.create_queue(text, jsonb)', 'execute') as has",
     );
     expect(rows[0]?.has).toBe(true);
   });
 
-  it('pgboss.create_queue rejects partition := true when called from fops_app', async () => {
+  it('pgboss.create_queue rejects partition := true when called from platform_app', async () => {
     // The shim hard-rejects partition-true requests so a future pg-boss
-    // upgrade (or app-side mistake) cannot trigger DDL through fops_app's
+    // upgrade (or app-side mistake) cannot trigger DDL through platform_app's
     // SECURITY DEFINER elevation.
     await expect(
       appHandle.pool.query('select pgboss.create_queue($1, \'{"partition":true}\'::jsonb)', [
@@ -182,8 +182,8 @@ describe.skipIf(!runIntegration)('ADR-0008 role separation', () => {
   it('pgboss.create_queue accepts a valid partition=false call (review L1 happy-path direct)', async () => {
     // Boot integration tests exercise this transitively, but a direct
     // call catches an EXECUTE grant regression in milliseconds. Use
-    // fops_migrate to clean up since pgboss.delete_queue EXECUTE was
-    // revoked from fops_app in migration 0003.
+    // platform_migrate to clean up since pgboss.delete_queue EXECUTE was
+    // revoked from platform_app in migration 0003.
     const queueName = `__f010_test_ok_${Date.now()}__`;
     await appHandle.pool.query(
       `select pgboss.create_queue($1, '{"partition":false,"policy":"standard"}'::jsonb)`,
@@ -219,7 +219,7 @@ describe.skipIf(!runIntegration)('ADR-0008 role separation', () => {
     }
   });
 
-  it('Slice 2 review DB-004: pg-boss create_queue functions owned by fops_migrate', async () => {
+  it('Slice 2 review DB-004: pg-boss create_queue functions owned by platform_migrate', async () => {
     // SECURITY DEFINER on pgboss.create_queue runs with the owner's
     // privileges. ADR-0008 requires the DDL-capable owner; pin it.
     const { rows } = await migrateHandle.pool.query<{
@@ -235,18 +235,18 @@ describe.skipIf(!runIntegration)('ADR-0008 role separation', () => {
     );
     expect(rows.length).toBe(2);
     for (const r of rows) {
-      expect(r.rolname).toBe('fops_migrate');
+      expect(r.rolname).toBe('platform_migrate');
     }
   });
 
-  it('fops_migrate retains UPDATE on core.audit_log (operator escape hatch)', async () => {
+  it('platform_migrate retains UPDATE on core.audit_log (operator escape hatch)', async () => {
     const result = await migrateHandle.pool.query(
       `update core.audit_log set summary = summary where event_type = 'test.app_insert'`,
     );
     expect(result.rowCount).toBeGreaterThan(0);
 
     // Operator cleanup: delete the rows the previous test inserted so reruns
-    // start clean. ADR-0008 acknowledges fops_migrate is the only mutator.
+    // start clean. ADR-0008 acknowledges platform_migrate is the only mutator.
     await migrateHandle.pool.query(
       `delete from core.audit_log where event_type = 'test.app_insert'`,
     );
@@ -261,8 +261,8 @@ describe.skipIf(!runIntegration)('ADR-0008 role separation', () => {
       order by principal,privilege
     `);
     expect(acl.rows).toEqual([
-      { principal: 'fops_app', privilege: 'EXECUTE' },
-      { principal: 'fops_survey_provenance_mutator_owner', privilege: 'EXECUTE' },
+      { principal: 'platform_app', privilege: 'EXECUTE' },
+      { principal: 'platform_survey_provenance_mutator_owner', privilege: 'EXECUTE' },
     ]);
   });
 });

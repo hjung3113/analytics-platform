@@ -1,12 +1,12 @@
 import { defineConfig } from 'drizzle-kit';
 
 // Per ADR-0015: hand-reviewed SQL files; no `drizzle-kit push` outside local dev.
-// Drizzle CLI must connect as fops_migrate (full DDL/DML), never as fops_app.
+// Drizzle CLI must connect as platform_migrate (full DDL/DML), never as platform_app.
 // DATABASE_URL_MIGRATE is the migration-only connection; DATABASE_URL is the
-// runtime app connection (fops_app) and is intentionally NOT consulted here.
+// runtime app connection (platform_app) and is intentionally NOT consulted here.
 const migrateUrl =
   process.env.DATABASE_URL_MIGRATE ??
-  'postgres://fops_migrate:fops_migrate@localhost:5432/feedbackops';
+  'postgres://platform_migrate:platform_migrate@localhost:5432/platform';
 
 export default defineConfig({
   // drizzle-kit 0.30.1's CJS loader cannot resolve the `.js` specifiers

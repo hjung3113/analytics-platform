@@ -1,4 +1,7 @@
 name: feedbackops-release-1060
+# DB identity (#1100 a): scripts/db/init.sql creates database `platform` and the replay bootstrap roles.
+# Run scripts/db/cutover-0076-platform-identity.sh once before the `migrate` service; plain
+# drizzle-kit migrate as platform_migrate fails closed until the roles are renamed.
 
 services:
   postgres:
@@ -35,8 +38,8 @@ services:
       target: migrate
     command: ["node_modules/.bin/drizzle-kit", "migrate"]
     environment:
-      DATABASE_URL: postgresql://fops_app:fops_app@postgres:5432/feedbackops
-      DATABASE_URL_MIGRATE: postgresql://fops_migrate:fops_migrate@postgres:5432/feedbackops
+      DATABASE_URL: postgresql://platform_app:platform_app@postgres:5432/platform
+      DATABASE_URL_MIGRATE: postgresql://platform_migrate:platform_migrate@postgres:5432/platform
       WORKSPACE_ID: ${WORKSPACE_ID:?set WORKSPACE_ID in .env.release}
     depends_on:
       postgres:
@@ -85,7 +88,7 @@ services:
       HOST: 0.0.0.0
       PORT: 3001
       AUTH_PROVIDER: oidc
-      DATABASE_URL: postgresql://fops_app:fops_app@postgres:5432/feedbackops
+      DATABASE_URL: postgresql://platform_app:platform_app@postgres:5432/platform
       WORKSPACE_ID: ${WORKSPACE_ID:?set WORKSPACE_ID in .env.release}
       OIDC_ISSUER_URL: http://localhost:8080/default
       OIDC_CLIENT_ID: feedbackops-release-local

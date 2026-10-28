@@ -1,4 +1,4 @@
-// Route-level acceptance; run by the conductor on a throwaway DB as fops_app.
+// Route-level acceptance; run by the conductor on a throwaway DB as platform_app.
 import { randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';

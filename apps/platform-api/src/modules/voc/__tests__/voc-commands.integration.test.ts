@@ -13,7 +13,7 @@ import { deleteRecoveryFixtureParents } from '../../../test-support/recovery-fix
 // hermetic against concurrent VOC HTTP suites sharing the database.
 //
 // Gate: DATABASE_URL + DATABASE_URL_MIGRATE (migrate pool owns audit_log
-// cleanup; fops_app cannot DELETE from core.audit_log).
+// cleanup; platform_app cannot DELETE from core.audit_log).
 
 import { randomUUID } from 'node:crypto';
 

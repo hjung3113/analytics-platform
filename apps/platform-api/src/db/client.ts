@@ -1,7 +1,7 @@
 // Postgres client factory. Two flavours coexist in this codebase:
-//   * the runtime app client, connecting as fops_app (DATABASE_URL).
+//   * the runtime app client, connecting as platform_app (DATABASE_URL).
 //   * operator scripts (seed, migrate, tests of role separation) connecting as
-//     fops_migrate via DATABASE_URL_MIGRATE.
+//     platform_migrate via DATABASE_URL_MIGRATE.
 //
 // The factory takes the URL explicitly so callers can't accidentally pick up
 // the wrong role from process.env.

@@ -9,7 +9,7 @@ SCRIPT_ROOT=$(cd -- "$SCRIPT_DIR/../../../.." && pwd)
 # shellcheck disable=SC1091
 . "$SCRIPT_DIR/../../paths.sh"
 ROOT=${VERIFY_DB_ROOT:-$SCRIPT_ROOT}
-CONTAINER=fops-verify
+CONTAINER=platform-verify
 DB_HOST=localhost
 DB_PORT=5439
 # Memory cap for the throwaway Postgres (global rule: cap every container). An uncapped one helped stall the
@@ -28,10 +28,10 @@ Usage:
   verify-db.sh reset-rate-limits <name>
   verify-db.sh has-preview-fixtures <name>
 
-up provisions fops-verify on localhost:5439 and runs db:migrate on the feedbackops template.
-create clones feedbackops, writes $WAVE_STATE/env.verify.<name>, and runs db:migrate
+up provisions platform-verify on localhost:5439 and brings the `platform` template to the final identity (cutover-0076
+then db:migrate; idempotent). create clones `platform`, writes $WAVE_STATE/env.verify.<name>, and runs db:migrate
 from <checkout> (default: this script's checkout). drop removes the env file after the DB drops.
-drop/reset-rate-limits/has-preview-fixtures use feedbackops_<name>; has-preview-fixtures reports whether the
+drop/reset-rate-limits/has-preview-fixtures use platform_<name>; has-preview-fixtures reports whether the
 [preview] fixture cluster exists (one JSON line with a "fixtures" bool).
 The development database on port 5434 is never used.
 EOF
@@ -61,8 +61,8 @@ check_port() {
 database_for() {
   local suffix=$1
   [[ "$suffix" =~ ^[A-Za-z0-9][A-Za-z0-9_-]*$ ]] || fail 'database name suffix must use letters, digits, underscore, or hyphen' 2
-  DB_NAME=feedbackops_$suffix
-  [[ "$DB_NAME" == feedbackops* ]] || fail 'refusing database name outside the feedbackops prefix' 2
+  DB_NAME=platform_$suffix
+  [[ "$DB_NAME" == platform_* ]] || fail 'refusing database name outside the platform_ prefix' 2
 }
 
 db_owner() {
@@ -91,8 +91,8 @@ lines = pathlib.Path(source).read_text(encoding="utf-8").splitlines()
 key_line = re.compile(r"^\s*(?:export\s+)?DATABASE_URL(?:_MIGRATE)?\s*=")
 kept = [line for line in lines if not key_line.match(line)]
 kept.extend([
-    f"DATABASE_URL=postgres://fops_app:fops_app@{host}:{port}/{database}",
-    f"DATABASE_URL_MIGRATE=postgres://fops_migrate:fops_migrate@{host}:{port}/{database}",
+    f"DATABASE_URL=postgres://platform_app:platform_app@{host}:{port}/{database}",
+    f"DATABASE_URL_MIGRATE=postgres://platform_migrate:platform_migrate@{host}:{port}/{database}",
 ])
 target = pathlib.Path(destination)
 target.parent.mkdir(parents=True, exist_ok=True)
@@ -227,19 +227,31 @@ up() {
   done
   [[ "$ready" == 1 ]] || fail "Postgres did not become ready on $DB_HOST:$DB_PORT" 1
 
-  owner=$(db_owner feedbackops) || fail 'could not inspect template database owner' 1
+  owner=$(db_owner platform) || fail 'could not inspect template database owner' 1
   if [[ -z "$owner" ]]; then
-    PGPASSWORD=postgres psql -X "$ADMIN_URL" -v ON_ERROR_STOP=1 -c 'CREATE DATABASE feedbackops OWNER fops_migrate' || fail 'could not create template database feedbackops' 1
-    PGPASSWORD=postgres psql -X -h "$DB_HOST" -p "$DB_PORT" -U postgres -d feedbackops -v ON_ERROR_STOP=1 \
-      -c 'CREATE EXTENSION IF NOT EXISTS vector' -c 'GRANT CONNECT ON DATABASE feedbackops TO fops_app, fops_migrate' || fail 'could not initialize template database extensions and grants' 1
-    owner=fops_migrate
+    local migrate_role
+    migrate_role=$(PGPASSWORD=postgres psql -X -h "$DB_HOST" -p "$DB_PORT" -U postgres -d postgres -v ON_ERROR_STOP=1 -tA \
+      -c "SELECT rolname FROM pg_roles WHERE rolname IN ('platform_migrate','fops_migrate') ORDER BY rolname DESC LIMIT 1") || fail 'could not inspect migrate role' 1
+    [[ -n "$migrate_role" ]] || fail 'neither platform_migrate nor fops_migrate exists; the container was not initialised by init.sql' 1
+    PGPASSWORD=postgres psql -X "$ADMIN_URL" -v ON_ERROR_STOP=1 -c "CREATE DATABASE platform OWNER $migrate_role" || fail 'could not create template database platform' 1
+    PGPASSWORD=postgres psql -X -h "$DB_HOST" -p "$DB_PORT" -U postgres -d platform -v ON_ERROR_STOP=1 \
+      -c 'CREATE EXTENSION IF NOT EXISTS vector' -c "GRANT CONNECT ON DATABASE platform TO ${migrate_role/migrate/app}, $migrate_role" || fail 'could not initialize template database extensions and grants' 1
+    owner=$migrate_role
   fi
-  [[ "$owner" == fops_migrate ]] || fail "template feedbackops is owned by $owner, expected fops_migrate" 1
+  [[ "$owner" == platform_migrate || "$owner" == fops_migrate ]] || fail "template platform is owned by $owner, expected the migrate role" 1
 
   env_file=$WAVE_STATE/env.verify.template
-  write_env_file template feedbackops
-  run_migration "$ROOT" "$env_file" 'template migration'
-  printf 'Ran migrations for template database feedbackops.\n'
+  write_env_file template platform
+  # Idempotent: replays history and renames roles only while the template is uncut, then runs db:migrate
+  # as platform_migrate. The admin URL is used by this script and the cutover only, never written to an env file.
+  (
+    cd "$ROOT" || exit 2
+    set -a
+    . "$env_file"
+    set +a
+    CUTOVER_ADMIN_URL=$ADMIN_URL bash "$FO_OPS/scripts/db/cutover-0076-platform-identity.sh" all
+  ) || fail 'template cutover failed' 1
+  printf 'Template database platform is at the final identity.\n'
   finish true 0
 }
 
@@ -263,7 +275,7 @@ create_db() {
   owner=$(db_owner "$DB_NAME") || fail "could not inspect database $DB_NAME" 1
   [[ -z "$owner" ]] || fail "database already exists: $DB_NAME" 1
   PGPASSWORD=postgres psql -X "$ADMIN_URL" -v ON_ERROR_STOP=1 \
-    -c "CREATE DATABASE \"$DB_NAME\" TEMPLATE feedbackops OWNER fops_migrate" || fail "could not create $DB_NAME from template" 1
+    -c "CREATE DATABASE \"$DB_NAME\" TEMPLATE platform OWNER platform_migrate" || fail "could not create $DB_NAME from template" 1
   write_env_file "$suffix" "$DB_NAME"
   local env_file=$WAVE_STATE/env.verify.$suffix
   run_migration "$migration_root" "$env_file" "migration for $DB_NAME" "\"$SCRIPT_DIR/verify-db.sh\" drop \"$suffix\""
@@ -303,7 +315,7 @@ reset_rate_limits() {
     . "$env_file"
     set +a
     case "${DATABASE_URL_MIGRATE:-}" in
-      "postgres://fops_migrate:fops_migrate@$DB_HOST:$DB_PORT/$DB_NAME") ;;
+      "postgres://platform_migrate:platform_migrate@$DB_HOST:$DB_PORT/$DB_NAME") ;;
       *) printf 'refusing migrate URL that does not target %s on port %s\n' "$DB_NAME" "$DB_PORT" >&2; exit 2 ;;
     esac
     psql -X "$DATABASE_URL_MIGRATE" -v ON_ERROR_STOP=1 -c 'DELETE FROM core.rate_limits'
@@ -323,7 +335,7 @@ has_preview_fixtures() {
     . "$env_file"
     set +a
     case "${DATABASE_URL_MIGRATE:-}" in
-      "postgres://fops_migrate:fops_migrate@$DB_HOST:$DB_PORT/$DB_NAME") ;;
+      "postgres://platform_migrate:platform_migrate@$DB_HOST:$DB_PORT/$DB_NAME") ;;
       *) printf 'refusing migrate URL that does not target %s on port %s\n' "$DB_NAME" "$DB_PORT" >&2; exit 2 ;;
     esac
     fixtures=$(psql -X "$DATABASE_URL_MIGRATE" -v ON_ERROR_STOP=1 -tA \

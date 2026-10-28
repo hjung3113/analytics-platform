@@ -13,7 +13,7 @@ import { buildServer } from '../../../server.js';
 const APP_URL = process.env.DATABASE_URL ?? '';
 const MIGRATE_URL = process.env.DATABASE_URL_MIGRATE ?? '';
 const WORKSPACE_ID = process.env.WORKSPACE_ID ?? '';
-// core.teams is INSERT-restricted to the fops_migrate role (ADR-0008 role
+// core.teams is INSERT-restricted to the platform_migrate role (ADR-0008 role
 // separation), so seeding a test team needs the migrate connection.
 const runIntegration = Boolean(APP_URL && MIGRATE_URL && WORKSPACE_ID);
 

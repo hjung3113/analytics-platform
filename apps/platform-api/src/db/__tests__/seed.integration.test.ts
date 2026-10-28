@@ -100,7 +100,7 @@ describe.skipIf(!runIntegration)('seed idempotency', () => {
 
     // ADR-0018 placeholder — zero non-seed teams; ensureSeedTeam inserts
     // exactly one '[seed] VOC owner team' for VOC fixture coverage (created via
-    // fops_migrate role, not fops_app — ADR-0019 preserved).
+    // platform_migrate role, not platform_app — ADR-0019 preserved).
     const { rows: teamRows } = await handle.pool.query<{ count: string }>(
       `select count(*)::text as count from core.teams
         where workspace_id = $1 and name not like '[seed]%'`,

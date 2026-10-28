@@ -158,7 +158,7 @@ describe.skipIf(!runIntegration)('voc recommendation threshold evaluation (#168)
     );
   }
 
-  /** Children before parents; fops_app holds no DELETE on the decision table. */
+  /** Children before parents; platform_app holds no DELETE on the decision table. */
   async function cleanup(): Promise<void> {
     if (!ops) return;
     const systems =

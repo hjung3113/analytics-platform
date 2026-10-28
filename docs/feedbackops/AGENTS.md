@@ -1,5 +1,7 @@
 # FeedbackOps Agent Guide
 
+DB/role identity: `platform` database and `platform_*` roles. Fresh or uncut clusters use `ops/platform-api/scripts/db/cutover-0076-platform-identity.sh`; see `docs/feedbackops/implementation/04-database-and-migrations.md` for the staged procedure.
+
 ## Operating Rules
 
 - State assumptions when the request can be read in more than one way.

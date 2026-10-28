@@ -937,7 +937,7 @@ describe.skipIf(!runIntegration)('POST /vocs/:id/public-updates (#16 C5)', () =>
       const voc = await insertVoc(msId, 'Triage Links VOC');
       const otherVoc = await insertVoc(msId, 'Triage Links Target VOC');
 
-      // core.entity_links is append-only to fops_app: seed and clean via the
+      // core.entity_links is append-only to platform_app: seed and clean via the
       // migrate role (same pattern as the review-candidate tests).
       const ops = createDb(MIGRATE_URL);
       try {
@@ -1008,7 +1008,7 @@ describe.skipIf(!runIntegration)('POST /vocs/:id/public-updates (#16 C5)', () =>
       const voc = await insertVoc(msId, 'Admin Deny Links VOC');
       const otherVoc = await insertVoc(msId, 'Admin Deny Links Target VOC');
 
-      // core.entity_links is append-only to fops_app: seed and clean via the
+      // core.entity_links is append-only to platform_app: seed and clean via the
       // migrate role (same pattern as the ADR-0047 test). The deny row uses
       // the same handle and is removed in finally.
       const ops = createDb(MIGRATE_URL);

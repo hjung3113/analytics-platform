@@ -251,7 +251,7 @@ PATCH /entity-links/:id
   audit_log event_type entity_link.detached; detaching finding -> task requested_task
   calls the Findings-owned execution projection seam in that transaction to clear
   linked_task_id when no active requested_task link to a Task remains
-- hard delete is forbidden; after ADR-0064 cutover fops_app UPDATE uses the filtered
+- hard delete is forbidden; after ADR-0064 cutover platform_app UPDATE uses the filtered
   canonical-link view, not the raw core.entity_links table; no DELETE
 ```
 

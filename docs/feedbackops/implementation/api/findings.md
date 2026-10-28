@@ -106,7 +106,7 @@ state and is never persisted as a saved filter.
 `GET /findings/:id/comments` and `POST /findings/:id/comments` are the Finding
 progress-note timeline (`docs/adr/0049-finding-task-progress-notes.md`,
 FR-FIND-004). Rows live in `finding.finding_comments`. There is no edit or
-delete route. `fops_app` may only `SELECT` and `INSERT`. Task progress notes
+delete route. `platform_app` may only `SELECT` and `INSERT`. Task progress notes
 are a different contract: [tasks.md](tasks.md) §Progress notes.
 
 Shared DTO: `FindingCommentDto` in `packages/feature-shared/src/findings/comments.ts`.

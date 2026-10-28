@@ -53,6 +53,8 @@ stage_static() {
 stage_static_extra() {
   step node "$FO_OPS/scripts/check-boundaries.test.mjs"
   step node "$FO_OPS/scripts/test-integration.test.mjs"
+  step node "$FO_OPS/scripts/db/cutover-0076.test.mjs"
+  step node apps/platform-e2e/tests-real/database-safety.test.ts
   step fo gate:db-migration-drift
   step fo gate:fe-typecheck
 }
@@ -81,16 +83,18 @@ stage_integration() {
   trap "rm -f '$env_file'" EXIT
   grep -Ev '^DATABASE_URL(_MIGRATE)?=' "$FO_OPS/.env.example" > "$env_file"
   {
-    echo "DATABASE_URL=postgres://fops_app:fops_app@$host:$port/feedbackops"
-    echo "DATABASE_URL_MIGRATE=postgres://fops_migrate:fops_migrate@$host:$port/feedbackops"
+    echo "DATABASE_URL=postgres://platform_app:platform_app@$host:$port/platform"
+    echo "DATABASE_URL_MIGRATE=postgres://platform_migrate:platform_migrate@$host:$port/platform"
   } >> "$env_file"
 
+  # Fresh provisioning: init.sql created the replay roles and database `platform`; the cutover replays
+  # history through 0075, renames the roles to the final identity, then runs db:migrate as platform_migrate.
   (
     set -a
     # shellcheck disable=SC1090
     . "$env_file"
     set +a
-    step pnpm --filter @ap/platform-api db:migrate
+    step env CUTOVER_ADMIN_URL="$admin_url" bash "$FO_OPS/scripts/db/cutover-0076-platform-identity.sh" all
   )
   step env FEEDBACKOPS_ENV_FILE="$env_file" pnpm --filter @ap/platform-api test:integration
 }

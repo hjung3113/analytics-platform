@@ -399,7 +399,7 @@ describe.skipIf(!runIntegration)('Slice 3 conversation tables', () => {
     expect(result.rows[0]?.id).toBeDefined();
   });
 
-  it('fops_app cannot UPDATE voc_public_updates (permission denied)', async () => {
+  it('platform_app cannot UPDATE voc_public_updates (permission denied)', async () => {
     await expect(
       appHandle.pool.query(
         `update voc.voc_public_updates set skip_public_update = false where voc_id = $1`,
@@ -408,7 +408,7 @@ describe.skipIf(!runIntegration)('Slice 3 conversation tables', () => {
     ).rejects.toMatchObject({ message: expect.stringMatching(/permission denied/i) });
   });
 
-  it('fops_app cannot DELETE voc_internal_comments (permission denied)', async () => {
+  it('platform_app cannot DELETE voc_internal_comments (permission denied)', async () => {
     await expect(
       appHandle.pool.query(
         `delete from voc.voc_internal_comments where voc_id = $1`,
@@ -765,10 +765,10 @@ describe.skipIf(!runIntegration)('Slice 3 #12 integrity followups (migration 001
     ).resolves.toBeDefined();
   });
 
-  // 0016: fops_app holds DELETE for the internal purge worker. The
+  // 0016: platform_app holds DELETE for the internal purge worker. The
   // archive-over-delete invariant for user paths is asserted by the
   // attachments service layer tests, not at the GRANT level.
-  it('voc_attachments DELETE is permitted for fops_app (purge-worker path)', async () => {
+  it('voc_attachments DELETE is permitted for platform_app (purge-worker path)', async () => {
     const att = await migrateHandle.pool.query<{ id: string }>(
       `insert into voc.voc_attachments (
          voc_id, name, size_bytes, mime_type, storage_key, uploaded_by_actor_id

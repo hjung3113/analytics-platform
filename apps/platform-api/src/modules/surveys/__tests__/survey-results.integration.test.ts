@@ -469,27 +469,27 @@ describe.skipIf(!runIntegration)('survey result read route (#186)', () => {
               exists(
                 select 1
                   from information_schema.table_privileges
-                 where grantee = 'fops_app'
+                 where grantee = 'platform_app'
                    and table_schema = 'survey'
                    and table_name = 'survey_responses'
                    and privilege_type = 'SELECT'
                 union all
                 select 1
                   from information_schema.column_privileges
-                 where grantee = 'fops_app'
+                 where grantee = 'platform_app'
                    and table_schema = 'survey'
                    and table_name = 'survey_responses'
                    and privilege_type = 'SELECT'
               ) as app_response_select
-         from (values ('fops_app'), ('fops_survey_evidence_reader_owner')) as roles(grantee)
+         from (values ('platform_app'), ('platform_survey_evidence_reader_owner')) as roles(grantee)
          cross join information_schema.schemata as schemas
         where schemas.schema_name = 'core'
         order by roles.grantee`,
     );
     expect(privileges.rows).toEqual([
-      { grantee: 'fops_app', core_usage: true, app_response_select: false },
+      { grantee: 'platform_app', core_usage: true, app_response_select: false },
       {
-        grantee: 'fops_survey_evidence_reader_owner',
+        grantee: 'platform_survey_evidence_reader_owner',
         core_usage: false,
         app_response_select: false,
       },

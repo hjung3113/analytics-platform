@@ -136,7 +136,7 @@ describe.skipIf(!runIntegration)(
         )
       ).rows;
     const errorRows = async () =>
-      // fops_app has INSERT only on client_errors (no read API), so the test reads as fops_migrate.
+      // platform_app has INSERT only on client_errors (no read API), so the test reads as platform_migrate.
       (
         await migrateHandle.pool.query(
           'select * from platform.client_errors where menu_id like $1',
@@ -649,24 +649,24 @@ describe.skipIf(!runIntegration)(
         return out;
       };
 
-      it('fops_app: INSERT, SELECT, UPDATE on usage_events; INSERT only on client_errors', async () => {
-        expect(await held('fops_app', 'platform.usage_events')).toEqual([
+      it('platform_app: INSERT, SELECT, UPDATE on usage_events; INSERT only on client_errors', async () => {
+        expect(await held('platform_app', 'platform.usage_events')).toEqual([
           'SELECT',
           'INSERT',
           'UPDATE',
         ]);
-        expect(await held('fops_app', 'platform.client_errors')).toEqual(['INSERT']);
+        expect(await held('platform_app', 'platform.client_errors')).toEqual(['INSERT']);
       });
 
-      it('fops_app may use the schema but not create in it; no other grantee is widened', async () => {
+      it('platform_app may use the schema but not create in it; no other grantee is widened', async () => {
         const { rows } = await migrateHandle.pool.query<{ usage: boolean; create: boolean }>(
-          "select has_schema_privilege('fops_app', 'platform', 'USAGE') as usage, has_schema_privilege('fops_app', 'platform', 'CREATE') as create",
+          "select has_schema_privilege('platform_app', 'platform', 'USAGE') as usage, has_schema_privilege('platform_app', 'platform', 'CREATE') as create",
         );
         expect(rows[0]).toEqual({ usage: true, create: false });
         const grantees = await migrateHandle.pool.query<{ grantee: string }>(
           "select distinct grantee from information_schema.role_table_grants where table_schema = 'platform'",
         );
-        expect(grantees.rows.map((r) => r.grantee).sort()).toEqual(['fops_app', 'fops_migrate']);
+        expect(grantees.rows.map((r) => r.grantee).sort()).toEqual(['platform_app', 'platform_migrate']);
       });
     });
   },

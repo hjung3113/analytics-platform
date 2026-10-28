@@ -88,7 +88,7 @@ describe.skipIf(!runIntegration)('POST /permission-requests', () => {
 
   // Clean tables touched by these tests between runs. We must purge
   // permission_requests, audit_log, idempotency_keys, and integration-test
-  // sessions. audit_log is INSERT-only for fops_app — delete as fops_migrate.
+  // sessions. audit_log is INSERT-only for platform_app — delete as platform_migrate.
   beforeEach(async () => {
     await cleanupFailedNotificationJobs();
     notifications.jobs.splice(0);
@@ -101,7 +101,7 @@ describe.skipIf(!runIntegration)('POST /permission-requests', () => {
     // Rate-limit counters are shared per-actor across tests; clear them so
     // earlier suites' 100-req/min budget doesn't bleed into this one.
     await dbHandle.pool.query('delete from core.rate_limits');
-    // audit_log: revoke prevents UPDATE/DELETE on fops_app. Use the
+    // audit_log: revoke prevents UPDATE/DELETE on platform_app. Use the
     // operator role if available; otherwise TRUNCATE via a SECURITY DEFINER
     // is not available, so we use DATABASE_URL_MIGRATE if set.
     await migrateHandle.pool.query(

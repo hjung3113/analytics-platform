@@ -37,7 +37,7 @@ export async function createAa(
   return res.json().id as string;
 }
 
-/** Teams are fixture-only writes with fops_migrate; fops_app retains SELECT only. */
+/** Teams are fixture-only writes with platform_migrate; platform_app retains SELECT only. */
 export async function insertTeamDirectly(
   dbHandle: DbHandle,
   workspaceId: string,
