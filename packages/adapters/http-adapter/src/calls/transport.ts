@@ -31,7 +31,8 @@ export function createTransport({ fetch: fetchImpl, base }: TransportConfig): Tr
   return {
     async send(request) {
       const requestId = request.correlationId ?? newRequestId();
-      const kernelSignal = request.signal;
+      // A first-argument `signal` port (readPreferences, listNotices) can be called by a drift probe with a placeholder: only a real signal is linked.
+      const kernelSignal = typeof request.signal?.addEventListener === 'function' ? request.signal : undefined;
       if (kernelSignal?.aborted) return { kind: 'aborted' };
 
       // Manual link instead of AbortSignal.any (not in every in-house browser, #151): the timeout is ours and is

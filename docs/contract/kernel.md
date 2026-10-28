@@ -31,7 +31,7 @@ Platform Kernel이 소유해야 하는 UI 책임:
 - 공통 Keyboard Shortcut: ⌘/Ctrl+K 명령 팔레트, `[` 사이드바 접기/펼치기(입력 중 제외), Esc로 상세 패널(패널 안)·팝오버 닫기. 셸은 본문 바로가기 링크를 제공한다
 - 메뉴 활용률 계측(진입·체류 이벤트는 어댑터로 전송하고, 콘솔은 집계만 읽는다)
 
-현재 구현: 즐겨찾기·최근 방문(12건)·마지막 Scope 제안·사이드바 접힘·언어·표 열 설정은 브라우저 localStorage에만 저장된다(기기 간 동기 없음). 서버 보존 여부는 결정 대기(`.planning/README.md`).
+현재 구현: 즐겨찾기·최근 방문(12건)·마지막 Scope 제안·사이드바 접힘·언어·표 열 설정은 브라우저 localStorage에만 저장된다(기기 간 동기 없음). **계약(Decided 2026-10-28, #1096·[ADR-0098](../adr/0098-adapter-preferences-people-notices-ports.md), 구현 안 함 — Kernel 배선·이전은 #1104)**: 즐겨찾기·최근·마지막 Scope·언어·표 열(`favorites`·`recents`·`lastScope`·`lang`·`columns:<preferenceKey>`)은 서버가 사용자별로 보존한다. 포트 `readPreferences`·`patchPreferences`(키 패치, `null`은 값·`remove`는 삭제, 겹침 거부)·`importPreferences`(1회 원자 가져오기: 서버 값이 이기고 없는 키만, `importedAt`이 완료 확인, 완료 뒤 영구 no-op)가 `PlatformAdapter`에 있고 mock·HTTP 어댑터가 구현한다. 가져오기는 인증된 첫 읽기 성공 뒤 일반 쓰기 전에 하고, 확인 전에는 로컬 데이터를 지우지 않으며 다른 사용자 키를 가져오지 않는다. 탭 안 상태(공간 마지막 화면·활용 세션, `sessionStorage`)와 보드 레이아웃·데이터·필터·이력은 서버 설정이 아니다. 사람 정확 조회 `lookupPeople`(`GroupMember[]`)과 공지 관리 포트 `listNotices`·`saveNotice`·`deleteNotice`도 같은 포트에 있다(화면 연결은 #1105·#1106, 직접 호출만으로 Home 배너는 갱신되지 않는다).
 
 ### Kernel이 소유하지 않는 것
 
@@ -201,6 +201,8 @@ Global Context와 Page-local Filter를 같은 Chip 스타일로 혼용하지 않
 **Apply 모드 기본 기간 예외(Decided, ADR-0061):** 아래 물질화 시계와 범위 계산은 재사용하지만 기간 양쪽이 없는 유효 주소에서는 기본 기간을 초안에만 둔다. 적용 URL에는 쓰지 않고 조회하지 않는다(§11). live 메뉴의 URL 물질화는 유지한다. 부분·잘못된 기간은 두 모드 모두 오류로 거부하며 보정하지 않는다.
 
 **기본 구간 물질화 시계 `defaultRangeTo` (Decided):** 브라우저 로컬 now, 서버 UTC 문자열 절단, "watermark = now = Data through" 등식은 모두 쓰지 않는다. 서버가 해당 시간역·데이터셋의 기본 조회 상한 `defaultRangeTo`(배타적 초 경계, wall-clock)를 제공한다. `defaultRangeTo`는 half-open 구간의 상한이므로 그 값 자체는 §6.3의 경계 규칙에 따라 항상 제외된다. 서버가 이 값을 정할 때 "포함"이 뜻하는 것은 **포함하려는 마지막 실제 데이터 시각이 `defaultRangeTo`보다 항상 이전이 되도록**(그 시각이 필터로 잘리지 않도록) 상한을 잡는다는 것이지, 상한 이전 데이터가 모두 도착했거나 집계가 완전하다는 뜻이 아니다 — 예를 들어 포함하려는 마지막 시각이 `10:00:00.000` 또는 `10:00:00.500`이면 `defaultRangeTo`는 최소 `10:00:01`이어야 한다. 기본 구간은 `[defaultRangeTo − Δ, defaultRangeTo)`(naive 길이 산술, 자정 비정렬)로 물질화하며, 산출 불가 시 자동 물질화하지 않고 기간 선택을 요구한다. 현재 포트(`defaultRangeTo(): string`)는 항상 값을 준다 — 산출 불가 분기는 실서버 연결(#154) 때 포트에 더한다(결정 대기, `.planning/README.md`). 한 번 물질화한 URL 기간을 데이터 갱신만으로 자동 이동시키지 않는다. 사용자가 명시적으로 고르는 기간 프리셋(`1일/7일/사용자 지정`)은 이 메커니즘을 그대로 재사용해 Δ=24h/168h로 확정했다(2026-09-22). 최초 진입 시 자동 물질화되는 기본 Δ 숫자 자체는 별도로 Open이다.
+
+**`defaultRangeTo`가 `null`일 때(Decided 2026-10-28, #1096·[ADR-0098](../adr/0098-adapter-preferences-people-notices-ports.md)):** 서버에 기준점이 없다는 뜻이다. 브라우저 now·시간대 변환·epoch·지어낸 날짜로 채우지 않는다. 명시한 기간은 그대로 동작하고 상대 기본 기간은 물질화되지 않아 필수 기간 게이트(ADR-0061)가 설명한다. 상대 저장 뷰는 `unavailable`로 실패하고 절대 뷰는 복원된다. 조회 바·전역 Context 바의 최근 24시간·7일·오늘은 disabled이고 직접 편집기는 빈 값으로 시작한다. HTTP 부트스트랩의 `null`은 유효하며 새로고침 전까지 고정이다.
 
 **조회 바 달력 프리셋(Decided, 2026-10-21, #553 위임 결정):** Apply 모드의 최근 24시간·최근 7일은 같은 서버 앵커에서 24h·168h를 뺀다. 오늘은 `defaultRangeTo`의 날짜 D, 기준일은 사용자가 고른 날짜 D로 `[D 00:00:00, D+1 00:00:00)`를 만든다. 브라우저 now·UTC 변환을 쓰지 않으며 직접 범위는 초 정렬 naive 시각을 그대로 유지한다. 이 명시적 선택은 최초 기본 Δ의 Open 결정을 바꾸지 않는다.
 

@@ -234,7 +234,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     if (mode === 'main' && route?.viaAlias) { commit(pathFor(route.menu, route.params) + search, 'replace', { redirect: true }); return; }
     if (!route || routeContractError) return;
     let next = global;
-    if (route.menu.query?.mode !== 'apply' && route.menu.context.time === 'apply' && global.from === null) next = { ...next, from: shift(defaultRangeTo, -24), to: defaultRangeTo };
+    if (route.menu.query?.mode !== 'apply' && route.menu.context.time === 'apply' && global.from === null && defaultRangeTo !== null) next = { ...next, from: shift(defaultRangeTo, -24), to: defaultRangeTo };
     if (metricInit.phase === 'confirm') next = { ...next, metricVersion: metricInit.metricVersion };
     if (next === global) { proposed.current = null; return; }
     const target = pathname + buildQuery(next, page, extras);

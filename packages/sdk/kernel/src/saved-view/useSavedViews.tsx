@@ -141,6 +141,8 @@ export function useSavedViews(): SavedViews {
     const fail = (reason: Exclude<SelectOutcome, { ok: true }>['reason']): SelectOutcome => { clearSelection(); return { ok: false, reason }; };
     if (!found) return fail('unavailable');
     if (found.denied || !found.capabilities.canView) return fail('denied');
+    // A relative period needs the server anchor; without one it is not restorable (absolute views still are).
+    if (found.view.context.relativePeriod && anchor === null) return fail('unavailable');
     const current = live.current.host;
     const result = restoreSavedView({ view: found.view, support, current: { global: current.global, page: current.page }, extras: current.extras, pathname: current.pathname, anchor, source });
     if (!result.ok) return fail(result.reason);

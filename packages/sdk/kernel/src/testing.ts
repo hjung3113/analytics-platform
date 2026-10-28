@@ -3,7 +3,7 @@
 // Deliberately not exported from src/index.ts.
 import { act, createElement, type ReactElement } from 'react';
 import { useToastList, type Toast } from './platform/platform';
-import { contextCapabilities, type ActionResponse, type ApiResponse, type Capability, type ContextKey, type ModuleScopedId, type Permission, type PlatformAdapter, type ScopeOption, type Session, type SessionUser, type SpaceDef, spaceId } from '@ap/contracts';
+import { contextCapabilities, type ActionResponse, type ApiResponse, type Capability, type ContextKey, type JsonValue, type ModuleScopedId, type PreferencesSnapshot, type Permission, type PlatformAdapter, type ScopeOption, type Session, type SessionUser, type SpaceDef, spaceId } from '@ap/contracts';
 
 /** Every Context key 'unsupported': the no-op Global Context capability record (06 §6). */
 export const noContext: Record<ContextKey, Capability> = contextCapabilities();
@@ -29,6 +29,10 @@ const empty: ApiResponse<never> = { outcome: 'empty', data: null, assessments: [
 export function testAdapter(over: Partial<PlatformAdapter> = {}): PlatformAdapter {
   // session() is a store snapshot (adapter.ts): one default session per adapter, not per read.
   const session = testSession([]);
+  // In-memory preferences for this adapter only (the default is a signed-in user with nothing stored).
+  const prefs = new Map<string, JsonValue>();
+  let importedAt: string | null = null;
+  const snapshot = (): ApiResponse<PreferencesSnapshot> => ({ outcome: 'ok', data: { values: Object.fromEntries(prefs), importedAt }, assessments: [], trust: null, correlationId: 'fixture' });
   return {
     session: () => session,
     validateScope: async () => ({ status: 'valid', grantedRooms: [] }),
@@ -51,6 +55,23 @@ export function testAdapter(over: Partial<PlatformAdapter> = {}): PlatformAdapte
     listAnnotations: async () => empty,
     saveAnnotation: async () => refused,
     deleteAnnotation: async () => refused,
+    readPreferences: async () => snapshot(),
+    patchPreferences: async ({ set, remove }) => {
+      for (const key of remove ?? []) prefs.delete(key);
+      for (const [key, value] of Object.entries(set ?? {})) prefs.set(key, value);
+      return snapshot();
+    },
+    importPreferences: async ({ values }) => {
+      if (importedAt === null) {
+        for (const [key, value] of Object.entries(values)) if (!prefs.has(key)) prefs.set(key, value);
+        importedAt = '2026-09-26T09:00:00Z';
+      }
+      return snapshot();
+    },
+    lookupPeople: async () => [],
+    listNotices: async () => refused,
+    saveNotice: async () => refusedAction,
+    deleteNotice: async () => refusedAction,
     subscribe: () => () => {},
     ...over,
   };

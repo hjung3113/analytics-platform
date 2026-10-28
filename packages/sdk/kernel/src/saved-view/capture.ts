@@ -36,10 +36,11 @@ export function captureApplied(applied: Applied, support: SupportedKeys): SavedS
   return { context, page: pagePairs(applied.page.filter(pair => support.pageKeys.includes(pair[0]) && savable(pair))) };
 }
 
-/** A saved relative period becomes an absolute window from the server anchor; everything else is already absolute. */
-export function resolveContext(context: SavedViewContext, anchor: string): SavedViewContext {
+/** A saved relative period becomes an absolute window from the server anchor (and is left unresolved when there is none); everything else is already absolute. */
+export function resolveContext(context: SavedViewContext, anchor: string | null): SavedViewContext {
   const { relativePeriod, ...rest } = context;
-  return relativePeriod ? { ...rest, from: shift(anchor, -relativePeriod.hours), to: anchor } : rest;
+  // No server anchor (ADR-0098): a relative period has nothing to resolve against and is left out, never dated from the browser clock.
+  return relativePeriod && anchor !== null ? { ...rest, from: shift(anchor, -relativePeriod.hours), to: anchor } : rest;
 }
 
 /** Canonical text of a state, so two states are equal exactly when their address would be. */

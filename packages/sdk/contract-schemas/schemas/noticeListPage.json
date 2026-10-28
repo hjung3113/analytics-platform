@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "object",
+            "properties": {
+              "ko": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "en": {
+                "type": "string",
+                "maxLength": 200
+              }
+            },
+            "required": [
+              "ko",
+              "en"
+            ],
+            "additionalProperties": false
+          },
+          "content": {
+            "type": "object",
+            "properties": {
+              "ko": {
+                "type": "string",
+                "maxLength": 10000
+              },
+              "en": {
+                "type": "string",
+                "maxLength": 10000
+              }
+            },
+            "required": [
+              "ko",
+              "en"
+            ],
+            "additionalProperties": false
+          },
+          "scopeId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "until": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}$"
+          },
+          "version": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "content",
+          "scopeId",
+          "until",
+          "version"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "items"
+  ],
+  "additionalProperties": false
+}

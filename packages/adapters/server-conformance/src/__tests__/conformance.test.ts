@@ -1,6 +1,6 @@
 import { optionSamples, referenceSelectionPorts } from './selection-ports.test-support';
 import { describe, expect, it } from 'vitest';
-import { defineAction, defineEndpoint, emptyGlobal, projectContext, type ActionResponse, type ApiResponse, type Assessment, type AuditEvent, type ChartAnnotation, type EntityAuditPage, type ClientErrorReport, type GlobalContext, type MenuAction, type MenuQuery, type Permission, type PlatformAdapter, type Session, type Trust, type UsageEvent, type UsageRange, type UsageSummary, menuPermission, spaceId } from '@ap/contracts';
+import { defineAction, defineEndpoint, emptyGlobal, projectContext, type ActionResponse, type ApiResponse, type Assessment, type AuditEvent, type ChartAnnotation, type EntityAuditPage, type GroupMember, type JsonValue, type Notice, type PreferencesSnapshot, type ClientErrorReport, type GlobalContext, type MenuAction, type MenuQuery, type Permission, type PlatformAdapter, type Session, type Trust, type UsageEvent, type UsageRange, type UsageSummary, menuPermission, spaceId } from '@ap/contracts';
 import { planServerConformance, runServerConformance, type ActionCase, type ConformanceResult, type ConformanceCase, type PortSamples, type ServerConformanceHarness } from '../index';
 
 const SELECTION_PORT_SKIP_IDS = [
@@ -98,6 +98,24 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
   const actor = () => (state.console ? 'admin' : 'engineer');
   const usageRows: (UsageEvent & { userId: string; receivedAt: number })[] = [];
   const actionRecords = new Map<string, { hash: string; response: ActionResponse<unknown> }>();
+  // Preferences, people and notices (ADR-0098): per-actor server state, one break per rule.
+  const prefStores = new Map<string, { values: Record<string, JsonValue>; importedAt: string | null }>();
+  const prefsOf = () => {
+    const key = breaks.has('prefs-shared') ? 'everyone' : actor();
+    if (!prefStores.has(key)) prefStores.set(key, { values: {}, importedAt: null });
+    return prefStores.get(key)!;
+  };
+  const prefsAnswer = (store: { values: Record<string, JsonValue>; importedAt: string | null }): ApiResponse<PreferencesSnapshot> =>
+    ({ ...envelope, outcome: 'ok', data: { values: { ...store.values }, importedAt: store.importedAt } });
+  const PREF_KEY = /^(?:favorites|recents|lastScope|lang|columns:[A-Za-z0-9_.-]{1,100})$/;
+  type StoredNotice = Notice & { n: number };
+  const noticeRows: StoredNotice[] = [];
+  let noticeSeq = 0;
+  const noticeReplays = new Map<string, ActionResponse<Notice>>();
+  const noticeAnswer = <T,>(outcome: ActionResponse<T>['outcome'], over: Partial<ActionResponse<T>> = {}): ActionResponse<T> =>
+    ({ outcome, data: null, version: null, fieldErrors: [], replayed: false, correlationId: 'ref', ...over });
+  const noticeWriter = () => state.console || breaks.has('notice-forbidden');
+  const toNotice = ({ n: _n, ...notice }: StoredNotice): Notice => notice;
   return {
     ...referenceSelectionPorts(),
     session: () => {
@@ -536,12 +554,81 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
       actionRecords.set(slot, { hash, response: ok });
       return ok;
     },
+    readPreferences: async () => prefsAnswer(prefsOf()),
+    patchPreferences: async patch => {
+      const body = patch as Record<string, unknown>;
+      const set = (patch.set ?? {}) as Record<string, JsonValue>;
+      const remove = patch.remove ?? [];
+      const keys = [...Object.keys(set), ...remove];
+      const identity = Object.keys(body).some(k => k !== 'set' && k !== 'remove');
+      const overlap = remove.some(k => k in set);
+      if ((identity && !breaks.has('prefs-identity')) || (overlap && !breaks.has('prefs-overlap')) || keys.some(k => !PREF_KEY.test(k))) return err('invalid patch');
+      const store = prefsOf();
+      if (breaks.has('prefs-overwrite')) store.values = {};
+      for (const k of remove) delete store.values[k];
+      Object.assign(store.values, set);
+      return prefsAnswer(store);
+    },
+    importPreferences: async input => {
+      const body = input as Record<string, unknown>;
+      if (Object.keys(body).some(k => k !== 'values') && !breaks.has('prefs-identity')) return err('invalid import');
+      if (Object.keys(input.values).some(k => !PREF_KEY.test(k))) return err('invalid import');
+      const store = prefsOf();
+      if (store.importedAt === null || breaks.has('prefs-import-repeat')) {
+        for (const [k, v] of Object.entries(input.values)) if (!(k in store.values) || breaks.has('prefs-import-overwrite')) store.values[k] = v;
+        store.importedAt ??= '2026-09-26T09:00:00Z';
+      }
+      return prefsAnswer(store);
+    },
+    lookupPeople: async ids => {
+      const directory: Record<string, GroupMember> = { engineer: { userId: 'engineer', displayName: 'Engineer', affiliation: 'MEM' } };
+      return ids.flatMap(id => {
+        const person = directory[id];
+        if (!person) return breaks.has('people-echo') ? [{ userId: id, displayName: id, affiliation: '' }] : [];
+        return [breaks.has('people-console-data') ? ({ ...person, role: 'admin' } as GroupMember) : person];
+      });
+    },
+    listNotices: async () => ({ ...envelope, outcome: 'ok', data: { items: noticeRows.map(toNotice) } }),
+    saveNotice: async input => {
+      if (!noticeWriter()) return noticeAnswer('forbidden');
+      const body = input as Record<string, unknown>;
+      const update = 'id' in body || 'expectedVersion' in body;
+      const allowed = ['title', 'content', 'scopeId', 'until', 'idempotencyKey', ...(update ? ['id', 'expectedVersion'] : [])];
+      if (Object.keys(body).some(k => !allowed.includes(k)) && !breaks.has('notice-author')) return noticeAnswer('invalid', { fieldErrors: [{ path: ['body'], code: 'unknown_key' }] });
+      const replay = noticeReplays.get(`${actor()}:${input.idempotencyKey}`);
+      if (replay && !breaks.has('notice-replay')) return { ...replay, replayed: true };
+      let result: ActionResponse<Notice>;
+      const draft = { title: input.title, content: input.content, scopeId: input.scopeId, until: input.until };
+      if ('id' in input) {
+        const row = noticeRows.find(r => r.id === input.id);
+        if (!row) return noticeAnswer('not_found');
+        if (row.version !== input.expectedVersion && !breaks.has('notice-stale')) return noticeAnswer('conflict', { version: row.version });
+        row.n += 1;
+        Object.assign(row, draft, { version: `v${row.n}` });
+        result = noticeAnswer('ok', { data: toNotice(row), version: row.version });
+      } else {
+        const row: StoredNotice = { ...draft, id: `N-${++noticeSeq}`, version: 'v1', n: 1 };
+        noticeRows.push(row);
+        result = noticeAnswer('ok', { data: toNotice(row), version: row.version });
+      }
+      noticeReplays.set(`${actor()}:${input.idempotencyKey}`, result);
+      return result;
+    },
+    deleteNotice: async input => {
+      if (!noticeWriter()) return noticeAnswer('forbidden');
+      const index = noticeRows.findIndex(r => r.id === input.id);
+      if (index < 0) return noticeAnswer('not_found');
+      if (noticeRows[index]!.version !== input.expectedVersion) return noticeAnswer('conflict', { version: noticeRows[index]!.version });
+      noticeRows.splice(index, 1);
+      return noticeAnswer('ok', { data: { id: input.id }, version: input.expectedVersion });
+    },
     // The ports round D exercises (#152): contract-shaped answers, one break each.
     publishedMetrics: () => breaks.has('published-metrics')
       ? [{ metricId: '', publishedVersion: 3 as unknown as string | null }] // empty id, non-string version
       : [{ metricId: 'cycle_time', publishedVersion: '4' }, { metricId: 'scrap_rate', publishedVersion: null }],
     // 'default-range' answers with a Z suffix — a zone the naive wall-clock of 06 §6.3 forbids.
-    defaultRangeTo: () => (breaks.has('default-range') ? '2026-09-26T09:00:00Z' : '2026-09-26T09:00:00'),
+    // 'null-anchor' = a server with no anchor (valid); 'default-range' answers with a Z suffix.
+    defaultRangeTo: () => (breaks.has('null-anchor') ? null : breaks.has('default-range') ? '2026-09-26T09:00:00Z' : breaks.has('default-range-number') ? (5 as unknown as string) : '2026-09-26T09:00:00'),
     contextOptions: async scopeId => {
       if (scopeId !== 'MEM') return { stgroup: [], team: [], makerModel: [] };
       // 'context-options' answers stgroup as a plain string and model as a number.
@@ -723,6 +810,16 @@ describe('server conformance kit (#145)', () => {
       'port · reportClientError: a path with a query is rejected',
       'port · reportClientError: a free-text name is rejected',
       'port · reportClientError: a missing field is rejected',
+      'port · patchPreferences stores, merges and removes keys; null is a value',
+      'port · patchPreferences rejects overlapping set/remove, bad keys and a forged identity, and writes nothing',
+      'port · importPreferences keeps server values, saves missing keys once, and is a no-op afterwards',
+      'port · preferences are per session user: a second user neither reads nor is changed by them',
+      'port · lookupPeople answers exact ids with GroupMember fields only; unknown ids are absent',
+      'port · notices: create, update under the version, stale update conflicts, delete, delete again not_found',
+      'port · saveNotice with the same idempotency key replays without a second write',
+      'port · saveNotice rejects a supplied author, id on create and unknown keys',
+      'port · saveNotice without console:access → forbidden',
+      'port · deleteNotice without console:access → forbidden',
       'actions: no sample',
       'condition: no sample',
       ...SELECTION_PORT_SKIP_IDS,
@@ -754,6 +851,32 @@ describe('server conformance kit (#145)', () => {
     ['explicit-empty-roomNames-only', ['fixture.list · explicit empty selection: [] → empty with no assessments and no trust']],
   ])('catches a server that drops the %s rule on any declared key', async (broken, checks) => {
     expect(await failing([broken])).toEqual(checks);
+  });
+
+  // ADR-0098: one break per preferences/people/notices rule; each must fail its own check(s).
+  it.each([
+    ['prefs-overwrite', ['port · patchPreferences stores, merges and removes keys; null is a value']],
+    ['prefs-overlap', ['port · patchPreferences rejects overlapping set/remove, bad keys and a forged identity, and writes nothing']],
+    ['prefs-identity', ['port · patchPreferences rejects overlapping set/remove, bad keys and a forged identity, and writes nothing', 'port · importPreferences keeps server values, saves missing keys once, and is a no-op afterwards']],
+    ['prefs-import-overwrite', ['port · importPreferences keeps server values, saves missing keys once, and is a no-op afterwards']],
+    ['prefs-import-repeat', ['port · importPreferences keeps server values, saves missing keys once, and is a no-op afterwards']],
+    ['prefs-shared', ['port · preferences are per session user: a second user neither reads nor is changed by them']],
+    ['people-echo', ['port · lookupPeople answers exact ids with GroupMember fields only; unknown ids are absent']],
+    ['people-console-data', ['port · lookupPeople answers exact ids with GroupMember fields only; unknown ids are absent']],
+    ['notice-replay', ['port · saveNotice with the same idempotency key replays without a second write']],
+    ['notice-stale', ['port · notices: create, update under the version, stale update conflicts, delete, delete again not_found']],
+    ['notice-author', ['port · saveNotice rejects a supplied author, id on create and unknown keys']],
+    ['notice-forbidden', ['port · saveNotice without console:access → forbidden', 'port · deleteNotice without console:access → forbidden']],
+  ])('catches a server that breaks %s', async (broken, expected) => {
+    expect(await failing([broken])).toEqual(expect.arrayContaining(expected));
+  });
+
+  it('defaultRangeTo: a null anchor and a valid naive wall-clock pass; a zoned or non-string anchor fails', async () => {
+    const id = 'port · defaultRangeTo() is a naive wall-clock';
+    expect(await failing(['null-anchor'])).not.toContain(id);
+    expect(await failing([])).not.toContain(id);
+    expect(await failing(['default-range'])).toContain(id);
+    expect(await failing(['default-range-number'])).toContain(id);
   });
 
   it('fails both Scope checks when the server ignores the site grant', async () => {
@@ -1522,6 +1645,21 @@ describe('declared gaps: implemented ports, site grants, siteless destinations (
     // A check already skipped for want of a sample still names the port gap.
     expect(skipped).toContain('actions: no sample — not implemented: menuAction');
     expect(results.find(r => r.id === 'port · getEntity(sample) → ok with the row')?.status).toBe('passed');
+  });
+
+  it('shows the new ports as visibly skipped when a server has not implemented them yet', async () => {
+    const h = fresh();
+    const NEW = ['readPreferences', 'patchPreferences', 'importPreferences', 'lookupPeople', 'listNotices', 'saveNotice', 'deleteNotice'];
+    const implemented = ALL_METHODS.filter(m => !NEW.includes(m));
+    const boom = async () => { throw new Error('not implemented'); };
+    const adapter = { ...h.adapter, ...Object.fromEntries(NEW.map(m => [m, boom])) } as PlatformAdapter;
+    const results = await runServerConformance({ ...h, adapter, implemented });
+    expect(results.filter(r => r.status === 'failed')).toEqual([]);
+    const skipped = results.filter(r => r.status === 'skipped').map(r => r.id);
+    expect(skipped).toContain('port · patchPreferences stores, merges and removes keys; null is a value — not implemented: readPreferences, patchPreferences, importPreferences');
+    expect(skipped).toContain('port · lookupPeople answers exact ids with GroupMember fields only; unknown ids are absent — not implemented: lookupPeople');
+    expect(skipped).toContain('port · saveNotice without console:access → forbidden — not implemented: saveNotice');
+    expect(results.find(r => r.id === 'port · defaultRangeTo() is a naive wall-clock')?.status).toBe('passed');
   });
 
   it('skips the site checks on a server with no site grants, and only those', async () => {

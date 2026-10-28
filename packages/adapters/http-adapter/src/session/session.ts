@@ -36,7 +36,7 @@ export type SessionStoreConfig = {
 export type SessionStore = {
   session(): Session;
   publishedMetrics(): readonly PublishedMetric[];
-  defaultRangeTo(): string;
+  defaultRangeTo(): string | null;
   /** In-memory only: never written to storage. Replaced by every successful bootstrap. */
   csrfToken(): string;
   subscribe(onChange: () => void): () => void;

@@ -118,11 +118,21 @@ const BAD_BOOTSTRAP: [string, object][] = [
   ['a published metric lacks publishedVersion', { ...bootstrapBody(), publishedMetrics: [{ metricId: 'm' }] }],
   ['defaultRangeTo carries a zone', { ...bootstrapBody(), defaultRangeTo: '2026-10-02T09:00:00Z' }],
   ['defaultRangeTo is not a date', { ...bootstrapBody(), defaultRangeTo: 'today' }],
+  ['defaultRangeTo is missing', without(bootstrapBody(), 'defaultRangeTo')],
+  ['defaultRangeTo is undefined-like empty string', { ...bootstrapBody(), defaultRangeTo: '' }],
+  ['defaultRangeTo is a number', { ...bootstrapBody(), defaultRangeTo: 0 }],
   ['sessionVersion is empty', { ...bootstrapBody(), sessionVersion: '' }],
   ['csrfToken is empty', { ...bootstrapBody(), csrfToken: '' }],
 ];
 
 describe('bootstrap structure (C2)', () => {
+  it('a null defaultRangeTo is ready and stays null: the server has no anchor (ADR-0098)', async () => {
+    const s = server(() => json({ ...bootstrapBody(), defaultRangeTo: null }));
+    const result = await bootstrapHttpAdapter({ fetch: s.fetch });
+    if (result.kind !== 'ready') throw new Error(result.kind);
+    expect(result.adapter.defaultRangeTo()).toBeNull();
+  });
+
   it('a full body with scopes, metrics and unknown keys is ready', async () => {
     const body = {
       ...bootstrapBody(),

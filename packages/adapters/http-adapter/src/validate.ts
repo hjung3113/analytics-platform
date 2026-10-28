@@ -91,7 +91,8 @@ export function toActionResponse(value: unknown): ActionResponse<unknown> | null
 export type BootstrapPayload = {
   session: Session;
   publishedMetrics: readonly PublishedMetric[];
-  defaultRangeTo: string;
+  /** `null` = the server has no anchor (ADR-0098); a missing key or a malformed string is still a rejected bootstrap. */
+  defaultRangeTo: string | null;
   sessionVersion: string;
   csrfToken: string;
 };
@@ -117,7 +118,7 @@ export function toBootstrap(value: unknown): BootstrapPayload | null {
   const { session, publishedMetrics, defaultRangeTo, sessionVersion, csrfToken } = value;
   if (!isSession(session)) return null;
   if (!Array.isArray(publishedMetrics) || !publishedMetrics.every(isPublishedMetric)) return null;
-  if (!isString(defaultRangeTo) || !WALL_CLOCK.test(defaultRangeTo)) return null;
+  if (defaultRangeTo !== null && (!isString(defaultRangeTo) || !WALL_CLOCK.test(defaultRangeTo))) return null;
   if (!isNonEmpty(sessionVersion) || !isNonEmpty(csrfToken)) return null;
   return {
     session,

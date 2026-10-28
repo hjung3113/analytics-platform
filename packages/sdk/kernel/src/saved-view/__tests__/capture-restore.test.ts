@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { emptyGlobal, type SavedViewSupport } from '@ap/contracts';
 import { captureApplied, viewState } from '../capture';
-import { hasExplicitContext, restoreSavedView, unsupportedOf } from '../restore';
+import { hasExplicitContext, restoreSavedView, savedStateOf, unsupportedOf } from '../restore';
+import { resolveContext } from '../capture';
 import { createSupportRegistry } from '../useSavedViewSupport';
 import { testSavedView as viewOf } from '../../testing';
 
@@ -70,6 +71,20 @@ describe('restoreSavedView', () => {
     const result = run({ view: viewOf({ id: 'r', context: { relativePeriod: { hours: 24 } } }) });
     if (!result.ok || !result.applied) throw new Error('unreachable');
     expect(result.next.global).toMatchObject({ from: '2026-09-01T00:00:00', to: anchor });
+  });
+  it('without a server anchor a relative period is left out, never dated from anywhere else', () => {
+    const view = viewOf({ id: 'r', context: { relativePeriod: { hours: 24 }, lineNames: ['L1'] } });
+    expect(resolveContext(view.context, null)).toEqual({ lineNames: ['L1'] });
+    expect(savedStateOf(view, support, null).context).toEqual({ lineNames: ['L1'] });
+    expect(unsupportedOf(view, support, null)).toEqual([]);
+    const result = run({ view, anchor: null });
+    if (!result.ok || !result.applied) throw new Error('unreachable');
+    expect(result.next.global.from).toBeNull();
+    expect(result.next.global.to).toBeNull();
+  });
+  it('an absolute view restores the same with or without an anchor', () => {
+    const view = menuView();
+    expect(run({ view, anchor: null })).toEqual(run({ view }));
   });
   it.each([
     ['another menu', menuView({ menuId: 'other' }), 'wrong-menu'],

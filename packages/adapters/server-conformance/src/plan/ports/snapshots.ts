@@ -32,7 +32,9 @@ export function planSnapshotChecks(harness: ServerConformanceHarness): Conforman
     nonEnvelope: true,
     run: async () => {
       const anchor = adapter.defaultRangeTo();
-      if (typeof anchor !== 'string') return `defaultRangeTo() answers a string, got ${typeof anchor}`;
+      // null = the server has no anchor (ADR-0098): valid, and never replaced by a browser-clock or invented date.
+      if (anchor === null) return null;
+      if (typeof anchor !== 'string') return `defaultRangeTo() answers a string or null, got ${typeof anchor}`;
       try {
         parseDateTime(anchor, 'defaultRangeTo'); // url.ts DATETIME — the URL contract's validator
       } catch (error) {

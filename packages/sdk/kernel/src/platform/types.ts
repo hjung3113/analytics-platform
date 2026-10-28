@@ -190,7 +190,7 @@ export type HostPlatform = {
   dismissToast: (id: number) => void;
   /** Pauses (`true`) or restarts (`false`) a toast's auto-dismiss while focus or the pointer is inside it. */
   holdToast: (id: number, held: boolean) => void;
-  defaultRangeTo: string;
+  defaultRangeTo: string | null;
   slots: PlatformSlots;
   /** = `slots.homeTodo ?? null`, raised for menus (ADR-0076). */
   homeTodo: HomeTodoSlot | null;
