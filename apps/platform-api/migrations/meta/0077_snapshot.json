@@ -132,12 +132,8 @@
           "tableFrom": "actors",
           "tableTo": "workspaces",
           "schemaTo": "core",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -297,12 +293,8 @@
           "tableFrom": "analytics_areas",
           "tableTo": "workspaces",
           "schemaTo": "core",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -311,12 +303,8 @@
           "tableFrom": "analytics_areas",
           "tableTo": "managed_systems",
           "schemaTo": "core",
-          "columnsFrom": [
-            "managed_system_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["managed_system_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -325,12 +313,8 @@
           "tableFrom": "analytics_areas",
           "tableTo": "teams",
           "schemaTo": "core",
-          "columnsFrom": [
-            "owner_team_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owner_team_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -339,12 +323,8 @@
           "tableFrom": "analytics_areas",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "archived_by_actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["archived_by_actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -533,12 +513,8 @@
           "tableFrom": "audit_log",
           "tableTo": "workspaces",
           "schemaTo": "core",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -547,12 +523,8 @@
           "tableFrom": "audit_log",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -637,12 +609,8 @@
           "tableFrom": "client_errors",
           "tableTo": "workspaces",
           "schemaTo": "core",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -651,12 +619,8 @@
           "tableFrom": "client_errors",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -696,10 +660,7 @@
       "compositePrimaryKeys": {
         "display_counters_workspace_id_entity_type_pk": {
           "name": "display_counters_workspace_id_entity_type_pk",
-          "columns": [
-            "workspace_id",
-            "entity_type"
-          ]
+          "columns": ["workspace_id", "entity_type"]
         }
       },
       "uniqueConstraints": {},
@@ -970,12 +931,8 @@
           "tableFrom": "entity_links",
           "tableTo": "workspaces",
           "schemaTo": "core",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -984,12 +941,8 @@
           "tableFrom": "entity_links",
           "tableTo": "managed_systems",
           "schemaTo": "core",
-          "columnsFrom": [
-            "managed_system_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["managed_system_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -998,12 +951,8 @@
           "tableFrom": "entity_links",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1012,12 +961,8 @@
           "tableFrom": "entity_links",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "detached_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["detached_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1159,12 +1104,8 @@
           "tableFrom": "evidence_highlights",
           "tableTo": "workspaces",
           "schemaTo": "core",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1173,12 +1114,8 @@
           "tableFrom": "evidence_highlights",
           "tableTo": "findings",
           "schemaTo": "finding",
-          "columnsFrom": [
-            "finding_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["finding_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1187,12 +1124,8 @@
           "tableFrom": "evidence_highlights",
           "tableTo": "managed_systems",
           "schemaTo": "core",
-          "columnsFrom": [
-            "primary_managed_system_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["primary_managed_system_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1201,12 +1134,8 @@
           "tableFrom": "evidence_highlights",
           "tableTo": "survey_response_excerpt_approvals",
           "schemaTo": "survey",
-          "columnsFrom": [
-            "approved_excerpt_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["approved_excerpt_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1215,12 +1144,8 @@
           "tableFrom": "evidence_highlights",
           "tableTo": "analytics_areas",
           "schemaTo": "core",
-          "columnsFrom": [
-            "analytics_area_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["analytics_area_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1229,12 +1154,8 @@
           "tableFrom": "evidence_highlights",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1244,10 +1165,7 @@
         "evidence_highlights_workspace_id_uq": {
           "name": "evidence_highlights_workspace_id_uq",
           "nullsNotDistinct": false,
-          "columns": [
-            "workspace_id",
-            "id"
-          ]
+          "columns": ["workspace_id", "id"]
         }
       },
       "policies": {},
@@ -1368,12 +1286,8 @@
           "tableFrom": "finding_comments",
           "tableTo": "workspaces",
           "schemaTo": "core",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1382,12 +1296,8 @@
           "tableFrom": "finding_comments",
           "tableTo": "findings",
           "schemaTo": "finding",
-          "columnsFrom": [
-            "finding_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["finding_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1396,12 +1306,8 @@
           "tableFrom": "finding_comments",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1491,14 +1397,8 @@
           "tableFrom": "finding_response_bindings",
           "tableTo": "findings",
           "schemaTo": "finding",
-          "columnsFrom": [
-            "workspace_id",
-            "finding_id"
-          ],
-          "columnsTo": [
-            "workspace_id",
-            "id"
-          ],
+          "columnsFrom": ["workspace_id", "finding_id"],
+          "columnsTo": ["workspace_id", "id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1507,14 +1407,8 @@
           "tableFrom": "finding_response_bindings",
           "tableTo": "survey_responses",
           "schemaTo": "survey",
-          "columnsFrom": [
-            "workspace_id",
-            "response_id"
-          ],
-          "columnsTo": [
-            "workspace_id",
-            "id"
-          ],
+          "columnsFrom": ["workspace_id", "response_id"],
+          "columnsTo": ["workspace_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1524,10 +1418,7 @@
         "finding_bindings_workspace_parent_uq": {
           "name": "finding_bindings_workspace_parent_uq",
           "nullsNotDistinct": false,
-          "columns": [
-            "workspace_id",
-            "finding_id"
-          ]
+          "columns": ["workspace_id", "finding_id"]
         }
       },
       "policies": {},
@@ -1742,12 +1633,8 @@
           "tableFrom": "findings",
           "tableTo": "workspaces",
           "schemaTo": "core",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1756,12 +1643,8 @@
           "tableFrom": "findings",
           "tableTo": "managed_systems",
           "schemaTo": "core",
-          "columnsFrom": [
-            "primary_managed_system_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["primary_managed_system_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1770,12 +1653,8 @@
           "tableFrom": "findings",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "owner_actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owner_actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1784,12 +1663,8 @@
           "tableFrom": "findings",
           "tableTo": "teams",
           "schemaTo": "core",
-          "columnsFrom": [
-            "owner_team_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owner_team_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1798,12 +1673,8 @@
           "tableFrom": "findings",
           "tableTo": "analytics_areas",
           "schemaTo": "core",
-          "columnsFrom": [
-            "analytics_area_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["analytics_area_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1812,12 +1683,8 @@
           "tableFrom": "findings",
           "tableTo": "milestones",
           "schemaTo": "task",
-          "columnsFrom": [
-            "linked_milestone_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["linked_milestone_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -1826,12 +1693,8 @@
           "tableFrom": "findings",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1841,10 +1704,7 @@
         "findings_workspace_id_uq": {
           "name": "findings_workspace_id_uq",
           "nullsNotDistinct": false,
-          "columns": [
-            "workspace_id",
-            "id"
-          ]
+          "columns": ["workspace_id", "id"]
         }
       },
       "policies": {},
@@ -1971,14 +1831,8 @@
           "tableFrom": "highlight_response_bindings",
           "tableTo": "evidence_highlights",
           "schemaTo": "finding",
-          "columnsFrom": [
-            "workspace_id",
-            "highlight_id"
-          ],
-          "columnsTo": [
-            "workspace_id",
-            "id"
-          ],
+          "columnsFrom": ["workspace_id", "highlight_id"],
+          "columnsTo": ["workspace_id", "id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1987,16 +1841,8 @@
           "tableFrom": "highlight_response_bindings",
           "tableTo": "survey_response_excerpt_approvals",
           "schemaTo": "survey",
-          "columnsFrom": [
-            "workspace_id",
-            "response_id",
-            "approved_excerpt_id"
-          ],
-          "columnsTo": [
-            "workspace_id",
-            "response_id",
-            "id"
-          ],
+          "columnsFrom": ["workspace_id", "response_id", "approved_excerpt_id"],
+          "columnsTo": ["workspace_id", "response_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2005,14 +1851,8 @@
           "tableFrom": "highlight_response_bindings",
           "tableTo": "survey_responses",
           "schemaTo": "survey",
-          "columnsFrom": [
-            "workspace_id",
-            "response_id"
-          ],
-          "columnsTo": [
-            "workspace_id",
-            "id"
-          ],
+          "columnsFrom": ["workspace_id", "response_id"],
+          "columnsTo": ["workspace_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2022,10 +1862,7 @@
         "highlight_bindings_workspace_parent_uq": {
           "name": "highlight_bindings_workspace_parent_uq",
           "nullsNotDistinct": false,
-          "columns": [
-            "workspace_id",
-            "highlight_id"
-          ]
+          "columns": ["workspace_id", "highlight_id"]
         }
       },
       "policies": {},
@@ -2097,12 +1934,8 @@
           "tableFrom": "idempotency_keys",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2110,10 +1943,7 @@
       "compositePrimaryKeys": {
         "idempotency_keys_actor_id_key_pk": {
           "name": "idempotency_keys_actor_id_key_pk",
-          "columns": [
-            "actor_id",
-            "key"
-          ]
+          "columns": ["actor_id", "key"]
         }
       },
       "uniqueConstraints": {},
@@ -2258,12 +2088,8 @@
           "tableFrom": "managed_systems",
           "tableTo": "workspaces",
           "schemaTo": "core",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2272,12 +2098,8 @@
           "tableFrom": "managed_systems",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "default_owner_actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["default_owner_actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2286,12 +2108,8 @@
           "tableFrom": "managed_systems",
           "tableTo": "teams",
           "schemaTo": "core",
-          "columnsFrom": [
-            "default_owner_team_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["default_owner_team_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2300,12 +2118,8 @@
           "tableFrom": "managed_systems",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "default_reviewer_actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["default_reviewer_actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2314,12 +2128,8 @@
           "tableFrom": "managed_systems",
           "tableTo": "teams",
           "schemaTo": "core",
-          "columnsFrom": [
-            "default_reviewer_team_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["default_reviewer_team_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2328,12 +2138,8 @@
           "tableFrom": "managed_systems",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "default_survey_operator_actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["default_survey_operator_actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2342,12 +2148,8 @@
           "tableFrom": "managed_systems",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "archived_by_actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["archived_by_actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2531,12 +2333,8 @@
           "tableFrom": "milestones",
           "tableTo": "workspaces",
           "schemaTo": "core",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2545,12 +2343,8 @@
           "tableFrom": "milestones",
           "tableTo": "managed_systems",
           "schemaTo": "core",
-          "columnsFrom": [
-            "primary_managed_system_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["primary_managed_system_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2559,12 +2353,8 @@
           "tableFrom": "milestones",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "owner_actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owner_actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2573,12 +2363,8 @@
           "tableFrom": "milestones",
           "tableTo": "analytics_areas",
           "schemaTo": "core",
-          "columnsFrom": [
-            "analytics_area_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["analytics_area_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2587,12 +2373,8 @@
           "tableFrom": "milestones",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2735,12 +2517,8 @@
           "tableFrom": "notifications",
           "tableTo": "workspaces",
           "schemaTo": "core",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2749,12 +2527,8 @@
           "tableFrom": "notifications",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2764,13 +2538,7 @@
         "notifications_idempotency_key_uq": {
           "name": "notifications_idempotency_key_uq",
           "nullsNotDistinct": false,
-          "columns": [
-            "workspace_id",
-            "actor_id",
-            "event_type",
-            "subject_id",
-            "correlation_id"
-          ]
+          "columns": ["workspace_id", "actor_id", "event_type", "subject_id", "correlation_id"]
         }
       },
       "policies": {},
@@ -2852,12 +2620,8 @@
           "tableFrom": "outcome_follow_up_decisions",
           "tableTo": "workspaces",
           "schemaTo": "core",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2866,12 +2630,8 @@
           "tableFrom": "outcome_follow_up_decisions",
           "tableTo": "surveys",
           "schemaTo": "survey",
-          "columnsFrom": [
-            "survey_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["survey_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2880,12 +2640,8 @@
           "tableFrom": "outcome_follow_up_decisions",
           "tableTo": "managed_systems",
           "schemaTo": "core",
-          "columnsFrom": [
-            "managed_system_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["managed_system_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2894,12 +2650,8 @@
           "tableFrom": "outcome_follow_up_decisions",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "decided_by_actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["decided_by_actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2908,14 +2660,8 @@
           "tableFrom": "outcome_follow_up_decisions",
           "tableTo": "survey_responses",
           "schemaTo": "survey",
-          "columnsFrom": [
-            "survey_id",
-            "response_id"
-          ],
-          "columnsTo": [
-            "survey_id",
-            "id"
-          ],
+          "columnsFrom": ["survey_id", "response_id"],
+          "columnsTo": ["survey_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2925,10 +2671,7 @@
         "outcome_follow_up_decisions_workspace_response_uq": {
           "name": "outcome_follow_up_decisions_workspace_response_uq",
           "nullsNotDistinct": false,
-          "columns": [
-            "workspace_id",
-            "response_id"
-          ]
+          "columns": ["workspace_id", "response_id"]
         }
       },
       "policies": {},
@@ -3066,12 +2809,8 @@
           "tableFrom": "outcome_recovery_history",
           "tableTo": "workspaces",
           "schemaTo": "core",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3213,12 +2952,8 @@
           "tableFrom": "outcome_recovery_identities",
           "tableTo": "workspaces",
           "schemaTo": "core",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3226,10 +2961,7 @@
       "compositePrimaryKeys": {
         "outcome_recovery_identities_workspace_id_outcome_recovery_item_id_pk": {
           "name": "outcome_recovery_identities_workspace_id_outcome_recovery_item_id_pk",
-          "columns": [
-            "workspace_id",
-            "outcome_recovery_item_id"
-          ]
+          "columns": ["workspace_id", "outcome_recovery_item_id"]
         }
       },
       "uniqueConstraints": {},
@@ -3322,12 +3054,8 @@
           "tableFrom": "outcome_recovery_presentations",
           "tableTo": "workspaces",
           "schemaTo": "core",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3335,12 +3063,7 @@
       "compositePrimaryKeys": {
         "outcome_recovery_presentations_workspace_id_outcome_recovery_item_id_actor_id_occurrence_pk": {
           "name": "outcome_recovery_presentations_workspace_id_outcome_recovery_item_id_actor_id_occurrence_pk",
-          "columns": [
-            "workspace_id",
-            "outcome_recovery_item_id",
-            "actor_id",
-            "occurrence"
-          ]
+          "columns": ["workspace_id", "outcome_recovery_item_id", "actor_id", "occurrence"]
         }
       },
       "uniqueConstraints": {},
@@ -3910,12 +3633,8 @@
           "tableFrom": "preferences",
           "tableTo": "workspaces",
           "schemaTo": "core",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3924,12 +3643,8 @@
           "tableFrom": "preferences",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3937,10 +3652,7 @@
       "compositePrimaryKeys": {
         "preferences_pk": {
           "name": "preferences_pk",
-          "columns": [
-            "workspace_id",
-            "actor_id"
-          ]
+          "columns": ["workspace_id", "actor_id"]
         }
       },
       "uniqueConstraints": {},
@@ -4142,12 +3854,8 @@
           "tableFrom": "public_update_review_candidates",
           "tableTo": "workspaces",
           "schemaTo": "core",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -4156,12 +3864,8 @@
           "tableFrom": "public_update_review_candidates",
           "tableTo": "vocs",
           "schemaTo": "voc",
-          "columnsFrom": [
-            "voc_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["voc_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -4170,12 +3874,8 @@
           "tableFrom": "public_update_review_candidates",
           "tableTo": "tasks",
           "schemaTo": "task",
-          "columnsFrom": [
-            "source_task_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["source_task_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -4184,12 +3884,8 @@
           "tableFrom": "public_update_review_candidates",
           "tableTo": "entity_links",
           "schemaTo": "core",
-          "columnsFrom": [
-            "source_entity_link_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["source_entity_link_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -4198,12 +3894,8 @@
           "tableFrom": "public_update_review_candidates",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "triggered_by_actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["triggered_by_actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -4212,12 +3904,8 @@
           "tableFrom": "public_update_review_candidates",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "resolved_by_actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["resolved_by_actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -4226,12 +3914,8 @@
           "tableFrom": "public_update_review_candidates",
           "tableTo": "voc_public_updates",
           "schemaTo": "voc",
-          "columnsFrom": [
-            "actioned_public_update_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["actioned_public_update_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -4302,10 +3986,7 @@
       "compositePrimaryKeys": {
         "rate_limits_key_route_group_pk": {
           "name": "rate_limits_key_route_group_pk",
-          "columns": [
-            "key",
-            "route_group"
-          ]
+          "columns": ["key", "route_group"]
         }
       },
       "uniqueConstraints": {},
@@ -4435,12 +4116,8 @@
           "tableFrom": "recovery_history",
           "tableTo": "workspaces",
           "schemaTo": "core",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -4582,12 +4259,8 @@
           "tableFrom": "recovery_identities",
           "tableTo": "workspaces",
           "schemaTo": "core",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -4595,10 +4268,7 @@
       "compositePrimaryKeys": {
         "recovery_identities_workspace_id_recovery_item_id_pk": {
           "name": "recovery_identities_workspace_id_recovery_item_id_pk",
-          "columns": [
-            "workspace_id",
-            "recovery_item_id"
-          ]
+          "columns": ["workspace_id", "recovery_item_id"]
         }
       },
       "uniqueConstraints": {},
@@ -4691,12 +4361,8 @@
           "tableFrom": "recovery_presentations",
           "tableTo": "workspaces",
           "schemaTo": "core",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -4704,12 +4370,7 @@
       "compositePrimaryKeys": {
         "recovery_presentations_workspace_id_recovery_item_id_actor_id_occurrence_pk": {
           "name": "recovery_presentations_workspace_id_recovery_item_id_actor_id_occurrence_pk",
-          "columns": [
-            "workspace_id",
-            "recovery_item_id",
-            "actor_id",
-            "occurrence"
-          ]
+          "columns": ["workspace_id", "recovery_item_id", "actor_id", "occurrence"]
         }
       },
       "uniqueConstraints": {},
@@ -4756,10 +4417,7 @@
       "compositePrimaryKeys": {
         "reporter_facing_status_transitions_from_status_to_status_pk": {
           "name": "reporter_facing_status_transitions_from_status_to_status_pk",
-          "columns": [
-            "from_status",
-            "to_status"
-          ]
+          "columns": ["from_status", "to_status"]
         }
       },
       "uniqueConstraints": {},
@@ -4874,12 +4532,8 @@
           "tableFrom": "responsibility_default_failures",
           "tableTo": "workspaces",
           "schemaTo": "core",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -4888,12 +4542,8 @@
           "tableFrom": "responsibility_default_failures",
           "tableTo": "managed_systems",
           "schemaTo": "core",
-          "columnsFrom": [
-            "managed_system_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["managed_system_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -5012,12 +4662,8 @@
           "tableFrom": "saved_views",
           "tableTo": "workspaces",
           "schemaTo": "core",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5026,12 +4672,8 @@
           "tableFrom": "saved_views",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -5041,12 +4683,7 @@
         "saved_views_workspace_actor_surface_name_uq": {
           "name": "saved_views_workspace_actor_surface_name_uq",
           "nullsNotDistinct": false,
-          "columns": [
-            "workspace_id",
-            "actor_id",
-            "surface",
-            "name"
-          ]
+          "columns": ["workspace_id", "actor_id", "surface", "name"]
         }
       },
       "policies": {},
@@ -5171,12 +4808,8 @@
           "tableFrom": "sessions",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5185,12 +4818,8 @@
           "tableFrom": "sessions",
           "tableTo": "workspaces",
           "schemaTo": "core",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -5354,12 +4983,8 @@
           "tableFrom": "survey_questions",
           "tableTo": "workspaces",
           "schemaTo": "core",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5368,12 +4993,8 @@
           "tableFrom": "survey_questions",
           "tableTo": "surveys",
           "schemaTo": "survey",
-          "columnsFrom": [
-            "survey_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["survey_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5382,16 +5003,8 @@
           "tableFrom": "survey_questions",
           "tableTo": "survey_questions",
           "schemaTo": "survey",
-          "columnsFrom": [
-            "survey_id",
-            "branch_parent_question_id",
-            "branch_parent_depth"
-          ],
-          "columnsTo": [
-            "survey_id",
-            "id",
-            "branch_depth"
-          ],
+          "columnsFrom": ["survey_id", "branch_parent_question_id", "branch_parent_depth"],
+          "columnsTo": ["survey_id", "id", "branch_depth"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -5401,19 +5014,12 @@
         "survey_questions_survey_id_id_uq": {
           "name": "survey_questions_survey_id_id_uq",
           "nullsNotDistinct": false,
-          "columns": [
-            "survey_id",
-            "id"
-          ]
+          "columns": ["survey_id", "id"]
         },
         "survey_questions_survey_id_id_branch_depth_uq": {
           "name": "survey_questions_survey_id_id_branch_depth_uq",
           "nullsNotDistinct": false,
-          "columns": [
-            "survey_id",
-            "id",
-            "branch_depth"
-          ]
+          "columns": ["survey_id", "id", "branch_depth"]
         }
       },
       "policies": {},
@@ -5499,12 +5105,8 @@
           "tableFrom": "survey_response_answers",
           "tableTo": "workspaces",
           "schemaTo": "core",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5513,14 +5115,8 @@
           "tableFrom": "survey_response_answers",
           "tableTo": "survey_responses",
           "schemaTo": "survey",
-          "columnsFrom": [
-            "survey_id",
-            "response_id"
-          ],
-          "columnsTo": [
-            "survey_id",
-            "id"
-          ],
+          "columnsFrom": ["survey_id", "response_id"],
+          "columnsTo": ["survey_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5529,14 +5125,8 @@
           "tableFrom": "survey_response_answers",
           "tableTo": "survey_questions",
           "schemaTo": "survey",
-          "columnsFrom": [
-            "survey_id",
-            "question_id"
-          ],
-          "columnsTo": [
-            "survey_id",
-            "id"
-          ],
+          "columnsFrom": ["survey_id", "question_id"],
+          "columnsTo": ["survey_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -5546,10 +5136,7 @@
         "survey_response_answers_response_id_question_id_uq": {
           "name": "survey_response_answers_response_id_question_id_uq",
           "nullsNotDistinct": false,
-          "columns": [
-            "response_id",
-            "question_id"
-          ]
+          "columns": ["response_id", "question_id"]
         }
       },
       "policies": {},
@@ -5658,12 +5245,8 @@
           "tableFrom": "survey_response_excerpt_approvals",
           "tableTo": "workspaces",
           "schemaTo": "core",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5672,12 +5255,8 @@
           "tableFrom": "survey_response_excerpt_approvals",
           "tableTo": "surveys",
           "schemaTo": "survey",
-          "columnsFrom": [
-            "survey_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["survey_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5686,12 +5265,8 @@
           "tableFrom": "survey_response_excerpt_approvals",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "approved_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["approved_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5700,14 +5275,8 @@
           "tableFrom": "survey_response_excerpt_approvals",
           "tableTo": "survey_responses",
           "schemaTo": "survey",
-          "columnsFrom": [
-            "survey_id",
-            "response_id"
-          ],
-          "columnsTo": [
-            "survey_id",
-            "id"
-          ],
+          "columnsFrom": ["survey_id", "response_id"],
+          "columnsTo": ["survey_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5716,14 +5285,8 @@
           "tableFrom": "survey_response_excerpt_approvals",
           "tableTo": "survey_questions",
           "schemaTo": "survey",
-          "columnsFrom": [
-            "survey_id",
-            "question_id"
-          ],
-          "columnsTo": [
-            "survey_id",
-            "id"
-          ],
+          "columnsFrom": ["survey_id", "question_id"],
+          "columnsTo": ["survey_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -5733,11 +5296,7 @@
         "excerpt_approvals_workspace_response_id_uq": {
           "name": "excerpt_approvals_workspace_response_id_uq",
           "nullsNotDistinct": false,
-          "columns": [
-            "workspace_id",
-            "response_id",
-            "id"
-          ]
+          "columns": ["workspace_id", "response_id", "id"]
         }
       },
       "policies": {},
@@ -5822,12 +5381,8 @@
           "tableFrom": "survey_responses",
           "tableTo": "workspaces",
           "schemaTo": "core",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5836,12 +5391,8 @@
           "tableFrom": "survey_responses",
           "tableTo": "surveys",
           "schemaTo": "survey",
-          "columnsFrom": [
-            "survey_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["survey_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5850,12 +5401,8 @@
           "tableFrom": "survey_responses",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "respondent_actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["respondent_actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -5865,18 +5412,12 @@
         "survey_responses_workspace_id_uq": {
           "name": "survey_responses_workspace_id_uq",
           "nullsNotDistinct": false,
-          "columns": [
-            "workspace_id",
-            "id"
-          ]
+          "columns": ["workspace_id", "id"]
         },
         "survey_responses_survey_id_id_uq": {
           "name": "survey_responses_survey_id_id_uq",
           "nullsNotDistinct": false,
-          "columns": [
-            "survey_id",
-            "id"
-          ]
+          "columns": ["survey_id", "id"]
         }
       },
       "policies": {},
@@ -6106,12 +5647,8 @@
           "tableFrom": "surveys",
           "tableTo": "workspaces",
           "schemaTo": "core",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6120,12 +5657,8 @@
           "tableFrom": "surveys",
           "tableTo": "managed_systems",
           "schemaTo": "core",
-          "columnsFrom": [
-            "primary_managed_system_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["primary_managed_system_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6134,12 +5667,8 @@
           "tableFrom": "surveys",
           "tableTo": "analytics_areas",
           "schemaTo": "core",
-          "columnsFrom": [
-            "analytics_area_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["analytics_area_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6148,12 +5677,8 @@
           "tableFrom": "surveys",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "operator_actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["operator_actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6162,12 +5687,8 @@
           "tableFrom": "surveys",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -6288,12 +5809,8 @@
           "tableFrom": "task_comments",
           "tableTo": "workspaces",
           "schemaTo": "core",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6302,12 +5819,8 @@
           "tableFrom": "task_comments",
           "tableTo": "tasks",
           "schemaTo": "task",
-          "columnsFrom": [
-            "task_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["task_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -6316,12 +5829,8 @@
           "tableFrom": "task_comments",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -6550,12 +6059,8 @@
           "tableFrom": "task_requests",
           "tableTo": "workspaces",
           "schemaTo": "core",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6564,12 +6069,8 @@
           "tableFrom": "task_requests",
           "tableTo": "managed_systems",
           "schemaTo": "core",
-          "columnsFrom": [
-            "primary_managed_system_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["primary_managed_system_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6578,12 +6079,8 @@
           "tableFrom": "task_requests",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "requester_actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["requester_actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6592,12 +6089,8 @@
           "tableFrom": "task_requests",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "reviewer_actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["reviewer_actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6606,12 +6099,8 @@
           "tableFrom": "task_requests",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "assigned_reviewer_actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["assigned_reviewer_actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6620,12 +6109,8 @@
           "tableFrom": "task_requests",
           "tableTo": "teams",
           "schemaTo": "core",
-          "columnsFrom": [
-            "assigned_reviewer_team_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["assigned_reviewer_team_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -6891,12 +6376,8 @@
           "tableFrom": "tasks",
           "tableTo": "workspaces",
           "schemaTo": "core",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6905,12 +6386,8 @@
           "tableFrom": "tasks",
           "tableTo": "managed_systems",
           "schemaTo": "core",
-          "columnsFrom": [
-            "primary_managed_system_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["primary_managed_system_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6919,12 +6396,8 @@
           "tableFrom": "tasks",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "assignee_actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["assignee_actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6933,12 +6406,8 @@
           "tableFrom": "tasks",
           "tableTo": "teams",
           "schemaTo": "core",
-          "columnsFrom": [
-            "assignee_team_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["assignee_team_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6947,12 +6416,8 @@
           "tableFrom": "tasks",
           "tableTo": "milestones",
           "schemaTo": "task",
-          "columnsFrom": [
-            "milestone_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["milestone_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -6961,12 +6426,8 @@
           "tableFrom": "tasks",
           "tableTo": "analytics_areas",
           "schemaTo": "core",
-          "columnsFrom": [
-            "analytics_area_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["analytics_area_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6975,12 +6436,8 @@
           "tableFrom": "tasks",
           "tableTo": "task_requests",
           "schemaTo": "task_request",
-          "columnsFrom": [
-            "source_task_request_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["source_task_request_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6989,12 +6446,8 @@
           "tableFrom": "tasks",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -7113,12 +6566,8 @@
           "tableFrom": "teams",
           "tableTo": "workspaces",
           "schemaTo": "core",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -7127,12 +6576,8 @@
           "tableFrom": "teams",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "archived_by_actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["archived_by_actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -7389,12 +6834,8 @@
           "tableFrom": "usage_events",
           "tableTo": "workspaces",
           "schemaTo": "core",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -7403,12 +6844,8 @@
           "tableFrom": "usage_events",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -7587,12 +7024,8 @@
           "tableFrom": "voc_attachments",
           "tableTo": "vocs",
           "schemaTo": "voc",
-          "columnsFrom": [
-            "voc_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["voc_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -7601,12 +7034,8 @@
           "tableFrom": "voc_attachments",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "uploaded_by_actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["uploaded_by_actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -7615,12 +7044,8 @@
           "tableFrom": "voc_attachments",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "archived_by_actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["archived_by_actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -7630,9 +7055,7 @@
         "voc_attachments_storage_key_unique": {
           "name": "voc_attachments_storage_key_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "storage_key"
-          ]
+          "columns": ["storage_key"]
         }
       },
       "policies": {},
@@ -7770,12 +7193,8 @@
           "tableFrom": "voc_cluster_autogen_shadow_candidates",
           "tableTo": "workspaces",
           "schemaTo": "core",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -7784,12 +7203,8 @@
           "tableFrom": "voc_cluster_autogen_shadow_candidates",
           "tableTo": "managed_systems",
           "schemaTo": "core",
-          "columnsFrom": [
-            "primary_managed_system_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["primary_managed_system_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -7798,12 +7213,8 @@
           "tableFrom": "voc_cluster_autogen_shadow_candidates",
           "tableTo": "vocs",
           "schemaTo": "voc",
-          "columnsFrom": [
-            "voc_id_low"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["voc_id_low"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -7812,12 +7223,8 @@
           "tableFrom": "voc_cluster_autogen_shadow_candidates",
           "tableTo": "vocs",
           "schemaTo": "voc",
-          "columnsFrom": [
-            "voc_id_high"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["voc_id_high"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -7894,12 +7301,8 @@
           "tableFrom": "voc_cluster_members",
           "tableTo": "voc_clusters",
           "schemaTo": "voc_cluster",
-          "columnsFrom": [
-            "cluster_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["cluster_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -7908,12 +7311,8 @@
           "tableFrom": "voc_cluster_members",
           "tableTo": "vocs",
           "schemaTo": "voc",
-          "columnsFrom": [
-            "voc_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["voc_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -7922,12 +7321,8 @@
           "tableFrom": "voc_cluster_members",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "added_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["added_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -7935,10 +7330,7 @@
       "compositePrimaryKeys": {
         "voc_cluster_members_pk": {
           "name": "voc_cluster_members_pk",
-          "columns": [
-            "cluster_id",
-            "voc_id"
-          ]
+          "columns": ["cluster_id", "voc_id"]
         }
       },
       "uniqueConstraints": {},
@@ -7983,12 +7375,8 @@
           "tableFrom": "voc_cluster_suggestion_admissions",
           "tableTo": "workspaces",
           "schemaTo": "core",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -7997,12 +7385,8 @@
           "tableFrom": "voc_cluster_suggestion_admissions",
           "tableTo": "managed_systems",
           "schemaTo": "core",
-          "columnsFrom": [
-            "primary_managed_system_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["primary_managed_system_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -8010,11 +7394,7 @@
       "compositePrimaryKeys": {
         "voc_cluster_suggestion_admissions_workspace_id_primary_managed_system_id_window_start_pk": {
           "name": "voc_cluster_suggestion_admissions_workspace_id_primary_managed_system_id_window_start_pk",
-          "columns": [
-            "workspace_id",
-            "primary_managed_system_id",
-            "window_start"
-          ]
+          "columns": ["workspace_id", "primary_managed_system_id", "window_start"]
         }
       },
       "uniqueConstraints": {},
@@ -8063,12 +7443,8 @@
           "tableFrom": "voc_cluster_suggestion_counters",
           "tableTo": "workspaces",
           "schemaTo": "core",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -8145,12 +7521,8 @@
           "tableFrom": "voc_cluster_suggestion_cursors",
           "tableTo": "workspaces",
           "schemaTo": "core",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -8159,12 +7531,8 @@
           "tableFrom": "voc_cluster_suggestion_cursors",
           "tableTo": "managed_systems",
           "schemaTo": "core",
-          "columnsFrom": [
-            "primary_managed_system_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["primary_managed_system_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -8172,10 +7540,7 @@
       "compositePrimaryKeys": {
         "voc_cluster_suggestion_cursors_workspace_id_primary_managed_system_id_pk": {
           "name": "voc_cluster_suggestion_cursors_workspace_id_primary_managed_system_id_pk",
-          "columns": [
-            "workspace_id",
-            "primary_managed_system_id"
-          ]
+          "columns": ["workspace_id", "primary_managed_system_id"]
         }
       },
       "uniqueConstraints": {},
@@ -8417,12 +7782,8 @@
           "tableFrom": "voc_cluster_suggestions",
           "tableTo": "workspaces",
           "schemaTo": "core",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -8431,12 +7792,8 @@
           "tableFrom": "voc_cluster_suggestions",
           "tableTo": "managed_systems",
           "schemaTo": "core",
-          "columnsFrom": [
-            "primary_managed_system_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["primary_managed_system_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -8445,12 +7802,8 @@
           "tableFrom": "voc_cluster_suggestions",
           "tableTo": "vocs",
           "schemaTo": "voc",
-          "columnsFrom": [
-            "voc_a_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["voc_a_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -8459,12 +7812,8 @@
           "tableFrom": "voc_cluster_suggestions",
           "tableTo": "vocs",
           "schemaTo": "voc",
-          "columnsFrom": [
-            "voc_b_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["voc_b_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -8473,12 +7822,8 @@
           "tableFrom": "voc_cluster_suggestions",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "discarded_by_actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["discarded_by_actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -8487,12 +7832,8 @@
           "tableFrom": "voc_cluster_suggestions",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "confirmed_by_actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["confirmed_by_actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -8501,12 +7842,8 @@
           "tableFrom": "voc_cluster_suggestions",
           "tableTo": "voc_clusters",
           "schemaTo": "voc_cluster",
-          "columnsFrom": [
-            "voc_cluster_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["voc_cluster_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -8689,12 +8026,8 @@
           "tableFrom": "voc_clusters",
           "tableTo": "workspaces",
           "schemaTo": "core",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -8703,12 +8036,8 @@
           "tableFrom": "voc_clusters",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "owner_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owner_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -8717,12 +8046,8 @@
           "tableFrom": "voc_clusters",
           "tableTo": "managed_systems",
           "schemaTo": "core",
-          "columnsFrom": [
-            "primary_managed_system_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["primary_managed_system_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -8731,12 +8056,8 @@
           "tableFrom": "voc_clusters",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -8745,12 +8066,8 @@
           "tableFrom": "voc_clusters",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "confirmed_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["confirmed_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -8903,12 +8220,8 @@
           "tableFrom": "voc_embeddings",
           "tableTo": "vocs",
           "schemaTo": "voc",
-          "columnsFrom": [
-            "voc_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["voc_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -8917,12 +8230,8 @@
           "tableFrom": "voc_embeddings",
           "tableTo": "workspaces",
           "schemaTo": "core",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -8930,10 +8239,7 @@
       "compositePrimaryKeys": {
         "voc_embeddings_voc_version_pk": {
           "name": "voc_embeddings_voc_version_pk",
-          "columns": [
-            "voc_id",
-            "embedding_version"
-          ]
+          "columns": ["voc_id", "embedding_version"]
         }
       },
       "uniqueConstraints": {},
@@ -9016,12 +8322,8 @@
           "tableFrom": "voc_internal_comments",
           "tableTo": "vocs",
           "schemaTo": "voc",
-          "columnsFrom": [
-            "voc_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["voc_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -9030,12 +8332,8 @@
           "tableFrom": "voc_internal_comments",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -9115,12 +8413,8 @@
           "tableFrom": "no_follow_up_decisions",
           "tableTo": "workspaces",
           "schemaTo": "core",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -9129,12 +8423,8 @@
           "tableFrom": "no_follow_up_decisions",
           "tableTo": "vocs",
           "schemaTo": "voc",
-          "columnsFrom": [
-            "voc_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["voc_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -9143,12 +8433,8 @@
           "tableFrom": "no_follow_up_decisions",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "decided_by_actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["decided_by_actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -9156,10 +8442,7 @@
       "compositePrimaryKeys": {
         "no_follow_up_decisions_workspace_id_voc_id_pk": {
           "name": "no_follow_up_decisions_workspace_id_voc_id_pk",
-          "columns": [
-            "workspace_id",
-            "voc_id"
-          ]
+          "columns": ["workspace_id", "voc_id"]
         }
       },
       "uniqueConstraints": {},
@@ -9200,12 +8483,8 @@
           "tableFrom": "voc_permission_decisions_seed_fixture",
           "tableTo": "vocs",
           "schemaTo": "voc",
-          "columnsFrom": [
-            "voc_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["voc_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -9307,12 +8586,8 @@
           "tableFrom": "voc_public_updates",
           "tableTo": "vocs",
           "schemaTo": "voc",
-          "columnsFrom": [
-            "voc_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["voc_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -9321,12 +8596,8 @@
           "tableFrom": "voc_public_updates",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -9479,12 +8750,8 @@
           "tableFrom": "voc_recommendation_decisions",
           "tableTo": "workspaces",
           "schemaTo": "core",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -9493,12 +8760,8 @@
           "tableFrom": "voc_recommendation_decisions",
           "tableTo": "vocs",
           "schemaTo": "voc",
-          "columnsFrom": [
-            "source_voc_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["source_voc_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -9507,12 +8770,8 @@
           "tableFrom": "voc_recommendation_decisions",
           "tableTo": "vocs",
           "schemaTo": "voc",
-          "columnsFrom": [
-            "candidate_voc_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["candidate_voc_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -9521,12 +8780,8 @@
           "tableFrom": "voc_recommendation_decisions",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "decided_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["decided_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -9620,12 +8875,8 @@
           "tableFrom": "voc_reporter_replies",
           "tableTo": "vocs",
           "schemaTo": "voc",
-          "columnsFrom": [
-            "voc_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["voc_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -9634,12 +8885,8 @@
           "tableFrom": "voc_reporter_replies",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -9704,12 +8951,8 @@
           "tableFrom": "voc_similarity_preview_budgets",
           "tableTo": "workspaces",
           "schemaTo": "core",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -9718,12 +8961,8 @@
           "tableFrom": "voc_similarity_preview_budgets",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -9731,12 +8970,7 @@
       "compositePrimaryKeys": {
         "voc_similarity_preview_budgets_pk": {
           "name": "voc_similarity_preview_budgets_pk",
-          "columns": [
-            "workspace_id",
-            "scope_key",
-            "period",
-            "window_start"
-          ]
+          "columns": ["workspace_id", "scope_key", "period", "window_start"]
         }
       },
       "uniqueConstraints": {},
@@ -9911,12 +9145,8 @@
           "tableFrom": "voc_similarity_preview_requests",
           "tableTo": "workspaces",
           "schemaTo": "core",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -9925,12 +9155,8 @@
           "tableFrom": "voc_similarity_preview_requests",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -9939,12 +9165,8 @@
           "tableFrom": "voc_similarity_preview_requests",
           "tableTo": "managed_systems",
           "schemaTo": "core",
-          "columnsFrom": [
-            "primary_managed_system_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["primary_managed_system_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -10275,12 +9497,8 @@
           "tableFrom": "vocs",
           "tableTo": "workspaces",
           "schemaTo": "core",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -10289,12 +9507,8 @@
           "tableFrom": "vocs",
           "tableTo": "managed_systems",
           "schemaTo": "core",
-          "columnsFrom": [
-            "primary_managed_system_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["primary_managed_system_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -10303,12 +9517,8 @@
           "tableFrom": "vocs",
           "tableTo": "analytics_areas",
           "schemaTo": "core",
-          "columnsFrom": [
-            "analytics_area_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["analytics_area_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -10317,12 +9527,8 @@
           "tableFrom": "vocs",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "reporter_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["reporter_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -10331,12 +9537,8 @@
           "tableFrom": "vocs",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "owner_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owner_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -10345,12 +9547,8 @@
           "tableFrom": "vocs",
           "tableTo": "teams",
           "schemaTo": "core",
-          "columnsFrom": [
-            "owner_team_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owner_team_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -10359,12 +9557,8 @@
           "tableFrom": "vocs",
           "tableTo": "actors",
           "schemaTo": "core",
-          "columnsFrom": [
-            "archived_by_actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["archived_by_actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -10456,12 +9650,8 @@
           "tableFrom": "workspace_settings",
           "tableTo": "workspaces",
           "schemaTo": "core",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }

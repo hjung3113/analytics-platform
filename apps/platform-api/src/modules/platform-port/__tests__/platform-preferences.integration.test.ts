@@ -452,4 +452,126 @@ describe.skipIf(!runIntegration)('platform port preferences (#1104)', () => {
       }
     });
   });
+
+  describe('storage suitability, raw body size and combined key bound (final review C1-C3)', () => {
+    const MAX = 262_144;
+    const padded = (core: string, bytes: number) =>
+      core + ' '.repeat(bytes - Buffer.byteLength(core));
+
+    it.each([
+      ['patch', '{"set":{"lang":"a\\ud800b"}}'],
+      ['patch', '{"set":{"lang":"\\udc00"}}'],
+      ['patch', '{"set":{"columns:probe":{"bad\\ud800key":1}}}'],
+      ['patch', '{"set":{"columns:probe":[{"deep":{"\\udfffk":1}}]}}'],
+      ['import', '{"values":{"lang":["\\ud800"]}}'],
+      ['import', '{"values":{"columns:probe":{"bad\\udc00key":1}}}'],
+    ] as const)(
+      'POST %s with a lone surrogate (%s) is HTTP 200 error, with nothing stored or acknowledged',
+      async (path, raw) => {
+        const who = await newPerson();
+        ok(await patch(who, { set: { lang: 'ko' } }));
+        const before = await stored(who);
+        const res = await write(path, raw, who, { raw: true });
+        expect(res.statusCode).toBe(200);
+        expect(res.headers['cache-control']).toBe('no-store');
+        expect(body(res)).toMatchObject({ outcome: 'error', data: null });
+        expect(await stored(who)).toEqual(before);
+      },
+    );
+
+    it('round-trips a valid surrogate pair (emoji) in a value and a nested key through patch and import', async () => {
+      const who = await newPerson();
+      const patched = ok(await patch(who, { set: { lang: '😀', [key('e')]: { '😀k': ['😀'] } } }));
+      expect(patched.values).toEqual({ lang: '😀', [key('e')]: { '😀k': ['😀'] } });
+      ok(await write('import', '{"values":{"columns:i":"\\ud83d\\ude00"}}', who, { raw: true }));
+      expect(ok(await read(who)).values).toEqual({
+        lang: '😀',
+        [key('e')]: { '😀k': ['😀'] },
+        [key('i')]: '😀',
+      });
+    });
+
+    it.each([
+      ['patch', '{"set":{"lang":"ko"}}'],
+      ['import', '{"values":{"lang":"ko"}}'],
+    ] as const)(
+      'POST %s: a raw body over 262144 bytes of whitespace is too_large though its parsed value is tiny',
+      async (path, core) => {
+        const who = await newPerson();
+        ok(await patch(who, { set: { [key('keep')]: 1 } }));
+        const before = await stored(who);
+        const res = await write(path, padded(core, MAX + 1), who, { raw: true });
+        expect(res.statusCode).toBe(200);
+        expect(res.headers['cache-control']).toBe('no-store');
+        expect(body(res)).toMatchObject({ outcome: 'too_large', data: null });
+        expect(await stored(who)).toEqual(before);
+      },
+    );
+
+    it.each([
+      ['patch', '{"set":{"lang":"%s"}}'],
+      ['import', '{"values":{"lang":"%s"}}'],
+    ] as const)(
+      'POST %s: a raw body over the limit made of \\u escapes is too_large',
+      async (path, template) => {
+        const who = await newPerson();
+        const res = await write(
+          path,
+          template.replace('%s', '\\u0041'.repeat(Math.ceil(MAX / 6) + 1)),
+          who,
+          { raw: true },
+        );
+        expect(res.statusCode).toBe(200);
+        expect(body(res)).toMatchObject({ outcome: 'too_large', data: null });
+        expect(await stored(who)).toEqual([]);
+      },
+    );
+
+    it.each([
+      ['patch', '{"set":{"lang":"ko"}}', { lang: 'ko' }],
+      ['import', '{"values":{"lang":"ko"}}', { lang: 'ko' }],
+    ] as const)(
+      'POST %s: a raw body of exactly 262144 bytes is accepted',
+      async (path, core, values) => {
+        const who = await newPerson();
+        expect(ok(await write(path, padded(core, MAX), who, { raw: true })).values).toEqual(values);
+      },
+    );
+
+    it.each([['patch'], ['import']] as const)(
+      'POST %s: an oversized body still needs the session and the CSRF token',
+      async (path) => {
+        const who = await newPerson();
+        const raw = padded(
+          path === 'patch' ? '{"set":{"lang":"ko"}}' : '{"values":{"lang":"ko"}}',
+          MAX + 1,
+        );
+        const noCsrf = await write(path, raw, who, { raw: true, csrf: null });
+        expect(noCsrf.statusCode).toBe(403);
+        expect(noCsrf.json()).toEqual({ code: 'csrf.invalid', message: 'csrf token mismatch' });
+        const noSession = await app.inject({
+          method: 'POST',
+          url: `/api/v1/platform/preferences/${path}`,
+          headers: { 'content-type': 'application/json' },
+          payload: raw,
+        });
+        expect(noSession.statusCode).toBe(401);
+        expect(noSession.headers['cache-control']).toBe('no-store');
+        expect(await stored(who)).toEqual([]);
+      },
+    );
+
+    it('rejects 201 mixed set and remove keys without a mutation, and accepts exactly 200', async () => {
+      const who = await newPerson();
+      ok(await patch(who, { set: { lang: 'ko' } }));
+      const before = await stored(who);
+      const remove = (n: number) => Array.from({ length: n }, (_, i) => key(`r${i}`));
+      const over = await patch(who, { set: manyKeys('s', 1), remove: remove(200) });
+      expect(over.statusCode).toBe(200);
+      expect(body(over)).toMatchObject({ outcome: 'too_large', data: null });
+      expect(await stored(who)).toEqual(before);
+      const exact = ok(await patch(who, { set: manyKeys('s', 100), remove: remove(100) }));
+      expect(Object.keys(exact.values)).toHaveLength(101);
+    });
+  });
 });

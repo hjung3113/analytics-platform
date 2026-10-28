@@ -47,16 +47,19 @@ const tooManyKeys = (): PreferencesJudgement => ({
   message: `A user holds at most ${PREFERENCE_KEYS_MAX} preference keys`,
 });
 
-/** Postgres `jsonb` cannot store U+0000 in a string or an object key; refuse it before the write instead of failing the transaction. */
-function hasNul(value: unknown): boolean {
-  if (typeof value === 'string') return value.includes('\u0000');
-  if (Array.isArray(value)) return value.some(hasNul);
+/** An UTF-16 surrogate without its partner: JSON text can spell one (`"\ud800"`), but `jsonb` cannot store it. */
+const LONE_SURROGATE = /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/;
+
+/** Postgres `jsonb` cannot store U+0000 or a lone surrogate in a string or an object key; refuse it before the write instead of failing the transaction. */
+function unstorable(value: unknown): boolean {
+  if (typeof value === 'string') return value.includes('\u0000') || LONE_SURROGATE.test(value);
+  if (Array.isArray(value)) return value.some(unstorable);
   if (value !== null && typeof value === 'object')
-    return Object.entries(value).some(([k, v]) => hasNul(k) || hasNul(v));
+    return Object.entries(value).some(([k, v]) => unstorable(k) || unstorable(v));
   return false;
 }
 
-const nulRejected = (): PreferencesJudgement => ({
+const unstorableRejected = (): PreferencesJudgement => ({
   outcome: 'error',
   message: 'Invalid preferences request',
 });
@@ -120,7 +123,7 @@ export function createPlatformPreferencesService(deps: { db: Db }) {
       const parsed = preferencesPatchSchema.safeParse(body);
       if (!parsed.success) return rejection(parsed.error.issues);
       const { set = {}, remove = [] } = parsed.data;
-      if (hasNul(set)) return nulRejected();
+      if (unstorable(set)) return unstorableRejected();
       return db.transaction(async (tx) => {
         const row = await lockRow(tx, actor);
         const values = { ...row.values };
@@ -136,7 +139,7 @@ export function createPlatformPreferencesService(deps: { db: Db }) {
     async import(actor: PlatformActor, body: unknown): Promise<PreferencesJudgement> {
       const parsed = preferencesImportSchema.safeParse(body);
       if (!parsed.success) return rejection(parsed.error.issues);
-      if (hasNul(parsed.data.values)) return nulRejected();
+      if (unstorable(parsed.data.values)) return unstorableRejected();
       return db.transaction(async (tx) => {
         const row = await lockRow(tx, actor);
         if (row.importedAt) return snapshotOf(row);

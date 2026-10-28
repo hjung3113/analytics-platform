@@ -21,8 +21,13 @@ import { createPlatformClientErrorService, parseClientError } from './client-err
 import { requireCsrf } from './csrf.js';
 import { createEntityReader } from './entity-read.js';
 import { envelope } from './envelope.js';
-import { holdsPlatformPermission, resolvePlatformPermissions } from './permissions.js';
-import { createPlatformPreferencesService } from './preferences.js';
+import {
+  type PlatformActor,
+  holdsPlatformPermission,
+  resolvePlatformPermissions,
+} from './permissions.js';
+import { OVERSIZE_BODY, createPreferencesBodyParser } from './preferences-body.js';
+import { type PreferencesJudgement, createPlatformPreferencesService } from './preferences.js';
 import { sessionVersionOf } from './session-version.js';
 import { titleFor } from './titles.js';
 import { createPlatformUsageService, parseUsageBatch } from './usage.js';
@@ -270,24 +275,31 @@ export const platformPortRoutes: FastifyPluginAsync<PlatformPortOptions> = async
     return envelope(req, result.outcome, result.data ?? null, result.message);
   });
 
-  app.post('/preferences/patch', { preHandler: csrf }, async (req, reply) => {
-    const loaded = await authenticate(req, reply, true);
-    if (!loaded) return reply;
-    const result = await prefs.patch(
-      actorOf(loaded),
-      req.body === MALFORMED_BODY ? null : req.body,
-    );
-    return envelope(req, result.outcome, result.data ?? null, result.message);
-  });
+  // The two writes live in their own scope for one reason: a body parser of their own that counts the raw bytes (preferences-body.ts).
+  // Hooks, the error handler and no-store are inherited, so authentication and CSRF run exactly as on every other write.
+  await app.register(async (writes) => {
+    writes.removeContentTypeParser('application/json');
+    writes.addContentTypeParser('application/json', createPreferencesBodyParser(MALFORMED_BODY));
 
-  app.post('/preferences/import', { preHandler: csrf }, async (req, reply) => {
-    const loaded = await authenticate(req, reply, true);
-    if (!loaded) return reply;
-    const result = await prefs.import(
-      actorOf(loaded),
-      req.body === MALFORMED_BODY ? null : req.body,
+    const judge = async (
+      req: FastifyRequest,
+      reply: FastifyReply,
+      run: (actor: PlatformActor, body: unknown) => Promise<PreferencesJudgement>,
+    ) => {
+      const loaded = await authenticate(req, reply, true);
+      if (!loaded) return reply;
+      const result: PreferencesJudgement =
+        req.body === OVERSIZE_BODY
+          ? { outcome: 'too_large', message: 'Preferences request exceeds the allowed size' }
+          : await run(actorOf(loaded), req.body === MALFORMED_BODY ? null : req.body);
+      return envelope(req, result.outcome, result.data ?? null, result.message);
+    };
+    writes.post('/preferences/patch', { preHandler: csrf }, (req, reply) =>
+      judge(req, reply, prefs.patch),
     );
-    return envelope(req, result.outcome, result.data ?? null, result.message);
+    writes.post('/preferences/import', { preHandler: csrf }, (req, reply) =>
+      judge(req, reply, prefs.import),
+    );
   });
 
   // Annotations are a gate only (#622 decision 6): `analytics:view` is never granted and FeedbackOps

@@ -3,7 +3,7 @@ import { z } from 'zod/v4';
 // Persistence, people and notices port schemas (ADR-0098; schema source boundary ADR-0097). Servers import these at runtime; they
 // never keep a second copy. Strict objects reject unknown keys, so a forged identity field (`userId`, `author`, `at`) is refused.
 // Not expressible in JSON Schema, enforced here at runtime only: set/remove key overlap, serialized-size bounds, the distinctness of
-// `remove`/`ids` entries beyond `uniqueItems`, valid Unicode in strings, the account-wide key total, and the JSON nesting depth of
+// `remove`/`ids` entries beyond `uniqueItems`, valid Unicode in strings, the account-wide key total, the combined set+remove key count of one patch, and the JSON nesting depth of
 // every preference value (JSON_MAX_DEPTH): a consumer using the JSON artifacts alone must enforce these itself.
 
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
@@ -79,6 +79,7 @@ export const preferencesSnapshotSchema = z.strictObject({ values: valueMap, impo
 export const preferencesPatchSchema = z
   .strictObject({ set: valueMap.optional(), remove: distinct(z.array(preferenceKeySchema).max(PREFERENCE_KEYS_MAX)).optional() })
   .refine((patch) => !(patch.remove ?? []).some((key) => patch.set !== undefined && Object.hasOwn(patch.set, key)), { message: 'set and remove must not share a key' })
+  .refine((patch) => Object.keys(patch.set ?? {}).length + (patch.remove ?? []).length <= PREFERENCE_KEYS_MAX, { message: `at most ${PREFERENCE_KEYS_MAX} keys` })
   .refine((patch) => jsonBytes(patch) <= PREFERENCE_REQUEST_MAX_BYTES, { message: `request at most ${PREFERENCE_REQUEST_MAX_BYTES} bytes` });
 
 export const preferencesImportSchema = z
