@@ -8,6 +8,7 @@ packages:
   - packages/sdk/*
   - packages/adapters/*
   - menus/*/*
+  - platform/*
   - tooling/*
   - ops/*
 allowBuilds:

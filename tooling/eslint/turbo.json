@@ -14,6 +14,8 @@
         "$TURBO_ROOT$/packages/sdk/shell/src/__fixtures__/**",
         "$TURBO_ROOT$/menus/*/*/package.json",
         "$TURBO_ROOT$/menus/*/*/tsconfig*.json",
+        "$TURBO_ROOT$/platform/*/package.json",
+        "$TURBO_ROOT$/platform/*/tsconfig*.json",
         "$TURBO_ROOT$/apps/platform-web/tsconfig*.json"
       ]
     },

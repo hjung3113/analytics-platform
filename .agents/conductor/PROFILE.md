@@ -58,7 +58,7 @@ Every step must exit 0 before commit.
    - `verify=full`: run `bash .agents/conductor/scripts/verify-root.sh <log-dir>` (lint → typecheck → test+build under `heavy.lock`; exits 3 if capacity says `start=no`).
    - `verify=light`: run `verify-root.sh --light <log-dir>` (lint + typecheck). Test and build are left to PR CI. `tier.sh` gives `verify=full` for any change under the full paths, tests included (root `AGENTS.md` §검증).
    - Never use `--force` or diff filters. The turbo cache decides what reruns.
-3. E2E, only when Kernel, shell, shared components or the mock server change. Run the new describe first, then the brief's "Impact" describes with `-g "A|B"`. Never run full `pnpm e2e` locally, except to reproduce a CI failure. PR and main-push CI run only the affected specs (`.github/scripts/select-e2e.mjs`: all for `menus/**`, `packages/**` and anything it cannot narrow; none for docs-only; just that spec for a spec-only change). A green PR is therefore not a full E2E record; the release `full=true` run is.
+3. E2E, only when Kernel, shell, shared components or the mock server change. Run the new describe first, then the brief's "Impact" describes with `-g "A|B"`. Never run full `pnpm e2e` locally, except to reproduce a CI failure. PR and main-push CI run only the affected specs (`.github/scripts/select-e2e.mjs`: all for `menus/**`, `platform/**`, `packages/**` and anything it cannot narrow; none for docs-only; just that spec for a spec-only change). A green PR is therefore not a full E2E record; the release `full=true` run is.
 4. If menu manifests, `menus.ts`, contract menu types or `tooling/gen-menu` change: run `node tooling/gen-menu/scripts/probe.ts`, never in a worktree with a live preview.
 5. Feature gates, when feature package or folded CI inputs change (`.github/workflows/ci.yml`):
    - `bash ops/platform-api/scripts/ci/gate.sh static-extra`; run `unit` only for package suites not already covered by the successful unified root test. Root lint already runs bounded committed changed-file Biome and root typecheck covers feature packages.
@@ -132,7 +132,7 @@ Reports are in Korean.
 
 ## Fold scope
 
-A PR may also touch, outside the issue diff, only the changed menu's `menus/<space>/<group>/src/` and the i18n dictionary.
+A PR may also touch, outside the issue diff, only the changed consumer's `menus/<space>/<group>/src/` or `platform/<feature>/src/` and the i18n dictionary.
 
 ## Slice close
 

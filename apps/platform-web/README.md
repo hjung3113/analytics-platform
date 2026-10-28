@@ -22,7 +22,7 @@ pnpm --filter @ap/platform-web check:prod-graph  # 운영 모듈 그래프에 mo
 
 | 갈래 (AGENTS.md) | 위치 |
 | --- | --- |
-| Kernel: Menu Registry, 전역 Context, URL 계약, 권한·Scope, 즐겨찾기/최근/활용 계측 | `packages/sdk/kernel`(`@ap/kernel`: `createRegistry`, `PlatformProvider`, `usePlatformQuery`, i18n), 메뉴 선언은 `menus/<space>/<group>/src/index.ts`(앱 `src/menus.ts`가 연결), URL codec·manifest·응답 envelope 타입은 `packages/sdk/contracts` |
+| Kernel: Menu Registry, 전역 Context, URL 계약, 권한·Scope, 즐겨찾기/최근/활용 계측 | `packages/sdk/kernel`(`@ap/kernel`: `createRegistry`, `PlatformProvider`, `usePlatformQuery`, i18n), 메뉴 선언은 `menus/<space>/<group>/src/index.ts` 또는 `platform/<feature>/src/index.ts`(앱 `src/menus.ts`가 연결), URL codec·manifest·응답 envelope 타입은 `packages/sdk/contracts` |
 | 공통 컴포넌트 | `packages/sdk/components`(`@ap/components`) — `PlatformPage`(§8 Slot: Context Bar는 `slots.contextBar`로 주입), `PlatformDataTable`, `DetailDrawer`, `AuditTimeline`, `DataTrustIndicator`, `StateView`(§19), `StatCard`. UI primitive·`StatusBadge`·토큰은 `packages/sdk/ui`(`@ap/ui`) |
 | 차트 계약 | `packages/sdk/components/src/chart/AnalysisChartFrame.tsx` (Zoom/Brush/Reset/Compare/Annotate/Export/More, 4층 상태 분리), `chart/EChart.tsx` |
 | 레이아웃 | `packages/sdk/shell`(`@ap/shell`: AppShell 레일 52px·사이드바 240/56px·페이지 머리 50px, AppRail, AppSidebar 평면 그룹, GlobalContextBar, CommandPalette, RouteOutlet) + 페이지 archetype |
@@ -30,7 +30,7 @@ pnpm --filter @ap/platform-web check:prod-graph  # 운영 모듈 그래프에 mo
 
 ## 페이지 작성 가이드 (Consumer 규칙)
 
-페이지는 `menus/<space>/<group>/src/pages/*.tsx`에 default export로 두고 그룹 패키지 `src/index.ts`의 `component`로 lazy 등록되며, 앱 `src/menus.ts`는 `@ap/menu-*` 패키지의 `manifests`를 이어 붙인다. **페이지는 `packages/*`(kernel/shell/components/ui/contracts/mock-server)를 수정하지 않는다.** 공통 컴포넌트가 부족하면 수정하지 말고 필요 사항을 보고한다. 새 그룹 패키지는 `pnpm gen:menu`로 만든다 — 생성기가 쓰는 페이지는 이 스켈레톤(`PlatformPage`, `useMenuQuery`, `QueryView`)이지 도메인 화면이 아니다. 자세한 것은 [`tooling/AGENTS.md`](../../tooling/AGENTS.md).
+페이지는 `menus/<space>/<group>/src/pages/*.tsx`(플랫폼 기능은 `platform/<feature>/src/pages/*.tsx`)에 default export로 두고 그룹 패키지 `src/index.ts`의 `component`로 lazy 등록되며, 앱 `src/menus.ts`는 `@ap/menu-*` 패키지의 `manifests`를 이어 붙인다. **페이지는 `packages/*`(kernel/shell/components/ui/contracts/mock-server)를 수정하지 않는다.** 공통 컴포넌트가 부족하면 수정하지 말고 필요 사항을 보고한다. 새 그룹 패키지는 `pnpm gen:menu`로 만든다 — 생성기가 쓰는 페이지는 이 스켈레톤(`PlatformPage`, `useMenuQuery`, `QueryView`)이지 도메인 화면이 아니다. 자세한 것은 [`tooling/AGENTS.md`](../../tooling/AGENTS.md).
 
 1. 최상위는 반드시 `<PlatformPage>`. 슬롯: `title`, `description`, `primaryAction`, `secondaryActions`, `contextNotes`(`contextExtension` 위의 안내 배열, fill 페이지에서 접힘), `contextExtension`(page-owned 필터), `dataTrustSummary`, `crumbs`, `children`. 전역 Context Bar·Scope 게이트·Breadcrumb·즐겨찾기는 PlatformPage가 자동 렌더링한다 — 페이지가 날짜 선택기·Scope 선택기를 따로 만들지 않는다(§5 금지).
 2. 메뉴가 소유한 데이터 조회는 자기 메뉴 `src/endpoints.ts`에 `defineEndpoint`로 선언하고(권한·적용 Context·assessment kind·한도), 화면은 `useMenuQuery(endpoint, params)` → `<QueryView query={q}>{data => ...}</QueryView>`로 읽는다. 계산·데이터는 `src/mock/`(서버 쪽)에 두고 `pnpm gen:menu`가 앱 mock 조립 `src/dev/mock-assembly.tsx`의 `MOCK_ENDPOINTS`에 `@ap/menu-<group>/mock`으로 등록한다(손으로 `main.tsx`에 넣지 않는다 — lint가 막는다). 다른 메뉴 폴더를 import하지 않고 이동은 `linkTo`만. 로딩/갱신/empty/forbidden/too_large/timeout/error 분기는 QueryView가 한다. 위젯마다 따로 조회하면 부분 실패가 그 위젯에만 머문다(§19). 결정은 [ADR-0019](../../docs/adr/0019-menu-query-endpoint-declaration.md). 예외 두 가지: Kernel 책임 저장소를 읽는 운영 콘솔 화면(권한 `accessDirectory`·감사 `auditTrail`/`entityAudit`·활용률 `usageSummary`)은 `PlatformAdapter` 포트 메서드를 `usePlatformQuery`·표 `loadPage`로 직접 부르고, 클라이언트가 이미 가진 것의 투영(Registry 카탈로그)은 요청 없이 그린다 — 기준은 [패키지 경계](../../docs/integration/platform-packages.md) §4. 새 메뉴 데이터를 위해 포트 메서드를 늘리지 않는다.
@@ -43,7 +43,7 @@ pnpm --filter @ap/platform-web check:prod-graph  # 운영 모듈 그래프에 mo
 7. 표는 `PlatformDataTable`: `loadPage`는 `useMenuFetch(pageEndpoint).fetch({ ...filters, ...query }, signal)`(params에 `PageQuery`를 펼치고 서버는 `sortAndPage`로 답한다), 열은 `PlatformColumn<T>`(`id` = 서버 정렬 필드·열 설정 키·URL sort 값, 표시 전용은 `sortable: false`)로 선언한다. 내보내기·복사는 표가 소유한다([components/AGENTS.md](../../packages/sdk/components/AGENTS.md), 06 §15). 상세는 `DetailDrawer` + `Field` + `AuditTimeline`. 정렬·페이지·드로어 탭은 manifest `pageKeys`에 등록하고 `parsePageIndex`·`parseTableSort`·`encodeTableSort`로 다루며 잘못된 값은 대체하지 않고 경고로 보인다(표의 sort/page는 `useTableUrlState`가 경고 문장과 표의 `urlState`를 함께 준다). 행 집합 필터가 바뀌면 같은 `setPage`에서 `page`를 지우고, 전역 Context 변경 때 지울 키는 manifest `contextResetKeys`로 선언한다(페이지가 지우는 effect를 쓰지 않는다, #45).
 8. 스타일은 DESIGN.md 토큰 유틸리티만 사용: `bg-surface-card`, `border-border-subtle`, `text-text-muted`, `bg-accent-primary-soft`, `t-page-title`/`t-section-title`/`t-card-title`/`t-stat`/`t-caption`/`t-mono`/`tabular` 등. 임의 hex·그림자 스택·pill 버튼 금지. 상태 색은 `StatusBadge`(success/warning/danger/neutral/info)만.
 9. UI 문구는 `const { tx, lang } = useI18n()`로 한/영 모두 제공(`lang === 'ko' ? … : …` 또는 `tx({ko, en})`). 설비 ID·팀명 같은 마스터 값은 번역하지 않는다.
-10. 합성 데이터는 서버 쪽(`menus/<space>/<group>/src/mock/`)에 둔다. 화면에는 표시 라벨만 남기고, 화면과 서버가 함께 쓰는 순수 계약(타입·코덱)은 `src/endpoints.ts`에 둔다.
+10. 합성 데이터는 서버 쪽(`menus/<space>/<group>/src/mock/`, 플랫폼 기능은 `platform/<feature>/src/mock/`)에 둔다. 화면에는 표시 라벨만 남기고, 화면과 서버가 함께 쓰는 순수 계약(타입·코덱)은 `src/endpoints.ts`에 둔다.
 
 ## 확인된 동작 (셸/Kernel)
 

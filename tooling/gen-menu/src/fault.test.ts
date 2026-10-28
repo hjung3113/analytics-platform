@@ -47,6 +47,9 @@ function runFaulty(root: string, faultPath: string, args: string[]): { status: n
 
 const TARGETS = [['menus.ts', MENUS_TS], ['mock-assembly.tsx', MOCK_ASSEMBLY_TSX], ['style.css', STYLE_CSS], ['package.json', APP_PKG]] as const;
 
+/** Each placement root rolls back the same way: [label, extra generate flags, package folder]. */
+const PLACEMENTS = [['menus', [], 'menus/mars/gen-probe'], ['platform', ['--platform'], 'platform/gen-probe']] as const;
+
 describe('partial-write faults restore every snapshot (R1)', () => {
   const keep: string[] = [];
   const fresh = (): string => { const root = makeFixture(); keep.push(root); return root; };
@@ -55,24 +58,24 @@ describe('partial-write faults restore every snapshot (R1)', () => {
     for (const root of keep) removeFixture(root);
   });
 
-  for (const [label, rel] of TARGETS) {
-    it(`generate: partial write of ${label} is restored from its snapshot`, () => {
+  for (const [place, extra, dir] of PLACEMENTS) for (const [label, rel] of TARGETS) {
+    it(`generate (${place}): partial write of ${label} is restored from its snapshot`, () => {
       const root = fresh();
       const pristine = appSnapshot(root);
-      const res = runFaulty(root, join(root, rel), [FIXTURE_GROUP, ...GEN_ARGS]);
+      const res = runFaulty(root, join(root, rel), [FIXTURE_GROUP, ...GEN_ARGS, ...extra]);
       expect(res.status, res.stderr).toBe(1);
       expect(appSnapshot(root), label).toEqual(pristine);
-      expect(existsSync(join(root, 'menus', 'mars', 'gen-probe'))).toBe(false);
+      expect(existsSync(join(root, dir))).toBe(false);
     });
 
-    it(`remove: partial write of ${label} is restored and the package is kept`, () => {
+    it(`remove (${place}): partial write of ${label} is restored and the package is kept`, () => {
       const root = fresh();
-      expect(runCli([FIXTURE_GROUP, ...GEN_ARGS], root).status).toBe(0);
+      expect(runCli([FIXTURE_GROUP, ...GEN_ARGS, ...extra], root).status).toBe(0);
       const wired = appSnapshot(root);
       const res = runFaulty(root, join(root, rel), ['--remove', FIXTURE_GROUP]);
       expect(res.status, res.stderr).toBe(1);
       expect(appSnapshot(root), label).toEqual(wired);
-      expect(existsSync(join(root, 'menus', 'mars', 'gen-probe'))).toBe(true);
+      expect(existsSync(join(root, dir))).toBe(true);
     });
   }
 });

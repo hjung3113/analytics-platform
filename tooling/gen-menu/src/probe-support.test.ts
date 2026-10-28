@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
-  gitPorcelain, insertGroupsRow, preflightReservedPaths, PROBE_FOLDER, PROBE_SPACE, PROBE_TEST_REL,
+  gitPorcelain, insertGroupsRow, preflightReservedPaths, PROBE_FOLDER, PROBE_PLACEMENTS, PROBE_SPACE, PROBE_TEST_REL, probePackageRel,
   runRevert, writeRegistryTest, type RevertSteps,
 } from './probe-support.ts';
 import { fixtureMenusTs, FIXTURE_GROUP } from './fixture.ts';
@@ -75,6 +75,13 @@ describe('probe support helpers (F8)', () => {
     symlinkSync(target, join(root, 'menus', 'mars', 'gen-probe'), 'dir');
     expect(() => preflightReservedPaths(root)).toThrow(/gen-probe/);
     expect(existsSync(target)).toBe(false);
+  });
+
+  it('preflight reserves the platform probe folder too, and the probe covers both roots', () => {
+    const root = mkdtempSync(join(tmpdir(), 'gen-menu-preflight-'));
+    mkdirSync(join(root, 'platform', 'gen-probe'), { recursive: true });
+    expect(() => preflightReservedPaths(root)).toThrow(/platform\/gen-probe/);
+    expect(PROBE_PLACEMENTS.map(probePackageRel)).toEqual([`menus/${PROBE_SPACE}/${PROBE_FOLDER}`, `platform/${PROBE_FOLDER}`]);
   });
 });
 

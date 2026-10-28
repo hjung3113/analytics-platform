@@ -27,7 +27,8 @@
     "product_paths": [
       "apps/",
       "packages/",
-      "menus/"
+      "menus/",
+      "platform/"
     ],
     "skip_imports": true,
     "reason_flags": false,
@@ -48,7 +49,7 @@
                 ]
               },
               {
-                "regex": "^(packages/sdk/(ui|components|shell)/src|menus/[^/]+/[^/]+/src|apps/platform-web/src)/",
+                "regex": "^(packages/sdk/(ui|components|shell)/src|menus/[^/]+/[^/]+/src|platform/[^/]+/src|apps/platform-web/src)/",
                 "suffix": [
                   ".tsx",
                   ".css"
@@ -60,7 +61,7 @@
       ],
       "optional": [
         {
-          "regex": "^(packages/sdk/(ui|components|shell)/src|menus/[^/]+/[^/]+/src|apps/platform-web/src)/"
+          "regex": "^(packages/sdk/(ui|components|shell)/src|menus/[^/]+/[^/]+/src|platform/[^/]+/src|apps/platform-web/src)/"
         },
         {
           "regex": "^packages/(sdk/(kernel|contracts)|adapters/mock-server)/src/"
@@ -104,7 +105,8 @@
           "prefix": [
             "apps/",
             "packages/",
-            "menus/"
+            "menus/",
+            "platform/"
           ],
           "regex": "(?i)(permission|scope|role|(?<![a-z])auth|grant)"
         },
@@ -173,7 +175,8 @@
     "product_paths": [
       "apps",
       "packages",
-      "menus"
+      "menus",
+      "platform"
     ],
     "tracked_excludes": [],
     "forbidden_pattern": "eslint-disable",
@@ -183,7 +186,8 @@
     "churn_paths": [
       "apps",
       "packages",
-      "menus"
+      "menus",
+      "platform"
     ],
     "pass_line": "worker-hygiene: no new eslint-disable, suppressions did not grow"
   },

@@ -13,7 +13,7 @@
 //   apps/platform-e2e/tests/<x>.spec.ts that still exists                      → that spec (base-path.spec.ts → base-path run)
 //   a deleted or renamed spec                                                  → needs nothing
 //   a spec file name outside [A-Za-z0-9_.-] (it would become a regex filter)    → all
-//   everything else → all: packages/**, apps/**, menus/** (the contract-*.spec.ts files read many menus, so there is no menu→spec table), tooling/**, patches/**,
+//   everything else → all: packages/**, apps/**, menus/** and platform/** (the contract-*.spec.ts files read many menus, so there is no menu→spec table), tooling/**, patches/**,
 //   ops/**, root manifests, .github/**, the e2e helpers/configs (contract-helpers.ts, support.ts, playwright*.config.ts, contract-reporter.ts, package.json), style.css,
 //   and any path no rule knows.
 // Events: a pull request diffs BASE...HEAD; a push diffs BASELINE (the last main SHA whose CI run was green, last-green-main-sha.mjs) against SHA, so a spec that failed
@@ -149,13 +149,14 @@ function selfTest() {
   // Everything that is not provably limited → all.
   for (const f of [
     'packages/sdk/kernel/src/a.ts', 'packages/adapters/mock-server/src/a.ts', 'packages/feature-ui/src/a.ts', 'apps/platform-web/src/a.ts', 'apps/platform-web/vite.config.ts',
-    'apps/feature-screens/src/a.ts', 'apps/platform-api/src/a.ts', 'menus/mars/hw-time/src/a.ts', 'tooling/x.mjs', 'patches/x.patch', 'ops/platform-api/x.sh',
+    'apps/feature-screens/src/a.ts', 'apps/platform-api/src/a.ts', 'menus/mars/hw-time/src/a.ts', 'platform/home/src/a.ts', 'platform/dashboard/package.json', 'tooling/x.mjs', 'patches/x.patch', 'ops/platform-api/x.sh',
     'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'turbo.json', '.nvmrc', '.github/workflows/ci.yml', '.github/scripts/select-e2e.mjs',
     'packages/sdk/shell/src/style.css', 'site/index.html', 'docs/diagram.png', 'unknown/file.bin', '.gitignore',
   ]) check(`all: ${f}`, pr([f]), ALLV);
   check('all: code + spec', pr(['packages/sdk/kernel/src/a.ts', `${T}hw-time.spec.ts`]), ALLV);
   check('all: docs + code', pr(['a.md', 'tooling/x.mjs']), ALLV);
   check('all: menus change never maps to a spec', pr(['menus/mars/hw-time/src/a.ts', `${T}hw-time.spec.ts`]), ALLV);
+  check('all: platform change never maps to a spec', pr(['platform/home/src/a.ts', `${T}hw-time.spec.ts`]), ALLV);
   // Events and undecidable inputs → all.
   check('all: computation failed (null)', pr(null), ALLV);
   check('all: empty diff', pr([]), ALLV);

@@ -1,4 +1,6 @@
-import { groupSpaces, idLiteral, menuFolders, spaceFolder } from './menu-layout.ts';
+import { groupSpaces, idLiteral } from './menu-layout.ts';
+import { GenMenuError } from './errors.ts';
+import { locationPath, packageFolders, type PlacementRoot } from './package-location.ts';
 import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -9,7 +11,7 @@ import {
 } from './templates.ts';
 import { writeAppFile } from './app-write.ts';
 
-export class GenMenuError extends Error {}
+export { GenMenuError };
 
 /** camelCase ids only: `master-data` and `MasterData` fail the regex, `HTMLParser` fails the first char. */
 export const GROUP_RE = /^[a-z][a-zA-Z0-9]*$/;
@@ -145,15 +147,25 @@ export function manifestEntries(sourceText: string, rel: string): ManifestEntry[
   return entries;
 }
 
+/** The `name` of `<folder>/package.json`, or undefined when absent or unreadable. */
+export function packageName(root: string, folder: string): string | undefined {
+  try {
+    const name = (JSON.parse(readFileSync(join(root, folder, 'package.json'), 'utf8')) as { name?: unknown }).name;
+    return typeof name === 'string' ? name : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function unsupportedEntry(rel: string): never {
   throw new GenMenuError(`unsupported manifest form in ${rel}`);
 }
 
-/** Every `menus/<space>/<folder>/src/index.ts` that exists, parsed into manifest literals. */
+/** Every `menus/<space>/<folder>/src/index.ts` and `platform/<folder>/src/index.ts` that exists, parsed into manifest literals; `folder` is repo-relative. */
 function menuManifests(root: string): { folder: string; entries: ManifestEntry[] }[] {
   const result: { folder: string; entries: ManifestEntry[] }[] = [];
-  for (const folder of menuFolders(root)) {
-    const rel = `menus/${folder}/src/index.ts`;
+  for (const folder of packageFolders(root)) {
+    const rel = `${folder}/src/index.ts`;
     const path = join(root, rel);
     if (!existsSync(path)) continue;
     result.push({ folder, entries: manifestEntries(readFileSync(path, 'utf8'), rel) });
@@ -526,9 +538,11 @@ export type FileEdit = { relPath: string; after: string };
 export type GeneratePlan = {
   root: string;
   inputs: MenuInputs;
-  /** Files relative to `menus/<space>/<folder>/`. */
+  /** Files relative to the package folder. */
   files: { relPath: string; content: string }[];
   packageDir: string;
+  /** Repo-relative package folder: `menus/<space>/<folder>` or `platform/<folder>`. */
+  packageRel: string;
   edits: FileEdit[];
 };
 
@@ -540,6 +554,8 @@ export type GenerateArgs = {
   labelEn?: string;
   path?: string;
   pageType?: string;
+  /** Place a non-null-space group in `platform/<folder>`; a null-space group always goes there. */
+  platform?: boolean;
 };
 
 /**
@@ -590,7 +606,7 @@ export function planGenerate(args: GenerateArgs): GeneratePlan {
   }
   // F9: every path this generator reads or writes must resolve inside the real root.
   const realRoot = realpathSync(root);
-  checkInsideRoot(realRoot, join(root, 'menus'), 'menus/');
+  for (const consumerRoot of ['menus', 'platform']) checkInsideRoot(realRoot, join(root, consumerRoot), `${consumerRoot}/`);
   for (const rel of [MENUS_TS, MOCK_ASSEMBLY_TSX, STYLE_CSS, APP_PKG]) checkInsideRoot(realRoot, join(root, rel), rel);
 
   const menusText = readText(root, MENUS_TS);
@@ -604,30 +620,35 @@ export function planGenerate(args: GenerateArgs): GeneratePlan {
     throw new GenMenuError(`unknown group '${group}' — no GROUPS row in ${MENUS_TS}; add it by hand first (the generator does not add sidebar groups)`);
   }
   const space = groups.get(group) as string | null;
-  const location = `${spaceFolder(space)}/${folder}`;
-  checkInsideRoot(realRoot, join(root, 'menus', spaceFolder(space)), `menus/${spaceFolder(space)}`);
-  checkInsideRoot(realRoot, join(root, 'menus', location), `menus/${location}`);
-  const inputs: MenuInputs = { group, folder, space, menuId, page, path, pageType: pageType as PageType, labelKo, labelEn, binding };
+  const placement: PlacementRoot = space === null || args.platform === true ? 'platform' : 'menus';
+  const packageRel = locationPath(placement, space, folder);
+  checkInsideRoot(realRoot, join(root, packageRel, '..'), dirname(packageRel));
+  checkInsideRoot(realRoot, join(root, packageRel), packageRel);
+  const inputs: MenuInputs = { group, folder, space, placement, menuId, page, path, pageType: pageType as PageType, labelKo, labelEn, binding };
 
   // F6: ownership and id/path collisions are computed from parsed manifest literals, not text regexes.
   const manifests = menuManifests(root);
   for (const { folder: owner, entries } of manifests) {
     if (entries.some(entry => entry.group === group)) {
-      throw new GenMenuError(`group '${group}' is already owned by menus/${owner} — one package per group`);
+      throw new GenMenuError(`group '${group}' is already owned by ${owner} — one package per group`);
     }
   }
 
-  const packageDir = join(root, 'menus', location);
-  if (existsSync(packageDir)) throw new GenMenuError(`menus/${location} already exists`);
+  const packageDir = join(root, packageRel);
+  if (existsSync(packageDir)) throw new GenMenuError(`${packageRel} already exists`);
+  for (const { folder: owner } of manifests) {
+    const name = packageName(root, owner);
+    if (name === menuPackage(folder)) throw new GenMenuError(`package name '${name}' is already used by ${owner}`);
+  }
 
   const shape = pathShape(path);
   for (const { folder: owner, entries } of manifests) {
     for (const entry of entries) {
       if (entry.id === menuId) {
-        throw new GenMenuError(`menu id '${menuId}' is already used by menus/${owner}`);
+        throw new GenMenuError(`menu id '${menuId}' is already used by ${owner}`);
       }
       if (pathShape(entry.path) === shape) {
-        throw new GenMenuError(`path shape '${shape}' collides with menus/${owner} (menu '${entry.id}')`);
+        throw new GenMenuError(`path shape '${shape}' collides with ${owner} (menu '${entry.id}')`);
       }
     }
   }
@@ -691,6 +712,7 @@ export function planGenerate(args: GenerateArgs): GeneratePlan {
     inputs,
     files: renderFiles(inputs),
     packageDir,
+    packageRel,
     edits: [
       { relPath: MENUS_TS, after: menusEdit },
       { relPath: MOCK_ASSEMBLY_TSX, after: mainEdit },
@@ -742,7 +764,7 @@ export function applyGenerate(plan: GeneratePlan): void {
   try {
     rmSync(plan.packageDir, { recursive: true, force: true });
   } catch (rmErr) {
-    failures.push(`menus/${spaceFolder(plan.inputs.space)}/${plan.inputs.folder}: ${rmErr instanceof Error ? rmErr.message : String(rmErr)}`);
+    failures.push(`${plan.packageRel}: ${rmErr instanceof Error ? rmErr.message : String(rmErr)}`);
   }
   const original = originalError instanceof Error ? originalError : new GenMenuError(String(originalError));
   if (failures.length > 0) {

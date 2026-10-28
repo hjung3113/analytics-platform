@@ -3,7 +3,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { repoRoot } from './fixture.ts';
 import { checkAppMarkers } from './generate.ts';
-import { checkCodeowners, checkMenuVersions, checkGroups, checkMarkers, checkNoProbe, checkWiring, loadShape } from './repo-invariants.ts';
+import { checkCodeowners, checkMenuVersions, checkGroups, checkMarkers, checkNoProbe, checkUniqueness, checkWiring, loadShape } from './repo-invariants.ts';
 
 /**
  * Extensible wiring locks read from the real repo: whatever the current union, groups and
@@ -21,10 +21,16 @@ describe('committed wiring locks (real repo, read-only)', () => {
     expect(() => checkAppMarkers(shape.menusTs, shape.styleCss, shape.mockAssemblyTsx)).not.toThrow();
   });
 
-  it('discovers package indexes under two-segment menu paths', () => {
+  it('discovers package indexes under menus/<space>/<folder> and platform/<folder>', () => {
     expect(shape.folders.length).toBeGreaterThan(0);
     expect(Object.keys(shape.indexes).sort()).toEqual([...shape.folders].sort());
-    for (const folder of shape.folders) expect(folder.split('/')).toHaveLength(2);
+    for (const folder of shape.folders) expect(folder.split('/')).toHaveLength(folder.startsWith('platform/') ? 2 : 3);
+    expect(shape.folders.some(folder => folder.startsWith('platform/'))).toBe(true);
+    expect(shape.folders.some(folder => folder.startsWith('menus/'))).toBe(true);
+  });
+
+  it('keeps package names, menu ids and route shapes unique across both roots', () => {
+    expect(() => checkUniqueness(shape)).not.toThrow();
   });
 
   it('gives every GROUPS row exactly one package owner', () => {

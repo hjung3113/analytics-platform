@@ -9,9 +9,9 @@ import {
 import { PACKAGE_PREFIX } from '../src/prefix.ts';
 import { mockImportLine, mockSpreadLine, type MenuInputs, type PageType } from '../src/templates.ts';
 import {
-  PROBE_FOLDER, PROBE_PACKAGE_REL, PROBE_SPACE, PROBE_TEST_REL, assertCleanTree, gitPorcelain,
-  insertGroupsRow, preflightReservedPaths, runRevert, writeRegistryTest,
-  type RevertOutcome, type RevertSteps,
+  PROBE_FOLDER, PROBE_PLACEMENTS, PROBE_SPACE, PROBE_TEST_REL, assertCleanTree, gitPorcelain,
+  insertGroupsRow, preflightReservedPaths, probePackageRel, runRevert, writeRegistryTest,
+  type ProbePlacement, type RevertOutcome, type RevertSteps,
 } from '../src/probe-support.ts';
 
 /**
@@ -25,7 +25,6 @@ const MENUS = join(ROOT, MENUS_TS);
 const MAIN = join(ROOT, MOCK_ASSEMBLY_TSX);
 const STYLE = join(ROOT, STYLE_CSS);
 const APP_PKG_PATH = join(ROOT, APP_PKG);
-const PACKAGE_DIR = join(ROOT, PROBE_PACKAGE_REL);
 const LOCKFILE = 'pnpm-lock.yaml';
 
 /** One source for the probe CLI call and every derived value the wiring checks restate (review nit-5). */
@@ -69,13 +68,14 @@ function restoreFile(path: string, snapshot: string): void {
 type Snapshots = { menus: string; main: string; style: string; appPkg: string; lock: string };
 
 /** `root` and `spawn` are injectable for the temp-root test (#805); the CLI uses the workspace root and spawnSync. */
-export function buildRevertSteps(snapshots: Snapshots, root = ROOT, spawn: typeof spawnSync = spawnSync): RevertSteps {
+export function buildRevertSteps(snapshots: Snapshots, root = ROOT, spawn: typeof spawnSync = spawnSync, placement: ProbePlacement = 'menus'): RevertSteps {
   const menusPath = join(root, MENUS_TS);
   const mainPath = join(root, MOCK_ASSEMBLY_TSX);
   const stylePath = join(root, STYLE_CSS);
   const appPkgPath = join(root, APP_PKG);
   const lockPath = join(root, LOCKFILE);
-  const packageDir = join(root, PROBE_PACKAGE_REL);
+  const packageRel = probePackageRel(placement);
+  const packageDir = join(root, packageRel);
   return {
     // (1) the probe test is owned by this run — preflight guaranteed it did not exist before.
     deleteProbeTest: () => rmSync(join(root, PROBE_TEST_REL), { force: true }),
@@ -120,7 +120,7 @@ export function buildRevertSteps(snapshots: Snapshots, root = ROOT, spawn: typeo
       try {
         rmSync(packageDir, { recursive: true, force: true });
       } catch (err) {
-        failures.push(`${PROBE_PACKAGE_REL}: ${message(err)}`);
+        failures.push(`${packageRel}: ${message(err)}`);
       }
       if (failures.length > 0) throw new GenMenuError(`fallback restore incomplete: ${failures.join('; ')}`);
     },
@@ -141,7 +141,7 @@ export function buildRevertSteps(snapshots: Snapshots, root = ROOT, spawn: typeo
 }
 
 /** Returns the revert outcome; throws the original gate error after the revert has run. */
-function main(): { fallback: boolean; failures: { step: string; message: string }[] } {
+function main(placement: ProbePlacement): { fallback: boolean; failures: { step: string; message: string }[] } {
   assertCleanTree(ROOT);
   preflightReservedPaths(ROOT);
   const snapshots = {
@@ -155,8 +155,8 @@ function main(): { fallback: boolean; failures: { step: string; message: string 
   let outcome: RevertOutcome | undefined;
   try {
     insertGroupsRow(ROOT);
-    run('pnpm', ['gen:menu', PROBE_ARGS.group, '--label-ko', PROBE_ARGS.labelKo, '--label-en', PROBE_ARGS.labelEn, '--path', PROBE_ARGS.path, '--page-type', PROBE_ARGS.pageType]);
-    verifyGeneratedScaffold();
+    run('pnpm', ['gen:menu', PROBE_ARGS.group, '--label-ko', PROBE_ARGS.labelKo, '--label-en', PROBE_ARGS.labelEn, '--path', PROBE_ARGS.path, '--page-type', PROBE_ARGS.pageType, ...(placement === 'platform' ? ['--platform'] : [])]);
+    verifyGeneratedScaffold(placement);
     writeRegistryTest(ROOT);
     run('pnpm', ['install']);
     run('pnpm', ['lint']);
@@ -168,11 +168,11 @@ function main(): { fallback: boolean; failures: { step: string; message: string 
     // after the revert.
     run('pnpm', ['test'], { GEN_MENU_PROBE: '1' });
     run('pnpm', ['build']);
-    console.log('probe: verified — reverting');
+    console.log(`probe: verified (${placement}) — reverting`);
   } catch (err) {
     gateError = err;
   } finally {
-    outcome = runRevert(buildRevertSteps(snapshots));
+    outcome = runRevert(buildRevertSteps(snapshots, ROOT, spawnSync, placement));
   }
   for (const f of outcome.failures) console.error(`probe: revert failure (${f.step}) — ${f.message}`);
   if (gateError !== undefined) throw gateError;
@@ -185,11 +185,13 @@ function main(): { fallback: boolean; failures: { step: string; message: string 
  * and mock-assembly.tsx must have BOTH mocks registered in its marker regions — the probe group's and
  * analytics — so the four root commands below prove multi-package mock registration.
  */
-function verifyGeneratedScaffold(): void {
+function verifyGeneratedScaffold(placement: ProbePlacement): void {
+  const packageRel = probePackageRel(placement);
+  const packageDir = join(ROOT, packageRel);
   for (const rel of ['src/endpoints.ts', 'src/mock/index.ts', 'src/mock/index.test.ts']) {
-    if (!existsSync(join(PACKAGE_DIR, rel))) throw new GenMenuError(`probe: ${PROBE_PACKAGE_REL}/${rel} was not generated`);
+    if (!existsSync(join(packageDir, rel))) throw new GenMenuError(`probe: ${packageRel}/${rel} was not generated`);
   }
-  if (existsSync(join(PACKAGE_DIR, 'src/api.ts'))) throw new GenMenuError(`probe: ${PROBE_PACKAGE_REL}/src/api.ts must not be generated anymore`);
+  if (existsSync(join(packageDir, 'src/api.ts'))) throw new GenMenuError(`probe: ${packageRel}/src/api.ts must not be generated anymore`);
 
   const mainText = readFileSync(MAIN, 'utf8');
   checkAppMarkers(readFileSync(MENUS, 'utf8'), readFileSync(STYLE, 'utf8'), mainText);
@@ -210,7 +212,8 @@ function verifyGeneratedScaffold(): void {
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
-    main();
+    // One run proves both placement roots; each placement is generated, gated and reverted on its own.
+    for (const placement of PROBE_PLACEMENTS) main(placement);
     console.log('probe: OK — tree is clean');
   } catch (err) {
     console.error(message(err));

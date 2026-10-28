@@ -37,7 +37,7 @@
 
 ## 코드
 
-- 루트 pnpm workspace: `apps/*`, `packages/*`(FeedbackOps `feature-*`), `packages/sdk/*`, `packages/adapters/*`, `menus/*/*`, `tooling/*`. Node 26.7.0, pnpm 11.1.1. 명령은 루트에서 `pnpm install|dev|lint|typecheck|test|build|e2e`.
+- 루트 pnpm workspace: `apps/*`, `packages/*`(FeedbackOps `feature-*`), `packages/sdk/*`, `packages/adapters/*`, `menus/*/*`, `platform/*`, `tooling/*`. Node 26.7.0, pnpm 11.1.1. 명령은 루트에서 `pnpm install|dev|lint|typecheck|test|build|e2e`.
 - 의존 방향은 `contracts → ui/kernel → components → shell → apps`, 역방향 import 금지(경계 lint가 강제, 원본 `docs/integration/platform-packages.md` §3). FeedbackOps primitive는 `@ap/ui`로만 소비한다.
 - Kernel·공통 컴포넌트·셸은 메뉴와 mock을 모른다. 메뉴 목록은 Registry로, 서버는 `PlatformAdapter`로 앱이 주입한다.
 
@@ -79,7 +79,8 @@ FeedbackOps 코드는 이 저장소의 일반 코드다(서브모듈 아님, [AD
 | [`docs/`](docs/AGENTS.md) | 설계 계약 원본, 상태 표기·소유권 규칙 |
 | [`apps/platform-web/`](apps/platform-web/AGENTS.md) | 조립 지점(GROUPS·Registry 조립, 어댑터 주입), dev 도구 |
 | [`apps/platform-e2e/`](apps/platform-e2e/AGENTS.md) | 플랫폼 계약 자동 검사(Playwright, 블랙박스)와 항목별 보고 |
-| [`menus/`](menus/AGENTS.md) | 메뉴 Consumer 패키지(`@ap/menu-<group>`, 그룹별 manifest·화면) |
+| [`menus/`](menus/AGENTS.md) | 업무 시스템 메뉴 Consumer 패키지(`menus/<system>/<group>`, `@ap/menu-<group>`, 그룹별 manifest·화면) |
+| [`platform/`](platform/AGENTS.md) | 플랫폼 기능 Consumer 패키지(`platform/<feature>`, 한 단계, SDK 아님. 공간은 `GROUPS`만 정한다. 홈·내 활동·공지·운영 콘솔·FeedbackOps 메뉴 조립) |
 | [`packages/`](packages/AGENTS.md) | 플랫폼 패키지 공통 규칙과 의존 방향 → 각 패키지 `AGENTS.md` |
 | [`tooling/`](tooling/AGENTS.md) | 공유 tsconfig·경계 lint·메뉴 생성기(`pnpm gen:menu`)·CSS selector 비교 |
 | [`site/`](site/AGENTS.md) | 도입 소개 페이지(정적, workspace 밖)와 Pages 조립 |

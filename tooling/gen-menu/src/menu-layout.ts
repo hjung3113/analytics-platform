@@ -1,26 +1,4 @@
-import { existsSync, readdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
 import ts from 'typescript';
-
-/** Repo-relative menu package folders, including legacy packages so callers can reject them. */
-export function menuFolders(root: string): string[] {
-  const menus = join(root, 'menus');
-  if (!existsSync(menus)) return [];
-  const folders: string[] = [];
-  for (const space of readdirSync(menus, { withFileTypes: true })) {
-    if (!space.isDirectory() && !space.isSymbolicLink()) continue;
-    const parent = join(menus, space.name);
-    if (!existsSync(parent) || !statSync(parent).isDirectory()) continue;
-    if (existsSync(join(parent, 'package.json')) || existsSync(join(parent, 'src/index.ts'))) {
-      folders.push(space.name);
-      continue;
-    }
-    for (const group of readdirSync(parent, { withFileTypes: true })) {
-      if (group.isDirectory() || (group.isSymbolicLink() && existsSync(join(parent, group.name)) && statSync(join(parent, group.name)).isDirectory())) folders.push(`${space.name}/${group.name}`);
-    }
-  }
-  return folders;
-}
 
 const SPACE_ID = /^[a-z][a-z0-9-]*$/;
 
@@ -33,7 +11,6 @@ export function idLiteral(expr: ts.Expression, constructor: 'groupId' | 'spaceId
   }
   return undefined;
 }
-export const spaceFolder = (space: string | null): string => space ?? '_global';
 
 /** Read only exported literal arrays. GROUPS rows must be single lines before their marker. */
 export function groupSpaces(text: string): Map<string, string | null> {

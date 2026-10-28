@@ -1,6 +1,6 @@
 # @ap/feature-bridge
 
-FeedbackOps 다리의 런타임(ADR-0071·0081, #759). 소비자 쪽 패키지이며 SDK가 아니다(`SDK_PACKAGES`에 없다). 다리 메뉴(`@ap/menu-my-activity`, 이후 `menus/feedbackops/*`)와 앱 파일이 패키지 root를 import하고, 슬롯·API 서브패스(`./fo-api`, `./*-slot`)는 앱 `main.tsx`만 import한다.
+FeedbackOps 다리의 런타임(ADR-0071·0081, #759). 소비자 쪽 패키지이며 SDK가 아니다(`SDK_PACKAGES`에 없다). 다리 메뉴(`@ap/menu-my-activity`와 FeedbackOps 메뉴 `platform/{dashboard,voc,findings,tasks,integration,surveys,feature-admin}`)와 앱 파일이 패키지 root를 import하고, 슬롯·API 서브패스(`./fo-api`, `./*-slot`)는 앱 `main.tsx`만 import한다.
 
 ## 파일
 
@@ -26,4 +26,4 @@ FeedbackOps 다리의 런타임(ADR-0071·0081, #759). 소비자 쪽 패키지�
 - 루트와 슬롯 파일(`src/pages/` 밖)은 `@ap/feature-screens/global-screens/core`만 import한다. 전체 진입을 영구 로드 코드에 들이면 메인 번들에 FeedbackOps 화면이 실린다(ADR-0071 결정 1, #654).
 - 화면은 재export하지 않는다. 다리 메뉴가 정확한 FeedbackOps 진입을 직접 import한다.
 - 세션 싱글턴은 이 패키지에만 둔다. 다른 패키지가 `foQueryClient`나 세션을 새로 만들지 않는다.
-- 슬롯·페이지 테스트는 이 패키지가 아니라 슬롯을 쓰는 메뉴 패키지에 둔다: 메뉴의 manifest·레지스트리·fixture가 필요하고 `packages/*`는 메뉴를 import하지 못하기 때문이다(`@ap/menu-my-activity`의 `src/notifications-slot.test.tsx`·`voc-compose-slot.test.tsx`·`home-todo-slot.test.tsx`, `src/fo/test-support.tsx`; `@ap/menu-fo-dashboard`의 `scope-control-slot.test.tsx`·`scope-control-page.test.tsx`; `@ap/menu-fo-voc`의 `nav-counts.test.tsx`). 이 패키지의 테스트는 메뉴 없이 도는 것(경로 표·링크·UUID·진입 그래프·`FoScreenPage`)이다. 메뉴 테스트가 쓰는 레지스트리·`mountAt` 하니스(`./testing`)는 이 패키지에 있고 테스트 본문은 메뉴에 둔다.
+- 슬롯·페이지 테스트는 이 패키지가 아니라 슬롯을 쓰는 메뉴 패키지에 둔다: 메뉴의 manifest·레지스트리·fixture가 필요하고 `packages/*`는 메뉴를 import하지 못하기 때문이다(`@ap/menu-my-activity`의 `src/notifications-slot.test.tsx`·`voc-compose-slot.test.tsx`·`home-todo-slot.test.tsx`, `src/fo/test-support.tsx`; `@ap/menu-dashboard`의 `scope-control-slot.test.tsx`·`scope-control-page.test.tsx`; `@ap/menu-voc`의 `nav-counts.test.tsx`). 이 패키지의 테스트는 메뉴 없이 도는 것(경로 표·링크·UUID·진입 그래프·`FoScreenPage`)이다. 메뉴 테스트가 쓰는 레지스트리·`mountAt` 하니스(`./testing`)는 이 패키지에 있고 테스트 본문은 메뉴에 둔다.

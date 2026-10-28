@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url';
 
 export const DOCS_ONLY = /(\.md$|^\.agents\/)/;
 // FeedbackOps frontend sources are bundled into the demo through the `@` alias; GLOSSARY.md feeds the site's banned-term check.
-const SITE_DIRS = /^(menus|packages|apps\/feature-screens|apps\/platform-web|site|tooling|patches)\//;
+const SITE_DIRS = /^(menus|platform|packages|apps\/feature-screens|apps\/platform-web|site|tooling|patches)\//;
 const SITE_FILES = /^(package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|GLOSSARY\.md|apps\/platform-e2e\/package\.json|\.github\/workflows\/(ci|pages)\.yml)$/;
 const ZERO_SHA = /^0+$/;
 
@@ -104,6 +104,9 @@ function selfTest() {
   check('pr: docs-only → site=false', pr(['docs/a.md', '.agents/x.md']), out(F, F, F));
   check('pr: menus ts → site=true', pr(['menus/mars/hw-time/src/x.ts']).site, T);
   check('pr: menus md only → site=false', pr(['menus/mars/hw-time/README.md']).site, F);
+  check('pr: platform ts → site=true', pr(['platform/home/src/x.ts']).site, T);
+  check('pr: platform ts → code=true', pr(['platform/home/src/x.ts']).code, T);
+  check('pr: platform md only → site=false', pr(['platform/home/README.md']).site, F);
   check('pr: root package.json → site=true', pr(['package.json']).site, T);
   check('pr: GLOSSARY.md → site=true', pr(['GLOSSARY.md']).site, T);
   check('pr: ci.yml → site=true', pr(['.github/workflows/ci.yml']).site, T);

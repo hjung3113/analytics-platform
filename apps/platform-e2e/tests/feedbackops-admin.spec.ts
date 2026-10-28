@@ -5,7 +5,7 @@ import { PRODUCTIVITY } from './contract-helpers';
 /**
  * FeedbackOps › 관리자 (#764 p2): Managed System, Analytics Area, 권한 요청 검토, 부여 목록 and FeedbackOps 설정 as bridge menus. The e2e run uses the mock adapter, where `FoBridge` renders only `실서버 필요`,
  * so no screen or drawer mounts here; the screens, the drawers and `Coverage → 설정` (needs the real recovery data) are covered by the page and bridge tests and the conductor's real-server check.
- * In the mock only admin holds `feedbackops:access` (and `console:access` with it), so a persona with `feedbackops:access` alone does not exist here; that case is the harness test in `@ap/menu-fo-admin`.
+ * In the mock only admin holds `feedbackops:access` (and `console:access` with it), so a persona with `feedbackops:access` alone does not exist here; that case is the harness test in `@ap/menu-feature-admin`.
  */
 const ROW = '99999999-9999-4999-8999-999999999999';
 const SECTION_MENUS = ['Managed System', 'Analytics Area', '권한 요청 검토', '부여 목록', 'FeedbackOps 설정'];

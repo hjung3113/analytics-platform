@@ -11,6 +11,7 @@ const FORBIDDEN: { label: string; test: (id: string) => boolean }[] = [
   { label: 'packages/adapters/mock-server/', test: id => id.includes('/packages/adapters/mock-server/') },
   { label: '@ap/mock-server', test: id => /(^|\/)@ap\/mock-server(\/|$)/.test(id) },
   { label: 'menus/*/*/src/mock/', test: id => /\/menus\/[^/]+\/[^/]+\/src\/mock\//.test(id) },
+  { label: 'platform/*/src/mock/', test: id => /\/platform\/[^/]+\/src\/mock\//.test(id) },
   { label: 'apps/platform-web/src/dev/', test: id => id.includes('/apps/platform-web/src/dev/') },
   // EV's synthetic endpoint data (#801): the bare specifier, or the resolved dist file (pnpm store path or node_modules link).
   { label: '@eqv/platform-adapter/mock-data', test: id => /@eqv\/platform-adapter\/(dist\/)?mock-data(\/|$)/.test(id) },

@@ -1,4 +1,4 @@
-import { menuFolders, spaceFolder } from './menu-layout.ts';
+import { locationPath, packageFolders, parseLocation } from './package-location.ts';
 import { existsSync, readFileSync, realpathSync, readdirSync, rmdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { depLine, importLine, mockImportLine, mockSpreadLine, renderFiles, spreadLine, styleLine, type MenuInputs } from './templates.ts';
@@ -27,44 +27,59 @@ export function planRemove(root: string, group: string): RemovePlan {
     throw new GenMenuError(`invalid group id '${group}'`);
   }
   const realRoot = realpathSync(root);
-  checkInsideRoot(realRoot, join(root, 'menus'), '--remove: menus/');
+  for (const consumerRoot of ['menus', 'platform']) checkInsideRoot(realRoot, join(root, consumerRoot), `--remove: ${consumerRoot}/`);
   const candidates: { location: string; inputs: MenuInputs }[] = [];
-  for (const location of menuFolders(root)) {
-    const dir = join(root, 'menus', location);
-    checkInsideRoot(realRoot, dir, `--remove: menus/${location}`);
+  for (const location of packageFolders(root)) {
+    const dir = join(root, location);
+    checkInsideRoot(realRoot, dir, `--remove: ${location}`);
     const meta = join(dir, '.gen-menu.json');
     if (!existsSync(meta)) continue;
-    checkInsideRoot(realRoot, meta, `--remove: menus/${location}/.gen-menu.json`);
+    checkInsideRoot(realRoot, meta, `--remove: ${location}/.gen-menu.json`);
     let inputs: MenuInputs;
     try {
       inputs = JSON.parse(readFileSync(meta, 'utf8')) as MenuInputs;
     } catch {
-      throw new GenMenuError(`--remove: menus/${location}/.gen-menu.json: not a generated package`);
+      throw new GenMenuError(`--remove: ${location}/.gen-menu.json: not a generated package`);
     }
-    if (inputs?.group === group) candidates.push({ location, inputs });
+    if (inputs === null || typeof inputs !== 'object') throw new GenMenuError(`--remove: ${location}/.gen-menu.json: not a generated package`);
+    if (inputs.group === group) candidates.push({ location, inputs });
   }
   if (candidates.length !== 1) {
     throw new GenMenuError(`--remove: expected exactly one generated package for '${group}', found ${candidates.length}${candidates.length === 0 ? ' (does not exist or not a generated package)' : ''}`);
   }
-  const { location, inputs } = candidates[0] as { location: string; inputs: MenuInputs };
-  if ((inputs.space !== null && (typeof inputs.space !== 'string' || !/^[a-z][a-z0-9-]*$/.test(inputs.space))) ||
-      inputs.folder !== kebab(group) || location !== `${spaceFolder(inputs.space)}/${inputs.folder}`) {
-    throw new GenMenuError(`--remove: metadata path mismatch: menus/${location}/.gen-menu.json`);
+  const { location, inputs: raw } = candidates[0] as { location: string; inputs: MenuInputs };
+  // Metadata written before platform/ existed has no placement and describes a `menus/<space>/<folder>` package.
+  const stored = (raw as { placement?: unknown }).placement ?? 'menus';
+  const mismatch = new GenMenuError(`--remove: metadata path mismatch: ${location}/.gen-menu.json`);
+  if (stored !== 'menus' && stored !== 'platform') throw mismatch;
+  const inputs: MenuInputs = { ...raw, placement: stored };
+  // The discovered folder is the only trusted location: root, depth, space and folder must all agree with the metadata.
+  let expected: string | undefined;
+  try {
+    const found = parseLocation(location);
+    const spaceOk = inputs.space === null || (typeof inputs.space === 'string' && /^[a-z][a-z0-9-]*$/.test(inputs.space));
+    if (spaceOk && typeof inputs.folder === 'string' && found.root === stored && found.folder === inputs.folder &&
+        (found.root === 'platform' || found.space === inputs.space)) {
+      expected = locationPath(stored, inputs.space, inputs.folder);
+    }
+  } catch {
+    expected = undefined;
   }
-  const packageDir = join(root, 'menus', location);
+  if (inputs.folder !== kebab(group) || expected !== location) throw mismatch;
+  const packageDir = join(root, location);
   for (const rel of [MENUS_TS, MOCK_ASSEMBLY_TSX, STYLE_CSS, APP_PKG]) checkInsideRoot(realRoot, join(root, rel), `--remove: ${rel}`);
 
   const changelogPath = join(packageDir, 'CHANGELOG.md');
   const changelog = existsSync(changelogPath) ? readFileSync(changelogPath, 'utf8') : '';
   const date = /^## 0\.1\.0 — (\d{4}-\d{2}-\d{2})$/m.exec(changelog)?.[1];
   if (!date || Number.isNaN(Date.parse(`${date}T00:00:00.000Z`)) || new Date(`${date}T00:00:00.000Z`).toISOString().slice(0, 10) !== date) {
-    throw new GenMenuError(`--remove: menus/${location}/CHANGELOG.md was edited`);
+    throw new GenMenuError(`--remove: ${location}/CHANGELOG.md was edited`);
   }
   const files = renderFiles(inputs, date);
   for (const f of files) {
     const path = join(packageDir, f.relPath);
     if (!existsSync(path) || readFileSync(path, 'utf8') !== f.content) {
-      throw new GenMenuError(`--remove: menus/${location}/${f.relPath} was edited`);
+      throw new GenMenuError(`--remove: ${location}/${f.relPath} was edited`);
     }
   }
 
@@ -96,9 +111,9 @@ export function planRemove(root: string, group: string): RemovePlan {
   }
 
   const known = new Set([...files.map(f => f.relPath), '.gen-menu.json']);
-  checkEntries(packageDir, `menus/${location}`, '', known);
+  checkEntries(packageDir, `${location}`, '', known);
 
-  return { root, inputs, packageDir, inserts, deleteDir: `menus/${location}` };
+  return { root, inputs, packageDir, inserts, deleteDir: location };
 }
 
 /** F4: the dep line is owned only when it appears exactly once inside the contiguous menu-dependency block. */
@@ -226,7 +241,7 @@ export function applyRemove(plan: RemovePlan): void {
         // reported below via the residual check
       }
       if (existsSync(plan.packageDir)) {
-        failures.push(`menus/${spaceFolder(plan.inputs.space)}/${plan.inputs.folder}: could not be fully deleted — package directory remains`);
+        failures.push(`${plan.deleteDir}: could not be fully deleted — package directory remains`);
       }
     }
     const original = originalError instanceof Error ? originalError : new GenMenuError(String(originalError));
@@ -235,6 +250,7 @@ export function applyRemove(plan: RemovePlan): void {
     }
     throw original;
   }
+  // Only a now-empty `menus/<space>` goes with its last package; the `platform/` root itself stays.
   const parent = dirname(plan.packageDir);
-  if (readdirSync(parent).length === 0) rmdirSync(parent);
+  if (plan.inputs.placement === 'menus' && readdirSync(parent).length === 0) rmdirSync(parent);
 }

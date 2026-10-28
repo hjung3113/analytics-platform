@@ -3,25 +3,24 @@
 # Decision: docs/adr/0090-repo-structure-by-branch.md (D4).
 # Explicit group entries allow changing one line when group ownership diverges.
 
-/menus/_global/ @hjung3113
-/menus/_global/home/ @hjung3113
-/menus/_global/my-activity/ @hjung3113
-/menus/_global/notice-voc/ @hjung3113
+/platform/ @hjung3113
+/platform/admin/ @hjung3113
+/platform/dashboard/ @hjung3113
+/platform/feature-admin/ @hjung3113
+/platform/findings/ @hjung3113
+/platform/home/ @hjung3113
+/platform/integration/ @hjung3113
+/platform/my-activity/ @hjung3113
+/platform/notice-voc/ @hjung3113
+/platform/surveys/ @hjung3113
+/platform/tasks/ @hjung3113
+/platform/voc/ @hjung3113
 
 /menus/bravo/ @hjung3113
 /menus/bravo/metrics/ @hjung3113
 
 /menus/clas/ @hjung3113
 /menus/clas/clas/ @hjung3113
-
-/menus/feedbackops/ @hjung3113
-/menus/feedbackops/fo-admin/ @hjung3113
-/menus/feedbackops/fo-dashboard/ @hjung3113
-/menus/feedbackops/fo-findings/ @hjung3113
-/menus/feedbackops/fo-integration/ @hjung3113
-/menus/feedbackops/fo-surveys/ @hjung3113
-/menus/feedbackops/fo-tasks/ @hjung3113
-/menus/feedbackops/fo-voc/ @hjung3113
 
 /menus/improvement/ @hjung3113
 /menus/improvement/imp-my-work/ @hjung3113
@@ -43,6 +42,3 @@
 /menus/mars/mcc/ @hjung3113
 /menus/mars/rcc/ @hjung3113
 /menus/mars/wpt/ @hjung3113
-
-/menus/operations/ @hjung3113
-/menus/operations/admin/ @hjung3113

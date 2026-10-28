@@ -3,13 +3,13 @@
 // This is not part of the package `test`: turbo would cache it without seeing menu edits. The root `pnpm sdk:test`
 // (tooling/sdk/sdk-schemas.test.mjs) runs it; regenerate with `pnpm --filter @ap/contract-schemas gen:endpoints`.
 //
-// Only `menus/*/*/src/endpoints.ts` counts: external module endpoints (@eqv/*) and the mock assembly are out of scope here.
+// Only `menus/*/*/src/endpoints.ts` and `platform/*/src/endpoints.ts` count: external module endpoints (@eqv/*) and the mock assembly are out of scope here.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { endpointDeclarationSchema } from '../src/index.ts';
 
 const target = new URL('../endpoints.json', import.meta.url);
-const modules = import.meta.glob('../../../../menus/*/*/src/endpoints.ts', { eager: true });
+const modules = import.meta.glob(['../../../../menus/*/*/src/endpoints.ts', '../../../../platform/*/src/endpoints.ts'], { eager: true });
 
 const isDeclaration = (value) =>
   value !== null && typeof value === 'object' && typeof value.id === 'string' && typeof value.menuId === 'string' && value.paramKeys !== null && typeof value.paramKeys === 'object';
