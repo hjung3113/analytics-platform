@@ -2,12 +2,12 @@ import { cleanup, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { spaceId } from '@ap/contracts';
 import { memoryStorage } from '@ap/kernel/testing';
-import { setFoApi } from '@ap/feature-bridge/fo-api';
+import { setFeatureApi } from '@ap/feature-bridge/feature-api';
 import { scopeControlSlot } from '@ap/feature-bridge/scope-control';
 import { mountAt } from './test-support';
 
 beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); });
-afterEach(() => { cleanup(); setFoApi(null); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
+afterEach(() => { cleanup(); setFeatureApi(null); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
 describe('scopeControlSlot', () => {
   it('returns one stable component for the FeedbackOps space and null for any other', () => {

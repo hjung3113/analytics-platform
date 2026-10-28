@@ -12,7 +12,7 @@ export type PlatformPermissionRule =
   /** Every active session. Not gated on `workspace.read`: `roleSatisfies('developer', …)` is false. */
   | 'every-session'
   /** Role Level developer/admin, or an active grant of a FeedbackOps working capability. */
-  | 'feedbackops-access'
+  | 'features-access'
   /** `workspace.admin` allowed. */
   | 'workspace-admin';
 
@@ -21,11 +21,11 @@ export const PLATFORM_PERMISSION_TABLE = [
   { permission: 'notice:view', rule: 'every-session' },
   { permission: 'voc:view', rule: 'every-session' },
   { permission: 'console:access', rule: 'workspace-admin' },
-  { permission: 'feedbackops:access', rule: 'feedbackops-access' },
+  { permission: 'features:access', rule: 'features-access' },
 ] as const satisfies ReadonlyArray<{ permission: string; rule: PlatformPermissionRule }>;
 
-/** Capabilities whose active grant (workspace or Managed-System scoped) opens `feedbackops:access`. */
-export const FEEDBACKOPS_ACCESS_CAPABILITIES = [
+/** Capabilities whose active grant (workspace or Managed-System scoped) opens `features:access`. */
+export const FEATURES_ACCESS_CAPABILITIES = [
   'voc.triage',
   'finding.read',
   'survey.manage',
@@ -73,9 +73,9 @@ async function holds(
       });
       return decision.allow;
     }
-    case 'feedbackops-access': {
+    case 'features-access': {
       if (actor.role_level === 'developer' || actor.role_level === 'admin') return true;
-      for (const capability of FEEDBACKOPS_ACCESS_CAPABILITIES) {
+      for (const capability of FEATURES_ACCESS_CAPABILITIES) {
         const scope = await checkService.capabilityScope(actor, capability, {
           workspace_id: actor.workspace_id,
         });

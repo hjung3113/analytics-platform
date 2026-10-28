@@ -4,7 +4,7 @@ import { CONTEXT_LABELS, PAGE_TYPE_LABELS, contractErrorSentence, useI18n } from
 import { useHostPlatform } from '@ap/kernel/host';
 import { LoadingBlock, Panel, PlatformPage, StateMessage, focusPageFallback } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
-import type { Capability, ContextKey } from '@ap/contracts';
+import { menuPermissions, type Capability, type ContextKey } from '@ap/contracts';
 import { contextBarVisible } from '../context/GlobalContextBar';
 import { HomeLink } from '../frame/HomeLink';
 import { ModuleScreen } from './ModuleScreen';
@@ -68,7 +68,7 @@ export function ScreenOutlet() {
       action={<Button size="sm" variant="secondary" onClick={event => { focusPageFallback(event.currentTarget); setGlobal({ metricId: null, metricVersion: null }, { replace: true }); }}>{lang === 'ko' ? '이 지표 쌍 지우기' : 'Clear this metric pair'}</Button>} /></div>;
   }
   // Direct URL to a menu hidden by permission: the server check still answers (§17), distinct from "no data".
-  if (!can(route.menu.permission)) return <KernelMessage tone="warning" icon={<Ban className="size-4" aria-hidden />} title={lang === 'ko' ? '이 메뉴에 대한 권한이 없습니다' : 'You do not have access to this menu'}
+  if (!menuPermissions(route.menu).every(can)) return <KernelMessage tone="warning" icon={<Ban className="size-4" aria-hidden />} title={lang === 'ko' ? '이 메뉴에 대한 권한이 없습니다' : 'You do not have access to this menu'}
     body={<>{tx(route.menu.label)}. {t('askAccessOwner')}</>} />;
   const Page = route.menu.component;
   const pageKey = route.menu.id + JSON.stringify(route.params);

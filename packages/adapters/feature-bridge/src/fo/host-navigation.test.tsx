@@ -8,8 +8,8 @@ import { noContext, testAdapter, testSession, testSpace, useToastsForTest } from
 import { groupId, spaceId } from '@ap/contracts';
 import { useHostSeam } from '@/lib/host/host-seam';
 import type { HostSeam } from '@ap/feature-screens/global-screens/core';
-import { setFoApi } from '../fo-api';
-import { FoBridge } from './FoBridge';
+import { setFeatureApi } from '../feature-api';
+import { FeatureBridge } from './FeatureBridge';
 import { hostLinks } from './links';
 import { operatorRoute, routeHere, routeSearch } from './operator-route';
 
@@ -183,11 +183,11 @@ describe('a VOC detail cluster href', () => {
   });
 });
 
-describe('FoBridge seam', () => {
-  afterEach(() => setFoApi(null));
+describe('FeatureBridge seam', () => {
+  afterEach(() => setFeatureApi(null));
 
   it('keeps one seam object across a URL change and carries the module-level hooks', async () => {
-    setFoApi({ basePath: '/fo', onSessionLost: () => undefined });
+    setFeatureApi({ basePath: '/fo', onSessionLost: () => undefined });
     at('/inbox?v=1&q=a');
     const seams: HostSeam[] = [];
     let go!: (url: string) => void;
@@ -196,7 +196,7 @@ describe('FoBridge seam', () => {
       go = usePlatform().navigate as unknown as (url: string) => void;
       return null;
     }
-    render(<FoBridge useNavigate={useNavigate} useSearch={useSearch} useHere={useHere}><Probe /></FoBridge>, { wrapper });
+    render(<FeatureBridge useNavigate={useNavigate} useSearch={useSearch} useHere={useHere}><Probe /></FeatureBridge>, { wrapper });
     await waitFor(() => expect(seams.length).toBeGreaterThan(0));
     act(() => go('/inbox?v=1&q=b'));
     act(() => go('/triage?v=1'));
@@ -209,29 +209,29 @@ describe('FoBridge seam', () => {
   });
 
   it('defaults to a no-op navigate and an empty search', async () => {
-    setFoApi({ basePath: '/fo', onSessionLost: () => undefined });
+    setFeatureApi({ basePath: '/fo', onSessionLost: () => undefined });
     at('/inbox?v=1');
     let seam!: HostSeam;
     function Probe() { seam = useHostSeam(); return null; }
-    render(<FoBridge><Probe /></FoBridge>, { wrapper });
+    render(<FeatureBridge><Probe /></FeatureBridge>, { wrapper });
     await waitFor(() => expect(seam).toBeDefined());
     expect(seam.useSearch!()).toEqual({});
     expect(() => seam.useTitle!('x')).not.toThrow();
     expect(seam.useHere!()).toBe('');
   });
 
-  it('never registers a default host: a screen outside FoBridge still throws', () => {
+  it('never registers a default host: a screen outside FeatureBridge still throws', () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     expect(() => renderHook(() => useHostSeam(), { wrapper })).toThrow('HostSeamProvider is missing');
     error.mockRestore();
   });
 });
 
-describe('FoBridge seam notices', () => {
-  afterEach(() => setFoApi(null));
+describe('FeatureBridge seam notices', () => {
+  afterEach(() => setFeatureApi(null));
 
   function mountSeam() {
-    setFoApi({ basePath: '/fo', onSessionLost: () => undefined });
+    setFeatureApi({ basePath: '/fo', onSessionLost: () => undefined });
     at('/inbox?v=1');
     const live = { seam: undefined as HostSeam | undefined, toasts: [] as ReturnType<typeof useToastsForTest> };
     function Probe() {
@@ -239,7 +239,7 @@ describe('FoBridge seam notices', () => {
       live.toasts = useToastsForTest();
       return null;
     }
-    render(<FoBridge><Probe /></FoBridge>, { wrapper });
+    render(<FeatureBridge><Probe /></FeatureBridge>, { wrapper });
     return live;
   }
 
@@ -361,30 +361,30 @@ describe('a target whose menu is not in the registry', () => {
   });
 
   it('is unlinked in the seam (canLink) and gives no copy-link address', async () => {
-    setFoApi({ basePath: '/fo', onSessionLost: () => undefined });
+    setFeatureApi({ basePath: '/fo', onSessionLost: () => undefined });
     at('/inbox?v=1');
     let seam!: HostSeam;
     function Probe() { seam = useHostSeam(); return null; }
-    render(<FoBridge targetOf={targetOf}><Probe /></FoBridge>, { wrapper: loneWrapper });
+    render(<FeatureBridge targetOf={targetOf}><Probe /></FeatureBridge>, { wrapper: loneWrapper });
     await waitFor(() => expect(seam).toBeDefined());
     expect(seam.canLink('/vocs?view=inbox&q=a')).toBe(true);
     expect(seam.canLink('/vocs?view=triage')).toBe(false);
     expect(seam.absoluteHref!('/vocs?view=triage')).toBeNull();
-    setFoApi(null);
+    setFeatureApi(null);
   });
 });
 
-describe('FoBridge absoluteHref', () => {
-  afterEach(() => setFoApi(null));
+describe('FeatureBridge absoluteHref', () => {
+  afterEach(() => setFeatureApi(null));
   const { targetOf } = hostLinks(inbox.target, triage.target);
 
   it('is the absolute linkTo URL of the mapped target (no returnTo), null for an unmapped path', async () => {
-    setFoApi({ basePath: '/fo', onSessionLost: () => undefined });
+    setFeatureApi({ basePath: '/fo', onSessionLost: () => undefined });
     at('/inbox?v=1&managedSystem=ms1');
     const seams: HostSeam[] = [];
     let go!: (url: string) => void;
     function Probe() { seams.push(useHostSeam()); go = usePlatform().navigate as unknown as (url: string) => void; return null; }
-    render(<FoBridge targetOf={targetOf}><Probe /></FoBridge>, { wrapper });
+    render(<FeatureBridge targetOf={targetOf}><Probe /></FeatureBridge>, { wrapper });
     await waitFor(() => expect(seams.length).toBeGreaterThan(0));
     const first = seams[0]!;
     const href = first.absoluteHref!('/vocs?view=triage&selected=x')!;
@@ -400,18 +400,18 @@ describe('FoBridge absoluteHref', () => {
   });
 
   it('tells the screens the platform owns the page title', async () => {
-    setFoApi({ basePath: '/fo', onSessionLost: () => undefined });
+    setFeatureApi({ basePath: '/fo', onSessionLost: () => undefined });
     at('/inbox?v=1');
     let seam!: HostSeam;
     function Probe() { seam = useHostSeam(); return null; }
-    render(<FoBridge><Probe /></FoBridge>, { wrapper });
+    render(<FeatureBridge><Probe /></FeatureBridge>, { wrapper });
     await waitFor(() => expect(seam).toBeDefined());
     expect(seam.hostOwnsTitle).toBe(true);
     expect(seam.hostCarriesReturn).toBe(true);
   });
 
   it('renders the address of the same navigation (a copy URL never keeps the cleared scope), and rebuilds the seam only on navigation', async () => {
-    setFoApi({ basePath: '/fo', onSessionLost: () => undefined });
+    setFeatureApi({ basePath: '/fo', onSessionLost: () => undefined });
     at('/inbox?v=1&focus=a&managedSystem=ms1');
     const seams: HostSeam[] = [];
     let go!: (url: string) => void;
@@ -425,7 +425,7 @@ describe('FoBridge absoluteHref', () => {
     function Host() {
       const [, setN] = useState(0);
       rerender = () => setN(n => n + 1);
-      return <FoBridge targetOf={targetOf}><Probe /><Copy /></FoBridge>;
+      return <FeatureBridge targetOf={targetOf}><Probe /><Copy /></FeatureBridge>;
     }
     render(<Host />, { wrapper });
     await waitFor(() => expect(document.querySelector('[data-testid=copy]')).not.toBeNull());

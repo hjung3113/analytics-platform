@@ -80,7 +80,7 @@ describe('menusForPermissions (#49 drawer join)', () => {
     });
     expect(menusForPermissions(globalRegistry, ['notice:view'])).toEqual([{
       id: 'notices', label: { ko: '공지', en: 'Notices' }, path: '/notices', permission: 'notice:view',
-      spaceGated: false, spaceId: null, spaceLabel: { ko: '전역', en: 'Global' },
+      spaceGated: false, missingPermissions: [], spaceId: null, spaceLabel: { ko: '전역', en: 'Global' },
     }]);
   });
 
@@ -116,5 +116,26 @@ describe('menusForPermissions module menu (ADR-0053)', () => {
     const joined = menusForPermissions(moduleRegistry(), ['fx:view', 'platform:view']);
 
     expect(joined).toMatchObject([{ id: 'fx-home', permission: 'fx:view', spaceGated: false }]);
+  });
+});
+
+describe('menusForPermissions additional permissions (#1099a)', () => {
+  const gated = createRegistry({
+    spaces: [],
+    groups: [{ id: groupId('admin'), label: { ko: '관리', en: 'Admin' }, icon: House, space: null }],
+    menus: [menu({ id: 'both', permission: 'console:access', additionalPermissions: ['features:access'], path: '/both', primary: true })],
+  });
+
+  it('keeps the row for a held primary and names the extra grant the principal lacks', () => {
+    expect(menusForPermissions(gated, ['console:access'])).toMatchObject([{ id: 'both', permission: 'console:access', spaceGated: false, missingPermissions: ['features:access'] }]);
+  });
+
+  it('lists nothing missing when every grant is held, and no row when the primary is not', () => {
+    expect(menusForPermissions(gated, ['console:access', 'features:access'])).toMatchObject([{ id: 'both', missingPermissions: [] }]);
+    expect(menusForPermissions(gated, ['features:access'])).toEqual([]);
+  });
+
+  it('a module menu has its single prefixed permission and nothing missing', () => {
+    expect(menusForPermissions(moduleRegistry(), ['fx:view'])).toMatchObject([{ id: 'fx-home', missingPermissions: [] }]);
   });
 });

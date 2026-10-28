@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useState, type ReactNode } from 
 import { hasDotSegment } from '../context/location';
 import type { PageFocus } from '../context/pageNavigation';
 import { routeParamNames } from '../registry/registry';
-import { incompleteMetricPair, isAppRelativePath, type ParsedQuery, parseQuery, type SpaceId } from '@ap/contracts';
+import { incompleteMetricPair, menuPermissions, isAppRelativePath, type ParsedQuery, parseQuery, type SpaceId } from '@ap/contracts';
 import { readSpaceLast, sameParams, writeSpaceLast } from './preferences';
 import { MainBoundContext, ScreenContext, type AppValue, type CommitOptions, type MainBound, type ScreenSource } from './contexts';
 import { useScreenState } from './useScreenState';
@@ -55,7 +55,7 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
 
   // Recent visits (the main screen's own history; a pane never writes them).
   useEffect(() => {
-    if (!route || route.viaAlias || contractError || !can(route.menu.permission)) return;
+    if (!route || route.viaAlias || contractError || !menuPermissions(route.menu).every(can)) return;
     if (!enters(route.menu)) return;
     const space = registry.spaceOf(route.menu);
     if (space !== null) writeSpaceLast(userId, space.id, url, spaceIdMigrations);

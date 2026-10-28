@@ -2,8 +2,8 @@ import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/re
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
-import { setFoApi } from '@ap/feature-bridge/fo-api';
-import { foQueryClient } from '@ap/feature-bridge';
+import { setFeatureApi } from '@ap/feature-bridge/feature-api';
+import { featureQueryClient } from '@ap/feature-bridge';
 import { ID_A, ID_B, json, mountAt, stubFetch, switchableAdapter, type Call } from '../fo/test-support';
 
 const origin = () => window.location.origin;
@@ -72,8 +72,8 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
-  foQueryClient.clear();
-  setFoApi(null);
+  featureQueryClient.clear();
+  setFeatureApi(null);
   vi.unstubAllGlobals();
   window.history.replaceState(null, '', '/');
 });
@@ -83,7 +83,7 @@ describe('내 VOC without a FeedbackOps API (mock preview) — V1', () => {
     ['/voc?v=1', '내 VOC'],
     [`/voc/${ID_A}?v=1`, '내 VOC 상세'],
   ])('%s shows %s and 실서버 필요 and requests nothing', async (url, heading) => {
-    setFoApi(null);
+    setFeatureApi(null);
     const calls = vocFetch();
     mountAt(session().adapter, url);
     expect(await screen.findByRole('heading', { name: heading })).toBeTruthy();
@@ -94,7 +94,7 @@ describe('내 VOC without a FeedbackOps API (mock preview) — V1', () => {
 
 describe('내 VOC through the FeedbackOps bridge', () => {
   const onSessionLost = vi.fn();
-  beforeEach(() => { onSessionLost.mockReset(); setFoApi({ basePath: '/api/fo', onSessionLost }); });
+  beforeEach(() => { onSessionLost.mockReset(); setFeatureApi({ basePath: '/api/fo', onSessionLost }); });
 
   it('V2: lists GET /api/fo/vocs?view=my with the session cookie and sends no operator request', async () => {
     const calls = vocFetch();

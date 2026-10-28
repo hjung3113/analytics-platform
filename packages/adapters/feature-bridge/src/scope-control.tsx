@@ -3,8 +3,8 @@ import { ChevronDown } from 'lucide-react';
 import { spaceId } from '@ap/contracts';
 import { usePlatform, type ScopeControlSlot } from '@ap/kernel';
 import { Button } from '@ap/ui';
-import { foApi } from './fo-api';
-import { useFoSession } from './fo/session';
+import { featureApi } from './feature-api';
+import { useFeatureSession } from './fo/session';
 
 const FEEDBACKOPS = spaceId('feedbackops');
 const SCOPE_KEY = 'managedSystem';
@@ -28,9 +28,9 @@ function MockScope() {
  */
 function Control({ collapsed }: { collapsed: boolean }) {
   const { route } = usePlatform();
-  const session = useFoSession();
+  const session = useFeatureSession();
   if (!route?.menu.pageKeys.includes(SCOPE_KEY)) return null;
-  if (foApi() === null) return collapsed ? null : <MockScope />;
+  if (featureApi() === null) return collapsed ? null : <MockScope />;
   if (session.status !== 'ready') return null;
   return <Suspense fallback={null}><ScopeControl collapsed={collapsed} /></Suspense>;
 }

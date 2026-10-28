@@ -5,7 +5,7 @@ import { resolve } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '@ap/kernel';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
-import { FoDetailDrawer } from './FoDetailDrawer';
+import { FeatureDetailDrawer } from './FeatureDetailDrawer';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -28,7 +28,7 @@ function mount(onClose: () => void, requestClose?: () => void) {
   roots.push(root);
   act(() => root.render(
     <I18nProvider><DetailPanelSlotProvider>
-      <FoDetailDrawer parts={parts} onClose={onClose} {...(requestClose !== undefined ? { requestClose } : {})} />
+      <FeatureDetailDrawer parts={parts} onClose={onClose} {...(requestClose !== undefined ? { requestClose } : {})} />
       <SlotHost />
     </DetailPanelSlotProvider></I18nProvider>,
   ));
@@ -36,7 +36,7 @@ function mount(onClose: () => void, requestClose?: () => void) {
   return { aside, close: () => act(() => (aside.querySelector('button[aria-label="상세 닫기"]') as HTMLButtonElement).click()) };
 }
 
-describe('FoDetailDrawer', () => {
+describe('FeatureDetailDrawer', () => {
   it('shows the parts in the slot, the body inside .fo-detail-body with no tab row for its one 상세 tab', () => {
     const { aside } = mount(vi.fn());
     const dialog = aside.querySelector('[role="dialog"]')!;

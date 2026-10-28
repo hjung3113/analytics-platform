@@ -50,9 +50,14 @@ export type SpaceDef = {
   carriedPageKeys?: readonly string[];
 };
 /** Permissions the platform's own features judge, whatever app is assembled — emitted to `vocab.json` for servers outside this workspace (#674). Canonical order. */
-export const KERNEL_PERMISSIONS = ['platform:view', 'notice:view', 'voc:view', 'console:access', 'feedbackops:access'] as const;
+export const KERNEL_PERMISSIONS = ['platform:view', 'notice:view', 'voc:view', 'console:access', 'features:access'] as const;
 export type KernelPermission = typeof KERNEL_PERMISSIONS[number];
 export type Permission = KernelPermission | MenuPermission;
+
+/** Every grant a menu needs, primary first (`permission` AND each `additionalPermissions` entry). Module menus carry a `<module>:<action>` primary and no extras; their string passes through unchanged. */
+export function menuPermissions(menu: { readonly permission: string; readonly additionalPermissions?: readonly Permission[] }): readonly Permission[] {
+  return [menu.permission as Permission, ...(menu.additionalPermissions ?? [])];
+}
 
 /** One drill step: a page key plus the name the path bar shows (06 §6.4, ADR-0025). */
 export type DrillLevel = { key: string; label: Text };
@@ -73,6 +78,8 @@ export type MenuMeta = {
   /** Extra route patterns that still open this menu (legacy paths, ADR-0093). Same `:param` count as `path`. Output of `createRegistry` holds the manifest path here when it differs from the canonical one. */
   aliases?: readonly string[];
   permission: Permission;
+  /** Further grants the actor must also hold (AND with `permission`, never OR). Platform vocabulary only: the registry rejects an empty list, a repeat of the primary or another entry, an unknown grant and any list on a module menu (ADR-0053 keeps one permission). Read access through `menuPermissions`. */
+  additionalPermissions?: readonly Permission[];
   /** Scope must be selected and server-validated before this page queries data. */
   requiresScope: boolean;
   context: Record<ContextKey, Capability>;

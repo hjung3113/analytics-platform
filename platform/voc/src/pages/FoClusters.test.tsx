@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
-import { setFoApi } from '@ap/feature-bridge/fo-api';
+import { setFeatureApi } from '@ap/feature-bridge/feature-api';
 import { clustersRoute } from '@ap/feature-bridge';
 import { useHostSeam } from '@/lib/host/host-seam';
 import { createRegistry, type MenuEntry } from '@ap/kernel';
@@ -56,13 +56,13 @@ beforeEach(() => {
   fo.mounts = 0;
   fo.screens = 0;
 });
-afterEach(() => { cleanup(); setFoApi(null); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
+afterEach(() => { cleanup(); setFeatureApi(null); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
 describe('Clusters manifest', () => {
   it('declares the route table page keys and the permission of the space', () => {
     const clusters = manifests.find(menu => menu.id === 'fo-clusters')!;
     expect([...clusters.pageKeys!].sort()).toEqual([...clustersRoute.pageKeys, 'returnTo'].sort());
-    expect(clusters).toMatchObject({ path: '/feedbackops/clusters', permission: 'feedbackops:access', requiresScope: false, label: { ko: 'Clusters', en: 'Clusters' } });
+    expect(clusters).toMatchObject({ path: '/feedbackops/clusters', permission: 'features:access', requiresScope: false, label: { ko: 'Clusters', en: 'Clusters' } });
   });
 });
 
@@ -76,7 +76,7 @@ describe('Clusters without a FeedbackOps API (mock preview)', () => {
 });
 
 describe('Clusters through the FeedbackOps bridge', () => {
-  beforeEach(() => { setFoApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
+  beforeEach(() => { setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
 
   it('renders the list with the page read as the cluster FO path; VOC member links are live, Finding links are not', async () => {
     mountAt(`/feedbackops/clusters?managedSystem=${SYSTEM}`);
@@ -92,11 +92,11 @@ describe('Clusters through the FeedbackOps bridge', () => {
     // A stand-in for the `fo-findings` manifest of `@ap/menu-findings`, which this package does not depend on.
     const findings: MenuEntry = {
       id: 'fo-findings', group: groupId('foVoc'), label: { ko: '전체 Finding', en: 'All Findings' }, description: { ko: '목적', en: 'Purpose' },
-      path: '/feedbackops/findings', icon: manifests[0]!.icon, permission: 'feedbackops:access', requiresScope: false, pageType: 'management',
+      path: '/feedbackops/findings', icon: manifests[0]!.icon, permission: 'features:access', requiresScope: false, pageType: 'management',
       context: contextCapabilities(), features: NO_FEATURES, pageKeys: ['focus', 'managedSystem', 'returnTo'],
     };
     const withFindings = createRegistry({
-      spaces: [{ id: spaceId('feedbackops'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'feedbackops:access', carriedPageKeys: ['managedSystem', 'returnTo'], homeMenuId: 'fo-inbox' }],
+      spaces: [{ id: spaceId('feedbackops'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'features:access', carriedPageKeys: ['managedSystem', 'returnTo'], homeMenuId: 'fo-inbox' }],
       groups: [{ id: groupId('foVoc'), label: { ko: 'VOC', en: 'VOC' }, icon: findings.icon, space: spaceId('feedbackops') }],
       menus: [...manifests, findings],
     });

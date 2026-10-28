@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react';
 import type { HomeTodoSlot } from '@ap/kernel';
-import { useFoSession } from './fo/session';
+import { useFeatureSession } from './fo/session';
 
 // The page (and with it the FeedbackOps panel and its data hooks) loads only once the FeedbackOps session is ready, so none of it is in the main chunk.
 const HomeTodo = lazy(() => import('./pages/HomeTodo'));
@@ -10,7 +10,7 @@ const HomeTodo = lazy(() => import('./pages/HomeTodo'));
  * and the page chunk is never requested (ADR-0070 decision 5, 8). The gate unmounts the page in the same commit the session leaves `ready`.
  */
 function Todo() {
-  const session = useFoSession();
+  const session = useFeatureSession();
   if (session.status !== 'ready') return null;
   return <Suspense fallback={null}><HomeTodo /></Suspense>;
 }

@@ -4,7 +4,7 @@ import { render, cleanup } from '@testing-library/react';
 import { afterEach, vi } from 'vitest';
 import { I18nProvider, PlatformProvider } from '@ap/kernel';
 import { testAdapter, testSession } from '@ap/kernel/testing';
-import { FoBridge, operatorHostLinks, useInboxSearch, useInboxHere, foQueryClient, setFoApi } from '@ap/feature-bridge';
+import { FeatureBridge, operatorHostLinks, useInboxSearch, useInboxHere, featureQueryClient, setFeatureApi } from '@ap/feature-bridge';
 import { savedViewsSlot } from '@ap/feature-bridge/saved-views';
 import { InboxScreen } from '@ap/feature-screens/operator-screens/voc-inbox';
 import { registry } from '../test-support';
@@ -61,7 +61,7 @@ export interface AuthedVocsMount {
 }
 export const stringifyAppSearch = (search: Record<string, string>) => `?${new URLSearchParams(search)}`;
 const Body = savedViewsSlot.For(spaceId('feedbackops'))!.Body;
-afterEach(() => { cleanup(); foQueryClient.clear(); setFoApi(null); window.history.replaceState(null, '', '/'); });
+afterEach(() => { cleanup(); featureQueryClient.clear(); setFeatureApi(null); window.history.replaceState(null, '', '/'); });
 export function mountAuthedVocs({ initialPath, vocsShell = false, handle }: {
  initialPath: string; vocsShell?: boolean;
  handle?: (request: AuthedVocsRequest) => Response | Promise<Response> | undefined;
@@ -107,8 +107,8 @@ export function mountAuthedVocs({ initialPath, vocsShell = false, handle }: {
   vi.stubGlobal('fetch', fetchMock as typeof globalThis.fetch);
 
 
-  foQueryClient.clear();
-  setFoApi({ basePath: '/api/fo', onSessionLost: vi.fn() });
+  featureQueryClient.clear();
+  setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() });
   const url = new URL(initialPath, 'http://localhost');
   url.searchParams.delete('view');
   window.history.replaceState(null, '', `/feedbackops/vocs${url.search}`);
@@ -120,11 +120,11 @@ export function mountAuthedVocs({ initialPath, vocsShell = false, handle }: {
     }, [search]);
     return null;
   }
-  const session = testSession(['platform:view', 'feedbackops:access'], { user: { id: 'admin', name: 'admin', title: { ko: 'admin', en: 'admin' } } });
+  const session = testSession(['platform:view', 'features:access'], { user: { id: 'admin', name: 'admin', title: { ko: 'admin', en: 'admin' } } });
   render(<I18nProvider><PlatformProvider adapter={testAdapter({session: () => session})} registry={registry}>
-    <Body /><Probe /><FoBridge {...operatorHostLinks} useSearch={useInboxSearch} useHere={useInboxHere}>
+    <Body /><Probe /><FeatureBridge {...operatorHostLinks} useSearch={useInboxSearch} useHere={useInboxHere}>
       {vocsShell ? <InboxScreen view="inbox" renderDetail={() => undefined} /> : null}
-    </FoBridge>
+    </FeatureBridge>
   </PlatformProvider></I18nProvider>);
   return { requests, unhandled, router };
 }

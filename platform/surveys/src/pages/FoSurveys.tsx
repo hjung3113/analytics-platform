@@ -1,10 +1,10 @@
 import { usePlatform } from '@ap/kernel';
-import { FoScreenPage, surveysRoute, useSurveysHere, useSurveysSearch } from '@ap/feature-bridge';
+import { FeatureScreenPage, surveysRoute, useSurveysHere, useSurveysSearch } from '@ap/feature-bridge';
 import { SurveysScreen } from '@ap/feature-screens/operator-screens/surveys';
 import { isSurveysSearchValueValid } from '@ap/feature-screens/operator-screens/surveys-search';
 import { SurveyDetailDrawer } from './SurveyDrawer';
 
-/** FO's `ListShell` would hand a returned node to the shell slot, which renders it outside the FeedbackOps providers (and over the list's denied and empty states); the page draws the detail itself, inside `FoBridge`. */
+/** FO's `ListShell` would hand a returned node to the shell slot, which renders it outside the FeedbackOps providers (and over the list's denied and empty states); the page draws the detail itself, inside `FeatureBridge`. */
 const noDetail = () => undefined;
 
 /**
@@ -14,8 +14,8 @@ const noDetail = () => undefined;
 export default function FoSurveys() {
   const { pageParam, setPage } = usePlatform();
   const focus = pageParam('focus');
-  return <FoScreenPage route={surveysRoute} isValid={isSurveysSearchValueValid} useSearch={useSurveysSearch} useHere={useSurveysHere}
+  return <FeatureScreenPage route={surveysRoute} isValid={isSurveysSearchValueValid} useSearch={useSurveysSearch} useHere={useSurveysHere}
     detail={focus !== null && <SurveyDetailDrawer key={focus} surveyId={focus} onClose={() => setPage({ focus: null })} />}>
     <SurveysScreen renderDetail={noDetail} />
-  </FoScreenPage>;
+  </FeatureScreenPage>;
 }

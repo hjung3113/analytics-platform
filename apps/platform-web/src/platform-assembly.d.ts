@@ -13,11 +13,11 @@ declare module '#platform-assembly' {
 
   /**
    * What a build injects: the server adapter and its top-bar tools (DevTools in mock builds; production writes `null`).
-   * `savedViews` is the browser-local ACL simulation in mock builds; real assemblies leave it absent. `feedbackOpsApi`
+   * `savedViews` is the browser-local ACL simulation in mock builds; real assemblies leave it absent. `featureApi`
    * (real assemblies only; absent in mock) is where the FeedbackOps bridge screens call and what they do when the
    * FeedbackOps session is lost (ADR-0071). Structural: the Kernel and this contract know no menu.
    */
-  export type Assembly = { adapter: PlatformAdapter; topBarTools: ReactNode; savedViews?: SavedViewStore; feedbackOpsApi?: { basePath: string; onSessionLost: () => void } };
+  export type Assembly = { adapter: PlatformAdapter; topBarTools: ReactNode; savedViews?: SavedViewStore; featureApi?: { basePath: string; onSessionLost: () => void } };
   /**
    * What `createAssembly` may answer (#154, http-adapter-contract §3 안 B): the assembly to mount, a `redirect` target
    * (`main.tsx` calls `window.location.replace`, e.g. to the login page), or a `screen` rendered instead of the app

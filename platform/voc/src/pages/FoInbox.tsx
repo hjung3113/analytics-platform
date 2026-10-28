@@ -1,10 +1,10 @@
 import { usePlatform } from '@ap/kernel';
-import { FoScreenPage, inboxRoute, useInboxHere, useInboxSearch } from '@ap/feature-bridge';
+import { FeatureScreenPage, inboxRoute, useInboxHere, useInboxSearch } from '@ap/feature-bridge';
 import { InboxScreen } from '@ap/feature-screens/operator-screens/voc-inbox';
 import { isVocSearchValueValid } from '@ap/feature-screens/operator-screens/voc-search';
 import { VocDetailDrawer } from './VocDetailDrawer';
 
-/** FO's `ListShell` would hand a returned node to the shell slot, which renders it outside the FeedbackOps providers; the page draws the detail itself, inside `FoBridge`. */
+/** FO's `ListShell` would hand a returned node to the shell slot, which renders it outside the FeedbackOps providers; the page draws the detail itself, inside `FeatureBridge`. */
 const noDetail = () => undefined;
 
 /**
@@ -15,8 +15,8 @@ export default function FoInbox() {
   const { pageParam, setPage } = usePlatform();
   const focus = pageParam('focus');
   const managedSystem = pageParam('managedSystem');
-  return <FoScreenPage route={inboxRoute} isValid={isVocSearchValueValid} useSearch={useInboxSearch} useHere={useInboxHere}
+  return <FeatureScreenPage route={inboxRoute} isValid={isVocSearchValueValid} useSearch={useInboxSearch} useHere={useInboxHere}
     detail={focus !== null && <VocDetailDrawer key={focus} vocId={focus} {...(managedSystem !== null ? { managedSystemId: managedSystem } : {})} onClose={() => setPage({ focus: null })} />}>
     <InboxScreen view="inbox" renderDetail={noDetail} />
-  </FoScreenPage>;
+  </FeatureScreenPage>;
 }

@@ -19,12 +19,12 @@ function Probe() { useSavedViewSupport(support); views = useSavedViews(); userId
 afterEach(() => { cleanup(); window.history.replaceState(null, '', '/'); });
 
 // The permission vocabulary is the real session's: every mock role holds `platform:view`; the engineer default lacks `console:access`.
-const PERMS: Record<string, string> = { 'productivity-overview': 'platform:view', 'admin-only': 'console:access' };
+const PERMS: Record<string, string[]> = { 'productivity-overview': ['platform:view'], 'admin-only': ['console:access'] };
 async function mount() {
   const assembly = await createAssembly({ registry: appRegistry }) as Assembly;
   expect(assembly).toHaveProperty('savedViews');
   const storage = memoryStorage();
-  const store = createLocalSavedViewStore({ getStorage: () => storage, locks: { request: async (_n, cb) => cb() }, now: () => 5, menuPermissionOf: id => PERMS[id], sessionPermissions: () => assembly.adapter.session().user.permissions });
+  const store = createLocalSavedViewStore({ getStorage: () => storage, locks: { request: async (_n, cb) => cb() }, now: () => 5, menuPermissionsOf: id => PERMS[id], sessionPermissions: () => assembly.adapter.session().user.permissions });
   window.history.replaceState(null, '', '/');
   render(<I18nProvider><PlatformProvider registry={registry} adapter={assembly.adapter} savedViews={store}><Probe /></PlatformProvider></I18nProvider>);
   await act(async () => { await new Promise(r => setTimeout(r, 300)); });

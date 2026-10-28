@@ -418,7 +418,7 @@ describe.skipIf(!runIntegration)('platform port entity + access reads (#623)', (
       'notice:view',
       'voc:view',
       'console:access',
-      'feedbackops:access',
+      'features:access',
     ];
 
     it('401 without a session cookie', async () => {
@@ -495,8 +495,8 @@ describe.skipIf(!runIntegration)('platform port entity + access reads (#623)', (
       ['role', { role: 'developer' }, (): string[] => [developer.id]],
       ['permission console:access', { permission: 'console:access' }, (): string[] => [admin.id]],
       [
-        'permission feedbackops:access',
-        { permission: 'feedbackops:access' },
+        'permission features:access',
+        { permission: 'features:access' },
         (): string[] => [admin.id, developer.id, grantedUser.id].sort(),
       ],
     ])('filter %s narrows correctly', async (_name, query, expected) => {

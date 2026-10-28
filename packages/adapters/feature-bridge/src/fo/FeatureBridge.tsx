@@ -2,10 +2,10 @@ import { useMemo, type ComponentType, type ReactNode } from 'react';
 import { ServerOff } from 'lucide-react';
 import { UNDO_WINDOW_MS, useI18n, usePlatform } from '@ap/kernel';
 import { StateMessage } from '@ap/components';
-import { FoScreenRoot, type HostLinkProps, type HostNavigate, type HostNotice, type HostSearch, type HostSeam } from '@ap/feature-screens/global-screens/core';
+import { FeatureScreenRoot, type HostLinkProps, type HostNavigate, type HostNotice, type HostSearch, type HostSeam } from '@ap/feature-screens/global-screens/core';
 import type { TargetOf } from './links';
 import { isReachable } from './reachable';
-import { foQueryClient, useFoSession } from './session';
+import { featureQueryClient, useFeatureSession } from './session';
 
 /** The default seam links nothing (backlog: 알림 목적지 연결); `Link` is the unreachable fallback, and a screen passes `canLink`/`Link` for the targets it can reach. */
 
@@ -29,11 +29,11 @@ const useNoHere = () => '';
 const TONE = { success: 'info', info: 'info', warning: 'warning', error: 'danger' } as const satisfies Record<HostNotice['tone'], 'info' | 'warning' | 'danger'>;
 
 /** `useNavigate`/`useSearch`/`useTitle`/`useHere` must be module-level hooks (stable identities): the seam is memoized on them, so an unrelated render never rebuilds it (with `targetOf`, a navigation does: see `hrefLinkTo`). */
-export function FoBridge({ children, canLink = noLink, Link = UnlinkedLink, targetOf, useNavigate = useNoNavigate, useSearch = useNoSearch, useTitle = useNoTitle, useHere = useNoHere }: { children: ReactNode; canLink?: HostSeam['canLink']; targetOf?: TargetOf; Link?: ComponentType<HostLinkProps>; useNavigate?: () => HostNavigate; useSearch?: () => HostSearch; useTitle?: (title: string | null) => void; useHere?: () => string }) {
+export function FeatureBridge({ children, canLink = noLink, Link = UnlinkedLink, targetOf, useNavigate = useNoNavigate, useSearch = useNoSearch, useTitle = useNoTitle, useHere = useNoHere }: { children: ReactNode; canLink?: HostSeam['canLink']; targetOf?: TargetOf; Link?: ComponentType<HostLinkProps>; useNavigate?: () => HostNavigate; useSearch?: () => HostSearch; useTitle?: (title: string | null) => void; useHere?: () => string }) {
   const { lang } = useI18n();
   const ko = lang === 'ko';
   const { toast, dismissToast, registry, linkTo, absoluteUrl } = usePlatform();
-  const session = useFoSession();
+  const session = useFeatureSession();
   // `linkTo`/`absoluteUrl` change with each navigation. A copy-link address rendered in a screen must be built from the navigation of that same render, and a ref
   // refreshed after commit would hand it the previous one; so `absoluteHref` closes over them and the seam is rebuilt per navigation, but only when it has `absoluteHref` (`targetOf`).
   const hrefLinkTo = targetOf ? linkTo : null;
@@ -78,5 +78,5 @@ export function FoBridge({ children, canLink = noLink, Link = UnlinkedLink, targ
       title={ko ? '세션이 만료되었습니다' : 'Your session has expired'}
       body={ko ? '로그인 화면으로 이동합니다.' : 'Redirecting to the sign-in page.'} />;
   }
-  return <FoScreenRoot client={foQueryClient} host={seam} key={session.epoch}>{children}</FoScreenRoot>;
+  return <FeatureScreenRoot client={featureQueryClient} host={seam} key={session.epoch}>{children}</FeatureScreenRoot>;
 }

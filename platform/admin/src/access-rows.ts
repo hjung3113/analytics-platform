@@ -3,7 +3,7 @@
  * permissions and per-site room grants only — the menu list is this client's registry joined to that
  * permission set ("this registry declares this menu for this permission"), never an authorization proof.
  */
-import type { AccessPrincipal, ModuleScopedId, Permission, SpaceId, Text } from '@ap/contracts';
+import { menuPermissions, type AccessPrincipal, ModuleScopedId, Permission, SpaceId, Text } from '@ap/contracts';
 import type { Registry } from '@ap/kernel';
 import { spaceFields } from './space-fields';
 
@@ -23,6 +23,8 @@ export type MenuForPermission = {
   permission: Permission | ModuleScopedId;
   /** The menu's space itself gates entry behind a permission the principal lacks (06 §9.1): held menu, gated space. A global utility menu is never space-gated. */
   spaceGated: boolean;
+  /** `additionalPermissions` of the menu the principal does not hold: the menu needs them AND its primary permission, so a held primary alone does not open it. A display join, not an authorization proof. */
+  missingPermissions: readonly (Permission | ModuleScopedId)[];
   spaceId: SpaceId | null;
   spaceLabel: Text;
 };
@@ -43,6 +45,7 @@ export function menusForPermissions(registry: Registry, permissions: readonly (P
         path: menu.path,
         permission: menu.permission,
         spaceGated: space !== null && space.permission !== undefined && !permissions.includes(space.permission),
+        missingPermissions: menuPermissions(menu).filter(p => !permissions.includes(p)),
         spaceId: fields.spaceId,
         spaceLabel: fields.spaceLabel,
       };

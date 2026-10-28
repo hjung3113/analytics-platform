@@ -14,7 +14,7 @@ export const manifests: MenuEntry[] = [
   {
     id: 'fo-integration', primary: true, group: GROUP, label: { ko: '연동 액션 대시보드', en: 'Integration action dashboard' },
     description: { ko: '연동 복구 항목을 확인하고 보류하거나 숨기거나 다시 복원합니다', en: 'Check integration recovery items and snooze, mute or restore them' },
-    path: '/feedbackops/integration', icon: Activity, permission: 'feedbackops:access', requiresScope: false, pageType: 'management',
+    path: '/feedbackops/integration', icon: Activity, permission: 'features:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['focus', 'category', 'presentation', 'history', 'cursor', 'managedSystem', 'returnTo'],
     component: lazy(() => import('./pages/FoIntegration')),
@@ -22,7 +22,7 @@ export const manifests: MenuEntry[] = [
   {
     id: 'fo-evidence', group: GROUP, label: { ko: 'Evidence', en: 'Evidence' },
     description: { ko: 'Finding에 연결된 Evidence를 출처별로 찾아 봅니다', en: 'Find Evidence linked to Findings by source' },
-    path: '/feedbackops/evidence', icon: FileBarChart, permission: 'feedbackops:access', requiresScope: false, pageType: 'management',
+    path: '/feedbackops/evidence', icon: FileBarChart, permission: 'features:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['focus', 'source', 'q', 'cursor', 'managedSystem', 'returnTo'],
     component: lazy(() => import('./pages/FoEvidence')),
@@ -30,7 +30,7 @@ export const manifests: MenuEntry[] = [
   {
     id: 'fo-entity-links', group: GROUP, label: { ko: '엔티티 링크', en: 'Entity links' },
     description: { ko: '엔티티 사이의 연결을 상태와 유형별로 봅니다', en: 'See links between entities by status and type' },
-    path: '/feedbackops/entity-links', icon: Link2, permission: 'feedbackops:access', requiresScope: false, pageType: 'management',
+    path: '/feedbackops/entity-links', icon: Link2, permission: 'features:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['status', 'type', 'managedSystem', 'returnTo'],
     component: lazy(() => import('./pages/FoEntityLinks')),
@@ -38,7 +38,7 @@ export const manifests: MenuEntry[] = [
   {
     id: 'fo-coverage', group: GROUP, label: { ko: '커버리지', en: 'Coverage' },
     description: { ko: '분석 영역별 연동 커버리지를 요약과 영역 표로 봅니다', en: 'See integration coverage per analytics area as a summary and an area table' },
-    path: '/feedbackops/coverage', icon: Layers, permission: 'feedbackops:access', requiresScope: false, pageType: 'management',
+    path: '/feedbackops/coverage', icon: Layers, permission: 'features:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['view', 'area', 'cursor', 'managedSystem', 'returnTo'],
     component: lazy(() => import('./pages/FoCoverage')),

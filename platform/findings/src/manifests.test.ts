@@ -14,7 +14,7 @@ describe('Findings manifests', () => {
   it('declares its route table page keys plus returnTo, and the space permission', () => {
     // `returnTo` is navigation state the FO space carries (#760), not a route-table filter key.
     expect([...menu.pageKeys!].sort()).toEqual([...findingsRoute.pageKeys, 'returnTo'].sort());
-    expect(menu).toMatchObject({ permission: 'feedbackops:access', requiresScope: false, pageType: 'management' });
+    expect(menu).toMatchObject({ permission: 'features:access', requiresScope: false, pageType: 'management' });
     expect(menu.navViews).toBeUndefined();
   });
 

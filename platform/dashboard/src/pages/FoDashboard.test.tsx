@@ -1,8 +1,8 @@
 import { render, cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
-import { setFoApi } from '@ap/feature-bridge/fo-api';
-import { foQueryClient } from '@ap/feature-bridge';
+import { setFeatureApi } from '@ap/feature-bridge/feature-api';
+import { featureQueryClient } from '@ap/feature-bridge';
 import { useEffect } from 'react';
 import { I18nProvider, useI18n, PlatformProvider, createRegistry } from '@ap/kernel';
 import { testAdapter, testSession } from '@ap/kernel/testing';
@@ -22,7 +22,7 @@ function English() { const { setLang } = useI18n(); useEffect(() => setLang('en'
 const SYSTEM = '33333333-3333-4333-8333-333333333333';
 
 beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); dashboard.props.length = 0; dashboard.refresh.mockReset(); });
-afterEach(() => { cleanup(); setFoApi(null); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
+afterEach(() => { cleanup(); setFeatureApi(null); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
 describe('대시보드 without a FeedbackOps API (mock preview)', () => {
   it('shows 실서버 필요 with 새로고침 disabled and mounts no dashboard', async () => {
@@ -35,7 +35,7 @@ describe('대시보드 without a FeedbackOps API (mock preview)', () => {
 });
 
 describe('대시보드 through the FeedbackOps bridge', () => {
-  beforeEach(() => { setFoApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
+  beforeEach(() => { setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
 
   it('enables 새로고침 once the session is ready and refreshes the scoped summary', async () => {
     mountAt(`/feedbackops?managedSystem=${SYSTEM}`);
@@ -43,7 +43,7 @@ describe('대시보드 through the FeedbackOps bridge', () => {
     await waitFor(() => expect(button.disabled).toBe(false));
     expect(dashboard.props.at(-1)).toEqual({ managedSystemId: SYSTEM });
     fireEvent.click(button);
-    expect(dashboard.refresh).toHaveBeenCalledWith(foQueryClient, SYSTEM);
+    expect(dashboard.refresh).toHaveBeenCalledWith(featureQueryClient, SYSTEM);
   });
 
   it.each(['not-a-uuid', ''])('rejects the managedSystem value %j: nothing is mounted or requested, the URL is kept (ADR-0071 decision 9)', async value => {

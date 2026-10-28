@@ -66,12 +66,12 @@ HostContract | type | type HostContract = 1
 HostFeature | type | type HostFeature = 'detailSlot' | 'query' | 'write'
 IdSet | type | type IdSet = null | string[]
 JsonValue | type | type JsonValue = @ap/contracts#JsonValue[] | boolean | null | number | string | { [key: string]: @ap/contracts#JsonValue; }
-KERNEL_PERMISSIONS | const | const KERNEL_PERMISSIONS: readonly [ "platform:view", "notice:view", "voc:view", "console:access", "feedbackops:access" ]
+KERNEL_PERMISSIONS | const | const KERNEL_PERMISSIONS: readonly [ "platform:view", "notice:view", "voc:view", "console:access", "features:access" ]
 KernelPermission | type | type KernelPermission = (typeof @ap/contracts#KERNEL_PERMISSIONS)[number]
 MeasureMeta | type | type MeasureMeta = { metricVersion?: string; reaggregation: @ap/contracts#Reaggregation; unit: string; }
 MembershipPeriod | type | type MembershipPeriod = { from: string; to: string; }
 MenuAction | type | type MenuAction<I = unknown> = { action: string; context: { scopeId?: null | string; }; expectedVersion?: string; idempotencyKey: string; input: I; }
-MenuMeta | type | type MenuMeta = { aliases?: readonly string[]; conditionPreset?: { default: string; key: string; }; conditionPresets?: readonly @ap/contracts#ConditionPreset[]; context: Record<@ap/contracts#ContextKey, @ap/contracts#Capability>; contextResetKeys?: readonly string[]; description: @ap/contracts#Text; drill?: { levels: readonly @ap/contracts#DrillLevel[]; resetKeys?: readonly string[]; }; features: { annotate: boolean; board?: boolean; compare: boolean; export: boolean; savedView: boolean; }; group: @ap/contracts#GroupId; id: string; initializesMetric?: boolean; label: @ap/contracts#Text; navHidden?: boolean; navViews?: readonly @ap/contracts#NavView[]; pageKeys: readonly string[]; pageType: @ap/contracts#PageType; parent?: string; path: string; permission: @ap/contracts#Permission; primary?: boolean; query?: { mode: 'apply'; required?: { context?: readonly @ap/contracts#ContextKey[]; page?: readonly { key: string; label: @ap/contracts#Text; }[]; }; }; requiresScope: boolean; }
+MenuMeta | type | type MenuMeta = { additionalPermissions?: readonly @ap/contracts#Permission[]; aliases?: readonly string[]; conditionPreset?: { default: string; key: string; }; conditionPresets?: readonly @ap/contracts#ConditionPreset[]; context: Record<@ap/contracts#ContextKey, @ap/contracts#Capability>; contextResetKeys?: readonly string[]; description: @ap/contracts#Text; drill?: { levels: readonly @ap/contracts#DrillLevel[]; resetKeys?: readonly string[]; }; features: { annotate: boolean; board?: boolean; compare: boolean; export: boolean; savedView: boolean; }; group: @ap/contracts#GroupId; id: string; initializesMetric?: boolean; label: @ap/contracts#Text; navHidden?: boolean; navViews?: readonly @ap/contracts#NavView[]; pageKeys: readonly string[]; pageType: @ap/contracts#PageType; parent?: string; path: string; permission: @ap/contracts#Permission; primary?: boolean; query?: { mode: 'apply'; required?: { context?: readonly @ap/contracts#ContextKey[]; page?: readonly { key: string; label: @ap/contracts#Text; }[]; }; }; requiresScope: boolean; }
 MenuPermission | type | type MenuPermission = Brand<'MenuPermission'>
 MenuQuery | type | type MenuQuery<P = unknown> = { context: @ap/contracts#MenuQueryContext; endpoint: string; params: P; }
 MenuQueryContext | type | type MenuQueryContext = Partial<@ap/contracts#GlobalContext>
@@ -187,6 +187,7 @@ isForbiddenSavedViewKey | const | const isForbiddenSavedViewKey: (key: string) =
 isPortError | function | function isPortError(e: unknown): e is @ap/contracts#PortError
 isRecord | const | const isRecord: (value: unknown) => value is Record<string, unknown>
 menuPermission | const | const menuPermission: <const S extends string>(id: S) => S & @ap/contracts#MenuPermission
+menuPermissions | function | function menuPermissions(menu: { readonly additionalPermissions?: readonly @ap/contracts#Permission[]; readonly permission: string; }): readonly @ap/contracts#Permission[]
 missingRequiredContext | function | function missingRequiredContext(keys: readonly @ap/contracts#ContextKey[], context: Partial<@ap/contracts#GlobalContext>): @ap/contracts#ContextKey[]
 narrowCondition | function | function narrowCondition(condition: @ap/contracts#Condition | null, axes: readonly string[]): @ap/contracts#Condition | null
 normalizeSet | function | function normalizeSet(values: string[], field?: string, urlKey?: string): string[]

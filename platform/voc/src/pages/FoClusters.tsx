@@ -1,9 +1,9 @@
 import { usePlatform } from '@ap/kernel';
-import { FoScreenPage, clustersRoute, useClustersHere, useClustersSearch } from '@ap/feature-bridge';
+import { FeatureScreenPage, clustersRoute, useClustersHere, useClustersSearch } from '@ap/feature-bridge';
 import { ClusterListScreen, isVocClustersSearchValueValid } from '@ap/feature-screens/operator-screens/voc-clusters';
 import { ClusterDetailDrawer } from './ClusterDetailDrawer';
 
-/** FO's `ListShell` would hand a returned node to the shell slot, which renders outside the FeedbackOps providers; the page draws the detail itself, inside `FoBridge`. */
+/** FO's `ListShell` would hand a returned node to the shell slot, which renders outside the FeedbackOps providers; the page draws the detail itself, inside `FeatureBridge`. */
 const noDetail = () => undefined;
 
 /**
@@ -13,8 +13,8 @@ const noDetail = () => undefined;
 export default function FoClusters() {
   const { pageParam, setPage } = usePlatform();
   const focus = pageParam('focus');
-  return <FoScreenPage route={clustersRoute} isValid={isVocClustersSearchValueValid} useSearch={useClustersSearch} useHere={useClustersHere}
+  return <FeatureScreenPage route={clustersRoute} isValid={isVocClustersSearchValueValid} useSearch={useClustersSearch} useHere={useClustersHere}
     detail={focus !== null && <ClusterDetailDrawer key={focus} clusterId={focus} onClose={() => setPage({ focus: null })} />}>
     <ClusterListScreen renderDetail={noDetail} onCreated={id => setPage({ focus: id })} />
-  </FoScreenPage>;
+  </FeatureScreenPage>;
 }

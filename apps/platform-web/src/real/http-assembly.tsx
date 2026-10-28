@@ -42,7 +42,7 @@ export function createRealAssembly({ bootstrap, where }: Deps): () => Promise<As
     const login: AssemblyOutcome = { redirect: loginHref(where()) };
     const onSessionLost = () => window.location.replace(loginHref(where()));
     const result = await bootstrap({ onSessionLost });
-    if (result.kind === 'ready') return { adapter: result.adapter, topBarTools: null, feedbackOpsApi: { basePath: FO_API_PREFIX, onSessionLost } };
+    if (result.kind === 'ready') return { adapter: result.adapter, topBarTools: null, featureApi: { basePath: FO_API_PREFIX, onSessionLost } };
     if (result.kind === 'login') return login;
     return { screen: <Unavailable correlationId={result.correlationId} /> };
   };

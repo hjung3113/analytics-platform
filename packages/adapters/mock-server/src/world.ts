@@ -18,7 +18,7 @@ const SAMPLE_MENU_PERMISSIONS = [menuPermission('equipment:view'), menuPermissio
 /** Default vocabulary, kernel first: used when `createMockAdapter` gets no permission list. */
 export const WORLD_PERMISSIONS: readonly Permission[] = [...KERNEL_PERMISSIONS, ...SAMPLE_MENU_PERMISSIONS];
 
-const ENGINEER_EXCLUDED: readonly string[] = ['console:access', 'feedbackops:access'];
+const ENGINEER_EXCLUDED: readonly string[] = ['console:access', 'features:access'];
 const VIEWER_GRANTS: readonly string[] = ['platform:view', 'metrics:view', 'notice:view', 'voc:view'];
 
 /**

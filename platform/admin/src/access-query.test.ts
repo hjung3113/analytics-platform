@@ -29,8 +29,8 @@ describe('parseAccessKeys (#49 page keys)', () => {
     });
   });
 
-  it('accepts the feedbackops:access permission filter (#251)', () => {
-    expect(parseAccessKeys(keys({ permission: 'feedbackops:access' }))).toMatchObject({ ok: true, filters: { role: null, permission: 'feedbackops:access' } });
+  it('accepts the features:access permission filter (#251)', () => {
+    expect(parseAccessKeys(keys({ permission: 'features:access' }))).toMatchObject({ ok: true, filters: { role: null, permission: 'features:access' } });
   });
 
   it.each([

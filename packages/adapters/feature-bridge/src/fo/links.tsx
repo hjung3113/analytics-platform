@@ -1,6 +1,6 @@
 import { PlatformLink, usePlatform } from '@ap/kernel';
 import type { HostLinkProps } from '@ap/feature-screens/global-screens/core';
-import { UnlinkedLink } from './FoBridge';
+import { UnlinkedLink } from './FeatureBridge';
 import { isReachable } from './reachable';
 
 export type PlatformTarget = { menuId: string; params?: Record<string, string>; page?: Record<string, string | null> };
@@ -12,8 +12,8 @@ export type CarryTarget = (target: PlatformTarget, here: LinkHere) => PlatformTa
 
 /**
  * The host seam's `canLink`/`Link` for the FeedbackOps paths any of `targets` maps to a platform destination (ADR-0071 decision 10, amended);
- * every other path is unlinked, and so is a path whose menu is not in the current registry (`Link`, `useNavigate`; `FoBridge` applies the same
- * rule to `canLink` when it is given `targetOf`). `returnTo` lands only where the destination declares it. `FoBridge` memoizes its seam on these
+ * every other path is unlinked, and so is a path whose menu is not in the current registry (`Link`, `useNavigate`; `FeatureBridge` applies the same
+ * rule to `canLink` when it is given `targetOf`). `returnTo` lands only where the destination declares it. `FeatureBridge` memoizes its seam on these
  * identities, so call this once at module level, never in render.
  */
 export function hostLinks(...targets: TargetOf[]) {

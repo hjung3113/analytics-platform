@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
-import { setFoApi } from '@ap/feature-bridge/fo-api';
+import { setFeatureApi } from '@ap/feature-bridge/feature-api';
 import { useHostSeam } from '@/lib/host/host-seam';
 import { mountAt, warmPages } from '../test-support';
 
@@ -20,7 +20,7 @@ const VOC = 'a1821f1b-0000-4000-8000-00000000000a';
 
 beforeAll(warmPages, 60_000);
 beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); });
-afterEach(() => { cleanup(); setFoApi(null); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
+afterEach(() => { cleanup(); setFeatureApi(null); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
 describe('Triage without a FeedbackOps API (mock preview)', () => {
   it('shows 실서버 필요 and mounts no screen', async () => {
@@ -33,7 +33,7 @@ describe('Triage without a FeedbackOps API (mock preview)', () => {
 });
 
 describe('Triage through the FeedbackOps bridge', () => {
-  beforeEach(() => { setFoApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
+  beforeEach(() => { setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
 
   it('renders the triage screen with the page read as the triage FO path', async () => {
     mountAt(`/feedbackops/triage?tab=high-no-link&managedSystem=${SYSTEM}&area=unset`);

@@ -1,6 +1,6 @@
 import { ApiError } from '@/lib/api/types';
 import { describe, expect, it } from 'vitest';
-import { createFoQueryClient, shouldRetryQuery } from '../query-client';
+import { createFeatureQueryClient, shouldRetryQuery } from '../query-client';
 
 describe('shouldRetryQuery', () => {
   it('does not retry permission-denied 403 responses', () => {
@@ -22,8 +22,8 @@ describe('shouldRetryQuery', () => {
   });
 });
 
-describe('createFoQueryClient', () => {
+describe('createFeatureQueryClient', () => {
   it('applies the retry policy to every query by default', () => {
-    expect(createFoQueryClient().getDefaultOptions().queries?.retry).toBe(shouldRetryQuery);
+    expect(createFeatureQueryClient().getDefaultOptions().queries?.retry).toBe(shouldRetryQuery);
   });
 });

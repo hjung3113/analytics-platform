@@ -4,8 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider } from '@ap/kernel';
 import { memoryStorage, testAdapter, testSession } from '@ap/kernel/testing';
 import { spaceId } from '@ap/contracts';
-import { foQueryClient } from '@ap/feature-bridge';
-import { setFoApi } from '@ap/feature-bridge/fo-api';
+import { featureQueryClient } from '@ap/feature-bridge';
+import { setFeatureApi } from '@ap/feature-bridge/feature-api';
 import { navCountsSlot } from '@ap/feature-bridge/nav-counts';
 import { invalidateNavCounts } from '@/lib/query/navCounts';
 import { registry } from './test-support';
@@ -28,14 +28,14 @@ function Probe() {
 
 function mountAt(url: string, children: ReactNode = <Probe />) {
   window.history.replaceState(null, '', url);
-  const session = testSession(['platform:view', 'feedbackops:access'], { user: { id: 'admin', name: 'admin', title: { ko: 'admin', en: 'admin' } } });
+  const session = testSession(['platform:view', 'features:access'], { user: { id: 'admin', name: 'admin', title: { ko: 'admin', en: 'admin' } } });
   return render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}>{children}</PlatformProvider></I18nProvider>);
 }
 
 const read = () => JSON.parse(screen.getByTestId('counts').textContent!) as Record<string, number> | null;
 
-beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); foQueryClient.clear(); });
-afterEach(() => { cleanup(); setFoApi(null); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
+beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); featureQueryClient.clear(); });
+afterEach(() => { cleanup(); setFeatureApi(null); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
 describe('navCounts slot', () => {
   it('serves only the FeedbackOps space', () => {
@@ -54,7 +54,7 @@ describe('navCounts slot', () => {
   });
 
   describe('with a FeedbackOps API', () => {
-    beforeEach(() => { setFoApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
+    beforeEach(() => { setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
 
     it('maps FeedbackOps count keys to menu and view keys, keeps 0 and leaves an omitted key absent', async () => {
       stubFetch(() => json({ counts: { 'voc.inbox': 12, 'voc.triage': 0, 'voc.inbox.no-link': 4, 'voc.tab.high': 2, 'voc.my': 9, 'voc.clusters': 1 } }));
@@ -112,7 +112,7 @@ describe('navCounts slot', () => {
       mountAt('/feedbackops/vocs');
       await waitFor(() => expect(read()).toEqual({ 'fo-inbox': 1 }));
       n = 2;
-      await act(async () => { invalidateNavCounts(foQueryClient); });
+      await act(async () => { invalidateNavCounts(featureQueryClient); });
       await waitFor(() => expect(read()).toEqual({ 'fo-inbox': 2 }));
       expect(calls).toEqual([ALL, ALL]);
     });
@@ -123,7 +123,7 @@ describe('navCounts slot', () => {
       mountAt('/feedbackops/vocs');
       await waitFor(() => expect(read()).toEqual({ 'fo-inbox': 1 }));
       n = 7;
-      await act(async () => { await foQueryClient.refetchQueries({ queryKey: ['nav-counts'] }); });
+      await act(async () => { await featureQueryClient.refetchQueries({ queryKey: ['nav-counts'] }); });
       await waitFor(() => expect(read()).toEqual({ 'fo-inbox': 7 }));
     });
 
@@ -133,10 +133,10 @@ describe('navCounts slot', () => {
       mountAt('/feedbackops/vocs');
       await waitFor(() => expect(read()).toEqual({ 'fo-inbox': 3 }));
       fail = true;
-      await act(async () => { invalidateNavCounts(foQueryClient); });
+      await act(async () => { invalidateNavCounts(featureQueryClient); });
       await waitFor(() => expect(read()).toBeNull());
       fail = false;
-      await act(async () => { invalidateNavCounts(foQueryClient); });
+      await act(async () => { invalidateNavCounts(featureQueryClient); });
       await waitFor(() => expect(read()).toEqual({ 'fo-inbox': 3 }));
     });
 

@@ -24,6 +24,6 @@ export const findingsRoute = operatorRoute({
   detailPath: { key: 'selected', pattern: UUID_PATTERN },
 });
 
-/** Module-level hooks: `FoBridge` memoizes its seam on their identities. */
+/** Module-level hooks: `FeatureBridge` memoizes its seam on their identities. */
 export const useFindingsSearch = routeSearch(findingsRoute);
 export const useFindingsHere = routeHere(findingsRoute);

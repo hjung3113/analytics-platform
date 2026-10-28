@@ -2,8 +2,8 @@ import { useCallback } from 'react';
 import { spaceId } from '@ap/contracts';
 import type { VocComposeProps } from '@ap/kernel';
 import { VocComposeScreen } from '@ap/feature-screens/global-screens';
-import { FoBridge } from '../fo/FoBridge';
-import { foQueryClient } from '../fo/session';
+import { FeatureBridge } from '../fo/FeatureBridge';
+import { featureQueryClient } from '../fo/session';
 import { isUuid } from '../fo/uuid';
 
 const FEEDBACKOPS = spaceId('feedbackops');
@@ -26,13 +26,13 @@ export function initialManagedSystem(context: Pick<VocComposeProps['context'], '
 export default function VocCompose({ context, onSubmitted, onCancel, onDirtyChange, managedSystemFor }: VocComposeProps & { managedSystemFor: (spaceId: string | null) => string | null }) {
   const submitted = useCallback((result: { vocId: string; displayId: string }) => {
     // The new VOC belongs in 내 VOC; a list that is not cached has nothing to refresh.
-    void foQueryClient.invalidateQueries({ queryKey: ['vocs', 'my'] });
+    void featureQueryClient.invalidateQueries({ queryKey: ['vocs', 'my'] });
     onSubmitted(result);
   }, [onSubmitted]);
   return <div className="h-full min-h-0">
-    <FoBridge>
+    <FeatureBridge>
       <VocComposeScreen contextBlock={{ items: context.items.map(({ label, value }) => ({ label, value })), href: context.href }} initialManagedSystemId={initialManagedSystem(context, managedSystemFor)}
         onSubmitted={submitted} onCancel={onCancel} onDirtyChange={onDirtyChange} />
-    </FoBridge>
+    </FeatureBridge>
   </div>;
 }

@@ -445,7 +445,7 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     await evidence(page, testInfo, 'engineer-two-spaces');
   });
 
-  // #759 (ADR-0081): the FeedbackOps space is gated by feedbackops:access, which only admin holds in the mock; the mock has no FeedbackOps API.
+  // #759 (ADR-0081): the FeedbackOps space is gated by features:access, which only admin holds in the mock; the mock has no FeedbackOps API.
   test('FeedbackOps 공간은 admin만 보고 대시보드·VOC(수신함·Triage)·목록 범위가 실서버 필요 상태로 열린다', async ({ page }, testInfo) => {
     for (const role of ['engineer', 'viewer'] as const) {
       await signInAs(page, role);

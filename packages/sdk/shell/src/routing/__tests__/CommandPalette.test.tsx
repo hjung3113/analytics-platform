@@ -7,7 +7,7 @@ import { useHostPlatform } from '@ap/kernel/host';
 import { PlatformPage } from '@ap/components';
 import { CommandPalette } from '../CommandPalette';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
-import { groupId, spaceId, type GroupId } from '@ap/contracts';
+import { groupId, menuPermissions, spaceId, type GroupId } from '@ap/contracts';
 
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
 const page = lazy(async () => ({ default: () => null }));
@@ -372,7 +372,7 @@ function mountNavigation({ delayed = false, denied = false, url = '/home?v=1', c
       <button onClick={() => navigate('/home?v=1')}>another navigation</button>
       <button onClick={() => navigate('/equipment?v=1', { replace: true })}>replace navigation</button>
       <button onClick={() => setPaletteOpen(true)}>reopen palette</button>
-      {route && can(route.menu.permission) && <Suspense fallback={<p>loading destination</p>}><Page key={route.menu.id} /></Suspense>}
+      {route && menuPermissions(route.menu).every(can) && <Suspense fallback={<p>loading destination</p>}><Page key={route.menu.id} /></Suspense>}
     </>;
   }
   render(<I18nProvider><PlatformProvider adapter={adapter} registry={focusRegistry}><Open /><Routes /></PlatformProvider></I18nProvider>);

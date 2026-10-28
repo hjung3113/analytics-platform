@@ -6,7 +6,7 @@ import { mapUnknownError } from '@/lib/api/errorMapper';
 import { createSavedView, deleteSavedView, fetchSavedViews, type SavedView } from '@/lib/api/saved-views';
 import { savedViewFilterToVocSearch, vocSearchToSavedViewFilter } from '@/features/voc/lib/saved-view-keys';
 import { searchHref } from '@/lib/host/search';
-import { foQueryClient } from '../fo/session';
+import { featureQueryClient } from '../fo/session';
 import { isReachable } from '../fo/reachable';
 import { operatorHostLinks } from '../fo/operator-links';
 import { inboxRoute, triageRoute } from '../fo/voc-routes';
@@ -37,7 +37,7 @@ export default function SavedViews() {
   }
   const generation = useRef(0);
   useEffect(() => { generation.current += 1; }, [routeKey]);
-  const { data, isPending, isError, refetch } = useQuery({ queryKey: QUERY_KEY, queryFn: ({ signal }) => fetchSavedViews('voc', signal), retry: false }, foQueryClient);
+  const { data, isPending, isError, refetch } = useQuery({ queryKey: QUERY_KEY, queryFn: ({ signal }) => fetchSavedViews('voc', signal), retry: false }, featureQueryClient);
   const views = data?.items ?? NO_VIEWS;
   const saveRoute = route !== null && route.menu.id in SAVE_ROUTES ? SAVE_ROUTES[route.menu.id as keyof typeof SAVE_ROUTES] : null;
 

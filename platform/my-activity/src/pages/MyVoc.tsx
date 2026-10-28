@@ -4,7 +4,7 @@ import { PlatformLink, useI18n, usePlatform } from '@ap/kernel';
 import { DetailDrawer, PlatformPage, StateMessage } from '@ap/components';
 import { Button } from '@ap/ui';
 import { MyVocListScreen, ReporterVocDetail, type MyVocInitialFocus, type MyVocQuery } from '@ap/feature-screens/global-screens';
-import { FoBridge } from '@ap/feature-bridge';
+import { FeatureBridge } from '@ap/feature-bridge';
 import { pagePatch, parseMyVocPage } from '../fo/voc-query';
 
 const CLEARED_FOCUS: Record<string, MyVocInitialFocus> = { q: 'q', status: 'status', sort: 'sort', focus: 'list' };
@@ -34,7 +34,7 @@ export default function MyVoc() {
   }
   const { query, focus } = parsed;
   return <PlatformPage layout="fill">
-    <FoBridge>
+    <FeatureBridge>
       {/* The absolute layer keeps the list's height out of the fill box's intrinsic size, so the list scrolls inside it
           and a `focus` push (which resets #platform-main) never moves the selected row (UX-1). */}
       <div className="relative h-full">
@@ -45,6 +45,6 @@ export default function MyVoc() {
       {focus !== null && <DetailDrawer key={focus} title={ko ? 'VOC 상세' : 'VOC details'} onClose={() => setPage({ focus: null })}
         headerActions={<Button asChild size="sm" variant="secondary"><PlatformLink href={linkTo('voc-detail', { params: { vocId: focus }, returnTo: true })}>{ko ? '전체 화면' : 'Full page'}</PlatformLink></Button>}
         tabs={[{ id: 'detail', label: ko ? '상세' : 'Details', content: <ReporterVocDetail vocId={focus} variant="embedded" /> }]} />}
-    </FoBridge>
+    </FeatureBridge>
   </PlatformPage>;
 }

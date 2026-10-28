@@ -25,7 +25,7 @@ export const surveysRoute = operatorRoute({
   detailPath: { key: 'selected', pattern: UUID_PATTERN },
 });
 
-/** Module-level hooks: `FoBridge` memoizes its seam on their identities. */
+/** Module-level hooks: `FeatureBridge` memoizes its seam on their identities. */
 export const useSurveysSearch = routeSearch(surveysRoute);
 export const useSurveysHere = routeHere(surveysRoute);
 
@@ -84,7 +84,7 @@ const CARRIED_VALUE: Readonly<Record<string, (value: string) => boolean>> = {
  * The context the Survey screens' own links leave out (FeedbackOps' hrefs are bare: `/surveys/<id>?builder=true`, `/surveys/<id>/results`, `/surveys`). A link drawn on one Survey
  * menu toward a different one gets the current page's `area`/`status`/`follow_up` when the target does not name that key, and a link from a child back to the list gets
  * `focus` = this Survey. A key the target names (a clear, `null`, included) wins; `returnTo`/`platformReturn` are never carried (`managedSystem` and `returnTo` ride on the space).
- * The current values already passed the screen's own search schema (`FoScreenPage` rejects the page before mounting), and the shapes are checked again here.
+ * The current values already passed the screen's own search schema (`FeatureScreenPage` rejects the page before mounting), and the shapes are checked again here.
  */
 export const surveyCarry: CarryTarget = (target, here) => {
   if (here.menuId === undefined || here.menuId === target.menuId || !SURVEY_MENUS.has(here.menuId) || !SURVEY_MENUS.has(target.menuId)) return target;
@@ -162,7 +162,7 @@ function childHere(route: OperatorRoute, suffix: string) {
   };
 }
 
-/** Module-level hooks: `FoBridge` memoizes its seam on their identities. */
+/** Module-level hooks: `FeatureBridge` memoizes its seam on their identities. */
 export const useSurveyBuilderSearch = routeSearch(surveyBuilderRoute);
 export const useSurveyBuilderHere = childHere(surveyBuilderRoute, CHILD_SPECS.builder.suffix);
 export const useSurveyResultsSearch = routeSearch(surveyResultsRoute);

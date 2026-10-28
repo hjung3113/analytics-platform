@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { mainHeading, query, signInAs } from './support';
 
 /**
- * FeedbackOps › Findings (#762 p1): 전체 Finding as a bridge menu. The e2e run uses the mock adapter, where `FoBridge` renders only `실서버 필요`, so no screen or drawer mounts here;
+ * FeedbackOps › Findings (#762 p1): 전체 Finding as a bridge menu. The e2e run uses the mock adapter, where `FeatureBridge` renders only `실서버 필요`, so no screen or drawer mounts here;
  * the drawer round trip is covered by the page tests and the conductor's real-server check.
  */
 const FINDING = '99999999-9999-4999-8999-999999999999';

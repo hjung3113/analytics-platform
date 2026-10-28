@@ -5,7 +5,7 @@ import { House, ListTodo, MessagesSquare, MessageSquarePlus, Rocket, Star } from
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry, useI18n } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
-import type { FeedbackOpsSlot, PlatformSlots } from '@ap/kernel';
+import type { FeatureSlot, PlatformSlots } from '@ap/kernel';
 import { AppShell } from '../AppShell';
 import { AppRail } from '../AppRail';
 import { AppSidebar } from '../AppSidebar';
@@ -359,7 +359,7 @@ it('opens the named slot and selected tab from URL focus/tab and clears focus on
   }
 });
 
-const feedbackSlot: FeedbackOpsSlot = {
+const feedbackSlot: FeatureSlot = {
   entriesFor: spaceId => spaceId === 'mars' ? [
     { key: 'task', icon: ListTodo, label: { ko: 'Task', en: 'Task' }, menuId: 'home' },
     { key: 'voc-create', icon: MessageSquarePlus, label: { ko: 'VOC 등록', en: 'File a VOC' }, menuId: 'home' },
@@ -443,7 +443,7 @@ describe('workspace shell layout (15 §3.1)', () => {
   });
 
   it('draws each FeedbackOps entry with the icon the slot passes, whatever its key (ADR-0072)', () => {
-    mount(['platform:view'], true, registry, { feedbackOps: { entriesFor: id => id === 'mars' ? [
+    mount(['platform:view'], true, registry, { features: { entriesFor: id => id === 'mars' ? [
       { key: 'first', icon: Star, label: { ko: '첫째', en: 'First' }, menuId: 'home' },
       { key: 'task', icon: Rocket, label: { ko: '둘째', en: 'Second' }, menuId: 'home' },
     ] : null } });
@@ -455,7 +455,7 @@ describe('workspace shell layout (15 §3.1)', () => {
   });
 
   it('renders FeedbackOps entries in slot order outside the scroll region', () => {
-    mount(['platform:view', 'feedbackops:access'], true, registry, { feedbackOps: feedbackSlot });
+    mount(['platform:view', 'features:access'], true, registry, { features: feedbackSlot });
     const block = screen.getByRole('navigation', { name: 'FeedbackOps · 분석' });
     const scroll = document.querySelector('.shell-scroll');
     expect(scroll?.contains(block)).toBe(false);
@@ -475,7 +475,7 @@ describe('workspace shell layout (15 §3.1)', () => {
 
   it('shows only entry icons, in the same order, when the sidebar is collapsed', () => {
     localStorage.setItem('platform:sidebar-collapsed', '1');
-    mount(['platform:view'], true, registry, { feedbackOps: feedbackSlot });
+    mount(['platform:view'], true, registry, { features: feedbackSlot });
     const block = screen.getByRole('navigation', { name: 'FeedbackOps · 분석' });
     expect(block.textContent).not.toContain('FeedbackOps · 분석');
     const links = within(block).getAllByRole('link');
@@ -496,11 +496,11 @@ describe('workspace shell layout (15 §3.1)', () => {
     const SYSTEM = '4f1b2c3d-5e6f-4a7b-8c9d-0e1f2a3b4c5d';
     const vocEntry = { key: 'voc', icon: MessagesSquare, label: { ko: 'VOC', en: 'VOC' }, menuId: 'fo-inbox', page: { managedSystem: SYSTEM } };
     const taskEntry = { key: 'task', icon: ListTodo, label: { ko: 'Task', en: 'Task' }, menuId: 'home' };
-    const slotOf = (entries: FeedbackOpsSlot['entriesFor'] extends (...args: never[]) => infer R ? R : never, permission?: Permission): FeedbackOpsSlot => ({ entriesFor: id => id === 'mars' ? entries : null, ...(permission ? { permission } : {}) });
+    const slotOf = (entries: FeatureSlot['entriesFor'] extends (...args: never[]) => infer R ? R : never, permission?: Permission): FeatureSlot => ({ entriesFor: id => id === 'mars' ? entries : null, ...(permission ? { permission } : {}) });
 
     it('opens VOC in the same tab with only v, managedSystem and returnTo; the in-shell caption shows', () => {
       window.history.replaceState(null, '', '/mars/home?v=1&from=2026-10-01T00:00:00&to=2026-10-02T00:00:00&scopeId=MEM');
-      mount(['platform:view', 'feedbackops:access'], true, foRegistry, { feedbackOps: slotOf([vocEntry, taskEntry], 'feedbackops:access') });
+      mount(['platform:view', 'features:access'], true, foRegistry, { features: slotOf([vocEntry, taskEntry], 'features:access') });
       const block = screen.getByRole('navigation', { name: 'FeedbackOps · 분석' });
       const [voc, task] = within(block).getAllByRole('link');
       expect(voc.getAttribute('aria-label')).toBe('VOC — 분석, FeedbackOps');
@@ -517,24 +517,24 @@ describe('workspace shell layout (15 §3.1)', () => {
     });
 
     it('draws the in-shell caption and the VOC link opens the registered menu', () => {
-      mount(['platform:view', 'feedbackops:access'], true, foRegistry, { feedbackOps: slotOf([vocEntry]) });
+      mount(['platform:view', 'features:access'], true, foRegistry, { features: slotOf([vocEntry]) });
       const block = screen.getByRole('navigation', { name: 'FeedbackOps · 분석' });
       expect(within(block).getByText('FeedbackOps로 이동합니다')).toBeTruthy();
       expect(within(block).getByRole('link', { name: 'VOC — 분석, FeedbackOps' }).getAttribute('href')).toContain('/mars/fo-inbox');
     });
 
     it('draws no block at all without the slot permission, and keeps three icons with names when collapsed', () => {
-      mount(['platform:view'], true, foRegistry, { feedbackOps: slotOf([vocEntry, taskEntry], 'feedbackops:access') });
+      mount(['platform:view'], true, foRegistry, { features: slotOf([vocEntry, taskEntry], 'features:access') });
       expect(screen.queryByRole('navigation', { name: /^FeedbackOps/ })).toBeNull();
       cleanup();
       localStorage.setItem('platform:sidebar-collapsed', '1');
-      mount(['platform:view', 'feedbackops:access'], true, foRegistry, { feedbackOps: slotOf([vocEntry, taskEntry], 'feedbackops:access') });
+      mount(['platform:view', 'features:access'], true, foRegistry, { features: slotOf([vocEntry, taskEntry], 'features:access') });
       const block = screen.getByRole('navigation', { name: 'FeedbackOps · 분석' });
       expect(within(block).getAllByRole('link').map(link => link.getAttribute('aria-label'))).toEqual(['VOC — 분석, FeedbackOps', 'Task — 분석, FeedbackOps']);
     });
 
     it('omits an in-shell entry whose menu the user cannot open', () => {
-      mount(['platform:view'], true, foRegistry, { feedbackOps: slotOf([{ ...vocEntry, menuId: 'ops' }, taskEntry]) });
+      mount(['platform:view'], true, foRegistry, { features: slotOf([{ ...vocEntry, menuId: 'ops' }, taskEntry]) });
       const block = screen.getByRole('navigation', { name: 'FeedbackOps · 분석' });
       expect(within(block).getAllByRole('link').map(link => link.getAttribute('aria-label'))).toEqual(['Task — 분석, FeedbackOps']);
     });
@@ -544,7 +544,7 @@ describe('workspace shell layout (15 §3.1)', () => {
     ['null', null],
     ['empty', [] as const],
   ])('omits the block when entriesFor returns %s', (_label, entries) => {
-    mount(['platform:view'], true, registry, { feedbackOps: { entriesFor: () => entries } });
+    mount(['platform:view'], true, registry, { features: { entriesFor: () => entries } });
     expect(screen.queryByRole('navigation', { name: /^FeedbackOps/ })).toBeNull();
   });
 
@@ -567,7 +567,7 @@ describe('workspace shell layout (15 §3.1)', () => {
 
   it('keeps the fallback sidebar on an unmatched path and still withholds the rail sections, the current card and the FeedbackOps block', () => {
     window.history.replaceState(null, '', '/unregistered?v=1');
-    mount(['platform:view', 'console:access'], true, globalShellRegistry(), { feedbackOps: feedbackSlot });
+    mount(['platform:view', 'console:access'], true, globalShellRegistry(), { features: feedbackSlot });
     expect(screen.getByRole('navigation', { name: '주 메뉴' })).toBeTruthy();
     expect(screen.queryByRole('group', { name: '시스템 섹션' })).toBeNull();
     expect(screen.queryByRole('navigation', { name: /^FeedbackOps/ })).toBeNull();
@@ -578,7 +578,7 @@ describe('workspace shell layout (15 §3.1)', () => {
   it('omits FeedbackOps on a space-denied direct URL and does not query that space', () => {
     const seen: string[] = [];
     window.history.replaceState(null, '', '/ops?v=1');
-    mount(['platform:view'], true, registry, { feedbackOps: {
+    mount(['platform:view'], true, registry, { features: {
       entriesFor: spaceId => { seen.push(spaceId); return [{ key: 'task', icon: ListTodo, label: { ko: 'Task', en: 'Task' }, menuId: 'home' }]; },
     } });
     expect(screen.queryByRole('navigation', { name: /^FeedbackOps/ })).toBeNull();
@@ -595,7 +595,7 @@ describe('workspace shell layout (15 §3.1)', () => {
       subscribe: listener => { listeners.add(listener); return () => { listeners.delete(listener); }; },
     };
     window.history.replaceState(null, '', '/ops?v=1');
-    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry} slots={{ feedbackOps: {
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry} slots={{ features: {
       entriesFor: spaceId => { seen.push(spaceId); return [{ key: 'task', icon: ListTodo, label: { ko: 'Task', en: 'Task' }, menuId: 'home' }]; },
     } }}>
       <AppShell><input aria-label="editor" /></AppShell>
@@ -613,7 +613,7 @@ describe('workspace shell layout (15 §3.1)', () => {
   it('omits FeedbackOps on an unregistered path even when the fallback space has entries', () => {
     const seen: string[] = [];
     window.history.replaceState(null, '', '/unregistered?v=1');
-    mount(['platform:view', 'console:access'], true, registry, { feedbackOps: {
+    mount(['platform:view', 'console:access'], true, registry, { features: {
       entriesFor: spaceId => { seen.push(spaceId); return [{ key: 'task', icon: ListTodo, label: { ko: 'Task', en: 'Task' }, menuId: 'home' }]; },
     } });
     expect(screen.queryByRole('navigation', { name: /^FeedbackOps/ })).toBeNull();

@@ -20,4 +20,11 @@ describe('platform permission table vs @ap/contracts KERNEL_PERMISSIONS', () => 
       ).toHaveLength(1);
     }
   });
+
+  it('names the feature permission features:access and keeps no feedbackops:access fallback', () => {
+    const tabled = PLATFORM_PERMISSION_TABLE.map((entry) => entry.permission as string);
+    expect(tabled).toContain('features:access');
+    expect(tabled).not.toContain('feedbackops:access');
+    expect(kernelPermissions()).not.toContain('feedbackops:access');
+  });
 });

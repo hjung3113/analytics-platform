@@ -1,12 +1,12 @@
 import { useCallback } from 'react';
 import type { ComponentProps } from 'react';
 import { usePlatform, type PageProps } from '@ap/kernel';
-import { FoDetailDrawer, surveyFollowUpRoute, useSurveyFollowUpHere, useSurveyFollowUpSearch } from '@ap/feature-bridge';
+import { FeatureDetailDrawer, surveyFollowUpRoute, useSurveyFollowUpHere, useSurveyFollowUpSearch } from '@ap/feature-bridge';
 import { SurveyFollowUpScreen } from '@ap/feature-screens/operator-screens/survey-follow-up';
 import { SurveyChildPage } from './SurveyChildPage';
 
 /** The review owns the selected response and its close (`focus` is its `selectedId`), so the drawer's close is `requestClose`. */
-const renderDetail: NonNullable<ComponentProps<typeof SurveyFollowUpScreen>['renderDetail']> = parts => <FoDetailDrawer parts={parts} onClose={parts.requestClose} />;
+const renderDetail: NonNullable<ComponentProps<typeof SurveyFollowUpScreen>['renderDetail']> = parts => <FeatureDetailDrawer parts={parts} onClose={parts.requestClose} />;
 
 /**
  * Survey 후속 조치 (ADR-0081, #764 p1), hidden under Survey 관리: the review's selection is controlled by the page key `focus` (a response id, a UUID) — nothing auto-selects.

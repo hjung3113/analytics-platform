@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { feedbackOpsSlot, FEEDBACKOPS_MANAGED_SYSTEMS, managedSystemFor } from './feedbackops-systems';
+import { featureSlot, FEEDBACKOPS_MANAGED_SYSTEMS, managedSystemFor } from './feedbackops-systems';
 import { SPACES } from './menus';
 import { spaceId } from '@ap/contracts';
 
@@ -23,7 +23,7 @@ describe('FEEDBACKOPS_MANAGED_SYSTEMS (ADR-0045)', () => {
   });
 
   it('gives every entry the icon the app supplies', () => {
-    for (const entry of feedbackOpsSlot().entriesFor(spaceId('mars'))!) expect(entry.icon).toBeDefined();
+    for (const entry of featureSlot().entriesFor(spaceId('mars'))!) expect(entry.icon).toBeDefined();
   });
 });
 
@@ -43,9 +43,9 @@ describe('managedSystemFor', () => {
   });
 });
 
-describe('feedbackOpsSlot', () => {
+describe('featureSlot', () => {
   it.each(['mars', 'bravo'] as const)('draws three entries for %s, in order, scoped to that space only: VOC, Task and 설문 all in the shell', space => {
-    const entries = feedbackOpsSlot().entriesFor(spaceId(space))!;
+    const entries = featureSlot().entriesFor(spaceId(space))!;
     const uuid = FEEDBACKOPS_MANAGED_SYSTEMS[space]!;
     expect(entries.map(entry => entry.key)).toEqual(['voc', 'task', 'survey']);
     expect(entries.map(entry => entry.label)).toEqual([
@@ -56,16 +56,16 @@ describe('feedbackOpsSlot', () => {
     expect(entries[2]).toMatchObject({ menuId: 'fo-surveys', page: { managedSystem: uuid } });
   });
 
-  it('gates the whole block on feedbackops:access', () => {
-    expect(feedbackOpsSlot().permission).toBe('feedbackops:access');
+  it('gates the whole block on features:access', () => {
+    expect(featureSlot().permission).toBe('features:access');
   });
 
   it('gives a space without a mapping row no block', () => {
-    expect(feedbackOpsSlot().entriesFor(spaceId('operations'))).toBeNull();
+    expect(featureSlot().entriesFor(spaceId('operations'))).toBeNull();
   });
 
   it('gives a space no block when its mapped value is not a uuid', () => {
     vi.spyOn(FEEDBACKOPS_MANAGED_SYSTEMS as Record<string, string>, 'mars', 'get').mockReturnValue('MEM');
-    expect(feedbackOpsSlot().entriesFor(spaceId('mars'))).toBeNull();
+    expect(featureSlot().entriesFor(spaceId('mars'))).toBeNull();
   });
 });

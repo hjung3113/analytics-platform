@@ -7,7 +7,7 @@ import { I18nProvider, PlatformProvider, createRegistry, usePlatform, type Platf
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import userEvent from '@testing-library/user-event';
 import { AppShell } from '../AppShell';
-import { groupId, menuPermission, spaceId, type GroupId, type Permission } from '@ap/contracts';
+import { groupId, menuPermission, menuPermissions, spaceId, type GroupId, type Permission } from '@ap/contracts';
 
 function menu(id: string, group: GroupId, path: string, label: string, over: object = {}) {
   return { id, group, path, permission: 'platform:view' as const, primary: true, label: { ko: label, en: `${label}-en` }, description: { ko: '', en: '' }, icon: House, requiresScope: false, context: noContext, pageType: 'overview' as const, features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['focus', 'tab'], ...over };
@@ -63,7 +63,7 @@ function Slow() {
 }
 function Routes() {
   const { route, can } = usePlatform();
-  if (!route || !can(route.menu.permission)) return null;
+  if (!route || !menuPermissions(route.menu).every(can)) return null;
   return route.menu.id === lazyMenuId ? <Slow key={route.menu.id} /> : <Page key={route.menu.id} />;
 }
 

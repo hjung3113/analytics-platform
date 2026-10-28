@@ -3,10 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider } from '@ap/kernel';
 import { memoryStorage, testAdapter } from '@ap/kernel/testing';
 import { manifests } from './index';
-import { setFoApi } from '@ap/feature-bridge/fo-api';
+import { setFeatureApi } from '@ap/feature-bridge/feature-api';
 import Notifications from './pages/Notifications';
 import { notificationsSlot } from '@ap/feature-bridge/notifications-slot';
-import { foQueryClient } from '@ap/feature-bridge';
+import { featureQueryClient } from '@ap/feature-bridge';
 import { ID_A, ID_B, json, listOf, notification, registry, stubFetch, switchableAdapter } from './fo/test-support';
 
 const COUNT = '/api/fo/notifications?unread=true&limit=1';
@@ -26,7 +26,7 @@ beforeEach(() => {
   window.history.replaceState(null, '', '/notifications');
   onSessionLost.mockReset();
 });
-afterEach(() => { cleanup(); setFoApi(null); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
+afterEach(() => { cleanup(); setFeatureApi(null); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
 describe('notifications slot', () => {
   it('names the notifications manifest menu', () => {
@@ -35,7 +35,7 @@ describe('notifications slot', () => {
   });
 
   it('without a FeedbackOps API shows no count, 실서버 필요 in the popover body, and requests nothing', async () => {
-    setFoApi(null);
+    setFeatureApi(null);
     const calls = stubFetch(() => listOf());
     mount(switchableAdapter().adapter, <><Probe /><notificationsSlot.Recent /></>);
     expect(screen.getByRole('button').textContent).toBe('none');
@@ -44,7 +44,7 @@ describe('notifications slot', () => {
   });
 
   describe('with a FeedbackOps API', () => {
-    beforeEach(() => { setFoApi({ basePath: '/api/fo', onSessionLost }); });
+    beforeEach(() => { setFeatureApi({ basePath: '/api/fo', onSessionLost }); });
 
     it('shares one count request between two probes', async () => {
       const calls = stubFetch(() => countOf(3));
@@ -111,7 +111,7 @@ describe('notifications slot', () => {
       const calls = vi.mocked(fetch).mock.calls.length;
       lost = true;
       // The next poll answers 401: refetch the count the way its 60 s interval does.
-      await act(async () => { await foQueryClient.invalidateQueries({ queryKey: ['notifications', 'unread-count'] }); });
+      await act(async () => { await featureQueryClient.invalidateQueries({ queryKey: ['notifications', 'unread-count'] }); });
       await waitFor(() => expect(onSessionLost).toHaveBeenCalledTimes(1));
       await screen.findByText('세션이 만료되었습니다');
       expect(screen.queryByTestId(`home-inbox-row-${ID_A}`)).toBeNull();

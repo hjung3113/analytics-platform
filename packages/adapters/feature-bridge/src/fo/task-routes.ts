@@ -83,7 +83,7 @@ export const taskListBareAlias = operatorRoute({
   foAbsent: SCOPE_ALL,
 });
 
-/** Module-level hooks: `FoBridge` memoizes its seam on their identities. */
+/** Module-level hooks: `FeatureBridge` memoizes its seam on their identities. */
 export const useTaskRequestsSearch = routeSearch(taskRequestsRoute);
 export const useTaskRequestsHere = routeHere(taskRequestsRoute);
 export const useTaskBoardSearch = routeSearch(taskBoardRoute);

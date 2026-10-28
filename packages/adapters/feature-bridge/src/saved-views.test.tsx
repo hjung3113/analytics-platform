@@ -5,8 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NO_FEATURES, contextCapabilities, groupId, spaceId } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import { memoryStorage, testAdapter, testSession, useToastsForTest } from '@ap/kernel/testing';
-import { foApi, setFoApi } from './fo-api';
-import { foQueryClient } from './fo/session';
+import { featureApi, setFeatureApi } from './feature-api';
+import { featureQueryClient } from './fo/session';
 import { savedViewsSlot } from './saved-views';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -16,11 +16,11 @@ const GROUP = groupId('foVoc');
 const section = savedViewsSlot.For(SPACE)!;
 const Body = section.Body;
 const menu = (id: string, path: string, pageKeys: string[], primary = false) => ({
-  id, primary, group: GROUP, label: { ko: id, en: id }, description: { ko: id, en: id }, path, icon: Inbox, permission: 'feedbackops:access' as const,
+  id, primary, group: GROUP, label: { ko: id, en: id }, description: { ko: id, en: id }, path, icon: Inbox, permission: 'features:access' as const,
   requiresScope: false, pageType: 'management' as const, context: contextCapabilities(), features: NO_FEATURES, pageKeys, component: lazy(async () => ({ default: () => null })),
 });
 const registry = createRegistry({
-  spaces: [{ id: SPACE, label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'feedbackops:access', carriedPageKeys: ['managedSystem', 'returnTo'], homeMenuId: 'fo-dashboard' }],
+  spaces: [{ id: SPACE, label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'features:access', carriedPageKeys: ['managedSystem', 'returnTo'], homeMenuId: 'fo-dashboard' }],
   groups: [{ id: GROUP, label: { ko: 'VOC', en: 'VOC' }, icon: Inbox, space: SPACE }],
   menus: [
     menu('fo-dashboard', '/feedbackops', ['managedSystem', 'returnTo'], true),
@@ -59,7 +59,7 @@ function Toasts() {
 
 async function mount(url: string) {
   window.history.replaceState(null, '', url);
-  const session = testSession(['platform:view', 'feedbackops:access'], { user: { id: 'admin', name: 'admin', title: { ko: 'admin', en: 'admin' } } });
+  const session = testSession(['platform:view', 'features:access'], { user: { id: 'admin', name: 'admin', title: { ko: 'admin', en: 'admin' } } });
   host = document.createElement('div');
   document.body.append(host);
   root = createRoot(host);
@@ -67,7 +67,7 @@ async function mount(url: string) {
     root!.render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}><Body /><Toasts /><Nav /></PlatformProvider></I18nProvider>);
   });
   // The first mount in a run loads the lazy list chunk (a cold import of the FeedbackOps modules).
-  for (let i = 0; foApi() !== null && getGate === null && host.textContent!.includes('불러오는 중…') && i < 60; i++) await act(async () => { await new Promise(resolve => setTimeout(resolve, 100)); });
+  for (let i = 0; featureApi() !== null && getGate === null && host.textContent!.includes('불러오는 중…') && i < 60; i++) await act(async () => { await new Promise(resolve => setTimeout(resolve, 100)); });
 }
 const settle = () => act(async () => { await new Promise(resolve => setTimeout(resolve, 250)); });
 const applyButton = (name: string) => host!.querySelector<HTMLButtonElement>(`button[title="${name}"]`)!;
@@ -85,10 +85,10 @@ async function type(value: string) {
 
 beforeEach(() => {
   vi.stubGlobal('localStorage', memoryStorage());
-  foQueryClient.clear();
+  featureQueryClient.clear();
   deleteGates.clear();
   rows = []; posted = []; calls = []; failPost = null; failDelete = false; deleteGate = null; getGate = null; unauthorized = false;
-  setFoApi({ basePath: '/api/fo', onSessionLost: vi.fn() });
+  setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() });
   vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     const method = init?.method ?? 'GET';
@@ -116,7 +116,7 @@ afterEach(() => {
   act(() => { root?.unmount(); });
   host?.remove();
   root = null; host = null;
-  setFoApi(null);
+  setFeatureApi(null);
   vi.unstubAllGlobals();
   window.history.replaceState(null, '', '/');
 });
@@ -129,7 +129,7 @@ describe('savedViewsSlot', () => {
   });
 
   it('shows one muted 실서버 필요 line and requests nothing without a FeedbackOps API', async () => {
-    setFoApi(null);
+    setFeatureApi(null);
     await mount('/feedbackops/fo-dashboard');
     expect(host!.textContent).toContain('실서버 필요');
     expect(calls).toEqual([]);
@@ -420,7 +420,7 @@ it.each([['c', 'b'], ['b', 'c']])('concurrent deletes settling %s then %s focus 
   getGate = new Promise<void>(resolve => { releaseRead = resolve; });
   const originalRows = [...rows];
   await act(async () => { releases.get(first)?.(); releases.get(second)?.(); });
-  await act(async () => { foQueryClient.setQueryData(['saved-views', 'voc'], { items: originalRows.filter(view => view.id !== first) }); });
+  await act(async () => { featureQueryClient.setQueryData(['saved-views', 'voc'], { items: originalRows.filter(view => view.id !== first) }); });
   await settle();
   expect(document.activeElement).toBe(applyButton('A'));
   await act(async () => { releaseRead(); }); await settle();

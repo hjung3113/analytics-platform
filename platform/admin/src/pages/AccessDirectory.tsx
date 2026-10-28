@@ -93,6 +93,7 @@ export default function AccessDirectory() {
                             <span className="t-mono text-text-secondary">{menu.path}</span>
                             {menu.spaceId === null && <StatusBadge tone="neutral">{menu.spaceLabel[lang]}</StatusBadge>}
                             {menu.spaceGated && <StatusBadge tone="neutral">{ko ? '공간' : 'space'}</StatusBadge>}
+                            {menu.missingPermissions.length > 0 && <StatusBadge tone="neutral">{ko ? `추가 권한 필요: ${menu.missingPermissions.join(', ')}` : `needs ${menu.missingPermissions.join(', ')}`}</StatusBadge>}
                           </span>
                         </li>)}
                       </ul>

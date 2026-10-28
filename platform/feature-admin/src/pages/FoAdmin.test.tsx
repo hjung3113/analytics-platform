@@ -3,8 +3,8 @@ import { UserCog } from 'lucide-react';
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
-import { setFoApi } from '@ap/feature-bridge/fo-api';
-import { createFoMenuHarness } from '@ap/feature-bridge/testing';
+import { setFeatureApi } from '@ap/feature-bridge/feature-api';
+import { createFeatureMenuHarness } from '@ap/feature-bridge/testing';
 import { useHostSeam } from '@/lib/host/host-seam';
 import { harnessMenus, homeStub, mountAt, warmPages } from '../test-support';
 
@@ -72,7 +72,7 @@ beforeEach(() => {
   vi.stubGlobal('fetch', request);
   fo.managedSystems = 0; fo.areas.length = 0; fo.requests.length = 0; fo.grants.length = 0; fo.settings.length = 0; fo.requestClose.mockReset(); request.mockReset();
 });
-afterEach(() => { cleanup(); setFoApi(null); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
+afterEach(() => { cleanup(); setFeatureApi(null); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
 describe('관리자 without a FeedbackOps API (mock preview)', () => {
   it.each([
@@ -89,9 +89,9 @@ describe('관리자 without a FeedbackOps API (mock preview)', () => {
   });
 });
 
-describe('a user with feedbackops:access but without console:access', () => {
-  const { mountAt: mountPlain } = createFoMenuHarness({ manifests: harnessMenus, homeMenuId: homeStub.id, group: { id: 'foAdmin', label: { ko: '관리자', en: 'Admin' }, icon: UserCog } });
-  beforeEach(() => { setFoApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
+describe('a user with features:access but without console:access', () => {
+  const { mountAt: mountPlain } = createFeatureMenuHarness({ manifests: harnessMenus, homeMenuId: homeStub.id, group: { id: 'foAdmin', label: { ko: '관리자', en: 'Admin' }, icon: UserCog } });
+  beforeEach(() => { setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
 
   it.each([[MS], [AREAS], [REQUESTS], [GRANTS], [SETTINGS]])('%s never mounts its screen and requests nothing', async path => {
     mountPlain(path);
@@ -102,7 +102,7 @@ describe('a user with feedbackops:access but without console:access', () => {
 });
 
 describe('관리자 through the FeedbackOps bridge', () => {
-  beforeEach(() => { setFoApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
+  beforeEach(() => { setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
 
   it('mounts Managed System reading the page as /admin/managed-systems with the host owning the title; the carried scope is ignored', async () => {
     mountAt(`${MS}?managedSystem=${SYSTEM}`);
@@ -158,7 +158,7 @@ describe('관리자 through the FeedbackOps bridge', () => {
 });
 
 describe('관리자 with an invalid address value', () => {
-  beforeEach(() => { setFoApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
+  beforeEach(() => { setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
 
   it.each([
     [AREAS, 'system', 'x'],

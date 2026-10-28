@@ -1,19 +1,19 @@
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
-import { setFoApi } from '@ap/feature-bridge/fo-api';
-import { foQueryClient } from '@ap/feature-bridge';
+import { setFeatureApi } from '@ap/feature-bridge/feature-api';
+import { featureQueryClient } from '@ap/feature-bridge';
 import { ID_A, ID_B, listOf, mount, notification, stubFetch, switchableAdapter, json } from '../fo/test-support';
 
 beforeEach(() => {
   vi.stubGlobal('localStorage', memoryStorage());
   window.history.replaceState(null, '', '/notifications');
 });
-afterEach(() => { cleanup(); setFoApi(null); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
+afterEach(() => { cleanup(); setFeatureApi(null); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
 describe('Notifications without a FeedbackOps API (mock preview)', () => {
   it('shows 실서버 필요, mounts nothing from FeedbackOps and requests nothing', () => {
-    setFoApi(null);
+    setFeatureApi(null);
     const calls = stubFetch(() => listOf());
     mount(switchableAdapter().adapter);
     expect(screen.getByRole('heading', { name: '알림' })).toBeTruthy();
@@ -25,7 +25,7 @@ describe('Notifications without a FeedbackOps API (mock preview)', () => {
 
 describe('Notifications through the FeedbackOps bridge', () => {
   const onSessionLost = vi.fn();
-  beforeEach(() => { onSessionLost.mockReset(); setFoApi({ basePath: '/api/fo', onSessionLost }); });
+  beforeEach(() => { onSessionLost.mockReset(); setFeatureApi({ basePath: '/api/fo', onSessionLost }); });
 
   it('lists unread notifications from /api/fo with the session cookie, unlinked, and marks one read', async () => {
     const calls = stubFetch((path, method) => {
@@ -69,12 +69,12 @@ describe('Notifications through the FeedbackOps bridge', () => {
     stubFetch((_path, method) => method === 'POST' ? json({ code: 'auth.session_invalid', message: 'no session' }, 401) : listOf(notification(ID_A)));
     mount(switchableAdapter().adapter);
     const row = await screen.findByTestId(`home-inbox-row-${ID_A}`);
-    expect(foQueryClient.getQueryCache().getAll().length).toBeGreaterThan(0);
+    expect(featureQueryClient.getQueryCache().getAll().length).toBeGreaterThan(0);
     fireEvent.click(within(row).getByRole('button', { name: label }));
     await waitFor(() => expect(onSessionLost).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(screen.queryByTestId(`home-inbox-row-${ID_A}`)).toBeNull());
     expect(screen.queryByTestId('home-inbox-list')).toBeNull();
-    expect(foQueryClient.getQueryCache().getAll()).toEqual([]);
+    expect(featureQueryClient.getQueryCache().getAll()).toEqual([]);
   });
 
   it('a failed mark-read raises a danger Kernel toast with the mapped message', async () => {
@@ -88,7 +88,7 @@ describe('Notifications through the FeedbackOps bridge', () => {
 });
 
 describe('session generation (no leak across users or revisions)', () => {
-  beforeEach(() => { setFoApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
+  beforeEach(() => { setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
 
   it.each([
     ['another user', 'user-b', ID_B],

@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { SearchX } from 'lucide-react';
 import { useI18n, usePlatform } from '@ap/kernel';
 import { PlatformPage, StateMessage } from '@ap/components';
-import { FoScreenPage, UUID_PATTERN, type OperatorRoute } from '@ap/feature-bridge';
+import { FeatureScreenPage, UUID_PATTERN, type OperatorRoute } from '@ap/feature-bridge';
 import { isSurveyDetailSearchValueValid } from '@ap/feature-screens/operator-screens/surveys-search';
 
 /** The list-context page keys the children carry back to the list (`managedSystem` rides on the space). */
@@ -32,7 +32,7 @@ export function SurveyChildPage({ surveyId, route, useSearch, useHere, children 
     for (const key of LIST_CONTEXT_KEYS) { const value = pageParam(key); if (value !== null) page[key] = value; }
     navigate(linkTo('fo-surveys', { page }));
   };
-  return <FoScreenPage route={route} isValid={isSurveyDetailSearchValueValid} useSearch={useSearch} useHere={useHere}>
+  return <FeatureScreenPage route={route} isValid={isSurveyDetailSearchValueValid} useSearch={useSearch} useHere={useHere}>
     {children({ surveyId, backToList })}
-  </FoScreenPage>;
+  </FeatureScreenPage>;
 }

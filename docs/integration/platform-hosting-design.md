@@ -98,7 +98,7 @@
 | G2 | 모듈 경로 접두사 | `matchRoute`는 앱 절대 경로·길이 일치만 매칭한다. 모듈은 자기 상대 경로만 알아야 두 호스트에서 같은 manifest를 쓴다 | 연결 패키지가 접두사를 정하고 Kernel이 등록 때 합친다. 경로 충돌 검사는 지금 규칙 그대로 |
 | G3 | React 밖 호스트 포트 | 화면 props는 `{ params }`뿐이고 나머지는 `usePlatform()` 훅 — 모듈이 `@ap/kernel`을 import해야 한다 | `@ap/contracts`에 `ModuleHost` 타입, Kernel이 구현해 화면 props로 넘김(`{ params, host }`) |
 | G4 | 모듈 상태 | 제품 서버 인증 실패·신원 불일치를 모듈마다 다르게 그리면 로그인 화면이 셸 안에 생긴다 | `host.status(...)` 또는 화면 반환 상태로 `auth_required`·`identity_mismatch`·`unavailable`. 호스트가 공통 화면과 조치(새 탭 로그인 등)를 그림 |
-| G5 | 조립 설정 주입 | FeedbackOps `apiBase`, Managed System 매핑, EV 테마 매핑은 모듈 밖 값이다. 지금은 메뉴가 모듈 변수에 넣는 방식(`@ap/feature-bridge/fo-api`) | 연결 패키지가 `config`로 넘기고 모듈 manifest가 필요한 키를 선언 |
+| G5 | 조립 설정 주입 | FeedbackOps `apiBase`, Managed System 매핑, EV 테마 매핑은 모듈 밖 값이다. 지금은 메뉴가 모듈 변수에 넣는 방식(`@ap/feature-bridge/feature-api`) | 연결 패키지가 `config`로 넘기고 모듈 manifest가 필요한 키를 선언 |
 | G6 | 계약 버전·필수 기능 검사 | 모듈과 호스트의 출시 시점이 다르다(#396 §9) | manifest `contract`·`requires`, 등록 때 모르는 버전·빠진 필수 기능을 `RegistryError`로 거부(fail closed) |
 | G7 | 도착 포커스 대상 | 도착 포커스(ADR-0032)가 `PlatformPage` 안에 있다 | 포트에 `focusTarget(el)` 등록. 호스트가 `PlatformPage`의 `arrivalTarget`으로 넘겨 제목을 덮어쓴다(#804) |
 | G8 | 모듈 CSS 소스 등록 | 모듈 패키지가 Tailwind 클래스를 쓰면 앱 `style.css`의 `@source`가 필요하다(지금 메뉴는 `styles.css` + 앱 import) | 생성기 마커처럼 연결 패키지가 `styles.css`를 내고 앱이 import |

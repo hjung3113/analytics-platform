@@ -7,7 +7,7 @@ import type { MenuEntry, Registry } from '../registry/registry';
 import { stripReturnToFromUrl } from '../links/return-to';
 import { createRefreshEpochs } from '../query/refresh-epochs';
 import { createQueryClient, invalidateEndpoints, removeOtherGenerations, startQueryEngine, type QueryEngine } from '../query/query-engine';
-import type { EquipmentAxisDescriptor, ModuleScopedId, Permission, PlatformAdapter, QueryHistoryStore, SavedViewStore, SpaceDef, SpaceId } from '@ap/contracts';
+import { menuPermissions, type EquipmentAxisDescriptor, type ModuleScopedId, type Permission, type PlatformAdapter, type QueryHistoryStore, type SavedViewStore, type SpaceDef, type SpaceId } from '@ap/contracts';
 import type { PlatformSlots, Recent, Toast, ToastOptions } from './types';
 import { decodeFavorites, decodeRecent, decodeScopeId, readPreference, writePreference } from './preferences';
 import { AppContext, OverlayContext, RecentContext, ToastsContext, type AppValue, type OverlayState, type UsageNavTrail } from './contexts';
@@ -152,7 +152,7 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
   }, [registry, canEnter]);
   const canOpen = useCallback((menuId: string) => {
     const menu = menuById(menuId);
-    return can(menu.permission) && enters(menu);
+    return menuPermissions(menu).every(can) && enters(menu);
   }, [menuById, can, enters]);
 
   // Permission-visible menus grouped by their space; membership lives on the group, never the menu.
@@ -160,7 +160,7 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
     const map = new Map<SpaceId, MenuEntry[]>();
     for (const space of registry.spaces) map.set(space.id, []);
     for (const m of registry.menus) {
-      if (!can(m.permission)) continue;
+      if (!menuPermissions(m).every(can)) continue;
       const space = registry.spaceOf(m);
       if (space === null) continue;
       const list = map.get(space.id);
@@ -177,7 +177,7 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
     [registry, canEnter, spaceMenus],
   );
   const globalMenus = useMemo(
-    () => registry.menus.filter(m => registry.spaceOf(m) === null && can(m.permission)),
+    () => registry.menus.filter(m => registry.spaceOf(m) === null && menuPermissions(m).every(can)),
     [registry, can],
   );
 

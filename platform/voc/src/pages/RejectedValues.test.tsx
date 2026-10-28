@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
-import { setFoApi } from '@ap/feature-bridge/fo-api';
+import { setFeatureApi } from '@ap/feature-bridge/feature-api';
 import { mountAt, warmPages } from '../test-support';
 
 /** Screens and the drawer are doubles that would request FeedbackOps data when mounted; the page value check (FeedbackOps' real search schema) is not mocked. */
@@ -23,9 +23,9 @@ beforeEach(() => {
   mounted.screens = 0;
   mounted.details = 0;
   request.mockReset();
-  setFoApi({ basePath: '/api/fo', onSessionLost: vi.fn() });
+  setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() });
 });
-afterEach(() => { cleanup(); setFoApi(null); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
+afterEach(() => { cleanup(); setFeatureApi(null); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
 const OVERLONG = 'q'.repeat(101);
 const INBOX_CASES = [

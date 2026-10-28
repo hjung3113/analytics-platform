@@ -10,7 +10,7 @@ import { hwTimeMock } from '@ap/menu-hw-time/mock';
 // Audit seeds of menu-owned destinations (ADR-0048) — hand-wired, outside the generator's import region.
 import { metricsAuditEvents } from '@ap/menu-metrics/mock';
 import type { CreateAssembly } from '#platform-assembly';
-import type { AuditEvent } from '@ap/contracts';
+import { menuPermissions, type AuditEvent } from '@ap/contracts';
 import { createMockAdapter, storedUsage, type AnyMockEndpoint } from '@ap/mock-server';
 import { DevTools } from './DevTools';
 import { eqvMock } from './eqv-mock';
@@ -51,7 +51,7 @@ export const MOCK_AUDIT_EVENTS: readonly AuditEvent[] = [...metricsAuditEvents];
 export const createAssembly: CreateAssembly = ({ registry }) => {
   const adapter = createMockAdapter({ equipmentAxes: EQUIPMENT_AXES, endpoints: [...MOCK_ENDPOINTS, ...MODULE_MOCK_ENDPOINTS], registry, permissions: [...registry.permissions, ...modulePermissions(registry)], auditEvents: MOCK_AUDIT_EVENTS });
   const savedViews = createLocalSavedViewStore({
-    menuPermissionOf: menuId => { try { return registry.menuById(menuId).permission; } catch { return undefined; } },
+    menuPermissionsOf: menuId => { try { return menuPermissions(registry.menuById(menuId)); } catch { return undefined; } },
     sessionPermissions: () => adapter.session().user.permissions,
   });
   // Dev server only: the black-box E2E reads the raw usage rows (not exposed by any adapter port) to check the entry's
