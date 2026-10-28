@@ -6,7 +6,7 @@
 
 ## 1. 목표와 범위
 
-FeedbackOps를 플랫폼 앱 하나·서버 하나·저장소 하나로 합친다. 사용자는 플랫폼 셸 안에서 VOC를 남기고 설문에 답하고, 관리자·개발자는 같은 셸의 업무 시스템에서 Triage → Finding → Task 흐름을 다룬다. 독립 FeedbackOps 앱은 합류가 끝나면 은퇴한다.
+FeedbackOps를 플랫폼 앱 하나·공개 서버 입구 하나·저장소 하나(코어 Fastify + 내부 분석 FastAPI, [ADR-0095](../adr/0095-dual-backend-fastify-core-fastapi-analytics.md))로 합친다. 사용자는 플랫폼 셸 안에서 VOC를 남기고 설문에 답하고, 관리자·개발자는 같은 셸의 업무 시스템에서 Triage → Finding → Task 흐름을 다룬다. 독립 FeedbackOps 앱은 합류가 끝나면 은퇴한다.
 
 범위 밖: FeedbackOps 도메인 규칙 변경, 화면 재설계. 옮긴 뒤 화면 모양이 바뀌는 부분(셸 배치, 전역 진입)만 시안 컨펌을 받는다.
 
@@ -20,7 +20,7 @@ FeedbackOps를 플랫폼 앱 하나·서버 하나·저장소 하나로 합친�
    - 시스템 간 이력의 원본은 `entity_links`다.
    - Task Request가 검토 전 실행 후보로부터 Task 백로그를 지킨다.
    - 대시보드는 차트 보고가 아니라 액션 큐다.
-4. **서버 계약은 SDK, 구현은 FeedbackOps 백엔드에서 출발**([ADR-0043](../adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)의 "서버는 계약만"을 유지).
+4. **서버 계약 + 선택해서 쓰는 참조 구현**([ADR-0096](../adr/0096-contract-schemas-zod-source-and-reference-implementations.md)). 계약 산출물·적합성 준수는 필수이고 참조 구현 채택은 선택이다. 플랫폼 실서버 구현은 FeedbackOps 백엔드에서 출발한다.
 
 ## 3. 기능 배치 (Candidate)
 
@@ -154,11 +154,11 @@ FeedbackOps를 플랫폼 앱 하나·서버 하나·저장소 하나로 합친�
   - 차이: `console:access` 하나로 FeedbackOps 감사 행 전체를 보여 주면 FeedbackOps의 개인정보 경계가 넓어진다(O16).
 - **`console:access`와 room**
   - FeedbackOps에 `console:access`는 없다. 가장 가까운 것은 `workspace.admin`이다.
-  - room 부여에 해당하는 것도 없다. site·room 부여 저장소는 새로 만들어야 하고, 그 소유는 #98이다.
+  - room 부여에 해당하는 것도 없다. site·site_room 부여는 §5의 ADR-0068 체계에 들어가며, 구체 설계는 #1087에 남아 있다.
 - **역할 원천**
   - FeedbackOps는 역할을 손으로 올리고, IdP 그룹 매핑은 하지 않는다고 정했다(FO ADR-0006).
   - 플랫폼은 IdP 그룹 claim 사양을 기다린다(#98, O2).
-  - 두 결정이 부딪힌다. 결정은 #596 질문 2에서 한다.
+  - 부여 체계·역할 모델 통합은 §5의 [ADR-0068](../adr/0068-permission-scope-and-business-system-link.md) 결정이다. 실제 IdP 입력은 #98, 분석 site·site_room 부여 설계는 #1087로 구분한다.
 
 ## 5. 권한·업무 시스템 통합 (Decided, [ADR-0068](../adr/0068-permission-scope-and-business-system-link.md))
 
@@ -179,7 +179,7 @@ FeedbackOps를 플랫폼 앱 하나·서버 하나·저장소 하나로 합친�
 | 2 | 실서버 출발점: §4 공통 부분, 실어댑터 조립 | [#593](https://github.com/hjung3113/analytics-platform/issues/593) | 1 |
 | 3 | 전역 기능 화면(§3.1) — 시안 컨펌 먼저 | [#594](https://github.com/hjung3113/analytics-platform/issues/594) | 1, 2 |
 | 4 | 피드백 운영 업무 시스템(§3.2) — 시안 컨펌 먼저 | [#595](https://github.com/hjung3113/analytics-platform/issues/595) | 1, 2 |
-| — | 권한·업무 시스템 통합 결정(§5) | [#596](https://github.com/hjung3113/analytics-platform/issues/596) | 사용자 답, #98 |
+| — | 권한·업무 시스템 통합 결정(§5, ADR-0068, Decided) | [#596](https://github.com/hjung3113/analytics-platform/issues/596)(닫힘) | 실제 IdP 입력 #98, 분석 부여 설계 #1087은 별도 |
 | 5 | 독립 앱 은퇴: 옛 URL 리다이렉트, 링크 계약 정리, FeedbackOps 저장소 보관 | [#597](https://github.com/hjung3113/analytics-platform/issues/597) | 3, 4, #151 |
 
 사내 확인(#150 SSO, #151 배포·인프라)은 단계와 병행한다. 운영 배포의 선행 조건이지만 단계 1–4는 mock 인증과 throwaway DB로 진행한다. 첫 사내 사용은 SSO 답을 기다리지 않고 Keycloak(사내 이메일 도메인 가입·이메일 인증)을 OIDC IdP로 두고 연다. 사내 로그인은 Windows 로그인 정보로 연동된다(사용자 관찰 → Active Directory)라서, 답이 오면 Keycloak을 Entra ID·AD FS로 위임하거나 AD에 LDAP·Kerberos로 연동한다. IdP가 바뀌면 `sub`이 바뀌므로 전환 때 인증된 email로 기존 Actor를 한 번 연결한다 — [#603](https://github.com/hjung3113/analytics-platform/issues/603).
@@ -188,8 +188,8 @@ FeedbackOps를 플랫폼 앱 하나·서버 하나·저장소 하나로 합친�
 
 | ID | 질문 | 영향 |
 | --- | --- | --- |
-| O2 | 역할 모델 통합과 역할 소속 원천 | #596 질문 2, #98(IdP 그룹 claim, #150) |
-| O3 | Managed System ↔ 업무 시스템 관계 | #596 질문 1, 공간 → Managed System 매핑(ADR-0045) |
+| O2 | 역할 소속 원천의 실제 IdP 입력 | 부여 체계·역할 모델 통합은 §5 ADR-0068로 Decided. IdP 그룹 claim 입력은 #98·#150 |
+| O3 | Managed System ↔ 업무 시스템 관계 | **Decided: §5 [ADR-0068](../adr/0068-permission-scope-and-business-system-link.md)** — 레지스트리는 둘이고 연결 표로 잇는다 |
 | O4 | 분석 메뉴 데이터 엔드포인트를 같은 서버에 두나, 사내 별도 서버로 두나 | #593 범위 밖. 데이터 원천은 `context_recognized_parser` 적재 DB — **Decided: FastAPI 분석 데이터 서버를 Fastify 뒤 내부에 둔다, [ADR-0095](../adr/0095-dual-backend-fastify-core-fastapi-analytics.md)** |
 | O5 | 라우팅 이전: TanStack Router 화면을 Kernel Registry·`PlatformLocation`으로. 잘못된 search 값 처리(FeedbackOps는 버림, 플랫폼은 거부·보존) | #594·#595 — **Decided: [ADR-0071](../adr/0071-feedbackops-screen-bridge-and-api-fo-edge-prefix.md)** 결정 1·9(#594 범위; #595는 같은 규칙) |
 | O6 | FeedbackOps git 이력 보존 방식(subtree 병합 권장) | #592 |
@@ -204,7 +204,7 @@ FeedbackOps를 플랫폼 앱 하나·서버 하나·저장소 하나로 합친�
 | O15 | rate limit: 5분 폴링·위젯 여럿·`recordUsage`가 Actor 100/분, read 300/분 안에 드는지, 플랫폼 경로 묶음을 새로 둘지 | #593 측정 |
 | O16 | 감사 읽기 노출 범위: FeedbackOps event → `AuditAction` 매핑, `console:access`가 볼 detail의 범위(사유·설문·이메일), `subject_id` text 전환·`scope_id` 추가 migration | #593 + FeedbackOps 개인정보 규칙(FO ADR-0033·0066), 사용자 — **Decided: [ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md) 결정 6** — 구현 #621(`subject_id` text·`scope_id`는 `.planning/backlog.md`에 구현 안 함으로 기록) |
 | O17 | 적합성 묶음 시드 계정(권한 하나씩 뺀 계정, site 두 곳 계정, 다른 주석 작성자)을 mock 로그인 시드로 만들지 | #593 |
-| O18 | 체크리스트 §5 "#98 전에는 부여·회수 쓰기 없음"과 이미 구현된 FeedbackOps 부여·승인 쓰기(FO ADR-0066)의 충돌. 체크리스트를 고칠지, 쓰기를 FeedbackOps 범위로 한정할지 | #596 |
+| O18 | 체크리스트 §5의 "#98 전에는 부여·회수 쓰기 없음"과 FeedbackOps 부여·승인 쓰기의 적용 범위 | **Decided: §5 [ADR-0068](../adr/0068-permission-scope-and-business-system-link.md) 결정 2·결과**를 따른다. 실제 IdP 입력은 #98, 분석 site·site_room 부여 설계는 #1087 |
 | O19 | FeedbackOps 엔티티의 `EntityRef.scopeId`(`null` + 서버 안 Managed System 판정). 행이 있는지 드러나는 방식(Finding 404/403 대 플랫폼 `empty`/`forbidden`)을 맞출지 | 06 §22 소유자(사용자), #596 — **Decided: [ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md) 결정 9, 구현 #623** |
 | O20 | Correlation ID 헤더 이름과 Fastify `reqId`·로그 필드 `request_id`를 하나로 맞출지 | #151(사내 표준), #593 — **Decided: [ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md) 결정 5** |
 | O21 | 세션 만료: 지금은 12시간 고정이고 유휴 만료가 없다. #150 정책이 sliding이면 폴링을 활동에서 빼는 처리가 필요하다 | #150 |

@@ -21,11 +21,11 @@
 - **산출물:** JSON Schema는 `schemas/*.json`, 그 밖에 `endpoints.json`·`vocab.json`을 `sdk-v*` Release에 싣는다. 산출물이 원본과 어긋나는 것은 스냅샷 drift 게이트가 막는다(EV 방식). 산출물 형식 규칙(2020-12, 정수·시각의 표현)은 [`contract-schemas/AGENTS.md`](../../packages/sdk/contract-schemas/AGENTS.md#artifact-format-rules)가 소유한다.
 - **Zod 버전:** 레포의 zod 3.25.x가 내는 `zod/v4` 서브패스의 `toJSONSchema`를 쓴다. 2026-10-28 PoC에서 `target: 'draft-2020-12'` 출력, 정수(`min/max`가 안전 정수 범위로 붙음), `datetime`(긴 `pattern`이 붙음), 판별 유니온(`anyOf`)을 확인했다. 기존 FeedbackOps의 `zod` 3 루트 import와는 서브패스가 달라 같이 설치돼도 충돌하지 않는다.
 - **SDK 범위를 넓힌다:** "서버는 계약만"에서 "계약 + 선택해서 쓰는 참조 구현"으로. 계약(산출물과 적합성 검사)이 의무이고 참조 구현은 쓰든 말든 서버 팀의 선택이다. 참조 구현의 대상은 FastAPI와 Node(Fastify) × PostgreSQL·MSSQL이고, 그 밖의 스택(Spring 등)은 HTTP 적합성 검사만 쓴다.
-- **FastAPI 쪽 약속:** 공개 계약 모델은 JSON Schema에서 생성하고 손으로 쓰지 않는다. 생성 도구와 CI 방식은 구현 때 정한다.
+- **FastAPI 쪽 약속:** 공개 계약 모델은 JSON Schema에서 생성하고 손으로 쓰지 않는다. Python 소비·생성 도구·CI 요구는 [ADR-0095](0095-dual-backend-fastify-core-fastapi-analytics.md) §4·§8을 따른다. 호환성 검증과 실제 구현은 아직 하지 않았다.
 
 ## 이 결정에 넣지 않은 것
 
-- 두 백엔드(Fastify 코어 + FastAPI)의 분담, 참조 엔진의 위치, Python CI를 필수 검사로 둘지: [#940](https://github.com/hjung3113/analytics-platform/issues/940)의 결정. 그 ADR이 이 ADR을 링크한다.
+- 서버 분담·Python CI 필수 검사 결정은 [ADR-0095](0095-dual-backend-fastify-core-fastapi-analytics.md)가 소유한다. 구현은 아직 하지 않았다.
 - 내부 신원 토큰 스키마: 권한 설계 뒤.
 
 ## 결과와 한계

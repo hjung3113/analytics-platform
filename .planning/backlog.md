@@ -4,6 +4,11 @@
 
 ## 작은 후속 (확인된 것)
 
+- **구현 안 함 — 통합 계획 조사 기록 이동(v0.20 문서 점검 A1):** `docs/integration/framework-unification-plan.md`의 유효한 #396 전략·미구현 범위를 현행 소유 문서와 backlog에 연결하고 조사 본문을 `docs/research/`로 옮기는 일은 하지 않았다. 이유: 릴리스 문서 PR 범위 밖이다. 다시 여는 조건: #396 다음 작업 또는 해당 문서를 다시 고칠 때.
+
+- **구현 안 함 — `build:real-prod` CI 성공 검사(v0.20 마감 리뷰 Q7):** 실조립 운영 빌드는 DB 없이 실행되지만 CI가 성공 경로를 돌리지 않는다. 이유: v0.20 범위 고정으로 workflow 확대를 넣지 않았다. real-server E2E job 보류와 별개인 빌드 공백이다. 다시 여는 조건: 다음 CI·실조립 변경 작업 또는 실조립 빌드 회귀가 mock 빌드 게이트를 통과할 때.
+- **구현 안 함 — `endpoints.json` 수집 완전성 게이트(v0.20 마감 리뷰 Q8):** 선언 수집은 `menus/*/*/src/endpoints.ts`의 정해진 export 모양만 보며 glob 밖 파일·배열·두 단계 중첩 선언을 놓칠 수 있고, `MOCK_ENDPOINTS`의 비모듈 id 집합과 대조하지 않는다. 이유: 현재 선언은 수집 범위 안에 있고 v0.20 범위가 고정돼 있다. 다시 여는 조건: 선언 파일·export 모양을 넓히거나 다음 엔드포인트 등록 작업에서 비모듈 `MOCK_ENDPOINTS` id와 산출물 id 집합을 대조하는 게이트를 넣을 때.
+
 - **구현 안 함 — #764 실서버 확인(dev:real, 계획 D13):** Surveys·관리자 묶음의 실서버 흐름(설문 만들기→빌더→결과→후속 조치, 권한 요청 승인·부여·회수, Managed System 등록·수정, Coverage 설정 이동, 관리자 목록 범위 끔, 비관리자 메뉴 숨김)을 플랫폼 조립 위에서 실서버로 돌려 보지 않았다. 이유: mock에서는 FeedbackOps 화면이 마운트되지 않고, 화면별 동작은 FO 프런트 전체 테스트·다리 하네스·E2E가 덮으며 실서버 조립은 백엔드·이슈 DB·로그인이 필요한 별도 준비다. 다시 여는 조건: 첫 실서버 합류 점검(#593 이후) 또는 이 화면에서 실서버 전용 결함 보고.
 - **구현 안 함 — Saved View 선택한 기존 뷰의 공유 대상 변경 진입(#1011):** 저장 흐름의 공유 대상 선택은 있지만, 이미 저장된 뷰를 골라 `ShareTargetPicker`로 대상을 바꾸는 진입은 셸에 연결하지 않았다. 이유: 이번 노드는 저장 흐름만 조립했다. 다시 여는 조건: 저장된 뷰의 공유 변경을 요구하는 이슈.
 - **구현 안 함 — Saved View 선택기 필터를 드롭다운·검색으로(#1011 UX-4):** 공개 대상 필터가 그룹마다 단추 하나라 그룹이 늘면 줄바꿈과 Tab 정지점이 는다. 이유: 시드 그룹 3개 규모에서는 문제가 크지 않고 UX 구조를 바꾸는 일이다. 다시 여는 조건: 사용자 그룹이 5개 이상 보이는 화면이 생길 때.
@@ -323,6 +328,6 @@
 - **구현 안 함 — 죽은 `apps/platform-web/src/feedbackops-origin.ts`(+test) 제거(v0.19 마감 정리 #1079):** `feedbackOpsSlot`에서 origin 인자를 지운 뒤 `main.tsx`가 `readFeedbackOpsOrigin`을 읽지 않는다. E2E 웹 서버 설정의 `VITE_FEEDBACKOPS_ORIGIN`과 통합 문서의 origin 안내도 같은 이유로 낡았다. 이유: 마감 정리 PR의 범위를 넘고 동작 영향이 없다. 다시 여는 조건: 다음에 `apps/platform-web` 조립을 고칠 때 파일·env·문서를 함께 지운다.
 - **구현 안 함 — #1040 「진행 길·브리프 골격 스크립트」(2026-10-28):** 흐름 지시서 한 장과 병합 사전 점검(`merge-precheck.sh`)은 들어갔지만 진행 길 선택과 브리프 골격을 만드는 스크립트는 만들지 않았다. 이유: v0.19 범위 고정. 다시 여는 조건: conductor-engine#124.
 - **구현 안 함 — 좁은 헤더에서 혼재 배지 문구가 잘림(v0.19 마감 UX 점검 UX-1, minor):** 사이클타임 상세를 폭 900px에서 열면 혼재 문구가 화면 오른쪽 밖(x=933.7~1013.9, 버튼 504~1043.9)에 놓여 보이지 않고, 700px에서는 아이콘만 남는다(접근 이름에는 혼재가 있다). 생산성 개요도 900/700px에서 아이콘만 표시한다. 이유: 접근 이름과 클릭 상세로 정보는 닿고 v0.19 범위가 고정이다. 다시 여는 조건: 좁은 창에서 신뢰 표시를 못 봤다는 보고, 또는 헤더 반응형 정리 작업. 같은 점검에서 목록→상세 서랍·Survey 빌더/결과/후속 조치·필터 유지·1280px 상세 슬롯은 mock에 목록 데이터가 없어 실브라우저로 보지 못했고(실서버 필요), 시스템 접근은 있고 `console:access`만 없는 역할의 관리자 섹션 숨김도 보지 못했다(단위·하네스 테스트만).
-- **구현 안 함 — real-server E2E CI job (#593):** 이 PR은 Postgres 서비스와 백엔드 빌드가 필요한 공유 workflow/선택기 변경을 추가하지 않는다. 현재 real spec은 운영 콘솔과 bridge 화면 중심이고, FeedbackOps Backend integration은 서버 conformance를 검사하지만 Vite proxy·cookie·실제 조립 브라우저는 검사하지 않는다. 이유: #593의 현재 수락 기준은 throwaway DB의 real-assembly build와 real-server E2E이며 CI job은 요구되지 않았다. 따라서 브라우저 통합 회귀는 CI에서 차단되지 않는다. 다시 여는 조건: real spec 범위가 운영 콘솔+bridge 메뉴를 넘거나 real-adapter 회귀가 FO integration을 지나치는 경우.
+- **구현 안 함 — real-server E2E CI job (#593):** Postgres 서비스와 백엔드 빌드가 필요한 real-server E2E workflow/선택기 연결은 없다. 현재 real spec은 운영 콘솔과 bridge 화면 중심이고, FeedbackOps Backend integration은 서버 conformance를 검사하지만 Vite proxy·cookie·실제 조립 브라우저는 검사하지 않는다. 이유: #593의 현재 수락 기준은 throwaway DB의 real-assembly build와 real-server E2E이며 CI job은 요구되지 않았다. 따라서 브라우저 통합 회귀는 CI에서 차단되지 않는다. 다시 여는 조건: real spec 범위가 운영 콘솔+bridge 메뉴를 넘거나 real-adapter 회귀가 FO integration을 지나치는 경우.
 
 - **미구현 — contract-schemas 타입 검사 globals 결합:** `@ap/contracts` 원본 타입 동등성 검사가 형제 패키지의 host API 선언을 포함한다. 로컬 복제는 선언 drift를 만들고 DOM/Node 타입 전체 추가는 no-DOM 경계를 넓히므로 유지한다. 계약 타입의 공개 host 선언 경계가 생기거나 동등성 검사가 배포 선언을 소비할 때 다시 연다.

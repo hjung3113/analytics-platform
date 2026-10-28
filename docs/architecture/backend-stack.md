@@ -6,8 +6,8 @@
 | --- | --- | --- |
 | Backend | Fastify(코어: 세션·권한·감사·알림) + FastAPI(Python, 분석 데이터; Fastify 뒤 내부), SQL-first — 분담 [ADR-0095](../adr/0095-dual-backend-fastify-core-fastapi-analytics.md)(Decided). **FastAPI 방향 Decided, 세부 버전·구성 Candidate**([05 결정 상태](../overview/roadmap-and-open-questions.md)) | 무거운 집계는 Postgres(mart)에서 처리하고 API는 얇은 조회/권한/지표계약 계층 + 지표 DSL 검증/비동기 배치로 역할을 좁힌다. 요청 경로에서 DataFrame을 만드는 패턴은 동시성·메모리에서 확장 불가. 방향은 05의 FastAPI 결정을 따른다 |
 | DB | 파서 Postgres(read-only) + 같은 인스턴스의 별도 스키마 | 완전 분리 인스턴스는 보안 격리 요구가 실제로 생기기 전엔 운영 비용만 추가. mart 갱신은 pg_cron으로 시작(단, 지연 완료 watermark 감지 기반 재계산 메커니즘 별도 필요 — `architecture-and-data-contract.md`) |
-| 인증 | **구조 Decided(2026-09-27): FO ADR-0006 방식** — AuthProvider 추상화(개발 Mock + 운영 OIDC 계열), 서버 저장 세션 + httpOnly 쿠키, 권한은 플랫폼 백엔드가 매 요청 재검증. 실제 IdP 사양·설정값은 사내 SSO 확인 뒤([05](../overview/roadmap-and-open-questions.md#open-questions)) | FeedbackOps와 같은 구조라 두 앱의 SSO 공유(통합 1단계)가 쉽다. 라이브러리는 FastAPI 쪽에서 구현할 때 고른다 |
-| 플랫폼 DB 마이그레이션 | Alembic(또는 팀 표준 도구) | 플랫폼 메타 DB/mart 스키마 버전 관리 — 파서의 DbUp과는 별개 |
+| 인증 | **구조 Decided(2026-09-27): FO ADR-0006 방식** — AuthProvider 추상화(개발 Mock + 운영 OIDC 계열), 서버 저장 세션 + httpOnly 쿠키, 권한은 플랫폼 백엔드가 매 요청 재검증. 실제 IdP 사양·설정값은 사내 SSO 확인 뒤([05](../overview/roadmap-and-open-questions.md#open-questions)) | FeedbackOps와 같은 구조라 두 앱의 SSO 공유(통합 1단계)가 쉽다. 인증은 Fastify 코어가 소유하며 FastAPI는 로그인·쿠키·세션을 구현하지 않는다([ADR-0095](../adr/0095-dual-backend-fastify-core-fastapi-analytics.md) §1·§5). |
+| 플랫폼 DB 마이그레이션 | 소유 스키마별 도구([ADR-0095](../adr/0095-dual-backend-fastify-core-fastapi-analytics.md) §3) | Fastify 소유 스키마는 drizzle, FastAPI의 analytics·analytics_jobs는 Alembic. 파서 DB는 파서 소유 |
 
 ## 백엔드 역할 분담 원칙 (SQL-first)
 
@@ -36,4 +36,4 @@ TZ를 몰라도 단일 설비 또는 동일 wall-clock 기준이 확인된 설�
 
 ## 로딩·빈 상태·오류의 근거 소유자
 
-"수집 안 됨" / "파서 지연" / "조건에 맞는 결과 없음"은 결과 테이블 0건만으로 구분할 수 없다. `docs/23`도 파일 timestamp 간격은 수집 공백의 후보일 뿐이고, 확정하려면 Scheduler의 예상 파일·전달 이력이 필요하다고 명시한다(`docs/23_secondary_processing_ideas.md` §5 근방). 상태마다 판정 근거의 소유자(어느 서비스가 그 사실을 확정하는지)를 API 계약에 명시할 것 — 근거가 없으면 "원인 미확인"으로 남긴다. 프론트 쪽 표현은 `frontend-ui-ux.md` 참조.
+파일 timestamp 간격만으로 수집 공백을 확정하지 않는다. 상태 판정은 해당 사실의 공급자가 제공한 근거를 사용하며, 근거가 없으면 원인 미확인으로 둔다. 표현 계약은 [06 §19](../contract/components.md)를 따른다.
