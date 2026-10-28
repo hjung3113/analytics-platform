@@ -14,7 +14,7 @@
 // the backend triage capability supplied by the detail controller.
 
 import type { MeResponse } from '@/lib/api/me';
-import type { VocDetailEnvelope } from '@fops/shared';
+import type { VocDetailEnvelope } from '@ap/feature-shared';
 
 export interface ComposerVisibility {
   showPublic: boolean;

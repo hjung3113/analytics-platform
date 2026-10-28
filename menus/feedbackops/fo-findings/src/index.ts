@@ -1,6 +1,6 @@
 /**
  * @ap/menu-fo-findings — foFindings group manifest (FeedbackOps space Findings: 전체 Finding; ADR-0081, #762).
- * The FeedbackOps operator Findings screen through the bridge; the page keys equal the route table in `@ap/fo-bridge` (`findingsRoute`; pinned by the page tests),
+ * The FeedbackOps operator Findings screen through the bridge; the page keys equal the route table in `@ap/feature-bridge` (`findingsRoute`; pinned by the page tests),
  * and the space carries `managedSystem` (ADR-0081 decision 4). `focus` is the selected Finding (06 §13); the page draws its detail drawer.
  */
 import { lazy } from 'react';

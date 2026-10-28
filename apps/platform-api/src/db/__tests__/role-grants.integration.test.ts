@@ -8,9 +8,9 @@
 //   export DATABASE_URL_MIGRATE='postgres://fops_migrate:fops_migrate@localhost:5434/feedbackops'
 //   export DATABASE_URL='postgres://fops_app:fops_app@localhost:5434/feedbackops'
 //   export WORKSPACE_ID='11111111-1111-1111-1111-111111111111'
-//   pnpm --filter @fops/backend db:migrate
-//   pnpm --filter @fops/backend db:seed
-//   pnpm --filter @fops/backend test
+//   pnpm --filter @ap/platform-api db:migrate
+//   pnpm --filter @ap/platform-api db:seed
+//   pnpm --filter @ap/platform-api test
 //
 // When DATABASE_URL is not set, the suite is skipped — unit-level tests still
 // run on machines without Docker.

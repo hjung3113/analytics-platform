@@ -1,6 +1,6 @@
 import { ListStateMessage } from '@/components/ListStateMessage';
+import { OutlineBadge } from '@ap/feature-ui';
 import { ListShell, ListTabs, type ListToolbarTab, ObjectRow } from '@ap/ui';
-import { OutlineBadge } from '@fops/ui';
 import type { ReactNode } from 'react';
 
 import type { AdminPermissionRequestRow } from '@/lib/api/permission-reads';

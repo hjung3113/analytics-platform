@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { surveyBuilderRoute, surveyFollowUpRoute, surveyResultsRoute, surveysRoute } from '@ap/fo-bridge';
+import { surveyBuilderRoute, surveyFollowUpRoute, surveyResultsRoute, surveysRoute } from '@ap/feature-bridge';
 import { manifests } from './index';
 
 const FRONTEND = '../../../../apps/feature-screens/src/';

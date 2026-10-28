@@ -1,7 +1,7 @@
 import { usePlatform } from '@ap/kernel';
-import { FoScreenPage, findingsRoute, useFindingsHere, useFindingsSearch } from '@ap/fo-bridge';
-import { FindingsScreen } from '@fops/frontend/operator-screens/findings';
-import { isFindingsSearchValueValid } from '@fops/frontend/operator-screens/findings-search';
+import { FoScreenPage, findingsRoute, useFindingsHere, useFindingsSearch } from '@ap/feature-bridge';
+import { FindingsScreen } from '@ap/feature-screens/operator-screens/findings';
+import { isFindingsSearchValueValid } from '@ap/feature-screens/operator-screens/findings-search';
 import { FindingDetailDrawer } from './FindingDrawer';
 
 /** FO's `ListShell` would hand a returned node to the shell slot, which renders it outside the FeedbackOps providers (and over the list's denied and empty states); the page draws the detail itself, inside `FoBridge`. */

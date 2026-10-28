@@ -3,7 +3,7 @@
 //
 // C4.1 (slice3 #21)
 
-import type { ReporterFacingStatusEnum } from '@fops/shared';
+import type { ReporterFacingStatusEnum } from '@ap/feature-shared';
 
 /**
  * Canonical picker order from prototype:
@@ -22,7 +22,7 @@ export const REPORTER_FACING_STATUS_ALL: ReporterFacingStatusEnum[] = [
 
 /**
  * Korean display labels verbatim from prototype data.js ReporterStatusLabels.
- * Matches the labels rendered by <ReporterStatusBadge> in @fops/ui.
+ * Matches the labels rendered by <ReporterStatusBadge> in @ap/feature-ui.
  */
 export const REPORTER_STATUS_LABELS: Record<ReporterFacingStatusEnum, string> = {
   received:  '접수됨',

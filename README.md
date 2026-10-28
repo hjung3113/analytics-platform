@@ -15,7 +15,7 @@ packages/                 플랫폼 패키지: contracts, ui, kernel, components
 menus/                    메뉴 Consumer 패키지(@ap/menu-<group>)
 tooling/                  공유 도구: tsconfig, eslint 경계 규칙, gen-menu, css-selectors
 archive/               통합 전 Kernel 단위 프로토타입(보존)
-apps/{platform-api,feature-screens}, packages/feature-*  FeedbackOps 앱·패키지(@fops/*), 도구는 ops/platform-api/
+apps/{platform-api,feature-screens}, packages/feature-*  FeedbackOps 앱·패키지(feature packages), 도구는 ops/platform-api/
 docs/feedbackops/        FeedbackOps 문서(구조는 저장소 구조 문서)
 .agents/                  플랫폼 에이전트 자산
 ```

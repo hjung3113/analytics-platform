@@ -4,7 +4,7 @@ import type {
   EntityLinkRelationType,
   EntityLinkStatus,
   EntityLinkStatusCounts,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import { useInfiniteQuery } from '@tanstack/react-query';
 
 const PAGE_SIZE = 50;

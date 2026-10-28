@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
-import { setFoApi } from '@ap/fo-bridge/fo-api';
-import { clustersRoute } from '@ap/fo-bridge';
+import { setFoApi } from '@ap/feature-bridge/fo-api';
+import { clustersRoute } from '@ap/feature-bridge';
 import { useHostSeam } from '@/lib/host/host-seam';
 import { createRegistry, type MenuEntry } from '@ap/kernel';
 import { NO_FEATURES, contextCapabilities, groupId, spaceId } from '@ap/contracts';
@@ -17,9 +17,9 @@ const fo = vi.hoisted(() => ({
   mounts: 0,
   screens: 0,
 }));
-vi.mock('@fops/frontend/operator-screens/voc-clusters', async importOriginal => ({
+vi.mock('@ap/feature-screens/operator-screens/voc-clusters', async importOriginal => ({
   // The strict value check is FeedbackOps' real cluster schema, not a double.
-  ...(await importOriginal<typeof import('@fops/frontend/operator-screens/voc-clusters')>()),
+  ...(await importOriginal<typeof import('@ap/feature-screens/operator-screens/voc-clusters')>()),
   ClusterListScreen: (props: { renderDetail: typeof fo.render; onCreated: (id: string) => void }) => {
     fo.screens += 1;
     fo.render = props.renderDetail;

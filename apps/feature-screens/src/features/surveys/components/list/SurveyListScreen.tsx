@@ -9,8 +9,8 @@ import {
 import { SURVEY_REPORT_FILTER_COPY as FILTER_COPY } from '@/lib/copy/surveys';
 import { useHostSeam } from '@/lib/host/host-seam';
 import { useAnalyticsAreaFilterLabel } from '@/lib/useAnalyticsAreaFilterLabel';
+import type { ListSurveysQuery } from '@ap/feature-shared';
 import { ListShell } from '@ap/ui';
-import type { ListSurveysQuery } from '@fops/shared';
 import * as React from 'react';
 
 const FILTER_KEYS = ['filter.analytics_area', 'status', 'follow_up'] as const;

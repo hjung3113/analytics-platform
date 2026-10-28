@@ -4,6 +4,7 @@ import {
 } from '@/lib/copy/analytics-areas';
 import { GLOSSARY } from '@/lib/copy/glossary';
 import type { ClosableDetailParts } from '@/lib/host/detail-parts';
+import { ManagedSystemMark, ManagedSystemPill, OutlineBadge } from '@ap/feature-ui';
 import {
   Button,
   DetailPanelSectionNav,
@@ -17,7 +18,6 @@ import {
   SheetTitle,
   UserChip,
 } from '@ap/ui';
-import { ManagedSystemMark, ManagedSystemPill, OutlineBadge } from '@fops/ui';
 import { Layers, Settings, Shield } from 'lucide-react';
 import { type RefObject, useRef } from 'react';
 
@@ -70,7 +70,7 @@ export function buildAnalyticsAreaDetailParts({
 // ============================================================
 // AnalyticsAreaSlideOver — 460px read-only AA detail drawer.
 // Overview / Definition / Workload / Findings / Used by.
-// Built with the @fops/ui sheet (Radix dialog) wrapper; right side, 460px.
+// Built with the @ap/feature-ui sheet (Radix dialog) wrapper; right side, 460px.
 // ============================================================
 export function AnalyticsAreaSlideOver({
   area,

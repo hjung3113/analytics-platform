@@ -12,7 +12,7 @@ const ORIGIN = `http://127.0.0.1:${PORT}`;
 
 function runBackendScript(script: 'db:migrate' | 'db:seed'): void {
   const databaseEnv = requireSafeRealDatabaseEnv();
-  const result = spawnSync('pnpm', ['--config.verify-deps-before-run=false', '--filter', '@fops/backend', 'run', script], {
+  const result = spawnSync('pnpm', ['--config.verify-deps-before-run=false', '--filter', '@ap/platform-api', 'run', script], {
     cwd: ROOT,
     env: {
       ...process.env,

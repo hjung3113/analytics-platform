@@ -18,7 +18,7 @@
   "dependencies": {
     "@ap/components": "workspace:*",
     "@ap/contracts": "workspace:*",
-    "@ap/fo-bridge": "workspace:*",
+    "@ap/feature-bridge": "workspace:*",
     "@ap/http-adapter": "workspace:*",
     "@ap/kernel": "workspace:*",
     "@ap/menu-admin": "workspace:*",

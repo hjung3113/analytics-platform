@@ -1,4 +1,8 @@
-import { recoveryDetailSchema, recoveryHistorySchema, recoveryListSchema } from '@fops/shared';
+import {
+  recoveryDetailSchema,
+  recoveryHistorySchema,
+  recoveryListSchema,
+} from '@ap/feature-shared';
 export const RECOVERY_VISUAL_ID = 'r1_abcdefghijklmnopqrstuvw';
 export type RecoveryVisualScenario =
   | 'queue'

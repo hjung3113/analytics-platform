@@ -26,7 +26,7 @@ vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
 noticeHost.notify.mockImplementation(() => 'toast-id-rev1-5');
 beforeAll(registerNoticeHost);
 
-import type { VocListItem } from '@fops/shared';
+import type { VocListItem } from '@ap/feature-shared';
 import { VocTriageScreen } from '../VocTriageScreen';
 
 const VOC_A_ID = 'voc-rev1-p1-5-a';

@@ -5,8 +5,8 @@ import { RESPONSIBILITY_COPY } from '@/lib/copy/tasks';
 import { useWorkspaceActors } from '@/lib/cross-system/useWorkspaceActors';
 import { useHostSeam } from '@/lib/host/host-seam';
 import { shortId } from '@/lib/identity';
+import { UnassignedBadge } from '@ap/feature-ui';
 import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ap/ui';
-import { UnassignedBadge } from '@fops/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 

@@ -9,7 +9,7 @@ import { UI_SURFACES, type UISurface } from '../allowlist-local';
 import { sanitizeClient } from '../sanitizeClient';
 
 describe('UI rich-content fixture mirror', () => {
-  it('pins the canonical corpus shape without importing @fops/shared', () => {
+  it('pins the canonical corpus shape without importing @ap/feature-shared', () => {
     const expectedSurfaces = new Set<UISurface>([
       'voc-description',
       'reporter-reply',

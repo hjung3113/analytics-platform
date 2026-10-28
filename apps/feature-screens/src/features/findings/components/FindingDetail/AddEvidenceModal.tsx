@@ -13,6 +13,13 @@ import { VOC_SOURCE_PICKER_COPY } from '@/lib/copy/voc';
 import { koreanZodErrorMap, zodIssueMessage } from '@/lib/forms/zodIssueMessage';
 import { useHostSeam } from '@/lib/host/host-seam';
 import {
+  type AddEvidenceHighlightRequest,
+  type EvidenceHighlightImportance,
+  type EvidenceHighlightSentiment,
+  type EvidenceHighlightSourceType,
+  addEvidenceHighlightRequestSchema,
+} from '@ap/feature-shared';
+import {
   Button,
   Dialog,
   DialogContent,
@@ -27,13 +34,6 @@ import {
   SelectValue,
   Textarea,
 } from '@ap/ui';
-import {
-  type AddEvidenceHighlightRequest,
-  type EvidenceHighlightImportance,
-  type EvidenceHighlightSentiment,
-  type EvidenceHighlightSourceType,
-  addEvidenceHighlightRequestSchema,
-} from '@fops/shared';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import type * as React from 'react';

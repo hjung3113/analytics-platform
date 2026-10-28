@@ -8,7 +8,7 @@ import { chooseAssembly, MOCK_MODES, type AssemblyChoice } from './scripts/assem
 /** `#platform-assembly` (src/platform-assembly.d.ts) is resolved here by mode — #153, ADR-0009. */
 const MOCK_ASSEMBLY = fileURLToPath(new URL('./src/dev/mock-assembly.tsx', import.meta.url));
 const REAL_ASSEMBLY = fileURLToPath(new URL('./src/real/http-assembly.tsx', import.meta.url));
-/** FeedbackOps sources reached through @fops/frontend/global-screens import themselves with the `@/` alias (ADR-0071). */
+/** FeedbackOps sources reached through @ap/feature-screens/global-screens import themselves with the `@/` alias (ADR-0071). */
 const FO_SRC = fileURLToPath(new URL('../../apps/feature-screens/src', import.meta.url));
 const BACKEND_ORIGIN = process.env.AP_BACKEND_ORIGIN ?? 'http://127.0.0.1:3011';
 

@@ -1,7 +1,7 @@
 // The platform Context a reporter's VOC was filed from, written into the description as a `화면 정보` block
 // (platform ADR-0045 amendment): no field or entity link exists for it, and the triager reads the description.
 
-import type { TipTapDoc } from '@fops/shared';
+import type { TipTapDoc } from '@ap/feature-shared';
 
 export interface VocComposeContextBlock {
   items: readonly { label: string; value: string }[];

@@ -32,6 +32,8 @@ import { useHostSeam } from '@/lib/host/host-seam';
 import { useHostSearchWriter } from '@/lib/host/useHostSearchWriter';
 import { useAnalyticsAreaFilterLabel } from '@/lib/useAnalyticsAreaFilterLabel';
 import { useCommittedSearchDraft } from '@/lib/useCommittedSearchDraft';
+import type { FindingDto } from '@ap/feature-shared';
+import { OutlineBadge } from '@ap/feature-ui';
 import {
   ActiveFilterBar,
   type AvatarUser,
@@ -48,8 +50,6 @@ import {
   SkeletonRows,
   UserAvatar,
 } from '@ap/ui';
-import type { FindingDto } from '@fops/shared';
-import { OutlineBadge } from '@fops/ui';
 import { useQuery } from '@tanstack/react-query';
 import * as React from 'react';
 

@@ -1,6 +1,6 @@
 import { lazy, Suspense, type ReactNode } from 'react';
 import type { NotificationsSlot } from '@ap/kernel';
-import { FoScreenRoot, useUnreadNotificationCount, type HostSeam } from '@fops/frontend/global-screens/core';
+import { FoScreenRoot, useUnreadNotificationCount, type HostSeam } from '@ap/feature-screens/global-screens/core';
 import { UnlinkedLink } from './fo/FoBridge';
 import { foQueryClient, useFoSession } from './fo/session';
 

@@ -5,8 +5,8 @@ import {
   REPORTER_FACING_STATUS_ALL,
   type MyVocQuery,
   type MyVocSort,
-} from '@fops/frontend/global-screens';
-import { VOC_ID } from '@ap/fo-bridge';
+} from '@ap/feature-screens/global-screens';
+import { VOC_ID } from '@ap/feature-bridge';
 
 export { VOC_ID };
 

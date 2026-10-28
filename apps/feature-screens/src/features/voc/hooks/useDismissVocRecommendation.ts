@@ -4,7 +4,7 @@
 // immediately (so the row disappears without waiting for the refetch) and the
 // recommendation query is invalidated so the server list becomes authoritative.
 
-import type { VocRecommendationsResponse } from '@fops/shared';
+import type { VocRecommendationsResponse } from '@ap/feature-shared';
 import { type UseMutationResult, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { apiClient } from '@/lib/api/client';

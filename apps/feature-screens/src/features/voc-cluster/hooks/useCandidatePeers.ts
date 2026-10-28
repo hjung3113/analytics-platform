@@ -5,8 +5,8 @@
 
 import { apiRequest } from '@/lib/api/client';
 import { ApiError, ApiParseError } from '@/lib/api/types';
-import { listSameManagedSystemCandidatePeersResponseSchema } from '@fops/shared';
-import type { ListSameManagedSystemCandidatePeersResponse } from '@fops/shared';
+import { listSameManagedSystemCandidatePeersResponseSchema } from '@ap/feature-shared';
+import type { ListSameManagedSystemCandidatePeersResponse } from '@ap/feature-shared';
 import { useInfiniteQuery } from '@tanstack/react-query';
 
 const PAGE_SIZE = 20;

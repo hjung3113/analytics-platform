@@ -1,7 +1,7 @@
 import { TASK_REQUEST_COPY } from '@/lib/copy/task-requests';
 import { registerDefaultHost } from '@/lib/host/host-seam';
 import { tanstackHost } from '@/test/host-adapters/lib/host/tanstack-host';
-import type { TaskRequestDto } from '@fops/shared';
+import type { TaskRequestDto } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { FormEvent, PropsWithChildren } from 'react';

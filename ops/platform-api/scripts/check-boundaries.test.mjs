@@ -360,7 +360,7 @@ runCase(
         '@ap/server-conformance': 'link:../../../../packages/adapters/server-conformance',
       },
     }),
-    [join(FO_SHARED, 'package.json')]: JSON.stringify({ name: '@fops/shared' }),
+    [join(FO_SHARED, 'package.json')]: JSON.stringify({ name: '@ap/feature-shared' }),
   },
   true,
   'boundaries: OK',
@@ -422,6 +422,59 @@ runCase(
   },
   false,
   [`${FO_BACKEND}/src/probe.ts:`, 'apps/feature-screens'],
+);
+
+// ADR-0097 partially supersedes rule 11 only for the core server.
+runCase(
+  'server contract-schemas runtime is permitted',
+  {
+    [join(FO_BACKEND, 'src/port.ts')]:
+      "import { x } from '@ap/contract-schemas'; const y = require('@ap/contract-schemas/wire');",
+    [join(FO_BACKEND, 'package.json')]: JSON.stringify({
+      dependencies: { '@ap/contract-schemas': 'workspace:*', '@ap/feature-shared': 'workspace:*' },
+    }),
+  },
+  true,
+  'boundaries: OK',
+);
+for (const scope of [FO_FRONTEND, FO_SHARED, FO_UI, FO_OPS]) {
+  runCase(
+    `${scope} cannot import server schemas`,
+    {
+      [join(scope, 'src/port.ts')]: "const x = require('@ap/contract-schemas');",
+      [join(scope, 'package.json')]: JSON.stringify({
+        optionalDependencies: { '@ap/contract-schemas': 'workspace:*' },
+      }),
+    },
+    false,
+    `${scope}/src/port.ts:1`,
+  );
+}
+for (const source of ['@ap/feature-shared', '@ap/feature-shared/wire']) {
+  runCase(
+    `own package ${source} allowed`,
+    {
+      [join(FO_BACKEND, 'src/port.ts')]: `import { x } from '${source}';`,
+    },
+    true,
+    'boundaries: OK',
+  );
+}
+runCase(
+  'near neighbor is not an own package',
+  {
+    [join(FO_BACKEND, 'src/port.ts')]: "import { x } from '@ap/feature-shared-extra';",
+  },
+  false,
+  `${FO_BACKEND}/src/port.ts:1`,
+);
+runCase(
+  'require cannot bypass runtime SDK ban',
+  {
+    [join(FO_BACKEND, 'src/port.ts')]: "const x = require('@ap/kernel');",
+  },
+  false,
+  `${FO_BACKEND}/src/port.ts:1`,
 );
 
 if (failures > 0) {

@@ -6,9 +6,9 @@
 import { mapUnknownError } from '@/lib/api/errorMapper';
 import { uploadRichEditorAttachment } from '@/lib/attachments/rich-editor-upload';
 import { VOC_CREATE_COPY } from '@/lib/copy/voc';
+import { createVocRequestSchema, isTipTapDocBlank } from '@ap/feature-shared';
+import { AnalyticsAreaPicker, ManagedSystemPicker } from '@ap/feature-ui';
 import { Button, FieldLabel, Input, RichEditor, Skeleton, type TipTapDoc } from '@ap/ui';
-import { createVocRequestSchema, isTipTapDocBlank } from '@fops/shared';
-import { AnalyticsAreaPicker, ManagedSystemPicker } from '@fops/ui';
 import type * as React from 'react';
 import { Controller } from 'react-hook-form';
 import { AttachmentDropzone } from '../create/AttachmentDropzone';

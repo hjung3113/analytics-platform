@@ -1,5 +1,5 @@
 {
-  "name": "@fops/ops",
+  "name": "@ap/platform-api-ops",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -7,17 +7,19 @@
     "node": ">=26.7.0"
   },
   "scripts": {
-    "build": "turbo run build --filter='@fops/*' --filter='!@fops/ops'",
-    "dev": "turbo run dev --filter='@fops/*' --filter='!@fops/ops'",
-    "test": "turbo run test --filter='@fops/*' --filter='!@fops/ops'",
-    "lint": "node scripts/lint-tools.mjs biome-check",
+    "lint": "node scripts/lint-root.mjs",
     "lint:design": "node scripts/lint-tools.mjs lint-design",
     "format": "node scripts/lint-tools.mjs biome-format",
-    "typecheck": "turbo run typecheck --filter='@fops/*' --filter='!@fops/ops'",
     "check:boundaries": "node scripts/check-boundaries.mjs",
     "gate:db-migration-drift": "node scripts/gates/db-migration-drift-gate.mjs",
     "gate:fe-typecheck": "node scripts/gates/fe-typecheck-gate.mjs",
-    "gate:fe-lint": "node scripts/gates/fe-biome-gate.mjs"
+    "gate:fe-lint": "node scripts/gates/fe-biome-gate.mjs",
+    "feature:build": "turbo run build --filter=@ap/platform-api --filter=@ap/feature-screens --filter=@ap/feature-shared --filter=@ap/feature-ui",
+    "feature:dev": "turbo run dev --filter=@ap/platform-api --filter=@ap/feature-screens --filter=@ap/feature-shared --filter=@ap/feature-ui",
+    "feature:test": "turbo run test --filter=@ap/platform-api --filter=@ap/feature-screens --filter=@ap/feature-shared --filter=@ap/feature-ui",
+    "feature:typecheck": "turbo run typecheck --filter=@ap/platform-api --filter=@ap/feature-screens --filter=@ap/feature-shared --filter=@ap/feature-ui",
+    "lint:all": "node scripts/lint-tools.mjs biome-check",
+    "feature:static": "bash scripts/ci/gate.sh static"
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",

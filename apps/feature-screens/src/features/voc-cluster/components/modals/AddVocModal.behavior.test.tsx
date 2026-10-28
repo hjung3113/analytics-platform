@@ -3,7 +3,7 @@
 // every request and response with the shared schemas.
 
 import { ApiError } from '@/lib/api';
-import { listSameManagedSystemCandidatePeersQuerySchema } from '@fops/shared';
+import { listSameManagedSystemCandidatePeersQuerySchema } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -92,7 +92,7 @@ vi.mock('@/lib/api/useIdempotencyKey', () => ({
 vi.mock('@/lib/api/client', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/api/client')>();
   const { listSameManagedSystemCandidatePeersQuerySchema: querySchema, ...shared } = await import(
-    '@fops/shared'
+    '@ap/feature-shared'
   );
   return {
     ...actual,

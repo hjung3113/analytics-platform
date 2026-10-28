@@ -5,7 +5,7 @@ import {
   type VocClusterDto,
   findingConfidenceSchema,
   findingSeveritySchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, within } from '@testing-library/react';
 import type { ReactNode } from 'react';

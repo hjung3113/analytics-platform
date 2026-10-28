@@ -6,7 +6,7 @@ import {
 } from '@/lib/copy/enum-labels';
 import { EVIDENCE_COPY } from '@/lib/copy/evidence';
 import { HostLink, useHostSeam } from '@/lib/host/host-seam';
-import type { EvidenceInventoryItem } from '@fops/shared';
+import type { EvidenceInventoryItem } from '@ap/feature-shared';
 
 export function EvidenceSource({
   item,

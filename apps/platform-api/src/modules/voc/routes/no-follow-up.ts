@@ -1,4 +1,4 @@
-import { recordVocNoFollowUpRequestSchema } from '@fops/shared';
+import { recordVocNoFollowUpRequestSchema } from '@ap/feature-shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { HttpError, fieldsFromZodIssues, sendError } from '../../../lib/errors.js';
 import { UUID_REGEX, requireIdempotencyKey } from '../../../lib/http-headers.js';

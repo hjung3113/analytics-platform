@@ -1,7 +1,7 @@
 import * as api from '@/lib/api';
 import { TASK_REQUEST_STATUS_LABELS } from '@/lib/copy/enum-labels';
 import { FindingDetailPanel } from '@/test/host-adapters/features/findings/components/FindingDetail/FindingDetailPanel';
-import { type FindingDto, listEntityLinksQuerySchema } from '@fops/shared';
+import { type FindingDto, listEntityLinksQuerySchema } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';

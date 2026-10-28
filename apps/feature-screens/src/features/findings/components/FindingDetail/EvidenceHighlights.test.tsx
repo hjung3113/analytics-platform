@@ -5,7 +5,7 @@ import {
   type EvidenceHighlightSourceType,
   evidenceHighlightImportanceSchema,
   evidenceHighlightSourceTypeSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import { render, screen } from '@testing-library/react';
 import type * as React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';

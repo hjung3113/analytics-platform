@@ -2,7 +2,7 @@
 // ADR-0057 B6 supersedes #87's hashed palette; the shared UI helper resolves
 // known slugs to identity tokens and unknown slugs to the neutral fallback.
 
-import { managedSystemMarkColor } from '@fops/ui';
+import { managedSystemMarkColor } from '@ap/feature-ui';
 
 /** Stable swatch for a slug. */
 export function scopeMarkColor(slug: string): string {

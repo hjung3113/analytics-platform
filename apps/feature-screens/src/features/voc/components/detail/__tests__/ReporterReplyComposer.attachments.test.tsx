@@ -45,7 +45,7 @@ import {
 import * as attachmentsApi from '@/lib/api/attachments';
 import { ApiError } from '@/lib/api/types';
 import type { MeResponse } from '@/lib/auth/useMe';
-import { type VocDetailEnvelope, reporterReplyRequestSchema } from '@fops/shared';
+import { type VocDetailEnvelope, reporterReplyRequestSchema } from '@ap/feature-shared';
 import { ReporterReplyComposer } from '../ReporterReplyComposer';
 
 const ADMIN_ID = '00000000-0000-0000-0000-000000000002';

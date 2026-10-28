@@ -4,7 +4,7 @@ import { useAddClusterMember } from '@/features/voc-cluster/hooks/useAddClusterM
 import { useCreateFindingFromCluster } from '@/features/voc-cluster/hooks/useCreateFindingFromCluster';
 import { useLinkExistingFindingToVocCluster } from '@/features/voc-cluster/hooks/useLinkExistingFindingToVocCluster';
 import { useRemoveClusterMember } from '@/features/voc-cluster/hooks/useRemoveClusterMember';
-import type { FindingDto, TaskDto } from '@fops/shared';
+import type { FindingDto, TaskDto } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';

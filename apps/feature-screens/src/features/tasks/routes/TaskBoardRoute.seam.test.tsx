@@ -1,6 +1,6 @@
 import { type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
 import type { HostSearch } from '@/lib/host/search';
-import type { TaskDto, TaskStatus } from '@fops/shared';
+import type { TaskDto, TaskStatus } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type * as React from 'react';

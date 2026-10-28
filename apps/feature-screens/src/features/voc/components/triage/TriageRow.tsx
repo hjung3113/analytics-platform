@@ -18,9 +18,9 @@
  */
 
 import { formatRelativeTime } from '@/lib/format/datetime';
+import type { VocListItem } from '@ap/feature-shared';
+import { ReporterStatusBadge, UnassignedBadge } from '@ap/feature-ui';
 import { SeverityIndicator, cn } from '@ap/ui';
-import type { VocListItem } from '@fops/shared';
-import { ReporterStatusBadge, UnassignedBadge } from '@fops/ui';
 import { useId } from 'react';
 import type * as React from 'react';
 

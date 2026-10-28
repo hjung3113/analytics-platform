@@ -7,6 +7,7 @@ import type { ClosableDetailParts } from '@/lib/host/detail-parts';
 import { formatRecordDocumentTitle } from '@/lib/host/document-title-format';
 import { useHostSeam } from '@/lib/host/host-seam';
 import { searchHref } from '@/lib/host/search';
+import type { TaskRequestDto } from '@ap/feature-shared';
 import {
   DetailPanelFullscreenContext,
   DetailPanelHeader,
@@ -16,7 +17,6 @@ import {
   PanelSectionTitle,
   PanelTitleBlock,
 } from '@ap/ui';
-import type { TaskRequestDto } from '@fops/shared';
 import * as React from 'react';
 
 import { TaskRequestDecisionDialog } from './TaskRequestDecisionDialog';

@@ -8,13 +8,13 @@
 - Use `docs/feedbackops/frontend/routes-and-layout.md` for URL state, list/detail behavior, and responsive navigation.
 - Use `docs/feedbackops/frontend/tokens.md` only as the raw token seed.
 - Use `apps/feature-screens/src/features/*/AGENTS.md` for route-specific ownership before adding screens.
-- New endpoints must use `apiRequest(method, path, parser, opts)` with a response schema from `@fops/shared`; legacy unparsed calls are tracked in `apps/feature-screens/src/lib/api/api-unparsed-allowlist.txt`.
+- New endpoints must use `apiRequest(method, path, parser, opts)` with a response schema from `@ap/feature-shared`; legacy unparsed calls are tracked in `apps/feature-screens/src/lib/api/api-unparsed-allowlist.txt`.
 
 ## Design Consistency Rules
 
 - All 36 public screen/core entries are libraries mounted by the platform bridge (#597, ADR-0097). Public screens navigate and notify only through `lib/host`; never import TanStack Router, test adapters or the `@/lib/api` barrel into their reachable graph. Test-local memory-router hosts live under `src/test`; private legacy feature components still using TanStack keep that dependency. There is no standalone runtime, generated route tree, login or app layout.
 - Consume semantic tokens such as `--text-primary`, `--surface-detail`, and `--border-selected`; do not hard-code hex colors in screens.
-- `pnpm --filter @fops/ops lint:design` (`@shadcn/lint`, ADR-0062) checks restyled `@ap/ui` and `@fops/ui` components, raw colors, arbitrary values, and inline styles. Do not add findings; its messages suggest a variant or token, which you verify before applying. When the same override or hard-coded value repeats, add a shared token, variant, or component instead of repeating it. Mechanics: `ops/platform-api/scripts/gates/AGENTS.md`.
+- `pnpm --filter @ap/platform-api-ops lint:design` (`@shadcn/lint`, ADR-0062) checks restyled `@ap/ui` and `@ap/feature-ui` components, raw colors, arbitrary values, and inline styles. Do not add findings; its messages suggest a variant or token, which you verify before applying. When the same override or hard-coded value repeats, add a shared token, variant, or component instead of repeating it. Mechanics: `ops/platform-api/scripts/gates/AGENTS.md`.
 - Keep the visual model light, compact, and list-first. Avoid decorative cards, broad gradients, oversized hero sections, and empty whitespace.
 - Use one primary action per toolbar or panel. Secondary actions belong in subtle buttons, menus, or contextual rows.
 - Reuse `ObjectRow`, `DetailPanelHeader`, `ReporterStatusBadge`, `InternalTaskBadge`, `SeverityBadge`, `PermissionBlockedPanel`, `RichEditor`, and `LinkedEntityTrail` (`ObjectRow`, `DetailPanelHeader`, `PermissionBlockedPanel`, `RichEditor` come from `@ap/ui`; the FeedbackOps-owned list is `packages/feature-ui/src/index.ts`) before making a screen-specific variant.
@@ -33,9 +33,9 @@
 
 - Do not build repeated UI patterns directly inside screens. Create or reuse a feature-local component first, then compose it in the screen.
 - Before creating a new component, check `packages/feature-ui`, the feature's existing components, and `docs/feedbackops/frontend/component-inventory.md`.
-- Import shared parts (shadcn primitives, panel/toolbar/forms/feedback/layout shells, rich content, `cn`) from `@ap/ui` and FeedbackOps-owned components (badges, pickers, `LinkedEntityTrail`, `useDetailPanelSlot`) from `@fops/ui`; `@fops/ui` no longer re-exports `@ap/ui` names (#713q). Never import shadcn/Radix primitives directly.
-- The detail slot is `@ap/ui`'s (bundle 2b): the consuming host wraps its frame in `DetailPanelSlotProvider` and hosts the panel through `useDetailPanelSlotHost()`; shells forward `detailPanel` with `useDetailPanelSlot(node)` (from `@fops/ui`), which is `@ap/ui`'s `useDetailPanelContent` (`undefined` clears, `null` closes). There is no `DetailPanelSlotContext`; tests that render a shell with `detailPanel` mount `DetailPanelSlotProvider` plus a host element.
-- Never import `@radix-ui/*` in `apps/feature-screens` (enforced by `pnpm --filter @fops/ops check:boundaries`); use the `@ap/ui` primitives.
+- Import shared parts (shadcn primitives, panel/toolbar/forms/feedback/layout shells, rich content, `cn`) from `@ap/ui` and FeedbackOps-owned components (badges, pickers, `LinkedEntityTrail`, `useDetailPanelSlot`) from `@ap/feature-ui`; `@ap/feature-ui` no longer re-exports `@ap/ui` names (#713q). Never import shadcn/Radix primitives directly.
+- The detail slot is `@ap/ui`'s (bundle 2b): the consuming host wraps its frame in `DetailPanelSlotProvider` and hosts the panel through `useDetailPanelSlotHost()`; shells forward `detailPanel` with `useDetailPanelSlot(node)` (from `@ap/feature-ui`), which is `@ap/ui`'s `useDetailPanelContent` (`undefined` clears, `null` closes). There is no `DetailPanelSlotContext`; tests that render a shell with `detailPanel` mount `DetailPanelSlotProvider` plus a host element.
+- Never import `@radix-ui/*` in `apps/feature-screens` (enforced by `pnpm --filter @ap/platform-api-ops check:boundaries`); use the `@ap/ui` primitives.
 - Use installed libraries, shadcn/Radix wrappers, and `lucide-react` before hand-rolling interaction behavior, accessibility primitives, icons, popovers, menus, tabs, dialogs, or form controls.
 - Add new tokens or variants to docs before using them broadly.
 - Use `lucide-react` icons and accessible labels for icon-only controls.

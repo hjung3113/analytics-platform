@@ -6,8 +6,8 @@ import {
   DASHBOARD_HOP_ROUTES,
   DASHBOARD_UNASSIGNED_VOC_ROUTE,
   dashboardSummarySchema,
-} from '@fops/shared';
-import type { DashboardCoverageId } from '@fops/shared';
+} from '@ap/feature-shared';
+import type { DashboardCoverageId } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   Outlet,

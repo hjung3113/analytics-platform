@@ -1,4 +1,4 @@
-import type { ListTaskRequestsQuery, TaskRequestDto } from '@fops/shared';
+import type { ListTaskRequestsQuery, TaskRequestDto } from '@ap/feature-shared';
 
 export function taskRequestPage<T extends Pick<TaskRequestDto, 'status'>>(
   items: T[],

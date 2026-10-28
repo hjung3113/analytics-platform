@@ -1,4 +1,4 @@
-import { type Capability, isCapability } from '@fops/shared';
+import { type Capability, isCapability } from '@ap/feature-shared';
 
 export const CAPABILITY_LABELS: Readonly<Record<Capability, string>> = {
   'workspace.read': '워크스페이스 전체 읽기',

@@ -53,10 +53,10 @@
 
 import { ATTACHMENT_FALLBACK_LABEL } from '@/lib/copy/attachments';
 import { REPORTER_STATUS_LABELS } from '@/lib/copy/reporter-status-labels';
+import type { ReporterFacingStatusEnum, VocDetailEnvelope } from '@ap/feature-shared';
+import { ReporterStatusBadge } from '@ap/feature-ui';
 import { RichContentRenderer } from '@ap/ui';
 import type { TipTapDoc } from '@ap/ui';
-import type { ReporterFacingStatusEnum, VocDetailEnvelope } from '@fops/shared';
-import { ReporterStatusBadge } from '@fops/ui';
 import { Shield } from 'lucide-react';
 import type { ReactElement } from 'react';
 

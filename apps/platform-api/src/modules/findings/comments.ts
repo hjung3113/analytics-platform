@@ -3,7 +3,7 @@ import type {
   FindingCommentDto,
   ListFindingCommentsQuery,
   ListFindingCommentsResponse,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import { z } from 'zod';
 import type { Tx } from '../../db/tx.js';
 import { HttpError } from '../../lib/errors.js';

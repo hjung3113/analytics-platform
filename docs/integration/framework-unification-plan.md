@@ -2,7 +2,7 @@
 
 > 상태: **Proposed** — 2026-10-17 작성. 세 레포(analytics-platform, FeedbackOps, equipment-visualization)의 프레임워크 조각을 analytics-platform 프레임워크로 어떻게 합치는지의 **지도**다. 나중에 사내 팀용 SDK를 만들 때 다시 조사하지 않도록 현황·중복·목표·단계·지금 지킬 것을 한곳에 둔다. 구현 지시가 아니고, 현행 계약 원본(06·패키지 경계·ADR)을 바꾸지 않는다. 장기 전략은 [#396](https://github.com/hjung3113/analytics-platform/issues/396)(목표는 ADR-0043, 구조 Candidate, 구현 Deferred)이고, 이 문서는 그 §8·§12가 요구하는 "제한된 기능 비교"의 입력이 되는 현황 조사와 단계 제안이다. 둘이 다르면 #396과 사용자 결정을 따른다.
 >
-> **목표 원본은 [ADR-0043](../adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)(2026-10-19)이고, 구조·재개 조건은 [#396](https://github.com/hjung3113/analytics-platform/issues/396)이다.** SDK는 플랫폼이 소유하는 하나의 프레임워크이고 플랫폼에 올릴 앱이 지킬 계약이다. 세 제품의 프레임워크가 하는 일을 모두 덮고, 디자인 시스템 결정도 플랫폼 소유이며, 의존은 SDK ← 제품 한 방향이고, 독립 실행은 각 제품 책임이다. 이 문서에서 그와 어긋나는 서술은 ADR-0043이 우선한다: §3 판정의 "원본 FO"와 lint 설정 공유 방향, §4.1 그림의 "원본 위치는 패키지별로 다름", §5 지킬 것의 "FO primitive를 덮어쓰지 않고 FO 이슈로 제안"(코드 이전 전까지만 유효), §5 피할 것의 배포 단위 보류(Q2는 정해짐), §6 단계 4의 `@fops/ui` peer·Q2 선행, §8 Q4 권고 (b)(사용자가 (a)로 정정).
+> **목표 원본은 [ADR-0043](../adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)(2026-10-19)이고, 구조·재개 조건은 [#396](https://github.com/hjung3113/analytics-platform/issues/396)이다.** SDK는 플랫폼이 소유하는 하나의 프레임워크이고 플랫폼에 올릴 앱이 지킬 계약이다. 세 제품의 프레임워크가 하는 일을 모두 덮고, 디자인 시스템 결정도 플랫폼 소유이며, 의존은 SDK ← 제품 한 방향이고, 독립 실행은 각 제품 책임이다. 이 문서에서 그와 어긋나는 서술은 ADR-0043이 우선한다: §3 판정의 "원본 FO"와 lint 설정 공유 방향, §4.1 그림의 "원본 위치는 패키지별로 다름", §5 지킬 것의 "FO primitive를 덮어쓰지 않고 FO 이슈로 제안"(코드 이전 전까지만 유효), §5 피할 것의 배포 단위 보류(Q2는 정해짐), §6 단계 4의 `@ap/feature-ui` peer·Q2 선행, §8 Q4 권고 (b)(사용자가 (a)로 정정).
 >
 > **코드 대조 정정(2026-10-19):** §2.2·§2.3·§3의 FeedbackOps·EV 서술 중 코드와 어긋난 것은 [SDK 포괄 목록](sdk-coverage-inventory.md) §4가 우선한다.
 >
@@ -12,7 +12,7 @@
 
 - **통합 모양:** FeedbackOps 플랫폼 합류는 [ADR-0066](../adr/0066-feedbackops-merges-into-platform.md)을 따른다. 독립 앱 + 진입 링크 모델(ADR-0027)은 이 합류 결정으로 대체됐다. EV와 SDK의 2026-10-17 비교는 아래 조사 표에 남기며, 현재 배포·합류 상태는 [.planning/README.md](../../.planning/README.md)와 해당 소유 문서를 따른다.
 - **"analytics-platform 프레임워크로 통합"의 뜻**(ADR-0043): 플랫폼이 소유하는 **하나의 프레임워크**가 세 제품의 프레임워크가 하는 일을 모두 덮고, 각 제품은 그 SDK를 소비해 플랫폼에 올라온다. 다른 제품의 성숙한 조각(예: FeedbackOps 토큰·primitive)은 SDK로 흡수하고, SDK는 어떤 제품도 import하지 않는다. 업무 모듈(VOC 흐름, 설비 모델·렌더러, 분석 메뉴)은 각 제품이 소유한다. 다음 산출물은 세 프레임워크 기능을 SDK가 다 덮는지 확인하는 포괄 목록이다(§2·§3 지도에서 출발).
-- **SDK 표면 후보**는 `@ap/contracts`(계약·codec·포트), `@ap/kernel`(런타임·Registry·조회 수명주기), `@ap/ui`(토큰·primitive 재수출), `@ap/components`(공통 컴포넌트·차트 프레임), `@ap/shell`(선택), `@ap/server-conformance`(적합성 묶음), `@ap/gen-menu`·`@ap/eslint-config`·`@ap/tsconfig`(개발 도구)다. 제품 고유로 남는 것은 FeedbackOps 앱·백엔드·`@fops/shared`, EV `@eqv/core`·`renderer`·`editor`·Studio, 플랫폼 견본 메뉴와 mock 서버다.
+- **SDK 표면 후보**는 `@ap/contracts`(계약·codec·포트), `@ap/kernel`(런타임·Registry·조회 수명주기), `@ap/ui`(토큰·primitive 재수출), `@ap/components`(공통 컴포넌트·차트 프레임), `@ap/shell`(선택), `@ap/server-conformance`(적합성 묶음), `@ap/gen-menu`·`@ap/eslint-config`·`@ap/tsconfig`(개발 도구)다. 제품 고유로 남는 것은 FeedbackOps 앱·백엔드·`@ap/feature-shared`, EV `@eqv/core`·`renderer`·`editor`·Studio, 플랫폼 견본 메뉴와 mock 서버다.
 - **단계:** 선언 원본 결정은 [ADR-0096](../adr/0096-contract-schemas-zod-source-and-reference-implementations.md), 산출물 1단계는 #1086/PR #1090으로 완료됐다. FeedbackOps 플랫폼 합류는 [ADR-0066](../adr/0066-feedbackops-merges-into-platform.md)을 따른다. 남은 #396 전략과 사내 입력은 현행 [.planning/README.md](../../.planning/README.md) 및 해당 이슈를 따른다. [§6](#6-단계)은 이 결정과 미구현 범위를 구분한다.
 - **지금 지킬 것**(SDK가 싸지는 조건): 공개 진입점만 import(이미 lint), `@ap/contracts`의 React·DOM 무의존(이미 규칙), `#platform-assembly`·`PlatformAdapter`·`PlatformLocation` 세 주입 지점을 유일한 호스트 경계로 유지, 테스트 어댑터 스텁을 한 공개 진입점으로(#381), 접두사·런타임 문자열 분리(패키지 경계 §8). **피할 것**: 메뉴 어휘를 포트에 넣기, FeedbackOps primitive 덮어쓰기(ADR-0023), 레포별 conductor 포크 확대(#394), EV 모델을 플랫폼에 복제(EV ADR-0001).
 
@@ -26,8 +26,8 @@
 | 공개 API 모양 | 모든 패키지 `private: true`·`0.0.0`, TS 소스를 `exports`로 직접 노출(빌드 없음, 앱 Vite가 번들), `workspace:*` 의존. 공개 진입점은 `src/index.ts` 한 곳 + `./styles.css`. 접두사 `@ap/`는 임시 | `packages/*/package.json`, 패키지 경계 §6·§8, [#396](https://github.com/hjung3113/analytics-platform/issues/396) §2 |
 | 호스트 경계(주입 지점) | ① 서버: `PlatformAdapter` 포트(`packages/sdk/contracts/src/adapter/adapter.ts`, 17개 메서드 + `subscribe`) — 메뉴 데이터는 `menuQuery` 하나, 메뉴 어휘 메서드 금지. ② 조립: `#platform-assembly`의 `createAssembly({ registry }) → { adapter, topBarTools }`, 운영 빌드는 `AP_PLATFORM_ASSEMBLY`로 주입하고 CI가 운영 그래프에 mock 없음을 검사. ③ 위치: `PlatformLocation`(`createBrowserLocation`·`createBasePathLocation`) | [ADR-0019](../adr/0019-menu-query-endpoint-declaration.md), [ADR-0009](../adr/0009-production-assembly-injection.md), [ADR-0030](../adr/0030-location-adapter-base-path.md), `apps/platform-web/src/platform-assembly.d.ts` |
 | 메뉴(플러그인) 모델 | 코드 내부 선언형 Registry(`MenuEntry = MenuMeta + icon + component`), 그룹 단위 패키지, 공간(`SPACES`)·그룹(`GROUPS`)은 앱 조립 지점이 소유, `createRegistry`가 중복·route 충돌·공간 규칙 검증. 외부 설치형 Plugin SDK는 Deferred | [06 §5](../contract/kernel.md#5-menu-extension-contract)·[§14](../contract/components.md#14-platform-component-promotion-rule), 패키지 경계 §5 |
-| 생성기·경계 도구 | `pnpm gen:menu <group>`이 스켈레톤(`endpoints.ts`·`mock/`·페이지·테스트)과 앱 배선 마커를 쓰고 `--remove`로 되돌림. `repo-invariants`가 폴더–공간 일치 검사. ESLint 프리셋(`contracts`·`kernel`·`menu`·`app`…)이 경계·URL 조립 금지·`@fops/*` 직접 import 금지·`@shadcn/lint` 6규칙 강제 | [tooling/AGENTS.md](../../tooling/AGENTS.md), [ADR-0009](../adr/0009-production-assembly-injection.md) |
-| 디자인 시스템 | 토큰·primitive 원본은 플랫폼 `@ap/ui`(Tailwind v4 CSS-first; #441에서 FeedbackOps `@fops/ui`의 토큰·유틸·primitive를 옮겼다, ADR-0046). 플랫폼 확장(차트·카테고리 색, `t-*` 역할, `surface-sunken`)은 `packages/sdk/ui/src/styles/`가 소유. 모양·크기 덮어쓰기 금지(접근성 하한 넷과 탭 표식만 예외) | [ADR-0010](../adr/0010-feedbackops-design-system-shared-on-tailwind-v4.md)·[0011](../adr/0011-design-direction-feedbackops-shell.md)·[0023](../adr/0023-feedbackops-primitive-shapes-and-sizes.md), [06 §23](../contract/components.md#23-design-tokens), [DESIGN.md](../../DESIGN.md), [packages/sdk/ui/AGENTS.md](../../packages/sdk/ui/AGENTS.md) |
+| 생성기·경계 도구 | `pnpm gen:menu <group>`이 스켈레톤(`endpoints.ts`·`mock/`·페이지·테스트)과 앱 배선 마커를 쓰고 `--remove`로 되돌림. `repo-invariants`가 폴더–공간 일치 검사. ESLint 프리셋(`contracts`·`kernel`·`menu`·`app`…)이 경계·URL 조립 금지·`feature packages` 직접 import 금지·`@shadcn/lint` 6규칙 강제 | [tooling/AGENTS.md](../../tooling/AGENTS.md), [ADR-0009](../adr/0009-production-assembly-injection.md) |
+| 디자인 시스템 | 토큰·primitive 원본은 플랫폼 `@ap/ui`(Tailwind v4 CSS-first; #441에서 FeedbackOps `@ap/feature-ui`의 토큰·유틸·primitive를 옮겼다, ADR-0046). 플랫폼 확장(차트·카테고리 색, `t-*` 역할, `surface-sunken`)은 `packages/sdk/ui/src/styles/`가 소유. 모양·크기 덮어쓰기 금지(접근성 하한 넷과 탭 표식만 예외) | [ADR-0010](../adr/0010-feedbackops-design-system-shared-on-tailwind-v4.md)·[0011](../adr/0011-design-direction-feedbackops-shell.md)·[0023](../adr/0023-feedbackops-primitive-shapes-and-sizes.md), [06 §23](../contract/components.md#23-design-tokens), [DESIGN.md](../../DESIGN.md), [packages/sdk/ui/AGENTS.md](../../packages/sdk/ui/AGENTS.md) |
 | 서버 계약·codegen | `EndpointSpec`(TS)이 선언 원본이고 클라이언트·mock·적합성 묶음이 함께 읽는다. TS(Zod) → JSON Schema는 [ADR-0096](../adr/0096-contract-schemas-zod-source-and-reference-implementations.md)로 Decided(#148 닫힘). 산출물 1단계는 #1086/PR #1090으로 완료됐다. HTTP 전송 형식은 Candidate(#149) | [ADR-0096](../adr/0096-contract-schemas-zod-source-and-reference-implementations.md), [스키마·산출물 형식](../../packages/sdk/contract-schemas/AGENTS.md), [전송 형식 초안](http-adapter-contract.md), [실서버 체크리스트](real-server-checklist.md) |
 | 인증·SSO | 서버 저장 세션 + httpOnly 쿠키(03), 사내 IdP 사양은 **Open #150**. 클라이언트는 `session()` 동기 스냅샷 + `subscribe`로 세대 전환. FeedbackOps와 IdP 클라이언트 공유 여부는 #150 질문지에 있음 | 사내 적용 가이드 §3.1, [#150](https://github.com/hjung3113/analytics-platform/issues/150), [#98](https://github.com/hjung3113/analytics-platform/issues/98) |
 | 딥링크·URL | 06 §6 URL 계약(전역 Context 키, `v`, `returnTo`, 보정 없는 거부). FeedbackOps 양방향 딥링크는 phase-1 allowlist(`contract: 2`, 관찰 커밋 고정), 확장은 #81·#251·#448(복귀 `platformReturn`) | [06 §6.1·§6.4](../contract/kernel.md#61-식별자와-url-소유-상태-decided), [딥링크 계약](feedbackops-deeplink.md) |
@@ -44,8 +44,8 @@
 | 조각 | 현재 | 원본·결정 |
 | --- | --- | --- |
 | 구조·스택 | pnpm workspace(`apps/frontend`·`apps/backend`·`packages/shared`·`packages/ui`), pnpm 9.15 / Node 22, Turbo 2.3, Biome(일반 lint·포맷) + Oxlint(`@shadcn/lint` 디자인 lint). 프런트: React, TanStack Router·Query, React Hook Form + Zod, shadcn/Radix, TipTap, cmdk, sonner. 백엔드: Fastify + Drizzle + Postgres 16, `fastify-type-provider-zod`, pg-boss, openid-client | FeedbackOps `package.json`, [ADR-0007](../feedbackops/adr/0007-core-technology-stack.md), [ADR-0062](../feedbackops/adr/0062-design-system-lint-with-shadcn-lint-on-oxlint.md) |
-| 디자인 시스템 | `@fops/ui` exports: `.`, `./styles/tokens.css`·`semantic.css`·`theme.css`·`compat.css`(Tailwind v4 `@theme inline`), Pack 17 Samsung-light 토큰, 50px 헤더 리듬·세 셸(`PageShell`·`ListShell`·`WorkbenchShell`), 모션 기반(ADR-0063). 출시된 UI가 권위(ADR-0060). 플랫폼을 위해 Tailwind v4로 올렸고(FO#743) 플랫폼 소비 때 드러난 결함을 고쳤다(FO#746·747·748·749·750) | [ADR-0058](../feedbackops/adr/0058-tailwind-v4-css-first-theme.md), [ADR-0020](../feedbackops/adr/0020-shell-taxonomy-three-route-shells-and-50px-header-rhythm.md), [ADR-0021](../feedbackops/adr/0021-pack-17-samsung-light-design-system.md), [ADR-0060](../feedbackops/adr/0060-shipped-ui-replaces-prototype-as-ui-authority.md), [FO#743](https://github.com/hjung3113/FeedbackOps/issues/743) |
-| 공유 계약 | `@fops/shared`(exports `.`·`./enums`): Zod 스키마·enum·오류 코드(`errors/codes.ts`)·권한·nav 등 프런트·백엔드 공유. **OpenAPI codegen·tRPC 없음** — Zod 스키마를 Fastify Type Provider와 TanStack Query hook이 함께 소비. API 오류 envelope `{ code, message, detail, requestable_permission }`, code 패밀리 → HTTP 상태 표 | ADR-0007 "API type sharing", [ADR-0012](../feedbackops/adr/0012-error-code-contract.md), `packages/shared/src/` |
+| 디자인 시스템 | `@ap/feature-ui` exports: `.`, `./styles/tokens.css`·`semantic.css`·`theme.css`·`compat.css`(Tailwind v4 `@theme inline`), Pack 17 Samsung-light 토큰, 50px 헤더 리듬·세 셸(`PageShell`·`ListShell`·`WorkbenchShell`), 모션 기반(ADR-0063). 출시된 UI가 권위(ADR-0060). 플랫폼을 위해 Tailwind v4로 올렸고(FO#743) 플랫폼 소비 때 드러난 결함을 고쳤다(FO#746·747·748·749·750) | [ADR-0058](../feedbackops/adr/0058-tailwind-v4-css-first-theme.md), [ADR-0020](../feedbackops/adr/0020-shell-taxonomy-three-route-shells-and-50px-header-rhythm.md), [ADR-0021](../feedbackops/adr/0021-pack-17-samsung-light-design-system.md), [ADR-0060](../feedbackops/adr/0060-shipped-ui-replaces-prototype-as-ui-authority.md), [FO#743](https://github.com/hjung3113/FeedbackOps/issues/743) |
+| 공유 계약 | `@ap/feature-shared`(exports `.`·`./enums`): Zod 스키마·enum·오류 코드(`errors/codes.ts`)·권한·nav 등 프런트·백엔드 공유. **OpenAPI codegen·tRPC 없음** — Zod 스키마를 Fastify Type Provider와 TanStack Query hook이 함께 소비. API 오류 envelope `{ code, message, detail, requestable_permission }`, code 패밀리 → HTTP 상태 표 | ADR-0007 "API type sharing", [ADR-0012](../feedbackops/adr/0012-error-code-contract.md), `packages/shared/src/` |
 | 인증·세션 | `AuthProvider` 추상(Mock / OIDC via openid-client, `AUTH_PROVIDER` env), 서버 저장 세션 + httpOnly 쿠키 `fops_session`, capability 기반 내비게이션 | [ADR-0006](../feedbackops/adr/0006-authentication-and-actor-provisioning.md), [ADR-0056](../feedbackops/adr/0056-capability-based-admin-navigation.md) |
 | URL·딥링크 | TanStack Router `validateSearch` strict — `/vocs?view=inbox\|my\|triage&managedSystem=…&selected=…`, `/surveys/:id`, `/tasks?view=…`. 플랫폼용 답: 내 설문 응답 API `GET /me/survey-responses`(FO#548 완료), 신고자 `view=my&selected=` 딥링크(FO#549 답변 완료). 플랫폼 복귀 파라미터·VOC prefill·`fo` 버전 키는 미정(AP #81) | [routes-and-layout.md](../feedbackops/frontend/routes-and-layout.md), [FO#548](https://github.com/hjung3113/FeedbackOps/issues/548), [FO#549](https://github.com/hjung3113/FeedbackOps/issues/549), [딥링크 계약](feedbackops-deeplink.md) §5 |
 | 메뉴·셸 모델 | 2026-10-17 조사 시점에는 Registry 없이 TanStack Router 파일 기반 라우트와 capability 내비게이션을 썼다. 현행 플랫폼 합류는 [ADR-0066](../adr/0066-feedbackops-merges-into-platform.md)과 [화면 연결 결정](../adr/0071-feedbackops-screen-bridge-and-api-fo-edge-prefix.md)을 따른다 | ADR-0020·0056, ADR-0066·0071 |
@@ -76,11 +76,11 @@ EV가 이미 결정한 것: 독립 패키지가 정본·플랫폼은 얇은 소�
 
 | 영역 | analytics-platform | FeedbackOps | EV | 판정(제안) |
 | --- | --- | --- | --- | --- |
-| 디자인 토큰·primitive | `@ap/ui`가 `@fops/ui` 재수출 + 확장 층 | **원본**(`@fops/ui`, Pack 17, Tailwind v4) | 자체 `--eqv-*` 변수, 주입으로 연결 | 중복 아님. 원본 FO, 플랫폼 확장은 `@ap/ui`, EV는 매핑. **충돌 1:** FO 변경이 플랫폼 소비자 요구로 들어가는 경로가 "FO 이슈 제안"뿐이라 느리다(FO#1202 대기 중). **충돌 2:** 라이브러리 버전 이원(lucide 0.469 ↔ 1.48, React 타입 버전은 FO#748로 해소) |
+| 디자인 토큰·primitive | `@ap/ui`가 `@ap/feature-ui` 재수출 + 확장 층 | **원본**(`@ap/feature-ui`, Pack 17, Tailwind v4) | 자체 `--eqv-*` 변수, 주입으로 연결 | 중복 아님. 원본 FO, 플랫폼 확장은 `@ap/ui`, EV는 매핑. **충돌 1:** FO 변경이 플랫폼 소비자 요구로 들어가는 경로가 "FO 이슈 제안"뿐이라 느리다(FO#1202 대기 중). **충돌 2:** 라이브러리 버전 이원(lucide 0.469 ↔ 1.48, React 타입 버전은 FO#748로 해소) |
 | 셸 | `@ap/shell`이 FO AppFrame 구조를 다시 그림(레일 52/사이드바 240/머리 50) | 앱 안 `PageShell`·`ListShell`·`WorkbenchShell`(패키지 아님) | Studio 자체 셸(얇음) | **구현 두 벌**(치수·토큰은 같음). SDK에서 셸은 "선택적 셸"(#396 §4). FO 셸을 패키지로 뽑을지는 두 번째 소비자가 생길 때 — 지금은 플랫폼 셸만 공개 후보 |
 | 디자인 lint | `@shadcn/lint`를 ESLint 프리셋에서, 규칙 옵션은 FO `.oxlintrc.json`을 따라 **수동 동기화** | `@shadcn/lint` on Oxlint(원본) | 없음(primitive 없음) | 규칙 표의 원본이 FO, 사본이 AP `tooling/eslint/src/index.js`(`RESTYLE_CONTRACTS`·`DESIGN_SYSTEM_RULES`). SDK 때 `@ap/eslint-config`가 FO 설정을 읽거나 FO가 공유 설정 패키지를 내야 한다 |
 | 어댑터·호스트 계약 | `PlatformAdapter`(서버) + `#platform-assembly`(조립) + `PlatformLocation`(위치) | `AuthProvider`(서버 쪽 인증 추상), 프런트는 `apiClient` + Zod DTO 파서 | `platform-adapter`(계획: theme + context → props) | 세 개의 "adapter"가 **서로 다른 층**이다. SDK 호스트 인터페이스(#396 §5 표: 세션·내비게이션·Context·서버 어댑터·수명주기)로 이름을 정리해야 한다. EV `platform-adapter`가 "플랫폼 → 업무 모듈 방향" 호스트 인터페이스의 첫 사례가 된다 |
-| 서버 계약·codegen | TS(Zod) → JSON Schema로 Decided([ADR-0096](../adr/0096-contract-schemas-zod-source-and-reference-implementations.md), #148 닫힘). 산출물 1단계 #1086/PR #1090 완료 | Zod 스키마 공유(`@fops/shared`), codegen 없음, Fastify Type Provider | Zod 스키마 + JSON Schema export(`@eqv/core/*.schema.json`) | 선언 원본 결정은 ADR-0096이 소유한다. 참조 구현·미구현 범위는 해당 ADR과 #531을 따른다 |
+| 서버 계약·codegen | TS(Zod) → JSON Schema로 Decided([ADR-0096](../adr/0096-contract-schemas-zod-source-and-reference-implementations.md), #148 닫힘). 산출물 1단계 #1086/PR #1090 완료 | Zod 스키마 공유(`@ap/feature-shared`), codegen 없음, Fastify Type Provider | Zod 스키마 + JSON Schema export(`@eqv/core/*.schema.json`) | 선언 원본 결정은 ADR-0096이 소유한다. 참조 구현·미구현 범위는 해당 ADR과 #531을 따른다 |
 | 오류·응답 envelope | `ApiResponse { outcome, assessments, trust }`(06 §19), 어댑터는 예외를 던지지 않음 | `{ code, message, detail, requestable_permission }` + code 패밀리 → HTTP 상태 | Data Quality Issues·Evidence level을 응답 안에 | **의미 체계가 다르다**(플랫폼은 outcome·신뢰, FO는 code·요청 가능 권한). 합치지 않는다. SDK 서버 어댑터가 FO code → 플랫폼 outcome 변환을 소유(이미 내 VOC 어댑터가 하는 일, #86) |
 | 인증·세션 | 서버 세션 + httpOnly, IdP 미정(#150), 세대 전환 `subscribe` | OIDC provider 구현 완료, 세션 `fops_session`, Mock provider 동봉 | 없음 | 가장 성숙한 구현은 FO(AuthProvider·OIDC). 플랫폼 FastAPI(#155)가 같은 IdP 클라이언트를 공유할지는 #150. **브라우저 세션 공유(쿠키 도메인·SSO)는 셋 중 누구도 결정하지 않음** |
 | URL·딥링크 | 06 §6 계약(전역 키·`v`·`returnTo`), codec `@ap/contracts/url.ts` | TanStack Router strict search, 라우트별 스키마, `returnTo`는 Findings만·로그인용 `redirectTo` | `at`(page-local)·`anchor`·layout/mapping 버전 — INTEGRATION 제안 | FO ↔ 플랫폼은 allowlist 계약으로 이미 분리(두 소유자, 보정 없음). EV는 플랫폼 URL 계약 **안**에 들어온다(목적지 ID + page key). **충돌:** 시간 정밀도(EV#44) |
@@ -100,18 +100,18 @@ EV가 이미 결정한 것: 독립 패키지가 정본·플랫폼은 얇은 소�
                  ┌──────────────── SDK 표면(나중에 버전 패키지) ────────────────┐
                  │  @ap/contracts   계약·codec·PlatformAdapter 포트·EndpointSpec  │
                  │  @ap/kernel      Registry·Provider·조회 수명주기·위치·i18n     │
-                 │  @ap/ui          토큰·primitive 재수출(원본 @fops/ui) + 확장    │
+                 │  @ap/ui          토큰·primitive 재수출(원본 @ap/feature-ui) + 확장    │
                  │  @ap/components  공통 컴포넌트·레이아웃 슬롯·차트 프레임        │
                  │  @ap/shell       (선택) 레일·사이드바·팔레트·Context 바        │
                  │  @ap/server-conformance  적합성 묶음(서버 어댑터 검사)          │
                  │  @ap/gen-menu · @ap/eslint-config · @ap/tsconfig  개발 도구     │
                  └───────────────────────────┬────────────────────────────────┘
       원본 위치는 패키지별로 다름 ◀──────────┤
-      · 토큰·primitive: FeedbackOps(@fops/ui) │
+      · 토큰·primitive: FeedbackOps(@ap/feature-ui) │
       · 계약·런타임·도구: analytics-platform  │
                                               ▼
    ┌───────────────── 제품(업무 모듈, 각자 소유) ─────────────────────────────┐
-   │ 플랫폼 견본 메뉴 @ap/menu-*    FeedbackOps 앱·백엔드·@fops/shared        │
+   │ 플랫폼 견본 메뉴 @ap/menu-*    FeedbackOps 앱·백엔드·@ap/feature-shared        │
    │ EV @eqv/core·renderer·editor·(replay)·Studio                             │
    └───────────────────────────┬──────────────────────────────────────────────┘
                                ▼
@@ -122,13 +122,13 @@ EV가 이미 결정한 것: 독립 패키지가 정본·플랫폼은 얇은 소�
    └──────────────────────────────────────────────────────────────────────────┘
 ```
 
-목표 의존 방향(ADR-0043): 제품은 SDK를 import하고 호스트는 제품을 조립하며, SDK는 어떤 제품도 import하지 않는다. 지금 패키지 경계 §3 규칙 8이 허용하는 `@ap/ui → @fops/ui` 간선은 목표 구조에서 없어진다: 토큰·primitive 코드를 SDK로 옮기고 FeedbackOps가 SDK에서 받아 쓴다(ADR-0043 결과, [§8 Q2](#8-사용자에게-묻는-것과-권고)). 위 그림의 "원본 위치는 패키지별로 다름"은 지금 상태다.
+목표 의존 방향(ADR-0043): 제품은 SDK를 import하고 호스트는 제품을 조립하며, SDK는 어떤 제품도 import하지 않는다. 지금 패키지 경계 §3 규칙 8이 허용하는 `@ap/ui → @ap/feature-ui` 간선은 목표 구조에서 없어진다: 토큰·primitive 코드를 SDK로 옮기고 FeedbackOps가 SDK에서 받아 쓴다(ADR-0043 결과, [§8 Q2](#8-사용자에게-묻는-것과-권고)). 위 그림의 "원본 위치는 패키지별로 다름"은 지금 상태다.
 
 ### 4.2 무엇이 SDK 표면이 되고 무엇이 남나
 
 | 구분 | 들어가는 것 | 남는 것(제품·호스트) |
 | --- | --- | --- |
-| 계약 | `PlatformAdapter`·`MenuQuery`·`EndpointSpec`·`ApiResponse`·URL codec·`platform-inbound-link` codec·`Text`·`AuditEvent` | 메뉴별 `endpoints.ts` 선언 값, FO `@fops/shared` 스키마, EV `@eqv/core` 스키마 |
+| 계약 | `PlatformAdapter`·`MenuQuery`·`EndpointSpec`·`ApiResponse`·URL codec·`platform-inbound-link` codec·`Text`·`AuditEvent` | 메뉴별 `endpoints.ts` 선언 값, FO `@ap/feature-shared` 스키마, EV `@eqv/core` 스키마 |
 | 런타임 | Registry 검증·`PlatformProvider`·`useMenuQuery`·`useMenuFetch`·`useDrill`·`PlatformLocation`·슬롯 | `SPACES`·`GROUPS`·공간 → Managed System 매핑·실어댑터·`createAssembly` |
 | UI | 토큰·primitive·`PlatformDataTable`·`DetailDrawer`·`PageFilterBar`·`StateView`·`AnalysisChartFrame`·레이아웃 슬롯 | 도메인 컴포넌트, FO 세 셸(두 번째 소비자 전까지), EV renderer |
 | 도구 | `gen:menu`, 경계·계약 lint 프리셋, tsconfig, 적합성 묶음, 공개 테스트 스텁(#381) | 레포별 conductor PROFILE(절차 자체는 전역 스킬) |
@@ -249,10 +249,10 @@ ADR-0043의 목표를 배포 구조로 옮긴 후보다. 이 후보에 대한 �
 
 | 항목 | 내용 |
 | --- | --- |
-| 할 일 | ① 이름: `@ap/` → 사내 이름 일괄 치환(패키지 경계 §8 절차). ② 빌드 산출물: 지금 "TS 소스 export"를 유지할지(소비자가 같은 Vite·TS 설정이어야 함) `dist/` 빌드로 바꿀지(EV `@eqv/core`가 이 방식). ③ `peerDependencies`: react·react-dom·`@fops/ui`(또는 토큰 패키지)·echarts·`@tanstack/*`. ④ CSS: `@ap/ui/styles.css`가 `@fops/ui/styles/*`를 import하는 경로가 모노레포 밖에서 풀리는지. ⑤ 버전·호환표·폐기 정책. ⑥ 모노레포 밖 최소 소비 예제(사내 메뉴 한 개 + 실어댑터 조립)로 설치·빌드·실행 확인. 구조·CI 게이트 후보와 정할 것 목록은 [§4.4](#44-sdk-저장소릴리즈-구조-candidate-2026-10-19) |
+| 할 일 | ① 이름: `@ap/` → 사내 이름 일괄 치환(패키지 경계 §8 절차). ② 빌드 산출물: 지금 "TS 소스 export"를 유지할지(소비자가 같은 Vite·TS 설정이어야 함) `dist/` 빌드로 바꿀지(EV `@eqv/core`가 이 방식). ③ `peerDependencies`: react·react-dom·`@ap/feature-ui`(또는 토큰 패키지)·echarts·`@tanstack/*`. ④ CSS: `@ap/ui/styles.css`가 `@ap/feature-ui/styles/*`를 import하는 경로가 모노레포 밖에서 풀리는지. ⑤ 버전·호환표·폐기 정책. ⑥ 모노레포 밖 최소 소비 예제(사내 메뉴 한 개 + 실어댑터 조립)로 설치·빌드·실행 확인. 구조·CI 게이트 후보와 정할 것 목록은 [§4.4](#44-sdk-저장소릴리즈-구조-candidate-2026-10-19) |
 | 선행 | 단계 2 또는 3 중 하나의 실제 소비자, 단계 0 ④ 목록을 Decided로 올리는 작업, Q2(primitive 소유) |
 | 결정 | 사용자: 이름(Q1), primitive 배포 단위(Q2), 소스 export vs dist(Q5), registry 공급자(사내 npm / tarball / git — #151 망분리 답과 함께). 유도: peer 목록, 호환표 형식 |
-| 위험 | `@ap/ui → @fops/ui`가 서브모듈 경로 의존이라 모노레포 밖에서 안 풀린다 — Q2가 선행. React Context 중복 인스턴스(#396 §9) |
+| 위험 | `@ap/ui → @ap/feature-ui`가 서브모듈 경로 의존이라 모노레포 밖에서 안 풀린다 — Q2가 선행. React Context 중복 인스턴스(#396 §9) |
 | 이슈 | 기존 #396·#151·#232(레포 공개 범위 — 사내 이름·사내 코드가 공개 저장소에 있는 문제와 겹침). 제안(미등록): **P4-a** 접두사 치환 리허설(브랜치에서 치환 → 네 검사), **P4-b** 모노레포 밖 소비 예제 CI |
 
 ### 단계 5 — 두 번째 호스트 검증과 FeedbackOps 조각 비교 (#396 §8 "두 번째 소비자")
@@ -287,7 +287,7 @@ ADR-0043의 목표를 배포 구조로 옮긴 후보다. 이 후보에 대한 �
 | # | 질문 | 권고 | 근거 |
 | --- | --- | --- | --- |
 | Q1 | SDK 패키지 이름(접두사)을 언제 정하나 | **단계 4 직전**. 지금은 `@ap/` 유지 | 치환은 상수 한 곳 + 일괄 치환으로 설계돼 있어 미뤄도 비용이 늘지 않는다(패키지 경계 §8). #232(공개 범위)와 같이 정하는 편이 낫다 |
-| Q2 | 공통 primitive·토큰의 배포 단위 — (a) `@fops/ui`를 FO가 배포하고 `@ap/ui`가 peer로 의존, (b) 토큰·primitive를 플랫폼 저장소로 옮겨 플랫폼이 배포, (c) 서브모듈 유지 | **(b) — ADR-0043이 정함(2026-10-19)** | SDK는 제품을 import하지 않고(의존은 SDK ← 제품), 디자인 시스템 결정도 플랫폼 소유다. (a)·(c)의 기각 이유와 (b)의 비용(픽셀 게이트 이전, SDK 배포 선행)은 ADR-0043 Considered Options |
+| Q2 | 공통 primitive·토큰의 배포 단위 — (a) `@ap/feature-ui`를 FO가 배포하고 `@ap/ui`가 peer로 의존, (b) 토큰·primitive를 플랫폼 저장소로 옮겨 플랫폼이 배포, (c) 서브모듈 유지 | **(b) — ADR-0043이 정함(2026-10-19)** | SDK는 제품을 import하지 않고(의존은 SDK ← 제품), 디자인 시스템 결정도 플랫폼 소유다. (a)·(c)의 기각 이유와 (b)의 비용(픽셀 게이트 이전, SDK 배포 선행)은 ADR-0043 Considered Options |
 | Q3 | #332 — EV 편입 방식 | **서브모듈 pin + `@eqv/*` 패키지만 workspace 포함**(FO와 같은 절차). 단, EV가 지금 public이면 #332의 접근 토큰·비밀 노출 절은 간단해지고 "사내 도면 비노출"만 남는다 | FO 선례가 검증됐고(turbo `globalDependencies`, lockfile 절차), EV `@eqv/core`는 `dist/` 빌드라 `allowBuilds`·빌드 순서만 더 보면 된다. 2026-10-17 조회에서 EV `private: false` — 이슈 전제를 먼저 확인 |
 | Q4 | EV `platform-adapter`의 호스트 타입을 누가 소유하나 — (a) `@ap/contracts`가 "호스트 → 모듈" 타입을 내고 EV가 그것을 import, (b) EV가 자기 입력 타입을 내고 플랫폼 메뉴가 맞춤 | **(b)로 시작, 두 번째 모듈(사내)이 생기면 (a)로 승격** | (a)는 EV의 "`@ap/*` 미의존" 규칙(EV ADR-0001)을 깬다. 06 §14·§24의 2–3 소비자 기준을 호스트 인터페이스에도 적용 |
 | Q5 | SDK 배포 형태 — 소스 export 유지 vs `dist/` 빌드 | **`dist/` 빌드**(ESM + d.ts + CSS), 단계 4에서 | 소스 export는 소비자가 플랫폼과 같은 Vite·TS·Tailwind `@source` 설정을 가져야 한다. 사내 앱 빌드 설정을 통제할 수 없다. EV가 이미 이 방식 |

@@ -1,7 +1,7 @@
 import { ApiError } from '@/lib/api';
 import { FINDING_STATUS_LABELS } from '@/lib/copy/enum-labels';
 import { type HostSeam, registerDefaultHost } from '@/lib/host/host-seam';
-import { findingStatusSchema } from '@fops/shared';
+import { findingStatusSchema } from '@ap/feature-shared';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type * as React from 'react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -200,8 +200,8 @@ vi.mock('@ap/ui', async (importOriginal) => {
     Textarea: (props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) => <textarea {...props} />,
   };
 });
-vi.mock('@fops/ui', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@fops/ui')>();
+vi.mock('@ap/feature-ui', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@ap/feature-ui')>();
   return {
     ...actual,
     ManagedSystemPill: ({ name }: { name: string }) => (

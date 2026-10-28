@@ -1,4 +1,4 @@
-import type { CoverageMetricId, CoverageThresholdPair } from '@fops/shared';
+import type { CoverageMetricId, CoverageThresholdPair } from '@ap/feature-shared';
 
 import { COVERAGE_METRIC_LABELS } from './coverage';
 

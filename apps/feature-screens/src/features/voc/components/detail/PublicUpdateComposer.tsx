@@ -72,13 +72,13 @@ import type { MeResponse } from '@/lib/api/me';
 import type { ApiError } from '@/lib/api/types';
 import { REPORTER_STATUS_LABELS } from '@/lib/copy/reporter-status-labels';
 import { useHostSeam } from '@/lib/host/host-seam';
-import { Button, Callout, PreviewModal, RichEditor } from '@ap/ui';
-import type { TipTapDoc } from '@ap/ui';
 import {
   type ReporterFacingStatusEnum,
   type VocDetailEnvelope,
   isTipTapDocBlank,
-} from '@fops/shared';
+} from '@ap/feature-shared';
+import { Button, Callout, PreviewModal, RichEditor } from '@ap/ui';
+import type { TipTapDoc } from '@ap/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, Megaphone } from 'lucide-react';
 import { type ReactElement, useRef, useState } from 'react';

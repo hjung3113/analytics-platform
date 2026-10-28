@@ -19,7 +19,7 @@ vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
 noticeHost.notify.mockImplementation(() => 'toast-fullscreen-test');
 beforeAll(registerNoticeHost);
 
-import type { VocListItem } from '@fops/shared';
+import type { VocListItem } from '@ap/feature-shared';
 import { type TriageTab, VocTriageScreen } from '../VocTriageScreen';
 
 const MOCK_VOC: VocListItem = {

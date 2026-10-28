@@ -30,7 +30,7 @@ beforeEach(() =>
 );
 beforeAll(registerNoticeHost);
 
-import type { VocListItem } from '@fops/shared';
+import type { VocListItem } from '@ap/feature-shared';
 import { TriagePanel } from '../TriagePanel';
 
 // VOC with PRIOR values already populated — the user is re-triaging.

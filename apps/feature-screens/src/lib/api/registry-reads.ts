@@ -2,7 +2,7 @@
 // reaches them through `client.ts` (`/api/fo`, platform ADR-0071); `managed-systems.ts` and `analytics-areas.ts`
 // re-export the reads and the `client.ts` write twins from `registry-writes.ts`.
 
-import { analyticsAreaListSchema, managedSystemListSchema } from '@fops/shared';
+import { analyticsAreaListSchema, managedSystemListSchema } from '@ap/feature-shared';
 import { apiRequest } from './client';
 
 export interface ManagedSystemDto {

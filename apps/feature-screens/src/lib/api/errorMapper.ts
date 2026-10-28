@@ -1,4 +1,4 @@
-import type { ErrorCode } from '@fops/shared';
+import type { ErrorCode } from '@ap/feature-shared';
 import {
   formatRetryAfter,
   ipRateLimitedMessage,

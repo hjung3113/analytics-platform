@@ -1,9 +1,9 @@
-import type { ErrorCode, ErrorEnvelope } from '@fops/shared';
+import type { ErrorCode, ErrorEnvelope } from '@ap/feature-shared';
 
 // Re-export the shared envelope under the FE alias so callers don't need
-// to import from two packages. The shape is authoritative in @fops/shared
+// to import from two packages. The shape is authoritative in @ap/feature-shared
 // (packages/feature-shared/src/errors/codes.ts); do NOT duplicate it here.
-export type { ErrorEnvelope as ApiErrorEnvelope } from '@fops/shared';
+export type { ErrorEnvelope as ApiErrorEnvelope } from '@ap/feature-shared';
 
 export interface RateLimitInfo {
   limit: number;

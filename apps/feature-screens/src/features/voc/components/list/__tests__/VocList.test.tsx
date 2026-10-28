@@ -1,5 +1,5 @@
 import { usePermissionCheckBridge } from '@/lib/cross-system/usePermissionCheckBridge';
-import type { VocListItem } from '@fops/shared';
+import type { VocListItem } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';

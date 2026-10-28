@@ -5,7 +5,7 @@ import {
   type DashboardAreaReportQuery,
   areaReportLink,
   dashboardAreaReportSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import { z } from 'zod';
 import type { Db } from '../../db/client.js';
 import { HttpError } from '../../lib/errors.js';

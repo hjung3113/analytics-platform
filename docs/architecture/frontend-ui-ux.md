@@ -15,7 +15,7 @@
 | 계층 | 채택(2026-09-25 결정) | 근거 | 현재 코드(2026-10-05) |
 | --- | --- | --- | --- |
 | Frontend 기반 | React + TypeScript + Vite | FeedbackOps `apps/frontend`와 동일 | 사용 중(Vite 7) |
-| 스타일링 | **Tailwind CSS v4** | Tailwind CSS v4(CSS-first `@theme`). FeedbackOps도 v4다(FeedbackOps#743, ADR-0058). 플랫폼은 `@ap/ui/styles.css`에서 `@fops/ui/styles/*`를 import한다([ADR-0010](../adr/0010-feedbackops-design-system-shared-on-tailwind-v4.md)·[0011](../adr/0011-design-direction-feedbackops-shell.md)) | 사용 중(Tailwind 4.3, `@theme`) |
+| 스타일링 | **Tailwind CSS v4** | Tailwind CSS v4(CSS-first `@theme`). FeedbackOps도 v4다(FeedbackOps#743, ADR-0058). 플랫폼은 `@ap/ui/styles.css`에서 `@ap/feature-ui/styles/*`를 import한다([ADR-0010](../adr/0010-feedbackops-design-system-shared-on-tailwind-v4.md)·[0011](../adr/0011-design-direction-feedbackops-shell.md)) | 사용 중(Tailwind 4.3, `@theme`) |
 | UI 컴포넌트 | **shadcn/ui + Radix**(`@ap/ui` 소유) + 플랫폼 공용 부품(`@ap/components`) | 디자인 시스템 primitive는 `@ap/ui`가 소유한다([ADR-0046](../adr/0046-design-system-source-moves-to-platform-whole-package.md), ADR-0050). 플랫폼 자체: `StatusBadge`·`DetailPanelSlot` | 사용 중 — `@ap/ui`와 `@ap/components`가 플랫폼 UI를 제공한다 |
 | 라우팅 | TanStack Router | FeedbackOps와 동일. 타입 있는 검색 파라미터로 06 §6.4 URL 계약을 타입 안전하게 관리하되, 버전·폐기 필드·미지원 필터 처리는 이 문서 §6.4 메커니즘을 별도로 구현해야 한다 | **미도입** — Kernel 자체 History + URL codec이 06 §6.4를 소유(Unit A부터 알려진 divergence). 도입·미채택 확정은 Open(05) |
 | 서버 상태 | TanStack Query | FeedbackOps와 동일 | **미도입** — Kernel `usePlatformQuery`·`useMenuQuery`가 조회 수명주기 소유. 5분 폴링·계산 세대 재검증(#165)을 만들 때 Kernel 내부 구현 후보(메뉴 비노출) |

@@ -4,7 +4,7 @@ Status: #597 standalone retirement, following [ADR-0097](../adr/0097-platform-fe
 
 ## 1. Platform feature navigation
 
-The platform registers the retained FeedbackOps screens through `@ap/fo-bridge` and `menus/feedbackops/*`. `FeedbackOpsSlot.entriesFor(spaceId)` returns only registered menu targets; permission checks, the app-owned Managed System mapping, and internal `returnTo` recovery remain. Context and destination IDs stay separate. Package names and all 36 frontend exports remain unchanged; #1098/#1099 own later naming changes.
+The platform registers the retained FeedbackOps screens through `@ap/feature-bridge` and `menus/feedbackops/*`. `FeedbackOpsSlot.entriesFor(spaceId)` returns only registered menu targets; permission checks, the app-owned Managed System mapping, and internal `returnTo` recovery remain. Context and destination IDs stay separate. Package names and all 36 frontend exports remain unchanged; #1098/#1099 own later naming changes.
 
 ## 2. 방향 B — FeedbackOps → 플랫폼
 

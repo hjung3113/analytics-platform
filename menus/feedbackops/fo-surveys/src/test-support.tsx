@@ -1,6 +1,6 @@
 /** Fixtures shared by the Surveys page tests. */
 import { ClipboardCheck } from 'lucide-react';
-import { createFoMenuHarness } from '@ap/fo-bridge/testing';
+import { createFoMenuHarness } from '@ap/feature-bridge/testing';
 import { manifests } from './index';
 
 export const { registry, mountAt } = createFoMenuHarness({ manifests, homeMenuId: 'fo-surveys', group: { id: 'foSurveys', label: { ko: 'Surveys', en: 'Surveys' }, icon: ClipboardCheck } });

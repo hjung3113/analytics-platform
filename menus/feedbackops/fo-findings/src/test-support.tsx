@@ -1,6 +1,6 @@
 /** Fixtures shared by the Findings page tests. */
 import { ListChecks } from 'lucide-react';
-import { createFoMenuHarness } from '@ap/fo-bridge/testing';
+import { createFoMenuHarness } from '@ap/feature-bridge/testing';
 import { manifests } from './index';
 
 export const { registry, mountAt } = createFoMenuHarness({ manifests, homeMenuId: 'fo-findings', group: { id: 'foFindings', label: { ko: 'Findings', en: 'Findings' }, icon: ListChecks } });

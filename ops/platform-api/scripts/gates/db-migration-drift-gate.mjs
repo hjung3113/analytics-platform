@@ -81,7 +81,7 @@ function checkDrizzleHistory() {
   console.error(
     'migration drift: forcing DATABASE_URL_MIGRATE to an unreachable URL for drizzle-kit check',
   );
-  const run = spawnSync('pnpm', ['--filter', '@fops/backend', 'db:check'], {
+  const run = spawnSync('pnpm', ['--filter', '@ap/platform-api', 'db:check'], {
     cwd: root,
     stdio: 'inherit',
     env: {
@@ -139,7 +139,7 @@ function checkSchemaDrift() {
     // snapshot files), which would make the file comparison below pass
     // vacuously. Capture the output, echo it, and require a completion marker
     // before trusting the comparison.
-    const run = spawnSync('pnpm', ['--filter', '@fops/backend', 'db:generate'], {
+    const run = spawnSync('pnpm', ['--filter', '@ap/platform-api', 'db:generate'], {
       cwd: root,
       stdio: ['ignore', 'pipe', 'pipe'],
       encoding: 'utf8',
@@ -200,7 +200,7 @@ function checkSchemaDrift() {
       const latest = journal.entries.at(-1);
       if (latest && !committedSet.has(snapshotFileFor(latest.tag))) {
         console.error(
-          `migration drift: newest journal entry ${latest.tag} has no meta snapshot (${snapshotFileFor(latest.tag)}); drizzle-kit generate would diff against a stale base. Regenerate it: run \`pnpm --filter @fops/backend db:generate\`, keep only the new meta snapshot renamed to ${snapshotFileFor(latest.tag)}, and discard the generated SQL/journal change.`,
+          `migration drift: newest journal entry ${latest.tag} has no meta snapshot (${snapshotFileFor(latest.tag)}); drizzle-kit generate would diff against a stale base. Regenerate it: run \`pnpm --filter @ap/platform-api db:generate\`, keep only the new meta snapshot renamed to ${snapshotFileFor(latest.tag)}, and discard the generated SQL/journal change.`,
         );
       }
       process.exit(1);

@@ -1,5 +1,5 @@
 import { GLOSSARY } from '@/lib/copy/glossary';
-import { vocDetailEnvelopeSchema } from '@fops/shared';
+import { vocDetailEnvelopeSchema } from '@ap/feature-shared';
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 

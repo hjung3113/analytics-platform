@@ -1,6 +1,6 @@
 // PLAN-22 C9 fix — UI-side drift assertion for `allowlist-local.ts`.
 //
-// ADR-0016 forbids @fops/ui from importing @fops/shared, so this test cannot
+// ADR-0016 forbids @ap/feature-ui from importing @ap/feature-shared, so this test cannot
 // import the shared allowlist directly. Instead it carries an inline fixture
 // describing the **shape** of the canonical shared allowlist; if the UI-local
 // copy drifts (extra/missing surfaces, nodes, marks, attr keys, attr kinds,
@@ -19,12 +19,12 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  UI_ALLOWLISTS,
-  UI_RICH_CONTENT_EXTENSION_CAPABILITIES,
-  UI_SURFACE_EXTENSION_CAPABILITIES,
-  UI_SURFACES,
   type UIRichContentExtensionCapability,
   type UISurface,
+  UI_ALLOWLISTS,
+  UI_RICH_CONTENT_EXTENSION_CAPABILITIES,
+  UI_SURFACES,
+  UI_SURFACE_EXTENSION_CAPABILITIES,
 } from '../allowlist-local';
 
 // ── Inline fixture mirroring canonical shared allowlist ──────────────────────

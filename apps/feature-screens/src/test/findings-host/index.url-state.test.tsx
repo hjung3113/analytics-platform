@@ -11,7 +11,7 @@
 // component-mocked (it owns its own /findings/:id fetch, out of scope here); the
 // list fetch is a real mocked global fetch.
 
-import { listFindingsQuerySchema } from '@fops/shared';
+import { listFindingsQuerySchema } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   Outlet,

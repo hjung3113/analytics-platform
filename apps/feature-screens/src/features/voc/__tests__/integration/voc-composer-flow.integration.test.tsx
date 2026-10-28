@@ -13,7 +13,7 @@
 
 import type { PublicUpdateSuccess } from '@/features/voc/hooks/useVocPublicUpdateMutation';
 import type { MeResponse } from '@/lib/api/auth';
-import type { VocDetailEnvelope } from '@fops/shared';
+import type { VocDetailEnvelope } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type * as React from 'react';
@@ -34,7 +34,7 @@ vi.mock('sonner', () => ({
 
 vi.mock('@/lib/api/attachments', () => ({ uploadAttachment: vi.fn() }));
 
-// ── @fops/ui RichEditor mock ─────────────────────────────────────────────────
+// ── @ap/feature-ui RichEditor mock ─────────────────────────────────────────────────
 // Replace heavy TipTap editor with a simple textarea so RTL can interact with it.
 vi.mock('@ap/ui', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@ap/ui')>();

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { deleteRecoveryFixtureParents } from '../../../test-support/recovery-fixtures.js';
 
-import type { NotificationDto, NotificationEventType } from '@fops/shared';
+import type { NotificationDto, NotificationEventType } from '@ap/feature-shared';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 

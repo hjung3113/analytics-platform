@@ -194,7 +194,7 @@ VOC status.
 
 ## Adding a Field to an Owned Entity
 
-Update the owning Drizzle table in `apps/platform-api/src/db/schema/<schema>.ts`, and update the wire contract separately: use `packages/feature-shared/src/<entity>/` where that shared schema exists; otherwise update the module's `routes.ts` request schemas and the frontend `apps/feature-screens/src/lib/api/<entity>.ts` request types/response DTO. Generate the SQL migration and Drizzle metadata with `pnpm --filter backend db:generate`; if SQL is hand-written, follow [Migration Naming](#migration-naming) for the journal registration and snapshot refresh—never hand-edit `apps/platform-api/migrations/meta/*.json`—and run `pnpm gate:db-migration-drift`. If the table uses column-level privileges, add the new column to the corresponding column-level grant for `fops_app` in the same migration; do not widen it to a table-level grant. Then update the owning service and required audit detail, the consuming UI, and the affected design/API docs in the same change. For example, `apps/platform-api/src/db/schema/core.ts` defines the Drizzle table, `apps/platform-api/migrations/0005_slice2_registry.sql` creates `core.managed_systems`, `apps/platform-api/src/modules/managed-systems/routes.ts` defines its request schemas, `apps/feature-screens/src/lib/api/managed-systems.ts` defines its wire DTO, `apps/platform-api/src/modules/managed-systems/managed-system-service.ts` persists and audits it, `packages/feature-shared/src/audit/managed-system.ts` defines the audit detail schema (a column missing there is silently dropped from the audit snapshot), and `apps/feature-screens/src/features/admin/managed-systems/ManagedSystemsScreen.tsx` exposes it. Amend an ADR when recording a compatible addition that leaves its decision in force; reopen the decision with a new ADR when changing or reversing it. For `managed_systems`, adding a column requires a dated amendment to ADR-0017 that updates the column list and audit detail; changing the semantics of `id`, `slug`, or `external_key` requires a new ADR reopening ADR-0017.
+Update the owning Drizzle table in `apps/platform-api/src/db/schema/<schema>.ts`, and update the wire contract separately: use `packages/feature-shared/src/<entity>/` where that shared schema exists; otherwise update the module's `routes.ts` request schemas and the frontend `apps/feature-screens/src/lib/api/<entity>.ts` request types/response DTO. Generate the SQL migration and Drizzle metadata with `pnpm --filter @ap/platform-api db:generate`; if SQL is hand-written, follow [Migration Naming](#migration-naming) for the journal registration and snapshot refresh—never hand-edit `apps/platform-api/migrations/meta/*.json`—and run `pnpm gate:db-migration-drift`. If the table uses column-level privileges, add the new column to the corresponding column-level grant for `fops_app` in the same migration; do not widen it to a table-level grant. Then update the owning service and required audit detail, the consuming UI, and the affected design/API docs in the same change. For example, `apps/platform-api/src/db/schema/core.ts` defines the Drizzle table, `apps/platform-api/migrations/0005_slice2_registry.sql` creates `core.managed_systems`, `apps/platform-api/src/modules/managed-systems/routes.ts` defines its request schemas, `apps/feature-screens/src/lib/api/managed-systems.ts` defines its wire DTO, `apps/platform-api/src/modules/managed-systems/managed-system-service.ts` persists and audits it, `packages/feature-shared/src/audit/managed-system.ts` defines the audit detail schema (a column missing there is silently dropped from the audit snapshot), and `apps/feature-screens/src/features/admin/managed-systems/ManagedSystemsScreen.tsx` exposes it. Amend an ADR when recording a compatible addition that leaves its decision in force; reopen the decision with a new ADR when changing or reversing it. For `managed_systems`, adding a column requires a dated amendment to ADR-0017 that updates the column list and audit detail; changing the semantics of `id`, `slug`, or `external_key` requires a new ADR reopening ADR-0017.
 
 ## Rich Content And Attachments
 
@@ -274,7 +274,7 @@ migration and the TS schema agree: apply all migrations to a
 scratch database and compare it with the TS-derived snapshot (tables, columns,
 nullability, defaults, indexes, FKs) *before* adopting a newly generated snapshot
 as the baseline — otherwise a TS change the migration never applied is silently
-blessed. Then run `pnpm --filter backend db:generate` into a scratch copy, keep
+blessed. Then run `pnpm --filter @ap/platform-api db:generate` into a scratch copy, keep
 only the new meta snapshot renamed to the latest journal index, and discard the
 generated SQL/journal change. The gate prints this instruction when it detects
 drift and the newest journal entry has no snapshot.
@@ -389,7 +389,7 @@ is idempotent because it targets only currently `internal_only` rows.
 
 ## Seed Data
 
-The seed is a separate, idempotent command (`pnpm --filter @fops/backend db:seed`,
+The seed is a separate, idempotent command (`pnpm --filter @ap/platform-api db:seed`,
 `apps/platform-api/src/seed/index.ts`), not part of a migration. It seeds:
 
 ```text
@@ -404,7 +404,7 @@ The seed is a separate, idempotent command (`pnpm --filter @fops/backend db:seed
 
 Core/personas modes do not seed Findings, Evidence Highlights, Task Requests, Tasks, Surveys, or Dashboard rows.
 
-- `SEED_MODE=scale pnpm --filter @fops/backend db:seed` is for throwaway preview DBs only. It includes personas and adds 40 reporters, 5,000 VOCs, 5,000 Tasks, 300 Findings, 250 Task Requests, 60 Clusters and 25 Milestones across Tableau/Power BI, with five years of history, evidence links and memberships. Existing baseline/preview rows survive. The cohort and reserved `fops-preview-scale-complete` actor marker commit atomically; stable IDs and per-group deduplication permit partial-cohort retries when the marker is absent. Scale creates no Survey data; it inserts one VOC Evidence Highlight per `evidence_of` VOC, so `evidence_count` equals both the link count and the highlight-row count.
+- `SEED_MODE=scale pnpm --filter @ap/platform-api db:seed` is for throwaway preview DBs only. It includes personas and adds 40 reporters, 5,000 VOCs, 5,000 Tasks, 300 Findings, 250 Task Requests, 60 Clusters and 25 Milestones across Tableau/Power BI, with five years of history, evidence links and memberships. Existing baseline/preview rows survive. The cohort and reserved `fops-preview-scale-complete` actor marker commit atomically; stable IDs and per-group deduplication permit partial-cohort retries when the marker is absent. Scale creates no Survey data; it inserts one VOC Evidence Highlight per `evidence_of` VOC, so `evidence_count` equals both the link count and the highlight-row count.
 
 ## Permission close-out migration contract (ADR-0066; migration 0058 applied)
 

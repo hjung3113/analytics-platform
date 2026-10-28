@@ -34,7 +34,7 @@ import {
   type CoverageMetricId,
   type CoverageThresholdPair,
   type CoverageThresholds,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 
 import {
   type PermissionSelfApproval,

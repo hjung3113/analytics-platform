@@ -1,6 +1,6 @@
 // Router-free home of the search validation pieces the VOC, Task, Findings and 연동 search schemas need (the recovery queue fields included). The
 // bridge entry graph bans `lib/router/**`, so they live here and `lib/router/{search,recovery-search}.ts` re-export them.
-import { recoveryCategorySchema } from '@fops/shared';
+import { recoveryCategorySchema } from '@ap/feature-shared';
 import { z } from 'zod';
 
 /** Keeps valid route-search fields and drops invalid or unrecognized URL values. */

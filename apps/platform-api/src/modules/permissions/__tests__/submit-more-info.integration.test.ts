@@ -4,7 +4,7 @@ import { deleteRecoveryFixtureParents } from '../../../test-support/recovery-fix
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-import { type Capability, isSensitiveCapability } from '@fops/shared';
+import { type Capability, isSensitiveCapability } from '@ap/feature-shared';
 import { loadConfig } from '../../../config.js';
 import { type DbHandle, createDb } from '../../../db/client.js';
 import { SESSION_COOKIE_NAME } from '../../../middleware/require-session.js';

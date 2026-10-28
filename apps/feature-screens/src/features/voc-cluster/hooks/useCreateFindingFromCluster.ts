@@ -5,7 +5,7 @@ import { apiClient } from '@/lib/api/client';
 import type { ApiError } from '@/lib/api/types';
 import { invalidateNavCounts } from '@/lib/query/navCounts';
 import { invalidateRecovery } from '@/lib/query/recovery';
-import type { CreateFindingRequest, FindingDto } from '@fops/shared';
+import type { CreateFindingRequest, FindingDto } from '@ap/feature-shared';
 import { type UseMutationResult, useMutation, useQueryClient } from '@tanstack/react-query';
 
 export interface CreateFindingFromClusterVariables {

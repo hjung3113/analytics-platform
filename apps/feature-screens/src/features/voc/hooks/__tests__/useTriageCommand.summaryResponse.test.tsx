@@ -10,7 +10,7 @@ import {
   vocDetailEnvelopeSchema,
   vocListItemSchema,
   vocSummaryEnvelopeSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import { COMPENSATE_FAILURE_TOAST } from '../../lib/triage-error-policy';
 import type { TriageInput } from '../../lib/triage-types';
 import { useTriageCommand } from '../useTriageCommand';

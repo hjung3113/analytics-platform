@@ -17,7 +17,7 @@ import { randomUUID } from 'node:crypto';
 import { deleteRecoveryFixtureParents } from '../../test-support/recovery-fixtures.js';
 import { insertSurveyFindingFixture } from '../../test-support/survey-finding-fixtures.js';
 
-import { getRatingBandForValue } from '@fops/shared';
+import { getRatingBandForValue } from '@ap/feature-shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { type DbHandle, createDb } from '../client.js';

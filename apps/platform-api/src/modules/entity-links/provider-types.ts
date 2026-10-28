@@ -3,7 +3,7 @@ import type {
   EntityLinkRef,
   EntityLinkTargetSummary,
   TaskReporterSummary,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 
 import type { Db } from '../../db/client.js';
 import type { CheckService } from '../permissions/check-service.js';

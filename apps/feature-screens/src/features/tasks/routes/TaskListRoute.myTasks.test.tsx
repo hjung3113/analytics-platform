@@ -1,6 +1,6 @@
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { TasksRouteView } from '@/test/screen-host/routes/_authed/tasks';
-import { type TaskDto, listTasksQuerySchema } from '@fops/shared';
+import { type TaskDto, listTasksQuerySchema } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type * as React from 'react';

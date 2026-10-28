@@ -1,7 +1,7 @@
 import type { ComponentProps } from 'react';
-import { FoDetailDrawer, FoScreenPage, milestonesRoute, useMilestonesHere, useMilestonesSearch } from '@ap/fo-bridge';
-import { MilestonesScreen } from '@fops/frontend/operator-screens/milestones';
-import { isTasksSearchValueValid } from '@fops/frontend/operator-screens/tasks-search';
+import { FoDetailDrawer, FoScreenPage, milestonesRoute, useMilestonesHere, useMilestonesSearch } from '@ap/feature-bridge';
+import { MilestonesScreen } from '@ap/feature-screens/operator-screens/milestones';
+import { isTasksSearchValueValid } from '@ap/feature-screens/operator-screens/tasks-search';
 
 /** The screen owns the close (the dirty-draft guard lives in `requestClose`), so the drawer's close is `requestClose`. Unkeyed: detail and create parts are different slot components, so each remounts anyway. */
 const renderDetail: ComponentProps<typeof MilestonesScreen>['renderDetail'] = parts => <FoDetailDrawer parts={parts} onClose={parts.requestClose} />;

@@ -1,10 +1,10 @@
-import { Button, FieldLabel, Textarea } from '@ap/ui';
 import {
   type CreateTaskRequestRequest,
   type TaskRequestSourceType,
   createTaskRequestRequestSchema,
-} from '@fops/shared';
-import { OutlineBadge } from '@fops/ui';
+} from '@ap/feature-shared';
+import { OutlineBadge } from '@ap/feature-ui';
+import { Button, FieldLabel, Textarea } from '@ap/ui';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowRight, Check, ClipboardList, X } from 'lucide-react';

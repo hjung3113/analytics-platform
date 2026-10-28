@@ -1,4 +1,4 @@
-import type { SimilarityPreviewResponse } from '@fops/shared';
+import type { SimilarityPreviewResponse } from '@ap/feature-shared';
 import { sql } from 'drizzle-orm';
 import type { Db } from '../../../db/client.js';
 import type { Tx } from '../../../db/tx.js';

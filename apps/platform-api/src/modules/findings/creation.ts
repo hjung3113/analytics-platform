@@ -3,7 +3,7 @@ import {
   type CreateFindingRequest,
   type FindingDto,
   registeredEntityLinkPairSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import { lockRecoveryCommand } from '../../db/recovery-command-lock.js';
 import { HttpError } from '../../lib/errors.js';
 import { assertActiveAnalyticsAreaForManagedSystem } from '../analytics-areas/index.js';

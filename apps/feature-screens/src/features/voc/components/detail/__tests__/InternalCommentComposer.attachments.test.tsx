@@ -45,7 +45,7 @@ import {
 import * as attachmentsApi from '@/lib/api/attachments';
 import { ApiError } from '@/lib/api/types';
 import type { MeResponse } from '@/lib/auth/useMe';
-import type { VocDetailEnvelope } from '@fops/shared';
+import type { VocDetailEnvelope } from '@ap/feature-shared';
 import { InternalCommentComposer } from '../InternalCommentComposer';
 
 const ADMIN_ID = '00000000-0000-0000-0000-000000000002';

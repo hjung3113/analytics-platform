@@ -1,6 +1,6 @@
 import { ME_QUERY_KEY } from '@/lib/auth/useMe';
 import { TriageRoute } from '@/test/screen-host/features/voc/routes/TriageRoute';
-import type { VocListItem } from '@fops/shared';
+import type { VocListItem } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   RouterProvider,

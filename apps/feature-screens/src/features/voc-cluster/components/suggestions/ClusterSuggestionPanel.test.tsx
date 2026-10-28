@@ -1,4 +1,4 @@
-import { vocClusterSuggestionItemSchema } from '@fops/shared';
+import { vocClusterSuggestionItemSchema } from '@ap/feature-shared';
 import {
   RouterContextProvider,
   createMemoryHistory,

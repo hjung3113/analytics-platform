@@ -1,6 +1,6 @@
 import { GLOSSARY } from '@/lib/copy/glossary';
+import type { MilestoneDetailDto } from '@ap/feature-shared';
 import { DetailPanelSectionNav, EmptyState, NestedTextBlock, ProgressMeter } from '@ap/ui';
-import type { MilestoneDetailDto } from '@fops/shared';
 import type * as React from 'react';
 
 import { MilestonePanelSectionTitle } from '../MilestoneIdentity';

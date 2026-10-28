@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
-import { milestonesRoute, myTasksRoute, taskBoardRoute, taskListRoute, taskRequestsRoute } from '@ap/fo-bridge';
+import { milestonesRoute, myTasksRoute, taskBoardRoute, taskListRoute, taskRequestsRoute } from '@ap/feature-bridge';
 import { manifests } from './index';
 
 const ROUTES = { 'fo-task-requests': taskRequestsRoute, 'fo-tasks': taskBoardRoute, 'fo-my-tasks': myTasksRoute, 'fo-milestones': milestonesRoute, 'fo-task-list': taskListRoute };

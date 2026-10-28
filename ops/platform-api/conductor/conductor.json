@@ -272,7 +272,7 @@
         "copy_to": ".review/env.verify",
         "task_lines": [
           "Your own throwaway database (port 5439, never 5434): run only the integration files you added or touched, from the repo root, with",
-          "`FEEDBACKOPS_ENV_FILE={worktree}/.review/env.verify pnpm --filter backend test:integration <paths relative to apps/platform-api>`."
+          "`FEEDBACKOPS_ENV_FILE={worktree}/.review/env.verify pnpm --filter @ap/platform-api test:integration <paths relative to apps/platform-api>`."
         ]
       }
     }

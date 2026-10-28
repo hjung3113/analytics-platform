@@ -1,4 +1,4 @@
-import type { ListSurveysQuery, SurveyQuestionKind, SurveyType } from '@fops/shared';
+import type { ListSurveysQuery, SurveyQuestionKind, SurveyType } from '@ap/feature-shared';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Db } from '../../db/client.js';

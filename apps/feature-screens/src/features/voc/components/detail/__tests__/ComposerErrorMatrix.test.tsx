@@ -80,7 +80,7 @@ vi.mock('@/features/voc/hooks/useVocInternalCommentMutation', () => ({
 }));
 
 import type { MeResponse } from '@/lib/auth/useMe';
-import type { VocDetailEnvelope } from '@fops/shared';
+import type { VocDetailEnvelope } from '@ap/feature-shared';
 import { toast } from 'sonner';
 import { InternalCommentComposer } from '../InternalCommentComposer';
 import { PublicUpdateComposer } from '../PublicUpdateComposer';

@@ -1,6 +1,6 @@
 import { SURVEY_TYPE_LABELS } from '@/lib/copy/enum-labels';
 import { HostLink, useHostSeam } from '@/lib/host/host-seam';
-import type { OutcomeFollowUpReadDto } from '@fops/shared';
+import type { OutcomeFollowUpReadDto } from '@ap/feature-shared';
 import type { Survey } from '../../types';
 import { SurveyStatusBadge } from '../SurveyStatusBadge';
 

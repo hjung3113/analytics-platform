@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { deleteRecoveryFixtureParents } from '../../../test-support/recovery-fixtures.js';
 
-import { answerableSurveysResponseSchema } from '@fops/shared';
+import { answerableSurveysResponseSchema } from '@ap/feature-shared';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 

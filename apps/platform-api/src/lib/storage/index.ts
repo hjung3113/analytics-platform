@@ -9,7 +9,7 @@
 // (lands in C3a together with the shared `ErrorCode` enum update). At the
 // library boundary we raise `StorageUnavailableError`; the route catches and
 // re-throws as `HttpError('storage.unavailable', ...)`. This keeps the
-// storage lib free of `@fops/shared` HTTP-envelope concerns.
+// storage lib free of `@ap/feature-shared` HTTP-envelope concerns.
 
 import type { Readable } from 'node:stream';
 

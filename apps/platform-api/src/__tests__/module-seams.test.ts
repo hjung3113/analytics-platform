@@ -6,7 +6,7 @@
  *      repo (`findings/repo`, `findings/repo-read`, `entity-links/repo`,
  *      `task-requests/repo`, `tasks/repo`, `milestones/repo`) — cross-module
  *      access goes through the owning module's application seam (`commands.ts`)
- *      or the shared list contracts in `@fops/shared`.
+ *      or the shared list contracts in `@ap/feature-shared`.
  *   2. No application file under modules/ (anything but `routes.ts` and
  *      `index.ts` barrels) may import a `routes` module (HTTP modules are
  *      not contracts).

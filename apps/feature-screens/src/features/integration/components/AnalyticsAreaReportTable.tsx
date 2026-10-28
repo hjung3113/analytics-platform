@@ -1,6 +1,6 @@
 import { AREA_REPORT_COPY as COPY } from '@/lib/copy/area-report';
 import { HostLink, useHostSeam } from '@/lib/host/host-seam';
-import type { AreaReportLink, DashboardAreaReport } from '@fops/shared';
+import type { AreaReportLink, DashboardAreaReport } from '@ap/feature-shared';
 import { formatRecoveryTime } from '../recovery/RecoveryFreshness';
 
 type Row = DashboardAreaReport['items'][number];

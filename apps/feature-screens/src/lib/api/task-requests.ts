@@ -1,14 +1,14 @@
-import { taskRequestDtoSchema } from '@fops/shared';
-import type { ListTaskRequestsResponse } from '@fops/shared';
+import { taskRequestDtoSchema } from '@ap/feature-shared';
+import type { ListTaskRequestsResponse } from '@ap/feature-shared';
 import { apiRequest } from './client';
-export type { ListTaskRequestsResponse } from '@fops/shared';
+export type { ListTaskRequestsResponse } from '@ap/feature-shared';
 import type {
   ApproveTaskRequestRequest,
   RejectTaskRequestRequest,
   RequestMoreEvidenceTaskRequestRequest,
   TaskRequestDto,
   TaskRequestStatus,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 
 import { apiClient } from './client';
 
@@ -91,7 +91,7 @@ export async function getTaskRequest(id: string, signal?: AbortSignal): Promise<
 
 export async function assignTaskRequestReviewer(
   id: string,
-  body: import('@fops/shared').AssignTaskRequestReviewerRequest,
+  body: import('@ap/feature-shared').AssignTaskRequestReviewerRequest,
   idempotencyKey: string,
 ) {
   const response = await apiRequest('POST', `/task-requests/${id}/reviewer`, taskRequestDtoSchema, {

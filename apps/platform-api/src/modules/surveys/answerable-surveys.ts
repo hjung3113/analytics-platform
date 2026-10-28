@@ -1,4 +1,4 @@
-import { answerableSurveysResponseSchema } from '@fops/shared';
+import { answerableSurveysResponseSchema } from '@ap/feature-shared';
 
 import { decodeAnswerableSurveysCursor, listMyAnswerableSurveys } from './repo-read.js';
 import type { SurveysActor, SurveysServiceDeps } from './service.js';

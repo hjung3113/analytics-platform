@@ -1,7 +1,7 @@
 import { getTask, listTasks, updateTaskStatus } from '@/lib/api/tasks';
 import { ApiError } from '@/lib/api/types';
 import { TaskBoardRoute } from '@/test/screen-host/features/tasks/routes/TaskBoardRoute';
-import type { TaskStatus } from '@fops/shared';
+import type { TaskStatus } from '@ap/feature-shared';
 import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import * as React from 'react';
@@ -94,8 +94,8 @@ vi.mock('@ap/ui', async () => {
     ),
   };
 });
-vi.mock('@fops/ui', async () => {
-  const actual = await vi.importActual<typeof import('@fops/ui')>('@fops/ui');
+vi.mock('@ap/feature-ui', async () => {
+  const actual = await vi.importActual<typeof import('@ap/feature-ui')>('@ap/feature-ui');
   const react = await vi.importActual<typeof import('react')>('react');
   return {
     ...actual,

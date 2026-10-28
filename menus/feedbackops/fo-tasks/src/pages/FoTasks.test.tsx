@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
-import { setFoApi } from '@ap/fo-bridge/fo-api';
+import { setFoApi } from '@ap/feature-bridge/fo-api';
 import { useHostSeam } from '@/lib/host/host-seam';
 import { mountAt, warmPages } from '../test-support';
 
@@ -17,14 +17,14 @@ const fo = vi.hoisted(() => ({
   requestClose: vi.fn(),
   milestoneRenders: [] as ((parts: Record<string, unknown>) => ReactNode)[],
 }));
-vi.mock('@fops/frontend/operator-screens/task-list', () => ({
+vi.mock('@ap/feature-screens/operator-screens/task-list', () => ({
   TaskListScreen: (props: { view: string; autoSelect: boolean; renderDetail: () => unknown }) => {
     fo.list.push(props);
     const seam = useHostSeam();
     return <div data-testid="list" data-view={props.view} data-here={seam.useHere!()} />;
   },
 }));
-vi.mock('@fops/frontend/operator-screens/task-board', () => ({
+vi.mock('@ap/feature-screens/operator-screens/task-board', () => ({
   TaskBoardScreen: (props: { renderDetail: (id: string, options: Record<string, unknown>) => ReactNode }) => {
     const [selected, setSelected] = useState<string | null>(null);
     const seam = useHostSeam();
@@ -34,7 +34,7 @@ vi.mock('@fops/frontend/operator-screens/task-board', () => ({
     </div>;
   },
 }));
-vi.mock('@fops/frontend/operator-screens/task-requests', () => ({
+vi.mock('@ap/feature-screens/operator-screens/task-requests', () => ({
   TaskRequestsScreen: (props: { autoSelect: boolean; renderDetail: (parts: Record<string, unknown>) => ReactNode }) => {
     fo.requests.push(props);
     const seam = useHostSeam();
@@ -44,7 +44,7 @@ vi.mock('@fops/frontend/operator-screens/task-requests', () => ({
     </div>;
   },
 }));
-vi.mock('@fops/frontend/operator-screens/milestones', () => ({
+vi.mock('@ap/feature-screens/operator-screens/milestones', () => ({
   MilestonesScreen: (props: { renderDetail: (parts: Record<string, unknown>) => ReactNode }) => {
     const [creating, setCreating] = useState(false);
     const seam = useHostSeam();
@@ -59,7 +59,7 @@ vi.mock('@fops/frontend/operator-screens/milestones', () => ({
     </div>;
   },
 }));
-vi.mock('@fops/frontend/operator-screens/task-detail', () => ({
+vi.mock('@ap/feature-screens/operator-screens/task-detail', () => ({
   useWorkspaceActors: () => ({ actors: [{ id: 'actor-1', display_name: '김담당' }] }),
   useTaskManagedSystemNames: () => new Map([['sys-1', '시스템 하나']]),
   useTaskDetailParts: (args: { taskId: string; onClose: () => void; actorNamesById: ReadonlyMap<string, string>; hasActionFooter?: boolean; onMoveToNextStatus?: (id: string) => void }) => {

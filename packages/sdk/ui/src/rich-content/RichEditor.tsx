@@ -23,7 +23,7 @@ export type RichEditorSurface =
 
 /**
  * Result of a successful attachment upload — the strict envelope returned
- * by POST /attachments (mirrors @fops/shared AttachmentCreated, kept loose
+ * by POST /attachments (mirrors @ap/feature-shared AttachmentCreated, kept loose
  * here so packages/sdk/ui has no shared-domain import). PLAN-22 C8.
  */
 export interface RichEditorAttachmentResult {

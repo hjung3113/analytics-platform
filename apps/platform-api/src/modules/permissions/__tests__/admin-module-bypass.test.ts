@@ -5,7 +5,7 @@
 // domain module would answer. These tests pin the per-capability rule table
 // declared in `CAPABILITY_META.adminModuleBypass`.
 
-import { CAPABILITIES, type Capability } from '@fops/shared';
+import { CAPABILITIES, type Capability } from '@ap/feature-shared';
 import { describe, expect, it } from 'vitest';
 
 import { type Decision, applyAdminModuleBypass } from '../check-service.js';

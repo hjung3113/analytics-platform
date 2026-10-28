@@ -1,4 +1,4 @@
-import type { VocFollowUpState } from '@fops/shared';
+import type { VocFollowUpState } from '@ap/feature-shared';
 import { and, eq, sql } from 'drizzle-orm';
 import { vocNoFollowUpDecisions, vocs } from '../../db/schema/voc.js';
 import type { Tx } from '../../db/tx.js';

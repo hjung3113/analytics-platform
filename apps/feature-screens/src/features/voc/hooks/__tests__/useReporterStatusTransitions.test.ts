@@ -1,10 +1,10 @@
 // useReporterStatusTransitions.test.ts — TDD RED
 // C4.1: hook reads voc.next_reporter_states + voc.reporter_status_gate.
 
+import type { VocDetailEnvelope } from '@ap/feature-shared';
+import { renderHook } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { useReporterStatusTransitions } from '../useReporterStatusTransitions';
-import type { VocDetailEnvelope } from '@fops/shared';
-import { renderHook } from '@testing-library/react';
 
 // ── base envelope matching the shape defined in packages/feature-shared (reporter_status_gate is optional)
 

@@ -2,8 +2,8 @@ import type { ReactNode } from 'react';
 import { SearchX } from 'lucide-react';
 import { useI18n, usePlatform } from '@ap/kernel';
 import { PlatformPage, StateMessage } from '@ap/components';
-import { FoScreenPage, UUID_PATTERN, type OperatorRoute } from '@ap/fo-bridge';
-import { isSurveyDetailSearchValueValid } from '@fops/frontend/operator-screens/surveys-search';
+import { FoScreenPage, UUID_PATTERN, type OperatorRoute } from '@ap/feature-bridge';
+import { isSurveyDetailSearchValueValid } from '@ap/feature-screens/operator-screens/surveys-search';
 
 /** The list-context page keys the children carry back to the list (`managedSystem` rides on the space). */
 const LIST_CONTEXT_KEYS = ['area', 'status', 'follow_up'] as const;

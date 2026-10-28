@@ -14,7 +14,7 @@ beforeAll(registerNoticeHost);
 
 import { useVocDetail } from '@/lib/cross-system/useVocDetail';
 import { type HostSeam, HostSeamProvider, useHostSeam } from '@/lib/host/host-seam';
-import type { VocDetailEnvelope, VocListItem } from '@fops/shared';
+import type { VocDetailEnvelope, VocListItem } from '@ap/feature-shared';
 import { toast } from 'sonner';
 import { TriagePanel } from '../TriagePanel';
 

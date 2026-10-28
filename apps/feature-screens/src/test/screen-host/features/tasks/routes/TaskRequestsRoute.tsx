@@ -7,7 +7,7 @@ import {
   useHostSeam,
 } from '@/lib/host/host-seam';
 import type { HostSearch } from '@/lib/host/search';
-import { useDetailPanelSlot } from '@fops/ui';
+import { useDetailPanelSlot } from '@ap/feature-ui';
 import { useNavigate } from '@tanstack/react-router';
 import * as React from 'react';
 

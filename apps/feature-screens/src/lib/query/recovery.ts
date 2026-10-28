@@ -1,4 +1,4 @@
-import type { RecoveryCategory } from '@fops/shared';
+import type { RecoveryCategory } from '@ap/feature-shared';
 import type { QueryClient } from '@tanstack/react-query';
 
 export const RECOVERY_QUERY_KEY = ['recovery'] as const;

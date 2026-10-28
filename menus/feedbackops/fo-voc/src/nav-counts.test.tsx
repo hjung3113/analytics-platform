@@ -4,9 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider } from '@ap/kernel';
 import { memoryStorage, testAdapter, testSession } from '@ap/kernel/testing';
 import { spaceId } from '@ap/contracts';
-import { foQueryClient } from '@ap/fo-bridge';
-import { setFoApi } from '@ap/fo-bridge/fo-api';
-import { navCountsSlot } from '@ap/fo-bridge/nav-counts';
+import { foQueryClient } from '@ap/feature-bridge';
+import { setFoApi } from '@ap/feature-bridge/fo-api';
+import { navCountsSlot } from '@ap/feature-bridge/nav-counts';
 import { invalidateNavCounts } from '@/lib/query/navCounts';
 import { registry } from './test-support';
 

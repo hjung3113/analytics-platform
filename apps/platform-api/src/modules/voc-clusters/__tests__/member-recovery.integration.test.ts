@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { recoveryDetailSchema, recoveryListSchema } from '@fops/shared';
+import { recoveryDetailSchema, recoveryListSchema } from '@ap/feature-shared';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { loadConfig } from '../../../config.js';

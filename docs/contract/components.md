@@ -32,7 +32,7 @@ EquipmentDeactivateButton
 
 ### UI Primitive
 
-shadcn/ui + Radix 조합은 [04 프론트엔드 기술 스택](../architecture/frontend-ui-ux.md#프론트엔드-기술-스택-decided-2026-09-25)에서 Decided(2026-09-25)다. 구현은 FeedbackOps `@fops/ui` 원본을 `@ap/ui`가 재수출한다(복사·이식하지 않는다, [ADR-0010](../adr/0010-feedbackops-design-system-shared-on-tailwind-v4.md)·[0011](../adr/0011-design-direction-feedbackops-shell.md)). 예외: 탭 선택 표식을 위해 `TabsList`·`TabsTrigger`만 `@ap/ui`가 FeedbackOps 부품을 감싸 정의한다([ADR-0023 개정](../adr/0023-feedbackops-primitive-shapes-and-sizes.md#개정--탭-선택-표식-2026-10-15)). 아래 primitive 역할 예시는 그 구체 컴포넌트 매핑까지 확정하는 것은 아니다.
+shadcn/ui + Radix 조합은 [04 프론트엔드 기술 스택](../architecture/frontend-ui-ux.md#프론트엔드-기술-스택-decided-2026-09-25)에서 Decided(2026-09-25)다. 구현은 FeedbackOps `@ap/feature-ui` 원본을 `@ap/ui`가 재수출한다(복사·이식하지 않는다, [ADR-0010](../adr/0010-feedbackops-design-system-shared-on-tailwind-v4.md)·[0011](../adr/0011-design-direction-feedbackops-shell.md)). 예외: 탭 선택 표식을 위해 `TabsList`·`TabsTrigger`만 `@ap/ui`가 FeedbackOps 부품을 감싸 정의한다([ADR-0023 개정](../adr/0023-feedbackops-primitive-shapes-and-sizes.md#개정--탭-선택-표식-2026-10-15)). 아래 primitive 역할 예시는 그 구체 컴포넌트 매핑까지 확정하는 것은 아니다.
 
 예:
 
@@ -373,7 +373,7 @@ Unknown
 
 ### Token value source (Decided — ADR-0011)
 
-공유 색·반경·간격·폰트·본문 값의 원본은 플랫폼이다: [tokens.css](../../packages/sdk/ui/src/styles/tokens.css)·[semantic.css](../../packages/sdk/ui/src/styles/semantic.css)·[theme.css](../../packages/sdk/ui/src/styles/theme.css)·[compat.css](../../packages/sdk/ui/src/styles/compat.css)는 FeedbackOps `a8d768b8`에서 `@ap/ui`로 옮겼고([ADR-0046](../adr/0046-design-system-source-moves-to-platform-whole-package.md), #441) 값은 그대로다. 소비 순서·본문·레이어 없는 webfont 규칙은 [FO ADR-0058](../feedbackops/adr/0058-tailwind-v4-css-first-theme.md) §2(이전 시점의 설명)를 따른다. FeedbackOps `@fops/ui`는 소비 전환 전까지 FeedbackOps에 그대로 남는 별개의 사본이다. 플랫폼이 별도 값 스케일을 만들지 않는다([ADR-0011](../adr/0011-design-direction-feedbackops-shell.md)).
+공유 색·반경·간격·폰트·본문 값의 원본은 플랫폼이다: [tokens.css](../../packages/sdk/ui/src/styles/tokens.css)·[semantic.css](../../packages/sdk/ui/src/styles/semantic.css)·[theme.css](../../packages/sdk/ui/src/styles/theme.css)·[compat.css](../../packages/sdk/ui/src/styles/compat.css)는 FeedbackOps `a8d768b8`에서 `@ap/ui`로 옮겼고([ADR-0046](../adr/0046-design-system-source-moves-to-platform-whole-package.md), #441) 값은 그대로다. 소비 순서·본문·레이어 없는 webfont 규칙은 [FO ADR-0058](../feedbackops/adr/0058-tailwind-v4-css-first-theme.md) §2(이전 시점의 설명)를 따른다. FeedbackOps `@ap/feature-ui`는 소비 전환 전까지 FeedbackOps에 그대로 남는 별개의 사본이다. 플랫폼이 별도 값 스케일을 만들지 않는다([ADR-0011](../adr/0011-design-direction-feedbackops-shell.md)).
 
 플랫폼 전용 theme 키·차트/카테고리/아이콘 색·`t-*` 역할·반응형/detail-panel 확장과 label/control pairing의 설계 원본은 [DESIGN 플랫폼 확장](../../DESIGN.md#platform-extension-layer) 및 [허용 전경/표면](../../DESIGN.md#allowed-foregroundsurface-pairs)이다. `packages/sdk/ui/src/styles/`는 그 구현을 소유한다(플랫폼 확장 값은 `platform-tokens.css`). 제거된 어두운 navigation 확장은 다시 도입하지 않는다.
 

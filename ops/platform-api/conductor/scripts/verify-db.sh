@@ -112,7 +112,7 @@ run_migration() {
     set -a
     . "$env_file"
     set +a
-    pnpm --filter @fops/backend db:migrate
+    pnpm --filter @ap/platform-api db:migrate
   ) >"$log" 2>&1
   local code=$?
   cat "$log"

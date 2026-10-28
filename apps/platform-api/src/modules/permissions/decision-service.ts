@@ -19,7 +19,7 @@ import {
   type RejectPermissionRequest,
   isCapability,
   isSensitiveCapability,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 
 import type { Db } from '../../db/client.js';
 import { permissionDenies, permissionRequests } from '../../db/schema/permission.js';

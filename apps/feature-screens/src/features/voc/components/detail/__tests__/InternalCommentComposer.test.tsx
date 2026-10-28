@@ -59,7 +59,7 @@ vi.mock('@ap/ui', async (importActual) => {
 });
 
 import type { MeResponse } from '@/lib/auth/useMe';
-import { type VocDetailEnvelope, internalCommentRequestSchema } from '@fops/shared';
+import { type VocDetailEnvelope, internalCommentRequestSchema } from '@ap/feature-shared';
 import { InternalCommentComposer } from '../InternalCommentComposer';
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────

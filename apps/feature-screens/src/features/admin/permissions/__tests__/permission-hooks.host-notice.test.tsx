@@ -17,7 +17,7 @@ import { errorMapper, mapUnknownError } from '@/lib/api/errorMapper';
 import { ApiError } from '@/lib/api/types';
 import { ADMIN_PERMISSIONS_COPY } from '@/lib/copy/admin-permissions';
 import { type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
-import type { DirectPermissionGrant, PermissionGrantAdminItem } from '@fops/shared';
+import type { DirectPermissionGrant, PermissionGrantAdminItem } from '@ap/feature-shared';
 import { useDirectPermissionGrant } from '../useDirectPermissionGrant';
 import { useRevokePermission } from '../useRevokePermission';
 

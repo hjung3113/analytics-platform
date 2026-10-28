@@ -1,7 +1,7 @@
 import { mapUnknownError } from '@/lib/api/errorMapper';
 import { updateMilestone } from '@/lib/api/milestones';
 import { ApiError } from '@/lib/api/types';
-import type { MilestoneDetailDto, MilestoneDto, MilestoneStatusFilter } from '@fops/shared';
+import type { MilestoneDetailDto, MilestoneDto, MilestoneStatusFilter } from '@ap/feature-shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
 

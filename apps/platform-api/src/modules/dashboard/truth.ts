@@ -109,7 +109,10 @@ export async function readRecoveryDiscoveryPage(
     sql` UNION ALL `,
   );
   const rows = (
-    await tx.execute<{ category: import('@fops/shared').RecoveryCategory; source_id: string }>(sql`
+    await tx.execute<{
+      category: import('@ap/feature-shared').RecoveryCategory;
+      source_id: string;
+    }>(sql`
     SELECT * FROM (${union}) sources WHERE ${after ? sql`(category,source_id)>(${after.category}::text,${after.sourceId}::uuid)` : sql`true`}
     ORDER BY category,source_id LIMIT ${limit + 1}`)
   ).rows;

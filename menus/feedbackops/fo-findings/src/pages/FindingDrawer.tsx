@@ -1,5 +1,5 @@
-import { FoDetailDrawer } from '@ap/fo-bridge';
-import { useFindingDetailParts } from '@fops/frontend/operator-screens/finding-detail';
+import { FoDetailDrawer } from '@ap/feature-bridge';
+import { useFindingDetailParts } from '@ap/feature-screens/operator-screens/finding-detail';
 
 /**
  * The Finding detail in the shell detail slot. It renders inside `FoBridge` (the FeedbackOps providers) and portals into the slot through `FoDetailDrawer`;

@@ -11,7 +11,7 @@ import {
   type EntityLinkEntityType,
   type EntityLinkRelationType,
   registeredEntityLinkPairs,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 
 import { loadConfig } from '../../../config.js';
 import { type DbHandle, createDb } from '../../../db/client.js';

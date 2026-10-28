@@ -1,6 +1,6 @@
 # Frontend Documentation
 
-Frontend docs translate product intent into implementable UI contracts. Since #597, `@fops/frontend` is a screen library mounted by the platform; it has no standalone Vite app, file-route tree, login shell, deployable frontend image, or visual runner. Its 36 public entries and feature behavior remain. The platform supplies navigation, session, permissions, notifications and detail hosting through the bridge. Tests use screen/bridge hosts; route generation is retired.
+Frontend docs translate product intent into implementable UI contracts. Since #597, `@ap/feature-screens` is a screen library mounted by the platform; it has no standalone Vite app, file-route tree, login shell, deployable frontend image, or visual runner. Its 36 public entries and feature behavior remain. The platform supplies navigation, session, permissions, notifications and detail hosting through the bridge. Tests use screen/bridge hosts; route generation is retired.
 
 Surface specs live under `docs/frontend/specs/`:
 

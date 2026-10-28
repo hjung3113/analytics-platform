@@ -1,4 +1,4 @@
-import type { EntityLinkDto } from '@fops/shared';
+import type { EntityLinkDto } from '@ap/feature-shared';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 

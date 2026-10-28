@@ -1,7 +1,7 @@
 // Reporter VOC description edit command and its idempotent entry point.
 import { createHash, randomUUID } from 'node:crypto';
 
-import type { EditDescriptionRequest } from '@fops/shared';
+import type { EditDescriptionRequest } from '@ap/feature-shared';
 import type { Tx } from '../../../db/tx.js';
 import { HttpError } from '../../../lib/errors.js';
 import { stableStringify } from '../../../lib/json/stable-stringify.js';

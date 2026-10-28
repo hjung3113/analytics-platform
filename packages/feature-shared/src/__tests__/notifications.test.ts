@@ -6,7 +6,7 @@ import {
   notificationEventTypeSchema,
 } from '../index.js';
 
-describe('@fops/shared notifications API', () => {
+describe('@ap/feature-shared notifications API', () => {
   it('exports the event enum and list response schema', () => {
     expect(notificationEventTypeSchema.parse('task_request.needs_more_evidence')).toBe(
       'task_request.needs_more_evidence',

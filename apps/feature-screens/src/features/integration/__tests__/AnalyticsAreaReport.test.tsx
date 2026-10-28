@@ -2,7 +2,7 @@ import { HostSeamProvider } from '@/lib/host/host-seam';
 import { registerAnchorLinkHost } from '@/test/anchor-link-host';
 import { areaReportFixture, unclassifiedAreaReportFixture } from '@/test/fixtures/area-report';
 import { COVERAGE_IDS as IDS } from '@/test/fixtures/coverage';
-import { areaReportLink } from '@fops/shared';
+import { areaReportLink } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   Outlet,

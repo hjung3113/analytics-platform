@@ -1,7 +1,7 @@
 // PLAN-22 C9 RED — shared allowlist constants.
 // The shared layer is the single source of truth for per-surface node/mark/attr
 // allowlists. The backend imports and adapts it; the FE sanitizer mirrors it
-// locally because ADR-0016 forbids @fops/ui -> @fops/shared imports.
+// locally because ADR-0016 forbids @ap/feature-ui -> @ap/feature-shared imports.
 
 import { describe, expect, it } from 'vitest';
 
@@ -9,9 +9,9 @@ import {
   SHARED_ALLOWLISTS,
   SHARED_RICH_CONTENT_EXTENSION_CAPABILITIES,
   SHARED_SURFACES,
-  getExtensionsForSurface,
   type SharedAllowlists,
   type SharedSurface,
+  getExtensionsForSurface,
 } from '../allowlist.js';
 
 describe('shared rich-content allowlist', () => {

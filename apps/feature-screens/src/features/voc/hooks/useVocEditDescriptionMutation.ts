@@ -14,7 +14,7 @@
 
 import { apiClient } from '@/lib/api/client';
 import type { ApiError } from '@/lib/api/types';
-import type { EditDescriptionRequest } from '@fops/shared';
+import type { EditDescriptionRequest } from '@ap/feature-shared';
 import { type UseMutationResult, useMutation } from '@tanstack/react-query';
 
 // ── Mutation variables ─────────────────────────────────────────────────────

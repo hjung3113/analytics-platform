@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This inventory defines the reusable components that should exist before domain screens are built. The shipped FeedbackOps-owned `@fops/ui` export inventory is `packages/feature-ui/src/index.ts` (shared parts such as `EmptyState` and the shells come from `@ap/ui`); this document describes reusable component contracts and required states.
+This inventory defines the reusable components that should exist before domain screens are built. The shipped FeedbackOps-owned `@ap/feature-ui` export inventory is `packages/feature-ui/src/index.ts` (shared parts such as `EmptyState` and the shells come from `@ap/ui`); this document describes reusable component contracts and required states.
 
 Component ownership paths live in `docs/tech-stack/component-stack.md`.
 Screen mapping lives in `docs/frontend/ui-design-system.md`.
@@ -93,7 +93,7 @@ AuditTimeline
 
 ## Built Mapping
 
-Names in the primitive table and the composed list above are design-time names. This table maps them to what shipped; `packages/feature-ui/src/index.ts` is the inventory of the 18 FeedbackOps-owned `@fops/ui` exports only; SDK parts (shells, `ObjectRow`, `RichEditor`, panels, toolbars, forms) are exported from `@ap/ui` (`packages/sdk/ui/src/index.ts`).
+Names in the primitive table and the composed list above are design-time names. This table maps them to what shipped; `packages/feature-ui/src/index.ts` is the inventory of the 18 FeedbackOps-owned `@ap/feature-ui` exports only; SDK parts (shells, `ObjectRow`, `RichEditor`, panels, toolbars, forms) are exported from `@ap/ui` (`packages/sdk/ui/src/index.ts`).
 
 | Design-time name | Shipped as | Path |
 | --- | --- | --- |

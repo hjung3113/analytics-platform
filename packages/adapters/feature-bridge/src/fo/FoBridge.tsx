@@ -2,7 +2,7 @@ import { useMemo, type ComponentType, type ReactNode } from 'react';
 import { ServerOff } from 'lucide-react';
 import { UNDO_WINDOW_MS, useI18n, usePlatform } from '@ap/kernel';
 import { StateMessage } from '@ap/components';
-import { FoScreenRoot, type HostLinkProps, type HostNavigate, type HostNotice, type HostSearch, type HostSeam } from '@fops/frontend/global-screens/core';
+import { FoScreenRoot, type HostLinkProps, type HostNavigate, type HostNotice, type HostSearch, type HostSeam } from '@ap/feature-screens/global-screens/core';
 import type { TargetOf } from './links';
 import { isReachable } from './reachable';
 import { foQueryClient, useFoSession } from './session';

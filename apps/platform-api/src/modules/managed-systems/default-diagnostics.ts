@@ -3,7 +3,7 @@ import {
   type ResponsibilityDefaultFailure,
   managedSystemDefaultDiagnosticsSchema,
   responsibilityDefaultFailureSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import { managedSystems, responsibilityDefaultFailures } from '../../db/schema/core.js';
 import type { Tx } from '../../db/tx.js';

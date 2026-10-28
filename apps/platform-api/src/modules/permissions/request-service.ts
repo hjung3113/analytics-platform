@@ -40,7 +40,7 @@ import {
   type SubmitMoreInfoPermissionRequestResult,
   isCapability,
   isSensitiveCapability,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 
 import type { Db } from '../../db/client.js';
 import { permissionRequests } from '../../db/schema/permission.js';

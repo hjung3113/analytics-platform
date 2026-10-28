@@ -8,7 +8,7 @@ import {
   mySurveyResponsesResponseSchema,
   surveyRespondentFormDtoSchema,
   surveyResponseSubmissionSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider, focusManager } from '@tanstack/react-query';
 import {
   Outlet,

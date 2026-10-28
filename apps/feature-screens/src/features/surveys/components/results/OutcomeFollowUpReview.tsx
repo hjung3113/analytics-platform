@@ -6,6 +6,11 @@ import { SURVEY_QUESTION_KIND_LABELS } from '@/lib/copy/enum-labels';
 import { formatShortDate } from '@/lib/format/datetime';
 import type { ClosableDetailParts } from '@/lib/host/detail-parts';
 import { HostLink, useHostHere, useHostNotice, useHostSeam } from '@/lib/host/host-seam';
+import type {
+  OutcomeFollowUpItem,
+  OutcomeFollowUpReadDto,
+  SurveyResultDto,
+} from '@ap/feature-shared';
 import {
   Button,
   DetailPanelHeader,
@@ -19,7 +24,6 @@ import {
   ListShell,
   Textarea,
 } from '@ap/ui';
-import type { OutcomeFollowUpItem, OutcomeFollowUpReadDto, SurveyResultDto } from '@fops/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import {

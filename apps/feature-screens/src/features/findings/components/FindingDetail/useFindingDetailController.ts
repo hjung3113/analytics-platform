@@ -16,7 +16,7 @@ import { usePermissionCheckBridge } from '@/lib/cross-system/usePermissionCheckB
 import { useVocDetail } from '@/lib/cross-system/useVocDetail';
 import { useWorkspaceActors } from '@/lib/cross-system/useWorkspaceActors';
 import { useHostSeam } from '@/lib/host/host-seam';
-import type { FindingDto, TaskDetailDto } from '@fops/shared';
+import type { FindingDto, TaskDetailDto } from '@ap/feature-shared';
 import { type UseQueryResult, useQuery } from '@tanstack/react-query';
 import * as React from 'react';
 import { useFindingStatusMutation } from '../../hooks/useFindingStatusMutation';

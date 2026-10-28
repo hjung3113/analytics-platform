@@ -28,7 +28,7 @@
 
 import { and, eq, isNull } from 'drizzle-orm';
 
-import { type Capability, adminModuleBypassFor } from '@fops/shared';
+import { type Capability, adminModuleBypassFor } from '@ap/feature-shared';
 import type { Db } from '../../db/client.js';
 import { permissionDenies, permissionGrants } from '../../db/schema/permission.js';
 import type { Tx } from '../../db/tx.js';

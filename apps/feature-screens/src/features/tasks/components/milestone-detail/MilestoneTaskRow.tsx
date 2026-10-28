@@ -1,8 +1,8 @@
 import { TASK_PRIORITY_LABELS } from '@/lib/copy/enum-labels';
 import { formatDate, formatDateOnly } from '@/lib/format/datetime';
+import type { TaskDto } from '@ap/feature-shared';
+import { InternalTaskBadge, UnassignedBadge } from '@ap/feature-ui';
 import { SeverityIndicator, UserAvatar } from '@ap/ui';
-import type { TaskDto } from '@fops/shared';
-import { InternalTaskBadge, UnassignedBadge } from '@fops/ui';
 import { taskPriorityToSeverity } from '../../adapters/taskDisplayAdapters';
 
 // Read-only child Task row mirroring screen-milestones.jsx:214-238.

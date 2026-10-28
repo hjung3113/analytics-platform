@@ -1,6 +1,6 @@
 /**
  * @ap/menu-fo-integration — foIntegration group manifests (FeedbackOps space 연동: 연동 액션 대시보드, Evidence, 엔티티 링크, 커버리지; ADR-0081, #762).
- * The FeedbackOps operator 연동 screens through the bridge; the page keys equal the route tables in `@ap/fo-bridge` (`integrationDashboardRoute`, `evidenceRoute`, `entityLinksRoute`, `coverageRoute`; pinned by the page tests),
+ * The FeedbackOps operator 연동 screens through the bridge; the page keys equal the route tables in `@ap/feature-bridge` (`integrationDashboardRoute`, `evidenceRoute`, `entityLinksRoute`, `coverageRoute`; pinned by the page tests),
  * and the space carries `managedSystem` (ADR-0081 decision 4). `focus` is the selected recovery item or Evidence (06 §13); the screens draw their own detail drawer. FeedbackOps' Findings row in 연동 is dropped (ADR-0081 decision 3).
  */
 import { lazy } from 'react';

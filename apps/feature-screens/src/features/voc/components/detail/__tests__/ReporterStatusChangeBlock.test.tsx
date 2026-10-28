@@ -4,10 +4,10 @@
 //
 // Prototype ref: docs/feedbackops/design-prototype/screen-voc.jsx:537-655
 
+import type { VocDetailEnvelope } from '@ap/feature-shared';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { ReporterStatusChangeBlock } from '../ReporterStatusChangeBlock';
-import type { VocDetailEnvelope } from '@fops/shared';
 
 // ── Minimal VOC fixture ─────────────────────────────────────────────────────
 

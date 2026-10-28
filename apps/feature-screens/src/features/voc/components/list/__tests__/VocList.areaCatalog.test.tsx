@@ -1,5 +1,5 @@
 import type { AnalyticsAreaDto } from '@/lib/api/analytics-areas';
-import type { VocListItem } from '@fops/shared';
+import type { VocListItem } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import type * as React from 'react';

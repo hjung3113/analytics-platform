@@ -1,7 +1,7 @@
 import { groupId } from '@ap/contracts';
 import { usePlatform } from '@ap/kernel';
-import { FoScreenRoot, type HostSeam, scopeSwitchClears } from '@fops/frontend/global-screens/core';
-import { ManagedSystemScopeControl } from '@fops/frontend/operator-screens/scope-picker';
+import { FoScreenRoot, type HostSeam, scopeSwitchClears } from '@ap/feature-screens/global-screens/core';
+import { ManagedSystemScopeControl } from '@ap/feature-screens/operator-screens/scope-picker';
 import { UnlinkedLink } from '../fo/FoBridge';
 import { foQueryClient, useFoSession } from '../fo/session';
 import { isUuid } from '../fo/uuid';

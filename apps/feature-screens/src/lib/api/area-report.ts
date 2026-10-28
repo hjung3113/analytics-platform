@@ -1,4 +1,4 @@
-import { dashboardAreaReportQuerySchema, dashboardAreaReportSchema } from '@fops/shared';
+import { dashboardAreaReportQuerySchema, dashboardAreaReportSchema } from '@ap/feature-shared';
 import type { z } from 'zod';
 import { apiRequest } from './client';
 

@@ -4,8 +4,8 @@ import { ApiError } from '@/lib/api/types';
 import { useMe } from '@/lib/auth/useMe';
 import { TaskRequestsRoute } from '@/test/screen-host/features/tasks/routes/TaskRequestsRoute';
 import { taskRequestPage } from '@/test/task-request-pages';
-import type { ListTaskRequestsQuery } from '@fops/shared';
-import type { TaskRequestDto } from '@fops/shared';
+import type { ListTaskRequestsQuery } from '@ap/feature-shared';
+import type { TaskRequestDto } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -100,8 +100,8 @@ vi.mock('@ap/ui', async () => {
     ),
   };
 });
-vi.mock('@fops/ui', async () => {
-  const actual = await vi.importActual<typeof import('@fops/ui')>('@fops/ui');
+vi.mock('@ap/feature-ui', async () => {
+  const actual = await vi.importActual<typeof import('@ap/feature-ui')>('@ap/feature-ui');
   return {
     ...actual,
     useDetailPanelSlot: (node: import('react').ReactNode) => {

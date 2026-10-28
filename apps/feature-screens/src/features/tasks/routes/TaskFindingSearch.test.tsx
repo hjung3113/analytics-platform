@@ -1,7 +1,7 @@
 import { useMe } from '@/lib/auth/useMe';
 import { FindingsListPage, validateFindingsSearch } from '@/test/findings-host/screen';
 import { TasksRouteView, validateTasksSearch } from '@/test/screen-host/routes/_authed/tasks';
-import { listFindingsQuerySchema, listTasksQuerySchema } from '@fops/shared';
+import { listFindingsQuerySchema, listTasksQuerySchema } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import * as React from 'react';

@@ -1,7 +1,7 @@
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { formatDate, formatDateOnly } from '@/lib/format/datetime';
+import type { MilestoneDetailDto } from '@ap/feature-shared';
 import { FieldRow, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ap/ui';
-import type { MilestoneDetailDto } from '@fops/shared';
 
 import { MilestoneOwnerChip, MilestonePanelSectionTitle } from '../MilestoneIdentity';
 import { STATUS_OPTIONS } from './constants';

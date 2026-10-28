@@ -13,7 +13,7 @@
 // ETag header: weak W/"<voc.updated_at-ISO>". ADR-0031 disables conditional
 // detail 304 responses because similarity is peer-derived.
 
-import type { ReporterFacingStatusEnum } from '@fops/shared';
+import type { ReporterFacingStatusEnum } from '@ap/feature-shared';
 import type { Db } from '../../db/client.js';
 import type { EntityLinksService } from '../entity-links/index.js';
 import type { CheckService } from '../permissions/check-service.js';

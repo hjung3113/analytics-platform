@@ -1,7 +1,7 @@
 import { useLayoutEffect, useState, useSyncExternalStore } from 'react';
 import { usePlatform } from '@ap/kernel';
 import type { PlatformAdapter } from '@ap/contracts';
-import { configureApiClient, createFoQueryClient } from '@fops/frontend/global-screens/core';
+import { configureApiClient, createFoQueryClient } from '@ap/feature-screens/global-screens/core';
 import { foApi } from '../fo-api';
 
 /** One FeedbackOps QueryClient for the whole app (ADR-0071 decision 5); cleared whenever the session generation changes. */

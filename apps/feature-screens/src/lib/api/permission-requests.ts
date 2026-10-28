@@ -15,7 +15,7 @@ import {
   minePermissionRequestsResponseSchema,
   permissionRequestOwnerDetailSchema,
   submitMoreInfoPermissionRequestResultSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 
 import { apiRequest } from './client';
 

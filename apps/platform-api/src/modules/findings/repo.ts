@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 
-import type { FindingCommentKind, FindingStatus } from '@fops/shared';
+import type { FindingCommentKind, FindingStatus } from '@ap/feature-shared';
 
 import type { Db } from '../../db/client.js';
 import { sqlUuidArray } from '../../db/sql-arrays.js';

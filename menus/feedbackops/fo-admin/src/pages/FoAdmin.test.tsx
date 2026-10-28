@@ -3,8 +3,8 @@ import { UserCog } from 'lucide-react';
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
-import { setFoApi } from '@ap/fo-bridge/fo-api';
-import { createFoMenuHarness } from '@ap/fo-bridge/testing';
+import { setFoApi } from '@ap/feature-bridge/fo-api';
+import { createFoMenuHarness } from '@ap/feature-bridge/testing';
 import { useHostSeam } from '@/lib/host/host-seam';
 import { harnessMenus, homeStub, mountAt, warmPages } from '../test-support';
 
@@ -20,35 +20,35 @@ const fo = vi.hoisted(() => ({
   requestClose: vi.fn(),
 }));
 const detail = (props: DetailProps) => props.renderDetail?.({ title: '상세 제목', body: <p>상세 본문</p>, requestClose: fo.requestClose });
-vi.mock('@fops/frontend/operator-screens/managed-systems', () => ({
+vi.mock('@ap/feature-screens/operator-screens/managed-systems', () => ({
   ManagedSystemsAdminPage: () => {
     fo.managedSystems += 1;
     const seam = useHostSeam();
     return <div data-testid="managed-systems" data-here={seam.useHere!()} data-owns-title={String(seam.hostOwnsTitle)} />;
   },
 }));
-vi.mock('@fops/frontend/operator-screens/analytics-areas', () => ({
+vi.mock('@ap/feature-screens/operator-screens/analytics-areas', () => ({
   AnalyticsAreasAdminPage: (props: DetailProps) => {
     fo.areas.push(props);
     const seam = useHostSeam();
     return <div data-testid="areas" data-here={seam.useHere!()}>{detail(props)}</div>;
   },
 }));
-vi.mock('@fops/frontend/operator-screens/permission-requests', () => ({
+vi.mock('@ap/feature-screens/operator-screens/permission-requests', () => ({
   PermissionRequestsScreen: (props: DetailProps & { autoSelect?: boolean }) => {
     fo.requests.push(props);
     const seam = useHostSeam();
     return <div data-testid="requests" data-here={seam.useHere!()}>{detail(props)}</div>;
   },
 }));
-vi.mock('@fops/frontend/operator-screens/permission-grants', () => ({
+vi.mock('@ap/feature-screens/operator-screens/permission-grants', () => ({
   PermissionGrantsScreen: (props: DetailProps & { autoSelect?: boolean }) => {
     fo.grants.push(props);
     const seam = useHostSeam();
     return <div data-testid="grants" data-here={seam.useHere!()}>{detail(props)}</div>;
   },
 }));
-vi.mock('@fops/frontend/operator-screens/settings', () => ({
+vi.mock('@ap/feature-screens/operator-screens/settings', () => ({
   WorkspaceSettingsScreen: (props: { section?: string | null }) => {
     fo.settings.push(props);
     const seam = useHostSeam();

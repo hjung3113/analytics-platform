@@ -1,6 +1,6 @@
-import { FoScreenPage, taskBoardRoute, useTaskBoardHere, useTaskBoardSearch } from '@ap/fo-bridge';
-import { TaskBoardScreen } from '@fops/frontend/operator-screens/task-board';
-import { isTasksSearchValueValid } from '@fops/frontend/operator-screens/tasks-search';
+import { FoScreenPage, taskBoardRoute, useTaskBoardHere, useTaskBoardSearch } from '@ap/feature-bridge';
+import { TaskBoardScreen } from '@ap/feature-screens/operator-screens/task-board';
+import { isTasksSearchValueValid } from '@ap/feature-screens/operator-screens/tasks-search';
 import { BoardTaskDrawer, type BoardDetailOptions } from './TaskDrawers';
 
 /** The board owns the move and the close, so it renders what this returns in place, inside `FoBridge`; the drawer portals into the shell detail slot. */

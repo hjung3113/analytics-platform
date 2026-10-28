@@ -1,13 +1,13 @@
 /*
- * Consumer parity layer for @fops/ui (ADR-0058): the rules @fops/ui components
+ * Consumer parity layer for @ap/feature-ui (ADR-0058): the rules @ap/feature-ui components
  * depend on that Tailwind v4 does not ship by default. Every app that renders
  * this package must import this file after the theme:
  *
  *   @import 'tailwindcss';
- *   @import '@fops/ui/styles/tokens.css' layer(base);
- *   @import '@fops/ui/styles/semantic.css' layer(base);
- *   @import '@fops/ui/styles/theme.css';
- *   @import '@fops/ui/styles/compat.css';
+ *   @import '@ap/feature-ui/styles/tokens.css' layer(base);
+ *   @import '@ap/feature-ui/styles/semantic.css' layer(base);
+ *   @import '@ap/feature-ui/styles/theme.css';
+ *   @import '@ap/feature-ui/styles/compat.css';
  *
  * The layer order is a consumer invariant: the `layer(base)` token imports must
  * come after `tailwindcss` establishes `theme, base, components, utilities`, so

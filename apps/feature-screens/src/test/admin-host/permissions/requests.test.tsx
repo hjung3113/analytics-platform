@@ -15,7 +15,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import { type AdminPermissionRequestRow, errorMapper } from '@/lib/api';
 import { ADMIN_PERMISSIONS_COPY } from '@/lib/copy/admin-permissions';
-import type { PermissionRiskIndicator } from '@fops/shared';
+import type { PermissionRiskIndicator } from '@ap/feature-shared';
 
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 vi.mock('sonner', () => ({

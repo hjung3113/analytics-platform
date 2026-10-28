@@ -1,8 +1,8 @@
 import { FINDING_STATUS_LABELS } from '@/lib/copy/enum-labels';
 import { shortId } from '@/lib/identity';
+import type { FindingDto, TaskRequestDto } from '@ap/feature-shared';
+import { OutlineBadge } from '@ap/feature-ui';
 import { PanelSectionTitle } from '@ap/ui';
-import type { FindingDto, TaskRequestDto } from '@fops/shared';
-import { OutlineBadge } from '@fops/ui';
 
 export function TaskRequestSourceSection({
   item,

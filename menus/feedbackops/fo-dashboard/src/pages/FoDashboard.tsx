@@ -2,8 +2,8 @@ import { PlatformPage } from '@ap/components';
 import { useI18n, usePlatform } from '@ap/kernel';
 import { Button } from '@ap/ui';
 import { RefreshCw } from 'lucide-react';
-import { FoBridge, RejectedPage, foQueryClient, isUuid, operatorHostLinks, useFoSession } from '@ap/fo-bridge';
-import { DashboardScreen, refreshDashboard } from '@fops/frontend/operator-screens/dashboard';
+import { FoBridge, RejectedPage, foQueryClient, isUuid, operatorHostLinks, useFoSession } from '@ap/feature-bridge';
+import { DashboardScreen, refreshDashboard } from '@ap/feature-screens/operator-screens/dashboard';
 
 /** The dashboard reaches the survey menus, 내 VOC and the VOC 수신함/Triage queues; every other operator route stays non-interactive until its menu exists, and so does one whose menu this registry lacks. Module level: `FoBridge` memoizes on these identities. */
 export const dashboardLinks = operatorHostLinks;

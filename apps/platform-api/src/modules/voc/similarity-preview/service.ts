@@ -2,7 +2,7 @@ import type {
   SimilarityPreviewAvailabilityResponse,
   SimilarityPreviewRequest,
   SimilarityPreviewResponse,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import type { AppConfig } from '../../../config.js';
 import type { Db } from '../../../db/client.js';
 import { HttpError } from '../../../lib/errors.js';

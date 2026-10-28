@@ -1,6 +1,6 @@
 import { usePlatform } from '@ap/kernel';
-import { FoScreenPage, settingsRoute, useSettingsHere, useSettingsSearch } from '@ap/fo-bridge';
-import { WorkspaceSettingsScreen } from '@fops/frontend/operator-screens/settings';
+import { FoScreenPage, settingsRoute, useSettingsHere, useSettingsSearch } from '@ap/feature-bridge';
+import { WorkspaceSettingsScreen } from '@ap/feature-screens/operator-screens/settings';
 
 /** The route table accepts `section=coverage` only (the `#coverage` fragment), so the check has nothing more to refuse. */
 const acceptsAll = () => true;

@@ -4,9 +4,9 @@ import { render, cleanup } from '@testing-library/react';
 import { afterEach, vi } from 'vitest';
 import { I18nProvider, PlatformProvider } from '@ap/kernel';
 import { testAdapter, testSession } from '@ap/kernel/testing';
-import { FoBridge, operatorHostLinks, useInboxSearch, useInboxHere, foQueryClient, setFoApi } from '@ap/fo-bridge';
-import { savedViewsSlot } from '@ap/fo-bridge/saved-views';
-import { InboxScreen } from '@fops/frontend/operator-screens/voc-inbox';
+import { FoBridge, operatorHostLinks, useInboxSearch, useInboxHere, foQueryClient, setFoApi } from '@ap/feature-bridge';
+import { savedViewsSlot } from '@ap/feature-bridge/saved-views';
+import { InboxScreen } from '@ap/feature-screens/operator-screens/voc-inbox';
 import { registry } from '../test-support';
 import { spaceId } from '@ap/contracts';
 export const ME = {

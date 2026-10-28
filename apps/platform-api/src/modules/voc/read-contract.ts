@@ -1,4 +1,4 @@
-import type { ListVocsQuery } from '@fops/shared';
+import type { ListVocsQuery } from '@ap/feature-shared';
 
 import type { Scope } from './authorization.js';
 import type { VocReadService } from './read-service.js';

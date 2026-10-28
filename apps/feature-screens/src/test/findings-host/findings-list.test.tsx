@@ -9,7 +9,7 @@ import {
   findingConfidenceSchema,
   findingSeveritySchema,
   findingStatusSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   Outlet,
@@ -121,8 +121,8 @@ vi.mock('@ap/ui', async () => {
     ),
   };
 });
-vi.mock('@fops/ui', async () => {
-  const actual = await vi.importActual<typeof import('@fops/ui')>('@fops/ui');
+vi.mock('@ap/feature-ui', async () => {
+  const actual = await vi.importActual<typeof import('@ap/feature-ui')>('@ap/feature-ui');
   return {
     ...actual,
     OutlineBadge: ({ children, ...props }: { children: React.ReactNode }) => (

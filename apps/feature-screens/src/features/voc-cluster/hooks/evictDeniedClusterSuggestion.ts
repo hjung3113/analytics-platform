@@ -1,5 +1,5 @@
 import { ApiError } from '@/lib/api/types';
-import type { VocClusterSuggestionsResponse } from '@fops/shared';
+import type { VocClusterSuggestionsResponse } from '@ap/feature-shared';
 import type { QueryClient } from '@tanstack/react-query';
 
 /** Mutation-owned cleanup must finish even after its review session exits. */

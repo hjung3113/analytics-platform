@@ -3,7 +3,7 @@ import type {
   DiscardVocClusterSuggestionRequest,
   VocClusterSuggestionItem,
   VocClusterSuggestionsResponse,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import { sql } from 'drizzle-orm';
 import type { Db } from '../../../db/client.js';
 import { lockRecoveryCommand } from '../../../db/recovery-command-lock.js';

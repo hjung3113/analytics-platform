@@ -1,5 +1,5 @@
 import { apiClient } from '@/lib/api/client';
-import type { VocListItem } from '@fops/shared';
+import type { VocListItem } from '@ap/feature-shared';
 import { type UseQueryResult, hashKey, keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useRef } from 'react';
 

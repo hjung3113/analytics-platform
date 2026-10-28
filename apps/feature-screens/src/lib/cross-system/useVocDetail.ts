@@ -1,5 +1,5 @@
 import { apiClient } from '@/lib/api/client';
-import type { VocDetailEnvelope, VocSummaryEnvelope } from '@fops/shared';
+import type { VocDetailEnvelope, VocSummaryEnvelope } from '@ap/feature-shared';
 import { type UseQueryResult, useQuery } from '@tanstack/react-query';
 
 export type VocDetailResult = VocDetailEnvelope | VocSummaryEnvelope;

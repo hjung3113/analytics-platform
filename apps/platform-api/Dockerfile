@@ -13,12 +13,12 @@ COPY ops/platform-api/package.json ./ops/platform-api/package.json
 COPY ops/platform-api/tsconfig.base.json ./ops/platform-api/tsconfig.base.json
 COPY packages/feature-shared/package.json ./packages/feature-shared/package.json
 COPY apps/platform-api/package.json ./apps/platform-api/package.json
-RUN pnpm install --filter @fops/backend... --frozen-lockfile
+RUN pnpm install --filter @ap/platform-api... --frozen-lockfile
 
 COPY packages/feature-shared ./packages/feature-shared
 COPY apps/platform-api ./apps/platform-api
-RUN pnpm --filter @fops/backend... build \
-  && pnpm --filter @fops/shared exec tsc -p tsconfig.json --noEmit false
+RUN pnpm --filter @ap/platform-api... build \
+  && pnpm --filter @ap/feature-shared exec tsc -p tsconfig.json --noEmit false
 
 # pnpm deploy creates an isolated production dependency tree. Shared is
 # TypeScript-only in the workspace, so stage its emitted JS and point only the
@@ -28,11 +28,11 @@ RUN pnpm --filter @fops/backend... build \
 # pnpm 11 deploy needs injected workspace packages. The flag is passed here, not set in pnpm-workspace.yaml, so platform
 # packages keep linking their workspace dependencies. `--legacy` would skip the lockfile and re-resolve ranges. The
 # auto-animate patch belongs to the frontend only, so deploy must tolerate it being unused for this package.
-RUN pnpm --filter @fops/backend deploy --prod --config.inject-workspace-packages=true --config.allow-unused-patches=true /deploy \
-  && mkdir -p /deploy/dist /deploy/node_modules/@fops/shared/dist \
+RUN pnpm --filter @ap/platform-api deploy --prod --config.inject-workspace-packages=true --config.allow-unused-patches=true /deploy \
+  && mkdir -p /deploy/dist /deploy/node_modules/@ap/feature-shared/dist \
   && cp -a --remove-destination apps/platform-api/dist/. /deploy/dist/ \
-  && cp -a --remove-destination packages/feature-shared/dist/. /deploy/node_modules/@fops/shared/dist/ \
-  && node --input-type=module -e 'import { readFileSync, rmSync, writeFileSync } from "node:fs"; const path = "/deploy/node_modules/@fops/shared/package.json"; const pkg = JSON.parse(readFileSync(path, "utf8")); rmSync(path); pkg.main = "./dist/index.js"; pkg.exports = { ".": "./dist/index.js", "./enums": "./dist/enums/index.js" }; writeFileSync(path, JSON.stringify(pkg, null, 2));'
+  && cp -a --remove-destination packages/feature-shared/dist/. /deploy/node_modules/@ap/feature-shared/dist/ \
+  && node --input-type=module -e 'import { readFileSync, rmSync, writeFileSync } from "node:fs"; const path = "/deploy/node_modules/@ap/feature-shared/package.json"; const pkg = JSON.parse(readFileSync(path, "utf8")); rmSync(path); pkg.main = "./dist/index.js"; pkg.exports = { ".": "./dist/index.js", "./enums": "./dist/enums/index.js" }; writeFileSync(path, JSON.stringify(pkg, null, 2));'
 
 FROM build AS migrate
 WORKDIR /workspace/apps/platform-api

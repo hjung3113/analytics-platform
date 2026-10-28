@@ -1,4 +1,4 @@
-import { resolveCoverageThresholds } from '@fops/shared';
+import { resolveCoverageThresholds } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   Outlet,

@@ -1,4 +1,4 @@
-import { type VocListItem, vocListItemSchema } from '@fops/shared';
+import { type VocListItem, vocListItemSchema } from '@ap/feature-shared';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { TriageRow } from '../TriageRow';

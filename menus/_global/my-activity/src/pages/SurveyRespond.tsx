@@ -1,8 +1,8 @@
 import { SearchX } from 'lucide-react';
 import { useI18n, usePlatform, type PageProps } from '@ap/kernel';
 import { PlatformPage, ReturnLink, StateMessage } from '@ap/components';
-import { RespondSurveyScreen } from '@fops/frontend/global-screens';
-import { FoBridge, canSurveyLink, SURVEY_ID, SurveyLink } from '@ap/fo-bridge';
+import { RespondSurveyScreen } from '@ap/feature-screens/global-screens';
+import { FoBridge, canSurveyLink, SURVEY_ID, SurveyLink } from '@ap/feature-bridge';
 
 /**
  * 설문 응답 (ADR-0070 decision 6, ADR-0071): one FeedbackOps respond form through the bridge. The survey ID is a path segment, so a

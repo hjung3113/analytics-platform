@@ -1,4 +1,4 @@
-import { type NavResolveResponse, navResolveResponseSchema } from '@fops/shared';
+import { type NavResolveResponse, navResolveResponseSchema } from '@ap/feature-shared';
 
 import { apiRequest } from './client';
 import { ApiError, ApiParseError } from './types';

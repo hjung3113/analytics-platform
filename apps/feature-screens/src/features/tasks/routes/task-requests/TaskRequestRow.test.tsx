@@ -1,6 +1,6 @@
 import { TASK_REQUEST_STATUS_LABELS } from '@/lib/copy/enum-labels';
 import { formatShortDateTime } from '@/lib/format/datetime';
-import { type TaskRequestDto, taskRequestStatusSchema } from '@fops/shared';
+import { type TaskRequestDto, taskRequestStatusSchema } from '@ap/feature-shared';
 import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 

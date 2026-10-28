@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 
 import { and, eq, sql } from 'drizzle-orm';
 
-import type { PatchVocRequest, VocSummaryEnvelope } from '@fops/shared';
+import type { PatchVocRequest, VocSummaryEnvelope } from '@ap/feature-shared';
 import { vocs } from '../../../db/schema/voc.js';
 import type { Tx } from '../../../db/tx.js';
 import { HttpError } from '../../../lib/errors.js';

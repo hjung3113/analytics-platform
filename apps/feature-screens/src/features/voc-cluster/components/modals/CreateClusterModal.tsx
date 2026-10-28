@@ -7,6 +7,7 @@ import { fetchManagedSystems } from '@/lib/api/registry-reads';
 import { type ApiError, isPermissionDenied } from '@/lib/api/types';
 import { CLUSTER_CREATE_COPY } from '@/lib/copy/voc-cluster';
 import { useHostSeam } from '@/lib/host/host-seam';
+import type { CreateVocClusterRequest } from '@ap/feature-shared';
 import {
   Button,
   Dialog,
@@ -23,7 +24,6 @@ import {
   SelectValue,
   Textarea,
 } from '@ap/ui';
-import type { CreateVocClusterRequest } from '@fops/shared';
 import { useQuery } from '@tanstack/react-query';
 import * as React from 'react';
 import { useState } from 'react';

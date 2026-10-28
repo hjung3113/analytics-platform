@@ -1,4 +1,4 @@
-import type { FindingSeverity, VocListItem } from '@fops/shared';
+import type { FindingSeverity, VocListItem } from '@ap/feature-shared';
 import { useEffect, useRef, useState } from 'react';
 import { type TriageQueueOutcome, useTriageQueue } from '../../hooks/useTriageQueue';
 import type { TriageInput } from '../../lib/triage-types';

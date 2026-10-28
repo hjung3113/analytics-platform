@@ -4,7 +4,7 @@
 // a diff against the voc baseline. Re-initialises on voc.id change
 // (mirrors prototype screen-voc-create.jsx:401-406 useEffect pattern).
 
-import type { VocListItem } from '@fops/shared';
+import type { VocListItem } from '@ap/feature-shared';
 import { useEffect, useReducer } from 'react';
 
 // ── State shape ───────────────────────────────────────────────────────────────

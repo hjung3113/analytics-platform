@@ -3,7 +3,7 @@ import { type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
 import {
   getEvidenceInventoryResponseSchema,
   listEvidenceInventoryResponseSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { type ReactNode, useSyncExternalStore } from 'react';

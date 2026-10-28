@@ -2,7 +2,7 @@ import { useMe } from '@/lib/auth/useMe';
 import { TaskBoardRoute } from '@/test/screen-host/features/tasks/routes/TaskBoardRoute';
 import { TaskListRoute } from '@/test/screen-host/features/tasks/routes/TaskListRoute';
 import { TasksRouteView } from '@/test/screen-host/routes/_authed/tasks';
-import { type TaskDto, listTasksQuerySchema } from '@fops/shared';
+import { type TaskDto, listTasksQuerySchema } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';

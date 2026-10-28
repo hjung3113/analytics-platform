@@ -1,4 +1,4 @@
-import { type VocOwnerCandidates, vocOwnerCandidatesSchema } from '@fops/shared';
+import { type VocOwnerCandidates, vocOwnerCandidatesSchema } from '@ap/feature-shared';
 import { listWorkspaceResponsibilityActors } from '../../auth/index.js';
 import { assertVocTriage } from '../authorization.js';
 import type { ReadActorContext, VocReadServiceDeps } from '../read-service.js';

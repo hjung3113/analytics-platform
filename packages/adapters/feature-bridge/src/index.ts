@@ -1,6 +1,6 @@
 /**
- * @ap/fo-bridge — the FeedbackOps session runtime shared by every bridge menu (platform ADR-0071, ADR-0081, #759).
- * Imports `@fops/frontend/global-screens/core` only, so the eagerly loaded app code stays off the FeedbackOps screen barrel.
+ * @ap/feature-bridge — the FeedbackOps session runtime shared by every bridge menu (platform ADR-0071, ADR-0081, #759).
+ * Imports `@ap/feature-screens/global-screens/core` only, so the eagerly loaded app code stays off the FeedbackOps screen barrel.
  */
 export { RejectedPage } from './fo/RejectedPage';
 export { FoScreenPage } from './fo/FoScreenPage';

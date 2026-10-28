@@ -12,7 +12,7 @@ import userEvent from '@testing-library/user-event';
 import type * as React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { VocRecommendationsResponse } from '@fops/shared';
+import type { VocRecommendationsResponse } from '@ap/feature-shared';
 import { ClusterSectionReadOnly } from '../ClusterSectionReadOnly';
 
 const SOURCE_VOC_ID = '00000000-0000-0000-0000-0000000000aa';

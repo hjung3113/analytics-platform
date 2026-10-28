@@ -12,8 +12,8 @@ import {
   createVocRequestSchema,
   emptyTipTapDoc,
   isTipTapDocBlank,
-} from '@fops/shared';
-import type { CreateVocRequest } from '@fops/shared';
+} from '@ap/feature-shared';
+import type { CreateVocRequest } from '@ap/feature-shared';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
 import * as React from 'react';

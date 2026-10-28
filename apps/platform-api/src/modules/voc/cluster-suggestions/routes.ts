@@ -2,7 +2,7 @@ import {
   confirmVocClusterSuggestionRequestSchema,
   discardVocClusterSuggestionRequestSchema,
   restoreVocClusterSuggestionRequestSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { HttpError } from '../../../lib/errors.js';

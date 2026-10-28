@@ -22,8 +22,8 @@
 import { type ComposerSurface, useComposerDraft } from '@/features/voc/hooks/useComposerDraft';
 import { useComposerVisibility } from '@/features/voc/hooks/useComposerVisibility';
 import type { MeResponse } from '@/lib/api/me';
+import { type VocDetailEnvelope, isTipTapDocStructurallyEmpty } from '@ap/feature-shared';
 import { DirtyConfirmation } from '@ap/ui';
-import { type VocDetailEnvelope, isTipTapDocStructurallyEmpty } from '@fops/shared';
 import { X } from 'lucide-react';
 import * as React from 'react';
 import { ComposerTabs } from './ComposerTabs';

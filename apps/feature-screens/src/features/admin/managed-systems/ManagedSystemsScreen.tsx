@@ -4,7 +4,7 @@
 // (docs/feedbackops/design-prototype/screen-admin.jsx → AdminScreen). Live API data only;
 // the prototype's window globals / synthetic data are not ported (AGENTS.md
 // → UI Authority). Maps the prototype's dark-token components to the
-// real @fops/ui light-token components (ADR-0021 / Pack 17).
+// real @ap/feature-ui light-token components (ADR-0021 / Pack 17).
 //
 // Prototype-silent deviations recorded in the PR/commit body:
 //   1. scope-mark color/mark — derived deterministically from slug+name via
@@ -12,6 +12,7 @@
 //   2. Default owner — resolved via GET /actors/resolve (#87 new endpoint);
 //      the prototype hard-codes a single user.
 
+import { ManagedSystemMark, OutlineBadge } from '@ap/feature-ui';
 import {
   Button,
   Callout,
@@ -22,7 +23,6 @@ import {
   PopoverTrigger,
   UserChip,
 } from '@ap/ui';
-import { ManagedSystemMark, OutlineBadge } from '@fops/ui';
 import { ArrowRight, Filter, Plus, Shield } from 'lucide-react';
 import type * as React from 'react';
 import { useRef, useState } from 'react';

@@ -1,6 +1,6 @@
 import { TASK_LINK_MISSING_MESSAGE } from '@/lib/copy/tasks';
 import { TaskBoardRoute } from '@/test/screen-host/features/tasks/routes/TaskBoardRoute';
-import type { ListTasksQuery, TaskDto, TaskStatus } from '@fops/shared';
+import type { ListTasksQuery, TaskDto, TaskStatus } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type * as React from 'react';
@@ -102,8 +102,8 @@ vi.mock('@ap/ui', async () => {
     ),
   };
 });
-vi.mock('@fops/ui', async () => {
-  const actual = await vi.importActual<typeof import('@fops/ui')>('@fops/ui');
+vi.mock('@ap/feature-ui', async () => {
+  const actual = await vi.importActual<typeof import('@ap/feature-ui')>('@ap/feature-ui');
   const react = await vi.importActual<typeof import('react')>('react');
   return {
     ...actual,

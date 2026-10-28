@@ -4,7 +4,7 @@ import {
   type MilestoneDto,
   type TaskDetailDto,
   assignTaskMilestoneRequestSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { RenderResult } from '@testing-library/react';

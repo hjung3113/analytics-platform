@@ -60,9 +60,9 @@ Every step must exit 0 before commit.
    - Never use `--force` or diff filters. The turbo cache decides what reruns.
 3. E2E, only when Kernel, shell, shared components or the mock server change. Run the new describe first, then the brief's "Impact" describes with `-g "A|B"`. Never run full `pnpm e2e` locally, except to reproduce a CI failure. PR and main-push CI run only the affected specs (`.github/scripts/select-e2e.mjs`: all for `menus/**`, `packages/**` and anything it cannot narrow; none for docs-only; just that spec for a spec-only change). A green PR is therefore not a full E2E record; the release `full=true` run is.
 4. If menu manifests, `menus.ts`, contract menu types or `tooling/gen-menu` change: run `node tooling/gen-menu/scripts/probe.ts`, never in a worktree with a live preview.
-5. FeedbackOps gates, only when `.github/workflows/feedbackops.yml` `paths` are touched:
-   - `bash ops/platform-api/scripts/ci/gate.sh static --base origin/main` and `unit`.
-   - Integration: `FEEDBACKOPS_ENV_FILE=$WAVE_STATE/env.verify.<n> pnpm --filter @fops/backend test:integration`. Never use `gate.sh integration`, because it truncates the source DB.
+5. Feature gates, when feature package or folded CI inputs change (`.github/workflows/ci.yml`):
+   - `bash ops/platform-api/scripts/ci/gate.sh static-extra`; run `unit` only for package suites not already covered by the successful unified root test. Root lint already runs bounded committed changed-file Biome and root typecheck covers feature packages.
+   - Integration: `FEEDBACKOPS_ENV_FILE=$WAVE_STATE/env.verify.<n> pnpm --filter @ap/platform-api test:integration`. Never use `gate.sh integration`, because it truncates the source DB.
 6. Hygiene: `python3 $ENGINE/worker-hygiene.py <worktree>`.
 7. Gates that run only in CI — run them locally when their inputs change:
    - Public SDK types change → `pnpm build`, then `pnpm sdk:api` (on intended changes, `--update` plus one line in `docs/integration/sdk-git-tag-consumption.md`).

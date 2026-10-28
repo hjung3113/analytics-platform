@@ -2,7 +2,7 @@ import {
   type NotificationDto,
   type NotificationEventType,
   notificationDtoSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   Outlet,

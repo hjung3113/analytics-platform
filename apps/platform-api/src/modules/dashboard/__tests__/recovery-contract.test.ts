@@ -4,7 +4,7 @@ import {
   recoveryListSchema,
   recoveryPresentationPatchSchema,
   recoveryPresentationSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import { describe, expect, it } from 'vitest';
 
 const action = {

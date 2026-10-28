@@ -3,7 +3,7 @@
 // so the frontend maps the stable `intent` key to Korean display copy; the API
 // payload keeps its server label unchanged. Unknown intents keep the server label.
 
-import type { DashboardSummary } from '@fops/shared';
+import type { DashboardSummary } from '@ap/feature-shared';
 
 type QueueId = DashboardSummary['action_queues'][number]['id'];
 

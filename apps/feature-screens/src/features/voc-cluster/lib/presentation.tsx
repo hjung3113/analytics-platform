@@ -4,7 +4,7 @@
 
 import type * as React from 'react';
 
-import { OutlineBadge } from '@fops/ui';
+import { OutlineBadge } from '@ap/feature-ui';
 
 export function clusterStatusLabel(status: string): string {
   return status === 'confirmed' ? '확정' : '초안';

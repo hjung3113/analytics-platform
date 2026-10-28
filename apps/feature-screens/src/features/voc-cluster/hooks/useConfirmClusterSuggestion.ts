@@ -4,7 +4,7 @@ import { invalidateRecovery } from '@/lib/query/recovery';
 import {
   type ConfirmVocClusterSuggestionRequest,
   confirmVocClusterSuggestionResponseSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { evictDeniedClusterSuggestion } from './evictDeniedClusterSuggestion';
 

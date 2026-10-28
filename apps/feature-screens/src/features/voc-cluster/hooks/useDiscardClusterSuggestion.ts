@@ -2,7 +2,7 @@ import { apiRequest } from '@/lib/api/client';
 import {
   type DiscardVocClusterSuggestionRequest,
   discardVocClusterSuggestionResponseSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { evictDeniedClusterSuggestion } from './evictDeniedClusterSuggestion';
 

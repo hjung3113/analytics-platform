@@ -2,6 +2,12 @@ import { mapUnknownError } from '@/lib/api/errorMapper';
 import { FINDING_SEVERITY_LABELS } from '@/lib/copy/enum-labels';
 import { CREATE_OR_LINK_FINDING_LABEL } from '@/lib/copy/glossary';
 import {
+  type FindingDto,
+  type FindingSeverity,
+  type SurveyResultDto,
+  findingSeveritySchema,
+} from '@ap/feature-shared';
+import {
   Button,
   Checkbox,
   FieldLabel,
@@ -13,12 +19,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@ap/ui';
-import {
-  type FindingDto,
-  type FindingSeverity,
-  type SurveyResultDto,
-  findingSeveritySchema,
-} from '@fops/shared';
 import { useState } from 'react';
 import { useCreateFindingFromSurveyResponse } from '../../hooks/useCreateFindingFromSurveyResponse';
 

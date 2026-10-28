@@ -6,7 +6,7 @@ import {
   stringifyAppSearch,
 } from '@/test/host-adapters/lib/router/search-serialization';
 import { TasksRouteView, validateTasksSearch } from '@/test/screen-host/routes/_authed/tasks';
-import { type TaskDetailDto, listTasksQuerySchema } from '@fops/shared';
+import { type TaskDetailDto, listTasksQuerySchema } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   RouterProvider,

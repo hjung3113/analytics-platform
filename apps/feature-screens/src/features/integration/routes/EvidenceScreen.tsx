@@ -6,6 +6,7 @@ import { EVIDENCE_COPY as COPY } from '@/lib/copy/evidence';
 import { GLOSSARY } from '@/lib/copy/glossary';
 import type { ClosableDetailParts } from '@/lib/host/detail-parts';
 import { useHostSearchWriter } from '@/lib/host/useHostSearchWriter';
+import type { EvidenceInventoryItem, ListEvidenceInventoryResponse } from '@ap/feature-shared';
 import {
   Button,
   ListShell,
@@ -14,7 +15,6 @@ import {
   SearchInput,
   Skeleton,
 } from '@ap/ui';
-import type { EvidenceInventoryItem, ListEvidenceInventoryResponse } from '@fops/shared';
 import { useQuery } from '@tanstack/react-query';
 import { RefreshCw } from 'lucide-react';
 import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';

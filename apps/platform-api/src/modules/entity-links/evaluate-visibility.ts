@@ -1,4 +1,4 @@
-import type { EntityLinkVisibility, EntityLinkVisibilityState } from '@fops/shared';
+import type { EntityLinkVisibility, EntityLinkVisibilityState } from '@ap/feature-shared';
 
 export interface LinkVisibilityEvaluationInput {
   visibility: EntityLinkVisibility;

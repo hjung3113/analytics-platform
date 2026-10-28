@@ -7,9 +7,9 @@
 ## 1. 결론
 
 - **덮는 것**: 계약·조회·세션·Context·Registry·감사·활용률·오류 경계·i18n·차트 프레임·공통 표·필터·상세 슬롯·생성기·경계 lint·적합성 묶음. 이미 `packages/*`와 `tooling/*`에 있다(§3 ✅).
-- **흡수할 것**: 디자인 시스템 코드(FeedbackOps `@fops/ui` → SDK), 디자인 lint 설정(세 벌 → 한 곳), 쓰기 요청 규약(Idempotency-Key·낙관적 동시성·커서 페이지·rate-limit 헤더), 경계 검사 AST 규칙, 비주얼·토큰 충실도 하니스, 선언 산출물(EV의 JSON Schema 내보내기), 모듈 CSS 소스 규약(EV 패키지별 `styles.css`)(§3 ⬇).
+- **흡수할 것**: 디자인 시스템 코드(FeedbackOps `@ap/feature-ui` → SDK), 디자인 lint 설정(세 벌 → 한 곳), 쓰기 요청 규약(Idempotency-Key·낙관적 동시성·커서 페이지·rate-limit 헤더), 경계 검사 AST 규칙, 비주얼·토큰 충실도 하니스, 선언 산출물(EV의 JSON Schema 내보내기), 모듈 CSS 소스 규약(EV 패키지별 `styles.css`)(§3 ⬇).
 - **SDK가 새로 정해야 하는 것(셋 중 누구도 없음)**: 호스트 포트·화면 manifest·계약 버전, 열린 권한·그룹 어휘, 모듈 경로 접두사, 쓰기 포트, 취소·수명주기 신호, 기계가 읽는 테마 계약, 호스트 쪽 입력 검증 공유 위치(§3 🆕, §5).
-- **지도가 틀렸던 것**: 셸 구현이 이제 **세 벌**(FeedbackOps `@fops/ui` 레이아웃·AP `@ap/shell`·EV `@eqv/ui` `AppFrame`)이고, EV에 디자인 lint와 primitive가 있으며, FeedbackOps `AuthProvider`는 서버 전용이다(§4).
+- **지도가 틀렸던 것**: 셸 구현이 이제 **세 벌**(FeedbackOps `@ap/feature-ui` 레이아웃·AP `@ap/shell`·EV `@eqv/ui` `AppFrame`)이고, EV에 디자인 lint와 primitive가 있으며, FeedbackOps `AuthProvider`는 서버 전용이다(§4).
 - **범위 결정**: 백엔드 구현 프레임워크(FeedbackOps Fastify 규약 등)는 SDK가 덮지 않는다. 서버는 계약만(§6 Q-B).
 
 ## 2. 읽는 법
@@ -83,8 +83,8 @@
 
 | 기능 | AP | FO | EV | 판정 |
 | --- | --- | --- | --- | --- |
-| 토큰·primitive | `@ap/ui`는 `@fops/ui` 재수출 + 확장 층 | **현재 원본** `@fops/ui`(Pack 17, Tailwind v4) | `@eqv/ui`가 `@fops/ui`를 서브모듈로 소비(EV ADR-0008) + `--eqv-*` 24개(렌더러 전용) | ⬇ 코드를 SDK로 이전(ADR-0043) — **이전 끝**(#441–#443, ADR-0046: `@fops/ui` 전체가 `@ap/ui`에 있다). EV 서브모듈 경로도 SDK 소비로 바뀐다(전환은 열림) |
-| 셸·레이아웃 | `@ap/shell`(레일 52·사이드바 240·머리 50), `AnalysisLayout`·`ManagementLayout`·`DrillLayout` | `PageShell`·`ListShell`·`WorkbenchShell`은 **`@fops/ui` 안**. `AppFrame` 계열은 앱 안이며 managed-systems·권한·저장된 뷰를 직접 조회해 도메인 결합이 큼 | `@eqv/ui` `AppFrame`·`Page`(AP를 손으로 복사한 치수) | ⬇ 구현 **세 벌**을 SDK 하나로. FO `AppFrame`은 ⛔ 그대로 옮기지 않음 |
+| 토큰·primitive | `@ap/ui`는 `@ap/feature-ui` 재수출 + 확장 층 | **현재 원본** `@ap/feature-ui`(Pack 17, Tailwind v4) | `@eqv/ui`가 `@ap/feature-ui`를 서브모듈로 소비(EV ADR-0008) + `--eqv-*` 24개(렌더러 전용) | ⬇ 코드를 SDK로 이전(ADR-0043) — **이전 끝**(#441–#443, ADR-0046: `@ap/feature-ui` 전체가 `@ap/ui`에 있다). EV 서브모듈 경로도 SDK 소비로 바뀐다(전환은 열림) |
+| 셸·레이아웃 | `@ap/shell`(레일 52·사이드바 240·머리 50), `AnalysisLayout`·`ManagementLayout`·`DrillLayout` | `PageShell`·`ListShell`·`WorkbenchShell`은 **`@ap/feature-ui` 안**. `AppFrame` 계열은 앱 안이며 managed-systems·권한·저장된 뷰를 직접 조회해 도메인 결합이 큼 | `@eqv/ui` `AppFrame`·`Page`(AP를 손으로 복사한 치수) | ⬇ 구현 **세 벌**을 SDK 하나로. FO `AppFrame`은 ⛔ 그대로 옮기지 않음 |
 | 상세 패널 슬롯 | `DetailPanelSlot`(ADR-0013) | `DetailPanelSlotContext`(마지막 등록자 승리 + dev 경고) | 쓰지 않음 | ⬇ 슬롯 하나로 통합(G10) — 결정됨 [ADR-0047](../adr/0047-detail-panel-slot-single-registrant-model.md): FO의 `useDetailPanelSlot(node)`는 `@ap/ui` `useDetailPanelContent`(같은 `DetailPanelSlotProvider`의 내용 등록)로 옮겼다 |
 | 문서 제목 | 없음 | `DocumentTitleProvider`, **모듈 전역 Map 상태**라 인스턴스 간 격리 안 됨 | 없음 | 🆕 호스트 소유(G11). ⛔ 전역 Map |
 | 토스트·알림 | `toast`(Platform) | sonner | `useToastQueue`·`ToastRegion` | 🆕 `notify` 포트 하나 |
@@ -143,14 +143,14 @@
 
 | 지도의 서술 | 코드 |
 | --- | --- |
-| FO 셸(`PageShell` 등)은 "패키지 아님" | `@fops/ui`의 `layout/`에 있다. 앱 안에 있는 것은 `AppFrame`·`AppRail`·`AppSidebar` |
+| FO 셸(`PageShell` 등)은 "패키지 아님" | `@ap/feature-ui`의 `layout/`에 있다. 앱 안에 있는 것은 `AppFrame`·`AppRail`·`AppSidebar` |
 | FO `AuthProvider` | 백엔드 전용. 프런트에는 대응 추상이 없다 |
 | FO `validateSearch` strict | 라우트 스키마는 strict지만 `parseRouteSearch`는 잘못된 값·모르는 키를 **버린다** |
 | FO `returnTo`는 Findings만 | 여러 라우트의 공유 필드이고 허용목록 3경로 |
 | FO capability 내비 | 관리자 섹션만 문자열 필터 |
-| FO code→HTTP 표를 `@fops/shared`로 가정 | 백엔드 `lib/errors.ts`. `ERROR_CODES`는 도메인 코드가 섞인 enum |
+| FO code→HTTP 표를 `@ap/feature-shared`로 가정 | 백엔드 `lib/errors.ts`. `ERROR_CODES`는 도메인 코드가 섞인 enum |
 | FO#1202 `scrim` variant | `@ap/ui` `DialogContent scrim="palette"`(#310). FO#1202는 FO #1050과 같은 값이라 닫음 |
-| EV는 "primitive 없음, 디자인 lint 없음" | `@fops/ui`를 서브모듈로 소비(EV ADR-0008), `@shadcn/lint` 6규칙 적용, `packages/ui`(`@eqv/ui`, 컴포넌트 14개)가 AP 셸·표를 복사 |
+| EV는 "primitive 없음, 디자인 lint 없음" | `@ap/feature-ui`를 서브모듈로 소비(EV ADR-0008), `@shadcn/lint` 6규칙 적용, `packages/ui`(`@eqv/ui`, 컴포넌트 14개)가 AP 셸·표를 복사 |
 | EV 셸은 얇다 | 세 번째 셸 구현(`AppFrame`) |
 | EV `packages/replay`는 "계획만" | 존재한다. `platform-adapter`는 아직 없음 |
 | EV#44(시간 정밀도) 열림 | EV ADR-0009로 결정(밀리초 3자리 고정, 초과 정밀도 거부) |
@@ -186,7 +186,7 @@
 | 항목 | 상태 | 이유·다시 열 조건 |
 | --- | --- | --- |
 | 디자인 시스템 코드 이전 | [ADR-0046](../adr/0046-design-system-source-moves-to-platform-whole-package.md) 코드 이전 끝(#441–#443) | 남은 것: FeedbackOps 소비 전환(+배포 경로 #151), 도메인 결합 부분 분류, `@ap/ui` 전체 배포 모양 |
-| FeedbackOps#1231 본문 | ~~낡음~~ 완료 — 본문 갱신(2026-10-19, 사용자 허락) | "`@fops/ui`를 FeedbackOps가 배포" 서술을 ADR-0046 기준으로 고쳤다 |
+| FeedbackOps#1231 본문 | ~~낡음~~ 완료 — 본문 갱신(2026-10-19, 사용자 허락) | "`@ap/feature-ui`를 FeedbackOps가 배포" 서술을 ADR-0046 기준으로 고쳤다 |
 | EV ADR-0010 본문 | "미구현"으로 남아 있으나 코드는 구현됨 | EV 저장소 일 |
 | EV `packages/sdk/ui`의 AP 복사 치수 | 셸·표가 AP와 손 복사 | SDK 셸·표가 공개되면 교체. 그전에는 건드리지 않는다 |
 | 통합 계획 본문의 §2.2·§2.3·§3 | 정정만 이 문서에 있고 본문은 그대로 | 본문을 다시 쓰는 이슈가 생길 때 |

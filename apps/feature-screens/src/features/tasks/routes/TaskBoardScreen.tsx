@@ -17,6 +17,8 @@ import { formatCount } from '@/lib/format/count';
 import { HostLink, useHostNavigate, useHostSeam, useHostSearch } from '@/lib/host/host-seam';
 import { searchHref } from '@/lib/host/search';
 import { useCommittedSearchDraft } from '@/lib/useCommittedSearchDraft';
+import { type TaskDto, type TaskStatus, taskPrioritySchema } from '@ap/feature-shared';
+import { OutlineBadge } from '@ap/feature-ui';
 import {
   ActiveFilterBar,
   ListFilterButton,
@@ -37,8 +39,6 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
-import { type TaskDto, type TaskStatus, taskPrioritySchema } from '@fops/shared';
-import { OutlineBadge } from '@fops/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
 import {

@@ -1,7 +1,7 @@
 // The URL-owned query of the reporter's 내 VOC list. The host (platform bridge, ADR-0071) owns where it lives.
 
 import { REPORTER_FACING_STATUS_ALL } from '@/lib/copy/reporter-status-labels';
-import type { ReporterFacingStatusEnum } from '@fops/shared';
+import type { ReporterFacingStatusEnum } from '@ap/feature-shared';
 
 export const MY_VOC_SORTS = [
   'created_at:desc',

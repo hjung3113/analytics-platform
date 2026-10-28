@@ -2,8 +2,8 @@
 // included) with a caller-supplied toolbar and exposes the live editor, so tests can set a
 // real selection and assert real marks / focus. Production RichEditor internals stay untouched.
 
+import type { TipTapEditor } from '@ap/feature-ui';
 import { RichEditor, type RichEditorSurface, type TipTapDoc } from '@ap/ui';
-import type { TipTapEditor } from '@fops/ui';
 import * as React from 'react';
 import { afterEach, beforeEach } from 'vitest';
 

@@ -4,13 +4,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { groupId, spaceId } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { memoryStorage, testAdapter, testSession } from '@ap/kernel/testing';
-import { setFoApi } from '@ap/fo-bridge/fo-api';
-import { scopeControlSlot } from '@ap/fo-bridge/scope-control';
+import { setFoApi } from '@ap/feature-bridge/fo-api';
+import { scopeControlSlot } from '@ap/feature-bridge/scope-control';
 import { manifests } from './index';
 import { mountAt } from './test-support';
 
 const picker = vi.hoisted(() => ({ props: [] as { value?: string; disabled?: boolean; onChange: (id: string | undefined) => void }[] }));
-vi.mock('@fops/frontend/operator-screens/scope-picker', () => ({
+vi.mock('@ap/feature-screens/operator-screens/scope-picker', () => ({
   ManagedSystemScopeControl: (props: { value?: string; disabled?: boolean; onChange: (id: string | undefined) => void }) => { picker.props.push(props); return <div data-testid="picker" />; },
 }));
 

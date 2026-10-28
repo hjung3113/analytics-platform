@@ -1,5 +1,5 @@
-import { taskReporterSummarySchema, taskStatusSchema } from '@fops/shared';
-import type { EntityLinkTargetSummary, TaskStatus } from '@fops/shared';
+import { taskReporterSummarySchema, taskStatusSchema } from '@ap/feature-shared';
+import type { EntityLinkTargetSummary, TaskStatus } from '@ap/feature-shared';
 import { sql } from 'drizzle-orm';
 
 import type { Db } from '../../db/client.js';

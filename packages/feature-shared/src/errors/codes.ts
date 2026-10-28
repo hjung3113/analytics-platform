@@ -1,5 +1,5 @@
 // ADR-0012 stable error codes. Authoritative list lives in this file; both
-// apps import from `@fops/shared`. Slice 1 ships only the codes the auth path
+// apps import from `@ap/feature-shared`. Slice 1 ships only the codes the auth path
 // emits — additional codes are added by their owning slice in lockstep with
 // the i18n catalog (when that lands).
 

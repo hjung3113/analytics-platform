@@ -11,7 +11,7 @@
 //
 // No application code reads these tables yet (Slice 1 foundation only).
 
-import type { CoverageThresholds } from '@fops/shared';
+import type { CoverageThresholds } from '@ap/feature-shared';
 import { sql } from 'drizzle-orm';
 import {
   bigint,

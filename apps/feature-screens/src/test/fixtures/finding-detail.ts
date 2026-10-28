@@ -17,13 +17,13 @@ import {
   taskDetailDtoSchema,
   taskRequestDtoSchema,
   vocDetailEnvelopeSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import { z } from 'zod';
 
 // Issue #399 Finding detail baseline: deterministic ids/timestamps so the
 // pre- and post-refactor pixels stay comparable. Every export is parsed with
 // the shared client schemas at import time (fail-closed mock contract); the
-// two registry responses use local strict schemas because @fops/shared does
+// two registry responses use local strict schemas because @ap/feature-shared does
 // not export response schemas for GET /managed-systems / GET /analytics-areas
 // (same approach as managed-system-owner.ts / triage-analytics-area.ts).
 export const FINDING_DETAIL_IDS = {

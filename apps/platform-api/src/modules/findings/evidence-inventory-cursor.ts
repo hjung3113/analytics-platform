@@ -1,4 +1,4 @@
-import type { ListEvidenceInventoryQuery } from '@fops/shared';
+import type { ListEvidenceInventoryQuery } from '@ap/feature-shared';
 import { z } from 'zod';
 import { HttpError } from '../../lib/errors.js';
 import { normalizePgTimestampToIso } from '../../lib/pg-timestamp.js';

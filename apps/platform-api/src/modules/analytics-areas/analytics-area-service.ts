@@ -18,7 +18,7 @@
 import { and, asc, count, eq, isNull } from 'drizzle-orm';
 import type { DatabaseError } from 'pg';
 
-import type { AuditEventType } from '@fops/shared';
+import type { AuditEventType } from '@ap/feature-shared';
 
 import type { Db } from '../../db/client.js';
 import { analyticsAreas, managedSystems } from '../../db/schema/core.js';

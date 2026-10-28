@@ -38,7 +38,7 @@ steps here are superseded by the platform profile. The tools in `scripts/` (veri
 - **`be` issues get their own throwaway database.** Run `verify-db.sh up` once per wave first. The launcher then runs
   `verify-db.sh create <n> --migrate-from <worktree>` (or reuses an existing `env.verify.<n>`), copies it to
   `<worktree>/.review/env.verify`, and puts the exact command in the task's first lines:
-  `FEEDBACKOPS_ENV_FILE=<abs worktree>/.review/env.verify pnpm --filter backend test:integration <files>`. Workers run
+  `FEEDBACKOPS_ENV_FILE=<abs worktree>/.review/env.verify pnpm --filter @ap/platform-api test:integration <files>`. Workers run
   only the integration files they added or touched (`addenda/impl-rules-be.md` rule 2). `scripts/test-integration.sh`
   refuses port 5434 unless `FEEDBACKOPS_ALLOW_DEV_DB=1`; never set that for a worker.
 - In flight: ≈5–7 workers is the ceiling for one conductor; 2–3 while the conductor also runs every harness
@@ -69,13 +69,13 @@ Host checks in order; each must exit 0 before a commit. Every background verify 
   from launch: reuse it, or when the branch adds a migration, `verify-db.sh drop <n>` then `create <n>
   --migrate-from <worktree>`. Then `scripts/verify-be.sh <worktree> <n> [module filters]`: full integration once per
   BE issue, touched modules after small fix rounds. `reset-rate-limits <n>` only when needed.
-- **Lint gate** after committing: `pnpm --filter @fops/ops gate:fe-lint --base origin/develop`; classify each NEW with
+- **Lint gate** after committing: `pnpm --filter @ap/platform-api-ops gate:fe-lint --base origin/develop`; classify each NEW with
   `python3 "$ENGINE/biome-cmp.py" <worktree> <file>...` (base from `review_plan.base`; the file's `introduced`
   list → `biome check --write --formatter-enabled=false --linter-enabled=false` or `biome format --write`;
   pre-existing → allowlist in `ops/platform-api/scripts/gates/frontend-biome-allowlist.txt`).
 - Known FE load flakes (#634) pass when rerun alone; anything else is real.
 - **Final head (after the last fix round):** only what CI does not run: the mutation check on the fix (and the
-  fix-diff check when required), `python3 "$ENGINE/worker-hygiene.py" <worktree>` and `pnpm --filter @fops/ops gate:fe-lint --base origin/develop`. CI
+  fix-diff check when required), `python3 "$ENGINE/worker-hygiene.py" <worktree>` and `pnpm --filter @ap/platform-api-ops gate:fe-lint --base origin/develop`. CI
   (`ops/platform-api/scripts/ci/gate.sh` static, unit, integration) is the gate of record for the rebased head; no full
   `verify-fe.sh`/`verify-be.sh` rerun after a fix or a rebase.
 - Drop the issue DB and its env file (`verify-db.sh drop <n>`) after the merge; `verify-db.sh down` at wave end.
@@ -242,7 +242,7 @@ addenda, not engine forks or their tests.
 - TanStack Router merges the root's raw search into child matches; dropped keys must be overwritten with `undefined`.
 - A route added under an existing `$param.tsx` becomes its child and renders only through the parent's `<Outlet/>`;
   require a real route-tree test and un-nest with a trailing underscore (`$surveyId_.respond.tsx`).
-- `gate:fe-typecheck` checks only the frontend; `pnpm --filter @fops/ops typecheck` also builds `packages/feature-ui` with its tests
+- `gate:fe-typecheck` checks only the frontend; `pnpm --filter @ap/platform-api-ops feature:typecheck` also builds `packages/feature-ui` with its tests
   (#661). `verify-fe.sh` runs both.
 - Rebase conflicts also hit the biome allowlist: keep both sides.
 - A merge that adds dependencies makes the Playwright webServer report only "was not able to start" in other

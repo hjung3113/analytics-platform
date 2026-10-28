@@ -9,7 +9,7 @@ import {
   internalCommentRequestSchema,
   publicUpdateRequestSchema,
   reporterReplyRequestSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 
 import { HttpError, fieldsFromZodIssues, sendError } from '../../../lib/errors.js';
 import { UUID_REGEX, requireIdempotencyKey } from '../../../lib/http-headers.js';

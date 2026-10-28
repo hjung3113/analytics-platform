@@ -17,6 +17,12 @@
 import { formatRecordDocumentTitle } from '@/lib/host/document-title-format';
 import { useHostTitle } from '@/lib/host/host-seam';
 import {
+  type FindingSeverity,
+  type VocListItem,
+  isTipTapDocStructurallyEmpty,
+} from '@ap/feature-shared';
+import { AnalyticsAreaPicker, ReporterStatusBadge } from '@ap/feature-ui';
+import {
   DetailPanelFullscreenToggle,
   DetailPanelSectionNav,
   PanelSectionTitle,
@@ -24,8 +30,6 @@ import {
   RichContentRenderer,
   type TipTapDoc,
 } from '@ap/ui';
-import { type FindingSeverity, type VocListItem, isTipTapDocStructurallyEmpty } from '@fops/shared';
-import { AnalyticsAreaPicker, ReporterStatusBadge } from '@fops/ui';
 import type * as React from 'react';
 
 import { ATTACHMENT_FALLBACK_LABEL } from '@/lib/copy/attachments';

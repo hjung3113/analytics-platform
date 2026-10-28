@@ -8,7 +8,7 @@ import {
   surveyResponseSubmissionSchema,
   surveyStartingPointSchema,
   surveyTypeSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { fieldsFromZodIssues, sendError } from '../../lib/errors.js';

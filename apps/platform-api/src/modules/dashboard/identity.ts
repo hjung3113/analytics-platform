@@ -1,4 +1,4 @@
-import { RECOVERY_CATEGORIES, type RecoveryCategory } from '@fops/shared';
+import { RECOVERY_CATEGORIES, type RecoveryCategory } from '@ap/feature-shared';
 import { z } from 'zod';
 import { HttpError } from '../../lib/errors.js';
 

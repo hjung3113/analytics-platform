@@ -2,7 +2,7 @@
 import { randomUUID } from 'node:crypto';
 import { lockRecoveryCommand } from '../../../db/recovery-command-lock.js';
 
-import type { CreateVocRequest } from '@fops/shared';
+import type { CreateVocRequest } from '@ap/feature-shared';
 import type { Tx } from '../../../db/tx.js';
 import { HttpError } from '../../../lib/errors.js';
 import { sanitizeRichContentOrThrow } from '../../../lib/rich-content/sanitize-or-throw.js';

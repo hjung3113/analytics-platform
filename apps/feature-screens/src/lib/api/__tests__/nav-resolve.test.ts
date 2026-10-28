@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { navResolveResponseSchema } from '@fops/shared';
+import { navResolveResponseSchema } from '@ap/feature-shared';
 import { fetchNavResolve } from '../nav';
 import { ApiError } from '../types';
 

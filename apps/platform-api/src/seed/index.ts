@@ -1,4 +1,4 @@
-// Seed — invoked by `pnpm --filter @fops/backend db:seed`.
+// Seed — invoked by `pnpm --filter @ap/platform-api db:seed`.
 //
 // Decisions locked by Slice 1 grilling session (Q2, Q4, Q11) and extended
 // by Slice 2 grill Q9 (ADR-0017 / ADR-0018):

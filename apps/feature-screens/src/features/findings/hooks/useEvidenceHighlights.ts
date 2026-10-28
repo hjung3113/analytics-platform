@@ -1,5 +1,8 @@
 import { apiRequest } from '@/lib/api/client';
-import { type EvidenceHighlightDto, listEvidenceHighlightsResponseSchema } from '@fops/shared';
+import {
+  type EvidenceHighlightDto,
+  listEvidenceHighlightsResponseSchema,
+} from '@ap/feature-shared';
 import { type UseQueryResult, useQuery } from '@tanstack/react-query';
 
 export function useEvidenceHighlights(

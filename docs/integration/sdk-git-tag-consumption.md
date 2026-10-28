@@ -205,7 +205,7 @@ CI가 매 PR마다 같은 다섯 tarball을 만들고(`pnpm sdk:pack`), 깨끗�
 
 - git 태그 의존성은 **된다**. 결정(레지스트리 없이 태그)을 다시 열 이유는 시험에서 나오지 않았다.
 - 소비자 조건은 둘이다: `@types/node`, 그리고 `@tiptap/*` overrides와 auto-animate 패치를 소비자가 이미 갖거나 갖추는 것. 둘 다 FeedbackOps 전환 작업의 수용 기준에 넣는다.
-- 소비 묶음(#466, `sdk-v0.2.0`): FeedbackOps의 얇은 재수출에 맞춰 `@ap/ui`가 `@fops/ui`의 공개 이름 전부(`DetailPanelSlotContext` 제외)를 내보내고, shadcn 탭은 `TabsListBase`·`TabsTriggerBase`로, CSS는 `@ap/ui/styles/{tokens,semantic,theme,compat}.css`와 스캔용 `@ap/ui/styles/sources.css`로 받을 수 있다. `sdk-v0.1.0`에는 이 이름과 경로가 없다.
+- 소비 묶음(#466, `sdk-v0.2.0`): FeedbackOps의 얇은 재수출에 맞춰 `@ap/ui`가 `@ap/feature-ui`의 공개 이름 전부(`DetailPanelSlotContext` 제외)를 내보내고, shadcn 탭은 `TabsListBase`·`TabsTriggerBase`로, CSS는 `@ap/ui/styles/{tokens,semantic,theme,compat}.css`와 스캔용 `@ap/ui/styles/sources.css`로 받을 수 있다. `sdk-v0.1.0`에는 이 이름과 경로가 없다.
 - 실제 전환 결과(FeedbackOps#1289, 1번 묶음): 소비자가 `@ap/ui`의 의존 범위(`^`)대로 받으면 radix가 새 버전으로 떠 동작이 바뀐다(Radix Tabs 1.2.x: 마우스다운에 `focus()`가 더해져 자동 활성화가 `onValueChange`를 두 번 부른다). 동작을 그대로 두려면 소비자가 `pnpm.overrides`로 radix·`lucide-react`를 이전 값에 고정한다. `@ap/ui`의 `react`·`react-dom` peer(`^19.3.0`)는 FeedbackOps(19.0.0)에서 경고를 낸다 — SDK 쪽 항목(#470).
 - 시험하지 않은 것(전환 전 확인): 소비자 개발 서버·테스트, 사내 git 서버 접근(GitHub의 이 저장소는 공개라 인증이 필요 없다. 사내에서 GitHub에 닿는지 또는 사내 미러가 필요한지는 [#151](https://github.com/hjung3113/analytics-platform/issues/151)·[#232](https://github.com/hjung3113/analytics-platform/issues/232)와 함께 확인), 의존 `@ap/ui` 버전이 둘 이상일 때의 React Context 중복.
 - 현재 다섯 SDK 패키지는 ADR-0056에 따라 빌드된 release tarball로 배포한다. tarball은 `dist`의 ESM JavaScript·`.d.ts`·CSS·JSON을 담으므로 소비자 번들러가 TypeScript 소스를 변환하도록 설정할 필요가 없다.

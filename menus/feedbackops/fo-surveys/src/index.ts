@@ -1,6 +1,6 @@
 /**
  * @ap/menu-fo-surveys — foSurveys group manifests (FeedbackOps space Surveys: Survey 관리 and its hidden builder, results and follow-up screens; ADR-0081, #764 p1).
- * The FeedbackOps operator Survey screens through the bridge; the page keys equal the route tables in `@ap/fo-bridge` (`surveysRoute`, `surveyBuilderRoute`, `surveyResultsRoute`, `surveyFollowUpRoute`; pinned by the manifests test),
+ * The FeedbackOps operator Survey screens through the bridge; the page keys equal the route tables in `@ap/feature-bridge` (`surveysRoute`, `surveyBuilderRoute`, `surveyResultsRoute`, `surveyFollowUpRoute`; pinned by the manifests test),
  * and the space carries `managedSystem` (ADR-0081 decision 4). `focus` is the selected Survey on the list and the selected response on the follow-up (06 §13). The reporter `설문` menus own `/surveys` and `/surveys/:id/respond`; these paths never alias them.
  */
 import { lazy } from 'react';

@@ -9,7 +9,7 @@ import {
   listTaskCommentsQuerySchema,
   listTasksQuerySchema,
   patchTaskStatusRequestSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 
 import { fieldsFromZodIssues, sendError } from '../../lib/errors.js';
 import {

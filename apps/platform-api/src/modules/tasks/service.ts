@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { ListTasksResponse } from '@fops/shared';
+import type { ListTasksResponse } from '@ap/feature-shared';
 import {
   type AssignTaskMilestoneRequest,
   type AssignTaskResponsibilityRequest,
@@ -15,7 +15,7 @@ import {
   type TaskDto,
   registeredEntityLinkPairSchema,
   splitTaskListTokens,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import { sql } from 'drizzle-orm';
 import { type PgBoss, fromDrizzle } from 'pg-boss';
 import { z } from 'zod';

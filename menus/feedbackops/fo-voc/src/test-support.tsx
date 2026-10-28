@@ -1,6 +1,6 @@
 /** Fixtures shared by the 수신함 and Triage page tests. */
 import { Inbox } from 'lucide-react';
-import { createFoMenuHarness } from '@ap/fo-bridge/testing';
+import { createFoMenuHarness } from '@ap/feature-bridge/testing';
 import { manifests } from './index';
 
 export const { registry, mountAt } = createFoMenuHarness({ manifests, homeMenuId: 'fo-inbox', group: { id: 'foVoc', label: { ko: 'VOC', en: 'VOC' }, icon: Inbox } });

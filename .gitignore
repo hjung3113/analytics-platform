@@ -49,7 +49,7 @@ packages/feature-shared/**/build
 packages/feature-ui/**/build
 packages/feature-shared/**/*.log
 packages/feature-ui/**/*.log
-# The bridge entry `@fops/frontend/operator-screens/coverage` (#762 c) is source, not a test-coverage report.
+# The bridge entry `@ap/feature-screens/operator-screens/coverage` (#762 c) is source, not a test-coverage report.
 !apps/feature-screens/src/operator-screens/coverage/
 # .env files of the old file, at every depth under the FO apps and packages (.env.example stays tracked)
 apps/platform-api/**/.env

@@ -6,7 +6,7 @@
 >
 > **§2 호스트 인터페이스는 [ADR-0053](../adr/0053-host-module-contract-v1.md)이 1판으로 확정했다(2026-10-19).** 그 ADR이 이 문서 §2·§4의 해당 부분보다 우선한다(모듈 패키지 의존 범위: `@ap/contracts`·`@ap/ui`).
 >
-> SDK 목표는 [ADR-0043](../adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)를 따른다: 호스트 → 모듈 계약은 SDK의 중심이고, 아래 "독립 호스트" 쪽은 각 제품의 선택이며 SDK 범위가 아니다. `@fops/ui` 배포·peer 전제(§0, §2 G10, §3·§4 그림과 표, §5.6, §8 H2)는 ADR-0043이 뒤집었다. §4의 "모듈 패키지는 `@ap/contracts`만 import"도 "앱이 SDK 프레임워크를 소비한다"와 맞지 않아 SDK 배포 단위를 설계할 때 다시 정한다(Open).
+> SDK 목표는 [ADR-0043](../adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)를 따른다: 호스트 → 모듈 계약은 SDK의 중심이고, 아래 "독립 호스트" 쪽은 각 제품의 선택이며 SDK 범위가 아니다. `@ap/feature-ui` 배포·peer 전제(§0, §2 G10, §3·§4 그림과 표, §5.6, §8 H2)는 ADR-0043이 뒤집었다. §4의 "모듈 패키지는 `@ap/contracts`만 import"도 "앱이 SDK 프레임워크를 소비한다"와 맞지 않아 SDK 배포 단위를 설계할 때 다시 정한다(Open).
 >
 > 사실은 2026-10-17에 읽은 파일·이슈에서 왔고 [§9 출처](#9-출처)에 모았다. 읽지 않은 것에서 끌어낸 판단은 **추정**으로 표시했다. 지도 역할의 앞 문서는 [프레임워크 통합 계획](framework-unification-plan.md)(단계 0–5)이고, 이 문서는 그 단계 2(EV 첫 실소비자)·단계 5(두 번째 호스트)의 호스트 인터페이스를 구체화한다.
 
@@ -14,7 +14,7 @@
 
 ## 0. 한 장 요약
 
-- **오늘 정해진 전제(사용자, 2026-10-17):** EV는 플랫폼 탑재가 기본이고 독립 Studio는 부가 기능이다. 호스트 → 모듈 계약은 플랫폼이 `@ap/contracts`로 내고, EV는 `packages/platform-adapter` 안에서만 `@ap/*`에 의존한다(#332·#396 코멘트). #148은 A(TS 원본). `@fops/ui`는 FeedbackOps가 배포하고 `@ap/ui`가 peer로 의존한다. EV 편입은 서브모듈 고정 + `@eqv/*` workspace 패키지만. (2026-10-25 개정: EV 릴리스 tarball 의존으로 대체, 13행 배너.)
+- **오늘 정해진 전제(사용자, 2026-10-17):** EV는 플랫폼 탑재가 기본이고 독립 Studio는 부가 기능이다. 호스트 → 모듈 계약은 플랫폼이 `@ap/contracts`로 내고, EV는 `packages/platform-adapter` 안에서만 `@ap/*`에 의존한다(#332·#396 코멘트). #148은 A(TS 원본). `@ap/feature-ui`는 FeedbackOps가 배포하고 `@ap/ui`가 peer로 의존한다. EV 편입은 서브모듈 고정 + `@eqv/*` workspace 패키지만. (2026-10-25 개정: EV 릴리스 tarball 의존으로 대체, 13행 배너.)
 - **권고 모양:** 모듈은 **화면 manifest**(React 무의존 메타데이터: 화면 id·모듈 상대 경로·권한·page key·Context capability·pageType·계약 버전·필수 기능)와 **화면 컴포넌트**를 낸다. 호스트는 화면마다 **호스트 포트 하나**(`ModuleHost`, 이름 Candidate)를 준다: 세션 스냅샷과 세대, 권한 표시 판정, 모듈 상대 내비게이션·page 상태·복귀, 전역 Context 읽기, 플랫폼 서버 조회(선택), 조립 설정값, 언어, 알림, 오류 보고, 구독, 해제 신호. 지금 `MenuMeta`·`EndpointSpec`·`GlobalContext`·`ApiResponse`·`resolveLink`·`returnTarget`·`reportError`가 이 계약의 대부분이고, 빠진 것은 **열린 어휘(그룹·권한)**, **모듈 경로 접두사**, **React 밖에서 쓰는 호스트 포트**, **모듈 상태(인증 필요·신원 불일치)**, **조립 설정 주입**, **계약 버전 검사**다(§2.4).
 - **두 호스트:** 플랫폼 셸에서는 Kernel이 `usePlatform()`으로 호스트 포트를 만들고, 독립 호스트에서는 제품 앱이 같은 포트를 자기 라우터·세션으로 구현한다. **EV**는 Studio가 포트를 구현할 필요가 없다 — Studio는 `@eqv/core`·`renderer`·`editor`를 직접 조립하는 저작 도구로 남고, 플랫폼 탑재 화면은 `platform-adapter`가 만든다. **FeedbackOps**는 독립 앱이 계속 1차 호스트인 사용자(담당자·관리자·허브)가 있으므로, 독립 앱도 같은 화면 모듈을 포트로 조립해야 화면이 한 벌로 남는다(§3).
 - **FeedbackOps 권고:** **한 원본, 두 호스트(D)**. FeedbackOps가 화면을 모듈 패키지로 옮기고 독립 앱과 플랫폼 협업 공간이 같은 화면을 조립한다. 백엔드·권한·Managed System 규칙은 FeedbackOps 소유. 파일럿은 설문 참여·응답(`/surveys/participate`·`/surveys/$surveyId/respond`) — Managed System 범위·상세 패널이 없는 작은 흐름으로 인증·쓰기·복귀를 먼저 검사하고, 다음 단계(신고자 VOC 흐름)에서 플랫폼이 따로 그리는 1단계 읽기 화면(`/voc` 내 VOC)을 원본 화면으로 바꾼다. ADR-0027은 채택 시 ADR-0038이 대체한다(§5).
@@ -60,7 +60,7 @@
 | 세션·신원 | 동기 스냅샷 `{ user, generation }`, 변경 구독 | `session()`, `subscribe`, `revision` | 제품 서버 세션과 다르면 모듈이 차단(§5.4) |
 | i18n | 현재 언어 `ko`/`en` | `useI18n().lang`, `Text` | 사전은 모듈 소유. 지원하지 않는 언어는 모듈 기본 언어로 그리고 그 사실을 manifest에 선언 |
 | 감사·활용률 | 활용률(진입·체류)은 **호스트가 자동 기록**(등록 화면 단위), 감사는 서버가 쓴다 | `recordUsage`, `AuditEvent`, `entityAudit` | 모듈은 클라이언트에서 감사 행을 쓰지 않는다. 플랫폼 `AuditTimeline`을 쓸지는 모듈 선택 |
-| 상세 패널 | 셸의 오른쪽 고정 슬롯에 노드 하나를 올리고 내림 | `@ap/ui` `DetailPanelSlot`(ADR-0013) — FO는 별도 `@fops/ui` `DetailPanelSlotContext`(AppFrame이 제공) | FO 목록+상세 화면은 이 슬롯 없이는 상세가 보이지 않는다(제공자가 없으면 hook이 아무것도 하지 않음). 슬롯 primitive가 두 벌이었으나 [ADR-0047](../adr/0047-detail-panel-slot-single-registrant-model.md)로 하나로 합쳤다(G10) |
+| 상세 패널 | 셸의 오른쪽 고정 슬롯에 노드 하나를 올리고 내림 | `@ap/ui` `DetailPanelSlot`(ADR-0013) — FO는 별도 `@ap/feature-ui` `DetailPanelSlotContext`(AppFrame이 제공) | FO 목록+상세 화면은 이 슬롯 없이는 상세가 보이지 않는다(제공자가 없으면 hook이 아무것도 하지 않음). 슬롯 primitive가 두 벌이었으나 [ADR-0047](../adr/0047-detail-panel-slot-single-registrant-model.md)로 하나로 합쳤다(G10) |
 | 문서 제목 | 호스트가 `document.title`을 소유하고 화면 이름은 manifest `label`에서 | 없음(플랫폼은 미정, FO는 `DocumentTitleProvider`) | 모듈이 `document.title`을 직접 쓰지 않는다(G11) |
 | 포커스·복귀 | 도착 포커스 요청 소비, 복귀 대상 `returnTarget()`·출발 표시 `returnOrigin()` | `PageNavigation`, `ReturnLink`(06 §22), ADR-0032 | 도착 포커스는 `PlatformPage`가 수행한다. 호스트가 모듈 화면을 `PlatformPage`로 감싸므로(#804) 모듈이 `focusTarget`에 등록한 요소가 제목보다 먼저 포커스를 받고, 등록이 없으면 제목(h1)이 받는다 |
 | 오류·상태 | 라우트 오류 경계(호스트 소유), `reportError` → correlation id, 알림 `notify` | `RouteErrorBoundary`, `reportClientError`, `toast` | 모듈 상태 `auth_required`·`identity_mismatch`·`unavailable`을 호스트가 공통 화면으로 그린다(새 항목) |
@@ -98,12 +98,12 @@
 | G2 | 모듈 경로 접두사 | `matchRoute`는 앱 절대 경로·길이 일치만 매칭한다. 모듈은 자기 상대 경로만 알아야 두 호스트에서 같은 manifest를 쓴다 | 연결 패키지가 접두사를 정하고 Kernel이 등록 때 합친다. 경로 충돌 검사는 지금 규칙 그대로 |
 | G3 | React 밖 호스트 포트 | 화면 props는 `{ params }`뿐이고 나머지는 `usePlatform()` 훅 — 모듈이 `@ap/kernel`을 import해야 한다 | `@ap/contracts`에 `ModuleHost` 타입, Kernel이 구현해 화면 props로 넘김(`{ params, host }`) |
 | G4 | 모듈 상태 | 제품 서버 인증 실패·신원 불일치를 모듈마다 다르게 그리면 로그인 화면이 셸 안에 생긴다 | `host.status(...)` 또는 화면 반환 상태로 `auth_required`·`identity_mismatch`·`unavailable`. 호스트가 공통 화면과 조치(새 탭 로그인 등)를 그림 |
-| G5 | 조립 설정 주입 | FeedbackOps `apiBase`, Managed System 매핑, EV 테마 매핑은 모듈 밖 값이다. 지금은 메뉴가 모듈 변수에 넣는 방식(`@ap/fo-bridge/fo-api`) | 연결 패키지가 `config`로 넘기고 모듈 manifest가 필요한 키를 선언 |
+| G5 | 조립 설정 주입 | FeedbackOps `apiBase`, Managed System 매핑, EV 테마 매핑은 모듈 밖 값이다. 지금은 메뉴가 모듈 변수에 넣는 방식(`@ap/feature-bridge/fo-api`) | 연결 패키지가 `config`로 넘기고 모듈 manifest가 필요한 키를 선언 |
 | G6 | 계약 버전·필수 기능 검사 | 모듈과 호스트의 출시 시점이 다르다(#396 §9) | manifest `contract`·`requires`, 등록 때 모르는 버전·빠진 필수 기능을 `RegistryError`로 거부(fail closed) |
 | G7 | 도착 포커스 대상 | 도착 포커스(ADR-0032)가 `PlatformPage` 안에 있다 | 포트에 `focusTarget(el)` 등록. 호스트가 `PlatformPage`의 `arrivalTarget`으로 넘겨 제목을 덮어쓴다(#804) |
 | G8 | 모듈 CSS 소스 등록 | 모듈 패키지가 Tailwind 클래스를 쓰면 앱 `style.css`의 `@source`가 필요하다(지금 메뉴는 `styles.css` + 앱 import) | 생성기 마커처럼 연결 패키지가 `styles.css`를 내고 앱이 import |
 | G9 | 화면 해제 신호 | 지금은 React 언마운트에 맡긴다 | `host.signal`(AbortSignal) — React 밖 자원(EV worker, FO 업로드 큐) 정리용 |
-| G10 | 상세 슬롯 primitive 두 벌 (결정됨: [ADR-0047](../adr/0047-detail-panel-slot-single-registrant-model.md) — 슬롯 하나, FO는 전환 시점에 `DetailPanelSlotProvider`를 채택) | 플랫폼 `@ap/ui` `DetailPanelSlot`과 FO `@fops/ui` `DetailPanelSlotContext`가 다른 구현이다 | 포트에 선택 기능 `detail`(노드는 `unknown` 타입)을 두고 FO 모듈 루트가 자기 Context를 그쪽에 잇는다. 장기적으로 원본 하나(`@fops/ui`)로 — ADR-0023 절차대로 FO 이슈 제안 |
+| G10 | 상세 슬롯 primitive 두 벌 (결정됨: [ADR-0047](../adr/0047-detail-panel-slot-single-registrant-model.md) — 슬롯 하나, FO는 전환 시점에 `DetailPanelSlotProvider`를 채택) | 플랫폼 `@ap/ui` `DetailPanelSlot`과 FO `@ap/feature-ui` `DetailPanelSlotContext`가 다른 구현이다 | 포트에 선택 기능 `detail`(노드는 `unknown` 타입)을 두고 FO 모듈 루트가 자기 Context를 그쪽에 잇는다. 장기적으로 원본 하나(`@ap/feature-ui`)로 — ADR-0023 절차대로 FO 이슈 제안 |
 | G11 | 문서 제목 | FO는 `DocumentTitleProvider`가 `"<label> · FeedbackOps"`를 쓰고 플랫폼은 정한 것이 없다 | 호스트 소유. 모듈은 manifest `label`과 동적 제목 요청만 |
 
 ### 2.5 스케치 (설명용, 이름·모양 Candidate)
@@ -202,7 +202,7 @@ flowchart LR
 | 라우팅·history | Kernel + `PlatformLocation`, 모듈 경로는 접두사 아래 | TanStack Router가 포트를 구현(라우트 파일 = 얇은 래퍼) | 자체 history 라우터, 포트 없음 |
 | URL 상태 | 06 §6 계약(`v`, 전역 키, 등록 page key) | FeedbackOps strict search 스키마 — 같은 스키마를 모듈이 가짐 | Studio 경로·query |
 | Context | 전역 Context(EV는 `time` 적용, FO는 미적용) | 없음 — 포트의 `context()`는 빈 값·전부 미지원 | 없음 |
-| 디자인 토큰 | `@ap/ui`(원본 `@fops/ui`) + EV `--eqv-*` 매핑 | `@fops/ui` | `--eqv-*` fallback |
+| 디자인 토큰 | `@ap/ui`(원본 `@ap/feature-ui`) + EV `--eqv-*` 매핑 | `@ap/feature-ui` | `--eqv-*` fallback |
 | 데이터 | EV: `host.query` → `menuQuery`. FO: `apiBase` → FeedbackOps API | FO API(같은 origin) | 파일 API(dev 플러그인) |
 | 활용률·오류 보고 | 호스트 자동(`recordUsage`·`reportClientError`) | FeedbackOps가 정함(지금 없음 — 추정) | 없음 |
 
@@ -215,10 +215,10 @@ flowchart LR
 ```mermaid
 flowchart BT
   C["@ap/contracts (호스트 계약 포함, React 무의존)"]
-  FU["@fops/ui (FO 배포)"]
+  FU["@ap/feature-ui (FO 배포)"]
   UI["@ap/ui"] --> FU
   K["@ap/kernel"] --> C
-  FS["@fops/shared"]
+  FS["@ap/feature-shared"]
   FW["@fops 화면 모듈 패키지 (FO 저장소)"] --> C
   FW --> FU
   FW --> FS
@@ -240,9 +240,9 @@ flowchart BT
 | 연결 패키지 | `menus/<space>/<group>/`에 화면 없는 연결 패키지(manifest 접두사·공간·아이콘·config, mock 조립). 예 `menus/collab/feedbackops`, EV는 기존 `menus/mars/equipment`에 합침 | ADR-0031 폴더 = 공간/그룹, `repo-invariants` 검사 유지 |
 | 의존 방향 | 모듈 패키지 → `@ap/contracts`만. `@ap/kernel`·`components`·`shell`·`ui` import 금지. 연결 패키지 → 모듈 + `@ap/kernel`. Kernel·셸은 모듈을 모른다 | 모듈 패키지가 플랫폼 workspace 밖(제품 독립 CI)에서도 풀려야 한다. `contracts`만 배포 대상으로 작게 유지 |
 | 경계 lint | 플랫폼: 새 `module-glue` 프리셋(연결 패키지는 모듈 공개 진입점만, 모듈 패키지에서 `@ap/*` 중 `contracts` 외 금지). FO: "화면 모듈 패키지만 `@ap/contracts` import, 앱·백엔드·`shared`는 금지". EV: 기존 규칙(`platform-adapter`만 `@ap/*`) + `@ap/contracts` 외 금지 | 패키지 경계 §3 규칙 4·7, EV `eslint.config.js` |
-| 저장소 순환 | 플랫폼은 FO를 서브모듈로 갖고, FO 화면 모듈은 `@ap/contracts`가 필요하다. FO가 플랫폼을 서브모듈로 갖는 것은 순환이라 쓰지 않는다. **`@ap/contracts`를 먼저 배포**(dist: ESM + d.ts)하고 모듈 패키지는 peer로 의존. EV `platform-adapter`는 배포 전까지 EV CI에서 빼고 플랫폼 CI가 검사 | 패키지 수준은 비순환(`@ap/contracts`는 의존 없음, `@fops/ui`는 `@ap/*` 의존 없음). 배포 대안: git 고정 의존(pnpm git 하위 경로 — **추정**, 확인 필요), FO 소유 포트 타입(통합 계획 Q4 (b) — 사용자가 EV에서 기각) |
+| 저장소 순환 | 플랫폼은 FO를 서브모듈로 갖고, FO 화면 모듈은 `@ap/contracts`가 필요하다. FO가 플랫폼을 서브모듈로 갖는 것은 순환이라 쓰지 않는다. **`@ap/contracts`를 먼저 배포**(dist: ESM + d.ts)하고 모듈 패키지는 peer로 의존. EV `platform-adapter`는 배포 전까지 EV CI에서 빼고 플랫폼 CI가 검사 | 패키지 수준은 비순환(`@ap/contracts`는 의존 없음, `@ap/feature-ui`는 `@ap/*` 의존 없음). 배포 대안: git 고정 의존(pnpm git 하위 경로 — **추정**, 확인 필요), FO 소유 포트 타입(통합 계획 Q4 (b) — 사용자가 EV에서 기각) |
 | 버전·호환 | ① 호스트 계약은 정수 `contract`(URL `v`·딥링크 `contract: 1`과 같은 방식). 모르는 값은 등록 거부. ② `@ap/contracts`는 0.x 동안 minor = 선택 기능·필드 추가, 그 외는 계약 번호 올림. ③ 플랫폼은 gitlink + lockfile로 모듈 커밋을 고정하고, 모듈은 지원하는 `contract` 목록을 manifest에 선언. ④ 조합표(플랫폼 커밋 × 모듈 커밋)는 플랫폼 CI가 남긴다 | #396 §9, 06 §6.4 `v` 규칙 |
-| React·라이브러리 중복 | `react`·`react-dom`·`@fops/ui`는 peer, 앱이 한 벌 해석. TanStack Query는 FO 화면 모듈의 내부 의존(화면 범위 캐시)으로 허용하되 버전을 앱과 맞춘다. lucide는 FO 0.469 / 플랫폼 1.48로 갈려 있어 탑재 전 정렬 필요 | 패키지 버전은 2026-10-17 `package.json`에서 확인 |
+| React·라이브러리 중복 | `react`·`react-dom`·`@ap/feature-ui`는 peer, 앱이 한 벌 해석. TanStack Query는 FO 화면 모듈의 내부 의존(화면 범위 캐시)으로 허용하되 버전을 앱과 맞춘다. lucide는 FO 0.469 / 플랫폼 1.48로 갈려 있어 탑재 전 정렬 필요 | 패키지 버전은 2026-10-17 `package.json`에서 확인 |
 
 ## 5. FeedbackOps (질문 4)
 
@@ -289,8 +289,8 @@ FeedbackOps 라우트(서브모듈 `dc7638f`의 `apps/frontend/src/routes/_authe
 
 ### 5.6 FeedbackOps 저장소에서 바뀌는 것 (제안 — FO 이슈 [FO#1231](https://github.com/hjung3113/FeedbackOps/issues/1231))
 
-1. 배포 가능한 `@fops/ui`(사용자 결정, peer `@ap/ui`): 빌드 산출물·`exports`·peer 정리, lucide 버전 정렬. 장애물: 지금 `private: true`, TS 소스 export·`build`는 `tsc --noEmit`뿐, `@fops/shared: workspace:*` 의존(경계 검사는 ui → shared import를 금지하는데 의존 선언은 남음), 소비자가 `src`를 Tailwind `@source`로 등록해야 함(FO ADR-0058).
-2. 화면 모듈 패키지 신설: P1 화면부터 `features/*` 화면과 search 스키마를 옮기고, manifest를 낸다. 의존: `@fops/ui`·`@fops/shared`·peer `@ap/contracts`(호스트 계약 타입).
+1. 배포 가능한 `@ap/feature-ui`(사용자 결정, peer `@ap/ui`): 빌드 산출물·`exports`·peer 정리, lucide 버전 정렬. 장애물: 지금 `private: true`, TS 소스 export·`build`는 `tsc --noEmit`뿐, `@ap/feature-shared: workspace:*` 의존(경계 검사는 ui → shared import를 금지하는데 의존 선언은 남음), 소비자가 `src`를 Tailwind `@source`로 등록해야 함(FO ADR-0058).
+2. 화면 모듈 패키지 신설: P1 화면부터 `features/*` 화면과 search 스키마를 옮기고, manifest를 낸다. 의존: `@ap/feature-ui`·`@ap/feature-shared`·peer `@ap/contracts`(호스트 계약 타입).
 3. API 클라이언트의 기준 경로 주입: 지금 루트 상대 경로가 프런트 라우트와 겹쳐 dev 프록시가 `Accept`로 구분한다(`apps/frontend/vite.config.ts`). `apiBase` 설정으로 바꾼다.
 4. 라우터 결합 분리: 라우트 밖의 TanStack Router import를 포트로. `declare module '@tanstack/react-router' { Register }`로 묶인 타입 링크는 독립 호스트 래퍼에만 남긴다.
 5. 전역 `QueryClient`(`main.tsx`)를 화면 모듈 루트의 화면 범위 캐시로: 세션 세대 변경·해제 때 폐기. 설문 결과 읽기 거부 표식 같은 기본값 등록(`registerSurveyQueryDefaults`)도 모듈로.
@@ -339,7 +339,7 @@ ADR-0038이 채택되면 ADR-0027을 **Superseded**로 바꾼다. 남는 것: �
 | 같은 사이트 배포가 안 됨 | FO API 호출 불가(쿠키 `lax`, CORS 없음) | #151에서 역방향 프록시 경로 확인. 안 되면 FO에 CORS + `SameSite=None` 변경 필요(보안 검토) |
 | React·라이브러리 중복 인스턴스 | Context 깨짐, 번들 증가 | peer + 앱 단일 해석, lucide 정렬 |
 | 저장소 순환·배포 지연 | FO 독립 CI가 `@ap/contracts`를 못 풂 | `@ap/contracts` 우선 배포(§4). 배포 전에는 구현하지 않음 |
-| CSS 중복·누락 | `@fops/ui` 스타일 두 번 import, 모듈 클래스 누락 | 연결 패키지 `styles.css` + 앱 한 곳 import(G8) |
+| CSS 중복·누락 | `@ap/feature-ui` 스타일 두 번 import, 모듈 클래스 누락 | 연결 패키지 `styles.css` + 앱 한 곳 import(G8) |
 | 시간 어휘 혼동 | FO 실제 시점(instant)과 플랫폼 wall-clock | FO 화면은 자기 형식 유지. 플랫폼 `formatInstant` 규칙(06 §6.3)과 섞지 않음 |
 | 한국어 고정 모듈 | 플랫폼 ko/en 전환 때 모듈만 한국어 | manifest `languages` 선언, 호스트가 표시 |
 
@@ -373,7 +373,7 @@ ADR-0038이 채택되면 ADR-0027을 **Superseded**로 바꾼다. 남는 것: �
 | --- | --- | --- | --- |
 | H0 | 이 문서·ADR-0038·0039 결정 | 사용자 | [#402](https://github.com/hjung3113/analytics-platform/issues/402) |
 | H1 | 호스트 계약 1판(`@ap/contracts`) + Kernel 모듈 등록 + `module-glue` lint, EV `platform-adapter`가 첫 소비자 | ADR-0039, #332 | [#403](https://github.com/hjung3113/analytics-platform/issues/403), 기존 #333–#335, EV [EV#70](https://github.com/hjung3113/equipment-visualization/issues/70) |
-| H2 | `@ap/contracts` 배포(통합 계획 단계 4의 일부)와 `@fops/ui` 배포 | H1, #151 registry | #396 §9 |
+| H2 | `@ap/contracts` 배포(통합 계획 단계 4의 일부)와 `@ap/feature-ui` 배포 | H1, #151 registry | #396 §9 |
 | H3 | FO 파일럿(P1 설문 참여·응답) — 협업 공간 시안 → FO 화면 모듈 → 플랫폼 연결 패키지 → 두 호스트 E2E | ADR-0038, FO MVP, #150·#151, H2 | [#404](https://github.com/hjung3113/analytics-platform/issues/404), FO [FO#1231](https://github.com/hjung3113/FeedbackOps/issues/1231), #81·#251 |
 | H4 | P2·P3 화면, ADR-0027 정리 문서 반영 | H3 | — |
 
@@ -381,7 +381,7 @@ ADR-0038이 채택되면 ADR-0027을 **Superseded**로 바꾼다. 남는 것: �
 
 analytics-platform(main `ec18d47`): [AGENTS.md](../../AGENTS.md), [docs/AGENTS.md](../AGENTS.md), [06](../contract/platform-ui-contract.md) §4–7·§9.1·§12·§14·§22, [15](../design/multi-workspace-ui.md) §6, [패키지 경계](platform-packages.md), [저장소 구조](repository-layout.md), [딥링크 계약](feedbackops-deeplink.md), [사내 적용 가이드](in-house-rollout.md) §3.1, [프레임워크 통합 계획](framework-unification-plan.md), ADR [0009](../adr/0009-production-assembly-injection.md)·[0016](../adr/0016-page-filter-bar.md)·[0018](../adr/0018-feedbackops-stage2-screens-into-platform-menus.md)·[0026](../adr/0026-multi-workspace-app-boundaries-and-feedbackops-scoping.md)·[0027](../adr/0027-feedbackops-stays-standalone-entry-links.md)·[0028](../adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md)·[0031](../adr/0031-menu-folders-by-space.md), 코드 `packages/sdk/contracts/src/{menu/{menu,menu-query},adapter/{adapter,response,audit},index}.ts`, `packages/sdk/kernel/src/{index,registry,platform,location}.ts`, `packages/sdk/shell/src/routing/RouteOutlet.tsx`, `packages/sdk/components/src/{state/pageFocus,archetypes/PlatformPage}.tsx`, `apps/platform-web/src/{menus.ts,platform-assembly.d.ts}`, `menus/_global/notice-voc/src/index.ts`, `package.json`(react·lucide 버전). 이슈 #81·#148·#150·#213·#249·#250·#251·#252·#332(사용자 코멘트 2026-10-17)·#333·#334·#335·#381·#394·#396(본문·사용자 코멘트 2026-10-17).
 
-FeedbackOps(서브모듈 `dc7638f`, 읽기만 — `develop`은 이 커밋보다 57커밋 앞서고 라우트 search 키가 더 늘었다): `apps/frontend/src/main.tsx`, `index.html`, `styles.css`, `routes/`(`__root.tsx`·`_authed.tsx`·라우트별 search), `lib/router/{app-router,search,document-title,InternalLink}.ts*`, `lib/api/{client,auth,types,errorMapper}.ts`, `lib/auth/useMe.ts`, `lib/layout/{AppFrame,AppRail,AppSidebar}.tsx`, `features/*`(파일 수·결합 집계), `features/voc/components/detail/DetailHeader.tsx`, `apps/frontend/vite.config.ts`, `apps/frontend/package.json`, `packages/ui/{package.json,src/layout/*}`, `packages/shared/package.json`, `apps/backend/src/{server.ts,modules/auth/routes.ts,modules/auth/auth-provider.ts,middleware/require-session.ts}`, ADR 0001·0006·0010·0012·0015·0017·0020·0021·0036·0044·0056·0058·0060 제목·상태(0015·0058은 해당 줄), `docs/frontend/routes-and-layout.md`, `docs/implementation/05-permission-policy.md`. `develop`: `apps/frontend/nginx.conf`, 두 `package.json`. 이슈 검색(platform·analytics-platform·embed·mount·publish·module·deeplink·micro-frontend·@fops/ui·basepath·CORS·iframe).
+FeedbackOps(서브모듈 `dc7638f`, 읽기만 — `develop`은 이 커밋보다 57커밋 앞서고 라우트 search 키가 더 늘었다): `apps/frontend/src/main.tsx`, `index.html`, `styles.css`, `routes/`(`__root.tsx`·`_authed.tsx`·라우트별 search), `lib/router/{app-router,search,document-title,InternalLink}.ts*`, `lib/api/{client,auth,types,errorMapper}.ts`, `lib/auth/useMe.ts`, `lib/layout/{AppFrame,AppRail,AppSidebar}.tsx`, `features/*`(파일 수·결합 집계), `features/voc/components/detail/DetailHeader.tsx`, `apps/frontend/vite.config.ts`, `apps/frontend/package.json`, `packages/ui/{package.json,src/layout/*}`, `packages/shared/package.json`, `apps/backend/src/{server.ts,modules/auth/routes.ts,modules/auth/auth-provider.ts,middleware/require-session.ts}`, ADR 0001·0006·0010·0012·0015·0017·0020·0021·0036·0044·0056·0058·0060 제목·상태(0015·0058은 해당 줄), `docs/frontend/routes-and-layout.md`, `docs/implementation/05-permission-policy.md`. `develop`: `apps/frontend/nginx.conf`, 두 `package.json`. 이슈 검색(platform·analytics-platform·embed·mount·publish·module·deeplink·micro-frontend·@ap/feature-ui·basepath·CORS·iframe).
 
 equipment-visualization(`origin/main` `c8171a0`·`origin/develop` `e38c646`, 읽기만): ADR 0001–0007 제목·상태와 0001 본문, `docs/INTEGRATION.md`, `AGENTS.md` "Integration rules", `README.md`, `packages/*/package.json`, `packages/renderer/src/index.ts`·`README.md`, `packages/editor/src/index.ts`, `assets/primitives/README.md`, `apps/studio/src/{router,api}.ts`, `eslint.config.js`·`tooling/eslint-boundary.test.ts`, 이슈 #2·#3·#15·#44·#53·#60, 저장소 공개 여부(`private: false`).
 

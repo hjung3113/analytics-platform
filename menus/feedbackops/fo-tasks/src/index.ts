@@ -1,6 +1,6 @@
 /**
  * @ap/menu-fo-tasks — foTasks group manifests (FeedbackOps space Tasks: Task Requests, Tasks board, 내 Task, Milestones and the hidden Task 목록; ADR-0081, #763).
- * The FeedbackOps operator Task screens through the bridge; the page keys equal the route tables in `@ap/fo-bridge` (`taskRequestsRoute`, `taskBoardRoute`, `myTasksRoute`, `milestonesRoute`, `taskListRoute`; pinned by the page tests),
+ * The FeedbackOps operator Task screens through the bridge; the page keys equal the route tables in `@ap/feature-bridge` (`taskRequestsRoute`, `taskBoardRoute`, `myTasksRoute`, `milestonesRoute`, `taskListRoute`; pinned by the page tests),
  * and the space carries `managedSystem` (ADR-0081 decision 4). `focus` is the selected Task (06 §13).
  */
 import { lazy } from 'react';

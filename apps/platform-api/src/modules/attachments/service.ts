@@ -11,7 +11,7 @@
 //      bucket free of orphaned bytes. The delete is swallowed; the original
 //      INSERT error re-throws.
 //   5. Emit `attachment_uploaded` audit row in the SAME transaction
-//      (ADR-0008). The detail schema in @fops/shared rejects any `filename`
+//      (ADR-0008). The detail schema in @ap/feature-shared rejects any `filename`
 //      field — filenames may carry PII and audit rows are broadly readable.
 //   6. Return the response envelope: `{ id, name, size_bytes, mime_type,
 //      uploaded_by_actor_id, created_at }`.
@@ -28,13 +28,13 @@ import type { Readable } from 'node:stream';
 import { sql } from 'drizzle-orm';
 
 import type { Db } from '../../db/client.js';
-import type { StorageBackend } from '../../lib/storage/index.js';
-import { StorageUnavailableError } from '../../lib/storage/index.js';
 import type { Tx } from '../../db/tx.js';
 import { HttpError } from '../../lib/errors.js';
+import type { StorageBackend } from '../../lib/storage/index.js';
+import { StorageUnavailableError } from '../../lib/storage/index.js';
 import type { AuditService } from '../core/audit/audit-service.js';
-import { runIdempotentCommand } from '../core/idempotency/idempotent-command.js';
 import type { IdempotencyService } from '../core/idempotency/idempotency-service.js';
+import { runIdempotentCommand } from '../core/idempotency/idempotent-command.js';
 import type { VocAttachmentReader } from '../voc/index.js';
 import { insertAttachment } from './repo.js';
 

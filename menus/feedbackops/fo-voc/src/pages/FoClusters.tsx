@@ -1,6 +1,6 @@
 import { usePlatform } from '@ap/kernel';
-import { FoScreenPage, clustersRoute, useClustersHere, useClustersSearch } from '@ap/fo-bridge';
-import { ClusterListScreen, isVocClustersSearchValueValid } from '@fops/frontend/operator-screens/voc-clusters';
+import { FoScreenPage, clustersRoute, useClustersHere, useClustersSearch } from '@ap/feature-bridge';
+import { ClusterListScreen, isVocClustersSearchValueValid } from '@ap/feature-screens/operator-screens/voc-clusters';
 import { ClusterDetailDrawer } from './ClusterDetailDrawer';
 
 /** FO's `ListShell` would hand a returned node to the shell slot, which renders outside the FeedbackOps providers; the page draws the detail itself, inside `FoBridge`. */

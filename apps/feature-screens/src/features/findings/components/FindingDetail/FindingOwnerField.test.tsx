@@ -1,4 +1,4 @@
-import type { FindingDto } from '@fops/shared';
+import type { FindingDto } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { UserEvent } from '@testing-library/user-event';

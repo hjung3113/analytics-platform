@@ -1,4 +1,5 @@
 import { GLOSSARY } from '@/lib/copy/glossary';
+import { ManagedSystemPicker, type PickerOption } from '@ap/feature-ui';
 import {
   Button,
   Dialog,
@@ -10,7 +11,6 @@ import {
   FieldLabel,
   Input,
 } from '@ap/ui';
-import { ManagedSystemPicker, type PickerOption } from '@fops/ui';
 import { useRef, useState } from 'react';
 
 import type { AnalyticsAreaDto } from '../../../lib/api/registry-reads';

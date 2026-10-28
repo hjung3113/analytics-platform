@@ -1,8 +1,8 @@
 import { isPermissionDenied } from '@/lib/api/types';
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { PERMISSION_BLOCKED_REASONS } from '@/lib/copy/permission-reasons';
+import type { TaskDto } from '@ap/feature-shared';
 import { EmptyState, PermissionBlockedPanel } from '@ap/ui';
-import type { TaskDto } from '@fops/shared';
 
 import { resolveTaskAssignee } from '../../adapters/taskDisplayAdapters';
 import { MilestonePanelSectionTitle } from '../MilestoneIdentity';

@@ -1,6 +1,6 @@
 import { GLOSSARY } from '@/lib/copy/glossary';
+import type { MilestoneStatusFilter } from '@ap/feature-shared';
 import type { PanelSection } from '@ap/ui';
-import type { MilestoneStatusFilter } from '@fops/shared';
 
 // ADR-0057 A2 amendment localizes Korean navigation; Timeline stays Slice C.
 export const SECTIONS: PanelSection[] = [

@@ -1,4 +1,4 @@
-import type { DashboardSummary } from '@fops/shared';
+import type { DashboardSummary } from '@ap/feature-shared';
 
 import { GLOSSARY } from './glossary';
 

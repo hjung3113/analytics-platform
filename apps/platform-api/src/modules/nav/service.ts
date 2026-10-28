@@ -1,4 +1,4 @@
-import type { NavResolveResponse } from '@fops/shared';
+import type { NavResolveResponse } from '@ap/feature-shared';
 
 import type { FindingsService } from '../findings/index.js';
 import { isAuthorizationAbsence } from '../permissions/read-utility.js';

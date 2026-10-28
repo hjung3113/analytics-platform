@@ -11,7 +11,7 @@ import {
   listSameManagedSystemCandidatePeersResponseSchema,
   listVocClustersResponseSchema,
   vocClusterDtoSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 
 export const IDS = {
   workspace: '11111111-1111-4111-8111-111111111111',

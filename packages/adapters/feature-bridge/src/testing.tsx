@@ -1,5 +1,5 @@
 /**
- * Test harness for the FeedbackOps bridge menus (`@ap/fo-bridge/testing`, test files and `test-support` only; the root never re-exports it, so the production
+ * Test harness for the FeedbackOps bridge menus (`@ap/feature-bridge/testing`, test files and `test-support` only; the root never re-exports it, so the production
  * bundle carries no `@testing-library/react`). Each menu's `test-support.tsx` calls `createFoMenuHarness` with its own manifests; this package never imports a menu.
  */
 import { Suspense, type ReactNode } from 'react';

@@ -3,7 +3,7 @@ import type { ManagedSystemDto } from '@/lib/api/registry-reads';
 import { RESPONSIBILITY_COPY } from '@/lib/copy/tasks';
 import { managedSystemsCatalogQuery } from '@/lib/cross-system/useManagedSystemNames';
 import { shortId } from '@/lib/identity';
-import type { TaskDto } from '@fops/shared';
+import type { TaskDto } from '@ap/feature-shared';
 import { useQuery } from '@tanstack/react-query';
 import * as React from 'react';
 

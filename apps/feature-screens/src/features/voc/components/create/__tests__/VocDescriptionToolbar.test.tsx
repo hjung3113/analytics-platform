@@ -2,12 +2,12 @@
 // The toolbar is a render-prop function (Editor | null) => ReactElement | null.
 // Tests use a fake editor object — no real TipTap instance required.
 
+import type { TipTapEditor as Editor } from '@ap/feature-ui';
 import { render, screen } from '@testing-library/react';
 import { fireEvent } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { vocDescriptionToolbar } from '../VocDescriptionToolbar';
 import { VOC_DESCRIPTION_TOOLBAR } from '../rich-toolbar-voc-description';
-import type { TipTapEditor as Editor } from '@fops/ui';
 
 // ── Chainable editor mock ─────────────────────────────────────────────────────
 //

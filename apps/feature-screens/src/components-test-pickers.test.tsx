@@ -5,13 +5,13 @@
 // assertion surface now matches the Radix ToggleGroup that ships per spec §3.4.
 //
 // AnalyticsAreaPicker is feature-local in packages/feature-ui (not exported from
-// @fops/ui public index) until a real second consumer lands (likely #21).
+// @ap/feature-ui public index) until a real second consumer lands (likely #21).
 // Its contract tests live in packages/feature-ui/__tests__/pickers.test.tsx.
 
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, test, vi } from 'vitest';
 
-import { ManagedSystemPicker } from '@fops/ui';
+import { ManagedSystemPicker } from '@ap/feature-ui';
 
 describe('<ManagedSystemPicker>', () => {
   test('renders options and fires onChange with the selected id', () => {

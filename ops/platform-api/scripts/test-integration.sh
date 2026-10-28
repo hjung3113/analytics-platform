@@ -11,9 +11,9 @@
 # database) is refused unless FEEDBACKOPS_ALLOW_DEV_DB=1 is set.
 #
 # Usage:
-#   pnpm --filter backend test:integration
-#   pnpm --filter backend test:integration src/modules/voc      # narrow filter
-#   FEEDBACKOPS_ENV_FILE=.env.verify pnpm --filter backend test:integration
+#   pnpm --filter @ap/platform-api test:integration
+#   pnpm --filter @ap/platform-api test:integration src/modules/voc      # narrow filter
+#   FEEDBACKOPS_ENV_FILE=.env.verify pnpm --filter @ap/platform-api test:integration
 
 set -euo pipefail
 
@@ -33,6 +33,9 @@ set -a
 # shellcheck disable=SC1090
 . "$env_file"
 set +a
+
+# Integration must exercise the real gate, regardless of caller or env-file opt-outs.
+unset ALLOW_SKIPPED_INTEGRATION
 
 for var in DATABASE_URL DATABASE_URL_MIGRATE WORKSPACE_ID; do
   if [ -z "${!var:-}" ]; then

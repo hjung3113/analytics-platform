@@ -1,11 +1,11 @@
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
-import { setFoApi } from '@ap/fo-bridge/fo-api';
+import { setFoApi } from '@ap/feature-bridge/fo-api';
 import { useHostSeam } from '@/lib/host/host-seam';
 import { mountAt, warmPages } from '../test-support';
 
-vi.mock('@fops/frontend/operator-screens/voc-triage', () => ({
+vi.mock('@ap/feature-screens/operator-screens/voc-triage', () => ({
   TriageScreen: () => {
     const seam = useHostSeam();
     const go = seam.useNavigate!();

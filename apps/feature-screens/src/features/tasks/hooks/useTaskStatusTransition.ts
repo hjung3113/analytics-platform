@@ -3,7 +3,7 @@ import { updateTaskStatus } from '@/lib/api/tasks';
 import { ApiError } from '@/lib/api/types';
 import { useHostSeam } from '@/lib/host/host-seam';
 import { invalidateRecovery } from '@/lib/query/recovery';
-import type { ListTasksResponse, TaskDto, TaskStatus } from '@fops/shared';
+import type { ListTasksResponse, TaskDto, TaskStatus } from '@ap/feature-shared';
 import {
   type InfiniteData,
   type QueryClient,

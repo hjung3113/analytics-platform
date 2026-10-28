@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import type { Capability } from '@fops/shared';
+import type { Capability } from '@ap/feature-shared';
 import type { Tx } from '../../../db/tx.js';
 import {
   type ActorContext,

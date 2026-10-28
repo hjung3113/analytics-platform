@@ -10,7 +10,7 @@
 import { Paperclip } from 'lucide-react';
 import type * as React from 'react';
 
-import type { LinkedAttachment } from '@fops/shared';
+import type { LinkedAttachment } from '@ap/feature-shared';
 
 import { apiHref } from '@/lib/api/client';
 

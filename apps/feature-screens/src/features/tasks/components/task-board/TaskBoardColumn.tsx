@@ -1,9 +1,9 @@
 import { ListLoadMore } from '@/components/ListLoadMore';
 import { TASK_BOARD_COPY } from '@/lib/copy/task-board';
+import type { TaskDto, TaskStatus } from '@ap/feature-shared';
+import { InternalTaskBadge } from '@ap/feature-ui';
 import { Button } from '@ap/ui';
 import { useDroppable } from '@dnd-kit/core';
-import type { TaskDto, TaskStatus } from '@fops/shared';
-import { InternalTaskBadge } from '@fops/ui';
 
 import { resolveTaskAssignee, taskTeamLabel } from '../../adapters/taskDisplayAdapters';
 import { TaskBoardCard } from './TaskBoardCard';

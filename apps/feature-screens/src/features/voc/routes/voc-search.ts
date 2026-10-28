@@ -4,7 +4,7 @@ import { isSearchFieldValueValid, parseRouteSearch, returnToField } from '@/lib/
 // The route file re-exports these for existing consumers (findings route,
 // tests).
 
-import { vocTabEnumSchema } from '@fops/shared';
+import { vocTabEnumSchema } from '@ap/feature-shared';
 import { z } from 'zod';
 
 export const vocSearchSchema = z

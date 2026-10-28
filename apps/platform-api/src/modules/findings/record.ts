@@ -1,11 +1,11 @@
-import type { ListFindingsResponse } from '@fops/shared';
+import type { ListFindingsResponse } from '@ap/feature-shared';
 import {
   type FindingDto,
   type FindingStatus,
   type LinkTaskRequest,
   type PatchFindingRequest,
   registeredEntityLinkPairSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import { lockRecoveryCommand } from '../../db/recovery-command-lock.js';
 import { HttpError } from '../../lib/errors.js';
 import { decodeListCursor, encodeListCursor } from '../../lib/list-cursor.js';

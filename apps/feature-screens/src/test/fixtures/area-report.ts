@@ -1,4 +1,4 @@
-import { areaReportLink, dashboardAreaReportSchema } from '@fops/shared';
+import { areaReportLink, dashboardAreaReportSchema } from '@ap/feature-shared';
 import { COVERAGE_IDS as IDS } from './coverage';
 
 const count = (metric: Parameters<typeof areaReportLink>[0], value: number) => ({

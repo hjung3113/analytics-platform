@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import type { CoverageThresholds } from '@fops/shared';
+import type { CoverageThresholds } from '@ap/feature-shared';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 

@@ -2,7 +2,7 @@ import { ApiError } from '@/lib/api/types';
 import { TASK_PRIORITY_LABELS } from '@/lib/copy/enum-labels';
 import { TaskBoardRoute } from '@/test/screen-host/features/tasks/routes/TaskBoardRoute';
 import { TasksRouteView, tasksSearchSchema } from '@/test/screen-host/routes/_authed/tasks';
-import { taskPrioritySchema } from '@fops/shared';
+import { taskPrioritySchema } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type * as React from 'react';
@@ -169,8 +169,8 @@ vi.mock('@ap/ui', async () => {
     ),
   };
 });
-vi.mock('@fops/ui', async () => {
-  const actual = await vi.importActual<typeof import('@fops/ui')>('@fops/ui');
+vi.mock('@ap/feature-ui', async () => {
+  const actual = await vi.importActual<typeof import('@ap/feature-ui')>('@ap/feature-ui');
   const react = await vi.importActual<typeof import('react')>('react');
   return {
     ...actual,

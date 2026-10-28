@@ -103,7 +103,7 @@ vi.mock('@/lib/cross-system/usePermissionCheckBridge', () => ({
   permissionRequestsMineKey: ['permission-requests-mine'],
 }));
 
-// ── Stub PermissionBlockedPanel (avoids JSDOM rendering issues with @fops/ui internals)
+// ── Stub PermissionBlockedPanel (avoids JSDOM rendering issues with @ap/feature-ui internals)
 vi.mock('@ap/ui', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@ap/ui')>();
   return {
@@ -413,7 +413,7 @@ describe('TriageRoute', () => {
     // PermissionBlockedPanel must be visible
     await waitFor(() => {
       // PermissionBlockedPanel renders some form of "권한" or blocked state copy.
-      // The component is from @fops/ui; check for its container testid or blocked text.
+      // The component is from @ap/feature-ui; check for its container testid or blocked text.
       expect(screen.queryByText('Triage VOC 1')).not.toBeInTheDocument();
     });
 

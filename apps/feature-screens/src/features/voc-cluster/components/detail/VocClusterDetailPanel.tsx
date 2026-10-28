@@ -1,6 +1,7 @@
 // VOC Cluster detail panel: detail query, role gate, Execution / Members /
 // Properties sections, CTA footer, and cross-system flow mounts.
 
+import { ManagedSystemPill, OutlineBadge, SeverityBadge, UnassignedBadge } from '@ap/feature-ui';
 import {
   Button,
   DetailPanelHeader,
@@ -10,7 +11,6 @@ import {
   PanelSectionTitle,
   SkeletonBlocks,
 } from '@ap/ui';
-import { ManagedSystemPill, OutlineBadge, SeverityBadge, UnassignedBadge } from '@fops/ui';
 import { Plus } from 'lucide-react';
 import * as React from 'react';
 import { useState } from 'react';

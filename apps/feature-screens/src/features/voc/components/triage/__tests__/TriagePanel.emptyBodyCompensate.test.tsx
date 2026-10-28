@@ -30,7 +30,7 @@ noticeHost.notify.mockImplementation((notice) => {
 });
 beforeAll(registerNoticeHost);
 
-import type { VocListItem } from '@fops/shared';
+import type { VocListItem } from '@ap/feature-shared';
 import { TriagePanel } from '../TriagePanel';
 
 const ORIGINAL_UPDATED_AT = '2026-05-01T00:00:00.000Z';

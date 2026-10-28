@@ -23,7 +23,7 @@ beforeAll(registerNoticeHost);
 
 import { TRIAGE_STATE_LABELS } from '@/lib/copy/enum-labels';
 import { VOC_TRIAGE_TAB_LABELS } from '@/lib/copy/voc-views';
-import type { VocListItem } from '@fops/shared';
+import type { VocListItem } from '@ap/feature-shared';
 import { type TriageTab, VocTriageScreen } from '../VocTriageScreen';
 
 const MOCK_VOC: VocListItem = {

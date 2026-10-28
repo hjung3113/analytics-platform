@@ -1,4 +1,4 @@
-import type { FindingDto } from '@fops/shared';
+import type { FindingDto } from '@ap/feature-shared';
 import type { Tx } from '../../db/tx.js';
 import { sanitizeRichContentOrThrow } from '../../lib/rich-content/sanitize-or-throw.js';
 import { checkFindingManage, checkFindingRead } from './authorization.js';

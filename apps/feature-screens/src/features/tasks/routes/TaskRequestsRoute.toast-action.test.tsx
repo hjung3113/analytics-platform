@@ -4,7 +4,7 @@ import { registerDefaultHost } from '@/lib/host/host-seam';
 import { tanstackHost } from '@/test/host-adapters/lib/host/tanstack-host';
 import { TaskRequestsRoute } from '@/test/screen-host/features/tasks/routes/TaskRequestsRoute';
 import { taskRequestPage } from '@/test/task-request-pages';
-import type { ListTaskRequestsQuery, TaskRequestDto } from '@fops/shared';
+import type { ListTaskRequestsQuery, TaskRequestDto } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import * as React from 'react';
@@ -100,8 +100,8 @@ vi.mock('@ap/ui', async () => {
     ),
   };
 });
-vi.mock('@fops/ui', async () => {
-  const actual = await vi.importActual<typeof import('@fops/ui')>('@fops/ui');
+vi.mock('@ap/feature-ui', async () => {
+  const actual = await vi.importActual<typeof import('@ap/feature-ui')>('@ap/feature-ui');
   return {
     ...actual,
     useDetailPanelSlot: (node: import('react').ReactNode) => {

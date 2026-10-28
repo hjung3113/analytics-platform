@@ -6,7 +6,7 @@ import {
   isSensitiveCapability,
   permissionRequestAdminDetailSchema,
   permissionRequestOwnerDetailSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import { and, eq, isNull, or } from 'drizzle-orm';
 import type { Db } from '../../db/client.js';
 import {

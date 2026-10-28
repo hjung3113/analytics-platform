@@ -4,7 +4,7 @@ paths:
   - "apps/feature-screens/src/features/**/*.tsx"
 ---
 
-# @ap/ui / @fops/ui traps
+# @ap/ui / @ap/feature-ui traps
 
 Paths below are relative to the repository root (FeedbackOps moved from the frozen FeedbackOps repo, ADR-0072).
 

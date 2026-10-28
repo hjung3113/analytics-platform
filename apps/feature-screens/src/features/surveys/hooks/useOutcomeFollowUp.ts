@@ -8,7 +8,7 @@ import {
   outcomeFollowUpMarkedResultSchema,
   outcomeFollowUpReadDtoSchema,
   outcomeFollowUpReopenedResultSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { surveyKeys } from './useSurveys';
 

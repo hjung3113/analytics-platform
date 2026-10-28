@@ -271,7 +271,7 @@ export function TriageScreen(): React.ReactElement {
 TriageScreen.displayName = 'TriageScreen';
 
 // Maps the FE permission-check state enum (FrontendPermissionState) to the
-// narrower PermissionBlockedPanel state enum (PermissionState in @fops/ui).
+// narrower PermissionBlockedPanel state enum (PermissionState in @ap/feature-ui).
 // Both spellings of "not requestable" exist historically — the API uses
 // 'blocked_non_requestable' while the UI primitive uses
 // 'blocked_not_requestable'. This mapping isolates that drift to one place.

@@ -17,7 +17,7 @@ import {
   type PatchMilestoneRequest,
   milestoneDetailDtoSchema,
   milestoneDtoSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import { z } from 'zod';
 
 import { apiRequest } from './client';

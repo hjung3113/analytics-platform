@@ -10,8 +10,8 @@ import type {
   EntityLinkVisibilityState,
   TaskReporterSummary,
   VocDetailEnvelope,
-} from '@fops/shared';
-import { isRegisteredEntityLinkPair, registeredEntityLinkPairs } from '@fops/shared';
+} from '@ap/feature-shared';
+import { isRegisteredEntityLinkPair, registeredEntityLinkPairs } from '@ap/feature-shared';
 import { lockRecoveryCommand } from '../../db/recovery-command-lock.js';
 import type { RecoveryRecorder } from '../dashboard/recorder.js';
 import { actorFindingReadScope, isFindingInReadScope } from '../findings/authorization.js';

@@ -17,10 +17,10 @@ import {
   AUDIT_EVENT_DETAIL_SCHEMAS,
   type AuditEventType,
   auditEventTypeSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 
-import type { Tx } from '../../../db/tx.js';
 import { auditLog } from '../../../db/schema/core.js';
+import type { Tx } from '../../../db/tx.js';
 
 export type { Tx };
 

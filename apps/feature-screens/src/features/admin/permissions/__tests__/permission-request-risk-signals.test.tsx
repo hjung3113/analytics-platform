@@ -1,6 +1,6 @@
 import type { AdminPermissionRequestRow } from '@/lib/api';
 import { adminDetailFixture } from '@/test/permission-details';
-import type { PermissionRiskIndicator } from '@fops/shared';
+import type { PermissionRiskIndicator } from '@ap/feature-shared';
 import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 

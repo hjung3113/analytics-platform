@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
-import { setFoApi } from '@ap/fo-bridge/fo-api';
+import { setFoApi } from '@ap/feature-bridge/fo-api';
 import { useHostSeam } from '@/lib/host/host-seam';
 import { mountAt, warmPages } from '../test-support';
 
@@ -11,14 +11,14 @@ const fo = vi.hoisted(() => ({
   detailArgs: [] as { findingId: string; onClose: () => void }[],
   mounts: 0,
 }));
-vi.mock('@fops/frontend/operator-screens/findings', () => ({
+vi.mock('@ap/feature-screens/operator-screens/findings', () => ({
   FindingsScreen: (props: { renderDetail: (id: string | null, options: { listDenied: boolean; returnTo: string | null }) => unknown }) => {
     fo.list.push(props);
     const seam = useHostSeam();
     return <div data-testid="list" data-here={seam.useHere!()} />;
   },
 }));
-vi.mock('@fops/frontend/operator-screens/finding-detail', async () => {
+vi.mock('@ap/feature-screens/operator-screens/finding-detail', async () => {
   const { useState } = await import('react');
   return {
     useFindingDetailParts: (args: { findingId: string; onClose: () => void }) => {

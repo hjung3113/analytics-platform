@@ -3,7 +3,7 @@ import * as barrel from '@/lib/api';
 import { useMe } from '@/lib/auth/useMe';
 import { TaskRequestsRoute } from '@/test/screen-host/features/tasks/routes/TaskRequestsRoute';
 import { taskRequestPage } from '@/test/task-request-pages';
-import type { ListTaskRequestsResponse, TaskRequestDto } from '@fops/shared';
+import type { ListTaskRequestsResponse, TaskRequestDto } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
@@ -76,8 +76,8 @@ vi.mock('@ap/ui', async (importOriginal) => ({
     </main>
   ),
 }));
-vi.mock('@fops/ui', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@fops/ui')>()),
+vi.mock('@ap/feature-ui', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@ap/feature-ui')>()),
   useDetailPanelSlot: (node: import('react').ReactNode) => {
     useLayoutEffect(() => {
       slot.set(node);

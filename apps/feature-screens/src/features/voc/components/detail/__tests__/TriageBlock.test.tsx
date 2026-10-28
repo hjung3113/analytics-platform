@@ -1,5 +1,5 @@
 import { TRIAGE_STATE_LABELS } from '@/lib/copy/enum-labels';
-import { triageStateEnumSchema } from '@fops/shared';
+import { triageStateEnumSchema } from '@ap/feature-shared';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 

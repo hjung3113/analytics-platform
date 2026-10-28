@@ -1,5 +1,5 @@
 import { shortId } from '@/lib/identity';
-import type { TaskRequestDto } from '@fops/shared';
+import type { TaskRequestDto } from '@ap/feature-shared';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { TaskRequestSourceSection } from './TaskRequestSourceSection';

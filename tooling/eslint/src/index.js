@@ -3,6 +3,7 @@ import tsParser from '@typescript-eslint/parser';
 import reactHooks from 'eslint-plugin-react-hooks';
 
 import { PACKAGE_PREFIX } from './prefix.js';
+import { FEATURE_PACKAGES } from './feature-packages.js';
 import noHandBuiltUrl from './hand-built-url.js';
 import noRelativePackageEscape from './relative-escape.js';
 import restrictedImportSource from './import-source.js';
@@ -16,7 +17,7 @@ const DEEP_SUBPATH_MESSAGE = `Import the package entry (${PACKAGE_PREFIX}name) o
 const LAYER_MESSAGE = 'Importing an internal workspace package outside this layer allowlist.';
 const MOCK_SERVER_MESSAGE = `${PACKAGE_PREFIX}mock-server is only legal in menu src/mock/**.`;
 const REACT_MESSAGE = 'react / react-dom are not allowed in this package.';
-const FEEDBACKOPS_MESSAGE = `@fops/* is not a platform dependency; the design system lives in ${pkg('ui')} (ADR-0046).`;
+const FEEDBACKOPS_MESSAGE = `Feature server/screens/shared/UI/ops are consumer dependencies; the design system lives in ${pkg('ui')} (ADR-0046).`;
 // #160: the table engine is components-internal; menus declare columns with the platform types.
 // EV's synthetic endpoint data (#801): reaches the app through src/dev/** (the mock assembly) and the conformance test only.
 const EQV_MOCK_DATA_PATTERN = '@eqv/*/mock-data';
@@ -57,27 +58,27 @@ const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const devRegex = (devAllow = []) =>
   devAllow.length === 0 ? DEV_REGEX : `^(?!(?:${devAllow.map(escapeRegex).join('|')})$)${DEV_REGEX.slice(1)}`;
 
-// Menu subpaths: the FeedbackOps origin slot is src/main.tsx ONLY, and so are the fo-bridge package slot subpaths (the FO API slot fo-api and the notifications, VOC compose and home todo slots); each menu's exact `/mock` export is
+// Menu subpaths: the FeedbackOps origin slot is src/main.tsx ONLY, and so are the feature-bridge package slot subpaths (the FO API slot fo-api and the notifications, VOC compose and home todo slots); each menu's exact `/mock` export is
 // src/dev/** only. Every other menu subpath and any `*/src` import stays banned.
 // NOTE: the gitignore-style `*` in `menu-*/mock` also matches an empty name (no way to say
 // "one or more" here), so a `menu-/mock` source is not rejected on this side; the dynamic-import
 // side (import-source.js) uses `[^/]+` for the same pattern.
 const MENU_MOCK_SUBPATH = 'menu-*/mock';
-const FO_API_SUBPATH = 'fo-bridge/fo-api';
-const NOTIFICATIONS_SLOT_SUBPATH = 'fo-bridge/notifications-slot';
-const VOC_COMPOSE_SLOT_SUBPATH = 'fo-bridge/voc-compose-slot';
-const HOME_TODO_SLOT_SUBPATH = 'fo-bridge/home-todo-slot';
-const SCOPE_CONTROL_SLOT_SUBPATH = 'fo-bridge/scope-control';
-const NAV_COUNTS_SLOT_SUBPATH = 'fo-bridge/nav-counts';
-const SAVED_VIEWS_SLOT_SUBPATH = 'fo-bridge/saved-views';
-// The fo-bridge menu test harness (`createFoMenuHarness`) subpath: test-only like `kernel/testing`, so only bridge-menu test files import it (FO_BRIDGE_TEST_SUBPATHS).
-const FO_BRIDGE_TESTING_SUBPATH = 'fo-bridge/testing';
+const FO_API_SUBPATH = 'feature-bridge/fo-api';
+const NOTIFICATIONS_SLOT_SUBPATH = 'feature-bridge/notifications-slot';
+const VOC_COMPOSE_SLOT_SUBPATH = 'feature-bridge/voc-compose-slot';
+const HOME_TODO_SLOT_SUBPATH = 'feature-bridge/home-todo-slot';
+const SCOPE_CONTROL_SLOT_SUBPATH = 'feature-bridge/scope-control';
+const NAV_COUNTS_SLOT_SUBPATH = 'feature-bridge/nav-counts';
+const SAVED_VIEWS_SLOT_SUBPATH = 'feature-bridge/saved-views';
+// The feature-bridge menu test harness (`createFoMenuHarness`) subpath: test-only like `kernel/testing`, so only bridge-menu test files import it (FO_BRIDGE_TEST_SUBPATHS).
+const FO_BRIDGE_TESTING_SUBPATH = 'feature-bridge/testing';
 // Rule 8 exception (platform ADR-0071, ADR-0081): a bridge menu imports exactly these entries (the screen barrel, its eager-code subset `/core`,
-// the lazy notifications panel entry `/inbox-panel`, and the operator dashboard and VOC entries); nothing else under @fops/*. the fo-bridge package imports `/core` only (FO_BRIDGE_PACKAGE_ENTRIES)
+// the lazy notifications panel entry `/inbox-panel`, and the operator dashboard and VOC entries); no other feature package entry. the feature-bridge package imports `/core` only (FO_BRIDGE_PACKAGE_ENTRIES)
 // except its lazy `src/pages/**`, which are screens too (the notifications slot loads `inbox-panel` through one of them).
-const FO_BRIDGE_ENTRIES = ['@fops/frontend/global-screens', '@fops/frontend/global-screens/core', '@fops/frontend/global-screens/inbox-panel', '@fops/frontend/operator-screens/scope-picker', '@fops/frontend/operator-screens/dashboard', '@fops/frontend/operator-screens/voc-clusters', '@fops/frontend/operator-screens/task-detail', '@fops/frontend/operator-screens/voc-detail', '@fops/frontend/operator-screens/voc-inbox', '@fops/frontend/operator-screens/milestones', '@fops/frontend/operator-screens/voc-search', '@fops/frontend/operator-screens/tasks-search', '@fops/frontend/operator-screens/voc-triage', '@fops/frontend/operator-screens/task-list', '@fops/frontend/operator-screens/task-board', '@fops/frontend/operator-screens/task-requests', '@fops/frontend/operator-screens/findings-search', '@fops/frontend/operator-screens/surveys-search', '@fops/frontend/operator-screens/admin-search', '@fops/frontend/operator-screens/integration-search', '@fops/frontend/operator-screens/findings', '@fops/frontend/operator-screens/finding-detail', '@fops/frontend/operator-screens/surveys', '@fops/frontend/operator-screens/survey-detail', '@fops/frontend/operator-screens/survey-builder', '@fops/frontend/operator-screens/survey-results', '@fops/frontend/operator-screens/survey-follow-up', '@fops/frontend/operator-screens/permission-requests', '@fops/frontend/operator-screens/permission-grants', '@fops/frontend/operator-screens/managed-systems', '@fops/frontend/operator-screens/settings', '@fops/frontend/operator-screens/analytics-areas', '@fops/frontend/operator-screens/evidence', '@fops/frontend/operator-screens/integration-dashboard', '@fops/frontend/operator-screens/coverage', '@fops/frontend/operator-screens/entity-links'];
-const FO_BRIDGE_TEST_SUBPATHS = [FO_API_SUBPATH, NOTIFICATIONS_SLOT_SUBPATH, VOC_COMPOSE_SLOT_SUBPATH, HOME_TODO_SLOT_SUBPATH, SCOPE_CONTROL_SLOT_SUBPATH, NAV_COUNTS_SLOT_SUBPATH, SAVED_VIEWS_SLOT_SUBPATH, 'fo-bridge/home-todo-page', 'fo-bridge/voc-compose-page', FO_BRIDGE_TESTING_SUBPATH];
-const FO_BRIDGE_PACKAGE_ENTRIES = ['@fops/frontend/global-screens/core'];
+const FO_BRIDGE_ENTRIES = [pkg('feature-screens/global-screens'), pkg('feature-screens/global-screens/core'), pkg('feature-screens/global-screens/inbox-panel'), pkg('feature-screens/operator-screens/scope-picker'), pkg('feature-screens/operator-screens/dashboard'), pkg('feature-screens/operator-screens/voc-clusters'), pkg('feature-screens/operator-screens/task-detail'), pkg('feature-screens/operator-screens/voc-detail'), pkg('feature-screens/operator-screens/voc-inbox'), pkg('feature-screens/operator-screens/milestones'), pkg('feature-screens/operator-screens/voc-search'), pkg('feature-screens/operator-screens/tasks-search'), pkg('feature-screens/operator-screens/voc-triage'), pkg('feature-screens/operator-screens/task-list'), pkg('feature-screens/operator-screens/task-board'), pkg('feature-screens/operator-screens/task-requests'), pkg('feature-screens/operator-screens/findings-search'), pkg('feature-screens/operator-screens/surveys-search'), pkg('feature-screens/operator-screens/admin-search'), pkg('feature-screens/operator-screens/integration-search'), pkg('feature-screens/operator-screens/findings'), pkg('feature-screens/operator-screens/finding-detail'), pkg('feature-screens/operator-screens/surveys'), pkg('feature-screens/operator-screens/survey-detail'), pkg('feature-screens/operator-screens/survey-builder'), pkg('feature-screens/operator-screens/survey-results'), pkg('feature-screens/operator-screens/survey-follow-up'), pkg('feature-screens/operator-screens/permission-requests'), pkg('feature-screens/operator-screens/permission-grants'), pkg('feature-screens/operator-screens/managed-systems'), pkg('feature-screens/operator-screens/settings'), pkg('feature-screens/operator-screens/analytics-areas'), pkg('feature-screens/operator-screens/evidence'), pkg('feature-screens/operator-screens/integration-dashboard'), pkg('feature-screens/operator-screens/coverage'), pkg('feature-screens/operator-screens/entity-links')];
+const FO_BRIDGE_TEST_SUBPATHS = [FO_API_SUBPATH, NOTIFICATIONS_SLOT_SUBPATH, VOC_COMPOSE_SLOT_SUBPATH, HOME_TODO_SLOT_SUBPATH, SCOPE_CONTROL_SLOT_SUBPATH, NAV_COUNTS_SLOT_SUBPATH, SAVED_VIEWS_SLOT_SUBPATH, 'feature-bridge/home-todo-page', 'feature-bridge/voc-compose-page', FO_BRIDGE_TESTING_SUBPATH];
+const FO_BRIDGE_PACKAGE_ENTRIES = [pkg('feature-screens/global-screens/core')];
 const UI_THEME_SUBPATHS = ['ui/theme', 'ui/theme-tokens.json'];
 
 // Restriction data is the single decision source: each layer declares
@@ -95,9 +96,9 @@ const UI_THEME_SUBPATHS = ['ui/theme', 'ui/theme-tokens.json'];
 const QUERY_ENGINE_PACKAGES = ['@tanstack/react-query', '@tanstack/query-core'];
 const TABLE_ENGINE_PACKAGES = ['@tanstack/react-table', '@tanstack/react-virtual', '@tanstack/table-core', '@tanstack/virtual-core'];
 const MENU_RESTRICTION = { allow: MENU_ALLOW, denyReact: false, denyTableEngine: true, denyQueryEngine: true, mockAllowed: false, allowSubpaths: UI_THEME_SUBPATHS };
-// allowFeedbackOps: exact @fops/* sources exempted from the FeedbackOps ban (only the bridge menu, FO_BRIDGE_ENTRIES).
-const FO_BRIDGE_RESTRICTION = { ...MENU_RESTRICTION, allow: [...MENU_ALLOW, 'fo-bridge'], allowFeedbackOps: FO_BRIDGE_ENTRIES };
-// The fo-bridge package (consumer-side runtime, not SDK): the menu layer's workspace allowlist, `/core` only; its lazy pages see the screen barrel.
+// allowFeedbackOps: exact feature package sources exempted from the FeedbackOps ban (only the bridge menu, FO_BRIDGE_ENTRIES).
+const FO_BRIDGE_RESTRICTION = { ...MENU_RESTRICTION, allow: [...MENU_ALLOW, 'feature-bridge'], allowFeedbackOps: FO_BRIDGE_ENTRIES };
+// The feature-bridge package (consumer-side runtime, not SDK): the menu layer's workspace allowlist, `/core` only; its lazy pages see the screen barrel.
 const FO_BRIDGE_PACKAGE_RESTRICTION = { ...MENU_RESTRICTION, denyQueryEngine: false, allowFeedbackOps: FO_BRIDGE_PACKAGE_ENTRIES };
 const FO_BRIDGE_PAGES_RESTRICTION = { ...FO_BRIDGE_PACKAGE_RESTRICTION, denyQueryEngine: false, allowFeedbackOps: FO_BRIDGE_ENTRIES };
 const MENU_MOCK_RESTRICTION = { allow: ['contracts'], denyReact: true, denyTableEngine: true, denyQueryEngine: true, mockAllowed: true };
@@ -117,13 +118,12 @@ const APP_PUBLISHED_METRICS_RESTRICTION = { ...APP_RESTRICTION, mockAllowed: tru
 function importRestrictions({ allow, denyReact, denyTableEngine, denyQueryEngine = false, mockAllowed, allowSubpaths = [], denyDev = false, devAllow = [], denyHttpAdapter = false, denyEqvMockData = false, allowDockEngine = false, allowRadix = false, allowFeedbackOps = [] }) {
   const negations = [
     ...(allow === null ? [] : allow.map((name) => `!${pkg(name)}`)),
+    ...new Set(allowFeedbackOps.map((source) => `!${source.split('/').slice(0, 2).join('/')}`)),
     ...(mockAllowed ? [`!${pkg('mock-server')}`] : []),
   ];
-  // A gitignore-style `!source` cannot re-include a source whose parent `@fops/<pkg>` the first glob already ignores,
-  // so a layer with exact exemptions uses a negative-lookahead regex instead.
-  const feedbackOpsPatterns = allowFeedbackOps.length === 0
-    ? [{ group: ['@fops/*', '@fops/*/*', '@fops/*/*/**'], message: FEEDBACKOPS_MESSAGE }]
-    : [{ regex: `^@fops/(?!(?:${allowFeedbackOps.map((source) => escapeRegex(source.slice('@fops/'.length))).join('|')})$)`, message: FEEDBACKOPS_MESSAGE }];
+  // Exact package boundary plus exact bridge-entry exemptions; near neighbors are distinct packages.
+  const exempt = allowFeedbackOps.length ? `(?!(?:${allowFeedbackOps.map(escapeRegex).join('|')})$)` : '';
+  const feedbackOpsPatterns = [{ regex: `^${exempt}(?:${FEATURE_PACKAGES.map(escapeRegex).join('|')})(?:/|$)`, message: FEEDBACKOPS_MESSAGE }];
   return [
     'error',
     {
@@ -144,7 +144,7 @@ function importRestrictions({ allow, denyReact, denyTableEngine, denyQueryEngine
         ...(allowSubpaths.includes(DOCK_ENTRY_SUBPATH) ? [] : [{ group: [pkg(DOCK_ENTRY_SUBPATH)], message: DOCK_ENTRY_MESSAGE }]),
         ...(allowSubpaths.includes(HOST_ENTRY_SUBPATH) ? [] : [{ group: [pkg(HOST_ENTRY_SUBPATH)], message: HOST_ENTRY_MESSAGE }]),
         {
-          group: [`${PACKAGE_PREFIX}*/*`, `${PACKAGE_PREFIX}*/*/**`, ...allowSubpaths.map((s) => `!${pkg(s)}`)],
+          regex: `^${escapeRegex(PACKAGE_PREFIX)}(?!(?:${[...allowSubpaths.map((s) => escapeRegex(s).replaceAll('\\*', '[^/]*')), ...allowFeedbackOps.map((source) => escapeRegex(source.slice(PACKAGE_PREFIX.length)))].join('|')})$)[^/]+/`,
           message: DEEP_SUBPATH_MESSAGE,
         },
         ...(allow === null
@@ -542,7 +542,7 @@ export const foBridgeMenu = [
 ];
 
 /**
- * The FeedbackOps bridge runtime package (the fo-bridge package, ADR-0071, ADR-0081): menu-layer imports, `/core` only,
+ * The FeedbackOps bridge runtime package (the feature-bridge package, ADR-0071, ADR-0081): menu-layer imports, `/core` only,
  * and `src/pages/**` (lazy chunks) may also import the screen barrel. Menu contract rules do not apply (no manifests here).
  * @type {import('eslint').Linter.Config[]}
  */
@@ -551,7 +551,7 @@ export const foBridge = [
   layerConfig({ restriction: FO_BRIDGE_PACKAGE_RESTRICTION, extraRules: menuContractRules }),
   // Its tests mount a platform with the kernel fixtures (ADR-0040); production files stay restricted.
   testEntryOverride(FO_BRIDGE_PACKAGE_RESTRICTION),
-  // The menu test harness is the one non-test file that mounts a platform with the kernel fixtures; it is exported only as the `fo-bridge/testing` subpath, never from the root.
+  // The menu test harness is the one non-test file that mounts a platform with the kernel fixtures; it is exported only as the `feature-bridge/testing` subpath, never from the root.
   testEntryOverride(FO_BRIDGE_PACKAGE_RESTRICTION, [TEST_ENTRY_SUBPATH], ['src/testing.tsx']),
   {
     files: ['src/pages/**/*.{ts,tsx}'],

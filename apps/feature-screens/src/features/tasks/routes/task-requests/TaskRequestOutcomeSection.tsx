@@ -1,8 +1,8 @@
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { RESPONSIBILITY_COPY } from '@/lib/copy/tasks';
 import { formatShortDateTime } from '@/lib/format/datetime';
+import type { TaskRequestDto } from '@ap/feature-shared';
 import { PanelSectionTitle } from '@ap/ui';
-import type { TaskRequestDto } from '@fops/shared';
 import type * as React from 'react';
 
 import { TaskRequestLinkedTask } from './TaskRequestLinkedTask';

@@ -12,8 +12,8 @@
 // right visibility surface by the BE.
 
 import { useVocConversation } from '@/features/voc/hooks/useVocConversation';
+import type { ConversationEntry } from '@ap/feature-shared';
 import { Button, EmptyState } from '@ap/ui';
-import type { ConversationEntry } from '@fops/shared';
 import type * as React from 'react';
 import { TimelineEntry } from './TimelineEntry';
 

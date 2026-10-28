@@ -1,4 +1,4 @@
-import { CAPABILITIES } from '@fops/shared';
+import { CAPABILITIES } from '@ap/feature-shared';
 import { type SQL, sql } from 'drizzle-orm';
 import type { Db } from '../../db/client.js';
 import { sqlTextArray } from '../../db/sql-arrays.js';

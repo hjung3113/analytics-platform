@@ -1,4 +1,4 @@
-import type { CoverageThresholds } from '@fops/shared';
+import type { CoverageThresholds } from '@ap/feature-shared';
 import { sql } from 'drizzle-orm';
 
 import type { Db } from '../../db/client.js';

@@ -15,7 +15,7 @@ import { type AnalyticsAreaDto, fetchAnalyticsAreas } from '@/lib/api/analytics-
 import { FINDING_SEVERITY_LABELS } from '@/lib/copy/enum-labels';
 import { type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
 import { searchHref } from '@/lib/host/search';
-import { type FindingSeverity, findingSeveritySchema } from '@fops/shared';
+import { type FindingSeverity, findingSeveritySchema } from '@ap/feature-shared';
 import { CreateFindingModal } from '../CreateFindingModal';
 
 const IDS = {

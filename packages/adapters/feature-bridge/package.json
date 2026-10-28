@@ -1,5 +1,5 @@
 {
-  "name": "@ap/fo-bridge",
+  "name": "@ap/feature-bridge",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -27,7 +27,7 @@
     "@ap/contracts": "workspace:*",
     "@ap/kernel": "workspace:*",
     "@ap/ui": "workspace:*",
-    "@fops/frontend": "workspace:*",
+    "@ap/feature-screens": "workspace:*",
     "@tanstack/react-query": "5.62.7",
     "lucide-react": "^1.48.0"
   },

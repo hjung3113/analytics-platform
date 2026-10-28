@@ -1,6 +1,6 @@
 /** Fixtures shared by the 관리자 page tests. */
 import { UserCog } from 'lucide-react';
-import { createFoMenuHarness } from '@ap/fo-bridge/testing';
+import { createFoMenuHarness } from '@ap/feature-bridge/testing';
 import type { MenuEntry } from '@ap/kernel';
 import { manifests } from './index';
 

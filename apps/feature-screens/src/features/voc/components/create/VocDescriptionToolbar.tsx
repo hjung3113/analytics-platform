@@ -6,8 +6,8 @@
 
 import { ComposerToolbarButton } from '@/features/cross-system/composer-editor/ComposerToolbarButton';
 import { promptForLink } from '@/features/cross-system/composer-editor/promptForLink';
+import type { TipTapEditor as Editor } from '@ap/feature-ui';
 import { AttachButton, type RichEditorToolbarApi } from '@ap/ui';
-import type { TipTapEditor as Editor } from '@fops/ui';
 import {
   Bold as BoldIcon,
   Code as CodeIcon,

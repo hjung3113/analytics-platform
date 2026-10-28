@@ -4,7 +4,7 @@
 // this outside the sandbox.
 
 import { randomUUID } from 'node:crypto';
-import type { TaskStatus } from '@fops/shared';
+import type { TaskStatus } from '@ap/feature-shared';
 import { insertActorRow } from '../../../test-support/actor-fixtures.js';
 import { createAa } from '../../../test-support/core-fixtures.js';
 import { deleteRecoveryFixtureParents } from '../../../test-support/recovery-fixtures.js';

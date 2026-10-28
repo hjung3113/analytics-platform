@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import type { RecoveryPresentationPatch } from '@fops/shared';
+import type { RecoveryPresentationPatch } from '@ap/feature-shared';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { lockRecoveryCommand, requireRecoveryCommandLock } from '../../db/recovery-command-lock.js';

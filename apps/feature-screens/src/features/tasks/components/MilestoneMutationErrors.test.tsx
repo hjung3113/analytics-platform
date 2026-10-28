@@ -6,7 +6,7 @@ import {
   MilestoneCreatePanel,
   MilestoneDetailPanel,
 } from '@/test/host-adapters/features/tasks/components/MilestoneDetailPanel';
-import type { MilestoneDetailDto } from '@fops/shared';
+import type { MilestoneDetailDto } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';

@@ -1,7 +1,7 @@
-import { taskDtoSchema } from '@fops/shared';
-import type { ListTasksResponse } from '@fops/shared';
+import { taskDtoSchema } from '@ap/feature-shared';
+import type { ListTasksResponse } from '@ap/feature-shared';
 import { apiRequest } from './client';
-export type { ListTasksResponse } from '@fops/shared';
+export type { ListTasksResponse } from '@ap/feature-shared';
 import type {
   AssignTaskMilestoneRequest,
   ConvertTaskRequestRequest,
@@ -11,7 +11,7 @@ import type {
   TaskDetailDto,
   TaskDto,
   TaskStatus,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 
 import { apiClient } from './client';
 
@@ -119,7 +119,7 @@ export async function linkTaskToFinding(
 
 export async function assignTaskResponsibility(
   id: string,
-  body: import('@fops/shared').AssignTaskResponsibilityRequest,
+  body: import('@ap/feature-shared').AssignTaskResponsibilityRequest,
   idempotencyKey: string,
   ifMatch: string,
 ) {

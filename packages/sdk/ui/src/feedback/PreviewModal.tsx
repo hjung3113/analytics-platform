@@ -1,4 +1,4 @@
-// PreviewModal.tsx — Dialog wrapper for composer preview surfaces in @fops/ui.
+// PreviewModal.tsx — Dialog wrapper for composer preview surfaces in @ap/feature-ui.
 //
 // C5.5 (slice3 #21)
 // Spec: PLAN-21-SUBCHUNKS.md C5.5

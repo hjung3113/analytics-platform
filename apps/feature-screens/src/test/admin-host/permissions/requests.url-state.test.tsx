@@ -11,8 +11,8 @@ import { adminDetailFixture } from '@/test/permission-details';
 // Harness: createRoute + memory history with the route's own search schema
 // (same pattern as __tests__/vocs.test.tsx and ./requests.test.tsx).
 
+import type { PermissionRiskIndicator } from '@ap/feature-shared';
 import type * as ApUi from '@ap/ui';
-import type { PermissionRiskIndicator } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   Outlet,

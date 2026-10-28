@@ -2,8 +2,8 @@ import type { AdminPermissionRequestRow } from '@/lib/api';
 import {
   permissionRequestAdminDetailSchema,
   permissionRequestOwnerDetailSchema,
-} from '@fops/shared';
-import type { PermissionRequestAdminDetail } from '@fops/shared';
+} from '@ap/feature-shared';
+import type { PermissionRequestAdminDetail } from '@ap/feature-shared';
 
 export type AdminDetailFixtureOverrides = Partial<
   Pick<

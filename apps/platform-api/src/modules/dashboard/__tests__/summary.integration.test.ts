@@ -1,4 +1,9 @@
-import { type DashboardSummary, recoveryDetailSchema, recoveryHistorySchema, recoveryListSchema } from '@fops/shared';
+import {
+  type DashboardSummary,
+  recoveryDetailSchema,
+  recoveryHistorySchema,
+  recoveryListSchema,
+} from '@ap/feature-shared';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { waitForRecoveryCommandWaiters } from '../../../test-support/recovery-command-barrier.js';

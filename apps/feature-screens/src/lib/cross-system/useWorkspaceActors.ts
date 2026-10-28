@@ -2,7 +2,7 @@
 //
 // Single owner of query key ['actors', 'workspace', 'current']. The cached
 // value is the canonical actor row (`id`, `display_name`, `email`,
-// `role_level` per @fops/shared `listActorsResponseSchema`). Consumers that
+// `role_level` per @ap/feature-shared `listActorsResponseSchema`). Consumers that
 // need a narrower list (owner picker `kind`, admin name lookup) project
 // locally — they must not register another queryFn on this key.
 //
@@ -11,7 +11,7 @@
 // every row to `'user'` at the call site.
 
 import { apiClient } from '@/lib/api/client';
-import type { ActorType, ListActorsResponse, RoleLevel } from '@fops/shared';
+import type { ActorType, ListActorsResponse, RoleLevel } from '@ap/feature-shared';
 import { type UseQueryResult, useQuery } from '@tanstack/react-query';
 
 export const workspaceActorsQueryKey = ['actors', 'workspace', 'current'] as const;

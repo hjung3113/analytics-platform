@@ -1,4 +1,4 @@
-import type { TaskDto, TaskRequestDto, TaskRequestStatus } from '@fops/shared';
+import type { TaskDto, TaskRequestDto, TaskRequestStatus } from '@ap/feature-shared';
 import {
   RouterProvider,
   createMemoryHistory,

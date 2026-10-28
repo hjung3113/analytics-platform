@@ -1,4 +1,4 @@
-// ADR-0016 forbids @fops/ui from importing @fops/shared. This file mirrors
+// ADR-0016 forbids @ap/feature-ui from importing @ap/feature-shared. This file mirrors
 // packages/feature-shared/src/rich-content/fixtures.ts; drift is pinned by
 // __tests__/fixtures-drift.test.ts.
 

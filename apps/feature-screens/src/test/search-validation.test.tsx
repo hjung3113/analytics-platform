@@ -3,7 +3,7 @@ import { createRouter } from '@tanstack/react-router';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { NavRouteIntent } from '@fops/shared';
+import type { NavRouteIntent } from '@ap/feature-shared';
 
 import { validateAnalyticsAreasRouteSearch } from '@/features/admin/analytics-areas/search';
 import { validatePermissionRequestsSearch } from '@/features/admin/permissions/permission-requests-search';

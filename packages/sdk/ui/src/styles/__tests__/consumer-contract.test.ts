@@ -6,7 +6,7 @@ import { POPPER_CONTENT_MOTION } from '../../utils/motion.js';
 
 /**
  * Consumer contract for the package's four design-system stylesheets (ADR-0058, moved from FeedbackOps by ADR-0046;
- * the original recipe imported them as @fops/ui/styles/*.css, here they are the package's own files).
+ * the original recipe imported them as @ap/feature-ui/styles/*.css, here they are the package's own files).
  *
  * analytics-platform imports only these five lines — never the app stylesheet.
  * These tests compile EXACTLY the documented recipe with Tailwind's Node API

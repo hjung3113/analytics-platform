@@ -15,15 +15,17 @@
 //  10. Modules outside Core owners/tests MUST NOT use owner tables in raw SQL or import owner symbols;
 //      src/test-support also MUST NOT import owner symbols from db/schema/core.
 //  11. Source outside tests (apps/*, packages/*) MUST NOT import a platform package `@ap/*` other than
-//      `@ap/ui` (ADR-0073, #674). Tests (__tests__/, tests/, test-support/, *.test.*) may import
+//      `@ap/ui`, own feature identities, and core-server-only `@ap/contract-schemas` (ADR-0097). Tests (__tests__/, tests/, test-support/, *.test.*) may import
 //      `@ap/contracts`, `@ap/server-conformance` and `@ap/http-adapter` as devDependencies.
 //      The manifests say the same: no FeedbackOps manifest (ops, apps/*, packages/*) lists an `@ap/*` package
-//      other than `@ap/ui` under dependencies, peerDependencies or optionalDependencies (devDependencies are fine).
+//      outside these runtime allowances under dependencies, peerDependencies or optionalDependencies.
 
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 
 import ts from 'typescript';
+
+import { isFeaturePackage } from '../../../tooling/eslint/src/feature-packages.js';
 
 import { FO_BACKEND, FO_FRONTEND, FO_OPS, FO_SHARED, FO_UI, REPO_ROOT } from '../paths.mjs';
 
@@ -37,18 +39,18 @@ const siblingImport = (dir) => new RegExp(`from\\s+['"]\\.\\./\\.\\./${basename(
 const RULES = [
   {
     scope: FO_SHARED,
-    forbid: [/from\s+['"]@fops\/ui/, /from\s+['"]\.\.\/\.\.\/apps\//],
-    msg: 'packages/shared must not import apps/* or @fops/ui',
+    forbid: [/from\s+['"]@ap\/feature-ui/, /from\s+['"]\.\.\/\.\.\/apps\//],
+    msg: 'packages/shared must not import apps/* or @ap/feature-ui',
   },
   {
     scope: FO_UI,
     forbid: [
-      /from\s+['"]@fops\/shared/,
+      /from\s+['"]@ap\/feature-shared/,
       /from\s+['"]\.\.\/\.\.\/apps\//,
       /\bfetch\s*\(/,
       /from\s+['"]axios['"]/,
     ],
-    msg: 'packages/ui must not call APIs or import apps/* or @fops/shared',
+    msg: 'packages/ui must not call APIs or import apps/* or @ap/feature-shared',
   },
   {
     scope: FO_FRONTEND,
@@ -57,8 +59,8 @@ const RULES = [
   },
   {
     scope: FO_BACKEND,
-    forbid: [/from\s+['"]@fops\/ui/, siblingImport(FO_FRONTEND)],
-    msg: 'apps/backend must not import @fops/ui or apps/feature-screens',
+    forbid: [/from\s+['"]@ap\/feature-ui/, siblingImport(FO_FRONTEND)],
+    msg: 'apps/backend must not import @ap/feature-ui or apps/feature-screens',
   },
   {
     scope: BACKEND_MODULES,
@@ -86,10 +88,10 @@ const RULES = [
     kind: 'foreign-core-owner-table-access',
     msg: 'backend code must access Managed Systems and Analytics Areas through their owner surfaces',
   },
-  ...[FO_BACKEND, FO_FRONTEND, FO_SHARED, FO_UI].map((scope) => ({
+  ...[FO_BACKEND, FO_FRONTEND, FO_SHARED, FO_UI, FO_OPS].map((scope) => ({
     scope,
     kind: 'platform-package-imports',
-    msg: 'FeedbackOps source may import only @ap/ui from the platform; other @ap/* packages are for tests only (ADR-0073)',
+    msg: 'FeedbackOps source may import only @ap/ui from the platform; core-server also permits @ap/contract-schemas; other SDK packages remain test-only (ADR-0097)',
   })),
 ];
 
@@ -136,9 +138,11 @@ function collectImportSpecifiers(file, content) {
       });
     } else if (
       ts.isCallExpression(node) &&
-      node.expression.kind === ts.SyntaxKind.ImportKeyword &&
+      (node.expression.kind === ts.SyntaxKind.ImportKeyword ||
+        (ts.isIdentifier(node.expression) && node.expression.text === 'require')) &&
       node.arguments.length >= 1 &&
-      ts.isStringLiteral(node.arguments[0])
+      (ts.isStringLiteral(node.arguments[0]) ||
+        ts.isNoSubstitutionTemplateLiteral(node.arguments[0]))
     ) {
       out.push({
         specifier: node.arguments[0].text,
@@ -335,7 +339,12 @@ for (const rule of RULES) {
     if (rule.kind === 'platform-package-imports') {
       if (isTestPath(file)) continue;
       for (const { specifier, line } of collectImportSpecifiers(file, content)) {
-        if (/^@ap\//.test(specifier) && !/^@ap\/ui(?:\/|$)/.test(specifier)) {
+        if (
+          /^@ap\//.test(specifier) &&
+          !isFeaturePackage(specifier) &&
+          !/^@ap\/ui(?:\/|$)/.test(specifier) &&
+          !(rule.scope === FO_BACKEND && /^@ap\/contract-schemas(?:\/|$)/.test(specifier))
+        ) {
           violations++;
           console.error(
             `[boundary] ${relative(ROOT, file)}:${line}: ${rule.msg} (imports ${specifier})`,
@@ -389,13 +398,15 @@ for (const rule of RULES) {
   }
 }
 
-// Rule 11, manifest half (ADR-0073 decision 3): runtime dependencies carry only @ap/ui. Every manifest that can reach the
+// Rule 11, manifest half: own feature identities and @ap/ui are runtime dependencies; only the core server also permits contract-schemas (ADR-0097). Every manifest that can reach the
 // product's runtime graph is read: the FeedbackOps tool package (ops/platform-api) and each FeedbackOps app and package
 // from the path map (never the platform's own apps/* and packages/*); peer and optional dependencies count as runtime.
 const RUNTIME_DEP_FIELDS = ['dependencies', 'peerDependencies', 'optionalDependencies'];
 const manifests = [
   join(ROOT, FO_OPS, 'package.json'),
-  ...[FO_BACKEND, FO_FRONTEND, FO_SHARED, FO_UI].map((dir) => join(ROOT, dir, 'package.json')),
+  ...[FO_BACKEND, FO_FRONTEND, FO_SHARED, FO_UI, FO_OPS].map((dir) =>
+    join(ROOT, dir, 'package.json'),
+  ),
 ];
 for (const manifest of manifests) {
   let pkg;
@@ -407,7 +418,12 @@ for (const manifest of manifests) {
   }
   for (const field of RUNTIME_DEP_FIELDS) {
     for (const dep of Object.keys(pkg[field] ?? {})) {
-      if (/^@ap\//.test(dep) && dep !== '@ap/ui') {
+      if (
+        /^@ap\//.test(dep) &&
+        !isFeaturePackage(dep) &&
+        dep !== '@ap/ui' &&
+        !(manifest === join(ROOT, FO_BACKEND, 'package.json') && dep === '@ap/contract-schemas')
+      ) {
         violations++;
         console.error(
           `[boundary] ${relative(ROOT, manifest)}: ${field} may list only @ap/ui from the platform; ${dep} belongs in devDependencies (ADR-0073)`,

@@ -6,7 +6,7 @@
 //
 // Query key: ['voc-recommendations', vocId] — dismiss/confirm invalidate it.
 
-import type { VocRecommendationsResponse } from '@fops/shared';
+import type { VocRecommendationsResponse } from '@ap/feature-shared';
 import { type UseQueryResult, useQuery } from '@tanstack/react-query';
 
 import { apiClient } from '@/lib/api/client';

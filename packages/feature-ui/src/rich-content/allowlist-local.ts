@@ -1,18 +1,18 @@
 // PLAN-22 C9 fix — UI-local copy of the shared rich-content allowlist.
 //
-// ADR-0016 forbids `@fops/ui` from importing `@fops/shared`. The shared
+// ADR-0016 forbids `@ap/feature-ui` from importing `@ap/feature-shared`. The shared
 // allowlist (`packages/feature-shared/src/rich-content/allowlist.ts`) is therefore
 // duplicated here verbatim so the FE render-time defence-in-depth sanitizer
 // can run without crossing the boundary.
 //
-// Parity with `@fops/shared` is enforced by:
+// Parity with `@ap/feature-shared` is enforced by:
 //   - `apps/platform-api/src/lib/rich-content/__tests__/drift-vs-shared.test.ts`
 //     (backend ↔ shared)
 //   - `packages/feature-ui/src/rich-content/__tests__/allowlist-drift.test.ts`
 //     (UI ↔ inline fixture mirroring shared)
 //
 // If you change values in either side, update both and rerun both drift tests.
-// Do NOT add an import of @fops/shared to this package — the boundary script
+// Do NOT add an import of @ap/feature-shared to this package — the boundary script
 // (`scripts/check-boundaries.mjs`) walks `*.ts` and `*.test.ts` and will fail.
 
 // ── Surface enum ─────────────────────────────────────────────────────────────

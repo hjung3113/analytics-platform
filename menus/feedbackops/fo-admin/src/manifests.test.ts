@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { createRegistry } from '@ap/kernel';
 import { groupId, spaceId } from '@ap/contracts';
 import { UserCog } from 'lucide-react';
-import { analyticsAreasRoute, managedSystemsRoute, permissionGrantsRoute, permissionRequestsRoute, settingsRoute } from '@ap/fo-bridge';
+import { analyticsAreasRoute, managedSystemsRoute, permissionGrantsRoute, permissionRequestsRoute, settingsRoute } from '@ap/feature-bridge';
 import { manifests } from './index';
 import { harnessMenus } from './test-support';
 

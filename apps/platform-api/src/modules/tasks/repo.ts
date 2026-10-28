@@ -3,7 +3,12 @@ import type { ListCursor } from '../../lib/list-cursor.js';
 import { escapeLikePattern } from '../../lib/sql-like.js';
 import type { Scope, ScopeActorContext } from '../permissions/scope-service.js';
 
-import type { TaskCommentKind, TaskDetailSource, TaskPriority, TaskStatus } from '@fops/shared';
+import type {
+  TaskCommentKind,
+  TaskDetailSource,
+  TaskPriority,
+  TaskStatus,
+} from '@ap/feature-shared';
 
 import type { Db } from '../../db/client.js';
 import type { Tx } from '../../db/tx.js';

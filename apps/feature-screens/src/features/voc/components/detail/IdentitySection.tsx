@@ -6,9 +6,9 @@ import { useMeBridge } from '@/lib/api/me';
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { useManagedSystem } from '@/lib/cross-system/useManagedSystem';
 import { formatRelativeTime } from '@/lib/format/datetime';
+import type { VocDetailEnvelope } from '@ap/feature-shared';
+import { ManagedSystemPill, OutlineBadge, ReporterStatusBadge } from '@ap/feature-ui';
 import { PanelTitleBlock } from '@ap/ui';
-import type { VocDetailEnvelope } from '@fops/shared';
-import { ManagedSystemPill, OutlineBadge, ReporterStatusBadge } from '@fops/ui';
 import type * as React from 'react';
 
 // ── Source context labels ────────────────────────────────────────────────────

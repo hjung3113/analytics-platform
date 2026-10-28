@@ -1,5 +1,5 @@
-import { FoDetailDrawer } from '@ap/fo-bridge';
-import { useSurveyDetailParts } from '@fops/frontend/operator-screens/survey-detail';
+import { FoDetailDrawer } from '@ap/feature-bridge';
+import { useSurveyDetailParts } from '@ap/feature-screens/operator-screens/survey-detail';
 
 /**
  * The Survey detail in the shell detail slot. It renders inside `FoBridge` (the FeedbackOps providers) and portals into the slot through `FoDetailDrawer`;

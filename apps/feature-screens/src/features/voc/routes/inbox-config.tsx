@@ -3,8 +3,8 @@
 
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { VOC_INBOX_NO_LINK_TAB_LABEL } from '@/lib/copy/voc-views';
+import { SEVERITY_LABELS } from '@ap/feature-ui';
 import type { FilterCategory, ListToolbarTab, SortOption } from '@ap/ui';
-import { SEVERITY_LABELS } from '@fops/ui';
 import { Flag, Link as LinkIcon, TriangleAlert, User } from 'lucide-react';
 import type { VocSearch } from './voc-search';
 

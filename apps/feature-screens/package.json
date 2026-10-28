@@ -1,5 +1,5 @@
 {
-  "name": "@fops/frontend",
+  "name": "@ap/feature-screens",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -51,8 +51,8 @@
     "@dnd-kit/core": "^6.3.1",
     "@fontsource-variable/inter": "5.3.0",
     "@fontsource-variable/jetbrains-mono": "5.3.0",
-    "@fops/shared": "workspace:*",
-    "@fops/ui": "workspace:*",
+    "@ap/feature-shared": "workspace:*",
+    "@ap/feature-ui": "workspace:*",
     "@hookform/resolvers": "3.9.1",
     "@tanstack/react-query": "5.62.7",
     "lucide-react": "0.469.0",

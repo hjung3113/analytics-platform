@@ -1,20 +1,20 @@
 // PLAN-22 C9 — drift assertion between backend SURFACE_ALLOWLISTS and the
-// shared @fops/shared SHARED_ALLOWLISTS. If this test fails, someone changed
+// shared @ap/feature-shared SHARED_ALLOWLISTS. If this test fails, someone changed
 // one side without the other; align them before merging.
 
-import { describe, expect, it } from 'vitest';
 import {
   SHARED_ALLOWLISTS,
   SHARED_RICH_CONTENT_EXTENSION_CAPABILITIES,
-  SHARED_SURFACE_EXTENSION_CAPABILITIES,
   SHARED_SURFACES,
-} from '@fops/shared';
+  SHARED_SURFACE_EXTENSION_CAPABILITIES,
+} from '@ap/feature-shared';
+import { describe, expect, it } from 'vitest';
 
 import {
   RICH_CONTENT_EXTENSION_CAPABILITIES,
+  SURFACES,
   SURFACE_ALLOWLISTS,
   SURFACE_EXTENSION_CAPABILITIES,
-  SURFACES,
 } from '../surface-allowlists.js';
 
 describe('backend ↔ shared allowlist drift', () => {
@@ -42,19 +42,35 @@ describe('backend ↔ shared allowlist drift', () => {
       // Per-node attr key sets and AttrSchema.kind must match (deep enough to
       // catch a typo'd attr name on one side).
       for (const nodeType of Object.keys(sh.nodeAttrs)) {
-        const sNode = sh.nodeAttrs[nodeType]!;
-        const bNode = be.nodeAttrs[nodeType]!;
+        const sNode = sh.nodeAttrs[nodeType];
+        const bNode = be.nodeAttrs[nodeType];
+        if (sNode === undefined || bNode === undefined) {
+          throw new Error(`Missing node attrs: ${surface}/${nodeType}`);
+        }
         expect(Object.keys(bNode).sort()).toEqual(Object.keys(sNode).sort());
         for (const k of Object.keys(sNode)) {
-          expect(bNode[k]!.kind).toBe(sNode[k]!.kind);
+          const sAttr = sNode[k];
+          const bAttr = bNode[k];
+          if (sAttr === undefined || bAttr === undefined) {
+            throw new Error(`Missing node attr: ${surface}/${nodeType}/${k}`);
+          }
+          expect(bAttr.kind).toBe(sAttr.kind);
         }
       }
       for (const markType of Object.keys(sh.markAttrs)) {
-        const sMark = sh.markAttrs[markType]!;
-        const bMark = be.markAttrs[markType]!;
+        const sMark = sh.markAttrs[markType];
+        const bMark = be.markAttrs[markType];
+        if (sMark === undefined || bMark === undefined) {
+          throw new Error(`Missing mark attrs: ${surface}/${markType}`);
+        }
         expect(Object.keys(bMark).sort()).toEqual(Object.keys(sMark).sort());
         for (const k of Object.keys(sMark)) {
-          expect(bMark[k]!.kind).toBe(sMark[k]!.kind);
+          const sAttr = sMark[k];
+          const bAttr = bMark[k];
+          if (sAttr === undefined || bAttr === undefined) {
+            throw new Error(`Missing mark attr: ${surface}/${markType}/${k}`);
+          }
+          expect(bAttr.kind).toBe(sAttr.kind);
         }
       }
 

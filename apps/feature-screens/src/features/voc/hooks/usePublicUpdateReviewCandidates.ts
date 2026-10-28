@@ -4,8 +4,8 @@ import type {
   ListPublicUpdateReviewCandidatesResponse,
   ResolvePublicUpdateReviewCandidateRequest,
   ResolvePublicUpdateReviewCandidateResponse,
-} from '@fops/shared';
-import { resolvePublicUpdateReviewCandidateResponseSchema } from '@fops/shared';
+} from '@ap/feature-shared';
+import { resolvePublicUpdateReviewCandidateResponseSchema } from '@ap/feature-shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 export function usePublicUpdateReviewCandidates(vocId: string, enabled: boolean) {

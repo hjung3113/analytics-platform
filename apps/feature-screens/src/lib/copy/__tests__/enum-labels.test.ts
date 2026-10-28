@@ -15,7 +15,7 @@ import {
   taskRequestStatusSchema,
   taskStatusSchema,
   triageStateEnumSchema,
-} from '@fops/shared';
+} from '@ap/feature-shared';
 import { describe, expect, it } from 'vitest';
 import {
   ENTITY_LINK_RELATION_LABELS,
