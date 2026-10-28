@@ -69,7 +69,7 @@ export function mountAuthedVocs({ initialPath, vocsShell = false, handle }: {
   const requests: AuthedVocsRequest[] = [];
   const unhandled: AuthedVocsRequest[] = [];
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = String(input).replace('/api/fo', '');
+    const url = String(input).replace('/api/features', '');
     const method = init?.method ?? 'GET';
     const body = typeof init?.body === 'string' ? (JSON.parse(init.body) as unknown) : undefined;
     const request: AuthedVocsRequest = { url, method, ...(body !== undefined ? { body } : {}) };
@@ -108,7 +108,7 @@ export function mountAuthedVocs({ initialPath, vocsShell = false, handle }: {
 
 
   featureQueryClient.clear();
-  setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() });
+  setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() });
   const url = new URL(initialPath, 'http://localhost');
   url.searchParams.delete('view');
   window.history.replaceState(null, '', `/feedbackops/vocs${url.search}`);

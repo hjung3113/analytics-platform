@@ -23,7 +23,7 @@ beforeEach(() => {
   mounted.screens = 0;
   mounted.details = 0;
   request.mockReset();
-  setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() });
+  setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() });
 });
 afterEach(() => { cleanup(); setFeatureApi(null); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 

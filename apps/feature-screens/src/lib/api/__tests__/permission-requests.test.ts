@@ -1,4 +1,4 @@
-// F5 — the requester's create and mine calls go through client.ts, so they honour the platform bridge's `/api/fo` base path.
+// F5 — the requester's create and mine calls go through client.ts, so they honour the platform bridge's `/api/features` base path.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { configureApiClient } from '../client';
@@ -7,7 +7,7 @@ import { ApiError } from '../types';
 
 const originalFetch = global.fetch;
 const onUnauthorized = vi.fn();
-beforeEach(() => configureApiClient({ basePath: '/api/fo', onUnauthorized }));
+beforeEach(() => configureApiClient({ basePath: '/api/features', onUnauthorized }));
 afterEach(() => {
   global.fetch = originalFetch;
   configureApiClient({ basePath: '' });
@@ -35,14 +35,14 @@ describe.each([
         { idempotencyKey: '11111111-1111-4111-8111-111111111111' },
       ),
     'POST',
-    '/api/fo/permission-requests',
+    '/api/features/permission-requests',
     CREATED,
   ],
   [
     'fetchPermissionRequestsMine',
     () => fetchPermissionRequestsMine({ status: 'all' }),
     'GET',
-    '/api/fo/permission-requests/mine?status=all',
+    '/api/features/permission-requests/mine?status=all',
     { requests: [] },
   ],
 ])('%s with a base path', (_name, call, method, url, okBody) => {
@@ -83,5 +83,8 @@ describe.each([
 it('fetchPermissionRequestsMine without a status sends no query', async () => {
   const fetchMock = stub(new Response(JSON.stringify({ requests: [] }), { status: 200 }));
   await fetchPermissionRequestsMine();
-  expect(fetchMock).toHaveBeenCalledWith('/api/fo/permission-requests/mine', expect.anything());
+  expect(fetchMock).toHaveBeenCalledWith(
+    '/api/features/permission-requests/mine',
+    expect.anything(),
+  );
 });

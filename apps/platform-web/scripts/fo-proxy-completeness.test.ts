@@ -68,7 +68,7 @@ describe('FeedbackOps backend discovery through the platform proxy (#597)', () =
  it('recognizes both Fastify registration forms', () => {
   expect(extractRouteUrls("app.route({url: '/one'}); app.get('/two', fn); fastify.post('/three', fn)")).toEqual(['/one','/two','/three']);
  });
- it('strips only /api/fo for every discovered backend route, including suggestions', () => {
+ it('strips only /api/features for every discovered backend route, including suggestions', () => {
   const routes = collectBackendRoutes();
   expect(routes.length).toBeGreaterThan(100);
   expect(routes.some(route => route.includes('suggestions'))).toBe(true);

@@ -25,20 +25,20 @@ describe('Notifications without a FeedbackOps API (mock preview)', () => {
 
 describe('Notifications through the FeedbackOps bridge', () => {
   const onSessionLost = vi.fn();
-  beforeEach(() => { onSessionLost.mockReset(); setFeatureApi({ basePath: '/api/fo', onSessionLost }); });
+  beforeEach(() => { onSessionLost.mockReset(); setFeatureApi({ basePath: '/api/features', onSessionLost }); });
 
-  it('lists unread notifications from /api/fo with the session cookie, unlinked, and marks one read', async () => {
+  it('lists unread notifications from /api/features with the session cookie, unlinked, and marks one read', async () => {
     const calls = stubFetch((path, method) => {
       if (method === 'POST') return json(notification(ID_A, { read_at: '2026-07-28T00:00:00.000Z' }));
       return listOf(notification(ID_A));
     });
     mount(switchableAdapter().adapter);
     const row = await screen.findByTestId(`home-inbox-row-${ID_A}`);
-    expect(calls[0]).toEqual({ path: '/api/fo/notifications?unread=true', method: 'GET', credentials: 'include' });
+    expect(calls[0]).toEqual({ path: '/api/features/notifications?unread=true', method: 'GET', credentials: 'include' });
     expect(within(row).queryByRole('link')).toBeNull();
     fireEvent.click(within(row).getAllByRole('button')[0]!);
-    await waitFor(() => expect(calls.map(c => `${c.method} ${c.path}`)).toContain(`POST /api/fo/notifications/${ID_A}/read`));
-    expect(calls.filter(c => /^\/api\/fo\/(me|auth)/.test(c.path) || /^\/(me|auth)/.test(c.path))).toEqual([]);
+    await waitFor(() => expect(calls.map(c => `${c.method} ${c.path}`)).toContain(`POST /api/features/notifications/${ID_A}/read`));
+    expect(calls.filter(c => /^\/api\/features\/(me|auth)/.test(c.path) || /^\/(me|auth)/.test(c.path))).toEqual([]);
   });
 
   it('V9: voc.public_update_posted links to the reporter VOC page with a returnTo to 알림; an operator event stays unlinked', async () => {
@@ -88,7 +88,7 @@ describe('Notifications through the FeedbackOps bridge', () => {
 });
 
 describe('session generation (no leak across users or revisions)', () => {
-  beforeEach(() => { setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
+  beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() }); });
 
   it.each([
     ['another user', 'user-b', ID_B],

@@ -1,6 +1,6 @@
 // Focused test for the dev-database guard in test-integration.sh: an env file whose
 // DATABASE_URL or DATABASE_URL_MIGRATE targets port 5434 (the development database)
-// is refused unless FEEDBACKOPS_ALLOW_DEV_DB=1. Every case stops before vitest:
+// is refused unless PLATFORM_API_ALLOW_DEV_DB=1. Every case stops before vitest:
 // either at the guard or at the NODE_ENV=production refusal that follows it, so no
 // database is ever reached.
 // Run: node scripts/test-integration.test.mjs
@@ -19,7 +19,7 @@ const connectionUrl = (role, target) => (typeof target === 'number' ? url(role, 
 const cases = [
   ['app URL on 5434', 5434, 5439, {}, 'refusing DATABASE_URL on port 5434'],
   ['migrate URL on 5434', 5439, 5434, {}, 'refusing DATABASE_URL_MIGRATE on port 5434'],
-  ['5434 with the opt-in', 5434, 5434, { FEEDBACKOPS_ALLOW_DEV_DB: '1' }, 'NODE_ENV=production'],
+  ['5434 with the opt-in', 5434, 5434, { PLATFORM_API_ALLOW_DEV_DB: '1' }, 'NODE_ENV=production'],
   ['throwaway port', 5439, 5439, {}, 'NODE_ENV=production'],
 ];
 
@@ -37,7 +37,7 @@ for (const variable of ['DATABASE_URL', 'DATABASE_URL_MIGRATE']) {
         `${variable}: ${shape}, opt-in=${allow}`,
         variable === 'DATABASE_URL' ? target : 5439,
         variable === 'DATABASE_URL_MIGRATE' ? target : 5439,
-        { ...extraEnv, ...(allow ? { FEEDBACKOPS_ALLOW_DEV_DB: '1' } : {}) },
+        { ...extraEnv, ...(allow ? { PLATFORM_API_ALLOW_DEV_DB: '1' } : {}) },
         allow ? 'NODE_ENV=production' : `refusing ${variable} on port 5434`,
       ]);
     }
@@ -47,7 +47,7 @@ for (const variable of ['DATABASE_URL', 'DATABASE_URL_MIGRATE']) {
       `${variable}: invalid URL, opt-in=${allow}`,
       variable === 'DATABASE_URL' ? 'postgres://u:p@[invalid/platform' : 5439,
       variable === 'DATABASE_URL_MIGRATE' ? 'postgres://u:p@[invalid/platform' : 5439,
-      allow ? { FEEDBACKOPS_ALLOW_DEV_DB: '1' } : {},
+      allow ? { PLATFORM_API_ALLOW_DEV_DB: '1' } : {},
       `refusing ${variable}: cannot resolve PostgreSQL port`,
     ]);
   }
@@ -76,10 +76,10 @@ try {
       envFile,
       `DATABASE_URL=${connectionUrl('platform_app', appPort)}\nDATABASE_URL_MIGRATE=${connectionUrl('platform_migrate', migratePort)}\nWORKSPACE_ID=00000000-0000-0000-0000-000000000001\n`,
     );
-    const { FEEDBACKOPS_ALLOW_DEV_DB: _inherited, PGPORT: _pgport, ...inherited } = process.env;
+    const { PLATFORM_API_ALLOW_DEV_DB: _inherited, PGPORT: _pgport, ...inherited } = process.env;
     const env = {
       ...inherited,
-      FEEDBACKOPS_ENV_FILE: envFile,
+      PLATFORM_API_ENV_FILE: envFile,
       NODE_ENV: 'production',
       ...extraEnv,
     };
@@ -93,6 +93,42 @@ try {
       console.error(`not ok - ${name}\n${err.message}\nstderr: ${run.stderr}`);
     }
   }
+  // #1100 b: the pre-rename FEEDBACKOPS_* keys are not read, not even as a fallback.
+  const legacyEnv = join(dir, 'legacy.env');
+  writeFileSync(
+    legacyEnv,
+    `DATABASE_URL=${url('platform_app', 5439)}\nDATABASE_URL_MIGRATE=${url('platform_migrate', 5439)}\nWORKSPACE_ID=test\n`,
+  );
+  const { PLATFORM_API_ALLOW_DEV_DB: _a, PGPORT: _p, ...clean } = process.env;
+  const missingEnvFile = join(dir, 'does-not-exist.env');
+  const legacyFile = spawnSync('bash', [SCRIPT], {
+    env: {
+      ...clean,
+      NODE_ENV: 'production',
+      PLATFORM_API_ENV_FILE: missingEnvFile,
+      FEEDBACKOPS_ENV_FILE: legacyEnv,
+    },
+    encoding: 'utf8',
+  });
+  assert.equal(legacyFile.status, 1);
+  assert.ok(legacyFile.stderr.includes(`no env file at ${missingEnvFile}`), legacyFile.stderr);
+  const devEnvFile = join(dir, 'dev-target.env');
+  writeFileSync(
+    devEnvFile,
+    `DATABASE_URL=${url('platform_app', 5434)}\nDATABASE_URL_MIGRATE=${url('platform_migrate', 5439)}\nWORKSPACE_ID=test\n`,
+  );
+  const legacyOptIn = spawnSync('bash', [SCRIPT], {
+    env: {
+      ...clean,
+      NODE_ENV: 'production',
+      PLATFORM_API_ENV_FILE: devEnvFile,
+      FEEDBACKOPS_ALLOW_DEV_DB: '1',
+    },
+    encoding: 'utf8',
+  });
+  assert.equal(legacyOptIn.status, 1);
+  assert.ok(legacyOptIn.stderr.includes('refusing DATABASE_URL on port 5434'), legacyOptIn.stderr);
+  console.log('ok - FEEDBACKOPS_ENV_FILE and FEEDBACKOPS_ALLOW_DEV_DB are not read as fallbacks');
   // Execute the actual root backend command against a harmless vitest executable.
   // A fully populated caller environment must never reach globalSetup's reset condition.
   const manifest = JSON.parse(
@@ -140,7 +176,7 @@ ALLOW_SKIPPED_INTEGRATION=1
 `,
   );
   const integration = spawnSync('bash', [SCRIPT], {
-    env: { ...caller, FEEDBACKOPS_ENV_FILE: integrationEnv },
+    env: { ...caller, PLATFORM_API_ENV_FILE: integrationEnv },
     encoding: 'utf8',
   });
   assert.equal(integration.status, 0, integration.stderr);
@@ -149,7 +185,7 @@ ALLOW_SKIPPED_INTEGRATION=1
     'ok - separate integration path retains DB inputs and clears caller/env-file opt-out',
   );
   for (const missing of ['DATABASE_URL', 'DATABASE_URL_MIGRATE', 'WORKSPACE_ID']) {
-    const env = { ...caller, FEEDBACKOPS_ENV_FILE: integrationEnv };
+    const env = { ...caller, PLATFORM_API_ENV_FILE: integrationEnv };
     delete env[missing];
     writeFileSync(
       integrationEnv,

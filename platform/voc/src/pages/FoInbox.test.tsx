@@ -66,7 +66,7 @@ describe('수신함 without a FeedbackOps API (mock preview)', () => {
 });
 
 describe('수신함 through the FeedbackOps bridge', () => {
-  beforeEach(() => { setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
+  beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() }); });
 
   it('renders the inbox view with the page read as the FO path, and links 수신함/Triage but not other routes', async () => {
     mountAt(`/feedbackops/vocs?q=pump&tab=unassigned&managedSystem=${SYSTEM}`);

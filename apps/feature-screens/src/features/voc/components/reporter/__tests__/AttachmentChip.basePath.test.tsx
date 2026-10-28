@@ -11,10 +11,10 @@ afterEach(() => {
 
 describe('<AttachmentChip> download href', () => {
   it('follows the API client base path behind a host prefix', () => {
-    configureApiClient({ basePath: '/api/fo' });
+    configureApiClient({ basePath: '/api/features' });
     render(<AttachmentChip attachment={ATTACHMENT} />);
     expect(screen.getByTestId('attachment-chip').getAttribute('href')).toBe(
-      `/api/fo/attachments/${ATTACHMENT.id}/download`,
+      `/api/features/attachments/${ATTACHMENT.id}/download`,
     );
   });
 

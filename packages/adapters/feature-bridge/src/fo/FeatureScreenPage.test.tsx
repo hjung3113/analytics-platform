@@ -39,7 +39,7 @@ const page = (isValid: (key: string, value: string) => boolean, detail?: ReactNo
     <FeatureScreenPage route={route} isValid={isValid} useSearch={useSearch} useHere={useHere} detail={detail}><Screen label="screen" /></FeatureScreenPage>
   </PlatformProvider></I18nProvider>;
 
-beforeEach(() => { setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); mounted.mockClear(); });
+beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() }); mounted.mockClear(); });
 afterEach(() => { cleanup(); setFeatureApi(null); window.history.replaceState(null, '', '/'); });
 
 describe('FeatureScreenPage', () => {

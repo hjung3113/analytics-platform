@@ -1,5 +1,5 @@
 {
-  "realm": "feedbackops",
+  "realm": "platform",
   "enabled": true,
   "displayName": "FeedbackOps",
   "sslRequired": "external",
@@ -37,19 +37,19 @@
   },
   "clients": [
     {
-      "clientId": "feedbackops",
+      "clientId": "platform",
       "name": "FeedbackOps",
       "enabled": true,
       "protocol": "openid-connect",
       "publicClient": false,
       "clientAuthenticatorType": "client-secret",
-      "secret": "${FEEDBACKOPS_CLIENT_SECRET}",
+      "secret": "${PLATFORM_API_CLIENT_SECRET}",
       "standardFlowEnabled": true,
       "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": false,
-      "redirectUris": ["${FEEDBACKOPS_REDIRECT_URI}"],
-      "webOrigins": ["${FEEDBACKOPS_WEB_ORIGIN}"],
+      "redirectUris": ["${PLATFORM_API_REDIRECT_URI}"],
+      "webOrigins": ["${PLATFORM_API_WEB_ORIGIN}"],
       "attributes": {
         "pkce.code.challenge.method": "S256"
       },

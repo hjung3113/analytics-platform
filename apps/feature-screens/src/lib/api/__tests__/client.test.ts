@@ -182,9 +182,12 @@ describe('configureApiClient', () => {
   it('prefixes every request path with the base path', async () => {
     const fetchMock = mockFetch({ status: 200, jsonBody: { ok: true } });
     global.fetch = fetchMock;
-    configureApiClient({ basePath: '/api/fo' });
+    configureApiClient({ basePath: '/api/features' });
     await apiRequest('GET', '/notifications?unread=true', parseAny);
-    expect(fetchMock).toHaveBeenCalledWith('/api/fo/notifications?unread=true', expect.anything());
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/features/notifications?unread=true',
+      expect.anything(),
+    );
   });
 
   it('calls onUnauthorized once on a 401 and still rejects with the ApiError', async () => {
@@ -194,7 +197,7 @@ describe('configureApiClient', () => {
       jsonBody: { code: 'auth.session_invalid', message: 'no session' },
     });
     const onUnauthorized = vi.fn();
-    configureApiClient({ basePath: '/api/fo', onUnauthorized });
+    configureApiClient({ basePath: '/api/features', onUnauthorized });
     await expect(apiRequest('GET', '/notifications', parseAny)).rejects.toMatchObject({
       name: 'ApiError',
       status: 401,
@@ -209,7 +212,7 @@ describe('configureApiClient', () => {
       jsonBody: { code: 'permission.denied', message: 'denied' },
     });
     const onUnauthorized = vi.fn();
-    configureApiClient({ basePath: '/api/fo', onUnauthorized });
+    configureApiClient({ basePath: '/api/features', onUnauthorized });
     await expect(apiRequest('GET', '/notifications', parseAny)).rejects.toBeInstanceOf(ApiError);
     expect(onUnauthorized).not.toHaveBeenCalled();
   });

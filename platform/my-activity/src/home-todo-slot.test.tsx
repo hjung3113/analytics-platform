@@ -29,8 +29,8 @@ describe('home 내 할 일 slot', () => {
   });
 
   it('C1 shows the section in a ready session', async () => {
-    setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() });
-    stubFetch(path => path.startsWith('/api/fo/me/answerable-surveys') ? json(surveys) : path.startsWith('/api/fo/notifications') ? listOf() : json({ requests: [] }));
+    setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() });
+    stubFetch(path => path.startsWith('/api/features/me/answerable-surveys') ? json(surveys) : path.startsWith('/api/features/notifications') ? listOf() : json({ requests: [] }));
     mountTodo();
     expect(await screen.findByRole('region', { name: '내 할 일' })).toBeTruthy();
     expect(screen.getByText('만족도 설문')).toBeTruthy();
@@ -38,9 +38,9 @@ describe('home 내 할 일 slot', () => {
 
   it('C2 renders nothing once the session is retired by a 401', async () => {
     const onSessionLost = vi.fn();
-    setFeatureApi({ basePath: '/api/fo', onSessionLost });
-    stubFetch(path => path.startsWith('/api/fo/me/answerable-surveys') ? json(surveys)
-      : path.startsWith('/api/fo/notifications') ? json({ code: 'auth.session_invalid', message: 'no session' }, 401)
+    setFeatureApi({ basePath: '/api/features', onSessionLost });
+    stubFetch(path => path.startsWith('/api/features/me/answerable-surveys') ? json(surveys)
+      : path.startsWith('/api/features/notifications') ? json({ code: 'auth.session_invalid', message: 'no session' }, 401)
       : json({ requests: [] }));
     const { container } = mountTodo();
     await waitFor(() => expect(onSessionLost).toHaveBeenCalled());

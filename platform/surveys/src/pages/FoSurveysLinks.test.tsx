@@ -31,7 +31,7 @@ const child = (menu: string) => `/feedbackops/${menu}/${SURVEY_A}`;
 const params = () => new URLSearchParams(window.location.search);
 
 beforeAll(warmPages, 60_000);
-beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
+beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() }); });
 afterEach(() => { cleanup(); setFeatureApi(null); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
 describe('the Survey list context through the screens\' real links', () => {

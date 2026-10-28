@@ -36,7 +36,7 @@ function ScreenObserver() {
 let root: Root | null = null;
 let host: HTMLElement | null = null;
 
-beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); featureQueryClient.clear(); setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
+beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); featureQueryClient.clear(); setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() }); });
 afterEach(() => {
   act(() => { root?.unmount(); });
   host?.remove();
@@ -73,13 +73,13 @@ describe('navCounts slot with an active FeedbackOps observer on the same key', (
     });
     const text = () => host!.querySelector('[data-testid="counts"]')!.textContent;
     await act(async () => { await vi.waitFor(() => expect(text()).toBe('{"fo-inbox":1}')); });
-    expect(calls).toEqual(['/api/fo/nav/counts']);
+    expect(calls).toEqual(['/api/features/nav/counts']);
     n = 2;
     seen.length = 0;
     await act(async () => { invalidateNavCounts(featureQueryClient); });
     await act(async () => { await vi.waitFor(() => expect(text()).toBe('{"fo-inbox":2}')); });
     expect(seen.filter(counts => counts === null)).toEqual([]);
-    expect(calls).toEqual(['/api/fo/nav/counts', '/api/fo/nav/counts']);
+    expect(calls).toEqual(['/api/features/nav/counts', '/api/features/nav/counts']);
   });
 
   it('maps surveys.all to the Survey 관리 menu (fo-surveys), next to findings.all', async () => {

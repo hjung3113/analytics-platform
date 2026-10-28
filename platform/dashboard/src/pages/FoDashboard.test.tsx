@@ -35,7 +35,7 @@ describe('대시보드 without a FeedbackOps API (mock preview)', () => {
 });
 
 describe('대시보드 through the FeedbackOps bridge', () => {
-  beforeEach(() => { setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
+  beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() }); });
 
   it('enables 새로고침 once the session is ready and refreshes the scoped summary', async () => {
     mountAt(`/feedbackops?managedSystem=${SYSTEM}`);

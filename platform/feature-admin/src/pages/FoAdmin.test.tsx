@@ -91,7 +91,7 @@ describe('관리자 without a FeedbackOps API (mock preview)', () => {
 
 describe('a user with features:access but without console:access', () => {
   const { mountAt: mountPlain } = createFeatureMenuHarness({ manifests: harnessMenus, homeMenuId: homeStub.id, group: { id: 'foAdmin', label: { ko: '관리자', en: 'Admin' }, icon: UserCog } });
-  beforeEach(() => { setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
+  beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() }); });
 
   it.each([[MS], [AREAS], [REQUESTS], [GRANTS], [SETTINGS]])('%s never mounts its screen and requests nothing', async path => {
     mountPlain(path);
@@ -102,7 +102,7 @@ describe('a user with features:access but without console:access', () => {
 });
 
 describe('관리자 through the FeedbackOps bridge', () => {
-  beforeEach(() => { setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
+  beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() }); });
 
   it('mounts Managed System reading the page as /admin/managed-systems with the host owning the title; the carried scope is ignored', async () => {
     mountAt(`${MS}?managedSystem=${SYSTEM}`);
@@ -158,7 +158,7 @@ describe('관리자 through the FeedbackOps bridge', () => {
 });
 
 describe('관리자 with an invalid address value', () => {
-  beforeEach(() => { setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
+  beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() }); });
 
   it.each([
     [AREAS, 'system', 'x'],

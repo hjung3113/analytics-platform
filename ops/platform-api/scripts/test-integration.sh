@@ -8,12 +8,12 @@
 # failure count independent of how many runs came before it (#205). Point
 # DATABASE_URL / DATABASE_URL_MIGRATE at a throwaway database if the contents
 # of the one in `.env` matter to you. A target on port 5434 (the development
-# database) is refused unless FEEDBACKOPS_ALLOW_DEV_DB=1 is set.
+# database) is refused unless PLATFORM_API_ALLOW_DEV_DB=1 is set.
 #
 # Usage:
 #   pnpm --filter @ap/platform-api test:integration
 #   pnpm --filter @ap/platform-api test:integration src/modules/voc      # narrow filter
-#   FEEDBACKOPS_ENV_FILE=.env.verify pnpm --filter @ap/platform-api test:integration
+#   PLATFORM_API_ENV_FILE=.env.verify pnpm --filter @ap/platform-api test:integration
 
 set -euo pipefail
 
@@ -21,7 +21,7 @@ ops_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck disable=SC1091
 . "$ops_root/paths.sh"
 backend_dir="$FO_REPO_ROOT/$FO_BACKEND"
-env_file="${FEEDBACKOPS_ENV_FILE:-$ops_root/.env}"
+env_file="${PLATFORM_API_ENV_FILE:-$ops_root/.env}"
 
 if [ ! -f "$env_file" ]; then
   echo "test:integration: no env file at $env_file" >&2
@@ -46,7 +46,7 @@ for var in DATABASE_URL DATABASE_URL_MIGRATE WORKSPACE_ID; do
 done
 
 # 5434 is the development database (docker-compose.dev.yml), and this run truncates it.
-# Agents and workers must never reach it; a person who means it sets FEEDBACKOPS_ALLOW_DEV_DB=1.
+# Agents and workers must never reach it; a person who means it sets PLATFORM_API_ALLOW_DEV_DB=1.
 for var in DATABASE_URL DATABASE_URL_MIGRATE; do
   if ! port="$(
     cd "$backend_dir"
@@ -64,9 +64,9 @@ for var in DATABASE_URL DATABASE_URL_MIGRATE; do
     echo "test:integration: refusing $var: cannot resolve PostgreSQL port from $env_file" >&2
     exit 1
   fi
-  if [ "$port" = "5434" ] && [ "${FEEDBACKOPS_ALLOW_DEV_DB:-}" != "1" ]; then
+  if [ "$port" = "5434" ] && [ "${PLATFORM_API_ALLOW_DEV_DB:-}" != "1" ]; then
     echo "test:integration: refusing $var on port 5434 (the development database) from $env_file" >&2
-    echo "  point FEEDBACKOPS_ENV_FILE at a throwaway database, or set FEEDBACKOPS_ALLOW_DEV_DB=1 to truncate the dev data" >&2
+    echo "  point PLATFORM_API_ENV_FILE at a throwaway database, or set PLATFORM_API_ALLOW_DEV_DB=1 to truncate the dev data" >&2
     exit 1
   fi
 done

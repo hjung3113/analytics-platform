@@ -6,11 +6,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-import {
-  CreateBucketCommand,
-  HeadBucketCommand,
-  S3Client,
-} from '@aws-sdk/client-s3';
+import { CreateBucketCommand, HeadBucketCommand, S3Client } from '@aws-sdk/client-s3';
 import { mockClient } from 'aws-sdk-client-mock';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -36,15 +32,15 @@ describe('storage-bootstrap CLI', () => {
       }),
     );
     mock.on(CreateBucketCommand).resolves({});
-    const created = await bootstrapBucket(client, 'fops-attachments');
-    expect(created).toEqual({ bucket: 'fops-attachments', created: true });
+    const created = await bootstrapBucket(client, 'platform-attachments');
+    expect(created).toEqual({ bucket: 'platform-attachments', created: true });
     expect(mock.commandCalls(CreateBucketCommand)).toHaveLength(1);
 
     // Second call: HEAD 200 → no CREATE
     mock.reset();
     mock.on(HeadBucketCommand).resolves({});
-    const reuse = await bootstrapBucket(client, 'fops-attachments');
-    expect(reuse).toEqual({ bucket: 'fops-attachments', created: false });
+    const reuse = await bootstrapBucket(client, 'platform-attachments');
+    expect(reuse).toEqual({ bucket: 'platform-attachments', created: false });
     expect(mock.commandCalls(CreateBucketCommand)).toHaveLength(0);
   });
 
@@ -57,8 +53,7 @@ describe('storage-bootstrap CLI', () => {
       'utf8',
     );
     const hasGetStorageCall = /getStorage\s*\(/.test(src);
-    const hasInstanceofCheck =
-      /instanceof\s+S3CompatStorageBackend/.test(src);
+    const hasInstanceofCheck = /instanceof\s+S3CompatStorageBackend/.test(src);
     expect(
       hasGetStorageCall && hasInstanceofCheck,
       'storage-bootstrap.ts must build S3CompatStorageBackend directly via parseStorageEnv, not via getStorage() (which returns a lazy proxy that defeats instanceof).',

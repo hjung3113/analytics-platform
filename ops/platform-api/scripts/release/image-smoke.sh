@@ -3,8 +3,21 @@ set -Eeuo pipefail
 
 repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 compose_file="$repo_root/docker-compose.release.yml"
-env_file="$repo_root/.env.release"
-project_name="${RELEASE_PROJECT_NAME:-feedbackops-release-1060}"
+env_file="${RELEASE_ENV_FILE:-$repo_root/.env.release}"
+# The smoke has its own default project, separate from the operator default (`platform-api`, ADR-0097).
+project_name="${RELEASE_PROJECT_NAME:-platform-api-smoke}"
+# Operator project identities: the current default and the one before the platform rename (#1100 b). The smoke never
+# uses them: its containers would collide with the operator's, and the legacy data volumes are named after them.
+operator_project_names=(platform-api feedbackops-release-1060)
+# Ownership marker (compose label `platform.release.owner`, see docker-compose.release.yml): the smoke only builds,
+# starts or removes a project in which every container and volume is marked `smoke`.
+export RELEASE_OWNER=smoke
+owner_label=platform.release.owner
+# The smoke owns its data: both volumes are forced here, over anything in the caller's environment or .env.release
+# (the shell wins over --env-file), so startup can never mount an operator volume and `--down` (down -v) can never
+# remove one. The compose file's pinned legacy volume names are for operator installs only.
+export RELEASE_POSTGRES_VOLUME="${project_name}_smoke-postgres-data"
+export RELEASE_MINIO_VOLUME="${project_name}_smoke-minio-data"
 backend_url="http://localhost:${RELEASE_BACKEND_PORT:-3001}"
 status=failed
 reason=unexpected-command-failure
@@ -26,18 +39,67 @@ fail() {
   exit 1
 }
 
+for operator_project in "${operator_project_names[@]}"; do
+  if [[ "$project_name" == "$operator_project" ]]; then
+    fail "smoke-project-is-an-operator-project-use-another-RELEASE_PROJECT_NAME"
+  fi
+done
+
+# Fails closed, before any build/up/run/down: lists the project's containers (running or not) and volumes and refuses
+# if any is not marked as smoke-owned (or the listing itself fails). A clean project and the smoke's own previous stack
+# pass, so the script stays repeatable.
+assert_project_is_smoke_owned() {
+  local kind listing line owner volume
+  for kind in container volume; do
+    if [[ "$kind" == container ]]; then
+      listing="$(docker ps --all --filter "label=com.docker.compose.project=$project_name" \
+        --format "{{.Names}}|{{.Label \"$owner_label\"}}")" || fail "ownership-check-failed"
+    else
+      # Also the two volumes the run will mount, by name: one that exists without our marker is not ours even if
+      # it carries no compose project label.
+      listing="$(docker volume ls --filter "label=com.docker.compose.project=$project_name" \
+        --format "{{.Name}}|{{.Label \"$owner_label\"}}")" || fail "ownership-check-failed"
+      for volume in "$RELEASE_POSTGRES_VOLUME" "$RELEASE_MINIO_VOLUME"; do
+        listing+=$'\n'"$(docker volume ls --filter "name=$volume" \
+          --format "{{.Name}}|{{.Label \"$owner_label\"}}" | awk -F'|' -v want="$volume" '$1 == want')" \
+          || fail "ownership-check-failed"
+      done
+    fi
+    while IFS= read -r line; do
+      [[ -n "$line" ]] || continue
+      owner="${line#*|}"
+      if [[ "$owner" != smoke ]]; then
+        printf 'foreign %s in project %s: %s\n' "$kind" "$project_name" "${line%%|*}" >&2
+        fail "project-holds-resources-not-owned-by-the-smoke-use-another-RELEASE_PROJECT_NAME"
+      fi
+    done <<<"$listing"
+  done
+}
+
+# Pure identity report (no Docker, no .env.release): what a run would start and which volumes it owns.
+if [[ "${1:-}" == "--print-identity" ]]; then
+  [[ "$#" -eq 1 ]] || fail "usage: image-smoke.sh [--down|--print-identity]"
+  printf '{"project":"%s","postgresVolume":"%s","minioVolume":"%s"}\n' \
+    "$project_name" "$RELEASE_POSTGRES_VOLUME" "$RELEASE_MINIO_VOLUME" >&2
+  status=passed
+  reason=identity-printed
+  exit 0
+fi
+
 if [[ ! -f "$env_file" ]]; then
   fail "missing-.env.release-copy-.env.release.example-first"
 fi
 
 if [[ "${1:-}" == "--down" ]]; then
-  [[ "$#" -eq 1 ]] || fail "usage: image-smoke.sh [--down]"
+  [[ "$#" -eq 1 ]] || fail "usage: image-smoke.sh [--down|--print-identity]"
+  assert_project_is_smoke_owned
   "${compose[@]}" down -v >&2
   status=passed
-  reason=release-project-and-volumes-removed
+  reason=release-project-and-owned-volumes-removed
   exit 0
 fi
-[[ "$#" -eq 0 ]] || fail "usage: image-smoke.sh [--down]"
+[[ "$#" -eq 0 ]] || fail "usage: image-smoke.sh [--down|--print-identity]"
+assert_project_is_smoke_owned
 
 "${compose[@]}" build backend migrate >&2
 "${compose[@]}" up -d postgres oidc minio >&2

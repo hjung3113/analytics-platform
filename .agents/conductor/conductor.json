@@ -268,7 +268,7 @@
         "copy_to": ".review/env.verify",
         "task_lines": [
           "FeedbackOps work: run commands from the repository root (installed for you; the tools are in `ops/platform-api/`). Your own throwaway database (port 5439, never 5434): run only the integration files you added or touched, from the repository root, with",
-          "`FEEDBACKOPS_ENV_FILE={worktree}/.review/env.verify pnpm --filter @ap/platform-api test:integration <paths relative to apps/platform-api>`."
+          "`PLATFORM_API_ENV_FILE={worktree}/.review/env.verify pnpm --filter @ap/platform-api test:integration <paths relative to apps/platform-api>`."
         ]
       }
     }

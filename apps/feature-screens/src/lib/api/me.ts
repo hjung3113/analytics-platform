@@ -1,5 +1,5 @@
 // The caller's session read (`GET /me`) on `apiRequest`, so the platform bridge reaches it through `client.ts`
-// (`/api/fo` base path, 401 hook — platform ADR-0071). This module imports neither `auth.ts`, the `@/lib/api` barrel nor
+// (`/api/features` base path, 401 hook — platform ADR-0071). This module imports neither `auth.ts`, the `@/lib/api` barrel nor
 // `lib/auth/`: `auth.ts` re-exports `MeResponse` and `MeRequestError` from here, and `lib/auth/useMe.ts` shares the
 // `['me']` key and the 429 retry rule below. The standalone `fetchMe` in `auth.ts` stays raw `fetch`.
 

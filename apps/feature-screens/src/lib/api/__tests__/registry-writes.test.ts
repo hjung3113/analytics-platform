@@ -88,7 +88,7 @@ const calls = [
 
 const originalFetch = global.fetch;
 
-beforeEach(() => configureApiClient({ basePath: '/api/fo' }));
+beforeEach(() => configureApiClient({ basePath: '/api/features' }));
 afterEach(() => {
   global.fetch = originalFetch;
   configureApiClient({ basePath: '' });
@@ -108,7 +108,7 @@ describe('client-based registry writes and admin permission list', () => {
       await expect(call()).resolves.toEqual(payload);
 
       const request = requests[0];
-      expect(request?.[0]).toBe(`/api/fo${path}`);
+      expect(request?.[0]).toBe(`/api/features${path}`);
       expect(request?.[1]?.method).toBe(method);
       expect(request?.[1]?.body).toBe(body === undefined ? undefined : JSON.stringify(body));
       const headers = new Headers(request?.[1]?.headers);

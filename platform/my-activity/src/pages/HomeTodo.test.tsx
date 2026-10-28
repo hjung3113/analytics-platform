@@ -11,15 +11,15 @@ const request = { id: ID_A, requested_capability: 'voc.read', requested_managed_
 
 beforeEach(() => {
   vi.stubGlobal('localStorage', memoryStorage());
-  setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() });
+  setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() });
 });
 afterEach(() => { cleanup(); setFeatureApi(null); vi.unstubAllGlobals(); });
 
 describe('HomeTodo page', () => {
   it('C2 links the three groups to platform pages', async () => {
-    stubFetch(path => path.startsWith('/api/fo/me/answerable-surveys')
+    stubFetch(path => path.startsWith('/api/features/me/answerable-surveys')
       ? json({ items: [{ survey_id: SURVEY_ID, display_id: 'SRV-1', title: '만족도 설문', type: 'discovery', question_count: 2, opened_at: '2026-10-20T00:00:00.000Z' }], page: { has_more: false } })
-      : path.startsWith('/api/fo/notifications')
+      : path.startsWith('/api/features/notifications')
         ? listOf(notification(ID_A, { event_type: 'voc.public_update_posted', detail: { voc_id: ID_B }, subject_ref: { visibility_state: 'allowed', display_id: 'VOC-1', title: '내 VOC 제목' } }))
         : json({ requests: [request] }));
     render(<I18nProvider><PlatformProvider adapter={switchableAdapter().adapter} registry={registry}><HomeTodo /></PlatformProvider></I18nProvider>);

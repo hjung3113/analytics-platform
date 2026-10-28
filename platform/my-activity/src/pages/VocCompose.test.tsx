@@ -27,9 +27,9 @@ const managedSystemFor = (spaceId: string | null) => (spaceId === 'mars' ? MS : 
 
 function handle(over: { managedSystems?: () => Response; post?: () => Response } = {}) {
   return (path: string, method: string) => {
-    if (path.startsWith('/api/fo/managed-systems')) return over.managedSystems?.() ?? json({ items: [MS_ROW], total: 1 });
-    if (path.startsWith('/api/fo/analytics-areas')) return json({ items: [], total: 0 });
-    if (path === '/api/fo/vocs' && method === 'POST') return over.post?.() ?? json({ id: VOC, display_id: 'VOC-7' }, 201);
+    if (path.startsWith('/api/features/managed-systems')) return over.managedSystems?.() ?? json({ items: [MS_ROW], total: 1 });
+    if (path.startsWith('/api/features/analytics-areas')) return json({ items: [], total: 0 });
+    if (path === '/api/features/vocs' && method === 'POST') return over.post?.() ?? json({ id: VOC, display_id: 'VOC-7' }, 201);
     return json({ code: 'internal.unexpected', message: 'not mocked' }, 500);
   };
 }
@@ -74,7 +74,7 @@ describe('VOC 등록 drawer content', () => {
   });
 
   describe('with a FeedbackOps API', () => {
-    beforeEach(() => { setFeatureApi({ basePath: '/api/fo', onSessionLost }); });
+    beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost }); });
 
     it('V2: preselects the Managed System the factory maps, then a submit toasts 접수 완료 (default tone), refreshes 내 VOC and calls onSubmitted', async () => {
       const calls = stubFetch(handle());
@@ -89,7 +89,7 @@ describe('VOC 등록 drawer content', () => {
       expect(onSubmitted).toHaveBeenCalledWith({ vocId: VOC, displayId: 'VOC-7' });
       expect(toasts()).toEqual([['info', '접수 완료: VOC-7']]);
       expect(invalidate).toHaveBeenCalledWith({ queryKey: ['vocs', 'my'] });
-      expect(posted(calls)).toMatchObject({ path: '/api/fo/vocs', credentials: 'include' });
+      expect(posted(calls)).toMatchObject({ path: '/api/features/vocs', credentials: 'include' });
     });
 
     it('V2: a FeedbackOps 401 asks the host to sign in again and shows no toast', async () => {

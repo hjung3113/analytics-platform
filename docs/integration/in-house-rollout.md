@@ -55,7 +55,7 @@
 - [ ] CI: GitHub Actions 사용 가능 여부 / 사내 CI로 이행 여부, 저장소를 사내 Git으로 옮기는지(이슈·PR 흐름이 GitHub 전제)
 - [ ] 사내 표준 브라우저와 버전(MVP는 데스크톱 웹만)
 - [ ] 사내 주소가 HTTPS인지 — 표 행 복사(#174)는 보안 컨텍스트에서만 여러 페이지 선택을 서버에서 읽어 복사하고, HTTP면 현재 페이지에 보이는 선택 행만 복사한다(버튼·Ctrl/⌘+C 같은 경로; 현재 페이지에 선택 행이 없으면 복사하지 않고 그 페이지로 가라고 안내)
-- [ ] 환경 수(개발·스테이징·운영)와 환경별 URL — IdP redirect URI, `VITE_FEEDBACKOPS_ORIGIN`, 그리고 FeedbackOps 배포의 `PLATFORM_RETURN_ORIGINS`에 넣을 환경별 플랫폼 origin(없으면 FeedbackOps에 '플랫폼으로 돌아가기'가 보이지 않는다, [딥링크 계약](feedbackops-deeplink.md) §1)
+- [ ] 환경 수(개발·스테이징·운영)와 환경별 URL — IdP redirect URI, `VITE_PLATFORM_API_ORIGIN`, 그리고 FeedbackOps 배포의 `PLATFORM_RETURN_ORIGINS`에 넣을 환경별 플랫폼 origin(없으면 FeedbackOps에 '플랫폼으로 돌아가기'가 보이지 않는다, [딥링크 계약](feedbackops-deeplink.md) §1)
 - [ ] 파서 Postgres 접근: 같은 인스턴스·별도 스키마·read-only 계정 요청 절차(03)
 - [ ] 서버 로그 수집처 — 오류 보고·Correlation ID 추적 경로
 - [ ] 프록시 read timeout 60초 이상 가능 여부(서버 25초·클라이언트 30초보다 길게 — [전송 형식 초안](http-adapter-contract.md) §5)

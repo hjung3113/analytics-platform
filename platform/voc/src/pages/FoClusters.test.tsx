@@ -76,7 +76,7 @@ describe('Clusters without a FeedbackOps API (mock preview)', () => {
 });
 
 describe('Clusters through the FeedbackOps bridge', () => {
-  beforeEach(() => { setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
+  beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() }); });
 
   it('renders the list with the page read as the cluster FO path; VOC member links are live, Finding links are not', async () => {
     mountAt(`/feedbackops/clusters?managedSystem=${SYSTEM}`);

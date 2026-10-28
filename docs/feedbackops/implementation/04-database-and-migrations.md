@@ -141,7 +141,7 @@ and the `fops_*` roles. Pick one path; neither is done for you.
 
 1. **Keep the data: cut it over in place.** Stop the backend and jobs and close every `psql` session. Back up
    first (`pg_dump -Fc` of `feedbackops`, and a copy of the Docker volume `feedbackops_feedbackops-db-data`, which
-   keeps its name until #1100 b). Then, with the container running:
+   keeps its name: the compose file pins it, #1100 b). Then, with the container running:
 
    ```sh
    # The admin URL and the dev opt-in apply to this one command only (a subshell), so later seed/server commands
@@ -177,8 +177,13 @@ and the `fops_*` roles. Pick one path; neither is done for you.
    pnpm --filter @ap/platform-api db:seed
    ```
 
-   The compose project, container and volume names belong to #1100 b; the volume name
-   `feedbackops_feedbackops-db-data` is preserved on purpose to protect data.
+   The dev compose project is now `platform-api` and the containers are `platform-db|minio|keycloak|mailpit` (#1100 b).
+   The data volume keeps its old name `feedbackops_feedbackops-db-data`: it is pinned in `docker-compose.dev.yml`
+   (override with `PLATFORM_API_DB_VOLUME`), so the renamed `db` service mounts the existing database. Stop the old
+   container first (`docker stop feedbackops-db feedbackops-minio`; stopping removes no data) because it holds ports
+   5434 and 9000, then `docker compose -f docker-compose.dev.yml up -d`. The MinIO data is the bind mount
+   `ops/platform-api/minio_data`, unchanged. Local env files use `PLATFORM_API_ENV_FILE` and `PLATFORM_API_ALLOW_DEV_DB`
+   (the `FEEDBACKOPS_*` names are no longer read).
 
 Order for both paths: backup → stop services → cutover (or fresh volume then cutover) → update `.env` →
 start the backend (readiness refuses until `0076` is committed) → run `db:seed` only on throwaway data. Recovery: a

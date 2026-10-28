@@ -18,7 +18,7 @@ import { UnauthenticatedError } from '../unauthenticated';
 
 const originalFetch = global.fetch;
 const onUnauthorized = vi.fn();
-beforeEach(() => configureApiClient({ basePath: '/api/fo', onUnauthorized }));
+beforeEach(() => configureApiClient({ basePath: '/api/features', onUnauthorized }));
 afterEach(() => {
   global.fetch = originalFetch;
   configureApiClient({ basePath: '' });
@@ -37,17 +37,17 @@ const ME = {
 };
 
 const READS = [
-  ['fetchMeViaClient', () => fetchMeViaClient(), '/api/fo/me', ME],
+  ['fetchMeViaClient', () => fetchMeViaClient(), '/api/features/me', ME],
   [
     'fetchCapabilityScopeViaClient',
     () => fetchCapabilityScopeViaClient('voc.read'),
-    '/api/fo/me/permissions/scope?capability=voc.read',
+    '/api/features/me/permissions/scope?capability=voc.read',
     { scope: { kind: 'all' } },
   ],
   [
     'fetchPermissionCheckViaClient',
     () => fetchPermissionCheckViaClient('voc.read', { managedSystemId: 'ms1' }),
-    '/api/fo/me/permissions/check?capability=voc.read&managed_system_id=ms1',
+    '/api/features/me/permissions/check?capability=voc.read&managed_system_id=ms1',
     { state: 'approved', decision: { allow: true } },
   ],
 ] as const;

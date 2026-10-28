@@ -9,9 +9,9 @@ The local run verifies OIDC discovery/code flow, backend session issuance and re
 From the repository root, create the local interpolation file and inspect the Compose configuration:
 
     cp .env.release.example .env.release
-    docker compose --project-name feedbackops-release-1060 --env-file .env.release -f docker-compose.release.yml config
+    docker compose --project-name platform-api --env-file .env.release -f docker-compose.release.yml config
 
-The example values are local-only. The Compose project is named feedbackops-release-1060 by default (`RELEASE_PROJECT_NAME` overrides it); its Postgres and MinIO named volumes are project-owned. The Postgres port is not published on the host, so this stack does not use the development database on port 5434. The --env-file supplies Compose interpolation only; selected values are passed to each service explicitly so the running backend never receives DATABASE_URL_MIGRATE.
+The example values are local-only. The operator Compose project is `platform-api` (ADR-0097), the same name as the development project in `docker-compose.dev.yml`. To run development and release at the same time, give exactly one of them another project name (`--project-name <name>`); never rely on a silent different default. The Postgres and MinIO volumes carry explicit names (see "Existing installs: data volumes" below). `image-smoke.sh` has its own default project `platform-api-smoke` (`RELEASE_PROJECT_NAME` overrides it), ignores those volume names and always uses its own `<project>_smoke-*` volumes. The Postgres port is not published on the host, so this stack does not use the development database on port 5434. The --env-file supplies Compose interpolation only; selected values are passed to each service explicitly so the running backend never receives DATABASE_URL_MIGRATE.
 
 Postgres initialization mounts [scripts/db/init.sql](../../../../ops/platform-api/scripts/db/init.sql) and runs it as the postgres bootstrap superuser on an empty release-owned volume. Do not set POSTGRES_DB: init.sql creates the `platform` database itself. It also creates the replay bootstrap logins **fops_app** and **fops_migrate** (not platform_*), the other seven NOLOGIN owner roles with their memberships, and the vector extension. Their initial passwords are the literals platform_app and platform_migrate from that script, which are the passwords the final roles keep; changing POSTGRES_PASSWORD changes only the bootstrap superuser password. No platform_app or platform_migrate role exists until the cutover below renames them.
 
@@ -25,11 +25,11 @@ The smoke script builds the backend and migration images, starts Postgres, the O
 
 A new release volume must be cut over once before the migration job: the job-only `cutover` service (compose profile `cutover`, same image as `migrate`) replays migrations 0000–0075 as the bootstrap fops_migrate, renames the roles and database with the postgres superuser URL, then runs the ordinary drizzle-kit migrate as platform_migrate. It runs inside the compose network because Postgres publishes no host port, and only that container receives the superuser credential: a password-free admin URL (`postgresql://postgres@postgres:5432/postgres`) plus `PGPASSWORD` taken from POSTGRES_PASSWORD, so a password with URL-reserved characters (`@ : / ? # %`) works unchanged. `backend` and `migrate` get neither:
 
-    docker compose --project-name feedbackops-release-1060 --env-file .env.release -f docker-compose.release.yml run --rm cutover
+    docker compose --project-name platform-api --env-file .env.release -f docker-compose.release.yml run --rm cutover
 
-It is safe to repeat. `image-smoke.sh` runs it; its effective target is validated before any connection, as described in [the database identity section](../04-database-and-migrations.md#database-and-role-identity-1100-a-adr-0097-migration-0076). The `migrate` service itself stays plain: it runs only drizzle-kit migrate as platform_migrate and never needs an admin credential, so on a volume that was not cut over it fails closed. It never seeds. For a parallel check, export `RELEASE_PROJECT_NAME`, `RELEASE_BACKEND_PORT` and `RELEASE_OIDC_PORT` before `image-smoke.sh` (defaults: `feedbackops-release-1060`, 3001, 8080). After it succeeds and before logging in, run the repeatable core baseline seed from the migration/tools image:
+It is safe to repeat. `image-smoke.sh` runs it; its effective target is validated before any connection, as described in [the database identity section](../04-database-and-migrations.md#database-and-role-identity-1100-a-adr-0097-migration-0076). The `migrate` service itself stays plain: it runs only drizzle-kit migrate as platform_migrate and never needs an admin credential, so on a volume that was not cut over it fails closed. It never seeds. For a parallel check, export `RELEASE_PROJECT_NAME`, `RELEASE_BACKEND_PORT` and `RELEASE_OIDC_PORT` before `image-smoke.sh` (defaults: `platform-api-smoke`, 3001, 8080; the operator projects `platform-api` and `feedbackops-release-1060` are refused). After it succeeds and before logging in, run the repeatable core baseline seed from the migration/tools image:
 
-    docker compose --project-name feedbackops-release-1060 --env-file .env.release -f docker-compose.release.yml run --rm -e SEED_MODE=core migrate node_modules/.bin/tsx src/seed/index.ts
+    docker compose --project-name platform-api --env-file .env.release -f docker-compose.release.yml run --rm -e SEED_MODE=core migrate node_modules/.bin/tsx src/seed/index.ts
 
 The tools image includes the backend development dependency closure because db:seed uses tsx. The command receives both DATABASE_URL (the platform_app runtime role used by the core seed) and DATABASE_URL_MIGRATE (the platform_migrate role used to create the seed team). It also receives the same WORKSPACE_ID as the backend. Core mode creates the Workspace, baseline Actors, Tableau and Power BI Managed Systems, Analytics Areas, team, and core VOC fixtures; it does not create personas or scale data.
 
@@ -75,8 +75,58 @@ To stop the stack and remove its database and object-storage volumes, use the sc
 
     bash scripts/release/image-smoke.sh --down
 
-Equivalent Compose operations must use the same project, file, and interpolation input:
+Before any build, start or `--down`, the script lists the project's containers and volumes (and the two volumes it would mount) and refuses unless every one carries the ownership label `platform.release.owner=smoke` (set from `RELEASE_OWNER`, which the script exports; operators leave it unset, so their resources are labelled `operator`). A custom `RELEASE_PROJECT_NAME` that points at an operator stack is therefore refused with nothing started, built or removed; its own previous smoke stack is accepted, so reruns work. Resources created before the label existed count as foreign. If you run the equivalent Compose command by hand it must use the smoke project, the smoke volume variables and `RELEASE_OWNER=smoke` (`--print-identity` shows the names):
 
-    docker compose --project-name feedbackops-release-1060 --env-file .env.release -f docker-compose.release.yml down -v
+    docker compose --project-name platform-api-smoke --env-file .env.release -f docker-compose.release.yml down -v
 
 #597: release compose deploys backend and infrastructure only. Set `OIDC_REDIRECT_URI` to the retained platform host ending in `/auth/callback` (the platform edge forwards `/auth`); compose requires this value instead of guessing a backend port. Standalone frontend image, SPA fallback, visual runner and external return origin configuration are retired. Backend image smoke, health checks and integration gates remain.
+
+## Existing installs: data volumes (#1100 b)
+
+The project used to be `feedbackops-release-1060`, so an existing install holds its data in
+`feedbackops-release-1060_release-postgres-data` and `feedbackops-release-1060_release-minio-data`. The compose file
+pins exactly those names (`RELEASE_POSTGRES_VOLUME`, `RELEASE_MINIO_VOLUME` default to them), so the new project name
+mounts the existing data instead of creating blank volumes. If the existing install ran under another project name,
+select its volumes explicitly **before the first start**:
+
+    export RELEASE_POSTGRES_VOLUME=<old-project>_release-postgres-data
+    export RELEASE_MINIO_VOLUME=<old-project>_release-minio-data
+    docker volume inspect "$RELEASE_POSTGRES_VOLUME" "$RELEASE_MINIO_VOLUME" >/dev/null   # both must already exist
+
+Both variables are independent. `docker compose ... config` shows the resolved `volumes:` names; check them before `up`.
+`image-smoke.sh` (start and `--down`) forces both variables to volumes it owns, whatever the caller or `.env.release`
+sets, so it can neither mount nor remove an operator volume; `bash scripts/release/image-smoke.sh --print-identity`
+prints the project and the volumes a run would own without touching Docker.
+
+The operator default project is `platform-api`; `image-smoke.sh` refuses it (and `feedbackops-release-1060`) as its own.
+
+## Attachment bucket rename (fops-attachments to platform-attachments)
+
+The default bucket is now `platform-attachments` and the dev MinIO root user `platform-minio`; the root password and
+every operator secret keep their values. Attachment rows store object keys, not bucket names, so the move is a copy
+inside the object store plus a configuration switch. No database row is rewritten and the old bucket is kept.
+
+1. Keep the server running on the old bucket. With the server's `STORAGE_S3_*` values exported and
+   `STORAGE_S3_BUCKET=platform-attachments`, create the new bucket (idempotent) and copy:
+
+       pnpm --filter @ap/platform-api exec tsx src/cli/storage-bootstrap.ts
+       pnpm --filter @ap/platform-api exec tsx src/cli/storage-copy-bucket.ts copy --source fops-attachments
+
+2. Verify inventory and content (key sets, length and SHA-256 of every object); it exits non-zero on any difference:
+
+       pnpm --filter @ap/platform-api exec tsx src/cli/storage-copy-bucket.ts verify --source fops-attachments
+
+3. Stop writes (stop the backend), run `copy` and `verify` once more to pick up objects added since step 1, then switch
+   `STORAGE_S3_BUCKET` to `platform-attachments` and start the backend. Writes must stay stopped from the final `copy`
+   until the switch: an object written to the old bucket afterwards is not in the new one.
+
+   `copy` never overwrites a destination object. A key that already exists with identical bytes is kept (a resumed run
+   copies only the missing keys); a key that exists with different bytes aborts the run before any write and lists the
+   key(s). Resolve it by hand (decide which bytes are valid, remove the stray destination object yourself or use a fresh
+   bucket) and run `copy` again; the tool will not replace the destination's bytes or touch the source.
+4. Keep `fops-attachments` and its policy until you explicitly retire it. The tool never deletes, and it changes no
+   bucket policy. Bucket access on the new bucket must match the old one (the code creates private buckets); compare
+   the two policies with your storage tool before switching. Retiring the old bucket is a separate, explicit step; the source stays available (read-only for this tool) until then.
+
+The MinIO root user change affects only a data directory started with the new `MINIO_ROOT_USER`; a bind-mounted
+`ops/platform-api/minio_data` keeps its objects.

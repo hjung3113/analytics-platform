@@ -85,7 +85,7 @@ FeedbackOps를 플랫폼 앱 하나·공개 서버 입구 하나·저장소 하�
 
 | 항목 | 분류 | FeedbackOps 근거 | 차이·할 일 |
 | --- | --- | --- | --- |
-| 경로 접두사 `/api/v1/platform/...` | 모양만 다름 | 모든 route가 접두사 없이 루트에 붙는다(`server.ts:389-926`). dev proxy는 화면 경로와 겹치는 `/vocs` 등을 Accept 헤더로 구분한다(`apps/frontend/vite.config.ts:28-60`) | 플랫폼 포트는 `/api/v1/platform`에 새로 등록한다. 기존 경로는 옮기지 않는다 — 플랫폼 앞단이 `/api/fo`를 떼어 보낸다([ADR-0071](../adr/0071-feedbackops-screen-bridge-and-api-fo-edge-prefix.md), O13) |
+| 경로 접두사 `/api/v1/platform/...` | 모양만 다름 | 모든 route가 접두사 없이 루트에 붙는다(`server.ts:389-926`). dev proxy는 화면 경로와 겹치는 `/vocs` 등을 Accept 헤더로 구분한다(`apps/frontend/vite.config.ts:28-60`) | 플랫폼 포트는 `/api/v1/platform`에 새로 등록한다. 기존 경로는 옮기지 않는다 — 플랫폼 앞단이 `/api/features`를 떼어 보낸다([ADR-0071](../adr/0071-feedbackops-screen-bridge-and-api-fo-edge-prefix.md), O13) |
 | JSON 필드 이름 | 모양만 다름 | snake_case(`modules/auth/routes.ts:221-231`) | 플랫폼 포트는 `@ap/contracts`의 camelCase로 답한다 |
 | 요청 검증 | 모양만 다름 | zod `.strict()`. 실패하면 422 `validation.failed`(`lib/http-error-handler.ts:50-58`) | 계약 §2는 envelope 메서드면 200 + `error`, fire-and-forget이면 200 + `accepted: 0/false`다. 플랫폼 경로에는 별도 처리기가 필요하다 |
 | 오류 envelope·코드 | 모양만 다름 | ADR-0012 상태 코드 + `{code, message, detail}`(`lib/errors.ts:9-27`). 오류 처리기는 루트에 하나다(`server.ts:345`) | 플랫폼은 권한 거부도 200 + `outcome`이다. 한 서버에 두 규약이 생긴다(O12) |

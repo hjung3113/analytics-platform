@@ -49,11 +49,11 @@ const FORBIDDEN = [/Critical|critical|심각/, /Triage|triage/, /박운영/, /�
 /** Answers the reporter routes; `list` and `detail` override the answers. */
 function vocFetch(over: { list?: (path: string) => Response; detail?: () => Response; meId?: string } = {}) {
   return stubFetch(path => {
-    if (path === '/api/fo/me') return json({ actor: { id: over.meId ?? ME, external_id: 'x', email: 'me@x.test', display_name: '김제출', role_level: 'user' }, workspace_id: MS });
-    if (path.startsWith('/api/fo/vocs?')) return over.list?.(path) ?? json({ items: [row(ID_A, '로그인이 안 됩니다'), row(ID_B, '차트가 안 열립니다')], page: { has_more: false } });
-    if (path === `/api/fo/vocs/${ID_A}`) return over.detail?.() ?? json(operatorEnvelope(ID_A));
-    if (path.startsWith(`/api/fo/vocs/${ID_A}/conversation`)) return json({ items: [PUBLIC, INTERNAL], has_more: false });
-    if (path === '/api/fo/actors?workspace=current') {
+    if (path === '/api/features/me') return json({ actor: { id: over.meId ?? ME, external_id: 'x', email: 'me@x.test', display_name: '김제출', role_level: 'user' }, workspace_id: MS });
+    if (path.startsWith('/api/features/vocs?')) return over.list?.(path) ?? json({ items: [row(ID_A, '로그인이 안 됩니다'), row(ID_B, '차트가 안 열립니다')], page: { has_more: false } });
+    if (path === `/api/features/vocs/${ID_A}`) return over.detail?.() ?? json(operatorEnvelope(ID_A));
+    if (path.startsWith(`/api/features/vocs/${ID_A}/conversation`)) return json({ items: [PUBLIC, INTERNAL], has_more: false });
+    if (path === '/api/features/actors?workspace=current') {
       return json({ actors: [
         { id: OPERATOR, display_name: '이운영', email: 'op@x.test', role_level: 'developer', actor_type: 'user' },
         { id: OWNER, display_name: '박운영', email: 'ow@x.test', role_level: 'developer', actor_type: 'user' },
@@ -63,7 +63,7 @@ function vocFetch(over: { list?: (path: string) => Response; detail?: () => Resp
   });
 }
 
-const listCalls = (calls: Call[]) => calls.filter(call => call.path.startsWith('/api/fo/vocs?'));
+const listCalls = (calls: Call[]) => calls.filter(call => call.path.startsWith('/api/features/vocs?'));
 const lastList = (calls: Call[]) => new URL(listCalls(calls).at(-1)!.path, origin()).searchParams;
 const search = () => new URLSearchParams(window.location.search);
 
@@ -94,9 +94,9 @@ describe('내 VOC without a FeedbackOps API (mock preview) — V1', () => {
 
 describe('내 VOC through the FeedbackOps bridge', () => {
   const onSessionLost = vi.fn();
-  beforeEach(() => { onSessionLost.mockReset(); setFeatureApi({ basePath: '/api/fo', onSessionLost }); });
+  beforeEach(() => { onSessionLost.mockReset(); setFeatureApi({ basePath: '/api/features', onSessionLost }); });
 
-  it('V2: lists GET /api/fo/vocs?view=my with the session cookie and sends no operator request', async () => {
+  it('V2: lists GET /api/features/vocs?view=my with the session cookie and sends no operator request', async () => {
     const calls = vocFetch();
     mountAt(session().adapter, '/voc?v=1');
     expect(await screen.findByText('차트가 안 열립니다')).toBeTruthy();
@@ -208,7 +208,7 @@ describe('내 VOC through the FeedbackOps bridge', () => {
     expect(search().get('focus')).toBe(ID_A);
     expect(screen.getByRole('searchbox')).toBe(box);
     expect((box as HTMLInputElement).value).toBe('초안');
-    expect(calls.map(call => call.path)).toContain(`/api/fo/vocs/${ID_A}`);
+    expect(calls.map(call => call.path)).toContain(`/api/features/vocs/${ID_A}`);
 
     const full = within(panel).getByRole('link', { name: '전체 화면' });
     const href = new URL(full.getAttribute('href')!, origin());

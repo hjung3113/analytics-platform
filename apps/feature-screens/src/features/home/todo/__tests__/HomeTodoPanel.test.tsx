@@ -1,4 +1,4 @@
-// T1–T5 — the platform home `내 할 일` panel. fetch is mocked directly (house style), with the bridge's `/api/fo` base path.
+// T1–T5 — the platform home `내 할 일` panel. fetch is mocked directly (house style), with the bridge's `/api/features` base path.
 
 import { surveyKeys } from '@/features/surveys/hooks/useSurveys';
 import { configureApiClient } from '@/lib/api/client';
@@ -78,11 +78,11 @@ function installFetch() {
     urls.push({ url, method: init?.method ?? 'GET' });
     const path = new URL(url, 'http://x').pathname;
     const body =
-      path === '/api/fo/me/answerable-surveys'
+      path === '/api/features/me/answerable-surveys'
         ? answers.surveys
-        : path === '/api/fo/notifications'
+        : path === '/api/features/notifications'
           ? answers.notifications
-          : path === '/api/fo/permission-requests/mine'
+          : path === '/api/features/permission-requests/mine'
             ? answers.requests
             : undefined;
     if (body === undefined) return new Response('not mocked', { status: 500 });
@@ -110,7 +110,7 @@ function mount(client = new QueryClient({ defaultOptions: { queries: { retry: fa
 const originalFetch = globalThis.fetch;
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'], now: NOW });
-  configureApiClient({ basePath: '/api/fo' });
+  configureApiClient({ basePath: '/api/features' });
   answers = empty();
   installFetch();
 });
@@ -147,9 +147,9 @@ describe('HomeTodoPanel', () => {
     expect(hrefs('권한 요청')).toEqual(['/permission-requests', '/permission-requests']);
     expect(group('권한 요청').getByText('대기 중')).toBeTruthy();
     expect(urls.map((u) => u.url).sort()).toEqual([
-      '/api/fo/me/answerable-surveys',
-      '/api/fo/notifications?unread=true&limit=100',
-      '/api/fo/permission-requests/mine?status=all',
+      '/api/features/me/answerable-surveys',
+      '/api/features/notifications?unread=true&limit=100',
+      '/api/features/permission-requests/mine?status=all',
     ]);
     expect(client.getQueryCache().find({ queryKey: permissionRequestsMineAllKey })).toBeDefined();
     expect(urls.every((u) => u.method === 'GET')).toBe(true);
@@ -297,14 +297,15 @@ describe('HomeTodoPanel', () => {
       });
       return client;
     };
-    const surveyGets = () => urls.filter((u) => u.url.startsWith('/api/fo/me/answerable-surveys'));
+    const surveyGets = () =>
+      urls.filter((u) => u.url.startsWith('/api/features/me/answerable-surveys'));
 
     it('Y1 reads one cursor-less survey page, three requests in total', async () => {
       answers.surveys = surveysOf(1);
       mount(seed());
       await screen.findByRole('region', { name: '내 할 일' });
       await waitFor(() => expect(urls).toHaveLength(3));
-      expect(surveyGets().map((u) => u.url)).toEqual(['/api/fo/me/answerable-surveys']);
+      expect(surveyGets().map((u) => u.url)).toEqual(['/api/features/me/answerable-surveys']);
       expect(urls.some((u) => u.url.includes('cursor='))).toBe(false);
     });
 

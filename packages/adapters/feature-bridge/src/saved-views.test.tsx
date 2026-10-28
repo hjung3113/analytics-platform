@@ -88,7 +88,7 @@ beforeEach(() => {
   featureQueryClient.clear();
   deleteGates.clear();
   rows = []; posted = []; calls = []; failPost = null; failDelete = false; deleteGate = null; getGate = null; unauthorized = false;
-  setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() });
+  setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() });
   vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     const method = init?.method ?? 'GET';

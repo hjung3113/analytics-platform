@@ -11,7 +11,7 @@ import { invalidateNavCounts } from '@/lib/query/navCounts';
 import { registry } from './test-support';
 
 const SYSTEM = '33333333-3333-4333-8333-333333333333';
-const ALL = '/api/fo/nav/counts';
+const ALL = '/api/features/nav/counts';
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 const Counts = navCountsSlot.For(spaceId('feedbackops'))!;
 
@@ -54,7 +54,7 @@ describe('navCounts slot', () => {
   });
 
   describe('with a FeedbackOps API', () => {
-    beforeEach(() => { setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
+    beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() }); });
 
     it('maps FeedbackOps count keys to menu and view keys, keeps 0 and leaves an omitted key absent', async () => {
       stubFetch(() => json({ counts: { 'voc.inbox': 12, 'voc.triage': 0, 'voc.inbox.no-link': 4, 'voc.tab.high': 2, 'voc.my': 9, 'voc.clusters': 1 } }));
