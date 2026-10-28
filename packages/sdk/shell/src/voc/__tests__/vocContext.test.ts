@@ -2,7 +2,7 @@ import { House } from 'lucide-react';
 import { describe, expect, it } from 'vitest';
 import { createRegistry } from '@ap/kernel';
 import { noContext, testSpace } from '@ap/kernel/testing';
-import { emptyGlobal, groupId, spaceId, type GlobalContext } from '@ap/contracts';
+import { carrySetId, emptyGlobal, groupId, spaceId, type GlobalContext } from '@ap/contracts';
 import { freezeVocContext, type VocFreezeInput } from '../vocContext';
 import { buildShareLink } from '../../context/shareLink';
 
@@ -64,11 +64,12 @@ describe('freezeVocContext (ADR-0070 decision 5)', () => {
     expect(freezeVocContext(input(over))).toEqual({ items: [{ id: 'menu', label: '화면', value: '분석 보드' }], href: null, spaceId: null, menuId: null, carried: {} });
   });
 
-  it('carries the frozen values of the space carriedPageKeys, including a removed chip, and none when the space has none', () => {
+  it('carries the frozen values of the carry set page keys, including a removed chip, and none when the menu has no set', () => {
     const carrying = createRegistry({
-      spaces: [testSpace({ id: spaceId('mars'), label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'home', carriedPageKeys: ['q'] })],
+      carrySets: [{ id: carrySetId('s'), pageKeys: ['q'] }],
+      spaces: [testSpace({ id: spaceId('mars'), label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'home' })],
       groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
-      menus: [{ ...menu('home', '홈', '/'), pageKeys: ['q'] }, menu('prod', '생산성', '/p/:id')],
+      menus: [{ ...menu('home', '홈', '/'), pageKeys: ['q'], carrySet: carrySetId('s') }, { ...menu('prod', '생산성', '/p/:id'), pageKeys: ['q'], carrySet: carrySetId('s') }],
     });
     const carried = (removed?: string[]) => freezeVocContext(input({ registry: carrying, route: { menu: carrying.menus.find(entry => entry.path === '/mars/prod/:id')!, params: { id: '7' }, viaAlias: false } }), new Set(removed)).carried;
     expect(carried()).toEqual({ q: 'x' });
@@ -78,9 +79,10 @@ describe('freezeVocContext (ADR-0070 decision 5)', () => {
 
   it('drops returnTo: no chip, not in the address, not in carried (navigation state, #760)', () => {
     const carrying = createRegistry({
-      spaces: [testSpace({ id: spaceId('mars'), label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'home', carriedPageKeys: ['q', 'returnTo'] })],
+      carrySets: [{ id: carrySetId('s'), pageKeys: ['q', 'returnTo'] }],
+      spaces: [testSpace({ id: spaceId('mars'), label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'home' })],
       groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
-      menus: [{ ...menu('home', '홈', '/'), pageKeys: ['q', 'returnTo'] }, { ...menu('prod', '생산성', '/p/:id'), pageKeys: ['q', 'returnTo'] }],
+      menus: [{ ...menu('home', '홈', '/'), pageKeys: ['q', 'returnTo'], carrySet: carrySetId('s') }, { ...menu('prod', '생산성', '/p/:id'), pageKeys: ['q', 'returnTo'], carrySet: carrySetId('s') }],
     });
     const context = freezeVocContext(input({ registry: carrying, page: [['q', 'x'], ['returnTo', '/origin?v=1']], route: { menu: carrying.menus.find(entry => entry.path === '/mars/prod/:id')!, params: { id: '7' }, viaAlias: false } }));
     expect(context.items.map(item => item.id)).not.toContain('page:returnTo');

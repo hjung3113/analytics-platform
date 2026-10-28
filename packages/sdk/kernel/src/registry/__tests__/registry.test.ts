@@ -7,7 +7,7 @@ import { I18nProvider } from '../../i18n';
 import { PlatformProvider } from '../../platform/platform';
 import { testAdapter, testSession } from '../../testing';
 import { createRegistry as create, routeParamNames, RegistryError, type GroupDef, type MenuEntry, type ModuleMenuEntry, type PlatformMenuEntry } from '../registry';
-import { groupId, KERNEL_PERMISSIONS, menuPermission, menuPermissions, spaceId, type SpaceDef } from '@ap/contracts';
+import { carrySetId, groupId, KERNEL_PERMISSIONS, menuPermission, menuPermissions, spaceId, type SpaceDef } from '@ap/contracts';
 
 /** The fixtures' menus use `metrics:view`, which the app (here: the test) declares. */
 const createRegistry = (input: Parameters<typeof create>[0]) => create({ permissions: [menuPermission('metrics:view')], ...input });
@@ -127,24 +127,41 @@ describe('createRegistry validation (platform-packages.md §5)', () => {
   });
 });
 
-describe('space carriedPageKeys (ADR-0081 decision 4)', () => {
-  const carrying: SpaceDef[] = [{ ...analyticsSpace, homeMenuId: 'a', carriedPageKeys: ['k'] }];
-  it('accepts menus that all declare the carried key', () => {
-    expect(() => createRegistry({ spaces: carrying, groups, menus: [menu('a', '/a', { primary: true, pageKeys: ['k'] }), menu('b', '/b', { pageKeys: ['k', 'x'] })] })).not.toThrow();
+describe('carry sets (ADR-0081 decision 4 as replaced by #1099b)', () => {
+  const kSet = { id: carrySetId('shared'), pageKeys: ['k'] };
+  const member = (id: string, path: string, extra: Partial<PlatformMenuEntry> = {}) => menu(id, path, { carrySet: kSet.id, ...extra });
+  it('accepts member menus that all declare the carry key and answers carrySetOf', () => {
+    const registry = createRegistry({ spaces: homeA, groups, carrySets: [kSet], menus: [member('a', '/a', { primary: true, pageKeys: ['k'] }), member('b', '/b', { pageKeys: ['k', 'x'] }), menu('c', '/c')] });
+    expect(registry.carrySetOf(registry.menuById('a'))).toEqual(kSet);
+    expect(registry.carrySetOf(registry.menuById('c'))).toBeNull();
+  });
+  it('lets two sets reuse a key name; set identity separates them', () => {
+    const other = { id: carrySetId('other'), pageKeys: ['k'] };
+    const registry = createRegistry({ spaces: homeA, groups, carrySets: [kSet, other], menus: [member('a', '/a', { primary: true, pageKeys: ['k'] }), menu('b', '/b', { carrySet: other.id, pageKeys: ['k'] })] });
+    expect(registry.carrySetOf(registry.menuById('b'))?.id).toBe('other');
   });
   it.each([
-    { name: 'a carried key equal to a global key', spaces: [{ ...analyticsSpace, homeMenuId: 'a', carriedPageKeys: ['scopeId'] }], menus: [menu('a', '/a', { primary: true })], error: /carried page key "scopeId" collides with a global/ },
-    { name: 'a carried key declared twice', spaces: [{ ...analyticsSpace, homeMenuId: 'a', carriedPageKeys: ['k', 'k'] }], menus: [menu('a', '/a', { primary: true, pageKeys: ['k'] })], error: /Space "mars" carried page key "k" is declared twice/ },
-    { name: 'a member menu missing the carried key', spaces: carrying, menus: [menu('a', '/a', { primary: true, pageKeys: ['k'] }), menu('c', '/c')], error: /Menu "c" does not declare space "mars" carried page key "k"/ },
-  ])('rejects $name', ({ spaces: s, menus, error }) => {
-    expect(() => createRegistry({ spaces: s, groups, menus })).toThrow(error);
+    { name: 'a key equal to a global key', carrySets: [{ id: carrySetId('s'), pageKeys: ['scopeId'] }], menus: [menu('a', '/a', { primary: true })], error: /Carry set "s" page key "scopeId" collides with a global/ },
+    { name: 'a key declared twice', carrySets: [{ id: carrySetId('s'), pageKeys: ['k', 'k'] }], menus: [menu('a', '/a', { primary: true, pageKeys: ['k'], carrySet: carrySetId('s') })], error: /Carry set "s" page key "k" is declared twice/ },
+    { name: 'a malformed key', carrySets: [{ id: carrySetId('s'), pageKeys: ['a b'] }], menus: [menu('a', '/a', { primary: true })], error: /Carry set "s" page key "a b" must be non-empty/ },
+    { name: 'a malformed set id', carrySets: [{ id: carrySetId('a/b'), pageKeys: ['k'] }], menus: [menu('a', '/a', { primary: true })], error: /Carry set id "a\/b" must be non-empty/ },
+    { name: 'a duplicate set id', carrySets: [kSet, kSet], menus: [member('a', '/a', { primary: true, pageKeys: ['k'] })], error: /Duplicate carry set id "shared"/ },
+    { name: 'a menu naming an unknown set', carrySets: [kSet], menus: [menu('a', '/a', { primary: true, carrySet: carrySetId('nope') })], error: /Menu "a" uses undeclared carry set "nope"/ },
+    { name: 'a member menu missing the carry key', carrySets: [kSet], menus: [member('a', '/a', { primary: true, pageKeys: ['k'] }), member('c', '/c')], error: /Menu "c" does not declare carry set "shared" page key "k"/ },
+  ])('rejects $name', ({ carrySets, menus, error }) => {
+    expect(() => createRegistry({ spaces: homeA, groups, carrySets, menus })).toThrow(error);
+  });
+  it('rejects a set whose pageKeys is not a list', () => {
+    expect(() => createRegistry({ spaces: homeA, groups, carrySets: [{ id: carrySetId('s'), pageKeys: 'k' as never }], menus: [menu('a', '/a', { primary: true })] })).toThrow(/Carry set "s" pageKeys must be a list/);
+  });
+  it('does not require menus outside the set to declare its keys', () => {
+    expect(() => createRegistry({ spaces: homeA, groups, carrySets: [kSet], menus: [member('a', '/a', { primary: true, pageKeys: ['k'] }), menu('b', '/b')] })).not.toThrow();
   });
 });
 
 describe('menu navViews (sidebar sub-items, 06 §8)', () => {
   const view = { id: 'mine', label: { ko: '내 것', en: 'Mine' }, page: { tab: 'mine' } };
   const withViews = (views: unknown, extra: Partial<PlatformMenuEntry> = {}) => menu('a', '/a', { primary: true, pageKeys: ['tab', 'k'], navViews: views as never, ...extra });
-  const carrying: SpaceDef[] = [{ ...analyticsSpace, homeMenuId: 'a', carriedPageKeys: ['k'] }];
   it('accepts views whose preset keys are declared page keys', () => {
     expect(() => createRegistry({ spaces: homeA, groups, menus: [withViews([view, { ...view, id: 'all', page: { tab: 'all' } }])] })).not.toThrow();
   });
@@ -160,8 +177,8 @@ describe('menu navViews (sidebar sub-items, 06 §8)', () => {
   ])('rejects $name', ({ menus, error }) => {
     expect(() => createRegistry({ spaces: homeA, groups, menus })).toThrow(error);
   });
-  it('rejects a preset key the space carries', () => {
-    expect(() => createRegistry({ spaces: carrying, groups, menus: [withViews([{ ...view, page: { k: 'x' } }])] })).toThrow(/navView "mine" preset key "k" is a space carried page key/);
+  it('rejects a preset key the carry set carries', () => {
+    expect(() => createRegistry({ spaces: homeA, groups, carrySets: [{ id: carrySetId('shared'), pageKeys: ['k'] }], menus: [withViews([{ ...view, page: { k: 'x' } }], { carrySet: carrySetId('shared') })] })).toThrow(/navView "mine" preset key "k" is a carry set page key/);
   });
 });
 

@@ -3,7 +3,7 @@ import { Inbox } from 'lucide-react';
 import { createRoot, type Root } from 'react-dom/client';
 import { useQuery } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { NO_FEATURES, contextCapabilities, groupId, spaceId } from '@ap/contracts';
+import { NO_FEATURES, contextCapabilities, carrySetId, groupId, spaceId } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { memoryStorage, testAdapter, testSession } from '@ap/kernel/testing';
 import { fetchNavCounts } from '@/lib/api/nav';
@@ -18,12 +18,13 @@ const SPACE = spaceId('feedbackops');
 const GROUP = groupId('foVoc');
 const Counts = navCountsSlot.For(SPACE)!;
 const registry = createRegistry({
-  spaces: [{ id: SPACE, label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'features:access', carriedPageKeys: ['managedSystem'], homeMenuId: 'fo-inbox' }],
+  carrySets: [{ id: carrySetId('features'), pageKeys: ['managedSystem'] }],
+  spaces: [{ id: SPACE, label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'features:access', homeMenuId: 'fo-inbox' }],
   groups: [{ id: GROUP, label: { ko: 'VOC', en: 'VOC' }, icon: Inbox, space: SPACE }],
   menus: [{
     id: 'fo-inbox', primary: true, group: GROUP, label: { ko: '수신함', en: 'Inbox' }, description: { ko: '수신함', en: 'Inbox' },
     path: '/feedbackops/vocs', icon: Inbox, permission: 'features:access', requiresScope: false, pageType: 'management',
-    context: contextCapabilities(), features: NO_FEATURES, pageKeys: ['managedSystem'], component: lazy(async () => ({ default: () => null })),
+    context: contextCapabilities(), features: NO_FEATURES, pageKeys: ['managedSystem'], carrySet: carrySetId('features'), component: lazy(async () => ({ default: () => null })),
   }],
 });
 

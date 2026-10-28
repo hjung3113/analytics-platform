@@ -64,10 +64,10 @@ describe('returnTo is navigation state (#851, ADR-0081 UX-10)', () => {
     expect(pairs).toHaveLength(4);
   });
 
-  it('carriesReturnTo is true only for a space that carries returnTo', () => {
-    expect(carriesReturnTo({ carriedPageKeys: ['managedSystem', 'returnTo'] })).toBe(true);
-    expect(carriesReturnTo({ carriedPageKeys: ['managedSystem'] })).toBe(false);
-    expect(carriesReturnTo({})).toBe(false);
+  it('carriesReturnTo is true only for a carry set that lists returnTo', () => {
+    expect(carriesReturnTo({ pageKeys: ['managedSystem', 'returnTo'] })).toBe(true);
+    expect(carriesReturnTo({ pageKeys: ['managedSystem'] })).toBe(false);
+    expect(carriesReturnTo({ pageKeys: [] })).toBe(false);
     expect(carriesReturnTo(null)).toBe(false);
     expect(carriesReturnTo(undefined)).toBe(false);
   });

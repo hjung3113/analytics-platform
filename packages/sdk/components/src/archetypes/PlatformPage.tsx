@@ -312,12 +312,12 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
           summary={queryBarExtension?.appliedPageSummary ?? queryBarExtension?.pageSummary ?? []}
           pendingChanges={queryDraft.dirty.some(key => menu.pageKeys.includes(key))} issueCount={queryBarExtension?.issues.length ?? 0} />
       : <div className="px-8 pt-3"><PageHeadBody notes={notes} extension={contextExtension} /></div>)}
-    {screenMode === 'main' && !gate && carriesReturnTo(currentSpace) && <ReturnRow />}
+    {screenMode === 'main' && !gate && carriesReturnTo(registry.carrySetOf(menu)) && <ReturnRow />}
     <div data-platform-page-content tabIndex={-1} className={layout === 'fill' ? 'flex flex-1 flex-col px-8 pb-9 pt-7' : 'flex-1 px-8 pb-9 pt-7'}>{gate ?? <OutcomeScope><OutcomeBanners compact={layout === 'fill'} />{layout === 'fill' ? <div data-platform-page-fill className={fixedFill ? 'flex min-h-[520px] flex-1 flex-col' : 'flex flex-1 flex-col'}>{children}</div> : children}</OutcomeScope>}</div>
   </div></PageFlowContext.Provider></QueryBarExtensionContext.Provider>;
 }
 
-/** The way back into a space that carries `returnTo` (ADR-0081 UX-10): drawn only for an origin `safeReturnTo` and `canOpen` accepted, never for a parent/home fallback. */
+/** The way back into a carry set that lists `returnTo` (ADR-0081 UX-10): drawn only for an origin `safeReturnTo` and `canOpen` accepted, never for a parent/home fallback. */
 function ReturnRow() {
   // The space carries no global Context by design, so "reverted Context" would always list everything the user never changed.
   const { origin, onNavigate } = useReturnNavigation({ announceReverted: false });

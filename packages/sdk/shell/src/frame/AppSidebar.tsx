@@ -9,7 +9,7 @@ import { ScopeSelector } from '../context/ScopeSelector';
 import { useSystemSections } from './systemSections';
 
 export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
-  const { visibleMenus, route, favorites, registry, sidebarSpace, slots, page } = useHostPlatform();
+  const { visibleMenus, route, favorites, registry, sidebarSpace, slots, page, linkTo } = useHostPlatform();
   const { t, tx, lang } = useI18n();
   const activeId = route?.menu.navHidden && route.menu.parent ? route.menu.parent : route?.menu.id;
   const systems = useSystemSections();
@@ -21,6 +21,8 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
       .map(group => ({ group, items: visibleMenus.filter(m => !m.navHidden && m.group === group.id) })).filter(g => g.items.length);
   const sectionName = currentSection === null ? null : tx(currentSection.group.label);
   const favoriteMenus = favorites.map(id => visibleMenus.find(m => m.id === id)).filter((m): m is MenuEntry => !!m);
+  // A favorite is a menu id, not an address: it opens the menu's default view and never borrows the current carry-set page state (the global Context still follows).
+  const favoriteHref = (menu: MenuEntry) => linkTo(menu.id, { page: Object.fromEntries((registry.carrySetOf(menu)?.pageKeys ?? []).map(key => [key, null])) });
   // The counts component is rendered once around the menu list; without a slot (or for a space without counts) the list gets `null` counts (06 §8 `navCounts`).
   const CountsHost = (sidebarSpace === null ? null : slots.navCounts?.For(sidebarSpace.id)) ?? NoCounts;
   const sectionSlot = sidebarSpace === null ? null : slots.spaceNavSection?.For(sidebarSpace.id) ?? null;
@@ -64,7 +66,7 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
         {!collapsed && <section aria-label={t('favorites')}>
           <p className="mx-2 mb-1 mt-3.5 flex items-center gap-1 text-caption font-semibold uppercase tracking-wide text-text-muted"><Star className="size-3" aria-hidden />{t('favorites')}</p>
           {favoriteMenus.length > 0
-            ? <ul className="space-y-0.5">{favoriteMenus.map(menu => <li key={menu.id}><NavItem menu={menu} active={false} collapsed={collapsed} /></li>)}</ul>
+            ? <ul className="space-y-0.5">{favoriteMenus.map(menu => <li key={menu.id}><NavItem menu={menu} active={false} collapsed={collapsed} href={favoriteHref(menu)} /></li>)}</ul>
             : <p className="px-3 py-1 text-xs leading-4 text-text-muted">{t('noFavorites')}</p>}
         </section>}
         {!collapsed && <SidebarRecent />}

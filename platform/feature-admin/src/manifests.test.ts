@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import { createRegistry } from '@ap/kernel';
-import { groupId, menuPermissions, spaceId } from '@ap/contracts';
+import { groupId, menuPermissions, spaceId, carrySetId } from '@ap/contracts';
 import { UserCog } from 'lucide-react';
 import { analyticsAreasRoute, managedSystemsRoute, permissionGrantsRoute, permissionRequestsRoute, settingsRoute } from '@ap/feature-bridge';
 import { manifests } from './index';
@@ -57,7 +57,8 @@ describe('관리자 manifests', () => {
 
   it('shows the section to a holder of console:access and not to a features:access-only user', () => {
     const registry = createRegistry({
-      spaces: [{ id: spaceId('feedbackops'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'features:access', carriedPageKeys: ['managedSystem', 'returnTo'], homeMenuId: 'fo-home-stub' }],
+      carrySets: [{ id: carrySetId('features'), pageKeys: ['managedSystem', 'returnTo'] }],
+      spaces: [{ id: spaceId('feedbackops'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'features:access', homeMenuId: 'fo-home-stub' }],
       groups: [{ id: groupId('foAdmin'), label: { ko: '관리자', en: 'Admin' }, icon: UserCog, space: spaceId('feedbackops') }],
       menus: harnessMenus,
     });

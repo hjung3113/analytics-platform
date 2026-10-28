@@ -94,7 +94,7 @@ export default function OperationsHome() {
             className="rounded-md bg-surface-sunken p-3 text-xs text-text-secondary outline-none focus-visible:ring-2 focus-visible:ring-focus-ring">{t('noFavorites')}</p> :
             <ul className="divide-y divide-border-subtle">{favoriteMenus.map(menu => <li key={menu.id} className="flex items-center gap-3 py-2">
               <menu.icon className="size-4 text-text-muted" aria-hidden />
-              <PlatformLink href={linkTo(menu.id)} className="min-w-0 flex-1 text-sm font-medium hover:text-accent-primary hover:underline">{tx(menu.label)}</PlatformLink>
+              <PlatformLink href={linkTo(menu.id, { page: Object.fromEntries((registry.carrySetOf(menu)?.pageKeys ?? []).map(key => [key, null])) })} className="min-w-0 flex-1 text-sm font-medium hover:text-accent-primary hover:underline">{tx(menu.label)}</PlatformLink>
               <span className="text-tiny text-text-muted">{affiliation(menu)}</span>
               <button type="button" onClick={event => removeFavoriteRow(menu.id, event.currentTarget)} className="rounded-xs px-2 py-1 text-xs text-text-secondary hover:bg-surface-sunken">{t('removeFavorite')}</button>
             </li>)}</ul>}

@@ -4,7 +4,7 @@ import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
-import { groupId, spaceId } from '@ap/contracts';
+import { carrySetId, groupId, spaceId } from '@ap/contracts';
 import { useHostSearch } from '@/lib/host/host-seam';
 import { setFeatureApi } from '../feature-api';
 import { FeatureScreenPage } from './FeatureScreenPage';
@@ -14,14 +14,15 @@ const route = operatorRoute({ foPath: '/vocs', foFixed: { view: 'inbox' }, menuI
 const useSearch = routeSearch(route);
 const useHere = routeHere(route);
 
-const space = testSpace({ homeMenuId: 'fo-inbox', carriedPageKeys: ['managedSystem'] });
+const space = testSpace({ homeMenuId: 'fo-inbox' });
 const registry = createRegistry({
+  carrySets: [{ id: carrySetId('features'), pageKeys: ['managedSystem', 'returnTo'] }],
   spaces: [space],
   groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
   menus: [{
     id: 'fo-inbox', group: groupId('overview'), primary: true, label: { ko: 'inbox', en: 'inbox' }, description: { ko: '', en: '' }, path: '/inbox', icon: House,
     permission: 'platform:view' as const, requiresScope: false, context: noContext, pageType: 'overview' as const,
-    features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['focus', 'managedSystem', 'returnTo'],
+    features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['focus', 'managedSystem', 'returnTo'], carrySet: carrySetId('features'),
   }],
 });
 const session = testSession(['platform:view']);
