@@ -127,7 +127,7 @@ GET /api/v1/platform/bootstrap
 - `sessionVersion`은 세션 내용(사용자·권한·부여 Scope)이 바뀔 때만 바뀌는 opaque 토큰 [제안]. 기본 만드는 법 [제안]: 세션 응답(`Session`)의 정규화 JSON 해시 — 사용자 교체, 라벨·부여 수 변화가 자동으로 포함된다. `generation`은 §4의 계산 세대(Open).
 - **조립에서 받는 법 — 안 B 채택(#154)**: `CreateAssembly`는 `AssemblyOutcome | Promise<AssemblyOutcome>`를 돌려준다(`AssemblyOutcome` = 조립 `{ adapter, topBarTools }` | `{ redirect }` | `{ screen }`, `apps/platform-web/src/platform-assembly.d.ts`). `main.tsx`는 `await Promise.resolve(createAssembly(...))` 뒤에 렌더하고, `redirect`면 `window.location.replace`, `screen`이면 Kernel·셸 없이 그 화면만 렌더한다. mock 조립은 그대로 동기다. 안 A(부트스트랩 promise를 따로 내보내기)는 조립 계약이 둘이 되어 택하지 않았다.
   - **구현 위치**: 클라이언트는 `packages/adapters/http-adapter`(`@ap/http-adapter`, `bootstrapHttpAdapter` → `ready`·`login`·`unavailable`, reject 없음), 이 레포의 실서버 조립은 `apps/platform-web/src/real/http-assembly.tsx`다. `ready`면 `{ adapter, topBarTools: null }`, `login`이면 `/auth/login?return_to=<encodeURIComponent(pathname+search)>`로 이동(FeedbackOps가 쿼리를 날것으로 읽어 인코딩하지 않은 `&`가 Context를 자르므로 전체를 인코딩), `unavailable`이면 "서버에 연결할 수 없습니다" + correlationId + 다시 시도 버튼만 있는 정적 화면. `onSessionLost`도 같은 로그인 이동이다. 개발은 `pnpm --filter @ap/platform-web dev:real`(vite mode `real`, `/api`·`/auth`를 env `AP_BACKEND_ORIGIN`(기본 `http://127.0.0.1:3011`)로 프록시). 운영 빌드는 여전히 env `AP_PLATFORM_ASSEMBLY`로 조립 모듈을 받는다(ADR-0009).
-  - **구현 상태(#154)**: `@ap/http-adapter`의 모든 포트 메서드·부트스트랩·`subscribe`·타임아웃·CSRF·Correlation ID와 비동기 조립·`real` 모드가 구현됐다. 서버에 아직 없는 경로(#621–#623, 분석 데이터 경로)는 계약 경로로 호출해 404 변환(§2.1)이 동작한다. 실서버 대상 적합성 묶음 하네스, 세대 경로(#165), 선언 버전 헤더(#148), 세션 만료 배너 안 (b)(#150)는 구현하지 않았다.
+  - **구현 상태(#154)**: `@ap/http-adapter`의 모든 포트 메서드·부트스트랩·`subscribe`·타임아웃·CSRF·Correlation ID와 비동기 조립·`real` 모드가 구현됐다. 서버에 아직 없는 경로(#621–#623, 분석 데이터 경로)는 계약 경로로 호출해 404 변환(§2.1)이 동작한다. 실서버 대상 적합성 묶음 하네스, 세대 경로(#165), 선언 버전 헤더(#154), 세션 만료 배너 안 (b)(#150)는 구현하지 않았다.
 - **identity 규칙 [제안] — 둘로 나눈다**:
   1. **세션 스냅샷 객체**(`session()` identity): 어댑터는 스냅샷 하나를 들고 `session()`마다 **같은 객체**를 돌려준다. 새 부트스트랩 결과의 `sessionVersion`이 다를 때만 새 객체로 바꾸고, 같으면 스냅샷은 그대로 둔다(Kernel이 identity로 Scope 재검증 여부를 정한다 — 체크리스트 §2).
   2. **전송 자격(`csrfToken`)**: 부트스트랩을 받을 때마다 `sessionVersion`과 무관하게 **항상 새 값으로 바꾼다**. 토큰은 세션 내용이 아니라 세션(쿠키) 자체에 묶여 있어서, 만료 뒤 같은 사용자가 재로그인하면 `sessionVersion`은 같아도 토큰은 바뀐다. 스냅샷과 함께 버리면 이후 상태 변경 호출이 전부 403이 되고 새로고침 전까지 복구되지 않는다.
@@ -164,7 +164,7 @@ GET /api/v1/platform/bootstrap
 - fire-and-forget는 `signal`이 없다 — 어댑터가 짧은 타임아웃(예: 10초)만 건다.
 - **[제안] `recordUsage`는 `fetch(..., { keepalive: true })`로 보낸다.** Kernel은 `visibilitychange: hidden`에서 dwell을 보내는데, 탭을 닫거나 이동하면 일반 `fetch`는 취소된다. `keepalive`는 본문 64KB 한도 안에서 헤더(`X-CSRF-Token`)를 쓸 수 있다. `sendBeacon`은 CSRF 헤더를 붙일 수 없어 쓰지 않는다.
 
-대안(한 줄): 엔드포인트마다 다른 타임아웃 — 선언(`EndpointSpec`)에 필드가 필요해 #148 뒤로 미룬다.
+대안(한 줄): 엔드포인트마다 다른 타임아웃 — 선언(`EndpointSpec`)에 필드가 필요해 선언 스키마(#1086) 뒤로 미룬다.
 
 ## 6. 세션·CSRF
 
@@ -188,7 +188,7 @@ GET /api/v1/platform/bootstrap
 
 - 경로 버전 `/api/v1` [제안]. 호환이 깨지는 변경만 `/api/v2`(필드 추가는 v1 안에서 — 단, 서버가 모르는 키를 거부하므로 **요청** 필드 추가는 서버 먼저 배포).
 - 클라이언트 번들과 서버의 엔드포인트 선언 사본이 다를 때: 모르는 엔드포인트 id는 200 + `error`(체크리스트 §3 1단계), 선언과 다른 kind는 Kernel `contract_violation`. 이것만으로도 화면에 드러나지만 원인이 버전 차이인지 알 수 없다.
-- 선언 버전 헤더(예: 클라이언트가 `X-Platform-Declarations: <hash>`를 보내고 서버가 다르면 응답에 표시)를 둘지는 **Open([#148])** — 선언 원본이 TS 하나면 빌드 해시를 양쪽이 공유할 수 있고, FastAPI 원본이면 생성 시 버전을 박는다. 결정 뒤 이 절을 고친다.
+- 선언 버전 헤더(예: 클라이언트가 `X-Platform-Declarations: <hash>`를 보내고 서버가 다르면 응답에 표시)를 둘지는 **Open([#154])**. 선언 원본은 TS로 정해졌고([ADR-0096](../adr/0096-contract-schemas-zod-source-and-reference-implementations.md), #148) 산출물 `endpoints.json`의 해시를 양쪽이 공유할 수 있다. 켜는 시점은 실서버 적합성 하네스(#154)와 함께 정한다.
 
 대안(한 줄): 헤더 버전(`Accept: application/vnd...v1+json`) — 프록시·로그에서 보이지 않아 기각.
 
@@ -215,4 +215,4 @@ GET /api/v1/platform/bootstrap
 9. 세션 만료 때 로그인 경로와 `return_to` 규칙(FeedbackOps `/auth/login`과 공유?)은? 미인증 `/api/**`가 302가 아니라 401을 답하게 게이트웨이를 설정할 수 있는가? (§6, [#150]·[#151])
 10. Correlation ID 헤더 이름 — 사내 표준이 있는가? 받은 id를 형식 검사(`^[A-Za-z0-9._-]{1,128}$`) 뒤 envelope `correlationId`에 그대로 되돌려 줄 수 있는가? (§7, #151)
 11. rate limit을 둘 것인가, 둔다면 429 + `Retry-After`인가? (§2)
-12. 선언 버전 불일치를 헤더로 알릴지 — #148 선언 원본 결정과 함께. (§8)
+12. 선언 버전 불일치를 헤더로 알릴지 — #154와 함께(선언 원본은 #148에서 TS로 정함). (§8)
