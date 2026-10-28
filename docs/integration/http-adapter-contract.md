@@ -2,6 +2,7 @@
 
 > 상태: **구현 기준** — 2026-10-02 에이전트 초안(#149)에서 출발해, 지금은 실어댑터(`@ap/http-adapter`, PR #632·#636)와 FeedbackOps 백엔드 플랫폼 포트(#620–#623)가 이 문서를 기준으로 구현됐다. **[제안]** 표식이 남은 행은 아직 제안이며, 구현 지시가 아니다. 각 절의 표기: **[제안]** 에이전트 제안, **[백엔드]** 사내 백엔드 담당 확인, **[#151]** 배포·인프라, **[#150]** 사내 SSO, **[#148]** 선언 원본 결정, **[#165]**/**[#155]** 세대 신호.
 > 참조 서버: 이 문서가 말하는 서버는 FastAPI가 아니라 **FeedbackOps 백엔드(Fastify + zod)의 `/api/v1/platform` 모듈**이다([ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md)). 아래 "FastAPI" 표기는 초안 당시 가정이며, 와이어 형식(경로·camelCase·헤더)은 그대로 유효하다. §1의 `bootstrap`·`session-state`·CSRF(`X-CSRF-Token`)·Correlation ID(`X-Correlation-Id`) 행은 #620이 구현했다(O12 나머지).
+> 서버 분담: 분석 데이터 엔드포인트는 Fastify 뒤 내부의 FastAPI가 맡고 입구는 Fastify 하나다([ADR-0095](../adr/0095-dual-backend-fastify-core-fastapi-analytics.md), Proposed). 위 "참조 서버"는 코어(Fastify)를 가리키고, 아래 "FastAPI" 표기는 분석 데이터 서버로 읽는다.
 
 ## 읽는 순서·관계
 

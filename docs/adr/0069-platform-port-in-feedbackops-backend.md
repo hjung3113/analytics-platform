@@ -61,7 +61,7 @@
    - `scopes`는 site·room 부여가 생길 때까지 `[]`이다. 그래서 Scope가 필요한 분석 메뉴는 열리지 않는다.
    - `publishedMetrics`는 지표 원천(O4)이 생길 때까지 `[]`이다.
    - `defaultRangeTo`는 서버의 KST wall-clock 현재 시각을 분 단위로 내린 값이다(06 §6.3 형식).
-   - 세 값 모두 **임시**다. 다시 볼 조건: O4 분석 데이터 서버 결정, #98.
+   - 세 값 모두 **임시**다. 다시 볼 조건: [ADR-0095](0095-dual-backend-fastify-core-fastapi-analytics.md)의 P3(분석 데이터 서버가 지표·기본 기간 뷰를 내는 때)와 #98·권한 설계 [#1087](https://github.com/hjung3113/analytics-platform/issues/1087). (O4는 ADR-0095로 FastAPI로 정해졌다.)
 9. **FeedbackOps 엔티티의 `getEntity`(O19).**
    - VOC·Finding·Task를 `scopeId: null` type으로 받고, Managed System 판정은 서버 안에서 소유 모듈의 상세 읽기 판정(VOC `resolveVocReference`, Finding `getFinding`, Task `getTask`)으로 한다. provider `canRead`는 쓰지 않는다 — FeedbackOps 상세 엔드포인트보다 느슨해서 포트가 그 엔드포인트가 거절하는 것을 내주게 된다. `getEntity`는 type이 `voc`·`finding`·`task`뿐이고(`voc_cluster`·`task_request`는 `error`), 읽을 수 있으면 식별자·제목·상태 필드만 낸다.
    - 볼 수 없는 행과 없는 행은 둘 다 `forbidden`으로 답한다. 행이 있는지 드러내지 않기 위해서다. VOC의 지금 규칙에 맞춘 것이고, Finding의 404/403 차이는 이 포트에서 따르지 않는다.
@@ -70,7 +70,7 @@
 ## Considered Options
 
 - **FeedbackOps 전 경로를 플랫폼 규약으로 바꾼다:** 독립 앱 화면 전체와 FO ADR-0012 테스트를 지금 고쳐야 한다. 화면을 옮기는 #594 전에는 얻는 것이 없다.
-- **플랫폼 포트를 별도 서버(프로세스)로 둔다:** 세션, 권한, 감사를 두 프로세스가 나눠 갖게 되고, ADR-0066 결정 6의 "서버 하나"와 맞지 않는다.
+- **플랫폼 포트를 별도 서버(프로세스)로 둔다:** 세션, 권한, 감사를 두 프로세스가 나눠 갖게 되고, ADR-0066 결정 6의 "서버 하나"와 맞지 않는다. (ADR-0095는 이 사유와 충돌하지 않는다: 분석 데이터 서버를 내부로 두고 세션·권한·감사는 이 서버 한 곳에 그대로 둔다.)
 - **(채택) 한 서버, 접두사로 규약을 나눈다:** 규약이 섞이는 범위가 접두사 하나로 한정되고, #594에서 FeedbackOps 경로를 옮길 때 같은 방식을 쓸 수 있다.
 
 ## 결과
