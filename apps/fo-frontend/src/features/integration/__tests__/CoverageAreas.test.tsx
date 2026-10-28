@@ -1,6 +1,14 @@
-import { AuthedLayout } from '@/routes/_authed';
-import { validateIntegrationCoverageSearch } from '@/routes/_authed/integration/coverage';
-import { TasksRouteView, validateTasksSearch } from '@/routes/_authed/tasks';
+import { areaReportFixture } from '@/test/fixtures/area-report';
+import {
+  COVERAGE_IDS as IDS,
+  coverageAnalyticsAreasFixture,
+  coverageEmptySummaryFixture,
+  coverageManagedSystemsFixture,
+} from '@/test/fixtures/coverage';
+import { ScopeHost as AuthedLayout } from '@/test/scope-host';
+import { CoverageRoute } from '@/test/screen-host/features/integration/routes/CoverageRoute';
+import { validateIntegrationCoverageSearch } from '@/test/screen-host/routes/_authed/integration/coverage';
+import { TasksRouteView, validateTasksSearch } from '@/test/screen-host/routes/_authed/tasks';
 import { areaReportLink, dashboardAreaReportQuerySchema, listTasksQuerySchema } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
@@ -13,14 +21,6 @@ import {
 } from '@tanstack/react-router';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
-import { areaReportFixture } from '../../../../tests/visual/fixtures/area-report';
-import {
-  COVERAGE_IDS as IDS,
-  coverageAnalyticsAreasFixture,
-  coverageEmptySummaryFixture,
-  coverageManagedSystemsFixture,
-} from '../../../../tests/visual/fixtures/coverage';
-import { CoverageRoute } from '../routes/CoverageRoute';
 const requests: URL[] = [];
 let catalogResponse: ((url: URL) => Response) | undefined;
 let reportResponse: (url: URL) => Response | Promise<Response>;

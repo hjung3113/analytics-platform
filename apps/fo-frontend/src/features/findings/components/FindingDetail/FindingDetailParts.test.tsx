@@ -1,9 +1,9 @@
 import { type HostLinkProps, type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
+import { FindingDetailPanel } from '@/test/host-adapters/features/findings/components/FindingDetail/FindingDetailPanel';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { FindingDetailPanel } from './FindingDetailPanel';
 import { type UseFindingDetailPartsArgs, useFindingDetailParts } from './FindingDetailParts';
 
 const FINDING_ID = '10000000-0000-0000-0000-000000000001';

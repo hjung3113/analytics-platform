@@ -34,24 +34,14 @@ describe('validateVocSearch parse table (router-free copies)', () => {
     ],
     ['returnTo rejects another internal path', { returnTo: '/vocs' }, { returnTo: undefined }],
     [
-      'platformReturn accepts https',
+      'the retired platformReturn key is dropped, valid or not',
       { platformReturn: 'https://p.example/x' },
-      { platformReturn: 'https://p.example/x' },
+      {},
     ],
     [
-      'platformReturn rejects credentials',
-      { platformReturn: 'https://u:p@p.example/' },
-      { platformReturn: undefined },
-    ],
-    [
-      'platformReturn rejects javascript:',
+      'the retired platformReturn key is dropped with a bad value',
       { platformReturn: 'javascript:alert(1)' },
-      { platformReturn: undefined },
-    ],
-    [
-      'platformReturn accepts local http',
-      { platformReturn: 'http://localhost:5173/' },
-      { platformReturn: 'http://localhost:5173/' },
+      {},
     ],
     ['non-object input yields no keys', 'x', {}],
   ])('%s', (_name, raw, expected) => {

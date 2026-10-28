@@ -1,15 +1,5 @@
 import { SURVEY_EVIDENCE_PICKER_COPY as COPY } from '@/lib/copy/survey-evidence-picker';
 import {
-  attachSurveyEvidenceRequestSchema,
-  listEvidenceHighlightsResponseSchema,
-  listSurveysResponseSchema,
-  surveyEvidenceCandidatesResponseSchema,
-} from '@fops/shared';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { useState } from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import {
   FINDING_DETAIL_IDS as IDS,
   SURVEY_EVIDENCE_IDS as SURVEY,
   SURVEY_EVIDENCE_QUOTE,
@@ -19,7 +9,17 @@ import {
   surveyEvidenceCatalog,
   surveyEvidenceHighlight,
   surveyEvidenceStates,
-} from '../../../../../tests/visual/fixtures/finding-detail';
+} from '@/test/fixtures/finding-detail';
+import {
+  attachSurveyEvidenceRequestSchema,
+  listEvidenceHighlightsResponseSchema,
+  listSurveysResponseSchema,
+  surveyEvidenceCandidatesResponseSchema,
+} from '@fops/shared';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { useState } from 'react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useEvidenceHighlights } from '../../hooks/useEvidenceHighlights';
 import { AddEvidenceModal } from './AddEvidenceModal';
 

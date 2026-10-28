@@ -1,4 +1,5 @@
 import { ME_QUERY_KEY } from '@/lib/auth/useMe';
+import { TriageRoute } from '@/test/screen-host/features/voc/routes/TriageRoute';
 import type { VocListItem } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
@@ -11,7 +12,6 @@ import {
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Toaster, toast } from 'sonner';
 import { afterEach, expect, it, vi } from 'vitest';
-import { TriageRoute } from '../TriageRoute';
 
 const rows: VocListItem[] = [1, 2, 3, 4].map((n) => ({
   id: `00000000-0000-4000-8000-00000000000${n}`,
@@ -290,7 +290,7 @@ it('confirms the middle row, focuses the next row and replaces selected without 
   await act(async () => {
     await router.navigate({
       to: '/vocs',
-      search: (prev) => ({ ...prev, managedSystem: 'scope-a' }),
+      search: (prev: Record<string, unknown>) => ({ ...prev, managedSystem: 'scope-a' }),
     });
   });
   await screen.findByRole('button', { name: /VOC-3/ });
@@ -388,7 +388,7 @@ it('keeps successful progress across a real permission gate unmount', async () =
   await act(async () => {
     await router.navigate({
       to: '/vocs',
-      search: (prev) => ({ ...prev, managedSystem: 'scope-a' }),
+      search: (prev: Record<string, unknown>) => ({ ...prev, managedSystem: 'scope-a' }),
     });
   });
   await screen.findByText('불러오는 중…');
@@ -419,7 +419,7 @@ it('settled undo preserves the new scope selection after a permission gate unmou
   await act(async () => {
     await router.navigate({
       to: '/vocs',
-      search: (prev) => ({ ...prev, managedSystem: 'scope-a' }),
+      search: (prev: Record<string, unknown>) => ({ ...prev, managedSystem: 'scope-a' }),
     });
   });
   await screen.findByText('불러오는 중…');
@@ -501,7 +501,7 @@ it('counts a successful response arriving while the screen is unmounted by the p
   await act(async () => {
     await router.navigate({
       to: '/vocs',
-      search: (prev) => ({ ...prev, managedSystem: 'scope-a' }),
+      search: (prev: Record<string, unknown>) => ({ ...prev, managedSystem: 'scope-a' }),
     });
   });
   await screen.findByText('불러오는 중…');
@@ -574,7 +574,7 @@ it.each(['row click', 'action advance'])(
     await act(async () => {
       await router.navigate({
         to: '/vocs',
-        search: (prev) => ({
+        search: (prev: Record<string, unknown>) => ({
           ...prev,
           tab: 'untriaged',
           managedSystem: 'scope-b',
@@ -634,7 +634,7 @@ it('clears populated retained rows on a failed Managed System change in the same
   await act(async () => {
     await router.navigate({
       to: '/vocs',
-      search: (prev) => ({ ...prev, managedSystem: 'scope-b' }),
+      search: (prev: Record<string, unknown>) => ({ ...prev, managedSystem: 'scope-b' }),
     });
   });
   const scopeKey = [...pinKey.slice(0, 2), 'scope-b', ...pinKey.slice(3)];

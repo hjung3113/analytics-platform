@@ -1,4 +1,5 @@
 import { ME_QUERY_KEY } from '@/lib/auth/useMe';
+import { TriageRoute } from '@/test/screen-host/features/voc/routes/TriageRoute';
 import type { VocListItem } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
@@ -11,7 +12,6 @@ import {
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { installListMotionEnvironment } from '../../components/triage/__tests__/list-motion-environment';
-import { TriageRoute } from '../TriageRoute';
 
 const rows: VocListItem[] = [1, 2, 3, 4].map((n) => ({
   id: `00000000-0000-4000-8000-00000000000${n}`,
@@ -111,7 +111,7 @@ it.each(['tab', 'scope'] as const)(
       await act(async () => {
         await router.navigate({
           to: '/vocs',
-          search: (prev) => ({ ...prev, managedSystem: 'scope-b' }),
+          search: (prev: Record<string, unknown>) => ({ ...prev, managedSystem: 'scope-b' }),
         });
       });
     await screen.findByText('불러오는 중…');

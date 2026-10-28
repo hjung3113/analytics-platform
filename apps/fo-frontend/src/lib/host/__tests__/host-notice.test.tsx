@@ -23,9 +23,9 @@ const sonner = vi.hoisted(() => {
 });
 vi.mock('sonner', () => sonner);
 
-import { standaloneDashboardHost } from '@/features/home/standaloneHost';
+import { standaloneDashboardHost } from '@/test/host-adapters/features/home/standaloneHost';
+import { tanstackHost } from '@/test/host-adapters/lib/host/tanstack-host';
 import { HostSeamProvider, registerDefaultHost, useHostHere, useHostNotice } from '../host-seam';
-import { tanstackHost } from '../tanstack-host';
 
 const { toast } = sonner;
 

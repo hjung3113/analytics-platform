@@ -1,5 +1,5 @@
 // Router-free home of the search validation pieces the VOC, Task, Findings and 연동 search schemas need (the recovery queue fields included). The
-// bridge entry graph bans `lib/router/**`, so they live here and `lib/router/{search,platform-return,recovery-search}.ts` re-export them.
+// bridge entry graph bans `lib/router/**`, so they live here and `lib/router/{search,recovery-search}.ts` re-export them.
 import { recoveryCategorySchema } from '@fops/shared';
 import { z } from 'zod';
 
@@ -54,29 +54,6 @@ export function isSearchFieldValueValid(
   if (!Object.prototype.hasOwnProperty.call(schema.shape, key)) return false;
   return schema.shape[key].safeParse(value).success;
 }
-
-const MAX_PLATFORM_RETURN_LENGTH = 2048;
-
-/** Syntactic check only: the allowlist is deployment config, see allowedPlatformReturnHref. */
-export function parsePlatformReturn(value: string): URL | undefined {
-  if (value.length > MAX_PLATFORM_RETURN_LENGTH) return undefined;
-  let url: URL;
-  try {
-    url = new URL(value);
-  } catch {
-    return undefined;
-  }
-  if (url.username !== '' || url.password !== '') return undefined;
-  const isLocalHttp =
-    url.protocol === 'http:' && (url.hostname === 'localhost' || url.hostname === '127.0.0.1');
-  return url.protocol === 'https:' || isLocalHttp ? url : undefined;
-}
-
-/** `platformReturn` search field (ADR-0071); never reuse the internal `returnTo` key. */
-export const platformReturnField = z
-  .string()
-  .refine((value) => parsePlatformReturn(value) !== undefined)
-  .optional();
 
 /** Only bounded internal queue returns; never decode an opaque item identity. */
 export function safeRecoveryReturnTo(value: unknown): string | undefined {

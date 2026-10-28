@@ -1,4 +1,4 @@
-import { validateIntegrationCoverageSearch } from '@/routes/_authed/integration/coverage';
+import { validateIntegrationCoverageSearch } from '@/test/screen-host/routes/_authed/integration/coverage';
 import { describe, expect, it } from 'vitest';
 
 describe('Coverage report URL', () => {

@@ -31,10 +31,9 @@ Each item is an independent, measured trap. Check this list before blaming a sel
 - A partial `vi.mock('@/lib/api', () => ({ … }))` drops `ApiParseError`, and hooks whose `retry` predicate uses `instanceof ApiParseError` then never settle. Spread the original: `vi.mock('@/lib/api', async (importOriginal) => ({ ...(await importOriginal()), … }))`.
 - Hooks with `retry: 1` take about 1 s to reach `isError`, beyond the default `findBy` timeout. Use a longer `waitFor` or a no-retry client.
 - With `exactOptionalPropertyTypes`, passing an explicit `undefined` to an optional prop is a type error; omit the prop.
-- jsdom has no layout engine, so a grid/flex placement regression passes every unit test. Check layout in the visual harness (`apps/fo-frontend/tests/visual/AGENTS.md`).
+- jsdom has no layout engine, so a grid/flex placement regression passes every unit test. Check retained screens in the assembled platform and run the affected platform E2E checks. Standalone visual baselines were retired in #597; platform visual reinforcement is recorded as not implemented in `.planning/backlog.md`.
 
 ## Environment
 
-- "No registered route" usually means a stale generated `apps/fo-frontend/src/routeTree.gen.ts` (gitignored). It is missing in a fresh worktree and stale after adding a route or rebasing. Check `grep -c <route symbol> apps/fo-frontend/src/routeTree.gen.ts`; regenerate with `pnpm gen:routes`.
 - Frontend vitest runs on Node 26.7 with `--no-experimental-webstorage` in the worker (`vitest.config.ts`): Node's built-in `localStorage` otherwise shadows jsdom's (#642).
 - Outside a secure context (http on a non-localhost origin) browsers drop `crypto.randomUUID` and `navigator.clipboard`. Test fallback paths as primary paths (stub `crypto` both with only `getRandomValues` and as `undefined`), copy the backend's validation regex into the test oracle, and branch success messages on the actual result.

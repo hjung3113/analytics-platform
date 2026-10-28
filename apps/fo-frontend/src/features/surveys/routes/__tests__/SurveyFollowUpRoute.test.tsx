@@ -1,6 +1,6 @@
 import { type HostNotice, HostSeamProvider } from '@/lib/host/host-seam';
-import { tanstackHost } from '@/lib/host/tanstack-host';
-import { routeTree } from '@/routeTree.gen';
+import { tanstackHost } from '@/test/host-adapters/lib/host/tanstack-host';
+import { routeTree } from '@/test/surveys-host/tree';
 import { outcomeFollowUpMarkedResultSchema } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';

@@ -4,7 +4,7 @@ export * from './adapter/service-ports.js';
 export { clientCorrelationId } from './adapter/correlation.js';
 export * from './adapter/audit.js';
 export * from './adapter/audit-order.js';
-export * from './links/feedbackops-link.js';
+export * from './links/platform-inbound-link.js';
 export { isRecord } from './guards.js';
 export * from './host/host.js';
 export * from './i18n.js';

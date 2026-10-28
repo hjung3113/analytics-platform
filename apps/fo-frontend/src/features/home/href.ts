@@ -1,6 +1,6 @@
 // #1179 — shared URL logic for queue/coverage deep links that must keep the selected Managed System: a specific id
 // is appended as `managedSystem=<id>`; no selection and the `all` selector keep the bare route, because the destination
-// list then applies the caller's effective scope union. A bridge-safe copy of `lib/router/managed-system-href.ts`
+// list then applies the caller's effective scope union.
 // (the dashboard entry may not import `lib/router/**`, platform ADR-0071).
 export function hrefWithManagedSystem(route: string, managedSystemId: string | undefined): string {
   if (managedSystemId === undefined || managedSystemId === 'all') return route;

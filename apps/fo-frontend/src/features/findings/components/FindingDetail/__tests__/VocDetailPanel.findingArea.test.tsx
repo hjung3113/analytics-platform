@@ -70,7 +70,6 @@ vi.mock('@/features/voc/components/detail/SimilarVocSection', () => ({
 }));
 vi.mock('@/features/voc/components/detail/TriageBlock', () => ({ TriageBlock: () => null }));
 
-import { VocDetailPanel } from '@/features/voc/components/detail/VocDetailPanel';
 import {
   DETAIL_ENVELOPE,
   ME_RESPONSE,
@@ -80,7 +79,8 @@ import {
 import { useMeBridge } from '@/lib/api/me';
 import { useVocDetail } from '@/lib/cross-system/useVocDetail';
 import { type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
-import { tanstackHost } from '@/lib/host/tanstack-host';
+import { VocDetailPanel } from '@/test/host-adapters/features/voc/components/detail/VocDetailPanel';
+import { tanstackHost } from '@/test/host-adapters/lib/host/tanstack-host';
 
 // The detail moves through its host; this test never navigates.
 const HOST: HostSeam = { ...tanstackHost, useNavigate: () => vi.fn(), useSearch: () => ({}) };

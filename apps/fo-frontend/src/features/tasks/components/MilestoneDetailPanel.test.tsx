@@ -2,12 +2,12 @@ import { getMilestone, updateMilestone } from '@/lib/api/milestones';
 import { listTasks } from '@/lib/api/tasks';
 import { ApiError } from '@/lib/api/types';
 import { registerDefaultHost } from '@/lib/host/host-seam';
+import { MilestoneDetailPanel } from '@/test/host-adapters/features/tasks/components/MilestoneDetailPanel';
 import type { MilestoneDetailDto, MilestoneDto, TaskDto } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { MilestoneDetailPanel } from './MilestoneDetailPanel';
 
 vi.mock('@/lib/api/milestones', () => ({
   getMilestone: vi.fn(),
@@ -28,7 +28,7 @@ vi.mock('@tanstack/react-router', () => ({
 // The detail content renders at the slot provider, outside the route's seam: it navigates through the default host,
 // which these router-less tests route to `navigateMock` as the call objects the route wrote.
 beforeAll(async () => {
-  const { tanstackHost } = await import('@/lib/host/tanstack-host');
+  const { tanstackHost } = await import('@/test/host-adapters/lib/host/tanstack-host');
   registerDefaultHost({
     ...tanstackHost,
     useNavigate: () => (to, options) => {

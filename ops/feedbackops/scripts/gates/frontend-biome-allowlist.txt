@@ -59,11 +59,11 @@ apps/fo-frontend/src/lib/layout/__tests__/AppSidebar.test.tsx format -- pre-exis
 apps/fo-frontend/src/lib/layout/__tests__/AppSidebar.test.tsx organizeImports -- pre-existing on develop; import order predates biome
 apps/fo-frontend/src/routes/_authed/voc-clusters/$clusterId.tsx format -- pre-existing on develop; the file predates biome formatting
 apps/fo-frontend/src/routes/_authed/voc-clusters/$clusterId.tsx organizeImports -- pre-existing on develop; import order predates biome
-apps/fo-frontend/src/routes/_authed/voc-clusters/__tests__/voc-cluster-shell.test.tsx format -- pre-existing on develop; the file predates biome formatting
-apps/fo-frontend/src/routes/_authed/voc-clusters/__tests__/voc-cluster-shell.test.tsx lint/a11y/noLabelWithoutControl -- pre-existing on develop (2x, unchanged); test-local harness markup
-apps/fo-frontend/src/routes/_authed/voc-clusters/__tests__/voc-cluster-shell.test.tsx lint/a11y/useButtonType -- pre-existing on develop (1x, unchanged); test-local harness markup
-apps/fo-frontend/src/routes/_authed/voc-clusters/__tests__/voc-cluster-shell.test.tsx lint/performance/noDelete -- pre-existing on develop (6x, unchanged); fixture teardown deletes optional keys
-apps/fo-frontend/src/routes/_authed/voc-clusters/__tests__/voc-cluster-shell.test.tsx lint/style/noNonNullAssertion -- pre-existing on develop (40x, unchanged); fixture lookups assert presence
+apps/fo-frontend/src/test/clusters-host/__tests__/voc-cluster-shell.test.tsx format -- pre-existing on develop; the file predates biome formatting
+apps/fo-frontend/src/test/clusters-host/__tests__/voc-cluster-shell.test.tsx lint/a11y/noLabelWithoutControl -- pre-existing on develop (2x, unchanged); test-local harness markup
+apps/fo-frontend/src/test/clusters-host/__tests__/voc-cluster-shell.test.tsx lint/a11y/useButtonType -- pre-existing on develop (1x, unchanged); test-local harness markup
+apps/fo-frontend/src/test/clusters-host/__tests__/voc-cluster-shell.test.tsx lint/performance/noDelete -- pre-existing on develop (6x, unchanged); fixture teardown deletes optional keys
+apps/fo-frontend/src/test/clusters-host/__tests__/voc-cluster-shell.test.tsx lint/style/noNonNullAssertion -- pre-existing on develop (40x, unchanged); fixture lookups assert presence
 docs/feedbackops/design-prototype/screen-voc.jsx format -- pre-existing on develop; the prototype is a design reference, not shipped code
 docs/feedbackops/design-prototype/screen-voc.jsx lint/a11y/useButtonType -- pre-existing on develop (10x, unchanged); prototype reference, not shipped code
 docs/feedbackops/design-prototype/screen-voc.jsx lint/a11y/useKeyWithClickEvents -- pre-existing on develop (2x, unchanged); prototype reference, not shipped code
@@ -234,9 +234,9 @@ apps/fo-backend/src/modules/voc/recommendations/__tests__/recommendations-routes
 apps/fo-backend/src/test-support/permissions-fixtures.ts lint/style/noUnusedTemplateLiteral -- pre-existing on develop (1x, unchanged by #517 Phase 1; import-path relocation only)
 apps/fo-backend/src/test-support/voc-fixtures.ts lint/suspicious/noImplicitAnyLet -- pre-existing on develop (1x, unchanged by #517 Phase 1; import-path relocation only)
 apps/fo-backend/src/test-support/voc-fixtures.ts lint/style/noUnusedTemplateLiteral -- pre-existing on develop (1x, unchanged by #517 Phase 1; import-path relocation only)
-apps/fo-frontend/src/routes/_authed/admin/permissions/requests.test.tsx lint/style/noNonNullAssertion -- pre-existing on develop (2x, unchanged by #524; decisionPosts()[0]! at two test call sites this branch did not touch)
-apps/fo-frontend/src/routes/_authed/admin/permissions/requests.test.tsx organizeImports -- pre-existing on develop; whole-file double-quote style predates biome, this branch only adds/edits individual test bodies
-apps/fo-frontend/src/routes/_authed/admin/permissions/requests.test.tsx format -- pre-existing on develop; whole-file double-quote style predates biome, this branch only adds/edits individual test bodies
+apps/fo-frontend/src/test/admin-host/permissions/requests.test.tsx lint/style/noNonNullAssertion -- pre-existing on develop (2x, unchanged by #524; decisionPosts()[0]! at two test call sites this branch did not touch)
+apps/fo-frontend/src/test/admin-host/permissions/requests.test.tsx organizeImports -- pre-existing on develop; whole-file double-quote style predates biome, this branch only adds/edits individual test bodies
+apps/fo-frontend/src/test/admin-host/permissions/requests.test.tsx format -- pre-existing on develop; whole-file double-quote style predates biome, this branch only adds/edits individual test bodies
 apps/fo-frontend/src/lib/layout/AppFrame.tsx organizeImports -- pre-existing on develop; import order predates biome, this branch adds a scopeControlEnabled prop only
 apps/fo-frontend/src/lib/layout/AppFrame.tsx format -- pre-existing on develop; import block/JSDoc predates biome formatting, this branch adds a scopeControlEnabled prop only
 packages/fo-ui/src/badges/__tests__/SeverityBadge.test.tsx lint/complexity/noForEach -- pre-existing on develop; the outer cases.forEach() this branch did not write, only added new it() blocks inside it

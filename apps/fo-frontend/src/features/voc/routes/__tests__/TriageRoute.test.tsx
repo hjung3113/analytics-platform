@@ -127,7 +127,7 @@ vi.mock('@ap/ui', async (importOriginal) => {
 
 // ── Stub VocDetailPanel ───────────────────────────────────────────────────────
 
-vi.mock('../../components/detail/VocDetailPanel', () => ({
+vi.mock('@/test/host-adapters/features/voc/components/detail/VocDetailPanel', () => ({
   VocDetailPanel: ({
     vocId,
     onClose,
@@ -148,7 +148,7 @@ vi.mock('../../components/detail/VocDetailPanel', () => ({
 import { fetchNavCounts } from '@/lib/api/nav';
 import { useMe } from '@/lib/auth/useMe';
 import { usePermissionCheckBridge as usePermissionCheck } from '@/lib/cross-system/usePermissionCheckBridge';
-import { TriageRoute } from '../TriageRoute';
+import { TriageRoute } from '@/test/screen-host/features/voc/routes/TriageRoute';
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 

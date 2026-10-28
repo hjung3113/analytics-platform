@@ -4,7 +4,6 @@
 import {
   isSearchFieldValueValid,
   parseRouteSearch,
-  platformReturnField,
   recoverySearchFields,
 } from '@/lib/host/search-fields';
 import { z } from 'zod';
@@ -18,7 +17,6 @@ import { z } from 'zod';
 // the URL param is supported for deep links only.
 export const surveysSearchSchema = z
   .object({
-    platformReturn: platformReturnField,
     managedSystem: z.union([z.string().uuid(), z.literal('all')]).optional(),
     selected: z.string().uuid().optional(),
     'filter.analytics_area': z.union([z.string().uuid(), z.literal('unset')]).optional(),
@@ -45,7 +43,6 @@ export const surveyDetailSearchSchema = z
     // The router decodes `?builder=true` to a boolean; the default host link hands the string 'true' (the app codec quotes it), so accept both.
     builder: z.preprocess((value) => (value === 'true' ? true : value), z.boolean()).optional(),
     returnTo: recoverySearchFields.returnTo,
-    platformReturn: platformReturnField,
     managedSystem: z.union([z.string().uuid(), z.literal('all')]).optional(),
     'filter.analytics_area': z.union([z.string().uuid(), z.literal('unset')]).optional(),
     status: z.literal('open').optional(),

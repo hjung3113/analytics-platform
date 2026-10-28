@@ -21,7 +21,7 @@ import { ApiError } from '@/lib/api';
 import {
   IntegrationCoverageRouteShell,
   integrationCoverageSearchSchema,
-} from '../../../../routes/_authed/integration/coverage';
+} from '@/test/screen-host/routes/_authed/integration/coverage';
 import { WorkspaceSettingsForm, WorkspaceSettingsScreen } from '../WorkspaceSettingsScreen.js';
 import type { WorkspaceSettings } from '../use-workspace-settings.js';
 

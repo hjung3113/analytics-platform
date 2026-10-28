@@ -1,5 +1,5 @@
 import { useContext } from 'react';
-import { CircleHelp, ExternalLink, LayoutGrid, Languages, LogOut, MessageSquarePlus, Search } from 'lucide-react';
+import { CircleHelp, LayoutGrid, Languages, LogOut, MessageSquarePlus, Search } from 'lucide-react';
 import { useI18n } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger, shortcutLabel, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
@@ -14,11 +14,9 @@ import { VocDrawerContext } from '../voc/VocDrawer';
 /** System switcher, the current system's section buttons and global tools; the app keeps ownership of topBarTools. */
 export function AppRail() {
   const voc = useContext(VocDrawerContext);
-  const { slots, user, setPaletteOpen, navigate, linkTo, can, canOpen, registry } = useHostPlatform();
+  const { slots, user, setPaletteOpen, navigate, linkTo, canOpen, registry } = useHostPlatform();
   const { t, tx, lang, setLang } = useI18n();
-  const overallLabel = lang === 'ko' ? 'FeedbackOps 전체 — 새 탭' : 'FeedbackOps overall — new tab';
   const systems = useSystemSections();
-  const overall = slots.feedbackOps?.overall ?? null;
   // The board is offered only where something can be placed on it: the same menus the empty pane lists (docs/16 §4).
   const showBoard = placeableMenus(registry, canOpen).length > 0;
   const board = useBoardPresentation();
@@ -93,11 +91,6 @@ export function AppRail() {
           <DropdownMenuItem onSelect={event => { event.preventDefault(); setLang(lang === 'ko' ? 'en' : 'ko'); }}>
             <Languages className="mr-2 size-3.5" aria-hidden />{lang === 'ko' ? '언어' : 'Language'} <span className="ml-auto text-caption text-text-muted">{lang === 'ko' ? '한국어 → English' : 'English → 한국어'}</span>
           </DropdownMenuItem>
-          {overall && can(overall.permission) && <DropdownMenuItem asChild>
-            <a href={overall.href} target="_blank" rel="noopener noreferrer" aria-label={overallLabel}>
-              <ExternalLink className="mr-2 size-3.5" aria-hidden />{lang === 'ko' ? 'FeedbackOps 전체' : 'FeedbackOps overall'} <span className="ml-auto text-caption text-text-muted">{lang === 'ko' ? '새 탭 · 담당자' : 'New tab · operators'}</span>
-            </a>
-          </DropdownMenuItem>}
           <DropdownMenuSeparator />
           <DropdownMenuItem disabled><LogOut className="mr-2 size-3.5" aria-hidden />{t('signOut')} <span className="ml-auto text-caption">{t('signOutUnavailable')}</span></DropdownMenuItem>
         </DropdownMenuContent>

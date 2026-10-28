@@ -26,7 +26,6 @@ print_summary() {
     printf '%-24s %s\n' "${check_names[$i]}" "${check_codes[$i]}"
   done
 }
-run_check generate-routes "$log/routes.log" node "$FO_OPS/scripts/generate-routes.mjs"
 run_check vitest "$log/vitest.log" run_vitest "$FO_FRONTEND"
 if { git diff --name-only origin/develop...HEAD; git status --porcelain; } | grep -q "$FO_UI"; then
   run_check ui-vitest "$log/ui-vitest.log" run_vitest "$FO_UI"; fi

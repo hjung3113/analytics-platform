@@ -102,7 +102,6 @@ function written(index = -1) {
 
 const CARRIED = {
   returnTo: '/home',
-  platformReturn: 'https://p.example/x',
   view: 'inbox',
   managedSystem: 'ms-1',
   'filter.owner': 'assigned',

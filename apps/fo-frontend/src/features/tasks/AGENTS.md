@@ -1,5 +1,7 @@
 # Tasks Feature Agent Guide
 
+#597: paths below describe semantic screen intents. Runtime registration belongs to platform menus and `@ap/fo-bridge`; standalone routes and `*Route` compositions are retired. Adapters under `src/test` are test-only.
+
 ## Ownership
 
 Tasks owns frontend route composition for Task Requests, Tasks, Milestones, Managed System-scoped task views, backlog, board, and task detail panels. Work Initiative grouping is future work and has no route yet.
@@ -8,7 +10,7 @@ It does not own reporter-facing VOC status or source evidence visibility rules.
 
 ## Route Boundary
 
-- Owns `/tasks`, a single view-switching route (`?view=requests|backlog|board|my|inbox|milestones`; see `apps/fo-frontend/src/routes/_authed/tasks.tsx`). There is no `/tasks/initiatives` route.
+- Owns `/tasks`, a single view-switching route (`?view=requests|backlog|board|my|inbox|milestones`; see `apps/fo-frontend/src/test/screen-host/routes/_authed/tasks.tsx`). There is no `/tasks/initiatives` route.
 - Task Requests are Tasks intake routes, not top-level routes.
 - Managed Systems are scope/defaulting surfaces; they do not create per-Managed-System route trees.
 
@@ -32,12 +34,12 @@ It does not own reporter-facing VOC status or source evidence visibility rules.
 
 ## Key files
 
-- `apps/fo-frontend/src/routes/_authed/tasks.tsx` — selects the Task view from URL state; the requests view renders `TaskRequestsRoute bindUrl`.
-- `apps/fo-frontend/src/features/tasks/routes/task-search.ts` — router-free `/tasks` search schema, `validateTasksSearch` and `isTasksSearchValueValid` (the route file re-exports the first two; the platform bridge entry `operator-screens/tasks-search` exposes the last).
+- `apps/fo-frontend/src/test/screen-host/routes/_authed/tasks.tsx` — selects the Task view from URL state; the requests view renders `TaskRequestsRoute bindUrl`.
+- `apps/fo-frontend/src/features/tasks/routes/task-search.ts` — router-free `/tasks` search schema, `validateTasksSearch` and `isTasksSearchValueValid` (the platform bridge entry `operator-screens/tasks-search` exposes the validators).
 - `apps/fo-frontend/src/features/tasks/routes/TaskListScreen.tsx` — bridge-safe backlog / 내 Task list body (entry `operator-screens/task-list`): URL through the host seam (`useHostSearchWriter`), the host passes `renderDetail`; it never imports the Task detail tree.
-- `apps/fo-frontend/src/features/tasks/routes/TaskListRoute.tsx` — standalone composition: `TaskListScreen` under a seam whose `useSearch` is the route props and whose `useNavigate` keeps TanStack functional `search` (boolean `overdue`, carried keys), with `TaskDetailPanel` as `renderDetail`.
+- `apps/fo-frontend/src/test/screen-host/features/tasks/routes/TaskListRoute.tsx` — test-only composition: `TaskListScreen` under a seam whose `useSearch` is the route props and whose `useNavigate` keeps TanStack functional `search` (boolean `overdue`, carried keys), with `TaskDetailPanel` as `renderDetail`.
 - `apps/fo-frontend/src/features/tasks/routes/TaskBoardScreen.tsx` — bridge-safe Task board body (columns, DnD, status transition, keyboard focus, group-by/filter state, summary strip; entry `operator-screens/task-board`): `q`/`managedSystem`/`param`/`public_update` read and written through the host seam, 「Task Request 검토」 through `canLink`/`HostLink`, notices through `notifyError`; the Task detail comes from the host's `renderDetail`, rendered in place (never `null`: a `null` registrant would hide the host's drawer); it never imports the Task detail tree.
-- `apps/fo-frontend/src/features/tasks/routes/TaskBoardRoute.tsx` — standalone composition: `TaskBoardScreen` under a seam whose `useSearch` is the route props and whose `useNavigate` reproduces the router writes (select literal push, close/link-missing/q replace, chip push, carried keys kept), with one standalone detail-slot registrant (`TaskDetailPanel`, `view="board"`) as `renderDetail`.
+- `apps/fo-frontend/src/test/screen-host/features/tasks/routes/TaskBoardRoute.tsx` — test-only composition: `TaskBoardScreen` under a seam whose `useSearch` is the route props and whose `useNavigate` reproduces the router writes (select literal push, close/link-missing/q replace, chip push, carried keys kept), with one standalone detail-slot registrant (`TaskDetailPanel`, `view="board"`) as `renderDetail`.
 - `apps/fo-frontend/src/features/tasks/components/task-board/` — Task board cards, columns, and grouping
   control; the route retains URL state and DnD sensors.
 - `apps/fo-frontend/src/features/tasks/hooks/useTaskBoardData.ts` — board reads: one paged query per
@@ -53,19 +55,19 @@ It does not own reporter-facing VOC status or source evidence visibility rules.
 - `apps/fo-frontend/src/features/tasks/adapters/taskDisplayAdapters.ts` — shared Managed System name
   lookup, assignment resolution, and priority-to-severity projection.
 - `apps/fo-frontend/src/features/tasks/routes/TaskRequestsScreen.tsx` — bridge-safe Task Request queue (entry `operator-screens/task-requests`): `param`, `reviewer`, `reviewerTeam` and `managedSystem` read and written through the host seam (`useHostSearchWriter`); the panel is handed to the host as `TaskRequestPanelParts` through `renderDetail`, rendered in place (beside the `ListShell`, never as its `detailPanel`, which would register the host's node as slot content); `autoSelect` false leaves the selection to the URL `param`.
-- `apps/fo-frontend/src/features/tasks/routes/TaskRequestsRoute.tsx` — the standalone composition: a route-local seam (`useSearch` from the props or, without `onReviewerChange`/`bindUrl`, local reviewer state; `useNavigate` diffs the href into `onReviewerChange`/`onSelectionChange` or, with `bindUrl`, writes TanStack's functional `search` keeping unknown keys) and one registrant in the detail slot framing the parts. `bindUrl` is passed only by `routes/_authed/tasks.tsx`; without it TanStack `useNavigate()` is never called (router-less tests).
+- `apps/fo-frontend/src/test/screen-host/features/tasks/routes/TaskRequestsRoute.tsx` — test-only composition: a route-local seam (`useSearch` from the props or, without `onReviewerChange`/`bindUrl`, local reviewer state; `useNavigate` diffs the href into `onReviewerChange`/`onSelectionChange` or, with `bindUrl`, writes TanStack's functional `search` keeping unknown keys) and one registrant in the detail slot framing the parts. `bindUrl` is passed only by the test-local Tasks host; without it TanStack `useNavigate()` is never called (router-less tests).
 - `apps/fo-frontend/src/features/tasks/routes/task-requests/TaskRequestPanelParts.tsx` — the panel as `ClosableDetailParts` (`buildTaskRequestPanelParts`, `TaskRequestPanelBody`, `TaskRequestPanelFrame`, copy link through the seam's `absoluteHref`); `TaskRequestPanel.tsx` is the frame over it. Tests that stub the panel replace `TaskRequestPanelBody` and `buildTaskRequestPanelParts` in this module.
 - `apps/fo-frontend/src/features/tasks/routes/MilestonesScreen.tsx` — bridge-safe Milestone list (status tabs, list-state branches, the three dirty guards; platform ADR-0071, entry `operator-screens/milestones`): `param`/`managedSystem` read and written through the host seam, the detail and create panels handed to the host as parts through `renderDetail`, rendered in place.
-- `apps/fo-frontend/src/features/tasks/routes/MilestonesRoute.tsx` — the standalone composition: feeds `MilestonesScreen` the props-driven URL through TanStack `useNavigate` and registers the standalone frame for the parts in the detail slot.
-- `apps/fo-frontend/src/features/tasks/routes/task-requests/TaskRequestPanel.tsx` — Task Request panel
+- `apps/fo-frontend/src/test/screen-host/features/tasks/routes/MilestonesRoute.tsx` — test-only composition: feeds `MilestonesScreen` the props-driven URL through TanStack `useNavigate` and registers the standalone frame for the parts in the detail slot.
+- `apps/fo-frontend/src/test/host-adapters/features/tasks/routes/task-requests/TaskRequestPanel.tsx` — Task Request panel
   composition, exactly-once decision callback, and dialog lifetime.
 - `apps/fo-frontend/src/features/tasks/routes/task-requests/useTaskRequestPanelController.ts` — source Area
   defaults and canonical outcome reconciliation; section components render the view.
 - `apps/fo-frontend/src/features/findings/hooks/useFindingDetail.ts` — bridge-safe Finding source read used for Task Request defaults.
 - `apps/fo-frontend/src/features/tasks/components/TaskDetailParts.tsx` — bridge-safe Task detail parts (`useTaskDetailParts`, entry `operator-screens/task-detail`): reads, sections, links, notices and title go through the host seam.
-- `apps/fo-frontend/src/features/tasks/components/TaskDetailPanel.tsx` — standalone frame around the Task detail parts.
+- `apps/fo-frontend/src/test/host-adapters/features/tasks/components/TaskDetailPanel.tsx` — standalone frame around the Task detail parts.
 - `apps/fo-frontend/src/features/tasks/components/MilestoneRow.tsx` — Milestone list row.
-- `apps/fo-frontend/src/features/tasks/components/MilestoneDetailPanel.tsx` —
+- `apps/fo-frontend/src/test/host-adapters/features/tasks/components/MilestoneDetailPanel.tsx` —
   compatibility exports for the Milestone panels.
 - `apps/fo-frontend/src/features/tasks/components/milestone-detail/useMilestoneDetailParts.tsx` and `useMilestoneCreateParts.tsx` — the Milestone detail and create panels as `ClosableDetailParts` (`requestClose` carries the dirty guard); `MilestoneDetailPanel` / `MilestoneCreatePanel` are the standalone frames over them. The Finding source action goes through the host (`canLink`, `useHostNavigate`).
 - `apps/fo-frontend/src/features/tasks/components/milestone-detail/` — Milestone

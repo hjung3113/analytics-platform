@@ -1,9 +1,4 @@
-import {
-  isSearchFieldValueValid,
-  parseRouteSearch,
-  platformReturnField,
-  returnToField,
-} from '@/lib/host/search-fields';
+import { isSearchFieldValueValid, parseRouteSearch, returnToField } from '@/lib/host/search-fields';
 // /vocs search schema — owned by the feature layer (admin/permissions
 // precedent) so both the route file and VocRouteShell import one definition.
 // The route file re-exports these for existing consumers (findings route,
@@ -15,7 +10,6 @@ import { z } from 'zod';
 export const vocSearchSchema = z
   .object({
     returnTo: returnToField,
-    platformReturn: platformReturnField,
     view: z.enum(['inbox', 'my', 'triage']).optional(),
     action: z.enum(['create']).optional(),
     selected: z.string().uuid().optional(),

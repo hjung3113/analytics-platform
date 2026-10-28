@@ -1,12 +1,12 @@
 import { getTask, listTasks, updateTaskStatus } from '@/lib/api/tasks';
 import { ApiError } from '@/lib/api/types';
+import { TaskBoardRoute } from '@/test/screen-host/features/tasks/routes/TaskBoardRoute';
 import type { TaskStatus } from '@fops/shared';
 import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TASK_BOARD_STATUS_COLUMNS, taskBoardColumnKey } from '../hooks/useTaskBoardData';
-import { TaskBoardRoute } from './TaskBoardRoute';
 import { boardList, listBoardTasks } from './taskBoardTestServer';
 
 const task = {

@@ -1,5 +1,7 @@
 # Home Feature Agent Guide
 
+#597: paths below describe semantic screen intents. Runtime registration belongs to platform menus and `@ap/fo-bridge`; standalone routes and `*Route` compositions are retired. Adapters under `src/test` are test-only.
+
 ## Ownership
 
 Home owns the landing action queue surface for the current actor, workspace, and Managed System scope.
@@ -8,8 +10,8 @@ Home is not a chart-only dashboard and must not duplicate source-system workflow
 
 ## Route Boundary
 
-- Owns `/home`. `HomeScreen` is standalone-only (router, `sonner`, tabs, recovery queue); its dashboard body is `DashboardScreen`, which the platform bridge mounts through `src/operator-screens/dashboard` (platform ADR-0071, ADR-0081).
-- `/` is an entry-only route that redirects authenticated actors to `/home` and unauthenticated actors to `/login`.
+- Owns `/home`. The standalone `HomeScreen` is retired; its retained dashboard body is `DashboardScreen`, which the platform bridge mounts through `src/operator-screens/dashboard` (platform ADR-0071, ADR-0081).
+- Standalone `/` and login redirects are retired; the platform owns entry and identity.
 - May deep-link into VOC, Tasks, Surveys, Integration, or Admin routes with action intent.
 - Must preserve AppShell and permission-aware summaries for direct route access.
 
@@ -21,14 +23,12 @@ Home is not a chart-only dashboard and must not duplicate source-system workflow
 
 ## Key files
 
-- `apps/fo-frontend/src/routes/_authed/home.tsx` — Home route and URL state.
-- `apps/fo-frontend/src/features/home/HomeScreen.tsx` — standalone `/home`: head (title, `새로고침`, `VOC 등록`), Dashboard/알림 tabs, the Integration recovery queue slot; composes `DashboardBody` inside `standaloneHost.tsx` (the `InternalLink` + sonner seam).
-- `apps/fo-frontend/src/features/home/DashboardScreen.tsx` — bridge-safe dashboard body (queues, assigned work, coverage, open permission requests, answerable surveys, reporter layout) and `refreshDashboard(client, managedSystemId)`; props `managedSystemId` only, no title/tabs/head buttons/recovery queue (recovery queue targets belong to 연동, #763). Needs a `HostSeamProvider`; links via `HostLink`, toasts via the seam; reads through `useMeBridge` and the direct `lib/api/*` modules, never the `@/lib/api` barrel. Its import graph is pinned by `packages/adapters/fo-bridge/src/fo-entry-graph.test.ts`. `DashboardBody` (also takes the standalone `recoveryQueue`) is not exported through the entry. `href.ts` is the bridge-safe copy of `lib/router/managed-system-href.ts`.
-- `apps/fo-frontend/src/features/home/AnswerableSurveysSection.tsx` — the survey panel body over a link prop (default `HostLink`); `AnswerableSurveysPanel.tsx` is its router-bound wrapper.
+- `apps/fo-frontend/src/test/screen-host/routes/_authed/home.tsx` — Home route and URL state.
+- `apps/fo-frontend/src/features/home/DashboardScreen.tsx` — bridge-safe dashboard body (queues, assigned work, coverage, open permission requests, answerable surveys, reporter layout) and `refreshDashboard(client, managedSystemId)`; props `managedSystemId` only, no title/tabs/head buttons/recovery queue (recovery queue targets belong to 연동, #763). Needs a `HostSeamProvider`; links via `HostLink`, toasts via the seam; reads through `useMeBridge` and the direct `lib/api/*` modules, never the `@/lib/api` barrel. Its import graph is pinned by `packages/adapters/fo-bridge/src/fo-entry-graph.test.ts`. `DashboardBody` (also takes the standalone `recoveryQueue`) is not exported through the entry. `href.ts` is the retained scope-preserving link helper; the legacy helper survives only in test support.
+- `apps/fo-frontend/src/features/home/AnswerableSurveysSection.tsx` — the survey panel body over a link prop (default `HostLink`); its router-bound test adapter is under `src/test/host-adapters`.
 - `apps/fo-frontend/src/features/home/InboxPanel.tsx` — notification inbox list, filters, and empty/error states. Also mounted by the platform bridge (`src/global-screens`, platform ADR-0071) through the `lib/host` seam. `variant="recent"` is the platform bell popover body (platform ADR-0071): latest 10, no filter, no load-more.
 - `apps/fo-frontend/src/features/home/permission-requests/PermissionRequestsScreen.tsx` — requester page (request form, own requests with status, withdraw), mounted only by the platform bridge (`src/global-screens`, platform ADR-0071), no FO route; admin review stays `features/admin/permissions`. Its calls live in `lib/api/permission-requests.ts` (bridge-safe, `permissions.ts` re-exports them).
 - `apps/fo-frontend/src/features/home/todo/HomeTodoPanel.tsx` — the platform home `내 할 일` (surveys to answer, my VOCs with an unread public update, permission requests); bridge-only (`src/global-screens`), no FeedbackOps route, platform ADR-0070 decision 8.
-- `apps/fo-frontend/src/features/home/homeNavigation.tsx` — Home sidebar queue destinations.
 - `apps/fo-frontend/src/lib/copy/home.ts` — Home, queue, coverage, and notification inbox copy. The platform bridge loads `InboxPanel` lazily through its own entry `global-screens/inbox-panel` (#820), not `global-screens/core`; the platform `check:lazy-chunks` marker (the value of `HOME_INBOX_COPY.filterLabel`) fails if the panel leaks back into the main chunk. Anything `core` reaches still lands in the main chunk, so copy for a lazily loaded bridge screen goes in its own module (`lib/copy/permission-requests.ts`, `lib/copy/home-todo.ts`; #657 hit this twice).
 
 ## Verification

@@ -6,7 +6,7 @@
 # Run it from anywhere; it works from the repository root. Paths come from ops/feedbackops/paths.sh.
 #
 #   bash ops/feedbackops/scripts/ci/gate.sh static [--base <ref>]
-#       route tree, root typecheck, boundaries (+ its fixture test), the
+#       root typecheck, boundaries (+ its fixture test), the
 #       integration runner's dev-database guard test, migration drift, FE
 #       typecheck, design lint, and — with --base — the FE Biome gate on the
 #       files changed since merge-base(HEAD, <ref>). The Biome gate diffs
@@ -19,8 +19,6 @@
 #       runs `pnpm --filter backend test:integration`, which truncates and re-seeds.
 #       Needs CI_PG_ADMIN_URL: a superuser URL for an EMPTY, disposable Postgres 16
 #       server with pgvector, e.g. postgres://postgres:postgres@localhost:5432/postgres.
-#
-# The visual harness is not part of CI: its baselines are darwin-only.
 
 set -euo pipefail
 
@@ -45,7 +43,6 @@ stage_static() {
     echo "gate.sh static: unknown argument $1" >&2
     exit 2
   fi
-  step fo gen:routes
   step fo typecheck
   step node "$FO_OPS/scripts/check-boundaries.mjs"
   step node "$FO_OPS/scripts/check-boundaries.test.mjs"
@@ -59,7 +56,6 @@ stage_static() {
 }
 
 stage_unit() {
-  step fo gen:routes
   step pnpm --filter @fops/frontend exec vitest run
   step pnpm --filter @fops/ui exec vitest run
   step pnpm --filter @fops/shared exec vitest run

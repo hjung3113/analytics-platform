@@ -1,5 +1,7 @@
 # Integration Feature Agent Guide
 
+#597: paths below describe semantic screen intents. Runtime registration belongs to platform menus and `@ap/fo-bridge`; standalone routes and `*Route` compositions are retired. Adapters under `src/test` are test-only.
+
 ## Ownership
 
 Integration owns frontend route composition for Evidence, Coverage, Links, and integration recovery queues.
@@ -13,12 +15,11 @@ Finding screens and hooks live in `apps/fo-frontend/src/features/findings/`.
 Code ownership and URL mount are not the same thing here:
 
 - Owns both code and URL for Links, at `/integration/links`.
-- Owns both code and URL for Coverage, at `/integration/coverage` (route file `apps/fo-frontend/src/routes/_authed/integration/coverage.tsx`, screen `features/integration/routes/CoverageRoute.tsx`).
-- Owns the Integration Action Dashboard at `/integration` (route file `apps/fo-frontend/src/routes/_authed/integration/index.tsx`, screen `features/integration/routes/IntegrationDashboardRoute.tsx`).
+- Owns both code and URL for Coverage, at `/integration/coverage` (screen `features/integration/routes/CoverageScreen.tsx`, entry `operator-screens/coverage`).
+- Owns the Integration Action Dashboard at `/integration` (screen `features/integration/routes/IntegrationDashboardScreen.tsx`, entry `operator-screens/integration-dashboard`).
 - Owns Evidence at `/integration/evidence` (ADR-0065), a read-only ListShell with independent selected-detail reads.
 - Findings is mounted at top-level `/findings` and owned by `apps/fo-frontend/src/features/findings/`
-  (route files live in `apps/fo-frontend/src/routes/_authed/findings/`). The direct
-  `/findings/$findingId` URL redirects to `/findings?selected=:findingId`.
+  (the platform bridge owns registration). The standalone `/findings/$findingId` redirect is retired (#597).
 - Home may link into Integration-owned surfaces with selected object and action intent.
 
 ## Invariants
@@ -34,19 +35,19 @@ Code ownership and URL mount are not the same thing here:
 
 ## Key files
 
-- `apps/fo-frontend/src/features/integration/routes/integration-search.ts` — the four 연동 search schemas (dashboard, evidence, coverage, links) and their per-key validators, router-free; the route files below re-export them.
-- `apps/fo-frontend/src/routes/_authed/integration/index.tsx` — Integration dashboard route.
-- `apps/fo-frontend/src/routes/_authed/integration/coverage.tsx` — Coverage route and URL search validation.
-- `apps/fo-frontend/src/routes/_authed/integration/links.tsx` — Links route and URL filters.
-- `apps/fo-frontend/src/routes/_authed/integration/evidence.tsx` — strict Evidence URL search validation.
+- `apps/fo-frontend/src/features/integration/routes/integration-search.ts` — the four 연동 search schemas (dashboard, evidence, coverage, links) and their per-key validators, router-free; the platform bridge imports them directly.
+- `apps/fo-frontend/src/test/screen-host/routes/_authed/integration/index.tsx` — Integration dashboard route.
+- `apps/fo-frontend/src/test/screen-host/routes/_authed/integration/coverage.tsx` — Coverage route and URL search validation.
+- `apps/fo-frontend/src/test/screen-host/routes/_authed/integration/links.tsx` — Links route and URL filters.
+- `apps/fo-frontend/src/test/screen-host/routes/_authed/integration/evidence.tsx` — strict Evidence URL search validation.
 - `apps/fo-frontend/src/features/integration/routes/EvidenceScreen.tsx` — Evidence inventory and safe detail reconciliation (bridge-safe, entry `operator-screens/evidence`; the panel is `ClosableDetailParts` rendered by the host).
-- `apps/fo-frontend/src/features/integration/routes/EvidenceRoute.tsx` — composes `EvidenceScreen` under the default host and frames the parts in the standalone detail slot.
+- `apps/fo-frontend/src/test/screen-host/features/integration/routes/EvidenceRoute.tsx` — composes `EvidenceScreen` under the default host and frames the parts in the standalone detail slot.
 - `apps/fo-frontend/src/features/integration/api/evidence-inventory.ts` — parsed read clients and `evidenceInventoryQueryKey()`, which returns the shared `EVIDENCE_INVENTORY_QUERY_KEY` from `lib/query/evidence-inventory-key.ts` that Finding attachments (54-5) invalidate.
 - `apps/fo-frontend/src/features/integration/routes/IntegrationDashboardScreen.tsx` — Integration action dashboard (bridge-safe, entry `operator-screens/integration-dashboard`; the selected recovery item is handed to the host as parts and rendered in place).
-- `apps/fo-frontend/src/features/integration/routes/IntegrationDashboardRoute.tsx` — composes the screen for `/integration` (route-local navigate; the route schema's `history` preprocess keeps `history=true` a boolean; frames the parts in the standalone detail slot).
-- `apps/fo-frontend/src/features/integration/recovery/useRecoveryQueueCore.tsx` — router-free recovery queue core and its seam adapter; `useRecoveryQueue.tsx` stays the router-bound adapter for Home.
-- `apps/fo-frontend/src/features/integration/routes/CoverageRoute.tsx` — composes `CoverageScreen` (bridge-safe, entry `operator-screens/coverage`; standalone `InternalLink` anchors); the screen holds coverage columns, labels, and coverage states.
-- `apps/fo-frontend/src/features/integration/routes/LinksRoute.tsx` — composes `LinksScreen` (bridge-safe, entry `operator-screens/entity-links`; owns its `ListShell`; the search box and row checkboxes are inert, D8); the screen holds Links list filters, tabs, and selected state.
+- `apps/fo-frontend/src/test/screen-host/features/integration/routes/IntegrationDashboardRoute.tsx` — composes the screen for `/integration` (route-local navigate; the route schema's `history` preprocess keeps `history=true` a boolean; frames the parts in the standalone detail slot).
+- `apps/fo-frontend/src/features/integration/recovery/useRecoveryQueueCore.tsx` — router-free recovery queue core and its seam adapter; the retired Home adapter now exists only under `src/test/host-adapters` for retained behavior tests.
+- `apps/fo-frontend/src/test/screen-host/features/integration/routes/CoverageRoute.tsx` — composes `CoverageScreen` (bridge-safe, entry `operator-screens/coverage`; standalone `InternalLink` anchors); the screen holds coverage columns, labels, and coverage states.
+- `apps/fo-frontend/src/test/screen-host/features/integration/routes/LinksRoute.tsx` — composes `LinksScreen` (bridge-safe, entry `operator-screens/entity-links`; owns its `ListShell`; the search box and row checkboxes are inert, D8); the screen holds Links list filters, tabs, and selected state.
 - `apps/fo-frontend/src/features/integration/components/EntityLinksInventoryTable.tsx` — Entity Link inventory rows and permission state.
 - `apps/fo-frontend/src/features/integration/components/EntityRelationRow.tsx` — relation summary within an inventory row.
 - Entity-link rows accept Entity Link DTOs only. VOC Cluster member presentation belongs to `apps/fo-frontend/src/features/voc-cluster/components/detail/VocClusterMemberRow.tsx`.

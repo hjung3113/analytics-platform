@@ -67,7 +67,6 @@ beforeEach(() => {
     managedSystem: 'ms-1',
     selected: SELECTED,
     returnTo: '/home',
-    platformReturn: 'https://platform.example/back',
   };
 });
 
@@ -80,7 +79,6 @@ describe('TriageScreen URL writes', () => {
       managedSystem: 'ms-1',
       selected: SELECTED,
       returnTo: '/home',
-      platformReturn: 'https://platform.example/back',
       'filter.analytics_area': AREA,
     });
     expect(options).toBeUndefined();
@@ -103,7 +101,6 @@ describe('TriageScreen URL writes', () => {
       view: 'triage',
       managedSystem: 'ms-1',
       returnTo: '/home',
-      platformReturn: 'https://platform.example/back',
       tab: 'high',
     });
     expect(options).toBeUndefined();

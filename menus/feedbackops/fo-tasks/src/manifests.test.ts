@@ -1,18 +1,9 @@
 // @vitest-environment node
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { milestonesRoute, myTasksRoute, taskBoardRoute, taskListRoute, taskRequestsRoute } from '@ap/fo-bridge';
 import { manifests } from './index';
 
-const AUTHED = fileURLToPath(new URL('../../../../apps/fo-frontend/src/routes/_authed.tsx', import.meta.url));
-const NAV_TREE = readFileSync(AUTHED, 'utf8');
 const ROUTES = { 'fo-task-requests': taskRequestsRoute, 'fo-tasks': taskBoardRoute, 'fo-my-tasks': myTasksRoute, 'fo-milestones': milestonesRoute, 'fo-task-list': taskListRoute };
-/** The `NAV_TREE.tasks` label of the entry with this `href`. */
-const navLabel = (href: string) => {
-  const at = NAV_TREE.indexOf(`href: '${href}'`);
-  return at === -1 ? null : /label: '([^']+)'/.exec(NAV_TREE.slice(NAV_TREE.lastIndexOf('{', at), at))?.[1] ?? null;
-};
 const menu = (id: string) => manifests.find(entry => entry.id === id)!;
 
 describe('Tasks manifests', () => {
@@ -32,16 +23,9 @@ describe('Tasks manifests', () => {
     expect(manifests.map(entry => entry.path)).toEqual(['/feedbackops/task-requests', '/feedbackops/tasks', '/feedbackops/my-tasks', '/feedbackops/milestones', '/feedbackops/tasks/list']);
   });
 
-  it('keeps the ko labels equal to the FeedbackOps NAV_TREE.tasks entries', () => {
-    expect(menu('fo-tasks').label.ko).toBe(navLabel('/tasks?view=board'));
-    expect(menu('fo-my-tasks').label.ko).toBe(navLabel('/tasks?view=my'));
-    expect(menu('fo-task-requests').label.ko).toBe(navLabel('/tasks?view=requests'));
-    expect(menu('fo-milestones').label.ko).toBe(navLabel('/tasks?view=milestones'));
-  });
-
-  it('lists the non-hidden menus in the order of FeedbackOps NAV_TREE.tasks', () => {
+  it('keeps the approved ko labels in sidebar order', () => {
     const shown = manifests.filter(entry => entry.navHidden !== true).map(entry => entry.label.ko);
-    expect(shown).toEqual(['/tasks?view=requests', '/tasks?view=board', '/tasks?view=my', '/tasks?view=milestones'].map(href => navLabel(href)));
+    expect(shown).toEqual(['Task Requests', 'Tasks', '내 Task', 'Milestones']);
   });
 
   it('hides Task 목록 under Tasks (FeedbackOps has no sidebar row for it)', () => {

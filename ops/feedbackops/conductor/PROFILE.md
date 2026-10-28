@@ -12,8 +12,7 @@ This repo is a consumer of the private provider repo **conductor-engine** (#1280
 **Since the move into analytics-platform (#592, ADR-0072)** FeedbackOps issues run under the platform profile
 (`.agents/conductor/PROFILE.md` at the platform root, launch mode `fo`): base `origin/main`, squash merge, no
 `develop` and no FeedbackOps release PR. Read every `develop` below as `main`; the Flow, release and slice-close
-steps here are superseded by the platform profile. The tools in `scripts/` (verify-db, app-preview `--backend`,
-visual, nav-perf) still apply.
+steps here are superseded by the platform profile. The tools in `scripts/` (verify-db) still apply. The standalone web app and its visual harness are retired (#597); `app-preview.py` and `nav-perf` still target that app and are not usable until reworked (`.planning/backlog.md`).
 
 ## Flow
 
@@ -62,8 +61,6 @@ Host checks in order; each must exit 0 before a commit. Every background verify 
 
 - **FE:** `scripts/verify-fe.sh <worktree>` (full vitest, `packages/fo-ui` vitest when touched, `gate:fe-typecheck`,
   root typecheck, boundaries and their fixture test, design lint, backend tsc, FE→BE route drift, worker hygiene).
-- **Visual:** from the worktree root, `"$CONDUCTOR/scripts/visual.sh" run [filter...]` (Node 22 and a free
-  `PW_PORT` are set for you); the full harness when `packages/fo-ui` changed.
 - **BE:** the shared throwaway Postgres: a `pgvector/pgvector:pg16` container on **5439** with
   `ops/feedbackops/scripts/db/init.sql`, capped at 2 GB (`VERIFY_DB_MEMORY` overrides; the cap applies when `up` creates the
   container, so `down` then `up` to change it). `verify-db.sh up` migrates the template; each issue DB clones it and
@@ -78,25 +75,13 @@ Host checks in order; each must exit 0 before a commit. Every background verify 
   pre-existing → allowlist in `ops/feedbackops/scripts/gates/frontend-biome-allowlist.txt`).
 - Known FE load flakes (#634) pass when rerun alone; anything else is real.
 - **Final head (after the last fix round):** only what CI does not run: the mutation check on the fix (and the
-  fix-diff check when required), `visual.sh run <touched specs>` (full when `packages/fo-ui` changed),
-  `python3 "$ENGINE/worker-hygiene.py" <worktree>` and `pnpm --filter @fops/ops gate:fe-lint --base origin/develop`. CI
+  fix-diff check when required), `python3 "$ENGINE/worker-hygiene.py" <worktree>` and `pnpm --filter @fops/ops gate:fe-lint --base origin/develop`. CI
   (`ops/feedbackops/scripts/ci/gate.sh` static, unit, integration) is the gate of record for the rebased head; no full
   `verify-fe.sh`/`verify-be.sh` rerun after a fix or a rebase.
-- **Visual baselines.** Sub-threshold changes pass against stale baselines: regenerate deliberately with
-  `visual.sh update <filter...>`, which runs `$ENGINE/baseline-keep.py --prefix apps/fo-frontend/` in report mode and
-  writes before/after crops under `.review/baseline-keep-crops/`; inspect the changed PNGs and crops first.
-  `python3 "$ENGINE/baseline-keep.py" --prefix apps/fo-frontend/ --root <worktree> --revert '<regex>'` restores selected files; `--keep '<regex>'` keeps only those and restores the rest (`--region`,
-  e.g. sidebar-only `0,0,300,960`, and `--name` qualify `--keep`). Pixel count alone never decides. Finish with
-  `visual.sh stable <filter...> --runs 3`. On a PNG rebase conflict take develop's file and regenerate.
 - Drop the issue DB and its env file (`verify-db.sh drop <n>`) after the merge; `verify-db.sh down` at wave end.
 
 ## Browser evidence
 
-- **Captures:** `scripts/visual.sh capture <n> --route <url> [--from <visual-spec>] [--mock '<installMockApi
-  options>'] [--state <label>]...`. It infers a unique matching spec; pass `--from` when ambiguous or the route is
-  dynamic. Pages that call APIs need a spec's `installMockApi` (unmatched requests fail closed); `--mock` replaces
-  the copied options, and handler-level overrides need a temporary spec with `page.route`. `--state` only names
-  files. Save into `.review/<n>-shots/`; `visual.sh capture --clean <n>` removes the generated spec.
 - **Conductor live check:** `scripts/app-preview.py start <worktree>` (no `--backend`) proxies to the user's :3011.
   Never for reviewers.
 - **Previews for UX/perf, always on the issue's throwaway DB** (a branch backend boots pg-boss and logging in
@@ -210,7 +195,7 @@ issue is about that behaviour.
 - **Walkthrough:** previews of `origin/main` and `origin/develop` on a throwaway DB (as above), `review-ux` over at
   most three issue-sized flows per run, plus one `nav-perf.sh` comparison over the rail targets as a safety net.
 - Release: `scripts/release-gate.sh <develop-checkout>` (clean checkout at `origin/develop`; refreshes the release DB,
-  runs verify-fe, verify-be and the visual harness, and prints the PR command without creating or merging it). A fresh
+  runs verify-fe and verify-be, and prints the PR command without creating or merging it). A fresh
   detached checkout has no root `.env` (gitignored): copy the main checkout's `.env` in first, or the gate stops at
   `verify-db up` (s90). The
   release PR merges with `gh pr merge <n> --merge`; a squash on `main` made the next release conflict (#811 → #837).
@@ -225,8 +210,6 @@ issue is about that behaviour.
 | `python3 "$ENGINE/launch-worker.py" <n> <slug> [be] --checkout "$FOPS_MAIN"` | §Launch | – |
 | `scripts/verify-fe.sh <worktree>` / `verify-be.sh <worktree> <n> [filters]` | §Verify; logs in `$WAVE_STATE/verify-<wt>/` and `$WAVE_STATE/vbe-<n>/` | – |
 | `scripts/verify-db.sh up` / `create <n> [--migrate-from <checkout>]` / `drop <n>` / `reset-rate-limits <n>` / `has-preview-fixtures <n>` / `down` | throwaway Postgres on 5439; `drop` removes the env file; `has-preview-fixtures` reports the `[preview]` fixture cluster | – |
-| `scripts/visual.sh run` / `update` / `stable` / `capture` | visual harness; picks the checkout from the cwd (or `VISUAL_ROOT`); `capture --clean` trashes its spec | – |
-| `python3 "$ENGINE/baseline-keep.py" --prefix apps/fo-frontend/` | baseline keep/revert with crops | engine repo tests |
 | `python3 "$ENGINE/biome-cmp.py" <worktree> <file>...` | biome error categories on develop vs branch (`introduced` per file; last line JSON) | engine repo tests |
 | `python3 "$ENGINE/worker-hygiene.py" <worktree>` | fails on a new `biome-ignore`; reports whitespace-only churn | engine repo tests |
 | `python3 "$ENGINE/review-plan.py" <worktree>` | §Review plan; refuses uncommitted changes | engine repo tests |

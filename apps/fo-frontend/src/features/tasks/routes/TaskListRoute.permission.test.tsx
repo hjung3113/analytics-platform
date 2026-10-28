@@ -1,11 +1,11 @@
 import { useMe } from '@/lib/auth/useMe';
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { PERMISSION_BLOCKED_REASONS } from '@/lib/copy/permission-reasons';
+import { TaskListRoute } from '@/test/screen-host/features/tasks/routes/TaskListRoute';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, expect, it, vi } from 'vitest';
-import { TaskListRoute } from './TaskListRoute';
 
 vi.mock('@tanstack/react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@tanstack/react-router')>();

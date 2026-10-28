@@ -18,7 +18,6 @@ const entryModules = [
   'features/findings/hooks/useRequestTaskFromFinding.ts',
   'features/findings/hooks/useSurveyEvidence.ts',
   'features/findings/components/FindingDetail/FindingDetailParts.tsx',
-  'features/findings/components/FindingDetail/FindingDetailPanel.tsx',
   'features/findings/components/FindingDetail/FullFindingDetail.tsx',
   'features/findings/components/FindingDetail/useFindingDetailController.ts',
   'features/findings/components/FindingDetail/FindingRequestTaskDraftHost.tsx',
@@ -65,7 +64,7 @@ function resolveSourceModule(from: string, specifier: string): string | null {
 
 describe('Finding detail bridge imports', () => {
   it('keeps the reached Finding detail leaves free of host-bound imports', () => {
-    expect(entryModules).toHaveLength(20);
+    expect(entryModules).toHaveLength(19);
     const reached = new Set(entryModules.map((entry) => path.join(sourceRoot, entry)));
     const pending = [...reached];
     const violations: string[] = [];

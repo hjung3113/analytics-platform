@@ -49,7 +49,7 @@ vi.mock('../../components/create/VocCreateScreen', () => ({
   },
 }));
 
-import { CreateRoute } from '../CreateRoute';
+import { CreateRoute } from '@/test/screen-host/features/voc/routes/CreateRoute';
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 

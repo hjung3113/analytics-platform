@@ -113,9 +113,9 @@ import { usePermissionCheckBridge } from '@/lib/cross-system/usePermissionCheckB
 import { useVocDetail } from '@/lib/cross-system/useVocDetail';
 import { useWorkspaceActors } from '@/lib/cross-system/useWorkspaceActors';
 import { type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
-import { tanstackHost } from '@/lib/host/tanstack-host';
 import { registerAnchorLinkHost } from '@/test/anchor-link-host';
-import { VocDetailPanel } from '../VocDetailPanel';
+import { VocDetailPanel } from '@/test/host-adapters/features/voc/components/detail/VocDetailPanel';
+import { tanstackHost } from '@/test/host-adapters/lib/host/tanstack-host';
 
 beforeAll(registerAnchorLinkHost);
 import {

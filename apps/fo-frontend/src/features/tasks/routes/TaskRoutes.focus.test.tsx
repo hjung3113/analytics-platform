@@ -5,9 +5,12 @@ import * as milestonesApi from '@/lib/api/milestones';
 import * as taskRequestsApi from '@/lib/api/task-requests';
 import { ApiError } from '@/lib/api/types';
 import { useMe } from '@/lib/auth/useMe';
-import { AppFrame } from '@/lib/layout/AppFrame';
-import { parseAppSearch, stringifyAppSearch } from '@/lib/router/search-serialization';
-import { TasksRouteView, validateTasksSearch } from '@/routes/_authed/tasks';
+import { AppFrame } from '@/test/detail-slot-host';
+import {
+  parseAppSearch,
+  stringifyAppSearch,
+} from '@/test/host-adapters/lib/router/search-serialization';
+import { TasksRouteView, validateTasksSearch } from '@/test/screen-host/routes/_authed/tasks';
 import { taskRequestPage } from '@/test/task-request-pages';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import {

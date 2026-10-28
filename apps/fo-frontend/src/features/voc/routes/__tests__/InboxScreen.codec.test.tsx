@@ -1,8 +1,8 @@
 // InboxScreen.codec.test.tsx — the inbox under the standalone router with the app's search codec (#761 i, F1):
 // a JSON-like search term keeps its meaning in the box, the list query and the URL after another write.
 
-import { stringifyAppSearch } from '@/lib/router/search-serialization';
-import { parseAppSearch } from '@/lib/router/search-serialization';
+import { stringifyAppSearch } from '@/test/host-adapters/lib/router/search-serialization';
+import { parseAppSearch } from '@/test/host-adapters/lib/router/search-serialization';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import {
   Outlet,

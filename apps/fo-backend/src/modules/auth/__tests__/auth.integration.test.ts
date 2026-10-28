@@ -81,7 +81,7 @@ describe.skipIf(!runIntegration)('Slice 1 #3 auth integration', () => {
     });
     expect(me.statusCode).toBe(200);
     expect(me.json().actor.external_id).toBe('mock-admin-1');
-    expect(me.json().platform_return_origins).toEqual([]);
+    expect(me.json()).not.toHaveProperty('platform_return_origins');
 
     const logout = await app.inject({
       method: 'POST',
@@ -99,12 +99,12 @@ describe.skipIf(!runIntegration)('Slice 1 #3 auth integration', () => {
     expect(meAfter.json().code).toBe('auth.session_invalid');
   });
 
-  it('GET /me returns the configured PLATFORM_RETURN_ORIGINS list', async () => {
+  it('GET /me ignores a leftover PLATFORM_RETURN_ORIGINS and never returns the retired field', async () => {
     const configured = await buildServer({
       config: {
         ...loadConfig(),
         PLATFORM_RETURN_ORIGINS: 'https://a.example.com,https://b.example.com:8443',
-      },
+      } as ReturnType<typeof loadConfig>,
       dbHandle,
     });
     try {
@@ -122,10 +122,7 @@ describe.skipIf(!runIntegration)('Slice 1 #3 auth integration', () => {
         headers: { cookie: `${SESSION_COOKIE_NAME}=${cookie}` },
       });
       expect(me.statusCode).toBe(200);
-      expect(me.json().platform_return_origins).toEqual([
-        'https://a.example.com',
-        'https://b.example.com:8443',
-      ]);
+      expect(me.json()).not.toHaveProperty('platform_return_origins');
     } finally {
       await configured.close();
     }

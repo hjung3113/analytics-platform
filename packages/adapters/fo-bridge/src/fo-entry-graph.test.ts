@@ -1020,3 +1020,58 @@ describe('FeedbackOps operator permission grants list entry graph (ADR-0071)', (
     expect(callers).toEqual(['lib/api/client.ts']);
   });
 });
+
+// #597: every declared package entry survives retirement, not only currently mounted menus.
+describe('retained36 package contract (#597)', () => {
+  const manifest = JSON.parse(readFileSync(join(FO, 'apps/fo-frontend/package.json'), 'utf8')) as { exports: Record<string, string> };
+  const expected = [
+  "./global-screens",
+  "./global-screens/core",
+  "./global-screens/inbox-panel",
+  "./operator-screens/scope-picker",
+  "./operator-screens/dashboard",
+  "./operator-screens/voc-clusters",
+  "./operator-screens/voc-detail",
+  "./operator-screens/task-detail",
+  "./operator-screens/finding-detail",
+  "./operator-screens/survey-detail",
+  "./operator-screens/survey-follow-up",
+  "./operator-screens/survey-results",
+  "./operator-screens/surveys",
+  "./operator-screens/survey-builder",
+  "./operator-screens/task-list",
+  "./operator-screens/task-board",
+  "./operator-screens/voc-inbox",
+  "./operator-screens/voc-search",
+  "./operator-screens/milestones",
+  "./operator-screens/task-requests",
+  "./operator-screens/coverage",
+  "./operator-screens/entity-links",
+  "./operator-screens/tasks-search",
+  "./operator-screens/findings-search",
+  "./operator-screens/surveys-search",
+  "./operator-screens/admin-search",
+  "./operator-screens/permission-requests",
+  "./operator-screens/permission-grants",
+  "./operator-screens/managed-systems",
+  "./operator-screens/settings",
+  "./operator-screens/integration-search",
+  "./operator-screens/findings",
+  "./operator-screens/voc-triage",
+  "./operator-screens/evidence",
+  "./operator-screens/integration-dashboard",
+  "./operator-screens/analytics-areas"
+];
+  const graph = walk(Object.values(manifest.exports).map(path => join(FO, 'apps/fo-frontend', path)));
+  it('keeps all 36 named public entries and resolves their complete graphs', () => {
+    expect(Object.keys(manifest.exports)).toEqual(expected);
+    expect(expected).toHaveLength(36);
+    expect(graph.unresolved).toEqual([]);
+  });
+  it('reaches no retired runtime or test-only host', () => {
+    const reached = [...graph.files.keys()].map(file => relative(FRONTEND_SRC, file));
+    expect(reached.filter(file => /^(routes|test|lib\/(router|layout|auth))\//.test(file))).toEqual([]);
+    expect([...graph.specifiers].filter(specifier => /^@tanstack\/(react-)?router/.test(specifier))).toEqual([]);
+    for (const path of ['main.tsx', 'routeTree.gen.ts', 'lib/router/app-router.ts', 'features/home/HomeScreen.tsx', 'features/integration/recovery/useRecoveryQueue.tsx']) expect(existsSync(join(FRONTEND_SRC, path)), path).toBe(false);
+  });
+});

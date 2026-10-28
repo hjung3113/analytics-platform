@@ -18,23 +18,16 @@ export type ToastOptions = { action?: ToastAction; durationMs?: number };
 export const UNDO_WINDOW_MS = 8000;
 /**
  * FeedbackOps entry the shell draws for one space (ADR-0028, ADR-0072 decision 5). The app supplies the icon; `key` is only a React key,
- * the shell never branches on it. Two shapes, told apart by `menuId` vs `href`:
- * - `{ href }` opens the FeedbackOps standalone app in a new tab; `href: null` draws it as a disabled link (15 §8: the FeedbackOps address is missing or invalid).
- * - `{ menuId, page }` opens a registered menu in the same tab through the Context Link helper (ADR-0081 decision 7, #760): only `page` and `returnTo` are
- *   carried, never the global Context. The shell draws it only while `resolveLink(...).allowed`.
+ * the shell never branches on it. It opens a registered menu in the same tab through the Context Link helper (ADR-0081 decision 7, #760):
+ * only `page` and `returnTo` are carried, never the global Context. The shell draws it only while `resolveLink(...).allowed`.
  */
-export type FeedbackOpsEntry =
-  | { key: string; label: Text; href: string | null; icon: LucideIcon }
-  | { key: string; label: Text; menuId: string; page?: Record<string, string>; icon: LucideIcon };
+export type FeedbackOpsEntry = { key: string; label: Text; menuId: string; page?: Record<string, string>; icon: LucideIcon };
 /**
- * Space-scoped FeedbackOps links from the app's Managed System mapping (ADR-0027, ADR-0045).
- * `entriesFor` returns null for a space without a mapping; an absent slot draws neither the block nor the rail link.
- * `platformReturn` is the absolute URL of the page the shell is drawing, for FeedbackOps' way back (FO ADR-0071).
+ * Space-scoped FeedbackOps entries from the app's Managed System mapping (ADR-0045).
+ * `entriesFor` returns null for a space without a mapping; an absent slot draws no block.
  */
 export type FeedbackOpsSlot = {
-  entriesFor: (spaceId: SpaceId, platformReturn?: string) => readonly FeedbackOpsEntry[] | null;
-  /** Rail link to FeedbackOps overall; the shell draws it only while the user holds `permission`. */
-  overall: { href: string; permission: Permission } | null;
+  entriesFor: (spaceId: SpaceId) => readonly FeedbackOpsEntry[] | null;
   /** Block gate: the shell draws the FeedbackOps block only while the user holds it (ADR-0081 decision 8). Absent = the block is not gated. */
   permission?: Permission;
 };
@@ -69,7 +62,7 @@ export type HomeTodoSlot = { Todo: ComponentType };
 /**
  * Slots the app fills at composition time (shell slots, plus `homeTodo`, which the home menu reads through `MenuPlatform`), so platform components never import the shell.
  * contextBar: rendered by PlatformPage above page content. topBarTools: extra controls at the bottom of the app rail (today the mock dev tools).
- * feedbackOps: space-scoped entries and the overall link (ADR-0027, ADR-0028).
+ * feedbackOps: space-scoped in-shell entries (ADR-0028, ADR-0045).
  * plannedSpaces: the system switcher's not-yet-available rows (ADR-0042, 15 §3.2).
  * boardEntry: the `분석 보드에 열기…` item `PlatformPage` appends to a board menu's `⋯` menu (docs/16 §6); components never import the shell.
  * scopeControl: a space's own sidebar list-scope control in place of the analytics `ScopeSelector` (ADR-0081 decision 4, 06 §8); `For` returns null for spaces that keep the default.

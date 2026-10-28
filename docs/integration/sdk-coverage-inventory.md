@@ -46,7 +46,7 @@
 | 위치 어댑터·base path | `PlatformLocation` | `basepath` 없음 | 없음(절대 경로) | ✅ |
 | 키별 성공/실패를 돌려주는 search 스키마 | 해당 없음 | 버림 방식 | 해당 없음 | 🆕 모듈 스키마는 키별 결과를 내고 처리는 호스트가 정한다(탑재 설계 §5.3) |
 | 교차 메뉴 링크·복귀 | `resolveLink`·`returnTo`·`ReturnLink`·`PageNavigation` | `returnTo` 필드가 여러 라우트에 있고 허용목록 3경로(`/home`·`/integration`·`/integration/coverage`) | 없음 | ✅ AP |
-| 외부 제품 딥링크 | `feedbackops-link` codec | 양방향 allowlist | 해당 없음 | ✅ AP |
+| Platform inbound deep links | `platform-inbound-link` codec | Retained inbound hop allowlist; standalone outbound helper removed (#597) | Not applicable | ✅ AP |
 | 이탈 확인·라우트 포커스 | `PlatformPage` 도착 포커스(ADR-0032). 미저장 이탈 확인은 없음(`packages/*/src` grep) | 라우터 `beforeLoad` 가드 | `setNavigationBlocker`(앱 안 이동 + `beforeunload`), `useRouteFocus` | ⬇ EV의 이탈 차단을 호스트 포트 후보로 비교(AP에는 없다) |
 
 ### 3.3 세션·인증·권한
@@ -197,3 +197,5 @@
 - FO(`origin/develop` `a8d768b8`): `packages/ui`, `packages/shared`, `apps/frontend`, `apps/backend`, `scripts/ci/gate.sh`, `scripts/generate-routes.mjs`
 - EV(`origin/develop` `307df61`): `packages/{core,renderer,editor,replay,ui}`, `apps/studio`, `eslint.config.js`, `tooling/*`, `docs/adr`
 - 세 저장소 조사 원문(항목별 파일 경로·API 모양)은 이 슬라이스의 세션 스크래치패드에만 있고 저장소에는 올리지 않았다. 필요하면 위 경로에서 다시 뽑는다.
+
+#597 / ADR-0097: FeedbackOps is a retained screen-package consumer of the SDK, not an external standalone runtime. Outbound standalone helpers are removed; the neutral platform inbound codec and all 36 screen/core entries remain.

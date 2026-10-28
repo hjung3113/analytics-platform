@@ -2,7 +2,10 @@
 import { describe, expect, test } from 'vitest';
 
 import { isTasksSearchValueValid, tasksSearchSchema } from '@/features/tasks/routes/task-search';
-import { tasksSearchSchema as routeSchema, validateTasksSearch } from '@/routes/_authed/tasks';
+import {
+  tasksSearchSchema as routeSchema,
+  validateTasksSearch,
+} from '@/test/screen-host/routes/_authed/tasks';
 
 const ID = '99999999-9999-4999-8999-999999999901';
 

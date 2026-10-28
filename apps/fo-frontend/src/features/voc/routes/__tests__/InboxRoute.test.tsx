@@ -219,8 +219,8 @@ vi.mock('@tanstack/react-query', () => ({
 
 // ── Test harness ──────────────────────────────────────────────────────────────
 
+import { validateVocSearch } from '@/features/voc/routes/voc-search';
 import { SEARCH_DEBOUNCE_MS, SEARCH_HANGUL_DEBOUNCE_MS } from '@/lib/forms/search-debounce';
-import { Route as vocsRoute } from '@/routes/_authed/vocs';
 import { InboxScreen } from '../InboxScreen';
 
 // One object per `searchState` value, like a real host's one per navigation: the screen drops its
@@ -370,10 +370,7 @@ describe('InboxScreen', () => {
       '../../hooks/useVocListPages',
     );
     useVocListMock.mockImplementation(useVocListPages);
-    const route = vocsRoute as unknown as {
-      options: { validateSearch: (raw: unknown) => Record<string, unknown> };
-    };
-    searchState = route.options.validateSearch({ view: 'inbox', 'filter.analytics_area': 'unset' });
+    searchState = validateVocSearch({ view: 'inbox', 'filter.analytics_area': 'unset' });
 
     render(<InboxTestHarness view="inbox" />);
 
@@ -870,10 +867,7 @@ describe('InboxScreen', () => {
       '../../hooks/useVocListPages',
     );
     useVocListMock.mockImplementation(useVocListPages);
-    const route = vocsRoute as unknown as {
-      options: { validateSearch: (raw: unknown) => Record<string, unknown> };
-    };
-    searchState = route.options.validateSearch({ view: 'inbox' });
+    searchState = validateVocSearch({ view: 'inbox' });
     const { rerender } = render(<InboxTestHarness view="inbox" />);
 
     fireEvent.change(searchBox(), { target: { value: 'login' } });
@@ -887,7 +881,7 @@ describe('InboxScreen', () => {
     expect(nextSearch.q).toBe('login');
 
     // The URL q is valid route state and drives the request.
-    expect(route.options.validateSearch(nextSearch)).toEqual({
+    expect(validateVocSearch(nextSearch)).toEqual({
       view: 'inbox',
       q: 'login',
     });

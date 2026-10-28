@@ -55,7 +55,7 @@ import { useManagedSystem } from '@/lib/cross-system/useManagedSystem';
 import { usePermissionCheck } from '@/lib/cross-system/usePermissionCheck';
 import { useVocDetail } from '@/lib/cross-system/useVocDetail';
 import { useWorkspaceActors } from '@/lib/cross-system/useWorkspaceActors';
-import { VocDetailPanel } from '../VocDetailPanel';
+import { VocDetailPanel } from '@/test/host-adapters/features/voc/components/detail/VocDetailPanel';
 import {
   DETAIL_ENVELOPE,
   ME_RESPONSE,

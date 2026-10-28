@@ -1,13 +1,13 @@
 import { ApiError } from '@/lib/api/types';
 import { TASK_PRIORITY_LABELS } from '@/lib/copy/enum-labels';
-import { TasksRouteView, tasksSearchSchema } from '@/routes/_authed/tasks';
+import { TaskBoardRoute } from '@/test/screen-host/features/tasks/routes/TaskBoardRoute';
+import { TasksRouteView, tasksSearchSchema } from '@/test/screen-host/routes/_authed/tasks';
 import { taskPrioritySchema } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type * as React from 'react';
 import { toast } from 'sonner';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { TaskBoardRoute } from './TaskBoardRoute';
 import { boardList } from './taskBoardTestServer';
 
 const task = {
@@ -192,11 +192,13 @@ vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
   })),
 }));
 vi.mock('@/lib/api/tasks', () => api);
-vi.mock('./TaskListRoute', async () => {
-  const actual = await vi.importActual<typeof import('./TaskListRoute')>('./TaskListRoute');
+vi.mock('@/test/screen-host/features/tasks/routes/TaskListRoute', async () => {
+  const actual = await vi.importActual<
+    typeof import('@/test/screen-host/features/tasks/routes/TaskListRoute')
+  >('@/test/screen-host/features/tasks/routes/TaskListRoute');
   return { ...actual, TaskListRoute: () => <div>task list unchanged</div> };
 });
-vi.mock('./TaskRequestsRoute', () => ({
+vi.mock('@/test/screen-host/features/tasks/routes/TaskRequestsRoute', () => ({
   TaskRequestsRoute: () => <div>task requests unchanged</div>,
 }));
 vi.mock('sonner', () => ({

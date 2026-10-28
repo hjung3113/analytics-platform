@@ -1,7 +1,7 @@
 import { surveyKeys } from '@/features/surveys/hooks/useSurveys';
 import { registerSurveyQueryDefaults } from '@/features/surveys/policy/resultsReadDenial';
 import { ApiError } from '@/lib/api/types';
-import { routeTree } from '@/routeTree.gen';
+import { routeTree } from '@/test/surveys-host/tree';
 import type { PermissionBlockedPanelProps } from '@ap/ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
@@ -860,7 +860,6 @@ describe('/surveys/:surveyId/results route', () => {
     await waitFor(() => expect(screen.getByTestId('survey-list')).toBeInTheDocument(), {
       timeout: 5000,
     });
-    expect(screen.getByRole('heading', { name: 'Results' })).toBeInTheDocument();
   });
 
   it.each([

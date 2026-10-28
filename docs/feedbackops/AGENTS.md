@@ -7,7 +7,7 @@
 - Match existing docs and implementation patterns before inventing new structure.
 - Every changed line must trace to a user request, a documented invariant, or a failing verification.
 - If domain rules conflict with generic framework habits, follow the domain rules.
-- The standalone app is in maintenance mode while it merges into analytics-platform (ADR-0072): bug fixes and merge preparation only; new product features go to the platform.
+- The standalone runtime is retired (#597, platform ADR-0097). Preserve the 36 `@fops/frontend` public entries, backend and bridge seams; the platform owns navigation/session/layout. Names remain unchanged until #1098–#1100.
 - Paths written as `docs/<x>` inside FeedbackOps docs name this tree (`docs/feedbackops/<x>`), and "root `AGENTS.md`" means this file. FeedbackOps code lives in `apps/fo-backend`, `apps/fo-frontend`, `packages/fo-shared`, `packages/fo-ui`; its tools in `ops/feedbackops/`; the repository root `AGENTS.md` is the platform's.
 
 ## Finish Line And Stops
@@ -17,7 +17,7 @@
 
 ## UI Authority
 
-The shipped UI is the authority for existing surfaces (ADR-0060): the components in `apps/fo-frontend` and `packages/fo-ui`, the copy modules in `apps/fo-frontend/src/lib/copy/*`, and the committed visual baselines in `apps/fo-frontend/tests/visual/`. Behavior and acceptance criteria come from the specs and ADRs.
+The shipped UI is the authority for existing surfaces (ADR-0060): the components in `apps/fo-frontend` and `packages/fo-ui`, the copy modules in `apps/fo-frontend/src/lib/copy/*`, and their actual platform host. Behavior and acceptance criteria come from the specs and ADRs.
 
 - **Changing an existing screen:** extend its current pattern. Reuse the shared components and match neighbouring screens in layout, density, and copy. No prototype comparison is required.
 - **Building a new surface:** if `docs/feedbackops/design-prototype/` drew it, use that screen as a starting reference, not a contract. Otherwise mirror the closest shipped screen.

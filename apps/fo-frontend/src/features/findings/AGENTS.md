@@ -1,5 +1,7 @@
 # Findings Feature Agent Guide
 
+#597: paths below describe semantic screen intents. Runtime registration belongs to platform menus and `@ap/fo-bridge`; standalone routes and `*Route` compositions are retired. Adapters under `src/test` are test-only.
+
 ## Ownership
 
 This folder owns Finding screens and hooks: `FindingDetailPanel` and its panel tree (`FullFindingDetail`, `FindingExecutionSection`, the evidence/link modals, the Finding-owned Request Task draft host, `useFindingDetailController`), plus the Finding read/mutation hooks (`useFindingsList`, `useFindingDetail`, `useFindingStatusMutation`, `useEvidenceHighlights`, `useEvidenceMutations`, `useRequestTaskFromFinding`). The neutral `TaskRequestDraftCard` form and read presentation lives in `features/cross-system/request-task/`.
@@ -8,11 +10,8 @@ It does not own source object lifecycles or backend authorization truth.
 
 ## Route Boundary
 
-- Finding screens mount at the top-level `/findings` route; `/findings/$findingId` remains a
-  redirect to `/findings?selected=:findingId` and preserves `returnTo` when provided. Route files
-  live in `apps/fo-frontend/src/routes/_authed/findings/`, not in this folder. The `/findings` search
-  schema is the exception: it lives router-free in `features/findings/routes/findings-search.ts`
-  (the route file re-exports it), so the platform bridge's `findings-search` entry can import it.
+- Finding list/detail selection uses the platform menu and host `selected` state. The router-free `features/findings/routes/findings-search.ts` schema is exported through `operator-screens/findings-search`. The standalone `/findings/:findingId` redirect is retired; no redirect table remains.
+
 - This folder does not own the entity-link inventory or `/integration/links` — `EntityRelationRow`, `EntityLinksInventoryTable`, `LinkStatusBadge`, and `useEntityLinkInventory` stay under `features/integration/`.
 
 ## Rules
@@ -25,12 +24,9 @@ It does not own source object lifecycles or backend authorization truth.
 ## Key files
 
 - `apps/fo-frontend/src/features/findings/routes/FindingsScreen.tsx` — the list, its URL state and list status labels (bridge-safe, entry `operator-screens/findings`; the host renders every detail-slot branch through `renderDetail`).
-- `apps/fo-frontend/src/routes/_authed/findings/index.tsx` — the route: composes `FindingsScreen` with `FindingDetailPanel` through a route-local seam.
-- `apps/fo-frontend/src/routes/_authed/findings/$findingId.tsx` — redirects direct Finding deep links
-  to the list + selected panel.
 - `apps/fo-frontend/src/features/findings/hooks/useFindingsList.ts` — Finding list query.
 - `apps/fo-frontend/src/features/findings/components/FindingDetail/FindingDetailParts.tsx` — the detail as `DetailParts` (entry `operator-screens/finding-detail`); `FindingDetailPanel` frames them.
-- `apps/fo-frontend/src/features/findings/components/FindingDetail/FindingDetailPanel.tsx` — the standalone frame around the parts (header, back link slot).
+- `apps/fo-frontend/src/test/host-adapters/features/findings/components/FindingDetail/FindingDetailPanel.tsx` — the standalone frame around the parts (header, back link slot).
 - `apps/fo-frontend/src/features/findings/components/FindingDetail/FullFindingDetail.tsx` — detail fields, actions, and status labels.
 - `apps/fo-frontend/src/features/findings/components/FindingDetail/FindingExecutionSection.tsx` — requested Task Request links, retry/focus state, and section actions.
 - `apps/fo-frontend/src/features/findings/components/FindingDetail/FindingRequestTaskDraftHost.tsx` — Finding-owned Task Request form host used by Finding and Survey.

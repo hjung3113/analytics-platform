@@ -1,6 +1,7 @@
 import { fetchTaskRequests } from '@/lib/api';
 import * as barrel from '@/lib/api';
 import { useMe } from '@/lib/auth/useMe';
+import { TaskRequestsRoute } from '@/test/screen-host/features/tasks/routes/TaskRequestsRoute';
 import { taskRequestPage } from '@/test/task-request-pages';
 import type { ListTaskRequestsResponse, TaskRequestDto } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -9,7 +10,6 @@ import type { ReactNode } from 'react';
 import { useLayoutEffect, useSyncExternalStore } from 'react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { installListMotionEnvironment } from '../../voc/components/triage/__tests__/list-motion-environment';
-import { TaskRequestsRoute } from './TaskRequestsRoute';
 
 const slot = vi.hoisted(() => {
   let node: unknown;

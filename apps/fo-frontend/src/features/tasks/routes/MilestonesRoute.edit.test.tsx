@@ -9,6 +9,7 @@ import {
 } from '@/lib/api/milestones';
 import { ApiError } from '@/lib/api/types';
 import { registerDefaultHost } from '@/lib/host/host-seam';
+import { MilestonesRoute } from '@/test/screen-host/features/tasks/routes/MilestonesRoute';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import type { MilestoneDetailDto, MilestoneDto } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -16,7 +17,6 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import userEvent from '@testing-library/user-event';
 import type * as React from 'react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { MilestonesRoute } from './MilestonesRoute';
 
 // #514 B2e — create and edit. Create is the same property block in a create
 // state, opened by the New milestone toolbar control; the body carries the
@@ -34,7 +34,7 @@ vi.mock('@tanstack/react-router', () => ({
 // The detail content renders at the slot provider, outside the route's seam: it navigates through the default host,
 // which these router-less tests route to `navigateMock` as the call objects the route wrote.
 beforeAll(async () => {
-  const { tanstackHost } = await import('@/lib/host/tanstack-host');
+  const { tanstackHost } = await import('@/test/host-adapters/lib/host/tanstack-host');
   registerDefaultHost({
     ...tanstackHost,
     useNavigate: () => (to, options) => {

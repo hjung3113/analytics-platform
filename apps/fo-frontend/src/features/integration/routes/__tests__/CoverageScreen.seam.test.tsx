@@ -3,17 +3,17 @@
 // non-link, and no workspace.admin request when the settings target cannot link (P11).
 
 import { type HostLinkProps, type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import * as React from 'react';
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { areaReportFixture } from '../../../../../tests/visual/fixtures/area-report';
+import { areaReportFixture } from '@/test/fixtures/area-report';
 import {
   COVERAGE_IDS as IDS,
   coverageAnalyticsAreasFixture,
   coverageManagedSystemsFixture,
   coverageSummaryFixture,
-} from '../../../../../tests/visual/fixtures/coverage';
+} from '@/test/fixtures/coverage';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import * as React from 'react';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CoverageScreen } from '../CoverageScreen';
 
 const SETTINGS = '/admin/settings#coverage';

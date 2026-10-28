@@ -34,8 +34,14 @@ describe('useHostSearchWriter', () => {
   it('folds a second write onto the first before the host acknowledges it', () => {
     const { navigate, hook } = setup({ view: 'triage', tab: 'unassigned', selected: 'a' });
     act(() => {
-      hook.result.current.write((prev) => ({ ...prev, tab: 'high', selected: undefined }));
-      hook.result.current.write((prev) => ({ ...prev, selected: 'b' }), { replace: true });
+      hook.result.current.write((prev: Record<string, unknown>) => ({
+        ...prev,
+        tab: 'high',
+        selected: undefined,
+      }));
+      hook.result.current.write((prev: Record<string, unknown>) => ({ ...prev, selected: 'b' }), {
+        replace: true,
+      });
     });
     expect(navigate).toHaveBeenNthCalledWith(1, '/vocs?view=triage&tab=high');
     expect(navigate).toHaveBeenNthCalledWith(2, '/vocs?view=triage&tab=high&selected=b', {
@@ -45,9 +51,13 @@ describe('useHostSearchWriter', () => {
 
   it('drops the pending fold on any host navigation', () => {
     const { navigate, hook, navigateHost } = setup({ view: 'triage', selected: 'a' });
-    act(() => hook.result.current.write((prev) => ({ ...prev, tab: 'high' })));
+    act(() =>
+      hook.result.current.write((prev: Record<string, unknown>) => ({ ...prev, tab: 'high' })),
+    );
     act(() => navigateHost({ view: 'triage', selected: 'a' }));
-    act(() => hook.result.current.write((prev) => ({ ...prev, selected: 'b' })));
+    act(() =>
+      hook.result.current.write((prev: Record<string, unknown>) => ({ ...prev, selected: 'b' })),
+    );
     expect(navigate).toHaveBeenLastCalledWith('/vocs?view=triage&selected=b');
   });
 });

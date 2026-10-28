@@ -69,13 +69,15 @@ vi.mock('@tanstack/react-router', async (importOriginal) => ({
     useParams: () => ({ surveyId: 'survey-1' }),
     useSearch: useRouteSearch,
   }),
+  useParams: () => ({ surveyId: 'survey-1' }),
+  useSearch: useRouteSearch,
   useMatchRoute: () => () => false,
   useNavigate: () => vi.fn(),
   // #812: the builder route guards unsaved changes with useBlocker, which needs a router.
   useBlocker: () => ({ status: 'idle' }),
 }));
 
-import { SurveyDetailRoute } from '@/routes/_authed/surveys/$surveyId';
+import { SurveyDetailRoute } from '@/test/surveys-host/detail';
 
 function DetailPanelSlotHost() {
   const { ref } = useDetailPanelSlotHost();

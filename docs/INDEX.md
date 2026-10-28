@@ -111,3 +111,5 @@
 ## 상태 표기
 
 문서는 Decided / Candidate / Open / Deferred를 구분한다. 규칙은 [docs/AGENTS.md](AGENTS.md). `.agents/`의 스킬·명령·외부 레퍼런스는 tooling 자산이며 제품 설계를 확정하지 않는다([`.agents/README.md`](../.agents/README.md)).
+
+#597: standalone retirement preserves the 36 screen entries and inbound hop codec. Current ownership and removed outbound contracts: [FeedbackOps link contract](integration/feedbackops-deeplink.md). Historical ADR bodies are unchanged.

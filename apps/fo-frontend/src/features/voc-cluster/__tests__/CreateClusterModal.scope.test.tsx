@@ -81,7 +81,7 @@ describe('CreateClusterModal Managed System scope', () => {
 
   it('disables the picker while the scope is pending', async () => {
     mocks.scopeState = { pending: true };
-    const { VocClusterListPage } = await import('@/routes/_authed/voc-clusters/index');
+    const { VocClusterListPage } = await import('@/test/clusters-host/index');
     render(<VocClusterListPage />);
 
     fireEvent.click(screen.getByTestId('cluster-create-button'));
@@ -91,7 +91,7 @@ describe('CreateClusterModal Managed System scope', () => {
 
   it('lists every active system when the scope query errors', async () => {
     mocks.scopeState = { error: true };
-    const { VocClusterListPage } = await import('@/routes/_authed/voc-clusters/index');
+    const { VocClusterListPage } = await import('@/test/clusters-host/index');
     render(<VocClusterListPage />);
 
     fireEvent.click(screen.getByTestId('cluster-create-button'));
@@ -103,7 +103,7 @@ describe('CreateClusterModal Managed System scope', () => {
 
   it('does not submit a selection that fell out of the resolved scope', async () => {
     mocks.scopeState = { scope: { kind: 'all' } };
-    const { VocClusterListPage } = await import('@/routes/_authed/voc-clusters/index');
+    const { VocClusterListPage } = await import('@/test/clusters-host/index');
     const { rerender } = render(<VocClusterListPage />);
 
     fireEvent.click(screen.getByTestId('cluster-create-button'));
@@ -120,7 +120,7 @@ describe('CreateClusterModal Managed System scope', () => {
   });
 
   it('lists only the Managed Systems inside the finding.manage scope', async () => {
-    const { VocClusterListPage } = await import('@/routes/_authed/voc-clusters/index');
+    const { VocClusterListPage } = await import('@/test/clusters-host/index');
     render(<VocClusterListPage />);
 
     fireEvent.click(screen.getByTestId('cluster-create-button'));
@@ -137,7 +137,7 @@ describe('CreateClusterModal Managed System scope', () => {
       (_body: unknown, opts: { onError: (e: unknown) => void }) =>
         opts.onError(new ApiError(403, { code: 'permission.denied', message: 'denied' })),
     );
-    const { VocClusterListPage } = await import('@/routes/_authed/voc-clusters/index');
+    const { VocClusterListPage } = await import('@/test/clusters-host/index');
     render(<VocClusterListPage />);
 
     fireEvent.click(screen.getByTestId('cluster-create-button'));
@@ -157,7 +157,7 @@ describe('CreateClusterModal Managed System scope', () => {
       (_body: unknown, opts: { onError: (e: unknown) => void }) =>
         opts.onError(new ApiError(404, { code: 'permission.denied', message: 'denied' })),
     );
-    const { VocClusterListPage } = await import('@/routes/_authed/voc-clusters/index');
+    const { VocClusterListPage } = await import('@/test/clusters-host/index');
     render(<VocClusterListPage />);
 
     fireEvent.click(screen.getByTestId('cluster-create-button'));

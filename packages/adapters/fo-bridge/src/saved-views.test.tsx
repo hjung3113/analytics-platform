@@ -41,6 +41,7 @@ let calls: string[] = [];
 let failPost: { status: number; code: string } | null = null;
 let failDelete = false;
 let deleteGate: Promise<void> | null = null;
+const deleteGates = new Map<string, Promise<void>>();
 let getGate: Promise<void> | null = null;
 let unauthorized = false;
 let go: (path: string) => void = () => undefined;
@@ -85,6 +86,7 @@ async function type(value: string) {
 beforeEach(() => {
   vi.stubGlobal('localStorage', memoryStorage());
   foQueryClient.clear();
+  deleteGates.clear();
   rows = []; posted = []; calls = []; failPost = null; failDelete = false; deleteGate = null; getGate = null; unauthorized = false;
   setFoApi({ basePath: '/api/fo', onSessionLost: vi.fn() });
   vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -103,6 +105,7 @@ beforeEach(() => {
       rows = [...rows, row(`n${rows.length + 1}`, body.name, body.filter)];
       return json(rows[rows.length - 1], 201);
     }
+    await deleteGates.get(url.split('/').at(-1) ?? '');
     await deleteGate;
     if (failDelete) return json({ code: 'internal.error', message: 'x' }, 500);
     rows = rows.filter(r => url.endsWith(`/${r.id}`) === false);
@@ -341,4 +344,87 @@ describe('delete and focus recovery', () => {
     await settle();
     expect(document.activeElement).toBe(applyButton('C'));
   });
+});
+
+// #597 migration of the retained #972 focus regressions from the old sidebar.
+describe('saved-view focus and drafts across navigation (#597)', () => {
+  function outside() {
+    const field = document.createElement('input');
+    field.setAttribute('aria-label', 'main-content-input');
+    host!.append(field);
+    field.value = 'draft stays';
+    field.focus();
+    return field;
+  }
+  it('a same-route delayed delete leaves outside focus and draft alone', async () => {
+    rows = [row('a', 'A', {view: 'inbox'}), row('b', 'B', {view: 'inbox'})];
+    let release!: () => void;
+    deleteGate = new Promise<void>(resolve => {release = resolve;});
+    await mount('/feedbackops/vocs'); await settle();
+    await act(async () => {host!.querySelector<HTMLButtonElement>('button[aria-label="저장된 보기 A 삭제"]')!.click();});
+    const field = outside();
+    await act(async () => {release();}); await settle();
+    expect(applyButton('A')).toBeNull();
+    expect(document.activeElement).toBe(field);
+    expect(field.value).toBe('draft stays');
+  });
+  it('a rejected delete never moves focus the user placed outside', async () => {
+    rows = [row('a', 'A', {view: 'inbox'})]; failDelete = true;
+    let release!: () => void;
+    deleteGate = new Promise<void>(resolve => {release = resolve;});
+    await mount('/feedbackops/vocs'); await settle();
+    await act(async () => {host!.querySelector<HTMLButtonElement>('button[aria-label="저장된 보기 A 삭제"]')!.click();});
+    const field = outside();
+    await act(async () => {release();}); await settle();
+    expect(applyButton('A')).toBeTruthy();
+    expect(document.activeElement).toBe(field);
+    expect(field.value).toBe('draft stays');
+  });
+  it('leaving and returning before a delete resolves never revives old focus recovery', async () => {
+    rows = [row('a', 'A', {view: 'inbox'}), row('b', 'B', {view: 'inbox'})];
+    let release!: () => void;
+    deleteGate = new Promise<void>(resolve => {release = resolve;});
+    await mount('/feedbackops/vocs'); await settle();
+    await act(async () => {host!.querySelector<HTMLButtonElement>('button[aria-label="저장된 보기 A 삭제"]')!.click();});
+    await act(async () => {go('/feedbackops/triage');}); await settle();
+    await act(async () => {go('/feedbackops/vocs');}); await settle();
+    const field = outside();
+    await act(async () => {release();}); await settle();
+    expect(document.activeElement).toBe(field);
+    expect(field.value).toBe('draft stays');
+  });
+  it('keeps a long name discoverable through its full title and clipped label', async () => {
+    const name = '가'.repeat(200);
+    rows = [row('a', name, {view: 'inbox'})];
+    await mount('/feedbackops/vocs'); await settle();
+    expect(applyButton(name).title).toBe(name);
+    expect(applyButton(name).querySelector('span')!.classList.contains('truncate')).toBe(true);
+  });
+});
+
+// Both completion orders retain the #972 concurrent-delete assertion from AppSidebar.
+it.each([['c', 'b'], ['b', 'c']])('concurrent deletes settling %s then %s focus the surviving neighbour', async (first, second) => {
+  rows = [row('a', 'A', { view: 'inbox' }), row('b', 'B', { view: 'inbox' }), row('c', 'C', { view: 'inbox' })];
+  const releases = new Map<string, () => void>();
+  for (const id of ['b', 'c']) deleteGates.set(id, new Promise<void>(resolve => { releases.set(id, resolve); }));
+  await mount('/feedbackops/vocs'); await settle();
+  await act(async () => {
+    for (const name of ['C', 'B']) {
+      const button = host!.querySelector<HTMLButtonElement>(`button[aria-label="저장된 보기 ${name} 삭제"]`)!;
+      button.focus(); button.click();
+    }
+  });
+  expect(calls.filter(call => call.startsWith('DELETE ')).map(call => call.split('/').at(-1))).toEqual(['c', 'b']);
+  // Both deletions fulfil before the two list snapshots land, matching the original regression.
+  let releaseRead!: () => void;
+  getGate = new Promise<void>(resolve => { releaseRead = resolve; });
+  const originalRows = [...rows];
+  await act(async () => { releases.get(first)?.(); releases.get(second)?.(); });
+  await act(async () => { foQueryClient.setQueryData(['saved-views', 'voc'], { items: originalRows.filter(view => view.id !== first) }); });
+  await settle();
+  expect(document.activeElement).toBe(applyButton('A'));
+  await act(async () => { releaseRead(); }); await settle();
+  expect(document.activeElement).toBe(applyButton('A'));
+  expect(applyButton('B')).toBeNull();
+  expect(applyButton('C')).toBeNull();
 });

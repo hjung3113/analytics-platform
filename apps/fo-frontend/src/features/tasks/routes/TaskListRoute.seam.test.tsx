@@ -123,7 +123,6 @@ function written(index = -1) {
 
 const CARRIED = {
   returnTo: '/home',
-  platformReturn: 'https://p.example/x',
   view: 'backlog',
   managedSystem: MS,
 };
@@ -208,7 +207,6 @@ describe('TaskListScreen URL writes', () => {
       path: '/tasks',
       search: {
         returnTo: CARRIED.returnTo,
-        platformReturn: CARRIED.platformReturn,
         view: 'my',
         managedSystem: MS,
         ...expected,

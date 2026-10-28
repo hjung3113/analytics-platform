@@ -3,7 +3,7 @@
   "plugins": [],
   "categories": { "correctness": "off" },
   "jsPlugins": ["@shadcn/lint"],
-  "ignorePatterns": ["**/__tests__/**", "**/*.test.ts", "**/*.test.tsx", "**/routeTree.gen.ts"],
+  "ignorePatterns": ["**/__tests__/**", "**/*.test.ts", "**/*.test.tsx"],
   "settings": {
     "shadcn": {
       "ui": "@fops/ui",

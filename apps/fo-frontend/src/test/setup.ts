@@ -7,7 +7,7 @@ import { registerDefaultHost } from '../lib/host/host-seam';
 // Imported in beforeAll, after the test file's vi.mock calls are registered: a static import here would bind the real
 // `@tanstack/react-router` Link and `sonner` before a file mocks them.
 beforeAll(async () => {
-  const { tanstackHost } = await import('../lib/host/tanstack-host');
+  const { tanstackHost } = await import('@/test/host-adapters/lib/host/tanstack-host');
   registerDefaultHost(tanstackHost);
 });
 

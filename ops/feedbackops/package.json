@@ -9,7 +9,6 @@
   "scripts": {
     "build": "turbo run build --filter='@fops/*' --filter='!@fops/ops'",
     "dev": "turbo run dev --filter='@fops/*' --filter='!@fops/ops'",
-    "gen:routes": "node scripts/generate-routes.mjs",
     "test": "turbo run test --filter='@fops/*' --filter='!@fops/ops'",
     "lint": "node scripts/lint-tools.mjs biome-check",
     "lint:design": "node scripts/lint-tools.mjs lint-design",

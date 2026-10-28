@@ -67,7 +67,7 @@ describe('CreateClusterModal', () => {
   });
 
   it('submits the selected Managed System in the cluster create request', async () => {
-    const { VocClusterListPage } = await import('@/routes/_authed/voc-clusters/index');
+    const { VocClusterListPage } = await import('@/test/clusters-host/index');
     render(<VocClusterListPage />);
 
     fireEvent.click(screen.getByTestId('cluster-create-button'));

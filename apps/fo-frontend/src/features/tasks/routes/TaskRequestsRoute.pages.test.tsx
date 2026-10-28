@@ -1,12 +1,12 @@
 import { ApiError } from '@/lib/api/types';
 import { useMe } from '@/lib/auth/useMe';
+import { TaskRequestsRoute } from '@/test/screen-host/features/tasks/routes/TaskRequestsRoute';
 import { type TaskRequestDto, listTaskRequestsQuerySchema } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { useLayoutEffect, useSyncExternalStore } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { TaskRequestsRoute } from './TaskRequestsRoute';
 
 const slot = vi.hoisted(() => {
   let node: unknown;

@@ -2,8 +2,8 @@
 // backlog → 내 Task view switch, and a q change after a 403 must show the
 // loading state instead of the previous scope's rows.
 import { PERMISSION_BLOCKED_REASONS } from '@/lib/copy/permission-reasons';
-import { FindingsListPage, validateFindingsSearch } from '@/routes/_authed/findings';
-import { TasksRouteView, validateTasksSearch } from '@/routes/_authed/tasks';
+import { FindingsListPage, validateFindingsSearch } from '@/test/findings-host/screen';
+import { TasksRouteView, validateTasksSearch } from '@/test/screen-host/routes/_authed/tasks';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import * as React from 'react';
@@ -31,8 +31,12 @@ vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api/registry-reads')>()),
   fetchManagedSystems: async () => ({ items: [] }),
 }));
-vi.mock('../components/TaskDetailPanel', () => ({ TaskDetailPanel: () => null }));
-vi.mock('@/features/findings/components/FindingDetail', () => ({ FindingDetailPanel: () => null }));
+vi.mock('@/test/host-adapters/features/tasks/components/TaskDetailPanel', () => ({
+  TaskDetailPanel: () => null,
+}));
+vi.mock('@/test/host-adapters/features/findings/components/FindingDetail/index', () => ({
+  FindingDetailPanel: () => null,
+}));
 
 type Surface = 'list' | 'board' | 'findings';
 const SURFACES = [
@@ -146,14 +150,14 @@ function mount(surface: Surface, initial: Record<string, unknown> = {}) {
   function Harness() {
     const [search, setSearch] = React.useState(initial);
     controls.setSearch = (update) => {
-      setSearch((prev) => update(prev));
+      setSearch((prev: Record<string, unknown>) => update(prev));
     };
     const validated =
       surface === 'findings' ? validateFindingsSearch(search) : validateTasksSearch(search);
     router.search = validated;
     router.navigate.mockImplementation(
       ({ search: update }: { search: (prev: unknown) => unknown }) => {
-        setSearch((prev) => update(prev) as Record<string, unknown>);
+        setSearch((prev: Record<string, unknown>) => update(prev) as Record<string, unknown>);
         return Promise.resolve();
       },
     );
@@ -197,7 +201,7 @@ it.each(SURFACES)(
     const { setSearch } = mount(surface, { managedSystem: SYSTEM_A });
     await screen.findByText(ROW);
     act(() => {
-      setSearch((prev) => ({ ...prev, managedSystem: SYSTEM_B }));
+      setSearch((prev: Record<string, unknown>) => ({ ...prev, managedSystem: SYSTEM_B }));
     });
     await waitFor(() => expect(resolveNext).toBeDefined());
     expect(screen.queryByText(ROW)).not.toBeInTheDocument();
@@ -227,7 +231,7 @@ it('task list shows no backlog rows while 내 Task loads', async () => {
   const { setSearch } = mount('list');
   await screen.findByText(ROW);
   act(() => {
-    setSearch((prev) => ({ ...prev, view: 'my' }));
+    setSearch((prev: Record<string, unknown>) => ({ ...prev, view: 'my' }));
   });
   await waitFor(() => expect(resolveNext).toBeDefined());
   expect(screen.queryByText(ROW)).not.toBeInTheDocument();
@@ -262,7 +266,7 @@ it.each(SURFACES)(
     const { setSearch } = mount(surface, { managedSystem: SYSTEM_A });
     await screen.findByText(ROW);
     act(() => {
-      setSearch((prev) => ({ ...prev, managedSystem: SYSTEM_B }));
+      setSearch((prev: Record<string, unknown>) => ({ ...prev, managedSystem: SYSTEM_B }));
     });
     await screen.findByText(
       surface === 'findings'
@@ -274,7 +278,7 @@ it.each(SURFACES)(
     // The board replaces its shell, including the search box, while denied.
     // The resurrection is the next q key, which the URL can change directly.
     act(() => {
-      setSearch((prev) => ({ ...prev, q: 'next' }));
+      setSearch((prev: Record<string, unknown>) => ({ ...prev, q: 'next' }));
     });
     await waitFor(() => expect(resolveNext).toBeDefined());
     expect(screen.queryByText(ROW)).not.toBeInTheDocument();

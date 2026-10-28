@@ -3,8 +3,11 @@ import * as barrel from '@/lib/api';
 import { fetchManagedSystems } from '@/lib/api/managed-systems';
 import { ApiError } from '@/lib/api/types';
 import { useMe } from '@/lib/auth/useMe';
-import { parseAppSearch, stringifyAppSearch } from '@/lib/router/search-serialization';
-import { TasksRouteView, validateTasksSearch } from '@/routes/_authed/tasks';
+import {
+  parseAppSearch,
+  stringifyAppSearch,
+} from '@/test/host-adapters/lib/router/search-serialization';
+import { TasksRouteView, validateTasksSearch } from '@/test/screen-host/routes/_authed/tasks';
 import { type TaskRequestDto, listTaskRequestsQuerySchema } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {

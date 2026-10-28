@@ -1,6 +1,6 @@
 import { useMe } from '@/lib/auth/useMe';
-import { FindingsListPage, validateFindingsSearch } from '@/routes/_authed/findings';
-import { TasksRouteView, validateTasksSearch } from '@/routes/_authed/tasks';
+import { FindingsListPage, validateFindingsSearch } from '@/test/findings-host/screen';
+import { TasksRouteView, validateTasksSearch } from '@/test/screen-host/routes/_authed/tasks';
 import { listFindingsQuerySchema, listTasksQuerySchema } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -29,8 +29,12 @@ vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api/registry-reads')>()),
   fetchManagedSystems: async () => ({ items: [] }),
 }));
-vi.mock('../components/TaskDetailPanel', () => ({ TaskDetailPanel: () => null }));
-vi.mock('@/features/findings/components/FindingDetail', () => ({ FindingDetailPanel: () => null }));
+vi.mock('@/test/host-adapters/features/tasks/components/TaskDetailPanel', () => ({
+  TaskDetailPanel: () => null,
+}));
+vi.mock('@/test/host-adapters/features/findings/components/FindingDetail/index', () => ({
+  FindingDetailPanel: () => null,
+}));
 
 const reply = (body: unknown) =>
   new Response(JSON.stringify(body), {
@@ -52,7 +56,7 @@ function mount(surface: 'my' | 'board' | 'findings', initial: Record<string, unk
     router.navigate.mockImplementation(
       ({ search: update }: { search: (s: unknown) => unknown }) => {
         setSearch(
-          (prev) =>
+          (prev: Record<string, unknown>) =>
             (surface === 'findings'
               ? validateFindingsSearch(update(prev))
               : validateTasksSearch(update(prev))) as Record<string, unknown>,

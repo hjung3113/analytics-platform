@@ -25,14 +25,14 @@ export function managedSystemFor(spaceId: string | null): string | null {
 }
 
 /** One bottom-block entry: an in-shell menu opened with the space's Managed System. */
-type Row = Pick<FeedbackOpsEntry, 'key' | 'label' | 'icon'> & { menuId: string };
+type Row = Pick<FeedbackOpsEntry, 'key' | 'label' | 'icon' | 'menuId'>;
 const ENTRIES: readonly Row[] = [
   { key: 'voc', icon: MessagesSquare, label: { ko: 'VOC', en: 'VOC' }, menuId: 'fo-inbox' },
   { key: 'task', icon: ListTodo, label: { ko: 'Task', en: 'Tasks' }, menuId: 'fo-task-list' },
   { key: 'survey', icon: ClipboardList, label: { ko: '설문', en: 'Surveys' }, menuId: 'fo-surveys' },
 ];
 
-/** The FeedbackOps slot for the app; all entries open in the shell. */
+/** The FeedbackOps slot for the app; every FeedbackOps screen is a platform menu (ADR-0081 decision 6). */
 export function feedbackOpsSlot(): FeedbackOpsSlot {
   return {
     entriesFor: (spaceId) => {
@@ -41,7 +41,5 @@ export function feedbackOpsSlot(): FeedbackOpsSlot {
       return ENTRIES.map((row): FeedbackOpsEntry => ({ key: row.key, label: row.label, icon: row.icon, menuId: row.menuId, page: { managedSystem: managedSystemId } }));
     },
     permission: 'feedbackops:access',
-    // No `FeedbackOps 전체` user-menu link any more (#764 p2, ADR-0081 decision 6): every FeedbackOps screen is a platform menu. The SDK slot keeps the field for other apps.
-    overall: null,
   };
 }

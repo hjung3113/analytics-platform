@@ -1,10 +1,13 @@
 // Regression (764r1 C1): the detail panel's builder links go through the DEFAULT host link (no registerAnchorLinkHost), which hands the
 // router `builder: 'true'` as a string; the detail route's search schema must still read it as the boolean the builder branch checks.
 
-import { SurveyDetail } from '@/features/surveys/components/detail/SurveyDetail';
 import { validateSurveyDetailSearch } from '@/features/surveys/routes/surveys-search';
 import type { Survey } from '@/features/surveys/types';
-import { parseAppSearch, stringifyAppSearch } from '@/lib/router/search-serialization';
+import { SurveyDetail } from '@/test/host-adapters/features/surveys/components/detail/SurveyDetail';
+import {
+  parseAppSearch,
+  stringifyAppSearch,
+} from '@/test/host-adapters/lib/router/search-serialization';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   Outlet,

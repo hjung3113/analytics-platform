@@ -1,5 +1,7 @@
 # Surveys Feature Agent Guide
 
+#597: paths below describe semantic screen intents. Runtime registration belongs to platform menus and `@ap/fo-bridge`; standalone routes and `*Route` compositions are retired. Adapters under `src/test` are test-only.
+
 ## Ownership
 
 Surveys owns frontend route composition for Survey creation, builder flows, responses, results, and survey-to-action CTAs.
@@ -29,26 +31,19 @@ It does not own VOC creation, Finding persistence, Task mutation, or permission 
 
 ## Key files
 
-- `apps/fo-frontend/src/features/surveys/routes/surveys-search.ts` — router-free list and detail search schemas + validators (`isSurveysSearchValueValid`, `isSurveyDetailSearchValueValid`); the two route files re-export them, and the bridge reads them through `operator-screens/surveys-search`.
+- `apps/fo-frontend/src/features/surveys/routes/surveys-search.ts` — router-free list and detail search schemas + validators (`isSurveysSearchValueValid`, `isSurveyDetailSearchValueValid`); the bridge reads them through `operator-screens/surveys-search`.
 - `apps/fo-frontend/src/features/surveys/routes/SurveysScreen.tsx` — bridge-safe Survey list screen (list context, URL selection, stale-drop, create) over the host seam; the host's `renderDetail(selectedId, slot)` is the detail slot. Entry `operator-screens/surveys`, which never reaches the detail tree.
-- `apps/fo-frontend/src/routes/_authed/surveys/index.tsx` — Survey list route adapter: composes `SurveysScreen` with the `SurveyDetail` aside through a route-local seam (TanStack search/navigate).
-- `apps/fo-frontend/src/routes/_authed/surveys/$surveyId.tsx` — Survey builder and detail route; the non-builder branch uses `SurveyListScreen`.
 - `apps/fo-frontend/src/features/surveys/components/list/SurveyListScreen.tsx` — shared Survey list composition (toolbar, filters, create, detail slot) for the index and detail routes.
 - `apps/fo-frontend/src/features/surveys/routes/SurveyResultsScreen.tsx` — bridge-safe Survey results screen (outer metadata states, header, summary) over the host seam. Entry `operator-screens/survey-results`; never imports `features/findings/public.ts` (the summary reaches `FindingRequestTaskDraftHost` and `useFindingDetail` by their own modules).
-- `apps/fo-frontend/src/routes/_authed/surveys/$surveyId.results.tsx` — results route adapter: `Route.useParams()` → `SurveyResultsScreen`.
 - `apps/fo-frontend/src/features/surveys/hooks/useSurveyResultsController.ts` — metadata/results/Follow-up reads, capability readiness, denial persistence, safe content selection, and document title.
 - `apps/fo-frontend/src/features/surveys/policy/resultsReadDenial.ts` — sticky denial key/default registration, denial merge, and results-read projection.
 - `apps/fo-frontend/src/features/surveys/routes/SurveyFollowUpScreen.tsx` — bridge-safe follow-up screen. `selection` (host-owned, controlled: no auto-select, a filter switch or a stale id goes through `onSelect(null)`) and `renderDetail(parts)` (the host places the detail parts in place); absent = the review's own selection with first-open auto-select and the standalone aside. Entry `operator-screens/survey-follow-up`.
-- `apps/fo-frontend/src/routes/_authed/surveys/$surveyId.follow-up.tsx` — Survey follow-up route adapter composing `SurveyFollowUpScreen` in `WorkbenchShell`.
-- `apps/fo-frontend/src/routes/_authed/surveys/participate.tsx` — answerable Surveys and response history.
-- `apps/fo-frontend/src/routes/_authed/surveys/$surveyId_.respond.tsx` — respondent form deep link.
-- `apps/fo-frontend/src/features/surveys/components/participation/SurveyParticipationScreens.tsx` — bridge-safe participation list and respondent form screens, used by the standalone routes (through `SurveyParticipationPage.tsx`) and the platform bridge (platform ADR-0071). Use `variant="embedded"` only in the platform.
-- `apps/fo-frontend/src/features/surveys/routes/SurveyParticipationPage.tsx` — standalone wrappers: TanStack host seam and document title around the screens.
+- `apps/fo-frontend/src/features/surveys/components/participation/SurveyParticipationScreens.tsx` — bridge-safe participation list and respondent form screens, mounted by the platform bridge (platform ADR-0071); retired wrappers live only under `src/test`. Use `variant="embedded"` only in the platform.
 - `apps/fo-frontend/src/features/surveys/components/respond/` — shared preview and respondent question rendering/branching.
 - `apps/fo-frontend/src/features/surveys/components/list/SurveyList.tsx` — Survey list rows and list states.
-- `apps/fo-frontend/src/features/surveys/components/detail/SurveyDetail.tsx` — standalone Survey detail aside; frames the pieces of `SurveyDetailParts.tsx`.
+- `apps/fo-frontend/src/test/host-adapters/features/surveys/components/detail/SurveyDetail.tsx` — standalone Survey detail aside; frames the pieces of `SurveyDetailParts.tsx`.
 - `apps/fo-frontend/src/features/surveys/components/detail/SurveyDetailParts.tsx` — Survey detail as `DetailParts` (`useSurveyDetailParts`: loading / not-found / blocked / error / full) plus the shared pieces; entry `operator-screens/survey-detail`.
-- `apps/fo-frontend/src/features/surveys/routes/SurveyBuilderScreen.tsx` — bridge-safe Survey builder screen (data states, manage gate, Back with a dirty draft confirmed by the screen) over the host seam; the host owns `onBack`. Entry `operator-screens/survey-builder`. The standalone route adds the router blocker over `leaveGuard`; the bridge accepts draft loss on menu switch.
+- `apps/fo-frontend/src/features/surveys/routes/SurveyBuilderScreen.tsx` — bridge-safe Survey builder screen (data states, manage gate, Back with a dirty draft confirmed by the screen) over the host seam; the host owns `onBack`. Entry `operator-screens/survey-builder`. The bridge accepts draft loss on menu switch; test-local adapters retain the old blocker assertions without a runtime route.
 - `apps/fo-frontend/src/features/surveys/components/builder/SurveyBuilder.tsx` — Survey builder composition.
 - `apps/fo-frontend/src/features/surveys/components/SurveyStatusBadge.tsx` — Survey status labels and badge styles.
 - `apps/fo-frontend/src/features/surveys/components/results/SurveyResultsSummary.tsx` — result summary and follow-up actions.

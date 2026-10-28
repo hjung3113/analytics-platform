@@ -1,5 +1,5 @@
-import { validateHomeSearch } from '@/routes/_authed/home';
-import { validateIntegrationDashboardSearch } from '@/routes/_authed/integration';
+import { validateHomeSearch } from '@/test/screen-host/routes/_authed/home';
+import { validateIntegrationDashboardSearch } from '@/test/screen-host/routes/_authed/integration/index';
 import { afterEach, expect, it, vi } from 'vitest';
 import { fetchRecoveryHistory, patchRecoveryPresentation } from '../recovery';
 

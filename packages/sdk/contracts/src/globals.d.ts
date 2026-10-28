@@ -9,14 +9,12 @@ declare class URLSearchParams {
   toString(): string;
 }
 
-/** WHATWG URL — used only by `feedbackops-link.ts` (origin canonicalization, `platformReturn` checks); exists in browsers and Node. */
+/** WHATWG URL — used only by `platform-inbound-link.ts` (origin canonicalization); exists in browsers and Node. */
 declare class URL {
   constructor(url: string);
   readonly origin: string;
   readonly protocol: string;
   readonly hostname: string;
-  readonly username: string;
-  readonly password: string;
 }
 
 /** Passed through adapter signatures only; contracts never inspect it. */

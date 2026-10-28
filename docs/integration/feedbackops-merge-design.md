@@ -1,5 +1,7 @@
 # FeedbackOps 합류 설계 — 전역 기능 + 피드백 운영 업무 시스템, 서버는 FeedbackOps 백엔드에서 출발
 
+#597 implementation: the standalone runtime, routes, frontend image, outbound helpers and external return allowlist are retired. The retained 36 screen entries mount through the platform bridge. Backend/infra release validation remains. No #151 deployment prerequisite or parallel operation blocks this retirement; external repository archive belongs to the lead. Names remain unchanged until #1098/#1099/#1100. Historical migration stages below are context; current link authority is [feedbackops-deeplink.md](feedbackops-deeplink.md).
+
 > 상태: 방향은 **Decided**([ADR-0066](../adr/0066-feedbackops-merges-into-platform.md), 사용자 2026-10-21). 이 문서의 배치표·단계·서버 대응표는 **Candidate**, §7은 **Open**이다. 지도 [#598](https://github.com/hjung3113/analytics-platform/issues/598), 마일스톤 `M6 FeedbackOps 합류`.
 >
 > 이 문서는 [플랫폼 탑재 설계](platform-hosting-design.md)의 FeedbackOps 부분(한 원본·두 호스트)을 대체한다. 그 문서의 호스트 → 모듈 계약은 equipment-visualization과 사내 새 앱을 위해 유효하다([ADR-0053](../adr/0053-host-module-contract-v1.md)).

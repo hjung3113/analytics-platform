@@ -51,6 +51,8 @@ describe('scope change (FO parity, #762 k)', () => {
   const Control = scopeControlSlot.For(spaceId('feedbackops'))!;
 
   it.each<[string, string, string | undefined, Record<string, string | null>]>([
+    ['/feedbackops/probe-area', `managedSystem=${S1}&cursor=c1`, S2, { managedSystem: S2, cursor: 'c1' }],
+    ['/feedbackops/probe-area', `managedSystem=${S1}&cursor=c1`, undefined, { managedSystem: null, cursor: 'c1' }],
     ['/feedbackops/probe-area', `managedSystem=${S1}&area=${AREA}&focus=${FOCUS}`, S2, { managedSystem: S2, area: null, focus: FOCUS }],
     ['/feedbackops/probe-area', `managedSystem=${S1}&area=unset`, S2, { managedSystem: S2, area: 'unset' }],
     ['/feedbackops/probe-area', `managedSystem=${S1}&area=${AREA}`, undefined, { managedSystem: null, area: AREA }],

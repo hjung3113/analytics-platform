@@ -1,5 +1,7 @@
 # Admin Feature Agent Guide
 
+#597: paths below describe semantic screen intents. Runtime registration belongs to platform menus and `@ap/fo-bridge`; standalone routes and `*Route` compositions are retired. Adapters under `src/test` are test-only.
+
 ## Ownership
 
 Admin owns frontend route composition for Managed System Registry, Analytics Areas, Permission Requests, active permission grants and denies, workspace settings, and administrative review queues.
@@ -29,14 +31,9 @@ The canonical term is "Analytics Area" (per `docs/feedbackops/design/03-core-pla
 
 ## Key files
 
-- `apps/fo-frontend/src/routes/_authed/admin/managed-systems.tsx` — mounts the Managed System registry.
-- `apps/fo-frontend/src/routes/_authed/admin/analytics-areas.tsx` — mounts standalone Analytics Areas and wires its route URL search validator.
 - `apps/fo-frontend/src/operator-screens/analytics-areas/index.ts` — router-free bridge entry; the screen's optional `renderDetail` prop hands `ClosableDetailParts` to the host drawer, while the standalone route omits it and keeps the Sheet.
 - `apps/fo-frontend/src/operator-screens/admin-search/index.ts` — the platform bridge's router-free entry for the three admin search validators (`isAnalyticsAreasSearchValueValid`, `isPermissionGrantsSearchValueValid`, `isPermissionRequestsSearchValueValid`); the requests schema lives in `features/admin/permissions/permission-requests-schema.ts` (re-exported by `permission-requests-search.ts`) so the entry stays free of the enum-labels/`@fops/ui` barrel.
-- `apps/fo-frontend/src/operator-screens/permission-requests/index.ts`, `…/permission-grants/index.ts` — the platform bridge's router-free entries for the two permission consoles (#764 g). Both screens read and write the URL through `useHostSearchWriter`, need a `HostSeamProvider`, and take two props: `autoSelect` (default `true` = the standalone rule, first visible item selected on load/tab change; the bridge passes `false`: selection from the URL only, a stale selection is still replace-dropped) and `renderDetail` (absent = `ListShell.detailPanel`, DOM unchanged; present = the screen builds `ClosableDetailParts` and renders `renderDetail(parts)` beside the list, so decision/revoke drafts stay in the screen tree). The admin gate stays in the standalone routes; the bridge menu's permission and the backend decide there.
-- `apps/fo-frontend/src/routes/_authed/admin/permissions/requests.tsx` — mounts Permission Request review and validates URL state.
-- `apps/fo-frontend/src/routes/_authed/admin/permissions/grants.tsx` — mounts active grants and denies and validates URL state.
-- `apps/fo-frontend/src/routes/_authed/admin/settings.tsx` — mounts workspace settings.
+- `apps/fo-frontend/src/operator-screens/permission-requests/index.ts`, `…/permission-grants/index.ts` — the platform bridge's router-free entries for the two permission consoles (#764 g). Both screens read and write the URL through `useHostSearchWriter`, need a `HostSeamProvider`, and take two props: `autoSelect` (default `true` = the standalone rule, first visible item selected on load/tab change; the bridge passes `false`: selection from the URL only, a stale selection is still replace-dropped) and `renderDetail` (absent = `ListShell.detailPanel`, DOM unchanged; present = the screen builds `ClosableDetailParts` and renders `renderDetail(parts)` beside the list, so decision/revoke drafts stay in the screen tree). The bridge menu permission and backend enforce access; test-local hosts also pin the denied panel.
 - `apps/fo-frontend/src/operator-screens/managed-systems/index.ts` — router-free bridge entry for the Managed System screen.
 - `apps/fo-frontend/src/operator-screens/settings/index.ts` — router-free bridge entry for workspace settings; the screen accepts the bridge `section` page key (`coverage`) and keeps the standalone `#coverage` hash fallback when the prop is `undefined`.
 - `apps/fo-frontend/src/features/admin/managed-systems/ManagedSystemsScreen.tsx` — registry list and defaults.

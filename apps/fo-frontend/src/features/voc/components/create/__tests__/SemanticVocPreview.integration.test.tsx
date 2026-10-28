@@ -49,7 +49,7 @@ vi.mock('@ap/ui', async (importOriginal) => ({
   ),
 }));
 
-import { CreateRoute } from '../../../routes/CreateRoute';
+import { CreateRoute } from '@/test/screen-host/features/voc/routes/CreateRoute';
 
 const MS = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const MS2 = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';

@@ -7,7 +7,6 @@ import { manifests } from './index';
 
 const FRONTEND = '../../../../apps/fo-frontend/src/';
 const read = (path: string) => readFileSync(fileURLToPath(new URL(`${FRONTEND}${path}`, import.meta.url)), 'utf8');
-const NAV_TREE = read('routes/_authed.tsx');
 const PARTICIPATION_COPY = read('lib/copy/survey-participation.ts');
 const byId = (id: string) => manifests.find(entry => entry.id === id)!;
 
@@ -47,9 +46,7 @@ describe('Surveys manifests', () => {
     }
   });
 
-  it('keeps the ko label equal to the FeedbackOps NAV_TREE.surveys entry for /surveys', () => {
-    const at = NAV_TREE.indexOf("href: '/surveys',");
-    expect(/label: SURVEY_PARTICIPATION_COPY\.(\w+)/.exec(NAV_TREE.slice(NAV_TREE.lastIndexOf('{', at), at))?.[1]).toBe('manage');
+  it('keeps the Survey management ko label equal to the FeedbackOps participation copy', () => {
     expect(byId('fo-surveys').label.ko).toBe(new RegExp("\\bmanage: '([^']+)'").exec(PARTICIPATION_COPY)?.[1]);
   });
 });

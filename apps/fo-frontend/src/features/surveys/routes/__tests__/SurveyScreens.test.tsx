@@ -1,8 +1,9 @@
 import { SURVEY_QUESTION_KIND_LABELS } from '@/lib/copy/enum-labels';
 import { SURVEY_BUILDER_COPY } from '@/lib/copy/survey-builder';
-import { SurveyDetailRoute } from '@/routes/_authed/surveys/$surveyId';
-import { CreateSurveyDialog, SurveysIndexRoute } from '@/routes/_authed/surveys/index';
 import { registerAnchorLinkHost } from '@/test/anchor-link-host';
+import { SurveyDetail } from '@/test/host-adapters/features/surveys/components/detail/SurveyDetail';
+import { SurveyDetailRoute } from '@/test/surveys-host/detail';
+import { CreateSurveyDialog, SurveysIndexRoute } from '@/test/surveys-host/screen';
 import { surveyQuestionKindSchema } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
@@ -21,7 +22,6 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { z } from 'zod';
 import { SurveyStatusBadge } from '../../components/SurveyStatusBadge';
 import { SurveyBuilder } from '../../components/builder/SurveyBuilder';
-import { SurveyDetail } from '../../components/detail/SurveyDetail';
 import { SurveyList } from '../../components/list/SurveyList';
 import { useSurveys } from '../../hooks/useSurveys';
 import type { Survey, SurveyQuestion } from '../../types';
@@ -100,10 +100,7 @@ vi.mock('@/lib/cross-system/useWorkspaceActors', () => ({
 // createRouter/RouterProvider/createRoute stay intact for renderDetailWithRouter.
 vi.mock('@tanstack/react-router', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@tanstack/react-router')>()),
-  createFileRoute: () => () => ({
-    useParams: () => ({ surveyId: 'survey-1' }),
-    useSearch: () => routeQueryStubs.search,
-  }),
+  useParams: () => ({ surveyId: 'survey-1' }),
   useSearch: () => routeQueryStubs.search,
   useMatchRoute: () => () => false,
   useNavigate: () => routeQueryStubs.navigate ?? (() => Promise.resolve()),
