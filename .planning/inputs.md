@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | 사내 SSO | [사내 적용 가이드](../docs/integration/in-house-rollout.md) §3 | #150 → #98 나머지 절반, #154, #155 |
 | 사내 인프라 | 사내 적용 가이드 §3 | #151 |
-| 사내 백엔드 | [전송 형식](../docs/integration/http-adapter-contract.md) §10, 사내 적용 가이드 §3 | #149 합의, #148 의견 → #154, #155, #165 |
+| 사내 백엔드 | [전송 형식](../docs/integration/http-adapter-contract.md) §10, 사내 적용 가이드 §3 | #149 합의 → #154, #155, #165 |
 | 업무 수요 확인 | — | #163(자유 피벗), #164(셀 범위 복붙·채우기) |
 
 #165(폴링·계산 세대)와 #155(서버)를 시작할 때는 [플랫폼 구축 리서치 종합](../docs/research/platform-build-2026-09-22/SYNTHESIS.md) §5(요청 경쟁·계산 기준·접근 가능성 분리, 읽기 수명, export 권한, 성능 측정)를 설계 입력으로 읽는다.
@@ -33,7 +33,7 @@
 **6. 상태 근거 서비스** — 수집·파서 지연·coverage 판정의 `statusSource`·`observedAt` 공급자. 없으면 모니터링 메뉴(#51)를 열 수 없다(#37).
 
 <a id="q7"></a>
-**7. 공개 계약 산출물 형식** — 필드명·공집합 표식·assessment enum을 OpenAPI/JSON Schema/codegen 중 무엇으로 확정할지(#148), URL `v` 폐기(sunset) 정책.
+**7. 공개 계약 산출물 형식** — 형식은 Zod → JSON Schema로 정해졌다(ADR-0095, #148 끝). 남은 것은 URL `v` 폐기(sunset) 정책.
 
 <a id="q8"></a>
 **8. 디자인 바인딩 잔여** — 대용량 성능 측정. 다크모드는 Deferred(05).

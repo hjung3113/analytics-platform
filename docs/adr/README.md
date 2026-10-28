@@ -26,7 +26,7 @@
 | [0016](0016-page-filter-bar.md) | 페이지 필터는 공통 PageFilterBar 한 줄 | Decided(2026-10-04) |
 | [0017](0017-shared-outcome-banner.md) | 같은 위젯 응답은 페이지 배너 + 간결 상태 | Decided(2026-10-04) |
 | [0018](0018-feedbackops-stage2-screens-into-platform-menus.md) | FeedbackOps 2단계: 화면은 플랫폼 메뉴로, 백엔드는 도메인 API로 유지(A안) | Superseded(2026-10-09) — 0027 |
-| [0019](0019-menu-query-endpoint-declaration.md) | 메뉴 데이터 조회는 메뉴가 선언한 엔드포인트 + 범용 요청 하나, 서버는 자기 선언 사본으로 판정 | Decided(2026-10-01) — 선언 원본은 #148 |
+| [0019](0019-menu-query-endpoint-declaration.md) | 메뉴 데이터 조회는 메뉴가 선언한 엔드포인트 + 범용 요청 하나, 서버는 자기 선언 사본으로 판정 | Decided(2026-10-01) — 선언 원본은 ADR-0095 |
 | [0020](0020-usage-events-identity-fields-only.md) | 메뉴 활용률 이벤트는 식별 필드만, 조회조건 값은 넣지 않음 | Decided(2026-10-05) |
 | [0021](0021-echarts-canvas-renderer.md) | 차트는 ECharts Canvas 렌더러 | Decided(2026-10-05) |
 | [0022](0022-management-filter-rail-analysis-two-column.md) | 관리 화면은 접을 수 있는 왼쪽 필터 레일, 분석 화면은 KPI 띠 + 차트 2열 | Decided(2026-10-05) |
@@ -102,6 +102,7 @@
 | [0092](0092-saved-view-units-tiers-and-groups.md) | 저장된 뷰는 조건 세트 + 메뉴 뷰 두 단위, 소유는 개인 → 그룹(조직 팀 \| 커스텀) → 공식, 공유는 권한을 주지 않는다. UI는 조회 도구행의 현재 뷰 선택기 + 요청형 뷰 관리 표면(대안: A 탭 줄 / B 드롭다운 / C 상시 패널 — B 기본 + C 정보 구조) | Decided(2026-10-27, 사용자 + 시안 선택은 Astra 위임·코디네이터 기록, 되돌릴 수 있다) · #294 · 구현 #1011 |
 | [0093](0093-canonical-paths-from-space-and-menu-id.md) | 메뉴 정규 경로는 `/{공간 id}/{메뉴 id 슬러그}` + `:param`으로 유도하고 manifest 경로는 옛 별칭으로 둔다 (대안: manifest가 슬러그를 선언 — 유도 선택) | Decided(2026-10-27) |
 | [0094](0094-occurrence-anchor-is-record-sequence.md) | occurrence anchor는 파서 RecordSequence를 담은 불투명 숫자 문자열이고 시작 시각은 별도 표시 필드다 (대안: B `시각#순번` 합성값 / C 시각 유지 + 서버 해소 — 기각) | Decided(2026-10-27, 사용자) · #1007 |
+| [0095](0095-contract-schemas-zod-source-and-reference-implementations.md) | 서버 계약 원본은 TS의 Zod 스키마(→ JSON Schema → Pydantic), SDK는 계약에 더해 선택해서 쓰는 참조 구현을 낸다 | Decided(2026-10-28) — #148 닫음 |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 
