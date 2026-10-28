@@ -5,7 +5,10 @@ dist/
 test-results/
 playwright-report/
 contract-report/
+contract-report-real/
 blob-report/
+test-results-real/
+playwright-report-real/
 .browsers/
 # Temporary capture specs (apps/platform-e2e)
 apps/platform-e2e/tests/zz-*.spec.ts
