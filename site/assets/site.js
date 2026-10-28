@@ -5,6 +5,58 @@
   var all = function (selector, parent) {
     return Array.from((parent || document).querySelectorAll(selector));
   };
+  // PROTOTYPE #1053 — throwaway
+  var prototypeVariants = ["A", "B", "C"];
+  var prototypeQuery = new URLSearchParams(window.location.search);
+  var prototypeParamPresent = prototypeQuery.has("variant");
+  var prototypeSwitcher = document.querySelector("[data-prototype-switcher]");
+  var prototypeLabel = prototypeSwitcher && prototypeSwitcher.querySelector("[data-prototype-label]");
+  var selectedPrototype = null;
+  function applyPrototypeVariant(variant) {
+    selectedPrototype = variant;
+    all("[data-prototype-variant]").forEach(function (block) {
+      block.hidden = block.dataset.prototypeVariant !== variant;
+    });
+    var baseline = document.getElementById("intro");
+    if (baseline) baseline.hidden = Boolean(variant);
+    if (prototypeSwitcher) prototypeSwitcher.hidden = !variant;
+    if (prototypeLabel && variant) prototypeLabel.textContent = "안 " + variant + " · 첫 장점 비교";
+  }
+  function setPrototypeVariant(variant) {
+    if (prototypeVariants.indexOf(variant) === -1) return;
+    var url = new URL(window.location.href);
+    url.searchParams.set("variant", variant);
+    window.history.replaceState(null, "", url.pathname + url.search + url.hash);
+    applyPrototypeVariant(variant);
+  }
+  function stepPrototypeVariant(amount) {
+    if (!selectedPrototype) return;
+    var index = prototypeVariants.indexOf(selectedPrototype);
+    setPrototypeVariant(prototypeVariants[(index + amount + prototypeVariants.length) % prototypeVariants.length]);
+  }
+  if (prototypeParamPresent) {
+    var initialPrototype = prototypeVariants.indexOf(prototypeQuery.get("variant")) === -1 ? "A" : prototypeQuery.get("variant");
+    applyPrototypeVariant(initialPrototype);
+    if (prototypeQuery.get("variant") !== initialPrototype) setPrototypeVariant(initialPrototype);
+    all("[data-prototype-step]", prototypeSwitcher).forEach(function (button) {
+      button.addEventListener("click", function () {
+        stepPrototypeVariant(Number(button.dataset.prototypeStep));
+      });
+    });
+    document.addEventListener("keydown", function (event) {
+      var targetName = event.target && event.target.tagName;
+      if (!selectedPrototype || targetName === "INPUT" || targetName === "TEXTAREA" || event.altKey || event.ctrlKey || event.metaKey) return;
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        stepPrototypeVariant(-1);
+      } else if (event.key === "ArrowRight") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        stepPrototypeVariant(1);
+      }
+    });
+  }
   var tabs = new Map();
   all("[data-tabs]").forEach(function (root) {
     var list = root.firstElementChild;
