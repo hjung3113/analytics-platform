@@ -7,7 +7,7 @@ This document defines repository shape, module boundaries, and dependency direct
 ## Repository Shape
 
 ```text
-apps/fo-backend
+apps/platform-api
 - HTTP API
 - application services
 - domain modules
@@ -15,13 +15,13 @@ apps/fo-backend
 - migrations
 - background jobs
 
-apps/fo-frontend
+apps/feature-screens
 - React/Vite UI
 - route composition
 - feature screens
 - typed API client usage
 
-packages/fo-shared
+packages/feature-shared
 - Zod schemas and inferred API/DTO types (no codegen, ADR-0007)
 - validation schemas
 - enum constants
@@ -29,7 +29,7 @@ packages/fo-shared
 - no DB access
 - no domain workflow orchestration
 
-packages/fo-ui
+packages/feature-ui
 - reusable visual components from docs/frontend/*
 - no API calls
 - no domain mutation logic
@@ -61,12 +61,12 @@ Product systems:
 - Entity Linking / Cross-System Workflow
 
 Deployable app shells:
-- apps/fo-backend
-- apps/fo-frontend
+- apps/platform-api
+- apps/feature-screens
 
 Implementation boundaries:
-- apps/fo-backend/src/modules/{module}
-- apps/fo-frontend/src/features/{feature}
+- apps/platform-api/src/modules/{module}
+- apps/feature-screens/src/features/{feature}
 ```
 
 Product systems are independent in ownership and workflow rules, not separate
@@ -112,15 +112,15 @@ Allowed:
 - domain modules -> entity-linking application API
 - domain modules -> permission check API
 - dashboard -> domain read/query interfaces
-- frontend features -> typed API client + packages/fo-ui
-- packages/fo-ui -> design tokens
+- frontend features -> typed API client + packages/feature-ui
+- packages/feature-ui -> design tokens
 ```
 
 Forbidden:
 
 ```text
 - core -> voc/finding/task/survey/dashboard modules
-- packages/fo-shared -> apps/fo-backend or apps/fo-frontend
+- packages/feature-shared -> apps/platform-api or apps/feature-screens
 - frontend -> backend internals
 - domain repositories querying another domain's owned tables except through approved read models
 - UI components enforcing backend permission decisions as source of truth

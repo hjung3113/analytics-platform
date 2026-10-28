@@ -82,7 +82,7 @@ authoritative.
 
 The generic check answers for the role layer only. For a caller whose role level
 is `admin`, the route re-applies the per-capability admin module bypass declared
-in `CAPABILITY_META.adminModuleBypass` (`packages/fo-shared/src/enums/capabilities.ts`)
+in `CAPABILITY_META.adminModuleBypass` (`packages/feature-shared/src/enums/capabilities.ts`)
 through `applyAdminModuleBypass`, so the hint matches the module route that
 enforces the capability. `always` turns any non-`workspace_mismatch` denial
 into `allow: true, via: "role"`; `unless_denied` does the same except for an
@@ -389,7 +389,7 @@ carry `requestable: null` and map to `blocked_non_requestable` (#1239).
 ## Requester and selected-read contracts (ADR-0066; implemented #1080–#1083)
 
 All commands below use strict shared schemas (under
-`packages/fo-shared/src/permissions/`). IDs must be UUIDs; revision is a positive
+`packages/feature-shared/src/permissions/`). IDs must be UUIDs; revision is a positive
 integer. Unknown keys, missing revision, malformed fields/unsupported scope or
 past resolved expiry return `422 validation.failed` with field paths. Malformed
 UUIDv4 key returns `validation.malformed_idempotency_key`.
@@ -469,7 +469,7 @@ into requester detail. Read has no writes/audits/links/notification/queue/defaul
 
 Selected response contracts are exported as `permissionRequestOwnerDetailSchema`
 and `permissionRequestAdminDetailSchema` from
-`packages/fo-shared/src/permissions/selected-detail.ts`. Both responses carry the
+`packages/feature-shared/src/permissions/selected-detail.ts`. Both responses carry the
 request fields at the top level, preserving the mine names, plus
 `requester_actor_id` and nullable `source_summary`. Owner detail adds
 `latest_admin_question`, `editable_scope_candidates`, and `allowed_actions`
@@ -523,7 +523,7 @@ workspace-filtered Admin-safe; no email. Workspace comes from session. Read has
 no mutation tier, idempotency, writes/audits/links/notifications/queue/default effects.
 
 The strict response is `permissionGrantOptionsSchema` in
-`packages/fo-shared/src/permissions/admin.ts`:
+`packages/feature-shared/src/permissions/admin.ts`:
 
 ```ts
 {
@@ -595,7 +595,7 @@ workspace policy → grant order and shared Permission grant command with approv
 Request creation/edit/supplement serialize by recipient too. Expired exact-tuple
 reissue sets proposed superseded_at and inserts a fresh ID; no in-place renewal.
 Return `201` actual `permissionGrantAdminItemSchema` item, parsed through shared
-schema (`packages/fo-shared/src/permissions/admin.ts`), not fabricated form input.
+schema (`packages/feature-shared/src/permissions/admin.ts`), not fabricated form input.
 New strict `permission_granted` grant-subject audit includes actual grant/recipient/
 capability/scope/reason/expiry, create/reissue mode, predecessor ID on reissue,
 self_grant: true and envelope only on self grant. Failed audit rolls back predecessor,

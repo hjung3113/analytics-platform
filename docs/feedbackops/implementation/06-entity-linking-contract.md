@@ -27,7 +27,7 @@ Relation type meaning is owned by this contract, not by
 
 Allowed `relation_type` values and registered source/target pairs are the
 runtime registry: `entityLinkRelationTypeSchema` and
-`registeredEntityLinkPairs` in `packages/fo-shared/src/entity-links.ts`.
+`registeredEntityLinkPairs` in `packages/feature-shared/src/entity-links.ts`.
 
 Forbidden:
 
@@ -92,7 +92,7 @@ getInternalSummary(db, workspaceId, id)
 listExpectedLinks(id)                         # reserved: every provider stubs it to [], no caller
 ```
 
-The contract is `EntityLinkProvider` in `apps/fo-backend/src/modules/entity-links/provider-types.ts`. Only the Task provider returns a reporter summary (`getReporterSummary` / `getReporterSummaries`, ADR-0032); the others return `{ available: false }`. Dashboard missing-link queries are SQL read models, not provider calls.
+The contract is `EntityLinkProvider` in `apps/platform-api/src/modules/entity-links/provider-types.ts`. Only the Task provider returns a reporter summary (`getReporterSummary` / `getReporterSummaries`, ADR-0032); the others return `{ available: false }`. Dashboard missing-link queries are SQL read models, not provider calls.
 
 Slice 4.1 tracer registry (#112):
 

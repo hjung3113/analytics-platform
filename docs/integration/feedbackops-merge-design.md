@@ -68,7 +68,7 @@ FeedbackOps를 플랫폼 앱 하나·공개 서버 입구 하나·저장소 하�
 
 플랫폼 앱은 서버를 `PlatformAdapter` 하나로 만난다([실서버 체크리스트](real-server-checklist.md) §1). 실어댑터 조립(#154)이 FeedbackOps 백엔드를 가리키게 하고, 백엔드가 [HTTP 어댑터 계약](http-adapter-contract.md)의 공통 부분을 구현한다. 이슈 [#593](https://github.com/hjung3113/analytics-platform/issues/593).
 
-아래 차이표는 FeedbackOps `develop` `c73c55c5`와 플랫폼 `main` `5b92ab8`를 읽고 만들었다(2026-10-21, 코드는 실행하지 않음). FeedbackOps 경로는 `apps/backend/src/` 기준이다. 지금은 `apps/fo-backend/src/`처럼 `apps/fo-*`·`packages/fo-*` 아래에 있다. 줄 번호는 그 커밋 기준이다.
+아래 차이표는 FeedbackOps `develop` `c73c55c5`와 플랫폼 `main` `5b92ab8`를 읽고 만들었다(2026-10-21, 코드는 실행하지 않음). FeedbackOps 경로는 `apps/backend/src/` 기준이다. 지금은 `apps/platform-api/src/`처럼 `apps/{platform-api,feature-screens}`·`packages/feature-*` 아래에 있다. 줄 번호는 그 커밋 기준이다.
 
 **요약**
 

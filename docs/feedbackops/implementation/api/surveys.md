@@ -99,7 +99,7 @@ system/access failures use the same 404/409/403 codes as creation. This read
 writes no product objects or audits and grants no personal-response access.
 
 Response `200` is exactly `{ items: SurveyTemplate[] }`, parsed by exported
-`surveyTemplatesResponseSchema` in `packages/fo-shared/src/surveys/templates.ts`.
+`surveyTemplatesResponseSchema` in `packages/feature-shared/src/surveys/templates.ts`.
 Items appear in Discovery, Validation, Outcome order. No pagination is needed
 for this three-item server-owned catalog. Each item has:
 

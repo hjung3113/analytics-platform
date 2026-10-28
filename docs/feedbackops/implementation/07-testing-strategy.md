@@ -62,9 +62,9 @@ This document owns what must be tested, not the commands. Run commands, environm
 
 ```text
 - AGENTS.md (root) -> Verification: the gate and what counts as green
-- apps/fo-backend/AGENTS.md -> Verification: backend integration env, database reset contract, skip opt-out
+- apps/platform-api/AGENTS.md -> Verification: backend integration env, database reset contract, skip opt-out
 - scripts/gates/AGENTS.md: frontend typecheck and lint gates, baselines, allowlists
-- apps/fo-frontend/tests/visual/AGENTS.md: visual harness and baselines
+- apps/feature-screens/tests/visual/AGENTS.md: visual harness and baselines
 ```
 
 ## Integration Flows
@@ -111,7 +111,7 @@ Flow E: Survey result -> Finding, never VOC
 Frontend implementation should verify:
 
 ```text
-- desktop 1440 layout (tablet and mobile are out of scope until responsive lands; apps/fo-frontend/AGENTS.md)
+- desktop 1440 layout (tablet and mobile are out of scope until responsive lands; apps/feature-screens/AGENTS.md)
 - selected row and detail panel visibility
 - focus-visible states
 - light theme contrast

@@ -140,7 +140,7 @@ to the same palette color (`accent-success`, `accent-warn`, `accent-info`).
 
 ### Inter — Primary UI typeface for all content including headings, body text, and interactive elements. · `--font-sans`
 - **CSS stack:** `'Inter Variable', 'Inter', 'Pretendard Variable', 'Pretendard', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`
-- **Loading:** `@fontsource-variable/inter` (family `Inter Variable`), imported in `apps/fo-frontend/src/styles.css`. Inter has no Hangul, so Korean glyphs fall through per glyph to `Pretendard Variable` (owner choice, 2026-10-02), then to the system faces.
+- **Loading:** `@fontsource-variable/inter` (family `Inter Variable`), imported in `apps/feature-screens/src/styles.css`. Inter has no Hangul, so Korean glyphs fall through per glyph to `Pretendard Variable` (owner choice, 2026-10-02), then to the system faces.
 - **Weights:** 300, 400, 510, 590
 - **Sizes:** 8px, 9px, 10px, 11px, 12px, 13px, 14px, 15px, 17px, 20px, 24px, 32px, 48px
 - **Line height:** 1.20, 1.40, 1.60
@@ -149,7 +149,7 @@ to the same palette color (`accent-success`, `accent-warn`, `accent-info`).
 
 ### JetBrains Mono — Monospaced font for code snippets, technical details, and certain data displays, ensuring consistent character alignment and technical clarity. · `--font-mono`
 - **CSS stack:** `'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace`
-- **Loading:** `@fontsource-variable/jetbrains-mono` (family `JetBrains Mono Variable`), imported in `apps/fo-frontend/src/styles.css`.
+- **Loading:** `@fontsource-variable/jetbrains-mono` (family `JetBrains Mono Variable`), imported in `apps/feature-screens/src/styles.css`.
 - **Weights:** 400
 - **Sizes:** 12px, 13px, 14px
 - **Line height:** 1.30, 1.40, 1.50, 1.71
@@ -158,7 +158,7 @@ to the same palette color (`accent-success`, `accent-warn`, `accent-info`).
 
 ### Pretendard — Korean fallback typeface for Hangul text.
 
-- **Loading:** `pretendard` package, dynamic-subset CSS (`pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css`, family `Pretendard Variable` with unicode-range subsets), imported in `apps/fo-frontend/src/styles.css`. It is not first in `--font-sans`: Latin renders in Inter, Hangul falls through to Pretendard per glyph.
+- **Loading:** `pretendard` package, dynamic-subset CSS (`pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css`, family `Pretendard Variable` with unicode-range subsets), imported in `apps/feature-screens/src/styles.css`. It is not first in `--font-sans`: Latin renders in Inter, Hangul falls through to Pretendard per glyph.
 
 ### Type Scale
 
@@ -184,7 +184,7 @@ to `--font-sans` / `--font-mono` and the size utilities `text-xs` / `text-sm` /
 `--text-body` / `--text-lg` / `--text-xl` / `--text-heading`. `text-base`
 carries `--leading-normal` and `text-2xl` carries `--leading-tight` (the Type
 Scale pairs above); the other sizes set size only and inherit the body leading.
-The base layer (`apps/fo-frontend/src/styles.css`) applies `--font-sans` and the
+The base layer (`apps/feature-screens/src/styles.css`) applies `--font-sans` and the
 body size + leading to `body`.
 
 Since issue #743 (ADR-0058) the theme is Tailwind v4 CSS-first:
@@ -321,7 +321,7 @@ Card with 'Pitch Black' background (#f3f7fe) and 12px border-radius, no shadow. 
 ### Body Card
 **Role:** Rich body content container inside detail panels (introduced PR #59)
 
-Card using 'Deep Slate' background (`bg-surface-card-elevated`, `#edf3fb`), 6px border-radius (`rounded-md`), 16px padding (`p-4`). Preceded by an uppercase English section label `BODY` styled `text-xs font-semibold uppercase tracking-wide text-text-muted mb-2`. Body text inside uses `text-sm text-text-secondary leading-relaxed`. `RichContentRenderer` renders the TipTap content inside the card; empty state shows `'설명 없음'` with `text-text-muted`. Canonical implementation: `DescriptionSection` in `apps/fo-frontend/src/features/voc/components/detail/`. Used on both VOC Inbox Detail and Triage Panel overview sections.
+Card using 'Deep Slate' background (`bg-surface-card-elevated`, `#edf3fb`), 6px border-radius (`rounded-md`), 16px padding (`p-4`). Preceded by an uppercase English section label `BODY` styled `text-xs font-semibold uppercase tracking-wide text-text-muted mb-2`. Body text inside uses `text-sm text-text-secondary leading-relaxed`. `RichContentRenderer` renders the TipTap content inside the card; empty state shows `'설명 없음'` with `text-text-muted`. Canonical implementation: `DescriptionSection` in `apps/feature-screens/src/features/voc/components/detail/`. Used on both VOC Inbox Detail and Triage Panel overview sections.
 
 ### Input Field
 **Role:** User input fields
@@ -423,7 +423,7 @@ the implementation source for the token names and values in this reference.
 
 ### Frontend Stylesheet
 
-`apps/fo-frontend/src/styles.css` imports `tailwindcss`, then
+`apps/feature-screens/src/styles.css` imports `tailwindcss`, then
 `@ap/ui/styles/tokens.css` and `@ap/ui/styles/semantic.css` (both in
 `layer(base)`), then the CSS-first theme `@ap/ui/styles/theme.css`, then
 the parity layer `@ap/ui/styles/compat.css` (ADR-0058; v3 Preflight pins,
@@ -446,4 +446,4 @@ consumer invariant — plus:
 - explicit source declarations for the app tree and any local package code.
 
 See ADR-0058 for the full contract and the consumer-contract test in
-`packages/fo-ui/src/styles/__tests__/consumer-contract.test.ts`.
+`packages/feature-ui/src/styles/__tests__/consumer-contract.test.ts`.

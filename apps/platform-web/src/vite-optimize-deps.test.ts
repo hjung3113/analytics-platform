@@ -7,7 +7,7 @@ import viteConfig from '../vite.config.ts';
 
 // A bare `echarts/<x>` import that the dev server's dependency scan has not seen makes Vite re-optimize and reload the page when the lazy chunk first loads (#580 DIAG1).
 const PACKAGES = fileURLToPath(new URL('../../../packages', import.meta.url));
-// Platform packages sit one folder deeper (packages/sdk/*, packages/adapters/*); the FeedbackOps packages stay at packages/fo-*.
+// Platform packages sit one folder deeper (packages/sdk/*, packages/adapters/*); the FeedbackOps packages stay at packages/feature-*.
 function packageDirs(): string[] {
   return readdirSync(PACKAGES, { withFileTypes: true })
     .filter(entry => entry.isDirectory())

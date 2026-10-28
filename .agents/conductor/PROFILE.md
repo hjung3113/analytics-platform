@@ -17,10 +17,10 @@ The lead writes the planned tier in the assignment comment (`tier=full|light`). 
 
 | tier | When (any of) | Workers | Review | Fix rounds |
 | --- | --- | --- | --- | --- |
-| **full** | non-test, non-`.md` source under `packages/sdk/{kernel,components,shell,ui,contracts}`, `packages/adapters/*`, `apps/platform-web`, `apps/fo-backend`, `apps/fo-frontend`, `packages/fo-shared` (either side of a rename); `review-plan.py` `flags.permission`; `ux=required`; the issue is `impl-complex` | ≤ 3 per PR: implementer + `review-final` (+ `review-ux` when screens change) + one fix | 1 | 1. If a blocker or major is still open after it, a second round goes to `impl-complex` and gets a fix-diff check. Re-review only after a permission or data-leak fix. |
+| **full** | non-test, non-`.md` source under `packages/sdk/{kernel,components,shell,ui,contracts}`, `packages/adapters/*`, `apps/platform-web`, `apps/platform-api`, `apps/feature-screens`, `packages/feature-shared` (either side of a rename); `review-plan.py` `flags.permission`; `ux=required`; the issue is `impl-complex` | ≤ 3 per PR: implementer + `review-final` (+ `review-ux` when screens change) + one fix | 1 | 1. If a blocker or major is still open after it, a second round goes to `impl-complex` and gets a fix-diff check. Re-review only after a permission or data-leak fix. |
 | **light** | everything else: pure renames (R100), moves, docs, copy, generator output, sample-menu changes without permission or URL/Context logic | none — the lane edits directly | none — the host reads the diff and records `tier=light` plus `git diff --numstat` in VERIFY | — |
 
-- **Measured (heuristic, PR #1041 review):** the paths-only first draft was replayed on the last 250 merges with archived reviews. 19 of 50 "light" merges had a blocker or major. Most were in `apps/fo-frontend` or hit `flags.permission`, and both are now full. The current rule has not been re-measured, so do not widen light without new data.
+- **Measured (heuristic, PR #1041 review):** the paths-only first draft was replayed on the last 250 merges with archived reviews. 19 of 50 "light" merges had a blocker or major. Most were in `apps/feature-screens` or hit `flags.permission`, and both are now full. The current rule has not been re-measured, so do not widen light without new data.
 - **PR count:** at most 3 PRs per issue. Bundle mechanical work into one PR. Split only where a full-tier review needs isolation.
 - **Copy-only edits under full paths:** the lead may mark the PR light with a numstat line ("copy only"), unless `flags.permission` fires.
 - **Brief check:** only for `impl-complex` briefs, plus a `review-quality` plan review when a brief changes 06 contracts, package boundaries or `sdk:api`. No other intermediate checks and no separate doc-sync workers. The implementer updates the owning docs in the same PR ([`docs/AGENTS.md`](../../docs/AGENTS.md)).
@@ -45,7 +45,7 @@ Route to `impl-complex` (always full) if any of these hold:
 - FeedbackOps issues: `launch-worker.py <n> <slug> fo`.
   - `scripts/fo-prepare.sh` fills `.env` and creates the issue DB on 5439 (`verify-db.sh create <n>`).
   - Rules: `addenda/impl-rules-fo.md`.
-  - Run `verify-db.sh up` once beforehand (in that checkout, `cp ops/feedbackops/.env.example ops/feedbackops/.env` first if `.env` is missing). Never use 5434.
+  - Run `verify-db.sh up` once beforehand (in that checkout, `cp ops/platform-api/.env.example ops/platform-api/.env` first if `.env` is missing). Never use 5434.
   - A branch that adds a migration: `verify-db.sh drop <n>` → `verify-db.sh create <n> --migrate-from <worktree>` before integration tests (the worker brief says the conductor does this).
   - After merge, run `verify-db.sh drop <n>`. At wave end, run `verify-db.sh down`.
 
@@ -61,7 +61,7 @@ Every step must exit 0 before commit.
 3. E2E, only when Kernel, shell, shared components or the mock server change. Run the new describe first, then the brief's "Impact" describes with `-g "A|B"`. Never run full `pnpm e2e` locally, except to reproduce a CI failure. PR and main-push CI run only the affected specs (`.github/scripts/select-e2e.mjs`: all for `menus/**`, `packages/**` and anything it cannot narrow; none for docs-only; just that spec for a spec-only change). A green PR is therefore not a full E2E record; the release `full=true` run is.
 4. If menu manifests, `menus.ts`, contract menu types or `tooling/gen-menu` change: run `node tooling/gen-menu/scripts/probe.ts`, never in a worktree with a live preview.
 5. FeedbackOps gates, only when `.github/workflows/feedbackops.yml` `paths` are touched:
-   - `bash ops/feedbackops/scripts/ci/gate.sh static --base origin/main` and `unit`.
+   - `bash ops/platform-api/scripts/ci/gate.sh static --base origin/main` and `unit`.
    - Integration: `FEEDBACKOPS_ENV_FILE=$WAVE_STATE/env.verify.<n> pnpm --filter @fops/backend test:integration`. Never use `gate.sh integration`, because it truncates the source DB.
 6. Hygiene: `python3 $ENGINE/worker-hygiene.py <worktree>`.
 7. Gates that run only in CI — run them locally when their inputs change:

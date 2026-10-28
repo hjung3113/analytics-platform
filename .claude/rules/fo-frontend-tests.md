@@ -1,9 +1,9 @@
 ---
 paths:
-  - "apps/fo-frontend/src/**/*.test.{ts,tsx}"
-  - "apps/fo-frontend/src/**/__tests__/**"
-  - "apps/fo-frontend/src/test/**"
-  - "packages/fo-ui/src/**/*.test.{ts,tsx}"
+  - "apps/feature-screens/src/**/*.test.{ts,tsx}"
+  - "apps/feature-screens/src/**/__tests__/**"
+  - "apps/feature-screens/src/test/**"
+  - "packages/feature-ui/src/**/*.test.{ts,tsx}"
 ---
 
 # Frontend test traps (vitest + jsdom)
@@ -19,7 +19,7 @@ Each item is an independent, measured trap. Check this list before blaming a sel
 - `ChipPicker`, `ManagedSystemPicker`, and `AnalyticsAreaPicker` are single-select `ToggleGroup`s: items are `role="radio"` inside a `radiogroup`, not `role="button"`.
 - `DialogContent` renders a built-in sr-only close button named by the Korean `closeLabel` default (overridable per call). Close a dialog with `fireEvent.keyDown(document.body, { key: 'Escape' })`, and target buttons inside a dialog by `data-testid` rather than by name.
 - TipTap/ProseMirror accepts no text in jsdom. When a test needs body text, replace `RichEditor` with a textarea stand-in in that file only (`vi.mock('@ap/ui', importOriginal)`; a `sonner` mock in the same file needs a `Toaster` entry because the spread reads every `@ap/ui` export).
-- jsdom has no `document.execCommand` (stub it) and no `Element.prototype.scrollIntoView` (polyfilled in `apps/fo-frontend/src/test/setup.ts`; without it Radix Select crashes and unmounts the tree).
+- jsdom has no `document.execCommand` (stub it) and no `Element.prototype.scrollIntoView` (polyfilled in `apps/feature-screens/src/test/setup.ts`; without it Radix Select crashes and unmounts the tree).
 - `userEvent.setup()` installs its own `navigator.clipboard`. Install a clipboard stub after calling it, via `Object.defineProperty(navigator, 'clipboard', { value, configurable: true })`, and delete it in `afterEach`. `vi.stubGlobal('navigator', …)` does not work in jsdom.
 - Tab accessible names include count badges (`Pending 1`); match by prefix (`/^Pending/`).
 

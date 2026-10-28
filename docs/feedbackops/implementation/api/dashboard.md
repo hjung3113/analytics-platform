@@ -41,7 +41,7 @@ VOC that has a non-skipped `voc.voc_public_updates` row. A skipped update is a
 recorded status transition without reporter-visible content and does not count
 as coverage.
 
-`dashboardSummarySchema` in `packages/fo-shared/src/dashboard.ts` defines the
+`dashboardSummarySchema` in `packages/feature-shared/src/dashboard.ts` defines the
 closed coverage ID set (`coverage[].id`) and per-Managed-System coverage shape
 (`by_managed_system[].coverage`); `DASHBOARD_HOP_ROUTES` in the same file defines
 dashboard hop IDs and destinations.
@@ -297,7 +297,7 @@ Managed System UUID, then Area UUID, with null after assigned Areas. A scope/fil
 paging again; an invalid or incompatible continuation is rejected as `invalid_cursor`.
 
 Strict response contract (`dashboardAreaReportSchema` in
-`packages/fo-shared/src/dashboard.ts`):
+`packages/feature-shared/src/dashboard.ts`):
 
 - `computed_at`: ISO timestamp for this authorized snapshot; `as_of_date`: UTC ISO date used by overdue predicates.
 - `items`: bounded array of rows with `managed_system_id`, `managed_system_name`,

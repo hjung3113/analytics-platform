@@ -13,7 +13,7 @@ Issues and PRDs for FeedbackOps live as GitHub issues on `hjung3113/analytics-pl
 
 Infer the repo from `git remote -v` — `gh` does this automatically when run inside a clone.
 
-Work on FeedbackOps (`apps/fo-*`, `packages/fo-*`, `docs/feedbackops/`) now lives in `hjung3113/analytics-platform` (#592): issues are filed there and PRs target `main`, so `Closes #n` closes them. The old FeedbackOps issue tracker is frozen with the repository (#597).
+Work on FeedbackOps (`apps/{platform-api,feature-screens}`, `packages/feature-*`, `docs/feedbackops/`) now lives in `hjung3113/analytics-platform` (#592): issues are filed there and PRs target `main`, so `Closes #n` closes them. The old FeedbackOps issue tracker is frozen with the repository (#597).
 
 ## Pull requests as a triage surface
 

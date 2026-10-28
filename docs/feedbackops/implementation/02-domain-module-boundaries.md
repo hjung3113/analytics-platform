@@ -3,7 +3,7 @@
 ## Module Ownership
 
 These modules are bounded product-system implementations inside
-`apps/fo-backend/src/modules/*`. They are not separate deployable services in the
+`apps/platform-api/src/modules/*`. They are not separate deployable services in the
 MVP architecture.
 
 ## Logical Domains → Backend Module Directories
@@ -13,28 +13,28 @@ The following directories are the server-registered module surfaces (with
 
 | Logical domain | Actual module directory |
 | --- | --- |
-| Analytics Area | `apps/fo-backend/src/modules/analytics-areas` |
-| Attachments | `apps/fo-backend/src/modules/attachments` |
-| Authentication | `apps/fo-backend/src/modules/auth` |
-| Core services | `apps/fo-backend/src/modules/core` |
-| Dashboard | `apps/fo-backend/src/modules/dashboard` |
-| Entity Linking | `apps/fo-backend/src/modules/entity-links` |
-| Finding | `apps/fo-backend/src/modules/findings` |
-| Managed System Registry | `apps/fo-backend/src/modules/managed-systems` |
-| Milestones | `apps/fo-backend/src/modules/milestones` |
-| Navigation | `apps/fo-backend/src/modules/nav` |
-| Notifications | `apps/fo-backend/src/modules/notifications` |
-| Permission | `apps/fo-backend/src/modules/permissions` |
-| Platform Port | `apps/fo-backend/src/modules/platform-port` — reads other modules only through their services and barrels: `auth` (session, actor list), `permissions` check service, the VOC read service (`resolveVocReference`), the Findings service (`getFinding`), the Tasks service (`getTask`) and `core/audit` (allowlisted projection); never a repo, never the entity-link provider `canRead`; writes only its own `platform.*` tables (`usage_events`, `client_errors`; ADR-0069 decision 1) and `core.sessions.csrf_token` |
-| Saved Views | `apps/fo-backend/src/modules/saved-views` |
-| Survey | `apps/fo-backend/src/modules/surveys` |
-| Task Request | `apps/fo-backend/src/modules/task-requests` |
-| Task | `apps/fo-backend/src/modules/tasks` |
-| VOC | `apps/fo-backend/src/modules/voc` |
-| VOC Recommendations | `apps/fo-backend/src/modules/voc/recommendations` |
-| Pre-submit VOC Peers | `apps/fo-backend/src/modules/voc/pre-submit-peers` |
-| VOC Cluster | `apps/fo-backend/src/modules/voc-clusters` |
-| Workspace Settings | `apps/fo-backend/src/modules/workspace-settings` |
+| Analytics Area | `apps/platform-api/src/modules/analytics-areas` |
+| Attachments | `apps/platform-api/src/modules/attachments` |
+| Authentication | `apps/platform-api/src/modules/auth` |
+| Core services | `apps/platform-api/src/modules/core` |
+| Dashboard | `apps/platform-api/src/modules/dashboard` |
+| Entity Linking | `apps/platform-api/src/modules/entity-links` |
+| Finding | `apps/platform-api/src/modules/findings` |
+| Managed System Registry | `apps/platform-api/src/modules/managed-systems` |
+| Milestones | `apps/platform-api/src/modules/milestones` |
+| Navigation | `apps/platform-api/src/modules/nav` |
+| Notifications | `apps/platform-api/src/modules/notifications` |
+| Permission | `apps/platform-api/src/modules/permissions` |
+| Platform Port | `apps/platform-api/src/modules/platform-port` — reads other modules only through their services and barrels: `auth` (session, actor list), `permissions` check service, the VOC read service (`resolveVocReference`), the Findings service (`getFinding`), the Tasks service (`getTask`) and `core/audit` (allowlisted projection); never a repo, never the entity-link provider `canRead`; writes only its own `platform.*` tables (`usage_events`, `client_errors`; ADR-0069 decision 1) and `core.sessions.csrf_token` |
+| Saved Views | `apps/platform-api/src/modules/saved-views` |
+| Survey | `apps/platform-api/src/modules/surveys` |
+| Task Request | `apps/platform-api/src/modules/task-requests` |
+| Task | `apps/platform-api/src/modules/tasks` |
+| VOC | `apps/platform-api/src/modules/voc` |
+| VOC Recommendations | `apps/platform-api/src/modules/voc/recommendations` |
+| Pre-submit VOC Peers | `apps/platform-api/src/modules/voc/pre-submit-peers` |
+| VOC Cluster | `apps/platform-api/src/modules/voc-clusters` |
+| Workspace Settings | `apps/platform-api/src/modules/workspace-settings` |
 
 ```text
 VOC owns:
@@ -245,7 +245,7 @@ Managed-System scoped for Developers.
 
 ## Entity Link Provider Contract
 
-Each linkable domain module must register a provider. The provider contract lives in `06-entity-linking-contract.md` (Provider Interface) and `apps/fo-backend/src/modules/entity-links/provider-types.ts`.
+Each linkable domain module must register a provider. The provider contract lives in `06-entity-linking-contract.md` (Provider Interface) and `apps/platform-api/src/modules/entity-links/provider-types.ts`.
 
 Entity Linking uses providers to enforce:
 
@@ -260,10 +260,10 @@ Entity Linking uses providers to enforce:
 ## Frontend Boundary Rules
 
 ```text
-- packages/fo-ui implements reusable visual and interaction primitives.
-- apps/fo-frontend/src/features/{home,my-work,voc,findings,voc-cluster,surveys,tasks,cross-system,integration,admin} own route and screen composition.
+- packages/feature-ui implements reusable visual and interaction primitives.
+- apps/feature-screens/src/features/{home,my-work,voc,findings,voc-cluster,surveys,tasks,cross-system,integration,admin} own route and screen composition.
 - Evidence, Coverage, and Links are Integration feature surfaces. Findings is its own feature surface (features/findings/).
-- Finding detail composes `FindingDetailPanel` → `FullFindingDetail` → `useFindingDetailController` under `apps/fo-frontend/src/features/findings`; shared UI and hooks are under `apps/fo-frontend/src/features/cross-system` and `apps/fo-frontend/src/lib/cross-system`.
+- Finding detail composes `FindingDetailPanel` → `FullFindingDetail` → `useFindingDetailController` under `apps/feature-screens/src/features/findings`; shared UI and hooks are under `apps/feature-screens/src/features/cross-system` and `apps/feature-screens/src/lib/cross-system`.
 - Analytics Areas, Permission Requests, Managed System Registry, and settings are Admin feature surfaces.
 - Frontend features represent UI surfaces for product systems; they do not own domain rules or writes.
 - Feature screens compose UI primitives and call typed API hooks.
@@ -286,7 +286,7 @@ Permission may compose those projections but does not copy foreign-table queries
 or mutate Role Level. Source-owner summary authorization remains mandatory.
 Home owns requester UI composition; Admin owns review/direct-grant composition.
 Shared typed contracts carry server scope options/revisions/risk; neither frontend
-nor packages/fo-ui owns permission truth or computes risk scores.
+nor packages/feature-ui owns permission truth or computes risk scores.
 
 Selected Permission context (#1081) uses Auth's public
 `findWorkspaceActorDisplay` projection and Core's
@@ -370,8 +370,8 @@ access to safe result readers.
 
 VOC owns the non-domain suggestion lifecycle, generation job/cursor/caps and
 paid-preview ledger/budgets/cleanup (#1097 suggestions and #1099 preview implemented); subdirectories are
-`apps/fo-backend/src/modules/voc/cluster-suggestions/` and
-`apps/fo-backend/src/modules/voc/similarity-preview/` (shipped #1099). They are not a generic Core
+`apps/platform-api/src/modules/voc/cluster-suggestions/` and
+`apps/platform-api/src/modules/voc/similarity-preview/` (shipped #1099). They are not a generic Core
 AI service. VOC Clusters alone writes its existing Cluster/member tables through
 exported application commands, called only on human suggestion confirmation.
 Automatic generation calls no Cluster mutation service. Saved recommendations

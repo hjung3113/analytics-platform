@@ -22,32 +22,52 @@ _shots/
 
 # FeedbackOps (713p2): products/feedbackops/.gitignore의 경로 고정 항목 (앱이 apps/fo-*로 이동)
 # TanStack Router generated route tree
-# Pre-bundled Drizzle schema consumed by drizzle-kit (apps/fo-backend/scripts/bundle-schema.mjs)
-apps/fo-backend/.drizzle-schema/
+# Pre-bundled Drizzle schema consumed by drizzle-kit (apps/platform-api/scripts/bundle-schema.mjs)
+apps/platform-api/.drizzle-schema/
 # Unanchored entries of the old file, kept at every depth under the FO apps and packages (the platform has its own rules)
-apps/fo-*/**/.vite
-apps/fo-*/**/report/
-apps/fo-*/**/coverage
-apps/fo-*/**/build
-apps/fo-*/**/*.log
-apps/fo-*/**/smoke-*.png
-apps/fo-*/**/visual-*.png
-packages/fo-*/**/.vite
-packages/fo-*/**/report/
-packages/fo-*/**/coverage
-packages/fo-*/**/build
-packages/fo-*/**/*.log
+apps/platform-api/**/.vite
+apps/feature-screens/**/.vite
+apps/platform-api/**/report/
+apps/feature-screens/**/report/
+apps/platform-api/**/coverage
+apps/feature-screens/**/coverage
+apps/platform-api/**/build
+apps/feature-screens/**/build
+apps/platform-api/**/*.log
+apps/feature-screens/**/*.log
+apps/platform-api/**/smoke-*.png
+apps/feature-screens/**/smoke-*.png
+apps/platform-api/**/visual-*.png
+apps/feature-screens/**/visual-*.png
+packages/feature-shared/**/.vite
+packages/feature-ui/**/.vite
+packages/feature-shared/**/report/
+packages/feature-ui/**/report/
+packages/feature-shared/**/coverage
+packages/feature-ui/**/coverage
+packages/feature-shared/**/build
+packages/feature-ui/**/build
+packages/feature-shared/**/*.log
+packages/feature-ui/**/*.log
 # The bridge entry `@fops/frontend/operator-screens/coverage` (#762 c) is source, not a test-coverage report.
-!apps/fo-frontend/src/operator-screens/coverage/
+!apps/feature-screens/src/operator-screens/coverage/
 # .env files of the old file, at every depth under the FO apps and packages (.env.example stays tracked)
-apps/fo-*/**/.env
-apps/fo-*/**/.env.local
-apps/fo-*/**/.env.*.local
-apps/fo-*/**/.env.release
-packages/fo-*/**/.env
-packages/fo-*/**/.env.local
-packages/fo-*/**/.env.*.local
-packages/fo-*/**/.env.release
+apps/platform-api/**/.env
+apps/feature-screens/**/.env
+apps/platform-api/**/.env.local
+apps/feature-screens/**/.env.local
+apps/platform-api/**/.env.*.local
+apps/feature-screens/**/.env.*.local
+apps/platform-api/**/.env.release
+apps/feature-screens/**/.env.release
+packages/feature-shared/**/.env
+packages/feature-ui/**/.env
+packages/feature-shared/**/.env.local
+packages/feature-ui/**/.env.local
+packages/feature-shared/**/.env.*.local
+packages/feature-ui/**/.env.*.local
+packages/feature-shared/**/.env.release
+packages/feature-ui/**/.env.release
 
 # FeedbackOps docs (713p3): products/feedbackops/.gitignore의 남은 항목 중 docs/.llmwiki/만 새 경로로 옮겼다.
 # 나머지(.claude/settings.json·.codegraph/·.playwright-mcp/·agent-workflow 심볼릭 링크·minio_data/)는 그 폴더 안에서만 뜻이 있었다.

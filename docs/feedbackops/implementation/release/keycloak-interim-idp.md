@@ -2,7 +2,7 @@
 
 FeedbackOps already speaks OIDC (`AUTH_PROVIDER=oidc`, authorization code + PKCE S256), so in-house use can start on a self-hosted Keycloak before the company SSO answer (#150, #151). No application code changes: this page, the realm file and the local compose services are the whole change (#603).
 
-Files: realm [`deploy/keycloak/feedbackops-realm.json`](../../../../ops/feedbackops/deploy/keycloak/feedbackops-realm.json), local services in [`docker-compose.dev.yml`](../../../../ops/feedbackops/docker-compose.dev.yml) (compose profile `auth`), env block in [`.env.example`](../../../../ops/feedbackops/.env.example). OIDC contract: [oidc-and-images.md](oidc-and-images.md).
+Files: realm [`deploy/keycloak/feedbackops-realm.json`](../../../../ops/platform-api/deploy/keycloak/feedbackops-realm.json), local services in [`docker-compose.dev.yml`](../../../../ops/platform-api/docker-compose.dev.yml) (compose profile `auth`), env block in [`.env.example`](../../../../ops/platform-api/.env.example). OIDC contract: [oidc-and-images.md](oidc-and-images.md).
 
 ## What the realm `feedbackops` does
 
@@ -20,11 +20,11 @@ Files: realm [`deploy/keycloak/feedbackops-realm.json`](../../../../ops/feedback
 
 1. Start the stack (the default `docker compose up` is unchanged; the `auth` profile adds Keycloak :8085 and Mailpit :8025/SMTP 1025):
 
-       cd ops/feedbackops
+       cd ops/platform-api
        docker compose -f docker-compose.dev.yml --profile auth up -d
 
    Keycloak admin console: http://localhost:8085 (admin / admin, local only). The realm import takes some seconds; wait until `http://localhost:8085/realms/feedbackops/.well-known/openid-configuration` answers.
-2. Point the backend at it with the `.env.example` block "Keycloak (local, profile auth)": `AUTH_PROVIDER=oidc`, issuer `http://localhost:8085/realms/feedbackops`, client id `feedbackops`, secret `local-dev-secret`, redirect `http://localhost:3011/auth/callback`. Use a throwaway database, not the shared 5434 dev DB (`apps/fo-backend/AGENTS.md` → Verification).
+2. Point the backend at it with the `.env.example` block "Keycloak (local, profile auth)": `AUTH_PROVIDER=oidc`, issuer `http://localhost:8085/realms/feedbackops`, client id `feedbackops`, secret `local-dev-secret`, redirect `http://localhost:3011/auth/callback`. Use a throwaway database, not the shared 5434 dev DB (`apps/platform-api/AGENTS.md` → Verification).
 3. Start backend and frontend, open the frontend login and choose the OIDC login.
 4. Register with an allowed address (`you@example.com`) and your name. An address outside the domain is rejected on the form with `사내 이메일 주소로만 가입할 수 있습니다.`. The form has no password field; open the verification mail in Mailpit (http://localhost:8025), follow the link, and set a password of at least 12 characters there.
 5. Open Mailpit (http://localhost:8025), click the verification link. Login is blocked until then.

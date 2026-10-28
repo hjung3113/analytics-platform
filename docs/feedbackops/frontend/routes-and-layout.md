@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document defines retained semantic screen URL state and list/detail behavior. #597 retires the standalone host. Paths below are screen intents consumed by the bridge, not deployed standalone routes or a redirect table. Actual platform menu URLs live in `menus/feedbackops/*` and `packages/adapters/fo-bridge/src/fo/*-routes.ts`. Old Home tabs, app rail/sidebar, login/bootstrap and file-route registration are retired; the platform owns those compositions. Test-local adapters may still exercise screen state through a memory router.
+This document defines retained semantic screen URL state and list/detail behavior. #597 retires the standalone host. Paths below are screen intents consumed by the bridge, not deployed standalone routes or a redirect table. Actual platform menu URLs live in `menus/feedbackops/*` and `packages/adapters/feature-bridge/src/fo/*-routes.ts`. Old Home tabs, app rail/sidebar, login/bootstrap and file-route registration are retired; the platform owns those compositions. Test-local adapters may still exercise screen state through a memory router.
 
 Product UI intent lives in `docs/design/12-ui-ux-principles.md`.
 Reusable component contracts live in `docs/frontend/ui-design-system.md`.
@@ -79,7 +79,7 @@ Route naming rules:
 - `managedSystem=all` means the actor's effective Managed System scope union. It is workspace-wide only for Admin.
 - Work Initiatives may group execution work after triage, but they are not VOC scope owners.
 - Work Initiative routes are future routes and are not part of the MVP route contract.
-- `/my-work` is not an MVP route (ADR-0038, ADR-0040). No route is registered. `apps/fo-frontend/src/features/my-work/` is the future implementation location only.
+- `/my-work` is not an MVP route (ADR-0038, ADR-0040). No route is registered. `apps/feature-screens/src/features/my-work/` is the future implementation location only.
 ```
 
 ## Document Titles
@@ -96,7 +96,7 @@ VOC route views:
 - `/vocs?view=inbox` is the open-processing workspace for newly submitted, recently updated, waiting reporter, and follow-up-needed VOCs.
 - `/vocs?view=triage` is the structured decision workspace for ownership, severity, Analytics Area, similar VOC, follow-up, and no-follow-up decisions.
 - Inbox and Triage share the `/vocs` route family and list/detail mechanics, but Triage must not be implemented as only an Inbox filter.
-- Broader browsing is served by sidebar saved views (`apps/fo-frontend/src/lib/api/saved-views.ts`, `docs/implementation/api/saved-views.md`); `/vocs?view=list` is not a registered route. Saved views are surface-scoped: the sidebar lists only the active surface's views, and a domain without a saved-view surface (Home, Surveys, Integration, Admin) lists none (#870).
+- Broader browsing is served by sidebar saved views (`apps/feature-screens/src/lib/api/saved-views.ts`, `docs/implementation/api/saved-views.md`); `/vocs?view=list` is not a registered route. Saved views are surface-scoped: the sidebar lists only the active surface's views, and a domain without a saved-view surface (Home, Surveys, Integration, Admin) lists none (#870).
 - `/voc-clusters` owns cluster-specific list/detail behavior.
 - The global VOC rail uses loaded navigation counts for its landing: a `voc.inbox` key, including zero, links to `/vocs?view=inbox`; an omitted key links to `/vocs?view=my`. While counts are loading or unavailable after an error, keep the Inbox destination. This landing hint does not replace route or backend authorization.
 ```
@@ -158,7 +158,7 @@ empty states, and ordering affordances, but it must not infer hidden queues from
 role labels alone.
 
 `/home?tab=inbox` (tab label `수신함`) is the Actor's notification inbox
-(`apps/fo-frontend/src/features/home/InboxPanel.tsx`; contract
+(`apps/feature-screens/src/features/home/InboxPanel.tsx`; contract
 `docs/implementation/api/notifications.md`), with an `읽지 않음` / `전체` filter. The
 global rail's bell links to it and shows an unread count badge. The Dashboard
 tab is the default and omits `tab`.
@@ -346,11 +346,11 @@ answer different user questions:
 
 The Dashboard queue links shown on Home and Integration are aggregate list routes, not per-record links. Each
 queue's `next_action` and `secondary_action` carry `label`, `route`, and an `intent` string
-(`packages/fo-shared/src/dashboard.ts`). Navigation uses `route` only; `intent` maps to the Integration button label
-(`apps/fo-frontend/src/lib/copy/dashboard-actions.ts`) and is not a URL search key, so no `action=` intent is carried on these links. Each route is the filtered
+(`packages/feature-shared/src/dashboard.ts`). Navigation uses `route` only; `intent` maps to the Integration button label
+(`apps/feature-screens/src/lib/copy/dashboard-actions.ts`) and is not a URL search key, so no `action=` intent is carried on these links. Each route is the filtered
 source list the queue count promises (#1179). Home and Integration append
 `managedSystem=<id>` to a queue route when a specific Managed System is selected
-(`hrefWithManagedSystem` in `apps/fo-frontend/src/lib/router/managed-system-href.ts`);
+(`hrefWithManagedSystem` in `apps/feature-screens/src/lib/router/managed-system-href.ts`);
 with no selection or `all`, the bare route is used and the destination applies the
 caller's effective scope. Shipped queue routes:
 
@@ -375,7 +375,7 @@ caller's effective scope. Shipped queue routes:
 
 ## AppShell Layout
 
-Desktop (≥1024px) only is built; the tablet/mobile rules below are the target contract, out of scope until responsive lands — `apps/fo-frontend/AGENTS.md`.
+Desktop (≥1024px) only is built; the tablet/mobile rules below are the target contract, out of scope until responsive lands — `apps/feature-screens/AGENTS.md`.
 
 ```text
 Desktop >= 1024px:
@@ -469,8 +469,8 @@ and still submits that one grant. After success, the selected grant offers
 no notice. Use workspace Actor display names, never email; retain input/focus
 on errors.
 
-Canonical copy owners are `apps/fo-frontend/src/lib/copy/home.ts` and
-`apps/fo-frontend/src/lib/copy/admin-permissions.ts`; update them in implementation.
+Canonical copy owners are `apps/feature-screens/src/lib/copy/home.ts` and
+`apps/feature-screens/src/lib/copy/admin-permissions.ts`; update them in implementation.
 Verify desktop 1440, keyboard focus and existing visual fixtures before delivery.
 
 ## Close-out recovery and responsibility URL contract (ADR-0067)
@@ -653,7 +653,7 @@ System and other search context, clear the old selection and restore through bro
 
 Task backlog, `내 Task`, Task board, and Findings expose `SearchInput` with
 placeholder `제목 또는 ID`. The route-lifetime shared
-`apps/fo-frontend/src/lib/useCommittedSearchDraft.ts` restores URL `q`, keeps a local
+`apps/feature-screens/src/lib/useCommittedSearchDraft.ts` restores URL `q`, keeps a local
 draft, and commits on Enter/blur or debounce (300 ms; Hangul-final text 700 ms).
 Blank search omits `q`; the strict route schemas use the same trimmed, max-100
 query contract as the API. Each search changes the list query key and starts

@@ -1,5 +1,0 @@
-{
-  "extends": "@ap/tsconfig/base.json",
-  "compilerOptions": { "paths": { "@/*": ["../../../apps/fo-frontend/src/*"] } },
-  "include": ["src"]
-}

@@ -1,0 +1,4 @@
+{
+  "tailwind": { "css": "../../apps/feature-screens/src/styles.css" },
+  "aliases": { "ui": "./src" }
+}

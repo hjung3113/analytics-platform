@@ -1,15 +1,15 @@
 ---
 paths:
-  - "apps/fo-backend/src/**/*.test.ts"
-  - "apps/fo-backend/src/**/__tests__/**"
-  - "apps/fo-backend/src/test-support/**"
+  - "apps/platform-api/src/**/*.test.ts"
+  - "apps/platform-api/src/**/__tests__/**"
+  - "apps/platform-api/src/test-support/**"
 ---
 
 # Backend integration test traps
 
 Paths below are relative to the repository root (FeedbackOps moved from the frozen FeedbackOps repo, ADR-0072).
 
-The gate, env, reset contract, and teardown rules are in `apps/fo-backend/AGENTS.md` → Verification. These are the additional measured traps.
+The gate, env, reset contract, and teardown rules are in `apps/platform-api/AGENTS.md` → Verification. These are the additional measured traps.
 
 ## What a test must do to prove anything
 
@@ -21,16 +21,16 @@ The gate, env, reset contract, and teardown rules are in `apps/fo-backend/AGENTS
 
 ## Rate limits
 
-- A `429 rate_limited.actor` in a test is a per-actor route-group limit (`apps/fo-backend/src/lib/rate-limit-tiers.ts`; usually the `mutation` group, 10 per minute), not the global limit. Find the route's tier first. The window is stored in Postgres, so an immediate rerun keeps the current count.
+- A `429 rate_limited.actor` in a test is a per-actor route-group limit (`apps/platform-api/src/lib/rate-limit-tiers.ts`; usually the `mutation` group, 10 per minute), not the global limit. Find the route's tier first. The window is stored in Postgres, so an immediate rerun keeps the current count.
 - Seed fixtures through SQL (see `seed()` in `survey-results.integration.test.ts`) and use HTTP only for the mutation under test. If that is not enough, give each mutating test its own actor.
 - Never change, stub, sleep around, or retry around the limiter.
 
 ## Fixtures and teardown
 
 - Session rows are not per-test garbage: deleting `core.sessions` in `beforeEach` revokes cookies minted in `beforeAll`, and later requests return `401 auth.session_invalid`. Clean sessions in `afterAll` only.
-- Tear down children before parents: grant → managed system → session → actor, and vocs/managed systems/actors before workspaces. Audit-log and permission-request rows go first; see `apps/fo-backend/AGENTS.md` → Verification.
+- Tear down children before parents: grant → managed system → session → actor, and vocs/managed systems/actors before workspaces. Audit-log and permission-request rows go first; see `apps/platform-api/AGENTS.md` → Verification.
 - `db.execute` returns `timestamptz` as text, not `Date`. Normalize with `v instanceof Date ? v : new Date(v)`; an empty-result test never exercises the mapping.
 
 ## Authorization is two layers
 
-`roleSatisfies` is only the bottom layer; the admin-bypass layer on top is described in `apps/fo-backend/src/modules/permissions/AGENTS.md`. To decide whether an actor has a capability, read the enforcement path the route actually calls. Persona grants for `SEED_MODE=personas` are pinned in `apps/fo-backend/src/db/__tests__/persona-seed.integration.test.ts`.
+`roleSatisfies` is only the bottom layer; the admin-bypass layer on top is described in `apps/platform-api/src/modules/permissions/AGENTS.md`. To decide whether an actor has a capability, read the enforcement path the route actually calls. Persona grants for `SEED_MODE=personas` are pinned in `apps/platform-api/src/db/__tests__/persona-seed.integration.test.ts`.

@@ -21,7 +21,7 @@ Role meanings, the default-user boundary, and the capability matrix: docs/design
 that compare `role_level` move together.
 
 Capability vocabulary is module-prefixed (`{module}.{action}`,
-`packages/fo-shared/src/enums/capabilities.ts`). Slice 5 (ADR-0024) adds
+`packages/feature-shared/src/enums/capabilities.ts`). Slice 5 (ADR-0024) adds
 `finding.read` (read a Finding / its entity links) and `finding.manage`
 (create/update a Finding). Both are Developer-requestable per Managed System and
 are NOT sensitive. Reading or creating a Finding is Admin (workspace) or
@@ -77,7 +77,7 @@ alone.
    workspace.admin, voc.triage, and voc.read. User satisfies only workspace.read.
    Developer satisfies none and needs Managed System grants.
 2. Module bypass, declared per capability in CAPABILITY_META.adminModuleBypass
-   (packages/fo-shared/src/enums/capabilities.ts):
+   (packages/feature-shared/src/enums/capabilities.ts):
    - always: finding.read, finding.manage, task_request.self_approve
    - unless_denied: survey.read, survey.manage (an explicit deny still wins, ADR-0033 section C)
    - none: every other capability, including survey.read_personal_responses and survey.export
@@ -156,7 +156,7 @@ workspace-wide bypass.
 
 Sensitive permission requests require a reason (`validation.sensitive_reason_required`).
 Sensitivity is per capability, `CAPABILITY_META.sensitive` in
-`packages/fo-shared/src/enums/capabilities.ts`:
+`packages/feature-shared/src/enums/capabilities.ts`:
 
 ```text
 workspace.admin
@@ -304,7 +304,7 @@ An Admin deciding their own Permission Request is a self-approval. The resolved
 workspace `permission_self_approval` setting defaults to `allowed`; in that
 mode the approve body must include strict
 `self_approval: { policy_citation: string, peer_reviewer_absence: string }`.
-The approve body schema lives in `packages/fo-shared/src/permissions/decisions.ts`, and the backend route imports it rather than declaring its own.
+The approve body schema lives in `packages/feature-shared/src/permissions/decisions.ts`, and the backend route imports it rather than declaring its own.
 The recorded `permission_approved` audit detail carries this envelope only for
 self-approval. The envelope is rejected for an approval decided by another
 Admin. If the workspace setting is `forbidden`, self-approval returns
@@ -320,7 +320,7 @@ returns permission.denied; allowed requires the same strict self_approval envelo
 and records self_grant: true plus the envelope. Another-Actor grant rejects that
 envelope. This is capability authority, not a Role Level promotion.
 
-The canonical event values (`AUDIT_EVENT_TYPES`), Zod enum (`auditEventTypeSchema`), and per-event detail schemas (`AUDIT_EVENT_DETAIL_SCHEMAS`) are aggregated in `packages/fo-shared/src/enums/audit-events.ts`. The event literals and detail schemas are owned per domain in `packages/fo-shared/src/audit/*.ts`.
+The canonical event values (`AUDIT_EVENT_TYPES`), Zod enum (`auditEventTypeSchema`), and per-event detail schemas (`AUDIT_EVENT_DETAIL_SCHEMAS`) are aggregated in `packages/feature-shared/src/enums/audit-events.ts`. The event literals and detail schemas are owned per domain in `packages/feature-shared/src/audit/*.ts`.
 
 Audit events (the permission and task-request subset; the full vocabulary is in code):
 

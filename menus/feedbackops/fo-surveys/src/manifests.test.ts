@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { surveyBuilderRoute, surveyFollowUpRoute, surveyResultsRoute, surveysRoute } from '@ap/fo-bridge';
 import { manifests } from './index';
 
-const FRONTEND = '../../../../apps/fo-frontend/src/';
+const FRONTEND = '../../../../apps/feature-screens/src/';
 const read = (path: string) => readFileSync(fileURLToPath(new URL(`${FRONTEND}${path}`, import.meta.url)), 'utf8');
 const PARTICIPATION_COPY = read('lib/copy/survey-participation.ts');
 const byId = (id: string) => manifests.find(entry => entry.id === id)!;

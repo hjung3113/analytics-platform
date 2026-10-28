@@ -37,7 +37,7 @@
 
 ## 코드
 
-- 루트 pnpm workspace: `apps/*`, `packages/*`(FeedbackOps `fo-*`), `packages/sdk/*`, `packages/adapters/*`, `menus/*/*`, `tooling/*`. Node 26.7.0, pnpm 11.1.1. 명령은 루트에서 `pnpm install|dev|lint|typecheck|test|build|e2e`.
+- 루트 pnpm workspace: `apps/*`, `packages/*`(FeedbackOps `feature-*`), `packages/sdk/*`, `packages/adapters/*`, `menus/*/*`, `tooling/*`. Node 26.7.0, pnpm 11.1.1. 명령은 루트에서 `pnpm install|dev|lint|typecheck|test|build|e2e`.
 - 의존 방향은 `contracts → ui/kernel → components → shell → apps`, 역방향 import 금지(경계 lint가 강제, 원본 `docs/integration/platform-packages.md` §3). FeedbackOps primitive는 `@ap/ui`로만 소비한다.
 - Kernel·공통 컴포넌트·셸은 메뉴와 mock을 모른다. 메뉴 목록은 Registry로, 서버는 `PlatformAdapter`로 앱이 주입한다.
 
@@ -68,9 +68,9 @@
 
 새 화면 설계 절차(Requirements → IA → Screen Spec → Wireframe → Open Decisions)는 `.agents/skills/analysis-platform-wireframe/SKILL.md`.
 
-## FeedbackOps (`apps/fo-*`·`packages/fo-*`·`docs/feedbackops/`·`ops/feedbackops/`)
+## FeedbackOps (`apps/{platform-api,feature-screens}`·`packages/feature-*`·`docs/feedbackops/`·`ops/platform-api/`)
 
-FeedbackOps는 이 저장소의 일반 코드다(서브모듈 아님, [ADR-0066](docs/adr/0066-feedbackops-merges-into-platform.md), #592). 앱·패키지(`@fops/*`)는 `apps/fo-backend`·`apps/fo-frontend`·`packages/fo-shared`·`packages/fo-ui`, 문서는 `docs/feedbackops/`에 있다([ADR-0090](docs/adr/0090-repo-structure-by-branch.md), #713). 루트 pnpm workspace의 일부이고(#642) Node 26.7·pnpm 11·루트 lockfile·turbo를 함께 쓰며 `@ap/ui`는 `workspace:*`로 받는다. 린트는 자체 Biome이고, 루트 `lint|typecheck|test|build`는 FeedbackOps를 뺀다. FeedbackOps 루트 도구(스크립트·게이트·compose·conductor, 워크스페이스 패키지 `@fops/ops`)는 `ops/feedbackops/`에 있고 FeedbackOps 명령은 저장소 루트에서 `pnpm --filter @fops/ops <script>`·`bash ops/feedbackops/scripts/ci/gate.sh …`로 실행한다(앱·패키지 위치는 `ops/feedbackops/paths.sh`·`paths.mjs` 한 곳, [ADR-0090](docs/adr/0090-repo-structure-by-branch.md)). 내부 작업은 `docs/feedbackops/AGENTS.md`와 각 앱·패키지의 `AGENTS.md`를 따르며, 플랫폼 규칙을 소급 적용하지 않는다. CI는 `.github/workflows/feedbackops.yml`(`docs/feedbackops/`·`apps/fo-*`·`packages/fo-*`·`ops/feedbackops/`, `packages/sdk/{ui,contracts}`·`packages/adapters/{http-adapter,server-conformance}`, 루트 manifest·lockfile 등이 바뀔 때 — 경로 목록의 원본은 그 파일). 통합 계약이 충돌하면 한쪽을 임의로 고치지 말고 사용자에게 올린다. 구조는 `docs/integration/repository-layout.md`.
+FeedbackOps는 이 저장소의 일반 코드다(서브모듈 아님, [ADR-0066](docs/adr/0066-feedbackops-merges-into-platform.md), #592). 앱·패키지(`@fops/*`)는 `apps/platform-api`·`apps/feature-screens`·`packages/feature-shared`·`packages/feature-ui`, 문서는 `docs/feedbackops/`에 있다([ADR-0090](docs/adr/0090-repo-structure-by-branch.md), #713). 루트 pnpm workspace의 일부이고(#642) Node 26.7·pnpm 11·루트 lockfile·turbo를 함께 쓰며 `@ap/ui`는 `workspace:*`로 받는다. 린트는 자체 Biome이고, 루트 `lint|typecheck|test|build`는 FeedbackOps를 뺀다. FeedbackOps 루트 도구(스크립트·게이트·compose·conductor, 워크스페이스 패키지 `@fops/ops`)는 `ops/platform-api/`에 있고 FeedbackOps 명령은 저장소 루트에서 `pnpm --filter @fops/ops <script>`·`bash ops/platform-api/scripts/ci/gate.sh …`로 실행한다(앱·패키지 위치는 `ops/platform-api/paths.sh`·`paths.mjs` 한 곳, [ADR-0090](docs/adr/0090-repo-structure-by-branch.md)). 내부 작업은 `docs/feedbackops/AGENTS.md`와 각 앱·패키지의 `AGENTS.md`를 따르며, 플랫폼 규칙을 소급 적용하지 않는다. CI는 `.github/workflows/feedbackops.yml`(`docs/feedbackops/`·`apps/{platform-api,feature-screens}`·`packages/feature-*`·`ops/platform-api/`, `packages/sdk/{ui,contracts}`·`packages/adapters/{http-adapter,server-conformance}`, 루트 manifest·lockfile 등이 바뀔 때 — 경로 목록의 원본은 그 파일). 통합 계약이 충돌하면 한쪽을 임의로 고치지 말고 사용자에게 올린다. 구조는 `docs/integration/repository-layout.md`.
 
 ## 폴더별 지침
 
@@ -84,7 +84,7 @@ FeedbackOps는 이 저장소의 일반 코드다(서브모듈 아님, [ADR-0066]
 | [`tooling/`](tooling/AGENTS.md) | 공유 tsconfig·경계 lint·메뉴 생성기(`pnpm gen:menu`)·CSS selector 비교 |
 | [`site/`](site/AGENTS.md) | 도입 소개 페이지(정적, workspace 밖)와 Pages 조립 |
 | [`archive/`](archive/AGENTS.md) | 통합 전 Kernel 단위 프로토타입(보존, 새 기능 금지) |
-| [`docs/feedbackops/`](docs/feedbackops/AGENTS.md) | FeedbackOps 문서와 규칙(앱·패키지는 `apps/fo-*`·`packages/fo-*`, 루트 workspace의 `@fops/*`, 위 경계 참조) |
+| [`docs/feedbackops/`](docs/feedbackops/AGENTS.md) | FeedbackOps 문서와 규칙(앱·패키지는 `apps/{platform-api,feature-screens}`·`packages/feature-*`, 루트 workspace의 `@fops/*`, 위 경계 참조) |
 
 ## 에이전트 자산
 

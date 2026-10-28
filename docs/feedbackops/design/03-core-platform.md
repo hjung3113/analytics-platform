@@ -106,7 +106,7 @@ Project language in older docs is superseded for MVP. If needed later, use Work 
 
 Notification is a per-Actor in-app inbox (`core.notifications`, shown in the Home Inbox tab) with an optional email channel per event type. It is not a second audit log: audit history stays in `core.audit_log`.
 
-Dispatch is code-driven. A catalogue in `apps/fo-backend/src/modules/notifications/catalogue.ts` declares the closed event set, recipients, and channels; producers call `notify()` in the same transaction as the mutation. There are no per-Actor notification preferences in MVP. Decision: `docs/adr/0014-notifications-in-app-and-email-channels.md`. Endpoints and producers: `docs/implementation/api/notifications.md`.
+Dispatch is code-driven. A catalogue in `apps/platform-api/src/modules/notifications/catalogue.ts` declares the closed event set, recipients, and channels; producers call `notify()` in the same transaction as the mutation. There are no per-Actor notification preferences in MVP. Decision: `docs/adr/0014-notifications-in-app-and-email-channels.md`. Endpoints and producers: `docs/implementation/api/notifications.md`.
 
 ## Data Model Draft
 

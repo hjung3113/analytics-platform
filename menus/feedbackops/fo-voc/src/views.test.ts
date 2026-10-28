@@ -22,7 +22,7 @@ describe('VOC sidebar views', () => {
   });
 
   it('keeps the ko labels equal to the FeedbackOps glossary values', () => {
-    const glossary = readFileSync(fileURLToPath(new URL('../../../../apps/fo-frontend/src/lib/copy/glossary.ts', import.meta.url)), 'utf8');
+    const glossary = readFileSync(fileURLToPath(new URL('../../../../apps/feature-screens/src/lib/copy/glossary.ts', import.meta.url)), 'utf8');
     for (const { view } of VIEWS) expect(glossary, view.id).toContain(`'${view.label.ko}'`);
   });
 });
