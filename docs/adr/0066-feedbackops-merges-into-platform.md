@@ -26,7 +26,7 @@ ADR-0027은 FeedbackOps를 독립 앱으로 두고 업무 공간에서 새 탭 �
 4. **화면은 다시 쓰지 않고 옮긴다.** FeedbackOps 화면 코드를 Kernel 라우팅·Registry에 맞춰 옮긴다. ADR-0018 A안의 "플랫폼 메뉴로 재작성"이 아니다.
 5. **화면은 보는 사람 기준으로 나누고, 데이터 주인은 나누지 않는다.** 전역 기능 화면도 FeedbackOps 백엔드의 같은 도메인 API를 쓴다. VOC·설문·Finding·Task의 저장소는 하나이고, 시스템 간 이력은 `entity_links`가 원본이며, VOC 상태 기계 셋은 서로 자동 매핑하지 않는다(FO ADR-0005). 설문 응답에서 VOC를 만들지 않는다.
 6. **플랫폼 실서버는 FeedbackOps 백엔드에서 출발한다.** FeedbackOps 백엔드가 [HTTP 어댑터 계약](../integration/http-adapter-contract.md)의 플랫폼 공통 부분(세션·권한 조회·감사·활용률·공지·엔티티)을 구현하고, 플랫폼 앱의 실어댑터 조립(#154)이 그 서버를 쓴다. 서버는 계약만 SDK가 정한다는 원칙(ADR-0043, #531)은 그대로다 — FeedbackOps 백엔드는 그 계약의 첫 구현이다. **서버는 둘이다(ADR-0095, Decided):** 코어(Fastify)와 그 뒤에만 있는 분석 데이터 서버(FastAPI). 브라우저에 열리는 입구는 코어 하나다.
-7. **권한 관리는 플랫폼 업무 시스템 단위까지 넓힌다.** 플랫폼이 신원·역할·시스템별 부여/거부·요청/승인을 소유하고, FeedbackOps 도메인 판정은 그 부여를 읽어서 한다. Managed System과 업무 시스템의 관계, 역할 모델, 관리 화면 귀속은 [#596](https://github.com/hjung3113/analytics-platform/issues/596)(ready-for-human)에서 정하고, 그 전까지 FeedbackOps 권한 모듈을 그대로 쓴다.
+7. **권한 관리는 플랫폼 업무 시스템 단위까지 넓힌다.** 플랫폼이 신원·역할·시스템별 부여/거부·요청/승인을 소유하고, FeedbackOps 도메인 판정은 그 부여를 읽어서 한다. 관련 결정 이슈 [#596](https://github.com/hjung3113/analytics-platform/issues/596)은 닫혔고 [ADR-0068](0068-permission-scope-and-business-system-link.md)이 부여 체계·업무 시스템 연결 결정을 소유한다. 분석 site·site_room 부여와 신원 토큰의 권한 claim은 [#1087](https://github.com/hjung3113/analytics-platform/issues/1087)의 설계가 남아 있다.
 8. **독립 FeedbackOps는 합류 동안 유지 보수만 한다.** 버그 수정과 합류 준비만 하고 새 기능은 플랫폼 쪽에서 만든다.
 
 ## Considered Options
