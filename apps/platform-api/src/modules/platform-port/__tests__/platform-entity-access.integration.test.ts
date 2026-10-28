@@ -413,13 +413,7 @@ describe.skipIf(!runIntegration)('platform port entity + access reads (#623)', (
     const all = (extra: Record<string, unknown> = {}) => list({ pageSize: 100, ...extra });
     const ids = (rows: Row[]) => rows.map((r) => r.id);
     const asc = (...p: Person[]) => p.map((x) => x.id).sort();
-    const CANON = [
-      'platform:view',
-      'notice:view',
-      'voc:view',
-      'console:access',
-      'features:access',
-    ];
+    const CANON = ['platform:view', 'notice:view', 'voc:view', 'console:access', 'features:access'];
 
     it('401 without a session cookie', async () => {
       expect((await post('/access-directory/search', {})).statusCode).toBe(401);
