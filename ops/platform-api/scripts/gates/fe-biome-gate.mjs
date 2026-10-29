@@ -48,7 +48,9 @@ const base = git('merge-base', 'HEAD', baseRef);
 // Pure moves (R100) keep their content and are not "changed"; see changed-files.mjs. No pathspec on the diff: a move
 // from outside FEATURE_BIOME_SCOPE would lose its old path and read as an add. The scope is applied to the result.
 const inScope = (path) =>
-  FEATURE_BIOME_SCOPE.some((scope) => path === scope || path.startsWith(`${scope.replace(/\/$/, '')}/`));
+  FEATURE_BIOME_SCOPE.some(
+    (scope) => path === scope || path.startsWith(`${scope.replace(/\/$/, '')}/`),
+  );
 const changed = parseChangedFiles(
   git('diff', '--name-status', '-M', '--diff-filter=ACMR', base, 'HEAD'),
 )

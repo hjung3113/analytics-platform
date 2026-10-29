@@ -8,7 +8,9 @@ import { join } from 'node:path';
 import { FEATURE_BIOME_SCOPE, FEATURE_OPS, OPS_ROOT, featurePath } from '../paths.mjs';
 
 const bin = (name) => join(OPS_ROOT, 'node_modules', '.bin', name);
-const scope = FEATURE_BIOME_SCOPE.filter((dir) => dir !== FEATURE_OPS).map((dir) => featurePath(dir));
+const scope = FEATURE_BIOME_SCOPE.filter((dir) => dir !== FEATURE_OPS).map((dir) =>
+  featurePath(dir),
+);
 const commands = {
   // Biome runs from this package, where biome.json lives; the tool package itself is `.`.
   'biome-check': { cwd: OPS_ROOT, command: bin('biome'), args: ['check', '.', ...scope] },

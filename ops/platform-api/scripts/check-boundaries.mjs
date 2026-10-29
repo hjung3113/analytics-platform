@@ -29,7 +29,14 @@ import ts from 'typescript';
 
 import { isFeaturePackage } from '../../../tooling/eslint/src/feature-packages.js';
 
-import { FEATURE_BACKEND, FEATURE_FRONTEND, FEATURE_OPS, FEATURE_SHARED, FEATURE_UI, REPO_ROOT } from '../paths.mjs';
+import {
+  FEATURE_BACKEND,
+  FEATURE_FRONTEND,
+  FEATURE_OPS,
+  FEATURE_SHARED,
+  FEATURE_UI,
+  REPO_ROOT,
+} from '../paths.mjs';
 
 // Paths come from ops/platform-api/paths.mjs (the feature path map); the rules below name the same places by the
 // map's constants, and messages print repository-relative paths.
@@ -100,7 +107,9 @@ const RULES = [
 // Lint-only exception to rule 11: these exact files (never nested lookalikes) may import exactly `@ap/eslint-config`.
 const LINT_CONFIG_PACKAGE = '@ap/eslint-config';
 const LINT_CONFIG_FILES = new Set(
-  [FEATURE_BACKEND, FEATURE_FRONTEND, FEATURE_SHARED, FEATURE_UI].map((dir) => join(ROOT, dir, 'eslint.config.js')),
+  [FEATURE_BACKEND, FEATURE_FRONTEND, FEATURE_SHARED, FEATURE_UI].map((dir) =>
+    join(ROOT, dir, 'eslint.config.js'),
+  ),
 );
 
 const EXT = new Set(['.ts', '.tsx', '.mts', '.cts', '.js', '.jsx']);
@@ -432,7 +441,9 @@ for (const manifest of manifests) {
         /^@ap\//.test(dep) &&
         !isFeaturePackage(dep) &&
         dep !== '@ap/ui' &&
-        !(manifest === join(ROOT, FEATURE_BACKEND, 'package.json') && dep === '@ap/contract-schemas')
+        !(
+          manifest === join(ROOT, FEATURE_BACKEND, 'package.json') && dep === '@ap/contract-schemas'
+        )
       ) {
         violations++;
         console.error(

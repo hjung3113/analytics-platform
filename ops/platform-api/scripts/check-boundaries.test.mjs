@@ -10,7 +10,13 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { FEATURE_BACKEND, FEATURE_FRONTEND, FEATURE_OPS, FEATURE_SHARED, FEATURE_UI } from '../paths.mjs';
+import {
+  FEATURE_BACKEND,
+  FEATURE_FRONTEND,
+  FEATURE_OPS,
+  FEATURE_SHARED,
+  FEATURE_UI,
+} from '../paths.mjs';
 
 const SCRIPT = fileURLToPath(new URL('check-boundaries.mjs', import.meta.url));
 const MODULES = join(FEATURE_BACKEND, 'src', 'modules');
@@ -261,7 +267,10 @@ runCase(
       "import { analyticsAreas } from '../db/schema/core';\n",
   },
   false,
-  [`${FEATURE_BACKEND}/src/modules/findings/creation.ts:1`, `${FEATURE_BACKEND}/src/test-support/seed.ts:1`],
+  [
+    `${FEATURE_BACKEND}/src/modules/findings/creation.ts:1`,
+    `${FEATURE_BACKEND}/src/test-support/seed.ts:1`,
+  ],
 );
 
 runCase(
@@ -306,7 +315,10 @@ runCase(
       'await tx.execute(sql`delete from voc.vocs using core.analytics_areas`);\n',
   },
   false,
-  [`${FEATURE_BACKEND}/src/modules/tasks/comma-join.ts:1`, `${FEATURE_BACKEND}/src/modules/tasks/using.ts:1`],
+  [
+    `${FEATURE_BACKEND}/src/modules/tasks/comma-join.ts:1`,
+    `${FEATURE_BACKEND}/src/modules/tasks/using.ts:1`,
+  ],
 );
 
 runCase(
@@ -408,7 +420,8 @@ runCase(
   'frontend importing the sibling backend app fails',
   {
     ...zero,
-    [join(FEATURE_FRONTEND, 'src', 'probe.ts')]: "import x from '../../platform-api/src/server.js';\n",
+    [join(FEATURE_FRONTEND, 'src', 'probe.ts')]:
+      "import x from '../../platform-api/src/server.js';\n",
   },
   false,
   [`${FEATURE_FRONTEND}/src/probe.ts:`, 'must not import apps/platform-api'],
@@ -418,7 +431,8 @@ runCase(
   'backend importing the sibling frontend app fails',
   {
     ...zero,
-    [join(FEATURE_BACKEND, 'src', 'probe.ts')]: "import x from '../../feature-screens/src/main.js';\n",
+    [join(FEATURE_BACKEND, 'src', 'probe.ts')]:
+      "import x from '../../feature-screens/src/main.js';\n",
   },
   false,
   [`${FEATURE_BACKEND}/src/probe.ts:`, 'apps/feature-screens'],
@@ -502,10 +516,12 @@ runCase(
     ...zero,
     [join(FEATURE_BACKEND, 'src', 'eslint.config.js')]: LINT_PRESET,
     [join(FEATURE_UI, 'src', 'nested', 'eslint.config.js')]: LINT_PRESET,
-    [join(FEATURE_BACKEND, 'src', 'lint.ts')]: "import { featureServerPreset } from '@ap/eslint-config';\n",
+    [join(FEATURE_BACKEND, 'src', 'lint.ts')]:
+      "import { featureServerPreset } from '@ap/eslint-config';\n",
     [join(FEATURE_OPS, 'eslint.config.js')]: LINT_PRESET,
     [join(FEATURE_FRONTEND, 'src', 'eslint.config.js')]: LINT_PRESET,
-    [join(FEATURE_FRONTEND, 'src', 'lint.ts')]: "import { featureScreensPreset } from '@ap/eslint-config';\n",
+    [join(FEATURE_FRONTEND, 'src', 'lint.ts')]:
+      "import { featureScreensPreset } from '@ap/eslint-config';\n",
     [join(FEATURE_SHARED, 'eslint.config.ts')]: LINT_PRESET,
   },
   false,
