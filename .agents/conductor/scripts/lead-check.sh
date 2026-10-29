@@ -4,6 +4,8 @@
 #   duplicate-write     two or more running write workers (roles impl*, fix) share one cwd
 #   unowned-listener    a listener on a reserved preview/E2E port that no running worker or preview owns
 #   idle-terminal       a done/stopped worker's Orca terminal is still listed
+# Worker status matches board.py (#1149 Q2): a pid-less TUI worker whose Orca terminal is no longer
+#   listed is closed; when the terminal list is unavailable it stays running. The list is queried once.
 # Reserved ports: the LANES §Lanes E2E ports and their +1 base-path ports, the conductor.json
 #   app_preview range, and 5173. Keep the LANES port list in sync when a lane is added.
 # Exit 10 when any finding, or when capacity says start=no, lock-audit.sh exits 10, or board.py check exits 10.
@@ -63,7 +65,7 @@ def ps_text(pid, field):
     except (OSError, subprocess.TimeoutExpired):
         return ''
 
-def worker_status(s, path):  # same rule as wave-status.py: done | closed | running | stopped
+def worker_status(s, path, terminals):  # same rule as board.py: done | closed | running | stopped
     started = s.get('started_at') or int(path.stat().st_mtime)
     report, sentinel = Path(s.get('report', '')), s.get('sentinel')
     if sentinel and report.is_file() and report.stat().st_mtime >= started:
@@ -74,6 +76,8 @@ def worker_status(s, path):  # same rule as wave-status.py: done | closed | runn
         return 'closed'
     if s.get('pid'):
         return 'running' if alive(s['pid']) else 'stopped'
+    if s.get('terminal') and terminals is not None and s['terminal'] not in terminals:
+        return 'closed'  # a TUI worker has no pid; its closed terminal means it ended (as board.py)
     return 'running'
 
 def write_role(role):
@@ -88,11 +92,31 @@ for path in sorted(state_dir.glob('*.json')):
     except (ValueError, OSError):
         continue
 
+# The Orca terminal list, queried once (Q2): worker status and the idle-terminal finding share it.
+terminals = None
+fixture = os.environ.get('LEAD_CHECK_TERMINALS')
+if fixture is not None:
+    try:
+        terminals = {t.get('handle') for t in json.loads(fixture).get('result', {}).get('terminals', [])
+                     if t.get('handle')}
+    except ValueError:
+        notes.append('terminal list fixture unreadable — idle-terminal and closed-TUI checks skipped')
+else:
+    try:
+        r = subprocess.run(['orca', 'terminal', 'list', '--json'], capture_output=True, text=True, timeout=20)
+        if r.returncode == 0:
+            terminals = {t.get('handle') for t in json.loads(r.stdout).get('result', {}).get('terminals', [])
+                         if t.get('handle')}
+        else:
+            notes.append('orca terminal list unavailable — idle-terminal and closed-TUI checks skipped')
+    except (OSError, subprocess.TimeoutExpired, ValueError):
+        notes.append('orca terminal list unavailable — idle-terminal and closed-TUI checks skipped')
+
 # 1. Two or more running write workers share one cwd.
 running_write = defaultdict(list)
 worker_pids = {}
 for name, s, path in workers:
-    if worker_status(s, path) != 'running':
+    if worker_status(s, path, terminals) != 'running':
         continue
     if isinstance(s.get('pid'), int) and alive(s['pid']):
         worker_pids[s['pid']] = name
@@ -150,27 +174,9 @@ for port in ports:
         findings.append(f'unowned-listener: port {port} pid {pid} ({cmd}) is owned by no running worker or preview')
 
 # 3. A done/stopped worker's Orca terminal is still listed.
-terminals = None
-fixture = os.environ.get('LEAD_CHECK_TERMINALS')
-if fixture is not None:
-    try:
-        terminals = {t.get('handle') for t in json.loads(fixture).get('result', {}).get('terminals', [])
-                     if t.get('handle')}
-    except ValueError:
-        notes.append('terminal list fixture unreadable — idle-terminal check skipped')
-else:
-    try:
-        r = subprocess.run(['orca', 'terminal', 'list', '--json'], capture_output=True, text=True, timeout=20)
-        if r.returncode == 0:
-            terminals = {t.get('handle') for t in json.loads(r.stdout).get('result', {}).get('terminals', [])
-                         if t.get('handle')}
-        else:
-            notes.append('orca terminal list unavailable — idle-terminal check skipped')
-    except (OSError, subprocess.TimeoutExpired, ValueError):
-        notes.append('orca terminal list unavailable — idle-terminal check skipped')
 if terminals is not None:
     for name, s, path in workers:
-        status = worker_status(s, path)
+        status = worker_status(s, path, terminals)
         if status in ('done', 'stopped') and s.get('terminal') and s['terminal'] in terminals:
             findings.append(f'idle-terminal: worker {name} is {status} but terminal {s["terminal"]} is still listed')
 
@@ -245,8 +251,45 @@ $out" ;; *) pass=$((pass + 1)) ;; esac
 $(cat "$T/out3")"
   pass=$((pass + 1))
 
+  # Q2: a closed old TUI worker and a new impl worker in the same cwd — one writer, no duplicate-write.
+  mkdir -p "$T/wt3" "$T/wt4"
+  printf '{"name":"W-5","role":"impl","cwd":"%s","terminal":"term_old","report":"%s","sentinel":"<!-- W-5-DONE -->","started_at":1}\n' \
+    "$T/wt3" "$T/none.md" >"$T/state/W-5.json"
+  printf '{"name":"W-6","role":"impl","cwd":"%s","terminal":"term_new","report":"%s","sentinel":"<!-- W-6-DONE -->","started_at":%s}\n' \
+    "$T/wt3" "$T/none.md" "$(date +%s)" >"$T/state/W-6.json"
+  WAVE_STATE="$T/state" LEAD_CHECK_TERMINALS='{"result":{"terminals":[{"handle":"term_new"}]}}' \
+    state_findings >"$T/out4" 2>&1; rc=$?
+  [ "$rc" -eq 0 ] || fail "closed old TUI + new impl flagged (exit $rc):
+$(cat "$T/out4")"
+  pass=$((pass + 1))
+
+  # Q2: two live TUI write workers on one cwd are still a duplicate write.
+  printf '{"name":"W-7","role":"impl","cwd":"%s","terminal":"term_a","report":"%s","sentinel":"<!-- W-7-DONE -->","started_at":%s}\n' \
+    "$T/wt4" "$T/none.md" "$(date +%s)" >"$T/state/W-7.json"
+  printf '{"name":"W-8","role":"fix","cwd":"%s","terminal":"term_b","report":"%s","sentinel":"<!-- W-8-DONE -->","started_at":%s}\n' \
+    "$T/wt4" "$T/none.md" "$(date +%s)" >"$T/state/W-8.json"
+  WAVE_STATE="$T/state" \
+    LEAD_CHECK_TERMINALS='{"result":{"terminals":[{"handle":"term_a"},{"handle":"term_b"},{"handle":"term_new"}]}}' \
+    state_findings >"$T/out5" 2>&1; rc=$?
+  out=$(cat "$T/out5")
+  [ "$rc" -eq 10 ] || fail "two live TUIs not flagged (exit $rc):
+$out"
+  check_has "duplicate-write: 2 running write workers on one cwd $T/wt4: W-7, W-8" "$out"
+
+  # Q2: terminal list unavailable → the closed-TUI rule is off and pid-less TUI workers stay running (board.py).
+  rm -f "$T/state"/*.json
+  printf '{"name":"W-7","role":"impl","cwd":"%s","terminal":"term_a","report":"%s","sentinel":"<!-- W-7-DONE -->","started_at":%s}\n' \
+    "$T/wt4" "$T/none.md" "$(date +%s)" >"$T/state/W-7.json"
+  printf '{"name":"W-9","role":"impl","cwd":"%s","terminal":"term_c","report":"%s","sentinel":"<!-- W-9-DONE -->","started_at":%s}\n' \
+    "$T/wt4" "$T/none.md" "$(date +%s)" >"$T/state/W-9.json"
+  WAVE_STATE="$T/state" LEAD_CHECK_TERMINALS='not-json' state_findings >"$T/out6" 2>&1; rc=$?
+  out=$(cat "$T/out6")
+  [ "$rc" -eq 10 ] || fail "unavailable terminals should keep TUI workers running (exit $rc):
+$out"
+  check_has "duplicate-write: 2 running write workers on one cwd $T/wt4: W-7, W-9" "$out"
+
   cleanup
-  echo "lead-check.sh self-test passed: $pass assertion groups (duplicate write cwd, idle terminal, unowned listener, owned listener, clean pass)"
+  echo "lead-check.sh self-test passed: $pass assertion groups (duplicate write cwd, idle terminal, unowned listener, owned listener, clean pass, closed old TUI same cwd, two live TUIs, terminals unavailable)"
 }
 
 [ $# -le 1 ] || { echo "usage: lead-check.sh [--help|--self-test]" >&2; exit 64; }
