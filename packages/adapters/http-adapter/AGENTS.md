@@ -11,10 +11,11 @@
 - `src/adapter.ts` — `PlatformAdapter` 멤버마다 한 줄(경로·메서드·본문·CSRF).
 - `src/session/session.ts` — 세션 스냅샷 identity, `csrfToken`(메모리만), `subscribe` 폴링, single-flight 재확인과 백오프, `onSessionLost`.
 - `src/validate.ts` — 응답 모양 검사. 모르는 키는 무시한다.
+- `src/saved-views/` — HTTP saved-view store and `importLocal` (ADR-0099). `guards.ts` matches command/response wire schemas recursively and rejects unknown keys. `store.ts` sends each of the 16 commands once with CSRF.
 
 ## 규칙
 
-- 의존성은 `@ap/contracts` 하나뿐이다. React·DOM 컴포넌트·다른 `@ap/*`·`feature packages`를 import하지 않는다.
+- The only runtime dependency is `@ap/contracts`. Only test files may import the `@ap/contract-schemas/source` devDependency to check guard/wire-schema equivalence. Do not import React, DOM components, other `@ap/*` packages, or feature packages.
 - 쿠키·토큰을 저장소(`localStorage` 등)에 쓰지 않는다. 사용자 id·actor를 보내지 않는다.
 - 사용자에게 보이는 `message`는 짧은 코드(`client_timeout`·`network_error`·`session_expired`·`http_<status>`·`invalid_response`·`invalid_envelope`)뿐이다. URL·응답 본문·스택을 싣지 않는다(#101).
 - 이 패키지를 import하는 곳은 앱의 운영 조립 `apps/platform-web/src/real/**`(경계 lint)와 FeedbackOps 백엔드의 실서버 적합성 테스트(devDependency, 테스트 코드만 — ADR-0073, #674)뿐이다.

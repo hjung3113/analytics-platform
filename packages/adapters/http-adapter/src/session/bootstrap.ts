@@ -1,8 +1,9 @@
-import type { PlatformAdapter } from '@ap/contracts';
+import type { PlatformAdapter, SavedViewStore } from '@ap/contracts';
 import { createHttpAdapter } from '../adapter.js';
 import { newRequestId } from '../calls/correlation.js';
 import { createSessionStore, readBootstrap } from './session.js';
 import { createTransport } from '../calls/transport.js';
+import { createHttpSavedViews, type ImportLocal } from '../saved-views/store.js';
 
 export type HttpAdapterOptions = {
   fetch?: typeof fetch;
@@ -19,7 +20,11 @@ export type HttpAdapterOptions = {
 };
 
 export type BootstrapResult =
-  | { kind: 'ready'; adapter: PlatformAdapter }
+  /**
+   * `store` and `importLocal` share the adapter's transport, session and CSRF token (ADR-0099). `importLocal` is not part of the
+   * `SavedViewStore` port: only the real assembly's one-time browser-local import calls it.
+   */
+  | { kind: 'ready'; adapter: PlatformAdapter; store: SavedViewStore; importLocal: ImportLocal }
   | { kind: 'login' }
   | { kind: 'unavailable'; correlationId: string };
 
@@ -35,8 +40,10 @@ export async function bootstrapHttpAdapter(options: HttpAdapterOptions = {}): Pr
     if (read.kind === 'login') return { kind: 'login' };
     if (read.kind === 'failed') return { kind: 'unavailable', correlationId: read.correlationId || newRequestId() };
     const store = createSessionStore(read.payload, { transport, pollMs: options.pollMs ?? 300_000, timeoutMs, onSessionLost: options.onSessionLost });
-    const adapter = createHttpAdapter({ transport, store, timeoutMs, fireAndForgetTimeoutMs: options.fireAndForgetTimeoutMs ?? 10_000 });
-    return { kind: 'ready', adapter };
+    const context = { transport, store, timeoutMs, fireAndForgetTimeoutMs: options.fireAndForgetTimeoutMs ?? 10_000 };
+    const adapter = createHttpAdapter(context);
+    const savedViews = createHttpSavedViews(context);
+    return { kind: 'ready', adapter, store: savedViews.store, importLocal: savedViews.importLocal };
   } catch {
     return { kind: 'unavailable', correlationId: newRequestId() };
   }

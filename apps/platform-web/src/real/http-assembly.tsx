@@ -2,6 +2,7 @@ import { Alert, AlertDescription, AlertTitle, Button } from '@ap/ui';
 import { bootstrapHttpAdapter, type BootstrapResult, type HttpAdapterOptions } from '@ap/http-adapter';
 import { FO_API_PREFIX } from '../../scripts/real-dev-proxy.ts';
 import type { AssemblyOutcome, CreateAssembly } from '#platform-assembly';
+import { afterImport, runLocalImport, type LocalImportDeps } from './local-import';
 
 /**
  * This repo's real-server assembly (#154, http-adapter-contract §3 안 B): `vite --mode real` aliases `#platform-assembly`
@@ -34,15 +35,34 @@ function Unavailable({ correlationId }: { correlationId: string }) {
 type Deps = {
   bootstrap: (options: HttpAdapterOptions) => Promise<BootstrapResult>;
   where: () => Where;
+  /** Browser storage and Web Locks of the one-time local saved-view import; default to the page's own. */
+  importEnvironment?: () => Pick<LocalImportDeps, 'storage' | 'locks'>;
 };
 
+const pageEnvironment = (): Pick<LocalImportDeps, 'storage' | 'locks'> => ({
+  storage: window.localStorage,
+  locks: typeof navigator === 'undefined' ? undefined : navigator.locks,
+});
+
+/**
+ * The server saved-view store (ADR-0099) on the adapter's own transport and session. The legacy browser-local rows of the
+ * signed-in actor are offered to the server once per assembly; reads wait for that one bounded attempt and never fall back to
+ * the browser when it fails.
+ */
+function serverSavedViews(ready: Extract<BootstrapResult, { kind: 'ready' }>, environment: () => Pick<LocalImportDeps, 'storage' | 'locks'>) {
+  const imported = Promise.resolve()
+    .then(() => runLocalImport({ ...environment(), actorId: () => ready.adapter.session().user.id, importLocal: ready.importLocal }))
+    .catch(() => undefined);
+  return afterImport(ready.store, imported);
+}
+
 /** `createAssembly` with its two environment reads injected, so the branches are testable without a server. */
-export function createRealAssembly({ bootstrap, where }: Deps): () => Promise<AssemblyOutcome> {
+export function createRealAssembly({ bootstrap, where, importEnvironment = pageEnvironment }: Deps): () => Promise<AssemblyOutcome> {
   return async () => {
     const login: AssemblyOutcome = { redirect: loginHref(where()) };
     const onSessionLost = () => window.location.replace(loginHref(where()));
     const result = await bootstrap({ onSessionLost });
-    if (result.kind === 'ready') return { adapter: result.adapter, topBarTools: null, serverPreferences: true, featureApi: { basePath: FO_API_PREFIX, onSessionLost } };
+    if (result.kind === 'ready') return { adapter: result.adapter, topBarTools: null, serverPreferences: true, savedViews: serverSavedViews(result, importEnvironment), featureApi: { basePath: FO_API_PREFIX, onSessionLost } };
     if (result.kind === 'login') return login;
     return { screen: <Unavailable correlationId={result.correlationId} /> };
   };
