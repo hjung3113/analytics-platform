@@ -795,6 +795,18 @@ append-only history. `platform_app` has SELECT/INSERT and UPDATE only on decisio
 reason, actor and transition timestamps, with no DELETE or key updates. Existing
 table grants are unchanged. Drizzle-generated journal/snapshot accompany the SQL.
 
+### #1106 platform notices (0079)
+
+`platform.notices` (drizzle `db/schema/platform.ts`, owner `modules/platform-notices`) holds one row per notice:
+UUID id, workspace, server-stamped `author_actor_id`, `created_at`/`updated_at` (never returned), integer `revision`
+(`v<revision>` on the wire), bilingual title/content with `char_length` checks (200/10000), nullable `scope_id`
+(targeting, not an access boundary) and `until` as a naive `timestamp` (Asia/Seoul wall clock, compared at second
+precision). Index `(workspace_id, until)`. Grants: `platform_app` `SELECT, INSERT, UPDATE, DELETE` (hard delete; a
+delete replays from `core.idempotency_keys`), `platform_migrate` ALL. Reserved slot `0079`: it ships after `0077`
+(#1104) and `0078` (#1105); the journal and snapshot are generated when those are merged, never faked ahead of
+them, and a later merger renumbers to the next free slot. Integration teardown deletes `platform.notices` and the
+actor's `core.idempotency_keys` rows before `core.actors`.
+
 ### #622 platform port usage and client errors (0075)
 
 `0075_platform_usage_client_errors.sql` creates the schema `platform` (drizzle `db/schema/platform.ts`;

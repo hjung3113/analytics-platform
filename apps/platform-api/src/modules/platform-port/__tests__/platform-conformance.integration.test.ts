@@ -58,7 +58,19 @@ const IMPLEMENTED: readonly PortMethod[] = [
   'patchPreferences',
   'importPreferences',
   'lookupPeople',
+  'listNotices',
+  'saveNotice',
+  'deleteNotice',
 ];
+
+/**
+ * Served for one endpoint only (#1106, ADR-0095 §1): `POST /api/v1/menu-query` answers `home.notices` and
+ * nothing else. The kit's `menuQuery` checks stay a visible skip because they need what this server does
+ * not have — an actor without `notice:view` (granted to every active session) and the analytical
+ * endpoints. The positive Home response is asserted by notices.integration.test.ts. The drift guard only
+ * recognizes the route as served; it never lists the port as implemented.
+ */
+const SERVED_PARTIAL: readonly PortMethod[] = ['menuQuery'];
 
 /**
  * Served only as a gate (#622 decision 6): the route exists and answers `forbidden` to everyone, so the
@@ -309,6 +321,8 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
         ['platform.usage_events', 'actor_id'],
         ['platform.client_errors', 'actor_id'],
         ['platform.preferences', 'actor_id'],
+        ['platform.notices', 'author_actor_id'],
+        ['core.idempotency_keys', 'actor_id'],
         ['core.audit_log', 'actor_id'],
         ['permission.permission_grants', 'actor_id'],
         ['permission.permission_denies', 'actor_id'],
@@ -332,11 +346,14 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
       const jar = jars.get('granted');
       if (!jar) throw new Error('no granted session');
       const routes = await adapterRoutes(app, jar);
-      for (const method of [...IMPLEMENTED, ...GATE_ONLY])
+      for (const method of [...IMPLEMENTED, ...GATE_ONLY, ...SERVED_PARTIAL])
         expect([...routes.keys()]).toContain(method);
       const drift: string[] = [];
       for (const [method, probes] of routes) {
-        const listed = IMPLEMENTED.includes(method) || GATE_ONLY.includes(method);
+        const listed =
+          IMPLEMENTED.includes(method) ||
+          GATE_ONLY.includes(method) ||
+          SERVED_PARTIAL.includes(method);
         for (const probe of probes) {
           const has = await served(app, probe);
           if (has !== listed) {

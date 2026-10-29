@@ -554,6 +554,13 @@
       "when": 1793219233610,
       "tag": "0078_platform_saved_views",
       "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "7",
+      "when": 1793232177382,
+      "tag": "0079_platform_notices",
+      "breakpoints": true
     }
   ]
 }

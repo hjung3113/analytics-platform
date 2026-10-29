@@ -45,6 +45,8 @@
 
 **저장된 뷰 쓰기 관문 [#1105](https://github.com/hjung3113/analytics-platform/issues/1105) (완료, `sdk-v0.21.0`용).** 셸 쓰기는 Kernel `useSavedViews`를 거친다. 서버([ADR-0099](../docs/adr/0099-server-saved-view-persistence.md), 마이그레이션 0078)는 객체 ACL·공식 승인/회수·커스텀 그룹·감사·멱등 이전을 영속하고, 실서버 조립은 HTTP 저장소와 현재 사용자의 로컬 이전·사람 이름 조회를 연결한다. 브라우저 원본은 모두 보존한다. 실제 두 사용자 명령·브라우저 이전 5개와 관련 mock UI E2E 5개, 루트 검사·SDK API·mock UX를 통과했다. 실서버 세션에 분석 메뉴 권한과 Scope가 없어 렌더된 저장·공유 화면은 검증하지 못했으며, 이 한계와 재개 조건은 백로그에 남겼다.
 
+**공지 서버 [#1106](https://github.com/hjung3113/analytics-platform/issues/1106) (구현·실서버 검증 완료).** 코어 서버에 공지 저장(`platform.notices`, 마이그레이션 0079)·관리 라우트·첫 업무 `menuQuery`(`home.notices`)를 구현하고 앱 조립이 쓰기 뒤 Home 배너를 목표 갱신한다. 공지 목록·작성 화면은 소유자 제외, site 지정 공지 작성과 분석 엔드포인트는 구현 안 함([백로그](backlog.md)).
+
 ## 결정 대기 — 사람이 고를 것
 
 이슈가 있는 것:

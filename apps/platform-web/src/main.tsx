@@ -13,6 +13,7 @@ import { savedViewsSlot } from '@ap/feature-bridge/saved-views';
 import { scopeControlSlot } from '@ap/feature-bridge/scope-control';
 import { vocComposeSlot } from '@ap/feature-bridge/voc-compose-slot';
 import { createAssembly } from '#platform-assembly';
+import { EndpointInvalidationBridge } from './endpoint-invalidation-bridge';
 import { managedSystemFor } from './feedbackops-systems';
 import { createLocalQueryHistoryStore } from './query-history-store';
 import { EQUIPMENT_AXES } from './equipmentAxes';
@@ -47,6 +48,7 @@ void startOrFail(root, async () => {
     <StrictMode>
       <I18nProvider>
         <PlatformProvider serverPreferences={assembly.serverPreferences} spaceIdMigrations={SPACE_ID_MIGRATIONS} queryHistory={queryHistory} savedViews={assembly.savedViews} equipmentAxes={EQUIPMENT_AXES} adapter={assembly.adapter} registry={registry} location={location} slots={appSlots(assembly, notificationsSlot, vocCompose, homeTodoSlot, scopeControlSlot, navCountsSlot, savedViewsSlot)}>
+          {assembly.invalidation && <EndpointInvalidationBridge source={assembly.invalidation} />}
           <AppShell><RouteOutlet /></AppShell>
         </PlatformProvider>
       </I18nProvider>

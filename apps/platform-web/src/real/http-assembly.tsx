@@ -3,6 +3,7 @@ import { bootstrapHttpAdapter, type BootstrapResult, type HttpAdapterOptions } f
 import { FO_API_PREFIX } from '../../scripts/real-dev-proxy.ts';
 import type { AssemblyOutcome, CreateAssembly } from '#platform-assembly';
 import { afterImport, runLocalImport, type LocalImportDeps } from './local-import';
+import { createEndpointInvalidation, withNoticeInvalidation } from './endpoint-invalidation';
 
 /**
  * This repo's real-server assembly (#154, http-adapter-contract §3 안 B): `vite --mode real` aliases `#platform-assembly`
@@ -62,7 +63,11 @@ export function createRealAssembly({ bootstrap, where, importEnvironment = pageE
     const login: AssemblyOutcome = { redirect: loginHref(where()) };
     const onSessionLost = () => window.location.replace(loginHref(where()));
     const result = await bootstrap({ onSessionLost });
-    if (result.kind === 'ready') return { adapter: result.adapter, topBarTools: null, serverPreferences: true, savedViews: serverSavedViews(result, importEnvironment), featureApi: { basePath: FO_API_PREFIX, onSessionLost } };
+    if (result.kind === 'ready') {
+      // One decorated adapter per bootstrap (never per render): a notice write refreshes the Home banner (#1106).
+      const invalidation = createEndpointInvalidation();
+      return { adapter: withNoticeInvalidation(result.adapter, invalidation), topBarTools: null, serverPreferences: true, savedViews: serverSavedViews(result, importEnvironment), featureApi: { basePath: FO_API_PREFIX, onSessionLost }, invalidation: { subscribe: invalidation.subscribe } };
+    }
     if (result.kind === 'login') return login;
     return { screen: <Unavailable correlationId={result.correlationId} /> };
   };

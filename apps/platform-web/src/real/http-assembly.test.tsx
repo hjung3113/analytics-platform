@@ -23,7 +23,8 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 describe('real assembly (#154)', () => {
   it('ready → the adapter, the server-backed SavedViewStore (ADR-0099) and the FeedbackOps API, with no top-bar tools (ADR-0071)', async () => {
     const outcome = await assemblyFor(ready).create();
-    expect(outcome).toEqual({ adapter, topBarTools: null, serverPreferences: true, savedViews: expect.any(Object), featureApi: { basePath: '/api/features', onSessionLost: expect.any(Function) } });
+    // The adapter is decorated once (notice writes refresh Home, #1106): every other member is the bootstrap's own.
+    expect(outcome).toEqual({ adapter: expect.objectContaining({ session: adapter.session }), topBarTools: null, serverPreferences: true, savedViews: expect.any(Object), featureApi: { basePath: '/api/features', onSessionLost: expect.any(Function) }, invalidation: { subscribe: expect.any(Function) } });
     // The wrapped real store is injected, not the browser-local simulation: its reads reach the HTTP store.
     const injected = (outcome as { savedViews: SavedViewStore }).savedViews;
     await injected.list({ userId: 'u1', menuId: null });
