@@ -211,10 +211,12 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>(initialLang);
   const setLang = useCallback((next: Lang) => {
     setLangState(next);
-    document.documentElement.lang = next;
     try { localStorage.setItem(STORAGE, next); } catch { /* preference stays in memory */ }
   }, []);
   const value = useMemo<I18n>(() => makeI18n(lang, setLang), [lang, setLang]);
+  // The document language follows the language that is visible — also on a reload, where no setLang runs
+  // (mock fallback has no ServerLanguage, whose effect covers only the server-preference assembly, #1139).
+  useLayoutEffect(() => { document.documentElement.lang = lang; }, [lang]);
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }
 

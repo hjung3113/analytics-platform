@@ -120,7 +120,7 @@ export default function OperationsHome() {
           <div key={notice.id} role="status" className="flex items-start gap-3 rounded-md border border-accent-primary/30 bg-accent-primary-soft px-4 py-2.5 text-sm">
             <Megaphone className="mt-0.5 size-4 shrink-0 text-accent-primary" aria-hidden />
             <span className="flex-1"><span className="t-mono mr-2 text-tiny text-text-muted">{notice.id}</span>{tx(notice.title)}</span>
-            <button type="button" aria-label={lang === 'ko' ? '이번 세션 동안 닫기' : 'Dismiss for this session'} className="grid size-6 place-items-center rounded-xs text-text-muted hover:bg-surface-card"
+            <button type="button" aria-label={lang === 'ko' ? '이번 방문 동안 닫기' : 'Dismiss for this visit'} className="grid size-6 place-items-center rounded-xs text-text-muted hover:bg-surface-card"
               onClick={() => dismissNotice(notice.id)}><X className="size-3.5" aria-hidden /></button>
           </div>)}
         {notices.response && !['ok', 'empty'].includes(notices.response.outcome) && <QueryView widgetName={lang === 'ko' ? '공지' : 'Notices'} hideWidgetName query={notices} compact>{() => null}</QueryView>}
