@@ -140,7 +140,19 @@ function GroupTabsEnd({ activePanel, panels }: IDockviewHeaderActionsProps) {
 const COMPONENTS = { panel: PanelHost };
 const TAB_COMPONENTS = { tab: DockTab };
 /** Module-level so the option object keeps its identity across renders (a new one re-applies the theme). */
-const THEME = { name: 'ap', className: 'ap-dock', gap: 6 };
+const snapPrototype = import.meta.env.DEV && typeof document !== 'undefined'
+  && document.documentElement.dataset.apAnalysisPrototype === 'analysis-snap';
+const prefersLessMotion = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const THEME = {
+  name: 'ap', className: 'ap-dock', gap: 6,
+  ...(snapPrototype ? {
+    // Dockview's own drop-target footprint: tab insertion uses a line, group split uses an outlined overlay.
+    dndOverlayBorder: '2px solid var(--color-accent-primary)',
+    dndTabIndicator: 'line' as const,
+    dndPanelOverlay: 'group' as const,
+    tabAnimation: (prefersLessMotion ? 'none' : 'smooth') as 'none' | 'smooth',
+  } : {}),
+};
 type SerializedLayout = Parameters<DockviewApi['fromJSON']>[0];
 
 const sameRects = (a: Record<string, DockRect>, b: Record<string, DockRect>) => {
