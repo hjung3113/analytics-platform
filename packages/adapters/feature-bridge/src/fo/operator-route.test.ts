@@ -4,7 +4,7 @@ import { operatorRoute } from './operator-route';
 const inbox = operatorRoute({
   foPath: '/vocs',
   foFixed: { view: 'inbox' },
-  menuId: 'fo-inbox',
+  menuId: 'inbox',
   keys: { selected: 'focus', 'filter.severity': 'severity', q: 'q' },
 });
 
@@ -12,16 +12,16 @@ describe('operatorRoute', () => {
   it('round-trips FO → page → FO', () => {
     const to = '/vocs?view=inbox&selected=abc&filter.severity=high&q=pump';
     const target = inbox.target(to);
-    expect(target).toEqual({ menuId: 'fo-inbox', page: { focus: 'abc', severity: 'high', q: 'pump' } });
+    expect(target).toEqual({ menuId: 'inbox', page: { focus: 'abc', severity: 'high', q: 'pump' } });
     expect(inbox.toFoSearch(target!.page!)).toEqual({ view: 'inbox', selected: 'abc', 'filter.severity': 'high', q: 'pump' });
   });
 
   it('keeps a "?" inside a value', () => {
-    expect(inbox.target('/vocs?view=inbox&q=a?b')).toEqual({ menuId: 'fo-inbox', page: { q: 'a?b' } });
+    expect(inbox.target('/vocs?view=inbox&q=a?b')).toEqual({ menuId: 'inbox', page: { q: 'a?b' } });
   });
 
   it('maps the bare fixed path with no page keys', () => {
-    expect(inbox.target('/vocs?view=inbox')).toEqual({ menuId: 'fo-inbox', page: {} });
+    expect(inbox.target('/vocs?view=inbox')).toEqual({ menuId: 'inbox', page: {} });
   });
 
   it.each([

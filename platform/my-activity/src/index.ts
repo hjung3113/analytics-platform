@@ -33,7 +33,7 @@ export const manifests: MenuEntry[] = [
     component: lazy(() => import('./pages/VocDetail')),
   },
   {
-    id: 'surveys', group: GROUP, label: { ko: '설문', en: 'Surveys' },
+    id: 'surveys', group: GROUP, label: { ko: '응답 설문', en: 'Survey responses' },
     description: { ko: '응답할 설문과 응답 기록', en: 'Surveys to answer and your responses' },
     path: '/survey', aliases: ['/surveys'], icon: ClipboardList, permission: 'platform:view', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES, pageKeys: [],

@@ -1,20 +1,17 @@
 import { useCallback } from 'react';
-import { spaceId } from '@ap/contracts';
 import type { VocComposeProps } from '@ap/kernel';
 import { VocComposeScreen } from '@ap/feature-screens/global-screens';
 import { FeatureBridge } from '../fo/FeatureBridge';
 import { featureQueryClient } from '../fo/session';
 import { isUuid } from '../fo/uuid';
 
-const FEEDBACKOPS = spaceId('feedbackops');
-
 /**
- * The form's initial Managed System (ADR-0070 decision 5): a FeedbackOps screen's carried `managedSystem` when it is one UUID, otherwise the
+ * The form's initial Managed System (ADR-0070 decision 5): the frozen screen's carried `managedSystem` when it is one UUID (only a carry-set member menu has one, whichever space or global group it is in: operator menus and 내 Task), otherwise the
  * app's `managedSystemFor`. The screen still uses it only when the user's list holds it.
  */
 export function initialManagedSystem(context: Pick<VocComposeProps['context'], 'spaceId' | 'carried'>, managedSystemFor: (spaceId: string | null) => string | null): string | null {
   const carried = context.carried.managedSystem;
-  if (context.spaceId === FEEDBACKOPS && carried !== undefined && isUuid(carried)) return carried;
+  if (carried !== undefined && isUuid(carried)) return carried;
   return managedSystemFor(context.spaceId);
 }
 

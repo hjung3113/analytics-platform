@@ -12,6 +12,7 @@ export { hostLinks, permissionRequestsTarget, type PlatformTarget, type TargetOf
 export { featureQueryClient, useFeatureSession } from './fo/session';
 export { canSurveyLink, SURVEY_ID, SurveyLink, surveyTarget } from './fo/survey-links';
 export { canVocLink, VOC_ID, VocLink, vocListTarget, vocTarget } from './fo/voc-links';
+export { ListScope } from './fo/ListScope';
 export { FeatureDetailDrawer } from './fo/FeatureDetailDrawer';
 export { operatorHostLinks } from './fo/operator-links';
 export {

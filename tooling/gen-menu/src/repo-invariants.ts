@@ -123,7 +123,7 @@ export function checkMarkers(shape: RepoShape): void {
 }
 
 /**
- * Every group the app declares in GROUPS (the closed list, ADR-0072) is owned by exactly one package index.
+ * Every space group the app declares in GROUPS (the closed list, ADR-0072) is owned by exactly one package index; a global group (space null) is owned by at least one and may also receive screens from other Consumers (#1099c).
  * A `menus/<space>/<folder>` package must sit in the space of the group it owns; a `platform/<folder>` package
  * takes its space only from GROUPS and is never judged by its folder name.
  */
@@ -145,7 +145,7 @@ export function checkGroups(shape: RepoShape): void {
   }));
   for (const owner of owners) {
     const groups = new Set(owner.entries.map(entry => entry.group));
-    if (groups.size !== 1) throw new Error(`${owner.folder} must own exactly one group`);
+    if (groups.size === 0) throw new Error(`${owner.folder} must own at least one group`);
     const where = located.find(l => l.path === owner.folder);
     for (const group of groups) {
       if (!rows.has(group)) throw new Error(`${owner.folder} owns unknown group '${group}'`);
@@ -153,10 +153,16 @@ export function checkGroups(shape: RepoShape): void {
         throw new Error(`space mismatch: ${owner.folder} and GROUPS '${group}'`);
       }
     }
+    // One home group per package; any further group must be global (space null): a Consumer may declare one of its screens in a global group (e.g. 내 Task in 내 활동),
+    // and the app composition, not the Consumer, orders that group (#1099c). A second space group would be a second sidebar section the package does not own.
+    const spaced = [...groups].filter(group => rows.get(group) !== null);
+    if (spaced.length > 1) throw new Error(`${owner.folder} must own exactly one space group, found ${spaced.join(',')}`);
   }
-  for (const group of rows.keys()) {
+  for (const [group, space] of rows) {
     const owned = owners.filter(o => o.entries.some(e => e.group === group));
-    if (owned.length !== 1) {
+    // A space group has exactly one owner; a global group is owned by the package that names it and may also receive screens from other Consumers.
+    const ok = space === null ? owned.length >= 1 : owned.length === 1;
+    if (!ok) {
       throw new Error(`group '${group}' must be owned by exactly one package index (menus/*/*/src/index.ts or platform/*/src/index.ts), found ${owned.length === 0 ? 'none' : owned.map(o => o.folder).join(',')}`);
     }
   }

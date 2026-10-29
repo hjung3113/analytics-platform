@@ -12,17 +12,17 @@ const byId = (id: string) => manifests.find(entry => entry.id === id)!;
 
 describe('연동 manifests', () => {
   it('declares the four menus in the sidebar order, the first primary, at the planned paths', () => {
-    expect(manifests.map(entry => entry.id)).toEqual(['fo-integration', 'fo-evidence', 'fo-entity-links', 'fo-coverage']);
-    expect(manifests.map(entry => entry.path)).toEqual(['/feedbackops/integration', '/feedbackops/evidence', '/feedbackops/entity-links', '/feedbackops/coverage']);
-    expect(manifests.filter(entry => entry.primary).map(entry => entry.id)).toEqual(['fo-integration']);
-    expect(manifests.every(entry => entry.group === 'foIntegration')).toBe(true);
+    expect(manifests.map(entry => entry.id)).toEqual(['integration', 'evidence', 'entity-links', 'coverage']);
+    expect(manifests.map(entry => entry.path)).toEqual(['/operations/integration', '/operations/evidence', '/operations/entity-links', '/operations/coverage']);
+    expect(manifests.filter(entry => entry.primary).map(entry => entry.id)).toEqual(['integration']);
+    expect(manifests.every(entry => entry.group === 'integration')).toBe(true);
   });
 
   it.each([
-    ['fo-integration', integrationDashboardRoute],
-    ['fo-evidence', evidenceRoute],
-    ['fo-coverage', coverageRoute],
-    ['fo-entity-links', entityLinksRoute],
+    ['integration', integrationDashboardRoute],
+    ['evidence', evidenceRoute],
+    ['coverage', coverageRoute],
+    ['entity-links', entityLinksRoute],
   ])('%s declares its route table page keys plus returnTo, and the space permission', (id, route) => {
     // `returnTo` is navigation state the FO space carries (#760), not a route-table filter key.
     const menu = byId(id);
@@ -32,10 +32,10 @@ describe('연동 manifests', () => {
   });
 
   it('keeps the approved ko labels and FeedbackOps glossary values', () => {
-    expect(byId('fo-integration').label.ko).toBe(`연동 ${glossary('actionDashboard')}`);
-    expect(byId('fo-evidence').label.ko).toBe('Evidence');
-    expect(byId('fo-entity-links').label.ko).toBe(glossary('entityLinks'));
-    expect(byId('fo-coverage').label.ko).toBe(glossary('coverage'));
+    expect(byId('integration').label.ko).toBe(`연동 ${glossary('actionDashboard')}`);
+    expect(byId('evidence').label.ko).toBe('Evidence');
+    expect(byId('entity-links').label.ko).toBe(glossary('entityLinks'));
+    expect(byId('coverage').label.ko).toBe(glossary('coverage'));
   });
 
   it('has no Findings row (ADR-0081 decision 3)', () => {

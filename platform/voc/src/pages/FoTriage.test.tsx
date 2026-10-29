@@ -24,7 +24,7 @@ afterEach(() => { cleanup(); setFeatureApi(null); vi.unstubAllGlobals(); window.
 
 describe('Triage without a FeedbackOps API (mock preview)', () => {
   it('shows 실서버 필요 and mounts no screen', async () => {
-    mountAt('/feedbackops/triage');
+    mountAt('/operations/triage');
     // The first mount lazy-loads the page module, which can pass the default 1 s under a loaded run.
     expect(await screen.findByRole('heading', { name: 'Triage' }, { timeout: 3000 })).toBeTruthy();
     expect(screen.getByRole('status').textContent).toContain('실서버 필요');
@@ -36,7 +36,7 @@ describe('Triage through the FeedbackOps bridge', () => {
   beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() }); });
 
   it('renders the triage screen with the page read as the triage FO path', async () => {
-    mountAt(`/feedbackops/triage?tab=high-no-link&managedSystem=${SYSTEM}&area=unset`);
+    mountAt(`/operations/triage?tab=high-no-link&managedSystem=${SYSTEM}&area=unset`);
     const triage = await screen.findByTestId('triage');
     const here = new URL(triage.getAttribute('data-here')!, 'http://x');
     expect(here.pathname).toBe('/vocs');
@@ -45,10 +45,10 @@ describe('Triage through the FeedbackOps bridge', () => {
   });
 
   it('selects through focus in the Triage menu, with no shell drawer (its panel stays inside the screen)', async () => {
-    mountAt('/feedbackops/triage?tab=unassigned');
+    mountAt('/operations/triage?tab=unassigned');
     fireEvent.click(await screen.findByRole('button', { name: '선택' }));
     await waitFor(() => expect(window.location.search).toContain(`focus=${VOC}`));
-    expect(window.location.pathname).toBe('/feedbackops/fo-triage');
+    expect(window.location.pathname).toBe('/operations/triage');
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 });

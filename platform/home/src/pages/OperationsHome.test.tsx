@@ -10,7 +10,7 @@ const none = { time: 'unsupported', roomNames: 'unsupported', line: 'unsupported
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
 const purpose = { ko: '목적', en: 'Purpose' };
 
-function menu(id: string, group: 'overview' | 'equipment' | 'metrics' | 'noticeVoc' | 'admin', path: string, permission: Permission, label: { ko: string; en: string }, primary = false, pageKeys: string[] = []) {
+function menu(id: string, group: 'overview' | 'equipment' | 'metrics' | 'noticeVoc' | 'admin' | 'dashboard', path: string, permission: Permission, label: { ko: string; en: string }, primary = false, pageKeys: string[] = []) {
   return { id, group: groupId(group), path, permission, primary, label, description: { ko: '', en: '' }, icon: House, requiresScope: false, context: none, pageType: 'overview' as const, features: noFeatures, pageKeys };
 }
 
@@ -20,14 +20,15 @@ const registry = createRegistry({
   spaces: [
     { id: spaceId('mars'), label: { ko: 'MARS', en: 'MARS' }, subtitle: { ko: '생산성 분석', en: 'Productivity analysis' }, description: { ko: '설비·기간별 생산성과 사이클타임을 분석합니다.', en: 'Analyze productivity and cycle time by equipment and period.' }, homeMenuId: 'equipment' },
     { id: spaceId('bravo'), label: { ko: 'BRAVO', en: 'BRAVO' }, subtitle: { ko: '지표관리', en: 'Metrics' }, description: { ko: '지표 정의·버전·발행을 관리합니다.', en: 'Manage metric definitions, versions, and releases.' }, homeMenuId: 'catalog' },
-    { id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations console' }, description: purpose, permission: 'console:access', homeMenuId: 'admin-roles' },
+    { id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations console' }, description: purpose, homeMenuId: 'dashboard' },
   ],
   groups: [
     { id: groupId('overview'), label: { ko: '운영 개요', en: 'Overview' }, icon: House, space: null },
     { id: groupId('equipment'), label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: spaceId('mars') },
     { id: groupId('metrics'), label: { ko: '지표관리', en: 'Metrics' }, icon: House, space: spaceId('bravo') },
     { id: groupId('noticeVoc'), label: { ko: '공지·VOC', en: 'Notice & VOC' }, icon: House, space: null },
-    { id: groupId('admin'), label: { ko: '관리·감사', en: 'Administration' }, icon: House, space: spaceId('operations') },
+    { id: groupId('dashboard'), label: { ko: '대시보드', en: 'Dashboard' }, icon: House, space: spaceId('operations') },
+    { id: groupId('admin'), label: { ko: '플랫폼 관리', en: 'Platform management' }, icon: House, space: spaceId('operations') },
   ],
   menus: [
     menu('home', 'overview', '/', 'platform:view', { ko: '플랫폼 홈', en: 'Platform home' }, true),
@@ -40,6 +41,7 @@ const registry = createRegistry({
     menu('x5', 'metrics', '/x5', menuPermission('metrics:view'), { ko: '추가5', en: 'Extra 5' }),
     menu('notices', 'noticeVoc', '/notices', 'notice:view', { ko: '공지', en: 'Notices' }, true),
     menu('voc', 'noticeVoc', '/voc', 'voc:view', { ko: 'VOC', en: 'VOC' }),
+    menu('dashboard', 'dashboard', '/dashboard', 'features:access', { ko: '대시보드', en: 'Dashboard' }, true),
     menu('admin-roles', 'admin', '/admin/roles', 'console:access', { ko: '권한/역할', en: 'Roles' }, true),
     // The real menu needs `platform:view`; `voc:view` stands in so a session can lack it and still open the home.
     menu('permission-requests', 'noticeVoc', '/permission-requests', 'voc:view', { ko: '권한 요청', en: 'Permission requests' }),
@@ -79,6 +81,27 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 const BOTH = ['platform:view', 'equipment:view', 'metrics:view', 'notice:view', 'voc:view'] as Session['user']['permissions'];
+
+describe('operations console card (#1099c)', () => {
+  it.each([
+    ['F only', ['platform:view', 'notice:view', 'voc:view', 'features:access'], '대시보드', ['플랫폼 관리']],
+    ['C only', ['platform:view', 'notice:view', 'voc:view', 'console:access'], '플랫폼 관리', ['대시보드']],
+    ['F and C', ['platform:view', 'notice:view', 'voc:view', 'features:access', 'console:access'], '대시보드 · 플랫폼 관리', []],
+  ])('shows one card for %s that names only the sections this viewer can open', async (_, permissions, sections, forbidden) => {
+    mount(permissions as Session['user']['permissions']);
+    await settled();
+    const card = screen.getByRole('link', { name: /운영 콘솔/ });
+    expect(card.textContent).toContain(sections);
+    for (const name of forbidden as string[]) expect(card.textContent).not.toContain(name);
+    expect(screen.getAllByRole('link', { name: /운영 콘솔/ })).toHaveLength(1);
+  });
+
+  it('draws no console card for a viewer with neither F nor C', async () => {
+    mount(['platform:view', 'notice:view', 'voc:view'] as Session['user']['permissions']);
+    await settled();
+    expect(screen.queryByRole('link', { name: /운영 콘솔/ })).toBeNull();
+  });
+});
 
 describe('platform home launcher', () => {
   it('E1 draws the 내 할 일 slot between the work systems and the favorites grid, and nothing without a slot', async () => {

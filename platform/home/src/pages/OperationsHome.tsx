@@ -19,6 +19,10 @@ export default function OperationsHome() {
   const noticesLink = resolveLink('notices');
   const permissionRequests = resolveLink('permission-requests');
   const homeId = registry.platformHome?.id;
+  // The operations console is one card for F-only, C-only and both holders: its description names the sections this viewer can open (#1099c), never the ones another grant would add.
+  const consoleSections = (spaceKey: string) => registry.groups
+    .filter(group => group.space === spaceKey && registry.menus.some(menu => menu.group === group.id && !menu.navHidden && canOpen(menu.id)))
+    .map(group => tx(group.label));
 
   const favoriteMenus = favorites.map(id => registry.menus.find(menu => menu.id === id)).filter((menu): menu is MenuEntry => !!menu && canOpen(menu.id));
   const recentRows = recent.filter(row => row.menuId !== homeId).map(row => {
@@ -79,7 +83,7 @@ export default function OperationsHome() {
                   <span className="grid size-10 place-items-center rounded-md bg-icon-blue-soft text-accent-primary"><Icon className="size-6" strokeWidth={1.75} aria-hidden /></span>
                   <span className="mt-3 block t-card-title">{tx(space.label)}</span>
                   {space.subtitle && <span className="mt-0.5 block text-xs text-text-muted">{tx(space.subtitle)}</span>}
-                  <span className="mt-0.5 block text-xs text-text-muted">{tx(space.description)}</span>
+                  <span className="mt-0.5 block text-xs text-text-muted">{space.id === 'operations' ? consoleSections(space.id).join(' · ') : tx(space.description)}</span>
                   {resumeMenu && <span className="mt-2 block text-xs text-text-secondary">{lang === 'ko' ? `이어서: ${tx(resumeMenu.label)}` : `Continue: ${tx(resumeMenu.label)}`}</span>}
                 </PlatformLink>;
               })}

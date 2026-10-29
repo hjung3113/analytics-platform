@@ -15,18 +15,18 @@ describe('Findings table', () => {
     ['scoped', `/findings?managedSystem=${SYSTEM}`, { managedSystem: SYSTEM }],
     ['every key', `/findings?selected=${FINDING}&managedSystem=${SYSTEM}&execution=none&q=a&filter.analytics_area=${AREA}&status=active&assignment=unassigned`,
       { focus: FINDING, managedSystem: SYSTEM, execution: 'none', q: 'a', area: AREA, status: 'active', assignment: 'unassigned' }],
-  ])('maps the %s link to fo-findings and back to the same FO search', (_name, to, page) => {
+  ])('maps the %s link to findings and back to the same FO search', (_name, to, page) => {
     const target = findingsRoute.target(to);
-    expect(target).toEqual({ menuId: 'fo-findings', page });
+    expect(target).toEqual({ menuId: 'findings', page });
     expect(findingsRoute.toFoSearch(target!.page!)).toEqual(query(to));
   });
 
   it('reads a bare /findings as the list with no page keys', () => {
-    expect(findingsRoute.target('/findings')).toEqual({ menuId: 'fo-findings', page: {} });
+    expect(findingsRoute.target('/findings')).toEqual({ menuId: 'findings', page: {} });
   });
 
   it('reads /findings/<id> as the selection', () => {
-    expect(findingsRoute.target(`/findings/${FINDING}`)).toEqual({ menuId: 'fo-findings', page: { focus: FINDING } });
+    expect(findingsRoute.target(`/findings/${FINDING}`)).toEqual({ menuId: 'findings', page: { focus: FINDING } });
     expect(findingsRoute.toFoSearch({ focus: FINDING })).toEqual({ selected: FINDING });
   });
 
@@ -56,9 +56,9 @@ describe('Findings table', () => {
   });
 
   it('is wired into operatorHostLinks: the bare list, ?selected= and /findings/<id> link; returnTo stays unlinked', () => {
-    expect(operatorHostLinks.targetOf('/findings')).toEqual({ menuId: 'fo-findings', page: {} });
-    expect(operatorHostLinks.targetOf(`/findings?selected=${FINDING}`)).toEqual({ menuId: 'fo-findings', page: { focus: FINDING } });
-    expect(operatorHostLinks.targetOf(`/findings/${FINDING}`)).toEqual({ menuId: 'fo-findings', page: { focus: FINDING } });
+    expect(operatorHostLinks.targetOf('/findings')).toEqual({ menuId: 'findings', page: {} });
+    expect(operatorHostLinks.targetOf(`/findings?selected=${FINDING}`)).toEqual({ menuId: 'findings', page: { focus: FINDING } });
+    expect(operatorHostLinks.targetOf(`/findings/${FINDING}`)).toEqual({ menuId: 'findings', page: { focus: FINDING } });
     expect(operatorHostLinks.targetOf('/findings?returnTo=/vocs')).toBeNull();
   });
 });

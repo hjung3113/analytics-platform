@@ -59,8 +59,8 @@ afterEach(() => {
 
 describe('Surveys without a FeedbackOps API (mock preview) — S1', () => {
   it.each([
-    ['/survey?v=1', '설문'],
-    ['/surveys?v=1', '설문'], // legacy alias
+    ['/survey?v=1', '응답 설문'],
+    ['/surveys?v=1', '응답 설문'], // legacy alias
     [`/surveys/${ID_A}/respond?v=1`, '설문 응답'], // legacy alias
     [`${RESPOND}?v=1`, '설문 응답'],
   ])('%s shows %s and 실서버 필요 and requests nothing', async (url, heading) => {

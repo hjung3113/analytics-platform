@@ -27,13 +27,13 @@ import { manifests as impMyWork } from '@ap/menu-imp-my-work';
 import { manifests as impTasks } from '@ap/menu-imp-tasks';
 import { manifests as impReports } from '@ap/menu-imp-reports';
 import { manifests as hwTime } from '@ap/menu-hw-time';
-import { manifests as foDashboard } from '@ap/menu-dashboard';
-import { manifests as foVoc } from '@ap/menu-voc';
-import { manifests as foFindings } from '@ap/menu-findings';
-import { manifests as foTasks } from '@ap/menu-tasks';
-import { manifests as foIntegration } from '@ap/menu-integration';
-import { manifests as foSurveys } from '@ap/menu-surveys';
-import { manifests as foAdmin } from '@ap/menu-feature-admin';
+import { manifests as dashboard } from '@ap/menu-dashboard';
+import { manifests as voc } from '@ap/menu-voc';
+import { manifests as findings } from '@ap/menu-findings';
+import { manifests as tasks } from '@ap/menu-tasks';
+import { manifests as integration } from '@ap/menu-integration';
+import { manifests as surveys } from '@ap/menu-surveys';
+import { manifests as featureAdmin } from '@ap/menu-feature-admin';
 import { manifests as rcc } from '@ap/menu-rcc';
 import { manifests as mcc } from '@ap/menu-mcc';
 import { manifests as wpt } from '@ap/menu-wpt';
@@ -57,7 +57,6 @@ export const GROUPS: GroupDef[] = [
   { id: groupId('configuration'), label: { ko: 'Configuration', en: 'Configuration' }, icon: Settings, space: spaceId('mars') },
   { id: groupId('metrics'), label: { ko: '지표관리', en: 'Metrics' }, icon: Gauge, space: spaceId('bravo') },
   { id: groupId('clas'), label: { ko: 'CLAS', en: 'CLAS' }, icon: LineChart, space: spaceId('clas') },
-  { id: groupId('admin'), label: { ko: '관리·감사', en: 'Administration' }, icon: ShieldCheck, space: spaceId('operations') },
   { id: groupId('logMyWork'), label: { ko: '내 작업', en: 'My work' }, icon: Inbox, space: spaceId('log-dev') },
   { id: groupId('logModels'), label: { ko: '모델', en: 'Models' }, icon: Cpu, space: spaceId('log-dev') },
   { id: groupId('logCross'), label: { ko: '전체 모아 보기', en: 'Across models' }, icon: FileSearch, space: spaceId('log-dev') },
@@ -65,13 +64,14 @@ export const GROUPS: GroupDef[] = [
   { id: groupId('impMyWork'), label: { ko: '내 작업', en: 'My work' }, icon: Inbox, space: spaceId('improvement') },
   { id: groupId('impTasks'), label: { ko: '과제', en: 'Tasks' }, icon: ClipboardList, space: spaceId('improvement') },
   { id: groupId('impReports'), label: { ko: '보고', en: 'Reports' }, icon: BarChart3, space: spaceId('improvement') },
-  { id: groupId('foDashboard'), label: { ko: '대시보드', en: 'Dashboard' }, icon: ListTodo, space: spaceId('feedbackops') },
-  { id: groupId('foVoc'), label: { ko: 'VOC', en: 'VOC' }, icon: Inbox, space: spaceId('feedbackops') },
-  { id: groupId('foFindings'), label: { ko: 'Findings', en: 'Findings' }, icon: ListChecks, space: spaceId('feedbackops') },
-  { id: groupId('foTasks'), label: { ko: 'Tasks', en: 'Tasks' }, icon: ClipboardList, space: spaceId('feedbackops') },
-  { id: groupId('foIntegration'), label: { ko: '연동', en: 'Integration' }, icon: Boxes, space: spaceId('feedbackops') },
-  { id: groupId('foSurveys'), label: { ko: 'Surveys', en: 'Surveys' }, icon: ClipboardCheck, space: spaceId('feedbackops') },
-  { id: groupId('foAdmin'), label: { ko: '관리자', en: 'Admin' }, icon: UserCog, space: spaceId('feedbackops') },
+  { id: groupId('voc'), label: { ko: 'VOC', en: 'VOC' }, icon: Inbox, space: spaceId('operations') },
+  { id: groupId('findings'), label: { ko: 'Finding', en: 'Finding' }, icon: ListChecks, space: spaceId('operations') },
+  { id: groupId('tasks'), label: { ko: 'Task 관리', en: 'Task management' }, icon: ClipboardList, space: spaceId('operations') },
+  { id: groupId('surveys'), label: { ko: '설문 관리', en: 'Survey management' }, icon: ClipboardCheck, space: spaceId('operations') },
+  { id: groupId('dashboard'), label: { ko: '대시보드', en: 'Dashboard' }, icon: ListTodo, space: spaceId('operations') },
+  { id: groupId('integration'), label: { ko: '연동', en: 'Integration' }, icon: Boxes, space: spaceId('operations') },
+  { id: groupId('featureAdmin'), label: { ko: '기능 관리', en: 'Feature management' }, icon: UserCog, space: spaceId('operations') },
+  { id: groupId('admin'), label: { ko: '플랫폼 관리', en: 'Platform management' }, icon: ShieldCheck, space: spaceId('operations') },
   // </gen:menu-groups>
 ];
 
@@ -86,8 +86,7 @@ export const SPACES = [
   { id: spaceId('tools'), label: { ko: '도구', en: 'Tools' }, subtitle: { ko: '설비 Top View', en: 'Equipment Top View' }, description: { ko: '설비 레이아웃을 Top View로 보고 로그를 재생합니다.', en: 'View equipment layouts as a Top View and replay their logs.' }, homeMenuId: 'eqv:topview' },
   { id: spaceId('log-dev'), label: { ko: '표준 로그 개발', en: 'Standard log development' }, description: { ko: '설비 모델별 로그 개발 단계와 검증을 관리합니다.', en: 'Manage log development stages and validation per equipment model.' }, homeMenuId: 'log-my-queue' },
   { id: spaceId('improvement'), label: { ko: '개선 실행', en: 'Improvement execution' }, description: { ko: '개선 과제의 현장 적용과 효과를 관리합니다.', en: 'Manage field application and effect of improvement tasks.' }, homeMenuId: 'imp-my-tasks' },
-  { id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations console' }, description: { ko: '권한·감사·메뉴 활용률을 운영합니다.', en: 'Operate permissions, audit, and menu usage.' }, permission: 'console:access', homeMenuId: 'admin-roles' },
-  { id: spaceId('feedbackops'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, subtitle: { ko: '피드백 운영', en: 'Feedback operations' }, description: { ko: 'VOC 접수부터 Finding·Task 실행까지 운영합니다.', en: 'Operate from VOC intake to Finding and Task execution.' }, permission: 'features:access', homeMenuId: 'fo-dashboard' },
+  { id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations console' }, description: { ko: 'VOC·Finding·Task·설문·연동 운영과 기능·플랫폼 관리를 합니다.', en: 'Operate VOC, Finding, Task, survey and integration work, and manage features and the platform.' }, homeMenuId: 'dashboard' },
 ] satisfies readonly SpaceDef[];
 
 export const MENUS: MenuEntry[] = [
@@ -109,13 +108,13 @@ export const MENUS: MenuEntry[] = [
   ...impReports,
   ...clas,
   ...hwTime,
-  ...foDashboard,
-  ...foVoc,
-  ...foFindings,
-  ...foTasks,
-  ...foIntegration,
-  ...foSurveys,
-  ...foAdmin,
+  ...dashboard,
+  ...voc,
+  ...findings,
+  ...tasks,
+  ...integration,
+  ...surveys,
+  ...featureAdmin,
   ...rcc,
   ...mcc,
   ...wpt,
@@ -123,11 +122,24 @@ export const MENUS: MenuEntry[] = [
   // </gen:menu-spreads>
 ];
 
+/** The global 내 활동 menus in sidebar order (#1099c): 알림 → 내 VOC → 내 Task → 응답 설문 → 권한 요청. 내 Task is owned by `@ap/menu-tasks`; the app, not a Consumer, decides where it sits. */
+const MY_ACTIVITY_ORDER = ['notifications', 'voc', 'voc-detail', 'my-tasks', 'surveys', 'survey-respond', 'permission-requests'] as const;
+
+/** Moves the declared 내 활동 menus into `MY_ACTIVITY_ORDER`, at the position of the group's first menu; every other menu keeps its place. A listed id that is not declared fails at startup. */
+function placeMyActivity(menus: readonly MenuEntry[]): MenuEntry[] {
+  const mine = MY_ACTIVITY_ORDER.map(id => menus.find(menu => menu.id === id) ?? fail(`placeMyActivity: menu "${id}" is not declared`));
+  const first = menus.findIndex(menu => menu.id === MY_ACTIVITY_ORDER[0]);
+  const rest = menus.filter(menu => !MY_ACTIVITY_ORDER.some(id => id === menu.id));
+  return [...rest.slice(0, first), ...mine, ...rest.slice(first)];
+}
+
+function fail(message: string): never { throw new Error(message); }
+
 /** Page keys that follow the user between member menus (ADR-0081 decision 4 as replaced by #1099b). `features`: the FeedbackOps list scope `managedSystem` and the way back `returnTo`; each operator and feature-admin menu joins with `carrySet`. */
 export const CARRY_SETS: readonly CarrySetDef[] = [{ id: carrySetId('features'), pageKeys: ['managedSystem', 'returnTo'] }];
 
 /** Roots the app's own screens and FeedbackOps serve outside the Registry; no space may take one (ADR-0093). The Kernel reserves only its own `board`, `api` and `auth`. */
-export const APP_RESERVED_ROOTS = ['home', 'survey', 'voc', 'notifications', 'notices', 'permission-requests'];
+export const APP_RESERVED_ROOTS = ['home', 'survey', 'voc', 'notifications', 'notices', 'permission-requests', 'my-tasks'];
 
 /** External host modules (src/modules.ts) join at the registry call only; GROUPS and MENUS stay the platform's own. */
-export const registry = createRegistry({ spaces: SPACES, groups: [...GROUPS, ...EQV_MODULE.groups], menus: [...MENUS, ...EQV_MODULE.menus], permissions: PERMISSIONS, carrySets: CARRY_SETS, platformHomeMenuId: 'home', reservedRoots: APP_RESERVED_ROOTS });
+export const registry = createRegistry({ spaces: SPACES, groups: [...GROUPS, ...EQV_MODULE.groups], menus: placeMyActivity([...MENUS, ...EQV_MODULE.menus]), permissions: PERMISSIONS, carrySets: CARRY_SETS, platformHomeMenuId: 'home', reservedRoots: APP_RESERVED_ROOTS });

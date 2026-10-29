@@ -63,8 +63,8 @@ const SURVEY_A = '99999999-9999-4999-8999-99999999999a';
 const SURVEY_B = '99999999-9999-4999-8999-99999999999b';
 const RESPONSE_A = '77777777-7777-4777-8777-77777777777a';
 const RESPONSE_B = '77777777-7777-4777-8777-77777777777b';
-const LIST = '/feedbackops/fo-surveys';
-const child = (menu: string, id: string) => `/feedbackops/${menu}/${id}`;
+const LIST = '/operations/survey-management';
+const child = (menu: string, id: string) => `/operations/${menu}/${id}`;
 const request = vi.fn();
 const hereOf = (testId: string) => new URL(screen.getByTestId(testId).getAttribute('data-here')!, 'http://x');
 const hop = (url: string) => { window.history.replaceState(null, '', url); act(() => { window.dispatchEvent(new PopStateEvent('popstate')); }); };
@@ -80,9 +80,9 @@ afterEach(() => { cleanup(); setFeatureApi(null); vi.unstubAllGlobals(); window.
 describe('Survey 관리 without a FeedbackOps API (mock preview)', () => {
   it.each([
     [LIST, 'Survey 관리', 'list'],
-    [child('fo-survey-builder', SURVEY_A), 'Survey 빌더', 'builder'],
-    [child('fo-survey-results', SURVEY_A), 'Survey 결과', 'results'],
-    [child('fo-survey-follow-up', SURVEY_A), 'Survey 후속 조치', 'follow-up'],
+    [child('survey-builder', SURVEY_A), 'Survey 빌더', 'builder'],
+    [child('survey-results', SURVEY_A), 'Survey 결과', 'results'],
+    [child('survey-follow-up', SURVEY_A), 'Survey 후속 조치', 'follow-up'],
   ])('%s shows 실서버 필요 and mounts no screen', async (path, title, testId) => {
     mountAt(path);
     await screen.findByRole('heading', { name: title }, { timeout: 3000 });
@@ -155,7 +155,7 @@ describe('the hidden Survey screens', () => {
   beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() }); });
 
   it('mounts the builder reading the page as /surveys/<id>?builder=true with the list scope', async () => {
-    mountAt(`${child('fo-survey-builder', SURVEY_A)}?status=open&managedSystem=${SYSTEM}`);
+    mountAt(`${child('survey-builder', SURVEY_A)}?status=open&managedSystem=${SYSTEM}`);
     await screen.findByTestId('builder');
     const here = hereOf('builder');
     expect(here.pathname).toBe(`/surveys/${SURVEY_A}`);
@@ -164,7 +164,7 @@ describe('the hidden Survey screens', () => {
   });
 
   it('the builder Back goes to the list with this Survey as focus and the list context kept', async () => {
-    mountAt(`${child('fo-survey-builder', SURVEY_A)}?status=open&follow_up=needed`);
+    mountAt(`${child('survey-builder', SURVEY_A)}?status=open&follow_up=needed`);
     fireEvent.click(await screen.findByRole('button', { name: '빌더 뒤로' }));
     await screen.findByTestId('list');
     const params = new URLSearchParams(window.location.search);
@@ -175,7 +175,7 @@ describe('the hidden Survey screens', () => {
   });
 
   it('mounts the results reading the page as /surveys/<id>/results', async () => {
-    mountAt(`${child('fo-survey-results', SURVEY_A)}?area=${AREA}`);
+    mountAt(`${child('survey-results', SURVEY_A)}?area=${AREA}`);
     await screen.findByTestId('results');
     const here = hereOf('results');
     expect(here.pathname).toBe(`/surveys/${SURVEY_A}/results`);
@@ -184,7 +184,7 @@ describe('the hidden Survey screens', () => {
   });
 
   it('mounts the follow-up reading the page as /surveys/<id>/follow-up, with nothing selected and no auto-select', async () => {
-    mountAt(`${child('fo-survey-follow-up', SURVEY_A)}?follow_up=needed`);
+    mountAt(`${child('survey-follow-up', SURVEY_A)}?follow_up=needed`);
     const screenEl = await screen.findByTestId('follow-up');
     expect(hereOf('follow-up').pathname).toBe(`/surveys/${SURVEY_A}/follow-up`);
     expect(screenEl.getAttribute('data-selected')).toBe('');
@@ -194,7 +194,7 @@ describe('the hidden Survey screens', () => {
   });
 
   it('controls the follow-up selection with focus: focus is the selected response, a pick writes it, null drops it, and the detail is the drawer', async () => {
-    mountAt(`${child('fo-survey-follow-up', SURVEY_A)}?focus=${RESPONSE_A}&status=open`);
+    mountAt(`${child('survey-follow-up', SURVEY_A)}?focus=${RESPONSE_A}&status=open`);
     expect((await screen.findByTestId('follow-up')).getAttribute('data-selected')).toBe(RESPONSE_A);
     const dialog = await within(await screen.findByRole('complementary', { name: '상세 패널' })).findByRole('dialog');
     expect(within(dialog).getByText(`응답 본문 ${RESPONSE_A}`)).toBeTruthy();
@@ -208,15 +208,15 @@ describe('the hidden Survey screens', () => {
   });
 
   it('the follow-up drawer close is the screen\'s requestClose', async () => {
-    mountAt(`${child('fo-survey-follow-up', SURVEY_A)}?focus=${RESPONSE_A}`);
+    mountAt(`${child('survey-follow-up', SURVEY_A)}?focus=${RESPONSE_A}`);
     fireEvent.click(await screen.findByRole('button', { name: '상세 닫기' }));
     expect(fo.requestClose).toHaveBeenCalledOnce();
   });
 
   it.each([
-    ['fo-survey-builder', 'builder'],
-    ['fo-survey-results', 'results'],
-    ['fo-survey-follow-up', 'follow-up'],
+    ['survey-builder', 'builder'],
+    ['survey-results', 'results'],
+    ['survey-follow-up', 'follow-up'],
   ])('%s refuses a non-UUID :surveyId as not found and requests nothing', async (menu, testId) => {
     mountAt(child(menu, 'not-a-uuid'));
     expect(await screen.findByText('Survey를 찾을 수 없습니다', undefined, { timeout: 3000 })).toBeTruthy();
@@ -228,11 +228,11 @@ describe('the hidden Survey screens', () => {
   });
 
   it.each([
-    ['fo-survey-builder', 'status', 'closed', 'builder'],
-    ['fo-survey-results', 'area', 'x', 'results'],
-    ['fo-survey-results', 'managedSystem', 'x', 'results'],
-    ['fo-survey-follow-up', 'follow_up', 'x', 'follow-up'],
-    ['fo-survey-follow-up', 'focus', 'not-a-uuid', 'follow-up'],
+    ['survey-builder', 'status', 'closed', 'builder'],
+    ['survey-results', 'area', 'x', 'results'],
+    ['survey-results', 'managedSystem', 'x', 'results'],
+    ['survey-follow-up', 'follow_up', 'x', 'follow-up'],
+    ['survey-follow-up', 'focus', 'not-a-uuid', 'follow-up'],
   ])('%s rejects %s=%s, keeps the address and mounts no screen', async (menu, key, value, testId) => {
     const search = `?${key}=${encodeURIComponent(value)}`;
     mountAt(`${child(menu, SURVEY_A)}${search}`);

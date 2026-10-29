@@ -51,9 +51,9 @@ describe('featureSlot', () => {
     expect(entries.map(entry => entry.label)).toEqual([
       { ko: 'VOC', en: 'VOC' }, { ko: 'Task', en: 'Tasks' }, { ko: '설문', en: 'Surveys' },
     ]);
-    expect(entries[0]).toMatchObject({ menuId: 'fo-inbox', page: { managedSystem: uuid } });
-    expect(entries[1]).toMatchObject({ menuId: 'fo-task-list', page: { managedSystem: uuid } });
-    expect(entries[2]).toMatchObject({ menuId: 'fo-surveys', page: { managedSystem: uuid } });
+    expect(entries[0]).toMatchObject({ menuId: 'inbox', page: { managedSystem: uuid } });
+    expect(entries[1]).toMatchObject({ menuId: 'task-list', page: { managedSystem: uuid } });
+    expect(entries[2]).toMatchObject({ menuId: 'survey-management', page: { managedSystem: uuid } });
   });
 
   it('gates the whole block on features:access', () => {

@@ -9,28 +9,28 @@ import type { TargetOf } from './links';
 export const managedSystemsRoute = operatorRoute({
   foPath: '/admin/managed-systems',
   foFixed: {},
-  menuId: 'fo-managed-systems',
+  menuId: 'managed-systems',
   keys: {},
 });
 
 export const analyticsAreasRoute = operatorRoute({
   foPath: '/admin/analytics-areas',
   foFixed: {},
-  menuId: 'fo-analytics-areas',
+  menuId: 'analytics-areas',
   keys: { managedSystem: 'system', includeArchived: 'includeArchived', selected: 'focus' },
 });
 
 export const permissionRequestsRoute = operatorRoute({
   foPath: '/admin/permissions/requests',
   foFixed: {},
-  menuId: 'fo-permission-requests',
+  menuId: 'permission-request-review',
   keys: { tab: 'tab', selected: 'focus' },
 });
 
 export const permissionGrantsRoute = operatorRoute({
   foPath: '/admin/permissions/grants',
   foFixed: {},
-  menuId: 'fo-permission-grants',
+  menuId: 'permission-grants',
   keys: { tab: 'tab', selected: 'focus' },
 });
 
@@ -38,7 +38,7 @@ export const permissionGrantsRoute = operatorRoute({
 export const settingsRoute = operatorRoute({
   foPath: '/admin/settings',
   foFixed: {},
-  menuId: 'fo-settings',
+  menuId: 'settings',
   keys: {},
   hash: { fragment: 'coverage', key: 'section' },
 });

@@ -65,27 +65,28 @@ export type HomeTodoSlot = { Todo: ComponentType };
  * features: space-scoped in-shell entries (ADR-0028, ADR-0045).
  * plannedSpaces: the system switcher's not-yet-available rows (ADR-0042, 15 §3.2).
  * boardEntry: the `분석 보드에 열기…` item `PlatformPage` appends to a board menu's `⋯` menu (docs/16 §6); components never import the shell.
- * scopeControl: a space's own sidebar list-scope control in place of the analytics `ScopeSelector` (ADR-0081 decision 4, 06 §8); `For` returns null for spaces that keep the default.
+ * scopeControl: a space's own sidebar list-scope control in place of the analytics `ScopeSelector` (ADR-0081 decision 4, 06 §8); `For` returns null for spaces and current menus that keep the default.
+ * The three sidebar slots (`scopeControl`, `navCounts`, `spaceNavSection`) resolve by the space and the current route's menu (`null` off a route), so a consumer can decline a menu by its own declaration before any of its subtree mounts (#1099c).
  * notifications: the rail bell and the platform-menu unread badge (ADR-0070 decision 4, #652).
  * vocCompose: the body of the rail `VOC 등록` docked drawer; the shell owns position, frozen Context chips, draft and close rules (ADR-0070 decision 5, #655).
  * navCounts: per-menu and per-`navViews` count badges in a space's sidebar (06 §8, #761).
  * spaceNavSection: a space's own sidebar section between the primary menu and favorites (06 §8, #761).
  * homeTodo: the home `내 할 일` section; the home menu reads it through `MenuPlatform.homeTodo`, the shell never does (ADR-0070 decision 8, ADR-0076, #657).
  */
-export type ScopeControlSlot = { For: (spaceId: SpaceId) => ComponentType<{ collapsed: boolean }> | null };
+export type ScopeControlSlot = { For: (spaceId: SpaceId, menu: MenuEntry | null) => ComponentType<{ collapsed: boolean }> | null };
 /**
  * Per-menu sidebar counts for one space (06 §8 `navCounts`, #761). `For` returns a module-level component (same stability rule as `scopeControl`:
  * the shell renders it once around the menu list, so its identity must not change between renders) or null for a space without counts.
  * It calls `children(counts)` at one stable position; keys are `menuId` for a row and `` `${menuId}/${viewId}` `` for a `navViews` item;
  * `null` (unknown, failed) or an absent key draws no badge.
  */
-export type NavCountsSlot = { For: (spaceId: SpaceId) => ComponentType<{ children: (counts: Readonly<Record<string, number>> | null) => ReactNode }> | null };
+export type NavCountsSlot = { For: (spaceId: SpaceId, menu: MenuEntry | null) => ComponentType<{ children: (counts: Readonly<Record<string, number>> | null) => ReactNode }> | null };
 /**
  * A space's own sidebar section after the primary menu and before favorites (06 §8 `spaceNavSection`, #761). The shell owns the expanded-only
  * rendering, the `<section aria-label>` landmark and the heading; `Body` takes no props and reads `usePlatform().route` to pick its surface.
  * `Body` must be module-level (stable identity), like `scopeControl`'s component.
  */
-export type SpaceNavSectionSlot = { For: (spaceId: SpaceId) => { label: Text; Body: ComponentType } | null };
+export type SpaceNavSectionSlot = { For: (spaceId: SpaceId, menu: MenuEntry | null) => { label: Text; Body: ComponentType } | null };
 export type PlatformSlots = { scopeControl?: ScopeControlSlot; contextBar?: ReactNode; topBarTools?: ReactNode; features?: FeatureSlot; plannedSpaces?: readonly PlannedSpace[]; boardEntry?: ReactNode; notifications?: NotificationsSlot; vocCompose?: VocComposeSlot; homeTodo?: HomeTodoSlot; navCounts?: NavCountsSlot; spaceNavSection?: SpaceNavSectionSlot };
 export type LinkOptions = { params?: Record<string, string>; page?: Record<string, string | null>; global?: Partial<GlobalContext>; returnTo?: boolean };
 export type LinkResolution = {

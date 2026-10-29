@@ -21,19 +21,19 @@ const sorted = (keys: readonly string[]) => [...keys].sort();
 
 describe('canonical Task tables', () => {
   it.each([
-    ['requests detail', taskRequestsRoute, 'fo-task-requests', `/tasks?view=requests&param=${TASK}`, { focus: TASK }],
-    ['requests reviewer', taskRequestsRoute, 'fo-task-requests', `/tasks?view=requests&reviewer=me&reviewerTeam=${TEAM}&managedSystem=${SYSTEM}`, { reviewer: 'me', reviewerTeam: TEAM, managedSystem: SYSTEM }],
-    ['requests scoped', taskRequestsRoute, 'fo-task-requests', `/tasks?view=requests&managedSystem=${SYSTEM}`, { managedSystem: SYSTEM }],
-    ['board', taskBoardRoute, 'fo-tasks', '/tasks?view=board', {}],
-    ['board selection', taskBoardRoute, 'fo-tasks', `/tasks?view=board&param=${TASK}`, { focus: TASK }],
-    ['board public update', taskBoardRoute, 'fo-tasks', '/tasks?view=board&public_update=missing', { publicUpdate: 'missing' }],
-    ['board search', taskBoardRoute, 'fo-tasks', `/tasks?view=board&q=a&managedSystem=${SYSTEM}`, { q: 'a', managedSystem: SYSTEM }],
-    ['milestones', milestonesRoute, 'fo-milestones', `/tasks?view=milestones&param=m-1&managedSystem=${SYSTEM}`, { focus: 'm-1', managedSystem: SYSTEM }],
-    ['list reporter update', taskListRoute, 'fo-task-list', '/tasks?view=backlog&reporter_update=needed', { reporterUpdate: 'needed' }],
-    ['list linked task', taskListRoute, 'fo-task-list', `/tasks?view=backlog&param=${TASK}`, { focus: TASK }],
-    ['list every key', taskListRoute, 'fo-task-list', `/tasks?view=backlog&param=${TASK}&managedSystem=${SYSTEM}&q=a&filter.analytics_area=${AREA}&status=doing&status_group=in-flight&overdue=true&public_update=missing&reporter_update=needed`,
+    ['requests detail', taskRequestsRoute, 'task-requests', `/tasks?view=requests&param=${TASK}`, { focus: TASK }],
+    ['requests reviewer', taskRequestsRoute, 'task-requests', `/tasks?view=requests&reviewer=me&reviewerTeam=${TEAM}&managedSystem=${SYSTEM}`, { reviewer: 'me', reviewerTeam: TEAM, managedSystem: SYSTEM }],
+    ['requests scoped', taskRequestsRoute, 'task-requests', `/tasks?view=requests&managedSystem=${SYSTEM}`, { managedSystem: SYSTEM }],
+    ['board', taskBoardRoute, 'tasks', '/tasks?view=board', {}],
+    ['board selection', taskBoardRoute, 'tasks', `/tasks?view=board&param=${TASK}`, { focus: TASK }],
+    ['board public update', taskBoardRoute, 'tasks', '/tasks?view=board&public_update=missing', { publicUpdate: 'missing' }],
+    ['board search', taskBoardRoute, 'tasks', `/tasks?view=board&q=a&managedSystem=${SYSTEM}`, { q: 'a', managedSystem: SYSTEM }],
+    ['milestones', milestonesRoute, 'milestones', `/tasks?view=milestones&param=m-1&managedSystem=${SYSTEM}`, { focus: 'm-1', managedSystem: SYSTEM }],
+    ['list reporter update', taskListRoute, 'task-list', '/tasks?view=backlog&reporter_update=needed', { reporterUpdate: 'needed' }],
+    ['list linked task', taskListRoute, 'task-list', `/tasks?view=backlog&param=${TASK}`, { focus: TASK }],
+    ['list every key', taskListRoute, 'task-list', `/tasks?view=backlog&param=${TASK}&managedSystem=${SYSTEM}&q=a&filter.analytics_area=${AREA}&status=doing&status_group=in-flight&overdue=true&public_update=missing&reporter_update=needed`,
       { focus: TASK, managedSystem: SYSTEM, q: 'a', area: AREA, status: 'doing', statusGroup: 'in-flight', overdue: 'true', publicUpdate: 'missing', reporterUpdate: 'needed' }],
-    ['my tasks', myTasksRoute, 'fo-my-tasks', `/tasks?view=my&status=todo&overdue=true&managedSystem=${SYSTEM}`, { status: 'todo', overdue: 'true', managedSystem: SYSTEM }],
+    ['my tasks', myTasksRoute, 'my-tasks', `/tasks?view=my&status=todo&overdue=true&managedSystem=${SYSTEM}`, { status: 'todo', overdue: 'true', managedSystem: SYSTEM }],
   ])('maps the %s link to its menu and back to the same FO search', (_name, route, menuId, to, page) => {
     const target = route.target(to);
     expect(target).toEqual({ menuId, page });
@@ -69,12 +69,12 @@ describe('list aliases', () => {
   it.each([
     ['no view', taskListBareAlias, `/tasks?param=${TASK}`],
     ['view=inbox', taskListInboxAlias, `/tasks?view=inbox&param=${TASK}`],
-  ])('reads a %s href as fo-task-list with focus', (_name, route, to) => {
-    expect(route.target(to)).toEqual({ menuId: 'fo-task-list', page: { focus: TASK } });
+  ])('reads a %s href as task-list with focus', (_name, route, to) => {
+    expect(route.target(to)).toEqual({ menuId: 'task-list', page: { focus: TASK } });
   });
 
   it('reads a bare /tasks as the list with no page keys', () => {
-    expect(taskListBareAlias.target('/tasks')).toEqual({ menuId: 'fo-task-list', page: {} });
+    expect(taskListBareAlias.target('/tasks')).toEqual({ menuId: 'task-list', page: {} });
   });
 });
 
@@ -109,26 +109,26 @@ describe('taskOperatorTargets', () => {
   it('resolves every FeedbackOps /tasks href to exactly one menu, no alias shadowing a table', () => {
     const menuOf = (to: string) => taskOperatorTargets.flatMap(target => target(to) ?? []).map(found => found.menuId);
     expect(taskOperatorTargets).toHaveLength(7);
-    expect(menuOf('/tasks?view=board&param=')).toEqual(['fo-tasks']);
-    expect(menuOf('/tasks?view=requests&param=')).toEqual(['fo-task-requests']);
-    expect(menuOf('/tasks?view=milestones')).toEqual(['fo-milestones']);
-    expect(menuOf('/tasks?view=my')).toEqual(['fo-my-tasks']);
-    expect(menuOf('/tasks?view=backlog&reporter_update=needed')).toEqual(['fo-task-list']);
-    expect(menuOf(`/tasks?param=${TASK}`)).toEqual(['fo-task-list']);
-    expect(menuOf(`/tasks?view=inbox&param=${TASK}`)).toEqual(['fo-task-list']);
+    expect(menuOf('/tasks?view=board&param=')).toEqual(['tasks']);
+    expect(menuOf('/tasks?view=requests&param=')).toEqual(['task-requests']);
+    expect(menuOf('/tasks?view=milestones')).toEqual(['milestones']);
+    expect(menuOf('/tasks?view=my')).toEqual(['my-tasks']);
+    expect(menuOf('/tasks?view=backlog&reporter_update=needed')).toEqual(['task-list']);
+    expect(menuOf(`/tasks?param=${TASK}`)).toEqual(['task-list']);
+    expect(menuOf(`/tasks?view=inbox&param=${TASK}`)).toEqual(['task-list']);
   });
 
   it('wires all seven Task tables into operatorHostLinks; Findings are wired too', () => {
     const { targetOf } = operatorHostLinks;
-    expect(targetOf(`/tasks?param=${TASK}`)).toEqual({ menuId: 'fo-task-list', page: { focus: TASK } });
-    expect(targetOf('/tasks?view=board&param=')).toEqual({ menuId: 'fo-tasks', page: {} });
-    expect(targetOf('/tasks?view=backlog&reporter_update=needed')).toEqual({ menuId: 'fo-task-list', page: { reporterUpdate: 'needed' } });
-    expect(targetOf(`/tasks?view=board&public_update=missing&managedSystem=${SYSTEM}`)).toEqual({ menuId: 'fo-tasks', page: { publicUpdate: 'missing', managedSystem: SYSTEM } });
-    expect(targetOf('/tasks?view=inbox')).toEqual({ menuId: 'fo-task-list', page: {} });
-    expect(targetOf('/tasks?view=my')?.menuId).toBe('fo-my-tasks');
-    expect(targetOf('/tasks?view=requests&param=x')).toEqual({ menuId: 'fo-task-requests', page: { focus: 'x' } });
-    expect(targetOf('/tasks?view=requests&reviewer=me')?.menuId).toBe('fo-task-requests');
-    expect(targetOf('/tasks?view=milestones&param=m-1')).toEqual({ menuId: 'fo-milestones', page: { focus: 'm-1' } });
-    expect(targetOf('/findings')).toEqual({ menuId: 'fo-findings', page: {} });
+    expect(targetOf(`/tasks?param=${TASK}`)).toEqual({ menuId: 'task-list', page: { focus: TASK } });
+    expect(targetOf('/tasks?view=board&param=')).toEqual({ menuId: 'tasks', page: {} });
+    expect(targetOf('/tasks?view=backlog&reporter_update=needed')).toEqual({ menuId: 'task-list', page: { reporterUpdate: 'needed' } });
+    expect(targetOf(`/tasks?view=board&public_update=missing&managedSystem=${SYSTEM}`)).toEqual({ menuId: 'tasks', page: { publicUpdate: 'missing', managedSystem: SYSTEM } });
+    expect(targetOf('/tasks?view=inbox')).toEqual({ menuId: 'task-list', page: {} });
+    expect(targetOf('/tasks?view=my')?.menuId).toBe('my-tasks');
+    expect(targetOf('/tasks?view=requests&param=x')).toEqual({ menuId: 'task-requests', page: { focus: 'x' } });
+    expect(targetOf('/tasks?view=requests&reviewer=me')?.menuId).toBe('task-requests');
+    expect(targetOf('/tasks?view=milestones&param=m-1')).toEqual({ menuId: 'milestones', page: { focus: 'm-1' } });
+    expect(targetOf('/findings')).toEqual({ menuId: 'findings', page: {} });
   });
 });

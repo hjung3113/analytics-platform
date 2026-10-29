@@ -10,17 +10,17 @@ import { setFeatureApi } from '../feature-api';
 import { FeatureScreenPage } from './FeatureScreenPage';
 import { operatorRoute, routeHere, routeSearch } from './operator-route';
 
-const route = operatorRoute({ foPath: '/vocs', foFixed: { view: 'inbox' }, menuId: 'fo-inbox', keys: { selected: 'focus', managedSystem: 'managedSystem' } });
+const route = operatorRoute({ foPath: '/vocs', foFixed: { view: 'inbox' }, menuId: 'inbox', keys: { selected: 'focus', managedSystem: 'managedSystem' } });
 const useSearch = routeSearch(route);
 const useHere = routeHere(route);
 
-const space = testSpace({ homeMenuId: 'fo-inbox' });
+const space = testSpace({ homeMenuId: 'inbox' });
 const registry = createRegistry({
   carrySets: [{ id: carrySetId('features'), pageKeys: ['managedSystem', 'returnTo'] }],
   spaces: [space],
   groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
   menus: [{
-    id: 'fo-inbox', group: groupId('overview'), primary: true, label: { ko: 'inbox', en: 'inbox' }, description: { ko: '', en: '' }, path: '/inbox', icon: House,
+    id: 'inbox', group: groupId('overview'), primary: true, label: { ko: 'inbox', en: 'inbox' }, description: { ko: '', en: '' }, path: '/inbox', icon: House,
     permission: 'platform:view' as const, requiresScope: false, context: noContext, pageType: 'overview' as const,
     features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['focus', 'managedSystem', 'returnTo'], carrySet: carrySetId('features'),
   }],
@@ -45,7 +45,7 @@ afterEach(() => { cleanup(); setFeatureApi(null); window.history.replaceState(nu
 
 describe('FeatureScreenPage', () => {
   it('draws RejectedPage for a refused value: nothing inside FeatureBridge mounts and the address is kept', async () => {
-    window.history.replaceState(null, '', '/mars/fo-inbox?v=1&focus=bad');
+    window.history.replaceState(null, '', '/mars/inbox?v=1&focus=bad');
     const url = window.location.href;
     render(page(() => false, <Screen label="detail" />));
     expect(await screen.findByText('주소의 focus 값이 올바르지 않습니다')).toBeTruthy();

@@ -12,7 +12,7 @@ const SCOPE_ALL = { managedSystem: 'all' } as const;
 export const integrationDashboardRoute = operatorRoute({
   foPath: '/integration',
   foFixed: {},
-  menuId: 'fo-integration',
+  menuId: 'integration',
   keys: {
     selected: 'focus',
     category: 'category',
@@ -28,7 +28,7 @@ export const integrationDashboardRoute = operatorRoute({
 export const evidenceRoute = operatorRoute({
   foPath: '/integration/evidence',
   foFixed: {},
-  menuId: 'fo-evidence',
+  menuId: 'evidence',
   keys: { selected: 'focus', source: 'source', q: 'q', cursor: 'cursor', managedSystem: 'managedSystem' },
   foAbsent: SCOPE_ALL,
 });
@@ -37,7 +37,7 @@ export const evidenceRoute = operatorRoute({
 export const coverageRoute = operatorRoute({
   foPath: '/integration/coverage',
   foFixed: {},
-  menuId: 'fo-coverage',
+  menuId: 'coverage',
   keys: { view: 'view', 'filter.analytics_area': 'area', cursor: 'cursor', managedSystem: 'managedSystem' },
   foAbsent: SCOPE_ALL,
 });
@@ -46,7 +46,7 @@ export const coverageRoute = operatorRoute({
 export const entityLinksRoute = operatorRoute({
   foPath: '/integration/links',
   foFixed: {},
-  menuId: 'fo-entity-links',
+  menuId: 'entity-links',
   keys: { status: 'status', type: 'type', managedSystem: 'managedSystem' },
   foAbsent: SCOPE_ALL,
 });

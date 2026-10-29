@@ -8,17 +8,17 @@ import { manifests } from './index';
 import { harnessMenus } from './test-support';
 
 const byId = (id: string) => manifests.find(entry => entry.id === id)!;
-const IDS = ['fo-managed-systems', 'fo-analytics-areas', 'fo-permission-requests', 'fo-permission-grants', 'fo-settings'];
+const IDS = ['managed-systems', 'analytics-areas', 'permission-request-review', 'permission-grants', 'settings'];
 
 describe('관리자 manifests', () => {
-  it('declares the five screens in order, Managed System first and primary, all in foAdmin', () => {
+  it('declares the five screens in order, Managed System first and primary, all in featureAdmin', () => {
     expect(manifests.map(entry => entry.id)).toEqual(IDS);
-    expect(manifests.filter(entry => entry.primary).map(entry => entry.id)).toEqual(['fo-managed-systems']);
-    expect(manifests.every(entry => entry.group === 'foAdmin')).toBe(true);
+    expect(manifests.filter(entry => entry.primary).map(entry => entry.id)).toEqual(['managed-systems']);
+    expect(manifests.every(entry => entry.group === 'featureAdmin')).toBe(true);
     expect(manifests.map(entry => entry.path)).toEqual([
-      '/feedbackops/managed-systems', '/feedbackops/analytics-areas', '/feedbackops/permission-requests', '/feedbackops/permission-grants', '/feedbackops/settings',
+      '/operations/managed-systems', '/operations/analytics-areas', '/operations/permission-request-review', '/operations/permission-grants', '/operations/settings',
     ]);
-    expect(manifests.map(entry => entry.label.ko)).toEqual(['Managed System', 'Analytics Area', '권한 요청 검토', '부여 목록', 'FeedbackOps 설정']);
+    expect(manifests.map(entry => entry.label.ko)).toEqual(['Managed System', 'Analytics Area', '권한 요청 검토', '부여 목록', '기능 설정']);
   });
 
   it('gives every menu its own icon and hides none', () => {
@@ -27,11 +27,11 @@ describe('관리자 manifests', () => {
   });
 
   it.each([
-    ['fo-managed-systems', managedSystemsRoute],
-    ['fo-analytics-areas', analyticsAreasRoute],
-    ['fo-permission-requests', permissionRequestsRoute],
-    ['fo-permission-grants', permissionGrantsRoute],
-    ['fo-settings', settingsRoute],
+    ['managed-systems', managedSystemsRoute],
+    ['analytics-areas', analyticsAreasRoute],
+    ['permission-request-review', permissionRequestsRoute],
+    ['permission-grants', permissionGrantsRoute],
+    ['settings', settingsRoute],
   ])('%s declares its route table page keys plus the two keys the space carries', (id, route) => {
     // `managedSystem` (ignored by these screens) and `returnTo` are carried by the FO space, not route-table keys.
     const menu = byId(id);
@@ -58,8 +58,8 @@ describe('관리자 manifests', () => {
   it('shows the section to a holder of console:access and not to a features:access-only user', () => {
     const registry = createRegistry({
       carrySets: [{ id: carrySetId('features'), pageKeys: ['managedSystem', 'returnTo'] }],
-      spaces: [{ id: spaceId('feedbackops'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'features:access', homeMenuId: 'fo-home-stub' }],
-      groups: [{ id: groupId('foAdmin'), label: { ko: '관리자', en: 'Admin' }, icon: UserCog, space: spaceId('feedbackops') }],
+      spaces: [{ id: spaceId('operations'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'features:access', homeMenuId: 'fo-home-stub' }],
+      groups: [{ id: groupId('featureAdmin'), label: { ko: '관리자', en: 'Admin' }, icon: UserCog, space: spaceId('operations') }],
       menus: harnessMenus,
     });
     const visible = (permissions: string[]) => registry.menus.filter(menu => !menu.navHidden && permissions.includes(menu.permission)).map(menu => menu.id);

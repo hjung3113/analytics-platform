@@ -3,4 +3,4 @@ import { ListTodo } from 'lucide-react';
 import { createFeatureMenuHarness } from '@ap/feature-bridge/testing';
 import { manifests } from './index';
 
-export const { registry, mountAt } = createFeatureMenuHarness({ manifests, homeMenuId: 'fo-dashboard', group: { id: 'foDashboard', label: { ko: '대시보드', en: 'Dashboard' }, icon: ListTodo }, detailSlot: false });
+export const { registry, mountAt } = createFeatureMenuHarness({ manifests, homeMenuId: 'dashboard', group: { id: 'dashboard', label: { ko: '대시보드', en: 'Dashboard' }, icon: ListTodo }, detailSlot: false });

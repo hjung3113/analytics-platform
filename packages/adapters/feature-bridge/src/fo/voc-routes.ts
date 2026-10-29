@@ -5,7 +5,7 @@ import { UUID_PATTERN } from './uuid';
 export const inboxRoute = operatorRoute({
   foPath: '/vocs',
   foFixed: { view: 'inbox' },
-  menuId: 'fo-inbox',
+  menuId: 'inbox',
   keys: {
     selected: 'focus', q: 'q', tab: 'tab', sort: 'sort', 'filter.severity': 'severity', 'filter.reporterStatus': 'reporterStatus',
     'filter.owner': 'owner', 'filter.analytics_area': 'area', managedSystem: 'managedSystem',
@@ -16,7 +16,7 @@ export const inboxRoute = operatorRoute({
 export const triageRoute = operatorRoute({
   foPath: '/vocs',
   foFixed: { view: 'triage' },
-  menuId: 'fo-triage',
+  menuId: 'triage',
   keys: { selected: 'focus', tab: 'tab', managedSystem: 'managedSystem', 'filter.analytics_area': 'area' },
 });
 
@@ -28,7 +28,7 @@ export const triageRoute = operatorRoute({
 export const clustersRoute = operatorRoute({
   foPath: '/voc-clusters',
   foFixed: {},
-  menuId: 'fo-clusters',
+  menuId: 'clusters',
   keys: { selected: 'focus', managedSystem: 'managedSystem' },
   foAbsent: { managedSystem: 'all' },
   detailPath: { key: 'selected', pattern: UUID_PATTERN },

@@ -10,7 +10,7 @@ vi.mock('@ap/kernel', async importOriginal => {
 });
 // The first call is menus.ts at import time.
 const ASSEMBLY_CALL = vi.mocked(createRegistry).mock.calls[0]![0];
-const RESERVED_ROOTS = ['home', 'survey', 'voc', 'notifications', 'notices', 'permission-requests'];
+const RESERVED_ROOTS = ['home', 'survey', 'voc', 'notifications', 'notices', 'permission-requests', 'my-tasks'];
 
 // ADR-0093 / kernel.md §6.4: the assembled app's old → canonical path table. A menu added without canonical/alias coverage fails here.
 const RAW = [...MENUS, ...EQV_MODULE.menus];
@@ -74,19 +74,32 @@ describe('assembled registry: canonical paths and legacy aliases', () => {
     expect(registry.menuById('survey-respond')).toMatchObject({ path: '/survey/:surveyId/respond', aliases: ['/surveys/:surveyId/respond'] });
   });
 
-  it('puts the Survey 관리 menus under /feedbackops and aliases none of them to the reporter /surveys paths (#764 p1)', () => {
-    const operator = ['fo-surveys', 'fo-survey-builder', 'fo-survey-results', 'fo-survey-follow-up'].map(id => registry.menuById(id));
-    expect(operator.map(menu => menu.path)).toEqual(['/feedbackops/fo-surveys', '/feedbackops/fo-survey-builder/:surveyId', '/feedbackops/fo-survey-results/:surveyId', '/feedbackops/fo-survey-follow-up/:surveyId']);
-    for (const menu of operator) expect(menu.aliases ?? []).not.toContain('/surveys');
+  it('puts the Survey 관리 menus under /operations with no legacy alias, and aliases none of them to the reporter /surveys paths (#764 p1)', () => {
+    const operator = ['survey-management', 'survey-builder', 'survey-results', 'survey-follow-up'].map(id => registry.menuById(id));
+    expect(operator.map(menu => menu.path)).toEqual(['/operations/survey-management', '/operations/survey-builder/:surveyId', '/operations/survey-results/:surveyId', '/operations/survey-follow-up/:surveyId']);
+    for (const menu of operator) expect(menu.aliases).toBeUndefined();
     for (const menu of operator) expect((menu.aliases ?? []).some(alias => /^\/surveys(\/|$)/.test(alias))).toBe(false);
     expect(registry.matchRoute('/surveys')).toMatchObject({ menu: { id: 'surveys' }, viaAlias: true });
     expect(registry.matchRoute('/surveys/x1/respond')).toMatchObject({ menu: { id: 'survey-respond' }, viaAlias: true });
   });
 
-  it('puts the 관리자 menus under /feedbackops and aliases none of them to the operations /admin paths (#764 p2)', () => {
-    const admin = ['fo-managed-systems', 'fo-analytics-areas', 'fo-permission-requests', 'fo-permission-grants', 'fo-settings'].map(id => registry.menuById(id));
-    expect(admin.map(menu => menu.path)).toEqual(admin.map(menu => `/feedbackops/${menu.id}`));
+  it('puts the 관리자 menus under /operations with no legacy alias, and aliases none of them to the platform /admin paths (#764 p2)', () => {
+    const admin = ['managed-systems', 'analytics-areas', 'permission-request-review', 'permission-grants', 'settings'].map(id => registry.menuById(id));
+    expect(admin.map(menu => menu.path)).toEqual(admin.map(menu => `/operations/${menu.id}`));
+    for (const menu of admin) expect(menu.aliases).toBeUndefined();
     for (const menu of admin) expect((menu.aliases ?? []).some(alias => /^\/admin(\/|$)/.test(alias))).toBe(false);
     expect(registry.matchRoute('/admin/roles')).toMatchObject({ menu: { id: 'admin-roles' } });
+  });
+});
+
+describe('retired FeedbackOps space and global 내 Task (#1099c)', () => {
+  it('has no feedbackops space, no old path or alias, and serves 내 Task at the global /my-tasks', () => {
+    expect(registry.spaces.map(space => space.id)).not.toContain('feedbackops');
+    for (const menu of registry.menus) for (const path of [menu.path, ...(menu.aliases ?? [])]) expect(path, menu.id).not.toMatch(/^\/feedbackops(\/|$)/);
+    expect(registry.matchRoute('/feedbackops')).toBeNull();
+    expect(registry.matchRoute('/feedbackops/my-tasks')).toBeNull();
+    expect(registry.matchRoute('/feedbackops/fo-my-tasks')).toBeNull();
+    expect(registry.matchRoute('/my-tasks')).toMatchObject({ menu: { id: 'my-tasks', group: 'myActivity' }, viaAlias: false });
+    expect(registry.spaceOf(registry.menuById('my-tasks'))).toBeNull();
   });
 });

@@ -27,8 +27,8 @@ type Pkg = { folder: string; group: string; root: 'menus' | 'platform'; space: s
 /** Packages of both roots. Folder, group, package name and app binding are deliberately all different where a real package differs. */
 const PACKAGES: Pkg[] = [
   { folder: 'home', group: 'overview', root: 'platform', space: null },
-  { folder: 'dashboard', group: 'foDashboard', root: 'platform', space: 'mars', binding: 'foDashboard' },
-  { folder: 'feature-admin', group: 'foAdmin', root: 'platform', space: 'mars', binding: 'foAdmin' },
+  { folder: 'dashboard', group: 'dashboard', root: 'platform', space: 'mars', binding: 'dashboard' },
+  { folder: 'feature-admin', group: 'featureAdmin', root: 'platform', space: 'mars', binding: 'featureAdmin' },
   { folder: 'equipment', group: 'equipment', root: 'menus', space: 'mars' },
   { folder: 'master-data', group: 'masterData', root: 'menus', space: 'mars' },
   { folder: 'analytics', group: 'analytics', root: 'menus', space: 'mars' },
@@ -184,9 +184,9 @@ describe('wiring invariants against a fixture repo', () => {
 
   it('takes the space of a platform feature from GROUPS only, never from its folder name', () => {
     const shape = loadShape(fresh());
-    // `platform/dashboard` owns foDashboard (space mars) and `platform/home` owns overview (null): neither folder name is judged.
+    // `platform/dashboard` owns dashboard (space mars) and `platform/home` owns overview (null): neither folder name is judged.
     expect(() => checkGroups(shape)).not.toThrow();
-    shape.menusTs = shape.menusTs.replace("{ id: 'foDashboard', label: { ko: 'g', en: 'g' }, icon: I, space: 'mars'", "{ id: 'foDashboard', label: { ko: 'g', en: 'g' }, icon: I, space: null");
+    shape.menusTs = shape.menusTs.replace("{ id: 'dashboard', label: { ko: 'g', en: 'g' }, icon: I, space: 'mars'", "{ id: 'dashboard', label: { ko: 'g', en: 'g' }, icon: I, space: null");
     expect(() => checkGroups(shape)).not.toThrow();
   });
 
@@ -194,6 +194,16 @@ describe('wiring invariants against a fixture repo', () => {
     const shape = loadShape(fresh());
     shape.menusTs = shape.menusTs.replace("{ id: 'quality', label: { ko: 'g', en: 'g' }, icon: I, space: 'mars'", "{ id: 'quality', label: { ko: 'g', en: 'g' }, icon: I, space: null");
     expect(() => checkGroups(shape)).toThrow(/space mismatch/);
+  });
+
+  it('lets a package declare one screen in a global group another package owns, but never a second space group', () => {
+    const shape = loadShape(fresh());
+    const own = shape.indexes['platform/dashboard'] as string;
+    shape.indexes['platform/dashboard'] = own.replace(/\];\s*$/, ", { id: 'dashboard-mine', group: 'overview', path: '/dashboard-mine' }];");
+    expect(shape.indexes['platform/dashboard']).toContain('dashboard-mine');
+    expect(() => checkGroups(shape)).not.toThrow();
+    shape.indexes['platform/dashboard'] = own.replace(/\];\s*$/, ", { id: 'dashboard-other', group: 'quality', path: '/dashboard-other' }];");
+    expect(() => checkGroups(shape)).toThrow(/exactly one space group/);
   });
 
   it('rejects a group owned by packages in both roots', () => {
@@ -270,22 +280,22 @@ describe('wiring invariants against a fixture repo', () => {
     expect(() => checkWiring(loadShape(root))).toThrow(/no import inside the mock-assembly\.tsx mock import markers/);
   });
 
-  it('wires by the actual import and spread, so menu-dashboard / foDashboard and menu-feature-admin / foAdmin pass', () => {
+  it('wires by the actual import and spread, so menu-dashboard / dashboard and menu-feature-admin / featureAdmin pass', () => {
     const shape = loadShape(fresh());
-    expect(shape.menusTs).toContain(`import { manifests as foDashboard } from '${PACKAGE_PREFIX}menu-dashboard';`);
-    expect(shape.menusTs).toContain(`import { manifests as foAdmin } from '${PACKAGE_PREFIX}menu-feature-admin';`);
+    expect(shape.menusTs).toContain(`import { manifests as dashboard } from '${PACKAGE_PREFIX}menu-dashboard';`);
+    expect(shape.menusTs).toContain(`import { manifests as featureAdmin } from '${PACKAGE_PREFIX}menu-feature-admin';`);
     expect(() => checkWiring(shape)).not.toThrow();
   });
 
   it.each([
-    ['missing import', `import { manifests as foAdmin } from '${PACKAGE_PREFIX}menu-feature-admin';\n`, '', /no manifests import/],
-    ['missing spread', '  ...foAdmin,\n', '', /no spread inside the spread markers/],
-    ['spread of a different binding', '  ...foAdmin,\n', '  ...elsewhere,\n', /no spread inside the spread markers/],
-    ['import under a different binding', `import { manifests as foAdmin } from '${PACKAGE_PREFIX}menu-feature-admin';`, `import { manifests as renamed } from '${PACKAGE_PREFIX}menu-feature-admin';`, /no spread inside the spread markers/],
-    ['duplicate import', `import { manifests as foAdmin } from '${PACKAGE_PREFIX}menu-feature-admin';\n`, `import { manifests as foAdmin } from '${PACKAGE_PREFIX}menu-feature-admin';\nimport { manifests as foAdmin2 } from '${PACKAGE_PREFIX}menu-feature-admin';\n`, /2 manifests imports/],
-    ['duplicate spread', '  ...foAdmin,\n', '  ...foAdmin,\n  ...foAdmin,\n', /spread 2 times/],
-    ['commented-out import', `import { manifests as foAdmin } from '${PACKAGE_PREFIX}menu-feature-admin';`, `// import { manifests as foAdmin } from '${PACKAGE_PREFIX}menu-feature-admin';`, /no manifests import/],
-    ['commented-out spread', '  ...foAdmin,', '  // ...foAdmin,', /no spread inside the spread markers/],
+    ['missing import', `import { manifests as featureAdmin } from '${PACKAGE_PREFIX}menu-feature-admin';\n`, '', /no manifests import/],
+    ['missing spread', '  ...featureAdmin,\n', '', /no spread inside the spread markers/],
+    ['spread of a different binding', '  ...featureAdmin,\n', '  ...elsewhere,\n', /no spread inside the spread markers/],
+    ['import under a different binding', `import { manifests as featureAdmin } from '${PACKAGE_PREFIX}menu-feature-admin';`, `import { manifests as renamed } from '${PACKAGE_PREFIX}menu-feature-admin';`, /no spread inside the spread markers/],
+    ['duplicate import', `import { manifests as featureAdmin } from '${PACKAGE_PREFIX}menu-feature-admin';\n`, `import { manifests as featureAdmin } from '${PACKAGE_PREFIX}menu-feature-admin';\nimport { manifests as foAdmin2 } from '${PACKAGE_PREFIX}menu-feature-admin';\n`, /2 manifests imports/],
+    ['duplicate spread', '  ...featureAdmin,\n', '  ...featureAdmin,\n  ...featureAdmin,\n', /spread 2 times/],
+    ['commented-out import', `import { manifests as featureAdmin } from '${PACKAGE_PREFIX}menu-feature-admin';`, `// import { manifests as featureAdmin } from '${PACKAGE_PREFIX}menu-feature-admin';`, /no manifests import/],
+    ['commented-out spread', '  ...featureAdmin,', '  // ...featureAdmin,', /no spread inside the spread markers/],
   ])('rejects %s for a package whose binding differs from its name', (_label, from, to, error) => {
     const shape = loadShape(fresh());
     shape.menusTs = shape.menusTs.replace(from, to);
@@ -294,7 +304,7 @@ describe('wiring invariants against a fixture repo', () => {
 
   it('rejects an app-side spread that no menu import backs', () => {
     const shape = loadShape(fresh());
-    shape.menusTs = shape.menusTs.replace('  ...foAdmin,\n', '  ...foAdmin,\n  ...stray,\n');
+    shape.menusTs = shape.menusTs.replace('  ...featureAdmin,\n', '  ...featureAdmin,\n  ...stray,\n');
     expect(() => checkWiring(shape)).toThrow(/'\.\.\.stray'/);
   });
 
@@ -302,7 +312,7 @@ describe('wiring invariants against a fixture repo', () => {
     const shape = loadShape(fresh());
     shape.menusTs = shape.menusTs
       .replace('// <gen:menu-imports>\n', `// <gen:menu-imports>\nimport { manifests as unlisted } from '${PACKAGE_PREFIX}menu-unlisted';\n`)
-      .replace('  ...foAdmin,\n', '  ...foAdmin,\n  ...unlisted,\n');
+      .replace('  ...featureAdmin,\n', '  ...featureAdmin,\n  ...unlisted,\n');
     expect(() => checkWiring(shape)).toThrow(/'\.\.\.unlisted'.*no matching manifests import of a menu dependency/);
   });
 

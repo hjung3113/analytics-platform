@@ -70,7 +70,7 @@ export function FeatureBridge({ children, canLink = noLink, Link = UnlinkedLink,
   if (session.status === 'no-api') {
     return <StateMessage icon={<ServerOff className="size-4" aria-hidden />}
       title={ko ? '실서버 필요' : 'Real server required'}
-      body={ko ? '이 화면은 FeedbackOps 서버의 데이터를 씁니다. mock 미리보기에서는 열리지 않습니다.' : 'This screen reads FeedbackOps server data and does not open in the mock preview.'} />;
+      body={ko ? '이 화면은 플랫폼 서버의 데이터를 씁니다. mock 미리보기에서는 열리지 않습니다.' : 'This screen reads platform server data and does not open in the mock preview.'} />;
   }
   if (session.status === 'pending') return null;
   if (session.status === 'retired') {

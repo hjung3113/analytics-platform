@@ -27,9 +27,9 @@ export function managedSystemFor(spaceId: string | null): string | null {
 /** One bottom-block entry: an in-shell menu opened with the space's Managed System. */
 type Row = Pick<FeatureEntry, 'key' | 'label' | 'icon' | 'menuId'>;
 const ENTRIES: readonly Row[] = [
-  { key: 'voc', icon: MessagesSquare, label: { ko: 'VOC', en: 'VOC' }, menuId: 'fo-inbox' },
-  { key: 'task', icon: ListTodo, label: { ko: 'Task', en: 'Tasks' }, menuId: 'fo-task-list' },
-  { key: 'survey', icon: ClipboardList, label: { ko: '설문', en: 'Surveys' }, menuId: 'fo-surveys' },
+  { key: 'voc', icon: MessagesSquare, label: { ko: 'VOC', en: 'VOC' }, menuId: 'inbox' },
+  { key: 'task', icon: ListTodo, label: { ko: 'Task', en: 'Tasks' }, menuId: 'task-list' },
+  { key: 'survey', icon: ClipboardList, label: { ko: '설문', en: 'Surveys' }, menuId: 'survey-management' },
 ];
 
 /** The FeedbackOps slot for the app; every FeedbackOps screen is a platform menu (ADR-0081 decision 6). */

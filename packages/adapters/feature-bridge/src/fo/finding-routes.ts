@@ -10,7 +10,7 @@ import { UUID_PATTERN } from './uuid';
 export const findingsRoute = operatorRoute({
   foPath: '/findings',
   foFixed: {},
-  menuId: 'fo-findings',
+  menuId: 'findings',
   keys: {
     selected: 'focus',
     q: 'q',

@@ -13,7 +13,7 @@ import { inboxRoute, triageRoute } from '../fo/voc-routes';
 
 const NO_VIEWS: SavedView[] = [];
 const QUERY_KEY = ['saved-views', 'voc'] as const;
-const SAVE_ROUTES = { 'fo-inbox': inboxRoute, 'fo-triage': triageRoute } as const;
+const SAVE_ROUTES = { 'inbox': inboxRoute, 'triage': triageRoute } as const;
 
 type Recovery = { order: string[]; deletedIndex: number };
 

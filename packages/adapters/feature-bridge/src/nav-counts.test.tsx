@@ -14,19 +14,20 @@ import { navCountsSlot } from './nav-counts';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const SPACE = spaceId('feedbackops');
-const GROUP = groupId('foVoc');
-const Counts = navCountsSlot.For(SPACE)!;
+const SPACE = spaceId('operations');
+const GROUP = groupId('voc');
 const registry = createRegistry({
   carrySets: [{ id: carrySetId('features'), pageKeys: ['managedSystem'] }],
-  spaces: [{ id: SPACE, label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'features:access', homeMenuId: 'fo-inbox' }],
+  spaces: [{ id: SPACE, label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'features:access', homeMenuId: 'inbox' }],
   groups: [{ id: GROUP, label: { ko: 'VOC', en: 'VOC' }, icon: Inbox, space: SPACE }],
   menus: [{
-    id: 'fo-inbox', primary: true, group: GROUP, label: { ko: '수신함', en: 'Inbox' }, description: { ko: '수신함', en: 'Inbox' },
-    path: '/feedbackops/vocs', icon: Inbox, permission: 'features:access', requiresScope: false, pageType: 'management',
+    id: 'inbox', primary: true, group: GROUP, label: { ko: '수신함', en: 'Inbox' }, description: { ko: '수신함', en: 'Inbox' },
+    path: '/operations/inbox', icon: Inbox, permission: 'features:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES, pageKeys: ['managedSystem'], carrySet: carrySetId('features'), component: lazy(async () => ({ default: () => null })),
   }],
 });
+
+const Counts = navCountsSlot.For(SPACE, registry.menuById('inbox'))!;
 
 /** What a FeedbackOps screen does (TriageScreen): an active observer of the same key on the shared client. */
 function ScreenObserver() {
@@ -57,7 +58,7 @@ describe('navCounts slot with an active FeedbackOps observer on the same key', (
       return new Response(JSON.stringify({ counts: { 'voc.inbox': n } }), { status: 200, headers: { 'content-type': 'application/json' } });
     }));
     const seen: Array<Record<string, number> | null> = [];
-    window.history.replaceState(null, '', '/feedbackops/vocs');
+    window.history.replaceState(null, '', '/operations/inbox');
     const session = testSession(['platform:view', 'features:access'], { user: { id: 'admin', name: 'admin', title: { ko: 'admin', en: 'admin' } } });
     host = document.createElement('div');
     document.body.append(host);
@@ -73,19 +74,19 @@ describe('navCounts slot with an active FeedbackOps observer on the same key', (
       );
     });
     const text = () => host!.querySelector('[data-testid="counts"]')!.textContent;
-    await act(async () => { await vi.waitFor(() => expect(text()).toBe('{"fo-inbox":1}')); });
+    await act(async () => { await vi.waitFor(() => expect(text()).toBe('{"inbox":1}')); });
     expect(calls).toEqual(['/api/features/nav/counts']);
     n = 2;
     seen.length = 0;
     await act(async () => { invalidateNavCounts(featureQueryClient); });
-    await act(async () => { await vi.waitFor(() => expect(text()).toBe('{"fo-inbox":2}')); });
+    await act(async () => { await vi.waitFor(() => expect(text()).toBe('{"inbox":2}')); });
     expect(seen.filter(counts => counts === null)).toEqual([]);
     expect(calls).toEqual(['/api/features/nav/counts', '/api/features/nav/counts']);
   });
 
-  it('maps surveys.all to the Survey 관리 menu (fo-surveys), next to findings.all', async () => {
+  it('maps surveys.all to the Survey 관리 menu (survey-management), next to findings.all', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ counts: { 'findings.all': 3, 'surveys.all': 7 } }), { status: 200, headers: { 'content-type': 'application/json' } })));
-    window.history.replaceState(null, '', '/feedbackops/vocs');
+    window.history.replaceState(null, '', '/operations/inbox');
     const session = testSession(['platform:view', 'features:access'], { user: { id: 'admin', name: 'admin', title: { ko: 'admin', en: 'admin' } } });
     host = document.createElement('div');
     document.body.append(host);
@@ -99,6 +100,6 @@ describe('navCounts slot with an active FeedbackOps observer on the same key', (
         </I18nProvider>,
       );
     });
-    await act(async () => { await vi.waitFor(() => expect(host!.querySelector('[data-testid="counts"]')!.textContent).toBe('{"fo-findings":3,"fo-surveys":7}')); });
+    await act(async () => { await vi.waitFor(() => expect(host!.querySelector('[data-testid="counts"]')!.textContent).toBe('{"findings":3,"survey-management":7}')); });
   });
 });
