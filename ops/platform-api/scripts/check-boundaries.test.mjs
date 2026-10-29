@@ -487,7 +487,8 @@ runCase(
   {
     ...zero,
     [join(FO_BACKEND, 'eslint.config.js')]: LINT_PRESET,
-    [join(FO_SHARED, 'eslint.config.js')]: "import { foShared } from '@ap/eslint-config';\nexport default foShared;\n",
+    [join(FO_SHARED, 'eslint.config.js')]:
+      "import { foShared } from '@ap/eslint-config';\nexport default foShared;\n",
     [join(FO_UI, 'eslint.config.js')]: LINT_PRESET,
   },
   true,
@@ -519,8 +520,10 @@ runCase(
   {
     ...zero,
     [join(FO_BACKEND, 'eslint.config.js')]: "export * from '@ap/eslint-config/feature';\n",
-    [join(FO_SHARED, 'eslint.config.js')]: "import { PERMISSIONS } from '@ap/contracts';\nconst k = await import('@ap/kernel');\n",
-    [join(FO_UI, 'eslint.config.js')]: "export * from '@ap/eslint-config-extra';\nconst c = require('@ap/ui/../shell');\n",
+    [join(FO_SHARED, 'eslint.config.js')]:
+      "import { PERMISSIONS } from '@ap/contracts';\nconst k = await import('@ap/kernel');\n",
+    [join(FO_UI, 'eslint.config.js')]:
+      "export * from '@ap/eslint-config-extra';\nconst c = require('@ap/ui/../shell');\n",
   },
   false,
   [

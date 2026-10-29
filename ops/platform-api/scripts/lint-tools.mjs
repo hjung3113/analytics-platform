@@ -6,14 +6,7 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import {
-  FO_BIOME_SCOPE,
-  FO_FRONTEND,
-  FO_OPS,
-  OPS_ROOT,
-  REPO_ROOT,
-  foPath,
-} from '../paths.mjs';
+import { FO_BIOME_SCOPE, FO_FRONTEND, FO_OPS, OPS_ROOT, REPO_ROOT, foPath } from '../paths.mjs';
 
 // ignorePatterns in .oxlintrc.json match relative to the config's folder, which no longer contains the sources, so the
 // same patterns are passed on the command line (relative to the repository root, where Oxlint runs).
