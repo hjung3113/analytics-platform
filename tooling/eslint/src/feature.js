@@ -21,8 +21,6 @@ const a11yPlugin = fixupPluginRules(jsxA11y);
 // Rules without an old Biome counterpart that js/ts "recommended" would add.
 const NO_OLD_COUNTERPART = {
   'preserve-caught-error': 'off',
-  // JS here is one Node script; TypeScript's compiler checks undeclared names in the TS sources.
-  'no-undef': 'off',
   'no-useless-assignment': 'off',
   '@typescript-eslint/no-require-imports': 'off',
   '@typescript-eslint/ban-ts-comment': 'off',
@@ -126,11 +124,48 @@ const CORRECTNESS_RULES = {
   'no-unneeded-ternary': 'error',
   'no-lone-blocks': 'error',
   'prefer-exponentiation-operator': 'error',
+  // Old Biome suspicious/noMisrefactoredShorthandAssign: `count += count + 1` counts the old value twice.
+  'unicorn/no-misrefactored-assignment': 'error',
   'unicorn/no-thenable': 'error',
   'unicorn/no-static-only-class': 'error',
   'unicorn/no-useless-switch-case': 'error',
   'unicorn/prefer-node-protocol': 'error',
   'unicorn/prefer-number-properties': 'error',
+};
+
+// Node globals for the few plain JS files (ESLint config files and one build script), which no TypeScript program checks.
+// A full environment package would be a new dependency; these files only use this set (the JS probe test pins it).
+const NODE_GLOBALS = Object.fromEntries(
+  [
+    'process', 'console', 'Buffer', 'URL', 'URLSearchParams', 'AbortController', 'TextEncoder', 'TextDecoder', 'fetch',
+    'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'setImmediate', 'clearImmediate', 'queueMicrotask',
+    'structuredClone', 'performance', '__dirname', '__filename', 'module', 'require', 'exports',
+  ].map((name) => [name, 'readonly']),
+);
+
+// typescript-eslint's compatibility override turns these off because tsc reports the same mistake (TS1117, TS2588 ...).
+// That only holds for files that are in a tsc program: tests under a package-level __tests__ folder, *.config.ts,
+// vitest.setup.ts and .d.ts files are outside every `include` (typecheck covers src and the platform conformance test
+// only). Dropping the rules would leave those files unchecked, so the ones with no TypeScript-aware false positive stay on.
+// Not restored: no-undef (type names), getter-return (abstract/interface accessors), no-with (strict-mode syntax error).
+// no-redeclare and no-dupe-class-members use the typescript-eslint extension (overloads, declaration merging).
+const COMPILER_BACKED_BUT_UNCOVERED = {
+  'constructor-super': 'error',
+  'no-class-assign': 'error',
+  'no-const-assign': 'error',
+  'no-dupe-args': 'error',
+  'no-dupe-class-members': 'off',
+  '@typescript-eslint/no-dupe-class-members': 'error',
+  'no-dupe-keys': 'error',
+  'no-func-assign': 'error',
+  'no-import-assign': 'error',
+  'no-new-native-nonconstructor': 'error',
+  'no-obj-calls': 'error',
+  'no-redeclare': 'off',
+  '@typescript-eslint/no-redeclare': 'error',
+  'no-setter-return': 'error',
+  'no-this-before-super': 'error',
+  'no-unsafe-negation': 'error',
 };
 
 const baseConfigs = () => [
@@ -150,6 +185,9 @@ const baseConfigs = () => [
     plugins: { unicorn },
     rules: { ...NO_OLD_COUNTERPART, ...CORRECTNESS_RULES },
   },
+  { files: ['**/*.{ts,tsx}'], rules: COMPILER_BACKED_BUT_UNCOVERED },
+  // Plain JS has no compiler at all, so undeclared names are the lint's job there (TS keeps no-undef off: tsc reports them).
+  { files: ['**/*.{js,mjs}'], languageOptions: { globals: NODE_GLOBALS } },
 ];
 
 const A11Y_RULES = Object.fromEntries(

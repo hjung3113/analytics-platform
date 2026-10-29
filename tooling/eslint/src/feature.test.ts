@@ -99,6 +99,106 @@ describe('feature full-source presets: correctness policy carried over from the 
   });
 });
 
+describe('feature full-source presets: checks the compiler no longer reports for files outside every tsc program', () => {
+  // Paths no package `include` reaches: a package-level __tests__ folder, *.config.ts, vitest.setup.ts and plain JS.
+  const OUTSIDE_TSC = [
+    ['__tests__/probe.test.ts', UI],
+    ['vitest.setup.ts', UI],
+    ['vitest.config.ts', SERVER],
+    ['drizzle.config.ts', SERVER],
+  ] as const;
+
+  it.each([
+    ['duplicate object keys', 'export const o = { a: 1, a: 2 };\n', 'no-dupe-keys'],
+    ['reassigned function', 'function g() {\n  return 1;\n}\ng = () => 2;\nexport { g };\n', 'no-func-assign'],
+    ['reassigned class', 'class K {}\nK = class {};\nexport { K };\n', 'no-class-assign'],
+    ['reassigned const', 'const c = 1;\nc = 2;\nexport { c };\n', 'no-const-assign'],
+    ['negated left side of in', "export const f = (k: string, o: object) => !k in o;\n", 'no-unsafe-negation'],
+    ['duplicate parameter', 'export function f(a: number, a: number) {\n  return a;\n}\n', 'no-dupe-args'],
+    ['duplicate class member', 'export class K {\n  m() {\n    return 1;\n  }\n  m() {\n    return 2;\n  }\n}\n', '@typescript-eslint/no-dupe-class-members'],
+    ['redeclared variable', 'var v = 1;\nvar v = 2;\nexport { v };\n', '@typescript-eslint/no-redeclare'],
+    ['calling a global namespace', 'export const m = Math();\n', 'no-obj-calls'],
+  ])('%s fails outside every tsc program', async (_label, code, rule) => {
+    for (const [file, dir] of OUTSIDE_TSC) {
+      expect(await lint(dir, file, code), `${dir}/${file}`).toContain(rule);
+    }
+  });
+
+  it('keeps checking src files too, where the compiler reports the same mistake', async () => {
+    for (const dir of [SERVER, SHARED, UI]) {
+      expect(await lint(dir, 'src/probe.ts', 'export const o = { a: 1, a: 2 };\n')).toContain('no-dupe-keys');
+    }
+  });
+
+  it('passes typed code the compatibility override exists for: overloads, declaration merging, type-only names', async () => {
+    const code = [
+      'export function f(a: string): string;',
+      'export function f(a: number): number;',
+      'export function f(a: string | number) {',
+      '  return a;',
+      '}',
+      'export interface Shape {',
+      '  w: number;',
+      '}',
+      'export namespace Shape {',
+      '  export const unit: Shape = { w: 1 };',
+      '}',
+      'export class C {',
+      '  m(a: string): string;',
+      '  m(a: number): number;',
+      '  m(a: string | number) {',
+      '    return a;',
+      '  }',
+      '}',
+      'export type Keys = keyof typeof Shape.unit | NodeJS.Timeout;',
+      'export abstract class A {',
+      '  abstract get x(): number;',
+      '}',
+      '',
+    ].join('\n');
+    for (const [file, dir] of OUTSIDE_TSC) {
+      const rules = (await lint(dir, file, code)).filter((rule) => rule !== '@typescript-eslint/no-namespace');
+      expect(rules, `${dir}/${file}`).toEqual([]);
+    }
+  });
+
+  it('passes an ordinary tooling config file', async () => {
+    const code = "import { defineConfig } from 'vitest/config';\n\nexport default defineConfig({ test: { include: ['**/*.test.ts'] } });\n";
+    for (const [file, dir] of OUTSIDE_TSC) expect(await lint(dir, file, code), `${dir}/${file}`).toEqual([]);
+  });
+
+  it.each([
+    ['an undeclared name', 'export default { name: missingBinding };\n', ['no-undef']],
+    ['an undeclared name in a script', "process.stdout.write(typoBinding);\n", ['no-undef']],
+  ])('plain JS: %s fails', async (_label, code, rules) => {
+    for (const dir of [SERVER, SHARED, UI]) expect(await lint(dir, 'eslint.config.js', code), dir).toEqual(rules);
+  });
+
+  it('plain JS: Node globals and an ordinary config are accepted, TypeScript keeps no-undef off', async () => {
+    const script = "import { readFileSync } from 'node:fs';\n\nconst home = process.env.HOME ?? '';\nprocess.stdout.write(`${Buffer.from(home)}${new URL('file:///x')}${String(readFileSync)}`);\nsetTimeout(() => undefined, 0);\n";
+    for (const dir of [SERVER, SHARED, UI]) {
+      expect(await lint(dir, 'scripts/probe.mjs', script), dir).toEqual([]);
+      expect(await lint(dir, 'src/probe.ts', 'export type T = NodeJS.Timeout;\nexport const f = (x: JSX.Element | undefined) => x;\n'), dir).toEqual([]);
+    }
+  });
+});
+
+describe('feature full-source presets: misrefactored compound assignment (old Biome noMisrefactoredShorthandAssign)', () => {
+  it.each([
+    ['additive', 'export function f(count: number) {\n  count += count + 1;\n  return count;\n}\n'],
+    ['multiplicative', 'export function f(n: number) {\n  n *= n * 2;\n  return n;\n}\n'],
+  ])('%s duplicate of the target fails', async (_label, code) => {
+    for (const dir of [SERVER, SHARED, UI]) {
+      expect(await lint(dir, 'src/probe.ts', code), dir).toContain('unicorn/no-misrefactored-assignment');
+    }
+  });
+
+  it('accepts a compound assignment that does not repeat its target', async () => {
+    const code = 'export function f(start: number, step: number) {\n  let count = start;\n  count += step + 1;\n  count *= 2;\n  return count;\n}\n';
+    for (const dir of [SERVER, SHARED, UI]) expect(await lint(dir, 'src/probe.ts', code), dir).toEqual([]);
+  });
+});
+
 describe('feature UI preset: React, accessibility and design-system rules under ESLint 10', () => {
   const tsx = (body: string) =>
     `import React from 'react';\nexport const C = (p: { items: string[] }) => (\n  <section data-count={p.items.length}>${body}</section>\n);\nvoid React;\n`;

@@ -8,6 +8,9 @@
     },
     "typecheck": {
       "dependsOn": ["^build"]
+    },
+    "lint": {
+      "inputs": ["$TURBO_EXTENDS$", "$TURBO_ROOT$/apps/feature-screens/src/styles.css"]
     }
   }
 }
