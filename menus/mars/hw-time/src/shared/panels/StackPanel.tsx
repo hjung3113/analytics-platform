@@ -67,6 +67,11 @@ export function sortRows(rows: readonly HwTimeRow[], sort: StackSort): HwTimeRow
 /** Stacked horizontal bars over one block. Free of layout: the caller sizes the container and owns the query. */
 export function StackPanel({ chartId, title, block, visibleSeriesIds, onVisibleSeriesChange, sort = null, startAlign, minMax, rowPitch = DEFAULT_ROW_PITCH, activeRowId, onActiveRowChange, revealActive, fillMin = DETAIL_FILL_MIN, onActivate, rowActions }: StackPanelProps) {
   const { lang } = useI18n();
+  // Disposable UX prototype #1141: keep the other series at full opacity while a bar is hovered.
+  const prototype = import.meta.env.DEV && typeof document !== 'undefined'
+    ? document.documentElement.dataset.apAnalysisPrototype
+    : undefined;
+  const nonDimmingEmphasis = prototype === 'analysis-dense' || prototype === 'analysis-snap';
   const rows = useMemo(() => sortRows(block.rows, sort), [block.rows, sort]);
   // Auxiliary rows are left out: a label that is not here never reaches a callback.
   const byLabel = useMemo(() => new Map(rows.filter(row => !row.auxiliary).map(row => [rowLabel(row, lang), row.id])), [rows, lang]);
