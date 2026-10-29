@@ -84,14 +84,15 @@ const BOTH = ['platform:view', 'equipment:view', 'metrics:view', 'notice:view', 
 
 describe('operations console card (#1099c)', () => {
   it.each([
-    ['F only', ['platform:view', 'notice:view', 'voc:view', 'features:access'], '대시보드'],
-    ['C only', ['platform:view', 'notice:view', 'voc:view', 'console:access'], '플랫폼 관리'],
-    ['F and C', ['platform:view', 'notice:view', 'voc:view', 'features:access', 'console:access'], '대시보드 · 플랫폼 관리'],
-  ])('shows one card for %s that names only the sections this viewer can open', async (_, permissions, sections) => {
+    ['F only', ['platform:view', 'notice:view', 'voc:view', 'features:access'], '대시보드', ['플랫폼 관리']],
+    ['C only', ['platform:view', 'notice:view', 'voc:view', 'console:access'], '플랫폼 관리', ['대시보드']],
+    ['F and C', ['platform:view', 'notice:view', 'voc:view', 'features:access', 'console:access'], '대시보드 · 플랫폼 관리', []],
+  ])('shows one card for %s that names only the sections this viewer can open', async (_, permissions, sections, forbidden) => {
     mount(permissions as Session['user']['permissions']);
     await settled();
     const card = screen.getByRole('link', { name: /운영 콘솔/ });
     expect(card.textContent).toContain(sections);
+    for (const name of forbidden as string[]) expect(card.textContent).not.toContain(name);
     expect(screen.getAllByRole('link', { name: /운영 콘솔/ })).toHaveLength(1);
   });
 
