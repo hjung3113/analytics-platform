@@ -153,8 +153,6 @@ export type AnalysisChartFrameProps = {
    * the frame never changes its own highlight; it draws a border on that row's bars and a bold category label, and names the row in the selection summary.
    */
   activeCategory?: string | null;
-  /** Prototype #1141: keep non-hovered series fully readable. */
-  nonDimmingEmphasis?: boolean;
   /** A bar click ('pointer') or the point picker moving to a row ('keyboard'). On a click this runs before `pointActivation.onActivate`; the two are separate (06 §16, ADR-0079). */
   onActiveCategoryChange?: (category: string | null, how: 'pointer' | 'keyboard') => void;
   /** With `rowPitch`: when `activeCategory` changes from outside, scroll that row into view inside the frame. Never moves focus; a change that came from this frame's own click does not scroll. */
@@ -413,14 +411,18 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const optionWidth = noteSpans.length > 0 || (horizontal && startAlign && !!stacked) ? chartWidth : NOTE_FALLBACK_WIDTH;
   // A horizontal value axis budgets its ticks from the measured width, in 64px steps capped where five ticks always fit, so a resize inside one step keeps the option.
   const tickRoom = horizontal && !startAlign ? Math.min(TICK_ROOM_CAP, Math.floor(chartWidth / TICK_ROOM_STEP) * TICK_ROOM_STEP) : undefined;
+  // Disposable #1141 preview: do not add a new public SDK prop for a one-off UI experiment.
+  const prototype = import.meta.env.DEV && typeof document !== 'undefined'
+    ? document.documentElement.dataset.apAnalysisPrototype : undefined;
+  const gentleFocusPrototype = p.chartId.startsWith('hw-') && (prototype === 'analysis-dense' || prototype === 'analysis-snap');
   const option = useMemo<EChartsCoreOption>(() => {
     // A new chart instance replays the option: the lazy chunk and theme CSS may have settled since the tokens were last resolved.
     void instanceReady;
     return buildChartOption({
-      displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations, noteSpans, noteLevels, timeExtent, chartWidth: optionWidth, tickRoom, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory, nonDimmingEmphasis: p.nonDimmingEmphasis, startAlign, extremes, valueLabels, totals, totalText,
+      displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations, noteSpans, noteLevels, timeExtent, chartWidth: optionWidth, tickRoom, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory, nonDimmingEmphasis: gentleFocusPrototype, startAlign, extremes, valueLabels, totals, totalText,
       palette: resolveChartPalette(displayed),
     });
-  }, [displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations, noteSpans, noteLevels, timeExtent, optionWidth, tickRoom, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory, p.nonDimmingEmphasis, startAlign, extremes, valueLabels, totals, totalText, instanceReady]);
+  }, [displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations, noteSpans, noteLevels, timeExtent, optionWidth, tickRoom, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory, gentleFocusPrototype, startAlign, extremes, valueLabels, totals, totalText, instanceReady]);
 
   // Re-arm the brush cursor after each option replacement, and once the instance becomes ready.
   useEffect(() => {
