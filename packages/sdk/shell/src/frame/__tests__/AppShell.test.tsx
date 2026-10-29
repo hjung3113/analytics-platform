@@ -1025,6 +1025,66 @@ describe('sidebar navViews, navCounts and spaceNavSection (#761)', () => {
   });
 });
 
+// A matched menu the actor cannot open must not mount any operator sidebar slot, even when another member keeps the space reachable (#1099c).
+describe('sidebar slots on a matched route the actor cannot open (#1099c)', () => {
+  const mounted: string[] = [];
+  const Probe = ({ name }: { name: string }) => { useEffect(() => { mounted.push(name); }, [name]); return null; };
+  const ScopeProbe = () => <><Probe name="scope" /><p>operator scope</p></>;
+  const CountsProbe = ({ children }: { children: (counts: null) => ReactNode }) => <><Probe name="counts" />{children(null)}</>;
+  const SectionProbe = () => <><Probe name="section" /><p>operator saved views</p></>;
+  const slots: PlatformSlots = {
+    scopeControl: { For: () => ScopeProbe },
+    navCounts: { For: () => CountsProbe },
+    spaceNavSection: { For: () => ({ label: { ko: '저장된 보기', en: 'Saved' }, Body: SectionProbe }) },
+  };
+  // `inbox` is open to the platform:view actor; `locked` shares the space but needs one more grant.
+  const lockedRegistry = (permission: Permission) => createRegistry({
+    permissions: [menuPermission('features:admin')],
+    spaces: [testSpace({ id: spaceId('mars'), homeMenuId: 'inbox' })],
+    groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
+    menus: [
+      { ...menu('inbox', groupId('overview'), '/inbox', 'platform:view'), label: { ko: '수신함', en: 'Inbox' } },
+      { ...menu('locked', groupId('overview'), '/locked', permission), primary: false, label: { ko: '잠김', en: 'Locked' } },
+    ],
+  });
+  const noOperatorUi = () => {
+    expect(mounted).toEqual([]);
+    expect(screen.queryByText('operator scope')).toBeNull();
+    expect(screen.queryByText('operator saved views')).toBeNull();
+    expect(screen.queryByRole('region', { name: '저장된 보기' })).toBeNull();
+  };
+  beforeEach(() => { mounted.length = 0; localStorage.setItem('platform:sidebar-collapsed', '0'); });
+
+  it.each([
+    ['a C-only actor on a denied operator link', 'console:access' as Permission],
+    ['an F-only actor on a denied additional-permission feature-admin link', 'features:admin' as Permission],
+  ])('mounts no operator slot for %s', (_name, permission) => {
+    window.history.replaceState(null, '', '/locked?v=1');
+    mount(['platform:view'], true, lockedRegistry(permission), slots);
+    noOperatorUi();
+  });
+
+  it('still mounts the slots on an openable route of the same space', () => {
+    window.history.replaceState(null, '', '/inbox?v=1');
+    mount(['platform:view'], true, lockedRegistry('console:access'), slots);
+    expect(new Set(mounted)).toEqual(new Set(['scope', 'counts', 'section']));
+    expect(screen.getByText('operator saved views')).toBeTruthy();
+  });
+
+  it('removes the slots when the grant is revoked on the same route while the space stays accessible', async () => {
+    window.history.replaceState(null, '', '/locked?v=1');
+    const reg = lockedRegistry('console:access');
+    const tree = (permissions: Session['user']['permissions']) => <I18nProvider><PlatformProvider adapter={adapterWith(permissions)} registry={reg} slots={slots}><AppShell><input aria-label="editor" /></AppShell></PlatformProvider></I18nProvider>;
+    const view = render(tree(['platform:view', 'console:access']));
+    await waitFor(() => expect(screen.getByText('operator saved views')).toBeTruthy());
+    mounted.length = 0;
+    view.rerender(tree(['platform:view']));
+    await waitFor(() => expect(screen.queryByText('operator saved views')).toBeNull());
+    expect(screen.queryByText('operator scope')).toBeNull();
+    expect(mounted).toEqual([]);
+  });
+});
+
 // #886 UX-6: the stack is anchored in the content column, with one persistent live region per politeness and no nesting.
 describe('toast stack placement and live regions (#886)', () => {
   function Fire() {

@@ -9,7 +9,7 @@ import { ScopeSelector } from '../context/ScopeSelector';
 import { useSystemSections } from './systemSections';
 
 export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
-  const { visibleMenus, route, favorites, registry, sidebarSpace, slots, page, linkTo } = useHostPlatform();
+  const { visibleMenus, route, favorites, registry, sidebarSpace, slots, page, linkTo, canOpen } = useHostPlatform();
   const { t, tx, lang } = useI18n();
   const activeId = route?.menu.navHidden && route.menu.parent ? route.menu.parent : route?.menu.id;
   const systems = useSystemSections();
@@ -24,8 +24,10 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
   // A favorite is a menu id, not an address: it opens the menu's default view and never borrows the current carry-set page state (the global Context still follows).
   const favoriteHref = (menu: MenuEntry) => linkTo(menu.id, { page: Object.fromEntries((registry.carrySetOf(menu)?.pageKeys ?? []).map(key => [key, null])) });
   // The counts component is rendered once around the menu list; without a slot (or for a space without counts) the list gets `null` counts (06 §8 `navCounts`).
-  const CountsHost = (sidebarSpace === null ? null : slots.navCounts?.For(sidebarSpace.id, route?.menu ?? null)) ?? NoCounts;
-  const sectionSlot = sidebarSpace === null ? null : slots.spaceNavSection?.For(sidebarSpace.id, route?.menu ?? null) ?? null;
+  // A matched menu the actor cannot open is refused by the outlet; its space-slot subtrees (and their sessions and queries) are never resolved or mounted either, even when another member keeps the space reachable.
+  const slotMenu = route !== null && !canOpen(route.menu.id) ? undefined : route?.menu ?? null;
+  const CountsHost = (sidebarSpace === null || slotMenu === undefined ? null : slots.navCounts?.For(sidebarSpace.id, slotMenu)) ?? NoCounts;
+  const sectionSlot = sidebarSpace === null || slotMenu === undefined ? null : slots.spaceNavSection?.For(sidebarSpace.id, slotMenu) ?? null;
 
   return <TooltipProvider delayDuration={200}>
     <aside data-collapsed={collapsed} className={cn('flex h-full shrink-0 flex-col border-r border-border-subtle bg-surface-sidebar', collapsed ? 'w-(--sidebar-width-collapsed)' : 'w-(--sidebar-width)')}>
@@ -106,8 +108,9 @@ function currentNavView(views: readonly NavView[], page: readonly (readonly [str
 
 // A space may supply its own list-scope control (06 §8 `scopeControl`); every other space and space-less page keeps the analytics Scope selector.
 function SidebarScope({ collapsed }: { collapsed: boolean }) {
-  const { slots, sidebarSpace, route } = useHostPlatform();
-  const Control = sidebarSpace === null ? null : slots.scopeControl?.For(sidebarSpace.id, route?.menu ?? null) ?? null;
+  const { slots, sidebarSpace, route, canOpen } = useHostPlatform();
+  const denied = route !== null && !canOpen(route.menu.id);
+  const Control = sidebarSpace === null || denied ? null : slots.scopeControl?.For(sidebarSpace.id, route?.menu ?? null) ?? null;
   return Control === null ? <ScopeSelector collapsed={collapsed} /> : <Control collapsed={collapsed} />;
 }
 

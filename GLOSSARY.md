@@ -225,7 +225,7 @@ Managed System 하나를 위한 내부 실행 작업. 요청 단계는 Task Requ
 _Avoid_: 이슈 — 시스템마다 뜻이 달라 단독으로 쓰지 않는다. 개선 실행의 `과제`를 영어로 Task라 쓰지 않는다(지금 화면의 `Tasks`는 [#714](https://github.com/hjung3113/analytics-platform/issues/714)에서 고친다).
 
 **피드백 운영** (폐기된 업무 시스템 이름):
-FeedbackOps의 운영 화면(수신함·Triage·Finding·Task·설문 관리·설정 등)을 올릴 업무 시스템으로 계획했으나 만들지 않는다. 그 화면들은 `운영 콘솔`의 VOC·Finding·Task 관리·설문 관리·대시보드·연동·기능 관리 섹션이다([ADR-0100](docs/adr/0100-feature-navigation-and-independent-access.md)). 아직 등록되지 않았다. 모든 사용자가 쓰는 VOC 등록·내 VOC·설문 응답은 여기가 아니라 플랫폼 메뉴와 레일이다. 이름은 Candidate다([ADR-0066](docs/adr/0066-feedbackops-merges-into-platform.md), 배치는 [합류 설계](docs/integration/feedbackops-merge-design.md) §3.2).
+FeedbackOps의 운영 화면(수신함·Triage·Finding·Task·설문 관리·설정 등)을 올릴 업무 시스템으로 계획했으나 만들지 않는다. 그 화면들은 `운영 콘솔`의 VOC·Finding·Task 관리·설문 관리·대시보드·연동·기능 관리 섹션이다([ADR-0100](docs/adr/0100-feature-navigation-and-independent-access.md)). 모든 사용자가 쓰는 VOC 등록·내 VOC·설문 응답은 여기가 아니라 플랫폼 메뉴와 레일이다.
 
 **발행** (지표 버전, en `Released`):
 지표 버전 하나를 분석이 기본으로 쓰는 버전으로 공개하는 것. BRAVO가 소유한다.
