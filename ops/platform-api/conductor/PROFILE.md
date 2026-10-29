@@ -122,7 +122,7 @@ Host checks in order; each must exit 0 before a commit. Every background verify 
 - **Breach:** a target's median `branch.readyMs > develop × 1.2 + 50`, a new `reloaded`, `apiCalls` +2, or
   `timedOut`; also a new list query with no bound or index decision. On a breach launch `review-perf`; otherwise
   paste the table into the code reviewer's task or VERIFY.
-- Conflict order starts with the product invariants in root `AGENTS.md` and permission or no-leak rules.
+- Root `AGENTS.md` owns repository conduct; feature conflict order starts with `docs/agents/feature-implementation.md` → Product Invariants and permission or no-leak rules.
 - A fixed UX/perf blocker or major is re-checked on fresh previews (or `nav-perf.sh`).
 
 ## Review lens: UX
@@ -139,9 +139,9 @@ Read first by the global `review-ux` persona. Report in English.
 - **Data gaps:** create missing records on the branch preview through the API the UI uses, several in one
   `page.evaluate` loop.
 - **Authority:**
-  - root `AGENTS.md` → UI Authority (ADR-0060): the shipped UI is the authority, so extend the current pattern;
+  - `docs/agents/feature-implementation.md` → UI Authority (FO ADR-0060): extend the shipped UI pattern, subject to root `AGENTS.md` prototype approval;
     Korean UI chrome, domain nouns (`VOC`, `Finding`, `Task`, …) stay English; three shells only (ADR-0020);
-  - `apps/feature-screens/AGENTS.md` and `PRODUCT.md` (Operate register: dense, list-first, restrained, one primary action
+  - `apps/feature-screens/AGENTS.md` and `docs/product/features/purpose.md` (Operate register: dense, list-first, restrained, one primary action
     per toolbar or panel);
   - `docs/design/features/ui-design-system.md`, `docs/design/features/component-inventory.md`, and the spec under
     `docs/design/features/specs/` for the touched surface;
@@ -160,7 +160,7 @@ Read first by the global `review-ux` persona. Report in English.
 Read first by the global `review-quality` persona. Report in English.
 
 - **Range:** normally `origin/main...origin/develop`, in a disposable worktree detached at `origin/develop`.
-- **Authority:** root `AGENTS.md` (Monorepo Boundaries, Implementation Boundaries, Product Invariants, and Test
+- **Authority:** root `AGENTS.md` for repository conduct; `docs/agents/feature-implementation.md` (Monorepo Boundaries, Implementation Boundaries, Product Invariants, and Test
   Discipline: test behaviour not implementation, one concept per test, no duplicate coverage at a lower level, no
   trivial passthrough tests); `docs/architecture/platform-api/02-domain-module-boundaries.md`; `apps/platform-api/AGENTS.md`,
   `apps/feature-screens/AGENTS.md` and the nested `AGENTS.md` files on touched paths.

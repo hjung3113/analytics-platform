@@ -61,10 +61,11 @@ Testing must protect the product invariants that are hardest to repair later.
 This document owns what must be tested, not the commands. Run commands, environment, and gates live in:
 
 ```text
-- AGENTS.md (root) -> Verification: the gate and what counts as green
+- AGENTS.md (root): repository verification sizing and browser/E2E workflow
+- docs/agents/feature-implementation.md -> Verification: feature-specific gates
 - apps/platform-api/AGENTS.md -> Verification: backend integration env, database reset contract, skip opt-out
-- scripts/gates/AGENTS.md: frontend typecheck and lint gates, baselines, allowlists
-- apps/feature-screens/tests/visual/AGENTS.md: visual harness and baselines
+- ops/platform-api/scripts/gates/AGENTS.md: frontend typecheck and lint gates, baselines, allowlists
+- apps/feature-screens/AGENTS.md -> Visual Verification: retired standalone harness and current platform verification
 ```
 
 ## Integration Flows

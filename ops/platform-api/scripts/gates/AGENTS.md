@@ -1,6 +1,6 @@
 # Gate Scripts Agent Guide
 
-Frontend and migration gates. The full gate list is in root `AGENTS.md` → Verification; CI runs it through `ops/platform-api/scripts/ci/gate.sh`. Whole-issue host checks that bundle these gates: `ops/platform-api/conductor/scripts/verify-fe.sh` and `verify-be.sh`.
+Frontend and migration gates. Root `AGENTS.md` owns verification sizing; feature-specific gates are in `docs/agents/feature-implementation.md` → Verification; CI runs it through `ops/platform-api/scripts/ci/gate.sh`. Whole-issue host checks that bundle these gates: `ops/platform-api/conductor/scripts/verify-fe.sh` and `verify-be.sh`.
 
 ## Frontend typecheck gate (`pnpm --filter @ap/platform-api-ops gate:fe-typecheck`)
 

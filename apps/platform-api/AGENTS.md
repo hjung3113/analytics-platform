@@ -13,9 +13,9 @@ DB/role identity: `platform` database and `platform_*` roles. Fresh or uncut clu
 
 ## Layer Rules
 
-Layer boundaries (controllers, application services, repositories) are defined in root `AGENTS.md` → Implementation Boundaries.
+Layer boundaries (controllers, application services, repositories) are defined in `docs/agents/feature-implementation.md` → Implementation Boundaries.
 
-Backend-specific additions beyond root:
+Backend-specific additions to those boundaries:
 
 - Domain services own local business rules only.
 - Read models may compose approved projections but must not become mutation paths.
@@ -29,7 +29,7 @@ Every cross-system command must validate workspace ownership, check permissions,
 
 Source-shaped routes may host request parsing, but target object writes must use the target module's application command or an orchestration service documented in `docs/architecture/platform-api/02-domain-module-boundaries.md`.
 
-Backend-specific additions to root's Managed System invariant: Analytics Area is business
+Backend-specific additions to the Managed System invariant in `docs/agents/feature-implementation.md` → Product Invariants: Analytics Area is business
 context inside one Managed System, not an MVP permission boundary. Project or
 Work Initiative is future execution grouping only unless a later ADR changes
 that decision.

@@ -69,7 +69,7 @@ The primitive source and the shared display components `ObjectRow`, `UserAvatar`
 `StatusBadgeFrame` live in the pinned `@ap/ui` package (analytics-platform's
 `packages/sdk/ui`, tag `sdk-v0.5.0`). FeedbackOps code imports them from `@ap/ui` directly;
 `@ap/feature-ui` no longer re-exports them (#713q). The SDK ownership decision is recorded
-upstream in FO ADR-0050. FeedbackOps-owned composed components live at:
+in platform [ADR-0050](../../../adr/0050-domain-coupled-ui-returns-to-feedbackops.md). FeedbackOps-owned composed components live at:
 
 ```text
 packages/feature-ui/src/{badges,data,entity,feedback,forms,identity,indicators,layout,panel,permissions,rich-content,toolbar}/*
@@ -79,7 +79,7 @@ packages/feature-ui/src/{badges,data,entity,feedback,forms,identity,indicators,l
 `SeverityIndicator`, `PermissionBlockedPanel`, and `StatusBadgeFrame` are imported from `@ap/ui`.
 FeedbackOps-owned badges, `LinkedEntityTrail`,
 and pickers remain local. Rich content (`RichEditor`, `RichContentRenderer`) is
-consumed from `@ap/ui` (upstream FO ADR-0052); `packages/feature-ui/src/rich-content/`
+consumed from `@ap/ui` (platform [ADR-0052](../../../adr/0052-rich-content-stays-in-the-sdk.md)); `packages/feature-ui/src/rich-content/`
 keeps only drift/sanitization helpers. `allowlist-local.ts` is the UI copy of the canonical shared
 contract and remains drift-tested.
 

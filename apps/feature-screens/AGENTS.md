@@ -23,8 +23,8 @@
 - Keep row click, inline controls, keyboard focus, hover, selected, active, disabled, loading, error, and permission-limited states distinct.
 - Right detail panels preserve list context on desktop; they become drill-in panels on mobile.
 - Permission-limited content must show an approved summary or a request path, not a blank failure.
-- Top-level feature folders and route ownership follow root `AGENTS.md` → Implementation Boundaries (canonical list, includes `voc-cluster`).
-- Finding and Integration route ownership: see root `AGENTS.md` → Implementation Boundaries, `apps/feature-screens/src/features/findings/AGENTS.md`, and `apps/feature-screens/src/features/integration/AGENTS.md`.
+- Top-level feature folders and route ownership follow `docs/agents/feature-implementation.md` → Implementation Boundaries (canonical list, includes `voc-cluster`).
+- Finding and Integration route ownership: see `docs/agents/feature-implementation.md` → Implementation Boundaries, `apps/feature-screens/src/features/findings/AGENTS.md`, and `apps/feature-screens/src/features/integration/AGENTS.md`.
 - Use Role Level labels: Admin, Developer, and User. Backend capability checks remain authoritative.
 - Keep Public Update, Reporter Reply, and Internal Comment as separate communication surfaces.
 - `WorkbenchShell.toolbar` is optional. High-density screens (e.g. VOC Triage) may omit it and express route identity via an inline kicker as the first child of the route-owned toolbar. When doing so, the inner toolbar MUST remain 50px (ADR-0020 §2 rhythm). See ADR-0020 §Amendment for the toolbar-kicker rule.
@@ -47,7 +47,7 @@
 
 ## New Surfaces And Gaps
 
-The shipped UI is the authority for existing screens (root `AGENTS.md` → UI Authority, ADR-0060). For a new surface, start from the closest shipped screen; if `docs/design/history/feedbackops-prototype/` drew that surface, use it as a reference.
+The shipped UI is the reference for existing screens (`docs/agents/feature-implementation.md` → UI Authority, FO ADR-0060). New surfaces follow current platform contracts and the owner-confirmed prototype under root `AGENTS.md`; historical standalone captures are reference only.
 
 - If neither the shipped UI nor the specs decide a behavior or visual question, check `docs/design/features/specs/`, `docs/product/features/`, and the ADRs. If all are silent, ask; do not fill the gap with framework defaults or personal taste. Record the resolution in the PR body.
 - For layout-changing screens, capture the actual platform host at desktop 1440 and attach the intended before/after to the review under the repository visual workflow.

@@ -771,7 +771,7 @@ no `survey_response*` rows, no `entity_link` whose `detail.source/target.type` i
 `survey_response`, permission rows only for the non-sensitive `detail.capability` list (pinned to
 `CAPABILITY_META` by a test), no `detail.sensitive = true`, no `summary`/`detail` output) is in the
 function body. `p_offset` is `bigint` so a far page returns no rows and the true total. Callers: `modules/core/audit/platform-audit-projection.ts` (`platformAuditEvents`, and `platformEntityAuditPage` for the `entityAudit` keyset pages, #857), used by
-`modules/platform-port` (FO ADR-0069 decision 6).
+`modules/platform-port` (platform ADR-0069 decision 6).
 
 ### #1109 approved Survey attachment extension (0066)
 
@@ -811,7 +811,7 @@ actor's `core.idempotency_keys` rows before `core.actors`.
 
 `0075_platform_usage_client_errors.sql` creates the schema `platform` (drizzle `db/schema/platform.ts`;
 not in the `drizzle.config.ts` `schemaFilter`, like `dashboard`) owned by `modules/platform-port`
-(FO ADR-0069 decision 1). `platform.usage_events` holds menu entry/dwell events: identity fields only,
+(platform ADR-0069 decision 1). `platform.usage_events` holds menu entry/dwell events: identity fields only,
 server actor and `received_at`, client `at`/`entered_at` kept but never read for the summary. A dwell
 merges into the earlier one of the same stay through two partial unique indexes — keyed by `stay_id`
 when present, else by `(workspace, actor, session, menu, entered_at)` — and the route picks the

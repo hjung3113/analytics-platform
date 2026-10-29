@@ -320,7 +320,7 @@ Rules:
 - linked_findings lists every active `created_finding` or `evidence_of` Finding link of the
   cluster that the reader can read (`docs/architecture/platform-api/api/voc-clusters.md`, Linked Findings
   visibility). Cross-system history is canonical through entity_links, not the Finding's
-  source_type/source_id convenience columns (root AGENTS.md, Product Invariants; reconciled
+  source_type/source_id convenience columns (`docs/agents/feature-implementation.md`, Product Invariants; reconciled
   2026-10-13 in #1070).
 - linked_findings is derived at read time. It exposes only id, display_id, and
   status; title and summary are intentionally omitted to avoid content leakage.
