@@ -26,8 +26,8 @@ vi.mock('@ap/feature-screens/operator-screens/survey-follow-up', () => ({
 
 const AREA = '55555555-5555-4555-8555-555555555555';
 const SURVEY_A = '99999999-9999-4999-8999-99999999999a';
-const LIST = '/feedbackops/fo-surveys';
-const child = (menu: string) => `/feedbackops/${menu}/${SURVEY_A}`;
+const LIST = '/operations/survey-management';
+const child = (menu: string) => `/operations/${menu}/${SURVEY_A}`;
 const params = () => new URLSearchParams(window.location.search);
 
 beforeAll(warmPages, 60_000);
@@ -39,7 +39,7 @@ describe('the Survey list context through the screens\' real links', () => {
     mountAt(`${LIST}?area=${AREA}&status=open&follow_up=needed&focus=${SURVEY_A}`);
     fireEvent.click(await screen.findByRole('link', { name: '빌더 열기' }));
     await screen.findByTestId('builder');
-    expect(window.location.pathname).toBe(child('fo-survey-builder'));
+    expect(window.location.pathname).toBe(child('survey-builder'));
     expect(params().get('area')).toBe(AREA);
     expect(params().get('status')).toBe('open');
     expect(params().get('follow_up')).toBe('needed');
@@ -51,10 +51,10 @@ describe('the Survey list context through the screens\' real links', () => {
   });
 
   it('results → follow-up → list keeps the context and the list link restores focus on this Survey', async () => {
-    mountAt(`${child('fo-survey-results')}?area=${AREA}&status=open`);
+    mountAt(`${child('survey-results')}?area=${AREA}&status=open`);
     fireEvent.click(await screen.findByRole('link', { name: '후속 조치' }));
     await screen.findByTestId('follow-up');
-    expect(window.location.pathname).toBe(child('fo-survey-follow-up'));
+    expect(window.location.pathname).toBe(child('survey-follow-up'));
     expect(params().get('area')).toBe(AREA);
     expect(params().get('status')).toBe('open');
     fireEvent.click(screen.getByRole('link', { name: 'Surveys' }));

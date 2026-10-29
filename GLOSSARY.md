@@ -149,7 +149,7 @@ _Avoid_: 플랫폼 — 플랫폼 전체와 섞인다.
 업무 시스템과 제품이 받아 쓰는 플랫폼 공개 패키지 묶음(`@ap/contracts`·`@ap/ui`·`@ap/kernel`·`@ap/components`·`@ap/shell`). 하나의 묶음 버전으로 릴리스한다([ADR-0043](docs/adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md), [ADR-0044](docs/adr/0044-sdk-source-in-platform-repo-released-separately.md)).
 
 **업무 시스템** (코드 이름 `Space`):
-플랫폼 위에 올라가는 독립된 업무 단위. 자기 메뉴 그룹·메뉴·업무 객체와 진입 권한을 소유하고, 다른 시스템의 객체를 흡수하지 않는다. 지금 등록된 것은 MARS·CLAS(생산성 분석), BRAVO(지표관리), 표준 로그 개발, 개선 실행, 운영 콘솔이다. VOC·설문·Task·Finding은 별도 피드백 운영 시스템이 아닌 플랫폼 기능이다([ADR-0097](docs/adr/0097-platform-features-and-role-based-names.md)).
+플랫폼 위에 올라가는 독립된 업무 단위. 자기 메뉴 그룹·메뉴·업무 객체와 진입 권한을 소유하고, 다른 시스템의 객체를 흡수하지 않는다. 지금 등록된 것은 MARS·CLAS(생산성 분석), BRAVO(지표관리), 표준 로그 개발, 개선 실행, 운영 콘솔이다. VOC·설문·Task·Finding은 별도 피드백 운영 시스템이 아닌 플랫폼 기능이고, 운영 화면은 `운영 콘솔` 하나에 있다([ADR-0097](docs/adr/0097-platform-features-and-role-based-names.md), [ADR-0100](docs/adr/0100-feature-navigation-and-independent-access.md)).
 CLAS는 약어 그대로 쓰고 영어 풀이 이름은 쓰지 않는다(어차피 바뀔 이름, 사용자 2026-10-27). 메뉴·설명에도 `Equipment operation`·`operation time` 같은 풀이를 두지 않는다. MARS와 CLAS는 메뉴가 달라 별도 시스템으로 둔다(이 플랫폼의 CLAS에는 견본 메뉴 하나가 있고, 기존 CLAS 화면 이전은 계획).
 _Avoid_: 워크스페이스, 공간, 앱, 모듈 — 워크스페이스는 FeedbackOps의 workspace(테넌트)·작업 영역과, 모듈은 호스트 모듈·설비 Module과 섞인다. 화면 문구는 `업무 시스템`(짧게 `시스템`)이고, `Space`는 코드 이름으로만 쓴다.
 
@@ -178,7 +178,7 @@ _Avoid_: Capability(단독), Context Capability — 공정 능력(StGroup)·Feed
 _Avoid_: 템플릿.
 
 **플랫폼 메뉴** (`space: null`):
-어느 업무 시스템에도 속하지 않고 자기 권한으로만 열리는 메뉴 — 홈, 알림, 내 VOC, 설문, 권한 요청, 공지. 전역 화면에서는 사이드바로, 업무 시스템 안에서는 전환기 팝오버로 닿는다([ADR-0070](docs/adr/0070-global-features-platform-menu-and-voc-drawer.md)). 접근 가능한 업무 시스템 수에 들지 않는다.
+어느 업무 시스템에도 속하지 않고 자기 권한으로만 열리는 메뉴 — 홈, 알림, 내 VOC, 내 Task, 응답 설문, 권한 요청, 공지(`내 활동`은 알림 → 내 VOC → 내 Task → 응답 설문 → 권한 요청, [ADR-0100](docs/adr/0100-feature-navigation-and-independent-access.md)). 전역 화면에서는 사이드바로, 업무 시스템 안에서는 전환기 팝오버로 닿는다([ADR-0070](docs/adr/0070-global-features-platform-menu-and-voc-drawer.md)). 접근 가능한 업무 시스템 수에 들지 않는다.
 _Avoid_: 전역 유틸리티 메뉴 — ADR-0028 때의 이름이다.
 
 **레일** (접근 이름 `시스템 레일`):
@@ -224,8 +224,8 @@ FeedbackOps가 피드백과 개선 작업을 추적하는 사내 시스템 하�
 Managed System 하나를 위한 내부 실행 작업. 요청 단계는 Task Request다. 로그 결함·검증 Round(표준 로그 개발), 개선 과제·실적(개선 실행), 지표 정의·버전(지표관리)과 이름이 비슷해도 다른 객체이며 관계만 링크한다.
 _Avoid_: 이슈 — 시스템마다 뜻이 달라 단독으로 쓰지 않는다. 개선 실행의 `과제`를 영어로 Task라 쓰지 않는다(지금 화면의 `Tasks`는 [#714](https://github.com/hjung3113/analytics-platform/issues/714)에서 고친다).
 
-**피드백 운영** (업무 시스템, 계획):
-FeedbackOps의 관리자·개발자 화면(수신함·Triage·Finding·Task·설문 관리·피드백 운영 설정 등)을 올릴 업무 시스템. 아직 등록되지 않았다. 모든 사용자가 쓰는 VOC 등록·내 VOC·설문 응답은 여기가 아니라 플랫폼 메뉴와 레일이다. 이름은 Candidate다([ADR-0066](docs/adr/0066-feedbackops-merges-into-platform.md), 배치는 [합류 설계](docs/integration/feedbackops-merge-design.md) §3.2).
+**피드백 운영** (폐기된 업무 시스템 이름):
+FeedbackOps의 운영 화면(수신함·Triage·Finding·Task·설문 관리·설정 등)을 올릴 업무 시스템으로 계획했으나 만들지 않는다. 그 화면들은 `운영 콘솔`의 VOC·Finding·Task 관리·설문 관리·대시보드·연동·기능 관리 섹션이다([ADR-0100](docs/adr/0100-feature-navigation-and-independent-access.md)). 아직 등록되지 않았다. 모든 사용자가 쓰는 VOC 등록·내 VOC·설문 응답은 여기가 아니라 플랫폼 메뉴와 레일이다. 이름은 Candidate다([ADR-0066](docs/adr/0066-feedbackops-merges-into-platform.md), 배치는 [합류 설계](docs/integration/feedbackops-merge-design.md) §3.2).
 
 **발행** (지표 버전, en `Released`):
 지표 버전 하나를 분석이 기본으로 쓰는 버전으로 공개하는 것. BRAVO가 소유한다.

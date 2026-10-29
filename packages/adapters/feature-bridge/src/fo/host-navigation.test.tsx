@@ -13,7 +13,7 @@ import { FeatureBridge } from './FeatureBridge';
 import { hostLinks } from './links';
 import { operatorRoute, routeHere, routeSearch } from './operator-route';
 
-const space = testSpace({ homeMenuId: 'fo-inbox' });
+const space = testSpace({ homeMenuId: 'inbox' });
 const menu = (id: string, path: string, pageKeys: string[], primary = false) => ({
   id, group: groupId('overview'), primary, label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House,
   permission: 'platform:view' as const, requiresScope: false, context: noContext, pageType: 'overview' as const,
@@ -23,13 +23,13 @@ const registry = createRegistry({
   carrySets: [{ id: carrySetId('features'), pageKeys: ['managedSystem'] }],
   spaces: [space],
   groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
-  menus: [menu('fo-inbox', '/inbox', ['focus', 'q', 'severity', 'managedSystem', 'returnTo'], true), menu('fo-triage', '/triage', ['focus', 'managedSystem']), menu('fo-clusters', '/clusters', ['focus', 'managedSystem'])],
+  menus: [menu('inbox', '/inbox', ['focus', 'q', 'severity', 'managedSystem', 'returnTo'], true), menu('triage', '/triage', ['focus', 'managedSystem']), menu('clusters', '/clusters', ['focus', 'managedSystem'])],
 });
 
-const inbox = operatorRoute({ foPath: '/vocs', foFixed: { view: 'inbox' }, menuId: 'fo-inbox', keys: { selected: 'focus', q: 'q', 'filter.severity': 'severity' } });
-const triage = operatorRoute({ foPath: '/vocs', foFixed: { view: 'triage' }, menuId: 'fo-triage', keys: { selected: 'focus' } });
+const inbox = operatorRoute({ foPath: '/vocs', foFixed: { view: 'inbox' }, menuId: 'inbox', keys: { selected: 'focus', q: 'q', 'filter.severity': 'severity' } });
+const triage = operatorRoute({ foPath: '/vocs', foFixed: { view: 'triage' }, menuId: 'triage', keys: { selected: 'focus' } });
 const clusters = operatorRoute({
-  foPath: '/voc-clusters', foFixed: {}, menuId: 'fo-clusters', keys: { selected: 'focus', managedSystem: 'managedSystem' }, foAbsent: { managedSystem: 'all' },
+  foPath: '/voc-clusters', foFixed: {}, menuId: 'clusters', keys: { selected: 'focus', managedSystem: 'managedSystem' }, foAbsent: { managedSystem: 'all' },
   detailPath: { key: 'selected', pattern: /^c\d$/ },
 });
 const { useNavigate } = hostLinks(inbox.target, triage.target);
@@ -82,7 +82,7 @@ describe('hostLinks().useNavigate on a mounted platform', () => {
     const before = window.history.length;
     act(() => result.current.go('/vocs?view=inbox&filter.severity=high', { replace: true }));
     const params = new URLSearchParams(window.location.search);
-    expect(window.location.pathname).toBe('/mars/fo-inbox');
+    expect(window.location.pathname).toBe('/mars/inbox');
     expect(params.get('severity')).toBe('high');
     expect(params.get('q')).toBeNull();
     expect(params.get('focus')).toBeNull();
@@ -94,7 +94,7 @@ describe('hostLinks().useNavigate on a mounted platform', () => {
     at('/inbox?v=1&managedSystem=ms1');
     const { result } = renderHook(() => useNavigate(), { wrapper });
     act(() => result.current('/vocs?view=triage&selected=x'));
-    expect(window.location.pathname).toBe('/mars/fo-triage');
+    expect(window.location.pathname).toBe('/mars/triage');
     expect(new URLSearchParams(window.location.search).get('focus')).toBe('x');
   });
 
@@ -113,9 +113,9 @@ describe('hostLinks().useNavigate on a mounted platform', () => {
 describe('a space that carries returnTo (#760)', () => {
   const carrying = createRegistry({
     carrySets: [{ id: carrySetId('features'), pageKeys: ['managedSystem', 'returnTo'] }],
-    spaces: [testSpace({ homeMenuId: 'fo-inbox' })],
+    spaces: [testSpace({ homeMenuId: 'inbox' })],
     groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
-    menus: [menu('fo-inbox', '/inbox', ['focus', 'q', 'severity', 'managedSystem', 'returnTo'], true), menu('fo-triage', '/triage', ['focus', 'managedSystem', 'returnTo'])],
+    menus: [menu('inbox', '/inbox', ['focus', 'q', 'severity', 'managedSystem', 'returnTo'], true), menu('triage', '/triage', ['focus', 'managedSystem', 'returnTo'])],
   });
   const carryingWrapper = ({ children }: { children: ReactNode }) => <I18nProvider><PlatformProvider adapter={adapter} registry={carrying}>{children}</PlatformProvider></I18nProvider>;
 
@@ -123,7 +123,7 @@ describe('a space that carries returnTo (#760)', () => {
     at('/inbox?v=1&managedSystem=ms1');
     const { result } = renderHook(() => useNavigate(), { wrapper: carryingWrapper });
     act(() => result.current('/vocs?view=triage&selected=x'));
-    expect(window.location.pathname).toBe('/mars/fo-triage');
+    expect(window.location.pathname).toBe('/mars/triage');
     expect(new URLSearchParams(window.location.search).has('returnTo')).toBe(false);
   });
 
@@ -131,7 +131,7 @@ describe('a space that carries returnTo (#760)', () => {
     at('/inbox?v=1&managedSystem=ms1&returnTo=%2Fanalytics%3Fv%3D1');
     const { result } = renderHook(() => useNavigate(), { wrapper: carryingWrapper });
     act(() => result.current('/vocs?view=triage&selected=x'));
-    expect(window.location.pathname).toBe('/mars/fo-triage');
+    expect(window.location.pathname).toBe('/mars/triage');
     expect(new URLSearchParams(window.location.search).getAll('returnTo')).toEqual(['/analytics?v=1']);
   });
 });
@@ -180,7 +180,7 @@ describe('a VOC detail cluster href', () => {
     const { result } = renderHook(() => clusterLinks.useNavigate(), { wrapper });
     expect(clusterLinks.canLink('/voc-clusters/c7')).toBe(true);
     act(() => result.current('/voc-clusters/c7'));
-    expect(window.location.pathname).toBe('/mars/fo-clusters');
+    expect(window.location.pathname).toBe('/mars/clusters');
     expect(new URLSearchParams(window.location.search).get('focus')).toBe('c7');
   });
 });
@@ -347,7 +347,7 @@ describe('a target whose menu is not in the registry', () => {
     carrySets: [{ id: carrySetId('features'), pageKeys: ['managedSystem'] }],
     spaces: [space],
     groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
-    menus: [menu('fo-inbox', '/inbox', ['focus', 'q', 'severity', 'managedSystem', 'returnTo'], true)],
+    menus: [menu('inbox', '/inbox', ['focus', 'q', 'severity', 'managedSystem', 'returnTo'], true)],
   });
   const loneWrapper = ({ children }: { children: ReactNode }) => <I18nProvider><PlatformProvider adapter={adapter} registry={lone}>{children}</PlatformProvider></I18nProvider>;
   const { Link, targetOf } = hostLinks(inbox.target, triage.target);
@@ -393,7 +393,7 @@ describe('FeatureBridge absoluteHref', () => {
     const href = first.absoluteHref!('/vocs?view=triage&selected=x')!;
     const url = new URL(href);
     expect(url.origin).toBe(window.location.origin);
-    expect(url.pathname).toBe('/mars/fo-triage');
+    expect(url.pathname).toBe('/mars/triage');
     expect(url.searchParams.get('focus')).toBe('x');
     expect(url.searchParams.get('managedSystem')).toBe('ms1');
     expect(url.searchParams.has('returnTo')).toBe(false);

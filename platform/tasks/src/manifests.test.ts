@@ -3,12 +3,20 @@ import { describe, expect, it } from 'vitest';
 import { milestonesRoute, myTasksRoute, taskBoardRoute, taskListRoute, taskRequestsRoute } from '@ap/feature-bridge';
 import { manifests } from './index';
 
-const ROUTES = { 'fo-task-requests': taskRequestsRoute, 'fo-tasks': taskBoardRoute, 'fo-my-tasks': myTasksRoute, 'fo-milestones': milestonesRoute, 'fo-task-list': taskListRoute };
+const ROUTES = { 'task-requests': taskRequestsRoute, 'tasks': taskBoardRoute, 'my-tasks': myTasksRoute, 'milestones': milestonesRoute, 'task-list': taskListRoute };
 const menu = (id: string) => manifests.find(entry => entry.id === id)!;
 
 describe('Tasks manifests', () => {
   it('declares the five menus in sidebar order', () => {
-    expect(manifests.map(entry => entry.id)).toEqual(['fo-task-requests', 'fo-tasks', 'fo-my-tasks', 'fo-milestones', 'fo-task-list']);
+    expect(manifests.map(entry => entry.id)).toEqual(['task-requests', 'tasks', 'my-tasks', 'milestones', 'task-list']);
+  });
+
+  it('puts 내 Task in the global myActivity group and every other menu in tasks (#1099c)', () => {
+    expect(menu('my-tasks').group).toBe('myActivity');
+    expect(manifests.filter(entry => entry.id !== 'my-tasks').every(entry => entry.group === 'tasks')).toBe(true);
+    // Retained: 내 Task stays a carry-set member with F only (no console grant), so a filtered list's managedSystem follows it.
+    expect(menu('my-tasks')).toMatchObject({ permission: 'features:access', carrySet: 'features' });
+    expect(menu('my-tasks').additionalPermissions).toBeUndefined();
   });
 
   it.each(Object.entries(ROUTES))('%s declares its route table page keys plus returnTo, and the space permission', (id, route) => {
@@ -19,8 +27,8 @@ describe('Tasks manifests', () => {
   });
 
   it('serves the paths of the plan, the board being the primary', () => {
-    expect(manifests.filter(entry => entry.primary).map(entry => entry.id)).toEqual(['fo-tasks']);
-    expect(manifests.map(entry => entry.path)).toEqual(['/feedbackops/task-requests', '/feedbackops/tasks', '/feedbackops/my-tasks', '/feedbackops/milestones', '/feedbackops/tasks/list']);
+    expect(manifests.filter(entry => entry.primary).map(entry => entry.id)).toEqual(['tasks']);
+    expect(manifests.map(entry => entry.path)).toEqual(['/operations/task-requests', '/operations/tasks', '/my-tasks', '/operations/milestones', '/operations/task-list']);
   });
 
   it('keeps the approved ko labels in sidebar order', () => {
@@ -29,6 +37,6 @@ describe('Tasks manifests', () => {
   });
 
   it('hides Task 목록 under Tasks (FeedbackOps has no sidebar row for it)', () => {
-    expect(menu('fo-task-list')).toMatchObject({ navHidden: true, parent: 'fo-tasks', label: { ko: 'Task 목록', en: 'Task list' } });
+    expect(menu('task-list')).toMatchObject({ navHidden: true, parent: 'tasks', label: { ko: 'Task 목록', en: 'Task list' } });
   });
 });

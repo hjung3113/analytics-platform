@@ -18,18 +18,18 @@ const sorted = (keys: readonly string[]) => [...keys].sort();
 
 describe('연동 tables', () => {
   it.each([
-    ['dashboard selection', integrationDashboardRoute, 'fo-integration', `/integration?selected=${ITEM}`, { focus: ITEM }],
-    ['dashboard every key', integrationDashboardRoute, 'fo-integration', `/integration?selected=${ITEM}&category=unassigned-voc&presentation=hidden&history=true&cursor=c&managedSystem=${SYSTEM}`,
+    ['dashboard selection', integrationDashboardRoute, 'integration', `/integration?selected=${ITEM}`, { focus: ITEM }],
+    ['dashboard every key', integrationDashboardRoute, 'integration', `/integration?selected=${ITEM}&category=unassigned-voc&presentation=hidden&history=true&cursor=c&managedSystem=${SYSTEM}`,
       { focus: ITEM, category: 'unassigned-voc', presentation: 'hidden', history: 'true', cursor: 'c', managedSystem: SYSTEM }],
-    ['evidence scoped', evidenceRoute, 'fo-evidence', `/integration/evidence?managedSystem=${SYSTEM}`, { managedSystem: SYSTEM }],
-    ['evidence every key', evidenceRoute, 'fo-evidence', `/integration/evidence?selected=${EVIDENCE}&source=voc&q=a&cursor=c&managedSystem=${SYSTEM}`,
+    ['evidence scoped', evidenceRoute, 'evidence', `/integration/evidence?managedSystem=${SYSTEM}`, { managedSystem: SYSTEM }],
+    ['evidence every key', evidenceRoute, 'evidence', `/integration/evidence?selected=${EVIDENCE}&source=voc&q=a&cursor=c&managedSystem=${SYSTEM}`,
       { focus: EVIDENCE, source: 'voc', q: 'a', cursor: 'c', managedSystem: SYSTEM }],
-    ['coverage', coverageRoute, 'fo-coverage', '/integration/coverage', {}],
-    ['coverage areas', coverageRoute, 'fo-coverage', `/integration/coverage?view=areas&managedSystem=${SYSTEM}`, { view: 'areas', managedSystem: SYSTEM }],
-    ['coverage every key', coverageRoute, 'fo-coverage', `/integration/coverage?view=areas&filter.analytics_area=${AREA}&cursor=c&managedSystem=${SYSTEM}`,
+    ['coverage', coverageRoute, 'coverage', '/integration/coverage', {}],
+    ['coverage areas', coverageRoute, 'coverage', `/integration/coverage?view=areas&managedSystem=${SYSTEM}`, { view: 'areas', managedSystem: SYSTEM }],
+    ['coverage every key', coverageRoute, 'coverage', `/integration/coverage?view=areas&filter.analytics_area=${AREA}&cursor=c&managedSystem=${SYSTEM}`,
       { view: 'areas', area: AREA, cursor: 'c', managedSystem: SYSTEM }],
-    ['links scoped', entityLinksRoute, 'fo-entity-links', `/integration/links?managedSystem=${SYSTEM}`, { managedSystem: SYSTEM }],
-    ['links every key', entityLinksRoute, 'fo-entity-links', `/integration/links?status=stale&type=related_to&managedSystem=${SYSTEM}`,
+    ['links scoped', entityLinksRoute, 'entity-links', `/integration/links?managedSystem=${SYSTEM}`, { managedSystem: SYSTEM }],
+    ['links every key', entityLinksRoute, 'entity-links', `/integration/links?status=stale&type=related_to&managedSystem=${SYSTEM}`,
       { status: 'stale', type: 'related_to', managedSystem: SYSTEM }],
   ])('maps the %s link to its menu and back to the same FO search', (_name, route, menuId, to, page) => {
     const target = route.target(to);
@@ -86,15 +86,15 @@ describe('연동 tables', () => {
   it('exposes the four targets, all wired into operatorHostLinks', () => {
     expect(integrationOperatorTargets).toHaveLength(4);
     const { targetOf } = operatorHostLinks;
-    expect(targetOf('/integration')?.menuId).toBe('fo-integration');
-    expect(targetOf('/integration/evidence')?.menuId).toBe('fo-evidence');
-    expect(targetOf('/integration/coverage')?.menuId).toBe('fo-coverage');
-    expect(targetOf('/integration/links')?.menuId).toBe('fo-entity-links');
-    expect(targetOf(`/integration?selected=${ITEM}`)).toEqual({ menuId: 'fo-integration', page: { focus: ITEM } });
-    expect(targetOf(`/integration/evidence?selected=${EVIDENCE}`)).toEqual({ menuId: 'fo-evidence', page: { focus: EVIDENCE } });
-    expect(targetOf('/integration/coverage?view=areas')).toEqual({ menuId: 'fo-coverage', page: { view: 'areas' } });
+    expect(targetOf('/integration')?.menuId).toBe('integration');
+    expect(targetOf('/integration/evidence')?.menuId).toBe('evidence');
+    expect(targetOf('/integration/coverage')?.menuId).toBe('coverage');
+    expect(targetOf('/integration/links')?.menuId).toBe('entity-links');
+    expect(targetOf(`/integration?selected=${ITEM}`)).toEqual({ menuId: 'integration', page: { focus: ITEM } });
+    expect(targetOf(`/integration/evidence?selected=${EVIDENCE}`)).toEqual({ menuId: 'evidence', page: { focus: EVIDENCE } });
+    expect(targetOf('/integration/coverage?view=areas')).toEqual({ menuId: 'coverage', page: { view: 'areas' } });
     expect(targetOf('/integration/coverage?returnTo=%2Fhome')).toBeNull();
     // Wired by #764 p2: the Coverage 설정 hop opens the FeedbackOps 설정 menu at its coverage section.
-    expect(targetOf('/admin/settings#coverage')).toEqual({ menuId: 'fo-settings', page: { section: 'coverage' } });
+    expect(targetOf('/admin/settings#coverage')).toEqual({ menuId: 'settings', page: { section: 'coverage' } });
   });
 });

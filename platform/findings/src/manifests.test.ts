@@ -7,8 +7,8 @@ const menu = manifests[0]!;
 
 describe('Findings manifests', () => {
   it('declares the one primary menu at the planned path', () => {
-    expect(manifests.map(entry => entry.id)).toEqual(['fo-findings']);
-    expect(menu).toMatchObject({ primary: true, path: '/feedbackops/findings', label: { ko: '전체 Finding', en: 'All Findings' } });
+    expect(manifests.map(entry => entry.id)).toEqual(['findings']);
+    expect(menu).toMatchObject({ primary: true, path: '/operations/findings', label: { ko: '전체 Finding', en: 'All Findings' } });
   });
 
   it('declares its route table page keys plus returnTo, and the space permission', () => {

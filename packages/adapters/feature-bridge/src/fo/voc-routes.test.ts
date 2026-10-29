@@ -14,9 +14,9 @@ describe('inboxRoute', () => {
     ['unset analytics area', '/vocs?view=inbox&filter.analytics_area=unset', { area: 'unset' }],
     ['every key', `/vocs?view=inbox&selected=${VOC}&q=pump&tab=untriaged&sort=created_at:asc&filter.severity=high&filter.reporterStatus=open&filter.owner=me&filter.analytics_area=${AREA}&managedSystem=${SYSTEM}`,
       { focus: VOC, q: 'pump', tab: 'untriaged', sort: 'created_at:asc', severity: 'high', reporterStatus: 'open', owner: 'me', area: AREA, managedSystem: SYSTEM }],
-  ])('maps the %s link to fo-inbox and back to the same FO search', (_name, to, page) => {
+  ])('maps the %s link to inbox and back to the same FO search', (_name, to, page) => {
     const target = inboxRoute.target(to);
-    expect(target).toEqual({ menuId: 'fo-inbox', page });
+    expect(target).toEqual({ menuId: 'inbox', page });
     const back = inboxRoute.toFoSearch(target!.page!);
     expect(back).toEqual(Object.fromEntries(new URLSearchParams(to.slice(to.indexOf('?') + 1))));
   });
@@ -34,7 +34,7 @@ describe('triageRoute', () => {
   it('maps selected to focus and the area filter to area, and back', () => {
     const to = `/vocs?view=triage&selected=${VOC}&tab=unassigned&managedSystem=${SYSTEM}&filter.analytics_area=unset`;
     const target = triageRoute.target(to);
-    expect(target).toEqual({ menuId: 'fo-triage', page: { focus: VOC, tab: 'unassigned', managedSystem: SYSTEM, area: 'unset' } });
+    expect(target).toEqual({ menuId: 'triage', page: { focus: VOC, tab: 'unassigned', managedSystem: SYSTEM, area: 'unset' } });
     expect(triageRoute.toFoSearch(target!.page!)).toEqual(Object.fromEntries(new URLSearchParams(to.slice(to.indexOf('?') + 1))));
   });
 
@@ -50,17 +50,17 @@ describe('clustersRoute', () => {
   it('maps selected to focus and the scope to managedSystem, and back', () => {
     const to = `/voc-clusters?selected=${CLUSTER}&managedSystem=${SYSTEM}`;
     const target = clustersRoute.target(to);
-    expect(target).toEqual({ menuId: 'fo-clusters', page: { focus: CLUSTER, managedSystem: SYSTEM } });
+    expect(target).toEqual({ menuId: 'clusters', page: { focus: CLUSTER, managedSystem: SYSTEM } });
     expect(clustersRoute.toFoSearch(target!.page!)).toEqual(Object.fromEntries(new URLSearchParams(to.slice(to.indexOf('?') + 1))));
   });
 
   it('reads managedSystem=all as an explicit clear of the scope: the link stays and nothing is stored', () => {
-    expect(clustersRoute.target(`/voc-clusters?managedSystem=all&selected=${CLUSTER}`)).toEqual({ menuId: 'fo-clusters', page: { focus: CLUSTER, managedSystem: null } });
-    expect(clustersRoute.target('/voc-clusters')).toEqual({ menuId: 'fo-clusters', page: {} });
+    expect(clustersRoute.target(`/voc-clusters?managedSystem=all&selected=${CLUSTER}`)).toEqual({ menuId: 'clusters', page: { focus: CLUSTER, managedSystem: null } });
+    expect(clustersRoute.target('/voc-clusters')).toEqual({ menuId: 'clusters', page: {} });
   });
 
   it('maps the VOC detail cluster href the FO code emits, /voc-clusters/<id>, to focus', () => {
-    expect(operatorHostLinks.targetOf(`/voc-clusters/${CLUSTER}`)).toEqual({ menuId: 'fo-clusters', page: { focus: CLUSTER } });
+    expect(operatorHostLinks.targetOf(`/voc-clusters/${CLUSTER}`)).toEqual({ menuId: 'clusters', page: { focus: CLUSTER } });
     expect(operatorHostLinks.targetOf('/voc-clusters/abc')).toBeNull();
     expect(operatorHostLinks.targetOf(`/voc-clusters/${CLUSTER}/members`)).toBeNull();
   });
@@ -70,9 +70,9 @@ describe('clustersRoute', () => {
     expect(clustersRoute.target('/voc-clusters?tab=confirmed')).toBeNull();
   });
 
-  it('is reached through operatorHostLinks, and a cluster member row href lands on fo-inbox with focus', () => {
-    expect(operatorHostLinks.targetOf(`/voc-clusters?selected=${CLUSTER}`)).toEqual({ menuId: 'fo-clusters', page: { focus: CLUSTER } });
-    expect(operatorHostLinks.targetOf(`/vocs?view=inbox&selected=${VOC}`)).toEqual({ menuId: 'fo-inbox', page: { focus: VOC } });
+  it('is reached through operatorHostLinks, and a cluster member row href lands on inbox with focus', () => {
+    expect(operatorHostLinks.targetOf(`/voc-clusters?selected=${CLUSTER}`)).toEqual({ menuId: 'clusters', page: { focus: CLUSTER } });
+    expect(operatorHostLinks.targetOf(`/vocs?view=inbox&selected=${VOC}`)).toEqual({ menuId: 'inbox', page: { focus: VOC } });
   });
 });
 
@@ -80,14 +80,14 @@ describe('operatorHostLinks', () => {
   const { targetOf } = operatorHostLinks;
 
   it('reaches the operator tables, the Task tables, the Findings table, 내 VOC and the survey menus, and nothing else', () => {
-    expect(targetOf('/vocs?view=inbox&tab=unassigned')?.menuId).toBe('fo-inbox');
-    expect(targetOf('/vocs?view=triage')?.menuId).toBe('fo-triage');
+    expect(targetOf('/vocs?view=inbox&tab=unassigned')?.menuId).toBe('inbox');
+    expect(targetOf('/vocs?view=triage')?.menuId).toBe('triage');
     expect(targetOf('/vocs?view=my')?.menuId).toBe('voc');
     expect(targetOf('/surveys/participate')?.menuId).toBe('surveys');
     expect(targetOf('/vocs?action=create')).toBeNull();
-    expect(targetOf('/tasks?view=board')?.menuId).toBe('fo-tasks');
-    expect(targetOf('/tasks?view=requests')?.menuId).toBe('fo-task-requests');
-    expect(targetOf('/findings')?.menuId).toBe('fo-findings');
+    expect(targetOf('/tasks?view=board')?.menuId).toBe('tasks');
+    expect(targetOf('/tasks?view=requests')?.menuId).toBe('task-requests');
+    expect(targetOf('/findings')?.menuId).toBe('findings');
     expect(targetOf('/findings?returnTo=/vocs')).toBeNull();
   });
 });

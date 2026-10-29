@@ -60,7 +60,7 @@ export interface AuthedVocsMount {
  router: { state: { location: { search: Record<string, unknown>; searchStr: string } } };
 }
 export const stringifyAppSearch = (search: Record<string, string>) => `?${new URLSearchParams(search)}`;
-const Body = savedViewsSlot.For(spaceId('feedbackops'))!.Body;
+const Body = savedViewsSlot.For(spaceId('operations'), registry.menuById('inbox'))!.Body;
 afterEach(() => { cleanup(); featureQueryClient.clear(); setFeatureApi(null); window.history.replaceState(null, '', '/'); });
 export function mountAuthedVocs({ initialPath, vocsShell = false, handle }: {
  initialPath: string; vocsShell?: boolean;
@@ -111,7 +111,7 @@ export function mountAuthedVocs({ initialPath, vocsShell = false, handle }: {
   setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() });
   const url = new URL(initialPath, 'http://localhost');
   url.searchParams.delete('view');
-  window.history.replaceState(null, '', `/feedbackops/vocs${url.search}`);
+  window.history.replaceState(null, '', `/operations/inbox${url.search}`);
   const router: AuthedVocsMount['router'] = { state: { location: { search: {}, searchStr: '' } } };
   function Probe() {
     const search = useInboxSearch();

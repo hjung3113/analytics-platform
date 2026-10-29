@@ -3,7 +3,7 @@ import { Inbox } from 'lucide-react';
 import { createFeatureMenuHarness } from '@ap/feature-bridge/testing';
 import { manifests } from './index';
 
-export const { registry, mountAt } = createFeatureMenuHarness({ manifests, homeMenuId: 'fo-inbox', group: { id: 'foVoc', label: { ko: 'VOC', en: 'VOC' }, icon: Inbox } });
+export const { registry, mountAt } = createFeatureMenuHarness({ manifests, homeMenuId: 'inbox', group: { id: 'voc', label: { ko: 'VOC', en: 'VOC' }, icon: Inbox } });
 
 /**
  * Loads the lazy page modules (and the FeedbackOps screens behind them) before a file's first mount: a cold import can take

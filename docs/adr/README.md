@@ -110,6 +110,7 @@
 | [0097](0097-platform-features-and-role-based-names.md) | FeedbackOps 제품·독립 앱·공간·인프라 이름을 제거하고 역할 이름으로 통합한다. `platform/<feature>/`는 Consumer 층, 옛 주소·SDK·권한 별칭 없음, migration 이력 원문 유지 | Decided(2026-10-28, 사용자; 세부 대응값은 코디네이터 위임·되돌릴 수 있음) — #1097. 0031·0045·0046 규칙 8·0066·0071·0073 규칙 11·0081·0090·0093 부분 대체; 구현 #597·#1098–#1102 |
 | [0098](0098-adapter-preferences-people-notices-ports.md) | PlatformAdapter에 사용자 설정(키 패치·1회 원자 가져오기)·사람 정확 조회·공지 관리 포트를 더하고 `defaultRangeTo`를 `string \| null`로 넓힌다. 스키마 원본 경계는 ADR-0097을 따른다 | Decided(2026-10-28, 사용자 #1096; 세부 설계는 팀장 위임·되돌릴 수 있음) — #1103. 서버 #1104·#1105·#1106 |
 | [0099](0099-server-saved-view-persistence.md) | 저장된 뷰 서버는 객체 ACL만 판정하고 메뉴·Scope는 실제 데이터 경계가 판정한다(0092 §3 부분 대체). 명령 하나의 엄격한 전송 계약, 공식 회수·승인·이전 정책 | Decided(2026-10-29, 사용자 #1105; 세부 설계는 팀장 위임·되돌릴 수 있음) — 서버 모듈 구현(#1105a), HTTP 저장소·브라우저 이전 실행은 미구현(#1105b) · #1105 |
+| [0100](0100-feature-navigation-and-independent-access.md) | 사이드바의 FeedbackOps 업무 시스템 행을 없애고 개인 업무는 전역 `내 활동`(내 Task 포함), 운영 화면은 하나뿐인 `운영 콘솔`로 둔다. F=`features:access`·C=`console:access`는 독립이고 접근은 멤버 메뉴 단위, 기능 관리는 F∧C. 슬롯은 현재 메뉴로 고른다. 0028·0070·0081·kernel §9.1 부분 대체 | Decided(2026-10-29, 사용자 B안 선택·세부는 코디네이터 위임·되돌릴 수 있음) — #1099 |
 | [0101](0101-opaque-audit-target-filter.md) | `auditTrail`의 `type` 필터는 불투명 ASCII 토큰(`[A-Za-z][A-Za-z0-9_.:-]{0,79}`)이다. 형식 맞는 미지 유형은 `empty`, 틀리면 `error`. 공개는 기존 SQL 투영만 결정한다 | Decided(2026-10-29, 팀장 위임·되돌릴 수 있음) — #1091 |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.

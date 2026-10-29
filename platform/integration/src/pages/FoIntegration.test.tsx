@@ -59,10 +59,10 @@ beforeEach(() => {
 afterEach(() => { cleanup(); setFeatureApi(null); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
 describe.each([
-  ['/feedbackops/integration', '연동 액션 대시보드', 'dashboard'],
-  ['/feedbackops/evidence', 'Evidence', 'evidence'],
-  ['/feedbackops/coverage', '커버리지', 'coverage'],
-  ['/feedbackops/entity-links', '엔티티 링크', 'links'],
+  ['/operations/integration', '연동 액션 대시보드', 'dashboard'],
+  ['/operations/evidence', 'Evidence', 'evidence'],
+  ['/operations/coverage', '커버리지', 'coverage'],
+  ['/operations/entity-links', '엔티티 링크', 'links'],
 ])('%s without a FeedbackOps API (mock preview)', (path, title, testId) => {
   it('shows 실서버 필요 and mounts no screen', async () => {
     mountAt(path);
@@ -76,7 +76,7 @@ describe('연동 액션 대시보드 through the FeedbackOps bridge', () => {
   beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() }); });
 
   it('mounts the screen reading the page as the FO /integration path and passes the standalone request-access renderer', async () => {
-    mountAt(`/feedbackops/integration?category=unassigned-voc&history=true&managedSystem=${SYSTEM}`);
+    mountAt(`/operations/integration?category=unassigned-voc&history=true&managedSystem=${SYSTEM}`);
     await screen.findByTestId('dashboard');
     const here = hereOf('dashboard');
     expect(here.pathname).toBe('/integration');
@@ -85,7 +85,7 @@ describe('연동 액션 대시보드 through the FeedbackOps bridge', () => {
   });
 
   it('renders the screen\'s renderDetail(parts) result as the drawer in place, and its close is requestClose', async () => {
-    mountAt(`/feedbackops/integration?focus=${ITEM}`);
+    mountAt(`/operations/integration?focus=${ITEM}`);
     expect((await screen.findByTestId('dashboard')).getAttribute('data-selected')).toBe(ITEM);
     const dialog = await within(await screen.findByRole('complementary', { name: '상세 패널' })).findByRole('dialog');
     expect(within(dialog).getByText(`복구 본문 ${ITEM}`)).toBeTruthy();
@@ -100,7 +100,7 @@ describe('Evidence through the FeedbackOps bridge', () => {
   beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() }); });
 
   it('mounts the screen reading the page as the FO /integration/evidence path', async () => {
-    mountAt(`/feedbackops/evidence?source=voc&q=pump&managedSystem=${SYSTEM}`);
+    mountAt(`/operations/evidence?source=voc&q=pump&managedSystem=${SYSTEM}`);
     await screen.findByTestId('evidence');
     const here = hereOf('evidence');
     expect(here.pathname).toBe('/integration/evidence');
@@ -108,7 +108,7 @@ describe('Evidence through the FeedbackOps bridge', () => {
   });
 
   it('renders the screen\'s renderDetail(parts) result as the drawer in place, and its close is requestClose', async () => {
-    mountAt(`/feedbackops/evidence?focus=${EVIDENCE}`);
+    mountAt(`/operations/evidence?focus=${EVIDENCE}`);
     expect((await screen.findByTestId('evidence')).getAttribute('data-selected')).toBe(EVIDENCE);
     const dialog = await within(await screen.findByRole('complementary', { name: '상세 패널' })).findByRole('dialog');
     expect(within(dialog).getByText(`근거 본문 ${EVIDENCE}`)).toBeTruthy();
@@ -122,7 +122,7 @@ describe('커버리지 and 엔티티 링크 through the FeedbackOps bridge', () 
   beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() }); });
 
   it('mounts Coverage reading view and area as the FO /integration/coverage path, with no drawer', async () => {
-    mountAt(`/feedbackops/coverage?view=areas&managedSystem=${SYSTEM}`);
+    mountAt(`/operations/coverage?view=areas&managedSystem=${SYSTEM}`);
     await screen.findByTestId('coverage');
     const here = hereOf('coverage');
     expect(here.pathname).toBe('/integration/coverage');
@@ -131,7 +131,7 @@ describe('커버리지 and 엔티티 링크 through the FeedbackOps bridge', () 
   });
 
   it('mounts Links reading status and type as the FO /integration/links path, with no drawer', async () => {
-    mountAt(`/feedbackops/entity-links?status=stale&type=related_to&managedSystem=${SYSTEM}`);
+    mountAt(`/operations/entity-links?status=stale&type=related_to&managedSystem=${SYSTEM}`);
     await screen.findByTestId('links');
     const here = hereOf('links');
     expect(here.pathname).toBe('/integration/links');
@@ -140,20 +140,20 @@ describe('커버리지 and 엔티티 링크 through the FeedbackOps bridge', () 
   });
 
   it('mounts Links for any managedSystem string (its own schema is a plain string): no RejectedPage', async () => {
-    mountAt('/feedbackops/entity-links?managedSystem=x');
+    mountAt('/operations/entity-links?managedSystem=x');
     await screen.findByTestId('links');
     expect(screen.queryByText('주소의 managedSystem 값이 올바르지 않습니다')).toBeNull();
   });
 });
 
 const REJECTED = [
-  ['/feedbackops/integration', 'presentation', 'x', 'dashboard'],
-  ['/feedbackops/integration', 'managedSystem', 'x', 'dashboard'],
-  ['/feedbackops/evidence', 'source', 'x', 'evidence'],
-  ['/feedbackops/evidence', 'managedSystem', 'x', 'evidence'],
-  ['/feedbackops/coverage', 'view', 'x', 'coverage'],
-  ['/feedbackops/coverage', 'managedSystem', 'x', 'coverage'],
-  ['/feedbackops/entity-links', 'status', 'x', 'links'],
+  ['/operations/integration', 'presentation', 'x', 'dashboard'],
+  ['/operations/integration', 'managedSystem', 'x', 'dashboard'],
+  ['/operations/evidence', 'source', 'x', 'evidence'],
+  ['/operations/evidence', 'managedSystem', 'x', 'evidence'],
+  ['/operations/coverage', 'view', 'x', 'coverage'],
+  ['/operations/coverage', 'managedSystem', 'x', 'coverage'],
+  ['/operations/entity-links', 'status', 'x', 'links'],
 ] as const;
 
 describe('연동 pages with an invalid address value', () => {

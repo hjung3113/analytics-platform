@@ -12,7 +12,7 @@ test.describe('FeedbackOps 실서버 브리지 화면 (06 §9.1·§22)', () => {
   test('공간 대시보드는 실제 요약과 열린 요청 결과를 표시한다', async ({ page }, testInfo) => {
     const summary = waitForFoRead(page, '/dashboard/summary', { managed_system_id: 'all' });
     const requests = waitForFoRead(page, '/permission-requests/mine', { status: undefined });
-    await page.goto('/feedbackops/fo-dashboard');
+    await page.goto('/operations/dashboard');
     await expectSuccessfulFoReads([summary, requests]);
     await expect(mainHeading(page)).toHaveText('대시보드');
     await expect(page.getByRole('main').getByText('열린 요청이 없습니다.')).toBeVisible();
@@ -25,7 +25,7 @@ test.describe('FeedbackOps 실서버 브리지 화면 (06 §9.1·§22)', () => {
       include_archived: 'true',
       limit: '500',
     });
-    await page.goto('/feedbackops/fo-integration');
+    await page.goto('/operations/integration');
     await expectSuccessfulFoReads([summary, systems]);
     await expect(page.getByTestId('integration-dashboard').getByRole('heading', { level: 1 })).toHaveText('연동 액션 대시보드');
     await expectLoadedOrEmpty(
@@ -41,7 +41,7 @@ test.describe('FeedbackOps 실서버 브리지 화면 (06 §9.1·§22)', () => {
 
   test('Evidence 화면은 실제 목록 API의 유효한 빈 결과를 표시한다', async ({ page }, testInfo) => {
     const inventory = waitForFoRead(page, '/evidence-highlights');
-    await page.goto('/feedbackops/fo-evidence');
+    await page.goto('/operations/evidence');
     await expectSuccessfulFoReads([inventory]);
     await expect(mainHeading(page)).toHaveText('Evidence');
     await expect(page.getByRole('main').getByText('표시할 Evidence가 없습니다.')).toBeVisible();
@@ -53,7 +53,7 @@ test.describe('FeedbackOps 실서버 브리지 화면 (06 §9.1·§22)', () => {
       scope: 'workspace',
       limit: '50',
     });
-    await page.goto('/feedbackops/fo-entity-links');
+    await page.goto('/operations/entity-links');
     await expectSuccessfulFoReads([inventory]);
     await expect(mainHeading(page)).toHaveText('엔티티 링크');
     await expect(page.getByRole('main').getByText('엔티티 링크가 없습니다.')).toBeVisible();
@@ -71,7 +71,7 @@ test.describe('FeedbackOps 실서버 브리지 화면 (06 §9.1·§22)', () => {
       limit: '500',
       offset: '0',
     });
-    await page.goto('/feedbackops/fo-coverage');
+    await page.goto('/operations/coverage');
     await expectSuccessfulFoReads([summary, systems, areas]);
     await expect(page.getByTestId('integration-coverage').getByRole('heading', { level: 1 })).toHaveText('커버리지');
     await expectLoadedOrEmpty(

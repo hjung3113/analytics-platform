@@ -11,7 +11,7 @@ const SCOPE_ALL = { managedSystem: 'all' } as const;
 export const taskRequestsRoute = operatorRoute({
   foPath: '/tasks',
   foFixed: { view: 'requests' },
-  menuId: 'fo-task-requests',
+  menuId: 'task-requests',
   keys: { param: 'focus', reviewer: 'reviewer', reviewerTeam: 'reviewerTeam', managedSystem: 'managedSystem' },
   foAbsent: SCOPE_ALL,
 });
@@ -20,7 +20,7 @@ export const taskRequestsRoute = operatorRoute({
 export const taskBoardRoute = operatorRoute({
   foPath: '/tasks',
   foFixed: { view: 'board' },
-  menuId: 'fo-tasks',
+  menuId: 'tasks',
   keys: { param: 'focus', q: 'q', public_update: 'publicUpdate', managedSystem: 'managedSystem' },
   foAbsent: SCOPE_ALL,
 });
@@ -29,7 +29,7 @@ export const taskBoardRoute = operatorRoute({
 export const milestonesRoute = operatorRoute({
   foPath: '/tasks',
   foFixed: { view: 'milestones' },
-  menuId: 'fo-milestones',
+  menuId: 'milestones',
   keys: { param: 'focus', managedSystem: 'managedSystem' },
   foAbsent: SCOPE_ALL,
 });
@@ -51,7 +51,7 @@ const LIST_KEYS = {
 export const taskListRoute = operatorRoute({
   foPath: '/tasks',
   foFixed: { view: 'backlog' },
-  menuId: 'fo-task-list',
+  menuId: 'task-list',
   keys: LIST_KEYS,
   foAbsent: SCOPE_ALL,
 });
@@ -60,7 +60,7 @@ export const taskListRoute = operatorRoute({
 export const myTasksRoute = operatorRoute({
   foPath: '/tasks',
   foFixed: { view: 'my' },
-  menuId: 'fo-my-tasks',
+  menuId: 'my-tasks',
   keys: LIST_KEYS,
   foAbsent: SCOPE_ALL,
 });
@@ -69,7 +69,7 @@ export const myTasksRoute = operatorRoute({
 export const taskListInboxAlias = operatorRoute({
   foPath: '/tasks',
   foFixed: { view: 'inbox' },
-  menuId: 'fo-task-list',
+  menuId: 'task-list',
   keys: LIST_KEYS,
   foAbsent: SCOPE_ALL,
 });
@@ -78,7 +78,7 @@ export const taskListInboxAlias = operatorRoute({
 export const taskListBareAlias = operatorRoute({
   foPath: '/tasks',
   foFixed: {},
-  menuId: 'fo-task-list',
+  menuId: 'task-list',
   keys: LIST_KEYS,
   foAbsent: SCOPE_ALL,
 });

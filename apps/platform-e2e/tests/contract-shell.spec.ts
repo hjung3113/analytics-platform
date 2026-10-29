@@ -445,8 +445,8 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     await evidence(page, testInfo, 'engineer-two-spaces');
   });
 
-  // #759 (ADR-0081): the FeedbackOps space is gated by features:access, which only admin holds in the mock; the mock has no FeedbackOps API.
-  test('FeedbackOps 공간은 admin만 보고 대시보드·VOC(수신함·Triage)·목록 범위가 실서버 필요 상태로 열린다', async ({ page }, testInfo) => {
+  // #1099: operations is visible through its accessible member menus; only admin has these grants in the mock.
+  test('운영 콘솔은 열린 멤버 메뉴가 있는 admin에게 보이고 대시보드·VOC(수신함·Triage)·목록 범위가 실서버 필요 상태로 열린다', async ({ page }, testInfo) => {
     for (const role of ['engineer', 'viewer'] as const) {
       await signInAs(page, role);
       await page.goto('/mars/equipment-master?v=1&scopeId=MEM');
@@ -457,14 +457,15 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     await signInAs(page, 'admin');
     await page.goto('/mars/equipment-master?v=1&scopeId=MEM');
     const popover = await openSwitcher(page);
-    await expect(popover.getByRole('button', { name: /^FeedbackOps/ })).toContainText('피드백 운영');
+    await expect(popover.getByRole('button', { name: /^운영 콘솔/ })).toBeVisible();
+    await expect(popover.getByRole('button', { name: /^FeedbackOps/ })).toHaveCount(0);
     await page.keyboard.press('Escape');
-    await chooseSystem(page, 'FeedbackOps');
-    await expect.poll(() => new URL(page.url()).pathname).toBe('/feedbackops/fo-dashboard');
+    await chooseSystem(page, '운영 콘솔');
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/operations/dashboard');
     const nav = page.getByRole('navigation', { name: '주 메뉴' });
     await expect(nav.getByRole('link', { name: '대시보드' })).toBeVisible();
     await expect(page.getByRole('heading', { name: '대시보드' })).toBeVisible();
-    await expect(page.getByRole('main')).toContainText('FeedbackOps');
+    await expect(page.getByRole('main')).toContainText('플랫폼 서버');
     await expect(page.getByRole('button', { name: '새로고침' })).toBeDisabled();
     await expect(page.getByRole('main').getByRole('status').filter({ hasText: '실서버 필요' })).toBeVisible();
     await expect(page.getByText('목록 범위', { exact: true })).toBeVisible();
@@ -476,20 +477,20 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     await expect(nav.getByRole('link', { name: '수신함' })).toBeVisible();
     await expect(nav.getByRole('link', { name: 'Triage' })).toBeVisible();
     await nav.getByRole('link', { name: '수신함' }).click();
-    await expect.poll(() => new URL(page.url()).pathname).toBe('/feedbackops/fo-inbox');
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/operations/inbox');
     await expect(page.getByRole('main').getByRole('status').filter({ hasText: '실서버 필요' })).toBeVisible();
     await nav.getByRole('link', { name: 'Triage' }).click();
-    await expect.poll(() => new URL(page.url()).pathname).toBe('/feedbackops/fo-triage');
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/operations/triage');
     await expect(page.getByRole('main').getByRole('status').filter({ hasText: '실서버 필요' })).toBeVisible();
     // #761 p2: Clusters is the third bridge menu of the group.
     await nav.getByRole('link', { name: 'Clusters', exact: true }).click();
-    await expect.poll(() => new URL(page.url()).pathname).toBe('/feedbackops/fo-clusters');
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/operations/clusters');
     await expect(page.getByRole('main').getByRole('status').filter({ hasText: '실서버 필요' })).toBeVisible();
     // #761 p1b: the sidebar views are links under their menus; in the mock no count badge is drawn (a badge would add the count to the link's accessible name, so the exact names prove it).
     await expect(nav.getByRole('link', { name: '연결 없음', exact: true })).toBeVisible();
     await expect(nav.getByRole('link', { name: '미배정', exact: true })).toBeVisible();
     await nav.getByRole('link', { name: '높음', exact: true }).click();
-    await expect.poll(() => { const url = new URL(page.url()); return `${url.pathname}?tab=${url.searchParams.get('tab')}`; }).toBe('/feedbackops/fo-triage?tab=high');
+    await expect.poll(() => { const url = new URL(page.url()); return `${url.pathname}?tab=${url.searchParams.get('tab')}`; }).toBe('/operations/triage?tab=high');
     await expect(nav.locator('[aria-current="page"]')).toHaveCount(1);
     await expect(nav.getByRole('link', { name: '높음', exact: true })).toHaveAttribute('aria-current', 'page');
     // #761 p3: the 저장된 보기 section is drawn by the shell; in the mock its body is 실서버 필요, and the collapsed sidebar has no section.
@@ -501,13 +502,13 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     await evidence(page, testInfo, 'feedbackops-voc-mock');
   });
 
-  test('진입 권한이 없는 공간의 직접 URL은 메뉴 권한 검사 전에 공간 거부를 보인다', async ({ page }, testInfo) => {
+  test('공통 공간 권한 없는 운영 콘솔의 직접 URL은 멤버 메뉴 권한으로 거부한다', async ({ page }, testInfo) => {
     for (const role of ['engineer', 'viewer'] as const) {
       await signInAs(page, role);
       await page.goto(ADMIN_URL);
-      await expect(page.getByRole('status').filter({ hasText: '이 업무 시스템에 들어갈 수 없습니다' })).toBeVisible();
+      await expect(page.getByRole('status').filter({ hasText: '이 메뉴에 대한 권한이 없습니다' })).toBeVisible();
       // 본문은 Registry 공간 라벨과 요청 문장이다. 레일에는 이 공간이 없다.
-      await expect(page.getByRole('main')).toContainText('운영 콘솔');
+      await expect(page.getByRole('main')).toContainText('권한/역할 관리');
       await expect(page.getByRole('main')).toContainText('관리자에게 요청하세요');
       await expect(page.getByRole('heading', { name: '권한/역할 관리' })).toHaveCount(0);
       // Denial never rewrites the address: pathname and the four global keys stay exactly as entered.
@@ -536,7 +537,7 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     await evidence(page, testInfo, 'admin-analytics');
 
     await chooseSystem(page, '운영 콘솔');
-    await expect.poll(() => new URL(page.url()).pathname).toBe('/operations/admin-roles');
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/operations/dashboard');
     const q = query(page);
     expect(q.get('scopeId')).toBe('MEM');
     expect(q.get('from')).toBe('2026-09-25T09:00:00');
@@ -544,11 +545,11 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     expect(q.get('lotIds')).toBe('LOT-0001');
     // Globals survive the switch; page-owned state does not.
     expect(q.get('page')).toBeNull();
-    await expect(nav.getByRole('link', { name: '권한/역할 관리' })).toBeVisible();
+    await expect(nav.getByRole('link', { name: '대시보드' })).toBeVisible();
     await expect(nav.getByRole('link', { name: '설비 마스터' })).toHaveCount(0);
     // Current markers: the switcher names the system, the rail section carries aria-current="true" (not "page").
     await expect(systemSwitcher(page)).toHaveAccessibleName('시스템 및 플랫폼 메뉴 · 현재: 운영 콘솔');
-    await expect(railSection(page, '관리·감사')).toHaveAttribute('aria-current', 'true');
+    await expect(railSection(page, '대시보드')).toHaveAttribute('aria-current', 'true');
     await evidence(page, testInfo, 'admin-operations');
 
     // The switch pushed a history entry: Back lands on the exact origin URL (page=2 included, 06 §6.4)
@@ -563,14 +564,14 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     await page.goForward();
     // Forward returns to the entry switchSpace pushed: console home path, globals kept, page key dropped
     // (compared decoded — the kernel's buildQuery percent-encodes values in the pushed URL).
-    await expect.poll(() => new URL(page.url()).pathname).toBe('/operations/admin-roles');
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/operations/dashboard');
     const fwd = query(page);
     expect(fwd.get('scopeId')).toBe('MEM');
     expect(fwd.get('from')).toBe('2026-09-25T09:00:00');
     expect(fwd.get('to')).toBe('2026-09-26T09:00:00');
     expect(fwd.get('lotIds')).toBe('LOT-0001');
     expect(fwd.get('page')).toBeNull();
-    await expect(nav.getByRole('link', { name: '권한/역할 관리' })).toBeVisible();
+    await expect(nav.getByRole('link', { name: '대시보드' })).toBeVisible();
     await evidence(page, testInfo, 'admin-history-forward');
 
     await chooseSystem(page, 'MARS');
@@ -658,7 +659,7 @@ test.describe('전역 기능 자리 (ADR-0070, 06 §9.1·§10)', () => {
     await page.goto('/bravo/metric-catalog');
     const popover = await openSwitcher(page);
     const platformMenu = popover.getByRole('navigation', { name: '플랫폼 메뉴' });
-    await expect(platformMenu.getByRole('link')).toHaveText(['홈', '알림', '내 VOC', '설문', '권한 요청', '공지']);
+    await expect(platformMenu.getByRole('link')).toHaveText(['홈', '알림', '내 VOC', '응답 설문', '권한 요청', '공지']);
     await evidence(page, testInfo, 'platform-menu-switcher');
     await platformMenu.getByRole('link', { name: '알림' }).click();
     await expect(popover).toHaveCount(0);
@@ -705,9 +706,9 @@ test.describe('전역 기능 자리 (ADR-0070, 06 §9.1·§10)', () => {
     const popover = await openSwitcher(page);
     await popover.getByRole('navigation', { name: '플랫폼 메뉴' }).getByRole('link', { name: '설문' }).click();
     await expect.poll(() => new URL(page.url()).pathname).toBe('/survey');
-    await expect(page.getByRole('main').getByRole('heading', { name: '설문' })).toBeFocused();
+    await expect(page.getByRole('main').getByRole('heading', { name: '응답 설문' })).toBeFocused();
     await expect(page.getByRole('status')).toContainText('실서버 필요');
-    const sidebarSurveys = page.getByRole('navigation', { name: '플랫폼 메뉴' }).getByRole('link', { name: '설문', exact: true });
+    const sidebarSurveys = page.getByRole('navigation', { name: '플랫폼 메뉴' }).getByRole('link', { name: '응답 설문', exact: true });
     await expect(sidebarSurveys).toHaveAttribute('aria-current', 'page');
 
     await page.goto('/survey/11111111-1111-4111-8111-111111111111/respond');
@@ -715,7 +716,7 @@ test.describe('전역 기능 자리 (ADR-0070, 06 §9.1·§10)', () => {
     await expect(page.getByRole('status')).toContainText('실서버 필요');
     await expect(sidebarSurveys).toHaveAttribute('aria-current', 'page');
     const switcher = await openSwitcher(page);
-    await expect(switcher.getByRole('navigation', { name: '플랫폼 메뉴' }).getByRole('link')).toHaveText(['홈', '알림', '내 VOC', '설문', '권한 요청', '공지']);
+    await expect(switcher.getByRole('navigation', { name: '플랫폼 메뉴' }).getByRole('link')).toHaveText(['홈', '알림', '내 VOC', '응답 설문', '권한 요청', '공지']);
 
     await page.goto('/survey/not-a-uuid/respond');
     await expect(page.getByText('설문을 찾을 수 없습니다')).toBeVisible();
@@ -758,7 +759,7 @@ test.describe('전역 기능 자리 (ADR-0070, 06 §9.1·§10)', () => {
   test('VOC 등록은 사이드바 링크가 아니라 레일 버튼의 서랍이고 mock에서는 실서버 필요 상태를 보인다 (#656)', async ({ page }) => {
     await signInAs(page, 'viewer');
     await page.goto('/bravo/metric-catalog');
-    await expect(page.getByRole('navigation', { name: 'FeedbackOps · BRAVO' }).getByRole('link', { name: 'VOC 등록' })).toHaveCount(0);
+    await expect(page.getByRole('navigation', { name: '기능 · BRAVO' }).getByRole('link', { name: 'VOC 등록' })).toHaveCount(0);
     await page.getByRole('button', { name: 'VOC 등록', exact: true }).click();
     const drawer = page.getByRole('complementary', { name: 'VOC 등록' });
     await expect(drawer).toBeVisible();
@@ -861,7 +862,7 @@ test.describe('화면 오류 격리 (06 §4 전역 Error Boundary)', () => {
 test.describe('메뉴 활용률 (06 §4, docs/05 — kernel이 recordUsage로 계측, 콘솔은 집계만 읽는다)', () => {
   const DIRECT_URL = '/operations/admin-usage';
 
-  test('권한 없는 역할(engineer)은 메뉴가 비노출이고 직접 URL은 공간 거부다', async ({ page }, testInfo) => {
+  test('권한 없는 역할(engineer)은 메뉴가 비노출이고 직접 URL은 메뉴 거부다', async ({ page }, testInfo) => {
     await signInAs(page, 'engineer');
     await page.goto('/mars/equipment-master?v=1&scopeId=MEM');
     const nav = page.getByRole('navigation', { name: '주 메뉴' });
@@ -870,15 +871,15 @@ test.describe('메뉴 활용률 (06 §4, docs/05 — kernel이 recordUsage로 �
 
     await page.goto(DIRECT_URL);
     const main = page.getByRole('main');
-    await expect(main).toContainText('이 업무 시스템에 들어갈 수 없습니다');
-    await expect(main).toContainText('운영 콘솔');
+    await expect(main).toContainText('이 메뉴에 대한 권한이 없습니다');
+    await expect(main).toContainText('메뉴 활용률');
     await expect(main).toContainText('관리자에게 요청하세요');
     // The client gate refuses without redirecting: the URL the user typed stays exact.
     expect(page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(DIRECT_URL);
     await evidence(page, testInfo, 'usage-engineer-space-denied');
   });
 
-  test('viewer도 메뉴가 비노출이고 직접 URL은 공간 거부다', async ({ page }, testInfo) => {
+  test('viewer도 메뉴가 비노출이고 직접 URL은 메뉴 거부다', async ({ page }, testInfo) => {
     await signInAs(page, 'viewer');
     await page.goto('/bravo/metric-catalog');
     const nav = page.getByRole('navigation', { name: '주 메뉴' });
@@ -887,8 +888,8 @@ test.describe('메뉴 활용률 (06 §4, docs/05 — kernel이 recordUsage로 �
 
     await page.goto(DIRECT_URL);
     const main = page.getByRole('main');
-    await expect(main).toContainText('이 업무 시스템에 들어갈 수 없습니다');
-    await expect(main).toContainText('운영 콘솔');
+    await expect(main).toContainText('이 메뉴에 대한 권한이 없습니다');
+    await expect(main).toContainText('메뉴 활용률');
     await expect(main).toContainText('관리자에게 요청하세요');
     expect(page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(DIRECT_URL);
     await evidence(page, testInfo, 'usage-viewer-space-denied');
@@ -953,7 +954,7 @@ test.describe('메뉴 레지스트리 (06 §9.1 — console declarations read ba
     await page.getByRole('dialog').getByRole('combobox').fill(needle);
   };
 
-  test('권한 없는 역할(engineer)은 메뉴가 비노출이고 직접 URL은 공간 거부다', async ({ page }, testInfo) => {
+  test('권한 없는 역할(engineer)은 메뉴가 비노출이고 직접 URL은 메뉴 거부다', async ({ page }, testInfo) => {
     await signInAs(page, 'engineer');
     await seedRecent(page, 'engineer', { menuId: 'equipment-master', url: '/mars/equipment-master' });
     await page.goto('/mars/equipment-master?v=1&scopeId=MEM');
@@ -980,10 +981,10 @@ test.describe('메뉴 레지스트리 (06 §9.1 — console declarations read ba
 
     await page.goto(DIRECT_FOCUS_URL);
     const main = page.getByRole('main');
-    await expect(main).toContainText('이 업무 시스템에 들어갈 수 없습니다');
-    await expect(main).toContainText('운영 콘솔');
+    await expect(main).toContainText('이 메뉴에 대한 권한이 없습니다');
+    await expect(main).toContainText('메뉴 레지스트리');
     await expect(main).toContainText('관리자에게 요청하세요');
-    // The space gate replaces the page: no registry table and no declaration drawer/dialog content.
+    // The member-menu gate replaces the page: no registry table and no declaration drawer/dialog content.
     await expect(main.getByRole('table')).toHaveCount(0);
     await expect(main.getByText('requiresScope')).toHaveCount(0);
     await expect(page.getByRole('dialog')).toHaveCount(0);
@@ -992,7 +993,7 @@ test.describe('메뉴 레지스트리 (06 §9.1 — console declarations read ba
     await evidence(page, testInfo, 'registry-engineer-space-denied');
   });
 
-  test('viewer도 메뉴가 비노출이고 직접 URL은 공간 거부다', async ({ page }, testInfo) => {
+  test('viewer도 메뉴가 비노출이고 직접 URL은 메뉴 거부다', async ({ page }, testInfo) => {
     await signInAs(page, 'viewer');
     await seedRecent(page, 'viewer', { menuId: 'metric-catalog', url: '/bravo/metric-catalog' });
     await page.goto('/bravo/metric-catalog');
@@ -1015,8 +1016,8 @@ test.describe('메뉴 레지스트리 (06 §9.1 — console declarations read ba
 
     await page.goto(DIRECT_FOCUS_URL);
     const main = page.getByRole('main');
-    await expect(main).toContainText('이 업무 시스템에 들어갈 수 없습니다');
-    await expect(main).toContainText('운영 콘솔');
+    await expect(main).toContainText('이 메뉴에 대한 권한이 없습니다');
+    await expect(main).toContainText('메뉴 레지스트리');
     await expect(main).toContainText('관리자에게 요청하세요');
     await expect(main.getByRole('table')).toHaveCount(0);
     await expect(main.getByText('requiresScope')).toHaveCount(0);
@@ -1034,6 +1035,7 @@ test.describe('메뉴 레지스트리 (06 §9.1 — console declarations read ba
     const option = page.getByRole('dialog').getByRole('option', { name: /메뉴 레지스트리/ });
     await expect(option).toHaveCount(1);
     await expect(option).toContainText('운영 콘솔');
+    await expect(option).toContainText('플랫폼 관리');
     await option.click();
     await expect(page.getByRole('main').getByRole('table').first()).toBeVisible({ timeout: 10_000 });
     // The palette navigates through linkTo: the target is the menu's v=1 deep link and keeps the current global scope (§6.1).
@@ -1058,7 +1060,7 @@ test.describe('메뉴 레지스트리 (06 §9.1 — console declarations read ba
 });
 
 test.describe('권한/역할 (06 §9.1, §17 — console access directory, read-only)', () => {
-  test('engineer는 메뉴가 비노출이고 직접 URL에서 공간 거부를 본다', async ({ page }, testInfo) => {
+  test('engineer는 메뉴가 비노출이고 직접 URL에서 메뉴 거부를 본다', async ({ page }, testInfo) => {
     const directUrl = '/operations/admin-roles?v=1&focus=admin';
     await signInAs(page, 'engineer');
     await page.goto('/mars/equipment-master?v=1&scopeId=MEM');
@@ -1068,8 +1070,8 @@ test.describe('권한/역할 (06 §9.1, §17 — console access directory, read-
 
     await page.goto(directUrl);
     const main = page.getByRole('main');
-    await expect(main).toContainText('이 업무 시스템에 들어갈 수 없습니다');
-    await expect(main).toContainText('운영 콘솔');
+    await expect(main).toContainText('이 메뉴에 대한 권한이 없습니다');
+    await expect(main).toContainText('권한/역할 관리');
     await expect(main).toContainText('관리자에게 요청하세요');
     await expect(main.getByRole('table')).toHaveCount(0);
     await expect(page.getByRole('dialog')).toHaveCount(0);

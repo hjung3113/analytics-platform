@@ -3,7 +3,7 @@ import { ClipboardCheck } from 'lucide-react';
 import { createFeatureMenuHarness } from '@ap/feature-bridge/testing';
 import { manifests } from './index';
 
-export const { registry, mountAt } = createFeatureMenuHarness({ manifests, homeMenuId: 'fo-surveys', group: { id: 'foSurveys', label: { ko: 'Surveys', en: 'Surveys' }, icon: ClipboardCheck } });
+export const { registry, mountAt } = createFeatureMenuHarness({ manifests, homeMenuId: 'survey-management', group: { id: 'surveys', label: { ko: 'Surveys', en: 'Surveys' }, icon: ClipboardCheck } });
 
 /**
  * Loads the lazy page modules (and the FeedbackOps screens behind them) before a file's first mount: a cold import can take

@@ -1,24 +1,21 @@
 import { type ComponentType, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { spaceId } from '@ap/contracts';
 import { usePlatform, type NavCountsSlot } from '@ap/kernel';
 import { fetchNavCounts } from '@/lib/api/nav';
 import { NAV_COUNTS_QUERY_KEY } from '@/lib/query/navCounts';
 import { featureQueryClient, useFeatureSession } from './fo/session';
-
-const FEEDBACKOPS = spaceId('feedbackops');
-const SCOPE_KEY = 'managedSystem';
+import { SCOPE_KEY, usesNavCounts } from './operator-menus';
 
 /** FeedbackOps count key → sidebar slot key (`menuId`, or `menuId/viewId` for a `navViews` item). Copied from FeedbackOps `NAV_TREE.voc`; the fo-voc views test pins the hrefs. */
 const SLOT_KEYS: Readonly<Record<string, string>> = {
-  'voc.inbox': 'fo-inbox',
-  'voc.triage': 'fo-triage',
-  'voc.clusters': 'fo-clusters',
-  'voc.inbox.no-link': 'fo-inbox/no-link',
-  'voc.tab.high': 'fo-triage/high',
-  'voc.tab.unassigned': 'fo-triage/unassigned',
-  'findings.all': 'fo-findings',
-  'surveys.all': 'fo-surveys',
+  'voc.inbox': 'inbox',
+  'voc.triage': 'triage',
+  'voc.clusters': 'clusters',
+  'voc.inbox.no-link': 'inbox/no-link',
+  'voc.tab.high': 'triage/high',
+  'voc.tab.unassigned': 'triage/unassigned',
+  'findings.all': 'findings',
+  'surveys.all': 'survey-management',
 };
 
 /** An omitted FeedbackOps key stays omitted (no visible queue → no badge); zero stays zero. */
@@ -63,4 +60,4 @@ function NavCounts({ children }: { children: (counts: Readonly<Record<string, nu
 const COUNTS: ComponentType<{ children: (counts: Readonly<Record<string, number>> | null) => ReactNode }> = NavCounts;
 
 /** The FeedbackOps sidebar count badges (06 §8 `navCounts`, #761). Only `apps/platform-web/src/main.tsx` imports this. */
-export const navCountsSlot: NavCountsSlot = { For: id => id === FEEDBACKOPS ? COUNTS : null };
+export const navCountsSlot: NavCountsSlot = { For: (id, menu) => usesNavCounts(id, menu) ? COUNTS : null };

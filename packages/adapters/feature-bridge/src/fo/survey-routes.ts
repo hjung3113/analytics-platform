@@ -13,7 +13,7 @@ import { UUID_PATTERN } from './uuid';
 export const surveysRoute = operatorRoute({
   foPath: '/surveys',
   foFixed: {},
-  menuId: 'fo-surveys',
+  menuId: 'survey-management',
   keys: {
     selected: 'focus',
     managedSystem: 'managedSystem',
@@ -30,7 +30,7 @@ export const useSurveysSearch = routeSearch(surveysRoute);
 export const useSurveysHere = routeHere(surveysRoute);
 
 const CHILD_PATH = /^\/surveys\/([^/]+)(\/results|\/follow-up)?$/;
-const CHILD_MENU: Record<string, string> = { '': 'fo-survey-builder', '/results': 'fo-survey-results', '/follow-up': 'fo-survey-follow-up' };
+const CHILD_MENU: Record<string, string> = { '': 'survey-builder', '/results': 'survey-results', '/follow-up': 'survey-follow-up' };
 /** The list scope the three child screens carry back (FO key → platform page key). */
 const CHILD_KEYS: Readonly<Record<string, string>> = {
   managedSystem: 'managedSystem',
@@ -71,7 +71,7 @@ export const surveyChildTarget: TargetOf = (to): PlatformTarget | null => {
 /** The Surveys targets in the order `operatorHostLinks` must try them (it spreads this): the reporter `/surveys/participate` and `/respond` first, then the child screens, then the list. */
 export const surveyOperatorTargets: TargetOf[] = [surveyTarget, surveyChildTarget, surveysRoute.target];
 
-const SURVEY_MENUS: ReadonlySet<string> = new Set(['fo-surveys', ...Object.values(CHILD_MENU)]);
+const SURVEY_MENUS: ReadonlySet<string> = new Set(['survey-management', ...Object.values(CHILD_MENU)]);
 const CHILD_MENUS: ReadonlySet<string> = new Set(Object.values(CHILD_MENU));
 /** The list-context page keys and the value shapes FeedbackOps' Surveys schemas accept for them (`status` and `follow_up` are single-valued, `area` a UUID or `unset`). */
 const CARRIED_VALUE: Readonly<Record<string, (value: string) => boolean>> = {
@@ -94,15 +94,15 @@ export const surveyCarry: CarryTarget = (target, here) => {
     if (!Object.hasOwn(page, key) && value !== null && accepts(value)) page[key] = value;
   }
   const surveyId = here.params.surveyId;
-  if (target.menuId === 'fo-surveys' && CHILD_MENUS.has(here.menuId) && surveyId !== undefined && UUID_PATTERN.test(surveyId) && !Object.hasOwn(page, 'focus')) page.focus = surveyId;
+  if (target.menuId === 'survey-management' && CHILD_MENUS.has(here.menuId) && surveyId !== undefined && UUID_PATTERN.test(surveyId) && !Object.hasOwn(page, 'focus')) page.focus = surveyId;
   return { ...target, page };
 };
 
 type ChildSpec = { menuId: string; suffix: string; builder: boolean; focus: boolean };
 const CHILD_SPECS: Readonly<Record<'builder' | 'results' | 'followUp', ChildSpec>> = {
-  builder: { menuId: 'fo-survey-builder', suffix: '', builder: true, focus: false },
-  results: { menuId: 'fo-survey-results', suffix: '/results', builder: false, focus: false },
-  followUp: { menuId: 'fo-survey-follow-up', suffix: '/follow-up', builder: false, focus: true },
+  builder: { menuId: 'survey-builder', suffix: '', builder: true, focus: false },
+  results: { menuId: 'survey-results', suffix: '/results', builder: false, focus: false },
+  followUp: { menuId: 'survey-follow-up', suffix: '/follow-up', builder: false, focus: true },
 };
 const PAGE_TO_FO = Object.fromEntries(Object.entries(CHILD_KEYS).map(([foKey, pageKey]) => [pageKey, foKey])) as Readonly<Record<string, string>>;
 

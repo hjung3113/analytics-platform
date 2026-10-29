@@ -30,7 +30,7 @@ export function SurveyChildPage({ surveyId, route, useSearch, useHere, children 
   const backToList = () => {
     const page: Record<string, string> = { focus: surveyId };
     for (const key of LIST_CONTEXT_KEYS) { const value = pageParam(key); if (value !== null) page[key] = value; }
-    navigate(linkTo('fo-surveys', { page }));
+    navigate(linkTo('survey-management', { page }));
   };
   return <FeatureScreenPage route={route} isValid={isSurveyDetailSearchValueValid} useSearch={useSearch} useHere={useHere}>
     {children({ surveyId, backToList })}

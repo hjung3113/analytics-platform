@@ -58,11 +58,11 @@ vi.mock('@ap/feature-screens/operator-screens/settings', () => ({
 
 const SYSTEM = '33333333-3333-4333-8333-333333333333';
 const ROW = '99999999-9999-4999-8999-99999999999a';
-const MS = '/feedbackops/fo-managed-systems';
-const AREAS = '/feedbackops/fo-analytics-areas';
-const REQUESTS = '/feedbackops/fo-permission-requests';
-const GRANTS = '/feedbackops/fo-permission-grants';
-const SETTINGS = '/feedbackops/fo-settings';
+const MS = '/operations/managed-systems';
+const AREAS = '/operations/analytics-areas';
+const REQUESTS = '/operations/permission-request-review';
+const GRANTS = '/operations/permission-grants';
+const SETTINGS = '/operations/settings';
 const request = vi.fn();
 const hereOf = (testId: string) => new URL(screen.getByTestId(testId).getAttribute('data-here')!, 'http://x');
 
@@ -80,7 +80,7 @@ describe('관리자 without a FeedbackOps API (mock preview)', () => {
     [AREAS, 'Analytics Area', 'areas'],
     [REQUESTS, '권한 요청 검토', 'requests'],
     [GRANTS, '부여 목록', 'grants'],
-    [SETTINGS, 'FeedbackOps 설정', 'settings'],
+    [SETTINGS, '기능 설정', 'settings'],
   ])('%s shows 실서버 필요 and mounts no screen', async (path, title, testId) => {
     mountAt(path);
     await screen.findByRole('heading', { name: title }, { timeout: 3000 });
@@ -90,7 +90,7 @@ describe('관리자 without a FeedbackOps API (mock preview)', () => {
 });
 
 describe('a user with features:access but without console:access', () => {
-  const { mountAt: mountPlain } = createFeatureMenuHarness({ manifests: harnessMenus, homeMenuId: homeStub.id, group: { id: 'foAdmin', label: { ko: '관리자', en: 'Admin' }, icon: UserCog } });
+  const { mountAt: mountPlain } = createFeatureMenuHarness({ manifests: harnessMenus, homeMenuId: homeStub.id, group: { id: 'featureAdmin', label: { ko: '관리자', en: 'Admin' }, icon: UserCog } });
   beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() }); });
 
   it.each([[MS], [AREAS], [REQUESTS], [GRANTS], [SETTINGS]])('%s never mounts its screen and requests nothing', async path => {

@@ -18,18 +18,18 @@ describe('Surveys table', () => {
     ['unset area', '/surveys?filter.analytics_area=unset', { area: 'unset' }],
     ['follow-up', '/surveys?follow_up=needed', { follow_up: 'needed' }],
     ['selection', `/surveys?selected=${SURVEY}`, { focus: SURVEY }],
-  ])('maps the %s link to fo-surveys and back to the same FO search', (_name, to, page) => {
+  ])('maps the %s link to survey-management and back to the same FO search', (_name, to, page) => {
     const target = surveysRoute.target(to);
-    expect(target).toEqual({ menuId: 'fo-surveys', page });
+    expect(target).toEqual({ menuId: 'survey-management', page });
     expect(surveysRoute.toFoSearch(target!.page!)).toEqual(query(to));
   });
 
   it('reads a bare /surveys as the list with no page keys', () => {
-    expect(surveysRoute.target('/surveys')).toEqual({ menuId: 'fo-surveys', page: {} });
+    expect(surveysRoute.target('/surveys')).toEqual({ menuId: 'survey-management', page: {} });
   });
 
   it('reads /surveys/<id> as the selection', () => {
-    expect(surveysRoute.target(`/surveys/${SURVEY}`)).toEqual({ menuId: 'fo-surveys', page: { focus: SURVEY } });
+    expect(surveysRoute.target(`/surveys/${SURVEY}`)).toEqual({ menuId: 'survey-management', page: { focus: SURVEY } });
     expect(surveysRoute.toFoSearch({ focus: SURVEY })).toEqual({ selected: SURVEY });
   });
 
@@ -58,13 +58,13 @@ describe('Surveys table', () => {
 
 describe('Survey child targets', () => {
   it.each([
-    ['builder', `/surveys/${SURVEY}?builder=true`, 'fo-survey-builder', {}],
-    ['results', `/surveys/${SURVEY}/results`, 'fo-survey-results', {}],
-    ['follow-up', `/surveys/${SURVEY}/follow-up`, 'fo-survey-follow-up', {}],
-    ['builder with scope', `/surveys/${SURVEY}?builder=true&managedSystem=${SYSTEM}&filter.analytics_area=${AREA}&status=open&follow_up=needed`, 'fo-survey-builder',
+    ['builder', `/surveys/${SURVEY}?builder=true`, 'survey-builder', {}],
+    ['results', `/surveys/${SURVEY}/results`, 'survey-results', {}],
+    ['follow-up', `/surveys/${SURVEY}/follow-up`, 'survey-follow-up', {}],
+    ['builder with scope', `/surveys/${SURVEY}?builder=true&managedSystem=${SYSTEM}&filter.analytics_area=${AREA}&status=open&follow_up=needed`, 'survey-builder',
       { managedSystem: SYSTEM, area: AREA, status: 'open', follow_up: 'needed' }],
-    ['results with scope', `/surveys/${SURVEY}/results?filter.analytics_area=unset&status=open`, 'fo-survey-results', { area: 'unset', status: 'open' }],
-    ['follow-up with scope', `/surveys/${SURVEY}/follow-up?follow_up=needed`, 'fo-survey-follow-up', { follow_up: 'needed' }],
+    ['results with scope', `/surveys/${SURVEY}/results?filter.analytics_area=unset&status=open`, 'survey-results', { area: 'unset', status: 'open' }],
+    ['follow-up with scope', `/surveys/${SURVEY}/follow-up?follow_up=needed`, 'survey-follow-up', { follow_up: 'needed' }],
   ])('maps the %s link', (_name, to, menuId, page) => {
     expect(surveyChildTarget(to)).toEqual({ menuId, params: { surveyId: SURVEY }, page });
   });
@@ -97,9 +97,9 @@ describe('surveyOperatorTargets', () => {
   it('keeps the reporter targets first, then the children, then the list', () => {
     expect(targetOf('/surveys/participate')).toEqual({ menuId: 'surveys' });
     expect(targetOf(`/surveys/${SURVEY}/respond`)).toEqual({ menuId: 'survey-respond', params: { surveyId: SURVEY } });
-    expect(targetOf(`/surveys/${SURVEY}?builder=true`)?.menuId).toBe('fo-survey-builder');
-    expect(targetOf(`/surveys/${SURVEY}`)).toEqual({ menuId: 'fo-surveys', page: { focus: SURVEY } });
-    expect(targetOf('/surveys?follow_up=needed')).toEqual({ menuId: 'fo-surveys', page: { follow_up: 'needed' } });
+    expect(targetOf(`/surveys/${SURVEY}?builder=true`)?.menuId).toBe('survey-builder');
+    expect(targetOf(`/surveys/${SURVEY}`)).toEqual({ menuId: 'survey-management', page: { focus: SURVEY } });
+    expect(targetOf('/surveys?follow_up=needed')).toEqual({ menuId: 'survey-management', page: { follow_up: 'needed' } });
   });
 
   it.each([
@@ -135,9 +135,9 @@ describe('survey child route tables', () => {
   });
 
   it('each table targets only its own menu', () => {
-    expect(surveyBuilderRoute.target(`/surveys/${SURVEY}?builder=true`)?.menuId).toBe('fo-survey-builder');
+    expect(surveyBuilderRoute.target(`/surveys/${SURVEY}?builder=true`)?.menuId).toBe('survey-builder');
     expect(surveyBuilderRoute.target(`/surveys/${SURVEY}/results`)).toBeNull();
-    expect(surveyResultsRoute.target(`/surveys/${SURVEY}/results`)?.menuId).toBe('fo-survey-results');
+    expect(surveyResultsRoute.target(`/surveys/${SURVEY}/results`)?.menuId).toBe('survey-results');
     expect(surveyFollowUpRoute.target(`/surveys/${SURVEY}/results`)).toBeNull();
   });
 
@@ -155,30 +155,30 @@ describe('surveyCarry', () => {
   const CONTEXT = { area: AREA, status: 'open', follow_up: 'needed', returnTo: '/x', platformReturn: '/y' };
 
   it('adds the validated list context the target does not name, never returnTo or platformReturn', () => {
-    expect(surveyCarry({ menuId: 'fo-survey-builder', params: { surveyId: SURVEY }, page: {} }, here('fo-surveys', CONTEXT)))
-      .toEqual({ menuId: 'fo-survey-builder', params: { surveyId: SURVEY }, page: { area: AREA, status: 'open', follow_up: 'needed' } });
+    expect(surveyCarry({ menuId: 'survey-builder', params: { surveyId: SURVEY }, page: {} }, here('survey-management', CONTEXT)))
+      .toEqual({ menuId: 'survey-builder', params: { surveyId: SURVEY }, page: { area: AREA, status: 'open', follow_up: 'needed' } });
   });
 
   it('lets a key the target names win, a clear included', () => {
-    expect(surveyCarry({ menuId: 'fo-survey-results', page: { area: 'unset', status: null } }, here('fo-survey-builder', CONTEXT)).page)
+    expect(surveyCarry({ menuId: 'survey-results', page: { area: 'unset', status: null } }, here('survey-builder', CONTEXT)).page)
       .toEqual({ area: 'unset', status: null, follow_up: 'needed' });
   });
 
   it('skips a value the schemas refuse', () => {
-    expect(surveyCarry({ menuId: 'fo-survey-results', page: {} }, here('fo-surveys', { area: 'nope', status: 'closed', follow_up: 'x' })).page).toEqual({});
+    expect(surveyCarry({ menuId: 'survey-results', page: {} }, here('survey-management', { area: 'nope', status: 'closed', follow_up: 'x' })).page).toEqual({});
   });
 
   it('restores focus on this Survey for a child-to-list link, unless the target names focus', () => {
-    const from = here('fo-survey-follow-up', { status: 'open', focus: '77777777-7777-4777-8777-777777777777' }, { surveyId: SURVEY });
-    expect(surveyCarry({ menuId: 'fo-surveys', page: {} }, from).page).toEqual({ status: 'open', focus: SURVEY });
-    expect(surveyCarry({ menuId: 'fo-surveys', page: { focus: AREA } }, from).page).toEqual({ status: 'open', focus: AREA });
+    const from = here('survey-follow-up', { status: 'open', focus: '77777777-7777-4777-8777-777777777777' }, { surveyId: SURVEY });
+    expect(surveyCarry({ menuId: 'survey-management', page: {} }, from).page).toEqual({ status: 'open', focus: SURVEY });
+    expect(surveyCarry({ menuId: 'survey-management', page: { focus: AREA } }, from).page).toEqual({ status: 'open', focus: AREA });
   });
 
   it.each([
-    ['the same menu', 'fo-surveys', 'fo-surveys'],
-    ['a non-Survey source', 'fo-findings', 'fo-surveys'],
-    ['a non-Survey target', 'fo-surveys', 'fo-findings'],
-    ['no current menu', undefined, 'fo-surveys'],
+    ['the same menu', 'survey-management', 'survey-management'],
+    ['a non-Survey source', 'findings', 'survey-management'],
+    ['a non-Survey target', 'survey-management', 'findings'],
+    ['no current menu', undefined, 'survey-management'],
   ])('leaves the target alone for %s', (_name, from, to) => {
     const target = { menuId: to, page: {} };
     expect(surveyCarry(target, here(from, CONTEXT, { surveyId: SURVEY }))).toBe(target);

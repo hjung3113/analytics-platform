@@ -1,13 +1,10 @@
 import { lazy, Suspense, type ComponentType } from 'react';
 import { ChevronDown } from 'lucide-react';
-import { spaceId } from '@ap/contracts';
 import { usePlatform, type ScopeControlSlot } from '@ap/kernel';
 import { Button } from '@ap/ui';
 import { featureApi } from './feature-api';
 import { useFeatureSession } from './fo/session';
-
-const FEEDBACKOPS = spaceId('feedbackops');
-const SCOPE_KEY = 'managedSystem';
+import { SCOPE_KEY, usesListScope } from './operator-menus';
 
 // The picker and its reads load only once the FeedbackOps session is ready, so none of it is in the main chunk.
 const ScopeControl = lazy(() => import('./pages/ScopeControl'));
@@ -38,5 +35,5 @@ function Control({ collapsed }: { collapsed: boolean }) {
 /** One component for the page's lifetime: a new one per `For` call would remount the sidebar picker on every render. */
 const CONTROL: ComponentType<{ collapsed: boolean }> = Control;
 
-/** The sidebar list-scope slot for the FeedbackOps space (ADR-0081 decision 4, #759). Only `apps/platform-web/src/main.tsx` imports this. */
-export const scopeControlSlot: ScopeControlSlot = { For: id => id === FEEDBACKOPS ? CONTROL : null };
+/** The sidebar list-scope slot for the operator menus of the operations console (ADR-0081 decision 4, #759; #1099c: the menu's own declaration decides, so platform administration mounts nothing). Only `apps/platform-web/src/main.tsx` imports this. */
+export const scopeControlSlot: ScopeControlSlot = { For: (id, menu) => usesListScope(id, menu) ? CONTROL : null };

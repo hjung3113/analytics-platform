@@ -33,7 +33,7 @@ Migration | type | type Migration = { apply(): @ap/contracts#SavedView; preview:
 ModuleGroupDef | type | type ModuleGroupDef = GroupBase & { id: @ap/contracts#ModuleScopedId; module: string; }
 ModuleMenuEntry | type | type ModuleMenuEntry = Omit<@ap/contracts#MenuMeta, 'group' | 'permission'> & { component?: undefined; group: @ap/contracts#ModuleScopedId; icon: LucideIcon; module: string; moduleConfig?: Readonly<Record<string, string>>; moduleFeatures?: readonly @ap/contracts#HostFeature[]; moduleScreen: ComponentType<@ap/contracts#ModuleScreenProps>; permission: @ap/contracts#ModuleScopedId; }
 MountOptions | type | type MountOptions = { config: Readonly<Record<string, string>>; features?: readonly @ap/contracts#HostFeature[]; groupSpace: Readonly<Record<string, @ap/contracts#SpaceId | null>>; icons: { groups: Readonly<Record<string, LucideIcon>>; screens: Readonly<Record<string, LucideIcon>>; }; prefix: string; }
-NavCountsSlot | type | type NavCountsSlot = { For: (spaceId: @ap/contracts#SpaceId) => ComponentType<{ children: (counts: Readonly<Record<string, number>> | null) => ReactNode; }> | null; }
+NavCountsSlot | type | type NavCountsSlot = { For: (spaceId: @ap/contracts#SpaceId, menu: @ap/kernel#MenuEntry | null) => ComponentType<{ children: (counts: Readonly<Record<string, number>> | null) => ReactNode; }> | null; }
 NotificationsSlot | type | type NotificationsSlot = { Recent: ComponentType; UnreadCount: ComponentType<{ children: (count: null | number) => ReactNode; }>; menuId: string; }
 PAGE_TYPE_LABELS | const | const PAGE_TYPE_LABELS: Record<@ap/contracts#PageType, @ap/contracts#Text>
 PageProps | type | type PageProps = { params: Record<string, string>; }
@@ -65,9 +65,9 @@ ReturnContextKey | type | type ReturnContextKey = 'scope' | @ap/contracts#Contex
 ReturnOrigin | type | type ReturnOrigin = { accepted: boolean; href: string; menuLabel: @ap/contracts#Text; revertedContext: @ap/kernel#ReturnContextKey[]; spaceLabel: @ap/contracts#Text | null; trail: { label: @ap/contracts#Text; value: string; }[]; }
 RouteMatch | type | type RouteMatch = { menu: @ap/kernel#MenuEntry; params: Record<string, string>; viaAlias: boolean; }
 SavedViewDiagnosis | type | type SavedViewDiagnosis = { migration?: @ap/kernel#Migration; reasons: @ap/kernel#DiagnoseReason[]; reselect?: { keep: @ap/contracts#SavedViewContext; }; status: 'stale'; } | { reasons: @ap/kernel#DiagnoseReason[]; status: 'denied'; } | { reasons: [ ]; status: 'ok'; }
-ScopeControlSlot | type | type ScopeControlSlot = { For: (spaceId: @ap/contracts#SpaceId) => ComponentType<{ collapsed: boolean; }> | null; }
+ScopeControlSlot | type | type ScopeControlSlot = { For: (spaceId: @ap/contracts#SpaceId, menu: @ap/kernel#MenuEntry | null) => ComponentType<{ collapsed: boolean; }> | null; }
 ScopeState | type | type ScopeState = { grantedRooms: string[]; scopeId: null | string; status: 'error' | 'forbidden' | 'none' | 'unknown_scope' | 'valid' | 'validating'; validatedFor: @ap/contracts#Session | null; }
-SpaceNavSectionSlot | type | type SpaceNavSectionSlot = { For: (spaceId: @ap/contracts#SpaceId) => null | { Body: ComponentType; label: @ap/contracts#Text; }; }
+SpaceNavSectionSlot | type | type SpaceNavSectionSlot = { For: (spaceId: @ap/contracts#SpaceId, menu: @ap/kernel#MenuEntry | null) => null | { Body: ComponentType; label: @ap/contracts#Text; }; }
 Text | type | type Text = { en: string; ko: string; }
 Toast | type | type Toast = { action?: @ap/kernel#ToastAction; detail?: string; id: number; text: string; tone: 'danger' | 'info' | 'warning'; }
 ToastAction | type | type ToastAction = { label: string; onAction: () => void; }

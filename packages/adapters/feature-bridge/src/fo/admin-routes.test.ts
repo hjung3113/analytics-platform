@@ -9,14 +9,14 @@ const query = (to: string) => Object.fromEntries(new URLSearchParams(to.slice(to
 
 describe('Admin tables', () => {
   it.each([
-    ['managed systems', managedSystemsRoute, '/admin/managed-systems', 'fo-managed-systems', {}],
-    ['analytics areas, bare', analyticsAreasRoute, '/admin/analytics-areas', 'fo-analytics-areas', {}],
-    ['analytics areas, every key', analyticsAreasRoute, `/admin/analytics-areas?managedSystem=${SYSTEM}&includeArchived=true&selected=${ROW}`, 'fo-analytics-areas',
+    ['managed systems', managedSystemsRoute, '/admin/managed-systems', 'managed-systems', {}],
+    ['analytics areas, bare', analyticsAreasRoute, '/admin/analytics-areas', 'analytics-areas', {}],
+    ['analytics areas, every key', analyticsAreasRoute, `/admin/analytics-areas?managedSystem=${SYSTEM}&includeArchived=true&selected=${ROW}`, 'analytics-areas',
       { system: SYSTEM, includeArchived: 'true', focus: ROW }],
-    ['permission requests', permissionRequestsRoute, `/admin/permissions/requests?tab=approved&selected=${ROW}`, 'fo-permission-requests', { tab: 'approved', focus: ROW }],
-    ['permission requests, bare', permissionRequestsRoute, '/admin/permissions/requests', 'fo-permission-requests', {}],
-    ['permission grants', permissionGrantsRoute, `/admin/permissions/grants?tab=denies&selected=${ROW}`, 'fo-permission-grants', { tab: 'denies', focus: ROW }],
-    ['settings', settingsRoute, '/admin/settings', 'fo-settings', {}],
+    ['permission requests', permissionRequestsRoute, `/admin/permissions/requests?tab=approved&selected=${ROW}`, 'permission-request-review', { tab: 'approved', focus: ROW }],
+    ['permission requests, bare', permissionRequestsRoute, '/admin/permissions/requests', 'permission-request-review', {}],
+    ['permission grants', permissionGrantsRoute, `/admin/permissions/grants?tab=denies&selected=${ROW}`, 'permission-grants', { tab: 'denies', focus: ROW }],
+    ['settings', settingsRoute, '/admin/settings', 'settings', {}],
   ])('maps the %s link to its menu and back to the same FO search', (_name, route, to, menuId, page) => {
     const target = route.target(to);
     expect(target).toEqual({ menuId, page });
@@ -31,7 +31,7 @@ describe('Admin tables', () => {
 
   it('maps settings#coverage to the section page key and back', () => {
     const target = settingsRoute.target('/admin/settings#coverage');
-    expect(target).toEqual({ menuId: 'fo-settings', page: { section: 'coverage' } });
+    expect(target).toEqual({ menuId: 'settings', page: { section: 'coverage' } });
     expect(settingsRoute.toFoHash(target!.page!)).toBe('#coverage');
     expect(settingsRoute.toFoSearch(target!.page!)).toEqual({});
     expect([...settingsRoute.pageKeys]).toEqual(['section']);
@@ -58,9 +58,9 @@ describe('Admin tables', () => {
       '/admin/managed-systems', `/admin/analytics-areas?managedSystem=${SYSTEM}&includeArchived=true`, `/admin/permissions/requests?tab=approved&selected=${ROW}`,
       `/admin/permissions/grants?tab=denies&selected=${ROW}`, '/admin/settings', '/admin/settings#coverage',
     ]) expect(operatorHostLinks.canLink(to)).toBe(true);
-    expect(operatorHostLinks.targetOf('/admin/settings#coverage')).toEqual({ menuId: 'fo-settings', page: { section: 'coverage' } });
+    expect(operatorHostLinks.targetOf('/admin/settings#coverage')).toEqual({ menuId: 'settings', page: { section: 'coverage' } });
     expect(operatorHostLinks.canLink('/admin/foo')).toBe(false);
     expect(operatorHostLinks.canLink('/admin/settings#other')).toBe(false);
-    expect(operatorHostLinks.targetOf('/surveys')?.menuId).toBe('fo-surveys');
+    expect(operatorHostLinks.targetOf('/surveys')?.menuId).toBe('survey-management');
   });
 });

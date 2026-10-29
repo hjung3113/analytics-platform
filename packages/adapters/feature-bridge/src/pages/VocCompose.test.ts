@@ -9,15 +9,17 @@ const at = (space: string | null, carried: Record<string, string>) => initialMan
 
 describe('VOC compose initial Managed System (ADR-0070 decision 5)', () => {
   it('takes a FeedbackOps screen\'s carried managedSystem when it is one UUID', () => {
-    expect(at('feedbackops', { managedSystem: UUID })).toBe(UUID);
+    expect(at('operations', { managedSystem: UUID })).toBe(UUID);
   });
 
   it.each([['missing', {}], ['not a UUID', { managedSystem: 'billing' }], ['a list', { managedSystem: `${UUID},${FALLBACK}` }], ['empty', { managedSystem: '' }]])('falls back to the app mapping when it is %s', (_, carried) => {
-    expect(at('feedbackops', carried)).toBeNull();
+    expect(at('operations', carried)).toBeNull();
   });
 
-  it('keeps managedSystemFor for another space, ignoring a carried value', () => {
-    expect(at('metrics', { managedSystem: UUID })).toBe(FALLBACK);
-    expect(at(null, { managedSystem: UUID })).toBeNull();
+  it('takes a carried managedSystem on a global carry-set menu such as 내 Task, and uses managedSystemFor when nothing is carried', () => {
+    expect(at(null, { managedSystem: UUID })).toBe(UUID);
+    expect(at('metrics', { managedSystem: UUID })).toBe(UUID);
+    expect(at('metrics', {})).toBe(FALLBACK);
+    expect(at(null, {})).toBeNull();
   });
 });

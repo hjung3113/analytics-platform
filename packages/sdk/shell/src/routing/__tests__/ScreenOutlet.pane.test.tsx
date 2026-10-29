@@ -195,7 +195,7 @@ describe('shell chrome outside a pane keeps following the main screen', () => {
     const links = () => screen.getAllByRole('link').map(a => a.getAttribute('href')).join('\n');
     const before = links();
     expect(before).toContain('scopeId=MEM');
-    expect(screen.getByRole('link', { name: /^Task — .*FeedbackOps/ }).getAttribute('href')).toContain('/plain');
+    expect(screen.getByRole('link', { name: /^Task — .*기능/ }).getAttribute('href')).toContain('/plain');
     await act(async () => { at('a').setGlobal({ scopeId: 'S2', roomNames: ['R1'] }); });
     await flush();
     expect(at('a').global.scopeId).toBe('S2');

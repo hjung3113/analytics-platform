@@ -26,7 +26,7 @@ afterEach(() => { cleanup(); setFeatureApi(null); vi.unstubAllGlobals(); window.
 
 describe('대시보드 without a FeedbackOps API (mock preview)', () => {
   it('shows 실서버 필요 with 새로고침 disabled and mounts no dashboard', async () => {
-    mountAt('/feedbackops');
+    mountAt('/operations/dashboard');
     expect(await screen.findByRole('heading', { name: '대시보드' })).toBeTruthy();
     expect(screen.getByRole('status').textContent).toContain('실서버 필요');
     expect((screen.getByRole('button', { name: '새로고침' }) as HTMLButtonElement).disabled).toBe(true);
@@ -38,7 +38,7 @@ describe('대시보드 through the FeedbackOps bridge', () => {
   beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() }); });
 
   it('enables 새로고침 once the session is ready and refreshes the scoped summary', async () => {
-    mountAt(`/feedbackops?managedSystem=${SYSTEM}`);
+    mountAt(`/operations/dashboard?managedSystem=${SYSTEM}`);
     const button = await screen.findByRole('button', { name: '새로고침' }) as HTMLButtonElement;
     await waitFor(() => expect(button.disabled).toBe(false));
     expect(dashboard.props.at(-1)).toEqual({ managedSystemId: SYSTEM });
@@ -47,7 +47,7 @@ describe('대시보드 through the FeedbackOps bridge', () => {
   });
 
   it.each(['not-a-uuid', ''])('rejects the managedSystem value %j: nothing is mounted or requested, the URL is kept (ADR-0071 decision 9)', async value => {
-    mountAt(`/feedbackops?managedSystem=${value}&focus=keep`);
+    mountAt(`/operations/dashboard?managedSystem=${value}&focus=keep`);
     expect(await screen.findByText('주소의 managedSystem 값이 올바르지 않습니다')).toBeTruthy();
     expect(screen.queryByTestId('dashboard')).toBeNull();
     expect(screen.queryByRole('button', { name: '새로고침' })).toBeNull();
@@ -56,7 +56,7 @@ describe('대시보드 through the FeedbackOps bridge', () => {
   });
 
   it('clears only the rejected key and then mounts the unscoped dashboard', async () => {
-    mountAt('/feedbackops?managedSystem=not-a-uuid&focus=keep');
+    mountAt('/operations/dashboard?managedSystem=not-a-uuid&focus=keep');
     fireEvent.click(await screen.findByRole('button', { name: '값 지우기' }));
     await screen.findByTestId('dashboard');
     const search = new URLSearchParams(window.location.search);
@@ -66,7 +66,7 @@ describe('대시보드 through the FeedbackOps bridge', () => {
   });
 
   it('labels the refresh button in English when the language is en', async () => {
-    mountAt(`/feedbackops?managedSystem=${SYSTEM}`, { extra: <English /> });
+    mountAt(`/operations/dashboard?managedSystem=${SYSTEM}`, { extra: <English /> });
     expect(await screen.findByRole('button', { name: 'Refresh' })).toBeTruthy();
   });
 });
@@ -77,8 +77,8 @@ describe('대시보드 host links', () => {
     requiresScope: false, pageType: 'management', context: contextCapabilities(), features: NO_FEATURES, pageKeys: ['returnTo'], ...extra,
   }) as MenuEntry;
   const registry = createRegistry({
-    spaces: [{ id: spaceId('feedbackops'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'platform:view', homeMenuId: 'voc' }],
-    groups: [{ id: groupId('myActivity'), label: { ko: '내 활동', en: 'Mine' }, space: spaceId('feedbackops') }],
+    spaces: [{ id: spaceId('operations'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'platform:view', homeMenuId: 'voc' }],
+    groups: [{ id: groupId('myActivity'), label: { ko: '내 활동', en: 'Mine' }, space: spaceId('operations') }],
     menus: [stub('voc', '/voc', { primary: true }), stub('surveys', '/surveys'), stub('survey-respond', '/surveys/:surveyId/respond', { parent: 'surveys', navHidden: true })],
   } as never);
   const SURVEY = '44444444-4444-4444-8444-444444444444';
@@ -94,15 +94,15 @@ describe('대시보드 host links', () => {
       <Link to="/tasks?view=board">보드</Link>
     </PlatformProvider></I18nProvider>);
     expect(screen.getByRole('link', { name: '참여' }).getAttribute('href')).toContain('/surveys');
-    expect(screen.getByRole('link', { name: '응답하기' }).getAttribute('href')).toContain(`/feedbackops/survey-respond/${SURVEY}`);
+    expect(screen.getByRole('link', { name: '응답하기' }).getAttribute('href')).toContain(`/operations/survey-respond/${SURVEY}`);
     expect(screen.getByRole('link', { name: '내 VOC' }).getAttribute('href')).toContain('/voc');
     expect(screen.queryByRole('link', { name: '보드' })).toBeNull();
-    // `canLink` reads the route tables only (#763 p1); the link stays unrendered because this registry has no fo-tasks.
+    // `canLink` reads the route tables only (#763 p1); the link stays unrendered because this registry has no tasks.
     expect(canLink('/tasks?view=board')).toBe(true);
     expect(canLink('/vocs?view=my&extra=1')).toBe(false);
   });
 
-  it('leaves a queue link inert without throwing when this registry has no fo-inbox', () => {
+  it('leaves a queue link inert without throwing when this registry has no inbox', () => {
     const session = testSession(['platform:view']);
     window.history.replaceState(null, '', '/');
     render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}>
@@ -115,9 +115,9 @@ describe('대시보드 host links', () => {
   it('links the queue and coverage hrefs to 수신함 and Triage when the registry has them (#761)', () => {
     const live = createRegistry({
       carrySets: [{ id: carrySetId('features'), pageKeys: ['managedSystem'] }],
-      spaces: [{ id: spaceId('feedbackops'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'platform:view', homeMenuId: 'fo-inbox' }],
-      groups: [{ id: groupId('myActivity'), label: { ko: '내 활동', en: 'Mine' }, space: spaceId('feedbackops') }],
-      menus: [stub('fo-inbox', '/feedbackops/vocs', { primary: true, pageKeys: ['focus', 'tab', 'area', 'managedSystem'], carrySet: carrySetId('features') }), stub('fo-triage', '/feedbackops/triage', { pageKeys: ['focus', 'tab', 'area', 'managedSystem'], carrySet: carrySetId('features') })],
+      spaces: [{ id: spaceId('operations'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'platform:view', homeMenuId: 'inbox' }],
+      groups: [{ id: groupId('myActivity'), label: { ko: '내 활동', en: 'Mine' }, space: spaceId('operations') }],
+      menus: [stub('inbox', '/operations/inbox', { primary: true, pageKeys: ['focus', 'tab', 'area', 'managedSystem'], carrySet: carrySetId('features') }), stub('triage', '/operations/triage', { pageKeys: ['focus', 'tab', 'area', 'managedSystem'], carrySet: carrySetId('features') })],
     } as never);
     const session = testSession(['platform:view']);
     window.history.replaceState(null, '', '/');
@@ -128,7 +128,7 @@ describe('대시보드 host links', () => {
       <Link to="/tasks?view=board">보드</Link>
     </PlatformProvider></I18nProvider>);
     const queue = new URL(screen.getByRole('link', { name: '미배정' }).getAttribute('href')!, 'http://x');
-    expect(queue.pathname).toBe('/feedbackops/fo-inbox');
+    expect(queue.pathname).toBe('/operations/inbox');
     expect(queue.searchParams.get('tab')).toBe('unassigned');
     expect(queue.searchParams.get('managedSystem')).toBe(SYSTEM);
     expect(new URL(screen.getByRole('link', { name: '연결 없음' }).getAttribute('href')!, 'http://x').searchParams.get('tab')).toBe('high-no-link');
@@ -137,33 +137,33 @@ describe('대시보드 host links', () => {
     expect(canLink('/vocs?view=inbox&tab=unassigned')).toBe(true);
   });
 
-  it('links the coverage href to 커버리지 when the registry has fo-coverage (#762 p2)', () => {
+  it('links the coverage href to 커버리지 when the registry has coverage (#762 p2)', () => {
     const live = createRegistry({
       carrySets: [{ id: carrySetId('features'), pageKeys: ['managedSystem'] }],
-      spaces: [{ id: spaceId('feedbackops'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'platform:view', homeMenuId: 'fo-coverage' }],
-      groups: [{ id: groupId('myActivity'), label: { ko: '내 활동', en: 'Mine' }, space: spaceId('feedbackops') }],
-      menus: [stub('fo-coverage', '/feedbackops/coverage', { primary: true, pageKeys: ['view', 'area', 'cursor', 'managedSystem'], carrySet: carrySetId('features') })],
+      spaces: [{ id: spaceId('operations'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'platform:view', homeMenuId: 'coverage' }],
+      groups: [{ id: groupId('myActivity'), label: { ko: '내 활동', en: 'Mine' }, space: spaceId('operations') }],
+      menus: [stub('coverage', '/operations/coverage', { primary: true, pageKeys: ['view', 'area', 'cursor', 'managedSystem'], carrySet: carrySetId('features') })],
     } as never);
     const session = testSession(['platform:view']);
     window.history.replaceState(null, '', '/');
     render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={live}>
       <Link to="/integration/coverage">커버리지</Link>
     </PlatformProvider></I18nProvider>);
-    expect(new URL(screen.getByRole('link', { name: '커버리지' }).getAttribute('href')!, 'http://x').pathname).toBe('/feedbackops/fo-coverage');
+    expect(new URL(screen.getByRole('link', { name: '커버리지' }).getAttribute('href')!, 'http://x').pathname).toBe('/operations/coverage');
   });
 
-  it('links 보드 to the Tasks board when the registry has fo-tasks (#763 p1)', () => {
+  it('links 보드 to the Tasks board when the registry has tasks (#763 p1)', () => {
     const live = createRegistry({
       carrySets: [{ id: carrySetId('features'), pageKeys: ['managedSystem'] }],
-      spaces: [{ id: spaceId('feedbackops'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'platform:view', homeMenuId: 'fo-tasks' }],
-      groups: [{ id: groupId('myActivity'), label: { ko: '내 활동', en: 'Mine' }, space: spaceId('feedbackops') }],
-      menus: [stub('fo-tasks', '/feedbackops/tasks', { primary: true, pageKeys: ['focus', 'q', 'publicUpdate', 'managedSystem'], carrySet: carrySetId('features') })],
+      spaces: [{ id: spaceId('operations'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'platform:view', homeMenuId: 'tasks' }],
+      groups: [{ id: groupId('myActivity'), label: { ko: '내 활동', en: 'Mine' }, space: spaceId('operations') }],
+      menus: [stub('tasks', '/operations/tasks', { primary: true, pageKeys: ['focus', 'q', 'publicUpdate', 'managedSystem'], carrySet: carrySetId('features') })],
     } as never);
     const session = testSession(['platform:view']);
     window.history.replaceState(null, '', '/');
     render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={live}>
       <Link to="/tasks?view=board">보드</Link>
     </PlatformProvider></I18nProvider>);
-    expect(new URL(screen.getByRole('link', { name: '보드' }).getAttribute('href')!, 'http://x').pathname).toBe('/feedbackops/fo-tasks');
+    expect(new URL(screen.getByRole('link', { name: '보드' }).getAttribute('href')!, 'http://x').pathname).toBe('/operations/tasks');
   });
 });
