@@ -189,6 +189,17 @@ describe.skipIf(!runIntegration)('POST /survey-responses/:id/create-finding (#18
       await migrateHandle.pool.query('delete from core.entity_links where workspace_id=$1', [
         workspaceId,
       ]);
+      // A timed-out test never runs its own finally (#1147): its foreign Finding
+      // rows can still exist here. Delete them before the parents they reference
+      // (actors, managed systems, workspace) or those deletes fail on FK 23503
+      // and every later test inherits the leak.
+      await migrateHandle.pool.query(
+        'delete from finding.evidence_highlights where workspace_id=$1',
+        [workspaceId],
+      );
+      await migrateHandle.pool.query('delete from finding.findings where workspace_id=$1', [
+        workspaceId,
+      ]);
       await migrateHandle.pool.query(
         'delete from survey.survey_response_answers where workspace_id=$1',
         [workspaceId],
@@ -1440,6 +1451,55 @@ describe.skipIf(!runIntegration)('POST /survey-responses/:id/create-finding (#18
       ]);
       await migrateHandle.pool.query('delete from finding.findings where id=$1', [findingId]);
     }
+  });
+
+  it('cleanup removes foreign Finding rows an aborted test leaves behind (#1147)', async () => {
+    const responseId = await seedForeignResponse();
+    const foreign = await migrateHandle.pool.query<{
+      workspace_id: string;
+      primary_managed_system_id: string;
+      created_by: string;
+    }>(
+      `select s.workspace_id,s.primary_managed_system_id,s.created_by from survey.surveys s
+      join survey.survey_responses r on r.survey_id=s.id where r.id=$1`,
+      [responseId],
+    );
+    const subject = foreign.rows[0];
+    if (!subject) throw new Error('foreign fixture absent');
+    // Reproduce what a timed-out sibling leaves behind: its finally never runs,
+    // so a foreign Finding and highlight stay while cleanup owns the workspace.
+    const findingId = randomUUID();
+    await migrateHandle.pool.query(
+      `insert into finding.findings (id,workspace_id,display_id,primary_managed_system_id,
+        title,summary,source_type,severity,status,created_by)
+       values ($1,$2,'FIN-ABORT',$3,'aborted title','aborted summary','manual','medium','draft',$4)`,
+      [findingId, subject.workspace_id, subject.primary_managed_system_id, subject.created_by],
+    );
+    await migrateHandle.pool.query(
+      `insert into finding.evidence_highlights (id,workspace_id,finding_id,primary_managed_system_id,
+        source_type,quote_or_summary,created_by)
+       values ($1,$2,$3,$4,'note','aborted quote',$5)`,
+      [
+        randomUUID(),
+        subject.workspace_id,
+        findingId,
+        subject.primary_managed_system_id,
+        subject.created_by,
+      ],
+    );
+    await cleanup();
+    const left = await migrateHandle.pool.query<{
+      highlights: string;
+      findings: string;
+      workspaces: string;
+    }>(
+      `select
+         (select count(*) from finding.evidence_highlights where workspace_id=$1)::text as highlights,
+         (select count(*) from finding.findings where workspace_id=$1)::text as findings,
+         (select count(*) from core.workspaces where id=$1)::text as workspaces`,
+      [subject.workspace_id],
+    );
+    expect(left.rows).toEqual([{ highlights: '0', findings: '0', workspaces: '0' }]);
   });
 
   it('measures cross-Finding Survey batch hydration and stable continuation', async () => {
