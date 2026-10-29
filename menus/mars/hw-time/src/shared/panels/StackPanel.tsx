@@ -67,11 +67,6 @@ export function sortRows(rows: readonly HwTimeRow[], sort: StackSort): HwTimeRow
 /** Stacked horizontal bars over one block. Free of layout: the caller sizes the container and owns the query. */
 export function StackPanel({ chartId, title, block, visibleSeriesIds, onVisibleSeriesChange, sort = null, startAlign, minMax, rowPitch = DEFAULT_ROW_PITCH, activeRowId, onActiveRowChange, revealActive, fillMin = DETAIL_FILL_MIN, onActivate, rowActions }: StackPanelProps) {
   const { lang } = useI18n();
-  // Disposable UX prototype #1141: keep the other series at full opacity while a bar is hovered.
-  const prototype = import.meta.env.DEV && typeof document !== 'undefined'
-    ? document.documentElement.dataset.apAnalysisPrototype
-    : undefined;
-  const nonDimmingEmphasis = prototype === 'analysis-dense' || prototype === 'analysis-snap';
   const rows = useMemo(() => sortRows(block.rows, sort), [block.rows, sort]);
   // Auxiliary rows are left out: a label that is not here never reaches a callback.
   const byLabel = useMemo(() => new Map(rows.filter(row => !row.auxiliary).map(row => [rowLabel(row, lang), row.id])), [rows, lang]);
@@ -87,7 +82,7 @@ export function StackPanel({ chartId, title, block, visibleSeriesIds, onVisibleS
   const isPointSelectable = useCallback((point: ChartPoint) => byLabel.has(point.x), [byLabel]);
   return <div className="flex min-h-0 flex-1 flex-col gap-1">
     <AnalysisChartFrame
-      chartId={chartId} title={title} description={unmeasuredNote} nonDimmingEmphasis={nonDimmingEmphasis} xType="category" orientation="horizontal" stacked size="fill" fillMin={fillMin} rowPitch={rowPitch ?? undefined}
+      chartId={chartId} title={title} description={unmeasuredNote} xType="category" orientation="horizontal" stacked size="fill" fillMin={fillMin} rowPitch={rowPitch ?? undefined}
       activeCategory={activeRowId === undefined ? undefined : activeRowId === null ? null : rowIdLabel(activeRowId)} revealActive={revealActive}
       onActiveCategoryChange={onActiveRowChange && ((category, how) => {
         if (category === null) { onActiveRowChange(null, how); return; }
