@@ -7,7 +7,7 @@
 
 ## 13. Shared Component Layers
 
-> 디자인 시스템 원본 소유는 [ADR-0043](../adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)(2026-10-19)으로 플랫폼으로 바뀌었다. 코드를 SDK로 옮기기 전까지 이 절의 기능 화면 원본·재수출 규칙대로 동작한다.
+> 디자인 시스템 원본은 SDK `@ap/ui`가 소유한다([ADR-0043](../adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md), [ADR-0046](../adr/0046-design-system-source-moves-to-platform-whole-package.md)). 기능 화면은 SDK 부품을 `@ap/ui`에서 직접 소비하고, `@ap/feature-ui`는 기능 도메인 표현 부품을 소유한다.
 
 
 컴포넌트는 세 층으로 나눈다.
@@ -32,7 +32,7 @@ EquipmentDeactivateButton
 
 ### UI Primitive
 
-shadcn/ui + Radix 조합은 [04 프론트엔드 기술 스택](../architecture/frontend-ui-ux.md#프론트엔드-기술-스택-decided-2026-09-25)에서 Decided(2026-09-25)다. 구현은 기능 `@ap/feature-ui` 원본을 `@ap/ui`가 재수출한다(복사·이식하지 않는다, [ADR-0010](../adr/0010-feedbackops-design-system-shared-on-tailwind-v4.md)·[0011](../adr/0011-design-direction-feedbackops-shell.md)). 예외: 탭 선택 표식을 위해 `TabsList`·`TabsTrigger`만 `@ap/ui`가 기능 부품을 감싸 정의한다([ADR-0023 개정](../adr/0023-feedbackops-primitive-shapes-and-sizes.md#개정--탭-선택-표식-2026-10-15)). 아래 primitive 역할 예시는 그 구체 컴포넌트 매핑까지 확정하는 것은 아니다.
+shadcn/ui + Radix 조합은 [04 프론트엔드 기술 스택](../architecture/frontend-ui-ux.md#프론트엔드-기술-스택-decided-2026-09-25)에서 Decided(2026-09-25)다. primitive 구현과 공개 export는 SDK `@ap/ui`가 소유하며, 소비자는 `@ap/ui`에서 직접 import한다([ADR-0043](../adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)·[ADR-0046](../adr/0046-design-system-source-moves-to-platform-whole-package.md)). `TabsList`·`TabsTrigger`는 같은 패키지의 shadcn 탭을 감싼 플랫폼 선택 표식 구현이다([ADR-0023 개정](../adr/0023-feedbackops-primitive-shapes-and-sizes.md#개정--탭-선택-표식-2026-10-15)). `@ap/feature-ui`는 표식 없는 `TabsListBase`·`TabsTriggerBase`를 각각 `TabsList`·`TabsTrigger`라는 기능 이름으로 재수출한다. 아래 primitive 역할 예시는 그 구체 컴포넌트 매핑까지 확정하는 것은 아니다.
 
 예:
 
@@ -366,14 +366,14 @@ Unknown
 
 ## 23. Design Tokens
 
-> 디자인 시스템 원본 소유는 [ADR-0043](../adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)(2026-10-19)으로 플랫폼으로 바뀌었다. 코드를 SDK로 옮기기 전까지 이 절의 기능 화면 원본·재수출 규칙대로 동작한다.
+> 디자인 시스템 원본은 SDK `@ap/ui`가 소유한다([ADR-0043](../adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md), [ADR-0046](../adr/0046-design-system-source-moves-to-platform-whole-package.md)). 기능 화면은 SDK 부품을 `@ap/ui`에서 직접 소비하고, `@ap/feature-ui`는 기능 도메인 표현 부품을 소유한다.
 
 
-**한/영 지원 범위(Decided, 2026-09-24):** UI 문구와 정적 본문만 번역한다. VOC·공지의 사용자 입력 본문, EquipmentID·room_name·분임조 이름 등 마스터 값과 식별자는 번역하지 않는다. 언어 설정은 현재 브라우저 localStorage에만 저장한다(§4). 사용자 계정 선호값으로 서버에 보존하는 것은 Candidate이며 저장소/API는 구현 시 확정한다. 언어 변경이 Context 값이나 URL 식별자를 바꾸지 않는다. CJK 폰트는 FO ADR-0058의 Inter + Pretendard Variable 소비 계약을 따른다.
+**한/영 지원 범위(Decided, 2026-09-24):** UI 문구와 정적 본문만 번역한다. VOC·공지의 사용자 입력 본문, EquipmentID·room_name·분임조 이름 등 마스터 값과 식별자는 번역하지 않는다. 언어 설정은 `PlatformProvider.serverPreferences`를 켠 조립에서 사용자 설정 포트로 서버에 저장한다. 해당 옵션이 없는 조립은 브라우저 localStorage를 사용한다. 저장 포트와 이전 범위는 [Kernel §4](kernel.md)와 ADR-0098을 따른다. 언어 변경이 Context 값이나 URL 식별자를 바꾸지 않는다. CJK 폰트는 FO ADR-0058의 Inter + Pretendard Variable 소비 계약을 따른다.
 
 ### Token value source (Decided — ADR-0011)
 
-공유 색·반경·간격·폰트·본문 값의 원본은 플랫폼이다: [tokens.css](../../packages/sdk/ui/src/styles/tokens.css)·[semantic.css](../../packages/sdk/ui/src/styles/semantic.css)·[theme.css](../../packages/sdk/ui/src/styles/theme.css)·[compat.css](../../packages/sdk/ui/src/styles/compat.css)는 FeedbackOps `a8d768b8`에서 `@ap/ui`로 옮겼고([ADR-0046](../adr/0046-design-system-source-moves-to-platform-whole-package.md), #441) 값은 그대로다. 소비 순서·본문·레이어 없는 webfont 규칙은 [FO ADR-0058](../adr/history/feedbackops/0058-tailwind-v4-css-first-theme.md) §2(이전 시점의 설명)를 따른다. 기능 `@ap/feature-ui`는 소비 전환 전까지 기능 쪽에 그대로 남는 별개의 사본이다. 플랫폼이 별도 값 스케일을 만들지 않는다([ADR-0011](../adr/0011-design-direction-feedbackops-shell.md)).
+공유 색·반경·간격·폰트·본문 값의 원본은 플랫폼이다: [tokens.css](../../packages/sdk/ui/src/styles/tokens.css)·[semantic.css](../../packages/sdk/ui/src/styles/semantic.css)·[theme.css](../../packages/sdk/ui/src/styles/theme.css)·[compat.css](../../packages/sdk/ui/src/styles/compat.css)는 FeedbackOps `a8d768b8`에서 `@ap/ui`로 옮겼고([ADR-0046](../adr/0046-design-system-source-moves-to-platform-whole-package.md), #441) 값은 그대로다. 소비 순서·본문·레이어 없는 webfont 규칙은 [FO ADR-0058](../adr/history/feedbackops/0058-tailwind-v4-css-first-theme.md) §2(이전 시점의 설명)를 따른다. 기능 `@ap/feature-ui`는 SDK의 토큰·primitive를 소비하며 도메인 배지·선택기·관계 표현을 소유한다. 공유 디자인 토큰의 별도 사본을 소유하지 않는다. 플랫폼이 별도 값 스케일을 만들지 않는다([ADR-0011](../adr/0011-design-direction-feedbackops-shell.md)).
 
 플랫폼 전용 theme 키·차트/카테고리/아이콘 색·`t-*` 역할·반응형/detail-panel 확장과 label/control pairing의 설계 원본은 [DESIGN 플랫폼 확장](../../DESIGN.md#platform-extension-layer) 및 [허용 전경/표면](../../DESIGN.md#allowed-foregroundsurface-pairs)이다. `packages/sdk/ui/src/styles/`는 그 구현을 소유한다(플랫폼 확장 값은 `platform-tokens.css`). 제거된 어두운 navigation 확장은 다시 도입하지 않는다.
 

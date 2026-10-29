@@ -455,7 +455,7 @@ URL Context는 보안 경계가 아니며 서버가 항상 재검증한다.
 
 ## 21. Saved View Contract
 
-Saved View는 단순 Filter 저장 기능이 아니라 플랫폼 공통 자산이다. 결정은 [ADR-0092](../adr/0092-saved-view-units-tiers-and-groups.md)(#294, Decided 2026-10-27), 구현은 #1011(mock 범위)이다. 이 절은 **포트와 UI 계약**을 정한다. 서버 정책(객체 ACL 대 데이터 경계의 판정 분리, 공식 승인, 이전)은 [ADR-0099](../adr/0099-server-saved-view-persistence.md)(Decided 2026-10-29)가 정했고 서버 모듈(객체 ACL·영속·감사·이전, #1105a)이 구현됐다. HTTP 저장소와 화면 연결은 구현 전(#1105b). 아래 「서버 몫」이 결정과 구현 범위를 구분한다.
+Saved View는 단순 Filter 저장 기능이 아니라 플랫폼 공통 자산이다. 결정은 [ADR-0092](../adr/0092-saved-view-units-tiers-and-groups.md)(#294, Decided 2026-10-27), 구현은 #1011(mock 범위)이다. 이 절은 **포트와 UI 계약**을 정한다. 서버 정책(객체 ACL 대 데이터 경계의 판정 분리, 공식 승인, 이전)은 [ADR-0099](../adr/0099-server-saved-view-persistence.md)(Decided 2026-10-29)가 정했고 서버 모듈(객체 ACL·영속·감사·이전, #1105a)이 구현됐다. HTTP 저장소·브라우저 이전·화면 연결은 #1105b에서 구현됐다. 실서버 rendered 저장된 뷰 UI는 미검증이며 범위와 한계는 §21.4를 따른다. 아래 「서버 몫」이 결정과 구현 범위를 구분한다.
 
 ### 21.1 저장 단위 (Decided)
 
