@@ -110,14 +110,14 @@ const settle = () => act(() => new Promise(resolve => setTimeout(resolve, 30)));
 const openMenu = (trigger: HTMLElement) => { act(() => { trigger.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 })); }); };
 
 // The engine positions its content overlays a frame after mounting; until then the visible panels are still `visibility: hidden`.
-const ready = async () => {
+const ready = async (tailSettle = true) => {
   await waitFor(() => { expect(paneTabs().length).toBeGreaterThan(0); });
   await waitFor(() => {
     const visible = Array.from(document.querySelectorAll<HTMLElement>('[data-dock-visible="true"]'));
     expect(visible.length).toBeGreaterThan(0);
     visible.forEach(element => { expect(element.closest<HTMLElement>('.dv-render-overlay')?.style.visibility).not.toBe('hidden'); });
   });
-  await settle();
+  if (tailSettle) await settle();
 };
 const paneTabs = () => Array.from(document.querySelectorAll<HTMLElement>('[role="tab"][data-tab-panel-id]'));
 // A tab is named by the engine (`칸 n · 메뉴명`); its content is the badge, the name and the X.
@@ -127,10 +127,11 @@ const badgeOf = (label: string) => tabOf(label).querySelector('[data-pane-badge]
 const paneRoot = (n: number) => document.querySelector<HTMLElement>(`[data-pane-index="${n - 1}"]`)!;
 // The head of the pane that is its group's active tab sits in that group's strip: one `칸 N 동작` menu with the content and the layout actions.
 const paneMenu = (n: number) => screen.getAllByRole('button', { name: `칸 ${n} 동작` })[0];
-const chooseGroupItem = async (n: number, item: string) => {
+/** Opens pane `n`'s group menu and picks `item`; then waits `after` (default: the shared 30 ms settle). */
+const chooseGroupItem = async (n: number, item: string, after?: () => Promise<void>) => {
   openMenu(paneMenu(n));
   fireEvent.click(await screen.findByRole('menuitem', { name: item }));
-  await settle();
+  await (after ? after() : settle());
 };
 const v2 = (): Board => parseBoardV2(JSON.parse(localStorage.getItem(V2_KEY)!))!;
 const tree = (): LayoutNode => v2().sheets[0].tree;
@@ -1091,25 +1092,37 @@ describe('dock renderer: focus requests are answered once (FIX1 C2, C3)', () => 
     expect(document.activeElement).not.toBe(tabOf('칸 3 · 빈 칸'));
   });
 
-  it('C3: restoring after another tab of the group became active puts focus on that pane\'s toggle, by toggle and by Escape', async () => {
+  // One case per restore route: a fresh setup each with its own default 5 s budget (#1129), every state change waited on what it changed instead of a fixed timer.
+  it.each(['toggle', 'escape'] as const)('C3: restoring after another tab of the group became active puts focus on that pane\'s toggle, by %s', async restore => {
     seed(boardOf([sheet('a', { layout: '1x2', panes: [alpha(w1), beta(w2)] })]));
     mount('/board?sheet=a');
-    await ready();
-    await chooseGroupItem(2, '칸 1 묶음으로 옮기기');
+    // #1129: no fixed tail timer on this path — the two condition waits inside `ready` are the readiness.
+    await ready(false);
+    await chooseGroupItem(2, '칸 1 묶음으로 옮기기', async () => {
+      // The move is done when both tabs hang in the one remaining group.
+      await waitFor(() => {
+        expect(document.querySelectorAll('.dv-groupview')).toHaveLength(1);
+        expect(tabOf('칸 1 · 알파').closest('.dv-groupview')).toBe(tabOf('칸 2 · 베타').closest('.dv-groupview'));
+      });
+    });
+    // The move leaves beta active: the click makes alpha its group's active tab, which draws the head the maximize toggle lives in.
     await userEvent.click(tabOf('칸 1 · 알파'));
-    await settle();
+    await waitFor(() => { expect(tabOf('칸 1 · 알파')).toHaveAttribute('aria-selected', 'true'); });
     const toggle = (name: string) => screen.getByRole('button', { name });
-    for (const restore of ['toggle', 'escape'] as const) {
-      await userEvent.click(tabOf('칸 1 · 알파'));
-      await settle();
-      await userEvent.click(toggle('칸 1 최대화'));
-      await waitFor(() => { expect(toggle('원래 크기로')).toBeInTheDocument(); });
-      await userEvent.click(tabOf('칸 2 · 베타'));
-      await settle();
-      if (restore === 'toggle') await userEvent.click(toggle('원래 크기로'));
-      else { tabOf('칸 2 · 베타').focus(); await userEvent.keyboard('{Escape}'); }
-      await waitFor(() => { expect(document.activeElement).toBe(toggle('칸 2 최대화')); });
-    }
+    // The head with the maximize toggle is drawn once alpha is the group's active tab.
+    await userEvent.click(await screen.findByRole('button', { name: '칸 1 최대화' }));
+    await waitFor(() => { expect(toggle('원래 크기로')).toBeInTheDocument(); });
+    // Really maximized: the other pane is inert while the group is maximized.
+    await waitFor(() => { expect(paneRoot(2).closest('[inert]')).not.toBeNull(); });
+    await userEvent.click(tabOf('칸 2 · 베타'));
+    // The active tab changed while maximized: beta is the group's active tab, alpha is not.
+    await waitFor(() => { expect(tabOf('칸 2 · 베타')).toHaveAttribute('aria-selected', 'true'); });
+    expect(tabOf('칸 1 · 알파')).toHaveAttribute('aria-selected', 'false');
+    if (restore === 'toggle') await userEvent.click(toggle('원래 크기로'));
+    else { tabOf('칸 2 · 베타').focus(); await userEvent.keyboard('{Escape}'); }
+    // Restored: the pane the maximize hid is on screen (not inert) again.
+    await waitFor(() => { expect(paneRoot(2).closest('[inert]')).toBeNull(); });
+    await waitFor(() => { expect(document.activeElement).toBe(toggle('칸 2 최대화')); });
   });
 });
 
