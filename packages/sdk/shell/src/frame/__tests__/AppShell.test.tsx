@@ -1028,60 +1028,65 @@ describe('sidebar navViews, navCounts and spaceNavSection (#761)', () => {
 // A matched menu the actor cannot open must not mount any operator sidebar slot, even when another member keeps the space reachable (#1099c).
 describe('sidebar slots on a matched route the actor cannot open (#1099c)', () => {
   const mounted: string[] = [];
+  const resolved: string[] = [];
   const Probe = ({ name }: { name: string }) => { useEffect(() => { mounted.push(name); }, [name]); return null; };
   const ScopeProbe = () => <><Probe name="scope" /><p>operator scope</p></>;
   const CountsProbe = ({ children }: { children: (counts: null) => ReactNode }) => <><Probe name="counts" />{children(null)}</>;
   const SectionProbe = () => <><Probe name="section" /><p>operator saved views</p></>;
   const slots: PlatformSlots = {
-    scopeControl: { For: () => ScopeProbe },
-    navCounts: { For: () => CountsProbe },
-    spaceNavSection: { For: () => ({ label: { ko: '저장된 보기', en: 'Saved' }, Body: SectionProbe }) },
+    scopeControl: { For: () => { resolved.push('scope'); return ScopeProbe; } },
+    navCounts: { For: () => { resolved.push('counts'); return CountsProbe; } },
+    spaceNavSection: { For: () => { resolved.push('section'); return { label: { ko: '저장된 보기', en: 'Saved' }, Body: SectionProbe }; } },
   };
-  // `inbox` is open to the platform:view actor; `locked` shares the space but needs one more grant.
-  const lockedRegistry = (permission: Permission) => createRegistry({
-    permissions: [menuPermission('features:admin')],
+  // `inbox` stays openable for the actor; `locked` shares the space and needs a grant the actor lacks. Only kernel permissions are used, so none is declared.
+  const lockedRegistry = (inbox: Permission, locked: Permission, additional?: Permission[]) => createRegistry({
     spaces: [testSpace({ id: spaceId('mars'), homeMenuId: 'inbox' })],
     groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
     menus: [
-      { ...menu('inbox', groupId('overview'), '/inbox', 'platform:view'), label: { ko: '수신함', en: 'Inbox' } },
-      { ...menu('locked', groupId('overview'), '/locked', permission), primary: false, label: { ko: '잠김', en: 'Locked' } },
+      { ...menu('inbox', groupId('overview'), '/inbox', inbox), label: { ko: '수신함', en: 'Inbox' } },
+      { ...menu('locked', groupId('overview'), '/locked', locked), ...(additional ? { additionalPermissions: additional } : {}), primary: false, label: { ko: '잠김', en: 'Locked' } },
     ],
   });
   const noOperatorUi = () => {
     expect(mounted).toEqual([]);
+    expect(resolved).toEqual([]);
     expect(screen.queryByText('operator scope')).toBeNull();
     expect(screen.queryByText('operator saved views')).toBeNull();
     expect(screen.queryByRole('region', { name: '저장된 보기' })).toBeNull();
   };
-  beforeEach(() => { mounted.length = 0; localStorage.setItem('platform:sidebar-collapsed', '0'); });
+  beforeEach(() => { mounted.length = 0; resolved.length = 0; localStorage.setItem('platform:sidebar-collapsed', '0'); });
 
   it.each([
-    ['a C-only actor on a denied operator link', 'console:access' as Permission],
-    ['an F-only actor on a denied additional-permission feature-admin link', 'features:admin' as Permission],
-  ])('mounts no operator slot for %s', (_name, permission) => {
+    ['a C-only actor on a denied operator (F) link', ['platform:view', 'console:access'], 'console:access', 'features:access', undefined],
+    ['an F-only actor on a denied feature-admin (C plus additional F) link', ['platform:view', 'features:access'], 'features:access', 'console:access', ['features:access']],
+  ] as [string, Permission[], Permission, Permission, Permission[] | undefined][])('resolves and mounts no operator slot for %s', (_name, permissions, inbox, locked, additional) => {
     window.history.replaceState(null, '', '/locked?v=1');
-    mount(['platform:view'], true, lockedRegistry(permission), slots);
+    mount(permissions, true, lockedRegistry(inbox, locked, additional), slots);
     noOperatorUi();
   });
 
-  it('still mounts the slots on an openable route of the same space', () => {
+  it('still resolves and mounts the slots on an openable route of the same space', () => {
     window.history.replaceState(null, '', '/inbox?v=1');
-    mount(['platform:view'], true, lockedRegistry('console:access'), slots);
+    mount(['platform:view', 'console:access'], true, lockedRegistry('console:access', 'features:access'), slots);
     expect(new Set(mounted)).toEqual(new Set(['scope', 'counts', 'section']));
+    expect(new Set(resolved)).toEqual(new Set(['scope', 'counts', 'section']));
     expect(screen.getByText('operator saved views')).toBeTruthy();
   });
 
-  it('removes the slots when the grant is revoked on the same route while the space stays accessible', async () => {
+  it('removes the slots when F is revoked from a C-plus-F link on the same route while C keeps the space accessible', async () => {
     window.history.replaceState(null, '', '/locked?v=1');
-    const reg = lockedRegistry('console:access');
+    const reg = lockedRegistry('console:access', 'console:access', ['features:access']);
     const tree = (permissions: Session['user']['permissions']) => <I18nProvider><PlatformProvider adapter={adapterWith(permissions)} registry={reg} slots={slots}><AppShell><input aria-label="editor" /></AppShell></PlatformProvider></I18nProvider>;
-    const view = render(tree(['platform:view', 'console:access']));
+    const view = render(tree(['platform:view', 'console:access', 'features:access']));
     await waitFor(() => expect(screen.getByText('operator saved views')).toBeTruthy());
+    expect(new Set(resolved)).toEqual(new Set(['scope', 'counts', 'section']));
     mounted.length = 0;
-    view.rerender(tree(['platform:view']));
+    resolved.length = 0;
+    view.rerender(tree(['platform:view', 'console:access']));
     await waitFor(() => expect(screen.queryByText('operator saved views')).toBeNull());
     expect(screen.queryByText('operator scope')).toBeNull();
     expect(mounted).toEqual([]);
+    expect(resolved).toEqual([]);
   });
 });
 
