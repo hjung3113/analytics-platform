@@ -4,6 +4,9 @@
 
 ## 작은 후속 (확인된 것)
 
+- **구현 안 함 — section 라벨 대문자 표기(#740 리뷰 C1):** `FieldLabel appearance="section"`이 CSS `uppercase`를 걸어 VOC 등록 드로어의 `Managed System`·`Analytics Area`가 `MANAGED SYSTEM`·`ANALYTICS AREA`로 보인다. #740은 라벨을 copy 상수로 옮겼을 뿐 보이는 모양은 그대로다. 이유: 모든 section 라벨 모양을 바꾸는 디자인 시스템 변경이라 프로토타입 컨펌이 먼저다. 다시 여는 조건: 사용자가 영어 라벨 대문자 표기를 바꾸기로 할 때.
+- **구현 안 함 — 사이클타임 상세 쌓기 모드 줄 잘림(#740 항목 5):** SDK는 줄 높이를 선언된 최소 이상으로 맞춘다(`rowMinimumOf`). 잘리는 패널은 메뉴가 `minHeight`를 선언하지 않았거나(요약 카드) 실제 높이가 선언보다 크다(느린 실행 표 `height={420}`, `menus/mars/analytics/src/pages/CycleTimeDrilldown.tsx:232,296`). 이유: SDK 기본값 문제가 아니라 메뉴 선언의 몫이다. 다시 여는 조건: 사이클타임 상세를 손볼 때 패널별 `minHeight`를 실제 내용 높이에 맞춘다.
+
 - **구현 안 함 — platform-api의 plain Node 시작과 feature-shared 런타임 산출물:** `@ap/feature-shared`는 `src/index.ts`를 export하고 build가 `--noEmit`인 반면 소스 barrel은 `.js`를 참조해 `node dist/index.js`가 `src/enums/index.js`를 찾지 못한다. main `a1ab81ecb`와 #1098 r 직전 `9e1239d9f` 모두 frozen install·백엔드 build 뒤 같은 오류를 재현했다(2026-10-29); r 회귀가 아니다. 이유: #1104 설정 영속화 범위 밖인 기존 패키지 런타임 구성이다. `tsx` 로더를 쓴 실행은 가능하다. 다시 여는 조건: 백엔드 운영 배포 또는 plain Node 시작을 사용하는 작업에서 feature-shared의 emitted JS export·의존 빌드 순서를 함께 맞출 때.
 
 - **구현 안 함 — 통합 계획 조사 기록 이동(v0.20 문서 점검 A1):** `docs/integration/framework-unification-plan.md`의 유효한 #396 전략·미구현 범위를 현행 소유 문서와 backlog에 연결하고 조사 본문을 `docs/research/`로 옮기는 일은 하지 않았다. 이유: 릴리스 문서 PR 범위 밖이다. 다시 여는 조건: #396 다음 작업 또는 해당 문서를 다시 고칠 때.
