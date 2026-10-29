@@ -237,7 +237,7 @@ export const featureShared = () => baseConfigs();
 /**
  * feature-ui: React components with the design-system rules (the former Oxlint pass over this package).
  * `design` is index.js's designSystem({ componentSource: true }): the primitives are defined here, so restyle and
- * static-class checks are off as in the Oxlint override. Options follow ops/platform-api/.oxlintrc.json: tests and
+ * static-class checks are off as in the Oxlint override. Options follow the former ops/platform-api/.oxlintrc.json (removed in #1102 b): tests and
  * __tests__ folders are not checked, `rich-editor` is a known class, and the `ap/` platform extension rule (not in the
  * Oxlint set) is not applied.
  * @param {{ reactHooks: import('eslint').Linter.Config, design: import('eslint').Linter.Config }} parts

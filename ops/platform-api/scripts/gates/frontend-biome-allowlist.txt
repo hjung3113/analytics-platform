@@ -1,86 +1,25 @@
 # Exception list, grown only deliberately: add only documented, pre-existing diagnostic identities (one `<path> <category> -- <reason>` per line).
-apps/feature-screens/src/features/home/HomeScreen.tsx format -- pre-existing on develop; dense single-line JSX predates biome formatting
-apps/feature-screens/src/features/home/HomeScreen.tsx organizeImports -- pre-existing on develop; import order predates biome
-apps/feature-screens/src/features/home/__tests__/HomeScreen.test.tsx format -- pre-existing on develop; long inline fetch mocks predate biome formatting
-apps/feature-screens/src/features/home/__tests__/HomeScreen.test.tsx organizeImports -- pre-existing on develop; import order predates biome
-apps/feature-screens/src/lib/copy/home.ts format -- pre-existing on develop; multi-key single lines predate biome formatting
-apps/feature-screens/src/routes/login.test.tsx format -- pre-existing on develop; long inline harness lines predate biome formatting
-apps/feature-screens/tests/visual/fixtures/home.ts format -- pre-existing on develop; long fixture literals predate biome formatting
-apps/feature-screens/tests/visual/support/mock-api.ts format -- pre-existing on develop; long route handler lines predate biome formatting
-apps/feature-screens/tests/visual/support/mock-api.ts organizeImports -- pre-existing on develop; import order predates biome
 # Added for the deep-link contract branch (#279 et al). Every identity below was
 # measured on develop with the gate's own invocation --
 #   pnpm exec biome check --reporter=json --max-diagnostics=500 <same file list>
 # -- and reproduced identically, counts included. Note that `biome check <file>`
 # in text mode under-reports (it omits the file-level `format` diagnostic), so
 # comparing with that command will wrongly look like the branch introduced them.
-apps/feature-screens/src/routes/_authed/vocs.tsx format -- pre-existing on develop; the file predates biome formatting
-apps/feature-screens/src/routes/_authed/vocs.tsx organizeImports -- pre-existing on develop; import order predates biome
 # Added for the permission-state branch (#284 #283 #261). Each identity below was
 # measured on develop with the gate's own invocation over the same file list and
 # reproduced exactly. Every identity this branch actually introduced was fixed
 # rather than allowlisted.
-apps/feature-screens/src/features/tasks/routes/TaskBoardRoute.tsx format -- pre-existing on develop; the file predates biome formatting
-apps/feature-screens/src/features/tasks/routes/TaskBoardRoute.tsx organizeImports -- pre-existing on develop; import order predates biome
-apps/feature-screens/src/features/tasks/routes/TaskBoardRoute.tsx lint/a11y/useSemanticElements -- pre-existing on develop (2x, unchanged); drag-and-drop board columns use role attributes
-apps/feature-screens/src/features/tasks/routes/TaskBoardRoute.tsx lint/style/noNonNullAssertion -- pre-existing on develop (2x, unchanged)
-apps/feature-screens/src/features/tasks/routes/TaskBoardRoute.tsx lint/complexity/noUselessFragments -- pre-existing on develop (1x, unchanged)
-apps/feature-screens/src/features/tasks/routes/TaskBoardRoute.test.tsx format -- pre-existing on develop; the file predates biome formatting
-apps/feature-screens/src/features/tasks/routes/TaskBoardRoute.test.tsx organizeImports -- pre-existing on develop; import order predates biome
-apps/feature-screens/src/features/tasks/routes/TaskBoardRoute.test.tsx lint/style/noNonNullAssertion -- pre-existing on develop (1x, unchanged)
-apps/feature-screens/src/features/tasks/routes/TaskBoardRoute.test.tsx lint/style/useImportType -- pre-existing on develop (1x, unchanged)
-apps/feature-screens/src/features/tasks/routes/TaskListRoute.tsx format -- pre-existing on develop; the file predates biome formatting
-apps/feature-screens/src/features/tasks/routes/TaskListRoute.tsx organizeImports -- pre-existing on develop; import order predates biome
-apps/feature-screens/src/features/voc/routes/InboxRoute.tsx lint/suspicious/noExplicitAny -- pre-existing on develop (10x, unchanged); the file's local slot types predate stricter typing
-apps/feature-screens/src/lib/layout/AppSidebar.tsx format -- pre-existing on develop; dense single-line JSX predates biome formatting
-apps/feature-screens/src/lib/layout/AppSidebar.tsx lint/a11y/useFocusableInteractive -- pre-existing on develop (1x, unchanged); the scope popover is a listbox of buttons
-apps/feature-screens/src/lib/layout/AppSidebar.tsx lint/a11y/useSemanticElements -- pre-existing on develop (1x, unchanged); the scope popover cannot be a native <select>, its options carry icons and badges
-apps/feature-screens/src/lib/layout/__tests__/AppSidebar.test.tsx format -- pre-existing on develop; the file predates biome formatting
-apps/feature-screens/src/lib/layout/__tests__/AppSidebar.test.tsx organizeImports -- pre-existing on develop; import order predates biome
-apps/feature-screens/src/routes/_authed/voc-clusters/$clusterId.tsx format -- pre-existing on develop; the file predates biome formatting
-apps/feature-screens/src/routes/_authed/voc-clusters/$clusterId.tsx organizeImports -- pre-existing on develop; import order predates biome
-apps/feature-screens/src/test/clusters-host/__tests__/voc-cluster-shell.test.tsx format -- pre-existing on develop; the file predates biome formatting
-apps/feature-screens/src/test/clusters-host/__tests__/voc-cluster-shell.test.tsx lint/a11y/noLabelWithoutControl -- pre-existing on develop (2x, unchanged); test-local harness markup
-apps/feature-screens/src/test/clusters-host/__tests__/voc-cluster-shell.test.tsx lint/a11y/useButtonType -- pre-existing on develop (1x, unchanged); test-local harness markup
-apps/feature-screens/src/test/clusters-host/__tests__/voc-cluster-shell.test.tsx lint/performance/noDelete -- pre-existing on develop (6x, unchanged); fixture teardown deletes optional keys
-apps/feature-screens/src/test/clusters-host/__tests__/voc-cluster-shell.test.tsx lint/style/noNonNullAssertion -- pre-existing on develop (40x, unchanged); fixture lookups assert presence
 docs/design/history/feedbackops-prototype/screen-voc.jsx format -- pre-existing on develop; the prototype is a design reference, not shipped code
 docs/design/history/feedbackops-prototype/screen-voc.jsx lint/a11y/useButtonType -- pre-existing on develop (10x, unchanged); prototype reference, not shipped code
 docs/design/history/feedbackops-prototype/screen-voc.jsx lint/a11y/useKeyWithClickEvents -- pre-existing on develop (2x, unchanged); prototype reference, not shipped code
 docs/design/history/feedbackops-prototype/screen-voc.jsx lint/correctness/noUnusedVariables -- pre-existing on develop (2x, unchanged); prototype reference, not shipped code
 docs/design/history/feedbackops-prototype/screen-voc.jsx lint/security/noDangerouslySetInnerHtml -- pre-existing on develop (3x, unchanged); prototype reference, not shipped code
-apps/feature-screens/src/features/home/homeNavigation.tsx format -- pre-existing on develop; dense single-line entries predate biome formatting
-apps/feature-screens/src/features/admin/analytics-areas/AnalyticsAreasList.tsx lint/a11y/useSemanticElements -- pre-existing on develop as routes/_authed/admin/analytics-areas.tsx (1x, unchanged); #486 relocated the catalog row (div with role=button and a nested affordance) verbatim, format/organizeImports did not carry over because the new file is clean
-apps/feature-screens/src/features/admin/analytics-areas/AnalyticsAreasList.tsx suppressions/unused -- pre-existing on develop as routes/_authed/admin/analytics-areas.tsx (1x, unchanged); warning only, not gated, listed for tracking
-apps/feature-screens/src/features/admin/permissions/permission-request-decision-form.tsx lint/a11y/useSemanticElements -- pre-existing on develop as routes/_authed/admin/permissions/requests.tsx (1x, unchanged); #488 relocated the decision form verbatim
-apps/feature-screens/src/features/admin/permissions/permission-request-decision-form.tsx lint/correctness/useExhaustiveDependencies -- pre-existing on develop as routes/_authed/admin/permissions/requests.tsx (1x, unchanged)
-apps/feature-screens/src/features/admin/permissions/permission-request-decision-form.tsx lint/style/noNonNullAssertion -- pre-existing on develop as routes/_authed/admin/permissions/requests.tsx (1x, unchanged)
-apps/feature-screens/src/features/admin/settings/WorkspaceSettingsScreen.tsx format -- pre-existing on develop; the file predates biome formatting
-apps/feature-screens/src/routes/_authed/admin/managed-systems.tsx format -- pre-existing on develop; the file predates biome formatting
-apps/feature-screens/src/routes/_authed/admin/managed-systems.tsx organizeImports -- pre-existing on develop; import order predates biome
-apps/feature-screens/src/features/voc/hooks/__tests__/useReporterStatusTransitions.test.ts format -- pre-existing on develop; the file predates biome formatting and this branch only adds three fixture fields
-apps/feature-screens/src/features/voc/hooks/__tests__/useReporterStatusTransitions.test.ts organizeImports -- pre-existing on develop; import order predates biome
-apps/feature-screens/src/features/voc/hooks/__tests__/useTriagePanelState.test.ts format -- pre-existing on develop; the file predates biome formatting and this branch only adds one fixture field
-apps/feature-screens/src/features/voc/hooks/__tests__/useTriagePanelState.test.ts organizeImports -- pre-existing on develop; import order predates biome
-apps/feature-screens/src/features/voc/components/triage/__tests__/TriageQueue.test.tsx format -- pre-existing on develop; the file predates biome formatting and this branch only adds two fixture fields
-apps/feature-screens/src/features/voc/components/triage/__tests__/TriageQueue.test.tsx organizeImports -- pre-existing on develop; import order predates biome
-apps/feature-screens/src/features/voc/components/detail/__tests__/ReporterStatusChangeBlock.test.tsx organizeImports -- pre-existing on develop; import order predates biome
-apps/feature-screens/src/features/voc/components/detail/__tests__/ReporterStatusChangeBlock.test.tsx lint/style/noNonNullAssertion -- pre-existing on develop (5x, unchanged); test helpers assert non-null after an explicit lookup
-apps/feature-screens/src/features/voc/components/list/VocRow.tsx lint/a11y/useSemanticElements -- pre-existing on develop (1x at VocRow.tsx:141, unchanged); the row is a clickable div with role="row" predating this branch; fixing it is a keyboard/semantics change out of scope for the attachment chip
-apps/feature-screens/tests/visual/fixtures/voc-reporter-task-summary.ts format -- pre-existing on develop; the whole file uses double quotes and predates biome formatting, and this branch only adds two attachment fixture entries in the same style
 docs/design/history/feedbackops-prototype/screen-voc-create.jsx format -- pre-existing on develop (1x, unchanged); the whole prototype predates biome formatting and this branch only rewrites one map callback
 docs/design/history/feedbackops-prototype/screen-voc-create.jsx lint/a11y/useButtonType -- pre-existing on develop (14x, unchanged; measured against `git show develop:` of the same file); the prototype's other buttons omit type=, and the button this branch adds does carry type="button"
 docs/design/history/feedbackops-prototype/screen-voc-create.jsx lint/a11y/noLabelWithoutControl -- pre-existing on develop (1x, unchanged); prototype form labels are not wired to controls
 docs/design/history/feedbackops-prototype/screen-voc-create.jsx lint/a11y/useKeyWithClickEvents -- pre-existing on develop (1x, unchanged); an unrelated clickable div in the same file
 docs/design/history/feedbackops-prototype/screen-voc-create.jsx lint/complexity/noForEach -- pre-existing on develop (1x, unchanged); the attachment accept/reject loop
 docs/design/history/feedbackops-prototype/screen-voc-create.jsx lint/correctness/noUnusedVariables -- pre-existing on develop (2x, unchanged)
-apps/feature-screens/src/features/integration/routes/LinksRoute.tsx format -- pre-existing on develop (1x, unchanged; measured against `git show develop:` of the same file); it is the `counts.set(...)` call at the status-tab memo, untouched by this branch — the one line this branch did introduce was reformatted rather than allowlisted
-apps/feature-screens/src/features/voc/components/create/__tests__/AttachmentDropzone.test.tsx format -- pre-existing on develop (1x, unchanged); the violations are the file's own long expect/render lines, none of them in the multi-file test this branch adds
-apps/feature-screens/src/features/voc/components/create/__tests__/AttachmentDropzone.test.tsx organizeImports -- pre-existing on develop; import order predates biome
-apps/feature-screens/src/features/voc/components/create/__tests__/AttachmentDropzone.test.tsx lint/style/noNonNullAssertion -- pre-existing on develop (1x at the unchanged `spy.mock.calls[0]!` line, verified identical on develop)
-apps/feature-screens/src/lib/layout/AppRail.tsx organizeImports -- pre-existing on develop; import order predates biome
-apps/feature-screens/src/lib/layout/AppRail.tsx format -- pre-existing on develop (1x, unchanged; measured against `git show develop:` of the same file)
-apps/feature-screens/src/routes/login.test.tsx format -- pre-existing on develop (1x, unchanged); the file's long harness lines predate biome. AppRail.test.tsx was format-clean on develop, so the violation this branch introduced there was formatted rather than allowlisted
 docs/design/history/feedbackops-prototype/shell.jsx format -- pre-existing on develop (1x, unchanged; measured against `git show develop:` of the same file)
 docs/design/history/feedbackops-prototype/shell.jsx lint/a11y/useButtonType -- pre-existing on develop (11x, unchanged); the avatar trigger this branch adds does carry type="button"
 docs/design/history/feedbackops-prototype/shell.jsx lint/complexity/useOptionalChain -- pre-existing on develop (1x, unchanged)
@@ -90,18 +29,6 @@ docs/design/history/feedbackops-prototype/affordances.jsx lint/a11y/useKeyWithCl
 docs/design/history/feedbackops-prototype/affordances.jsx lint/a11y/useButtonType -- pre-existing on develop (4x, unchanged)
 docs/design/history/feedbackops-prototype/affordances.jsx lint/complexity/useOptionalChain -- pre-existing on develop (2x, unchanged)
 docs/design/history/feedbackops-prototype/affordances.jsx lint/correctness/noUnusedVariables -- pre-existing on develop (2x, unchanged)
-apps/feature-screens/src/features/voc/components/detail/DescriptionSection.tsx format -- pre-existing on develop (1x, unchanged; measured against `git show develop:` of the same file)
-apps/feature-screens/src/features/voc/components/detail/ReporterStatusChangeBlock.tsx format -- pre-existing on develop (1x, unchanged)
-apps/feature-screens/src/features/voc/components/detail/ReporterStatusChangeBlock.tsx organizeImports -- pre-existing on develop; import order predates biome
-apps/feature-screens/src/features/voc/components/detail/ReporterStatusChangeBlock.tsx lint/complexity/useOptionalChain -- pre-existing on develop (1x, unchanged)
-apps/feature-screens/src/features/voc/components/detail/ReporterStatusChangeBlock.tsx lint/style/useImportType -- pre-existing on develop (1x, unchanged)
-apps/feature-screens/src/features/voc/components/detail/IdentitySection.tsx format -- pre-existing on develop (2x, unchanged)
-apps/feature-screens/src/features/voc/components/detail/__tests__/VocDetailPanel.test.tsx organizeImports -- pre-existing on develop; import order predates biome
-apps/feature-screens/src/features/voc/components/detail/__tests__/ReporterReplyComposer.test.tsx format -- pre-existing on develop (1x, unchanged)
-apps/feature-screens/src/features/voc/components/detail/__tests__/ReporterReplyComposer.test.tsx organizeImports -- pre-existing on develop; import order predates biome
-apps/feature-screens/src/features/voc/components/detail/__tests__/ReporterReplyComposer.test.tsx lint/suspicious/noExplicitAny -- pre-existing on develop (2x, unchanged)
-apps/feature-screens/src/features/voc/components/detail/__tests__/PublicUpdateComposer.test.tsx format -- pre-existing on develop (1x, unchanged)
-apps/feature-screens/src/features/voc/components/detail/__tests__/PublicUpdateComposer.test.tsx organizeImports -- pre-existing on develop; import order predates biome
 # Added for the re-triage deep-link branch (#383). Both files were already in
 # this state on develop; this branch adds a comment block plus one hook call to
 # TriageRoute.tsx and one new exported function to repo-read.ts, and touching a
@@ -109,22 +36,13 @@ apps/feature-screens/src/features/voc/components/detail/__tests__/PublicUpdateCo
 # were measured on develop 24c49c8 per file and reproduce exactly:
 # TriageRoute.tsx 6 = 6, repo-read.ts 17 = 17. This branch's own diagnostic
 # count on every file it touches is 0.
-apps/feature-screens/src/features/voc/routes/TriageRoute.tsx lint/suspicious/noExplicitAny -- pre-existing on develop (4x, unchanged); the two navigate() search reducers are typed `any` with inline eslint-disable comments that predate biome
-apps/feature-screens/src/features/voc/routes/TriageRoute.tsx lint/style/useImportType -- pre-existing on develop; `import * as React` predates biome
-apps/feature-screens/src/features/voc/routes/TriageRoute.tsx organizeImports -- pre-existing on develop; import order predates biome
-apps/feature-screens/src/routes/_authed/voc-clusters/index.tsx organizeImports -- pre-existing on develop (same diagnostic before this change); the file predates biome and uses double quotes throughout
-apps/feature-screens/src/routes/_authed/voc-clusters/index.tsx format -- pre-existing on develop; reformatting would rewrite every line this branch does not touch (#396 edits only the search/selection wiring)
 # Added for wave2 (#473/#475/#478/#479/#485/#490/#492). Counts measured on
 # develop e57326b per file with the gate's own invocation, one file at a time
 # (biome check --reporter=json --max-diagnostics=500 <file>) and reproduce
 # exactly against this branch.
-apps/feature-screens/src/__tests__/vite-proxy-completeness.test.ts lint/style/noUnusedTemplateLiteral -- pre-existing on develop (1x, unchanged)
-apps/feature-screens/src/__tests__/vite-proxy-completeness.test.ts lint/style/useTemplate -- pre-existing on develop (1x, unchanged)
 # #513 touched these files. The identities below are whole-file format/import-order
 # or assertions whose blame is f1c06725 (2026-05-19), before this branch.
 # develop's dashboard/repo.ts is already unfixed under `biome check --stdin-file-path`.
-apps/feature-screens/src/routes/_authed.tsx format -- pre-existing on develop; this branch adds only the Coverage nav entry
-apps/feature-screens/src/routes/_authed.tsx organizeImports -- pre-existing on develop; import order predates biome and this branch does not reorder imports
 
 # #517 Phase 1 (test-support extraction / hook + import-path relocation) touched only
 # import lines or moved content verbatim in the files below; the diagnostics are on
@@ -132,16 +50,6 @@ apps/feature-screens/src/routes/_authed.tsx organizeImports -- pre-existing on d
 # biome scope for the first time. Verified against origin/develop per-file diffs before
 # allowlisting; backend integration suite (183 files, real DB) and frontend suite (176
 # files) both green after this branch's safe `biome check --write` formatting pass.
-apps/feature-screens/src/features/voc/hooks/__tests__/useVocDetail.test.tsx lint/complexity/useLiteralKeys -- pre-existing on develop (1x, unchanged by #517 Phase 1; import-path relocation only)
-apps/feature-screens/src/features/voc/components/triage/TriageRow.tsx lint/a11y/useSemanticElements -- pre-existing on develop (1x, unchanged by #517 Phase 1; import-path relocation only)
-apps/feature-screens/src/features/voc/components/triage/TriageRow.tsx lint/a11y/noRedundantRoles -- pre-existing on develop (1x, unchanged by #517 Phase 1; import-path relocation only)
-apps/feature-screens/src/features/voc/components/list/VocList.tsx lint/a11y/useSemanticElements -- pre-existing on develop (2x, unchanged by #517 Phase 1; import-path relocation only)
-apps/feature-screens/src/features/voc/components/list/VocList.tsx lint/suspicious/noArrayIndexKey -- pre-existing on develop (1x, unchanged by #517 Phase 1; import-path relocation only)
-apps/feature-screens/src/test/admin-host/permissions/requests.test.tsx lint/style/noNonNullAssertion -- pre-existing on develop (2x, unchanged by #524; decisionPosts()[0]! at two test call sites this branch did not touch)
-apps/feature-screens/src/test/admin-host/permissions/requests.test.tsx organizeImports -- pre-existing on develop; whole-file double-quote style predates biome, this branch only adds/edits individual test bodies
-apps/feature-screens/src/test/admin-host/permissions/requests.test.tsx format -- pre-existing on develop; whole-file double-quote style predates biome, this branch only adds/edits individual test bodies
-apps/feature-screens/src/lib/layout/AppFrame.tsx organizeImports -- pre-existing on develop; import order predates biome, this branch adds a scopeControlEnabled prop only
-apps/feature-screens/src/lib/layout/AppFrame.tsx format -- pre-existing on develop; import block/JSDoc predates biome formatting, this branch adds a scopeControlEnabled prop only
 # #519 (VOC detail nav overflow + unified footer). Originally measured
 # with the gate's own --reporter=json --max-diagnostics=500 invocation against origin/develop's
 # real tracked file content (checked out in place, not a scratch copy elsewhere in the tree —
@@ -151,80 +59,6 @@ apps/feature-screens/src/lib/layout/AppFrame.tsx format -- pre-existing on devel
 # remeasured 2026-10-09 (6x): the firstSection reset effect (extra sectionKey),
 # updateAnchorScrollMargins (omits sections, extra sectionKey), and the IntersectionObserver
 # effect (omits sections — reported on sections.map and sections.length — and extra sectionKey).
-apps/feature-screens/src/features/voc/components/detail/NextActionFooter.tsx lint/complexity/useLiteralKeys -- pre-existing on develop (3x, unchanged by #519; isNextAction's r['id']/r['label']/r['available'] guard this branch did not touch)
-apps/feature-screens/src/features/voc/hooks/useTriagePanelState.ts lint/correctness/useExhaustiveDependencies -- pre-existing on develop (2x, measured on the develop copy; #520 only adds `baseline` to the return value; the voc.id reset effect carries an eslint-disable comment biome does not recognize)
-apps/feature-screens/src/features/integration/components/EntityLinksInventoryTable.tsx lint/a11y/useSemanticElements -- pre-existing on develop (2x, measured on the develop copy 2026-09-28; #521 only changes the empty/error branch)
-apps/feature-screens/src/features/integration/components/EntityLinksInventoryTable.tsx lint/a11y/useKeyWithClickEvents -- pre-existing on develop (1x, measured on the develop copy 2026-09-28; row click handler unchanged by #521)
-apps/feature-screens/src/lib/api/errorMapper.ts format -- pre-existing on develop (column-aligned CATALOG rows; #561 adds a null-envelope guard and mapUnknownError only)
-apps/feature-screens/src/lib/api/errorMapper.ts lint/complexity/useLiteralKeys -- pre-existing on develop (measured on the develop copy 2026-09-30; unchanged by #561)
-apps/feature-screens/src/lib/api/__tests__/errorMapper.test.ts format -- pre-existing on develop (measured on the develop copy 2026-09-30; #561 appends one describe block)
-apps/feature-screens/src/lib/api/__tests__/errorMapper.test.ts organizeImports -- pre-existing on develop (measured on the develop copy 2026-09-30; #561 adds two imports in the existing order)
-apps/feature-screens/src/features/home/InboxPanel.tsx lint/complexity/useLiteralKeys -- detail is Record<string, unknown>; noPropertyAccessFromIndexSignature requires detail['voc_id'] (#509 part 4)
-apps/feature-screens/src/features/voc/components/detail/ConversationTimeline.tsx lint/style/useImportType -- pre-existing on develop (measured 2026-09-30); #591 only gates the internal tab
-apps/feature-screens/src/features/voc/components/detail/ConversationTimeline.tsx organizeImports -- pre-existing on develop (measured 2026-09-30); #591 only gates the internal tab
-apps/feature-screens/src/features/voc/components/detail/ConversationTimeline.tsx format -- pre-existing on develop (measured 2026-09-30); #591 only gates the internal tab
-apps/feature-screens/src/features/voc/components/list/__tests__/VocList.test.tsx lint/style/noNonNullAssertion -- pre-existing on develop (measured 2026-09-30); #591 adds reporter/operator cases below it
-apps/feature-screens/src/features/voc/hooks/useComposerVisibility.ts organizeImports -- pre-existing on develop (measured 2026-09-30); #591 only switches the internal composer to the triage capability
-apps/feature-screens/src/features/voc/hooks/__tests__/useComposerVisibility.test.ts organizeImports -- pre-existing on develop (measured 2026-09-30); #591 adds capability cases
-apps/feature-screens/src/features/voc/components/detail/__tests__/ComposerSection.test.tsx format -- pre-existing on develop (measured 2026-09-30); #591 adds a tab-fallback transition test
-apps/feature-screens/src/features/voc/components/detail/__tests__/ComposerSection.test.tsx lint/correctness/noUnusedImports -- pre-existing on develop (measured 2026-09-30); #591 adds a tab-fallback transition test
-apps/feature-screens/src/features/voc/components/detail/__tests__/ComposerSection.test.tsx organizeImports -- pre-existing on develop (measured 2026-09-30); #591 adds a tab-fallback transition test
-apps/feature-screens/src/features/findings/hooks/useFindingStatusMutation.ts lint/style/useImportType -- pre-existing on develop (measured 2026-09-30); #586 only adds the nav-counts invalidation import/call
-apps/feature-screens/src/features/findings/hooks/useFindingStatusMutation.ts organizeImports -- pre-existing on develop (measured 2026-09-30); #586 only adds the nav-counts invalidation import/call
-apps/feature-screens/src/features/findings/hooks/useRequestTaskFromFinding.ts organizeImports -- pre-existing on develop (measured 2026-09-30); #586 only adds the nav-counts invalidation import/call
-apps/feature-screens/src/features/voc-cluster/hooks/useAddClusterMember.ts organizeImports -- pre-existing on develop (measured 2026-09-30); #586 only adds the nav-counts invalidation import/call
-apps/feature-screens/src/features/voc-cluster/hooks/useConfirmCluster.ts organizeImports -- pre-existing on develop (measured 2026-09-30); #586 only adds the nav-counts invalidation import/call
-apps/feature-screens/src/features/voc-cluster/hooks/useCreateFindingFromCluster.ts format -- pre-existing on develop (measured 2026-09-30); #586 only adds the nav-counts invalidation import/call
-apps/feature-screens/src/features/voc-cluster/hooks/useCreateFindingFromCluster.ts organizeImports -- pre-existing on develop (measured 2026-09-30); #586 only adds the nav-counts invalidation import/call
-apps/feature-screens/src/features/voc-cluster/hooks/useCreateVocCluster.ts organizeImports -- pre-existing on develop (measured 2026-09-30); #586 only adds the nav-counts invalidation import/call
-apps/feature-screens/src/features/voc-cluster/hooks/useLinkExistingFindingToVocCluster.ts format -- pre-existing on develop (measured 2026-09-30); #586 only adds the nav-counts invalidation import/call
-apps/feature-screens/src/features/voc-cluster/hooks/useLinkExistingFindingToVocCluster.ts organizeImports -- pre-existing on develop (measured 2026-09-30); #586 only adds the nav-counts invalidation import/call
-apps/feature-screens/src/features/voc-cluster/hooks/useRemoveClusterMember.ts organizeImports -- pre-existing on develop (measured 2026-09-30); #586 only adds the nav-counts invalidation import/call
-apps/feature-screens/src/features/voc/hooks/useConfirmVocRecommendation.ts lint/complexity/useLiteralKeys -- pre-existing on develop (measured 2026-09-30); #586 only adds the nav-counts invalidation import/call
-apps/feature-screens/src/features/voc/hooks/useConfirmVocRecommendation.ts organizeImports -- pre-existing on develop (measured 2026-09-30); #586 only adds the nav-counts invalidation import/call
-apps/feature-screens/src/features/voc/hooks/useVocCreateMutation.ts format -- pre-existing on develop (measured 2026-09-30); #586 only adds the nav-counts invalidation import/call
-apps/feature-screens/src/features/voc/hooks/useVocCreateMutation.ts lint/style/useImportType -- pre-existing on develop (measured 2026-09-30); #586 only adds the nav-counts invalidation import/call
-apps/feature-screens/src/features/voc/hooks/useVocCreateMutation.ts organizeImports -- pre-existing on develop (measured 2026-09-30); #586 only adds the nav-counts invalidation import/call
-apps/feature-screens/src/lib/auth/useMe.ts organizeImports -- pre-existing on develop (measured 2026-09-30); #583 adds the cached identity helpers
-apps/feature-screens/src/routes/__root.tsx organizeImports -- pre-existing on develop (measured 2026-09-30); #583 switches to createRootRouteWithContext
-apps/feature-screens/src/routes/_authed/findings/$findingId.tsx format -- pre-existing on develop (measured 2026-09-30); #587 only changes the back link target
-apps/feature-screens/src/routes/_authed/findings/$findingId.tsx organizeImports -- pre-existing on develop (measured 2026-09-30); #587 only changes the back link target
-apps/feature-screens/src/features/voc/components/detail/__tests__/SimilarVocSection.test.tsx format -- pre-existing on develop (measured 2026-09-30); #592 only relabels the same-Managed-System peer copy
-apps/feature-screens/src/features/voc/components/triage/__tests__/ClusterSectionReadOnly.test.tsx format -- pre-existing on develop (measured 2026-09-30); #592 only relabels the same-Managed-System peer copy
-apps/feature-screens/tests/visual/voc-create.visual.spec.ts format -- pre-existing on develop (measured 2026-09-30); #592 only relabels the same-Managed-System peer copy
-apps/feature-screens/src/features/integration/components/EntityRelationRow.test.tsx organizeImports -- pre-existing on develop (measured 2026-09-30); #589 adds identity cases
-apps/feature-screens/src/features/admin/permissions/useDecidePermissionRequest.ts format -- pre-existing on develop (measured 2026-09-30); #590 adds the approval expiration
-apps/feature-screens/src/features/admin/permissions/useDecidePermissionRequest.ts organizeImports -- pre-existing on develop (measured 2026-09-30); #590 adds the approval expiration
-apps/feature-screens/src/lib/api/permissions.ts format -- pre-existing on develop (measured 2026-09-30); #590 adds the approval expiration
-apps/feature-screens/src/routes/_authed/admin/managed-systems.test.tsx format -- pre-existing on develop (measured 2026-10-01); #613 only changes the request-button selector
-apps/feature-screens/src/routes/_authed/admin/analytics-areas.test.tsx format -- pre-existing on develop (measured 2026-10-01); #613 only changes the request-button selector
-apps/feature-screens/src/features/voc/components/detail/EditDescriptionModal.tsx format -- pre-existing on develop (measured 2026-10-01); #676 only changes the cancel button variant
-apps/feature-screens/src/features/voc/components/detail/__tests__/EditDescriptionModal.test.tsx format -- pre-existing on develop (measured 2026-10-01); #676 adds one cancel-variant assertion
-apps/feature-screens/src/features/voc/components/detail/__tests__/EditDescriptionModal.test.tsx lint/style/noNonNullAssertion -- pre-existing on develop (measured 2026-10-01); #676 adds one cancel-variant assertion
-apps/feature-screens/src/features/voc/components/detail/__tests__/EditDescriptionModal.test.tsx organizeImports -- pre-existing on develop (measured 2026-10-01); #676 adds one cancel-variant assertion
-apps/feature-screens/src/features/voc/components/detail/TimelineEntry.tsx format -- pre-existing on develop (measured 2026-10-01); #684 only swaps the date formatter import
-apps/feature-screens/src/features/voc/components/detail/__tests__/ComposerTabs.test.tsx format -- pre-existing on develop (measured 2026-10-02); #679 only changes UI copy strings
-apps/feature-screens/src/features/voc/components/detail/__tests__/ComposerTabs.test.tsx organizeImports -- pre-existing on develop (measured 2026-10-02); #679 only changes UI copy strings
-apps/feature-screens/src/features/voc/components/detail/ComposerTabs.tsx lint/style/useImportType -- pre-existing on develop (measured 2026-10-02); #679 only changes UI copy strings
-apps/feature-screens/src/features/voc/components/detail/ComposerTabs.tsx organizeImports -- pre-existing on develop (measured 2026-10-02); #679 only changes UI copy strings
-apps/feature-screens/src/features/voc/components/detail/rich-toolbars/__tests__/InternalCommentToolbar.test.tsx lint/correctness/noUnusedImports -- pre-existing on develop (measured 2026-10-02); #679 only changes UI copy strings
-apps/feature-screens/src/features/voc/components/detail/rich-toolbars/__tests__/InternalCommentToolbar.test.tsx organizeImports -- pre-existing on develop (measured 2026-10-02); #679 only changes UI copy strings
-apps/feature-screens/src/features/voc/components/detail/rich-toolbars/__tests__/PublicUpdateToolbar.test.tsx organizeImports -- pre-existing on develop (measured 2026-10-02); #679 only changes UI copy strings
-apps/feature-screens/src/features/voc/components/detail/rich-toolbars/__tests__/ReporterReplyToolbar.test.tsx organizeImports -- pre-existing on develop (measured 2026-10-02); #679 only changes UI copy strings
-apps/feature-screens/src/features/voc/components/detail/rich-toolbars/InternalCommentToolbar.tsx organizeImports -- pre-existing on develop (measured 2026-10-02); #679 only changes UI copy strings
-apps/feature-screens/src/features/voc/components/detail/rich-toolbars/PublicUpdateToolbar.tsx organizeImports -- pre-existing on develop (measured 2026-10-02); #679 only changes UI copy strings
-apps/feature-screens/src/features/voc/components/detail/rich-toolbars/ReporterReplyToolbar.tsx organizeImports -- pre-existing on develop (measured 2026-10-02); #679 only changes UI copy strings
-apps/feature-screens/src/features/voc/components/triage/OwnerPicker.tsx format -- pre-existing on develop (measured 2026-10-02); #679 only changes UI copy strings
-apps/feature-screens/src/features/voc/components/triage/OwnerPicker.tsx lint/style/useImportType -- pre-existing on develop (measured 2026-10-02); #679 only changes UI copy strings
-apps/feature-screens/src/features/voc/components/triage/OwnerPicker.tsx organizeImports -- pre-existing on develop (measured 2026-10-02); #679 only changes UI copy strings
-apps/feature-screens/src/routes/__tests__/vocs.test.tsx format -- pre-existing on develop (measured 2026-10-02); #679 only changes UI copy strings
-apps/feature-screens/src/features/voc/components/detail/__tests__/ComposerFooter.test.tsx organizeImports -- pre-existing on develop (measured 2026-10-02); #679 only changes UI copy strings
-apps/feature-screens/src/features/voc/components/triage/OutOfScopeSummaryBanner.tsx lint/style/useImportType -- pre-existing on develop (measured 2026-10-02); #679 only changes UI copy strings
-apps/feature-screens/src/features/voc/components/triage/TriageEmpty.tsx lint/style/useImportType -- pre-existing on develop (measured 2026-10-02); #679 only changes UI copy strings
-apps/feature-screens/src/features/voc/components/triage/TriageEmpty.tsx organizeImports -- pre-existing on develop (measured 2026-10-02); #679 only changes UI copy strings
-apps/feature-screens/src/features/voc/components/triage/__tests__/OutOfScopeSummaryBanner.test.tsx format -- pre-existing on develop (measured 2026-10-02); #679 only changes UI copy strings
-apps/feature-screens/src/features/voc/components/triage/__tests__/OutOfScopeSummaryBanner.test.tsx lint/correctness/noUnusedImports -- pre-existing on develop (measured 2026-10-02); #679 only changes UI copy strings
-apps/feature-screens/src/features/voc/components/triage/__tests__/OutOfScopeSummaryBanner.test.tsx organizeImports -- pre-existing on develop (measured 2026-10-02); #679 only changes UI copy strings
 # #743 (Tailwind v4). The identity below was measured against the develop copy
 # (2026-10-03) with the gate's own invocation; the upgrade-tool commit f5f625b8
 # carried it and this branch only reverts one test title string in the file.
@@ -232,25 +66,3 @@ apps/feature-screens/src/features/voc/components/triage/__tests__/OutOfScopeSumm
 # develop copy of the file (2026-10-03, gate's own invocation); this branch
 # only swaps the tailwindcss/resolveConfig import for a theme.css parse and
 # rewrites the preset-resolvability describe block.
-apps/feature-screens/src/features/voc/components/triage/TriageActions.tsx lint/style/useImportType -- pre-existing on develop (measured 2026-10-03); #743 only renames Tailwind utilities in this file
-apps/feature-screens/src/features/voc/components/triage/TriageActions.tsx organizeImports -- pre-existing on develop (measured 2026-10-03); #743 only renames Tailwind utilities in this file
-apps/feature-screens/src/features/voc/components/list/VocRowSkeleton.tsx lint/a11y/useFocusableInteractive -- pre-existing on develop (measured 2026-10-06); #783 only migrates component-variant props in this file
-apps/feature-screens/src/features/voc/components/list/VocRowSkeleton.tsx lint/a11y/useSemanticElements -- pre-existing on develop (measured 2026-10-06); #783 only migrates component-variant props in this file
-apps/feature-screens/src/features/voc/components/list/VocRowSkeleton.tsx lint/correctness/noUnusedImports -- pre-existing on develop (measured 2026-10-06); #783 only migrates component-variant props in this file
-apps/feature-screens/src/features/voc/components/list/VocRowSkeleton.tsx organizeImports -- pre-existing on develop (measured 2026-10-06); #783 only migrates component-variant props in this file
-apps/feature-screens/src/features/voc/components/triage/__tests__/TriageActions.test.tsx lint/correctness/noUnusedImports -- pre-existing on develop (measured 2026-10-16); #1175 renames the dirty prop only
-apps/feature-screens/src/features/voc/components/triage/__tests__/TriageActions.test.tsx organizeImports -- pre-existing on develop (measured 2026-10-16); #1175 adds no imports
-apps/feature-screens/src/features/voc/components/create/__tests__/VocDescriptionToolbar.test.tsx lint/complexity/useLiteralKeys -- pre-existing on develop (measured 2026-10-19); Slice 66 Q2 only repoints the toolbar factory
-apps/feature-screens/src/features/voc/components/create/__tests__/VocDescriptionToolbar.test.tsx lint/style/noNonNullAssertion -- pre-existing on develop (measured 2026-10-19); Slice 66 Q2 only repoints the toolbar factory
-apps/feature-screens/src/features/voc/components/create/__tests__/VocDescriptionToolbar.test.tsx organizeImports -- pre-existing on develop (measured 2026-10-19); Slice 66 Q2 only repoints the toolbar factory
-apps/feature-screens/src/features/voc/hooks/useComposerDraft.ts organizeImports -- pre-existing on main; 713p3 changed only a docs-path comment in this file (first time the gate sees it)
-apps/feature-screens/src/features/voc/hooks/useComposerDraft.ts format -- pre-existing on main; 713p3 changed only a docs-path comment in this file (first time the gate sees it)
-apps/feature-screens/src/lib/copy/reporter-status-labels.ts format -- pre-existing on main; 713p3 changed only a docs-path comment in this file (first time the gate sees it)
-apps/feature-screens/src/features/voc/components/detail/__tests__/EditDescriptionModal.staleWriteReload.test.tsx lint/style/noNonNullAssertion -- pre-existing on main; 713q changed only import statements (and formatting of the import block) in this file, so the gate sees it for the first time
-apps/feature-screens/src/features/voc/components/detail/__tests__/EditDescriptionModal.reloadAwaitsRefetch.test.tsx lint/style/noNonNullAssertion -- pre-existing on main; 713q changed only import statements (and formatting of the import block) in this file, so the gate sees it for the first time
-apps/feature-screens/src/features/voc/components/detail/__tests__/EditDescriptionModal.reloadAwaitsRefetch.test.tsx lint/correctness/noUnusedVariables -- pre-existing on main; 713q changed only import statements (and formatting of the import block) in this file, so the gate sees it for the first time
-apps/feature-screens/src/features/voc/components/detail/__tests__/EditDescriptionModal.attachments.test.tsx lint/style/noNonNullAssertion -- pre-existing on main; 713q changed only import statements (and formatting of the import block) in this file, so the gate sees it for the first time
-apps/feature-screens/src/features/voc/components/list/VocRowError.tsx lint/a11y/useFocusableInteractive -- pre-existing on main; 713q changed only import statements (and formatting of the import block) in this file, so the gate sees it for the first time
-apps/feature-screens/src/features/voc/components/list/VocRowError.tsx lint/a11y/useSemanticElements -- pre-existing on main; 713q changed only import statements (and formatting of the import block) in this file, so the gate sees it for the first time
-apps/feature-screens/src/features/voc/hooks/__tests__/useComposerDraft.test.ts lint/suspicious/noExportsInTest -- pre-existing on main; 713q changed only import statements (and formatting of the import block) in this file, so the gate sees it for the first time
-apps/feature-screens/src/features/voc/hooks/__tests__/useComposerDraft.vocSwitchRace.test.tsx lint/correctness/useExhaustiveDependencies -- pre-existing on main; 713q changed only import statements (and formatting of the import block) in this file, so the gate sees it for the first time

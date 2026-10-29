@@ -377,6 +377,7 @@ export function useTaskRequestsQueue({
     ],
   );
 
+  const { fetchNextPage } = taskRequestsQuery;
   React.useEffect(() => {
     if (!completedDecision || completedDecision.context !== decisionContext) return;
     if (
@@ -397,7 +398,7 @@ export function useTaskRequestsQueue({
     }
     if (items.length === 0 && taskRequestsQuery.hasNextPage) {
       if (!taskRequestsQuery.isFetching && !taskRequestsQuery.isError)
-        void taskRequestsQuery.fetchNextPage();
+        void fetchNextPage();
       return;
     }
     if (taskRequestsQuery.isFetching || !taskRequestsQuery.isSuccess) return;
@@ -420,7 +421,7 @@ export function useTaskRequestsQueue({
     taskRequestsQuery.isSuccess,
     taskRequestsQuery.isError,
     taskRequestsQuery.hasNextPage,
-    taskRequestsQuery.fetchNextPage,
+    fetchNextPage,
     setLocalSelectedId,
     onSelectionChange,
   ]);

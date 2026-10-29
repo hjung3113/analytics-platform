@@ -612,3 +612,21 @@ export const foShared = featureShared();
 
 /** @type {import('eslint').Linter.Config[]} */
 export const foUi = featureUi({ reactHooks: REACT_HOOKS, design: designSystem({ componentSource: true }) });
+
+// feature-screens (#1102 b): the former Oxlint pass over the screens (ops/platform-api/.oxlintrc.json, removed) restyled-component
+// checks included, so `no-restyle` and `require-static-classes` stay on (only packages that define the primitives turn them
+// off). The screens also render the FeedbackOps components of the feature UI package, which the old config named as its `ui` alias.
+const screensDesign = designSystem();
+/** @type {import('eslint').Linter.Config[]} */
+export const foScreens = featureUi({
+  reactHooks: REACT_HOOKS,
+  design: {
+    ...screensDesign,
+    settings: {
+      shadcn: {
+        ...screensDesign.settings.shadcn,
+        componentImports: [...screensDesign.settings.shadcn.componentImports, `^${pkg('feature-ui')}(/|$)`],
+      },
+    },
+  },
+});

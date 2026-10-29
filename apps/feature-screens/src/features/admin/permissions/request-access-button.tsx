@@ -85,10 +85,9 @@ export function RequestAccessButton(props: RequestAccessButtonProps) {
   // callback reads would stop rotating the key when the intent changes, and
   // widening it would rotate mid-intent — either way server-side idempotency
   // reconciliation breaks. The suppression must stay a single line to register.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: dep list is the intent key, see above
   const idempotencyKey = useMemo(
     () => crypto.randomUUID(),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the dep list is the intent key (ADR-0015:71-90), see above
     [props.capability, props.managedSystemId, attempt],
   );
 

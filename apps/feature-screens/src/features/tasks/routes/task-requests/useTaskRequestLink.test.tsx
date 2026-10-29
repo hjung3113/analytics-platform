@@ -1,6 +1,7 @@
 import type { TaskDto, TaskRequestDto } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
+import type { PropsWithChildren } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { useTaskRequestLink } from './useTaskRequestLink';
 
@@ -58,5 +59,27 @@ describe('useTaskRequestLink', () => {
     await waitFor(() =>
       expect(toast.success).toHaveBeenCalledWith('Task TASK-901을 연결했습니다.'),
     );
+  });
+  it('keeps the picker open on a rerender with the same item object and closes it for a new object with an equal id', () => {
+    api.fetchPermissionCheck.mockResolvedValue({ state: 'approved' });
+    api.listTasks.mockResolvedValue({ items: [] });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { result, rerender } = renderHook(
+      ({ item }: { item: TaskRequestDto }) => useTaskRequestLink({ item, currentRole: 'admin' }),
+      {
+        initialProps: { item: request },
+        wrapper: ({ children }: PropsWithChildren) => (
+          <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+        ),
+      },
+    );
+    act(() => result.current.setOpen(true));
+    expect(result.current.open).toBe(true);
+
+    rerender({ item: request });
+    expect(result.current.open).toBe(true);
+
+    rerender({ item: { ...request } });
+    expect(result.current.open).toBe(false);
   });
 });

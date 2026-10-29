@@ -13,6 +13,8 @@ import { type ReviewTab, validatePermissionRequestsSearch } from './permission-r
 import { permissionRequestsReviewKey } from './useDecidePermissionRequest.js';
 
 const REQUESTS_PATH = '/admin/permissions/requests';
+// One identity while the list is absent, so the reconcile effect's dependency does not change on every render.
+const NO_REQUESTS: AdminPermissionRequestRow[] = [];
 
 /**
  * `autoSelect` (default `true`) keeps the standalone rule: the first visible request is selected on the first
@@ -56,7 +58,7 @@ export function usePermissionRequestsConsole({
   const activeTab: ReviewTab = search.tab ?? 'pending';
   const selectedId = search.selected ?? null;
   const hasAppliedInitialSelection = React.useRef(false);
-  const allRequests = query.data?.requests ?? [];
+  const allRequests = query.data?.requests ?? NO_REQUESTS;
   const visibleRequests =
     activeTab === 'all'
       ? allRequests

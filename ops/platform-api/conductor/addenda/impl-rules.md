@@ -5,12 +5,12 @@ Overrides and additions to the numbered rules above.
 - Rule 1 checks (Node 22: `export PATH=/opt/homebrew/opt/node@22/bin:$PATH`): frontend — `cd apps/feature-screens && npx
   vitest run <the test files you touched or added>` and, from the repo root, `pnpm --filter @ap/platform-api-ops gate:fe-typecheck`; backend — `pnpm --filter @ap/platform-api exec tsc
   --noEmit`; then `ops/platform-api/node_modules/.bin/biome check --config-path=ops/platform-api <every file you touched>` from the repo root, fixing only diagnostics on
-  lines you changed (files under `apps/platform-api`, `packages/feature-shared` and `packages/feature-ui` are the exception: they lint with `pnpm --filter <pkg> lint` (ESLint) and are never passed to Biome since #1102 a) (the conductor fixed introduced format errors in four PRs of s81).
+  lines you changed (files under `apps/platform-api`, `apps/feature-screens`, `packages/feature-shared` and `packages/feature-ui` are the exception: they lint with `pnpm --filter <pkg> lint` (ESLint) and are never passed to Biome since #1102 a+b) (the conductor fixed introduced format errors in four PRs of s81).
 - Backend integration suites run only as `.review/00-IMPL-RULES-BE.md` allows (your own issue database, the exact
   command your task names). Still **never** run DB commands (`db:migrate`, `db:seed`, `psql`), the full
   integration suite, or any other env file.
 - An offline install emptied a worktree's node_modules in s70.
-- **Formatting: biome only** (`ops/platform-api/biome.json`: lineWidth 100, 2-space indent, single quotes) for `apps/feature-screens`, the feature documentation roots and `ops/platform-api`. Never run Prettier. `apps/platform-api`, `packages/feature-shared` and `packages/feature-ui` are not Biome-formatted: their ESLint lint (`pnpm --filter <pkg> lint`) is the only check, and no file under them is passed to `biome check|format` (#1102 a).
+- **Formatting: biome only** (`ops/platform-api/biome.json`: lineWidth 100, 2-space indent, single quotes) for the feature documentation roots and `ops/platform-api`. Never run Prettier. `apps/platform-api`, `apps/feature-screens`, `packages/feature-shared` and `packages/feature-ui` are not Biome-formatted: their ESLint lint (`pnpm --filter <pkg> lint`) is the only check, and no file under them is passed to `biome check|format` (#1102 a+b).
 - TypeScript uses `exactOptionalPropertyTypes`: omit an optional prop rather than passing `undefined`.
 - Read first: root `AGENTS.md`, `apps/feature-screens/AGENTS.md`, the owning feature's `AGENTS.md`, and
   `.claude/rules/frontend-tests.md` (jsdom/Radix traps) before writing any test.

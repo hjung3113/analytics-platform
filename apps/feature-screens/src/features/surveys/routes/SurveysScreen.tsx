@@ -57,7 +57,7 @@ export function SurveysScreen({ renderDetail }: SurveysScreenProps): React.React
   const selectedId = search.selected ?? null;
   const selected = useSurvey(selectedId ?? '');
   const selectedGate = useSurveyManageGate(selected.data?.primary_managed_system_id);
-  const surveys = query.data ?? [];
+  const surveys = React.useMemo(() => query.data ?? [], [query.data]);
   useHostTitle(
     selected.isSuccess && !selected.isFetching && selected.data?.id === selectedId
       ? formatRecordDocumentTitle({

@@ -69,7 +69,6 @@ export function ClusterSectionReadOnly({
   );
 
   // Reset transient feedback when the panel switches to another VOC.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: vocId is the reset trigger.
   React.useEffect(() => {
     setFeedback(null);
   }, [vocId]);

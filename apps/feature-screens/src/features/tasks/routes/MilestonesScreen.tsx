@@ -174,7 +174,7 @@ export function MilestonesScreen({ renderDetail }: MilestonesScreenProps) {
   // page < catalog), so the catalog walks all pages instead of trusting one response (F4).
   const analyticsAreasQuery = useQuery(analyticsAreasCatalogQuery());
 
-  const items = listQuery.data?.items ?? [];
+  const items = React.useMemo(() => listQuery.data?.items ?? [], [listQuery.data?.items]);
   // R5 (Astra P2-2) + R6 correction — the counts read is independently keyed,
   // but a settled terminal error on EITHER read suppresses the derived
   // totals: the counts query's own denial, and the list read's denial (the
@@ -182,7 +182,10 @@ export function MilestonesScreen({ renderDetail }: MilestonesScreenProps) {
   // though counts remain cached-successful). Genuine zeros stay zeros;
   // unavailable renders as '—'.
   const countsUnavailable = countQuery.error != null || listQuery.error != null;
-  const countItems = countsUnavailable ? [] : (countQuery.data?.items ?? []);
+  const countItems = React.useMemo(
+    () => (countsUnavailable ? [] : (countQuery.data?.items ?? [])),
+    [countsUnavailable, countQuery.data?.items],
+  );
   const actorNamesById = React.useMemo(
     () => new Map((actors ?? []).map((actor) => [actor.id, actor.display_name])),
     [actors],

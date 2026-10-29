@@ -96,22 +96,23 @@ function mountWithProductionCallbacks(initialPath: string) {
     validateSearch: (raw) => vocClustersSearchSchema.parse(raw),
     component: VocClusterListPage,
   });
+  function ClusterDetailPage() {
+    const { clusterId } = detail.useParams();
+    const navigate = useNavigate();
+    return (
+      <VocClusterListShell
+        selectedId={clusterId}
+        onSelect={(id) =>
+          void navigate({ to: '/voc-clusters/$clusterId', params: { clusterId: id } })
+        }
+        onCloseDetail={() => void navigate({ to: '/voc-clusters' })}
+      />
+    );
+  }
   const detail = createRoute({
     getParentRoute: () => root,
     path: '/voc-clusters/$clusterId',
-    component: () => {
-      const { clusterId } = detail.useParams();
-      const navigate = useNavigate();
-      return (
-        <VocClusterListShell
-          selectedId={clusterId}
-          onSelect={(id) =>
-            void navigate({ to: '/voc-clusters/$clusterId', params: { clusterId: id } })
-          }
-          onCloseDetail={() => void navigate({ to: '/voc-clusters' })}
-        />
-      );
-    },
+    component: ClusterDetailPage,
   });
   const history = createMemoryHistory({ initialEntries: [initialPath] });
   const router = createRouter({ routeTree: root.addChildren([list, detail]), history });

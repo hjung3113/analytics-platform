@@ -1,7 +1,7 @@
 #!/bin/bash
 [ -n "${BASH_VERSION:-}" ] || exec bash "$0" "$@"  # zsh-invoked runs lost BASH_SOURCE (s61, s70)
 # verify-fe.sh <worktree> — FE host checks (<worktree> is the repository checkout root) (Node 22): full vitest (+packages/feature-ui if touched), FE typecheck gate, root typecheck,
-# boundaries + fixture test, design-system lint cap, backend tsc, FE→BE route drift, worker hygiene (no new biome-ignore). Logs in $WAVE_STATE/verify-<basename>/. Prints a summary.
+# boundaries + fixture test, screens ESLint (correctness, Hooks, accessibility, design-system rules), backend tsc, FE→BE route drift, worker hygiene (no new biome-ignore). Logs in $WAVE_STATE/verify-<basename>/. Prints a summary.
 here=$(cd "$(dirname "$0")" && pwd)
 # FeedbackOps path map (FO_OPS, FO_FRONTEND, FO_UI); `fo` runs a script of the @ap/platform-api-ops tool package (ops/platform-api).
 # shellcheck disable=SC1091
@@ -33,7 +33,7 @@ run_check fe-typecheck "$log/fe-typecheck.log" fo gate:fe-typecheck
 # Root typecheck also builds packages/feature-ui with its tests (gate:fe-typecheck covers only the frontend; #661).
 run_check root-typecheck "$log/root-typecheck.log" fo feature:typecheck
 run_check boundaries "$log/boundaries.log" node "$FO_OPS/scripts/check-boundaries.mjs"
-run_check design-lint "$log/design-lint.log" fo lint:design
+run_check screens-lint "$log/screens-lint.log" pnpm -s --filter @ap/feature-screens run lint
 run_check boundaries-test "$log/boundaries-test.log" node "$FO_OPS/scripts/check-boundaries.test.mjs"
 run_check be-tsc "$log/be-tsc.log" pnpm --filter @ap/platform-api exec tsc --noEmit
 # FE→BE drift (DB-free): an FE call to a path no BE route registers fails CI's backend job (s78, PR #1157).

@@ -47,15 +47,16 @@ export function TaskRequestDraftCard({
   const summaryId = `${baseId}-evidence-summary`;
   const outcomeId = `${baseId}-requested-outcome`;
 
+  const { setFocus } = form;
   React.useEffect(() => {
     const opener = document.activeElement;
-    form.setFocus('evidence_summary');
+    setFocus('evidence_summary');
     return () => {
       if (opener instanceof HTMLElement && opener.isConnected) {
         opener.focus();
       }
     };
-  }, [form.setFocus]);
+  }, [setFocus]);
 
   const pendingRequests = useQuery({
     queryKey: ['task-requests', 'pending-source', source?.type, source?.id] as const,

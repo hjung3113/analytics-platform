@@ -44,7 +44,7 @@ export function useTaskRequestLink({
     if (lastItemRef.current === item) return;
     lastItemRef.current = item;
     setLinkOpen(false);
-  });
+  }, [item]);
 
   const manageCheck = useQuery({
     queryKey: ['permission-check', 'finding.manage', item.primary_managed_system_id],

@@ -113,10 +113,13 @@ export function ClusterSuggestionSession({
 
   useEffect(() => {
     alive.current = true;
+    // The Set and Map are created once and never replaced, so the cleanup clears the same instances.
+    const lockedIds = locks.current;
+    const submitIntents = intents.current;
     return () => {
       alive.current = false;
-      locks.current.clear();
-      intents.current.clear();
+      lockedIds.clear();
+      submitIntents.clear();
     };
   }, []);
   useEffect(() => {

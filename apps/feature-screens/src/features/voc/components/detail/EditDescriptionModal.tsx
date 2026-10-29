@@ -135,7 +135,6 @@ export function EditDescriptionModal({
   const vocRef = React.useRef(voc);
   vocRef.current = voc;
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: only reset when the modal hosts a different VOC; form.reset is stable
   React.useEffect(() => {
     form.reset({
       title: voc.title,
@@ -144,6 +143,7 @@ export function EditDescriptionModal({
       attachment_ids: [],
     });
     // Intentionally only voc.id — updated_at change must NOT auto-reset.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only when the modal hosts a different VOC (REV-2 #8): voc.title/description_rich_content as dependencies would clobber in-progress edits on a same-ID refetch
   }, [voc.id]);
 
   // REV-3 Cluster W: the 다시 불러오기 action must AWAIT a refetch before
@@ -169,7 +169,7 @@ export function EditDescriptionModal({
   }, [form, queryClient, voc.id]);
 
   // Propagate server validation.failed errors into form field errors.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: form is stable (useForm), mutation.error is the reactive dep
+  const { setError } = form;
   React.useEffect(() => {
     if (!mutation.error) return;
     const err = mutation.error as ApiError;
@@ -183,12 +183,12 @@ export function EditDescriptionModal({
             const msg =
               field.message ??
               errorMapper({ code: 'validation.failed', message: '' } as ErrorEnvelope).message;
-            form.setError(pathKey as keyof EditFormValues, { message: msg });
+            setError(pathKey as keyof EditFormValues, { message: msg });
           }
         }
       }
     }
-  }, [mutation.error]);
+  }, [mutation.error, setError]);
 
   // ── handlers ───────────────────────────────────────────────────────────────
 

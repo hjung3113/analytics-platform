@@ -43,7 +43,7 @@ function mount(initial: Record<string, string>, hostSeam: Partial<HostSeam> = {}
         },
         ...hostSeam,
       }),
-      [search, hostSeam],
+      [search],
     );
     return (
       <HostSeamProvider value={seam}>

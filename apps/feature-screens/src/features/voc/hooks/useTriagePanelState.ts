@@ -70,7 +70,7 @@ export function useTriagePanelState(voc: VocListItem): UseTriagePanelStateResult
   // Re-initialise when voc.id changes (user selects a different row)
   useEffect(() => {
     dispatch({ type: 'reset', baseline: vocToBaseline(voc) });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only when a different VOC is selected (voc.id); other voc fields refresh without discarding the triage draft
   }, [voc.id]);
 
   const dirty =

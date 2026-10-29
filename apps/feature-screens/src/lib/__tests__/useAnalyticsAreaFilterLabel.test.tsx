@@ -6,7 +6,7 @@ import { useAnalyticsAreaFilterLabel } from '../useAnalyticsAreaFilterLabel';
 
 const AREA = '11111111-1111-4111-8111-111111111111';
 const MS = '22222222-2222-4222-8222-222222222222';
-function wrapper({ children }: { children: ReactNode }) {
+function Wrapper({ children }: { children: ReactNode }) {
   const [client] = useState(
     () => new QueryClient({ defaultOptions: { queries: { retry: false } } }),
   );
@@ -33,7 +33,7 @@ describe('Area filter label', () => {
         );
       }),
     );
-    const { result } = renderHook(() => useAnalyticsAreaFilterLabel(AREA, MS), { wrapper });
+    const { result } = renderHook(() => useAnalyticsAreaFilterLabel(AREA, MS), { wrapper: Wrapper });
     expect(result.current).toBe('Analytics Area: 선택한 Area');
     await waitFor(() => expect(result.current).toBe('Analytics Area: 결제 (보관됨)'));
     expect(requests.map((url) => url.searchParams.get('offset'))).toEqual(['0', '500']);
@@ -55,7 +55,7 @@ describe('Area filter label', () => {
           }),
       ),
     );
-    const { result } = renderHook(() => useAnalyticsAreaFilterLabel(AREA), { wrapper });
+    const { result } = renderHook(() => useAnalyticsAreaFilterLabel(AREA), { wrapper: Wrapper });
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 10));
     });
@@ -83,7 +83,7 @@ describe('Area filter label', () => {
     );
     const { result, rerender } = renderHook(
       ({ scope }) => useAnalyticsAreaFilterLabel(AREA, scope),
-      { initialProps: { scope: MS }, wrapper },
+      { initialProps: { scope: MS }, wrapper: Wrapper },
     );
     await waitFor(() => expect(oldStarted).toBe(true));
     rerender({ scope: AREA });
@@ -102,7 +102,7 @@ describe('Area filter label', () => {
   it('labels unset without fetching', () => {
     const fetch = vi.fn();
     vi.stubGlobal('fetch', fetch);
-    const { result } = renderHook(() => useAnalyticsAreaFilterLabel('unset'), { wrapper });
+    const { result } = renderHook(() => useAnalyticsAreaFilterLabel('unset'), { wrapper: Wrapper });
     expect(result.current).toBe('Analytics Area: 미지정');
     expect(fetch).not.toHaveBeenCalled();
   });
