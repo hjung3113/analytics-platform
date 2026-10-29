@@ -7,10 +7,13 @@
 #                  (PENDING/TBD skeletons do not count).
 #   ux=required    requires a UX record (W-<issue>-UX.json) or a `ux-skip: <evidence path>` line in
 #                  VERIFY whose path exists (relative paths resolve against the worktree).
-# Exit 0 all records present; 1 anything missing (each missing item printed); 2 usage / tier unreadable.
+# Exit 0 all records present; 1 anything missing (each missing item printed); 2 usage / tier unreadable /
+#   review-plan.py unusable (nonzero exit, output not a JSON with ok:true and a supported ux value).
 # Env: WAVE_STATE, WAVE_BRIEFS (default $AP_MAIN/.review/wave; AP_MAIN defaults to the git common dir),
 #   SHIP_CHECK_TIER (self-test only: a literal tier.sh output line, skips tier.sh),
 #   SHIP_CHECK_UX   (self-test only: `required` or `optional`, skips review-plan.py).
+#   SHIP_CHECK_PLAN / SHIP_CHECK_PLAN_RC (self-test only: literal review-plan.py stdout and exit status,
+#   skips running review-plan.py).
 # usage: ship-check.sh <issue> <worktree> [--help|--self-test]
  set -u
  SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
@@ -19,6 +22,27 @@
  usage() { echo "usage: ship-check.sh <issue> <worktree>" >&2; exit 2; }
  missing() { MISSING="${MISSING:+$MISSING
  }ship-check: $1"; }
+ 
+# review-plan.py stdout -> `required`|`optional` on stdout. Any other output is a failure (Q1):
+# prints the reason and returns 1. ux must be required|optional, or false/none (the engine's "no UX").
+plan_ux() {
+  python3 - "$1" <<'PYEOF'
+import json, sys
+try:
+    obj = json.loads(sys.argv[1])
+except ValueError:
+    print('not valid JSON'); sys.exit(1)
+if not isinstance(obj, dict) or obj.get('ok') is not True:
+    print('no ok:true'); sys.exit(1)
+ux = obj.get('ux')
+if ux in ('required', 'optional'):
+    print(ux)
+elif ux is False or ux is None or ux == 'none':
+    print('optional')
+else:
+    print(f'unsupported ux value: {ux!r}'); sys.exit(1)
+PYEOF
+}
  
 self_test() {
   local T rc pass
@@ -32,6 +56,9 @@ self_test() {
   }
   mkdir -p "$T/state" "$T/briefs/1142" "$T/wt"
   export WAVE_STATE="$T/state" WAVE_BRIEFS="$T/briefs"
+  # Q1: the plan is now read for every full-tier run; default it to a healthy optional JSON so the
+  # record cases below test VERIFY/FINAL/UX, not review-plan.py in an empty fixture worktree.
+  export SHIP_CHECK_PLAN='{"ok": true, "code": true, "ux": "optional", "flags": {}, "reasons": {}, "files": 3}'
 
   # usage
   bash "$0" >/dev/null 2>&1; rc=$?
@@ -98,8 +125,47 @@ self_test() {
     bash "$0" 1142 "$T/wt" >/dev/null; rc=$?
   expect 0 "UX.json accepted"
 
+  # Q1: a failing plan, an error JSON, an empty output or an unsupported ux must block (exit 2),
+  # not pass as optional. Records above are complete, so only the plan can fail here.
+  SHIP_CHECK_TIER='tier=full verify=full merge=locked why=x' SHIP_CHECK_PLAN_RC=2 \
+    SHIP_CHECK_PLAN='{"ok": false, "error": "uncommitted changes outside .review/"}' \
+    bash "$0" 1142 "$T/wt" >"$T/out" 2>&1; rc=$?
+  expect 2 "plan exit failure blocks"
+  grep -q "review-plan.py exited 2" "$T/out" || fail "plan exit failure: no message"
+  pass=$((pass + 1))
+  SHIP_CHECK_TIER='tier=full verify=full merge=locked why=x' \
+    SHIP_CHECK_PLAN='{"ok": false, "error": "git failed"}' \
+    bash "$0" 1142 "$T/wt" >"$T/out" 2>&1; rc=$?
+  expect 2 "error JSON blocks"
+  grep -q "no ok:true" "$T/out" || fail "error JSON: no message"
+  pass=$((pass + 1))
+  SHIP_CHECK_TIER='tier=full verify=full merge=locked why=x' SHIP_CHECK_PLAN='' \
+    bash "$0" 1142 "$T/wt" >"$T/out" 2>&1; rc=$?
+  expect 2 "empty output blocks"
+  grep -q "not valid JSON" "$T/out" || fail "empty output: no message"
+  pass=$((pass + 1))
+  SHIP_CHECK_TIER='tier=full verify=full merge=locked why=x' SHIP_CHECK_PLAN='review-plan: ok' \
+    bash "$0" 1142 "$T/wt" >/dev/null 2>&1; rc=$?
+  expect 2 "non-JSON output blocks"
+  SHIP_CHECK_TIER='tier=full verify=full merge=locked why=x' \
+    SHIP_CHECK_PLAN='{"ok": true, "code": true, "ux": "sometimes"}' \
+    bash "$0" 1142 "$T/wt" >"$T/out" 2>&1; rc=$?
+  expect 2 "unsupported ux blocks"
+  grep -q "unsupported ux value" "$T/out" || fail "unsupported ux: no message"
+  pass=$((pass + 1))
+
+  # Q1: a healthy plan JSON still passes with the same complete records.
+  SHIP_CHECK_TIER='tier=full verify=full merge=locked why=x' \
+    SHIP_CHECK_PLAN='{"ok": true, "code": true, "ux": "optional", "flags": {}, "reasons": {}, "files": 3}' \
+    bash "$0" 1142 "$T/wt" >/dev/null; rc=$?
+  expect 0 "optional plan JSON passes"
+  SHIP_CHECK_TIER='tier=full verify=full merge=locked why=x' \
+    SHIP_CHECK_PLAN='{"ok": true, "code": true, "ux": false, "flags": {}, "reasons": {}, "files": 3}' \
+    bash "$0" 1142 "$T/wt" >/dev/null; rc=$?
+  expect 0 "false plan JSON passes"
+
   cleanup
-  echo "ship-check.sh self-test passed: $pass checks (usage, light, missing VERIFY, review-plan line, FINAL.json, Verdict report, PENDING rejected, ux missing, ux-skip pass/fail, UX.json)"
+  echo "ship-check.sh self-test passed: $pass checks (usage, light, missing VERIFY, review-plan line, FINAL.json, Verdict report, PENDING rejected, ux missing, ux-skip pass/fail, UX.json, plan failure/error JSON/empty/non-JSON/unsupported ux block, optional/false plan passes)"
 }
 
 for a in "${1:-}" "${2:-}"; do
@@ -125,7 +191,7 @@ fi
 # tier: tier.sh output line (or the self-test override).
 if [ -n "${SHIP_CHECK_TIER:-}" ]; then
   tier_line=$SHIP_CHECK_TIER
-else
+  else
   tier_line=$(cd "$worktree" && bash "$SCRIPT_DIR/tier.sh" origin/main HEAD 2>/dev/null) || {
     echo "ship-check: tier.sh failed in $worktree" >&2
     exit 2
@@ -134,13 +200,28 @@ fi
 tier=light
 case "$tier_line" in *'tier=full'*) tier=full ;; esac
 
-# ux: review-plan.py's ux field (or the self-test override).
+# ux: review-plan.py's ux field (or the self-test overrides). The plan is read directly (Q1): a nonzero
+# exit, or stdout that is not a JSON with ok:true and a supported ux value, is exit 2 — it must not
+# pass as optional.
 ux=optional
 if [ -n "${SHIP_CHECK_UX:-}" ]; then
   ux=${SHIP_CHECK_UX}
 elif [ "$tier" = full ]; then
-  plan=$(cd "$worktree" && python3 "$ENGINE/review-plan.py" "$worktree" --base origin/main --head HEAD 2>/dev/null | tail -1)
-  case "$plan" in *'"ux": "required"'*) ux=required ;; esac
+  if [ -n "${SHIP_CHECK_PLAN+x}" ]; then
+    plan=${SHIP_CHECK_PLAN:-} plan_rc=${SHIP_CHECK_PLAN_RC:-0}
+  else
+    plan=$(cd "$worktree" && python3 "$ENGINE/review-plan.py" "$worktree" --base origin/main --head HEAD 2>/dev/null)
+    plan_rc=$?
+  fi
+  if [ "$plan_rc" -ne 0 ]; then
+    echo "ship-check: review-plan.py exited $plan_rc${plan:+: $plan}" >&2
+    exit 2
+  fi
+  plan_out=$(plan_ux "$plan") || {
+    echo "ship-check: review-plan.py output unusable (${plan_out}): ${plan:-<empty output>}" >&2
+    exit 2
+  }
+  ux=$plan_out
 fi
 
 # VERIFY: $WAVE_STATE/W-<n>-VERIFY.md, $WAVE_BRIEFS/W-<n>-VERIFY.md, or the archived copy.

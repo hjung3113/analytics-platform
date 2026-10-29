@@ -33,5 +33,5 @@ UI Primitive 층(06 §13)과 디자인 시스템 CSS. 플랫폼 개념(Context, 
 ## 검증
 
 `pnpm --filter @ap/ui test`로 좁혀 본 뒤 루트 검사(루트 `AGENTS.md`). 토큰·스타일 변경은 `pnpm dev`로 화면을 직접 확인한다.
-- 이 패키지를 바꾸면 루트 `pnpm typecheck|test`가 기능 패키지도 검사한다. 기능 UI의 부품 동작을 바꾸면 `pnpm --filter @ap/feature-ui exec vitest run`으로 좁혀 보고, 커밋 뒤 `pnpm --filter @ap/platform-api-ops gate:fe-lint --base origin/main`으로 기존 Biome 변경 파일 계약을 확인한다(#676). 통합 CI는 `ci.yml`이며 ESLint 전환 #1102는 미구현이다.
+- 이 패키지를 바꾸면 루트 `pnpm typecheck|test`가 기능 패키지도 검사한다. 기능 UI의 부품 동작을 바꾸면 `pnpm --filter @ap/feature-ui exec vitest run`으로 좁혀 보고, 패키지 검사는 `pnpm --filter @ap/feature-ui lint`(ESLint)다. 통합 CI는 `ci.yml`이며 기능 패키지 ESLint 전환 #1102는 끝났다. 운영 도구의 Biome 검사는 별도 범위다.
 - `@formkit/auto-animate@0.10.0` 패치는 `useListMotion`이 남아 있는 동안 유지한다(`patches/@formkit__auto-animate@0.10.0.patch`, 루트 `pnpm-workspace.yaml`의 `patchedDependencies`). 패치가 없으면 `useListMotion` 테스트 2건(destroy 뒤 polling 타이머)이 실패한다. 패치 변경 후에는 `pnpm install` 결과와 workspace state를 확인한다.
