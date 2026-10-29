@@ -1,4 +1,5 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useLayoutEffect, useMemo, useState, type ReactNode } from 'react';
+import { usePreferenceController, usePreferenceState } from './platform/preferenceContext';
 
 export type Lang = 'ko' | 'en';
 import type { Text } from '@ap/contracts';
@@ -188,9 +189,14 @@ const dict = {
   invalidFilterTitle: { ko: '필터 값이 올바르지 않습니다', en: 'A filter value cannot be used' },
   invalidTableSort: { ko: '정렬', en: 'Sort' },
   invalidTablePage: { ko: '페이지', en: 'Page' },
+  preferencesUnsaved: { ko: '설정을 서버에 저장하지 못했습니다. 이 브라우저에는 남아 있으며 다시 시도합니다.', en: 'Your settings could not be saved to the server. They stay in this browser and will be retried.' },
 } satisfies Record<string, Text>;
 
 export type Key = keyof typeof dict;
+/** Static copy for a message raised where no I18nProvider value is read (the Provider's own toast). */
+export function textFor(key: Key, lang: Lang): string {
+  return dict[key][lang];
+}
 type I18n = { lang: Lang; setLang: (lang: Lang) => void; t: (key: Key, params?: Record<string, string | number>) => string; tx: (text: Text) => string; text: (key: Key) => Text };
 const I18nContext = createContext<I18n | null>(null);
 const STORAGE = 'platform:lang';
@@ -199,6 +205,8 @@ function initialLang(): Lang {
   try { return localStorage.getItem(STORAGE) === 'en' ? 'en' : 'ko'; } catch { return 'ko'; }
 }
 
+const makeI18n = (lang: Lang, setLang: (lang: Lang) => void): I18n => ({ lang, setLang, t: (key, params) => dict[key][lang].replace(/\{(\w+)\}/g, (token, name: string) => params?.[name] === undefined ? token : String(params[name])), tx: text => text[lang], text: key => dict[key] });
+
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>(initialLang);
   const setLang = useCallback((next: Lang) => {
@@ -206,7 +214,26 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     document.documentElement.lang = next;
     try { localStorage.setItem(STORAGE, next); } catch { /* preference stays in memory */ }
   }, []);
-  const value = useMemo<I18n>(() => ({ lang, setLang, t: (key, params) => dict[key][lang].replace(/\{(\w+)\}/g, (token, name: string) => params?.[name] === undefined ? token : String(params[name])), tx: text => text[lang], text: key => dict[key] }), [lang, setLang]);
+  const value = useMemo<I18n>(() => makeI18n(lang, setLang), [lang, setLang]);
+  return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
+}
+
+const asLang = (value: unknown): Lang | undefined => (value === 'ko' || value === 'en' ? value : undefined);
+
+/**
+ * Inside a PlatformProvider that carries the server preference seam: the account's `lang` replaces the browser-wide choice
+ * (which shows until the server value is known) and a language change is written to the account, not to browser storage.
+ */
+export function ServerLanguage({ children }: { children: ReactNode }) {
+  const base = useContext(I18nContext);
+  const preferences = usePreferenceController();
+  usePreferenceState(preferences);
+  const serverLang = preferences ? asLang(preferences.get('lang')) : undefined;
+  const lang = serverLang ?? base?.lang ?? 'ko';
+  const setLang = useCallback((next: Lang) => { preferences?.set('lang', next); }, [preferences]);
+  const value = useMemo<I18n | null>(() => (base && preferences ? makeI18n(lang, setLang) : base), [base, preferences, lang, setLang]);
+  // The document language follows the language that is visible: the account's, else the browser-wide fallback.
+  useLayoutEffect(() => { document.documentElement.lang = lang; }, [lang]);
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }
 

@@ -4,6 +4,8 @@
 
 ## 작은 후속 (확인된 것)
 
+- **구현 안 함 — mock fallback의 새로고침 뒤 문서 언어(#1104b UX U-1):** 영어 선택을 복원한 UI와 `html lang=ko`가 불일치한다. 2026-10-29 branch와 기준 main `6ce0a820c`에서 admin/viewer로 재현했다. 이유: 실서버 언어 저장·복원은 이번 변경과 실제 E2E로 검증했고, 기존 mock fallback 문제는 릴리스 범위 밖이다(코디네이터 판단, 되돌릴 수 있음). 다시 여는 조건: mock 언어 초기화 경로를 고칠 때 또는 영어 접근성 검증/사용자 제보가 있을 때.
+
 - **구현 안 함 — platform-api의 plain Node 시작과 feature-shared 런타임 산출물:** `@ap/feature-shared`는 `src/index.ts`를 export하고 build가 `--noEmit`인 반면 소스 barrel은 `.js`를 참조해 `node dist/index.js`가 `src/enums/index.js`를 찾지 못한다. main `a1ab81ecb`와 #1098 r 직전 `9e1239d9f` 모두 frozen install·백엔드 build 뒤 같은 오류를 재현했다(2026-10-29); r 회귀가 아니다. 이유: #1104 설정 영속화 범위 밖인 기존 패키지 런타임 구성이다. `tsx` 로더를 쓴 실행은 가능하다. 다시 여는 조건: 백엔드 운영 배포 또는 plain Node 시작을 사용하는 작업에서 feature-shared의 emitted JS export·의존 빌드 순서를 함께 맞출 때.
 
 - **구현 안 함 — 통합 계획 조사 기록 이동(v0.20 문서 점검 A1):** `docs/integration/framework-unification-plan.md`의 유효한 #396 전략·미구현 범위를 현행 소유 문서와 backlog에 연결하고 조사 본문을 `docs/research/`로 옮기는 일은 하지 않았다. 이유: 릴리스 문서 PR 범위 밖이다. 다시 여는 조건: #396 다음 작업 또는 해당 문서를 다시 고칠 때.
@@ -16,7 +18,8 @@
 - **구현 안 함 — Saved View 선택기 필터를 드롭다운·검색으로(#1011 UX-4):** 공개 대상 필터가 그룹마다 단추 하나라 그룹이 늘면 줄바꿈과 Tab 정지점이 는다. 이유: 시드 그룹 3개 규모에서는 문제가 크지 않고 UX 구조를 바꾸는 일이다. 다시 여는 조건: 사용자 그룹이 5개 이상 보이는 화면이 생길 때.
 - **구현 안 함 — Saved View 뷰 관리 승인 뒤 포커스와 보조줄 이름표(#1011 UX-8):** 승인으로 행이 사라지면 포커스가 대화상자 컨테이너로 가고(이웃 행이 아님), 행 보조줄 `이름 · 시각 · 이름 · v1`에 이름표가 없다. 이유: minor, 동작은 막히지 않는다. 다시 여는 조건: 접근성·관리 UX 라운드.
 - **구현 안 함 — Saved View 패널 개수 표시와 소유자 이름 조회(#1011):** 패널 개수는 `panels`가 배열일 때만 센다(형식은 #911이 정한다). 소유자 이름은 본인과 그룹 멤버만 찾고 그 밖은 ID로 남는다. 사람 조회 포트 `lookupPeople`은 #1103이 내서 사용할 수 있지만 저장된 뷰 화면 연결과 서버 구현은 #1105·#1104–#1106 몫이라 이 줄은 그대로 구현 안 함이고, 패널 개수는 #911이 정한다. 다시 여는 조건: #1105(화면 연결), #911 계약.
-- **구현 안 함 — 설정 이전 런타임·Kernel 배선(#1103 → #1104):** `readPreferences`·`patchPreferences`·`importPreferences` 포트와 mock·HTTP 어댑터는 있지만 Kernel은 여전히 localStorage를 읽고 쓰며 브라우저 → 서버 1회 이전(인증된 첫 읽기 뒤 가져오기, 확인 전 로컬 보존)을 실행하지 않는다. 이유: 서버 모듈이 없고 이 이슈 범위는 계약·대역이다([ADR-0098](../docs/adr/0098-adapter-preferences-people-notices-ports.md) §2). 다시 여는 조건: #1104 착수.
+- **구현 안 함 — 설정 이전 런타임·Kernel 배선(#1103 → #1104):** Kernel의 서버 설정 컨트롤러와 브라우저 → 서버 1회 이전은 #1104b가 구현했다(호스트 실브라우저·E2E 확인 전까지 닫지 않음, [ADR-0098](../docs/adr/0098-adapter-preferences-people-notices-ports.md) §6). 서버 모듈은 #1104a 몫이다.
+- **구현 안 함 — 메뉴 선언 legacy-key manifest로 전체 이관:** 메뉴 선언 legacy-key manifest로 전체 이관 — 구현 안 함, 다시 여는 조건: 사내 배포 뒤 표 설정 유실 보고. 이유: 이름공간 밖 표 키는 출처를 확신할 수 없어 가져오지 않고 원본을 남기며 아직 배포된 사내 사용자가 없다([ADR-0098](../docs/adr/0098-adapter-preferences-people-notices-ports.md) §6).
 - **구현 안 함 — 공지 포트 직접 호출 뒤 Home 배너 갱신(#1103 → #1106):** `saveNotice`·`deleteNotice`를 직접 부르는 것만으로는 `home.notices` 캐시가 갱신되지 않는다. 이유: Home은 `menuQuery`로 읽고 갱신 연결은 서버·화면과 함께 만든다. 다시 여는 조건: #1106 착수.
 - **구현 안 함 — Saved View 1280+상세 슬롯 확인(#1011):** 사이클타임 상세의 `상세`는 별도 실행 화면으로 이동해 이 화면에서 상세 슬롯을 열 수 없어 UX 리뷰에서 보지 못했다. 다시 여는 조건: 상세 슬롯이 열리는 화면이 저장된 뷰를 옵트인할 때.
 

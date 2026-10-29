@@ -14,6 +14,8 @@ export {
 export { mountModule, type MountOptions } from './registry/module';
 
 export { useEquipmentAxes, UNDO_WINDOW_MS } from './platform/platform';
+export { usePreferenceController, usePreferenceState } from './platform/preferenceContext';
+export type { PreferenceController, PreferenceFailure, PreferenceState } from './platform/preferenceController';
 export { labelledCondition } from './context/equipmentAxes';
 
 export { useConditionPreset, useQueryContext, type ConditionPresetView } from './query/condition-preset';
