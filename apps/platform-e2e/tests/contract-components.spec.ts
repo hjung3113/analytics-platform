@@ -419,7 +419,7 @@ test.describe('공유 위젯 응답 (06 §19, #55)', () => {
     await setScenario(page, '일부 위젯 실패');
     const main = page.getByRole('main');
     await expect(main.getByRole('alert')).toHaveCount(1);
-    await expect(main.getByRole('alert')).toContainText('Widget query failed (partial scenario)');
+    await expect(main.getByRole('alert')).toContainText('위젯 쿼리가 실패했습니다(부분 실패 시나리오)');
     await expect(main.locator('[aria-busy="true"]')).toHaveCount(0);
     await expect(main.locator('[data-outcome-banner]')).toHaveCount(0);
     await expect(main.locator('[data-widget-state]')).toHaveCount(0);
