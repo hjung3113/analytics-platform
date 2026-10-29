@@ -2,6 +2,7 @@ import { optionSamples, referenceSelectionPorts } from './selection-ports.test-s
 import { describe, expect, it } from 'vitest';
 import { defineAction, defineEndpoint, emptyGlobal, projectContext, type ActionResponse, type ApiResponse, type Assessment, type AuditEvent, type ChartAnnotation, type EntityAuditPage, type GroupMember, type JsonValue, type Notice, type PreferencesSnapshot, type ClientErrorReport, type GlobalContext, type MenuAction, type MenuQuery, type Permission, type PlatformAdapter, type Session, type Trust, type UsageEvent, type UsageRange, type UsageSummary, menuPermission, spaceId } from '@ap/contracts';
 import { planServerConformance, runServerConformance, type ActionCase, type ConformanceResult, type ConformanceCase, type PortSamples, type ServerConformanceHarness } from '../index';
+import { SAVED_VIEW_PORT_METHODS } from '../plan/ports/saved-views';
 
 const SELECTION_PORT_SKIP_IDS = [
       'selection ports · global lineNames options',
@@ -830,6 +831,7 @@ describe('server conformance kit (#145)', () => {
       'port · saveNotice rejects a supplied author, id on create and unknown keys',
       'port · saveNotice without console:access → forbidden',
       'port · deleteNotice without console:access → forbidden',
+      'savedViews: no sample',
       'actions: no sample',
       'condition: no sample',
       ...SELECTION_PORT_SKIP_IDS,
@@ -1185,6 +1187,7 @@ describe('server conformance kit (#145)', () => {
       'port · getEntity of a destination in an ungranted room → forbidden',
       'port · entityAudit of a destination in an ungranted room → forbidden',
       'port · entityAudit with an issued cursor in an ungranted room → forbidden',
+      'savedViews: no sample',
       'actions: no sample',
       'condition: no sample',
       ...SELECTION_PORT_SKIP_IDS,
@@ -1264,7 +1267,7 @@ describe('declared maxRows oversize check (#175)', () => {
     const cases = [{ spec: exportSpec, params: { tail: 'p95' } }];
     const h = { ...oversizeHarness('too_large'), cases };
     expect(planServerConformance(h).filter(c => c.mode === 'skipped').map(c => c.id))
-      .toEqual([`${exportSpec.id} · declares maxRows but has no oversizeParams sample — oversize check not run`, 'actions: no sample', 'condition: no sample', ...SELECTION_PORT_SKIP_IDS]);
+      .toEqual([`${exportSpec.id} · declares maxRows but has no oversizeParams sample — oversize check not run`, 'savedViews: no sample', 'actions: no sample', 'condition: no sample', ...SELECTION_PORT_SKIP_IDS]);
     const skipped = (await runServerConformance(h)).find(r => r.id === `${exportSpec.id} · declares maxRows but has no oversizeParams sample — oversize check not run`);
     // #175 follow-up P2-A: a check that did not run is reported as skipped, never as a pass.
     expect(skipped).toEqual({ id: `${exportSpec.id} · declares maxRows but has no oversizeParams sample — oversize check not run`, status: 'skipped', failure: null });
@@ -1278,7 +1281,7 @@ describe('declared maxRows oversize check (#175)', () => {
   });
 
   it('plans no skipped check when the case provides oversizeParams', () => {
-    expect(planServerConformance(oversizeHarness('too_large')).filter(c => c.mode === 'skipped').map(c => c.id)).toEqual(['actions: no sample', 'condition: no sample', ...SELECTION_PORT_SKIP_IDS]);
+    expect(planServerConformance(oversizeHarness('too_large')).filter(c => c.mode === 'skipped').map(c => c.id)).toEqual(['savedViews: no sample', 'actions: no sample', 'condition: no sample', ...SELECTION_PORT_SKIP_IDS]);
   });
 
   it('passes on a server that answers too_large with no data', async () => {
@@ -1355,7 +1358,7 @@ describe('menuAction conformance (#501)', () => {
     const h = actionHarness();
     const noVersion = { ...h, actions: [{ spec: actionSpec, input: { text: 'hello' } }] };
     expect(planServerConformance(noVersion).filter(c => c.mode === 'skipped').map(c => c.id))
-      .toEqual(['fixture.save · declares version concurrency but has no currentVersion sample — action checks not run', 'condition: no sample', ...SELECTION_PORT_SKIP_IDS]);
+      .toEqual(['savedViews: no sample', 'fixture.save · declares version concurrency but has no currentVersion sample — action checks not run', 'condition: no sample', ...SELECTION_PORT_SKIP_IDS]);
   });
 
   it('passes the reference adapter', async () => {
@@ -1616,11 +1619,11 @@ describe('declared gaps: implemented ports, site grants, siteless destinations (
   const fresh = () => ({ ...harness(), ports: { ...PORTS, condition: undefined } });
   const ALL_METHODS = Object.keys(referenceAdapter({ permissions: new Set(), console: false })) as (keyof PlatformAdapter)[];
 
-  it('tags every planned check with the port methods it calls, all of them adapter members', () => {
+  it('tags every planned check with the port methods it calls — adapter members, or SavedViewStore members on the saved-view checks', () => {
     const h = { ...actionHarness(), cases: [{ spec, params: { page: 0 } }], ports: { ...PORTS, options: optionSamples } };
     for (const check of planServerConformance(h)) {
       expect(check.uses?.length, check.id).toBeGreaterThan(0);
-      for (const method of check.uses!) expect(ALL_METHODS, check.id).toContain(method);
+      for (const method of check.uses!) expect([...ALL_METHODS, ...SAVED_VIEW_PORT_METHODS] as string[], check.id).toContain(method);
     }
   });
 

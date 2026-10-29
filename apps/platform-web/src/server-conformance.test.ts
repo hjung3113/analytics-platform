@@ -10,7 +10,9 @@ import { describeServerConformance, type ConformanceCase } from '@ap/server-conf
 import { MOCK_AUDIT_EVENTS, MOCK_ENDPOINTS, MODULE_MOCK_ENDPOINTS } from './dev/mock-assembly';
 import { registry } from './menus';
 import { modulePermissions } from './modules';
-import { defineAction, menuPermission, spaceId, type Permission } from '@ap/contracts';
+import { defineAction, menuPermission, menuPermissions, spaceId, type Permission } from '@ap/contracts';
+import { ACTORS } from './saved-view-seed';
+import { createLocalSavedViewStore } from './saved-view-store';
 
 /** Exactly what the app registers: the mock assembly's lists, not a copy. */
 const endpoints = [...MOCK_ENDPOINTS, ...MODULE_MOCK_ENDPOINTS];
@@ -84,6 +86,27 @@ describe('conformance harness covers what the app registers', () => {
 // The vocabulary carries the mounted modules' permissions (`eqv:view`), so the mock roles are built from it (#801).
 const adapter = createMockAdapter({ equipmentAxes: EQUIPMENT_AXES, endpoints, registry, permissions: [...registry.permissions, ...modulePermissions(registry)], auditEvents: MOCK_AUDIT_EVENTS, actions: [fixtureMockAction] });
 
+// The SavedViewStore conformance sample (#1131): the browser-local store judged by the same checks as the real
+// server's. Both actors come from the mock directory (saved-view-seed) so the group share between them is real;
+// the storage is this file's own memory (this test's import allowlist is deliberately narrow, #153) and one
+// queue serializes the two stores like the origin lock.
+const savedViewMemory = new Map<string, string>();
+const savedViewStorage = {
+  getItem: (name: string) => savedViewMemory.get(name) ?? null,
+  setItem: (name: string, value: string) => void savedViewMemory.set(name, value),
+  removeItem: (name: string) => void savedViewMemory.delete(name),
+};
+let savedViewTail = Promise.resolve();
+const savedViewLocks = { request: <T>(_name: string, callback: () => T | Promise<T>): Promise<T> => {
+  const result = savedViewTail.then(callback); savedViewTail = result.then(() => undefined, () => undefined); return result;
+} };
+const savedViewStoreOf = (role: 'engineer' | 'admin') => createLocalSavedViewStore({
+  getStorage: () => savedViewStorage,
+  locks: savedViewLocks,
+  getActor: () => ACTORS[role],
+  menuPermissionsOf: menuId => { try { return menuPermissions(registry.menuById(menuId)); } catch { return undefined; } },
+});
+
 describeServerConformance('server boundary conformance — mock adapter', {
   adapter,
   cases,
@@ -123,6 +146,7 @@ describeServerConformance('server boundary conformance — mock adapter', {
     clientError: { correlationId: 'client-conformance', menuId: 'equipment', spaceId: spaceId('mars'), path: '/equipment', name: 'TypeError' },
     otherGrantedScopeId: 'FDRY',
     visiblePersonId: GRANTED,
+    savedViews: { user: savedViewStoreOf('engineer'), admin: savedViewStoreOf('admin'), menuId: 'productivity-overview' },
   },
   asGranted: async fn => {
     const previous = getRole();

@@ -4,6 +4,7 @@ import { CONTEXT_KEYS, SET_KEYS, UNKNOWN_ENDPOINT, UNKNOWN_KEY, assessmentProble
 import { planActionChecks } from './actions';
 import { planConditionChecks } from './conditions';
 import { planPortChecks } from './ports';
+import { SAVED_VIEW_PORT_METHODS } from './ports/saved-views';
 import { planSelectionPortChecks } from './ports/selection-ports';
 
 /** The checks one harness implies, derived synchronously from the declarations (stable test names). */
@@ -220,10 +221,15 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
  */
 function declareGaps(harness: ServerConformanceHarness, checks: ConformanceCheck[]): ConformanceCheck[] {
   const implemented = harness.implemented ? new Set<PortMethod>(harness.implemented) : null;
+  // Saved-view uses name `SavedViewStore` members, which the `PlatformAdapter` list `implemented` cannot gate;
+  // the saved-view sample's presence gates them instead (#1131).
+  const savedViewUses = new Set<string>(SAVED_VIEW_PORT_METHODS);
   for (const check of checks) {
     // Every check declares the ports it calls where it is defined; an untagged one would dodge `implemented`.
     if (!check.uses?.length) throw new Error(`conformance check declares no port methods (uses): ${check.id}`);
-    const missing = implemented ? (check.uses ?? []).filter(method => !implemented.has(method)) : [];
+    const missing = implemented
+      ? (check.uses ?? []).filter(method => !savedViewUses.has(method) && !implemented.has(method as PortMethod))
+      : [];
     if (missing.length > 0) {
       check.mode = 'skipped';
       check.id += ` — not implemented: ${missing.join(', ')}`;
