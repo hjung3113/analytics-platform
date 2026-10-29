@@ -81,7 +81,7 @@ test('dev compose: platform project and containers keep the existing database vo
   assert.match(dev, /^ {6}- platform-db-data:\/var\/lib\/postgresql\/data$/m);
   assert.match(dev, /^ {6}- \.\/minio_data:\/data$/m);
   assert.match(dev, /MINIO_ROOT_USER: platform-minio$/m);
-  assert.match(dev, /MINIO_ROOT_PASSWORD: fops-minio-secret-change-me$/m);
+  assert.match(dev, /MINIO_ROOT_PASSWORD: platform-minio-secret-change-me$/m);
 });
 
 test('image smoke owns its volumes and ignores operator volume selections', () => {

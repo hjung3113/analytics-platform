@@ -1,6 +1,6 @@
 # 문서 인덱스
 
-이 레포는 `context_recognized_parser`(별도 레포)가 적재한 데이터를 소비하는 분석 플랫폼의 설계와 프론트엔드 플랫폼 코드를 담는다. 코드는 루트 pnpm workspace(`packages/sdk/*`·`packages/adapters/*` 플랫폼 패키지, `menus/*/*` 견본 메뉴와 `platform/*` 플랫폼 기능 메뉴, `apps/platform-web` 조립 앱, 서버는 mock 또는 `@ap/http-adapter` 실어댑터)이고, FeedbackOps는 `apps/{platform-api,feature-screens}`·`packages/feature-*`·`docs/INDEX.md`에 있다(서브모듈 아님, ADR-0066·ADR-0090).
+이 레포는 `context_recognized_parser`(별도 레포)가 적재한 데이터를 소비하는 분석 플랫폼의 설계와 프론트엔드 플랫폼 코드를 담는다. 코드는 루트 pnpm workspace(`packages/sdk/*`·`packages/adapters/*` 플랫폼 패키지, `menus/*/*` 견본 메뉴와 `platform/*` 플랫폼 기능 메뉴, `apps/platform-web` 조립 앱, 서버는 mock 또는 `@ap/http-adapter` 실어댑터)이고, VOC·설문·Task·Finding 기능은 `apps/{platform-api,feature-screens}`·`packages/feature-*`와 `docs/{product,design,user-guide}/features`·`docs/architecture/platform-api`에 있다(서브모듈 아님, ADR-0066·ADR-0090·ADR-0097).
 
 | 알고 싶은 것 | 어디 |
 | --- | --- |
@@ -41,7 +41,7 @@
 | 모노레포 구조·빌드·CI·접두사 변경 | [패키지 경계](integration/platform-packages.md), [저장소 구조](integration/repository-layout.md) | [tooling](../tooling/AGENTS.md) → [packages](../packages/AGENTS.md) | 루트 `package.json`·`pnpm-workspace.yaml`·`turbo.json` → `.github/workflows/ci.yml` |
 | 설계 문서·결정 갱신 | 해당 소유 문서 → [ADR 목록](adr/README.md) 또는 [05](overview/roadmap-and-open-questions.md) | [docs](AGENTS.md) | 바꾼 뒤 `pnpm docs:links` |
 | 적재 워커 상태·가공 상태 조회·운영 콘솔 모니터링 | [01 가공 상태 보고](architecture/architecture-and-data-contract.md#processing-status-report), 06 §19, [상태 기록 스키마](integration/ingest-status-schema.md) | [docs](AGENTS.md) | 파서 저장소 `context_recognized_parser` |
-| FeedbackOps 연결·운영 화면 탑재 | [저장소 구조](integration/repository-layout.md), [딥링크 계약](integration/feedbackops-deeplink.md), [합류 설계](integration/feedbackops-merge-design.md), [ADR-0081](adr/0081-feedbackops-operator-screens-platform-frame.md), [ADR-0066](adr/0066-feedbackops-merges-into-platform.md) | [fo-bridge](../packages/adapters/feature-bridge/AGENTS.md), [메뉴](../menus/AGENTS.md), [플랫폼 기능 메뉴](../platform/AGENTS.md), [앱 조립](../apps/platform-web/AGENTS.md), [Survey](../apps/feature-screens/src/features/surveys/AGENTS.md), [Admin](../apps/feature-screens/src/features/admin/AGENTS.md), [FeedbackOps 도메인](agents/feature-implementation.md) | `packages/adapters/feature-bridge/src/fo/` · `apps/feature-screens/src/operator-screens/` · `platform/` |
+| 기능 화면 연결·운영 화면 탑재 | [저장소 구조](integration/repository-layout.md), [딥링크 계약](integration/feedbackops-deeplink.md), [합류 설계](integration/feedbackops-merge-design.md), [ADR-0081](adr/0081-feedbackops-operator-screens-platform-frame.md), [ADR-0066](adr/0066-feedbackops-merges-into-platform.md) | [fo-bridge](../packages/adapters/feature-bridge/AGENTS.md), [메뉴](../menus/AGENTS.md), [플랫폼 기능 메뉴](../platform/AGENTS.md), [앱 조립](../apps/platform-web/AGENTS.md), [Survey](../apps/feature-screens/src/features/surveys/AGENTS.md), [Admin](../apps/feature-screens/src/features/admin/AGENTS.md), [기능 도메인](agents/feature-implementation.md) | `packages/adapters/feature-bridge/src/fo/` · `apps/feature-screens/src/operator-screens/` · `platform/` |
 | 통합 전 단위 프로토타입 | — | [prototypes](../archive/AGENTS.md) | 각 프로토타입 README |
 
 ## 번호 약칭 → 파일
@@ -85,21 +85,21 @@
 
 통합 계약(`docs/integration/`):
 
-- [저장소 구조](integration/repository-layout.md) — 폴더 구조, FeedbackOps 디렉터리 구조와 연결.
+- [저장소 구조](integration/repository-layout.md) — 폴더 구조, 기능 디렉터리 구조와 연결.
 - [패키지 경계](integration/platform-packages.md) — 패키지 의존 방향, 메뉴 템플릿, 결정(2026-09-26, 세부 타입 이름은 Candidate).
 - [실서버 연결 체크리스트](integration/real-server-checklist.md) — `PlatformAdapter` 메서드별 의미, `menuQuery` 판정 순서·등록 검증, 적합성 묶음 실행. Candidate.
 - [전송 형식](integration/http-adapter-contract.md) — 메서드별 HTTP 경로·요청/응답, 상태 코드와 `outcome`, 세션·CSRF, 백엔드 담당 질문. 구현 기준(#620–#623, PR #632·#636), `[제안]` 표식 행은 아직 제안.
 - [사내 적용 가이드](integration/in-house-rollout.md) — mock → 실어댑터·실서버 전환 순서, 담당자별 확인 질문, 사내 메뉴 개발 가이드, 완료 기준.
 - [적재 워커 상태 기록 스키마](integration/ingest-status-schema.md) — 가공 상태 원천의 기록 구조와 평가 규칙. Decided(2026-10-26, #37 — 이름만 Candidate).
-- [FeedbackOps 합류 설계](integration/feedbackops-merge-design.md) — 전역 기능·피드백 운영 업무 시스템 배치, 서버 출발점, 단계, Open. 방향 Decided([ADR-0066](adr/0066-feedbackops-merges-into-platform.md)).
-- [FeedbackOps 딥링크 계약](integration/feedbackops-deeplink.md) — 양방향 딥링크 1단계(확장은 #81).
+- [FeedbackOps 합류 설계](integration/feedbackops-merge-design.md) — **과거 기록**(ADR-0097이 `피드백 운영` 업무 시스템과 제품명을 폐기했다). 전역 기능·피드백 운영 업무 시스템 배치, 서버 출발점, 단계, Open. 방향 Decided([ADR-0066](adr/0066-feedbackops-merges-into-platform.md)).
+- [FeedbackOps 딥링크 계약](integration/feedbackops-deeplink.md) — **과거 기록 + 현행 inbound 계약**(독립 앱 복귀 방향은 #597에서 은퇴). 양방향 딥링크 1단계(확장은 #81).
 - [프레임워크 통합 계획](integration/framework-unification-plan.md) — FeedbackOps·equipment-visualization 프레임워크 조각을 플랫폼 프레임워크로 합치는 지도(현황·중복·목표·단계·SDK 준비 메모). Proposed(#396의 입력). 목표는 [ADR-0043](adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)이 우선한다.
 - [SDK 포괄 목록](integration/sdk-coverage-inventory.md) — 세 프레임워크(AP·FeedbackOps·EV)의 기능을 SDK가 모두 덮는지 코드로 대조한 목록과 통합 계획 지도 정정. Candidate. 저장소·릴리스 구조 결정은 [ADR-0044](adr/0044-sdk-source-in-platform-repo-released-separately.md)(Decided).
 - [SDK git 태그 소비 시험](integration/sdk-git-tag-consumption.md) — FeedbackOps가 `@ap/ui`를 git 태그 의존성으로 받을 때 되는 것과 소비자 조건(`@types/node`·`@tiptap/*` overrides·auto-animate 패치). Candidate.
 - [SDK TopN·Lane 차트 API·사용 예·변경 기록](integration/sdk-charts.md) — #576, ADR-0064.
 - [플랫폼 탑재 설계](integration/platform-hosting-design.md) — 다른 저장소 업무 모듈(EV·FeedbackOps)의 호스트 → 모듈 계약, 두 호스트 실행, 패키지 배치, FeedbackOps 탑재안. Proposed(선행 조사, ADR-0038·0039 초안). 독립 호스트는 SDK 범위 밖(ADR-0043).
 
-루트 문서: [DESIGN](../DESIGN.md)(FeedbackOps 기반 플랫폼 시각 확장 — 06의 최소 기준·상태·접근성 의무는 바꾸지 않는다), [GLOSSARY](../GLOSSARY.md)(현행 도메인 용어와 관계).
+루트 문서: [DESIGN](../DESIGN.md)(공유 디자인 시스템 위의 플랫폼 시각 확장 — 06의 최소 기준·상태·접근성 의무는 바꾸지 않는다), [GLOSSARY](../GLOSSARY.md)(현행 도메인 용어와 관계).
 
 조사·근거 기록(authoritative 아님):
 

@@ -1,7 +1,7 @@
 {
   "realm": "platform",
   "enabled": true,
-  "displayName": "FeedbackOps",
+  "displayName": "Platform",
   "sslRequired": "external",
   "registrationAllowed": true,
   "registrationEmailAsUsername": true,
@@ -38,7 +38,7 @@
   "clients": [
     {
       "clientId": "platform",
-      "name": "FeedbackOps",
+      "name": "Platform",
       "enabled": true,
       "protocol": "openid-connect",
       "publicClient": false,

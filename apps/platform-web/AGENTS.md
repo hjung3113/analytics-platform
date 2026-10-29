@@ -31,5 +31,5 @@
 
 스크립트(#153): `build`는 mock 데모(`--mode mock`, CI와 CSS selector 비교가 쓴다), `build:prod`는 `AP_PLATFORM_ASSEMBLY`가 없으면 실패하고 `scripts/typecheck-assembly.ts`로 조립 모듈 타입을 검사한다, `check:prod-graph`는 운영 모듈 그래프에 mock·`src/dev`가 없음을 확인한다(CI는 `--force-mock`·`--force-mock-build`로 검사가 아직 무는지도 확인). 설계 이유는 [ADR-0009](../../docs/adr/0009-production-assembly-injection.md)·[체크리스트 §1](../../docs/integration/real-server-checklist.md), 조립 계약 타입은 `src/platform-assembly.d.ts`다.
 
-lint(#153): `@ap/mock-server`는 `src/dev/**`·`src/server-conformance.test.ts`·`src/published-metrics.test.ts`에서만, 메뉴 `/mock` 서브패스는 `src/dev/**`에서만 import할 수 있고 `src/main.tsx`는 FeedbackOps origin 서브패스만 허용된다. 원본은 `tooling/eslint/src/index.js`(`app` 프리셋). `import.meta.glob('./dev/*')`은 lint가 못 보므로 `check:prod-graph`가 잡는다.
+lint(#153): `@ap/mock-server`는 `src/dev/**`·`src/server-conformance.test.ts`·`src/published-metrics.test.ts`에서만, 메뉴 `/mock` 서브패스는 `src/dev/**`에서만 import할 수 있고 `src/main.tsx`는 mock·`./dev`를 import하지 못한다. 원본은 `tooling/eslint/src/index.js`(`app` 프리셋). `import.meta.glob('./dev/*')`은 lint가 못 보므로 `check:prod-graph`가 잡는다.
 

@@ -231,7 +231,7 @@ describe.skipIf(!runIntegration)('health probes (ADR-0013)', () => {
       const first = call[0];
       return typeof first === 'string' ? first : String((first as { text?: string })?.text ?? '');
     };
-    const headers = { cookie: 'fops_session=not-a-real-session-token' };
+    const headers = { cookie: 'platform_session=not-a-real-session-token' };
 
     // Control: a normal route with the same cookie DOES hit the DB for the
     // session lookup, so a zero below is meaningful (not a broken spy).

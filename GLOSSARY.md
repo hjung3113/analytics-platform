@@ -151,7 +151,7 @@ _Avoid_: 플랫폼 — 플랫폼 전체와 섞인다.
 **업무 시스템** (코드 이름 `Space`):
 플랫폼 위에 올라가는 독립된 업무 단위. 자기 메뉴 그룹·메뉴·업무 객체와 진입 권한을 소유하고, 다른 시스템의 객체를 흡수하지 않는다. 지금 등록된 것은 MARS·CLAS(생산성 분석), BRAVO(지표관리), 표준 로그 개발, 개선 실행, 운영 콘솔이다. VOC·설문·Task·Finding은 별도 피드백 운영 시스템이 아닌 플랫폼 기능이고, 운영 화면은 `운영 콘솔` 하나에 있다([ADR-0097](docs/adr/0097-platform-features-and-role-based-names.md), [ADR-0100](docs/adr/0100-feature-navigation-and-independent-access.md)).
 CLAS는 약어 그대로 쓰고 영어 풀이 이름은 쓰지 않는다(어차피 바뀔 이름, 사용자 2026-10-27). 메뉴·설명에도 `Equipment operation`·`operation time` 같은 풀이를 두지 않는다. MARS와 CLAS는 메뉴가 달라 별도 시스템으로 둔다(이 플랫폼의 CLAS에는 견본 메뉴 하나가 있고, 기존 CLAS 화면 이전은 계획).
-_Avoid_: 워크스페이스, 공간, 앱, 모듈 — 워크스페이스는 FeedbackOps의 workspace(테넌트)·작업 영역과, 모듈은 호스트 모듈·설비 Module과 섞인다. 화면 문구는 `업무 시스템`(짧게 `시스템`)이고, `Space`는 코드 이름으로만 쓴다.
+_Avoid_: 워크스페이스, 공간, 앱, 모듈 — 워크스페이스는 코어 서버의 workspace(테넌트)·작업 영역과, 모듈은 호스트 모듈·설비 Module과 섞인다. 화면 문구는 `업무 시스템`(짧게 `시스템`)이고, `Space`는 코드 이름으로만 쓴다.
 
 **메뉴 그룹** (`GroupDef`):
 업무 시스템 사이드바의 한 묶음이자 레일의 섹션 하나(예: MARS의 생산성 분석·설비관리·기준정보관리). 업무 시스템 소속은 메뉴 그룹에 걸리고, 메뉴는 그룹만 고른다. 메뉴 패키지 하나가 그룹 하나를 소유한다.
@@ -171,7 +171,7 @@ Registry가 메뉴의 대표 주소로 제공하는 경로([06 §6.4](docs/contr
 
 **Context 지원 방식** (`Capability`):
 메뉴가 분석 Context 키마다 선언하는 쓰임 — 적용(`apply`, 조회 조건으로 씀), 참조만(`reference`, 보이고 이어지지만 조회에 안 씀), 미사용(`unsupported`, 보존만 함).
-_Avoid_: Capability(단독), Context Capability — 공정 능력(StGroup)·FeedbackOps 권한 어휘와 섞인다.
+_Avoid_: Capability(단독), Context Capability — 공정 능력(StGroup)·기능 권한 어휘와 섞인다.
 
 **페이지 유형** (Page Archetype, `pageType`):
 메뉴 화면이 따르는 배치 틀 다섯 — Overview, Analysis Workspace, Management, Catalog, Workflow([06 §12](docs/contract/platform-ui-contract.md)).
@@ -229,7 +229,7 @@ FeedbackOps의 운영 화면(수신함·Triage·Finding·Task·설문 관리·�
 _Avoid_: 게시, Published — 같은 동작을 두 이름으로 부르지 않는다(사용자 2026-10-23, 2026-10-27 `발행`/`Released`로 통일).
 
 **VOC 등록** / **신고자**:
-VOC를 처음 쓰는 동작은 `등록`이고, 등록한 사람은 `신고자`(FeedbackOps Reporter)다. 신고자에게 보이는 담당자의 글은 `담당자 답변`이라 하며 FeedbackOps의 Public Update다. 신고자가 다시 쓰는 글은 `신고자 답글`(Reporter Reply)이다.
+VOC를 처음 쓰는 동작은 `등록`이고, 등록한 사람은 `신고자`(Reporter)다. 신고자에게 보이는 담당자의 글은 `담당자 답변`이라 하며 VOC의 Public Update다. 신고자가 다시 쓰는 글은 `신고자 답글`(Reporter Reply)이다.
 _Avoid_: 접수 — 등록과 같은 동작을 다른 말로 부르지 않는다.
 
 ### 분석 조건과 분석 보드
@@ -322,7 +322,7 @@ _Avoid_: 드릴다운 메뉴 — 별도 메뉴가 아니라 한 메뉴 안의 �
 여러 조회 조건을 모아 한 번에 실행하는 메뉴의 조회 방식. 편집 중인 조건은 칸의 초안에만 있고, `적용`을 눌러야 URL(적용 주소)에 쓰이고 조회가 실행된다. 선언이 없는 메뉴는 바꾸는 즉시 적용되는 live 모드다. 필수 조건이 비면 조회하지 않는 idle 상태다([ADR-0061](docs/adr/0061-query-draft-applied-address-and-required-gate.md)).
 
 **Data Trust** (`trust`):
-조회 결과 숫자의 상태 — 갱신 시각(`updatedAt`), 데이터 기준 시각(`dataThrough`), Coverage, 지표 버전, 잠정(provisional) 여부, 원천. 응답 봉투의 `trust`로 오고 `DataTrustIndicator`가 같은 어휘로 보인다. 그 조회의 신뢰이며 화면이 말하는 대상의 상태가 아니다([06 §18](docs/contract/components.md#18-data-trust-contract)). Coverage는 늘 이 Data Trust 필드를 뜻하며, 견본 표시나 FeedbackOps 연동 화면에 쓰지 않는다.
+조회 결과 숫자의 상태 — 갱신 시각(`updatedAt`), 데이터 기준 시각(`dataThrough`), Coverage, 지표 버전, 잠정(provisional) 여부, 원천. 응답 봉투의 `trust`로 오고 `DataTrustIndicator`가 같은 어휘로 보인다. 그 조회의 신뢰이며 화면이 말하는 대상의 상태가 아니다([06 §18](docs/contract/components.md#18-data-trust-contract)). Coverage는 늘 이 Data Trust 필드를 뜻하며, 견본 표시나 기능 연동 화면에 쓰지 않는다.
 
 ### 기능 도메인
 
@@ -342,7 +342,7 @@ The hierarchical authority level assigned to an **Actor**: Admin, Developer, or 
 _Avoid_: Persona, reporter, managed system
 
 **Admin**:
-The highest **Role Level**, allowed to manage FeedbackOps settings, permissions, and operating policy.
+The highest **Role Level**, allowed to manage feature settings, permissions, and operating policy.
 _Avoid_: Customer, account, reporter
 
 **Developer**:
@@ -617,7 +617,7 @@ _Avoid_: Cluster member as a single bulk target, merged record, bare "candidate"
 - A **Managed System** may have many **Analytics Areas**.
 - An **Analytics Area** belongs to exactly one **Managed System**.
 - A **VOC** must reference one **Primary Managed System** and may reference one **Analytics Area** within that system.
-- FeedbackOps **Analytics Area** catalog is the MVP source of truth; external analytics menu identifiers are optional metadata only.
+- The core server **Analytics Area** catalog is the MVP source of truth; external analytics menu identifiers are optional metadata only.
 - Automatic BI menu import or synchronization is not an MVP feature.
 - **Analytics Area** owner teams are routing/defaulting hints only and do not grant authorization.
 - **Analytics Area** is an optional classification aid on VOC, Finding, Task, and Survey records; absence of Analytics Area is valid in MVP.

@@ -35,7 +35,7 @@ function config(): AppConfig {
     HOST: '127.0.0.1',
     AUTH_PROVIDER: 'mock',
     WORKSPACE_ID,
-    WORKSPACE_NAME: 'FeedbackOps',
+    WORKSPACE_NAME: 'Platform',
     SEED_MODE: 'core',
     PUBLIC_ATTACHMENT_ORIGIN: "'self'",
     TRUSTED_PROXY_HOPS: 0,
