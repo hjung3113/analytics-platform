@@ -37,7 +37,7 @@ const envSchema = z
     OIDC_REDIRECT_URI: z.string().optional(),
     OIDC_SCOPES: z.string().default('openid email profile'),
     WORKSPACE_ID: z.string().uuid().optional(),
-    WORKSPACE_NAME: z.string().default('FeedbackOps'),
+    WORKSPACE_NAME: z.string().default('Platform'),
     // `personas` layers black-box test actors and grants over the core seed.
     SEED_MODE: z.enum(['core', 'personas', 'scale']).default('core'),
     // CSP `img-src`/`connect-src` origin for public attachment URLs (#402).

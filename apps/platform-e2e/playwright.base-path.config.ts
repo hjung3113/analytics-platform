@@ -26,6 +26,5 @@ export default defineConfig({
     url: `http://127.0.0.1:${PORT}${BASE}`,
     reuseExistingServer: false,
     timeout: 120_000,
-    env: { VITE_PLATFORM_API_ORIGIN: 'https://feedbackops.example' },
   },
 });

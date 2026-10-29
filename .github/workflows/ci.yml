@@ -32,7 +32,7 @@ concurrency:
 # `Platform workspace (pnpm monorepo)`는 병렬 두 Job(Platform static·Platform test)의 모음 Job이고, 하위 결과가 둘 다 정확히 success일 때만 통과한다.
 # E2E는 shard Job + 병합 Job(#666)이다. PR과 main push는 바뀐 것에 영향받는 spec만 돈다(`.github/scripts/select-e2e.mjs`, #1019): 판단하지 못하면 전부(shard 4개)이고, 전체는 `workflow_dispatch`의
 # `full=true`(릴리스 태그 전)에서도 돈다. main push의 기준은 직전 커밋이 아니라 CI가 green이었던 마지막 main SHA다(`last-green-main-sha.mjs`) — 실패한 spec은 green이 될 때까지 범위에 남는다.
-# FeedbackOps는 서브모듈이 아니라 일반 디렉터리(apps/{platform-api,feature-screens}·packages/feature-*·docs/feedbackops)라 checkout 옵션이 따로 없다(기능 게이트도 ci.yml이 소유). 프로토타입 4개 Job은 submodules: false를 명시한다.
+# 기능 패키지는 서브모듈이 아니라 일반 디렉터리(apps/{platform-api,feature-screens}·packages/feature-*·docs/{product,design,user-guide}/features·docs/architecture/platform-api)라 checkout 옵션이 따로 없다(기능 게이트도 ci.yml이 소유). 프로토타입 4개 Job은 submodules: false를 명시한다.
 
 jobs:
   changes:

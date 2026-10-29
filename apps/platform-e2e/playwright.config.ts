@@ -42,7 +42,5 @@ export default defineConfig({
     url: `http://127.0.0.1:${PORT}`,
     reuseExistingServer: false,
     timeout: 60_000,
-    // #251: the FeedbackOps entries need an origin to be live links (unset renders them disabled — covered by unit tests).
-    env: { VITE_PLATFORM_API_ORIGIN: 'https://feedbackops.example' },
   },
 });

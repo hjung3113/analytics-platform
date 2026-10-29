@@ -175,7 +175,7 @@ export const savedViews = coreSchema.table(
 
 // ─────────────────────────────────────────────────────────────────────────
 // core.sessions — ADR-0006: opaque text PK, server-side store.
-// Cookie name 'fops_session' carries this opaque id.
+// Cookie name 'platform_session' carries this opaque id.
 // ─────────────────────────────────────────────────────────────────────────
 export const sessions = coreSchema.table(
   'sessions',

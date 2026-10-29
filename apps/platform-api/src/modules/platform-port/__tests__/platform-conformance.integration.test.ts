@@ -387,7 +387,7 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
     });
   });
 
-  describeServerConformance('FeedbackOps backend through @ap/http-adapter', {
+  describeServerConformance('Platform API through @ap/http-adapter', {
     adapter,
     implemented: IMPLEMENTED,
     siteGrants: false,

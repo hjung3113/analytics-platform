@@ -2,7 +2,7 @@
 version: alpha
 name: analytics-platform-design
 description: >
-  Platform visual extensions and data-workspace patterns on FeedbackOps.
+  Platform visual extensions and data-workspace patterns on the shared design system.
   Shared tokens, fonts and primitives are owned by the platform (@ap/ui, ADR-0043/0046;
   tokens, utils and primitives moved from FeedbackOps a8d768b8 in #441, other groups follow);
   shell structure and behavior remain owned by the platform UI contract.
@@ -106,9 +106,9 @@ components:
 
 ## Overview
 
-> 디자인 시스템 결정의 원본은 플랫폼이다([ADR-0043](docs/adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md), 2026-10-19). 이 문서의 "FeedbackOps 원본" 표기는 소유 방향만 바뀌었고, 코드를 SDK로 옮기기 전까지는 그 규칙대로 동작한다(값은 FeedbackOps, 변경은 FeedbackOps에 제안). 본문은 코드 이전 이슈에서 고친다.
+> 디자인 시스템 결정과 공유 토큰·폰트·primitive의 원본은 플랫폼 `@ap/ui`다([ADR-0043](docs/adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md), [ADR-0046](docs/adr/0046-design-system-source-moves-to-platform-whole-package.md)). 본문의 "FeedbackOps 원본" 표기는 도입 당시 값의 출처를 뜻한다. 현행 값과 변경 제안은 `packages/sdk/ui/`를 기준으로 한다.
 
-이 문서는 **FeedbackOps 위에 얹는 플랫폼 디자인 확장**의 원본이다. 공유 디자인 시스템을 다시 정의하지 않는다. [ADR-0010](docs/adr/0010-feedbackops-design-system-shared-on-tailwind-v4.md)의 직접 소비 방식과 [ADR-0011](docs/adr/0011-design-direction-feedbackops-shell.md)의 승인된 프로토타입 C안을 따른다. #193의 토큰 이행과 #194의 밝은 셸 규칙을 반영한다. 이 문서 갱신은 새 프로토타입 승인이나 런타임 검증 기록이 아니다.
+이 문서는 **공유 디자인 시스템 위에 얹는 플랫폼 디자인 확장**의 원본이다. 공유 디자인 시스템을 다시 정의하지 않는다. [ADR-0010](docs/adr/0010-feedbackops-design-system-shared-on-tailwind-v4.md)의 직접 소비 방식과 [ADR-0011](docs/adr/0011-design-direction-feedbackops-shell.md)의 승인된 프로토타입 C안을 따른다. #193의 토큰 이행과 #194의 밝은 셸 규칙을 반영한다. 이 문서 갱신은 새 프로토타입 승인이나 런타임 검증 기록이 아니다.
 
 메뉴 화면은 Kernel·공통 컴포넌트·차트 계약·Page Archetype·메뉴간 연결을 검증하는 Consumer다. 화면마다 새 팔레트나 부품 체계를 만들지 않는다. 행동·권한·Context·상태 의미는 [06](docs/contract/platform-ui-contract.md)이 우선한다.
 

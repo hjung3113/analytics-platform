@@ -71,7 +71,7 @@ describe('notice write routes (judged before the database)', () => {
       const { app: instance, reads } = await build({ admin: true });
       for (const csrfHeaders of [{}, { 'x-csrf-token': 'wrong' }, { 'x-csrf-token': CSRF }]) {
         const res = await post(instance, url, create, {
-          cookie: 'fops_session=expired-session',
+          cookie: 'platform_session=expired-session',
           'idempotency-key': KEY,
           ...csrfHeaders,
         });

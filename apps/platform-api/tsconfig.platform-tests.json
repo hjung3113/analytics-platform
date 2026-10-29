@@ -11,7 +11,8 @@
   },
   "include": [
     "src/types/*.d.ts",
-    "src/modules/platform-port/__tests__/platform-conformance.integration.test.ts"
+    "src/modules/platform-port/__tests__/platform-conformance.integration.test.ts",
+    "src/modules/platform-saved-views/__tests__/transition-drift.test.ts"
   ],
   "exclude": []
 }

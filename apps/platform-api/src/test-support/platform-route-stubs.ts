@@ -13,7 +13,7 @@ import { installPlatformTransport } from '../modules/platform-port/transport.js'
 export const WORKSPACE = '11111111-1111-4111-8111-111111111111';
 export const ACTOR = '22222222-2222-4222-8222-222222222222';
 export const CSRF = 'csrf-token-1';
-export const COOKIE = { cookie: 'fops_session=session-1' };
+export const COOKIE = { cookie: 'platform_session=session-1' };
 
 export function stubSessionService(workspaceId = WORKSPACE): SessionService {
   const loaded = {

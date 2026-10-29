@@ -59,7 +59,7 @@ const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const devRegex = (devAllow = []) =>
   devAllow.length === 0 ? DEV_REGEX : `^(?!(?:${devAllow.map(escapeRegex).join('|')})$)${DEV_REGEX.slice(1)}`;
 
-// Menu subpaths: the FeedbackOps origin slot is src/main.tsx ONLY, and so are the feature-bridge package slot subpaths (the FO API slot feature-api and the notifications, VOC compose and home todo slots); each menu's exact `/mock` export is
+// Menu subpaths: the feature-bridge package slot subpaths (the FO API slot feature-api and the notifications, VOC compose and home todo slots); each menu's exact `/mock` export is
 // src/dev/** only. Every other menu subpath and any `*/src` import stays banned.
 // NOTE: the gitignore-style `*` in `menu-*/mock` also matches an empty name (no way to say
 // "one or more" here), so a `menu-/mock` source is not rejected on this side; the dynamic-import
@@ -105,7 +105,7 @@ const FO_BRIDGE_PAGES_RESTRICTION = { ...FO_BRIDGE_PACKAGE_RESTRICTION, denyQuer
 const MENU_MOCK_RESTRICTION = { allow: ['contracts'], denyReact: true, denyTableEngine: true, denyQueryEngine: true, mockAllowed: true };
 // #154: the real-server adapter reaches the app through src/real/** only (APP_REAL_FILES below).
 const APP_RESTRICTION = { allow: null, denyReact: false, denyQueryEngine: true, mockAllowed: false, denyDev: true, denyHttpAdapter: true, denyEqvMockData: true, allowSubpaths: [...UI_THEME_SUBPATHS, DOCK_ENTRY_SUBPATH, HOST_ENTRY_SUBPATH] };
-// src/main.tsx is the composition root: only the FeedbackOps origin, FO API and notifications slot subpaths; no mock, no ./dev (#153).
+// src/main.tsx is the composition root: only the FO API and notifications slot subpaths; no mock, no ./dev (#153).
 const APP_REAL_RESTRICTION = { ...APP_RESTRICTION, denyHttpAdapter: false };
 const APP_MAIN_RESTRICTION = { ...APP_RESTRICTION, allowSubpaths: [...UI_THEME_SUBPATHS, DOCK_ENTRY_SUBPATH, HOST_ENTRY_SUBPATH, FO_API_SUBPATH, NOTIFICATIONS_SLOT_SUBPATH, VOC_COMPOSE_SLOT_SUBPATH, HOME_TODO_SLOT_SUBPATH, SCOPE_CONTROL_SLOT_SUBPATH, NAV_COUNTS_SLOT_SUBPATH, SAVED_VIEWS_SLOT_SUBPATH] };
 // The mock assembly and DevTools: mock-server and the menu `/mock` subpaths.
@@ -569,7 +569,7 @@ export const foBridge = [
 ];
 
 // App: all package entries allowed, deep subpaths, mock-server and ./dev banned (#153). src/main.tsx keeps only
-// the FeedbackOps origin subpath; src/dev/** sees mock-server and the menu `/mock`
+// the feature-bridge slot subpaths; src/dev/** sees mock-server and the menu `/mock`
 // subpaths; the conformance test sees mock-server and ./dev/mock-assembly only; published-metrics.test.ts sees
 // mock-server only. Both import rules use the same restriction.
 // No ignores for **/*.test.*.

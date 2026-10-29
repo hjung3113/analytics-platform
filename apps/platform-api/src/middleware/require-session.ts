@@ -1,4 +1,4 @@
-// `requireSession` — Fastify preHandler. Reads the opaque `fops_session`
+// `requireSession` — Fastify preHandler. Reads the opaque `platform_session`
 // cookie, verifies the row is active (not revoked, not expired), touches
 // `last_seen_at`, and populates `req.session = { session_id, actor_id,
 // workspace_id }`. On any failure renders the ADR-0012 envelope with
@@ -10,7 +10,7 @@ import type { FastifyReply, FastifyRequest, preHandlerHookHandler } from 'fastif
 import { sendError } from '../lib/errors.js';
 import type { SessionService } from '../modules/auth/session-service.js';
 
-export const SESSION_COOKIE_NAME = 'fops_session';
+export const SESSION_COOKIE_NAME = 'platform_session';
 
 export function requireSession(sessionService: SessionService): preHandlerHookHandler {
   // An async preHandler that sends a reply must return it: otherwise Fastify still runs the route

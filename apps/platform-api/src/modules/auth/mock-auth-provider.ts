@@ -58,7 +58,7 @@ export function createMockAuthProvider(deps: MockAuthProviderDeps): AuthProvider
         .join('\n');
 
       const html = `<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><title>Mock login · FeedbackOps</title></head>
+<html lang="en"><head><meta charset="utf-8"><title>Mock login · Platform</title></head>
 <body>
 <h1>Mock login</h1>
 <p>Dev-only picker. Selecting an actor issues a session immediately.</p>

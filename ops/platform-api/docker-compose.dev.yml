@@ -1,4 +1,4 @@
-# Local Postgres, MinIO and optional Keycloak for platform API (FeedbackOps) development and integration tests.
+# Local Postgres, MinIO and optional Keycloak for platform API development and integration tests.
 #
 # Usage on a NEW volume (run from ops/platform-api). init.sql creates database `platform` and the replay bootstrap
 # roles fops_* with the final dev passwords; the cutover replays history as fops_migrate, renames the roles to
@@ -58,7 +58,7 @@ services:
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: platform-minio
-      MINIO_ROOT_PASSWORD: fops-minio-secret-change-me
+      MINIO_ROOT_PASSWORD: platform-minio-secret-change-me
     ports:
       - '9000:9000'
       - '9001:9001'

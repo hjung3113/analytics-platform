@@ -1,6 +1,6 @@
 # platform/ — built-in feature consumers
 
-These one-level `platform/<feature>/` packages assemble built-in home, activity, notice, administration and FeedbackOps menus. They are Consumer-tier packages, never SDK packages ([ADR-0097](../docs/adr/0097-platform-features-and-role-based-names.md); placement authority: [platform-packages §3](../docs/integration/platform-packages.md)). Domain-system consumers remain at `menus/<system>/<group>/` ([rules](../menus/AGENTS.md)).
+These one-level `platform/<feature>/` packages assemble built-in home, activity, notice, administration and platform feature (VOC, survey, task, finding) menus. They are Consumer-tier packages, never SDK packages ([ADR-0097](../docs/adr/0097-platform-features-and-role-based-names.md); placement authority: [platform-packages §3](../docs/integration/platform-packages.md)). Domain-system consumers remain at `menus/<system>/<group>/` ([rules](../menus/AGENTS.md)).
 
 - Read each feature's space only from `GROUPS`. Directory placement does not determine space: null-space and named-space features coexist here. Check group ownership and duplicates across both consumer roots.
 - These packages declare `manifests`; reusable screen/bridge runtime implementations live in `apps/feature-screens`, `packages/adapters/feature-bridge`, `packages/feature-ui` and `packages/feature-shared`. Consume their permitted public entry points; the `foBridgeMenu` ESLint preset enforces the exact bridge exceptions.
