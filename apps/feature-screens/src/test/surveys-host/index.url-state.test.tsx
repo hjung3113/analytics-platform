@@ -1,6 +1,6 @@
 // /surveys URL-state tests (issue #396).
 //
-// Selection + Managed System scope are URL state (docs/feedbackops/frontend/routes-and-layout.md
+// Selection + Managed System scope are URL state (docs/design/features/routes-and-layout.md
 // §URL State Rules): /surveys?managedSystem=:managedSystemId|all&selected=:surveyId.
 // Verifies restore-on-load, push-on-select with working Back, replace-away of a
 // stale selection, a failed list load never clearing a deep-linked selection, and

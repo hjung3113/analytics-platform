@@ -1,7 +1,7 @@
 // Managed System application service (Slice 2 #10).
 //
 // Owns the write-side of the Managed System Registry per
-// docs/feedbackops/implementation/02-domain-module-boundaries.md and ADR-0017.
+// docs/architecture/platform-api/02-domain-module-boundaries.md and ADR-0017.
 //
 // Mutation contract (mirrors permission-request-service / ADR-0008 +
 // ADR-0015):

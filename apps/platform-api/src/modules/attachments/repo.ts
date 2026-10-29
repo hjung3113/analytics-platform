@@ -1,7 +1,7 @@
 // Attachments repo — PLAN-22 C3b + C7b.
 //
 // Owns writes to voc.voc_attachments only (module ownership per
-// docs/feedbackops/implementation/02-domain-module-boundaries.md). The route layer wraps
+// docs/architecture/platform-api/02-domain-module-boundaries.md). The route layer wraps
 // the INSERT in the ADR-0015 idempotency frame; this repo emits a single
 // INSERT ... RETURNING.
 //

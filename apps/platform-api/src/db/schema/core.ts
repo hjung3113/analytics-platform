@@ -1,9 +1,9 @@
 // Drizzle schema for the `core` namespace.
 // Spec sources:
 // - GLOSSARY.md: Workspace, Actor, Role Level vocabulary.
-// - docs/feedbackops/implementation/02-domain-module-boundaries.md: Core owns Workspace,
+// - docs/architecture/platform-api/02-domain-module-boundaries.md: Core owns Workspace,
 //   Actor, Role Level, Audit Log.
-// - docs/feedbackops/implementation/04-database-and-migrations.md: workspace_id present on
+// - docs/architecture/platform-api/04-database-and-migrations.md: workspace_id present on
 //   all domain tables, prefer text/varchar over native enums.
 // - ADR-0006: core.sessions shape (opaque text PK, references actors/workspaces).
 // - ADR-0008: core.audit_log shape, append-only via role grants.
@@ -92,7 +92,7 @@ export const workspaceSettings = coreSchema.table(
 // ─────────────────────────────────────────────────────────────────────────
 // core.actors — AD-authenticated internal person bound to a Workspace.
 // role_level + actor_type are application-level enums per
-// docs/feedbackops/implementation/04-database-and-migrations.md (text with CHECK).
+// docs/architecture/platform-api/04-database-and-migrations.md (text with CHECK).
 // ─────────────────────────────────────────────────────────────────────────
 export const actors = coreSchema.table(
   'actors',

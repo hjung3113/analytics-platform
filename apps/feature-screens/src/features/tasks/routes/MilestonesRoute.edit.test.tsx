@@ -115,7 +115,7 @@ const PRODUCT_USAGE = {
 // Astra finding 4 — create options must carry the ownership/archive metadata
 // the API validates on create: archived systems get 409 conflict.parent_archived,
 // areas of another system get 422 out_of_scope, archived areas get 409
-// parent_archived (docs/feedbackops/implementation/api/milestones.md).
+// parent_archived (docs/architecture/platform-api/api/milestones.md).
 const IDS_F4 = {
   msErp: 'cccccccc-cccc-4ccc-8ccc-cccccccc00c2',
   msArchived: 'cccccccc-cccc-4ccc-8ccc-cccccccc00c3',
@@ -663,7 +663,7 @@ describe('MilestonesRoute status (#514 B2e-status)', () => {
 // Astra finding 3 — an uncertain create (server committed the row but the
 // response was lost) leaves the form open with an error. Retrying the same
 // logical payload must reuse the Idempotency-Key so the server replays the
-// stored response (docs/feedbackops/implementation/api/milestones.md: a matching replay
+// stored response (docs/architecture/platform-api/api/milestones.md: a matching replay
 // returns the stored response, reuse with a different body is 409) instead of
 // creating a second Milestone; a changed payload rotates the key.
 describe('MilestonesRoute create retry (Astra finding 3)', () => {
@@ -782,7 +782,7 @@ describe('MilestonesRoute create options (Astra finding 4)', () => {
 
 // Opus P3-2 (owner half) — the create contract accepts only an Admin or
 // Developer as owner_actor_id (a User owner is 422 validation.failed with
-// out_of_scope, docs/feedbackops/implementation/api/milestones.md), so the Owner options
+// out_of_scope, docs/architecture/platform-api/api/milestones.md), so the Owner options
 // carry eligible actors only. Display lookups keep every actor so rows and
 // panels still resolve names for User-role owners.
 describe('MilestonesRoute create owner options (Opus P3-2)', () => {

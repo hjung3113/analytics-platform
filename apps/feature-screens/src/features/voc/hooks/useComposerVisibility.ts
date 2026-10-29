@@ -2,7 +2,7 @@
 //
 // C5.1 (slice3 #21)
 // Spec: PLAN-21-SUBCHUNKS.md C5.1
-// Prototype ref: docs/feedbackops/design-prototype/screen-voc.jsx:404-413 (tab visibility gating)
+// Prototype ref: docs/design/history/feedbackops-prototype/screen-voc.jsx:404-413 (tab visibility gating)
 //
 // Visibility rules:
 //   - Reply → only the VOC's Reporter (any role); the backend rejects every other actor

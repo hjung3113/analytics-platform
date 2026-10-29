@@ -15,7 +15,7 @@
 #   pnpm --filter @ap/platform-api db:seed
 # Later migrations need no admin login: pnpm --filter @ap/platform-api db:migrate (as platform_migrate).
 # A pre-existing local volume still holds the old `feedbackops` database and fops_* roles: see
-# docs/feedbackops/implementation/04-database-and-migrations.md, "Local developer database recreation".
+# docs/architecture/platform-api/04-database-and-migrations.md, "Local developer database recreation".
 #
 # Why two roles: ADR-0008 requires that the application role cannot UPDATE or
 # DELETE rows in core.audit_log. The container initialises both roles up front;
@@ -71,7 +71,7 @@ services:
       retries: 20
 
   # Keycloak as the interim OIDC IdP (#603). Opt in with `--profile auth`; the default
-  # `docker compose up` does not start it. Runbook: docs/feedbackops/implementation/release/keycloak-interim-idp.md
+  # `docker compose up` does not start it. Runbook: docs/architecture/platform-api/release/keycloak-interim-idp.md
   keycloak:
     profiles: ['auth']
     image: quay.io/keycloak/keycloak:26.7.5

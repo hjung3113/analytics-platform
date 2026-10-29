@@ -1,5 +1,5 @@
 // Audit application service. Owned by the Core module per
-// docs/feedbackops/implementation/02-domain-module-boundaries.md:32-42.
+// docs/architecture/platform-api/02-domain-module-boundaries.md:32-42.
 //
 // Contract (ADR-0008):
 //   * Every domain mutation that produces an audit_log row MUST commit the

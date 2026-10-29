@@ -2,7 +2,7 @@
 // from voc.reporter_facing_status_transitions. Service code MUST NOT
 // hard-code transitions; always call this reader instead.
 //
-// Spec: docs/feedbackops/frontend/specs/voc.md §4.5
+// Spec: docs/design/features/specs/voc.md §4.5
 // Refs: Slice 3 #12 Task 6
 
 import { eq } from 'drizzle-orm';

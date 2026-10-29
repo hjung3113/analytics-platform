@@ -2,7 +2,7 @@
 //
 // C5.3 (slice3 #21)
 // Spec: PLAN-21-SUBCHUNKS.md C5.3
-// Prototype ref: docs/feedbackops/design-prototype/screen-voc.jsx:415-468 (reply variant)
+// Prototype ref: docs/design/history/feedbackops-prototype/screen-voc.jsx:415-468 (reply variant)
 //
 // Allowed marks: Bold, Italic, Link.
 // Attach: rendered but DOM disabled (attachment-deferral per spec).

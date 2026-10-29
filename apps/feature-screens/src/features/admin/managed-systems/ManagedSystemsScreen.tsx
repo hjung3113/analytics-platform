@@ -1,7 +1,7 @@
 // /admin/managed-systems — Managed System Registry (issue #87).
 //
 // Rebuilt from the raw HTML-table CRUD harness to the design prototype
-// (docs/feedbackops/design-prototype/screen-admin.jsx → AdminScreen). Live API data only;
+// (docs/design/history/feedbackops-prototype/screen-admin.jsx → AdminScreen). Live API data only;
 // the prototype's window globals / synthetic data are not ported (AGENTS.md
 // → UI Authority). Maps the prototype's dark-token components to the
 // real @ap/feature-ui light-token components (ADR-0021 / Pack 17).

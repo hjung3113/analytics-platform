@@ -195,7 +195,7 @@ export function InboxScreen({ view, renderDetail }: InboxScreenProps): React.Rea
             />
           ) : (
             <PermissionBlockedPanel
-              // docs/feedbackops/frontend/specs/voc.md R-VOC-INBOX: no read scope and nothing requestable
+              // docs/design/features/specs/voc.md R-VOC-INBOX: no read scope and nothing requestable
               // -> blocked_not_requestable (#562).
               state="blocked_not_requestable"
               category={VOC_INBOX_LABEL}

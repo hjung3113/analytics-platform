@@ -17,7 +17,7 @@ Permission is not a generic shared utility package.
   and `GET /me/permissions/check` re-applies that declaration via `applyAdminModuleBypass`. Adding or
   moving a module-level bypass without updating that declaration is the issue #372 defect.
 - A new Role Level extends `ROLE_LEVEL_VALUES` in `packages/feature-shared/src/enums/index.ts` and the
-  layers in `docs/feedbackops/adr/0048-role-level-extension.md`. `roleSatisfies` in `check-service.ts` is the
+  layers in `docs/adr/history/feedbackops/0048-role-level-extension.md`. `roleSatisfies` in `check-service.ts` is the
   implicit-capability arm; domain modules that compare `role_level` themselves are part of that
   same change.
 

@@ -1,10 +1,10 @@
 # FeedbackOps addendum to 00-IMPL-RULES.md (read both) — launch mode `fo`
 
-FeedbackOps is `apps/platform-api`, `apps/feature-screens`, `packages/feature-shared`, `packages/feature-ui` (apps, packages) and `docs/feedbackops/` (docs) with its tools in `ops/platform-api/` (workspace package `@ap/platform-api-ops`), part of the root pnpm workspace (root Node 26.7, pnpm 11 and lockfile; Biome
+FeedbackOps is `apps/platform-api`, `apps/feature-screens`, `packages/feature-shared`, `packages/feature-ui` (apps, packages) and the feature-owned documentation roots listed in `ops/platform-api/paths.mjs` with its tools in `ops/platform-api/` (workspace package `@ap/platform-api-ops`), part of the root pnpm workspace (root Node 26.7, pnpm 11 and lockfile; Biome
 for its own lint; ADR-0066, #642). The launcher's root install already covers it. Run every FeedbackOps command **from the repository root**; its root scripts run as `pnpm --filter @ap/platform-api-ops <script>`; root lint/typecheck/test/build now cover the unified workspace, but those checks remain conductor-owned.
 
-1. Read `docs/feedbackops/AGENTS.md`, `apps/platform-api/AGENTS.md` and every module `AGENTS.md`
-   you touch, plus `docs/feedbackops/implementation/02-domain-module-boundaries.md` §Approved cross-module
+1. Read `docs/agents/feature-implementation.md`, `apps/platform-api/AGENTS.md` and every module `AGENTS.md`
+   you touch, plus `docs/architecture/platform-api/02-domain-module-boundaries.md` §Approved cross-module
    surfaces.
 2. Backend integration suites are env-gated: they skip without a DB. Your task names **your own throwaway issue
    database** (port 5439) and the exact command, run from the repository root:
@@ -32,6 +32,6 @@ for its own lint; ADR-0066, #642). The launcher's root install already covers it
    assert `body.detail.fields`, not `body.fields`. Routes under `/api/v1/platform` follow ADR-0069 instead.
 9. **Rate-limit keys** are `<workspace_id>:<actor_id>`.
 10. Before finishing, run `ops/platform-api/node_modules/.bin/biome check --config-path=ops/platform-api --write <file> …` with the explicit path of every file you created
-    or changed under `apps/platform-api`, `apps/feature-screens`, `packages/feature-shared`, `packages/feature-ui` or `docs/feedbackops/` (format and import order — the FE Biome gate fails on either: #603,
+    or changed under `apps/platform-api`, `apps/feature-screens`, `packages/feature-shared`, `packages/feature-ui` or a feature documentation root from `FO_DOCS` (format and import order — the FE Biome gate fails on either: #603,
     #620, #621). Never pass a directory: `biome format --write apps/platform-api/src` rewrote 51 files the task did not
     own (#621).

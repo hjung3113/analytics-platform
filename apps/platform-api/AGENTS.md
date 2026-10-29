@@ -1,15 +1,15 @@
 # Backend Agent Guide
 
-DB/role identity: `platform` database and `platform_*` roles. Fresh or uncut clusters use `ops/platform-api/scripts/db/cutover-0076-platform-identity.sh`; see `docs/feedbackops/implementation/04-database-and-migrations.md` for the staged procedure.
+DB/role identity: `platform` database and `platform_*` roles. Fresh or uncut clusters use `ops/platform-api/scripts/db/cutover-0076-platform-identity.sh`; see `docs/architecture/platform-api/04-database-and-migrations.md` for the staged procedure.
 
 ## Required Docs
 
-- Read `docs/feedbackops/implementation/README.md` before backend changes.
-- Use `docs/feedbackops/implementation/03-api-contracts.md` and `docs/feedbackops/implementation/api/` for endpoint behavior.
-- Use `docs/feedbackops/implementation/04-database-and-migrations.md` for storage.
-- Use `docs/feedbackops/implementation/05-permission-policy.md` for access control.
-- Use `docs/feedbackops/implementation/06-entity-linking-contract.md` for links.
-- Use `docs/feedbackops/implementation/02-domain-module-boundaries.md` before adding or moving modules.
+- Read `docs/architecture/platform-api/README.md` before backend changes.
+- Use `docs/architecture/platform-api/03-api-contracts.md` and `docs/architecture/platform-api/api/` for endpoint behavior.
+- Use `docs/architecture/platform-api/04-database-and-migrations.md` for storage.
+- Use `docs/architecture/platform-api/05-permission-policy.md` for access control.
+- Use `docs/architecture/platform-api/06-entity-linking-contract.md` for links.
+- Use `docs/architecture/platform-api/02-domain-module-boundaries.md` before adding or moving modules.
 
 ## Layer Rules
 
@@ -27,7 +27,7 @@ Backend-specific additions beyond root:
 
 Every cross-system command must validate workspace ownership, check permissions, write the target object, write required `entity_links`, append required audit events, and return data suitable for pending or optimistic UI states.
 
-Source-shaped routes may host request parsing, but target object writes must use the target module's application command or an orchestration service documented in `docs/feedbackops/implementation/02-domain-module-boundaries.md`.
+Source-shaped routes may host request parsing, but target object writes must use the target module's application command or an orchestration service documented in `docs/architecture/platform-api/02-domain-module-boundaries.md`.
 
 Backend-specific additions to root's Managed System invariant: Analytics Area is business
 context inside one Managed System, not an MVP permission boundary. Project or

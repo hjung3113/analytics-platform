@@ -49,4 +49,4 @@ actor or foreign repo access. Follow ADR-0068's coordinated admission lock order
 Paid preview (#1099) and Cluster suggestion BE/shared (#1097) are implemented; their FE parts are #1100/#1098.
 Preview is explicit-click, bounded, zero automatic retries, with atomic four-budget
 Postgres reservation and fresh visibility on completion/replay. API authority:
-`docs/feedbackops/implementation/api/voc.md`; suggestion and preview fields are shipped in `docs/feedbackops/design/15-data-contracts.md`.
+`docs/architecture/platform-api/api/voc.md`; suggestion and preview fields are shipped in `docs/product/features/15-data-contracts.md`.

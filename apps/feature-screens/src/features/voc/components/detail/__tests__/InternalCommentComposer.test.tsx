@@ -5,7 +5,7 @@
 //   3. Preview button is DOM-disabled (not hidden) per D-5.4
 //
 // C5.4 of slice3 #21.
-// Prototype ref: docs/feedbackops/design-prototype/screen-voc.jsx:415-468 (internal variant)
+// Prototype ref: docs/design/history/feedbackops-prototype/screen-voc.jsx:415-468 (internal variant)
 
 import { ApiError } from '@/lib/api';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';

@@ -409,7 +409,7 @@ function HomeSummary({
           })}
         </div>
       )}
-      {/* #521 follows empty-state AC over the populated docs/feedbackops/design-prototype/screen-home.jsx example. */}
+      {/* #521 follows empty-state AC over the populated docs/design/history/feedbackops-prototype/screen-home.jsx example. */}
       {summary !== undefined && activeQueues.length > 0 && (
         <>
           <div className="mb-3 flex items-center justify-between">

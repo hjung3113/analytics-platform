@@ -2,7 +2,7 @@
 //
 // C5.2 (slice3 #21)
 // Spec: PLAN-21-SUBCHUNKS.md C5.2
-// Prototype ref: docs/feedbackops/design-prototype/screen-voc.jsx:440-468
+// Prototype ref: docs/design/history/feedbackops-prototype/screen-voc.jsx:440-468
 //
 // Verbatim prototype JSX (Pack 17 translation):
 //   <div className="composer-footer">

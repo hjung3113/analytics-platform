@@ -1,5 +1,5 @@
 // reporter-status-labels.ts — Korean label map for all 8 ReporterFacingStatus values.
-// Labels verbatim from docs/feedbackops/design-prototype/data.js ReporterStatusLabels.
+// Labels verbatim from docs/design/history/feedbackops-prototype/data.js ReporterStatusLabels.
 //
 // C4.1 (slice3 #21)
 

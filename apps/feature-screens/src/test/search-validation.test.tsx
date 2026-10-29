@@ -210,7 +210,7 @@ describe('route search validation', () => {
 });
 
 // #731 FIX1 (R2): these are the exact search objects the nav resolver emits for
-// REQ/TASK (docs/feedbackops/implementation/api/navigation.md). The shipped `/tasks`
+// REQ/TASK (docs/architecture/platform-api/api/navigation.md). The shipped `/tasks`
 // schema reads `param`, so both intents must survive validateTasksSearch with
 // the resolved id intact — `selected` would be dropped and the palette would
 // lose the selection.

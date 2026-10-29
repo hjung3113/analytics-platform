@@ -2,7 +2,7 @@
 //
 // C5.5 (slice3 #21)
 // Spec: PLAN-21-SUBCHUNKS.md C5.5
-// Prototype ref: docs/feedbackops/design-prototype/screen-voc.jsx:709-742
+// Prototype ref: docs/design/history/feedbackops-prototype/screen-voc.jsx:709-742
 //
 // Verbatim prototype JSX (lines 709-742, Pack 17 translation):
 //

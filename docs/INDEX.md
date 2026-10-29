@@ -1,6 +1,6 @@
 # 문서 인덱스
 
-이 레포는 `context_recognized_parser`(별도 레포)가 적재한 데이터를 소비하는 분석 플랫폼의 설계와 프론트엔드 플랫폼 코드를 담는다. 코드는 루트 pnpm workspace(`packages/sdk/*`·`packages/adapters/*` 플랫폼 패키지, `menus/*/*` 견본 메뉴와 `platform/*` 플랫폼 기능 메뉴, `apps/platform-web` 조립 앱, 서버는 mock 또는 `@ap/http-adapter` 실어댑터)이고, FeedbackOps는 `apps/{platform-api,feature-screens}`·`packages/feature-*`·`docs/feedbackops/`에 있다(서브모듈 아님, ADR-0066·ADR-0090).
+이 레포는 `context_recognized_parser`(별도 레포)가 적재한 데이터를 소비하는 분석 플랫폼의 설계와 프론트엔드 플랫폼 코드를 담는다. 코드는 루트 pnpm workspace(`packages/sdk/*`·`packages/adapters/*` 플랫폼 패키지, `menus/*/*` 견본 메뉴와 `platform/*` 플랫폼 기능 메뉴, `apps/platform-web` 조립 앱, 서버는 mock 또는 `@ap/http-adapter` 실어댑터)이고, FeedbackOps는 `apps/{platform-api,feature-screens}`·`packages/feature-*`·`docs/INDEX.md`에 있다(서브모듈 아님, ADR-0066·ADR-0090).
 
 | 알고 싶은 것 | 어디 |
 | --- | --- |
@@ -36,12 +36,12 @@
 | 서버 계약·어댑터(실서버 전환 포함) | [사내 적용 가이드](integration/in-house-rollout.md)(순서) → [실서버 연결 체크리스트](integration/real-server-checklist.md)(규칙) → [전송 형식](integration/http-adapter-contract.md)(HTTP 경계), [ADR-0019](adr/0019-menu-query-endpoint-declaration.md), [ADR-0096](adr/0096-contract-schemas-zod-source-and-reference-implementations.md)(원본·참조 구현 범위), [ADR-0095](adr/0095-dual-backend-fastify-core-fastapi-analytics.md)(서버 분담), 06 §18–19 | [contract-schemas](../packages/sdk/contract-schemas/AGENTS.md)(스키마·산출물 형식) → [contracts](../packages/sdk/contracts/AGENTS.md)(공유 타입) → [mock-server](../packages/adapters/mock-server/AGENTS.md) → [server-conformance](../packages/adapters/server-conformance/AGENTS.md) → [apps/platform-web](../apps/platform-web/AGENTS.md)(주입·dev 도구) | `packages/sdk/contracts/src/adapter/adapter.ts`·`menu-query.ts` → `packages/adapters/mock-server/src/adapter.ts` |
 | 공통 컴포넌트·차트·상태 화면 | 06 §13·§15·§16·§18–19·§24 | [packages](../packages/AGENTS.md) → [components](../packages/sdk/components/AGENTS.md) → primitive가 필요하면 [ui](../packages/sdk/ui/AGENTS.md) | `packages/sdk/components/src/` → 소비 화면(`menus/*/*/src/pages`) |
 | 셸(레일·사이드바·페이지 머리·Context 바·상세 슬롯·라우트 상태·공간) | [07 셸](wireframes/app-shell.md), 06 §7–9 | [shell](../packages/sdk/shell/AGENTS.md) → 슬롯·Registry는 [kernel](../packages/sdk/kernel/AGENTS.md) | `packages/sdk/shell/src/` → 앱 `src/main.tsx`(조립) |
-| 디자인 토큰·시각 규칙 | [DESIGN](../DESIGN.md), [ADR-0043](adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)(원본 소유는 플랫폼, 토큰·유틸·primitive 코드는 #441에서 이전, [ADR-0046](adr/0046-design-system-source-moves-to-platform-whole-package.md)), [ADR-0011](adr/0011-design-direction-feedbackops-shell.md) → [FO ADR-0058](feedbackops/adr/0058-tailwind-v4-css-first-theme.md), [06 §23](contract/components.md#23-design-tokens) | [ui](../packages/sdk/ui/AGENTS.md) | `packages/sdk/ui/src/styles/` |
+| 디자인 토큰·시각 규칙 | [DESIGN](../DESIGN.md), [ADR-0043](adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)(원본 소유는 플랫폼, 토큰·유틸·primitive 코드는 #441에서 이전, [ADR-0046](adr/0046-design-system-source-moves-to-platform-whole-package.md)), [ADR-0011](adr/0011-design-direction-feedbackops-shell.md) → [FO ADR-0058](adr/history/feedbackops/0058-tailwind-v4-css-first-theme.md), [06 §23](contract/components.md#23-design-tokens) | [ui](../packages/sdk/ui/AGENTS.md) | `packages/sdk/ui/src/styles/` |
 | 플랫폼 계약 자동 검사(E2E) | 06 §6·§11·§17·§19·§22 | [apps/platform-e2e](../apps/platform-e2e/AGENTS.md) | `apps/platform-e2e/tests/contract-*.spec.ts` → `contract-helpers.ts`·`support.ts` → 보고 `contract-reporter.ts`. 실서버는 [체크리스트 §8](integration/real-server-checklist.md#8-실서버-브라우저-계약-검사-593) → `apps/platform-e2e/tests-real/*.real.spec.ts` · `playwright.real.config.ts` · `playwright.real-down.config.ts` |
 | 모노레포 구조·빌드·CI·접두사 변경 | [패키지 경계](integration/platform-packages.md), [저장소 구조](integration/repository-layout.md) | [tooling](../tooling/AGENTS.md) → [packages](../packages/AGENTS.md) | 루트 `package.json`·`pnpm-workspace.yaml`·`turbo.json` → `.github/workflows/ci.yml` |
 | 설계 문서·결정 갱신 | 해당 소유 문서 → [ADR 목록](adr/README.md) 또는 [05](overview/roadmap-and-open-questions.md) | [docs](AGENTS.md) | 바꾼 뒤 `pnpm docs:links` |
 | 적재 워커 상태·가공 상태 조회·운영 콘솔 모니터링 | [01 가공 상태 보고](architecture/architecture-and-data-contract.md#processing-status-report), 06 §19, [상태 기록 스키마](integration/ingest-status-schema.md) | [docs](AGENTS.md) | 파서 저장소 `context_recognized_parser` |
-| FeedbackOps 연결·운영 화면 탑재 | [저장소 구조](integration/repository-layout.md), [딥링크 계약](integration/feedbackops-deeplink.md), [합류 설계](integration/feedbackops-merge-design.md), [ADR-0081](adr/0081-feedbackops-operator-screens-platform-frame.md), [ADR-0066](adr/0066-feedbackops-merges-into-platform.md) | [fo-bridge](../packages/adapters/feature-bridge/AGENTS.md), [메뉴](../menus/AGENTS.md), [플랫폼 기능 메뉴](../platform/AGENTS.md), [앱 조립](../apps/platform-web/AGENTS.md), [Survey](../apps/feature-screens/src/features/surveys/AGENTS.md), [Admin](../apps/feature-screens/src/features/admin/AGENTS.md), [FeedbackOps 도메인](feedbackops/AGENTS.md) | `packages/adapters/feature-bridge/src/fo/` · `apps/feature-screens/src/operator-screens/` · `platform/` |
+| FeedbackOps 연결·운영 화면 탑재 | [저장소 구조](integration/repository-layout.md), [딥링크 계약](integration/feedbackops-deeplink.md), [합류 설계](integration/feedbackops-merge-design.md), [ADR-0081](adr/0081-feedbackops-operator-screens-platform-frame.md), [ADR-0066](adr/0066-feedbackops-merges-into-platform.md) | [fo-bridge](../packages/adapters/feature-bridge/AGENTS.md), [메뉴](../menus/AGENTS.md), [플랫폼 기능 메뉴](../platform/AGENTS.md), [앱 조립](../apps/platform-web/AGENTS.md), [Survey](../apps/feature-screens/src/features/surveys/AGENTS.md), [Admin](../apps/feature-screens/src/features/admin/AGENTS.md), [FeedbackOps 도메인](agents/feature-implementation.md) | `packages/adapters/feature-bridge/src/fo/` · `apps/feature-screens/src/operator-screens/` · `platform/` |
 | 통합 전 단위 프로토타입 | — | [prototypes](../archive/AGENTS.md) | 각 프로토타입 README |
 
 ## 번호 약칭 → 파일
@@ -113,3 +113,16 @@
 문서는 Decided / Candidate / Open / Deferred를 구분한다. 규칙은 [docs/AGENTS.md](AGENTS.md). `.agents/`의 스킬·명령·외부 레퍼런스는 tooling 자산이며 제품 설계를 확정하지 않는다([`.agents/README.md`](../.agents/README.md)).
 
 #597: standalone retirement preserves the 36 screen entries and inbound hop codec. Current ownership and removed outbound contracts: [FeedbackOps link contract](integration/feedbackops-deeplink.md). Historical ADR bodies are unchanged.
+
+## Platform feature domains
+
+For feature-domain implementation, read [the implementation guide](agents/feature-implementation.md) and [root vocabulary](../GLOSSARY.md), then the owning contract.
+
+| Task | Source |
+| --- | --- |
+| Product intent, domain model and fields | [Product requirements](product/features/README.md) and [purpose](product/features/purpose.md) |
+| Core server, per-domain API and release operations | [Architecture and contracts](architecture/platform-api/README.md), [API](architecture/platform-api/api/), [release/OIDC](architecture/platform-api/release/oidc-and-images.md) |
+| Feature screen contracts and token reference | [Screen contracts](design/features/README.md); root DESIGN owns visual direction |
+| Operator task instructions | [Manual](user-guide/features/manual.md) |
+| Local development and code ownership | [Development entry](integration/feature-development.md), [code index](integration/feature-code-index.md) |
+| Preserved decisions, prototypes and old screenshots | [History index](integration/feature-history.md) |

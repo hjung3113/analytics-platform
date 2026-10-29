@@ -1,6 +1,6 @@
 /**
  * Pack 17 Samsung-light token fixture.
- * Source of truth: docs/feedbackops/design-prototype/styles.css lines 1-200.
+ * Source of truth: docs/design/history/feedbackops-prototype/styles.css lines 1-200.
  * Hex = verbatim from prototype (for docs/fixture comparison).
  * Rgb = decimal triple, space-separated (R G B) — runtime tokens.css format.
  * Raw = verbatim non-color value from prototype.

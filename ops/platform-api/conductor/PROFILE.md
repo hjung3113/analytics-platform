@@ -44,7 +44,7 @@ steps here are superseded by the platform profile. The tools in `scripts/` (veri
 - In flight: ≈5–7 workers is the ceiling for one conductor; 2–3 while the conductor also runs every harness
   (16 GB machine; vitest is capped at 2 workers by `~/.zshenv`).
 - Brief extras: name the exact error envelopes to keep; for "use the shared X" refactors say "replace only whole-set
-  declarations; keep literals; never touch `db/schema`". Check `ls docs/feedbackops/adr` before assigning an ADR number.
+  declarations; keep literals; never touch `db/schema`". Check `ls docs/adr/history/feedbackops` before assigning an ADR number.
 
 ## Complexity
 
@@ -143,12 +143,12 @@ Read first by the global `review-ux` persona. Report in English.
     Korean UI chrome, domain nouns (`VOC`, `Finding`, `Task`, …) stay English; three shells only (ADR-0020);
   - `apps/feature-screens/AGENTS.md` and `PRODUCT.md` (Operate register: dense, list-first, restrained, one primary action
     per toolbar or panel);
-  - `docs/feedbackops/frontend/ui-design-system.md`, `docs/feedbackops/frontend/component-inventory.md`, and the spec under
-    `docs/feedbackops/frontend/specs/` for the touched surface;
+  - `docs/design/features/ui-design-system.md`, `docs/design/features/component-inventory.md`, and the spec under
+    `docs/design/features/specs/` for the touched surface;
   - generic lenses only where the project is silent: `~/.agents/skills/impeccable/reference/critique.md` (heuristics)
     and `~/.agents/skills/impeccable/reference/audit.md` (accessibility).
 - **Project checks:**
-  - keyboard baseline: `docs/feedbackops/frontend/ui-design-system.md` → Accessibility Rules (Windows users with both keyboard
+  - keyboard baseline: `docs/design/features/ui-design-system.md` → Accessibility Rules (Windows users with both keyboard
     and mouse);
   - copy: existing `lib/copy` strings reused, Korean chrome, glossary nouns, no em dash in UI strings;
   - consistency: density and the 50px header rhythm;
@@ -162,7 +162,7 @@ Read first by the global `review-quality` persona. Report in English.
 - **Range:** normally `origin/main...origin/develop`, in a disposable worktree detached at `origin/develop`.
 - **Authority:** root `AGENTS.md` (Monorepo Boundaries, Implementation Boundaries, Product Invariants, and Test
   Discipline: test behaviour not implementation, one concept per test, no duplicate coverage at a lower level, no
-  trivial passthrough tests); `docs/feedbackops/implementation/02-domain-module-boundaries.md`; `apps/platform-api/AGENTS.md`,
+  trivial passthrough tests); `docs/architecture/platform-api/02-domain-module-boundaries.md`; `apps/platform-api/AGENTS.md`,
   `apps/feature-screens/AGENTS.md` and the nested `AGENTS.md` files on touched paths.
 - **Boundary leaks:** a repository writing another module's table; a controller doing service work; `packages/feature-ui`
   calling APIs or owning domain logic; `packages/feature-shared` importing an app; frontend code enforcing permissions as
@@ -180,7 +180,7 @@ issue is about that behaviour.
 
 ## Deferrals
 
-- Owner or conductor deferrals and accepted limits: a row in `docs/feedbackops/design/14-post-mvp-backlog.md` (item, reason,
+- Owner or conductor deferrals and accepted limits: a row in `docs/product/features/14-post-mvp-backlog.md` (item, reason,
   reopen condition), in the same PR or the next docs PR; an accepted contract or ADR collision also gets an ADR
   amendment. A deferred GitHub issue moves to the `Post-MVP` milestone with a comment giving the reason.
 - Small noted items (`minor`/`nit` outside the touched area): a checkbox in the open grouped polish issue (#1214);
