@@ -596,7 +596,7 @@ describe('person names come from exact lookup (#1105)', () => {
     await waitFor(() => expect(lookup).toHaveBeenCalledTimes(2));
     expect(lookup.mock.calls.map(c => c[0].length).sort()).toEqual([1, 200]);
     expect(screen.queryByText(/Error|down/)).toBeNull();
-  });
+  }, 15_000); // This 201-row rendering fixture exceeded 5s under CI's concurrent package suites (#1105).
 
   it('aborts the lookup and ignores its late answer when the surface is replaced', async () => {
     const store = createFakeViewStore([owned('a', 'u-far')]);
