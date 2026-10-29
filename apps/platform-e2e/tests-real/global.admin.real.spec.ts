@@ -1,3 +1,4 @@
+import type { Page, Request } from '@playwright/test';
 import {
   evidence,
   expect,
@@ -9,10 +10,38 @@ import {
   waitForHomeReads,
 } from './support';
 
+// Observes the Home notice query of THIS navigation. The `request` listener is attached immediately before the
+// navigation starts, so a query already in flight from the previous page was issued earlier and is never in the
+// set. The body is read inside the `response` event, while the response's document is still alive, so a later
+// navigation cannot make it unavailable. A query of this navigation that is itself aborted (body unavailable) is
+// skipped and the next one is awaited.
+type HomeNoticeAnswer = { status: number; body: { outcome: string; data: Array<{ id: string; title: { ko: string }; scopeId: string | null }>; trust: unknown } };
+
+async function navigateHome(page: Page): Promise<HomeNoticeAnswer> {
+  const issued = new Set<Request>();
+  const onRequest = (request: Request) => {
+    if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/v1/menu-query') issued.add(request);
+  };
+  const answer = new Promise<HomeNoticeAnswer>(resolve => {
+    page.on('response', async response => {
+      if (!issued.has(response.request())) return;
+      try {
+        resolve({ status: response.status(), body: (await response.json()) as HomeNoticeAnswer['body'] });
+      } catch {
+        // aborted by a navigation of this same load: wait for the next query
+      }
+    });
+  });
+  page.on('request', onRequest);
+  await page.goto('/home');
+  await expect(mainHeading(page)).toHaveText('플랫폼 홈');
+  return answer;
+}
+
 test.describe('플랫폼 홈과 전역 화면 실서버 (ADR-0070, 06 §9.1)', () => {
   test('홈은 core 권한으로 접근 가능한 업무 시스템만 노출한다', async ({ page }, testInfo) => {
     const homeReads = waitForHomeReads(page);
-    await page.goto('/home');
+    const notice = navigateHome(page);
     await expectSuccessfulFoReads(homeReads);
     await expect(mainHeading(page)).toHaveText('플랫폼 홈');
     const systems = page.getByRole('region', { name: '업무 시스템' });
@@ -21,7 +50,10 @@ test.describe('플랫폼 홈과 전역 화면 실서버 (ADR-0070, 06 §9.1)', (
       await expect(systems.getByRole('link', { name: new RegExp(label) })).toBeVisible();
     }
     await expect(systems.getByRole('link', { name: /MARS/ })).toHaveCount(0);
-    // The notice card's menuQuery HTTP 404 is a documented limit (#708, backlog); only the tested FO content is asserted.
+    // home.notices is served by the real server (#1106): HTTP 200 and an ok/empty envelope, never the old documented 404.
+    const noticeResponse = await notice;
+    expect(noticeResponse.status, 'home.notices menuQuery must be served').toBe(200);
+    expect(['ok', 'empty']).toContain(noticeResponse.body.outcome);
     await expect(systems).not.toContainText('불러오지 못했습니다');
     await evidence(page, testInfo, 'real-platform-home');
   });

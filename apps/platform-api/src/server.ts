@@ -61,6 +61,7 @@ import {
   createManagedSystemService,
   managedSystemsRoutes,
 } from './modules/managed-systems/index.js';
+import { MENU_QUERY_PREFIX, menuQueryRoutes } from './modules/menu-query/index.js';
 import { createMilestonesService, milestonesRoutes } from './modules/milestones/index.js';
 import {
   type NavCountsService,
@@ -792,6 +793,14 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
   // Saved views share the platform prefix with the port above; the sub-paths do not overlap (#1105, ADR-0099).
   await app.register(platformSavedViewRoutes, {
     prefix: PLATFORM_PORT_PREFIX,
+    sessionService,
+    checkService,
+    workspaceId,
+    db: dbHandle.db,
+  });
+  // The first business menuQuery route (#1106, ADR-0095 §1): `home.notices` only.
+  await app.register(menuQueryRoutes, {
+    prefix: MENU_QUERY_PREFIX,
     sessionService,
     checkService,
     workspaceId,

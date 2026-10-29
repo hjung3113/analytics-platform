@@ -82,3 +82,37 @@ export const clientErrors = platformSchema.table('client_errors', {
   requestId: text('request_id').notNull(),
   receivedAt: timestamp('received_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+// Notices (ADR-0098 §4, #1106). `until` is a naive Asia/Seoul wall-clock instant like the Home
+// `until` (06 §6.3), so it is `timestamp without time zone`; `created_at`/`updated_at` are real
+// instants the server stamps and never returns. `revision` renders as the opaque `v<revision>`.
+// `scope_id` is targeting, not an access boundary (a site grant is not required to hold the value).
+export const notices = platformSchema.table(
+  'notices',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    authorActorId: uuid('author_actor_id')
+      .notNull()
+      .references(() => actors.id),
+    titleKo: text('title_ko').notNull(),
+    titleEn: text('title_en').notNull(),
+    contentKo: text('content_ko').notNull(),
+    contentEn: text('content_en').notNull(),
+    scopeId: text('scope_id'),
+    until: timestamp('until', { mode: 'string' }).notNull(),
+    revision: integer('revision').notNull().default(1),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    workspaceUntilIdx: index('notices_workspace_until_idx').on(t.workspaceId, t.until),
+    revisionCheck: check('notices_revision_check', sql`${t.revision} >= 1`),
+    titleKoCheck: check('notices_title_ko_check', sql`char_length(${t.titleKo}) <= 200`),
+    titleEnCheck: check('notices_title_en_check', sql`char_length(${t.titleEn}) <= 200`),
+    contentKoCheck: check('notices_content_ko_check', sql`char_length(${t.contentKo}) <= 10000`),
+    contentEnCheck: check('notices_content_en_check', sql`char_length(${t.contentEn}) <= 10000`),
+  }),
+);

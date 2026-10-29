@@ -45,16 +45,39 @@ const OVERSIZED_RESPONSE_BODY_MARKER = {
   reason: 'response_body_exceeds_16kb',
 } as const;
 
+const OVERSIZED_CUSTOM_BOUND_MARKER = {
+  skipped: true,
+  reason: 'response_body_exceeds_limit',
+} as const;
+
+/**
+ * Server-only per-call policy. `responseBodyMaxBytes` raises (or lowers) the stored-response bound for
+ * one caller whose legal answers outgrow 16 KiB; omitted, every caller keeps the 16 KiB default.
+ */
+export interface RecordOptions {
+  responseBodyMaxBytes?: number;
+}
+
 const OVERSIZED_REQUEST_HASH_PREFIX = 'response-body-skipped:';
 
-function prepareCachedResponse(requestHash: string, responseBody: unknown) {
+function prepareCachedResponse(
+  requestHash: string,
+  responseBody: unknown,
+  options: RecordOptions = {},
+) {
+  const custom = options.responseBodyMaxBytes;
+  if (custom !== undefined && (!Number.isSafeInteger(custom) || custom <= 0)) {
+    throw new RangeError('responseBodyMaxBytes must be a positive safe integer');
+  }
+  const limit = custom ?? IDEMPOTENCY_RESPONSE_BODY_MAX_BYTES;
   const serialized = JSON.stringify(responseBody);
   const byteLength = Buffer.byteLength(serialized ?? 'null', 'utf8');
 
-  if (byteLength > IDEMPOTENCY_RESPONSE_BODY_MAX_BYTES) {
+  if (byteLength > limit) {
     return {
       requestHash: `${OVERSIZED_REQUEST_HASH_PREFIX}${requestHash}`,
-      responseBody: OVERSIZED_RESPONSE_BODY_MARKER,
+      responseBody:
+        custom === undefined ? OVERSIZED_RESPONSE_BODY_MARKER : OVERSIZED_CUSTOM_BOUND_MARKER,
     };
   }
 
@@ -90,6 +113,7 @@ export function createIdempotencyService() {
     requestHash: string,
     responseStatus: number,
     responseBody: unknown,
+    options?: RecordOptions,
   ): Promise<void> {
     // F-005: two concurrent first-time requests with the same
     // (actor_id, key) both see "miss" at lookup, both run the handler, and
@@ -101,7 +125,7 @@ export function createIdempotencyService() {
     // proceeds with no row written here, which is acceptable because the
     // protocol replays a future client retry through `lookup()` and that
     // returns the winning row's body.
-    const cacheEntry = prepareCachedResponse(requestHash, responseBody);
+    const cacheEntry = prepareCachedResponse(requestHash, responseBody, options);
 
     await tx
       .insert(idempotencyKeys)

@@ -28,7 +28,17 @@
 
 ### 4. 공지 포트는 플랫폼 서비스다 (일반 규칙의 예외)
 
-메뉴 어휘를 포트에 넣지 않는 규칙의 예외다: 공지는 특정 메뉴가 아니라 ADR-0066의 공통 어댑터 책임이며 #1103이 포트를 명시한다. `listNotices`는 만료 건을 포함한 **관리 목록**이다(`notice:view`) — Home 배너를 위한 둘째 엔드포인트가 아니다. Home은 `home.notices` 메뉴 조회로 남는다(#1106). 쓰기는 `console:access`(기존 권한, 어휘 변경 없음)다. `saveNotice`·`deleteNotice`는 `ActionResponse`를 돌려주고(`ApiResponse`에는 `conflict`가 없다) 요청에 `idempotencyKey`, 수정·삭제에 `expectedVersion`을 싣는다. 서버가 id·작성자·시각을 찍고, 만들기에 id·작성자·시각·알 수 없는 키가 있으면 거부한다. 수정·삭제는 낙관적 버전, 재시도는 같은 키로 재생된다. `Notice`는 Home 필드(`id`, `title: Text`, `scopeId`, `until`)에 `content`와 `version`을 더한다. 직접 포트를 부르는 것만으로는 Home 배너가 갱신되지 않는다 — `home.notices` 캐시 갱신 연결은 #1106에서 구현한다(구현 안 함, 다시 여는 조건: #1106 착수).
+메뉴 어휘를 포트에 넣지 않는 규칙의 예외다: 공지는 특정 메뉴가 아니라 ADR-0066의 공통 어댑터 책임이며 #1103이 포트를 명시한다. `listNotices`는 만료 건을 포함한 **관리 목록**이다(`notice:view`) — Home 배너를 위한 둘째 엔드포인트가 아니다. Home은 `home.notices` 메뉴 조회로 남는다(#1106). 쓰기는 `console:access`(기존 권한, 어휘 변경 없음)다. `saveNotice`·`deleteNotice`는 `ActionResponse`를 돌려주고(`ApiResponse`에는 `conflict`가 없다) 요청에 `idempotencyKey`, 수정·삭제에 `expectedVersion`을 싣는다. 서버가 id·작성자·시각을 찍고, 만들기에 id·작성자·시각·알 수 없는 키가 있으면 거부한다. 수정·삭제는 낙관적 버전, 재시도는 같은 키로 재생된다. `Notice`는 Home 필드(`id`, `title: Text`, `scopeId`, `until`)에 `content`와 `version`을 더한다. 실서버 조립은 `saveNotice`·`deleteNotice` 뒤 `home.notices` 캐시만 갱신한다(#1106, 아래 런타임 상태).
+
+**런타임 상태 (#1106, 구현됨 — 이슈는 실서버 검사 전까지 열림):** 코어 서버가 `platform.notices`(migration 0079)와 `GET /api/v1/platform/notices`·`POST …/notices/save|delete`, 그리고 첫 업무 `menuQuery` 경로 `POST /api/v1/menu-query`(`home.notices`만)를 제공한다. 정한 동작:
+
+- 쓰기 순서: 세션 → CSRF → `console:access` → 본문·헤더 모양(`Idempotency-Key`는 UUID이고 본문 키와 같아야 하며, 수정·삭제의 `If-Match`는 `expectedVersion`과 같아야 한다 — 어긋나면 `error`, 변경 없음) → 같은 (행위자, 키) 직렬화 → 같은 트랜잭션에서 `console:access` 재판정 → 재생 조회 → 행 잠금 → `console:access` 재판정(수정·삭제) → 없음·버전 → 쓰기. 권한이 재생·버전보다 먼저고 잠금을 기다린 뒤에 다시 판정하므로, 대기 중 권한을 잃으면(회수·거부·만료) 재생도 충돌도 데이터를 드러내지 않고 아무것도 쓰지 않는다(`forbidden`). 판정된 결과는 모두 HTTP 200 `ActionResponse`이고, 없는 세션은 401, 틀린 CSRF는 403이다. 같은 키를 다른 입력·다른 연산에 재사용하면 `invalid` + `fieldErrors:[{path:["idempotencyKey"],code:"reused"}]`다(ADR-0054의 menuAction 규칙은 공지에 적용하지 않는다).
+- 재생 저장: Core의 `core.idempotency_keys`와 24시간 purge를 그대로 쓴다. 공지의 정상 응답은 2×(200+10000) UTF-16 단위의 이중 언어 본문을 담을 수 있어 Core 기본 16 KiB를 넘을 수 있으므로, 호출마다 선택하는 서버 전용 응답 크기 상한을 더하고(`record(…, { responseBodyMaxBytes })`, 기본 16 KiB는 모든 기존 호출자에게 그대로) 공지는 128 KiB로 고정한다. `ok`만 기록하고 `conflict`·`not_found`·`invalid`는 기록하지 않는다. 삭제 뒤에도 같은 키는 원래 결과를 `replayed:true`로 받는다.
+- 서버가 id(UUID)·작성자·시각을 찍고, 응답은 `author`와 시각을 싣지 않는다. 버전은 불투명 `v<revision>`이다. UUID가 아닌 객체 id는 `not_found`다.
+- `listNotices`는 만료 포함 목록이고 **전역(`scopeId:null`) 공지만** 돌려준다. site 지정 공지는 그 site를 부여받은 세션에게만 보여야 하는데 서버는 아직 권위 있는 site 부여를 모른다(`scopes: []`).
+- **구현 안 함 — site 지정 공지 작성:** 위와 같은 이유로 `scopeId`가 null이 아닌 저장은 `invalid`(`path:["scopeId"]`)다. 다시 여는 조건: 서버가 세션별 site 부여를 권위 있게 공급할 때(그때 목록 데이터 범위와 작성 검증을 함께 연다). 클라이언트가 보낸 부여는 믿지 않는다.
+- `home.notices`: 세션 워크스페이스, 정확한 `targetScopeId` 일치(null은 전역만), `until`이 Asia/Seoul wall-clock 현재(초 단위)보다 **뒤**인 것만, 결정적 순서로 `id`·`title`·`scopeId`·`until`만 돌려준다. 순서는 체크리스트 §3(요청 모양 → params 값 → `notice:view` → 핸들러)이고 미지원 엔드포인트·키는 HTTP 200 `error`다. 분석 엔드포인트를 대신 답하지 않는다(구현 안 함 — 백로그).
+- Home 갱신: 앱 조립(`apps/platform-web/src/real`)이 실어댑터의 `saveNotice`·`deleteNotice`를 한 번 감싸 `ok`·`conflict`·`unknown`(과 던진 호출) 뒤에 앱이 선언한 `home.notices`를 목표 무효화(`refreshEpochs.bump`)한다. `adapter.subscribe`의 전체 무효화는 쓰지 않고 Kernel은 메뉴 이름을 모른다. 공지 CRUD 화면은 이 릴리스에 없다(소유자 제외, 백로그).
 
 ### 5. `defaultRangeTo`는 `string | null`이다
 

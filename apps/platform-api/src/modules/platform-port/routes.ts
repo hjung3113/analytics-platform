@@ -4,15 +4,14 @@
 // (session, permission check) and writes only its own tables — `platform.usage_events`,
 // `platform.client_errors` — plus `core.sessions.csrf_token` (ADR-0069 decision 1).
 
-import { errorCodeSchema } from '@ap/feature-shared';
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 
 import type { Db } from '../../db/client.js';
-import { sendError, statusForCode } from '../../lib/errors.js';
-import { SESSION_COOKIE_NAME } from '../../middleware/require-session.js';
+import { sendError } from '../../lib/errors.js';
 import type { ActorRecord, SessionRecord, SessionService } from '../auth/session-service.js';
 import type { FindingsService } from '../findings/index.js';
 import type { CheckService } from '../permissions/check-service.js';
+import { platformNoticeRoutes } from '../platform-notices/index.js';
 import type { TasksService } from '../tasks/index.js';
 import type { VocReadService } from '../voc/index.js';
 import { createAccessDirectoryService } from './access-directory.js';
@@ -28,8 +27,15 @@ import {
 } from './permissions.js';
 import { OVERSIZE_BODY, createPreferencesBodyParser } from './preferences-body.js';
 import { type PreferencesJudgement, createPlatformPreferencesService } from './preferences.js';
+import { seoulWallClockMinute } from './seoul-clock.js';
 import { sessionVersionOf } from './session-version.js';
 import { titleFor } from './titles.js';
+import {
+  MALFORMED_BODY,
+  createAuthenticator,
+  installPlatformTransport,
+  platformActorOf,
+} from './transport.js';
 import { createPlatformUsageService, parseUsageBatch } from './usage.js';
 
 export const PLATFORM_PORT_PREFIX = '/api/v1/platform';
@@ -45,23 +51,6 @@ export interface PlatformPortOptions {
   tasksService: TasksService;
   now?: () => Date;
 }
-
-/** Asia/Seoul wall-clock `now`, truncated to the minute: `YYYY-MM-DDTHH:mm:ss`. */
-export function seoulWallClockMinute(at: Date): string {
-  const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Asia/Seoul',
-    hourCycle: 'h23',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).formatToParts(at);
-  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '00';
-  return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}:00`;
-}
-
-const MALFORMED_BODY = Symbol('malformed-json-body');
 
 export const platformPortRoutes: FastifyPluginAsync<PlatformPortOptions> = async (app, opts) => {
   const now = opts.now ?? (() => new Date());
@@ -81,84 +70,23 @@ export const platformPortRoutes: FastifyPluginAsync<PlatformPortOptions> = async
   const prefs = createPlatformPreferencesService({ db: opts.db });
   const csrf = requireCsrf(opts.sessionService);
 
-  // A body that is not valid JSON is a judged malformed request (HTTP 200 + `error` envelope,
-  // ADR-0069 decision 2), not a framework 4xx: hand the route a sentinel instead of throwing.
-  app.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, body, done) => {
-    if (body === '') return done(null, undefined);
-    try {
-      done(null, JSON.parse(body as string));
-    } catch {
-      done(null, MALFORMED_BODY);
-    }
+  installPlatformTransport(app, { notFound: true });
+  const authenticate = createAuthenticator({
+    sessionService: opts.sessionService,
+    workspaceId: opts.workspaceId,
   });
 
-  app.addHook('onSend', async (_req, reply) => {
-    reply.header('cache-control', 'no-store');
+  const actorOf = platformActorOf;
+
+  // Notice management (ADR-0098 §4) is a child of this plugin: it inherits the transport policy above
+  // (no-store, malformed-JSON judgment, error handler, prefix 404) instead of repeating it.
+  await app.register(platformNoticeRoutes, {
+    db: opts.db,
+    checkService: opts.checkService,
+    authenticate,
+    csrf,
+    ...(opts.now ? { now: opts.now } : {}),
   });
-
-  // Unknown paths under the prefix still get this plugin's hooks (no-store); outside the
-  // prefix Fastify's default 404 is unchanged.
-  app.setNotFoundHandler((_req, reply) =>
-    reply.code(404).send({ code: 'not_found', message: 'route not found' }),
-  );
-
-  // Plugin-scoped: sibling FeedbackOps routes keep the root handler. Covers what can
-  // reach these two GETs — a thrown HttpError / rate-limit error with a known code,
-  // a 4xx from the framework, anything else as 500.
-  app.setErrorHandler((err, req, reply) => {
-    const rawCode = (err as { code?: string }).code;
-    const parsed = typeof rawCode === 'string' ? errorCodeSchema.safeParse(rawCode) : null;
-    if (parsed?.success) {
-      const status = statusForCode(parsed.data);
-      const detail = (err as { detail?: Record<string, unknown> }).detail;
-      if (status === 429 && typeof detail?.retry_after_seconds === 'number') {
-        reply.header('Retry-After', String(detail.retry_after_seconds));
-      }
-      return reply
-        .code(status)
-        .send({ code: parsed.data, message: err.message, ...(detail ? { detail } : {}) });
-    }
-    const statusCode = (err as { statusCode?: unknown }).statusCode;
-    if (typeof statusCode === 'number' && statusCode >= 400 && statusCode <= 499) {
-      return reply
-        .code(statusForCode('validation.malformed_request'))
-        .send({ code: 'validation.malformed_request', message: 'malformed request' });
-    }
-    req.log.error({ err }, 'unhandled error');
-    return reply.code(500).send({ code: 'internal.unexpected', message: 'internal server error' });
-  });
-
-  async function authenticate(
-    req: FastifyRequest,
-    reply: FastifyReply,
-    touch: boolean,
-  ): Promise<{ session: SessionRecord; actor: ActorRecord } | null> {
-    const cookie = req.cookies?.[SESSION_COOKIE_NAME];
-    if (!cookie) {
-      sendError(reply, 'auth.session_invalid', 'session cookie missing');
-      return null;
-    }
-    const loaded = touch
-      ? await opts.sessionService.loadAndTouch(cookie)
-      : await opts.sessionService.loadActive(cookie);
-    if (!loaded) {
-      sendError(reply, 'auth.session_invalid', 'session not active');
-      return null;
-    }
-    if (loaded.session.workspaceId !== opts.workspaceId) {
-      sendError(reply, 'auth.workspace_mismatch', 'session is bound to a different workspace');
-      return null;
-    }
-    return loaded;
-  }
-
-  function actorOf(loaded: { session: SessionRecord; actor: ActorRecord }) {
-    return {
-      actor_id: loaded.actor.id,
-      workspace_id: loaded.session.workspaceId,
-      role_level: loaded.actor.roleLevel,
-    };
-  }
 
   async function buildSession(loaded: { session: SessionRecord; actor: ActorRecord }) {
     const { actor, session } = loaded;

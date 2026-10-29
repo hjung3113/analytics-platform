@@ -16,9 +16,11 @@ declare module '#platform-assembly' {
    * `savedViews` is the browser-local ACL simulation in mock builds and the server-backed HTTP store in real builds (ADR-0099). `featureApi`
    * (real assemblies only; absent in mock) is where the FeedbackOps bridge screens call and what they do when the
    * FeedbackOps session is lost (ADR-0071). `serverPreferences: true` makes the Kernel keep the user's preferences on the
-   * server through the adapter's preference ports (ADR-0098); absent keeps browser storage. Structural: the Kernel and this contract know no menu.
+   * server through the adapter's preference ports (ADR-0098); absent keeps browser storage. `invalidation` (real assemblies) is
+   * where the app declares which of its endpoint ids a write through the adapter port affects (#1106); `main.tsx` mounts one
+   * bridge that refreshes exactly those. Structural: the Kernel and this contract know no menu.
    */
-  export type Assembly = { adapter: PlatformAdapter; topBarTools: ReactNode; savedViews?: SavedViewStore; featureApi?: { basePath: string; onSessionLost: () => void }; serverPreferences?: boolean };
+  export type Assembly = { adapter: PlatformAdapter; topBarTools: ReactNode; savedViews?: SavedViewStore; featureApi?: { basePath: string; onSessionLost: () => void }; serverPreferences?: boolean; invalidation?: { subscribe: (listener: (endpointIds: readonly string[]) => void) => () => void } };
   /**
    * What `createAssembly` may answer (#154, http-adapter-contract §3 안 B): the assembly to mount, a `redirect` target
    * (`main.tsx` calls `window.location.replace`, e.g. to the login page), or a `screen` rendered instead of the app
