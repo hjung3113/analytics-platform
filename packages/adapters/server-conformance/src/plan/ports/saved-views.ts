@@ -1,4 +1,4 @@
-import type { Result, SavedViewDraft, SavedViewStore } from '@ap/contracts';
+import type { Result, SavedViewDraft, SavedViewListItem, SavedViewStore } from '@ap/contracts';
 import type { ConformanceCheck, SavedViewPortMethod, ServerConformanceHarness } from '../../types';
 
 /**
@@ -68,6 +68,17 @@ export function planSavedViewChecks(harness: ServerConformanceHarness): Conforma
   const idOf = (item: { denied?: false; view: { id: string } } | { denied: true; id: string }) =>
     item.denied === true ? item.id : item.view.id;
 
+  /** ADR-0099 §1: out of access answers exactly `{ id, denied: true, reason }` — no title, owner, groups or body may ride along (both denied reads go through here). */
+  const deniedEntry = (item: SavedViewListItem | null, id: string, what: string): string | null => {
+    if (item === null || item.denied !== true) return `${what}, got ${JSON.stringify(item)}`;
+    const keys = Object.keys(item).sort();
+    if (keys.length !== 3 || keys[0] !== 'denied' || keys[1] !== 'id' || keys[2] !== 'reason')
+      return `${what}: the denied entry is exactly the keys { id, denied, reason } (ADR-0099 §1), got ${JSON.stringify(Object.keys(item))}`;
+    if (item.id !== id || item.reason !== NO_ACCESS)
+      return `${what}: the denied entry answers the asked id with reason '${NO_ACCESS}' (the server's value, ADR-0099 §6), got ${JSON.stringify(item)}`;
+    return null;
+  };
+
   // ADR-0099 §1·§6: reads re-judge the object ACL every time. Out of access is a denied entry in `get`, never a
   // leak and never null; `list` simply omits the view.
   checks.push({
@@ -84,16 +95,45 @@ export function planSavedViewChecks(harness: ServerConformanceHarness): Conforma
       const view = saved.view;
       if (view.visibility.kind !== 'private' || view.approval !== 'none') return 'save answers a private view with approval none (SavedViewStore contract)';
       if (view.version !== 1 || typeof view.updatedAt !== 'number') return 'the store issues the first version and the timestamp (ADR-0099 §2)';
-      const leaked = await admin.get(view.id);
-      if (leaked === null || leaked.denied !== true) return `get of an existing view outside the actor's access answers the denied entry { id, denied: true, reason }, never null (ADR-0099 §1), got ${JSON.stringify(leaked)}`;
-      if (leaked.id !== view.id || typeof leaked.reason !== 'string' || leaked.reason.length === 0) return `the denied entry is exactly { id, denied: true, reason }, got ${JSON.stringify(leaked)}`;
-      if (leaked.reason !== NO_ACCESS) return `the out-of-access reason is '${NO_ACCESS}' (the server's value, ADR-0099 §6), got '${leaked.reason}'`;
+      const leaked = deniedEntry(await admin.get(view.id), view.id, "get of an existing view outside the actor's access answers the denied entry, never null (ADR-0099 §1)");
+      if (leaked) return leaked;
       const listed = await admin.list({ userId: who.admin, menuId: sample.menuId });
       if (listed.some(item => idOf(item) === view.id)) return 'list never contains a view the actor cannot reach (ADR-0099 §6)';
       const mine = await user.get(view.id);
       if (mine === null || mine.denied === true) return 'the owner reads its own saved view back';
       const nowhere = await user.get('00000000-0000-0000-0000-000000000000');
       if (nowhere !== null) return 'get of an id that exists nowhere answers null';
+      return null;
+    },
+  });
+
+  // ADR-0099 §2: ownership is the write path of a private view — the owner's rename and delete succeed and
+  // persist, so a store that refuses every owner write, or answers ok without writing, cannot conform.
+  checks.push({
+    id: 'port · savedViews: the owner renames and deletes its own view — ok, the rename persists with the next version, the delete empties get and list',
+    uses: ['save', 'update', 'get', 'list', 'remove'],
+    mode: 'sequential',
+    nonEnvelope: true,
+    run: async () => {
+      const { user } = sample;
+      const who = await actors(user, sample.admin);
+      if (typeof who === 'string') return who;
+      const saved = okOf(await user.save(draft()), 'save');
+      if (typeof saved === 'string') return saved;
+      const id = saved.view.id;
+      const renamed = okOf(await user.update(id, { name: '이름 바꾼 뷰' }, { expectedVersion: saved.view.version }), 'update by the owner');
+      if (typeof renamed === 'string') return renamed;
+      if (renamed.view.name !== '이름 바꾼 뷰' || renamed.view.version !== saved.view.version + 1)
+        return `the owner's rename answers the new name with the next version, got ${JSON.stringify({ name: renamed.view.name, version: renamed.view.version })}`;
+      const back = await user.get(id);
+      if (back === null || back.denied === true || back.view.name !== '이름 바꾼 뷰' || back.view.version !== saved.view.version + 1)
+        return 'the rename persists — a read back answers the new name and version';
+      const key = { userId: who.user, menuId: sample.menuId };
+      if (!(await user.list(key)).some(item => idOf(item) === id)) return 'the renamed view stays in the list';
+      const removed = okOf(await user.remove(id), 'remove by the owner');
+      if (typeof removed === 'string') return removed;
+      if ((await user.get(id)) !== null) return 'a deleted view answers null from get';
+      if ((await user.list(key)).some(item => idOf(item) === id)) return 'a deleted view is gone from the list';
       return null;
     },
   });
@@ -136,6 +176,10 @@ export function planSavedViewChecks(harness: ServerConformanceHarness): Conforma
         const bad = want(r, expected, what);
         if (bad) return bad;
       }
+      // A refused write is also a write that never happened — the view keeps its name and version.
+      const unchanged = await user.get(id);
+      if (unchanged === null || unchanged.denied === true || unchanged.view.name !== saved.view.name || unchanged.view.version !== version)
+        return 'the refused mutations wrote nothing — the view keeps its name and version';
       return null;
     },
   });
@@ -207,10 +251,64 @@ export function planSavedViewChecks(harness: ServerConformanceHarness): Conforma
       if (revoked.view.approval !== 'none' || revoked.view.visibility.kind !== 'private') return 'revoke returns the view to private with approval none';
       if (revoked.view.approvalNote !== REVOKE_NOTE) return `revoke carries the fixed note, got ${JSON.stringify(revoked.view.approvalNote)}`;
       if ((await admin.getDefaultId(key)) !== null) return "a default whose access is lost answers null — it is not restored to or exposed for anyone else (ADR-0099 §2)";
-      const after = await admin.get(id);
-      if (after === null || after.denied !== true) return 'revoke removed the shared access — get is the denied entry again';
+      const revokedRead = deniedEntry(await admin.get(id), id, 'revoke removed the shared access — get is the denied entry again');
+      if (revokedRead) return revokedRead;
       const mine = await user.get(id);
       if (mine === null || mine.denied === true || mine.view.approval !== 'none' || mine.view.visibility.kind !== 'private') return 'the owner keeps the revoked view as a private one';
+      return null;
+    },
+  });
+
+  // ADR-0099 §2·§6: official access is a path of its own, and only a reader who is neither the owner nor the
+  // approver can prove it — the approver reading its own approval proves nothing. The admin owns, requests and
+  // approves its own view (owner and approver may be the same person, §6) while `user` stays the ordinary
+  // reader: blind to the pending application, reading the published copy with the official capabilities, kept
+  // on the approved content while a proposal waits, and losing view, list entry and default on revoke.
+  checks.push({
+    id: 'port · savedViews: the official copy through an ordinary reader — pending is invisible, approved is readable, a proposal stays invisible, revoke takes view, list entry and default',
+    uses: ['save', 'requestOfficial', 'get', 'list', 'listApprovalRequests', 'decide', 'setDefault', 'getDefaultId', 'update', 'revoke'],
+    mode: 'sequential',
+    nonEnvelope: true,
+    run: async () => {
+      const { user, admin, menuId } = sample;
+      const who = await actors(user, admin);
+      if (typeof who === 'string') return who;
+      const saved = okOf(await admin.save(draft()), 'save');
+      if (typeof saved === 'string') return saved;
+      const id = saved.view.id;
+      const key = { userId: who.user, menuId };
+      const pending = okOf(await admin.requestOfficial(id, { expectedVersion: saved.view.version }), 'requestOfficial');
+      if (typeof pending === 'string') return pending;
+      const hidden = deniedEntry(await user.get(id), id, 'a pending application is private — the ordinary reader cannot get it');
+      if (hidden) return hidden;
+      if ((await user.list(key)).some(item => idOf(item) === id)) return 'the ordinary reader cannot list the pending application either (ADR-0099 §2)';
+      if ((await user.listApprovalRequests(key)).some(r => r.viewId === id)) return "a pending application never leaks into the ordinary reader's approval list (ADR-0099 §2)";
+      const approved = okOf(await admin.decide(id, 'approve', undefined, { expectedVersion: pending.view.version }), 'decide(approve)');
+      if (typeof approved === 'string') return approved;
+      const read = await user.get(id);
+      if (read === null || read.denied === true) return 'an approved official view is readable by everyone, not only by its owner and approver (ADR-0099 §2)';
+      if (read.view.name !== approved.view.name) return `the ordinary reader reads the published copy, got ${JSON.stringify(read.view.name)}`;
+      if (read.capabilities.canEdit !== false || read.capabilities.reason !== OFFICIAL_NO_EDIT) return `the ordinary reader may copy but never edit the official copy, got ${JSON.stringify(read.capabilities)}`;
+      if (!(await user.list(key)).some(item => idOf(item) === id)) return "the approved official view is in the ordinary reader's list";
+      const set = okOf(await user.setDefault(key, id), 'setDefault by the ordinary reader');
+      if (typeof set === 'string') return set;
+      if ((await user.getDefaultId(key)) !== id) return "the ordinary reader's default answers the id while the view is official";
+      const proposed = '재승인 제안 이름';
+      const edited = okOf(await admin.update(id, { name: proposed }, { expectedVersion: approved.view.version }), 'update of an official copy by its owner');
+      if (typeof edited === 'string') return edited;
+      if (edited.view.approval !== 'pending' || edited.view.name !== proposed) return 'the owner\'s edit of an official copy is a pending proposal, never a publish';
+      const readerSide = await user.get(id);
+      if (readerSide === null || readerSide.denied === true || readerSide.view.name !== approved.view.name || readerSide.view.approval !== 'approved')
+        return 'a pending edit never reaches the ordinary reader — the approved copy and its state stay (ADR-0099 §2)';
+      const approverSide = await admin.get(id);
+      if (approverSide === null || approverSide.denied === true || approverSide.view.name !== proposed || approverSide.view.approval !== 'pending')
+        return 'the owner and approvers see the pending proposal, not the approved copy';
+      const revoked = okOf(await admin.revoke(id, { expectedVersion: edited.view.version }), 'revoke');
+      if (typeof revoked === 'string') return revoked;
+      const lost = deniedEntry(await user.get(id), id, "revoke removed the ordinary reader's access — get is the denied entry again");
+      if (lost) return lost;
+      if ((await user.list(key)).some(item => idOf(item) === id)) return 'the revoked view is gone from the ordinary reader\'s list';
+      if ((await user.getDefaultId(key)) !== null) return "the ordinary reader's default is gone with the access — it is not restored to or exposed for anyone else (ADR-0099 §2)";
       return null;
     },
   });

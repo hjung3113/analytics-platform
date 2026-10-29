@@ -1,6 +1,6 @@
 import { optionSamples, referenceSelectionPorts } from './selection-ports.test-support';
 import { describe, expect, it } from 'vitest';
-import { defineAction, defineEndpoint, emptyGlobal, projectContext, type ActionResponse, type ApiResponse, type Assessment, type AuditEvent, type ChartAnnotation, type EntityAuditPage, type GroupMember, type JsonValue, type Notice, type PreferencesSnapshot, type ClientErrorReport, type GlobalContext, type MenuAction, type MenuQuery, type Permission, type PlatformAdapter, type Session, type Trust, type UsageEvent, type UsageRange, type UsageSummary, menuPermission, spaceId } from '@ap/contracts';
+import { defineAction, defineEndpoint, emptyGlobal, projectContext, type ActionResponse, type ApiResponse, type Assessment, type AuditEvent, type ChartAnnotation, type EntityAuditPage, type GroupMember, type JsonValue, type Notice, type PreferencesSnapshot, type ClientErrorReport, type GlobalContext, type MenuAction, type MenuQuery, type Permission, type PlatformAdapter, type SavedView, type SavedViewListItem, type SavedViewStore, type Session, type Trust, type UsageEvent, type UsageRange, type UsageSummary, type ViewCapabilities, menuPermission, spaceId } from '@ap/contracts';
 import { planServerConformance, runServerConformance, type ActionCase, type ConformanceResult, type ConformanceCase, type PortSamples, type ServerConformanceHarness } from '../index';
 import { SAVED_VIEW_PORT_METHODS } from '../plan/ports/saved-views';
 
@@ -1858,5 +1858,56 @@ describe('entityAudit cursor page checks (ADR-0085)', () => {
     expect(sent.every(cursor => cursor === undefined)).toBe(true);
     // The six pre-existing entityAudit checks still run.
     expect(results.filter(r => r.id.startsWith('port · entityAudit') && !PAGE_IDS.includes(r.id)).every(r => r.status === 'passed')).toBe(true);
+  });
+});
+
+// #1131 C3: ADR-0099 §1 permits exactly { id, denied, reason } in a denied entry. A store leaking any private
+// field beside them (here the whole view) must fail the invisibility check; a clean one passes it. The fixture
+// serves only that check's three methods and throws on the rest.
+describe('savedViews denied-entry shape (ADR-0099 §1)', () => {
+  const CAPS: ViewCapabilities = { canView: true, canCopy: true, canEdit: true, canShare: true, canApprove: false, canRevoke: false };
+  const unimplemented = async (): Promise<never> => { throw new Error('not part of the denied-entry check'); };
+  const sampleOf = (leak: boolean) => {
+    const views = new Map<string, SavedView>();
+    const storeOf = (ownerId: string): SavedViewStore => ({
+      save: async input => {
+        const view = { ...input, id: `${ownerId}|fixture|${views.size + 1}`, ownerId, version: 1, updatedAt: 5, visibility: { kind: 'private' as const }, approval: 'none' as const } as SavedView;
+        views.set(view.id, view);
+        return { ok: true, value: { view, capabilities: CAPS } };
+      },
+      get: async id => {
+        const view = views.get(id);
+        if (view === undefined) return null;
+        if (view.ownerId === ownerId) return { view, capabilities: CAPS };
+        const denied = { id: view.id, denied: true as const, reason: 'no-access', ...(leak ? { view } : {}) };
+        return denied as SavedViewListItem;
+      },
+      list: async () => [...views.values()].filter(v => v.ownerId === ownerId).map(v => ({ view: v, capabilities: CAPS })),
+      update: unimplemented,
+      remove: unimplemented,
+      setDefault: unimplemented,
+      getDefaultId: unimplemented,
+      setVisibility: unimplemented,
+      requestOfficial: unimplemented,
+      decide: unimplemented,
+      revoke: unimplemented,
+      listApprovalRequests: unimplemented,
+      listGroups: unimplemented,
+      createGroup: unimplemented,
+      updateGroup: unimplemented,
+      searchPeople: unimplemented,
+    });
+    return { user: storeOf('fixture-user'), admin: storeOf('fixture-admin'), menuId: 'fixture-menu' };
+  };
+  const runInvisibility = async (leak: boolean) => {
+    const check = planServerConformance({ ...harness(), ports: { ...PORTS, savedViews: sampleOf(leak) } })
+      .find(c => c.id.includes('a private view is invisible'))!;
+    return check.run();
+  };
+  it('fails a store whose denied entry leaks a private field beside { id, denied, reason }', async () => {
+    await expect(runInvisibility(true)).resolves.toContain('exactly the keys { id, denied, reason }');
+  });
+  it('passes a store answering exactly { id, denied, reason }', async () => {
+    await expect(runInvisibility(false)).resolves.toBeNull();
   });
 });
