@@ -247,7 +247,9 @@ export async function serve<T>(o: ServeOptions<T>): Promise<ApiResponse<T>> {
   if (s === 'forbidden' || resolved.forbidden) return { ...base, outcome: 'forbidden', message: resolved.forbidden ?? '권한이 회수되었습니다(시나리오)' };
   const hours = periodHours(o.global);
   if ((mart && s === 'too_large') || (o.maxHours && hours !== null && hours > o.maxHours && (o.global.selection === null || o.global.selection.length > 40))) {
-    return { ...base, outcome: 'too_large', message: `기간 ${hours ?? '?'}시간이 좁힌 고정 설비 선택 없이 ${o.maxHours ?? '—'}시간 한도를 넘습니다` };
+    // A forced scenario has no real overrun, so it must not quote the period against the limit (#740 UX-1).
+    const forced = mart && s === 'too_large' && !(o.maxHours && hours !== null && hours > o.maxHours);
+    return { ...base, outcome: 'too_large', message: forced ? '조회 범위가 한도를 넘습니다(시나리오)' : `기간 ${hours ?? '?'}시간이 좁힌 고정 설비 선택 없이 ${o.maxHours ?? '—'}시간 한도를 넘습니다` };
   }
   // 06 §19 exception: an explicit empty on any set key is answered without reading the source (#146).
   if ([o.global.selection, o.global.roomNames, o.global.lineNames, o.global.prcGroups, o.global.lotIds, o.global.recipeIds].some(set => set?.length === 0)) {
