@@ -55,6 +55,10 @@ function project(content: Record<string, unknown>): unknown {
   return { ...common, menuId: content['menuId'], menuSchemaVersion: content['menuSchemaVersion'], page: content['page'], chartOptions: content['chartOptions'], layout: content['layout'], panels: content['panels'] };
 }
 
+/** The server refuses NUL and unpaired surrogates in `legacyKey`; a row carrying one stays in the browser and never joins a request, so it cannot invalidate its neighbours. */
+const LONE_SURROGATE = /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/;
+const isWellFormedKey = (value: string): boolean => !value.includes('\u0000') && !LONE_SURROGATE.test(value);
+
 function readBucket(storage: StoragePort, name: string, actorId: string): { menuId: string | null; rows: ManifestRow[] } | null {
   let parsedKey: unknown;
   try { parsedKey = JSON.parse(name.slice(ROWS_PREFIX.length)); } catch { return null; }
@@ -72,7 +76,7 @@ function readBucket(storage: StoragePort, name: string, actorId: string): { menu
     if (pending !== undefined && !(rowMatches(pending, actorId, menuId) && pending['id'] === row['id'])) continue;
     const draft = project(pending !== undefined ? (pending as Record<string, unknown>) : row);
     const legacyKey = row['id'] as string;
-    if (legacyKey.length > 200 || !isSavedViewDraft(draft)) continue;
+    if (legacyKey.length > 200 || !isWellFormedKey(legacyKey) || !isSavedViewDraft(draft)) continue;
     rows.push({ legacyKey, draft: draft as SavedViewDraft });
   }
   return { menuId, rows };

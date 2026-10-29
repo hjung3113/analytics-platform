@@ -13,7 +13,7 @@ type Guard = (value: unknown) => boolean;
 
 const str: Guard = (v) => typeof v === 'string';
 const num: Guard = (v) => typeof v === 'number' && Number.isFinite(v);
-const int: Guard = (v) => typeof v === 'number' && Number.isInteger(v);
+const int: Guard = (v) => typeof v === 'number' && Number.isSafeInteger(v);
 const bool: Guard = (v) => typeof v === 'boolean';
 const id: Guard = (v) => typeof v === 'string' && v.length > 0;
 const lit = (expected: unknown): Guard => (v) => v === expected;
@@ -76,6 +76,8 @@ function hasForbiddenKey(value: unknown): boolean {
 const noForbiddenKeys = (guard: Guard): Guard => (v) => guard(v) && !hasForbiddenKey(v);
 const text: Guard = (v) => typeof v === 'string' && isWellFormedText(v);
 const textList: Guard = arrayOf(text);
+/** Command target id: the schema's non-empty string, plus the server's refusal of unsafe Unicode. */
+const cmdId: Guard = (v) => typeof v === 'string' && v.length > 0 && isWellFormedText(v);
 
 const context: Guard = noForbiddenKeys(
   strict(
@@ -139,7 +141,8 @@ export const withinCommandBounds = (body: unknown): boolean => withinDepth(body)
 
 // ---- commands (what this client may send) ----
 
-const key = strict({ menuId: nullable(menuId) });
+/** The wire key allows an empty `menuId` (unlike a menu-view draft); only unsafe Unicode is refused. */
+const key = strict({ menuId: nullable(text) });
 const expected = { expectedVersion: int };
 const cmd = (op: string, shape: Record<string, Guard>, optional: Record<string, Guard> = {}): Guard => strict({ version: lit(1), op: lit(op), ...shape }, optional);
 const importRow = strict({ legacyKey: (v) => typeof v === 'string' && v.length >= 1 && v.length <= TOKEN_MAX && isWellFormedText(v), draft: isSavedViewDraft });
@@ -152,20 +155,20 @@ const importLocal: Guard = (v) => {
 };
 const commandGuards: Guard[] = [
   cmd('list', { key }),
-  cmd('get', { id: text }),
+  cmd('get', { id: cmdId }),
   cmd('save', { draft: isSavedViewDraft }),
-  cmd('update', { id: text, patch, ...expected }),
-  cmd('remove', { id: text }),
-  cmd('setDefault', { key, id: nullable(text) }),
+  cmd('update', { id: cmdId, patch, ...expected }),
+  cmd('remove', { id: cmdId }),
+  cmd('setDefault', { key, id: nullable(cmdId) }),
   cmd('getDefaultId', { key }),
-  cmd('setVisibility', { id: text, visibility, ...expected }),
-  cmd('requestOfficial', { id: text, ...expected }),
-  cmd('decide', { id: text, decision: oneOf('approve', 'reject'), ...expected }, { note: text }),
-  cmd('revoke', { id: text, ...expected }),
+  cmd('setVisibility', { id: cmdId, visibility, ...expected }),
+  cmd('requestOfficial', { id: cmdId, ...expected }),
+  cmd('decide', { id: cmdId, decision: oneOf('approve', 'reject'), ...expected }, { note: text }),
+  cmd('revoke', { id: cmdId, ...expected }),
   cmd('listApprovalRequests', { key }),
   cmd('listGroups', {}),
   cmd('createGroup', { name: text, memberIds: textList }),
-  cmd('updateGroup', { id: text, patch: strict({}, { name: text, addMembers: textList, removeMembers: textList }) }),
+  cmd('updateGroup', { id: cmdId, patch: strict({}, { name: text, addMembers: textList, removeMembers: textList }) }),
   cmd('searchPeople', { query: text }),
   importLocal,
 ];

@@ -1,6 +1,6 @@
 # 저장된 뷰 서버는 객체 ACL만 판정하고, 메뉴·Scope는 실제 데이터 경계가 판정한다
 
-상태: **Decided (2026-10-29)**, 서버 모듈 구현됨(#1105a, §5·§6). HTTP 저장소·브라우저 이전 실행·사람 이름 표시는 코드 구현됨(#1105b, §7), 호스트 검증 전.
+상태: **Decided (2026-10-29)**, 서버 모듈 구현됨(#1105a, §5·§6). HTTP 저장소·브라우저 이전 실행·사람 이름 표시는 코드 구현됨(#1105b, §7). 호스트 검사는 완료됐고 실서버 rendered 저장된 뷰 UI만 미검증이다(`.planning/backlog.md`).
 - 결정자: 사용자 — [#1105 결정 댓글](https://github.com/hjung3113/analytics-platform/issues/1105)(2026-10-29): 권한 권위 분리, 공식 승인 `console:access`, 사람 조회 원천, 조직 팀 공유 미구현. 나머지 세부 설계(전송 모양·상한·이전 프로토콜·공식 회수 정책)는 팀장(사용자 위임, 되돌릴 수 있음).
 - 관련: [ADR-0092](0092-saved-view-units-tiers-and-groups.md) §3을 **부분 대체**한다(아래 §1; 0092 본문은 역사로 보존). [ADR-0095](0095-dual-backend-fastify-core-fastapi-analytics.md)(Fastify core), [ADR-0097](0097-platform-features-and-role-based-names.md)(서버는 `@ap/contract-schemas`를 런타임 import, `@ap/contracts`는 안 함), [ADR-0098](0098-adapter-preferences-people-notices-ports.md)(사람 정확 조회, 상한 규칙). 계약 본문 `docs/contract/kernel.md` §21. 스키마 원본 `packages/sdk/contract-schemas/src/saved-view-commands.ts`.
 
@@ -47,7 +47,7 @@
 | 이 ADR의 결정 | Decided |
 | `@ap/contract-schemas`의 명령·응답 스키마 | 구현(이번 단계) |
 | 서버 모듈·Drizzle·ACL·감사 | 구현(#1105a, `apps/platform-api/src/modules/platform-saved-views`, 마이그레이션 0078) |
-| HTTP 저장소(`@ap/http-adapter`)·브라우저 이전·사람 이름 표시 | 코드 구현(#1105b, §7), 호스트 검증 전 |
+| HTTP 저장소(`@ap/http-adapter`)·브라우저 이전·사람 이름 표시 | 코드 구현(#1105b, §7). 호스트 검사 완료(root 4종·SDK API 20 스냅샷·실서버 명령 5·mock UI E2E 5·UX PASS), 실서버 rendered UI는 미검증 |
 | 조직 팀 공유 | **구현 안 함**(위 이유·재개 조건) |
 
 ### 6. 서버 구현에서 정한 세부 (#1105a, 되돌릴 수 있음)
@@ -74,5 +74,5 @@
 ## 결과
 
 - 0092 §3의 "열람·복원 때마다 서버가 Scope·room·메뉴 권한을 다시 판정"은 이 ADR §1로 부분 대체된다. 0092의 단위·단계·그룹 불변식은 유지한다.
-- `docs/contract/kernel.md` §21은 결정된 정책과 구현된 서버 모듈, 코드 구현된 HTTP 저장소·브라우저 이전 실행(#1105b, 호스트 검증 전)을 구분해 적는다. `real-server-checklist`·`platform-packages` 갱신은 서버 구현 단계가 한다.
+- `docs/contract/kernel.md` §21은 결정된 정책과 구현된 서버 모듈, 코드 구현되고 호스트 검사를 마친 HTTP 저장소·브라우저 이전 실행(#1105b; 실서버 rendered UI는 미검증)을 구분해 적는다. `real-server-checklist`·`platform-packages` 갱신은 서버 구현 단계가 한다.
 - 되돌리기: 정책 선택(회수 뒤 비공개, 승인 권한, 상한)은 이 ADR을 고쳐 바꾼다. 권한 권위 분리는 사용자 결정이다.

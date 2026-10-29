@@ -23,7 +23,7 @@ function lockPort() {
   return { request: <T,>(_name: string, cb: () => Promise<T>): Promise<T> => { const run = tail.then(cb); tail = run.catch(() => undefined); return run; } };
 }
 
-const view = (seq: number, over: Record<string, unknown> = {}, menu = 'home') => ({
+const view = (seq: number | string, over: Record<string, unknown> = {}, menu = 'home') => ({
   id: `${ACTOR}|${menu}|${seq}`, schemaVersion: 1, kind: 'menu-view', name: `뷰 ${seq}`, ownerId: ACTOR, version: 1, updatedAt: 1,
   visibility: { kind: 'groups', groupIds: ['g1'] }, approval: 'approved', menuId: menu, menuSchemaVersion: 1, context: { roomNames: ['A'] },
   page: [['k', 'v']], chartOptions: {}, layout: null, panels: null, ...over,
@@ -79,6 +79,18 @@ describe('reading the legacy buckets (#1105)', () => {
     const send = vi.fn(acceptAll);
     await runLocalImport(deps(storage, send));
     expect(send.mock.calls[0]![0].rows.map((r: { legacyKey: string }) => r.legacyKey)).toEqual([`${ACTOR}|home|1`]);
+  });
+
+  it('keeps a malformed-Unicode legacy id (NUL, unpaired surrogate) from invalidating or blocking its valid neighbours, and leaves every original byte untouched', async () => {
+    const storage = memory({ [rowsKey(ACTOR, 'home')]: bucket(view(1), view('\u0000', { name: 'nul' }), view('\ud800x', { name: 'lone' }), view(2)) });
+    const before = snapshot(storage);
+    const send = vi.fn(acceptAll);
+    const done = await runLocalImport(deps(storage, send));
+    const sent = send.mock.calls.flatMap(([command]) => command.rows.map((r: { legacyKey: string }) => r.legacyKey));
+    expect(sent).toEqual([`${ACTOR}|home|1`, `${ACTOR}|home|2`]);
+    expect(done).toEqual({ status: 'done', acked: 2, rejected: 0, pending: 0 });
+    expect(Object.keys(JSON.parse(storage.getItem(importManifestKey(ACTOR))!).receipts)).toEqual(sent);
+    expect(snapshot(storage)).toBe(before);
   });
 });
 
