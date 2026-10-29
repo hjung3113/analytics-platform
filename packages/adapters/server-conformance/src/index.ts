@@ -6,7 +6,7 @@
  * from a contract declaration plus samples the granted actor can run, so the kit knows no menu and no mock internals.
  */
 export type {
-  ActionCase, ConformanceCase, ConformanceCheck, ConformanceResult, ConformanceSkipped, OptionPortSamples, PortMethod, PortSamples, ServerConformanceHarness,
+  ActionCase, ConformanceCase, ConformanceCheck, ConformanceResult, ConformanceSkipped, ConformanceUse, OptionPortSamples, PortMethod, PortSamples, SavedViewPortMethod, SavedViewPortSamples, ServerConformanceHarness,
 } from './types';
 export { planServerConformance } from './plan/endpoints';
 export { describeServerConformance, runServerConformance } from './run';

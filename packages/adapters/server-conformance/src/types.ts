@@ -1,8 +1,15 @@
 import type {
-  ActionResponse, AnyActionSpec, AnyEndpointSpec, ClientErrorReport, EntityRef, GlobalContext, Permission, PlatformAdapter, UsageEvent,
+  ActionResponse, AnyActionSpec, AnyEndpointSpec, ClientErrorReport, EntityRef, GlobalContext, Permission, PlatformAdapter, SavedViewStore, UsageEvent,
 } from '@ap/contracts';
 import type { OptionPortSamples } from './plan/ports/selection-ports';
+import type { SavedViewPortSamples } from './plan/ports/saved-views';
 export type { OptionPortSamples } from './plan/ports/selection-ports';
+export type { SavedViewPortSamples } from './plan/ports/saved-views';
+
+/** One `SavedViewStore` member — the saved-view port is not a `PlatformAdapter` method (ADR-0099, #1131). */
+export type SavedViewPortMethod = keyof SavedViewStore;
+/** A method a check may call: a `PlatformAdapter` member (gated by `implemented`) or a `SavedViewStore` member (gated by the saved-view sample). */
+export type ConformanceUse = PortMethod | SavedViewPortMethod;
 
 export type ConformanceCase = {
   spec: AnyEndpointSpec;
@@ -63,6 +70,11 @@ export type PortSamples = {
    * check can only prove shape and absence, so an always-empty implementation passes — it ends as a run-time skip with this reason.
    */
   visiblePersonId?: string;
+  /**
+   * The saved-view store port (ADR-0099) with its two actors: `user`, a plain owner without the approval right, and
+   * `admin`, the approver (`console:access`). Absent → every saved-view check stays a visible skip (#1131).
+   */
+  savedViews?: SavedViewPortSamples;
 };
 
 /** One `PlatformAdapter` member — the unit a server declares as implemented (#674). */
@@ -134,8 +146,8 @@ export type ConformanceCheck = {
    * method threw/rejected instead.
    */
   nonEnvelope?: boolean;
-  /** The port methods `run` calls; a method outside `harness.implemented` turns the check into a skipped one. */
-  uses?: readonly PortMethod[];
+  /** The port methods `run` calls — `PlatformAdapter` members are gated by `harness.implemented`, `SavedViewStore` members by the saved-view sample's presence; a missing method turns the check into a skipped one. */
+  uses?: readonly ConformanceUse[];
   /** The check needs a granted site; `harness.siteGrants: false` turns it into a skipped one. */
   needsSites?: boolean;
   /** null = conforms, a string = the reason it does not, `{ skipped }` = the run found a precondition missing (a visible skip, never a pass). */

@@ -160,7 +160,9 @@ export function createLocalSavedViewStore({ getStorage = () => localStorage, loc
   const find = (storage: StoragePort, a: Actor, id: string, groups: readonly GroupRecord[]) => {
     const at = parseId(id); if (!at) return null;
     const view = readBucket(storage, at.ownerId, at.menuId).views.find(v => v.id === id);
-    return view ? ev(view, a, groups) : null;
+    if (!view) return null;
+    // ADR-0099 §1·§6: a view that exists but sits outside the actor's access is a denied entry, never null.
+    return ev(view, a, groups) ?? { id: view.id, denied: true, reason: 'no-access' };
   };
   const readDefault = (storage: StoragePort, key: SavedViewKey): string | null => {
     try { const v = JSON.parse(storage.getItem(savedViewDefaultStorageKey(key.userId, key.menuId)) ?? 'null'); return isObject(v) && v.schemaVersion === 1 && typeof v.id === 'string' ? v.id : null; } catch { return null; }
@@ -281,8 +283,8 @@ export function createLocalSavedViewStore({ getStorage = () => localStorage, loc
       if (visibility.kind === 'groups') {
         const current = t.value.visibility.kind === 'groups' ? t.value.visibility.groupIds : [];
         const fresh = visibility.groupIds.filter(g => !current.includes(g));
-        if (!fresh.every(g => { const rec = c.groups.find(x => x.id === g); return rec && (c.actor.admin || isMember(rec, c.actor) || isManager(rec, c.actor)); })) return fail('forbidden', 'group');
-        if (!visibility.groupIds.every(g => c.groups.some(x => x.id === g))) return fail('invalid', 'unknown group');
+        // ADR-0099 §6: a group the actor cannot see is "unknown" like a missing one — its existence is not revealed.
+        if (!visibility.groupIds.every(g => { const rec = c.groups.find(x => x.id === g); return rec && (!fresh.includes(g) || c.actor.admin || isMember(rec, c.actor) || isManager(rec, c.actor)); })) return fail('invalid', 'unknown group');
       }
       return commit(c, { ...t.value, visibility }, c.actor, c.groups);
     }),
@@ -294,7 +296,8 @@ export function createLocalSavedViewStore({ getStorage = () => localStorage, loc
       return commit(c, { ...t.value, approval: 'pending', approvalNote: undefined } as SavedView, c.actor, c.groups);
     }),
     decide: (id, decision, note, { expectedVersion }) => run(c => {
-      const t = target(c, id, expectedVersion, e => e.capabilities.canApprove); if (!t.ok) return t;
+      // The approval right gates the call (ADR-0099 §2); the pending state is checked after it, as the server does.
+      const t = target(c, id, expectedVersion, () => c.actor.admin); if (!t.ok) return t;
       const action = decision === 'approve' ? 'approve' : 'reject';
       const stored = t.value; const shown = shownTo(stored, c.actor, false);
       if (!canTransition(shown.approval, action)) return fail('invalid', 'approval-state');
@@ -307,7 +310,9 @@ export function createLocalSavedViewStore({ getStorage = () => localStorage, loc
     }),
     // Revoke republishes nowhere (policy undecided): the view goes back to private and carries a note the UI can show.
     revoke: (id, { expectedVersion }) => run(c => {
-      const t = target(c, id, expectedVersion, e => e.capabilities.canRevoke); if (!t.ok) return t;
+      // The approval right gates the call (ADR-0099 §2); the official/approved state is checked after it, as the server does.
+      const t = target(c, id, expectedVersion, () => c.actor.admin); if (!t.ok) return t;
+      if (!isOfficial(t.value) || !canTransition(t.value.approval, 'revoke')) return fail('invalid', 'approval-state');
       return commit(c, { ...(({ pending: _drop, ...rest }) => (void _drop, rest))(t.value), approval: 'none', visibility: { kind: 'private' }, approvalNote: REVOKE_NOTE } as SavedView, c.actor, c.groups);
     }),
     listApprovalRequests: async key => {

@@ -11,6 +11,7 @@
 import {
   ENTITY_AUDIT_PAGE_MAX as CONTRACT_ENTITY_AUDIT_PAGE_MAX,
   type PlatformAdapter,
+  type SavedViewStore,
   menuPermission,
   spaceId,
 } from '@ap/contracts';
@@ -38,7 +39,7 @@ const WORKSPACE_ID = process.env.WORKSPACE_ID ?? '';
 const runIntegration = Boolean(APP_URL && MIGRATE_URL && WORKSPACE_ID);
 const PREFIX = uid('it-conformance');
 
-type Account = 'granted' | 'plain' | 'console' | 'otherAnnotator';
+type Account = 'granted' | 'plain' | 'console' | 'otherAnnotator' | 'svUser' | 'svAdmin';
 type Role = 'admin' | 'developer' | 'user';
 
 /** The `PlatformAdapter` members this backend serves under `/api/v1/platform` (routes.ts). */
@@ -211,6 +212,8 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
   const adapters = new Map<Account, PlatformAdapter>();
   const jars = new Map<Account, Map<string, string>>();
   let current: PlatformAdapter | null = null;
+  /** The HTTP SavedViewStore of each signed-in account (ADR-0099; #1131 saved-view conformance sample). */
+  const savedViewStores = new Map<Account, SavedViewStore>();
 
   // The kit plans its checks when this file is collected, before beforeAll: the destination sample
   // is this object, and its id is filled in once the fixture Finding exists.
@@ -232,6 +235,7 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
     const boot = await bootstrapHttpAdapter({ fetch: injectFetch(app, jar) });
     if (boot.kind !== 'ready') throw new Error(`bootstrap as ${account}: ${boot.kind}`);
     adapters.set(account, boot.adapter);
+    savedViewStores.set(account, boot.store);
     return id;
   }
 
@@ -277,6 +281,10 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
     await signIn('plain', 'user');
     const adminId = await signIn('console', 'admin');
     await signIn('otherAnnotator', 'developer');
+    // The saved-view conformance actors (#1131): a dedicated pair keeps the suite's command volume off the other
+    // accounts' global per-actor rate limit. svUser: developer → no console:access; svAdmin: admin → console:access.
+    await signIn('svUser', 'developer');
+    await signIn('svAdmin', 'admin');
     const voc = await insertVocDirectly(
       migrateHandle,
       WORKSPACE_ID,
@@ -318,6 +326,12 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
     if (actorIds.length > 0) {
       // audit_log needs the migrate role; children before parents (apps/platform-api/AGENTS.md).
       for (const [table, column] of [
+        // Saved-view rows first: their FKs to core.actors have no cascade (#1131 suite writes them).
+        ['platform.saved_view_defaults', 'actor_id'],
+        ['platform.saved_view_group_members', 'actor_id'],
+        ['platform.saved_view_people', 'actor_id'],
+        ['platform.saved_views', 'owner_id'],
+        ['platform.saved_view_groups', 'created_by'],
         ['platform.usage_events', 'actor_id'],
         ['platform.client_errors', 'actor_id'],
         ['platform.preferences', 'actor_id'],
@@ -425,6 +439,20 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
       // its workspace. A getter, because the kit plans checks before beforeAll signs the actor in.
       get visiblePersonId() {
         return grantedPersonId;
+      },
+      // Getters: the kit plans before beforeAll signs the actors in and reads the stores at run time (#1131).
+      get savedViews() {
+        // Nested getters: the outer object exists at plan time (the kit reads the stores at run time only).
+        const storeOf = (account: Account) => {
+          const store = savedViewStores.get(account);
+          if (!store) throw new Error(`no saved-view store for ${account}`);
+          return store;
+        };
+        return {
+          get user() { return storeOf('svUser'); },
+          get admin() { return storeOf('svAdmin'); },
+          menuId: `${PREFIX}-menu`,
+        };
       },
     },
     asGranted: (fn) => as('granted', fn),

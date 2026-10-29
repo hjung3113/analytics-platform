@@ -1,7 +1,8 @@
 import { optionSamples, referenceSelectionPorts } from './selection-ports.test-support';
 import { describe, expect, it } from 'vitest';
-import { defineAction, defineEndpoint, emptyGlobal, projectContext, type ActionResponse, type ApiResponse, type Assessment, type AuditEvent, type ChartAnnotation, type EntityAuditPage, type GroupMember, type JsonValue, type Notice, type PreferencesSnapshot, type ClientErrorReport, type GlobalContext, type MenuAction, type MenuQuery, type Permission, type PlatformAdapter, type Session, type Trust, type UsageEvent, type UsageRange, type UsageSummary, menuPermission, spaceId } from '@ap/contracts';
+import { defineAction, defineEndpoint, emptyGlobal, projectContext, type ActionResponse, type ApiResponse, type Assessment, type AuditEvent, type ChartAnnotation, type EntityAuditPage, type GroupMember, type JsonValue, type Notice, type PreferencesSnapshot, type ClientErrorReport, type GlobalContext, type MenuAction, type MenuQuery, type Permission, type PlatformAdapter, type SavedView, type SavedViewListItem, type SavedViewStore, type Session, type Trust, type UsageEvent, type UsageRange, type UsageSummary, type ViewCapabilities, menuPermission, spaceId } from '@ap/contracts';
 import { planServerConformance, runServerConformance, type ActionCase, type ConformanceResult, type ConformanceCase, type PortSamples, type ServerConformanceHarness } from '../index';
+import { SAVED_VIEW_PORT_METHODS } from '../plan/ports/saved-views';
 
 const SELECTION_PORT_SKIP_IDS = [
       'selection ports · global lineNames options',
@@ -830,6 +831,7 @@ describe('server conformance kit (#145)', () => {
       'port · saveNotice rejects a supplied author, id on create and unknown keys',
       'port · saveNotice without console:access → forbidden',
       'port · deleteNotice without console:access → forbidden',
+      'savedViews: no sample',
       'actions: no sample',
       'condition: no sample',
       ...SELECTION_PORT_SKIP_IDS,
@@ -1185,6 +1187,7 @@ describe('server conformance kit (#145)', () => {
       'port · getEntity of a destination in an ungranted room → forbidden',
       'port · entityAudit of a destination in an ungranted room → forbidden',
       'port · entityAudit with an issued cursor in an ungranted room → forbidden',
+      'savedViews: no sample',
       'actions: no sample',
       'condition: no sample',
       ...SELECTION_PORT_SKIP_IDS,
@@ -1264,7 +1267,7 @@ describe('declared maxRows oversize check (#175)', () => {
     const cases = [{ spec: exportSpec, params: { tail: 'p95' } }];
     const h = { ...oversizeHarness('too_large'), cases };
     expect(planServerConformance(h).filter(c => c.mode === 'skipped').map(c => c.id))
-      .toEqual([`${exportSpec.id} · declares maxRows but has no oversizeParams sample — oversize check not run`, 'actions: no sample', 'condition: no sample', ...SELECTION_PORT_SKIP_IDS]);
+      .toEqual([`${exportSpec.id} · declares maxRows but has no oversizeParams sample — oversize check not run`, 'savedViews: no sample', 'actions: no sample', 'condition: no sample', ...SELECTION_PORT_SKIP_IDS]);
     const skipped = (await runServerConformance(h)).find(r => r.id === `${exportSpec.id} · declares maxRows but has no oversizeParams sample — oversize check not run`);
     // #175 follow-up P2-A: a check that did not run is reported as skipped, never as a pass.
     expect(skipped).toEqual({ id: `${exportSpec.id} · declares maxRows but has no oversizeParams sample — oversize check not run`, status: 'skipped', failure: null });
@@ -1278,7 +1281,7 @@ describe('declared maxRows oversize check (#175)', () => {
   });
 
   it('plans no skipped check when the case provides oversizeParams', () => {
-    expect(planServerConformance(oversizeHarness('too_large')).filter(c => c.mode === 'skipped').map(c => c.id)).toEqual(['actions: no sample', 'condition: no sample', ...SELECTION_PORT_SKIP_IDS]);
+    expect(planServerConformance(oversizeHarness('too_large')).filter(c => c.mode === 'skipped').map(c => c.id)).toEqual(['savedViews: no sample', 'actions: no sample', 'condition: no sample', ...SELECTION_PORT_SKIP_IDS]);
   });
 
   it('passes on a server that answers too_large with no data', async () => {
@@ -1355,7 +1358,7 @@ describe('menuAction conformance (#501)', () => {
     const h = actionHarness();
     const noVersion = { ...h, actions: [{ spec: actionSpec, input: { text: 'hello' } }] };
     expect(planServerConformance(noVersion).filter(c => c.mode === 'skipped').map(c => c.id))
-      .toEqual(['fixture.save · declares version concurrency but has no currentVersion sample — action checks not run', 'condition: no sample', ...SELECTION_PORT_SKIP_IDS]);
+      .toEqual(['savedViews: no sample', 'fixture.save · declares version concurrency but has no currentVersion sample — action checks not run', 'condition: no sample', ...SELECTION_PORT_SKIP_IDS]);
   });
 
   it('passes the reference adapter', async () => {
@@ -1616,11 +1619,11 @@ describe('declared gaps: implemented ports, site grants, siteless destinations (
   const fresh = () => ({ ...harness(), ports: { ...PORTS, condition: undefined } });
   const ALL_METHODS = Object.keys(referenceAdapter({ permissions: new Set(), console: false })) as (keyof PlatformAdapter)[];
 
-  it('tags every planned check with the port methods it calls, all of them adapter members', () => {
+  it('tags every planned check with the port methods it calls — adapter members, or SavedViewStore members on the saved-view checks', () => {
     const h = { ...actionHarness(), cases: [{ spec, params: { page: 0 } }], ports: { ...PORTS, options: optionSamples } };
     for (const check of planServerConformance(h)) {
       expect(check.uses?.length, check.id).toBeGreaterThan(0);
-      for (const method of check.uses!) expect(ALL_METHODS, check.id).toContain(method);
+      for (const method of check.uses!) expect([...ALL_METHODS, ...SAVED_VIEW_PORT_METHODS] as string[], check.id).toContain(method);
     }
   });
 
@@ -1855,5 +1858,56 @@ describe('entityAudit cursor page checks (ADR-0085)', () => {
     expect(sent.every(cursor => cursor === undefined)).toBe(true);
     // The six pre-existing entityAudit checks still run.
     expect(results.filter(r => r.id.startsWith('port · entityAudit') && !PAGE_IDS.includes(r.id)).every(r => r.status === 'passed')).toBe(true);
+  });
+});
+
+// #1131 C3: ADR-0099 §1 permits exactly { id, denied, reason } in a denied entry. A store leaking any private
+// field beside them (here the whole view) must fail the invisibility check; a clean one passes it. The fixture
+// serves only that check's three methods and throws on the rest.
+describe('savedViews denied-entry shape (ADR-0099 §1)', () => {
+  const CAPS: ViewCapabilities = { canView: true, canCopy: true, canEdit: true, canShare: true, canApprove: false, canRevoke: false };
+  const unimplemented = async (): Promise<never> => { throw new Error('not part of the denied-entry check'); };
+  const sampleOf = (leak: boolean) => {
+    const views = new Map<string, SavedView>();
+    const storeOf = (ownerId: string): SavedViewStore => ({
+      save: async input => {
+        const view = { ...input, id: `${ownerId}|fixture|${views.size + 1}`, ownerId, version: 1, updatedAt: 5, visibility: { kind: 'private' as const }, approval: 'none' as const } as SavedView;
+        views.set(view.id, view);
+        return { ok: true, value: { view, capabilities: CAPS } };
+      },
+      get: async id => {
+        const view = views.get(id);
+        if (view === undefined) return null;
+        if (view.ownerId === ownerId) return { view, capabilities: CAPS };
+        const denied = { id: view.id, denied: true as const, reason: 'no-access', ...(leak ? { view } : {}) };
+        return denied as SavedViewListItem;
+      },
+      list: async () => [...views.values()].filter(v => v.ownerId === ownerId).map(v => ({ view: v, capabilities: CAPS })),
+      update: unimplemented,
+      remove: unimplemented,
+      setDefault: unimplemented,
+      getDefaultId: unimplemented,
+      setVisibility: unimplemented,
+      requestOfficial: unimplemented,
+      decide: unimplemented,
+      revoke: unimplemented,
+      listApprovalRequests: unimplemented,
+      listGroups: unimplemented,
+      createGroup: unimplemented,
+      updateGroup: unimplemented,
+      searchPeople: unimplemented,
+    });
+    return { user: storeOf('fixture-user'), admin: storeOf('fixture-admin'), menuId: 'fixture-menu' };
+  };
+  const runInvisibility = async (leak: boolean) => {
+    const check = planServerConformance({ ...harness(), ports: { ...PORTS, savedViews: sampleOf(leak) } })
+      .find(c => c.id.includes('a private view is invisible'))!;
+    return check.run();
+  };
+  it('fails a store whose denied entry leaks a private field beside { id, denied, reason }', async () => {
+    await expect(runInvisibility(true)).resolves.toContain('exactly the keys { id, denied, reason }');
+  });
+  it('passes a store answering exactly { id, denied, reason }', async () => {
+    await expect(runInvisibility(false)).resolves.toBeNull();
   });
 });

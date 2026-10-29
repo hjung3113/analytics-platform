@@ -72,7 +72,7 @@ it('removing a member cuts that group path immediately and keeps other share pat
   const names = visible(await s.list(key(ENG))).map(i => i.view.name);
   expect(names).not.toContain('주간 리뷰 기준');
   expect(names).toContain('PHOTO 라인 주간'); // the direct people path stays
-  expect(await store().get('u-yoondohyun|productivity-overview|1')).toBeNull();
+  expect(await store().get('u-yoondohyun|productivity-overview|1')).toEqual({ id: 'u-yoondohyun|productivity-overview|1', denied: true, reason: 'no-access' });
 });
 
 it('saving or editing a group never changes any view visibility', async () => {
@@ -154,6 +154,36 @@ it.each(['update', 'setVisibility', 'requestOfficial', 'revoke'] as const)('a st
       : method === 'requestOfficial' ? await s.requestOfficial(a.view.id, stale) : await s.revoke(a.view.id, stale);
   expect(result.ok ? 'ok' : result.reason).toBe(method === 'revoke' ? 'forbidden' : 'conflict');
   expect(storage.getItem(savedViewsStorageKey(ENG, MENU))).toBe(snapshot);
+});
+
+// The ADR-0099 outcomes the server-conformance SavedViewStore suite pins on both implementations (#1131).
+it('get of an existing view outside the actor\'s access is the denied entry, like the server (ADR-0099 §6)', async () => {
+  const s = store(); const saved = ok(await s.save(draft('남의 비공개')));
+  as('admin'); // the approver is not a share target of a private view
+  expect(await store().get(saved.view.id)).toEqual({ id: saved.view.id, denied: true, reason: 'no-access' });
+  expect(await store().get(`${ENG}|no-such-menu|99`)).toBeNull(); // a view that exists nowhere stays null
+});
+
+it('sharing to a group the actor cannot see is invalid like an unknown group, never forbidden (ADR-0099 §6)', async () => {
+  as('admin');
+  const group = ok(await store().createGroup({ name: '숨김 그룹', memberIds: ['u-kangminseo'] }));
+  as('engineer'); // neither member nor manager, and no approval right
+  const s = store(); const saved = ok(await s.save(draft('그룹 공유 대상')));
+  expect(await s.setVisibility(saved.view.id, { kind: 'groups', groupIds: [group.group.id] }, { expectedVersion: 1 })).toEqual({ ok: false, reason: 'invalid', detail: 'unknown group' });
+  expect(await s.setVisibility(saved.view.id, { kind: 'groups', groupIds: ['no-such-group'] }, { expectedVersion: 1 })).toEqual({ ok: false, reason: 'invalid', detail: 'unknown group' });
+});
+
+it('an approver deciding or revoking a reachable view in the wrong state answers invalid approval-state; without the right it stays forbidden', async () => {
+  const s = store();
+  const group = ok(await s.createGroup({ name: '승인 상태 그룹', memberIds: [ADMIN] }));
+  const saved = ok(await s.save(draft('미신청 공유 뷰')));
+  ok(await s.setVisibility(saved.view.id, { kind: 'groups', groupIds: [group.group.id] }, { expectedVersion: 1 }));
+  as('admin');
+  expect(await s.decide(saved.view.id, 'approve', undefined, { expectedVersion: 2 })).toEqual({ ok: false, reason: 'invalid', detail: 'approval-state' });
+  expect(await s.revoke(saved.view.id, { expectedVersion: 2 })).toEqual({ ok: false, reason: 'invalid', detail: 'approval-state' });
+  as('engineer');
+  expect(await s.decide(saved.view.id, 'approve', undefined, { expectedVersion: 2 })).toMatchObject({ ok: false, reason: 'forbidden' });
+  expect(await s.revoke(saved.view.id, { expectedVersion: 2 })).toMatchObject({ ok: false, reason: 'forbidden' });
 });
 
 it('concurrent writes from independent instances are serialized by the lock; without a lock mutations fail closed', async () => {
