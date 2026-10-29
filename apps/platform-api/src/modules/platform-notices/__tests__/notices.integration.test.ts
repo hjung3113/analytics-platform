@@ -86,6 +86,7 @@ describe.skipIf(!runIntegration)('platform notices and home.notices (#1106)', ()
       headerKey?: string | null;
       ifMatch?: string | null;
       csrf?: string | null;
+      cookie?: string | null;
       raw?: string;
     } = {},
   ) {
@@ -104,7 +105,7 @@ describe.skipIf(!runIntegration)('platform notices and home.notices (#1106)', ()
       url: `/api/v1/platform/notices/${path}`,
       headers: {
         'content-type': 'application/json',
-        ...cookieHeader(who.cookie),
+        ...(opts.cookie === null ? {} : cookieHeader(opts.cookie ?? who.cookie)),
         ...(csrf ? { 'x-csrf-token': csrf } : {}),
         ...(headerKey ? { 'idempotency-key': headerKey } : {}),
         ...(ifMatch ? { 'if-match': ifMatch } : {}),
@@ -140,6 +141,13 @@ describe.skipIf(!runIntegration)('platform notices and home.notices (#1106)', ()
         [actorId, key],
       )
     ).rows[0];
+  const cacheCount = async (who: Person) =>
+    (
+      await migrateHandle.pool.query(
+        'select count(*)::int as n from core.idempotency_keys where actor_id = $1',
+        [who.id],
+      )
+    ).rows[0].n as number;
   const query = (targetScopeId: unknown, who: Person | null = admin, body: unknown = undefined) =>
     app.inject({
       method: 'POST',
@@ -332,6 +340,105 @@ describe.skipIf(!runIntegration)('platform notices and home.notices (#1106)', ()
       expect(noCsrf.res.statusCode).toBe(403);
       expect(noCsrf.res.json()).toMatchObject({ code: 'csrf.invalid' });
       expect(await rowsOf(`${PREFIX} no-csrf%`)).toHaveLength(0);
+    });
+
+    describe('the session is judged before CSRF on every notice write', () => {
+      const sessionStates: Array<[string, (who: Person) => Promise<Parameters<typeof write>[2]>]> =
+        [
+          ['no cookie', async () => ({ cookie: null })],
+          ['unknown cookie', async () => ({ cookie: 'not-a-session' })],
+          [
+            'revoked session',
+            async (who) => {
+              await migrateHandle.pool.query(
+                'update core.sessions set revoked_at = now() where id = $1',
+                [who.cookie],
+              );
+              return {};
+            },
+          ],
+          [
+            'expired session',
+            async (who) => {
+              await migrateHandle.pool.query(
+                "update core.sessions set expires_at = now() - interval '1 second' where id = $1",
+                [who.cookie],
+              );
+              return {};
+            },
+          ],
+        ];
+
+      it.each(sessionStates)(
+        '%s: save and delete answer 401 whatever the CSRF token is, and write nothing',
+        async (name, breakSession) => {
+          const slug = name.replace(/\W/g, '-');
+          const who = await newPerson('admin');
+          const target = await write('save', draft(`auth-del-${slug}`));
+          const opts = await breakSession(who);
+          for (const csrf of [who.csrf, 'wrong', null]) {
+            const saved = await write('save', draft(`auth-save-${slug}`), { ...opts, who, csrf });
+            const deleted = await write(
+              'delete',
+              { id: idOf(target), expectedVersion: 'v1' },
+              { ...opts, who, csrf },
+            );
+            for (const attempt of [saved, deleted]) {
+              expect(attempt.res.statusCode).toBe(401);
+              expect(attempt.res.json()).toMatchObject({ code: 'auth.session_invalid' });
+              expect(attempt.res.headers['cache-control']).toBe('no-store');
+            }
+          }
+          expect(await rowsOf(`${PREFIX} auth-save-${slug}%`)).toHaveLength(0);
+          expect(await rowsOf(`${PREFIX} auth-del-${slug}%`)).toHaveLength(1);
+          expect(await cacheCount(who)).toBe(0);
+        },
+      );
+
+      it('a session bound to another workspace is refused before CSRF (403 workspace_mismatch), writing nothing', async () => {
+        const other = (
+          await migrateHandle.pool.query(
+            'insert into core.workspaces (name) values ($1) returning id',
+            [`${PREFIX}-ws-auth`],
+          )
+        ).rows[0].id as string;
+        workspaceIds.push(other);
+        const who = await newPerson('admin');
+        await migrateHandle.pool.query('update core.sessions set workspace_id = $2 where id = $1', [
+          who.cookie,
+          other,
+        ]);
+        for (const csrf of [who.csrf, 'wrong', null]) {
+          const attempt = await write('save', draft('auth-save-workspace'), { who, csrf });
+          expect(attempt.res.statusCode).toBe(403);
+          expect(attempt.res.json()).toMatchObject({ code: 'auth.workspace_mismatch' });
+        }
+        expect(await rowsOf(`${PREFIX} auth-save-workspace%`)).toHaveLength(0);
+        expect(await cacheCount(who)).toBe(0);
+      });
+
+      it('an active session with a wrong or missing CSRF token gets 403 csrf.invalid and writes nothing; the right token is authorized', async () => {
+        const who = await newPerson('admin');
+        const target = await write('save', draft('auth-active-del'), { who });
+        for (const csrf of ['wrong', null]) {
+          const saved = await write('save', draft('auth-active-save'), { who, csrf });
+          const deleted = await write(
+            'delete',
+            { id: idOf(target), expectedVersion: 'v1' },
+            { who, csrf },
+          );
+          for (const attempt of [saved, deleted]) {
+            expect(attempt.res.statusCode).toBe(403);
+            expect(attempt.res.json()).toMatchObject({ code: 'csrf.invalid' });
+          }
+        }
+        expect(await rowsOf(`${PREFIX} auth-active-save%`)).toHaveLength(0);
+        expect(await rowsOf(`${PREFIX} auth-active-del%`)).toHaveLength(1);
+        const ok = await write('save', draft('auth-active-save'), { who });
+        expect(ok.answer).toMatchObject({ outcome: 'ok', replayed: false });
+        const removed = await write('delete', { id: idOf(target), expectedVersion: 'v1' }, { who });
+        expect(removed.answer).toMatchObject({ outcome: 'ok' });
+      });
     });
 
     it('judges malformed JSON as an invalid ActionResponse', async () => {
@@ -734,6 +841,7 @@ describe.skipIf(!runIntegration)('platform notices and home.notices (#1106)', ()
       hold: (c: Holder) => Promise<unknown>,
       start: () => Promise<T>,
       change: () => Promise<unknown>,
+      queued = 1,
     ) {
       const holder = await migrateHandle.pool.connect();
       try {
@@ -750,8 +858,9 @@ describe.skipIf(!runIntegration)('platform notices and home.notices (#1106)', ()
                from pg_locks l join pg_stat_activity a on a.pid = l.pid
               where not l.granted and pg_backend_pid() = any(pg_blocking_pids(a.pid))`,
           );
-          if (rows[0].n > 0) break;
-          if (Date.now() > deadline) throw new Error('the request never queued behind the holder');
+          if (rows[0].n >= queued) break;
+          if (Date.now() > deadline)
+            throw new Error(`only ${rows[0].n} of ${queued} requests queued behind the holder`);
           await new Promise((resolve) => setTimeout(resolve, 25));
         }
         expect(settled).toBe(false);
@@ -776,13 +885,6 @@ describe.skipIf(!runIntegration)('platform notices and home.notices (#1106)', ()
       JSON.stringify(
         (await migrateHandle.pool.query('select * from platform.notices where id = $1', [id])).rows,
       );
-    const cacheCount = async (who: Person) =>
-      (
-        await migrateHandle.pool.query(
-          'select count(*)::int as n from core.idempotency_keys where actor_id = $1',
-          [who.id],
-        )
-      ).rows[0].n as number;
 
     const grantedUser = async () => {
       const who = await newPerson('user');
@@ -900,6 +1002,72 @@ describe.skipIf(!runIntegration)('platform notices and home.notices (#1106)', ()
         expect(await cacheCount(who)).toBe(0);
       },
     );
+
+    describe('upper- and lower-case spellings of one UUID key are one key', () => {
+      const aliasWriter = async () => {
+        const who = await newPerson('admin');
+        const lower = randomUUID();
+        return { who, lower, upper: lower.toUpperCase() };
+      };
+
+      // The holder takes the canonical (lower-case) advisory key. Both spellings must queue behind it (2 queued
+      // requests observed in pg_locks) and then run one after the other; the app pool has room for both queued
+      // writers while the migrate pool supplies the holder and the observer.
+      const bothQueued = (
+        who: Person,
+        lower: string,
+        a: () => Promise<unknown>,
+        b: () => Promise<unknown>,
+      ) =>
+        afterLockWait(
+          holdKey(who, lower),
+          () => Promise.all([a(), b()]),
+          async () => undefined,
+          2,
+        );
+
+      it('same content: one notice, one receipt, the second request replays', async () => {
+        const { who, lower, upper } = await aliasWriter();
+        const results = (await bothQueued(
+          who,
+          lower,
+          () => write('save', draft('alias-same'), { who, key: lower }),
+          () => write('save', draft('alias-same'), { who, key: upper }),
+        )) as Array<Awaited<ReturnType<typeof write>>>;
+        expect(results.map((r) => ans(r).outcome)).toEqual(['ok', 'ok']);
+        expect(results.map((r) => ans(r).replayed).sort()).toEqual([false, true]);
+        expect(new Set(results.map((r) => idOf(r))).size).toBe(1);
+        expect(await rowsOf(`${PREFIX} alias-same%`)).toHaveLength(1);
+        expect(await cacheCount(who)).toBe(1);
+        expect((await cacheRow(who.id, lower)).response_status).toBe(200);
+      });
+
+      it('different content: one notice, the other request is invalid/reused', async () => {
+        const { who, lower, upper } = await aliasWriter();
+        const results = (await bothQueued(
+          who,
+          lower,
+          () => write('save', draft('alias-diff-a'), { who, key: lower }),
+          () => write('save', draft('alias-diff-b'), { who, key: upper }),
+        )) as Array<Awaited<ReturnType<typeof write>>>;
+        expect(results.map((r) => ans(r).outcome).sort()).toEqual(['invalid', 'ok']);
+        const rejected = results.map(ans).find((a) => a.outcome === 'invalid');
+        expect(rejected).toMatchObject({
+          data: null,
+          fieldErrors: [{ path: ['idempotencyKey'], code: 'reused' }],
+        });
+        expect(await rowsOf(`${PREFIX} alias-diff-%`)).toHaveLength(1);
+        expect(await cacheCount(who)).toBe(1);
+      });
+
+      it('a header and a body that differ only in case stay an error (exact equality), writing nothing', async () => {
+        const { who, lower, upper } = await aliasWriter();
+        const got = await write('save', draft('alias-raw'), { who, key: lower, headerKey: upper });
+        expect(got.answer).toMatchObject({ outcome: 'error', data: null });
+        expect(await rowsOf(`${PREFIX} alias-raw%`)).toHaveLength(0);
+        expect(await cacheCount(who)).toBe(0);
+      });
+    });
   });
 
   describe('roles and teardown graph', () => {

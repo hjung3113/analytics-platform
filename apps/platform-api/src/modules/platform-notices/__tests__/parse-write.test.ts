@@ -43,6 +43,36 @@ describe('parseNoticeWrite', () => {
     });
   });
 
+  it('canonicalizes a validated upper-case key after the raw header/body equality judgment', () => {
+    const UPPER = KEY.toUpperCase();
+    for (const [operation, body, ifMatch] of [
+      ['save', create, undefined],
+      ['save', update, 'v3'],
+      ['delete', del, 'v3'],
+    ] as const) {
+      const result = parse(
+        operation,
+        { ...body, idempotencyKey: UPPER },
+        {
+          idempotencyKey: UPPER,
+          ifMatch,
+        },
+      );
+      expect(result).toMatchObject({ ok: true, input: { idempotencyKey: KEY } });
+    }
+    // the receipt fingerprint never contains the key, so aliases of one request hash alike
+    const lower = parse('save', create, { idempotencyKey: KEY });
+    const upper = parse('save', { ...create, idempotencyKey: UPPER }, { idempotencyKey: UPPER });
+    expect(lower.ok && upper.ok && lower.fingerprintInput).toEqual(
+      upper.ok ? upper.fingerprintInput : null,
+    );
+    // raw header/body case difference stays the approved exact-equality error
+    expect(parse('save', create, { idempotencyKey: UPPER })).toMatchObject({
+      ok: false,
+      outcome: 'error',
+    });
+  });
+
   it.each([
     ['null', null],
     ['array', []],

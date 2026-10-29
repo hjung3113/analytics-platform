@@ -156,6 +156,11 @@ export function parseNoticeWrite(
   if (headerKey !== idempotencyKey)
     return mismatch('Idempotency-Key header does not match the body');
 
+  // The header/body equality above is judged on the raw text (the approved exact-equality contract). From
+  // here on the key is its canonical lower-case form: the DB key column is a uuid, so the two spellings of
+  // one UUID are one key and must share the advisory lock, the lookup and the receipt.
+  const canonicalKey = idempotencyKey.toLowerCase();
+
   const expectedVersion =
     typeof rest.expectedVersion === 'string' ? rest.expectedVersion : undefined;
   const ifMatch = single(headers.ifMatch);
@@ -169,7 +174,7 @@ export function parseNoticeWrite(
       ok: true,
       input: {
         kind: 'delete',
-        idempotencyKey,
+        idempotencyKey: canonicalKey,
         id: rest.id as string,
         expectedVersion: expectedVersion as string,
       },
@@ -187,7 +192,7 @@ export function parseNoticeWrite(
       ok: true,
       input: {
         kind: 'update',
-        idempotencyKey,
+        idempotencyKey: canonicalKey,
         id: rest.id as string,
         expectedVersion: expectedVersion as string,
         draft,
@@ -195,5 +200,9 @@ export function parseNoticeWrite(
       fingerprintInput: rest,
     };
   }
-  return { ok: true, input: { kind: 'create', idempotencyKey, draft }, fingerprintInput: rest };
+  return {
+    ok: true,
+    input: { kind: 'create', idempotencyKey: canonicalKey, draft },
+    fingerprintInput: rest,
+  };
 }

@@ -66,6 +66,24 @@ describe('notice write routes (judged before the database)', () => {
   });
 
   it.each(['/notices/save', '/notices/delete'])(
+    '%s answers 401 for a stale or unknown session before judging CSRF, and never reaches the database',
+    async (url) => {
+      const { app: instance, reads } = await build({ admin: true });
+      for (const csrfHeaders of [{}, { 'x-csrf-token': 'wrong' }, { 'x-csrf-token': CSRF }]) {
+        const res = await post(instance, url, create, {
+          cookie: 'fops_session=expired-session',
+          'idempotency-key': KEY,
+          ...csrfHeaders,
+        });
+        expect(res.statusCode).toBe(401);
+        expect(res.json()).toMatchObject({ code: 'auth.session_invalid' });
+        expect(res.headers['cache-control']).toBe('no-store');
+      }
+      expect(reads()).toBe(0);
+    },
+  );
+
+  it.each(['/notices/save', '/notices/delete'])(
     '%s answers forbidden (HTTP 200 ActionResponse) before looking at the body',
     async (url) => {
       const { app: instance } = await build({ admin: false });
