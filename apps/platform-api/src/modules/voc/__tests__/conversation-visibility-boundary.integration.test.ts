@@ -21,6 +21,7 @@ import {
 } from '../../../test-support/recovery-fixtures.js';
 import { insertPublicUpdate, insertVocDirectly } from '../../../test-support/voc-fixtures.js';
 import { insertInternalComment, insertReporterReply } from './_seed-helpers.js';
+import { defined } from '../../../test-support/defined.js';
 
 const APP_URL = process.env.DATABASE_URL ?? '';
 const MIGRATE_URL = process.env.DATABASE_URL_MIGRATE ?? '';
@@ -35,7 +36,6 @@ describe.skipIf(!runIntegration)('conversation visibility boundaries (#181)', ()
   let appHandle: DbHandle;
   let migrateHandle: DbHandle;
   let app: FastifyInstance;
-  let adminCookie: string;
   let adminActorId: string;
   let reporterCookie: string;
   let reporterId: string;
@@ -51,7 +51,7 @@ describe.skipIf(!runIntegration)('conversation visibility boundaries (#181)', ()
     app = await buildServer({ config: loadConfig(), dbHandle: appHandle });
     await app.ready();
 
-    adminCookie = await loginAs(app, 'mock-admin-1');
+    await loginAs(app, 'mock-admin-1');
     reporterCookie = await loginAs(app, 'mock-user-1');
     const actors = await migrateHandle.pool.query<{ external_id: string; id: string }>(
       `select external_id, id from core.actors
@@ -304,10 +304,10 @@ describe.skipIf(!runIntegration)('conversation visibility boundaries (#181)', ()
     }
 
     const idsByKind = kinds.map((kind) => new Set(returned.get(kind)?.map((item) => item.id)));
-    expect([...idsByKind[0]!].some((id) => idsByKind[1]?.has(id) || idsByKind[2]?.has(id))).toBe(
+    expect([...defined(idsByKind[0])].some((id) => idsByKind[1]?.has(id) || idsByKind[2]?.has(id))).toBe(
       false,
     );
-    expect([...idsByKind[1]!].some((id) => idsByKind[2]?.has(id))).toBe(false);
+    expect([...defined(idsByKind[1])].some((id) => idsByKind[2]?.has(id))).toBe(false);
   });
 
   it.each([

@@ -72,14 +72,14 @@ function setOverflowGeometry(tabViewport: HTMLDivElement) {
 
   const tabElements = tabViewport.querySelectorAll<HTMLElement>('[role="tab"]');
   let left = 0;
-  tabElements.forEach((tab, index) => {
+  for (const [index, tab] of Array.from(tabElements).entries()) {
     const tabLeft = left;
     const tabRight = tabLeft + (tabWidths[index] ?? 0);
     tab.getBoundingClientRect = vi.fn(() =>
       rect(tabLeft - tabViewport.scrollLeft, tabRight - tabViewport.scrollLeft),
     );
     left = tabRight;
-  });
+  }
 }
 
 function expectTabFullyVisible(tab: HTMLElement, tabViewport: HTMLDivElement) {

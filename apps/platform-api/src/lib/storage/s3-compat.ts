@@ -17,7 +17,7 @@
 //   * `DeleteObject` is idempotent by S3 contract; we still catch
 //     `NoSuchKey`/`NotFound` defensively.
 
-import { Readable } from 'node:stream';
+import type { Readable } from 'node:stream';
 
 import {
   DeleteObjectCommand,

@@ -1,19 +1,12 @@
 #!/usr/bin/env node
 // Runs Biome and the design-system lint (Oxlint) over the FeedbackOps paths named in ../paths.mjs.
+// platform-api, feature-shared and feature-ui are ESLint packages (#1102 a): Biome scope and Oxlint targets exclude them.
 // Usage: node scripts/lint-tools.mjs <biome-check|biome-format|lint-design>
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import {
-  FO_BIOME_SCOPE,
-  FO_FRONTEND,
-  FO_OPS,
-  FO_UI,
-  OPS_ROOT,
-  REPO_ROOT,
-  foPath,
-} from '../paths.mjs';
+import { FO_BIOME_SCOPE, FO_FRONTEND, FO_OPS, OPS_ROOT, REPO_ROOT, foPath } from '../paths.mjs';
 
 // ignorePatterns in .oxlintrc.json match relative to the config's folder, which no longer contains the sources, so the
 // same patterns are passed on the command line (relative to the repository root, where Oxlint runs).
@@ -41,7 +34,6 @@ const commands = {
       '--max-warnings',
       '0',
       join(FO_FRONTEND, 'src'),
-      join(FO_UI, 'src'),
     ],
   },
 };

@@ -156,7 +156,11 @@ export async function selectConversationPage(
     return { entries: [], hasMore: false, nextCursor: null };
   }
 
-  const unionSql = branches.length === 1 ? branches[0]! : sql.join(branches, sql` UNION ALL `);
+  const [onlyBranch] = branches;
+  const unionSql =
+    branches.length === 1 && onlyBranch !== undefined
+      ? onlyBranch
+      : sql.join(branches, sql` UNION ALL `);
 
   const querySql = sql`
     SELECT * FROM (${unionSql}) AS conv
@@ -190,8 +194,8 @@ export async function selectConversationPage(
   });
 
   let nextCursor: { createdAt: string; id: string } | null = null;
-  if (hasMore && sliced.length > 0) {
-    const last = sliced[sliced.length - 1]!;
+  const last = sliced[sliced.length - 1];
+  if (hasMore && last !== undefined) {
     // WHY: normalize postgres text format to ISO 8601 so the cursor: (a) validates with
     // z.string().datetime() in decodeConversationCursor, and (b) preserves
     // full microsecond precision for correct tie-breaking in the cursor predicate.

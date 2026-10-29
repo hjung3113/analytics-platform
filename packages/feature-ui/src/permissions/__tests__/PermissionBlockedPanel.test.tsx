@@ -187,10 +187,10 @@ describe('PermissionBlockedPanel — all four states set data-state', () => {
     'denied',
     'blocked_not_requestable',
   ];
-  states.forEach((state) => {
+  for (const state of states) {
     it(`data-state="${state}" present`, () => {
       const { container } = render(<PermissionBlockedPanel state={state} category="테스트" />);
       expect(container.querySelector(`[data-state="${state}"]`)).not.toBeNull();
     });
-  });
+  }
 });

@@ -15,6 +15,7 @@ import {
   insertActorRow,
   insertVocClusterRow,
 } from './_seed-helpers.js';
+import { defined } from '../../../test-support/defined.js';
 
 const APP_URL = process.env.DATABASE_URL ?? '';
 const MIGRATE_URL = process.env.DATABASE_URL_MIGRATE ?? '';
@@ -315,10 +316,10 @@ describe.skipIf(!runIntegration)('VOC cluster linked findings contract (#130)', 
     );
     await Promise.all([
       ...baselineClusters.map((cluster, index) =>
-        seedFindingLink(cluster.id, baselineReadableFindings[index]!.id, 'created_finding'),
+        seedFindingLink(cluster.id, defined(baselineReadableFindings[index]).id, 'created_finding'),
       ),
       ...baselineClusters.map((cluster, index) =>
-        seedFindingLink(cluster.id, baselineUnreadableFindings[index]!.id, 'evidence_of'),
+        seedFindingLink(cluster.id, defined(baselineUnreadableFindings[index]).id, 'evidence_of'),
       ),
     ]);
     const baseline = await countDatabaseOperations();
@@ -343,10 +344,10 @@ describe.skipIf(!runIntegration)('VOC cluster linked findings contract (#130)', 
     );
     await Promise.all([
       ...expandedClusters.map((cluster, index) =>
-        seedFindingLink(cluster.id, expandedReadableFindings[index]!.id, 'evidence_of'),
+        seedFindingLink(cluster.id, defined(expandedReadableFindings[index]).id, 'evidence_of'),
       ),
       ...expandedClusters.map((cluster, index) =>
-        seedFindingLink(cluster.id, expandedUnreadableFindings[index]!.id, 'created_finding'),
+        seedFindingLink(cluster.id, defined(expandedUnreadableFindings[index]).id, 'created_finding'),
       ),
     ]);
     const expanded = await countDatabaseOperations();
@@ -360,10 +361,10 @@ describe.skipIf(!runIntegration)('VOC cluster linked findings contract (#130)', 
         (item) => item.id === cluster.id,
       )?.linked_findings;
       expect(linkedFindings?.map((finding) => finding.id)).toContain(
-        baselineReadableFindings[index]!.id,
+        defined(baselineReadableFindings[index]).id,
       );
       expect(linkedFindings?.map((finding) => finding.id)).not.toContain(
-        baselineUnreadableFindings[index]!.id,
+        defined(baselineUnreadableFindings[index]).id,
       );
     }
     for (const [index, cluster] of expandedClusters.entries()) {
@@ -371,10 +372,10 @@ describe.skipIf(!runIntegration)('VOC cluster linked findings contract (#130)', 
         (item) => item.id === cluster.id,
       )?.linked_findings;
       expect(linkedFindings?.map((finding) => finding.id)).toContain(
-        expandedReadableFindings[index]!.id,
+        defined(expandedReadableFindings[index]).id,
       );
       expect(linkedFindings?.map((finding) => finding.id)).not.toContain(
-        expandedUnreadableFindings[index]!.id,
+        defined(expandedUnreadableFindings[index]).id,
       );
     }
     expect(expanded.count).toBe(baseline.count);

@@ -36,7 +36,6 @@ export function useHorizontalOverflow<
     });
   }, [viewportRef]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: contentKey rebinds observation when dynamic children change.
   React.useLayoutEffect(() => {
     const viewport = viewportRef.current;
     if (!viewport) return;

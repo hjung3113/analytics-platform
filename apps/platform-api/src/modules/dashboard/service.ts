@@ -450,10 +450,10 @@ export function createDashboardService(deps: DashboardDeps) {
       vocScope !== undefined &&
       scopeIsNonEmpty(vocScope)
     ) {
-      const vocTaskValue = sumGroupedVocCounts((row) => row.with_task)!;
-      const analyticsAreaValue = sumGroupedVocCounts((row) =>
-        row.analytics_area_id !== null ? row.total : 0,
-      )!;
+      // openVoc !== undefined above means groupedVocCounts was read, so these sums are numbers and the 0 is never used.
+      const vocTaskValue = sumGroupedVocCounts((row) => row.with_task) ?? 0;
+      const analyticsAreaValue =
+        sumGroupedVocCounts((row) => (row.analytics_area_id !== null ? row.total : 0)) ?? 0;
       const vocTaskPercent = percent(vocTaskValue, openVoc);
       coverage.push({
         id: 'voc-task',

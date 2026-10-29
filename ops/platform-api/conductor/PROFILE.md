@@ -69,7 +69,7 @@ Host checks in order; each must exit 0 before a commit. Every background verify 
   from launch: reuse it, or when the branch adds a migration, `verify-db.sh drop <n>` then `create <n>
   --migrate-from <worktree>`. Then `scripts/verify-be.sh <worktree> <n> [module filters]`: full integration once per
   BE issue, touched modules after small fix rounds. `reset-rate-limits <n>` only when needed.
-- **Lint gate** after committing: `pnpm --filter @ap/platform-api-ops gate:fe-lint --base origin/develop`; classify each NEW with
+- **Lint gate** after committing (it covers only the Biome scope `FO_BIOME_SCOPE`: screens, documentation roots and ops; `apps/platform-api`, `packages/feature-shared` and `packages/feature-ui` are checked by their package `lint`, never by Biome): `pnpm --filter @ap/platform-api-ops gate:fe-lint --base origin/develop`; classify each NEW with
   `python3 "$ENGINE/biome-cmp.py" <worktree> <file>...` (base from `review_plan.base`; the file's `introduced`
   list → `biome check --write --formatter-enabled=false --linter-enabled=false` or `biome format --write`;
   pre-existing → allowlist in `ops/platform-api/scripts/gates/frontend-biome-allowlist.txt`).

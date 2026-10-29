@@ -23,6 +23,7 @@ import {
   insertVocDirectly,
 } from '../../../test-support/voc-fixtures.js';
 import { insertInternalComment, insertReporterReply } from './_seed-helpers.js';
+import { defined } from '../../../test-support/defined.js';
 
 const APP_URL = process.env.DATABASE_URL ?? '';
 const WORKSPACE_ID = process.env.WORKSPACE_ID ?? '';
@@ -112,7 +113,7 @@ describe.skipIf(!runIntegration)('GET /vocs/:id/conversation (#15 C4)', () => {
     // Second: GET /vocs/:id/conversation?cursor=<cursor> → 15 remaining
     const convRes = await app.inject({
       method: 'GET',
-      url: `/vocs/${voc.id}/conversation?cursor=${encodeURIComponent(cursor!)}`,
+      url: `/vocs/${voc.id}/conversation?cursor=${encodeURIComponent(defined(cursor))}`,
       headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}` },
     });
     expect(convRes.statusCode).toBe(200);
@@ -162,7 +163,7 @@ describe.skipIf(!runIntegration)('GET /vocs/:id/conversation (#15 C4)', () => {
 
     const convRes = await app.inject({
       method: 'GET',
-      url: `/vocs/${voc.id}/conversation?cursor=${encodeURIComponent(detailBody.conversation_page.cursor!)}&kind=public_update`,
+      url: `/vocs/${voc.id}/conversation?cursor=${encodeURIComponent(defined(detailBody.conversation_page.cursor))}&kind=public_update`,
       headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}` },
     });
     expect(convRes.statusCode).toBe(200);
@@ -204,7 +205,7 @@ describe.skipIf(!runIntegration)('GET /vocs/:id/conversation (#15 C4)', () => {
 
     const convRes = await app.inject({
       method: 'GET',
-      url: `/vocs/${voc.id}/conversation?cursor=${encodeURIComponent(detailBody.conversation_page.cursor!)}&kind=reporter_reply`,
+      url: `/vocs/${voc.id}/conversation?cursor=${encodeURIComponent(defined(detailBody.conversation_page.cursor))}&kind=reporter_reply`,
       headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}` },
     });
     expect(convRes.statusCode).toBe(200);
@@ -248,7 +249,7 @@ describe.skipIf(!runIntegration)('GET /vocs/:id/conversation (#15 C4)', () => {
 
     const convRes = await app.inject({
       method: 'GET',
-      url: `/vocs/${voc.id}/conversation?cursor=${encodeURIComponent(detailBody.conversation_page.cursor!)}`,
+      url: `/vocs/${voc.id}/conversation?cursor=${encodeURIComponent(defined(detailBody.conversation_page.cursor))}`,
       headers: { cookie: `${SESSION_COOKIE_NAME}=${reporterCookie}` },
     });
     expect(convRes.statusCode).toBe(200);

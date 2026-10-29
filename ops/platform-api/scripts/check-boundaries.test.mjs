@@ -480,6 +480,60 @@ runCase(
   `${FO_BACKEND}/src/port.ts:1`,
 );
 
+// Lint-only exception (#1102): exact package-root eslint.config.js may import exactly @ap/eslint-config.
+const LINT_PRESET = "export { foServer as default } from '@ap/eslint-config';\n";
+runCase(
+  'lint exception allows the exact root eslint.config.js of the migrated packages',
+  {
+    ...zero,
+    [join(FO_BACKEND, 'eslint.config.js')]: LINT_PRESET,
+    [join(FO_SHARED, 'eslint.config.js')]:
+      "import { foShared } from '@ap/eslint-config';\nexport default foShared;\n",
+    [join(FO_UI, 'eslint.config.js')]: LINT_PRESET,
+  },
+  true,
+  'boundaries: OK',
+);
+runCase(
+  'lint exception does not reach runtime files, nested lookalikes or other package roots',
+  {
+    ...zero,
+    [join(FO_BACKEND, 'src', 'eslint.config.js')]: LINT_PRESET,
+    [join(FO_UI, 'src', 'nested', 'eslint.config.js')]: LINT_PRESET,
+    [join(FO_BACKEND, 'src', 'lint.ts')]: "import { foServer } from '@ap/eslint-config';\n",
+    [join(FO_FRONTEND, 'eslint.config.js')]: LINT_PRESET,
+    [join(FO_OPS, 'eslint.config.js')]: LINT_PRESET,
+    [join(FO_SHARED, 'eslint.config.ts')]: LINT_PRESET,
+  },
+  false,
+  [
+    `${FO_BACKEND}/src/eslint.config.js:1`,
+    `${FO_UI}/src/nested/eslint.config.js:1`,
+    `${FO_BACKEND}/src/lint.ts:1`,
+    `${FO_FRONTEND}/eslint.config.js:1`,
+    `${FO_OPS}/eslint.config.js:1`,
+    `${FO_SHARED}/eslint.config.ts:1`,
+  ],
+);
+runCase(
+  'lint exception names one package: subpaths and other @ap/* stay denied in the config file',
+  {
+    ...zero,
+    [join(FO_BACKEND, 'eslint.config.js')]: "export * from '@ap/eslint-config/feature';\n",
+    [join(FO_SHARED, 'eslint.config.js')]:
+      "import { PERMISSIONS } from '@ap/contracts';\nconst k = await import('@ap/kernel');\n",
+    [join(FO_UI, 'eslint.config.js')]:
+      "export * from '@ap/eslint-config-extra';\nconst c = require('@ap/ui/../shell');\n",
+  },
+  false,
+  [
+    `${FO_BACKEND}/eslint.config.js:1`,
+    `${FO_SHARED}/eslint.config.js:1`,
+    `${FO_SHARED}/eslint.config.js:2`,
+    `${FO_UI}/eslint.config.js:1`,
+  ],
+);
+
 if (failures > 0) {
   console.error(`\n${failures} test case(s) failed`);
   process.exit(1);

@@ -121,6 +121,12 @@ const EXPECTED: Record<UISurface, ExpectedSurface> = {
   },
 };
 
+// Explicit narrowing for a lookup the fixtures guarantee; a missing key fails the test with its name.
+function defined<T>(value: T | undefined, what: string): T {
+  if (value === undefined) throw new Error(`${what} is missing`);
+  return value;
+}
+
 describe('UI allowlist-local ↔ shared canonical fixture drift', () => {
   it('UI_SURFACES tuple matches expected surfaces (set equality)', () => {
     expect(new Set(UI_SURFACES)).toEqual(new Set(EXPECTED_SURFACES));
@@ -144,19 +150,19 @@ describe('UI allowlist-local ↔ shared canonical fixture drift', () => {
       expect(Object.keys(ui.markAttrs).sort()).toEqual(Object.keys(ex.markAttrs).sort());
 
       for (const nodeType of Object.keys(ex.nodeAttrs)) {
-        const eNode = ex.nodeAttrs[nodeType]!;
-        const uNode = ui.nodeAttrs[nodeType]!;
+        const eNode = defined(ex.nodeAttrs[nodeType], `expected node ${nodeType}`);
+        const uNode = defined(ui.nodeAttrs[nodeType], `ui node ${nodeType}`);
         expect(Object.keys(uNode).sort()).toEqual(Object.keys(eNode).sort());
         for (const k of Object.keys(eNode)) {
-          expect(uNode[k]!.kind).toBe(eNode[k]);
+          expect(defined(uNode[k], `ui node attr ${k}`).kind).toBe(eNode[k]);
         }
       }
       for (const markType of Object.keys(ex.markAttrs)) {
-        const eMark = ex.markAttrs[markType]!;
-        const uMark = ui.markAttrs[markType]!;
+        const eMark = defined(ex.markAttrs[markType], `expected mark ${markType}`);
+        const uMark = defined(ui.markAttrs[markType], `ui mark ${markType}`);
         expect(Object.keys(uMark).sort()).toEqual(Object.keys(eMark).sort());
         for (const k of Object.keys(eMark)) {
-          expect(uMark[k]!.kind).toBe(eMark[k]);
+          expect(defined(uMark[k], `ui mark attr ${k}`).kind).toBe(eMark[k]);
         }
       }
 

@@ -24,6 +24,7 @@ import { denyCapability, grantCapability } from '../../../test-support/permissio
 import { cleanupReadTestTables, insertVocDirectly } from '../../../test-support/voc-fixtures.js';
 import type { CountVocsQuery } from '../index.js';
 import { createVocReadService } from '../read-service.js';
+import { defined } from '../../../test-support/defined.js';
 
 const APP_URL = process.env.DATABASE_URL ?? '';
 const MIGRATE_URL = process.env.DATABASE_URL_MIGRATE ?? '';
@@ -1142,7 +1143,7 @@ describe.skipIf(!runIntegration)('GET /vocs (#15 C4 — list)', () => {
     // Second page
     const res2 = await app.inject({
       method: 'GET',
-      url: `/vocs?view=inbox&managed_system_id=${msId}&sort=created_at%3Adesc&limit=50&cursor=${encodeURIComponent(body1.page.cursor!)}`,
+      url: `/vocs?view=inbox&managed_system_id=${msId}&sort=created_at%3Adesc&limit=50&cursor=${encodeURIComponent(defined(body1.page.cursor))}`,
       headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}` },
     });
     expect(res2.statusCode).toBe(200);
@@ -1246,9 +1247,9 @@ describe.skipIf(!runIntegration)('GET /vocs (#15 C4 — list)', () => {
 
     // out_of_scope_summary should be present for MS-B's 3 VOCs
     expect(body.out_of_scope_summary).toBeDefined();
-    expect(body.out_of_scope_summary!.count).toBe(3);
-    expect(body.out_of_scope_summary!.severity_distribution.critical).toBe(1);
-    expect(body.out_of_scope_summary!.severity_distribution.low).toBe(2);
+    expect(defined(body.out_of_scope_summary).count).toBe(3);
+    expect(defined(body.out_of_scope_summary).severity_distribution.critical).toBe(1);
+    expect(defined(body.out_of_scope_summary).severity_distribution.low).toBe(2);
   });
 
   // ── AC21: out_of_scope_summary absent for admin ───────────────────────────
@@ -1975,8 +1976,8 @@ describe.skipIf(!runIntegration)('GET /vocs (#15 C4 — list)', () => {
       page: { has_more: boolean };
     }>();
     expect(page2.items).toHaveLength(1);
-    expect(page2.items[0]!.id).not.toBe(page1Ids[0]);
-    expect([first.id, second.id].sort()).toEqual([...page1Ids, page2.items[0]!.id].sort());
+    expect(defined(page2.items[0]).id).not.toBe(page1Ids[0]);
+    expect([first.id, second.id].sort()).toEqual([...page1Ids, defined(page2.items[0]).id].sort());
     expect(page2.page.has_more).toBe(false);
   });
 });

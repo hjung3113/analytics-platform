@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canonicalizeJson, hashRequestBody } from '../canonicalize.js';
+import { hashRequestBody } from '../canonicalize.js';
 
 describe('canonicalizeJson undefined sentinel (S-008)', () => {
   it('distinguishes {} from { external_key: undefined }', () => {

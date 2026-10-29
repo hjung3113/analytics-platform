@@ -26,7 +26,7 @@ const URL = '/api/v1/platform/saved-views/commands';
 type Role = 'admin' | 'developer' | 'user';
 type Acct = { id: string; cookie: string; csrf: string; name: string };
 type Op = SavedViewCommand['op'];
-// biome-ignore lint/suspicious/noExplicitAny: test responses are validated by the shared schema, then read loosely
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- test responses are validated by the shared schema, then read loosely
 type Any = any;
 
 const menuDraft = (name: string, extra: Record<string, unknown> = {}) => ({

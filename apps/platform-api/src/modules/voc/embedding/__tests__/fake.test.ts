@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { createFakeEmbeddingProvider } from '../fake.js';
+import { defined } from '../../../../test-support/defined.js';
 
 describe('FakeEmbeddingProvider', () => {
   it('returns deterministic, distinct unit vectors', async () => {
@@ -15,7 +16,7 @@ describe('FakeEmbeddingProvider', () => {
     expect(first.provider).toBe('fake');
     expect(first.embeddingVersion).toBe(1);
 
-    const norm = Math.sqrt(first.vectors[0]!.reduce((sum, value) => sum + value ** 2, 0));
+    const norm = Math.sqrt(defined(first.vectors[0]).reduce((sum, value) => sum + value ** 2, 0));
     expect(norm).toBeCloseTo(1, 12);
   });
 

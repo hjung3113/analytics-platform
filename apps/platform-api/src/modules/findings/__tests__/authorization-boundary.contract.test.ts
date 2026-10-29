@@ -33,6 +33,7 @@ import { type TasksService, createTasksService } from '../../tasks/service.js';
 import { type VocClustersService, createVocClustersService } from '../../voc-clusters/service.js';
 import { type FindingsService, createFindingsService } from '../service.js';
 import { insertFindingRow } from './_seed-helpers.js';
+import { defined } from '../../../test-support/defined.js';
 
 const APP_URL = process.env.DATABASE_URL ?? '';
 const MIGRATE_URL = process.env.DATABASE_URL_MIGRATE ?? '';
@@ -217,10 +218,10 @@ describe.skipIf(!runIntegration)('Finding authorization consumer contract (#169)
     ids.archivedMs = await insertManagedSystem('authorization-boundary-archived', true);
 
     for (const managedSystemId of [ids.activeMs, ids.archivedMs]) {
-      await grant(actorIds.scopedDeveloper!, 'finding.read', managedSystemId);
-      await grant(actorIds.scopedDeveloper!, 'finding.manage', managedSystemId);
-      await grant(actorIds.userWithGrant!, 'finding.read', managedSystemId);
-      await grant(actorIds.userWithGrant!, 'finding.manage', managedSystemId);
+      await grant(defined(actorIds.scopedDeveloper), 'finding.read', managedSystemId);
+      await grant(defined(actorIds.scopedDeveloper), 'finding.manage', managedSystemId);
+      await grant(defined(actorIds.userWithGrant), 'finding.read', managedSystemId);
+      await grant(defined(actorIds.userWithGrant), 'finding.manage', managedSystemId);
     }
     const grantedBy = actorIds.admin;
     if (!grantedBy) throw new Error('admin actor was not seeded');
@@ -245,7 +246,7 @@ describe.skipIf(!runIntegration)('Finding authorization consumer contract (#169)
       ),
     );
     await grant(
-      actorIds.expiringDeveloper!,
+      defined(actorIds.expiringDeveloper),
       'finding.read',
       ids.activeMs,
       new Date('2040-01-01T00:01:00.000Z'),
@@ -256,7 +257,7 @@ describe.skipIf(!runIntegration)('Finding authorization consumer contract (#169)
         workspaceId,
         primaryManagedSystemId: ids.activeMs,
         sourceId: randomUUID(),
-        createdBy: actorIds.admin!,
+        createdBy: defined(actorIds.admin),
       })
     ).id;
     ids.archivedFinding = (
@@ -264,7 +265,7 @@ describe.skipIf(!runIntegration)('Finding authorization consumer contract (#169)
         workspaceId,
         primaryManagedSystemId: ids.archivedMs,
         sourceId: randomUUID(),
-        createdBy: actorIds.admin!,
+        createdBy: defined(actorIds.admin),
       })
     ).id;
     findingIds.push(ids.activeFinding, ids.archivedFinding);
@@ -273,14 +274,14 @@ describe.skipIf(!runIntegration)('Finding authorization consumer contract (#169)
       await insertTaskRow(migrateHandle, {
         workspaceId,
         primaryManagedSystemId: ids.activeMs,
-        createdBy: actorIds.admin!,
+        createdBy: defined(actorIds.admin),
       })
     ).id;
     ids.archivedTask = (
       await insertTaskRow(migrateHandle, {
         workspaceId,
         primaryManagedSystemId: ids.archivedMs,
-        createdBy: actorIds.admin!,
+        createdBy: defined(actorIds.admin),
       })
     ).id;
     taskIds.push(ids.activeTask, ids.archivedTask);
@@ -290,7 +291,7 @@ describe.skipIf(!runIntegration)('Finding authorization consumer contract (#169)
         workspaceId,
         sourceId: ids.activeFinding,
         primaryManagedSystemId: ids.activeMs,
-        requesterActorId: actorIds.admin!,
+        requesterActorId: defined(actorIds.admin),
       })
     ).id;
     ids.archivedTaskRequest = (
@@ -298,7 +299,7 @@ describe.skipIf(!runIntegration)('Finding authorization consumer contract (#169)
         workspaceId,
         sourceId: ids.archivedFinding,
         primaryManagedSystemId: ids.archivedMs,
-        requesterActorId: actorIds.admin!,
+        requesterActorId: defined(actorIds.admin),
       })
     ).id;
     taskRequestIds.push(ids.activeTaskRequest, ids.archivedTaskRequest);
@@ -307,7 +308,7 @@ describe.skipIf(!runIntegration)('Finding authorization consumer contract (#169)
       await insertVocClusterRow(migrateHandle, {
         workspaceId,
         primaryManagedSystemId: ids.activeMs,
-        createdBy: actorIds.admin!,
+        createdBy: defined(actorIds.admin),
       })
     ).id;
     clusterIds.push(ids.activeCluster);
@@ -317,7 +318,7 @@ describe.skipIf(!runIntegration)('Finding authorization consumer contract (#169)
         migrateHandle,
         workspaceId,
         ids.activeMs,
-        actorIds.reporterWithGrant!,
+        defined(actorIds.reporterWithGrant),
         'Finding authorization boundary evidence VOC',
       )
     ).id;

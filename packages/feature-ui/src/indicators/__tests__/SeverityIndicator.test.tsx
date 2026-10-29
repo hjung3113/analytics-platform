@@ -9,7 +9,7 @@ const severities: Array<{ severity: SeverityEnum; expectedFilled: number }> = [
 ];
 
 describe('SeverityIndicator', () => {
-  severities.forEach(({ severity, expectedFilled }) => {
+  for (const { severity, expectedFilled } of severities) {
     describe(`severity="${severity}"`, () => {
       it(`renders ${expectedFilled} filled bar(s) and ${3 - expectedFilled} dimmed bar(s)`, () => {
         const { container } = render(<SeverityIndicator severity={severity} />);
@@ -27,9 +27,9 @@ describe('SeverityIndicator', () => {
       it(`sets data-token to --severity-${severity} on every bar`, () => {
         const { container } = render(<SeverityIndicator severity={severity} />);
         const bars = container.querySelectorAll('[data-token]');
-        bars.forEach((bar) => {
+        for (const bar of bars) {
           expect(bar.getAttribute('data-token')).toBe(`--severity-${severity}`);
-        });
+        }
       });
 
       it('uses the severity color utility class on every bar', () => {
@@ -50,7 +50,7 @@ describe('SeverityIndicator', () => {
         }
       });
     });
-  });
+  }
 });
 
 it.each([

@@ -3,21 +3,24 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "sideEffects": ["**/*.css"],
+  "sideEffects": [
+    "**/*.css"
+  ],
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts"
   },
   "scripts": {
+    "lint": "eslint . --max-warnings 0",
     "build": "tsc -p tsconfig.json --noEmit",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@ap/ui": "workspace:*",
     "@ap/feature-shared": "workspace:*",
+    "@ap/ui": "workspace:*",
     "@formkit/auto-animate": "0.10.0",
     "@radix-ui/react-avatar": "^1.1.11",
     "@radix-ui/react-checkbox": "^1.3.3",
@@ -52,6 +55,7 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@ap/eslint-config": "workspace:*",
     "@tailwindcss/node": "4.3.3",
     "@testing-library/jest-dom": "6.6.3",
     "@testing-library/react": "16.1.0",
@@ -60,6 +64,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "4.3.4",
+    "eslint": "10.11.0",
     "jsdom": "25.0.1",
     "postcss": "8.4.49",
     "tailwindcss": "4.3.3",
