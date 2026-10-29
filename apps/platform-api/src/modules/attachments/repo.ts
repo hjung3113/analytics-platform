@@ -153,8 +153,7 @@ export async function linkAttachments(
   // Per-id UPDATE with a guarded WHERE — predicate failure → row count 0 →
   // caller-supplied reason discrimination via a follow-up SELECT.
   const linked: LinkedAttachmentRow[] = [];
-  for (let i = 0; i < input.attachmentIds.length; i += 1) {
-    const id = input.attachmentIds[i]!;
+  for (const [i, id] of input.attachmentIds.entries()) {
     const upd = await tx.execute<{
       id: string;
       name: string;

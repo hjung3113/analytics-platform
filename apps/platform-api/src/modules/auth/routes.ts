@@ -93,7 +93,7 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, opt
           cookies: req.cookies as Record<string, string | undefined>,
         });
         const ua = req.headers['user-agent'];
-        const { session, actor, expiresAt } = await sessionService.provisionAndIssueSession({
+        const { session, expiresAt } = await sessionService.provisionAndIssueSession({
           claims: completed,
           ...(typeof ua === 'string' ? { userAgent: ua } : {}),
           ip: req.ip,

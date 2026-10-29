@@ -26,11 +26,13 @@ function renderWithEditor(surface: RichEditorSurface) {
   return {
     async editor() {
       await waitFor(() => expect(editorRef).not.toBeNull());
-      return editorRef!;
+      if (editorRef === null) throw new Error('editor was not mounted');
+      return editorRef;
     },
     async doc() {
       await waitFor(() => expect(latestDoc).not.toBeNull());
-      return latestDoc!;
+      if (latestDoc === null) throw new Error('editor document was not emitted');
+      return latestDoc;
     },
   };
 }

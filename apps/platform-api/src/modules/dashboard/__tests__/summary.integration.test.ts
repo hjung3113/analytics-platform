@@ -30,6 +30,7 @@ import {
 } from '../../../test-support/voc-cluster-fixtures.js';
 import { insertVocDirectly } from '../../../test-support/voc-fixtures.js';
 import { createDashboardService } from '../service.js';
+import { defined } from '../../../test-support/defined.js';
 
 const APP_URL = process.env.DATABASE_URL ?? '';
 const MIGRATE_URL = process.env.DATABASE_URL_MIGRATE ?? '';
@@ -80,7 +81,7 @@ function expectDelta(
 ) {
   expect(after, `${label} after`).toBeTypeOf('number');
   expect(before, `${label} before`).toBeTypeOf('number');
-  expect(after! - before!).toBe(seeded);
+  expect(defined(after) - defined(before)).toBe(seeded);
 }
 
 function expectQueueDelta(after: Summary, before: Summary, id: QueueId, seeded: number) {
@@ -305,16 +306,16 @@ describe.skipIf(!runIntegration)('GET /dashboard/summary (#217)', () => {
       createdBy: adminActorId,
       title: 'linked VOC task',
     });
-    await link('voc', vocsA.high[0]!, 'task', linkedTask.id, 'evidence_of', msA);
+    await link('voc', defined(vocsA.high[0]), 'task', linkedTask.id, 'evidence_of', msA);
     await link(
       'voc',
-      vocsB.high[0]!,
+      defined(vocsB.high[0]),
       'finding',
       (
         await insertFindingRow(migrateHandle, {
           workspaceId: WORKSPACE_ID,
           primaryManagedSystemId: msB,
-          sourceId: vocsB.all[0]!,
+          sourceId: defined(vocsB.all[0]),
           status: 'draft',
           createdBy: adminActorId,
         })
@@ -323,16 +324,16 @@ describe.skipIf(!runIntegration)('GET /dashboard/summary (#217)', () => {
       msB,
     );
 
-    await seedFindings(msA, vocsA.all[0]!, 7, 2);
-    await seedFindings(msB, vocsB.all[0]!, 5, 2);
+    await seedFindings(msA, defined(vocsA.all[0]), 7, 2);
+    await seedFindings(msB, defined(vocsB.all[0]), 5, 2);
     const releasedA = await seedTasks(msA, vocsA.all, 9, 4, 2);
     const releasedB = await seedTasks(msB, vocsB.all, 5, 3, 2);
     // One linked VOC has a reporter-visible update. A skip row proves that a
     // status transition without public content does not count as coverage.
-    await seedPublicUpdate(releasedA[0]!, false);
-    await seedPublicUpdate(releasedB[0]!, true);
-    await seedRequests(msA, vocsA.all[0]!, 6);
-    await seedRequests(msB, vocsB.all[0]!, 4);
+    await seedPublicUpdate(defined(releasedA[0]), false);
+    await seedPublicUpdate(defined(releasedB[0]), true);
+    await seedRequests(msA, defined(vocsA.all[0]), 6);
+    await seedRequests(msB, defined(vocsB.all[0]), 4);
     await seedSurveyGaps(msA, 4);
     await seedSurveyGaps(msB, 2);
     for (let index = 0; index < 9; index += 1) {
@@ -459,7 +460,7 @@ describe.skipIf(!runIntegration)('GET /dashboard/summary (#217)', () => {
         createdBy: adminActorId,
       });
       if (index < unresolved) {
-        const vocId = vocIds[vocIds.length - 1 - index]!;
+        const vocId = defined(vocIds[vocIds.length - 1 - index]);
         await link('voc', vocId, 'task', task.id, 'evidence_of', msId);
         linkedVocIds.push(vocId);
       }
@@ -1108,12 +1109,14 @@ describe.skipIf(!runIntegration)('GET /dashboard/summary (#217)', () => {
     const token = recoveryIdentity('unassigned-voc', voc.id);
     const stamp = async () =>
       new Date(
-        (
-          await migrateHandle.pool.query<{ updated_at: Date }>(
-            'SELECT updated_at FROM voc.vocs WHERE id=$1::uuid',
-            [voc.id],
-          )
-        ).rows[0]!.updated_at,
+        defined(
+          (
+            await migrateHandle.pool.query<{ updated_at: Date }>(
+              'SELECT updated_at FROM voc.vocs WHERE id=$1::uuid',
+              [voc.id],
+            )
+          ).rows[0],
+        ).updated_at,
       ).toISOString();
     const patch = async (payload: Record<string, unknown>, key = randomUUID(), match?: string) =>
       app.inject({
@@ -1205,7 +1208,7 @@ describe.skipIf(!runIntegration)('GET /dashboard/summary (#217)', () => {
     const token=recoveryIdentity('unassigned-voc',voc.id);
     const changes=await Promise.all([seed.devCookie,adminCookie].map(cookie=>app.inject({method:'PATCH',url:`/dashboard/recovery-items/${token}/presentation`,headers:headers(cookie),payload:{action:'mute'}})));
     expect(changes.map(r=>r.statusCode)).toEqual([200,200]);expect(changes.map(r=>r.json().occurrence)).toEqual([1,1]);
-    const stamp=(await migrateHandle.pool.query<{updated_at:Date}>('SELECT updated_at FROM voc.vocs WHERE id=$1::uuid',[voc.id])).rows[0]!.updated_at.toISOString();
+    const stamp=defined((await migrateHandle.pool.query<{updated_at:Date}>('SELECT updated_at FROM voc.vocs WHERE id=$1::uuid',[voc.id])).rows[0]).updated_at.toISOString();
     const [repair]=await Promise.all([
       app.inject({method:'PATCH',url:`/vocs/${voc.id}`,headers:{...headers(seed.devCookie),'idempotency-key':randomUUID(),'if-match':stamp},payload:{owner_user_id:adminActorId}}),
       reconcileRecoveryPage({db:dbHandle.db},{workspace_id:WORKSPACE_ID,correlation_id:randomUUID()}),
@@ -2421,9 +2424,9 @@ describe.skipIf(!runIntegration)('GET /dashboard/summary (#217)', () => {
   it('uses each configured band on all five nonempty system and roll-up metrics', async () => {
     const seed = await createDashboardScope();
     const vocs = await seedVocs(seed.msA, 4, 0, 4, 2);
-    await seedFindings(seed.msA, vocs.all[0]!, 4, 2);
+    await seedFindings(seed.msA, defined(vocs.all[0]), 4, 2);
     const linked = await seedTasks(seed.msA, vocs.all, 0, 2, 2);
-    await seedPublicUpdate(linked[0]!, false);
+    await seedPublicUpdate(defined(linked[0]), false);
     const before = (await get(seed.devCookie, seed.msA)).json<Summary>();
     const ids = [
       'voc-task',

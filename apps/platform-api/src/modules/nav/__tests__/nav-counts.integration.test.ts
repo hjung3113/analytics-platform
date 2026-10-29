@@ -14,6 +14,7 @@ import { grantCapability } from '../../../test-support/permissions-fixtures.js';
 import { insertVocClusterRow } from '../../../test-support/voc-cluster-fixtures.js';
 import { cleanupReadTestTables, insertVocDirectly } from '../../../test-support/voc-fixtures.js';
 import { createNavCountsService } from '../service.js';
+import { defined } from '../../../test-support/defined.js';
 
 const APP_URL = process.env.DATABASE_URL ?? '';
 const MIGRATE_URL = process.env.DATABASE_URL_MIGRATE ?? '';
@@ -52,13 +53,15 @@ describe.skipIf(!runIntegration)('GET /nav/counts (#143)', () => {
       `select id from core.actors where external_id = 'mock-admin-1' and workspace_id = $1`,
       [WORKSPACE_ID],
     );
-    adminActorId = actors.rows[0]!.id;
-    reporterId = (
-      await dbHandle.pool.query<{ id: string }>(
-        `select id from core.actors where external_id = 'mock-user-1' and workspace_id = $1`,
-        [WORKSPACE_ID],
-      )
-    ).rows[0]!.id;
+    adminActorId = defined(actors.rows[0]).id;
+    reporterId = defined(
+      (
+        await dbHandle.pool.query<{ id: string }>(
+          `select id from core.actors where external_id = 'mock-user-1' and workspace_id = $1`,
+          [WORKSPACE_ID],
+        )
+      ).rows[0],
+    ).id;
   });
 
   async function cleanupNavFixtures() {
@@ -258,7 +261,7 @@ describe.skipIf(!runIntegration)('GET /nav/counts (#143)', () => {
       scopedNoLinkList.statusCode !== 200
     )
       return;
-    expect(admin.body.counts['voc.inbox']).toBeGreaterThan(scoped.body.counts['voc.inbox']!);
+    expect(admin.body.counts['voc.inbox']).toBeGreaterThan(defined(scoped.body.counts['voc.inbox']));
     expect(scoped.body.counts['voc.inbox']).toBe(1);
     const adminNoLinkCount = admin.body.counts['voc.inbox.no-link'];
     const scopedNoLinkCount = scoped.body.counts['voc.inbox.no-link'];
@@ -282,7 +285,7 @@ describe.skipIf(!runIntegration)('GET /nav/counts (#143)', () => {
     await insertVocDirectly(dbHandle, WORKSPACE_ID, msB, reporterId, 'B');
     const all = await counts(adminCookie);
     const narrowed = await counts(adminCookie, `?managed_system_id=${msA}`);
-    expect(all.body.counts['voc.inbox']).toBeGreaterThan(narrowed.body.counts['voc.inbox']!);
+    expect(all.body.counts['voc.inbox']).toBeGreaterThan(defined(narrowed.body.counts['voc.inbox']));
     expect(narrowed.body.counts['voc.inbox']).toBe(1);
     const invalid = await app.inject({
       method: 'GET',

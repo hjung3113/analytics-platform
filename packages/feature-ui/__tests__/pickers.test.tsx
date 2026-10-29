@@ -2,7 +2,7 @@
 // public index) until a real second consumer lands (likely #21 triage composer's
 // ManagedSystem/AnalyticsArea selector). Tests live here — internal to the package.
 
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { describe, expect, test } from 'vitest';
 
 import { AnalyticsAreaPicker } from '../src/components/AnalyticsAreaPicker';

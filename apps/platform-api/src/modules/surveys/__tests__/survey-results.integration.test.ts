@@ -11,6 +11,7 @@ import { buildServer } from '../../../server.js';
 import { SESSION_COOKIE_NAME, loginAs } from '../../../test-support/auth.js';
 import { insertMsDirectly } from '../../../test-support/core-fixtures.js';
 import { uid } from '../../../test-support/ids.js';
+import { defined } from '../../../test-support/defined.js';
 
 const APP_URL = process.env.DATABASE_URL ?? '';
 const MIGRATE_URL = process.env.DATABASE_URL_MIGRATE ?? '';
@@ -334,7 +335,7 @@ describe.skipIf(!runIntegration)('survey result read route (#186)', () => {
     const text = body.questions.find((question) => question.question_id === survey.questions.text);
     if (!text || text.visibility !== 'visible' || text.kind !== 'text')
       throw new Error('text result missing');
-    expect('response_id' in text.excerpts[0]!).toBe(false);
+    expect('response_id' in defined(text.excerpts[0])).toBe(false);
   });
 
   it('AC-3 returns requestable finding permission only when the decision permits a request', async () => {
@@ -1059,7 +1060,7 @@ describe.skipIf(!runIntegration)('survey result read route (#186)', () => {
     const survey = await seed(full(1));
     const reader = await dev();
     await grant(reader.id, 'survey.read', survey.msId);
-    for (let i = 0; i < 6; i++) await approveExcerpt(survey, survey.responseIds[0]!);
+    for (let i = 0; i < 6; i++) await approveExcerpt(survey, defined(survey.responseIds[0]));
     const getCandidates = () =>
       app.inject({
         method: 'GET',
@@ -1096,7 +1097,7 @@ describe.skipIf(!runIntegration)('survey result read route (#186)', () => {
   it('#1109 visible Survey can have no approvals or an independently suppressed text question', async () => {
     const empty = await seed([]);
     const sparse = await seed([{ text: 'private' }, {}, {}, {}, {}]);
-    await approveExcerpt(sparse, sparse.responseIds[0]!);
+    await approveExcerpt(sparse, defined(sparse.responseIds[0]));
     for (const [survey, state] of [
       [empty, 'none'],
       [sparse, 'visible'],

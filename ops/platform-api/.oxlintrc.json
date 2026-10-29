@@ -40,15 +40,5 @@
     "shadcn/no-inline-styles": "error",
     "shadcn/no-unknown-classes": ["error", { "allow": ["rich-editor"] }],
     "shadcn/require-static-classes": "error"
-  },
-  "overrides": [
-    {
-      "files": ["**/packages/feature-ui/src/**"],
-      "rules": {
-        "shadcn/no-restyle": "off",
-        "shadcn/no-arbitrary-values": ["error", { "allow": ["layout"], "scanAllStrings": true }],
-        "shadcn/require-static-classes": "off"
-      }
-    }
-  ]
+  }
 }

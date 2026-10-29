@@ -250,19 +250,7 @@ export async function listVocsForRead(
   hasMore: boolean;
   nextCursor: { sv: string | number; id: string } | null;
 }> {
-  const {
-    workspaceId,
-    scopeFilter,
-    view,
-    actorIdForMyFilter,
-    tab,
-    filterSeverity,
-    filterReporterFacingStatus,
-    filterOwner,
-    sort,
-    cursor,
-    limit,
-  } = args;
+  const { sort, cursor, limit } = args;
 
   const wheres = buildVocListPredicate(args);
   if (wheres === null) return { rows: [], hasMore: false, nextCursor: null };
@@ -459,8 +447,8 @@ export async function listVocsForRead(
 
   // Build nextCursor from the last row when hasMore.
   let nextCursor: { sv: string | number; id: string } | null = null;
-  if (hasMore && sliced.length > 0) {
-    const last = sliced[sliced.length - 1]!;
+  const last = sliced[sliced.length - 1];
+  if (hasMore && last !== undefined) {
     const lastId = last.id as string;
     const lastMapped = mapVocRow(last);
 

@@ -44,7 +44,7 @@ async function getAuditRows(
   }
 }
 
-async function cleanupAuditLog(dbHandle: DbHandle): Promise<void> {
+async function cleanupAuditLog(_dbHandle: DbHandle): Promise<void> {
   if (!MIGRATE_URL) return;
   const ops = createDb(MIGRATE_URL);
   try {

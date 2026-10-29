@@ -68,7 +68,11 @@ export const attachmentsRoutes: FastifyPluginAsync<AttachmentsRoutesOptions> = a
         isMultipart?: () => boolean;
         file?: () => Promise<MultipartFile | undefined>;
       };
-      if (typeof reqAny.isMultipart !== 'function' || !reqAny.isMultipart()) {
+      if (
+        typeof reqAny.isMultipart !== 'function' ||
+        typeof reqAny.file !== 'function' ||
+        !reqAny.isMultipart()
+      ) {
         throw new HttpError('validation.failed', 'request must be multipart/form-data', {
           fields: [{ path: ['headers', 'content-type'], code: 'invalid_content_type' }],
         });
@@ -76,7 +80,7 @@ export const attachmentsRoutes: FastifyPluginAsync<AttachmentsRoutesOptions> = a
 
       let part: MultipartFile | undefined;
       try {
-        part = await reqAny.file!();
+        part = await reqAny.file();
       } catch (err) {
         // @fastify/multipart throws a synthetic error for limit violations.
         if (isRequestFileTooLargeError(err)) {

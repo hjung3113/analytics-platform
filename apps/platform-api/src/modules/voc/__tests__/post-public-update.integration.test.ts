@@ -63,7 +63,7 @@ async function getAuditRows(
   }
 }
 
-async function cleanupAuditLog(dbHandle: DbHandle): Promise<void> {
+async function cleanupAuditLog(_dbHandle: DbHandle): Promise<void> {
   if (!MIGRATE_URL) return;
   const ops = createDb(MIGRATE_URL);
   try {
@@ -88,7 +88,6 @@ describe.skipIf(!runIntegration)('POST /vocs/:id/public-updates (#16 C5)', () =>
   let adminCookie: string;
   let adminActorId: string;
   let reporterId: string;
-  let reporterCookie: string;
 
   function postPublicUpdate(
     cookie: string,
@@ -145,7 +144,7 @@ describe.skipIf(!runIntegration)('POST /vocs/:id/public-updates (#16 C5)', () =>
     if (!aid) throw new Error('mock-admin-1 not found');
     adminActorId = aid;
 
-    reporterCookie = await loginAs(app, 'mock-user-1');
+    await loginAs(app, 'mock-user-1');
     const rr = await dbHandle.pool.query<{ id: string }>(
       `select id from core.actors where external_id = 'mock-user-1' and workspace_id = $1`,
       [WORKSPACE_ID],

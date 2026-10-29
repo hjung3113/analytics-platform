@@ -4,7 +4,7 @@
  * `/<TAB>/evil.example` or `/\\evil.example` would become `//evil.example`
  * (protocol-relative, off-site) after redirect. The resolved URL must also
  * stay on the same origin, which catches encoded and exotic forms. */
-// biome-ignore lint/suspicious/noControlCharactersInRegex: the class rejects control characters on purpose (open-redirect guard)
+// eslint-disable-next-line no-control-regex -- the class rejects control characters on purpose (open-redirect guard)
 const RETURN_TO_SAFE = /^\/[^\s\\\u0000-\u001f\u007f-\u009f]*$/;
 export function sanitizeReturnTo(raw: string | undefined): string {
   if (raw === undefined) return '/';

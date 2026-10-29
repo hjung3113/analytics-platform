@@ -10,6 +10,7 @@ import { loadConfig } from '../../../config.js';
 import { type DbHandle, createDb } from '../../../db/client.js';
 import { SESSION_COOKIE_NAME } from '../../../middleware/require-session.js';
 import { buildServer } from '../../../server.js';
+import { defined } from '../../../test-support/defined.js';
 
 const APP_URL = process.env.DATABASE_URL ?? '';
 const WORKSPACE_ID = process.env.WORKSPACE_ID ?? '';
@@ -77,8 +78,8 @@ describe.skipIf(!runIntegration)('GET /actors?workspace=current', () => {
     expect(body.actors.length).toBeGreaterThanOrEqual(3);
     // Stable sort assertion: each pair must be (display_name, id) non-decreasing.
     for (let i = 1; i < body.actors.length; i += 1) {
-      const a = body.actors[i - 1]!;
-      const b = body.actors[i]!;
+      const a = defined(body.actors[i - 1]);
+      const b = defined(body.actors[i]);
       const cmpName = a.display_name.localeCompare(b.display_name);
       expect(cmpName <= 0).toBe(true);
       if (cmpName === 0) {

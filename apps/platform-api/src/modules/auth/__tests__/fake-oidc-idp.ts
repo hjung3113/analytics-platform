@@ -89,6 +89,7 @@ export class FakeOidcIdp {
   }
 
   static async start(opts: FakeOidcIdpOptions): Promise<FakeOidcIdp> {
+    // eslint-disable-next-line prefer-const -- the request listener below reads it before the server it needs exists
     let idp: FakeOidcIdp;
     const server = createServer((req, res) => {
       idp?.handle(req, res);

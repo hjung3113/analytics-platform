@@ -10,6 +10,7 @@ import restrictedImportSource from './import-source.js';
 import { noMenuMockImport } from './menu-boundaries.js';
 import noShellIdLiteralComparison from './no-shell-id-literal-comparison.js';
 import noColorVarShorthand from './no-color-var-shorthand.js';
+import { featureServer, featureShared, featureUi } from './feature.js';
 
 const pkg = (name) => `${PACKAGE_PREFIX}${name}`;
 
@@ -600,3 +601,14 @@ export const app = [
 export const tooling = [
   layerConfig({ restriction: { allow: [], denyReact: true, mockAllowed: false } }),
 ];
+
+// FeedbackOps full-source presets (#1102 a). Feature-only: no other preset reads them. Rules and the old Biome/Oxlint
+// correspondence: feature.js and docs/integration/platform-packages.md §6.
+/** @type {import('eslint').Linter.Config[]} */
+export const foServer = featureServer();
+
+/** @type {import('eslint').Linter.Config[]} */
+export const foShared = featureShared();
+
+/** @type {import('eslint').Linter.Config[]} */
+export const foUi = featureUi({ reactHooks: REACT_HOOKS, design: designSystem({ componentSource: true }) });

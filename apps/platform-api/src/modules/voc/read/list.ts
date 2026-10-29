@@ -102,7 +102,7 @@ export function createVocListReaders(deps: VocReadServiceDeps) {
     out_of_scope_summary?: { count: number; severity_distribution: Record<string, number> };
   }> {
     const { actor, query } = args;
-    const { view, managed_system_id, tab, limit } = query;
+    const { view, tab, limit } = query;
     assertMySeverityQuery(query);
     const filterSeverity = query['filter.severity'];
     const filterReporterFacingStatus = query['filter.reporter_facing_status'];

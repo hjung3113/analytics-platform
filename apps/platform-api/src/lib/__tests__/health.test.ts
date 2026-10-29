@@ -287,6 +287,7 @@ describe('runReadinessChecks', () => {
     const hung = new Promise<never>(() => {});
     // Count reaction attachments on the shared pending promise.
     const realThen = hung.then.bind(hung);
+    // eslint-disable-next-line unicorn/no-thenable -- the test spies on reaction attachment to a deliberately pending promise
     hung.then = ((...args: Parameters<typeof realThen>) => {
       attached += 1;
       return realThen(...args);

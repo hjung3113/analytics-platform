@@ -12,6 +12,19 @@ const OPTIONS = [
   { value: 'cherry', label: 'Cherry' },
 ];
 
+// Explicit narrowing in place of non-null assertions; a missing element fails the test with its name.
+function searchInputElement(): HTMLInputElement {
+  const input = document.querySelector('input');
+  if (input === null) throw new Error('combobox search input is not rendered');
+  return input;
+}
+
+function firstOf<T>(items: T[]): T {
+  const [first] = items;
+  if (first === undefined) throw new Error('expected at least one element');
+  return first;
+}
+
 describe('Combobox', () => {
   it('renders trigger with placeholder', () => {
     render(<Combobox options={OPTIONS} value={null} onChange={() => {}} placeholder="Pick one" />);
@@ -31,7 +44,7 @@ describe('Combobox', () => {
   it('Arrow Down moves activeIndex and sets aria-activedescendant', () => {
     render(<Combobox options={OPTIONS} value={null} onChange={() => {}} />);
     fireEvent.click(screen.getByRole('combobox'));
-    const searchInput = document.querySelector('input')!;
+    const searchInput = searchInputElement();
     expect(searchInput).toBeTruthy();
     // Before any key press, no activedescendant
     expect(searchInput.getAttribute('aria-activedescendant')).toBeNull();
@@ -43,7 +56,7 @@ describe('Combobox', () => {
     const handleChange = vi.fn();
     render(<Combobox options={OPTIONS} value={null} onChange={handleChange} />);
     fireEvent.click(screen.getByRole('combobox'));
-    const searchInput = document.querySelector('input')!;
+    const searchInput = searchInputElement();
     // Arrow Down to first option, then Enter
     fireEvent.keyDown(searchInput, { key: 'ArrowDown' });
     fireEvent.keyDown(searchInput, { key: 'Enter' });
@@ -54,7 +67,7 @@ describe('Combobox', () => {
     render(<Combobox options={OPTIONS} value={null} onChange={() => {}} />);
     fireEvent.click(screen.getByRole('combobox'));
     expect(screen.getByRole('listbox')).toBeInTheDocument();
-    const searchInput = document.querySelector('input')!;
+    const searchInput = searchInputElement();
     fireEvent.keyDown(searchInput, { key: 'Escape' });
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
   });
@@ -62,7 +75,7 @@ describe('Combobox', () => {
   it('shows empty state when no options match search', () => {
     render(<Combobox options={OPTIONS} value={null} onChange={() => {}} />);
     fireEvent.click(screen.getByRole('combobox'));
-    const searchInput = document.querySelector('input')!;
+    const searchInput = searchInputElement();
     fireEvent.change(searchInput, { target: { value: 'zzz' } });
     expect(screen.queryByRole('option')).not.toBeInTheDocument();
     expect(screen.getByText('결과 없음')).toBeInTheDocument();
@@ -111,11 +124,11 @@ describe('Combobox', () => {
     const triggers = screen.getAllByRole('combobox');
     expect(triggers).toHaveLength(2);
     // Open both to expose listboxes
-    fireEvent.click(triggers[0]!);
+    fireEvent.click(firstOf(triggers));
     // Only first is open; second is closed — just verify trigger IDs are independent
     const openListboxes = screen.getAllByRole('listbox');
     expect(openListboxes).toHaveLength(1);
-    const listboxId = openListboxes[0]!.id;
+    const listboxId = firstOf(openListboxes).id;
     expect(listboxId).toBeTruthy();
     expect(triggers[0]).toHaveAttribute('aria-controls', listboxId);
   });

@@ -12,6 +12,7 @@ import * as permission from './schema/permission.js';
 import * as voc from './schema/voc.js';
 import type { Db } from './client.js';
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- the value only feeds `typeof schema` below; Biome did not count that as unused
 const schema = { ...core, ...permission, ...voc };
 
 type Schema = typeof schema;

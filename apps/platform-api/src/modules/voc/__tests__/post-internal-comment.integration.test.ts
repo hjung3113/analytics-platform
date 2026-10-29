@@ -20,6 +20,7 @@ import { uid } from '../../../test-support/ids.js';
 import { grantCapability } from '../../../test-support/permissions-fixtures.js';
 import { paragraphDoc } from '../../../test-support/rich-content-fixtures.js';
 import { cleanupReadTestTables, insertVocDirectly } from '../../../test-support/voc-fixtures.js';
+import { defined } from '../../../test-support/defined.js';
 
 const APP_URL = process.env.DATABASE_URL ?? '';
 const MIGRATE_URL = process.env.DATABASE_URL_MIGRATE ?? '';
@@ -46,7 +47,7 @@ async function getAuditRows(
   }
 }
 
-async function cleanupAuditLog(dbHandle: DbHandle): Promise<void> {
+async function cleanupAuditLog(_dbHandle: DbHandle): Promise<void> {
   if (!MIGRATE_URL) return;
   const ops = createDb(MIGRATE_URL);
   try {
@@ -575,7 +576,7 @@ describe.skipIf(!runIntegration)('POST /vocs/:id/internal-comments (#16 C5)', ()
       };
     };
     const reply = res.json<Reply>();
-    const cb = reply.internal_comment.body_rich_content.content[0]!;
+    const cb = defined(reply.internal_comment.body_rich_content.content[0]);
     expect(cb.type).toBe('codeBlock');
     if (langExpected === undefined) {
       // Canonical rebuild omits empty/absent attrs.

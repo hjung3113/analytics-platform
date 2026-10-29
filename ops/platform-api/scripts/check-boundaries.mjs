@@ -19,6 +19,8 @@
 //      `@ap/contracts`, `@ap/server-conformance` and `@ap/http-adapter` as devDependencies.
 //      The manifests say the same: no FeedbackOps manifest (ops, apps/*, packages/*) lists an `@ap/*` package
 //      outside these runtime allowances under dependencies, peerDependencies or optionalDependencies.
+//      One lint-only exception (#1102): the exact root `eslint.config.js` of a package whose lint runs on ESLint may import
+//      exactly `@ap/eslint-config` (a devDependency). Runtime files, nested lookalikes, subpaths and other `@ap/*` stay denied.
 
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { basename, dirname, join, relative, resolve, sep } from 'node:path';
@@ -94,6 +96,13 @@ const RULES = [
     msg: 'FeedbackOps source may import only @ap/ui from the platform; core-server also permits @ap/contract-schemas; other SDK packages remain test-only (ADR-0097)',
   })),
 ];
+
+// Lint-only exception to rule 11: these exact files (never nested lookalikes) may import exactly `@ap/eslint-config`.
+// screens joins the list in its own migration (#1102 b).
+const LINT_CONFIG_PACKAGE = '@ap/eslint-config';
+const LINT_CONFIG_FILES = new Set(
+  [FO_BACKEND, FO_SHARED, FO_UI].map((dir) => join(ROOT, dir, 'eslint.config.js')),
+);
 
 const EXT = new Set(['.ts', '.tsx', '.mts', '.cts', '.js', '.jsx']);
 
@@ -338,7 +347,9 @@ for (const rule of RULES) {
     }
     if (rule.kind === 'platform-package-imports') {
       if (isTestPath(file)) continue;
+      const isLintConfig = LINT_CONFIG_FILES.has(file);
       for (const { specifier, line } of collectImportSpecifiers(file, content)) {
+        if (isLintConfig && specifier === LINT_CONFIG_PACKAGE) continue;
         if (
           /^@ap\//.test(specifier) &&
           !isFeaturePackage(specifier) &&

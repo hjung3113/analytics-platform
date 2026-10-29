@@ -43,12 +43,12 @@ describe('EmptyState — optional icon', () => {
 
 describe('EmptyState — optional action', () => {
   it('renders action when provided', () => {
-    render(<EmptyState title="Empty" action={<button>VOC 만들기</button>} />);
+    render(<EmptyState title="Empty" action={<button type="button">VOC 만들기</button>} />);
     expect(screen.getByRole('button', { name: 'VOC 만들기' })).toBeInTheDocument();
   });
 
   it('does not render action wrapper when undefined', () => {
-    const { container } = render(<EmptyState title="Empty" />);
+    render(<EmptyState title="Empty" />);
     // No button present
     expect(screen.queryByRole('button')).toBeNull();
   });

@@ -16,6 +16,10 @@
 - Feature-specific route state.
 - Hard-coded screen workflows.
 
+## Lint
+
+- ESLint over the whole package: `pnpm --filter @ap/feature-ui lint` (`foUi`: correctness, React, Hooks, accessibility and the `@shadcn/lint` design rules, `--max-warnings 0`). It replaces the Biome and Oxlint passes for this package (#1102 a). An intended exception names its ESLint rule and a concrete reason in the comment; an unused directive fails. Rule correspondence: `docs/integration/platform-packages.md` §6.
+
 ## Design Rules
 
 - Use semantic tokens, not raw hex values, outside token implementation files.

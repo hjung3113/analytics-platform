@@ -18,6 +18,7 @@ import {
 } from '../../../notifications/port.js';
 import { createPublicUpdateReviewCandidatesService } from '../../../voc/public-update-review-candidates/service.js';
 import { releasedReviewCandidatesHandler } from '../released-review-candidates.js';
+import { defined } from '../../../../test-support/defined.js';
 
 const APP_URL = process.env.DATABASE_URL ?? '';
 const MIGRATE_URL = process.env.DATABASE_URL_MIGRATE ?? '';
@@ -273,8 +274,8 @@ describe.skipIf(!runIntegration)('released Task review-candidate worker (#165)',
       correlation_id: randomUUID(),
       triggered_by_actor_id: actorId,
       linked_vocs: [
-        { voc_id: voc.id, entity_link_id: link.rows[0]!.id },
-        { voc_id: secondVoc.id, entity_link_id: secondLink.rows[0]!.id },
+        { voc_id: voc.id, entity_link_id: defined(link.rows[0]).id },
+        { voc_id: secondVoc.id, entity_link_id: defined(secondLink.rows[0]).id },
       ],
     };
     await handler([{ data: payload }]);
