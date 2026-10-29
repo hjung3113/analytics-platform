@@ -23,6 +23,8 @@ The lead writes the planned tier in the assignment comment (`tier=full|light`). 
 - **Measured (heuristic, PR #1041 review):** the paths-only first draft was replayed on the last 250 merges with archived reviews. 19 of 50 "light" merges had a blocker or major. Most were in `apps/feature-screens` or hit `flags.permission`, and both are now full. The current rule has not been re-measured, so do not widen light without new data.
 - **PR count:** at most 3 PRs per issue. Bundle mechanical work into one PR. Split only where a full-tier review needs isolation.
 - **Copy-only edits under full paths:** the lead may mark the PR light with a numstat line ("copy only"), unless `flags.permission` fires.
+- The fix-diff rule in the full row (one fix round; a still-open blocker or major sends the second round to `impl-complex` with a fix-diff check) replaces global skill step 7f — this profile owns that rule.
+- Before merge, run `bash .agents/conductor/scripts/ship-check.sh <issue> <worktree>` on both merge paths ([addenda/merge.md](addenda/merge.md)): it fails when a full-tier diff has no `review-plan:` line or review-final record in VERIFY, or a `ux=required` diff has no UX record and no existing `ux-skip:` evidence path.
 - **Brief check:** only for `impl-complex` briefs, plus a `review-quality` plan review when a brief changes 06 contracts, package boundaries or `sdk:api`. No other intermediate checks and no separate doc-sync workers. The implementer updates the owning docs in the same PR ([`docs/AGENTS.md`](../../docs/AGENTS.md)).
 - **Review findings:**
   - blocker or major → the fix round.
@@ -81,10 +83,12 @@ Fix design-lint errors with the token, variant or component the message names.
   - Stop the preview in the same turn.
 - Use `ego-browser`. If it is blocked, use a one-off Playwright capture from `apps/platform-e2e` and record the substitution in VERIFY.
 - Before merge, a PR that changes behavior (state, request shape, response fields) gets one real-server check by the conductor (issue DB + `dev:real`) recorded in VERIFY.
+- Worker briefs take the mock app start command from `conductor.json` `app_preview.command` — never hardcode a preview command in a brief.
 
 ## Review
 
 - Plan: `python3 $ENGINE/review-plan.py <checkout> [--base origin/main]` (rules in `conductor.json` `review_plan`). For light tier, it sets no reviewers. `flags.permission` and `ux=required` always make the PR full.
+- UX skip: when `review-plan.py` says `ux=required` but no `review-ux` runs, record the skip reason and the substitute browser evidence in the PR body, and add an `ux-skip: <evidence path>` line to VERIFY — `ship-check.sh` blocks the merge without it. Unit-test mock servers and `focusManager` toggles do not prove the real-server path.
 - Flags:
   - `permission` / `instructions` → global skill 7a.
   - `e2e` → confirm Verify step 3.
@@ -134,6 +138,10 @@ Reports are in Korean.
 
 A PR may also touch, outside the issue diff, only the changed consumer's `menus/<space>/<group>/src/` or `platform/<feature>/src/` and the i18n dictionary.
 
+## Deferrals
+
+- Every item not done now — a `minor`/`nit` outside the touched area, an accepted limit, an owner "not now" — is recorded the same day as one row in [`.planning/backlog.md`](../../.planning/backlog.md): item, reason, reopen condition. The PR body lists it under **Deferred** with a link to the row; a PR body is never the only record. Reason: a deferral with no recorded home is lost at session end.
+
 ## Slice close
 
 The release order is in [`LANES.md`](LANES.md) §Lead.
@@ -158,6 +166,9 @@ Shared assets come from conductor-engine `install.sh`. Run `install.sh --check` 
 | `scripts/with-lock.sh <lock> "<purpose>" -- <cmd>` | Take a lock or slot for the command's lifetime |
 | `scripts/verify-root.sh [--light] <log-dir>` | Verify step 2 |
 | `scripts/lock-audit.sh` | Find locks left by finished work |
+| `scripts/lead-check.sh` | Lead resume and 2-hour check (LANES §Lead) |
+| `scripts/ship-check.sh <issue> <worktree>` | Pre-merge record gate |
+| `python3 scripts/board.py {init\|add\|set\|show\|check}` | Lane board at `$AP_MAIN/.review/lanes/board.json` |
 
 ## Traps
 

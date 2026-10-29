@@ -1,6 +1,6 @@
 # Lanes and lead
 
-Several Claude sessions work this repo at once. Each lane session owns one lane and runs issues per [`PROFILE.md`](PROFILE.md). The lead session assigns work, resolves conflicts and releases. Scripts carry the mechanical rules. This file holds only what needs judgment or a fixed protocol. Restructure planned in #1040.
+Several Claude sessions work this repo at once. Each lane session owns one lane and runs issues per [`PROFILE.md`](PROFILE.md). The lead session assigns work, resolves conflicts and releases. Scripts carry the mechanical rules. This file holds only what needs judgment or a fixed protocol.
 
 ## Lanes
 
@@ -91,9 +91,13 @@ On a rebase, keep both sides of a conflicting table or list row.
   - Spawn: `orca worktree create --name lane-<lane> --base-branch origin/main --agent claude --surface terminal --prompt "Read <brief> and follow it."`. The brief is `$AP_MAIN/.review/lanes/<lane>.md` and holds the label, Run id, merge grant, `AP_MAIN`, `WAVE_STATE=$AP_MAIN/.review/wave/state-<lane>`, and the port.
   - Close a lane after `대기` when it has no workers or previews left.
   - Sessions the owner started count toward `lanes=`. Brief them the same way.
-- **Board:** keep goal lines in `LEAD.md` with dependency, owner and state. On every wake, assign each ready line if capacity allows: first to the lane that last touched the area, then to an idle lane, then to a clone lane (port +50).
-- **Periodic check (every 2 h):**
-  - Run `capacity.sh` and `lock-audit.sh`.
+- **No-lane mode** (the lead runs the issues itself with workers, no lane sessions):
+  - the PROFILE loop and the 2-hour check still run unchanged — they do not need lanes;
+  - `lead-check.sh` is the 2-hour check command, armed with CronCreate;
+  - the resume steps `run-use --id <run>` and `check --peek` run only when a Run exists.
+- **Board:** `$AP_MAIN/.review/lanes/board.json`, managed with `python3 .agents/conductor/scripts/board.py` — schema `{release, goal, merge_grant, decisions[{text, by, date}], lines[{id, issue, title, state(planned|running|review|blocked|done|dropped), worker, worktree, pr, next, updated}]}`, commands `init|add|set|show|check`. `LEAD.md` keeps only free-form notes. Nothing migrates automatically; the lead seeds the board. On every wake (`board.py show`), assign each ready line if capacity allows: first to the lane that last touched the area, then to an idle lane, then to a clone lane (port +50).
+- **Periodic check (every 2 h, armed with CronCreate):**
+  - Run `bash .agents/conductor/scripts/lead-check.sh` — capacity, `lock-audit.sh`, `wave-status.py`, the board, and findings: several running write workers on one cwd, a reserved-port listener no running worker or preview owns, an Orca terminal left by a done/stopped worker. On exit 10, act on every printed finding.
   - Read `gh pr list` and new issues (check for duplicates).
   - Read each lane screen for dialogs and `ctx:`.
   - Confirm the Run coordinator is the lead.
@@ -106,9 +110,10 @@ On a rebase, keep both sides of a conflicting table or list row.
   4. Run a full cold CI on the SHA to tag: `gh workflow run ci.yml --ref main -f full=true`. PR and main-push CI run only what changed (turbo cache; E2E specs picked by `.github/scripts/select-e2e.mjs`), so this run is the only whole, cold gate. Take the run id from `gh run list --workflow ci.yml --event workflow_dispatch --limit 1 --json databaseId` and require `headSha` = tag SHA and `success`. Rerun it if the SHA moves.
   5. Tag `sdk-v*` with the tarballs and a GitHub Release; at tag time also run `pnpm sdk:schemas --version X.Y.Z --out <empty-or-absent-schemas-dir>` and `gh release upload sdk-vX.Y.Z <schemas-dir>/contract-schemas-X.Y.Z.tgz <schemas-dir>/SHA256SUMS-schemas`. Ask the owner before tagging an app `v0.x`. For an app release, the site lane updates `site/`.
 - **Lead rotation:** before the skill's session limit, at a quiet point, update `LEAD.md`. A new lead resumes in this order:
-  1. this file
-  2. `LEAD.md`
-  3. `run-use --id <run>`
-  4. `check --peek`
-  5. `orca terminal list`
-  6. re-arm the periodic check
+  1. `bash .agents/conductor/scripts/lead-check.sh` — machine, locks, wave state and board; act on every finding it prints
+  2. this file
+  3. `LEAD.md` (free-form notes only; the board is `board.json`)
+  4. `run-use --id <run>`
+  5. `check --peek`
+  6. `orca terminal list`
+  7. re-arm the periodic check
