@@ -46,9 +46,11 @@ test.describe('플랫폼 홈과 전역 화면 실서버 (ADR-0070, 06 §9.1)', (
     await expect(mainHeading(page)).toHaveText('플랫폼 홈');
     const systems = page.getByRole('region', { name: '업무 시스템' });
     await expect(systems).toBeVisible();
-    for (const label of ['운영 콘솔', 'FeedbackOps', '표준 로그 개발', '개선 실행']) {
+    for (const label of ['운영 콘솔', '표준 로그 개발', '개선 실행']) {
       await expect(systems.getByRole('link', { name: new RegExp(label) })).toBeVisible();
     }
+    // ADR-0100 (#1099c): operator features live in the one console, not a FeedbackOps work-system card.
+    await expect(systems.getByRole('link', { name: /FeedbackOps/ })).toHaveCount(0);
     await expect(systems.getByRole('link', { name: /MARS/ })).toHaveCount(0);
     // home.notices is served by the real server (#1106): HTTP 200 and an ok/empty envelope, never the old documented 404.
     const noticeResponse = await notice;
