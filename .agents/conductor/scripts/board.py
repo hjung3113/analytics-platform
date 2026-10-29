@@ -198,7 +198,26 @@ def worker_status(state, path):  # same rule as wave-status.py: done | closed | 
         return 'closed'
     if state.get('pid'):
         return 'running' if alive(state['pid']) else 'stopped'
+    terminals = orca_terminals()
+    if state.get('terminal') and terminals is not None and state['terminal'] not in terminals:
+        return 'closed'  # a TUI worker has no pid; its closed terminal means it ended
     return 'running'
+
+
+_TERMINALS = []
+def orca_terminals():
+    """Handles of live Orca terminals, or None when orca is unavailable (then TUI workers stay `running`)."""
+    if _TERMINALS:
+        return _TERMINALS[0]
+    try:
+        out = subprocess.run(['orca', 'terminal', 'list', '--json'], capture_output=True, text=True, timeout=20).stdout
+        result = None if not out.strip() else set(__import__('re').findall(r'term_[0-9a-f-]{36}', out))
+    except (OSError, subprocess.SubprocessError):
+        result = None
+    if os.environ.get('BOARD_NO_ORCA'):
+        result = None
+    _TERMINALS.append(result)
+    return result
 
 
 def read_workers():
@@ -243,7 +262,8 @@ def cmd_check(path):
         if state in ('running', 'review'):
             name = l.get('worker')
             if not name:
-                findings.append(f'line {lid} (#{l.get("issue")}) is {state} but has no worker')
+                if state == 'running':  # a `review` line may sit on a lead step (checks, CI, merge) with no worker
+                    findings.append(f'line {lid} (#{l.get("issue")}) is {state} but has no worker')
             elif name not in workers:
                 findings.append(f'line {lid} (#{l.get("issue")}) is {state} but worker {name} has no state JSON')
             else:
