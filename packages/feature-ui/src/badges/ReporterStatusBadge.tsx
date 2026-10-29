@@ -22,7 +22,7 @@ export interface ReporterStatusBadgeProps {
 
 /**
  * Korean labels verbatim from `ReporterStatusLabels` in
- * `docs/feedbackops/design-prototype/data.js`.
+ * `docs/design/history/feedbackops-prototype/data.js`.
  */
 const LABELS: Record<ReporterFacingStatusEnum, string> = {
   received: '접수됨',

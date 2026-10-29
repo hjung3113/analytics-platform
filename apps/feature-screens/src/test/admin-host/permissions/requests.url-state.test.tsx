@@ -1,7 +1,7 @@
 import { adminDetailFixture } from '@/test/permission-details';
 // /admin/permissions/requests URL-state tests (issue #397).
 //
-// Tab + selection are URL state (docs/feedbackops/frontend/routes-and-layout.md §URL State
+// Tab + selection are URL state (docs/design/features/routes-and-layout.md §URL State
 // Rules): ?tab=approved&selected=:requestId. `pending` is the default tab and
 // omitted from the URL. Verifies restore-on-load, single-navigation tab
 // changes with the keep/reselect rule, close removing selected, Back

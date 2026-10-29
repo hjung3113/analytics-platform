@@ -1,6 +1,6 @@
 // Analytics Area application service (Slice 2 #11).
 //
-// Ownership per docs/feedbackops/implementation/02-domain-module-boundaries.md +
+// Ownership per docs/architecture/platform-api/02-domain-module-boundaries.md +
 // ADR-0017. Mutation contract mirrors managed-system-service (#10):
 //   1. Optional Idempotency-Key (ADR-0015).
 //   2. checkCapability('workspace.admin') — grill Q3 lock.

@@ -10,7 +10,7 @@
 //            visibility toggled via CSS display so drafts survive tab switches.
 //
 // Spec: PLAN-21-SUBCHUNKS.md C5.1 / C5.2 / C5.5
-// Prototype ref: docs/feedbackops/design-prototype/screen-voc.jsx:400-470
+// Prototype ref: docs/design/history/feedbackops-prototype/screen-voc.jsx:400-470
 //
 // Mount point: FullDetailView renders this with voc, me, and canTriage between
 // <ConversationTimeline> and <NextActionFooter>.

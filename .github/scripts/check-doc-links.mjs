@@ -33,7 +33,10 @@ import { lstatSync, readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 
 const DEFAULT_EXCLUDES = [
-  'docs/feedbackops/', // FeedbackOps docs keep their own link conventions
+  'docs/adr/history/feedbackops/', // frozen FO decisions retain original relative links
+  'docs/design/history/feedbackops-prototype/', // frozen standalone prototype
+  'docs/user-guide/history/feedbackops/', // frozen 2026-10-04 captures
+  'docs/integration/history/feedbackops-local-development.md', // frozen former README
   '.agents/skills/', // vendored external skills
   '.agents/references/', // vendored external references
   '.review/', // local scratch

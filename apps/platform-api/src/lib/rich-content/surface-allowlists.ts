@@ -1,7 +1,7 @@
 // apps/platform-api/src/lib/rich-content/surface-allowlists.ts
 //
 // Per-surface node + mark allowlists with per-attr value schemas.
-// Spec: docs/feedbackops/frontend/specs/voc.md §5.7. ADR-0011 names this layer authoritative.
+// Spec: docs/design/features/specs/voc.md §5.7. ADR-0011 names this layer authoritative.
 //
 // PLAN-22 C9: the canonical data now lives in `@ap/feature-shared/rich-content/
 // allowlist.ts`. This file is a thin re-export so existing backend callers

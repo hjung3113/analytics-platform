@@ -1,6 +1,6 @@
 // Milestone domain client (#514 B2b).
 //
-// Contract: docs/feedbackops/implementation/api/milestones.md
+// Contract: docs/architecture/platform-api/api/milestones.md
 //   POST /milestones, GET /milestones, GET /milestones/:id, PATCH /milestones/:id
 // apiRequest + shared zod parsers per apps/feature-screens/AGENTS.md — no unparsed calls.
 // Create sends primary_managed_system_id and never managed_system_id; patch sends

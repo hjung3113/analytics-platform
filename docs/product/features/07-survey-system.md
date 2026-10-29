@@ -1,0 +1,326 @@
+# Survey System
+
+## Purpose
+
+Survey asks internal users questions and collects responses for discovery, validation, or outcome measurement.
+
+Survey Response does not create VOC.
+
+## Boundary
+
+Owns:
+
+```text
+- Survey
+- Survey Response
+- Survey Result
+- Server-owned starting templates (FO ADR-0070; backend contract #1073)
+- Existing definition reuse (FO ADR-0070; backend/shared contract #1074)
+```
+
+Does not own:
+
+```text
+- VOC
+- Task backlog
+- Permission approval
+- Final Finding lifecycle after creation
+```
+
+Depends on:
+
+```text
+- 01-domain-model.md
+- 02-requirements-matrix.md
+- 10-cross-system-workflows.md
+- 11-entity-linking.md
+```
+
+## Survey Types
+
+```text
+Discovery Survey:
+- 문제 발견용
+
+Validation Survey:
+- VOC, 가설, 개선 필요성 검증용
+
+Outcome Survey:
+- Task 또는 Milestone 완료 후 개선 효과 확인용 (Task / Milestone trigger: future, WF-X-004)
+```
+
+## Key Workflows
+
+### WF-SURVEY-001: Survey Local Workflow
+
+```text
+Survey
+→ Build
+→ Collect
+→ Responses
+→ Survey Result
+→ Analyze
+```
+
+### WF-SURVEY-002: Optional Survey To Execution
+
+```text
+Survey Result
+→ optional Evidence Highlights
+→ optional Finding
+→ optional Task Request
+```
+
+### WF-SURVEY-003: Outcome Survey
+
+The Task / Milestone Released trigger is future (WF-X-004). An Outcome Survey is created like any Survey and has no Task or Milestone link. Every Outcome Survey is configured for follow-up (FO ADR-0055).
+
+```text
+Task / Milestone Released
+→ optional Outcome Survey
+→ Result Summary
+→ optional Follow-up Finding / Task Request if result is poor
+```
+
+## Functional Requirements
+
+### FR-SURVEY-001: Create Survey
+
+Priority: MUST
+
+Acceptance Criteria:
+
+```text
+- Survey Operator can create Discovery, Validation, or Outcome Survey.
+- Survey requires exactly one Primary Managed System.
+- Survey can link Analytics Area under that Managed System.
+- Survey can be created atomically from one of three built-in starters through the backend contract (#1073, FO ADR-0070).
+- The creation dialog starts blank and offers built-in templates or saved questions from a same-Managed-System Survey (#1075). Sources are searched and paginated, with a read-only definition preview. Type follows the selected starting point and is locked until it is cleared; title remains editable and privacy is chosen independently (#1183, FO ADR-0070 amendment).
+- Managed System and respondent privacy remain explicit choices, and builder navigation uses only the persisted server ID (FO ADR-0039, amended by FO ADR-0070).
+- Survey supports link distribution. (MVP distribution is the authenticated `/surveys/:id/respond` link; public links (FO ADR-0035/0036) were rejected on 2026-10-13, FO ADR-0059 D4.)
+```
+
+Built-in IDs are `discovery-basic`, `validation-basic`, and `outcome-basic`,
+version 1. The server owns definitions; shared previews use symbolic question
+keys without persisted IDs. Creation submits an editable title and independent
+description, resolves the operator anew, and writes the full question graph
+in the creation transaction. Blank creation remains available. Outcome uses a
+positive 1–5 usefulness rating, retaining FO ADR-0055's low-band classification.
+The exact Korean content and endpoint envelope live in
+[the Survey API contract](../../architecture/platform-api/api/surveys.md#built-in-definitions-version-1).
+No saved-template library or response/history copying is part of this scope.
+
+### FR-SURVEY-002: Basic Builder
+
+Priority: MUST
+
+Acceptance Criteria:
+
+```text
+- Builder supports single choice, multiple choice, rating, and text.
+- Builder supports one-level conditional branch.
+- Builder does not require complex logic setup.
+```
+
+### FR-SURVEY-003: Store Responses
+
+Priority: MUST
+
+Acceptance Criteria:
+
+```text
+- Responses are stored in Survey System.
+- Responses are not converted into VOC.
+- Personal response visibility follows permission rules. An authenticated
+  respondent can read only their own response metadata through
+  `GET /me/survey-responses`; other personal response reads still require
+  `survey.read_personal_responses`.
+- Response submission through `POST /surveys/:id/responses` creates one immutable
+  response per respondent per Survey, enforced by the unique index
+  `(survey_id, respondent_actor_id)`.
+- The database boundary is INSERT-only for responses and answers; it grants no
+  UPDATE or DELETE, and `identity_protected` is propagated from the Survey into
+  the submission acknowledgement and stored response.
+- No general personal-response read surface is exposed. The respondent
+  history endpoint returns only the session Actor's own Survey ID and title,
+  submission time, and identity-protection flag; it never returns a response
+  ID or answers. The respondent form endpoint `GET /surveys/:id/form` returns an
+  open, same-Workspace Survey with only a respondent-safe form DTO.
+- Respondent discovery: an authenticated Actor lists open, same-Workspace
+  Surveys they have not yet answered through `GET /me/answerable-surveys`,
+  without `survey.read`. The list carries Survey-level fields only (ID,
+  display ID, title, type, question count, open time); drafts, closed Surveys,
+  other-Workspace Surveys, and Surveys the caller already answered are
+  excluded.
+```
+
+### FR-SURVEY-004: Analyze Results
+
+Priority: MUST
+
+Acceptance Criteria:
+
+```text
+- Result screen shows question summary and response distribution.
+- Text responses can be highlighted as evidence.
+- Result filters require immutable response-level cohort dimensions and a privacy policy that prevents subtraction attacks; they are unavailable until those prerequisites exist.
+```
+
+### FR-SURVEY-005: Convert Result To Action
+
+Priority: SHOULD
+
+Acceptance Criteria:
+
+```text
+- Result screen has Create Finding and Request Task CTAs when the actor has permission; Link Finding is deferred out of MVP scope (FO ADR-0037).
+- Result and Response screens must not show Create VOC.
+- Survey Response can become Evidence Highlight or Finding evidence; it must not become a new VOC.
+- Attach to Existing VOC may be allowed only as evidence attachment to an already existing VOC, not as Survey Response to VOC conversion.
+- Survey Finding can create Task Request or link execution work.
+- Outcome Survey with poor result can create follow-up Finding or Task Request.
+- Survey can be used independently without converting results to Finding or Task.
+```
+
+## UI / UX Requirements
+
+Survey should borrow Typeform's simple creation feel and SurveyMonkey's result readability, but avoid becoming a full survey platform.
+
+### Survey Result
+
+Survey Result is result summary-first. It is not an action queue surface, even
+when follow-up actions are available.
+
+Poor outcome follow-up is selected by backend-provided `next_actions`, not by
+frontend heuristics. The screen may highlight a recommended action near the
+result summary, but it must still start from result interpretation and must not
+turn into a Dashboard-style recovery queue.
+
+`mark_no_follow_up` may appear on a poor Outcome Survey detail or specific
+follow-up gap detail when the actor is authorized. It must not appear as a bulk
+or top-level action on the aggregate Survey Result overview.
+
+Layout:
+
+```text
+- Question Summary
+- Response Distribution
+- Text Response Highlights
+- Filter by Managed System / Segment / Analytics Area: deferred until responses
+  retain immutable cohort dimensions and an explicit privacy policy prevents
+  subtraction attacks.
+- Add Evidence Highlight CTA
+- Create Finding CTA
+- Link Finding CTA — deferred out of MVP scope (FO ADR-0037).
+- Request Task CTA
+- Optional Attach to Existing VOC action when relation is useful and permission allows
+```
+
+When an Outcome Survey has poor results or configured follow-up, the most
+important next action may be highlighted near the top, but the page still starts
+from result interpretation.
+
+Survey Result and Survey Response UI must not include Create VOC. Survey
+evidence can support an existing VOC, Finding, Task Request, or Task, but it
+does not create a new VOC record.
+
+Use action id `attach_evidence_to_existing_voc` for attaching Survey evidence
+to an existing VOC. Do not label this action Create VOC, Convert to VOC, or
+Generate VOC from Response.
+
+`attach_evidence_to_existing_voc` may target only an existing VOC in the actor's
+effective Managed System scope when the actor can see at least summary-visible
+VOC context and policy allows Survey evidence attachment. It must not offer a
+create fallback when no eligible VOC is found. Anonymous or identity-protected
+Survey responses require a safe summary link that does not reveal respondent
+identity.
+
+Anonymous or identity-protected Survey responses may become Evidence Highlights
+only through safe summaries by default. Linked VOC, Finding, Task Request, and
+Task surfaces must not expose respondent identity, raw free-text response, or
+personal response detail unless the actor follows the Survey source route and
+has explicit personal response viewing permission.
+
+MVP safe summaries should be deterministic and template-based, not LLM-generated
+by default. They may use aggregate counts, configured answer labels, score
+bands, selected tags, and approved highlight excerpts after redaction. LLM
+summaries may be added later only as an assistive draft after the same
+permission and redaction rules have already been applied.
+
+Safe summaries render in the workspace default language or the viewer's UI
+locale. Raw free-text responses and approved excerpts remain in their original
+language by default; translation is a later assistive draft feature and must not
+replace redaction or source-language auditability.
+
+Free-text Survey evidence becomes an Evidence Highlight only after a user
+selects or approves the excerpt. Automatic highlight candidates may be shown
+when policy allows, but anonymous or identity-protected responses must pass
+redaction and explicit approval before the excerpt is attached to another
+object.
+
+Survey result filters must preserve anonymity. When a Managed System, segment,
+or Analytics Area filter would reduce visible aggregate counts below the
+configured anonymity threshold, the UI must hide the aggregate or merge buckets
+for actors without personal response viewing permission. MVP default threshold
+is 5 responses.
+
+A zero-response result may disclose a survey-level `none` state because no individual response can
+be inferred, while one through the configured threshold minus one remains suppressed.
+
+Workspace Admin does not bypass Survey anonymity thresholds by role alone.
+Viewing below-threshold personal response detail requires explicit personal
+response viewing permission.
+
+## Permissions
+
+```text
+- Basic User can answer open Survey.
+- Survey Operator can create and manage Survey.
+- Personal response viewing requires explicit permission.
+- Export requires explicit permission.
+```
+
+## Cross-System Dependencies
+
+```text
+- Survey Result creates Finding, not VOC.
+- Survey validation of Task or Milestone is future (WF-X-004).
+- Outcome Survey can reveal unresolved user experience after release.
+- Survey may optionally link Analytics Area to context inside one Managed System.
+```
+
+## Out Of Scope For MVP
+
+```text
+- Advanced survey logic builder
+- Panel management
+- Advanced statistical analysis
+- Branding-heavy form editor
+```
+
+## Provenance boundary and safe reuse (FO ADR-0064)
+
+Implemented by #739/#740/#816: trusted application
+authorization plus closure of direct Finding/highlight/link/audit copies.
+SQL-level unlinkability against stolen `fops_app` credentials is not guaranteed;
+permitted Survey readers remain composable trusted internal tools. Original
+response identity and approval snapshots stay in Survey-owned protected extensions.
+Audit Actor/subject/detail history is retained with controlled operator access;
+raw app audit reads are revoked. Public Survey-derived Finding summary is source
+metadata only; approved text requires fresh source/target checks and exact active
+approval. Withdrawal suppresses future evidence reads, not independently authored prose.
+
+For #816, a Survey result reader selects only active approved safe excerpts their
+cohort/per-question suppression permits and attaches with target `finding.manage`.
+Personal-response permission is unnecessary for safe reuse; existing holders keep
+below-threshold result exceptions, but the picker never exposes response IDs.
+Existing response-addressed create-Finding retains its personal gate and no Admin
+bypass. Existing linked-highlight audience remains distinct from picker suppression.
+Count response subjects/answers, not approvals; add no free-text/dimension filters.
+The candidate and attachment APIs live in `api/surveys.md` and
+`api/findings.md` under `docs/architecture/platform-api/`.
+
+Integration's Evidence surface consumes the same safe projection.
+No response UUID entry, raw quote entry, response URL reconstruction, public Survey
+link or response→VOC conversion. Generic Survey Link Finding remains deferred
+(FO ADR-0037); #816 approval-selected evidence attachment is a distinct action.

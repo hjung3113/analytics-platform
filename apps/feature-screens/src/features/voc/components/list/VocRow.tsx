@@ -1,7 +1,7 @@
 /**
  * VocRow — single-select row for the VOC inbox list.
  *
- * Mirrors docs/feedbackops/design-prototype/screen-voc.jsx `VocRow`: a severity-colored
+ * Mirrors docs/design/history/feedbackops-prototype/screen-voc.jsx `VocRow`: a severity-colored
  * left stripe, a title line (id · title), a meta line
  * (reporter-status badge · severity badge · managed system · area/"No area" ·
  * time · linked finding), and a trailing identity column (owner avatar /

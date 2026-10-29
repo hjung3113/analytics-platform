@@ -19,7 +19,15 @@
           },
           {
             "prefix": [
-              "docs/feedbackops/",
+              "docs/product/features/",
+              "docs/architecture/platform-api/",
+              "docs/design/features/",
+              "docs/design/history/feedbackops-prototype/",
+              "docs/user-guide/features/",
+              "docs/user-guide/history/feedbackops/",
+              "docs/adr/history/feedbackops/",
+              "docs/agents/feature-implementation.md",
+              "docs/integration/feature-",
               "apps/feature-screens/src/lib/copy/"
             ]
           }

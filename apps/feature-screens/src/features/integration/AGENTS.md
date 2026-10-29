@@ -75,7 +75,7 @@ Code ownership and URL mount are not the same thing here:
 ## Analytics Area report (ADR-0069; shipped by #1079)
 
 - Coverage's PageShell is extended with URL-backed `view=areas`; default overview omits `view`.
-- Keep Managed System/Area/paging state and source destinations per `docs/feedbackops/frontend/routes-and-layout.md`.
+- Keep Managed System/Area/paging state and source destinations per `docs/design/features/routes-and-layout.md`.
 - Render unavailable, zero, zero-denominator, loading/error/denial separately; no stale prior-scope counts.
 - Operational positive counts link to exact typed source filters; repairs remain on owning source routes.
 - The secondary Area-tab link is shipped on the existing Integration Coverage card; no new Admin/rail surface.
@@ -87,8 +87,8 @@ highlights across readable Findings. Findings owns
 `GET /evidence-highlights` and `GET /evidence-highlights/:id`; Survey owns the
 ADR-0064 safe projection. Integration renders only authorized DTOs, never raw
 links/private bindings/audit JSON or response URLs. See
-`docs/feedbackops/frontend/routes-and-layout.md` for URL keys, detail restoration and states;
-`docs/feedbackops/implementation/api/findings.md` for eligibility-before-search/pagination.
+`docs/design/features/routes-and-layout.md` for URL keys, detail restoration and states;
+`docs/architecture/platform-api/api/findings.md` for eligibility-before-search/pagination.
 
 Rows/panel identify the owning Finding; primary `Finding 보기` opens its detail
 and Back preserves Evidence context. Editing/attachment/execution remains in

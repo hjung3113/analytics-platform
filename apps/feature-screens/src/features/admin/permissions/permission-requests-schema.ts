@@ -2,7 +2,7 @@ import { isSearchFieldValueValid, parseRouteSearch, returnToField } from '@/lib/
 import { z } from 'zod';
 
 // Router-free (and free of the copy/enum-labels barrel) so the bridge's admin-search entry imports it; permission-requests-search.ts re-exports it.
-// Tab + selection are URL state (docs/feedbackops/frontend/routes-and-layout.md §URL State
+// Tab + selection are URL state (docs/design/features/routes-and-layout.md §URL State
 // Rules): /admin/permissions/requests?tab=approved&selected=:requestId.
 // `pending` is the default tab and omitted from the URL.
 export const permissionRequestsSearchSchema = z

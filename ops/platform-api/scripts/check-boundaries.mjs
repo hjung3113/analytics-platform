@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Boundary enforcement per docs/feedbackops/implementation/00-architecture.md and ADR-0016.
+// Boundary enforcement per docs/architecture/platform-api/00-architecture.md and ADR-0016.
 // Rule text below names the places by their package folder (packages/shared, apps/backend, ...); the places themselves
 // are read from the path map, ops/platform-api/paths.mjs.
 // Rules:
