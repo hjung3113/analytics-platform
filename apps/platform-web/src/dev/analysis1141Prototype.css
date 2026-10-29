@@ -1,0 +1,60 @@
+/*
+ * Disposable real-app comparison for #1141.
+ * Only enabled by apps/platform-web/src/main.tsx when Vite DEV and ?variant=analysis-dense|analysis-snap.
+ * No design-token values are replaced. No global layout rules are changed in the baseline.
+ */
+:root:is([data-ap-analysis-prototype="analysis-dense"], [data-ap-analysis-prototype="analysis-snap"])
+  [data-platform-page][data-page-layout="fill"] [data-platform-page-content] {
+  padding: 12px 16px 16px;
+}
+
+/* Keep the actual table's 32px data rows; reduce the non-data chrome around them. */
+:root:is([data-ap-analysis-prototype="analysis-dense"], [data-ap-analysis-prototype="analysis-snap"])
+  [data-platform-page-content] section:has(> [data-table-auto-fit]) > div:first-child {
+  min-height: 40px;
+  padding: 6px 8px;
+}
+:root:is([data-ap-analysis-prototype="analysis-dense"], [data-ap-analysis-prototype="analysis-snap"])
+  [data-platform-page-content] section:has(> [data-table-auto-fit]) > div:first-child > * {
+  min-width: 0;
+}
+
+/* Dock owns the visible group boundary; embedded chart frames need no second card boundary. */
+:root:is([data-ap-analysis-prototype="analysis-dense"], [data-ap-analysis-prototype="analysis-snap"])
+  [data-dock-panel] section[role="region"]:has(> header [role="toolbar"]) {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+:root:is([data-ap-analysis-prototype="analysis-dense"], [data-ap-analysis-prototype="analysis-snap"])
+  [data-dock-panel] section[role="region"]:has(> header [role="toolbar"]) > header {
+  padding: 4px 8px 0;
+  gap: 4px;
+}
+:root:is([data-ap-analysis-prototype="analysis-dense"], [data-ap-analysis-prototype="analysis-snap"])
+  [data-dock-panel] section:has(> [data-table-auto-fit]) {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+:root:is([data-ap-analysis-prototype="analysis-dense"], [data-ap-analysis-prototype="analysis-snap"])
+  [data-panel-workspace] {
+  row-gap: 6px;
+}
+
+/* B: opt into the Dockview engine's outline and tab-insertion previews, with no new DnD engine. */
+:root[data-ap-analysis-prototype="analysis-snap"] .ap-dock {
+  --dv-drag-over-background-color: var(--color-accent-primary-soft);
+  --dv-drag-over-border-color: var(--color-accent-primary);
+  --dv-edge-dock-indicator-color: var(--color-accent-primary);
+  --dv-active-sash-transition-duration: 0s;
+}
+:root[data-ap-analysis-prototype="analysis-snap"] [data-dock-drop-below] {
+  border-style: solid;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root[data-ap-analysis-prototype="analysis-snap"] .ap-dock .dv-tab {
+    transition-duration: 0s;
+  }
+}
