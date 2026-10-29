@@ -41,7 +41,10 @@ vi.mock('@ap/ui', async (importOriginal) => {
   };
 });
 
-import { SurveysIndexRoute, surveysSearchSchema } from '@/test/surveys-host/screen';
+import { useSurveyDetailParts } from '@/features/surveys/components/detail/SurveyDetailParts';
+import { PERMISSION_BLOCKED_REASONS } from '@/lib/copy/permission-reasons';
+import { SurveysScreen } from '@/features/surveys/routes/SurveysScreen';
+import { surveysSearchSchema } from '@/test/surveys-host/screen';
 
 // The platform bridge's seam shape: the host owns the page title and the Survey detail parts never write one.
 const PLATFORM_LIKE_HOST: HostSeam = { ...tanstackHost, hostOwnsTitle: true, useTitle: () => undefined };
@@ -120,7 +123,30 @@ function installFetch(): void {
   }) as typeof globalThis.fetch;
 }
 
-function renderSelectedSurvey(): void {
+// Thin frame over the production hook: the hook owns the loading/not-found/blocked/error/full views and the permission panel.
+function SurveyDetailFrame({ surveyId, onClose }: { surveyId: string; onClose: () => void }) {
+  const parts = useSurveyDetailParts({ surveyId, onClose });
+  return (
+    <aside data-testid="survey-detail" data-view={parts.view.kind}>
+      <h2>{parts.title}</h2>
+      {parts.body}
+    </aside>
+  );
+}
+
+function SurveysRoute() {
+  return (
+    <SurveysScreen
+      renderDetail={(selectedId, { close }) =>
+        selectedId === null ? null : (
+          <SurveyDetailFrame key={selectedId} surveyId={selectedId} onClose={close} />
+        )
+      }
+    />
+  );
+}
+
+function renderSelectedSurvey() {
   installFetch();
   const rootRoute = createRootRoute({
     component: () => (
@@ -133,7 +159,7 @@ function renderSelectedSurvey(): void {
     getParentRoute: () => rootRoute,
     path: '/surveys',
     validateSearch: (raw) => surveysSearchSchema.parse(raw),
-    component: SurveysIndexRoute,
+    component: SurveysRoute,
   });
   const surveyDetailStub = createRoute({
     getParentRoute: () => rootRoute,
@@ -156,15 +182,30 @@ function renderSelectedSurvey(): void {
       <RouterProvider router={router} />
     </QueryClientProvider>,
   );
+  return router;
 }
 
 describe('/surveys selected detail under a host that owns the title', () => {
-  test('shows the permitted Survey, then the next selection being denied (403) leaves no Survey record', async () => {
-    renderSelectedSurvey();
+  test('shows the permitted Survey, then the next selection being denied (403) shows the permission-denied view and no Survey record', async () => {
+    const router = renderSelectedSurvey();
 
-    expect(await screen.findByTestId('survey-detail')).toHaveTextContent('온보딩 설문');
+    const detail = await screen.findByTestId('survey-detail');
+    await waitFor(() => expect(detail).toHaveAttribute('data-view', 'full'));
+    expect(detail).toHaveTextContent('온보딩 설문');
 
     fireEvent.click(screen.getByTestId(`survey-row-${BLOCKED_SURVEY_ID}`));
-    await waitFor(() => expect(screen.queryByTestId('survey-detail')).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(router.state.location.search).toMatchObject({ selected: BLOCKED_SURVEY_ID }),
+    );
+
+    // The production blocked view, settled after the 403 (not the loading skeleton), with its permission panel.
+    await waitFor(() =>
+      expect(screen.getByTestId('survey-detail')).toHaveAttribute('data-view', 'blocked'),
+    );
+    const blocked = screen.getByTestId('survey-detail');
+    expect(blocked).toHaveTextContent(PERMISSION_BLOCKED_REASONS.surveyDetail);
+    expect(blocked).not.toHaveTextContent('온보딩 설문');
+    expect(blocked).not.toHaveTextContent('SRV-1');
+    expect(blocked).not.toHaveTextContent('결과 확인 설문');
   });
 });
