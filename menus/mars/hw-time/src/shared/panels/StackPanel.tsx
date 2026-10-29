@@ -87,7 +87,7 @@ export function StackPanel({ chartId, title, block, visibleSeriesIds, onVisibleS
   const isPointSelectable = useCallback((point: ChartPoint) => byLabel.has(point.x), [byLabel]);
   return <div className="flex min-h-0 flex-1 flex-col gap-1">
     <AnalysisChartFrame
-      chartId={chartId} title={title} description={unmeasuredNote} xType="category" orientation="horizontal" stacked size="fill" fillMin={fillMin} rowPitch={rowPitch ?? undefined}
+      chartId={chartId} title={title} description={unmeasuredNote} nonDimmingEmphasis={nonDimmingEmphasis} xType="category" orientation="horizontal" stacked size="fill" fillMin={fillMin} rowPitch={rowPitch ?? undefined}
       activeCategory={activeRowId === undefined ? undefined : activeRowId === null ? null : rowIdLabel(activeRowId)} revealActive={revealActive}
       onActiveCategoryChange={onActiveRowChange && ((category, how) => {
         if (category === null) { onActiveRowChange(null, how); return; }
