@@ -142,7 +142,8 @@ const TAB_COMPONENTS = { tab: DockTab };
 /** Module-level so the option object keeps its identity across renders (a new one re-applies the theme). */
 const snapPrototype = import.meta.env.DEV && typeof document !== 'undefined'
   && document.documentElement.dataset.apAnalysisPrototype === 'analysis-snap';
-const prefersLessMotion = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const prefersLessMotion = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+  && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const THEME = {
   name: 'ap', className: 'ap-dock', gap: 6,
   ...(snapPrototype ? {
