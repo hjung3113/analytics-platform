@@ -101,6 +101,8 @@ export type ChartOptionInput = {
   rowPitch?: number;
   /** Horizontal only. The controlled row highlight: a border on that row's bars and a bold category label. */
   activeCategory?: string | null;
+  /** Prototype #1141: do not blur the other series on pointer emphasis. */
+  nonDimmingEmphasis?: boolean;
   /** Horizontal stacked only. Each series' piece starts at its own lane's left edge; the value axis shows lane names instead of numbers. */
   startAlign?: boolean;
   /** Horizontal only. Per series id, the rows to outline as minimum and maximum (see `seriesExtremes`). */
@@ -228,7 +230,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
           id: s.id, name: s.name, type: kind, stack: i.stacked && kind === 'bar' ? 'total' : undefined,
           showSymbol: false, symbolSize: 5, connectNulls: false, barMaxWidth: 18,
           lineStyle: { ...(kind === 'line' ? { color } : {}), width: 2, type: pattern }, itemStyle: { color: palette.series[n].fill },
-          emphasis: { focus: 'series' },
+          emphasis: { focus: i.nonDimmingEmphasis ? 'none' : 'series' },
           ...(segments && kind === 'bar' ? {
             label: { show: true, position: 'inside', fontSize: LABEL_FONT, color: palette.segmentText[n].color, ...(palette.segmentText[n].chip ? { backgroundColor: palette.labelSurface, borderRadius: 2, padding: 0 } : {}), formatter: (p: { value: unknown }) => (typeof p.value === 'number' ? shortNumber(p.value, lang) : '') },
             labelLayout: segmentLayout,
