@@ -2,6 +2,8 @@ import '@fontsource-variable/inter';
 import '@fontsource-variable/jetbrains-mono';
 import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css';
 import './style.css';
+// Disposable #1141 real-app visual variants (prototype branch only).
+import './dev/analysis1141Prototype.css';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createBasePathLocation, I18nProvider, PlatformProvider } from '@ap/kernel';
@@ -26,6 +28,10 @@ import { AppShell, RouteOutlet } from '@ap/shell';
 // The build picks the assembly (#153, ADR-0009): mock + DevTools in dev/--mode mock, the real adapter in production.
 // It may be asynchronous (the real assembly awaits the bootstrap, #154), so the tree mounts after it answers; it can
 // also ask for a redirect (login) or a replacement screen (server unavailable) instead of the app.
+const analysisPrototype = import.meta.env.DEV ? new URLSearchParams(window.location.search).get('variant') : null;
+if (analysisPrototype === 'analysis-dense' || analysisPrototype === 'analysis-snap') {
+  document.documentElement.dataset.apAnalysisPrototype = analysisPrototype;
+}
 const queryHistory = createLocalQueryHistoryStore();
 // One slot object for the page's lifetime: its `Compose` component must keep its identity so a held draft does not remount.
 const vocCompose = vocComposeSlot(managedSystemFor);
