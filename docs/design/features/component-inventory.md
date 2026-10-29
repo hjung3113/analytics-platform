@@ -62,10 +62,10 @@ Screen mapping lives in `docs/design/features/ui-design-system.md`.
 
 ## Composed Components
 
-This list is the original prescriptive inventory and several entries were never built under these names, or at all. The shell shipped as `AppFrame` / `AppRail` / `AppSidebar` (`apps/feature-screens/src/lib/layout/`), governed by FO ADR-0020, which supersedes the `AppShell` / `RoleLevelAwareSidebar` naming below. Route shells (`ListShell`, `PageShell`) and `ObjectRow` live in `@ap/ui` (`packages/sdk/ui/src/layout/`, `packages/sdk/ui/src/data/ObjectRow.tsx`). Treat the code and FO ADR-0020 as authoritative when they disagree with a name here. The Built Mapping section below maps design-time names to what shipped.
+This list is the original prescriptive inventory and several entries were never built under these names, or at all. The platform shell is `AppShell` / `AppRail` / `AppSidebar` (`packages/sdk/shell/src/frame/`); the built mapping below identifies the current owners. Route shells (`ListShell`, `PageShell`) and `ObjectRow` live in `@ap/ui` (`packages/sdk/ui/src/layout/`, `packages/sdk/ui/src/data/ObjectRow.tsx`). Treat the current platform contracts and SDK code as authoritative when they disagree with a design-time name here. The Built Mapping section below maps design-time names to what shipped.
 
 ```text
-AppShell (built as AppFrame)
+AppShell (platform shell)
 RoleLevelAwareSidebar (built as AppRail + AppSidebar)
 ManagedSystemScopeSwitcher (built as the AppSidebar scope control, #143)
 ScopeFilterBar
@@ -97,8 +97,8 @@ Names in the primitive table and the composed list above are design-time names. 
 
 | Design-time name | Shipped as | Path |
 | --- | --- | --- |
-| AppShell | `AppFrame` | `apps/feature-screens/src/lib/layout/AppFrame.tsx` |
-| RoleLevelAwareSidebar | `AppRail` + `AppSidebar` | `apps/feature-screens/src/lib/layout/` |
+| AppShell | `AppShell` | `packages/sdk/shell/src/frame/AppShell.tsx` |
+| RoleLevelAwareSidebar | `AppRail` + `AppSidebar` | `packages/sdk/shell/src/frame/` |
 | ManagedSystemScopeSwitcher | scope selector (`ManagedSystemScopeOption`), rendered by `AppSidebar` and the platform `목록 범위` | `apps/feature-screens/src/operator-screens/scope-picker/ManagedSystemScopePicker.tsx` |
 | ObjectList, ListRow | `ObjectRow` + `ListToolbar` / `ListTabs` + `ListStateMessage` | `@ap/ui` (`ObjectRow`, `ListToolbar`, `ListTabs`), `apps/feature-screens/src/components/ListStateMessage.tsx` |
 | Active filters | `ActiveFilterBar` — presentational chips with visible labels, tooltip-backed remove buttons, and one clear-all control; empty items render nothing | `@ap/ui` |
@@ -114,11 +114,11 @@ Names in the primitive table and the composed list above are design-time names. 
 | Evidence inventory | feature-local `EvidenceContent`, `EvidenceMetadata`, `EvidenceRow`, `EvidencePanel` | `apps/feature-screens/src/features/integration/components/` |
 | EvidenceHighlight | feature-local `EvidenceHighlights` | `apps/feature-screens/src/features/findings/components/FindingDetail/` |
 | Integration destination card | feature-local `IntegrationJumpCard`; optional secondary link is a sibling of the primary anchor (Coverage Area tab) | `apps/feature-screens/src/features/integration/components/IntegrationDashboardCards.tsx` |
-| ActionQueueRow | feature-local `ActionQueueRow` (Home); `IntegrationDashboardCards` (Integration) | `apps/feature-screens/src/features/home/HomeScreen.tsx`, `apps/feature-screens/src/features/integration/components/IntegrationDashboardCards.tsx` |
-| CommandMenu | `CommandPalette` with local `CommandPaletteItemIcon` | `apps/feature-screens/src/lib/layout/command-palette/` |
+| ActionQueueRow | feature-local `ActionQueueRow` (Home); `IntegrationDashboardCards` (Integration) | `apps/feature-screens/src/features/home/DashboardScreen.tsx`, `apps/feature-screens/src/features/integration/components/IntegrationDashboardCards.tsx` |
+| CommandMenu | `CommandPalette` hosted by the platform shell | `packages/sdk/shell/src/routing/CommandPalette.tsx` |
 | UserPicker | feature-local `OwnerPicker` (VOC Triage owner) | `apps/feature-screens/src/features/voc/components/triage/OwnerPicker.tsx` |
 | Drawer | `Sheet` | `@ap/ui` |
-| Toast | `sonner` `Toaster` mounted in the root route; `UndoToast` | `apps/feature-screens/src/routes/__root.tsx`, `@ap/ui` |
+| Toast | Platform toast stack; `sonner` / `UndoToast` remain public SDK exports | `packages/sdk/shell/src/frame/AppShell.tsx`, `@ap/ui` |
 | Avatar | `Avatar`, `UserAvatar`, `UserChip` | `@ap/ui` |
 | TextInput | `Input` | `@ap/ui` |
 | Progress indicator | `ProgressMeter` | `@ap/ui` |
@@ -135,7 +135,7 @@ Never built: `IconButton`, `Table` / `DataTable`, `InboxList`, `ScopeFilterBar`,
 
 ## Implemented Shared Flow Components
 
-- `CommandPalette` (`apps/feature-screens/src/lib/layout/command-palette/`) — the inventory's `CommandMenu`, built in #611: cmdk `Command` composed inside `@ap/ui` Radix dialog primitives (`Dialog` + `DialogPortal` + `DialogOverlay` + `DialogContentBare`; the palette scrim/panel is the `variant="palette"` treatment owned by `packages/feature-ui`, not app-side classes), hosted by `AppFrame`; #1050 replaced `Command.Dialog` so undo-toast clicks don't dismiss the palette. Shortcut + sidebar-row entry per `docs/design/features/routes-and-layout.md` → Global command palette (#611).
+- `CommandPalette` (`packages/sdk/shell/src/routing/CommandPalette.tsx`) — the inventory's `CommandMenu`, hosted by the platform shell. Its dialog and palette treatment use SDK `@ap/ui` primitives.
 - `apps/feature-screens/src/features/cross-system/request-task/TaskRequestDraftCard.tsx` — neutral inline source request form and pending-source read presentation with the contract fields Evidence Summary and Requested Outcome; source mutations stay in their owning features.
 - `ListTabs` — reusable 28px list tab strip with optional bare counts, icons, native title tips, and overflow controls; composed by `ListToolbar`.
 - Internal `useHorizontalOverflow` — shared 1px scroll-edge state, resize observation, direct-child rebinding, and cleanup for `ListTabs` and `DetailPanelSectionNav`. Each consumer retains its active-item reveal, fade or scrollspy behavior, and component-specific layout rules.

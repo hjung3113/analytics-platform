@@ -7,7 +7,7 @@ Surface specs live under `docs/design/features/specs/`:
 - `docs/design/features/specs/voc.md`: as-built VOC surface spec. API authority is `docs/architecture/platform-api/api/voc.md`.
 - `docs/design/features/specs/actors.md`: the general `GET /actors` workspace identity list contract. Triage owner candidates follow `docs/architecture/platform-api/api/voc.md`.
 
-The user-facing mirror of these surfaces is `docs/USER-MANUAL.md` (text) and `docs/user-guide/README.md` (interactive guide); the two are updated together.
+The current user-facing text guide is [Feature manual](../../user-guide/features/manual.md). Historical interactive guides and captures are retained as history; they do not require synchronized new captures for this release.
 
 ## Precedence
 
