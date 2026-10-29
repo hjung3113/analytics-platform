@@ -153,6 +153,8 @@ export type AnalysisChartFrameProps = {
    * the frame never changes its own highlight; it draws a border on that row's bars and a bold category label, and names the row in the selection summary.
    */
   activeCategory?: string | null;
+  /** Prototype #1141: keep non-hovered series fully readable. */
+  nonDimmingEmphasis?: boolean;
   /** A bar click ('pointer') or the point picker moving to a row ('keyboard'). On a click this runs before `pointActivation.onActivate`; the two are separate (06 §16, ADR-0079). */
   onActiveCategoryChange?: (category: string | null, how: 'pointer' | 'keyboard') => void;
   /** With `rowPitch`: when `activeCategory` changes from outside, scroll that row into view inside the frame. Never moves focus; a change that came from this frame's own click does not scroll. */
@@ -415,10 +417,10 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     // A new chart instance replays the option: the lazy chunk and theme CSS may have settled since the tokens were last resolved.
     void instanceReady;
     return buildChartOption({
-      displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations, noteSpans, noteLevels, timeExtent, chartWidth: optionWidth, tickRoom, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory, startAlign, extremes, valueLabels, totals, totalText,
+      displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations, noteSpans, noteLevels, timeExtent, chartWidth: optionWidth, tickRoom, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory, nonDimmingEmphasis: p.nonDimmingEmphasis, startAlign, extremes, valueLabels, totals, totalText,
       palette: resolveChartPalette(displayed),
     });
-  }, [displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations, noteSpans, noteLevels, timeExtent, optionWidth, tickRoom, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory, startAlign, extremes, valueLabels, totals, totalText, instanceReady]);
+  }, [displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations, noteSpans, noteLevels, timeExtent, optionWidth, tickRoom, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory, p.nonDimmingEmphasis, startAlign, extremes, valueLabels, totals, totalText, instanceReady]);
 
   // Re-arm the brush cursor after each option replacement, and once the instance becomes ready.
   useEffect(() => {
