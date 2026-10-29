@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-// 손으로 돌리는 실서버 모드 캡처(#725). 플랫폼 메뉴(알림·설문·내 VOC·권한 요청·홈 내 할 일·VOC 등록 드로어)는 FeedbackOps 서버가 있어야 내용이 보이는데
+// 손으로 돌리는 실서버 모드 캡처(#725). 플랫폼 메뉴(알림·설문·내 VOC·권한 요청·홈 내 할 일·VOC 등록 드로어)는 코어 서버가 있어야 내용이 보이는데
 // Pages CI에는 서버가 없어 shots.mjs로는 만들 수 없다. 그래서 `dev:real`로 띄운 앱을 찍어 site/assets/real/에 커밋한다.
 //
-//   AP_BACKEND_ORIGIN=<FeedbackOps 백엔드> pnpm --filter @ap/platform-web exec vite --mode real --host 127.0.0.1 --port <포트> --strictPort
+//   AP_BACKEND_ORIGIN=<코어 서버> pnpm --filter @ap/platform-web exec vite --mode real --host 127.0.0.1 --port <포트> --strictPort
 //   node site/scripts/shots-real.mjs --url http://127.0.0.1:<포트> --out site/assets/real [--user mock-user-2]
 //
 // 시드 페르소나(mock 로그인 선택기)만 쓰고, 한국어 예시 데이터가 들어 있는 일회용 DB를 가정한다(아래 EXAMPLE 목록).
