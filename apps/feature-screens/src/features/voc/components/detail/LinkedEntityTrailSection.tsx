@@ -418,6 +418,7 @@ export function LinkedEntityTrailSection({
     );
   });
 
+  // eslint-disable-next-line react/jsx-no-useless-fragment -- the fragment turns the ReactNode body into the declared ReactElement return type
   if (trailLinks.length === 0 && visibleTrails.length === 0) return <></>;
 
   return (

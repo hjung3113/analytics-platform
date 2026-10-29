@@ -69,6 +69,7 @@ export function TriageRow({
   };
 
   return (
+    // eslint-disable-next-line jsx-a11y/no-redundant-roles, jsx-a11y/role-supports-aria-props -- the row keeps its explicit button role and aria-selected: the list selection contract and existing role queries depend on it
     <button
       type="button"
       role="button"

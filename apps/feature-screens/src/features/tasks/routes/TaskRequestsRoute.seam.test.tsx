@@ -208,9 +208,9 @@ describe('TaskRequestsScreen over a bare host seam', () => {
       await screen.findByTestId('detail');
       expect(screen.queryByRole('button', { name: '링크 복사' })).not.toBeInTheDocument();
     } finally {
-      // biome-ignore lint/performance/noDelete: removing the shadow restores the real descriptor
+      // eslint-disable-next-line no-restricted-syntax -- removing the shadow restores the real descriptor
       delete (navigator as { clipboard?: unknown }).clipboard;
-      // biome-ignore lint/performance/noDelete: same, for the secure-context shim
+      // eslint-disable-next-line no-restricted-syntax -- same, for the secure-context shim
       delete (window as { isSecureContext?: unknown }).isSecureContext;
       if (original) Object.defineProperty(navigator, 'clipboard', original);
     }

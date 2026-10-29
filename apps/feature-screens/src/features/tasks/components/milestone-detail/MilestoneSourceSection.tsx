@@ -36,7 +36,7 @@ export function MilestoneSourceSection({
               spacing="compact"
               padding="compact"
               className={
-                // oxlint-disable-next-line shadcn/no-restyle -- the source Finding action is a 24px secondary link aligned to the section title
+                // eslint-disable-next-line shadcn/no-restyle -- the source Finding action is a 24px secondary link aligned to the section title
                 'h-6 text-xs'
               }
               onClick={() => {

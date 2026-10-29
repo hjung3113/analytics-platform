@@ -153,7 +153,7 @@ describe('<ReporterReplyComposer>', () => {
       '@/features/voc/hooks/useVocReporterReplyMutation'
     );
     let capturedOnSuccess: (() => void) | undefined;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the mock captures the hook's options argument without importing its full option type
     vi.mocked(useVocReporterReplyMutation).mockImplementation((args: any = {}) => {
       capturedOnSuccess = args.onSuccess;
       return {
@@ -161,7 +161,7 @@ describe('<ReporterReplyComposer>', () => {
         isPending: false,
         isError: false,
         error: null,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- partial mutation result stand-in; the test reads only mutate and the state flags
       } as any;
     });
 

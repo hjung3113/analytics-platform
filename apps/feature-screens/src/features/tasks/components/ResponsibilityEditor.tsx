@@ -150,6 +150,7 @@ export function ResponsibilityEditor({
       </span>
     );
   return (
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Escape bubbling from the form fields cancels the inline edit; the form exposes no interaction of its own
     <form
       className="flex flex-col gap-2"
       onKeyDown={(event) => {

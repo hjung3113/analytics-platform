@@ -135,6 +135,7 @@ export function FindingOwnerField({
         </span>
       </FieldRow>
       {editing && (
+        // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- Escape bubbles from the focusable owner Select and buttons inside; the wrapper has no role because it is not itself interactive
         <div
           className="flex flex-col gap-2"
           onKeyDown={(event) => {

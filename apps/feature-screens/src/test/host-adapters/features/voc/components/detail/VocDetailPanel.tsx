@@ -45,6 +45,7 @@ export function VocDetailPanel({
       return null;
     case 'error':
     case 'not-found':
+      // eslint-disable-next-line react/jsx-no-useless-fragment -- the fragment turns the ReactNode body into the declared ReactElement return type
       return <>{parts.body}</>;
     case 'summary':
       return <SummaryPermissionView data={view.data} vocId={vocId} onClose={onClose} />;

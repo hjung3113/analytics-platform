@@ -66,12 +66,17 @@ const noAttachApi = {
 };
 const renderToolbar = (editor: Editor) => vocDescriptionToolbar()(editor, noAttachApi);
 
+function present<T>(value: T | null | undefined): T {
+  if (value == null) throw new Error('expected a value, got none');
+  return value;
+}
+
 describe('<VocDescriptionToolbar>', () => {
   it('renders 7 buttons matching VOC_DESCRIPTION_TOOLBAR', () => {
     const { editor } = makeEditorMock();
     const element = renderToolbar(editor);
     expect(element).not.toBeNull();
-    render(element!);
+    render(present(element));
 
     // Each toolbar item has data-testid="voc-toolbar-<id>"
     for (const item of VOC_DESCRIPTION_TOOLBAR) {
@@ -83,7 +88,7 @@ describe('<VocDescriptionToolbar>', () => {
   it('renders the VOC body label at the right edge of the toolbar', () => {
     const { editor } = makeEditorMock();
     const element = renderToolbar(editor);
-    render(element!);
+    render(present(element));
 
     const label = screen.getByText('VOC 본문');
     expect(label).toBeInTheDocument();
@@ -93,7 +98,7 @@ describe('<VocDescriptionToolbar>', () => {
   it('all buttons (including PLAN-22 C8 attach) are enabled', () => {
     const { editor } = makeEditorMock();
     const element = renderToolbar(editor);
-    render(element!);
+    render(present(element));
 
     for (const item of VOC_DESCRIPTION_TOOLBAR) {
       const btn = screen.getByTestId(`voc-toolbar-${item.id}`);
@@ -104,7 +109,7 @@ describe('<VocDescriptionToolbar>', () => {
   it('clicking bold invokes chain().focus().toggleBold().run() on the editor', () => {
     const { editor, chainSpy } = makeEditorMock();
     const element = renderToolbar(editor);
-    render(element!);
+    render(present(element));
 
     fireEvent.click(screen.getByTestId('voc-toolbar-bold'));
 

@@ -57,7 +57,7 @@ export function TaskDetailPanel(props: TaskDetailPanelProps) {
         </TaskDetailPanelFrame>
       );
     case 'forbidden':
-      return <>{parts.body}</>;
+      return parts.body;
     case 'error':
       return (
         <TaskDetailPanelFrame ariaLive="polite" onClose={onClose}>

@@ -543,6 +543,7 @@ export function VocClusterDetailPanel({
 }): React.ReactElement {
   const parts = useClusterDetailParts({ clusterId });
   const navigate = useHostNavigate();
+  // eslint-disable-next-line react/jsx-no-useless-fragment -- the fragment turns the ReactNode body into the declared ReactElement return type
   if (parts.state !== 'ready') return <>{parts.body}</>;
   return (
     <aside

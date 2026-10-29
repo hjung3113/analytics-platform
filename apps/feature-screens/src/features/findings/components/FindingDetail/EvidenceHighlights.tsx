@@ -130,7 +130,7 @@ export function EvidenceHighlightsSection({
           title="Evidence 하이라이트가 없습니다."
           body="Evidence 추가 버튼으로 Evidence를 추가하세요."
           className={
-            // oxlint-disable-next-line shadcn/no-restyle -- the evidence empty state uses a dashed card edge to mark the add-evidence area
+            // eslint-disable-next-line shadcn/no-restyle -- the evidence empty state uses a dashed card edge to mark the add-evidence area
             'rounded-md border border-dashed border-border-subtle bg-surface-card'
           }
         />

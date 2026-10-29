@@ -162,6 +162,11 @@ function makeWrapper() {
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
+function present<T>(value: T | null | undefined): T {
+  if (value == null) throw new Error('expected a value, got none');
+  return value;
+}
+
 describe('<PublicUpdateComposer>', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -406,8 +411,7 @@ describe('<PublicUpdateComposer>', () => {
     expect(modalPublish).toBeDefined();
     expect(modalPublish).toBeDisabled();
 
-    // biome-ignore lint/style/noNonNullAssertion: guarded by the toBeDefined above
-    fireEvent.click(modalPublish!);
+    fireEvent.click(present(modalPublish));
     expect(mutationMock.mutate).not.toHaveBeenCalled();
   });
 

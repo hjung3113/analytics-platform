@@ -18,6 +18,7 @@ export function useRemoveClusterMember(): UseMutationResult<
   RemoveClusterMemberVariables
 > {
   const qc = useQueryClient();
+  // eslint-disable-next-line @typescript-eslint/no-invalid-void-type -- the response/value type is intentionally void here (the former Biome rule allowed void call-site type arguments)
   return useMutation<void, ApiError, RemoveClusterMemberVariables>({
     mutationFn: async ({ clusterId, vocId }) => {
       await apiClient('DELETE', `/voc-clusters/${clusterId}/vocs/${vocId}`);

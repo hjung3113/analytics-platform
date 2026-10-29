@@ -10,6 +10,7 @@ export const InternalLink = forwardRef<HTMLAnchorElement, InternalLinkProps>(fun
   const router = useRouter({ warn: false });
 
   return (
+    // eslint-disable-next-line jsx-a11y/anchor-has-content -- the forwarded anchor receives its children through the spread props
     <a
       {...props}
       href={href}

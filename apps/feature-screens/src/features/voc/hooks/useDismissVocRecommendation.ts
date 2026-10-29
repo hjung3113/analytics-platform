@@ -16,8 +16,10 @@ export function useDismissVocRecommendation(
   vocId: string,
 ): UseMutationResult<void, ApiError, string> {
   const qc = useQueryClient();
+  // eslint-disable-next-line @typescript-eslint/no-invalid-void-type -- the response/value type is intentionally void here (the former Biome rule allowed void call-site type arguments)
   return useMutation<void, ApiError, string>({
     mutationFn: async (candidateVocId) => {
+      // eslint-disable-next-line @typescript-eslint/no-invalid-void-type -- the response/value type is intentionally void here (the former Biome rule allowed void call-site type arguments)
       await apiClient<void>('POST', `/vocs/${vocId}/recommendations/${candidateVocId}/dismiss`);
     },
     onSuccess: async (_data, candidateVocId) => {

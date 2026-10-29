@@ -110,6 +110,11 @@ function pickFile(_container: HTMLElement, file: File): void {
   fireEvent.change(input, { target: { files: [file] } });
 }
 
+function present<T>(value: T | null | undefined): T {
+  if (value == null) throw new Error('expected a value, got none');
+  return value;
+}
+
 describe('<EditDescriptionModal> attachments (C6)', () => {
   beforeEach(() => {
     vi.mocked(useVocEditDescriptionMutation).mockReturnValue(
@@ -151,7 +156,7 @@ describe('<EditDescriptionModal> attachments (C6)', () => {
     await waitFor(() => {
       expect(mutateMock).toHaveBeenCalled();
     });
-    const calledVars = mutateMock.mock.calls[0]![0] as {
+    const calledVars = present(mutateMock.mock.calls[0])[0] as {
       body: { attachment_ids: string[] };
     };
     expect(calledVars.body.attachment_ids).toEqual([ATTACHMENT.id]);
@@ -189,7 +194,7 @@ describe('<EditDescriptionModal> attachments (C6)', () => {
     await waitFor(() => {
       expect(mutateMock).toHaveBeenCalled();
     });
-    const calledVars = mutateMock.mock.calls[0]![0] as {
+    const calledVars = present(mutateMock.mock.calls[0])[0] as {
       body: { attachment_ids: string[] };
     };
     expect(calledVars.body.attachment_ids).toEqual([]);
@@ -251,7 +256,7 @@ describe('<EditDescriptionModal> attachments (C6)', () => {
       await waitFor(() => {
         expect(mutateMock).toHaveBeenCalled();
       });
-      const calledVars = mutateMock.mock.calls[0]![0] as {
+      const calledVars = present(mutateMock.mock.calls[0])[0] as {
         body: { attachment_ids: string[] };
       };
       // Additive: only NEW upload id, NOT the pre-existing EXISTING_A.id

@@ -440,6 +440,7 @@ function MyRequests(): React.ReactElement {
               {row.status === 'needs_more_info' && <MoreInfoNote id={row.id} />}
               {OPEN_PERMISSION_REQUEST_STATUSES.has(row.status) &&
                 (confirmingId === row.id ? (
+                  // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- Escape bubbles from the confirm buttons inside; the wrapper is not itself interactive
                   <div
                     className="flex flex-wrap items-center gap-2 pt-1"
                     onKeyDown={(event) => {

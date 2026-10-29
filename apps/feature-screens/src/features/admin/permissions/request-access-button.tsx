@@ -92,6 +92,7 @@ export function RequestAccessButton(props: RequestAccessButtonProps) {
     [props.capability, props.managedSystemId, attempt],
   );
 
+  // eslint-disable-next-line @typescript-eslint/no-invalid-void-type -- react-query's `void` variables type makes mutate() take no argument; `undefined` would force mutate(undefined) at every call site (the former Biome rule allowed void call-site type arguments)
   const mutation = useMutation<CreatePermissionRequestSuccess, unknown, void>({
     // Disable React Query's silent retries on this mutation — server-side
     // idempotency reconciliation is the only retry path we honor, and the
@@ -235,7 +236,7 @@ export function RequestAccessButton(props: RequestAccessButtonProps) {
             <>
               <DialogHeader>
                 <DialogTitle>권한 요청</DialogTitle>
-                {/* oxlint-disable-next-line shadcn/no-restyle -- the multi-clause permission instruction wraps at natural phrase boundaries */}
+                {/* eslint-disable-next-line shadcn/no-restyle -- the multi-clause permission instruction wraps at natural phrase boundaries */}
                 <DialogDescription className="text-pretty">
                   권한을 확인하고, 필요한 최소 범위의 사유를 입력하세요.
                 </DialogDescription>

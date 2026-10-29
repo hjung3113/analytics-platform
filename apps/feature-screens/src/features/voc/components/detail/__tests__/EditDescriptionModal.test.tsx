@@ -96,6 +96,11 @@ const DEFAULT_MUTATION = {
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
+function present<T>(value: T | null | undefined): T {
+  if (value == null) throw new Error('expected a value, got none');
+  return value;
+}
+
 describe('<EditDescriptionModal>', () => {
   beforeEach(() => {
     vi.mocked(useVocEditDescriptionMutation).mockReturnValue(
@@ -197,7 +202,7 @@ describe('<EditDescriptionModal>', () => {
 
     // Trigger stale_write error via captured onError
     expect(capturedOnError).toBeDefined();
-    capturedOnError!(staleWriteError);
+    present(capturedOnError)(staleWriteError);
 
     // Modal must stay open (onClose not called)
     expect(onClose).not.toHaveBeenCalled();

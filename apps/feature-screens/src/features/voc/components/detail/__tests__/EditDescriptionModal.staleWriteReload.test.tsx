@@ -120,6 +120,11 @@ const DEFAULT_MUTATION = {
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
+function present<T>(value: T | null | undefined): T {
+  if (value == null) throw new Error('expected a value, got none');
+  return value;
+}
+
 describe('<EditDescriptionModal> stale_write reload action (REV-2 #8)', () => {
   beforeEach(() => {
     toastWarningMock.mockClear();
@@ -183,7 +188,7 @@ describe('<EditDescriptionModal> stale_write reload action (REV-2 #8)', () => {
       message: 'stale',
     });
     await act(async () => {
-      capturedOnError!(staleErr);
+      present(capturedOnError)(staleErr);
     });
 
     // toast.warning was called with options containing an action with label
@@ -208,7 +213,7 @@ describe('<EditDescriptionModal> stale_write reload action (REV-2 #8)', () => {
 
     // User clicks the action button → resets to V2 defaults.
     await act(async () => {
-      options!.action!.onClick();
+      present(present(options).action).onClick();
     });
 
     await waitFor(() => {

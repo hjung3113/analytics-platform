@@ -65,7 +65,6 @@ export function InternalCommentComposer({
   voc,
   // me unused directly here but kept in props for signature consistency with
   // PublicUpdateComposer / ReporterReplyComposer
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   me: _me,
   draftDoc: controlledDraftDoc,
   onDraftChange,

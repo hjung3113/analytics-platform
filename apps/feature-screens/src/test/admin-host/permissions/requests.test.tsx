@@ -218,6 +218,11 @@ function decisionPosts() {
   );
 }
 
+function present<T>(value: T | null | undefined): T {
+  if (value == null) throw new Error('expected a value, got none');
+  return value;
+}
+
 describe('/admin/permissions/requests', () => {
   const originalFetch = globalThis.fetch;
   afterEach(() => {
@@ -567,7 +572,7 @@ describe('/admin/permissions/requests', () => {
     expect(screen.getByTestId('permission-decision-submit')).toBeEnabled();
     fireEvent.click(screen.getByTestId('permission-decision-submit'));
     await waitFor(() => expect(decisionPosts()).toHaveLength(1));
-    expect(JSON.parse(decisionPosts()[0]![1].body as string)).toEqual({
+    expect(JSON.parse(present(decisionPosts()[0])[1].body as string)).toEqual({
       expected_revision: 7,
       reason: 'kept review',
     });
@@ -695,8 +700,8 @@ describe('/admin/permissions/requests', () => {
     await waitFor(() => expect(screen.getByTestId('permission-decision-submit')).toBeEnabled());
     fireEvent.click(screen.getByTestId('permission-decision-submit'));
     await waitFor(() => expect(decisionPosts()).toHaveLength(2));
-    expect(new Headers(decisionPosts()[1]![1].headers).get('Idempotency-Key')).toBe(
-      new Headers(decisionPosts()[0]![1].headers).get('Idempotency-Key'),
+    expect(new Headers(present(decisionPosts()[1])[1].headers).get('Idempotency-Key')).toBe(
+      new Headers(present(decisionPosts()[0])[1].headers).get('Idempotency-Key'),
     );
   });
 
@@ -782,7 +787,7 @@ describe('/admin/permissions/requests', () => {
     fireEvent.click(screen.getByTestId('permission-decision-submit'));
     await waitFor(() => expect(decisionPosts()).toHaveLength(2));
     const key = (index: number) =>
-      new Headers(decisionPosts()[index]![1].headers).get('Idempotency-Key');
+      new Headers(present(decisionPosts()[index])[1].headers).get('Idempotency-Key');
     expect(key(1)).toBe(key(0));
     revision = 8;
     await act(async () => {
@@ -796,7 +801,7 @@ describe('/admin/permissions/requests', () => {
     fireEvent.click(screen.getByTestId('permission-decision-submit'));
     await waitFor(() => expect(decisionPosts()).toHaveLength(3));
     expect(key(2)).not.toBe(key(0));
-    expect(JSON.parse(decisionPosts()[2]![1].body as string)).toEqual({
+    expect(JSON.parse(present(decisionPosts()[2])[1].body as string)).toEqual({
       expected_revision: 8,
       reason: 'fresh review',
     });
@@ -860,7 +865,7 @@ describe('/admin/permissions/requests', () => {
     fireEvent.click(option);
     fireEvent.click(screen.getByTestId('permission-decision-submit'));
     await waitFor(() => expect(decisionPosts()).toHaveLength(1));
-    expect(JSON.parse(decisionPosts()[0]![1].body as string)).toEqual({
+    expect(JSON.parse(present(decisionPosts()[0])[1].body as string)).toEqual({
       expected_revision: 7,
       granted_managed_system_id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
     });
@@ -897,8 +902,8 @@ describe('/admin/permissions/requests', () => {
     fireEvent.change(screen.getByLabelText(/^사유/), { target: { value: 'new question' } });
     fireEvent.click(screen.getByTestId('permission-decision-submit'));
     await waitFor(() => expect(decisionPosts()).toHaveLength(1));
-    expect(decisionPosts()[0]![0]).toBe(`/permissions/requests/${REQUESTS[1].id}/need-more-info`);
-    expect(JSON.parse(decisionPosts()[0]![1].body as string)).toEqual({
+    expect(present(decisionPosts()[0])[0]).toBe(`/permissions/requests/${REQUESTS[1].id}/need-more-info`);
+    expect(JSON.parse(present(decisionPosts()[0])[1].body as string)).toEqual({
       expected_revision: 7,
       note: 'new question',
     });
@@ -1157,7 +1162,7 @@ describe('/admin/permissions/requests', () => {
     fireEvent.click(submit);
 
     await waitFor(() => expect(decisionPosts()).toHaveLength(1));
-    const [, init] = decisionPosts()[0]!;
+    const [, init] = present(decisionPosts()[0]);
     expect(JSON.parse(init.body as string)).toEqual({
       expected_revision: 7,
       self_approval: {
@@ -1210,7 +1215,7 @@ describe('/admin/permissions/requests', () => {
       fireEvent.click(screen.getByTestId('permission-decision-submit'));
 
       await waitFor(() => expect(decisionPosts()).toHaveLength(1));
-      const [, init] = decisionPosts()[0]!;
+      const [, init] = present(decisionPosts()[0]);
       expect(JSON.parse(init.body as string)).toEqual({
         expected_revision: 7,
         self_approval: {

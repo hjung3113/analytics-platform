@@ -55,9 +55,9 @@ export function PermissionGate(props: PermissionGateProps) {
     );
   }
 
-  if (query.data.state === 'approved') return <>{props.children}</>;
+  if (query.data.state === 'approved') return props.children;
 
-  if (props.fallback !== undefined) return <>{props.fallback}</>;
+  if (props.fallback !== undefined) return props.fallback;
 
   return (
     <div aria-live="polite">

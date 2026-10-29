@@ -334,7 +334,7 @@ export function MilestonesScreen({ renderDetail }: MilestonesScreenProps) {
                       onChange={(event) => setSearch(event.target.value)}
                       placeholder="Milestone 검색…"
                       className={
-                        // oxlint-disable-next-line shadcn/no-restyle -- 32px left padding reserves the overlaid search icon and truncates long queries
+                        // eslint-disable-next-line shadcn/no-restyle -- 32px left padding reserves the overlaid search icon and truncates long queries
                         'w-full truncate pl-8'
                       }
                     />
