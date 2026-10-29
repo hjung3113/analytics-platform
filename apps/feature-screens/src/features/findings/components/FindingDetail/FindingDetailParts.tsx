@@ -87,7 +87,7 @@ function classifyFindingDetailError(error: unknown): FindingDetailErrorState {
 // ── Hook ─────────────────────────────────────────────────────────────────────
 
 /**
- * The Finding detail as `DetailParts`. Needs a `HostSeamProvider` (links, notices, title) and the FeedbackOps providers.
+ * The Finding detail as `DetailParts`. Needs a `HostSeamProvider` (links, notices, title) and the feature providers.
  */
 export function useFindingDetailParts({
   findingId,

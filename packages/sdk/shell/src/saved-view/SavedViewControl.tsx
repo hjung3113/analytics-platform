@@ -7,7 +7,7 @@ import { failureText, SaveViewDialog, ShareTargetPicker, ViewManagement, ViewSel
 
 /**
  * The Saved View selector of the query tool row (06 §21): current view, `수정됨`, the save menu and the requested `뷰 관리` surface.
- * Not the fo-bridge `savedViewsSlot` (a FeedbackOps sidebar slot). Drawn only with an injected store, a `features.savedView` menu and its
+ * Not the feature-bridge `savedViewsSlot` (a feature sidebar slot). Drawn only with an injected store, a `features.savedView` menu and its
  * registered support, and never inside a board pane. Every store write goes through `useSavedViews`; the shell reads groups, approval requests and people from the host store only.
  * The surface lives for one generation: when the store, session, revision, Scope, menu or support changes it is replaced, and anything a replaced or unmounted surface
  * still awaits (a write, a pick, a group) ends without a toast or state change. The hook returns a completed Result unchanged; showing it is this surface's job while it is alive.

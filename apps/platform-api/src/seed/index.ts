@@ -8,9 +8,9 @@
 //   * Runs as the platform_app role via DATABASE_URL — proves the app role can
 //     write to non-audit tables. Never touches core.audit_log.
 //   * Three baseline actors per GLOSSARY.md vocabulary (Slice 1):
-//       - mock-admin-1 / admin@feedbackops.local  / admin / internal_member
-//       - mock-user-1  / user@feedbackops.local   / user  / internal_member
-//       - system       / system@feedbackops.local / admin / system
+//       - mock-admin-1 / admin@platform.local  / admin / internal_member
+//       - mock-user-1  / user@platform.local   / user  / internal_member
+//       - system       / system@platform.local / admin / system
 //   * Slice 2 (#9) extends seed with the Managed System Registry baseline
 //     per ADR-0017 / grill Q9:
 //       - managed_systems: tableau, power-bi (default_owner = mock-admin-1).
@@ -30,21 +30,21 @@ import { ensureSeedTeam, seedSlice3Vocs } from './voc-fixtures.js';
 const SEED_ACTORS = [
   {
     externalId: 'mock-admin-1',
-    email: 'admin@feedbackops.local',
+    email: 'admin@platform.local',
     displayName: 'Mock Admin',
     roleLevel: 'admin',
     actorType: 'internal_member',
   },
   {
     externalId: 'mock-user-1',
-    email: 'user@feedbackops.local',
+    email: 'user@platform.local',
     displayName: 'Mock User',
     roleLevel: 'user',
     actorType: 'internal_member',
   },
   {
     externalId: 'system',
-    email: 'system@feedbackops.local',
+    email: 'system@platform.local',
     displayName: 'System',
     roleLevel: 'admin',
     actorType: 'system',
@@ -77,28 +77,28 @@ const PERSONA_ACTORS = [
   {
     externalId: 'mock-admin-2',
     displayName: 'Mock Admin Two',
-    email: 'admin2@feedbackops.local',
+    email: 'admin2@platform.local',
     roleLevel: 'admin',
     actorType: 'internal_member',
   },
   {
     externalId: 'mock-user-2',
     displayName: 'Mock User Two',
-    email: 'user2@feedbackops.local',
+    email: 'user2@platform.local',
     roleLevel: 'user',
     actorType: 'internal_member',
   },
   {
     externalId: 'mock-developer-1',
     displayName: 'Mock Developer One',
-    email: 'dev1@feedbackops.local',
+    email: 'dev1@platform.local',
     roleLevel: 'developer',
     actorType: 'internal_member',
   },
   {
     externalId: 'mock-developer-2',
     displayName: 'Mock Developer Two',
-    email: 'dev2@feedbackops.local',
+    email: 'dev2@platform.local',
     roleLevel: 'developer',
     actorType: 'internal_member',
   },

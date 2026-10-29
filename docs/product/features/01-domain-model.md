@@ -34,7 +34,7 @@ Owner system: Core Platform
 Definition:
 
 ```text
-Internal company system that FeedbackOps tracks feedback and improvement work for, such as Tableau, Power BI, or Looker.
+Internal company system that feature tracks feedback and improvement work for, such as Tableau, Power BI, or Looker.
 ```
 
 Invariants:

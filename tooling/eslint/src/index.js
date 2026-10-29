@@ -18,7 +18,7 @@ const DEEP_SUBPATH_MESSAGE = `Import the package entry (${PACKAGE_PREFIX}name) o
 const LAYER_MESSAGE = 'Importing an internal workspace package outside this layer allowlist.';
 const MOCK_SERVER_MESSAGE = `${PACKAGE_PREFIX}mock-server is only legal in menu src/mock/**.`;
 const REACT_MESSAGE = 'react / react-dom are not allowed in this package.';
-const FEEDBACKOPS_MESSAGE = `Feature server/screens/shared/UI/ops are consumer dependencies; the design system lives in ${pkg('ui')} (ADR-0046).`;
+const FEATURE_MESSAGE = `Feature server/screens/shared/UI/ops are consumer dependencies; the design system lives in ${pkg('ui')} (ADR-0046).`;
 // #160: the table engine is components-internal; menus declare columns with the platform types.
 // EV's synthetic endpoint data (#801): reaches the app through src/dev/** (the mock assembly) and the conformance test only.
 const EQV_MOCK_DATA_PATTERN = '@eqv/*/mock-data';
@@ -42,7 +42,7 @@ const MENU_ALLOW = ['contracts', 'kernel', 'components', 'ui'];
 // #153 (ADR-0009): the production graph carries no mock. src/main.tsx gets its adapter from `#platform-assembly`
 // and sees neither mock-server nor any menu `/mock` subpath; the mock assembly and DevTools live in src/dev/**,
 // which is the only app source that registers menu mocks (MOCK_ENDPOINTS). The server conformance test (#145) reads
-// that list, so it keeps mock-server and exactly ./dev/mock-assembly — no `/mock` subpath, never the FeedbackOps
+// that list, so it keeps mock-server and exactly ./dev/mock-assembly — no `/mock` subpath, never the feature
 // origin slot; published-metrics.test.ts keeps mock-server only. No app file outside src/dev/** may import ./dev/**.
 const APP_CONFORMANCE_FILE = 'src/server-conformance.test.ts';
 const APP_DEV_FILES = 'src/dev/**/*.{ts,tsx}';
@@ -59,27 +59,27 @@ const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const devRegex = (devAllow = []) =>
   devAllow.length === 0 ? DEV_REGEX : `^(?!(?:${devAllow.map(escapeRegex).join('|')})$)${DEV_REGEX.slice(1)}`;
 
-// Menu subpaths: the feature-bridge package slot subpaths (the FO API slot feature-api and the notifications, VOC compose and home todo slots); each menu's exact `/mock` export is
+// Menu subpaths: the feature-bridge package slot subpaths (the screen API slot feature-api and the notifications, VOC compose and home todo slots); each menu's exact `/mock` export is
 // src/dev/** only. Every other menu subpath and any `*/src` import stays banned.
 // NOTE: the gitignore-style `*` in `menu-*/mock` also matches an empty name (no way to say
 // "one or more" here), so a `menu-/mock` source is not rejected on this side; the dynamic-import
 // side (import-source.js) uses `[^/]+` for the same pattern.
 const MENU_MOCK_SUBPATH = 'menu-*/mock';
-const FO_API_SUBPATH = 'feature-bridge/feature-api';
+const FEATURE_API_SUBPATH = 'feature-bridge/feature-api';
 const NOTIFICATIONS_SLOT_SUBPATH = 'feature-bridge/notifications-slot';
 const VOC_COMPOSE_SLOT_SUBPATH = 'feature-bridge/voc-compose-slot';
 const HOME_TODO_SLOT_SUBPATH = 'feature-bridge/home-todo-slot';
 const SCOPE_CONTROL_SLOT_SUBPATH = 'feature-bridge/scope-control';
 const NAV_COUNTS_SLOT_SUBPATH = 'feature-bridge/nav-counts';
 const SAVED_VIEWS_SLOT_SUBPATH = 'feature-bridge/saved-views';
-// The feature-bridge menu test harness (`createFeatureMenuHarness`) subpath: test-only like `kernel/testing`, so only bridge-menu test files import it (FO_BRIDGE_TEST_SUBPATHS).
-const FO_BRIDGE_TESTING_SUBPATH = 'feature-bridge/testing';
+// The feature-bridge menu test harness (`createFeatureMenuHarness`) subpath: test-only like `kernel/testing`, so only bridge-menu test files import it (FEATURE_BRIDGE_TEST_SUBPATHS).
+const FEATURE_BRIDGE_TESTING_SUBPATH = 'feature-bridge/testing';
 // Rule 8 exception (platform ADR-0071, ADR-0081): a bridge menu imports exactly these entries (the screen barrel, its eager-code subset `/core`,
-// the lazy notifications panel entry `/inbox-panel`, and the operator dashboard and VOC entries); no other feature package entry. the feature-bridge package imports `/core` only (FO_BRIDGE_PACKAGE_ENTRIES)
+// the lazy notifications panel entry `/inbox-panel`, and the operator dashboard and VOC entries); no other feature package entry. the feature-bridge package imports `/core` only (FEATURE_BRIDGE_PACKAGE_ENTRIES)
 // except its lazy `src/pages/**`, which are screens too (the notifications slot loads `inbox-panel` through one of them).
-const FO_BRIDGE_ENTRIES = [pkg('feature-screens/global-screens'), pkg('feature-screens/global-screens/core'), pkg('feature-screens/global-screens/inbox-panel'), pkg('feature-screens/operator-screens/scope-picker'), pkg('feature-screens/operator-screens/dashboard'), pkg('feature-screens/operator-screens/voc-clusters'), pkg('feature-screens/operator-screens/task-detail'), pkg('feature-screens/operator-screens/voc-detail'), pkg('feature-screens/operator-screens/voc-inbox'), pkg('feature-screens/operator-screens/milestones'), pkg('feature-screens/operator-screens/voc-search'), pkg('feature-screens/operator-screens/tasks-search'), pkg('feature-screens/operator-screens/voc-triage'), pkg('feature-screens/operator-screens/task-list'), pkg('feature-screens/operator-screens/task-board'), pkg('feature-screens/operator-screens/task-requests'), pkg('feature-screens/operator-screens/findings-search'), pkg('feature-screens/operator-screens/surveys-search'), pkg('feature-screens/operator-screens/admin-search'), pkg('feature-screens/operator-screens/integration-search'), pkg('feature-screens/operator-screens/findings'), pkg('feature-screens/operator-screens/finding-detail'), pkg('feature-screens/operator-screens/surveys'), pkg('feature-screens/operator-screens/survey-detail'), pkg('feature-screens/operator-screens/survey-builder'), pkg('feature-screens/operator-screens/survey-results'), pkg('feature-screens/operator-screens/survey-follow-up'), pkg('feature-screens/operator-screens/permission-requests'), pkg('feature-screens/operator-screens/permission-grants'), pkg('feature-screens/operator-screens/managed-systems'), pkg('feature-screens/operator-screens/settings'), pkg('feature-screens/operator-screens/analytics-areas'), pkg('feature-screens/operator-screens/evidence'), pkg('feature-screens/operator-screens/integration-dashboard'), pkg('feature-screens/operator-screens/coverage'), pkg('feature-screens/operator-screens/entity-links')];
-const FO_BRIDGE_TEST_SUBPATHS = [FO_API_SUBPATH, NOTIFICATIONS_SLOT_SUBPATH, VOC_COMPOSE_SLOT_SUBPATH, HOME_TODO_SLOT_SUBPATH, SCOPE_CONTROL_SLOT_SUBPATH, NAV_COUNTS_SLOT_SUBPATH, SAVED_VIEWS_SLOT_SUBPATH, 'feature-bridge/home-todo-page', 'feature-bridge/voc-compose-page', FO_BRIDGE_TESTING_SUBPATH];
-const FO_BRIDGE_PACKAGE_ENTRIES = [pkg('feature-screens/global-screens/core')];
+const FEATURE_BRIDGE_ENTRIES = [pkg('feature-screens/global-screens'), pkg('feature-screens/global-screens/core'), pkg('feature-screens/global-screens/inbox-panel'), pkg('feature-screens/operator-screens/scope-picker'), pkg('feature-screens/operator-screens/dashboard'), pkg('feature-screens/operator-screens/voc-clusters'), pkg('feature-screens/operator-screens/task-detail'), pkg('feature-screens/operator-screens/voc-detail'), pkg('feature-screens/operator-screens/voc-inbox'), pkg('feature-screens/operator-screens/milestones'), pkg('feature-screens/operator-screens/voc-search'), pkg('feature-screens/operator-screens/tasks-search'), pkg('feature-screens/operator-screens/voc-triage'), pkg('feature-screens/operator-screens/task-list'), pkg('feature-screens/operator-screens/task-board'), pkg('feature-screens/operator-screens/task-requests'), pkg('feature-screens/operator-screens/findings-search'), pkg('feature-screens/operator-screens/surveys-search'), pkg('feature-screens/operator-screens/admin-search'), pkg('feature-screens/operator-screens/integration-search'), pkg('feature-screens/operator-screens/findings'), pkg('feature-screens/operator-screens/finding-detail'), pkg('feature-screens/operator-screens/surveys'), pkg('feature-screens/operator-screens/survey-detail'), pkg('feature-screens/operator-screens/survey-builder'), pkg('feature-screens/operator-screens/survey-results'), pkg('feature-screens/operator-screens/survey-follow-up'), pkg('feature-screens/operator-screens/permission-requests'), pkg('feature-screens/operator-screens/permission-grants'), pkg('feature-screens/operator-screens/managed-systems'), pkg('feature-screens/operator-screens/settings'), pkg('feature-screens/operator-screens/analytics-areas'), pkg('feature-screens/operator-screens/evidence'), pkg('feature-screens/operator-screens/integration-dashboard'), pkg('feature-screens/operator-screens/coverage'), pkg('feature-screens/operator-screens/entity-links')];
+const FEATURE_BRIDGE_TEST_SUBPATHS = [FEATURE_API_SUBPATH, NOTIFICATIONS_SLOT_SUBPATH, VOC_COMPOSE_SLOT_SUBPATH, HOME_TODO_SLOT_SUBPATH, SCOPE_CONTROL_SLOT_SUBPATH, NAV_COUNTS_SLOT_SUBPATH, SAVED_VIEWS_SLOT_SUBPATH, 'feature-bridge/home-todo-page', 'feature-bridge/voc-compose-page', FEATURE_BRIDGE_TESTING_SUBPATH];
+const FEATURE_BRIDGE_PACKAGE_ENTRIES = [pkg('feature-screens/global-screens/core')];
 const UI_THEME_SUBPATHS = ['ui/theme', 'ui/theme-tokens.json'];
 
 // Restriction data is the single decision source: each layer declares
@@ -89,25 +89,25 @@ const UI_THEME_SUBPATHS = ['ui/theme', 'ui/theme-tokens.json'];
 //   mockAllowed: exempts exactly the mock-server entry (never its subpaths).
 //   allowSubpaths: exact names or patterns exempted from the deep-subpath ban (default none).
 //   allowDockEngine: exempts the dock layout engine packages (components only; every other layer bans them, ADR-0067).
-//   denyQueryEngine: bans the Kernel's query engine (@tanstack/react-query); only kernel and the FeedbackOps bridge package import it.
+//   denyQueryEngine: bans the Kernel's query engine (@tanstack/react-query); only kernel and the feature bridge package import it.
 //   denyDev: bans relative imports of a `dev` folder (DEV_REGEX), static and dynamic; devAllow lists exact
 //   specifiers exempted from it.
 // Deep subpaths are banned for everyone, except subpaths matched by allowSubpaths.
-// The Kernel's query engine: only kernel and the FeedbackOps bridge (its own client, ADR-0071) import it.
+// The Kernel's query engine: only kernel and the feature bridge (its own client, ADR-0071) import it.
 const QUERY_ENGINE_PACKAGES = ['@tanstack/react-query', '@tanstack/query-core'];
 const TABLE_ENGINE_PACKAGES = ['@tanstack/react-table', '@tanstack/react-virtual', '@tanstack/table-core', '@tanstack/virtual-core'];
 const MENU_RESTRICTION = { allow: MENU_ALLOW, denyReact: false, denyTableEngine: true, denyQueryEngine: true, mockAllowed: false, allowSubpaths: UI_THEME_SUBPATHS };
-// allowFeedbackOps: exact feature package sources exempted from the FeedbackOps ban (only the bridge menu, FO_BRIDGE_ENTRIES).
-const FO_BRIDGE_RESTRICTION = { ...MENU_RESTRICTION, allow: [...MENU_ALLOW, 'feature-bridge'], allowFeedbackOps: FO_BRIDGE_ENTRIES };
+// allowFeature: exact feature package sources exempted from the feature ban (only the bridge menu, FEATURE_BRIDGE_ENTRIES).
+const FEATURE_BRIDGE_RESTRICTION = { ...MENU_RESTRICTION, allow: [...MENU_ALLOW, 'feature-bridge'], allowFeature: FEATURE_BRIDGE_ENTRIES };
 // The feature-bridge package (consumer-side runtime, not SDK): the menu layer's workspace allowlist, `/core` only; its lazy pages see the screen barrel.
-const FO_BRIDGE_PACKAGE_RESTRICTION = { ...MENU_RESTRICTION, denyQueryEngine: false, allowFeedbackOps: FO_BRIDGE_PACKAGE_ENTRIES };
-const FO_BRIDGE_PAGES_RESTRICTION = { ...FO_BRIDGE_PACKAGE_RESTRICTION, denyQueryEngine: false, allowFeedbackOps: FO_BRIDGE_ENTRIES };
+const FEATURE_BRIDGE_PACKAGE_RESTRICTION = { ...MENU_RESTRICTION, denyQueryEngine: false, allowFeature: FEATURE_BRIDGE_PACKAGE_ENTRIES };
+const FEATURE_BRIDGE_PAGES_RESTRICTION = { ...FEATURE_BRIDGE_PACKAGE_RESTRICTION, denyQueryEngine: false, allowFeature: FEATURE_BRIDGE_ENTRIES };
 const MENU_MOCK_RESTRICTION = { allow: ['contracts'], denyReact: true, denyTableEngine: true, denyQueryEngine: true, mockAllowed: true };
 // #154: the real-server adapter reaches the app through src/real/** only (APP_REAL_FILES below).
 const APP_RESTRICTION = { allow: null, denyReact: false, denyQueryEngine: true, mockAllowed: false, denyDev: true, denyHttpAdapter: true, denyEqvMockData: true, allowSubpaths: [...UI_THEME_SUBPATHS, DOCK_ENTRY_SUBPATH, HOST_ENTRY_SUBPATH] };
-// src/main.tsx is the composition root: only the FO API and notifications slot subpaths; no mock, no ./dev (#153).
+// src/main.tsx is the composition root: only the screen API and notifications slot subpaths; no mock, no ./dev (#153).
 const APP_REAL_RESTRICTION = { ...APP_RESTRICTION, denyHttpAdapter: false };
-const APP_MAIN_RESTRICTION = { ...APP_RESTRICTION, allowSubpaths: [...UI_THEME_SUBPATHS, DOCK_ENTRY_SUBPATH, HOST_ENTRY_SUBPATH, FO_API_SUBPATH, NOTIFICATIONS_SLOT_SUBPATH, VOC_COMPOSE_SLOT_SUBPATH, HOME_TODO_SLOT_SUBPATH, SCOPE_CONTROL_SLOT_SUBPATH, NAV_COUNTS_SLOT_SUBPATH, SAVED_VIEWS_SLOT_SUBPATH] };
+const APP_MAIN_RESTRICTION = { ...APP_RESTRICTION, allowSubpaths: [...UI_THEME_SUBPATHS, DOCK_ENTRY_SUBPATH, HOST_ENTRY_SUBPATH, FEATURE_API_SUBPATH, NOTIFICATIONS_SLOT_SUBPATH, VOC_COMPOSE_SLOT_SUBPATH, HOME_TODO_SLOT_SUBPATH, SCOPE_CONTROL_SLOT_SUBPATH, NAV_COUNTS_SLOT_SUBPATH, SAVED_VIEWS_SLOT_SUBPATH] };
 // The mock assembly and DevTools: mock-server and the menu `/mock` subpaths.
 const APP_DEV_RESTRICTION = { allow: null, denyReact: false, denyQueryEngine: true, mockAllowed: true, denyHttpAdapter: true, denyEqvMockData: false, allowSubpaths: [...UI_THEME_SUBPATHS, MENU_MOCK_SUBPATH] };
 // The conformance test: mock-server, and from ./dev only the mock assembly's MOCK_ENDPOINTS list (#153 follow-up —
@@ -116,15 +116,15 @@ const APP_CONFORMANCE_RESTRICTION = { ...APP_RESTRICTION, mockAllowed: true, den
 // published-metrics.test.ts keeps the mock-server exemption but never the menu-subpath allowance.
 const APP_PUBLISHED_METRICS_RESTRICTION = { ...APP_RESTRICTION, mockAllowed: true };
 
-function importRestrictions({ allow, denyReact, denyTableEngine, denyQueryEngine = false, mockAllowed, allowSubpaths = [], denyDev = false, devAllow = [], denyHttpAdapter = false, denyEqvMockData = false, allowDockEngine = false, allowRadix = false, allowFeedbackOps = [] }) {
+function importRestrictions({ allow, denyReact, denyTableEngine, denyQueryEngine = false, mockAllowed, allowSubpaths = [], denyDev = false, devAllow = [], denyHttpAdapter = false, denyEqvMockData = false, allowDockEngine = false, allowRadix = false, allowFeature = [] }) {
   const negations = [
     ...(allow === null ? [] : allow.map((name) => `!${pkg(name)}`)),
-    ...new Set(allowFeedbackOps.map((source) => `!${source.split('/').slice(0, 2).join('/')}`)),
+    ...new Set(allowFeature.map((source) => `!${source.split('/').slice(0, 2).join('/')}`)),
     ...(mockAllowed ? [`!${pkg('mock-server')}`] : []),
   ];
   // Exact package boundary plus exact bridge-entry exemptions; near neighbors are distinct packages.
-  const exempt = allowFeedbackOps.length ? `(?!(?:${allowFeedbackOps.map(escapeRegex).join('|')})$)` : '';
-  const feedbackOpsPatterns = [{ regex: `^${exempt}(?:${FEATURE_PACKAGES.map(escapeRegex).join('|')})(?:/|$)`, message: FEEDBACKOPS_MESSAGE }];
+  const exempt = allowFeature.length ? `(?!(?:${allowFeature.map(escapeRegex).join('|')})$)` : '';
+  const featurePatterns = [{ regex: `^${exempt}(?:${FEATURE_PACKAGES.map(escapeRegex).join('|')})(?:/|$)`, message: FEATURE_MESSAGE }];
   return [
     'error',
     {
@@ -140,12 +140,12 @@ function importRestrictions({ allow, denyReact, denyTableEngine, denyQueryEngine
         ...(allowDockEngine ? [] : DOCK_ENGINE_PACKAGES.map((name) => ({ name, message: DOCK_ENGINE_MESSAGE }))),
       ],
       patterns: [
-        ...feedbackOpsPatterns,
+        ...featurePatterns,
         // First, so a layer that may not import the host-only entry gets its own message instead of the generic deep-subpath one.
         ...(allowSubpaths.includes(DOCK_ENTRY_SUBPATH) ? [] : [{ group: [pkg(DOCK_ENTRY_SUBPATH)], message: DOCK_ENTRY_MESSAGE }]),
         ...(allowSubpaths.includes(HOST_ENTRY_SUBPATH) ? [] : [{ group: [pkg(HOST_ENTRY_SUBPATH)], message: HOST_ENTRY_MESSAGE }]),
         {
-          regex: `^${escapeRegex(PACKAGE_PREFIX)}(?!(?:${[...allowSubpaths.map((s) => escapeRegex(s).replaceAll('\\*', '[^/]*')), ...allowFeedbackOps.map((source) => escapeRegex(source.slice(PACKAGE_PREFIX.length)))].join('|')})$)[^/]+/`,
+          regex: `^${escapeRegex(PACKAGE_PREFIX)}(?!(?:${[...allowSubpaths.map((s) => escapeRegex(s).replaceAll('\\*', '[^/]*')), ...allowFeature.map((source) => escapeRegex(source.slice(PACKAGE_PREFIX.length)))].join('|')})$)[^/]+/`,
           message: DEEP_SUBPATH_MESSAGE,
         },
         ...(allow === null
@@ -202,7 +202,7 @@ function importSourceOptions(restriction) {
     dockEnginePackages: DOCK_ENGINE_PACKAGES,
     dockEngineMessage: DOCK_ENGINE_MESSAGE,
     hostOnlyMessages: { [DOCK_ENTRY_SUBPATH]: DOCK_ENTRY_MESSAGE, [HOST_ENTRY_SUBPATH]: HOST_ENTRY_MESSAGE },
-    feedbackOpsMessage: FEEDBACKOPS_MESSAGE,
+    featureMessage: FEATURE_MESSAGE,
   };
 }
 
@@ -316,7 +316,7 @@ function layerConfig({ restriction, extraRules = {} }) {
 // named by the root components.json; components are the ui primitives and the shared components. Every rule is an
 // error. There are no suppression files (removed in #236/#241): an exception is an inline eslint-disable-next-line with
 // its reason, and an unused one fails (reportUnusedDisableDirectives). Class strings in .ts files are checked too.
-// The options mirror FeedbackOps' .oxlintrc.json (FO ADR-0062), the source of the shared design system:
+// The options mirror the former feature-package .oxlintrc.json (ADR-0062), the source of the shared design system:
 // screens may add layout to a component, containers also spacing, and the 50px headers never a height. The last
 // matching contract wins.
 const RESTYLE_CONTRACTS = [
@@ -334,9 +334,9 @@ const RESTYLE_CONTRACTS = [
     allow: ['layout', 'spacing'],
     deny: ['h-*', 'min-h-*', 'max-h-*', 'size-*'],
   },
-  // Platform accessibility floor (ADR-0023), on top of the FeedbackOps contracts: control boundaries keep the
+  // Platform accessibility floor (ADR-0023), on top of the feature contracts: control boundaries keep the
   // >=3:1 border-control, buttons that use aria-disabled (to keep focus for Radix) keep a disabled look, and menu items
-  // keep a keyboard focus ring (the FeedbackOps focus tint is ~1.1:1 on the popover surface).
+  // keep a keyboard focus ring (the feature focus tint is ~1.1:1 on the popover surface).
   { pattern: '^(Input|SelectTrigger|Checkbox)$', allow: ['layout', 'border-border-control'] },
   {
     pattern: '^DropdownMenu(Item|RadioItem|CheckboxItem)$',
@@ -358,7 +358,7 @@ const DESIGN_SYSTEM_RULES = {
   'shadcn/require-static-classes': 'error',
   'ap/no-color-var-shorthand': 'error',
 };
-// Where the primitives are defined (the ui package) they style themselves, as in FeedbackOps packages/ui: no restyle
+// Where the primitives are defined (the ui package) they style themselves, as in feature packages/ui: no restyle
 // or static-class check; arbitrary layout values stay allowed.
 const COMPONENT_SOURCE_RULES = {
   ...DESIGN_SYSTEM_RULES,
@@ -535,34 +535,34 @@ const menuPreset = (restriction) => [
 export const menu = menuPreset(MENU_RESTRICTION);
 
 /**
- * `menu` plus the one FeedbackOps entry the bridge menu (menu-my-activity) may import (platform ADR-0071).
+ * `menu` plus the one feature entry the bridge menu (menu-my-activity) may import (platform ADR-0071).
  * @type {import('eslint').Linter.Config[]}
  */
-export const foBridgeMenu = [
-  ...menuPreset(FO_BRIDGE_RESTRICTION),
+export const featureBridgeMenuPreset = [
+  ...menuPreset(FEATURE_BRIDGE_RESTRICTION),
   // The bridge menu's integration tests drive the bridge slots and lazy pages directly; production files see the bridge root only.
-  testEntryOverride(FO_BRIDGE_RESTRICTION, [...ABOVE_COMPONENTS_TEST_ENTRIES, ...FO_BRIDGE_TEST_SUBPATHS]),
+  testEntryOverride(FEATURE_BRIDGE_RESTRICTION, [...ABOVE_COMPONENTS_TEST_ENTRIES, ...FEATURE_BRIDGE_TEST_SUBPATHS]),
   // Last, so the mock policy (contracts + mock-server only) also wins for tests under src/mock/**.
   menuMockOverride,
 ];
 
 /**
- * The FeedbackOps bridge runtime package (the feature-bridge package, ADR-0071, ADR-0081): menu-layer imports, `/core` only,
+ * The feature bridge runtime package (the feature-bridge package, ADR-0071, ADR-0081): menu-layer imports, `/core` only,
  * and `src/pages/**` (lazy chunks) may also import the screen barrel. Menu contract rules do not apply (no manifests here).
  * @type {import('eslint').Linter.Config[]}
  */
-export const foBridge = [
+export const featureBridgePreset = [
   REACT_HOOKS,
-  layerConfig({ restriction: FO_BRIDGE_PACKAGE_RESTRICTION, extraRules: menuContractRules }),
+  layerConfig({ restriction: FEATURE_BRIDGE_PACKAGE_RESTRICTION, extraRules: menuContractRules }),
   // Its tests mount a platform with the kernel fixtures (ADR-0040); production files stay restricted.
-  testEntryOverride(FO_BRIDGE_PACKAGE_RESTRICTION),
+  testEntryOverride(FEATURE_BRIDGE_PACKAGE_RESTRICTION),
   // The menu test harness is the one non-test file that mounts a platform with the kernel fixtures; it is exported only as the `feature-bridge/testing` subpath, never from the root.
-  testEntryOverride(FO_BRIDGE_PACKAGE_RESTRICTION, [TEST_ENTRY_SUBPATH], ['src/testing.tsx']),
+  testEntryOverride(FEATURE_BRIDGE_PACKAGE_RESTRICTION, [TEST_ENTRY_SUBPATH], ['src/testing.tsx']),
   {
     files: ['src/pages/**/*.{ts,tsx}'],
     rules: {
-      'no-restricted-imports': importRestrictions(FO_BRIDGE_PAGES_RESTRICTION),
-      'ap/restricted-import-source': ['error', importSourceOptions(FO_BRIDGE_PAGES_RESTRICTION)],
+      'no-restricted-imports': importRestrictions(FEATURE_BRIDGE_PAGES_RESTRICTION),
+      'ap/restricted-import-source': ['error', importSourceOptions(FEATURE_BRIDGE_PAGES_RESTRICTION)],
     },
   },
   designSystem(),
@@ -602,23 +602,23 @@ export const tooling = [
   layerConfig({ restriction: { allow: [], denyReact: true, mockAllowed: false } }),
 ];
 
-// FeedbackOps full-source presets (#1102 a). Feature-only: no other preset reads them. Rules and the old Biome/Oxlint
+// Feature full-source presets (#1102 a). Feature-only: no other preset reads them. Rules and the old Biome/Oxlint
 // correspondence: feature.js and docs/integration/platform-packages.md §6.
 /** @type {import('eslint').Linter.Config[]} */
-export const foServer = featureServer();
+export const featureServerPreset = featureServer();
 
 /** @type {import('eslint').Linter.Config[]} */
-export const foShared = featureShared();
+export const featureSharedPreset = featureShared();
 
 /** @type {import('eslint').Linter.Config[]} */
-export const foUi = featureUi({ reactHooks: REACT_HOOKS, design: designSystem({ componentSource: true }) });
+export const featureUiPreset = featureUi({ reactHooks: REACT_HOOKS, design: designSystem({ componentSource: true }) });
 
 // feature-screens (#1102 b): the former Oxlint pass over the screens (ops/platform-api/.oxlintrc.json, removed) restyled-component
 // checks included, so `no-restyle` and `require-static-classes` stay on (only packages that define the primitives turn them
-// off). The screens also render the FeedbackOps components of the feature UI package, which the old config named as its `ui` alias.
+// off). The screens also render the feature components of the feature UI package, which the old config named as its `ui` alias.
 const screensDesign = designSystem();
 /** @type {import('eslint').Linter.Config[]} */
-export const foScreens = featureUi({
+export const featureScreensPreset = featureUi({
   reactHooks: REACT_HOOKS,
   design: {
     ...screensDesign,

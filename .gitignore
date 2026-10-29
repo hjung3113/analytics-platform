@@ -24,7 +24,7 @@ _shots/
 # TanStack Router generated route tree
 # Pre-bundled Drizzle schema consumed by drizzle-kit (apps/platform-api/scripts/bundle-schema.mjs)
 apps/platform-api/.drizzle-schema/
-# Unanchored entries of the old file, kept at every depth under the FO apps and packages (the platform has its own rules)
+# Unanchored entries of the old file, kept at every depth under the feature apps and packages (the platform has its own rules)
 apps/platform-api/**/.vite
 apps/feature-screens/**/.vite
 apps/platform-api/**/report/
@@ -51,7 +51,7 @@ packages/feature-shared/**/*.log
 packages/feature-ui/**/*.log
 # The bridge entry `@ap/feature-screens/operator-screens/coverage` (#762 c) is source, not a test-coverage report.
 !apps/feature-screens/src/operator-screens/coverage/
-# .env files of the old file, at every depth under the FO apps and packages (.env.example stays tracked)
+# .env files of the old file, at every depth under the feature apps and packages (.env.example stays tracked)
 apps/platform-api/**/.env
 apps/feature-screens/**/.env
 apps/platform-api/**/.env.local

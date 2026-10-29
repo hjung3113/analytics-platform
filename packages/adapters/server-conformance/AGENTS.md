@@ -1,6 +1,6 @@
 # @ap/server-conformance
 
-서버 경계 적합성 묶음(#145, #152). `PlatformAdapter` 전체를 어댑터 구현과 무관하게 — mock·실어댑터를 같은 잣대로 — 검사한다. 검사 목록은 엔드포인트 선언과 하네스 `ports` 표본에서 도출되고, 표본이 없으면 `skipped`로 남는다(통과로 세지 않음). 검사 범위와 사내 준비물은 [체크리스트 §4](../../../docs/integration/real-server-checklist.md)가 원본이다. 앱 통합 테스트가 mock으로 돌리고, FeedbackOps 백엔드 통합 테스트가 실서버·실어댑터로 돌린다(#674, 테스트 코드 devDependency — ADR-0073).
+서버 경계 적합성 묶음(#145, #152). `PlatformAdapter` 전체를 어댑터 구현과 무관하게 — mock·실어댑터를 같은 잣대로 — 검사한다. 검사 목록은 엔드포인트 선언과 하네스 `ports` 표본에서 도출되고, 표본이 없으면 `skipped`로 남는다(통과로 세지 않음). 검사 범위와 사내 준비물은 [체크리스트 §4](../../../docs/integration/real-server-checklist.md)가 원본이다. 앱 통합 테스트가 mock으로 돌리고, 플랫폼 API 통합 테스트가 실서버·실어댑터로 돌린다(#674, 테스트 코드 devDependency — ADR-0073).
 
 ## 파일
 
@@ -12,7 +12,7 @@
 
 ## 규칙
 
-- vitest는 peer(`^3.2.7`)다. FeedbackOps 백엔드는 vitest 2.1.8로 이 묶음을 돌리는데(#674), 묶음의 `describe`·`it`·`expect`는 import 시점에 실행 중인 vitest 인스턴스에 붙으므로 그대로 동작한다. pnpm은 이 peer 불일치를 경고만 한다. 묶음이 vitest 3 전용 API를 쓰기 시작하면 FeedbackOps 쪽 vitest를 먼저 올린다.
+- vitest는 peer(`^3.2.7`)다. 플랫폼 API는 vitest 2.1.8로 이 묶음을 돌리는데(#674), 묶음의 `describe`·`it`·`expect`는 import 시점에 실행 중인 vitest 인스턴스에 붙으므로 그대로 동작한다. pnpm은 이 peer 불일치를 경고만 한다. 묶음이 vitest 3 전용 API를 쓰기 시작하면 기능 쪽 vitest를 먼저 올린다.
 - import 가능: `@ap/contracts`와 vitest만. `mock-server`·메뉴·React 금지 — 실서버를 mock과 같은 잣대로 판정해야 하므로 어떤 구현도 알지 않는다(lint 프리셋 `serverConformance`).
 - 검사는 선언에서 도출할 수 있는 것만 넣는다. 메뉴별 데이터 기대값(수치·행)은 이 묶음이 아니라 메뉴 테스트가 맡는다.
 - 계약 규칙(06 §5·§19, 패키지 경계 §4)을 바꾸면 여기 검사와 체크리스트 문서를 같은 PR에서 고친다.

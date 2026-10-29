@@ -92,7 +92,7 @@ function installFetch(
 }
 
 function record(href: string) {
-  const url = new URL(href, 'http://feedbackops.local');
+  const url = new URL(href, 'http://platform.local');
   return { path: url.pathname, search: Object.fromEntries(url.searchParams) };
 }
 
@@ -249,7 +249,7 @@ it('shows a failed snooze inline and raises no notice', async () => {
   expect(harness.notifyError).not.toHaveBeenCalled();
 });
 
-it('adds no FeedbackOps returnTo when the host carries the return path, and guards every link', async () => {
+it('adds no feature returnTo when the host carries the return path, and guards every link', async () => {
   installFetch({ actions: false });
   harness.hostCarriesReturn = true;
   harness.search = { selected: RECOVERY_VISUAL_ID, returnTo: '/home' };

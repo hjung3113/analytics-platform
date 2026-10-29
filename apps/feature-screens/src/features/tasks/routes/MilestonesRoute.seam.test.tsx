@@ -203,7 +203,7 @@ describe('MilestonesScreen under a host seam (#763 m)', () => {
       writable: true,
     });
     try {
-      const platformUrl = `https://platform.test/feedbackops/milestones?focus=${IDS.sso}`;
+      const platformUrl = `https://platform.test/operations/milestones?focus=${IDS.sso}`;
       const spy = vi.fn((_to: string) => platformUrl);
       absoluteHref = spy;
       const { unmount } = render(<Harness search={withParam(IDS.sso)} />);

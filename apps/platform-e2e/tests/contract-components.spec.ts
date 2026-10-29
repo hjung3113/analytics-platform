@@ -12,7 +12,7 @@ async function chooseFilterOption(page: Page, field: string, option: string) {
 }
 
 test.describe('토큰 소비 계약 (06 §23, ADR-0011/ADR-0058)', () => {
-  test('FeedbackOps base 값이 theme보다 우선하고 플랫폼 control 경계는 label 대비를 유지한다', async ({ page }, testInfo) => {
+  test('기능 화면 base 값이 theme보다 우선하고 플랫폼 control 경계는 label 대비를 유지한다', async ({ page }, testInfo) => {
     await page.goto('/bravo/metric-catalog?v=1&scopeId=MEM');
     await expect(page.getByTestId('page-filter-bar')).toBeVisible();
     const search = page.getByTestId('metric-search');
@@ -22,7 +22,7 @@ test.describe('토큰 소비 계약 (06 §23, ADR-0011/ADR-0058)', () => {
     await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(243, 247, 254)');
     // Confirmed B uses the shared Input/Select primitive radius and Select typography.
     await expect(search).toHaveCSS('border-radius', '6px');
-    // Shared Select primitive default (FeedbackOps SelectTrigger) is 13px.
+    // Shared Select primitive default (feature SelectTrigger) is 13px.
     await expect(page.getByTestId('metric-status-filter')).toHaveCSS('font-size', '13px');
     await expect(search).toHaveCSS('border-top-color', 'rgb(102, 112, 131)');
     await evidence(page, testInfo, 'feedbackops-token-cascade');
@@ -578,7 +578,7 @@ test.describe('표 쪽 이동 포커스 (06 §26)', () => {
 });
 
 test.describe('표 높이·고정 동작 열 (06 §15, ADR-0037)', () => {
-  // #654: the old subject (`/voc` MyVocHistory table) moved to FeedbackOps; the short-result case now uses a narrowed equipment table.
+  // #654: the old subject (`/voc` MyVocHistory table) moved to the VOC feature; the short-result case now uses a narrowed equipment table.
   test('짧은 설비 결과는 240px보다 작고 행 영역에 빈 스크롤이 없다', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/mars/equipment-master?v=1&scopeId=MEM&q=PHOTO-0103');

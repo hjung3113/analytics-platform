@@ -1,6 +1,6 @@
-// FeedbackOps-owned exports only. SDK-owned parts (primitives, panel/toolbar/forms/feedback/layout shells,
+// Feature-owned exports only. SDK-owned parts (primitives, panel/toolbar/forms/feedback/layout shells,
 // rich content, ...) are imported from `@ap/ui` directly (ADR-0090, #713).
-// FeedbackOps names for @ap/ui parts: the unwrapped shadcn tab list/trigger (the platform `TabsList` adds a selection marker).
+// Feature names for @ap/ui parts: the unwrapped shadcn tab list/trigger (the platform `TabsList` adds a selection marker).
 export { TabsListBase as TabsList, TabsTriggerBase as TabsTrigger } from '@ap/ui';
 
 export {

@@ -1,5 +1,5 @@
 // PermissionRequestsScreen — the requester's 권한 요청 page for the platform bridge (platform ADR-0070 decision 8,
-// ADR-0071): send a FeedbackOps capability request, see your own requests with their status, withdraw an open one.
+// ADR-0071): send a feature capability request, see your own requests with their status, withdraw an open one.
 //
 // Bridge-safe: no router, no `@/lib/api` barrel, no `lib/auth`, no `sonner`. The toasts go through the host seam.
 // Supplement, edit and expiration stay in the standalone app (`OwnerPermissionRequestDialog`).

@@ -18,7 +18,7 @@
 
 ## Lint
 
-- ESLint over the whole package: `pnpm --filter @ap/feature-ui lint` (`foUi`: correctness, React, Hooks, accessibility and the `@shadcn/lint` design rules, `--max-warnings 0`). It replaces the Biome and Oxlint passes for this package (#1102 a). An intended exception names its ESLint rule and a concrete reason in the comment; an unused directive fails. Rule correspondence: `docs/integration/platform-packages.md` §6.
+- ESLint over the whole package: `pnpm --filter @ap/feature-ui lint` (`featureUiPreset`: correctness, React, Hooks, accessibility and the `@shadcn/lint` design rules, `--max-warnings 0`). It replaces the Biome and Oxlint passes for this package (#1102 a). An intended exception names its ESLint rule and a concrete reason in the comment; an unused directive fails. Rule correspondence: `docs/integration/platform-packages.md` §6.
 
 ## Design Rules
 
@@ -31,17 +31,17 @@
   `SeverityIndicator`, `PermissionBlockedPanel`, `StatusBadgeFrame`, and the rich-content editor,
   renderer, attach button and extensions (upstream ADR-0050, ADR-0052). The compatibility re-export
   files that Bundles 1, 2a, 2b and 3a once kept here were removed: `src/index.ts` exports only the
-  FeedbackOps-owned names below, and `@ap/feature-ui` must not re-export an `@ap/ui` name again. Import a
-  shared component from `@ap/ui` and a FeedbackOps component from `@ap/feature-ui`; one import
+  feature-owned names below, and `@ap/feature-ui` must not re-export an `@ap/ui` name again. Import a
+  shared component from `@ap/ui` and a feature component from `@ap/feature-ui`; one import
   statement never mixes the two. A test that replaces a shared component (`ListShell`,
-  `RichEditor`, ...) mocks `@ap/ui`; a test that replaces a FeedbackOps name mocks `@ap/feature-ui`. A
+  `RichEditor`, ...) mocks `@ap/ui`; a test that replaces a feature name mocks `@ap/feature-ui`. A
   `@ap/ui` mock that spreads the real module reads every export, so a test that also mocks
   `sonner` must give that mock a `Toaster`.
-- What `@ap/feature-ui` still exports: the FeedbackOps badges (`SeverityBadge`, `ReporterStatusBadge`,
+- What `@ap/feature-ui` still exports: the feature badges (`SeverityBadge`, `ReporterStatusBadge`,
   `InternalTaskBadge`, `UnassignedBadge`, `ManagedSystem*`, `OutlineBadge`, `EntityIconBadge`),
   `LinkedEntityTrail`, the pickers (`ManagedSystemPicker`, `AnalyticsAreaPicker`), `SEVERITY_LABELS`,
-  and the FeedbackOps-named aliases of `@ap/ui` parts: `useDetailPanelSlot(node)` is `@ap/ui`'s
-  `useDetailPanelContent` under the FeedbackOps name (`undefined` clears, `null` registers a closed
+  and the feature-named aliases of `@ap/ui` parts: `useDetailPanelSlot(node)` is `@ap/ui`'s
+  `useDetailPanelContent` under the feature name (`undefined` clears, `null` registers a closed
   registrant), `TabsList`/`TabsTrigger` are `@ap/ui`'s unwrapped `TabsListBase`/`TabsTriggerBase`,
   and `TipTapEditor` is the TipTap `Editor` type. `SEVERITY_LABELS` stays in the local
   `SeverityIndicator` module because `@ap/ui` does not expose that value and the local
@@ -64,7 +64,7 @@
   `@ap/ui/styles.css`, which adds the platform extension layer.
 - `@ap/ui` is the workspace package (`workspace:*` in `packages/sdk/ui/package.json` and
   `apps/feature-screens/package.json`, #642): a change under the repository's `packages/sdk/ui`
-  reaches FeedbackOps at once and runs the FeedbackOps CI. Keep the consumer CSS contract
+  reaches feature at once and runs the feature CI. Keep the consumer CSS contract
   when either side changes. Keep TipTap at 3.23.5 and
   `@formkit/auto-animate@0.10.0` with its root workspace patch unless a separate
   decision changes those constraints.

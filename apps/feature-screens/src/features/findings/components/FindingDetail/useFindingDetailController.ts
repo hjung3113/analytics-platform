@@ -60,10 +60,11 @@ export const DETAIL_SECTIONS = [
 
 // The workspace audit identity (backend seed: actor_type 'system', audit
 // authorship only, never an interactive login) must never be offered as an
-// owner. The shipped GET /actors read exposes role_level but not actor_type,
-// so the FE excludes it by its reserved provisioning email; the PATCH 422
+// owner. GET /actors already carries actor_type end to end, but the FE keeps
+// excluding it by its reserved provisioning email (a naming-only change must
+// not alter candidate eligibility; see the backlog row); the PATCH 422
 // (ineligible_actor) stays authoritative if one slips through.
-const SYSTEM_ACTOR_EMAIL = 'system@feedbackops.local';
+const SYSTEM_ACTOR_EMAIL = 'system@platform.local';
 
 export function useFindingDetailController(finding: FindingDto): FindingDetailController {
   const [addEvidenceOpen, setAddEvidenceOpen] = React.useState(false);

@@ -93,7 +93,7 @@ export function CreateFindingModal({
   React.useEffect(() => {
     if (!open) return;
     try {
-      const url = new URL(here, 'http://feedbackops.local');
+      const url = new URL(here, 'http://platform.local');
       if (url.pathname !== '/vocs' || url.hash) {
         returnToRef.current = undefined;
         return;

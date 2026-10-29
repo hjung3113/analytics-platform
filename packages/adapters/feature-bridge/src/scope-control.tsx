@@ -3,13 +3,13 @@ import { ChevronDown } from 'lucide-react';
 import { usePlatform, type ScopeControlSlot } from '@ap/kernel';
 import { Button } from '@ap/ui';
 import { featureApi } from './feature-api';
-import { useFeatureSession } from './fo/session';
+import { useFeatureSession } from './feature/session';
 import { SCOPE_KEY, usesListScope } from './operator-menus';
 
-// The picker and its reads load only once the FeedbackOps session is ready, so none of it is in the main chunk.
+// The picker and its reads load only once the feature session is ready, so none of it is in the main chunk.
 const ScopeControl = lazy(() => import('./pages/ScopeControl'));
 
-/** Mock preview (no FeedbackOps API): the label and an inert `전체` so the sidebar keeps its place; nothing from FeedbackOps mounts or is requested. */
+/** Mock preview (no feature API): the label and an inert `전체` so the sidebar keeps its place; nothing from feature mounts or is requested. */
 function MockScope() {
   return <div className="border-b border-border-subtle p-2">
     <div className="px-1 pb-1 text-caption text-text-muted">목록 범위</div>
@@ -20,7 +20,7 @@ function MockScope() {
 }
 
 /**
- * The FeedbackOps sidebar `목록 범위` (ADR-0081 decision 4). It shows only on a menu that registers the `managedSystem` page key (on a global
+ * The feature sidebar `목록 범위` (ADR-0081 decision 4). It shows only on a menu that registers the `managedSystem` page key (on a global
  * route the sidebar may still draw the remembered space; nothing is drawn there), and renders nothing while the session is pending or retired.
  */
 function Control({ collapsed }: { collapsed: boolean }) {

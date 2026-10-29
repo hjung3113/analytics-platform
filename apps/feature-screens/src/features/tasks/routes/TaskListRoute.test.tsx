@@ -305,7 +305,7 @@ describe('TaskListRoute display ids', () => {
     const findingNode = await screen.findByRole('button', { name: /리포트 속도 저하/ });
     await userEvent.click(findingNode);
 
-    // Through the host seam: the router navigates to the FO path of the Finding.
+    // Through the host seam: the router navigates to the screen path of the Finding.
     expect(navigateMock).toHaveBeenCalledWith({
       to: '/findings/40000000-0000-0000-0000-000000000004',
       search: {},

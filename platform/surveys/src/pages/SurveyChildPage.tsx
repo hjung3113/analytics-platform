@@ -10,7 +10,7 @@ const LIST_CONTEXT_KEYS = ['area', 'status', 'follow_up'] as const;
 
 /**
  * The shell of the three hidden Survey screens: the `:surveyId` path param must be a UUID (anything else is not-found here and never reaches a request), then the
- * address check of the child's route table (list-context keys through FeedbackOps' detail search schema), then the screen. `children` gets the survey id and the
+ * address check of the child's route table (list-context keys through the feature screens' detail search schema), then the screen. `children` gets the survey id and the
  * way back to the list (`focus` = this Survey; the other list-context keys ride along as the carried page).
  */
 export function SurveyChildPage({ surveyId, route, useSearch, useHere, children }: {

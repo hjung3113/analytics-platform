@@ -123,7 +123,7 @@ it('uses platform CSS when both source files declare the same token', () => {
   expect(color.$value.hex).toBe('#090807');
 });
 
-it('omits primitives and FeedbackOps domain roles from the public manifest', () => {
+it('omits primitives and feature domain roles from the public manifest', () => {
   const names = Object.keys(manifest.color);
   const excludedPrefixes = [
     'color-', 'status-reporter-', 'status-internal-', 'entity-icon-', 'managed-system-', 'confidence-',

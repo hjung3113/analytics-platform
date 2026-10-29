@@ -106,7 +106,7 @@ components:
 
 ## Overview
 
-> 디자인 시스템 결정과 공유 토큰·폰트·primitive의 원본은 플랫폼 `@ap/ui`다([ADR-0043](docs/adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md), [ADR-0046](docs/adr/0046-design-system-source-moves-to-platform-whole-package.md)). 본문의 "FeedbackOps 원본" 표기는 도입 당시 값의 출처를 뜻한다. 현행 값과 변경 제안은 `packages/sdk/ui/`를 기준으로 한다.
+> 디자인 시스템 결정과 공유 토큰·폰트·primitive의 원본은 플랫폼 `@ap/ui`다([ADR-0043](docs/adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md), [ADR-0046](docs/adr/0046-design-system-source-moves-to-platform-whole-package.md)). 본문의 "공유 원본" 표기는 도입 당시 값의 출처를 뜻한다. 현행 값과 변경 제안은 `packages/sdk/ui/`를 기준으로 한다.
 
 이 문서는 **공유 디자인 시스템 위에 얹는 플랫폼 디자인 확장**의 원본이다. 공유 디자인 시스템을 다시 정의하지 않는다. [ADR-0010](docs/adr/0010-feedbackops-design-system-shared-on-tailwind-v4.md)의 직접 소비 방식과 [ADR-0011](docs/adr/0011-design-direction-feedbackops-shell.md)의 승인된 프로토타입 C안을 따른다. #193의 토큰 이행과 #194의 밝은 셸 규칙을 반영한다. 이 문서 갱신은 새 프로토타입 승인이나 런타임 검증 기록이 아니다.
 
@@ -114,30 +114,30 @@ components:
 
 | 소유자 | 소유하는 규칙 | 이 문서의 관계 |
 | --- | --- | --- |
-| 플랫폼 [tokens.css](packages/sdk/ui/src/styles/tokens.css)·[semantic.css](packages/sdk/ui/src/styles/semantic.css)(FeedbackOps `a8d768b8`에서 이전, ADR-0046), FeedbackOps [tokens.md](docs/design/features/tokens.md)(이전 시점 설명) | 공유 색·표면·간격·반경·폰트·본문 타이포·AA 의미 label 쌍 | 원본은 플랫폼; 값 스케일을 복제하지 않고 semantic token을 소비 |
-| 플랫폼 `@ap/ui`(원본, ADR-0046). FeedbackOps [ui-design-system.md](docs/design/features/ui-design-system.md)·[ADR-0058](docs/adr/history/feedbackops/0058-tailwind-v4-css-first-theme.md)는 이전 시점(`a8d768b8`)의 참고 문서 | primitive의 모양·상태, CSS-first 소비·폰트 로딩 계약. 이전 뒤 변경은 `@ap/ui`에서 한다 | `@ap/ui`를 통한 공개 primitive·CSS 소비 |
+| 플랫폼 [tokens.css](packages/sdk/ui/src/styles/tokens.css)·[semantic.css](packages/sdk/ui/src/styles/semantic.css)(FeedbackOps `a8d768b8`에서 이전, ADR-0046), 기능 화면 [tokens.md](docs/design/features/tokens.md)(이전 시점 설명) | 공유 색·표면·간격·반경·폰트·본문 타이포·AA 의미 label 쌍 | 원본은 플랫폼; 값 스케일을 복제하지 않고 semantic token을 소비 |
+| 플랫폼 `@ap/ui`(원본, ADR-0046). 기능 화면 [ui-design-system.md](docs/design/features/ui-design-system.md)·[ADR-0058](docs/adr/history/feedbackops/0058-tailwind-v4-css-first-theme.md)는 이전 시점(`a8d768b8`)의 참고 문서 | primitive의 모양·상태, CSS-first 소비·폰트 로딩 계약. 이전 뒤 변경은 `@ap/ui`에서 한다 | `@ap/ui`를 통한 공개 primitive·CSS 소비 |
 | [06 §7–9](docs/contract/layout.md#7-application-shell), [07](docs/wireframes/app-shell.md) | 셸 구조·치수·슬롯·navigation IA·시나리오 | 구조를 복사하지 않고 플랫폼 시각 보완만 정의 |
 | DESIGN.md | 플랫폼 확장 token의 역할·값 출처, 허용 전경/표면, 분석·KPI·표·차트 시각 패턴 | 아래 정의가 원본 |
 | [플랫폼 확장 CSS](packages/sdk/ui/src/styles/platform-tokens.css), [매핑·역할 유틸리티](packages/sdk/ui/src/styles/index.css) | 확장 구현 | 문서와 대조; 불일치는 별도 보고 |
 
 ## Platform extension layer
 
-아래 `--*`는 CSS 변수명이다. 공유 palette 참조는 FeedbackOps 원본을 따르며, literal은 플랫폼이 소유한다. raw palette를 컴포넌트에서 직접 쓰지 않는다. `tokens.css`는 RGB triple을 사용한다. front matter의 literal은 hex, 공유 참조는 FeedbackOps CSS 변수명이다.
+아래 `--*`는 CSS 변수명이다. 공유 palette 참조는 공유 원본을 따르며, literal은 플랫폼이 소유한다. raw palette를 컴포넌트에서 직접 쓰지 않는다. `tokens.css`는 RGB triple을 사용한다. front matter의 literal은 hex, 공유 참조는 공유 CSS 변수명이다.
 
 ### Colours and surfaces
 
 | 플랫폼 token | 역할·사용 시점 | 값 출처 |
 | --- | --- | --- |
-| `accent-primary` | 주요 동작·링크·현재 위치·focus 계열의 일관된 강조 | FeedbackOps `color-neon-lime` 참조 |
+| `accent-primary` | 주요 동작·링크·현재 위치·focus 계열의 일관된 강조 | 공유 `color-neon-lime` 참조 |
 | `accent-primary-hover` | primary 동작 hover | 플랫폼 literal `#102080` |
 | `accent-primary-soft` | 선택 요약·강조의 옅은 배경; 선택 표식 동반 | 플랫폼 literal `#e4e8f6` |
-| `accent-info` / `accent-success` / `accent-warn` / `accent-danger` | 의미 dot·icon·tint; 작은 의미 글자에 쓰지 않음 | FeedbackOps `color-cyan-spark` / `color-emerald` / `color-amber` / `color-warning-red` 참조 |
+| `accent-info` / `accent-success` / `accent-warn` / `accent-danger` | 의미 dot·icon·tint; 작은 의미 글자에 쓰지 않음 | 공유 `color-cyan-spark` / `color-emerald` / `color-amber` / `color-warning-red` 참조 |
 | `accent-success-soft` | 긍정 의미 배경·delta/badge fill | 플랫폼 literal `#e3f5ed` |
 | `accent-warn-soft` | 경고 의미 배경 | 플랫폼 literal `#f4ece0` |
 | `accent-danger-soft` | 오류 의미 배경 | 플랫폼 literal `#fae5e7` |
-| `accent-neutral` / `accent-neutral-soft` | 미평가·보조 상태의 dot 및 배경 | FeedbackOps `color-storm-cloud` / `color-deep-slate` 참조 |
-| `border-control` | 입력·select·checkbox 등 식별에 필요한 interactive 경계 | FeedbackOps `color-storm-cloud` 참조 |
-| `surface-sunken` | 표 열 머리·검색 배경·progress track·recessed 보조 영역 | FeedbackOps `color-deep-slate` 참조 |
+| `accent-neutral` / `accent-neutral-soft` | 미평가·보조 상태의 dot 및 배경 | 공유 `color-storm-cloud` / `color-deep-slate` 참조 |
+| `border-control` | 입력·select·checkbox 등 식별에 필요한 interactive 경계 | 공유 `color-storm-cloud` 참조 |
+| `surface-sunken` | 표 열 머리·검색 배경·progress track·recessed 보조 영역 | 공유 `color-deep-slate` 참조 |
 | `chart-series-1` / `chart-series-2` / `chart-series-3` / `chart-series-4` | 신규 chart kinds의 기본 범주 순서; 기존 chart token 이름도 유효 | 플랫폼 literal `#466896` / `#726397` / `#357d78` / `#667083` |
 | `chart-series-1-stroke` / `chart-series-2-stroke` / `chart-series-3-stroke` / `chart-series-4-stroke` | 얇은 line/outline mark와 line legend 전용; 카드에서 각 series fill과 같은 값, ≥3:1 | 플랫폼 literal `#466896` / `#726397` / `#357d78` / `#667083` |
 | `chart-heat-seq-0..4` | 값이 낮음에서 높음으로 가는 순차 heatmap ramp | 플랫폼 literal `#f2f8ff` → `#cfe5fb` → `#a0cff6` → `#64abeb` → `#2577cc` |
@@ -153,11 +153,11 @@ components:
 | `chart-grid` | 보조 grid; 의미 있는 데이터 선에 쓰지 않음 | 플랫폼 literal `#edf1f7` |
 | `icon-blue-soft` / `icon-teal-soft` | KPI·분석 범주 icon chip 배경; navigation 그룹에는 채운 chip을 만들지 않음 | 플랫폼 literal `#e3efff` / `#dcf8ef` |
 
-작은 의미 label은 FeedbackOps 소유의 `--text-{success,info,warning,danger}-label` 쌍과 `text-text-{success,info,warning,danger}-label` 유틸리티를 사용한다. 플랫폼은 이를 다시 별칭으로 선언하지 않는다. `text-text-success-label` 같은 label 유틸리티는 공유 vivid 의미 색 `text-text-success`와 구별한다. 표면·경계 유틸리티는 `bg-surface-sunken`, `border-border-control`; 구조 구분선은 공유 `border-border-subtle`이다.
+작은 의미 label은 공유 시스템 소유의 `--text-{success,info,warning,danger}-label` 쌍과 `text-text-{success,info,warning,danger}-label` 유틸리티를 사용한다. 플랫폼은 이를 다시 별칭으로 선언하지 않는다. `text-text-success-label` 같은 label 유틸리티는 공유 vivid 의미 색 `text-text-success`와 구별한다. 표면·경계 유틸리티는 `bg-surface-sunken`, `border-border-control`; 구조 구분선은 공유 `border-border-subtle`이다.
 
 ### Typography roles
 
-공유 font family·본문·font loading은 [FeedbackOps 타이포 원본](docs/design/features/tokens.md#tokens--typography)과 [ADR-0058 §2](docs/adr/history/feedbackops/0058-tailwind-v4-css-first-theme.md#2-theme-inline-because-theme-namespaces-overlap-token-names)을 따른다. 라틴/한글은 공유 `--font-sans`(Inter + Pretendard), 기술 문자열은 공유 `--font-mono`를 상속한다. 플랫폼은 별도 body scale을 만들지 않는다.
+공유 font family·본문·font loading은 [기능 화면 타이포 원본](docs/design/features/tokens.md#tokens--typography)과 [ADR-0058 §2](docs/adr/history/feedbackops/0058-tailwind-v4-css-first-theme.md#2-theme-inline-because-theme-namespaces-overlap-token-names)을 따른다. 라틴/한글은 공유 `--font-sans`(Inter + Pretendard), 기술 문자열은 공유 `--font-mono`를 상속한다. 플랫폼은 별도 body scale을 만들지 않는다.
 
 아래 역할 값은 플랫폼 literal이며 [index.css](packages/sdk/ui/src/styles/index.css)의 클래스와 일치한다. line-height는 px 표기 또는 unitless 배수다. 지정하지 않은 font family·weight·tracking은 공유/상위 값을 상속한다.
 
@@ -182,9 +182,9 @@ components:
 
 | token | 역할·사용 | 값 출처 |
 | --- | --- | --- |
-| `radius-xs` | 작은 inline chip/아이콘 버튼의 compact 반경 alias | `index.css`의 `var(--radius-sm)` → FeedbackOps 공유 반경; 별도 literal 아님 |
+| `radius-xs` | 작은 inline chip/아이콘 버튼의 compact 반경 alias | `index.css`의 `var(--radius-sm)` → 공유 반경; 별도 literal 아님 |
 | `breakpoint-wide` | 넓은 분석 grid를 전환하는 `wide:` 기준 | 플랫폼 literal `90rem` |
-| `detail-panel-width` | 셸 고정 상세 슬롯 폭 | FeedbackOps 공유 토큰; 소비 시 fallback·clamp는 06 §7 |
+| `detail-panel-width` | 셸 고정 상세 슬롯 폭 | 공유 토큰; 소비 시 fallback·clamp는 06 §7 |
 
 사용하지 않는 overlay 전용 `width-detail-panel`/`w-detail-panel` 확장은 ADR-0013으로 폐기했다. 상세 슬롯은 공유 `--detail-panel-width`를 직접 소비한다. 반응형 정책의 상태·MVP 범위는 [06 §25](docs/contract/layout.md#25-responsive-strategy)와 [05](docs/overview/roadmap-and-open-questions.md#mvp-지원-환경--데스크톱-웹만-decided-2026-09-27)를 따른다. DetailDrawer는 지원 데스크톱에서 고정 슬롯을 유지한다.
 
@@ -194,17 +194,17 @@ components:
 
 ### Allowed foreground/surface pairs
 
-label 행은 #210(FeedbackOps 원본 값), 나머지 행은 #193/#194 UI/UX 리뷰의 opaque sRGB token 계산이다. 렌더 검증을 대신하지 않는다. `surface-popover`는 sunken과 같은 공유 palette를 쓰므로 동일 제한을 받는다.
+label 행은 #210(공유 원본 값), 나머지 행은 #193/#194 UI/UX 리뷰의 opaque sRGB token 계산이다. 렌더 검증을 대신하지 않는다. `surface-popover`는 sunken과 같은 공유 palette를 쓰므로 동일 제한을 받는다.
 
 | 전경 | 허용 표면 / 대비 | 제한·적용 예 |
 | --- | --- | --- |
 | `text-primary`, `text-secondary` | canvas/card/sidebar/sunken/hover/selected | 필수 제목·검색 입력·열 머리·popover 설명. secondary는 sunken 9.23:1, sidebar/hover/selected 9.310/8.909/8.218:1 |
 | `text-muted` | canvas 4.642:1, card 4.892:1, sidebar 4.505:1 | 원래 opaque 값으로 보조 문구·section label; sidebar에서도 여유가 작으므로 fade 금지 |
 | `text-muted` | sunken **4.469:1** (약 4.47), hover 4.311:1, selected 3.977:1 | **필수 작은 글자에 금지**. sunken 열 머리·검색 문구·popover, hover/selected 상태 label은 `text-secondary`로 |
-| FeedbackOps `text-text-success-label` | card 5.764:1, success-soft 5.191:1; canvas/sunken/hover/selected 포함 최저 4.686:1 | 작은 성공 의미 글자; vivid success는 dot/icon/tint로 분리 |
-| FeedbackOps `text-text-info-label` | card 5.564:1, primary-soft 4.639:1; 동일 표면 집합 최저 4.523:1 | 작은 정보 의미 글자 |
-| FeedbackOps `text-text-warning-label` | card 5.971:1, warn-soft 5.195:1; 동일 표면 집합 최저 4.854:1 | 작은 경고 의미 글자 |
-| FeedbackOps `text-text-danger-label` | card 6.571:1, danger-soft 5.560:1; 동일 표면 집합 최저 5.342:1 | 작은 오류 의미 글자 |
+| 공유 `text-text-success-label` | card 5.764:1, success-soft 5.191:1; canvas/sunken/hover/selected 포함 최저 4.686:1 | 작은 성공 의미 글자; vivid success는 dot/icon/tint로 분리 |
+| 공유 `text-text-info-label` | card 5.564:1, primary-soft 4.639:1; 동일 표면 집합 최저 4.523:1 | 작은 정보 의미 글자 |
+| 공유 `text-text-warning-label` | card 5.971:1, warn-soft 5.195:1; 동일 표면 집합 최저 4.854:1 | 작은 경고 의미 글자 |
+| 공유 `text-text-danger-label` | card 6.571:1, danger-soft 5.560:1; 동일 표면 집합 최저 5.342:1 | 작은 오류 의미 글자 |
 | `text-secondary` (neutral label) | sunken/neutral-soft 9.23:1 | 중립 배지·필수 미평가 설명 |
 | `border-control` | card/canvas/sunken/hover/selected 4.892/4.642/4.469/4.311/3.977:1; sidebar 4.505:1 | interactive control 식별 경계로 모두 ≥3:1; text-muted와 같은 값이어도 비텍스트 기준은 다름 |
 | `border-subtle` | 구조 divider·card·행 구분 | 입력/checkbox의 유일한 식별 경계로 사용 금지 |
@@ -232,7 +232,7 @@ label 행은 #210(FeedbackOps 원본 값), 나머지 행은 #193/#194 UI/UX 리�
 
 ## Layout and analysis composition
 
-정보 밀도는 장식 여백보다 우선한다. 정확한 비교는 표, 변화·분포는 차트, 요약은 KPI로 나눈다. 카드마다 동일한 시각 강도를 주는 card soup를 피하고 공유 surface/border로 계층을 만든다. 공유 반경·primitive 모양은 FeedbackOps 원본을 따르며 버튼·input을 독자적으로 재설계하지 않는다. 크기도 FeedbackOps variant로 고른다 — 작은 동작 버튼 `size="toolbar"`, 아이콘 버튼 `icon-xs`/`icon-sm`, 그 밖 `sm`; 팝오버·드롭다운·툴팁은 FeedbackOps 표면, segmented 선택은 FeedbackOps segmented `RadioGroup`([ADR-0023](docs/adr/0023-feedbackops-primitive-shapes-and-sizes.md)). FeedbackOps에 없는 모양은 아래 접근성 예외를 제외하면 플랫폼에서 덮어쓰지 않고 FeedbackOps variant로 제안한다. 예외는 접근성 하한 넷 — 입력·select·체크박스 경계의 `border-control`, `aria-disabled` 버튼의 비활성 모양, 메뉴 항목 키보드 포커스 링, `@ap/ui`가 정의하는 탭 선택 표식(ADR-0023 개정) — 뿐이다. 소비자는 primitive 모양을 덮어쓰지 않는다. 카드 그림자를 겹치지 않고, floating surface의 공유 처리는 06 §23을 따른다.
+정보 밀도는 장식 여백보다 우선한다. 정확한 비교는 표, 변화·분포는 차트, 요약은 KPI로 나눈다. 카드마다 동일한 시각 강도를 주는 card soup를 피하고 공유 surface/border로 계층을 만든다. 공유 반경·primitive 모양은 공유 원본을 따르며 버튼·input을 독자적으로 재설계하지 않는다. 크기도 공유 variant로 고른다 — 작은 동작 버튼 `size="toolbar"`, 아이콘 버튼 `icon-xs`/`icon-sm`, 그 밖 `sm`; 팝오버·드롭다운·툴팁은 공유 표면, segmented 선택은 공유 segmented `RadioGroup`([ADR-0023](docs/adr/0023-feedbackops-primitive-shapes-and-sizes.md)). 공유에 없는 모양은 아래 접근성 예외를 제외하면 플랫폼에서 덮어쓰지 않고 공유 variant로 제안한다. 예외는 접근성 하한 넷 — 입력·select·체크박스 경계의 `border-control`, `aria-disabled` 버튼의 비활성 모양, 메뉴 항목 키보드 포커스 링, `@ap/ui`가 정의하는 탭 선택 표식(ADR-0023 개정) — 뿐이다. 소비자는 primitive 모양을 덮어쓰지 않는다. 카드 그림자를 겹치지 않고, floating surface의 공유 처리는 06 §23을 따른다.
 
 ### Dashboard composition and focal point
 
@@ -247,7 +247,7 @@ label 행은 #210(FeedbackOps 원본 값), 나머지 행은 #193/#194 UI/UX 리�
 - icon·label·값·단위·기준이 있는 delta·보조 caption으로 구성한다. 한 tile에 무관한 두 primary 값을 쌓지 않는다.
 - primary 값은 `t-stat`, 보조 값은 `t-stat-2`; 숫자는 tabular, 단위는 덜 강조하되 읽을 수 있게 한다. delta는 비교 기간·분모를 함께 설명하고 증가 자체를 성공으로 판단하지 않는다.
 - 값 → 원천 표/상세로 추적할 수 있어야 한다. 갱신 시각·coverage·정의 버전은 DataTrust 계약과 함께 표시한다. unknown을 0 또는 0%로 만들지 않는다.
-- 보조 문구는 현재 조건과 다음 행동을 짧게 설명한다. sunken/hover/selected의 필수 문구는 secondary, 의미 문구는 FeedbackOps `text-text-*-label` 쌍을 사용한다. screenshot의 Live 표시는 실제 feed의 근거가 있을 때만 쓴다.
+- 보조 문구는 현재 조건과 다음 행동을 짧게 설명한다. sunken/hover/selected의 필수 문구는 secondary, 의미 문구는 공유 `text-text-*-label` 쌍을 사용한다. screenshot의 Live 표시는 실제 feed의 근거가 있을 때만 쓴다.
 
 ## Charts
 
@@ -275,13 +275,13 @@ cellPadding: 4px 12px
 - toolbar는 제목/설명과 검색·filter·동작을 분리해 정렬하고 폭이 부족하면 wrap한다. 가로 overflow는 표 영역에 가두고 toolbar 접근을 유지한다.
 - selection은 대상·선택 수·clear를 보여 준다. 현재 page 선택과 전체 결과 선택을 혼동하지 않는다. Context/Scope 변경 시 selection을 해제한다. nested 버튼이 있는 행을 통째 clickable wrapper로 만들지 않는다.
 - sort는 `aria-sort`, bulk action은 권한·대상이 명확해야 한다. copy/export 동작·고정 toolbar는 [ADR-0008](docs/adr/0008-table-owned-export-fixed-toolbar.md)의 현재 계약을 따른다. 이 문서가 새로운 backend 작업을 추가하지 않는다.
-- copy Tooltip과 표 column menu도 FeedbackOps floating 표면(그림자 포함)을 쓴다([ADR-0023](docs/adr/0023-feedbackops-primitive-shapes-and-sizes.md)). 표에 따로 둔 border-only 처리는 없다.
+- copy Tooltip과 표 column menu도 공유 floating 표면(그림자 포함)을 쓴다([ADR-0023](docs/adr/0023-feedbackops-primitive-shapes-and-sizes.md)). 표에 따로 둔 border-only 처리는 없다.
 
 ## Status & Badges
 
 `StatusBadge` vocabulary는 **success / warning / danger / neutral / info**다. 실제 데이터 판정은 [06 §19](docs/contract/components.md#19-loading--empty--error-taxonomy)의 원천·관측 시각에 근거한다. success는 확인된 긍정, warning은 확인된 주의, danger는 확인된 실패, neutral은 미평가/보조, info는 정보 전달의 시각 역할이다. unknown·permission 제한·미수집을 화면 임의로 success/failure로 바꾸지 않는다.
 
-작은 badge text는 FeedbackOps `text-text-*-label`, neutral은 secondary이며 soft fill/dot은 별도 vivid accent를 쓴다. text+icon/shape로 의미를 함께 전달한다. 평범한 label에 새 상태 색을 만들지 않는다. 범주/제품 milestone label은 성공 판정과 다르다. 새로운 Tone은 플랫폼 디자인 결정으로 다룬다.
+작은 badge text는 공유 `text-text-*-label`, neutral은 secondary이며 soft fill/dot은 별도 vivid accent를 쓴다. text+icon/shape로 의미를 함께 전달한다. 평범한 label에 새 상태 색을 만들지 않는다. 범주/제품 milestone label은 성공 판정과 다르다. 새로운 Tone은 플랫폼 디자인 결정으로 다룬다.
 
 ## Reference component bindings
 
@@ -293,7 +293,7 @@ Apply-mode QueryBar follows the delegated #553 B groups with C collapsed summary
 
 전역 기간은 Context bar의 동일한 control 하나다. page-owned 검색·stage/status filter는 content toolbar에 두고 전역 Context를 보존한다. 적용된 조건은 보이며 persistent accessible label을 제공한다. page-owned toolbar는 폭이 부족하면 wrap하고 active filter를 숨기지 않는다. 전역 Context 바는 [06 §7](docs/contract/layout.md#7-application-shell)의 우선순위 넘침을 소비하며 한 줄을 유지한다. 입력/검색 문구가 sunken이면 secondary를 사용한다.
 
-#54의 PageFilterBar B안은 card 표면과 `border-subtle` 경계를 쓰며, 보이는 label을 각 control 위에 둔다. 필드는 한 행에서 시작해 폭이 부족하면 모두 보이도록 줄바꿈한다. `@ap/ui` Input과 Select는 FeedbackOps 기본 표면·문구·크기(40px)를 쓰고 높이를 덮어쓰지 않으며 경계만 `border-control`로 둔다(접근성 예외, [ADR-0023](docs/adr/0023-feedbackops-primitive-shapes-and-sizes.md), [ADR-0037](docs/adr/0037-table-filter-consistency.md)). 검색 필드의 아이콘 자리 왼쪽 여백은 이유를 단 예외로 둔다(FeedbackOps와 같은 처리). Search 아이콘은 검색 필드에만 두며 정확 일치 텍스트와 시각 입력에는 붙이지 않는다. 초기화·적용은 소비 화면이 actions 슬롯에 제공한다. 관리 화면의 `적용`은 바뀐 필드 수를 `적용 (n)`으로 보이고 변경이 없으면 꺼지며, 접힌 필터 버튼은 미적용 변경을 `미적용 n` 글로 표시한다.
+#54의 PageFilterBar B안은 card 표면과 `border-subtle` 경계를 쓰며, 보이는 label을 각 control 위에 둔다. 필드는 한 행에서 시작해 폭이 부족하면 모두 보이도록 줄바꿈한다. `@ap/ui` Input과 Select는 공유 기본 표면·문구·크기(40px)를 쓰고 높이를 덮어쓰지 않으며 경계만 `border-control`로 둔다(접근성 예외, [ADR-0023](docs/adr/0023-feedbackops-primitive-shapes-and-sizes.md), [ADR-0037](docs/adr/0037-table-filter-consistency.md)). 검색 필드의 아이콘 자리 왼쪽 여백은 이유를 단 예외로 둔다(공유와 같은 처리). Search 아이콘은 검색 필드에만 두며 정확 일치 텍스트와 시각 입력에는 붙이지 않는다. 초기화·적용은 소비 화면이 actions 슬롯에 제공한다. 관리 화면의 `적용`은 바뀐 필드 수를 `적용 (n)`으로 보이고 변경이 없으면 꺼지며, 접힌 필터 버튼은 미적용 변경을 `미적용 n` 글로 표시한다.
 
 접기(ADR-0029)는 opt-in이며, 접힌 줄은 chevron·`필터`·필드명/값 요약을 담은 secondary 버튼 하나와 오른쪽 독립 초기화다. 요약은 한 줄이 기본이지만 폭이 부족하면 `필드명 값` 항목 단위로 줄바꿈하되 요약은 왼쪽 정렬을 유지하고 구분점 `·`은 다음 항목 앞이 아니라 앞 항목 끝에 붙이며, 긴 값은 단어 내부에서라도 줄바꿈한다 — 말줄임·`+n`·title 전용 치환으로 조건을 숨기지 않는다. 펼친 입력 줄 끝의 `⌃ 접기`는 그 줄 actions 버튼과 같은 크기·variant를 쓰며, 미적용 변경이 있으면 요약 끝에 `미적용 변경 있음`을 함께 보인다.
 
@@ -305,7 +305,7 @@ stat/pipeline icon은 compact soft chip, navigation 그룹 icon은 unboxed outli
 
 ## Shared interaction and data states
 
-primitive 상태·keyboard 동작의 원본은 `@ap/ui`(ADR-0046)이고, [FeedbackOps UI 계약](docs/design/features/ui-design-system.md)은 이전 시점의 참고 문서다. 플랫폼 조합에서는 아래 역할을 연결한다.
+primitive 상태·keyboard 동작의 원본은 `@ap/ui`(ADR-0046)이고, [공유 UI 계약](docs/design/features/ui-design-system.md)은 이전 시점의 참고 문서다. 플랫폼 조합에서는 아래 역할을 연결한다.
 
 | Family | Hover / pressed / selected | Focus / disabled / busy |
 | --- | --- | --- |
@@ -317,7 +317,7 @@ primitive 상태·keyboard 동작의 원본은 `@ap/ui`(ADR-0046)이고, [Feedba
 | Table | hover + selected checkbox/shape | focus-within이 cell을 가리지 않음; busy도 헤더 유지 |
 | Chart·linked KPI | series/outline 강조; 의미 색 바꾸지 않음 | actionable mark만 focus/drill-down; 동일 tooltip/table 접근 |
 
-첫 load는 reserved geometry와 region `aria-busy`를 유지하며 fabricated 값을 만들지 않는다. 공유 Skeleton의 기본 fill은 FeedbackOps UI 계약이 소유하며, 플랫폼 호출부(PlatformDataTable·StateView·EChart lazy)는 크기만 지정하고 fill을 덮어쓰지 않는다(ADR-0023). 동일 Context refresh는 값+Refreshing을 유지할 수 있다. Context/Scope가 바뀌면 이전 결과를 새 결과처럼 표시하지 않고 권한을 재검증한다(06 §11). 부분 실패는 해당 widget에 국한하고 정상 panel을 유지한다.
+첫 load는 reserved geometry와 region `aria-busy`를 유지하며 fabricated 값을 만들지 않는다. 공유 Skeleton의 기본 fill은 공유 UI 계약이 소유하며, 플랫폼 호출부(PlatformDataTable·StateView·EChart lazy)는 크기만 지정하고 fill을 덮어쓰지 않는다(ADR-0023). 동일 Context refresh는 값+Refreshing을 유지할 수 있다. Context/Scope가 바뀌면 이전 결과를 새 결과처럼 표시하지 않고 권한을 재검증한다(06 §11). 부분 실패는 해당 widget에 국한하고 정상 panel을 유지한다.
 
 Empty/error는 원인 설명·허용된 다음 행동·Retry·correlation ID를 읽을 수 있게 표시한다. [06 §19](docs/contract/components.md#19-loading--empty--error-taxonomy)의 no-match/not-collected/delayed/coverage/forbidden/too-large/unknown을 하나로 합치지 않는다. 조회 0건에서 수집/파서 지연을 추론하지 않는다. 실제 비활성·busy도 필요한 이유를 opacity로 숨기지 않는다.
 
@@ -333,9 +333,9 @@ Empty/error는 원인 설명·허용된 다음 행동·Retry·correlation ID를 
 
 | Do | Don't |
 | --- | --- |
-| FeedbackOps semantic token/primitive를 `@ap/ui`로 소비 | 공유 palette·본문·반경을 이 문서나 메뉴에 다시 정의 |
+| 공유 semantic token/primitive를 `@ap/ui`로 소비 | 공유 palette·본문·반경을 이 문서나 메뉴에 다시 정의 |
 | primary 강조를 주요 동작·위치·focus에 집중 | 범주 palette로 두 번째 brand CTA 제작 |
-| 필수 sunken 문구 secondary, 의미 문구 FeedbackOps `text-text-*-label` | muted-on-sunken을 4.5:1로 반올림하거나 opacity로 fade |
+| 필수 sunken 문구 secondary, 의미 문구 공유 `text-text-*-label` | muted-on-sunken을 4.5:1로 반올림하거나 opacity로 fade |
 | control 경계 border-control, 구조선 border-subtle | 모든 divider를 진하게 하거나 input 경계를 hairline만으로 식별 |
 | 색+shape/weight/text로 선택·상태 표시 | 색만으로 현재 위치·성공·실패 전달 |
 | KPI→차트→동일 데이터 표/근거로 추적 | unknown을 0으로 만들거나 screenshot 숫자·Live를 제품 사실로 사용 |
@@ -346,15 +346,15 @@ Empty/error는 원인 설명·허용된 다음 행동·Retry·correlation ID를 
 
 | Source | 보존한 원칙·증거 | 현재 권한 / 대체된 부분 |
 | --- | --- | --- |
-| FeedbackOps tokens.md / tokens.css / UI system / ADR-0058 | 제품 UI 기반·공유 typography·primitive·소비 계약 | **공유 디자인 원본**; 이전 플랫폼 공유 값/독자 font/primitive 설명을 대체 |
+| 공유 tokens.md / tokens.css / UI system / ADR-0058 | 제품 UI 기반·공유 typography·primitive·소비 계약 | **공유 디자인 원본**; 이전 플랫폼 공유 값/독자 font/primitive 설명을 대체 |
 | ADR-0010 / ADR-0011, 승인 prototype `prototype/52-fops-design` (`.agents/reports/design/shots/52-fops/`, 원격 브랜치 `prototype/52-fops-design`의 커밋에만 있다) | 직접 소비, 프로토타입 C안의 밝은 AppFrame | **Decided**; 이전 어두운 navigation·상단 구성·shell 측정값을 대체 |
 | 06 / 07 | 플랫폼 행동·상태·접근성 및 셸 구조 | **계약 원본**; reference navigation·시간·권한보다 우선 |
 | #193 UIUX-193-03/04/05, #194 P3-D1·수용된 shell 수정 | label/control pairing·sunken 제한·stroke 대비·현재 위치·collapsed 규칙 | 이 문서의 pairing 및 chart 결정 배경; 렌더/동작 통과를 새로 주장하지 않음 |
-| `.agents/references/design-md/`의 linear.app | 단일 강조·중립 hierarchy | 원칙만 보존; brand 값·독자 공유 token·marketing layout은 FeedbackOps로 대체/미채택 |
+| `.agents/references/design-md/`의 linear.app | 단일 강조·중립 hierarchy | 원칙만 보존; brand 값·독자 공유 token·marketing layout은 공유로 대체/미채택 |
 | 같은 참고자료의 clickhouse | flat hierarchy·shadow stack 회피 | 원칙만; 독자 radius와 전역 shadow 금지는 공유 primitive/06 규칙으로 대체 |
-| 같은 참고자료의 supabase | ink hierarchy·기술 도구의 절제 | 원칙만; font·surface·radius literal은 FeedbackOps로 대체 |
+| 같은 참고자료의 supabase | ink hierarchy·기술 도구의 절제 | 원칙만; font·surface·radius literal은 공유로 대체 |
 | 같은 참고자료의 mongodb | 범주색은 series/tag에 제한 | 원칙만; dark hero·pricing·pill CTA 미채택 |
-| Industrial Log Analytics screenshot, 1672×941, 기존 업로드 ID `00521d63-05d6-4f35-b771-a2b8bc1da6b7/0f3b051c-image.png` | KPI/pipeline/queue/lifecycle, 3 rings+bar, equipment table 구성의 provenance | 역사적 시각 입력; shell/폰트/색 측정값은 FeedbackOps로 대체. 원본은 저장소 밖이며 이번 작업에서 재검증하지 않음 |
+| Industrial Log Analytics screenshot, 1672×941, 기존 업로드 ID `00521d63-05d6-4f35-b771-a2b8bc1da6b7/0f3b051c-image.png` | KPI/pipeline/queue/lifecycle, 3 rings+bar, equipment table 구성의 provenance | 역사적 시각 입력; shell/폰트/색 측정값은 공유로 대체. 원본은 저장소 밖이며 이번 작업에서 재검증하지 않음 |
 | interface-design / ui-ux-pro-max의 당시 review | focal region·numeric alignment·visible focus | 검토 provenance; 계약을 덮어쓰지 않음 |
 
 posthog와 sentry(Sentry 스타일) 자료는 당시 illustration/mascot 중심 marketing 방향이라 미채택했다. 원본 raster에서 exact CSS·source font·animation·business priority를 확정하지 않는다. Reference 배치는 Consumer 후보이며 새로운 플랫폼 API나 도메인 화면 구현을 승인하지 않는다.

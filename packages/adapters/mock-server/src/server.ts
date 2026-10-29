@@ -128,7 +128,7 @@ export type ServeOptions<T> = {
   mergeTimeDomain?: boolean;
   /**
    * Default true: a mart read — Data Trust is attached and the mart dev scenarios (empty, partial, too_large,
-   * unknown_status) apply. False for a non-mart source (e.g. a FeedbackOps read): trust stays null and only
+   * unknown_status) apply. False for a non-mart source (e.g. a feature read): trust stays null and only
    * transport scenarios (slow, timeout, error, forbidden, malformed) apply, so a dev scenario never fakes a
    * confirmed zero or a mart status the source does not have.
    */

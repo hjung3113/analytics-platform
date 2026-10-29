@@ -42,7 +42,7 @@
 
 ## 4. LAYOUT BOUNDARY
 
-배치는 구현(`menus/mars/analytics/src/pages/ProductivityOverview.tsx`)이 기준이다. Overview archetype(`06` §12.1) 순서로 KPI 요약, 추세, 구성, Attention을 두고 Data Trust 요약은 페이지 머리 슬롯에 둔다. 위젯마다 자체 조회를 가져 부분 실패가 그 위젯에 머문다. 셸 구조·치수는 [06 §7](../contract/layout.md#7-application-shell)/[07](app-shell.md), 공유 색·폰트·primitive는 FeedbackOps 원본, 플랫폼 시각 확장은 [DESIGN](../../DESIGN.md)이 소유한다.
+배치는 구현(`menus/mars/analytics/src/pages/ProductivityOverview.tsx`)이 기준이다. Overview archetype(`06` §12.1) 순서로 KPI 요약, 추세, 구성, Attention을 두고 Data Trust 요약은 페이지 머리 슬롯에 둔다. 위젯마다 자체 조회를 가져 부분 실패가 그 위젯에 머문다. 셸 구조·치수는 [06 §7](../contract/layout.md#7-application-shell)/[07](app-shell.md), 공유 색·폰트·primitive는 기능 원본, 플랫폼 시각 확장은 [DESIGN](../../DESIGN.md)이 소유한다.
 
 ## 5. OWNERSHIP
 

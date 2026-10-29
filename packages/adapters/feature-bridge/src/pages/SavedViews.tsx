@@ -6,10 +6,10 @@ import { mapUnknownError } from '@/lib/api/errorMapper';
 import { createSavedView, deleteSavedView, fetchSavedViews, type SavedView } from '@/lib/api/saved-views';
 import { savedViewFilterToVocSearch, vocSearchToSavedViewFilter } from '@/features/voc/lib/saved-view-keys';
 import { searchHref } from '@/lib/host/search';
-import { featureQueryClient } from '../fo/session';
-import { isReachable } from '../fo/reachable';
-import { operatorHostLinks } from '../fo/operator-links';
-import { inboxRoute, triageRoute } from '../fo/voc-routes';
+import { featureQueryClient } from '../feature/session';
+import { isReachable } from '../feature/reachable';
+import { operatorHostLinks } from '../feature/operator-links';
+import { inboxRoute, triageRoute } from '../feature/voc-routes';
 
 const NO_VIEWS: SavedView[] = [];
 const QUERY_KEY = ['saved-views', 'voc'] as const;
@@ -18,7 +18,7 @@ const SAVE_ROUTES = { 'inbox': inboxRoute, 'triage': triageRoute } as const;
 type Recovery = { order: string[]; deletedIndex: number };
 
 /**
- * The FeedbackOps saved VOC views for a ready session (the original `SavedViewsSection`, #595 4c): apply, delete, and save the current 수신함/Triage filter.
+ * The feature saved VOC views for a ready session (the original `SavedViewsSection`, #595 4c): apply, delete, and save the current 수신함/Triage filter.
  * Applying lands on the menu the stored `view` maps to with exactly the stored keys; every other key, a carried `managedSystem` included, is cleared.
  */
 export default function SavedViews() {

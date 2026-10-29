@@ -1,8 +1,8 @@
-# FeedbackOps Frontend Component Stack
+# Feature Frontend Component Stack
 
 ## Purpose
 
-This document records the recommended frontend component stack for FeedbackOps.
+This document records the recommended frontend component stack for the feature suite.
 
 It complements:
 
@@ -12,7 +12,7 @@ docs/design/features/tokens.md
 docs/product/features/12-ui-ux-principles.md
 ```
 
-It is not a generic package list. FeedbackOps has product-specific UI contracts that no third-party component library should own.
+It is not a generic package list. The feature suite has product-specific UI contracts that no third-party component library should own.
 
 The shipped component inventory is `packages/feature-ui/src/index.ts`. Component contracts and required states live in `docs/design/features/component-inventory.md`. This document owns library governance: which libraries are approved, which are not adopted, and how a new one is added.
 
@@ -22,8 +22,8 @@ Use a governed shadcn/ui-style component architecture:
 
 ```text
 Radix-backed shadcn/ui primitives
--> FeedbackOps-owned product primitives
--> FeedbackOps-owned domain workflow components
+-> feature-owned product primitives
+-> feature-owned domain workflow components
 -> domain screens
 ```
 
@@ -33,7 +33,7 @@ Base UI is a future evaluation candidate, not the MVP default.
 
 ## Why This Direction
 
-FeedbackOps is a dense operational SaaS with:
+The feature suite is a dense operational SaaS with:
 
 ```text
 - list-first workflows
@@ -67,9 +67,9 @@ Those components must be owned by this codebase.
 The primitive source and the shared display components `ObjectRow`, `UserAvatar`,
 `UserChip`, `ProgressMeter`, `SeverityIndicator`, `PermissionBlockedPanel`, and
 `StatusBadgeFrame` live in the pinned `@ap/ui` package (analytics-platform's
-`packages/sdk/ui`, tag `sdk-v0.5.0`). FeedbackOps code imports them from `@ap/ui` directly;
+`packages/sdk/ui`, tag `sdk-v0.5.0`). feature code imports them from `@ap/ui` directly;
 `@ap/feature-ui` no longer re-exports them (#713q). The SDK ownership decision is recorded
-in platform [ADR-0050](../../../adr/0050-domain-coupled-ui-returns-to-feedbackops.md). FeedbackOps-owned composed components live at:
+in platform [ADR-0050](../../../adr/0050-domain-coupled-ui-returns-to-feedbackops.md). feature-owned composed components live at:
 
 ```text
 packages/feature-ui/src/{badges,data,entity,feedback,forms,identity,indicators,layout,panel,permissions,rich-content,toolbar}/*
@@ -77,13 +77,13 @@ packages/feature-ui/src/{badges,data,entity,feedback,forms,identity,indicators,l
 
 `ObjectRow`, `UserAvatar`, `UserChip`, `ProgressMeter`,
 `SeverityIndicator`, `PermissionBlockedPanel`, and `StatusBadgeFrame` are imported from `@ap/ui`.
-FeedbackOps-owned badges, `LinkedEntityTrail`,
+feature-owned badges, `LinkedEntityTrail`,
 and pickers remain local. Rich content (`RichEditor`, `RichContentRenderer`) is
 consumed from `@ap/ui` (platform [ADR-0052](../../../adr/0052-rich-content-stays-in-the-sdk.md)); `packages/feature-ui/src/rich-content/`
 keeps only drift/sanitization helpers. `allowlist-local.ts` is the UI copy of the canonical shared
 contract and remains drift-tested.
 
-The shadcn primitives are not wrapped in `packages/feature-ui`; the `@ap/feature-ui` public API (FeedbackOps-owned
+The shadcn primitives are not wrapped in `packages/feature-ui`; the `@ap/feature-ui` public API (feature-owned
 components and aliases only) is assembled by `packages/feature-ui/src/index.ts`.
 
 Recommended source:
@@ -96,7 +96,7 @@ Rules:
 
 ```text
 - These components expose visual tokens and accessibility behavior.
-- They do not know FeedbackOps domain concepts.
+- They do not know feature domain concepts.
 - They must be normalized to frontend semantic tokens derived from docs/design/features/tokens.md.
 - Feature screens must not import @radix-ui/* directly (scripts/check-boundaries.mjs rule 3). They import the primitive from @ap/ui.
 ```
@@ -116,7 +116,7 @@ Components that only one feature uses stay feature-local, under `apps/feature-sc
 Rules:
 
 ```text
-- These components encode FeedbackOps layout, density, and state contracts.
+- These components encode feature layout, density, and state contracts.
 - Feature screens should prefer these over composing tables, badges, panels, and permission states independently.
 - These components preserve product rules from docs/design.
 - They must not be replaced by generic card/table/chart blocks.
@@ -161,7 +161,7 @@ cmdk
 Use:
 
 ```text
-- shadcn/ui primitives sourced through the pinned `@ap/ui` SDK; FeedbackOps consumers import them from `@ap/ui`
+- shadcn/ui primitives sourced through the pinned `@ap/ui` SDK; feature consumers import them from `@ap/ui`
 - Radix UI for accessible primitives (@radix-ui/react-* dependencies of packages/feature-ui)
 - lucide-react for icons
 - sonner for ephemeral mutation feedback
@@ -296,7 +296,7 @@ They are not approved as direct visual systems.
 Any component copied from a registry must go through this process:
 
 ```text
-1. For a bundle-1 primitive, update the upstream analytics-platform SDK and consume a tagged `@ap/ui` release. Put FeedbackOps product and domain components in the matching `packages/feature-ui/src/<area>` folder.
+1. For a bundle-1 primitive, update the upstream analytics-platform SDK and consume a tagged `@ap/ui` release. Put feature product and domain components in the matching `packages/feature-ui/src/<area>` folder.
 2. Normalize colors, spacing, radius, typography, focus rings, and density to `docs/design/features/ui-design-system.md` semantic tokens.
 3. Remove unrelated variants and decorative styling.
 4. Verify accessibility behavior.
@@ -324,7 +324,7 @@ Origin UI:
 
 ```text
 Useful for app UI composition examples and copy-paste interaction patterns.
-Must be restyled to FeedbackOps tokens.
+Must be restyled to the feature suite tokens.
 ```
 
 Tremor:
@@ -370,7 +370,7 @@ Not recommended as the primary UI stack.
 Reason:
 
 ```text
-These are full component systems with stronger visual and API opinions. They can speed up generic admin surfaces, but they work against the FeedbackOps requirement to own the dense Pack 17 light visual language (FO ADR-0021), permission-aware states, and evidence-to-action workflow components.
+These are full component systems with stronger visual and API opinions. They can speed up generic admin surfaces, but they work against the feature requirement to own the dense Pack 17 light visual language (FO ADR-0021), permission-aware states, and evidence-to-action workflow components.
 ```
 
 Use only if:
@@ -392,7 +392,7 @@ Not recommended for product screens.
 Reason:
 
 ```text
-They are useful Tailwind component accelerators, but FeedbackOps needs React-owned interaction state, accessibility guarantees, and product-specific composition. shadcn/Radix is a better fit.
+They are useful Tailwind component accelerators, but the feature suite needs React-owned interaction state, accessibility guarantees, and product-specific composition. shadcn/Radix is a better fit.
 ```
 
 ## Permission-Aware UI Requirements
@@ -462,7 +462,7 @@ packages/feature-ui dependencies:
 - lucide-react, sonner
 ```
 
-shadcn/ui is not a normal runtime UI dependency; bundle-1 source files are shipped by the pinned `@ap/ui` package. FeedbackOps code imports the primitives from `@ap/ui`; `packages/feature-ui` keeps no shadcn files.
+shadcn/ui is not a normal runtime UI dependency; bundle-1 source files are shipped by the pinned `@ap/ui` package. feature code imports the primitives from `@ap/ui`; `packages/feature-ui` keeps no shadcn files.
 Install reusable component dependencies at the workspace root or target package
 according to the chosen workspace manager; do not create per-app lockfiles.
 

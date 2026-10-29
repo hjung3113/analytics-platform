@@ -7,7 +7,7 @@ import { setFeatureApi } from '@ap/feature-bridge/feature-api';
 import Notifications from './pages/Notifications';
 import { notificationsSlot } from '@ap/feature-bridge/notifications-slot';
 import { featureQueryClient } from '@ap/feature-bridge';
-import { ID_A, ID_B, json, listOf, notification, registry, stubFetch, switchableAdapter } from './fo/test-support';
+import { ID_A, ID_B, json, listOf, notification, registry, stubFetch, switchableAdapter } from './feature/test-support';
 
 const COUNT = '/api/features/notifications?unread=true&limit=1';
 const countOf = (n: number) => json({ items: [], page: { has_more: false }, unread_count: n });
@@ -34,7 +34,7 @@ describe('notifications slot', () => {
     expect(manifest?.path).toBe('/notifications');
   });
 
-  it('without a FeedbackOps API shows no count, 실서버 필요 in the popover body, and requests nothing', async () => {
+  it('without a feature API shows no count, 실서버 필요 in the popover body, and requests nothing', async () => {
     setFeatureApi(null);
     const calls = stubFetch(() => listOf());
     mount(switchableAdapter().adapter, <><Probe /><notificationsSlot.Recent /></>);
@@ -43,7 +43,7 @@ describe('notifications slot', () => {
     expect(calls).toEqual([]);
   });
 
-  describe('with a FeedbackOps API', () => {
+  describe('with a feature API', () => {
     beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost }); });
 
     it('shares one count request between two probes', async () => {

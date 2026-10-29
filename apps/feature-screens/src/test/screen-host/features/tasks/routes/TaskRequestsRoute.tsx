@@ -60,7 +60,7 @@ function useRouterNavigate(): HostNavigate {
   const navigate = useNavigate();
   return React.useCallback(
     (href, options) => {
-      const location = new URL(href, 'http://feedbackops.local');
+      const location = new URL(href, 'http://platform.local');
       const replace = options?.replace === true ? { replace: true } : {};
       if (location.pathname !== '/tasks' || location.searchParams.get('view') !== 'requests') {
         void navigate({
@@ -138,7 +138,7 @@ function TaskRequestsRouteSeam({
       routerNavigate(href, options);
       return;
     }
-    const location = new URL(href, 'http://feedbackops.local');
+    const location = new URL(href, 'http://platform.local');
     if (location.pathname !== '/tasks' || location.searchParams.get('view') !== 'requests') {
       baseNavigate(href, options);
       return;

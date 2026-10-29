@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { mainHeading, query, signInAs } from './support';
 
 /**
- * FeedbackOps › 연동 (#762 p2): 연동 액션 대시보드, Evidence, 엔티티 링크 and 커버리지 as bridge menus. The e2e run uses the mock adapter, where `FeatureBridge` renders only `실서버 필요`,
+ * 기능 › 연동 (#762 p2): 연동 액션 대시보드, Evidence, 엔티티 링크 and 커버리지 as bridge menus. The e2e run uses the mock adapter, where `FeatureBridge` renders only `실서버 필요`,
  * so no screen or drawer mounts here; the in-place drawers are covered by the page tests and the conductor's real-server check.
  */
 const EVIDENCE = '99999999-9999-4999-8999-999999999999';
@@ -11,7 +11,7 @@ const MENUS = ['연동 액션 대시보드', 'Evidence', '엔티티 링크', '�
 const sidebar = (page: Page) => page.getByRole('navigation', { name: '주 메뉴' });
 const sections = (page: Page) => page.getByRole('navigation', { name: '시스템 레일' }).getByRole('group', { name: '시스템 섹션' });
 
-test.describe('FeedbackOps 연동 그룹(#762 p2)', () => {
+test.describe('기능 연동 그룹(#762 p2)', () => {
   test.beforeEach(async ({ page }) => { await signInAs(page, 'admin'); });
 
   test('레일 연동 섹션은 네 메뉴를 순서대로 보이고 Findings 행은 없다', async ({ page }) => {

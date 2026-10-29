@@ -6,13 +6,13 @@
 // Value format:
 //   base64url(JSON payload) + '.' + base64url(HMAC-SHA256(key, label.payloadB64))
 // with the key derived from the client secret
-// (`createHmac('sha256', clientSecret)` over the `fops-oidc-tx-v1` domain
+// (`createHmac('sha256', clientSecret)` over the `platform-oidc-tx-v1` domain
 // separation label) — the browser cannot mint or modify a payload without
 // the secret. Signature comparison is timing-safe (verifyOidcTx).
 
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
-export const OIDC_TX_COOKIE_NAME = 'fops_oidc_tx';
+export const OIDC_TX_COOKIE_NAME = 'platform_oidc_tx';
 export const OIDC_TX_TTL_SECONDS = 600;
 
 /** Payload carried by the transaction cookie. */
@@ -25,7 +25,7 @@ export interface OidcTxPayload {
   exp: number;
 }
 
-const TX_LABEL = 'fops-oidc-tx-v1';
+const TX_LABEL = 'platform-oidc-tx-v1';
 
 function txSigningKey(clientSecret: string): Buffer {
   return createHmac('sha256', clientSecret).update(TX_LABEL).digest();

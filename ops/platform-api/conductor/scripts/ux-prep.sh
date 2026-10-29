@@ -14,7 +14,7 @@
 # `app-preview.py stop <n>-branch`, and only then rebase the worktree or refresh the baseline. Needs WAVE_STATE.
 set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# FeedbackOps path map (FO_BACKEND).
+# Feature path map (FEATURE_BACKEND).
 # shellcheck disable=SC1091
 . "$here/../../paths.sh"
 DEFAULT_TARGETS='/home,/vocs?view=inbox,/vocs?view=triage,/findings,/tasks?view=board,/surveys/participate'
@@ -174,7 +174,7 @@ print(d["url"])
 
 run_scale_seed() {  # SEED_MODE=scale from the baseline backend, after --seed has returned
   local log=$logdir/scale-seed.log
-  echo "scale seed (SEED_MODE=scale) from $baseline/$FO_BACKEND"
+  echo "scale seed (SEED_MODE=scale) from $baseline/$FEATURE_BACKEND"
   (
     set -a
     . "$env_file"
@@ -182,7 +182,7 @@ run_scale_seed() {  # SEED_MODE=scale from the baseline backend, after --seed ha
     case "${DATABASE_URL:-}" in
       *:5434/*) echo 'refusing scale seed: DATABASE_URL targets the development DB on 5434' >&2; exit 2 ;;
     esac
-    cd "$baseline/$FO_BACKEND" || exit 2
+    cd "$baseline/$FEATURE_BACKEND" || exit 2
     SEED_MODE=scale npx tsx src/seed/index.ts
   ) >>"$log" 2>&1
 }

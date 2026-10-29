@@ -1,5 +1,5 @@
 // URL state, list query and write handlers of the inbox / 내 VOC list (C9 of Slice 3 #20). Reads the
-// search from the host seam and writes the complete next FeedbackOps href through it, so the screen
+// search from the host seam and writes the complete next feature href through it, so the screen
 // runs under the standalone router and inside the platform bridge alike (platform ADR-0071).
 
 import { isPermissionDenied } from '@/lib/api/types';

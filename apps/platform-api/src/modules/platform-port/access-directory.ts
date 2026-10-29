@@ -1,7 +1,7 @@
 // Platform port `accessDirectory` (ADR-0069 decisions 7, 8): the console access directory over the
 // workspace's internal members. Judges a request and returns an outcome; the route wraps it in the
 // envelope. Permissions come from the one rule table (`resolvePlatformPermissions`), re-ordered to
-// the platform's canonical permission order; FeedbackOps has no sites, so `sites` is always [].
+// the platform's canonical permission order; feature has no sites, so `sites` is always [].
 
 import type { Db } from '../../db/client.js';
 import { listWorkspaceInternalMembers } from '../auth/index.js';

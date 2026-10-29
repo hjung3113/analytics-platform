@@ -1,6 +1,6 @@
 // Focused test for the cross-module-repo-import rule in check-boundaries.mjs.
 // Builds throwaway fixture trees laid out by the path map (ops/platform-api/paths.mjs), runs the checker against each
-// tree through FO_PATHS_REPO_ROOT, and removes the tree afterwards.
+// tree through FEATURE_PATHS_REPO_ROOT, and removes the tree afterwards.
 // Run: node ops/platform-api/scripts/check-boundaries.test.mjs
 
 import assert from 'node:assert/strict';
@@ -10,10 +10,16 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { FO_BACKEND, FO_FRONTEND, FO_OPS, FO_SHARED, FO_UI } from '../paths.mjs';
+import {
+  FEATURE_BACKEND,
+  FEATURE_FRONTEND,
+  FEATURE_OPS,
+  FEATURE_SHARED,
+  FEATURE_UI,
+} from '../paths.mjs';
 
 const SCRIPT = fileURLToPath(new URL('check-boundaries.mjs', import.meta.url));
-const MODULES = join(FO_BACKEND, 'src', 'modules');
+const MODULES = join(FEATURE_BACKEND, 'src', 'modules');
 
 let failures = 0;
 
@@ -21,7 +27,7 @@ function runCase(name, files, expectExit0, expectOutput) {
   const tmp = mkdtempSync(join(tmpdir(), 'boundary-test-'));
   try {
     // The checker runs from its real location (so `typescript` resolves from this package's node_modules); the
-    // fixture tree is its repository root through FO_PATHS_REPO_ROOT, isolated from the real production tree.
+    // fixture tree is its repository root through FEATURE_PATHS_REPO_ROOT, isolated from the real production tree.
     for (const [rel, content] of Object.entries(files)) {
       const dest = join(tmp, rel);
       mkdirSync(dirname(dest), { recursive: true });
@@ -32,7 +38,7 @@ function runCase(name, files, expectExit0, expectOutput) {
     try {
       stdout = execFileSync('node', [SCRIPT], {
         encoding: 'utf8',
-        env: { ...process.env, FO_PATHS_REPO_ROOT: tmp },
+        env: { ...process.env, FEATURE_PATHS_REPO_ROOT: tmp },
       });
     } catch (err) {
       exit = err.status ?? 1;
@@ -82,7 +88,7 @@ runCase(
     [join(MODULES, 'findings', 'record.ts')]: "import { lockTaskById } from '../tasks/repo.js';\n",
   },
   false,
-  `${FO_BACKEND}/src/modules/findings/record.ts:1`,
+  `${FEATURE_BACKEND}/src/modules/findings/record.ts:1`,
 );
 
 runCase(
@@ -94,7 +100,7 @@ runCase(
     ].join('\n'),
   },
   false,
-  `${FO_BACKEND}/src/modules/voc/jobs/purge.ts:1`,
+  `${FEATURE_BACKEND}/src/modules/voc/jobs/purge.ts:1`,
 );
 
 runCase(
@@ -107,7 +113,7 @@ runCase(
     ].join('\n'),
   },
   false,
-  `${FO_BACKEND}/src/modules/surveys/results.ts:2`,
+  `${FEATURE_BACKEND}/src/modules/surveys/results.ts:2`,
 );
 
 runCase(
@@ -137,8 +143,8 @@ runCase(
   },
   false,
   [
-    `${FO_BACKEND}/src/modules/surveys/results.ts:2`,
-    `${FO_BACKEND}/src/modules/surveys/results.ts:3`,
+    `${FEATURE_BACKEND}/src/modules/surveys/results.ts:2`,
+    `${FEATURE_BACKEND}/src/modules/surveys/results.ts:3`,
   ],
 );
 
@@ -152,49 +158,49 @@ runCase(
     ].join('\n'),
   },
   false,
-  `${FO_BACKEND}/src/modules/surveys/results.ts:2`,
+  `${FEATURE_BACKEND}/src/modules/surveys/results.ts:2`,
 );
 
 runCase(
   'rule 8 rejects VOC hook imports through the feature alias',
   {
     ...zero,
-    [join(FO_FRONTEND, 'src', 'features', 'findings', 'x.ts')]:
+    [join(FEATURE_FRONTEND, 'src', 'features', 'findings', 'x.ts')]:
       "import { useThing } from '@/features/voc/hooks/useThing';\n",
   },
   false,
-  `${FO_FRONTEND}/src/features/findings/x.ts:1`,
+  `${FEATURE_FRONTEND}/src/features/findings/x.ts:1`,
 );
 
 runCase(
   'rule 8 rejects relative VOC lib imports from src/lib',
   {
     ...zero,
-    [join(FO_FRONTEND, 'src', 'lib', 'x.ts')]:
+    [join(FEATURE_FRONTEND, 'src', 'lib', 'x.ts')]:
       "import { helper } from '../features/voc/lib/helper';\n",
   },
   false,
-  `${FO_FRONTEND}/src/lib/x.ts:1`,
+  `${FEATURE_FRONTEND}/src/lib/x.ts:1`,
 );
 
 runCase(
   'rule 8 treats voc-cluster as a non-VOC feature',
   {
     ...zero,
-    [join(FO_FRONTEND, 'src', 'features', 'voc-cluster', 'x.ts')]:
+    [join(FEATURE_FRONTEND, 'src', 'features', 'voc-cluster', 'x.ts')]:
       "import { useThing } from '@/features/voc/hooks/useThing';\n",
   },
   false,
-  `${FO_FRONTEND}/src/features/voc-cluster/x.ts:1`,
+  `${FEATURE_FRONTEND}/src/features/voc-cluster/x.ts:1`,
 );
 
 runCase(
   'rule 8 excludes frontend tests and allows VOC feature internals',
   {
     ...zero,
-    [join(FO_FRONTEND, 'src', 'features', 'findings', '__tests__', 'x.test.ts')]:
+    [join(FEATURE_FRONTEND, 'src', 'features', 'findings', '__tests__', 'x.test.ts')]:
       "import { useThing } from '@/features/voc/hooks/useThing';\n",
-    [join(FO_FRONTEND, 'src', 'features', 'voc', 'components', 'x.tsx')]:
+    [join(FEATURE_FRONTEND, 'src', 'features', 'voc', 'components', 'x.tsx')]:
       "import { helper } from '@/features/voc/lib/helper';\n",
   },
   true,
@@ -209,7 +215,7 @@ runCase(
       "import { seed } from '../../voc/__tests__/_seed-helpers.js';\n",
   },
   false,
-  `${FO_BACKEND}/src/modules/voc-clusters/__tests__/a.test.ts:1`,
+  `${FEATURE_BACKEND}/src/modules/voc-clusters/__tests__/a.test.ts:1`,
 );
 
 runCase(
@@ -220,7 +226,7 @@ runCase(
       "import { seed } from '../../findings/__tests__/_seed-helpers.js';\n",
   },
   false,
-  `${FO_BACKEND}/src/modules/tasks/__tests__/a.test.ts:1`,
+  `${FEATURE_BACKEND}/src/modules/tasks/__tests__/a.test.ts:1`,
 );
 
 runCase(
@@ -257,11 +263,14 @@ runCase(
     ...zero,
     [join(MODULES, 'findings', 'creation.ts')]:
       "import { managedSystems as coreManagedSystems } from '../../db/schema/core.js';\n",
-    [join(FO_BACKEND, 'src', 'test-support', 'seed.ts')]:
+    [join(FEATURE_BACKEND, 'src', 'test-support', 'seed.ts')]:
       "import { analyticsAreas } from '../db/schema/core';\n",
   },
   false,
-  [`${FO_BACKEND}/src/modules/findings/creation.ts:1`, `${FO_BACKEND}/src/test-support/seed.ts:1`],
+  [
+    `${FEATURE_BACKEND}/src/modules/findings/creation.ts:1`,
+    `${FEATURE_BACKEND}/src/test-support/seed.ts:1`,
+  ],
 );
 
 runCase(
@@ -290,9 +299,9 @@ runCase(
   },
   false,
   [
-    `${FO_BACKEND}/src/modules/findings/creation.ts:1`,
-    `${FO_BACKEND}/src/modules/tasks/service.ts:1`,
-    `${FO_BACKEND}/src/modules/tasks/service.ts:2`,
+    `${FEATURE_BACKEND}/src/modules/findings/creation.ts:1`,
+    `${FEATURE_BACKEND}/src/modules/tasks/service.ts:1`,
+    `${FEATURE_BACKEND}/src/modules/tasks/service.ts:2`,
   ],
 );
 
@@ -306,22 +315,25 @@ runCase(
       'await tx.execute(sql`delete from voc.vocs using core.analytics_areas`);\n',
   },
   false,
-  [`${FO_BACKEND}/src/modules/tasks/comma-join.ts:1`, `${FO_BACKEND}/src/modules/tasks/using.ts:1`],
+  [
+    `${FEATURE_BACKEND}/src/modules/tasks/comma-join.ts:1`,
+    `${FEATURE_BACKEND}/src/modules/tasks/using.ts:1`,
+  ],
 );
 
 runCase(
   'rule 11 allows @ap/ui in source and other @ap/* packages in tests only',
   {
     ...zero,
-    [join(FO_UI, 'src', 'index.ts')]:
+    [join(FEATURE_UI, 'src', 'index.ts')]:
       "export { Button } from '@ap/ui';\nimport '@ap/ui/styles.css';\n",
     [join(MODULES, 'platform-port', '__tests__', 'conformance.test.ts')]: [
       "import { describeServerConformance } from '@ap/server-conformance';",
       "import { bootstrapHttpAdapter } from '@ap/http-adapter';",
     ].join('\n'),
-    [join(FO_BACKEND, 'src', 'test-support', 'vocab.ts')]:
+    [join(FEATURE_BACKEND, 'src', 'test-support', 'vocab.ts')]:
       "import type { Permission } from '@ap/contracts';\n",
-    [join(FO_FRONTEND, 'tests', 'visual', 'probe.ts')]:
+    [join(FEATURE_FRONTEND, 'tests', 'visual', 'probe.ts')]:
       "import { PERMISSIONS } from '@ap/contracts';\n",
   },
   true,
@@ -334,14 +346,14 @@ runCase(
     ...zero,
     [join(MODULES, 'platform-port', 'permissions.ts')]:
       "import { PERMISSIONS } from '@ap/contracts';\n",
-    [join(FO_FRONTEND, 'src', 'lib', 'shell.ts')]: "export * from '@ap/shell';\n",
-    [join(FO_SHARED, 'src', 'kernel.ts')]: "const k = await import('@ap/kernel');\n",
+    [join(FEATURE_FRONTEND, 'src', 'lib', 'shell.ts')]: "export * from '@ap/shell';\n",
+    [join(FEATURE_SHARED, 'src', 'kernel.ts')]: "const k = await import('@ap/kernel');\n",
   },
   false,
   [
-    `${FO_BACKEND}/src/modules/platform-port/permissions.ts:1`,
-    `${FO_FRONTEND}/src/lib/shell.ts:1`,
-    `${FO_SHARED}/src/kernel.ts:1`,
+    `${FEATURE_BACKEND}/src/modules/platform-port/permissions.ts:1`,
+    `${FEATURE_FRONTEND}/src/lib/shell.ts:1`,
+    `${FEATURE_SHARED}/src/kernel.ts:1`,
   ],
 );
 
@@ -349,10 +361,10 @@ runCase(
   'rule 11 allows @ap/ui as a runtime dependency and other @ap/* packages as devDependencies',
   {
     ...zero,
-    [join(FO_FRONTEND, 'package.json')]: JSON.stringify({
+    [join(FEATURE_FRONTEND, 'package.json')]: JSON.stringify({
       dependencies: { '@ap/ui': 'git+https://example.test/sdk.git#sdk-v0.5.0', react: '19.0.0' },
     }),
-    [join(FO_BACKEND, 'package.json')]: JSON.stringify({
+    [join(FEATURE_BACKEND, 'package.json')]: JSON.stringify({
       dependencies: { fastify: '5.2.0' },
       devDependencies: {
         '@ap/contracts': 'link:../../../../packages/sdk/contracts',
@@ -360,7 +372,7 @@ runCase(
         '@ap/server-conformance': 'link:../../../../packages/adapters/server-conformance',
       },
     }),
-    [join(FO_SHARED, 'package.json')]: JSON.stringify({ name: '@ap/feature-shared' }),
+    [join(FEATURE_SHARED, 'package.json')]: JSON.stringify({ name: '@ap/feature-shared' }),
   },
   true,
   'boundaries: OK',
@@ -370,37 +382,37 @@ runCase(
   'rule 11 rejects a non-ui platform package under runtime dependencies',
   {
     ...zero,
-    [join(FO_BACKEND, 'package.json')]: JSON.stringify({
+    [join(FEATURE_BACKEND, 'package.json')]: JSON.stringify({
       dependencies: { '@ap/contracts': 'link:../../../../packages/sdk/contracts' },
     }),
-    [join(FO_SHARED, 'package.json')]: JSON.stringify({
+    [join(FEATURE_SHARED, 'package.json')]: JSON.stringify({
       dependencies: { '@ap/ui': '0.5.0', '@ap/kernel': '0.5.0' },
     }),
   },
   false,
   [
-    `${FO_BACKEND}/package.json: dependencies may list only @ap/ui from the platform; @ap/contracts`,
-    `${FO_SHARED}/package.json: dependencies may list only @ap/ui from the platform; @ap/kernel`,
+    `${FEATURE_BACKEND}/package.json: dependencies may list only @ap/ui from the platform; @ap/contracts`,
+    `${FEATURE_SHARED}/package.json: dependencies may list only @ap/ui from the platform; @ap/kernel`,
   ],
 );
 
 runCase(
-  'rule 11 also reads the FeedbackOps tool package manifest and peer/optional dependencies',
+  'rule 11 also reads the feature tool package manifest and peer/optional dependencies',
   {
     ...zero,
-    [join(FO_OPS, 'package.json')]: JSON.stringify({
+    [join(FEATURE_OPS, 'package.json')]: JSON.stringify({
       dependencies: { '@ap/kernel': 'workspace:*' },
     }),
-    [join(FO_UI, 'package.json')]: JSON.stringify({
+    [join(FEATURE_UI, 'package.json')]: JSON.stringify({
       peerDependencies: { react: '^19.0.0', '@ap/contracts': 'workspace:*' },
       optionalDependencies: { '@ap/http-adapter': 'workspace:*' },
     }),
   },
   false,
   [
-    `${FO_OPS}/package.json: dependencies may list only @ap/ui from the platform; @ap/kernel`,
-    `${FO_UI}/package.json: peerDependencies may list only @ap/ui from the platform; @ap/contracts`,
-    `${FO_UI}/package.json: optionalDependencies may list only @ap/ui from the platform; @ap/http-adapter`,
+    `${FEATURE_OPS}/package.json: dependencies may list only @ap/ui from the platform; @ap/kernel`,
+    `${FEATURE_UI}/package.json: peerDependencies may list only @ap/ui from the platform; @ap/contracts`,
+    `${FEATURE_UI}/package.json: optionalDependencies may list only @ap/ui from the platform; @ap/http-adapter`,
   ],
 );
 
@@ -408,36 +420,38 @@ runCase(
   'frontend importing the sibling backend app fails',
   {
     ...zero,
-    [join(FO_FRONTEND, 'src', 'probe.ts')]: "import x from '../../platform-api/src/server.js';\n",
+    [join(FEATURE_FRONTEND, 'src', 'probe.ts')]:
+      "import x from '../../platform-api/src/server.js';\n",
   },
   false,
-  [`${FO_FRONTEND}/src/probe.ts:`, 'must not import apps/platform-api'],
+  [`${FEATURE_FRONTEND}/src/probe.ts:`, 'must not import apps/platform-api'],
 );
 
 runCase(
   'backend importing the sibling frontend app fails',
   {
     ...zero,
-    [join(FO_BACKEND, 'src', 'probe.ts')]: "import x from '../../feature-screens/src/main.js';\n",
+    [join(FEATURE_BACKEND, 'src', 'probe.ts')]:
+      "import x from '../../feature-screens/src/main.js';\n",
   },
   false,
-  [`${FO_BACKEND}/src/probe.ts:`, 'apps/feature-screens'],
+  [`${FEATURE_BACKEND}/src/probe.ts:`, 'apps/feature-screens'],
 );
 
 // ADR-0097 partially supersedes rule 11 only for the core server.
 runCase(
   'server contract-schemas runtime is permitted',
   {
-    [join(FO_BACKEND, 'src/port.ts')]:
+    [join(FEATURE_BACKEND, 'src/port.ts')]:
       "import { x } from '@ap/contract-schemas'; const y = require('@ap/contract-schemas/wire');",
-    [join(FO_BACKEND, 'package.json')]: JSON.stringify({
+    [join(FEATURE_BACKEND, 'package.json')]: JSON.stringify({
       dependencies: { '@ap/contract-schemas': 'workspace:*', '@ap/feature-shared': 'workspace:*' },
     }),
   },
   true,
   'boundaries: OK',
 );
-for (const scope of [FO_FRONTEND, FO_SHARED, FO_UI, FO_OPS]) {
+for (const scope of [FEATURE_FRONTEND, FEATURE_SHARED, FEATURE_UI, FEATURE_OPS]) {
   runCase(
     `${scope} cannot import server schemas`,
     {
@@ -457,7 +471,7 @@ for (const source of ['@ap/feature-shared', '@ap/feature-shared/wire']) {
   runCase(
     `own package ${source} allowed`,
     {
-      [join(FO_BACKEND, 'src/port.ts')]: `import { x } from '${source}';`,
+      [join(FEATURE_BACKEND, 'src/port.ts')]: `import { x } from '${source}';`,
     },
     true,
     'boundaries: OK',
@@ -466,32 +480,32 @@ for (const source of ['@ap/feature-shared', '@ap/feature-shared/wire']) {
 runCase(
   'near neighbor is not an own package',
   {
-    [join(FO_BACKEND, 'src/port.ts')]: "import { x } from '@ap/feature-shared-extra';",
+    [join(FEATURE_BACKEND, 'src/port.ts')]: "import { x } from '@ap/feature-shared-extra';",
   },
   false,
-  `${FO_BACKEND}/src/port.ts:1`,
+  `${FEATURE_BACKEND}/src/port.ts:1`,
 );
 runCase(
   'require cannot bypass runtime SDK ban',
   {
-    [join(FO_BACKEND, 'src/port.ts')]: "const x = require('@ap/kernel');",
+    [join(FEATURE_BACKEND, 'src/port.ts')]: "const x = require('@ap/kernel');",
   },
   false,
-  `${FO_BACKEND}/src/port.ts:1`,
+  `${FEATURE_BACKEND}/src/port.ts:1`,
 );
 
 // Lint-only exception (#1102): exact package-root eslint.config.js may import exactly @ap/eslint-config.
-const LINT_PRESET = "export { foServer as default } from '@ap/eslint-config';\n";
+const LINT_PRESET = "export { featureServerPreset as default } from '@ap/eslint-config';\n";
 runCase(
   'lint exception allows the exact root eslint.config.js of the migrated packages',
   {
     ...zero,
-    [join(FO_BACKEND, 'eslint.config.js')]: LINT_PRESET,
-    [join(FO_SHARED, 'eslint.config.js')]:
-      "import { foShared } from '@ap/eslint-config';\nexport default foShared;\n",
-    [join(FO_UI, 'eslint.config.js')]: LINT_PRESET,
-    [join(FO_FRONTEND, 'eslint.config.js')]:
-      "export { foScreens as default } from '@ap/eslint-config';\n",
+    [join(FEATURE_BACKEND, 'eslint.config.js')]: LINT_PRESET,
+    [join(FEATURE_SHARED, 'eslint.config.js')]:
+      "import { featureSharedPreset } from '@ap/eslint-config';\nexport default featureSharedPreset;\n",
+    [join(FEATURE_UI, 'eslint.config.js')]: LINT_PRESET,
+    [join(FEATURE_FRONTEND, 'eslint.config.js')]:
+      "export { featureScreensPreset as default } from '@ap/eslint-config';\n",
   },
   true,
   'boundaries: OK',
@@ -500,45 +514,47 @@ runCase(
   'lint exception does not reach runtime files, nested lookalikes or other package roots',
   {
     ...zero,
-    [join(FO_BACKEND, 'src', 'eslint.config.js')]: LINT_PRESET,
-    [join(FO_UI, 'src', 'nested', 'eslint.config.js')]: LINT_PRESET,
-    [join(FO_BACKEND, 'src', 'lint.ts')]: "import { foServer } from '@ap/eslint-config';\n",
-    [join(FO_OPS, 'eslint.config.js')]: LINT_PRESET,
-    [join(FO_FRONTEND, 'src', 'eslint.config.js')]: LINT_PRESET,
-    [join(FO_FRONTEND, 'src', 'lint.ts')]: "import { foScreens } from '@ap/eslint-config';\n",
-    [join(FO_SHARED, 'eslint.config.ts')]: LINT_PRESET,
+    [join(FEATURE_BACKEND, 'src', 'eslint.config.js')]: LINT_PRESET,
+    [join(FEATURE_UI, 'src', 'nested', 'eslint.config.js')]: LINT_PRESET,
+    [join(FEATURE_BACKEND, 'src', 'lint.ts')]:
+      "import { featureServerPreset } from '@ap/eslint-config';\n",
+    [join(FEATURE_OPS, 'eslint.config.js')]: LINT_PRESET,
+    [join(FEATURE_FRONTEND, 'src', 'eslint.config.js')]: LINT_PRESET,
+    [join(FEATURE_FRONTEND, 'src', 'lint.ts')]:
+      "import { featureScreensPreset } from '@ap/eslint-config';\n",
+    [join(FEATURE_SHARED, 'eslint.config.ts')]: LINT_PRESET,
   },
   false,
   [
-    `${FO_BACKEND}/src/eslint.config.js:1`,
-    `${FO_UI}/src/nested/eslint.config.js:1`,
-    `${FO_BACKEND}/src/lint.ts:1`,
-    `${FO_OPS}/eslint.config.js:1`,
-    `${FO_FRONTEND}/src/eslint.config.js:1`,
-    `${FO_FRONTEND}/src/lint.ts:1`,
-    `${FO_SHARED}/eslint.config.ts:1`,
+    `${FEATURE_BACKEND}/src/eslint.config.js:1`,
+    `${FEATURE_UI}/src/nested/eslint.config.js:1`,
+    `${FEATURE_BACKEND}/src/lint.ts:1`,
+    `${FEATURE_OPS}/eslint.config.js:1`,
+    `${FEATURE_FRONTEND}/src/eslint.config.js:1`,
+    `${FEATURE_FRONTEND}/src/lint.ts:1`,
+    `${FEATURE_SHARED}/eslint.config.ts:1`,
   ],
 );
 runCase(
   'lint exception names one package: subpaths and other @ap/* stay denied in the config file',
   {
     ...zero,
-    [join(FO_BACKEND, 'eslint.config.js')]: "export * from '@ap/eslint-config/feature';\n",
-    [join(FO_SHARED, 'eslint.config.js')]:
+    [join(FEATURE_BACKEND, 'eslint.config.js')]: "export * from '@ap/eslint-config/feature';\n",
+    [join(FEATURE_SHARED, 'eslint.config.js')]:
       "import { PERMISSIONS } from '@ap/contracts';\nconst k = await import('@ap/kernel');\n",
-    [join(FO_UI, 'eslint.config.js')]:
+    [join(FEATURE_UI, 'eslint.config.js')]:
       "export * from '@ap/eslint-config-extra';\nconst c = require('@ap/ui/../shell');\n",
-    [join(FO_FRONTEND, 'eslint.config.js')]:
-      "export { foScreens } from '@ap/eslint-config/feature';\nimport '@ap/kernel';\n",
+    [join(FEATURE_FRONTEND, 'eslint.config.js')]:
+      "export { featureScreensPreset } from '@ap/eslint-config/feature';\nimport '@ap/kernel';\n",
   },
   false,
   [
-    `${FO_FRONTEND}/eslint.config.js:1`,
-    `${FO_FRONTEND}/eslint.config.js:2`,
-    `${FO_BACKEND}/eslint.config.js:1`,
-    `${FO_SHARED}/eslint.config.js:1`,
-    `${FO_SHARED}/eslint.config.js:2`,
-    `${FO_UI}/eslint.config.js:1`,
+    `${FEATURE_FRONTEND}/eslint.config.js:1`,
+    `${FEATURE_FRONTEND}/eslint.config.js:2`,
+    `${FEATURE_BACKEND}/eslint.config.js:1`,
+    `${FEATURE_SHARED}/eslint.config.js:1`,
+    `${FEATURE_SHARED}/eslint.config.js:2`,
+    `${FEATURE_UI}/eslint.config.js:1`,
   ],
 );
 

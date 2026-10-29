@@ -4,10 +4,9 @@ import { toast } from 'sonner';
 
 import type { HostLinkProps, HostSeam } from '@/lib/host/host-seam';
 import { sonnerDismiss, sonnerNotify } from '@/test/host-adapters/lib/host/sonner-notify';
-import { useDocumentTitle } from '@/test/host-adapters/lib/router/document-title';
 
 function TanstackHostLink({ to, ...rest }: HostLinkProps) {
-  const location = new URL(to, 'http://feedbackops.local');
+  const location = new URL(to, 'http://platform.local');
   return (
     <Link
       to={location.pathname as never}
@@ -22,7 +21,7 @@ function useTanstackNavigate() {
   return (to: string, options?: { replace?: boolean }) => {
     // Not `href`: that is parsed back with `parseAppSearch`, which turns a literal `q=true` into a boolean.
     // Search values go in as strings so `stringifyAppSearch` quotes the JSON-like ones as before.
-    const location = new URL(to, 'http://feedbackops.local');
+    const location = new URL(to, 'http://platform.local');
     void router.navigate({
       to: location.pathname as never,
       search: Object.fromEntries(location.searchParams) as never,
@@ -58,7 +57,7 @@ function useTanstackHere() {
   return `${location.pathname}${location.searchStr}${location.hash === '' ? '' : `#${location.hash}`}`;
 }
 
-/** The standalone app's host: TanStack Router links and sonner toasts. */
+/** The test-local TanStack Router host: router links and sonner toasts. */
 export const tanstackHost: HostSeam = {
   canLink: () => true,
   Link: TanstackHostLink,
@@ -70,7 +69,8 @@ export const tanstackHost: HostSeam = {
   },
   useNavigate: useTanstackNavigate,
   useSearch: useTanstackSearch,
-  useTitle: useDocumentTitle,
+  // The title port stays on the seam (#1130 Q7 retired the standalone titles); no test host writes one.
+  useTitle: () => undefined,
   notify: sonnerNotify,
   dismiss: sonnerDismiss,
   useHere: useTanstackHere,

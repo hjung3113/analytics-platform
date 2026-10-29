@@ -1,4 +1,4 @@
-// The platform bridge's only entry into FeedbackOps (platform ADR-0071). Nothing
+// The platform bridge's only entry into feature (platform ADR-0071). Nothing
 // reachable from here may import TanStack Router, `routes/**`, `lib/router/**`,
 // `lib/layout/**`, `lib/auth/**`, `lib/api/auth.ts` or the `@/lib/api` barrel,
 // or reach the network outside `lib/api/client.ts` (a test in the bridge menu walks this graph).

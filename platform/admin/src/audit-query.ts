@@ -28,7 +28,7 @@ export const SOURCE_LABEL: Record<AuditSource, { ko: string; en: string }> = {
   user: { ko: '사용자', en: 'User' }, system: { ko: '연동', en: 'System' },
 };
 export type AuditTargetType = string;
-/** Display words for the subject types the console knows: the 18 FeedbackOps types the real projection releases plus the 3 mock samples. Consumer-owned; any other well-formed type is shown raw (#1091, ADR-0101). */
+/** Display words for the subject types the console knows: the 18 feature types the real projection releases plus the 3 mock samples. Consumer-owned; any other well-formed type is shown raw (#1091, ADR-0101). */
 export const TYPE_LABEL: Record<string, { ko: string; en: string }> = {
   equipment: { ko: '설비', en: 'Equipment' }, metric: { ko: '지표', en: 'Metric' }, annotation: { ko: '차트 주석', en: 'Chart annotation' },
   voc: { ko: 'VOC', en: 'VOC' }, finding: { ko: 'Finding', en: 'Finding' }, task: { ko: 'Task', en: 'Task' },

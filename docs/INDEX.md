@@ -6,7 +6,7 @@
 | --- | --- |
 | 남은 일, 다음 할 일, 결정 대기 | [`.planning/README.md`](../.planning/README.md) |
 | 작업 규칙 | 루트 [AGENTS.md](../AGENTS.md), 이 폴더 [AGENTS.md](AGENTS.md)(문서 소유권·상태 표기) |
-| 저장소 구조와 FeedbackOps 연결 | [저장소 구조](integration/repository-layout.md) |
+| 저장소 구조와 기능 연결 | [저장소 구조](integration/repository-layout.md) |
 | 결정과 그 이유 | [ADR 목록](adr/README.md), ADR 없는 계약 결정은 [05](overview/roadmap-and-open-questions.md) |
 | 도메인 용어 | [GLOSSARY](../GLOSSARY.md) |
 | 시각 규칙 | [DESIGN](../DESIGN.md) |
@@ -41,7 +41,7 @@
 | 모노레포 구조·빌드·CI·접두사 변경 | [패키지 경계](integration/platform-packages.md), [저장소 구조](integration/repository-layout.md) | [tooling](../tooling/AGENTS.md) → [packages](../packages/AGENTS.md) | 루트 `package.json`·`pnpm-workspace.yaml`·`turbo.json` → `.github/workflows/ci.yml` |
 | 설계 문서·결정 갱신 | 해당 소유 문서 → [ADR 목록](adr/README.md) 또는 [05](overview/roadmap-and-open-questions.md) | [docs](AGENTS.md) | 바꾼 뒤 `pnpm docs:links` |
 | 적재 워커 상태·가공 상태 조회·운영 콘솔 모니터링 | [01 가공 상태 보고](architecture/architecture-and-data-contract.md#processing-status-report), 06 §19, [상태 기록 스키마](integration/ingest-status-schema.md) | [docs](AGENTS.md) | 파서 저장소 `context_recognized_parser` |
-| 기능 화면 연결·운영 화면 탑재 | [저장소 구조](integration/repository-layout.md), [딥링크 계약](integration/feedbackops-deeplink.md), [합류 설계](integration/feedbackops-merge-design.md), [ADR-0081](adr/0081-feedbackops-operator-screens-platform-frame.md), [ADR-0066](adr/0066-feedbackops-merges-into-platform.md) | [fo-bridge](../packages/adapters/feature-bridge/AGENTS.md), [메뉴](../menus/AGENTS.md), [플랫폼 기능 메뉴](../platform/AGENTS.md), [앱 조립](../apps/platform-web/AGENTS.md), [Survey](../apps/feature-screens/src/features/surveys/AGENTS.md), [Admin](../apps/feature-screens/src/features/admin/AGENTS.md), [기능 도메인](agents/feature-implementation.md) | `packages/adapters/feature-bridge/src/fo/` · `apps/feature-screens/src/operator-screens/` · `platform/` |
+| 기능 화면 연결·운영 화면 탑재 | [저장소 구조](integration/repository-layout.md), [딥링크 계약](integration/platform-inbound-links.md), [합류 설계](integration/feedbackops-merge-design.md), [ADR-0081](adr/0081-feedbackops-operator-screens-platform-frame.md), [ADR-0066](adr/0066-feedbackops-merges-into-platform.md) | [fo-bridge](../packages/adapters/feature-bridge/AGENTS.md), [메뉴](../menus/AGENTS.md), [플랫폼 기능 메뉴](../platform/AGENTS.md), [앱 조립](../apps/platform-web/AGENTS.md), [Survey](../apps/feature-screens/src/features/surveys/AGENTS.md), [Admin](../apps/feature-screens/src/features/admin/AGENTS.md), [기능 도메인](agents/feature-implementation.md) | `packages/adapters/feature-bridge/src/feature/` · `apps/feature-screens/src/operator-screens/` · `platform/` |
 | 통합 전 단위 프로토타입 | — | [prototypes](../archive/AGENTS.md) | 각 프로토타입 README |
 
 ## 번호 약칭 → 파일
@@ -81,7 +81,7 @@
 - [17 플랫폼 요구사항](product/platform-requirements.md) — 플랫폼이 제공해야 하는 기능 전체(된 것·만들 것)를 사용자·운영자·개발자 언어로 모은 요구 목록과 상태. 소개 사이트(#468)의 근거. Candidate.
 - [06 플랫폼 UI 계약](contract/platform-ui-contract.md)(색인; 절은 갈래별 문서에 있고 §번호는 그대로) — Platform Kernel, Menu Registry, Context Capability, Shell Slot, Page Archetype, 공통 컴포넌트 승격 기준, Data Trust·권한·상태 UX, navigation IA. **전역 계약의 원본.**
 - [07 App Shell](wireframes/app-shell.md) — 셸 구조(ADR-0011·0013·0015로 Decided)와 IA.
-- 견본 메뉴 화면의 계약 메모(사내에서 새로 만들 메뉴라 계약에 닿는 부분만 둔다): [08 운영 개요](wireframes/operations-overview.md), [09 설비 마스터](wireframes/equipment-master.md), [11 생산성 개요](wireframes/productivity-overview.md), [12 사이클타임 드릴다운](wireframes/cycle-time-drilldown.md)(대표 드릴다운 왕복 계약), [13 지표 카탈로그](wireframes/metric-catalog.md)(`metricId`+`metricVersion` 쌍의 원본). 드릴다운 플랫폼 기능: [14 드릴다운 — 플랫폼 기능과 레이아웃](design/drilldown-platform.md)(#225, ADR-0025). 업무 시스템별 공간과 FeedbackOps 협업 진입: [15 멀티 워크스페이스](design/multi-workspace-ui.md)(#249, ADR-0026). 여러 화면을 한 화면에 나란히 보는 작업대: [16 분석 보드](design/analysis-board.md)(#421, 1차 동작 Decided·화면 모양 Candidate, ADR-0049).
+- 견본 메뉴 화면의 계약 메모(사내에서 새로 만들 메뉴라 계약에 닿는 부분만 둔다): [08 운영 개요](wireframes/operations-overview.md), [09 설비 마스터](wireframes/equipment-master.md), [11 생산성 개요](wireframes/productivity-overview.md), [12 사이클타임 드릴다운](wireframes/cycle-time-drilldown.md)(대표 드릴다운 왕복 계약), [13 지표 카탈로그](wireframes/metric-catalog.md)(`metricId`+`metricVersion` 쌍의 원본). 드릴다운 플랫폼 기능: [14 드릴다운 — 플랫폼 기능과 레이아웃](design/drilldown-platform.md)(#225, ADR-0025). 업무 시스템별 공간과 기능 협업 진입: [15 멀티 워크스페이스](design/multi-workspace-ui.md)(#249, ADR-0026). 여러 화면을 한 화면에 나란히 보는 작업대: [16 분석 보드](design/analysis-board.md)(#421, 1차 동작 Decided·화면 모양 Candidate, ADR-0049).
 
 통합 계약(`docs/integration/`):
 
@@ -92,12 +92,12 @@
 - [사내 적용 가이드](integration/in-house-rollout.md) — mock → 실어댑터·실서버 전환 순서, 담당자별 확인 질문, 사내 메뉴 개발 가이드, 완료 기준.
 - [적재 워커 상태 기록 스키마](integration/ingest-status-schema.md) — 가공 상태 원천의 기록 구조와 평가 규칙. Decided(2026-10-26, #37 — 이름만 Candidate).
 - [FeedbackOps 합류 설계](integration/feedbackops-merge-design.md) — **과거 기록**(ADR-0097이 `피드백 운영` 업무 시스템과 제품명을 폐기했다). 전역 기능·피드백 운영 업무 시스템 배치, 서버 출발점, 단계, Open. 방향 Decided([ADR-0066](adr/0066-feedbackops-merges-into-platform.md)).
-- [FeedbackOps 딥링크 계약](integration/feedbackops-deeplink.md) — **과거 기록 + 현행 inbound 계약**(독립 앱 복귀 방향은 #597에서 은퇴). 양방향 딥링크 1단계(확장은 #81).
-- [프레임워크 통합 계획](integration/framework-unification-plan.md) — FeedbackOps·equipment-visualization 프레임워크 조각을 플랫폼 프레임워크로 합치는 지도(현황·중복·목표·단계·SDK 준비 메모). Proposed(#396의 입력). 목표는 [ADR-0043](adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)이 우선한다.
+- [플랫폼 인바운드 링크 계약](integration/platform-inbound-links.md) — **과거 기록 + 현행 inbound 계약**(독립 앱 복귀 방향은 #597에서 은퇴). 양방향 딥링크 1단계(확장은 #81).
+- [프레임워크 통합 계획](integration/framework-unification-plan.md) — 기능·equipment-visualization 프레임워크 조각을 플랫폼 프레임워크로 합치는 지도(현황·중복·목표·단계·SDK 준비 메모). Proposed(#396의 입력). 목표는 [ADR-0043](adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)이 우선한다.
 - [SDK 포괄 목록](integration/sdk-coverage-inventory.md) — 세 프레임워크(AP·FeedbackOps·EV)의 기능을 SDK가 모두 덮는지 코드로 대조한 목록과 통합 계획 지도 정정. Candidate. 저장소·릴리스 구조 결정은 [ADR-0044](adr/0044-sdk-source-in-platform-repo-released-separately.md)(Decided).
-- [SDK git 태그 소비 시험](integration/sdk-git-tag-consumption.md) — FeedbackOps가 `@ap/ui`를 git 태그 의존성으로 받을 때 되는 것과 소비자 조건(`@types/node`·`@tiptap/*` overrides·auto-animate 패치). Candidate.
+- [SDK git 태그 소비 시험](integration/sdk-git-tag-consumption.md) — 기능이 `@ap/ui`를 git 태그 의존성으로 받을 때 되는 것과 소비자 조건(`@types/node`·`@tiptap/*` overrides·auto-animate 패치). Candidate.
 - [SDK TopN·Lane 차트 API·사용 예·변경 기록](integration/sdk-charts.md) — #576, ADR-0064.
-- [플랫폼 탑재 설계](integration/platform-hosting-design.md) — 다른 저장소 업무 모듈(EV·FeedbackOps)의 호스트 → 모듈 계약, 두 호스트 실행, 패키지 배치, FeedbackOps 탑재안. Proposed(선행 조사, ADR-0038·0039 초안). 독립 호스트는 SDK 범위 밖(ADR-0043).
+- [플랫폼 탑재 설계](integration/platform-hosting-design.md) — 다른 저장소 업무 모듈(EV·기능)의 호스트 → 모듈 계약, 두 호스트 실행, 패키지 배치, 기능 탑재안. Proposed(선행 조사, ADR-0038·0039 초안). 독립 호스트는 SDK 범위 밖(ADR-0043).
 
 루트 문서: [DESIGN](../DESIGN.md)(공유 디자인 시스템 위의 플랫폼 시각 확장 — 06의 최소 기준·상태·접근성 의무는 바꾸지 않는다), [GLOSSARY](../GLOSSARY.md)(현행 도메인 용어와 관계).
 
@@ -112,7 +112,7 @@
 
 문서는 Decided / Candidate / Open / Deferred를 구분한다. 규칙은 [docs/AGENTS.md](AGENTS.md). `.agents/`의 스킬·명령·외부 레퍼런스는 tooling 자산이며 제품 설계를 확정하지 않는다([`.agents/README.md`](../.agents/README.md)).
 
-#597: standalone retirement preserves the 36 screen entries and inbound hop codec. Current ownership and removed outbound contracts: [FeedbackOps link contract](integration/feedbackops-deeplink.md). Historical ADR bodies are unchanged.
+#597: standalone retirement preserves the 36 screen entries and inbound hop codec. Current ownership and removed outbound contracts: [Platform inbound link contract](integration/platform-inbound-links.md). Historical ADR bodies are unchanged.
 
 ## Platform feature domains
 

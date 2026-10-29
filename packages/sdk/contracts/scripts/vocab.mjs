@@ -1,5 +1,5 @@
 // Writes `src/vocab.json`: the closed vocabularies a server outside this workspace must mirror (#674). A server
-// in another language or toolchain (FeedbackOps backend today) pins its own lists against this file instead of
+// in another language or toolchain (the platform API today) pins its own lists against this file instead of
 // parsing TypeScript source. The source of truth stays the `as const` lists in src/; this file is generated.
 //
 //   node scripts/vocab.mjs           regenerate vocab.json

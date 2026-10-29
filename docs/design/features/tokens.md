@@ -1,6 +1,6 @@
-# FeedbackOps Visual Reference
+# Feature Visual Reference
 
-This file is the hex token seed for FeedbackOps; root `DESIGN.md` is a pointer
+This file is the hex token seed for the feature suite; root `DESIGN.md` is a pointer
 to this file. It is not the product design source of truth and does not define
 frontend component behavior — use `docs/design/features/README.md` and
 `docs/design/features/ui-design-system.md` for implementation-facing UI contracts.
@@ -18,7 +18,7 @@ Reference inspiration: Samsung One UI.
 
 **Theme:** light
 
-FeedbackOps presents a focused light-mode experience, inspired by Samsung's enterprise design language. A soft porcelain base creates a calm, open canvas, while subtle layered surfaces build depth without harsh contrasts. Distinctive text colors (#374151 for secondary, #667083 for muted, and #98a2b3 for disabled) maintain readability against the light backdrop. Critically, interaction is marked by a single Samsung blue (#1428a0), applied selectively to primary calls to action, preventing visual clutter and guiding the user's eye with precision.
+The feature suite presents a focused light-mode experience, inspired by Samsung's enterprise design language. A soft porcelain base creates a calm, open canvas, while subtle layered surfaces build depth without harsh contrasts. Distinctive text colors (#374151 for secondary, #667083 for muted, and #98a2b3 for disabled) maintain readability against the light backdrop. Critically, interaction is marked by a single Samsung blue (#1428a0), applied selectively to primary calls to action, preventing visual clutter and guiding the user's eye with precision.
 
 ## Tokens — Colors
 
@@ -273,7 +273,7 @@ Icon chips use `--radius-icon-chip` (5px), exposed as `rounded-icon-chip`.
 
 ## Survey
 
-Survey uses the same compact operational rhythm as the rest of FeedbackOps: a
+Survey uses the same compact operational rhythm as the rest of the feature suite: a
 list-first overview, a full-page WorkbenchShell builder, and a result summary
 that prioritizes question distribution and safe text highlights. Use the shared
 light surfaces, 8px element gaps, and one Samsung-blue primary action per

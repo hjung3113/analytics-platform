@@ -4,7 +4,7 @@
 
 이 목록의 번호는 플랫폼 ADR이고 `ADR-NNNN`으로 부른다. FeedbackOps ADR(`docs/adr/history/feedbackops/`)은 번호를 따로 매겨 플랫폼 번호와 겹치므로(예: 0070은 양쪽에 있다) 플랫폼 문서와 코드 주석에서 항상 `FO ADR-NNNN`으로 쓴다.
 
-#597 retires the standalone portions of ADR-0027/0045 and FO ADR-0071 under [ADR-0097](0097-platform-features-and-role-based-names.md). Their bodies remain historical; the live link contract is [feedbackops-deeplink.md](../integration/feedbackops-deeplink.md). Inbound platform hops remain supported.
+#597 retires the standalone portions of ADR-0027/0045 and FO ADR-0071 under [ADR-0097](0097-platform-features-and-role-based-names.md). Their bodies remain historical; the live link contract is [platform-inbound-links.md](../integration/platform-inbound-links.md). Inbound platform hops remain supported.
 
 ## 목록
 

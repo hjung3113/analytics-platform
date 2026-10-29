@@ -109,19 +109,19 @@ describe('TriagePanel copy link', () => {
     );
   });
 
-  it("platform host: copies the host's address of the VOC, not the FeedbackOps path, and reports success through the host", async () => {
+  it("platform host: copies the host's address of the VOC, not the feature path, and reports success through the host", async () => {
     stubClipboard(async () => {});
     const notifySuccess = vi.fn();
     const absoluteHref = vi.fn(
       (to: string) =>
-        `https://platform.example/feedbackops/vocs?focus=${new URL(to, 'http://x').searchParams.get('selected')}`,
+        `https://platform.example/operations/vocs?focus=${new URL(to, 'http://x').searchParams.get('selected')}`,
     );
     render(<Panel host={{ absoluteHref, notifySuccess }} />);
     fireEvent.click(screen.getByRole('button', { name: '링크 복사' }));
     await waitFor(() => expect(notifySuccess).toHaveBeenCalledWith('링크가 복사되었습니다.'));
     expect(absoluteHref).toHaveBeenCalledWith(`/vocs?view=inbox&selected=${VOC.id}`);
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
-      `https://platform.example/feedbackops/vocs?focus=${VOC.id}`,
+      `https://platform.example/operations/vocs?focus=${VOC.id}`,
     );
     expect(toast.success).not.toHaveBeenCalled();
   });

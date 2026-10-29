@@ -3,10 +3,10 @@
 # verify-fe.sh <worktree> — FE host checks (<worktree> is the repository checkout root) (Node 22): full vitest (+packages/feature-ui if touched), FE typecheck gate, root typecheck,
 # boundaries + fixture test, screens ESLint (correctness, Hooks, accessibility, design-system rules), backend tsc, FE→BE route drift, worker hygiene (no new biome-ignore). Logs in $WAVE_STATE/verify-<basename>/. Prints a summary.
 here=$(cd "$(dirname "$0")" && pwd)
-# FeedbackOps path map (FO_OPS, FO_FRONTEND, FO_UI); `fo` runs a script of the @ap/platform-api-ops tool package (ops/platform-api).
+# Feature path map (FEATURE_OPS, FEATURE_FRONTEND, FEATURE_UI); `feature_ops` runs a script of the @ap/platform-api-ops tool package (ops/platform-api).
 # shellcheck disable=SC1091
 . "$here/../../paths.sh"
-fo() { pnpm -s --filter @ap/platform-api-ops run "$@"; }
+feature_ops() { pnpm -s --filter @ap/platform-api-ops run "$@"; }
 : "${WAVE_STATE:?set WAVE_STATE}"; wt=$1; log=$WAVE_STATE/verify-$(basename "$wt"); mkdir -p "$log"
 export PATH=/opt/homebrew/opt/node@22/bin:$PATH; cd "$wt" || exit 2
 first_failure=0
@@ -26,15 +26,15 @@ print_summary() {
     printf '%-24s %s\n' "${check_names[$i]}" "${check_codes[$i]}"
   done
 }
-run_check vitest "$log/vitest.log" run_vitest "$FO_FRONTEND"
-if { git diff --name-only origin/develop...HEAD; git status --porcelain; } | grep -q "$FO_UI"; then
-  run_check ui-vitest "$log/ui-vitest.log" run_vitest "$FO_UI"; fi
-run_check fe-typecheck "$log/fe-typecheck.log" fo gate:fe-typecheck
+run_check vitest "$log/vitest.log" run_vitest "$FEATURE_FRONTEND"
+if { git diff --name-only origin/develop...HEAD; git status --porcelain; } | grep -q "$FEATURE_UI"; then
+  run_check ui-vitest "$log/ui-vitest.log" run_vitest "$FEATURE_UI"; fi
+run_check fe-typecheck "$log/fe-typecheck.log" feature_ops gate:fe-typecheck
 # Root typecheck also builds packages/feature-ui with its tests (gate:fe-typecheck covers only the frontend; #661).
-run_check root-typecheck "$log/root-typecheck.log" fo feature:typecheck
-run_check boundaries "$log/boundaries.log" node "$FO_OPS/scripts/check-boundaries.mjs"
+run_check root-typecheck "$log/root-typecheck.log" feature_ops feature:typecheck
+run_check boundaries "$log/boundaries.log" node "$FEATURE_OPS/scripts/check-boundaries.mjs"
 run_check screens-lint "$log/screens-lint.log" pnpm -s --filter @ap/feature-screens run lint
-run_check boundaries-test "$log/boundaries-test.log" node "$FO_OPS/scripts/check-boundaries.test.mjs"
+run_check boundaries-test "$log/boundaries-test.log" node "$FEATURE_OPS/scripts/check-boundaries.test.mjs"
 run_check be-tsc "$log/be-tsc.log" pnpm --filter @ap/platform-api exec tsc --noEmit
 # FE→BE drift (DB-free): an FE call to a path no BE route registers fails CI's backend job (s78, PR #1157).
 run_check fe-be-drift "$log/fe-be-drift.log" env -u DATABASE_URL -u DATABASE_URL_MIGRATE \

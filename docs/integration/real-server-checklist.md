@@ -58,7 +58,7 @@
 7. **시간 도메인** → `mergeTimeDomain`이면 2대 이상을 한 시간축에 합칠 수 있는지 §6.3 판정, 안 되면 `error`.
 8. **핸들러** → 해석된 설비, 적용 Context만 남긴 값(비적용 키는 "제약 없음"), params, 세션 사용자를 받아 계산. 데이터로만 판정할 수 있는 잘못된 요청(예: 다른 사용자에게 발급한 커서)은 `error`.
 9. **행 상한** → `limits.maxRows`를 선언한 비페이지 엔드포인트(내보내기·탐색)는 핸들러가 돌려준 결과 **전체**(페이지가 아님)로 판정한다. 배열 길이가 `maxRows`를 넘으면 데이터 없이 `too_large`(원천을 다 읽기 전에 판정할 수 있으면 그렇게 — 단, 1–8단계 판정이 언제나 앞선다). ids를 params로 받는 선택 내보내기(#173)는 ids로 거른 **뒤의 크기**가 기준이라 큰 필터 결과 안의 작은 선택도 내보낼 수 있다. 선언했는데 핸들러가 배열이 아닌 값을 돌려주면 데이터 답이 아니라 계약 `error`(선언 오용)다. 페이지 엔드포인트에 선언하면 등록 검증이 거부한다.
-10. **응답** → `assessments`는 선언한 kind마다 정확히 하나. mart 데이터면 `trust`(갱신 시각·데이터 기준 시각·커버리지·지표 버전·잠정 여부·원천), FeedbackOps 같은 비 mart 원천이면 `trust: null`. 원천 의존 kind(`collection`·`processing_delay`·`coverage`)의 원천이 아직 없으면(적재 워커 기록 구현 전 — 스키마는 #37로 Decided) 빼지 않고 `state: 'unknown'`, `reason: 'source_unavailable'`로 답한다(06 §19 — 생략은 계약 위반, 행 수로 `clear`를 추론하지 않음). Trust는 키가 모두 필수이고 모르는 값(`dataThrough`·`coverage`)은 `null`(06 §18, `@ap/contracts` `Trust`).
+10. **응답** → `assessments`는 선언한 kind마다 정확히 하나. mart 데이터면 `trust`(갱신 시각·데이터 기준 시각·커버리지·지표 버전·잠정 여부·원천), 기능 같은 비 mart 원천이면 `trust: null`. 원천 의존 kind(`collection`·`processing_delay`·`coverage`)의 원천이 아직 없으면(적재 워커 기록 구현 전 — 스키마는 #37로 Decided) 빼지 않고 `state: 'unknown'`, `reason: 'source_unavailable'`로 답한다(06 §19 — 생략은 계약 위반, 행 수로 `clear`를 추론하지 않음). Trust는 키가 모두 필수이고 모르는 값(`dataThrough`·`coverage`)은 `null`(06 §18, `@ap/contracts` `Trust`).
 
 - 구간의 행이 둘 이상의 파서 `logic_version`에서 왔으면 `trust.sourceLogicVersions`에 그 버전들을 보낸다(서로 다른 비어 있지 않은 문자열). 판단할 수 없으면 필드를 **생략**한다 — `[]`는 적합성 위반이다(06 §18).
 
@@ -99,17 +99,17 @@ Kernel은 받은 `ok`/`empty`의 kind가 선언과 다르면 `contract_violation
 
 필수 조회조건의 원본은 [플랫폼 계약 §5·§11](../contract/platform-ui-contract.md)이다. `EndpointSpec.requiredContext`는 apply capability만 선언하고, 구조적 투영 검사에 더해 null/누락을 거부한다. `[]`는 존재하는 명시적 공집합이다. `ConformanceCase.context?: Partial<GlobalContext>`에는 그 엔드포인트가 성공할 수 있는 앱 소유 표본을 넣는다. 하네스 Scope·기간과 합친 뒤 투영하며, 필수값의 유효 표본이 없으면 해당 엔드포인트 검사들을 `required Context: no valid sample`로 건너뛰었다고 표시한다(통과로 세지 않음). 표본이 있으면 관련 필드만 null/누락으로 바꾸어 각각 오류·데이터 없음 봉투를 검사한다. 보조 엔드포인트는 더 작은 투영을 가질 수 있다.
 
-[`@ap/server-conformance`](../../packages/adapters/server-conformance/AGENTS.md)는 §3의 1·3·4·6·10(그리고 표본이 있으면 9)을 엔드포인트 선언에서 도출해 검사한다(엔드포인트마다 성공 요청, 알 수 없는 키·비적용 키·적용 키 누락·`from` null·`metricVersion` 단독 거부, 권한 없으면 `forbidden`, 부여 안 된 site·`null` Scope `forbidden`, 명시적 공집합, kind 정확히 일치). 선언한 `maxRows`가 있고 표본 요청이 `oversizeParams`를 갖고 있으면(#175), 그 요청이 `too_large`로 데이터 없이 답하는지도 검사한다. 지금은 `apps/platform-web/src/server-conformance.test.ts`가 앱의 모든 메뉴 엔드포인트와 mock 어댑터로 돌리고, FeedbackOps 백엔드 통합 테스트 `apps/platform-api/src/modules/platform-port/__tests__/platform-conformance.integration.test.ts`가 실서버에 실어댑터(`app.inject` 위 `fetch`)로 돌린다(#674) — 아직 없는 포트는 건너뛴 검사로 남아 실서버 준비 현황표가 된다.
+[`@ap/server-conformance`](../../packages/adapters/server-conformance/AGENTS.md)는 §3의 1·3·4·6·10(그리고 표본이 있으면 9)을 엔드포인트 선언에서 도출해 검사한다(엔드포인트마다 성공 요청, 알 수 없는 키·비적용 키·적용 키 누락·`from` null·`metricVersion` 단독 거부, 권한 없으면 `forbidden`, 부여 안 된 site·`null` Scope `forbidden`, 명시적 공집합, kind 정확히 일치). 선언한 `maxRows`가 있고 표본 요청이 `oversizeParams`를 갖고 있으면(#175), 그 요청이 `too_large`로 데이터 없이 답하는지도 검사한다. 지금은 `apps/platform-web/src/server-conformance.test.ts`가 앱의 모든 메뉴 엔드포인트와 mock 어댑터로 돌리고, 플랫폼 API 통합 테스트 `apps/platform-api/src/modules/platform-port/__tests__/platform-conformance.integration.test.ts`가 실서버에 실어댑터(`app.inject` 위 `fetch`)로 돌린다(#674) — 아직 없는 포트는 건너뛴 검사로 남아 실서버 준비 현황표가 된다.
 
 실어댑터를 붙이면 같은 하네스를 실어댑터로 만든다. 사내에서 준비할 것:
 
 - `adapter`: 실어댑터(테스트 환경 서버를 가리킴).
 - `cases`: 엔드포인트 선언과 표본 요청 — 앱 테스트의 `PARAMS` 표를 그대로 쓸 수 있다.
 - `implemented`(선택, #674): 서버가 구현한 `PlatformAdapter` 메서드 목록. 없으면 전부 구현한 것으로 본다. 목록 밖 메서드를 부르는 검사는 id 끝에 ` — not implemented: <메서드>`를 단 건너뛴 검사가 된다(통과·실패로 세지 않음). 표본이 없어 이미 건너뛴 검사도 그 메서드를 함께 적는다.
-- `siteGrants`(선택, #674): site 부여가 아직 없는 서버(`session().scopes`가 `[]` — FeedbackOps, ADR-0069 결정 8)는 `false`. 부여된 site가 필요한 검사가 ` — no site grants`로 건너뛰어지고, `context.scopeId`·`foreignScopeId`·`otherGrantedScopeId`는 어떤 실행 검사도 읽지 않는 자리값이 된다.
+- `siteGrants`(선택, #674): site 부여가 아직 없는 서버(`session().scopes`가 `[]` — 기능, ADR-0069 결정 8)는 `false`. 부여된 site가 필요한 검사가 ` — no site grants`로 건너뛰어지고, `context.scopeId`·`foreignScopeId`·`otherGrantedScopeId`는 어떤 실행 검사도 읽지 않는 자리값이 된다.
 - `ports.visiblePersonId`(선택, #1103): 세션이 볼 수 있는 사람의 `userId`(본인이어도 된다). `lookupPeople` 검사가 이 사람을 `[id, 없는 id]`로 조회해 정확히 그 한 명이 `GroupMember` 모양 그대로 돌아오는지 본다. 없으면 모양·부재 검사만으로는 항상 `[]`를 답하는 구현을 가려낼 수 없어 그 검사가 이유가 적힌 실행 중 skipped로 끝난다(통과가 아니다).
 - `context`·`foreignScopeId`: 테스트 계정에 부여된 site·기간, 부여되지 않은 site. `foreignScopeId`는 **서버가 아는** site여야 한다 — 모르는 id를 고르면 `validateScope(foreign site) → forbidden` 검사가 `unknown_scope`를 만나 실패한다.
-- `ports`: 포트 표본 — 목적지 표본(`EntityRef`와 그 조회 권한, 같은 site의 부여받지 않은 room에 있는 실제 목적지 `ungrantedRoomRef` — 선택), 주석 대상 chartId·권한·그 차트 축의 유효 범위 `from`·`to`(시간축이면 wall-clock, 범주축이면 범주 라벨 — 06 §16), 활용률 이벤트의 식별 필드 표본(`menuId`·`spaceId`·`path`·`sessionId` — 부여 계정이 기록할 수 있는 이벤트; `name`·`at`·dwell 필드는 무시 — 묶음이 자체 entry/dwell을 만든다), 오류 보고 표본, 두 번째 부여 site. 전역 메뉴 표본을 따로 넘기지 않아도 묶음이 활용률·오류 보고 표본을 `spaceId: null`로 복제해 검사한다(이 포트에서 null은 항상 유효하다). 목적지 표본은 **site가 있는 type**이면 `context.scopeId`에 둬야 하고 그 계정이 부여받은 room이어야 한다. site 없는 type(지표, FeedbackOps VOC·Finding·Task)의 표본은 `scopeId: null`로 주고, 그러면 getEntity·entityAudit의 부여 안 된 site·null Scope 검사 네 건이 ` — siteless destination type`으로 건너뛰어진다(#674). `ungrantedRoomRef`를 주지 않으면 getEntity·entityAudit의 room 재검사 두 건은 건너뛴 것으로 표시된다(통과로 세지 않는다).
+- `ports`: 포트 표본 — 목적지 표본(`EntityRef`와 그 조회 권한, 같은 site의 부여받지 않은 room에 있는 실제 목적지 `ungrantedRoomRef` — 선택), 주석 대상 chartId·권한·그 차트 축의 유효 범위 `from`·`to`(시간축이면 wall-clock, 범주축이면 범주 라벨 — 06 §16), 활용률 이벤트의 식별 필드 표본(`menuId`·`spaceId`·`path`·`sessionId` — 부여 계정이 기록할 수 있는 이벤트; `name`·`at`·dwell 필드는 무시 — 묶음이 자체 entry/dwell을 만든다), 오류 보고 표본, 두 번째 부여 site. 전역 메뉴 표본을 따로 넘기지 않아도 묶음이 활용률·오류 보고 표본을 `spaceId: null`로 복제해 검사한다(이 포트에서 null은 항상 유효하다). 목적지 표본은 **site가 있는 type**이면 `context.scopeId`에 둬야 하고 그 계정이 부여받은 room이어야 한다. site 없는 type(지표, 기능 VOC·Finding·Task)의 표본은 `scopeId: null`로 주고, 그러면 getEntity·entityAudit의 부여 안 된 site·null Scope 검사 네 건이 ` — siteless destination type`으로 건너뛰어진다(#674). `ungrantedRoomRef`를 주지 않으면 getEntity·entityAudit의 room 재검사 두 건은 건너뛴 것으로 표시된다(통과로 세지 않는다).
 - `ports.options`(선택): 축 ID와 서로 다른 부여 값 두 개 이상, 알려진 축소 검색어/값, 부여 설비 전체 summary, 같은 Site의 거부 room/ID, 다른 Site의 실제 ID, 확실히 없는 ID. 부모 검사는 부모축·값·자식 값, 거부 전용 옵션 검사는 그 값을 추가한다. foreignScopeId는 하네스 원본을 재사용한다. 전역 옵션 검사는 선택적 `globalOptions`에 `axisId: lineNames | prcGroups`, 전체 부여 값 `values`, 다른 전역 키 부모 `parents`, 부모로 좁힌 부여 값 `parentValues`를 주며 키별 표본이 없으면 개별 skip이다. 상한 검사는 독립적으로 알려진 200개 초과의 upperOptions/upperEquipment 표본이 있어야 실행하며 없으면 개별 skip이다. mock 데이터만으로 200 상한이 증명됐다고 주장하지 않는다. 페이지 ID 중복·커서 진행·종료는 최대 1000페이지 안에 확인하며 부여/비노출·요청 오류·검색/부모·메뉴 권한 독립성을 검사한다. 선택 표본이 없으면 각 검사가 개별 skip으로 표시된다.
 - `asGranted`·`withoutPermission`: 모든 엔드포인트 권한을 가진 테스트 계정과, 권한 하나씩만 뺀 계정(또는 그렇게 세션을 바꾸는 테스트 훅). 부여 계정은 목적지 조회 권한·주석 권한도 있어야 하고 site 둘에 부여돼 있어야 한다. `withoutPermission`은 모든 엔드포인트 권한과 `ports.entity.permission`·`ports.annotation.permission`·동작 권한·`console:access`로 불린다 — 부여 계정이 안 가진 권한(예: `console:access`)을 빼면 부여 계정 자신으로 돌아가므로, 권한 하나씩만 뺀 계정을 따로 만드는 팀은 이 목록이 곧 준비할 계정 목록이다.
 - `asConsole`: `console:access`를 가진 계정(콘솔 조회·활용률 집계 검사가 이 계정으로 돈다).
@@ -137,8 +137,8 @@ Kernel은 받은 `ok`/`empty`의 kind가 선언과 다르면 `contract_violation
 ## 5. 세션·사용자
 
 - 클라이언트는 사용자 id·actor를 보내지 않는다. 사용자는 서버가 세션으로 찍는다(활용률·오류 보고·감사·내 VOC).
-- 시각은 계약마다 다르다. 감사·차트 주석·오류 보고는 서버가 기록 시각을 찍는다. 활용률 이벤트는 서버가 **수신 시각**을 찍고, `usageSummary`의 기간 필터·`lastUsedAt`은 그 수신 시각으로 계산한다. 이벤트의 `at`·`enteredAt`(클라이언트 epoch ms)은 모양(유한한 숫자 — FeedbackOps 구현(#622)은 정수 열에 담으려고 안전 정수만 받는다)을 검사한 뒤 버리지 않고 저장한다 — 하나라도 어긋나면 호출 전체를 거부한다. `enteredAt`은 같은 진입의 dwell을 하나로 합치는 키이고(보드 칸 이벤트는 `source: 'board'`와 `stayId`를 함께 저장하고 그 dwell은 (사용자, 세션, 메뉴, `source`, `stayId`)로 합친다), `dwellMs`는 클라이언트가 계산한 값이다(서버가 다시 계산하지 않음). 원본 동작: `packages/adapters/mock-server/src/server.ts` `recordUsage`·`aggregateUsage`.
-- 인증은 FeedbackOps 방식(AuthProvider: Mock + OIDC 계열, 서버 세션)으로 정했다(#35). 실제 IdP 설정값은 사내 SSO 사양 확인 뒤.
+- 시각은 계약마다 다르다. 감사·차트 주석·오류 보고는 서버가 기록 시각을 찍는다. 활용률 이벤트는 서버가 **수신 시각**을 찍고, `usageSummary`의 기간 필터·`lastUsedAt`은 그 수신 시각으로 계산한다. 이벤트의 `at`·`enteredAt`(클라이언트 epoch ms)은 모양(유한한 숫자 — 기능 구현(#622)은 정수 열에 담으려고 안전 정수만 받는다)을 검사한 뒤 버리지 않고 저장한다 — 하나라도 어긋나면 호출 전체를 거부한다. `enteredAt`은 같은 진입의 dwell을 하나로 합치는 키이고(보드 칸 이벤트는 `source: 'board'`와 `stayId`를 함께 저장하고 그 dwell은 (사용자, 세션, 메뉴, `source`, `stayId`)로 합친다), `dwellMs`는 클라이언트가 계산한 값이다(서버가 다시 계산하지 않음). 원본 동작: `packages/adapters/mock-server/src/server.ts` `recordUsage`·`aggregateUsage`.
+- 인증은 기능 방식(AuthProvider: Mock + OIDC 계열, 서버 세션)으로 정했다(#35). 실제 IdP 설정값은 사내 SSO 사양 확인 뒤.
 - 역할 소속의 원천은 IdP 그룹 claim 사양이 나올 때까지 보류(#98). 그 전에는 부여·회수 쓰기를 만들지 않는다.
 
 ## 6. 시간
@@ -156,7 +156,7 @@ Kernel은 받은 `ok`/`empty`의 kind가 선언과 다르면 `contract_violation
 
 ## 8. 실서버 브라우저 계약 검사 (#593)
 
-`apps/platform-e2e`의 `e2e:real`은 이 레포의 실조립(`apps/platform-web/src/real/http-assembly.tsx`)과 FeedbackOps 백엔드를 Vite 같은 origin 뒤에서 확인한다. 운영 조립의 실제 production build는 별도 명령으로 검사한다.
+`apps/platform-e2e`의 `e2e:real`은 이 레포의 실조립(`apps/platform-web/src/real/http-assembly.tsx`)과 플랫폼 API를 Vite 같은 origin 뒤에서 확인한다. 운영 조립의 실제 production build는 별도 명령으로 검사한다.
 
 실행 환경과 운영 규칙은 [Real-server contract E2E](../../apps/platform-e2e/AGENTS.md#real-server-contract-e2e-593)를 따른다.
 
@@ -165,10 +165,10 @@ Kernel은 받은 `ok`/`empty`의 kind가 선언과 다르면 `contract_violation
 | 구분 | 계약 | 이유 또는 범위 |
 | --- | --- | --- |
 | 실행 | 운영 콘솔의 메뉴 활용률 서버 집계 delta, 접근 카탈로그, 감사 빈 결과, 메뉴 레지스트리 직접 진입 | 두 접근 가능한 콘솔 메뉴의 방문 수가 각각 테스트 전보다 1 증가하는지 확인한다. 감사는 존재하지 않는 임의 행위자(`actor=<uuid>`, 대상 유형·ID 없음)로 `POST /api/v1/platform/audit-trail/search`가 200 `empty`로 답하고 화면이 명시적 빈 결과를 보이는지 확인한다. 대상 유형 필터 [#1091](https://github.com/hjung3113/analytics-platform/issues/1091)은 구현됨(ADR-0101): `console.admin.real.spec.ts`가 `type=equipment&targetId=<없는 UUID>`의 200 `empty`와 빈 결과 화면, `type=voc`가 `Invalid audit filter` 없이 `ok`/`empty`로 답함, 형식 맞는 미지 유형이 URL에 남음을 확인한다(실행은 호스트 몫). |
-| 실행 | FeedbackOps 공간 대시보드·연동 화면, 홈·메뉴 검색·알림·내 VOC | 각 bridge/global 데이터 화면은 예상한 FeedbackOps GET의 2xx 응답과 실제 목록 또는 화면의 유효한 빈 결과를 확인한다. 홈은 Todo 세 원본 API가 성공하고 업무 시스템 카드가 표시되는지 확인한다. 홈 `공지` 카드의 메뉴 데이터 조회 `http_404`는 알려진 한계(#708, [backlog](../../.planning/backlog.md))라 이 검사가 덮지 않는다. |
-| 실행 | 관리자와 core 사용자 공간 접근, 로그인 전 직접 URL 이동, 백엔드 연결 실패 | 관리자는 콘솔/FeedbackOps에 접근하고 `mock-user-1`은 둘 다 보지 못한다. 미인증 이동은 로그인 경로에 돌아갈 주소를 보존한다. |
+| 실행 | 기능 공간 대시보드·연동 화면, 홈·메뉴 검색·알림·내 VOC | 각 bridge/global 데이터 화면은 예상한 기능 GET의 2xx 응답과 실제 목록 또는 화면의 유효한 빈 결과를 확인한다. 홈은 Todo 세 원본 API가 성공하고 업무 시스템 카드가 표시되는지 확인한다. 홈 `공지` 카드의 메뉴 데이터 조회 `http_404`는 알려진 한계(#708, [backlog](../../.planning/backlog.md))라 이 검사가 덮지 않는다. |
+| 실행 | 관리자와 core 사용자 공간 접근, 로그인 전 직접 URL 이동, 백엔드 연결 실패 | 관리자는 콘솔/기능에 접근하고 `mock-user-1`은 둘 다 보지 못한다. 미인증 이동은 로그인 경로에 돌아갈 주소를 보존한다. |
 | 사용 불가 | MARS·BRAVO·CLAS 분석, 설비·지표·차트·보드·저장된 뷰 및 site 범위 검사 | core 세션에는 site 범위가 없고 서버가 분석 메뉴 권한·메뉴 조회 포트를 제공하지 않는다. 권한·grant를 추가하지 않는다. |
-| 사용 불가 | FeedbackOps #251/#451의 MARS·BRAVO 바닥 블록 및 사이트 복귀 Context | 필요한 분석 메뉴 권한과 site scope가 core seed/실서버 세션에 없다. |
+| 사용 불가 | 기능 #251/#451의 MARS·BRAVO 바닥 블록 및 사이트 복귀 Context | 필요한 분석 메뉴 권한과 site scope가 core seed/실서버 세션에 없다. |
 | 사용 불가 | DevTools 역할 전환·응답 시나리오와 mock 가상 데이터 | real 조립에는 DevTools와 mock 어댑터 데이터가 없다. |
 
 ### CI 상태

@@ -1,6 +1,6 @@
 # menus/ — 메뉴 Consumer 패키지
 
-업무 시스템(도메인) 메뉴 Consumer 패키지만 둔다: `menus/<system>/<group>/`, 두 단계다. Registry 그룹마다 하나의 패키지(`@ap/menu-<group>`)이고, 메뉴가 `manifests`를 선언하면 앱(`apps/platform-web/src/menus.ts`)이 이어 붙여 Kernel에 등록한다. 메뉴 화면은 플랫폼 다섯 갈래(루트 `AGENTS.md`)를 검증하는 Consumer다. 플랫폼 기능(홈·내 활동·공지·운영 콘솔·FeedbackOps 화면)은 한 단계 `platform/<feature>/`에 있다([`platform/AGENTS.md`](../platform/AGENTS.md)). 아래 규칙은 두 루트의 `@ap/menu-*` 패키지에 같이 적용된다.
+업무 시스템(도메인) 메뉴 Consumer 패키지만 둔다: `menus/<system>/<group>/`, 두 단계다. Registry 그룹마다 하나의 패키지(`@ap/menu-<group>`)이고, 메뉴가 `manifests`를 선언하면 앱(`apps/platform-web/src/menus.ts`)이 이어 붙여 Kernel에 등록한다. 메뉴 화면은 플랫폼 다섯 갈래(루트 `AGENTS.md`)를 검증하는 Consumer다. 플랫폼 기능(홈·내 활동·공지·운영 콘솔·기능 화면)은 한 단계 `platform/<feature>/`에 있다([`platform/AGENTS.md`](../platform/AGENTS.md)). 아래 규칙은 두 루트의 `@ap/menu-*` 패키지에 같이 적용된다.
 
 그룹 단위 소유는 `.github/CODEOWNERS`에 시스템·그룹 폴더로 기록하며 새 그룹 폴더를 만들면 해당 줄을 추가한다(ADR-0090 D4). `menus/_global/`·`menus/feedbackops/`·`menus/operations/`는 없다. 세 곳의 패키지는 `platform/`으로 옮겼다([ADR-0097](../docs/adr/0097-platform-features-and-role-based-names.md), #1098).
 

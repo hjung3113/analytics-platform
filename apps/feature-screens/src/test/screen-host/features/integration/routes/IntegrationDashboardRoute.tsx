@@ -19,7 +19,7 @@ import * as React from 'react';
 function useDashboardRouteNavigate(): HostNavigate {
   const navigate = useNavigate();
   return (to, options) => {
-    const location = new URL(to, 'http://feedbackops.local');
+    const location = new URL(to, 'http://platform.local');
     void navigate({
       to: location.pathname,
       search: Object.fromEntries(location.searchParams),

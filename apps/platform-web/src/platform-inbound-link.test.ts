@@ -40,10 +40,10 @@ describe('platform inbound deep link (06 §6/§22)', () => {
     expect(detail.hop).toEqual({ menuId: 'equipment-detail', equipmentId: 'MEM/ETCH 01' });
     expect(detail.context.selection).toBeNull();
   });
-  it('keeps managedSystem/vocId/fo as extras and never lifts them into global scope', () => {
-    const parsed = parsePlatformInboundLink(`${P}/equipment?v=1&managedSystem=${MS_ID}&vocId=${VOC_ID}&fo=1`, P);
+  it('keeps managedSystem/vocId/feature as extras and never lifts them into global scope', () => {
+    const parsed = parsePlatformInboundLink(`${P}/equipment?v=1&managedSystem=${MS_ID}&vocId=${VOC_ID}&feature=1`, P);
     expect(parsed.hop).toEqual({ menuId: 'equipment-master' });
-    expect(parsed.extras).toEqual([['managedSystem', MS_ID], ['vocId', VOC_ID], ['fo', '1']]);
+    expect(parsed.extras).toEqual([['managedSystem', MS_ID], ['vocId', VOC_ID], ['feature', '1']]);
     expect(parsed.context.scopeId).toBeNull();
   });
   it('accepts the equipmentIds alias on parse only and rejects using both keys', () => {
@@ -73,8 +73,8 @@ describe('platform inbound deep link (06 §6/§22)', () => {
   });
   it('rejects drifted origins and non-hop paths', () => {
     const url = buildPlatformInboundLink({ origin: P, hop: { menuId: 'equipment-master' }, context: NONE });
-    expect(code(() => parsePlatformInboundLink(url, 'https://other.example'))).toBe('feedbackops_origin');
-    expect(code(() => parsePlatformInboundLink(url, 'platform.example'))).toBe('feedbackops_origin');
+    expect(code(() => parsePlatformInboundLink(url, 'https://other.example'))).toBe('inbound_origin');
+    expect(code(() => parsePlatformInboundLink(url, 'platform.example'))).toBe('inbound_origin');
     expect(code(() => parsePlatformInboundLink(`${P}/voc?v=1`, P))).toBe('unsupported_path');
     expect(code(() => parsePlatformInboundLink(`${P}/equipment/%zz`, P))).toBe('invalid_id');
   });
@@ -130,8 +130,8 @@ describe('platform inbound deep link (06 §6/§22)', () => {
     const build = (origin: string) => buildPlatformInboundLink({ origin, hop: { menuId: 'equipment-master' }, context: NONE });
     const parse = (expectedOrigin: string) => parsePlatformInboundLink(`${P}/equipment?v=1`, expectedOrigin);
     for (const origin of ['http://platform.example', `${P}/equipment`, 'HTTPS://platform.example', 'https://PLATFORM.example', 'https://user@platform.example', 'https://127.1', 'https://platform.example.']) {
-      expect(code(() => build(origin)), `build ${origin}`).toBe('feedbackops_origin');
-      expect(code(() => parse(origin)), `parse ${origin}`).toBe('feedbackops_origin');
+      expect(code(() => build(origin)), `build ${origin}`).toBe('inbound_origin');
+      expect(code(() => parse(origin)), `parse ${origin}`).toBe('inbound_origin');
     }
     // A single trailing slash and loopback http are tolerated; the emitted link still carries the canonical origin byte-exactly.
     expect(build(`${P}/`)).toBe(`${P}/equipment?v=1`);
@@ -140,11 +140,16 @@ describe('platform inbound deep link (06 §6/§22)', () => {
     expect(parsePlatformInboundLink('http://localhost:5173/equipment?v=1', 'http://localhost:5173/').hop).toEqual({ menuId: 'equipment-master' });
     expect(new URL(buildPlatformInboundLink({ origin: P, hop: { menuId: 'cycle-time' }, context: PERIOD })).origin).toBe(P);
   });
+  it('reports the renamed inbound_origin and inbound_path codes, never the retired feedbackops_* ones (#1130)', () => {
+    const origin = code(() => parsePlatformInboundLink(`${P}/equipment?v=1`, 'https://other.example'));
+    const path = code(() => parsePlatformInboundLink(`${P}/equipment#top`, P));
+    expect([origin, path]).toEqual(['inbound_origin', 'inbound_path']);
+  });
   it.each([
     ['fragment', `${P}/equipment?v=1#top`],
     ['backslash', `${P}\\equipment?v=1`],
-  ])('rejects a %s in the link as feedbackops_path', (_name, url) => {
-    expect(code(() => parsePlatformInboundLink(url, P))).toBe('feedbackops_path');
+  ])('rejects a %s in the link as inbound_path', (_name, url) => {
+    expect(code(() => parsePlatformInboundLink(url, P))).toBe('inbound_path');
   });
 });
 

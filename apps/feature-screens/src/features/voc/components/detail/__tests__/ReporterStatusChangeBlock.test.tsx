@@ -45,7 +45,7 @@ const BASE_VOC: VocDetailEnvelope = {
 const OWNER = {
   id: 'actor-owner',
   display_name: '김담당',
-  email: 'owner@feedbackops.local',
+  email: 'owner@platform.local',
 };
 
 // ── Tests ──────────────────────────────────────────────────────────────────

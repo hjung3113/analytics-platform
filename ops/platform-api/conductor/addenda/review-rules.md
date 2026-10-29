@@ -1,4 +1,4 @@
-## FeedbackOps addendum
+## Feature addendum
 
 - Base ref: `origin/develop` (`git diff origin/develop...HEAD`).
 - The conductor already ran the frontend vitest suite, the FE typecheck gate, the boundary checker and (for UI) the

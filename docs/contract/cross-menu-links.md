@@ -46,7 +46,7 @@ Create VOC with current context
 
 **복귀 버튼 (Decided, [ADR-0025](../adr/0025-drilldown-level-page-keys-path-bar-layout.md); 이름 Candidate):** `returnTo`를 받는 목적지는 공통 `ReturnLink`로 돌아가는 버튼을 그린다. Kernel이 채택한 `returnTo`(§6.4)에서 출발 메뉴 이름과 그 메뉴의 드릴 단계 값을 읽어 `← 생산성 개요 (PHOTO › STG-PHOTO-A)`처럼 보이고, 누르면 출발 URL(단계 키 포함)로 돌아간다. `returnTo`가 없거나, 거부되거나, 현재 사용자가 그 메뉴나 공간을 열 수 없으면 parent 메뉴로 돌아간다. parent도 열 수 없으면 열 수 있는 홈(플랫폼 홈, 없으면 공간 홈)으로 돌아간다. 열 수 없는 출발 메뉴의 이름은 보이지 않는다. 표시용 판정이며 목적지가 다시 검사한다. 메뉴 이름은 manifest `label`이고 단계 값은 URL 값 그대로다(번역하지 않음, §23). 다른 메뉴로 넘길 때 단계 키는 목적지가 그 page key를 선언했을 때만 싣는다(`linkTo`의 기존 규칙).
 
-FeedbackOps로 나가는 외부 hop은 `linkTo`가 아니라 [FeedbackOps 딥링크 계약](../integration/feedbackops-deeplink.md)을 따른다(절대 URL · 새 탭 · phase-1 allowlist).
+기능으로 나가는 외부 hop은 `linkTo`가 아니라 [플랫폼 인바운드 링크 계약](../integration/platform-inbound-links.md)을 따른다(절대 URL · 새 탭 · phase-1 allowlist).
 
 ## 공유 링크와 VOC 재현 링크 (Decided, #961 노드 961f)
 

@@ -25,7 +25,7 @@
 ## 결과
 
 - #81을 닫는다. #251의 Blocking 중 매핑·전체 링크 권한이 풀린다. 세션 공유(#150)는 여전히 남는다(그전에는 FeedbackOps 로그인이 한 번 더 있을 수 있음).
-- [딥링크 문서](../integration/feedbackops-deeplink.md) §1·§5를 이 결정에 맞춘다. 새 목록 대상과 전체 진입 대상, 권한 키는 #251이 계약·코드와 함께 더한다.
+- [딥링크 문서](../integration/platform-inbound-links.md) §1·§5를 이 결정에 맞춘다. 새 목록 대상과 전체 진입 대상, 권한 키는 #251이 계약·코드와 함께 더한다.
 - FeedbackOps 복귀 요청은 [FeedbackOps#1278](https://github.com/hjung3113/FeedbackOps/issues/1278)이다. 그쪽이 공개하면 딥링크 문서 §2·§4 절차로 allowlist에 더한다.
 - ADR-0042의 "본문 맨 위 `← <출발 메뉴>로 돌아가기` 줄"은 FeedbackOps를 셸 안에서 열 때(ADR-0038)의 복귀이고, 이 결정은 독립 앱(새 탭) 기준이다. 둘은 겹치지 않는다.
 

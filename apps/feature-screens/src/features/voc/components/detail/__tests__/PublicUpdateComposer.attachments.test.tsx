@@ -86,7 +86,7 @@ const ME_ADMIN: MeResponse = {
   actor: {
     id: ADMIN_ID,
     external_id: 'admin-1',
-    email: 'admin@feedbackops.local',
+    email: 'admin@platform.local',
     display_name: '관리자',
     role_level: 'admin',
   },

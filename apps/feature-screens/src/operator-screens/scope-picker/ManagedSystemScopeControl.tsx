@@ -1,6 +1,6 @@
 // Bridge-safe container for the `목록 범위` picker: the same reads, query keys and stale times as the standalone
 // `AppFrame`, but through `useMeBridge`, `fetchManagedSystems` and `fetchCapabilityScopeViaClient` (all on `client.ts`),
-// so the platform sidebar's Scope place shares the FeedbackOps cache and the `/api/features` base path. Value only through props.
+// so the platform sidebar's Scope place shares the feature cache and the `/api/features` base path. Value only through props.
 
 import { useQuery } from '@tanstack/react-query';
 

@@ -133,7 +133,7 @@ function createQueryClient() {
   });
 }
 
-// The detail moves through its host: the spy stands in for the host's navigate and takes FeedbackOps hrefs.
+// The detail moves through its host: the spy stands in for the host's navigate and takes feature hrefs.
 let hostSearch: Record<string, string> = {};
 let hostCanLink: (to: string) => boolean = () => true;
 let hostAbsoluteHref: (to: string) => string | null = (to) => `https://fo.example${to}`;

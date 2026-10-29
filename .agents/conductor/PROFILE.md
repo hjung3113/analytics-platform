@@ -42,9 +42,9 @@ Route to `impl-complex` (always full) if any of these hold:
   - Environment: `WAVE_STATE`, `WAVE_BRIEFS`, `AP_MAIN`.
   - Role: `WORKER_ROLE`. Overrides: `WORKER_MODEL`, `WORKER_EFFORT`.
 - Capacity and slots: see [`LANES.md`](LANES.md) §Machine resources. Run issues in parallel only when their files do not overlap.
-- FeedbackOps issues: `launch-worker.py <n> <slug> fo`.
-  - `scripts/fo-prepare.sh` fills `.env` and creates the issue DB on 5439 (`verify-db.sh create <n>`).
-  - Rules: `addenda/impl-rules-fo.md`.
+- Feature issues: `launch-worker.py <n> <slug> feature`.
+  - `scripts/feature-prepare.sh` fills `.env` and creates the issue DB on 5439 (`verify-db.sh create <n>`).
+  - Rules: `addenda/impl-rules-feature.md`.
   - Run `verify-db.sh up` once beforehand (in that checkout, `cp ops/platform-api/.env.example ops/platform-api/.env` first if `.env` is missing). Never use 5434.
   - A branch that adds a migration: `verify-db.sh drop <n>` → `verify-db.sh create <n> --migrate-from <worktree>` before integration tests (the worker brief says the conductor does this).
   - After merge, run `verify-db.sh drop <n>`. At wave end, run `verify-db.sh down`.
@@ -71,7 +71,7 @@ Every step must exit 0 before commit.
 
 Fix design-lint errors with the token, variant or component the message names.
 
-- **Fix round:** run changed packages, root lint/typecheck/test (cached), affected `-g` E2E, affected FO gates, hygiene, and step 7 if its inputs changed. No build, full E2E or probe unless a build input changed.
+- **Fix round:** run changed packages, root lint/typecheck/test (cached), affected `-g` E2E, affected screen gates, hygiene, and step 7 if its inputs changed. No build, full E2E or probe unless a build input changed.
 - **Final head:** run only hygiene. Run the fix-round checks again only after a rebase conflict.
 
 ## Browser evidence
@@ -88,7 +88,7 @@ Fix design-lint errors with the token, variant or component the message names.
 - Flags:
   - `permission` / `instructions` → global skill 7a.
   - `e2e` → confirm Verify step 3.
-  - `submodule` → confirm the FO gates.
+  - `submodule` → confirm the screen gates.
   - `contract` → give the changed 06 sections and ADRs to the code reviewer.
 - Rules: code reviewers use global `templates/review-rules.md` + [`addenda/review-rules.md`](addenda/review-rules.md). UX and quality reviewers use the global personas plus the lenses below.
 - `review-perf` only after a measured regression.
@@ -123,7 +123,7 @@ Reports are in Korean.
 - **Scope:** `<last tag>...origin/main`.
 - **References:** root and `packages/AGENTS.md` and the touched folders' `AGENTS.md`; `docs/integration/platform-packages.md` §3; 06 §24 (promote after 2–3 real consumers); `docs/AGENTS.md`.
 - **Look for:**
-  - boundary leaks (Kernel, components or shell know about menus or mocks; reverse imports; menus using `@ap/*` internals; FO primitives outside `@ap/ui`; the frontend treated as the permission authority)
+  - boundary leaks (Kernel, components or shell know about menus or mocks; reverse imports; menus using `@ap/*` internals; screen primitives outside `@ap/ui`; the frontend treated as the permission authority)
   - wrong commonization
   - missing `$TURBO_ROOT$` turbo inputs
   - dead code (including `?variant=` leftovers)
@@ -147,7 +147,7 @@ Shared assets come from conductor-engine `install.sh`. Run `install.sh --check` 
 
 | Tool | Purpose |
 | --- | --- |
-| `$ENGINE/launch-worker.py <n> <slug> [fo]` | See Launch |
+| `$ENGINE/launch-worker.py <n> <slug> [feature]` | See Launch |
 | `$ENGINE/review-plan.py` | Review plan |
 | `$ENGINE/wave-status.py [--json] [--prs] [--state-dir <d>]` | Read-only snapshot of workers, previews, worktrees and PR CI |
 | `$ENGINE/worker-hygiene.py <worktree>` | Verify step 6 |

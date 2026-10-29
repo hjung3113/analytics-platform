@@ -10,8 +10,8 @@ import {
   components,
   contractSchemas,
   contracts,
-  foBridge,
-  foBridgeMenu,
+  featureBridgePreset,
+  featureBridgeMenuPreset,
   hostModule,
   hostModuleDir,
   httpAdapter,
@@ -41,9 +41,9 @@ const PRESETS: Record<string, Linter.Config[]> = {
   'platform/home': menu,
   'menus/mars/analytics': menu,
   'menus/bravo/metrics': menu,
-  'packages/adapters/feature-bridge': foBridge,
-  'platform/my-activity': foBridgeMenu,
-  'platform/voc': foBridgeMenu,
+  'packages/adapters/feature-bridge': featureBridgePreset,
+  'platform/my-activity': featureBridgeMenuPreset,
+  'platform/voc': featureBridgeMenuPreset,
   'apps/platform-web': app,
 };
 
@@ -534,7 +534,7 @@ const rows: Row[] = [
 
 // No platform package imports feature packages any more: the design system moved into @ap/ui (ADR-0046, #441), @ap/ui included.
 // Exercise the root entry and deep imports through both static and dynamic syntax in each platform layer.
-const FEEDBACKOPS_BOUNDARY_FILES = [
+const FEATURE_BOUNDARY_FILES = [
   'packages/sdk/ui/src/x.ts',
   'packages/sdk/kernel/src/x.ts',
   'packages/sdk/components/src/x.ts',
@@ -544,7 +544,7 @@ const FEEDBACKOPS_BOUNDARY_FILES = [
   'apps/platform-web/src/main.tsx',
 ];
 
-for (const file of FEEDBACKOPS_BOUNDARY_FILES) {
+for (const file of FEATURE_BOUNDARY_FILES) {
   rows.push(
     { file, code: `import { Button } from '@ap/feature-ui';`, rule: 'no-restricted-imports', token: '@ap/ui' },
     { file, code: `import { Button } from '@ap/feature-ui/src/button';`, rule: 'no-restricted-imports', token: '@ap/ui' },
@@ -576,18 +576,18 @@ rows.push(
   { file: BRIDGE, code: `void import('${OPERATOR_DASHBOARD}');`, rule: '' },
   { file: MENU, code: `import { DashboardScreen } from '${OPERATOR_DASHBOARD}';`, rule: 'no-restricted-imports', token: '@ap/ui' },
   { file: MENU, code: `void import('${OPERATOR_DASHBOARD}');`, rule: 'ap/restricted-import-source', token: '@ap/ui' },
-  { file: `${'packages/adapters/feature-bridge/src'}/fo/session.ts`, code: `import { x } from '${OPERATOR_DASHBOARD}';`, rule: 'no-restricted-imports', token: '@ap/ui' },
+  { file: `${'packages/adapters/feature-bridge/src'}/feature/session.ts`, code: `import { x } from '${OPERATOR_DASHBOARD}';`, rule: 'no-restricted-imports', token: '@ap/ui' },
 );
-// The operator VOC entries (#761): the FeedbackOps VOC bridge menu may import them (static and dynamic); a non-bridge menu and the feature-bridge runtime's eager code may not.
-const FO_VOC = 'platform/voc/src/pages/x.tsx';
+// The operator VOC entries (#761): the feature VOC bridge menu may import them (static and dynamic); a non-bridge menu and the feature-bridge runtime's eager code may not.
+const FEATURE_VOC = 'platform/voc/src/pages/x.tsx';
 for (const entry of ['milestones', 'task-detail', 'tasks-search', 'voc-clusters', 'voc-detail', 'voc-inbox', 'voc-search', 'voc-triage', 'task-list', 'task-board', 'task-requests', 'findings-search', 'surveys-search', 'admin-search', 'integration-search', 'findings', 'finding-detail', 'surveys', 'survey-detail', 'survey-builder', 'survey-results', 'survey-follow-up', 'permission-requests', 'permission-grants', 'managed-systems', 'settings', 'analytics-areas', 'evidence', 'integration-dashboard', 'coverage', 'entity-links']) {
   const source = `@ap/feature-screens/operator-screens/${entry}`;
   rows.push(
-    { file: FO_VOC, code: `import { x } from '${source}';`, rule: '' },
-    { file: FO_VOC, code: `void import('${source}');`, rule: '' },
+    { file: FEATURE_VOC, code: `import { x } from '${source}';`, rule: '' },
+    { file: FEATURE_VOC, code: `void import('${source}');`, rule: '' },
     { file: MENU, code: `import { x } from '${source}';`, rule: 'no-restricted-imports', token: '@ap/ui' },
     { file: MENU, code: `void import('${source}');`, rule: 'ap/restricted-import-source', token: '@ap/ui' },
-    { file: `${'packages/adapters/feature-bridge/src'}/fo/session.ts`, code: `import { x } from '${source}';`, rule: 'no-restricted-imports', token: '@ap/ui' },
+    { file: `${'packages/adapters/feature-bridge/src'}/feature/session.ts`, code: `import { x } from '${source}';`, rule: 'no-restricted-imports', token: '@ap/ui' },
   );
 }
 for (const source of ['@ap/feature-screens', '@ap/feature-screens/src/main', '@ap/feature-screens/global-screens/FeatureScreenRoot', '@ap/feature-ui', '@ap/feature-shared']) {
@@ -598,27 +598,27 @@ for (const source of ['@ap/feature-screens', '@ap/feature-screens/src/main', '@a
 }
 
 // `@ap/feature-bridge` (ADR-0071, ADR-0081): bridge runtime, importable by bridge menus (root) and the app; `/core` only, lazy pages may see the screen barrel.
-const FO_PKG = 'packages/adapters/feature-bridge/src';
+const FEATURE_PKG = 'packages/adapters/feature-bridge/src';
 for (const source of ['@ap/kernel', '@ap/components', '@ap/ui', '@ap/contracts']) {
-  rows.push({ file: `${FO_PKG}/fo/session.ts`, code: `import { x } from '${source}';`, rule: '' });
+  rows.push({ file: `${FEATURE_PKG}/feature/session.ts`, code: `import { x } from '${source}';`, rule: '' });
 }
 rows.push(
-  { file: `${FO_PKG}/fo/session.ts`, code: `import { x } from '${GLOBAL_SCREENS_CORE}';`, rule: '' },
-  { file: `${FO_PKG}/fo/session.ts`, code: `void import('${GLOBAL_SCREENS_CORE}');`, rule: '' },
-  { file: `${FO_PKG}/fo/session.ts`, code: `import { x } from '${GLOBAL_SCREENS}';`, rule: 'no-restricted-imports', token: '@ap/ui' },
-  { file: `${FO_PKG}/home-todo-slot.tsx`, code: `import { x } from '${GLOBAL_SCREENS}';`, rule: 'no-restricted-imports', token: '@ap/ui' },
-  { file: `${FO_PKG}/home-todo-slot.tsx`, code: `void import('${GLOBAL_SCREENS}');`, rule: 'ap/restricted-import-source', token: '@ap/ui' },
-  { file: `${FO_PKG}/pages/HomeTodo.tsx`, code: `import { HomeTodoPanel } from '${GLOBAL_SCREENS}';`, rule: '' },
+  { file: `${FEATURE_PKG}/feature/session.ts`, code: `import { x } from '${GLOBAL_SCREENS_CORE}';`, rule: '' },
+  { file: `${FEATURE_PKG}/feature/session.ts`, code: `void import('${GLOBAL_SCREENS_CORE}');`, rule: '' },
+  { file: `${FEATURE_PKG}/feature/session.ts`, code: `import { x } from '${GLOBAL_SCREENS}';`, rule: 'no-restricted-imports', token: '@ap/ui' },
+  { file: `${FEATURE_PKG}/home-todo-slot.tsx`, code: `import { x } from '${GLOBAL_SCREENS}';`, rule: 'no-restricted-imports', token: '@ap/ui' },
+  { file: `${FEATURE_PKG}/home-todo-slot.tsx`, code: `void import('${GLOBAL_SCREENS}');`, rule: 'ap/restricted-import-source', token: '@ap/ui' },
+  { file: `${FEATURE_PKG}/pages/HomeTodo.tsx`, code: `import { HomeTodoPanel } from '${GLOBAL_SCREENS}';`, rule: '' },
   // The notifications panel entry: only a lazy page (and a bridge menu) may import it, never the eagerly loaded slot.
-  { file: `${FO_PKG}/pages/RecentInbox.tsx`, code: `import { InboxPanel } from '@ap/feature-screens/global-screens/inbox-panel';`, rule: '' },
-  { file: `${FO_PKG}/notifications-slot.tsx`, code: `import { InboxPanel } from '@ap/feature-screens/global-screens/inbox-panel';`, rule: 'no-restricted-imports', token: '@ap/ui' },
-  { file: `${FO_PKG}/notifications-slot.tsx`, code: `void import('@ap/feature-screens/global-screens/inbox-panel');`, rule: 'ap/restricted-import-source', token: '@ap/ui' },
+  { file: `${FEATURE_PKG}/pages/RecentInbox.tsx`, code: `import { InboxPanel } from '@ap/feature-screens/global-screens/inbox-panel';`, rule: '' },
+  { file: `${FEATURE_PKG}/notifications-slot.tsx`, code: `import { InboxPanel } from '@ap/feature-screens/global-screens/inbox-panel';`, rule: 'no-restricted-imports', token: '@ap/ui' },
+  { file: `${FEATURE_PKG}/notifications-slot.tsx`, code: `void import('@ap/feature-screens/global-screens/inbox-panel');`, rule: 'ap/restricted-import-source', token: '@ap/ui' },
   { file: MENU, code: `import { InboxPanel } from '@ap/feature-screens/global-screens/inbox-panel';`, rule: 'no-restricted-imports', token: '@ap/ui' },
-  { file: `${FO_PKG}/pages/HomeTodo.tsx`, code: `import { x } from '@ap/feature-ui';`, rule: 'no-restricted-imports', token: '@ap/ui' },
-  { file: `${FO_PKG}/fo/session.ts`, code: `import { x } from '@ap/feature-screens/global-screens/FeatureScreenRoot';`, rule: 'no-restricted-imports', token: '@ap/ui' },
-  { file: `${FO_PKG}/fo/session.ts`, code: `import { x } from '@ap/shell';`, rule: 'no-restricted-imports' },
-  { file: `${FO_PKG}/fo/session.ts`, code: `import { x } from '@ap/menu-home';`, rule: 'no-restricted-imports' },
-  { file: `${FO_PKG}/fo/session.ts`, code: `import { x } from '@ap/mock-server';`, rule: 'no-restricted-imports' },
+  { file: `${FEATURE_PKG}/pages/HomeTodo.tsx`, code: `import { x } from '@ap/feature-ui';`, rule: 'no-restricted-imports', token: '@ap/ui' },
+  { file: `${FEATURE_PKG}/feature/session.ts`, code: `import { x } from '@ap/feature-screens/global-screens/FeatureScreenRoot';`, rule: 'no-restricted-imports', token: '@ap/ui' },
+  { file: `${FEATURE_PKG}/feature/session.ts`, code: `import { x } from '@ap/shell';`, rule: 'no-restricted-imports' },
+  { file: `${FEATURE_PKG}/feature/session.ts`, code: `import { x } from '@ap/menu-home';`, rule: 'no-restricted-imports' },
+  { file: `${FEATURE_PKG}/feature/session.ts`, code: `import { x } from '@ap/mock-server';`, rule: 'no-restricted-imports' },
   // A bridge menu imports the bridge root; a non-bridge menu, and every layer below the menus, may not.
   { file: BRIDGE, code: `import { featureQueryClient } from '@ap/feature-bridge';`, rule: '' },
   { file: MENU, code: `import { featureQueryClient } from '@ap/feature-bridge';`, rule: 'no-restricted-imports' },
@@ -653,7 +653,7 @@ rows.push(
   { file: BRIDGE_MOCK_TEST, code: `void import('@ap/feature-screens/global-screens');`, rule: 'ap/restricted-import-source' },
 );
 
-// The FO API slot (feature-api) is main.tsx-only.
+// The screen API slot (feature-api) is main.tsx-only.
 rows.push(
   { file: 'apps/platform-web/src/main.tsx', code: `import { setFeatureApi } from '@ap/feature-bridge/feature-api';`, rule: '' },
   { file: 'apps/platform-web/src/main.tsx', code: `void import('@ap/feature-bridge/feature-api');`, rule: '' },
@@ -668,7 +668,7 @@ rows.push(
   { file: 'apps/platform-web/src/slots.ts', code: `import { notificationsSlot } from '@ap/feature-bridge/notifications-slot';`, rule: 'no-restricted-imports' },
   { file: 'apps/platform-web/src/menus.ts', code: `import { notificationsSlot } from '@ap/feature-bridge/notifications-slot';`, rule: 'no-restricted-imports' },
   { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/feature-bridge/src/notifications-slot';`, rule: 'no-restricted-imports' },
-  { file: 'platform/my-activity/src/fo/test-support.tsx', code: `import { testAdapter } from '@ap/kernel/testing';`, rule: '' },
+  { file: 'platform/my-activity/src/feature/test-support.tsx', code: `import { testAdapter } from '@ap/kernel/testing';`, rule: '' },
 );
 
 // The VOC compose slot is main.tsx-only too (#656); `src/slots.ts` receives the value as a parameter.
@@ -696,16 +696,16 @@ rows.push(
 
 // The feature-bridge menu test harness (#951): `kernel/testing` for exactly `packages/adapters/feature-bridge/src/testing.tsx`; `@ap/feature-bridge/testing` for bridge-menu test and test-support files only.
 rows.push(
-  { file: `${FO_PKG}/testing.tsx`, code: `import { testAdapter } from '@ap/kernel/testing';`, rule: '' },
-  { file: `${FO_PKG}/testing.tsx`, code: `const m = await import('@ap/kernel/testing');`, rule: '' },
-  { file: `${FO_PKG}/fo/FeatureScreenPage.tsx`, code: `import { testAdapter } from '@ap/kernel/testing';`, rule: 'no-restricted-imports' },
-  { file: `${FO_PKG}/fo/FeatureScreenPage.tsx`, code: `const m = await import('@ap/kernel/testing');`, rule: 'ap/restricted-import-source' },
-  { file: `${FO_PKG}/index.ts`, code: `import { testAdapter } from '@ap/kernel/testing';`, rule: 'no-restricted-imports' },
+  { file: `${FEATURE_PKG}/testing.tsx`, code: `import { testAdapter } from '@ap/kernel/testing';`, rule: '' },
+  { file: `${FEATURE_PKG}/testing.tsx`, code: `const m = await import('@ap/kernel/testing');`, rule: '' },
+  { file: `${FEATURE_PKG}/feature/FeatureScreenPage.tsx`, code: `import { testAdapter } from '@ap/kernel/testing';`, rule: 'no-restricted-imports' },
+  { file: `${FEATURE_PKG}/feature/FeatureScreenPage.tsx`, code: `const m = await import('@ap/kernel/testing');`, rule: 'ap/restricted-import-source' },
+  { file: `${FEATURE_PKG}/index.ts`, code: `import { testAdapter } from '@ap/kernel/testing';`, rule: 'no-restricted-imports' },
   { file: 'platform/voc/src/test-support.tsx', code: `import { createFeatureMenuHarness } from '@ap/feature-bridge/testing';`, rule: '' },
   { file: 'platform/voc/src/pages/x.test.tsx', code: `import { createFeatureMenuHarness } from '@ap/feature-bridge/testing';`, rule: '' },
   { file: 'platform/voc/src/pages/x.test.tsx', code: `const m = await import('@ap/feature-bridge/testing');`, rule: '' },
-  { file: 'platform/voc/src/pages/FoInbox.tsx', code: `import { createFeatureMenuHarness } from '@ap/feature-bridge/testing';`, rule: 'no-restricted-imports' },
-  { file: 'platform/voc/src/pages/FoInbox.tsx', code: `const m = await import('@ap/feature-bridge/testing');`, rule: 'ap/restricted-import-source' },
+  { file: 'platform/voc/src/pages/FeatureInbox.tsx', code: `import { createFeatureMenuHarness } from '@ap/feature-bridge/testing';`, rule: 'no-restricted-imports' },
+  { file: 'platform/voc/src/pages/FeatureInbox.tsx', code: `const m = await import('@ap/feature-bridge/testing');`, rule: 'ap/restricted-import-source' },
   { file: BRIDGE, code: `import { createFeatureMenuHarness } from '@ap/feature-bridge/testing';`, rule: 'no-restricted-imports' },
   { file: 'platform/home/src/pages/x.test.tsx', code: `import { createFeatureMenuHarness } from '@ap/feature-bridge/testing';`, rule: 'no-restricted-imports' },
   { file: 'platform/home/src/test-support.tsx', code: `import { createFeatureMenuHarness } from '@ap/feature-bridge/testing';`, rule: 'no-restricted-imports' },
@@ -718,7 +718,7 @@ rows.push(
   { file: 'packages/sdk/ui/src/x.ts', code: `void import('@ap/feature-shared');`, rule: 'ap/restricted-import-source', token: '@ap/ui' },
 );
 
-// #228 design-system rules (options mirror FeedbackOps .oxlintrc.json). Shared components may style their own markup
+// #228 design-system rules (options mirror feature .oxlintrc.json). Shared components may style their own markup
 // but not restyle a primitive they import (#236 review).
 const COMPONENT_FILE = 'packages/sdk/components/src/X.tsx';
 rows.push(
@@ -852,7 +852,7 @@ describe('restricted-import-source table-engine list comes from options', () => 
   });
 });
 
-// ADR-0086 decision 13: the Kernel's query engine and the FeedbackOps bridge's client share one lockfile entry; bump both together.
+// ADR-0086 decision 13: the Kernel's query engine and the feature bridge's client share one lockfile entry; bump both together.
 describe('query engine version lock', () => {
   it('pins the same exact @tanstack/react-query in kernel and feature-bridge', async () => {
     const version = async (pkg: string) => {

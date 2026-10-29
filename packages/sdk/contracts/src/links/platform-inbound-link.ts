@@ -1,5 +1,5 @@
 /**
- * Platform inbound deep-link codec (docs/integration/feedbackops-deeplink.md §2, contract: 2): builds/validates the platform
+ * Platform inbound deep-link codec (docs/integration/platform-inbound-links.md §2, contract: 2): builds/validates the platform
  * URLs an external caller may open (06 §6/§22). Reuses the global-Context codec in ./url; adds no React, env, registry or
  * cross-package imports.
  */
@@ -17,15 +17,15 @@ export type PlatformHop =
  *  (a single trailing '/' is allowed); https anywhere, http only for loopback hosts; no path/query/hash/userinfo. */
 function origin(input: string): string {
   let url: URL;
-  try { url = new URL(input); } catch { return fail('feedbackops_origin', `origin must be an absolute https://host[:port] URL (http only for localhost/127.0.0.1; no path/query/hash/userinfo), got ${JSON.stringify(input)}`); }
+  try { url = new URL(input); } catch { return fail('inbound_origin', `origin must be an absolute https://host[:port] URL (http only for localhost/127.0.0.1; no path/query/hash/userinfo), got ${JSON.stringify(input)}`); }
   const canonical = url.origin;
   if (input !== canonical && !(input.endsWith('/') && input.slice(0, -1) === canonical)) {
-    return fail('feedbackops_origin', `origin must be the canonical URL origin (${canonical}), got ${JSON.stringify(input)}`);
+    return fail('inbound_origin', `origin must be the canonical URL origin (${canonical}), got ${JSON.stringify(input)}`);
   }
   const scheme = url.protocol.slice(0, -1);
-  if (scheme !== 'https' && scheme !== 'http') return fail('feedbackops_origin', `origin scheme must be https or http, got ${JSON.stringify(input)}`);
-  if (scheme === 'http' && url.hostname !== 'localhost' && url.hostname !== '127.0.0.1') return fail('feedbackops_origin', `http is allowed only for localhost/127.0.0.1, got ${url.hostname}`);
-  if (url.hostname.endsWith('.')) return fail('feedbackops_origin', `origin host must not end with a dot, got ${JSON.stringify(input)}`);
+  if (scheme !== 'https' && scheme !== 'http') return fail('inbound_origin', `origin scheme must be https or http, got ${JSON.stringify(input)}`);
+  if (scheme === 'http' && url.hostname !== 'localhost' && url.hostname !== '127.0.0.1') return fail('inbound_origin', `http is allowed only for localhost/127.0.0.1, got ${url.hostname}`);
+  if (url.hostname.endsWith('.')) return fail('inbound_origin', `origin host must not end with a dot, got ${JSON.stringify(input)}`);
   return canonical;
 }
 
@@ -55,15 +55,15 @@ function validateContext(g: GlobalContext): void {
 
 /** Split an absolute deep link. Fragment or backslash is rejected: neither is part of the contract. */
 function splitUrl(url: string): { origin: string; path: string; search: string } {
-  if (url.includes('#') || url.includes('\\')) return fail('feedbackops_path', `fragment/backslash is not part of the deep-link contract: ${JSON.stringify(url)}`);
+  if (url.includes('#') || url.includes('\\')) return fail('inbound_path', `fragment/backslash is not part of the deep-link contract: ${JSON.stringify(url)}`);
   const m = /^([a-zA-Z][a-zA-Z0-9+.-]*):\/\/([^/?#]*)(\/[^?#]*)(?:\?([^#]*))?$/.exec(url);
-  if (!m) return fail('feedbackops_path', `use an absolute link scheme://host/path[?query], got ${JSON.stringify(url)}`);
+  if (!m) return fail('inbound_path', `use an absolute link scheme://host/path[?query], got ${JSON.stringify(url)}`);
   return { origin: `${m[1].toLowerCase()}://${m[2].toLowerCase()}`, path: m[3], search: m[4] ?? '' };
 }
 
 const RETURN_TO: readonly string[] = [RETURN_TO_KEY];
 
-/** FeedbackOps → platform. Generates the canonical inbound URL for a hop (contract §2). */
+/** Feature screens → platform. Generates the canonical inbound URL for a hop (contract §2). */
 export function buildPlatformInboundLink(input: {
   origin: string;
   hop: PlatformHop;
@@ -95,7 +95,7 @@ export function parsePlatformInboundLink(url: string, expectedOrigin: string): {
 } {
   const expected = origin(expectedOrigin);
   const split = splitUrl(url);
-  if (split.origin !== expected) return fail('feedbackops_origin', `link origin ${split.origin} does not match expectedOrigin ${expected}`);
+  if (split.origin !== expected) return fail('inbound_origin', `link origin ${split.origin} does not match expectedOrigin ${expected}`);
   let hop: PlatformHop;
   let returnToIsPageKey = false;
   if (split.path === '/equipment') hop = { menuId: 'equipment-master' };

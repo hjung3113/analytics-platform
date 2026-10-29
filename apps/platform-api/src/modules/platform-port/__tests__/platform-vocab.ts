@@ -4,7 +4,7 @@ import { createRequire } from 'node:module';
 /**
  * The platform's closed vocabularies, read from the JSON artifact `@ap/contracts` generates from its
  * own `as const` lists (`@ap/contracts/vocab.json`, #674) — never by parsing TypeScript source.
- * Test-only: FeedbackOps src depends on no `@ap/*` package but `@ap/ui` (check-boundaries rule 11).
+ * Test-only: feature src depends on no `@ap/*` package but `@ap/ui` (check-boundaries rule 11).
  */
 export interface PlatformVocab {
   kernelPermissions: string[];

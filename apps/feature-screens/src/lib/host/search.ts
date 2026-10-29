@@ -2,7 +2,7 @@
 export type HostSearch = Readonly<Record<string, string>>;
 
 /**
- * `path` plus the non-empty entries of `record`, in the order given. The result is the complete FeedbackOps
+ * `path` plus the non-empty entries of `record`, in the order given. The result is the complete feature
  * path+query for `useHostNavigate()`: a key left out (or `undefined`/empty) is cleared.
  */
 export function searchHref(

@@ -39,7 +39,7 @@ export async function seedSecondWorkspace(handle: DbHandle): Promise<SecondWorks
     {
       id: adminActorId,
       externalId: 'mock-admin-2',
-      email: 'admin-2@feedbackops.local',
+      email: 'admin-2@platform.local',
       displayName: 'Mock Admin 2',
       roleLevel: 'admin',
       actorType: 'internal_member',
@@ -47,7 +47,7 @@ export async function seedSecondWorkspace(handle: DbHandle): Promise<SecondWorks
     {
       id: userActorId,
       externalId: 'mock-user-2',
-      email: 'user-2@feedbackops.local',
+      email: 'user-2@platform.local',
       displayName: 'Mock User 2',
       roleLevel: 'user',
       actorType: 'internal_member',

@@ -4,7 +4,7 @@ import { memoryStorage } from '@ap/kernel/testing';
 import { setFeatureApi } from '@ap/feature-bridge/feature-api';
 import { mountAt, warmPages } from '../test-support';
 
-/** Screens and the drawer are doubles that would request FeedbackOps data when mounted; the page value check (FeedbackOps' real search schema) is not mocked. */
+/** Screens and the drawer are doubles that would request feature data when mounted; the page value check (the feature screens' real search schema) is not mocked. */
 const mounted = vi.hoisted(() => ({ screens: 0, details: 0 }));
 vi.mock('@ap/feature-screens/operator-screens/voc-inbox', () => ({ InboxScreen: () => { mounted.screens += 1; return <div data-testid="inbox" />; } }));
 vi.mock('@ap/feature-screens/operator-screens/voc-triage', () => ({ TriageScreen: () => { mounted.screens += 1; return <div data-testid="triage" />; } }));
@@ -37,7 +37,7 @@ describe.each([
   ['수신함', '/operations/inbox', INBOX_CASES, 'inbox'],
   ['Triage', '/operations/triage', TRIAGE_CASES, 'triage'],
 ] as const)('%s with an invalid address value', (_name, path, cases, testId) => {
-  it.each(cases)('rejects an invalid %s, keeps the address and requests nothing from FeedbackOps', async (key, value) => {
+  it.each(cases)('rejects an invalid %s, keeps the address and requests nothing from feature', async (key, value) => {
     const search = `?${key}=${encodeURIComponent(value)}&managedSystem=${SYSTEM}`;
     mountAt(`${path}${search}`);
     expect((await screen.findByText(`주소의 ${key} 값이 올바르지 않습니다`, undefined, { timeout: 3000 }))).toBeTruthy();

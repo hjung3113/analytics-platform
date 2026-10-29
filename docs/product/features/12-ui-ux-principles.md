@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document defines the shared UI language for FeedbackOps.
+This document defines the shared UI language for the feature suite.
 
 System-specific UI details belong in each system document. This document prevents inconsistent UI interpretation across systems.
 
@@ -18,7 +18,7 @@ Typeform / SurveyMonkey: 10%
 ## Core UI Sentence
 
 ```text
-FeedbackOps UI는 Linear처럼 빠르고 밀도 높은 운영 도구를 기본으로 한다.
+feature UI는 Linear처럼 빠르고 밀도 높은 운영 도구를 기본으로 한다.
 다만 VOC는 Zendesk / Intercom처럼 triage, ownership, Reporter update 흐름을 유지하고,
 Survey는 Typeform / SurveyMonkey처럼 생성, 배포, 응답, 분석 흐름을 제공하며,
 Tasks는 Linear / Jira처럼 빠른 실행 관리 화면으로 동작한다.

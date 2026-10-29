@@ -1,6 +1,6 @@
 /**
- * @ap/menu-findings — findings group manifest (FeedbackOps space Findings: 전체 Finding; ADR-0081, #762).
- * The FeedbackOps operator Findings screen through the bridge; the page keys equal the route table in `@ap/feature-bridge` (`findingsRoute`; pinned by the page tests),
+ * @ap/menu-findings — findings group manifest (feature space Findings: 전체 Finding; ADR-0081, #762).
+ * The feature operator Findings screen through the bridge; the page keys equal the route table in `@ap/feature-bridge` (`findingsRoute`; pinned by the page tests),
  * and the app-declared carry set carries `managedSystem` (#1099b, replacing ADR-0081 decision 4). `focus` is the selected Finding (06 §13); the page draws its detail drawer.
  */
 import { lazy } from 'react';
@@ -20,6 +20,6 @@ export const manifests: MenuEntry[] = [
     path: '/operations/findings', icon: ListChecks, permission: 'features:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['focus', 'q', 'area', 'status', 'execution', 'assignment', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
-    component: lazy(() => import('./pages/FoFindings')),
+    component: lazy(() => import('./pages/FeatureFindings')),
   },
 ];

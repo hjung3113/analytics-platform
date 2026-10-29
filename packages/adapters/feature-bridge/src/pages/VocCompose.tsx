@@ -1,9 +1,9 @@
 import { useCallback } from 'react';
 import type { VocComposeProps } from '@ap/kernel';
 import { VocComposeScreen } from '@ap/feature-screens/global-screens';
-import { FeatureBridge } from '../fo/FeatureBridge';
-import { featureQueryClient } from '../fo/session';
-import { isUuid } from '../fo/uuid';
+import { FeatureBridge } from '../feature/FeatureBridge';
+import { featureQueryClient } from '../feature/session';
+import { isUuid } from '../feature/uuid';
 
 /**
  * The form's initial Managed System (ADR-0070 decision 5): the frozen screen's carried `managedSystem` when it is one UUID (only a carry-set member menu has one, whichever space or global group it is in: operator menus and 내 Task), otherwise the
@@ -16,8 +16,8 @@ export function initialManagedSystem(context: Pick<VocComposeProps['context'], '
 }
 
 /**
- * The `VOC 등록` form from FeedbackOps in the rail drawer (ADR-0070 decisions 4–5, ADR-0071). The frozen Context becomes the `화면 정보` block of the
- * description; the screen reads it when the form is submitted, so a chip removed after typing leaves the typed values alone. Without a FeedbackOps API
+ * The `VOC 등록` form from feature in the rail drawer (ADR-0070 decisions 4–5, ADR-0071). The frozen Context becomes the `화면 정보` block of the
+ * description; the screen reads it when the form is submitted, so a chip removed after typing leaves the typed values alone. Without a feature API
  * (mock preview) it shows `실서버 필요` and requests nothing.
  */
 export default function VocCompose({ context, onSubmitted, onCancel, onDirtyChange, managedSystemFor }: VocComposeProps & { managedSystemFor: (spaceId: string | null) => string | null }) {

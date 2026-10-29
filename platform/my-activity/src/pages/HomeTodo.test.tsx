@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider } from '@ap/kernel';
 import { memoryStorage } from '@ap/kernel/testing';
 import { setFeatureApi } from '@ap/feature-bridge/feature-api';
-import { ID_A, ID_B, json, listOf, notification, registry, stubFetch, switchableAdapter } from '../fo/test-support';
+import { ID_A, ID_B, json, listOf, notification, registry, stubFetch, switchableAdapter } from '../feature/test-support';
 import HomeTodo from '@ap/feature-bridge/home-todo-page';
 
 const SURVEY_ID = '33333333-3333-4333-8333-333333333333';

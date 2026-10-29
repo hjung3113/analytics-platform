@@ -1,4 +1,4 @@
-# Build context for the FeedbackOps release images (ops/platform-api/docker-compose.release.yml, #642): only what
+# Build context for the platform API release images (ops/platform-api/docker-compose.release.yml, #642): only what
 # those Dockerfiles COPY. Everything else in the repository stays out of the context.
 *
 !package.json

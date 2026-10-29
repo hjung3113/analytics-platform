@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FO_API_PREFIX, realDevProxy } from './real-dev-proxy';
+import { FEATURE_API_PREFIX, realDevProxy } from './real-dev-proxy';
 
 const origin = 'http://127.0.0.1:3011';
 
@@ -12,7 +12,7 @@ describe('real-dev proxy (ADR-0071)', () => {
     ['/api/features/notifications?unread=true', '/notifications?unread=true'],
     ['/api/features/notifications/abc/read', '/notifications/abc/read'],
   ])('strips the prefix: %s → %s', (from, to) => {
-    const rule = realDevProxy(origin)[`${FO_API_PREFIX}/`];
+    const rule = realDevProxy(origin)[`${FEATURE_API_PREFIX}/`];
     expect(rule.target).toBe(origin);
     expect(rule.rewrite(from)).toBe(to);
   });

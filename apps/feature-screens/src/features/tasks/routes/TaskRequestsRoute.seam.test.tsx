@@ -80,7 +80,7 @@ let parts: TaskRequestPanelParts | null = null;
 let absoluteHref: HostSeam['absoluteHref'];
 
 const record = (href: string) =>
-  Object.fromEntries(new URL(href, 'http://feedbackops.local').searchParams);
+  Object.fromEntries(new URL(href, 'http://platform.local').searchParams);
 
 function renderDetail(next: TaskRequestPanelParts) {
   parts = next;
@@ -194,7 +194,7 @@ describe('TaskRequestsScreen over a bare host seam', () => {
       writable: true,
     });
     try {
-      const platformUrl = 'https://platform.test/feedbackops/task-requests?focus=a1';
+      const platformUrl = 'https://platform.test/operations/task-requests?focus=a1';
       const spy = vi.fn((_to: string) => platformUrl);
       absoluteHref = spy;
       const { unmount } = render(<Harness search={{ ...BASE, param: 'a1' }} autoSelect={false} />);

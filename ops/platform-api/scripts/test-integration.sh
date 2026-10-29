@@ -20,7 +20,7 @@ set -euo pipefail
 ops_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck disable=SC1091
 . "$ops_root/paths.sh"
-backend_dir="$FO_REPO_ROOT/$FO_BACKEND"
+backend_dir="$FEATURE_REPO_ROOT/$FEATURE_BACKEND"
 env_file="${PLATFORM_API_ENV_FILE:-$ops_root/.env}"
 
 if [ ! -f "$env_file" ]; then

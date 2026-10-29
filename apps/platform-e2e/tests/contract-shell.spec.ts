@@ -471,7 +471,7 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     await expect(page.getByText('목록 범위', { exact: true })).toBeVisible();
     await expect(page.getByTitle('실서버 필요').filter({ hasText: '전체' })).toBeDisabled();
     await evidence(page, testInfo, 'feedbackops-dashboard-mock');
-    // #761: the VOC group (수신함, Triage) is bridge menus too; without a FeedbackOps API each body is 실서버 필요.
+    // #761: the VOC group (수신함, Triage) is bridge menus too; without a feature API each body is 실서버 필요.
     // The sidebar draws only the current section, so the rail's VOC section brings its menus in.
     await railSection(page, 'VOC').click();
     await expect(nav.getByRole('link', { name: '수신함' })).toBeVisible();
@@ -669,7 +669,7 @@ test.describe('전역 기능 자리 (ADR-0070, 06 §9.1·§10)', () => {
     await expect(systemSwitcher(page)).toHaveAccessibleName('시스템 및 플랫폼 메뉴');
   });
 
-  test('mock 미리보기의 알림 화면은 실서버 필요 상태를 보이고 FeedbackOps 목록을 열지 않는다 (ADR-0071)', async ({ page }) => {
+  test('mock 미리보기의 알림 화면은 실서버 필요 상태를 보이고 기능 목록을 열지 않는다 (ADR-0071)', async ({ page }) => {
     await signInAs(page, 'viewer');
     await page.goto('/notifications');
     await expect(page.getByRole('main').getByRole('heading', { name: '알림' })).toBeVisible();

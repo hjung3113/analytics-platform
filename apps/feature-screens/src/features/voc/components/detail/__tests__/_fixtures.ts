@@ -15,7 +15,7 @@ export const ME_RESPONSE: MeResponse = {
   actor: {
     id: REPORTER_ID,
     external_id: 'reporter-1',
-    email: 'reporter@feedbackops.local',
+    email: 'reporter@platform.local',
     display_name: '김개발',
     role_level: 'Reporter',
   },

@@ -1,6 +1,6 @@
 /**
  * @ap/menu-my-activity — myActivity group manifests (내 활동, ADR-0070, #594).
- * 알림, 내 VOC and 설문 are FeedbackOps screens through the bridge (ADR-0071, #651, #654, #653); 권한 요청 is the requester page through the bridge too (#657); approval stays a FeedbackOps admin screen.
+ * 알림, 내 VOC and 설문 are feature screens through the bridge (ADR-0071, #651, #654, #653); 권한 요청 is the requester page through the bridge too (#657); approval stays a feature admin screen.
  */
 import { lazy } from 'react';
 import { Bell, ClipboardList, KeyRound, MessageSquareWarning } from 'lucide-react';

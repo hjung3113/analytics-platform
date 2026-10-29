@@ -69,7 +69,7 @@ export type TaskListFilters = {
 };
 
 /**
- * The `/tasks` search as FeedbackOps strings, the shape `useHostSearchWriter` needs: `validateTasksSearch` with its
+ * The `/tasks` search as feature strings, the shape `useHostSearchWriter` needs: `validateTasksSearch` with its
  * boolean `overdue` as `'true'` (a host search is strings; the standalone seam turns it back, see TaskListRoute).
  */
 function validateTaskListSearch(raw: unknown) {

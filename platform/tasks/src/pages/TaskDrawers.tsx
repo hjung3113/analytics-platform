@@ -1,14 +1,14 @@
 import { FeatureDetailDrawer } from '@ap/feature-bridge';
 import { useTaskDetailParts, useTaskManagedSystemNames, useWorkspaceActors } from '@ap/feature-screens/operator-screens/task-detail';
 
-/** Actor id → display name, the map `useTaskDetailParts` shows assignees and reviewers from (only the screens hold it in FeedbackOps). */
+/** Actor id → display name, the map `useTaskDetailParts` shows assignees and reviewers from (only the screens hold it in feature). */
 function useActorNames(): ReadonlyMap<string, string> {
   const { actors } = useWorkspaceActors();
   return new Map((actors ?? []).map(actor => [actor.id, actor.display_name]));
 }
 
 /**
- * The Task detail of Task 목록 and 내 Task in the shell detail slot. It renders inside `FeatureBridge` (the FeedbackOps providers) and portals into the slot through
+ * The Task detail of Task 목록 and 내 Task in the shell detail slot. It renders inside `FeatureBridge` (the feature providers) and portals into the slot through
  * `FeatureDetailDrawer`; `onClose` drops `focus`. Key it on the Task.
  */
 export function TaskDetailDrawer({ taskId, view, onClose }: { taskId: string; view: 'backlog' | 'my'; onClose: () => void }) {

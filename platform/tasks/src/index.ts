@@ -1,6 +1,6 @@
 /**
  * @ap/menu-tasks — tasks group manifests (operations console Task 관리: Task Requests, Tasks board, 내 Task, Milestones and the hidden Task 목록; ADR-0081, #763).
- * The FeedbackOps operator Task screens through the bridge; the page keys equal the route tables in `@ap/feature-bridge` (`taskRequestsRoute`, `taskBoardRoute`, `myTasksRoute`, `milestonesRoute`, `taskListRoute`; pinned by the page tests),
+ * The feature operator Task screens through the bridge; the page keys equal the route tables in `@ap/feature-bridge` (`taskRequestsRoute`, `taskBoardRoute`, `myTasksRoute`, `milestonesRoute`, `taskListRoute`; pinned by the page tests),
  * and the app-declared carry set carries `managedSystem` (#1099b, replacing ADR-0081 decision 4). `focus` is the selected Task (06 §13).
  */
 import { lazy } from 'react';
@@ -22,7 +22,7 @@ export const manifests: MenuEntry[] = [
     path: '/operations/task-requests', icon: Inbox, permission: 'features:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['focus', 'reviewer', 'reviewerTeam', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
-    component: lazy(() => import('./pages/FoTaskRequests')),
+    component: lazy(() => import('./pages/FeatureTaskRequests')),
   },
   {
     id: 'tasks', primary: true, group: GROUP, label: { ko: 'Tasks', en: 'Tasks' },
@@ -30,7 +30,7 @@ export const manifests: MenuEntry[] = [
     path: '/operations/tasks', icon: ListTodo, permission: 'features:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['focus', 'q', 'publicUpdate', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
-    component: lazy(() => import('./pages/FoTaskBoard')),
+    component: lazy(() => import('./pages/FeatureTaskBoard')),
   },
   {
     id: 'my-tasks', group: MY_ACTIVITY, label: { ko: '내 Task', en: 'My Tasks' },
@@ -38,7 +38,7 @@ export const manifests: MenuEntry[] = [
     path: '/my-tasks', icon: User, permission: 'features:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['focus', 'managedSystem', 'q', 'area', 'status', 'statusGroup', 'overdue', 'publicUpdate', 'reporterUpdate', 'returnTo'], carrySet: FEATURES_CARRY_SET,
-    component: lazy(() => import('./pages/FoMyTasks')),
+    component: lazy(() => import('./pages/FeatureMyTasks')),
   },
   {
     id: 'milestones', group: GROUP, label: { ko: 'Milestones', en: 'Milestones' },
@@ -46,7 +46,7 @@ export const manifests: MenuEntry[] = [
     path: '/operations/milestones', icon: Flag, permission: 'features:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['focus', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
-    component: lazy(() => import('./pages/FoMilestones')),
+    component: lazy(() => import('./pages/FeatureMilestones')),
   },
   {
     id: 'task-list', group: GROUP, label: { ko: 'Task 목록', en: 'Task list' }, navHidden: true, parent: 'tasks',
@@ -54,6 +54,6 @@ export const manifests: MenuEntry[] = [
     path: '/operations/task-list', icon: ListTodo, permission: 'features:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['focus', 'managedSystem', 'q', 'area', 'status', 'statusGroup', 'overdue', 'publicUpdate', 'reporterUpdate', 'returnTo'], carrySet: FEATURES_CARRY_SET,
-    component: lazy(() => import('./pages/FoTaskList')),
+    component: lazy(() => import('./pages/FeatureTaskList')),
   },
 ];

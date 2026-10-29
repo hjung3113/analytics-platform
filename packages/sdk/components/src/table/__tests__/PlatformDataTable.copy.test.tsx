@@ -193,7 +193,7 @@ describe('PlatformDataTable row copy (#174) — button', () => {
     Reflect.deleteProperty(navigator, 'platform');
   });
 
-  it('the tooltip uses the shared FeedbackOps surface (shadow + border), size sm (ADR-0023 C2)', async () => {
+  it('the tooltip uses the shared feature-ui surface (shadow + border), size sm (ADR-0023 C2)', async () => {
     render(<Harness />);
     await ready();
     act(() => { copyButton().focus(); });

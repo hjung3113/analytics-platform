@@ -186,7 +186,7 @@ function setActor(id: string) {
     actor: {
       id,
       external_id: 'mock-admin',
-      email: 'admin@feedbackops.local',
+      email: 'admin@platform.local',
       display_name: 'Mock Admin',
       role_level: 'admin',
     },

@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
 import { setFeatureApi } from '@ap/feature-bridge/feature-api';
 import { featureQueryClient } from '@ap/feature-bridge';
-import { ID_A, ID_B, json, mountAt, stubFetch, switchableAdapter, type Call } from '../fo/test-support';
+import { ID_A, ID_B, json, mountAt, stubFetch, switchableAdapter, type Call } from '../feature/test-support';
 
 const origin = () => window.location.origin;
 const session = () => switchableAdapter('user-a', ['platform:view', 'voc:view']);
@@ -78,7 +78,7 @@ afterEach(() => {
   window.history.replaceState(null, '', '/');
 });
 
-describe('내 VOC without a FeedbackOps API (mock preview) — V1', () => {
+describe('내 VOC without a feature API (mock preview) — V1', () => {
   it.each([
     ['/voc?v=1', '내 VOC'],
     [`/voc/${ID_A}?v=1`, '내 VOC 상세'],
@@ -92,7 +92,7 @@ describe('내 VOC without a FeedbackOps API (mock preview) — V1', () => {
   });
 });
 
-describe('내 VOC through the FeedbackOps bridge', () => {
+describe('내 VOC through the feature bridge', () => {
   const onSessionLost = vi.fn();
   beforeEach(() => { onSessionLost.mockReset(); setFeatureApi({ basePath: '/api/features', onSessionLost }); });
 
@@ -294,7 +294,7 @@ describe('내 VOC through the FeedbackOps bridge', () => {
     expect(calls).toEqual([]);
   });
 
-  it('V7: a FeedbackOps 404 shows the FeedbackOps not-found text', async () => {
+  it('V7: a feature 404 shows the feature not-found text', async () => {
     vocFetch({ detail: () => json({ code: 'not_found.record', message: 'not found' }, 404) });
     mountAt(session().adapter, `/voc/${ID_A}?v=1`);
     expect(await screen.findByText('VOC를 찾을 수 없습니다', {}, { timeout: 4000 })).toBeTruthy();

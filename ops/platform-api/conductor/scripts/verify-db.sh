@@ -5,7 +5,7 @@ set -uo pipefail
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 SCRIPT_ROOT=$(cd -- "$SCRIPT_DIR/../../../.." && pwd)
-# FeedbackOps path map (FO_OPS, FO_BACKEND): where the env file, init.sql and migrations live under a checkout.
+# Feature path map (FEATURE_OPS, FEATURE_BACKEND): where the env file, init.sql and migrations live under a checkout.
 # shellcheck disable=SC1091
 . "$SCRIPT_DIR/../../paths.sh"
 ROOT=${VERIFY_DB_ROOT:-$SCRIPT_ROOT}
@@ -80,8 +80,8 @@ assert_container_port() {
 write_env_file() {
   local suffix=$1 db=$2 destination
   destination=$WAVE_STATE/env.verify.$suffix
-  [[ -f "$ROOT/$FO_OPS/.env" ]] || fail "$FO_OPS/.env is required to generate $destination" 2
-  python3 - "$ROOT/$FO_OPS/.env" "$destination" "$db" "$DB_HOST" "$DB_PORT" <<'PY'
+  [[ -f "$ROOT/$FEATURE_OPS/.env" ]] || fail "$FEATURE_OPS/.env is required to generate $destination" 2
+  python3 - "$ROOT/$FEATURE_OPS/.env" "$destination" "$db" "$DB_HOST" "$DB_PORT" <<'PY'
 import pathlib
 import re
 import sys
@@ -125,7 +125,7 @@ run_migration() {
 }
 
 migration_journal_hashes() {
-  python3 - "$1" "$FO_BACKEND" <<'PY'
+  python3 - "$1" "$FEATURE_BACKEND" <<'PY'
 import hashlib
 import json
 import pathlib
@@ -211,9 +211,9 @@ up() {
       docker start "$CONTAINER" >/dev/null || fail "could not start existing container $CONTAINER" 1
     fi
   else
-    [[ -f "$ROOT/$FO_OPS/scripts/db/init.sql" ]] || fail "missing $ROOT/$FO_OPS/scripts/db/init.sql (wrong ROOT?)" 1
+    [[ -f "$ROOT/$FEATURE_OPS/scripts/db/init.sql" ]] || fail "missing $ROOT/$FEATURE_OPS/scripts/db/init.sql (wrong ROOT?)" 1
     docker run -d --name "$CONTAINER" --memory "$DB_MEMORY" -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres \
-      -p "$DB_PORT:5432" -v "$ROOT/$FO_OPS/scripts/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro" \
+      -p "$DB_PORT:5432" -v "$ROOT/$FEATURE_OPS/scripts/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro" \
       pgvector/pgvector:pg16 || fail "could not start $CONTAINER" 1
   fi
 
@@ -249,7 +249,7 @@ up() {
     set -a
     . "$env_file"
     set +a
-    CUTOVER_ADMIN_URL=$ADMIN_URL bash "$FO_OPS/scripts/db/cutover-0076-platform-identity.sh" all
+    CUTOVER_ADMIN_URL=$ADMIN_URL bash "$FEATURE_OPS/scripts/db/cutover-0076-platform-identity.sh" all
   ) || fail 'template cutover failed' 1
   printf 'Template database platform is at the final identity.\n'
   finish true 0

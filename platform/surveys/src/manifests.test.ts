@@ -32,7 +32,7 @@ describe('Surveys manifests', () => {
     ['survey-results', surveyResultsRoute],
     ['survey-follow-up', surveyFollowUpRoute],
   ])('%s declares its route table page keys plus returnTo, and the space permission', (id, route) => {
-    // `returnTo` is navigation state the FO space carries (#760), not a route-table filter key.
+    // `returnTo` is navigation state the screen space carries (#760), not a route-table filter key.
     const menu = byId(id);
     expect([...menu.pageKeys!].sort()).toEqual([...route.pageKeys, 'returnTo'].sort());
     expect(menu).toMatchObject({ permission: 'features:access', requiresScope: false, pageType: 'management' });
@@ -46,7 +46,7 @@ describe('Surveys manifests', () => {
     }
   });
 
-  it('keeps the Survey management ko label equal to the FeedbackOps participation copy', () => {
+  it('keeps the Survey management ko label equal to the feature participation copy', () => {
     expect(byId('survey-management').label.ko).toBe(new RegExp("\\bmanage: '([^']+)'").exec(PARTICIPATION_COPY)?.[1]);
   });
 });

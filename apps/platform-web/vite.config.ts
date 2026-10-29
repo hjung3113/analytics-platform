@@ -8,8 +8,8 @@ import { chooseAssembly, MOCK_MODES, type AssemblyChoice } from './scripts/assem
 /** `#platform-assembly` (src/platform-assembly.d.ts) is resolved here by mode — #153, ADR-0009. */
 const MOCK_ASSEMBLY = fileURLToPath(new URL('./src/dev/mock-assembly.tsx', import.meta.url));
 const REAL_ASSEMBLY = fileURLToPath(new URL('./src/real/http-assembly.tsx', import.meta.url));
-/** FeedbackOps sources reached through @ap/feature-screens/global-screens import themselves with the `@/` alias (ADR-0071). */
-const FO_SRC = fileURLToPath(new URL('../../apps/feature-screens/src', import.meta.url));
+/** Feature sources reached through @ap/feature-screens/global-screens import themselves with the `@/` alias (ADR-0071). */
+const FEATURE_SRC = fileURLToPath(new URL('../../apps/feature-screens/src', import.meta.url));
 const BACKEND_ORIGIN = process.env.AP_BACKEND_ORIGIN ?? 'http://127.0.0.1:3011';
 
 /**
@@ -37,7 +37,7 @@ export default defineConfig(({ mode, command, isPreview = false }) => {
     plugins: [tailwindcss(), ...(guardGraph(mode) ? [prodGraphGuard()] : [])],
     // Bare `echarts/*` entries are imported only inside a lazy chunk: without this list a warm dep cache that predates a new entry makes the dev server re-optimize and reload the page mid-interaction (#580 DIAG1).
     optimizeDeps: { include: ['echarts/core', 'echarts/charts', 'echarts/components', 'echarts/features', 'echarts/renderers'].map(entry => `@ap/components > ${entry}`) },
-    resolve: { alias: { '@': FO_SRC, ...assemblyAlias(choice) } },
+    resolve: { alias: { '@': FEATURE_SRC, ...assemblyAlias(choice) } },
     server: choice.kind === 'real-dev' ? { proxy: realDevProxy(BACKEND_ORIGIN) } : undefined,
     // @eqv/* ships compiled ESM that imports the workspace @ap/* sources (TypeScript with `.js` specifiers): vite-node must transform it, not hand it to Node.
     test: { environment: 'jsdom', setupFiles: ['./src/test-setup.ts'], server: { deps: { inline: [/@eqv\//] } } },

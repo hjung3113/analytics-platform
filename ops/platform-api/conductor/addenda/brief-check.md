@@ -1,8 +1,8 @@
-## FeedbackOps addendum (base ref `origin/develop`)
+## Feature API addendum (base ref `origin/develop`)
 
 Examples and paths for the shared items (each cost a review round in sessions 63–65 and s81):
 
-- Items 13–16 were added after FeedbackOps s81, where together they cost five fix rounds.
+- Items 13–16 were added after feature s81, where together they cost five fix rounds.
 - Item 1: a brief that said "parse with the shared schema" made a worker invent one (#813). Named things include
   copy keys (`apps/feature-screens/src/lib/copy/*`).
 - Item 2: cardinality and validation rules match the backend validator (`routes.ts`, `authoring.ts`, service code),

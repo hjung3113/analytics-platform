@@ -44,8 +44,8 @@ export function getSafeVocReturnTo(value: string | undefined): string | null {
   if (value === undefined || !value.startsWith('/vocs')) return null;
 
   try {
-    const url = new URL(value, 'http://feedbackops.local');
-    if (url.origin !== 'http://feedbackops.local' || url.pathname !== '/vocs' || url.hash) {
+    const url = new URL(value, 'http://platform.local');
+    if (url.origin !== 'http://platform.local' || url.pathname !== '/vocs' || url.hash) {
       return null;
     }
 

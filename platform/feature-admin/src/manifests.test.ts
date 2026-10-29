@@ -33,7 +33,7 @@ describe('관리자 manifests', () => {
     ['permission-grants', permissionGrantsRoute],
     ['settings', settingsRoute],
   ])('%s declares its route table page keys plus the two keys the space carries', (id, route) => {
-    // `managedSystem` (ignored by these screens) and `returnTo` are carried by the FO space, not route-table keys.
+    // `managedSystem` (ignored by these screens) and `returnTo` are carried by the screen space, not route-table keys.
     const menu = byId(id);
     expect([...menu.pageKeys!].sort()).toEqual([...route.pageKeys, 'managedSystem', 'returnTo'].sort());
     expect(menu).toMatchObject({ requiresScope: false, pageType: 'management' });
@@ -58,7 +58,7 @@ describe('관리자 manifests', () => {
   it('shows the section to a holder of console:access and not to a features:access-only user', () => {
     const registry = createRegistry({
       carrySets: [{ id: carrySetId('features'), pageKeys: ['managedSystem', 'returnTo'] }],
-      spaces: [{ id: spaceId('operations'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'features:access', homeMenuId: 'fo-home-stub' }],
+      spaces: [{ id: spaceId('operations'), label: { ko: 'Feature', en: 'Feature' }, description: { ko: '목적', en: 'Purpose' }, permission: 'features:access', homeMenuId: 'feature-home-stub' }],
       groups: [{ id: groupId('featureAdmin'), label: { ko: '관리자', en: 'Admin' }, icon: UserCog, space: spaceId('operations') }],
       menus: harnessMenus,
     });

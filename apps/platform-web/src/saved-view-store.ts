@@ -5,7 +5,7 @@ import {
 } from '@ap/contracts';
 import { ACTORS, DIRECTORY, ROLE_KEY, seedGroups, seedViews, type Actor, type GroupRecord } from './saved-view-seed';
 
-// Not the FeedbackOps `savedViewsSlot` (sidebar list): this is the SDK saved-view port's browser-local simulation of a server ACL (#1011).
+// Not the feature `savedViewsSlot` (sidebar list): this is the SDK saved-view port's browser-local simulation of a server ACL (#1011).
 type StoragePort = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 type Locks = { request<T>(name: string, callback: () => T | Promise<T>): Promise<T> };
 const tuple = (...parts: (string | null)[]) => JSON.stringify([1, ...parts]);

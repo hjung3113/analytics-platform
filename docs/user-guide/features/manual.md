@@ -1,4 +1,4 @@
-# FeedbackOps 사용자 매뉴얼
+# 기능 사용자 매뉴얼
 
 Current platform entry and navigation are owned by [ADR-0100](../../adr/0100-feature-navigation-and-independent-access.md). Operator features are in the operations console; personal features use global My Activity and platform entry points. Routes in this document describe feature intents interpreted by the platform bridge, not a separate application or product space.
 

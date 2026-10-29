@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider } from '@ap/kernel';
 import { memoryStorage } from '@ap/kernel/testing';
 import { setFeatureApi } from '@ap/feature-bridge/feature-api';
-import { json, listOf, registry, stubFetch, switchableAdapter } from './fo/test-support';
+import { json, listOf, registry, stubFetch, switchableAdapter } from './feature/test-support';
 import { homeTodoSlot } from '@ap/feature-bridge/home-todo-slot';
 
 const SURVEY_ID = '33333333-3333-4333-8333-333333333333';
@@ -18,7 +18,7 @@ beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); });
 afterEach(() => { cleanup(); setFeatureApi(null); vi.unstubAllGlobals(); });
 
 describe('home 내 할 일 slot', () => {
-  it('C1 renders nothing and requests nothing without a FeedbackOps API (mock preview)', async () => {
+  it('C1 renders nothing and requests nothing without a feature API (mock preview)', async () => {
     setFeatureApi(null);
     const calls = stubFetch(() => json({}));
     const { container } = mountTodo();

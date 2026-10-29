@@ -1,6 +1,6 @@
-// FeedbackOps full-source lint presets (#1102 a): platform-api, feature-shared, feature-ui.
+// Feature full-source lint presets (#1102 a): platform-api, feature-shared, feature-ui.
 // These replace the former Biome lint for those packages. Policy and the old-rule -> ESLint-rule table:
-// docs/integration/platform-packages.md §6 (FeedbackOps 기능 패키지 lint). Presets here are feature-only; no SDK, app, menu or bridge preset reads them.
+// docs/integration/platform-packages.md §6 (기능 기능 패키지 lint). Presets here are feature-only; no SDK, app, menu or bridge preset reads them.
 import js from '@eslint/js';
 import { fixupPluginRules } from '@eslint/compat';
 import tsPlugin from '@typescript-eslint/eslint-plugin';

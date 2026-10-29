@@ -29,7 +29,7 @@ function SlotHost() {
 }
 const tree = (ui: ReactNode) => <I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider>{ui}<SlotHost /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>;
 
-/** The VOC detail's real discard confirm (the FeedbackOps `DirtyConfirmation`, a Radix AlertDialog) opened from the drawer's own close button. */
+/** The VOC detail's real discard confirm (the feature-ui `DirtyConfirmation`, a Radix AlertDialog) opened from the drawer's own close button. */
 function Host() {
   const [open, setOpen] = useState(false);
   const [asking, setAsking] = useState(false);

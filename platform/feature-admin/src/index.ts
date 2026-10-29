@@ -1,6 +1,6 @@
 /**
- * @ap/menu-feature-admin — featureAdmin group manifests (FeedbackOps space 관리자: Managed System, Analytics Area, 권한 요청 검토, 부여 목록, 기능 설정; ADR-0081, #764 p2).
- * The FeedbackOps admin screens through the bridge; the page keys equal the route tables in `@ap/feature-bridge` (`managedSystemsRoute`, `analyticsAreasRoute`, `permissionRequestsRoute`, `permissionGrantsRoute`, `settingsRoute`; pinned by the manifests test)
+ * @ap/menu-feature-admin — featureAdmin group manifests (feature space 관리자: Managed System, Analytics Area, 권한 요청 검토, 부여 목록, 기능 설정; ADR-0081, #764 p2).
+ * The feature admin screens through the bridge; the page keys equal the route tables in `@ap/feature-bridge` (`managedSystemsRoute`, `analyticsAreasRoute`, `permissionRequestsRoute`, `permissionGrantsRoute`, `settingsRoute`; pinned by the manifests test)
  * plus the two carry-set keys (`managedSystem`, `returnTo`; #1099b, replacing ADR-0081 decision 4). The group id `featureAdmin` turns the 목록 범위 picker off (`ScopeControl`, decision 4), so the screens ignore the carried `managedSystem`.
  * `focus` is the selected row (06 §13); `system` is Analytics Area's own Managed System filter. The paths never alias `/admin/*` (the operations space owns it).
  * `console:access` (the `workspace-admin` rule) AND `features:access` (declared redundantly while the feature space still gates it; it stays when the space goes) keep the section out of reach for non-admins; the screens' own `PermissionGate` stays a display hint (the backend decides).
@@ -22,7 +22,7 @@ export const manifests: MenuEntry[] = [
     path: '/operations/managed-systems', icon: Server, permission: 'console:access', additionalPermissions: ['features:access'], requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
-    component: lazy(() => import('./pages/FoManagedSystems')),
+    component: lazy(() => import('./pages/FeatureManagedSystems')),
   },
   {
     id: 'analytics-areas', group: GROUP, label: { ko: 'Analytics Area', en: 'Analytics Area' },
@@ -30,7 +30,7 @@ export const manifests: MenuEntry[] = [
     path: '/operations/analytics-areas', icon: Network, permission: 'console:access', additionalPermissions: ['features:access'], requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['system', 'includeArchived', 'focus', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
-    component: lazy(() => import('./pages/FoAnalyticsAreas')),
+    component: lazy(() => import('./pages/FeatureAnalyticsAreas')),
   },
   {
     id: 'permission-request-review', group: GROUP, label: { ko: '권한 요청 검토', en: 'Permission request review' },
@@ -38,7 +38,7 @@ export const manifests: MenuEntry[] = [
     path: '/operations/permission-request-review', icon: FileCheck2, permission: 'console:access', additionalPermissions: ['features:access'], requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['tab', 'focus', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
-    component: lazy(() => import('./pages/FoPermissionRequests')),
+    component: lazy(() => import('./pages/FeaturePermissionRequests')),
   },
   {
     id: 'permission-grants', group: GROUP, label: { ko: '부여 목록', en: 'Grants' },
@@ -46,7 +46,7 @@ export const manifests: MenuEntry[] = [
     path: '/operations/permission-grants', icon: KeyRound, permission: 'console:access', additionalPermissions: ['features:access'], requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['tab', 'focus', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
-    component: lazy(() => import('./pages/FoPermissionGrants')),
+    component: lazy(() => import('./pages/FeaturePermissionGrants')),
   },
   {
     id: 'settings', group: GROUP, label: { ko: '기능 설정', en: 'Feature settings' },
@@ -54,6 +54,6 @@ export const manifests: MenuEntry[] = [
     path: '/operations/settings', icon: SlidersHorizontal, permission: 'console:access', additionalPermissions: ['features:access'], requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['section', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
-    component: lazy(() => import('./pages/FoSettings')),
+    component: lazy(() => import('./pages/FeatureSettings')),
   },
 ];

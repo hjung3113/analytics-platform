@@ -2,7 +2,7 @@ import { cn } from '@ap/ui';
 import { describe, expect, it } from 'vitest';
 
 // Theme keys from styles/theme.css must merge like the Tailwind scale they extend (#782).
-describe('cn with FeedbackOps theme keys', () => {
+describe('cn with feature theme keys', () => {
   it.each([
     ['text-caption', 'text-text-muted'],
     ['text-tiny', 'text-text-muted'],

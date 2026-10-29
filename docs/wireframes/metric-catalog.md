@@ -74,7 +74,7 @@ Candidate로 최초 등록은 서버 발급 `metricId`와 초안을 만들고, �
 
 ## 4. LAYOUT BOUNDARY
 
-배치는 구현(`menus/bravo/metrics/src/pages`)이 기준이다. 셸은 현재 [07](app-shell.md)의 배치와 [06 §7](../contract/layout.md#7-application-shell)의 치수·여백, FeedbackOps 공유 토큰 및 [DESIGN](../../DESIGN.md)의 플랫폼 확장·pairing을 소비한다. 카탈로그 목록은 발행 버전과 초안을 별개로 보이고 초안은 분석의 기본 버전으로 쓰이지 않는다. 표는 모든 발행 버전을 나열하지 않고 확인된 대표 발행 버전을 보이며(대표 선택 규칙 Open) 행이 최신 버전을 보장한다고 표기하지 않는다. 버전 전체는 상세 Version 영역에서 확인한다.
+배치는 구현(`menus/bravo/metrics/src/pages`)이 기준이다. 셸은 현재 [07](app-shell.md)의 배치와 [06 §7](../contract/layout.md#7-application-shell)의 치수·여백, 기능 공유 토큰 및 [DESIGN](../../DESIGN.md)의 플랫폼 확장·pairing을 소비한다. 카탈로그 목록은 발행 버전과 초안을 별개로 보이고 초안은 분석의 기본 버전으로 쓰이지 않는다. 표는 모든 발행 버전을 나열하지 않고 확인된 대표 발행 버전을 보이며(대표 선택 규칙 Open) 행이 최신 버전을 보장한다고 표기하지 않는다. 버전 전체는 상세 Version 영역에서 확인한다.
 
 상세는 Definition/Coverage/Usage/History를 숨은 탭으로 감추지 않고 한 Full Page에 두며 `tab`은 영역 이동일 뿐이다. 좌열의 Version/Ownership은 관리용 Drawer가 아니다. History는 지표 전체 흐름을 버전 라벨과 함께 보여주며 Usage는 **선택 쌍**만 조회한다.
 

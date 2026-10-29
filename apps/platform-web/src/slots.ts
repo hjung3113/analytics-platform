@@ -1,7 +1,7 @@
 import { createElement, type ReactNode } from 'react';
 import type { HomeTodoSlot, NavCountsSlot, NotificationsSlot, PlannedSpace, PlatformSlots, ScopeControlSlot, SpaceNavSectionSlot, VocComposeSlot } from '@ap/kernel';
 import { GlobalContextBar, OpenInBoardAction } from '@ap/shell';
-import { featureSlot } from './feedbackops-systems';
+import { featureSlot } from './feature-systems';
 
 /** Business systems announced in the switcher but not built (15 §3.2). Display only: no Registry entry, no permission, no menu. */
 export const PLANNED_SPACES: readonly PlannedSpace[] = [];

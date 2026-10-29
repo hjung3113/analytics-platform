@@ -43,8 +43,8 @@ Run `gh issue view <number> --comments`.
 
 Milestones are the progress authority for each track.
 
-- **Open:** `M4 사내 적용`, `M6 FeedbackOps 합류` (map: #598), `M7 MARS 이관` (#552, #555, #556, #557), `M8 SDK 계약·품질` (#669, #670, #671).
-- **Closed:** `M1 플랫폼 기능 기반`, `M2 디자인 시스템`, `M3 FeedbackOps 1단계`, `M5 FeedbackOps 2단계` (map: #213; superseded by ADR-0066).
+- **Open:** `M4 사내 적용`, `M6 기능 합류` (map: #598), `M7 MARS 이관` (#552, #555, #556, #557), `M8 SDK 계약·품질` (#669, #670, #671).
+- **Closed:** `M1 플랫폼 기능 기반`, `M2 디자인 시스템`, `M3 기능 1단계`, `M5 기능 2단계` (map: #213; superseded by ADR-0066).
 
 The at-a-glance board is [`.planning/README.md`](../../.planning/README.md).
 

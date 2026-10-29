@@ -3,7 +3,7 @@
 // The platform 권한 요청 page (#657): strings `HOME_PERMISSION_COPY` lacks.
 export const PERMISSION_REQUESTS_PAGE_COPY = {
   notice:
-    '업무 시스템 접근 권한은 플랫폼 관리자가 줍니다. 여기서는 FeedbackOps 기능 권한을 요청합니다.',
+    '업무 시스템 접근 권한은 플랫폼 관리자가 줍니다. 여기서는 VOC·Task 등의 기능 권한을 요청합니다.',
   newRequest: '새 권한 요청',
   capability: '기능',
   capabilityPlaceholder: '기능 선택',

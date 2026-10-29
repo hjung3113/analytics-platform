@@ -1,5 +1,3 @@
-import { DOCUMENT_TITLE_COPY } from '@/test/host-adapters/lib/copy/document-titles';
-import { DocumentTitleProvider } from '@/test/host-adapters/lib/router/document-title';
 import {
   type AnswerableSurveysResponse,
   type MySurveyResponsesResponse,
@@ -893,15 +891,11 @@ describe('respondent form', () => {
   });
 });
 
-describe('respond route document title', () => {
-  it('replaces the not-found title after the routed Survey form loads', async () => {
+describe('respond route', () => {
+  it('renders the routed Survey form once it loads', async () => {
     installFetch({ form: formDto });
     const rootRoute = createRootRoute({
-      component: () => (
-        <DocumentTitleProvider>
-          <Outlet />
-        </DocumentTitleProvider>
-      ),
+      component: () => <Outlet />,
     });
     const respondRoute = createRoute({
       getParentRoute: () => rootRoute,
@@ -917,9 +911,6 @@ describe('respond route document title', () => {
     renderWithQuery(<RouterProvider router={router} />);
 
     expect(await screen.findByTestId('survey-respondent-form')).toBeInTheDocument();
-    expect(document.title).not.toContain(DOCUMENT_TITLE_COPY.notFound);
-    await waitFor(() => expect(document.title).toContain(formDto.survey.title));
-    expect(document.title).not.toContain(DOCUMENT_TITLE_COPY.notFound);
   });
 });
 

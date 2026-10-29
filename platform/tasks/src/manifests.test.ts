@@ -20,7 +20,7 @@ describe('Tasks manifests', () => {
   });
 
   it.each(Object.entries(ROUTES))('%s declares its route table page keys plus returnTo, and the space permission', (id, route) => {
-    // `returnTo` is navigation state the FO space carries (#760), not a route-table filter key.
+    // `returnTo` is navigation state the screen space carries (#760), not a route-table filter key.
     expect([...menu(id).pageKeys!].sort()).toEqual([...route.pageKeys, 'returnTo'].sort());
     expect(menu(id)).toMatchObject({ permission: 'features:access', requiresScope: false, pageType: 'management' });
     expect(menu(id).navViews).toBeUndefined();
@@ -36,7 +36,7 @@ describe('Tasks manifests', () => {
     expect(shown).toEqual(['Task Requests', 'Tasks', '내 Task', 'Milestones']);
   });
 
-  it('hides Task 목록 under Tasks (FeedbackOps has no sidebar row for it)', () => {
+  it('hides Task 목록 under Tasks (feature has no sidebar row for it)', () => {
     expect(menu('task-list')).toMatchObject({ navHidden: true, parent: 'tasks', label: { ko: 'Task 목록', en: 'Task list' } });
   });
 });

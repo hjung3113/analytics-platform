@@ -12,10 +12,6 @@ import { validateSurveyDetailSearch } from '@/features/surveys/routes/surveys-se
 import { useManagedSystemNamesResult } from '@/lib/cross-system/useManagedSystemNames';
 import { useWorkspaceActors } from '@/lib/cross-system/useWorkspaceActors';
 import { SurveyDetail } from '@/test/host-adapters/features/surveys/components/detail/SurveyDetail';
-import {
-  formatRecordDocumentTitle,
-  useDocumentTitle,
-} from '@/test/host-adapters/lib/router/document-title';
 import { DirtyConfirmation, EmptyState } from '@ap/ui';
 import {
   Outlet,
@@ -91,14 +87,6 @@ export function SurveyDetailRoute() {
   const isOutcomeReviewRoute = isResultsRoute || isFollowUpRoute;
   const query = useSurvey(surveyId);
   const gate = useSurveyManageGate(query.data?.primary_managed_system_id);
-  const documentTitleRecord =
-    !isOutcomeReviewRoute && query.isSuccess && !query.isFetching && !search.builder
-      ? formatRecordDocumentTitle({
-          displayId: query.data.display_id,
-          title: query.data.title,
-        })
-      : null;
-  useDocumentTitle(documentTitleRecord);
   const listContext = surveyListContextFromSearch(search);
   const managedSystemNames = useManagedSystemNamesResult({ enabled: !isOutcomeReviewRoute });
   const managedSystemNamesById = managedSystemNames.isSuccess

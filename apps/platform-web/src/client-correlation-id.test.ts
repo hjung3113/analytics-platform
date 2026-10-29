@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { clientCorrelationId } from '@ap/contracts';
 
-// What the servers accept (mock-server and FeedbackOps reportClientError, contract §7 X-Correlation-Id adoption).
+// What the servers accept (mock-server and feature reportClientError, contract §7 X-Correlation-Id adoption).
 const accepted = (id: string) => id.startsWith('client-') && id.length <= 80 && /^[A-Za-z0-9._-]{1,128}$/.test(id);
 
 afterEach(() => { vi.unstubAllGlobals(); });

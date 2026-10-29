@@ -148,7 +148,7 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, opt
   });
 
   // ── POST /auth/mock-login ─────────────────────────────────────────────
-  // The picker form posts urlencoded (no JS); the FO frontend posts JSON.
+  // The picker form posts urlencoded (no JS); the screen frontend posts JSON.
   // Form posts get a 302 to the sanitized return_to, JSON keeps the 200 body.
   // Parser is scoped to this plugin. First value wins for repeated keys.
   app.addContentTypeParser(

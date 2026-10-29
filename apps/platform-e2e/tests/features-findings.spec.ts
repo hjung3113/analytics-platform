@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { mainHeading, query, signInAs } from './support';
 
 /**
- * FeedbackOps › Findings (#762 p1): 전체 Finding as a bridge menu. The e2e run uses the mock adapter, where `FeatureBridge` renders only `실서버 필요`, so no screen or drawer mounts here;
+ * 기능 › Findings (#762 p1): 전체 Finding as a bridge menu. The e2e run uses the mock adapter, where `FeatureBridge` renders only `실서버 필요`, so no screen or drawer mounts here;
  * the drawer round trip is covered by the page tests and the conductor's real-server check.
  */
 const FINDING = '99999999-9999-4999-8999-999999999999';
@@ -10,7 +10,7 @@ const FINDING = '99999999-9999-4999-8999-999999999999';
 const sidebar = (page: Page) => page.getByRole('navigation', { name: '주 메뉴' });
 const sections = (page: Page) => page.getByRole('navigation', { name: '시스템 레일' }).getByRole('group', { name: '시스템 섹션' });
 
-test.describe('FeedbackOps Findings 그룹(#762 p1)', () => {
+test.describe('기능 Findings 그룹(#762 p1)', () => {
   test.beforeEach(async ({ page }) => { await signInAs(page, 'admin'); });
 
   test('레일 Finding 섹션은 전체 Finding을 보이고, 본문은 실서버 필요다', async ({ page }) => {

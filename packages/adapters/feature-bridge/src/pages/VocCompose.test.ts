@@ -8,7 +8,7 @@ const fallback = (id: string | null) => id === 'metrics' ? FALLBACK : null;
 const at = (space: string | null, carried: Record<string, string>) => initialManagedSystem({ spaceId: space === null ? null : spaceId(space), carried }, fallback);
 
 describe('VOC compose initial Managed System (ADR-0070 decision 5)', () => {
-  it('takes a FeedbackOps screen\'s carried managedSystem when it is one UUID', () => {
+  it('takes a feature screen\'s carried managedSystem when it is one UUID', () => {
     expect(at('operations', { managedSystem: UUID })).toBe(UUID);
   });
 

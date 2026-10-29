@@ -1,1 +1,1 @@
-export { foBridge as default } from '@ap/eslint-config';
+export { featureBridgePreset as default } from '@ap/eslint-config';

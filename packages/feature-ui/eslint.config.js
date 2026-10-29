@@ -1,1 +1,1 @@
-export { foUi as default } from '@ap/eslint-config';
+export { featureUiPreset as default } from '@ap/eslint-config';

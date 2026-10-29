@@ -28,7 +28,7 @@ export const LAZY_ENGINES = [
   'xl/worksheets', // write-excel-file (table export)
   'board-add-pane-off', // the analysis board screen (`packages/sdk/shell/src/board/BoardScreen.tsx`, #821)
   'data-floating-mode', // the board's floating window frame (`FloatingWindow`, used only by `board/BoardHost.tsx`, 893d2)
-  '알림 필터', // the FeedbackOps notifications panel (`HOME_INBOX_COPY.filterLabel`, read only by `InboxPanel`; the rail's recent popover loads it lazily, #820)
+  '알림 필터', // the notifications panel (`HOME_INBOX_COPY.filterLabel`, read only by `InboxPanel`; the rail's recent popover loads it lazily, #820)
 ];
 
 /** `src` of every `<script … src>` in the page (the entry; modulepreload links are the same files the entry imports). */

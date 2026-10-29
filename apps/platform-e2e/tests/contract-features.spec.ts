@@ -48,7 +48,7 @@ async function linkUrl(link: Locator) {
 }
 
 
-test.describe('FeedbackOps 공간별 진입(#251)', () => {
+test.describe('기능 공간별 진입(#251)', () => {
   test('admin의 MARS·BRAVO 사이드바 블록은 그 공간의 managedSystem만 담은 링크 셋(VOC·Task·설문 모두 셸 안)이고, 운영 콘솔에는 블록이 없다', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
     await page.goto(PRODUCTIVITY);
@@ -75,7 +75,7 @@ test.describe('FeedbackOps 공간별 진입(#251)', () => {
   }
 });
 
-test.describe('FeedbackOps 진입 링크 회귀(#451, 06 §22)', () => {
+test.describe('기능 진입 링크 회귀(#451, 06 §22)', () => {
   test('Context 변경·화면 이동 뒤 platformReturn은 현재 URL을 가리킨다', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
     await page.goto(PRODUCTIVITY);
@@ -115,7 +115,7 @@ test.describe('FeedbackOps 진입 링크 회귀(#451, 06 §22)', () => {
     await evidence(page, testInfo, 'feedbackops-return-history-forward');
   });
 
-  test('지원하지 않는 전역 필터는 FeedbackOps 링크의 최상위 키에 없다', async ({ page }, testInfo) => {
+  test('지원하지 않는 전역 필터는 기능 링크의 최상위 키에 없다', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
     const urls = [
       PRODUCTIVITY,
@@ -146,7 +146,7 @@ test.describe('FeedbackOps 진입 링크 회귀(#451, 06 §22)', () => {
           expectExactQueryKeys(href, ['v', 'managedSystem', 'returnTo']);
           destinations.push('surveys');
         } else {
-          throw new Error(`Unexpected FeedbackOps destination: ${href.pathname}`);
+          throw new Error(`Unexpected feature destination: ${href.pathname}`);
         }
       }
       expect(destinations.sort()).toEqual(['surveys', 'tasks', 'vocs:inbox']);
@@ -226,10 +226,10 @@ test.describe('FeedbackOps 진입 링크 회귀(#451, 06 §22)', () => {
   });
 });
 
-test.describe('FeedbackOps 바닥 블록 셸 안 이동(#760)', () => {
+test.describe('기능 바닥 블록 셸 안 이동(#760)', () => {
   const returnRow = (page: Page) => page.locator('[data-return-row]');
 
-  test('VOC는 같은 탭에서 /operations/inbox로 열리고 되돌아가기 줄이 본문 맨 위에 서며, FO 안 이동에도 남고, 복귀하면 원래 기간·Scope로 돌아온다', async ({ page }, testInfo) => {
+  test('VOC는 같은 탭에서 /operations/inbox로 열리고 되돌아가기 줄이 본문 맨 위에 서며, 기능 안 이동에도 남고, 복귀하면 원래 기간·Scope로 돌아온다', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
     await page.goto(PRODUCTIVITY);
     await expect(mainHeading(page)).toHaveText('생산성 개요');
@@ -244,7 +244,7 @@ test.describe('FeedbackOps 바닥 블록 셸 안 이동(#760)', () => {
     await expect(returnRow(page)).toContainText('MARS에서 왔습니다');
     await evidence(page, testInfo, 'feedbackops-return-row');
 
-    // Moving inside FeedbackOps keeps the way back.
+    // Moving inside the feature keeps the way back.
     await page.getByRole('navigation', { name: '주 메뉴' }).getByRole('link', { name: 'Triage' }).click();
     await expect.poll(() => new URL(page.url()).pathname).toBe('/operations/triage');
     await expect(returnRow(page)).toBeVisible();
@@ -266,7 +266,7 @@ test.describe('FeedbackOps 바닥 블록 셸 안 이동(#760)', () => {
     await expect(mainHeading(page)).toBeVisible();
     await expect(returnRow(page)).toHaveCount(0);
     expect(query(page).has('returnTo')).toBe(false);
-    // The landing is the dashboard; the VOC section brings Triage into the sidebar, then FO-internal moves must not create a row or a returnTo.
+    // The landing is the dashboard; the VOC section brings Triage into the sidebar, then feature-internal moves must not create a row or a returnTo.
     await railSection(page, 'VOC').click();
     await page.getByRole('navigation', { name: '주 메뉴' }).getByRole('link', { name: 'Triage' }).click();
     await expect.poll(() => new URL(page.url()).pathname).toBe('/operations/triage');

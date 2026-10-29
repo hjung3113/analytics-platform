@@ -10,7 +10,7 @@
 @source "../../../../apps/feature-screens/src/features/integration/recovery";
 
 /*
- * A FeedbackOps detail body (`FeatureDetailDrawer`) brings its own sticky section tabs, scroll area and bottom bar (it fills a flex column, as in the standalone panel).
+ * A feature detail body (`FeatureDetailDrawer`) brings its own sticky section tabs, scroll area and bottom bar (it fills a flex column, as in the standalone panel).
  * The shared drawer pads its content area by 12px (a one-tab drawer draws a region, not a tabpanel), which lets the body show above the tabs and below the bar (UX-3); this panel keeps only the side padding
  * and lets the body fill it.
  */

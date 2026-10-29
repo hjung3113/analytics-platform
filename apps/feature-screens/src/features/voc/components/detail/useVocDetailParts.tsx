@@ -63,7 +63,7 @@ function DetailPanelSkeleton(): React.ReactElement {
 
 /**
  * The VOC detail as the parts a host places in its own frame (`DetailParts`): the standalone panel and the platform
- * bridge both render these. Needs a `HostSeamProvider` (navigation, notices, title) and the FeedbackOps providers.
+ * bridge both render these. Needs a `HostSeamProvider` (navigation, notices, title) and the feature providers.
  */
 export function useVocDetailParts({
   vocId,

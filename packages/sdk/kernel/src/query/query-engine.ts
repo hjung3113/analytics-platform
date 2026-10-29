@@ -3,7 +3,7 @@ import { QueryClient, type QueryKey } from '@tanstack/react-query';
 /**
  * The Kernel's internal query client (ADR-0086). One per `PlatformProvider`, never recreated: a mounted observer stays
  * bound to its first client. It is passed to `useQuery(options, client)` explicitly, so it is not the client a menu or
- * FeedbackOps `QueryClientProvider` sees, and no TanStack type leaves `@ap/kernel`.
+ * feature-screen `QueryClientProvider` sees, and no TanStack type leaves `@ap/kernel`.
  */
 export type QueryEngine = {
   client: QueryClient;

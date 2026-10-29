@@ -1,4 +1,4 @@
-// Platform `AuditAction` for every FeedbackOps audit event type (ADR-0069 decision 6).
+// Platform `AuditAction` for every feature audit event type (ADR-0069 decision 6).
 // One source: the record is exhaustive over `AuditEventType` at compile time, and the
 // same map is handed to `core.platform_audit_events` so SQL can filter and sort by
 // action. An event type missing from the map is excluded by the projection (fail closed).

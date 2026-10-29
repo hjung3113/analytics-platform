@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hashRequestBody } from '../canonicalize.js';
+import { canonicalizeJson, hashRequestBody } from '../canonicalize.js';
 
 describe('canonicalizeJson undefined sentinel (S-008)', () => {
   it('distinguishes {} from { external_key: undefined }', () => {
@@ -18,5 +18,10 @@ describe('canonicalizeJson undefined sentinel (S-008)', () => {
     const h1 = hashRequestBody({ a: { b: undefined, c: 1 } });
     const h2 = hashRequestBody({ a: { b: undefined, c: 1 } });
     expect(h1).toBe(h2);
+  });
+
+  it('serializes undefined as the platform sentinel, not the retired one', () => {
+    expect(canonicalizeJson(undefined)).toBe('__platform_undefined__');
+    expect(JSON.stringify(canonicalizeJson({ a: undefined }))).toBe('{"a":"__platform_undefined__"}');
   });
 });

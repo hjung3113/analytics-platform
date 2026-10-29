@@ -36,7 +36,7 @@ describe('목록 범위 picker (ready session)', () => {
   });
 });
 
-describe('scope change (FO parity, #762 k)', () => {
+describe('scope change (screen parity, #762 k)', () => {
   const S1 = '11111111-1111-4111-8111-111111111111';
   const S2 = '22222222-2222-4222-8222-222222222222';
   const AREA = '44444444-4444-4444-8444-444444444444';
@@ -44,7 +44,7 @@ describe('scope change (FO parity, #762 k)', () => {
   const probe = (id: string, path: string, pageKeys: string[]) => ({ ...manifests[0]!, id, primary: false, path, pageKeys });
   const registry = createRegistry({
     carrySets: [{ id: carrySetId('features'), pageKeys: ['managedSystem', 'returnTo'] }],
-    spaces: [{ id: spaceId('operations'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'features:access', homeMenuId: 'dashboard' }],
+    spaces: [{ id: spaceId('operations'), label: { ko: 'Feature', en: 'Feature' }, description: { ko: '목적', en: 'Purpose' }, permission: 'features:access', homeMenuId: 'dashboard' }],
     groups: [{ id: groupId('dashboard'), label: { ko: '대시보드', en: 'Dashboard' }, icon: ListTodo, space: spaceId('operations') }],
     menus: [...manifests, probe('probe-area', '/operations/probe-area', ['focus', 'managedSystem', 'area', 'returnTo']), probe('probe-cursor', '/operations/probe-cursor', ['focus', 'managedSystem', 'cursor', 'returnTo'])],
   });
@@ -85,7 +85,7 @@ describe('관리자 group turns 목록 범위 off (#764 k, ADR-0081 d4)', () => 
   const probe = (id: string, path: string, group: string) => ({ ...manifests[0]!, id, primary: true, path, group: groupId(group), pageKeys: ['focus', 'managedSystem', 'returnTo'] }) as (typeof manifests)[number];
   const registry = createRegistry({
     carrySets: [{ id: carrySetId('features'), pageKeys: ['managedSystem', 'returnTo'] }],
-    spaces: [{ id: spaceId('operations'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'features:access', homeMenuId: 'dashboard' }],
+    spaces: [{ id: spaceId('operations'), label: { ko: 'Feature', en: 'Feature' }, description: { ko: '목적', en: 'Purpose' }, permission: 'features:access', homeMenuId: 'dashboard' }],
     groups: ['dashboard', 'featureAdmin', 'voc'].map(id => ({ id: groupId(id), label: { ko: id, en: id }, icon: ListTodo, space: spaceId('operations') })),
     menus: [...manifests, probe('probe-admin', '/operations/probe-admin', 'featureAdmin'), probe('probe-voc', '/operations/probe-voc', 'voc')],
   });

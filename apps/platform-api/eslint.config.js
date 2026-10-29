@@ -1,1 +1,1 @@
-export { foServer as default } from '@ap/eslint-config';
+export { featureServerPreset as default } from '@ap/eslint-config';

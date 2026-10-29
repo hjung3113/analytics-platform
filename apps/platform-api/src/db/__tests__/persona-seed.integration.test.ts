@@ -20,28 +20,28 @@ const PERSONA_ACTORS = [
     display_name: 'Mock Admin Two',
     role_level: 'admin',
     actor_type: 'internal_member',
-    email: 'admin2@feedbackops.local',
+    email: 'admin2@platform.local',
   },
   {
     external_id: 'mock-user-2',
     display_name: 'Mock User Two',
     role_level: 'user',
     actor_type: 'internal_member',
-    email: 'user2@feedbackops.local',
+    email: 'user2@platform.local',
   },
   {
     external_id: 'mock-developer-1',
     display_name: 'Mock Developer One',
     role_level: 'developer',
     actor_type: 'internal_member',
-    email: 'dev1@feedbackops.local',
+    email: 'dev1@platform.local',
   },
   {
     external_id: 'mock-developer-2',
     display_name: 'Mock Developer Two',
     role_level: 'developer',
     actor_type: 'internal_member',
-    email: 'dev2@feedbackops.local',
+    email: 'dev2@platform.local',
   },
 ] as const;
 
@@ -55,14 +55,14 @@ const CORE_SEED_ACTORS = [
     display_name: 'Mock Admin',
     role_level: 'admin',
     actor_type: 'internal_member',
-    email: 'admin@feedbackops.local',
+    email: 'admin@platform.local',
   },
   {
     external_id: 'mock-user-1',
     display_name: 'Mock User',
     role_level: 'user',
     actor_type: 'internal_member',
-    email: 'user@feedbackops.local',
+    email: 'user@platform.local',
   },
 ] as const;
 

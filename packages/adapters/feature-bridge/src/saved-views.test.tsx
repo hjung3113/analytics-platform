@@ -6,7 +6,7 @@ import { NO_FEATURES, contextCapabilities, carrySetId, groupId, spaceId } from '
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform, type MenuEntry } from '@ap/kernel';
 import { memoryStorage, testAdapter, testSession, useToastsForTest } from '@ap/kernel/testing';
 import { featureApi, setFeatureApi } from './feature-api';
-import { featureQueryClient } from './fo/session';
+import { featureQueryClient } from './feature/session';
 import { savedViewsSlot } from './saved-views';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -19,7 +19,7 @@ const menu = (id: string, path: string, pageKeys: string[], primary = false) => 
 });
 const registry = createRegistry({
   carrySets: [{ id: carrySetId('features'), pageKeys: ['managedSystem', 'returnTo'] }],
-  spaces: [{ id: SPACE, label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'features:access', homeMenuId: 'dashboard' }],
+  spaces: [{ id: SPACE, label: { ko: 'Feature', en: 'Feature' }, description: { ko: '목적', en: 'Purpose' }, permission: 'features:access', homeMenuId: 'dashboard' }],
   groups: [{ id: GROUP, label: { ko: 'VOC', en: 'VOC' }, icon: Inbox, space: SPACE }],
   menus: [
     menu('dashboard', '/operations/dashboard', ['managedSystem', 'returnTo'], true),
@@ -68,7 +68,7 @@ async function mount(url: string) {
   await act(async () => {
     root!.render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}><Body /><Toasts /><Nav /></PlatformProvider></I18nProvider>);
   });
-  // The first mount in a run loads the lazy list chunk (a cold import of the FeedbackOps modules).
+  // The first mount in a run loads the lazy list chunk (a cold import of the feature modules).
   for (let i = 0; featureApi() !== null && getGate === null && host.textContent!.includes('불러오는 중…') && i < 60; i++) await act(async () => { await new Promise(resolve => setTimeout(resolve, 100)); });
 }
 const settle = () => act(async () => { await new Promise(resolve => setTimeout(resolve, 250)); });
@@ -124,7 +124,7 @@ afterEach(() => {
 });
 
 describe('savedViewsSlot', () => {
-  it('is the FeedbackOps section with one module-level Body', () => {
+  it('is the feature section with one module-level Body', () => {
     const inbox = registry.menuById('inbox');
     expect(savedViewsSlot.For(spaceId('bravo'), inbox)).toBeNull();
     expect(section.label).toEqual({ ko: '저장된 보기', en: 'Saved views' });
@@ -139,7 +139,7 @@ describe('savedViewsSlot', () => {
     expect(savedViewsSlot.For(SPACE, menu)).toBeNull();
   });
 
-  it('shows one muted 실서버 필요 line and requests nothing without a FeedbackOps API', async () => {
+  it('shows one muted 실서버 필요 line and requests nothing without a feature API', async () => {
     setFeatureApi(null);
     await mount('/operations/dashboard');
     expect(host!.textContent).toContain('실서버 필요');
@@ -186,7 +186,7 @@ describe('save', () => {
     expect(posted).toEqual([{ surface: 'voc', name: '트리아지', filter: { view: 'triage', tab: 'high', managed_system_id: 'ms1' } }]);
   });
 
-  it('reports a taken name through the kernel toast with FO copy and keeps the typed name', async () => {
+  it('reports a taken name through the kernel toast with screen copy and keeps the typed name', async () => {
     failPost = { status: 409, code: 'conflict.saved_view_name_taken' };
     await mount('/operations/inbox');
     await settle();

@@ -6,7 +6,7 @@
 
 Integration owns frontend route composition for Evidence, Coverage, Links, and integration recovery queues.
 
-It is the UI home for FeedbackOps linking behavior, but it does not own source object lifecycles or backend authorization truth.
+It is the UI home for feature linking behavior, but it does not own source object lifecycles or backend authorization truth.
 
 Finding screens and hooks live in `apps/feature-screens/src/features/findings/`.
 

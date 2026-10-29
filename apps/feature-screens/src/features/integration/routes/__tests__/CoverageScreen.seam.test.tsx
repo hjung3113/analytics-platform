@@ -1,5 +1,5 @@
 // CoverageScreen.seam.test.tsx — every URL write and every outbound link of Coverage through the host seam (#762 c):
-// the complete FeedbackOps href, absent means cleared, push (no replace flag), `canLink` deciding link versus
+// the complete feature href, absent means cleared, push (no replace flag), `canLink` deciding link versus
 // non-link, and no workspace.admin request when the settings target cannot link (P11).
 
 import { type HostLinkProps, type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
@@ -43,7 +43,7 @@ function Harness({
   const [search, setSearch] = React.useState(initial);
   const navigate = React.useCallback((href: string, options?: { replace?: boolean }) => {
     navigated.push({ href, options });
-    setSearch(Object.fromEntries(new URL(href, 'http://feedbackops.local').searchParams));
+    setSearch(Object.fromEntries(new URL(href, 'http://platform.local').searchParams));
   }, []);
   const seam = React.useMemo<HostSeam>(
     () => ({
@@ -113,7 +113,7 @@ async function mount(initial: Record<string, string> = {}) {
 function written(index = -1) {
   const entry = navigated.at(index);
   if (entry === undefined) throw new Error('nothing was written');
-  const url = new URL(entry.href, 'http://feedbackops.local');
+  const url = new URL(entry.href, 'http://platform.local');
   return {
     path: url.pathname,
     search: Object.fromEntries(url.searchParams),

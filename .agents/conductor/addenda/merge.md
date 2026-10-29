@@ -12,7 +12,7 @@ Read this only when you merge a PR. Merges run one at a time machine-wide. CI ru
 ## Short lock (until conductor-engine#150 adds `--merge-lock`)
 
 1. **Create:** run `ship-pr.sh --branch … --base main --title … --body-file …` without `--ci`, `--merge`, `--issue`, `--worktree`, `--archive-review`.
-2. **Wait:** run `gh pr checks <n> --watch --fail-fast` in the background with a time cap. If it returns before any check is registered, run it again. Then confirm that every check in `gh pr checks <n> --json name,bucket` passes, FeedbackOps checks included (they are outside the ruleset, so count them yourself). An empty list is not a pass.
+2. **Wait:** run `gh pr checks <n> --watch --fail-fast` in the background with a time cap. If it returns before any check is registered, run it again. Then confirm that every check in `gh pr checks <n> --json name,bucket` passes, feature checks included (they are outside the ruleset, so count them yourself). An empty list is not a pass.
 3. **Merge:** first check outside the lock that the latest main push CI is not failing. Then:
    ```bash
    export PRN=<n> BR=<branch> SHA=<head sha>

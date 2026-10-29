@@ -43,7 +43,7 @@
 - [ ] issuer·메타데이터 URL, 클라이언트 등록 절차와 소요 기간, 환경별 redirect URI
 - [ ] 받을 수 있는 claim — 계정 id, 이름, 부서, **그룹·역할 claim의 유무와 모양**(역할 소속 원천 #98이 여기에 걸림)
 - [ ] 세션 만료·재인증 주기·단일 로그아웃 요구
-- [ ] FeedbackOps와 IdP 클라이언트 공유 가능 여부(M3 SSO 공유)
+- [ ] 기능과 IdP 클라이언트 공유 가능 여부(M3 SSO 공유)
 - [ ] 망분리에서 서버의 IdP 백채널 접근 가능 여부
 - [ ] 테스트 계정: 모든 엔드포인트 권한 계정 + 권한 하나씩 뺀 계정(또는 세션 전환 훅), `console:access` 계정(`asConsole`), 주석 가능한 두 번째 사용자 계정(`asOtherAnnotator`), 부여 계정의 site 둘 부여·목적지/주석 권한 — 적합성 묶음에 필요(체크리스트 §4)
 
@@ -76,7 +76,7 @@
 
 - [x] 적재 워커 상태 스키마([ingest-status-schema.md](ingest-status-schema.md)) 합의(2026-10-26) — 데이터 신뢰(`trust`, 미수집·처리 지연·커버리지)의 원천. 합의 전 서버 동작은 체크리스트 §3-10(추측으로 채우지 않음). 합의 뒤 모니터링·트레이스(#51).
 
-### 3.5 FeedbackOps — M3
+### 3.5 feature — M3
 
 - [ ] 내 설문 응답 이력 읽기 API(#84 = FeedbackOps#548), 신고자용 `view=my&selected=` 딥링크(#85 = FeedbackOps#549), 딥링크 확장(#81). 실제 VOC 어댑터(#86)는 세션 토큰 공유(#150) 뒤.
 
@@ -123,4 +123,4 @@
 - [ADR-0019 메뉴 조회 포트](../adr/0019-menu-query-endpoint-declaration.md) — Q2(선언 원본) 배경
 - [03 백엔드 스택](../architecture/backend-stack.md) — FastAPI·SQL-first·인증 구조·Alembic
 - [적재 워커 상태 스키마](ingest-status-schema.md) — #37
-- [FeedbackOps 딥링크 계약](feedbackops-deeplink.md) — M3
+- [플랫폼 인바운드 링크 계약](platform-inbound-links.md) — M3
