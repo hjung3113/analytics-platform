@@ -199,6 +199,8 @@ export function textFor(key: Key, lang: Lang): string {
 }
 type I18n = { lang: Lang; setLang: (lang: Lang) => void; t: (key: Key, params?: Record<string, string | number>) => string; tx: (text: Text) => string; text: (key: Key) => Text };
 const I18nContext = createContext<I18n | null>(null);
+/** Lets a nested language override report the language it makes visible, so the outer provider stays the document's only writer. */
+const EffectiveLangContext = createContext<((lang: Lang | null) => void) | null>(null);
 const STORAGE = 'platform:lang';
 
 function initialLang(): Lang {
@@ -211,11 +213,15 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>(initialLang);
   const setLang = useCallback((next: Lang) => {
     setLangState(next);
-    document.documentElement.lang = next;
     try { localStorage.setItem(STORAGE, next); } catch { /* preference stays in memory */ }
   }, []);
   const value = useMemo<I18n>(() => makeI18n(lang, setLang), [lang, setLang]);
-  return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
+  // The document language follows the language that is visible, also on a reload where no setLang runs (#1139).
+  // This is the only writer: a nested override (ServerLanguage) reports its language instead of writing it itself.
+  const [override, setOverride] = useState<Lang | null>(null);
+  const visible = override ?? lang;
+  useLayoutEffect(() => { document.documentElement.lang = visible; }, [visible]);
+  return <EffectiveLangContext.Provider value={setOverride}><I18nContext.Provider value={value}>{children}</I18nContext.Provider></EffectiveLangContext.Provider>;
 }
 
 const asLang = (value: unknown): Lang | undefined => (value === 'ko' || value === 'en' ? value : undefined);
@@ -232,8 +238,13 @@ export function ServerLanguage({ children }: { children: ReactNode }) {
   const lang = serverLang ?? base?.lang ?? 'ko';
   const setLang = useCallback((next: Lang) => { preferences?.set('lang', next); }, [preferences]);
   const value = useMemo<I18n | null>(() => (base && preferences ? makeI18n(lang, setLang) : base), [base, preferences, lang, setLang]);
-  // The document language follows the language that is visible: the account's, else the browser-wide fallback.
-  useLayoutEffect(() => { document.documentElement.lang = lang; }, [lang]);
+  const reportLang = useContext(EffectiveLangContext);
+  const overriding = base !== null && preferences !== null;
+  useLayoutEffect(() => {
+    if (!reportLang || !overriding) return undefined;
+    reportLang(lang);
+    return () => reportLang(null);
+  }, [reportLang, overriding, lang]);
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }
 

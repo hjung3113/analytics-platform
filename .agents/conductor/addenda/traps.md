@@ -63,3 +63,4 @@ Append new traps at the end, one bullet each: the symptom, then what to do. No d
 
 - After #1098 c, built-in feature consumers live at one level under `platform/<feature>/`; domain-system consumers stay `menus/<system>/<group>/`. GROUPS remains the sole space authority for platform features; folder and package moves do not rename runtime IDs or public symbols (#1099 owns those choices). (2026-10-29, #1098)
 - The feature Biome gate selects committed merge-base..HEAD paths. When verifying an uncommitted implementation, do not infer that root lint checked those feature files; use bounded file checks when needed. A shorter renamed literal can make a previously wrapped array require one-line formatting (#1099a).
+- The lead must not fast-forward `AP_MAIN` while a lane review tripwire is armed; ff only when no review is running — an ff trips the review's tripwire and the review loses its base.

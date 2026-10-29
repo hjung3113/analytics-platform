@@ -44,6 +44,7 @@ function Probe() {
       <p data-testid="lang">{lang}</p>
       <button onClick={() => p.toggleFavorite('m1')}>fav</button>
       <button onClick={() => setLang('ko')}>ko</button>
+      <button onClick={() => setLang('en')}>en</button>
     </div>
   );
 }
@@ -95,5 +96,27 @@ describe('PlatformProvider with the server preference seam', () => {
     mount(f.adapter, false);
     expect(screen.getByTestId('favs').textContent).toBe('local-only');
     expect(read).not.toHaveBeenCalled();
+  });
+  it('keeps the document language on the account language across a remount while its write is in flight (#1139)', async () => {
+    const f = fixture();
+    f.accounts['user-a']!.values = { lang: 'ko' };
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    const patch = f.adapter.patchPreferences.bind(f.adapter);
+    f.adapter.patchPreferences = async p => { await held; return patch(p); };
+    document.documentElement.lang = 'ko';
+    const first = mount(f.adapter);
+    await waitFor(() => expect(screen.getByTestId('lang').textContent).toBe('ko'));
+    act(() => screen.getByText('en').click());
+    expect(screen.getByTestId('lang').textContent).toBe('en');
+    expect(document.documentElement.lang).toBe('en');
+    first.unmount();
+    mount(f.adapter);
+    expect(screen.getByTestId('lang').textContent).toBe('en');
+    expect(document.documentElement.lang).toBe('en');
+    release();
+    await waitFor(() => expect(f.accounts['user-a']!.values.lang).toBe('en'));
+    await waitFor(() => expect(screen.getByTestId('lang').textContent).toBe('en'));
+    expect(document.documentElement.lang).toBe('en');
   });
 });

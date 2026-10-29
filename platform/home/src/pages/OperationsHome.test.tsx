@@ -361,3 +361,30 @@ const equipmentAxes = [
   { id: 'maker', label: { ko: 'Maker', en: 'Maker' }, membershipHistory: false },
   { id: 'model', label: { ko: 'Model', en: 'Model' }, membershipHistory: false, dependsOn: 'maker' },
 ];
+
+// #1139: dismissal is module state (menu code may not touch web storage), so it lasts this visit and
+// the notice returns after a reload. The button copy must name that — this visit, not this session.
+describe('notice dismissal copy (#1139)', () => {
+  // One notice id per variant: module dismissal state has no reset, so variants must not share ids.
+  function noticesAdapter(noticeId: string): PlatformAdapter {
+    const session = testSession(BOTH);
+    return testAdapter({
+      session: () => session,
+      menuQuery: async () => ({ outcome: 'ok', data: [{ id: noticeId, title: { ko: '점검 안내', en: 'Maintenance' }, scopeId: null, until: '2026-12-31T00:00:00+09:00' }], assessments: [], trust: null, correlationId: 'fixture' }),
+    });
+  }
+
+  it.each([
+    ['ko', '이번 방문 동안 닫기', '플랫폼 홈', '점검 안내', 'N-2026-091'],
+    ['en', 'Dismiss for this visit', 'Platform home', 'Maintenance', 'N-2026-092'],
+  ])('the dismiss button names this visit (%s)', async (lang, name, pageHeading, noticeTitle, noticeId) => {
+    if (lang === 'en') persisted.setItem('platform:lang', 'en');
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
+    render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={noticesAdapter(noticeId)} registry={registry}><OperationsHome /></PlatformProvider></I18nProvider>);
+    await screen.findByRole('heading', { name: pageHeading });
+    expect((await screen.findByRole('status')).textContent).toContain(noticeTitle);
+    expect(screen.getByRole('button', { name })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name }));
+    expect(screen.queryByRole('status')).toBeNull();
+  });
+});
