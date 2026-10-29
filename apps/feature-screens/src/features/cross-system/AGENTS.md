@@ -6,7 +6,7 @@ Cross-system commands/adapters shared by VOC/Findings/Tasks; must not import fea
 - Feature directories (`@/features/voc`, `@/features/integration`, `@/features/admin`, `@/features/tasks`) must never be imported from here.
 - Consumers in any feature may import from `@/features/cross-system/*` without creating a feature-to-feature edge.
 - `request-task/TaskRequestDraftCard.tsx` is the neutral Request Task form and pending-source read presentation. Source-specific mutations remain in the owning source feature; this component does not import Finding, VOC, Cluster, Tasks, or another feature.
-- Progress notes (`progress-notes/`) are the shared Finding/Task timeline. `ProgressNotesResource` is `{ kind: 'finding' | 'task'; id }` only. Contract: `docs/feedbackops/adr/0049-finding-task-progress-notes.md`.
+- Progress notes (`progress-notes/`) are the shared Finding/Task timeline. `ProgressNotesResource` is `{ kind: 'finding' | 'task'; id }` only. Contract: `docs/adr/history/feedbackops/0049-finding-task-progress-notes.md`.
 
 ## Key files
 

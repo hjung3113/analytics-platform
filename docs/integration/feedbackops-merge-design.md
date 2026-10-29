@@ -16,7 +16,7 @@ FeedbackOps를 플랫폼 앱 하나·공개 서버 입구 하나·저장소 하�
 
 1. **화면은 보는 사람 기준으로 나누고, 데이터 주인은 나누지 않는다.** 전역 기능 화면도 FeedbackOps 도메인 API를 쓴다. 플랫폼이 VOC·설문 응답을 따로 저장하지 않는다.
 2. **화면은 옮기고 다시 쓰지 않는다.** FeedbackOps 화면 코드를 Kernel 라우팅·Registry에 맞춰 옮긴다. 화면 단위 동작·문구·권한 표시는 FeedbackOps 기준을 유지한다.
-3. **FeedbackOps 도메인 불변식은 그대로 간다**(원본: `docs/feedbackops/GLOSSARY.md`, 합류 뒤에는 옮긴 위치):
+3. **FeedbackOps 도메인 불변식은 그대로 간다**(원본: `GLOSSARY.md`, 합류 뒤에는 옮긴 위치):
    - VOC는 인증된 사내 사용자가 남긴 목소리다. 설문 응답에서 VOC를 만들지 않는다.
    - Triage·신고자 표시·Task 상태 기계 셋은 서로 자동 매핑하지 않는다(FO ADR-0005).
    - 시스템 간 이력의 원본은 `entity_links`다.

@@ -14,7 +14,7 @@ export interface InternalTaskBadgeProps {
   className?: string;
 }
 
-/** English labels verbatim from `InternalTaskStatusLabels` in `docs/feedbackops/design-prototype/data.js`. */
+/** English labels verbatim from `InternalTaskStatusLabels` in `docs/design/history/feedbackops-prototype/data.js`. */
 const LABELS: Record<InternalTaskStatusEnum, string> = {
   backlog: 'Backlog',
   todo: 'Todo',

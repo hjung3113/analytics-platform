@@ -52,4 +52,4 @@ Dashboard is not a passive reporting helper.
 - Survey output counts Surveys and safe Survey-level follow-up signals, never responses or personal fields.
 - Omit unavailable metrics; authorized empty is zero. Hidden linked facts are not missing follow-up.
 - Keep Home summary intact; consume canonical recovery resolution without report-owned lifecycle writes.
-- Emit exact source-list filters only after both API and strict browser support exist; contract: `docs/feedbackops/implementation/api/dashboard.md`.
+- Emit exact source-list filters only after both API and strict browser support exist; contract: `docs/architecture/platform-api/api/dashboard.md`.

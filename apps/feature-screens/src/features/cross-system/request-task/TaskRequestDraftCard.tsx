@@ -85,9 +85,9 @@ export function TaskRequestDraftCard({
       aria-label="Task Request 초안"
       className={[
         'mt-3 flex flex-col gap-3 rounded-md',
-        // oxlint-disable-next-line shadcn/no-arbitrary-values -- the queued-request edge blends selected and subtle borders at the 52% mix drawn in docs/feedbackops/design-prototype/flow-drafts.jsx:101
+        // oxlint-disable-next-line shadcn/no-arbitrary-values -- the queued-request edge blends selected and subtle borders at the 52% mix drawn in docs/design/history/feedbackops-prototype/flow-drafts.jsx:101
         'border border-[color-mix(in_oklch,rgb(var(--border-selected))_52%,rgb(var(--border-subtle)))]',
-        // oxlint-disable-next-line shadcn/no-arbitrary-values -- the draft card keeps the 8% gradient drawn in docs/feedbackops/design-prototype/flow-drafts.jsx:102
+        // oxlint-disable-next-line shadcn/no-arbitrary-values -- the draft card keeps the 8% gradient drawn in docs/design/history/feedbackops-prototype/flow-drafts.jsx:102
         'bg-[linear-gradient(180deg,color-mix(in_oklch,rgb(var(--border-selected))_8%,rgb(var(--surface-card))),rgb(var(--surface-card)))]',
         'p-3',
       ].join(' ')}
@@ -190,7 +190,7 @@ export function TaskRequestDraftCard({
           )}
         </div>
 
-        {/* docs/feedbackops/design/06-task-project-system.md owns request fields; its contract overrides the prototype selectors. */}
+        {/* docs/product/features/06-task-project-system.md owns request fields; its contract overrides the prototype selectors. */}
         <div className="flex flex-wrap items-center gap-2">
           <Button
             disabled={isSubmitting}

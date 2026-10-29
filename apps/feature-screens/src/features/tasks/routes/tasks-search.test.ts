@@ -1,6 +1,6 @@
 // /tasks search schema — Milestones view mount (#514 B2a).
 //
-// docs/feedbackops/frontend/routes-and-layout.md §Task route views plus the #514 design
+// docs/design/features/routes-and-layout.md §Task route views plus the #514 design
 // (§7 item 8, §11.1): selection rides `param` like every shipped Task view;
 // `selected` is not a /tasks key and the schema stays strict, so `roadmap`
 // and `selected` keep failing.

@@ -7,7 +7,7 @@
 //
 // Adding a new type:
 //   1. Update this set.
-//   2. Update docs/feedbackops/design/12-ui-ux-principles.md if reporter UI needs to
+//   2. Update docs/product/features/12-ui-ux-principles.md if reporter UI needs to
 //      announce it.
 //   3. Confirm the type is renderable / safe for the download path (C4a).
 

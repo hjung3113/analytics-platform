@@ -2,7 +2,7 @@
 
 실제 대안 중에서 고른 결정, 되돌리기 어려운 결정을 남긴다. ADR은 **결정과 이유**만 둔다. 세부 규칙은 소유 문서(06·01·DESIGN.md·`integration/*`)에 두고 ADR은 그쪽을 링크한다. 결정 상태 한눈 보기는 [05 결정 상태](../overview/roadmap-and-open-questions.md), 아직 답이 없는 결정은 [`.planning/README.md`](../../.planning/README.md) "결정 대기".
 
-이 목록의 번호는 플랫폼 ADR이고 `ADR-NNNN`으로 부른다. FeedbackOps ADR(`docs/feedbackops/adr/`)은 번호를 따로 매겨 플랫폼 번호와 겹치므로(예: 0070은 양쪽에 있다) 플랫폼 문서와 코드 주석에서 항상 `FO ADR-NNNN`으로 쓴다.
+이 목록의 번호는 플랫폼 ADR이고 `ADR-NNNN`으로 부른다. FeedbackOps ADR(`docs/adr/history/feedbackops/`)은 번호를 따로 매겨 플랫폼 번호와 겹치므로(예: 0070은 양쪽에 있다) 플랫폼 문서와 코드 주석에서 항상 `FO ADR-NNNN`으로 쓴다.
 
 #597 retires the standalone portions of ADR-0027/0045 and FO ADR-0071 under [ADR-0097](0097-platform-features-and-role-based-names.md). Their bodies remain historical; the live link contract is [feedbackops-deeplink.md](../integration/feedbackops-deeplink.md). Inbound platform hops remain supported.
 
@@ -142,3 +142,5 @@
 ```
 
 결정자는 사용자 결정과 플랫폼(에이전트)이 계약에서 유도한 결정을 섞지 않는다. 사용자가 코디네이터에게 위임한 결정은 `Candidate`로 남기지 않고 `Decided`로 기록하며, 결정자를 `코디네이터(사용자 위임)`로 적고 되돌릴 수 있음을 함께 적는다.
+
+Historical feature decisions keep the separate **FO ADR-NNNN** namespace: [preservation context](../integration/feature-history.md) and [original index](history/feedbackops/README.md). Current platform decisions above supersede historical standalone identity/navigation where stated.

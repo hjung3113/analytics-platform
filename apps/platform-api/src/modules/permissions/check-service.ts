@@ -1,13 +1,13 @@
 // Permission check application service.
 //
 // Owns the read-side of the Permission module per
-// docs/feedbackops/implementation/02-domain-module-boundaries.md. All capability checks
+// docs/architecture/platform-api/02-domain-module-boundaries.md. All capability checks
 // in the codebase MUST go through `checkCapability` — controllers and other
 // modules never reach into `permission_grants` / `permission_denies` /
 // `permission_requests` directly. AGENTS.md:65-66 ("Backend application
 // services own permissions") locks this boundary.
 //
-// Check order: docs/feedbackops/implementation/05-permission-policy.md ## Permission Check Order —
+// Check order: docs/architecture/platform-api/05-permission-policy.md ## Permission Check Order —
 //   1. workspace context → workspace_mismatch
 //   2. explicit deny      → explicit_deny
 //   3. direct grant       → workspace-wide grants only (grant.managed_system_id IS NULL)

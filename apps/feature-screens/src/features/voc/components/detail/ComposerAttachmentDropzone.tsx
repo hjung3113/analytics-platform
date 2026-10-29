@@ -9,7 +9,7 @@
 // composer container already implies the attachment context, and renders
 // with tighter spacing to fit below the RichEditor body.
 //
-// Prototype anchor: docs/feedbackops/design-prototype/screen-voc-triage.jsx ComposerSection
+// Prototype anchor: docs/design/history/feedbackops-prototype/screen-voc-triage.jsx ComposerSection
 // + screen-voc-detail-reporter.jsx Reply composer. Copy strings ("파일을 드래그하거나
 // 클릭해서 추가", "최대 25MB · 다중 선택") are verbatim from screen-voc-create.jsx
 // per C6.

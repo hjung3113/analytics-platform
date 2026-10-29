@@ -18,12 +18,12 @@ This repository tracks work, decisions, and PRDs in GitHub issues at `hjung3113/
 | `area:kernel` | Kernel features (Registry, Context, URL, permissions and Scope, Audit), workspace layer |
 | `area:ops-console` | Operations console (platform administration tools) |
 | `area:design` | Design system, shared UI components, DESIGN.md |
-| `area:feedbackops` | FeedbackOps integration |
+| `area:platform-features` | Platform feature domains (successor to `area:feedbackops`; lead manages the rename) |
 | `area:tooling` | lint, generators, CI, validation tools |
 
 ## Flow Labels
 
-`lane:sdk` · `lane:platform` · `lane:arch` · `lane:fo` · `lane:ev` · `lane:site` · `lane:ops`. For label rules and how to classify requests as Kernel responsibility, SDK components, or menu work, see [`.agents/conductor/LANES.md`](../../.agents/conductor/LANES.md) §Lanes and §Request classification.
+`lane:sdk` · `lane:platform` · `lane:arch` · `lane:features` · `lane:ev` · `lane:site` · `lane:ops`. For label rules and how to classify requests as Kernel responsibility, SDK components, or menu work, see [`.agents/conductor/LANES.md`](../../.agents/conductor/LANES.md) §Lanes and §Request classification.
 
 Add the `on-hold` label to an issue while an external condition remains unresolved; remove it when the condition clears. For example, keep #163 and #164 on hold until their work requirement is confirmed.
 
@@ -48,3 +48,5 @@ Milestones are the progress authority for each track.
 
 The at-a-glance board is [`.planning/README.md`](../../.planning/README.md).
 
+
+Feature work uses this same tracker and targets `main`; `hjung3113/FeedbackOps` is frozen (#597). The lead owns the external `area:feedbackops → area:platform-features` and `lane:fo → lane:features` label/filter rename. A documented successor does not assert that GitHub labels have already changed. GitHub shares issue/PR numbers: resolve an ambiguous number with `gh pr view`, then `gh issue view`.

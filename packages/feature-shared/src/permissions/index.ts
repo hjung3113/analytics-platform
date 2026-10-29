@@ -4,7 +4,7 @@ export * from './decisions.js';
 export * from './admin.js';
 export * from './submit-more-info.js';
 
-// State vocabulary per docs/feedbackops/frontend/specs/voc.md §4.2 (PermissionDecisionState).
+// State vocabulary per docs/design/features/specs/voc.md §4.2 (PermissionDecisionState).
 // Envelope appears ONLY for blocked states — 'allow' has no envelope; an
 // unblocked entity simply omits the key.
 //   request_access         — actor may request the missing scope (CTA shown)

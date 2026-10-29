@@ -8,7 +8,7 @@
 //   prior VOC's stale drafts. The stored reducer state catches up via a
 //   self-dispatched RESET in the same pass.
 // Spec: PLAN-21-SUBCHUNKS.md C5.1
-// Prototype ref: docs/feedbackops/design-prototype/screen-voc.jsx:400-470
+// Prototype ref: docs/design/history/feedbackops-prototype/screen-voc.jsx:400-470
 
 import type { TipTapDoc } from '@ap/ui';
 import { useCallback, useReducer } from 'react';

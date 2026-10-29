@@ -2,7 +2,7 @@
 //
 // C5.1 (slice3 #21)
 // Spec: PLAN-21-SUBCHUNKS.md C5.1
-// Prototype ref: docs/feedbackops/design-prototype/screen-voc.jsx:400-414
+// Prototype ref: docs/design/history/feedbackops-prototype/screen-voc.jsx:400-414
 //
 // Prototype JSX (verbatim, lines 404-413):
 //   <div className="composer-tabs">

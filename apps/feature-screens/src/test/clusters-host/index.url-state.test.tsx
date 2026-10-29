@@ -1,6 +1,6 @@
 // /voc-clusters URL-state tests (issue #396).
 //
-// Selection + Managed System scope are URL state (docs/feedbackops/frontend/routes-and-layout.md
+// Selection + Managed System scope are URL state (docs/design/features/routes-and-layout.md
 // §URL State Rules): /voc-clusters?managedSystem=:managedSystemId|all&selected=:clusterId.
 // Verifies restore-on-load, replace-based first-row defaulting that never overrides a
 // deep link and never re-fires after close, push-on-select with working Back,

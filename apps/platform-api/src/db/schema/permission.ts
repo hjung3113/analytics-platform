@@ -1,9 +1,9 @@
 // Drizzle schema for the `permission` namespace.
 // Spec sources:
 // - GLOSSARY.md: Capability, Sensitive Permission, Permission Request.
-// - docs/feedbackops/implementation/02-domain-module-boundaries.md: Permission module owns
+// - docs/architecture/platform-api/02-domain-module-boundaries.md: Permission module owns
 //   permission_requests, permission_grants, permission_denies.
-// - docs/feedbackops/implementation/05-permission-policy.md: explicit deny overrides allow;
+// - docs/architecture/platform-api/05-permission-policy.md: explicit deny overrides allow;
 //   grants carry workspace_id (required), managed_system_id (optional for
 //   Admin, required for Developer scope), object_type/id, sensitive_reason,
 //   granted_by/granted_at, expiry, revocation; requests carry source context
@@ -117,7 +117,7 @@ export const permissionRequests = permissionSchema.table(
     sourceActionId: text('source_action_id'),
     returnRouteIntent: text('return_route_intent'),
     // status: pending | needs_more_info | approved | rejected | cancelled | expired | revoked
-    // (docs/feedbackops/implementation/05-permission-policy.md). Enforced as text + CHECK
+    // (docs/architecture/platform-api/05-permission-policy.md). Enforced as text + CHECK
     // in hand-edited migration SQL; constraint kept out of Drizzle to avoid
     // duplicating the enum list in two places before the capability vocab
     // file lands in S1.3.

@@ -2,7 +2,7 @@ import type { HostSearch } from '@/lib/host/search';
 import { isSearchFieldValueValid, parseRouteSearch } from '@/lib/host/search-fields';
 import { z } from 'zod';
 
-// List filters + selection are URL state (docs/feedbackops/frontend/routes-and-layout.md
+// List filters + selection are URL state (docs/design/features/routes-and-layout.md
 // §URL State Rules): /admin/analytics-areas?managedSystem=:uuid&includeArchived=true&selected=:uuid.
 // Defaults (all MS / archived hidden / nothing selected) are omitted from the
 // URL. Keys are camelCase URL keys; the API keeps its own snake_case params.

@@ -1,6 +1,6 @@
 /**
  * VocList — composes VOC rows with loading / empty / error states (mirrors
- * docs/feedbackops/design-prototype/screen-voc.jsx `VocList`).
+ * docs/design/history/feedbackops-prototype/screen-voc.jsx `VocList`).
  *
  * LIFTED MAP HOOKS: per-row lookups (managed system, actor identity for
  * owner/reporter, analytics-area name) are resolved by single map queries at
@@ -8,7 +8,7 @@
  * hooks inside .map() and keeps fetch count constant regardless of row count.
  *
  * There is no bulk selection: no batch VOC endpoint exists (deferred, see
- * docs/feedbackops/design/14-post-mvp-backlog.md Slice 62).
+ * docs/product/features/14-post-mvp-backlog.md Slice 62).
  */
 
 import { ListStateMessage } from '@/components/ListStateMessage';

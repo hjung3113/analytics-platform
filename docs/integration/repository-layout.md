@@ -25,12 +25,12 @@ FeedbackOps 원본 개발을 유지하면서 동일 체크아웃에서 코드를
 | `platform/` | 플랫폼 기능 Consumer 패키지 `platform/<feature>/`(`@ap/menu-<name>`: 홈·내 활동·공지·운영 콘솔·FeedbackOps 화면). 한 단계, SDK 아님. 공간은 `GROUPS`만 정한다 |
 | `tooling/` | 공유 도구: tsconfig, eslint 경계 규칙, `gen-menu`, `css-selectors` |
 | `archive/` | 통합 전 Kernel 단위 프로토타입(개별 npm 프로젝트, workspace 밖). 보존 |
-| `apps/{platform-api,feature-screens}`, `packages/feature-*`, `docs/feedbackops/` | FeedbackOps 앱·패키지·문서(루트 workspace의 일부, 이력 합류 `c73c55c5`, [ADR-0090](../adr/0090-repo-structure-by-branch.md)) |
+| `apps/{platform-api,feature-screens}`, `packages/feature-*` | FeedbackOps 앱·패키지·문서(루트 workspace의 일부, 이력 합류 `c73c55c5`, [ADR-0090](../adr/0090-repo-structure-by-branch.md)) |
 | `apps/feature-screens/` | 기존 React 프론트엔드. `src/features/`에 업무 화면 구성 |
 | `apps/platform-api/` | 기존 Fastify 백엔드. `src/modules/`에 업무 및 공통 기능 구현 |
 | `packages/feature-shared/` | FeedbackOps 프론트·백엔드 공유 계약. 아직 플랫폼 공통 계약은 아님 |
 | `packages/feature-ui/` | FeedbackOps UI 패키지(`@ap/feature-ui`). `a8d768b8` 기준으로 전체가 `packages/sdk/ui`(`@ap/ui`)에 옮겨졌고(#441–#443) 이 사본은 FeedbackOps에 그대로 남는다 |
-| `docs/feedbackops/` | FeedbackOps 설계·ADR·구현 계약·프로토타입 |
+| `docs/{product/features,architecture/platform-api,design/features,user-guide}` | 플랫폼 기능의 요구·구현·화면·사용 안내; 과거 기록은 [보존 색인](feature-history.md) |
 | `ops/platform-api/` | FeedbackOps 루트 도구(워크스페이스 패키지 `@ap/platform-api-ops`): 스크립트·게이트·compose·conductor, 앱·패키지 위치 지도 `paths.sh`/`paths.mjs`(713p1, [ADR-0090](../adr/0090-repo-structure-by-branch.md)) |
 
 FeedbackOps의 인증·권한·감사·VOC·Finding·Task 등은 기존 구현을 유지한다. 업무 모듈을 별도 앱으로 재분할하거나 플랫폼 공통 패키지로 승격하지 않았다.
@@ -64,18 +64,18 @@ mock build의 lazy 검사와 SDK 산출물 검사를 먼저 끝낸 뒤 DB-free `
 ## 개발 및 에이전트 진입점
 
 - 플랫폼 설계: 저장소 루트에서 시작하고 `AGENTS.md` → `docs/INDEX.md`를 읽는다.
-- FeedbackOps 탐색: `docs/feedbackops/`에서 시작하고 그 안의 `AGENTS.md` → `README.md`를 읽는다.
-- FeedbackOps 기능 개발: 이 저장소에서 브랜치를 만들어 `apps/{platform-api,feature-screens}`·`packages/feature-*`·`docs/feedbackops/`를 고친다(루트 `AGENTS.md`).
-- 개발 서버·패키지 설치·테스트는 FeedbackOps 앱·백엔드에서는 자체 workspace 설정을 기준으로 실행한다. 플랫폼 앱은 루트에서 `pnpm install` 후 `pnpm dev`/`pnpm test`로 실행하며, FeedbackOps `packages/feature-ui`와 `packages/feature-shared`만 공유한다.
+- 기능 도메인 탐색: `docs/INDEX.md` → `docs/agents/feature-implementation.md` → 해당 소유 계약을 읽는다.
+- FeedbackOps 기능 개발: 이 저장소에서 브랜치를 만들어 `apps/{platform-api,feature-screens}`·`packages/feature-*`와 해당 플랫폼 소유 문서를 고친다(루트 `AGENTS.md`).
+- 패키지 설치·개발·검사는 저장소 루트 workspace에서 실행한다. 코어 서버·기능 화면·운영 도구도 같은 lockfile을 쓴다. 기능 도메인별 세부 검증은 해당 앱 AGENTS와 `docs/agents/feature-implementation.md`를 따른다.
 - DB 통합 테스트는 초기화·재시드 동작이 있으므로 기존 데이터를 가진 DB에 실행하지 않는다.
 
 ## FeedbackOps 통합 방식 (Decided, 2026-09-26)
 
 > **2026-10-21: FeedbackOps는 플랫폼에 합친다([ADR-0066](../adr/0066-feedbackops-merges-into-platform.md), [합류 설계](feedbackops-merge-design.md)).** 아래 1·2단계는 합류 단계 4까지의 전환 규칙으로만 유효하다. 서브모듈은 합류 단계 1a(#592)에서 일반 디렉터리가 됐다.
 
-FeedbackOps는 플랫폼의 **공통 협업 서비스**다. 모두가 쓰는 기능은 플랫폼 메뉴와 레일에, 관리자·개발자 화면은 피드백 운영 업무 시스템에 합류하며 독립 앱은 은퇴한다([ADR-0066](../adr/0066-feedbackops-merges-into-platform.md), [ADR-0070](../adr/0070-global-features-platform-menu-and-voc-drawer.md)). 업무 시스템과 Managed System의 관계는 [ADR-0068](../adr/0068-permission-scope-and-business-system-link.md), 단계와 현재 상태는 [합류 설계](feedbackops-merge-design.md)를 따른다.
+FeedbackOps는 플랫폼의 **공통 협업 서비스**다. 모두가 쓰는 기능은 플랫폼 메뉴와 레일에, 관리자·개발자 화면은 운영 콘솔에 배치하며 독립 앱은 은퇴한다([ADR-0066](../adr/0066-feedbackops-merges-into-platform.md), [ADR-0070](../adr/0070-global-features-platform-menu-and-voc-drawer.md)). 업무 시스템과 Managed System의 관계는 [ADR-0068](../adr/0068-permission-scope-and-business-system-link.md), 단계와 현재 상태는 [합류 설계](feedbackops-merge-design.md)를 따른다.
 
-**Milestone:** 정의와 구현 상태는 FeedbackOps 저장소가 소유하며(`docs/feedbackops/design/06-task-project-system.md` FR-TASK-004), 플랫폼 쪽에서 별도 마일스톤 기능을 만들지 않는다.
+**Milestone:** 정의와 구현 상태는 기능 도메인 계약이 소유하며(`docs/product/features/06-task-project-system.md` FR-TASK-004), 플랫폼 쪽에서 별도 마일스톤 기능을 만들지 않는다.
 
 ## 다음 설계에서 확정할 항목
 

@@ -1,6 +1,6 @@
 // /findings URL-state tests (issue #396).
 //
-// Selection + Managed System scope are URL state (docs/feedbackops/frontend/routes-and-layout.md
+// Selection + Managed System scope are URL state (docs/design/features/routes-and-layout.md
 // §URL State Rules): /findings?managedSystem=:managedSystemId|all&selected=:findingId.
 // Verifies restore-on-load, push-on-select with working Back, atomic scope-change +
 // selection-drop, replace-away of a stale selection, a failed list load never

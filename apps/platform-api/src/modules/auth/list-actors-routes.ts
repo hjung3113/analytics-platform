@@ -3,7 +3,7 @@
 // Filed during Slice 3 #21 era: the Triage OwnerPicker FE
 // (`useWorkspaceActors`) shipped against this URL without a matching BE
 // route, so the assignee picker was silently empty. This handler closes the
-// gap. The pre-existing AGENTS.md / docs/feedbackops/implementation/02-domain-module-
+// gap. The pre-existing AGENTS.md / docs/architecture/platform-api/02-domain-module-
 // boundaries.md keep actor reads under `core` ownership, but auth/ already
 // owns the actor identity surface (`/me`, `/auth/mock-login`) and the
 // list-actors read is tiny + permission-trivial — colocating it here keeps

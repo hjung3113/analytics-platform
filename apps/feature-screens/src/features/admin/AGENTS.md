@@ -8,7 +8,7 @@ Admin owns frontend route composition for Managed System Registry, Analytics Are
 
 It does not own source-system lifecycles, Entity Link relation semantics, or application-service permission decisions.
 
-The canonical term is "Analytics Area" (per `docs/feedbackops/design/03-core-platform.md` and the actual routes/modules). "Product Area" in older docs is a legacy synonym for the same concept — do not treat them as two entities.
+The canonical term is "Analytics Area" (per `docs/product/features/03-core-platform.md` and the actual routes/modules). "Product Area" in older docs is a legacy synonym for the same concept — do not treat them as two entities.
 
 ## Route Boundary
 

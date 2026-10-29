@@ -1,6 +1,6 @@
 // /admin/analytics-areas URL-state tests (issue #397).
 //
-// Filters + selection are URL state (docs/feedbackops/frontend/routes-and-layout.md
+// Filters + selection are URL state (docs/design/features/routes-and-layout.md
 // §URL State Rules): ?managedSystem=:uuid&includeArchived=true&selected=:uuid.
 // Verifies restore-on-load, push-on-select with working Back, atomic
 // filter-change + selection-drop, replace-away of a stale selection, and

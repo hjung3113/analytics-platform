@@ -68,10 +68,6 @@
 
 새 화면 설계 절차(Requirements → IA → Screen Spec → Wireframe → Open Decisions)는 `.agents/skills/analysis-platform-wireframe/SKILL.md`.
 
-## FeedbackOps (`apps/{platform-api,feature-screens}`·`packages/feature-*`·`docs/feedbackops/`·`ops/platform-api/`)
-
-FeedbackOps 코드는 이 저장소의 일반 코드다(서브모듈 아님, [ADR-0066](docs/adr/0066-feedbackops-merges-into-platform.md)). 코어 서버 `@ap/platform-api`, 화면 `@ap/feature-screens`, 공유 계약 `@ap/feature-shared`, 기능 UI `@ap/feature-ui`, 다리 `@ap/feature-bridge`, 도구 `@ap/platform-api-ops`가 루트 workspace·lockfile·Node 26.7·pnpm 11을 함께 쓴다([ADR-0097](docs/adr/0097-platform-features-and-role-based-names.md)). 루트 `lint|typecheck|test|build`는 기능 패키지까지 포함한다. 서버 `test`는 DB 환경 셋을 제거하고 `ALLOW_SKIPPED_INTEGRATION=1`로 비DB 경로만 실행하며, 실제 통합 검증은 격리 DB의 `test:integration` 결과가 필요하다. 운영 도구의 집계 명령은 `pnpm --filter @ap/platform-api-ops feature:build|feature:dev|feature:test|feature:typecheck`다. 루트 lint의 도구 leaf는 경계 검사·디자인 lint·커밋된 변경 파일 Biome를 수행한다(비캐시, `FEATURE_LINT_BASE` 기본 `origin/main`, 기준 이력 없으면 실패). 전체 Biome는 `lint:all`이고 ESLint 전환은 #1102 미구현이다. CI는 `.github/workflows/ci.yml`이 정적·단위·격리 통합 검사를 함께 소유하고 필수 workspace 상태에 합친다. 내부 규칙은 `docs/feedbackops/AGENTS.md`와 각 패키지 `AGENTS.md`, 구조·CI 세부는 [repository-layout](docs/integration/repository-layout.md)을 따른다. 통합 계약이 충돌하면 사용자에게 올린다.
-
 ## 폴더별 지침
 
 | 폴더 | 역할 |
@@ -85,7 +81,7 @@ FeedbackOps 코드는 이 저장소의 일반 코드다(서브모듈 아님, [AD
 | [`tooling/`](tooling/AGENTS.md) | 공유 tsconfig·경계 lint·메뉴 생성기(`pnpm gen:menu`)·CSS selector 비교 |
 | [`site/`](site/AGENTS.md) | 도입 소개 페이지(정적, workspace 밖)와 Pages 조립 |
 | [`archive/`](archive/AGENTS.md) | 통합 전 Kernel 단위 프로토타입(보존, 새 기능 금지) |
-| [`docs/feedbackops/`](docs/feedbackops/AGENTS.md) | FeedbackOps 문서와 규칙(앱·패키지는 `apps/{platform-api,feature-screens}`·`packages/feature-*`, 루트 workspace의 기능 패키지 집합(`tooling/eslint/src/feature-packages.js`), 위 경계 참조) |
+| [`apps/platform-api/`](apps/platform-api/AGENTS.md) · [`apps/feature-screens/`](apps/feature-screens/AGENTS.md) | Core-server and feature-screen ownership; for feature domain work, read [feature implementation](docs/agents/feature-implementation.md) and its subject contracts. |
 
 ## 에이전트 자산
 

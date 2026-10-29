@@ -1,7 +1,7 @@
 // /admin/analytics-areas — Analytics Area catalog (issue #88).
 //
 // Rebuilt from the raw HTML-table CRUD harness to the design prototype
-// (docs/feedbackops/design-prototype/screen-admin.jsx → AdminAreasScreen +
+// (docs/design/history/feedbackops-prototype/screen-admin.jsx → AdminAreasScreen +
 // AnalyticsAreaSlideOver). Live API data only; the prototype's window globals /
 // synthetic data are not ported (AGENTS.md → UI Authority). Maps the
 // prototype's dark-token components to the real @ap/feature-ui light-token components
