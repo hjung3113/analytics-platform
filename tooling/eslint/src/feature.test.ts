@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-import { contracts, foServer, foShared, foUi } from './index.js';
+import { contracts, foScreens, foServer, foShared, foUi } from './index.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(HERE, '..', '..', '..');
@@ -15,6 +15,7 @@ const PACKAGES = {
   'apps/platform-api': { name: '@ap/platform-api', preset: foServer },
   'packages/feature-shared': { name: '@ap/feature-shared', preset: foShared },
   'packages/feature-ui': { name: '@ap/feature-ui', preset: foUi },
+  'apps/feature-screens': { name: '@ap/feature-screens', preset: foScreens },
 } as const;
 type PackageDir = keyof typeof PACKAGES;
 
@@ -28,6 +29,7 @@ async function lint(dir: PackageDir, relFile: string, code: string, preset?: Lin
 const SERVER = 'apps/platform-api' as const;
 const SHARED = 'packages/feature-shared' as const;
 const UI = 'packages/feature-ui' as const;
+const SCREENS = 'apps/feature-screens' as const;
 
 describe('feature full-source presets: correctness policy carried over from the Biome lint', () => {
   it.each([
@@ -246,6 +248,37 @@ describe('feature UI preset: React, accessibility and design-system rules under 
     const code = tsx('<img src="a.png" />');
     expect(await lint(SERVER, 'src/probe.tsx', code)).not.toContain('jsx-a11y/alt-text');
     expect(await lint(SHARED, 'src/probe.tsx', code)).not.toContain('jsx-a11y/alt-text');
+  });
+});
+
+describe('feature screens preset: the UI rules plus the restyled-component checks of the former Oxlint pass', () => {
+  const button = (props: string) =>
+    `import { Button } from '@ap/ui';\nexport const C = () => <Button ${props}>x</Button>;\n`;
+
+  it('shares the correctness, React, accessibility and Hooks policy with the UI preset', async () => {
+    const hooks = "import { useState } from 'react';\nexport function useX(ok: boolean) {\n  if (ok) useState(0);\n}\n";
+    expect(await lint(SCREENS, 'src/probe.ts', hooks)).toContain('react-hooks/rules-of-hooks');
+    expect(await lint(SCREENS, 'src/probe.ts', 'export const f = (a?: string) => a!;\n')).toContain('@typescript-eslint/no-non-null-assertion');
+    expect(await lint(SCREENS, 'src/probe.tsx', '<img src="a.png" />;\n')).toContain('jsx-a11y/alt-text');
+    expect(await lint(SCREENS, 'src/probe.tsx', '<div className="bg-red-500">x</div>;\n')).toContain('shadcn/no-raw-colors');
+  });
+
+  it('checks restyled components: screens add layout only, unlike the preset of the package that defines them', async () => {
+    const restyled = button('className="text-xs"');
+    expect(await lint(SCREENS, 'src/probe.tsx', restyled)).toContain('shadcn/no-restyle');
+    expect(await lint(SCREENS, 'src/probe.tsx', button('className="mt-2"'))).toEqual([]);
+    expect(await lint(UI, 'src/probe.tsx', restyled, foUi)).not.toContain('shadcn/no-restyle');
+  });
+
+  it('checks components imported from @ap/feature-ui as well', async () => {
+    const code = "import { SeverityBadge } from '@ap/feature-ui';\nexport const C = () => <SeverityBadge className=\"text-xs\" />;\n";
+    expect(await lint(SCREENS, 'src/probe.tsx', code)).toContain('shadcn/no-restyle');
+  });
+
+  it('does not check tests with the design rules, and keeps a reasoned exception working', async () => {
+    expect(await lint(SCREENS, 'src/__tests__/probe.test.tsx', button('className="text-xs"'))).toEqual([]);
+    const excepted = "import { Button } from '@ap/ui';\nexport const C = () => (\n  // eslint-disable-next-line shadcn/no-restyle -- probe\n  <Button className=\"text-xs\">x</Button>\n);\n";
+    expect(await lint(SCREENS, 'src/probe.tsx', excepted)).toEqual([]);
   });
 });
 

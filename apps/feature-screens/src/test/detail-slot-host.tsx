@@ -27,8 +27,7 @@ function SlotBody({ children }: { children: React.ReactNode }) {
     [isExpanded, toggleSlot],
   );
   return (
-    <>
-      <div className="flex h-screen" data-app-frame>
+    <div className="flex h-screen" data-app-frame>
         <main
           className={cn('flex-1 min-w-0 flex flex-col', isExpanded && 'hidden')}
           data-testid="app-main"
@@ -62,6 +61,5 @@ function SlotBody({ children }: { children: React.ReactNode }) {
           )}
         </aside>
       </div>
-    </>
   );
 }

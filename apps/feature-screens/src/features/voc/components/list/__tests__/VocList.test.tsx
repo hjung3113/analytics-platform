@@ -99,6 +99,11 @@ function makeWrapper() {
 // Tests
 // ---------------------------------------------------------------------------
 
+function present<T>(value: T | null | undefined): T {
+  if (value == null) throw new Error('expected a value, got none');
+  return value;
+}
+
 describe('<VocList>', () => {
   let onSelect: ReturnType<typeof vi.fn>;
 
@@ -256,7 +261,7 @@ describe('<VocList>', () => {
     });
     const rows = screen.getAllByRole('row');
     const dataRows = rows.filter((r) => r.getAttribute('aria-busy') !== 'true');
-    fireEvent.click(dataRows[0]!);
+    fireEvent.click(present(dataRows[0]));
     expect(onSelect).toHaveBeenCalledWith('id-1');
   });
 

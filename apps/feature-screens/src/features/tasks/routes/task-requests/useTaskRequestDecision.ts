@@ -72,7 +72,7 @@ export function useTaskRequestDecision({
     setDecisionDialog(null);
     setIsDecisionSubmitting(false);
     decisionSubmittingRef.current = false;
-  });
+  }, [item]);
 
   const selfApprovalCheck = useQuery({
     queryKey: ['permission-check', 'task_request.self_approve', item.primary_managed_system_id],

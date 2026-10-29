@@ -115,7 +115,7 @@ function mount(
         dismiss: () => {},
         ...overrides,
       }),
-      [search, overrides],
+      [search],
     );
     return <HostSeamProvider value={seam}>{screen(seam)}</HostSeamProvider>;
   }

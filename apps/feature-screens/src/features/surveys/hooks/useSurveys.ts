@@ -222,6 +222,7 @@ type SurveyQuestionResponse = { id: string };
 
 function useSurveyStatusMutation(surveyId: string, target: 'open' | 'close') {
   const queryClient = useQueryClient();
+  // eslint-disable-next-line @typescript-eslint/no-invalid-void-type -- react-query's `void` variables type makes mutate() take no argument; `undefined` would force mutate(undefined) at every call site (the former Biome rule allowed void call-site type arguments)
   return useMutation<Survey, ApiError, void>({
     mutationFn: async () =>
       (await apiClient<Survey>('POST', `/surveys/${surveyId}/${target}`)).data,

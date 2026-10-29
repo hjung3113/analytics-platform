@@ -171,7 +171,7 @@ export function ReporterStatusChangeBlock({
             value={nextStatus}
             density="compact"
             className={
-              // oxlint-disable-next-line shadcn/no-restyle -- the reporter status picker needs a compact width, strong border, and canvas surface in the update preview
+              // eslint-disable-next-line shadcn/no-restyle -- the reporter status picker needs a compact width, strong border, and canvas surface in the update preview
               'w-auto min-w-36 max-w-40 rounded-md border-border-strong bg-surface-canvas text-sm text-text-primary'
             }
             aria-label="다음 공개 상태 선택"

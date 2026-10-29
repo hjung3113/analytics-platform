@@ -110,6 +110,11 @@ const DEFAULT_MUTATION = {
   mutateAsync: vi.fn(),
 };
 
+function present<T>(value: T | null | undefined): T {
+  if (value == null) throw new Error('expected a value, got none');
+  return value;
+}
+
 describe('<EditDescriptionModal> reload awaits refetch (REV-3 Cluster W)', () => {
   beforeEach(() => {
     toastWarningMock.mockClear();
@@ -148,7 +153,7 @@ describe('<EditDescriptionModal> reload awaits refetch (REV-3 Cluster W)', () =>
     const refetchPromise = new Promise<void>((resolve) => {
       refetchResolve = resolve;
     });
-    const refetchSpy = vi.spyOn(qc, 'refetchQueries').mockImplementation(async (...args) => {
+    const refetchSpy = vi.spyOn(qc, 'refetchQueries').mockImplementation(async () => {
       // After the refetch is "awaited", the cache should be updated to V2.
       // The test asserts the action explicitly awaits this; resolve only
       // when the test releases it.
@@ -181,7 +186,7 @@ describe('<EditDescriptionModal> reload awaits refetch (REV-3 Cluster W)', () =>
       message: 'stale',
     });
     await act(async () => {
-      capturedOnError!(staleErr);
+      present(capturedOnError)(staleErr);
     });
 
     // Toast captured.
@@ -195,7 +200,7 @@ describe('<EditDescriptionModal> reload awaits refetch (REV-3 Cluster W)', () =>
     // resetting the form. Release the refetch only after asserting the
     // refetch was invoked.
     const clickPromise = act(async () => {
-      options!.action!.onClick();
+      present(present(options).action).onClick();
     });
 
     // The action should have called refetchQueries with ['voc', id].

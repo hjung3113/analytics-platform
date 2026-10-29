@@ -254,6 +254,7 @@ export function useTaskRequestConversion({
     convertMilestoneId !== '' &&
     !milestonesQuery.data.items.some((milestone) => milestone.id === convertMilestoneId);
 
+  // eslint-disable-next-line @typescript-eslint/no-invalid-void-type -- react-query's `void` variables type makes mutate() take no argument; `undefined` would force mutate(undefined) at every call site (the former Biome rule allowed void call-site type arguments)
   const convertMutation = useMutation<TaskDto, Error, void>({
     mutationFn: async () => {
       const title = convertTitle.trim();

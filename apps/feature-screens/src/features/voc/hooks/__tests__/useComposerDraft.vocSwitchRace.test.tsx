@@ -78,7 +78,7 @@ describe('useComposerDraft — vocId switch race (REV-2 #7)', () => {
         if (vocId === VOC_A && draft.state.public === null) {
           draft.setDraft('public', makeDoc('VOC A public'));
         }
-        // biome-ignore lint/correctness/useExhaustiveDependencies: only re-seed when vocId switches
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-seed when vocId switches; `draft` changes on every dispatch and would re-run the seed
       }, [vocId]);
       return null;
     }

@@ -143,7 +143,6 @@ describe('<InternalCommentComposer>', () => {
     fireEvent.click(addBtn);
 
     await waitFor(() => expect(mockMutate).toHaveBeenCalledTimes(1));
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const callArg = (mockMutate.mock.calls[0] as unknown[])[0] as {
       body: Record<string, unknown>;
     };
@@ -181,7 +180,6 @@ describe('<InternalCommentComposer>', () => {
     fireEvent.click(addBtn);
 
     expect(mockMutate).toHaveBeenCalledTimes(1);
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const callArg = (mockMutate.mock.calls[0] as unknown[])[0] as {
       body: { mentions: string[] };
     };

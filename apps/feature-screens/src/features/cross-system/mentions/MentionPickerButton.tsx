@@ -89,7 +89,7 @@ export function MentionPickerButton({
         {/* Search input */}
         <div className="border-b border-border-subtle px-3 py-2">
           <input
-            // biome-ignore lint/a11y/noAutofocus: WAI-ARIA APG §combobox — search input auto-focuses when popup opens so keyboard users can immediately filter
+            // eslint-disable-next-line jsx-a11y/no-autofocus -- WAI-ARIA APG §combobox — search input auto-focuses when popup opens so keyboard users can immediately filter
             autoFocus
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -99,9 +99,9 @@ export function MentionPickerButton({
           />
         </div>
         {/* Actor list */}
-        {/* biome-ignore lint/a11y/useFocusableInteractive: WAI-ARIA APG §combobox — listbox focus managed via aria-activedescendant on the search input */}
-        {/* biome-ignore lint/a11y/noNoninteractiveElementToInteractiveRole: <ul role="listbox"> is canonical ARIA listbox per APG §combobox */}
-        {/* biome-ignore lint/a11y/useSemanticElements: WAI-ARIA APG §combobox requires <ul role="listbox"> as scrollable container */}
+        {/* a11y note (no ESLint counterpart; kept from the former Biome exception): WAI-ARIA APG §combobox — listbox focus managed via aria-activedescendant on the search input */}
+        {/* a11y note (no ESLint counterpart; kept from the former Biome exception): <ul role="listbox"> is canonical ARIA listbox per APG §combobox */}
+        {/* a11y note (no ESLint counterpart; kept from the former Biome exception): WAI-ARIA APG §combobox requires <ul role="listbox"> as scrollable container */}
         <ul role="listbox" aria-label="워크스페이스 멤버" className="max-h-48 overflow-y-auto py-1">
           {filtered.length === 0 ? (
             <li className="px-3 py-2 text-sm text-text-muted" role="presentation">
@@ -109,11 +109,11 @@ export function MentionPickerButton({
             </li>
           ) : (
             filtered.map((actor) => (
-              // biome-ignore lint/a11y/useKeyWithClickEvents: pointer selection; keyboard handled by search input
+              // eslint-disable-next-line jsx-a11y/click-events-have-key-events -- pointer selection; keyboard handled by search input
               <li
                 key={actor.id}
-                // biome-ignore lint/a11y/useSemanticElements: WAI-ARIA APG §combobox requires <li role="option">; native option elements are limited to native pickers.
-                // biome-ignore lint/a11y/noNoninteractiveElementToInteractiveRole: <li role="option"> is canonical ARIA listbox option per APG §combobox
+                // a11y note (no ESLint counterpart; kept from the former Biome exception): WAI-ARIA APG §combobox requires <li role="option">; native option elements are limited to native pickers.
+                // a11y note (no ESLint counterpart; kept from the former Biome exception): <li role="option"> is canonical ARIA listbox option per APG §combobox
                 role="option"
                 aria-selected={false}
                 tabIndex={-1}

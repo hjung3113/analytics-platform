@@ -27,9 +27,7 @@ const slot = vi.hoisted(() => {
   };
 });
 function SlotContent() {
-  return (
-    <>{useSyncExternalStore(slot.subscribe, slot.get, slot.get) as import('react').ReactNode}</>
-  );
+  return useSyncExternalStore(slot.subscribe, slot.get, slot.get) as import('react').ReactNode;
 }
 
 vi.mock('@/lib/api', async (importOriginal) => ({

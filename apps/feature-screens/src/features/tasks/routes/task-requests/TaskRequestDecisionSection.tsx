@@ -126,7 +126,7 @@ export function TaskRequestDecisionSection({
                   variant="outline"
                   size="sm"
                   className={
-                    // oxlint-disable-next-line shadcn/no-restyle -- the reject action stays full-width danger outline so it remains secondary to approval
+                    // eslint-disable-next-line shadcn/no-restyle -- the reject action stays full-width danger outline so it remains secondary to approval
                     'w-full border-accent-danger text-accent-danger hover:bg-accent-danger/10'
                   }
                   loading={decision.isPending}

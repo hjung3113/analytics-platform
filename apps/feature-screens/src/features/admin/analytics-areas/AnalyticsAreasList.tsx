@@ -230,7 +230,7 @@ function GroupCard({
           return (
             <div
               key={a.id}
-              // biome-ignore lint/a11y/useSemanticElements: the row holds a nested <button>; a <button> row would nest interactive content.
+              // a11y note (no ESLint counterpart; kept from the former Biome exception): the row holds a nested <button>; a <button> row would nest interactive content.
               role="button"
               tabIndex={0}
               data-testid={`aa-row-${a.slug}`}

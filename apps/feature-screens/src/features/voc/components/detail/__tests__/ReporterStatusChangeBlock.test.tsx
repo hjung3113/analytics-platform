@@ -50,6 +50,11 @@ const OWNER = {
 
 // ── Tests ──────────────────────────────────────────────────────────────────
 
+function present<T>(value: T | null | undefined): T {
+  if (value == null) throw new Error('expected a value, got none');
+  return value;
+}
+
 describe('ReporterStatusChangeBlock', () => {
   it('renders picker with current status first, then allowed, then forbidden (API reason suffix)', async () => {
     render(
@@ -66,28 +71,23 @@ describe('ReporterStatusChangeBlock', () => {
     const options = await screen.findAllByRole('option');
 
     // First option is current status
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    expect(options[0]!.textContent).toContain('접수됨');
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    expect(options[0]!.textContent).toContain('(현재)');
+    expect(present(options[0]).textContent).toContain('접수됨');
+    expect(present(options[0]).textContent).toContain('(현재)');
 
     // Allowed statuses come next (before forbidden)
     const allowedLabels = ['검토 중', '담당자 배정됨'];
     for (const label of allowedLabels) {
       const opt = options.find((option) => option.textContent?.trim() === label);
       expect(opt).toBeTruthy();
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      expect(opt).not.toHaveAttribute('aria-disabled', 'true');
+        expect(opt).not.toHaveAttribute('aria-disabled', 'true');
     }
 
     // A forbidden status with an API reason shows that reason instead of the generic suffix
     const resolvedOpt = options.find((option) => option.textContent?.includes('해결됨'));
     expect(resolvedOpt).toBeTruthy();
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     expect(resolvedOpt).toHaveAttribute('aria-disabled', 'true');
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    expect(resolvedOpt!.textContent).toContain('결과 확인 전에 해결됨으로 바꿀 수 없습니다.');
-    expect(resolvedOpt!.textContent).not.toContain('차단됨');
+    expect(present(resolvedOpt).textContent).toContain('결과 확인 전에 해결됨으로 바꿀 수 없습니다.');
+    expect(present(resolvedOpt).textContent).not.toContain('차단됨');
   });
 
   it('forbidden statuses remain disabled options', async () => {

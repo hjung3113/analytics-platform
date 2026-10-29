@@ -282,4 +282,35 @@ describe('FindingsScreen under a host seam', () => {
     await screen.findByText('결제 실패 반복');
     expect(detailReturnTo()).toBeNull();
   });
+  it('retries the current list query after the query text changed, with the same pagination and no extra reads', async () => {
+    let healed = false;
+    const listUrls: URL[] = [];
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input), 'http://localhost');
+      if (url.pathname === '/findings') {
+        listUrls.push(url);
+        return healed
+          ? json({ items: [F1], page: { total: 1, has_more: false } })
+          : json({ code: 'internal.unexpected', message: 'boom' }, 500);
+      }
+      if (url.pathname === '/actors') return json({ actors: [] });
+      return json({ code: 'not_found.record' }, 404);
+    }) as typeof globalThis.fetch;
+    mount({ managedSystem: MS });
+    // The list hook retries a failed read once after about a second.
+    const retryButton = { timeout: 5000 };
+    await screen.findByRole('button', { name: '다시 시도' }, retryButton);
+    await userEvent.type(await screen.findByPlaceholderText('제목 또는 ID'), '결제{Enter}');
+    await waitFor(() => expect(listUrls.at(-1)?.searchParams.get('q')).toBe('결제'), retryButton);
+    await screen.findByRole('button', { name: '다시 시도' }, retryButton);
+    const failedReads = listUrls.length;
+    const failed = listUrls.at(-1);
+
+    healed = true;
+    await userEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+    expect(await screen.findByText('결제 실패 반복')).toBeInTheDocument();
+
+    expect(listUrls).toHaveLength(failedReads + 1);
+    expect(listUrls.at(-1)?.search).toBe(failed?.search);
+  }, 15000);
 });

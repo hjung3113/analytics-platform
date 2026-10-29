@@ -130,7 +130,7 @@ export function SurveyBuilder({
                 aria-invalid={titleIsBlank}
                 {...(titleIsBlank ? { 'aria-describedby': titleErrorId } : {})}
                 className={
-                  // oxlint-disable-next-line shadcn/no-restyle -- the editable survey title is styled as heading text inside the builder toolbar
+                  // eslint-disable-next-line shadcn/no-restyle -- the editable survey title is styled as heading text inside the builder toolbar
                   'w-80 min-w-0 max-w-full border-transparent bg-transparent font-semibold'
                 }
                 value={title}

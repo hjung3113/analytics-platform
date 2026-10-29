@@ -129,6 +129,7 @@ export function ManagedSystemScopePicker({
   };
 
   return (
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- the root only observes keydown and blur bubbling from the trigger and options inside to close the listbox; it has no role of its own
     <div
       ref={rootRef}
       className="relative border-b border-border-subtle p-2"
@@ -185,17 +186,17 @@ export function ManagedSystemScopePicker({
       </button>
       {scopeControlEnabled && open && (
         <div className="absolute left-2 right-2 top-full z-50 mt-1 rounded-md border border-border-subtle bg-surface-popover p-1 shadow-lg">
-          {/* biome-ignore lint/a11y/useFocusableInteractive: the options inside take focus (roving), not the listbox. */}
+          {/* eslint-disable-next-line jsx-a11y/interactive-supports-focus -- the options inside take focus (roving), not the listbox. */}
           <div
             ref={listRef}
             id={listId}
-            // biome-ignore lint/a11y/useSemanticElements: a custom listbox with helper text per option; a native <select> cannot render it.
+            // a11y note (no ESLint counterpart; kept from the former Biome exception): a custom listbox with helper text per option; a native <select> cannot render it.
             role="listbox"
             aria-label="Managed System 범위"
             onKeyDown={onListKeyDown}
           >
-            {/* biome-ignore lint/a11y/useSemanticElements: see the listbox above. */}
-            {/* biome-ignore lint/a11y/useKeyWithClickEvents: Enter/Space are handled by the listbox's onKeyDown. */}
+            {/* a11y note (no ESLint counterpart; kept from the former Biome exception): see the listbox above. */}
+            {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events -- Enter/Space are handled by the listbox's onKeyDown. */}
             <div
               role="option"
               tabIndex={-1}
@@ -221,10 +222,10 @@ export function ManagedSystemScopePicker({
               </span>
             </div>
             {managedSystems.map((system) => (
-              // biome-ignore lint/a11y/useKeyWithClickEvents: Enter/Space are handled by the listbox's onKeyDown.
+              // eslint-disable-next-line jsx-a11y/click-events-have-key-events -- Enter/Space are handled by the listbox's onKeyDown.
               <div
                 key={system.id}
-                // biome-ignore lint/a11y/useSemanticElements: see the listbox above.
+                // a11y note (no ESLint counterpart; kept from the former Biome exception): see the listbox above.
                 role="option"
                 tabIndex={-1}
                 aria-selected={system.id === value}

@@ -22,9 +22,9 @@ export const FO_DOCS = [
   'docs/agents/feature-implementation.md',
 ];
 export const FO_PACKAGES = [FO_BACKEND, FO_FRONTEND, FO_SHARED, FO_UI];
-// Where Biome looks: the tool package itself, the screens app and the docs (design-prototype .jsx is Biome-checked).
-// platform-api, feature-shared and feature-ui lint with ESLint since #1102 a (their `lint` scripts); screens joins them in #1102 b.
-export const FO_BIOME_SCOPE = [FO_OPS, FO_FRONTEND, ...FO_DOCS];
+// Where Biome looks: the tool package itself and the docs (design-prototype .jsx is Biome-checked).
+// platform-api, feature-shared and feature-ui lint with ESLint since #1102 a, feature-screens since #1102 b (their `lint` scripts).
+export const FO_BIOME_SCOPE = [FO_OPS, ...FO_DOCS];
 
 // FO_PATHS_REPO_ROOT is for the fixture tests only (they build a throwaway tree laid out by this map).
 export const REPO_ROOT = process.env.FO_PATHS_REPO_ROOT

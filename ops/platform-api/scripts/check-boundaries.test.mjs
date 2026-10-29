@@ -490,6 +490,8 @@ runCase(
     [join(FO_SHARED, 'eslint.config.js')]:
       "import { foShared } from '@ap/eslint-config';\nexport default foShared;\n",
     [join(FO_UI, 'eslint.config.js')]: LINT_PRESET,
+    [join(FO_FRONTEND, 'eslint.config.js')]:
+      "export { foScreens as default } from '@ap/eslint-config';\n",
   },
   true,
   'boundaries: OK',
@@ -501,8 +503,9 @@ runCase(
     [join(FO_BACKEND, 'src', 'eslint.config.js')]: LINT_PRESET,
     [join(FO_UI, 'src', 'nested', 'eslint.config.js')]: LINT_PRESET,
     [join(FO_BACKEND, 'src', 'lint.ts')]: "import { foServer } from '@ap/eslint-config';\n",
-    [join(FO_FRONTEND, 'eslint.config.js')]: LINT_PRESET,
     [join(FO_OPS, 'eslint.config.js')]: LINT_PRESET,
+    [join(FO_FRONTEND, 'src', 'eslint.config.js')]: LINT_PRESET,
+    [join(FO_FRONTEND, 'src', 'lint.ts')]: "import { foScreens } from '@ap/eslint-config';\n",
     [join(FO_SHARED, 'eslint.config.ts')]: LINT_PRESET,
   },
   false,
@@ -510,8 +513,9 @@ runCase(
     `${FO_BACKEND}/src/eslint.config.js:1`,
     `${FO_UI}/src/nested/eslint.config.js:1`,
     `${FO_BACKEND}/src/lint.ts:1`,
-    `${FO_FRONTEND}/eslint.config.js:1`,
     `${FO_OPS}/eslint.config.js:1`,
+    `${FO_FRONTEND}/src/eslint.config.js:1`,
+    `${FO_FRONTEND}/src/lint.ts:1`,
     `${FO_SHARED}/eslint.config.ts:1`,
   ],
 );
@@ -524,9 +528,13 @@ runCase(
       "import { PERMISSIONS } from '@ap/contracts';\nconst k = await import('@ap/kernel');\n",
     [join(FO_UI, 'eslint.config.js')]:
       "export * from '@ap/eslint-config-extra';\nconst c = require('@ap/ui/../shell');\n",
+    [join(FO_FRONTEND, 'eslint.config.js')]:
+      "export { foScreens } from '@ap/eslint-config/feature';\nimport '@ap/kernel';\n",
   },
   false,
   [
+    `${FO_FRONTEND}/eslint.config.js:1`,
+    `${FO_FRONTEND}/eslint.config.js:2`,
     `${FO_BACKEND}/eslint.config.js:1`,
     `${FO_SHARED}/eslint.config.js:1`,
     `${FO_SHARED}/eslint.config.js:2`,

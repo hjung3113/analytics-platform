@@ -8,7 +8,6 @@
   },
   "scripts": {
     "lint": "node scripts/lint-root.mjs",
-    "lint:design": "node scripts/lint-tools.mjs lint-design",
     "format": "node scripts/lint-tools.mjs biome-format",
     "check:boundaries": "node scripts/check-boundaries.mjs",
     "gate:db-migration-drift": "node scripts/gates/db-migration-drift-gate.mjs",
@@ -23,8 +22,6 @@
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
-    "@shadcn/lint": "0.2.0",
-    "oxlint": "1.86.0",
     "typescript": "5.7.2"
   }
 }

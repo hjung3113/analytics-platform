@@ -30,7 +30,7 @@ vi.mock('@dnd-kit/core', () => ({
   }) => {
     dnd.onDragStart = onDragStart;
     dnd.onDragEnd = onDragEnd;
-    return <>{children}</>;
+    return children;
   },
   DragOverlay: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   KeyboardSensor: class {},

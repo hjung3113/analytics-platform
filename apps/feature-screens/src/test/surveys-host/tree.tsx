@@ -37,26 +37,28 @@ const detail = createRoute({
   validateSearch: validateSurveyDetailSearch,
   component: SurveyDetailRoute,
 });
+function SurveyResultsPage() {
+  const { surveyId } = useParams({ strict: false }) as { surveyId: string };
+  return <SurveyResultsScreen surveyId={surveyId} />;
+}
+function SurveyFollowUpPage() {
+  const { surveyId } = useParams({ strict: false }) as { surveyId: string };
+  return (
+    <WorkbenchShell>
+      <div className="flex h-full min-h-0 flex-col">
+        <SurveyFollowUpScreen surveyId={surveyId} />
+      </div>
+    </WorkbenchShell>
+  );
+}
 const results = createRoute({
   getParentRoute: () => detail,
   path: '/results',
-  component: () => {
-    const { surveyId } = useParams({ strict: false }) as { surveyId: string };
-    return <SurveyResultsScreen surveyId={surveyId} />;
-  },
+  component: SurveyResultsPage,
 });
 const followUp = createRoute({
   getParentRoute: () => detail,
   path: '/follow-up',
-  component: () => {
-    const { surveyId } = useParams({ strict: false }) as { surveyId: string };
-    return (
-      <WorkbenchShell>
-        <div className="flex h-full min-h-0 flex-col">
-          <SurveyFollowUpScreen surveyId={surveyId} />
-        </div>
-      </WorkbenchShell>
-    );
-  },
+  component: SurveyFollowUpPage,
 });
 export const routeTree = root.addChildren([list, detail.addChildren([results, followUp])]);

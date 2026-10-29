@@ -168,3 +168,43 @@ describe('LinksScreen reads', () => {
     expect(await screen.findAllByRole('checkbox', { name: /선택$/ })).toHaveLength(1);
   });
 });
+
+describe('LinksScreen retry', () => {
+  it('retries the current table query after a tab change, with the same filter and no extra reads', async () => {
+    let healed = false;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: string) => {
+        const url = new URL(input, 'http://localhost');
+        requests.push(url);
+        if (url.pathname.endsWith('/entity-links')) {
+          return healed
+            ? json({ items: LINKS, page: { total: 1, has_more: false } })
+            : json({ code: 'internal.unexpected', message: 'boom' }, 500);
+        }
+        if (url.pathname === '/managed-systems') return json({ items: [], total: 0 });
+        if (url.pathname.endsWith('/actors/resolve')) return json({ actors: [], teams: [] });
+        return json({ code: 'internal.unexpected', message: input }, 500);
+      }),
+    );
+    await mount({ managedSystem: MS });
+    await userEvent.click(screen.getByRole('tab', { name: /^활성/ }));
+    // The inventory hook retries a failed read once after about a second.
+    const settled = { timeout: 5000 };
+    await screen.findByRole('button', { name: '다시 시도' }, settled);
+    const activeReads = () =>
+      requests.filter(
+        (url) => url.pathname.endsWith('/entity-links') && url.searchParams.get('status') === 'active',
+      );
+    await waitFor(() => expect(activeReads().length).toBeGreaterThan(0), settled);
+    const failedReads = activeReads().length;
+    const failed = activeReads().at(-1);
+
+    healed = true;
+    await userEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+    await screen.findByText('11111111');
+
+    expect(activeReads()).toHaveLength(failedReads + 1);
+    expect(activeReads().at(-1)?.search).toBe(failed?.search);
+  }, 15000);
+});

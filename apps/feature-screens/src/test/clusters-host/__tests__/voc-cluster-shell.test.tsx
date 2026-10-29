@@ -96,6 +96,7 @@ vi.mock('@ap/ui', async (importOriginal) => {
     ...actual,
     cn: (...classes: Array<string | false | null | undefined>) => classes.filter(Boolean).join(' '),
     Button: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+      // eslint-disable-next-line react/button-has-type -- stand-in for the real Button: type arrives through the spread props
       <button {...props}>{children}</button>
     ),
     DetailPanelHeader: ({
@@ -131,7 +132,7 @@ vi.mock('@ap/ui', async (importOriginal) => {
     }: {
       children: React.ReactNode;
       open?: boolean;
-    }) => (open ? <>{children}</> : null),
+    }) => (open ? children : null),
     DialogContent: ({ children, ...props }: { children: React.ReactNode }) => (
       <div {...props}>{children}</div>
     ),
@@ -278,6 +279,24 @@ const clusters: ClusterFixture[] = [
     }>,
   },
 ];
+
+function firstCluster(): ClusterFixture {
+  const [cluster] = clusters;
+  if (!cluster) throw new Error('cluster fixture list is empty');
+  return cluster;
+}
+
+function firstClusterMember(): ClusterFixture['members'][number] {
+  const [member] = firstCluster().members;
+  if (!member) throw new Error('cluster fixture has no member');
+  return member;
+}
+
+function linkExistingFindingForm(): HTMLElement {
+  const form = document.getElementById('link-existing-finding-form');
+  if (!form) throw new Error('link-existing-finding-form is not rendered');
+  return form;
+}
 
 vi.mock('@/features/voc-cluster/hooks/useVocClusterList', () => ({
   useVocClusterList: () => ({
@@ -476,16 +495,22 @@ describe('VOC cluster route shells', () => {
     routeParams = { clusterId: '11111111-1111-1111-1111-111111111111' };
     for (const key of Object.keys(urlSearch)) delete urlSearch[key];
     clusters.splice(1);
-    clusters[0]!.status = 'draft';
-    clusters[0]!.linked_findings = [];
-    clusters[0]!.summary = '결제 관련 VOC가 반복됩니다.';
-    delete clusters[0]!.severity;
-    delete clusters[0]!.confidence;
-    delete clusters[0]!.rationale;
-    delete clusters[0]!.owner_user_id;
-    delete clusters[0]!.confirmed_by;
-    delete clusters[0]!.confirmed_at;
-    clusters[0]!.members = [
+    firstCluster().status = 'draft';
+    firstCluster().linked_findings = [];
+    firstCluster().summary = '결제 관련 VOC가 반복됩니다.';
+    // eslint-disable-next-line no-restricted-syntax -- the fixture must lack the optional field entirely, not hold undefined
+    delete firstCluster().severity;
+    // eslint-disable-next-line no-restricted-syntax -- the fixture must lack the optional field entirely, not hold undefined
+    delete firstCluster().confidence;
+    // eslint-disable-next-line no-restricted-syntax -- the fixture must lack the optional field entirely, not hold undefined
+    delete firstCluster().rationale;
+    // eslint-disable-next-line no-restricted-syntax -- the fixture must lack the optional field entirely, not hold undefined
+    delete firstCluster().owner_user_id;
+    // eslint-disable-next-line no-restricted-syntax -- the fixture must lack the optional field entirely, not hold undefined
+    delete firstCluster().confirmed_by;
+    // eslint-disable-next-line no-restricted-syntax -- the fixture must lack the optional field entirely, not hold undefined
+    delete firstCluster().confirmed_at;
+    firstCluster().members = [
       {
         voc_id: '33333333-3333-3333-3333-333333333333',
         display_id: 'VOC-333',
@@ -572,21 +597,21 @@ describe('VOC cluster route shells', () => {
       '@/features/voc-cluster/components/detail/VocClusterDetailPanel'
     );
     const { rerender } = render(
-      <VocClusterDetailPanel clusterId={clusters[0]!.id} onClose={vi.fn()} />,
+      <VocClusterDetailPanel clusterId={firstCluster().id} onClose={vi.fn()} />,
     );
 
     expect(screen.getByTestId('cluster-detail-skeleton')).toBeInTheDocument();
 
     detailQueryState.status = 'success';
     expect(() =>
-      rerender(<VocClusterDetailPanel clusterId={clusters[0]!.id} onClose={vi.fn()} />),
+      rerender(<VocClusterDetailPanel clusterId={firstCluster().id} onClose={vi.fn()} />),
     ).not.toThrow();
 
     expect(screen.getByTestId('cluster-detail-title')).toHaveTextContent('반복 결제 문의');
   });
 
   it('filters list rows by All, Confirmed, and No finding without a backend filter', async () => {
-    const baseCluster = clusters[0]!;
+    const baseCluster = firstCluster();
     clusters.push(
       {
         ...baseCluster,
@@ -641,7 +666,7 @@ describe('VOC cluster route shells', () => {
   });
 
   it('clears an inline detail selection when its tab excludes the selected cluster without navigation', async () => {
-    const baseCluster = clusters[0]!;
+    const baseCluster = firstCluster();
     clusters.push({
       ...baseCluster,
       id: '55555555-5555-5555-5555-555555555555',
@@ -674,7 +699,7 @@ describe('VOC cluster route shells', () => {
   });
 
   it('keeps a deeplinked detail selection open while the list query is pending', async () => {
-    const selectedId = clusters[0]!.id;
+    const selectedId = firstCluster().id;
     const onCloseDetail = vi.fn();
     const { VocClusterListShell } = await import(
       '@/features/voc-cluster/components/detail/VocClusterListShell'
@@ -706,7 +731,7 @@ describe('VOC cluster route shells', () => {
   });
 
   it('renders every linked Finding in Execution and exposes its finding route', async () => {
-    clusters[0]!.linked_findings = [
+    firstCluster().linked_findings = [
       {
         id: '77777777-7777-7777-7777-777777777777',
         display_id: 'FIN-777',
@@ -741,7 +766,7 @@ describe('VOC cluster route shells', () => {
   it.each(findingStatusSchema.options)(
     'renders a display label for linked Finding status %s',
     async (status) => {
-      clusters[0]!.linked_findings = [
+      firstCluster().linked_findings = [
         {
           id: '77777777-7777-7777-7777-777777777777',
           display_id: 'FIN-777',
@@ -822,14 +847,14 @@ describe('VOC cluster route shells', () => {
   });
 
   it('renders rich nullable fields, five section anchors, member reporter status, and truncates members', async () => {
-    clusters[0]!.severity = 'high';
-    clusters[0]!.confidence = 'medium';
-    clusters[0]!.rationale = '같은 결제 실패 패턴입니다.';
-    clusters[0]!.owner_user_id = 'owner-1';
-    clusters[0]!.confirmed_by = 'confirmer-1';
-    clusters[0]!.confirmed_at = '2026-01-03T00:00:00.000Z';
-    clusters[0]!.members = Array.from({ length: 5 }, (_, index) => ({
-      ...clusters[0]!.members[0]!,
+    firstCluster().severity = 'high';
+    firstCluster().confidence = 'medium';
+    firstCluster().rationale = '같은 결제 실패 패턴입니다.';
+    firstCluster().owner_user_id = 'owner-1';
+    firstCluster().confirmed_by = 'confirmer-1';
+    firstCluster().confirmed_at = '2026-01-03T00:00:00.000Z';
+    firstCluster().members = Array.from({ length: 5 }, (_, index) => ({
+      ...firstClusterMember(),
       voc_id: `33333333-3333-3333-3333-33333333333${index}`,
       reporter_facing_status: 'reviewing',
     }));
@@ -837,7 +862,7 @@ describe('VOC cluster route shells', () => {
       '@/features/voc-cluster/components/detail/VocClusterDetailPanel'
     );
     const { container } = render(
-      <VocClusterDetailPanel clusterId={clusters[0]!.id} onClose={vi.fn()} />,
+      <VocClusterDetailPanel clusterId={firstCluster().id} onClose={vi.fn()} />,
     );
     for (const anchor of ['overview', 'why', 'execution', 'members', 'properties'])
       expect(container.querySelector(`[data-anchor="${anchor}"]`)).toBeInTheDocument();
@@ -851,17 +876,17 @@ describe('VOC cluster route shells', () => {
   });
 
   it('renders graceful empty values for nullable cluster fields', async () => {
-    clusters[0]!.summary = null;
-    clusters[0]!.severity = null;
-    clusters[0]!.confidence = null;
-    clusters[0]!.rationale = null;
-    clusters[0]!.owner_user_id = null;
-    clusters[0]!.confirmed_by = null;
-    clusters[0]!.confirmed_at = null;
+    firstCluster().summary = null;
+    firstCluster().severity = null;
+    firstCluster().confidence = null;
+    firstCluster().rationale = null;
+    firstCluster().owner_user_id = null;
+    firstCluster().confirmed_by = null;
+    firstCluster().confirmed_at = null;
     const { VocClusterDetailPanel } = await import(
       '@/features/voc-cluster/components/detail/VocClusterDetailPanel'
     );
-    render(<VocClusterDetailPanel clusterId={clusters[0]!.id} onClose={vi.fn()} />);
+    render(<VocClusterDetailPanel clusterId={firstCluster().id} onClose={vi.fn()} />);
     expect(screen.getByTestId('cluster-detail-summary-empty')).toHaveTextContent(
       '요약이 없습니다.',
     );
@@ -880,14 +905,14 @@ describe('VOC cluster route shells', () => {
     linkFindingMutate.mockImplementation(
       (_variables: unknown, callbacks: { onSuccess: () => void }) => callbacks.onSuccess(),
     );
-    render(<VocClusterDetailPanel clusterId={clusters[0]!.id} onClose={vi.fn()} />);
+    render(<VocClusterDetailPanel clusterId={firstCluster().id} onClose={vi.fn()} />);
     fireEvent.click(screen.getByTestId('cluster-link-existing-finding-button'));
     fireEvent.click(screen.getByTestId('link-existing-finding-picker'));
     fireEvent.click(await screen.findByRole('option', { name: 'FIN-555 · 기존 결제 Finding' }));
-    fireEvent.submit(document.getElementById('link-existing-finding-form')!);
+    fireEvent.submit(linkExistingFindingForm());
     expect(linkFindingMutate).toHaveBeenCalledWith(
       {
-        clusterId: clusters[0]!.id,
+        clusterId: firstCluster().id,
         findingId: '55555555-5555-5555-5555-555555555555',
       },
       expect.any(Object),
@@ -932,14 +957,14 @@ describe('VOC cluster route shells', () => {
         (_variables: unknown, callbacks: { onError: (error: unknown) => void }) =>
           callbacks.onError(error),
       );
-      render(<VocClusterDetailPanel clusterId={clusters[0]!.id} onClose={vi.fn()} />);
+      render(<VocClusterDetailPanel clusterId={firstCluster().id} onClose={vi.fn()} />);
       fireEvent.click(screen.getByTestId('cluster-link-existing-finding-button'));
       fireEvent.click(screen.getByTestId('link-existing-finding-picker'));
       fireEvent.click(await screen.findByRole('option', { name: 'FIN-555 · 기존 결제 Finding' }));
-      fireEvent.submit(document.getElementById('link-existing-finding-form')!);
+      fireEvent.submit(linkExistingFindingForm());
       expect(linkFindingMutate).toHaveBeenCalledWith(
         {
-          clusterId: clusters[0]!.id,
+          clusterId: firstCluster().id,
           findingId: '55555555-5555-5555-5555-555555555555',
         },
         expect.any(Object),

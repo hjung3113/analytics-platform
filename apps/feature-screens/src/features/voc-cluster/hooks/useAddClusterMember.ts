@@ -18,6 +18,7 @@ export function useAddClusterMember(): UseMutationResult<
   AddClusterMemberVariables
 > {
   const qc = useQueryClient();
+  // eslint-disable-next-line @typescript-eslint/no-invalid-void-type -- the response/value type is intentionally void here (the former Biome rule allowed void call-site type arguments)
   return useMutation<void, ApiError, AddClusterMemberVariables>({
     mutationFn: async ({ clusterId, vocId }) => {
       await apiClient('POST', `/voc-clusters/${clusterId}/vocs`, { body: { voc_id: vocId } });

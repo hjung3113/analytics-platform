@@ -355,7 +355,7 @@ describe('TaskBoardRoute', () => {
     await screen.findByText('TASK-1000');
     for (const status of ['backlog', 'todo', 'doing', 'review', 'done', 'released', 'reopened']) {
       expect(
-        screen.getByLabelText(`${status[0]!.toUpperCase()}${status.slice(1)} 열`),
+        screen.getByLabelText(`${status.charAt(0).toUpperCase()}${status.slice(1)} 열`),
       ).toBeInTheDocument();
     }
     expect(screen.getAllByText('비어있음').length).toBe(6);
@@ -467,6 +467,7 @@ describe('TaskBoardRoute', () => {
   });
 
   it('announces a failed task read, hides its unknown count, and retries into the known count', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-invalid-void-type -- the response/value type is intentionally void here (the former Biome rule allowed void call-site type arguments)
     const firstRead = deferred<void>();
     let failing = true;
     api.listTasks.mockImplementation(async (options: Record<string, unknown>) => {

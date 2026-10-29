@@ -106,7 +106,7 @@ function HostHarness({
   const seam = useMemo<HostSeam>(
     () => ({
       canLink: () => true,
-      Link: ({ children: linkChildren }) => <>{linkChildren}</>,
+      Link: ({ children: linkChildren }) => linkChildren,
       notifyError: () => undefined,
       notifySuccess: () => undefined,
       useNavigate,

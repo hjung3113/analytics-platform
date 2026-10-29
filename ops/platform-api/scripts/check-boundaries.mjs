@@ -98,10 +98,9 @@ const RULES = [
 ];
 
 // Lint-only exception to rule 11: these exact files (never nested lookalikes) may import exactly `@ap/eslint-config`.
-// screens joins the list in its own migration (#1102 b).
 const LINT_CONFIG_PACKAGE = '@ap/eslint-config';
 const LINT_CONFIG_FILES = new Set(
-  [FO_BACKEND, FO_SHARED, FO_UI].map((dir) => join(ROOT, dir, 'eslint.config.js')),
+  [FO_BACKEND, FO_FRONTEND, FO_SHARED, FO_UI].map((dir) => join(ROOT, dir, 'eslint.config.js')),
 );
 
 const EXT = new Set(['.ts', '.tsx', '.mts', '.cts', '.js', '.jsx']);

@@ -142,4 +142,31 @@ describe('useTaskRequestDecision success toast', () => {
       expect(navigate).not.toHaveBeenCalled();
     },
   );
+  it('keeps the open dialog on a rerender with the same item object and clears it for a new object with an equal id', () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { result, rerender } = renderHook(
+      ({ item }: { item: TaskRequestDto }) =>
+        useTaskRequestDecision({
+          item,
+          currentActorId: '60000000-0000-0000-0000-000000000006',
+          currentRole: 'admin',
+        }),
+      {
+        initialProps: { item: taskRequest },
+        wrapper: ({ children }: PropsWithChildren) => (
+          <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+        ),
+      },
+    );
+    act(() => result.current.reject());
+    act(() => result.current.changeValue('검토 메모'));
+    expect(result.current.dialog).toMatchObject({ action: 'reject', value: '검토 메모' });
+
+    rerender({ item: taskRequest });
+    expect(result.current.dialog).toMatchObject({ action: 'reject', value: '검토 메모' });
+
+    rerender({ item: { ...taskRequest } });
+    expect(result.current.dialog).toBeNull();
+    expect(result.current.isSubmitting).toBe(false);
+  });
 });

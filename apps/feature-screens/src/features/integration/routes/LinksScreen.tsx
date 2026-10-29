@@ -128,20 +128,22 @@ export function LinksScreen() {
     inventoryItems.length === 0
       ? (inventory.error ?? (needsUnfilteredCheck ? unfilteredInventory.error : null))
       : null;
+  const { fetchNextPage, refetch: refetchInventory } = inventory;
+  const { refetch: refetchUnfiltered } = unfilteredInventory;
   const retryTable = React.useCallback((): void => {
     if (inventory.isFetchNextPageError) {
-      void inventory.fetchNextPage();
+      void fetchNextPage();
     } else if (inventory.error) {
-      void inventory.refetch();
+      void refetchInventory();
     } else {
-      void unfilteredInventory.refetch();
+      void refetchUnfiltered();
     }
   }, [
     inventory.error,
-    inventory.fetchNextPage,
+    fetchNextPage,
     inventory.isFetchNextPageError,
-    inventory.refetch,
-    unfilteredInventory.refetch,
+    refetchInventory,
+    refetchUnfiltered,
   ]);
 
   const countInventory = useEntityLinkInventory({

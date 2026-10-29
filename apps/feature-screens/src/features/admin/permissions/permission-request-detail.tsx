@@ -203,6 +203,7 @@ function PermissionRequestRiskReview({
       ) : (
         <ul className="flex flex-col gap-2">
           {request.risk_indicators.map((indicator, index) => (
+            // eslint-disable-next-line react/no-array-index-key -- risk indicator codes can repeat within one request and the list is rendered once, never reordered; the index disambiguates the key
             <li className="border-l-2 border-border-subtle pl-3" key={`${indicator.code}:${index}`}>
               <PermissionRiskIndicatorItem
                 indicator={indicator}

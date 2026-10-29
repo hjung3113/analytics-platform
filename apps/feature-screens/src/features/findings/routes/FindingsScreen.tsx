@@ -242,16 +242,13 @@ function FindingsListShell({
   const isReadDenied = stateIsError && permissionError !== null;
   const isFilteredEmpty =
     checkUnfiltered && unfilteredQuery.isSuccess && (unfilteredQuery.data?.page?.total ?? 0) > 0;
+  const { refetch: refetchList } = listQuery;
+  const { refetch: refetchUnfiltered } = unfilteredQuery;
   const retryList = React.useCallback((): void => {
     void (listQuery.isError && !listQuery.isFetchNextPageError
-      ? listQuery.refetch()
-      : unfilteredQuery.refetch());
-  }, [
-    listQuery.isError,
-    listQuery.isFetchNextPageError,
-    listQuery.refetch,
-    unfilteredQuery.refetch,
-  ]);
+      ? refetchList()
+      : refetchUnfiltered());
+  }, [listQuery.isError, listQuery.isFetchNextPageError, refetchList, refetchUnfiltered]);
   const { actors } = useWorkspaceActors();
   const actorsById = React.useMemo(() => {
     const map = new Map<string, AvatarUser>();

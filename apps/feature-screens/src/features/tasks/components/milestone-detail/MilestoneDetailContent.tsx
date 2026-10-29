@@ -105,7 +105,7 @@ export function MilestoneDetailContent({
             <MilestonePanelSectionTitle>
               {GLOSSARY.whyThisMilestoneExists}
             </MilestonePanelSectionTitle>
-            {/* oxlint-disable-next-line shadcn/no-restyle -- milestone rationale uses an inset muted paragraph inside its nested text block */}
+            {/* eslint-disable-next-line shadcn/no-restyle -- milestone rationale uses an inset muted paragraph inside its nested text block */}
             <NestedTextBlock className="p-3 text-sm leading-relaxed-ui text-text-secondary">
               {milestone.why}
             </NestedTextBlock>

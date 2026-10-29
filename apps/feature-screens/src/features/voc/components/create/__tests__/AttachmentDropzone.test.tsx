@@ -49,6 +49,11 @@ function fireFilePick(container: HTMLElement, files: File[]): void {
   fireEvent.change(input, { target: dt });
 }
 
+function present<T>(value: T | null | undefined): T {
+  if (value == null) throw new Error('expected a value, got none');
+  return value;
+}
+
 describe('<AttachmentDropzone> (C6 active upload)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -99,7 +104,7 @@ describe('<AttachmentDropzone> (C6 active upload)', () => {
       expect(spy).toHaveBeenCalledTimes(1);
     });
     // Idempotency-Key was supplied per-file
-    const [fileArg, optsArg] = spy.mock.calls[0]!;
+    const [fileArg, optsArg] = present(spy.mock.calls[0]);
     expect(fileArg.name).toBe('shot.png');
     expect(typeof optsArg?.idempotencyKey).toBe('string');
     expect(optsArg?.idempotencyKey?.length).toBeGreaterThan(8);
