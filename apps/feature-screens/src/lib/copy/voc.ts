@@ -16,6 +16,7 @@ export const VOC_CREATE_COPY = {
   titleField: '제목',
   descriptionField: '상세 설명',
   managedSystemField: 'Managed System',
+  analyticsAreaField: 'Analytics Area',
   proxyReportHint: '타인 대신 보고는 다른 팀원이나 고객의 경험을 대신 등록하는 경우입니다.',
   analyticsAreaHint: 'Analytics Area는 VOC를 분석할 때 함께 볼 주제에 맞춰 선택하세요.',
   requiredFieldsPrefix: '필수 항목: ',

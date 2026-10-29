@@ -191,7 +191,7 @@ export function VocComposeScreen({
             appearance="section"
             tip="선택사항. 선택한 Managed System 안의 Analytics Area만 고를 수 있어요."
           >
-            ANALYTICS AREA
+            {VOC_CREATE_COPY.analyticsAreaField}
           </FieldLabel>
           {selectedMs && aaQuery.isLoading ? (
             <div className="flex flex-wrap gap-2">

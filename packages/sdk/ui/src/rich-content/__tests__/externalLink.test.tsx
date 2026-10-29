@@ -88,3 +88,14 @@ describe('RichContentRenderer — external link decoration (PLAN-22 C10, #42)', 
     expect(a.getAttribute('target')).toBeNull();
   });
 });
+
+describe('RichContentRenderer — link treatment (#740)', () => {
+  it('anchors get the design-system link classes from the wrapper', () => {
+    // `화면 열기` and other in-prose links must read as links, not body text:
+    // the wrapper carries the descendant link treatment (accent + hover underline).
+    const a = renderDoc('https://example.com/path');
+    const wrapper = a.closest('div');
+    expect(wrapper?.className).toContain('[&_a]:text-accent-primary');
+    expect(wrapper?.className).toContain('[&_a]:hover:underline');
+  });
+});

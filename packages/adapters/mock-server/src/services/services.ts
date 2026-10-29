@@ -25,9 +25,9 @@ const baseOf = (): Base => ({ correlationId: nextCorrelation(), data: null, trus
 
 /** The scenario outcome an envelope read answers before looking at the request, or null for normal service. */
 function scenarioFail(scenario: Pinned['scenario']): { outcome: 'timeout' | 'error' | 'forbidden'; message: string } | null {
-  if (scenario === 'timeout') return { outcome: 'timeout', message: 'Query exceeded 30s budget' };
-  if (scenario === 'error') return { outcome: 'error', message: 'Upstream failed' };
-  if (scenario === 'forbidden') return { outcome: 'forbidden', message: 'Permission revoked (scenario)' };
+  if (scenario === 'timeout') return { outcome: 'timeout', message: '조회가 30초 제한을 넘었습니다' };
+  if (scenario === 'error') return { outcome: 'error', message: '상류 요청이 실패했습니다' };
+  if (scenario === 'forbidden') return { outcome: 'forbidden', message: '권한이 회수되었습니다(시나리오)' };
   return null;
 }
 
@@ -209,8 +209,8 @@ async function noticeWrite<T extends Notice | { id: string }>(input: unknown, si
   const pinned = pin(opts);
   await wait(pinned, signal, opts);
   if (!hasPermission(pinned.role, WRITE_PERMISSION)) return answer<T>('forbidden', { message: `No permission ${WRITE_PERMISSION}` });
-  if (pinned.scenario === 'error') return answer<T>('error', { message: 'Upstream failed' });
-  if (pinned.scenario === 'forbidden') return answer<T>('forbidden', { message: 'Permission revoked (scenario)' });
+  if (pinned.scenario === 'error') return answer<T>('error', { message: '상류 요청이 실패했습니다' });
+  if (pinned.scenario === 'forbidden') return answer<T>('forbidden', { message: '권한이 회수되었습니다(시나리오)' });
   const fieldErrors = check(input);
   if (fieldErrors.length > 0) return answer<T>('invalid', { fieldErrors });
   const body = input as Record<string, unknown>;

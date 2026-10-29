@@ -66,7 +66,7 @@ export default function OperationsHome() {
               <h2 className="t-section-title">{lang === 'ko' ? '접근 가능한 업무 시스템이 없습니다' : 'No work systems are available'}</h2>
               {canOpen('permission-requests')
                 ? <>
-                    <p className="mt-1 text-sm text-text-secondary">{lang === 'ko' ? '필요한 업무 시스템과 기능 권한을 요청하세요.' : 'Request the work systems and feature access you need.'}</p>
+                    <p className="mt-1 text-sm text-text-secondary">{lang === 'ko' ? '업무 시스템 접근 권한은 플랫폼 관리자가 줍니다. 기능 권한이 필요하면 요청하세요.' : 'Work system access is granted by a platform administrator. Request the feature access you need.'}</p>
                     <Button asChild size="sm" className="mt-3"><PlatformLink href={permissionRequests.href}>{lang === 'ko' ? '권한 요청' : 'Request access'}</PlatformLink></Button>
                   </>
                 : <p className="mt-1 text-sm text-text-secondary">{lang === 'ko' ? '필요한 업무 시스템의 접근 권한을 플랫폼 관리자에게 요청하세요.' : 'Ask a platform administrator for access to the work system you need.'}</p>}

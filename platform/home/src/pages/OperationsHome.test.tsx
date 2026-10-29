@@ -192,7 +192,7 @@ describe('platform home launcher', () => {
     await settled();
     const section = screen.getByRole('region', { name: '업무 시스템' });
     expect(within(section).getByRole('heading', { name: '접근 가능한 업무 시스템이 없습니다' })).toBeTruthy();
-    expect(within(section).getByText('필요한 업무 시스템과 기능 권한을 요청하세요.')).toBeTruthy();
+    expect(within(section).getByText('업무 시스템 접근 권한은 플랫폼 관리자가 줍니다. 기능 권한이 필요하면 요청하세요.')).toBeTruthy();
     const links = within(section).getAllByRole('link');
     expect(links.map(link => link.textContent)).toEqual(['권한 요청']);
     expect(new URL(links[0].getAttribute('href') ?? '', window.location.origin).pathname).toBe('/permission-requests');
