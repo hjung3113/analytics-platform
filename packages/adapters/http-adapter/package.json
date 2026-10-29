@@ -15,6 +15,7 @@
     "@ap/contracts": "workspace:*"
   },
   "devDependencies": {
+    "@ap/contract-schemas": "workspace:*",
     "@ap/eslint-config": "workspace:*",
     "@ap/tsconfig": "workspace:*",
     "eslint": "^10.11.0",

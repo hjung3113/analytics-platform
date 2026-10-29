@@ -43,7 +43,7 @@
 
 **어댑터 포트 [#1103](https://github.com/hjung3113/analytics-platform/issues/1103) (포트·계약·mock·HTTP 어댑터·적합성·문서 범위 완료, `sdk-v0.21.0`용 — [ADR-0098](../docs/adr/0098-adapter-preferences-people-notices-ports.md)).** 결정 두 건을 닫았다(#1096): `defaultRangeTo`는 `string | null`(서버에 기준점 없음), 사용자 설정은 서버 포트와 1회 원자 가져오기. 계약·mock·HTTP 어댑터·적합성·문서가 이 이슈의 범위이고, 서버 모듈 #1104(설정 — 서버 영속·1회 이전·Kernel 배선·실서버 조립 구현, 출처가 확인된 로컬 키만 이전하고 원본 보존; 실서버 E2E 통과)·#1105(사람 조회 화면 연결)·#1106(공지, Home 배너 갱신)은 후속 구현 범위(서버 영속·이전·공지 구현은 #1103 범위가 아니다).
 
-**저장된 뷰 쓰기 관문 [#1105](https://github.com/hjung3113/analytics-platform/issues/1105) SDK 노드 (완료, `sdk-v0.21.0`용, 이슈는 열림).** 셸 `SavedViewControl`의 공유·승인·이행·그룹 쓰기가 모두 Kernel `useSavedViews`를 거치고 이행 `apply()` 예외도 `unavailable` 안내로 처리한다(백로그 v0.18 마감 리뷰 Q6 완료). 서버 모듈(#1105a, [ADR-0099](../docs/adr/0099-server-saved-view-persistence.md) §6: `platform` 스키마 영속·객체 ACL·공식 승인/회수·커스텀 그룹·감사·브라우저 이전 멱등, 마이그레이션 0078)은 구현·검증 대기 중이고(호스트 통합 검증 전), HTTP 저장소·브라우저 이전 실행·사람 이름 표시 화면 연결(#1105b)은 구현 전이다. 이슈는 #1105b까지 열려 있다.
+**저장된 뷰 쓰기 관문 [#1105](https://github.com/hjung3113/analytics-platform/issues/1105) (완료, `sdk-v0.21.0`용).** 셸 쓰기는 Kernel `useSavedViews`를 거친다. 서버([ADR-0099](../docs/adr/0099-server-saved-view-persistence.md), 마이그레이션 0078)는 객체 ACL·공식 승인/회수·커스텀 그룹·감사·멱등 이전을 영속하고, 실서버 조립은 HTTP 저장소와 현재 사용자의 로컬 이전·사람 이름 조회를 연결한다. 브라우저 원본은 모두 보존한다. 실제 두 사용자 명령·브라우저 이전 5개와 관련 mock UI E2E 5개, 루트 검사·SDK API·mock UX를 통과했다. 실서버 세션에 분석 메뉴 권한과 Scope가 없어 렌더된 저장·공유 화면은 검증하지 못했으며, 이 한계와 재개 조건은 백로그에 남겼다.
 
 ## 결정 대기 — 사람이 고를 것
 

@@ -1,6 +1,6 @@
 # 저장된 뷰 서버는 객체 ACL만 판정하고, 메뉴·Scope는 실제 데이터 경계가 판정한다
 
-상태: **Decided (2026-10-29)**, 서버 모듈 구현됨(#1105a, §5·§6). HTTP 저장소·브라우저 이전 실행·사람 이름 표시는 구현 전(#1105b).
+상태: **Decided (2026-10-29)**, 서버 모듈 구현됨(#1105a, §5·§6). HTTP 저장소·브라우저 이전 실행·사람 이름 표시는 코드 구현됨(#1105b, §7), 호스트 검증 전.
 - 결정자: 사용자 — [#1105 결정 댓글](https://github.com/hjung3113/analytics-platform/issues/1105)(2026-10-29): 권한 권위 분리, 공식 승인 `console:access`, 사람 조회 원천, 조직 팀 공유 미구현. 나머지 세부 설계(전송 모양·상한·이전 프로토콜·공식 회수 정책)는 팀장(사용자 위임, 되돌릴 수 있음).
 - 관련: [ADR-0092](0092-saved-view-units-tiers-and-groups.md) §3을 **부분 대체**한다(아래 §1; 0092 본문은 역사로 보존). [ADR-0095](0095-dual-backend-fastify-core-fastapi-analytics.md)(Fastify core), [ADR-0097](0097-platform-features-and-role-based-names.md)(서버는 `@ap/contract-schemas`를 런타임 import, `@ap/contracts`는 안 함), [ADR-0098](0098-adapter-preferences-people-notices-ports.md)(사람 정확 조회, 상한 규칙). 계약 본문 `docs/contract/kernel.md` §21. 스키마 원본 `packages/sdk/contract-schemas/src/saved-view-commands.ts`.
 
@@ -37,7 +37,7 @@
 
 - 명령: `importToken`(한 번의 이전에 고정된 토큰), `rows`(`legacyKey` + 초안, 최대 200), `defaults`(`key.menuId` + 가리키는 `legacyKey`). 현재 행위자의 키만 가져오며, 공유·그룹·관리자 능력과 원래 소유·공개 대상은 권위로 받지 않는다(초안은 엄격하므로 거부).
 - 서버는 행마다 비공개 뷰를 서버 발급 id로 만든다. 결과는 행별이다: `imported`(새 id), `already_imported`(같은 토큰의 재시도, 같은 id), `rejected`(사유). 재시도는 중복·부활을 만들지 않는다. 개인 기본은 커밋된 행에만 매핑한다.
-- 클라이언트는 **커밋된 행(id가 있는 결과)만** 승인(ack)하고 지운다. 거부된 행은 로컬에 남겨 복구할 수 있게 하고 보고한다. 전체 전송 실패면 아무것도 지우지 않는다. 같은 토큰을 재사용해 부분 실패 뒤 다시 보낸다.
+- 클라이언트는 **커밋된 행(id가 있는 결과)만** 승인(ack)한다. **로컬 원본은 승인된 행도 지우지 않는다**(다른 기기·복구에 쓸 수 있고, 영수증은 별도 매니페스트에 둔다). 거부된 행은 로컬에 남겨 복구할 수 있게 하고 보고한다. 같은 토큰을 재사용해 부분 실패 뒤 다시 보낸다.
 - 감사: 게시·승인·회수·그룹 멤버 변경·이전은 코어 감사 서비스에 남긴다. 페이로드(뷰 본문)·비밀은 감사 내용에 넣지 않는다.
 
 ### 5. 구현 상태 (이번 단계)
@@ -47,7 +47,7 @@
 | 이 ADR의 결정 | Decided |
 | `@ap/contract-schemas`의 명령·응답 스키마 | 구현(이번 단계) |
 | 서버 모듈·Drizzle·ACL·감사 | 구현(#1105a, `apps/platform-api/src/modules/platform-saved-views`, 마이그레이션 0078) |
-| HTTP 저장소(`@ap/http-adapter`)·브라우저 이전·사람 이름 표시 | **구현 안 함** — #1105b |
+| HTTP 저장소(`@ap/http-adapter`)·브라우저 이전·사람 이름 표시 | 코드 구현(#1105b, §7), 호스트 검증 전 |
 | 조직 팀 공유 | **구현 안 함**(위 이유·재개 조건) |
 
 ### 6. 서버 구현에서 정한 세부 (#1105a, 되돌릴 수 있음)
@@ -63,8 +63,16 @@
 - **감사**: `saved_view_official_{requested,approved,rejected,revoked}`, `saved_view_visibility_changed`, `saved_view_group_{created,updated}`, `saved_view_import_submitted`(`@ap/feature-shared`). 공식본 편집이 새 신청을 만들 때도 새 버전의 `requested`를 같은 트랜잭션에 남긴다. 상세는 id·버전·개수뿐이다. 감사 투영의 subject 허용 목록은 바꾸지 않아 이 이벤트는 플랫폼 감사 조회에 나오지 않는다.
 - **HTTP**: 변경 명령의 스키마 위반은 HTTP 422 `validation.malformed_request`(어댑터가 변경 명령은 `invalid`로 옮긴다), 인증 없음 401, CSRF 불일치 403. 사람 정확 조회(`/people/lookup`)는 상태를 바꾸지 않는 읽기 `POST`라서 쿠키 세션·활성 workspace·`no-store`는 같고 CSRF 토큰은 요구하지 않는다(기존 `lookupPeople` 어댑터 호출과 [http-adapter-contract](../integration/http-adapter-contract.md) §1·§6의 읽기 `POST` 규칙). CSRF는 `saved-views/commands`의 모든 명령에만 적용한다. 전역 분당 한도만 적용한다.
 
+### 7. 클라이언트 구현에서 정한 세부 (#1105b, 되돌릴 수 있음)
+
+- **HTTP 저장소**: `@ap/http-adapter`가 `bootstrapHttpAdapter`의 ready 결과에 `store`와 `importLocal`을 더한다. 같은 transport·세션·CSRF를 쓰며 `importLocal`은 `SavedViewStore`·`PlatformAdapter`·`@ap/contracts`에 없다. 응답 가드는 손으로 쓴 깊은 검사(런타임 Zod 없음)이고 테스트가 `@ap/contract-schemas`와의 동치(알 수 없는 키·enum·중첩·금지 키·유니코드)를 확인한다. 상한(262,144바이트·깊이 32)은 전송 전에 검사하며, 넘으면 보내지 않고 `invalid`다.
+- **받아들인 한계**: 저장·그룹 만들기는 멱등 키가 없다. 타임아웃·응답 유실이면 효과를 알 수 없어 `unavailable`이고 자동 재전송은 없으며, 사용자가 다시 시도하면 중복될 수 있다.
+- **브라우저 이전**: 앱(`apps/platform-web/src/real/local-import.ts`)이 옛 버킷 키 `platform:saved-views:v1:[1,actorId,menuId]`와 기본 키를 직접 읽는다(시드·mock 저장소 미사용). 키 튜플에서 소유자·메뉴를 얻어 행의 `ownerId`·kind 파생 메뉴·id `owner|menu|seq`(대기 제안 포함)를 대조하고, 대기 제안이 있으면 그 내용을 비공개 초안으로 투영한다. `legacyKey`는 행 id(200자 이하)다. 매니페스트(`platform:saved-view-import:v1:[1,actorId]`: 토큰·전송 행·기본·행별 영수증)를 `platform:saved-views:v1` Web Lock 아래에서 읽고 쓰며, 토큰이 저장되지 않으면 보내지 않는다. 본문은 200행·262,144바이트·깊이 32로 정해진 순서에 따라 나눠 보낸다(혼자서도 안 들어가는 행은 보내지 않고 영수증에 거부로 남긴다). 영수증은 서버의 행별 결과가 만든다: `imported`·`already_imported`만 ack, 행 `invalid`와 본문 422는 이 매니페스트에서 다시 보내지 않는 거부, 네트워크·`unavailable`·`forbidden`은 대기다. 보낸 `legacyKey`마다 답이 정확히 하나가 아니면 아무것도 ack하지 않는다. 세션 행위자가 바뀌면 이후 전송을 멈춘다.
+- **실행 시점**: 실어댑터 조립마다 한 번(Ready·메뉴·Scope 세대마다 아님). 목록·기본 읽기는 그 한 번(30초 상한)을 기다리고, 실패해도 서버 저장소는 그대로 쓸 수 있으며 브라우저 로컬 ACL로 돌아가지 않는다.
+- **사람 이름**: 셸 `SavedViewControl`이 보이는(권한 밖이 아닌) 항목의 소유자·사람 공유 대상·신청자 id를 `adapter.lookupPeople`로 정확 조회한다(청크 200). 이름 순서는 본인 → `lookupPeople` → 그룹 멤버 → 불투명 id이고, 조회 실패는 조용히 넘어가며 소속은 비어 있다.
+
 ## 결과
 
 - 0092 §3의 "열람·복원 때마다 서버가 Scope·room·메뉴 권한을 다시 판정"은 이 ADR §1로 부분 대체된다. 0092의 단위·단계·그룹 불변식은 유지한다.
-- `docs/contract/kernel.md` §21은 결정된 정책과 구현된 서버 모듈, 아직 구현되지 않은 HTTP 저장소·브라우저 이전 실행(#1105b)을 구분해 적는다. `real-server-checklist`·`platform-packages` 갱신은 서버 구현 단계가 한다.
+- `docs/contract/kernel.md` §21은 결정된 정책과 구현된 서버 모듈, 코드 구현된 HTTP 저장소·브라우저 이전 실행(#1105b, 호스트 검증 전)을 구분해 적는다. `real-server-checklist`·`platform-packages` 갱신은 서버 구현 단계가 한다.
 - 되돌리기: 정책 선택(회수 뒤 비공개, 승인 권한, 상한)은 이 ADR을 고쳐 바꾼다. 권한 권위 분리는 사용자 결정이다.

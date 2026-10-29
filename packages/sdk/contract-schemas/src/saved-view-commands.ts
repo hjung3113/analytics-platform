@@ -184,7 +184,7 @@ const groupEntry = z.strictObject({
 const result = <T extends z.ZodType>(value: T) =>
   z.union([z.strictObject({ ok: z.literal(true), value }), z.strictObject({ ok: z.literal(false), reason: z.enum(['conflict', 'forbidden', 'unavailable', 'invalid']), detail: z.string().optional() })]);
 
-/** Per-row outcome of an import, matched by `legacyKey`. Only rows with an `id` are committed: the client acknowledges (removes locally) exactly those. */
+/** Per-row outcome of an import, matched by `legacyKey`. Only rows with an `id` are committed: the client acknowledges exactly those. Local originals are never removed, acknowledged or not (ADR-0099 section 4). */
 const importRowResult = z.union([
   z.strictObject({ legacyKey: z.string(), status: z.enum(['imported', 'already_imported']), id }),
   z.strictObject({ legacyKey: z.string(), status: z.literal('rejected'), reason: z.enum(['invalid', 'forbidden', 'unavailable']), detail: z.string().optional() }),

@@ -564,3 +564,49 @@ describe('late shell completions after the surface changed (C1)', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 });
+
+describe('person names come from exact lookup (#1105)', () => {
+  const owned = (id: string, ownerId: string, over: Record<string, unknown> = {}) => viewOf({ id, name: `뷰 ${id}`, kind: 'menu-view', ownerId, menuId: 'home', menuSchemaVersion: 1, page: [], chartOptions: {}, layout: null, panels: null, context: {}, ...over } as never);
+  const withLookup = (lookup: (ids: readonly string[], signal?: AbortSignal) => Promise<readonly { userId: string; displayName: string; affiliation: string }[]>, store: FakeViewStore) => {
+    window.history.replaceState(null, '', `/?scopeId=MEM&${period}`);
+    return render(<I18nProvider><PlatformProvider registry={registry} adapter={testAdapter({ session: () => session, lookupPeople: lookup })} savedViews={store}><Probe /><GlobalContextBar /><ToastProbe /></PlatformProvider></I18nProvider>);
+  };
+  const openManage = async (user: ReturnType<typeof userEvent.setup>) => {
+    await user.click(await screen.findByRole('button', { name: /^저장된 뷰:/ }));
+    await user.click(await screen.findByRole('button', { name: '뷰 관리' }));
+    return screen.findByRole('dialog', { name: '뷰 관리' });
+  };
+
+  it('looks up only the distinct ids of visible entries and shows the owner name outside every group', async () => {
+    const user = userEvent.setup();
+    const store = createFakeViewStore([owned('a', 'u-far'), owned('b', 'u-far'), { id: 'x', denied: true, reason: '권한 없음' } as never]);
+    const lookup = vi.fn(async (ids: readonly string[]) => ids.includes('u-far') ? [{ userId: 'u-far', displayName: '먼 사람', affiliation: '' }] : []);
+    withLookup(lookup, store);
+    const dialog = await openManage(user);
+    await within(dialog).findAllByText(/먼 사람/);
+    expect(lookup.mock.calls.map(c => [...c[0]])).toEqual([['u-far']]);
+  });
+
+  it('chunks more than 200 ids and falls back to the opaque id when a lookup fails', async () => {
+    const user = userEvent.setup();
+    const many = Array.from({ length: 201 }, (_, i) => owned(`v${i}`, `u-${String(i).padStart(3, '0')}`));
+    const lookup = vi.fn(async (ids: readonly string[]) => { if (ids.length === 200) throw new Error('down'); return []; });
+    withLookup(lookup, createFakeViewStore(many));
+    await openManage(user);
+    await waitFor(() => expect(lookup).toHaveBeenCalledTimes(2));
+    expect(lookup.mock.calls.map(c => c[0].length).sort()).toEqual([1, 200]);
+    expect(screen.queryByText(/Error|down/)).toBeNull();
+  });
+
+  it('aborts the lookup and ignores its late answer when the surface is replaced', async () => {
+    const store = createFakeViewStore([owned('a', 'u-far')]);
+    let signal: AbortSignal | undefined;
+    let release: () => void = () => {};
+    const lookup = vi.fn((_ids: readonly string[], s?: AbortSignal) => { signal = s; return new Promise<never[]>(resolve => { release = () => resolve([]); }); });
+    const view = withLookup(lookup, store);
+    await waitFor(() => expect(lookup).toHaveBeenCalled());
+    view.unmount();
+    expect(signal?.aborted).toBe(true);
+    await act(async () => { release(); });
+  });
+});

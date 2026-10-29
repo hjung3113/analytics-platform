@@ -454,9 +454,13 @@ export const shell = [
   designSystem(),
 ];
 
+const HTTP_ADAPTER_RESTRICTION = { allow: ['contracts'], denyReact: true, mockAllowed: false };
+
 /** @type {import('eslint').Linter.Config[]} */
 export const httpAdapter = [
-  layerConfig({ restriction: { allow: ['contracts'], denyReact: true, mockAllowed: false } }),
+  layerConfig({ restriction: HTTP_ADAPTER_RESTRICTION }),
+  // Test files alone compare the hand-written response guards with the wire schemas (ADR-0099); production code stays contracts-only.
+  testEntryOverride({ ...HTTP_ADAPTER_RESTRICTION, allow: ['contracts', 'contract-schemas'] }, ['contract-schemas/source'], ['**/*.test.ts']),
 ];
 
 /** @type {import('eslint').Linter.Config[]} */

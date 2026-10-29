@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { ApprovalRequestInfo, GroupMember, SavedViewSupport, Result, SavedView, SavedViewListItem, SavedViewStore, ViewVisibility } from '@ap/contracts';
+import { PEOPLE_LOOKUP_MAX, type ApprovalRequestInfo, type GroupMember, type SavedViewSupport, type Result, type SavedView, type SavedViewListItem, type SavedViewStore, type ViewVisibility } from '@ap/contracts';
 import { diagnoseSavedView, useEquipmentAxes, useI18n, type SavedViewDiagnosis } from '@ap/kernel';
 import { captureApplied, useHostPlatform, useSavedViews, type SavedViews, type SelectOutcome } from '@ap/kernel/host';
 import { DirtyConfirmation } from '@ap/ui';
@@ -119,7 +119,31 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
     );
     return () => { live = false; };
   }, [manageOpen, store, userId, support.menuId, items]);
-  const people = useMemo(() => new Map(groups.entries.flatMap(entry => entry.members.map(member => [member.userId, member.displayName] as const))), [groups.entries]);
+  // Names of people the surface actually shows (owners, people shared with, requesters of visible entries), by exact id through the adapter; a denied entry contributes nothing.
+  const [looked, setLooked] = useState<ReadonlyMap<string, string>>(new Map());
+  const lookupKey = useMemo(() => {
+    const ids = new Set<string>();
+    for (const { view } of entriesOf(items)) { ids.add(view.ownerId); if (view.visibility.kind === 'people') view.visibility.userIds.forEach(id => ids.add(id)); }
+    Object.values(requests).forEach(request => ids.add(request.requestedBy));
+    ids.delete(userId);
+    return [...ids].sort().join('\n');
+  }, [items, requests, userId]);
+  const { adapter } = host;
+  useEffect(() => {
+    if (lookupKey === '') return;
+    const ids = lookupKey.split('\n');
+    const controller = new AbortController();
+    let live = true;
+    const chunks: string[][] = [];
+    for (let at = 0; at < ids.length; at += PEOPLE_LOOKUP_MAX) chunks.push(ids.slice(at, at + PEOPLE_LOOKUP_MAX));
+    // A failed chunk falls through silently: the name then comes from the group members or the opaque id.
+    Promise.all(chunks.map(chunk => adapter.lookupPeople(chunk, controller.signal).then(found => found, () => [] as readonly GroupMember[]))).then(found => {
+      if (!live) return;
+      setLooked(previous => new Map([...previous, ...found.flat().filter(person => person.displayName !== '').map(person => [person.userId, person.displayName] as const)]));
+    });
+    return () => { live = false; controller.abort(); };
+  }, [lookupKey, adapter]);
+  const people = useMemo(() => new Map([...groups.entries.flatMap(entry => entry.members.map(member => [member.userId, member.displayName] as const)), ...looked]), [groups.entries, looked]);
   const groupNames = useMemo(() => new Map(groups.entries.map(entry => [entry.group.id, entry.group.name] as const)), [groups.entries]);
 
   const { modified, unsaved, unapplied } = views.state;

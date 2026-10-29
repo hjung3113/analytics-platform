@@ -21,6 +21,14 @@ describe('bootstrapHttpAdapter', () => {
     expect(call.headers['X-CSRF-Token']).toBeUndefined();
   });
 
+  it('ready also exposes the saved-view store and importLocal on the same session', async () => {
+    const r = await run(() => json(bootstrapBody())).result;
+    if (r.kind !== 'ready') throw new Error('not ready');
+    expect(typeof r.store.list).toBe('function');
+    expect(typeof r.importLocal).toBe('function');
+    expect(r.store).not.toHaveProperty('importLocal');
+  });
+
   it('prefixes every request with options.base', async () => {
     const { s, result } = run(() => json(bootstrapBody()));
     await bootstrapHttpAdapter({ fetch: s.fetch, base: 'https://api.example' });

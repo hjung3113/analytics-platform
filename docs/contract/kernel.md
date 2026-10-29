@@ -485,12 +485,14 @@ Saved View는 단순 Filter 저장 기능이 아니라 플랫폼 공통 자산�
 - 낡은 뷰(메뉴 스키마·축·지표 버전 변경)와 권한 부족은 이유와 안전한 갱신 경로(의미를 보존하는 이행만 미리보기 후 확정, 아니면 기존 조건을 보존한 채 다시 선택)를 준다. 무효 축을 제거해 무제약으로 만들거나 빈 교집합을 전체로 바꾸지 않는다. 서버 거부 때 기존 결과를 새 뷰 결과로 남기지 않는다.
 - 키보드(§26, Windows): 뷰 행과 `⋯`는 독립 포커스 대상, 검색→항목→동작, Enter/Space, Escape는 한 단계씩 닫고 트리거로 복귀한다. 중첩 대화상자는 닫힌 부모로 포커스를 돌리지 않는다. 비활성 사유는 키보드로 읽을 수 있다.
 
-### 21.4 서버 몫 (정책 Decided, 서버 모듈 구현됨 #1105a, HTTP 저장소 구현 안 함)
+### 21.4 서버 몫 (정책 Decided, 서버 모듈 #1105a, HTTP 저장소·브라우저 이전·이름 조회 코드 구현 #1105b — 호스트 검증 전)
 
-저장소는 `SavedViewStore` 포트(앱이 `PlatformProvider`에 주입, QueryHistory와 같은 방식; 없으면 기능과 UI가 없다)다. 현재 구현은 브라우저 로컬 mock이다.
+저장소는 `SavedViewStore` 포트(앱이 `PlatformProvider`에 주입, QueryHistory와 같은 방식; 없으면 기능과 UI가 없다)다. mock 빌드는 브라우저 로컬 시뮬레이션이고, 실서버 조립은 `@ap/http-adapter`의 HTTP 저장소(같은 transport·세션·CSRF)를 주입한다.
 
 - **결정됨([ADR-0099](../adr/0099-server-saved-view-persistence.md), 2026-10-29)**: 객체 ACL만 서버가 판정, 공식 승인은 기존 `console:access`, 회수 뒤 소유자 비공개(승인본 유지), 대기 제안과 승인본 분리, 커스텀 그룹 관리자, 낙관적 동시성(`expectedVersion` 원자), 감사에 페이로드 없음, 브라우저 로컬 이전의 멱등·부분 실패 복구, 사람 조회는 같은 workspace 활성 구성원(`affiliation` 빈 문자열). 전송 계약은 `@ap/contract-schemas`의 명령·응답 스키마다. 시안의 임의 재게시는 계약이 아니다.
 - **구현됨(#1105a)**: `POST /api/v1/platform/saved-views/commands`·`POST /api/v1/platform/people/lookup`(Fastify, `platform` 스키마 저장, 감사, 이전 멱등). 세부는 ADR-0099 §6.
-- **구현 안 함**: HTTP 저장소(`@ap/http-adapter`)·브라우저 이전 실행·사람 이름 표시(#1105b), 조직 팀 공유(재개 조건은 backlog).
+- **코드 구현됨(#1105b, 호스트 검증 전)**: `@ap/http-adapter`의 HTTP 저장소는 명령 16개를 모두 엄격한 `version 1` 본문(행위자 키 없음)과 현재 CSRF(읽기 포함)로 한 번만 보내고, 응답은 명령별 깊은 가드로 검사한다. 키의 `userId`가 현재 행위자와 다르면 네트워크 없이 빈 값·`null`·`forbidden`을 낸다. 변경 명령의 전송·응답 오류는 `unavailable`, 문서화된 422는 `invalid`, 도메인 `Result`는 그대로다. `importLocal`은 포트가 아니라 `bootstrapHttpAdapter` ready 결과의 별도 함수다. 앱 `src/real/local-import.ts`는 현재 행위자의 옛 브라우저 로컬 버킷을 직접 읽어(시드·mock 저장소 미사용, 없거나 읽을 수 없으면 0행) 비공개 초안으로만 올린다. 공유·승인·그룹·원래 소유자는 권위로 올리지 않는다. 행위자별 이전 매니페스트(토큰·전송 행·행별 영수증)를 `platform:saved-views:v1` Web Lock 아래에서 저장하고 서버의 행별 결과만 영수증이 된다. 로컬 원본은 어떤 결과에서도 지우지 않는다. 이전은 실어댑터 조립마다 한 번(30초 상한) 돌고 목록·기본 읽기가 그것을 기다린다. 사람 이름은 셸이 보이는 항목의 소유자·공유 대상·신청자 id를 `lookupPeople`(청크 200)로 정확 조회해 얻는다.
+- **받아들인 한계(#1105b)**: 저장·그룹 만들기는 멱등 키가 없어 응답을 못 받은 타임아웃 뒤 효과를 알 수 없고, 사용자가 다시 시도하면 중복될 수 있다. 매니페스트가 만들어진 뒤 새로 생긴 로컬 행, 바뀐 원본, 로컬 커스텀·조직 팀 그룹, 외부·데모 id는 올리지 않고 브라우저에 남긴다(복구 화면은 backlog).
+- **구현 안 함**: 조직 팀 공유(재개 조건은 backlog).
 
 Saved View가 권한을 우회하지 않도록 열기·복원 때 데이터 경계가 Scope를 다시 검증한다. 구현 승인 범위는 ADR-0092·ADR-0099와 #1011이 정한다(`../overview/roadmap-and-open-questions.md`의 가설은 구현 승인이 아니다).
