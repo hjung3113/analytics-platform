@@ -92,9 +92,9 @@ export async function accessDirectory(query: AccessDirectoryQuery, signal?: Abor
   const base = { correlationId, data: null, trust: null, assessments: [] as Assessment[] };
   // The console permission beats every scenario and every filter.
   if (!activeWorld().users[requestRole].permissions.includes('console:access')) return { ...base, outcome: 'forbidden', message: 'No permission console:access' };
-  if (s === 'timeout') return { ...base, outcome: 'timeout', message: 'Query exceeded 30s budget' };
-  if (s === 'error') return { ...base, outcome: 'error', message: 'Upstream mart query failed' };
-  if (s === 'forbidden') return { ...base, outcome: 'forbidden', message: 'Permission revoked (scenario)' };
+  if (s === 'timeout') return { ...base, outcome: 'timeout', message: '조회가 30초 제한을 넘었습니다' };
+  if (s === 'error') return { ...base, outcome: 'error', message: '상류 mart 쿼리가 실패했습니다' };
+  if (s === 'forbidden') return { ...base, outcome: 'forbidden', message: '권한이 회수되었습니다(시나리오)' };
   if (invalidAccessQuery(query)) return { ...base, outcome: 'error', message: 'Invalid access filter' };
   if (s === 'empty') return { ...base, outcome: 'empty' };
   // Default (no sort in the query): role ascending with the id tie-break — exactly the role comparator.

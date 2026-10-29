@@ -354,7 +354,7 @@ describe('serve time-domain guard', () => {
         latency: 0,
         compute: () => 1,
       });
-      expect(failed).toMatchObject({ outcome: 'error', message: 'Upstream mart query failed' });
+      expect(failed).toMatchObject({ outcome: 'error', message: '상류 mart 쿼리가 실패했습니다' });
     } finally {
       setScenario('normal');
     }

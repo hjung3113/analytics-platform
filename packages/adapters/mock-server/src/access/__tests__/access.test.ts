@@ -40,15 +40,15 @@ describe('accessDirectory (issue #49: the console access directory)', () => {
     setScenario('timeout');
     const timeout = await accessDirectory({}, undefined, { role: 'admin', latency: 0 });
     expect(timeout.outcome).toBe('timeout');
-    expect(timeout.message).toBe('Query exceeded 30s budget');
+    expect(timeout.message).toBe('조회가 30초 제한을 넘었습니다');
     setScenario('error');
     const error = await accessDirectory({}, undefined, { role: 'admin', latency: 0 });
     expect(error.outcome).toBe('error');
-    expect(error.message).toBe('Upstream mart query failed');
+    expect(error.message).toBe('상류 mart 쿼리가 실패했습니다');
     setScenario('forbidden');
     const forbidden = await accessDirectory({}, undefined, { role: 'admin', latency: 0 });
     expect(forbidden.outcome).toBe('forbidden');
-    expect(forbidden.message).toBe('Permission revoked (scenario)');
+    expect(forbidden.message).toBe('권한이 회수되었습니다(시나리오)');
   });
 
   it('serves the page under partial and too_large, which do not apply', async () => {

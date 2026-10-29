@@ -59,9 +59,9 @@ async function gate(ref: AnnotationRef, signal: AbortSignal | undefined, opts: A
   const base: Base = { correlationId: nextCorrelation(), data: null, trust: null, assessments: [] };
   const fail = (outcome: ApiResponse<never>['outcome'], message: string): Gated => ({ fail: { ...base, outcome, message } });
   if (!activeWorld().users[requestRole].permissions.includes(ANNOTATION_PERMISSION)) return fail('forbidden', `No permission ${ANNOTATION_PERMISSION}`);
-  if (scenario === 'timeout') return fail('timeout', 'Query exceeded 30s budget');
-  if (scenario === 'error') return fail('error', 'Upstream mart query failed');
-  if (scenario === 'forbidden') return fail('forbidden', 'Permission revoked (scenario)');
+  if (scenario === 'timeout') return fail('timeout', '조회가 30초 제한을 넘었습니다');
+  if (scenario === 'error') return fail('error', '상류 mart 쿼리가 실패했습니다');
+  if (scenario === 'forbidden') return fail('forbidden', '권한이 회수되었습니다(시나리오)');
   if (invalid) return fail('error', 'Invalid annotation request');
   // Site gate: an unknown or ungranted site never reads or writes a row, and null is never "all sites".
   const scope = checkScope(requestRole, ref.scopeId);

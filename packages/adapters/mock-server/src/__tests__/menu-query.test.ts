@@ -365,6 +365,15 @@ describe('serveEndpoint declaration pipeline', () => {
     setScenario('normal');
   });
 
+  it('does not quote the period against the limit in the forced too_large scenario (#740 UX-1)', async () => {
+    const spec = makeSpec('analytics.forced-too-large', { requiresScope: false, context: {}, kinds: [] });
+    const map = new Map([[spec.id, defineMockEndpoint(spec, { handle: () => ({ rows: 1 }) }) as AnyMockEndpoint]]);
+    setScenario('too_large');
+    const result = await serveEndpoint(map, request(spec.id, {}, {}), undefined, { role: 'engineer', latency: 0 });
+    setScenario('normal');
+    expect(result).toMatchObject({ outcome: 'too_large', message: '조회 범위가 한도를 넘습니다(시나리오)' });
+  });
+
   it('turns a MockRequestError from the handler into an error envelope with its message', async () => {
     const spec = makeSpec('analytics.refuse', { requiresScope: false, context: {} });
     const endpoint = defineMockEndpoint(spec, { handle: () => { throw new MockRequestError('Invalid cursor'); } });

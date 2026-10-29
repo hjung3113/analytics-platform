@@ -237,17 +237,19 @@ export async function serve<T>(o: ServeOptions<T>): Promise<ApiResponse<T>> {
   // Menu permission (§17): the same rule as menu visibility and route access, re-validated per request
   // with the pinned role. A missing permission outranks every response scenario.
   if (!activeWorld().users[requestRole].permissions.includes(o.permission)) return { ...base, outcome: 'forbidden', message: `No permission ${o.permission}` };
-  if (s === 'timeout') return { ...base, outcome: 'timeout', message: 'Query exceeded 30s budget' };
-  if (s === 'error') return { ...base, outcome: 'error', message: 'Upstream mart query failed' };
+  if (s === 'timeout') return { ...base, outcome: 'timeout', message: '조회가 30초 제한을 넘었습니다' };
+  if (s === 'error') return { ...base, outcome: 'error', message: '상류 mart 쿼리가 실패했습니다' };
   // Every other widget query fails so pages can show a local failure next to healthy widgets (§19 Partial widget failure).
   const mart = o.mart !== false;
-  if (mart && partialFails(s)) return { ...base, outcome: 'error', message: 'Widget query failed (partial scenario)' };
+  if (mart && partialFails(s)) return { ...base, outcome: 'error', message: '위젯 쿼리가 실패했습니다(부분 실패 시나리오)' };
   const requiresScope = o.requiresScope ?? true;
   const resolved = requiresScope ? resolveEquipment(o.global, requestRole) : { rows: EQUIPMENT, forbidden: null };
-  if (s === 'forbidden' || resolved.forbidden) return { ...base, outcome: 'forbidden', message: resolved.forbidden ?? 'Permission revoked (scenario)' };
+  if (s === 'forbidden' || resolved.forbidden) return { ...base, outcome: 'forbidden', message: resolved.forbidden ?? '권한이 회수되었습니다(시나리오)' };
   const hours = periodHours(o.global);
   if ((mart && s === 'too_large') || (o.maxHours && hours !== null && hours > o.maxHours && (o.global.selection === null || o.global.selection.length > 40))) {
-    return { ...base, outcome: 'too_large', message: `Period ${hours ?? '?'}h exceeds ${o.maxHours ?? '—'}h without a narrow fixed Selection` };
+    // A forced scenario has no real overrun, so it must not quote the period against the limit (#740 UX-1).
+    const forced = mart && s === 'too_large' && !(o.maxHours && hours !== null && hours > o.maxHours);
+    return { ...base, outcome: 'too_large', message: forced ? '조회 범위가 한도를 넘습니다(시나리오)' : `기간 ${hours ?? '?'}시간이 좁힌 고정 설비 선택 없이 ${o.maxHours ?? '—'}시간 한도를 넘습니다` };
   }
   // 06 §19 exception: an explicit empty on any set key is answered without reading the source (#146).
   if ([o.global.selection, o.global.roomNames, o.global.lineNames, o.global.prcGroups, o.global.lotIds, o.global.recipeIds].some(set => set?.length === 0)) {
@@ -316,9 +318,9 @@ export async function getEntity(ref: EntityRef, signal?: AbortSignal, opts?: Get
   // 2. Endpoint permission. A missing permission outranks every response scenario.
   if (!activeWorld().users[requestRole].permissions.includes(menuPermission('equipment:view'))) return { ...base, outcome: 'forbidden', message: 'No permission equipment:view' };
   // 3. Scenario early returns, same as serve() (shared partialCounter).
-  if (s === 'timeout') return { ...base, outcome: 'timeout', message: 'Query exceeded 30s budget' };
-  if (s === 'error') return { ...base, outcome: 'error', message: 'Upstream mart query failed' };
-  if (partialFails(s)) return { ...base, outcome: 'error', message: 'Widget query failed (partial scenario)' };
+  if (s === 'timeout') return { ...base, outcome: 'timeout', message: '조회가 30초 제한을 넘었습니다' };
+  if (s === 'error') return { ...base, outcome: 'error', message: '상류 mart 쿼리가 실패했습니다' };
+  if (partialFails(s)) return { ...base, outcome: 'error', message: '위젯 쿼리가 실패했습니다(부분 실패 시나리오)' };
   // 4. Site gate first (same messages as resolveEquipment): never search equipment for an ungranted or unknown scope.
   const scope = checkScope(requestRole, ref.scopeId);
   if (scope.status !== 'valid') return { ...base, outcome: 'forbidden', message: scope.status === 'forbidden' ? `No grant for scope ${ref.scopeId}` : `Unknown scope ${ref.scopeId}` };
@@ -327,8 +329,8 @@ export async function getEntity(ref: EntityRef, signal?: AbortSignal, opts?: Get
   // 6. Room gate. Beats scenario empty/too_large; the message must not leak id, room, maker, model, team, line, stgroup.
   if (row && !scope.grantedRooms.includes(row.room)) return { ...base, outcome: 'forbidden', message: 'No grant for equipment' };
   // 7–8. Dev-tools scenarios (no period on this port, so too_large is reachable only by flipping the scenario).
-  if (s === 'forbidden') return { ...base, outcome: 'forbidden', message: 'Permission revoked (scenario)' };
-  if (s === 'too_large') return { ...base, outcome: 'too_large', message: 'Period ?h exceeds —h without a narrow fixed Selection' };
+  if (s === 'forbidden') return { ...base, outcome: 'forbidden', message: '권한이 회수되었습니다(시나리오)' };
+  if (s === 'too_large') return { ...base, outcome: 'too_large', message: '기간 ?시간이 좁힌 고정 설비 선택 없이 —시간 한도를 넘습니다' };
   // 9. A miss (scenario empty, other site, or unknown id) is a successful zero with the same trust + assessments as serve.
   if (s === 'empty' || !row) return finish({ correlationId, data: null, empty: true, scenario: s, provisional: false });
   // 10. Hit: that one object, not an array. No period on this port, so trust.provisional is false.
@@ -499,9 +501,9 @@ export async function usageSummary(range: UsageRange, signal?: AbortSignal, opts
   await sleep(opts?.latency ?? 80, signal);
   const base = { correlationId, data: null, trust: null, assessments: [] as Assessment[] };
   if (!activeWorld().users[requestRole].permissions.includes('console:access')) return { ...base, outcome: 'forbidden', message: 'No permission console:access' };
-  if (s === 'timeout') return { ...base, outcome: 'timeout', message: 'Query exceeded 30s budget' };
-  if (s === 'error') return { ...base, outcome: 'error', message: 'Upstream mart query failed' };
-  if (s === 'forbidden') return { ...base, outcome: 'forbidden', message: 'Permission revoked (scenario)' };
+  if (s === 'timeout') return { ...base, outcome: 'timeout', message: '조회가 30초 제한을 넘었습니다' };
+  if (s === 'error') return { ...base, outcome: 'error', message: '상류 mart 쿼리가 실패했습니다' };
+  if (s === 'forbidden') return { ...base, outcome: 'forbidden', message: '권한이 회수되었습니다(시나리오)' };
   if ('from' in range && range.from >= range.to) return { ...base, outcome: 'error', message: 'Invalid usage range' };
   return { ...base, outcome: 'ok', data: aggregateUsage(usageEvents, range) };
 }
