@@ -1,10 +1,10 @@
 import { lazy, Suspense, type ReactNode } from 'react';
 import type { NotificationsSlot } from '@ap/kernel';
 import { FeatureScreenRoot, useUnreadNotificationCount, type HostSeam } from '@ap/feature-screens/global-screens/core';
-import { UnlinkedLink } from './fo/FeatureBridge';
-import { featureQueryClient, useFeatureSession } from './fo/session';
+import { UnlinkedLink } from './feature/FeatureBridge';
+import { featureQueryClient, useFeatureSession } from './feature/session';
 
-// The count renders no FeedbackOps screen; `FeatureScreenRoot` is only its QueryClient provider.
+// The count renders no feature screen; `FeatureScreenRoot` is only its QueryClient provider.
 const COUNT_SEAM: HostSeam = { canLink: () => false, Link: UnlinkedLink, notifyError: () => undefined, notifySuccess: () => undefined };
 
 function Count({ enabled, children }: { enabled: boolean; children: (count: number | null) => ReactNode }) {

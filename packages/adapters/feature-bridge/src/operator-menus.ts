@@ -7,9 +7,9 @@ export const OPERATIONS_SPACE = spaceId('operations');
 /** The `managedSystem` list scope key a feature menu declares; the Kernel never names it. */
 export const SCOPE_KEY = 'managedSystem';
 
-/** Operator groups whose menus take the list scope (the feature-admin group shows the picker disabled with FeedbackOps' own explanation). `admin` (platform management) is deliberately absent. */
+/** Operator groups whose menus take the list scope (the feature-admin group shows the picker disabled with the feature screens' own explanation). `admin` (platform management) is deliberately absent. */
 const SCOPED_GROUPS: ReadonlySet<string> = new Set(['voc', 'findings', 'tasks', 'surveys', 'dashboard', 'integration', 'featureAdmin']);
-/** Groups whose rows carry FeedbackOps count badges (`SLOT_KEYS` in `nav-counts.tsx`). */
+/** Groups whose rows carry feature count badges (`SLOT_KEYS` in `nav-counts.tsx`). */
 const COUNTED_GROUPS: ReadonlySet<string> = new Set(['voc', 'findings', 'surveys']);
 /** Groups that use the saved VOC views section. */
 const SAVED_VIEW_GROUPS: ReadonlySet<string> = new Set(['voc']);

@@ -95,7 +95,7 @@ function HostHarness({
     (to: string, options?: { replace?: boolean }) => {
       if (options === undefined) onNavigate(to);
       else onNavigate(to, options);
-      const url = new URL(to, 'https://feedbackops.local');
+      const url = new URL(to, 'https://platform.local');
       setSearch(Object.fromEntries(url.searchParams.entries()));
     },
     [onNavigate],

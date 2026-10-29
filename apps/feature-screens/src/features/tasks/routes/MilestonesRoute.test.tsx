@@ -24,7 +24,7 @@ beforeAll(async () => {
   registerDefaultHost({
     ...tanstackHost,
     useNavigate: () => (to, options) => {
-      const location = new URL(to, 'http://feedbackops.local');
+      const location = new URL(to, 'http://platform.local');
       navigateMock({
         to: location.pathname,
         search: Object.fromEntries(location.searchParams),

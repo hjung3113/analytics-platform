@@ -21,7 +21,7 @@
 
 ## Rules
 
-- Lint is ESLint over the whole package: `pnpm --filter @ap/feature-shared lint` (`foShared`, `--max-warnings 0`). An intended exception names its ESLint rule and a concrete reason in the comment; an unused directive fails. Rule correspondence with the former Biome lint: `docs/integration/platform-packages.md` §6.
+- Lint is ESLint over the whole package: `pnpm --filter @ap/feature-shared lint` (`featureSharedPreset`, `--max-warnings 0`). An intended exception names its ESLint rule and a concrete reason in the comment; an unused directive fails. Rule correspondence with the former Biome lint: `docs/integration/platform-packages.md` §6.
 - Prefer explicit exported return types for shared helpers.
 - Keep domain values centralized; avoid stringly typed statuses outside schema or enum definitions.
 - Changes here affect both apps, so update backend and frontend tests when contracts change.

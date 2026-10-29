@@ -138,7 +138,7 @@ function RecoveryPanelBody({
 }: RecoveryPanelProps) {
   const client = useQueryClient();
   const { canLink, hostCarriesReturn } = useHostSeam();
-  // A host that carries the return path itself gets the bare route (no FeedbackOps `returnTo`).
+  // A host that carries the return path itself gets the bare route (no feature `returnTo`).
   const outbound = (route: string) =>
     hostCarriesReturn === true ? route : sourceHref(route, returnTo);
   const fullscreen = useContext(DetailPanelFullscreenContext);

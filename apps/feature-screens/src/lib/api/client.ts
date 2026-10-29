@@ -37,7 +37,7 @@ let basePath = '';
 let onUnauthorized: (() => void) | undefined;
 
 /**
- * Hosts that mount FeedbackOps screens behind a path prefix (the platform
+ * Hosts that mount feature screens behind a path prefix (the platform
  * bridge, `/api/features`) set it once; the standalone app never calls this.
  */
 export function configureApiClient(config: {

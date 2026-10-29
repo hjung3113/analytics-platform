@@ -10,28 +10,28 @@
 
 ## 프론트엔드 기술 스택 (Decided, 2026-09-25)
 
-**결정 근거**: FeedbackOps(`apps/feature-screens`, `packages/feature-ui`)가 실사용 중인 비-백엔드 스택을 그대로 가져온다 — 이미 검증되고 채택 경험이 있어 마이그레이션 부담이 적다는 것이 사용자 판단이다. 테이블/차트는 FeedbackOps에 선례가 없어, 이 세션에서 Astra↔Opus 교차 검토로 실제 동작을 검증한 것을 그대로 채택한다(Unit B `archive/kernel-chart-frame/`, Unit C `archive/kernel-platform-table/`, 별도 worktree/브랜치 `hjung3113/kernel-context-url-scope`). FeedbackOps 자체 코드는 이 결정으로 소급 변경하지 않는다(AGENTS.md FeedbackOps 서브모듈 경계).
+**결정 근거**: 기능(`apps/feature-screens`, `packages/feature-ui`)가 실사용 중인 비-백엔드 스택을 그대로 가져온다 — 이미 검증되고 채택 경험이 있어 마이그레이션 부담이 적다는 것이 사용자 판단이다. 테이블/차트는 기능에 선례가 없어, 이 세션에서 Astra↔Opus 교차 검토로 실제 동작을 검증한 것을 그대로 채택한다(Unit B `archive/kernel-chart-frame/`, Unit C `archive/kernel-platform-table/`, 별도 worktree/브랜치 `hjung3113/kernel-context-url-scope`). 기능 자체 코드는 이 결정으로 소급 변경하지 않는다(AGENTS.md 기능 서브모듈 경계).
 
 | 계층 | 채택(2026-09-25 결정) | 근거 | 현재 코드(2026-10-05) |
 | --- | --- | --- | --- |
-| Frontend 기반 | React + TypeScript + Vite | FeedbackOps `apps/frontend`와 동일 | 사용 중(Vite 7) |
-| 스타일링 | **Tailwind CSS v4** | Tailwind CSS v4(CSS-first `@theme`). FeedbackOps도 v4다(FeedbackOps#743, ADR-0058). 플랫폼은 `@ap/ui/styles.css`에서 `@ap/feature-ui/styles/*`를 import한다([ADR-0010](../adr/0010-feedbackops-design-system-shared-on-tailwind-v4.md)·[0011](../adr/0011-design-direction-feedbackops-shell.md)) | 사용 중(Tailwind 4.3, `@theme`) |
+| Frontend 기반 | React + TypeScript + Vite | 기능 `apps/frontend`와 동일 | 사용 중(Vite 7) |
+| 스타일링 | **Tailwind CSS v4** | Tailwind CSS v4(CSS-first `@theme`). 기능 화면도 v4다(옛 저장소 이슈 #743, ADR-0058). 플랫폼은 `@ap/ui/styles.css`에서 `@ap/feature-ui/styles/*`를 import한다([ADR-0010](../adr/0010-feedbackops-design-system-shared-on-tailwind-v4.md)·[0011](../adr/0011-design-direction-feedbackops-shell.md)) | 사용 중(Tailwind 4.3, `@theme`) |
 | UI 컴포넌트 | **shadcn/ui + Radix**(`@ap/ui` 소유) + 플랫폼 공용 부품(`@ap/components`) | 디자인 시스템 primitive는 `@ap/ui`가 소유한다([ADR-0046](../adr/0046-design-system-source-moves-to-platform-whole-package.md), ADR-0050). 플랫폼 자체: `StatusBadge`·`DetailPanelSlot` | 사용 중 — `@ap/ui`와 `@ap/components`가 플랫폼 UI를 제공한다 |
-| 라우팅 | TanStack Router | FeedbackOps와 동일. 타입 있는 검색 파라미터로 06 §6.4 URL 계약을 타입 안전하게 관리하되, 버전·폐기 필드·미지원 필터 처리는 이 문서 §6.4 메커니즘을 별도로 구현해야 한다 | **미도입** — Kernel 자체 History + URL codec이 06 §6.4를 소유(Unit A부터 알려진 divergence). 도입·미채택 확정은 Open(05) |
-| 서버 상태 | TanStack Query | FeedbackOps와 동일 | **미도입** — Kernel `usePlatformQuery`·`useMenuQuery`가 조회 수명주기 소유. 5분 폴링·계산 세대 재검증(#165)을 만들 때 Kernel 내부 구현 후보(메뉴 비노출) |
-| UI 상태 | Zustand | FeedbackOps와 동일 | **미도입** — 전역 상태는 Kernel Context + URL로 충분 |
-| Form | react-hook-form + zod (+ `@hookform/resolvers`) | FeedbackOps와 동일 | **미도입** — 쓰기 폼(권한 부여 등, #98 뒤)이 생길 때 |
-| 아이콘 | lucide-react | FeedbackOps와 동일(버전은 다르다: 플랫폼 ^1.48 / FeedbackOps 0.469, 정렬은 후속). 2026-09-22 grilling에서 이미 Candidate→Decided로 확정된 것과 일치 | 사용 중 |
-| Toast | sonner | FeedbackOps와 동일 | **라이브러리 미도입** — 현재 Kernel 자체 구현(sonner 미사용): `usePlatform().toast`·`dismissToast`를 셸이 렌더하고 메뉴가 사용 중. 전환은 필요해질 때 검토 |
-| Command Palette | cmdk | FeedbackOps와 동일. §4 Kernel 책임의 Command Palette를 이 라이브러리로 구현 | **자체 구현**(`packages/sdk/shell/src/routing/CommandPalette.tsx`, 메뉴 이동만). 실검색(Entity Search)을 넣을 때 cmdk 재검토 |
-| 테이블/가상화 | TanStack Table + TanStack Virtual | FeedbackOps에 선례 없음. 이 세션 Unit C(`archive/kernel-platform-table/`)에서 서버사이드 sort/filter·virtualization·column 선호 저장·multi-select를 Playwright/Chromium으로 실검증(23 tests) | 사용 중. 메뉴는 엔진 타입이 아니라 플랫폼 열 타입 `PlatformColumn`만 쓴다(#160, 메뉴가 표 엔진 패키지 `@tanstack/react-table`·`react-virtual`·`table-core`·`virtual-core`를 import하면 lint 에러) — 엔진 교체가 `@ap/components` 안에서 끝난다 |
-| 차트 | Apache ECharts(Canvas 렌더러, [ADR-0021](../adr/0021-echarts-canvas-renderer.md)) | FeedbackOps에 선례 없음. 이 세션 Unit B(`archive/kernel-chart-frame/`)에서 실제 SVG SSR 렌더링·4층 상태 분리·Toolbar 7종을 검증(23 tests) | 사용 중(ECharts 6.1, 별도 지연 청크 #48). 렌더러는 Canvas(`EChartImpl.tsx`) — 프로토타입은 SVG로 검증했다 |
-| 테스트 | Playwright(e2e/visual) + Vitest(unit) | FeedbackOps와 동일, 이 세션 프로토타입도 동일 조합 사용 | 사용 중(Playwright 1.63, Vitest 3.2) |
+| 라우팅 | TanStack Router | 기능과 동일. 타입 있는 검색 파라미터로 06 §6.4 URL 계약을 타입 안전하게 관리하되, 버전·폐기 필드·미지원 필터 처리는 이 문서 §6.4 메커니즘을 별도로 구현해야 한다 | **미도입** — Kernel 자체 History + URL codec이 06 §6.4를 소유(Unit A부터 알려진 divergence). 도입·미채택 확정은 Open(05) |
+| 서버 상태 | TanStack Query | 기능과 동일 | **미도입** — Kernel `usePlatformQuery`·`useMenuQuery`가 조회 수명주기 소유. 5분 폴링·계산 세대 재검증(#165)을 만들 때 Kernel 내부 구현 후보(메뉴 비노출) |
+| UI 상태 | Zustand | 기능과 동일 | **미도입** — 전역 상태는 Kernel Context + URL로 충분 |
+| Form | react-hook-form + zod (+ `@hookform/resolvers`) | 기능과 동일 | **미도입** — 쓰기 폼(권한 부여 등, #98 뒤)이 생길 때 |
+| 아이콘 | lucide-react | 기능과 동일(버전은 다르다: 플랫폼 ^1.48 / 기능 0.469, 정렬은 후속). 2026-09-22 grilling에서 이미 Candidate→Decided로 확정된 것과 일치 | 사용 중 |
+| Toast | sonner | 기능과 동일 | **라이브러리 미도입** — 현재 Kernel 자체 구현(sonner 미사용): `usePlatform().toast`·`dismissToast`를 셸이 렌더하고 메뉴가 사용 중. 전환은 필요해질 때 검토 |
+| Command Palette | cmdk | 기능과 동일. §4 Kernel 책임의 Command Palette를 이 라이브러리로 구현 | **자체 구현**(`packages/sdk/shell/src/routing/CommandPalette.tsx`, 메뉴 이동만). 실검색(Entity Search)을 넣을 때 cmdk 재검토 |
+| 테이블/가상화 | TanStack Table + TanStack Virtual | 기능에 선례 없음. 이 세션 Unit C(`archive/kernel-platform-table/`)에서 서버사이드 sort/filter·virtualization·column 선호 저장·multi-select를 Playwright/Chromium으로 실검증(23 tests) | 사용 중. 메뉴는 엔진 타입이 아니라 플랫폼 열 타입 `PlatformColumn`만 쓴다(#160, 메뉴가 표 엔진 패키지 `@tanstack/react-table`·`react-virtual`·`table-core`·`virtual-core`를 import하면 lint 에러) — 엔진 교체가 `@ap/components` 안에서 끝난다 |
+| 차트 | Apache ECharts(Canvas 렌더러, [ADR-0021](../adr/0021-echarts-canvas-renderer.md)) | 기능에 선례 없음. 이 세션 Unit B(`archive/kernel-chart-frame/`)에서 실제 SVG SSR 렌더링·4층 상태 분리·Toolbar 7종을 검증(23 tests) | 사용 중(ECharts 6.1, 별도 지연 청크 #48). 렌더러는 Canvas(`EChartImpl.tsx`) — 프로토타입은 SVG로 검증했다 |
+| 테스트 | Playwright(e2e/visual) + Vitest(unit) | 기능과 동일, 이 세션 프로토타입도 동일 조합 사용 | 사용 중(Playwright 1.63, Vitest 3.2) |
 | 조회 레이아웃 | CSS Grid | 고정 화면은 react-grid-layout보다 단순·안정적 | 사용 중 |
 
 **기타 의존:** 스타일 유틸 `class-variance-authority`·`clsx`·`tailwind-merge`, 폰트 `@fontsource-variable/inter`·`@fontsource-variable/jetbrains-mono`·`pretendard`, 테스트 보조 `@testing-library/*`·`jsdom`. 목록의 원본은 각 `package.json`이다.
 
-**아직 Candidate로 남는 것**: 대시보드 편집(react-grid-layout, Deferred 기능이라 채택 보류), 정확한 라이브러리 버전 고정(실제 구현 착수 시 재검증), FeedbackOps 컴포넌트/토큰 이식의 세부 매핑(실제 포팅 작업에서 확정).
+**아직 Candidate로 남는 것**: 대시보드 편집(react-grid-layout, Deferred 기능이라 채택 보류), 정확한 라이브러리 버전 고정(실제 구현 착수 시 재검증), 기능 컴포넌트/토큰 이식의 세부 매핑(실제 포팅 작업에서 확정).
 
 **결정과 코드의 차이(2026-10-05 확인):** 위 표의 "현재 코드" 열이 실제 의존(`package.json`)과 구현이다. 결정 자체는 바꾸지 않았다. 라우팅·UI 상태처럼 Kernel이 자체 구현으로 대신하는 항목을 "미채택"으로 확정할지는(서버 상태 TanStack Query는 미채택 후보가 아니라 #165의 Kernel 내부 후보) [05 Open](../overview/roadmap-and-open-questions.md)에 올렸다. 새 라이브러리는 그것이 필요한 기능을 만들 때 Kernel·공통 컴포넌트 **안**에 넣고, 메뉴에 노출하지 않는다.
 

@@ -49,7 +49,7 @@ function useSurveysNavigate(): HostNavigate {
   const navigate = useNavigate();
   return React.useCallback(
     (href, options) => {
-      const location = new URL(href, 'http://feedbackops.local');
+      const location = new URL(href, 'http://platform.local');
       const replace = options?.replace === true;
       if (location.pathname !== '/surveys') {
         // The detail route's `builder` is a boolean in the router's search.

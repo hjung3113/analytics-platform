@@ -13,7 +13,7 @@ beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); });
 afterEach(() => { cleanup(); setFeatureApi(null); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
 describe('scopeControlSlot', () => {
-  it('returns one stable component for the FeedbackOps space and null for any other', () => {
+  it('returns one stable component for the feature space and null for any other', () => {
     const first = scopeControlSlot.For(spaceId('operations'), DASHBOARD);
     expect(first).not.toBeNull();
     expect(scopeControlSlot.For(spaceId('operations'), DASHBOARD)).toBe(first);

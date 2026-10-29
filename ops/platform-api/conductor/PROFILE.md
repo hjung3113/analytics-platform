@@ -1,17 +1,17 @@
-# Conductor profile — FeedbackOps
+# Conductor profile — feature
 
 Repo specifics for the global `issue-wave-conductor` skill (`~/.agents/skills/issue-wave-conductor/SKILL.md`,
 #1197). The loop, the roles and the shared traps are there; this file holds only what differs here. Root `AGENTS.md`
-wins over both. `$CONDUCTOR` is this folder (`$FOPS_MAIN/ops/platform-api/conductor`; moved from `products/feedbackops/.claude/conductor` in 713p1, and `<worktree>`/`<checkout>` arguments of its scripts are the repository checkout root, not `products/feedbackops/`); `$ENGINE` is
+wins over both. `$CONDUCTOR` is this folder (`$PLATFORM_API_MAIN/ops/platform-api/conductor`; moved from `products/feedbackops/.claude/conductor` in 713p1, and `<worktree>`/`<checkout>` arguments of its scripts are the repository checkout root, not `products/feedbackops/`); `$ENGINE` is
 `~/.agents/skills/issue-wave-conductor/scripts`. Common engines live there; repo-local tools stay in `scripts/`.
 This repo's settings and rules live in `conductor.json` + `addenda/`; shared templates live in
 `~/.agents/skills/issue-wave-conductor/templates/`. The launcher composes shared rules with the configured addenda.
 This repo is a consumer of the private provider repo **conductor-engine** (#1280): it keeps only this folder
 (`conductor.json`, `addenda/`, this profile, repo-specific `scripts/`) and no copies of skills, personas or engines.
 
-**Since the move into analytics-platform (#592, ADR-0072)** FeedbackOps issues run under the platform profile
-(`.agents/conductor/PROFILE.md` at the platform root, launch mode `fo`): base `origin/main`, squash merge, no
-`develop` and no FeedbackOps release PR. Read every `develop` below as `main`; the Flow, release and slice-close
+**Since the move into analytics-platform (#592, ADR-0072)** Feature issues run under the platform profile
+(`.agents/conductor/PROFILE.md` at the platform root, launch mode `feature`): base `origin/main`, squash merge, no
+`develop` and no feature release PR. Read every `develop` below as `main`; the Flow, release and slice-close
 steps here are superseded by the platform profile. The tools in `scripts/` (verify-db) still apply. The standalone web app and its visual harness are retired (#597); `app-preview.py` and `nav-perf` still target that app and are not usable until reworked (`.planning/backlog.md`).
 
 ## Flow
@@ -22,16 +22,16 @@ steps here are superseded by the platform profile. The tools in `scripts/` (veri
 - **Merge grant** (asked once at slice start, re-asked every session): the recommended option is "merge into
   `develop` on green CI and review, report afterwards". `main` (the release PR, or an owner-approved hotfix PR with
   a back-merge PR `main` → `develop`) needs explicit owner approval in the session.
-- Branch `feature/<n>-<slug>`. `$MAIN` is `FOPS_MAIN` (the main checkout). Worktrees live at
-  `~/orca/workspaces/FeedbackOps/<n>-<slug>`.
+- Branch `feature/<n>-<slug>`. `$MAIN` is `PLATFORM_API_MAIN` (the main checkout). Worktrees live at
+  `~/orca/workspaces/feature/<n>-<slug>`.
 - `WAVE_STATE` also holds `env.verify.<n>` (issue databases) and `preview-<label>.json` (`app-preview.py`).
-  `WAVE_BRIEFS` is `$FOPS_MAIN/.review/wave/`.
+  `WAVE_BRIEFS` is `$PLATFORM_API_MAIN/.review/wave/`.
 - Session handoff: the local-only root `HANDOFF.md`; its "In flight" section has one line per issue (worktree, state
   JSON, the exact next command), so a rotated session can re-arm `worker-wait.sh` at once.
 
 ## Launch
 
-- `python3 "$ENGINE/launch-worker.py" <n> <slug> [be] --checkout "$FOPS_MAIN"` (needs `WAVE_STATE`, `WAVE_BRIEFS`, `FOPS_MAIN`): Orca
+- `python3 "$ENGINE/launch-worker.py" <n> <slug> [be] --checkout "$PLATFORM_API_MAIN"` (needs `WAVE_STATE`, `WAVE_BRIEFS`, `PLATFORM_API_MAIN`): Orca
   worktree from `origin/develop`, branch rename, rules copied into `.review/` (`00-IMPL-RULES.md`, `-BE.md` with
   `be`, the reviewer rules), wait for the setup install, close the setup shells, `PRE_ADD`, route-tree build, then the
   shared `worker-launch.sh` with `WORKER_ROLE` (default `impl`) and optional `WORKER_MODEL`/`WORKER_EFFORT`.
@@ -69,7 +69,7 @@ Host checks in order; each must exit 0 before a commit. Every background verify 
   from launch: reuse it, or when the branch adds a migration, `verify-db.sh drop <n>` then `create <n>
   --migrate-from <worktree>`. Then `scripts/verify-be.sh <worktree> <n> [module filters]`: full integration once per
   BE issue, touched modules after small fix rounds. `reset-rate-limits <n>` only when needed.
-- **Lint gate** after committing (it covers only the Biome scope `FO_BIOME_SCOPE`: documentation roots and ops; `apps/platform-api`, `apps/feature-screens`, `packages/feature-shared` and `packages/feature-ui` are checked by their package `lint`, never by Biome): `pnpm --filter @ap/platform-api-ops gate:fe-lint --base origin/develop`; classify each NEW with
+- **Lint gate** after committing (it covers only the Biome scope `FEATURE_BIOME_SCOPE`: documentation roots and ops; `apps/platform-api`, `apps/feature-screens`, `packages/feature-shared` and `packages/feature-ui` are checked by their package `lint`, never by Biome): `pnpm --filter @ap/platform-api-ops gate:fe-lint --base origin/develop`; classify each NEW with
   `python3 "$ENGINE/biome-cmp.py" <worktree> <file>...` (base from `review_plan.base`; the file's `introduced`
   list → `biome check --write --formatter-enabled=false --linter-enabled=false` or `biome format --write`;
   pre-existing → allowlist in `ops/platform-api/scripts/gates/frontend-biome-allowlist.txt`).
@@ -207,7 +207,7 @@ issue is about that behaviour.
 
 | Script | What it does | Pinned by |
 | --- | --- | --- |
-| `python3 "$ENGINE/launch-worker.py" <n> <slug> [be] --checkout "$FOPS_MAIN"` | §Launch | – |
+| `python3 "$ENGINE/launch-worker.py" <n> <slug> [be] --checkout "$PLATFORM_API_MAIN"` | §Launch | – |
 | `scripts/verify-fe.sh <worktree>` / `verify-be.sh <worktree> <n> [filters]` | §Verify; logs in `$WAVE_STATE/verify-<wt>/` and `$WAVE_STATE/vbe-<n>/` | – |
 | `scripts/verify-db.sh up` / `create <n> [--migrate-from <checkout>]` / `drop <n>` / `reset-rate-limits <n>` / `has-preview-fixtures <n>` / `down` | throwaway Postgres on 5439; `drop` removes the env file; `has-preview-fixtures` reports the `[preview]` fixture cluster | – |
 | `python3 "$ENGINE/biome-cmp.py" <worktree> <file>...` | biome error categories on develop vs branch (`introduced` per file; last line JSON) | engine repo tests |

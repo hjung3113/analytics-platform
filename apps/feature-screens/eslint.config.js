@@ -1,1 +1,1 @@
-export { foScreens as default } from '@ap/eslint-config';
+export { featureScreensPreset as default } from '@ap/eslint-config';

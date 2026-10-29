@@ -71,7 +71,7 @@ export function createMockAdapter(o: {
   auditEvents?: readonly AuditEvent[];
   /**
    * The app's permission vocabulary (`registry.permissions`: kernel + declared). The mock roles are built from it:
-   * admin holds all, engineer all but console/FeedbackOps, viewer only its explicit grants. Omit for the sample four.
+   * admin holds all, engineer all but console/feature menus, viewer only its explicit grants. Omit for the sample four.
    */
   permissions?: readonly Permission[];
 }): PlatformAdapter {

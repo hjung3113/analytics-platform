@@ -3,7 +3,7 @@ import { registerDefaultHost } from '../lib/host/host-seam';
 
 /**
  * For a triage test that stands in for the router: the default host reading its search from `getSearch()` (string
- * values; `undefined` entries drop out like a missing key), writing every move to `navigate` as the FeedbackOps
+ * values; `undefined` entries drop out like a missing key), writing every move to `navigate` as the feature
  * `href` + `{ replace }`, and drawing links as plain anchors (`canLink` as given, else all). Call it from `beforeAll` (after the file's `vi.mock`
  * calls, like `setup.ts`, which it overrides).
  */

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This inventory defines the reusable components that should exist before domain screens are built. The shipped FeedbackOps-owned `@ap/feature-ui` export inventory is `packages/feature-ui/src/index.ts` (shared parts such as `EmptyState` and the shells come from `@ap/ui`); this document describes reusable component contracts and required states.
+This inventory defines the reusable components that should exist before domain screens are built. The shipped feature-owned `@ap/feature-ui` export inventory is `packages/feature-ui/src/index.ts` (shared parts such as `EmptyState` and the shells come from `@ap/ui`); this document describes reusable component contracts and required states.
 
 Component ownership paths live in `docs/architecture/platform-api/tech-stack/component-stack.md`.
 Screen mapping lives in `docs/design/features/ui-design-system.md`.
@@ -93,7 +93,7 @@ AuditTimeline
 
 ## Built Mapping
 
-Names in the primitive table and the composed list above are design-time names. This table maps them to what shipped; `packages/feature-ui/src/index.ts` is the inventory of the 18 FeedbackOps-owned `@ap/feature-ui` exports only; SDK parts (shells, `ObjectRow`, `RichEditor`, panels, toolbars, forms) are exported from `@ap/ui` (`packages/sdk/ui/src/index.ts`).
+Names in the primitive table and the composed list above are design-time names. This table maps them to what shipped; `packages/feature-ui/src/index.ts` is the inventory of the 18 feature-owned `@ap/feature-ui` exports only; SDK parts (shells, `ObjectRow`, `RichEditor`, panels, toolbars, forms) are exported from `@ap/ui` (`packages/sdk/ui/src/index.ts`).
 
 | Design-time name | Shipped as | Path |
 | --- | --- | --- |
@@ -108,7 +108,7 @@ Names in the primitive table and the composed list above are design-time names. 
 | DetailPanel, Panel | `DetailPanelHeader`, `DetailPanelReadingColumn`, `DetailPanelSectionNav` (mount the nav as a sibling above the scroll root; the cover is then the strip's overlap with the root), `PanelTitleBlock` (`inset=none`), `PanelSectionTitle` (`inset=panel`, `size=tiny`), `FieldRow`, `NestedTextBlock`, `Callout` | `@ap/ui` |
 | StatusBadge | shared `ReporterStatusBadge`, `InternalTaskBadge`; feature-local `SurveyStatusBadge`, `LinkStatusBadge`, `MilestoneStatusBadge` | `packages/feature-ui/src/badges/`, `apps/feature-screens/src/features/surveys/components/`, `apps/feature-screens/src/features/integration/components/`, `apps/feature-screens/src/features/tasks/components/` |
 | SignalBadge | `SeverityBadge` (default accessible prefix `심각도`; full `ariaLabel` override for Task `우선순위`), `SeverityIndicator` (full `label` override; from `@ap/ui`), `UnassignedBadge`, `ManagedSystemPill`, `EntityIconBadge`, generic `OutlineBadge` | `packages/feature-ui/src/badges/`, `packages/feature-ui/src/indicators/` |
-| RichContentEditor | `RichEditor` + `RichContentRenderer` (from `@ap/ui`; FO keeps only the drift/sanitization helpers `allowlist-local.ts`, `sanitizeClient.ts`, `fixtures-local.ts` in `packages/feature-ui/src/rich-content/`) | `packages/sdk/ui/src/rich-content/` |
+| RichContentEditor | `RichEditor` + `RichContentRenderer` (from `@ap/ui`; the feature suite keeps only the drift/sanitization helpers `allowlist-local.ts`, `sanitizeClient.ts`, `fixtures-local.ts` in `packages/feature-ui/src/rich-content/`) | `packages/sdk/ui/src/rich-content/` |
 | PublicUpdateComposer | feature-local `PublicUpdateComposer` | `apps/feature-screens/src/features/voc/components/detail/` |
 | ConversationComposer | feature-local `ComposerSection` + `ComposerTabs` hosting `PublicUpdateComposer`, `ReporterReplyComposer`, `InternalCommentComposer` | `apps/feature-screens/src/features/voc/components/detail/` |
 | Evidence inventory | feature-local `EvidenceContent`, `EvidenceMetadata`, `EvidenceRow`, `EvidencePanel` | `apps/feature-screens/src/features/integration/components/` |

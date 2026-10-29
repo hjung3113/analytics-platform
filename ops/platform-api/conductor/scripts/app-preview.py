@@ -50,11 +50,11 @@ USER_BACKEND_PORT = 3011
 DEV_DB_PORT = '5434'
 
 
-def fo_paths():
-    """The FeedbackOps path map (ops/platform-api/paths.sh): FO_* name -> repository-root relative directory."""
+def feature_paths():
+    """The Feature path map (ops/platform-api/paths.sh): FEATURE_* name -> repository-root relative directory."""
     paths = {}
     for line in (Path(__file__).resolve().parents[2] / 'paths.sh').read_text().splitlines():
-        match = re.fullmatch(r'(FO_[A-Z]+)=([\w./-]+)', line.strip())
+        match = re.fullmatch(r'(FEATURE_[A-Z]+)=([\w./-]+)', line.strip())
         if match:
             paths[match.group(1)] = match.group(2)
     return paths
@@ -263,11 +263,11 @@ def orphans():
 def start(args):
     states = state_dir()
     checkout = Path(args.checkout).resolve()
-    fo = fo_paths()
-    frontend = checkout / fo['FO_FRONTEND']
-    backend = checkout / fo['FO_BACKEND']
+    feature = feature_paths()
+    frontend = checkout / feature['FEATURE_FRONTEND']
+    backend = checkout / feature['FEATURE_BACKEND']
     if not (frontend / 'vite.config.ts').is_file():
-        fail(f'not a FeedbackOps checkout: {checkout}', 2)
+        fail(f'not a feature checkout: {checkout}', 2)
     label = re.sub(r'[^a-z0-9-]', '-', (args.name or checkout.name).lower()).strip('-') or 'preview'
     state_path = states / f'preview-{label}.json'
     if state_path.exists():
@@ -279,7 +279,7 @@ def start(args):
 
     # A fresh worktree has no gitignored route tree; vite would serve a broken app.
     if not (frontend / 'src' / 'routeTree.gen.ts').exists():
-        subprocess.run(['node', f"{fo['FO_OPS']}/scripts/generate-routes.mjs"], cwd=checkout, env=env, check=True,
+        subprocess.run(['node', f"{feature['FEATURE_OPS']}/scripts/generate-routes.mjs"], cwd=checkout, env=env, check=True,
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     state = {'name': label, 'checkout': str(checkout), 'pids': []}

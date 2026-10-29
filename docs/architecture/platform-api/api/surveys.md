@@ -33,7 +33,7 @@ POST /survey-responses/:id/reopen-follow-up
 ```
 
 `GET /me/survey-responses` exists for the external analytics platform (#548); it
-is not a FeedbackOps screen surface.
+is not a feature screen surface.
 
 Current reachable Finding task paths are in the `/findings/:id` family.
 

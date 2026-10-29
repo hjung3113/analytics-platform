@@ -8,7 +8,7 @@ import {
 } from './support';
 
 test.describe('core 사용자 공간 접근 거부 (06 §9.1)', () => {
-  test('mock-user-1은 콘솔과 FeedbackOps 공간을 보지 못하고 콘솔 직접 URL이 거부된다', async ({ page }, testInfo) => {
+  test('mock-user-1은 콘솔과 기능 공간을 보지 못하고 콘솔 직접 URL이 거부된다', async ({ page }, testInfo) => {
     const homeReads = waitForHomeReads(page);
     await page.goto('/home');
     await expectSuccessfulFoReads(homeReads);

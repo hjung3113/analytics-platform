@@ -1,8 +1,8 @@
-# FeedbackOps Frontend UI Design System
+# Feature Frontend UI Design System
 
 ## Purpose
 
-This document is the frontend implementation contract for FeedbackOps UI.
+This document is the frontend implementation contract for feature UI.
 
 It is limited to UI design, component behavior, states, layout, responsive behavior, and accessibility. It does not define backend APIs, data ownership, or domain rules.
 
@@ -52,7 +52,7 @@ This document fills the frontend gaps:
 - layout contracts
 - responsive behavior
 - accessibility behavior
-- FeedbackOps-specific UI patterns
+- feature-specific UI patterns
 ```
 
 ## Global Layout Contracts
@@ -66,7 +66,7 @@ Every AppShell route classifies as one of three shells (FO ADR-0020): `PageShell
 Purpose:
 
 ```text
-The persistent application frame for all internal FeedbackOps screens.
+The persistent application frame for all internal feature screens.
 ```
 
 Anatomy:

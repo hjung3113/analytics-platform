@@ -4,7 +4,7 @@ Current platform entry and navigation are owned by [ADR-0100](../../adr/0100-fea
 
 ## Purpose
 
-This document defines retained semantic screen URL state and list/detail behavior. #597 retires the standalone host. Paths below are screen intents consumed by the bridge, not deployed standalone routes or a redirect table. Actual platform menu URLs live in the FeedbackOps menu packages under `platform/` and `packages/adapters/feature-bridge/src/fo/*-routes.ts`. Old Home tabs, app rail/sidebar, login/bootstrap and file-route registration are retired; the platform owns those compositions. Test-local adapters may still exercise screen state through a memory router.
+This document defines retained semantic screen URL state and list/detail behavior. #597 retires the standalone host. Paths below are screen intents consumed by the bridge, not deployed standalone routes or a redirect table. Actual platform menu URLs live in the feature suite menu packages under `platform/` and `packages/adapters/feature-bridge/src/feature/*-routes.ts`. Old Home tabs, app rail/sidebar, login/bootstrap and file-route registration are retired; the platform owns those compositions. Test-local adapters may still exercise screen state through a memory router.
 
 Product UI intent lives in `docs/product/features/12-ui-ux-principles.md`.
 Reusable component contracts live in `docs/design/features/ui-design-system.md`.
@@ -86,11 +86,10 @@ Route naming rules:
 
 ## Document Titles
 
-The root `DocumentTitleProvider` synchronizes `document.title` once, combining
-the active screen title with `FeedbackOps`. A detail may replace the screen
-title with `<display_id> · <title>` only after its matching read succeeds for
-the current viewer. Loading, blocked, failed, not-found, and cleared selections
-restore the screen title; unmounting the provider restores `FeedbackOps`.
+The standalone `DocumentTitleProvider` and its route-to-title table are retired (#1130). The platform host owns
+`document.title` from the menu labels; feature screens do not write it. A detail still shows a record only after its
+matching read succeeds for the current viewer; loading, blocked, failed, not-found, and cleared selections never render
+a stale record.
 
 VOC route views:
 

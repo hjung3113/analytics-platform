@@ -16,7 +16,7 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const DOCS_ONLY = /(\.md$|^\.agents\/)/;
-// FeedbackOps frontend sources are bundled into the demo through the `@` alias; GLOSSARY.md feeds the site's banned-term check.
+// Feature screen sources are bundled into the demo through the `@` alias; GLOSSARY.md feeds the site's banned-term check.
 const SITE_DIRS = /^(menus|platform|packages|apps\/feature-screens|apps\/platform-web|site|tooling|patches)\//;
 const SITE_FILES = /^(package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|GLOSSARY\.md|apps\/platform-e2e\/package\.json|\.github\/workflows\/(ci|pages)\.yml)$/;
 const ZERO_SHA = /^0+$/;

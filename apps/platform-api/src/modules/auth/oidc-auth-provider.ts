@@ -9,7 +9,7 @@
 //
 // Login flow (authorization code + PKCE S256 + state + nonce):
 //   startLogin  → state/nonce/verifier generated; a signed short-lived
-//                 transaction cookie `fops_oidc_tx` (Path=/auth, HttpOnly,
+//                 transaction cookie `platform_oidc_tx` (Path=/auth, HttpOnly,
 //                 SameSite=Lax, Secure in production, Max-Age 600) carries
 //                 them back on the callback; the route 302s to the IdP.
 //   completeLogin → verify tx signature (timingSafeEqual) + expiry + state,

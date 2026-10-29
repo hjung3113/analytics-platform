@@ -18,7 +18,7 @@ function menu(id: string, group: GroupId, path: string, permission: Permission) 
 }
 const registry = createRegistry({
   permissions: [menuPermission('equipment:view')],
-  spaces: [testSpace({ id: spaceId('mars'), label: { ko: '분석', en: 'Analytics' }, subtitle: { ko: 'FeedbackOps 검사 전용 시스템 부제', en: 'FeedbackOps fixture system subtitle' }, homeMenuId: 'home' }), testSpace({ id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations' }, homeMenuId: 'ops', permission: 'console:access' })],
+  spaces: [testSpace({ id: spaceId('mars'), label: { ko: '분석', en: 'Analytics' }, subtitle: { ko: '기능 검사 전용 시스템 부제', en: 'feature fixture system subtitle' }, homeMenuId: 'home' }), testSpace({ id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations' }, homeMenuId: 'ops', permission: 'console:access' })],
   groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars'), hideLabelWhenSingle: true }, { id: groupId('admin'), label: { ko: '관리', en: 'Admin' }, icon: House, space: spaceId('operations') }],
   menus: [menu('ops', groupId('admin'), '/ops', 'console:access'), { id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['focus', 'tab'] }],
 });
@@ -442,7 +442,7 @@ describe('workspace shell layout (15 §3.1)', () => {
     expect(rail.querySelector('a[aria-current]')).toBeNull();
   });
 
-  it('draws each FeedbackOps entry with the icon the slot passes, whatever its key (ADR-0072)', () => {
+  it('draws each feature entry with the icon the slot passes, whatever its key (ADR-0072)', () => {
     mount(['platform:view'], true, registry, { features: { entriesFor: id => id === 'mars' ? [
       { key: 'first', icon: Star, label: { ko: '첫째', en: 'First' }, menuId: 'home' },
       { key: 'task', icon: Rocket, label: { ko: '둘째', en: 'Second' }, menuId: 'home' },
@@ -454,7 +454,7 @@ describe('workspace shell layout (15 §3.1)', () => {
     expect(second.classList.contains('lucide-rocket')).toBe(true);
   });
 
-  it('renders FeedbackOps entries in slot order outside the scroll region', () => {
+  it('renders feature entries in slot order outside the scroll region', () => {
     mount(['platform:view', 'features:access'], true, registry, { features: feedbackSlot });
     const block = screen.getByRole('navigation', { name: '기능 · 분석' });
     const scroll = document.querySelector('.shell-scroll');
@@ -464,7 +464,7 @@ describe('workspace shell layout (15 §3.1)', () => {
       'Task — 분석, 기능',
       'VOC 등록 — 분석, 기능',
     ]);
-    expect([block.getAttribute('aria-label'), ...links.map(link => link.getAttribute('aria-label'))].join(' ')).not.toContain('FeedbackOps 검사 전용 시스템 부제');
+    expect([block.getAttribute('aria-label'), ...links.map(link => link.getAttribute('aria-label'))].join(' ')).not.toContain('기능 검사 전용 시스템 부제');
     for (const link of links) {
       expect(link.hasAttribute('target')).toBe(false);
       expect(link.hasAttribute('aria-current')).toBe(false);
@@ -487,27 +487,27 @@ describe('workspace shell layout (15 §3.1)', () => {
   });
 
   describe('in-shell VOC entry (#760, ADR-0081 decision 7)', () => {
-    const foRegistry = createRegistry({
+    const featureRegistry = createRegistry({
       permissions: [menuPermission('equipment:view')],
       spaces: registry.spaces,
       groups: registry.groups,
-      menus: [...registry.menus, { ...menu('fo-inbox', groupId('overview'), '/feedbackops/vocs', 'platform:view'), primary: false, pageKeys: ['managedSystem', 'returnTo'] }],
+      menus: [...registry.menus, { ...menu('feature-inbox', groupId('overview'), '/operations/vocs', 'platform:view'), primary: false, pageKeys: ['managedSystem', 'returnTo'] }],
     });
     const SYSTEM = '4f1b2c3d-5e6f-4a7b-8c9d-0e1f2a3b4c5d';
-    const vocEntry = { key: 'voc', icon: MessagesSquare, label: { ko: 'VOC', en: 'VOC' }, menuId: 'fo-inbox', page: { managedSystem: SYSTEM } };
+    const vocEntry = { key: 'voc', icon: MessagesSquare, label: { ko: 'VOC', en: 'VOC' }, menuId: 'feature-inbox', page: { managedSystem: SYSTEM } };
     const taskEntry = { key: 'task', icon: ListTodo, label: { ko: 'Task', en: 'Task' }, menuId: 'home' };
     const slotOf = (entries: FeatureSlot['entriesFor'] extends (...args: never[]) => infer R ? R : never, permission?: Permission): FeatureSlot => ({ entriesFor: id => id === 'mars' ? entries : null, ...(permission ? { permission } : {}) });
 
     it('opens VOC in the same tab with only v, managedSystem and returnTo; the in-shell caption shows', () => {
       window.history.replaceState(null, '', '/mars/home?v=1&from=2026-10-01T00:00:00&to=2026-10-02T00:00:00&scopeId=MEM');
-      mount(['platform:view', 'features:access'], true, foRegistry, { features: slotOf([vocEntry, taskEntry], 'features:access') });
+      mount(['platform:view', 'features:access'], true, featureRegistry, { features: slotOf([vocEntry, taskEntry], 'features:access') });
       const block = screen.getByRole('navigation', { name: '기능 · 분석' });
       const [voc, task] = within(block).getAllByRole('link');
       expect(voc.getAttribute('aria-label')).toBe('VOC — 분석, 기능');
       expect(voc.hasAttribute('target')).toBe(false);
       expect(voc.querySelectorAll('svg')).toHaveLength(1);
       const href = new URL(voc.getAttribute('href')!, 'http://x');
-      expect(href.pathname).toBe('/mars/fo-inbox');
+      expect(href.pathname).toBe('/mars/feature-inbox');
       expect([...href.searchParams.keys()].sort()).toEqual(['managedSystem', 'returnTo', 'v']);
       expect(href.searchParams.get('managedSystem')).toBe(SYSTEM);
       expect(href.searchParams.get('returnTo')).toBe('/mars/home?v=1&from=2026-10-01T00:00:00&to=2026-10-02T00:00:00&scopeId=MEM');
@@ -517,24 +517,24 @@ describe('workspace shell layout (15 §3.1)', () => {
     });
 
     it('draws the in-shell caption and the VOC link opens the registered menu', () => {
-      mount(['platform:view', 'features:access'], true, foRegistry, { features: slotOf([vocEntry]) });
+      mount(['platform:view', 'features:access'], true, featureRegistry, { features: slotOf([vocEntry]) });
       const block = screen.getByRole('navigation', { name: '기능 · 분석' });
       expect(within(block).getByText('기능 화면으로 이동합니다')).toBeTruthy();
-      expect(within(block).getByRole('link', { name: 'VOC — 분석, 기능' }).getAttribute('href')).toContain('/mars/fo-inbox');
+      expect(within(block).getByRole('link', { name: 'VOC — 분석, 기능' }).getAttribute('href')).toContain('/mars/feature-inbox');
     });
 
     it('draws no block at all without the slot permission, and keeps three icons with names when collapsed', () => {
-      mount(['platform:view'], true, foRegistry, { features: slotOf([vocEntry, taskEntry], 'features:access') });
+      mount(['platform:view'], true, featureRegistry, { features: slotOf([vocEntry, taskEntry], 'features:access') });
       expect(screen.queryByRole('navigation', { name: /^기능/ })).toBeNull();
       cleanup();
       localStorage.setItem('platform:sidebar-collapsed', '1');
-      mount(['platform:view', 'features:access'], true, foRegistry, { features: slotOf([vocEntry, taskEntry], 'features:access') });
+      mount(['platform:view', 'features:access'], true, featureRegistry, { features: slotOf([vocEntry, taskEntry], 'features:access') });
       const block = screen.getByRole('navigation', { name: '기능 · 분석' });
       expect(within(block).getAllByRole('link').map(link => link.getAttribute('aria-label'))).toEqual(['VOC — 분석, 기능', 'Task — 분석, 기능']);
     });
 
     it('omits an in-shell entry whose menu the user cannot open', () => {
-      mount(['platform:view'], true, foRegistry, { features: slotOf([{ ...vocEntry, menuId: 'ops' }, taskEntry]) });
+      mount(['platform:view'], true, featureRegistry, { features: slotOf([{ ...vocEntry, menuId: 'ops' }, taskEntry]) });
       const block = screen.getByRole('navigation', { name: '기능 · 분석' });
       expect(within(block).getAllByRole('link').map(link => link.getAttribute('aria-label'))).toEqual(['Task — 분석, 기능']);
     });
@@ -565,7 +565,7 @@ describe('workspace shell layout (15 §3.1)', () => {
     expect(screen.getByRole('navigation', { name: '플랫폼 메뉴' })).toBeTruthy();
   });
 
-  it('keeps the fallback sidebar on an unmatched path and still withholds the rail sections, the current card and the FeedbackOps block', () => {
+  it('keeps the fallback sidebar on an unmatched path and still withholds the rail sections, the current card and the feature block', () => {
     window.history.replaceState(null, '', '/unregistered?v=1');
     mount(['platform:view', 'console:access'], true, globalShellRegistry(), { features: feedbackSlot });
     expect(screen.getByRole('navigation', { name: '주 메뉴' })).toBeTruthy();
@@ -575,7 +575,7 @@ describe('workspace shell layout (15 §3.1)', () => {
     expect(within(dialog).getByRole('button', { name: /분석/ }).hasAttribute('aria-current')).toBe(false);
   });
 
-  it('omits FeedbackOps on a space-denied direct URL and does not query that space', () => {
+  it('omits feature entries on a space-denied direct URL and does not query that space', () => {
     const seen: string[] = [];
     window.history.replaceState(null, '', '/ops?v=1');
     mount(['platform:view'], true, registry, { features: {
@@ -585,7 +585,7 @@ describe('workspace shell layout (15 §3.1)', () => {
     expect(seen).not.toContain('operations');
   });
 
-  it('drops the FeedbackOps block when space entry is revoked on the same route', () => {
+  it('drops the feature block when space entry is revoked on the same route', () => {
     const listeners = new Set<() => void>();
     const seen: string[] = [];
     let session = testSession(['platform:view', 'console:access']);
@@ -610,7 +610,7 @@ describe('workspace shell layout (15 §3.1)', () => {
     expect(seen).not.toContain('operations');
   });
 
-  it('omits FeedbackOps on an unregistered path even when the fallback space has entries', () => {
+  it('omits feature entries on an unregistered path even when the fallback space has entries', () => {
     const seen: string[] = [];
     window.history.replaceState(null, '', '/unregistered?v=1');
     mount(['platform:view', 'console:access'], true, registry, { features: {

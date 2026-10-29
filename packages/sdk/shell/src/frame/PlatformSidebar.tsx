@@ -7,7 +7,7 @@ import { MenuUnread } from './unread';
 
 /**
  * Sidebar of the global screens outside any space (home, 내 활동, 공지; 15 §3.2, ADR-0070). Same shell, collapse
- * state and `[` key as the business sidebar; no Scope selector, favorites, recent or FeedbackOps block.
+ * state and `[` key as the business sidebar; no Scope selector, favorites, recent or feature block.
  */
 export function PlatformSidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
   const { route } = usePlatform();

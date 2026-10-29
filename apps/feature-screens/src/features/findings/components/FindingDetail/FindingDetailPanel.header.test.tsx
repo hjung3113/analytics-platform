@@ -14,11 +14,6 @@ vi.mock('@/features/findings/hooks/useFindingDetail', () => ({
   }),
 }));
 
-vi.mock('@/test/host-adapters/lib/router/document-title', () => ({
-  formatRecordDocumentTitle: vi.fn(),
-  useDocumentTitle: vi.fn(),
-}));
-
 import { FindingDetailPanel } from '@/test/host-adapters/features/findings/components/FindingDetail/FindingDetailPanel';
 
 describe('FindingDetailPanel header rhythm', () => {

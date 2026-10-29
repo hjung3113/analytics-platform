@@ -54,7 +54,7 @@ describe('navCounts slot', () => {
     expect(navCountsSlot.For(spaceId('operations'), menu)).toBeNull();
   });
 
-  it('without a FeedbackOps API gives null and requests nothing', async () => {
+  it('without a feature API gives null and requests nothing', async () => {
     const calls = stubFetch(() => json({ counts: {} }));
     mountAt('/operations/inbox');
     expect(read()).toBeNull();
@@ -63,10 +63,10 @@ describe('navCounts slot', () => {
     expect(calls).toEqual([]);
   });
 
-  describe('with a FeedbackOps API', () => {
+  describe('with a feature API', () => {
     beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() }); });
 
-    it('maps FeedbackOps count keys to menu and view keys, keeps 0 and leaves an omitted key absent', async () => {
+    it('maps feature count keys to menu and view keys, keeps 0 and leaves an omitted key absent', async () => {
       stubFetch(() => json({ counts: { 'voc.inbox': 12, 'voc.triage': 0, 'voc.inbox.no-link': 4, 'voc.tab.high': 2, 'voc.my': 9, 'voc.clusters': 1 } }));
       mountAt('/operations/inbox');
       await waitFor(() => expect(read()).not.toBeNull());
@@ -116,7 +116,7 @@ describe('navCounts slot', () => {
       expect(screen.getByLabelText('sentinel')).toBe(sentinel);
     });
 
-    it('refreshes when FeedbackOps invalidates the nav counts', async () => {
+    it('refreshes when feature invalidates the nav counts', async () => {
       let n = 1;
       const calls = stubFetch(() => json({ counts: { 'voc.inbox': n } }));
       mountAt('/operations/inbox');

@@ -10,7 +10,7 @@ const myActivityStub: MenuEntry = { ...manifests.find(menu => menu.id === 'my-ta
 export const { registry, mountAt } = createFeatureMenuHarness({ manifests: [...manifests, myActivityStub], homeMenuId: 'tasks', group: { id: 'tasks', label: { ko: 'Tasks', en: 'Tasks' }, icon: ClipboardList }, globalGroups: [{ id: 'myActivity', label: { ko: '내 활동', en: 'My activity' }, icon: UserRound }] });
 
 /**
- * Loads the lazy page modules (and the FeedbackOps screens behind them) before a file's first mount: a cold import can take
+ * Loads the lazy page modules (and the feature screens behind them) before a file's first mount: a cold import can take
  * seconds on CI, which would otherwise count against the first test's `findBy` wait.
  */
-export const warmPages = () => Promise.all([import('./pages/FoTaskBoard'), import('./pages/FoTaskList'), import('./pages/FoMyTasks'), import('./pages/FoTaskRequests'), import('./pages/FoMilestones')]);
+export const warmPages = () => Promise.all([import('./pages/FeatureTaskBoard'), import('./pages/FeatureTaskList'), import('./pages/FeatureMyTasks'), import('./pages/FeatureTaskRequests'), import('./pages/FeatureMilestones')]);

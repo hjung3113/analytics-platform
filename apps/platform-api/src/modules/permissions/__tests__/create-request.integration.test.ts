@@ -558,7 +558,7 @@ describe.skipIf(!runIntegration)('POST /permission-requests', () => {
       // other workspace so the FK to actors holds.
       const altActor = await ops.pool.query<{ id: string }>(
         `insert into core.actors (workspace_id, external_id, email, display_name, role_level, actor_type)
-         values ($1, 'planted-user', 'planted@feedbackops.local', 'Planted', 'user', 'internal_member')
+         values ($1, 'planted-user', 'planted@platform.local', 'Planted', 'user', 'internal_member')
          on conflict (workspace_id, external_id) do update set email = excluded.email
          returning id`,
         [otherWs],

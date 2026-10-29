@@ -138,7 +138,7 @@ describe('workspace assembly (#260)', () => {
     expect(SPACE_DEFS[6]).toMatchObject({ label: { ko: '운영 콘솔', en: 'Operations console' }, homeMenuId: 'dashboard' });
     expect(SPACE_DEFS[6].permission).toBeUndefined();
     expect(SPACE_DEFS[6].subtitle).toBeUndefined();
-    // #1099b: the one production carry set; every FeedbackOps operator and feature-admin menu is a member, no other menu is, and the space declares nothing.
+    // #1099b: the one production carry set; every feature operator and feature-admin menu is a member, no other menu is, and the space declares nothing.
     expect(registry.carrySets).toEqual([{ id: 'features', pageKeys: ['managedSystem', 'returnTo'] }]);
     expect(SPACE_DEFS[6]).not.toHaveProperty('carriedPageKeys');
     // Members: every operator and feature-admin menu in the operations console, plus global 내 Task; platform administration (group admin) is not a member.
@@ -232,7 +232,7 @@ describe('workspace assembly (#260)', () => {
     expect(registry.menuById('surveys').permission).toBe('platform:view');
   });
 
-  it.skipIf(probeRun)('gives a viewer the spaces their menus allow and the global utilities, and the app passes the FeedbackOps slot', async () => {
+  it.skipIf(probeRun)('gives a viewer the spaces their menus allow and the global utilities, and the app passes the feature slot', async () => {
     const assembly = await createAssembly({ registry }) as Assembly;
     const fakeSlot: NotificationsSlot = { menuId: 'notifications', UnreadCount: ({ children }) => children(null), Recent: () => null };
     const fakeVocCompose: VocComposeSlot = { Compose: () => null };

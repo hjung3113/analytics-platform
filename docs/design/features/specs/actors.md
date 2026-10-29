@@ -19,7 +19,7 @@ alone never implies assignment eligibility.
 ```json
 {
   "actors": [
-    { "id": "uuid", "display_name": "Mock Admin", "email": "admin@feedbackops.local", "role_level": "admin" }
+    { "id": "uuid", "display_name": "Mock Admin", "email": "admin@platform.local", "role_level": "admin" }
   ]
 }
 ```

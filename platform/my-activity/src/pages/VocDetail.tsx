@@ -3,11 +3,11 @@ import { useI18n, usePlatform, type PageProps } from '@ap/kernel';
 import { PlatformPage, ReturnLink, StateMessage } from '@ap/components';
 import { ReporterVocDetail } from '@ap/feature-screens/global-screens';
 import { FeatureBridge } from '@ap/feature-bridge';
-import { VOC_ID } from '../fo/voc-query';
+import { VOC_ID } from '../feature/voc-query';
 
 /**
  * 내 VOC 상세 (ADR-0070, ADR-0071): one VOC as its reporter sees it, full page. The VOC ID is a path segment, so a malformed one is
- * not-found here and never becomes a FeedbackOps request path. The way back is only ever the Kernel's `returnOrigin()` (`ReturnLink`).
+ * not-found here and never becomes a feature request path. The way back is only ever the Kernel's `returnOrigin()` (`ReturnLink`).
  */
 export default function VocDetail({ params }: PageProps) {
   const { lang } = useI18n();

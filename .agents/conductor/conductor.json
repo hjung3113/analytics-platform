@@ -264,26 +264,26 @@
       }
     ],
     "modes": {
-      "fo": {
+      "feature": {
         "templates": [
           {
-            "dest": ".review/00-IMPL-RULES-FO.md",
-            "addendum": "addenda/impl-rules-fo.md",
+            "dest": ".review/00-IMPL-RULES-FEATURE.md",
+            "addendum": "addenda/impl-rules-feature.md",
             "in_rules": true
           }
         ],
-        "hook": "scripts/fo-prepare.sh",
+        "hook": "scripts/feature-prepare.sh",
         "hook_args": [
           "{issue}",
           "{worktree}"
         ],
-        "hook_log": ".review/fo-prepare.log",
-        "hook_fail": "FeedbackOps issue DB failed (see {worktree}/.review/fo-prepare.log; is the verify container up? PROFILE §Launch mode fo)",
+        "hook_log": ".review/feature-prepare.log",
+        "hook_fail": "Feature issue DB failed (see {worktree}/.review/feature-prepare.log; is the verify container up? PROFILE §Launch mode feature)",
         "skip_if_state": "env.verify.{issue}",
         "copy_from_state": "env.verify.{issue}",
         "copy_to": ".review/env.verify",
         "task_lines": [
-          "FeedbackOps work: run commands from the repository root (installed for you; the tools are in `ops/platform-api/`). Your own throwaway database (port 5439, never 5434): run only the integration files you added or touched, from the repository root, with",
+          "Feature work: run commands from the repository root (installed for you; the tools are in `ops/platform-api/`). Your own throwaway database (port 5439, never 5434): run only the integration files you added or touched, from the repository root, with",
           "`PLATFORM_API_ENV_FILE={worktree}/.review/env.verify pnpm --filter @ap/platform-api test:integration <paths relative to apps/platform-api>`."
         ]
       }

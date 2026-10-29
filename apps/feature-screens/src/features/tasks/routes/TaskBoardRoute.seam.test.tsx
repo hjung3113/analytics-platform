@@ -157,7 +157,7 @@ function mount() {
 }
 
 function parse(href: string) {
-  const url = new URL(href, 'http://feedbackops.local');
+  const url = new URL(href, 'http://platform.local');
   return { pathname: url.pathname, search: Object.fromEntries(url.searchParams) };
 }
 const lastNavigate = () => {

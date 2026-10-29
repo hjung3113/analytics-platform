@@ -16,6 +16,11 @@ GET /me
 `GET /auth/login` starts the configured provider's login flow and accepts an
 optional `return_to`. `GET /auth/callback` completes the OIDC login flow; it
 returns `404 not_found.record` when the configured provider is `mock`.
+The OIDC flow keeps its state, nonce and PKCE verifier in a signed,
+short-lived transaction cookie named `platform_oidc_tx` (Path=/auth, HttpOnly,
+SameSite=Lax, Max-Age 600, Secure in production). The signing-key domain label
+is `platform-oidc-tx-v1`. The retired cookie name and label are not accepted:
+a login started before the rename must be restarted (ADR-0097).
 `GET /auth/mock-login` and `POST /auth/mock-login` return `404 not_found.record`
 when `NODE_ENV` is `production` or the configured provider is not `mock`.
 `GET /auth/mock-login` accepts the same optional `return_to` query as

@@ -14,7 +14,7 @@ import { MilestoneHeaderActions } from './MilestoneHeaderActions';
 // #514 B2d — Milestone detail, as the parts a host places in its own frame
 // (`ClosableDetailParts`): the standalone panel and the platform bridge both
 // render these. Timeline section is deliberately omitted: Timeline is Slice C
-// (TaskGantt). Needs a `HostSeamProvider` and the FeedbackOps providers.
+// (TaskGantt). Needs a `HostSeamProvider` and the feature providers.
 export interface MilestoneDetailPanelProps {
   milestoneId: string;
   onClose: () => void;

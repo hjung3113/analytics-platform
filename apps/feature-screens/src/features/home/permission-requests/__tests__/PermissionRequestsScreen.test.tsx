@@ -387,7 +387,7 @@ it('tells the user that business-system access is the platform admin’s', () =>
   mount();
   expect(
     screen.getByText(
-      '업무 시스템 접근 권한은 플랫폼 관리자가 줍니다. 여기서는 FeedbackOps 기능 권한을 요청합니다.',
+      '업무 시스템 접근 권한은 플랫폼 관리자가 줍니다. 여기서는 VOC·Task 등의 기능 권한을 요청합니다.',
     ),
   ).toBeInTheDocument();
 });

@@ -1,7 +1,7 @@
 /**
- * @ap/menu-integration — integration group manifests (FeedbackOps space 연동: 연동 액션 대시보드, Evidence, 엔티티 링크, 커버리지; ADR-0081, #762).
- * The FeedbackOps operator 연동 screens through the bridge; the page keys equal the route tables in `@ap/feature-bridge` (`integrationDashboardRoute`, `evidenceRoute`, `entityLinksRoute`, `coverageRoute`; pinned by the page tests),
- * and the app-declared carry set carries `managedSystem` (#1099b, replacing ADR-0081 decision 4). `focus` is the selected recovery item or Evidence (06 §13); the screens draw their own detail drawer. FeedbackOps' Findings row in 연동 is dropped (ADR-0081 decision 3).
+ * @ap/menu-integration — integration group manifests (feature space 연동: 연동 액션 대시보드, Evidence, 엔티티 링크, 커버리지; ADR-0081, #762).
+ * The feature operator 연동 screens through the bridge; the page keys equal the route tables in `@ap/feature-bridge` (`integrationDashboardRoute`, `evidenceRoute`, `entityLinksRoute`, `coverageRoute`; pinned by the page tests),
+ * and the app-declared carry set carries `managedSystem` (#1099b, replacing ADR-0081 decision 4). `focus` is the selected recovery item or Evidence (06 §13); the screens draw their own detail drawer. the feature screens' Findings row in 연동 is dropped (ADR-0081 decision 3).
  */
 import { lazy } from 'react';
 import { Activity, FileBarChart, Link2, Layers } from 'lucide-react';
@@ -20,7 +20,7 @@ export const manifests: MenuEntry[] = [
     path: '/operations/integration', icon: Activity, permission: 'features:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['focus', 'category', 'presentation', 'history', 'cursor', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
-    component: lazy(() => import('./pages/FoIntegration')),
+    component: lazy(() => import('./pages/FeatureIntegration')),
   },
   {
     id: 'evidence', group: GROUP, label: { ko: 'Evidence', en: 'Evidence' },
@@ -28,7 +28,7 @@ export const manifests: MenuEntry[] = [
     path: '/operations/evidence', icon: FileBarChart, permission: 'features:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['focus', 'source', 'q', 'cursor', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
-    component: lazy(() => import('./pages/FoEvidence')),
+    component: lazy(() => import('./pages/FeatureEvidence')),
   },
   {
     id: 'entity-links', group: GROUP, label: { ko: '엔티티 링크', en: 'Entity links' },
@@ -36,7 +36,7 @@ export const manifests: MenuEntry[] = [
     path: '/operations/entity-links', icon: Link2, permission: 'features:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['status', 'type', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
-    component: lazy(() => import('./pages/FoEntityLinks')),
+    component: lazy(() => import('./pages/FeatureEntityLinks')),
   },
   {
     id: 'coverage', group: GROUP, label: { ko: '커버리지', en: 'Coverage' },
@@ -44,6 +44,6 @@ export const manifests: MenuEntry[] = [
     path: '/operations/coverage', icon: Layers, permission: 'features:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['view', 'area', 'cursor', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
-    component: lazy(() => import('./pages/FoCoverage')),
+    component: lazy(() => import('./pages/FeatureCoverage')),
   },
 ];

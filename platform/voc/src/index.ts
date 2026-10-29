@@ -1,6 +1,6 @@
 /**
- * @ap/menu-voc — voc group manifests (FeedbackOps space VOC: 수신함, Triage, Clusters; ADR-0081, #761).
- * The FeedbackOps operator VOC screens through the bridge; the page keys equal the route tables in `@ap/feature-bridge` (`inboxRoute`, `triageRoute`, `clustersRoute`; pinned by the page tests),
+ * @ap/menu-voc — voc group manifests (feature space VOC: 수신함, Triage, Clusters; ADR-0081, #761).
+ * The feature operator VOC screens through the bridge; the page keys equal the route tables in `@ap/feature-bridge` (`inboxRoute`, `triageRoute`, `clustersRoute`; pinned by the page tests),
  * and the app-declared carry set carries `managedSystem` (#1099b, replacing ADR-0081 decision 4). `focus` is the selected VOC (06 §13).
  */
 import { lazy } from 'react';
@@ -21,7 +21,7 @@ export const manifests: MenuEntry[] = [
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['focus', 'q', 'tab', 'sort', 'severity', 'reporterStatus', 'owner', 'area', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
     navViews: [{ id: 'no-link', label: { ko: '연결 없음', en: 'No link' }, page: { tab: 'no-link' } }],
-    component: lazy(() => import('./pages/FoInbox')),
+    component: lazy(() => import('./pages/FeatureInbox')),
   },
   {
     id: 'triage', group: GROUP, label: { ko: 'Triage', en: 'Triage' },
@@ -33,7 +33,7 @@ export const manifests: MenuEntry[] = [
       { id: 'high', label: { ko: '높음', en: 'High' }, page: { tab: 'high' } },
       { id: 'unassigned', label: { ko: '미배정', en: 'Unassigned' }, page: { tab: 'unassigned' } },
     ],
-    component: lazy(() => import('./pages/FoTriage')),
+    component: lazy(() => import('./pages/FeatureTriage')),
   },
   {
     id: 'clusters', group: GROUP, label: { ko: 'Clusters', en: 'Clusters' },
@@ -41,6 +41,6 @@ export const manifests: MenuEntry[] = [
     path: '/operations/clusters', icon: Layers, permission: 'features:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['focus', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
-    component: lazy(() => import('./pages/FoClusters')),
+    component: lazy(() => import('./pages/FeatureClusters')),
   },
 ];

@@ -1,6 +1,6 @@
 /**
- * @ap/menu-surveys — surveys group manifests (FeedbackOps space Surveys: Survey 관리 and its hidden builder, results and follow-up screens; ADR-0081, #764 p1).
- * The FeedbackOps operator Survey screens through the bridge; the page keys equal the route tables in `@ap/feature-bridge` (`surveysRoute`, `surveyBuilderRoute`, `surveyResultsRoute`, `surveyFollowUpRoute`; pinned by the manifests test),
+ * @ap/menu-surveys — surveys group manifests (feature space Surveys: Survey 관리 and its hidden builder, results and follow-up screens; ADR-0081, #764 p1).
+ * The feature operator Survey screens through the bridge; the page keys equal the route tables in `@ap/feature-bridge` (`surveysRoute`, `surveyBuilderRoute`, `surveyResultsRoute`, `surveyFollowUpRoute`; pinned by the manifests test),
  * and the app-declared carry set carries `managedSystem` (#1099b, replacing ADR-0081 decision 4). `focus` is the selected Survey on the list and the selected response on the follow-up (06 §13). The reporter `설문` menus own `/surveys` and `/surveys/:id/respond`; these paths never alias them.
  */
 import { lazy } from 'react';
@@ -20,7 +20,7 @@ export const manifests: MenuEntry[] = [
     path: '/operations/survey-management', icon: ClipboardList, permission: 'features:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['focus', 'area', 'status', 'follow_up', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
-    component: lazy(() => import('./pages/FoSurveys')),
+    component: lazy(() => import('./pages/FeatureSurveys')),
   },
   {
     id: 'survey-builder', group: GROUP, label: { ko: 'Survey 빌더', en: 'Survey builder' }, navHidden: true, parent: 'survey-management',
@@ -28,7 +28,7 @@ export const manifests: MenuEntry[] = [
     path: '/operations/survey-builder/:surveyId', icon: PencilRuler, permission: 'features:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['area', 'status', 'follow_up', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
-    component: lazy(() => import('./pages/FoSurveyBuilder')),
+    component: lazy(() => import('./pages/FeatureSurveyBuilder')),
   },
   {
     id: 'survey-results', group: GROUP, label: { ko: 'Survey 결과', en: 'Survey results' }, navHidden: true, parent: 'survey-management',
@@ -36,7 +36,7 @@ export const manifests: MenuEntry[] = [
     path: '/operations/survey-results/:surveyId', icon: FileSpreadsheet, permission: 'features:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['area', 'status', 'follow_up', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
-    component: lazy(() => import('./pages/FoSurveyResults')),
+    component: lazy(() => import('./pages/FeatureSurveyResults')),
   },
   {
     id: 'survey-follow-up', group: GROUP, label: { ko: 'Survey 후속 조치', en: 'Survey follow-up' }, navHidden: true, parent: 'survey-management',
@@ -44,6 +44,6 @@ export const manifests: MenuEntry[] = [
     path: '/operations/survey-follow-up/:surveyId', icon: ClipboardCheck, permission: 'features:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['focus', 'area', 'status', 'follow_up', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
-    component: lazy(() => import('./pages/FoSurveyFollowUp')),
+    component: lazy(() => import('./pages/FeatureSurveyFollowUp')),
   },
 ];

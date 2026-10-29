@@ -4,10 +4,10 @@ import { I18nProvider, PlatformProvider, type VocComposeContext } from '@ap/kern
 import { memoryStorage, ToastProbe } from '@ap/kernel/testing';
 import { setFeatureApi } from '@ap/feature-bridge/feature-api';
 import { featureQueryClient } from '@ap/feature-bridge';
-import { json, registry, stubFetch, switchableAdapter, type Call } from '../fo/test-support';
+import { json, registry, stubFetch, switchableAdapter, type Call } from '../feature/test-support';
 import VocCompose from '@ap/feature-bridge/voc-compose-page';
 
-// ProseMirror refuses text in jsdom, so the editor is a textarea (FeedbackOps' own compose tests do the same). FeedbackOps' compose screen takes `RichEditor` from `@ap/ui`.
+// ProseMirror refuses text in jsdom, so the editor is a textarea (the feature screens' own compose tests do the same). the feature screens' compose screen takes `RichEditor` from `@ap/ui`.
 vi.mock('@ap/ui', async importOriginal => ({
   ...(await importOriginal<Record<string, unknown>>()),
   RichEditor: ({ onChange }: { onChange: (doc: unknown) => void }) => (
@@ -65,7 +65,7 @@ beforeEach(() => {
 afterEach(() => { cleanup(); featureQueryClient.clear(); setFeatureApi(null); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 describe('VOC 등록 drawer content', () => {
-  it('V1: without a FeedbackOps API shows 실서버 필요 and requests nothing', () => {
+  it('V1: without a feature API shows 실서버 필요 and requests nothing', () => {
     setFeatureApi(null);
     const calls = stubFetch(handle());
     render(tree(CONTEXT));
@@ -73,7 +73,7 @@ describe('VOC 등록 drawer content', () => {
     expect(calls).toEqual([]);
   });
 
-  describe('with a FeedbackOps API', () => {
+  describe('with a feature API', () => {
     beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost }); });
 
     it('V2: preselects the Managed System the factory maps, then a submit toasts 접수 완료 (default tone), refreshes 내 VOC and calls onSubmitted', async () => {
@@ -92,7 +92,7 @@ describe('VOC 등록 drawer content', () => {
       expect(posted(calls)).toMatchObject({ path: '/api/features/vocs', credentials: 'include' });
     });
 
-    it('V2: a FeedbackOps 401 asks the host to sign in again and shows no toast', async () => {
+    it('V2: a feature 401 asks the host to sign in again and shows no toast', async () => {
       stubFetch(handle({ managedSystems: () => json({ code: 'auth.unauthenticated', message: 'x' }, 401) }));
       render(tree(CONTEXT));
       await waitFor(() => expect(onSessionLost).toHaveBeenCalledTimes(1));

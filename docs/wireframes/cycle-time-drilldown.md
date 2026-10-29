@@ -83,13 +83,13 @@ D = destinationOccurrence {
 | VOC 저장 후 / 취소 → occurrence | VOC 객체는 **vocId**로 식별. 관련 분석/복귀 링크는 returnTarget의 D/C를 재검증해 복원; vocId로 occurrence를 추론하지 않음. 생성 성공을 분석 화면이 추정하지 않음 |
 | occurrence → 느린 실행 / browser back | 진입 직전 등록된 URL 소유 C/P 그대로 재검증·복원. 상세에서 본 객체나 변경한 조건으로 출발 Context를 덮어쓰지 않음. chip, 정렬, 집계 단위 유지; 로컬 줌/brush 복원 약속 없음. 결과 숫자는 재계산으로 달라질 수 있음 |
 
-복귀는 `returnTo` page key로 한다([06](../contract/kernel.md) §6.4): 출발 화면의 앱 내 상대경로 전체 URL이며, 등록된 비상세 메뉴 경로로 매칭되고 그 메뉴의 `pageKeys`로 파싱될 때만 채택하고 아니면 부모 메뉴로 복귀한다. 임의 외부 return URL을 받아 조립하지 않는다. 복귀 상태 직렬화·크기 제한은 Open; Deferred savedViewToken을 임시 해결책으로 쓰지 않는다. VOC 권한이 분석 권한을 부여하지 않으며 이동·저장·복귀 시 서버가 각각 검증한다. 대상 등록 전 "VOC 연결 준비 중", 권한 거부 시 "VOC 생성 권한 없음"으로 구분한다. 구현의 occurrence 상세는 `VOC 생성(예정)` 링크로 VOC 메뉴(내 VOC)에 전역 Context만 전달한다. VOC 생성은 FeedbackOps 연결(#85/#86) 뒤다.
+복귀는 `returnTo` page key로 한다([06](../contract/kernel.md) §6.4): 출발 화면의 앱 내 상대경로 전체 URL이며, 등록된 비상세 메뉴 경로로 매칭되고 그 메뉴의 `pageKeys`로 파싱될 때만 채택하고 아니면 부모 메뉴로 복귀한다. 임의 외부 return URL을 받아 조립하지 않는다. 복귀 상태 직렬화·크기 제한은 Open; Deferred savedViewToken을 임시 해결책으로 쓰지 않는다. VOC 권한이 분석 권한을 부여하지 않으며 이동·저장·복귀 시 서버가 각각 검증한다. 대상 등록 전 "VOC 연결 준비 중", 권한 거부 시 "VOC 생성 권한 없음"으로 구분한다. 구현의 occurrence 상세는 `VOC 생성(예정)` 링크로 VOC 메뉴(내 VOC)에 전역 Context만 전달한다. VOC 생성은 기능 연결(#85/#86) 뒤다.
 
 KPI는 전체 기간 통계, 일별 값은 각 bucket 통계로 서로 단순 평균하지 않는다. P95 tail은 동일 계산 세대에서 C의 적용 모집단 기준이고 동률을 포함하는 `≥` 후보다. P95 정의/동률·미완료 정책은 Open이다. 빈 tail을 데이터 미수집으로 해석하지 않는다. 품질 표시와 Data Trust는 역할이 다르다. 전자는 occurrence에 대한 품질 근거 자리이며 후자는 조회 결과의 신뢰 정보다. `01`은 품질 필드 계약 필요성만 명시하고 `02`에는 특정 품질 필드·타임라인 상세 정의가 없다. 원문에 없는 불량률/결함수/품질점수는 만들지 않는다.
 
 ## 4. LAYOUT BOUNDARY
 
-배치는 구현(`menus/mars/analytics/src/pages`)이 기준이다. 셸 구조·치수는 [06 §7](../contract/layout.md#7-application-shell)/[07](app-shell.md), 공유 표면·폰트는 FeedbackOps 원본, 수치 alignment·표 밀도·pairing은 [DESIGN](../../DESIGN.md#tables)이 소유한다. 차트 데이터 표는 접근성 대체 표현이며 Breakdown Table과 다른 표다.
+배치는 구현(`menus/mars/analytics/src/pages`)이 기준이다. 셸 구조·치수는 [06 §7](../contract/layout.md#7-application-shell)/[07](app-shell.md), 공유 표면·폰트는 기능 원본, 수치 alignment·표 밀도·pairing은 [DESIGN](../../DESIGN.md#tables)이 소유한다. 차트 데이터 표는 접근성 대체 표현이며 Breakdown Table과 다른 표다.
 
 ## 5. CONCEPTUAL COMPONENT MAP
 

@@ -10,7 +10,7 @@
 - **호스트 → 모듈 계약을 `@ap/contracts`에 둔다.** 모듈은 화면 manifest(React 무의존 메타데이터)와 화면 컴포넌트를 내고, 호스트는 화면에 호스트 포트 하나(세션 스냅샷·권한 표시·모듈 상대 내비게이션·page 상태·Context 읽기·조립 설정·언어·알림·오류 보고·구독·해제 신호, 선택 기능으로 플랫폼 서버 조회와 상세 패널 슬롯)를 준다. 모듈 패키지는 `@ap/contracts`만 import하고 Kernel·셸·공통 컴포넌트를 import하지 않는다. 계약에는 정수 버전(`contract`)을 두고 호스트는 모르는 버전과 빠진 필수 기능을 등록 단계에서 거부한다.
 - **한 실행 트리의 history·세션·전역 Context·알림·상세 슬롯 소유자는 호스트 하나다.** 모듈은 자기 라우터·로그인 화면·두 번째 셸을 만들지 않는다. 모듈이 가지는 데이터 캐시는 화면 마운트 범위로 두고 호스트 세션 세대가 바뀌면 버린다.
 - **FeedbackOps는 "한 원본, 두 호스트"로 간다.** FeedbackOps가 화면 원본을 계속 소유하고, 화면을 호스트 포트만 보는 모듈 패키지로 옮긴다. FeedbackOps 독립 앱은 같은 화면을 자기 라우터·세션으로 조립하는 첫 번째 호스트로 남고, 플랫폼 셸은 그 화면을 협업 공간에 등록하는 두 번째 호스트가 된다. 백엔드·권한 판정·Managed System 규칙은 FeedbackOps 소유 그대로다.
-- **탑재는 화면 단위로 순서대로 한다.** 첫 파일럿은 설문 참여·응답(Managed System 범위·상세 패널 없는 사용자용 흐름)이고, 다음이 신고자 VOC 흐름(VOC 등록 → 내 VOC → 신고자 상세)이다 — 이때 플랫폼의 1단계 읽기 화면(내 VOC·설문 응답 이력)이 FeedbackOps 원본 화면으로 바뀐다. 담당자 흐름(triage·Task·Finding)은 그 뒤, 관리·설문 빌더·전체 허브는 독립 앱에만 둔다. 탑재하지 않은 화면은 지금처럼 딥링크로 간다([딥링크 계약](../integration/feedbackops-deeplink.md)).
+- **탑재는 화면 단위로 순서대로 한다.** 첫 파일럿은 설문 참여·응답(Managed System 범위·상세 패널 없는 사용자용 흐름)이고, 다음이 신고자 VOC 흐름(VOC 등록 → 내 VOC → 신고자 상세)이다 — 이때 플랫폼의 1단계 읽기 화면(내 VOC·설문 응답 이력)이 FeedbackOps 원본 화면으로 바뀐다. 담당자 흐름(triage·Task·Finding)은 그 뒤, 관리·설문 빌더·전체 허브는 독립 앱에만 둔다. 탑재하지 않은 화면은 지금처럼 딥링크로 간다([딥링크 계약](../integration/platform-inbound-links.md)).
 - **Managed System은 모듈 소유 page key로 남긴다.** 공간 → Managed System 매핑 표(#81)는 조립 계층이 공급하는 설정값이고, 공간 사이드바의 FeedbackOps 블록은 새 탭 대신 셸 안 이동(`managedSystem` 미리 채움 + `returnTo`)이 된다. 매핑은 권한이 아니다 — 무엇을 볼 수 있는지는 FeedbackOps 서버가 판정한다.
 
 ## Considered Options
@@ -22,7 +22,7 @@
 
 ## 결과
 
-- 채택하면 ADR-0027을 Superseded로 바꾸고, 06 §9.1의 FeedbackOps 항목·15 §6·[저장소 구조](../integration/repository-layout.md) "FeedbackOps 통합 방식"·[딥링크 계약](../integration/feedbackops-deeplink.md)을 이 결정에 맞춰 고친다. 협업 공간의 셸 배치는 보이는 모양이 바뀌므로 `?variant=` 시안 컨펌이 먼저다(루트 AGENTS).
+- 채택하면 ADR-0027을 Superseded로 바꾸고, 06 §9.1의 FeedbackOps 항목·15 §6·[저장소 구조](../integration/repository-layout.md) "FeedbackOps 통합 방식"·[딥링크 계약](../integration/platform-inbound-links.md)을 이 결정에 맞춰 고친다. 협업 공간의 셸 배치는 보이는 모양이 바뀌므로 `?variant=` 시안 컨펌이 먼저다(루트 AGENTS).
 - 플랫폼 일: 호스트 계약 타입(`@ap/contracts`), Kernel의 모듈 등록(경로 접두사·열린 권한·그룹 어휘)과 호스트 포트 구성, 모듈 연결 패키지의 경계 lint. 추적은 [#402](https://github.com/hjung3113/analytics-platform/issues/402).
 - FeedbackOps 일: 화면 모듈 패키지(토큰·primitive는 FeedbackOps가 배포하지 않고 플랫폼 SDK에서 받는다 — ADR-0043이 2026-10-17의 `@fops/ui` 배포·peer 결정을 뒤집음), API 기준 경로 주입(지금 같은 origin 루트 상대 경로, CORS 없음), 라우터 의존 분리, 앱 루트가 주던 것(QueryClient·Toaster·문서 제목·상세 슬롯·`/me` 가드)을 모듈 루트나 포트로. 제안 이슈 [FO#1231](https://github.com/hjung3113/FeedbackOps/issues/1231).
 - 선행 조건: FeedbackOps MVP 릴리스, 같은 사이트 배포(역방향 프록시 또는 하위 도메인 + CORS — #151)와 세션 방식(#150), `@ap/contracts` 배포 경로. 이 조건 전에는 구현을 시작하지 않는다.

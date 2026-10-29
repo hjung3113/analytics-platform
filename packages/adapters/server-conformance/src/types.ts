@@ -77,7 +77,7 @@ export type ServerConformanceHarness = {
    */
   implemented?: readonly PortMethod[];
   /**
-   * False when the server grants no sites yet (`session().scopes` is `[]` — the FeedbackOps backend until site·room
+   * False when the server grants no sites yet (`session().scopes` is `[]` — the feature backend until site·room
    * grants exist, ADR-0069 decision 8). Every check that needs a granted site is then planned as skipped with
    * ` — no site grants` — every check of a Scope-requiring endpoint or action among them (each request carries
    * `context.scopeId`) — so `context.scopeId`, `foreignScopeId` and `ports.otherGrantedScopeId` are placeholders no run

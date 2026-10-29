@@ -7,12 +7,12 @@ import { transformWithEsbuild } from 'vite';
 import { describe, expect, it } from 'vitest';
 
 const UI_ALLOWLIST_SOURCE = new URL('../../../packages/sdk/ui/src/rich-content/allowlist-local.ts', import.meta.url);
-const FEEDBACKOPS_ALLOWLIST_SOURCE = new URL(
+const FEATURE_ALLOWLIST_SOURCE = new URL(
   '../../../packages/feature-shared/src/rich-content/allowlist.ts',
   import.meta.url,
 );
 const UI_FIXTURES_SOURCE = new URL('../../../packages/sdk/ui/src/rich-content/fixtures-local.ts', import.meta.url);
-const FEEDBACKOPS_FIXTURES_SOURCE = new URL(
+const FEATURE_FIXTURES_SOURCE = new URL(
   '../../../packages/feature-shared/src/rich-content/fixtures.ts',
   import.meta.url,
 );
@@ -47,7 +47,7 @@ interface UiAllowlistModule {
   UI_SURFACE_EXTENSION_CAPABILITIES: Readonly<Record<string, readonly string[]>>;
 }
 
-interface FeedbackOpsAllowlistModule {
+interface FeatureAllowlistModule {
   SHARED_SURFACES: readonly string[];
   SHARED_ALLOWLISTS: Readonly<Record<string, SurfaceAllowlist>>;
   SHARED_RICH_CONTENT_EXTENSION_CAPABILITIES: readonly string[];
@@ -60,7 +60,7 @@ interface UiFixturesModule {
   UI_INVALID_RICH_CONTENT_FIXTURES: Readonly<Record<string, unknown>>;
 }
 
-interface FeedbackOpsFixturesModule {
+interface FeatureFixturesModule {
   RICH_CONTENT_ERROR_CODES: readonly string[];
   validDocs: Readonly<Record<string, unknown>>;
   invalidDocs: Readonly<Record<string, unknown>>;
@@ -68,9 +68,9 @@ interface FeedbackOpsFixturesModule {
 
 interface ParitySources {
   uiAllowlist: UiAllowlistModule;
-  feedbackOpsAllowlist: FeedbackOpsAllowlistModule;
+  featureAllowlist: FeatureAllowlistModule;
   uiFixtures: UiFixturesModule;
-  feedbackOpsFixtures: FeedbackOpsFixturesModule;
+  featureFixtures: FeatureFixturesModule;
 }
 
 async function loadTypeScriptSource<T>(sourceUrl: URL, label: string): Promise<T> {
@@ -88,14 +88,14 @@ async function loadTypeScriptSource<T>(sourceUrl: URL, label: string): Promise<T
 }
 
 async function loadParitySources(): Promise<ParitySources> {
-  const [uiAllowlist, feedbackOpsAllowlist, uiFixtures, feedbackOpsFixtures] = await Promise.all([
+  const [uiAllowlist, featureAllowlist, uiFixtures, featureFixtures] = await Promise.all([
     loadTypeScriptSource<UiAllowlistModule>(UI_ALLOWLIST_SOURCE, '@ap/ui allowlist'),
-    loadTypeScriptSource<FeedbackOpsAllowlistModule>(FEEDBACKOPS_ALLOWLIST_SOURCE, 'FeedbackOps allowlist'),
+    loadTypeScriptSource<FeatureAllowlistModule>(FEATURE_ALLOWLIST_SOURCE, 'feature allowlist'),
     loadTypeScriptSource<UiFixturesModule>(UI_FIXTURES_SOURCE, '@ap/ui fixtures'),
-    loadTypeScriptSource<FeedbackOpsFixturesModule>(FEEDBACKOPS_FIXTURES_SOURCE, 'FeedbackOps fixtures'),
+    loadTypeScriptSource<FeatureFixturesModule>(FEATURE_FIXTURES_SOURCE, 'feature fixtures'),
   ]);
 
-  return { uiAllowlist, feedbackOpsAllowlist, uiFixtures, feedbackOpsFixtures };
+  return { uiAllowlist, featureAllowlist, uiFixtures, featureFixtures };
 }
 
 let paritySourcesPromise: Promise<ParitySources> | undefined;
@@ -143,9 +143,9 @@ function normalizeAllowlist(allowlist: SurfaceAllowlist | undefined): unknown {
   };
 }
 
-describe('rich-content allowlist parity with FeedbackOps source', () => {
+describe('rich-content allowlist parity with the feature-screens source', () => {
   it('matches surface names, allowlist rules, and extension-capability tables', async () => {
-    const { uiAllowlist, feedbackOpsAllowlist } = await getParitySources();
+    const { uiAllowlist, featureAllowlist } = await getParitySources();
     // Project every key each side actually exports (not only the original's surface list), so an extra surface
     // on either side shows up as a difference.
     const project = (
@@ -167,23 +167,23 @@ describe('rich-content allowlist parity with FeedbackOps source', () => {
       extensionCapabilities: uiAllowlist.UI_RICH_CONTENT_EXTENSION_CAPABILITIES,
       ...project(uiAllowlist.UI_ALLOWLISTS, uiAllowlist.UI_SURFACE_EXTENSION_CAPABILITIES),
     }).toEqual({
-      surfaces: feedbackOpsAllowlist.SHARED_SURFACES,
-      extensionCapabilities: feedbackOpsAllowlist.SHARED_RICH_CONTENT_EXTENSION_CAPABILITIES,
-      ...project(feedbackOpsAllowlist.SHARED_ALLOWLISTS, feedbackOpsAllowlist.SHARED_SURFACE_EXTENSION_CAPABILITIES),
+      surfaces: featureAllowlist.SHARED_SURFACES,
+      extensionCapabilities: featureAllowlist.SHARED_RICH_CONTENT_EXTENSION_CAPABILITIES,
+      ...project(featureAllowlist.SHARED_ALLOWLISTS, featureAllowlist.SHARED_SURFACE_EXTENSION_CAPABILITIES),
     });
   });
 
-  it('matches the FeedbackOps valid and invalid fixture corpus and error codes', async () => {
-    const { uiFixtures, feedbackOpsFixtures } = await getParitySources();
+  it('matches the feature-screens valid and invalid fixture corpus and error codes', async () => {
+    const { uiFixtures, featureFixtures } = await getParitySources();
 
     expect({
       errorCodes: uiFixtures.UI_RICH_CONTENT_ERROR_CODES,
       validFixtures: uiFixtures.UI_VALID_RICH_CONTENT_FIXTURES,
       invalidFixtures: uiFixtures.UI_INVALID_RICH_CONTENT_FIXTURES,
     }).toEqual({
-      errorCodes: feedbackOpsFixtures.RICH_CONTENT_ERROR_CODES,
-      validFixtures: feedbackOpsFixtures.validDocs,
-      invalidFixtures: feedbackOpsFixtures.invalidDocs,
+      errorCodes: featureFixtures.RICH_CONTENT_ERROR_CODES,
+      validFixtures: featureFixtures.validDocs,
+      invalidFixtures: featureFixtures.invalidDocs,
     });
   });
 });

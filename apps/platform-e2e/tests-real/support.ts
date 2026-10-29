@@ -43,7 +43,7 @@ export const test = base.extend<{ realDatabaseIsolation: void }>({
 
 export const mainHeading = (page: Page) => page.getByRole('main').getByRole('heading', { level: 1 });
 
-/** Match a real FeedbackOps read before navigation so shell rendering cannot satisfy the wait. */
+/** Match a real feature read before navigation so shell rendering cannot satisfy the wait. */
 export function waitForFoRead(
   page: Page,
   path: string,
@@ -72,7 +72,7 @@ export async function expectSuccessfulFoReads(reads: readonly Promise<Response>[
   for (const response of responses) {
     expect(
       response.status(),
-      `Expected a successful FeedbackOps read: ${response.request().method()} ${new URL(response.url()).pathname}`,
+      `Expected a successful feature read: ${response.request().method()} ${new URL(response.url()).pathname}`,
     ).toBeGreaterThanOrEqual(200);
     expect(response.status()).toBeLessThan(300);
   }

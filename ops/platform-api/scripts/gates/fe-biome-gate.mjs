@@ -23,7 +23,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { FO_BIOME_SCOPE, OPS_ROOT, REPO_ROOT } from '../../paths.mjs';
+import { FEATURE_BIOME_SCOPE, OPS_ROOT, REPO_ROOT } from '../../paths.mjs';
 import { parseChangedFiles } from './changed-files.mjs';
 
 const gateDir = dirname(fileURLToPath(import.meta.url));
@@ -33,7 +33,7 @@ const baseArgIndex = process.argv.indexOf('--base');
 const baseRef = baseArgIndex === -1 ? 'origin/main' : process.argv[baseArgIndex + 1];
 const listOnly = process.argv.includes('--list');
 
-// The diff is limited to the FeedbackOps paths of the path map (explicit pathspecs, repository-root relative), so
+// The diff is limited to the feature paths of the path map (explicit pathspecs, repository-root relative), so
 // platform files never enter the list. Biome runs from the tool package, where biome.json lives.
 const git = (...args) => {
   const run = spawnSync('git', args, { cwd: repoRoot, encoding: 'utf8' });
@@ -46,9 +46,9 @@ const git = (...args) => {
 
 const base = git('merge-base', 'HEAD', baseRef);
 // Pure moves (R100) keep their content and are not "changed"; see changed-files.mjs. No pathspec on the diff: a move
-// from outside FO_BIOME_SCOPE would lose its old path and read as an add. The scope is applied to the result.
+// from outside FEATURE_BIOME_SCOPE would lose its old path and read as an add. The scope is applied to the result.
 const inScope = (path) =>
-  FO_BIOME_SCOPE.some((scope) => path === scope || path.startsWith(`${scope.replace(/\/$/, '')}/`));
+  FEATURE_BIOME_SCOPE.some((scope) => path === scope || path.startsWith(`${scope.replace(/\/$/, '')}/`));
 const changed = parseChangedFiles(
   git('diff', '--name-status', '-M', '--diff-filter=ACMR', base, 'HEAD'),
 )

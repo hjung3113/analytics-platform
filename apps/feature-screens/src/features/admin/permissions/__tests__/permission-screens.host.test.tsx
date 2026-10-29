@@ -88,7 +88,7 @@ type Call = { href: string; options: { replace?: boolean } | undefined };
 let calls: Call[] = [];
 
 function record(href: string): Record<string, string> {
-  return Object.fromEntries(new URL(href, 'http://feedbackops.local').searchParams);
+  return Object.fromEntries(new URL(href, 'http://platform.local').searchParams);
 }
 
 function mount(

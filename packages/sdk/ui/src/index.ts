@@ -27,7 +27,7 @@ export { DetailPanelSlotProvider, useDetailPanelSlot, useDetailPanelSlotHost } f
 export { SurfacePauseScope, useSurfacePaused } from './SurfacePauseScope';
 
 // Layout shells (ADR-0020 — exactly three shells), panel, toolbar, forms, feedback: moved from FeedbackOps (#442, ADR-0046).
-// `useDetailPanelContent` is the content registrant of the same slot; FeedbackOps' `DetailPanelSlotContext` is not moved (ADR-0047).
+// `useDetailPanelContent` is the content registrant of the same slot; the feature screens' `DetailPanelSlotContext` is not moved (ADR-0047).
 export { PageShell, type PageShellProps } from './layout/PageShell';
 export { ListShell, type ListShellProps } from './layout/ListShell';
 export { WorkbenchShell, type WorkbenchShellProps } from './layout/WorkbenchShell';
@@ -76,8 +76,8 @@ export { DetailPanelHeaderActions, type DetailPanelHeaderActionsProps } from './
 export { DetailPanelSectionNav, type DetailPanelSectionNavProps, type PanelSection } from './panel/DetailPanelSectionNav';
 export { StatusBadgeFrame, type StatusBadgeFrameProps, type StatusBadgeAppearance, type StatusBadgeTone } from './badges/StatusBadgeFrame';
 
-// Domain-neutral FeedbackOps UI retained in #443 (ADR-0046); domain-coupled parts returned by ADR-0050.
-// Rich content (ADR-0046, restored by ADR-0052): editor, renderer and sanitizer. The sanitizer allowlist original is FeedbackOps' backend; `apps/platform-web/src/rich-content-allowlist-parity.test.ts` keeps this copy equal.
+// Domain-neutral feature UI retained in #443 (ADR-0046); domain-coupled parts returned by ADR-0050.
+// Rich content (ADR-0046, restored by ADR-0052): editor, renderer and sanitizer. The sanitizer allowlist original is the platform API; `apps/platform-web/src/rich-content-allowlist-parity.test.ts` keeps this copy equal.
 export { RichEditor, type RichEditorProps, type RichEditorSurface, type RichEditorToolbarApi, type RichEditorAttachmentResult, type TipTapDoc } from './rich-content/RichEditor';
 export { AttachButton, type AttachButtonProps } from './rich-content/toolbar/AttachButton';
 export type { Editor as TipTapEditor } from '@tiptap/react';
@@ -91,8 +91,8 @@ export { UserChip, type UserChipProps } from './identity/UserChip';
 export { ObjectRow, type ObjectRowProps, type ObjectRowDensity, type ObjectRowSeverity } from './data/ObjectRow';
 export { PermissionBlockedPanel, type PermissionBlockedPanelProps, type PermissionState } from './permissions/PermissionBlockedPanel';
 
-// FeedbackOps consumption surface (#466, ADR-0046): names FeedbackOps' `@ap/feature-ui` exports that the platform itself does not use yet.
-// Opened because FeedbackOps is now their consumer (the "open when a consumer appears" condition in AGENTS.md).
+// Feature-screen consumption surface (#466, ADR-0046): names the feature screens' `@ap/feature-ui` exports that the platform itself does not use yet.
+// Opened because the feature screens are now their consumer (the "open when a consumer appears" condition in AGENTS.md).
 export * from './components/shadcn/alert-dialog';
 export * from './components/shadcn/avatar';
 export * from './components/shadcn/card';

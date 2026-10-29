@@ -22,7 +22,7 @@ const ENGINEER_EXCLUDED: readonly string[] = ['console:access', 'features:access
 const VIEWER_GRANTS: readonly string[] = ['platform:view', 'metrics:view', 'notice:view', 'voc:view'];
 
 /**
- * The three roles for one permission vocabulary: admin holds all of it, engineer all but the console and FeedbackOps
+ * The three roles for one permission vocabulary: admin holds all of it, engineer all but the console and feature
  * gates, viewer only its explicit grants that the vocabulary contains. Injecting a vocabulary never widens viewer.
  */
 export function createUsers(vocabulary: readonly Permission[]): Record<RoleId, User> {

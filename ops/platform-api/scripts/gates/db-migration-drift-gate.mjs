@@ -9,11 +9,11 @@ import { cpSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 
-import { FO_BACKEND, REPO_ROOT, foPath } from '../../paths.mjs';
+import { FEATURE_BACKEND, REPO_ROOT, featurePath } from '../../paths.mjs';
 
 // Paths come from ops/platform-api/paths.mjs; commands run from the repository root.
 const root = REPO_ROOT;
-const backendDir = foPath(FO_BACKEND);
+const backendDir = featurePath(FEATURE_BACKEND);
 const migrationsDir = join(backendDir, 'migrations');
 const journalPath = join(migrationsDir, 'meta', '_journal.json');
 

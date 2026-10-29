@@ -155,7 +155,7 @@ export interface TaskBoardScreenProps {
   ) => React.ReactNode;
 }
 
-/** The board's slice of the `/tasks` search as FeedbackOps strings. */
+/** The board's slice of the `/tasks` search as feature strings. */
 function validateBoardSearch(raw: unknown) {
   const { q, managedSystem, param, public_update } = validateTasksSearch(raw);
   return { q, managedSystem, param, public_update };

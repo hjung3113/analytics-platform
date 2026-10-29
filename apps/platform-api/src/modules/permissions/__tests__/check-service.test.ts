@@ -64,7 +64,7 @@ describe.skipIf(!runIntegration)('checkCapability', () => {
       .values({
         workspaceId: WORKSPACE_ID,
         externalId: tempExternalId,
-        email: `${tempExternalId}@feedbackops.local`,
+        email: `${tempExternalId}@platform.local`,
         displayName: 'Permcheck Test User',
         roleLevel: 'user',
         actorType: 'internal_member',

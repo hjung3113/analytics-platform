@@ -1,4 +1,4 @@
-// TriageScreen.writes.test.tsx — #761 t: every URL write of the triage screen is a complete FeedbackOps href through
+// TriageScreen.writes.test.tsx — #761 t: every URL write of the triage screen is a complete feature href through
 // the host seam. Each write carries the whole current search (managedSystem, returnTo, …) and changes only its own keys.
 
 import { registerTriageTestHost } from '@/test/triage-host';

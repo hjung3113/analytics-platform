@@ -71,7 +71,7 @@ describe('EChart lazy chunk readiness (P1)', () => {
 });
 
 describe('chart text tokens (#193)', () => {
-  it('uses the FeedbackOps font fallback without the removed Noto family', () => {
+  it('uses the feature-ui font fallback without the removed Noto family', () => {
     expect(baseTextStyle.fontFamily).toContain('Pretendard Variable');
     expect(baseTextStyle.fontFamily).not.toContain('Noto');
   });

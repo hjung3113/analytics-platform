@@ -25,10 +25,10 @@ set -euo pipefail
 ops_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # shellcheck disable=SC1091
 . "$ops_root/paths.sh"
-cd "$FO_REPO_ROOT"
+cd "$FEATURE_REPO_ROOT"
 
 # Root scripts of the @ap/platform-api-ops package (ops/platform-api/package.json); pnpm runs them from that directory.
-fo() { pnpm -s --filter @ap/platform-api-ops run "$@"; }
+feature_ops() { pnpm -s --filter @ap/platform-api-ops run "$@"; }
 
 step() {
   printf '\n==> %s\n' "$*"
@@ -43,7 +43,7 @@ stage_static() {
     echo "gate.sh static: unknown argument $1" >&2
     exit 2
   fi
-  step fo feature:typecheck
+  step feature_ops feature:typecheck
   step stage_static_extra
   step env FEATURE_LINT_BASE="${base:-${FEATURE_LINT_BASE:-origin/main}}" pnpm --filter @ap/platform-api-ops lint
 }
@@ -51,13 +51,13 @@ stage_static() {
 # Unified root typecheck/lint/test already cover package suites and production boundaries.
 # This stage contains only additional gates required by CI.
 stage_static_extra() {
-  step node "$FO_OPS/scripts/check-boundaries.test.mjs"
-  step node "$FO_OPS/scripts/test-integration.test.mjs"
-  step node "$FO_OPS/scripts/release/release-identity.test.mjs"
-  step node "$FO_OPS/scripts/db/cutover-0076.test.mjs"
+  step node "$FEATURE_OPS/scripts/check-boundaries.test.mjs"
+  step node "$FEATURE_OPS/scripts/test-integration.test.mjs"
+  step node "$FEATURE_OPS/scripts/release/release-identity.test.mjs"
+  step node "$FEATURE_OPS/scripts/db/cutover-0076.test.mjs"
   step node apps/platform-e2e/tests-real/database-safety.test.ts
-  step fo gate:db-migration-drift
-  step fo gate:fe-typecheck
+  step feature_ops gate:db-migration-drift
+  step feature_ops gate:fe-typecheck
 }
 
 stage_unit() {
@@ -71,12 +71,12 @@ stage_integration() {
   local admin_url host port
   # Validate the EFFECTIVE target before any connection (scripts/db/pg-target.mjs): query overrides, PGPORT defaults
   # and zero-padded ports must not hide the development database from the check below.
-  admin_url="$(PG_TARGET_URL="$raw_admin_url" node "$FO_OPS/scripts/db/pg-target.mjs" canonical PG_TARGET_URL)" || {
+  admin_url="$(PG_TARGET_URL="$raw_admin_url" node "$FEATURE_OPS/scripts/db/pg-target.mjs" canonical PG_TARGET_URL)" || {
     echo "gate.sh integration: refusing CI_PG_ADMIN_URL (see the diagnosis above)" >&2
     exit 2
   }
-  host="$(PG_TARGET_URL="$admin_url" node "$FO_OPS/scripts/db/pg-target.mjs" part PG_TARGET_URL host)"
-  port="$(PG_TARGET_URL="$admin_url" node "$FO_OPS/scripts/db/pg-target.mjs" part PG_TARGET_URL port)"
+  host="$(PG_TARGET_URL="$admin_url" node "$FEATURE_OPS/scripts/db/pg-target.mjs" part PG_TARGET_URL host)"
+  port="$(PG_TARGET_URL="$admin_url" node "$FEATURE_OPS/scripts/db/pg-target.mjs" part PG_TARGET_URL port)"
   # 5434 is the development database (docker-compose.dev.yml); this stage truncates.
   if [ "$port" = "5434" ]; then
     echo "gate.sh integration: refusing port 5434 (the development database)" >&2
@@ -85,13 +85,13 @@ stage_integration() {
   # psql and the cutover must connect where the check above looked.
   unset PGHOST PGHOSTADDR PGPORT PGUSER PGDATABASE PGSERVICE PGSERVICEFILE PGOPTIONS
 
-  step psql "$admin_url" -X -q -v ON_ERROR_STOP=1 -f "$FO_OPS/scripts/db/init.sql"
+  step psql "$admin_url" -X -q -v ON_ERROR_STOP=1 -f "$FEATURE_OPS/scripts/db/init.sql"
 
   local env_file
   env_file="$(mktemp)"
   # Expanded now: the EXIT trap runs after this function's locals are gone.
   trap "rm -f '$env_file'" EXIT
-  grep -Ev '^DATABASE_URL(_MIGRATE)?=' "$FO_OPS/.env.example" > "$env_file"
+  grep -Ev '^DATABASE_URL(_MIGRATE)?=' "$FEATURE_OPS/.env.example" > "$env_file"
   {
     echo "DATABASE_URL=postgres://platform_app:platform_app@$host:$port/platform"
     echo "DATABASE_URL_MIGRATE=postgres://platform_migrate:platform_migrate@$host:$port/platform"
@@ -104,7 +104,7 @@ stage_integration() {
     # shellcheck disable=SC1090
     . "$env_file"
     set +a
-    step env CUTOVER_ADMIN_URL="$admin_url" bash "$FO_OPS/scripts/db/cutover-0076-platform-identity.sh" all
+    step env CUTOVER_ADMIN_URL="$admin_url" bash "$FEATURE_OPS/scripts/db/cutover-0076-platform-identity.sh" all
   )
   step env PLATFORM_API_ENV_FILE="$env_file" pnpm --filter @ap/platform-api test:integration
 }

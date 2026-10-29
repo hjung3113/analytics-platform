@@ -6,7 +6,7 @@ import { manifests } from './index';
 export const { registry, mountAt } = createFeatureMenuHarness({ manifests, homeMenuId: 'integration', group: { id: 'integration', label: { ko: '연동', en: 'Integration' }, icon: Boxes } });
 
 /**
- * Loads the lazy page modules (and the FeedbackOps screens behind them) before a file's first mount: a cold import can take
+ * Loads the lazy page modules (and the feature screens behind them) before a file's first mount: a cold import can take
  * seconds on CI, which would otherwise count against the first test's `findBy` wait.
  */
-export const warmPages = () => Promise.all([import('./pages/FoIntegration'), import('./pages/FoEvidence'), import('./pages/FoCoverage'), import('./pages/FoEntityLinks')]);
+export const warmPages = () => Promise.all([import('./pages/FeatureIntegration'), import('./pages/FeatureEvidence'), import('./pages/FeatureCoverage'), import('./pages/FeatureEntityLinks')]);

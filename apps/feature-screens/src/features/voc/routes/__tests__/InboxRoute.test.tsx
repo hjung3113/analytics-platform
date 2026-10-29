@@ -1,7 +1,7 @@
 // InboxRoute.test.tsx — unit tests for InboxScreen (C9 of Slice 3 #20, bridge-safe in #761 i).
 //
 // Strategy: mount InboxScreen under a HostSeamProvider whose search is `searchState` and whose
-// navigate is a spy taking the complete FeedbackOps href and the replace flag. The detail the
+// navigate is a spy taking the complete feature href and the replace flag. The detail the
 // host renders for the selected VOC is a stub.
 // Asserting:
 //   - 3 mocked VocList rows render
@@ -275,9 +275,9 @@ function InboxTestHarness({ view }: { view: 'inbox' | 'my' }) {
   );
 }
 
-/** One seam navigation: the FeedbackOps href split into its path and (raw string) search, and the replace flag. */
+/** One seam navigation: the feature href split into its path and (raw string) search, and the replace flag. */
 function navigationOf([href, options]: [string, { replace?: boolean } | undefined]) {
-  const url = new URL(href, 'http://feedbackops.local');
+  const url = new URL(href, 'http://platform.local');
   return {
     to: url.pathname,
     search: Object.fromEntries(url.searchParams) as Record<string, string>,

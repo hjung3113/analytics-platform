@@ -91,7 +91,7 @@ function injectFetch(app: FastifyInstance, jar: Map<string, string>): typeof fet
     const signal = init.signal ?? undefined;
     const aborted = () => new DOMException('The operation was aborted.', 'AbortError');
     if (signal?.aborted) throw aborted();
-    const url = new URL(String(input), 'http://feedbackops.test');
+    const url = new URL(String(input), 'http://platform-api.test');
     const headers = Object.fromEntries(new Headers(init.headers));
     const cookie = [...jar].map(([name, value]) => `${name}=${value}`).join('; ');
     if (cookie) headers.cookie = cookie;
@@ -146,7 +146,7 @@ async function adapterRoutes(app: FastifyInstance, jar: Map<string, string>) {
   const real = injectFetch(app, jar);
   let log: RouteProbe[] = [];
   const recording: typeof fetch = async (input, init = {}) => {
-    const url = new URL(String(input), 'http://feedbackops.test');
+    const url = new URL(String(input), 'http://platform-api.test');
     const method = (init.method ?? 'GET') as 'GET' | 'POST';
     log.push({ method, url: `${url.pathname}${url.search}` });
     if (url.pathname === '/api/v1/platform/bootstrap') return real(input, init);
@@ -196,7 +196,7 @@ async function served(app: FastifyInstance, probe: RouteProbe): Promise<boolean>
   return res.statusCode !== 404;
 }
 
-// Runs without a database: the FO source cannot import the contract constant (rule 11), so it mirrors it.
+// Runs without a database: the screen source cannot import the contract constant (rule 11), so it mirrors it.
 it('mirrors the contract entityAudit page size', () => {
   expect(ENTITY_AUDIT_PAGE_MAX).toBe(CONTRACT_ENTITY_AUDIT_PAGE_MAX);
 });
@@ -396,7 +396,7 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
     context: { scopeId: 'no-site', from: '2026-10-01T00:00:00', to: '2026-10-02T00:00:00' },
     foreignScopeId: 'no-foreign-site',
     ports: {
-      // FeedbackOps destinations are siteless (ADR-0069 decision 9). A Finding is read by the
+      // Feature destinations are siteless (ADR-0069 decision 9). A Finding is read by the
       // Finding detail rule, which every holder of features:access with finding.read passes.
       entity: { ref: findingRef, permission: 'features:access' },
       annotation: {

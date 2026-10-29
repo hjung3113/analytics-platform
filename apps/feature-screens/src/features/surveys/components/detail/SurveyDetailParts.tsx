@@ -275,7 +275,7 @@ function classifySurveyDetailError(error: unknown): SurveyDetailErrorState {
 // ── Hook ─────────────────────────────────────────────────────────────────────
 
 /**
- * The Survey detail as `DetailParts`. Needs a `HostSeamProvider` (links, notices, title) and the FeedbackOps providers.
+ * The Survey detail as `DetailParts`. Needs a `HostSeamProvider` (links, notices, title) and the feature providers.
  */
 export function useSurveyDetailParts({
   surveyId,

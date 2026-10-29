@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
 import { setFeatureApi } from '@ap/feature-bridge/feature-api';
 import { featureQueryClient } from '@ap/feature-bridge';
-import { ID_A, ID_B, listOf, mount, notification, stubFetch, switchableAdapter, json } from '../fo/test-support';
+import { ID_A, ID_B, listOf, mount, notification, stubFetch, switchableAdapter, json } from '../feature/test-support';
 
 beforeEach(() => {
   vi.stubGlobal('localStorage', memoryStorage());
@@ -11,8 +11,8 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); setFeatureApi(null); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
-describe('Notifications without a FeedbackOps API (mock preview)', () => {
-  it('shows 실서버 필요, mounts nothing from FeedbackOps and requests nothing', () => {
+describe('Notifications without a feature API (mock preview)', () => {
+  it('shows 실서버 필요, mounts nothing from feature and requests nothing', () => {
     setFeatureApi(null);
     const calls = stubFetch(() => listOf());
     mount(switchableAdapter().adapter);
@@ -23,7 +23,7 @@ describe('Notifications without a FeedbackOps API (mock preview)', () => {
   });
 });
 
-describe('Notifications through the FeedbackOps bridge', () => {
+describe('Notifications through the feature bridge', () => {
   const onSessionLost = vi.fn();
   beforeEach(() => { onSessionLost.mockReset(); setFeatureApi({ basePath: '/api/features', onSessionLost }); });
 

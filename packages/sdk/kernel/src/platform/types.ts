@@ -17,18 +17,18 @@ export type ToastOptions = { action?: ToastAction; durationMs?: number };
 /** The undo window: an action toast without `durationMs` stays until dismissed (06 Toast), so an undo passes this essential time limit (#946 Q8). */
 export const UNDO_WINDOW_MS = 8000;
 /**
- * FeedbackOps entry the shell draws for one space (ADR-0028, ADR-0072 decision 5). The app supplies the icon; `key` is only a React key,
+ * Feature entry the shell draws for one space (ADR-0028, ADR-0072 decision 5). The app supplies the icon; `key` is only a React key,
  * the shell never branches on it. It opens a registered menu in the same tab through the Context Link helper (ADR-0081 decision 7, #760):
  * only `page` and `returnTo` are carried, never the global Context. The shell draws it only while `resolveLink(...).allowed`.
  */
 export type FeatureEntry = { key: string; label: Text; menuId: string; page?: Record<string, string>; icon: LucideIcon };
 /**
- * Space-scoped FeedbackOps entries from the app's Managed System mapping (ADR-0045).
+ * Space-scoped feature entries from the app's Managed System mapping (ADR-0045).
  * `entriesFor` returns null for a space without a mapping; an absent slot draws no block.
  */
 export type FeatureSlot = {
   entriesFor: (spaceId: SpaceId) => readonly FeatureEntry[] | null;
-  /** Block gate: the shell draws the FeedbackOps block only while the user holds it (ADR-0081 decision 8). Absent = the block is not gated. */
+  /** Block gate: the shell draws the feature block only while the user holds it (ADR-0081 decision 8). Absent = the block is not gated. */
   permission?: Permission;
 };
 /** A business system that is announced but cannot be entered yet. Display only — not in the Registry, no permission, no menu (ADR-0042). */
@@ -105,7 +105,7 @@ export type HostPlatform = {
   queryDraft: QueryDraft;
   queryHistory: QueryHistory;
   queryHistoryStore?: QueryHistoryStore;
-  /** Host-only (never on `MenuPlatform`, ADR-0076). Not the FeedbackOps `savedViewsSlot` of the fo-bridge, which is a sidebar slot. */
+  /** Host-only (never on `MenuPlatform`, ADR-0076). Not the feature-bridge `savedViewsSlot`, which is a sidebar slot. */
   savedViewStore?: SavedViewStore;
   queryPolicy: { ready: boolean; idle: boolean; missing: readonly QueryMissing[] };
   equipmentAxes: readonly EquipmentAxisDescriptor[];

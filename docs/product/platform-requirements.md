@@ -75,8 +75,8 @@
 | 1 | 어느 업무 시스템의 분석 화면에서 지표가 튄 구간을 본다. 이 숫자가 잠정인지, 데이터가 언제까지 들어왔는지 같이 본다 | R1.1, R2.1–R2.3 | 동작 |
 | 2 | 원인 설비까지 내려가 상세를 연다. 처음 화면으로 돌아오면 조건이 그대로다 | R1.3, R3.1–R3.3 | 동작 |
 | 3 | 지난달과 이번 달을 같은 차트에서 비교하고, 판단을 차트 주석으로 남긴다 | R3.2, R3.4 | 동작 |
-| 4 | 그 화면에서 바로 VOC를 낸다. 그 업무 시스템으로 좁혀 열리고, 지금 화면 주소가 같이 간다 | R5.1 | 링크까지 동작. VOC 처리 화면은 FeedbackOps(별도 제품) |
-| 5 | FeedbackOps에서 개선 Task로 이어지고, 담당자는 Task의 링크로 같은 화면·같은 조건에 돌아온다 | R5.2 | 링크 계약 동작. 실제 연결은 사내 SSO 뒤(#150) |
+| 4 | 그 화면에서 바로 VOC를 낸다. 그 업무 시스템으로 좁혀 열리고, 지금 화면 주소가 같이 간다 | R5.1 | 링크까지 동작. VOC 처리 화면은 기능(별도 제품) |
+| 5 | 기능에서 개선 Task로 이어지고, 담당자는 Task의 링크로 같은 화면·같은 조건에 돌아온다 | R5.2 | 링크 계약 동작. 실제 연결은 사내 SSO 뒤(#150) |
 | 6 | 개선 뒤 같은 지표를 이전 기간과 비교해 효과를 확인한다. 분석 보드에 개선 전·후를 나란히 둔다 | R3.2, R4.1 | 비교와 분석 보드 모두 동작 |
 | 7 | 운영자는 누가 무엇을 바꿨는지 변경 감사에서 확인한다 | R6.2 | 동작 |
 
@@ -134,9 +134,9 @@
 
 | ID | 요구 | 없으면 | 플랫폼이 보장하는 것 | 상태 | 근거 |
 | --- | --- | --- | --- | --- | --- |
-| R5.1 | 본 자리에서 바로 알린다 | 화면을 캡처해 메일·메신저로 따로 신고한다 | 업무 시스템마다 그 시스템으로 좁힌 VOC 등록·목록 진입 링크. 지금 화면 주소가 같이 간다 | 동작(링크). 레일 `VOC 등록` 드로어가 앱에 연결됐다(#727, FeedbackOps 작성 화면은 실서버에서만; ADR-0070) | [ADR-0027](../adr/0027-feedbackops-stays-standalone-entry-links.md), [ADR-0045](../adr/0045-feedbackops-entry-link-mapping-and-scope.md), [ADR-0066](../adr/0066-feedbackops-merges-into-platform.md), [ADR-0070](../adr/0070-global-features-platform-menu-and-voc-drawer.md) |
-| R5.2 | 개선에서 원래 화면으로 돌아온다 | Task를 받은 담당자가 문제 화면을 다시 찾는다 | FeedbackOps에서 원래 화면·조건으로 돌아오는 링크 계약 | 동작(계약·링크, 양쪽). 실제 연결은 SSO 공유 뒤. 복귀 링크 표시는 FeedbackOps 배포의 허용 origin 설정(`PLATFORM_RETURN_ORIGINS`) | [FeedbackOps 딥링크](../integration/feedbackops-deeplink.md), #448, #150 |
-| R5.3 | 내 VOC가 어떻게 됐는지 안다 | 처리 상태를 담당자에게 물어본다 | 내 VOC 목록과 상태(FeedbackOps 상태 이름 그대로) | 진행 중. 구현(#654): FeedbackOps 부품으로 신고자 관점 목록·상세를 전역 기능으로 올렸다(읽기 전용, 로그인한 사용자 본인의 VOC만; 실서버에서 동작하고 mock은 제공하지 않아 mock에서는 `실서버 필요`; ADR-0066, ADR-0071) | #594, #654, #234 |
+| R5.1 | 본 자리에서 바로 알린다 | 화면을 캡처해 메일·메신저로 따로 신고한다 | 업무 시스템마다 그 시스템으로 좁힌 VOC 등록·목록 진입 링크. 지금 화면 주소가 같이 간다 | 동작(링크). 레일 `VOC 등록` 드로어가 앱에 연결됐다(#727, 기능 작성 화면은 실서버에서만; ADR-0070) | [ADR-0027](../adr/0027-feedbackops-stays-standalone-entry-links.md), [ADR-0045](../adr/0045-feedbackops-entry-link-mapping-and-scope.md), [ADR-0066](../adr/0066-feedbackops-merges-into-platform.md), [ADR-0070](../adr/0070-global-features-platform-menu-and-voc-drawer.md) |
+| R5.2 | 개선에서 원래 화면으로 돌아온다 | Task를 받은 담당자가 문제 화면을 다시 찾는다 | 기능에서 원래 화면·조건으로 돌아오는 링크 계약 | 동작(계약·링크, 양쪽). 실제 연결은 SSO 공유 뒤. 복귀 링크 표시는 기능 배포의 허용 origin 설정(`PLATFORM_RETURN_ORIGINS`) | [플랫폼 인바운드 링크](../integration/platform-inbound-links.md), #448, #150 |
+| R5.3 | 내 VOC가 어떻게 됐는지 안다 | 처리 상태를 담당자에게 물어본다 | 내 VOC 목록과 상태(기능 상태 이름 그대로) | 진행 중. 구현(#654): 기능 부품으로 신고자 관점 목록·상세를 전역 기능으로 올렸다(읽기 전용, 로그인한 사용자 본인의 VOC만; 실서버에서 동작하고 mock은 제공하지 않아 mock에서는 `실서버 필요`; ADR-0066, ADR-0071) | #594, #654, #234 |
 | R5.4 | 공지는 한 곳에서 | 공지가 시스템마다 다르다 | 공지·내 VOC는 업무 시스템 밖의 공통 화면 | 홈 공지 칸은 동작(예시 데이터). 실서버 모드에서는 메뉴 데이터 서버가 아직 없어 이 칸이 오류로 보인다(사내 서버 연결 #154). 공지 목록(`/notices`) 화면 부품은 아직 없다 | [ADR-0028](../adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md) |
 | R5.5 | 개선 효과를 숫자로 본다 | 개선이 효과가 있었는지 감으로 말한다 | 같은 지표를 개선 전·후 기간으로 비교(R3.2), 보드에 나란히(R4.1). 도입 효과 자체를 잴 기준선은 따로 정한다 | 비교는 동작. 기준선은 결정 대기 | #233 |
 
@@ -184,11 +184,11 @@ SDK는 플랫폼에 올릴 앱이 지키는 **계약**이면서, 앱이 자기 �
 
 | ID | 보장 | 이득 | 상태 | 근거 |
 | --- | --- | --- | --- | --- |
-| R9.1 | 같은 디자인 시스템 하나 | 앱마다 버튼·표·패널 모양이 달라지지 않는다. 디자인 결정의 원본이 하나라, 고친 것은 소비자가 태그를 올려 받는다 | 동작 — FeedbackOps가 이미 SDK UI(`@ap/ui`)를 받아 쓴다(전환 뒤 시각 비교 변화 없음) | [ADR-0046](../adr/0046-design-system-source-moves-to-platform-whole-package.md), [ADR-0052](../adr/0052-rich-content-stays-in-the-sdk.md) |
+| R9.1 | 같은 디자인 시스템 하나 | 앱마다 버튼·표·패널 모양이 달라지지 않는다. 디자인 결정의 원본이 하나라, 고친 것은 소비자가 태그를 올려 받는다 | 동작 — 기능이 이미 SDK UI(`@ap/ui`)를 받아 쓴다(전환 뒤 시각 비교 변화 없음) | [ADR-0046](../adr/0046-design-system-source-moves-to-platform-whole-package.md), [ADR-0052](../adr/0052-rich-content-stays-in-the-sdk.md) |
 | R9.2 | 앱이 선언하고 호스트가 주는 계약 | 앱은 manifest(화면·권한·필요 기능·계약 버전)를 내고, 플랫폼은 세션·조건 읽기·이동·알림·오류 보고를 주고, 선택 기능으로 서버 쓰기(`write`)도 호스트가 대신한다(멱등 키·Scope 게이트·쓰기 뒤 다시 읽기, ADR-0054). 플랫폼 내부를 import하지 않아 플랫폼이 바뀌어도 앱이 깨지지 않는다 | 동작 — 계약 1판(등록 검사·화면 렌더·호스트 포트)을 계약 검사용 고정 모듈로 검증하고, 첫 외부 모듈 EV `eqv`(Top View·Focus)를 릴리스 tarball로 mock 조립에 탑재했다(#801, `apps/platform-web/src/modules.ts`). 실서버 연결과 나머지 편입은 #332 이후. 계약 패키지(`@ap/contracts`)는 다른 SDK 패키지와 함께 `sdk-v0.12.0`(2026-10-23) GitHub Release의 tarball로 발행했다([git 태그 소비](../integration/sdk-git-tag-consumption.md)). 쓰기 포트는 R9.7 비고와 같은 상태(예시 데이터 기준) | [ADR-0053](../adr/0053-host-module-contract-v1.md), [탑재 설계](../integration/platform-hosting-design.md) |
 | R9.3 | 등록할 때 잘못을 막는다 | 계약 버전이 다르거나, 필요한 기능을 호스트가 못 주거나, 권한 이름이 다른 앱과 겹치면 사용자가 보기 전에 등록이 실패한다 | 동작(고정 모듈로 검증). 모듈 조회의 모듈 권한 선언은 #492 | [ADR-0053](../adr/0053-host-module-contract-v1.md), #492 |
 | R9.4 | 화면 사이 일을 앱이 다시 만들지 않는다 | 앱이 올라오는 순간 R1–R6(조건 유지, 주소, 신뢰 표시, 상태 화면, 권한, 감사, 활용률)을 받는다 | 플랫폼 안 화면은 동작. 다른 저장소 앱은 EV mock 조립 탑재(#801) 외에는 나머지 편입 뒤(#332) | §3.1–§3.6 |
-| R9.5 | 서버 계약 + 선택해서 쓰는 참조 구현 | SDK는 백엔드 프레임워크를 강요하지 않는다. 계약 산출물·적합성 준수는 필수이고 참조 구현 채택은 선택이다([ADR-0096](../adr/0096-contract-schemas-zod-source-and-reference-implementations.md)) | 계약·적합성 묶음 동작(지금은 mock 어댑터를 판정). HTTP 실어댑터(`@ap/http-adapter`)와 참조 서버(FeedbackOps 백엔드 플랫폼 포트, #620–#623) 동작. `@ap/contract-schemas` 및 JSON Schema·endpoints·vocab 자산 완료(#1086). FastAPI/Fastify × PostgreSQL/MSSQL 참조 구현은 아직 구현 안 함(#531). 실서버 대상 적합성 하네스는 #154 | [SDK 포괄 목록](../integration/sdk-coverage-inventory.md) §6, [ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md), [ADR-0096](../adr/0096-contract-schemas-zod-source-and-reference-implementations.md), #149, #154 |
+| R9.5 | 서버 계약 + 선택해서 쓰는 참조 구현 | SDK는 백엔드 프레임워크를 강요하지 않는다. 계약 산출물·적합성 준수는 필수이고 참조 구현 채택은 선택이다([ADR-0096](../adr/0096-contract-schemas-zod-source-and-reference-implementations.md)) | 계약·적합성 묶음 동작(지금은 mock 어댑터를 판정). HTTP 실어댑터(`@ap/http-adapter`)와 참조 서버(플랫폼 API 포트, #620–#623) 동작. `@ap/contract-schemas` 및 JSON Schema·endpoints·vocab 자산 완료(#1086). FastAPI/Fastify × PostgreSQL/MSSQL 참조 구현은 아직 구현 안 함(#531). 실서버 대상 적합성 하네스는 #154 | [SDK 포괄 목록](../integration/sdk-coverage-inventory.md) §6, [ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md), [ADR-0096](../adr/0096-contract-schemas-zod-source-and-reference-implementations.md), #149, #154 |
 | R9.6 | 버전을 고정해 받는다 | 플랫폼 변경이 앱에 예고 없이 들어가지 않는다. SDK는 앱과 따로 묶음 버전(`sdk-v*` 태그)으로 내고, 앱은 `sdk-v*` 묶음 버전을 정해 릴리스 tarball로 받는다(사내 패키지 레지스트리 없음). 저장소 밖 소비자 검사가 릴리스 게이트다 | 동작 — `sdk-v0.12.0`(2026-10-23)부터 SDK 다섯 패키지(`@ap/contracts`·`@ap/ui`·`@ap/kernel`·`@ap/components`·`@ap/shell`)를 GitHub Release의 tarball과 `SHA256SUMS`로 낸다(ADR-0056). `@ap/ui`는 git 태그로도 받는다 | [ADR-0044](../adr/0044-sdk-source-in-platform-repo-released-separately.md), [ADR-0056](../adr/0056-sdk-release-github-release-tarballs.md), [git 태그 소비](../integration/sdk-git-tag-consumption.md) |
 | R9.7 | 세 제품의 프레임워크를 모두 덮는다 | 제품마다 프레임워크를 따로 키워 차이가 벌어지지 않는다. analytics-platform·FeedbackOps·equipment-visualization이 하는 일을 SDK 하나가 덮고, 빠진 것(쓰기 포트, 기계가 읽는 테마 계약, 접근성·성능 게이트)은 SDK가 새로 정한다 | 계획 — 쓰기 포트는 동작(ADR-0054, #501·#502: 동작 선언·멱등 키·쓰기 뒤 다시 읽기, mock 기준) | [SDK 포괄 목록](../integration/sdk-coverage-inventory.md) §5 |
 
@@ -218,7 +218,7 @@ SDK는 플랫폼에 올릴 앱이 지키는 **계약**이면서, 앱이 자기 �
 1. **플랫폼 저장소 안 화면으로** — 메뉴 생성기로 패키지를 만들고 화면을 옮긴다. 지금 된다([사내 적용 가이드](../integration/in-house-rollout.md)).
 2. **자기 저장소에 둔 채 SDK로 올리기** — manifest와 화면을 내고 플랫폼이 등록한다. 계약 1판(등록 검사·화면 렌더·호스트 포트)이 동작하고 계약 검사용 고정 모듈로 검증했다. 첫 외부 소비자는 equipment-visualization이고 mock 조립에 탑재됐다(#801). 실서버 연결과 나머지 편입은 #332 뒤.
 
-FeedbackOps는 플랫폼에 합친다 — 모두가 쓰는 기능은 플랫폼 전역, 관리자·개발자 화면은 `피드백 운영` 업무 시스템, 독립 앱은 은퇴([ADR-0066](../adr/0066-feedbackops-merges-into-platform.md)). 업무 시스템별 진입 링크([ADR-0027](../adr/0027-feedbackops-stays-standalone-entry-links.md))는 합류 단계 4까지 유지한다.
+기능은 플랫폼에 합친다 — 모두가 쓰는 기능은 플랫폼 전역, 관리자·개발자 화면은 `피드백 운영` 업무 시스템, 독립 앱은 은퇴([ADR-0066](../adr/0066-feedbackops-merges-into-platform.md)). 업무 시스템별 진입 링크([ADR-0027](../adr/0027-feedbackops-stays-standalone-entry-links.md))는 합류 단계 4까지 유지한다.
 
 ## 6. 도입 근거로 보일 수 있는 것과 아직 없는 것
 
@@ -226,7 +226,7 @@ FeedbackOps는 플랫폼에 합친다 — 모두가 쓰는 기능은 플랫폼 �
 
 - mock 서버 위에서 §2 대표 장면의 1–3·6(비교)·7단계가 끝까지 동작하는 데모.
 - §3의 "동작" 요구마다 계약 문서·테스트·E2E가 있다. 숫자(릴리스 수, 테스트 선언 수 등)는 사이트 원장이 재서 적는다.
-- FeedbackOps가 이미 SDK UI를 받아 쓴다(R9.1): 다른 저장소가 SDK를 실제로 소비한 증거.
+- 기능이 이미 SDK UI를 받아 쓴다(R9.1): 다른 저장소가 SDK를 실제로 소비한 증거.
 
 **아직 없는 것(숨기지 않는다)**
 
@@ -238,9 +238,9 @@ FeedbackOps는 플랫폼에 합친다 — 모두가 쓰는 기능은 플랫폼 �
 
 | ID | 요구 | 상태 | 근거 |
 | --- | --- | --- | --- |
-| R10.1 | 사내 SSO로 한 번 로그인, FeedbackOps와 세션 공유 | 사내 답 대기 | #150 |
+| R10.1 | 사내 SSO로 한 번 로그인, 기능과 세션 공유 | 사내 답 대기 | #150 |
 | R10.2 | 사내 배포 환경(on-prem·망분리·CI·지원 브라우저) | 사내 답 대기 | #151 |
-| R10.3 | 사내 플랫폼 API와 실어댑터, 적합성 묶음 통과 | 실어댑터 동작. 참조 서버는 FeedbackOps 백엔드 플랫폼 포트([ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md)). 실서버 대상 적합성 하네스·사내 배포는 대기 | #155, #154, #149 (#148은 ADR-0096로 닫음) |
+| R10.3 | 사내 플랫폼 API와 실어댑터, 적합성 묶음 통과 | 실어댑터 동작. 참조 서버는 플랫폼 API 포트([ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md)). 실서버 대상 적합성 하네스·사내 배포는 대기 | #155, #154, #149 (#148은 ADR-0096로 닫음) |
 | R10.4 | 망분리: 앱이 외부 네트워크(CDN·폰트·분석 스크립트)를 부르지 않는다 | 요구. 사내 환경 확인과 함께 검증 | #151 |
 | R10.5 | 동시 사용자 약 100명, 데이터 보존 무제한, 사이트 하나로 시작해 늘린다 | Decided(조직 요구값) | [03](../architecture/backend-stack.md), [05](../overview/roadmap-and-open-questions.md) |
 | R10.6 | 접근성 하한(키보드, 색만으로 상태를 나타내지 않음, 대비)과 성능 하한 | 동작(lint·E2E가 일부 검사) | [06 §26](../contract/platform-ui-contract.md#26-accessibility-baseline)·[§27](../contract/platform-ui-contract.md#27-performance-ux-baseline) |

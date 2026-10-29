@@ -5,7 +5,6 @@ import { toast } from 'sonner';
 import type { HostLinkProps, HostSeam } from '@/lib/host/host-seam';
 import { sonnerDismiss, sonnerNotify } from '@/test/host-adapters/lib/host/sonner-notify';
 import { InternalLink } from '@/test/host-adapters/lib/router/InternalLink';
-import { useDocumentTitle } from '@/test/host-adapters/lib/router/document-title';
 
 function useDashboardNavigate() {
   const router = useRouter({ warn: false });
@@ -49,7 +48,7 @@ export const standaloneDashboardHost: HostSeam = {
   },
   useNavigate: useDashboardNavigate,
   useSearch: useDashboardSearch,
-  useTitle: useDocumentTitle,
+  useTitle: () => undefined,
   notify: sonnerNotify,
   dismiss: sonnerDismiss,
   useHere: useDashboardHere,

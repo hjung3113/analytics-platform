@@ -55,7 +55,7 @@ describe.skipIf(!runIntegration)('checkService.checkCapability tx-scoped read (S
       .values({
         workspaceId: WORKSPACE_ID,
         externalId: tempExternalId,
-        email: `${tempExternalId}@feedbackops.local`,
+        email: `${tempExternalId}@platform.local`,
         displayName: 'Permcheck Tx Test User',
         roleLevel: 'user',
         actorType: 'internal_member',

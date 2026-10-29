@@ -48,7 +48,7 @@ set +x
 OPS_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # shellcheck disable=SC1091
 . "$OPS_ROOT/paths.sh"
-BACKEND_DIR="$FO_REPO_ROOT/$FO_BACKEND"
+BACKEND_DIR="$FEATURE_REPO_ROOT/$FEATURE_BACKEND"
 
 LOG_TAG='cutover-0076'
 LAST_HISTORY_TAG='0075_platform_usage_client_errors'

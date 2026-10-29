@@ -1,12 +1,12 @@
 import { lazy, Suspense } from 'react';
 import type { HomeTodoSlot } from '@ap/kernel';
-import { useFeatureSession } from './fo/session';
+import { useFeatureSession } from './feature/session';
 
-// The page (and with it the FeedbackOps panel and its data hooks) loads only once the FeedbackOps session is ready, so none of it is in the main chunk.
+// The page (and with it the feature panel and its data hooks) loads only once the feature session is ready, so none of it is in the main chunk.
 const HomeTodo = lazy(() => import('./pages/HomeTodo'));
 
 /**
- * Renders nothing unless the FeedbackOps session is `ready`: on mock, while pending and after a 401 the home shows no `내 할 일` and no `실서버 필요`,
+ * Renders nothing unless the feature session is `ready`: on mock, while pending and after a 401 the home shows no `내 할 일` and no `실서버 필요`,
  * and the page chunk is never requested (ADR-0070 decision 5, 8). The gate unmounts the page in the same commit the session leaves `ready`.
  */
 function Todo() {

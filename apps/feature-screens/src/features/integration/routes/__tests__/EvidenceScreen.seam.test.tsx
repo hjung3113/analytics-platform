@@ -141,7 +141,7 @@ function mount(search: Search) {
 function lastNavigation() {
   const call = navigate.mock.calls.at(-1);
   if (!call) throw new Error('no navigation');
-  const url = new URL(call[0], 'http://feedbackops.local');
+  const url = new URL(call[0], 'http://platform.local');
   return {
     path: url.pathname,
     record: Object.fromEntries(url.searchParams),

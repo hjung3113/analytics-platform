@@ -37,7 +37,7 @@ describe('scopeSwitchClears', () => {
   );
 });
 
-describe('which FO searches declare the scope-bound keys', () => {
+describe('which screen searches declare the scope-bound keys', () => {
   it.each([
     ['evidence', evidenceSearchSchema, true],
     ['coverage', integrationCoverageSearchSchema, true],

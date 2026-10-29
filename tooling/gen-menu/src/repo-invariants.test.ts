@@ -292,7 +292,7 @@ describe('wiring invariants against a fixture repo', () => {
     ['missing spread', '  ...featureAdmin,\n', '', /no spread inside the spread markers/],
     ['spread of a different binding', '  ...featureAdmin,\n', '  ...elsewhere,\n', /no spread inside the spread markers/],
     ['import under a different binding', `import { manifests as featureAdmin } from '${PACKAGE_PREFIX}menu-feature-admin';`, `import { manifests as renamed } from '${PACKAGE_PREFIX}menu-feature-admin';`, /no spread inside the spread markers/],
-    ['duplicate import', `import { manifests as featureAdmin } from '${PACKAGE_PREFIX}menu-feature-admin';\n`, `import { manifests as featureAdmin } from '${PACKAGE_PREFIX}menu-feature-admin';\nimport { manifests as foAdmin2 } from '${PACKAGE_PREFIX}menu-feature-admin';\n`, /2 manifests imports/],
+    ['duplicate import', `import { manifests as featureAdmin } from '${PACKAGE_PREFIX}menu-feature-admin';\n`, `import { manifests as featureAdmin } from '${PACKAGE_PREFIX}menu-feature-admin';\nimport { manifests as featureAdmin2 } from '${PACKAGE_PREFIX}menu-feature-admin';\n`, /2 manifests imports/],
     ['duplicate spread', '  ...featureAdmin,\n', '  ...featureAdmin,\n  ...featureAdmin,\n', /spread 2 times/],
     ['commented-out import', `import { manifests as featureAdmin } from '${PACKAGE_PREFIX}menu-feature-admin';`, `// import { manifests as featureAdmin } from '${PACKAGE_PREFIX}menu-feature-admin';`, /no manifests import/],
     ['commented-out spread', '  ...featureAdmin,', '  // ...featureAdmin,', /no spread inside the spread markers/],

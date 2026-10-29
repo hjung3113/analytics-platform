@@ -8,7 +8,7 @@ import {
   waitForFoRead,
 } from './support';
 
-test.describe('FeedbackOps 실서버 브리지 화면 (06 §9.1·§22)', () => {
+test.describe('기능 실서버 브리지 화면 (06 §9.1·§22)', () => {
   test('공간 대시보드는 실제 요약과 열린 요청 결과를 표시한다', async ({ page }, testInfo) => {
     const summary = waitForFoRead(page, '/dashboard/summary', { managed_system_id: 'all' });
     const requests = waitForFoRead(page, '/permission-requests/mine', { status: undefined });

@@ -1,10 +1,10 @@
 import { lazy, Suspense, type ComponentType } from 'react';
 import { useI18n, type SpaceNavSectionSlot } from '@ap/kernel';
 import { featureApi } from './feature-api';
-import { useFeatureSession } from './fo/session';
+import { useFeatureSession } from './feature/session';
 import { usesSavedViews } from './operator-menus';
 
-// The list, its form and its reads load only once the FeedbackOps session is ready, so none of it is in the main chunk.
+// The list, its form and its reads load only once the feature session is ready, so none of it is in the main chunk.
 const SavedViews = lazy(() => import('./pages/SavedViews'));
 
 function Muted({ text }: { text: string }) {
@@ -12,7 +12,7 @@ function Muted({ text }: { text: string }) {
 }
 
 /**
- * The body of the FeedbackOps `저장된 보기` section (the shell owns the landmark and heading and draws them on every FeedbackOps menu, so this never renders
+ * The body of the feature `저장된 보기` section (the shell owns the landmark and heading and draws them on every feature menu, so this never renders
  * empty). Outside a ready session it is one muted line (mock: live server required; pending: loading; retired: session lost) and nothing is requested.
  */
 function Body() {
@@ -32,7 +32,7 @@ const BODY: ComponentType = Body;
 
 const SECTION = { label: { ko: '저장된 보기', en: 'Saved views' }, Body: BODY };
 
-/** The FeedbackOps saved VOC views section (06 §8 `spaceNavSection`, #761 p3, #595 4c). Only `apps/platform-web/src/main.tsx` imports this. */
+/** The feature saved VOC views section (06 §8 `spaceNavSection`, #761 p3, #595 4c). Only `apps/platform-web/src/main.tsx` imports this. */
 export const savedViewsSlot: SpaceNavSectionSlot = {
   For: (id, menu) => usesSavedViews(id, menu) ? SECTION : null,
 };

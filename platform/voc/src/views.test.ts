@@ -17,11 +17,11 @@ describe('VOC sidebar views', () => {
   it.each(VIEWS.map(({ menu, view }) => [`${menu.id}/${view.id}`, menu, view] as const))('%s maps its view to the expected URL', (key, menu, view) => {
     const route = ROUTES[menu.id as keyof typeof ROUTES];
     const search = new URLSearchParams(route.toFoSearch(view.page as Record<string, string>));
-    const href = `${route.foPath}?${search.toString()}`;
+    const href = `${route.screenPath}?${search.toString()}`;
     expect(href).toBe(({ 'inbox/no-link': '/vocs?view=inbox&tab=no-link', 'triage/high': '/vocs?view=triage&tab=high', 'triage/unassigned': '/vocs?view=triage&tab=unassigned' } as Record<string, string>)[key]);
   });
 
-  it('keeps the ko labels equal to the FeedbackOps glossary values', () => {
+  it('keeps the ko labels equal to the feature glossary values', () => {
     const glossary = readFileSync(fileURLToPath(new URL('../../../apps/feature-screens/src/lib/copy/glossary.ts', import.meta.url)), 'utf8');
     for (const { view } of VIEWS) expect(glossary, view.id).toContain(`'${view.label.ko}'`);
   });

@@ -21,7 +21,7 @@ let titles: (string | null)[] = [];
 const renderDetail = vi.fn<(...args: unknown[]) => React.ReactNode>();
 
 function record(href: string): Record<string, string> {
-  return Object.fromEntries(new URL(href, 'http://feedbackops.local').searchParams);
+  return Object.fromEntries(new URL(href, 'http://platform.local').searchParams);
 }
 
 function mount(initial: Record<string, string>, hostSeam: Partial<HostSeam> = {}) {

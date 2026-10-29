@@ -15,7 +15,7 @@ flowchart TD
     E --> I["메뉴: 지표관리"]
 ```
 
-위 다이어그램은 데이터 흐름의 예시다. 메뉴 그룹과 업무 시스템 전체(공지, 운영 콘솔, FeedbackOps 협업 진입 포함)는 [06 §9](../contract/kernel.md#9-information-architecture)가 소유한다.
+위 다이어그램은 데이터 흐름의 예시다. 메뉴 그룹과 업무 시스템 전체(공지, 운영 콘솔, 기능 협업 진입 포함)는 [06 §9](../contract/kernel.md#9-information-architecture)가 소유한다.
 
 API가 파서 원본 테이블을 직접 참조하지 않고 소비 계층(view/mart)을 거치는 이유는 단순히 컬럼명 변경 흡수만이 아니다. 이 계층은 두 종류로 나눠야 한다:
 

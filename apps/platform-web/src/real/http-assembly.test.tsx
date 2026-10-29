@@ -21,7 +21,7 @@ function assemblyFor(result: BootstrapResult, extra: Partial<Parameters<typeof c
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe('real assembly (#154)', () => {
-  it('ready → the adapter, the server-backed SavedViewStore (ADR-0099) and the FeedbackOps API, with no top-bar tools (ADR-0071)', async () => {
+  it('ready → the adapter, the server-backed SavedViewStore (ADR-0099) and the feature API, with no top-bar tools (ADR-0071)', async () => {
     const outcome = await assemblyFor(ready).create();
     // The adapter is decorated once (notice writes refresh Home, #1106): every other member is the bootstrap's own.
     expect(outcome).toEqual({ adapter: expect.objectContaining({ session: adapter.session }), topBarTools: null, serverPreferences: true, savedViews: expect.any(Object), featureApi: { basePath: '/api/features', onSessionLost: expect.any(Function) }, invalidation: { subscribe: expect.any(Function) } });

@@ -1,5 +1,5 @@
 // LinksScreen.seam.test.tsx — every URL write of the entity-link list through the host seam (#762 c): the
-// complete FeedbackOps href, `managedSystem` carried and never set by the screen, absent means cleared, push.
+// complete feature href, `managedSystem` carried and never set by the screen, absent means cleared, push.
 
 import { type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -42,7 +42,7 @@ function Harness({
   const [search, setSearch] = React.useState(initial);
   const navigate = React.useCallback((href: string, options?: { replace?: boolean }) => {
     navigated.push({ href, options });
-    setSearch(Object.fromEntries(new URL(href, 'http://feedbackops.local').searchParams));
+    setSearch(Object.fromEntries(new URL(href, 'http://platform.local').searchParams));
   }, []);
   const seam = React.useMemo<HostSeam>(
     () => ({
@@ -107,7 +107,7 @@ async function mount(initial: Record<string, string>) {
 function written(index = -1) {
   const entry = navigated.at(index);
   if (entry === undefined) throw new Error('nothing was written');
-  const url = new URL(entry.href, 'http://feedbackops.local');
+  const url = new URL(entry.href, 'http://platform.local');
   return {
     path: url.pathname,
     search: Object.fromEntries(url.searchParams),

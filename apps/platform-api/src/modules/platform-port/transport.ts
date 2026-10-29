@@ -49,7 +49,7 @@ export function installPlatformTransport(
     );
   }
 
-  // Plugin-scoped: sibling FeedbackOps routes keep the root handler. Covers what can
+  // Plugin-scoped: sibling feature routes keep the root handler. Covers what can
   // reach these routes — a thrown HttpError / rate-limit error with a known code,
   // a 4xx from the framework, anything else as 500.
   app.setErrorHandler((err, req, reply) => {

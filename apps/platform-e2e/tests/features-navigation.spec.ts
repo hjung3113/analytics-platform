@@ -19,7 +19,7 @@ test.describe('#1099 B 운영 콘솔과 내 활동', () => {
     await evidence(page, testInfo, 'navigation-my-activity-order');
   });
 
-  test('운영 콘솔 레일은 여덟 섹션을 정해진 순서로 보이고 FeedbackOps 업무 시스템 행은 없다', async ({ page }, testInfo) => {
+  test('운영 콘솔 레일은 여덟 섹션을 정해진 순서로 보이고 기능 업무 시스템 행은 없다', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
     await page.goto('/operations/dashboard');
     const labels = ['VOC', 'Finding', 'Task 관리', '설문 관리', '대시보드', '연동', '기능 관리', '플랫폼 관리'];

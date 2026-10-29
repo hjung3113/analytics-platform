@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document preserves the product's most important context: FeedbackOps is valuable because independent systems can be connected at the right moments.
+This document preserves the product's most important context: the feature suite is valuable because independent systems can be connected at the right moments.
 
 System documents define local behavior. This document defines optional integration behavior.
 

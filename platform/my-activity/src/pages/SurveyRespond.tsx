@@ -5,8 +5,8 @@ import { RespondSurveyScreen } from '@ap/feature-screens/global-screens';
 import { FeatureBridge, canSurveyLink, SURVEY_ID, SurveyLink } from '@ap/feature-bridge';
 
 /**
- * 설문 응답 (ADR-0070 decision 6, ADR-0071): one FeedbackOps respond form through the bridge. The survey ID is a path segment, so a
- * malformed one is not-found here and never becomes a FeedbackOps request path. After a submit the FeedbackOps success state stays and the
+ * 설문 응답 (ADR-0070 decision 6, ADR-0071): one feature respond form through the bridge. The survey ID is a path segment, so a
+ * malformed one is not-found here and never becomes a feature request path. After a submit the feature success state stays and the
  * header offers the way back; the target is only ever the Kernel's `returnOrigin()` (`safeReturnTo`), never `returnTo` read here.
  */
 export default function SurveyRespond({ params }: PageProps) {

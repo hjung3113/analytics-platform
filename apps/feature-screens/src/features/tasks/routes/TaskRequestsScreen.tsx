@@ -39,7 +39,7 @@ import { type TaskRequestTab, useTaskRequestsQueue } from './task-requests/useTa
 import { validateTasksSearch } from './task-search';
 
 /**
- * The `/tasks` search of this screen as FeedbackOps strings: the four keys it reads, with `view` fixed. `managedSystem` is
+ * The `/tasks` search of this screen as feature strings: the four keys it reads, with `view` fixed. `managedSystem` is
  * passed as the host gave it (the router and the bridge both validate it before mounting, platform ADR-0071 decision 9),
  * as the route props always were.
  */

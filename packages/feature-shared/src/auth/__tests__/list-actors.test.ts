@@ -9,7 +9,7 @@ describe('listActorsResponseSchema', () => {
         {
           id: '00000000-0000-0000-0000-000000000001',
           display_name: 'Mock Admin',
-          email: 'admin@feedbackops.local',
+          email: 'admin@platform.local',
           role_level: 'admin',
           actor_type: 'internal_member',
         },

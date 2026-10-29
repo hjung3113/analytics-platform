@@ -1,20 +1,20 @@
-# FeedbackOps Suite Product Overview
+# The feature suite Product Overview
 
 ## Purpose
 
-FeedbackOps Suite is an internal AD-gated operating system that connects submitted VOC, survey results, execution work, and outcome validation without forcing VOC, Task, and Survey into one rigid workflow.
+The feature suite is an internal AD-gated operating system that connects submitted VOC, survey results, execution work, and outcome validation without forcing VOC, Task, and Survey into one rigid workflow.
 
 Core sentence:
 
 ```text
-고객 피드백, 설문 결과, 실행 업무, 개선 효과를 하나의 흐름으로 연결하고 추적하는 FeedbackOps 플랫폼.
+고객 피드백, 설문 결과, 실행 업무, 개선 효과를 하나의 흐름으로 연결하고 추적하는 기능 플랫폼.
 ```
 
 ## Product Positioning
 
-FeedbackOps Suite is not a full replacement for Jira, Linear, Typeform, Zendesk, Productboard, or Dovetail.
+The feature suite is not a full replacement for Jira, Linear, Typeform, Zendesk, Productboard, or Dovetail.
 
-It starts with first-party VOC, Task, and Survey systems that are useful on their own, then adds a FeedbackOps Integration Layer for Findings, Evidence, Entity Links, Action Dashboard, and coverage. Integration is the differentiator, but it must not make any independent system feel incomplete when used alone.
+It starts with first-party VOC, Task, and Survey systems that are useful on their own, then adds a feature Integration Layer for Findings, Evidence, Entity Links, Action Dashboard, and coverage. Integration is the differentiator, but it must not make any independent system feel incomplete when used alone.
 
 MVP access is internal only. Every Actor is AD-authenticated, with Role Level authority ordered as Admin > Developer > User. There is no external customer-contact login in MVP.
 
@@ -49,12 +49,12 @@ MVP access is internal only. Every Actor is AD-authenticated, with Role Level au
 ## System Map
 
 ```text
-FeedbackOps Suite
+The feature suite
 ├─ Core Platform
 ├─ VOC System
 ├─ Task System
 ├─ Survey System
-├─ FeedbackOps Integration Layer
+├─ feature Integration Layer
 │  ├─ Finding / Insight
 │  ├─ Evidence
 │  ├─ Entity Linking

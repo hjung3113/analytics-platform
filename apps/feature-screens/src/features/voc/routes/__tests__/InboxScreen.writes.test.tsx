@@ -1,5 +1,5 @@
 // InboxScreen.writes.test.tsx — every URL write of the inbox through the host seam (#761 i): the
-// complete FeedbackOps href, carried keys kept, absent means omitted, and the replace flag of the
+// complete feature href, carried keys kept, absent means omitted, and the replace flag of the
 // old router calls (replace only for the 내 VOC cleanup and the q draft).
 
 import { SEARCH_DEBOUNCE_MS } from '@/lib/forms/search-debounce';
@@ -92,7 +92,7 @@ function mount(view: 'inbox' | 'my' = 'inbox') {
 function written(index = -1) {
   const calls = navigateMock.mock.calls;
   const [href, options] = calls.at(index) as [string, { replace?: boolean } | undefined];
-  const url = new URL(href, 'http://feedbackops.local');
+  const url = new URL(href, 'http://platform.local');
   return {
     path: url.pathname,
     search: Object.fromEntries(url.searchParams),

@@ -89,7 +89,7 @@ const ME_REPORTER: MeResponse = {
   actor: {
     id: REPORTER_ID,
     external_id: 'reporter-1',
-    email: 'reporter@feedbackops.local',
+    email: 'reporter@platform.local',
     display_name: '리포터',
     role_level: 'user',
   },
@@ -100,7 +100,7 @@ const ME_ADMIN: MeResponse = {
   actor: {
     id: ADMIN_ID,
     external_id: 'admin-1',
-    email: 'admin@feedbackops.local',
+    email: 'admin@platform.local',
     display_name: '관리자',
     role_level: 'admin',
   },

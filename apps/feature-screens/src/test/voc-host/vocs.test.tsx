@@ -106,7 +106,7 @@ function stubFetchMe(navCounts: Record<string, number> = { 'voc.inbox': 0 }) {
           actor: {
             id: '00000000-0000-0000-0000-000000000001',
             external_id: 'mock-admin-1',
-            email: 'admin@feedbackops.local',
+            email: 'admin@platform.local',
             display_name: 'Mock Admin',
             role_level: 'admin',
           },
@@ -138,7 +138,7 @@ function stubFetchMeTriage() {
           actor: {
             id: '00000000-0000-0000-0000-000000000001',
             external_id: 'mock-admin-1',
-            email: 'admin@feedbackops.local',
+            email: 'admin@platform.local',
             display_name: 'Mock Admin',
             role_level: 'admin',
           },

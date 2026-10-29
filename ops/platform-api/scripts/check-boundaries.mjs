@@ -17,7 +17,7 @@
 //  11. Source outside tests (apps/*, packages/*) MUST NOT import a platform package `@ap/*` other than
 //      `@ap/ui`, own feature identities, and core-server-only `@ap/contract-schemas` (ADR-0097). Tests (__tests__/, tests/, test-support/, *.test.*) may import
 //      `@ap/contracts`, `@ap/server-conformance` and `@ap/http-adapter` as devDependencies.
-//      The manifests say the same: no FeedbackOps manifest (ops, apps/*, packages/*) lists an `@ap/*` package
+//      The manifests say the same: no feature manifest (ops, apps/*, packages/*) lists an `@ap/*` package
 //      outside these runtime allowances under dependencies, peerDependencies or optionalDependencies.
 //      One lint-only exception (#1102): the exact root `eslint.config.js` of a package whose lint runs on ESLint may import
 //      exactly `@ap/eslint-config` (a devDependency). Runtime files, nested lookalikes, subpaths and other `@ap/*` stay denied.
@@ -29,23 +29,23 @@ import ts from 'typescript';
 
 import { isFeaturePackage } from '../../../tooling/eslint/src/feature-packages.js';
 
-import { FO_BACKEND, FO_FRONTEND, FO_OPS, FO_SHARED, FO_UI, REPO_ROOT } from '../paths.mjs';
+import { FEATURE_BACKEND, FEATURE_FRONTEND, FEATURE_OPS, FEATURE_SHARED, FEATURE_UI, REPO_ROOT } from '../paths.mjs';
 
-// Paths come from ops/platform-api/paths.mjs (the FeedbackOps path map); the rules below name the same places by the
+// Paths come from ops/platform-api/paths.mjs (the feature path map); the rules below name the same places by the
 // map's constants, and messages print repository-relative paths.
 const ROOT = REPO_ROOT;
-const BACKEND_MODULES = `${FO_BACKEND}/src/modules`;
+const BACKEND_MODULES = `${FEATURE_BACKEND}/src/modules`;
 // An app reaches its sibling app as `../../<folder>/…` (both live under apps/), so the pattern names the sibling by its
 // folder in the path map.
 const siblingImport = (dir) => new RegExp(`from\\s+['"]\\.\\./\\.\\./${basename(dir)}/`);
 const RULES = [
   {
-    scope: FO_SHARED,
+    scope: FEATURE_SHARED,
     forbid: [/from\s+['"]@ap\/feature-ui/, /from\s+['"]\.\.\/\.\.\/apps\//],
     msg: 'packages/shared must not import apps/* or @ap/feature-ui',
   },
   {
-    scope: FO_UI,
+    scope: FEATURE_UI,
     forbid: [
       /from\s+['"]@ap\/feature-shared/,
       /from\s+['"]\.\.\/\.\.\/apps\//,
@@ -55,13 +55,13 @@ const RULES = [
     msg: 'packages/ui must not call APIs or import apps/* or @ap/feature-shared',
   },
   {
-    scope: FO_FRONTEND,
-    forbid: [/from\s+['"]@radix-ui\//, siblingImport(FO_BACKEND)],
+    scope: FEATURE_FRONTEND,
+    forbid: [/from\s+['"]@radix-ui\//, siblingImport(FEATURE_BACKEND)],
     msg: 'apps/frontend must import primitives via @ap/ui, not @radix-ui/*; must not import apps/platform-api',
   },
   {
-    scope: FO_BACKEND,
-    forbid: [/from\s+['"]@ap\/feature-ui/, siblingImport(FO_FRONTEND)],
+    scope: FEATURE_BACKEND,
+    forbid: [/from\s+['"]@ap\/feature-ui/, siblingImport(FEATURE_FRONTEND)],
     msg: 'apps/backend must not import @ap/feature-ui or apps/feature-screens',
   },
   {
@@ -71,12 +71,12 @@ const RULES = [
     msg: 'backend modules must import another module through its approved public seam, not repo*.js',
   },
   {
-    scope: FO_BACKEND,
+    scope: FEATURE_BACKEND,
     kind: 'outside-voc-imports-voc-jobs',
     msg: 'files outside the VOC module must import job behavior through the VOC public seam',
   },
   {
-    scope: `${FO_FRONTEND}/src`,
+    scope: `${FEATURE_FRONTEND}/src`,
     kind: 'feature-imports-voc-internals',
     msg: 'non-VOC frontend features and src/lib must not import VOC hooks or lib internals',
   },
@@ -86,21 +86,21 @@ const RULES = [
     msg: "backend modules must not import another module's __tests__/_seed-helpers; shared helpers live in src/test-support",
   },
   {
-    scope: `${FO_BACKEND}/src`,
+    scope: `${FEATURE_BACKEND}/src`,
     kind: 'foreign-core-owner-table-access',
     msg: 'backend code must access Managed Systems and Analytics Areas through their owner surfaces',
   },
-  ...[FO_BACKEND, FO_FRONTEND, FO_SHARED, FO_UI, FO_OPS].map((scope) => ({
+  ...[FEATURE_BACKEND, FEATURE_FRONTEND, FEATURE_SHARED, FEATURE_UI, FEATURE_OPS].map((scope) => ({
     scope,
     kind: 'platform-package-imports',
-    msg: 'FeedbackOps source may import only @ap/ui from the platform; core-server also permits @ap/contract-schemas; other SDK packages remain test-only (ADR-0097)',
+    msg: 'Feature source may import only @ap/ui from the platform; core-server also permits @ap/contract-schemas; other SDK packages remain test-only (ADR-0097)',
   })),
 ];
 
 // Lint-only exception to rule 11: these exact files (never nested lookalikes) may import exactly `@ap/eslint-config`.
 const LINT_CONFIG_PACKAGE = '@ap/eslint-config';
 const LINT_CONFIG_FILES = new Set(
-  [FO_BACKEND, FO_FRONTEND, FO_SHARED, FO_UI].map((dir) => join(ROOT, dir, 'eslint.config.js')),
+  [FEATURE_BACKEND, FEATURE_FRONTEND, FEATURE_SHARED, FEATURE_UI].map((dir) => join(ROOT, dir, 'eslint.config.js')),
 );
 
 const EXT = new Set(['.ts', '.tsx', '.mts', '.cts', '.js', '.jsx']);
@@ -277,7 +277,7 @@ for (const rule of RULES) {
       continue;
     }
     if (rule.kind === 'feature-imports-voc-internals') {
-      const frontendSrc = join(ROOT, FO_FRONTEND, 'src');
+      const frontendSrc = join(ROOT, FEATURE_FRONTEND, 'src');
       const featureRoot = join(frontendSrc, 'features');
       const libRoot = join(frontendSrc, 'lib');
       const vocHooksDir = join(featureRoot, 'voc/hooks');
@@ -353,7 +353,7 @@ for (const rule of RULES) {
           /^@ap\//.test(specifier) &&
           !isFeaturePackage(specifier) &&
           !/^@ap\/ui(?:\/|$)/.test(specifier) &&
-          !(rule.scope === FO_BACKEND && /^@ap\/contract-schemas(?:\/|$)/.test(specifier))
+          !(rule.scope === FEATURE_BACKEND && /^@ap\/contract-schemas(?:\/|$)/.test(specifier))
         ) {
           violations++;
           console.error(
@@ -366,7 +366,7 @@ for (const rule of RULES) {
     if (rule.kind === 'foreign-core-owner-table-access') {
       const srcSegment = moduleSegment(file);
       const modulesRoot = join(ROOT, BACKEND_MODULES);
-      const testSupportRoot = join(ROOT, FO_BACKEND, 'src/test-support');
+      const testSupportRoot = join(ROOT, FEATURE_BACKEND, 'src/test-support');
       const isModuleFile = isWithinPath(modulesRoot, file);
       const isTestSupportFile = isWithinPath(testSupportRoot, file);
       const relativeParts = relative(isModuleFile ? modulesRoot : testSupportRoot, file).split(sep);
@@ -409,12 +409,12 @@ for (const rule of RULES) {
 }
 
 // Rule 11, manifest half: own feature identities and @ap/ui are runtime dependencies; only the core server also permits contract-schemas (ADR-0097). Every manifest that can reach the
-// product's runtime graph is read: the FeedbackOps tool package (ops/platform-api) and each FeedbackOps app and package
+// product's runtime graph is read: the feature tool package (ops/platform-api) and each feature app and package
 // from the path map (never the platform's own apps/* and packages/*); peer and optional dependencies count as runtime.
 const RUNTIME_DEP_FIELDS = ['dependencies', 'peerDependencies', 'optionalDependencies'];
 const manifests = [
-  join(ROOT, FO_OPS, 'package.json'),
-  ...[FO_BACKEND, FO_FRONTEND, FO_SHARED, FO_UI, FO_OPS].map((dir) =>
+  join(ROOT, FEATURE_OPS, 'package.json'),
+  ...[FEATURE_BACKEND, FEATURE_FRONTEND, FEATURE_SHARED, FEATURE_UI, FEATURE_OPS].map((dir) =>
     join(ROOT, dir, 'package.json'),
   ),
 ];
@@ -432,7 +432,7 @@ for (const manifest of manifests) {
         /^@ap\//.test(dep) &&
         !isFeaturePackage(dep) &&
         dep !== '@ap/ui' &&
-        !(manifest === join(ROOT, FO_BACKEND, 'package.json') && dep === '@ap/contract-schemas')
+        !(manifest === join(ROOT, FEATURE_BACKEND, 'package.json') && dep === '@ap/contract-schemas')
       ) {
         violations++;
         console.error(

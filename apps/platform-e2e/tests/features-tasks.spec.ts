@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { evidence, mainHeading, query, signInAs } from './support';
 
 /**
- * FeedbackOps › Tasks (#763): Task Requests, the board, 내 Task, Milestones and the hidden Task 목록 as bridge menus. The e2e run uses the mock adapter, where `FeatureBridge` renders
+ * 기능 › Tasks (#763): Task Requests, the board, 내 Task, Milestones and the hidden Task 목록 as bridge menus. The e2e run uses the mock adapter, where `FeatureBridge` renders
  * only `실서버 필요`, so no screen or drawer mounts here; the drawer round trip is covered by the page tests and the conductor's real-server check.
  */
 const TASK = '99999999-9999-4999-8999-999999999999';

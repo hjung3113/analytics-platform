@@ -104,6 +104,7 @@ async function drive(
   expect(typeof location).toBe('string');
   const txCookie = findCookie(loginRes, OIDC_TX_COOKIE_NAME);
   expect(txCookie).toBeDefined();
+  expect(txCookie?.name).toBe('platform_oidc_tx');
   const authorizeUrl = idp.authorize(location as string);
   const callbackUrl = new URL(authorizeUrl);
   opts.transform?.(callbackUrl.searchParams);
@@ -268,6 +269,22 @@ describe.skipIf(!runIntegration)('OIDC provider flow (#390)', () => {
       headers: { 'user-agent': UA },
     });
     expectRejected(noCookie);
+
+    // Negative 1b: a valid transaction presented only under the retired
+    // cookie name is not read (no old-name fallback).
+    const retiredName = await app.inject({
+      method: 'GET',
+      url: '/auth/login',
+      headers: { 'user-agent': UA },
+    });
+    const retiredTx = findCookie(retiredName, OIDC_TX_COOKIE_NAME)?.value ?? '';
+    const retiredCallback = new URL(idp.authorize(retiredName.headers.location as string));
+    const retiredRes = await app.inject({
+      method: 'GET',
+      url: `/auth/callback${retiredCallback.search}`,
+      headers: { cookie: `fops_oidc_tx=${retiredTx}`, 'user-agent': UA },
+    });
+    expectRejected(retiredRes);
 
     // Negative 2: tampered payload (signature mismatch).
     const goodTx = findCookie(loginRes, OIDC_TX_COOKIE_NAME)?.value ?? '';

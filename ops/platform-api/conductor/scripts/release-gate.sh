@@ -4,7 +4,7 @@
 set -uo pipefail
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-# FeedbackOps path map (FO_FRONTEND, FO_SHARED, FO_UI); <develop-checkout> is the repository checkout root.
+# Feature path map (FEATURE_FRONTEND, FEATURE_SHARED, FEATURE_UI); <develop-checkout> is the repository checkout root.
 # shellcheck disable=SC1091
 . "$SCRIPT_DIR/../../paths.sh"
 MODE=release-gate
@@ -81,7 +81,7 @@ main() {
   [[ -n "${WAVE_STATE:-}" ]] || fail 'set WAVE_STATE to the wave scratch directory' 2
   local checkout
   checkout=$(cd -- "$1" 2>/dev/null && pwd) || fail "checkout does not exist: $1" 2
-  [[ -d "$checkout/$FO_FRONTEND" && -d "$checkout/$FO_SHARED" && -d "$checkout/$FO_UI" ]] || fail "not a FeedbackOps checkout: $checkout" 2
+  [[ -d "$checkout/$FEATURE_FRONTEND" && -d "$checkout/$FEATURE_SHARED" && -d "$checkout/$FEATURE_UI" ]] || fail "not a feature checkout: $checkout" 2
   [[ -x "$SCRIPT_DIR/verify-db.sh" && -x "$SCRIPT_DIR/verify-be.sh" && -x "$SCRIPT_DIR/verify-fe.sh" ]] || fail 'release gate helper scripts are missing or not executable' 2
 
   git -C "$checkout" fetch origin develop main || fail 'could not refresh origin/develop and origin/main' 1

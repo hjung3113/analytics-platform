@@ -59,7 +59,7 @@ Depends on:
 
 Analytics Area is a managed analytical menu, report group, or business analysis area inside exactly one Managed System. It is used to classify VOC, Task, Survey, and Finding by the part of the analytics system the work concerns.
 
-The FeedbackOps Analytics Area catalog is the MVP source of truth. Analytics Areas may reflect real Tableau, Power BI, Looker, or internal analytics menus, but external BI menus do not own FeedbackOps classification state in MVP.
+The feature suite Analytics Area catalog is the MVP source of truth. Analytics Areas may reflect real Tableau, Power BI, Looker, or internal analytics menus, but external BI menus do not own feature classification state in MVP.
 
 It does not force sync with:
 

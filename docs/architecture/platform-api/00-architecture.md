@@ -46,7 +46,7 @@ docs/implementation
 
 ## System, App, And Module Meaning
 
-FeedbackOps Suite is a set of bounded product systems implemented inside one
+The feature suite is a set of bounded product systems implemented inside one
 modular monolith for MVP.
 
 ```text

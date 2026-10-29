@@ -41,7 +41,7 @@ const PUBLIC_EXPORTS = [
   // Rich content restored by ADR-0052.
   'RichEditor', 'AttachButton', 'RichContentRenderer', 'AttachmentRef', 'Mention',
   'SeverityIndicator', 'ProgressMeter', 'UserAvatar', 'UserChip', 'ObjectRow', 'PermissionBlockedPanel',
-  // Opened for FeedbackOps' `@ap/feature-ui` thin re-export (its consumer; ADR-0046). `TabsListBase`/`TabsTriggerBase` are the unwrapped shadcn tabs.
+  // Opened for the feature screens' `@ap/feature-ui` thin re-export (its consumer; ADR-0046). `TabsListBase`/`TabsTriggerBase` are the unwrapped shadcn tabs.
   'AlertDialog', 'AlertDialogAction', 'AlertDialogCancel', 'AlertDialogContent', 'AlertDialogDescription', 'AlertDialogFooter', 'AlertDialogHeader', 'AlertDialogOverlay', 'AlertDialogPortal', 'AlertDialogTitle', 'AlertDialogTrigger',
   'Avatar', 'AvatarFallback', 'AvatarImage',
   'Card', 'CardContent', 'CardDescription', 'CardFooter', 'CardHeader', 'CardTitle',

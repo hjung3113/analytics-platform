@@ -3,7 +3,7 @@ import { mainHeading, query, signInAs } from './support';
 import { PRODUCTIVITY } from './contract-helpers';
 
 /**
- * FeedbackOps › 관리자 (#764 p2): Managed System, Analytics Area, 권한 요청 검토, 부여 목록 and 기능 설정 as bridge menus. The e2e run uses the mock adapter, where `FeatureBridge` renders only `실서버 필요`,
+ * 기능 › 관리자 (#764 p2): Managed System, Analytics Area, 권한 요청 검토, 부여 목록 and 기능 설정 as bridge menus. The e2e run uses the mock adapter, where `FeatureBridge` renders only `실서버 필요`,
  * so no screen or drawer mounts here; the screens, the drawers and `Coverage → 설정` (needs the real recovery data) are covered by the page and bridge tests and the conductor's real-server check.
  * In the mock only admin holds `features:access` (and `console:access` with it), so a persona with `features:access` alone does not exist here; that case is the harness test in `@ap/menu-feature-admin`.
  */
@@ -54,7 +54,7 @@ test.describe('운영 콘솔 기능 관리 그룹(#764 p2, #1099c)', () => {
       const system = '33333333-3333-4333-8333-333333333333';
       await page.goto(`/operations/permission-request-review?managedSystem=${system}`);
       await expect(page.getByText('목록 범위', { exact: true })).toBeVisible();
-      // Without a FeedbackOps API the picker is disabled for the 실서버 필요 reason as well; the 관리자 tooltip is the `ScopeControl` test's and the real-server check's.
+      // Without a feature API the picker is disabled for the 실서버 필요 reason as well; the 관리자 tooltip is the `ScopeControl` test's and the real-server check's.
       await expect(page.getByTitle(/실서버 필요|Managed System 범위를 지원하지 않습니다/).filter({ hasText: '전체' })).toBeDisabled();
       expect(query(page).get('managedSystem')).toBe(system);
     });

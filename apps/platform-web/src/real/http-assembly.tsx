@@ -1,6 +1,6 @@
 import { Alert, AlertDescription, AlertTitle, Button } from '@ap/ui';
 import { bootstrapHttpAdapter, type BootstrapResult, type HttpAdapterOptions } from '@ap/http-adapter';
-import { FO_API_PREFIX } from '../../scripts/real-dev-proxy.ts';
+import { FEATURE_API_PREFIX } from '../../scripts/real-dev-proxy.ts';
 import type { AssemblyOutcome, CreateAssembly } from '#platform-assembly';
 import { afterImport, runLocalImport, type LocalImportDeps } from './local-import';
 import { createEndpointInvalidation, withNoticeInvalidation } from './endpoint-invalidation';
@@ -13,7 +13,7 @@ import { createEndpointInvalidation, withNoticeInvalidation } from './endpoint-i
 
 type Where = { pathname: string; search: string };
 
-/** FeedbackOps reads `return_to` raw, so the whole app-relative URL is encoded — an unencoded `&` would cut the Context (#150). */
+/** Feature reads `return_to` raw, so the whole app-relative URL is encoded — an unencoded `&` would cut the Context (#150). */
 export const loginHref = (where: Where): string => `/auth/login?return_to=${encodeURIComponent(where.pathname + where.search)}`;
 
 /** No Kernel, no shell, no i18n provider: only `@ap/ui` parts, fixed Korean copy, the correlation id the person can read out. */
@@ -66,7 +66,7 @@ export function createRealAssembly({ bootstrap, where, importEnvironment = pageE
     if (result.kind === 'ready') {
       // One decorated adapter per bootstrap (never per render): a notice write refreshes the Home banner (#1106).
       const invalidation = createEndpointInvalidation();
-      return { adapter: withNoticeInvalidation(result.adapter, invalidation), topBarTools: null, serverPreferences: true, savedViews: serverSavedViews(result, importEnvironment), featureApi: { basePath: FO_API_PREFIX, onSessionLost }, invalidation: { subscribe: invalidation.subscribe } };
+      return { adapter: withNoticeInvalidation(result.adapter, invalidation), topBarTools: null, serverPreferences: true, savedViews: serverSavedViews(result, importEnvironment), featureApi: { basePath: FEATURE_API_PREFIX, onSessionLost }, invalidation: { subscribe: invalidation.subscribe } };
     }
     if (result.kind === 'login') return login;
     return { screen: <Unavailable correlationId={result.correlationId} /> };

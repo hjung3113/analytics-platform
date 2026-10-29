@@ -186,7 +186,7 @@ describe('shell chrome outside a pane keeps following the main screen', () => {
     entriesFor: () => [{ key: 'task', icon: ListTodo, label: { ko: 'Task', en: 'Task' }, menuId: 'plain' }],
   };
 
-  it('pane Context changes leave the sidebar links, FeedbackOps entry links and the main Context untouched', async () => {
+  it('pane Context changes leave the sidebar links, feature entry links and the main Context untouched', async () => {
     const { adapter } = fixtureAdapter(ANALYST);
     mount(`/plain?${win}&scopeId=MEM`, [{ id: 'a', screen: paneOf('scoped', `?scopeId=S1&${win}`) }], adapter, {
       slots: { features: feedback }, outside: <AppSidebar collapsed={false} onToggle={() => {}} />,

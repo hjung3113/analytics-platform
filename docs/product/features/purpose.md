@@ -1,4 +1,4 @@
-# FeedbackOps
+# The feature suite
 
 Current platform entry and navigation are owned by [ADR-0100](../../adr/0100-feature-navigation-and-independent-access.md). Operator features are in the operations console; personal features use global My Activity and platform entry points. Routes in this document describe feature intents interpreted by the platform bridge, not a separate application or product space.
 
@@ -8,7 +8,7 @@ product
 
 ## Users
 
-FeedbackOps is an internal, AD-authenticated operating console for one Workspace — not a public-facing tool, not a marketing site, not a multi-tenant SaaS. Every screen serves an authenticated internal **Actor** working inside a known **Managed System** scope.
+The feature suite is an internal, AD-authenticated operating console for one Workspace — not a public-facing tool, not a marketing site, not a multi-tenant SaaS. Every screen serves an authenticated internal **Actor** working inside a known **Managed System** scope.
 
 Per `GLOSSARY.md`, four real role contracts exist:
 
@@ -17,11 +17,11 @@ Per `GLOSSARY.md`, four real role contracts exist:
 - **User** — Lowest Role Level. Submits VOC, tracks own submissions in `/vocs?view=my`, responds to outcome surveys. Cannot triage, cannot see out-of-scope VOC bodies (only `out_of_scope_summary` peeks).
 - **Reporter** — Role-shaped, not Role-Level-shaped. The Actor who submitted a specific VOC. The system separates reporter-facing status from internal workflow status visually and structurally (Product Invariant).
 
-Context of use is operational, not exploratory: the Actor opens FeedbackOps because a VOC arrived, a triage queue grew, a Finding needs evidence, a Task is blocked, or a survey closed. Sessions are short, dense, decision-driven. The product is "the inbox you live in when feedback is the work," not "a place you browse."
+Context of use is operational, not exploratory: the Actor opens feature because a VOC arrived, a triage queue grew, a Finding needs evidence, a Task is blocked, or a survey closed. Sessions are short, dense, decision-driven. The product is "the inbox you live in when feedback is the work," not "a place you browse."
 
 ## Product Purpose
 
-FeedbackOps closes the loop from internal voice-of-customer intake to documented outcome inside one Workspace. The cycle, per `GLOSSARY.md` and `docs/product/features/00-product-overview.md`:
+feature closes the loop from internal voice-of-customer intake to documented outcome inside one Workspace. The cycle, per `GLOSSARY.md` and `docs/product/features/00-product-overview.md`:
 
 1. **Intake** — any Actor submits a VOC against a Managed System (`/vocs?action=create`).
 2. **Triage** — Developers / Admins decide severity, owner, Analytics Area linkage, and cluster confirmation in the Triage Console (`/vocs?view=triage`), with optimistic mutations and a 4-second undo window.
@@ -29,7 +29,7 @@ FeedbackOps closes the loop from internal voice-of-customer intake to documented
 4. **Execution** — A Finding may produce a **Task Request**, which protects the Task backlog from unreviewed execution candidates; approved requests become Tasks with their own state machine, independent from reporter-facing VOC status.
 5. **Outcome** — Outcome surveys close the loop and feed back into the same `entity_links` graph; the Dashboard surfaces this as an action queue, not a reporting chart.
 
-The product solves the problem that, without it, feedback intake, triage decisions, evidence collection, execution tracking, and outcome validation each live in separate tools — and the trail between "what we heard" and "what we did about it" is reconstructed by hand. FeedbackOps makes the trail first-class via `entity_links`, makes the triage decision auditable, and makes the cross-system history canonical instead of incidental.
+The product solves the problem that, without it, feedback intake, triage decisions, evidence collection, execution tracking, and outcome validation each live in separate tools — and the trail between "what we heard" and "what we did about it" is reconstructed by hand. The feature suite makes the trail first-class via `entity_links`, makes the triage decision auditable, and makes the cross-system history canonical instead of incidental.
 
 The scope of this document is the whole product, not the current slice. Delivery progress is tracked in GitHub milestones — read those, not this file, for what has shipped.
 
@@ -37,7 +37,7 @@ The scope of this document is the whole product, not the current slice. Delivery
 
 **Personality in three words: precise, audit-trail-faithful, restrained.**
 
-FeedbackOps is the calm enterprise console for the moment after a complaint lands. It speaks like an experienced internal operator who has read the whole thread: terse, factual, never performative. The interface earns trust by receipt — every state change is visible, every cross-system link is traceable through `entity_links`, every reporter-facing message is distinct from every internal note. Confidence comes from showing the audit trail, not from decorative polish.
+The feature suite is the calm enterprise console for the moment after a complaint lands. It speaks like an experienced internal operator who has read the whole thread: terse, factual, never performative. The interface earns trust by receipt — every state change is visible, every cross-system link is traceable through `entity_links`, every reporter-facing message is distinct from every internal note. Confidence comes from showing the audit trail, not from decorative polish.
 
 **Voice rules (binding):**
 
@@ -50,14 +50,14 @@ FeedbackOps is the calm enterprise console for the moment after a complaint land
 
 ## Anti-references
 
-What FeedbackOps deliberately is NOT, drawn from the locked decisions in `docs/adr/history/feedbackops/0020-shell-taxonomy-three-route-shells-and-50px-header-rhythm.md` and `docs/adr/history/feedbackops/0021-pack-17-samsung-light-design-system.md`:
+What the feature suite deliberately is NOT, drawn from the locked decisions in `docs/adr/history/feedbackops/0020-shell-taxonomy-three-route-shells-and-50px-header-rhythm.md` and `docs/adr/history/feedbackops/0021-pack-17-samsung-light-design-system.md`:
 
-- **Bright SaaS gradient marketing aesthetics** — Stripe-homepage-style hero gradients, animated mesh backgrounds, "sign up free" CTAs. FeedbackOps has no public surface; design serves the product, design is not the product.
+- **Bright SaaS gradient marketing aesthetics** — Stripe-homepage-style hero gradients, animated mesh backgrounds, "sign up free" CTAs. The feature suite has no public surface; design serves the product, design is not the product.
 - **Crypto / fintech "navy + gold" patterns** — luxury-trading-desk treatments, dark navy with metallic accents, "premium" framing. The accent is Samsung blue `#1428a0`, used selectively on primary CTAs only; gold/amber/lime do not exist in this palette.
 - **Glassmorphism dashboards** — frosted-blur cards floating over photographic backgrounds. FO ADR-0021 locks flat layered surfaces (`#f3f7fe` canvas, `#fbfdff` graphite card, `#edf3fb` deep slate elevated card) with sharp contained shadows, not blur.
 - **Hero-metric template** — the "big 96px number + tiny gray label + soft gradient" homepage card. The Dashboard is an **action queue surface, not a chart-only reporting page** (Product Invariant). Charts may exist; they never lead.
 - **Dark-mode-by-default tools** — Linear / Vercel / Raycast dark defaults. FO ADR-0021 supersedes FO ADR-0016 and chose light explicitly for the Samsung corporate environment. A future ADR may reintroduce a `[data-theme="dark"]` override; until then, light is canonical and dark is out of scope.
-- **Identical-card-grids** — Notion-template-gallery / Pinterest-style equal-weight cards. FeedbackOps is dense, list-first, and operational; equal-weight grids hide priority and bury the decision the Actor came to make.
+- **Identical-card-grids** — Notion-template-gallery / Pinterest-style equal-weight cards. The feature suite is dense, list-first, and operational; equal-weight grids hide priority and bury the decision the Actor came to make.
 - **Decorative imagery, illustrations, oversized whitespace** — per docs/design/features/tokens.md "Do's and Don'ts," the design is compact, leveraging an 8px element gap as a standard measurement. Empty states are terse Korean strings + one CTA, not full-bleed illustrated empty states.
 
 **NOT to be used as an anti-reference:** the prototype in `docs/design/history/feedbackops-prototype/`. It is the original design and a starting reference for surfaces not built yet; for existing surfaces the shipped UI is the authority (FO ADR-0060).

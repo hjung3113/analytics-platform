@@ -1,6 +1,6 @@
 /**
- * @ap/menu-dashboard — dashboard group manifests (FeedbackOps space 대시보드, ADR-0081, #759).
- * The FeedbackOps operator dashboard through the bridge; the app-declared carry set carries `managedSystem` (#1099b, replacing ADR-0081 decision 4).
+ * @ap/menu-dashboard — dashboard group manifests (feature space 대시보드, ADR-0081, #759).
+ * The feature operator dashboard through the bridge; the app-declared carry set carries `managedSystem` (#1099b, replacing ADR-0081 decision 4).
  */
 import { lazy } from 'react';
 import { ListTodo } from 'lucide-react';
@@ -16,6 +16,6 @@ export const manifests: MenuEntry[] = [
     description: { ko: '처리할 VOC·Task·권한 요청과 설문 현황', en: 'VOC, Task, permission request and survey work to handle' },
     path: '/operations/dashboard', icon: ListTodo, permission: 'features:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES, pageKeys: ['managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
-    component: lazy(() => import('./pages/FoDashboard')),
+    component: lazy(() => import('./pages/FeatureDashboard')),
   },
 ];

@@ -2,7 +2,7 @@
  * Synthetic audit store (issue #50). One array feeds both the console read (auditTrail) and the destination
  * read (entityAudit). Deterministic: equipment events are seeded from the EQUIPMENT array order, never from
  * validity segments, shift or parseDateTime — `at` is not validFrom/validTo/updatedAt. Not parser data and
- * not the FeedbackOps audit log (a different record; do not merge). Equipment only: metric events are the
+ * not the feature audit log (a different record; do not merge). Equipment only: metric events are the
  * metrics menu's audit seeds, handed in by the app's mock assembly (`createMockAdapter({ auditEvents })`, ADR-0048).
  */
 import type { AuditEvent } from '@ap/contracts';

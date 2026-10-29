@@ -14,7 +14,7 @@ import { scopeControlSlot } from '@ap/feature-bridge/scope-control';
 import { vocComposeSlot } from '@ap/feature-bridge/voc-compose-slot';
 import { createAssembly } from '#platform-assembly';
 import { EndpointInvalidationBridge } from './endpoint-invalidation-bridge';
-import { managedSystemFor } from './feedbackops-systems';
+import { managedSystemFor } from './feature-systems';
 import { createLocalQueryHistoryStore } from './query-history-store';
 import { EQUIPMENT_AXES } from './equipmentAxes';
 import { registry, SPACE_ID_MIGRATIONS } from './menus';
@@ -42,7 +42,7 @@ void startOrFail(root, async () => {
     root.render(<StrictMode>{assembly.screen}</StrictMode>);
     return;
   }
-  // The bridge screens' FeedbackOps API comes from the assembly (ADR-0071); mock builds have none → "실서버 필요".
+  // The bridge screens' feature API comes from the assembly (ADR-0071); mock builds have none → "실서버 필요".
   setFeatureApi(assembly.featureApi ?? null);
   root.render(
     <StrictMode>

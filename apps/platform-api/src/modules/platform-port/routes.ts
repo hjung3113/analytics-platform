@@ -230,7 +230,7 @@ export const platformPortRoutes: FastifyPluginAsync<PlatformPortOptions> = async
     );
   });
 
-  // Annotations are a gate only (#622 decision 6): `analytics:view` is never granted and FeedbackOps
+  // Annotations are a gate only (#622 decision 6): `analytics:view` is never granted and feature
   // has no sites, so every call is `forbidden`. Storage, validation, the site grant, author-only
   // delete and its ADR-0041 audit are NOT implemented — recorded in .planning/backlog.md
   // (## 작은 후속, "주석 저장"); the full ADR-0041 order is validation → site grant → lookup.
@@ -240,7 +240,7 @@ export const platformPortRoutes: FastifyPluginAsync<PlatformPortOptions> = async
     if (!(await holdsPlatformPermission(opts.checkService, actorOf(loaded), 'analytics:view'))) {
       return envelope(req, 'forbidden', null, 'No permission analytics:view');
     }
-    // Unreachable while FeedbackOps holds no menu permission of the app; failing closed beats an unfinished write path.
+    // Unreachable while feature holds no menu permission of the app; failing closed beats an unfinished write path.
     return envelope(req, 'error', null, 'Annotations are not implemented');
   }
   app.get('/annotations', annotationGate);

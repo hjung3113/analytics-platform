@@ -23,7 +23,7 @@ function useListNavigate(): HostNavigate {
   const navigate = useNavigate();
   return React.useCallback(
     (href, options) => {
-      const location = new URL(href, 'http://feedbackops.local');
+      const location = new URL(href, 'http://platform.local');
       const replace = options?.replace === true;
       if (location.pathname !== '/tasks') {
         void navigate({

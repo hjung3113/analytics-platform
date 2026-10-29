@@ -138,19 +138,19 @@ describe.skipIf(!runIntegration)('seed idempotency', () => {
       external_id: 'mock-admin-1',
       role_level: 'admin',
       actor_type: 'internal_member',
-      email: 'admin@feedbackops.local',
+      email: 'admin@platform.local',
     });
     expect(byId['mock-user-1']).toEqual({
       external_id: 'mock-user-1',
       role_level: 'user',
       actor_type: 'internal_member',
-      email: 'user@feedbackops.local',
+      email: 'user@platform.local',
     });
     expect(byId.system).toEqual({
       external_id: 'system',
       role_level: 'admin',
       actor_type: 'system',
-      email: 'system@feedbackops.local',
+      email: 'system@platform.local',
     });
   });
 });

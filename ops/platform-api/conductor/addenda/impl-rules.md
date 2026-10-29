@@ -1,4 +1,4 @@
-## FeedbackOps addendum
+## Feature addendum
 
 Overrides and additions to the numbered rules above.
 

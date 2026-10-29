@@ -30,7 +30,7 @@ function me(id: string, role_level: 'user' | 'admin'): MeResponse {
     actor: {
       id,
       external_id: id,
-      email: `${id}@feedbackops.local`,
+      email: `${id}@platform.local`,
       display_name: id,
       role_level,
     },

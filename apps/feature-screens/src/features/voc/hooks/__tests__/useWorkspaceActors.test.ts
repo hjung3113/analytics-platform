@@ -13,13 +13,13 @@ const MOCK_BE_ACTORS = [
   {
     id: '00000000-0000-0000-0000-000000000001',
     display_name: 'Alice',
-    email: 'alice@feedbackops.local',
+    email: 'alice@platform.local',
     role_level: 'user' as const,
   },
   {
     id: '00000000-0000-0000-0000-000000000002',
     display_name: 'Bob',
-    email: 'bob@feedbackops.local',
+    email: 'bob@platform.local',
     role_level: 'user' as const,
   },
 ];

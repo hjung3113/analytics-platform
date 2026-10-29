@@ -1,1 +1,1 @@
-export { foBridgeMenu as default } from '@ap/eslint-config';
+export { featureBridgeMenuPreset as default } from '@ap/eslint-config';

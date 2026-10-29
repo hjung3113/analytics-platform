@@ -6,16 +6,16 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-import { contracts, foScreens, foServer, foShared, foUi } from './index.js';
+import { contracts, featureScreensPreset, featureServerPreset, featureSharedPreset, featureUiPreset } from './index.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(HERE, '..', '..', '..');
 
 const PACKAGES = {
-  'apps/platform-api': { name: '@ap/platform-api', preset: foServer },
-  'packages/feature-shared': { name: '@ap/feature-shared', preset: foShared },
-  'packages/feature-ui': { name: '@ap/feature-ui', preset: foUi },
-  'apps/feature-screens': { name: '@ap/feature-screens', preset: foScreens },
+  'apps/platform-api': { name: '@ap/platform-api', preset: featureServerPreset },
+  'packages/feature-shared': { name: '@ap/feature-shared', preset: featureSharedPreset },
+  'packages/feature-ui': { name: '@ap/feature-ui', preset: featureUiPreset },
+  'apps/feature-screens': { name: '@ap/feature-screens', preset: featureScreensPreset },
 } as const;
 type PackageDir = keyof typeof PACKAGES;
 
@@ -267,7 +267,7 @@ describe('feature screens preset: the UI rules plus the restyled-component check
     const restyled = button('className="text-xs"');
     expect(await lint(SCREENS, 'src/probe.tsx', restyled)).toContain('shadcn/no-restyle');
     expect(await lint(SCREENS, 'src/probe.tsx', button('className="mt-2"'))).toEqual([]);
-    expect(await lint(UI, 'src/probe.tsx', restyled, foUi)).not.toContain('shadcn/no-restyle');
+    expect(await lint(UI, 'src/probe.tsx', restyled, featureUiPreset)).not.toContain('shadcn/no-restyle');
   });
 
   it('checks components imported from @ap/feature-ui as well', async () => {

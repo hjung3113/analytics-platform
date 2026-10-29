@@ -100,9 +100,9 @@ describe('RowAction (row action, compact ↔ full, ADR-0037)', () => {
   });
 
   it('keeps href and target of a link child and names it', () => {
-    render(<RowAction compact icon={PanelRight} label="VOC-1 FeedbackOps에서 보기" text="FeedbackOps에서 보기"
+    render(<RowAction compact icon={PanelRight} label="VOC-1 기능에서 보기" text="기능에서 보기"
       link={<a href="https://fo.example/voc/1" target="_blank" rel="noopener noreferrer">x</a>} />);
-    const link = screen.getByRole('link', { name: 'VOC-1 FeedbackOps에서 보기' });
+    const link = screen.getByRole('link', { name: 'VOC-1 기능에서 보기' });
     expect(link).toHaveAttribute('href', 'https://fo.example/voc/1');
     expect(link).toHaveAttribute('target', '_blank');
     expect(link.querySelector('svg')).not.toBeNull();

@@ -211,7 +211,7 @@
     "docker_containers": true
   },
   "launch": {
-    "main_env": "FOPS_MAIN",
+    "main_env": "PLATFORM_API_MAIN",
     "base": "origin/develop",
     "branch_prefix": "feature/",
     "orca_setup": "run",

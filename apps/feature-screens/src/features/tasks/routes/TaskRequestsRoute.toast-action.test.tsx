@@ -178,6 +178,9 @@ function Harness({ client }: { client: QueryClient }) {
   );
 }
 
+/** The text of this file's detail slot (the mocked `ListShell`'s `<aside>`): the selected request's panel frame registers there. */
+const detailSlotText = () => document.querySelector('aside')?.textContent ?? '';
+
 describe('TaskRequestsRoute approve toast action (#1293)', () => {
   // The seam's navigation is the router's, not `useNavigate`: route it to the file's navigate mock.
   beforeAll(() => {
@@ -214,7 +217,7 @@ describe('TaskRequestsRoute approve toast action (#1293)', () => {
       actor: {
         id: '60000000-0000-0000-0000-000000000006',
         external_id: 'mock-admin',
-        email: 'admin@feedbackops.local',
+        email: 'admin@platform.local',
         display_name: 'Mock Admin',
         role_level: 'admin',
       },
@@ -232,19 +235,19 @@ describe('TaskRequestsRoute approve toast action (#1293)', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: '승인' }));
     await waitFor(() => expect(toast.success).toHaveBeenCalledTimes(1));
     // The queue advanced to the next pending request.
-    await waitFor(() => expect(document.title).toContain('REQ-1007'));
+    await waitFor(() => expect(detailSlotText()).toContain('REQ-1007'));
 
     act(() => toast.success.mock.calls[0]?.[1].action.onClick());
 
     await waitFor(() =>
       expect(screen.getByRole('tab', { name: /^승인됨/ })).toHaveAttribute('aria-selected', 'true'),
     );
-    await waitFor(() => expect(document.title).toContain('REQ-1001'));
+    await waitFor(() => expect(detailSlotText()).toContain('REQ-1001'));
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 50));
     });
-    expect(document.title).toContain('REQ-1001');
-    expect(document.title).not.toContain('REQ-1004');
+    expect(detailSlotText()).toContain('REQ-1001');
+    expect(detailSlotText()).not.toContain('REQ-1004');
     expect(screen.getByRole('button', { name: 'Task로 전환' })).toBeInTheDocument();
   });
 });

@@ -135,7 +135,7 @@ Rules:
 - Analytics Area is flat under its Managed System; there is no parent column. Visual grouping is by naming convention (FO ADR-0017).
 - Analytics Area belongs to exactly one Managed System.
 - archived Analytics Areas remain visible on historical records.
-- FeedbackOps analytics_areas is the MVP source of truth.
+- feature analytics_areas is the MVP source of truth.
 - owner_team_id is a routing/defaulting hint only and does not grant authorization.
 - Analytics Area is not an MVP permission boundary.
 - VOC Analytics Area must belong to the VOC Primary Managed System.

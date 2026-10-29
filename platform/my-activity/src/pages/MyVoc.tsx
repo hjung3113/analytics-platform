@@ -5,13 +5,13 @@ import { DetailDrawer, PlatformPage, StateMessage } from '@ap/components';
 import { Button } from '@ap/ui';
 import { MyVocListScreen, ReporterVocDetail, type MyVocInitialFocus, type MyVocQuery } from '@ap/feature-screens/global-screens';
 import { FeatureBridge } from '@ap/feature-bridge';
-import { pagePatch, parseMyVocPage } from '../fo/voc-query';
+import { pagePatch, parseMyVocPage } from '../feature/voc-query';
 
 const CLEARED_FOCUS: Record<string, MyVocInitialFocus> = { q: 'q', status: 'status', sort: 'sort', focus: 'list' };
 
 /**
- * 내 VOC (ADR-0070 decision 1, ADR-0071): the reporter's own list from FeedbackOps through the bridge, and the reporter detail in the shell
- * detail slot (`focus`). Both are reporter-perspective FeedbackOps parts, not the operator inbox panel. The URL owns the query; a page key
+ * 내 VOC (ADR-0070 decision 1, ADR-0071): the reporter's own list from feature through the bridge, and the reporter detail in the shell
+ * detail slot (`focus`). Both are reporter-perspective feature parts, not the operator inbox panel. The URL owns the query; a page key
  * outside its domain is rejected and preserved, and nothing is requested for it.
  */
 export default function MyVoc() {

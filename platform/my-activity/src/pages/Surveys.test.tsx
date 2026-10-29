@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
 import { setFeatureApi } from '@ap/feature-bridge/feature-api';
 import { featureQueryClient } from '@ap/feature-bridge';
-import { ID_A, ID_B, json, mountAt, stubFetch, switchableAdapter, type Call } from '../fo/test-support';
+import { ID_A, ID_B, json, mountAt, stubFetch, switchableAdapter, type Call } from '../feature/test-support';
 
 const origin = () => window.location.origin;
 const RESPOND = `/survey/${ID_A}/respond`;
@@ -57,7 +57,7 @@ afterEach(() => {
   window.history.replaceState(null, '', '/');
 });
 
-describe('Surveys without a FeedbackOps API (mock preview) — S1', () => {
+describe('Surveys without a feature API (mock preview) — S1', () => {
   it.each([
     ['/survey?v=1', '응답 설문'],
     ['/surveys?v=1', '응답 설문'], // legacy alias
@@ -73,7 +73,7 @@ describe('Surveys without a FeedbackOps API (mock preview) — S1', () => {
   });
 });
 
-describe('Surveys through the FeedbackOps bridge', () => {
+describe('Surveys through the feature bridge', () => {
   const onSessionLost = vi.fn();
   beforeEach(() => { onSessionLost.mockReset(); setFeatureApi({ basePath: '/api/features', onSessionLost }); });
 
@@ -103,7 +103,7 @@ describe('Surveys through the FeedbackOps bridge', () => {
     expect((screen.getByRole('textbox', { name: '자유 의견' }) as HTMLTextAreaElement).value).toBe('');
   });
 
-  it('S4: a submit shows the FeedbackOps success state and the header link back to the origin; no VOC is requested', async () => {
+  it('S4: a submit shows the feature success state and the header link back to the origin; no VOC is requested', async () => {
     const calls = surveyFetch();
     mountAt(switchableAdapter().adapter, respondUrl('/notifications?v=1'));
     fireEvent.change(await screen.findByRole('textbox', { name: '사용 경험을 적어주세요.' }), { target: { value: '좋았습니다' } });
@@ -164,7 +164,7 @@ describe('Surveys through the FeedbackOps bridge', () => {
     expect(window.location.pathname).toBe(RESPOND);
   });
 
-  it('S8: an already-submitted form shows the FeedbackOps message and a link back to 설문', async () => {
+  it('S8: an already-submitted form shows the feature message and a link back to 설문', async () => {
     surveyFetch({ form: () => json({ code: 'conflict.survey_response_already_submitted', message: 'survey response already submitted' }, 409) });
     mountAt(switchableAdapter().adapter, respondUrl());
     expect(await screen.findByText('이 Survey에는 이미 응답을 제출했습니다.')).toBeTruthy();

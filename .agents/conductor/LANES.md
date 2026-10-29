@@ -9,7 +9,7 @@ Each open issue has one `lane:*` label. The assignment comment on the issue is t
 | Label | Owns | Main paths | E2E port |
 | --- | --- | --- | --- |
 | `lane:sdk` | Public package contracts and parts, analysis workspace, SDK quality | `packages/sdk/*`, `tooling/sdk/`, `docs/contract/`, `docs/integration/sdk-*` | 4190 |
-| `lane:platform` | App assembly, mock/real adapters, server conformance, sample menus, in-house rollout | `apps/platform-web`, `packages/adapters/{mock-server,http-adapter,server-conformance}`, `menus/*`, `platform/{admin,home,my-activity,notice-voc}` (not FO bridge consumers) | 4590 |
+| `lane:platform` | App assembly, mock/real adapters, server conformance, sample menus, in-house rollout | `apps/platform-web`, `packages/adapters/{mock-server,http-adapter,server-conformance}`, `menus/*`, `platform/{admin,home,my-activity,notice-voc}` (not screen bridge consumers) | 4590 |
 | `lane:arch` | Refactors, folder structure, glossary, boundary lint, CI, doc structure | `tooling/{eslint,gen-menu,tsconfig,css-selectors}`, `.github/workflows`, `docs/INDEX.md`, `docs/AGENTS.md`, `GLOSSARY.md` | 4690 |
 | `lane:features` | Platform feature screens and core-server feature domains | `apps/platform-api`, `apps/feature-screens`, `packages/feature-{shared,ui}`, `packages/adapters/feature-bridge`, `ops/platform-api`, `platform/{dashboard,voc,findings,tasks,integration,surveys,feature-admin}`, feature bridges in `platform/{home,my-activity,notice-voc}`; `docs/{product/features,architecture/platform-api,design/features,user-guide/features}` | 4390 |
 | `lane:ev` | equipment-visualization, AP side | `tools` space, host-module fixtures, EV tarball bumps | 4490 |
@@ -41,7 +41,7 @@ Any lane may edit these, but first it sends `lane-send.sh 착수 <#n> "<paths>"`
 - `apps/platform-e2e`
 - The "next release" row in `docs/integration/sdk-git-tag-consumption.md`, the `docs/adr/README.md` table, ADR numbers (reserve them on #598)
 - `addenda/traps.md`, `docs/agents/operations.md` (append only)
-- The four FO bridge entry lists ([addenda/traps.md](addenda/traps.md))
+- The four screen bridge entry lists ([addenda/traps.md](addenda/traps.md))
 - `.planning/README.md`: lanes edit only their own issue rows. The lead owns order and layout.
 
 On a rebase, keep both sides of a conflicting table or list row.
@@ -53,7 +53,7 @@ On a rebase, keep both sides of a conflicting table or list row.
 | Before starting a worker, a lane session or a heavy step | Run `bash .agents/conductor/scripts/capacity.sh`. Start only if `start=yes`. `workers=` and `lanes=` are machine-wide limits. |
 | Take any lock or slot | Use `bash .agents/conductor/scripts/with-lock.sh <heavy.lock\|browser.lock\|merge.lock\|worker-slot-N> "<purpose>" -- <command>` in the background. Never `mkdir` a lock by hand: `with-lock.sh` writes the owner, PID and token, and releases on exit. |
 | Worker slot | Wrap both the launch and the wait: `with-lock.sh worker-slot-N "<W name> <role>" -- bash -c '<launch> && bash ~/.agents/skills/orca-dispatch-recipes/scripts/worker-wait.sh … --kill-on-timeout'`. `bash -c '…'` sees only exported variables, so `export` `WAVE_STATE` and the names first. The slot frees when the worker ends. On exit 13, send `continue` and wrap again. Wait only through `worker-wait.sh`: a hand-written sentinel wait never ends if the worker dies. |
-| `heavy.lock` (one machine-wide) | Root `pnpm test` and `build`, `probe.ts`, FO integration, and a full local `pnpm e2e` (only to reproduce a CI failure — send `<lane>: E2E` at start and end). Narrowed E2E (`-g`) and package checks take no lock. |
+| `heavy.lock` (one machine-wide) | Root `pnpm test` and `build`, `probe.ts`, screen integration, and a full local `pnpm e2e` (only to reproduce a CI failure — send `<lane>: E2E` at start and end). Narrowed E2E (`-g`) and package checks take no lock. |
 | `browser.lock` (one machine-wide) | Preview server, ego-browser, captures, UX review. Take `browser.lock` before `heavy.lock`. |
 | `merge.lock` | See [addenda/merge.md](addenda/merge.md). |
 | Stale locks | The lead runs `bash .agents/conductor/scripts/lock-audit.sh` at each periodic check and on each `막힘`. On exit 10, it tells the owner `[팀장] <lock> 풀어라`. The owner either releases it (`<lane>: 풀음 <lock>`) or replies `<lane>: 유지 <lock> <evidence>`. After `유지`, leave the lock alone. With no reply in 10 minutes, the lead releases it with `mv <lock> <lock>.released-$$ && trash <lock>.released-$$`. A `merge.lock` whose purpose says `ship` counts as stale only past the `ship-pr.sh` CI cap. |

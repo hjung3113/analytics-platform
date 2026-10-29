@@ -1,1 +1,1 @@
-export { foShared as default } from '@ap/eslint-config';
+export { featureSharedPreset as default } from '@ap/eslint-config';

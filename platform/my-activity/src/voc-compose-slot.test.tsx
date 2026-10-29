@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, type VocComposeContext } from '@ap/kernel';
 import { memoryStorage } from '@ap/kernel/testing';
 import { setFeatureApi } from '@ap/feature-bridge/feature-api';
-import { json, registry, stubFetch, switchableAdapter } from './fo/test-support';
+import { json, registry, stubFetch, switchableAdapter } from './feature/test-support';
 import { vocComposeSlot } from '@ap/feature-bridge/voc-compose-slot';
 
 const CONTEXT: VocComposeContext = { items: [], href: null, spaceId: null, menuId: null, carried: {} };
@@ -12,7 +12,7 @@ beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); });
 afterEach(() => { cleanup(); setFeatureApi(null); vi.unstubAllGlobals(); });
 
 describe('VOC compose slot', () => {
-  it('draws its own fallback while the page chunk loads, then the page (실서버 필요 and no request without a FeedbackOps API)', async () => {
+  it('draws its own fallback while the page chunk loads, then the page (실서버 필요 and no request without a feature API)', async () => {
     setFeatureApi(null);
     const calls = stubFetch(() => json({}));
     const { Compose } = vocComposeSlot(() => null);
