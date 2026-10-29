@@ -10,7 +10,7 @@ import type { EChartProps } from '../EChart';
 
 vi.mock('../EChartImpl', () => ({ default: FakePlot }));
 
-type PlottedSeries = { id?: string; data?: unknown[] };
+type PlottedSeries = { id?: string; data?: unknown[]; emphasis?: { focus?: string } };
 let plotProps: EChartProps | null = null;
 const plotOption = () => plotProps!.option as unknown as { dataZoom?: unknown[]; grid: { containLabel?: boolean; top: number; bottom: number; left: number }; series: PlottedSeries[]; yAxis: { axisLabel: { formatter?: (v: string) => string } } };
 
@@ -47,7 +47,7 @@ const highlighted = () => ['R1', 'R2', 'R3'].filter(c => bars(c).every(d => type
 
 let warnSpy: ReturnType<typeof vi.spyOn>;
 beforeEach(() => { plotProps = null; warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {}); vi.spyOn(console, 'error').mockImplementation(() => {}); });
-afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); delete document.documentElement.dataset.apAnalysisPrototype; vi.restoreAllMocks(); });
 
 describe('controlled activeCategory (#690b)', () => {
   it('reports a bar click and keeps the highlight at the prop value until the parent updates it', async () => {
@@ -74,6 +74,21 @@ describe('controlled activeCategory (#690b)', () => {
     expect(plotOption().yAxis.axisLabel.formatter!('R2')).toBe('{active|R2}');
     expect(plotOption().yAxis.axisLabel.formatter!('R1')).toBe('R1');
     expect(screen.getByRole('region', { name: '선택 요약' }).textContent).toContain('활성 행: R2');
+  });
+
+  it('keeps other series readable without losing the selected-row outline in #1141 gentle-focus preview', async () => {
+    document.documentElement.dataset.apAnalysisPrototype = 'analysis-dense';
+    mount({ chartId: 'hw-overview-L1', activeCategory: 'R2' });
+    await screen.findByRole('img');
+    const drawn = plotOption().series.filter(s => s.id === 'a' || s.id === 'b');
+    expect(drawn.map(s => s.emphasis?.focus)).toEqual(['none', 'none']);
+    expect(highlighted()).toEqual(['R2']);
+  });
+
+  it('keeps the existing series-focus default outside the #1141 preview', async () => {
+    mount({ chartId: 'hw-overview-L1' });
+    await screen.findByRole('img');
+    expect(plotOption().series.filter(s => s.id === 'a' || s.id === 'b').map(s => s.emphasis?.focus)).toEqual(['series', 'series']);
   });
 
   it('does not name an active row the plot does not draw, and keeps the prop for when it arrives', async () => {
