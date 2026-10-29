@@ -1,6 +1,6 @@
 import { ESLint } from 'eslint';
 import type { Linter } from 'eslint';
-import { spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { existsSync, unlinkSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -282,23 +282,52 @@ describe('feature screens preset: the UI rules plus the restyled-component check
   });
 });
 
+// Async dispatch: sync child waiting blocks the vitest worker event loop and starves the birpc
+// onTaskUpdate heartbeat (#771). Start errors, signal exits and a missing status reject, so
+// they can never be mistaken for the expected lint failure.
+function dispatchPackageLint(name: string): Promise<{ status: number; output: string }> {
+  return new Promise((resolve, reject) => {
+    const child = spawn('pnpm', ['--config.verify-deps-before-run=false', '--filter', name, 'run', 'lint'], {
+      cwd: REPO_ROOT,
+      env: { ...process.env, NODE_OPTIONS: '' },
+    });
+    let stdout = '';
+    let stderr = '';
+    child.stdout?.setEncoding('utf8').on('data', (chunk: string) => { stdout += chunk; });
+    child.stderr?.setEncoding('utf8').on('data', (chunk: string) => { stderr += chunk; });
+    child.on('error', reject);
+    child.on('close', (status, signal) => {
+      if (signal !== null) {
+        reject(new Error(`pnpm lint of ${name} exited on signal ${signal}`));
+        return;
+      }
+      if (status === null) {
+        reject(new Error(`pnpm lint of ${name} exited without a status`));
+        return;
+      }
+      resolve({ status, output: `${stdout}${stderr}` });
+    });
+  });
+}
+
 describe('package lint dispatch', () => {
   // Real `pnpm lint` of each package with a new, untracked invalid source file; the file is removed afterwards.
-  it.each(Object.entries(PACKAGES))('%s lint fails on a new invalid source file and names it', (dir, { name }) => {
+  it.each(Object.entries(PACKAGES))('%s lint fails on a new invalid source file and names it', async (dir, { name }) => {
     const probe = path.join(REPO_ROOT, dir, 'src', 'zz-lint-dispatch-probe.ts');
     expect(existsSync(probe)).toBe(false);
+    let heartbeats = 0;
+    // Zero-delay interval: fires once per event-loop turn, so it only ticks if the worker loop stays live
+    // while the lint child runs (sync waiting starves the vitest birpc onTaskUpdate heartbeat — #771).
+    const heartbeat = setInterval(() => { heartbeats += 1; }, 0);
     try {
       writeFileSync(probe, 'export const f = (a?: string) => a!;\nexport const g = (a: number) => a == 1;\n');
-      const run = spawnSync('pnpm', ['--config.verify-deps-before-run=false', '--filter', name, 'run', 'lint'], {
-        cwd: REPO_ROOT,
-        encoding: 'utf8',
-        env: { ...process.env, NODE_OPTIONS: '' },
-      });
-      const output = `${run.stdout}${run.stderr}`;
-      expect(run.status, output).not.toBe(0);
+      const { status, output } = await dispatchPackageLint(name);
+      expect(heartbeats, output).toBeGreaterThan(0);
+      expect(status, output).not.toBe(0);
       expect(output).toContain('zz-lint-dispatch-probe.ts');
       expect(output).toContain('no-non-null-assertion');
     } finally {
+      clearInterval(heartbeat);
       if (existsSync(probe)) unlinkSync(probe);
     }
   }, 180_000);
