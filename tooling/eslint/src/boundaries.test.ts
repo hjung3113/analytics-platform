@@ -453,6 +453,25 @@ const rows: Row[] = [
   { file: MENU, code: `import { mock } from '@ap/menu-analytics/mock';`, rule: 'no-restricted-imports' },
   { file: MENU, code: `await import('@ap/menu-analytics/mock');`, rule: 'ap/restricted-import-source' },
 
+  { file: 'apps/platform-web/src/menus.ts', code: `import { x } from '@ap/menu-home/launcher';`, rule: '' },
+  { file: 'apps/platform-web/src/menus.ts', code: `await import('@ap/menu-home/launcher');`, rule: '' },
+  { file: 'apps/platform-web/src/menus.ts', code: `import { x } from '@ap/menu-home/launcher/x';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/menus.ts', code: `await import('@ap/menu-home/launcher/x');`, rule: 'ap/restricted-import-source' },
+  { file: 'apps/platform-web/src/menus.ts', code: `import { x } from '@ap/menu-home/src/launcher';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/menus.ts', code: `await import('@ap/menu-home/src/launcher');`, rule: 'ap/restricted-import-source' },
+  { file: 'apps/platform-web/src/menus.ts', code: `import { x } from '@ap/menu-analytics/launcher';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/menus.ts', code: `await import('@ap/menu-analytics/launcher');`, rule: 'ap/restricted-import-source' },
+  { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/menu-home/launcher';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/main.tsx', code: `await import('@ap/menu-home/launcher');`, rule: 'ap/restricted-import-source' },
+  { file: 'apps/platform-web/src/dev/DevTools.tsx', code: `import { x } from '@ap/menu-home/launcher';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/dev/DevTools.tsx', code: `await import('@ap/menu-home/launcher');`, rule: 'ap/restricted-import-source' },
+  { file: 'apps/platform-web/src/menus.test.ts', code: `import { x } from '@ap/menu-home/launcher';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/menus.test.ts', code: `await import('@ap/menu-home/launcher');`, rule: 'ap/restricted-import-source' },
+  { file: 'platform/home/src/pages/Other.tsx', code: `import { x } from '@ap/menu-home/launcher';`, rule: 'no-restricted-imports' },
+  { file: 'platform/home/src/pages/Other.tsx', code: `await import('@ap/menu-home/launcher');`, rule: 'ap/restricted-import-source' },
+  { file: 'menus/mars/analytics/src/pages/Other.tsx', code: `import { x } from '@ap/menu-home/launcher';`, rule: 'no-restricted-imports' },
+  { file: 'menus/mars/analytics/src/pages/Other.tsx', code: `await import('@ap/menu-home/launcher');`, rule: 'ap/restricted-import-source' },
+
   // --- fix round 2 / P2: mock handler relative-import allowlist ---
   // A file under src/mock/** may relatively import only src/mock/** and this menu's src/endpoints.
   { file: 'platform/home/src/mock/a.ts', code: `import { x } from '../api';`, rule: 'ap/no-menu-mock-import' },

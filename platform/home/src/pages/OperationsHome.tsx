@@ -1,13 +1,16 @@
 import { useRef } from 'react';
 import { Clock3, Megaphone, Star, X } from 'lucide-react';
-import { type MenuEntry, PlatformLink, useI18n, useMenuQuery, usePlatform, useRecentVisits } from '@ap/kernel';
+import { type MenuEntry, type PageProps, PlatformLink, useI18n, useMenuQuery, usePlatform, useRecentVisits } from '@ap/kernel';
+import { groupHomeSpaces, type HomeLauncherGroup } from '../launcher-groups';
 import { noticesEndpoint } from '../endpoints';
 import { dismissNotice, useDismissedNotices } from './dismissed-notices';
 import { Panel, PlatformPage, QueryView } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 
 /** Platform home (ADR-0028, 15 §3.1): space cards, then `내 할 일` (a Kernel slot, ADR-0070 decision 8), then favorites and recent, then notices. */
-export default function OperationsHome() {
+const NO_LAUNCHER_GROUPS: readonly HomeLauncherGroup[] = [];
+
+export default function OperationsHome({ launcherGroups = NO_LAUNCHER_GROUPS }: Partial<PageProps> & { launcherGroups?: readonly HomeLauncherGroup[] } = {}) {
   const { favorites, toggleFavorite, linkTo, global, registry, accessibleSpaces, canOpen, resolveLink, spaceEntry, homeTodo } = usePlatform();
   const recent = useRecentVisits();
   const { t, tx, lang } = useI18n();
@@ -58,6 +61,23 @@ export default function OperationsHome() {
     });
   }
 
+  const launcherSections = groupHomeSpaces(launcherGroups, accessibleSpaces);
+  const compactEntry = (space: typeof accessibleSpaces[number]) => {
+    const entry = spaceEntry(space.id);
+    if (!entry) return null;
+    const home = registry.menuById(space.homeMenuId);
+    const Icon = registry.groupById(home.group).icon;
+    const resumeMenu = entry.resumed ? registry.menus.find(menu => menu.id === entry.menuId) : undefined;
+    return <PlatformLink key={space.id} href={entry.href} className="flex min-h-16 min-w-0 items-start gap-3 rounded-lg border border-border-subtle bg-surface-card p-3 hover:border-accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring">
+      <span className="grid size-9 shrink-0 place-items-center rounded-md bg-icon-blue-soft text-accent-primary"><Icon className="size-5" strokeWidth={1.75} aria-hidden /></span>
+      <span className="min-w-0 flex-1"><span className="block t-card-title">{tx(space.label)}</span>
+        {space.subtitle && <span className="block text-xs text-text-muted">{tx(space.subtitle)}</span>}
+        <span className="block text-xs text-text-muted">{space.id === 'operations' ? consoleSections(space.id).join(' · ') : tx(space.description)}</span>
+        {resumeMenu && <span className="mt-1 block text-xs text-text-secondary">{lang === 'ko' ? `이어서: ${tx(resumeMenu.label)}` : `Continue: ${tx(resumeMenu.label)}`}</span>}
+      </span>
+    </PlatformLink>;
+  };
+
   return <PlatformPage secondaryActions={canOpen('voc') ? <PlatformLink href={voc.href} className="text-xs font-medium text-accent-primary hover:underline">{lang === 'ko' ? '내 VOC' : 'My VOC'}</PlatformLink> : undefined}>
     <div className="space-y-4">
       <section aria-label={lang === 'ko' ? '업무 시스템' : 'Work systems'}>
@@ -71,6 +91,10 @@ export default function OperationsHome() {
                   </>
                 : <p className="mt-1 text-sm text-text-secondary">{lang === 'ko' ? '필요한 업무 시스템의 접근 권한을 플랫폼 관리자에게 요청하세요.' : 'Ask a platform administrator for access to the work system you need.'}</p>}
             </div>
+          : launcherGroups.length > 0 ? <div className="space-y-4">{launcherSections.map((group, index) => <section key={index} className="space-y-2">
+              <h2 className="t-nav-group text-text-secondary">{tx(group.label)}</h2>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">{group.spaces.map(compactEntry)}</div>
+            </section>)}</div>
           : <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
               {accessibleSpaces.map(space => {
                 const home = registry.menuById(space.homeMenuId);

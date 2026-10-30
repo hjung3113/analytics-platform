@@ -1,11 +1,12 @@
 {
   "name": "@ap/menu-home",
   "private": true,
-  "version": "0.1.2",
+  "version": "0.2.0",
   "ap": { "sdk": ">=0.21.0 <0.22.0" },
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./launcher": "./src/launcher.tsx",
     "./mock": "./src/mock/index.ts",
     "./styles.css": "./src/styles.css"
   },
