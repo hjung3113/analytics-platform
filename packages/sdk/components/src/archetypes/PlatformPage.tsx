@@ -1,3 +1,4 @@
+import { PageDensityProvider } from '../pageDensity';
 import { carriesReturnTo, formatInstant } from '@ap/contracts';
 import { formatQuerySummary, summaryPreset } from '../filters/querySummary';
 import { QueryBarExtensionContext, usePublishQueryBarExtension, type QueryBarExtension } from '../filters/QueryBarExtension';
@@ -115,13 +116,15 @@ export type PlatformPageProps = {
    * body) and the body takes what the header leaves, so a `PanelWorkspace` child fills it; the body keeps at least 520 px (a 300 px plot plus the card chrome), so a tall chrome scrolls the page instead of crushing the workspace. Opt in only for a workspace page.
    */
   layout?: 'flow' | 'fill';
+  /** Visual spacing inherited by SDK descendants; default comfortable. Never persisted. */
+  density?: 'comfortable' | 'compact';
   /** Where `page`/`return` arrival focus lands instead of the heading, while the returned element is connected (a `drill` arrival keeps the current step). */
   arrivalTarget?: () => HTMLElement | null;
   children: ReactNode;
 };
 
 /** §8 Shell Slots. Pages never insert global UI outside these slots. */
-export function PlatformPage({ title, description, primaryAction, secondaryActions, contextExtension, contextNotes, dataTrustSummary, queryBarExtension, queryResult, crumbs = [], layout = 'flow', arrivalTarget, children }: PlatformPageProps) {
+export function PlatformPage({ title, description, primaryAction, secondaryActions, contextExtension, contextNotes, dataTrustSummary, queryBarExtension, queryResult, crumbs = [], layout = 'flow', density = 'comfortable', arrivalTarget, children }: PlatformPageProps) {
   const { global, page, equipmentAxes, route, favorites, toggleFavorite, scope, retryScope, setGlobal, lastScope, linkTo, registry, slots, url, pathname, pageNavigation, currentSpace, screenMode, canOpen, queryDraft } = useHostPlatform();
   const conditionPreset = useConditionPreset();
   // A board pane draws content only: the board owns the pane head and the Context bar, and no arrival focus moves here (ADR-0049).
@@ -249,7 +252,7 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
   const leftGroupMinWidth = `calc(7rem + ${leftGroupControls * 1.5}rem + ${(leftGroupItems - 1) * 0.5}rem)`;
 
   const fixedFill = layout === 'fill' && flowing === 0;
-  return <QueryBarExtensionContext.Provider value={queryBarExtension}><PageFlowContext.Provider value={layout === 'fill' ? registerFlow : null}><div ref={root} data-platform-page data-page-layout={layout === 'fill' ? 'fill' : undefined} className={fixedFill ? 'flex h-full min-h-0 flex-col' : 'flex min-h-full flex-col'}>
+  return <PageDensityProvider value={density}><QueryBarExtensionContext.Provider value={queryBarExtension}><PageFlowContext.Provider value={layout === 'fill' ? registerFlow : null}><div ref={root} data-platform-page data-page-layout={layout === 'fill' ? 'fill' : undefined} className={fixedFill ? 'flex h-full min-h-0 flex-col' : 'flex min-h-full flex-col'}>
     {!inPane && <div ref={stickyHeader} data-page-sticky-header className="sticky top-0 z-20 shrink-0 bg-surface-canvas">
       <header ref={pageHeader} onFocus={event => {
         const header = event.currentTarget;
@@ -313,8 +316,8 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
           pendingChanges={queryDraft.dirty.some(key => menu.pageKeys.includes(key))} issueCount={queryBarExtension?.issues.length ?? 0} />
       : <div className="px-8 pt-3"><PageHeadBody notes={notes} extension={contextExtension} /></div>)}
     {screenMode === 'main' && !gate && carriesReturnTo(registry.carrySetOf(menu)) && <ReturnRow />}
-    <div data-platform-page-content tabIndex={-1} className={layout === 'fill' ? 'flex flex-1 flex-col px-8 pb-9 pt-7' : 'flex-1 px-8 pb-9 pt-7'}>{gate ?? <OutcomeScope><OutcomeBanners compact={layout === 'fill'} />{layout === 'fill' ? <div data-platform-page-fill className={fixedFill ? 'flex min-h-[520px] flex-1 flex-col' : 'flex flex-1 flex-col'}>{children}</div> : children}</OutcomeScope>}</div>
-  </div></PageFlowContext.Provider></QueryBarExtensionContext.Provider>;
+    <div data-platform-page-content tabIndex={-1} className={cn(layout === 'fill' ? 'flex flex-1 flex-col' : 'flex-1', density === 'compact' ? 'px-4 pb-4 pt-3' : 'px-8 pb-9 pt-7')}>{gate ?? <OutcomeScope><OutcomeBanners compact={layout === 'fill'} />{layout === 'fill' ? <div data-platform-page-fill className={fixedFill ? 'flex min-h-[520px] flex-1 flex-col' : 'flex flex-1 flex-col'}>{children}</div> : children}</OutcomeScope>}</div>
+  </div></PageFlowContext.Provider></QueryBarExtensionContext.Provider></PageDensityProvider>;
 }
 
 /** The way back into a carry set that lists `returnTo` (ADR-0081 UX-10): drawn only for an origin `safeReturnTo` and `canOpen` accepted, never for a parent/home fallback. */

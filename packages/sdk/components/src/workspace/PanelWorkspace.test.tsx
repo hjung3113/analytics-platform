@@ -1,3 +1,4 @@
+import { PageDensityProvider } from '../pageDensity';
 import { useEffect, useState, type ReactNode } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -1001,5 +1002,20 @@ describe('PanelWorkspace: revealRequest (#690)', () => {
       expect(tab('trend')).toHaveAttribute('aria-selected', 'true');
       expect(document.querySelector('[data-dock-narrow="true"]')).toBeNull();
     });
+  });
+});
+
+
+describe('visual density is independent of panel admission (#1141)', () => {
+  it.each(['comfortable', 'compact'] as const)('%s changes gap while narrow admission keeps its own attribute', async density => {
+    render(shell(<PageDensityProvider value={density}><PanelWorkspace {...BASE} compactPreset="stack" /></PageDensityProvider>));
+    await ready();
+    const workspace = document.querySelector('[data-panel-workspace]')!;
+    expect(workspace).toHaveClass(density === 'compact' ? 'gap-1.5' : 'gap-2');
+    expect(workspace).not.toHaveAttribute('data-workspace-compact');
+    observer.resize(600);
+    await waitFor(() => expect(workspace).toHaveAttribute('data-workspace-compact'));
+    expect(workspace.getAttribute('data-workspace-density')).toBe(density === 'compact' ? 'compact' : null);
+    expect(workspace).toHaveClass(density === 'compact' ? 'gap-1.5' : 'gap-2');
   });
 });

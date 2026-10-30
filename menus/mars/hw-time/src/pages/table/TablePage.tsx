@@ -135,7 +135,7 @@ export default function TablePage(_props: PageProps) {
         exportContext={hwTime.exportRows.context}
       />;
 
-  return <PlatformPage layout="fill">
+  return <PlatformPage layout="fill" density="compact">
     <DrillLayout fill summary={summary}>
       {levelFailure && <OutcomeView response={levelFailure} onRetry={levelQ.refetch} compact>{() => null}</OutcomeView>}
       {table}

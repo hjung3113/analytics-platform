@@ -108,7 +108,7 @@ Fix design-lint errors with the token, variant or component the message names.
 Reports are in Korean.
 
 - **Preview:** mock assembly only. Ports have separate localStorage. Set the role in localStorage `platform:role` as a JSON string (`"admin"`). Pick loading, empty and error states in mock DevTools each time a page opens.
-- **Viewport:** 1440×900, plus 1280 with a detail slot open.
+- **Viewport:** Follow root `AGENTS.md`'s desktop capture scope: 1440×900, plus 1280 with a detail slot open.
 - **References:**
   - root `AGENTS.md`, `DESIGN.md`, `GLOSSARY.md`
   - `docs/contract/platform-ui-contract.md`: shell §7, detail slot §13, charts §16, status §19, cross-menu links §22, plus the issue's sections and ADRs

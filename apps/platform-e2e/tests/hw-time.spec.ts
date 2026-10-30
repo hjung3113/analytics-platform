@@ -138,3 +138,195 @@ test.describe('HW Time 메뉴 4종 — 드릴 · 작업 영역 · 보드 (06 §1
     await expect(page.getByRole('combobox', { name: '차트 지점 선택' })).toBeEnabled();
   });
 });
+
+/** Approved B observes real layout/paint. No SDK or engine-instance imports. */
+test.describe('approved analysis B (#1141)', () => {
+  test.beforeEach(async ({ page }) => { await signInAs(page, 'engineer'); });
+
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 1280, height: 800 }]) {
+    test(`compact geometry and undimmed bar drill/back at ${viewport.width}`, async ({ page }, testInfo) => {
+      await page.setViewportSize(viewport);
+      for (const menu of MENUS) {
+        await page.goto(`${menu.path}?v=1&scopeId=MEM`);
+        await expectScopeValid(page, 'MEM · 메모리');
+        const content = page.locator('[data-platform-page-content]');
+        await expect(content).toHaveCSS('padding-left', '16px');
+        await expect(content).toHaveCSS('padding-right', '16px');
+        await expect(content).toHaveCSS('padding-top', '12px');
+        await expect(content).toHaveCSS('padding-bottom', '16px');
+        if (menu.entry === 'table') {
+          const table = page.getByRole('table', { name: 'HW Time 동작시간 표' });
+          await expect(table.getByRole('cell').first()).toBeVisible();
+          // The existing cell contract is a 32px minimum; the action plus its border can make a row 33px.
+          await expect(table.getByRole('cell').first()).toHaveCSS('min-height', '32px');
+          await expect(table.getByRole('row').nth(1)).toHaveCSS('height', '33px');
+        }
+      }
+      await page.goto('/mars/hw-time-steps?v=1&scopeId=MEM');
+      const chart = page.getByRole('region', { name: 'Module별 동작시간', exact: true });
+      const canvas = chart.locator('canvas').first();
+      await expect(canvas).toBeVisible();
+      // Locate two differently colored bar segments from rendered pixels, rather than guessing plot coordinates.
+      const samples = async () => canvas.evaluate(element => {
+        const c = element as HTMLCanvasElement;
+        const ctx = c.getContext('2d')!;
+        const image = ctx.getImageData(0, 0, c.width, c.height);
+        let hovered: { x: number; y: number; color: number[] } | undefined;
+        for (let y = 0; y < c.height; y += 2) {
+          const runs: { x: number; y: number; color: number[] }[] = [];
+          let start = 0; let last = '';
+          for (let x = 0; x <= c.width; x++) {
+            const rgba = Array.from(image.data.slice((y * c.width + x) * 4, (y * c.width + x) * 4 + 4));
+            const key = rgba.join(',');
+            if (key !== last) {
+              if (x - start > 12) {
+                const color = last.split(',').map(Number);
+                if (color[3] === 255 && Math.max(...color.slice(0, 3)) - Math.min(...color.slice(0, 3)) > 30) runs.push({ x: Math.floor((x + start) / 2), y, color });
+              }
+              start = x; last = key;
+            }
+          }
+          // Sample inside a solid bar, clear of its antialiased top/bottom hit boundary.
+          const interiors = runs.filter(run => [-4, 4].every(dy => {
+            const offset = ((y + dy) * c.width + run.x) * 4;
+            return y + dy >= 0 && y + dy < c.height && Array.from(image.data.slice(offset, offset + 4)).join() === run.color.join();
+          }));
+          if (!hovered && interiors.length > 1) hovered = interiors[0];
+          // Axis tooltips emphasize every segment in the hovered category. Observe a different series in another row.
+          if (hovered && y > hovered.y + 20) {
+            const other = interiors.find(run => run.color.join() !== hovered!.color.join());
+            if (other) return [hovered, other];
+          }
+        }
+        return [];
+      });
+      await expect.poll(async () => (await samples()).length).toBe(2);
+      const [hovered, other] = await samples();
+      const box = (await canvas.boundingBox())!;
+      const native = await canvas.evaluate(c => ({ width: (c as HTMLCanvasElement).width, height: (c as HTMLCanvasElement).height }));
+      await page.mouse.move(box.x + hovered!.x * box.width / native.width, box.y + hovered!.y * box.height / native.height);
+      await expect(chart.locator('[style*="position: absolute"]').filter({ hasText: 'PM1' }).last()).toBeVisible();
+      await canvas.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+      const untouched = () => canvas.evaluate((c, point) => Array.from((c as HTMLCanvasElement).getContext('2d')!.getImageData(point.x, point.y, 1, 1).data), other!);
+      await expect.poll(untouched).toEqual(other!.color);
+      await evidence(page, testInfo, `gentle-hover-${viewport.width}`);
+      await page.mouse.click(box.x + hovered!.x * box.width / native.width, box.y + hovered!.y * box.height / native.height);
+      await expect.poll(() => query(page).has('drillModule')).toBe(true);
+      await expect(drillPath(page)).toBeVisible();
+      await page.goBack();
+      await expect.poll(() => query(page).has('drillModule')).toBe(false);
+      await expect(chart.locator('canvas').first()).toBeVisible();
+      // Re-check the restored chart's actual paint under hover, rather than relying on its original option.
+      await expect.poll(async () => (await samples()).length).toBe(2);
+      const [restoredHover, restoredOther] = await samples();
+      const restoredBox = (await canvas.boundingBox())!;
+      await page.mouse.move(restoredBox.x + restoredHover!.x * restoredBox.width / native.width, restoredBox.y + restoredHover!.y * restoredBox.height / native.height);
+      await expect(chart.locator('[style*="position: absolute"]').filter({ hasText: 'PM1' }).last()).toBeVisible();
+      await expect.poll(() => canvas.evaluate((c, point) => Array.from((c as HTMLCanvasElement).getContext('2d')!.getImageData(point.x, point.y, 1, 1).data), restoredOther!)).toEqual(restoredOther!.color);
+    });
+
+    test(`native center/edge previews, keyboard move/cancel and nested max/restore at ${viewport.width}`, async ({ page }, testInfo) => {
+      await page.setViewportSize(viewport);
+      await page.goto('/mars/hw-time-compare?v=1&scopeId=MEM&drillModule=PM1&drillMotion=Chuck');
+      const workspace = page.locator('[data-panel-workspace]');
+      await expect(workspace).toHaveCSS('row-gap', '6px');
+      await expect(workspace.locator('canvas')).not.toHaveCount(0);
+      const summaryTab = page.getByRole('tab', { name: /^Module별/ });
+      const moduleTab = page.getByRole('tab', { name: /^Module PM1 구성/ });
+      const groups = workspace.locator('.dv-groupview');
+      await expect(groups).toHaveCount(3);
+      const target = groups.filter({ has: moduleTab });
+      const targetBox = (await target.boundingBox())!;
+      const sourceBox = (await summaryTab.boundingBox())!;
+      // Native HTML DnD needs dragover after dragenter, including after a target rerender.
+      // Match the existing board harness: keep moving over the target before releasing.
+      const hoverDropTarget = async (x: number, y: number) => {
+        await page.mouse.move(x, y, { steps: 12 });
+        for (let i = 0; i < 6; i++) {
+          await page.waitForTimeout(80);
+          await page.mouse.move(x + (i % 2 === 0 ? -2 : 2), y);
+        }
+      };
+      await page.mouse.move(sourceBox.x + sourceBox.width / 2, sourceBox.y + sourceBox.height / 2);
+      await page.mouse.down();
+      await hoverDropTarget(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2);
+      const center = page.locator('.ap-dock .dv-drop-target-selection.dv-drop-target-center, .ap-dock .dv-drop-target-anchor.dv-drop-target-center').filter({ visible: true });
+      await expect(center).toBeVisible();
+      await expect(center).toHaveCSS('border-top-width', '2px');
+      // Native overlay dimensions transition for 70ms; assert the final footprint without a fixed sleep.
+      await expect.poll(async () => Math.abs((await center.boundingBox())!.height - targetBox.height)).toBeLessThan(4);
+      await expect.poll(async () => Math.abs((await center.boundingBox())!.width - targetBox.width)).toBeLessThan(4);
+      await evidence(page, testInfo, `native-center-${viewport.width}`);
+      await page.keyboard.press('Escape');
+      await page.mouse.move(targetBox.x + targetBox.width / 2 + 2, targetBox.y + targetBox.height / 2);
+      await page.mouse.up();
+      await expect(groups).toHaveCount(3);
+      // Native Escape ends the drag without changing layout. The baseline also leaves a stale cue
+      // (backlog #1141); reload before the independent drop checks instead of claiming cue cleanup.
+      await page.reload();
+      await expect(groups).toHaveCount(3);
+      await expect(center).toBeHidden();
+      await expect(workspace.locator('canvas')).not.toHaveCount(0);
+      await page.mouse.move(sourceBox.x + sourceBox.width / 2, sourceBox.y + sourceBox.height / 2);
+      await page.mouse.down();
+      await hoverDropTarget(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2);
+      await expect(center).toBeVisible();
+      await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2);
+      await page.mouse.up();
+      await expect(groups).toHaveCount(2);
+      await expect(groups.filter({ has: moduleTab }).getByRole('tab', { name: /^Module별/ })).toBeVisible();
+      // Split the merged tab to the right; the preview boundary must become the resulting split.
+      const merged = groups.filter({ has: moduleTab });
+      const mergedBox = (await merged.boundingBox())!;
+      const movedBox = (await summaryTab.boundingBox())!;
+      await page.mouse.move(movedBox.x + movedBox.width / 2, movedBox.y + movedBox.height / 2);
+      await page.mouse.down();
+      await hoverDropTarget(mergedBox.x + mergedBox.width - 10, mergedBox.y + mergedBox.height / 2);
+      const edge = page.locator('.ap-dock .dv-drop-target-selection.dv-drop-target-right, .ap-dock .dv-drop-target-anchor.dv-drop-target-right').filter({ visible: true });
+      await expect(edge).toBeVisible();
+      await expect(edge).toHaveCSS('border-left-width', '3px');
+      await expect.poll(async () => Math.abs((await edge.boundingBox())!.width / mergedBox.width - 0.5)).toBeLessThan(0.03);
+      const edgeBox = (await edge.boundingBox())!;
+      await evidence(page, testInfo, `native-edge-${viewport.width}`);
+      await page.mouse.move(mergedBox.x + mergedBox.width - 10, mergedBox.y + mergedBox.height / 2);
+      await page.mouse.up();
+      await expect(groups).toHaveCount(3);
+      await expect.poll(async () => Math.abs((await groups.filter({ has: summaryTab }).boundingBox())!.x - edgeBox.x)).toBeLessThan(10);
+      await summaryTab.focus();
+      await summaryTab.press('Shift+F10');
+      await expect(page.getByRole('menu')).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(summaryTab).toBeFocused();
+      await expect(groups).toHaveCount(3);
+      await summaryTab.press('Shift+F10');
+      const move = page.getByRole('menuitem', { name: /Module PM1 구성.*묶음으로 옮기기/ });
+      await move.focus(); await move.press('Enter');
+      await expect(groups).toHaveCount(2);
+      await expect(summaryTab).toBeFocused();
+      // Restore the declared three-group layout before the independent max/restore scenario.
+      // The preceding keyboard move intentionally produced two full-width stacked groups.
+      await workspace.getByRole('button', { name: '기본 배치', exact: true }).click();
+      await expect(groups).toHaveCount(3);
+      // Put this real consumer in a board, then maximize the outer pane and nested summary group.
+      const header = page.getByRole('main').locator('header').filter({ has: page.getByRole('heading', { level: 1 }) });
+      await header.getByRole('button', { name: '더보기', exact: true }).click();
+      await page.getByRole('button', { name: '분석 보드에 열기…', exact: true }).click();
+      const dialog = page.getByRole('dialog', { name: '분석 보드에 열기' });
+      await dialog.getByRole('radio', { name: '새 시트' }).click();
+      await dialog.getByRole('button', { name: '열기', exact: true }).click();
+      await page.getByRole('button', { name: '칸 추가', exact: true }).click();
+      const pane = page.getByRole('group', { name: '칸 1', exact: true });
+      const plot = pane.getByRole('img', { name: /^Module별 동작시간/ });
+      await expect(plot).toBeVisible();
+      await page.getByRole('button', { name: '칸 1 최대화', exact: true }).click();
+      const innerMaximize = pane.locator('[data-panel-workspace] .dv-groupview').filter({ has: page.getByRole('tab', { name: /^Module별/ }) }).locator('[data-workspace-maximize]');
+      await innerMaximize.click();
+      await expect.poll(async () => (await plot.boundingBox())!.width).toBeGreaterThan(viewport.width * 0.6);
+      await evidence(page, testInfo, `nested-maximized-${viewport.width}`);
+      await innerMaximize.click();
+      await expect.poll(async () => (await plot.boundingBox())!.width).toBeLessThan(viewport.width * 0.6);
+      await page.getByRole('button', { name: '원래 크기로', exact: true }).first().click();
+      await expect(pane).toBeVisible();
+    });
+  }
+});

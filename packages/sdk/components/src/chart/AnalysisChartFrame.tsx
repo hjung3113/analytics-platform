@@ -1,3 +1,5 @@
+import { useCompactPageDensity } from '../pageDensity';
+import { useInWorkspacePanel } from '../workspace/panelContext';
 import { toMs, unknownLabel } from './analysisChartShared';
 import { BrushIcon, Download, Eye, GitCompare, MessageSquarePlus, MoreHorizontal, RotateCcw, Table2, ZoomIn } from 'lucide-react';
 import { useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -111,6 +113,8 @@ type PointEvent = { seriesId?: string; value?: unknown; name?: string; dataIndex
 const pointKey = (point: ChartPoint) => JSON.stringify([point.seriesId, point.x]);
 
 export type AnalysisChartFrameProps = {
+  /** Transient bar hover focus; none keeps other series undimmed. Default series. */
+  emphasisFocus?: 'series' | 'none';
   chartId: string;
   title: ReactNode;
   description?: ReactNode;
@@ -180,6 +184,9 @@ export type AnalysisChartFrameProps = {
  */
 export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const { t, lang } = useI18n();
+  const densePage = useCompactPageDensity();
+  const inPanel = useInWorkspacePanel();
+  const compactEmbedded = densePage && inPanel;
   const analysisSection = useContext(AnalysisSectionContext);
   const size = resolveAnalysisChartSize(p.size, analysisSection);
   const compact = size === 'compact';
@@ -415,10 +422,10 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     // A new chart instance replays the option: the lazy chunk and theme CSS may have settled since the tokens were last resolved.
     void instanceReady;
     return buildChartOption({
-      displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations, noteSpans, noteLevels, timeExtent, chartWidth: optionWidth, tickRoom, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory, startAlign, extremes, valueLabels, totals, totalText,
+      emphasisFocus: p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations, noteSpans, noteLevels, timeExtent, chartWidth: optionWidth, tickRoom, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory, startAlign, extremes, valueLabels, totals, totalText,
       palette: resolveChartPalette(displayed),
     });
-  }, [displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations, noteSpans, noteLevels, timeExtent, optionWidth, tickRoom, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory, startAlign, extremes, valueLabels, totals, totalText, instanceReady]);
+  }, [p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations, noteSpans, noteLevels, timeExtent, optionWidth, tickRoom, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory, startAlign, extremes, valueLabels, totals, totalText, instanceReady]);
 
   // Re-arm the brush cursor after each option replacement, and once the instance becomes ready.
   useEffect(() => {
@@ -596,10 +603,10 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
 
   // min-w-0: the plot canvas owns a fixed px width; without it that width becomes the card's min-content and a
   // grid cell can never shrink the card (the ResizeObserver then never sees a smaller width on column switch).
-  return <section role="region" aria-labelledby={titleId} data-analysis-chart={analysisSection ? '' : undefined} className={cn('relative flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface-card', size === 'fill' && FILL_CARD_CLASS)}>
+  return <section role="region" aria-labelledby={titleId} data-analysis-chart={analysisSection ? '' : undefined} className={cn('relative flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface-card', size === 'fill' && FILL_CARD_CLASS, compactEmbedded && 'rounded-none border-0 shadow-none')}>
     {/* Pinned to the card corner so a wrapping toolbar never strands it on its own line. */}
     <AnalysisChartPart enabled={analysisSection !== null}>
-    <header className={cn('flex flex-wrap items-start justify-between gap-2 px-4 pt-3', analysisSection && 'pr-12')}>
+    <header className={cn('flex flex-wrap items-start justify-between', compactEmbedded ? 'gap-1 px-2 pt-1' : 'gap-2 px-4 pt-3', analysisSection && 'pr-12')}>
       <ChartHeading titleId={titleId} title={p.title} description={p.description} metricVersion={p.metricVersion} compact={compact} />
       {/* The core controls wrap in source order inside narrow cards; the Export/More tail stays bundled as its own
         wrap unit. Wide cards keep one right-aligned row, and extraActions keeps its own bundle. */}

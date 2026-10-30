@@ -39,3 +39,14 @@ describe('horizontal value-axis ticks on a narrow plot (#914 B3)', () => {
     expect(axis(long).splitNumber).toBeLessThan(5);
   });
 });
+
+describe('gentle emphasis preserves selection and Min/Max (#1141)', () => {
+  it('changes only transient focus in the complete active-row and Min/Max option', () => {
+    const normal = buildChartOption(baselineInput()) as { series: { emphasis?: { focus?: string } }[] };
+    const gentle = buildChartOption(baselineInput({ emphasisFocus: 'none' })) as typeof normal;
+    expect(gentle.series.filter(s => s.emphasis?.focus).map(s => s.emphasis!.focus)).toEqual(['none', 'none']);
+    expect(JSON.parse(JSON.stringify(gentle))).toEqual(JSON.parse(JSON.stringify({ ...normal, series: normal.series.map(s => s.emphasis?.focus ? { ...s, emphasis: { ...s.emphasis, focus: 'none' } } : s) })));
+    const axis = gentle as unknown as { yAxis: { axisLabel: { formatter: (v: string) => string } } };
+    expect(axis.yAxis.axisLabel.formatter('R2')).toBe('{active|R2}');
+  });
+});

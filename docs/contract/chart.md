@@ -7,6 +7,9 @@
 
 ## 16. Analysis Chart Contract
 
+**Transient bar emphasis (Decided, #1141).** `AnalysisChartFrame.emphasisFocus?: 'series' | 'none'` defaults to `series`, preserving existing hover dimming. `none` avoids blur dimming of other series; native axis-tooltip emphasis on the hovered category is retained. This is independent of persistent `activeCategory` selection (2px row outline and bold label, with the existing 3px Min/Max exception). Tooltip, point activation, Brush, Min/Max, nulls and total labels retain their semantics. The pure option builder receives the declaration without inspecting chart IDs or consumers. HWT StackPanel and TrendPanel explicitly choose `none`; other consumers retain their default. See [ADR-0103](../adr/0103-compact-analysis-and-snap-dock.md).
+
+
 Primary candidate는 `../architecture/frontend-ui-ux.md`에 따라 Apache ECharts다.
 
 플랫폼은 Chart의 비즈니스 정의가 아니라 **Chart Frame과 Interaction Contract**를 소유한다.

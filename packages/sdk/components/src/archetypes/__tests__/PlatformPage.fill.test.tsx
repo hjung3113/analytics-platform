@@ -1,3 +1,4 @@
+import { useCompactPageDensity } from '../../pageDensity';
 import { useState } from 'react';
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { House } from 'lucide-react';
@@ -128,4 +129,26 @@ describe('PlatformPage layout: a workspace in stack mode turns the fill page int
     act(() => { setActive(true); });
     expect(document.querySelectorAll<HTMLElement>('[data-platform-page]')[0]).toHaveClass('h-full', 'min-h-0');
   });
+});
+
+describe('opt-in page density (#1141)', () => {
+  it.each(['flow', 'fill'] as const)('%s keeps comfortable spacing by default and compact preserves height behavior', layout => {
+    const view = mount({ layout });
+    expect(document.querySelector('[data-platform-page-content]')).toHaveClass('px-8', 'pt-7', 'pb-9');
+    view.unmount();
+    mount({ layout, density: 'compact' });
+    expect(document.querySelector('[data-platform-page-content]')).toHaveClass('px-4', 'pt-3', 'pb-4');
+    expect(document.querySelector('[data-platform-page]')).toHaveClass(layout === 'fill' ? 'h-full' : 'min-h-full');
+    if (layout === 'fill') expect(document.querySelector('[data-platform-page-fill]')).toHaveClass('min-h-[520px]');
+  });
+});
+
+
+it('PlatformPage carries visual density to descendants and nested pages retain their own default (#1141)', () => {
+  function DensityProbe({ id }: { id: string }) { return <span data-testid={id}>{String(useCompactPageDensity())}</span>; }
+  render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}>
+    <PlatformPage density="compact"><DensityProbe id="dense" /><PlatformPage><DensityProbe id="normal" /></PlatformPage></PlatformPage>
+  </PlatformProvider></I18nProvider>);
+  expect(screen.getByTestId('dense')).toHaveTextContent('true');
+  expect(screen.getByTestId('normal')).toHaveTextContent('false');
 });

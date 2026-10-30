@@ -331,3 +331,12 @@ describe('HW Time table page', () => {
     expect(await screen.findByText(/일부 미측정 1행/)).toBeTruthy();
   });
 });
+
+
+it('declares compact page spacing from the real consumer (#1141)', async () => {
+  await renderPage();
+  const content = document.querySelector('[data-platform-page-content]')!;
+  expect(content.classList.contains('px-4')).toBe(true);
+  expect(content.classList.contains('pt-3')).toBe(true);
+  expect(content.classList.contains('pb-4')).toBe(true);
+});
