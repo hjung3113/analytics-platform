@@ -226,6 +226,8 @@ test.describe('approved analysis B (#1141)', () => {
     });
 
     test(`native center/edge previews, keyboard move/cancel and nested max/restore at ${viewport.width}`, async ({ page }, testInfo) => {
+      // This combined flow exceeds 30s on CI; keep every per-step assertion unchanged.
+      test.slow();
       await page.setViewportSize(viewport);
       await page.goto('/mars/hw-time-compare?v=1&scopeId=MEM&drillModule=PM1&drillMotion=Chuck');
       const workspace = page.locator('[data-panel-workspace]');

@@ -95,7 +95,7 @@
 - [플랫폼 인바운드 링크 계약](integration/platform-inbound-links.md) — **과거 기록 + 현행 inbound 계약**(독립 앱 복귀 방향은 #597에서 은퇴). 양방향 딥링크 1단계(확장은 #81).
 - [프레임워크 통합 계획](integration/framework-unification-plan.md) — 기능·equipment-visualization 프레임워크 조각을 플랫폼 프레임워크로 합치는 지도(현황·중복·목표·단계·SDK 준비 메모). Proposed(#396의 입력). 목표는 [ADR-0043](adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)이 우선한다.
 - [SDK 포괄 목록](integration/sdk-coverage-inventory.md) — 세 프레임워크(AP·FeedbackOps·EV)의 기능을 SDK가 모두 덮는지 코드로 대조한 목록과 통합 계획 지도 정정. Candidate. 저장소·릴리스 구조 결정은 [ADR-0044](adr/0044-sdk-source-in-platform-repo-released-separately.md)(Decided).
-- [SDK git 태그 소비 시험](integration/sdk-git-tag-consumption.md) — 기능이 `@ap/ui`를 git 태그 의존성으로 받을 때 되는 것과 소비자 조건(`@types/node`·`@tiptap/*` overrides·auto-animate 패치). Candidate.
+- [SDK 소비 조건·변경 기록](integration/sdk-git-tag-consumption.md) — SDK 버전별 공개 API·이전 방법, 소비 조건과 과거 git 태그 시험. 현행 배포·설치는 [ADR-0056](adr/0056-sdk-release-github-release-tarballs.md)의 Release tarball 계약을 따른다.
 - [SDK TopN·Lane 차트 API·사용 예·변경 기록](integration/sdk-charts.md) — #576, ADR-0064.
 - [플랫폼 탑재 설계](integration/platform-hosting-design.md) — 다른 저장소 업무 모듈(EV·기능)의 호스트 → 모듈 계약, 두 호스트 실행, 패키지 배치, 기능 탑재안. Proposed(선행 조사, ADR-0038·0039 초안). 독립 호스트는 SDK 범위 밖(ADR-0043).
 
