@@ -1,4 +1,6 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { Suspense } from 'react';
+import { createHomeComponent } from '../launcher';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry, type PlatformSlots } from '@ap/kernel';
@@ -386,5 +388,68 @@ describe('notice dismissal copy (#1139)', () => {
     expect(screen.getByRole('button', { name })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name }));
     expect(screen.queryByRole('status')).toBeNull();
+  });
+});
+
+
+describe('configured home launcher (#1109)', () => {
+  const groups = [
+    { id: 'analysis', label: { ko: '분석', en: 'Analysis' }, spaces: [spaceId('bravo'), spaceId('mars')] },
+    { id: 'empty', label: { ko: '빈 그룹', en: 'Empty group' }, spaces: [spaceId('unavailable')] },
+    { id: 'platform', label: { ko: '플랫폼 관리', en: 'Platform administration' }, spaces: [spaceId('operations')] },
+  ];
+
+  it.each([
+    ['ko', '플랫폼 홈', '업무 시스템', '분석', '플랫폼 관리', '빈 그룹', '기타'],
+    ['en', 'Platform home', 'Work systems', 'Analysis', 'Platform administration', 'Empty group', 'Other'],
+  ])('renders declared groups in order, accessible membership once and localized fallback (%s)', async (lang, title, systems, analysis, platform, empty, other) => {
+    if (lang === 'en') persisted.setItem('platform:lang', 'en');
+    const Home = createHomeComponent([groups[2], groups[0], groups[1]]);
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
+    render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter([...BOTH, 'features:access'])} registry={registry}><Suspense fallback={null}><Home params={{}} /></Suspense></PlatformProvider></I18nProvider>);
+    await screen.findByRole('heading', { name: title });
+    const section = screen.getByRole('region', { name: systems });
+    await within(section).findByRole('heading', { name: analysis });
+    expect(within(section).getAllByRole('heading').map(heading => heading.textContent)).toEqual([platform, analysis]);
+    expect(within(section).queryByText(empty)).toBeNull();
+    expect(within(section).queryByText(other)).toBeNull();
+    const cards = within(section).getAllByRole('link');
+    expect(cards.map(card => card.textContent)).toEqual([expect.stringContaining(lang === 'ko' ? '운영 콘솔' : 'Operations console'), expect.stringContaining('MARS'), expect.stringContaining('BRAVO')]);
+    expect(cards).toHaveLength(3);
+    expect(cards[1].getAttribute('href')).toContain('/equipment');
+    expect(within(section).queryByRole('button')).toBeNull();
+    cleanup();
+    const FallbackHome = createHomeComponent([groups[0], groups[1]]);
+    render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter(['platform:view', 'features:access'])} registry={registry}><Suspense fallback={null}><FallbackHome params={{}} /></Suspense></PlatformProvider></I18nProvider>);
+    const fallback = await screen.findByRole('heading', { name: other });
+    expect(within(fallback.closest('section')!).getAllByRole('link')).toHaveLength(1);
+    expect(screen.queryByRole('heading', { name: analysis })).toBeNull();
+    expect(screen.queryByRole('heading', { name: empty })).toBeNull();
+  });
+
+  it('keeps resume navigation as text inside one whole-card link', async () => {
+    tabStore.setItem('platform:space-last:u1', JSON.stringify({ bravo: '/metrics?v=1&scopeId=OLD&page=2&extra=1' }));
+    const Home = createHomeComponent(groups);
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
+    render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter(BOTH)} registry={registry}><Suspense fallback={null}><Home params={{}} /></Suspense></PlatformProvider></I18nProvider>);
+    const card = await screen.findByRole('link', { name: /BRAVO.*이어서/ });
+    expect(card.getAttribute('href')).toBe('/bravo/catalog?v=1&scopeId=MEM&page=2');
+    expect(card.querySelector('a, button')).toBeNull();
+  });
+
+  it('rejects duplicate configured spaces at factory creation', () => {
+    expect(() => createHomeComponent([groups[0], { ...groups[2], spaces: [spaceId('mars')] }])).toThrow(/duplicate.*mars/i);
+    expect(() => createHomeComponent([{ ...groups[0], spaces: [spaceId('mars'), spaceId('mars')] }])).toThrow(/duplicate.*mars/i);
+  });
+
+  it('keeps the default manifest as an unlabeled grid', async () => {
+    const { manifests } = await import('../index');
+    const Home = manifests[0].component!;
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
+    render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter(BOTH)} registry={registry}><Suspense fallback={null}><Home params={{}} /></Suspense></PlatformProvider></I18nProvider>);
+    const systems = await screen.findByRole('region', { name: '업무 시스템' });
+    await within(systems).findByRole('link', { name: /MARS/ });
+    expect(within(systems).queryByRole('heading')).toBeNull();
+    expect(within(systems).getAllByRole('link')).toHaveLength(2);
   });
 });

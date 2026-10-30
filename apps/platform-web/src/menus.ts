@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { carrySetId, groupId, menuPermission, spaceId, type CarrySetDef, type SpaceDef } from '@ap/contracts';
 import { createRegistry, type GroupDef, type MenuEntry } from '@ap/kernel';
+import { createHomeComponent, type HomeLauncherGroup } from '@ap/menu-home/launcher';
 import { EQV_MODULE } from './modules';
 // <gen:menu-imports>
 import { manifests as home } from '@ap/menu-home';
@@ -89,6 +90,24 @@ export const SPACES = [
   { id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations console' }, description: { ko: 'VOC·Finding·Task·설문·연동 운영과 기능·플랫폼 관리를 합니다.', en: 'Operate VOC, Finding, Task, survey and integration work, and manage features and the platform.' }, homeMenuId: 'dashboard' },
 ] satisfies readonly SpaceDef[];
 
+/** Home-only display order; registry access and per-space ordering remain authoritative. */
+export const HOME_LAUNCHER_GROUPS = [
+  { id: 'analysis', label: { ko: '분석', en: 'Analysis' }, spaces: [spaceId('mars'), spaceId('bravo'), spaceId('clas')] },
+  { id: 'work', label: { ko: '업무 운영', en: 'Work operations' }, spaces: [spaceId('log-dev'), spaceId('improvement')] },
+  { id: 'tools', label: { ko: '도구', en: 'Tools' }, spaces: [spaceId('tools')] },
+  { id: 'platform', label: { ko: '플랫폼 관리', en: 'Platform administration' }, spaces: [spaceId('operations')] },
+] satisfies readonly HomeLauncherGroup[];
+const ConfiguredHome = createHomeComponent(HOME_LAUNCHER_GROUPS);
+
+function configureHome(menus: readonly MenuEntry[]): MenuEntry[] {
+  if (menus.filter(menu => menu.id === 'home').length !== 1) fail('configureHome: expected exactly one home menu');
+  return menus.map(menu => {
+    if (menu.id !== 'home') return menu;
+    if (menu.module !== undefined) fail('configureHome: expected a platform home menu');
+    return { ...menu, component: ConfiguredHome };
+  });
+}
+
 export const MENUS: MenuEntry[] = [
   // <gen:menu-spreads>
   ...home,
@@ -142,4 +161,4 @@ export const CARRY_SETS: readonly CarrySetDef[] = [{ id: carrySetId('features'),
 export const APP_RESERVED_ROOTS = ['home', 'survey', 'voc', 'notifications', 'notices', 'permission-requests', 'my-tasks'];
 
 /** External host modules (src/modules.ts) join at the registry call only; GROUPS and MENUS stay the platform's own. */
-export const registry = createRegistry({ spaces: SPACES, groups: [...GROUPS, ...EQV_MODULE.groups], menus: placeMyActivity([...MENUS, ...EQV_MODULE.menus]), permissions: PERMISSIONS, carrySets: CARRY_SETS, platformHomeMenuId: 'home', reservedRoots: APP_RESERVED_ROOTS });
+export const registry = createRegistry({ spaces: SPACES, groups: [...GROUPS, ...EQV_MODULE.groups], menus: placeMyActivity(configureHome([...MENUS, ...EQV_MODULE.menus])), permissions: PERMISSIONS, carrySets: CARRY_SETS, platformHomeMenuId: 'home', reservedRoots: APP_RESERVED_ROOTS });

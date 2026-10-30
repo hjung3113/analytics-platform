@@ -60,7 +60,7 @@ const devRegex = (devAllow = []) =>
   devAllow.length === 0 ? DEV_REGEX : `^(?!(?:${devAllow.map(escapeRegex).join('|')})$)${DEV_REGEX.slice(1)}`;
 
 // Menu subpaths: the feature-bridge package slot subpaths (the screen API slot feature-api and the notifications, VOC compose and home todo slots); each menu's exact `/mock` export is
-// src/dev/** only. Every other menu subpath and any `*/src` import stays banned.
+// src/dev/** only. The exact menu-home/launcher entry is src/menus.ts only (#1109). Every other menu subpath and any `*/src` import stays banned.
 // NOTE: the gitignore-style `*` in `menu-*/mock` also matches an empty name (no way to say
 // "one or more" here), so a `menu-/mock` source is not rejected on this side; the dynamic-import
 // side (import-source.js) uses `[^/]+` for the same pattern.
@@ -571,7 +571,7 @@ export const featureBridgePreset = [
 // App: all package entries allowed, deep subpaths, mock-server and ./dev banned (#153). src/main.tsx keeps only
 // the feature-bridge slot subpaths; src/dev/** sees mock-server and the menu `/mock`
 // subpaths; the conformance test sees mock-server and ./dev/mock-assembly only; published-metrics.test.ts sees
-// mock-server only. Both import rules use the same restriction.
+// mock-server only. src/menus.ts alone may configure menu-home/launcher (#1109). Both import rules use the same restriction.
 // No ignores for **/*.test.*.
 const appOverride = (files, restriction) => ({
   files,
@@ -586,6 +586,7 @@ export const app = [
   REACT_HOOKS,
   layerConfig({ restriction: APP_RESTRICTION }),
   testEntryOverride(APP_RESTRICTION, ABOVE_COMPONENTS_TEST_ENTRIES),
+  appOverride(['src/menus.ts'], { ...APP_RESTRICTION, allowSubpaths: [...APP_RESTRICTION.allowSubpaths, 'menu-home/launcher'] }),
   appOverride(['src/main.tsx'], APP_MAIN_RESTRICTION),
   appOverride([APP_CONFORMANCE_FILE], APP_CONFORMANCE_RESTRICTION),
   appOverride([APP_PUBLISHED_METRICS_FILE], APP_PUBLISHED_METRICS_RESTRICTION),
