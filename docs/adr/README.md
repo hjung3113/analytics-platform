@@ -113,6 +113,7 @@
 | [0100](0100-feature-navigation-and-independent-access.md) | 사이드바의 FeedbackOps 업무 시스템 행을 없애고 개인 업무는 전역 `내 활동`(내 Task 포함), 운영 화면은 하나뿐인 `운영 콘솔`로 둔다. F=`features:access`·C=`console:access`는 독립이고 접근은 멤버 메뉴 단위, 기능 관리는 F∧C. 슬롯은 현재 메뉴로 고른다. 0028·0070·0081·kernel §9.1 부분 대체 | Decided(2026-10-29, 사용자 B안 선택·세부는 코디네이터 위임·되돌릴 수 있음) — #1099 |
 | [0101](0101-opaque-audit-target-filter.md) | `auditTrail`의 `type` 필터는 불투명 ASCII 토큰(`[A-Za-z][A-Za-z0-9_.:-]{0,79}`)이다. 형식 맞는 미지 유형은 `empty`, 틀리면 `error`. 공개는 기존 SQL 투영만 결정한다 | Decided(2026-10-29, 팀장 위임·되돌릴 수 있음) — #1091 |
 | [0102](0102-home-launcher-app-groups.md) | 홈 A 그룹 타일: 앱 표시 메타데이터와 비공개 `@ap/menu-home/launcher` 설정, 미분류는 기타. 권한·URL·SDK 계약은 유지 | Decided(2026-10-30, 사용자 A안 선택) — #1109 |
+| [0103](0103-compact-analysis-and-snap-dock.md) | Compact page density, explicit gentle chart emphasis and native Dock previews | Decided (2026-10-30, owner, #1141 B) |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 

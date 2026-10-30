@@ -119,3 +119,30 @@
 /* A sash drag in progress (`DockEngine` marks the layout root `data-dock-resizing` and each own panel host `data-dock-frozen`): the content keeps the size
    it had when the drag began, so what overflows is clipped and nothing inside is laid out again until the drag ends. */
 [data-dock-frozen] { overflow: hidden; }
+
+/* Native center merge and edge split previews. Only the engine overlay shapes receive these rules. */
+.ap-dock .dv-drop-target-selection.dv-drop-target-center,
+.ap-dock .dv-drop-target-anchor.dv-drop-target-center {
+  border: 2px solid var(--color-accent-primary);
+  border-radius: 6px;
+  background-color: var(--color-accent-primary-soft);
+}
+.ap-dock .dv-drop-target-selection.dv-drop-target-left,
+.ap-dock .dv-drop-target-selection.dv-drop-target-right,
+.ap-dock .dv-drop-target-selection.dv-drop-target-top,
+.ap-dock .dv-drop-target-selection.dv-drop-target-bottom,
+.ap-dock .dv-drop-target-anchor.dv-drop-target-left,
+.ap-dock .dv-drop-target-anchor.dv-drop-target-right,
+.ap-dock .dv-drop-target-anchor.dv-drop-target-top,
+.ap-dock .dv-drop-target-anchor.dv-drop-target-bottom {
+  border: 2px solid transparent;
+  background-color: var(--color-accent-primary-soft);
+}
+.ap-dock .dv-drop-target-selection.dv-drop-target-right,
+.ap-dock .dv-drop-target-anchor.dv-drop-target-right { border-left: 3px solid var(--color-accent-primary); }
+.ap-dock .dv-drop-target-selection.dv-drop-target-left,
+.ap-dock .dv-drop-target-anchor.dv-drop-target-left { border-right: 3px solid var(--color-accent-primary); }
+.ap-dock .dv-drop-target-selection.dv-drop-target-bottom,
+.ap-dock .dv-drop-target-anchor.dv-drop-target-bottom { border-top: 3px solid var(--color-accent-primary); }
+.ap-dock .dv-drop-target-selection.dv-drop-target-top,
+.ap-dock .dv-drop-target-anchor.dv-drop-target-top { border-bottom: 3px solid var(--color-accent-primary); }

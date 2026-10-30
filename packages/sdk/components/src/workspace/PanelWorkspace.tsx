@@ -1,6 +1,7 @@
+import { useCompactPageDensity } from '../pageDensity';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useI18n, usePlatform, type Text } from '@ap/kernel';
-import { isProductionEnv } from '@ap/ui';
+import { cn, isProductionEnv } from '@ap/ui';
 import { activatePanel, groupOf, movePanel, panelOrder } from '../dock/commands';
 import { focusTabSoon } from '../dock/focusTab';
 import { DockLayoutBase } from '../dock/DockLayout';
@@ -121,6 +122,7 @@ export function PanelWorkspace(props: PanelWorkspaceProps) {
 }
 
 function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, label, compactBelow = DEFAULT_COMPACT_BELOW, initialMode, revealRequest, storageKey }: PanelWorkspaceProps & { storageKey: string | null }) {
+  const densePage = useCompactPageDensity();
   const { tx } = useI18n();
   const depth = useWorkspaceDepth() + 1;
   const primaryId = (panels.find(panel => panel.primary) ?? panels[0]!).id;
@@ -351,7 +353,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, l
   };
 
   return <WorkspaceDepthProvider value={depth}>
-    <div ref={root} data-panel-workspace data-workspace-mode={rows ? 'stack' : 'fit'} data-workspace-compact={compact ? '' : undefined} className={rows ? 'flex w-full min-w-0 flex-col gap-2' : 'flex h-full min-h-0 w-full min-w-0 flex-col gap-2'}>
+    <div ref={root} data-panel-workspace data-workspace-mode={rows ? 'stack' : 'fit'} data-workspace-compact={compact ? '' : undefined} data-workspace-density={densePage ? 'compact' : undefined} className={cn(rows ? 'flex w-full min-w-0 flex-col' : 'flex h-full min-h-0 w-full min-w-0 flex-col', densePage ? 'gap-1.5' : 'gap-2')}>
       {!hosted && <WorkspaceToolbar commands={commands} onShown={focusTab} />}
       <div ref={fitSlot} className={rows ? undefined : 'min-h-0 flex-1'}>
         <DockLayoutBase panels={dockPanels} layout={state.layout} label={tx(label)} rows={rows} reveal={dockReveal} renderTab={renderTab} tabA11y={tabA11y}

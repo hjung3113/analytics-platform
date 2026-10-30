@@ -75,6 +75,7 @@ export function resolveChartPalette(displayed: readonly { color: ThemeColorToken
 }
 
 export type ChartOptionInput = {
+  emphasisFocus?: 'series' | 'none';
   displayed: readonly ChartSeries[];
   previousIds: ReadonlySet<string>;
   xType: 'time' | 'category';
@@ -228,7 +229,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
           id: s.id, name: s.name, type: kind, stack: i.stacked && kind === 'bar' ? 'total' : undefined,
           showSymbol: false, symbolSize: 5, connectNulls: false, barMaxWidth: 18,
           lineStyle: { ...(kind === 'line' ? { color } : {}), width: 2, type: pattern }, itemStyle: { color: palette.series[n].fill },
-          emphasis: { focus: 'series' },
+          emphasis: { focus: i.emphasisFocus ?? 'series' },
           ...(segments && kind === 'bar' ? {
             label: { show: true, position: 'inside', fontSize: LABEL_FONT, color: palette.segmentText[n].color, ...(palette.segmentText[n].chip ? { backgroundColor: palette.labelSurface, borderRadius: 2, padding: 0 } : {}), formatter: (p: { value: unknown }) => (typeof p.value === 'number' ? shortNumber(p.value, lang) : '') },
             labelLayout: segmentLayout,

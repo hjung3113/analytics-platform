@@ -85,6 +85,10 @@
 
 시안: 세 안(A 신호형 · B 전부 펼침 · C 제목형)을 아티팩트로 만들어 UX 리뷰로 골랐다(사용자 요청으로 실제 앱 `?variant=` 대신, #421 코멘트). 결과는 A 머리 + C 선택 표시(ADR-0051). 배치(아래 시트 띠, 그리드)는 소유자 방향으로 고정이었다. 시안 칸 내용은 예시 데이터라, 실제 메뉴가 좁은 칸에서 어떻게 보이는지는 구현 때 확인한다.
 
+### Native drop previews (Decided, #1141)
+
+The shared Dock engine uses native center merge and edge split footprints, for boards and menu workspaces. Center fills the whole target group including its tab strip, with a 2px accent outline and soft fill. An edge fills the target half with soft fill and a 3px accent inner line at the new split. Both native selection and anchor overlays receive these scoped rules. Edge activation is 30px with 50% sizing; content overlays are 50% with zero small-width/height boundaries. Tab insertion uses a line; normal motion uses smooth tab animation and reduced motion keeps the native default. Theme/options identities are stable across renders. The below-row target, keyboard move commands, Escape cancellation/restore, nested admission, hidden-panel inertness, resize freeze/thaw and stored layout contract remain intact. These are native dockview 8.6.1 options, not public engine types or a new drag engine. Rationale: [ADR-0103](../adr/0103-compact-analysis-and-snap-dock.md).
+
 ## 5. 조건 모델 (Decided)
 
 계약은 [06 §6.5](../contract/kernel.md#65-분석-context의-범위--칸-decided-adr-0049). 보드에서 보이는 모습만 적는다.

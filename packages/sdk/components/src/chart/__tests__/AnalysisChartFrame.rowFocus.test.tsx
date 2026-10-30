@@ -1,3 +1,5 @@
+import { PageDensityProvider } from '../../pageDensity';
+import { InWorkspacePanelProvider } from '../../workspace/panelContext';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -279,5 +281,41 @@ describe('props outside horizontal mode (#690b)', () => {
     await screen.findByRole('img');
     expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('only to orientation="horizontal"'));
     expect((plotProps!.option as unknown as { dataZoom: unknown[] }).dataZoom).toHaveLength(1);
+  });
+});
+
+describe('gentle bar emphasis (#1141)', () => {
+  it('forwards none for an arbitrary chart ID without changing active-row outlines or other series', async () => {
+    const view = mount({ series: rows.map(s => ({ ...s, kind: 'bar' })), emphasisFocus: 'none', activeCategory: 'R2' });
+    await screen.findByRole('img');
+    const gentle = plotOption().series.filter(s => s.id !== '__overlay') as (PlottedSeries & { emphasis: { focus: string } })[];
+    expect(gentle.map(s => s.emphasis.focus)).toEqual(['none', 'none']);
+    expect(bars('R2')).toEqual([expect.objectContaining({ itemStyle: expect.objectContaining({ borderWidth: 2 }) }), expect.objectContaining({ itemStyle: expect.objectContaining({ borderWidth: 2 }) })]);
+    view.update({ emphasisFocus: 'series' });
+    const normal = plotOption().series.filter(s => s.id !== '__overlay') as (PlottedSeries & { emphasis: { focus: string } })[];
+    expect(normal.map(s => s.emphasis.focus)).toEqual(['series', 'series']);
+    expect(gentle.map(({ emphasis: _emphasis, ...s }) => s)).toEqual(normal.map(({ emphasis: _emphasis, ...s }) => s));
+  });
+
+  it('keeps series focus by default', async () => {
+    mount({ series: rows.map(s => ({ ...s, kind: 'bar' })) });
+    await screen.findByRole('img');
+    expect(plotOption().series).toEqual(expect.arrayContaining([expect.objectContaining({ emphasis: { focus: 'series' } })]));
+  });
+});
+
+
+describe('compact chart chrome (#1141)', () => {
+  it.each([
+    ['comfortable', false, true], ['comfortable', true, true], ['compact', false, true], ['compact', true, false],
+  ] as const)('%s workspace=%s preserves card=%s and accessible title', async (density, embedded, card) => {
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><PageDensityProvider value={density}><InWorkspacePanelProvider value={embedded}>
+      <AnalysisChartFrame chartId="independent" title="Density chart" series={rows} xType="category" unit="s" />
+    </InWorkspacePanelProvider></PageDensityProvider></PlatformProvider></I18nProvider>);
+    const region = screen.getByRole('region', { name: 'Density chart' });
+    await screen.findByRole('img');
+    expect(region).toHaveClass(card ? 'border' : 'border-0');
+    expect(region.querySelector('header')).toHaveClass(card ? 'px-4' : 'px-2', card ? 'pt-3' : 'pt-1');
+    expect(screen.getByRole('heading', { name: 'Density chart' }).classList.contains('sr-only')).toBe(embedded);
   });
 });

@@ -1,3 +1,4 @@
+import { dockTheme, dockDndEdges, dockDropOverlayModel } from './dockPresentation';
 /**
  * The only module that imports the layout engine (`dockview-react`, ADR-0067 decision 2). Loaded lazily by `DockLayout`; nothing in
  * its signature or output exposes an engine type or the engine's JSON.
@@ -8,7 +9,7 @@ import {
 import {
   DockviewReact, getPanelData, type DockviewApi, type DockviewReadyEvent, type DockviewWillDropEvent, type DockviewWillShowOverlayLocationEvent, type IDockviewHeaderActionsProps, type IDockviewPanelHeaderProps, type IDockviewPanelProps,
 } from 'dockview-react';
-import { TransientOverlayScope } from '@ap/ui';
+import { TransientOverlayScope, prefersReducedMotion } from '@ap/ui';
 import { groupOf } from './commands';
 import { DockSeparators, type DockRect } from './DockSeparators';
 import type { DockLayoutProps, DockPanel, DockRows } from './dockTypes';
@@ -140,7 +141,7 @@ function GroupTabsEnd({ activePanel, panels }: IDockviewHeaderActionsProps) {
 const COMPONENTS = { panel: PanelHost };
 const TAB_COMPONENTS = { tab: DockTab };
 /** Module-level so the option object keeps its identity across renders (a new one re-applies the theme). */
-const THEME = { name: 'ap', className: 'ap-dock', gap: 6 };
+const THEME = dockTheme(true);
 type SerializedLayout = Parameters<DockviewApi['fromJSON']>[0];
 
 const sameRects = (a: Record<string, DockRect>, b: Record<string, DockRect>) => {
@@ -546,7 +547,7 @@ export default function DockEngine({
   return <EngineContext.Provider value={context}>
     <div ref={rowsWrapper} data-dock-rows={rows ? '' : undefined} className={rows ? 'h-(--dock-rows-box) w-full' : 'h-full w-full'} style={rowsTotal === undefined ? undefined : { '--dock-rows-height': `${rowsTotal}px`, '--dock-rows-box': `${rowsBox}px` } as CSSProperties}>
       <DockviewReact components={COMPONENTS} tabComponents={TAB_COMPONENTS} defaultTabComponent={DockTab} rightHeaderActionsComponent={GroupActions} leftHeaderActionsComponent={GroupTabsEnd}
-        onReady={onReady} onWillDrop={onWillDrop} theme={THEME} defaultRenderer="always" singleTabMode="fullwidth"
+        onReady={onReady} onWillDrop={onWillDrop} theme={dockTheme(prefersReducedMotion())} dndEdges={dockDndEdges} dropOverlayModel={dockDropOverlayModel} defaultRenderer="always" singleTabMode="fullwidth"
         disableFloatingGroups disableDnd={!interactive} announcements={false} />
     </div>
     {stripShown && <div ref={strip} data-dock-drop-below

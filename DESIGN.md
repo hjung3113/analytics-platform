@@ -234,13 +234,17 @@ label 행은 #210(공유 원본 값), 나머지 행은 #193/#194 UI/UX 리뷰의
 
 정보 밀도는 장식 여백보다 우선한다. 정확한 비교는 표, 변화·분포는 차트, 요약은 KPI로 나눈다. 카드마다 동일한 시각 강도를 주는 card soup를 피하고 공유 surface/border로 계층을 만든다. 공유 반경·primitive 모양은 공유 원본을 따르며 버튼·input을 독자적으로 재설계하지 않는다. 크기도 공유 variant로 고른다 — 작은 동작 버튼 `size="toolbar"`, 아이콘 버튼 `icon-xs`/`icon-sm`, 그 밖 `sm`; 팝오버·드롭다운·툴팁은 공유 표면, segmented 선택은 공유 segmented `RadioGroup`([ADR-0023](docs/adr/0023-feedbackops-primitive-shapes-and-sizes.md)). 공유에 없는 모양은 아래 접근성 예외를 제외하면 플랫폼에서 덮어쓰지 않고 공유 variant로 제안한다. 예외는 접근성 하한 넷 — 입력·select·체크박스 경계의 `border-control`, `aria-disabled` 버튼의 비활성 모양, 메뉴 항목 키보드 포커스 링, `@ap/ui`가 정의하는 탭 선택 표식(ADR-0023 개정) — 뿐이다. 소비자는 primitive 모양을 덮어쓰지 않는다. 카드 그림자를 겹치지 않고, floating surface의 공유 처리는 06 §23을 따른다.
 
+### Compact analysis — Decided (#1141)
+
+Opt-in page density and embedded chart/table chrome follow [06 §12](docs/contract/layout.md#12-canonical-page-archetypes). This changes spacing only: table rows, fonts, controls and page headers keep their existing sizes. Gentle bar emphasis follows [06 §16](docs/contract/chart.md#16-analysis-chart-contract); native center/edge Dock previews follow [analysis board §4](docs/design/analysis-board.md#4-화면-구조-decided). [ADR-0103](docs/adr/0103-compact-analysis-and-snap-dock.md) records the composition boundary.
+
 ### Dashboard composition and focal point
 
 플랫폼 Overview/Analysis Workspace의 시각 패턴은 [06 §12](docs/contract/layout.md#12-canonical-page-archetypes)를 소비한다. 요약 → 주요 분석 → 예외 → 상세 근거로 읽을 수 있어야 한다. KPI는 5–6개 이하로 제한하고 모든 tile을 hero 크기로 만들지 않는다. 주요 과제 하나에 넓이·순서·제목의 우선순위를 준다.
 
 산업 로그 분석 reference는 5개 KPI → pipeline 왼쪽/operations 오른쪽(약 64/36) → lifecycle 왼쪽/quality 오른쪽(약 47/53) → 전체 폭 equipment table의 구성이었다. quality는 **3개 ring + 1개 bar**이며 네 번째 donut을 만들지 않는다. pipeline-status가 첫 주요 행의 넓은 focal region이라는 판단은 **Candidate**다. 실제 사용자 과제가 예외 처리를 우선하면 재검토한다. 모든 메뉴의 필수 배치가 아니다.
 
-넓은 화면은 비교 패널을 나란히 두고 좁은 desktop은 column 수를 줄이거나 보조 패널을 접근 가능한 drawer로 옮긴다(06 §25 Candidate). pipeline 순서는 유지하고 필요하면 영역 안에서 가로 스크롤한다. 표 글자를 줄여 맞추지 않는다. MVP는 desktop web이며 1024 미만/터치 전용 재구성은 이후 과제다.
+넓은 화면은 비교 패널을 나란히 두고 좁은 desktop은 column 수를 줄이거나 보조 패널을 접근 가능한 drawer로 옮긴다(06 §25 Candidate). pipeline 순서는 유지하고 필요하면 영역 안에서 가로 스크롤한다. 표 글자를 줄여 맞추지 않는다. 지원·캡처 범위는 루트 [AGENTS.md의 Desktop capture scope](AGENTS.md#검증)를 따른다.
 
 ### KPI tiles and supporting copy
 

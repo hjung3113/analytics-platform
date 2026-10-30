@@ -431,3 +431,12 @@ describe('HW Time compare page', () => {
     expect(document.getElementById(item.getAttribute('aria-describedby')!.split(' ')[0]!)?.textContent).toBe('Enter: 이 단계로 이동');
   });
 });
+
+
+it('declares compact page spacing from the real consumer (#1141)', async () => {
+  await renderPage();
+  const content = document.querySelector('[data-platform-page-content]')!;
+  expect(content.classList.contains('px-4')).toBe(true);
+  expect(content.classList.contains('pt-3')).toBe(true);
+  expect(content.classList.contains('pb-4')).toBe(true);
+});

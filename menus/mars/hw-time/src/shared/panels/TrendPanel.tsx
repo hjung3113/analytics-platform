@@ -43,7 +43,7 @@ function TrendChart({ chartId, title, description, data, fillMin }: { chartId: s
     points: row.points.map(point => [point.at, point.value] as [string, number | null]),
   })), [data.rows]);
   return <div className="flex flex-1 flex-col">
-    <AnalysisChartFrame chartId={chartId} title={title} description={description} xType="category" size="fill" fillMin={fillMin} series={series}
+    <AnalysisChartFrame emphasisFocus="none" chartId={chartId} title={title} description={description} xType="category" size="fill" fillMin={fillMin} series={series}
       unit={HW_TIME_UNIT[lang]} valueFormat={formatSeconds} canApplyRange={false} />
   </div>;
 }

@@ -1,3 +1,5 @@
+import { stubCompactTableGeometry } from '../../testing';
+import { PageDensityProvider } from '../../pageDensity';
 import type { ReactElement } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { useEffect, useState, type ReactNode } from 'react';
@@ -1586,3 +1588,24 @@ const equipmentAxes = [
   { id: 'maker', label: { ko: 'Maker', en: 'Maker' }, membershipHistory: false },
   { id: 'model', label: { ko: 'Model', en: 'Model' }, membershipHistory: false, dependsOn: 'maker' },
 ];
+
+
+describe('compact table chrome (#1141)', () => {
+  let restoreGeometry: () => void;
+  beforeEach(() => { restoreGeometry = stubCompactTableGeometry(); });
+  afterEach(() => { restoreGeometry(); });
+  it.each([
+    ['comfortable', false, true], ['comfortable', true, true], ['compact', false, true], ['compact', true, false],
+  ] as const)('%s workspace=%s preserves card=%s and row/name semantics', async (density, embedded, card) => {
+    render(<PageDensityProvider value={density}><InWorkspacePanelProvider value={embedded}><UncontrolledHarness loadPage={makeLoadPage(3)} /></InWorkspacePanelProvider></PageDensityProvider>);
+    const table = await screen.findByRole('table', { name: 'table' });
+    const section = table.closest('section')!;
+    expect(section).toHaveAttribute('aria-label', 'table');
+    expect(section).toHaveClass(card ? 'border' : 'border-0');
+    const toolbar = section.firstElementChild!;
+    expect(toolbar).toHaveClass(density === 'compact' ? 'min-h-10' : 'min-h-11');
+    expect(toolbar).toHaveClass(density === 'compact' ? 'py-1.5' : 'p-3');
+    expect(screen.getByRole('heading', { name: 'T' }).classList.contains('sr-only')).toBe(embedded);
+    expect((await within(table).findAllByRole('cell'))[0]).toHaveClass('min-h-8');
+  });
+});

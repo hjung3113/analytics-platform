@@ -1,3 +1,4 @@
+import { useCompactPageDensity } from '../pageDensity';
 import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useId, type CSSProperties, type ReactNode } from 'react';
 import { flexRender, getCoreRowModel, useReactTable, type Column, type ColumnDef, type ColumnPinningState, type RowSelectionState } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
@@ -111,6 +112,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const { t, lang } = useI18n();
   const analysisSection = useContext(AnalysisSectionContext);
   const inPanel = useInWorkspacePanel();
+  const densePage = useCompactPageDensity();
   const { route } = usePlatform();
   const { screenMode } = useHostPlatform();
   // §15: a workspace panel or board pane body scrolls too, so the row area chains the wheel outward at its edge; flow pages and drawers contain it.
@@ -272,8 +274,8 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
     </DropdownMenuItem>);
   // No `ok` result yet (new Context loading, refused page): the count is unknown, so the group label says “필터 결과 전체” with no number.
   const filteredCount = shown?.outcome === 'ok' ? data.total : null;
-  return <section ref={section} tabIndex={-1} aria-label={p.ariaLabel} onKeyDown={onShortcut} className="flex flex-col rounded-lg border border-border-subtle bg-surface-card">
-    <div className={cn('flex min-h-11 flex-wrap items-center justify-between gap-2 p-3', analysisSection && 'pr-12')}>
+  return <section ref={section} tabIndex={-1} aria-label={p.ariaLabel} onKeyDown={onShortcut} className={cn('flex flex-col rounded-lg border border-border-subtle bg-surface-card', densePage && inPanel && 'rounded-none border-0 shadow-none')}>
+    <div className={cn('flex flex-wrap items-center justify-between gap-2', densePage ? 'min-h-10 px-2 py-1.5' : 'min-h-11 p-3', analysisSection && 'pr-12')}>
       <div className="min-w-0">
         <h2 className={cn('t-card-title', inPanel && 'sr-only')}>{p.title}</h2>
         {p.subtitle && <p className="text-xs text-text-muted">{p.subtitle}</p>}

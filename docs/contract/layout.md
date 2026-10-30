@@ -92,6 +92,11 @@ Shell Slot은 이를 방지하는 플랫폼 계약이다.
 
 ## 12. Canonical Page Archetypes
 
+**Opt-in visual density (Decided, #1141).** `PlatformPage.density` is `comfortable` by default (content horizontal 32px, top 28px, bottom 36px), or `compact` (16/12/16px). An internal React context carries the declaration to SDK descendants; it is not URL or saved state. It applies equally to flow/fill and pane content, preserving the page head, QueryBar, focus, Scope gates and fill/stack height rules. It is independent of `AnalysisLayout.density` and PanelWorkspace's width-based `compactPreset`/`compactBelow` admission.
+
+In a compact page, PanelWorkspace's outer gap is 6px instead of 8px. Chart/table descendants inside its panel context remove their duplicate outer card border/radius/shadow while retaining accessible regions, headings and controls. Embedded chart headers use top 4px/side 8px padding and 4px gap; table toolbars use min-height 40px, vertical 6px/side 8px padding (also for standalone compact tables). Standalone outer cards and all comfortable output stay as before. Analysis-section corner controls retain their reserved space. Table cells retain their 32px minimum; actual row heights remain content-measured. Fonts, columns, targets, virtualizer and persistence do not change. Consumers opt in at the page, without independent public chrome controls. Rationale: [ADR-0103](../adr/0103-compact-analysis-and-snap-dock.md).
+
+
 플랫폼이 처음부터 모든 화면을 자유롭게 만들게 하지 않는다.
 
 초기에는 아래 Archetype을 제공하고, 실제 반복이 확인되면 추가한다.

@@ -359,3 +359,12 @@ describe('HW Time steps page', () => {
     expect(within(tree).getByRole('treeitem', { current: true }).getAttribute('data-id')).toBe('Pump');
   });
 });
+
+
+it('declares compact page spacing from the real consumer (#1141)', async () => {
+  await renderPage();
+  const content = document.querySelector('[data-platform-page-content]')!;
+  expect(content.classList.contains('px-4')).toBe(true);
+  expect(content.classList.contains('pt-3')).toBe(true);
+  expect(content.classList.contains('pb-4')).toBe(true);
+});

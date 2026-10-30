@@ -152,3 +152,16 @@ describe('focus fallback inside a pane', () => {
     expect(screen.getByTestId('pane')).toHaveFocus();
   });
 });
+
+it('compact fill in a pane retains the content floor without adding a page header (#1141)', async () => {
+  window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
+  render(<I18nProvider><PlatformProvider adapter={adapterWith(validate)} registry={registry}>
+    <PaneScreenProvider paneId="compact" screen={{ menuId: 'home', params: {}, query: '?scopeId=MEM' }} onChange={() => {}} onLeave={() => {}}>
+      <PlatformPage layout="fill" density="compact"><p>compact pane body</p></PlatformPage>
+    </PaneScreenProvider>
+  </PlatformProvider></I18nProvider>);
+  await screen.findByText('compact pane body');
+  expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
+  expect(document.querySelector('[data-platform-page-content]')).toHaveClass('px-4', 'pt-3', 'pb-4');
+  expect(document.querySelector('[data-platform-page-fill]')).toHaveClass('min-h-[520px]');
+});
