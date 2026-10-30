@@ -189,19 +189,23 @@ PYEOF
 }
 
 self_test() {
-  local T port rc out srvpid dead live pass
+  # T, srv and live stay global: the EXIT trap runs after the function returns (#1151).
+  local port rc out srvpid dead pass
   T=$(mktemp -d "${TMPDIR:-/tmp}/ap-lead-check-self-test.XXXXXX") || return 1
   mkdir -p "$T/state" "$T/wt1" "$T/wt2"
-  # No EXIT trap: a backgrounded child inherits it and would delete the fixture mid-test.
-  cleanup() { kill "${srv:-}" "${live:-}" 2>/dev/null; rm -rf "$T"; }
+  # The EXIT trap also runs on a `set -u` abort, which skipped `fail` and left the http.server listening (#1151).
+  # A `&` child killed before its exec inherits the trap and would delete the fixture mid-test, so each child
+  # clears it first (bash 3.2: no BASHPID to tell the shells apart inside cleanup).
+  cleanup() { kill "${srv:-}" "${live:-}" 2>/dev/null; wait "${srv:-}" "${live:-}" 2>/dev/null; rm -rf "${T:-}"; }
+  trap cleanup EXIT
   pass=0
   fail() { echo "self-test failed: $1"; cleanup; exit 1; }
   check_has() { case "$2" in *"$1"*) pass=$((pass + 1)) ;; *) fail "missing '$1' in:
 $2" ;; esac; }
 
   # A dead pid: spawn and reap, so the fixture is a real finished process.
-  sleep 60 & dead=$!; kill "$dead" 2>/dev/null; wait "$dead" 2>/dev/null
-  sleep 60 & live=$!
+  (trap - EXIT; exec sleep 60) & dead=$!; kill "$dead" 2>/dev/null; wait "$dead" 2>/dev/null
+  (trap - EXIT; exec sleep 60) & live=$!
 
   # W-1 stopped with an open terminal; W-2 and W-3 running write workers on one cwd; a live preview owner.
   printf '{"name":"W-1","role":"impl","cwd":"%s","pid":%s,"terminal":"term_dead","report":"%s","sentinel":"<!-- W-1-DONE -->","started_at":1}\n' \
@@ -215,7 +219,7 @@ $2" ;; esac; }
   # Pick a free port and listen on it.
   port=5971
   while lsof -nP -iTCP:"$port" -sTCP:LISTEN -t >/dev/null 2>&1; do port=$((port + 1)); done
-  python3 -m http.server "$port" --bind 127.0.0.1 >/dev/null 2>&1 & local srv=$!
+  (trap - EXIT; exec python3 -m http.server "$port" --bind 127.0.0.1) >/dev/null 2>&1 & srv=$!
   sleep 1
 
   WAVE_STATE="$T/state" LEAD_CHECK_PORT_LIST="$port" \
