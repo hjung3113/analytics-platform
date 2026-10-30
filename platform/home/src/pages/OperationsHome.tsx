@@ -92,7 +92,7 @@ export default function OperationsHome({ launcherGroups = NO_LAUNCHER_GROUPS }: 
                 : <p className="mt-1 text-sm text-text-secondary">{lang === 'ko' ? '필요한 업무 시스템의 접근 권한을 플랫폼 관리자에게 요청하세요.' : 'Ask a platform administrator for access to the work system you need.'}</p>}
             </div>
           : launcherGroups.length > 0 ? <div className="space-y-4">{launcherSections.map((group, index) => <section key={index} className="space-y-2">
-              <h2 className="t-nav-group text-text-secondary">{tx(group.label)}</h2>
+              <h2 className="t-section-title">{tx(group.label)}</h2>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">{group.spaces.map(compactEntry)}</div>
             </section>)}</div>
           : <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
