@@ -30,12 +30,13 @@ describe('app home launcher assembly (#1109)', () => {
     const adapter = testAdapter({ session: () => session, menuQuery: async () => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' }) });
     const Home = registry.menuById('home').component!;
     render(<I18nProvider><PlatformProvider registry={registry} adapter={adapter} equipmentAxes={EQUIPMENT_AXES}><Suspense fallback={null}><Home params={{}} /></Suspense></PlatformProvider></I18nProvider>);
-    const section = await screen.findByRole('region', { name: systems });
+    // Cold CI transforms the real lazy route; keep the wait bounded without weakening its assertions.
+    const section = await screen.findByRole('region', { name: systems }, { timeout: 10_000 });
     expect(within(section).getAllByRole('heading').map(heading => heading.textContent)).toEqual(headings);
     const categories = within(section).getAllByRole('heading').map(heading => within(heading.closest('section')!).getAllByRole('link'));
     expect(categories.map(cards => cards.length)).toEqual([3, 2, 1, 1]);
     expect(categories.flat().map(card => new URL(card.getAttribute('href')!, window.location.origin).pathname)).toEqual([
       '/mars/productivity-overview', '/bravo/metric-catalog', '/clas/operation-time', '/log-dev/log-my-queue', '/improvement/imp-my-tasks', '/tools/eqv-topview', '/operations/dashboard',
     ]);
-  });
+  }, 15_000);
 });
