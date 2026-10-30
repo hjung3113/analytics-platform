@@ -1,6 +1,6 @@
-# SDK를 git 태그 의존성으로 소비하기 — 시험 결과와 소비자 조건
+# SDK 소비 조건·변경 기록과 과거 git 태그 시험
 
-> 상태: **Candidate** — 2026-10-19 시험(#458). 사내에 패키지 레지스트리가 없어 기능이 `@ap/ui`를 이 저장소의 **git 태그 의존성**으로 받기로 했다(사용자 2026-10-19, [`.planning/README.md`](../../.planning/README.md) 1번). 이 문서는 그 방식이 실제로 풀리는지와 소비자가 갖춰야 할 조건을 적는다. 태그 형식·발급은 [ADR-0044](../adr/0044-sdk-source-in-platform-repo-released-separately.md)의 묶음 릴리스를 따른다.
+> 현행 SDK 배포·외부 소비 계약은 [ADR-0056](../adr/0056-sdk-release-github-release-tarballs.md)의 빌드된 Release tarball과 정확 버전 peer다. 아래 시험 조건·결과는 2026-10-19의 git 태그 소스 소비 조사(#458)이며 현행 설치 절차가 아니다. 이 문서의 소비 조건·변경 기록은 계속 유지한다.
 
 ## 시험 조건
 

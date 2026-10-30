@@ -11,7 +11,7 @@
 ## 결정
 
 1. 앱 `apps/platform-web/src/menus.ts`가 `HOME_LAUNCHER_GROUPS`를 선언한다. 분석(Analysis): MARS·BRAVO·CLAS, 업무 운영(Work operations): 표준 로그 개발·개선 실행, 도구(Tools): 도구, 플랫폼 관리(Platform administration): 운영 콘솔 순서다. 그룹 안에서는 `accessibleSpaces` 순서를 유지한다.
-2. 홈은 작은 가로 아이콘·이름·설명·이어서 텍스트를 담은 카드 링크를 그린다. 그룹 라벨은 접기 제어가 아닌 비대화형 섹션 제목(`t-section-title`)이다. 빈 그룹은 생략하고 미분류 접근 가능 시스템은 기타(Other)에 한 번만 표시한다.
+2. 홈은 작은 가로 아이콘·이름·설명·이어서 텍스트를 담은 카드 링크를 그린다. 그룹 라벨은 접기 제어가 아닌 비대화형 제목이다. 표시 토큰과 홈 구성은 [소유 문서 §3.1](../design/multi-workspace-ui.md#31-셸-배치-decided-2026-10-09)을 따른다. 빈 그룹은 생략하고 미분류 접근 가능 시스템은 기타(Other)에 한 번만 표시한다.
 3. 비공개 Consumer 조립 진입점 `@ap/menu-home/launcher`의 `createHomeComponent(groups)`는 설정을 closure에 캡처한 안정적인 lazy component를 만든다. 앱 모듈 범위에서 한 번 만들고 Registry 조립에서 홈 component만 바꾼다. 루트는 `manifests`만 export하며 생성기 마커는 유지한다. 설정의 시스템 ID 중복은 factory 생성 때 거절한다.
 4. 설정 없는 기본 manifest는 기존 라벨 없는 격자를 유지한다. 접근·진입/이어서 URL·Context는 기존 Kernel 판정 그대로다. 운영 콘솔 설명은 현재 사용자가 열 수 있는 섹션만 담으며 하단의 내 할 일·즐겨찾기·최근 방문·공지를 유지한다.
 
