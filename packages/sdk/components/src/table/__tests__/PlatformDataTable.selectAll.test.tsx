@@ -207,4 +207,42 @@ describe('PlatformDataTable select all results (#556c)', () => {
     await waitFor(() => expect(exportRows).toHaveBeenCalledTimes(1));
     expect(exportRows.mock.calls[0][0]).toEqual({ scope: { kind: 'all', excludedIds: ['r3'] }, sorting: [] });
   });
+  it('keeps the same focused checkbox element while the select-all state changes (first exclusion, last re-inclusion, header clear)', async () => {
+    render(<Harness loadPage={makeLoad()} selectAllResults bulkActions />);
+    await widen();
+    const row = screen.getByRole('checkbox', { name: '선택 r2' });
+    row.focus();
+    fireEvent.click(row); // header: all → partial
+    const afterExclude = screen.getByRole('checkbox', { name: '선택 r2' });
+    expect(afterExclude).toBe(row);
+    expect(row.isConnected).toBe(true);
+    expect(document.activeElement).toBe(row);
+    fireEvent.click(row); // header: partial → all
+    expect(screen.getByRole('checkbox', { name: '선택 r2' })).toBe(row);
+    expect(document.activeElement).toBe(row);
+
+    const head = header();
+    head.focus();
+    fireEvent.click(row); // header label stays «전체 선택 해제»; state all → partial
+    expect(header()).toBe(head);
+    fireEvent.click(row);
+    expect(header()).toBe(head);
+    expect(document.activeElement).toBe(head);
+    head.focus();
+    fireEvent.click(head); // clear: header label flips back to «현재 페이지 전체 선택»
+    expect(header().isConnected).toBe(true);
+    expect(header()).toBe(head);
+    expect(document.activeElement).toBe(head);
+  });
+
+  it('the live status bar names the exclusions and returns to the all-selected text at zero', async () => {
+    render(<Harness loadPage={makeLoad()} selectAllResults bulkActions />);
+    await widen();
+    expect(bar()?.textContent).toContain('필터 결과 전체 54행을 선택했습니다');
+    fireEvent.click(screen.getByRole('checkbox', { name: '선택 r2' }));
+    expect(bar()?.textContent).toContain('필터 결과 전체 54행 중 1행 제외');
+    expect(bar()?.textContent).not.toContain('선택했습니다');
+    fireEvent.click(screen.getByRole('checkbox', { name: '선택 r2' }));
+    expect(bar()?.textContent).toContain('필터 결과 전체 54행을 선택했습니다');
+  });
 });

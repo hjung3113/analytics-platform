@@ -28,6 +28,9 @@ import { SelectAllBar } from './selectAllBar';
 export type { PageQuery, PageResult } from '@ap/contracts';
 export { sortAndPage } from '@ap/contracts';
 export type { TableExportRequest, TableSelection } from './useTableSelection';
+
+/** Read by the stable `_select` header renderer from `table.options.meta`. */
+type SelectionMeta = { headerState: 'all' | 'partial' | null; clear: () => void };
 export { exportScopeIds } from './useTableSelection';
 type ColumnMeta = { align?: 'right'; label?: string };
 
@@ -220,13 +223,17 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
     ...(selectable ? [{
       id: '_select', size: 40, enableSorting: false, enableHiding: false, enableResizing: false,
       // #556c: while a select-all-results selection is active the header speaks for the whole result; clicking it clears the selection.
-      header: ({ table }) => <Checkbox aria-label={headerState ? (lang === 'ko' ? '필터 결과 전체 선택 해제' : 'Clear the whole-result selection') : lang === 'ko' ? '현재 페이지 전체 선택' : 'Select all rows on this page'}
-        checked={headerState ? (headerState === 'all' ? true : 'indeterminate') : table.getIsAllPageRowsSelected() ? true : table.getIsSomePageRowsSelected() ? 'indeterminate' : false}
-        onCheckedChange={v => headerState ? clearSelection() : table.toggleAllPageRowsSelected(v === true)} className="size-3.5 border-border-control" />,
+      // The changing state arrives through `table.options.meta` so this renderer keeps its identity (a new component type would remount the focused checkbox).
+      header: ({ table }) => {
+        const { headerState, clear } = table.options.meta as SelectionMeta;
+        return <Checkbox aria-label={headerState ? (lang === 'ko' ? '필터 결과 전체 선택 해제' : 'Clear the whole-result selection') : lang === 'ko' ? '현재 페이지 전체 선택' : 'Select all rows on this page'}
+          checked={headerState ? (headerState === 'all' ? true : 'indeterminate') : table.getIsAllPageRowsSelected() ? true : table.getIsSomePageRowsSelected() ? 'indeterminate' : false}
+          onCheckedChange={v => headerState ? clear() : table.toggleAllPageRowsSelected(v === true)} className="size-3.5 border-border-control" />;
+      },
       cell: ({ row }) => <Checkbox aria-label={`${lang === 'ko' ? '선택' : 'Select'} ${row.id}`} checked={row.getIsSelected()} onCheckedChange={v => row.toggleSelected(v === true)} className="size-3.5 border-border-control" />,
     } as ColumnDef<T>] : []),
     ...p.columns.map(toColumnDef),
-  ], [p.columns, lang, selectable, headerState, clearSelection]);
+  ], [p.columns, lang, selectable]);
   const hasAction = !!p.rowAction;
   const allColumns = useMemo<ColumnDef<T>[]>(() => [
     ...baseColumns,
@@ -250,6 +257,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   };
   const table = useReactTable({
     data: data.rows, columns: allColumns, getRowId: p.getRowId, getCoreRowModel: getCoreRowModel(),
+    meta: { headerState, clear: clearSelection } satisfies SelectionMeta,
     manualSorting: true, manualPagination: true, enableRowSelection: selectable, columnResizeMode: 'onChange',
     enableMultiSort: !p.urlState,
     defaultColumn: { size: DEFAULT_COLUMN_WIDTH, minSize: 60, maxSize: 600 },
@@ -519,7 +527,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
 
     <ColumnFilterChips filters={columnFilters.filters} columns={p.columns} lang={lang} onRemove={id => columnFilters.apply(id, null)} onClear={columnFilters.clear} />
 
-    <SelectAllBar lang={lang} pageRows={data.rows.length} total={data.total} offer={selectionState.offerAll} all={selectionState.all} onSelectAll={selectionState.selectAll} onClear={clearSelection} />
+    <SelectAllBar lang={lang} pageRows={data.rows.length} total={data.total} offer={selectionState.offerAll} all={selectionState.all} excluded={selectionState.excludedIds.length} onSelectAll={selectionState.selectAll} onClear={clearSelection} />
 
     {selectedCount > 0 && <div className="flex min-h-10 flex-wrap items-center gap-3 border-t border-border-subtle bg-accent-primary-soft px-3 py-2 text-xs">
       <span className="font-semibold tabular" data-testid="selected-count">{selectionState.all
