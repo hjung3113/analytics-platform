@@ -7,7 +7,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { House } from 'lucide-react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
-import { PlatformDataTable, type PlatformDataTableProps } from '../PlatformDataTable';
+import { PlatformDataTable, type PlatformDataTableProps, type TableExportRequest } from '../PlatformDataTable';
 import { noContext, testAdapter, testSession, testSpace , useToastsForTest } from '@ap/kernel/testing';
 import { groupId, spaceId, type ApiResponse, type PageQuery, type PageResult, type PageSort } from '@ap/contracts';
 
@@ -40,7 +40,7 @@ const loadPage = (q: PageQuery): Promise<ApiResponse<PageResult<Row>>> => Promis
 });
 const ok = (rows: Row[]): ApiResponse<Row[]> => ({ outcome: 'ok', data: rows, assessments: [], trust: null, correlationId: 'c' });
 /** Server read of the selection, returned in descending id order (the "server sort"). */
-const serverSelected = vi.fn(async (request: { scope: { kind: 'selected'; ids: string[] } | { kind: 'filtered' }; sorting: PageSort[] }) =>
+const serverSelected = vi.fn(async (request: TableExportRequest) =>
   ok(request.scope.kind === 'selected' ? ALL.filter(r => (request.scope as { ids: string[] }).ids.includes(r.id)).reverse() : ALL));
 
 function ToastProbe() {

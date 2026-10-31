@@ -128,6 +128,14 @@ describe('equipment-master export endpoint (#173)', () => {
     expect((response.data as Equipment[]).map(e => e.equipmentId)).toEqual([...unsorted].sort());
   });
 
+  it('excludedIds returns the filtered set minus the exclusions without an id list (#556c)', async () => {
+    const all = await adapter.menuQuery({ endpoint: equipmentExportEndpoint.id, context, params: { ...noFilter, ids: null, sorting: [] } });
+    const allIds = (all.data as Equipment[]).map(e => e.equipmentId);
+    const excludedIds = allIds.slice(0, 2);
+    const response = await adapter.menuQuery({ endpoint: equipmentExportEndpoint.id, context, params: { ...noFilter, ids: null, excludedIds, sorting: [] } });
+    expect((response.data as Equipment[]).map(e => e.equipmentId)).toEqual(allIds.slice(2));
+  });
+
   it('filters by the selection ids server-side, so the cap is judged on the selection', async () => {
     const ids = engineerMem.slice(0, 3).map(e => e.equipmentId);
     const response = await adapter.menuQuery({ endpoint: equipmentExportEndpoint.id, context, params: { ...noFilter, ids, sorting: [] } });

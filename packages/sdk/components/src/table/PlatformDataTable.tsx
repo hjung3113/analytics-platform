@@ -1,11 +1,11 @@
 import { useCompactPageDensity } from '../pageDensity';
 import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useId, type CSSProperties, type ReactNode } from 'react';
-import { flexRender, getCoreRowModel, useReactTable, type Column, type ColumnDef, type ColumnPinningState, type Header, type RowSelectionState } from '@tanstack/react-table';
+import { flexRender, getCoreRowModel, useReactTable, type Column, type ColumnDef, type ColumnPinningState, type Header } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, Columns3, Copy, Download, FileSpreadsheet, FileText, GripVertical, Loader2, Pin, PinOff } from 'lucide-react';
 import { useI18n, usePlatform } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
-import type { ApiResponse, Capability, ColumnFilter, ColumnFilterSpec, ContextKey, PageQuery, PageResult, PageSort, TableQuery } from '@ap/contracts';
+import type { ApiResponse, Capability, ColumnFilterSpec, ContextKey, PageQuery, PageResult, PageSort, TableQuery } from '@ap/contracts';
 import { Button, Checkbox, cn, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, Label, Popover, PopoverContent, PopoverTrigger, shortcutLabel, Skeleton, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { AnalysisSectionContext } from '../archetypes/AnalysisSectionContext';
 import { toColumnDef } from './columnDef';
@@ -22,9 +22,13 @@ import { useColumnPreferences } from './useColumnPreferences';
 import { usePagedRows } from './usePagedRows';
 import { ColumnFilterButton, ColumnFilterChips, useColumnFilters } from './columnFilters';
 import { useTableTransfer } from './useTableTransfer';
+import { useTableSelection, type TableExportRequest, type TableSelection } from './useTableSelection';
+import { SelectAllBar } from './selectAllBar';
 
 export type { PageQuery, PageResult } from '@ap/contracts';
 export { sortAndPage } from '@ap/contracts';
+export type { TableExportRequest, TableSelection } from './useTableSelection';
+export { exportScopeIds } from './useTableSelection';
 type ColumnMeta = { align?: 'right'; label?: string };
 
 /** §15 domain-owned column shape (#160): what menus declare; the TanStack `ColumnDef` conversion lives in the internal `columnDef.ts`, which index.ts does not export. */
@@ -88,13 +92,22 @@ export type PlatformDataTableProps<T> = {
   filterKey: string;
   filters?: ReactNode;
   rowAction?: (row: T, context: { compact: boolean }) => ReactNode;
+  /** Bulk actions for an explicit id selection. Hidden while a `selectAllResults` selection covers the whole result — use `bulkSelectionActions` for that. */
   bulkActions?: (selectedIds: string[]) => ReactNode;
+  /**
+   * Opt-in (#556c, ADR-0104): once the whole page is checked and more results exist, the table offers 「필터 결과 전체 M행 선택」.
+   * The selection then is `{ kind: 'all', excludedIds, total }` — no id list is built or sent; the server recomputes the set
+   * from Context + page filters + column filters − `excludedIds`. Default false: tables behave as before.
+   */
+  selectAllResults?: boolean;
+  /** Bulk actions for either selection kind (renders in `ids` and `all` mode, after `bulkActions`). Without it, an `all` selection shows no bulk action. */
+  bulkSelectionActions?: (selection: TableSelection) => ReactNode;
   /**
    * Table-owned export (#173, 06 §15): the menu only says how to read the rows to export from the server — permission/
    * Scope/limits re-checked per request. Omit to make the screen un-exportable. `sorting` is the table's active sort, so
    * the export follows the screen's order (#173 UX P2-6).
    */
-  exportRows?: (request: { scope: { kind: 'selected'; ids: string[] } | { kind: 'filtered' }; sorting: PageSort[]; filters?: ColumnFilter[] }, signal: AbortSignal) => Promise<ApiResponse<T[]>>;
+  exportRows?: (request: TableExportRequest, signal: AbortSignal) => Promise<ApiResponse<T[]>>;
   /** Menu note appended to the export toast (e.g. cycle-time "page filters apply; not the full KPI population"). */
   exportNote?: string;
   /**
@@ -133,15 +146,10 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   // Registry declares export capability (§5); the table never offers Export on a menu that did not declare it.
   const canExport = !!p.exportRows && !!route?.menu.features.export;
   // Selection exists only for features that read it (export/copy, bulk actions); ADR-0037.
-  const selectable = canExport || !!p.bulkActions;
+  const selectable = canExport || !!p.bulkActions || !!p.bulkSelectionActions;
   const pageSize = p.pageSize ?? 100;
   const { preferences, onColumnSizingChange, onColumnVisibilityChange, onColumnPinningChange, onColumnOrderChange, resetPreferences } = useColumnPreferences(p.preferenceKey);
   const [sorting, setSorting] = useState<PageSort[]>([]);
-  const [selection, setSelection] = useState<RowSelectionState>({});
-  const effectiveSelection = selectable ? selection : {};
-  useEffect(() => {
-    if (!selectable) setSelection(previous => Object.keys(previous).length ? {} : previous);
-  }, [selectable]);
   const [copyTip, setCopyTip] = useState(false);
   /** Column popover / export menu open: the Ctrl/⌘+C shortcut stays native while either is open. */
   const [overlayOpen, setOverlayOpen] = useState({ columns: false, export: false });
@@ -180,14 +188,17 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const { setPage, retry, effectivePage, shown, shownPage, loading, data, pageCount, success, outOfRange } = usePagedRows<T>({
     loadPage: p.loadPage, filterKey: p.filterKey, urlState: p.urlState, pageSize, activeSorting, viewport, columnFilters: columnFilters.filters,
     // Selection never survives a Context change; an in-flight export/copy belongs to the old result set.
-    onContextChange: () => { setSelection({}); abortTransfers(); },
+    onContextChange: () => { selectionState.clear(); abortTransfers(); },
   });
   // The table's result joins the page's OutcomeScope like a QueryView does; the toolbar <h2> already names it, so the grouped state hides the name line (§306).
   const groupedOutcome = useSharedOutcome(shown, retry, p.ariaLabel, loading ? (shown ? 'refreshing' : 'loading') : 'done');
-  const selectedIds = Object.keys(effectiveSelection).filter(k => effectiveSelection[k]);
+  const selectionState = useTableSelection<T>({ enabled: selectable, selectAllResults: !!p.selectAllResults, rows: data.rows, getRowId: p.getRowId, total: data.total, resultOk: shown?.outcome === 'ok' });
+  const { selectedIds, rowSelection: effectiveSelection } = selectionState;
+  const selectedCount = selectionState.count;
+  const { headerState, clear: clearSelection } = selectionState;
   const { exporting, copying, exportNote, copyNote, runExport, runCopy, onShortcut, abortTransfers } = useTableTransfer<T>({
     columns: p.columns, getRowId: p.getRowId, exportRows: p.exportRows, menuNote: p.exportNote, exportFilterSummary: p.exportFilterSummary, exportContext: p.exportContext,
-    canExport, selectedIds, selection, columnFilters: columnFilters.filters, loadedRows: data.rows, total: data.total, resultOk: shown?.outcome === 'ok', activeSorting, preferences, overlayOpen,
+    canExport, selectedIds, selection: effectiveSelection, allSelection: selectionState.all ? { excludedIds: selectionState.excludedIds, count: selectedCount } : null, columnFilters: columnFilters.filters, loadedRows: data.rows, total: data.total, resultOk: shown?.outcome === 'ok', activeSorting, preferences, overlayOpen,
   });
 
   const columnPrefsId = useId();
@@ -208,13 +219,14 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const baseColumns = useMemo<ColumnDef<T>[]>(() => [
     ...(selectable ? [{
       id: '_select', size: 40, enableSorting: false, enableHiding: false, enableResizing: false,
-      header: ({ table }) => <Checkbox aria-label={lang === 'ko' ? '현재 페이지 전체 선택' : 'Select all rows on this page'}
-        checked={table.getIsAllPageRowsSelected() ? true : table.getIsSomePageRowsSelected() ? 'indeterminate' : false}
-        onCheckedChange={v => table.toggleAllPageRowsSelected(v === true)} className="size-3.5 border-border-control" />,
+      // #556c: while a select-all-results selection is active the header speaks for the whole result; clicking it clears the selection.
+      header: ({ table }) => <Checkbox aria-label={headerState ? (lang === 'ko' ? '필터 결과 전체 선택 해제' : 'Clear the whole-result selection') : lang === 'ko' ? '현재 페이지 전체 선택' : 'Select all rows on this page'}
+        checked={headerState ? (headerState === 'all' ? true : 'indeterminate') : table.getIsAllPageRowsSelected() ? true : table.getIsSomePageRowsSelected() ? 'indeterminate' : false}
+        onCheckedChange={v => headerState ? clearSelection() : table.toggleAllPageRowsSelected(v === true)} className="size-3.5 border-border-control" />,
       cell: ({ row }) => <Checkbox aria-label={`${lang === 'ko' ? '선택' : 'Select'} ${row.id}`} checked={row.getIsSelected()} onCheckedChange={v => row.toggleSelected(v === true)} className="size-3.5 border-border-control" />,
     } as ColumnDef<T>] : []),
     ...p.columns.map(toColumnDef),
-  ], [p.columns, lang, selectable]);
+  ], [p.columns, lang, selectable, headerState, clearSelection]);
   const hasAction = !!p.rowAction;
   const allColumns = useMemo<ColumnDef<T>[]>(() => [
     ...baseColumns,
@@ -252,7 +264,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       }
       setSorting(next); setPage(0); if (viewport.current) viewport.current.scrollTop = 0;
     },
-    onRowSelectionChange: setSelection,
+    onRowSelectionChange: selectionState.onRowSelectionChange,
     onColumnSizingChange: sizingChange, onColumnVisibilityChange, onColumnPinningChange: onColumnPinningChange(actionPinned),
   });
   const rows = table.getRowModel().rows;
@@ -467,7 +479,9 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
                 {selectedIds.length === 0 ? (lang === 'ko' ? '복사' : 'Copy') : lang === 'ko' ? `${selectedIds.length}행 복사` : `Copy ${selectedIds.length} ${selectedIds.length === 1 ? 'row' : 'rows'}`}
               </Button>
             </TooltipTrigger>
-            <TooltipContent size="sm">{selectedIds.length === 0
+            <TooltipContent size="sm">{selectionState.all
+              ? (lang === 'ko' ? '필터 결과 전체 선택은 복사할 수 없습니다 — 복사는 불러온 행만 읽습니다. 쪽에서 행을 골라 복사하거나 내보내기를 쓰세요' : 'Copy is unavailable for a whole-result selection — it reads loaded rows only. Select rows on a page to copy, or use Export')
+              : selectedIds.length === 0
               ? (lang === 'ko' ? '행을 선택하면 복사할 수 있습니다' : 'Select rows to copy')
               : (lang === 'ko' ? `${shortcutLabel('C')}로도 복사할 수 있습니다(표 안에서)` : `You can also copy with ${shortcutLabel('C')} (inside the table)`)}</TooltipContent>
           </Tooltip>
@@ -484,10 +498,10 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-56">
-            {selectedIds.length > 0 && <>
+            {selectedCount > 0 && <>
               <DropdownMenuGroup>
-                <DropdownMenuLabel>{exportTarget('selected', selectedIds.length, lang)}</DropdownMenuLabel>
-                {exportItems('selected', selectedIds.length)}
+                <DropdownMenuLabel>{exportTarget('selected', selectedCount, lang)}</DropdownMenuLabel>
+                {exportItems('selected', selectedCount)}
               </DropdownMenuGroup>
               <DropdownMenuSeparator />
             </>}
@@ -505,10 +519,17 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
 
     <ColumnFilterChips filters={columnFilters.filters} columns={p.columns} lang={lang} onRemove={id => columnFilters.apply(id, null)} onClear={columnFilters.clear} />
 
-    {selectedIds.length > 0 && <div className="flex min-h-10 flex-wrap items-center gap-3 border-t border-border-subtle bg-accent-primary-soft px-3 py-2 text-xs">
-      <span className="font-semibold tabular" data-testid="selected-count">{lang === 'ko' ? `${selectedIds.length}행 선택` : `${selectedIds.length} selected`}</span>
-      {p.bulkActions?.(selectedIds)}
-      <Button variant="ghost" size="toolbar" onClick={() => setSelection({})}>{lang === 'ko' ? '선택 해제' : 'Clear selection'}</Button>
+    <SelectAllBar lang={lang} pageRows={data.rows.length} total={data.total} offer={selectionState.offerAll} all={selectionState.all} onSelectAll={selectionState.selectAll} onClear={clearSelection} />
+
+    {selectedCount > 0 && <div className="flex min-h-10 flex-wrap items-center gap-3 border-t border-border-subtle bg-accent-primary-soft px-3 py-2 text-xs">
+      <span className="font-semibold tabular" data-testid="selected-count">{selectionState.all
+        ? (selectionState.excludedIds.length > 0
+          ? (lang === 'ko' ? `전체 ${selectionState.all.total.toLocaleString()}행 중 ${selectionState.excludedIds.length.toLocaleString()}행 제외` : `${selectionState.excludedIds.length.toLocaleString()} of ${selectionState.all.total.toLocaleString()} rows excluded`)
+          : (lang === 'ko' ? `전체 ${selectionState.all.total.toLocaleString()}행 선택` : `All ${selectionState.all.total.toLocaleString()} rows selected`))
+        : (lang === 'ko' ? `${selectedCount}행 선택` : `${selectedCount} selected`)}</span>
+      {selectionState.selection?.kind === 'ids' && p.bulkActions?.(selectionState.selection.ids)}
+      {selectionState.selection && p.bulkSelectionActions?.(selectionState.selection)}
+      {!selectionState.all && <Button variant="ghost" size="toolbar" onClick={clearSelection}>{lang === 'ko' ? '선택 해제' : 'Clear selection'}</Button>}
       <span className="text-text-secondary">{lang === 'ko' ? '선택은 현재 조회 결과 안에서만 유지되며 Context 변경 시 해제됩니다.' : 'Selection is kept within this result and cleared on context change.'}</span>
     </div>}
 

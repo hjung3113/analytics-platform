@@ -28,8 +28,10 @@ export const equipmentMock: readonly AnyMockEndpoint[] = [
     // Selection export: the server filters by ids itself, so the cap is judged on the selection, not the whole filter result.
     handle: ({ equipment, params }) => {
       const rows = filterRows(filterEquipment(equipment, params), params.filters);
-      const { ids, sorting = [] } = params;
-      return sortRows(ids == null ? rows : rows.filter(e => ids.includes(e.equipmentId)), sorting);
+      const { ids, excludedIds, sorting = [] } = params;
+      // #556c: `excludedIds` = the whole filtered set minus these ids (the server recomputes it; no id list travels).
+      const excluded = excludedIds ? new Set(excludedIds) : null;
+      return sortRows(excluded ? rows.filter(e => !excluded.has(e.equipmentId)) : ids == null ? rows : rows.filter(e => ids.includes(e.equipmentId)), sorting);
     },
   }),
 ];

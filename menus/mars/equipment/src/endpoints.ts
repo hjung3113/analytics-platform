@@ -52,8 +52,8 @@ export const equipmentMakersEndpoint = defineEndpoint<Record<never, never>, stri
   mergeTimeDomain: false,
 });
 
-/** Page filters plus an explicit row selection (`null` = every filtered row) and the table's active sort for export. */
-export type EquipmentExportFilter = EquipmentFilter & { ids: string[] | null; sorting: PageSort[]; filters?: ColumnFilter[] };
+/** Page filters plus an explicit row selection (`null` = every filtered row; `excludedIds` = every filtered row but these, for a select-all-results selection #556c) and the table's active sort for export. */
+export type EquipmentExportFilter = EquipmentFilter & { ids: string[] | null; sorting: PageSort[]; filters?: ColumnFilter[]; excludedIds?: string[] };
 
 /**
  * The export set for the table-owned export (#173): same permission/Context/filters as the page, plus selection ids.
@@ -62,7 +62,7 @@ export type EquipmentExportFilter = EquipmentFilter & { ids: string[] | null; so
 export const equipmentExportEndpoint = defineEndpoint<EquipmentExportFilter, Equipment[]>({
   id: 'equipment.master.export',
   menuId: 'equipment-master',
-  paramKeys: { q: true, status: true, maker: true, ids: true, sorting: true, filters: true },
+  paramKeys: { q: true, status: true, maker: true, ids: true, sorting: true, filters: true, excludedIds: true },
   permission: PERMISSION,
   requiresScope: true,
   context,

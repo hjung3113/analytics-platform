@@ -15,7 +15,7 @@ import { exportColumns } from '../tableExport';
 import * as publicApi from '../../index';
 import { InWorkspacePanelProvider } from '../../workspace/panelContext';
 import { readXlsx } from './xlsxTestReader';
-import { PlatformDataTable, type PageQuery, type PageResult, type PlatformDataTableProps, type TableUrlState } from '../PlatformDataTable';
+import { PlatformDataTable, type PageQuery, type PageResult, type PlatformDataTableProps, type TableExportRequest, type TableUrlState } from '../PlatformDataTable';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace , useToastsForTest } from '@ap/kernel/testing';
 import { groupId, spaceId, type ApiResponse, type GlobalContext, type PageSort } from '@ap/contracts';
 
@@ -999,7 +999,7 @@ describe('PlatformDataTable table-owned export (#173)', () => {
   });
 
   it('exports only the selection, reconciles by getRowId and says which selected rows are gone', async () => {
-    const exportRows = vi.fn(async (request: { scope: { kind: 'selected'; ids: string[] } | { kind: 'filtered' }; sorting: PageSort[] }) =>
+    const exportRows = vi.fn(async (request: TableExportRequest) =>
       request.scope.kind === 'selected' ? ok([{ id: 'r1', status: 'a' }]) : ok([]));
     render(<ExportHarness loadPage={makeLoadPage(3)} exportRows={exportRows} />);
     await screen.findByText(/1\/1/);
@@ -1097,7 +1097,7 @@ describe('PlatformDataTable table-owned export (#173)', () => {
   });
 
   it('with a selection the menu offers 선택 N행 and 필터 결과 전체 N행; choosing all-filtered exports {kind:filtered} without clearing the selection', async () => {
-    const exportRows = vi.fn(async (_request: { scope: { kind: 'selected'; ids: string[] } | { kind: 'filtered' }; sorting: PageSort[] }) => ok([{ id: 'r1', status: 'a' }, { id: 'r2', status: 'b' }, { id: 'r3', status: 'c' }]));
+    const exportRows = vi.fn(async (_request: TableExportRequest) => ok([{ id: 'r1', status: 'a' }, { id: 'r2', status: 'b' }, { id: 'r3', status: 'c' }]));
     render(<ExportHarness loadPage={makeLoadPage(3)} exportRows={exportRows} />);
     await screen.findByText(/1\/1/);
     fireEvent.click(screen.getByRole('checkbox', { name: '선택 r1' }));

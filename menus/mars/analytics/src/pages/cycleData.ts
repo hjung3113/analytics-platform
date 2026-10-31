@@ -2,8 +2,8 @@
  * Cycle-time page codecs (06 §6.1 page keys) and row keys. Computation lives in the server half (`src/mock/cycle.ts`);
  * what both halves share (metric resolution, anchors, bins, bucket ends, the execution key) lives in `../endpoints`.
  */
-import { bucketStart, parseDateTime, type PageSort } from '@ap/contracts';
-import { encodeTableSort, parseTableSort } from '@ap/components';
+import { bucketStart, parseDateTime } from '@ap/contracts';
+import { encodeTableSort, exportScopeIds, parseTableSort, type TableExportRequest } from '@ap/components';
 import { BINS, bucketEnd, binIndex, isInstant, type Granularity, type SlowExportFilter, type SlowFilter, type SlowRow, type TailMode } from '../endpoints';
 
 export const SORT_COLUMNS = ['cycleMin', 'delta', 'startedAt', 'equipmentId', 'room', 'recipe', 'lotId', 'quality'] as const;
@@ -83,9 +83,12 @@ export function qualityLabel(quality: SlowRow['quality'], ko: boolean): string {
 /** Table-owned export params (#173): the page filters, the selection execution keys (`null` = every filtered row) and the table's active sort. */
 export function exportParams(
   filter: SlowFilter,
-  request: { scope: { kind: 'selected'; ids: string[] } | { kind: 'filtered' }; sorting: PageSort[] },
+  request: TableExportRequest,
 ): SlowExportFilter {
-  return { ...filter, ids: request.scope.kind === 'selected' ? request.scope.ids : null, sorting: request.sorting };
+  const scope = exportScopeIds(request.scope);
+  // This table does not enable selectAllResults: an `all` scope would export the excluded rows, so it is refused.
+  if (scope.mode === 'all-except') throw new Error('select-all export scope is not supported by this table');
+  return { ...filter, ids: scope.ids, sorting: request.sorting };
 }
 
 /** Readable page filters for the XLSX 조회 정보 sheet (#173 review P2-3), labeled as the screen labels them. */
