@@ -151,6 +151,60 @@ describe('Task detail parts through the host seam', () => {
     expect(calls.navigate).toHaveBeenLastCalledWith(`/findings/${FINDING_ID}`);
   });
 
+  describe('출처 section without a Finding (#1159 UX-3)', () => {
+    const TASK_REQUEST = {
+      id: '70000000-0000-4000-8000-000000000007',
+      display_id: 'REQ-1000',
+      status: 'converted',
+    };
+    const sourceOf = (source: unknown) => ({ ...task, source }) as unknown as TaskDetailDto;
+    const sourceSection = async () => {
+      await waitFor(() => expect(document.querySelector('[data-anchor="source"]')).not.toBeNull());
+      return document.querySelector('[data-anchor="source"]') as HTMLElement;
+    };
+
+    it('shows the Task Request origin, and the VOC only when allowed, instead of 단독 Task', async () => {
+      api.getTask.mockResolvedValue(
+        sourceOf({
+          task_request: TASK_REQUEST,
+          voc: {
+            visibility_state: 'allowed',
+            id: VOC_ID,
+            display_id: 'VOC-7',
+            title: '출처 VOC',
+            reporter_facing_status: 'progress',
+          },
+        }),
+      );
+      renderParts(makeSeam().seam);
+      const section = await sourceSection();
+      expect(section).toHaveTextContent('REQ-1000');
+      expect(section).toHaveTextContent('전환됨');
+      expect(section).toHaveTextContent('VOC-7');
+      expect(section).not.toHaveTextContent('단독 Task');
+    });
+
+    it.each(['summary_visible', 'denied'] as const)(
+      'draws no VOC identifier for a %s source VOC',
+      async (state) => {
+        api.getTask.mockResolvedValue(
+          sourceOf({ task_request: TASK_REQUEST, voc: { visibility_state: state } }),
+        );
+        renderParts(makeSeam().seam);
+        const section = await sourceSection();
+        expect(section).toHaveTextContent('REQ-1000');
+        expect(section).not.toHaveTextContent(/VOC/);
+        expect(section).not.toHaveTextContent('단독 Task');
+      },
+    );
+
+    it('keeps 단독 Task when there is neither a Finding nor a Task Request', async () => {
+      api.getTask.mockResolvedValue(sourceOf(null));
+      renderParts(makeSeam().seam);
+      expect(await sourceSection()).toHaveTextContent('단독 Task');
+    });
+  });
+
   it('leaves the VOC and Finding nodes unnavigable when the host cannot link', async () => {
     const { seam } = makeSeam({ canLink: () => false });
     renderParts(seam);

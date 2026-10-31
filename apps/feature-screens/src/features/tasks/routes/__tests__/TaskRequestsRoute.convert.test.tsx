@@ -5,6 +5,7 @@ import { listMilestones } from '@/lib/api/milestones';
 import { ApiError } from '@/lib/api/types';
 import { useMe } from '@/lib/auth/useMe';
 import { TASK_PRIORITY_LABELS } from '@/lib/copy/enum-labels';
+import { RESPONSIBILITY_COPY } from '@/lib/copy/tasks';
 import { TaskRequestsRoute } from '@/test/screen-host/features/tasks/routes/TaskRequestsRoute';
 import { taskRequestPage } from '@/test/task-request-pages';
 import type { ListTaskRequestsQuery } from '@ap/feature-shared';
@@ -394,6 +395,37 @@ describe('TaskRequestsRoute conversion priority labels', () => {
       });
     },
   );
+
+  it('#1159 UX-2 names the cause beside the actor picker when the server rejects the assignee as ineligible for the Managed System', async () => {
+    const id = '60000000-0000-0000-0000-000000000006';
+    api.workspaceActors = [
+      {
+        id,
+        display_name: '담당 개발자',
+        email: 'developer@example.test',
+        role_level: 'developer',
+        actor_type: 'internal_member',
+      },
+    ];
+    api.convertTaskRequest.mockReset();
+    api.convertTaskRequest.mockRejectedValueOnce(
+      new ApiError(422, {
+        code: 'validation.failed',
+        message: 'invalid responsibility',
+        detail: { fields: [{ path: ['assignee_actor_id'], code: 'ineligible_actor' }] },
+      }),
+    );
+    await openConvertForm();
+    await chooseOption('담당자', '사용자 지정');
+    await chooseOption('담당 사용자', '담당 개발자');
+    fireEvent.click(screen.getByTestId('task-request-convert-submit'));
+    const reason = await screen.findByTestId('task-request-convert-assignee-error');
+    expect(reason).toHaveTextContent(RESPONSIBILITY_COPY.ineligibleForSystem);
+    expect(reason).toHaveAttribute('role', 'alert');
+    // Picking another assignee clears the reason.
+    await chooseOption('담당자', '자동 배정');
+    expect(screen.queryByTestId('task-request-convert-assignee-error')).not.toBeInTheDocument();
+  });
 
   it('submits the selected shared priority, due date, and milestone values unchanged', async () => {
     await openConvertForm();

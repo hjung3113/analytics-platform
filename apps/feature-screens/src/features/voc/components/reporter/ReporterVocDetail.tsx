@@ -2,8 +2,11 @@
 //
 // The backend sends a reporter who also holds an operator capability the operator envelope (severity,
 // owner, triage state, internal comments), and VocDetailPanel draws Triage, Finding and composers by
-// role. This screen draws a fixed allowlist whatever the envelope holds, and nothing that writes.
+// role. This screen draws a fixed allowlist whatever the envelope holds. The one write it offers is the
+// Reporter Reply on the signed-in actor's own VOC (09-permission-access: every role); no public update,
+// internal comment, triage or Finding is drawn here.
 
+import { useMeBridge } from '@/lib/api/me';
 import { ATTACHMENT_FALLBACK_LABEL } from '@/lib/copy/attachments';
 import { useSignedInActor } from '@/lib/cross-system/useSignedInActor';
 import { useVocDetail } from '@/lib/cross-system/useVocDetail';
@@ -24,6 +27,7 @@ import { AttachmentChipList } from '../detail/AttachmentChip';
 import { ConversationTimeline } from '../detail/ConversationTimeline';
 import { LinkedEntityTrailSection } from '../detail/LinkedEntityTrailSection';
 import { LinkedExecutionSection } from '../detail/LinkedExecutionSection';
+import { ReporterReplyComposer } from '../detail/ReporterReplyComposer';
 
 export interface ReporterVocDetailProps {
   vocId: string;
@@ -46,6 +50,8 @@ export function ReporterVocDetail({
 }: ReporterVocDetailProps): React.ReactElement {
   const { data, isLoading, isError, error } = useVocDetail(vocId);
   const me = useSignedInActor();
+  // The composer takes the full session read; the flat `useSignedInActor()` result above keeps the ownership guard.
+  const session = useMeBridge();
   const { actors } = useWorkspaceActors();
   const actorNamesById = React.useMemo(
     () => new Map((actors ?? []).map((actor) => [actor.id, actor.display_name])),
@@ -129,6 +135,9 @@ export function ReporterVocDetail({
           actorNamesById={actorNamesById}
           meActor={me.data}
         />
+      </div>
+      <div className="mt-4" data-testid="reporter-voc-reply">
+        <ReporterReplyComposer voc={voc} me={session.data} />
       </div>
       <LinkedExecutionSection voc={voc} isReporterContext />
       <LinkedEntityTrailSection

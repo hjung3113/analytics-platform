@@ -265,6 +265,7 @@ export function useTaskDetailParts({
   const source = task.source;
   const sourceFinding = source?.finding;
   const sourceVoc = source?.voc;
+  const sourceTaskRequest = source?.task_request;
   const managedSystem = managedSystems.find(
     (system) => system.id === task.primary_managed_system_id,
   );
@@ -422,6 +423,21 @@ export function useTaskDetailParts({
                     <OutlineBadge>
                       Task Request · {TASK_REQUEST_STATUS_LABELS[source.task_request.status]}
                     </OutlineBadge>
+                  )}
+                </div>
+              </div>
+            ) : sourceTaskRequest ? (
+              <div className="mt-2 flex flex-col gap-2 rounded-sm border border-border-subtle bg-surface-card p-3">
+                <span className="text-xs text-text-muted">{GLOSSARY.fromTaskRequest}</span>
+                <div className="font-mono text-sm font-medium text-text-primary">
+                  {sourceTaskRequest.display_id}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <OutlineBadge>
+                    Task Request · {TASK_REQUEST_STATUS_LABELS[sourceTaskRequest.status]}
+                  </OutlineBadge>
+                  {sourceVoc?.visibility_state === 'allowed' && (
+                    <OutlineBadge>VOC · {sourceVoc.display_id}</OutlineBadge>
                   )}
                 </div>
               </div>

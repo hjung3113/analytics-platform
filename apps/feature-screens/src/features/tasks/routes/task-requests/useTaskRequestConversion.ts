@@ -3,9 +3,10 @@ import { GENERIC_ERROR_MESSAGE, mapUnknownError } from '@/lib/api/errorMapper';
 import { listMilestones } from '@/lib/api/milestones';
 import { fetchPermissionCheckViaClient } from '@/lib/api/permission-reads';
 import { convertTaskRequest } from '@/lib/api/tasks';
-import { isPermissionDenied } from '@/lib/api/types';
+import { ApiError, isPermissionDenied } from '@/lib/api/types';
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { TASK_REQUEST_COPY } from '@/lib/copy/task-requests';
+import { RESPONSIBILITY_COPY } from '@/lib/copy/tasks';
 import { analyticsAreasCatalogQuery } from '@/lib/cross-system/analyticsAreasCatalog';
 import { zodIssueMessage } from '@/lib/forms/zodIssueMessage';
 import { useHostNavigate, useHostNotice, useHostSeam } from '@/lib/host/host-seam';
@@ -58,6 +59,8 @@ export interface UseTaskRequestConversionResult {
   setTeamId: (value: string) => void;
   assigneeId: string;
   setAssigneeId: (value: string) => void;
+  /** The server's reason for rejecting the chosen assignee (ineligible for this Managed System); null otherwise. */
+  assigneeError: string | null;
   dueDate: string;
   setDueDate: (value: string) => void;
   milestoneId: string;
@@ -111,6 +114,7 @@ export function useTaskRequestConversion({
   >('automatic');
   const [teamId, setTeamId] = React.useState('');
   const [convertAssigneeId, setConvertAssigneeId] = React.useState('');
+  const [assigneeError, setAssigneeError] = React.useState<string | null>(null);
   const [convertDueDate, setConvertDueDate] = React.useState('');
   const [convertMilestoneId, setConvertMilestoneId] = React.useState('');
   const [convertAnalyticsAreaSelection, setConvertAnalyticsAreaSelection] =
@@ -126,6 +130,7 @@ export function useTaskRequestConversion({
     setConvertTitleError(null);
     setConvertPriority('medium');
     setConvertAssigneeId('');
+    setAssigneeError(null);
     setResponsibilityMode('automatic');
     setTeamId('');
     setConvertDueDate('');
@@ -323,12 +328,29 @@ export function useTaskRequestConversion({
       setConvertOpen(false);
     },
     onError: (err) => {
+      // The server names the rule (an Actor without finding.manage on this Managed System is `ineligible_actor`);
+      // the generic validation copy would not say which field or why.
+      const ineligible =
+        err instanceof ApiError &&
+        err.code === 'validation.failed' &&
+        Array.isArray(err.detail?.fields) &&
+        err.detail.fields.some(
+          (field: { path?: unknown; code?: unknown }) =>
+            field.code === 'ineligible_actor' &&
+            Array.isArray(field.path) &&
+            field.path[0] === 'assignee_actor_id',
+        );
+      if (ineligible) {
+        setAssigneeError(RESPONSIBILITY_COPY.ineligibleForSystem);
+        return;
+      }
       notifyError(mapUnknownError(err).message);
     },
   });
 
   function submit(event: React.FormEvent<HTMLFormElement>): void {
     event.preventDefault();
+    setAssigneeError(null);
     // R2 + R4 — a selection made from retained cache cannot ride once its
     // read has failed terminally, and a held id omitted from a successful
     // refreshed list is equally unavailable; only an explicit None ('') is
@@ -364,13 +386,18 @@ export function useTaskRequestConversion({
     responsibilityMode,
     setResponsibilityMode: (value) => {
       setResponsibilityMode(value);
+      setAssigneeError(null);
       setConvertAssigneeId('');
       setTeamId('');
     },
     teamId,
     setTeamId,
     assigneeId: convertAssigneeId,
-    setAssigneeId: setConvertAssigneeId,
+    setAssigneeId: (value) => {
+      setConvertAssigneeId(value);
+      setAssigneeError(null);
+    },
+    assigneeError,
     dueDate: convertDueDate,
     setDueDate: setConvertDueDate,
     milestoneId: convertMilestoneId,

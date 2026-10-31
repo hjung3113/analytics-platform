@@ -272,7 +272,12 @@ describe('내 VOC through the feature bridge', () => {
     expect(await screen.findByText('아침마다 로그인이 실패합니다.', {}, { timeout: 3000 })).toBeTruthy();
     for (const pattern of FORBIDDEN) expect(document.body.textContent).not.toMatch(pattern);
     expect(screen.queryByRole('tab', { name: '내부' })).toBeNull();
-    expect(screen.queryByRole('textbox')).toBeNull();
+    // The only editor is the reporter's own reply (#1159); no public update or internal comment composer.
+    const editors = screen.getAllByRole('textbox');
+    expect(editors).toHaveLength(1);
+    expect(editors[0]!.closest('[data-testid="reporter-reply-composer"]')).not.toBeNull();
+    expect(screen.queryByTestId('public-update-composer')).toBeNull();
+    expect(screen.queryByTestId('internal-comment-composer')).toBeNull();
   });
 
   it('V7: the detail page offers the way back to the origin, and only that', async () => {

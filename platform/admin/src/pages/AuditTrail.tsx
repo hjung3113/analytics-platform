@@ -189,7 +189,7 @@ export default function AuditTrail() {
     {parsed.ok && <PlatformDataTable<AuditEvent>
         title={ko ? '변경 감사' : 'Audit trail'}
         ariaLabel={ko ? '변경 감사 목록' : 'Audit trail list'}
-        subtitle={ko ? '합성 감사 이벤트입니다. 기본 정렬은 최신순이며 room 필터를 적용하지 않습니다.' : 'Synthetic audit events. Default sort is newest first; no room filter is applied.'}
+        subtitle={ko ? '기본 정렬은 최신순이며 room 필터를 적용하지 않습니다.' : 'Default sort is newest first; no room filter is applied.'}
         filters={filterSlot}
         columns={columns} getRowId={row => row.id} filterKey={filterKey}
         preferenceKey="admin-audit:columns:v1" pageSize={25}
