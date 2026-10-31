@@ -761,6 +761,32 @@ test.describe('표 고급 기능 (#556)', () => {
     await expect(page.getByTestId('selected-count')).toHaveCount(0);
     await expect(page.getByTestId('select-all-bar')).toHaveCount(0);
   });
+
+  // #556d (ADR-0104): the server answers rows ordered by group plus whole-result counts; a header collapses its rows; 「그룹 없음」 is flat again.
+  test('라인으로 묶으면 그룹 머리 행이 건수와 함께 보이고, 하나를 접으면 그 행이 숨으며, 그룹 없음이면 다시 평평하다', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/mars/equipment-master?v=1&scopeId=MEM');
+    await expect(page.locator('[role="row"][data-row-id]').first()).toBeVisible();
+    const headers = page.locator('[data-group-row]');
+    await expect(headers).toHaveCount(0);
+    await page.getByRole('combobox', { name: '그룹' }).selectOption('line');
+    await expect(headers.first()).toBeVisible();
+    await expect(headers.first()).toContainText(/\d+행 \(전체 결과\)/);
+    await expect(page.getByRole('table', { name: /.+/ })).toHaveAttribute('aria-rowcount', '-1');
+    await evidence(page, testInfo, 'row-groups');
+    const first = headers.first();
+    const dataRows = page.locator('[role="row"][data-row-id]');
+    await expect(dataRows.first()).toBeVisible();
+    const before = await dataRows.count();
+    const toggle = first.getByRole('button', { name: /그룹 접기$/ });
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await toggle.click();
+    await expect(first.getByRole('button', { name: /그룹 펼치기$/ })).toHaveAttribute('aria-expanded', 'false');
+    await expect.poll(() => dataRows.count()).toBeLessThan(before);
+    await page.getByRole('combobox', { name: '그룹' }).selectOption('');
+    await expect(headers).toHaveCount(0);
+    await expect(page.locator('[role="row"][data-row-id]').first()).toBeVisible();
+  });
 });
 
 // #680 (ADR-0075): a fill page's head (notes + page filter + chips) folds to one line; shared responses become a thin strip.

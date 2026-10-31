@@ -40,6 +40,8 @@ export default function EquipmentMaster() {
     exportValue: f.key === 'status' ? (row: Equipment) => statusText[row.status][lang] : undefined,
     // #556b: column filters (ADR-0104) — the line enum, a text column and the validity dates; the mock endpoint applies them.
     filter: columnFilter(f.key),
+    // #556d: rows can be grouped by line (a column filter, not a page filter); the export stays flat rows.
+    groupable: f.key === 'line',
   })), [lang]);
   // Draft + apply (ADR-0037): the drafts live here, above ManagementLayout, so they survive rail ↔ popover and collapse.
   const { draft, clearButton, barProps, layoutProps } = useManagementFilters({ applied: { q, status, maker }, clearKeys: ['q', 'status', 'maker'] });

@@ -3,7 +3,7 @@
  * Client-safe: declarations, params/data types and display constants only — filtering, sorting and paging
  * live in `src/mock/` (the server half). Pages import from here, never from `src/mock/**`.
  */
-import { defineEndpoint, type ColumnFilter, type PageResult, type PageSort, type TableQuery } from '@ap/contracts';
+import { defineEndpoint, type ColumnFilter, type GroupedPageResult, type PageSort, type TableQuery } from '@ap/contracts';
 import { PERMISSION } from './permission';
 
 /** Destination type for the equipment detail (docs/06 §22). A literal: the menu learns no mock internals. */
@@ -18,17 +18,17 @@ export type Equipment = {
 
 /** Page-owned list filters (URL page keys q/status/maker). '' means no constraint. */
 export type EquipmentFilter = { q: string; status: string; maker: string };
-/** Page filters plus the table's opt-in column filters (`TableQuery.filters`, ADR-0104). */
+/** Page filters plus the table's opt-in column filters and row group (`TableQuery.filters`/`groupBy`, ADR-0104). */
 export type EquipmentPageParams = EquipmentFilter & TableQuery;
 
 /** Exactly what the equipment-master manifest applies; `time` stays reference. */
 const context = { roomNames: 'apply', condition: 'apply', selection: 'apply' } as const;
 
 /** One table page (06 §15): the same filtered set, sorted and sliced by the server. */
-export const equipmentPageEndpoint = defineEndpoint<EquipmentPageParams, PageResult<Equipment>>({
+export const equipmentPageEndpoint = defineEndpoint<EquipmentPageParams, GroupedPageResult<Equipment>>({
   id: 'equipment.master.page',
   menuId: 'equipment-master',
-  paramKeys: { q: true, status: true, maker: true, page: true, pageSize: true, sorting: true, filters: true },
+  paramKeys: { q: true, status: true, maker: true, page: true, pageSize: true, sorting: true, filters: true, groupBy: true },
   permission: PERMISSION,
   requiresScope: true,
   context,

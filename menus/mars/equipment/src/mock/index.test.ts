@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createMockAdapter, EQUIPMENT, getRole, setRole, type RoleId } from '@ap/mock-server';
 import { equipmentMock } from './index';
 import { equipmentMakersEndpoint, equipmentPageEndpoint, equipmentExportEndpoint, type Equipment } from '../endpoints';
-import { contextCapabilities, groupId, menuPermission, type MenuMeta, type PageResult } from '@ap/contracts';
+import { contextCapabilities, groupId, menuPermission, type GroupedPageResult, type MenuMeta, type PageResult } from '@ap/contracts';
 
 const none = contextCapabilities();
 
@@ -71,6 +71,18 @@ describe('equipment-master mock endpoints', () => {
     expect((page.data as PageResult<Equipment>).total).toBe(expected.length);
     expect(((page.data as PageResult<Equipment>).rows.map(e => e.equipmentId)).sort()).toEqual(expected);
     expect(((exportAll.data as Equipment[]).map(e => e.equipmentId)).sort()).toEqual(expected);
+  });
+
+  it('groups on the server: rows ordered by group, groups describe the whole filtered set, page slice limits them (#556d)', async () => {
+    const all = await adapter.menuQuery({ endpoint: equipmentPageEndpoint.id, context, params: { ...noFilter, page: 0, pageSize: 25, sorting: [], groupBy: 'line' } });
+    const data = all.data as GroupedPageResult<Equipment>;
+    expect(data.total).toBe(engineerMem.length);
+    const lines = data.rows.map(e => e.line);
+    expect(lines).toEqual([...lines].sort());
+    for (const g of data.groups!) expect(g.count).toBe(engineerMem.filter(e => e.line === g.key).length);
+    expect(data.groups!.every(g => g.subtotals === undefined)).toBe(true); // no additive column: count only
+    const flat = await adapter.menuQuery({ endpoint: equipmentPageEndpoint.id, context, params: { ...noFilter, page: 0, pageSize: 25, sorting: [] } });
+    expect(flat.data).not.toHaveProperty('groups');
   });
 
   it('answers the Maker select from a small distinct-makers endpoint within the granted Scope (#173 P2-4)', async () => {

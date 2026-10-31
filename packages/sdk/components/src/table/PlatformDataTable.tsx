@@ -5,7 +5,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, Columns3, Copy, Download, FileSpreadsheet, FileText, GripVertical, Loader2, Pin, PinOff } from 'lucide-react';
 import { useI18n, usePlatform } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
-import type { ApiResponse, Capability, ColumnFilterSpec, ContextKey, PageQuery, PageResult, PageSort, TableQuery } from '@ap/contracts';
+import type { ApiResponse, Capability, ColumnFilterSpec, ContextKey, GroupedPageResult, PageQuery, PageResult, PageSort, TableQuery } from '@ap/contracts';
 import { Button, Checkbox, cn, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, Label, Popover, PopoverContent, PopoverTrigger, shortcutLabel, Skeleton, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { AnalysisSectionContext } from '../archetypes/AnalysisSectionContext';
 import { toColumnDef } from './columnDef';
@@ -24,8 +24,9 @@ import { ColumnFilterButton, ColumnFilterChips, useColumnFilters } from './colum
 import { useTableTransfer } from './useTableTransfer';
 import { useTableSelection, type TableExportRequest, type TableSelection } from './useTableSelection';
 import { SelectAllBar } from './selectAllBar';
+import { buildGroupedItems, GroupHeaderCells, groupKeyOf, GroupSelect } from './rowGroups';
 
-export type { PageQuery, PageResult } from '@ap/contracts';
+export type { GroupedPageResult, PageGroup, PageQuery, PageResult } from '@ap/contracts';
 export { sortAndPage } from '@ap/contracts';
 export type { TableExportRequest, TableSelection } from './useTableSelection';
 
@@ -64,6 +65,16 @@ export type PlatformColumn<T> = {
    * to `loadPage` (`query.filters`) and `exportRows`. The id is the server field; the server applies the filter.
    */
   filter?: ColumnFilterSpec;
+  /**
+   * Opt-in row groups (#556d, ADR-0104): the toolbar offers 「그룹」 with this column; choosing it sends `groupBy: <id>` to `loadPage`,
+   * and the server answers rows ordered by group plus `groups` describing the whole filtered result. The id is the server field.
+   */
+  groupable?: boolean;
+  /**
+   * Display only: a group header shows the server's result-wide `PageGroup.subtotals[id]` under this column. The server computes it;
+   * declare it only for a column whose reaggregation is `sum` (ADR-0082) — never for a ratio, average or `none` column.
+   */
+  subtotal?: boolean;
 };
 /** The trust button's own inline padding (px-2 × 2) and the status line's flex gap (gap-x-2): the probe measures content only. */
 const TRUST_BUTTON_PADDING = 16;
@@ -90,7 +101,7 @@ export type PlatformDataTableProps<T> = {
   columns: PlatformColumn<T>[];
   getRowId: (row: T) => string;
   /** Server-side sort/page. Returns the §19 envelope; the table renders the outcome taxonomy. */
-  loadPage: (query: TableQuery, signal: AbortSignal) => Promise<ApiResponse<PageResult<T>>>;
+  loadPage: (query: TableQuery, signal: AbortSignal) => Promise<ApiResponse<GroupedPageResult<T>>>;
   /** Identity of page-owned filters; a change returns to page 1 and clears row selection. */
   filterKey: string;
   filters?: ReactNode;
@@ -188,10 +199,16 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   // urlState (§6.1): controlled sort/page. The page writes the URL via onChange; the table never touches keys.
   const activeSorting = p.urlState ? p.urlState.sorting : sorting;
   const columnFilters = useColumnFilters(p.urlState);
+  // #556d: one group column (a groupable column of this table), collapse state keyed by group key. A group change returns to page 1 and
+  // expands every group; the selection is kept (it is by row id, and sorting/grouping do not change the result set).
+  const groupColumns = useMemo(() => p.columns.filter(c => c.groupable), [p.columns]);
+  const [groupChoice, setGroupChoice] = useState('');
+  const groupBy = groupColumns.some(c => c.id === groupChoice) ? groupChoice : null;
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
   const { setPage, retry, effectivePage, shown, shownPage, loading, data, pageCount, success, outOfRange } = usePagedRows<T>({
-    loadPage: p.loadPage, filterKey: p.filterKey, urlState: p.urlState, pageSize, activeSorting, viewport, columnFilters: columnFilters.filters,
+    loadPage: p.loadPage, filterKey: p.filterKey, urlState: p.urlState, pageSize, activeSorting, viewport, columnFilters: columnFilters.filters, groupBy,
     // Selection never survives a Context change; an in-flight export/copy belongs to the old result set.
-    onContextChange: () => { selectionState.clear(); abortTransfers(); },
+    onContextChange: () => { selectionState.clear(); abortTransfers(); setCollapsed(new Set()); },
   });
   // The table's result joins the page's OutcomeScope like a QueryView does; the toolbar <h2> already names it, so the grouped state hides the name line (§306).
   const groupedOutcome = useSharedOutcome(shown, retry, p.ariaLabel, loading ? (shown ? 'refreshing' : 'loading') : 'done');
@@ -276,7 +293,21 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
     onColumnSizingChange: sizingChange, onColumnVisibilityChange, onColumnPinningChange: onColumnPinningChange(actionPinned),
   });
   const rows = table.getRowModel().rows;
-  const virtual = useVirtualizer({ count: rows.length, getScrollElement: () => viewport.current, estimateSize: () => 32, overscan: 8, getItemKey: i => rows[i].id });
+  // #556d: group header rows are virtual items mixed into the list; null = flat, exactly as before (no groupBy, or a response without `groups`).
+  const groupColumn = groupBy ? groupColumns.find(c => c.id === groupBy) : undefined;
+  const groupedItems = useMemo(() => groupColumn
+    ? buildGroupedItems(rows, data.groups, row => groupKeyOf(groupColumn.value ? groupColumn.value(row.original) : (row.original as Record<string, unknown>)[groupColumn.id]), collapsed, shownPage)
+    : null, [groupColumn, rows, data.groups, collapsed, shownPage]);
+  const items = groupedItems ?? rows.map(row => ({ kind: 'row' as const, key: row.id, row }));
+  const virtual = useVirtualizer({ count: items.length, getScrollElement: () => viewport.current, estimateSize: () => 32, overscan: 8, getItemKey: i => items[i].key });
+  // Selected rows of this page that a collapsed group hides: the page selection still covers them, and the count says so.
+  const hiddenSelected = groupedItems ? rows.filter(r => r.getIsSelected()).length - groupedItems.filter(it => it.kind === 'row' && it.row.getIsSelected()).length : 0;
+  const changeGroup = (id: string) => {
+    setGroupChoice(id); setCollapsed(new Set());
+    if (p.urlState) { if (p.urlState.page !== null) p.urlState.onChange({ sorting: p.urlState.sorting, page: null }, 'reset'); } else setPage(0);
+    if (viewport.current) viewport.current.scrollTop = 0;
+  };
+  const toggleGroup = (key: string) => setCollapsed(prev => { const next = new Set(prev); if (!next.delete(key)) next.add(key); return next; });
   // #338 UX fold: while loading the failure is not decided yet — a Context/identity change empties `shown`
   // before the response settles, and a native disable would then drop a focused button (its blur clears the
   // ownership refs, so the settle move could not recover). `aria-disabled` already marks the group busy.
@@ -454,6 +485,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       </div>
       <div className="flex flex-wrap items-center gap-2">
         {p.filters}
+        {groupColumns.length > 0 && <GroupSelect lang={lang} value={groupBy ?? ''} options={groupColumns} onChange={changeGroup} />}
         <Popover onOpenChange={open => setOverlayOpen(o => ({ ...o, columns: open }))}>
           <PopoverTrigger asChild><Button variant="secondary" size="toolbar"><Columns3 className="size-3.5" aria-hidden />{lang === 'ko' ? '컬럼' : 'Columns'}</Button></PopoverTrigger>
           <PopoverContent align="end" className="w-72">
@@ -473,7 +505,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
             <div className="mt-3"><Button type="button" variant="secondary" size="toolbar" onClick={resetPreferences}>{lang === 'ko' ? '기본값으로' : 'Reset to default'}</Button></div>
           </PopoverContent>
         </Popover>
-        {/* Toolbar D (#172): fixed order [컬럼] [복사] [내보내기 ▾]. */}
+        {/* Toolbar D (#172): fixed order [컬럼] [복사] [내보내기 ▾]; the opt-in 「그룹」 select (#556d) sits before 「컬럼」 — both change what the rows show, and a table without a groupable column keeps the order above. */}
         {canExport && <TooltipProvider delayDuration={200}>
           {/* No selection: aria-disabled (focusable, not native disabled) so the tooltip says why on hover and keyboard focus. */}
           {/* Enabled: the tooltip and aria-keyshortcuts name the shortcut and where it works (UX P3-1). */}
@@ -538,6 +570,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       {selectionState.selection?.kind === 'ids' && p.bulkActions?.(selectionState.selection.ids)}
       {selectionState.selection && p.bulkSelectionActions?.(selectionState.selection)}
       {!selectionState.all && <Button variant="ghost" size="toolbar" onClick={clearSelection}>{lang === 'ko' ? '선택 해제' : 'Clear selection'}</Button>}
+      {hiddenSelected > 0 && <span className="tabular" data-testid="selected-collapsed-note">{lang === 'ko' ? `접힌 그룹의 ${hiddenSelected.toLocaleString()}행 포함` : `includes ${hiddenSelected.toLocaleString()} rows in collapsed groups`}</span>}
       <span className="text-text-secondary">{lang === 'ko' ? '선택은 현재 조회 결과 안에서만 유지되며 Context 변경 시 해제됩니다.' : 'Selection is kept within this result and cleared on context change.'}</span>
     </div>}
 
@@ -560,7 +593,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       // eslint-disable-next-line shadcn/no-inline-styles -- viewport max height comes from the height prop or the measured page fit at runtime
       <div ref={viewportRef} data-table-auto-fit={p.height === undefined ? '' : undefined} tabIndex={0} aria-label={SCROLLPORT_LABEL[lang]} className={cn('overflow-auto border-t border-border-subtle [overflow-anchor:none]', chainWheel ? 'overscroll-auto' : 'overscroll-contain')} onScroll={updateFade} style={{ maxHeight: p.height ?? fit.cap ?? ROW_AREA_FALLBACK }}>
         {/* eslint-disable-next-line shadcn/no-inline-styles -- table width is the total column size computed at runtime */}
-        <div role="table" aria-label={p.ariaLabel} aria-rowcount={data.total + 1} aria-busy={loading} className="min-w-full" style={{ width: tableWidth }}>
+        <div role="table" aria-label={p.ariaLabel} aria-rowcount={groupedItems ? -1 : data.total + 1} aria-busy={loading} className="min-w-full" style={{ width: tableWidth }}>
           <div role="rowgroup" className="sticky top-0 z-[5]">
             <div role="row" className="flex">{table.getHeaderGroups()[0].headers.map(h => {
               const sorted = h.column.getIsSorted();
@@ -588,12 +621,30 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
           {!shown ? <div className="space-y-2 p-3" aria-hidden>{Array.from({ length: 8 }, (_, i) => <Skeleton key={i} className="h-5" />)}</div> :
             // eslint-disable-next-line shadcn/no-inline-styles -- total row height comes from the virtualizer at runtime
             <div role="rowgroup" className="relative" style={{ height: virtual.getTotalSize() }}>{virtual.getVirtualItems().map(item => {
-              const row = rows[item.index];
+              const entry = items[item.index];
+              if (entry.kind === 'group') {
+                // Leading cell: the select/left-pinned columns plus every column up to the first subtotal column (so the label has room); right-pinned columns and the rest are separate cells.
+                const visible = table.getVisibleLeafColumns();
+                const subtotalIds = new Set(p.columns.filter(c => c.subtotal).map(c => c.id));
+                const firstSubtotal = visible.findIndex(c => subtotalIds.has(c.id));
+                const leadEnd = visible.reduce((end, c, i) => c.getIsPinned() === 'left' || c.id === '_select' ? Math.max(end, i + 1) : end, firstSubtotal < 0 ? visible.filter(c => c.getIsPinned() !== 'right').length : firstSubtotal);
+                const leading = visible.slice(0, Math.max(leadEnd, 1)).filter(c => c.getIsPinned() !== 'right');
+                const trailing = visible.slice(leading.length);
+                return <div role="row" key={entry.key} ref={virtual.measureElement} data-index={item.index} data-group-row={entry.group.key} aria-rowindex={item.index + 2}
+                  // eslint-disable-next-line shadcn/no-inline-styles -- row offset is the virtual item position computed at runtime
+                  className="group absolute left-0 top-0 flex w-full" style={{ transform: `translateY(${item.start}px)` }}>
+                  <GroupHeaderCells lang={lang} item={entry} onToggle={() => toggleGroup(entry.group.key)}
+                    cellClassName={cn(cellBase, 'border-b border-border-subtle bg-surface-sunken text-sm')}
+                    lead={{ style: { width: leading.reduce((sum, c) => sum + widthOf(c), 0), flexShrink: 0 }, span: leading.length }}
+                    trailing={trailing.map(c => ({ id: c.id, subtotal: subtotalIds.has(c.id), style: cellStyle(c), className: c.getIsPinned() === 'right' ? pinEdge : undefined }))} />
+                </div>;
+              }
+              const row = entry.row;
               const active = p.activeRowId === row.id;
               // Weight goes to the first cell with content — the selection checkbox and the trailing action stay unweighted (UXA-5).
               const cells = row.getVisibleCells();
               const firstDataCell = cells.findIndex(cell => cell.column.id !== '_select' && cell.column.id !== '_action');
-              return <div role="row" key={row.id} ref={virtual.measureElement} data-index={item.index} aria-rowindex={shownPage * pageSize + item.index + 2}
+              return <div role="row" key={row.id} ref={virtual.measureElement} data-index={item.index} aria-rowindex={groupedItems ? item.index + 2 : shownPage * pageSize + item.index + 2}
                 aria-selected={row.getIsSelected()} aria-current={active ? 'true' : undefined} data-row-id={row.id}
                 // eslint-disable-next-line shadcn/no-inline-styles -- row offset is the virtual item position computed at runtime
                 className="group absolute left-0 top-0 flex w-full" style={{ transform: `translateY(${item.start}px)` }}>

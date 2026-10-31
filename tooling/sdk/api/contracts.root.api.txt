@@ -47,6 +47,7 @@ CreateNoticeInput | type | type CreateNoticeInput = @ap/contracts#NoticeDraft & 
 DeleteNoticeInput | type | type DeleteNoticeInput = { expectedVersion: string; id: string; idempotencyKey: string; }
 DeniedSavedView | type | type DeniedSavedView = { denied: true; id: string; reason: string; }
 DrillLevel | type | type DrillLevel = { key: string; label: @ap/contracts#Text; }
+EMPTY_GROUP_LABEL | const | const EMPTY_GROUP_LABEL: "(값 없음)"
 ENTITY_AUDIT_PAGE_MAX | const | const ENTITY_AUDIT_PAGE_MAX: 50
 EndpointSpec | type | type EndpointSpec<P, T> = { readonly _types?: { data: T; params: P; }; context: Partial<Record<@ap/contracts#ContextKey, Exclude<@ap/contracts#Capability, 'unsupported'>>>; id: string; kinds: readonly @ap/contracts#AssessmentKind[]; limits?: { maxHours?: number; maxRows?: number; }; menuId: string; mergeTimeDomain: boolean; paramKeys: Readonly<Record<keyof P & string, true>>; permission: @ap/contracts#Permission; requiredContext?: readonly @ap/contracts#ContextKey[]; requiresScope: boolean; }
 EntityAuditPage | type | type EntityAuditPage = { events: readonly @ap/contracts#AuditEvent[]; nextCursor?: null | string; }
@@ -65,6 +66,7 @@ Grain | type | type Grain = 'day' | 'hour' | 'week'
 GroupCapabilities | type | type GroupCapabilities = { canDelete: boolean; canEditMembers: boolean; canRename: boolean; canView: boolean; }
 GroupId | type | type GroupId = Brand<'GroupId'>
 GroupMember | type | type GroupMember = { affiliation: string; displayName: string; userId: string; }
+GroupedPageResult | type | type GroupedPageResult<T> = @ap/contracts#PageResult<T> & { groups?: @ap/contracts#PageGroup[]; }
 HOST_CONTRACTS | const | const HOST_CONTRACTS: readonly [ 1 ]
 HostContract | type | type HostContract = 1
 HostFeature | type | type HostFeature = 'detailSlot' | 'query' | 'write'
@@ -102,6 +104,7 @@ PREFERENCE_KEYS_MAX | const | const PREFERENCE_KEYS_MAX: 200
 PREFERENCE_KEY_PATTERN | const | const PREFERENCE_KEY_PATTERN: RegExp
 PREFERENCE_REQUEST_MAX_BYTES | const | const PREFERENCE_REQUEST_MAX_BYTES: 262144
 PREFERENCE_VALUE_MAX_BYTES | const | const PREFERENCE_VALUE_MAX_BYTES: 65536
+PageGroup | type | type PageGroup = { count: number; key: string; label: string; subtotals?: Record<string, null | number>; }
 PageQuery | type | type PageQuery = { page: number; pageSize: number; sorting: @ap/contracts#PageSort[]; }
 PageResult | type | type PageResult<T> = { rows: T[]; total: number; }
 PageSort | type | type PageSort = { desc: boolean; id: string; }
@@ -147,7 +150,7 @@ SessionUser | type | type SessionUser = { id: string; name: string; permissions:
 SiteGrant | type | type SiteGrant = { grantedRooms: readonly string[]; id: string; label: string; totalRooms: number; }
 SpaceDef | type | type SpaceDef = { description: @ap/contracts#Text; homeMenuId: string; id: @ap/contracts#SpaceId; label: @ap/contracts#Text; permission?: @ap/contracts#Permission; subtitle?: @ap/contracts#Text; }
 SpaceId | type | type SpaceId = Brand<'SpaceId'>
-TableQuery | type | type TableQuery = @ap/contracts#PageQuery & { filters?: @ap/contracts#ColumnFilter[]; }
+TableQuery | type | type TableQuery = @ap/contracts#PageQuery & { filters?: @ap/contracts#ColumnFilter[]; groupBy?: string; }
 Text | type | type Text = { en: string; ko: string; }
 Trust | type | type Trust = { coverage: null | number; dataThrough: null | string; metricVersion?: string; provisional: boolean; source: string; sourceLogicVersions?: string[]; updatedAt: string; }
 USAGE_VIAS | const | const USAGE_VIAS: readonly [ "sidebar", "switcher", "palette", "board", "return", "crossLink", "drill", "history", "direct", "link" ]
@@ -187,6 +190,7 @@ formatInstant | function | function formatInstant(instant: number | string, lang
 formatMetricVersion | function | function formatMetricVersion(version: string): string
 formatPeriod | function | function formatPeriod(from: null | string, to: null | string, lang: 'en' | 'ko'): string
 groupId | const | const groupId: <const S extends string>(id: S) => S & @ap/contracts#GroupId
+groupPage | function | function groupPage<T>(rows: readonly T[], options: GroupPageOptions<T>): { groups: @ap/contracts#PageGroup[]; rows: T[]; total: number; }
 incompleteMetricPair | function | function incompleteMetricPair(menu: null | { initializesMetric?: boolean; }, metricId: null | string, metricVersion: null | string): @ap/contracts#ContractError | null
 instantEpochMs | function | function instantEpochMs(instant: string): number
 isAppRelativePath | function | function isAppRelativePath(value: string): boolean
@@ -217,3 +221,4 @@ validateSavedView | function | function validateSavedView(input: unknown): @ap/c
 withoutReturnTo | function | function withoutReturnTo(pairs: readonly @ap/contracts#Pair[]): @ap/contracts#Pair[]
 # reachable types
 Brand | type | type Brand<Name extends string> = string & { readonly [brand]: Name; }
+GroupPageOptions | type | type GroupPageOptions<T> = { accessor?: (row: T, id: string) => unknown; groupBy: string; page?: number; pageSize?: number; sorting: @ap/contracts#PageSort[]; subtotalColumns?: readonly string[]; }
