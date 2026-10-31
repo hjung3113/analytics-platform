@@ -3,7 +3,7 @@
 // `FindingDetailPanel` frames the same parts; the platform bridge draws them in its own drawer.
 
 import { PERMISSION_BLOCKED_REASONS } from '@/lib/copy/permission-reasons';
-import type { DetailParts } from '@/lib/host/detail-parts';
+import type { DetailParts, DetailPartsOptions } from '@/lib/host/detail-parts';
 import { formatRecordDocumentTitle } from '@/lib/host/document-title-format';
 import { useHostTitle } from '@/lib/host/host-seam';
 import type { FindingDto } from '@ap/feature-shared';
@@ -22,7 +22,7 @@ export type FindingDetailView =
 /** Nothing in the Finding detail asks before closing, so there is no `requestClose` (not `ClosableDetailParts`). */
 export type FindingDetailParts = DetailParts & { view: FindingDetailView };
 
-export interface UseFindingDetailPartsArgs {
+export interface UseFindingDetailPartsArgs extends DetailPartsOptions {
   findingId: string;
   /** What the not-found body's `Findings 목록으로` button does: the host decides where "back" is. */
   onClose: () => void;
@@ -92,6 +92,7 @@ function classifyFindingDetailError(error: unknown): FindingDetailErrorState {
 export function useFindingDetailParts({
   findingId,
   onClose,
+  titleInHeader,
 }: UseFindingDetailPartsArgs): FindingDetailParts {
   const { data, isLoading, isError, isSuccess, isFetching, error } = useFindingDetail(findingId);
   useHostTitle(
@@ -151,6 +152,12 @@ export function useFindingDetailParts({
       formatRecordDocumentTitle({ displayId: data.display_id, title: data.title }) ??
       data.display_id,
     view: { kind: 'full', finding: data },
-    body: <FullFindingDetail key={data.id} finding={data} />,
+    body: (
+      <FullFindingDetail
+        key={data.id}
+        finding={data}
+        {...(titleInHeader ? { titleInHeader } : {})}
+      />
+    ),
   };
 }

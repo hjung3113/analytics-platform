@@ -25,6 +25,8 @@ const SOURCE_CONTEXT_LABELS: Record<string, string> = {
 export interface IdentitySectionProps {
   voc: VocDetailEnvelope;
   reporterDisplayName?: string | undefined;
+  /** The host's frame already shows the title; the block keeps only the status · reporter · time row (#1168 C-1). */
+  titleInHeader?: boolean;
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -32,6 +34,7 @@ export interface IdentitySectionProps {
 export function IdentitySection({
   voc,
   reporterDisplayName,
+  titleInHeader,
 }: IdentitySectionProps): React.ReactElement {
   const { data: me } = useMeBridge();
   const resolvedReporterDisplayName =
@@ -49,7 +52,7 @@ export function IdentitySection({
   //   - horizontal inset now provided by the scroll container (pt-7 px-6 in VocDetailPanel).
   return (
     <div className="mb-4 pt-2">
-      <PanelTitleBlock title={voc.title} inset="none" className="mb-1" />
+      {!titleInHeader && <PanelTitleBlock title={voc.title} inset="none" className="mb-1" />}
       <div className="flex items-center gap-2 text-xs text-text-muted">
         <ReporterStatusBadge status={voc.reporter_facing_status} />
         <span aria-hidden="true">·</span>

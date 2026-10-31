@@ -47,8 +47,13 @@ const LINKED_SOURCE_CLASS =
 
 interface FullFindingDetailProps {
   finding: FindingDto;
+  /** The host's frame already shows the title; the summary section keeps only 요약 and the text (#1168 C-1). */
+  titleInHeader?: boolean;
 }
-export function FullFindingDetail({ finding }: FullFindingDetailProps): React.ReactElement {
+export function FullFindingDetail({
+  finding,
+  titleInHeader,
+}: FullFindingDetailProps): React.ReactElement {
   const addEvidenceBtnRef = useRef<HTMLButtonElement>(null);
   const linkEvidenceBtnRef = useRef<HTMLButtonElement>(null);
   const {
@@ -121,7 +126,7 @@ export function FullFindingDetail({ finding }: FullFindingDetailProps): React.Re
         >
           {/* Summary */}
           <div data-anchor="summary" className="flex flex-col gap-1">
-            <PanelTitleBlock title={finding.title} className="px-0" />
+            {!titleInHeader && <PanelTitleBlock title={finding.title} className="px-0" />}
             <PanelSectionTitle>요약</PanelSectionTitle>
             <p className="text-sm text-text-primary whitespace-pre-wrap">{finding.summary}</p>
           </div>

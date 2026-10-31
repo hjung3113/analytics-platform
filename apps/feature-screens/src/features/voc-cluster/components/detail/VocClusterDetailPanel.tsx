@@ -16,6 +16,7 @@ import * as React from 'react';
 import { useState } from 'react';
 
 import { TaskRequestDraftCard } from '@/features/cross-system/request-task/TaskRequestDraftCard';
+import { vocClusterEvidenceSummaryDefault } from '@/features/cross-system/request-task/evidence-summary';
 import { useConfirmCluster } from '@/features/voc-cluster/hooks/useConfirmCluster';
 import { useRemoveClusterMember } from '@/features/voc-cluster/hooks/useRemoveClusterMember';
 import { useRequestTaskFromCluster } from '@/features/voc-cluster/hooks/useRequestTaskFromCluster';
@@ -319,7 +320,7 @@ export function useClusterDetailParts({ clusterId }: { clusterId: string }): Clu
                 <TaskRequestDraftCard
                   sourceKind="VOC Cluster"
                   sourceDisplayId={data.display_id}
-                  evidenceSummaryDefault={data.summary ?? data.title}
+                  evidenceSummaryDefault={vocClusterEvidenceSummaryDefault(data)}
                   isSubmitting={requestTaskMutation.isPending}
                   source={{ type: 'voc_cluster', id: clusterId }}
                   onClose={closeRequestTaskDraft}

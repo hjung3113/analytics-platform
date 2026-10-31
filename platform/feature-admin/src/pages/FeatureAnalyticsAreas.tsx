@@ -10,5 +10,5 @@ const renderDetail: NonNullable<AnalyticsAreasScreenProps['renderDetail']> = par
  * `focus` is the selected area (a UUID) and `includeArchived` is `true`.
  */
 export default function FeatureAnalyticsAreas() {
-  return <FeatureScreenPage route={analyticsAreasRoute} isValid={isAnalyticsAreasSearchValueValid} useSearch={useAnalyticsAreasSearch} useHere={useAnalyticsAreasHere}><AnalyticsAreasAdminPage renderDetail={renderDetail} /></FeatureScreenPage>;
+  return <FeatureScreenPage route={analyticsAreasRoute} isValid={isAnalyticsAreasSearchValueValid} useSearch={useAnalyticsAreasSearch} useHere={useAnalyticsAreasHere}><AnalyticsAreasAdminPage renderDetail={renderDetail} titleInHeader /></FeatureScreenPage>;
 }

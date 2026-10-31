@@ -9,6 +9,6 @@ const renderDetail: ComponentProps<typeof TaskRequestsScreen>['renderDetail'] = 
 /** Task Requests (ADR-0081, #763): the feature screens' request queue through the bridge; `focus` is the selected request (any string for the feature screens' Tasks search schema; `managedSystem` a UUID or `all`), its panel renders in the shell detail slot. */
 export default function FeatureTaskRequests() {
   return <FeatureScreenPage route={taskRequestsRoute} isValid={isTasksSearchValueValid} useSearch={useTaskRequestsSearch} useHere={useTaskRequestsHere}>
-    <TaskRequestsScreen autoSelect={false} renderDetail={renderDetail} />
+    <TaskRequestsScreen autoSelect={false} renderDetail={renderDetail} titleInHeader />
   </FeatureScreenPage>;
 }

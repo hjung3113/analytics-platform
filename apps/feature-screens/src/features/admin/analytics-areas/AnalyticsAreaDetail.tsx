@@ -36,6 +36,8 @@ type AnalyticsAreaDetailInput = {
 type AnalyticsAreaDetailPartsInput = AnalyticsAreaDetailInput & {
   onClose: () => void;
   onEdit: (area: AnalyticsAreaDto) => void;
+  /** The host's drawer already shows the area name; the body omits its title block (#1168 C-1). */
+  titleInHeader?: boolean;
 };
 
 // The same body and heading feed the standalone Sheet and the host-owned drawer.
@@ -45,6 +47,7 @@ export function buildAnalyticsAreaDetailParts({
   resolved,
   onClose,
   onEdit,
+  titleInHeader,
 }: AnalyticsAreaDetailPartsInput): ClosableDetailParts {
   const heading = analyticsAreaHeading(area);
   return {
@@ -62,7 +65,14 @@ export function buildAnalyticsAreaDetailParts({
         수정
       </Button>
     ),
-    body: <AnalyticsAreaDetailContent area={area} ms={ms} resolved={resolved} />,
+    body: (
+      <AnalyticsAreaDetailContent
+        area={area}
+        ms={ms}
+        resolved={resolved}
+        {...(titleInHeader ? { titleInHeader } : {})}
+      />
+    ),
     requestClose: onClose,
   };
 }
@@ -162,13 +172,27 @@ function AnalyticsAreaDetailContent({
   ms,
   resolved,
   scrollRef: providedScrollRef,
-}: AnalyticsAreaDetailInput & { scrollRef?: RefObject<HTMLDivElement | null> }) {
+  titleInHeader,
+}: AnalyticsAreaDetailInput & {
+  scrollRef?: RefObject<HTMLDivElement | null>;
+  /** The host's drawer already shows the area name; the body keeps only the badges (#1168 C-1). */
+  titleInHeader?: boolean;
+}) {
   const ownScrollRef = useRef<HTMLDivElement>(null);
   const scrollRef = providedScrollRef ?? ownScrollRef;
   const heading = analyticsAreaHeading(area);
   const mark = ms ? scopeMark(ms.slug, ms.name) : null;
   const lead = teamName(area, resolved);
   const created = formatDate(area.created_at);
+  const overviewBadges = (
+    <>
+      <ManagedSystemPill
+        name={ms?.name ?? area.managed_system_id}
+        {...(mark ? { mark: mark.color } : {})}
+      />
+      <OutlineBadge>필터 차원</OutlineBadge>
+    </>
+  );
 
   // Workload + Findings are Slice 4/5 surfaces (not built). Keep the explicit
   // "—" values and one quiet explanation; no counts come from the DTO (#88).
@@ -178,18 +202,12 @@ function AnalyticsAreaDetailContent({
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
         <div data-anchor="overview">
-          <PanelTitleBlock
-            title={heading.title}
-            badges={
-              <>
-                <ManagedSystemPill
-                  name={ms?.name ?? area.managed_system_id}
-                  {...(mark ? { mark: mark.color } : {})}
-                />
-                <OutlineBadge>필터 차원</OutlineBadge>
-              </>
-            }
-          />
+          {titleInHeader ? (
+            // The drawer header already shows the area name (#1168 C-1); keep the badges row.
+            <div className="flex flex-wrap gap-2">{overviewBadges}</div>
+          ) : (
+            <PanelTitleBlock title={heading.title} badges={overviewBadges} />
+          )}
         </div>
 
         <div data-anchor="definition" className="px-4 py-3">
