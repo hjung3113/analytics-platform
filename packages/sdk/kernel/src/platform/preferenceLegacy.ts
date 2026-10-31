@@ -13,12 +13,14 @@ export const LEGACY_TABLE_NAMESPACE = 'platform:table:';
 
 const isPlainRecord = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === 'object' && !Array.isArray(v) && Object.getPrototypeOf(v) === Object.prototype;
 
-/** Strict table shape: exactly sizing / visibility / pinning. Returns the sanitized value, or null when the record is not a table preference. */
+/** Strict table shape: sizing / visibility / pinning plus an optional string-array `order` (#556a). Returns the sanitized value, or null when the record is not a table preference. */
 export function strictTablePreferences(parsed: unknown): JsonValue | null {
   if (!isPlainRecord(parsed)) return null;
   const keys = Object.keys(parsed);
-  if (keys.length !== 3 || !keys.includes('sizing') || !keys.includes('visibility') || !keys.includes('pinning')) return null;
-  const { sizing, visibility, pinning } = parsed;
+  const hasOrder = keys.includes('order');
+  if (keys.length !== (hasOrder ? 4 : 3) || !keys.includes('sizing') || !keys.includes('visibility') || !keys.includes('pinning')) return null;
+  const { sizing, visibility, pinning, order } = parsed;
+  if (hasOrder && (!Array.isArray(order) || !order.every(v => typeof v === 'string'))) return null;
   if (!isPlainRecord(sizing) || !isPlainRecord(visibility) || !isPlainRecord(pinning)) return null;
   if (!Object.values(sizing).every(v => typeof v === 'number' && Number.isFinite(v))) return null;
   if (!Object.values(visibility).every(v => typeof v === 'boolean')) return null;
@@ -29,6 +31,7 @@ export function strictTablePreferences(parsed: unknown): JsonValue | null {
     visibility: visibility as Record<string, boolean>,
     // The right pin is derived from the action column, never stored.
     pinning: { left: (left as string[]).filter(id => id !== '_action'), right: [] },
+    ...(hasOrder ? { order: order as string[] } : {}),
   };
 }
 

@@ -367,7 +367,9 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
     const to = Math.max(0, Math.min(sequence.length - 1, toIndex));
     if (to === sequence.indexOf(c.id)) return;
     if (dir) refocusMove.current = { id: c.id, dir, fallback: dir === 'up' ? 'down' : 'up' };
-    onColumnOrderChange(moveWithinGroup(orderedIds, sequence, c.id, to));
+    // No saved order yet: start from what is shown (pins in their pin order, then the rest), so the untouched group keeps its sequence.
+    const base = preferences.order.length > 0 ? orderedIds : [...pinnedIds, ...orderedIds.filter(id => !pinnedIds.includes(id))];
+    onColumnOrderChange(moveWithinGroup(base, sequence, c.id, to));
     setOrderNote(lang === 'ko' ? `${nameOf(c)} ${to + 1}번째로 이동` : `${nameOf(c)} moved to position ${to + 1}`);
   }
   /** Pointer drag on the handle: the row under the pointer (same group only) is the drop target; the move is committed on release. */

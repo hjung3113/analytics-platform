@@ -11,6 +11,7 @@ import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { DetailDrawer } from '../../drawer/DetailDrawer';
 import { ManagementLayout } from '../../archetypes/ManagementLayout';
 import { toColumnDef } from '../columnDef';
+import { exportColumns } from '../tableExport';
 import * as publicApi from '../../index';
 import { InWorkspacePanelProvider } from '../../workspace/panelContext';
 import { readXlsx } from './xlsxTestReader';
@@ -706,6 +707,55 @@ describe('PlatformColumn conversion defaults (#160)', () => {
     fireEvent.pointerMove(handle, { pointerId: 1, clientY: 80 });
     fireEvent.pointerUp(handle, { pointerId: 1, clientY: 80 });
     expect(headerOrder()).toEqual(['visits', 'fixed', 'status']);
+    vi.unstubAllGlobals();
+  });
+
+  // #556a F2: the first order write starts from what is shown, so a legacy pin list (pin order, not declaration order) is untouched by an unpinned move.
+  const legacyColumns: PlatformDataTableProps<Plain>['columns'] = ['a', 'b', 'c', 'd'].map(id => ({ id, header: id.toUpperCase(), value: (r: Plain) => r.status }));
+  function LegacyPinHarness() {
+    const loadPage = vi.fn(async (): Promise<ApiResponse<PageResult<Plain>>> => ({
+      outcome: 'ok', data: { rows: plainRows, total: plainRows.length }, assessments: [], trust: null, correlationId: 'c',
+    }));
+    return <I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter} registry={registry}>
+      <PlatformDataTable<Plain> title="T" ariaLabel="table" columns={legacyColumns} getRowId={r => r.id}
+        loadPage={loadPage} filterKey="f" preferenceKey="legacy-pins" pageSize={25} height={200}
+        urlState={{ page: null, sorting: [], onChange: () => {} }} />
+    </PlatformProvider></I18nProvider>;
+  }
+  const legacyPins = () => ({ 'legacy-pins': JSON.stringify({ sizing: {}, visibility: {}, pinning: { left: ['c', 'a'], right: [] } }) });
+
+  it('column order: the first unpinned button move keeps a legacy pin list unchanged; reload and export follow the same order', async () => {
+    stubStorage(legacyPins());
+    const view = render(<LegacyPinHarness />);
+    await screen.findAllByText('s1');
+    expect(headerOrder()).toEqual(['c', 'a', 'b', 'd']);
+    fireEvent.click(screen.getByRole('button', { name: '컬럼' }));
+    const popover = await screen.findByRole('dialog');
+    fireEvent.click(within(popover).getByRole('button', { name: 'B 아래로' }));
+    expect(headerOrder()).toEqual(['c', 'a', 'd', 'b']);
+    const saved = JSON.parse(localStorage.getItem('legacy-pins')!);
+    expect(exportColumns(legacyColumns, saved).map(c => c.id)).toEqual(['c', 'a', 'd', 'b']);
+    view.unmount();
+    render(<LegacyPinHarness />);
+    await screen.findAllByText('s1');
+    expect(headerOrder()).toEqual(['c', 'a', 'd', 'b']);
+    vi.unstubAllGlobals();
+  });
+
+  it('column order: the first unpinned drag move keeps a legacy pin list unchanged', async () => {
+    stubStorage(legacyPins());
+    render(<LegacyPinHarness />);
+    await screen.findAllByText('s1');
+    fireEvent.click(screen.getByRole('button', { name: '컬럼' }));
+    const popover = await screen.findByRole('dialog');
+    const rows = [...popover.querySelectorAll<HTMLElement>('[data-column-pref-row]')];
+    rows.forEach((row, i) => { row.getBoundingClientRect = () => ({ top: i * 30, bottom: i * 30 + 30, left: 0, right: 100, width: 100, height: 30, x: 0, y: i * 30, toJSON: () => ({}) }); });
+    // Rows are the pinned group [c, a] then the others [b, d]: drag b (row 2) to the end.
+    const handle = rows[2].querySelector<HTMLElement>('span[aria-hidden]')!;
+    fireEvent.pointerDown(handle, { button: 0, pointerId: 1, clientY: 70 });
+    fireEvent.pointerMove(handle, { pointerId: 1, clientY: 200 });
+    fireEvent.pointerUp(handle, { pointerId: 1, clientY: 200 });
+    expect(headerOrder()).toEqual(['c', 'a', 'd', 'b']);
     vi.unstubAllGlobals();
   });
 

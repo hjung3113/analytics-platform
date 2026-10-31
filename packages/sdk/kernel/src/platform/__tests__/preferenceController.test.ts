@@ -261,6 +261,19 @@ describe('legacy candidates', () => {
     });
   });
 
+  it('first import carries a new four-field table object (with order) and an old three-field one (#556a)', async () => {
+    const s = memoryStorage();
+    s.setItem('platform:table:new', JSON.stringify({ ...table, order: ['b', 'a'] }));
+    s.setItem('platform:table:old', JSON.stringify(table));
+    const out = await collectLegacyPreferences(s, 'u1', async raw => `columns:${raw}`);
+    expect(out.values['columns:platform:table:new']).toEqual({ sizing: { a: 100 }, visibility: { b: false }, pinning: { left: ['a'], right: [] }, order: ['b', 'a'] });
+    expect(out.values['columns:platform:table:old']).toEqual({ sizing: { a: 100 }, visibility: { b: false }, pinning: { left: ['a'], right: [] } });
+  });
+
+  it.each([
+    ['non-array order', { ...table, order: 'a' }], ['non-string order id', { ...table, order: ['a', 1] }], ['unrelated extra field next to order', { ...table, order: [], extra: 1 }],
+  ])('rejects a table object with %s', (_, value) => { expect(strictTablePreferences(value)).toBeNull(); });
+
   it('preserves corrupt records: unparseable or wrong-typed values are skipped', async () => {
     const s = memoryStorage();
     s.setItem('platform:favorites:u1', '{not json');
