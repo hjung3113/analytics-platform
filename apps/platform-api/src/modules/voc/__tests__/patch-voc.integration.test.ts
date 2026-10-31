@@ -196,11 +196,12 @@ async function getAuditTypes(vocId: string): Promise<string[]> {
     const rows = await ops.pool.query<{ event_type: string }>(
       // Same-transaction rows tie on created_at: id is defaultRandom()
       // (core.ts:210) and created_at is defaultNow() (core.ts:225), so neither
-      // encodes insert order. ctid does: core.audit_log is append-only for
-      // platform_app (UPDATE denied by role grants), so ctid order == insert order
-      // and the sequence below becomes deterministic.
+      // encodes insert order. ctid does not either: teardowns delete audit rows,
+      // and a later insert can reuse that free space at a lower ctid. cmin is
+      // the inserting statement's command id within its transaction, so it
+      // orders the rows of one PATCH by insert.
       `select event_type from core.audit_log where subject_id = $1
-       order by created_at asc, ctid asc`,
+       order by created_at asc, cmin::text::bigint asc`,
       [vocId],
     );
     return rows.rows.map((r) => r.event_type);
