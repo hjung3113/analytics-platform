@@ -57,12 +57,10 @@ export function AddVocModal({
   open,
   clusterId,
   onClose,
-  returnFocusRef,
 }: {
   open: boolean;
   clusterId: string;
   onClose: () => void;
-  returnFocusRef?: React.RefObject<HTMLButtonElement | null>;
 }): React.ReactElement {
   return (
     <Dialog
@@ -73,13 +71,6 @@ export function AddVocModal({
     >
       <DialogContent
         data-testid="add-voc-modal"
-        onCloseAutoFocus={(event) => {
-          const trigger = returnFocusRef?.current;
-          if (trigger?.isConnected && !trigger.disabled) {
-            event.preventDefault();
-            trigger.focus();
-          }
-        }}
       >
         <DialogHeader>
           <DialogTitle>VOC 추가</DialogTitle>

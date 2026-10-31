@@ -1,4 +1,5 @@
-import { useOverlayVisible, useScopedAutofocus, withScopedOverlay } from '../TransientOverlayScope';
+import { useOverlayVisible, withScopedOverlay } from '../TransientOverlayScope';
+import { useDialogReturnFocus } from '../useDialogReturnFocus';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { type VariantProps, cva } from 'class-variance-authority';
 import { X } from 'lucide-react';
@@ -46,7 +47,7 @@ export const DialogContent = React.forwardRef<
   DialogContentProps
 >(({ className, children, closeLabel = '닫기', onInteractOutside, scrim = 'modal', ...props }, ref) => {
   const visible = useOverlayVisible();
-  const onCloseAutoFocus = useScopedAutofocus(props.onCloseAutoFocus);
+  const returnFocus = useDialogReturnFocus(props);
   return visible ? (
   <DialogPortal {...(props.forceMount ? { forceMount: true } : {})}>
     <DialogOverlay variant={scrim === 'palette' ? 'palette' : undefined} />
@@ -60,7 +61,8 @@ export const DialogContent = React.forwardRef<
         className,
       )}
       {...props}
-      onCloseAutoFocus={onCloseAutoFocus}
+      onOpenAutoFocus={returnFocus.onOpenAutoFocus}
+      onCloseAutoFocus={returnFocus.onCloseAutoFocus}
       onInteractOutside={(event) => {
         if (isToastTarget(event.target)) event.preventDefault();
         onInteractOutside?.(event);
@@ -103,14 +105,15 @@ export const DialogContentBare = React.forwardRef<
     VariantProps<typeof dialogContentBareVariants>
 >(({ children, className, variant, ...props }, ref) => {
   const visible = useOverlayVisible();
-  const onCloseAutoFocus = useScopedAutofocus(props.onCloseAutoFocus);
+  const returnFocus = useDialogReturnFocus(props);
   return visible ? (
   <DialogPortal>
     <DialogPrimitive.Content
       ref={ref}
       className={cn(dialogContentBareVariants({ variant }), className)}
       {...props}
-      onCloseAutoFocus={onCloseAutoFocus}
+      onOpenAutoFocus={returnFocus.onOpenAutoFocus}
+      onCloseAutoFocus={returnFocus.onCloseAutoFocus}
     >
       {children}
     </DialogPrimitive.Content>

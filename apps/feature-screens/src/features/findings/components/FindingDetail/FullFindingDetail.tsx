@@ -23,7 +23,6 @@ import {
   UserChip,
 } from '@ap/ui';
 import type * as React from 'react';
-import { useRef } from 'react';
 import { AddEvidenceModal } from './AddEvidenceModal';
 import { EvidenceHighlightsSection } from './EvidenceHighlights';
 import {
@@ -54,8 +53,6 @@ export function FullFindingDetail({
   finding,
   titleInHeader,
 }: FullFindingDetailProps): React.ReactElement {
-  const addEvidenceBtnRef = useRef<HTMLButtonElement>(null);
-  const linkEvidenceBtnRef = useRef<HTMLButtonElement>(null);
   const {
     sections: DETAIL_SECTIONS,
     scrollRef,
@@ -304,7 +301,6 @@ export function FullFindingDetail({
             )}
             {/* Add Evidence — gated to finding.manage; backend authoritative */}
             <Button
-              ref={addEvidenceBtnRef}
               variant="outline"
               size="sm"
               onClick={() => setAddEvidenceOpen(true)}
@@ -316,7 +312,6 @@ export function FullFindingDetail({
 
             {/* Link Existing Evidence — gated to finding.manage; backend authoritative */}
             <Button
-              ref={linkEvidenceBtnRef}
               variant="outline"
               size="sm"
               onClick={() => setLinkEvidenceOpen(true)}
@@ -355,14 +350,12 @@ export function FullFindingDetail({
         managedSystemId={finding.primary_managed_system_id}
         open={addEvidenceOpen}
         onClose={() => setAddEvidenceOpen(false)}
-        returnFocusRef={addEvidenceBtnRef}
       />
       <LinkEvidenceModal
         findingId={finding.id}
         managedSystemId={finding.primary_managed_system_id}
         open={linkEvidenceOpen}
         onClose={() => setLinkEvidenceOpen(false)}
-        returnFocusRef={linkEvidenceBtnRef}
       />
       <LinkTaskModal finding={finding} open={linkTaskOpen} onClose={() => setLinkTaskOpen(false)} />
     </>

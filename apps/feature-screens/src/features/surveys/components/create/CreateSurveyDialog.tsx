@@ -60,7 +60,6 @@ export function CreateSurveyDialog({
   const [identityProtected, setIdentityProtected] = React.useState<'true' | 'false' | ''>('');
   const create = useCreateSurvey();
   const submitting = React.useRef(false);
-  const opener = React.useRef<HTMLElement | null>(null);
   const titleRef = React.useRef<HTMLInputElement | null>(null);
   const pinnedStart = React.useRef<SurveyStartingPoint | null>(null);
   const [mode, setMode] = React.useState<'blank' | 'builtin' | 'existing'>('blank');
@@ -204,17 +203,11 @@ export function CreateSurveyDialog({
       <DialogContent
         className="max-h-[90vh] overflow-y-auto"
         onOpenAutoFocus={(event) => {
-          if (document.activeElement instanceof HTMLElement)
-            opener.current = document.activeElement;
           // Blank creation is the entry state; focus 제목 as on develop.
           if (titleRef.current) {
             event.preventDefault();
             titleRef.current.focus();
           }
-        }}
-        onCloseAutoFocus={(event) => {
-          event.preventDefault();
-          if (opener.current?.isConnected) opener.current.focus();
         }}
         onEscapeKeyDown={(event) => {
           if (submitting.current) event.preventDefault();
