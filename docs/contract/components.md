@@ -163,7 +163,7 @@ Table은 플랫폼 핵심 UI다.
 - Column pin
 - Multi-select
 - Virtualization
-- Saved column preference
+- Saved column preference — 보이기·너비·왼쪽 고정에 열 순서(`order`, #556a)가 더해진다. 「컬럼」 팝오버의 모든 데이터 열(보이기를 못 끄는 열 포함)에 「위로」「아래로」 버튼과 목록 안 포인터 끌기가 있고, 이동은 고정됨/나머지 묶음 안에서만 한다(묶음을 넘는 것은 핀 토글). 화면·복사·CSV·XLSX는 같은 순서(고정 열 먼저, 각 묶음은 저장된 순서)를 쓰고, 순서를 바꾼 적 없는 표는 선언 순서 그대로다. 「기본값으로」는 순서도 되돌린다.
 - Row action
 - 서버 페이징 표의 조회 신원과 내보내기 머리말의 전역 Context는 Condition 프리셋이 있는 메뉴에서 **적용된** 활성 프리셋의 축만 남긴 값(`useQueryContext()`)을 쓴다(§6.4, ADR-0083, #819). Apply 메뉴의 미적용 프리셋 전환이나 프리셋 밖 축의 변경은 (활성 프리셋과 다른 조회 입력 — page 필터·초기화 키 — 이 그대로일 때. 프리셋 키가 없어 조건 편집으로 추정 프리셋이 바뀌면 다시 조회한다) 표를 다시 조회하거나 선택을 버리지 않고, 프리셋이 없는 메뉴는 전과 같다.
 - Width and chrome (#1166): a table narrower than its scrollport grows its unfixed columns (not selection/action, left-pinned or user-resized ones) in proportion to their size so it fills the width; wider, the row area scrolls horizontally. The right-pinned action column shows a `border-control` left edge. A header stays on one line, truncates with an ellipsis and names the full label in `title`; body cells keep wrapping anywhere. Inside a panel or board pane (`EmbeddedPane`) the table draws no border, radius or outer padding at any density.

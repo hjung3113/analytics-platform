@@ -687,6 +687,34 @@ test.describe('표 높이·고정 동작 열 (06 §15, ADR-0037)', () => {
   });
 });
 
+// #556a (ADR-0024 amendment): the Columns popover reorders columns; the header, the saved preference and reset follow.
+test.describe('표 고급 기능 (#556)', () => {
+  test('컬럼 팝오버에서 열을 아래로 옮기면 머리 순서가 바뀌고 새로고침 뒤에도 남으며 기본값으로 되돌린다', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/mars/equipment-master?v=1&scopeId=MEM');
+    const headers = page.locator('[role="columnheader"][data-column]:not([data-column^="_"])');
+    await expect(headers.first()).toBeVisible();
+    const declared = await headers.evaluateAll(els => els.map(el => el.getAttribute('data-column')));
+    expect(declared.length).toBeGreaterThan(2);
+    const moved = [declared[1], declared[0], ...declared.slice(2)];
+    const open = async () => {
+      await page.getByRole('button', { name: '컬럼', exact: true }).click();
+      return page.getByRole('dialog');
+    };
+    let popover = await open();
+    await popover.locator('[data-column-pref-row]').first().getByRole('button', { name: /아래로$/ }).click();
+    await expect.poll(() => headers.evaluateAll(els => els.map(el => el.getAttribute('data-column')))).toEqual(moved);
+    await evidence(page, testInfo, 'column-order-moved');
+    await page.keyboard.press('Escape');
+    await page.reload();
+    await expect(headers.first()).toBeVisible();
+    await expect.poll(() => headers.evaluateAll(els => els.map(el => el.getAttribute('data-column')))).toEqual(moved);
+    popover = await open();
+    await popover.getByRole('button', { name: '기본값으로' }).click();
+    await expect.poll(() => headers.evaluateAll(els => els.map(el => el.getAttribute('data-column')))).toEqual(declared);
+  });
+});
+
 // #680 (ADR-0075): a fill page's head (notes + page filter + chips) folds to one line; shared responses become a thin strip.
 test.describe('페이지 머리 접기 (#680)', () => {
   const CYCLE = `/mars/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}`;

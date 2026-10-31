@@ -11,6 +11,7 @@ import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { DetailDrawer } from '../../drawer/DetailDrawer';
 import { ManagementLayout } from '../../archetypes/ManagementLayout';
 import { toColumnDef } from '../columnDef';
+import { exportColumns } from '../tableExport';
 import * as publicApi from '../../index';
 import { InWorkspacePanelProvider } from '../../workspace/panelContext';
 import { readXlsx } from './xlsxTestReader';
@@ -594,13 +595,14 @@ describe('PlatformColumn conversion defaults (#160)', () => {
     expect(cellOf('r1', 'visits')!.className).toContain('justify-end text-right tabular');
   });
 
-  it('sortable: false renders no sort button; hideable: false stays out of the column menu', async () => {
+  it('sortable: false renders no sort button; hideable: false has no visibility checkbox in the column menu (#556a: it still lists, to move)', async () => {
     render(<PlainHarness />);
     await screen.findByText('s1');
     expect(screen.queryByRole('button', { name: 'Fixed' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: '컬럼' }));
     const menu = (await screen.findByText('컬럼 설정 (브라우저에 저장)')).parentElement!;
-    expect(within(menu).queryByText('Fixed')).toBeNull();
+    expect(within(menu).queryByRole('checkbox', { name: 'Fixed' })).toBeNull();
+    expect(within(menu).getByRole('button', { name: 'Fixed 위로' })).toBeTruthy();
     expect(within(menu).getByText('Status')).toBeTruthy();
   });
 
@@ -640,6 +642,120 @@ describe('PlatformColumn conversion defaults (#160)', () => {
     expect(within(popover).getByRole('checkbox', { name: 'Visits' })).toHaveAttribute('data-state', 'checked');
     expect(within(popover).getByRole('button', { name: 'Status 왼쪽 고정' })).toHaveAttribute('aria-pressed', 'false');
     expect(within(popover).queryByText('고정됨')).toBeNull();
+    vi.unstubAllGlobals();
+  });
+
+  // #556a: order controls in the Columns popover; the header order, the saved object and reset follow them.
+  const headerOrder = () => [...document.querySelectorAll('[role="columnheader"][data-column]')].map(h => h.getAttribute('data-column'));
+
+  it('column order: down/up buttons move a column, edges are disabled, focus stays, the move is announced, saved, and reset restores', async () => {
+    stubStorage();
+    render(<PlainHarness />);
+    await screen.findByText('s1');
+    expect(headerOrder()).toEqual(['status', 'visits', 'fixed']);
+    fireEvent.click(screen.getByRole('button', { name: '컬럼' }));
+    const popover = await screen.findByRole('dialog');
+    expect(within(popover).getByRole('button', { name: 'Status 위로' })).toBeDisabled();
+    expect(within(popover).getByRole('button', { name: 'Fixed 아래로' })).toBeDisabled();
+    within(popover).getByRole('button', { name: 'Status 아래로' }).focus();
+    fireEvent.click(within(popover).getByRole('button', { name: 'Status 아래로' }));
+    expect(headerOrder()).toEqual(['visits', 'status', 'fixed']);
+    expect(document.activeElement).toBe(within(popover).getByRole('button', { name: 'Status 아래로' }));
+    expect(within(popover).getByText('Status 2번째로 이동')).toBeTruthy();
+    expect(JSON.parse(localStorage.getItem('plain-table')!).order).toEqual(['visits', 'status', 'fixed']);
+    // at the edge the pressed button is disabled now: focus moves to its opposite
+    fireEvent.click(within(popover).getByRole('button', { name: 'Status 아래로' }));
+    expect(headerOrder()).toEqual(['visits', 'fixed', 'status']);
+    expect(document.activeElement).toBe(within(popover).getByRole('button', { name: 'Status 위로' }));
+    fireEvent.click(within(popover).getByRole('button', { name: '기본값으로' }));
+    expect(headerOrder()).toEqual(['status', 'visits', 'fixed']);
+    expect(JSON.parse(localStorage.getItem('plain-table')!).order).toEqual([]);
+    vi.unstubAllGlobals();
+  });
+
+  it('column order: a pinned column moves only inside the pinned group; pinning keeps the saved order', async () => {
+    stubStorage({ 'plain-table': JSON.stringify({ sizing: {}, visibility: {}, pinning: { left: ['fixed', 'visits'] }, order: ['visits', 'status', 'fixed'] }) });
+    render(<PlainHarness />);
+    await screen.findByText('s1');
+    expect(headerOrder()).toEqual(['visits', 'fixed', 'status']);
+    fireEvent.click(screen.getByRole('button', { name: '컬럼' }));
+    const popover = await screen.findByRole('dialog');
+    expect(within(popover).getByRole('button', { name: 'Fixed 아래로' })).toBeDisabled();
+    fireEvent.click(within(popover).getByRole('button', { name: 'Fixed 위로' }));
+    expect(headerOrder()).toEqual(['fixed', 'visits', 'status']);
+    vi.unstubAllGlobals();
+  });
+
+  it('column order: an old stored object without order loads in declaration order', async () => {
+    stubStorage({ 'plain-table': JSON.stringify({ sizing: {}, visibility: {}, pinning: { left: [], right: [] } }) });
+    render(<PlainHarness />);
+    await screen.findByText('s1');
+    expect(headerOrder()).toEqual(['status', 'visits', 'fixed']);
+    vi.unstubAllGlobals();
+  });
+
+  it('column order: pointer drag on the handle moves the row within its group', async () => {
+    stubStorage();
+    render(<PlainHarness />);
+    await screen.findByText('s1');
+    fireEvent.click(screen.getByRole('button', { name: '컬럼' }));
+    const popover = await screen.findByRole('dialog');
+    const rows = [...popover.querySelectorAll<HTMLElement>('[data-column-pref-row]')];
+    rows.forEach((row, i) => { row.getBoundingClientRect = () => ({ top: i * 30, bottom: i * 30 + 30, left: 0, right: 100, width: 100, height: 30, x: 0, y: i * 30, toJSON: () => ({}) }); });
+    const handle = rows[0].querySelector<HTMLElement>('span[aria-hidden]')!;
+    fireEvent.pointerDown(handle, { button: 0, pointerId: 1, clientY: 10 });
+    fireEvent.pointerMove(handle, { pointerId: 1, clientY: 80 });
+    fireEvent.pointerUp(handle, { pointerId: 1, clientY: 80 });
+    expect(headerOrder()).toEqual(['visits', 'fixed', 'status']);
+    vi.unstubAllGlobals();
+  });
+
+  // #556a F2: the first order write starts from what is shown, so a legacy pin list (pin order, not declaration order) is untouched by an unpinned move.
+  const legacyColumns: PlatformDataTableProps<Plain>['columns'] = ['a', 'b', 'c', 'd'].map(id => ({ id, header: id.toUpperCase(), value: (r: Plain) => r.status }));
+  function LegacyPinHarness() {
+    const loadPage = vi.fn(async (): Promise<ApiResponse<PageResult<Plain>>> => ({
+      outcome: 'ok', data: { rows: plainRows, total: plainRows.length }, assessments: [], trust: null, correlationId: 'c',
+    }));
+    return <I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter} registry={registry}>
+      <PlatformDataTable<Plain> title="T" ariaLabel="table" columns={legacyColumns} getRowId={r => r.id}
+        loadPage={loadPage} filterKey="f" preferenceKey="legacy-pins" pageSize={25} height={200}
+        urlState={{ page: null, sorting: [], onChange: () => {} }} />
+    </PlatformProvider></I18nProvider>;
+  }
+  const legacyPins = () => ({ 'legacy-pins': JSON.stringify({ sizing: {}, visibility: {}, pinning: { left: ['c', 'a'], right: [] } }) });
+
+  it('column order: the first unpinned button move keeps a legacy pin list unchanged; reload and export follow the same order', async () => {
+    stubStorage(legacyPins());
+    const view = render(<LegacyPinHarness />);
+    await screen.findAllByText('s1');
+    expect(headerOrder()).toEqual(['c', 'a', 'b', 'd']);
+    fireEvent.click(screen.getByRole('button', { name: '컬럼' }));
+    const popover = await screen.findByRole('dialog');
+    fireEvent.click(within(popover).getByRole('button', { name: 'B 아래로' }));
+    expect(headerOrder()).toEqual(['c', 'a', 'd', 'b']);
+    const saved = JSON.parse(localStorage.getItem('legacy-pins')!);
+    expect(exportColumns(legacyColumns, saved).map(c => c.id)).toEqual(['c', 'a', 'd', 'b']);
+    view.unmount();
+    render(<LegacyPinHarness />);
+    await screen.findAllByText('s1');
+    expect(headerOrder()).toEqual(['c', 'a', 'd', 'b']);
+    vi.unstubAllGlobals();
+  });
+
+  it('column order: the first unpinned drag move keeps a legacy pin list unchanged', async () => {
+    stubStorage(legacyPins());
+    render(<LegacyPinHarness />);
+    await screen.findAllByText('s1');
+    fireEvent.click(screen.getByRole('button', { name: '컬럼' }));
+    const popover = await screen.findByRole('dialog');
+    const rows = [...popover.querySelectorAll<HTMLElement>('[data-column-pref-row]')];
+    rows.forEach((row, i) => { row.getBoundingClientRect = () => ({ top: i * 30, bottom: i * 30 + 30, left: 0, right: 100, width: 100, height: 30, x: 0, y: i * 30, toJSON: () => ({}) }); });
+    // Rows are the pinned group [c, a] then the others [b, d]: drag b (row 2) to the end.
+    const handle = rows[2].querySelector<HTMLElement>('span[aria-hidden]')!;
+    fireEvent.pointerDown(handle, { button: 0, pointerId: 1, clientY: 70 });
+    fireEvent.pointerMove(handle, { pointerId: 1, clientY: 200 });
+    fireEvent.pointerUp(handle, { pointerId: 1, clientY: 200 });
+    expect(headerOrder()).toEqual(['c', 'a', 'd', 'b']);
     vi.unstubAllGlobals();
   });
 

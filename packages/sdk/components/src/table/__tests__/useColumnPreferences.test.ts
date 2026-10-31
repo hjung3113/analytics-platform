@@ -49,3 +49,23 @@ describe('column preference writes (#823)', () => {
     expect(JSON.parse(localStorage.getItem('a')!).sizing).toEqual({ c: 140 });
   });
 });
+
+describe('column order preference (#556a)', () => {
+  beforeEach(() => { vi.useFakeTimers(); vi.stubGlobal('localStorage', memoryStorage()); });
+  afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
+
+  it('reads an old object without order as [], keeps only string ids of a stored order', () => {
+    localStorage.setItem('o', JSON.stringify({ sizing: {}, visibility: {}, pinning: { left: [], right: [] } }));
+    expect(renderHook(() => useColumnPreferences('o')).result.current.preferences.order).toEqual([]);
+    localStorage.setItem('o2', JSON.stringify({ order: ['b', 3, 'a', null] }));
+    expect(renderHook(() => useColumnPreferences('o2')).result.current.preferences.order).toEqual(['b', 'a']);
+  });
+
+  it('an order change is written at once and reset clears it', () => {
+    const { result } = renderHook(() => useColumnPreferences('o'));
+    act(() => { result.current.onColumnOrderChange(['b', 'a']); });
+    expect(JSON.parse(localStorage.getItem('o')!).order).toEqual(['b', 'a']);
+    act(() => { result.current.resetPreferences(); });
+    expect(JSON.parse(localStorage.getItem('o')!).order).toEqual([]);
+  });
+});

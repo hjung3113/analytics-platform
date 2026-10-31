@@ -2,7 +2,7 @@ import { useCompactPageDensity } from '../pageDensity';
 import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useId, type CSSProperties, type ReactNode } from 'react';
 import { flexRender, getCoreRowModel, useReactTable, type Column, type ColumnDef, type ColumnPinningState, type Header, type RowSelectionState } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, Columns3, Copy, Download, FileSpreadsheet, FileText, Loader2, Pin, PinOff } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, Columns3, Copy, Download, FileSpreadsheet, FileText, GripVertical, Loader2, Pin, PinOff } from 'lucide-react';
 import { useI18n, usePlatform } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import type { ApiResponse, Capability, ContextKey, PageQuery, PageResult, PageSort } from '@ap/contracts';
@@ -17,6 +17,7 @@ import { SCROLLPORT_LABEL } from '../scrollportLabel';
 import { useEmbeddedChrome, useInWorkspacePanel } from '../workspace/panelContext';
 import { ACTION_PIN_MIN_SCROLL, ROW_AREA_FALLBACK, useTableFit } from './tableFit';
 import { exportItemName, exportTarget, FORMAT_LABEL, type ExportScopeKind } from './tableMessages';
+import { effectiveOrder, moveWithinGroup, pinnedInOrder } from './columnOrder';
 import { useColumnPreferences } from './useColumnPreferences';
 import { usePagedRows } from './usePagedRows';
 import { useTableTransfer } from './useTableTransfer';
@@ -128,7 +129,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   // Selection exists only for features that read it (export/copy, bulk actions); ADR-0037.
   const selectable = canExport || !!p.bulkActions;
   const pageSize = p.pageSize ?? 100;
-  const { preferences, onColumnSizingChange, onColumnVisibilityChange, onColumnPinningChange, resetPreferences } = useColumnPreferences(p.preferenceKey);
+  const { preferences, onColumnSizingChange, onColumnVisibilityChange, onColumnPinningChange, onColumnOrderChange, resetPreferences } = useColumnPreferences(p.preferenceKey);
   const [sorting, setSorting] = useState<PageSort[]>([]);
   const [selection, setSelection] = useState<RowSelectionState>({});
   const effectiveSelection = selectable ? selection : {};
@@ -191,7 +192,11 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const actionCompact = !!p.rowAction && !fitsFull && fit.width !== null && fit.width >= leftPinnedWidth + COMPACT_ACTION_WIDTH + ACTION_PIN_MIN_SCROLL;
   const actionPinned = !!p.rowAction && (fitsFull || actionCompact);
   const actionWidth = actionCompact ? COMPACT_ACTION_WIDTH : ACTION_COLUMN_WIDTH;
-  const pinningState: ColumnPinningState = { left: preferences.pinning.left ?? [], right: actionPinned ? ['_action'] : [] };
+  // #556a: `order` is the single order source; the pins only say which columns are pinned and are laid out by it.
+  const declaredIds = useMemo(() => p.columns.map(c => c.id), [p.columns]);
+  const orderedIds = useMemo(() => effectiveOrder(declaredIds, preferences.order), [declaredIds, preferences.order]);
+  const pinnedIds = pinnedInOrder(preferences.pinning.left ?? [], orderedIds, preferences.order.length > 0);
+  const pinningState: ColumnPinningState = { left: pinnedIds, right: actionPinned ? ['_action'] : [] };
   // The data and selection definitions do not depend on the action width: a band crossing must keep their cell functions (and the DOM they render).
   const baseColumns = useMemo<ColumnDef<T>[]>(() => [
     ...(selectable ? [{
@@ -208,6 +213,9 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
     ...baseColumns,
     ...(hasAction ? [{ id: '_action', size: actionWidth, enableSorting: false, enableHiding: false, enableResizing: false, header: lang === 'ko' ? '동작' : 'Actions' } as ColumnDef<T>] : []),
   ], [baseColumns, hasAction, lang, actionWidth]);
+
+  // The selection and action utility columns keep their places at the two ends.
+  const columnOrder = useMemo(() => [...(selectable ? ['_select'] : []), ...orderedIds, ...(hasAction ? ['_action'] : [])], [selectable, orderedIds, hasAction]);
 
   // Gesture-scoped (see startResize): the rendered widths of the columns being dragged and the pointer's travel since mousedown.
   const resizeGesture = useRef<{ rendered: Record<string, number>; total: number; startX: number; deltaX: number } | null>(null);
@@ -226,7 +234,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
     manualSorting: true, manualPagination: true, enableRowSelection: selectable, columnResizeMode: 'onChange',
     enableMultiSort: !p.urlState,
     defaultColumn: { size: DEFAULT_COLUMN_WIDTH, minSize: 60, maxSize: 600 },
-    state: { sorting: activeSorting, rowSelection: effectiveSelection, columnSizing: preferences.sizing, columnVisibility: preferences.visibility, columnPinning: pinningState },
+    state: { sorting: activeSorting, rowSelection: effectiveSelection, columnSizing: preferences.sizing, columnVisibility: preferences.visibility, columnPinning: pinningState, columnOrder },
     onSortingChange: u => {
       const next = typeof u === 'function' ? u(p.urlState ? p.urlState.sorting : sorting) : u;
       if (p.urlState) {
@@ -331,7 +339,8 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const nameOf = (c: Column<T>) => (c.columnDef.meta as ColumnMeta | undefined)?.label ?? (typeof c.columnDef.header === 'string' ? c.columnDef.header : c.id);
   // #239 (ADR-0024): the Columns popover lists each hideable column with a visibility checkbox and a pin toggle at the
   // row end; pinned columns sit in their own group on top. Width is set by dragging the header edge only.
-  const hideableColumns = table.getAllLeafColumns().filter(c => c.getCanHide());
+  // #556a: every data column can be ordered (a non-hideable one shows no checkbox); moves stay inside the pinned / other group.
+  const dataColumns = table.getAllLeafColumns().filter(c => c.id !== '_select' && c.id !== '_action');
   // A pin toggle moves its row between the groups, which remounts the button; give focus back to the same column's toggle.
   const refocusPin = useRef<string | null>(null);
   useEffect(() => {
@@ -339,18 +348,71 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
     document.getElementById(`${columnPrefsId}-${refocusPin.current}-pin`)?.focus();
     refocusPin.current = null;
   });
-  function columnPrefRow(c: Column<T>) {
+  const pinnedPrefs = pinnedIds.flatMap(id => dataColumns.filter(c => c.id === id));
+  const otherPrefs = dataColumns.filter(c => !pinnedIds.includes(c.id));
+  const [orderNote, setOrderNote] = useState('');
+  const [dragOver, setDragOver] = useState<{ id: string; index: number } | null>(null);
+  // A move re-keys nothing but the browser drops focus from a moved node; give it back to the same button (the other one when this one is now at the edge).
+  const refocusMove = useRef<{ id: string; dir: 'up' | 'down'; fallback: 'up' | 'down' } | null>(null);
+  useEffect(() => {
+    const target = refocusMove.current;
+    if (!target) return;
+    refocusMove.current = null;
+    const button = (dir: 'up' | 'down') => document.getElementById(`${columnPrefsId}-${target.id}-${dir}`) as HTMLButtonElement | null;
+    const first = button(target.dir);
+    (first && !first.disabled ? first : button(target.fallback))?.focus();
+  });
+  function moveColumn(c: Column<T>, group: Column<T>[], toIndex: number, dir?: 'up' | 'down') {
+    const sequence = group.map(g => g.id);
+    const to = Math.max(0, Math.min(sequence.length - 1, toIndex));
+    if (to === sequence.indexOf(c.id)) return;
+    if (dir) refocusMove.current = { id: c.id, dir, fallback: dir === 'up' ? 'down' : 'up' };
+    // No saved order yet: start from what is shown (pins in their pin order, then the rest), so the untouched group keeps its sequence.
+    const base = preferences.order.length > 0 ? orderedIds : [...pinnedIds, ...orderedIds.filter(id => !pinnedIds.includes(id))];
+    onColumnOrderChange(moveWithinGroup(base, sequence, c.id, to));
+    setOrderNote(lang === 'ko' ? `${nameOf(c)} ${to + 1}번째로 이동` : `${nameOf(c)} moved to position ${to + 1}`);
+  }
+  /** Pointer drag on the handle: the row under the pointer (same group only) is the drop target; the move is committed on release. */
+  function startDrag(e: React.PointerEvent<HTMLElement>, c: Column<T>, group: Column<T>[]) {
+    if (e.button > 0) return;
+    const list = e.currentTarget.closest('ul');
+    if (!list) return;
+    e.preventDefault();
+    const handle = e.currentTarget;
+    handle.setPointerCapture?.(e.pointerId);
+    const overIndex = (clientY: number) => {
+      const rows = [...list.children] as HTMLElement[];
+      const hit = rows.findIndex(row => clientY <= row.getBoundingClientRect().bottom);
+      return hit < 0 ? rows.length - 1 : hit;
+    };
+    let index = group.indexOf(c);
+    setDragOver({ id: c.id, index });
+    const move = (ev: PointerEvent) => { index = overIndex(ev.clientY); setDragOver({ id: c.id, index }); };
+    const end = (ev: PointerEvent) => {
+      handle.removeEventListener('pointermove', move);
+      handle.removeEventListener('pointerup', end);
+      handle.removeEventListener('pointercancel', end);
+      setDragOver(null);
+      if (ev.type === 'pointerup') moveColumn(c, group, index);
+    };
+    handle.addEventListener('pointermove', move);
+    handle.addEventListener('pointerup', end);
+    handle.addEventListener('pointercancel', end);
+  }
+  function columnPrefRow(c: Column<T>, at: number, group: Column<T>[]) {
     const pinned = c.getIsPinned() === 'left';
-    return <li key={c.id} className="flex items-center gap-2">
-      <Checkbox id={`${columnPrefsId}-${c.id}-visible`} checked={c.getIsVisible()} onCheckedChange={v => c.toggleVisibility(v === true)} className="size-3.5 border-border-control" />
-      <div className="min-w-0 flex-1"><Label htmlFor={`${columnPrefsId}-${c.id}-visible`}>{nameOf(c)}</Label></div>
+    const name = nameOf(c);
+    return <li key={c.id} data-column-pref-row className={cn('flex items-center gap-2', dragOver?.id === c.id && 'opacity-60', dragOver && dragOver.id !== c.id && dragOver.index === at && group.some(g => g.id === dragOver.id) && 'border-t border-t-border-control')}>
+      <span role="presentation" aria-hidden className="shrink-0 cursor-grab touch-none text-text-muted" onPointerDown={e => startDrag(e, c, group)}><GripVertical className="size-3.5" /></span>
+      {c.getCanHide() ? <Checkbox id={`${columnPrefsId}-${c.id}-visible`} checked={c.getIsVisible()} onCheckedChange={v => c.toggleVisibility(v === true)} className="size-3.5 border-border-control" /> : <span className="size-3.5 shrink-0" aria-hidden />}
+      <div className="min-w-0 flex-1">{c.getCanHide() ? <Label htmlFor={`${columnPrefsId}-${c.id}-visible`}>{name}</Label> : <span className="text-sm">{name}</span>}</div>
+      <Button id={`${columnPrefsId}-${c.id}-up`} type="button" variant="ghost" size="icon-xs" className="shrink-0" aria-label={`${name} ${lang === 'ko' ? '위로' : 'move up'}`} disabled={at === 0} onClick={() => moveColumn(c, group, at - 1, 'up')}><ArrowUp className="size-3.5" aria-hidden /></Button>
+      <Button id={`${columnPrefsId}-${c.id}-down`} type="button" variant="ghost" size="icon-xs" className="shrink-0" aria-label={`${name} ${lang === 'ko' ? '아래로' : 'move down'}`} disabled={at === group.length - 1} onClick={() => moveColumn(c, group, at + 1, 'down')}><ArrowDown className="size-3.5" aria-hidden /></Button>
       <Button id={`${columnPrefsId}-${c.id}-pin`} type="button" variant="ghost" size="icon-xs" className="shrink-0" aria-pressed={pinned} aria-label={`${nameOf(c)} ${lang === 'ko' ? '왼쪽 고정' : 'pin left'}`} disabled={!c.getCanPin()} onClick={() => { refocusPin.current = c.id; c.pin(pinned ? false : 'left'); }}>
         {pinned ? <PinOff className="size-3.5" aria-hidden /> : <Pin className="size-3.5" aria-hidden />}
       </Button>
     </li>;
   }
-  const pinnedPrefs = hideableColumns.filter(c => c.getIsPinned() === 'left');
-  const otherPrefs = hideableColumns.filter(c => c.getIsPinned() !== 'left');
   const exportItems = (kind: ExportScopeKind, count: number | null) => (['xlsx', 'csv'] as const).map(format =>
     <DropdownMenuItem key={format} className={exportItemClass} disabled={exporting} aria-label={exportItemName(kind, count, format, lang)} onSelect={() => { void runExport(format, kind); }}>
       {format === 'xlsx' ? <FileSpreadsheet className="mr-2 size-3.5" aria-hidden /> : <FileText className="mr-2 size-3.5" aria-hidden />}{FORMAT_LABEL[format]}
@@ -372,14 +434,15 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
             <div className="space-y-3">
               {pinnedPrefs.length > 0 && <div>
                 <p className="mb-1 text-xs text-text-secondary">{lang === 'ko' ? '고정됨' : 'Pinned'}</p>
-                <ul className="space-y-2">{pinnedPrefs.map(columnPrefRow)}</ul>
+                <ul className="space-y-2">{pinnedPrefs.map((c, i) => columnPrefRow(c, i, pinnedPrefs))}</ul>
               </div>}
               {otherPrefs.length > 0 && <div>
                 {pinnedPrefs.length > 0 && <p className="mb-1 text-xs text-text-secondary">{lang === 'ko' ? '나머지' : 'Other'}</p>}
-                <ul className="space-y-2">{otherPrefs.map(columnPrefRow)}</ul>
+                <ul className="space-y-2">{otherPrefs.map((c, i) => columnPrefRow(c, i, otherPrefs))}</ul>
               </div>}
             </div>
-            {/* Visibility, width and pin back to the column defaults; sort, page and selection stay. */}
+            <p className="sr-only" aria-live="polite">{orderNote}</p>
+            {/* Visibility, width, pin and order back to the column defaults; sort, page and selection stay. */}
             <div className="mt-3"><Button type="button" variant="secondary" size="toolbar" onClick={resetPreferences}>{lang === 'ko' ? '기본값으로' : 'Reset to default'}</Button></div>
           </PopoverContent>
         </Popover>
