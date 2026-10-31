@@ -223,7 +223,7 @@ label 행은 #210(공유 원본 값), 나머지 행은 #193/#194 UI/UX 리뷰의
 - 관리 필터 레일은 표 카드와 같은 표면·테두리·제목 위계를 쓰며, 동작은 레일 아래에 고정하고 적용 수를 표시한다([ADR-0022](docs/adr/0022-management-filter-rail-analysis-two-column.md)).
 - 공유 `surface-sidebar` 위에 Registry 그룹을 **section label**로 표시한다. 활성 탐색 제목에 `text-disabled`를 쓰지 않는다. 주 메뉴 navigation과 즐겨찾기/최근 section을 구별한다.
 - 현재 메뉴/공간은 공유 selected 표면 + text weight + **2px accent 막대**로 구별한다. `aria-current`를 유지하고 hover가 막대를 지우지 않는다. 보조 즐겨찾기/최근 링크에 현재 위치 표식을 중복하지 않는다.
-- 탭 선택은 2px `accent-primary` 아래 막대 + `font-semibold`, 비선택은 `text-secondary`, 목록 기준선은 1px `border-subtle`로 표시한다(ADR-0023 개정, #340).
+- 탭 선택은 2px `accent-primary` 아래 막대 + `font-semibold`, 비선택은 `text-secondary`, 목록 기준선은 1px `border-subtle`로 표시한다(ADR-0023 개정, #340). `overflow="menu"`의 `더보기` 버튼도 숨은 탭이 선택됐을 때 같은 막대와 `font-semibold`를 쓴다(#1190).
 - hover는 공유 row-hover, focus는 opaque 2px outline과 offset을 사용한다. hover/selected 안의 작은 필수 글자(‘예정’, Scope 상태·room, 언어)는 secondary 또는 허용 label로 유지한다.
 - collapsed에서는 Scope 선택·검증 상태와 주 메뉴를 남긴다. 아이콘은 이름 있는 동작이며 hover/focus Tooltip에 전체 이름을 제공한다. Scope Tooltip과 accessible description은 이름·상태·room을 보존하고 live announcement는 상태 문자열만 전달한다.
 - collapsed에서 즐겨찾기/최근은 숨겨 주 메뉴와 중복 아이콘이 섞이지 않게 한다. expanded에서는 두 section과 빈 안내를 유지한다. 빈 안내는 가짜 링크가 아니다.
