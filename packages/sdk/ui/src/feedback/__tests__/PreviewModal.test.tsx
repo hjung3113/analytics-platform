@@ -72,5 +72,39 @@ describe('PreviewModal', () => {
       await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
       await waitFor(() => expect(button).toHaveFocus());
     });
+
+    it('returns focus to the second opener when reopened before the first close finishes', async () => {
+      function TwoOpeners() {
+        const [open, setOpen] = React.useState(false);
+        return (
+          <>
+            <button type="button" onClick={() => setOpen(true)}>
+              열기 A
+            </button>
+            <button type="button" onClick={() => setOpen(true)}>
+              열기 B
+            </button>
+            <PreviewModal open={open} onClose={() => setOpen(false)} title="미리보기 제목">
+              <span>body</span>
+            </PreviewModal>
+          </>
+        );
+      }
+      render(<TwoOpeners />);
+      const buttonA = screen.getByRole('button', { name: '열기 A' });
+      const buttonB = screen.getByRole('button', { name: '열기 B' });
+      buttonA.focus();
+      fireEvent.click(buttonA);
+      fireEvent.keyDown(document.body, { key: 'Escape' });
+      // Reopen synchronously: the first close's deferred focus restore has not run yet.
+      buttonB.focus();
+      fireEvent.click(buttonB);
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+      // Let the first mount's deferred close callback run.
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      fireEvent.keyDown(document.body, { key: 'Escape' });
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+      await waitFor(() => expect(buttonB).toHaveFocus());
+    });
   });
 });
