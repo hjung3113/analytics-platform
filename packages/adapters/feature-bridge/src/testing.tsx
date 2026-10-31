@@ -12,6 +12,9 @@ import { carrySetId, groupId, menuPermissions, spaceId, type Permission } from '
 
 type Group = { id: string; label: { ko: string; en: string }; icon: LucideIcon };
 
+/** First lazy chunk mount can pass the default 1 s `findBy*` timeout under CI load. */
+export const LAZY_MOUNT_WAIT = { timeout: 5000 } as const;
+
 /** The shell's detail aside: a `DetailDrawer` portals its content here. */
 function SlotHost() {
   const slot = useDetailPanelSlotHost();

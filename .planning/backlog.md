@@ -5,9 +5,6 @@
 ## 작은 후속 (확인된 것)
 
 - **구현 안 함 — 실서버 미리보기 `stop`이 오래된 PID를 그대로 믿음(#1178 review-final F1, 기존 결함):** `ops/platform-api/conductor/scripts/app-preview.py` `stop`은 state JSON의 숫자 PID 그룹에 신호를 보내며, PID가 재사용됐으면 무관한 프로세스 그룹을 끊을 수 있다. 이유: #1178 범위(시작 경로) 밖이고 수명주기 코드라 fold하지 않는다. 다시 여는 조건: 이 스크립트의 stop·status를 다시 손볼 때, 신호 전에 살아 있는 그룹 리더의 `--fops-preview=<label>`/설정 파일 표식을 확인하고 불분명하면 건너뛴다.
-- **구현 안 함 — 밀도별 페이지 가로 여백을 한 곳에(v0.21.2 마감 리뷰 Q7):** `compact ? 'px-4' : 'px-8'`(셸 조회 바는 `'px-4' : 'px-3'`)를 `PlatformPage.tsx`·`PageContextHead.tsx`·ReturnRow·`StatCard.tsx`·`QueryBar.tsx` 여섯 곳이 각자 고른다. 이유: 이번 슬라이스는 결정된 값을 옮기는 범위였다. 다시 여는 조건: 다음 밀도 조정 때 `pageDensity.ts`에 내부 `pageInsetX(compact)`를 두고 함께 옮긴다.
-- **구현 안 함 — 표 시각 클래스 단언 정리(v0.21.2 마감 리뷰 Q8, 소유자 결정 필요):** `PlatformDataTable.fill.test.tsx`의 `toHaveClass` 19회가 `px-4`·흐림 클래스 같은 시각 토큰 철자를 고정한다(jsdom은 레이아웃을 보지 못함). 이유: 테스트를 지우거나 E2E·캡처로 옮기는 일은 소유자 결정이다. 다시 여는 조건: 소유자가 정하거나 표 스타일을 다시 다듬어 이 단언이 깨질 때.
-- **구현 안 함 — lazy 첫 마운트 대기 값을 공용 도우미로(v0.21.2 마감 리뷰 Q9):** `{ timeout: 3000/5000 }` 대기가 플랫폼 테스트 11개 파일에 33회 흩어져 있다. 이유: 동작 결함이 아니라 테스트 유지 비용이다. 다시 여는 조건: 이 값을 다시 바꿔야 할 때 platform test-support에 `LAZY_MOUNT_TIMEOUT`(또는 `findLazy`)를 두고 한 번에 옮긴다.
 
 - **구현 안 함 — 폭 채우기로 600px을 넘은 열을 끌면 600px로 줄어듦(#1166 리뷰 C1):** 저장 열 폭 범위는 60–600px이다(`PlatformDataTable.tsx` `maxSize`, ADR-0024 슬라이더에서 남은 범위). 넓은 표의 몇 안 되는 열이 폭 채우기로 600px을 넘게 그려진 뒤 끌면 끄는 순간 600px로 맞춰진다. 이유: 열이 적은 넓은 표에서만 생기고 상한을 넓히면 저장 값 검증(`useColumnPreferences`)과 계약 범위를 함께 바꿔야 한다. 다시 여는 조건: 넓은 열을 더 넓히려는 요구가 보고되거나 열 폭 상한을 다시 정할 때.
 - **구현 안 함 — 차트 카탈로그 차트 종류 탭 넘침(2026-10-31 시각 조사 A-5):** 1440px 데스크톱에서도 탭 줄이 한 줄에 들어가지 않아 마지막 탭 `분해 막대`가 잘리고 가로 스크롤바가 생긴다(`menus/mars/analytics/src/pages/chart-catalog/ChartCatalog.tsx:85`, `packages/sdk/ui/src/components/PlatformTabs.tsx:14`). 이유: 탭 구성·배치를 바꾸는 시각 변경이라 소유자 시안 확인이 먼저다. 다시 여는 조건: 차트 카탈로그를 손볼 때 탭 배치 시안을 함께 올린다.

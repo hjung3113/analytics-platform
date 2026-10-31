@@ -1,9 +1,9 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useI18n } from '@ap/kernel';
-import { Button } from '@ap/ui';
+import { Button, cn } from '@ap/ui';
 import type { PageFilterSummaryItem } from '../filters/PageFilterBar';
-import { useCompactPageDensity } from '../pageDensity';
+import { pageInsetX, useCompactPageDensity } from '../pageDensity';
 import { useCollapsePreference } from '../filters/useCollapsePreference';
 
 /** Notes above the page-owned extension; the same stack on a flow page and in an expanded fill head. */
@@ -59,7 +59,7 @@ export function PageContextHead({ menuId, notes, extension, summary, pendingChan
     return () => observer.disconnect();
   }, [collapsed, summaryText]);
 
-  return <div data-page-head data-collapsed={collapsed ? 'true' : 'false'} className={compact ? 'px-4 pt-3' : 'px-8 pt-3'}>
+  return <div data-page-head data-collapsed={collapsed ? 'true' : 'false'} className={cn(pageInsetX(compact), 'pt-3')}>
     {collapsed && <div data-page-head-line className="mb-1 flex items-center gap-2 rounded-md border border-border-subtle bg-surface-card px-3 py-1.5 text-xs text-text-secondary">
       <div className="relative flex min-w-0 flex-1">
       <div ref={chips} id={summaryId} title={summaryText} className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">

@@ -3,6 +3,7 @@ import { cleanup, fireEvent, screen, within } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
 import { setFeatureApi } from '@ap/feature-bridge/feature-api';
+import { LAZY_MOUNT_WAIT } from '@ap/feature-bridge/testing';
 import { useHostSeam } from '@/lib/host/host-seam';
 import { mountAt, warmPages } from '../test-support';
 
@@ -66,7 +67,7 @@ describe.each([
 ])('%s without a feature API (mock preview)', (path, title, testId) => {
   it('shows 실서버 필요 and mounts no screen', async () => {
     mountAt(path);
-    await screen.findByRole('heading', { name: title }, { timeout: 3000 });
+    await screen.findByRole('heading', { name: title }, LAZY_MOUNT_WAIT);
     expect(screen.getByRole('status').textContent).toContain('실서버 필요');
     expect(screen.queryByTestId(testId)).toBeNull();
   });
@@ -162,7 +163,7 @@ describe('연동 pages with an invalid address value', () => {
   it.each(REJECTED)('%s rejects %s=%s, keeps the address and mounts no screen', async (path, key, value, testId) => {
     const search = `?${key}=${encodeURIComponent(value)}`;
     mountAt(`${path}${search}`);
-    expect(await screen.findByText(`주소의 ${key} 값이 올바르지 않습니다`, undefined, { timeout: 3000 })).toBeTruthy();
+    expect(await screen.findByText(`주소의 ${key} 값이 올바르지 않습니다`, undefined, LAZY_MOUNT_WAIT)).toBeTruthy();
     expect(screen.queryByTestId(testId)).toBeNull();
     expect(screenMock.dashboard).toEqual([]);
     expect(screenMock.evidence).toEqual([]);
