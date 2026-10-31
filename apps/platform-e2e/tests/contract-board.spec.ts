@@ -1276,22 +1276,30 @@ test.describe('메뉴 작업 영역 (ADR-0067 3b)', () => {
     const source = page.getByRole('tab', { name: TITLES.slow });
     const target = groupOf(page, TITLES.trend);
     await source.scrollIntoViewIfNeeded();
-    const from = (await source.boundingBox())!;
-    const box = (await target.boundingBox())!;
-    const x = box.x + box.width / 2;
-    const y = box.y + box.height / 2;
-    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
-    await page.mouse.down();
-    await page.mouse.move(x, y, { steps: 8 });
-    for (let i = 0; i < 4; i++) { await page.waitForTimeout(80); await page.mouse.move(x + (i % 2 === 0 ? -2 : 2), y); }
+    // A CDP drag ignores Escape and keeps sending `dragover`, which redraws the preview, so it cannot show a cancel. The drag is built from DOM
+    // events instead, in the order a browser sends them for Escape: `dragstart` on the tab, `dragover` on the other group, then `dragend` on the
+    // tab with no `drop`. The engine draws its overlay from real geometry here (unlike jsdom).
+    const body = target.locator('.dv-content-container');
+    await source.evaluate(tab => {
+      const data = new DataTransfer();
+      (window as unknown as { __dt: DataTransfer }).__dt = data;
+      tab.dispatchEvent(new DragEvent('dragstart', { dataTransfer: data, bubbles: true, cancelable: true }));
+    });
+    await body.evaluate(element => {
+      const data = (window as unknown as { __dt: DataTransfer }).__dt;
+      const box = element.getBoundingClientRect();
+      const at = { clientX: box.left + box.width / 2, clientY: box.top + box.height / 2 };
+      element.dispatchEvent(new DragEvent('dragenter', { dataTransfer: data, bubbles: true, cancelable: true, ...at }));
+      element.dispatchEvent(new DragEvent('dragover', { dataTransfer: data, bubbles: true, cancelable: true, ...at }));
+    });
     await expect(overlay.first()).toBeVisible();
-    // A synthetic (CDP) drag ignores Escape, so the browser's cancel is replayed: `dragend` on the dragged tab, no `drop`.
-    await page.keyboard.press('Escape');
-    await source.dispatchEvent('dragend');
+    await source.evaluate(tab => {
+      const data = (window as unknown as { __dt: DataTransfer }).__dt;
+      tab.dispatchEvent(new DragEvent('dragend', { dataTransfer: data, bubbles: true, cancelable: true }));
+    });
     await expect(overlay.filter({ visible: true })).toHaveCount(0);
     await expect(workspace(page).locator('.dv-drop-target')).toHaveCount(0);
     expect(await tabs()).toEqual(before);
-    await page.mouse.up();
   });
 
   test('중첩 끌기는 거절된다: 칸 안 작업 영역의 탭은 보드 칸 띠나 다른 칸으로 옮겨지지 않는다', async ({ page }, testInfo) => {
