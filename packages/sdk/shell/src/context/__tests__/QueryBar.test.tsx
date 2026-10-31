@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { defineEndpoint, type PlatformAdapter, groupId, spaceId } from '@ap/contracts';
-import { QueryBarExtensionContext, type QueryBarExtension } from '@ap/components';
+import { PlatformPage, QueryBarExtensionContext, QueryView, type QueryBarExtension } from '@ap/components';
 import { House } from 'lucide-react';
 import { createRegistry, I18nProvider, PlatformProvider, useQueryDraft, useMenuQuery } from '@ap/kernel';
 import { useHostPlatform, PaneQueryDraftProvider, PaneScreenProvider } from '@ap/kernel/host';
@@ -318,4 +318,54 @@ it('no server anchor: the custom range editor starts blank', async () => {
   for (const label of ['시작 시각', '종료 시각 (제외)']) expect(screen.getByLabelText(label)).toHaveValue('');
   fireEvent.click(screen.getByRole('button', { name: '기준일' }));
   expect(screen.getByLabelText('기준일')).toHaveValue('');
+});
+
+function Body() { const query = useMenuQuery(endpoint, null); return <QueryView query={query}>{() => <span>result</span>}</QueryView>; }
+function mountPage(query: string, collapsed: boolean, completed = false) {
+  window.history.replaceState(null, '', `/?scopeId=MEM${query}`);
+  if (collapsed) localStorage.setItem('platform:query-bar-collapsed:home', 'true');
+  const session = testSession(['platform:view']);
+  render(<I18nProvider><PlatformProvider registry={registry} slots={{ contextBar: <GlobalContextBar /> }} adapter={testAdapter({ session: () => session, defaultRangeTo: () => '2026-01-01T09:31:22', menuQuery: send })}><Probe /><PlatformPage queryResult={completed ? { status: 'done', completedAt: 1_800_000_000_000 } : undefined}><Body /></PlatformPage></PlatformProvider></I18nProvider>);
+}
+const STRIP = { name: '적용된 조회 조건' };
+it('idle: the bar draws every missing reason, so the page keeps the title and a pointer but not the list (#1170)', async () => {
+  mountPage('&from=2026-01-01T01:00:00&to=2026-01-02T01:00:00', false);
+  await waitFor(() => expect(platform.scope.status).toBe('valid'));
+  const idle = screen.getAllByRole('status').find(node => node.textContent?.includes('아직 조회하지 않았습니다'))!;
+  expect(idle).toHaveTextContent('위 조회 조건의 안내를 확인하세요.');
+  expect(within(idle).queryByRole('listitem')).toBeNull();
+  expect(screen.getAllByText('공정을 선택하세요')).toHaveLength(1);
+});
+it('idle: the seeded default period is missing from the applied values but not from the bar, so the list stays (#1170)', async () => {
+  mountPage('', false);
+  await waitFor(() => expect(platform.scope.status).toBe('valid'));
+  const idle = screen.getAllByRole('status').find(node => node.textContent?.includes('아직 조회하지 않았습니다'))!;
+  expect(idle).toHaveTextContent('기간을 선택하세요');
+  expect(idle).not.toHaveTextContent('위 조회 조건의 안내를 확인하세요.');
+});
+it('idle: a draft that fixed the missing item but is not applied no longer covers the applied list, so the list stays (#1170)', async () => {
+  mountPage('&from=2026-01-01T01:00:00&to=2026-01-02T01:00:00', false);
+  await waitFor(() => expect(platform.scope.status).toBe('valid'));
+  act(() => { draft.setDraftGlobal({ roomNames: ['PHOTO'], from: '2026-01-01T00:00:00', to: '2026-01-02T00:00:00' }); });
+  const idle = screen.getAllByRole('status').find(node => node.textContent?.includes('아직 조회하지 않았습니다'))!;
+  expect(within(idle).getAllByRole('listitem').length).toBeGreaterThan(0);
+  expect(idle).not.toHaveTextContent('위 조회 조건의 안내를 확인하세요.');
+});
+it('strip: a folded bar that is not editing leaves the applied values to its summary and keeps only the completion time (#1170)', async () => {
+  mountPage('&roomNames=PHOTO&from=2026-01-01T01:00:00&to=2026-01-02T01:00:00', true, true);
+  await waitFor(() => expect(platform.scope.status).toBe('valid'));
+  const strip = screen.getByRole('region', STRIP);
+  expect(strip).toHaveTextContent('요약 조회 완료');
+  expect(strip).not.toHaveTextContent('공정 PHOTO');
+  expect(document.querySelector('summary')).toHaveTextContent('공정 PHOTO');
+});
+it('strip: editing a folded bar, or opening it, shows both the applied values and the time (#1170)', async () => {
+  mountPage('&roomNames=PHOTO&from=2026-01-01T01:00:00&to=2026-01-02T01:00:00', true, true);
+  await waitFor(() => expect(platform.scope.status).toBe('valid'));
+  act(() => { draft.setDraftGlobal({ roomNames: ['ETCH'] }); });
+  expect(screen.getByRole('region', STRIP)).toHaveTextContent(/공정 PHOTO.*요약 조회 완료/);
+  act(() => { draft.revert(); });
+  expect(screen.getByRole('region', STRIP)).not.toHaveTextContent('공정 PHOTO');
+  fireEvent.click(screen.getByRole('button', { name: '조회 조건 펼치기' }));
+  expect(screen.getByRole('region', STRIP)).toHaveTextContent(/공정 PHOTO.*요약 조회 완료/);
 });

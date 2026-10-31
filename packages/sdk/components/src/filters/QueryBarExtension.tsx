@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useSyncExternalStore, ty
 import { useHostPlatform } from '@ap/kernel/host';
 import type { GlobalContext, Pair } from '@ap/contracts';
 import type { PageFilterSummaryItem } from './PageFilterBar';
+import { QueryBarStatusProvider } from './QueryBarStatus';
 
 export type QueryBarExtension = {
   /** Pure arbitrary-candidate formatter; never captures current draft values. */
@@ -29,7 +30,7 @@ const PaneExtensions = createContext<ReturnType<typeof createExtensions> | null>
 export function QueryBarExtensionsProvider({ children }: { children: ReactNode }) {
   const { session } = useHostPlatform();
   const store = useMemo(createExtensions, [session]);
-  return <PaneExtensions.Provider value={store}>{children}</PaneExtensions.Provider>;
+  return <PaneExtensions.Provider value={store}><QueryBarStatusProvider>{children}</QueryBarStatusProvider></PaneExtensions.Provider>;
 }
 function extensionKey(paneId: string | null, route: ReturnType<typeof useHostPlatform>['route']) { return JSON.stringify([paneId, route?.menu.id, route?.params]); }
 export function usePublishQueryBarExtension(value: QueryBarExtension | undefined): void {
