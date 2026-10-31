@@ -4,6 +4,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { memoryStorage } from '@ap/kernel/testing';
 import { setFeatureApi } from '@ap/feature-bridge/feature-api';
 import { inboxRoute, triageRoute } from '@ap/feature-bridge';
+import { LAZY_MOUNT_WAIT } from '@ap/feature-bridge/testing';
 import { useHostSeam } from '@/lib/host/host-seam';
 import { manifests } from '../index';
 import { mountAt, warmPages } from '../test-support';
@@ -59,7 +60,7 @@ describe('수신함 without a feature API (mock preview)', () => {
   it('shows 실서버 필요 and mounts no screen', async () => {
     mountAt('/operations/inbox');
     // The first mount lazy-loads the page module, which can pass the default 1 s under a loaded run.
-    expect(await screen.findByRole('heading', { name: '수신함' }, { timeout: 3000 })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: '수신함' }, LAZY_MOUNT_WAIT)).toBeTruthy();
     expect(screen.getByRole('status').textContent).toContain('실서버 필요');
     expect(screen.queryByTestId('inbox')).toBeNull();
   });

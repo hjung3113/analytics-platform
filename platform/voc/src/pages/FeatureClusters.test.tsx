@@ -4,6 +4,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { memoryStorage } from '@ap/kernel/testing';
 import { setFeatureApi } from '@ap/feature-bridge/feature-api';
 import { clustersRoute } from '@ap/feature-bridge';
+import { LAZY_MOUNT_WAIT } from '@ap/feature-bridge/testing';
 import { useHostSeam } from '@/lib/host/host-seam';
 import { createRegistry, type MenuEntry } from '@ap/kernel';
 import { NO_FEATURES, contextCapabilities, groupId, spaceId, carrySetId } from '@ap/contracts';
@@ -69,7 +70,7 @@ describe('Clusters manifest', () => {
 describe('Clusters without a feature API (mock preview)', () => {
   it('shows 실서버 필요 and mounts no screen', async () => {
     mountAt('/operations/clusters');
-    expect(await screen.findByRole('heading', { name: 'Clusters' }, { timeout: 3000 })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Clusters' }, LAZY_MOUNT_WAIT)).toBeTruthy();
     expect(screen.getByRole('status').textContent).toContain('실서버 필요');
     expect(screen.queryByTestId('clusters')).toBeNull();
   });
@@ -177,7 +178,7 @@ describe('Clusters through the feature bridge', () => {
   it.each([['focus', 'abc'], ['managedSystem', 'not-a-uuid'], ['focus', ''], ['managedSystem', '']])('rejects an invalid %s, keeps the address and requests nothing', async (key, value) => {
     const search = `?${key}=${encodeURIComponent(value)}`;
     mountAt(`/operations/clusters${search}`);
-    expect(await screen.findByText(`주소의 ${key} 값이 올바르지 않습니다`, undefined, { timeout: 3000 })).toBeTruthy();
+    expect(await screen.findByText(`주소의 ${key} 값이 올바르지 않습니다`, undefined, LAZY_MOUNT_WAIT)).toBeTruthy();
     expect(screen.queryByTestId('clusters')).toBeNull();
     expect(screenMock.screens).toBe(0);
     expect(screenMock.detailArgs).toEqual([]);

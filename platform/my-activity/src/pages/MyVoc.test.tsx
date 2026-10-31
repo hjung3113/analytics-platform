@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
 import { setFeatureApi } from '@ap/feature-bridge/feature-api';
 import { featureQueryClient } from '@ap/feature-bridge';
+import { LAZY_MOUNT_WAIT } from '@ap/feature-bridge/testing';
 import { ID_A, ID_B, json, mountAt, stubFetch, switchableAdapter, type Call } from '../feature/test-support';
 
 const origin = () => window.location.origin;
@@ -203,7 +204,7 @@ describe('내 VOC through the feature bridge', () => {
 
     await user.click(screen.getByText('로그인이 안 됩니다'));
     const panel = await screen.findByRole('dialog');
-    expect(await within(panel).findByRole('heading', { name: '로그인이 안 됩니다', level: 2 }, { timeout: 3000 })).toBeTruthy();
+    expect(await within(panel).findByRole('heading', { name: '로그인이 안 됩니다', level: 2 }, LAZY_MOUNT_WAIT)).toBeTruthy();
     expect(window.location.pathname).toBe('/voc');
     expect(search().get('focus')).toBe(ID_A);
     expect(screen.getByRole('searchbox')).toBe(box);
@@ -232,7 +233,7 @@ describe('내 VOC through the feature bridge', () => {
     scroller.scrollTop = 321;
 
     await user.click(screen.getByText('로그인이 안 됩니다'));
-    await within(await screen.findByRole('dialog')).findByRole('heading', { name: '로그인이 안 됩니다', level: 2 }, { timeout: 3000 });
+    await within(await screen.findByRole('dialog')).findByRole('heading', { name: '로그인이 안 됩니다', level: 2 }, LAZY_MOUNT_WAIT);
     await user.click(screen.getByText('차트가 안 열립니다'));
     await waitFor(() => expect(search().get('focus')).toBe(ID_B));
 
@@ -247,13 +248,13 @@ describe('내 VOC through the feature bridge', () => {
     const calls = vocFetch({ meId: OPERATOR });
     mountAt(session().adapter, `/voc?v=1&focus=${ID_A}`);
     const panel = await screen.findByRole('dialog');
-    expect(await within(panel).findByText('VOC를 찾을 수 없습니다', {}, { timeout: 3000 })).toBeTruthy();
+    expect(await within(panel).findByText('VOC를 찾을 수 없습니다', {}, LAZY_MOUNT_WAIT)).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/아침마다 로그인이 실패합니다|재현했습니다|log\.txt/);
     expect(within(panel).queryByRole('heading', { name: '로그인이 안 됩니다' })).toBeNull();
     cleanup();
 
     mountAt(session().adapter, `/voc/${ID_A}?v=1`);
-    expect(await screen.findByText('VOC를 찾을 수 없습니다', {}, { timeout: 3000 })).toBeTruthy();
+    expect(await screen.findByText('VOC를 찾을 수 없습니다', {}, LAZY_MOUNT_WAIT)).toBeTruthy();
     expect(screen.queryByRole('heading', { name: '로그인이 안 됩니다' })).toBeNull();
     expect(document.body.textContent).not.toMatch(/아침마다 로그인이 실패합니다|재현했습니다/);
     expect(calls.filter(call => DENIED.test(call.path))).toEqual([]);
@@ -262,14 +263,14 @@ describe('내 VOC through the feature bridge', () => {
   it('V6: for an operator envelope neither the drawer nor the full page shows an operator field', async () => {
     vocFetch();
     mountAt(session().adapter, `/voc?v=1&focus=${ID_A}`);
-    expect(await screen.findByText('아침마다 로그인이 실패합니다.', {}, { timeout: 3000 })).toBeTruthy();
+    expect(await screen.findByText('아침마다 로그인이 실패합니다.', {}, LAZY_MOUNT_WAIT)).toBeTruthy();
     expect(await screen.findByText('재현했습니다. 곧 고치겠습니다.')).toBeTruthy();
     for (const pattern of FORBIDDEN) expect(document.body.textContent).not.toMatch(pattern);
     expect(screen.queryByRole('tab', { name: '내부' })).toBeNull();
     cleanup();
 
     mountAt(session().adapter, `/voc/${ID_A}?v=1`);
-    expect(await screen.findByText('아침마다 로그인이 실패합니다.', {}, { timeout: 3000 })).toBeTruthy();
+    expect(await screen.findByText('아침마다 로그인이 실패합니다.', {}, LAZY_MOUNT_WAIT)).toBeTruthy();
     for (const pattern of FORBIDDEN) expect(document.body.textContent).not.toMatch(pattern);
     expect(screen.queryByRole('tab', { name: '내부' })).toBeNull();
     // The only editor is the reporter's own reply (#1159); no public update or internal comment composer.
@@ -283,7 +284,7 @@ describe('내 VOC through the feature bridge', () => {
   it('V7: the detail page offers the way back to the origin, and only that', async () => {
     vocFetch();
     mountAt(session().adapter, `/voc/${ID_A}?v=1&returnTo=${encodeURIComponent('/notifications?v=1')}`);
-    await screen.findByText('아침마다 로그인이 실패합니다.', {}, { timeout: 3000 });
+    await screen.findByText('아침마다 로그인이 실패합니다.', {}, LAZY_MOUNT_WAIT);
     const more = screen.queryByRole('button', { name: '더보기' });
     if (more) await userEvent.setup().click(more);
     const back = screen.getAllByRole('link').find(link => new URL(link.getAttribute('href')!, origin()).pathname === '/notifications');
