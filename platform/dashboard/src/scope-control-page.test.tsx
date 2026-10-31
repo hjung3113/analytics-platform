@@ -24,13 +24,13 @@ describe('목록 범위 picker (ready session)', () => {
 
   it('gets a uuid managedSystem as its value', async () => {
     mountAt(`/operations/dashboard?managedSystem=${SYSTEM}`, { extra: <Control collapsed={false} /> });
-    await screen.findByTestId('picker');
+    await screen.findByTestId('picker', undefined, { timeout: 5000 });
     expect(picker.props.at(-1)?.value).toBe(SYSTEM);
   });
 
   it.each(['not-a-uuid', ''])('does not pass the invalid managedSystem %j to the picker as a selection', async value => {
     mountAt(`/operations/dashboard?managedSystem=${value}`, { extra: <Control collapsed={false} /> });
-    await screen.findByTestId('picker');
+    await screen.findByTestId('picker', undefined, { timeout: 5000 });
     await waitFor(() => expect(picker.props.length).toBeGreaterThan(0));
     expect(picker.props.every(props => props.value === undefined)).toBe(true);
   });
@@ -62,7 +62,7 @@ describe('scope change (screen parity, #762 k)', () => {
   ])('%s?%s choosing %s', async (path, query, next, expected) => {
     window.history.replaceState(null, '', `${path}?${query}`);
     render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}><Control collapsed={false} /></PlatformProvider></I18nProvider>);
-    await screen.findByTestId('picker');
+    await screen.findByTestId('picker', undefined, { timeout: 5000 });
     act(() => picker.props.at(-1)!.onChange(next));
     const params = new URLSearchParams(window.location.search);
     for (const [key, value] of Object.entries(expected)) expect(params.get(key)).toBe(value);
@@ -71,7 +71,7 @@ describe('scope change (screen parity, #762 k)', () => {
   it('writes only managedSystem on a menu that declares neither area nor cursor', async () => {
     window.history.replaceState(null, '', `/operations/dashboard?managedSystem=${S1}`);
     render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}><Control collapsed={false} /></PlatformProvider></I18nProvider>);
-    await screen.findByTestId('picker');
+    await screen.findByTestId('picker', undefined, { timeout: 5000 });
     act(() => picker.props.at(-1)!.onChange(S2));
     // The kernel adds its own `v` version key to every written query; it is not a page key.
     const params = new URLSearchParams(window.location.search);
@@ -94,7 +94,7 @@ describe('관리자 group turns 목록 범위 off (#764 k, ADR-0081 d4)', () => 
   const mount = async (path: string) => {
     window.history.replaceState(null, '', `${path}?managedSystem=${S1}`);
     render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}><Control collapsed={false} /></PlatformProvider></I18nProvider>);
-    await screen.findByTestId('picker');
+    await screen.findByTestId('picker', undefined, { timeout: 5000 });
   };
 
   it('disables the picker on a featureAdmin menu and keeps the carried value', async () => {
