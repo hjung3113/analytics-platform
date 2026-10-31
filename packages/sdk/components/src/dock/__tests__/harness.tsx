@@ -6,8 +6,10 @@ import type { DockLayoutProps, DockPanel } from '../dockTypes';
 import type { DockNode } from '../schema';
 
 /** jsdom has no ResizeObserver and no geometry: every observed element reports the shared size, and `resize` re-reports it. */
-export function installResizeObserver() {
+export function installResizeObserver(options: { deferred?: boolean } = {}) {
   const size = { width: 900, height: 600 };
+  const pending: { entry: { callback: ResizeObserverCallback }; target: Element }[] = [];
+  const unobserved: Element[] = [];
   const observers = new Set<{ callback: ResizeObserverCallback; targets: Set<Element> }>();
   const report = (observer: { callback: ResizeObserverCallback }, target: Element) => {
     const rect = { width: size.width, height: size.height, top: 0, left: 0, right: size.width, bottom: size.height, x: 0, y: 0 };
@@ -16,13 +18,20 @@ export function installResizeObserver() {
   class FakeResizeObserver {
     private entry = { callback: undefined as unknown as ResizeObserverCallback, targets: new Set<Element>() };
     constructor(callback: ResizeObserverCallback) { this.entry.callback = callback; observers.add(this.entry); }
-    observe(target: Element) { this.entry.targets.add(target); report(this.entry, target); }
-    unobserve(target: Element) { this.entry.targets.delete(target); }
+    observe(target: Element) { this.entry.targets.add(target); if (options.deferred) pending.push({ entry: this.entry, target }); else report(this.entry, target); }
+    unobserve(target: Element) { this.entry.targets.delete(target); unobserved.push(target); }
     disconnect() { this.entry.targets.clear(); observers.delete(this.entry); }
   }
   const previous = (globalThis as { ResizeObserver?: unknown }).ResizeObserver;
   (globalThis as { ResizeObserver?: unknown }).ResizeObserver = FakeResizeObserver;
   return {
+    /** Targets passed to `unobserve`, in call order. */
+    unobserved,
+    /** With `deferred`, `observe()` delivers nothing until this runs (a real observer reports a frame later): delivers the first record of each target still observed. */
+    deliver() {
+      const batch = pending.splice(0);
+      act(() => { batch.forEach(({ entry, target }) => { if ((entry as unknown as { targets: Set<Element> }).targets.has(target)) report(entry, target); }); });
+    },
     resize(width: number, height = size.height) {
       size.width = width; size.height = height;
       act(() => { observers.forEach(observer => { observer.targets.forEach(target => { report(observer, target); }); }); });

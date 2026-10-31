@@ -443,9 +443,13 @@ export default function DockEngine({
   useEffect(() => {
     const root = containerRef.current;
     if (!api || !root || typeof ResizeObserver === 'undefined') return;
+    // `observed` is filled when a group is handed to the observer, `seen` holds the last delivered box (nothing until the first delivery): a group
+    // removed before its first delivery must still be released.
+    const observed = new Set<Element>();
     const seen = new Map<Element, string>();
     const observer = new ResizeObserver(entries => {
       for (const { target, contentRect } of entries) {
+        if (!observed.has(target)) continue;
         const box = `${Math.round(contentRect.width)}x${Math.round(contentRect.height)}`;
         const before = seen.get(target);
         seen.set(target, box);
@@ -455,8 +459,8 @@ export default function DockEngine({
     });
     const sync = () => {
       const current = new Set<Element>(api.groups.map(group => group.element));
-      for (const element of seen.keys()) if (!current.has(element)) { observer.unobserve(element); seen.delete(element); }
-      for (const element of current) if (!seen.has(element)) observer.observe(element);
+      for (const element of observed) if (!current.has(element)) { observer.unobserve(element); observed.delete(element); seen.delete(element); }
+      for (const element of current) if (!observed.has(element)) { observed.add(element); observer.observe(element); }
     };
     sync();
     const subscriptions = [api.onDidAddGroup(sync), api.onDidRemoveGroup(sync), api.onDidLayoutChange(sync)];

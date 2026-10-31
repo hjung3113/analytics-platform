@@ -18,6 +18,18 @@ const overlayWidth = (id: string) => {
   return content.closest<HTMLElement>('.dv-render-overlay')?.style.width;
 };
 
+/** Animation frames are queued and run by hand, so "the mount frames are done" is a fact of the queue, not of elapsed time. */
+const frames: FrameRequestCallback[] = [];
+const drainFrames = () => {
+  act(() => { for (let round = 0; frames.length > 0; round++) { if (round > 1000) throw new Error('animation frames never settled'); frames.shift()!(performance.now()); } });
+};
+beforeEach(() => {
+  frames.length = 0;
+  vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => frames.push(callback));
+  vi.stubGlobal('cancelAnimationFrame', () => undefined);
+});
+afterEach(() => { vi.unstubAllGlobals(); });
+
 describe('DockLayout overlay after the group box grows without a layout (#1173)', () => {
   it('moves the panel overlay to the group\'s new box when only the group element resizes', async () => {
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
@@ -26,16 +38,16 @@ describe('DockLayout overlay after the group box grows without a layout (#1173)'
     });
     mountDock({ layout: row([100, 0], group(['a'])), ids: ['a'] });
     await screen.findAllByRole('tab');
-    await waitFor(() => { expect(overlayWidth('a')).toBe('500px'); });
+    await waitFor(() => { drainFrames(); expect(overlayWidth('a')).toBe('500px'); });
 
-    // Let the frames dockview queued while mounting run out: until then they re-read the box themselves, which hides the missing relayout.
-    await act(async () => { await new Promise(resolve => setTimeout(resolve, 150)); });
+    // Run the frames dockview queued while mounting until none is left: until then they re-read the box themselves, which hides the missing relayout.
+    drainFrames();
     expect(overlayWidth('a')).toBe('500px');
 
     dom.width = 800;
     // Nothing but this group-box report may tell the engine: no window resize, no dockview dimension event.
     observer.touch(target => target.classList.contains('dv-groupview'), 800);
 
-    await waitFor(() => { expect(overlayWidth('a')).toBe('800px'); });
+    await waitFor(() => { drainFrames(); expect(overlayWidth('a')).toBe('800px'); });
   });
 });
