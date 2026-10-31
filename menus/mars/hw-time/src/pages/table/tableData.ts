@@ -1,9 +1,8 @@
-import type { PageSort } from '@ap/contracts';
+import { exportScopeIds, type TableExportRequest } from '@ap/components';
 import { HW_TIME_UNIT, MODULE_IDS, MOTION_IDS, type HwTimeDrill, type HwTimeLevelData, type HwTimeRow } from '../../endpoints';
 import { formatSeconds, missingText } from '../../shared/format';
 
 export type TableLevel = 0 | 1 | 2;
-export type TableExportRequest = { scope: { kind: 'selected'; ids: string[] } | { kind: 'filtered' }; sorting: PageSort[] };
 
 /** The columns the server sorts by; a series column sorts the flat field of the same id on the table row. */
 export const SORT_FIELDS = ['equipmentId', 'subItem', ...MODULE_IDS, ...MOTION_IDS, 'total'] as const;
@@ -49,7 +48,10 @@ export function auxiliaryText(row: HwTimeRow, lang: 'ko' | 'en'): string {
 }
 
 export function exportParams(drill: HwTimeDrill, request: TableExportRequest) {
-  return { ...drill, ids: request.scope.kind === 'selected' ? request.scope.ids : null, sorting: request.sorting };
+  const scope = exportScopeIds(request.scope);
+  // This table does not enable selectAllResults: an `all` scope would export the excluded rows, so it is refused.
+  if (scope.mode === 'all-except') throw new Error('select-all export scope is not supported by this table');
+  return { ...drill, ids: scope.ids, sorting: request.sorting };
 }
 
 /** Readable page filters for the 조회 정보 sheet. */

@@ -735,6 +735,32 @@ test.describe('표 고급 기능 (#556)', () => {
     await expect(chip).toHaveCount(0);
     await expect.poll(total).toBe(before);
   });
+
+  // #556c (ADR-0104): the page selection widens to the whole filtered result without an id list; an exclusion shows as 「K행 제외」; a column filter resets it.
+  test('현재 쪽을 선택한 뒤 필터 결과 전체를 고르고 한 행을 빼면 제외 건수가 보이며, 열 필터를 바꾸면 선택이 풀린다', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/mars/equipment-master?v=1&scopeId=MEM');
+    const status = page.locator('[data-table-status-line]').first();
+    const total = async () => Number(/([\d,]+)건/.exec((await status.textContent()) ?? '')?.[1].replace(/,/g, ''));
+    await expect.poll(total).toBeGreaterThan(25);
+    const all = await total();
+    await expect(page.locator('[role="row"][data-row-id]').first()).toBeVisible();
+    await page.getByRole('checkbox', { name: '현재 페이지 전체 선택' }).click();
+    const bar = page.getByTestId('select-all-bar');
+    await expect(bar).toContainText('이 쪽의');
+    await bar.getByRole('button', { name: `필터 결과 전체 ${all.toLocaleString('ko-KR')}행 선택` }).click();
+    await expect(bar).toContainText(`필터 결과 전체 ${all.toLocaleString('ko-KR')}행을 선택했습니다`);
+    await expect(page.getByTestId('selected-count')).toHaveText(`전체 ${all.toLocaleString('ko-KR')}행 선택`);
+    await page.getByRole('checkbox', { name: /^선택 / }).first().click();
+    await expect(page.getByTestId('selected-count')).toHaveText(`전체 ${all.toLocaleString('ko-KR')}행 중 1행 제외`);
+    await evidence(page, testInfo, 'select-all-results');
+    await page.getByRole('button', { name: '라인 필터' }).click();
+    await page.getByRole('dialog').getByRole('checkbox', { name: 'L2' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: '적용' }).click();
+    await expect(page.locator('[data-column-filter-chip="line"]')).toBeVisible();
+    await expect(page.getByTestId('selected-count')).toHaveCount(0);
+    await expect(page.getByTestId('select-all-bar')).toHaveCount(0);
+  });
 });
 
 // #680 (ADR-0075): a fill page's head (notes + page filter + chips) folds to one line; shared responses become a thin strip.

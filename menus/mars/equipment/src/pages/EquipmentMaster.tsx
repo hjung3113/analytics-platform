@@ -62,6 +62,7 @@ export default function EquipmentMaster() {
       loadPage={(page, signal) => pages.fetch({ q, status, maker, ...page }, signal)}
       filters={filterSlot}
       rowAction={(e, { compact }) => <RowAction compact={compact} icon={PanelRight} label={ko ? `${e.equipmentId} 보기` : `View ${e.equipmentId}`} text={ko ? '보기' : 'View'} onClick={() => setPage({ focus: e.equipmentId, tab: null })} />}
+      selectAllResults
       bulkActions={ids => <Button asChild size="sm"><PlatformLink href={linkTo('productivity-overview', { global: { selection: ids } })}>{ko ? '선택 설비로 분석' : 'Analyze selected equipment'}</PlatformLink></Button>}
       // Table-owned export (#173): the page only says how to read the rows; the table builds the file.
       exportRows={(request, signal) => exports.fetch(exportParams({ q, status, maker }, request), signal)}

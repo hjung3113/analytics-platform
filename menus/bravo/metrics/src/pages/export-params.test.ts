@@ -22,6 +22,12 @@ describe('metric-catalog export params', () => {
   });
 });
 
+describe('metric-catalog export params with a select-all scope (#556c)', () => {
+  it('refuses the all scope: this table does not enable selectAllResults, and ids: null would export the excluded rows', () => {
+    expect(() => exportParams({ q: '', status: null, domain: null, lang: 'ko' } as CatalogFilter, { scope: { kind: 'all', excludedIds: ['cycle_time'] }, sorting })).toThrow(/select-all/);
+  });
+});
+
 describe('metric-catalog export filter summary (#173 review P2-3)', () => {
   it('renders the set filters as the screen labels them and omits unset ones', () => {
     expect(exportFilterSummary({ q: 'cycle', status: 'published', domain: 'time', lang: 'ko' }, 'ko', tx))

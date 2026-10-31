@@ -1,5 +1,6 @@
 import type { Equipment, EquipmentExportFilter, EquipmentFilter } from '../endpoints';
-import { parseDateTime, shift, type ColumnFilter, type ColumnFilterSpec, type PageSort } from '@ap/contracts';
+import { exportScopeIds, type TableExportRequest } from '@ap/components';
+import { parseDateTime, shift, type ColumnFilterSpec } from '@ap/contracts';
 export const statusText = {
   active: { ko: '사용중', en: 'Active' }, idle: { ko: '대기', en: 'Idle' },
   maintenance: { ko: '정비', en: 'Maintenance' }, retired: { ko: '사용중지', en: 'Retired' },
@@ -37,9 +38,11 @@ export function validity(e: Equipment) {
 /** Table-owned export params (#173): the page filters, the selection ids (`null` = every filtered row) and the table's active sort. */
 export function exportParams(
   { q, status, maker }: EquipmentFilter,
-  request: { scope: { kind: 'selected'; ids: string[] } | { kind: 'filtered' }; sorting: PageSort[]; filters?: ColumnFilter[] },
+  request: TableExportRequest,
 ): EquipmentExportFilter {
-  return { q, status, maker, ids: request.scope.kind === 'selected' ? request.scope.ids : null, sorting: request.sorting, ...(request.filters ? { filters: request.filters } : {}) };
+  const scope = exportScopeIds(request.scope);
+  const selection = scope.mode === 'all-except' ? { ids: null, excludedIds: scope.excludedIds } : { ids: scope.ids };
+  return { q, status, maker, ...selection, sorting: request.sorting, ...(request.filters ? { filters: request.filters } : {}) };
 }
 
 /** Readable page filters for the XLSX 조회 정보 sheet (#173 review P2-3); unset filters are omitted. */

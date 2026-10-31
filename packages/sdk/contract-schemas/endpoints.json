@@ -373,7 +373,8 @@
       "maker",
       "ids",
       "sorting",
-      "filters"
+      "filters",
+      "excludedIds"
     ],
     "permission": "equipment:view",
     "requiresScope": true,

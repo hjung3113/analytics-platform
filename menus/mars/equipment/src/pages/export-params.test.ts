@@ -22,6 +22,15 @@ describe('equipment-master export params', () => {
   });
 });
 
+describe('equipment-master export params with a select-all scope (#556c)', () => {
+  it('maps the all scope to excludedIds with ids: null, so the server reads the whole filtered set minus the exclusions', () => {
+    const filter: EquipmentFilter = { q: 'etch', status: 'active', maker: 'ACME' };
+    const filters = [{ id: 'status', op: 'in' as const, value: ['active'] }];
+    expect(exportParams(filter, { scope: { kind: 'all', excludedIds: ['MEM-1'] }, sorting, filters }))
+      .toEqual({ q: 'etch', status: 'active', maker: 'ACME', ids: null, excludedIds: ['MEM-1'], sorting, filters });
+  });
+});
+
 describe('equipment-master export params with column filters (#556b)', () => {
   it('passes the column filters through only when the request has them', () => {
     const filters = [{ id: 'status', op: 'in' as const, value: ['active'] }];
