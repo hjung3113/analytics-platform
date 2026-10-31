@@ -83,4 +83,16 @@ describe('registry declaration cells (#1167 B-2)', () => {
     expect(cells.length).toBeGreaterThan(0);
     for (const cell of cells) expect(cell.getAttribute('title')).toBe(cell.textContent);
   });
+
+  it('keeps the long ID and PATH cells on one line with the full value in title too (#1167 UX-2)', async () => {
+    mount('/admin/registry', <RegistryCatalog />);
+    const table = await screen.findByRole('table', { name: '메뉴 레지스트리 목록' });
+    const idCell = within(table).getByText('equipment-detail');
+    expect(idCell.classList.contains('truncate')).toBe(true);
+    expect(idCell.getAttribute('title')).toBe('equipment-detail');
+    // createRegistry rewrites an in-space menu's path to the canonical /{space}/{slug} form (ADR-0093); the cell shows that value.
+    const pathCell = within(table).getByText('/operations/equipment-detail/:equipmentId');
+    expect(pathCell.classList.contains('truncate')).toBe(true);
+    expect(pathCell.getAttribute('title')).toBe('/operations/equipment-detail/:equipmentId');
+  });
 });

@@ -29,12 +29,12 @@ export default function RegistryCatalog() {
   // Full 8-key context, one badge per value — the PlannedPage capability list, copied inline (do not extract).
   const tone = { apply: 'success', reference: 'info', unsupported: 'neutral' } as const;
   const columns = useMemo<PlatformColumn<RegistryRow>[]>(() => [
-    { id: 'id', header: 'ID', cell: row => <span className="t-mono">{String(row.id)}</span> },
+    // #1167 B-2·UX-2: the declaration strings are long; one line with the full value in title (same pattern as AuditTrail reason).
+    { id: 'id', header: 'ID', cell: row => <span className="t-mono block truncate" title={row.id}>{String(row.id)}</span> },
     { id: 'spaceId', header: ko ? '공간' : 'Space', cell: row => row.spaceLabel[lang] },
     { id: 'groupId', header: ko ? '그룹' : 'Group', cell: row => <span className="t-mono">{String(row.groupId)}</span> },
-    { id: 'path', header: 'Path', cell: row => <span className="t-mono">{String(row.path)}</span> },
+    { id: 'path', header: 'Path', cell: row => <span className="t-mono block truncate" title={row.path}>{String(row.path)}</span> },
     { id: 'permission', header: ko ? '권한' : 'Permission', cell: row => <span className="t-mono">{String(row.permission)}</span> },
-    // #1167 B-2: the declaration strings are long; one line with the full value in title (same pattern as AuditTrail reason).
     { id: 'capabilities', header: ko ? 'Context' : 'Context', cell: row => <span className="block truncate" title={row.capabilities}>{row.capabilities}</span> },
     { id: 'pageKeys', header: ko ? '페이지 키' : 'Page keys', cell: row => <span className="t-mono block truncate" title={row.pageKeys}>{String(row.pageKeys)}</span> },
     { id: 'contextResetKeys', header: ko ? '리셋 키' : 'Reset keys', cell: row => <span className="t-mono block truncate" title={row.contextResetKeys}>{String(row.contextResetKeys)}</span> },
