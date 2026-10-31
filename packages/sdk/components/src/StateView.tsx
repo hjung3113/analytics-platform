@@ -69,8 +69,8 @@ export function LoadingBlock({ rows = 3, height = 96, className }: { rows?: numb
   </div>;
 }
 
-/** Maps the exclusive outcome to the §19 taxonomy. Only `ok` renders children. */
-function OutcomeContent<T>({ response, onRetry, emptyAction, compact, grouped, widgetName, hideWidgetName, children }: {
+/** Maps the exclusive outcome to the §19 taxonomy. Only `ok` renders children. Package-internal (not re-exported by `index.ts`): QueryView and PlatformDataTable draw their outcome through it. */
+export function OutcomeContent<T>({ response, onRetry, emptyAction, compact, grouped, widgetName, hideWidgetName, children }: {
   response: ApiResponse<T>; onRetry: () => void; emptyAction?: ReactNode; compact?: boolean; children: (data: T) => ReactNode; grouped?: boolean; widgetName?: string; hideWidgetName?: boolean;
 }) {
   const { t } = useI18n();
@@ -100,7 +100,7 @@ function OutcomeContent<T>({ response, onRetry, emptyAction, compact, grouped, w
   }
 }
 
-/** Standalone outcome API; grouping is owned exclusively by QueryView's scope. */
+/** Standalone outcome API: it never registers with an OutcomeScope. QueryView and PlatformDataTable register their results and draw the grouped state through `OutcomeContent`. */
 export function OutcomeView<T>({ response, onRetry, emptyAction, compact, children }: {
   response: ApiResponse<T>; onRetry: () => void; emptyAction?: ReactNode; compact?: boolean; children: (data: T) => ReactNode;
 }) {

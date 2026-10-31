@@ -11,7 +11,8 @@ import { AnalysisSectionContext } from '../archetypes/AnalysisSectionContext';
 import { toColumnDef } from './columnDef';
 import { DataTrustIndicator } from '../state/DataTrustIndicator';
 import { useElementWidth } from '../state/useElementWidth';
-import { OutcomeView } from '../StateView';
+import { OutcomeContent } from '../StateView';
+import { useSharedOutcome } from '../filters/OutcomeScope';
 import { SCROLLPORT_LABEL } from '../scrollportLabel';
 import { useEmbeddedChrome, useInWorkspacePanel } from '../workspace/panelContext';
 import { ACTION_PIN_MIN_SCROLL, ROW_AREA_FALLBACK, useTableFit } from './tableFit';
@@ -173,6 +174,8 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
     // Selection never survives a Context change; an in-flight export/copy belongs to the old result set.
     onContextChange: () => { setSelection({}); abortTransfers(); },
   });
+  // The table's result joins the page's OutcomeScope like a QueryView does; the toolbar <h2> already names it, so the grouped state hides the name line (§306).
+  const groupedOutcome = useSharedOutcome(shown, retry, p.ariaLabel, loading ? (shown ? 'refreshing' : 'loading') : 'done');
   const selectedIds = Object.keys(effectiveSelection).filter(k => effectiveSelection[k]);
   const { exporting, copying, exportNote, copyNote, runExport, runCopy, onShortcut, abortTransfers } = useTableTransfer<T>({
     columns: p.columns, getRowId: p.getRowId, exportRows: p.exportRows, menuNote: p.exportNote, exportFilterSummary: p.exportFilterSummary, exportContext: p.exportContext,
@@ -256,7 +259,8 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
     // so nothing is stolen from a focus that moved away.
     if (focusedRetry.current) {
       if (success && shown?.outcome === 'ok') { focusedRetry.current = false; viewport.current?.focus(); return; }
-      if (shown?.outcome === 'error' || shown?.outcome === 'timeout') { outcome.current?.querySelector('button')?.focus(); return; }
+      // A grouped empty keeps its own retry button (the scope's shared-response rule), so it is retryable too (#1175).
+      if (shown?.outcome === 'error' || shown?.outcome === 'timeout' || (shown?.outcome === 'empty' && groupedOutcome)) { outcome.current?.querySelector('button')?.focus(); return; }
       focusedRetry.current = false;
       section.current?.focus();
       return;
@@ -271,7 +275,8 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       ? outcome.current?.querySelector('button') : null;
     const target = opposite && !opposite.disabled ? opposite : retryButton ?? section.current;
     target?.focus();
-  }, [loading, previousDisabled, nextDisabled, shown, success]);
+    // groupedOutcome: joining or leaving a group swaps the state message (and its retry button) without any other change here (#1175).
+  }, [loading, previousDisabled, nextDisabled, shown, success, groupedOutcome]);
 
   // Fill (#1166): a table narrower than its scrollport hands the leftover width to the columns nobody fixed — not the checkbox/action
   // columns, not left-pinned columns (their offsets are sums of widths) and not columns the user resized. Proportional to base width;
@@ -435,20 +440,22 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       <span className="text-text-secondary">{lang === 'ko' ? '선택은 현재 조회 결과 안에서만 유지되며 Context 변경 시 해제됩니다.' : 'Selection is kept within this result and cleared on context change.'}</span>
     </div>}
 
-    <div ref={statusLine.ref} data-table-status-line className="relative flex min-h-7 min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-1 border-t border-border-subtle px-3 py-1 text-xs text-text-muted" aria-live="polite">
+    <div ref={statusLine.ref} data-table-status-line className="relative flex min-h-7 min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-1 border-t border-border-subtle px-3 py-1 text-xs text-text-muted" aria-live={groupedOutcome ? 'off' : 'polite'}>
       <span ref={countSpan.ref} className="tabular whitespace-nowrap">{!shown || (loading && outOfRange) ? t('loading')
         : !success ? '—'
         : outOfRange
           ? (lang === 'ko' ? `${data.total.toLocaleString()}건 · ${pageCount}페이지` : `${data.total.toLocaleString()} results · ${pageCount} pages`)
           : (lang === 'ko' ? `${data.total.toLocaleString()}건 · ${shownPage + 1}/${pageCount} 페이지` : `${data.total.toLocaleString()} results · page ${shownPage + 1}/${pageCount}`)}</span>
       <span className="flex min-w-0 flex-wrap items-center gap-2">
-        {loading && shown && <span ref={refreshSpan.ref} role="status" className="inline-flex items-center gap-1"><Loader2 className="size-3 animate-spin" aria-hidden />{t('refreshing')}</span>}
+        {loading && shown && <span ref={refreshSpan.ref} role={groupedOutcome ? undefined : 'status'} className="inline-flex items-center gap-1"><Loader2 className="size-3 animate-spin" aria-hidden />{t('refreshing')}</span>}
         {shown && <DataTrustIndicator trust={shown.trust} assessments={shown.assessments} className="min-h-6" wrap summary={statusNarrow} />}
         {shown && <DataTrustIndicator trust={shown.trust} assessments={shown.assessments} probe={probe.ref} />}
       </span>
     </div>
 
-    {shown && shown.outcome !== 'ok' ? <div ref={outcome} onFocus={() => { focusedRetry.current = true; }} onBlur={() => { focusedRetry.current = false; }} className="border-t border-border-subtle p-3"><OutcomeView response={shown} onRetry={retry} emptyAction={p.emptyAction}>{() => null}</OutcomeView></div> :
+    {/* Stable widget wrapper (like QueryView's): the busy state survives the outcome/rows switch. A grouped table's refresh is announced by the scope only (components.md §공유 위젯 응답). */}
+    <div aria-busy={loading}>
+    {shown && shown.outcome !== 'ok' ? <div ref={outcome} onFocus={() => { focusedRetry.current = true; }} onBlur={() => { focusedRetry.current = false; }} className="border-t border-border-subtle p-3"><OutcomeContent response={shown} onRetry={retry} emptyAction={p.emptyAction} grouped={groupedOutcome} compact={groupedOutcome || undefined} widgetName={p.ariaLabel} hideWidgetName>{() => null}</OutcomeContent></div> :
       // eslint-disable-next-line shadcn/no-inline-styles -- viewport max height comes from the height prop or the measured page fit at runtime
       <div ref={viewportRef} data-table-auto-fit={p.height === undefined ? '' : undefined} tabIndex={0} aria-label={SCROLLPORT_LABEL[lang]} className={cn('overflow-auto border-t border-border-subtle [overflow-anchor:none]', chainWheel ? 'overscroll-auto' : 'overscroll-contain')} onScroll={updateFade} style={{ maxHeight: p.height ?? fit.cap ?? ROW_AREA_FALLBACK }}>
         {/* eslint-disable-next-line shadcn/no-inline-styles -- table width is the total column size computed at runtime */}
@@ -500,6 +507,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
             })}</div>}
         </div>
       </div>}
+    </div>
 
     <div className="flex items-center justify-end gap-2 border-t border-border-subtle p-2">
       <Button ref={previousButton} variant="secondary" size="toolbar" disabled={previousDisabled}

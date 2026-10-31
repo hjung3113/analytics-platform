@@ -74,6 +74,27 @@ describe('metric catalog count under a failed list query (UXA-4)', () => {
   });
 });
 
+// #1175: the pair banner and the catalog table register in the page's OutcomeScope; the same failure is one banner, not two boxes.
+describe('same server error / 0건 on the pair banner and the table (#1175)', () => {
+  const same = (outcome: 'error' | 'empty'): ApiResponse<unknown> =>
+    ({ outcome, data: outcome === 'empty' ? { rows: [], total: 0 } : null, message: 'same response', assessments: [], trust: null, correlationId: 'same' });
+  const sameAdapter = (outcome: 'error' | 'empty') => testAdapter({
+    menuQuery: async (request: MenuQuery): Promise<ApiResponse<unknown>> =>
+      request.endpoint === 'metrics.pair' || request.endpoint === 'metrics.catalog.page' ? same(outcome) : { outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' },
+    session: () => session,
+  });
+  it.each(['error', 'empty'] as const)('draws one banner and a compact table state for %s', async outcome => {
+    window.history.replaceState(null, '', '/metrics');
+    render(<I18nProvider><PlatformProvider adapter={sameAdapter(outcome)} registry={registry}><MetricCatalogPage params={{}} /></PlatformProvider></I18nProvider>);
+    const banners = await screen.findAllByRole('group', { name: '위젯 상태 요약' });
+    expect(banners).toHaveLength(1);
+    expect(banners[0].textContent).toContain('위젯 2개에서 같은 응답');
+    expect(screen.getByRole('group', { name: '지표 쌍 검증' }).hasAttribute('data-widget-state')).toBe(true);
+    expect(screen.getByRole('group', { name: '지표 카탈로그' }).hasAttribute('data-widget-state')).toBe(true);
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+});
+
 // #304 FIX1: the warning keeps the field's user name and the raw value as entered (quoted, untruncated),
 // one sentence per invalid field — never `key=value`.
 describe('invalid URL value warnings keep field name and raw value (#304 FIX1)', () => {

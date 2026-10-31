@@ -78,4 +78,21 @@ describe('request identity', () => {
       setRole(before);
     }
   });
+
+  // #1175 UX-1: a paged handler that ignores equipment kept its rows and total under the empty scenario, so the table showed "14건 · 1/2" beside 0건.
+  it('the empty scenario zeroes a page result, not only the equipment input', async () => {
+    setScenario('empty');
+    try {
+      const res = await serve({
+        role: 'engineer', permission: menuPermission('analytics:view'),
+        global: { ...emptyGlobal, scopeId: 'MEM', ...period },
+        latency: 0,
+        mergeTimeDomain: false,
+        compute: () => ({ rows: [{ id: 'a' }, { id: 'b' }], total: 14 }),
+        isEmpty: data => data.total === 0,
+      });
+      expect(res.outcome).toBe('empty');
+      expect(res.data).toEqual({ rows: [], total: 0 });
+    } finally { setScenario('normal'); }
+  });
 });

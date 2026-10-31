@@ -7,7 +7,7 @@ import { ChevronRight, Inbox, PanelRight } from 'lucide-react';
 import { useMemo } from 'react';
 import { useDrill, useI18n, useMenuFetch, usePlatform, type PageProps } from '@ap/kernel';
 import {
-  DetailDrawer, DrillLayout, OutcomeView, PlatformDataTable, PlatformPage, QueryView, RowAction, StateMessage, TableUrlWarning, useTableUrlState, type PlatformColumn,
+  DetailDrawer, DrillLayout, PlatformDataTable, PlatformPage, QueryView, RowAction, StateMessage, TableUrlWarning, useTableUrlState, type PlatformColumn,
 } from '@ap/components';
 import { isThemeColorToken, readColorToken } from '@ap/ui/theme';
 import { hwTime, isHwTimeTrendId, type HwTimeBlock, type HwTimeLevelData, type HwTimeRow, type HwTimeSeries, type HwTimeTableRow } from '../../endpoints';
@@ -137,7 +137,7 @@ export default function TablePage(_props: PageProps) {
 
   return <PlatformPage layout="fill" density="compact">
     <DrillLayout fill summary={summary}>
-      {levelFailure && <OutcomeView response={levelFailure} onRetry={levelQ.refetch} compact>{() => null}</OutcomeView>}
+      {levelFailure && <QueryView query={levelQ} widgetName={ko ? '단계 요약' : 'Level summary'} compact>{() => null}</QueryView>}
       {table}
     </DrillLayout>
     {detailPending && <DetailDrawer key={focus} title={<span className="t-mono">{rowIdLabel(focus)}</span>} subtitle={ko ? '행 상세 · 합성 데이터' : 'Row details · synthetic data'}

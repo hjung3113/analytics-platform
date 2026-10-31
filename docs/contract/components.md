@@ -309,7 +309,7 @@ Unknown
 - 그룹 재시도 중에는 배너 버튼이 busy 상태를 표시하며 중복 활성화를 막고 폭·포커스를 유지한다. 그룹별 갱신 문구는 기존 알림 채널 한 곳에서 안내한다. 각 위젯의 `aria-busy`는 유지하되 반복 `role=status` 갱신 label은 표시하지 않는다. 배너가 사라질 때 포커스가 그 안에 있으면 이름 있는 상세 패널(dialog) 또는 `main` 랜드마크(셸 밖에서는 페이지 본문 요소)로 이동하며 다른 곳으로 이동한 포커스는 빼앗지 않는다. 페이지 본문 주위에 랜드마크를 더하지 않는다.
 - 그룹에 속한 empty 위젯에는 개별 retry와 Correlation ID를 추가한다(확정된 사용자 결정). 한 개뿐인 empty 위젯은 기존 표시·emptyAction을 그대로 유지하며 retry·ID를 추가하지 않는다.
 - DetailDrawer는 페이지와 독립된 scope 및 상세 상단 배너를 제공하며 두 표면의 위젯을 함께 묶지 않는다. 위젯 이름이 없으면 visible 이름·접근 이름을 발명하지 않는다. 보이는 이름은 non-heading label과 aria-labelledby로 연결하고 이름을 숨길 때만 aria-label을 사용한다.
-- `PlatformPage`가 페이지별 scope와 배너 위치를 제공하고 `QueryView`가 현재 응답·refetch·선택적 위젯 이름을 가장 가까운 scope에 등록한다. scope 밖의 QueryView는 기존 동작을 유지한다. 등록 갱신·그룹 판정 방식과 결정 배경은 [ADR-0017](../adr/0017-shared-outcome-banner.md)을 따른다.
+- `PlatformPage`가 페이지별 scope와 배너 위치를 제공하고 `QueryView`가 현재 응답·refetch·선택적 위젯 이름을 가장 가까운 scope에 등록한다. `PlatformDataTable`도 `ariaLabel`을 위젯 이름으로 같은 scope에 등록한다(그룹이면 이름 줄 없이 간결 상태, 재시도는 표 재조회, 혼자이거나 scope 밖이면 기존 전체 상태). scope 밖의 QueryView는 기존 동작을 유지한다. 등록 갱신·그룹 판정 방식과 결정 배경은 [ADR-0017](../adr/0017-shared-outcome-banner.md)을 따른다.
 
 ### 가공 상태 원천과 트레이스 노출 수준 (Decided, 2026-09-26)
 
