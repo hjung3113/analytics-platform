@@ -60,6 +60,8 @@ export interface RichEditorProps {
   defaultValue?: TipTapDoc;
   onChange?: (doc: TipTapDoc) => void;
   placeholder?: string;
+  /** Accessible name of the editable textbox (the placeholder is not a name). */
+  ariaLabel?: string;
   disabled?: boolean;
   minHeight?: string | number;
   className?: string;
@@ -85,6 +87,7 @@ export function RichEditor({
   defaultValue,
   onChange,
   placeholder,
+  ariaLabel,
   disabled,
   minHeight,
   className,
@@ -96,8 +99,22 @@ export function RichEditor({
     [surface, placeholder],
   );
 
+  // `role` is written explicitly: every setOptions call replaces the whole
+  // `attributes` object, which drops the role TipTap only adds at view creation.
+  const editorProps = React.useMemo(
+    () => ({
+      attributes: {
+        role: 'textbox',
+        'aria-multiline': 'true',
+        ...(ariaLabel ? { 'aria-label': ariaLabel } : {}),
+      },
+    }),
+    [ariaLabel],
+  );
+
   const editor = useEditor({
     extensions,
+    editorProps,
     // value can be null (explicit clear); fall through to defaultValue / empty doc.
     content: (value ??
       defaultValue ?? { type: 'doc', content: [{ type: 'paragraph' }] }) as TipTapDoc,

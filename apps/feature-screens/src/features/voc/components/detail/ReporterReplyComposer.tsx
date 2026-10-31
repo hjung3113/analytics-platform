@@ -191,6 +191,7 @@ export function ReporterReplyComposer({
       {/* RichEditor with ReporterReplyToolbar — prototype: minHeight 84px */}
       <RichEditor
         surface="reporter-reply"
+        ariaLabel="제출자 답변 내용"
         // REV-3 Cluster Z: explicit value (null = clear).
         value={draftDoc}
         onChange={(doc) => setDraftDoc(doc)}

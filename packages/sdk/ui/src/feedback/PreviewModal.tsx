@@ -30,7 +30,7 @@
 //   bg-surface-card  → var(--surface-card)  #fbfdff
 //   border-border-subtle → var(--border-subtle) #cbd6e6
 
-import type * as React from 'react';
+import * as React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/shadcn/dialog.js';
 import { cn } from '../utils/cn.js';
 
@@ -57,6 +57,11 @@ export function PreviewModal({
   children,
   className,
 }: PreviewModalProps): React.ReactElement {
+  // PreviewModal has no DialogTrigger, so Radix has no trigger to focus on close
+  // and focus falls to <body>. Remember the opener instead, keyed by the content
+  // element: Radix dispatches both autofocus events on it, and the close one runs
+  // after unmount in a timer, so a later reopen must not share its opener.
+  const openersRef = React.useRef(new WeakMap<EventTarget, HTMLElement>());
   return (
     <Dialog
       open={open}
@@ -66,6 +71,20 @@ export function PreviewModal({
     >
       <DialogContent
         data-testid="preview-modal-content"
+        onOpenAutoFocus={(event) => {
+          const active = document.activeElement;
+          if (event.target && active instanceof HTMLElement) {
+            openersRef.current.set(event.target, active);
+          }
+        }}
+        onCloseAutoFocus={(event) => {
+          const opener = event.target ? openersRef.current.get(event.target) : undefined;
+          if (event.target) openersRef.current.delete(event.target);
+          if (opener?.isConnected) {
+            event.preventDefault();
+            opener.focus();
+          }
+        }}
         className={cn(
           // size="lg": max-w-3xl overrides shadcn's default max-w-lg
           // bg-surface-card + border-border-subtle already on DialogContent base

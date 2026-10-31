@@ -4,6 +4,8 @@
 
 ## 작은 후속 (확인된 것)
 
+- **구현 안 함 — `RichEditor` 빈 편집기의 placeholder가 화면에 보이지 않음(#1161 UX-1, minor):** TipTap Placeholder 확장이 빈 문단에 `data-placeholder`를 넣지만, 저장소 어디에도 그것을 그리는 CSS(`.is-editor-empty::before { content: attr(data-placeholder) }`)가 없어 `::before` content가 `none`이다. VOC 상세의 세 입력 부품, 내 VOC 답글, VOC 등록 설명에 모두 해당한다(실서버 확인 2026-10-31). 이유: #1161은 접근 이름·포커스 범위이고 placeholder 표시는 `@ap/ui` 스타일 추가(보이는 모양 변경)라 따로 다룬다. 접근 이름은 이제 `ariaLabel`이 주므로 접근성 공백은 아니다. 다시 여는 조건: 다음 폴리싱 묶음, 또는 입력 안내가 안 보인다는 보고.
+- **구현 안 함 — 트리거 없는 모달의 닫은 뒤 포커스를 `DialogContent` 공통으로(#1161 계획 리뷰 P2):** Radix Dialog는 `DialogTrigger`가 없으면 닫을 때 포커스를 null 트리거로 보내 `body`로 떨어뜨린다(`@radix-ui/react-dialog` dist/index.mjs:154-157). #1161은 `PreviewModal` 안에서만 연 요소를 기억해 되돌렸고, 같은 원인을 화면마다 손으로 우회한 곳이 약 15곳 있다. 이유: 공용 `DialogContent`의 기본 동작을 바꾸면 모든 대화상자의 포커스 흐름을 다시 검증해야 해서 이번 범위를 넘는다. 다시 여는 조건: 트리거 없는 모달에서 포커스 손실이 다시 보고되거나, 우회 코드 중 하나를 고칠 때.
 - **구현 안 함 — 홈 즐겨찾기·최근 방문의 모바일 제목 줄바꿈(#1109 UX-1):** 항목이 있는 390px 화면에서 제목이 글자 단위로 쌓인다. 기준 main `cec519031`에서도 재현됐다(2026-10-30). 이유: 현재 지원·캡처 범위 밖이다([루트 AGENTS.md](../AGENTS.md#검증)). 다시 여는 조건: 사용자가 모바일·태블릿 지원을 범위에 추가할 때, 소속·시각·제거 동작을 보존하며 항목이 있는 390px 화면으로 확인한다.
 
 - **구현 안 함 — section 라벨 대문자 표기(#740 리뷰 C1):** `FieldLabel appearance="section"`이 CSS `uppercase`를 걸어 VOC 등록 드로어의 `Managed System`·`Analytics Area`가 `MANAGED SYSTEM`·`ANALYTICS AREA`로 보인다. #740은 라벨을 copy 상수로 옮겼을 뿐 보이는 모양은 그대로다. 이유: 모든 section 라벨 모양을 바꾸는 디자인 시스템 변경이라 프로토타입 컨펌이 먼저다. 다시 여는 조건: 사용자가 영어 라벨 대문자 표기를 바꾸기로 할 때.

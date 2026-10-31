@@ -285,6 +285,7 @@ export function PublicUpdateComposer({
       {/* RichEditor with PublicUpdateToolbar — prototype: minHeight 84px */}
       <RichEditor
         surface="public-update"
+        ariaLabel="공개 업데이트 내용"
         // REV-3 Cluster Z: pass an explicit value (TipTapDoc | null) so the
         // editor honors an explicit clear after submit-success / VOC switch.
         // Omitting the prop left stale content visible.

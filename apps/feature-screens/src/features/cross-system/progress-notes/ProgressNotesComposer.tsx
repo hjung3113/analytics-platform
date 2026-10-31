@@ -133,6 +133,7 @@ export function ProgressNotesComposer({
     <div className="mt-3" data-testid="progress-notes-composer">
       <RichEditor
         surface="internal-comment"
+        ariaLabel="진행 메모 내용"
         value={draftDoc}
         onChange={(doc) => setDraftDoc(doc)}
         placeholder={copy.placeholder}
