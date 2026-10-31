@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
-import { clientCorrelationId, serializeGlobal, type ApiResponse, type PageQuery, type PageResult, type PageSort } from '@ap/contracts';
+import { clientCorrelationId, serializeGlobal, type ApiResponse, type ColumnFilter, type PageResult, type PageSort, type TableQuery } from '@ap/contracts';
 import { usePlatform, useQueryContext } from '@ap/kernel';
 import type { TableUrlState } from './PlatformDataTable';
 
 type PagedRowsInput<T> = {
-  loadPage: (query: PageQuery, signal: AbortSignal) => Promise<ApiResponse<PageResult<T>>>;
+  loadPage: (query: TableQuery, signal: AbortSignal) => Promise<ApiResponse<PageResult<T>>>;
   filterKey: string;
   urlState: TableUrlState | undefined;
   pageSize: number;
+  /** Active column filters (#556b): part of the Context identity, so a change returns to page 1 and clears selection/transfers (ADR-0104). */
+  columnFilters: ColumnFilter[];
   /** The table's active sort (`urlState.sorting` when controlled). */
   activeSorting: PageSort[];
   viewport: RefObject<HTMLDivElement | null>;
@@ -20,7 +22,7 @@ type PagedRowsInput<T> = {
  * and the settled/loading view of the last response. Effect order matters: the Context reset runs before the load.
  */
 export function usePagedRows<T>(input: PagedRowsInput<T>) {
-  const { filterKey, urlState, pageSize, activeSorting, viewport } = input;
+  const { filterKey, urlState, pageSize, activeSorting, viewport, columnFilters } = input;
   const { user, revision } = usePlatform();
   const global = useQueryContext();
   const [page, setPage] = useState(0);
@@ -30,7 +32,7 @@ export function usePagedRows<T>(input: PagedRowsInput<T>) {
   const [result, setResult] = useState<{ identity: string; response: ApiResponse<PageResult<T>> } | null>(null);
 
   // Context identity: global Context narrowed to the applied Condition preset (06 §15) + user + page filters + adapter revision. Selection never survives a Context change (DESIGN Tables).
-  const contextIdentity = JSON.stringify([serializeGlobal(global), user.id, filterKey, revision]);
+  const contextIdentity = JSON.stringify([serializeGlobal(global), user.id, filterKey, revision, columnFilters]);
   const lastContext = useRef(contextIdentity);
   const hasUrlState = !!urlState;
   const effectivePage = urlState ? (urlState.page ?? 1) - 1 : lastContext.current === contextIdentity ? page : 0;
@@ -47,7 +49,7 @@ export function usePagedRows<T>(input: PagedRowsInput<T>) {
   loadRef.current = input.loadPage;
   useEffect(() => {
     const controller = new AbortController();
-    loadRef.current({ page: effectivePage, pageSize, sorting: activeSorting }, controller.signal)
+    loadRef.current({ page: effectivePage, pageSize, sorting: activeSorting, ...(columnFilters.length > 0 ? { filters: columnFilters } : {}) }, controller.signal)
       .then(response => { if (!controller.signal.aborted) setResult({ identity: requestIdentity, response }); })
       .catch(error => {
         // Only the table's own abort cancels (#186, like the Kernel #183): a menu loadPage that rejects with

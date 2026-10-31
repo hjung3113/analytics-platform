@@ -3,7 +3,7 @@
  * `@ap/menu-equipment/mock`; pages never import this module. Filtering moved here from the page so the export
  * and every table page are answered — and permission re-checked — by the server.
  */
-import { sortAndPage, sortRows } from '@ap/contracts';
+import { filterRows, sortAndPage, sortRows } from '@ap/contracts';
 import { defineMockEndpoint, type AnyMockEndpoint, type Equipment } from '@ap/mock-server';
 import { equipmentExportEndpoint, equipmentMakersEndpoint, equipmentPageEndpoint, type EquipmentFilter } from '../endpoints';
 
@@ -20,14 +20,14 @@ export const equipmentMock: readonly AnyMockEndpoint[] = [
     isEmpty: makers => makers.length === 0,
   }),
   defineMockEndpoint(equipmentPageEndpoint, {
-    handle: ({ equipment, params: { q, status, maker, page, pageSize, sorting } }) =>
-      sortAndPage(filterEquipment(equipment, { q, status, maker }), { page, pageSize, sorting }),
+    handle: ({ equipment, params: { q, status, maker, page, pageSize, sorting, filters } }) =>
+      sortAndPage(filterRows(filterEquipment(equipment, { q, status, maker }), filters), { page, pageSize, sorting }),
     isEmpty: data => data.total === 0,
   }),
   defineMockEndpoint(equipmentExportEndpoint, {
     // Selection export: the server filters by ids itself, so the cap is judged on the selection, not the whole filter result.
     handle: ({ equipment, params }) => {
-      const rows = filterEquipment(equipment, params);
+      const rows = filterRows(filterEquipment(equipment, params), params.filters);
       const { ids, sorting = [] } = params;
       return sortRows(ids == null ? rows : rows.filter(e => ids.includes(e.equipmentId)), sorting);
     },

@@ -61,6 +61,18 @@ describe('equipment-master mock endpoints', () => {
     expect(((exportAll.data as Equipment[]).map(e => e.equipmentId)).sort()).toEqual(expected);
   });
 
+  it('applies column filters on the server: the page total and the export list are the filtered set (#556b)', async () => {
+    const lineIn = { id: 'line', op: 'in' as const, value: ['L2'] };
+    const page = await adapter.menuQuery({ endpoint: equipmentPageEndpoint.id, context, params: { ...noFilter, page: 0, pageSize: 500, sorting: [], filters: [lineIn] } });
+    const exportAll = await adapter.menuQuery({ endpoint: equipmentExportEndpoint.id, context, params: { ...noFilter, ids: null, sorting: [], filters: [lineIn] } });
+    const expected = engineerMem.filter(e => e.line === 'L2').map(e => e.equipmentId).sort();
+    expect(expected.length).toBeGreaterThan(0);
+    expect(expected.length).toBeLessThan(engineerMem.length);
+    expect((page.data as PageResult<Equipment>).total).toBe(expected.length);
+    expect(((page.data as PageResult<Equipment>).rows.map(e => e.equipmentId)).sort()).toEqual(expected);
+    expect(((exportAll.data as Equipment[]).map(e => e.equipmentId)).sort()).toEqual(expected);
+  });
+
   it('answers the Maker select from a small distinct-makers endpoint within the granted Scope (#173 P2-4)', async () => {
     const all = await adapter.menuQuery({ endpoint: equipmentMakersEndpoint.id, context, params: {} });
     expect(all.outcome).toBe('ok');

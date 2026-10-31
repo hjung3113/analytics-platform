@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import type { RowSelectionState } from '@tanstack/react-table';
-import type { ApiResponse, Capability, ContextKey, PageSort } from '@ap/contracts';
+import type { ApiResponse, Capability, ColumnFilter, ContextKey, PageSort } from '@ap/contracts';
 import { useEquipmentAxes, useI18n, usePlatform, useQueryContext } from '@ap/kernel';
 import { isProductionEnv } from '@ap/ui';
 import type { PlatformColumn } from './PlatformDataTable';
@@ -12,6 +12,7 @@ import {
   type ExportFormat, type ExportScopeKind,
 } from './tableMessages';
 import type { Preferences } from './useColumnPreferences';
+import { filterInfoRows } from './columnFilters';
 
 /**
  * Row copy (#174) clipboard path, by feature detection — never by `.catch`: in an insecure context (in-house HTTP)
@@ -29,7 +30,7 @@ class ClipboardRejected extends Error { constructor(readonly cause: unknown) { s
 type TransferInput<T> = {
   columns: PlatformColumn<T>[];
   getRowId: (row: T) => string;
-  exportRows: ((request: { scope: { kind: 'selected'; ids: string[] } | { kind: 'filtered' }; sorting: PageSort[] }, signal: AbortSignal) => Promise<ApiResponse<T[]>>) | undefined;
+  exportRows: ((request: { scope: { kind: 'selected'; ids: string[] } | { kind: 'filtered' }; sorting: PageSort[]; filters?: ColumnFilter[] }, signal: AbortSignal) => Promise<ApiResponse<T[]>>) | undefined;
   /** Menu note appended to the export toast. */
   menuNote: string | undefined;
   exportFilterSummary: readonly (readonly [string, string])[] | undefined;
@@ -37,6 +38,8 @@ type TransferInput<T> = {
   canExport: boolean;
   selectedIds: string[];
   selection: RowSelectionState;
+  /** Active column filters: sent with a `filtered` export and listed on the 조회 정보 sheet (#556b). */
+  columnFilters: ColumnFilter[];
   /** Rows of the shown page, for the loaded-rows-only copy path. */
   loadedRows: T[];
   /** Total of the shown result; only meaningful when `resultOk`. */
@@ -96,7 +99,8 @@ export function useTableTransfer<T>(input: TransferInput<T>) {
     // own DOMException('…','AbortError') (internal timeout) is a failure, so the failure toast must appear.
     const cancelled = () => controller.signal.aborted;
     try {
-      const response = await input.exportRows!({ scope, sorting: activeSorting }, controller.signal);
+      const filters = scope.kind === 'filtered' && input.columnFilters.length > 0 ? input.columnFilters : undefined;
+      const response = await input.exportRows!({ scope, sorting: activeSorting, ...(filters ? { filters } : {}) }, controller.signal);
       if (controller.signal.aborted) return;
       if (response.outcome !== 'ok' && response.outcome !== 'empty') {
         const refusalOf = exportRefusal(response.outcome, response, lang);
@@ -151,6 +155,7 @@ export function useTableTransfer<T>(input: TransferInput<T>) {
           ...(menu?.requiresScope ? [['Scope', global.scopeId ?? ''] as [string, string]] : []),
           ...(appliedContext?.time === 'apply' ? [[L.period, global.from && global.to ? `${global.from} – ${global.to}` : ''] as [string, string]] : []),
           ...(input.exportFilterSummary ?? []).map(([label, value]) => [label, value] as [string, string]),
+          ...(filters ? filterInfoRows(filters, columns, lang) : []),
           ...(appliedContext ? globalContextRows(queryContext, appliedContext, lang, axes, t('membershipAsOf')) : []),
           [L.updatedAt, trust?.updatedAt?.replace('T', ' ') ?? ''],
           [L.dataThrough, trust?.dataThrough?.replace('T', ' ') ?? ''],

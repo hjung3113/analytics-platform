@@ -22,6 +22,16 @@ describe('equipment-master export params', () => {
   });
 });
 
+describe('equipment-master export params with column filters (#556b)', () => {
+  it('passes the column filters through only when the request has them', () => {
+    const filters = [{ id: 'status', op: 'in' as const, value: ['active'] }];
+    const filter: EquipmentFilter = { q: '', status: '', maker: '' };
+    expect(exportParams(filter, { scope: { kind: 'filtered' }, sorting, filters }))
+      .toEqual({ q: '', status: '', maker: '', ids: null, sorting, filters });
+    expect(exportParams(filter, { scope: { kind: 'filtered' }, sorting })).not.toHaveProperty('filters');
+  });
+});
+
 describe('equipment-master export filter summary (#173 review P2-3)', () => {
   it('renders the set filters as the screen labels them and omits unset ones', () => {
     expect(exportFilterSummary({ q: 'etch', status: 'active', maker: 'ACME' }, 'ko'))

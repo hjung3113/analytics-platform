@@ -713,6 +713,28 @@ test.describe('표 고급 기능 (#556)', () => {
     await popover.getByRole('button', { name: '기본값으로' }).click();
     await expect.poll(() => headers.evaluateAll(els => els.map(el => el.getAttribute('data-column')))).toEqual(declared);
   });
+
+  // #556b (ADR-0104): a header column filter narrows the server result; the chip shows it and removing it restores the total.
+  test('라인 열 필터를 적용하면 건수가 줄고 칩이 보이며, 칩을 지우면 되돌아온다', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/mars/equipment-master?v=1&scopeId=MEM');
+    const status = page.locator('[data-table-status-line]').first();
+    const total = async () => Number(/([\d,]+)건/.exec((await status.textContent()) ?? '')?.[1].replace(/,/g, ''));
+    await expect.poll(total).toBeGreaterThan(0);
+    const before = await total();
+    await page.getByRole('button', { name: '라인 필터' }).click();
+    await page.getByRole('dialog').getByRole('checkbox', { name: 'L2' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: '적용' }).click();
+    const chip = page.locator('[data-column-filter-chip="line"]');
+    await expect(chip).toBeVisible();
+    await expect(chip).toContainText('L2');
+    await expect.poll(total).toBeLessThan(before);
+    await expect(page.locator('[role="row"][data-row-id]').first()).toBeVisible();
+    await evidence(page, testInfo, 'column-filter-line');
+    await chip.getByRole('button', { name: '라인 필터 해제' }).click();
+    await expect(chip).toHaveCount(0);
+    await expect.poll(total).toBe(before);
+  });
 });
 
 // #680 (ADR-0075): a fill page's head (notes + page filter + chips) folds to one line; shared responses become a thin strip.

@@ -4,6 +4,7 @@
 
 ## 작은 후속 (확인된 것)
 
+- **구현 안 함 — 열 필터 URL 공유(`urlState.filters`, #556b):** 열 필터는 표 안 상태라 새로고침·링크 공유에서 사라진다. 이유: 필터 값 코덱과 페이지 키 이름은 페이지가 소유해야 하고 지금 공유가 필요한 소비자가 없다(플랜 P5, ADR-0104). 다시 여는 조건: 어떤 메뉴가 열 필터를 담은 링크를 공유해야 할 때 — 그때 `TableUrlState`에 선택 `filters`와 코덱을 더한다.
 - **구현 안 함 — 표 고정 열 흐림·활성 행 면·`EmbeddedPane` 테두리를 동작 표지로 다시 확인(v0.21.3 마감 리뷰 Q4):** #1205가 지운 시각 클래스 단언에는 스크롤 끝에서 고정 열 fade가 꺼지는 것, 활성 행 fade 표면, `EmbeddedPane` 안 표 테두리 없음(sdk-v0.24.0 공개 동작)도 들어 있었고 지금은 단위·E2E 검사가 없다. 이유: v0.21.3 범위 고정, 테스트 삭제는 소유자 결정(2026-11-01)이었다. 다시 여는 조건: 표 고정 열·`EmbeddedPane`을 다시 손볼 때 `data-*` 상태 표지(예: `data-pin-fade`)를 두고 동작만 단언한다.
 - **구현 안 함 — 429 문구 사본 동등성(v0.21.3 마감 리뷰 Q5):** `apps/platform-web/src/real/http-assembly.tsx`의 「요청이 너무 많습니다」·`{n}초`/`{m}분` 올림·「잠시 후」가 기능 `apps/feature-screens/src/lib/copy/rate-limit.ts`의 사본이고 주석으로만 묶여 있다. 이유: 범위 고정, 지금은 값이 같다. 다시 여는 조건: 어느 한쪽 문구를 바꿀 때 platform-web에 동등성 테스트를 두거나 문구를 `@ap/feature-shared`로 옮긴다.
 - **구현 안 함 — 실서버 미리보기 `stop`이 오래된 PID를 그대로 믿음(#1178 review-final F1, 기존 결함):** `ops/platform-api/conductor/scripts/app-preview.py` `stop`은 state JSON의 숫자 PID 그룹에 신호를 보내며, PID가 재사용됐으면 무관한 프로세스 그룹을 끊을 수 있다. 이유: #1178 범위(시작 경로) 밖이고 수명주기 코드라 fold하지 않는다. 다시 여는 조건: 이 스크립트의 stop·status를 다시 손볼 때, 신호 전에 살아 있는 그룹 리더의 `--fops-preview=<label>`/설정 파일 표식을 확인하고 불분명하면 건너뛴다.
