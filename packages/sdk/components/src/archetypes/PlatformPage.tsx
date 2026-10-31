@@ -1,4 +1,4 @@
-import { PageDensityProvider } from '../pageDensity';
+import { PageDensityProvider, useCompactPageDensity } from '../pageDensity';
 import { carriesReturnTo, formatInstant } from '@ap/contracts';
 import { formatQuerySummary, summaryPreset } from '../filters/querySummary';
 import { QueryBarExtensionContext, usePublishQueryBarExtension, type QueryBarExtension } from '../filters/QueryBarExtension';
@@ -323,7 +323,7 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
       ? <PageContextHead key={menu.id} menuId={menu.id} notes={notes} extension={contextExtension}
           summary={queryBarExtension?.appliedPageSummary ?? queryBarExtension?.pageSummary ?? []}
           pendingChanges={queryDraft.dirty.some(key => menu.pageKeys.includes(key))} issueCount={queryBarExtension?.issues.length ?? 0} />
-      : <div className="px-8 pt-3"><PageHeadBody notes={notes} extension={contextExtension} /></div>)}
+      : <div className={density === 'compact' ? 'px-4 pt-3' : 'px-8 pt-3'}><PageHeadBody notes={notes} extension={contextExtension} /></div>)}
     {screenMode === 'main' && !gate && carriesReturnTo(registry.carrySetOf(menu)) && <ReturnRow />}
     <div data-platform-page-content tabIndex={-1} className={cn(layout === 'fill' ? 'flex flex-1 flex-col' : 'flex-1', density === 'compact' ? 'px-4 pb-4 pt-3' : 'px-8 pb-9 pt-7')}>{gate ?? <OutcomeScope><OutcomeBanners compact={layout === 'fill'} />{layout === 'fill' ? <div data-platform-page-fill className={fixedFill ? 'flex min-h-[520px] flex-1 flex-col' : 'flex flex-1 flex-col'}>{children}</div> : children}</OutcomeScope>}</div>
   </div></PageFlowContext.Provider></QueryBarStatusContext.Provider></QueryBarExtensionContext.Provider></PageDensityProvider>;
@@ -334,8 +334,9 @@ function ReturnRow() {
   // The space carries no global Context by design, so "reverted Context" would always list everything the user never changed.
   const { origin, onNavigate } = useReturnNavigation({ announceReverted: false });
   const { t, tx } = useI18n();
+  const compact = useCompactPageDensity();
   if (!origin.accepted) return null;
-  return <div data-return-row className="flex h-8 shrink-0 items-center gap-3 border-b border-border-subtle px-8 text-xs">
+  return <div data-return-row className={cn('flex h-8 shrink-0 items-center gap-3 border-b border-border-subtle text-xs', compact ? 'px-4' : 'px-8')}>
     <PlatformLink via="return" href={origin.href} onNavigate={onNavigate} className="font-medium text-accent-primary hover:underline">{t('returnRowBack', { menu: tx(origin.menuLabel) })}</PlatformLink>
     {origin.spaceLabel !== null && <span className="text-text-muted">{t('returnRowFrom', { system: tx(origin.spaceLabel) })}</span>}
   </div>;

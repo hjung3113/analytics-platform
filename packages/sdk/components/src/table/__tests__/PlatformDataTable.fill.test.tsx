@@ -127,16 +127,19 @@ describe('right-pinned action column (#1166)', () => {
   });
 });
 
-describe('header wrapping (#1166)', () => {
-  it('never breaks a header word mid-word and names the full label in title; body cells keep wrapping anywhere', async () => {
+describe('header on one line (#1166)', () => {
+  it('keeps a header on one line with an ellipsis, names the full label in title, insets 16px; body cells keep wrapping anywhere', async () => {
     mount(800);
     await screen.findByRole('table', { name: 'table' });
     const header = document.querySelector('[role="columnheader"][data-column="b"]') as HTMLElement;
     expect(header.className).not.toContain('overflow-wrap:anywhere');
-    expect(header).toHaveClass('[overflow-wrap:normal]', 'overflow-hidden');
+    expect(header).toHaveClass('whitespace-nowrap', 'overflow-hidden', 'px-4');
+    expect(header).not.toHaveClass('px-3');
+    expect(header.querySelector('button span.truncate')?.textContent).toBe('ROOM_NAME');
+    expect(header.querySelector('button svg')).toHaveClass('shrink-0');
     expect(header).toHaveAttribute('title', 'ROOM_NAME');
     const cell = within(tableEl()).getAllByRole('cell')[1];
-    expect(cell).toHaveClass('[overflow-wrap:anywhere]');
+    expect(cell).toHaveClass('[overflow-wrap:anywhere]', 'whitespace-normal', 'px-4');
     expect(cell).not.toHaveClass('overflow-hidden');
   });
 });

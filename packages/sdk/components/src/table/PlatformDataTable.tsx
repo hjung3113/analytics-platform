@@ -276,8 +276,8 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
     return { width: widthOf(column), flexShrink: 0, position: pinned ? 'sticky' : 'relative', left: pinned === 'left' ? column.getStart('left') : undefined, right: pinned === 'right' ? column.getAfter('right') : undefined, zIndex: pinned ? 2 : undefined };
   }
   const align = (column: Column<T>) => ((column.columnDef.meta as ColumnMeta | undefined)?.align === 'right' ? 'justify-end text-right tabular' : '');
-  const headerBase = 'flex min-h-8 items-center overflow-hidden px-3 py-1 [overflow-wrap:normal] pointer-coarse:min-h-11';
-  const cellBase = cn(headerBase, 'overflow-visible [overflow-wrap:anywhere]');
+  const headerBase = 'flex min-h-8 items-center overflow-hidden whitespace-nowrap px-4 py-1 pointer-coarse:min-h-11';
+  const cellBase = cn(headerBase, 'overflow-visible whitespace-normal [overflow-wrap:anywhere]');
   /** The right-pinned action column keeps a visible edge while content scrolls beneath it (a border token; DESIGN.md allows no shadow). */
   const pinEdge = 'border-l border-l-border-control';
   const nameOf = (c: Column<T>) => (c.columnDef.meta as ColumnMeta | undefined)?.label ?? (typeof c.columnDef.header === 'string' ? c.columnDef.header : c.id);
@@ -417,11 +417,11 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
                 aria-sort={sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : h.column.getCanSort() ? 'none' : undefined}
                 className={cn(headerBase, 't-table-header border-b border-border-subtle bg-surface-sunken text-text-secondary', h.column.getIsPinned() === 'right' && pinEdge, align(h.column))}>
                 {h.column.getCanSort()
-                  ? <button type="button" onClick={h.column.getToggleSortingHandler()} className="-mx-1 inline-flex items-center gap-1 rounded-xs px-1 uppercase hover:text-text-primary">
-                      {flexRender(h.column.columnDef.header, h.getContext())}
-                      {sorted === 'asc' ? <ArrowUp className="size-3" aria-hidden /> : sorted === 'desc' ? <ArrowDown className="size-3" aria-hidden /> : <ArrowUpDown className="size-3 opacity-40" aria-hidden />}
+                  ? <button type="button" onClick={h.column.getToggleSortingHandler()} className="-mx-1 inline-flex min-w-0 items-center gap-1 rounded-xs px-1 uppercase hover:text-text-primary">
+                      <span className="min-w-0 truncate">{flexRender(h.column.columnDef.header, h.getContext())}</span>
+                      {sorted === 'asc' ? <ArrowUp className="size-3 shrink-0" aria-hidden /> : sorted === 'desc' ? <ArrowDown className="size-3 shrink-0" aria-hidden /> : <ArrowUpDown className="size-3 shrink-0 opacity-40" aria-hidden />}
                     </button>
-                  : flexRender(h.column.columnDef.header, h.getContext())}
+                  : <span className="min-w-0 truncate">{flexRender(h.column.columnDef.header, h.getContext())}</span>}
                 {/* #239: an always-visible 1px divider with an 8px grab area; double-click restores the default width. */}
                 {h.column.getCanResize() && <div aria-hidden data-column-resizer onMouseDown={startResize(h)} onTouchStart={startResize(h)} onDoubleClick={event => { event.preventDefault(); h.column.resetSize(); }} className="group/resize absolute right-0 top-0 flex h-full w-2 cursor-col-resize touch-none justify-end">
                   <span className={cn('h-full w-px', h.column.getIsResizing() ? 'bg-accent-primary' : 'bg-border-subtle group-hover/resize:bg-accent-primary')} />

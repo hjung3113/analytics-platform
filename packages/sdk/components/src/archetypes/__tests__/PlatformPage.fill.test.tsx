@@ -143,6 +143,19 @@ describe('opt-in page density (#1141)', () => {
   });
 });
 
+describe('page-level rows follow page density (#1166)', () => {
+  it.each(['flow', 'fill'] as const)('%s: the contextExtension row insets 32px in comfortable and aligns with the compact content at 16px', layout => {
+    const props = { layout, contextExtension: <div data-testid="ext">집계 단위</div> };
+    const view = mount(props);
+    const row = () => screen.getByTestId('ext').closest<HTMLElement>(layout === 'fill' ? '[data-page-head]' : '.pt-3')!;
+    expect(row()).toHaveClass('px-8');
+    view.unmount();
+    mount({ ...props, density: 'compact' });
+    expect(row()).toHaveClass('px-4');
+    expect(row()).not.toHaveClass('px-8');
+    expect(document.querySelector('[data-platform-page-content]')).toHaveClass('px-4');
+  });
+});
 
 it('PlatformPage carries visual density to descendants and nested pages retain their own default (#1141)', () => {
   function DensityProbe({ id }: { id: string }) { return <span data-testid={id}>{String(useCompactPageDensity())}</span>; }

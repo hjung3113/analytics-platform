@@ -222,7 +222,7 @@ export default function ProductivityOverview(_: PageProps) {
     ? kpiQ.response
     : drill.depth >= 2 && equipmentQ.response?.outcome === 'ok' ? equipmentQ.response : stgroupQ.response;
 
-  return <PlatformPage
+  return <PlatformPage density="compact"
     description={ko
       ? '물리 점유율 · 비Process 체류 · 사이클타임 P50/P95 · Job 처리량 요약. 수치는 합성 예시입니다.'
       : 'Physical occupancy, non-process dwell, cycle time P50/P95 and job throughput. Values are synthetic.'}

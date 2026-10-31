@@ -37,7 +37,7 @@ export default function ExecutionDetail({ params }: PageProps) {
   const equipmentLink = <Button asChild variant="secondary" size="sm"><PlatformLink href={linkTo('equipment-detail', { params: { equipmentId }, returnTo: true })}>{ko ? '설비 상세' : 'Equipment detail'}</PlatformLink></Button>;
   const voc = <Button asChild size="sm"><PlatformLink href={linkTo('voc')}>{ko ? 'VOC 생성(예정)' : 'Create VOC (planned)'}</PlatformLink></Button>;
 
-  return <PlatformPage
+  return <PlatformPage density="compact"
     title={<span className="inline-flex items-baseline gap-2">{ko ? '실행' : 'Execution'} <span className="t-mono">{equipmentId}</span></span>}
     description={ko
       ? 'occurrence는 (equipmentId, entityType, anchor)로만 식별합니다. 위 Context는 출발 분석의 참조이며 객체 구간을 자르지 않습니다.'

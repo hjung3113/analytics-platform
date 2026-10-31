@@ -169,7 +169,7 @@ Baseline (Decided — `DESIGN.md` `table-density` 토큰과 일치):
 ```text
 Row height       32px (최소, 데스크톱 기본)
 Header height    32px (최소)
-Cell padding     4px 12px
+Cell padding     4px 16px
 ```
 
 행 높이는 줄바꿈·포커스·24px 최소 타겟에 따라 32px보다 늘어날 수 있으며, coarse-pointer(터치) 행은 44px 타겟까지 커진다. 동작 열 버튼은 `toolbar`(32px) 크기라 동작 열 셀은 위아래 여백이 없고 행은 32px에 머문다.
