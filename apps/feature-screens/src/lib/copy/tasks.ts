@@ -21,6 +21,8 @@ export const RESPONSIBILITY_COPY = {
   undecided: '미결정',
   teamMark: '팀',
   ineligible: '지정할 수 없음',
+  ineligibleForSystem:
+    '선택한 사용자는 이 Managed System의 담당자로 지정할 수 없습니다. Finding 관리 권한이 필요합니다. 다른 사용자를 고르거나 자동 배정을 선택하세요.',
 };
 
 // #1181 Task detail Milestone row: inline assign/move/clear editor.

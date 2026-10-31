@@ -170,6 +170,15 @@ export function TaskRequestConversionForm({
             </SelectContent>
           </Select>
         )}
+        {conversion.responsibilityMode === 'actor' && conversion.assigneeError !== null && (
+          <p
+            role="alert"
+            className="text-xs text-accent-danger"
+            data-testid="task-request-convert-assignee-error"
+          >
+            {conversion.assigneeError}
+          </p>
+        )}
         {conversion.responsibilityMode === 'team' && (
           <Select
             value={conversion.teamId || NO_SELECTION}

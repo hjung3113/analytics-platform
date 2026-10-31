@@ -31,6 +31,7 @@ export const GLOSSARY = {
   linkedTask: '연결된 Task',
   requestedBy: '요청자',
   fromFinding: 'Finding에서',
+  fromTaskRequest: 'Task Request에서',
   reporterFacingStatus: '공개 상태',
   dismiss: '기각',
   dismissReason: '기각 사유',

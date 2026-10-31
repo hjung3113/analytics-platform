@@ -201,10 +201,15 @@ describe('<ReporterVocDetail> fed an operator envelope', () => {
     const text = document.body.textContent ?? '';
     for (const pattern of FORBIDDEN) expect(text).not.toMatch(pattern);
     expect(screen.queryByRole('tab', { name: '내부' })).toBeNull();
-    expect(screen.getAllByRole('button').map((button) => button.textContent)).toEqual([
-      '이전 항목 더보기',
-    ]);
-    expect(screen.queryByRole('textbox')).toBeNull();
+    // The only writes are timeline paging and the reporter's own reply (ReporterVocDetail.reply.test.tsx):
+    // no public update or internal composer, triage or Finding control.
+    expect(screen.getAllByRole('button').map((button) => button.textContent)).toEqual(
+      expect.arrayContaining(['이전 항목 더보기', '답변 보내기']),
+    );
+    expect(screen.queryByTestId('reporter-reply-composer')).not.toBeNull();
+    expect(screen.queryByTestId('public-update-composer')).toBeNull();
+    expect(screen.queryByTestId('internal-comment-composer')).toBeNull();
+    expect(screen.queryByRole('button', { name: /상태 변경|트리아지|Finding/ })).toBeNull();
 
     await waitFor(() => expect(paths).toContain('/actors?workspace=current'));
     for (const path of paths)
@@ -251,6 +256,7 @@ describe('<ReporterVocDetail> fed an operator envelope', () => {
       /로그인이 안 됩니다|VOC-0042|아침마다 로그인이 실패합니다|log\.txt|재현했습니다/,
     );
     expect(screen.queryByTestId('reporter-voc-detail')).toBeNull();
+    expect(screen.queryByTestId('reporter-reply-composer')).toBeNull();
     expect(screen.queryByRole('button')).toBeNull();
   });
 
