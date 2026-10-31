@@ -95,6 +95,8 @@ const MenuTabsList = React.forwardRef<
   const moreMeasureRef = React.useRef<HTMLSpanElement>(null);
   const selectedMeasureRef = React.useRef<HTMLSpanElement>(null);
   const widths = React.useRef(new Map<string, number>());
+  const labels = React.useRef(new Map<string, string>());
+  const savedStop = React.useRef<HTMLElement | null>(null);
   const [state, setState] = React.useState<OverflowState>(EMPTY_STATE);
   const stateRef = React.useRef(state);
   stateRef.current = state;
@@ -112,8 +114,15 @@ const MenuTabsList = React.forwardRef<
     if (wrapper === null || list === null) return;
     const triggers = Array.from(list.querySelectorAll<HTMLElement>('[role="tab"]'));
     const entries = triggers.map(el => ({ el, value: triggerValue(el), label: triggerLabel(el), disabled: el.hasAttribute('disabled') || el.getAttribute('aria-disabled') === 'true' }));
-    for (const { el, value } of entries) {
+    for (const { el, value, label } of entries) {
+      // 글자가 바뀌면 옛 폭을 버리고 다시 잰다. 숨은 트리거는 잠깐 펼쳐 재고 되돌린다(같은 동기 구간이라 그려지지 않는다).
+      const labelChanged = labels.current.get(value) !== label;
+      labels.current.set(value, label);
+      if (labelChanged) widths.current.delete(value);
+      const wasHidden = el.hidden;
+      if (wasHidden && !widths.current.has(value)) el.hidden = false;
       const width = el.hidden ? 0 : el.getBoundingClientRect().width;
+      el.hidden = wasHidden;
       if (width > 0) widths.current.set(value, width);
     }
     const selected = entries.find(({ el }) => el.getAttribute('data-state') === 'active')?.value ?? null;
@@ -130,6 +139,19 @@ const MenuTabsList = React.forwardRef<
     }
     const hiddenSet = new Set(hidden);
     for (const { el, value } of entries) el.hidden = hiddenSet.has(value);
+    // 선택된 탭이 숨으면 보이는 탭의 롤링 Tab 정거장(tabindex=0)을 모두 -1로 눌러 더보기 버튼만 남긴다. 다시 보이면 마지막 정거장을 되돌린다.
+    const selectedIsHidden = selected !== null && hiddenSet.has(selected);
+    for (const { el } of entries) {
+      if (el.hidden) continue;
+      if (selectedIsHidden) {
+        if (el.getAttribute('tabindex') !== '-1') { savedStop.current = el; el.setAttribute('tabindex', '-1'); }
+      }
+    }
+    if (!selectedIsHidden && savedStop.current !== null) {
+      const stop = savedStop.current;
+      savedStop.current = null;
+      if (stop.isConnected && !stop.hidden && entries.every(({ el }) => el.getAttribute('tabindex') !== '0')) stop.setAttribute('tabindex', '0');
+    }
     const next: OverflowState = { items: entries.map(({ value, label, disabled }) => ({ value, label, disabled })), hidden, selected };
     if (!sameState(stateRef.current, next)) setState(next);
   }, []);
@@ -142,7 +164,7 @@ const MenuTabsList = React.forwardRef<
     const resize = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => recompute());
     resize?.observe(wrapper);
     const mutation = typeof MutationObserver === 'undefined' ? null : new MutationObserver(() => recompute());
-    mutation?.observe(list, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['data-state', 'disabled', 'aria-disabled', 'aria-label'] });
+    mutation?.observe(list, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['data-state', 'disabled', 'aria-disabled', 'aria-label', 'tabindex'] });
     return () => { resize?.disconnect(); mutation?.disconnect(); };
   }, [recompute]);
 

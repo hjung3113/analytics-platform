@@ -178,5 +178,50 @@ it('default overflow renders no wrapper and no menu button', () => {
   expect(list.parentElement?.querySelector('button[aria-haspopup="menu"]')).toBeNull();
   expect(list.parentElement?.getAttribute('role')).toBeNull();
   expect(list.parentElement?.contains(list)).toBe(true);
+  expect(list.parentElement?.hasAttribute('data-orientation')).toBe(true);
+  expect(list.parentElement?.querySelector(':scope > [role="tablist"]')).toBe(list);
   expect(list.classList.contains('overflow-x-auto')).toBe(true);
+});
+
+it('F1: a hidden selected tab leaves the 더보기 button as the only Tab stop, and the stop returns when it is visible again', () => {
+  function Ctl({ value }: { value: string }) { return tree({ value, onValueChange: () => {} }); }
+  const { rerender } = render(<Ctl value="a" />);
+  resizeTo(400);
+  const visible = screen.getAllByRole('tab');
+  act(() => visible[1]!.focus());
+  rerender(<Ctl value="e" />);
+  const row = () => screen.getByRole('tablist').parentElement!;
+  const stops = () => Array.from(row().querySelectorAll<HTMLElement>('[tabindex="0"]'));
+  expect(stops()).toEqual([moreButton()]);
+  expect(screen.getAllByRole('tab').every(t => t.getAttribute('tabindex') === '-1')).toBe(true);
+  expect(tabByLabel('상관').getAttribute('aria-selected')).toBe('true');
+  rerender(<Ctl value="a" />);
+  expect(stops()).toHaveLength(1);
+  expect(stops()[0]!.getAttribute('role')).toBe('tab');
+});
+
+it('F2: a hidden tab whose label shrinks returns to the row', () => {
+  const base = (HTMLElement.prototype.getBoundingClientRect as unknown as { getMockImplementation(): (this: HTMLElement) => DOMRect }).getMockImplementation();
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+    if (this.getAttribute('role') === 'tab' && this.textContent!.startsWith('짧')) return { ...base.call(this), width: 40 } as DOMRect;
+    return base.call(this);
+  });
+  function Short({ d }: { d: string }) {
+    return (
+      <Tabs defaultValue="a">
+        <TabsList aria-label="종류" overflow="menu">
+          {['a', 'b', 'c'].map(v => <TabsTrigger key={v} value={v}>{LABELS[v]}</TabsTrigger>)}
+          <TabsTrigger value="d">{d}</TabsTrigger>
+          <TabsTrigger value="e">상관</TabsTrigger>
+        </TabsList>
+      </Tabs>
+    );
+  }
+  const { rerender } = render(<Short d="분해 막대" />);
+  resizeTo(450);
+  expect(screen.getAllByRole('tab')).toHaveLength(3);
+  rerender(<Short d="짧" />);
+  act(() => observers.forEach(cb => cb()));
+  expect(moreButton()).toBeNull();
+  expect(screen.getAllByRole('tab')).toHaveLength(5);
 });
