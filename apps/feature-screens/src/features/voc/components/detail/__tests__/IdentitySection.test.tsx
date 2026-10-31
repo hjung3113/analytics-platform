@@ -1,42 +1,149 @@
-// The slot omits the body title when the host header already shows it (#1168 C-1);
-// the full-page body keeps its title block.
-
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { GLOSSARY } from '@/lib/copy/glossary';
+import { vocDetailEnvelopeSchema } from '@ap/feature-shared';
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/api/me', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api/me')>()),
-  useMeBridge: () => ({ data: undefined }),
+  useMeBridge: vi.fn(),
+}));
+vi.mock('@/lib/cross-system/useManagedSystem', () => ({ useManagedSystem: vi.fn() }));
+vi.mock('@/lib/format/datetime', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/format/datetime')>()),
+  formatRelativeTime: (_iso: string) => '방금 전',
 }));
 
-import { IdentitySection } from '../IdentitySection';
-import { DETAIL_ENVELOPE } from './_fixtures';
+import { useMeBridge } from '@/lib/api/me';
+import { useManagedSystem } from '@/lib/cross-system/useManagedSystem';
+import { IdentityMetadataStrip, IdentitySection } from '../IdentitySection';
+import { DETAIL_ENVELOPE, ME_RESPONSE, OTHER_ACTOR_ID } from './_fixtures';
 
-function mount(titleInHeader?: boolean) {
-  render(
-    <QueryClientProvider client={new QueryClient()}>
+beforeEach(() => {
+  vi.mocked(useManagedSystem).mockReturnValue(null);
+  vi.mocked(useMeBridge).mockReturnValue({ data: ME_RESPONSE } as ReturnType<typeof useMeBridge>);
+});
+
+describe('<IdentitySection>', () => {
+  it('renders the VOC title', () => {
+    render(<IdentitySection voc={DETAIL_ENVELOPE} />);
+    expect(screen.getByText('테스트 VOC 제목')).toBeInTheDocument();
+  });
+
+  it('renders ReporterStatusBadge', () => {
+    render(<IdentitySection voc={DETAIL_ENVELOPE} />);
+    // ReporterStatusBadge renders Korean label '접수됨' for 'received'
+    expect(screen.getByText('접수됨')).toBeInTheDocument();
+  });
+
+  it('does NOT render SeverityBadge in the title group', () => {
+    render(<IdentitySection voc={{ ...DETAIL_ENVELOPE, severity: 'high' }} />);
+    // Severity must not appear in the title block per .review/title-reference.png.
+    expect(screen.queryByText('높음')).not.toBeInTheDocument();
+  });
+
+  it('keeps Managed System and source chips while omitting severity and Analytics Area', () => {
+    vi.mocked(useManagedSystem).mockReturnValue({
+      id: DETAIL_ENVELOPE.primary_managed_system_id,
+      name: '운영 시스템',
+      mark: 'bg-entity-icon-task',
+      archived: false,
+    });
+    render(
+      <IdentityMetadataStrip
+        voc={{ ...DETAIL_ENVELOPE, severity: 'high', analytics_area_id: 'area-1' }}
+      />,
+    );
+    expect(screen.getByText('운영 시스템')).toBeInTheDocument();
+    expect(screen.getByText('직접 사용')).toBeInTheDocument();
+    expect(screen.queryByText('높음')).not.toBeInTheDocument();
+    expect(screen.queryByText('Analytics Area')).not.toBeInTheDocument();
+  });
+
+  it('renders the shared PanelTitleBlock at prototype lg typography', () => {
+    render(<IdentitySection voc={DETAIL_ENVELOPE} />);
+    const h2 = screen.getByRole('heading', { level: 2 });
+    expect(h2).toHaveClass('text-lg');
+    expect(h2).toHaveClass('font-semibold');
+    expect(h2).toHaveClass('leading-[1.35]');
+    expect(h2).not.toHaveClass('text-xl');
+  });
+
+  it('aligns the title block to the section nav 24px left inset (inset now on scroll container)', () => {
+    render(<IdentitySection voc={DETAIL_ENVELOPE} />);
+    const h2 = screen.getByRole('heading', { level: 2 });
+    // px-6 removed from IdentitySection; horizontal inset is now on the
+    // VocDetailPanel scroll container (pt-7 px-6 pb-16) — matching triage pattern.
+    expect(h2.parentElement?.parentElement).not.toHaveClass('px-6');
+    expect(h2.parentElement?.parentElement).toHaveClass('mb-4');
+  });
+
+  it('renders the reporter+time meta line as "<reporter> · <relative>" (no FieldRow labels)', () => {
+    render(<IdentitySection voc={DETAIL_ENVELOPE} />);
+    // Reference: ".review/title-reference.png" — single horizontal meta row
+    // below the title: status pill + reporter name + middle-dot + relative time.
+    // The verbose '제출자' / '제출 시각' FieldRow labels must be gone.
+    expect(screen.queryByText('제출자')).not.toBeInTheDocument();
+    expect(screen.queryByText('제출 시각')).not.toBeInTheDocument();
+    // Reporter + relative coexist on the page.
+    expect(screen.getByText('김개발')).toBeInTheDocument();
+    expect(screen.getByText('방금 전')).toBeInTheDocument();
+  });
+
+  it('shows resolved reporter display_name when reporter_id does not match me', () => {
+    render(
       <IdentitySection
-        voc={DETAIL_ENVELOPE}
-        reporterDisplayName="신고자"
-        {...(titleInHeader ? { titleInHeader } : {})}
-      />
-    </QueryClientProvider>,
-  );
-}
+        voc={{ ...DETAIL_ENVELOPE, reporter_id: OTHER_ACTOR_ID }}
+        reporterDisplayName="박운영"
+      />,
+    );
+    expect(screen.getByText('박운영')).toBeInTheDocument();
+    expect(screen.queryByText(`Actor ${OTHER_ACTOR_ID.slice(0, 8)}`)).not.toBeInTheDocument();
+  });
 
-describe('IdentitySection slot title (#1168 C-1)', () => {
+  it('uses the glossary unknown-user label when the reporter name is unresolved', () => {
+    render(<IdentitySection voc={{ ...DETAIL_ENVELOPE, reporter_id: OTHER_ACTOR_ID }} />);
+
+    expect(screen.getByText(GLOSSARY.unknownUser)).toBeInTheDocument();
+  });
+
+  it('omits Analytics Area from the metadata strip', () => {
+    render(
+      <IdentityMetadataStrip
+        voc={{ ...DETAIL_ENVELOPE, analytics_area_id: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee' }}
+      />,
+    );
+    expect(screen.queryByText('Analytics Area')).not.toBeInTheDocument();
+  });
+});
+
+it('omits severity metadata for a schema-parsed reporter detail', () => {
+  const { severity: _hidden, ...wire } = DETAIL_ENVELOPE;
+  const voc = vocDetailEnvelopeSchema.parse({
+    ...wire,
+    id: OTHER_ACTOR_ID,
+    primary_managed_system_id: OTHER_ACTOR_ID,
+  });
+  const { container } = render(<IdentityMetadataStrip voc={voc} />);
+  expect(container.querySelector('[data-severity]')).toBeNull();
+  expect(screen.queryByText('높음')).not.toBeInTheDocument();
+});
+
+describe('<IdentitySection> slot title (#1168 C-1)', () => {
   it('renders the title block by default (the full-page body keeps it)', () => {
-    mount();
+    render(<IdentitySection voc={DETAIL_ENVELOPE} />);
 
     expect(screen.getByRole('heading', { name: DETAIL_ENVELOPE.title })).toBeInTheDocument();
-    expect(screen.getByText('신고자')).toBeInTheDocument();
+    expect(screen.getByText('접수됨')).toBeInTheDocument();
+    expect(screen.getByText('방금 전')).toBeInTheDocument();
   });
 
   it('omits the title when the host header shows it and keeps the status · reporter · time row', () => {
-    mount(true);
+    render(<IdentitySection voc={DETAIL_ENVELOPE} titleInHeader />);
 
     expect(screen.queryByRole('heading', { name: DETAIL_ENVELOPE.title })).toBeNull();
-    expect(screen.getByText('신고자')).toBeInTheDocument();
+    expect(screen.queryByText(DETAIL_ENVELOPE.title)).toBeNull();
+    expect(screen.getByText('접수됨')).toBeInTheDocument();
+    expect(screen.getByText('김개발')).toBeInTheDocument();
+    expect(screen.getByText('방금 전')).toBeInTheDocument();
   });
 });
