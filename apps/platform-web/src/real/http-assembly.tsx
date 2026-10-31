@@ -33,6 +33,32 @@ function Unavailable({ correlationId }: { correlationId: string }) {
   );
 }
 
+/** The rate-limit wait phrase's rounding, matching the platform copy (feature `rate-limit.ts`): `{n}초` below a minute, then rounded-up `{m}분`; a non-positive value has no phrase. */
+function retryAfterPhrase(retryAfterSeconds?: number): string | undefined {
+  if (retryAfterSeconds === undefined || retryAfterSeconds <= 0) return undefined;
+  return retryAfterSeconds < 60 ? `${retryAfterSeconds}초` : `${Math.ceil(retryAfterSeconds / 60)}분`;
+}
+
+/** Same static shape as Unavailable for a full rate limit (#1179): the wait the server named, no countdown, no timer. */
+function Throttled({ correlationId, retryAfterSeconds }: { correlationId: string; retryAfterSeconds?: number }) {
+  const wait = retryAfterPhrase(retryAfterSeconds);
+  return (
+    <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-4 p-6">
+      <Alert variant="destructive">
+        <AlertTitle>요청이 너무 많습니다</AlertTitle>
+        <AlertDescription>
+          {wait === undefined ? '잠시 후 다시 시도해 주세요.' : `${wait} 후 다시 시도해 주세요.`}
+          <br />
+          문제가 계속되면 아래 번호를 담당자에게 알려 주세요.
+          <br />
+          <code>{correlationId}</code>
+        </AlertDescription>
+      </Alert>
+      <Button onClick={() => window.location.reload()}>다시 시도</Button>
+    </main>
+  );
+}
+
 type Deps = {
   bootstrap: (options: HttpAdapterOptions) => Promise<BootstrapResult>;
   where: () => Where;
@@ -69,6 +95,7 @@ export function createRealAssembly({ bootstrap, where, importEnvironment = pageE
       return { adapter: withNoticeInvalidation(result.adapter, invalidation), topBarTools: null, serverPreferences: true, savedViews: serverSavedViews(result, importEnvironment), featureApi: { basePath: FEATURE_API_PREFIX, onSessionLost }, invalidation: { subscribe: invalidation.subscribe } };
     }
     if (result.kind === 'login') return login;
+    if (result.kind === 'throttled') return { screen: <Throttled correlationId={result.correlationId} retryAfterSeconds={result.retryAfterSeconds} /> };
     return { screen: <Unavailable correlationId={result.correlationId} /> };
   };
 }
