@@ -4,6 +4,7 @@ import { I18nProvider, type QueryState } from '@ap/kernel';
 import type { ApiResponse } from '@ap/contracts';
 import { QueryView } from './StateView';
 import { InWorkspacePanelProvider } from './workspace/panelContext';
+import { QueryBarStatusContext } from './filters/QueryBarStatus';
 
 afterEach(cleanup);
 
@@ -81,5 +82,26 @@ describe('QueryView inside a workspace panel', () => {
     unmount();
     const plain = render(<I18nProvider><QueryView query={ok()}>{data => <p>{data}</p>}</QueryView></I18nProvider>);
     expect(plain.container.querySelector('p')!.parentElement).not.toHaveClass('h-full');
+  });
+});
+
+describe('QueryView idle beside the query bar (#1170)', () => {
+  const idle = (keys: string[]): QueryState<unknown> => ({ status: 'idle', response: null, refetch: vi.fn(), missing: keys.map(key => ({ key, label: { ko: key === 'time' ? '기간' : '공정', en: key } })), completedAt: null });
+  const withBar = (reasonKeys: string[], keys: string[]) => (
+    <I18nProvider><QueryBarStatusContext.Provider value={{ status: { folded: false, editing: false, reasonKeys }, report: () => {} }}><QueryView query={idle(keys)}>{() => <span>result</span>}</QueryView></QueryBarStatusContext.Provider></I18nProvider>);
+  it('omits the list and points to the bar when the bar covers every missing item', () => {
+    render(withBar(['time', 'roomNames', 'scope'], ['time', 'roomNames']));
+    expect(screen.getByRole('status')).toHaveTextContent('아직 조회하지 않았습니다');
+    expect(screen.getByRole('status')).toHaveTextContent('위 조회 조건의 안내를 확인하세요.');
+    expect(screen.queryByRole('listitem')).toBeNull();
+  });
+  it('keeps the list when the bar covers only some of the missing items', () => {
+    render(withBar(['roomNames'], ['time', 'roomNames']));
+    expect(screen.getAllByRole('listitem')).toHaveLength(2);
+    expect(screen.queryByText('위 조회 조건의 안내를 확인하세요.')).toBeNull();
+  });
+  it('keeps the list when no bar reports', () => {
+    render(<I18nProvider><QueryView query={idle(['time'])}>{() => <span>result</span>}</QueryView></I18nProvider>);
+    expect(screen.getByRole('listitem')).toHaveTextContent('기간을 선택하세요');
   });
 });

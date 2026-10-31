@@ -5,6 +5,7 @@ import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
 import { PaneScreenProvider } from '@ap/kernel/host';
 import { memoryStorage, noContext, testAdapter, testSpace } from '@ap/kernel/testing';
 import { PlatformPage, type PlatformPageProps } from '../PlatformPage';
+import { useReportQueryBarStatus, type QueryBarStatus } from '../../filters/QueryBarStatus';
 import { groupId, spaceId } from '@ap/contracts';
 
 function view(result: PlatformPageProps['queryResult'], apply = true, pane = false) {
@@ -59,4 +60,28 @@ it('counts only the collapsed query row in the sticky offset', () => {
   const expanded = render(slot(false));
   expect(expanded.container.querySelector<HTMLElement>('[data-platform-page]')?.style.getPropertyValue('--page-sticky-offset')).toBe('50px');
   vi.restoreAllMocks();
+});
+
+// The bar lives in the shell; a reporter in the contextBar slot stands in for it without coupling components tests to the shell (#1170).
+function Reporter({ status }: { status: QueryBarStatus }) { useReportQueryBarStatus(status); return null; }
+function withBar(status: QueryBarStatus, result: PlatformPageProps['queryResult']) {
+  const tree = view(result);
+  const provider = tree.props.children;
+  return { ...tree, props: { ...tree.props, children: { ...provider, props: { ...provider.props, slots: { contextBar: <Reporter status={status} /> } } } } };
+}
+const DONE = { status: 'done', completedAt: 1_800_000_000_000 } as const;
+it.each([
+  ['folded, not editing', { folded: true, editing: false, reasonKeys: [] }, false],
+  ['folded, editing', { folded: true, editing: true, reasonKeys: [] }, true],
+  ['expanded, not editing', { folded: false, editing: false, reasonKeys: [] }, true],
+] as const)('strip with the bar %s: applied values shown = %s, completion time always (#1170)', (_name, status, valuesShown) => {
+  vi.stubGlobal('localStorage', memoryStorage());
+  render(withBar(status, DONE));
+  const strip = screen.getByRole('region', { name: '적용된 조회 조건' });
+  expect(strip).toHaveTextContent('요약 조회 완료');
+  if (valuesShown) expect(strip).toHaveTextContent('공정 PHOTO'); else expect(strip).not.toHaveTextContent('공정 PHOTO');
+});
+it('hides the strip when the folded bar leaves nothing to say (no completion yet) (#1170)', () => {
+  render(withBar({ folded: true, editing: false, reasonKeys: [] }, { status: 'loading', completedAt: null }));
+  expect(screen.queryByRole('region', { name: '적용된 조회 조건' })).toBeNull();
 });

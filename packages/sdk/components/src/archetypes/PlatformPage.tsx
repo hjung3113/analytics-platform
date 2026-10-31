@@ -2,6 +2,7 @@ import { PageDensityProvider } from '../pageDensity';
 import { carriesReturnTo, formatInstant } from '@ap/contracts';
 import { formatQuerySummary, summaryPreset } from '../filters/querySummary';
 import { QueryBarExtensionContext, usePublishQueryBarExtension, type QueryBarExtension } from '../filters/QueryBarExtension';
+import { QueryBarStatusContext, useQueryBarStatus, type QueryBarStatus } from '../filters/QueryBarStatus';
 import { OutcomeBanners, OutcomeScope } from '../filters/OutcomeScope';
 import { PageContextHead, PageHeadBody } from './PageContextHead';
 import { ChevronRight, Info, Loader2, MapPinOff, MoreHorizontal, RotateCw, ServerCrash, Star } from 'lucide-react';
@@ -130,6 +131,11 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
   // A board pane draws content only: the board owns the pane head and the Context bar, and no arrival focus moves here (ADR-0049).
   const inPane = screenMode === 'pane';
   usePublishQueryBarExtension(queryBarExtension);
+  // The query bar inside this page reports what it shows; a board pane's bar lives in another tree and arrives through the shared store.
+  const [barStatus, setBarStatus] = useState<QueryBarStatus | null>(null);
+  const localBarStatus = useMemo(() => ({ status: barStatus, report: setBarStatus }), [barStatus]);
+  const paneBarStatus = useQueryBarStatus();
+  const shownBarStatus = barStatus ?? paneBarStatus;
   const { t, tx, lang } = useI18n();
   const heading = useRef<HTMLHeadingElement>(null);
   const programmaticHeadingFocus = useRef(false);
@@ -252,7 +258,10 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
   const leftGroupMinWidth = `calc(7rem + ${leftGroupControls * 1.5}rem + ${(leftGroupItems - 1) * 0.5}rem)`;
 
   const fixedFill = layout === 'fill' && flowing === 0;
-  return <PageDensityProvider value={density}><QueryBarExtensionContext.Provider value={queryBarExtension}><PageFlowContext.Provider value={layout === 'fill' ? registerFlow : null}><div ref={root} data-platform-page data-page-layout={layout === 'fill' ? 'fill' : undefined} className={fixedFill ? 'flex h-full min-h-0 flex-col' : 'flex min-h-full flex-col'}>
+  // A folded bar that is not editing already prints the applied values in its summary (#1170): the strip keeps only the completion time.
+  const appliedValuesShown = !(shownBarStatus?.folded && !shownBarStatus.editing);
+  const completionShown = queryResult != null && queryResult.completedAt !== null && (queryResult.status === 'done' || queryResult.status === 'refreshing');
+  return <PageDensityProvider value={density}><QueryBarExtensionContext.Provider value={queryBarExtension}><QueryBarStatusContext.Provider value={localBarStatus}><PageFlowContext.Provider value={layout === 'fill' ? registerFlow : null}><div ref={root} data-platform-page data-page-layout={layout === 'fill' ? 'fill' : undefined} className={fixedFill ? 'flex h-full min-h-0 flex-col' : 'flex min-h-full flex-col'}>
     {!inPane && <div ref={stickyHeader} data-page-sticky-header className="sticky top-0 z-20 shrink-0 bg-surface-canvas">
       <header ref={pageHeader} onFocus={event => {
         const header = event.currentTarget;
@@ -306,9 +315,9 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
       {menu.query?.mode !== 'apply' && slots.contextBar}
     </div>}
     {!inPane && menu.query?.mode === 'apply' && slots.contextBar}
-    {!gate && menu.query?.mode === 'apply' && queryResult && <section role="region" aria-label={lang === 'ko' ? '적용된 조회 조건' : 'Applied query conditions'} className="flex flex-wrap gap-2 border-b border-border-subtle px-4 py-2 text-xs text-text-secondary">
-      <span className="min-w-0 [overflow-wrap:anywhere]">{formatQuerySummary(global, page, { lang, axes: equipmentAxes, context: menu.context, pageSummary: queryBarExtension?.appliedPageSummary, preset: summaryPreset(conditionPreset, 'applied') })}</span>
-      {queryResult.completedAt !== null && (queryResult.status === 'done' || queryResult.status === 'refreshing') && <span>{lang === 'ko' ? '요약 조회 완료' : 'Summary response completed'} {formatInstant(queryResult.completedAt, lang)}</span>}
+    {!gate && menu.query?.mode === 'apply' && queryResult && (appliedValuesShown || completionShown) && <section role="region" aria-label={lang === 'ko' ? '적용된 조회 조건' : 'Applied query conditions'} className="flex flex-wrap gap-2 border-b border-border-subtle px-4 py-2 text-xs text-text-secondary">
+      {appliedValuesShown && <span className="min-w-0 [overflow-wrap:anywhere]">{formatQuerySummary(global, page, { lang, axes: equipmentAxes, context: menu.context, pageSummary: queryBarExtension?.appliedPageSummary, preset: summaryPreset(conditionPreset, 'applied') })}</span>}
+      {completionShown && <span>{lang === 'ko' ? '요약 조회 완료' : 'Summary response completed'} {formatInstant(queryResult!.completedAt!, lang)}</span>}
     </section>}
     {headVisible && (layout === 'fill'
       ? <PageContextHead key={menu.id} menuId={menu.id} notes={notes} extension={contextExtension}
@@ -317,7 +326,7 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
       : <div className="px-8 pt-3"><PageHeadBody notes={notes} extension={contextExtension} /></div>)}
     {screenMode === 'main' && !gate && carriesReturnTo(registry.carrySetOf(menu)) && <ReturnRow />}
     <div data-platform-page-content tabIndex={-1} className={cn(layout === 'fill' ? 'flex flex-1 flex-col' : 'flex-1', density === 'compact' ? 'px-4 pb-4 pt-3' : 'px-8 pb-9 pt-7')}>{gate ?? <OutcomeScope><OutcomeBanners compact={layout === 'fill'} />{layout === 'fill' ? <div data-platform-page-fill className={fixedFill ? 'flex min-h-[520px] flex-1 flex-col' : 'flex flex-1 flex-col'}>{children}</div> : children}</OutcomeScope>}</div>
-  </div></PageFlowContext.Provider></QueryBarExtensionContext.Provider></PageDensityProvider>;
+  </div></PageFlowContext.Provider></QueryBarStatusContext.Provider></QueryBarExtensionContext.Provider></PageDensityProvider>;
 }
 
 /** The way back into a carry set that lists `returnTo` (ADR-0081 UX-10): drawn only for an origin `safeReturnTo` and `canOpen` accepted, never for a parent/home fallback. */

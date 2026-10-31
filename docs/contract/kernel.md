@@ -381,10 +381,10 @@ Apply 모드의 Line·PRC 그룹은 독립 전역 키 옵션 포트로 편집하
 
 ### 일괄 적용 조회(Decided, ADR-0061)
 
-- `GlobalContextBar`는 메뉴 `query.mode: 'apply'`일 때 SDK `QueryBar`로 전환하며 기존 live 메타데이터 effect를 마운트하지 않는다. 펼친 조회 바는 기간·공정·Line·PRC와 주입 축·소속 기준·EquipmentID 두 그룹, 미지원·참조 전달값 제거 영역, 단일 적용 동작을 제공한다. 전역 Scope 선택은 기존 즉시 동작을 유지한다. 접힌 요약은 실제 초안값과 적용값을 구별하고 전체값 열기를 제공하며 유효한 초안은 펼치지 않아도 적용한다.
+- `GlobalContextBar`는 메뉴 `query.mode: 'apply'`일 때 SDK `QueryBar`로 전환하며 기존 live 메타데이터 effect를 마운트하지 않는다. 펼친 조회 바는 기간·공정·Line·PRC와 주입 축·소속 기준·EquipmentID 두 그룹, 미지원·참조 전달값 제거 영역, 단일 적용 동작을 제공한다. 전역 Scope 선택은 기존 즉시 동작을 유지한다. 접힌 요약은 실제 초안값과 적용값을 구별하고 전체값 열기를 제공하며 유효한 초안은 펼치지 않아도 적용한다. 조회 바는 자기가 접혔는지·편집 중인지·어떤 사유를 그리는지를 `useReportQueryBarStatus`로 페이지(`PlatformPage`, 칸은 시트 저장소)에 알리고, 페이지는 같은 말을 두 번 하지 않는 데 쓴다(2026-10-31 소유자, #1170) — 아래 적용 조건 스트립과 06 §19 QueryState idle. 바가 없는 페이지는 신호가 없어 모든 안내를 그대로 둔다.
 - `null`은 전체 후보, `[]`는 명시적 빈 선택이다. Condition 축의 마지막 값 제거는 키를 지운다. 후보 페이지에 없는 값은 보존하며 조합 판정은 서버가 한다. 조회 바는 필수 누락뿐 아니라 Scope·유효성·메뉴 page 오류·커밋 대기 사유를 설명한다.
 - `PageFilterBar mode="draft"`는 제어된 필드 API를 유지하고 자체 Apply/form 제출만 없앤다. 메뉴는 초안 page·기간에서 값·기본값·요약·오류를 계산하고 `PlatformPage.queryBarExtension`으로 전달한다. 결과·차트·목록·내보내기·드릴 링크는 적용값을 유지한다. 첫 소비자는 cycle-time(기간·공정 필수)이고 다른 메뉴는 live다.
-- `PlatformPage.queryResult`는 메뉴가 고른 권위 있는 요약 쿼리의 `status/completedAt`이다. 정상 머리 아래(칸은 본문 안) 적용 조건 스트립에 적용값과 `요약 조회 완료` instant를 표시하며 viewer 시간대로 포맷한다. idle/loading/null은 완료를 숨기고 같은 신원의 refreshing은 기존 완료를 유지한다. 오류 응답의 완료도 성공 주장 없이 표시한다. cycle-time은 KPI 쿼리를 원천으로 쓰고 다른 위젯 오류는 기존 OutcomeScope로 남긴다. SDK는 쿼리를 추가·집계하지 않는다.
+- `PlatformPage.queryResult`는 메뉴가 고른 권위 있는 요약 쿼리의 `status/completedAt`이다. 정상 머리 아래(칸은 본문 안) 적용 조건 스트립에 적용값과 `요약 조회 완료` instant를 표시하며 viewer 시간대로 포맷한다. 조회 바가 접혀 있고 편집 중이 아니면(접힌 요약이 이미 적용값이다) 스트립은 적용값을 빼고 `요약 조회 완료 <instant>`만 보이며 둘 다 없으면 스트립을 그리지 않는다. 편집 중이거나 바가 펼쳐져 있거나 바 신호가 없으면 적용값과 instant를 함께 보인다(#1170). idle/loading/null은 완료를 숨기고 같은 신원의 refreshing은 기존 완료를 유지한다. 오류 응답의 완료도 성공 주장 없이 표시한다. cycle-time은 KPI 쿼리를 원천으로 쓰고 다른 위젯 오류는 기존 OutcomeScope로 남긴다. SDK는 쿼리를 추가·집계하지 않는다.
 
 - `useQueryDraft()`는 `{ mode, draft: {global,page}, dirty, setDraftGlobal, setDraftPage, apply, revert, reset, missing, canApply, applying }`를 제공한다. live에서는 적용값을 비추고 setter가 기존 API로 통과한다. dirty는 비어 있고 apply/revert/reset은 no-op이다.
 - 초안은 논리적 화면마다 하나다. 본 화면·다른 칸은 격리하고 같은 칸의 본문·Context 바는 시트 수명 소유자 `PaneQueryDraftProvider screens` 아래서 같은 저장소를 읽는다. 칸 선택·숨김·접힘·편집기 재마운트는 초안을 보존한다. 칸/시트 제거, 메뉴·경로 params·세션 교체는 폐기한다.

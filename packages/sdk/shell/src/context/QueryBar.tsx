@@ -4,7 +4,7 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 import { formatPeriod, parseDateTime, periodHours, shift, type GlobalContext, type IdSet } from '@ap/contracts';
 import { CONTEXT_LABELS, useAxisOptions, useConditionPreset, useEquipmentSearch, queryMissingSentence, useI18n, useQueryDraft, useResolvedSelection, type PortContext } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
-import { formatQuerySummary, presetOutsideAxes, querySummaryItems, SegmentedRadio, summaryPreset, useQueryBarExtension } from '@ap/components';
+import { formatQuerySummary, presetOutsideAxes, querySummaryItems, SegmentedRadio, summaryPreset, useQueryBarExtension, useReportQueryBarStatus } from '@ap/components';
 import { Alert, AlertDescription, Button, Input, MultiCombobox, Popover, PopoverContent, PopoverTrigger, readLocalStorage, writeLocalStorage } from '@ap/ui';
 import { isTrailingPeriod } from '../frame/trailingPeriod';
 import { ShareControl } from './ShareControl';
@@ -103,6 +103,7 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
   const changes = new Set(dirty.map(key => key === 'from' || key === 'to' ? 'time' : key)).size;
   const notApplied = global.from === null && g.from !== null;
   const editing = dirty.length > 0 || (global.from === null && g.from !== null);
+  useReportQueryBarStatus({ folded: !expanded, editing, reasonKeys: reasons.map(r => r.key) });
   const summary = formatQuerySummary(g, draft.page, { ...summaryOptions, preset: summaryPreset(conditionPreset, 'draft') });
   const applied = formatQuerySummary(global, page, { ...summaryOptions, pageSummary: extension?.appliedPageSummary, preset: summaryPreset(conditionPreset, 'applied') });
   const invalid = (key: string) => missing.some(m => m.key === key);
