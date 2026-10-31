@@ -8,6 +8,7 @@ import { CommandPalette } from '../routing/CommandPalette';
 import { AppSidebar } from './AppSidebar';
 import { PlatformSidebar } from './PlatformSidebar';
 import { AppRail } from './AppRail';
+import { PROTO_1189, ProtoHeadSwitcherContext } from './proto1189';
 import { useVocDrawer, VocDrawer, VocDrawerContext } from '../voc/VocDrawer';
 import { BoardRestoreChip } from '../board/BoardRestoreChip';
 import { useBoardPresentation } from '../board/boardPresentation';
@@ -49,7 +50,7 @@ function ShellLayout({ children }: { children: ReactNode }) {
 
   return <div className="flex h-full overflow-hidden">
     <a href="#platform-main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-sm focus:bg-surface-card focus:px-3 focus:py-2">{t('skipToContent')}</a>
-    <VocDrawerContext.Provider value={voc}><AppRail /></VocDrawerContext.Provider>
+    <ProtoHeadSwitcherContext.Provider value={PROTO_1189 === 'C' && (showSidebar || showPlatformSidebar) && !collapsed}><VocDrawerContext.Provider value={voc}><AppRail /></VocDrawerContext.Provider></ProtoHeadSwitcherContext.Provider>
     {showSidebar && <AppSidebar collapsed={collapsed} onToggle={toggle} />}
     {showPlatformSidebar && <PlatformSidebar collapsed={collapsed} onToggle={toggle} />}
     {/* The column stays unpositioned: a `relative` column would become the containing block of every `absolute` element inside main (sr-only text, popovers) and let them overflow it unclipped. */}

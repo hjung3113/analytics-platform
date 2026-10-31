@@ -5,7 +5,8 @@ import { groupHomeSpaces, type HomeLauncherGroup } from '../launcher-groups';
 import { noticesEndpoint } from '../endpoints';
 import { dismissNotice, useDismissedNotices } from './dismissed-notices';
 import { Panel, PlatformPage, QueryView } from '@ap/components';
-import { Button, StatusBadge } from '@ap/ui';
+import { Button, cn, StatusBadge } from '@ap/ui';
+import { PROTO_1189, PROTO_ICON, PROTO_LABEL, PROTO_SHORT } from './proto1189';
 
 /** Platform home (ADR-0028, 15 §3.1): space cards, then `내 할 일` (a Kernel slot, ADR-0070 decision 8), then favorites and recent, then notices. */
 const NO_LAUNCHER_GROUPS: readonly HomeLauncherGroup[] = [];
@@ -78,7 +79,107 @@ export default function OperationsHome({ launcherGroups = NO_LAUNCHER_GROUPS }: 
     </PlatformLink>;
   };
 
-  return <PlatformPage secondaryActions={canOpen('voc') ? <PlatformLink href={voc.href} className="text-xs font-medium text-accent-primary hover:underline">{lang === 'ko' ? '내 VOC' : 'My VOC'}</PlatformLink> : undefined}>
+  // #1189 throwaway prototype (?variant=A|B|C): systems block per variant, then quiet lists. Today's markup below is untouched.
+  if (PROTO_1189 !== null) {
+    const variant = PROTO_1189;
+    const sections = launcherGroups.length > 0 ? launcherSections : [{ id: 'all', label: { ko: '업무 시스템', en: 'Work systems' }, spaces: accessibleSpaces }];
+    const shortOf = (space: typeof accessibleSpaces[number]) => { const short = PROTO_SHORT[space.id]; return short ? tx(short) : space.subtitle ? tx(space.subtitle) : undefined; };
+    const rowOf = (space: typeof accessibleSpaces[number]) => {
+      const entry = spaceEntry(space.id);
+      if (!entry) return null;
+      const resumeMenu = entry.resumed ? registry.menus.find(menu => menu.id === entry.menuId) : undefined;
+      const resumeLabel = resumeMenu ? (lang === 'ko' ? `이어서: ${tx(resumeMenu.label)}` : `Continue: ${tx(resumeMenu.label)}`) : undefined;
+      const name = tx(space.label);
+      const short = shortOf(space);
+      const ring = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring';
+      const Icon = PROTO_ICON[space.id] ?? registry.groupById(registry.menuById(space.homeMenuId).group).icon;
+      // B: icon + name only (no description, no resume line); the tile still opens the resume entry (title tooltip).
+      // Left-aligned 104px tiles, 8px apart (112px pitch); the label, icon box and name share one left edge.
+      if (variant === 'B') return <li key={space.id}><PlatformLink href={entry.href} title={resumeLabel ?? short} className={cn('group flex w-[104px] flex-col items-start gap-2 rounded-lg py-1', ring)}>
+        <span aria-hidden className="grid size-11 place-items-center rounded-lg border border-border-subtle bg-surface-card text-text-secondary group-hover:bg-surface-row-hover group-hover:text-text-primary"><Icon className="size-5" strokeWidth={1.75} /></span>
+        <span className="w-full truncate text-base font-medium text-text-primary group-hover:text-accent-primary">{name}</span>
+      </PlatformLink></li>;
+      // A/C: quiet link-styled trailing text that names what it resumes; never a bare 이어서.
+      const resume = resumeMenu && <span className="min-w-0 shrink truncate text-xs font-medium text-accent-primary">{lang === 'ko' ? '이어서' : 'Continue'} · {tx(resumeMenu.label)}</span>;
+      if (variant === 'C') return <li key={space.id}><PlatformLink href={entry.href} title={resumeLabel} className={cn('-mx-2 flex items-center gap-3 rounded-md px-2 py-2 hover:bg-surface-row-hover', ring)}>
+        <Icon className="size-5 shrink-0 text-text-secondary" strokeWidth={1.75} aria-hidden />
+        <span className="min-w-0 flex-1">
+          <span className="flex items-baseline justify-between gap-3"><span className="truncate text-base font-semibold text-text-primary">{name}</span>{resume}</span>
+          {short && <span className="block truncate text-sm text-text-secondary">{short}</span>}
+        </span>
+      </PlatformLink></li>;
+      return <li key={space.id}><PlatformLink href={entry.href} title={resumeLabel} className={cn('-mx-2 flex h-9 items-center gap-3 rounded-md px-2 hover:bg-surface-row-hover', ring)}>
+        <Icon className="size-4 shrink-0 text-text-secondary" strokeWidth={1.75} aria-hidden />
+        <span className="flex min-w-0 flex-1 items-baseline gap-2"><span className="shrink-0 text-base font-semibold text-text-primary">{name}</span>{short && <span className="truncate text-sm text-text-secondary">{short}</span>}</span>
+        {resume}
+      </PlatformLink></li>;
+    };
+    const systems = accessibleSpaces.length === 0 ? null
+      : variant === 'B'
+        ? <div className="flex flex-wrap gap-x-12 gap-y-6">{sections.map(group => <section key={group.id} aria-label={tx(group.label)}>
+            <h2 className={cn(PROTO_LABEL, 'mb-2')}>{tx(group.label)}</h2>
+            <ul className="flex gap-2">{group.spaces.map(rowOf)}</ul>
+          </section>)}</div>
+        : variant === 'C'
+          ? <div className="grid grid-cols-1 gap-x-10 gap-y-6 @xl:grid-cols-2 @4xl:grid-cols-4">{sections.map(group => <section key={group.id} aria-label={tx(group.label)}>
+              <h2 className={cn(PROTO_LABEL, 'mb-1')}>{tx(group.label)}</h2>
+              <ul>{group.spaces.map(rowOf)}</ul>
+            </section>)}</div>
+          : <div className="columns-1 gap-x-10 @xl:columns-2 @4xl:columns-3">{sections.map(group => <section key={group.id} aria-label={tx(group.label)} className="mb-6 break-inside-avoid">
+              <h2 className={cn(PROTO_LABEL, 'mb-1')}>{tx(group.label)}</h2>
+              <ul>{group.spaces.map(rowOf)}</ul>
+            </section>)}</div>;
+    const visibleNotices = notices.response && notices.response.outcome === 'ok' ? notices.response.data!.filter(notice => !dismissed.includes(notice.id)) : [];
+    const listRow = 'flex h-9 items-center gap-3';
+    const linkText = 'min-w-0 flex-1 truncate text-base text-text-primary hover:text-accent-primary hover:underline';
+    const empty = 'break-keep py-2 text-sm text-text-secondary';
+    const lists = <div className={cn('grid grid-cols-1 gap-x-10 gap-y-6 @xl:grid-cols-2', variant === 'C' ? '@4xl:grid-cols-4' : '@4xl:grid-cols-3')}>
+      <section aria-label={t('favorites')}>
+        <h2 className={cn(PROTO_LABEL, 'mb-1')}>{t('favorites')}</h2>
+        {favoriteMenus.length === 0 ? <p ref={noFavoritesRef} tabIndex={-1} className={cn(empty, 'outline-none focus-visible:ring-2 focus-visible:ring-focus-ring')}>{t('noFavorites')}</p>
+          : <ul>{favoriteMenus.map(menu => <li key={menu.id} className={listRow}>
+            <menu.icon className="size-4 shrink-0 text-text-muted" aria-hidden />
+            <PlatformLink href={linkTo(menu.id, { page: Object.fromEntries((registry.carrySetOf(menu)?.pageKeys ?? []).map(key => [key, null])) })} className={linkText}>{tx(menu.label)}</PlatformLink>
+            <span className="shrink-0 text-xs text-text-secondary">{affiliation(menu)}</span>
+            <button type="button" aria-label={`${t('removeFavorite')}: ${tx(menu.label)}`} onClick={event => removeFavoriteRow(menu.id, event.currentTarget)} className="grid size-6 shrink-0 place-items-center rounded-xs text-text-muted hover:bg-surface-row-hover"><X className="size-3.5" aria-hidden /></button>
+          </li>)}</ul>}
+      </section>
+      <section aria-label={t('recent')} className={variant === 'C' ? '@4xl:col-span-2' : undefined}>
+        <h2 className={cn(PROTO_LABEL, 'mb-1')}>{t('recent')}</h2>
+        {recentRows.length === 0 ? <p className={empty}>{t('noRecent')}</p>
+          : <ul>{recentRows.map(row => <li key={row.menuId} className={listRow}>
+            <row.menu.icon className="size-4 shrink-0 text-text-muted" aria-hidden />
+            <PlatformLink href={row.url} className={linkText}>{tx(row.menu.label)}</PlatformLink>
+            <span className="shrink-0 text-xs text-text-secondary">{affiliation(row.menu)} · {ago(row.at)}</span>
+          </li>)}</ul>}
+      </section>
+      <section aria-label={lang === 'ko' ? '공지' : 'Notices'}>
+        <h2 className={cn(PROTO_LABEL, 'mb-1 justify-between')}>{lang === 'ko' ? '공지' : 'Notices'}
+          {canOpen('notices') && <PlatformLink href={noticesLink.href} className="text-xs font-medium text-accent-primary hover:underline">{lang === 'ko' ? '전체 보기' : 'View all'}</PlatformLink>}</h2>
+        {visibleNotices.length > 0 ? <ul>{visibleNotices.map(notice => <li key={notice.id} className={listRow}>
+            <Megaphone className="size-4 shrink-0 text-text-muted" aria-hidden />
+            <span className="min-w-0 flex-1 truncate text-base text-text-primary">{tx(notice.title)}</span>
+            <button type="button" aria-label={lang === 'ko' ? '이번 방문 동안 닫기' : 'Dismiss for this visit'} className="grid size-6 shrink-0 place-items-center rounded-xs text-text-muted hover:bg-surface-row-hover" onClick={() => dismissNotice(notice.id)}><X className="size-3.5" aria-hidden /></button>
+          </li>)}</ul>
+          : notices.response && !['ok', 'empty'].includes(notices.response.outcome) ? <QueryView widgetName={lang === 'ko' ? '공지' : 'Notices'} hideWidgetName query={notices} compact>{() => null}</QueryView>
+          : <p className={empty}>{lang === 'ko' ? '새 공지가 없습니다.' : 'No new notices.'}</p>}
+      </section>
+    </div>;
+    return <PlatformPage secondaryActions={canOpen('voc') ? <PlatformLink href={voc.href} className="text-xs font-medium text-accent-primary hover:underline">{lang === 'ko' ? '내 VOC' : 'My VOC'}</PlatformLink> : undefined}>
+      <div className="@container">
+        <section aria-label={lang === 'ko' ? '업무 시스템' : 'Work systems'}>
+          {systems ?? <div className="py-2">
+            <h2 className="t-card-title">{lang === 'ko' ? '접근 가능한 업무 시스템이 없습니다' : 'No work systems are available'}</h2>
+            {canOpen('permission-requests') && <Button asChild size="sm" className="mt-3"><PlatformLink href={permissionRequests.href}>{lang === 'ko' ? '권한 요청' : 'Request access'}</PlatformLink></Button>}
+          </div>}
+        </section>
+        {homeTodo && <div className="mt-8"><homeTodo.Todo /></div>}
+        <div className={cn('border-t border-border-subtle pt-6', variant === 'A' ? 'mt-4' : 'mt-8')}>{lists}</div>
+      </div>
+    </PlatformPage>;
+  }
+
+  return <PlatformPage secondaryActions={canOpen('voc') ?<PlatformLink href={voc.href} className="text-xs font-medium text-accent-primary hover:underline">{lang === 'ko' ? '내 VOC' : 'My VOC'}</PlatformLink> : undefined}>
     {/* #1167 B-3/C-4: the container the launcher grids answer to is the page body, so a detail slot narrows it. */}
     <div className="@container space-y-4">
       <section aria-label={lang === 'ko' ? '업무 시스템' : 'Work systems'}>

@@ -4,6 +4,8 @@ import { cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@a
 import { NavItem } from './AppSidebar';
 import { usePlatformMenu } from './platformMenu';
 import { MenuUnread } from './unread';
+import { PROTO_1189 } from './proto1189';
+import { SystemSwitcher } from './SystemSwitcher';
 
 /**
  * Sidebar of the global screens outside any space (home, 내 활동, 공지; 15 §3.2, ADR-0070). Same shell, collapse
@@ -18,7 +20,7 @@ export function PlatformSidebar({ collapsed, onToggle }: { collapsed: boolean; o
   return <TooltipProvider delayDuration={200}>
     <aside data-collapsed={collapsed} className={cn('flex h-full shrink-0 flex-col border-r border-border-subtle bg-surface-sidebar', collapsed ? 'w-(--sidebar-width-collapsed)' : 'w-(--sidebar-width)')}>
       <div className="flex h-[50px] shrink-0 items-center justify-between border-b border-border-subtle px-3">
-        {!collapsed && <p className="min-w-0 truncate text-sm font-semibold">{t('platformName')}</p>}
+        {!collapsed && (PROTO_1189 === 'C' ? <SystemSwitcher placement="head" /> : <p className="min-w-0 truncate text-sm font-semibold">{t('platformName')}</p>)}
         <Tooltip><TooltipTrigger asChild>
           <button type="button" onClick={onToggle} aria-label={collapsed ? t('expand') : t('collapse')} aria-keyshortcuts="["
             className="ml-auto grid size-7 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover hover:text-text-primary">

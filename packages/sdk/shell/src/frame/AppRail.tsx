@@ -1,4 +1,5 @@
 import { useContext } from 'react';
+import { PROTO_1189, ProtoHeadSwitcherContext, ProtoRailHome } from './proto1189';
 import { CircleHelp, LayoutGrid, Languages, LogOut, MessageSquarePlus, Search } from 'lucide-react';
 import { useI18n } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
@@ -24,10 +25,11 @@ export function AppRail() {
   // Three states told by words, not by colour: closed, open (this screen), minimized (a shape on the icon too).
   const boardLabel = board.maximized ? boardCopy.railOpen : board.floating ? (board.windowFill ? boardCopy.railOpen : boardCopy.railFloating) : board.minimized ? boardCopy.railMinimized : boardCopy.railClosed;
   const vocLabel = lang === 'ko' ? 'VOC 등록' : 'File a VOC';
+  const protoHeadSwitcher = useContext(ProtoHeadSwitcherContext); // #1189 prototype
   return <TooltipProvider delayDuration={200}>
     <nav aria-label={lang === 'ko' ? '시스템 레일' : 'System rail'} className="flex h-full w-(--rail-width) shrink-0 flex-col items-center gap-1.5 overflow-y-auto border-r border-border-subtle bg-surface-sidebar pb-3">
-      <SystemSwitcher />
-      <div className="mb-1 w-6 shrink-0 border-t border-border-subtle" aria-hidden />
+      {protoHeadSwitcher ? <ProtoRailHome /> : <SystemSwitcher />}
+      {PROTO_1189 !== 'A' && <div className="mb-1 w-6 shrink-0 border-t border-border-subtle" aria-hidden />}
       {systems !== null && systems.sections.length > 0 && <div role="group" aria-label={t('railSections')} className="flex min-h-8 shrink flex-col items-center gap-1.5 overflow-y-auto">
         {systems.sections.map(({ group, items }) => {
           const Icon = group.icon;

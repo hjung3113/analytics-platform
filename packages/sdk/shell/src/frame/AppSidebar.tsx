@@ -7,6 +7,8 @@ import { useHostPlatform } from '@ap/kernel/host';
 import { cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { ScopeSelector } from '../context/ScopeSelector';
 import { useSystemSections } from './systemSections';
+import { PROTO_1189 } from './proto1189';
+import { SystemSwitcher } from './SystemSwitcher';
 
 export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
   const { visibleMenus, route, favorites, registry, sidebarSpace, slots, page, linkTo, canOpen } = useHostPlatform();
@@ -32,7 +34,7 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
   return <TooltipProvider delayDuration={200}>
     <aside data-collapsed={collapsed} className={cn('flex h-full shrink-0 flex-col border-r border-border-subtle bg-surface-sidebar', collapsed ? 'w-(--sidebar-width-collapsed)' : 'w-(--sidebar-width)')}>
       <div className="flex h-[50px] shrink-0 items-center justify-between border-b border-border-subtle px-3">
-        {!collapsed && (sidebarSpace === null
+        {!collapsed && PROTO_1189 === 'C' ? <SystemSwitcher placement="head" subline={sectionName !== null && sidebarSpace !== null && sectionName !== tx(sidebarSpace.label) ? sectionName : null} /> : !collapsed && (sidebarSpace === null
           ? <p className="min-w-0 truncate text-sm font-semibold">{t('appName')}</p>
           : <div className="min-w-0"><p className="truncate text-sm font-semibold">{tx(sidebarSpace.label)}</p>
             {systems === null ? <p className="truncate text-caption text-text-muted">{t('appName')}</p>
