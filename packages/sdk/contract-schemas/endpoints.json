@@ -421,7 +421,8 @@
       "page",
       "pageSize",
       "sorting",
-      "filters"
+      "filters",
+      "groupBy"
     ],
     "permission": "equipment:view",
     "requiresScope": true,

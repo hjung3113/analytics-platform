@@ -27,11 +27,21 @@
 - **내보내기 요청 확장(expand → contract).** `@ap/components`가 `TableExportRequest`를 공개하고 `exportRows`가 이를 쓴다. 메뉴의 내보내기 도우미는 `exportScopeIds(scope)`(`{ mode: 'ids'; ids | null } | { mode: 'all-except'; excludedIds }`)로 범위를 읽는다 — `.ids`만 읽고 `excludedIds`를 무시하는 도우미는 컴파일되지 않는다. 전체 선택을 켜지 않는 메뉴(metrics·cycle-time·hw-time)는 `all-except`를 명시적으로 거절하고, EquipmentMaster는 `excludedIds` 파라미터로 지원한다.
 - 참고한 패턴: Gmail 「모두 선택」 배너, MUI X Data Grid v8 `{ type: 'exclude', ids }`, AG Grid 서버사이드 행 모델 `{ selectAll, toggledNodes }`.
 
+### 행 그룹·소계 (#556d)
+
+- 열이 `PlatformColumn.groupable`을 선언하면 도구줄 「그룹」 선택(기본 「그룹 없음」, 「컬럼」 앞)이 생기고, 고르면 `TableQuery.groupBy`(열 id **하나**)를 보낸다. 한 단계다. 여러 단계가 필요하면 `groupBy: string[]` 같은 **새 선택 필드**를 더하고 이 필드의 타입은 바꾸지 않는다. 그룹을 바꾸면 1쪽으로 돌아가고 접힘을 모두 펼치며 선택은 유지한다(행 id 기준이고 그룹은 결과 집합을 바꾸지 않는다).
+- **서버 의미.** 서버가 행을 그룹 키 순서 다음 요청 정렬 전체 키 순서로 내보내고, 응답 `groups`(`PageGroup = { key, label, count, subtotals? }`)는 이 쪽에 행이 있는 그룹마다 **필터 결과 전체** 기준 건수·소계를 말한다. 표는 쪽의 행으로 묶거나 더하지 않고 서버 값만 그린다. `groups`가 없거나 쪽의 행 그룹이 `groups`에 없으면 평평하게 그린다.
+- **소계 어휘는 ADR-0082를 따른다.** `PlatformColumn.subtotal`은 표시 선언일 뿐이고, `sum` 재집계인 열에만 선언한다(비율·평균·`none`은 합칠 수 없다). `groupPage`(mock용)는 선언한 열만 더하고 값이 없으면 `null`이다.
+- **접근성 모델.** 그룹 머리 행은 `role="row"`이고 맨 앞 `rowheader` 셀(접기 단추 `aria-expanded`, 이름 「‹label› 그룹 접기/펼치기」, 라벨, `N행 (전체 결과)`)과 소계 셀(「전체 결과 합계」)로 이뤄진다. 그룹 중에는 쪽 창이라 전체 행 수를 모르므로 `aria-rowcount="-1"`이고 `aria-rowindex`는 머리 행을 포함한 그려진 순서다. 접기 단추는 일반 Tab 정지점이고 Enter/Space로 조작한다. 접힌 그룹의 행은 쪽 선택에 그대로 들어가고 선택 막대가 「접힌 그룹의 N행 포함」으로 알린다.
+- 쪽 경계에서 이어지는 그룹은 머리 행을 「(이어서)」로 다시 그린다. 이어짐 여부는 서버만 안다(쪽 경계 앞 행이 같은 그룹인지) — 서버가 `PageGroup.continued: true`로 답하고(선택 필드, 없으면 이 쪽에서 시작한 그룹), 표는 `continued === true`일 때만 표시한다. 행 수로 추정하지 않는다(쪽 경계에서 새로 시작한 큰 그룹을 이어진 것으로 잘못 표시한다).
+- 내보내기는 그룹과 무관하게 평평한 행이다(요청에 `groupBy`를 싣지 않는다). 그룹 상태의 URL 공유는 하지 않았다.
+
 ## Alternatives and reasons
 
 - `PageQuery`에 `filters`를 직접 넣기: 이 키가 없는 기존 엔드포인트의 `paramKeys` 계약과 모든 소비자 타입을 건드린다. 선택 조각이므로 확장 타입 `TableQuery`로 분리했다.
 - 클라이언트에서 현재 쪽만 걸러 보이기: 서버 페이징에서 쪽 단위 숫자를 결과 전체의 숫자처럼 보이게 한다. 거절했다.
 - 전체 선택을 id 목록으로 보내기: 결과가 수만 행이면 요청이 커지고, 목록을 만든 뒤 바뀐 결과를 반영하지 못한다. 제외 모델은 크기가 일정하고 서버가 동작 시점에 다시 계산한다.
+- 클라이언트에서 쪽의 행만 묶고 더하기: 서버 페이징에서 쪽 단위 소계가 결과 전체의 숫자처럼 보인다. 거절했다. 서버가 전체 기준 `groups`를 준다.
 - 날짜를 instant로 보내기: 시간대에 따라 하루가 밀린다. 06 §6.3의 wall-clock 규칙을 따랐다.
 
 ## Owning contracts

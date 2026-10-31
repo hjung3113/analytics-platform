@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { NO_FEATURES, filterRows, type ColumnFilter, RETURN_TO_KEY, carriesReturnTo, compareAuditEvents, contextCapabilities, isRecord, withoutReturnTo, type AuditEvent, type Capability, type ContextKey } from '@ap/contracts';
+import { NO_FEATURES, filterRows, groupPage, type ColumnFilter, RETURN_TO_KEY, carriesReturnTo, compareAuditEvents, contextCapabilities, isRecord, withoutReturnTo, type AuditEvent, type Capability, type ContextKey } from '@ap/contracts';
 
 // #673: shared @ap/contracts helpers — the manifest defaults every menu index and the gen-menu scaffold share (06 §5), `isRecord`, and the `returnTo` rule (#851).
 const ALL_UNSUPPORTED: Record<ContextKey, Capability> = {
@@ -121,5 +121,79 @@ describe('filterRows (column filters, ADR-0104)', () => {
   });
   it('filters AND together; a missing value matches nothing', () => {
     expect(ids([{ id: 's', op: 'in', value: ['a'] }, { id: 'n', op: 'gte', value: 0 }])).toEqual(['Alpha']);
+  });
+});
+
+describe('groupPage (row groups, ADR-0104)', () => {
+  type R = { id: string; line: string | null; qty: number | null; cost: number; at: number };
+  const rows: R[] = [
+    { id: 'r1', line: 'B', qty: 2, cost: 10, at: 3 },
+    { id: 'r2', line: 'A', qty: 5, cost: 20, at: 1 },
+    { id: 'r3', line: null, qty: 7, cost: 30, at: 2 },
+    { id: 'r4', line: 'A', qty: null, cost: 40, at: 2 },
+    { id: 'r5', line: 'B', qty: 3, cost: 50, at: 1 },
+    { id: 'r6', line: 'A', qty: 1, cost: 60, at: 2 },
+  ];
+  it('orders by group key (empty last), then by ALL sorting keys', () => {
+    const out = groupPage(rows, { groupBy: 'line', sorting: [{ id: 'at', desc: false }, { id: 'cost', desc: true }] });
+    expect(out.rows.map(r => r.id)).toEqual(['r2', 'r6', 'r4', 'r5', 'r1', 'r3']);
+    expect(out.groups.map(g => g.key)).toEqual(['A', 'B', '']);
+  });
+  it('a null or empty key is the "" group labelled (값 없음)', () => {
+    const out = groupPage([...rows, { id: 'r7', line: '', qty: 1, cost: 1, at: 1 }], { groupBy: 'line', sorting: [] });
+    const empty = out.groups.find(g => g.key === '');
+    expect(empty).toMatchObject({ label: '(값 없음)', count: 2 });
+  });
+  it('sums only the declared columns; no declared column gives no subtotals; a group without numbers gets null', () => {
+    const out = groupPage(rows, { groupBy: 'line', sorting: [], subtotalColumns: ['qty'] });
+    expect(out.groups.map(g => g.subtotals)).toEqual([{ qty: 6 }, { qty: 5 }, { qty: 7 }]);
+    expect(groupPage(rows, { groupBy: 'line', sorting: [] }).groups.every(g => g.subtotals === undefined)).toBe(true);
+    expect(groupPage([{ id: 'x', line: 'Z', qty: null, cost: 1, at: 1 }], { groupBy: 'line', sorting: [], subtotalColumns: ['qty'] }).groups[0].subtotals).toEqual({ qty: null });
+  });
+  it('groups describe the whole set while rows are a page slice, limited to groups on the page', () => {
+    const out = groupPage(rows, { groupBy: 'line', sorting: [{ id: 'cost', desc: false }], subtotalColumns: ['cost'], page: 1, pageSize: 4 });
+    expect(out.total).toBe(6);
+    expect(out.rows.map(r => r.id)).toEqual(['r5', 'r3']);
+    // page 1 holds the tail of B (continuing from page 0) and the empty group; A is not on this page
+    expect(out.groups).toEqual([
+      { key: 'B', label: 'B', count: 2, subtotals: { cost: 60 }, continued: true },
+      { key: '', label: '(값 없음)', count: 1, subtotals: { cost: 30 } },
+    ]);
+  });
+  it('continued is server-owned: a group starting exactly at the page boundary is not continued; a true continuation (also by direct entry to a later page) is', () => {
+    const big: R[] = [
+      ...[1, 2, 3, 4].map(i => ({ id: `a${i}`, line: 'A', qty: i, cost: i, at: i })),
+      ...[1, 2, 3, 4, 5, 6, 7, 8].map(i => ({ id: `b${i}`, line: 'B', qty: i, cost: i, at: i })),
+    ];
+    const opts = { groupBy: 'line', sorting: [{ id: 'at', desc: false }], pageSize: 4 };
+    const p0 = groupPage(big, { ...opts, page: 0 });
+    const p1 = groupPage(big, { ...opts, page: 1 }); // B starts exactly here although count 8 > 4 rows on the page
+    const p2 = groupPage(big, { ...opts, page: 2 }); // direct entry: B started on page 1
+    expect(p0.groups.map(g => g.continued)).toEqual([undefined]);
+    expect(p1.groups).toMatchObject([{ key: 'B', count: 8 }]);
+    expect(p1.groups[0].continued).toBeUndefined();
+    expect(p2.groups).toMatchObject([{ key: 'B', count: 8, continued: true }]);
+    expect(groupPage(big, { groupBy: 'line', sorting: [] }).groups.some(g => g.continued)).toBe(false); // no page slice
+  });
+  it('a page that starts inside the empty bucket marks it continued', () => {
+    const e: R[] = [
+      { id: 'a1', line: 'A', qty: 1, cost: 1, at: 1 },
+      ...[2, 3, 4, 5].map(i => ({ id: `e${i}`, line: '', qty: i, cost: i, at: i })),
+    ];
+    const out = groupPage(e, { groupBy: 'line', sorting: [{ id: 'at', desc: false }], page: 1, pageSize: 2 });
+    expect(out.groups).toMatchObject([{ key: '', count: 4, continued: true }]);
+  });
+  it('null, undefined and empty keys are one bucket: all sorting keys apply inside it and it sorts last', () => {
+    type M = { id: string; line: string | null | undefined; at: number; cost: number };
+    const mixed: M[] = [
+      { id: 'n1', line: null, at: 3, cost: 1 }, { id: 'a1', line: 'A', at: 9, cost: 1 }, { id: 'e1', line: '', at: 1, cost: 2 },
+      { id: 'u1', line: undefined, at: 2, cost: 1 }, { id: 'e2', line: '', at: 2, cost: 5 }, { id: 'n2', line: null, at: 1, cost: 1 },
+    ];
+    const out = groupPage(mixed, { groupBy: 'line', sorting: [{ id: 'at', desc: false }, { id: 'cost', desc: true }] });
+    // bucket '' ordered by at asc then cost desc (ties at=1: e1 cost 2 before n2 cost 1; at=2: e2 cost 5 before u1 cost 1)
+    expect(out.rows.map(r => r.id)).toEqual(['a1', 'e1', 'n2', 'e2', 'u1', 'n1']);
+    expect(out.groups.map(g => [g.key, g.count])).toEqual([['A', 1], ['', 5]]);
+    const desc = groupPage(mixed, { groupBy: 'line', sorting: [{ id: 'at', desc: true }] });
+    expect(desc.rows.map(r => r.id).slice(1)).toEqual(['n1', 'u1', 'e2', 'e1', 'n2']); // stable among ties
   });
 });

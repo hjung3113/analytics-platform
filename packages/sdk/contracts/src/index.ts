@@ -14,6 +14,7 @@ export * from './menu/menu-query.js';
 export * from './values/measure.js';
 export * from './adapter/paging.js';
 export * from './adapter/column-filters.js';
+export * from './adapter/row-groups.js';
 export * from './values/period.js';
 export * from './adapter/response.js';
 export { RETURN_TO_KEY, carriesReturnTo, withoutReturnTo } from './links/return-to.js';

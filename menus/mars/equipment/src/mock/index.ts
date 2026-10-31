@@ -3,7 +3,7 @@
  * `@ap/menu-equipment/mock`; pages never import this module. Filtering moved here from the page so the export
  * and every table page are answered — and permission re-checked — by the server.
  */
-import { filterRows, sortAndPage, sortRows } from '@ap/contracts';
+import { filterRows, groupPage, sortAndPage, sortRows } from '@ap/contracts';
 import { defineMockEndpoint, type AnyMockEndpoint, type Equipment } from '@ap/mock-server';
 import { equipmentExportEndpoint, equipmentMakersEndpoint, equipmentPageEndpoint, type EquipmentFilter } from '../endpoints';
 
@@ -20,8 +20,11 @@ export const equipmentMock: readonly AnyMockEndpoint[] = [
     isEmpty: makers => makers.length === 0,
   }),
   defineMockEndpoint(equipmentPageEndpoint, {
-    handle: ({ equipment, params: { q, status, maker, page, pageSize, sorting, filters } }) =>
-      sortAndPage(filterRows(filterEquipment(equipment, { q, status, maker }), filters), { page, pageSize, sorting }),
+    handle: ({ equipment, params: { q, status, maker, page, pageSize, sorting, filters, groupBy } }) => {
+      const rows = filterRows(filterEquipment(equipment, { q, status, maker }), filters);
+      // #556d: grouped = ordered by group then the sorting; `groups` describe the whole filtered set. No numeric column here, so a count only (no subtotalColumns).
+      return groupBy ? groupPage(rows, { groupBy, sorting, page, pageSize }) : sortAndPage(rows, { page, pageSize, sorting });
+    },
     isEmpty: data => data.total === 0,
   }),
   defineMockEndpoint(equipmentExportEndpoint, {

@@ -20,8 +20,12 @@ export type ColumnFilter =
   | { id: string; op: 'between'; value: { from?: string; to?: string } }
   | { id: string; op: 'in'; value: string[] };
 
-/** What `PlatformDataTable.loadPage` receives: `PageQuery` plus the opt-in column filters (sent only when non-empty). */
-export type TableQuery = PageQuery & { filters?: ColumnFilter[] };
+/**
+ * What `PlatformDataTable.loadPage` receives: `PageQuery` plus the opt-in column filters (sent only when non-empty) and the
+ * opt-in row grouping (#556d, ADR-0104). `groupBy` is ONE column id (one level); a future multi-level form would be a new
+ * additive field (`groupBy: string[]`), never a type change of this one. Absent = flat rows.
+ */
+export type TableQuery = PageQuery & { filters?: ColumnFilter[]; groupBy?: string };
 
 const isRange = (value: ColumnFilter['value']): value is { from?: string; to?: string } =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
