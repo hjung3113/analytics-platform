@@ -18,11 +18,10 @@ export const groupKeyOf = (value: unknown) => (isMissing(value) ? '' : String(va
  * reads the result-wide numbers from `groups` — it never groups or sums client-side. Returns null (render flat, as today) when the
  * response has no `groups` or a row's group is missing from it.
  *
- * A group "continues" when the page starts inside it: its result-wide count exceeds its rows on this page and the page is not the
- * first. For the group that is the only one on a middle page the server's rows could also continue on the next page, so a page
- * filled by a single bigger group is treated as continued (the previous page's last row is the only way to know exactly).
+ * A group is "continued" only when the server says so (`PageGroup.continued`): only the server knows whether a row of the group sits
+ * before this page's slice, so the table never guesses it from counts.
  */
-export function buildGroupedItems<R extends { id: string }>(rows: readonly R[], groups: readonly PageGroup[] | undefined, keyOfRow: (row: R) => string, collapsed: ReadonlySet<string>, page: number): GroupedItem<R>[] | null {
+export function buildGroupedItems<R extends { id: string }>(rows: readonly R[], groups: readonly PageGroup[] | undefined, keyOfRow: (row: R) => string, collapsed: ReadonlySet<string>): GroupedItem<R>[] | null {
   if (!groups || groups.length === 0 || rows.length === 0) return null;
   const meta = new Map(groups.map(g => [g.key, g]));
   const counts = new Map<string, number>();
@@ -33,19 +32,30 @@ export function buildGroupedItems<R extends { id: string }>(rows: readonly R[], 
   }
   const items: GroupedItem<R>[] = [];
   let current: string | null = null;
-  let firstGroup = true;
   for (const row of rows) {
     const key = keyOfRow(row);
     if (key !== current) {
       current = key;
       const group = meta.get(key)!;
       const rowsOnPage = counts.get(key)!;
-      items.push({ kind: 'group', key: `group:${key}`, group, rowsOnPage, collapsed: collapsed.has(key), continued: firstGroup && page > 0 && group.count > rowsOnPage });
-      firstGroup = false;
+      items.push({ kind: 'group', key: `group:${key}`, group, rowsOnPage, collapsed: collapsed.has(key), continued: group.continued === true });
     }
     if (!collapsed.has(key)) items.push({ kind: 'row', key: row.id, row });
   }
   return items;
+}
+
+/**
+ * Splits the DISPLAYED column order (left-pinned, centre, right-pinned — the order of header and row cells) for a group header row.
+ * The leading label cell covers every column before the first subtotal column, so no subtotal column is swallowed by it; right-pinned
+ * columns stay separate cells. When the first displayed column is itself a subtotal column there is nothing before it: that column
+ * becomes the leading cell and carries its own total beside the label (`leadSubtotal`).
+ */
+export function groupHeaderLayout<C extends { id: string }>(displayed: readonly C[], isRightPinned: (c: C) => boolean, subtotalIds: ReadonlySet<string>): { leading: C[]; trailing: C[]; leadSubtotal: C | null } {
+  const firstSubtotal = displayed.findIndex(c => subtotalIds.has(c.id));
+  const end = firstSubtotal >= 0 ? firstSubtotal : displayed.filter(c => !isRightPinned(c)).length;
+  if (end === 0 && displayed.length > 0) return { leading: [displayed[0]], trailing: displayed.slice(1), leadSubtotal: subtotalIds.has(displayed[0].id) ? displayed[0] : null };
+  return { leading: displayed.slice(0, end), trailing: displayed.slice(end), leadSubtotal: null };
 }
 
 /** Toolbar 「그룹」 select: only built when a groupable column exists (the table decides); 「그룹 없음」 is the default. */
@@ -68,7 +78,7 @@ type HeaderProps = {
   lang: Lang;
   item: Extract<GroupedItem<unknown>, { kind: 'group' }>;
   /** Sticky leading cell spanning the select/pinned/leading columns (its width and `aria-colspan`). */
-  lead: { style: CSSProperties; span: number };
+  lead: { style: CSSProperties; span: number; /** Set when the leading cell is itself a subtotal column: its total follows the label. */ subtotal?: { id: string } };
   /** The cells after the leading one: subtotal cells under their columns, empty cells elsewhere. */
   trailing: { id: string; style: CSSProperties; subtotal: boolean; className?: string }[];
   onToggle: () => void;
@@ -78,11 +88,19 @@ type HeaderProps = {
 /** A group header row's content: collapse button, label, result-wide count and subtotal cells (labelled as whole-result). */
 export function GroupHeaderCells({ lang, item, lead, trailing, onToggle, cellClassName }: HeaderProps): ReactNode {
   const { group, collapsed, continued, rowsOnPage } = item;
-  const label = group.label === '' ? EMPTY_GROUP_LABEL : group.label;
   const ko = lang === 'ko';
+  const total = (id: string) => {
+    const value = group.subtotals?.[id];
+    return value === undefined ? null : <>
+      <span className="sr-only">{ko ? '전체 결과 합계 ' : 'Whole-result total '}</span>
+      <span className="mr-1 text-xs font-normal text-text-muted" aria-hidden>{ko ? '합계' : 'Total'}</span>
+      {value === null ? '—' : value.toLocaleString()}
+    </>;
+  };
+  const label = group.label === '' ? EMPTY_GROUP_LABEL : group.label;
   return <>
     {/* eslint-disable-next-line shadcn/no-inline-styles -- width and sticky offset come from column sizing at runtime */}
-    <div role="rowheader" aria-colspan={lead.span} style={lead.style} className={cn(cellClassName, 'sticky left-0 z-[2] gap-2 font-medium')}>
+    <div role="rowheader" aria-colspan={lead.span} data-column={lead.subtotal?.id} data-group-subtotal={lead.subtotal ? '' : undefined} style={lead.style} className={cn(cellClassName, 'sticky left-0 z-[2] gap-2 font-medium')}>
       <button type="button" aria-expanded={!collapsed} aria-label={groupToggleName(label, collapsed, lang)} onClick={onToggle}
         className="-ml-1 inline-flex size-6 shrink-0 items-center justify-center rounded-xs hover:bg-surface-row-hover">
         {collapsed ? <ChevronRight className="size-3.5" aria-hidden /> : <ChevronDown className="size-3.5" aria-hidden />}
@@ -91,17 +109,13 @@ export function GroupHeaderCells({ lang, item, lead, trailing, onToggle, cellCla
       {continued && <span className="shrink-0 text-xs font-normal text-text-muted">{ko ? '(이어서)' : '(continued)'}</span>}
       <span className="shrink-0 text-xs font-normal text-text-secondary tabular" data-group-count>{groupCountText(group.count, lang)}</span>
       {collapsed && <span className="shrink-0 text-xs font-normal text-text-muted tabular">{ko ? `이 쪽 ${rowsOnPage.toLocaleString()}행 숨김` : `${rowsOnPage.toLocaleString()} rows on this page hidden`}</span>}
+      {lead.subtotal && <span className="ml-auto shrink-0 text-right tabular" title={ko ? '전체 결과 기준 합계' : 'Whole-result total'}>{total(lead.subtotal.id)}</span>}
     </div>
     {trailing.map(cell => {
-      const value = cell.subtotal ? group.subtotals?.[cell.id] : undefined;
       return <div role="cell" key={cell.id} data-column={cell.id} data-group-subtotal={cell.subtotal ? '' : undefined} style={cell.style}
         title={cell.subtotal ? (ko ? '전체 결과 기준 합계' : 'Whole-result total') : undefined}
         className={cn(cellClassName, 'justify-end text-right tabular', cell.className)}>
-        {cell.subtotal && value !== undefined && <>
-          <span className="sr-only">{ko ? '전체 결과 합계 ' : 'Whole-result total '}</span>
-          <span className="mr-1 text-xs font-normal text-text-muted" aria-hidden>{ko ? '합계' : 'Total'}</span>
-          {value === null ? '—' : value.toLocaleString()}
-        </>}
+        {cell.subtotal && total(cell.id)}
       </div>;
     })}
   </>;

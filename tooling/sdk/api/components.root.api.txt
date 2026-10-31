@@ -70,7 +70,7 @@ PageFilterBarProps | type | type PageFilterBarProps = (PageFilterBarShared & { c
 PageFilterField | type | type PageFilterField = (PageFilterFieldBase & { content: ReactNode; kind: 'custom'; }) | (PageFilterFieldBase & { emptyOptionLabel?: string; kind: 'select'; onValueChange: (value: string) => void; options: readonly @ap/components#PageFilterOption[]; placeholder?: string; value: string; }) | (PageFilterFieldBase & { kind: 'search' | 'text'; onValueChange: (value: string) => void; placeholder?: string; value: string; })
 PageFilterOption | type | type PageFilterOption = { label: string; value: string; }
 PageFilterSummaryItem | type | type PageFilterSummaryItem = { key: string; label: string; value: string; }
-PageGroup | type | type PageGroup = { count: number; key: string; label: string; subtotals?: Record<string, null | number>; }
+PageGroup | type | type PageGroup = { continued?: boolean; count: number; key: string; label: string; subtotals?: Record<string, null | number>; }
 PageKeyRule | type | type PageKeyRule = { key: string; label: @ap/contracts#Text; valid: (raw: string) => boolean; }
 PageKeyWarning | function | function PageKeyWarning({ sentences, onRecover, filters }: { filters?: ReactNode; onRecover: () => void; sentences: readonly string[]; }): import("react").JSX.Element
 PageQuery | type | type PageQuery = { page: number; pageSize: number; sorting: @ap/contracts#PageSort[]; }

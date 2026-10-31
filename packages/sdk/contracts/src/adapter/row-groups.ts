@@ -17,6 +17,11 @@ export type PageGroup = {
    * `null` = the server has no total for that column in this group.
    */
   subtotals?: Record<string, number | null>;
+  /**
+   * `true` when this group already has rows before the page slice (the page starts inside it), so the table repeats its header as
+   * 「(이어서)」. Server-owned: only the server knows the row before the slice. Absent = the group starts on this page.
+   */
+  continued?: boolean;
 };
 
 /** `PageResult` plus the optional `groups` of a grouped request. A response without `groups` renders as flat rows. */
@@ -38,6 +43,8 @@ type GroupPageOptions<T> = {
 const isMissing = (v: unknown) => v === null || v === undefined || v === '';
 const compareValues = (av: unknown, bv: unknown): number =>
   av === bv ? 0 : isMissing(av) ? 1 : isMissing(bv) ? -1 : (av as number | string) < (bv as number | string) ? -1 : 1;
+/** The group key a row belongs to: every empty representation (null/undefined/'') is the one `''` bucket. */
+const normalizeKey = (v: unknown): unknown => (isMissing(v) ? '' : v);
 
 /**
  * The mock endpoint's half of a grouped request, over an already filtered set: orders by group key (empty last), then by ALL
@@ -48,8 +55,11 @@ const compareValues = (av: unknown, bv: unknown): number =>
 export function groupPage<T>(rows: readonly T[], options: GroupPageOptions<T>): { rows: T[]; total: number; groups: PageGroup[] } {
   const { groupBy, sorting, subtotalColumns = [], page, pageSize } = options;
   const get = options.accessor ?? ((row: T, id: string) => (row as Record<string, unknown>)[id]);
+  // Keys are normalized once so the empty bucket compares equal to itself (then ALL sorting keys apply inside it) and sorts last.
+  const keys = new Map<T, unknown>(rows.map(row => [row, normalizeKey(get(row, groupBy))]));
   const ordered = [...rows].sort((a, b) => {
-    const g = compareValues(get(a, groupBy), get(b, groupBy));
+    const ka = keys.get(a), kb = keys.get(b);
+    const g = ka === kb ? 0 : ka === '' ? 1 : kb === '' ? -1 : compareValues(ka, kb);
     if (g !== 0) return g;
     for (const s of sorting) {
       const c = compareValues(get(a, s.id), get(b, s.id));
@@ -57,7 +67,7 @@ export function groupPage<T>(rows: readonly T[], options: GroupPageOptions<T>): 
     }
     return 0;
   });
-  const keyOf = (row: T) => { const v = get(row, groupBy); return isMissing(v) ? '' : String(v); };
+  const keyOf = (row: T) => String(keys.get(row));
   const all = new Map<string, PageGroup>();
   for (const row of ordered) {
     const key = keyOf(row);
@@ -72,7 +82,10 @@ export function groupPage<T>(rows: readonly T[], options: GroupPageOptions<T>): 
       if (typeof v === 'number' && Number.isFinite(v)) group.subtotals![id] = (group.subtotals![id] ?? 0) + v;
     }
   }
-  const slice = page === undefined || pageSize === undefined ? ordered : ordered.slice(page * pageSize, (page + 1) * pageSize);
+  const start = page === undefined || pageSize === undefined ? 0 : page * pageSize;
+  const slice = page === undefined || pageSize === undefined ? ordered : ordered.slice(start, (page + 1) * pageSize);
   const onPage = new Set(slice.map(keyOf));
-  return { rows: slice, total: ordered.length, groups: [...all.values()].filter(g => onPage.has(g.key)) };
+  // The group of the slice's first row continues when the row just before the slice has the same (normalized) key.
+  const continuedKey = start > 0 && slice.length > 0 && keyOf(ordered[start - 1]) === keyOf(slice[0]) ? keyOf(slice[0]) : null;
+  return { rows: slice, total: ordered.length, groups: [...all.values()].filter(g => onPage.has(g.key)).map(g => g.key === continuedKey ? { ...g, continued: true } : g) };
 }

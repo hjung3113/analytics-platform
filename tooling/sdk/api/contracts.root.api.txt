@@ -104,7 +104,7 @@ PREFERENCE_KEYS_MAX | const | const PREFERENCE_KEYS_MAX: 200
 PREFERENCE_KEY_PATTERN | const | const PREFERENCE_KEY_PATTERN: RegExp
 PREFERENCE_REQUEST_MAX_BYTES | const | const PREFERENCE_REQUEST_MAX_BYTES: 262144
 PREFERENCE_VALUE_MAX_BYTES | const | const PREFERENCE_VALUE_MAX_BYTES: 65536
-PageGroup | type | type PageGroup = { count: number; key: string; label: string; subtotals?: Record<string, null | number>; }
+PageGroup | type | type PageGroup = { continued?: boolean; count: number; key: string; label: string; subtotals?: Record<string, null | number>; }
 PageQuery | type | type PageQuery = { page: number; pageSize: number; sorting: @ap/contracts#PageSort[]; }
 PageResult | type | type PageResult<T> = { rows: T[]; total: number; }
 PageSort | type | type PageSort = { desc: boolean; id: string; }

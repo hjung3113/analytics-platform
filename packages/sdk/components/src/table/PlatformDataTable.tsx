@@ -24,7 +24,7 @@ import { ColumnFilterButton, ColumnFilterChips, useColumnFilters } from './colum
 import { useTableTransfer } from './useTableTransfer';
 import { useTableSelection, type TableExportRequest, type TableSelection } from './useTableSelection';
 import { SelectAllBar } from './selectAllBar';
-import { buildGroupedItems, GroupHeaderCells, groupKeyOf, GroupSelect } from './rowGroups';
+import { buildGroupedItems, GroupHeaderCells, groupHeaderLayout, groupKeyOf, GroupSelect } from './rowGroups';
 
 export type { GroupedPageResult, PageGroup, PageQuery, PageResult } from '@ap/contracts';
 export { sortAndPage } from '@ap/contracts';
@@ -296,8 +296,8 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   // #556d: group header rows are virtual items mixed into the list; null = flat, exactly as before (no groupBy, or a response without `groups`).
   const groupColumn = groupBy ? groupColumns.find(c => c.id === groupBy) : undefined;
   const groupedItems = useMemo(() => groupColumn
-    ? buildGroupedItems(rows, data.groups, row => groupKeyOf(groupColumn.value ? groupColumn.value(row.original) : (row.original as Record<string, unknown>)[groupColumn.id]), collapsed, shownPage)
-    : null, [groupColumn, rows, data.groups, collapsed, shownPage]);
+    ? buildGroupedItems(rows, data.groups, row => groupKeyOf(groupColumn.value ? groupColumn.value(row.original) : (row.original as Record<string, unknown>)[groupColumn.id]), collapsed)
+    : null, [groupColumn, rows, data.groups, collapsed]);
   const items = groupedItems ?? rows.map(row => ({ kind: 'row' as const, key: row.id, row }));
   const virtual = useVirtualizer({ count: items.length, getScrollElement: () => viewport.current, estimateSize: () => 32, overscan: 8, getItemKey: i => items[i].key });
   // Selected rows of this page that a collapsed group hides: the page selection still covers them, and the count says so.
@@ -623,19 +623,16 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
             <div role="rowgroup" className="relative" style={{ height: virtual.getTotalSize() }}>{virtual.getVirtualItems().map(item => {
               const entry = items[item.index];
               if (entry.kind === 'group') {
-                // Leading cell: the select/left-pinned columns plus every column up to the first subtotal column (so the label has room); right-pinned columns and the rest are separate cells.
-                const visible = table.getVisibleLeafColumns();
+                // Layout from the DISPLAYED order (left-pinned, centre, right-pinned — as header and row cells): the leading label cell stops before the first subtotal column, so every subtotal stays under its own column.
+                const displayed = [...table.getLeftVisibleLeafColumns(), ...table.getCenterVisibleLeafColumns(), ...table.getRightVisibleLeafColumns()];
                 const subtotalIds = new Set(p.columns.filter(c => c.subtotal).map(c => c.id));
-                const firstSubtotal = visible.findIndex(c => subtotalIds.has(c.id));
-                const leadEnd = visible.reduce((end, c, i) => c.getIsPinned() === 'left' || c.id === '_select' ? Math.max(end, i + 1) : end, firstSubtotal < 0 ? visible.filter(c => c.getIsPinned() !== 'right').length : firstSubtotal);
-                const leading = visible.slice(0, Math.max(leadEnd, 1)).filter(c => c.getIsPinned() !== 'right');
-                const trailing = visible.slice(leading.length);
+                const { leading, trailing, leadSubtotal } = groupHeaderLayout(displayed, c => c.getIsPinned() === 'right', subtotalIds);
                 return <div role="row" key={entry.key} ref={virtual.measureElement} data-index={item.index} data-group-row={entry.group.key} aria-rowindex={item.index + 2}
                   // eslint-disable-next-line shadcn/no-inline-styles -- row offset is the virtual item position computed at runtime
                   className="group absolute left-0 top-0 flex w-full" style={{ transform: `translateY(${item.start}px)` }}>
                   <GroupHeaderCells lang={lang} item={entry} onToggle={() => toggleGroup(entry.group.key)}
                     cellClassName={cn(cellBase, 'border-b border-border-subtle bg-surface-sunken text-sm')}
-                    lead={{ style: { width: leading.reduce((sum, c) => sum + widthOf(c), 0), flexShrink: 0 }, span: leading.length }}
+                    lead={{ style: { width: leading.reduce((sum, c) => sum + widthOf(c), 0), flexShrink: 0 }, span: leading.length, subtotal: leadSubtotal ? { id: leadSubtotal.id } : undefined }}
                     trailing={trailing.map(c => ({ id: c.id, subtotal: subtotalIds.has(c.id), style: cellStyle(c), className: c.getIsPinned() === 'right' ? pinEdge : undefined }))} />
                 </div>;
               }

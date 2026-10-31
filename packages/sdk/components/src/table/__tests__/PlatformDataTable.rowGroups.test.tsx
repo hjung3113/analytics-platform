@@ -1,3 +1,4 @@
+import userEvent from '@testing-library/user-event';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -7,7 +8,7 @@ import { groupId, groupPage, spaceId, type ApiResponse, type GroupedPageResult, 
 import { PlatformDataTable, type PlatformColumn } from '../PlatformDataTable';
 
 // #556d: server row groups (ADR-0104) — opt-in `groupable` column; the table renders the server's groups, never groups or sums a page itself.
-void memoryStorage;
+let storage = memoryStorage();
 afterEach(cleanup);
 
 type Row = { id: string; line: string | null; qty: number };
@@ -45,7 +46,7 @@ afterAll(() => {
   URL.createObjectURL = originalCreate;
   URL.revokeObjectURL = originalRevoke;
 });
-beforeEach(() => { downloads.length = 0; window.history.replaceState(null, '', '/'); });
+beforeEach(() => { downloads.length = 0; storage = memoryStorage(); vi.stubGlobal('localStorage', storage); window.history.replaceState(null, '', '/'); });
 
 const data: Row[] = [
   { id: 'a1', line: 'A', qty: 1 }, { id: 'a2', line: 'A', qty: 2 }, { id: 'a3', line: 'A', qty: 3 },
@@ -64,10 +65,10 @@ const makeLoad = (opts: { omitGroups?: boolean } = {}) => vi.fn(async (q: TableQ
   return ok(opts.omitGroups ? { rows: out.rows, total: out.total } : out);
 });
 
-function Harness(props: { loadPage: (q: TableQuery, s: AbortSignal) => Promise<ApiResponse<GroupedPageResult<Row>>>; columns?: PlatformColumn<Row>[]; pageSize?: number; selectable?: boolean }) {
+function Harness(props: { loadPage: (q: TableQuery, s: AbortSignal) => Promise<ApiResponse<GroupedPageResult<Row>>>; columns?: PlatformColumn<Row>[]; pageSize?: number; selectable?: boolean; preferenceKey?: string }) {
   return <I18nProvider><PlatformProvider equipmentAxes={axes} adapter={adapter} registry={registry}>
     <PlatformDataTable<Row> title="T" ariaLabel="table" columns={props.columns ?? columns} getRowId={r => r.id} loadPage={props.loadPage}
-      filterKey="f" preferenceKey="test-row-groups" pageSize={props.pageSize ?? 25} height={300}
+      filterKey="f" preferenceKey={props.preferenceKey ?? 'test-row-groups'} pageSize={props.pageSize ?? 25} height={300}
       bulkActions={props.selectable ? ids => <span data-testid="ids-action">{ids.length}</span> : undefined} />
   </PlatformProvider></I18nProvider>;
 }
@@ -140,6 +141,54 @@ describe('PlatformDataTable row groups (#556d)', () => {
     expect(view.container.querySelector('[data-group-row=""]')!.textContent).not.toContain('(이어서)');
   });
 
+  it('(이어서) follows the server `continued` flag only: a group with count > rowsOnPage but no flag is not marked', async () => {
+    // pageSize 2 over A,A,A,B,B,'' : page 1 = a3, b1 — group A has count 3 > 1 row on the page, but the server sends no `continued`
+    const unflagged = vi.fn(async (q: TableQuery, _s: AbortSignal) => {
+      const out = groupPage(data, { groupBy: 'line', sorting: q.sorting, subtotalColumns: ['qty'], page: q.page, pageSize: q.pageSize });
+      return ok({ rows: out.rows, total: out.total, groups: out.groups.map(({ continued: _c, ...g }) => g) });
+    });
+    const no = render(<Harness loadPage={unflagged} pageSize={2} />);
+    await screen.findByText(/1\/3/);
+    choose('line');
+    await waitFor(() => expect(headerRows(no.container).length).toBeGreaterThan(0));
+    fireEvent.click(screen.getByRole('button', { name: '다음' }));
+    await waitFor(() => expect(no.container.querySelector('[data-group-row="A"]')).toBeTruthy());
+    expect(no.container.querySelector('[data-group-row="A"]')!.textContent).toContain('3행 (전체 결과)');
+    expect(no.container.textContent).not.toContain('(이어서)');
+    no.unmount();
+    const yes = render(<Harness loadPage={vi.fn(async (q: TableQuery, _s: AbortSignal) => {
+      const out = groupPage(data, { groupBy: 'line', sorting: q.sorting, subtotalColumns: ['qty'], page: q.page, pageSize: q.pageSize });
+      return ok({ rows: out.rows, total: out.total, groups: out.groups.map(g => g.key === 'A' ? { ...g, continued: true } : g) });
+    })} pageSize={2} />);
+    await screen.findByText(/1\/3/);
+    choose('line');
+    await waitFor(() => expect(yes.container.querySelector('[data-group-row="A"]')!.textContent).toContain('(이어서)'));
+  });
+
+  it('every subtotal stays under its own column: a pinned additive column and a first-column additive column keep their total', async () => {
+    storage.setItem('test-row-groups', JSON.stringify({ sizing: {}, visibility: {}, pinning: { left: ['qty'], right: [] } }));
+    const pinned = render(<Harness loadPage={makeLoad()} selectable />);
+    await screen.findByText(/1\/1/);
+    choose('line');
+    await waitFor(() => expect(headerRows(pinned.container)).toHaveLength(3));
+    const [pa, pb] = headerRows(pinned.container);
+    expect((pinned.container.querySelector('[role="columnheader"][data-column="qty"]') as HTMLElement).style.position).toBe('sticky'); // the preference took effect
+    expect(pa.querySelector('[data-column="qty"][data-group-subtotal]')!.textContent).toContain('6');
+    expect(pb.querySelector('[data-column="qty"][data-group-subtotal]')!.textContent).toContain('30');
+    pinned.unmount();
+    storage = memoryStorage(); vi.stubGlobal('localStorage', storage);
+    const reordered: PlatformColumn<Row>[] = [{ id: 'qty', header: '수량', align: 'right', subtotal: true }, { id: 'line', header: '라인', groupable: true }];
+    const first = render(<Harness loadPage={makeLoad()} columns={reordered} preferenceKey="test-row-groups-first" />);
+    await screen.findByText(/1\/1/);
+    choose('line');
+    await waitFor(() => expect(headerRows(first.container)).toHaveLength(3));
+    const [a, b] = headerRows(first.container);
+    const totalA = a.querySelector('[data-column="qty"][data-group-subtotal]')!;
+    expect(totalA.textContent).toContain('6');
+    expect(a.textContent).toContain('A'); // the label shares the first cell
+    expect(b.querySelector('[data-column="qty"][data-group-subtotal]')!.textContent).toContain('30');
+  });
+
   it('collapse/expand by keyboard hides only that group\'s rows (aria-expanded + named button)', async () => {
     const view = render(<Harness loadPage={makeLoad()} />);
     await screen.findByText(/1\/1/);
@@ -148,15 +197,15 @@ describe('PlatformDataTable row groups (#556d)', () => {
     const button = screen.getByRole('button', { name: 'A 그룹 접기' });
     expect(button.getAttribute('aria-expanded')).toBe('true');
     button.focus();
-    // Enter/Space on a native button fire click; jsdom does not synthesise it, so the keyboard path is the button being focusable + clicked.
     expect(document.activeElement).toBe(button);
-    fireEvent.click(button);
+    await userEvent.keyboard('{Enter}');
     const reopened = screen.getByRole('button', { name: 'A 그룹 펼치기' });
     expect(reopened.getAttribute('aria-expanded')).toBe('false');
     expect(document.activeElement).toBe(reopened); // same node: the header is keyed group:A and stays mounted
     expect(view.container.querySelector('[data-row-id="a1"]')).toBeNull();
     expect(view.container.querySelector('[data-row-id="b1"]')).toBeTruthy();
-    fireEvent.click(reopened);
+    await userEvent.keyboard(' ');
+    expect(screen.getByRole('button', { name: 'A 그룹 접기' }).getAttribute('aria-expanded')).toBe('true');
     expect(view.container.querySelector('[data-row-id="a1"]')).toBeTruthy();
   });
 
