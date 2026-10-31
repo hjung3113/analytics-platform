@@ -1,5 +1,6 @@
 import { PageDensityProvider } from '../../pageDensity';
 import { InWorkspacePanelProvider } from '../../workspace/panelContext';
+import { EmbeddedPane } from '../../workspace/panelContext';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -307,7 +308,7 @@ describe('gentle bar emphasis (#1141)', () => {
 
 describe('compact chart chrome (#1141)', () => {
   it.each([
-    ['comfortable', false, true], ['comfortable', true, true], ['compact', false, true], ['compact', true, false],
+    ['comfortable', false, true], ['comfortable', true, false], ['compact', false, true], ['compact', true, false],
   ] as const)('%s workspace=%s preserves card=%s and accessible title', async (density, embedded, card) => {
     render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><PageDensityProvider value={density}><InWorkspacePanelProvider value={embedded}>
       <AnalysisChartFrame chartId="independent" title="Density chart" series={rows} xType="category" unit="s" />
@@ -317,5 +318,17 @@ describe('compact chart chrome (#1141)', () => {
     expect(region).toHaveClass(card ? 'border' : 'border-0');
     expect(region.querySelector('header')).toHaveClass(card ? 'px-4' : 'px-2', card ? 'pt-3' : 'pt-1');
     expect(screen.getByRole('heading', { name: 'Density chart' }).classList.contains('sr-only')).toBe(embedded);
+  });
+});
+
+describe('board pane chrome (#1166)', () => {
+  it.each(['comfortable', 'compact'] as const)('a %s pane draws the chart without its own border but keeps the visible title', async density => {
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><PageDensityProvider value={density}><EmbeddedPane>
+      <AnalysisChartFrame chartId="in-pane" title="Pane chart" series={rows} xType="category" unit="s" />
+    </EmbeddedPane></PageDensityProvider></PlatformProvider></I18nProvider>);
+    const region = screen.getByRole('region', { name: 'Pane chart' });
+    await screen.findByRole('img');
+    expect(region).toHaveClass('border-0');
+    expect(screen.getByRole('heading', { name: 'Pane chart' }).classList.contains('sr-only')).toBe(false);
   });
 });

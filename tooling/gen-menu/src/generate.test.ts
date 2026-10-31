@@ -212,6 +212,13 @@ describe('page archetype skeletons (06 §12, #104)', () => {
     expect(pageOf('analysis')).toContain('<AnalysisLayout');
   });
 
+  it('only the analysis page declares compact density (06 §12.2, #1166)', () => {
+    for (const t of PAGE_TYPES) {
+      if (t === 'analysis') expect(pageOf(t)).toContain('<PlatformPage density="compact">');
+      else expect(pageOf(t)).not.toContain('density=');
+    }
+  });
+
   it('a slot label with an apostrophe or backslash still yields a parseable string literal', () => {
     const literal = slotsLiteral([{ id: 'x', ko: "소유자's", en: 'a\\b' }]);
     const value = new Function(`return [\n${literal}\n];`)() as { ko: string; en: string }[];

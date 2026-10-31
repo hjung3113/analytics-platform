@@ -1595,7 +1595,7 @@ describe('compact table chrome (#1141)', () => {
   beforeEach(() => { restoreGeometry = stubCompactTableGeometry(); });
   afterEach(() => { restoreGeometry(); });
   it.each([
-    ['comfortable', false, true], ['comfortable', true, true], ['compact', false, true], ['compact', true, false],
+    ['comfortable', false, true], ['comfortable', true, false], ['compact', false, true], ['compact', true, false],
   ] as const)('%s workspace=%s preserves card=%s and row/name semantics', async (density, embedded, card) => {
     render(<PageDensityProvider value={density}><InWorkspacePanelProvider value={embedded}><UncontrolledHarness loadPage={makeLoadPage(3)} /></InWorkspacePanelProvider></PageDensityProvider>);
     const table = await screen.findByRole('table', { name: 'table' });

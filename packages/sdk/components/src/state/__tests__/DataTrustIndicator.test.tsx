@@ -92,3 +92,41 @@ describe('source logic versions', () => {
     expect(screen.getByText('로직 버전 혼재').parentElement).toBe(button);
   });
 });
+
+describe('summary mode keeps the mixed-version signal (§18, #1166)', () => {
+  function English() {
+    const { setLang } = useI18n();
+    useEffect(() => setLang('en'), [setLang]);
+    return null;
+  }
+  it.each([
+    ['ko', '데이터 신뢰', '이슈 없음', '로직 버전 혼재'],
+    ['en', 'Data trust', 'No issues', 'Logic versions mixed'],
+  ])('%s: clear assessments + mixed versions → warning dot, name and title carry the mixed text', (lang, label, short, mixed) => {
+    const clear = [{ kind: 'coverage', state: 'clear', statusSource: 'fixture', observedAt: '2026-10-16T09:00:00' }] as never;
+    render(<I18nProvider>{lang === 'en' && <English />}<DataTrustIndicator trust={{ ...trust, sourceLogicVersions: ['v1', 'v2'] }} assessments={clear} summary /></I18nProvider>);
+    const button = screen.getByRole('button', { name: new RegExp(mixed) });
+    expect(button.getAttribute('aria-label')).toContain(label);
+    expect(button.getAttribute('aria-label')).not.toBe(`${label} · ${short} · ${lang === 'ko' ? '자세히' : 'Details'}`);
+    expect(button).toHaveAttribute('title', expect.stringContaining(mixed));
+    expect(button.firstElementChild).toHaveClass('bg-accent-warn');
+    expect(button.querySelector('[data-trust-short]')).toHaveTextContent(short);
+  });
+  it('without mixed versions the summary keeps the success dot and the plain name', () => {
+    render(<I18nProvider><DataTrustIndicator trust={trust} assessments={[]} summary /></I18nProvider>);
+    const button = screen.getByRole('button', { name: '데이터 신뢰 · 이슈 없음 · 자세히' });
+    expect(button.firstElementChild).toHaveClass('bg-accent-success');
+  });
+});
+
+describe('probe', () => {
+  it('is hidden, unfocusable, not announced, and ignores summary', () => {
+    const ref = (node: HTMLElement | null) => { void node; };
+    const { container } = render(<I18nProvider><DataTrustIndicator trust={{ ...trust, provisional: true }} assessments={[]} summary probe={ref} /></I18nProvider>);
+    expect(container.querySelector('button')).toBeNull();
+    expect(container.firstElementChild).toHaveAttribute('aria-hidden', 'true');
+    const probeEl = container.querySelector('[data-trust-probe]')!;
+    expect(probeEl.textContent).toBe(''); // no text nodes: nothing else on the page matches it twice
+    expect([...probeEl.querySelectorAll('[data-text]')].map(n => n.getAttribute('data-text')).join('|')).toBe('확인된 이슈 없음|·|커버리지 98.0%|·|갱신 10-16 09:00|잠정');
+  });
+});

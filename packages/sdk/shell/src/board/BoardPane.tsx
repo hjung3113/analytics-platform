@@ -3,7 +3,7 @@ import { Suspense, useLayoutEffect, useRef, useState, type CSSProperties, type C
 import { createPortal } from 'react-dom';
 import { useI18n, type MenuEntry } from '@ap/kernel';
 import { PaneScreenProvider, useHostPlatform, type PaneScreen } from '@ap/kernel/host';
-import { LoadingBlock, StateMessage } from '@ap/components';
+import { EmbeddedPane, LoadingBlock, StateMessage } from '@ap/components';
 import { WorkspaceCommandsHost } from '@ap/components/dock';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, cn, TransientOverlayScope } from '@ap/ui';
 import { admitPaneScreen } from './boardMenus';
@@ -129,7 +129,7 @@ export function BoardPane({ dock = false, dockHead, onClosePane, placement, hidd
           ? <PaneScreenProvider paneId={paneId} paneLabel={text.paneCaption(number, menuName)} screen={screen} onChange={onChange} onLeave={onLeave}>
             {/* The pane's own boundary (#915): a pane whose menu screen is still loading shows its own skeleton, instead of suspending to the
                 dock's boundary and covering every pane and tab strip again. */}
-            <Suspense fallback={<div className="p-4"><LoadingBlock rows={4} height={240} /></div>}><Outlet /></Suspense>
+            <Suspense fallback={<div className="p-4"><LoadingBlock rows={4} height={240} /></div>}><EmbeddedPane><Outlet /></EmbeddedPane></Suspense>
           </PaneScreenProvider>
           : <div className="p-4">
             <StateMessage tone="warning" icon={<Ban className="size-4" aria-hidden />} title={text.unavailable} body={text.unavailableBody}

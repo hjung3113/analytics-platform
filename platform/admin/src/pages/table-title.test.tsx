@@ -79,7 +79,7 @@ describe('registry declaration cells (#1167 B-2)', () => {
     mount('/admin/registry', <RegistryCatalog />);
     const table = await screen.findByRole('table', { name: '메뉴 레지스트리 목록' });
     await within(table).findByText('admin-audit');
-    const cells = table.querySelectorAll('span.truncate');
+    const cells = table.querySelectorAll('[role="cell"] span.truncate');
     expect(cells.length).toBeGreaterThan(0);
     for (const cell of cells) expect(cell.getAttribute('title')).toBe(cell.textContent);
   });
