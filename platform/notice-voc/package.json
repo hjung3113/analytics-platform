@@ -2,7 +2,7 @@
   "name": "@ap/menu-notice-voc",
   "private": true,
   "version": "0.1.0",
-  "ap": { "sdk": ">=0.22.0 <0.23.0" },
+  "ap": { "sdk": ">=0.23.0 <0.24.0" },
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
