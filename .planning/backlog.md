@@ -4,10 +4,11 @@
 
 ## 작은 후속 (확인된 것)
 
+- **구현 안 함 — 표 고정 열 흐림·활성 행 면·`EmbeddedPane` 테두리를 동작 표지로 다시 확인(v0.21.3 마감 리뷰 Q4):** #1205가 지운 시각 클래스 단언에는 스크롤 끝에서 고정 열 fade가 꺼지는 것, 활성 행 fade 표면, `EmbeddedPane` 안 표 테두리 없음(sdk-v0.24.0 공개 동작)도 들어 있었고 지금은 단위·E2E 검사가 없다. 이유: v0.21.3 범위 고정, 테스트 삭제는 소유자 결정(2026-11-01)이었다. 다시 여는 조건: 표 고정 열·`EmbeddedPane`을 다시 손볼 때 `data-*` 상태 표지(예: `data-pin-fade`)를 두고 동작만 단언한다.
+- **구현 안 함 — 429 문구 사본 동등성(v0.21.3 마감 리뷰 Q5):** `apps/platform-web/src/real/http-assembly.tsx`의 「요청이 너무 많습니다」·`{n}초`/`{m}분` 올림·「잠시 후」가 기능 `apps/feature-screens/src/lib/copy/rate-limit.ts`의 사본이고 주석으로만 묶여 있다. 이유: 범위 고정, 지금은 값이 같다. 다시 여는 조건: 어느 한쪽 문구를 바꿀 때 platform-web에 동등성 테스트를 두거나 문구를 `@ap/feature-shared`로 옮긴다.
 - **구현 안 함 — 실서버 미리보기 `stop`이 오래된 PID를 그대로 믿음(#1178 review-final F1, 기존 결함):** `ops/platform-api/conductor/scripts/app-preview.py` `stop`은 state JSON의 숫자 PID 그룹에 신호를 보내며, PID가 재사용됐으면 무관한 프로세스 그룹을 끊을 수 있다. 이유: #1178 범위(시작 경로) 밖이고 수명주기 코드라 fold하지 않는다. 다시 여는 조건: 이 스크립트의 stop·status를 다시 손볼 때, 신호 전에 살아 있는 그룹 리더의 `--fops-preview=<label>`/설정 파일 표식을 확인하고 불분명하면 건너뛴다.
 
 - **구현 안 함 — 폭 채우기로 600px을 넘은 열을 끌면 600px로 줄어듦(#1166 리뷰 C1):** 저장 열 폭 범위는 60–600px이다(`PlatformDataTable.tsx` `maxSize`, ADR-0024 슬라이더에서 남은 범위). 넓은 표의 몇 안 되는 열이 폭 채우기로 600px을 넘게 그려진 뒤 끌면 끄는 순간 600px로 맞춰진다. 이유: 열이 적은 넓은 표에서만 생기고 상한을 넓히면 저장 값 검증(`useColumnPreferences`)과 계약 범위를 함께 바꿔야 한다. 다시 여는 조건: 넓은 열을 더 넓히려는 요구가 보고되거나 열 폭 상한을 다시 정할 때.
-- **구현 안 함 — 차트 카탈로그 차트 종류 탭 넘침(2026-10-31 시각 조사 A-5):** 1440px 데스크톱에서도 탭 줄이 한 줄에 들어가지 않아 마지막 탭 `분해 막대`가 잘리고 가로 스크롤바가 생긴다(`menus/mars/analytics/src/pages/chart-catalog/ChartCatalog.tsx:85`, `packages/sdk/ui/src/components/PlatformTabs.tsx:14`). 이유: 탭 구성·배치를 바꾸는 시각 변경이라 소유자 시안 확인이 먼저다. 다시 여는 조건: 차트 카탈로그를 손볼 때 탭 배치 시안을 함께 올린다.
 - **구현 안 함 — 홈 즐겨찾기·최근 방문의 모바일 제목 줄바꿈(#1109 UX-1):** 항목이 있는 390px 화면에서 제목이 글자 단위로 쌓인다. 기준 main `cec519031`에서도 재현됐다(2026-10-30). 이유: 현재 지원·캡처 범위 밖이다([루트 AGENTS.md](../AGENTS.md#검증)). 다시 여는 조건: 사용자가 모바일·태블릿 지원을 범위에 추가할 때, 소속·시각·제거 동작을 보존하며 항목이 있는 390px 화면으로 확인한다.
 
 - **구현 안 함 — section 라벨 대문자 표기(#740 리뷰 C1):** `FieldLabel appearance="section"`이 CSS `uppercase`를 걸어 VOC 등록 드로어의 `Managed System`·`Analytics Area`가 `MANAGED SYSTEM`·`ANALYTICS AREA`로 보인다. #740은 라벨을 copy 상수로 옮겼을 뿐 보이는 모양은 그대로다. 이유: 모든 section 라벨 모양을 바꾸는 디자인 시스템 변경이라 프로토타입 컨펌이 먼저다. 다시 여는 조건: 사용자가 영어 라벨 대문자 표기를 바꾸기로 할 때.
