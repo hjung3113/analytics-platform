@@ -19,7 +19,6 @@ import type * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { useLinkEvidenceMutation } from '../../hooks/useEvidenceMutations';
 import { VocSourcePicker } from './VocSourcePicker';
-import { restoreOpenerFocus } from './returnFocus';
 
 // ── Link Existing Evidence modal ──────────────────────────────────────────────
 
@@ -28,7 +27,6 @@ interface LinkEvidenceModalProps {
   managedSystemId: string;
   open: boolean;
   onClose: () => void;
-  returnFocusRef?: React.RefObject<HTMLButtonElement | null>;
 }
 
 export function LinkEvidenceModal({
@@ -36,7 +34,6 @@ export function LinkEvidenceModal({
   managedSystemId,
   open,
   onClose,
-  returnFocusRef,
 }: LinkEvidenceModalProps): React.ReactElement {
   const { notifyError, notifySuccess } = useHostSeam();
   const { key: idempotencyKey, markConsumed } = useIdempotencyKey();
@@ -95,7 +92,6 @@ export function LinkEvidenceModal({
       <DialogContent
         className="max-w-lg"
         data-testid="link-evidence-modal"
-        onCloseAutoFocus={(event) => restoreOpenerFocus(event, returnFocusRef)}
       >
         <DialogHeader>
           <DialogTitle>기존 Evidence 연결</DialogTitle>

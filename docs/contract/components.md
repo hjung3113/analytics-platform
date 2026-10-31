@@ -44,6 +44,8 @@ shadcn/ui + Radix 조합은 [04 프론트엔드 기술 스택](../architecture/f
 - Tabs
 - Badge
 
+**Dialog 닫은 뒤 포커스 (#1169):** `DialogContent`·`DialogContentBare`·`AlertDialogContent`는 열릴 때 `document.activeElement`를 기억하고, 닫을 때 Radix 기본 처리 뒤에도 포커스가 `body`에 있으면(`DialogTrigger`가 없어 Radix가 null 트리거에 포커스를 보낸 경우) 그 요소가 연결돼 있을 때 되돌린다. Escape·닫기 버튼 모두 같다. 트리거가 있는 대화상자는 Radix가 트리거로 보내므로 달라지지 않는다. 소비자의 `onCloseAutoFocus`가 `preventDefault`하면 소비자가 이긴다(다른 요소로 보내거나 되돌리지 않을 때). 오버레이 scope가 숨겨져 `useScopedAutofocus`가 이벤트를 막은 경로는 소비자 호출도 복원도 하지 않는다. 화면은 이 동작을 손으로 되풀이하지 않고, 열기 요소와 다른 대상(행 트리거·목록 제목 등)으로 보낼 때만 `onCloseAutoFocus`를 쓴다.
+
 ### Platform Component
 
 여러 도메인에서 동일한 플랫폼 의미를 갖는 컴포넌트다.

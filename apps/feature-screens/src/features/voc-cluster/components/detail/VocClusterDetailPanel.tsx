@@ -91,7 +91,6 @@ export function useClusterDetailParts({ clusterId }: { clusterId: string }): Clu
   const canMutate = me?.actor.role_level === 'admin' || me?.actor.role_level === 'developer';
 
   const [addVocOpen, setAddVocOpen] = useState(false);
-  const addVocButtonRef = React.useRef<HTMLButtonElement>(null);
   const [createFindingOpen, setCreateFindingOpen] = useState(false);
   const [linkFindingOpen, setLinkFindingOpen] = useState(false);
   const [requestTaskOpen, setRequestTaskOpen] = useState(false);
@@ -346,7 +345,6 @@ export function useClusterDetailParts({ clusterId }: { clusterId: string }): Clu
                 <PanelSectionTitle>멤버 VOC ({members.length})</PanelSectionTitle>
                 {canMutate && data.status === 'draft' && (
                   <Button
-                    ref={addVocButtonRef}
                     variant="outline"
                     size="sm"
                     onClick={() => setAddVocOpen(true)}
@@ -511,7 +509,6 @@ export function useClusterDetailParts({ clusterId }: { clusterId: string }): Clu
             open={addVocOpen}
             clusterId={clusterId}
             onClose={() => setAddVocOpen(false)}
-            returnFocusRef={addVocButtonRef}
           />
         )}
 
