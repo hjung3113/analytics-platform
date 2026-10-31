@@ -190,6 +190,11 @@ export function evaluateTimeDomainMerge(
 
 const OBSERVED = '2026-09-26T08:58:00';
 
+/** A paged result (`PageResult`): an object with a `rows` array and a numeric `total`. */
+function isPageResult(value: unknown): value is { rows: unknown[]; total: number } {
+  return typeof value === 'object' && value !== null && Array.isArray((value as { rows?: unknown }).rows) && typeof (value as { total?: unknown }).total === 'number';
+}
+
 /** Shared successful-response tail (declared assessments §19 + Trust envelope). Private; serve() and getEntity() only. */
 function finish<T>(args: {
   correlationId: string;
@@ -272,7 +277,9 @@ export async function serve<T>(o: ServeOptions<T>): Promise<ApiResponse<T>> {
 
   const equipment = mart && s === 'empty' ? [] : resolved.rows;
   // malformed: an ok envelope whose data does not match the declared shape, so a page that trusts it throws while rendering.
-  const data = s === 'malformed' ? ({} as T) : o.compute({ equipment, role: requestRole });
+  const computed = s === 'malformed' ? ({} as T) : o.compute({ equipment, role: requestRole });
+  // The empty scenario is a successful zero: a page result whose handler ignores equipment must not keep its rows or total (#1175 UX-1).
+  const data = mart && s === 'empty' && isPageResult(computed) ? ({ ...computed, rows: [], total: 0 } as T) : computed;
   // Declared row cap (checklist §3-9), judged on what the handler returns — the whole result, so a selection
   // narrowed by ids passes. A non-array under a declared cap is a declaration misuse, not a data answer.
   // The malformed dev scenario is skipped: it simulates a broken server answer that must reach the client (#101).

@@ -93,4 +93,75 @@ describe('PlatformDataTable in an OutcomeScope (#1175)', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('데이터를 불러오지 못했습니다');
     expect(document.querySelector('[data-widget-state]')).toBeNull();
   });
+  const okQuery = (): QueryState<unknown> =>
+    ({ response: { outcome: 'ok', message: '', data: {}, assessments: [], trust: null, correlationId: 'ok' }, refetch: vi.fn(), missing: [], completedAt: null, status: 'done' });
+
+  // C1: a grouped table's refresh is announced by the scope alone, and the widget wrapper keeps a stable busy state.
+  it('grouped banner retry: one refreshing announcement (the scope\'s) and a busy table wrapper that settles', async () => {
+    let release: (r: ApiResponse<PageResult<Row>>) => void = () => {};
+    let calls = 0;
+    const loadPage = vi.fn(() => ++calls === 1 ? Promise.resolve(failure('error')) : new Promise<ApiResponse<PageResult<Row>>>(r => { release = r; }));
+    render(<Page loadPage={loadPage} sibling={query('error')} />);
+    const banner = await screen.findByRole('group', { name: '위젯 상태 요약' });
+    await screen.findByRole('group', { name: '지표 표' });
+    const wrapper = () => document.querySelector('section > div[aria-busy]') as HTMLElement;
+    expect(wrapper()).toHaveAttribute('aria-busy', 'false');
+    await act(async () => { fireEvent.click(within(banner).getByRole('button', { name: '다시 시도' })); });
+    await waitFor(() => expect(loadPage).toHaveBeenCalledTimes(2));
+    expect(wrapper()).toHaveAttribute('aria-busy', 'true');
+    // The table's own refreshing label is no live region, and the status line is not a polite region while grouped.
+    const live = screen.getAllByText('같은 조건으로 갱신 중').filter(n => n.closest('[role="status"]') || n.closest('[aria-live="polite"]'));
+    expect(live.filter(n => n.closest('section'))).toHaveLength(0);
+    expect(document.querySelector('section [data-table-status-line]')).toHaveAttribute('aria-live', 'off');
+    await act(async () => { release(failure('error')); });
+    await waitFor(() => expect(wrapper()).toHaveAttribute('aria-busy', 'false'));
+  });
+
+  // C2: only the sibling changes while the table's own retry has focus → focus stays on the (new) retry button.
+  it.each([
+    ['joins', 'ok', 'error'],
+    ['leaves', 'error', 'ok'],
+  ] as const)('keeps the table retry focused when the sibling %s the group', async (_name, from, to) => {
+    const loadPage = vi.fn(async () => failure('error'));
+    const make = (o: 'ok' | 'error') => o === 'ok' ? okQuery() : query('error');
+    const { rerender } = render(<Page loadPage={loadPage} sibling={make(from)} />);
+    await screen.findByText(/지표 표|데이터를 불러오지 못했습니다/);
+    await waitFor(() => expect(document.querySelector('section [data-widget-state], section [role="alert"]')).not.toBeNull());
+    const retryIn = () => within(document.querySelector('section > div[aria-busy]') as HTMLElement).getByRole('button', { name: '다시 시도' });
+    const before = retryIn();
+    act(() => { before.focus(); });
+    expect(before).toHaveFocus();
+    rerender(<Page loadPage={loadPage} sibling={make(to)} />);
+    const after = retryIn();
+    expect(after).not.toBe(before);
+    expect(after).toHaveFocus();
+  });
+
+  it('does not steal focus that moved away before the sibling changes', async () => {
+    const loadPage = vi.fn(async () => failure('error'));
+    const { rerender } = render(<Page loadPage={loadPage} sibling={okQuery()} />);
+    await waitFor(() => expect(document.querySelector('section [role="alert"]')).not.toBeNull());
+    const outside = document.createElement('button');
+    document.body.appendChild(outside);
+    const retry = within(document.querySelector('section > div[aria-busy]') as HTMLElement).getByRole('button', { name: '다시 시도' });
+    act(() => { retry.focus(); });
+    act(() => { outside.focus(); });
+    rerender(<Page loadPage={loadPage} sibling={query('error')} />);
+    await screen.findByRole('group', { name: '지표 표' });
+    expect(outside).toHaveFocus();
+    outside.remove();
+  });
+
+  // C3: a grouped empty has its own retry; empty → empty keeps focus on it.
+  it('keeps focus on the grouped-empty retry when it settles on empty again', async () => {
+    const loadPage = vi.fn(async () => failure('empty'));
+    render(<Page loadPage={loadPage} sibling={query('empty')} />);
+    await screen.findByRole('group', { name: '지표 표' });
+    const retry = within(document.querySelector('section > div[aria-busy]') as HTMLElement).getByRole('button', { name: '다시 시도' });
+    act(() => { retry.focus(); });
+    await act(async () => { fireEvent.click(retry); });
+    await waitFor(() => expect(loadPage).toHaveBeenCalledTimes(2));
+    const after = within(document.querySelector('section > div[aria-busy]') as HTMLElement).getByRole('button', { name: '다시 시도' });
+    await waitFor(() => expect(after).toHaveFocus());
+  });
 });
