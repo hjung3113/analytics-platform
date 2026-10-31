@@ -64,6 +64,11 @@ describe('<ProgressNotesComposer> submit outcomes (real editor)', () => {
     return dom.editor;
   }
 
+  it('names the editor textbox with its label', async () => {
+    await mountWithNote();
+    expect(await screen.findByRole('textbox', { name: '진행 메모 내용' })).toBeInTheDocument();
+  });
+
   it('a rejected submit keeps the note text', async () => {
     vi.mocked(createFindingComment).mockRejectedValue(new Error('서버 오류'));
     const editor = await mountWithNote();

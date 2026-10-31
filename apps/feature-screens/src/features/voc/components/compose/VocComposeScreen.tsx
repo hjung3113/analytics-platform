@@ -105,6 +105,7 @@ export function VocComposeScreen({
             render={({ field }) => (
               <RichEditor
                 surface="voc-description"
+                ariaLabel={VOC_CREATE_COPY.descriptionField}
                 value={field.value as TipTapDoc}
                 onChange={(doc) => field.onChange(doc)}
                 placeholder="VOC 내용을 자세히 적어주세요"

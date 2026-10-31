@@ -330,6 +330,7 @@ export function EditDescriptionModal({
                 render={({ field }) => (
                   <RichEditor
                     surface="voc-description"
+                    ariaLabel="상세 설명"
                     value={field.value as TipTapDoc}
                     onChange={(doc) => field.onChange(doc)}
                     placeholder="재현 방법과 기대 동작도 함께 적어주세요."
