@@ -11,12 +11,18 @@ const BACKOFF_MS = [5_000, 30_000, 300_000] as const;
 export type BootstrapRead =
   | { kind: 'ok'; payload: BootstrapPayload }
   | { kind: 'login' }
+  | { kind: 'throttled'; correlationId: string; retryAfterSeconds?: number }
   | { kind: 'failed'; correlationId: string };
 
 /** One `GET bootstrap`. Never rejects: every failure is a value. */
 export async function readBootstrap(transport: Transport, timeoutMs: number): Promise<BootstrapRead> {
   const raw = await transport.send({ method: 'GET', path: BOOTSTRAP_PATH, timeoutMs });
   if (raw.kind === 'redirect' || (raw.kind === 'response' && raw.status === 401)) return { kind: 'login' };
+  // 429: the rate limit is full — the host shows the wait instead of the "server unreachable" screen (#1179).
+  if (raw.kind === 'response' && raw.status === 429) {
+    const retryAfterSeconds = raw.retryAfterSeconds;
+    return { kind: 'throttled', correlationId: raw.correlationId, ...(retryAfterSeconds === undefined ? {} : { retryAfterSeconds }) };
+  }
   if (raw.kind === 'response' && raw.ok) {
     const parsed = parseJson(raw.text);
     const payload = parsed.ok ? toBootstrap(parsed.value) : null;
@@ -111,7 +117,7 @@ export function createSessionStore(initial: BootstrapPayload, config: SessionSto
       loseSession();
       return;
     }
-    if (read.kind === 'failed') {
+    if (read.kind === 'failed' || read.kind === 'throttled') {
       const delay = BACKOFF_MS[Math.min(failures, BACKOFF_MS.length - 1)] ?? BACKOFF_MS[0];
       failures += 1;
       blockedUntil = Date.now() + delay;

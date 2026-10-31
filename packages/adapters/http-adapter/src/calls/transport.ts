@@ -17,7 +17,7 @@ export type SendRequest = {
 
 /** What came back, before any port-specific meaning. `correlationId` is the response header id, else the request id. */
 export type Raw =
-  | { kind: 'response'; status: number; ok: boolean; correlationId: string; text: string }
+  | { kind: 'response'; status: number; ok: boolean; correlationId: string; text: string; retryAfterSeconds?: number }
   | { kind: 'redirect'; correlationId: string }
   | { kind: 'timeout'; correlationId: string }
   | { kind: 'network'; correlationId: string }
@@ -63,6 +63,7 @@ export function createTransport({ fetch: fetchImpl, base }: TransportConfig): Tr
           return { kind: 'redirect', correlationId: requestId };
         }
         const headerId = response.headers.get('X-Correlation-Id');
+        const retryAfterSeconds = parseRetryAfter(response.headers.get('Retry-After'));
         const text = await response.text();
         return {
           kind: 'response',
@@ -70,6 +71,7 @@ export function createTransport({ fetch: fetchImpl, base }: TransportConfig): Tr
           ok: response.status >= 200 && response.status < 300,
           correlationId: isSafeCorrelationId(headerId) ? headerId : requestId,
           text,
+          ...(retryAfterSeconds === undefined ? {} : { retryAfterSeconds }),
         };
       } catch {
         if (kernelSignal?.aborted) return { kind: 'aborted' };
@@ -88,6 +90,13 @@ function buildUrl(base: string, path: string, query: SendRequest['query']): stri
   for (const [key, value] of Object.entries(query)) if (value !== undefined) params.set(key, value);
   const search = params.toString();
   return search === '' ? `${base}${path}` : `${base}${path}?${search}`;
+}
+
+/** `Retry-After` as delay-seconds only — a non-negative integer of seconds. The HTTP-date form and anything else stay absent. */
+function parseRetryAfter(header: string | null): number | undefined {
+  if (header === null || !/^\d+$/.test(header)) return undefined;
+  const seconds = Number(header);
+  return Number.isFinite(seconds) ? seconds : undefined;
 }
 
 export type Parsed = { ok: true; value: unknown } | { ok: false };

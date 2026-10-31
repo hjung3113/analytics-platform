@@ -68,6 +68,26 @@ describe('real assembly (#154)', () => {
     await userEvent.click(screen.getByRole('button', { name: '다시 시도' }));
     expect(reload).toHaveBeenCalledOnce();
   });
+  it.each<[string, number | undefined, string]>([
+    ['a wait in seconds', 30, '30초 후 다시 시도해 주세요.'],
+    ['90 s rounds up to minutes', 90, '2분 후 다시 시도해 주세요.'],
+    ['no value', undefined, '잠시 후 다시 시도해 주세요.'],
+  ])('throttled (%s) → the rate-limit static screen with the correlation id and a retry button (#1179)', async (_name, seconds, wait) => {
+    const result: BootstrapResult = seconds === undefined ? { kind: 'throttled', correlationId: 'req-429' } : { kind: 'throttled', correlationId: 'req-429', retryAfterSeconds: seconds };
+    const outcome = await assemblyFor(result).create();
+    expect('screen' in outcome).toBe(true);
+    const reload = vi.fn();
+    vi.stubGlobal('location', { ...window.location, reload });
+    render((outcome as { screen: React.ReactNode }).screen);
+    expect(screen.getByText('요청이 너무 많습니다')).toBeInTheDocument();
+    // The description lines are sibling text nodes separated by <br/>, like Unavailable's — matched as substrings of the block.
+    expect(screen.getByText(wait, { exact: false })).toBeInTheDocument();
+    expect(screen.getByText('문제가 계속되면 아래 번호를 담당자에게 알려 주세요.', { exact: false })).toBeInTheDocument();
+    expect(screen.getByText('req-429')).toBeInTheDocument();
+    expect(screen.queryByText('서버에 연결할 수 없습니다')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+    expect(reload).toHaveBeenCalledOnce();
+  });
 
   it('onSessionLost → the same login redirect', async () => {
     const { create, seen } = assemblyFor(ready);

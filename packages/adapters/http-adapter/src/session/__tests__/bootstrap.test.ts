@@ -57,6 +57,19 @@ describe('bootstrapHttpAdapter', () => {
     expect(await result).toEqual({ kind: 'unavailable', correlationId: 'srv-9' });
   });
 
+  it('429 with a Retry-After in seconds is throttled with the id and the wait (#1179)', async () => {
+    const { result } = run(() => new Response('', { status: 429, headers: { 'X-Correlation-Id': 'srv-9', 'Retry-After': '30' } }));
+    expect(await result).toEqual({ kind: 'throttled', correlationId: 'srv-9', retryAfterSeconds: 30 });
+  });
+
+  it.each<[string, Record<string, string>]>([
+    ['without Retry-After', {}],
+    ['with an unparseable Retry-After', { 'Retry-After': 'soon' }],
+  ])('429 %s is throttled with the id and no seconds', async (_name, headers) => {
+    const { result } = run(() => new Response('', { status: 429, headers: { 'X-Correlation-Id': 'srv-9', ...headers } }));
+    expect(await result).toEqual({ kind: 'throttled', correlationId: 'srv-9' });
+  });
+
   it('a network failure is unavailable with the request correlation id', async () => {
     const { s, result } = run(() => {
       throw new TypeError('Failed to fetch');

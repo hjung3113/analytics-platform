@@ -247,6 +247,22 @@ describe('subscribe, polling and re-check (contract §4)', () => {
       expect(boots()).toBe(6);
     });
 
+    it('a throttled (429) re-check keeps the failed backoff cadence — Retry-After is not honored (#1179)', async () => {
+      let throttled = false;
+      const boot = () => (throttled ? new Response('', { status: 429, headers: { 'Retry-After': '30' } }) : json(bootstrapBody()));
+      const { adapter, calls } = await ready(() => new Response('', { status: 401 }), { pollMs: 10 * FIVE_MIN }, boot);
+      adapter.subscribe(() => undefined);
+      throttled = true;
+      await adapter.menuQuery(QUERY); // the 401 starts a re-check, which answers 429
+      await vi.advanceTimersByTimeAsync(0);
+      const boots = () => calls.filter(isBoot).length;
+      expect(boots()).toBe(2); // the initial ready bootstrap + the throttled re-check
+      await vi.advanceTimersByTimeAsync(4_999);
+      expect(boots()).toBe(2); // the ordinary 5 s first step, not the 30 s Retry-After
+      await vi.advanceTimersByTimeAsync(1);
+      expect(boots()).toBe(3);
+    });
+
     it('a 401 during the backoff window does not start another bootstrap', async () => {
       const r = remote();
       const { adapter, calls } = await ready(() => new Response('', { status: 401 }), {}, r.boot);
