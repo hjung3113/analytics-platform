@@ -60,6 +60,7 @@ The shared list is rule 8 in the global worker rules, `templates/impl-rules.md` 
 - Put capture scripts under `apps/platform-e2e` and run them there so `@playwright/test` resolves; delete them when finished.
 - Use a different dev-server port per worktree: `pnpm exec vite --host 127.0.0.1 --port 517x --strictPort`. E2E defaults to 4190; change it with `E2E_PORT` when running concurrently.
 - Mock state is in memory, so select the DevTools response scenario again whenever you open a page. The role is `localStorage platform:role`.
+- Real-server previews (`pnpm --filter @ap/platform-api run dev` + `dev:real`): set `HOST=127.0.0.1` in the worktree's `ops/platform-api/.env` before starting the backend. `.env.example` binds `0.0.0.0`, the file wins over an exported `HOST`, and an `AUTH_PROVIDER=mock` server would otherwise accept logins from the LAN. Confirm with `lsof -nP -iTCP:3011 -sTCP:LISTEN` (`127.0.0.1:3011`, not `*:3011`).
 - In zsh, run a command list repeatedly with `eval "$c"` because variables are not split into words. Pass a function to Playwright `page.evaluate` as a string: `` `(${fn})()` ``.
 
 Frequent capture URLs:
