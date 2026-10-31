@@ -7,6 +7,8 @@ import { fileURLToPath } from 'node:url';
 export const FEATURE_OPS = 'ops/platform-api';
 export const FEATURE_BACKEND = 'apps/platform-api';
 export const FEATURE_FRONTEND = 'apps/feature-screens';
+// The platform assembly that serves the feature screens in real mode (ADR-0097); app-preview.py previews it.
+export const PLATFORM_FRONTEND = 'apps/platform-web';
 export const FEATURE_SHARED = 'packages/feature-shared';
 export const FEATURE_UI = 'packages/feature-ui';
 export const FEATURE_DOCS = [
