@@ -175,6 +175,14 @@ describe('groupPage (row groups, ADR-0104)', () => {
     expect(p2.groups).toMatchObject([{ key: 'B', count: 8, continued: true }]);
     expect(groupPage(big, { groupBy: 'line', sorting: [] }).groups.some(g => g.continued)).toBe(false); // no page slice
   });
+  it('a page that starts inside the empty bucket marks it continued', () => {
+    const e: R[] = [
+      { id: 'a1', line: 'A', qty: 1, cost: 1, at: 1 },
+      ...[2, 3, 4, 5].map(i => ({ id: `e${i}`, line: '', qty: i, cost: i, at: i })),
+    ];
+    const out = groupPage(e, { groupBy: 'line', sorting: [{ id: 'at', desc: false }], page: 1, pageSize: 2 });
+    expect(out.groups).toMatchObject([{ key: '', count: 4, continued: true }]);
+  });
   it('null, undefined and empty keys are one bucket: all sorting keys apply inside it and it sorts last', () => {
     type M = { id: string; line: string | null | undefined; at: number; cost: number };
     const mixed: M[] = [

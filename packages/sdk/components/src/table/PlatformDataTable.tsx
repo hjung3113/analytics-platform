@@ -632,7 +632,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
                   className="group absolute left-0 top-0 flex w-full" style={{ transform: `translateY(${item.start}px)` }}>
                   <GroupHeaderCells lang={lang} item={entry} onToggle={() => toggleGroup(entry.group.key)}
                     cellClassName={cn(cellBase, 'border-b border-border-subtle bg-surface-sunken text-sm')}
-                    lead={{ style: { width: leading.reduce((sum, c) => sum + widthOf(c), 0), flexShrink: 0 }, span: leading.length, subtotal: leadSubtotal ? { id: leadSubtotal.id } : undefined }}
+                    lead={{ style: { width: leading.reduce((sum, c) => sum + widthOf(c), 0), flexShrink: 0 }, span: leading.length, stickyLeft: table.getLeftVisibleLeafColumns().reduce((sum, c) => sum + widthOf(c), 0), subtotal: leadSubtotal ? { id: leadSubtotal.id } : undefined }}
                     trailing={trailing.map(c => ({ id: c.id, subtotal: subtotalIds.has(c.id), style: cellStyle(c), className: c.getIsPinned() === 'right' ? pinEdge : undefined }))} />
                 </div>;
               }

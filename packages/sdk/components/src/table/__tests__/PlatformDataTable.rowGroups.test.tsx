@@ -189,6 +189,44 @@ describe('PlatformDataTable row groups (#556d)', () => {
     expect(b.querySelector('[data-column="qty"][data-group-subtotal]')!.textContent).toContain('30');
   });
 
+  it('the group header content is a sticky anchor at the left-pinned width, so it stays visible while the table scrolls sideways (UX-1)', async () => {
+    const leftOf = (row: HTMLElement) => (row.querySelector('[data-group-lead]') as HTMLElement).style;
+    const pinnedWidth = (c: HTMLElement) => [...c.querySelectorAll('[role="columnheader"]')].filter(h => (h as HTMLElement).style.position === 'sticky' && (h as HTMLElement).style.left !== '').reduce((sum, h) => sum + parseFloat((h as HTMLElement).style.width), 0);
+    // (a) nothing pinned: offset 0
+    const plain = render(<Harness loadPage={makeLoad()} />);
+    await screen.findByText(/1\/1/);
+    choose('line');
+    await waitFor(() => expect(headerRows(plain.container)).toHaveLength(3));
+    expect(leftOf(headerRows(plain.container)[0]).position).toBe('sticky');
+    expect(leftOf(headerRows(plain.container)[0]).left).toBe('0px');
+    expect(headerRows(plain.container)[0].querySelector('[data-group-lead] button')).not.toBeNull(); // the button lives in the anchor
+    plain.unmount();
+    // (b) a left-pinned column: offset = its width
+    storage = memoryStorage(); vi.stubGlobal('localStorage', storage);
+    storage.setItem('test-row-groups', JSON.stringify({ sizing: {}, visibility: {}, pinning: { left: ['qty'], right: [] } }));
+    const pinned = render(<Harness loadPage={makeLoad()} />);
+    await screen.findByText(/1\/1/);
+    choose('line');
+    await waitFor(() => expect(headerRows(pinned.container)).toHaveLength(3));
+    const widthB = pinnedWidth(pinned.container);
+    expect(widthB).toBeGreaterThan(0);
+    expect(leftOf(headerRows(pinned.container)[0]).left).toBe(`${widthB}px`);
+    pinned.unmount();
+    // (c) selectable: the selection column is part of the left region
+    storage = memoryStorage(); vi.stubGlobal('localStorage', storage);
+    const sel = render(<Harness loadPage={makeLoad()} selectable />);
+    await screen.findByText(/1\/1/);
+    choose('line');
+    await waitFor(() => expect(headerRows(sel.container)).toHaveLength(3));
+    const widthC = pinnedWidth(sel.container);
+    const selectHeader = sel.container.querySelector('[role="columnheader"][data-column="_select"]') as HTMLElement;
+    expect(selectHeader).not.toBeNull();
+    // the offset follows the selection column exactly as the row cells do: its width when it is sticky, nothing when it scrolls
+    expect(widthC).toBe(selectHeader.style.position === 'sticky' && selectHeader.style.left !== '' ? parseFloat(selectHeader.style.width) : 0);
+    expect(leftOf(headerRows(sel.container)[0]).left).toBe(`${widthC}px`);
+    expect(leftOf(headerRows(sel.container)[0]).position).toBe('sticky');
+  });
+
   it('collapse/expand by keyboard hides only that group\'s rows (aria-expanded + named button)', async () => {
     const view = render(<Harness loadPage={makeLoad()} />);
     await screen.findByText(/1\/1/);

@@ -77,8 +77,12 @@ export const groupToggleName = (label: string, collapsed: boolean, lang: Lang) =
 type HeaderProps = {
   lang: Lang;
   item: Extract<GroupedItem<unknown>, { kind: 'group' }>;
-  /** Sticky leading cell spanning the select/pinned/leading columns (its width and `aria-colspan`). */
-  lead: { style: CSSProperties; span: number; /** Set when the leading cell is itself a subtotal column: its total follows the label. */ subtotal?: { id: string } };
+  /**
+   * The leading band spans the select/pinned/leading columns (its width and `aria-colspan`). `stickyLeft` is the width of the left-pinned
+   * region the row cells use (selection column included): the label content is a row-level sticky anchor at that offset, so it stays at
+   * the visible left edge for the whole horizontal scroll instead of leaving with the band.
+   */
+  lead: { style: CSSProperties; span: number; stickyLeft: number; /** Set when the leading cell is itself a subtotal column: its total follows the label. */ subtotal?: { id: string } };
   /** The cells after the leading one: subtotal cells under their columns, empty cells elsewhere. */
   trailing: { id: string; style: CSSProperties; subtotal: boolean; className?: string }[];
   onToggle: () => void;
@@ -99,16 +103,23 @@ export function GroupHeaderCells({ lang, item, lead, trailing, onToggle, cellCla
   };
   const label = group.label === '' ? EMPTY_GROUP_LABEL : group.label;
   return <>
-    {/* eslint-disable-next-line shadcn/no-inline-styles -- width and sticky offset come from column sizing at runtime */}
-    <div role="rowheader" aria-colspan={lead.span} data-column={lead.subtotal?.id} data-group-subtotal={lead.subtotal ? '' : undefined} style={lead.style} className={cn(cellClassName, 'sticky left-0 z-[2] gap-2 font-medium')}>
-      <button type="button" aria-expanded={!collapsed} aria-label={groupToggleName(label, collapsed, lang)} onClick={onToggle}
-        className="-ml-1 inline-flex size-6 shrink-0 items-center justify-center rounded-xs hover:bg-surface-row-hover">
-        {collapsed ? <ChevronRight className="size-3.5" aria-hidden /> : <ChevronDown className="size-3.5" aria-hidden />}
-      </button>
-      <span className="min-w-0 truncate" title={label}>{label}</span>
-      {continued && <span className="shrink-0 text-xs font-normal text-text-muted">{ko ? '(이어서)' : '(continued)'}</span>}
-      <span className="shrink-0 text-xs font-normal text-text-secondary tabular" data-group-count>{groupCountText(group.count, lang)}</span>
-      {collapsed && <span className="shrink-0 text-xs font-normal text-text-muted tabular">{ko ? `이 쪽 ${rowsOnPage.toLocaleString()}행 숨김` : `${rowsOnPage.toLocaleString()} rows on this page hidden`}</span>}
+    {/* Row-level zero-width sticky anchor (like the active-row marker): its containing block is the whole row, so the content keeps the visible left edge across the full scroll. The content paints from x=0 (opaque, covering the pinned region) and its text starts at the pinned width. */}
+    {/* eslint-disable-next-line shadcn/no-inline-styles -- the sticky offset is the left-pinned width at runtime */}
+    <div role="rowheader" data-group-lead style={{ position: 'sticky', left: lead.stickyLeft, zIndex: 3, width: 0, flexShrink: 0 }}>
+      {/* eslint-disable-next-line shadcn/no-inline-styles -- the content extends back over the pinned region by its runtime width */}
+      <div data-group-lead-content style={{ left: -lead.stickyLeft, paddingLeft: lead.stickyLeft }} className="absolute top-0 flex h-full max-w-[min(48rem,100vw)] items-center gap-2 whitespace-nowrap bg-surface-sunken px-4 text-sm font-medium">
+        <button type="button" aria-expanded={!collapsed} aria-label={groupToggleName(label, collapsed, lang)} onClick={onToggle}
+          className="-ml-1 inline-flex size-6 shrink-0 items-center justify-center rounded-xs hover:bg-surface-row-hover">
+          {collapsed ? <ChevronRight className="size-3.5" aria-hidden /> : <ChevronDown className="size-3.5" aria-hidden />}
+        </button>
+        <span className="min-w-0 truncate" title={label}>{label}</span>
+        {continued && <span className="shrink-0 text-xs font-normal text-text-muted">{ko ? '(이어서)' : '(continued)'}</span>}
+        <span className="shrink-0 text-xs font-normal text-text-secondary tabular" data-group-count>{groupCountText(group.count, lang)}</span>
+        {collapsed && <span className="shrink-0 text-xs font-normal text-text-muted tabular">{ko ? `이 쪽 ${rowsOnPage.toLocaleString()}행 숨김` : `${rowsOnPage.toLocaleString()} rows on this page hidden`}</span>}
+      </div>
+    </div>
+    {/* eslint-disable-next-line shadcn/no-inline-styles -- band width comes from column sizing at runtime */}
+    <div role="cell" aria-colspan={lead.span} data-column={lead.subtotal?.id} data-group-subtotal={lead.subtotal ? '' : undefined} style={lead.style} className={cn(cellClassName, 'gap-2 font-medium')}>
       {lead.subtotal && <span className="ml-auto shrink-0 text-right tabular" title={ko ? '전체 결과 기준 합계' : 'Whole-result total'}>{total(lead.subtotal.id)}</span>}
     </div>
     {trailing.map(cell => {
