@@ -5,11 +5,11 @@ test.beforeEach(async ({ page }) => { await page.goto('/'); await expect(page.lo
 test('contract baseline is applied in real Chromium layout', async ({ page }) => {
   const contract = readFileSync('../../docs/contract/components.md', 'utf8');
   const design = readFileSync('../../DESIGN.md', 'utf8');
-  expect(contract).toContain('Row height       32px'); expect(contract).toContain('Header height    32px'); expect(contract).toContain('Cell padding     4px 12px');
-  expect(design).toContain('rowMinHeight: 32px'); expect(design).toContain('headerMinHeight: 32px'); expect(design).toContain('cellPadding: 4px 12px');
+  expect(contract).toContain('Row height       32px'); expect(contract).toContain('Header height    32px'); expect(contract).toContain('Cell padding     4px 16px');
+  expect(design).toContain('rowMinHeight: 32px'); expect(design).toContain('headerMinHeight: 32px'); expect(design).toContain('cellPadding: 4px 16px');
   for (const selector of [dataRows, '[role=columnheader]']) expect(await page.locator(selector).first().evaluate(el => el.getBoundingClientRect().height)).toBeGreaterThanOrEqual(32);
   const cell = page.locator('[role=cell]').first();
-  await expect(cell).toHaveCSS('padding', '4px 12px');
+  await expect(cell).toHaveCSS('padding', '4px 16px');
   await expect(page.locator('.numeric').first()).toHaveCSS('text-align', 'right');
   await expect(page.locator('.numeric').first()).toHaveCSS('font-variant-numeric', 'tabular-nums');
 });

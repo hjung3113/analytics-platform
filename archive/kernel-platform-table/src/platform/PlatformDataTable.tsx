@@ -76,7 +76,7 @@ export function PlatformDataTable<T>({ columns, getRowId, loadPage, filter, filt
   }
   const pageCount = Math.ceil(result.total / pageSize);
   function goTo(next: number) { setPage(next); if (viewport.current) viewport.current.scrollTop = 0; }
-  const cellClass = 'flex min-h-8 items-center border-b border-border-subtle bg-surface-card px-3 py-1 [overflow-wrap:anywhere] pointer-coarse:min-h-11';
+  const cellClass = 'flex min-h-8 items-center border-b border-border-subtle bg-surface-card px-4 py-1 [overflow-wrap:anywhere] pointer-coarse:min-h-11';
   return <section aria-label="Platform table" className="rounded-lg border border-border-subtle bg-surface-card">
     <div className="flex flex-wrap items-center gap-3 p-3">{filterControl}<Button variant="secondary" size="sm" onClick={onExport}>Export</Button><Popover><PopoverTrigger asChild><Button variant="outline" size="sm">Column preferences</Button></PopoverTrigger>
       <PopoverContent align="start" className="w-auto max-w-[min(90vw,48rem)]"><div className="flex flex-wrap gap-4">{table.getAllLeafColumns().filter(c => c.getCanHide()).map(column => <div key={column.id} className="flex flex-col gap-2">
