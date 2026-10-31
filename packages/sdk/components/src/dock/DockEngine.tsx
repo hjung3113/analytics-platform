@@ -492,10 +492,42 @@ export default function DockEngine({
     onPanelDrop?.(event.defaultPrevented ? null : data.panelId);
   }, [onPanelDrop, refused]);
 
+  // A cancelled native drag (Escape) ends with `dragend` on the dragged tab, which is not inside the group showing the preview, so the engine's own
+  // `dragend` listeners never hear it and its in-place overlay stays visible. The tab's `dragend` reaches this container (and the window), so every
+  // overlay still shown is told the drag ended the way the engine does it for its own target (dockview-core main.esm.mjs `onDragEnd` -> `removeDropTarget`).
+  // Where the overlay lives differs by Droptarget: a tab or header target draws its dropzone inside its own element, so a bubbling `dragend` from the
+  // dropzone reaches it; the content target is built on `.dv-content-container` but, with `dndPanelOverlay: 'group'`, draws the dropzone in that
+  // element's parent (`getOverlayOutline`), making the dropzone a sibling the bubbling event never reaches. So the dropzone's host also gets a non-bubbling
+  // `dragend` on each child other than the dropzone (a child owning no overlay ignores it). The pointer-backend content target uses the same element
+  // and outline, so it is covered too. No drop is committed (only an anchored override target commits on `dragend`, and this theme has none), the layout
+  // is untouched, and only dropzones inside this container are reached, so a nested dock relays its own. The row strip's accept highlight is lowered too.
+  const [dropOver, setDropOver] = useState(false);
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    let relaying = false;
+    const ended = () => {
+      if (relaying) return;
+      setDropOver(false);
+      relaying = true;
+      try {
+        container.querySelectorAll('.dv-drop-target-dropzone').forEach(zone => {
+          zone.dispatchEvent(new Event('dragend', { bubbles: true }));
+          Array.from(zone.parentElement?.children ?? []).forEach(sibling => {
+            if (sibling !== zone) sibling.dispatchEvent(new Event('dragend'));
+          });
+        });
+      } finally {
+        relaying = false;
+      }
+    };
+    window.addEventListener('dragend', ended, true);
+    return () => { window.removeEventListener('dragend', ended, true); };
+  }, [containerRef]);
+
   // The strip under the last row accepts one tab of this layout: not a whole group, not another layout's tab, not outside data. Every drag over the strip
   // ends here, taken or refused: an ancestor dock (the board around a pane) must never act on a drop released over it. These are native listeners on the
   // strip itself, which see the event before any ancestor's: React's own handlers run at the root, after the ancestors' native ones.
-  const [dropOver, setDropOver] = useState(false);
   const strip = useRef<HTMLDivElement>(null);
   const onDropBelow = rows?.onDropBelow;
   const stripShown = onDropBelow !== undefined && interactive;

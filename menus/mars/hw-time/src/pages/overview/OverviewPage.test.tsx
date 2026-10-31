@@ -120,7 +120,21 @@ const panelIds = () => within(workspace()).getAllByRole('region').map(el => el.g
 
 const panel = (id: string) => screen.getByLabelText(`panel ${id}`);
 
+const failed = (outcome: 'empty' | 'error') => ({ status: 'done' as const, missing: [], completedAt: 1, refetch: () => undefined, response: { outcome, data: null, assessments: [], trust: null, correlationId: 'fixture', ...(outcome === 'error' ? { message: 'boom' } : {}) } as ApiResponse<HwTimeLevelData> });
+
 describe('HW Time overview page', () => {
+  it.each([
+    ['loading', () => ({ status: 'loading' as const, response: null, missing: [], completedAt: null, refetch: () => undefined }), '불러오는 중입니다.'],
+    ['empty', () => failed('empty'), '조건에 맞는 결과가 없습니다.'],
+    ['error', () => failed('error'), '데이터를 불러오지 못했습니다. 본문에서 다시 시도하세요.'],
+  ])('the Inspector target follows the query when it is %s, not always loading (#1158)', async (_name, state, copy) => {
+    data.level.mockImplementation(() => state());
+    await renderPage();
+    fireEvent.pointerDown(screen.getByRole('button', { name: '분석 대상' }));
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: '분석 대상' })); });
+    expect(await screen.findByText(copy)).toBeTruthy();
+  });
+
   it('declares the manifest with the agreed keys', () => {
     const menu = manifests.find(item => item.id === 'hw-time-overview')!;
     expect(menu.path).toBe('/hw-time/overview');

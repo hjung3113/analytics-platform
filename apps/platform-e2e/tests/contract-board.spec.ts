@@ -1266,6 +1266,42 @@ test.describe('메뉴 작업 영역 (ADR-0067 3b)', () => {
     await page.mouse.up();
   }
 
+  test('끌기를 취소하면(Esc, dragend) 놓을 자리 미리보기가 바로 사라지고 배치는 그대로다 (#1158)', async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 900 });
+    await page.goto(CYCLE);
+    await workspaceReady(page);
+    const overlay = workspace(page).locator('.dv-drop-target-selection');
+    const tabs = () => workspace(page).getByRole('tab').evaluateAll(items => items.map(item => item.textContent?.trim()));
+    const before = await tabs();
+    const source = page.getByRole('tab', { name: TITLES.slow });
+    const target = groupOf(page, TITLES.trend);
+    await source.scrollIntoViewIfNeeded();
+    // A CDP drag ignores Escape and keeps sending `dragover`, which redraws the preview, so it cannot show a cancel. The drag is built from DOM
+    // events instead, in the order a browser sends them for Escape: `dragstart` on the tab, `dragover` on the other group, then `dragend` on the
+    // tab with no `drop`. The engine draws its overlay from real geometry here (unlike jsdom).
+    const body = target.locator('.dv-content-container');
+    await source.evaluate(tab => {
+      const data = new DataTransfer();
+      (window as unknown as { __dt: DataTransfer }).__dt = data;
+      tab.dispatchEvent(new DragEvent('dragstart', { dataTransfer: data, bubbles: true, cancelable: true }));
+    });
+    await body.evaluate(element => {
+      const data = (window as unknown as { __dt: DataTransfer }).__dt;
+      const box = element.getBoundingClientRect();
+      const at = { clientX: box.left + box.width / 2, clientY: box.top + box.height / 2 };
+      element.dispatchEvent(new DragEvent('dragenter', { dataTransfer: data, bubbles: true, cancelable: true, ...at }));
+      element.dispatchEvent(new DragEvent('dragover', { dataTransfer: data, bubbles: true, cancelable: true, ...at }));
+    });
+    await expect(overlay.first()).toBeVisible();
+    await source.evaluate(tab => {
+      const data = (window as unknown as { __dt: DataTransfer }).__dt;
+      tab.dispatchEvent(new DragEvent('dragend', { dataTransfer: data, bubbles: true, cancelable: true }));
+    });
+    await expect(overlay.filter({ visible: true })).toHaveCount(0);
+    await expect(workspace(page).locator('.dv-drop-target')).toHaveCount(0);
+    expect(await tabs()).toEqual(before);
+  });
+
   test('중첩 끌기는 거절된다: 칸 안 작업 영역의 탭은 보드 칸 띠나 다른 칸으로 옮겨지지 않는다', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1600, height: 900 });
     await seedDockBoard(page, '1x2', [cyclePane(), productivityPane()]);
