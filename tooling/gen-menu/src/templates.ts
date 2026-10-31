@@ -27,7 +27,7 @@ export type MenuInputs = {
  * it, because the server re-validates data permission per request (#47). Kept in one place so the
  * two never drift apart.
  */
-export const SDK_RANGE = '>=0.24.0 <0.25.0';
+export const SDK_RANGE = '>=0.25.0 <0.26.0';
 
 export const SCAFFOLD_PERMISSION = 'platform:view';
 
