@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>홈·시스템 전환 시안 (#1189)</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: one reading column of decision sections; each variant = label + real-app capture + short change list */
+:root {
+  --bg: #f4f6fa; --surface: #ffffff; --fg: #1a2233; --muted: #5b6577; --line: #dde2ec;
+  --accent: #1f3aa8; --accent-soft: #e6ebfa; --rec: #0f7a4a; --rec-soft: #e3f4ec; --warn: #9a5b00; --warn-soft: #fbf0dc;
+  --font: "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #11151d; --surface: #181e29; --fg: #e6eaf2; --muted: #9aa4b6; --line: #2a3242;
+  --accent: #8ea4ff; --accent-soft: #1e2847; --rec: #5fd39b; --rec-soft: #15302a; --warn: #f0b860; --warn-soft: #33270f; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #11151d; --surface: #181e29; --fg: #e6eaf2; --muted: #9aa4b6; --line: #2a3242;
+  --accent: #8ea4ff; --accent-soft: #1e2847; --rec: #5fd39b; --rec-soft: #15302a; --warn: #f0b860; --warn-soft: #33270f; color-scheme: dark }
+body { background: var(--bg); color: var(--fg); font-family: var(--font); font-size: 15px; line-height: 1.6; }
+.wrap { max-width: 1120px; margin: 0 auto; padding-block: 32px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 40px; }
+h1 { font-size: 26px; margin: 0; text-wrap: balance; }
+h2 { font-size: 21px; margin: 0; text-wrap: balance; }
+h3 { font-size: 16px; margin: 0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+p { margin: 0; }
+.lede { color: var(--muted); max-width: 70ch; }
+section { display: grid; gap: 20px; }
+.ask { background: var(--accent-soft); border-radius: 10px; padding: 16px 18px; display: grid; gap: 6px; }
+.ask b { color: var(--accent); }
+.variant { display: grid; gap: 10px; padding-top: 20px; border-top: 1px solid var(--line); }
+.tag { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; letter-spacing: .02em; }
+.tag.rec { background: var(--rec-soft); color: var(--rec); }
+.tag.warn { background: var(--warn-soft); color: var(--warn); }
+.tag.now { background: var(--line); color: var(--muted); }
+ul { margin: 0; padding-left: 20px; display: grid; gap: 2px; }
+li { max-width: 80ch; }
+figure { margin: 0; display: grid; gap: 6px; min-width: 0; }
+figure img { width: 100%; height: auto; border: 1px solid var(--line); border-radius: 8px; display: block; background: var(--surface); }
+figcaption { font-size: 13px; color: var(--muted); }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.triggers { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 760px) { .pair, .triggers { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 480px) { .pair { grid-template-columns: 1fr; } }
+code { font-family: var(--mono); font-size: 13px; }
+.meta { font-size: 13px; color: var(--muted); }
+</style>
+
+<div class="wrap">
+  <header style="display:grid;gap:10px">
+    <h1>홈·시스템 전환 시안 (#1189) — 결정 보류</h1>
+    <p class="lede">모두 실제 앱(mock, 관리자) 1440×900 캡처입니다. 주소에 <code>?variant=A|B|C</code>를 붙인 버리는 시안이고, 고르신 안만 구현합니다. 시안 코드는 이 브랜치(<code>prototype/1189-home-switcher</code>)에 있고, 조사는 <code>research.md</code>, 상세 설명은 <code>captions.md</code>에 있습니다.</p>
+  </header>
+
+  <section>
+    <h2>#1189 홈 화면과 왼쪽 위 시스템 전환</h2>
+    <div class="ask"><p><b>상태:</b> 소유자 결정 보류(2026-11-01), 지금 화면 유지. <b>고를 것:</b> A · B · C 중 하나(섞어도 됩니다). <b>추천은 A</b>입니다. 지금 패턴을 유지하면서 가장 조용하고, 계약 변경이 작습니다(전환기 2열 카드 → 1열 목록).</p></div>
+    <p class="lede">조사에서 진단한 "안 예쁜" 이유: 전환기 아이콘이 바로 아래 메뉴 아이콘과 같아 두 번 보임 · 레일에서 전환기만 파랗게 채운 칩이라 배지처럼 보임 · 팝오버 안에 카드가 또 있고 현재 표시가 세 겹 · 홈 카드에 같은 회색 작은 줄이 세 개씩 쌓여 위계가 평평함 · 카드가 페이지를 가득 채움.</p>
+
+    <div class="variant">
+      <h3><span class="tag now">지금</span> 지금 화면</h3>
+      <div class="pair">
+        <figure><img src="img/home-now.jpg" alt="지금 홈: 그룹별 테두리 카드, 카드마다 아이콘 칩·부제·설명·이어서 세 줄"><figcaption>홈</figcaption></figure>
+        <figure><img src="img/switcher-now.jpg" alt="지금 전환기: 플랫폼 메뉴 줄 아래 2열 카드, 현재 카드는 파란 테두리와 ✓현재"><figcaption>전환기를 연 모습(MARS 생산성 개요에서)</figcaption></figure>
+      </div>
+    </div>
+
+    <div class="variant">
+      <h3><span class="tag rec">추천</span> A 조용한 목록</h3>
+      <ul>
+        <li>홈: 카드·칩·테두리 없이 한 줄 행(아이콘 · <b>이름</b> · 짧은 문구), 이어 갈 곳이 있으면 오른쪽에 <code>이어서 · 생산성 개요</code>.</li>
+        <li>아래 즐겨찾기·최근 방문·공지도 같은 열에 테두리 없이 맞춤.</li>
+        <li>전환기: 32px 중립 버튼 안 <code>M ⇅</code>(한글 이름 시스템은 그 시스템 아이콘), 팝오버는 1열 목록·현재는 ✓ 하나·플랫폼 메뉴는 아래로.</li>
+        <li>구현 약 10파일(전환기·홈·레일 + 문구 + 시스템 아이콘 필드 + 테스트·문서). 표준 로그 개발·개선 실행은 지금 아이콘이 같아 시스템별 아이콘 필드가 필요합니다.</li>
+      </ul>
+      <div class="pair">
+        <figure><img src="img/home-A.jpg" alt="A 홈: 그룹 라벨 아래 아이콘·이름·짧은 문구 한 줄 행 3열"><figcaption>홈</figcaption></figure>
+        <figure><img src="img/switcher-A.jpg" alt="A 전환기: 1열 목록, MARS에 ✓, 아래 플랫폼 메뉴 3열 링크"><figcaption>전환기</figcaption></figure>
+      </div>
+    </div>
+
+    <div class="variant">
+      <h3>B 런처 격자</h3>
+      <ul>
+        <li>홈·전환기 모두 아이콘 상자 + 이름만(설명 없음). 이어서는 타일 툴팁으로만.</li>
+        <li>전환기 트리거가 와플 아이콘이라 지금 어느 시스템인지 트리거에 안 보입니다(계약 §3.2와 다름).</li>
+        <li>구현 약 6–7파일 + ADR.</li>
+      </ul>
+      <div class="pair">
+        <figure><img src="img/home-B.jpg" alt="B 홈: 그룹별 아이콘 타일 한 줄"><figcaption>홈</figcaption></figure>
+        <figure><img src="img/switcher-B.jpg" alt="B 전환기: 아이콘 타일 3열 격자"><figcaption>전환기</figcaption></figure>
+      </div>
+    </div>
+
+    <div class="variant">
+      <h3>C 이름 보이는 트리거 <span class="tag warn">계약 변경 필요</span></h3>
+      <ul>
+        <li>사이드바 머리 전체가 전환 버튼(<code>M MARS / 생산성 분석 ⇅</code>), 레일 맨 위는 홈 링크.</li>
+        <li>홈은 그룹 = 열(4열), 행은 이름 / 짧은 문구 두 줄.</li>
+        <li>레이아웃 계약 §3.2("머리를 또 다른 전환기로 만들지 않는다")와 ADR-0042를 바꿔야 합니다. 구현 약 10파일 + ADR.</li>
+      </ul>
+      <div class="pair">
+        <figure><img src="img/home-C.jpg" alt="C 홈: 그룹별 4열, 행은 이름과 짧은 문구 두 줄"><figcaption>홈</figcaption></figure>
+        <figure><img src="img/switcher-C.jpg" alt="C 전환기: 사이드바 머리 아래로 1열 목록"><figcaption>전환기</figcaption></figure>
+      </div>
+    </div>
+
+    <div class="variant">
+      <h3>닫힌 트리거만 확대</h3>
+      <div class="triggers">
+        <figure><img src="img/switcher-trigger-now.jpg" alt="지금 트리거: 파란 칩 + 모서리 화살표"><figcaption>지금</figcaption></figure>
+        <figure><img src="img/switcher-trigger-A.jpg" alt="A 트리거: 중립 상자 안 M과 위아래 화살표"><figcaption>A</figcaption></figure>
+        <figure><img src="img/switcher-trigger-B.jpg" alt="B 트리거: 와플 아이콘"><figcaption>B</figcaption></figure>
+        <figure><img src="img/switcher-trigger-C.jpg" alt="C 트리거: 사이드바 머리에 MARS 이름"><figcaption>C</figcaption></figure>
+      </div>
+    </div>
+
+    <p class="meta">짧은 문구(시안 전용): MARS 생산성·사이클타임 · BRAVO 지표 관리 · CLAS 동작시간 분석 · 도구 설비 Top View · 표준 로그 개발 모델별 로그 검증 · 개선 실행 개선 과제 적용 · 운영 콘솔 VOC·Task·플랫폼 관리. MARS와 CLAS가 둘 다 「생산성 분석」이던 것을 구별되게 바꿨습니다.</p>
+  </section>
+</div>
+</body></html>
