@@ -369,3 +369,15 @@ it('strip: editing a folded bar, or opening it, shows both the applied values an
   fireEvent.click(screen.getByRole('button', { name: '조회 조건 펼치기' }));
   expect(screen.getByRole('region', STRIP)).toHaveTextContent(/공정 PHOTO.*요약 조회 완료/);
 });
+it.each([['compact', 'px-4'], ['comfortable', 'px-3']] as const)('%s page: the collapsed query bar row insets %s so it lines up with the content (#1166)', async (density, inset) => {
+  window.history.replaceState(null, '', '/?scopeId=MEM');
+  localStorage.setItem('platform:query-bar-collapsed:home', 'true');
+  const session = testSession(['platform:view']);
+  render(<I18nProvider><PlatformProvider registry={registry} slots={{ contextBar: <GlobalContextBar /> }} adapter={testAdapter({ session: () => session, defaultRangeTo: () => '2026-01-01T09:31:22', menuQuery: send })}><Probe /><PlatformPage density={density}><Body /></PlatformPage></PlatformProvider></I18nProvider>);
+  await waitFor(() => expect(platform.scope.status).toBe('valid'));
+  const row = screen.getByRole('button', { name: '조회 조건 펼치기' }).parentElement as HTMLElement;
+  expect(row.className).toContain(inset);
+  expect(row.className).not.toContain(inset === 'px-4' ? 'px-3' : 'px-4');
+  const content = document.querySelector('[data-platform-page-content]') as HTMLElement;
+  if (density === 'compact') expect(content.className).toContain('px-4');
+});

@@ -127,6 +127,66 @@ describe('right-pinned action column (#1166)', () => {
   });
 });
 
+describe('pinned cells hide what scrolls beneath and fade a clipped column (#1166)', () => {
+  const pinned = (role: string) => document.querySelector(`[role="${role}"][data-column="_action"]`) as HTMLElement;
+  let restoreScroll: (() => void) | undefined;
+  afterEach(() => restoreScroll?.());
+  function overflow(scrollWidth: number) {
+    const descriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollWidth');
+    Object.defineProperty(HTMLElement.prototype, 'scrollWidth', { configurable: true, get() { return (this as HTMLElement).getAttribute('aria-label') === '스크롤 가능한 행 영역' ? scrollWidth : 0; } });
+    restoreScroll = () => { if (descriptor) Object.defineProperty(HTMLElement.prototype, 'scrollWidth', descriptor); else delete (HTMLElement.prototype as unknown as Record<string, unknown>).scrollWidth; };
+  }
+  it('header, body, hover and selected states of the sticky cell keep an opaque surface', async () => {
+    mount(800, { rowAction: row => <button type="button">{row.id}</button> });
+    await screen.findByRole('table', { name: 'table' });
+    expect(pinned('columnheader')).toHaveClass('bg-surface-sunken');
+    expect(pinned('cell')).toHaveClass('bg-surface-card', 'group-hover:bg-surface-row-hover', 'group-aria-selected:bg-surface-row-selected');
+    for (const token of ['bg-surface-card/', 'bg-transparent']) expect(pinned('cell').className).not.toContain(token);
+  });
+  it('draws a fade on the sticky edge only while the row area overflows and is not scrolled to the end', async () => {
+    overflow(900);
+    mount(300, { rowAction: row => <button type="button">{row.id}</button> });
+    await screen.findByRole('table', { name: 'table' });
+    for (const el of [pinned('columnheader'), pinned('cell')]) expect(el.className).toContain('before:bg-linear-to-r');
+    expect(pinned('cell')).toHaveClass('before:pointer-events-none', 'border-l-border-control');
+    const scrollport = screen.getByLabelText('스크롤 가능한 행 영역');
+    Object.defineProperty(scrollport, 'scrollLeft', { configurable: true, value: 900 - 300 });
+    fireEvent.scroll(scrollport);
+    for (const el of [pinned('columnheader'), pinned('cell')]) expect(el.className).not.toContain('before:bg-linear-to-r');
+  });
+  it('no fade when the table fits', async () => {
+    mount(800, { rowAction: row => <button type="button">{row.id}</button> });
+    await screen.findByRole('table', { name: 'table' });
+    expect(pinned('cell').className).not.toContain('before:bg-linear-to-r');
+  });
+});
+
+describe('trust line in a narrow pane (#1166)', () => {
+  const trusted = async (): Promise<ApiResponse<PageResult<Row>>> => ({ outcome: 'ok', data: { rows: [{ id: 'r1', a: 'x', b: 'y' }], total: 1 }, assessments: [{ kind: 'coverage', state: 'unknown', reason: 'check_failed', statusSource: 'fixture', observedAt: null }], trust: { updatedAt: '2026-10-16T09:00:00', dataThrough: null, coverage: 0.98, source: 'fixture', provisional: true, sourceLogicVersions: ['v1', 'v2'] }, correlationId: 'c' } as unknown as ApiResponse<PageResult<Row>>);
+  function mountAt(statusWidth: number) {
+    restore = stubCompactTableGeometry(800);
+    vi.stubGlobal('ResizeObserver', class { constructor(private cb: ResizeObserverCallback) {} observe(target: Element) { const width = (target as HTMLElement).hasAttribute('data-table-status-line') ? statusWidth : 800; this.cb([{ target, contentRect: { width, height: 100 } } as ResizeObserverEntry], this as unknown as ResizeObserver); } unobserve() {} disconnect() {} });
+    vi.stubGlobal('localStorage', storage);
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><PlatformDataTable title="T" ariaLabel="table" columns={columns} getRowId={r => r.id} loadPage={trusted} filterKey="f" preferenceKey="trust-table" pageSize={25} height={200} /></PlatformProvider></I18nProvider>);
+  }
+  it('collapses to dot + short status + 자세히 when the container is narrow, full items stay in the popover', async () => {
+    mountAt(400);
+    const trigger = await screen.findByRole('button', { name: /데이터 신뢰 · 일부 미확인 · 자세히/ });
+    expect(within(trigger).getByText('자세히')).toBeTruthy();
+    expect(trigger.querySelector('[data-trust-summary-details]')).toHaveClass('sr-only');
+    expect(within(trigger).queryByText('잠정')).toBeNull();
+    fireEvent.click(trigger);
+    expect(await screen.findByText('원천 로직 버전')).toBeTruthy();
+  });
+  it('shows the full line when the container is wide', async () => {
+    mountAt(900);
+    const trigger = await screen.findByRole('button', { name: /데이터 신뢰/ });
+    expect(trigger.querySelector('[data-trust-summary-details]')).not.toHaveClass('sr-only');
+    expect(within(trigger).queryByText('자세히')).toBeNull();
+    expect(within(trigger).getByText('잠정')).toBeTruthy();
+  });
+});
+
 describe('header on one line (#1166)', () => {
   it('keeps a header on one line with an ellipsis, names the full label in title, insets 16px; body cells keep wrapping anywhere', async () => {
     mount(800);

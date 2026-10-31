@@ -10,6 +10,7 @@ import { Button, Checkbox, cn, DropdownMenu, DropdownMenuContent, DropdownMenuGr
 import { AnalysisSectionContext } from '../archetypes/AnalysisSectionContext';
 import { toColumnDef } from './columnDef';
 import { DataTrustIndicator } from '../state/DataTrustIndicator';
+import { useElementWidth } from '../state/useElementWidth';
 import { OutcomeView } from '../StateView';
 import { SCROLLPORT_LABEL } from '../scrollportLabel';
 import { useEmbeddedChrome, useInWorkspacePanel } from '../workspace/panelContext';
@@ -49,6 +50,8 @@ export type PlatformColumn<T> = {
    */
   exportValue?: (row: T) => string | number | boolean | null;
 };
+/** Below this status-line width the full trust line (headline · coverage · updated · badges) no longer fits on one line. */
+const TRUST_FULL_MIN_WIDTH = 640;
 const ACTION_COLUMN_WIDTH = 128;
 /** Icon-only action column: two 32px icon buttons and a 4px gap fit with `px-0`. */
 const COMPACT_ACTION_WIDTH = 72;
@@ -136,8 +139,19 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const viewport = useRef<HTMLDivElement | null>(null);
   const section = useRef<HTMLElement>(null);
   const fit = useTableFit(section);
+  // The status line drops to a one-line trust summary when its own container (not the viewport) is narrower than the full line needs.
+  const statusLine = useElementWidth();
+  const statusNarrow = statusLine.width !== null && statusLine.width > 0 && statusLine.width < TRUST_FULL_MIN_WIDTH;
+  // Right-pinned column fade: only while the row area overflows horizontally and is not scrolled to its end.
+  const [fade, setFade] = useState({ left: false, right: false });
+  const updateFade = useCallback(() => {
+    const node = viewport.current;
+    const next = { left: !!node && node.scrollLeft > 1, right: !!node && node.scrollWidth - node.clientWidth - node.scrollLeft > 1 };
+    setFade(prev => prev.left === next.left && prev.right === next.right ? prev : next);
+  }, []);
   const bindViewport = fit.viewportRef;
   const viewportRef = useCallback((node: HTMLDivElement | null) => { viewport.current = node; bindViewport(node); }, [bindViewport]);
+  useLayoutEffect(updateFade);
   const outcome = useRef<HTMLDivElement>(null);
   const previousButton = useRef<HTMLButtonElement>(null);
   const nextButton = useRef<HTMLButtonElement>(null);
@@ -280,6 +294,11 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const cellBase = cn(headerBase, 'overflow-visible whitespace-normal [overflow-wrap:anywhere]');
   /** The right-pinned action column keeps a visible edge while content scrolls beneath it (a border token; DESIGN.md allows no shadow). */
   const pinEdge = 'border-l border-l-border-control';
+  /** A pinned cell fades the column scrolling beneath its inner edge (a pseudo-element of the cell itself, no pointer events), so a half-clipped column never reads as cut text. */
+  const fadeBase = 'before:pointer-events-none before:absolute before:inset-y-0 before:w-5 before:from-transparent before:content-[""]';
+  const fadeClass = (side: 'left' | 'right' | false | null, body: boolean) => !side || !(side === 'right' ? fade.right : fade.left) ? undefined
+    : cn(fadeBase, 'overflow-visible', side === 'right' ? 'before:right-full before:bg-linear-to-r' : 'before:left-full before:bg-linear-to-l',
+      body ? 'before:to-surface-card group-hover:before:to-surface-row-hover group-aria-selected:before:to-surface-row-selected' : 'before:to-surface-sunken');
   const nameOf = (c: Column<T>) => (c.columnDef.meta as ColumnMeta | undefined)?.label ?? (typeof c.columnDef.header === 'string' ? c.columnDef.header : c.id);
   // #239 (ADR-0024): the Columns popover lists each hideable column with a visibility checkbox and a pin toggle at the
   // row end; pinned columns sit in their own group on top. Width is set by dragging the header edge only.
@@ -392,7 +411,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       <span className="text-text-secondary">{lang === 'ko' ? '선택은 현재 조회 결과 안에서만 유지되며 Context 변경 시 해제됩니다.' : 'Selection is kept within this result and cleared on context change.'}</span>
     </div>}
 
-    <div className="flex min-h-7 min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-1 border-t border-border-subtle px-3 py-1 text-xs text-text-muted" aria-live="polite">
+    <div ref={statusLine.ref} data-table-status-line className="flex min-h-7 min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-1 border-t border-border-subtle px-3 py-1 text-xs text-text-muted" aria-live="polite">
       <span className="tabular whitespace-nowrap">{!shown || (loading && outOfRange) ? t('loading')
         : !success ? '—'
         : outOfRange
@@ -400,13 +419,13 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
           : (lang === 'ko' ? `${data.total.toLocaleString()}건 · ${shownPage + 1}/${pageCount} 페이지` : `${data.total.toLocaleString()} results · page ${shownPage + 1}/${pageCount}`)}</span>
       <span className="flex min-w-0 flex-wrap items-center gap-2">
         {loading && shown && <span role="status" className="inline-flex items-center gap-1"><Loader2 className="size-3 animate-spin" aria-hidden />{t('refreshing')}</span>}
-        {shown && <DataTrustIndicator trust={shown.trust} assessments={shown.assessments} className="min-h-6" wrap />}
+        {shown && <DataTrustIndicator trust={shown.trust} assessments={shown.assessments} className="min-h-6" wrap summary={statusNarrow} />}
       </span>
     </div>
 
     {shown && shown.outcome !== 'ok' ? <div ref={outcome} onFocus={() => { focusedRetry.current = true; }} onBlur={() => { focusedRetry.current = false; }} className="border-t border-border-subtle p-3"><OutcomeView response={shown} onRetry={retry} emptyAction={p.emptyAction}>{() => null}</OutcomeView></div> :
       // eslint-disable-next-line shadcn/no-inline-styles -- viewport max height comes from the height prop or the measured page fit at runtime
-      <div ref={viewportRef} data-table-auto-fit={p.height === undefined ? '' : undefined} tabIndex={0} aria-label={SCROLLPORT_LABEL[lang]} className={cn('overflow-auto border-t border-border-subtle [overflow-anchor:none]', chainWheel ? 'overscroll-auto' : 'overscroll-contain')} style={{ maxHeight: p.height ?? fit.cap ?? ROW_AREA_FALLBACK }}>
+      <div ref={viewportRef} data-table-auto-fit={p.height === undefined ? '' : undefined} tabIndex={0} aria-label={SCROLLPORT_LABEL[lang]} className={cn('overflow-auto border-t border-border-subtle [overflow-anchor:none]', chainWheel ? 'overscroll-auto' : 'overscroll-contain')} onScroll={updateFade} style={{ maxHeight: p.height ?? fit.cap ?? ROW_AREA_FALLBACK }}>
         {/* eslint-disable-next-line shadcn/no-inline-styles -- table width is the total column size computed at runtime */}
         <div role="table" aria-label={p.ariaLabel} aria-rowcount={data.total + 1} aria-busy={loading} className="min-w-full" style={{ width: tableWidth }}>
           <div role="rowgroup" className="sticky top-0 z-[5]">
@@ -415,7 +434,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
               // eslint-disable-next-line shadcn/no-inline-styles -- column width and pin offset come from column sizing at runtime
               return <div role="columnheader" key={h.id} data-column={h.column.id} style={cellStyle(h.column)} title={typeof h.column.columnDef.header === 'string' ? h.column.columnDef.header : undefined}
                 aria-sort={sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : h.column.getCanSort() ? 'none' : undefined}
-                className={cn(headerBase, 't-table-header border-b border-border-subtle bg-surface-sunken text-text-secondary', h.column.getIsPinned() === 'right' && pinEdge, align(h.column))}>
+                className={cn(headerBase, 't-table-header border-b border-border-subtle bg-surface-sunken text-text-secondary', h.column.getIsPinned() === 'right' && pinEdge, fadeClass(h.column.getIsPinned(), false), align(h.column))}>
                 {h.column.getCanSort()
                   ? <button type="button" onClick={h.column.getToggleSortingHandler()} className="-mx-1 inline-flex min-w-0 items-center gap-1 rounded-xs px-1 uppercase hover:text-text-primary">
                       <span className="min-w-0 truncate">{flexRender(h.column.columnDef.header, h.getContext())}</span>
@@ -448,7 +467,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
                 </div>}
                 {/* eslint-disable-next-line shadcn/no-inline-styles -- cell width and pin offset come from column sizing at runtime */}
                 {cells.map((cell, cellIndex) => <div role="cell" key={cell.id} data-column={cell.column.id} style={cellStyle(cell.column)}
-                  className={cn(cellBase, 'border-b border-border-subtle bg-surface-card text-sm group-hover:bg-surface-row-hover group-aria-selected:bg-surface-row-selected', active && 'bg-surface-row-selected', active && cellIndex === firstDataCell && 'font-medium', cell.column.id === '_action' && (actionCompact ? 'py-0 px-0' : 'py-0'), cell.column.getIsPinned() === 'right' && pinEdge, align(cell.column))}>
+                  className={cn(cellBase, 'border-b border-border-subtle bg-surface-card text-sm group-hover:bg-surface-row-hover group-aria-selected:bg-surface-row-selected', active && 'bg-surface-row-selected', active && cellIndex === firstDataCell && 'font-medium', cell.column.id === '_action' && (actionCompact ? 'py-0 px-0' : 'py-0'), cell.column.getIsPinned() === 'right' && pinEdge, fadeClass(cell.column.getIsPinned(), true), align(cell.column))}>
                   {/* The _action column cell is not used — rowAction renders directly to preserve DOM identity (#296). */}
                   {cell.column.id === '_action' ? p.rowAction?.(row.original, { compact: actionCompact }) : flexRender(cell.column.columnDef.cell, cell.getContext())}
                 </div>)}

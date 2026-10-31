@@ -1,6 +1,7 @@
 import { ArrowDownRight, ArrowUpRight, type LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { cn } from '@ap/ui';
+import { useCompactPageDensity } from '../pageDensity';
 
 export type Delta = { value: string; direction: 'up' | 'down'; /** Whether this direction is good for the metric. */ good: boolean };
 
@@ -12,9 +13,10 @@ export function StatCard({ icon: Icon, label, value, unit, delta, caption, chip 
   secondary?: ReactNode;
 }) {
   const chipClass = { blue: 'bg-icon-blue-soft text-accent-primary', teal: 'bg-icon-teal-soft text-cat-teal', purple: 'bg-cat-purple/10 text-cat-purple', amber: 'bg-accent-warn-soft text-cat-amber' }[chip];
+  const compact = useCompactPageDensity();
   const Tag = onClick ? 'button' : 'div';
   return <Tag type={onClick ? 'button' : undefined} onClick={onClick} aria-pressed={onClick ? !!active : undefined}
-    className={cn('flex min-h-[100px] w-full items-start gap-3 rounded-lg border bg-surface-card p-4 text-left',
+    className={cn('flex min-h-[100px] w-full items-start rounded-lg border bg-surface-card text-left', compact ? 'gap-2 p-3' : 'gap-3 p-4',
       active ? 'border-accent-primary ring-1 ring-accent-primary' : 'border-border-subtle',
       onClick && 'transition-colors hover:border-border-strong')}>
     <span className={cn('grid size-10 shrink-0 place-items-center rounded-md', chipClass)}><Icon className="size-6" strokeWidth={1.75} aria-hidden /></span>

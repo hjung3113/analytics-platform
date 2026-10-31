@@ -68,3 +68,37 @@ describe('ExecutionDetail identity', () => {
     expect(queries.some(q => q.endpoint === 'analytics.execution.occurrence')).toBe(false);
   });
 });
+
+describe('ExecutionDetail panel rhythm and 구간 표 (#1166)', () => {
+  const panelOf = (title: string) => screen.getByText(title).closest('section') as HTMLElement;
+
+  it('puts one 12px gap between the sibling panels and no extra top padding around the query view', async () => {
+    renderAt('&entityType=job&anchor=2456001');
+    await screen.findByText('공정 타임라인');
+    const identity = panelOf('Occurrence 식별');
+    const stack = identity.parentElement as HTMLElement;
+    expect(stack.className).toContain('space-y-3');
+    expect(stack.className).not.toContain('space-y-4');
+    const body = panelOf('표시 속성').parentElement as HTMLElement;
+    const holder = body.parentElement?.parentElement as HTMLElement; // QueryView block → the page's wrapper
+    expect(holder.parentElement).toBe(stack);
+    expect(holder.className).not.toMatch(/\bpt-\d/);
+    // The panels inside the query view are spaced by their own 12px stack.
+    expect(body.className).toContain('space-y-3');
+    for (const title of ['공정 타임라인', '구간 표', '품질 표시']) expect(panelOf(title).parentElement).toBe(body);
+  });
+
+  it('구간 표: 16px cell padding, one-line headers with the full label in title', async () => {
+    renderAt('&entityType=job&anchor=2456001');
+    await screen.findByText('구간 표');
+    const headers = screen.getAllByRole('columnheader');
+    expect(headers.length).toBe(6);
+    for (const header of headers) {
+      expect(header.className).toContain('px-4');
+      expect(header.className).not.toContain('px-3');
+      expect(header.className).toContain('truncate');
+      expect(header.getAttribute('title')).toBe(header.textContent);
+    }
+    for (const cell of screen.getAllByRole('cell')) expect(cell.className).toContain('px-4');
+  });
+});

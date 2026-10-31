@@ -16,7 +16,7 @@ ChartPoint | type | type ChartPoint = { seriesId: string; value: null | number; 
 ChartPointAction | type | type ChartPointAction = { disabled?: boolean; id: string; keepsFocus?: boolean; label: string; onSelect: (point: @ap/components#ChartPoint) => void; }
 ChartSeries | type | type ChartSeries = { color: @ap/ui/theme#ThemeColorToken; dashed?: boolean; id: string; kind?: 'bar' | 'line'; name: string; points: [ string, null | number ][]; }
 ChartSpec | type | type ChartSpec = @ap/components#BoxPlotSpec | @ap/components#DonutSpec | @ap/components#HeatmapSpec | @ap/components#ParetoSpec | @ap/components#ScatterSpec | @ap/components#TopNBarSpec
-DataTrustIndicator | function | function DataTrustIndicator({ trust, assessments, className, compact, hideProvisional, wrap }: { assessments: @ap/contracts#Assessment[]; className?: string; compact?: boolean; hideProvisional?: boolean; trust: @ap/contracts#Trust | null; wrap?: boolean; }): import("react").JSX.Element | null
+DataTrustIndicator | function | function DataTrustIndicator({ trust, assessments, className, compact, hideProvisional, wrap, summary }: { assessments: @ap/contracts#Assessment[]; className?: string; compact?: boolean; hideProvisional?: boolean; summary?: boolean; trust: @ap/contracts#Trust | null; wrap?: boolean; }): import("react").JSX.Element | null
 Delta | type | type Delta = { direction: 'down' | 'up'; good: boolean; value: string; }
 DetailDrawer | function | function DetailDrawer({ title, subtitle, headerActions, context, tabs, onClose, tab, onTabChange }: { context?: ReactNode; headerActions?: ReactNode; onClose: () => void; onTabChange?: (tab: string) => void; subtitle?: ReactNode; tab?: string; tabs: { content: ReactNode; id: string; label: ReactNode; }[]; title: ReactNode; }): import("react").ReactPortal | null
 DonutSlice | type | type DonutSlice = { color?: @ap/ui/theme#ThemeColorToken; id: string; label: string; value: number; }
@@ -165,6 +165,7 @@ summaryPreset | function | function summaryPreset(view: null | { activeId: strin
 toWorkbookXlsx | function | function toWorkbookXlsx(sheets: readonly @ap/components#WorkbookSheet[], signal?: AbortSignal): Promise<Blob>
 toggleMember | function | function toggleMember(list: readonly @ap/contracts#GroupMember[], member: @ap/contracts#GroupMember): @ap/contracts#GroupMember[]
 token | function | function token(name: @ap/ui/theme#ThemeColorToken): string
+useCompactPageDensity | const | const useCompactPageDensity: () => boolean
 useCopyLink | function | function useCopyLink(successText: string, options?: CopyLinkOptions): (url: string) => Promise<boolean>
 useHeaderOverflowDialog | function | function useHeaderOverflowDialog(): ShowHeaderDialog | null
 useManagementFilters | function | function useManagementFilters<K extends string>({ applied, identity, clearKeys, toPatch, onRebase }: @ap/components#ManagementFiltersOptions<K>): { barProps: { actions: import("react").JSX.Element; onApply: () => void; }; clear: () => void; clearButton: import("react").ReactElement<unknown, import("react").JSXElementConstructor<any> | string> | null; draft: @ap/components#FilterDraft<K>; layoutProps: { activeFilterCount: number; pendingFilterCount: number; }; recoverButton: import("react").ReactElement<unknown, import("react").JSXElementConstructor<any> | string>; }

@@ -32,7 +32,7 @@ const REASON_LABEL: Record<NonNullable<Assessment['reason']>, { ko: string; en: 
  * Data Trust vocabulary (§18): one compressed line, details in a popover.
  * `clear` is a narrow, source-backed claim; `unknown` is always shown, never folded into healthy.
  */
-export function DataTrustIndicator({ trust, assessments, className, compact = false, hideProvisional = false, wrap = false }: {
+export function DataTrustIndicator({ trust, assessments, className, compact = false, hideProvisional = false, wrap = false, summary = false }: {
   trust: Trust | null; assessments: Assessment[]; className?: string;
   /** Header yield (#303): keep the summary name on title/aria and show the dot. */
   compact?: boolean;
@@ -40,6 +40,8 @@ export function DataTrustIndicator({ trust, assessments, className, compact = fa
   hideProvisional?: boolean;
   /** Table status line: let headline · coverage · updated wrap inside the button instead of widening the line. */
   wrap?: boolean;
+  /** Narrow container (table status line in a ~400px pane): dot + short status + a `자세히` control; the full items stay in the popover. */
+  summary?: boolean;
 }) {
   const { t, tx, lang } = useI18n();
   if (!trust) return null;
@@ -55,20 +57,25 @@ export function DataTrustIndicator({ trust, assessments, className, compact = fa
       : (lang === 'ko' ? '확인된 이슈 없음' : 'No confirmed issues');
   const coverageText = `${t('coverage')} ${trust.coverage === null ? '—' : `${(trust.coverage * 100).toFixed(1)}%`}`;
   const updatedText = `${t('updated')} ${time(trust.updatedAt)}`;
+  const shortStatus = confirmed.length
+    ? (lang === 'ko' ? `이슈 ${confirmed.length}건` : `${confirmed.length} issue(s)`)
+    : unknown.length ? (lang === 'ko' ? '일부 미확인' : 'Partly unconfirmed') : (lang === 'ko' ? '이슈 없음' : 'No issues');
+  const detailsText = lang === 'ko' ? '자세히' : 'Details';
   const summaryName = `${headline} · ${coverageText} · ${updatedText}${compact && mixed ? ` · ${mixedText}` : ''}`;
   return <Popover>
     <PopoverTrigger asChild>
-      <button type="button" className={cn('inline-flex min-h-8 items-center gap-2 rounded-sm px-2 text-xs text-text-secondary hover:bg-surface-sunken', wrap && 'min-w-0 max-w-full flex-wrap text-left', className)} aria-label={compact && mixed ? summaryName : mixed ? `${t('dataTrust')} · ${mixedText}` : t('dataTrust')} title={summaryName}>
+      <button type="button" className={cn('group/trust inline-flex min-h-8 items-center gap-2 rounded-sm px-2 text-xs text-text-secondary hover:bg-surface-sunken', wrap && 'min-w-0 max-w-full flex-wrap text-left', className)} aria-label={summary ? `${t('dataTrust')} · ${shortStatus} · ${detailsText}` : compact && mixed ? summaryName : mixed ? `${t('dataTrust')} · ${mixedText}` : t('dataTrust')} title={summaryName}>
         <Dot tone={tone} />
-        <span data-trust-summary-details className={cn('inline-flex items-center gap-2', wrap && 'min-w-0 flex-wrap gap-y-0', compact && 'sr-only')}>
+        {summary && <span data-trust-short className="inline-flex items-center gap-2 whitespace-nowrap"><span className="tabular">{shortStatus}</span><span className="text-text-disabled" aria-hidden>·</span><span className="text-accent-primary underline-offset-2 group-hover/trust:underline">{detailsText}</span></span>}
+        <span data-trust-summary-details className={cn('inline-flex items-center gap-2', wrap && 'min-w-0 flex-wrap gap-y-0', (compact || summary) && 'sr-only')}>
           <span className="tabular">{headline}</span>
           <span className="text-text-disabled" aria-hidden>·</span>
           <span className="tabular">{coverageText}</span>
           <span className="text-text-disabled" aria-hidden>·</span>
           <span className="tabular">{updatedText}</span>
         </span>
-        {trust.provisional && !hideProvisional && <StatusBadge tone="warning">{t('provisional')}</StatusBadge>}
-        {mixed && !hideProvisional && <StatusBadge tone="warning">{mixedText}</StatusBadge>}
+        {trust.provisional && !hideProvisional && !summary && <StatusBadge tone="warning">{t('provisional')}</StatusBadge>}
+        {mixed && !hideProvisional && !summary && <StatusBadge tone="warning">{mixedText}</StatusBadge>}
         <Info className="size-3.5 text-text-muted" aria-hidden />
       </button>
     </PopoverTrigger>

@@ -46,7 +46,7 @@ export default function ExecutionDetail({ params }: PageProps) {
     secondaryActions={<span className="flex flex-wrap gap-2">{back}{equipmentLink}</span>}
     dataTrustSummary={query.response?.trust ? <DataTrustIndicator trust={query.response.trust} assessments={query.response.assessments} /> : undefined}
   >
-    <div className="space-y-4">
+    <div className="space-y-3">
       <p className="rounded-md border border-border-subtle bg-surface-card px-3 py-2 text-xs text-text-secondary">
         {ko
           ? 'Time·room·condition·selection·lot·ppid·recipe·metric은 참조입니다. 상세에서 본 설비로 전역 Selection을 바꾸지 않습니다. VOC 메뉴에는 occurrence page key가 없어 전역 Context만 전달됩니다.'
@@ -65,7 +65,7 @@ export default function ExecutionDetail({ params }: PageProps) {
 
       {!valid ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />} title={ko ? '식별 키가 올바르지 않아 조회하지 않습니다' : 'The identity key is invalid, so nothing was queried'}
         body={<ul className="list-disc pl-4">{errors.map(error => <li key={error}>{error}</li>)}</ul>} />
-        : <div className="relative pt-6">
+        : <div className="relative">
           <QueryView widgetName={ko ? '실행 상세' : 'Execution details'} query={query} skeletonHeight={240}>
             {data => data.access === 'forbidden'
               ? <StateMessage tone="warning" icon={<Ban className="size-4" aria-hidden />} title={ko ? '이 설비는 현재 Scope 권한 밖에 있습니다' : 'This equipment is outside the current scope grant'}
@@ -80,11 +80,13 @@ export default function ExecutionDetail({ params }: PageProps) {
   </PlatformPage>;
 }
 
+const PANEL_GAP = 'space-y-3';
+
 function OccurrenceBody({ execution, segments, ko, lang }: { execution: { room: string; recipe: string; lotId: string; ppid: string; anchor: string; startedAt: string; cycleMin: number; quality: 'unknown' | 'review' }; segments: Segment[]; ko: boolean; lang: string }) {
   const spanEnd = segments.reduce((max, segment) => segment.end > max ? segment.end : max, execution.startedAt);
   const axisEnd = spanEnd;
   const totalSec = Math.max(1, secondsBetween(execution.startedAt, axisEnd));
-  return <>
+  return <div className={PANEL_GAP}>
     <Panel title={ko ? '표시 속성' : 'Display attributes'} subtitle={ko ? '식별 키가 아닙니다.' : 'Not part of the identity key.'}>
       <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <Identity label="room_name" value={execution.room} />
@@ -124,17 +126,17 @@ function OccurrenceBody({ execution, segments, ko, lang }: { execution: { room: 
         <table className="w-full min-w-[720px] text-sm">
           <thead>
             <tr className="border-b border-border-subtle text-left text-text-muted">
-              {['', 'Module', 'Slot', ko ? '시작' : 'Start', ko ? '끝' : 'End', ko ? '길이 (분)' : 'Duration (min)'].map(label => <th key={label || 'kind'} className={`t-table-header px-3 py-1.5 ${label.startsWith('길이') || label.startsWith('Duration') ? 'text-right' : ''}`}>{label || (ko ? '구간' : 'Segment')}</th>)}
+              {['', 'Module', 'Slot', ko ? '시작' : 'Start', ko ? '끝' : 'End', ko ? '길이 (분)' : 'Duration (min)'].map(label => <th key={label || 'kind'} title={label || (ko ? '구간' : 'Segment')} className={`t-table-header truncate whitespace-nowrap px-4 py-1.5 ${label.startsWith('길이') || label.startsWith('Duration') ? 'text-right' : ''}`}>{label || (ko ? '구간' : 'Segment')}</th>)}
             </tr>
           </thead>
           <tbody>
             {segments.map(segment => <tr key={`${segment.kind}-${segment.start}`} className="border-b border-border-subtle">
-              <td className="px-3 py-1"><span className="t-mono">{segment.kind}</span></td>
-              <td className="t-mono px-3 py-1">{segment.module}</td>
-              <td className="t-mono px-3 py-1">{segment.slot}</td>
-              <td className="t-mono px-3 py-1 tabular">{segment.start.replace('T', ' ')}</td>
-              <td className="t-mono px-3 py-1 tabular">{segment.end.replace('T', ' ')}</td>
-              <td className="px-3 py-1 text-right tabular">{segment.durationMin.toLocaleString(lang === 'ko' ? 'ko-KR' : 'en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
+              <td className="px-4 py-1"><span className="t-mono">{segment.kind}</span></td>
+              <td className="t-mono px-4 py-1">{segment.module}</td>
+              <td className="t-mono px-4 py-1">{segment.slot}</td>
+              <td className="t-mono px-4 py-1 tabular">{segment.start.replace('T', ' ')}</td>
+              <td className="t-mono px-4 py-1 tabular">{segment.end.replace('T', ' ')}</td>
+              <td className="px-4 py-1 text-right tabular">{segment.durationMin.toLocaleString(lang === 'ko' ? 'ko-KR' : 'en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
             </tr>)}
           </tbody>
         </table>
@@ -156,7 +158,7 @@ function OccurrenceBody({ execution, segments, ko, lang }: { execution: { room: 
         ? `식별 키 anchor ${execution.anchor}는 불투명한 값이며 시각으로 읽지 않습니다. 서버 envelope의 source는 프로토타입이 모든 조회에 찍는 값입니다.`
         : `The key anchor ${execution.anchor} is opaque and is not read as a time. The envelope source is the value this prototype stamps on every query.`}</p>
     </Panel>
-  </>;
+  </div>;
 }
 
 function Identity({ label, value }: { label: string; value: string }) {
