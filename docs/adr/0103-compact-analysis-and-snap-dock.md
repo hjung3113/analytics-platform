@@ -5,7 +5,7 @@
 
 ## Decision
 
-Declare visual density once on `PlatformPage`, with comfortable defaults and an internal React context for SDK descendants. In compact pages, workspace panels remove duplicate chart/table card chrome while standalone cards remain framed. Keep page density separate from width-based workspace admission. Consumers retain domain-specific composition: the four HWT pages opt into compact and their StackPanel/TrendPanel choose gentle transient emphasis through a generic Frame prop.
+Declare visual density once on `PlatformPage`, with comfortable defaults and an internal React context for SDK descendants. Duplicate chart/table card chrome is removed wherever the container owns the border, at any density — see the amendment below — while standalone cards remain framed. Keep page density separate from width-based workspace admission. Consumers retain domain-specific composition: the four HWT pages opt into compact and their StackPanel/TrendPanel choose gentle transient emphasis through a generic Frame prop.
 
 Use the current native Dock engine's group/half previews and stable theme/options for both boards and menu workspaces. Persistent chart selection, data semantics, keyboard controls, stored layouts and engine version remain unchanged.
 
@@ -26,4 +26,4 @@ The operational capture scope is owned by [root AGENTS.md](../../AGENTS.md#검�
 
 Decision: a chart frame or table drops its own card border, radius and outer padding whenever the container around it owns the border — a `PanelWorkspace` panel or a board pane — at any page density. Page density keeps only spacing (gaps, toolbar height). Before, the conjunction `compact density && in a panel` hid the border, so a comfortable-density panel showed two borders and board panes showed a card inside the pane frame.
 
-Mechanism: the existing panel context carries `true` (panel) or `'pane'` (board pane). Both mean "the container owns the border"; only a panel also hides card titles (its tab shows the name) and chains the table wheel. A pane keeps visible titles. The shell wraps a pane's screen in the exported `EmbeddedPane`. No second context and no per-component chrome prop. Alternative rejected: a boolean for panes only, because `Panel`/`AnalysisLayout` section titles inside a pane would become `sr-only`.
+Mechanism: the existing panel context carries `true` (panel) or `'pane'` (board pane). Both mean "the container owns the border"; only a panel hides card titles (its tab shows the name). A panel or a pane chains the table wheel to the page (`PlatformDataTable`: `inPanel || screenMode === 'pane'`). A pane keeps visible titles. The shell wraps a pane's screen in the exported `EmbeddedPane`. No second context and no per-component chrome prop. Alternative rejected: a boolean for panes only, because `Panel`/`AnalysisLayout` section titles inside a pane would become `sr-only`.

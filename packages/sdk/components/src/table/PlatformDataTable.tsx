@@ -1,6 +1,6 @@
 import { useCompactPageDensity } from '../pageDensity';
 import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useId, type CSSProperties, type ReactNode } from 'react';
-import { flexRender, getCoreRowModel, useReactTable, type Column, type ColumnDef, type ColumnPinningState, type RowSelectionState } from '@tanstack/react-table';
+import { flexRender, getCoreRowModel, useReactTable, type Column, type ColumnDef, type ColumnPinningState, type Header, type RowSelectionState } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, Columns3, Copy, Download, FileSpreadsheet, FileText, Loader2, Pin, PinOff } from 'lucide-react';
 import { useI18n, usePlatform } from '@ap/kernel';
@@ -185,6 +185,15 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
     ...(hasAction ? [{ id: '_action', size: actionWidth, enableSorting: false, enableHiding: false, enableResizing: false, header: lang === 'ko' ? '동작' : 'Actions' } as ColumnDef<T>] : []),
   ], [baseColumns, hasAction, lang, actionWidth]);
 
+  // Gesture-scoped (see startResize): rendered - base width of the columns being dragged.
+  const resizeOffsets = useRef<Record<string, number>>({});
+  const sizingChange: typeof onColumnSizingChange = u => {
+    const offsets = resizeOffsets.current;
+    onColumnSizingChange(old => {
+      const next = typeof u === 'function' ? u(old) : u;
+      return Object.fromEntries(Object.entries(next).map(([id, size]) => [id, id in offsets ? Math.min(600, Math.max(60, size + offsets[id])) : size]));
+    });
+  };
   const table = useReactTable({
     data: data.rows, columns: allColumns, getRowId: p.getRowId, getCoreRowModel: getCoreRowModel(),
     manualSorting: true, manualPagination: true, enableRowSelection: selectable, columnResizeMode: 'onChange',
@@ -202,7 +211,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       setSorting(next); setPage(0); if (viewport.current) viewport.current.scrollTop = 0;
     },
     onRowSelectionChange: setSelection,
-    onColumnSizingChange, onColumnVisibilityChange, onColumnPinningChange: onColumnPinningChange(actionPinned),
+    onColumnSizingChange: sizingChange, onColumnVisibilityChange, onColumnPinningChange: onColumnPinningChange(actionPinned),
   });
   const rows = table.getRowModel().rows;
   const virtual = useVirtualizer({ count: rows.length, getScrollElement: () => viewport.current, estimateSize: () => 32, overscan: 8, getItemKey: i => rows[i].id });
@@ -247,8 +256,21 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const flexIds = new Set(table.getVisibleLeafColumns().filter(c => c.id !== '_select' && c.id !== '_action' && !c.getIsPinned() && preferences.sizing[c.id] === undefined).map(c => c.id));
   const flexBase = table.getVisibleLeafColumns().reduce((sum, c) => flexIds.has(c.id) ? sum + c.getSize() : sum, 0);
   const extra = fit.width !== null && flexBase > 0 ? Math.max(0, fit.width - baseTotal) : 0;
-  const widthOf = (column: Column<T>) => column.getSize() + (extra > 0 && flexIds.has(column.id) ? Math.floor(extra * column.getSize() / flexBase) : 0);
-  const tableWidth = baseTotal + (extra > 0 ? table.getVisibleLeafColumns().reduce((sum, c) => sum + widthOf(c) - c.getSize(), 0) : 0);
+  // Floored shares leave a remainder of at most one pixel per column; the last grown column takes it so the cells sum to the scrollport.
+  const flexList = table.getVisibleLeafColumns().filter(c => flexIds.has(c.id));
+  const shares = new Map(flexList.map(c => [c.id, extra > 0 ? Math.floor(extra * c.getSize() / flexBase) : 0]));
+  if (flexList.length > 0 && extra > 0) { const last = flexList[flexList.length - 1].id; shares.set(last, (shares.get(last) ?? 0) + extra - [...shares.values()].reduce((a, b) => a + b, 0)); }
+  const widthOf = (column: Column<T>) => column.getSize() + (shares.get(column.id) ?? 0);
+  const tableWidth = baseTotal + (extra > 0 ? extra : 0);
+  // A resize drag starts from the rendered width, not the engine's base size: the engine writes base + pointer delta, so the offset
+  // (rendered - base) is added to what it writes for the dragged column. Gesture-scoped; automatic fill widths are never stored.
+  const startResize = (h: Header<T, unknown>) => (event: React.MouseEvent | React.TouchEvent) => {
+    resizeOffsets.current = Object.fromEntries(h.getLeafHeaders().map(l => [l.column.id, widthOf(l.column) - l.column.getSize()]));
+    const clear = () => { setTimeout(() => { resizeOffsets.current = {}; }, 0); };
+    document.addEventListener('mouseup', clear, { once: true });
+    document.addEventListener('touchend', clear, { once: true });
+    h.getResizeHandler()(event);
+  };
   function cellStyle(column: Column<T>): CSSProperties {
     const pinned = column.getIsPinned();
     return { width: widthOf(column), flexShrink: 0, position: pinned ? 'sticky' : 'relative', left: pinned === 'left' ? column.getStart('left') : undefined, right: pinned === 'right' ? column.getAfter('right') : undefined, zIndex: pinned ? 2 : undefined };
@@ -401,7 +423,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
                     </button>
                   : flexRender(h.column.columnDef.header, h.getContext())}
                 {/* #239: an always-visible 1px divider with an 8px grab area; double-click restores the default width. */}
-                {h.column.getCanResize() && <div aria-hidden data-column-resizer onMouseDown={h.getResizeHandler()} onTouchStart={h.getResizeHandler()} onDoubleClick={event => { event.preventDefault(); h.column.resetSize(); }} className="group/resize absolute right-0 top-0 flex h-full w-2 cursor-col-resize touch-none justify-end">
+                {h.column.getCanResize() && <div aria-hidden data-column-resizer onMouseDown={startResize(h)} onTouchStart={startResize(h)} onDoubleClick={event => { event.preventDefault(); h.column.resetSize(); }} className="group/resize absolute right-0 top-0 flex h-full w-2 cursor-col-resize touch-none justify-end">
                   <span className={cn('h-full w-px', h.column.getIsResizing() ? 'bg-accent-primary' : 'bg-border-subtle group-hover/resize:bg-accent-primary')} />
                 </div>}
               </div>;

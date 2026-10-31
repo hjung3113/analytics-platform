@@ -1,5 +1,5 @@
 /** Width fill, right-pinned edge, header wrapping and pane chrome (#1166). jsdom has no layout: the scrollport width is the stubbed `clientWidth`. */
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
@@ -63,6 +63,50 @@ describe('table width fill (#1166)', () => {
     expect(widthOf('b')).toBe('200px');
     expect(widthOf('a')).toBe('600px'); // 100 + (800 - 300)
     expect(tableEl().style.width).toBe('800px');
+  });
+});
+
+describe('resizing after fill (#1166)', () => {
+  const resizer = (id: string) => document.querySelector(`[role="columnheader"][data-column="${id}"] [data-column-resizer]`) as HTMLElement;
+  const bodyWidth = (id: string) => (document.querySelector(`[role="cell"][data-column="${id}"]`) as HTMLElement).style.width;
+  it('a grown column follows the pointer from its rendered width and only that width is stored', async () => {
+    const view = mount(800);
+    await screen.findByRole('table', { name: 'table' });
+    fireEvent.mouseDown(resizer('a'), { clientX: 200 });
+    // TanStack's engine reports each move one event late (its size info is a queued updater), so a pointer holds for a second event.
+    fireEvent.mouseMove(document, { clientX: 200 });
+    fireEvent.mouseMove(document, { clientX: 200 });
+    expect(widthOf('a')).toBe('200px'); // no jump on the first move
+    fireEvent.mouseMove(document, { clientX: 210 });
+    fireEvent.mouseMove(document, { clientX: 210 });
+    expect(widthOf('a')).toBe('210px');
+    expect(bodyWidth('a')).toBe('210px');
+    expect(widthOf('b')).toBe('590px'); // the unfixed column takes the rest
+    expect(tableEl().style.width).toBe('800px');
+    fireEvent.mouseUp(document, { clientX: 210 });
+    view.unmount();
+    expect(JSON.parse(storage.getItem('fill-table')!).sizing).toEqual({ a: 210 });
+  });
+  it('the touch path starts from the rendered width too', async () => {
+    mount(800);
+    await screen.findByRole('table', { name: 'table' });
+    fireEvent.touchStart(resizer('a'), { touches: [{ clientX: 200 }] });
+    fireEvent.touchMove(document, { touches: [{ clientX: 220 }] });
+    fireEvent.touchMove(document, { touches: [{ clientX: 220 }] });
+    expect(widthOf('a')).toBe('220px');
+    expect(widthOf('b')).toBe('580px');
+    fireEvent.touchEnd(document, { changedTouches: [{ clientX: 220 }] });
+  });
+});
+
+describe('indivisible width (#1166)', () => {
+  it('assigns the pixel remainder so the cells add up to the scrollport', async () => {
+    mount(801);
+    await screen.findByRole('table', { name: 'table' });
+    expect(parseInt(widthOf('a')) + parseInt(widthOf('b'))).toBe(801);
+    expect(widthOf('a')).toBe('200px');
+    expect(widthOf('b')).toBe('601px');
+    expect(tableEl().style.width).toBe('801px');
   });
 });
 
