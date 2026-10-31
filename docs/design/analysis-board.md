@@ -1,6 +1,6 @@
 # 16. 분석 보드 — 하단 시트 탭 · 그리드 칸 · 칸별 조건
 
-상태: **Decided — 1차 범위의 동작(사용자, 2026-10-19 #421 설계 질의 Q1–Q25)** / **Decided — 칸 머리·선택 표시([ADR-0051](../adr/0051-analysis-board-pane-header-signal-chips-numbered-selection.md), 2026-10-19)** / **Deferred — §10**. 구현은 나눠 진행했다: Kernel 칸 Context(#496), 보드 골격(#497a: `/board` 플랫폼 화면·시트 탭 띠·그리드·칸 선택·Context 바·저장·되돌리기·레일 진입), 칸 머리 차이 칩·`⋯` 동작·일괄 적용/복사·`분석 보드에 열기…`·상세 슬롯 공유·`이전 화면`(#497b), 메뉴 보드 지원·E2E(#498)를 이 사양대로 구현했다. 1차 분석 보드 구현 완료(#496·#497·#498). 추적: [#421](https://github.com/hjung3113/analytics-platform/issues/421). 용어는 [GLOSSARY](../../GLOSSARY.md) "분석 조건과 분석 보드".
+상태: **Decided — 1차 범위의 동작(사용자, 2026-10-19 #421 설계 질의 Q1–Q25)** / **Decided — 칸 머리·선택 표시([ADR-0051](../adr/0051-analysis-board-pane-header-signal-chips-numbered-selection.md), 2026-10-19)** / **Deferred — §10**. 추적: [#421](https://github.com/hjung3113/analytics-platform/issues/421). 용어는 [GLOSSARY](../../GLOSSARY.md) "분석 조건과 분석 보드".
 
 > 분석 Context의 범위 계약은 [06 §6.5](../contract/kernel.md#65-분석-context의-범위--칸-decided-adr-0049)와 [ADR-0049](../adr/0049-analysis-context-belongs-to-a-pane.md)가 소유한다. 이 문서는 보드 화면과 동작을 적는다.
 
