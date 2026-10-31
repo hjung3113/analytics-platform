@@ -72,7 +72,9 @@ const ENVELOPE = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
-function stubFetch(meId: string) {
+// `second` shapes the second /me call (the full-session read); the first (the ownership guard) always succeeds.
+function stubFetch(meId: string, second: 'ok' | 'pending' | 'error' = 'ok') {
+  let meCalls = 0;
   const calls: { method: string; path: string }[] = [];
   let posted = false;
   vi.stubGlobal(
@@ -81,6 +83,9 @@ function stubFetch(meId: string) {
       const path = String(input);
       const method = init?.method ?? 'GET';
       calls.push({ method, path });
+      if (path === '/me' && ++meCalls === 2 && second === 'pending') return new Promise<Response>(() => {});
+      if (path === '/me' && meCalls === 2 && second === 'error')
+        return json({ code: 'internal.unexpected', message: 'boom' }, 500);
       if (path === '/me')
         return json({
           actor: {
@@ -140,5 +145,27 @@ describe('<ReporterVocDetail> reporter reply', () => {
     expect(await screen.findByText('VOC를 찾을 수 없습니다')).toBeTruthy();
     expect(screen.queryByTestId('reporter-reply-composer')).toBeNull();
     expect(screen.queryByRole('textbox')).toBeNull();
+  });
+
+  it('mounts no reply composer while the full session read is pending', async () => {
+    stubFetch(ME, 'pending');
+    mount();
+    expect(await screen.findByText('로그인이 안 됩니다')).toBeTruthy();
+    expect(screen.queryByTestId('reporter-voc-reply')).toBeNull();
+    expect(screen.queryByTestId('reporter-reply-composer')).toBeNull();
+  });
+
+  it('mounts no reply composer when the full session read fails, and still shows the VOC', async () => {
+    stubFetch(ME, 'error');
+    mount();
+    expect(await screen.findByText('로그인이 안 됩니다')).toBeTruthy();
+    await waitFor(() => expect(screen.queryByTestId('reporter-voc-reply')).toBeNull());
+    expect(screen.queryByTestId('reporter-reply-composer')).toBeNull();
+  });
+
+  it('mounts the reply composer once the session read resolves to the reporter', async () => {
+    stubFetch(ME);
+    mount();
+    expect(await screen.findByTestId('reporter-voc-reply')).toBeTruthy();
   });
 });

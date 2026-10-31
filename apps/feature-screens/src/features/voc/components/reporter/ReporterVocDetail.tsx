@@ -136,9 +136,11 @@ export function ReporterVocDetail({
           meActor={me.data}
         />
       </div>
-      <div className="mt-4" data-testid="reporter-voc-reply">
-        <ReporterReplyComposer voc={voc} me={session.data} />
-      </div>
+      {session.data !== undefined && session.data.actor.id === voc.reporter_id ? (
+        <div className="mt-4" data-testid="reporter-voc-reply">
+          <ReporterReplyComposer voc={voc} me={session.data} />
+        </div>
+      ) : null}
       <LinkedExecutionSection voc={voc} isReporterContext />
       <LinkedEntityTrailSection
         links={voc.links ?? []}

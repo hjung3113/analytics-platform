@@ -259,6 +259,13 @@ export function useTaskRequestConversion({
     convertMilestoneId !== '' &&
     !milestonesQuery.data.items.some((milestone) => milestone.id === convertMilestoneId);
 
+  // A rejection is about the responsibility selection that was submitted; one that settles after
+  // the user changed the mode or assignee must not put its field error on the new selection.
+  const currentSelectionKey = `${responsibilityMode}:${convertAssigneeId.trim()}`;
+  const currentSelectionRef = React.useRef(currentSelectionKey);
+  currentSelectionRef.current = currentSelectionKey;
+  const submittedSelectionRef = React.useRef<string | null>(null);
+
   // eslint-disable-next-line @typescript-eslint/no-invalid-void-type -- react-query's `void` variables type makes mutate() take no argument; `undefined` would force mutate(undefined) at every call site (the former Biome rule allowed void call-site type arguments)
   const convertMutation = useMutation<TaskDto, Error, void>({
     mutationFn: async () => {
@@ -341,6 +348,7 @@ export function useTaskRequestConversion({
             field.path[0] === 'assignee_actor_id',
         );
       if (ineligible) {
+        if (submittedSelectionRef.current !== currentSelectionRef.current) return;
         setAssigneeError(RESPONSIBILITY_COPY.ineligibleForSystem);
         return;
       }
@@ -367,6 +375,7 @@ export function useTaskRequestConversion({
       return;
     }
     setConvertTitleError(null);
+    submittedSelectionRef.current = currentSelectionKey;
     convertMutation.mutate();
   }
 

@@ -427,6 +427,44 @@ describe('TaskRequestsRoute conversion priority labels', () => {
     expect(screen.queryByTestId('task-request-convert-assignee-error')).not.toBeInTheDocument();
   });
 
+  it('#1159 ignores an ineligible-assignee rejection that settles after the assignee changed', async () => {
+    const mk = (id: string, name: string) => ({
+      id,
+      display_name: name,
+      email: `${id}@example.test`,
+      role_level: 'developer' as const,
+      actor_type: 'internal_member' as const,
+    });
+    api.workspaceActors = [
+      mk('60000000-0000-0000-0000-000000000006', '담당 개발자'),
+      mk('70000000-0000-0000-0000-000000000007', '다른 개발자'),
+    ];
+    api.convertTaskRequest.mockReset();
+    let reject: (error: Error) => void = () => {};
+    api.convertTaskRequest.mockImplementationOnce(
+      () =>
+        new Promise((_resolve, rej) => {
+          reject = rej;
+        }),
+    );
+    await openConvertForm();
+    await chooseOption('담당자', '사용자 지정');
+    await chooseOption('담당 사용자', '담당 개발자');
+    fireEvent.click(screen.getByTestId('task-request-convert-submit'));
+    await waitFor(() => expect(api.convertTaskRequest).toHaveBeenCalled());
+    await chooseOption('담당 사용자', '다른 개발자');
+    await act(async () => {
+      reject(
+        new ApiError(422, {
+          code: 'validation.failed',
+          message: 'invalid responsibility',
+          detail: { fields: [{ path: ['assignee_actor_id'], code: 'ineligible_actor' }] },
+        }),
+      );
+    });
+    expect(screen.queryByTestId('task-request-convert-assignee-error')).not.toBeInTheDocument();
+  });
+
   it('submits the selected shared priority, due date, and milestone values unchanged', async () => {
     await openConvertForm();
     await chooseOption('우선순위', TASK_PRIORITY_LABELS.urgent);
