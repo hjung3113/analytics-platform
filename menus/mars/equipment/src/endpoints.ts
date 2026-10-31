@@ -3,7 +3,7 @@
  * Client-safe: declarations, params/data types and display constants only — filtering, sorting and paging
  * live in `src/mock/` (the server half). Pages import from here, never from `src/mock/**`.
  */
-import { defineEndpoint, type PageQuery, type PageResult, type PageSort } from '@ap/contracts';
+import { defineEndpoint, type ColumnFilter, type PageResult, type PageSort, type TableQuery } from '@ap/contracts';
 import { PERMISSION } from './permission';
 
 /** Destination type for the equipment detail (docs/06 §22). A literal: the menu learns no mock internals. */
@@ -18,7 +18,8 @@ export type Equipment = {
 
 /** Page-owned list filters (URL page keys q/status/maker). '' means no constraint. */
 export type EquipmentFilter = { q: string; status: string; maker: string };
-export type EquipmentPageParams = EquipmentFilter & PageQuery;
+/** Page filters plus the table's opt-in column filters (`TableQuery.filters`, ADR-0104). */
+export type EquipmentPageParams = EquipmentFilter & TableQuery;
 
 /** Exactly what the equipment-master manifest applies; `time` stays reference. */
 const context = { roomNames: 'apply', condition: 'apply', selection: 'apply' } as const;
@@ -27,7 +28,7 @@ const context = { roomNames: 'apply', condition: 'apply', selection: 'apply' } a
 export const equipmentPageEndpoint = defineEndpoint<EquipmentPageParams, PageResult<Equipment>>({
   id: 'equipment.master.page',
   menuId: 'equipment-master',
-  paramKeys: { q: true, status: true, maker: true, page: true, pageSize: true, sorting: true },
+  paramKeys: { q: true, status: true, maker: true, page: true, pageSize: true, sorting: true, filters: true },
   permission: PERMISSION,
   requiresScope: true,
   context,
@@ -52,7 +53,7 @@ export const equipmentMakersEndpoint = defineEndpoint<Record<never, never>, stri
 });
 
 /** Page filters plus an explicit row selection (`null` = every filtered row) and the table's active sort for export. */
-export type EquipmentExportFilter = EquipmentFilter & { ids: string[] | null; sorting: PageSort[] };
+export type EquipmentExportFilter = EquipmentFilter & { ids: string[] | null; sorting: PageSort[]; filters?: ColumnFilter[] };
 
 /**
  * The export set for the table-owned export (#173): same permission/Context/filters as the page, plus selection ids.
@@ -61,7 +62,7 @@ export type EquipmentExportFilter = EquipmentFilter & { ids: string[] | null; so
 export const equipmentExportEndpoint = defineEndpoint<EquipmentExportFilter, Equipment[]>({
   id: 'equipment.master.export',
   menuId: 'equipment-master',
-  paramKeys: { q: true, status: true, maker: true, ids: true, sorting: true },
+  paramKeys: { q: true, status: true, maker: true, ids: true, sorting: true, filters: true },
   permission: PERMISSION,
   requiresScope: true,
   context,

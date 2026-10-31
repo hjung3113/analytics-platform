@@ -5,7 +5,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, Columns3, Copy, Download, FileSpreadsheet, FileText, GripVertical, Loader2, Pin, PinOff } from 'lucide-react';
 import { useI18n, usePlatform } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
-import type { ApiResponse, Capability, ContextKey, PageQuery, PageResult, PageSort } from '@ap/contracts';
+import type { ApiResponse, Capability, ColumnFilter, ColumnFilterSpec, ContextKey, PageQuery, PageResult, PageSort, TableQuery } from '@ap/contracts';
 import { Button, Checkbox, cn, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, Label, Popover, PopoverContent, PopoverTrigger, shortcutLabel, Skeleton, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { AnalysisSectionContext } from '../archetypes/AnalysisSectionContext';
 import { toColumnDef } from './columnDef';
@@ -20,6 +20,7 @@ import { exportItemName, exportTarget, FORMAT_LABEL, type ExportScopeKind } from
 import { effectiveOrder, moveWithinGroup, pinnedInOrder } from './columnOrder';
 import { useColumnPreferences } from './useColumnPreferences';
 import { usePagedRows } from './usePagedRows';
+import { ColumnFilterButton, ColumnFilterChips, useColumnFilters } from './columnFilters';
 import { useTableTransfer } from './useTableTransfer';
 
 export type { PageQuery, PageResult } from '@ap/contracts';
@@ -51,6 +52,11 @@ export type PlatformColumn<T> = {
    * uses `value ?? row[id]`, and an object/array/Date there is a dev-time error asking for `exportValue`.
    */
   exportValue?: (row: T) => string | number | boolean | null;
+  /**
+   * Opt-in column filter (#556b, ADR-0104): the header gets a filter button and the table sends the user's `ColumnFilter`
+   * to `loadPage` (`query.filters`) and `exportRows`. The id is the server field; the server applies the filter.
+   */
+  filter?: ColumnFilterSpec;
 };
 /** The trust button's own inline padding (px-2 × 2) and the status line's flex gap (gap-x-2): the probe measures content only. */
 const TRUST_BUTTON_PADDING = 16;
@@ -77,7 +83,7 @@ export type PlatformDataTableProps<T> = {
   columns: PlatformColumn<T>[];
   getRowId: (row: T) => string;
   /** Server-side sort/page. Returns the §19 envelope; the table renders the outcome taxonomy. */
-  loadPage: (query: PageQuery, signal: AbortSignal) => Promise<ApiResponse<PageResult<T>>>;
+  loadPage: (query: TableQuery, signal: AbortSignal) => Promise<ApiResponse<PageResult<T>>>;
   /** Identity of page-owned filters; a change returns to page 1 and clears row selection. */
   filterKey: string;
   filters?: ReactNode;
@@ -88,7 +94,7 @@ export type PlatformDataTableProps<T> = {
    * Scope/limits re-checked per request. Omit to make the screen un-exportable. `sorting` is the table's active sort, so
    * the export follows the screen's order (#173 UX P2-6).
    */
-  exportRows?: (request: { scope: { kind: 'selected'; ids: string[] } | { kind: 'filtered' }; sorting: PageSort[] }, signal: AbortSignal) => Promise<ApiResponse<T[]>>;
+  exportRows?: (request: { scope: { kind: 'selected'; ids: string[] } | { kind: 'filtered' }; sorting: PageSort[]; filters?: ColumnFilter[] }, signal: AbortSignal) => Promise<ApiResponse<T[]>>;
   /** Menu note appended to the export toast (e.g. cycle-time "page filters apply; not the full KPI population"). */
   exportNote?: string;
   /**
@@ -170,8 +176,9 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const focusedRetry = useRef(false);
   // urlState (§6.1): controlled sort/page. The page writes the URL via onChange; the table never touches keys.
   const activeSorting = p.urlState ? p.urlState.sorting : sorting;
+  const columnFilters = useColumnFilters(p.urlState);
   const { setPage, retry, effectivePage, shown, shownPage, loading, data, pageCount, success, outOfRange } = usePagedRows<T>({
-    loadPage: p.loadPage, filterKey: p.filterKey, urlState: p.urlState, pageSize, activeSorting, viewport,
+    loadPage: p.loadPage, filterKey: p.filterKey, urlState: p.urlState, pageSize, activeSorting, viewport, columnFilters: columnFilters.filters,
     // Selection never survives a Context change; an in-flight export/copy belongs to the old result set.
     onContextChange: () => { setSelection({}); abortTransfers(); },
   });
@@ -180,7 +187,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const selectedIds = Object.keys(effectiveSelection).filter(k => effectiveSelection[k]);
   const { exporting, copying, exportNote, copyNote, runExport, runCopy, onShortcut, abortTransfers } = useTableTransfer<T>({
     columns: p.columns, getRowId: p.getRowId, exportRows: p.exportRows, menuNote: p.exportNote, exportFilterSummary: p.exportFilterSummary, exportContext: p.exportContext,
-    canExport, selectedIds, selection, loadedRows: data.rows, total: data.total, resultOk: shown?.outcome === 'ok', activeSorting, preferences, overlayOpen,
+    canExport, selectedIds, selection, columnFilters: columnFilters.filters, loadedRows: data.rows, total: data.total, resultOk: shown?.outcome === 'ok', activeSorting, preferences, overlayOpen,
   });
 
   const columnPrefsId = useId();
@@ -496,6 +503,8 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       </div>
     </div>
 
+    <ColumnFilterChips filters={columnFilters.filters} columns={p.columns} lang={lang} onRemove={id => columnFilters.apply(id, null)} onClear={columnFilters.clear} />
+
     {selectedIds.length > 0 && <div className="flex min-h-10 flex-wrap items-center gap-3 border-t border-border-subtle bg-accent-primary-soft px-3 py-2 text-xs">
       <span className="font-semibold tabular" data-testid="selected-count">{lang === 'ko' ? `${selectedIds.length}행 선택` : `${selectedIds.length} selected`}</span>
       {p.bulkActions?.(selectedIds)}
@@ -536,6 +545,10 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
                       {sorted === 'asc' ? <ArrowUp className="size-3 shrink-0" aria-hidden /> : sorted === 'desc' ? <ArrowDown className="size-3 shrink-0" aria-hidden /> : <ArrowUpDown className="size-3 shrink-0 opacity-40" aria-hidden />}
                     </button>
                   : <span className="min-w-0 truncate">{flexRender(h.column.columnDef.header, h.getContext())}</span>}
+                {(() => {
+                  const column = p.columns.find(c => c.id === h.column.id);
+                  return column?.filter ? <ColumnFilterButton column={column} spec={column.filter} lang={lang} active={columnFilters.filters.find(f => f.id === column.id)} onApply={next => columnFilters.apply(column.id, next)} /> : null;
+                })()}
                 {/* #239: an always-visible 1px divider with an 8px grab area; double-click restores the default width. */}
                 {h.column.getCanResize() && <div aria-hidden data-column-resizer onMouseDown={startResize(h)} onTouchStart={startResize(h)} onDoubleClick={event => { event.preventDefault(); h.column.resetSize(); }} className="group/resize absolute right-0 top-0 flex h-full w-2 cursor-col-resize touch-none justify-end">
                   <span className={cn('h-full w-px', h.column.getIsResizing() ? 'bg-accent-primary' : 'bg-border-subtle group-hover/resize:bg-accent-primary')} />
