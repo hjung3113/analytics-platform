@@ -66,6 +66,23 @@
   }
 }
 
+/*
+ * RichEditor empty-text hint (#1167): @tiptap/extension-placeholder only sets the `data-placeholder`
+ * attribute and the `is-empty` / `is-editor-empty` classes; without this rule nothing draws. The float
+ * and zero height keep the empty first line at its natural height, and pointer-events: none leaves the
+ * click to the editor so the caret still lands on the line. Consumed through the documented four-file
+ * recipe, so both the platform entry (styles.css) and feature screens ship it.
+ */
+@layer base {
+  .rich-editor .is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    float: left;
+    height: 0;
+    pointer-events: none;
+    color: rgb(var(--text-muted));
+  }
+}
+
 /* --- Legacy-name compat shims (moved from theme.css, ADR-0058) ---
  * tokens.css `--leading-*` / `--tracking-*` token names shadow Tailwind's
  * default utility namespaces in v4 (utilities resolve `var(--leading-tight)`

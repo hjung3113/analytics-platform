@@ -36,8 +36,9 @@ export default function UsageOverview() {
       : <QueryView widgetName={ko ? '메뉴 활용률' : 'Menu usage'} query={q}>{data => {
         const rows = joinUsageRows(registry, data.menus);
         // Client envelope: the rows are the registry join, not mart data — trust is null and paging stays client-side.
+        // #1167 B-1: the page head already shows this title; keep it for the outline only, the table's name is ariaLabel.
         return <PlatformDataTable<UsageRow>
-          title={ko ? '메뉴 활용률' : 'Menu usage'}
+          title={<span className="sr-only">{ko ? '메뉴 활용률' : 'Menu usage'}</span>}
           ariaLabel={ko ? '메뉴 활용률 목록' : 'Menu usage list'}
           subtitle={ko ? '방문 사용자는 세션 사용자 기준으로 집계합니다.' : 'Distinct users are counted per session user.'}
           columns={columns} getRowId={row => row.id} filterKey=""

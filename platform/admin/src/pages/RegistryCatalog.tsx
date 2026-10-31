@@ -34,9 +34,10 @@ export default function RegistryCatalog() {
     { id: 'groupId', header: ko ? '그룹' : 'Group', cell: row => <span className="t-mono">{String(row.groupId)}</span> },
     { id: 'path', header: 'Path', cell: row => <span className="t-mono">{String(row.path)}</span> },
     { id: 'permission', header: ko ? '권한' : 'Permission', cell: row => <span className="t-mono">{String(row.permission)}</span> },
-    { id: 'capabilities', header: ko ? 'Context' : 'Context' },
-    { id: 'pageKeys', header: ko ? '페이지 키' : 'Page keys', cell: row => <span className="t-mono">{String(row.pageKeys)}</span> },
-    { id: 'contextResetKeys', header: ko ? '리셋 키' : 'Reset keys', cell: row => <span className="t-mono">{String(row.contextResetKeys)}</span> },
+    // #1167 B-2: the declaration strings are long; one line with the full value in title (same pattern as AuditTrail reason).
+    { id: 'capabilities', header: ko ? 'Context' : 'Context', cell: row => <span className="block truncate" title={row.capabilities}>{row.capabilities}</span> },
+    { id: 'pageKeys', header: ko ? '페이지 키' : 'Page keys', cell: row => <span className="t-mono block truncate" title={row.pageKeys}>{String(row.pageKeys)}</span> },
+    { id: 'contextResetKeys', header: ko ? '리셋 키' : 'Reset keys', cell: row => <span className="t-mono block truncate" title={row.contextResetKeys}>{String(row.contextResetKeys)}</span> },
     { id: 'status', header: ko ? '상태' : 'Status', cell: row => STATUS[row.status][lang] },
   ], [ko, lang]);
   const menu = focus ? registry.menus.find(m => m.id === focus) : undefined;
@@ -69,9 +70,10 @@ export default function RegistryCatalog() {
         body={ko ? `${focus} 메뉴는 등록되어 있지 않습니다. 목록에서 다시 고르세요.` : `${focus} is not a registered menu. Pick another from the list.`}
         action={<Button size="sm" variant="secondary" onClick={() => setPage({ focus: null })}>{ko ? '닫기' : 'Close'}</Button>} />) : null;
   return <PlatformPage description={ko ? '등록된 메뉴 선언의 조회 전용 화면입니다.' : 'Read-only view of the registered menu declarations.'}>
+    {/* #1167 B-1: the page head already shows this title; keep it for the outline only, the table's name is ariaLabel. */}
     {tableInvalid ? <TableUrlWarning sentences={invalidTableSentences} />
       : <PlatformDataTable<RegistryRow>
-          title={ko ? '메뉴 레지스트리' : 'Menu registry'}
+          title={<span className="sr-only">{ko ? '메뉴 레지스트리' : 'Menu registry'}</span>}
           ariaLabel={ko ? '메뉴 레지스트리 목록' : 'Menu registry list'}
           subtitle={ko ? '모든 등록된 메뉴가 표시됩니다(예정·숨김 포함). 레지스트리는 지표 데이터가 아니므로 신뢰도 표시가 없습니다.' : 'Every registered menu is listed (planned and hidden included). Not mart data, so there is no trust indicator.'}
           columns={columns} getRowId={row => row.id} filterKey=""

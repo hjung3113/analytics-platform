@@ -120,6 +120,24 @@ describe('platform home launcher', () => {
     expect(screen.queryByRole('region', { name: '내 할 일' })).toBeNull();
   });
 
+  // #1167 B-3/C-4: columns follow the body width (a detail slot narrows it), not the viewport; Korean descriptions keep word breaks.
+  it('answers container width for the launcher grid and keeps descriptions at word boundaries', async () => {
+    mount(BOTH);
+    await settled();
+    const systems = screen.getByRole('region', { name: '업무 시스템' });
+    // The container is the page body wrapping the section, so look up from the document.
+    const container = document.querySelector('div[class*="@container"]');
+    expect(container).not.toBeNull();
+    expect(container?.contains(systems)).toBe(true);
+    const grid = systems.querySelector('div[class*="grid-cols-1"]');
+    expect(grid?.classList.contains('@xl:grid-cols-2')).toBe(true);
+    expect(grid?.classList.contains('@4xl:grid-cols-3')).toBe(true);
+    expect(grid?.classList.contains('sm:grid-cols-2')).toBe(false);
+    expect(grid?.classList.contains('md:grid-cols-2')).toBe(false);
+    expect(grid?.classList.contains('xl:grid-cols-3')).toBe(false);
+    expect(grid?.querySelector('.break-keep')).not.toBeNull();
+  });
+
   it('links a partial-permission space card to its first openable menu without a continue line', async () => {
     const partialRegistry = createRegistry({
       platformHomeMenuId: 'home',

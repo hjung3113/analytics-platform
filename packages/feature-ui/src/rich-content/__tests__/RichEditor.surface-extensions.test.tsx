@@ -7,12 +7,13 @@ import { RichEditor, type RichEditorSurface, type TipTapDoc } from '@ap/ui';
 const ATTACHMENT_UUID = '22222222-2222-2222-2222-222222222222';
 const ACTOR_UUID = '11111111-1111-1111-1111-111111111111';
 
-function renderWithEditor(surface: RichEditorSurface) {
+function renderWithEditor(surface: RichEditorSurface, placeholder?: string) {
   let editorRef: Editor | null = null;
   let latestDoc: TipTapDoc | null = null;
   render(
     <RichEditor
       surface={surface}
+      {...(placeholder !== undefined ? { placeholder } : {})}
       onChange={(doc) => {
         latestDoc = doc;
       }}
@@ -109,5 +110,26 @@ describe('RichEditor surface extension registration', () => {
     expect(flatTypes).toContain('link');
     expect(flatTypes).toContain('mention');
     expect(flatTypes).toContain('attachmentRef');
+  });
+
+  // #1167: the extension only decorates the DOM; the drawing CSS lives in @ap/ui's compat.css
+  // (consumer-contract.test.ts compiles the documented recipe and asserts the rule). Here we pin
+  // the decoration side: the configured text lands on the empty editor's first node, so the CSS
+  // selector `.rich-editor .is-editor-empty:first-child::before` has something to draw.
+  it('decorates the empty editor first node with the configured placeholder', async () => {
+    const harness = renderWithEditor('voc-description', '내용을 입력하세요');
+    const editor = await harness.editor();
+
+    await waitFor(() => {
+      const empty = editor.view.dom.querySelector('.is-editor-empty');
+      expect(empty).not.toBeNull();
+      expect(empty?.getAttribute('data-placeholder')).toBe('내용을 입력하세요');
+    });
+
+    // Typed content clears the decoration, so the rule stops drawing.
+    editor.chain().insertContent('<p>본문</p>').run();
+    await waitFor(() => {
+      expect(editor.view.dom.querySelector('.is-editor-empty')).toBeNull();
+    });
   });
 });
