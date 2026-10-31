@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
 import { setFeatureApi } from '@ap/feature-bridge/feature-api';
+import { LAZY_MOUNT_WAIT } from '@ap/feature-bridge/testing';
 import { useHostSeam } from '@/lib/host/host-seam';
 import { mountAt, warmPages } from '../test-support';
 
@@ -46,7 +47,7 @@ afterEach(() => { cleanup(); setFeatureApi(null); vi.unstubAllGlobals(); window.
 describe('전체 Finding without a feature API (mock preview)', () => {
   it('shows 실서버 필요 and mounts no screen', async () => {
     mountAt(PATH);
-    await screen.findByRole('heading', { name: '전체 Finding' }, { timeout: 3000 });
+    await screen.findByRole('heading', { name: '전체 Finding' }, LAZY_MOUNT_WAIT);
     expect(screen.getByRole('status').textContent).toContain('실서버 필요');
     expect(screen.queryByTestId('list')).toBeNull();
   });
@@ -117,7 +118,7 @@ describe('전체 Finding with an invalid address value', () => {
   it.each(REJECTED)('rejects an invalid %s=%s, keeps the address and requests nothing', async (key, value) => {
     const search = `?${key}=${encodeURIComponent(value)}`;
     mountAt(`${PATH}${search}`);
-    expect(await screen.findByText(`주소의 ${key} 값이 올바르지 않습니다`, undefined, { timeout: 3000 })).toBeTruthy();
+    expect(await screen.findByText(`주소의 ${key} 값이 올바르지 않습니다`, undefined, LAZY_MOUNT_WAIT)).toBeTruthy();
     expect(screen.queryByTestId('list')).toBeNull();
     expect(screenMock.list).toEqual([]);
     expect(screenMock.detailArgs).toEqual([]);

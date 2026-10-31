@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-libra
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
 import { setFeatureApi } from '@ap/feature-bridge/feature-api';
+import { LAZY_MOUNT_WAIT } from '@ap/feature-bridge/testing';
 import { useHostSeam } from '@/lib/host/host-seam';
 import { mountAt, warmPages } from '../test-support';
 
@@ -85,7 +86,7 @@ describe('Survey 관리 without a feature API (mock preview)', () => {
     [child('survey-follow-up', SURVEY_A), 'Survey 후속 조치', 'follow-up'],
   ])('%s shows 실서버 필요 and mounts no screen', async (path, title, testId) => {
     mountAt(path);
-    await screen.findByRole('heading', { name: title }, { timeout: 3000 });
+    await screen.findByRole('heading', { name: title }, LAZY_MOUNT_WAIT);
     expect(screen.getByRole('status').textContent).toContain('실서버 필요');
     expect(screen.queryByTestId(testId)).toBeNull();
   });
@@ -142,7 +143,7 @@ describe('Survey 관리 with an invalid address value', () => {
   it.each(REJECTED)('rejects an invalid %s=%s, keeps the address and requests nothing', async (key, value) => {
     const search = `?${key}=${encodeURIComponent(value)}`;
     mountAt(`${LIST}${search}`);
-    expect(await screen.findByText(`주소의 ${key} 값이 올바르지 않습니다`, undefined, { timeout: 3000 })).toBeTruthy();
+    expect(await screen.findByText(`주소의 ${key} 값이 올바르지 않습니다`, undefined, LAZY_MOUNT_WAIT)).toBeTruthy();
     expect(screen.queryByTestId('list')).toBeNull();
     expect(screenMock.list).toEqual([]);
     expect(screenMock.detailArgs).toEqual([]);
@@ -219,7 +220,7 @@ describe('the hidden Survey screens', () => {
     ['survey-follow-up', 'follow-up'],
   ])('%s refuses a non-UUID :surveyId as not found and requests nothing', async (menu, testId) => {
     mountAt(child(menu, 'not-a-uuid'));
-    expect(await screen.findByText('Survey를 찾을 수 없습니다', undefined, { timeout: 3000 })).toBeTruthy();
+    expect(await screen.findByText('Survey를 찾을 수 없습니다', undefined, LAZY_MOUNT_WAIT)).toBeTruthy();
     expect(screen.queryByTestId(testId)).toBeNull();
     expect(screenMock.builder).toEqual([]);
     expect(screenMock.results).toEqual([]);
@@ -236,7 +237,7 @@ describe('the hidden Survey screens', () => {
   ])('%s rejects %s=%s, keeps the address and mounts no screen', async (menu, key, value, testId) => {
     const search = `?${key}=${encodeURIComponent(value)}`;
     mountAt(`${child(menu, SURVEY_A)}${search}`);
-    expect(await screen.findByText(`주소의 ${key} 값이 올바르지 않습니다`, undefined, { timeout: 3000 })).toBeTruthy();
+    expect(await screen.findByText(`주소의 ${key} 값이 올바르지 않습니다`, undefined, LAZY_MOUNT_WAIT)).toBeTruthy();
     expect(screen.queryByTestId(testId)).toBeNull();
     expect(screenMock.builder).toEqual([]);
     expect(screenMock.results).toEqual([]);
