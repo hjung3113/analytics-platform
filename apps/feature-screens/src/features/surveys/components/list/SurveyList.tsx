@@ -94,6 +94,8 @@ export function SurveyList({
   const hasUrlFilters = urlFilters.length > 0;
   const isFilteredEmpty =
     visible.length === 0 && activeConditions.length > 0 && (hasUrlFilters || surveys.length > 0);
+  // #1167 C-3: one primary Survey 생성 opener — the empty state owns it on a truly empty list, the toolbar otherwise.
+  const emptyList = visible.length === 0 && !isFilteredEmpty;
   const toolbarTabs: ListToolbarTab[] = tabs.map((tab) => ({
     value: tab.value,
     label: tab.label,
@@ -140,7 +142,7 @@ export function SurveyList({
                 <Grid2X2 className="h-3.5 w-3.5" />
               </button>
             </div>
-            {canCreate && onCreate && (
+            {canCreate && onCreate && !emptyList && (
               <Button
                 variant="primary"
                 size="sm"

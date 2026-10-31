@@ -160,6 +160,25 @@ it(
 );
 
 it(
+  'documented imports ship the RichEditor placeholder rule (#1167)',
+  async () => {
+    const css = await compileConsumerCss([]);
+
+    const rule = css.match(/\.rich-editor \.is-editor-empty:first-child::before \{[^}]+\}/)?.[0];
+    expect(rule).toBeDefined();
+    // The extension only sets the attribute; this rule draws it, out of the click path and
+    // without giving the empty first line extra height.
+    expect(rule).toContain('content: attr(data-placeholder);');
+    expect(rule).toContain('float: left;');
+    expect(rule).toContain('height: 0;');
+    expect(rule).toContain('pointer-events: none;');
+    // The muted text token, not a raw hex outside the token files.
+    expect(rule).toContain('color: rgb(var(--text-muted));');
+  },
+  COMPILE_TIMEOUT,
+);
+
+it(
   'documented imports ship overlay motion, timing tokens and global reduced motion',
   async () => {
     const css = await compileConsumerCss(POPPER_CONTENT_MOTION.split(' '));

@@ -30,7 +30,10 @@ export function EquipmentPanel({ id, kind }: { id: string; kind: 'attributes' | 
     <AuditTimeline {...audit.timeline} />
   </div>}</QueryView>;
   return <QueryView widgetName={ko ? '설비 상세' : 'Equipment details'} query={query}>{(e, response) => e && <div className="space-y-4">
-    <DataTrustIndicator trust={response.trust} assessments={response.assessments} />
+    {/* #1167 A-3·UX-1: the 1280 detail drawer is narrow; without `wrap` the trust text shrinks and wraps as one
+      flow, so the status dot and info icon stay attached to the first/last word. `wrap` isolates them on their
+      own lines above/below the text. break-keep holds Korean word breaks. */}
+    <DataTrustIndicator trust={response.trust} assessments={response.assessments} className="break-keep" />
     {kind === 'attributes' && <>
       <FieldList>{fields.map(f => <FieldRow layout="detail" key={f.key} label={f[lang]} mono={f.key === 'equipmentId'}>{f.key === 'status' ? <EquipmentStatus equipment={e} /> : e[f.key] ?? '—'}</FieldRow>)}</FieldList>
       <p className="t-caption text-text-muted">{ko ? 'StGroup·분임조: 현재 외부 공급값. 그 외 필드는 편집을 제공하지 않습니다.' : 'StGroup and team: current external values. Other fields are not editable.'}</p>

@@ -3237,8 +3237,9 @@ describe('Survey screens', () => {
 
       renderWithQuery(<SurveysIndexRoute />);
 
-      expect(await screen.findByTestId('survey-create-button')).toBeInTheDocument();
-      expect(screen.getByTestId('survey-empty-create-button')).toBeInTheDocument();
+      // #1167 C-3: on an empty list the empty state owns the opener; the toolbar one yields.
+      expect(await screen.findByTestId('survey-empty-create-button')).toBeInTheDocument();
+      expect(screen.queryByTestId('survey-create-button')).not.toBeInTheDocument();
       fireEvent.click(screen.getByTestId('survey-empty-create-button'));
       expect(await screen.findByRole('dialog')).toBeInTheDocument();
       fireEvent.click(screen.getByRole('combobox', { name: 'Managed System' }));

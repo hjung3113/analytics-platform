@@ -75,6 +75,13 @@ describe('SurveyList empty state', () => {
     expect(screen.queryByRole('button', { name: '필터 초기화' })).not.toBeInTheDocument();
   });
 
+  it('shows one primary Survey 생성 opener on an empty list — the empty state owns it (#1167 C-3)', () => {
+    renderEmptyList({ canCreate: true });
+
+    expect(screen.getByTestId('survey-empty-create-button')).toBeInTheDocument();
+    expect(screen.queryByTestId('survey-create-button')).not.toBeInTheDocument();
+  });
+
   it('resets the status tab and search after a filtered miss', async () => {
     render(
       <SurveyList

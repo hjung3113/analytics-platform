@@ -200,7 +200,7 @@ export function RichEditor({
   return (
     <div
       className={cn(
-        // eslint-disable-next-line shadcn/no-unknown-classes -- `rich-editor` is a marker class with no CSS rule (kept verbatim from FeedbackOps; nothing selects it in this package)
+        // `rich-editor` is the marker the empty-text rule in styles/compat.css selects (#1167); kept verbatim from FeedbackOps.
         'rich-editor border border-border-subtle rounded-md bg-surface-canvas',
         className,
       )}

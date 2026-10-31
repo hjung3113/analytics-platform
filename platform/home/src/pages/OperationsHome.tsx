@@ -72,14 +72,15 @@ export default function OperationsHome({ launcherGroups = NO_LAUNCHER_GROUPS }: 
       <span className="grid size-9 shrink-0 place-items-center rounded-md bg-icon-blue-soft text-accent-primary"><Icon className="size-5" strokeWidth={1.75} aria-hidden /></span>
       <span className="min-w-0 flex-1"><span className="block t-card-title">{tx(space.label)}</span>
         {space.subtitle && <span className="block text-xs text-text-muted">{tx(space.subtitle)}</span>}
-        <span className="block text-xs text-text-muted">{space.id === 'operations' ? consoleSections(space.id).join(' · ') : tx(space.description)}</span>
+        <span className="block break-keep text-xs text-text-muted">{space.id === 'operations' ? consoleSections(space.id).join(' · ') : tx(space.description)}</span>
         {resumeMenu && <span className="mt-1 block text-xs text-text-secondary">{lang === 'ko' ? `이어서: ${tx(resumeMenu.label)}` : `Continue: ${tx(resumeMenu.label)}`}</span>}
       </span>
     </PlatformLink>;
   };
 
   return <PlatformPage secondaryActions={canOpen('voc') ? <PlatformLink href={voc.href} className="text-xs font-medium text-accent-primary hover:underline">{lang === 'ko' ? '내 VOC' : 'My VOC'}</PlatformLink> : undefined}>
-    <div className="space-y-4">
+    {/* #1167 B-3/C-4: the container the launcher grids answer to is the page body, so a detail slot narrows it. */}
+    <div className="@container space-y-4">
       <section aria-label={lang === 'ko' ? '업무 시스템' : 'Work systems'}>
         {accessibleSpaces.length === 0
           ? <div className="rounded-lg border border-border-subtle bg-surface-card p-4">
@@ -93,9 +94,10 @@ export default function OperationsHome({ launcherGroups = NO_LAUNCHER_GROUPS }: 
             </div>
           : launcherGroups.length > 0 ? <div className="space-y-4">{launcherSections.map((group, index) => <section key={index} className="space-y-2">
               <h2 className="t-section-title">{tx(group.label)}</h2>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">{group.spaces.map(compactEntry)}</div>
+              {/* #1167 B-3: columns follow the body width (a detail slot narrows it), not the viewport. */}
+              <div className="grid grid-cols-1 gap-2 @xl:grid-cols-2 @4xl:grid-cols-3">{group.spaces.map(compactEntry)}</div>
             </section>)}</div>
-          : <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+          : <div className="grid grid-cols-1 gap-3 @xl:grid-cols-2 @4xl:grid-cols-3">
               {accessibleSpaces.map(space => {
                 const home = registry.menuById(space.homeMenuId);
                 const Icon = registry.groupById(home.group).icon;
@@ -107,7 +109,7 @@ export default function OperationsHome({ launcherGroups = NO_LAUNCHER_GROUPS }: 
                   <span className="grid size-10 place-items-center rounded-md bg-icon-blue-soft text-accent-primary"><Icon className="size-6" strokeWidth={1.75} aria-hidden /></span>
                   <span className="mt-3 block t-card-title">{tx(space.label)}</span>
                   {space.subtitle && <span className="mt-0.5 block text-xs text-text-muted">{tx(space.subtitle)}</span>}
-                  <span className="mt-0.5 block text-xs text-text-muted">{space.id === 'operations' ? consoleSections(space.id).join(' · ') : tx(space.description)}</span>
+                  <span className="mt-0.5 block break-keep text-xs text-text-muted">{space.id === 'operations' ? consoleSections(space.id).join(' · ') : tx(space.description)}</span>
                   {resumeMenu && <span className="mt-2 block text-xs text-text-secondary">{lang === 'ko' ? `이어서: ${tx(resumeMenu.label)}` : `Continue: ${tx(resumeMenu.label)}`}</span>}
                 </PlatformLink>;
               })}

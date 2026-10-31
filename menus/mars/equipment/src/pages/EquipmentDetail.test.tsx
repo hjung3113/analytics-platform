@@ -56,6 +56,22 @@ function renderAnalysis(reg: typeof registry, permissions: Parameters<typeof tes
 beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
+// #1167 A-3·UX-1: in the narrow 1280 detail drawer the trust text wraps at word boundaries while the status dot
+// and info icon stay attached to the first/last word; the `wrap` API would isolate them on their own lines.
+describe('EquipmentDetail data trust line', () => {
+  it('renders the trust line as one flowing, word-broken line without the wrap API', async () => {
+    window.history.replaceState(null, '', '/equipment/EQ-1?v=1&scopeId=MEM&tab=attributes');
+    render(<I18nProvider><PlatformProvider adapter={testAdapter({
+      session: () => session,
+      getEntity: async () => ({ outcome: 'ok', data: { equipmentId: 'EQ-1', status: 'active' }, assessments: [], trust: { updatedAt: '2026-10-30T09:00:00.000Z', dataThrough: null, coverage: 0.98, provisional: false, source: 'synthetic' }, correlationId: 'corr-trust' }),
+    })} registry={registry}><EquipmentDetail params={{ equipmentId: 'EQ-1' }} /></PlatformProvider></I18nProvider>);
+    const button = await screen.findByRole('button', { name: '데이터 신뢰' });
+    expect(button.classList.contains('flex-wrap')).toBe(false);
+    expect(button.classList.contains('max-w-full')).toBe(false);
+    expect(button.classList.contains('break-keep')).toBe(true);
+  });
+});
+
 describe('EquipmentDetail related analysis tab: Top View link', () => {
   it('links to the EV Top View with the equipment page key when the menu is registered and allowed', async () => {
     renderAnalysis(withTopView, ['equipment:view', 'eqv:view', 'platform:view']);

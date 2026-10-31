@@ -150,8 +150,8 @@ export function AnalysisChart(p: AnalysisChartProps) {
     const option: EChartsCoreOption = extended ? extended.option(active) : spec.kind === 'heatmap' ? {
       tooltip: { ...theme.tooltip, renderMode: 'richText', formatter: (params: { dataIndex: number }) => { const c = cells[params.dataIndex]; return c ? `${c.x} · ${c.y}: ${valueText(c.value)}` : ''; } },
       grid: { top: 16, bottom: 16, left: 16, right: 16, containLabel: true },
-      xAxis: { type: 'category', data: spec.xLabels, axisLine: theme.axisLine, axisLabel: { ...theme.axisLabel, interval: spec.xLabels.length <= 24 ? 0 : 'auto' }, splitLine: theme.splitLine },
-      yAxis: { type: 'category', data: spec.yLabels, axisLine: theme.axisLine, axisLabel: { ...theme.axisLabel, interval: spec.yLabels.length <= 24 ? 0 : 'auto' }, splitLine: theme.splitLine },
+      xAxis: { type: 'category', data: spec.xLabels, axisLine: theme.axisLine, axisLabel: { ...theme.axisLabel, interval: 'auto', hideOverlap: true }, splitLine: theme.splitLine },
+      yAxis: { type: 'category', data: spec.yLabels, axisLine: theme.axisLine, axisLabel: { ...theme.axisLabel, interval: 'auto', hideOverlap: true }, splitLine: theme.splitLine },
       ...brushOptions(),
       series: [{ type: 'scatter', symbol: 'rect', symbolSize: heatmapSymbolSize(plotSize.width, plotSize.height, spec.xLabels.length, spec.yLabels.length), emphasis: { focus: 'none' }, data: cells.map(c => ({
         value: [xIndex.get(c.x) ?? -1, yIndex.get(c.y) ?? -1, c.value],

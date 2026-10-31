@@ -186,8 +186,9 @@ export default function AuditTrail() {
     {!parsed.ok && (filterKeyProblem
       ? <FilterUrlWarning filters={filterSlot} sentences={urlProblemSentences(filterKeyProblem, raw, lang)} recover={recoverButton} />
       : <TableUrlWarning filters={filterSlot} sentences={tableWarning.sentences} />)}
+    {/* #1167 B-1: the page head already shows this title; keep it for the outline only, the table's name is ariaLabel. */}
     {parsed.ok && <PlatformDataTable<AuditEvent>
-        title={ko ? '변경 감사' : 'Audit trail'}
+        title={<span className="sr-only">{ko ? '변경 감사' : 'Audit trail'}</span>}
         ariaLabel={ko ? '변경 감사 목록' : 'Audit trail list'}
         subtitle={ko ? '기본 정렬은 최신순이며 room 필터를 적용하지 않습니다.' : 'Default sort is newest first; no room filter is applied.'}
         filters={filterSlot}

@@ -197,12 +197,16 @@ it('uses English chart, table, unknown, aggregate and drill copy', async () => {
   expect(screen.getByRole('checkbox', { name: 'Select A · 09' })).toBeTruthy();
 });
 
-it.each([1, 24, 25])('shows every category label up to 24 categories (%i)', async count => {
+// #1167 A-2: a forced full interval overlaps once labels are wide; the auto interval keeps every label when it
+// fits and thins only what cannot fit, and hideOverlap removes the rest of the touching pairs.
+it.each([1, 24, 25])('never overlaps axis labels while keeping every fitting label (%i categories)', async count => {
   mount({ ...heat, xLabels: Array.from({ length: count }, (_, i) => String(i)), yLabels: Array.from({ length: count }, (_, i) => String(i)), cells: [{ x: '0', y: '0', value: 1 }] });
   await screen.findByRole('img');
-  const axes = plot.option as { xAxis: { axisLabel: { interval: number | string } }; yAxis: { axisLabel: { interval: number | string } } };
-  expect(axes.xAxis.axisLabel.interval).toBe(count <= 24 ? 0 : 'auto');
-  expect(axes.yAxis.axisLabel.interval).toBe(count <= 24 ? 0 : 'auto');
+  const axes = plot.option as { xAxis: { axisLabel: { interval: number | string; hideOverlap?: boolean } }; yAxis: { axisLabel: { interval: number | string; hideOverlap?: boolean } } };
+  expect(axes.xAxis.axisLabel.interval).toBe('auto');
+  expect(axes.xAxis.axisLabel.hideOverlap).toBe(true);
+  expect(axes.yAxis.axisLabel.interval).toBe('auto');
+  expect(axes.yAxis.axisLabel.hideOverlap).toBe(true);
 });
 
 it('marks the diverging pivot at the neutral midpoint in both languages', async () => {
