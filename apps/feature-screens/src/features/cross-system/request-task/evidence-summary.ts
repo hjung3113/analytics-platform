@@ -1,6 +1,7 @@
 // The default evidence summary each Task Request form seeds (#1168 C-2): one
-// builder per source kind, so the request forms and the Task Request source card
-// share one definition and the card compares against the builder, not display text.
+// builder per source kind, shared by the request forms. The source card recognizes
+// a default by what it can see: VOC against the builder, Finding by a summary that
+// repeats the title shown above it, Cluster by its title (the payload carries no summary).
 
 import type { FindingDto, TaskRequestDto } from '@ap/feature-shared';
 

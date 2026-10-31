@@ -10,7 +10,7 @@ import { chartData, chartColors as colors, cellKey as keyOf, chartDiagnostic as 
 import { KindLegend } from './analysisChartKinds';
 import { heatmapSymbolSize } from './analysisChartGeometry';
 import { AnalysisSectionContext, resolveAnalysisChartSize, analysisChartHeight, fillChartHeight, FILL_CARD_CLASS, FILL_PLOT_CLASS, type ChartSize } from '../archetypes/AnalysisSectionContext';
-import { useElementHeight } from '../state/useElementHeight';
+import { useElementSize } from '../state/useElementSize';
 import { AnalysisChartPart, ChartHeading, ChartTrustFooter } from './analysisChartFrameParts';
 
 export type HeatmapCell = { x: string; y: string; value: number | null };
@@ -107,7 +107,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
   const singleSelect = isSingleSelectKind(spec.kind);
   const { cells, rows, total, extended } = useMemo(() => chartData(spec, lang === 'ko', p.unit), [spec, lang, p.unit]);
   // `fill`: the plot box takes the height its container leaves; a top-N bar keeps its row-count height only until that is measured.
-  const fill = useElementHeight(size === 'fill');
+  const fill = useElementSize(size === 'fill');
   const height = p.height ?? (size === 'fill' && fill.height !== null ? fillChartHeight(fill.height) : spec.kind === 'topNBar' ? Math.max(120, rows.length * 28 + 24) : analysisChartHeight(size, 280));
   const keys = useMemo(() => rows.map(row => row.key), [rows]);
   const contextKey = JSON.stringify(global);

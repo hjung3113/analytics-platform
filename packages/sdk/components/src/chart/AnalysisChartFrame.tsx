@@ -8,7 +8,7 @@ import { canClientSum, formatDateTime, type Reaggregation } from '@ap/contracts'
 import { Button, cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, prefersReducedMotion } from '@ap/ui';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import { AnalysisSectionContext, resolveAnalysisChartSize, analysisChartHeight, FILL_CARD_CLASS, FILL_CHART_MIN_HEIGHT, FILL_PLOT_BASE_CLASS, FILL_PLOT_CLASS, type ChartSize } from '../archetypes/AnalysisSectionContext';
-import { useElementHeight } from '../state/useElementHeight';
+import { useElementSize } from '../state/useElementSize';
 import { EChart, strokeToken, token } from './EChart';
 import { downloadChartCsv } from './analysisChartCsv';
 import { assignNoteLevels } from './annotationLayout';
@@ -187,7 +187,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const analysisSection = useContext(AnalysisSectionContext);
   const size = resolveAnalysisChartSize(p.size, analysisSection);
   const compact = size === 'compact';
-  const fill = useElementHeight(size === 'fill');
+  const fill = useElementSize(size === 'fill');
   const fillMin = p.fillMin === undefined ? FILL_CHART_MIN_HEIGHT : Math.max(FILL_MIN_FLOOR, p.fillMin);
   const loweredFill = fillMin !== FILL_CHART_MIN_HEIGHT;
   const viewportHeight = p.height ?? (size === 'fill' ? Math.max(fillMin, fill.height ?? 0) : analysisChartHeight(size, 260));

@@ -10,7 +10,7 @@ import { Button, Checkbox, cn, DropdownMenu, DropdownMenuContent, DropdownMenuGr
 import { AnalysisSectionContext } from '../archetypes/AnalysisSectionContext';
 import { toColumnDef } from './columnDef';
 import { DataTrustIndicator } from '../state/DataTrustIndicator';
-import { useElementWidth } from '../state/useElementWidth';
+import { useElementSize } from '../state/useElementSize';
 import { OutcomeContent } from '../StateView';
 import { useSharedOutcome } from '../filters/OutcomeScope';
 import { SCROLLPORT_LABEL } from '../scrollportLabel';
@@ -144,10 +144,10 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   // The status line drops to a one-line trust summary only when the full line does not fit: the available inline space (the status line
   // minus the result count, the refreshing label and their gaps) is compared with a hidden probe of the full content. The probe is
   // measured independently of what is shown, so the choice cannot feed back into its own input.
-  const statusLine = useElementWidth();
-  const countSpan = useElementWidth();
-  const refreshSpan = useElementWidth();
-  const probe = useElementWidth();
+  const statusLine = useElementSize();
+  const countSpan = useElementSize();
+  const refreshSpan = useElementSize();
+  const probe = useElementSize();
   const statusNarrow = statusLine.width !== null && statusLine.width > 0 && probe.width !== null && probe.width > 0
     && probe.width + TRUST_BUTTON_PADDING + (countSpan.width ? countSpan.width + STATUS_GAP : 0) + (refreshSpan.width ? refreshSpan.width + STATUS_GAP : 0) > statusLine.width;
   // Right-pinned column fade: only while the row area overflows horizontally and is not scrolled to its end.
@@ -254,7 +254,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
     // Retry-button ownership (recorded by the outcome container's onFocus/onBlur before any mutation): when
     // the settled response removed the button, focus follows where it went — ok → row viewport; still
     // retryable → the button itself (a no-op while it kept focus, restores it if the remount dropped it);
-    // otherwise (forbidden·too_large·empty — a successful empty renders the OutcomeView, no viewport) →
+    // otherwise (forbidden·too_large·empty — a successful empty renders the outcome state, no viewport) →
     // the section. A user blur before the settle cleared the ref,
     // so nothing is stolen from a focus that moved away.
     if (focusedRetry.current) {
