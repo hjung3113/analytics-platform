@@ -24,6 +24,7 @@ export { ManagementLayout, type ManagementLayoutProps } from './archetypes/Manag
 
 export { badgeCountText } from './workspace/PanelBadge';
 export { PanelWorkspace, type PanelWorkspaceLayout, type PanelWorkspacePanel, type PanelWorkspacePreset, type PanelWorkspaceProps } from './workspace/PanelWorkspace';
+export { EmbeddedPane } from './workspace/panelContext';
 export { AnalysisLayout, type AnalysisLayoutProps, type AnalysisSection } from './archetypes/AnalysisLayout';
 export { DrillLayout, DrillPath, ReturnLink, type DrillLayoutProps, type DrillPathProps, type DrillSibling, type DrillSiblings } from './archetypes/DrillLayout';
 export { LegendTree, type LegendTreeNode, type LegendTreeSort, type LegendTreeProps } from './chart/LegendTree';

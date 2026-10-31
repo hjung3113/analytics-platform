@@ -1,5 +1,4 @@
-import { useCompactPageDensity } from '../pageDensity';
-import { useInWorkspacePanel } from '../workspace/panelContext';
+import { useEmbeddedChrome } from '../workspace/panelContext';
 import { toMs, unknownLabel } from './analysisChartShared';
 import { BrushIcon, Download, Eye, GitCompare, MessageSquarePlus, MoreHorizontal, RotateCcw, Table2, ZoomIn } from 'lucide-react';
 import { useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -184,9 +183,7 @@ export type AnalysisChartFrameProps = {
  */
 export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const { t, lang } = useI18n();
-  const densePage = useCompactPageDensity();
-  const inPanel = useInWorkspacePanel();
-  const compactEmbedded = densePage && inPanel;
+  const compactEmbedded = useEmbeddedChrome();
   const analysisSection = useContext(AnalysisSectionContext);
   const size = resolveAnalysisChartSize(p.size, analysisSection);
   const compact = size === 'compact';

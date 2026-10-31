@@ -236,7 +236,7 @@ label 행은 #210(공유 원본 값), 나머지 행은 #193/#194 UI/UX 리뷰의
 
 ### Compact analysis — Decided (#1141)
 
-Opt-in page density and embedded chart/table chrome follow [06 §12](docs/contract/layout.md#12-canonical-page-archetypes). This changes spacing only: table rows, fonts, controls and page headers keep their existing sizes. Gentle bar emphasis follows [06 §16](docs/contract/chart.md#16-analysis-chart-contract); native center/edge Dock previews follow [analysis board §4](docs/design/analysis-board.md#4-화면-구조-decided). [ADR-0103](docs/adr/0103-compact-analysis-and-snap-dock.md) records the composition boundary.
+Opt-in page density and embedded chart/table chrome follow [06 §12](docs/contract/layout.md#12-canonical-page-archetypes). This changes spacing only: table rows, fonts, controls and page headers keep their existing sizes. Gentle bar emphasis follows [06 §16](docs/contract/chart.md#16-analysis-chart-contract); native center/edge Dock previews follow [analysis board §4](docs/design/analysis-board.md#4-화면-구조-decided). [ADR-0103](docs/adr/0103-compact-analysis-and-snap-dock.md) records the composition boundary. Embedded chrome (no border/radius/outer padding) follows the container — panel or board pane — at any density, so a panel or pane shows one border ([#1166](docs/adr/0103-compact-analysis-and-snap-dock.md)).
 
 ### Dashboard composition and focal point
 
@@ -272,6 +272,8 @@ cellPadding: 4px 12px
 ```
 
 줄바꿈·font fallback·visible focus·최소 24px desktop target에 따라 행은 커질 수 있다. 행 영역 높이는 내용만큼이고 페이지에 남은 높이(최소 240px)까지만 커진다. 동작 열은 오른쪽에 고정하고 `toolbar`(32px) 버튼을 쓰며, 선택 열은 선택을 쓰는 기능이 있는 표에만 둔다([ADR-0037](docs/adr/0037-table-filter-consistency.md)). screenshot의 compact 밀도는 기본값을 낮추는 근거가 아니다. 표 셀은 이미 coarse pointer에서 44px target(`pointer-coarse:min-h-11`)을 쓰며, 나머지 화면의 44px target은 MVP 이후 정책이다.
+
+표가 컨테이너보다 좁으면 남는 폭을 사용자가 폭을 바꾸지 않은 일반 열에 기본 폭 비율로 나눠 컨테이너를 채운다(선택·동작 열, 왼쪽 고정 열, 사용자가 조절한 열은 그대로). 컨테이너보다 넓으면 가로로 스크롤한다. 오른쪽 고정 동작 열은 `border-control` 색 왼쪽 선으로 가장자리를 보이고(그림자 없음), 헤더 글자는 낱말 경계에서만 줄바꿈하며 전체 이름은 `title`로 준다. 본문 셀은 기존대로 어디서나 줄바꿈한다(#1166).
 
 - 헤더 sunken + secondary, 데이터 primary, 수치 우측 정렬+tabular, ID mono. 상태와 범주 label을 구별한다. 열 제목 case는 Typography roles를 따른다.
 - row divider는 border-subtle; checkbox·검색·filter 경계는 border-control. hover에서 focus와 selected checkbox/표식이 사라지지 않는다.

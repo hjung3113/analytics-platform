@@ -12,7 +12,7 @@ import { toColumnDef } from './columnDef';
 import { DataTrustIndicator } from '../state/DataTrustIndicator';
 import { OutcomeView } from '../StateView';
 import { SCROLLPORT_LABEL } from '../scrollportLabel';
-import { useInWorkspacePanel } from '../workspace/panelContext';
+import { useEmbeddedChrome, useInWorkspacePanel } from '../workspace/panelContext';
 import { ACTION_PIN_MIN_SCROLL, ROW_AREA_FALLBACK, useTableFit } from './tableFit';
 import { exportItemName, exportTarget, FORMAT_LABEL, type ExportScopeKind } from './tableMessages';
 import { useColumnPreferences } from './useColumnPreferences';
@@ -113,6 +113,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const analysisSection = useContext(AnalysisSectionContext);
   const inPanel = useInWorkspacePanel();
   const densePage = useCompactPageDensity();
+  const embedded = useEmbeddedChrome();
   const { route } = usePlatform();
   const { screenMode } = useHostPlatform();
   // §15: a workspace panel or board pane body scrolls too, so the row area chains the wheel outward at its edge; flow pages and drawers contain it.
@@ -239,12 +240,24 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
     target?.focus();
   }, [loading, previousDisabled, nextDisabled, shown, success]);
 
+  // Fill (#1166): a table narrower than its scrollport hands the leftover width to the columns nobody fixed — not the checkbox/action
+  // columns, not left-pinned columns (their offsets are sums of widths) and not columns the user resized. Proportional to base width;
+  // once the columns outgrow the scrollport the extra is 0 and the row area scrolls horizontally as before.
+  const baseTotal = table.getTotalSize();
+  const flexIds = new Set(table.getVisibleLeafColumns().filter(c => c.id !== '_select' && c.id !== '_action' && !c.getIsPinned() && preferences.sizing[c.id] === undefined).map(c => c.id));
+  const flexBase = table.getVisibleLeafColumns().reduce((sum, c) => flexIds.has(c.id) ? sum + c.getSize() : sum, 0);
+  const extra = fit.width !== null && flexBase > 0 ? Math.max(0, fit.width - baseTotal) : 0;
+  const widthOf = (column: Column<T>) => column.getSize() + (extra > 0 && flexIds.has(column.id) ? Math.floor(extra * column.getSize() / flexBase) : 0);
+  const tableWidth = baseTotal + (extra > 0 ? table.getVisibleLeafColumns().reduce((sum, c) => sum + widthOf(c) - c.getSize(), 0) : 0);
   function cellStyle(column: Column<T>): CSSProperties {
     const pinned = column.getIsPinned();
-    return { width: column.getSize(), flexShrink: 0, position: pinned ? 'sticky' : 'relative', left: pinned === 'left' ? column.getStart('left') : undefined, right: pinned === 'right' ? column.getAfter('right') : undefined, zIndex: pinned ? 2 : undefined };
+    return { width: widthOf(column), flexShrink: 0, position: pinned ? 'sticky' : 'relative', left: pinned === 'left' ? column.getStart('left') : undefined, right: pinned === 'right' ? column.getAfter('right') : undefined, zIndex: pinned ? 2 : undefined };
   }
   const align = (column: Column<T>) => ((column.columnDef.meta as ColumnMeta | undefined)?.align === 'right' ? 'justify-end text-right tabular' : '');
-  const cellBase = 'flex min-h-8 items-center px-3 py-1 [overflow-wrap:anywhere] pointer-coarse:min-h-11';
+  const headerBase = 'flex min-h-8 items-center overflow-hidden px-3 py-1 [overflow-wrap:normal] pointer-coarse:min-h-11';
+  const cellBase = cn(headerBase, 'overflow-visible [overflow-wrap:anywhere]');
+  /** The right-pinned action column keeps a visible edge while content scrolls beneath it (a border token; DESIGN.md allows no shadow). */
+  const pinEdge = 'border-l border-l-border-control';
   const nameOf = (c: Column<T>) => (c.columnDef.meta as ColumnMeta | undefined)?.label ?? (typeof c.columnDef.header === 'string' ? c.columnDef.header : c.id);
   // #239 (ADR-0024): the Columns popover lists each hideable column with a visibility checkbox and a pin toggle at the
   // row end; pinned columns sit in their own group on top. Width is set by dragging the header edge only.
@@ -274,7 +287,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
     </DropdownMenuItem>);
   // No `ok` result yet (new Context loading, refused page): the count is unknown, so the group label says “필터 결과 전체” with no number.
   const filteredCount = shown?.outcome === 'ok' ? data.total : null;
-  return <section ref={section} tabIndex={-1} aria-label={p.ariaLabel} onKeyDown={onShortcut} className={cn('flex flex-col rounded-lg border border-border-subtle bg-surface-card', densePage && inPanel && 'rounded-none border-0 shadow-none')}>
+  return <section ref={section} tabIndex={-1} aria-label={p.ariaLabel} onKeyDown={onShortcut} className={cn('flex flex-col rounded-lg border border-border-subtle bg-surface-card', embedded && 'rounded-none border-0 shadow-none')}>
     <div className={cn('flex flex-wrap items-center justify-between gap-2', densePage ? 'min-h-10 px-2 py-1.5' : 'min-h-11 p-3', analysisSection && 'pr-12')}>
       <div className="min-w-0">
         <h2 className={cn('t-card-title', inPanel && 'sr-only')}>{p.title}</h2>
@@ -373,14 +386,14 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       // eslint-disable-next-line shadcn/no-inline-styles -- viewport max height comes from the height prop or the measured page fit at runtime
       <div ref={viewportRef} data-table-auto-fit={p.height === undefined ? '' : undefined} tabIndex={0} aria-label={SCROLLPORT_LABEL[lang]} className={cn('overflow-auto border-t border-border-subtle [overflow-anchor:none]', chainWheel ? 'overscroll-auto' : 'overscroll-contain')} style={{ maxHeight: p.height ?? fit.cap ?? ROW_AREA_FALLBACK }}>
         {/* eslint-disable-next-line shadcn/no-inline-styles -- table width is the total column size computed at runtime */}
-        <div role="table" aria-label={p.ariaLabel} aria-rowcount={data.total + 1} aria-busy={loading} className="min-w-full" style={{ width: table.getTotalSize() }}>
+        <div role="table" aria-label={p.ariaLabel} aria-rowcount={data.total + 1} aria-busy={loading} className="min-w-full" style={{ width: tableWidth }}>
           <div role="rowgroup" className="sticky top-0 z-[5]">
             <div role="row" className="flex">{table.getHeaderGroups()[0].headers.map(h => {
               const sorted = h.column.getIsSorted();
               // eslint-disable-next-line shadcn/no-inline-styles -- column width and pin offset come from column sizing at runtime
-              return <div role="columnheader" key={h.id} data-column={h.column.id} style={cellStyle(h.column)}
+              return <div role="columnheader" key={h.id} data-column={h.column.id} style={cellStyle(h.column)} title={typeof h.column.columnDef.header === 'string' ? h.column.columnDef.header : undefined}
                 aria-sort={sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : h.column.getCanSort() ? 'none' : undefined}
-                className={cn(cellBase, 't-table-header border-b border-border-subtle bg-surface-sunken text-text-secondary', h.column.getIsPinned() === 'right' && 'border-l', align(h.column))}>
+                className={cn(headerBase, 't-table-header border-b border-border-subtle bg-surface-sunken text-text-secondary', h.column.getIsPinned() === 'right' && pinEdge, align(h.column))}>
                 {h.column.getCanSort()
                   ? <button type="button" onClick={h.column.getToggleSortingHandler()} className="-mx-1 inline-flex items-center gap-1 rounded-xs px-1 uppercase hover:text-text-primary">
                       {flexRender(h.column.columnDef.header, h.getContext())}
@@ -413,7 +426,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
                 </div>}
                 {/* eslint-disable-next-line shadcn/no-inline-styles -- cell width and pin offset come from column sizing at runtime */}
                 {cells.map((cell, cellIndex) => <div role="cell" key={cell.id} data-column={cell.column.id} style={cellStyle(cell.column)}
-                  className={cn(cellBase, 'border-b border-border-subtle bg-surface-card text-sm group-hover:bg-surface-row-hover group-aria-selected:bg-surface-row-selected', active && 'bg-surface-row-selected', active && cellIndex === firstDataCell && 'font-medium', cell.column.id === '_action' && (actionCompact ? 'py-0 px-0' : 'py-0'), cell.column.getIsPinned() === 'right' && 'border-l', align(cell.column))}>
+                  className={cn(cellBase, 'border-b border-border-subtle bg-surface-card text-sm group-hover:bg-surface-row-hover group-aria-selected:bg-surface-row-selected', active && 'bg-surface-row-selected', active && cellIndex === firstDataCell && 'font-medium', cell.column.id === '_action' && (actionCompact ? 'py-0 px-0' : 'py-0'), cell.column.getIsPinned() === 'right' && pinEdge, align(cell.column))}>
                   {/* The _action column cell is not used — rowAction renders directly to preserve DOM identity (#296). */}
                   {cell.column.id === '_action' ? p.rowAction?.(row.original, { compact: actionCompact }) : flexRender(cell.column.columnDef.cell, cell.getContext())}
                 </div>)}
