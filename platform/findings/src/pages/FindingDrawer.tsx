@@ -6,6 +6,6 @@ import { useFindingDetailParts } from '@ap/feature-screens/operator-screens/find
  * `onClose` drops `focus` (it is also the not-found button's action). Key it on the Finding.
  */
 export function FindingDetailDrawer({ findingId, onClose }: { findingId: string; onClose: () => void }) {
-  const parts = useFindingDetailParts({ findingId, onClose });
+  const parts = useFindingDetailParts({ findingId, onClose, titleInHeader: true });
   return <FeatureDetailDrawer parts={parts} onClose={onClose} />;
 }

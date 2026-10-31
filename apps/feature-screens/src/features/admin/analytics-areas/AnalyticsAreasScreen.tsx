@@ -39,9 +39,11 @@ const GUARDRAIL_BODY =
 export type AnalyticsAreasScreenProps = {
   /** The host places the detail parts in its drawer; absent keeps the standalone Sheet. */
   renderDetail?: ((parts: ClosableDetailParts) => ReactNode) | undefined;
+  /** The host's drawer header already shows the area name; the detail body omits its title block (#1168 C-1). */
+  titleInHeader?: boolean;
 };
 
-export function AnalyticsAreasAdminPage({ renderDetail }: AnalyticsAreasScreenProps = {}) {
+export function AnalyticsAreasAdminPage({ renderDetail, titleInHeader }: AnalyticsAreasScreenProps = {}) {
   const { hostOwnsTitle } = useHostSeam();
   const { search, write } = useHostSearchWriter(
     '/admin/analytics-areas',
@@ -121,6 +123,7 @@ export function AnalyticsAreasAdminPage({ renderDetail }: AnalyticsAreasScreenPr
           managedSystemId={managedSystemId}
           selectedId={search.selected}
           renderDetail={renderDetail}
+          {...(titleInHeader ? { titleInHeader } : {})}
           onClearFilters={handleClearFilters}
           registerCtx={registerCtx}
           setRegisterCtx={setRegisterCtx}

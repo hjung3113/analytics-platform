@@ -12,7 +12,7 @@ function useActorNames(): ReadonlyMap<string, string> {
  * `FeatureDetailDrawer`; `onClose` drops `focus`. Key it on the Task.
  */
 export function TaskDetailDrawer({ taskId, view, onClose }: { taskId: string; view: 'backlog' | 'my'; onClose: () => void }) {
-  const parts = useTaskDetailParts({ taskId, view, onClose, actorNamesById: useActorNames(), managedSystemNamesById: useTaskManagedSystemNames() });
+  const parts = useTaskDetailParts({ taskId, view, onClose, titleInHeader: true, actorNamesById: useActorNames(), managedSystemNamesById: useTaskManagedSystemNames() });
   return <FeatureDetailDrawer parts={parts} onClose={onClose} requestClose={parts.requestClose} />;
 }
 
@@ -27,6 +27,6 @@ export type BoardDetailOptions = {
 
 /** The board's Task detail, rendered in place by the screen (`renderDetail`): the standalone order, body then the next-status footer. Key it on the Task. */
 export function BoardTaskDrawer({ taskId, onClose, ...options }: { taskId: string } & BoardDetailOptions) {
-  const parts = useTaskDetailParts({ taskId, view: 'board', onClose, ...options });
+  const parts = useTaskDetailParts({ taskId, view: 'board', onClose, titleInHeader: true, ...options });
   return <FeatureDetailDrawer parts={{ ...parts, body: <>{parts.body}{parts.footer}</> }} onClose={onClose} requestClose={parts.requestClose} />;
 }

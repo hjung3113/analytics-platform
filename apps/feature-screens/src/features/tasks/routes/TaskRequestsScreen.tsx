@@ -59,9 +59,11 @@ export interface TaskRequestsScreenProps {
   autoSelect: boolean;
   /** The host's frame for the selected request's panel parts; rendered in place, so a host that wants a drawer registers it there. */
   renderDetail: (parts: TaskRequestPanelParts) => ReactNode;
+  /** The host's drawer header already shows the request title; the panel body omits its own (#1168 C-1). */
+  titleInHeader?: boolean;
 }
 
-export function TaskRequestsScreen({ autoSelect, renderDetail }: TaskRequestsScreenProps) {
+export function TaskRequestsScreen({ autoSelect, renderDetail, titleInHeader }: TaskRequestsScreenProps) {
   const listMotion = useListMotion();
   // Writes fold on the latest pending search and any host navigation drops the fold (useHostSearchWriter).
   const { search, write } = useHostSearchWriter('/tasks', validateTaskRequestsSearch);
@@ -256,6 +258,7 @@ export function TaskRequestsScreen({ autoSelect, renderDetail }: TaskRequestsScr
                 eligibleActors,
                 currentActorId: queue.currentActorId,
                 currentRole: queue.currentRole,
+                ...(titleInHeader ? { titleInHeader } : {}),
                 onClose: () => {
                   if (queue.selectedId !== null) returnFocus(queue.selectedId);
                   queue.setSelectedId(null);

@@ -24,6 +24,7 @@ export function AnalyticsAreasBody({
   selectedId,
   onClearFilters,
   renderDetail,
+  titleInHeader,
   registerCtx,
   setRegisterCtx,
   guardrailTitle,
@@ -34,6 +35,8 @@ export function AnalyticsAreasBody({
   selectedId: string | undefined;
   onClearFilters: () => void;
   renderDetail?: ((parts: ClosableDetailParts) => ReactNode) | undefined;
+  /** The host's drawer header already shows the area name; the detail body omits its title block (#1168 C-1). */
+  titleInHeader?: boolean;
   registerCtx: { open: boolean; msId: string | null };
   setRegisterCtx: (v: { open: boolean; msId: string | null }) => void;
   guardrailTitle: string;
@@ -147,6 +150,7 @@ export function AnalyticsAreasBody({
               area: detail,
               ms: msById.get(detail.managed_system_id) ?? null,
               resolved: resolveQuery.data,
+              ...(titleInHeader ? { titleInHeader } : {}),
               onClose: requestCloseDetail,
               onEdit: (area) => {
                 closeDetail();

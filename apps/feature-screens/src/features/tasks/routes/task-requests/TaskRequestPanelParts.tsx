@@ -3,7 +3,7 @@ import { GLOSSARY } from '@/lib/copy/glossary';
 import { TASK_REQUEST_REVIEW_DECISION_LABEL } from '@/lib/copy/task-requests';
 import type { WorkspaceActor } from '@/lib/cross-system/useWorkspaceActors';
 import { formatShortDateTime } from '@/lib/format/datetime';
-import type { ClosableDetailParts } from '@/lib/host/detail-parts';
+import type { ClosableDetailParts, DetailPartsOptions } from '@/lib/host/detail-parts';
 import { formatRecordDocumentTitle } from '@/lib/host/document-title-format';
 import { useHostSeam } from '@/lib/host/host-seam';
 import { searchHref } from '@/lib/host/search';
@@ -41,7 +41,7 @@ export function buildTaskRequestSections(showDecisionSummary: boolean): PanelSec
   ];
 }
 
-export interface TaskRequestPanelProps {
+export interface TaskRequestPanelProps extends DetailPartsOptions {
   item: TaskRequestDto;
   names: NameMaps;
   eligibleActors?: readonly WorkspaceActor[];
@@ -86,6 +86,7 @@ export function TaskRequestPanelBody({
   getCompletedFocusTarget,
   onDecisionCloseComplete,
   decisionRecovery,
+  titleInHeader,
 }: TaskRequestPanelProps) {
   const fullscreen = React.useContext(DetailPanelFullscreenContext);
   const decisionHeadingRef = React.useRef<HTMLHeadingElement>(null);
@@ -125,28 +126,30 @@ export function TaskRequestPanelBody({
   const sections = buildTaskRequestSections(showDecisionSummary);
 
   // Task Request has no impact field; omit the prototype's status-derived row (#585).
+  const overviewBadges = (
+    <>
+      <TaskRequestBadge status={item.status} />
+      <span className="text-xs text-text-muted">
+        · {GLOSSARY.requestedBy}{' '}
+        <strong className="text-text-secondary">
+          {requester?.display_name ?? GLOSSARY.unknownUser}
+        </strong>
+      </span>
+      <span className="text-xs text-text-muted">· {formatShortDateTime(item.created_at)}</span>
+    </>
+  );
+
   return (
     <>
       <DetailPanelSectionNav sections={sections} scrollRef={scrollRef} />
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
         <div data-anchor="overview">
-          <PanelTitleBlock
-            title={item.requested_outcome}
-            badges={
-              <>
-                <TaskRequestBadge status={item.status} />
-                <span className="text-xs text-text-muted">
-                  · {GLOSSARY.requestedBy}{' '}
-                  <strong className="text-text-secondary">
-                    {requester?.display_name ?? GLOSSARY.unknownUser}
-                  </strong>
-                </span>
-                <span className="text-xs text-text-muted">
-                  · {formatShortDateTime(item.created_at)}
-                </span>
-              </>
-            }
-          />
+          {titleInHeader ? (
+            // The drawer header already shows `ID · requested_outcome` (#1168 C-1); keep the badges row.
+            <div className="flex flex-wrap gap-2">{overviewBadges}</div>
+          ) : (
+            <PanelTitleBlock title={item.requested_outcome} badges={overviewBadges} />
+          )}
         </div>
 
         {showDecisionSummary ? (

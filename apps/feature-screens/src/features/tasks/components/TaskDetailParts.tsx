@@ -14,7 +14,7 @@ import { GLOSSARY } from '@/lib/copy/glossary';
 import { PERMISSION_BLOCKED_REASONS } from '@/lib/copy/permission-reasons';
 import { REPORTER_STATUS_LABELS } from '@/lib/copy/reporter-status-labels';
 import { usePermissionCheckBridge } from '@/lib/cross-system/usePermissionCheckBridge';
-import type { DetailParts } from '@/lib/host/detail-parts';
+import type { DetailParts, DetailPartsOptions } from '@/lib/host/detail-parts';
 import { formatRecordDocumentTitle } from '@/lib/host/document-title-format';
 import { useHostSeam, useHostTitle } from '@/lib/host/host-seam';
 import { searchHref } from '@/lib/host/search';
@@ -100,7 +100,7 @@ function TaskDetailSkeletonContent({ hasActionFooter }: { hasActionFooter: boole
   );
 }
 
-export interface UseTaskDetailPartsArgs {
+export interface UseTaskDetailPartsArgs extends DetailPartsOptions {
   taskId: string;
   onClose: () => void;
   actorNamesById: ReadonlyMap<string, string>;
@@ -160,6 +160,7 @@ export function useTaskDetailParts({
   view = 'backlog',
   hasActionFooter = false,
   onMoveToNextStatus,
+  titleInHeader,
 }: UseTaskDetailPartsArgs): TaskDetailParts {
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const { canLink, useNavigate } = useHostSeam();
@@ -293,6 +294,16 @@ export function useTaskDetailParts({
       : milestoneQuery.data && milestoneQuery.error === null
         ? `${milestoneQuery.data.display_id} ${milestoneQuery.data.title}`
         : null;
+  const overviewBadges = (
+    <>
+      <InternalTaskBadge status={task.status} />
+      <SeverityBadge
+        severity={PRIORITY_SEVERITY[task.priority]}
+        label={TASK_PRIORITY_LABELS[task.priority]}
+        ariaLabel={`우선순위 ${TASK_PRIORITY_LABELS[task.priority]}`}
+      />
+    </>
+  );
   return {
     ...base,
     view: { kind: 'ready', task },
@@ -309,19 +320,12 @@ export function useTaskDetailParts({
         <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto pt-7">
           <div data-anchor="overview">
             <PanelSectionTitle inset="panel">요약</PanelSectionTitle>
-            <PanelTitleBlock
-              title={task.title}
-              badges={
-                <>
-                  <InternalTaskBadge status={task.status} />
-                  <SeverityBadge
-                    severity={PRIORITY_SEVERITY[task.priority]}
-                    label={TASK_PRIORITY_LABELS[task.priority]}
-                    ariaLabel={`우선순위 ${TASK_PRIORITY_LABELS[task.priority]}`}
-                  />
-                </>
-              }
-            />
+            {titleInHeader ? (
+              // The drawer header already shows `ID · title` (#1168 C-1); keep the status · priority badges.
+              <div className="flex flex-wrap gap-2">{overviewBadges}</div>
+            ) : (
+              <PanelTitleBlock title={task.title} badges={overviewBadges} />
+            )}
           </div>
 
           <div data-anchor="properties" className="border-t border-border-subtle py-2">

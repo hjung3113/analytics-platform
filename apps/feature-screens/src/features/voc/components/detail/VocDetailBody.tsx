@@ -4,6 +4,7 @@ import * as React from 'react';
 
 import { CreateFindingModal } from '@/features/cross-system/create-finding/CreateFindingModal';
 import { TaskRequestDraftCard } from '@/features/cross-system/request-task/TaskRequestDraftCard';
+import { vocEvidenceSummaryDefault } from '@/features/cross-system/request-task/evidence-summary';
 import type { MeResponse } from '@/lib/api/me';
 import { SAME_MANAGED_SYSTEM_VOC_LABEL, VOC_FOLLOW_UP_COPY } from '@/lib/copy/voc';
 import { ComposerSection } from './ComposerSection';
@@ -29,6 +30,8 @@ export interface VocDetailBodyProps {
   isReporterOnOwnVoc: boolean;
   canRenderAllowedTask: boolean;
   me: MeResponse | null;
+  /** The host's frame already shows the title; the body omits its own (#1168 C-1). */
+  titleInHeader?: boolean;
 }
 
 /** The VOC detail below its header: section nav, sections, footer and the dialogs. A host places it in its own frame. */
@@ -40,6 +43,7 @@ export function VocDetailBody({
   isReporterOnOwnVoc,
   canRenderAllowedTask,
   me,
+  titleInHeader,
 }: VocDetailBodyProps): React.ReactElement {
   const { setComposerDirty, dirtyConfirmOpen, confirmClose, cancelClose } = closeGuard;
   const {
@@ -105,6 +109,7 @@ export function VocDetailBody({
           <IdentitySection
             voc={voc}
             reporterDisplayName={actorNamesById.get(voc.reporter_id) ?? me?.actor.display_name}
+            {...(titleInHeader ? { titleInHeader } : {})}
           />
         </div>
         {!isReporterArm && (
@@ -158,7 +163,7 @@ export function VocDetailBody({
             <TaskRequestDraftCard
               sourceKind="VOC"
               sourceDisplayId={voc.display_id}
-              evidenceSummaryDefault={`VOC ${voc.display_id}: ${voc.title}`}
+              evidenceSummaryDefault={vocEvidenceSummaryDefault(voc)}
               isSubmitting={requestTaskIsPending}
               source={{ type: 'voc', id: vocId }}
               onClose={closeRequestTaskDraft}

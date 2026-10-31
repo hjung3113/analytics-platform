@@ -309,4 +309,29 @@ describe('useFindingDetailParts', () => {
 
     expect(calls.navigate).toHaveBeenCalledWith('/findings');
   });
+
+  it('the full-page body still renders the finding title (no switch)', () => {
+    const { seam } = makeSeam(true);
+    renderIn(seam, <Harness findingId={FINDING_ID} onClose={() => {}} />);
+
+    expect(screen.getByTestId('title')).toHaveTextContent('FIN-179 · 리포트 속도 저하');
+    expect(within(screen.getByTestId('body')).getByRole('heading', { name: '리포트 속도 저하' }))
+      .toBeInTheDocument();
+  });
+
+  it('the slot body (titleInHeader) omits the title the header already shows', () => {
+    const { seam } = makeSeam(true);
+    renderIn(
+      seam,
+      <Harness findingId={FINDING_ID} onClose={() => {}} titleInHeader />,
+    );
+
+    expect(screen.getByTestId('title')).toHaveTextContent('FIN-179 · 리포트 속도 저하');
+    expect(
+      within(screen.getByTestId('body')).queryByRole('heading', { name: '리포트 속도 저하' }),
+    ).toBeNull();
+    // The summary section under the title block stays.
+    expect(within(screen.getByTestId('body')).getAllByText('요약').length).toBeGreaterThan(0);
+    expect(within(screen.getByTestId('body')).getByText('쿼리 플랜 개선 필요')).toBeInTheDocument();
+  });
 });

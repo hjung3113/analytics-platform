@@ -1,8 +1,9 @@
+import { TASK_STATUS_LABELS } from '@/lib/copy/enum-labels';
 import type { HostSeam } from '@/lib/host/host-seam';
 import { HostSeamProvider } from '@/lib/host/host-seam';
 import type { TaskDetailDto } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { type UseTaskDetailPartsArgs, useTaskDetailParts } from './TaskDetailParts';
@@ -286,5 +287,31 @@ describe('Task detail parts through the host seam', () => {
       .getByTestId('body')
       .querySelectorAll('[aria-hidden="true"].border-t');
     expect(placeholders).toHaveLength(flag ? 1 : 0);
+  });
+
+  it('the full-page body still renders the task title (no switch)', async () => {
+    const { seam } = makeSeam();
+    renderParts(seam);
+    await screen.findByText('FIN-1');
+
+    expect(screen.getByTestId('title').textContent).toContain('TASK-1000');
+    expect(
+      within(screen.getByTestId('body')).getByRole('heading', { name: task.title }),
+    ).toBeInTheDocument();
+  });
+
+  it('the slot body (titleInHeader) omits the title the header already shows and keeps the badges', async () => {
+    const { seam } = makeSeam();
+    renderParts(seam, { titleInHeader: true });
+    await screen.findByText('FIN-1');
+
+    expect(screen.getByTestId('title').textContent).toContain('TASK-1000');
+    expect(
+      within(screen.getByTestId('body')).queryByRole('heading', { name: task.title }),
+    ).toBeNull();
+    // The 요약 section title and the status · priority badges stay.
+    expect(within(screen.getByTestId('body')).getAllByText('요약').length).toBeGreaterThan(0);
+    expect(within(screen.getByTestId('body')).getAllByText(TASK_STATUS_LABELS[task.status]).length)
+      .toBeGreaterThan(0);
   });
 });

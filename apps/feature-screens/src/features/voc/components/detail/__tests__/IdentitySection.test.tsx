@@ -127,3 +127,23 @@ it('omits severity metadata for a schema-parsed reporter detail', () => {
   expect(container.querySelector('[data-severity]')).toBeNull();
   expect(screen.queryByText('높음')).not.toBeInTheDocument();
 });
+
+describe('<IdentitySection> slot title (#1168 C-1)', () => {
+  it('renders the title block by default (the full-page body keeps it)', () => {
+    render(<IdentitySection voc={DETAIL_ENVELOPE} />);
+
+    expect(screen.getByRole('heading', { name: DETAIL_ENVELOPE.title })).toBeInTheDocument();
+    expect(screen.getByText('접수됨')).toBeInTheDocument();
+    expect(screen.getByText('방금 전')).toBeInTheDocument();
+  });
+
+  it('omits the title when the host header shows it and keeps the status · reporter · time row', () => {
+    render(<IdentitySection voc={DETAIL_ENVELOPE} titleInHeader />);
+
+    expect(screen.queryByRole('heading', { name: DETAIL_ENVELOPE.title })).toBeNull();
+    expect(screen.queryByText(DETAIL_ENVELOPE.title)).toBeNull();
+    expect(screen.getByText('접수됨')).toBeInTheDocument();
+    expect(screen.getByText('김개발')).toBeInTheDocument();
+    expect(screen.getByText('방금 전')).toBeInTheDocument();
+  });
+});

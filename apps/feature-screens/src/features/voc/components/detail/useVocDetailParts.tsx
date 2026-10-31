@@ -1,6 +1,6 @@
 import { useMeBridge } from '@/lib/api/me';
 import { useVocDetail } from '@/lib/cross-system/useVocDetail';
-import type { DetailParts } from '@/lib/host/detail-parts';
+import type { DetailParts, DetailPartsOptions } from '@/lib/host/detail-parts';
 import { formatRecordDocumentTitle } from '@/lib/host/document-title-format';
 import { useHostTitle } from '@/lib/host/host-seam';
 import type { VocDetailEnvelope, VocSummaryEnvelope } from '@ap/feature-shared';
@@ -13,7 +13,7 @@ import { SummaryPermissionBody } from './SummaryPermissionView';
 import { VocDetailBody } from './VocDetailBody';
 import { useDetailCloseGuard } from './useDetailCloseGuard';
 
-export interface UseVocDetailPartsArgs {
+export interface UseVocDetailPartsArgs extends DetailPartsOptions {
   vocId: string;
   /** Current Managed System URL scope; an out-of-scope cached selection closes. */
   managedSystemId?: string;
@@ -69,6 +69,7 @@ export function useVocDetailParts({
   vocId,
   managedSystemId,
   onClose,
+  titleInHeader,
 }: UseVocDetailPartsArgs): VocDetailParts {
   const { data, isLoading, isError, isSuccess, isFetching, error } = useVocDetail(vocId);
   const documentTitleRecord =
@@ -179,6 +180,7 @@ export function useVocDetailParts({
         isReporterOnOwnVoc={isReporterOnOwnVoc}
         canRenderAllowedTask={canRenderAllowedTask}
         me={me ?? null}
+        {...(titleInHeader ? { titleInHeader } : {})}
       />
     ),
   };

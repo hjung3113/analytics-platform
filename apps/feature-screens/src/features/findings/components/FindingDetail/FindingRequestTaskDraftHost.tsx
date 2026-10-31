@@ -1,4 +1,5 @@
 import { TaskRequestDraftCard } from '@/features/cross-system/request-task/TaskRequestDraftCard';
+import { findingEvidenceSummaryDefault } from '@/features/cross-system/request-task/evidence-summary';
 import { errorMapper } from '@/lib/api/errorMapper';
 import type { ApiError } from '@/lib/api/types';
 import { useIdempotencyKey } from '@/lib/api/useIdempotencyKey';
@@ -42,7 +43,7 @@ function FindingRequestTaskDraftSubmission({
     <TaskRequestDraftCard
       sourceKind="Finding"
       sourceDisplayId={finding.display_id}
-      evidenceSummaryDefault={finding.summary}
+      evidenceSummaryDefault={findingEvidenceSummaryDefault(finding)}
       isSubmitting={mutation.isPending}
       source={{ type: 'finding', id: finding.id }}
       onClose={onClose}

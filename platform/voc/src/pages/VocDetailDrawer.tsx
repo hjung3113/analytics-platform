@@ -6,6 +6,6 @@ import { useVocDetailParts } from '@ap/feature-screens/operator-screens/voc-deta
  * `FeatureDetailDrawer`; `onClose` is the confirmed close (`requestClose` asks first while a composer holds an unsent draft). Key it on the VOC.
  */
 export function VocDetailDrawer({ vocId, managedSystemId, onClose }: { vocId: string; managedSystemId?: string; onClose: () => void }) {
-  const parts = useVocDetailParts({ vocId, onClose, ...(managedSystemId !== undefined ? { managedSystemId } : {}) });
+  const parts = useVocDetailParts({ vocId, onClose, titleInHeader: true, ...(managedSystemId !== undefined ? { managedSystemId } : {}) });
   return <FeatureDetailDrawer parts={parts} onClose={onClose} requestClose={parts.requestClose} />;
 }

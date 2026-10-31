@@ -81,7 +81,7 @@ const resultingTask: TaskDto = {
   updated_at: request.updated_at,
 };
 
-function renderInRouter(item: TaskRequestDto) {
+function renderInRouter(item: TaskRequestDto, panelProps: { titleInHeader?: boolean } = {}) {
   const root = createRootRoute();
   const route = createRoute({
     getParentRoute: () => root,
@@ -93,6 +93,7 @@ function renderInRouter(item: TaskRequestDto) {
         currentActorId={request.requester_actor_id}
         currentRole="developer"
         onClose={vi.fn()}
+        {...panelProps}
       />
     ),
   });
@@ -567,4 +568,26 @@ describe('TaskRequestPanel source section mounting', () => {
       expect(heading.closest('section')).toHaveAttribute('data-anchor', 'source');
     },
   );
+});
+
+// The slot title switch (#1168 C-1): the bridge drawer's header already shows
+// `ID · requested_outcome`, so the body omits its own title block and keeps the
+// status · requester · time badges.
+describe('TaskRequestPanel slot title', () => {
+  it('the standalone frame keeps the body title block (no switch)', async () => {
+    renderInRouter(request);
+
+    expect(
+      await screen.findByRole('heading', { name: request.requested_outcome }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(GLOSSARY.unknownUser)).toHaveLength(2);
+  });
+
+  it('the slot body (titleInHeader) omits the title and keeps the badges row', async () => {
+    renderInRouter(request, { titleInHeader: true });
+
+    expect(await screen.findByText(STATUS_LABELS[request.status])).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: request.requested_outcome })).toBeNull();
+    expect(screen.getAllByText(GLOSSARY.unknownUser)).toHaveLength(2);
+  });
 });

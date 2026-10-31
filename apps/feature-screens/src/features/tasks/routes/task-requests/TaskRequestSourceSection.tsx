@@ -1,5 +1,6 @@
 import { FINDING_STATUS_LABELS } from '@/lib/copy/enum-labels';
 import { shortId } from '@/lib/identity';
+import { isDefaultEvidenceSummary } from '@/features/cross-system/request-task/evidence-summary';
 import type { FindingDto, TaskRequestDto } from '@ap/feature-shared';
 import { OutlineBadge } from '@ap/feature-ui';
 import { PanelSectionTitle } from '@ap/ui';
@@ -36,7 +37,9 @@ export function TaskRequestSourceSection({
             )}
           </div>
         </div>
-        <p className="text-sm leading-6 text-text-muted">{item.evidence_summary}</p>
+        {isDefaultEvidenceSummary(item, sourceFinding) ? null : (
+          <p className="text-sm leading-6 text-text-muted">{item.evidence_summary}</p>
+        )}
       </div>
     </section>
   );
@@ -75,7 +78,9 @@ function PayloadSourceSection({ item }: { item: TaskRequestDto }) {
         {!identity && (
           <span className="font-mono text-xs text-text-muted">{shortId(item.source_id)}</span>
         )}
-        <p className="text-sm leading-6 text-text-muted">{item.evidence_summary}</p>
+        {isDefaultEvidenceSummary(item, undefined) ? null : (
+          <p className="text-sm leading-6 text-text-muted">{item.evidence_summary}</p>
+        )}
       </div>
     </section>
   );
