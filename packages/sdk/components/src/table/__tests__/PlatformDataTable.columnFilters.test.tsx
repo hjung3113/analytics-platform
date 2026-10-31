@@ -4,7 +4,8 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { groupId, spaceId, type ApiResponse, type TableQuery } from '@ap/contracts';
-import { PlatformDataTable, type PageResult, type PlatformColumn } from '../PlatformDataTable';
+import { useState } from 'react';
+import { PlatformDataTable, type PageResult, type PlatformColumn, type TableUrlState } from '../PlatformDataTable';
 import { readXlsx } from './xlsxTestReader';
 
 // #556b: column filters (ADR-0104, 06 §15) — opt-in per column; the table only sends them to the server.
@@ -122,8 +123,8 @@ describe('PlatformDataTable column filters (#556b)', () => {
     await waitFor(() => expect(lastQuery(load).filters).toContainEqual({ id: 'n', op: 'between', value: [2, 9] }));
 
     fireEvent.click(screen.getByRole('button', { name: '일자 필터' }));
-    fireEvent.change(await screen.findByLabelText('시작일부터'), { target: { value: '2026-01-30' } });
-    fireEvent.change(screen.getByLabelText('종료일까지(포함)'), { target: { value: '2026-01-31' } });
+    fireEvent.change(await screen.findByLabelText('~부터'), { target: { value: '2026-01-30' } });
+    fireEvent.change(screen.getByLabelText('~까지 (포함)'), { target: { value: '2026-01-31' } });
     fireEvent.click(screen.getByRole('button', { name: '적용' }));
     await waitFor(() => expect(lastQuery(load).filters).toContainEqual({ id: 'd', op: 'between', value: { from: '2026-01-30', to: '2026-02-01' } }));
     // The chip reads the user's inclusive end, not the wire's exclusive bound.
@@ -142,6 +143,55 @@ describe('PlatformDataTable column filters (#556b)', () => {
     await waitFor(() => expect(lastQuery(load)).toMatchObject({ page: 0, filters: [{ id: 'name', op: 'contains', value: 'x' }] }));
     await screen.findByText(/1\/3/);
     expect(screen.queryByTestId('selected-count')).toBeNull();
+  });
+
+  it('the filter dialog is named by its visible title, and each date input has a visible label (ko)', async () => {
+    render(<Harness columns={filterable} loadPage={makeLoad()} />);
+    await screen.findByText(/1\/1/);
+    fireEvent.click(screen.getByRole('button', { name: '일자 필터' }));
+    const dialog = await screen.findByRole('dialog', { name: '일자 필터' });
+    expect(within(dialog).getByText('일자 필터')).toBeTruthy();
+    expect(within(dialog).getByText('~부터').tagName).toBe('LABEL');
+    expect(within(dialog).getByText('~까지 (포함)').tagName).toBe('LABEL');
+    expect((within(dialog).getByLabelText('~부터') as HTMLInputElement).type).toBe('date');
+    expect((within(dialog).getByLabelText('~까지 (포함)') as HTMLInputElement).type).toBe('date');
+  });
+
+  it('a controlled table on page 2 returns to page 1 once per filter change, never from fresh equivalent urlState objects', async () => {
+    const load = makeLoad(60);
+    const onChange = vi.fn();
+    function Owner() {
+      const [state, setState] = useState<{ page: number | null }>({ page: 2 });
+      // A fresh urlState object on every render: equivalent content, new identity.
+      const urlState: TableUrlState = { page: state.page, sorting: [{ id: 'name', desc: false }], onChange: (next, reason) => { onChange(next, reason); setState({ page: next.page }); } };
+      return <I18nProvider><PlatformProvider equipmentAxes={axes} adapter={adapter} registry={registry}>
+        <PlatformDataTable<Row> title="T" ariaLabel="table" columns={filterable} getRowId={r => r.id} loadPage={load} filterKey="f"
+          preferenceKey="test-column-filters" pageSize={25} height={200} urlState={urlState} />
+      </PlatformProvider></I18nProvider>;
+    }
+    render(<Owner />);
+    await screen.findByText(/2\/3/);
+    expect(calls(load).every(q => q.page === 1)).toBe(true);
+    await applyText('이름', 'x');
+    await screen.findByText(/1\/3/);
+    expect(onChange.mock.calls).toEqual([[{ sorting: [{ id: 'name', desc: false }], page: null }, 'reset']]);
+    await waitFor(() => expect(lastQuery(load)).toMatchObject({ page: 0, sorting: [{ id: 'name', desc: false }], filters: [{ id: 'name', op: 'contains', value: 'x' }] }));
+    const loadsAfterFirst = load.mock.calls.length;
+    // Already on page 1: another filter change and the chip actions notify nothing and refetch exactly once per change.
+    await applyText('이름', 'y');
+    await waitFor(() => expect(lastQuery(load).filters).toEqual([{ id: 'name', op: 'contains', value: 'y' }]));
+    expect(onChange).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: '다음' }));
+    await screen.findByText(/2\/3/);
+    expect(onChange).toHaveBeenCalledTimes(2);
+    fireEvent.click(within(screen.getByRole('group', { name: '적용된 열 필터' })).getByRole('button', { name: '이름 필터 해제' }));
+    await screen.findByText(/1\/3/);
+    expect(onChange.mock.calls.at(-1)).toEqual([{ sorting: [{ id: 'name', desc: false }], page: null }, 'reset']);
+    await waitFor(() => expect(lastQuery(load)).not.toHaveProperty('filters'));
+    const settled = load.mock.calls.length;
+    await act(async () => { await new Promise(r => setTimeout(r, 50)); });
+    expect(load.mock.calls.length).toBe(settled);
+    expect(settled - loadsAfterFirst).toBeLessThan(6);
   });
 
   it('chips remove one filter or all of them; the page-filter key change keeps column filters', async () => {

@@ -38,8 +38,8 @@ export default function EquipmentMaster() {
     cell: row => f.key === 'status' ? <EquipmentStatus equipment={row} /> : <span className={f.key === 'equipmentId' ? 't-mono' : f.key.includes('At') || f.key.startsWith('valid') ? 'tabular' : ''}>{row[f.key] ?? '—'}</span>,
     // The status cell shows a label badge; the export shows the same text (06 §15).
     exportValue: f.key === 'status' ? (row: Equipment) => statusText[row.status][lang] : undefined,
-    // #556b: column filters (ADR-0104) — the status enum, a text column and the validity dates; the mock endpoint applies them.
-    filter: columnFilter(f.key, lang),
+    // #556b: column filters (ADR-0104) — the line enum, a text column and the validity dates; the mock endpoint applies them.
+    filter: columnFilter(f.key),
   })), [lang]);
   // Draft + apply (ADR-0037): the drafts live here, above ManagementLayout, so they survive rail ↔ popover and collapse.
   const { draft, clearButton, barProps, layoutProps } = useManagementFilters({ applied: { q, status, maker }, clearKeys: ['q', 'status', 'maker'] });

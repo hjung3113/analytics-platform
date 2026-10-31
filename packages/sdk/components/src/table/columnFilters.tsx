@@ -3,7 +3,7 @@
  * active-filter chips. The table never filters rows itself — it only sends `ColumnFilter[]` to the server (`loadPage`,
  * `exportRows`); a table without `PlatformColumn.filter` renders none of this.
  */
-import { useCallback, useState } from 'react';
+import { useCallback, useId, useState } from 'react';
 import { ListFilter, X } from 'lucide-react';
 import type { ColumnFilter, ColumnFilterSpec } from '@ap/contracts';
 import { Button, Checkbox, cn, Input, Label, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
@@ -108,6 +108,7 @@ export function ColumnFilterButton({ column, spec, active, lang, onApply }: {
   const filter = toFilter(column.id, spec, draft);
   const patch = (next: Partial<Draft>) => setDraft(d => ({ ...d, ...next }));
   const inputId = `colfilter-${column.id}`;
+  const titleId = useId();
   const label = ko ? `${column.header} 필터` : `Filter ${column.header}`;
   return <Popover open={open} onOpenChange={next => { if (next) setDraft(initialDraft(spec, active)); setOpen(next); }}>
     <PopoverTrigger asChild>
@@ -116,9 +117,9 @@ export function ColumnFilterButton({ column, spec, active, lang, onApply }: {
         <ListFilter className="size-3" aria-hidden />
       </button>
     </PopoverTrigger>
-    <PopoverContent align="start" className="w-64">
+    <PopoverContent align="start" className="w-64" aria-labelledby={titleId}>
       <form className="space-y-2" onSubmit={event => { event.preventDefault(); if (!filter) return; onApply(filter); setOpen(false); }}>
-        <p className="t-card-title">{label}</p>
+        <p id={titleId} className="t-card-title">{label}</p>
         {(spec.kind === 'text' || spec.kind === 'number') && <select aria-label={ko ? '연산자' : 'Operator'} className={selectClass} value={draft.op} onChange={e => patch({ op: e.target.value })}>
           {OPS[spec.kind].map(o => <option key={o.op} value={o.op}>{o[lang]}</option>)}
         </select>}
@@ -128,8 +129,10 @@ export function ColumnFilterButton({ column, spec, active, lang, onApply }: {
           {draft.op === 'between' && <><span aria-hidden>~</span><Input type="number" aria-label={ko ? '최댓값' : 'Maximum'} value={draft.b} onChange={e => patch({ b: e.target.value })} /></>}
         </div>}
         {spec.kind === 'date' && <div className="space-y-1">
-          <Input id={inputId} type="date" aria-label={ko ? '시작일부터' : 'From'} value={draft.a} onChange={e => patch({ a: e.target.value })} />
-          <Input type="date" aria-label={ko ? '종료일까지(포함)' : 'To (inclusive)'} value={draft.b} onChange={e => patch({ b: e.target.value })} />
+          <Label htmlFor={inputId}>{ko ? '~부터' : 'From'}</Label>
+          <Input id={inputId} type="date" value={draft.a} onChange={e => patch({ a: e.target.value })} />
+          <Label htmlFor={`${inputId}-to`}>{ko ? '~까지 (포함)' : 'To (inclusive)'}</Label>
+          <Input id={`${inputId}-to`} type="date" value={draft.b} onChange={e => patch({ b: e.target.value })} />
         </div>}
         {spec.kind === 'enum' && <ul className="space-y-1">{spec.options.map(o => <li key={o.value} className="flex items-center gap-2">
           <Checkbox id={`${inputId}-${o.value}`} className="size-3.5 border-border-control" checked={draft.picked.includes(o.value)}

@@ -62,10 +62,10 @@ describe('equipment-master mock endpoints', () => {
   });
 
   it('applies column filters on the server: the page total and the export list are the filtered set (#556b)', async () => {
-    const statusIn = { id: 'status', op: 'in' as const, value: ['maintenance'] };
-    const page = await adapter.menuQuery({ endpoint: equipmentPageEndpoint.id, context, params: { ...noFilter, page: 0, pageSize: 500, sorting: [], filters: [statusIn] } });
-    const exportAll = await adapter.menuQuery({ endpoint: equipmentExportEndpoint.id, context, params: { ...noFilter, ids: null, sorting: [], filters: [statusIn] } });
-    const expected = engineerMem.filter(e => e.status === 'maintenance').map(e => e.equipmentId).sort();
+    const lineIn = { id: 'line', op: 'in' as const, value: ['L2'] };
+    const page = await adapter.menuQuery({ endpoint: equipmentPageEndpoint.id, context, params: { ...noFilter, page: 0, pageSize: 500, sorting: [], filters: [lineIn] } });
+    const exportAll = await adapter.menuQuery({ endpoint: equipmentExportEndpoint.id, context, params: { ...noFilter, ids: null, sorting: [], filters: [lineIn] } });
+    const expected = engineerMem.filter(e => e.line === 'L2').map(e => e.equipmentId).sort();
     expect(expected.length).toBeGreaterThan(0);
     expect(expected.length).toBeLessThan(engineerMem.length);
     expect((page.data as PageResult<Equipment>).total).toBe(expected.length);

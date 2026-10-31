@@ -14,9 +14,11 @@ export const fields: { key: keyof Equipment; ko: string; en: string }[] = [
   { key: 'validFrom', ko: '유효 시작', en: 'Valid from' }, { key: 'validTo', ko: '유효 종료일', en: 'Valid to' },
   { key: 'updatedAt', ko: '변경 시각', en: 'Updated at' }, { key: 'updatedBy', ko: '변경자', en: 'Updated by' },
 ];
-/** Column filters EquipmentMaster opts in to (#556b): enum status, text model, wall-clock date validity columns. */
-export function columnFilter(key: keyof Equipment, lang: 'ko' | 'en'): ColumnFilterSpec | undefined {
-  if (key === 'status') return { kind: 'enum', options: (Object.keys(statusText) as Equipment['status'][]).map(value => ({ value, label: statusText[value][lang] })) };
+/** Production lines the mock generates (`L1`–`L4`, world.ts). */
+const lineOptions = ['L1', 'L2', 'L3', 'L4'];
+/** Column filters EquipmentMaster opts in to (#556b): enum line, text model, wall-clock date validity columns. 상태 stays a page filter only (ADR-0104). */
+export function columnFilter(key: keyof Equipment): ColumnFilterSpec | undefined {
+  if (key === 'line') return { kind: 'enum', options: lineOptions.map(value => ({ value, label: value })) };
   if (key === 'model' || key === 'updatedBy') return { kind: 'text' };
   if (key === 'validFrom' || key === 'validTo') return { kind: 'date' };
   return undefined;
