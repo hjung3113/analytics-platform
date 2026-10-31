@@ -150,7 +150,7 @@ const MenuTabsList = React.forwardRef<
     if (!selectedIsHidden && savedStop.current !== null) {
       const stop = savedStop.current;
       savedStop.current = null;
-      if (stop.isConnected && !stop.hidden && entries.every(({ el }) => el.getAttribute('tabindex') !== '0')) stop.setAttribute('tabindex', '0');
+      if (stop.isConnected && !stop.hidden && entries.every(({ el }) => el.hidden || el.getAttribute('tabindex') !== '0')) stop.setAttribute('tabindex', '0');
     }
     const next: OverflowState = { items: entries.map(({ value, label, disabled }) => ({ value, label, disabled })), hidden, selected };
     if (!sameState(stateRef.current, next)) setState(next);
@@ -199,12 +199,20 @@ const MenuTabsList = React.forwardRef<
     stops[next]?.focus();
   };
 
+  // choose()의 합성 mousedown이 Radix 그룹의 클릭 포커스 표지를 세워 두므로, 이후 Tab으로 목록 루트가 포커스를 받아도 Radix는 선택 탭으로 넘기지 않는다. 루트가 직접 받으면 보이는 선택 탭으로 직접 넘긴다.
+  const onFocus = (event: React.FocusEvent<HTMLDivElement>) => {
+    const list = listRef.current;
+    if (list === null || event.target !== list || (event.relatedTarget instanceof Node && list.contains(event.relatedTarget))) return;
+    const active = list.querySelector<HTMLElement>('[role="tab"][data-state="active"]');
+    if (active !== null && !active.hidden && !active.hasAttribute('disabled')) active.focus();
+  };
+
   return (
-    <div ref={wrapperRef} className={cn(LIST_BASE, 'relative', LIST_BASELINE, LIST_BASELINE_FORCED, className)} onKeyDownCapture={onKeyDownCapture}>
+    <div ref={wrapperRef} className={cn(LIST_BASE, 'relative', LIST_BASELINE, LIST_BASELINE_FORCED, className)} onKeyDownCapture={onKeyDownCapture} onFocus={onFocus}>
       <BaseTabsList
         ref={setRefs}
         // 선택된 탭이 숨었으면 목록 루트가 Tab으로 첫 보이는 탭을 잡아 선택을 바꾸지 않도록 더보기 버튼만 Tab 정거장으로 둔다.
-        tabIndex={selectedHidden ? -1 : undefined}
+        {...(selectedHidden ? { tabIndex: -1 } : {})}
         className="flex h-auto min-w-0 items-end justify-start overflow-hidden rounded-none bg-transparent p-0 text-text-secondary"
         {...props}
       />

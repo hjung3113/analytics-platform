@@ -1,4 +1,5 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import * as React from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './index';
@@ -191,13 +192,48 @@ it('F1: a hidden selected tab leaves the 더보기 button as the only Tab stop, 
   act(() => visible[1]!.focus());
   rerender(<Ctl value="e" />);
   const row = () => screen.getByRole('tablist').parentElement!;
-  const stops = () => Array.from(row().querySelectorAll<HTMLElement>('[tabindex="0"]'));
+  // Radix keeps the tablist root at tabindex=0 as a forwarding entry stop (its focus moves to the active tab), so it is not a second stop.
+  const stops = () => Array.from(row().querySelectorAll<HTMLElement>('[tabindex="0"]')).filter(el => el.getAttribute('role') !== 'tablist');
   expect(stops()).toEqual([moreButton()]);
   expect(screen.getAllByRole('tab').every(t => t.getAttribute('tabindex') === '-1')).toBe(true);
   expect(tabByLabel('상관').getAttribute('aria-selected')).toBe('true');
   rerender(<Ctl value="a" />);
   expect(stops()).toHaveLength(1);
   expect(stops()[0]!.getAttribute('role')).toBe('tab');
+});
+
+function withLeadingButton(node: React.ReactElement) { return <><button type="button">앞 버튼</button>{node}</>; }
+
+it('C1a: fresh mount with a visible selection: Tab lands on the selected tab', async () => {
+  const user = userEvent.setup();
+  render(withLeadingButton(tree()));
+  resizeTo(400);
+  screen.getByRole('button', { name: '앞 버튼' }).focus();
+  await user.tab();
+  expect(document.activeElement).toBe(tabByLabel('개요'));
+  await user.tab();
+  expect(document.activeElement).not.toBe(moreButton());
+  expect(screen.getByRole('tablist').parentElement!.contains(document.activeElement)).toBe(false);
+});
+
+it('C1b: menu-select a hidden tab, then an external change back to a visible tab leaves exactly one stop in the row', async () => {
+  const user = userEvent.setup();
+  function Ctl() {
+    const [value, setValue] = React.useState('a');
+    return withLeadingButton(<>{tree({ value, onValueChange: setValue })}<button type="button" onClick={() => setValue('b')}>외부</button></>);
+  }
+  render(<Ctl />);
+  resizeTo(400);
+  fireEvent.mouseDown(tabByLabel('상관'), { button: 0 });
+  expect(tabByLabel('상관').getAttribute('aria-selected')).toBe('true');
+  fireEvent.click(screen.getByRole('button', { name: '외부' }));
+  expect(tabByLabel('추이').getAttribute('aria-selected')).toBe('true');
+  expect(moreButton()!.getAttribute('tabindex')).toBe('-1');
+  screen.getByRole('button', { name: '앞 버튼' }).focus();
+  await user.tab();
+  expect(document.activeElement).toBe(tabByLabel('추이'));
+  await user.tab();
+  expect(screen.getByRole('tablist').parentElement!.contains(document.activeElement)).toBe(false);
 });
 
 it('F2: a hidden tab whose label shrinks returns to the row', () => {
