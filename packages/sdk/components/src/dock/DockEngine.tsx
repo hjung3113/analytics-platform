@@ -436,6 +436,33 @@ export default function DockEngine({
     return () => { observer.disconnect(); };
   }, [containerRef, scheduleMeasure]);
 
+  // The engine draws each panel in an overlay and re-reads the group's DOM box only when it lays the group out. A layout that learns its new
+  // width before the DOM column above the groups grows (a pane maximized with no window resize) leaves the groups at their old box, and the
+  // DOM catching up later is no engine event: the overlay, and the chart in it, kept the old width (#1173). A group whose own box changes is
+  // laid out again at its current size, which makes the engine re-read it. Not while a sash drags: the contents are held at their size then.
+  useEffect(() => {
+    const root = containerRef.current;
+    if (!api || !root || typeof ResizeObserver === 'undefined') return;
+    const seen = new Map<Element, string>();
+    const observer = new ResizeObserver(entries => {
+      for (const { target, contentRect } of entries) {
+        const box = `${Math.round(contentRect.width)}x${Math.round(contentRect.height)}`;
+        const before = seen.get(target);
+        seen.set(target, box);
+        if (before === undefined || before === box || root.hasAttribute('data-dock-resizing')) continue;
+        api.groups.find(group => group.element === target)?.relayout();
+      }
+    });
+    const sync = () => {
+      const current = new Set<Element>(api.groups.map(group => group.element));
+      for (const element of seen.keys()) if (!current.has(element)) { observer.unobserve(element); seen.delete(element); }
+      for (const element of current) if (!seen.has(element)) observer.observe(element);
+    };
+    sync();
+    const subscriptions = [api.onDidAddGroup(sync), api.onDidRemoveGroup(sync), api.onDidLayoutChange(sync)];
+    return () => { subscriptions.forEach(subscription => { subscription.dispose(); }); observer.disconnect(); };
+  }, [api, containerRef]);
+
   // The engine makes every group container a `region` named after its active panel, which duplicates the panel's own region name (a chart
   // card) and is no landmark of ours: each group's tab panel is already labelled by its tab. Removed on mount and whenever the engine sets
   // them again (title or active panel change).

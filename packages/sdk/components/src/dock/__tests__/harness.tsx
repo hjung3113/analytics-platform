@@ -27,6 +27,10 @@ export function installResizeObserver() {
       size.width = width; size.height = height;
       act(() => { observers.forEach(observer => { observer.targets.forEach(target => { report(observer, target); }); }); });
     },
+    /** Reports `width` to the observed elements that `match` only: a size change the engine's own container never saw. */
+    touch(match: (target: Element) => boolean, width: number) {
+      act(() => { observers.forEach(observer => { observer.targets.forEach(target => { if (match(target)) observer.callback([{ target, contentRect: { width, height: size.height, top: 0, left: 0, right: width, bottom: size.height, x: 0, y: 0 } } as ResizeObserverEntry], observer as unknown as ResizeObserver); }); }); });
+    },
     restore() { (globalThis as { ResizeObserver?: unknown }).ResizeObserver = previous; },
   };
 }
