@@ -5,7 +5,8 @@
 # Background UX/perf prep (run it with run_in_background as soon as the code review launches): creates or reuses
 # the issue DB (verify-db.sh), seeds only when the [preview] fixtures are gone (app-preview.py --seed on the
 # baseline start, restarting it if live, plus SEED_MODE=scale with --scale), starts or reuses the
-# <n>-develop (baseline checkout, default $WAVE_STATE/baseline) and <n>-branch previews, curls targets and probes the
+# <n>-develop (baseline checkout, default $WAVE_STATE/baseline) and <n>-branch previews — each checkout's platform
+# assembly (apps/platform-web) served by app-preview.py in real mode — curls targets and probes the
 # Ego Lite bridge with one automatic restart, then runs nav-perf.sh --reset-db <n> unless --no-perf. Steps chain
 # and stop at the first failure; each logs under $WAVE_STATE/ux-prep-<n>/ and the summary JSON (also written to
 # $WAVE_STATE/ux-prep-<n>.json) is the last stdout line. Perf is skipped ("skipped: host busy") while vitest,

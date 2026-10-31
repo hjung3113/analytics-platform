@@ -82,7 +82,7 @@ Fix design-lint errors with the token, variant or component the message names.
   - Start: `$ENGINE/app-preview.py start <checkout> --name <n>-branch` (baseline: `<n>-main`, installed with `--frozen-lockfile`). Ports are 5180–5199.
   - Stop the preview in the same turn.
 - Use `ego-browser`. If it is blocked, use a one-off Playwright capture from `apps/platform-e2e` and record the substitution in VERIFY.
-- Before merge, a PR that changes behavior (state, request shape, response fields) gets one real-server check by the conductor (issue DB + `dev:real`) recorded in VERIFY.
+- Before merge, a PR that changes behavior (state, request shape, response fields) gets one real-server check by the conductor recorded in VERIFY: `verify-db.sh create <n>`, then `python3 ops/platform-api/conductor/scripts/app-preview.py start <checkout> --backend --env $WAVE_STATE/env.verify.<n> --seed --name <n>-real` (the platform assembly in real mode on the checkout's own backend), and `stop <n>-real` in the same turn.
 - Worker briefs take the mock app start command from `conductor.json` `app_preview.command` — never hardcode a preview command in a brief.
 
 ## Review

@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
-"""app-preview.py — run a checkout's frontend (and optionally its backend) on free ports for real-app checks.
+"""app-preview.py — run a checkout's platform-web frontend in real mode (and optionally its backend) on free ports
+for real-app checks.
 
   app-preview.py start <checkout> [--backend --env <file> [--seed]] [--name <label>]
   app-preview.py stop <label> | --all
   app-preview.py status
 
-`start` serves the checkout's vite on a free port at `http://<label>.localhost:<port>`.
+`start` serves the checkout's platform assembly (`apps/platform-web`, `vite --mode real`) on a free port at
+`http://<label>.localhost:<port>`.
 
 Each preview gets its own host because the session cookie is host-only and is not scoped by port. Two previews (or
 a preview and the owner's :3010) would otherwise overwrite each other's login. Chromium resolves `*.localhost` to
 loopback.
 
-The dev proxy goes to:
+The dev proxy target (`AP_BACKEND_ORIGIN`, read by the platform-web config) is:
 
 - **without `--backend`:** the user's backend on :3011 (develop code, the owner's dev DB). Use this only for the
   conductor's own quick checks, never for reviewers: logging in writes session and audit rows.
@@ -29,7 +31,9 @@ Each process starts in its own session, and `stop` kills the whole process group
 carry a `--fops-preview=<label>` argument, and vite configs are named `preview-<label>.vite.config.mts`. That lets
 `status` and `stop --all` find orphans left by an ended session through `ps`. The generated config is an `.mts` file:
 a `.ts` config outside the package is bundled as CJS and fails on ESM-only plugins. It imports the checkout's
-`vite.config.ts` and changes only the port, `allowedHosts` and the proxy targets.
+`apps/platform-web/vite.config.ts` — a factory config, so it is called with the real-mode vite env — and overrides
+only the dev server binding (port, `strictPort`, `allowedHosts`); the config's own proxy stands, and its target comes
+from `AP_BACKEND_ORIGIN`.
 
 State is kept in `$WAVE_STATE/preview-<label>.json`. Prints one JSON line. Before a handoff, `status` must be empty.
 """
@@ -51,10 +55,10 @@ DEV_DB_PORT = '5434'
 
 
 def feature_paths():
-    """The Feature path map (ops/platform-api/paths.sh): FEATURE_* name -> repository-root relative directory."""
+    """The Feature path map (ops/platform-api/paths.sh): FEATURE_*/PLATFORM_* name -> repository-root relative dir."""
     paths = {}
     for line in (Path(__file__).resolve().parents[2] / 'paths.sh').read_text().splitlines():
-        match = re.fullmatch(r'(FEATURE_[A-Z]+)=([\w./-]+)', line.strip())
+        match = re.fullmatch(r'((?:FEATURE|PLATFORM)_[A-Z]+)=([\w./-]+)', line.strip())
         if match:
             paths[match.group(1)] = match.group(2)
     return paths
@@ -264,10 +268,10 @@ def start(args):
     states = state_dir()
     checkout = Path(args.checkout).resolve()
     feature = feature_paths()
-    frontend = checkout / feature['FEATURE_FRONTEND']
+    frontend = checkout / feature['PLATFORM_FRONTEND']
     backend = checkout / feature['FEATURE_BACKEND']
     if not (frontend / 'vite.config.ts').is_file():
-        fail(f'not a feature checkout: {checkout}', 2)
+        fail(f'not a platform checkout: {checkout}', 2)
     label = re.sub(r'[^a-z0-9-]', '-', (args.name or checkout.name).lower()).strip('-') or 'preview'
     state_path = states / f'preview-{label}.json'
     if state_path.exists():
@@ -276,11 +280,6 @@ def start(args):
         fail('--seed needs --backend', 2)
     env = dict(os.environ)
     env['PATH'] = f'{NODE22}:{env.get("PATH", "")}'
-
-    # A fresh worktree has no gitignored route tree; vite would serve a broken app.
-    if not (frontend / 'src' / 'routeTree.gen.ts').exists():
-        subprocess.run(['node', f"{feature['FEATURE_OPS']}/scripts/generate-routes.mjs"], cwd=checkout, env=env, check=True,
-                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     state = {'name': label, 'checkout': str(checkout), 'pids': []}
     backend_port = USER_BACKEND_PORT
@@ -305,6 +304,12 @@ def start(args):
                 fail(f'seed failed: {seed.stderr.strip()[-300:]}')
         backend_port = free_port()
         backend_env['PORT'] = str(backend_port)
+        backend_env['HOST'] = '127.0.0.1'
+        # `pnpm dev` (apps/platform-api/package.json) builds the contract schemas first; tsx watch adds nothing here.
+        schemas = subprocess.run(['pnpm', 'run', 'build:schemas'], cwd=backend, env=backend_env,
+                                 capture_output=True, text=True)
+        if schemas.returncode != 0:
+            fail(f'contract schemas build failed: {schemas.stderr.strip()[-300:]}')
         pid = spawn(['npx', 'tsx', 'src/index.ts', f'--fops-preview={label}'], backend, backend_env,
                     states / f'preview-{label}-backend.log')
         state['pids'].append(pid)
@@ -325,22 +330,19 @@ def start(args):
     frontend_port = free_port()
     config = states / f'preview-{label}.vite.config.mts'
     config.write_text(
-        '// Generated by app-preview.py: changes only the port, allowedHosts and the dev proxy targets.\n'
+        '// Generated by app-preview.py: calls the checkout config factory with the real-mode env and overrides\n'
+        '// only the server binding; the proxy target comes from AP_BACKEND_ORIGIN.\n'
         f"import base from {json.dumps(str(frontend / 'vite.config.ts'))};\n"
-        'const proxy = Object.fromEntries(\n'
-        '  Object.entries(base.server?.proxy ?? {}).map(([key, value]) => [\n'
-        '    key,\n'
-        "    typeof value === 'string'\n"
-        f"      ? value.replace(':{USER_BACKEND_PORT}', ':{backend_port}')\n"
-        f"      : {{ ...value, target: String(value.target).replace(':{USER_BACKEND_PORT}', ':{backend_port}') }},\n"
-        '  ]),\n'
-        ');\n'
+        "const viteEnv = { mode: 'real', command: 'serve', isPreview: false };\n"
+        "const cfg = typeof base === 'function' ? base(viteEnv) : base;\n"
         'export default {\n'
-        '  ...base,\n'
-        f"  server: {{ ...base.server, port: {frontend_port}, strictPort: true, allowedHosts: ['.localhost'], proxy }},\n"
+        '  ...cfg,\n'
+        f"  server: {{ ...cfg.server, port: {frontend_port}, strictPort: true, allowedHosts: ['.localhost'] }},\n"
         '};\n'
     )
-    pid = spawn(['npx', 'vite', '--config', str(config)], frontend, env, states / f'preview-{label}-vite.log')
+    vite_env = {**env, 'AP_BACKEND_ORIGIN': f'http://127.0.0.1:{backend_port}'}
+    pid = spawn(['npx', 'vite', '--config', str(config), '--mode', 'real'], frontend, vite_env,
+                states / f'preview-{label}-vite.log')
     state['pids'].append(pid)
     state.update(frontend_port=frontend_port, url=f'http://{label}.localhost:{frontend_port}', vite_config=str(config))
     state_path.write_text(json.dumps(state) + '\n')
