@@ -118,7 +118,28 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.clearAllMocks(); window.h
 const workspace = () => screen.getByTestId('workspace');
 const panelIds = () => within(workspace()).getAllByRole('region').map(el => el.getAttribute('aria-label')).filter(name => name?.startsWith('panel '));
 
+const failed = (outcome: 'empty' | 'error') => ({ status: 'done' as const, missing: [], completedAt: 1, refetch: () => undefined, response: { outcome, data: null, assessments: [], trust: null, correlationId: 'fixture', ...(outcome === 'error' ? { message: 'boom' } : {}) } as ApiResponse<HwTimeLevelData> });
+
 describe('HW Time compare page', () => {
+  it.each([
+    ['loading', () => ({ status: 'loading' as const, response: null, missing: [], completedAt: null, refetch: () => undefined }), '불러오는 중입니다.'],
+    ['empty', () => failed('empty'), '조건에 맞는 결과가 없습니다.'],
+    ['error', () => failed('error'), '데이터를 불러오지 못했습니다. 본문에서 다시 시도하세요.'],
+  ])('the Inspector target follows the query when it is %s, not always loading (#1158)', async (_name, state, copy) => {
+    data.level.mockImplementation(() => state());
+    await renderPage();
+    fireEvent.pointerDown(screen.getByRole('button', { name: '분석 대상' }));
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: '분석 대상' })); });
+    const peek = await screen.findByRole('dialog', { name: '분석 대상' });
+    expect(peek.textContent).toContain(copy);
+    // The legend says the same while the summary is not answered: nothing to draw, and it is not a bare "no legend".
+    if (copy !== '불러오는 중입니다.') {
+      fireEvent.pointerDown(screen.getByRole('button', { name: '계층 범례' }));
+      await act(async () => { fireEvent.click(screen.getByRole('button', { name: '계층 범례' })); });
+      expect((await screen.findByRole('tree', { name: '계층 범례' })).textContent).toContain(copy);
+    }
+  });
+
   it('declares the manifest with the agreed keys', () => {
     const menu = manifests.find(item => item.id === 'hw-time-compare')!;
     expect(menu.path).toBe('/hw-time/compare');

@@ -1266,6 +1266,34 @@ test.describe('메뉴 작업 영역 (ADR-0067 3b)', () => {
     await page.mouse.up();
   }
 
+  test('끌기를 취소하면(Esc, dragend) 놓을 자리 미리보기가 바로 사라지고 배치는 그대로다 (#1158)', async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 900 });
+    await page.goto(CYCLE);
+    await workspaceReady(page);
+    const overlay = workspace(page).locator('.dv-drop-target-selection');
+    const tabs = () => workspace(page).getByRole('tab').evaluateAll(items => items.map(item => item.textContent?.trim()));
+    const before = await tabs();
+    const source = page.getByRole('tab', { name: TITLES.slow });
+    const target = groupOf(page, TITLES.trend);
+    await source.scrollIntoViewIfNeeded();
+    const from = (await source.boundingBox())!;
+    const box = (await target.boundingBox())!;
+    const x = box.x + box.width / 2;
+    const y = box.y + box.height / 2;
+    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(x, y, { steps: 8 });
+    for (let i = 0; i < 4; i++) { await page.waitForTimeout(80); await page.mouse.move(x + (i % 2 === 0 ? -2 : 2), y); }
+    await expect(overlay.first()).toBeVisible();
+    // A synthetic (CDP) drag ignores Escape, so the browser's cancel is replayed: `dragend` on the dragged tab, no `drop`.
+    await page.keyboard.press('Escape');
+    await source.dispatchEvent('dragend');
+    await expect(overlay.filter({ visible: true })).toHaveCount(0);
+    await expect(workspace(page).locator('.dv-drop-target')).toHaveCount(0);
+    expect(await tabs()).toEqual(before);
+    await page.mouse.up();
+  });
+
   test('중첩 끌기는 거절된다: 칸 안 작업 영역의 탭은 보드 칸 띠나 다른 칸으로 옮겨지지 않는다', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1600, height: 900 });
     await seedDockBoard(page, '1x2', [cyclePane(), productivityPane()]);

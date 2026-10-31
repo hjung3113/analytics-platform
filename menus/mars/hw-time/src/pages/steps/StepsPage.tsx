@@ -12,6 +12,7 @@ import type { ThemeColorToken } from '@ap/ui/theme';
 import { HW_TIME_UNIT, type HwTimeBlock, type HwTimeDrill, type HwTimeLevelData } from '../../endpoints';
 import { useHwTimeLevel, useHwTimeTrend } from '../../shared/data';
 import { formatSeconds, missingText } from '../../shared/format';
+import { targetStateText } from '../../shared/targetState';
 import { StackPanel } from '../../shared/panels/StackPanel';
 import { TrendPanel } from '../../shared/panels/TrendPanel';
 import { useHwTimeLevelState } from '../../shared/useHwTimeLevelState';
@@ -70,7 +71,7 @@ export default function StepsPage(_props: PageProps) {
       summary: counts ?? undefined,
       render: () => counts
         ? <p className="t-caption text-text-secondary">{counts[lang]}</p>
-        : <p className="t-caption text-text-muted">{ko ? '불러오는 중입니다.' : 'Loading.'}</p>,
+        : <p className="t-caption text-text-muted">{targetStateText(lang, levelQ.response?.outcome)}</p>,
     },
     {
       id: 'legend', title: { ko: '계층 범례', en: 'Legend' }, icon: ListTree,

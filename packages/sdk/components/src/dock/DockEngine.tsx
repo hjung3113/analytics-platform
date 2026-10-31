@@ -492,10 +492,33 @@ export default function DockEngine({
     onPanelDrop?.(event.defaultPrevented ? null : data.panelId);
   }, [onPanelDrop, refused]);
 
+  // A cancelled native drag (Escape) ends with `dragend` on the dragged tab, which is not inside the group showing the preview, so the engine's own
+  // `dragend` listener on that group never hears it and its in-place overlay (dockview-core main.esm.mjs:4594-4601) stays visible. The tab's `dragend`
+  // reaches this container (and the window), so every overlay still shown is told the drag ended the way the engine does it for its own target
+  // (:4617-4632 -> `removeDropTarget` :4756): a `dragend` sent from inside the overlay's host. No drop is committed there (only an anchored override
+  // target commits on `dragend`, and this theme has none), and the layout is untouched. The row strip's accept highlight is lowered too.
+  const [dropOver, setDropOver] = useState(false);
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    let relaying = false;
+    const ended = () => {
+      if (relaying) return;
+      setDropOver(false);
+      relaying = true;
+      try {
+        container.querySelectorAll('.dv-drop-target-dropzone').forEach(zone => { zone.dispatchEvent(new Event('dragend', { bubbles: true })); });
+      } finally {
+        relaying = false;
+      }
+    };
+    window.addEventListener('dragend', ended, true);
+    return () => { window.removeEventListener('dragend', ended, true); };
+  }, [containerRef]);
+
   // The strip under the last row accepts one tab of this layout: not a whole group, not another layout's tab, not outside data. Every drag over the strip
   // ends here, taken or refused: an ancestor dock (the board around a pane) must never act on a drop released over it. These are native listeners on the
   // strip itself, which see the event before any ancestor's: React's own handlers run at the root, after the ancestors' native ones.
-  const [dropOver, setDropOver] = useState(false);
   const strip = useRef<HTMLDivElement>(null);
   const onDropBelow = rows?.onDropBelow;
   const stripShown = onDropBelow !== undefined && interactive;

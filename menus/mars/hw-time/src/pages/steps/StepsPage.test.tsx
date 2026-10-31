@@ -105,7 +105,19 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.clearAllMocks(); window.history.replaceState(null, '', '/'); });
 
+const failed = (outcome: 'empty' | 'error') => ({ status: 'done' as const, missing: [], completedAt: 1, refetch: () => undefined, response: { outcome, data: null, assessments: [], trust: null, correlationId: 'fixture', ...(outcome === 'error' ? { message: 'boom' } : {}) } as ApiResponse<HwTimeLevelData> });
+
 describe('HW Time steps page', () => {
+  it.each([
+    ['loading', () => ({ status: 'loading' as const, response: null, missing: [], completedAt: null, refetch: () => undefined }), '불러오는 중입니다.'],
+    ['empty', () => failed('empty'), '조건에 맞는 결과가 없습니다.'],
+    ['error', () => failed('error'), '데이터를 불러오지 못했습니다. 본문에서 다시 시도하세요.'],
+  ])('the Inspector target follows the query when it is %s, not always loading (#1158)', async (_name, state, copy) => {
+    data.level.mockImplementation(() => state());
+    await renderPage();
+    expect(screen.getByText(copy)).toBeTruthy();
+  });
+
   it('L1 draws one row per EquipmentID and a Module segment activation sets drillModule', async () => {
     await renderPage();
     expect(screen.getByTestId('hw-time-steps-L1-categories').textContent).toBe('24');

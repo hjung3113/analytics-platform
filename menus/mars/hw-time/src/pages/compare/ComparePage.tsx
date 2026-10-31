@@ -13,6 +13,7 @@ import type { ThemeColorToken } from '@ap/ui/theme';
 import { HW_TIME_UNIT, type HwTimeBlock, type HwTimeLevelData } from '../../endpoints';
 import { useHwTimeLevel, useHwTimeTrend } from '../../shared/data';
 import { formatSeconds, missingText } from '../../shared/format';
+import { targetStateText } from '../../shared/targetState';
 import { StackPanel } from '../../shared/panels/StackPanel';
 import { TrendPanel } from '../../shared/panels/TrendPanel';
 import { useHwTimeLevelState } from '../../shared/useHwTimeLevelState';
@@ -86,6 +87,8 @@ export default function ComparePage(_props: PageProps) {
     : moduleQ.response?.outcome === 'empty' ? (ko ? '이 Module에는 구성 기록이 없습니다.' : 'This Module has no composition records.')
       : moduleQ.response && moduleQ.response.outcome !== 'ok' ? (ko ? '구성을 불러오지 못했습니다.' : 'The composition could not be loaded.')
       : ko ? '구성을 불러오는 중입니다.' : 'Loading the composition.';
+  // Without a Module the target and the legend follow the summary query (`legendState` is null by construction there).
+  const summaryState = module === null && !summaryData ? targetStateText(lang, summaryQ.response?.outcome) : null;
   const detailBlock: HwTimeBlock | null = detailData ? (detailData.level === 2 ? detailData.detail ?? EMPTY_BLOCK : EMPTY_BLOCK) : null;
   const counts = state.countsOf(context);
 
@@ -103,7 +106,7 @@ export default function ComparePage(_props: PageProps) {
       summary: counts ?? undefined,
       render: () => counts
         ? <p className="t-caption text-text-secondary">{counts[lang]}</p>
-        : <p className="t-caption text-text-muted">{legendState ?? (ko ? '불러오는 중입니다.' : 'Loading.')}</p>,
+        : <p className="t-caption text-text-muted">{legendState ?? summaryState ?? (ko ? '불러오는 중입니다.' : 'Loading.')}</p>,
     },
     {
       id: 'legend', title: { ko: '계층 범례', en: 'Legend' }, icon: ListTree,
@@ -113,7 +116,7 @@ export default function ComparePage(_props: PageProps) {
         visible={new Set(visibleIds)}
         onVisibleChange={next => setHidden(legendSeries.map(item => item.id).filter(id => !next.has(id)))}
         onDrill={drillTo} canDrill={() => true} currentId={currentId}
-          emptyText={legendState ?? (ko ? '표시할 범례가 없습니다.' : 'No legend to show.')} />,
+          emptyText={legendState ?? summaryState ?? (ko ? '표시할 범례가 없습니다.' : 'No legend to show.')} />,
     },
     {
       id: 'options', title: { ko: '옵션', en: 'Options' }, icon: SlidersHorizontal, summary: { ko: optionText, en: optionText },

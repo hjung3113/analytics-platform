@@ -13,6 +13,8 @@ const panelData = vi.hoisted(() => ({ current: null as { viewId: string; groupId
 // The engine's own drop events need real geometry; the will-drop handler the layout hands the engine is captured and called directly.
 const willDrop = vi.hoisted(() => ({ current: null as ((event: unknown) => void) | null }));
 // Every `fromJSON` the layout sends the engine, with the height the engine had when it was called and the height the layout asks for.
+// The live engine's id: the strip only takes a tab whose `viewId` is it.
+const engineId = vi.hoisted(() => ({ current: '' }));
 const loads = vi.hoisted(() => ({ current: [] as { engineHeight: number; layoutHeight: number }[] }));
 vi.mock('dockview-react', async importOriginal => {
   const actual = await importOriginal<typeof import('dockview-react')>();
@@ -22,6 +24,7 @@ vi.mock('dockview-react', async importOriginal => {
     DockviewReact: (props: React.ComponentProps<typeof actual.DockviewReact>) => {
       willDrop.current = props.onWillDrop as typeof willDrop.current;
       const onReady: typeof props.onReady = event => {
+        engineId.current = event.api.id;
         const load = event.api.fromJSON.bind(event.api);
         event.api.fromJSON = (data, options) => { loads.current.push({ engineHeight: event.api.height, layoutHeight: (data.grid as { height: number }).height }); load(data, options); };
         props.onReady(event);
@@ -202,6 +205,23 @@ describe('DockLayout rows (workspace stack mode)', () => {
     }
     expect(seen).not.toHaveBeenCalled();
     expect(onDropBelow).not.toHaveBeenCalled();
+  });
+
+  it('lowers the strip highlight when the drag is cancelled (dragend on the dragged tab) and reports no layout (#1158)', async () => {
+    const onDropBelow = vi.fn();
+    const onLayoutChange = vi.fn();
+    render(<I18nProvider><DockLayoutBase panels={panels} layout={column([40, 60], group(['a']), group(['c']))} onLayoutChange={onLayoutChange} separatorLabel={label} label="행 배치" minPanelSize={{ width: 20, height: 20 }}
+      rows={{ heights: [300, 400], minimums: [200, 200], maximum: 700, onHeightsChange: vi.fn(), onDropBelow, dropBelowLabel: '여기에 놓으면 아래에 새 줄' }} /></I18nProvider>);
+    await ready();
+    const strip = document.querySelector<HTMLElement>('[data-dock-drop-below]')!;
+    panelData.current = { viewId: engineId.current, groupId: 'g', panelId: 'a' };
+    act(() => { strip.dispatchEvent(new Event('dragover', { bubbles: true, cancelable: true })); });
+    expect(strip.className).toContain('border-accent-primary');
+    // Escape: `dragend` fires on the dragged tab, far from the strip, and no `drop` follows.
+    act(() => { document.querySelector('[role="tab"]')!.dispatchEvent(new Event('dragend', { bubbles: true })); });
+    expect(strip.className).not.toContain('border-accent-primary');
+    expect(onDropBelow).not.toHaveBeenCalled();
+    expect(onLayoutChange).not.toHaveBeenCalled();
   });
 
   it('reports the dropped tab before the layout, null for a whole group, and nothing for a refused drag', async () => {

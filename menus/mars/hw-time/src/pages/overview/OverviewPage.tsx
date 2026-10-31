@@ -13,6 +13,7 @@ import type { ThemeColorToken } from '@ap/ui/theme';
 import { HW_TIME_UNIT, type HwTimeBlock, type HwTimeDrill, type HwTimeLevelData } from '../../endpoints';
 import { useHwTimeLevel, useHwTimeTrend } from '../../shared/data';
 import { formatSeconds, missingText } from '../../shared/format';
+import { targetStateText } from '../../shared/targetState';
 import { RankingPanel } from '../../shared/panels/RankingPanel';
 import { StackPanel } from '../../shared/panels/StackPanel';
 import { TrendPanel } from '../../shared/panels/TrendPanel';
@@ -106,7 +107,7 @@ export default function OverviewPage(_props: PageProps) {
       summary: counts ?? undefined,
       render: () => counts
         ? <p className="t-caption text-text-secondary">{counts[lang]}</p>
-        : <p className="t-caption text-text-muted">{ko ? '불러오는 중입니다.' : 'Loading.'}</p>,
+        : <p className="t-caption text-text-muted">{targetStateText(lang, levelQ.response?.outcome)}</p>,
     },
     {
       id: 'options', title: { ko: '옵션', en: 'Options' }, icon: SlidersHorizontal, summary: { ko: optionText, en: optionText },
