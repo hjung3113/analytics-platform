@@ -29,7 +29,7 @@ DrillSibling | type | type DrillSibling = { hint?: string; value: string; }
 DrillSiblings | type | type DrillSiblings = Readonly<Record<string, readonly @ap/components#DrillSibling[]>>
 EChart | function | function EChart({ option, height, onEvents, onReady, onResize, ariaLabel, className }: @ap/components#EChartProps): import("react").JSX.Element
 EChartProps | type | type EChartProps = { ariaLabel: string; className?: string; height?: number; onEvents?: Record<string, (params: any, chart: ECharts) => void>; onReady?: (chart: ECharts) => void; onResize?: (width: number) => void; option: EChartsCoreOption; }
-EmbeddedPane | function | function EmbeddedPane({ children }: { children: ReactNode; }): import("react").FunctionComponentElement<import("react").ProviderProps<"pane" | boolean>>
+EmbeddedPane | function | function EmbeddedPane({ children }: { children: ReactNode; }): ReactElement
 FLOATING_MIN_SIZE | const | const FLOATING_MIN_SIZE: @ap/components#FloatingSize
 FilterDraft | type | type FilterDraft<K extends string> = { changedCount: number; patch: () => Record<K, null | string>; reset: (next?: Partial<Record<K, string>>) => void; set: (key: K, value: string) => void; values: Record<K, string>; }
 FilterUrlWarning | function | function FilterUrlWarning({ sentences, filters, recover }: { filters?: ReactNode; recover: ReactNode; sentences: readonly string[]; }): import("react").JSX.Element

@@ -499,7 +499,7 @@ export type UsageSummaryOptions = { role?: RoleId; latency?: number };
  * Console aggregate read (docs/05 열람 권한). console:access on the pinned role is checked BEFORE any dev
  * scenario (same order as serve(): a missing permission outranks every scenario). Scope, time-domain and
  * partial do not apply to this endpoint. Nothing matched is a successful zero — outcome 'ok' with
- * `menus: []`, never 'empty' (empty would trip OutcomeView and hide the zero rows).
+ * `menus: []`, never 'empty' (empty would trip the outcome state and hide the zero rows).
  */
 export async function usageSummary(range: UsageRange, signal?: AbortSignal, opts?: UsageSummaryOptions): Promise<ApiResponse<UsageSummary>> {
   const s = scenario;

@@ -389,7 +389,7 @@ describe('PlatformDataTable pager focus', () => {
     expect(input).toHaveFocus();
   });
 
-  // #338 UX fold: Enter on "다시 시도" succeeds → OutcomeView becomes the viewport and the button is gone;
+  // #338 UX fold: Enter on "다시 시도" succeeds → the outcome state becomes the viewport and the button is gone;
   // focus must follow to the row viewport, not drop to body.
   it('moves owned focus to the row viewport when a successful retry removes the button', async () => {
     const { finish } = await setup();
@@ -401,7 +401,7 @@ describe('PlatformDataTable pager focus', () => {
     expect(screen.getByLabelText('스크롤 가능한 행 영역')).toHaveFocus();
   });
 
-  // #338 UX fold: Enter on "다시 시도" that settles on `empty` succeeds without rows — the OutcomeView
+  // #338 UX fold: Enter on "다시 시도" that settles on `empty` succeeds without rows — the outcome state
   // stays (no viewport), so the owned focus must land on the section, not drop to body.
   it('moves owned focus to the section when a retry settles on empty', async () => {
     const { finish } = await setup();
@@ -413,7 +413,7 @@ describe('PlatformDataTable pager focus', () => {
     const section = screen.getByRole('region', { name: 'table' });
     expect(section).toHaveFocus();
     expect(section).toHaveAttribute('tabindex', '-1');
-    expect(screen.queryByLabelText('스크롤 가능한 행 영역')).toBeNull(); // empty renders the OutcomeView, not the viewport
+    expect(screen.queryByLabelText('스크롤 가능한 행 영역')).toBeNull(); // empty renders the outcome state, not the viewport
   });
 
   // #338 UX fold: while a request is in flight an identity change empties `shown`; the failure is not

@@ -1,4 +1,4 @@
-import { createContext, createElement, useContext, type ReactNode } from 'react';
+import { createContext, createElement, useContext, type ReactElement, type ReactNode } from 'react';
 
 /**
  * What the nearest container around a card, chart frame or table is. `true` = a `PanelWorkspace` panel: the tab already shows the panel's
@@ -15,6 +15,6 @@ export const useInWorkspacePanel = () => useContext(InWorkspacePanelContext) ===
 export const useEmbeddedChrome = () => useContext(InWorkspacePanelContext) !== false;
 
 /** Board hosts wrap a pane's screen in this: chart frames and tables inside draw no card border of their own (the pane draws it). */
-export function EmbeddedPane({ children }: { children: ReactNode }) {
+export function EmbeddedPane({ children }: { children: ReactNode }): ReactElement {
   return createElement(InWorkspacePanelContext.Provider, { value: 'pane' }, children);
 }
