@@ -1,4 +1,4 @@
-import { cleanup, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, screen, waitFor } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { group, installResizeObserver, mountDock, resetMounts, row } from './harness';
 
@@ -28,7 +28,12 @@ describe('DockLayout overlay after the group box grows without a layout (#1173)'
     await screen.findAllByRole('tab');
     await waitFor(() => { expect(overlayWidth('a')).toBe('500px'); });
 
+    // Let the frames dockview queued while mounting run out: until then they re-read the box themselves, which hides the missing relayout.
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 150)); });
+    expect(overlayWidth('a')).toBe('500px');
+
     dom.width = 800;
+    // Nothing but this group-box report may tell the engine: no window resize, no dockview dimension event.
     observer.touch(target => target.classList.contains('dv-groupview'), 800);
 
     await waitFor(() => { expect(overlayWidth('a')).toBe('800px'); });
