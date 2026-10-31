@@ -5,6 +5,7 @@ import type { ApiResponse } from '@ap/contracts';
 import { QueryView } from './StateView';
 import { InWorkspacePanelProvider } from './workspace/panelContext';
 import { QueryBarStatusContext } from './filters/QueryBarStatus';
+import { PageDensityProvider } from './pageDensity';
 
 afterEach(cleanup);
 
@@ -103,5 +104,20 @@ describe('QueryView idle beside the query bar (#1170)', () => {
   it('keeps the list when no bar reports', () => {
     render(<I18nProvider><QueryView query={idle(['time'])}>{() => <span>result</span>}</QueryView></I18nProvider>);
     expect(screen.getByRole('listitem')).toHaveTextContent('기간을 선택하세요');
+  });
+});
+
+describe('QueryView same-context refresh label (#1166 UX-2)', () => {
+  const okResponse = (): ApiResponse<unknown> => ({ outcome: 'ok', data: {}, assessments: [], trust: null, correlationId: 'c' });
+  const refreshing = (): QueryState<unknown> => ({ response: okResponse(), refetch: vi.fn(), missing: [], completedAt: null, status: 'refreshing' });
+  const label = () => screen.getByText('같은 조건으로 갱신 중').closest('[role="status"]')!;
+  it('comfortable pages keep the label above the view', () => {
+    render(<I18nProvider><QueryView query={refreshing()}>{() => <p>body</p>}</QueryView></I18nProvider>);
+    expect(label()).toHaveClass('-top-7', 'right-0', 'absolute');
+  });
+  it('compact pages (12px panel gap) put the label inside the view top-right, out of flow, never above it', () => {
+    render(<I18nProvider><PageDensityProvider value="compact"><QueryView query={refreshing()}>{() => <p>body</p>}</QueryView></PageDensityProvider></I18nProvider>);
+    expect(label()).toHaveClass('absolute', 'top-2', 'right-3');
+    expect(label().className).not.toContain('-top-7');
   });
 });

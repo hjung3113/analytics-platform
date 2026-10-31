@@ -1,5 +1,5 @@
 /** Width fill, right-pinned edge, header wrapping and pane chrome (#1166). jsdom has no layout: the scrollport width is the stubbed `clientWidth`. */
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
@@ -99,6 +99,51 @@ describe('resizing after fill (#1166)', () => {
   });
 });
 
+describe('resize bounds from the rendered width (#1166 C1)', () => {
+  const resizer = (id: string) => document.querySelector(`[role="columnheader"][data-column="${id}"] [data-column-resizer]`) as HTMLElement;
+  const bodyWidth = (id: string) => (document.querySelector(`[role="cell"][data-column="${id}"]`) as HTMLElement).style.width;
+  const drag = (id: string, from: number, to: number) => {
+    fireEvent.mouseDown(resizer(id), { clientX: from });
+    fireEvent.mouseMove(document, { clientX: from });
+    fireEvent.mouseMove(document, { clientX: to });
+    fireEvent.mouseMove(document, { clientX: to });
+  };
+  it('a shrink past the engine base width reaches the 60px minimum in one gesture', async () => {
+    const view = mount(800);
+    await screen.findByRole('table', { name: 'table' });
+    drag('a', 200, 60); // rendered 200 (base 100): 140px left
+    expect(widthOf('a')).toBe('60px');
+    expect(bodyWidth('a')).toBe('60px');
+    expect(widthOf('b')).toBe('740px');
+    fireEvent.mouseUp(document, { clientX: 60 });
+    view.unmount();
+    expect(JSON.parse(storage.getItem('fill-table')!).sizing).toEqual({ a: 60 });
+  });
+  it('a column grown above 600px follows the pointer from its rendered width and clamps at the maximum', async () => {
+    const view = mount(1200); // b: base 300 → rendered 900
+    await screen.findByRole('table', { name: 'table' });
+    expect(widthOf('b')).toBe('900px');
+    drag('b', 1200, 900); // 300px left: 900 → 600
+    expect(widthOf('b')).toBe('600px');
+    fireEvent.mouseUp(document, { clientX: 900 });
+    drag('b', 1200, 1210); // +10 from the stored 600 stays at the 600 maximum
+    expect(widthOf('b')).toBe('600px');
+    expect(bodyWidth('b')).toBe('600px');
+    fireEvent.mouseUp(document, { clientX: 1210 });
+    view.unmount();
+    expect(JSON.parse(storage.getItem('fill-table')!).sizing).toEqual({ b: 600 });
+  });
+  it('the touch path shrinks to the minimum in one gesture too', async () => {
+    mount(800);
+    await screen.findByRole('table', { name: 'table' });
+    fireEvent.touchStart(resizer('a'), { touches: [{ clientX: 200 }] });
+    fireEvent.touchMove(document, { touches: [{ clientX: 40 }] });
+    fireEvent.touchMove(document, { touches: [{ clientX: 40 }] });
+    expect(widthOf('a')).toBe('60px');
+    fireEvent.touchEnd(document, { changedTouches: [{ clientX: 40 }] });
+  });
+});
+
 describe('indivisible width (#1166)', () => {
   it('assigns the pixel remainder so the cells add up to the scrollport', async () => {
     mount(801);
@@ -154,6 +199,20 @@ describe('pinned cells hide what scrolls beneath and fade a clipped column (#116
     fireEvent.scroll(scrollport);
     for (const el of [pinned('columnheader'), pinned('cell')]) expect(el.className).not.toContain('before:bg-linear-to-r');
   });
+  it('a pinned cell of the active, unselected row fades into the selected surface; hover and selection keep their own', async () => {
+    overflow(900);
+    mount(300, { rowAction: row => <button type="button">{row.id}</button>, activeRowId: 'r1' });
+    await screen.findByRole('table', { name: 'table' });
+    const cell = pinned('cell');
+    expect(cell).toHaveClass('bg-surface-row-selected', 'before:to-surface-row-selected', 'group-hover:before:to-surface-row-hover', 'group-aria-selected:before:to-surface-row-selected');
+    expect(cell).not.toHaveClass('before:to-surface-card');
+  });
+  it('a pinned cell of an ordinary row fades into the card surface', async () => {
+    overflow(900);
+    mount(300, { rowAction: row => <button type="button">{row.id}</button> });
+    await screen.findByRole('table', { name: 'table' });
+    expect(pinned('cell')).toHaveClass('before:to-surface-card');
+  });
   it('no fade when the table fits', async () => {
     mount(800, { rowAction: row => <button type="button">{row.id}</button> });
     await screen.findByRole('table', { name: 'table' });
@@ -163,27 +222,62 @@ describe('pinned cells hide what scrolls beneath and fade a clipped column (#116
 
 describe('trust line in a narrow pane (#1166)', () => {
   const trusted = async (): Promise<ApiResponse<PageResult<Row>>> => ({ outcome: 'ok', data: { rows: [{ id: 'r1', a: 'x', b: 'y' }], total: 1 }, assessments: [{ kind: 'coverage', state: 'unknown', reason: 'check_failed', statusSource: 'fixture', observedAt: null }], trust: { updatedAt: '2026-10-16T09:00:00', dataThrough: null, coverage: 0.98, source: 'fixture', provisional: true, sourceLogicVersions: ['v1', 'v2'] }, correlationId: 'c' } as unknown as ApiResponse<PageResult<Row>>);
-  function mountAt(statusWidth: number) {
+  type Probe = { statusWidth: number; probeWidth: number };
+  const observers: Array<{ cb: ResizeObserverCallback; target: Element }> = [];
+  function mountAt(measure: Probe) {
     restore = stubCompactTableGeometry(800);
-    vi.stubGlobal('ResizeObserver', class { constructor(private cb: ResizeObserverCallback) {} observe(target: Element) { const width = (target as HTMLElement).hasAttribute('data-table-status-line') ? statusWidth : 800; this.cb([{ target, contentRect: { width, height: 100 } } as ResizeObserverEntry], this as unknown as ResizeObserver); } unobserve() {} disconnect() {} });
+    observers.length = 0;
+    const widthOfTarget = (target: Element) => (target as HTMLElement).hasAttribute('data-table-status-line') ? measure.statusWidth
+      : (target as HTMLElement).hasAttribute('data-trust-probe') ? measure.probeWidth
+        : target.parentElement?.hasAttribute('data-table-status-line') ? 60 : 800;
+    vi.stubGlobal('ResizeObserver', class { constructor(private cb: ResizeObserverCallback) {} observe(target: Element) { observers.push({ cb: this.cb, target }); this.cb([{ target, contentRect: { width: widthOfTarget(target), height: 100 } } as ResizeObserverEntry], this as unknown as ResizeObserver); } unobserve() {} disconnect() {} });
     vi.stubGlobal('localStorage', storage);
     render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><PlatformDataTable title="T" ariaLabel="table" columns={columns} getRowId={r => r.id} loadPage={trusted} filterKey="f" preferenceKey="trust-table" pageSize={25} height={200} /></PlatformProvider></I18nProvider>);
+    return (next: Partial<Probe>) => {
+      Object.assign(measure, next);
+      act(() => { for (const o of observers) o.cb([{ target: o.target, contentRect: { width: widthOfTarget(o.target), height: 100 } } as ResizeObserverEntry], {} as ResizeObserver); });
+    };
   }
-  it('collapses to dot + short status + 자세히 when the container is narrow, full items stay in the popover', async () => {
-    mountAt(400);
+  const summaryOf = (trigger: HTMLElement) => trigger.querySelector('[data-trust-summary-details]');
+  it('collapses to dot + short status + 자세히 when the full line does not fit, full items stay in the popover', async () => {
+    mountAt({ statusWidth: 400, probeWidth: 450 });
     const trigger = await screen.findByRole('button', { name: /데이터 신뢰 · 일부 미확인 · 자세히/ });
     expect(within(trigger).getByText('자세히')).toBeTruthy();
-    expect(trigger.querySelector('[data-trust-summary-details]')).toHaveClass('sr-only');
+    expect(summaryOf(trigger)).toHaveClass('sr-only');
     expect(within(trigger).queryByText('잠정')).toBeNull();
     fireEvent.click(trigger);
     expect(await screen.findByText('원천 로직 버전')).toBeTruthy();
   });
-  it('shows the full line when the container is wide', async () => {
-    mountAt(900);
+  it('shows the full line whenever it fits, even in a narrow line', async () => {
+    mountAt({ statusWidth: 400, probeWidth: 300 }); // needs 300 + 16 + 60 + 8 = 384 ≤ 400
     const trigger = await screen.findByRole('button', { name: /데이터 신뢰/ });
-    expect(trigger.querySelector('[data-trust-summary-details]')).not.toHaveClass('sr-only');
+    expect(summaryOf(trigger)).not.toHaveClass('sr-only');
     expect(within(trigger).queryByText('자세히')).toBeNull();
     expect(within(trigger).getByText('잠정')).toBeTruthy();
+  });
+  it.each([[383, true], [384, false]])('a full line needing 384px against %ipx collapses=%s (result count and gaps are subtracted)', async (statusWidth, collapsed) => {
+    mountAt({ statusWidth, probeWidth: 300 });
+    const trigger = await screen.findByRole('button', { name: /데이터 신뢰/ });
+    expect(!!within(trigger).queryByText('자세히')).toBe(collapsed);
+  });
+  it('different full contents need different widths, and the choice follows both the line and the content', async () => {
+    const resize = mountAt({ statusWidth: 500, probeWidth: 300 });
+    const trigger = await screen.findByRole('button', { name: /데이터 신뢰/ });
+    expect(within(trigger).queryByText('자세히')).toBeNull();
+    resize({ probeWidth: 460 }); // longer content in the same line
+    expect(await screen.findByText('자세히')).toBeTruthy();
+    resize({ statusWidth: 700 }); // wide again
+    expect(screen.queryByText('자세히')).toBeNull();
+    resize({ statusWidth: 380, probeWidth: 300 }); // narrow again
+    expect(screen.queryByText('자세히')).toBeTruthy();
+  });
+  it('the measuring probe is hidden from assistive tech and focus, and is not the shown text', async () => {
+    mountAt({ statusWidth: 400, probeWidth: 450 });
+    await screen.findByRole('button', { name: /데이터 신뢰/ });
+    const probe = document.querySelector('[data-trust-probe]')!;
+    expect(probe.closest('[aria-hidden="true"]')).toBeTruthy();
+    expect(probe.querySelector('button, a, [tabindex]')).toBeNull();
+    expect(screen.getAllByRole('button', { name: /데이터 신뢰/ })).toHaveLength(1);
   });
 });
 

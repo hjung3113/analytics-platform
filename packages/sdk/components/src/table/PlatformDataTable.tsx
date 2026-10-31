@@ -50,8 +50,9 @@ export type PlatformColumn<T> = {
    */
   exportValue?: (row: T) => string | number | boolean | null;
 };
-/** Below this status-line width the full trust line (headline · coverage · updated · badges) no longer fits on one line. */
-const TRUST_FULL_MIN_WIDTH = 640;
+/** The trust button's own inline padding (px-2 × 2) and the status line's flex gap (gap-x-2): the probe measures content only. */
+const TRUST_BUTTON_PADDING = 16;
+const STATUS_GAP = 8;
 const ACTION_COLUMN_WIDTH = 128;
 /** Icon-only action column: two 32px icon buttons and a 4px gap fit with `px-0`. */
 const COMPACT_ACTION_WIDTH = 72;
@@ -139,9 +140,15 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const viewport = useRef<HTMLDivElement | null>(null);
   const section = useRef<HTMLElement>(null);
   const fit = useTableFit(section);
-  // The status line drops to a one-line trust summary when its own container (not the viewport) is narrower than the full line needs.
+  // The status line drops to a one-line trust summary only when the full line does not fit: the available inline space (the status line
+  // minus the result count, the refreshing label and their gaps) is compared with a hidden probe of the full content. The probe is
+  // measured independently of what is shown, so the choice cannot feed back into its own input.
   const statusLine = useElementWidth();
-  const statusNarrow = statusLine.width !== null && statusLine.width > 0 && statusLine.width < TRUST_FULL_MIN_WIDTH;
+  const countSpan = useElementWidth();
+  const refreshSpan = useElementWidth();
+  const probe = useElementWidth();
+  const statusNarrow = statusLine.width !== null && statusLine.width > 0 && probe.width !== null && probe.width > 0
+    && probe.width + TRUST_BUTTON_PADDING + (countSpan.width ? countSpan.width + STATUS_GAP : 0) + (refreshSpan.width ? refreshSpan.width + STATUS_GAP : 0) > statusLine.width;
   // Right-pinned column fade: only while the row area overflows horizontally and is not scrolled to its end.
   const [fade, setFade] = useState({ left: false, right: false });
   const updateFade = useCallback(() => {
@@ -199,13 +206,16 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
     ...(hasAction ? [{ id: '_action', size: actionWidth, enableSorting: false, enableHiding: false, enableResizing: false, header: lang === 'ko' ? '동작' : 'Actions' } as ColumnDef<T>] : []),
   ], [baseColumns, hasAction, lang, actionWidth]);
 
-  // Gesture-scoped (see startResize): rendered - base width of the columns being dragged.
-  const resizeOffsets = useRef<Record<string, number>>({});
+  // Gesture-scoped (see startResize): the rendered widths of the columns being dragged and the pointer's travel since mousedown.
+  const resizeGesture = useRef<{ rendered: Record<string, number>; total: number; startX: number; deltaX: number } | null>(null);
   const sizingChange: typeof onColumnSizingChange = u => {
-    const offsets = resizeOffsets.current;
+    const gesture = resizeGesture.current;
     onColumnSizingChange(old => {
       const next = typeof u === 'function' ? u(old) : u;
-      return Object.fromEntries(Object.entries(next).map(([id, size]) => [id, id in offsets ? Math.min(600, Math.max(60, size + offsets[id])) : size]));
+      if (!gesture) return next;
+      // The engine's own value starts from the base size and floors a shrink near zero; the dragged columns are recomputed from what is rendered.
+      const ratio = Math.max(gesture.deltaX / gesture.total, -0.999999);
+      return Object.fromEntries(Object.entries(next).map(([id, size]) => [id, id in gesture.rendered ? Math.min(600, Math.max(60, Math.round(gesture.rendered[id] * (1 + ratio) * 100) / 100)) : size]));
     });
   };
   const table = useReactTable({
@@ -276,11 +286,25 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   if (flexList.length > 0 && extra > 0) { const last = flexList[flexList.length - 1].id; shares.set(last, (shares.get(last) ?? 0) + extra - [...shares.values()].reduce((a, b) => a + b, 0)); }
   const widthOf = (column: Column<T>) => column.getSize() + (shares.get(column.id) ?? 0);
   const tableWidth = baseTotal + (extra > 0 ? extra : 0);
-  // A resize drag starts from the rendered width, not the engine's base size: the engine writes base + pointer delta, so the offset
-  // (rendered - base) is added to what it writes for the dragged column. Gesture-scoped; automatic fill widths are never stored.
+  // A resize drag is computed from the rendered width plus the pointer's travel, not from the engine's base size (which is narrower for a
+  // fill-grown column and floors a large shrink); the result is clamped to 60–600. Gesture-scoped; automatic fill widths are never stored.
   const startResize = (h: Header<T, unknown>) => (event: React.MouseEvent | React.TouchEvent) => {
-    resizeOffsets.current = Object.fromEntries(h.getLeafHeaders().map(l => [l.column.id, widthOf(l.column) - l.column.getSize()]));
-    const clear = () => { setTimeout(() => { resizeOffsets.current = {}; }, 0); };
+    const rendered = Object.fromEntries(h.getLeafHeaders().map(l => [l.column.id, widthOf(l.column)]));
+    const startX = 'touches' in event ? Math.round(event.touches[0]?.clientX ?? 0) : event.clientX;
+    const gesture = { rendered, total: Object.values(rendered).reduce((a, b) => a + b, 0), startX, deltaX: 0 };
+    resizeGesture.current = gesture;
+    // Registered before the engine's own listeners, so the travel is current when the engine reports.
+    const onMouse = (e: MouseEvent) => { gesture.deltaX = e.clientX - startX; };
+    const onTouch = (e: TouchEvent) => { const x = e.touches[0]?.clientX ?? e.changedTouches[0]?.clientX; if (x !== undefined) gesture.deltaX = Math.round(x) - startX; };
+    const clear = () => {
+      for (const type of ['mousemove', 'mouseup'] as const) document.removeEventListener(type, onMouse);
+      for (const type of ['touchmove', 'touchend'] as const) document.removeEventListener(type, onTouch);
+      setTimeout(() => { if (resizeGesture.current === gesture) resizeGesture.current = null; }, 0);
+    };
+    document.addEventListener('mousemove', onMouse);
+    document.addEventListener('mouseup', onMouse);
+    document.addEventListener('touchmove', onTouch);
+    document.addEventListener('touchend', onTouch);
     document.addEventListener('mouseup', clear, { once: true });
     document.addEventListener('touchend', clear, { once: true });
     h.getResizeHandler()(event);
@@ -296,9 +320,9 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const pinEdge = 'border-l border-l-border-control';
   /** A pinned cell fades the column scrolling beneath its inner edge (a pseudo-element of the cell itself, no pointer events), so a half-clipped column never reads as cut text. */
   const fadeBase = 'before:pointer-events-none before:absolute before:inset-y-0 before:w-5 before:from-transparent before:content-[""]';
-  const fadeClass = (side: 'left' | 'right' | false | null, body: boolean) => !side || !(side === 'right' ? fade.right : fade.left) ? undefined
+  const fadeClass = (side: 'left' | 'right' | false | null, body: boolean, active = false) => !side || !(side === 'right' ? fade.right : fade.left) ? undefined
     : cn(fadeBase, 'overflow-visible', side === 'right' ? 'before:right-full before:bg-linear-to-r' : 'before:left-full before:bg-linear-to-l',
-      body ? 'before:to-surface-card group-hover:before:to-surface-row-hover group-aria-selected:before:to-surface-row-selected' : 'before:to-surface-sunken');
+      body ? cn(active ? 'before:to-surface-row-selected' : 'before:to-surface-card', 'group-hover:before:to-surface-row-hover group-aria-selected:before:to-surface-row-selected') : 'before:to-surface-sunken');
   const nameOf = (c: Column<T>) => (c.columnDef.meta as ColumnMeta | undefined)?.label ?? (typeof c.columnDef.header === 'string' ? c.columnDef.header : c.id);
   // #239 (ADR-0024): the Columns popover lists each hideable column with a visibility checkbox and a pin toggle at the
   // row end; pinned columns sit in their own group on top. Width is set by dragging the header edge only.
@@ -411,15 +435,16 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       <span className="text-text-secondary">{lang === 'ko' ? '선택은 현재 조회 결과 안에서만 유지되며 Context 변경 시 해제됩니다.' : 'Selection is kept within this result and cleared on context change.'}</span>
     </div>}
 
-    <div ref={statusLine.ref} data-table-status-line className="flex min-h-7 min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-1 border-t border-border-subtle px-3 py-1 text-xs text-text-muted" aria-live="polite">
-      <span className="tabular whitespace-nowrap">{!shown || (loading && outOfRange) ? t('loading')
+    <div ref={statusLine.ref} data-table-status-line className="relative flex min-h-7 min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-1 border-t border-border-subtle px-3 py-1 text-xs text-text-muted" aria-live="polite">
+      <span ref={countSpan.ref} className="tabular whitespace-nowrap">{!shown || (loading && outOfRange) ? t('loading')
         : !success ? '—'
         : outOfRange
           ? (lang === 'ko' ? `${data.total.toLocaleString()}건 · ${pageCount}페이지` : `${data.total.toLocaleString()} results · ${pageCount} pages`)
           : (lang === 'ko' ? `${data.total.toLocaleString()}건 · ${shownPage + 1}/${pageCount} 페이지` : `${data.total.toLocaleString()} results · page ${shownPage + 1}/${pageCount}`)}</span>
       <span className="flex min-w-0 flex-wrap items-center gap-2">
-        {loading && shown && <span role="status" className="inline-flex items-center gap-1"><Loader2 className="size-3 animate-spin" aria-hidden />{t('refreshing')}</span>}
+        {loading && shown && <span ref={refreshSpan.ref} role="status" className="inline-flex items-center gap-1"><Loader2 className="size-3 animate-spin" aria-hidden />{t('refreshing')}</span>}
         {shown && <DataTrustIndicator trust={shown.trust} assessments={shown.assessments} className="min-h-6" wrap summary={statusNarrow} />}
+        {shown && <DataTrustIndicator trust={shown.trust} assessments={shown.assessments} probe={probe.ref} />}
       </span>
     </div>
 
@@ -467,7 +492,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
                 </div>}
                 {/* eslint-disable-next-line shadcn/no-inline-styles -- cell width and pin offset come from column sizing at runtime */}
                 {cells.map((cell, cellIndex) => <div role="cell" key={cell.id} data-column={cell.column.id} style={cellStyle(cell.column)}
-                  className={cn(cellBase, 'border-b border-border-subtle bg-surface-card text-sm group-hover:bg-surface-row-hover group-aria-selected:bg-surface-row-selected', active && 'bg-surface-row-selected', active && cellIndex === firstDataCell && 'font-medium', cell.column.id === '_action' && (actionCompact ? 'py-0 px-0' : 'py-0'), cell.column.getIsPinned() === 'right' && pinEdge, fadeClass(cell.column.getIsPinned(), true), align(cell.column))}>
+                  className={cn(cellBase, 'border-b border-border-subtle bg-surface-card text-sm group-hover:bg-surface-row-hover group-aria-selected:bg-surface-row-selected', active && 'bg-surface-row-selected', active && cellIndex === firstDataCell && 'font-medium', cell.column.id === '_action' && (actionCompact ? 'py-0 px-0' : 'py-0'), cell.column.getIsPinned() === 'right' && pinEdge, fadeClass(cell.column.getIsPinned(), true, active), align(cell.column))}>
                   {/* The _action column cell is not used — rowAction renders directly to preserve DOM identity (#296). */}
                   {cell.column.id === '_action' ? p.rowAction?.(row.original, { compact: actionCompact }) : flexRender(cell.column.columnDef.cell, cell.getContext())}
                 </div>)}

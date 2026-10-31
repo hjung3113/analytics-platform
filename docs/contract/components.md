@@ -161,7 +161,7 @@ Table은 플랫폼 핵심 UI다.
 - Saved column preference
 - Row action
 - 서버 페이징 표의 조회 신원과 내보내기 머리말의 전역 Context는 Condition 프리셋이 있는 메뉴에서 **적용된** 활성 프리셋의 축만 남긴 값(`useQueryContext()`)을 쓴다(§6.4, ADR-0083, #819). Apply 메뉴의 미적용 프리셋 전환이나 프리셋 밖 축의 변경은 (활성 프리셋과 다른 조회 입력 — page 필터·초기화 키 — 이 그대로일 때. 프리셋 키가 없어 조건 편집으로 추정 프리셋이 바뀌면 다시 조회한다) 표를 다시 조회하거나 선택을 버리지 않고, 프리셋이 없는 메뉴는 전과 같다.
-- Width and chrome (#1166): a table narrower than its scrollport grows its unfixed columns (not selection/action, left-pinned or user-resized ones) in proportion to their size so it fills the width; wider, the row area scrolls horizontally. The right-pinned action column shows a `border-control` left edge. Header words wrap only at word boundaries (full label in `title`); body cells keep wrapping anywhere. Inside a panel or board pane (`EmbeddedPane`) the table draws no border, radius or outer padding at any density.
+- Width and chrome (#1166): a table narrower than its scrollport grows its unfixed columns (not selection/action, left-pinned or user-resized ones) in proportion to their size so it fills the width; wider, the row area scrolls horizontally. The right-pinned action column shows a `border-control` left edge. A header stays on one line, truncates with an ellipsis and names the full label in `title`; body cells keep wrapping anywhere. Inside a panel or board pane (`EmbeddedPane`) the table draws no border, radius or outer padding at any density.
 - Export entry — 표 소유 내보내기(#173): `PlatformDataTable`이 `exportRows`·`exportNote` 계약으로 직렬화·파일·토스트까지 소유한다([ADR-0008](../adr/0008-table-owned-export-fixed-toolbar.md)). 선택 행 복사(#174)도 같은 게이트·직렬화를 쓰는 내보내기다. 아래 "표 내보내기·복사 구현 계약"
 
 Baseline (Decided — `DESIGN.md` `table-density` 토큰과 일치):
@@ -172,7 +172,7 @@ Header height    32px (최소)
 Cell padding     4px 16px
 ```
 
-표의 상태 줄은 자기 컨테이너(뷰포트가 아님)가 640px보다 좁으면 Data Trust를 한 줄 요약(점 + 짧은 상태 + `자세히`)으로 줄이고 전체 항목은 팝오버에 둔다. 한 줄에 들어가면 전체 줄을 보인다. 고정 열(오른쪽 동작 열, 왼쪽 고정 열)은 머리·본문·hover·선택 행 모두 셀 전체가 불투명 배경이고, 행 영역이 가로로 넘치고 그 쪽 끝까지 스크롤하지 않은 동안 안쪽 가장자리에 20px 페이드(셀 자신의 pseudo-element, 포인터 무시)를 그려 반쯤 잘린 열의 글자가 보이지 않게 한다(#1166).
+표의 상태 줄은 전체 Data Trust 줄이 자기 컨테이너(뷰포트가 아님)의 가로 공간(결과 수·갱신 중 표시와 간격을 뺀 나머지)에 들어가지 않을 때만 한 줄 요약(점 + 짧은 상태 + `자세히`)으로 줄이고 전체 항목은 팝오버에 둔다. 들어가면 전체 줄을 보인다. 판단은 보이는 형태와 별개로 전체 줄을 숨겨 둔 측정용 복사본(aria-hidden, 포커스·낭독 없음)의 폭으로 한다. 요약에서도 로직 버전 혼재는 경고 점과 접근 가능한 이름·`title`의 `로직 버전 혼재`로 남는다(§18). 고정 열(오른쪽 동작 열, 왼쪽 고정 열)은 머리·본문·hover·선택 행 모두 셀 전체가 불투명 배경이고, 행 영역이 가로로 넘치고 그 쪽 끝까지 스크롤하지 않은 동안 안쪽 가장자리에 20px 페이드(셀 자신의 pseudo-element, 포인터 무시)를 그려 반쯤 잘린 열의 글자가 보이지 않게 한다(#1166).
 
 행 높이는 줄바꿈·포커스·24px 최소 타겟에 따라 32px보다 늘어날 수 있으며, coarse-pointer(터치) 행은 44px 타겟까지 커진다. 동작 열 버튼은 `toolbar`(32px) 크기라 동작 열 셀은 위아래 여백이 없고 행은 32px에 머문다.
 

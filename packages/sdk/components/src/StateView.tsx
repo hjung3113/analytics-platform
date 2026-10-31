@@ -1,5 +1,6 @@
 import { AnalysisSectionContext } from './archetypes/AnalysisSectionContext';
 import { useInWorkspacePanel } from './workspace/panelContext';
+import { useCompactPageDensity } from './pageDensity';
 import { useSharedOutcome } from './filters/OutcomeScope';
 import { useQueryBarStatus } from './filters/QueryBarStatus';
 import { Ban, Clock, HelpCircle, Inbox, Loader2, Maximize2, RotateCw, ServerCrash } from 'lucide-react';
@@ -117,6 +118,7 @@ export function QueryView<T>({ query, children, skeletonRows, skeletonHeight, em
   const chart = analysisSection?.kind === 'chart';
   // In a workspace panel the wrapper takes the panel's height so a `size="fill"` chart inside has a bounded parent.
   const inPanel = useInWorkspacePanel();
+  const compactPage = useCompactPageDensity();
   const grouped = useSharedOutcome(query.response, query.refetch, widgetName, query.status);
   const barStatus = useQueryBarStatus();
   // The page's query bar already draws these reasons (#1170): only when it covers every idle item is the list left to the bar.
@@ -131,7 +133,8 @@ export function QueryView<T>({ query, children, skeletonRows, skeletonHeight, em
       ? <span role="status" title={t('refreshing')} className="absolute right-5 top-11 z-[1] inline-flex text-text-muted">
         <Loader2 className="size-3 animate-spin" aria-hidden /><span className="sr-only">{t('refreshing')}</span>
       </span>
-      : <span role="status" className={analysisSection ? 'absolute right-9 -top-7 inline-flex items-center gap-1 text-tiny text-text-muted' : 'absolute right-0 -top-7 inline-flex items-center gap-1 text-tiny text-text-muted'}>
+      // Compact pages stack panels 12px apart, so the label above the view would sit inside the previous panel: it goes inside the view's own top-right corner instead.
+      : <span role="status" className={analysisSection ? 'absolute right-9 -top-7 inline-flex items-center gap-1 text-tiny text-text-muted' : compactPage ? 'absolute right-3 top-2 z-[1] inline-flex items-center gap-1 text-tiny text-text-muted' : 'absolute right-0 -top-7 inline-flex items-center gap-1 text-tiny text-text-muted'}>
         <Loader2 className="size-3 animate-spin" aria-hidden />{t('refreshing')}
       </span>)}
     <OutcomeContent grouped={grouped} widgetName={widgetName} hideWidgetName={hideWidgetName} response={response} onRetry={query.refetch} emptyAction={emptyAction} compact={compact}>{data => children(data, response)}</OutcomeContent>
