@@ -268,6 +268,24 @@ describe('HW Time table page', () => {
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
+  it.each(['error', 'empty'] as const)('shows one banner and compact states when the level read and the table get the same %s (#1175)', async outcome => {
+    const same = () => ({ outcome, message: 'same response', data: outcome === 'empty' ? { rows: [], total: 0 } : null, assessments, trust: null, correlationId: 'same' }) as ApiResponse<never>;
+    vi.spyOn(adapter, 'menuQuery').mockImplementation(async req => req.endpoint === hwTime.levelRows.id || req.endpoint === hwTime.tableRows.id ? same() : ok([]));
+    window.history.replaceState(null, '', '/hw-time/table?v=1&scopeId=MEM&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00');
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider><TablePage params={{}} /><DetailSlotHost /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
+    if (outcome === 'error') {
+      // The level-failure box joins the page group; an empty level read is not drawn at all (levelFailure excludes it), so only error groups two widgets.
+      const banner = await screen.findByRole('group', { name: '위젯 상태 요약' }, { timeout: 8000 });
+      expect(banner.textContent).toContain('위젯 2개에서 같은 응답');
+      expect(screen.getAllByRole('group', { name: '위젯 상태 요약' })).toHaveLength(1);
+      expect(screen.queryByRole('alert')).toBeNull();
+      expect(screen.getByRole('group', { name: 'HW Time 동작시간 표' }).hasAttribute('data-widget-state')).toBe(true);
+    } else {
+      await screen.findByText(/결과가 0건입니다/, undefined, { timeout: 8000 });
+      expect(screen.queryByRole('group', { name: '위젯 상태 요약' })).toBeNull();
+    }
+  });
+
   it('requests the second page with its page and pageSize and keeps it in the URL', async () => {
     const original = adapter.menuQuery.bind(adapter);
     vi.spyOn(adapter, 'menuQuery').mockImplementation(async req => {

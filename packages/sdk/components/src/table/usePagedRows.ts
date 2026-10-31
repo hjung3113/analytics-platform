@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import { clientCorrelationId, serializeGlobal, type ApiResponse, type PageQuery, type PageResult, type PageSort } from '@ap/contracts';
 import { usePlatform, useQueryContext } from '@ap/kernel';
 import type { TableUrlState } from './PlatformDataTable';
@@ -24,7 +24,9 @@ export function usePagedRows<T>(input: PagedRowsInput<T>) {
   const { user, revision } = usePlatform();
   const global = useQueryContext();
   const [page, setPage] = useState(0);
-  const [retry, setRetry] = useState(0);
+  const [retryCount, setRetry] = useState(0);
+  // Stable: the table registers it with the page's OutcomeScope, which re-publishes on every identity change.
+  const retry = useCallback(() => setRetry(r => r + 1), []);
   const [result, setResult] = useState<{ identity: string; response: ApiResponse<PageResult<T>> } | null>(null);
 
   // Context identity: global Context narrowed to the applied Condition preset (06 §15) + user + page filters + adapter revision. Selection never survives a Context change (DESIGN Tables).
@@ -40,7 +42,7 @@ export function usePagedRows<T>(input: PagedRowsInput<T>) {
       if (viewport.current) viewport.current.scrollTop = 0;
     }
   }, [contextIdentity, hasUrlState, viewport]);
-  const requestIdentity = JSON.stringify([contextIdentity, effectivePage, activeSorting, retry]);
+  const requestIdentity = JSON.stringify([contextIdentity, effectivePage, activeSorting, retryCount]);
   const loadRef = useRef(input.loadPage);
   loadRef.current = input.loadPage;
   useEffect(() => {
@@ -91,5 +93,5 @@ export function usePagedRows<T>(input: PagedRowsInput<T>) {
     else setPage(pageCount - 1);
   }, [loading, outOfRange, result, pageCount, activeSorting, urlState]);
 
-  return { setPage, retry: () => setRetry(r => r + 1), effectivePage, shown, shownPage, loading, data, pageCount, success, outOfRange };
+  return { setPage, retry, effectivePage, shown, shownPage, loading, data, pageCount, success, outOfRange };
 }

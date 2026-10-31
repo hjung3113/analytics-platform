@@ -11,7 +11,8 @@ import { AnalysisSectionContext } from '../archetypes/AnalysisSectionContext';
 import { toColumnDef } from './columnDef';
 import { DataTrustIndicator } from '../state/DataTrustIndicator';
 import { useElementWidth } from '../state/useElementWidth';
-import { OutcomeView } from '../StateView';
+import { OutcomeContent } from '../StateView';
+import { useSharedOutcome } from '../filters/OutcomeScope';
 import { SCROLLPORT_LABEL } from '../scrollportLabel';
 import { useEmbeddedChrome, useInWorkspacePanel } from '../workspace/panelContext';
 import { ACTION_PIN_MIN_SCROLL, ROW_AREA_FALLBACK, useTableFit } from './tableFit';
@@ -173,6 +174,8 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
     // Selection never survives a Context change; an in-flight export/copy belongs to the old result set.
     onContextChange: () => { setSelection({}); abortTransfers(); },
   });
+  // The table's result joins the page's OutcomeScope like a QueryView does; the toolbar <h2> already names it, so the grouped state hides the name line (§306).
+  const groupedOutcome = useSharedOutcome(shown, retry, p.ariaLabel, loading ? (shown ? 'refreshing' : 'loading') : 'done');
   const selectedIds = Object.keys(effectiveSelection).filter(k => effectiveSelection[k]);
   const { exporting, copying, exportNote, copyNote, runExport, runCopy, onShortcut, abortTransfers } = useTableTransfer<T>({
     columns: p.columns, getRowId: p.getRowId, exportRows: p.exportRows, menuNote: p.exportNote, exportFilterSummary: p.exportFilterSummary, exportContext: p.exportContext,
@@ -448,7 +451,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       </span>
     </div>
 
-    {shown && shown.outcome !== 'ok' ? <div ref={outcome} onFocus={() => { focusedRetry.current = true; }} onBlur={() => { focusedRetry.current = false; }} className="border-t border-border-subtle p-3"><OutcomeView response={shown} onRetry={retry} emptyAction={p.emptyAction}>{() => null}</OutcomeView></div> :
+    {shown && shown.outcome !== 'ok' ? <div ref={outcome} onFocus={() => { focusedRetry.current = true; }} onBlur={() => { focusedRetry.current = false; }} className="border-t border-border-subtle p-3"><OutcomeContent response={shown} onRetry={retry} emptyAction={p.emptyAction} grouped={groupedOutcome} compact={groupedOutcome || undefined} widgetName={p.ariaLabel} hideWidgetName>{() => null}</OutcomeContent></div> :
       // eslint-disable-next-line shadcn/no-inline-styles -- viewport max height comes from the height prop or the measured page fit at runtime
       <div ref={viewportRef} data-table-auto-fit={p.height === undefined ? '' : undefined} tabIndex={0} aria-label={SCROLLPORT_LABEL[lang]} className={cn('overflow-auto border-t border-border-subtle [overflow-anchor:none]', chainWheel ? 'overscroll-auto' : 'overscroll-contain')} onScroll={updateFade} style={{ maxHeight: p.height ?? fit.cap ?? ROW_AREA_FALLBACK }}>
         {/* eslint-disable-next-line shadcn/no-inline-styles -- table width is the total column size computed at runtime */}
