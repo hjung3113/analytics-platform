@@ -648,8 +648,10 @@ test.describe('표 높이·고정 동작 열 (06 §15, ADR-0037)', () => {
 
   // #399 AC-3: at 1024 with the expanded sidebar and the docked detail panel the scrollport is ~226px, so the full 128px
   // action column cannot stay pinned; the compact 72px icon form stays pinned and still opens the row's drawer.
-  test('1024px 펼친 사이드바·상세 패널에서 동작 열은 72px 아이콘으로 고정되고 눌린다 (#399)', async ({ page }, testInfo) => {
-    await page.setViewportSize({ width: 1024, height: 900 });
+  // 992px: since #1217x the default compact page inset (16px) gives the table 32px more than the old 32px inset, so at 1024px the
+  // 128px action fits; 992px keeps the scenario "128px does not fit, 72px does" this test pins.
+  test('992px 펼친 사이드바·상세 패널에서 동작 열은 72px 아이콘으로 고정되고 눌린다 (#399)', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 992, height: 900 });
     await signInAs(page, 'admin');
     await page.addInitScript(() => localStorage.setItem('platform:sidebar-collapsed', '0'));
     await page.goto('/operations/admin-roles?v=1');
