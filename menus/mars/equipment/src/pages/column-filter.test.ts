@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { equipmentFilterSpecs } from '../endpoints';
-import { columnFilter, fields, filterSpecs, legacyFilterKeys, pinnedFilterKeys } from './data';
+import { columnFilter, fields, filterSpecs, pinnedFilterKeys } from './data';
 
 // ADR-0104/0105: every filterable field is declared once (endpoints.ts carries the wire meaning, data.ts the words); 상태 and Maker are fields too.
 describe('equipment filter fields (#1217)', () => {
@@ -31,15 +31,5 @@ describe('equipment filter fields (#1217)', () => {
   it('keeps the wire ops whitelist narrower than the kind (P11): no endsWith on text, no number ops on dates', () => {
     expect(equipmentFilterSpecs.model).toMatchObject({ kind: 'text', ops: expect.not.arrayContaining(['endsWith']) });
     expect(equipmentFilterSpecs.validFrom).toMatchObject({ kind: 'date', ops: ['between', 'before', 'after', 'isEmpty'] });
-  });
-});
-
-describe('equipment legacy filter keys (ADR-0105 §6, P8)', () => {
-  const byKey = Object.fromEntries(legacyFilterKeys.map(entry => [entry.key, entry.toFilter]));
-
-  it('converts status= and maker= to one-value `in` conditions', () => {
-    expect(legacyFilterKeys.map(entry => entry.key)).toEqual(['status', 'maker']);
-    expect(byKey.status!('active')).toEqual({ id: 'status', op: 'in', value: ['active'] });
-    expect(byKey.maker!('TEL')).toEqual({ id: 'maker', op: 'in', value: ['TEL'] });
   });
 });

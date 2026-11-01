@@ -87,18 +87,18 @@ test.describe('관리 레이아웃 필터 줄 — 레일 없음 (06 §12.6, ADR-
     await page.goto('/operations/admin-audit');
     await expect(table.getByRole('row').filter({ has: page.getByRole('link', { name: /상세$/ }) }).first()).toBeVisible();
     await expect(empty).toHaveCount(0);
-    await page.goto('/operations/admin-audit?type=Future.Type%3Av2');
+    await page.goto('/operations/admin-audit?filter=targetType:equals:Future.Type%3Av2');
     await expect(page.locator('[data-column-filter-chip="targetType"]')).toContainText('Future.Type:v2');
     await expect(empty).toBeVisible();
     await expect(table).toHaveCount(0);
     await expect(page.getByRole('alert')).toHaveCount(0);
-    // The old `type` key is rewritten into the hidden filter and survives a reload.
-    await expect.poll(() => query(page).has('type')).toBe(false);
+    // The hidden filter key is read from the link, moved into history state and survives a reload.
+    await expect.poll(() => query(page).has('filter')).toBe(false);
     await page.reload();
     await expect(page.locator('[data-column-filter-chip="targetType"]')).toContainText('Future.Type:v2');
     await expect(empty).toBeVisible();
     await expect(table).toHaveCount(0);
-    await page.goto('/operations/admin-audit?type=9bad');
+    await page.goto('/operations/admin-audit?filter=targetType:equals:9bad');
     await expect(page.getByRole('alert')).toBeVisible();
     await expect(table).toHaveCount(0);
     await expect(empty).toHaveCount(0);
@@ -122,13 +122,12 @@ test.describe('PageFilterBar page-key 계약 (#54)', () => {
     await search.fill('');
     await expect.poll(() => query(page).has('q')).toBe(false);
 
-    // An old link with status=/maker= converts to conditions; Maker ZZZ matches nothing, so the empty state offers the one clear.
-    await page.goto('/mars/equipment-master?v=1&scopeId=MEM&q=PHOTO&status=maintenance&maker=ZZZ&page=2');
+    // A shared link with status/maker conditions; Maker ZZZ matches nothing, so the empty state offers the one clear.
+    await page.goto('/mars/equipment-master?v=1&scopeId=MEM&q=PHOTO&filter=status:in:maintenance&filter=maker:in:ZZZ&page=2');
     await expect(page.locator('[data-column-filter-chip="maker"]')).toBeVisible();
     await page.getByRole('button', { name: '필터 초기화' }).click();
     await expect.poll(() => query(page).has('q')).toBe(false);
-    expect(query(page).has('status')).toBe(false);
-    expect(query(page).has('maker')).toBe(false);
+    expect(query(page).has('filter')).toBe(false);
     expect(query(page).has('page')).toBe(false);
     await expect(page.locator('[data-column-filter-chip]')).toHaveCount(0);
     await evidence(page, testInfo, 'equipment-filter-page-keys');
@@ -803,40 +802,6 @@ test.describe('표 필터 모델 (#1217)', () => {
     await evidence(page, testInfo, 'equipment-filter-share-link');
   });
 
-  test('옛 링크 ?status=&maker=는 같은 행을 보이고 주소에서 사라진다', async ({ page }) => {
-    await page.goto('/mars/equipment-master?v=1&scopeId=MEM&filter=status:in:active&filter=maker:in:TEL');
-    await expect(page.locator('[data-column-filter-chip="maker"]')).toContainText('TEL');
-    await expect.poll(() => query(page).has('filter')).toBe(false);
-    await expect(page.locator('[role="row"][data-row-id]').first()).toBeVisible();
-    const expected = await rowIds(page);
-    expect(expected.length).toBeGreaterThan(0);
-
-    await page.goto('/mars/equipment-master?v=1&scopeId=MEM&status=active&maker=TEL');
-    await expect(page.locator('[data-column-filter-chip="status"]')).toContainText('사용중');
-    await expect(page.locator('[data-column-filter-chip="maker"]')).toContainText('TEL');
-    await expect.poll(() => query(page).has('status')).toBe(false);
-    expect(query(page).has('maker')).toBe(false);
-    expect(query(page).has('filter')).toBe(false);
-    await expect(page.locator('[role="row"][data-row-id]').first()).toBeVisible();
-    expect(await rowIds(page)).toEqual(expected);
-  });
-
-  test('옛 감사 링크 ?actor=는 같은 행을 보이고, 주소에서 키가 사라지며, 행위자 조건 칩이 보인다 (1217e2)', async ({ page }) => {
-    await signInAs(page, 'admin');
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto('/operations/admin-audit?v=1');
-    const rowsOf = () => page.locator('[role="row"][data-row-id]');
-    await expect(rowsOf().first()).toBeVisible();
-    // Any actor that appears in the log: read it from the first row's actor cell.
-    const actor = (await rowsOf().first().locator('.t-mono').first().textContent())!.trim();
-    await page.goto(`/operations/admin-audit?v=1&actor=${encodeURIComponent(actor)}`);
-    await expect(page.locator('[data-column-filter-chip="actor"]')).toContainText(actor);
-    await expect(page.locator('[data-column-filter-chip="actor"]')).toContainText('행위자');
-    await expect.poll(() => query(page).has('actor')).toBe(false);
-    expect(query(page).has('filter')).toBe(false);
-    await expect(rowsOf().first()).toBeVisible();
-    for (const text of await rowsOf().evaluateAll(rows => rows.map(row => row.textContent ?? ''))) expect(text).toContain(actor);
-  });
 });
 
 // #680 (ADR-0075): a fill page's head (notes + page filter + chips) folds to one line; shared responses become a thin strip.

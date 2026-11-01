@@ -77,16 +77,5 @@ describe('EquipmentMaster invalid sort/page (ADR-0034)', () => {
       expect(params().get('sort')).toBe('status:desc');
       expect(params().get('page')).toBe('2');
     });
-
-    it('a legacy `status=` that clashes with a `filter` condition shows its cause; Reset removes it and keeps sort and page', async () => {
-      mount('?v=1&scopeId=MEM&sort=status:desc&page=2&status=active', { apHidden: { v: 1, pairs: [['filter', 'status:in:idle']] } });
-      await screen.findByText(/같은 항목에 조건이 둘 이상 있습니다\./);
-      fireEvent.click(screen.getByRole('button', { name: '초기화' }));
-      await vi.waitFor(() => expect(pageQueries().length).toBeGreaterThan(0));
-      expect(screen.queryByText(/같은 항목에 조건이 둘 이상 있습니다\./)).toBeNull();
-      expect(params().has('status')).toBe(false);
-      expect(params().get('sort')).toBe('status:desc');
-      expect(params().get('page')).toBe('2');
-    });
   });
 });

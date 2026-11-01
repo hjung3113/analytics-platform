@@ -149,26 +149,30 @@ describe('AccessDirectory (issue #49: /admin/roles)', () => {
     expect(registry.permissions.slice(0, 5)).toEqual([...KERNEL_PERMISSIONS]);
   });
 
-  it('a permission the registry does not list in an old link is refused by the codec, with the filter title and a reset that clears the old key', () => {
-    renderRoles(`/admin/roles?${new URLSearchParams({ permission: 'ghost:view' })}`);
+  it('a permission the registry does not list is refused by the codec, with the filter title and a reset that clears the filter key', () => {
+    renderRoles('/admin/roles?filter=permission:in:ghost:view');
     const alert = screen.getByRole('alert');
     expect(alert.textContent).toContain('필터 값이 올바르지 않습니다');
-    expect(alert.textContent).toContain('권한 “ghost:view”');
+    expect(alert.textContent).toContain('권한 “permission:in:ghost:view”');
     fireEvent.click(within(alert).getByRole('button', { name: '초기화' }));
-    expect(url().has('permission')).toBe(false);
+    expect(url().has('filter')).toBe(false);
   });
 
-  it('old ?role=&permission= links show the same query, then leave the address', async () => {
-    const f = renderRoles(`/admin/roles?${new URLSearchParams({ role: 'engineer', permission: 'console:access' })}`);
-    await waitFor(() => expect(f.calls.at(-1)).toEqual({ role: 'engineer', permission: 'console:access', page: 1, pageSize: 25 }));
-    await waitFor(() => expect(url().has('role')).toBe(false));
-    expect(url().has('permission')).toBe(false);
-    expect(url().has('filter')).toBe(false);
-    expect(within(line()).getByRole('button', { name: /^역할.*engineer/ })).toBeTruthy();
+  // The old `?role=`/`?permission=` keys left with the alias release (#1217 follow-up): they are now unregistered extras,
+  // ignored exactly like any unknown key — no condition, no warning, no rewrite; the pair stays in the address.
+  it.each([
+    ['old role key', 'role', 'engineer'],
+    ['old permission key', 'permission', 'console:access'],
+    ['never-registered key', 'zz', '1'],
+  ])('%s is ignored like any unknown key', async (_name, key, value) => {
+    const f = renderRoles(`/admin/roles?${key}=${value}`);
+    await waitFor(() => expect(f.calls).toEqual([{ page: 1, pageSize: 25 }]));
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(url().get(key)).toBe(value);
   });
 
   it('maps role, permission and page onto the query and never sends focus', async () => {
-    const path = `/admin/roles?${new URLSearchParams({ role: 'engineer', permission: 'console:access', page: '2', focus: 'admin' })}`;
+    const path = `/admin/roles?filter=role:equals:engineer&filter=permission:in:console:access&page=2&focus=admin`;
     // Page 2 of a 3-row directory is past the end and would clamp (#314). This test is the page-key mapping, so the total keeps page 2 in range.
     const response = okResponse();
     if (response.data) response.data.total = 50;
@@ -184,8 +188,8 @@ describe('AccessDirectory (issue #49: /admin/roles)', () => {
   });
 
   it.each([
-    ['malformed role', `/admin/roles?${new URLSearchParams({ role: 'a b' })}`, '역할 “a b”'],
-    ['malformed permission', `/admin/roles?${new URLSearchParams({ permission: 'console:write' })}`, '권한 “console:write”'],
+    ['malformed role', `/admin/roles?filter=role:equals:a b`, '역할 “role:equals:a b”'],
+    ['malformed permission', `/admin/roles?filter=permission:in:console:write`, '권한 “permission:in:console:write”'],
     ['malformed sort', `/admin/roles?${new URLSearchParams({ sort: 'name:up' })}`, '정렬 “name:up”은'],
     ['malformed page', '/admin/roles?page=0', '페이지 “0”는'],
     ['malformed focus', `/admin/roles?${new URLSearchParams({ focus: 'a b' })}`, '상세 대상 “a b”은'],
@@ -197,7 +201,7 @@ describe('AccessDirectory (issue #49: /admin/roles)', () => {
   });
 
   it('sort/page only: the shared table warning (sort/page title) resets sort and page, keeps the conditions, and focus leaves BODY', () => {
-    renderRoles(`/admin/roles?${new URLSearchParams({ role: 'engineer', permission: 'console:access', sort: 'bogus', page: '2' })}`);
+    renderRoles('/admin/roles?filter=role:equals:engineer&filter=permission:in:console:access&sort=bogus&page=2');
     const alert = screen.getByRole('alert');
     expect(alert.textContent).toContain('정렬·페이지 값이 올바르지 않습니다');
     expect(alert.textContent).toContain('정렬 “bogus”');
@@ -205,37 +209,35 @@ describe('AccessDirectory (issue #49: /admin/roles)', () => {
     expect(url().has('sort')).toBe(false);
     expect(url().has('page')).toBe(false);
     expect(document.activeElement).not.toBe(document.body);
-    // The old role/permission links were rewritten into the hidden filter key; the conditions survive the reset.
+    // The conditions live in the hidden filter key and survive the reset.
     expect(line().querySelector('[data-column-filter-chip="role"]')).toBeTruthy();
     expect(line().querySelector('[data-column-filter-chip="permission"]')).toBeTruthy();
   });
 
-  it('filter only: the title names the filter, the reset (recoverKeys) clears the bad filter keys and keeps sort', () => {
-    renderRoles(`/admin/roles?${new URLSearchParams({ permission: 'console:write', role: 'engineer', sort: 'name:desc' })}`);
+  it('filter only: the title names the filter, the reset (recoverKeys) clears the filter key and keeps sort', () => {
+    renderRoles('/admin/roles?filter=permission:in:console:write&filter=role:equals:engineer&sort=name:desc');
     const alert = screen.getByRole('alert');
     expect(alert.textContent).toContain('필터 값이 올바르지 않습니다');
     expect(alert.textContent).not.toContain('정렬·페이지');
-    expect(alert.textContent).toContain('권한 “console:write”');
+    expect(alert.textContent).toContain('권한 “permission:in:console:write”');
     fireEvent.click(within(alert).getByRole('button', { name: '초기화' }));
-    expect(url().has('permission')).toBe(false);
-    expect(url().has('role')).toBe(false);
+    expect(url().has('filter')).toBe(false);
     expect(url().get('sort')).toBe('name:desc');
     expect(document.activeElement).not.toBe(document.body);
   });
 
   it('a bad filter and a bad sort together: one combined title, the reset clears both', () => {
-    renderRoles(`/admin/roles?${new URLSearchParams({ permission: 'console:write', sort: 'bogus' })}`);
+    renderRoles('/admin/roles?filter=permission:in:console:write&sort=bogus');
     const alert = screen.getByRole('alert');
     expect(alert.textContent).toContain('정렬·페이지·필터 값이 올바르지 않습니다');
     expect(screen.getAllByRole('alert')).toHaveLength(1);
     fireEvent.click(within(alert).getByRole('button', { name: '초기화' }));
-    expect(url().has('permission')).toBe(false);
+    expect(url().has('filter')).toBe(false);
     expect(url().has('sort')).toBe(false);
   });
 
-  it('a malformed old role is refused, never coerced; a role typed in the editor then queries', async () => {
-    const f = renderRoles(`/admin/roles?${new URLSearchParams({ role: 'a b' })}`);
-    expect(url().get('role')).toBe('a b');
+  it('a malformed role is refused, never coerced; a role typed in the editor then queries', async () => {
+    const f = renderRoles('/admin/roles?filter=role:equals:a b');
     expect(f.calls).toHaveLength(0);
     fireEvent.click(within(screen.getByRole('alert')).getByRole('button', { name: '초기화' }));
     await waitFor(() => expect(f.calls).toHaveLength(1));
@@ -307,7 +309,7 @@ describe('AccessDirectory (issue #49: /admin/roles)', () => {
     fireEvent.click(within(engineerRow).getByRole('button', { name: /보기|View/ }));
     expect(await screen.findByRole('heading', { name: 'Process Engineer' })).toBeTruthy();
 
-    historyStep({ focus: 'engineer', permission: 'console:access' });
+    historyStep({ focus: 'engineer', filter: 'permission:in:console:access' });
     await waitFor(() => expect(f.calls).toHaveLength(2));
     expect(await screen.findByText(/이 페이지에 없는 주체입니다\.|Principal not on this page\./)).toBeTruthy();
     expect(screen.queryByRole('heading', { name: 'Process Engineer' })).toBeNull();
@@ -320,7 +322,7 @@ describe('AccessDirectory (issue #49: /admin/roles)', () => {
       : okResponse([VIEWER]));
     await waitFor(() => expect(f.calls).toHaveLength(1));
 
-    historyStep({ focus: 'viewer', permission: 'console:access' });
+    historyStep({ focus: 'viewer', filter: 'permission:in:console:access' });
     await waitFor(() => expect(f.calls).toHaveLength(2));
     expect(await screen.findByRole('heading', { name: 'Field Requester' })).toBeTruthy();
 
@@ -345,14 +347,14 @@ describe('AccessDirectory (issue #49: /admin/roles)', () => {
   it('voids an earlier verdict and drawer while the next request is pending (review P2)', async () => {
     let resolveSecond!: (response: ApiResponse<AccessDirectoryPage>) => void;
     const empty: ApiResponse<AccessDirectoryPage> = { outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'empty' };
-    const f = renderRoles(`/admin/roles?${new URLSearchParams({ role: 'ghost', focus: 'engineer' })}`, (_query, call) => call === 1
+    const f = renderRoles('/admin/roles?filter=role:equals:ghost&focus=engineer', (_query, call) => call === 1
       ? empty
       : new Promise<ApiResponse<AccessDirectoryPage>>(resolve => { resolveSecond = resolve; }));
     expect(await screen.findByText(/이 페이지에 없는 주체입니다\.|Principal not on this page\./)).toBeTruthy();
 
-    historyStep({ focus: 'engineer', role: 'engineer' });
+    historyStep({ focus: 'engineer', filter: 'role:equals:engineer' });
     await waitFor(() => expect(f.calls).toHaveLength(2));
-    // Pending: the empty answer was about role=ghost, not about this query.
+    // Pending: the empty answer was about role:equals:ghost, not about this query.
     expect(screen.queryByText(/이 페이지에 없는 주체입니다\.|Principal not on this page\./)).toBeNull();
 
     resolveSecond(okResponse([ENGINEER]));

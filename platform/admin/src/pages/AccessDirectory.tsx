@@ -7,7 +7,7 @@ import { Button, StatusBadge } from '@ap/ui';
 import { grantTotals, menusForPermissions } from '../access-rows';
 import { SORT_FIELDS } from '../access-query';
 import { invalidText } from '../token';
-import { accessFilterSpecs, accessLegacyKeys, accessValueCheck, toAccessQuery } from '../access-filters';
+import { accessFilterSpecs, accessValueCheck, toAccessQuery } from '../access-filters';
 
 const NO_FILTERS: ColumnFilter[] = [];
 
@@ -29,10 +29,10 @@ export default function AccessDirectory() {
   // unknown value is the drawer alert — always controlled, so history traversal reselects the alert tab.
   const drawerTab = pageParam('tab') ?? 'permissions';
   const validTab = ['permissions', 'sites'].includes(drawerTab);
-  // ADR-0105: 역할 and 권한 are conditions of one hidden repeated page key `filter`; the old `role=` / `permission=` links are read for one release and rewritten.
+  // ADR-0105: 역할 and 권한 are conditions of one hidden repeated page key `filter`.
   const specs = useMemo(() => accessFilterSpecs(registry.permissions), [registry.permissions]);
   const urlFilters = useMemo(() => ({
-    key: 'filter', specs, legacy: accessLegacyKeys(registry.permissions), validate: accessValueCheck(registry.permissions),
+    key: 'filter', specs, validate: accessValueCheck(registry.permissions),
     labels: { role: ko ? '역할' : 'Role', permission: ko ? '권한' : 'Permission' },
   }), [specs, registry.permissions, ko]);
   // A user sort/page/filter change moves rows between pages, so the focused row leaves with them (bot review P2).

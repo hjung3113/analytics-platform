@@ -3,7 +3,7 @@
  * page maps them to the typed `auditTrail` port query (`toAuditQuery`), the port itself is unchanged. The ids are the table's column ids, so the
  * port's `type` is the `targetType` column. Pure and node-runnable.
  */
-import { isIsoInstant, type AuditSortField, type AuditTrailQuery, type ColumnFilter, type ColumnFilterSpec, type PageSort, type Text } from '@ap/contracts';
+import { type AuditSortField, type AuditTrailQuery, type ColumnFilter, type ColumnFilterSpec, type PageSort, type Text } from '@ap/contracts';
 import type { InstantEntry } from '@ap/components';
 import { ACTION_LABEL, AUDIT_ACTIONS, AUDIT_SOURCES, AUDIT_TYPE_TOKEN, SOURCE_LABEL } from './audit-query';
 import { BAD_TOKEN, invalidText } from './token';
@@ -29,27 +29,6 @@ export function auditFilterSpecs(lang: Lang): Record<(typeof AUDIT_FILTER_IDS)[n
 
 /** Pinned fields of the filter line, in this order (R2: 작업 before 행위자; the column order is the other way round). */
 export const AUDIT_PINNED: Readonly<Record<string, number>> = { action: 1, actor: 2 };
-
-const equalsText = (id: string, raw: string): ColumnFilter | null => (invalidText(raw) ? null : { id, op: 'equals', value: raw });
-const oneOf = (id: string, raw: string, allowed: readonly string[]): ColumnFilter | null => (allowed.includes(raw) ? { id, op: 'in', value: [raw] } : null);
-const instantEnd = (end: 'from' | 'to', raw: string): ColumnFilter | null => {
-  if (!isIsoInstant(raw)) return null;
-  return { id: 'at', op: 'between', value: { [end]: raw } };
-};
-
-/**
- * The old single page keys as conditions, read for one release and rewritten away (P8). A value the old screen rejected is rejected here
- * (`null` → the codec's warning), never repaired. `fromAt` and `toAt` merge into the one `at` range.
- */
-export const AUDIT_LEGACY_KEYS = [
-  { key: 'type', toFilter: (raw: string) => (AUDIT_TYPE_TOKEN.test(raw) ? { id: 'targetType', op: 'equals' as const, value: raw } : null) },
-  { key: 'actor', toFilter: (raw: string) => equalsText('actor', raw) },
-  { key: 'action', toFilter: (raw: string) => oneOf('action', raw, AUDIT_ACTIONS) },
-  { key: 'source', toFilter: (raw: string) => oneOf('source', raw, AUDIT_SOURCES) },
-  { key: 'fromAt', toFilter: (raw: string) => instantEnd('from', raw) },
-  { key: 'toAt', toFilter: (raw: string) => instantEnd('to', raw) },
-  { key: 'targetId', toFilter: (raw: string) => equalsText('targetId', raw) },
-];
 
 /** 시각 is entered to the second in the viewer's explicit zone: a nonexistent or repeated local time (DST) is refused in the editor, never moved (#305). */
 export const auditTimeEntry = (timeZone: string): InstantEntry => ({ timeZone, precision: 'second' });

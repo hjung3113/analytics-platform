@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseFilterParams, type ColumnFilter } from '@ap/contracts';
-import { accessFilterSpecs, accessLegacyKeys, accessValueCheck, toAccessQuery } from './access-filters';
+import { accessFilterSpecs, accessValueCheck, toAccessQuery } from './access-filters';
 
 const permissions = ['platform:view', 'console:access'];
 const page = { page: 2, pageSize: 25, sorting: [] };
@@ -22,20 +22,12 @@ describe('toAccessQuery (P5)', () => {
   });
 });
 
-describe('access specs and legacy keys', () => {
+describe('access specs', () => {
   const specs = accessFilterSpecs(permissions);
   it('role is exact case-sensitive text; permission is one registry value', () => {
     expect(specs.role).toMatchObject({ kind: 'text', ops: ['equals'], caseSensitive: true });
     expect(specs.permission).toMatchObject({ kind: 'enum', ops: ['in'], multiple: false, options: permissions.map(value => ({ value, label: value })) });
     expect(parseFilterParams(['permission:in:platform:view~console:access'], specs).ok).toBe(false);
-  });
-  it('old ?role= / ?permission= convert; values the old screen rejected do not', () => {
-    const legacy = accessLegacyKeys(permissions);
-    const of = (key: string, raw: string) => legacy.find(entry => entry.key === key)!.toFilter(raw);
-    expect(of('role', 'engineer')).toEqual({ id: 'role', op: 'equals', value: 'engineer' });
-    expect(of('permission', 'console:access')).toEqual({ id: 'permission', op: 'in', value: ['console:access'] });
-    expect(of('role', 'a b')).toBeNull();
-    expect(of('permission', 'ghost:view')).toBeNull();
   });
 });
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseFilterParams, validateFilters, type ColumnFilter } from '@ap/contracts';
-import { AUDIT_FILTER_IDS, AUDIT_LEGACY_KEYS, auditFilterSpecs, auditValueCheck, toAuditQuery } from './audit-filters';
+import { AUDIT_FILTER_IDS, auditFilterSpecs, auditValueCheck, toAuditQuery } from './audit-filters';
 
 const page = { page: 3, pageSize: 25, sorting: [] };
 const FROM = '2026-09-26T02:00:00.000Z';
@@ -64,29 +64,6 @@ describe('audit filter specs (the editor can only express what the port accepts)
     expect(parseFilterParams(['actor:contains:a'], specs).ok).toBe(false);
     expect(parseFilterParams(['targetId:equals:x'], specs).ok).toBe(false);
     expect(validateFilters([{ id: 'targetType', op: 'equals', value: 't' }, { id: 'targetId', op: 'equals', value: 'x' }], specs).ok).toBe(true);
-  });
-});
-
-describe('legacy keys (P8)', () => {
-  const legacy = (key: string, raw: string) => AUDIT_LEGACY_KEYS.find(entry => entry.key === key)!.toFilter(raw);
-  it.each([
-    ['type', 'equipment', { id: 'targetType', op: 'equals', value: 'equipment' }],
-    ['actor', 'park.seo', { id: 'actor', op: 'equals', value: 'park.seo' }],
-    ['action', 'update', { id: 'action', op: 'in', value: ['update'] }],
-    ['source', 'user', { id: 'source', op: 'in', value: ['user'] }],
-    ['fromAt', FROM, { id: 'at', op: 'between', value: { from: FROM } }],
-    ['toAt', TO, { id: 'at', op: 'between', value: { to: TO } }],
-    ['fromAt', '2026-09-24T09:00:05+0900', { id: 'at', op: 'between', value: { from: '2026-09-24T09:00:05+0900' } }],
-    ['targetId', 'MEM-1', { id: 'targetId', op: 'equals', value: 'MEM-1' }],
-  ])('%s=%s converts', (key, raw, expected) => {
-    expect(legacy(key, raw)).toEqual(expected);
-  });
-
-  it.each([
-    ['type', '9bogus'], ['type', 'bad type'], ['actor', 'a b'], ['actor', ''], ['action', 'explode'], ['source', 'robot'],
-    ['fromAt', '2026-09-26T02:00:00'], ['fromAt', '2026-02-30T00:00:00.000Z'], ['toAt', 'soon'], ['targetId', 'a b'],
-  ])('%s=%s is refused (null), never repaired', (key, raw) => {
-    expect(legacy(key, raw)).toBeNull();
   });
 });
 

@@ -371,7 +371,7 @@ test.describe('메뉴 간 링크 허용 여부 (06 §22 — 목적지 권한을 
 
 test.describe('returnTo 복귀 (06 §22)', () => {
   test('상세로 갔다가 복귀 버튼을 누르면 떠난 URL로 정확히 돌아온다', async ({ page }, testInfo) => {
-    await page.goto(`/mars/equipment-master?v=1&scopeId=MEM&${PERIOD}&status=active`);
+    await page.goto(`/mars/equipment-master?v=1&scopeId=MEM&${PERIOD}&filter=status:in:active`);
     await expect(page.getByRole('table')).toBeVisible();
     await page.getByRole('table').getByRole('button', { name: '보기' }).first().click();
     await expect.poll(() => query(page).get('focus')).not.toBeNull();

@@ -32,11 +32,6 @@ export function columnFilter(key: keyof Equipment, makers: readonly string[] = [
 export function filterSpecs(makers: readonly string[], lang: 'ko' | 'en'): Record<string, ColumnFilterSpec> {
   return Object.fromEntries(fields.flatMap(f => { const spec = columnFilter(f.key, makers, lang); return spec ? [[f.key, spec]] : []; }));
 }
-/** The old single page keys (`?status=active`, `?maker=TEL`) as filter conditions; read for one release and rewritten away (ADR-0105 §6, P8). */
-export const legacyFilterKeys = [
-  { key: 'status', toFilter: (raw: string) => ({ id: 'status', op: 'in' as const, value: [raw] }) },
-  { key: 'maker', toFilter: (raw: string) => ({ id: 'maker', op: 'in' as const, value: [raw] }) },
-];
 /** §6.1: sortable columns are exactly the data fields; the synthetic _select/_action columns never join the allow-list. */
 export const sortFields: readonly (keyof Equipment)[] = fields.map(f => f.key);
 export function validity(e: Equipment) {
