@@ -433,7 +433,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const headerBase = sized ? 'flex min-h-(--ap-table-row-h) items-center overflow-hidden whitespace-nowrap px-4 py-0 pointer-coarse:min-h-11' : 'flex min-h-8 items-center overflow-hidden whitespace-nowrap px-4 py-1 pointer-coarse:min-h-11';
   const cellBase = cn(headerBase, 'overflow-visible whitespace-normal [overflow-wrap:anywhere]',
     sized && 'py-0.5 [&_a]:text-(length:--ap-table-font) [&_button:not([role=checkbox])]:text-(length:--ap-table-font) [&_.t-mono]:text-(length:--ap-table-mono-font)',
-    tableSize === 'small' && '[&_button:not([role=checkbox])]:h-6');
+    tableSize === 'small' && '[&_button:not([role=checkbox])]:h-6 [&_a.h-8]:h-6');
   const cellText = sized ? 'text-(length:--ap-table-font)' : 'text-sm';
   const headStyle = (column: Column<T>): CSSProperties => sized ? { ...cellStyle(column), fontSize: 'var(--ap-table-head-font)' } : cellStyle(column);
   /** The right-pinned action column keeps a visible edge while content scrolls beneath it (a border token; DESIGN.md allows no shadow). */
@@ -721,7 +721,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
                   // eslint-disable-next-line shadcn/no-inline-styles -- row offset is the virtual item position computed at runtime
                   className="group absolute left-0 top-0 flex w-full" style={{ transform: `translateY(${item.start}px)` }}>
                   <GroupHeaderCells lang={lang} item={entry} onToggle={() => toggleGroup(entry.group.key)}
-                    cellClassName={cn(cellBase, 'border-b border-border-subtle bg-surface-sunken', cellText)}
+                    cellClassName={cn(cellBase, 'border-b border-border-subtle bg-surface-sunken', cellText)} labelClassName={cellText}
                     lead={{ style: { width: leading.reduce((sum, c) => sum + widthOf(c), 0), flexShrink: 0 }, span: leading.length, stickyLeft: table.getLeftVisibleLeafColumns().reduce((sum, c) => sum + widthOf(c), 0), subtotal: leadSubtotal ? { id: leadSubtotal.id } : undefined }}
                     trailing={trailing.map(c => ({ id: c.id, subtotal: subtotalIds.has(c.id), style: cellStyle(c), className: c.getIsPinned() === 'right' ? pinEdge : undefined }))} />
                 </div>;

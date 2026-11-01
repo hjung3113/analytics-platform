@@ -5,6 +5,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { groupId, groupPage, spaceId, type ApiResponse, type GroupedPageResult, type TableQuery } from '@ap/contracts';
+import { tableSizeLocalKey } from '../tableSize';
 import { PlatformDataTable, type PlatformColumn } from '../PlatformDataTable';
 
 // #556d: server row groups (ADR-0104) — opt-in `groupable` column; the table renders the server's groups, never groups or sums a page itself.
@@ -83,6 +84,17 @@ const choose = async (id: string) => {
 const headerRows = (c: HTMLElement) => [...c.querySelectorAll('[data-group-row]')] as HTMLElement[];
 
 describe('PlatformDataTable row groups (#556d)', () => {
+  it.each([['small', 'text-(length:--ap-table-font)'], ['large', 'text-(length:--ap-table-font)'], ['normal', 'text-sm']] as const)('1217d: the sticky group label follows the table size (%s)', async (size, expected) => {
+    storage.setItem(tableSizeLocalKey('user-a'), size);
+    const view = render(<Harness loadPage={makeLoad()} />);
+    await screen.findByText(/1\/1/);
+    await choose('line');
+    await waitFor(() => expect(headerRows(view.container)).toHaveLength(3));
+    const lead = view.container.querySelector('[data-group-lead-content]') as HTMLElement;
+    expect(lead).toHaveClass(expected);
+    if (size === 'normal') expect(lead.className).not.toContain('ap-table');
+  });
+
   it('offers 「그룹」 only with a groupable column; a table without one renders as before (rowcount, no group UI)', async () => {
     const plain = render(<Harness loadPage={makeLoad()} columns={plainColumns} />);
     await screen.findByText(/1\/1/);

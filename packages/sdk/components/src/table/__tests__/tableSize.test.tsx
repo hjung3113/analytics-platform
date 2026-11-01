@@ -5,6 +5,7 @@ import type { PreferenceController, PreferenceState } from '@ap/kernel';
 // Node 1217d: the server preference seam (ADR-0098) carries the one table-size setting.
 let controller: PreferenceController | null = null;
 vi.mock('@ap/kernel', () => ({
+  usePlatformOptional: () => null,
   usePreferenceController: () => controller,
   usePreferenceState: (c: PreferenceController | null): PreferenceState => c ? c.state() : { status: 'ready', failure: null, version: 0 },
 }));

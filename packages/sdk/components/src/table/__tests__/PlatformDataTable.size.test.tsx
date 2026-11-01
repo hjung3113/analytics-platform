@@ -1,14 +1,17 @@
 import userEvent from '@testing-library/user-event';
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
-import { House } from 'lucide-react';
+import { House, Pencil } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { groupId, spaceId, type ApiResponse, type PageResult, type TableQuery } from '@ap/contracts';
 import { PlatformDataTable, type PlatformColumn } from '../PlatformDataTable';
 import { stubCompactTableGeometry } from '../../testing';
-import { TABLE_SIZE_KEY, TABLE_SIZE_STEPS } from '../tableSize';
+import { TABLE_SIZE_STEPS, tableSizeLocalKey } from '../tableSize';
+import { RowAction } from '../../drawer/RowAction';
 
+const LOCAL_KEY = tableSizeLocalKey('user-a');
 // Node 1217d (06 §15): 표 크기 작게 / 보통 / 크게 — a relative step with variables shared by header, body and the virtualizer's estimate.
 type Row = { id: string; line: string; qty: number };
 const registry = createRegistry({
@@ -39,9 +42,9 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); restoreGeometry(); });
 
-function Harness() {
-  return <I18nProvider><PlatformProvider equipmentAxes={axes} adapter={adapter} registry={registry}>
-    <PlatformDataTable<Row> title="설비 목록" ariaLabel="table" columns={columns} getRowId={r => r.id} loadPage={load} filterKey="f" preferenceKey="size-test" pageSize={25} height={300}
+function Harness({ user = adapter, rowAction }: { user?: typeof adapter; rowAction?: (row: Row, context: { compact: boolean }) => ReactNode } = {}) {
+  return <I18nProvider><PlatformProvider equipmentAxes={axes} adapter={user} registry={registry}>
+    <PlatformDataTable<Row> title="설비 목록" ariaLabel="table" columns={columns} getRowId={r => r.id} loadPage={load} filterKey="f" preferenceKey="size-test" pageSize={25} height={300} rowAction={rowAction}
       exportRows={async () => ({ outcome: 'ok', assessments: [], trust: null, correlationId: 'c', data })} />
   </PlatformProvider></I18nProvider>;
 }
@@ -101,7 +104,7 @@ describe('PlatformDataTable table size (1217d)', () => {
   });
 
   it.each(['small', 'normal', 'large'] as const)('%s keeps every checkbox 14×14 (size-3.5) in the header and the rows', async size => {
-    localStorage.setItem(TABLE_SIZE_KEY, size);
+    localStorage.setItem(LOCAL_KEY, size);
     await mount();
     const boxes = [...section().querySelectorAll('[role=checkbox]')];
     expect(boxes.length).toBe(1 + data.length);
@@ -113,13 +116,13 @@ describe('PlatformDataTable table size (1217d)', () => {
 
   it('크게 widens DEFAULT widths by 15/13 and leaves a width the user dragged alone; 작게 keeps the defaults', async () => {
     localStorage.setItem('size-test', JSON.stringify({ sizing: { qty: 210 }, visibility: {}, pinning: { left: [], right: [] }, order: [] }));
-    localStorage.setItem(TABLE_SIZE_KEY, 'large');
+    localStorage.setItem(LOCAL_KEY, 'large');
     const view = await mount();
     expect(header('line').style.width).toBe(`${Math.round(128 * 15 / 13)}px`);
     expect(header('qty').style.width).toBe('210px');
     expect((document.querySelector('[role=columnheader][data-column=_select]') as HTMLElement).style.width).toBe('60px'); // the checkbox column keeps its width in every size
     view.unmount();
-    localStorage.setItem(TABLE_SIZE_KEY, 'small');
+    localStorage.setItem(LOCAL_KEY, 'small');
     await mount();
     expect(header('line').style.width).toBe('128px');
     expect(header('qty').style.width).toBe('210px');
@@ -129,13 +132,13 @@ describe('PlatformDataTable table size (1217d)', () => {
     const user = userEvent.setup();
     const view = await mount();
     await choose(user, '크게');
-    expect(localStorage.getItem(TABLE_SIZE_KEY)).toBe('large');
+    expect(localStorage.getItem(LOCAL_KEY)).toBe('large');
     view.unmount();
     await mount();
     expect(section()).toHaveAttribute('data-table-size', 'large');
     expect(within(toolbar()).getByRole('button', { name: '표 크기: 크게' })).toBeTruthy();
     await choose(user, '보통');
-    expect(localStorage.getItem(TABLE_SIZE_KEY)).toBeNull();
+    expect(localStorage.getItem(LOCAL_KEY)).toBeNull();
   });
 
   it('two tables on one page change together', async () => {
@@ -170,6 +173,51 @@ describe('PlatformDataTable table size (1217d)', () => {
     expect((await screen.findAllByRole('menuitemradio')).map(i => i.textContent)).toEqual(['작게', '보통', '크게']);
     await user.keyboard('{Enter}');
     await waitFor(() => expect(section()).toHaveAttribute('data-table-size', 'small'));
-    expect(localStorage.getItem(TABLE_SIZE_KEY)).toBe('small');
+    expect(localStorage.getItem(LOCAL_KEY)).toBe('small');
+  });
+
+  it('F1: the browser choice is per account — A→B→A never shows or overwrites the other\'s size', async () => {
+    const user = userEvent.setup();
+    const asUser = (id: string) => { const fixed = testSession(['platform:view'], { user: { id } }); return testAdapter({ session: () => fixed }); };
+    const view = render(<Harness user={asUser('user-a')} />);
+    await screen.findByText(/1\/1/);
+    await choose(user, '크게');
+    view.unmount();
+    const b = render(<Harness user={asUser('user-b')} />);
+    await screen.findByText(/1\/1/);
+    expect(section()).toHaveAttribute('data-table-size', 'normal');
+    await choose(user, '작게');
+    expect(localStorage.getItem(tableSizeLocalKey('user-b'))).toBe('small');
+    expect(localStorage.getItem(tableSizeLocalKey('user-a'))).toBe('large');
+    b.unmount();
+    render(<Harness user={asUser('user-a')} />);
+    await screen.findByText(/1\/1/);
+    expect(section()).toHaveAttribute('data-table-size', 'large');
+  });
+
+  it('F2: a refused localStorage write still changes the size (menu and table) and two tables stay together', async () => {
+    const user = userEvent.setup();
+    const refusing = { ...memoryStorage(), setItem: () => { throw new Error('quota'); }, removeItem: () => { throw new Error('blocked'); } };
+    vi.stubGlobal('localStorage', refusing);
+    const fixedF2 = testSession(['platform:view'], { user: { id: 'user-f2' } });
+    const adapterF2 = testAdapter({ session: () => fixedF2 });
+    render(<><Harness user={adapterF2} /><Harness user={adapterF2} /></>);
+    await screen.findAllByText(/1\/1/);
+    await user.click(within(document.querySelectorAll('[data-table-toolbar]')[0] as HTMLElement).getByRole('button', { name: /^표 크기/ }));
+    await user.click(await screen.findByRole('menuitemradio', { name: '크게' }));
+    expect([...document.querySelectorAll('section[aria-label="table"]')].map(s => s.getAttribute('data-table-size'))).toEqual(['large', 'large']);
+    await user.click(within(document.querySelectorAll('[data-table-toolbar]')[0] as HTMLElement).getByRole('button', { name: /^표 크기/ }));
+    await user.click(await screen.findByRole('menuitemradio', { name: '보통' }));
+    expect([...document.querySelectorAll('section[aria-label="table"]')].map(s => s.getAttribute('data-table-size'))).toEqual(['normal', 'normal']);
+  });
+
+  it('F3: in 작게 a link-based RowAction is capped at h-6 like a button action; 보통 keeps h-8 only', async () => {
+    localStorage.setItem(LOCAL_KEY, 'small');
+    const rowAction = () => <RowAction compact={false} icon={Pencil} label="열기" text="열기" link={<a href="/x" />} />;
+    render(<Harness rowAction={rowAction} />);
+    await screen.findByText(/1\/1/);
+    const actionCell = [...document.querySelectorAll('[role=row] [role=cell]')].find(c => c.querySelector('a[href="/x"]')) as HTMLElement;
+    expect(actionCell.querySelector('a')).toHaveClass('h-8');
+    expect(actionCell.className).toContain('[&_a.h-8]:h-6');
   });
 });

@@ -73,12 +73,14 @@ type HeaderProps = {
   lead: { style: CSSProperties; span: number; stickyLeft: number; /** Set when the leading cell is itself a subtotal column: its total follows the label. */ subtotal?: { id: string } };
   /** The cells after the leading one: subtotal cells under their columns, empty cells elsewhere. */
   trailing: { id: string; style: CSSProperties; subtotal: boolean; className?: string }[];
+  /** Typography of the sticky label (the size step's font); default 보통. */
+  labelClassName?: string;
   onToggle: () => void;
   cellClassName: string;
 };
 
 /** A group header row's content: collapse button, label, result-wide count and subtotal cells (labelled as whole-result). */
-export function GroupHeaderCells({ lang, item, lead, trailing, onToggle, cellClassName }: HeaderProps): ReactNode {
+export function GroupHeaderCells({ lang, item, lead, trailing, onToggle, cellClassName, labelClassName = 'text-sm' }: HeaderProps): ReactNode {
   const { group, collapsed, continued, rowsOnPage } = item;
   const ko = lang === 'ko';
   const total = (id: string) => {
@@ -95,7 +97,7 @@ export function GroupHeaderCells({ lang, item, lead, trailing, onToggle, cellCla
     {/* eslint-disable-next-line shadcn/no-inline-styles -- the sticky offset is the left-pinned width at runtime */}
     <div role="rowheader" data-group-lead style={{ position: 'sticky', left: lead.stickyLeft, zIndex: 3, width: 0, flexShrink: 0 }}>
       {/* eslint-disable-next-line shadcn/no-inline-styles -- the content extends back over the pinned region by its runtime width */}
-      <div data-group-lead-content style={{ left: -lead.stickyLeft, paddingLeft: lead.stickyLeft }} className="absolute top-0 flex h-full max-w-[min(48rem,100vw)] items-center gap-2 whitespace-nowrap bg-surface-sunken px-4 text-sm font-medium">
+      <div data-group-lead-content style={{ left: -lead.stickyLeft, paddingLeft: lead.stickyLeft }} className={cn('absolute top-0 flex h-full max-w-[min(48rem,100vw)] items-center gap-2 whitespace-nowrap bg-surface-sunken px-4 font-medium', labelClassName)}>
         <button type="button" aria-expanded={!collapsed} aria-label={groupToggleName(label, collapsed, lang)} onClick={onToggle}
           className="-ml-1 inline-flex size-6 shrink-0 items-center justify-center rounded-xs hover:bg-surface-row-hover">
           {collapsed ? <ChevronRight className="size-3.5" aria-hidden /> : <ChevronDown className="size-3.5" aria-hidden />}
