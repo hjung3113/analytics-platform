@@ -1120,9 +1120,9 @@ test.describe('권한/역할 (06 §9.1, §17 — console access directory, read-
     await evidence(page, testInfo, 'roles-drawer-tab-survives-reload');
   });
 
-  test('permission page key는 목록을 필터링하고 잘못된 값은 경고한다', async ({ page }, testInfo) => {
+  test('permission 조건은 목록을 필터링하고 잘못된 값은 경고한다', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
-    await page.goto('/operations/admin-roles?v=1&permission=console:access');
+    await page.goto('/operations/admin-roles?v=1&filter=permission:in:console:access');
     const table = page.getByRole('main').getByRole('table', { name: '권한/역할 목록' });
     await expect(table).toBeVisible({ timeout: 10_000 });
     await expect(table.getByRole('row')).toHaveCount(2);
@@ -1131,9 +1131,9 @@ test.describe('권한/역할 (06 §9.1, §17 — console access directory, read-
     await expect(table.getByRole('row').filter({ hasText: 'Field Requester' })).toHaveCount(0);
     await evidence(page, testInfo, 'roles-console-access-filter');
 
-    await page.goto('/operations/admin-roles?v=1&permission=bogus');
+    await page.goto('/operations/admin-roles?v=1&filter=permission:in:bogus');
     const main = page.getByRole('main');
-    await expect(main.getByRole('alert')).toContainText('권한 “bogus”');
+    await expect(main.getByRole('alert')).toContainText('권한 “permission:in:bogus”');
     await expect(main.getByRole('table')).toHaveCount(0);
     await evidence(page, testInfo, 'roles-invalid-permission-filter');
   });

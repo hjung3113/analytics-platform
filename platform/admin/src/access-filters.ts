@@ -14,11 +14,6 @@ export function accessFilterSpecs(permissions: readonly string[]): Record<(typeo
   };
 }
 
-/** The old `?role=` / `?permission=` keys as conditions, read for one release and rewritten away (P8); a value the old screen rejected is rejected, never repaired. */
-export const accessLegacyKeys = (permissions: readonly string[]) => [
-  { key: 'role', toFilter: (raw: string): ColumnFilter | null => (invalidText(raw) ? null : { id: 'role', op: 'equals', value: raw }) },
-  { key: 'permission', toFilter: (raw: string): ColumnFilter | null => (permissions.includes(raw) ? { id: 'permission', op: 'in', value: [raw] } : null) },
-];
 
 export type AccessPage = { page: number; pageSize: number; sorting: readonly PageSort[] };
 

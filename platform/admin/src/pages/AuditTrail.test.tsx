@@ -198,24 +198,8 @@ describe('AuditTrail filter model (ADR-0105, #1217 e2)', () => {
     expect(f.calls[3]).toEqual({ page: 1, pageSize: 25 });
   });
 
-  it('old ?actor= link: the same query, the address loses the key, the chip says 행위자', async () => {
-    const f = renderAudit('/admin/audit?actor=park.seo');
-    await waitFor(() => expect(f.calls[0]).toMatchObject({ actor: 'park.seo', page: 1, pageSize: 25 }));
-    await waitFor(() => expect(url().has('actor')).toBe(false));
-    expect(url().has('filter')).toBe(false);
-    expect(chip('actor')!.textContent).toContain('행위자');
-  });
-
-  it('every old key maps to the same port query and leaves the address', async () => {
-    const q = new URLSearchParams({ type: 'Future.Type:v2', targetId: 'abc', actor: 'a', action: 'sync', source: 'system', fromAt: FROM, toAt: TO });
-    const f = renderAudit(`/admin/audit?${q}`);
-    await waitFor(() => expect(f.calls.at(-1)).toEqual({ type: 'Future.Type:v2', targetId: 'abc', actor: 'a', action: 'sync', source: 'system', fromAt: FROM, toAt: TO, page: 1, pageSize: 25 }));
-    await waitFor(() => expect([...q.keys()].some(k => url().has(k))).toBe(false));
-    expect(screen.queryByRole('alert')).toBeNull();
-  });
-
   it('an old seconds window shows both ends to the second on the chip, under a Seoul viewer and a New York process zone', async () => {
-    const f = renderAudit(`/admin/audit?${new URLSearchParams({ fromAt: '2026-09-24T00:00:05Z', toAt: '2026-09-24T00:00:10Z' })}`);
+    const f = renderAudit('/admin/audit?filter=at:between:2026-09-24T00:00:05Z~2026-09-24T00:00:10Z');
     await waitFor(() => expect(f.calls).toHaveLength(1));
     await waitFor(() => expect(chip('at')).toBeTruthy());
     expect(chip('at')!.textContent).toContain('26. 9. 24. 오전 9:00:05 ~ 26. 9. 24. 오전 9:00:10');
@@ -233,41 +217,48 @@ describe('AuditTrail filter model (ADR-0105, #1217 e2)', () => {
     expect(f.calls).toHaveLength(1);
   });
 
-  it('a one-sided old fromAt link is an open range', async () => {
-    const f = renderAudit(`/admin/audit?${new URLSearchParams({ fromAt: FROM })}`);
+  // The old single keys left with the alias release (#1217 follow-up): `actor=` etc. are now unregistered extras,
+  // ignored exactly like any unknown key — no condition, no warning, no rewrite; the pair stays in the address.
+  it.each([
+    ['old actor key', 'actor', 'park.seo'],
+    ['old window keys', 'fromAt', '2026-09-26T02:00:00.000Z'],
+    ['never-registered key', 'zz', '1'],
+  ])('%s is ignored like any unknown key', async (_name, key, value) => {
+    const f = renderAudit(`/admin/audit?${key}=${value}`);
+    await waitFor(() => expect(f.calls).toEqual([{ page: 1, pageSize: 25 }]));
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(url().get(key)).toBe(value);
+  });
+
+  it('a one-sided window link is an open range', async () => {
+    const f = renderAudit(`/admin/audit?filter=at:between:${FROM}~`);
     await waitFor(() => expect(f.calls).toHaveLength(1));
     expect(f.calls[0]).toMatchObject({ fromAt: FROM, page: 1, pageSize: 25 });
     expect(f.calls[0].toAt).toBeUndefined();
   });
 
-  it('keeps an old link with seconds exact: the instant is not rounded to the minute unless the user edits it', async () => {
+  it('keeps a link with seconds exact: the instant is not rounded to the minute unless the user edits it', async () => {
     const from = '2026-09-26T02:00:00.500Z';
-    const f = renderAudit(`/admin/audit?${new URLSearchParams({ fromAt: from })}`);
+    const f = renderAudit(`/admin/audit?filter=at:between:${from}~`);
     await waitFor(() => expect(f.calls[0]).toMatchObject({ fromAt: from }));
     await applyText('actor', 'x');
     await waitFor(() => expect(f.calls.at(-1)).toMatchObject({ actor: 'x', fromAt: from }));
   });
 
   it.each([
-    ['a calendar-invalid fromAt', { fromAt: '2026-02-30T00:00:00.000Z' }, '시각 이후'],
-    ['a malformed type', { type: '9bogus' }, '대상 유형'],
-    ['a target id without a type', { targetId: 'EQ-1' }, '대상 ID'],
-    ['an unknown action', { action: 'explode' }, '작업'],
-    ['a malformed actor', { actor: 'a b' }, '행위자'],
-  ])('%s in an old link: a filter warning, no query, nothing repaired', (_name, params, fragment) => {
-    const f = renderAudit(`/admin/audit?${new URLSearchParams(params)}`);
+    ['a calendar-invalid instant bound', new URLSearchParams([['filter', 'at:between:2026-02-30T00:00:00.000Z']]), '시각'],
+    ['a target id without a type', new URLSearchParams([['filter', 'targetId:equals:EQ-1']]), '대상 ID'],
+    ['a malformed new-key actor', new URLSearchParams([['filter', 'actor:equals:a b']]), '행위자'],
+  ])('%s in the address: a filter warning, no query, nothing repaired', (_name, params, fragment) => {
+    const f = renderAudit(`/admin/audit?${params}`);
     const alert = screen.getByRole('alert');
     expect(alert.textContent).toContain('필터 값이 올바르지 않습니다');
     expect(alert.textContent).not.toContain('정렬·페이지');
-    expect(alert.textContent).toContain(Object.values(params)[0]!);
     expect(alert.textContent).toContain(fragment);
     expect(f.calls).toHaveLength(0);
-    expect(Object.keys(params).every(k => url().has(k))).toBe(true);
   });
 
   it.each([
-    ['a reversed old window', new URLSearchParams({ fromAt: TO, toAt: FROM }), '시각'],
-    ['an equal old window', new URLSearchParams({ fromAt: FROM, toAt: FROM }), '시각'],
     ['a reversed new-key window', new URLSearchParams([['filter', `at:between:${TO}~${FROM}`]]), '시각'],
     ['a malformed new-key type', new URLSearchParams([['filter', 'targetType:equals:9bogus']]), '대상 유형'],
     ['a malformed new-key actor', new URLSearchParams([['filter', 'actor:equals:a b']]), '행위자'],
@@ -304,7 +295,7 @@ describe('AuditTrail filter model (ADR-0105, #1217 e2)', () => {
 
   it('a row-time round trip: a stored instant shows as the viewer-zone field and returns to the same instant', async () => {
     const from = '2026-09-26T02:10:35.000Z';
-    const f = renderAudit(`/admin/audit?${new URLSearchParams({ fromAt: from })}`);
+    const f = renderAudit(`/admin/audit?filter=at:between:${from}~`);
     await waitFor(() => expect(f.calls).toHaveLength(1));
     const dialog = await openField('at');
     const input = within(dialog).getByLabelText('시작 (이상)');
@@ -318,7 +309,7 @@ describe('AuditTrail filter model (ADR-0105, #1217 e2)', () => {
   it('a changed viewer zone re-reads the same instants as that zone\'s wall clock', async () => {
     viewerTz.value = 'America/New_York';
     const from = '2026-09-26T02:10:35.000Z';
-    const f = renderAudit(`/admin/audit?${new URLSearchParams({ fromAt: from })}`);
+    const f = renderAudit(`/admin/audit?filter=at:between:${from}~`);
     await waitFor(() => expect(f.calls).toHaveLength(1));
     const dialog = await openField('at');
     expect(fieldValue(within(dialog).getByLabelText('시작 (이상)'))).toBe('2026-09-25T22:10:35');
@@ -365,17 +356,16 @@ describe('AuditTrail filter model (ADR-0105, #1217 e2)', () => {
     expect(f.calls).toHaveLength(1);
   });
 
-  it('filter warning reset (recoverKeys) clears the bad old keys only and keeps the sort', () => {
-    renderAudit(`/admin/audit?${new URLSearchParams({ type: '9bogus', actor: 'ok', sort: 'actor:desc' })}`);
+  it('filter warning reset (recoverKeys) clears the filter key only and keeps the sort', () => {
+    renderAudit('/admin/audit?filter=targetType:equals:9bogus&filter=actor:equals:ok&sort=actor:desc');
     fireEvent.click(within(screen.getByRole('alert')).getByRole('button', { name: '초기화' }));
-    expect(url().has('type')).toBe(false);
-    expect(url().has('actor')).toBe(false);
+    expect(url().has('filter')).toBe(false);
     expect(url().get('sort')).toBe('actor:desc');
     expect(document.activeElement).not.toBe(document.body);
   });
 
   it('sort only: the sort/page title, the reset drops sort and keeps the conditions', async () => {
-    renderAudit(`/admin/audit?${new URLSearchParams({ actor: 'park', sort: 'bogus' })}`);
+    renderAudit('/admin/audit?filter=actor:equals:park&sort=bogus');
     const alert = screen.getByRole('alert');
     expect(alert.textContent).toContain('정렬·페이지 값이 올바르지 않습니다');
     fireEvent.click(within(alert).getByRole('button', { name: '초기화' }));
@@ -384,7 +374,7 @@ describe('AuditTrail filter model (ADR-0105, #1217 e2)', () => {
   });
 
   it('a bad filter and a bad sort together: the combined title, one reset clears both', () => {
-    renderAudit(`/admin/audit?${new URLSearchParams({ type: '9bogus', sort: 'bogus' })}`);
+    renderAudit('/admin/audit?filter=targetType:equals:9bogus&sort=bogus');
     const alert = screen.getByRole('alert');
     expect(alert.textContent).toContain('정렬·페이지·필터 값이 올바르지 않습니다');
     fireEvent.click(within(alert).getByRole('button', { name: '초기화' }));
@@ -393,13 +383,13 @@ describe('AuditTrail filter model (ADR-0105, #1217 e2)', () => {
   });
 
   it('a well-formed unknown type is queried as written', async () => {
-    const f = renderAudit('/admin/audit?type=Future.Type%3Av2&targetId=abc');
+    const f = renderAudit('/admin/audit?filter=targetType:equals:Future.Type:v2&filter=targetId:equals:abc');
     await waitFor(() => expect(f.calls[0]).toMatchObject({ type: 'Future.Type:v2', targetId: 'abc' }));
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
-  it('a malformed old type alerts and never issues an All query', () => {
-    const f = renderAudit('/admin/audit?type=bad%20type');
+  it('a malformed type alerts and never issues an All query', () => {
+    const f = renderAudit('/admin/audit?filter=targetType:equals:bad type');
     expect(screen.getByRole('alert')).toBeTruthy();
     expect(f.calls).toHaveLength(0);
   });
@@ -412,7 +402,7 @@ describe('AuditTrail filter model (ADR-0105, #1217 e2)', () => {
     Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, get() { return (this as Element).getAttribute('role') === 'row' ? 32 : 420; } });
     Object.defineProperty(HTMLElement.prototype, 'offsetWidth', { configurable: true, get() { return 800; } });
     try {
-      const f = renderAudit(`/admin/audit?${new URLSearchParams({ type: 'equipment', source: 'user' })}`, [EVENT]);
+      const f = renderAudit('/admin/audit?filter=targetType:equals:equipment&filter=source:in:user', [EVENT]);
       const table = await screen.findByRole('table', { name: '변경 감사 목록' });
       // Rows arrive after the table mounts (loading state); wait for them before reading cells synchronously.
       await within(table).findByText('MEM-ETCH-0101');
@@ -423,9 +413,9 @@ describe('AuditTrail filter model (ADR-0105, #1217 e2)', () => {
       // The column header joins the page language.
       expect(within(table).getByRole('columnheader', { name: '대상 ID' })).toBeTruthy();
       expect(within(table).queryByText('equipment')).toBeNull();
-      // The adapter call keeps the raw filter values; the old keys are rewritten away.
+      // The adapter call keeps the raw filter values; the hidden filter key leaves the address.
       expect(f.calls[0]).toMatchObject({ type: 'equipment', source: 'user' });
-      await waitFor(() => expect(new URLSearchParams(window.location.search).has('type')).toBe(false));
+      await waitFor(() => expect(new URLSearchParams(window.location.search).has('filter')).toBe(false));
     } finally {
       if (originalOffsetHeight) Object.defineProperty(HTMLElement.prototype, 'offsetHeight', originalOffsetHeight);
       if (originalOffsetWidth) Object.defineProperty(HTMLElement.prototype, 'offsetWidth', originalOffsetWidth);

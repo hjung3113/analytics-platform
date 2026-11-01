@@ -10,8 +10,8 @@ import { manifests } from '../index';
 import EquipmentMaster from './EquipmentMaster';
 import { groupId, menuPermission, spaceId, type ApiResponse, type MenuQuery } from '@ap/contracts';
 
-// ADR-0105 page wiring: 상태/Maker/column conditions are one hidden `filter` key; `status=`/`maker=` links convert and are rewritten away;
-// `q` is the toolbar search (draft + Enter); the page query carries `q` + the table's `filters` and no `status`/`maker`.
+// ADR-0105 page wiring: 상태/Maker/column conditions are one hidden `filter` key;
+// `q` is the toolbar search (draft + Enter); the page query carries `q` + the table's `filters`.
 const registry = createRegistry({
   permissions: [menuPermission('equipment:view')],
   spaces: [{ id: spaceId('mars'), label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, permission: menuPermission('equipment:view'), homeMenuId: 'equipment-master' }],
@@ -55,16 +55,18 @@ describe('EquipmentMaster filter model (ADR-0105)', () => {
     expect(alert.textContent).not.toContain('정렬·페이지');
   });
 
-  it('converts an old ?status=&maker= link into filter conditions, sends them in `filters` and drops the old params', async () => {
-    mount('&status=active&maker=TEL');
-    await vi.waitFor(() => expect(lastPageParams().filters).toEqual([{ id: 'status', op: 'in', value: ['active'] }, { id: 'maker', op: 'in', value: ['TEL'] }]), { timeout: 8000 });
-    expect(Object.keys(lastPageParams())).not.toContain('status');
-    expect(Object.keys(lastPageParams())).not.toContain('maker');
-    // The aliases are rewritten away and the conditions are hidden page state: neither shows in the address.
-    await vi.waitFor(() => expect(new URLSearchParams(window.location.search).has('status')).toBe(false));
-    const address = new URLSearchParams(window.location.search);
-    expect(address.has('maker')).toBe(false);
-    expect(address.has('filter')).toBe(false);
+  // The old single keys left with the alias release (#1217 follow-up): `status=`/`maker=` are now unregistered extras,
+  // ignored exactly like any unknown key — no condition, no warning, no rewrite; the pair stays in the address.
+  it.each([
+    ['old status key', 'status', 'active'],
+    ['old maker key', 'maker', 'TEL'],
+    ['never-registered key', 'zz', '1'],
+  ])('%s is ignored like any unknown key', async (_name, key, value) => {
+    mount(`&${key}=${value}`);
+    await vi.waitFor(() => expect(pageQueries().length).toBeGreaterThan(0), { timeout: 8000 });
+    expect(lastPageParams()).not.toHaveProperty('filters');
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(new URLSearchParams(window.location.search).get(key)).toBe(value);
   });
 
   it('reads a shared ?filter= link: conditions reach the server and leave the address', async () => {

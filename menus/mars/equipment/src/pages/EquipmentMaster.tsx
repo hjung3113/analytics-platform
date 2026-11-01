@@ -6,7 +6,7 @@ import { PanelRight } from 'lucide-react';
 import { DetailDrawer, RowAction, ManagementLayout, type PlatformColumn, PlatformDataTable, PlatformPage, TableUrlWarning, useTableUrlState } from '@ap/components';
 import { Button } from '@ap/ui';
 import { EquipmentPanel, EquipmentStatus } from './EquipmentDetail';
-import { columnFilter, exportFilterSummary, exportParams, fields, filterSpecs, legacyFilterKeys, pinnedFilterKeys, sortFields, statusText } from './data';
+import { columnFilter, exportFilterSummary, exportParams, fields, filterSpecs, pinnedFilterKeys, sortFields, statusText } from './data';
 import { QuickSearch } from './QuickSearch';
 
 const NO_PARAMS = {} as const;
@@ -22,10 +22,10 @@ export default function EquipmentMaster() {
   const validTab = ['attributes', 'validity', 'audit'].includes(drawerTab);
   // §13: the fullscreen link carries the viewed tab when the destination knows it; the default tab stays off the URL.
   const detailPage = validTab && drawerTab !== 'attributes' ? { tab: drawerTab } : undefined;
-  // ADR-0105: every condition (상태, Maker, the column filters) is one hidden repeated page key `filter`; `status`/`maker` links are read for one release and rewritten.
+  // ADR-0105: every condition (상태, Maker, the column filters) is one hidden repeated page key `filter`.
   // The URL codec does not check enum values against options, so the parse specs need no Maker options (they come from the makers endpoint below).
   const urlFilters = useMemo(() => ({
-    key: 'filter', specs: filterSpecs([], lang), legacy: legacyFilterKeys,
+    key: 'filter', specs: filterSpecs([], lang),
     labels: Object.fromEntries(fields.map(f => [f.key, f[lang]])),
   }), [lang]);
   const { urlState: tableUrlState, invalid: tableInvalid, sentences: invalidTableSentences, recoverKeys, cause } = useTableUrlState(sortFields, { filters: urlFilters });
@@ -55,7 +55,7 @@ export default function EquipmentMaster() {
     // #556d: rows can be grouped by line (a column filter, not a page filter); the export stays flat rows.
     groupable: f.key === 'line',
   })), [lang, makerOptions]);
-  // One clear for the search and every condition: one `setPage`, back to page 1 (`status`/`maker` aliases are rewritten away already).
+  // One clear for the search and every condition: one `setPage`, back to page 1.
   const clearButton = q || conditions.length > 0
     ? <Button type="button" size="sm" variant="secondary" onClick={() => setPage({ q: null, filter: null, page: null })}>{t('clearFilters')}</Button>
     : null;

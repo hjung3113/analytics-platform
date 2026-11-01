@@ -21,7 +21,7 @@ const masterMenu: MenuMeta = {
   context: { ...none, time: 'reference', roomNames: 'apply', condition: 'apply', selection: 'apply' },
   pageType: 'management',
   features: { export: true, savedView: false, annotate: false, compare: false },
-  pageKeys: ['q', 'filter', 'status', 'maker', 'focus', 'sort', 'page', 'tab'],
+  pageKeys: ['q', 'filter', 'focus', 'sort', 'page', 'tab'],
   repeatedPageKeys: ['filter'],
   hiddenPageKeys: ['filter'],
 };
