@@ -10,7 +10,7 @@ import { Button, cn, Input, Popover, PopoverContent, PopoverTrigger } from '@ap/
 import { describeFilter } from './columnFilters';
 import type { FilterLimit } from './columnFilters';
 import { FilterEditorContent, FilterEditorForm } from './filterEditor';
-import { pinnedInRank, unmetRequirement, type ResolvedFilterField } from './filterFields';
+import { pinnedInRank, pruneUnmet, requiresIssue, unmetRequirement, type ResolvedFilterField } from './filterFields';
 
 type Lang = 'ko' | 'en';
 type Apply = (id: string, next: ColumnFilter | null) => void;
@@ -22,7 +22,7 @@ const slotFocus = 'focus-visible:outline-hidden focus-visible:ring-2 focus-visib
 
 /** Chip text: a set reads 「필드: 값, 값」, everything else 「필드 연산자 값」 (R2 captions). */
 function ChipText({ field, filter, lang }: { field: ResolvedFilterField; filter: ColumnFilter; lang: Lang }) {
-  const value = describeFilter(filter, field.spec, lang);
+  const value = describeFilter(filter, field.spec, lang, field.entry);
   return <>
     <span className="text-text-secondary">{field.label}{filter.op === 'in' ? ':' : ''}</span>{' '}
     <span className="font-medium text-text-primary">{value}</span>
@@ -83,7 +83,7 @@ function AddFilter({ fields, filters, lang, onApply, limit, check }: { fields: r
     </PopoverTrigger>
     {open && <PopoverContent align="start" className={field ? 'w-80' : 'w-72'} aria-labelledby={field ? editTitle : pickTitle}>
       {field
-        ? <FilterEditorForm field={field} active={filters.find(f => f.id === field.id)} lang={lang} titleId={editTitle} limit={next => limit(field.id, next)} check={check} onApply={next => { setOpen(false); setChosen(null); onApply(field.id, next); }} />
+        ? <FilterEditorForm field={field} active={filters.find(f => f.id === field.id)} lang={lang} titleId={editTitle} limit={next => limit(field.id, next)} check={fieldCheck(field, filters, fields, check)} onApply={next => { setOpen(false); setChosen(null); onApply(field.id, next); }} />
         : <div ref={list} className="space-y-2" onKeyDown={move}>
           <p id={pickTitle} className="t-card-title">{ko ? '필터 추가' : 'Add filter'}</p>
           {fields.length > SEARCH_FROM && <Input autoFocus type="search" aria-label={ko ? '필드 찾기' : 'Find field'} placeholder={ko ? '필드 찾기' : 'Find field'} value={query} onChange={e => setQuery(e.target.value)} />}
@@ -97,7 +97,7 @@ function AddFilter({ fields, filters, lang, onApply, limit, check }: { fields: r
                 onClick={() => { if (missing === null) setChosen(f.id); }}>
                 <span className="min-w-0 flex-1 truncate">{f.label}</span>
                 {missing !== null && <span className="text-text-muted">{ko ? `먼저 ${missing} 조건이 필요합니다` : `Needs ${missing} first`}</span>}
-                {current && <><Check className="size-3 shrink-0" aria-hidden /><span className="max-w-24 truncate text-text-secondary">{describeFilter(current, f.spec, lang)}</span></>}
+                {current && <><Check className="size-3 shrink-0" aria-hidden /><span className="max-w-24 truncate text-text-secondary">{describeFilter(current, f.spec, lang, f.entry)}</span></>}
               </button>;
             })}
           </div>)}
@@ -105,6 +105,11 @@ function AddFilter({ fields, filters, lang, onApply, limit, check }: { fields: r
         </div>}
     </PopoverContent>}
   </Popover>;
+}
+
+/** The editor check of one field: the missing `requires` condition first, then the page's value check. */
+export function fieldCheck(field: ResolvedFilterField, filters: readonly ColumnFilter[], all: readonly ResolvedFilterField[], check?: ValueCheck): ValueCheck {
+  return next => requiresIssue(field, filters, all) ?? check?.(next) ?? null;
 }
 
 export function FilterLine({ fields, filters, lang, onApply, onClear, limit, check }: {
@@ -120,18 +125,23 @@ export function FilterLine({ fields, filters, lang, onApply, onClear, limit, che
     const timer = setTimeout(() => { root.current?.querySelector<HTMLElement>(refocus)?.focus(); setRefocus(null); }, 0);
     return () => clearTimeout(timer);
   }, [refocus]);
+  const [dropped, setDropped] = useState<string[]>([]);
   const change = (field: ResolvedFilterField, next: ColumnFilter | null) => {
     const wasActive = filters.some(f => f.id === field.id);
+    // Removing a condition other conditions require removes those too (`pruneUnmet`): say so instead of letting chips vanish.
+    const left = pruneUnmet(filters.filter(f => f.id !== field.id), fields);
+    setDropped(next === null ? filters.filter(f => f.id !== field.id && !left.some(g => g.id === f.id)).map(f => fields.find(x => x.id === f.id)?.label ?? f.id) : []);
     onApply(field.id, next);
     if (next === null && wasActive) setRefocus(field.pinned ? `[data-filter-body="${field.id}"]` : '[data-filter-add]');
   };
   const pinned = pinnedInRank(fields);
   const others = filters.flatMap(f => { const field = fields.find(x => x.id === f.id); return field && !field.pinned ? [{ field, filter: f }] : []; });
   return <div ref={root} role="group" aria-label={ko ? '필터' : 'Filters'} data-filter-line className="flex min-w-0 flex-wrap items-center gap-2 text-xs">
-    {pinned.map(f => <FieldSlot key={f.id} field={f} active={filters.find(c => c.id === f.id)} lang={lang} onApply={next => change(f, next)} onRemove={() => change(f, null)} limit={limit} check={check} />)}
-    {others.map(({ field, filter }) => <FieldSlot key={field.id} field={field} active={filter} lang={lang} onApply={next => change(field, next)} onRemove={() => change(field, null)} limit={limit} check={check} />)}
+    {pinned.map(f => <FieldSlot key={f.id} field={f} active={filters.find(c => c.id === f.id)} lang={lang} onApply={next => change(f, next)} onRemove={() => change(f, null)} limit={limit} check={fieldCheck(f, filters, fields, check)} />)}
+    {others.map(({ field, filter }) => <FieldSlot key={field.id} field={field} active={filter} lang={lang} onApply={next => change(field, next)} onRemove={() => change(field, null)} limit={limit} check={fieldCheck(field, filters, fields, check)} />)}
     <AddFilter fields={fields} filters={filters} lang={lang} limit={limit} check={check} onApply={(id, next) => change(fields.find(f => f.id === id)!, next)} />
-    {filters.length > 0 && <Button type="button" variant="ghost" size="toolbar" className="h-6" onClick={() => { onClear(); setRefocus('[data-filter-add]'); }}>{ko ? '모두 지우기' : 'Clear all'}</Button>}
+    <span role="status" data-filter-dropped className={dropped.length > 0 ? 'text-text-muted' : 'sr-only'}>{dropped.length > 0 ? (ko ? `${dropped.join(', ')} 조건도 함께 지웠습니다 (먼저 필요한 조건이 없어져서).` : `Also cleared ${dropped.join(', ')} (it needed the condition just cleared).`) : ''}</span>
+    {filters.length > 0 && <Button type="button" variant="ghost" size="toolbar" className="h-6" onClick={() => { onClear(); setDropped([]); setRefocus('[data-filter-add]'); }}>{ko ? '모두 지우기' : 'Clear all'}</Button>}
   </div>;
 }
 

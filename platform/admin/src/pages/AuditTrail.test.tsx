@@ -214,6 +214,25 @@ describe('AuditTrail filter model (ADR-0105, #1217 e2)', () => {
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
+  it('an old seconds window shows both ends to the second on the chip, under a Seoul viewer and a New York process zone', async () => {
+    const f = renderAudit(`/admin/audit?${new URLSearchParams({ fromAt: '2026-09-24T00:00:05Z', toAt: '2026-09-24T00:00:10Z' })}`);
+    await waitFor(() => expect(f.calls).toHaveLength(1));
+    await waitFor(() => expect(chip('at')).toBeTruthy());
+    expect(chip('at')!.textContent).toContain('26. 9. 24. 오전 9:00:05 ~ 26. 9. 24. 오전 9:00:10');
+  });
+
+  it('대상 ID applied without 대상 유형 stays in the editor with the reason and the typed value; nothing is queried or dropped', async () => {
+    const f = renderAudit('/admin/audit');
+    await waitFor(() => expect(f.calls).toHaveLength(1));
+    fireEvent.click(screen.getByRole('button', { name: '대상 ID 필터' }));
+    const dialog = await screen.findByRole('dialog', { name: '대상 ID' });
+    fireEvent.change(within(dialog).getByRole('textbox', { name: '값' }), { target: { value: 'cycle_time' } });
+    expect((await within(dialog).findByRole('alert')).textContent).toBe('대상 ID는 대상 유형과 함께 있어야 합니다.');
+    expect((within(dialog).getByRole('button', { name: '적용' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((within(dialog).getByRole('textbox', { name: '값' }) as HTMLInputElement).value).toBe('cycle_time');
+    expect(f.calls).toHaveLength(1);
+  });
+
   it('a one-sided old fromAt link is an open range', async () => {
     const f = renderAudit(`/admin/audit?${new URLSearchParams({ fromAt: FROM })}`);
     await waitFor(() => expect(f.calls).toHaveLength(1));

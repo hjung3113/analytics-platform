@@ -27,4 +27,11 @@ describe('filterInfoRows (XLSX 조회 정보, ADR-0105)', () => {
       expect(FILTER_OP_LABELS[op].en).not.toBe('');
     }
   });
+
+  it('prints an instant bound with the field entry: seconds and zone; without entry the minute form in the viewer zone', () => {
+    const filters: ColumnFilter[] = [{ id: 'at', op: 'between', value: { from: '2026-09-24T00:00:05Z', to: '2026-09-24T00:00:10Z' } }];
+    const spec: ColumnFilterSpec = { kind: 'instant' };
+    expect(filterInfoRows(filters, [{ id: 'at', label: '시각', filter: spec, entry: { timeZone: 'Asia/Seoul', precision: 'second' } }], 'ko')[0]![1]).toBe('26. 9. 24. 오전 9:00:05 ~ 26. 9. 24. 오전 9:00:10');
+    expect(filterInfoRows(filters, [{ id: 'at', label: '시각', filter: spec, entry: { timeZone: 'Asia/Seoul' } }], 'ko')[0]![1]).toBe('26. 9. 24. 오전 9:00 ~ 26. 9. 24. 오전 9:00');
+  });
 });

@@ -23,7 +23,7 @@ import { usePagedRows } from './usePagedRows';
 import { useColumnFilters } from './columnFilters';
 import { resolveFilterFields, type InstantEntry, type TableFilterField } from './filterFields';
 import type { FilterValueCheck } from './tableFilterUrl';
-import { FilterLine, HeaderFunnel } from './filterLine';
+import { FilterLine, HeaderFunnel, fieldCheck } from './filterLine';
 import { useTableTransfer } from './useTableTransfer';
 import { useTableSelection, type TableExportRequest, type TableSelection } from './useTableSelection';
 import { SelectAllBar } from './selectAllBar';
@@ -704,7 +704,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
                   : <span className="min-w-0 truncate">{flexRender(h.column.columnDef.header, h.getContext())}</span>}
                 {(() => {
                   const field = filterFields.find(f => f.origin === 'column' && f.id === h.column.id);
-                  return field ? <HeaderFunnel field={field} lang={lang} limit={columnFilters.limit} check={p.urlState?.validate} active={columnFilters.filters.find(f => f.id === field.id)} onApply={next => columnFilters.apply(field.id, next)} /> : null;
+                  return field ? <HeaderFunnel field={field} lang={lang} limit={columnFilters.limit} check={fieldCheck(field, columnFilters.filters, filterFields, p.urlState?.validate)} active={columnFilters.filters.find(f => f.id === field.id)} onApply={next => columnFilters.apply(field.id, next)} /> : null;
                 })()}
                 {/* #239: an always-visible 1px divider with an 8px grab area; double-click restores the default width. */}
                 {h.column.getCanResize() && <div aria-hidden data-column-resizer onMouseDown={startResize(h)} onTouchStart={startResize(h)} onDoubleClick={event => { event.preventDefault(); h.column.resetSize(); }} className="group/resize absolute right-0 top-0 flex h-full w-2 cursor-col-resize touch-none justify-end">

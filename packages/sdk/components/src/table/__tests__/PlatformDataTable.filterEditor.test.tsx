@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
-import { groupId, spaceId, type ApiResponse, type ColumnFilter, type TableQuery } from '@ap/contracts';
+import { formatInstant, groupId, spaceId, type ApiResponse, type ColumnFilter, type TableQuery } from '@ap/contracts';
 import { PlatformDataTable, type PageResult, type PlatformColumn, type TableFilterField, type TableUrlState } from '../PlatformDataTable';
 import { pruneUnmet, resolveFilterFields } from '../filterFields';
 import type { FilterValueCheck } from '../tableFilterUrl';
@@ -528,5 +528,70 @@ describe('filter editor fix round 1', () => {
     fireEvent.click(await screen.findByRole('checkbox', { name: '대기' }));
     fireEvent.click(screen.getByRole('button', { name: '적용' }));
     await waitFor(() => expect(document.activeElement).toBe(view.container.querySelector('[data-column-filter-chip="status"] [data-filter-body]')));
+  });
+});
+
+// Fix round 2: UX-1 (instant entry on the chip) and UX-2 (a missing `requires` condition is explained, never dropped).
+describe('filter editor fix round 2', () => {
+  function Owner({ initial = [], onChange, cols }: { initial?: ColumnFilter[]; onChange: (next: ColumnFilter[]) => void; cols?: PlatformColumn<Row>[] }) {
+    const [filters, setFilters] = useState<ColumnFilter[]>(initial);
+    const urlState: TableUrlState = { page: null, sorting: [], filters, onChange: next => { if (next.filters) { onChange(next.filters); setFilters(next.filters); } } };
+    return <Harness columns={cols} filterFields={pinnedFields} loadPage={makeLoad()} urlState={urlState} />;
+  }
+  const pinnedFields: TableFilterField[] = [
+    { id: 'kind', label: { ko: '대상 유형', en: 'Target type' }, spec: { kind: 'text', ops: ['equals'] }, pinned: 1 },
+    { id: 'target', label: { ko: '대상 ID', en: 'Target ID' }, spec: { kind: 'text', ops: ['equals'], requires: ['kind'] }, pinned: 2 },
+  ];
+  const body = (view: { container: HTMLElement }, id: string) => view.container.querySelector<HTMLElement>(`[data-filter-body="${id}"]`)!;
+
+  it('UX-2: 대상 ID without 대상 유형 keeps the value, names the missing field, disables 적용 and writes nothing; with 대상 유형 it applies', async () => {
+    const onChange = vi.fn();
+    const view = render(<Owner onChange={onChange} />);
+    await ready();
+    fireEvent.click(body(view, 'target'));
+    const input = await screen.findByLabelText('값');
+    fireEvent.change(input, { target: { value: 'cycle_time' } });
+    expect((await screen.findByRole('alert')).textContent).toBe('대상 ID는 대상 유형과 함께 있어야 합니다.');
+    expect((screen.getByRole('button', { name: '적용' }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.submit(input.closest('form')!);
+    expect(onChange).not.toHaveBeenCalled();
+    expect((screen.getByLabelText('값') as HTMLInputElement).value).toBe('cycle_time');
+  });
+
+  it('UX-2: with 대상 유형 already applied, 대상 ID applies', async () => {
+    const onChange = vi.fn();
+    const view = render(<Owner onChange={onChange} initial={[{ id: 'kind', op: 'equals', value: 'metric' }]} />);
+    await ready();
+    fireEvent.click(body(view, 'target'));
+    fireEvent.change(await screen.findByLabelText('값'), { target: { value: 'cycle_time' } });
+    expect(screen.queryByRole('alert')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: '적용' }));
+    expect(onChange).toHaveBeenLastCalledWith([{ id: 'kind', op: 'equals', value: 'metric' }, { id: 'target', op: 'equals', value: 'cycle_time' }]);
+  });
+
+  it('UX-2: removing 대상 유형 while 대상 ID exists removes both and says so (the chip never vanishes silently)', async () => {
+    const onChange = vi.fn();
+    const view = render(<Owner onChange={onChange} initial={[{ id: 'kind', op: 'equals', value: 'metric' }, { id: 'target', op: 'equals', value: 'cycle_time' }]} />);
+    await ready();
+    fireEvent.click(view.container.querySelector('[data-filter-remove="kind"]')!);
+    expect(onChange).toHaveBeenLastCalledWith([]);
+    await waitFor(() => expect(view.container.querySelector('[data-filter-dropped]')!.textContent).toContain('대상 ID 조건도 함께 지웠습니다'));
+  });
+
+  it('UX-1: an instant chip with second precision shows both ends to the second in the entry zone; without entry it is unchanged', async () => {
+    const at = (entry?: PlatformColumn<Row>['filterEntry']): PlatformColumn<Row>[] => [{ id: 'at', header: '시각', filter: { kind: 'instant' }, ...(entry ? { filterEntry: entry } : {}), value: () => '-' }];
+    const initial: ColumnFilter[] = [{ id: 'at', op: 'between', value: { from: '2026-09-24T00:00:05Z', to: '2026-09-24T00:00:10Z' } }];
+    const chipText = (view: { container: HTMLElement }) => view.container.querySelector('[data-column-filter-chip="at"]')!.textContent!;
+    const withSeconds = render(<Owner cols={at({ timeZone: 'Asia/Seoul', precision: 'second' })} initial={initial} onChange={vi.fn()} />);
+    await ready();
+    expect(chipText(withSeconds)).toContain('26. 9. 24. 오전 9:00:05 ~ 26. 9. 24. 오전 9:00:10');
+    withSeconds.unmount();
+    const minute = render(<Owner cols={at({ timeZone: 'Asia/Seoul' })} initial={initial} onChange={vi.fn()} />);
+    await ready();
+    expect(chipText(minute)).toContain('26. 9. 24. 오전 9:00 ~ 26. 9. 24. 오전 9:00');
+    minute.unmount();
+    const bare = render(<Owner cols={at()} initial={initial} onChange={vi.fn()} />);
+    await ready();
+    expect(chipText(bare)).toContain(`${formatInstant('2026-09-24T00:00:05Z', 'ko')} ~ ${formatInstant('2026-09-24T00:00:10Z', 'ko')}`);
   });
 });

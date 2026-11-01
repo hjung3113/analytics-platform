@@ -1,4 +1,5 @@
 import type { ColumnFilter, ColumnFilterSpec, Text } from '@ap/contracts';
+import { topicParticle } from '@ap/kernel';
 import type { PlatformColumn } from './PlatformDataTable';
 
 /**
@@ -43,6 +44,18 @@ export function resolveFilterFields<T>(columns: readonly PlatformColumn<T>[], fi
 export function unmetRequirement(field: ResolvedFilterField, filters: readonly ColumnFilter[], all: readonly ResolvedFilterField[]): string | null {
   const missing = (field.spec.requires ?? []).find(id => !filters.some(f => f.id === id));
   return missing === undefined ? null : (all.find(f => f.id === missing)?.label ?? missing);
+}
+
+/** Korean 와/과 by the final consonant of the last character; anything that is not a Hangul syllable takes 와. */
+const withParticle = (name: string): '와' | '과' => {
+  const code = name.charCodeAt(name.length - 1);
+  return code >= 0xac00 && code <= 0xd7a3 && (code - 0xac00) % 28 !== 0 ? '과' : '와';
+};
+
+/** The editor's refusal while a field's `requires` condition is missing (「대상 ID는 대상 유형과 함께 있어야 합니다.」), or `null`. The condition is never applied and silently pruned. */
+export function requiresIssue(field: ResolvedFilterField, filters: readonly ColumnFilter[], all: readonly ResolvedFilterField[]): Text | null {
+  const need = unmetRequirement(field, filters, all);
+  return need === null ? null : { ko: `${field.label}${topicParticle(field.label)} ${need}${withParticle(need)} 함께 있어야 합니다.`, en: `${field.label} needs the ${need} condition to be set too.` };
 }
 
 /** The conditions left after a change: any condition whose `requires` field lost its condition goes too (transitively). */
