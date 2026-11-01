@@ -1,6 +1,7 @@
 import { createContext, useContext } from 'react';
 
 /** Visual page spacing only; independent of width-based workspace admission and persistence. Internal. */
+// The provider-less default stays comfortable: #1217 flipped the PlatformPage default to compact, and surfaces outside a page (e.g. the board context bar) keep their spacing.
 const PageDensityContext = createContext<'comfortable' | 'compact'>('comfortable');
 export const PageDensityProvider = PageDensityContext.Provider;
 export const useCompactPageDensity = () => useContext(PageDensityContext) === 'compact';

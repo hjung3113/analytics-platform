@@ -11,7 +11,7 @@ import { legacyBoard as boardOf, legacySheet as sheet, seedLegacy as seed } from
 // RouteOutlet loads the board lazily (#821); evaluate it up front so the board itself is not what suspends.
 import '../BoardHost';
 
-// #1166: the pane owns the border, so a table inside draws none of its own at the default (comfortable) density, with its title still visible.
+// #1166: the pane owns the border, so a table inside draws none of its own at the page default density (compact since #1217), with its title still visible.
 const features = { export: false, savedView: false, annotate: false, compare: false, board: true };
 const apply = { ...noContext, time: 'apply' as const };
 const entry = (id: string, path: string, over: Record<string, unknown>) => ({
