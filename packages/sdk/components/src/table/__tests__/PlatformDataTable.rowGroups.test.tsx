@@ -73,21 +73,28 @@ function Harness(props: { loadPage: (q: TableQuery, s: AbortSignal) => Promise<A
   </PlatformProvider></I18nProvider>;
 }
 const lastQuery = (fn: ReturnType<typeof makeLoad>) => fn.mock.calls.at(-1)![0];
-const groupSelect = () => screen.getByRole('combobox', { name: '그룹' }) as HTMLSelectElement;
-const choose = (id: string) => fireEvent.change(groupSelect(), { target: { value: id } });
+// 1217c: the native select became a menu button 「그룹: 없음 ▾」 over a radio list.
+const groupButton = () => screen.getByRole('button', { name: /^그룹: / });
+const choose = async (id: string) => {
+  const user = userEvent.setup();
+  await user.click(groupButton());
+  await user.click(await screen.findByRole('menuitemradio', { name: id === '' ? '그룹 없음' : '라인' }));
+};
 const headerRows = (c: HTMLElement) => [...c.querySelectorAll('[data-group-row]')] as HTMLElement[];
 
 describe('PlatformDataTable row groups (#556d)', () => {
   it('offers 「그룹」 only with a groupable column; a table without one renders as before (rowcount, no group UI)', async () => {
     const plain = render(<Harness loadPage={makeLoad()} columns={plainColumns} />);
     await screen.findByText(/1\/1/);
-    expect(screen.queryByRole('combobox', { name: '그룹' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^그룹: / })).toBeNull();
     expect(plain.container.querySelector('[role="table"]')!.getAttribute('aria-rowcount')).toBe('7');
     plain.unmount();
     render(<Harness loadPage={makeLoad()} />);
     await screen.findByText(/1\/1/);
-    expect(groupSelect().value).toBe('');
-    expect([...groupSelect().options].map(o => o.text)).toEqual(['그룹 없음', '라인']);
+    const user = userEvent.setup();
+    expect(groupButton()).toHaveTextContent('그룹: 없음');
+    await user.click(groupButton());
+    expect((await screen.findAllByRole('menuitemradio')).map(o => o.textContent)).toEqual(['그룹 없음', '라인']);
   });
 
   it('choosing a group sends groupBy (absent for 「그룹 없음」); the flat table has no header rows', async () => {
@@ -96,10 +103,10 @@ describe('PlatformDataTable row groups (#556d)', () => {
     await screen.findByText(/1\/1/);
     expect(lastQuery(load)).not.toHaveProperty('groupBy');
     expect(Object.keys(lastQuery(load)).sort()).toEqual(['page', 'pageSize', 'sorting']);
-    choose('line');
+    await choose('line');
     await waitFor(() => expect(lastQuery(load).groupBy).toBe('line'));
     await waitFor(() => expect(headerRows(view.container)).toHaveLength(3));
-    choose('');
+    await choose('');
     await waitFor(() => expect(lastQuery(load)).not.toHaveProperty('groupBy'));
     await waitFor(() => expect(headerRows(view.container)).toHaveLength(0));
   });
@@ -107,7 +114,7 @@ describe('PlatformDataTable row groups (#556d)', () => {
   it('header rows show label, result-wide count and subtotals labelled as whole-result; rowcount is -1 and rowindex follows rendered order', async () => {
     const view = render(<Harness loadPage={makeLoad()} />);
     await screen.findByText(/1\/1/);
-    choose('line');
+    await choose('line');
     await waitFor(() => expect(headerRows(view.container)).toHaveLength(3));
     const [a, b, none] = headerRows(view.container);
     expect(a.textContent).toContain('A');
@@ -129,7 +136,7 @@ describe('PlatformDataTable row groups (#556d)', () => {
     const load = makeLoad();
     const view = render(<Harness loadPage={load} pageSize={4} />);
     await screen.findByText(/1\/2/);
-    choose('line');
+    await choose('line');
     await waitFor(() => expect(headerRows(view.container).length).toBeGreaterThan(0));
     expect(view.container.textContent).not.toContain('(이어서)');
     fireEvent.click(screen.getByRole('button', { name: '다음' }));
@@ -149,7 +156,7 @@ describe('PlatformDataTable row groups (#556d)', () => {
     });
     const no = render(<Harness loadPage={unflagged} pageSize={2} />);
     await screen.findByText(/1\/3/);
-    choose('line');
+    await choose('line');
     await waitFor(() => expect(headerRows(no.container).length).toBeGreaterThan(0));
     fireEvent.click(screen.getByRole('button', { name: '다음' }));
     await waitFor(() => expect(no.container.querySelector('[data-group-row="A"]')).toBeTruthy());
@@ -161,7 +168,7 @@ describe('PlatformDataTable row groups (#556d)', () => {
       return ok({ rows: out.rows, total: out.total, groups: out.groups.map(g => g.key === 'A' ? { ...g, continued: true } : g) });
     })} pageSize={2} />);
     await screen.findByText(/1\/3/);
-    choose('line');
+    await choose('line');
     await waitFor(() => expect(yes.container.querySelector('[data-group-row="A"]')!.textContent).toContain('(이어서)'));
   });
 
@@ -169,7 +176,7 @@ describe('PlatformDataTable row groups (#556d)', () => {
     storage.setItem('test-row-groups', JSON.stringify({ sizing: {}, visibility: {}, pinning: { left: ['qty'], right: [] } }));
     const pinned = render(<Harness loadPage={makeLoad()} selectable />);
     await screen.findByText(/1\/1/);
-    choose('line');
+    await choose('line');
     await waitFor(() => expect(headerRows(pinned.container)).toHaveLength(3));
     const [pa, pb] = headerRows(pinned.container);
     expect((pinned.container.querySelector('[role="columnheader"][data-column="qty"]') as HTMLElement).style.position).toBe('sticky'); // the preference took effect
@@ -180,7 +187,7 @@ describe('PlatformDataTable row groups (#556d)', () => {
     const reordered: PlatformColumn<Row>[] = [{ id: 'qty', header: '수량', align: 'right', subtotal: true }, { id: 'line', header: '라인', groupable: true }];
     const first = render(<Harness loadPage={makeLoad()} columns={reordered} preferenceKey="test-row-groups-first" />);
     await screen.findByText(/1\/1/);
-    choose('line');
+    await choose('line');
     await waitFor(() => expect(headerRows(first.container)).toHaveLength(3));
     const [a, b] = headerRows(first.container);
     const totalA = a.querySelector('[data-column="qty"][data-group-subtotal]')!;
@@ -195,7 +202,7 @@ describe('PlatformDataTable row groups (#556d)', () => {
     // (a) nothing pinned: offset 0
     const plain = render(<Harness loadPage={makeLoad()} />);
     await screen.findByText(/1\/1/);
-    choose('line');
+    await choose('line');
     await waitFor(() => expect(headerRows(plain.container)).toHaveLength(3));
     expect(leftOf(headerRows(plain.container)[0]).position).toBe('sticky');
     expect(leftOf(headerRows(plain.container)[0]).left).toBe('0px');
@@ -206,7 +213,7 @@ describe('PlatformDataTable row groups (#556d)', () => {
     storage.setItem('test-row-groups', JSON.stringify({ sizing: {}, visibility: {}, pinning: { left: ['qty'], right: [] } }));
     const pinned = render(<Harness loadPage={makeLoad()} />);
     await screen.findByText(/1\/1/);
-    choose('line');
+    await choose('line');
     await waitFor(() => expect(headerRows(pinned.container)).toHaveLength(3));
     const widthB = pinnedWidth(pinned.container);
     expect(widthB).toBeGreaterThan(0);
@@ -216,7 +223,7 @@ describe('PlatformDataTable row groups (#556d)', () => {
     storage = memoryStorage(); vi.stubGlobal('localStorage', storage);
     const sel = render(<Harness loadPage={makeLoad()} selectable />);
     await screen.findByText(/1\/1/);
-    choose('line');
+    await choose('line');
     await waitFor(() => expect(headerRows(sel.container)).toHaveLength(3));
     const widthC = pinnedWidth(sel.container);
     const selectHeader = sel.container.querySelector('[role="columnheader"][data-column="_select"]') as HTMLElement;
@@ -230,7 +237,7 @@ describe('PlatformDataTable row groups (#556d)', () => {
   it('collapse/expand by keyboard hides only that group\'s rows (aria-expanded + named button)', async () => {
     const view = render(<Harness loadPage={makeLoad()} />);
     await screen.findByText(/1\/1/);
-    choose('line');
+    await choose('line');
     await waitFor(() => expect(headerRows(view.container)).toHaveLength(3));
     const button = screen.getByRole('button', { name: 'A 그룹 접기' });
     expect(button.getAttribute('aria-expanded')).toBe('true');
@@ -251,24 +258,24 @@ describe('PlatformDataTable row groups (#556d)', () => {
     const load = makeLoad();
     const view = render(<Harness loadPage={load} pageSize={4} selectable />);
     await screen.findByText(/1\/2/);
-    choose('line');
+    await choose('line');
     await waitFor(() => expect(headerRows(view.container).length).toBeGreaterThan(0));
     fireEvent.click(screen.getByRole('checkbox', { name: '선택 a1' }));
     fireEvent.click(screen.getByRole('button', { name: 'B 그룹 접기' }));
     fireEvent.click(screen.getByRole('button', { name: '다음' }));
     await waitFor(() => expect(lastQuery(load).page).toBe(1));
-    choose('');
+    await choose('');
     await waitFor(() => expect(lastQuery(load)).toMatchObject({ page: 0 }));
     await waitFor(() => expect(view.container.querySelector('[data-row-id="b1"]')).toBeTruthy());
     expect(screen.getByTestId('selected-count').textContent).toBe('1행 선택');
-    choose('line');
+    await choose('line');
     await waitFor(() => expect(screen.getByRole('button', { name: 'B 그룹 접기' })).toBeTruthy()); // collapse state was reset
   });
 
   it('page selection still covers rows of a collapsed group, and the count says so', async () => {
     const view = render(<Harness loadPage={makeLoad()} selectable />);
     await screen.findByText(/1\/1/);
-    choose('line');
+    await choose('line');
     await waitFor(() => expect(headerRows(view.container)).toHaveLength(3));
     fireEvent.click(screen.getByRole('checkbox', { name: '현재 페이지 전체 선택' }));
     expect(screen.getByTestId('selected-count').textContent).toBe('6행 선택');
@@ -281,7 +288,7 @@ describe('PlatformDataTable row groups (#556d)', () => {
   it('a response without groups renders flat even when a group is chosen (rows as before, rowcount unchanged)', async () => {
     const view = render(<Harness loadPage={makeLoad({ omitGroups: true })} />);
     await screen.findByText(/1\/1/);
-    choose('line');
+    await choose('line');
     await waitFor(() => expect(view.container.querySelector('[data-row-id="a1"]')).toBeTruthy());
     expect(headerRows(view.container)).toHaveLength(0);
     expect(view.container.querySelector('[role="table"]')!.getAttribute('aria-rowcount')).toBe('7');

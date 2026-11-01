@@ -58,18 +58,6 @@ export function groupHeaderLayout<C extends { id: string }>(displayed: readonly 
   return { leading: displayed.slice(0, end), trailing: displayed.slice(end), leadSubtotal: null };
 }
 
-/** Toolbar 「그룹」 select: only built when a groupable column exists (the table decides); 「그룹 없음」 is the default. */
-export function GroupSelect({ lang, value, options, onChange }: { lang: Lang; value: string; options: { id: string; header: string }[]; onChange: (id: string) => void }) {
-  const label = lang === 'ko' ? '그룹' : 'Group by';
-  return <label className="flex items-center gap-1.5 text-xs text-text-secondary">
-    <span>{label}</span>
-    <select aria-label={label} data-row-group-select className="h-8 rounded-md border border-border-control bg-surface-card px-2 text-xs text-text-primary" value={value} onChange={e => onChange(e.target.value)}>
-      <option value="">{lang === 'ko' ? '그룹 없음' : 'No grouping'}</option>
-      {options.map(o => <option key={o.id} value={o.id}>{o.header}</option>)}
-    </select>
-  </label>;
-}
-
 export const groupCountText = (count: number, lang: Lang) => lang === 'ko' ? `${count.toLocaleString()}행 (전체 결과)` : `${count.toLocaleString()} rows (whole result)`;
 export const groupToggleName = (label: string, collapsed: boolean, lang: Lang) =>
   lang === 'ko' ? `${label} 그룹 ${collapsed ? '펼치기' : '접기'}` : `${collapsed ? 'Expand' : 'Collapse'} group ${label}`;

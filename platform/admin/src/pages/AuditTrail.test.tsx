@@ -417,16 +417,19 @@ describe('AuditTrail text filters (issue #50 review)', () => {
     expect(screen.getByRole('textbox', { name: 'Before' })).toBeTruthy();
   });
 
-  it('#1159 UX-4 states the sort and room rule without calling the events synthetic, ko and en', () => {
+  it('#1159 UX-4 states the sort and room rule without calling the events synthetic, ko and en', async () => {
+    // 1217c: the description sits in the ⓘ tooltip of the table toolbar, opened by focus.
     renderAudit('/admin/audit');
-    expect(screen.getByText('기본 정렬은 최신순이며 room 필터를 적용하지 않습니다.')).toBeTruthy();
+    fireEvent.focus(await screen.findByRole('button', { name: '설명' }));
+    expect((await screen.findByRole('tooltip')).textContent).toBe('기본 정렬은 최신순이며 room 필터를 적용하지 않습니다.');
     expect(document.body.textContent).not.toMatch(/합성/);
     cleanup();
     const storage = memoryStorage();
     storage.setItem('platform:lang', 'en');
     vi.stubGlobal('localStorage', storage);
     renderAudit('/admin/audit');
-    expect(screen.getByText('Default sort is newest first; no room filter is applied.')).toBeTruthy();
+    fireEvent.focus(await screen.findByRole('button', { name: 'Description' }));
+    expect((await screen.findByRole('tooltip')).textContent).toBe('Default sort is newest first; no room filter is applied.');
     expect(document.body.textContent).not.toMatch(/Synthetic/i);
   });
 });

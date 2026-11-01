@@ -217,6 +217,19 @@ describe('trust line in a narrow pane (#1166)', () => {
     resize({ statusWidth: 380, probeWidth: 300 }); // narrow again
     expect(screen.queryByText('자세히')).toBeTruthy();
   });
+  it('with a filter line sharing the result line, the trust summary fits against what the filter block leaves (F4)', async () => {
+    const withFilter: PlatformDataTableProps<Row>['columns'] = [{ ...columns[0], filter: { kind: 'text' as const } }, ...columns.slice(1)];
+    restore = stubCompactTableGeometry(800);
+    const w = (target: Element) => (target as HTMLElement).hasAttribute('data-table-status-line') ? 700
+      : (target as HTMLElement).hasAttribute('data-trust-probe') ? 300
+        : target.parentElement?.hasAttribute('data-table-status-line') ? 60 : 800;
+    vi.stubGlobal('ResizeObserver', class { constructor(private cb: ResizeObserverCallback) {} observe(target: Element) { this.cb([{ target, contentRect: { width: w(target), height: 100 } } as ResizeObserverEntry], this as unknown as ResizeObserver); } unobserve() {} disconnect() {} });
+    vi.stubGlobal('localStorage', storage);
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><PlatformDataTable title="T" ariaLabel="table" columns={withFilter} getRowId={r => r.id} loadPage={trusted} filterKey="f" preferenceKey="trust-table-f" pageSize={25} height={200} /></PlatformProvider></I18nProvider>);
+    // 300 + 16 + 60 + 8 = 384 fits 700, but not 700 - 320 - 8 = 372 left beside the filter block.
+    const trigger = await screen.findByRole('button', { name: /데이터 신뢰/ });
+    expect(within(trigger).getByText('자세히')).toBeTruthy();
+  });
   it('the measuring probe is hidden from assistive tech and focus, and is not the shown text', async () => {
     mountAt({ statusWidth: 400, probeWidth: 450 });
     await screen.findByRole('button', { name: /데이터 신뢰/ });

@@ -6,7 +6,7 @@ import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, Columns3, Copy, Download,
 import { useI18n, usePlatform } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import type { ApiResponse, Capability, ColumnFilter, ColumnFilterSpec, ContextKey, GroupedPageResult, PageQuery, PageResult, PageSort, TableQuery } from '@ap/contracts';
-import { Button, Checkbox, cn, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, Label, Popover, PopoverContent, PopoverTrigger, shortcutLabel, Skeleton, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
+import { Button, Checkbox, cn, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger, Label, Popover, PopoverAnchor, PopoverContent, PopoverTrigger, shortcutLabel, Skeleton, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { AnalysisSectionContext } from '../archetypes/AnalysisSectionContext';
 import { toColumnDef } from './columnDef';
 import { DataTrustIndicator } from '../state/DataTrustIndicator';
@@ -26,7 +26,8 @@ import { FilterLine, HeaderFunnel } from './filterLine';
 import { useTableTransfer } from './useTableTransfer';
 import { useTableSelection, type TableExportRequest, type TableSelection } from './useTableSelection';
 import { SelectAllBar } from './selectAllBar';
-import { buildGroupedItems, GroupHeaderCells, groupHeaderLayout, groupKeyOf, GroupSelect } from './rowGroups';
+import { buildGroupedItems, GroupHeaderCells, groupHeaderLayout, groupKeyOf } from './rowGroups';
+import { collapsedControls, GroupMenu, GroupSubmenu, MoreMenu, ToolbarTitle } from './tableToolbar';
 
 export type { GroupedPageResult, PageGroup, PageQuery, PageResult } from '@ap/contracts';
 export { sortAndPage } from '@ap/contracts';
@@ -86,6 +87,8 @@ export type PlatformColumn<T> = {
 /** The trust button's own inline padding (px-2 × 2) and the status line's flex gap (gap-x-2): the probe measures content only. */
 const TRUST_BUTTON_PADDING = 16;
 const STATUS_GAP = 8;
+/** The filter block's flex-basis on the result line (`basis-80` = 20rem); it shares the row with count and trust until the row wraps. */
+const FILTER_BASIS = 320;
 const ACTION_COLUMN_WIDTH = 128;
 /** Icon-only action column: two 32px icon buttons and a 4px gap fit with `px-0`. */
 const COMPACT_ACTION_WIDTH = 72;
@@ -118,6 +121,11 @@ export type PlatformDataTableProps<T> = {
   /** Identity of page-owned filters; a change returns to page 1 and clears row selection. */
   filterKey: string;
   filters?: ReactNode;
+  /**
+   * Quick search slot (06 §15, node 1217c): the page's search field, rendered in the toolbar line beside the title. The table does not own the
+   * query — the page does (`<Input inputSize="toolbar" …/>` bound to its page key); the slot only places it. `ManagementLayout` passes its `search` here.
+   */
+  search?: ReactNode;
   rowAction?: (row: T, context: { compact: boolean }) => ReactNode;
   /** Bulk actions for an explicit id selection. Hidden while a `selectAllResults` selection covers the whole result — use `bulkSelectionActions` for that. */
   bulkActions?: (selectedIds: string[]) => ReactNode;
@@ -189,11 +197,16 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   // minus the result count, the refreshing label and their gaps) is compared with a hidden probe of the full content. The probe is
   // measured independently of what is shown, so the choice cannot feed back into its own input.
   const statusLine = useElementSize();
+  const toolbar = useElementSize();
+  // Toolbar overflow (06 §15): below fixed widths the secondary controls move into `⋯` in COLLAPSE_ORDER (copy, group, columns, export).
+  const overflow = collapsedControls(toolbar.width);
+  const openColumnsAfterMenu = useRef(false);
+  // 「컬럼」 in `⋯`: the popover has only an anchor (no trigger), so `⋯` is the focus-return target and a pointer-outside close keeps the pointer's focus.
+  const moreButton = useRef<HTMLButtonElement>(null);
+  const columnsOutside = useRef(false);
   const countSpan = useElementSize();
   const refreshSpan = useElementSize();
   const probe = useElementSize();
-  const statusNarrow = statusLine.width !== null && statusLine.width > 0 && probe.width !== null && probe.width > 0
-    && probe.width + TRUST_BUTTON_PADDING + (countSpan.width ? countSpan.width + STATUS_GAP : 0) + (refreshSpan.width ? refreshSpan.width + STATUS_GAP : 0) > statusLine.width;
   // Right-pinned column fade: only while the row area overflows horizontally and is not scrolled to its end.
   const [fade, setFade] = useState({ left: false, right: false });
   const updateFade = useCallback(() => {
@@ -215,6 +228,11 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const activeSorting = p.urlState ? p.urlState.sorting : sorting;
   const filterFields = useMemo(() => resolveFilterFields(p.columns, p.filterFields, lang), [p.columns, p.filterFields, lang]);
   const columnFilters = useColumnFilters(p.urlState, filterFields);
+  // With filters the right-hand blocks get what the filter block (basis 320) leaves; when even the count does not fit beside it, the row wraps and they have the whole line.
+  const sharedWidth = statusLine.width === null ? null : statusLine.width - FILTER_BASIS - STATUS_GAP;
+  const trustRoom = statusLine.width === null || filterFields.length === 0 || sharedWidth === null || sharedWidth < (countSpan.width ?? 0) ? statusLine.width : sharedWidth;
+  const statusNarrow = trustRoom !== null && trustRoom > 0 && probe.width !== null && probe.width > 0
+    && probe.width + TRUST_BUTTON_PADDING + (countSpan.width ? countSpan.width + STATUS_GAP : 0) + (refreshSpan.width ? refreshSpan.width + STATUS_GAP : 0) > trustRoom;
   // #556d: one group column (a groupable column of this table), collapse state keyed by group key. A group change returns to page 1 and
   // expands every group; the selection is kept (it is by row id, and sorting/grouping do not change the result set).
   const groupColumns = useMemo(() => p.columns.filter(c => c.groupable), [p.columns]);
@@ -493,36 +511,88 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
     </DropdownMenuItem>);
   // No `ok` result yet (new Context loading, refused page): the count is unknown, so the group label says “필터 결과 전체” with no number.
   const filteredCount = shown?.outcome === 'ok' ? data.total : null;
-  return <section ref={section} tabIndex={-1} aria-label={p.ariaLabel} onKeyDown={onShortcut} className={cn('flex flex-col rounded-lg border border-border-subtle bg-surface-card', embedded && 'rounded-none border-0 shadow-none')}>
-    <div className={cn('flex flex-wrap items-center justify-between gap-2', densePage ? 'min-h-10 px-2 py-1.5' : 'min-h-11 p-3', analysisSection && 'pr-12')}>
-      <div className="min-w-0">
-        <h2 className={cn('t-card-title', inPanel && 'sr-only')}>{p.title}</h2>
-        {p.subtitle && <p className="text-xs text-text-muted">{p.subtitle}</p>}
+  const groupIn = groupColumns.length > 0 && overflow.has('group');
+  const columnsIn = overflow.has('columns');
+  const copyIn = canExport && overflow.has('copy');
+  const exportIn = canExport && overflow.has('export');
+  const hasMore = groupIn || columnsIn || copyIn || exportIn;
+  const copyLabel = selectedIds.length === 0 ? (lang === 'ko' ? '복사' : 'Copy') : lang === 'ko' ? `${selectedIds.length}행 복사` : `Copy ${selectedIds.length} ${selectedIds.length === 1 ? 'row' : 'rows'}`;
+  // Same wording as the wide 복사 button's tooltip; the overflow item carries it as its description (no hover/focus tooltip inside a menu).
+  const copyHelp = selectionState.all
+    ? (lang === 'ko' ? '필터 결과 전체 선택은 복사할 수 없습니다 — 복사는 불러온 행만 읽습니다. 쪽에서 행을 골라 복사하거나 내보내기를 쓰세요' : 'Copy is unavailable for a whole-result selection — it reads loaded rows only. Select rows on a page to copy, or use Export')
+    : selectedIds.length === 0
+    ? (lang === 'ko' ? '행을 선택하면 복사할 수 있습니다' : 'Select rows to copy')
+    : (lang === 'ko' ? `${shortcutLabel('C')}로도 복사할 수 있습니다(표 안에서)` : `You can also copy with ${shortcutLabel('C')} (inside the table)`);
+  const copyHelpId = `${columnPrefsId}-copy-help`;
+  const descriptionId = `${columnPrefsId}-description`;
+  const exportBody = <>
+    {selectedCount > 0 && <>
+      <DropdownMenuGroup>
+        <DropdownMenuLabel>{exportTarget('selected', selectedCount, lang)}</DropdownMenuLabel>
+        {exportItems('selected', selectedCount)}
+      </DropdownMenuGroup>
+      <DropdownMenuSeparator />
+    </>}
+    <DropdownMenuGroup>
+      <DropdownMenuLabel>{exportTarget('filtered', filteredCount, lang)}</DropdownMenuLabel>
+      {exportItems('filtered', filteredCount)}
+    </DropdownMenuGroup>
+  </>;
+  const moreMenu = hasMore ? <MoreMenu lang={lang} triggerRef={moreButton} onCloseAutoFocus={event => {
+    // 「컬럼」 chosen in `⋯`: the popover opens after the menu closed, so the menu's focus return does not take focus from it.
+    if (!openColumnsAfterMenu.current) return;
+    openColumnsAfterMenu.current = false;
+    event.preventDefault();
+    columnsOutside.current = false;
+    setOverlayOpen(o => ({ ...o, columns: true }));
+  }}>
+    {groupIn && <GroupSubmenu lang={lang} value={groupBy ?? ''} options={groupColumns} onChange={changeGroup} />}
+    {columnsIn && <DropdownMenuItem className={exportItemClass} onSelect={() => { openColumnsAfterMenu.current = true; }}><Columns3 className="mr-2 size-3.5" aria-hidden />{lang === 'ko' ? '컬럼' : 'Columns'}</DropdownMenuItem>}
+    {copyIn && <DropdownMenuItem className={exportItemClass} disabled={selectedIds.length === 0 || copying} aria-label={copyLabel} aria-describedby={copyHelpId} aria-keyshortcuts={selectedIds.length > 0 ? 'Control+C Meta+C' : undefined} onSelect={() => { void runCopy(); }}><Copy className="mr-2 size-3.5" aria-hidden />{copyLabel}</DropdownMenuItem>}
+    {exportIn && <DropdownMenuSub>
+      <DropdownMenuSubTrigger><Download className="mr-2 size-3.5" aria-hidden />{t('export')}</DropdownMenuSubTrigger>
+      <DropdownMenuSubContent className="min-w-56">{exportBody}</DropdownMenuSubContent>
+    </DropdownMenuSub> }
+  </MoreMenu> : null;
+  const columnsButton = <Button variant="secondary" size="toolbar"><Columns3 className="size-3.5" aria-hidden />{lang === 'ko' ? '컬럼' : 'Columns'}</Button>;
+  // With 「컬럼」 in `⋯`, the popover anchors to the `⋯` button and is rendered last, so `⋯` ends the row.
+  const columnsPopover = <Popover open={overlayOpen.columns} onOpenChange={open => setOverlayOpen(o => ({ ...o, columns: open }))}>
+    {columnsIn ? <PopoverAnchor asChild><span className="inline-flex">{moreMenu}</span></PopoverAnchor> : <PopoverTrigger asChild>{columnsButton}</PopoverTrigger>}
+    <PopoverContent align="end" className="w-72" onInteractOutside={() => { columnsOutside.current = true; }} onCloseAutoFocus={columnsIn ? event => {
+      event.preventDefault();
+      if (!columnsOutside.current) moreButton.current?.focus();
+      columnsOutside.current = false;
+    } : undefined}>
+      <p className="t-card-title mb-2">{lang === 'ko' ? '컬럼 설정 (브라우저에 저장)' : 'Column preferences (saved locally)'}</p>
+      <div className="space-y-3">
+        {pinnedPrefs.length > 0 && <div>
+          <p className="mb-1 text-xs text-text-secondary">{lang === 'ko' ? '고정됨' : 'Pinned'}</p>
+          <ul className="space-y-2">{pinnedPrefs.map((c, i) => columnPrefRow(c, i, pinnedPrefs))}</ul>
+        </div>}
+        {otherPrefs.length > 0 && <div>
+          {pinnedPrefs.length > 0 && <p className="mb-1 text-xs text-text-secondary">{lang === 'ko' ? '나머지' : 'Other'}</p>}
+          <ul className="space-y-2">{otherPrefs.map((c, i) => columnPrefRow(c, i, otherPrefs))}</ul>
+        </div>}
       </div>
-      <div className="flex flex-wrap items-center gap-2">
+      <p className="sr-only" aria-live="polite">{orderNote}</p>
+      {/* Visibility, width, pin and order back to the column defaults; sort, page and selection stay. */}
+      <div className="mt-3"><Button type="button" variant="secondary" size="toolbar" onClick={resetPreferences}>{lang === 'ko' ? '기본값으로' : 'Reset to default'}</Button></div>
+    </PopoverContent>
+  </Popover>;
+  return <section ref={section} tabIndex={-1} aria-label={p.ariaLabel} aria-describedby={p.subtitle ? descriptionId : undefined} onKeyDown={onShortcut} className={cn('flex flex-col rounded-lg border border-border-subtle bg-surface-card', embedded && 'rounded-none border-0 shadow-none')}>
+    {/* Toolbar line (06 §15, 1217c): one row of 32px controls. Left = title (ⓘ carries the description) + quick search slot; right = 그룹, [표 크기: 1217d], 컬럼, 복사, 내보내기, and `⋯` for what no longer fits. */}
+    <div ref={toolbar.ref} data-table-toolbar className={cn('flex items-center justify-between gap-2', embedded ? 'min-h-10 px-2 py-1.5' : densePage ? 'min-h-14 px-3 py-3' : 'min-h-14 p-4', analysisSection && 'pr-12')}>
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        <ToolbarTitle title={p.title} subtitle={p.subtitle} srOnly={inPanel} lang={lang} descriptionId={descriptionId} />
+        {p.search && <div data-table-search className="min-w-0 max-w-xs flex-1">{p.search}</div>}
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
         {p.filters}
-        {groupColumns.length > 0 && <GroupSelect lang={lang} value={groupBy ?? ''} options={groupColumns} onChange={changeGroup} />}
-        <Popover onOpenChange={open => setOverlayOpen(o => ({ ...o, columns: open }))}>
-          <PopoverTrigger asChild><Button variant="secondary" size="toolbar"><Columns3 className="size-3.5" aria-hidden />{lang === 'ko' ? '컬럼' : 'Columns'}</Button></PopoverTrigger>
-          <PopoverContent align="end" className="w-72">
-            <p className="t-card-title mb-2">{lang === 'ko' ? '컬럼 설정 (브라우저에 저장)' : 'Column preferences (saved locally)'}</p>
-            <div className="space-y-3">
-              {pinnedPrefs.length > 0 && <div>
-                <p className="mb-1 text-xs text-text-secondary">{lang === 'ko' ? '고정됨' : 'Pinned'}</p>
-                <ul className="space-y-2">{pinnedPrefs.map((c, i) => columnPrefRow(c, i, pinnedPrefs))}</ul>
-              </div>}
-              {otherPrefs.length > 0 && <div>
-                {pinnedPrefs.length > 0 && <p className="mb-1 text-xs text-text-secondary">{lang === 'ko' ? '나머지' : 'Other'}</p>}
-                <ul className="space-y-2">{otherPrefs.map((c, i) => columnPrefRow(c, i, otherPrefs))}</ul>
-              </div>}
-            </div>
-            <p className="sr-only" aria-live="polite">{orderNote}</p>
-            {/* Visibility, width, pin and order back to the column defaults; sort, page and selection stay. */}
-            <div className="mt-3"><Button type="button" variant="secondary" size="toolbar" onClick={resetPreferences}>{lang === 'ko' ? '기본값으로' : 'Reset to default'}</Button></div>
-          </PopoverContent>
-        </Popover>
-        {/* Toolbar D (#172): fixed order [컬럼] [복사] [내보내기 ▾]; the opt-in 「그룹」 select (#556d) sits before 「컬럼」 — both change what the rows show, and a table without a groupable column keeps the order above. */}
-        {canExport && <TooltipProvider delayDuration={200}>
+        {groupColumns.length > 0 && !groupIn && <GroupMenu lang={lang} value={groupBy ?? ''} options={groupColumns} onChange={changeGroup} />}
+        {/* 표 크기 ▾ (node 1217d) takes this place; nothing renders until then. */}
+        {!columnsIn && columnsPopover}
+        {/* Toolbar D (#172): fixed order [컬럼] [복사] [내보내기 ▾]; the opt-in 「그룹」 menu (#556d) sits before 「컬럼」 — both change what the rows show, and a table without a groupable column keeps the order above. */}
+        {canExport && !copyIn && <TooltipProvider delayDuration={200}>
           {/* No selection: aria-disabled (focusable, not native disabled) so the tooltip says why on hover and keyboard focus. */}
           {/* Enabled: the tooltip and aria-keyshortcuts name the shortcut and where it works (UX P3-1). */}
           <Tooltip open={copyTip} onOpenChange={setCopyTip}>
@@ -532,17 +602,13 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
                 aria-keyshortcuts={selectedIds.length > 0 ? 'Control+C Meta+C' : undefined}
                 onClick={runCopy}>
                 {copying ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : <Copy className="size-3.5" aria-hidden />}
-                {selectedIds.length === 0 ? (lang === 'ko' ? '복사' : 'Copy') : lang === 'ko' ? `${selectedIds.length}행 복사` : `Copy ${selectedIds.length} ${selectedIds.length === 1 ? 'row' : 'rows'}`}
+                {copyLabel}
               </Button>
             </TooltipTrigger>
-            <TooltipContent size="sm">{selectionState.all
-              ? (lang === 'ko' ? '필터 결과 전체 선택은 복사할 수 없습니다 — 복사는 불러온 행만 읽습니다. 쪽에서 행을 골라 복사하거나 내보내기를 쓰세요' : 'Copy is unavailable for a whole-result selection — it reads loaded rows only. Select rows on a page to copy, or use Export')
-              : selectedIds.length === 0
-              ? (lang === 'ko' ? '행을 선택하면 복사할 수 있습니다' : 'Select rows to copy')
-              : (lang === 'ko' ? `${shortcutLabel('C')}로도 복사할 수 있습니다(표 안에서)` : `You can also copy with ${shortcutLabel('C')} (inside the table)`)}</TooltipContent>
+            <TooltipContent portal size="sm">{copyHelp}</TooltipContent>
           </Tooltip>
         </TooltipProvider>}
-        {canExport && <DropdownMenu onOpenChange={open => setOverlayOpen(o => ({ ...o, export: open }))}>
+        {canExport && !exportIn && <DropdownMenu onOpenChange={open => setOverlayOpen(o => ({ ...o, export: open }))}>
           <DropdownMenuTrigger asChild>
             {/* aria-disabled, not native disabled (#173 UX P2-2): the trigger stays focusable so Radix can return
                 focus here after an item runs. The keyboard can still open the menu while busy, so its items are disabled
@@ -553,27 +619,31 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
               {exporting ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : <ChevronDown className="size-3.5" aria-hidden />}
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="min-w-56">
-            {selectedCount > 0 && <>
-              <DropdownMenuGroup>
-                <DropdownMenuLabel>{exportTarget('selected', selectedCount, lang)}</DropdownMenuLabel>
-                {exportItems('selected', selectedCount)}
-              </DropdownMenuGroup>
-              <DropdownMenuSeparator />
-            </>}
-            <DropdownMenuGroup>
-              <DropdownMenuLabel>{exportTarget('filtered', filteredCount, lang)}</DropdownMenuLabel>
-              {exportItems('filtered', filteredCount)}
-            </DropdownMenuGroup>
-          </DropdownMenuContent>
+          <DropdownMenuContent align="end" className="min-w-56">{exportBody}</DropdownMenuContent>
         </DropdownMenu>}
+        {columnsIn ? columnsPopover : moreMenu}
+        {/* The overflow 복사 item's description lives outside the portaled menu so the menu's item text stays the label (aria-describedby). */}
+        {copyIn && <span id={copyHelpId} className="sr-only">{copyHelp}</span>}
         {/* Visually hidden (width-stable) so screen readers hear what the export is preparing (#173 UX P2-3). */}
         {/* Always mounted while export is available; only the text changes, so screen readers announce it (#173 review N-P3-2). */}
         {canExport && <span role="status" className="sr-only" data-testid="export-status">{[exportNote, copyNote].filter(Boolean).join(' · ')}</span>}
       </div>
     </div>
 
-    {filterFields.length > 0 && <FilterLine fields={filterFields} filters={columnFilters.filters} lang={lang} onApply={columnFilters.apply} onClear={columnFilters.clear} limit={columnFilters.limit} />}
+    {/* Result line (06 §15, 1217c): always rendered. Left = the filter line when the table has filterable fields; right = 건수 · 쪽 · 신뢰 요약 (the former status row). */}
+    <div ref={statusLine.ref} data-table-status-line className="relative flex min-h-9 min-w-0 flex-wrap items-center gap-x-2 gap-y-1 border-t border-border-subtle px-3 py-1.5 text-xs text-text-muted" aria-live={groupedOutcome ? 'off' : 'polite'}>
+      {filterFields.length > 0 && <div className="min-w-0 flex-1 basis-80"><FilterLine fields={filterFields} filters={columnFilters.filters} lang={lang} onApply={columnFilters.apply} onClear={columnFilters.clear} limit={columnFilters.limit} /></div>}
+      <span ref={countSpan.ref} className="ml-auto tabular whitespace-nowrap">{!shown || (loading && outOfRange) ? t('loading')
+        : !success ? '—'
+        : outOfRange
+          ? (lang === 'ko' ? `${data.total.toLocaleString()}건 · ${pageCount}페이지` : `${data.total.toLocaleString()} results · ${pageCount} pages`)
+          : (lang === 'ko' ? `${data.total.toLocaleString()}건 · ${shownPage + 1}/${pageCount} 페이지` : `${data.total.toLocaleString()} results · page ${shownPage + 1}/${pageCount}`)}</span>
+      <span className="flex min-w-0 flex-wrap items-center gap-2">
+        {loading && shown && <span ref={refreshSpan.ref} role={groupedOutcome ? undefined : 'status'} className="inline-flex items-center gap-1"><Loader2 className="size-3 animate-spin" aria-hidden />{t('refreshing')}</span>}
+        {shown && <DataTrustIndicator trust={shown.trust} assessments={shown.assessments} className="min-h-6" wrap summary={statusNarrow} />}
+        {shown && <DataTrustIndicator trust={shown.trust} assessments={shown.assessments} probe={probe.ref} />}
+      </span>
+    </div>
 
     <SelectAllBar lang={lang} pageRows={data.rows.length} total={data.total} offer={selectionState.offerAll} all={selectionState.all} excluded={selectionState.excludedIds.length} onSelectAll={selectionState.selectAll} onClear={clearSelection} />
 
@@ -589,19 +659,6 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       {hiddenSelected > 0 && <span className="tabular" data-testid="selected-collapsed-note">{lang === 'ko' ? `접힌 그룹의 ${hiddenSelected.toLocaleString()}행 포함` : `includes ${hiddenSelected.toLocaleString()} rows in collapsed groups`}</span>}
       <span className="text-text-secondary">{lang === 'ko' ? '선택은 현재 조회 결과 안에서만 유지되며 Context 변경 시 해제됩니다.' : 'Selection is kept within this result and cleared on context change.'}</span>
     </div>}
-
-    <div ref={statusLine.ref} data-table-status-line className="relative flex min-h-7 min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-1 border-t border-border-subtle px-3 py-1 text-xs text-text-muted" aria-live={groupedOutcome ? 'off' : 'polite'}>
-      <span ref={countSpan.ref} className="tabular whitespace-nowrap">{!shown || (loading && outOfRange) ? t('loading')
-        : !success ? '—'
-        : outOfRange
-          ? (lang === 'ko' ? `${data.total.toLocaleString()}건 · ${pageCount}페이지` : `${data.total.toLocaleString()} results · ${pageCount} pages`)
-          : (lang === 'ko' ? `${data.total.toLocaleString()}건 · ${shownPage + 1}/${pageCount} 페이지` : `${data.total.toLocaleString()} results · page ${shownPage + 1}/${pageCount}`)}</span>
-      <span className="flex min-w-0 flex-wrap items-center gap-2">
-        {loading && shown && <span ref={refreshSpan.ref} role={groupedOutcome ? undefined : 'status'} className="inline-flex items-center gap-1"><Loader2 className="size-3 animate-spin" aria-hidden />{t('refreshing')}</span>}
-        {shown && <DataTrustIndicator trust={shown.trust} assessments={shown.assessments} className="min-h-6" wrap summary={statusNarrow} />}
-        {shown && <DataTrustIndicator trust={shown.trust} assessments={shown.assessments} probe={probe.ref} />}
-      </span>
-    </div>
 
     {/* Stable widget wrapper (like QueryView's): the busy state survives the outcome/rows switch. A grouped table's refresh is announced by the scope only (components.md §공유 위젯 응답). */}
     <div aria-busy={loading}>
