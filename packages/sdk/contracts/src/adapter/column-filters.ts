@@ -224,12 +224,15 @@ export function validateFilters(filters: readonly ColumnFilter[], specs: Readonl
 
 /**
  * URL codec (ADR-0105 §6, 06 §15): one condition per page-key value, `<id>:<op>[:<value>]`, split on the FIRST TWO `:` only, so a
- * value keeps its own `:` (`type:equals:Future.Type:v2`). Percent-encoding is the URL layer's job; this codec never produces or reads `%`.
+ * value keeps its own `:` (`type:equals:Future.Type:v2`). The URL layer percent-encodes the whole value once more; the codec's own `%XX`
+ * escape (below) is what lets every value survive the Kernel's same-origin path guard, which refuses a decoded `\`, `#`, `//` or control
+ * character anywhere in a written address.
  *
  * Value per op: text ops and `before`/`after` = the string as is; `eq`..`lte` = the number (`String(n)`); `isEmpty`/`isNotEmpty` = no
  * value part at all; `between` = `from~to` (number pair, or a date/instant range whose absent end is the empty string); `in`/`notIn` =
- * items joined by `~`. Inside a list item, `~` and the escape character `\` are written `\~` and `\\`; nothing else is escaped (`,` `:`
- * spaces and Korean pass through), and a `\` before any other character is malformed. Commas are never separators (kernel.md §URL).
+ * items joined by `~`. In a text/list value `%`, `~`, `\`, `#`, `/` and control characters (U+0000–U+001F, U+007F) are written `%XX` (two
+ * upper-case hex digits; `~` stays literal in a scalar text value); nothing else is escaped (`,` `:` spaces and Korean pass through). A `%`
+ * not followed by one of those escapes is malformed. Commas are never separators (kernel.md §URL).
  */
 export const FILTER_PARAM_LIMITS = {
   /** Conditions in one table (= repeated values of the page key). */
@@ -237,9 +240,10 @@ export const FILTER_PARAM_LIMITS = {
   /** Items of one `in`/`notIn` list. */
   listValues: 50,
   /**
-   * Sum over conditions of `encodeURIComponent(condition).length + 16` (the `filter=` key, `&` and slack). A Hangul syllable costs 9
-   * characters once percent-encoded, so this budget (not the counts) is what keeps the copied link under `SHARE_LINK_MAX_LENGTH`
-   * (4000) with room for the path, the global Context and the short keys (`sort` `page` `q`).
+   * Sum over conditions of the length of `<key>=<value>&` as `URLSearchParams` writes it (the serializer of the address and the share
+   * link). A Hangul syllable costs 9 characters, a `~` or an escaped `#` 3–5, so this budget (not the counts) is what keeps the copied
+   * link under `SHARE_LINK_MAX_LENGTH` (4000) with room for the path, the global Context and the short keys (`sort` `page` `q`). The
+   * whole-link limit stays authoritative for variable Context.
    */
   encodedLength: 2400,
 } as const;
@@ -247,23 +251,31 @@ export const FILTER_PARAM_LIMITS = {
 export type FilterParamRejection = FilterRejection | 'malformed' | 'too-many-conditions' | 'too-many-values' | 'too-long';
 export type FilterParamsResult = { ok: true; filters: ColumnFilter[] } | { ok: false; reason: FilterParamRejection; value: string };
 
-const escapePart = (part: string): string => part.replace(/[\\~]/g, ch => `\\${ch}`);
-const joinParts = (parts: readonly string[]): string => parts.map(escapePart).join('~');
+const ESCAPED_RE = /[%~\\#/\u0000-\u001F\u007F]/g;
+const ESCAPED_CHAR_RE = /^[%~\\#/\u0000-\u001F\u007F]$/;
+const escapeText = (text: string, tilde: boolean): string => text.replace(ESCAPED_RE, ch => (ch === '~' && !tilde ? ch : `%${ch.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0')}`));
+const joinParts = (parts: readonly string[]): string => parts.map(part => escapeText(part, true)).join('~');
 
-/** Split on unescaped `~`; `undefined` when the text has a bad escape (a `\` not followed by `\` or `~`, or a trailing `\`). */
-function splitParts(text: string): string[] | undefined {
-  const parts = [''];
+/** Undo `escapeText`; `undefined` when a `%` is not followed by two upper-case hex digits naming an escaped character. */
+function unescapeText(text: string): string | undefined {
+  let out = '';
   for (let i = 0; i < text.length; i++) {
     const ch = text[i] as string;
-    if (ch === '\\') {
-      const next = text[i + 1];
-      if (next !== '\\' && next !== '~') return undefined;
-      parts[parts.length - 1] += next;
-      i++;
-    } else if (ch === '~') parts.push('');
-    else parts[parts.length - 1] += ch;
+    if (ch !== '%') { out += ch; continue; }
+    const hex = text.slice(i + 1, i + 3);
+    if (!/^[0-9A-F]{2}$/.test(hex)) return undefined;
+    const decoded = String.fromCharCode(parseInt(hex, 16));
+    if (!ESCAPED_CHAR_RE.test(decoded)) return undefined;
+    out += decoded;
+    i += 2;
   }
-  return parts;
+  return out;
+}
+
+/** Split on literal `~`, then unescape each part; `undefined` when a part has a bad escape. */
+function splitParts(text: string): string[] | undefined {
+  const parts = text.split('~').map(unescapeText);
+  return parts.every((part): part is string => part !== undefined) ? parts : undefined;
 }
 
 /** One condition as its page-key value. Throws `RangeError` for a filter that cannot be encoded (an id with `:`, an empty id, a non-finite number): validate with `validateFilters` first. */
@@ -282,20 +294,21 @@ export function encodeFilterParam(filter: ColumnFilter): string {
     case 'eq': case 'neq': case 'gt': case 'gte': case 'lt': case 'lte':
       if (!Number.isFinite(filter.value)) throw new RangeError('encodeFilterParam: non-finite number');
       return `${head}:${filter.value}`;
-    default: return `${head}:${filter.value}`;
+    default: return `${head}:${escapeText(filter.value, false)}`;
   }
 }
 
 /** Page-key values for a filter list, in order (`[]` for none). */
 export const encodeFilterParams = (filters: readonly ColumnFilter[]): string[] => filters.map(encodeFilterParam);
 
-const encodedCost = (values: readonly string[]): number => values.reduce((sum, value) => sum + encodeURIComponent(value).length + 16, 0);
+/** Length of `<key>=<value>&` exactly as the address / share link serializer (`URLSearchParams`) writes it. */
+const encodedCost = (values: readonly string[], key: string): number => values.reduce((sum, value) => sum + new URLSearchParams([[key, value]]).toString().length + 1, 0);
 
-/** The cap an encoded list would break (`null` = within all of them): the editor uses it to refuse an Apply, `parseFilterParams` to refuse a link. */
-export function filterParamLimit(values: readonly string[]): 'too-many-conditions' | 'too-many-values' | 'too-long' | null {
+/** The cap an encoded list would break (`null` = within all of them): the editor uses it to refuse an Apply, `parseFilterParams` to refuse a link. `key` is the page key the values are written under (its length counts). */
+export function filterParamLimit(values: readonly string[], key = 'filter'): 'too-many-conditions' | 'too-many-values' | 'too-long' | null {
   if (values.length > FILTER_PARAM_LIMITS.conditions) return 'too-many-conditions';
   if (values.some(value => (splitParts(value.split(':').slice(2).join(':'))?.length ?? 0) > FILTER_PARAM_LIMITS.listValues && /^[^:]+:(?:in|notIn):/.test(value))) return 'too-many-values';
-  return encodedCost(values) > FILTER_PARAM_LIMITS.encodedLength ? 'too-long' : null;
+  return encodedCost(values, key) > FILTER_PARAM_LIMITS.encodedLength ? 'too-long' : null;
 }
 
 const NUMBER_RE = /^-?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/;
@@ -335,7 +348,10 @@ function parseOne(raw: string, specs: Readonly<Record<string, ColumnFilterSpec>>
       const [from, to] = parts as [string, string];
       return { id, op, value: { ...(from !== '' ? { from } : {}), ...(to !== '' ? { to } : {}) } };
     }
-    default: return { id, op, value: text } as ColumnFilter;
+    default: {
+      const value = unescapeText(text);
+      return value === undefined ? 'malformed' : { id, op, value } as ColumnFilter;
+    }
   }
 }
 
@@ -344,13 +360,13 @@ function parseOne(raw: string, specs: Readonly<Record<string, ColumnFilterSpec>>
  * Syntax and caps are checked here, everything else (undeclared field/op, shape, `requires`, `multiple: false`, a second condition on
  * one field) by `validateFilters`. A value is never corrected or dropped.
  */
-export function parseFilterParams(values: readonly string[], specs: Readonly<Record<string, ColumnFilterSpec>>): FilterParamsResult {
+export function parseFilterParams(values: readonly string[], specs: Readonly<Record<string, ColumnFilterSpec>>, key = 'filter'): FilterParamsResult {
   const fail = (reason: FilterParamRejection, value: string): FilterParamsResult => ({ ok: false, reason, value });
   if (values.length > FILTER_PARAM_LIMITS.conditions) return fail('too-many-conditions', values[FILTER_PARAM_LIMITS.conditions] as string);
   let cost = 0;
   const filters: ColumnFilter[] = [];
   for (const value of values) {
-    cost += encodedCost([value]);
+    cost += encodedCost([value], key);
     if (cost > FILTER_PARAM_LIMITS.encodedLength) return fail('too-long', value);
     const parsed = parseOne(value, specs);
     if (typeof parsed === 'string') return fail(parsed, value);

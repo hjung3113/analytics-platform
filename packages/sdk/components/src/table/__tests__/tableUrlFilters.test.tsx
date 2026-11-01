@@ -6,7 +6,7 @@ import { I18nProvider, PlatformProvider, createRegistry, usePlatform, type MenuE
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { groupId, spaceId, type ColumnFilter, type ColumnFilterSpec } from '@ap/contracts';
 import { useTableUrlState, TableUrlWarning } from '../tableUrlWarning';
-import type { LegacyFilterKey } from '../tableFilterUrl';
+import type { LegacyFilterKey, TableFilterOption } from '../tableFilterUrl';
 import type { TableUrlState } from '../PlatformDataTable';
 
 afterEach(cleanup);
@@ -36,16 +36,16 @@ let latest: ReturnType<typeof useTableUrlState> | null = null;
 let pagesSeen: string[] = [];
 let latestPlatform: ReturnType<typeof usePlatform> | null = null;
 function Capture() { latestPlatform = usePlatform(); return null; }
-function Probe({ withFilters = true }: { withFilters?: boolean }) {
-  latest = useTableUrlState(['name', 'size'], withFilters ? { filters: filtersOption } : undefined);
+function Probe({ withFilters = true, option = filtersOption }: { withFilters?: boolean; option?: TableFilterOption }) {
+  latest = useTableUrlState(['name', 'size'], withFilters ? { filters: option } : undefined);
   const { pageParams } = latestPlatform!;
   pagesSeen = pageParams('filter');
   return latest.invalid ? <TableUrlWarning sentences={latest.sentences} recoverKeys={latest.recoverKeys} /> : <span data-testid="state">{latest.urlState ? 'controlled' : 'none'}</span>;
 }
 
-function mount(search: string, withFilters = true, state: unknown = null) {
+function mount(search: string, withFilters = true, state: unknown = null, option: TableFilterOption = filtersOption) {
   window.history.replaceState(state, '', `/list${search}`);
-  render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}><Capture /><Probe withFilters={withFilters} /></PlatformProvider></I18nProvider>);
+  render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}><Capture /><Probe withFilters={withFilters} option={option} /></PlatformProvider></I18nProvider>);
 }
 const params = () => new URLSearchParams(window.location.search);
 type Change = Parameters<NonNullable<TableUrlState['onChange']>>[0];
@@ -148,6 +148,76 @@ describe('useTableUrlState filters option (ADR-0105)', () => {
       fireEvent.click(screen.getByRole('button', { name: '초기화' }));
       expect(screen.queryByRole('alert')).toBeNull();
       expect(pagesSeen).toEqual([]);
+    });
+  });
+
+  describe('values the Kernel address guard would refuse if the codec wrote them raw (backslash, #, //, control characters)', () => {
+    const HOSTILE = ['a\\b', 'a#b', 'a//b', 'http://x/y', 'a~b', '100%', '%7E', 'tab\there\u0001', '한글 \\ # // ~ %'];
+    it.each(HOSTILE)('writes and reads back the text value %j through the real provider, one history entry, then a page change keeps it', value => {
+      mount('?v=1&sort=size:desc&page=3');
+      const before = window.history.length;
+      const filters: ColumnFilter[] = [{ id: 'name', op: 'contains', value }, { id: 'status', op: 'in', value: [value, `x${value}`] }, { id: 'size', op: 'gte', value: 2 }];
+      change({ page: null, sorting: [{ id: 'size', desc: true }], filters });
+      expect(window.history.length - before).toBe(1);
+      expect(latest!.invalid).toBe(false);
+      expect(latest!.urlState!.filters).toEqual(filters);
+      change({ page: 2, sorting: [{ id: 'size', desc: true }] });
+      expect(params().get('page')).toBe('2');
+      expect(latest!.urlState!.filters).toEqual(filters);
+    });
+
+    it('a legacy rewrite whose value needs an escape lands in the filter key', () => {
+      mount('?v=1&maker=' + encodeURIComponent('a\\b#c//d~e'));
+      expect(params().has('maker')).toBe(false);
+      expect(latest!.urlState!.filters).toEqual([{ id: 'maker', op: 'equals', value: 'a\\b#c//d~e' }]);
+    });
+  });
+
+  describe('requires is judged on the merged set (legacy aliases included)', () => {
+    const specs2: Record<string, ColumnFilterSpec> = {
+      name: { kind: 'text' },
+      maker: { kind: 'text', requires: ['name'] },
+      child: { kind: 'text', requires: ['maker'] },
+    };
+    const option2: TableFilterOption = { key: 'filter', specs: specs2, legacy: [{ key: 'maker', toFilter: raw => ({ id: 'maker', op: 'equals', value: raw }) }] };
+
+    it('a new condition whose dependency is supplied by a legacy key is accepted', () => {
+      mount('?v=1&maker=p', true, { apHidden: { v: 1, pairs: [['filter', 'name:contains:n'], ['filter', 'child:contains:x']] } }, option2);
+      expect(latest!.invalid).toBe(false);
+      expect(latest!.urlState!.filters!.map(f => f.id)).toEqual(['name', 'child', 'maker']);
+    });
+
+    it('a legacy condition whose dependency is a new condition is accepted', () => {
+      mount('?v=1&maker=p', true, { apHidden: { v: 1, pairs: [['filter', 'name:contains:n']] } }, option2);
+      expect(latest!.invalid).toBe(false);
+      expect(latest!.urlState!.filters!.map(f => f.id)).toEqual(['name', 'maker']);
+    });
+
+    it('still refuses a dependency nobody supplies, naming the offending raw value', () => {
+      mount('?v=1&maker=p', true, null, option2);
+      expect(latest!.invalid).toBe(true);
+      expect(latest!.filterRead).toEqual({ ok: false, problems: [{ reason: 'requires-unmet', field: 'maker', raw: 'p' }] });
+      cleanup();
+      mount('?v=1', true, { apHidden: { v: 1, pairs: [['filter', 'child:contains:x']] } }, option2);
+      expect(latest!.filterRead).toEqual({ ok: false, problems: [{ reason: 'requires-unmet', field: 'child', raw: 'child:contains:x' }] });
+    });
+  });
+
+  describe('rejection names the cause', () => {
+    it.each([
+      ['malformed', '?v=1', [['filter', 'name']], '조건을 읽을 수 없습니다'],
+      ['undeclared-field', '?v=1', [['filter', 'ghost:contains:x']], '이 화면에 없는 항목입니다'],
+      ['op-not-allowed', '?v=1', [['filter', 'name:gt:3']], '쓸 수 없는 조건 방식입니다'],
+      ['bad-value', '?v=1', [['filter', 'size:gt:abc']], '값의 형식이 맞지 않습니다'],
+      ['duplicate-field', '?v=1', [['filter', 'name:contains:a'], ['filter', 'name:equals:b']], '조건이 둘 이상 있습니다'],
+      ['legacy-invalid', '?v=1&status=nope', [], '바꿀 수 없습니다'],
+      ['too-many-conditions', '?v=1', Array.from({ length: 21 }, (_, i) => ['filter', `name${i}:contains:x`]), '조건은 20개까지'],
+    ])('%s: the sentence keeps the recovery and adds the cause', (_reason, search, pairs, cause) => {
+      mount(search, true, pairs.length ? { apHidden: { v: 1, pairs } } : null);
+      expect(latest!.sentences).toHaveLength(1);
+      expect(latest!.sentences[0]).toContain(cause);
+      expect(latest!.sentences[0]).toContain('조건을 초기화하세요');
+      expect(latest!.sentences[0]).not.toMatch(/requires-unmet|bad-value|op-not-allowed|malformed|undeclared/);
     });
   });
 

@@ -5,7 +5,7 @@
  */
 import { useCallback, useId, useState } from 'react';
 import { ListFilter, X } from 'lucide-react';
-import type { ColumnFilter, ColumnFilterSpec } from '@ap/contracts';
+import { formatInstant, type ColumnFilter, type ColumnFilterSpec } from '@ap/contracts';
 import { Button, Checkbox, cn, Input, Label, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
 import { FILTER_OP_LABELS } from './filterOps';
 import type { TableUrlState } from './PlatformDataTable';
@@ -18,6 +18,16 @@ export function addDays(ymd: string, days: number): string {
   const [y, m, d] = ymd.split('-').map(Number);
   return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
 }
+
+const WALL_CLOCK_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+/** An instant bound in the viewer's zone (06 §6.3); an unreadable value shows as given instead of failing the render. */
+function instantText(value: string, lang: Lang): string {
+  try { return formatInstant(value, lang); } catch { return value; }
+}
+
+/** The exclusive wire `to` of a date range as the inclusive day the user typed; anything that is not a plain day (an instant) is not calendar arithmetic. */
+const inclusiveDay = (to: string): string => (WALL_CLOCK_DAY.test(to) ? addDays(to, -1) : to);
 
 /**
  * One filter per column. A change returns a controlled table to page 1 itself (the table owns this state, the page owns the URL keys).
@@ -72,8 +82,9 @@ export function describeFilter(filter: ColumnFilter, spec: ColumnFilterSpec | un
     }
     case 'between': {
       if (Array.isArray(filter.value)) return `${filter.value[0]} ~ ${filter.value[1]}`;
+      if (spec?.kind === 'instant') return `${filter.value.from ? instantText(filter.value.from, lang) : ''} ~ ${filter.value.to ? instantText(filter.value.to, lang) : ''}`.trim();
       const from = filter.value.from ?? '';
-      const to = filter.value.to ? addDays(filter.value.to, -1) : '';
+      const to = filter.value.to ? inclusiveDay(filter.value.to) : '';
       return `${from} ~ ${to}`.trim();
     }
   }
@@ -98,7 +109,7 @@ function initialDraft(spec: ColumnFilterSpec, active: ColumnFilter | undefined):
   if (active.op === 'in') return { ...empty, op: 'in', picked: active.value };
   if (active.op === 'between') {
     if (Array.isArray(active.value)) return { ...empty, op: 'between', a: String(active.value[0]), b: String(active.value[1]) };
-    return { ...empty, op: 'between', a: active.value.from ?? '', b: active.value.to ? addDays(active.value.to, -1) : '' };
+    return { ...empty, op: 'between', a: active.value.from ?? '', b: active.value.to ? inclusiveDay(active.value.to) : '' };
   }
   // Operators without a single scalar value are never produced by this UI; open them as an empty draft.
   if (!('value' in active) || Array.isArray(active.value) || typeof active.value === 'object') return empty;

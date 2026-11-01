@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  FILTER_PARAM_LIMITS, encodeFilterParam, encodeFilterParams, filterParamLimit, parseFilterParams,
+  FILTER_PARAM_LIMITS, buildQuery, emptyGlobal, encodeFilterParam, encodeFilterParams, filterParamLimit, parseFilterParams,
   type ColumnFilter, type ColumnFilterSpec,
 } from '@ap/contracts';
 
@@ -18,7 +18,7 @@ const specs: Record<string, ColumnFilterSpec> = {
   child: { kind: 'text', requires: ['name'] },
 };
 
-const HOSTILE = ['a:b', 'x,y', 'a~b', 'back\\slash', '\\~', '~\\', ' leading and trailing ', '한글 제조사:콤마,틸드~', 'a%2Fb', '', '"quoted"', 'a=b&c=d'];
+const HOSTILE = ['a:b', 'x,y', 'a~b', 'back\\slash', '\\~', '~\\', ' leading and trailing ', '한글 제조사:콤마,틸드~', 'a%2Fb', '%', '%7E', '', '"quoted"', 'a=b&c=d', 'a#b', 'a//b', 'http://x/y', 'tab\there\u0001\u007f', "it's (1) !*"];
 
 describe('filter URL codec (ADR-0105 §6)', () => {
   it.each(HOSTILE)('round-trips the text value %j for every text op', value => {
@@ -33,7 +33,7 @@ describe('filter URL codec (ADR-0105 §6)', () => {
       const filter: ColumnFilter = { id: 'kind', op, value: HOSTILE };
       expect(parseFilterParams([encodeFilterParam(filter)], specs)).toEqual({ ok: true, filters: [filter] });
     }
-    expect(encodeFilterParam({ id: 'kind', op: 'in', value: ['a~b', 'c\\'] })).toBe('kind:in:a\\~b~c\\\\');
+    expect(encodeFilterParam({ id: 'kind', op: 'in', value: ['a~b', 'c\\'] })).toBe('kind:in:a%7Eb~c%5C');
     expect(encodeFilterParam({ id: 'kind', op: 'in', value: ['삼성,SK', 'LG:V2'] })).toBe('kind:in:삼성,SK~LG:V2');
   });
 
@@ -77,8 +77,11 @@ describe('filter URL codec (ADR-0105 §6)', () => {
     ['empty id', [':contains:x'], 'malformed'],
     ['unknown op', ['name:regex:x'], 'malformed'],
     ['op missing its value', ['name:contains'], 'malformed'],
-    ['bad escape', ['kind:in:a\\b'], 'malformed'],
-    ['trailing escape', ['kind:in:a\\'], 'malformed'],
+    ['bad escape', ['kind:in:a%zz'], 'malformed'],
+    ['trailing escape', ['kind:in:a%'], 'malformed'],
+    ['escape of a character that is never escaped', ['kind:in:a%41'], 'malformed'],
+    ['lower-case escape', ['kind:in:a%7e'], 'malformed'],
+    ['bad escape in a scalar text value', ['name:contains:100%'], 'malformed'],
     ['range with one part', ['day:between:2026-01-01'], 'malformed'],
     ['range with three parts', ['day:between:2026-01-01~2026-02-01~2026-03-01'], 'malformed'],
     ['isEmpty with a value', ['name:isEmpty:x'], 'bad-value'],
@@ -136,15 +139,41 @@ describe('filter URL codec (ADR-0105 §6)', () => {
       expect(filterParamLimit([long])).toBe('too-long');
     });
 
-    it('a capped worst realistic link (long Korean values at the encoded budget) stays under the 4000-character share limit', () => {
-      // Fill the budget with Korean text, the most expensive realistic characters (9 percent-encoded chars each), over many conditions.
+    // The address and the share link serialize with `buildQuery` (URLSearchParams): the budget is measured the same way, key included.
+    const BASE_PAGE: [string, string][] = [['sort', 'name:desc'], ['page', '12'], ['q', '검색어'.repeat(10)]];
+    const linkLength = (values: string[]) => (`https://platform.example.internal/mars/equipment/master` + buildQuery(
+      { ...emptyGlobal, scopeId: 'fab-a1-long-scope', from: '2026-01-01T00:00', to: '2026-02-01T00:00' },
+      [...BASE_PAGE, ...values.map((value): [string, string] => ['filter', value])],
+    )).length;
+
+    it.each([
+      ['Korean', '가'], ['tilde', '~'], ['percent', '%'], ['hash', '#'], ['slash', '/'], ['backslash', '\\'], ['punctuation', "!'()*"], ['ascii letters', 'a'],
+    ])('a single %s condition filled to the budget stays a shareable link (counted by buildQuery, like the share path)', (_name, ch) => {
+      const prefix = 'name:contains:';
+      let n = 0;
+      const make = (count: number) => encodeFilterParam({ id: 'name', op: 'contains', value: ch.repeat(count) });
+      while (filterParamLimit([make(n + 1)]) === null) n++;
+      const at = make(n);
+      expect(filterParamLimit([at])).toBeNull();
+    
+      expect(parseFilterParams([at], specs)).toEqual({ ok: true, filters: [{ id: 'name', op: 'contains', value: ch.repeat(n) }] });
+      expect(parseFilterParams([make(n + 1)], specs)).toMatchObject({ ok: false, reason: 'too-long' });
+      expect(at.startsWith(prefix)).toBe(true);
+      expect(linkLength([at])).toBeLessThan(SHARE_LINK_MAX_LENGTH_FOR_TEST);
+    });
+
+    it('many Korean conditions filled to the budget stay under the share limit', () => {
       const values: string[] = [];
       while (filterParamLimit([...values, `f${values.length}:contains:${'제조사명'.repeat(10)}`]) === null) values.push(`f${values.length}:contains:${'제조사명'.repeat(10)}`);
       expect(values.length).toBeGreaterThan(1);
       expect(parseFilterParams(values, wide).ok).toBe(true);
-      const query = values.map(value => `filter=${encodeURIComponent(value)}`).join('&');
-      const path = '/mars/equipment/master?v=1&from=2026-01-01T00%3A00&to=2026-02-01T00%3A00&scopeId=fab-a1-long-scope&sort=name%3Adesc&page=12&q=' + encodeURIComponent('검색어'.repeat(10));
-      expect(`https://platform.example.internal${path}&${query}`.length).toBeLessThan(SHARE_LINK_MAX_LENGTH_FOR_TEST);
+      expect(linkLength(values)).toBeLessThan(SHARE_LINK_MAX_LENGTH_FOR_TEST);
+    });
+
+    it('the page key is part of the cost: a longer key refuses sooner', () => {
+      const value = encodeFilterParam({ id: 'name', op: 'contains', value: '~'.repeat(300) });
+      expect(filterParamLimit([value, value], 'filter')).toBeNull();
+      expect(filterParamLimit([value, value], 'filter'.repeat(80))).toBe('too-long');
     });
   });
 });

@@ -3,7 +3,7 @@ import { AlertTriangle } from 'lucide-react';
 import { invalidValueSentence, useI18n, usePlatform, type Text } from '@ap/kernel';
 import { encodeFilterParams, type ColumnFilter } from '@ap/contracts';
 import { encodeTableSort, parsePageIndex, parseTableSort, type TableUrlState } from './PlatformDataTable';
-import { readTableFilters, type TableFilterOption, type TableFilterRead } from './tableFilterUrl';
+import { FILTER_PROBLEM_CAUSES, readTableFilters, type TableFilterOption, type TableFilterRead } from './tableFilterUrl';
 import { StateMessage } from '../StateView';
 import { RecoverButton } from '../state/RecoverButton';
 
@@ -40,9 +40,9 @@ export function useTableUrlWarning(allowedSort: readonly string[], filters?: Tab
   const sentences = [
     !parsedSort.ok ? invalidValueSentence(lang, 'value', text('invalidTableSort'), sortRaw ?? '') : null,
     !parsedPage.ok ? invalidValueSentence(lang, 'value', text('invalidTablePage'), pageRaw ?? '') : null,
-    ...(filterRead && !filterRead.ok ? filterRead.problems.map(({ field, raw }) => {
+    ...(filterRead && !filterRead.ok ? filterRead.problems.map(({ field, raw, reason }) => {
       const name = field === '' ? GENERIC_FILTER_LABEL : { ko: filters?.labels?.[field] ?? field, en: filters?.labels?.[field] ?? field };
-      return invalidValueSentence(lang, 'filter', name, raw);
+      return `${invalidValueSentence(lang, 'filter', name, raw)} ${FILTER_PROBLEM_CAUSES[reason][lang]}`;
     }) : []),
   ].filter((sentence): sentence is string => sentence !== null);
   const recoverKeys = [
