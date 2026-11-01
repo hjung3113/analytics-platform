@@ -5,7 +5,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, Columns3, Copy, Download, FileSpreadsheet, FileText, GripVertical, Loader2, Pin, PinOff } from 'lucide-react';
 import { useI18n, usePlatform } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
-import type { ApiResponse, Capability, ColumnFilterSpec, ContextKey, GroupedPageResult, PageQuery, PageResult, PageSort, TableQuery } from '@ap/contracts';
+import type { ApiResponse, Capability, ColumnFilter, ColumnFilterSpec, ContextKey, GroupedPageResult, PageQuery, PageResult, PageSort, TableQuery } from '@ap/contracts';
 import { Button, Checkbox, cn, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, Label, Popover, PopoverContent, PopoverTrigger, shortcutLabel, Skeleton, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { AnalysisSectionContext } from '../archetypes/AnalysisSectionContext';
 import { toColumnDef } from './columnDef';
@@ -91,7 +91,13 @@ export type TableUrlState = {
   /** What the header shows; empty = unsorted. */
   sorting: PageSort[];
   /** User sort/page gestures, and `clamp` when a successful response is past the last page (#314). The page owns the URL keys and its own resets (§6.1). */
-  onChange: (next: { page: number | null; sorting: PageSort[] }, reason: 'user' | 'reset' | 'clamp') => void;
+  onChange: (next: { page: number | null; sorting: PageSort[]; filters?: ColumnFilter[] }, reason: 'user' | 'reset' | 'clamp') => void;
+  /**
+   * Opt-in (ADR-0105): the page holds the column-filter conditions in its URL page state (`useTableUrlState(..., { filters })`).
+   * Given, the table shows and edits THESE conditions (a change calls `onChange` with the new list and page 1) and its internal
+   * filter state is unused; absent, the table keeps its own state as before. The table never knows the key name.
+   */
+  filters?: ColumnFilter[];
 };
 
 export type PlatformDataTableProps<T> = {

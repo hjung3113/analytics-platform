@@ -5,8 +5,9 @@
  */
 import { useCallback, useId, useState } from 'react';
 import { ListFilter, X } from 'lucide-react';
-import type { ColumnFilter, ColumnFilterSpec } from '@ap/contracts';
+import { formatInstant, type ColumnFilter, type ColumnFilterSpec } from '@ap/contracts';
 import { Button, Checkbox, cn, Input, Label, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
+import { FILTER_OP_LABELS } from './filterOps';
 import type { TableUrlState } from './PlatformDataTable';
 
 type Lang = 'ko' | 'en';
@@ -18,17 +19,41 @@ export function addDays(ymd: string, days: number): string {
   return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
 }
 
-/** One filter per column. A change returns a controlled table to page 1 itself (the table owns this state, the page owns the URL keys). */
+const WALL_CLOCK_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+/** An instant bound in the viewer's zone (06 §6.3); an unreadable value shows as given instead of failing the render. */
+function instantText(value: string, lang: Lang): string {
+  try { return formatInstant(value, lang); } catch { return value; }
+}
+
+/** The exclusive wire `to` of a date range as the inclusive day the user typed; anything that is not a plain day (an instant) is not calendar arithmetic. */
+const inclusiveDay = (to: string): string => (WALL_CLOCK_DAY.test(to) ? addDays(to, -1) : to);
+
+/**
+ * One filter per column. A change returns a controlled table to page 1 itself (the table owns this state, the page owns the URL keys).
+ * A page that opts in with `urlState.filters` (ADR-0105) owns the filter state too: the table reads it and writes a change through
+ * `urlState.onChange({ filters })` (page 1 in the same call); without it the table keeps its own state.
+ */
 export function useColumnFilters(urlState: TableUrlState | undefined) {
-  const [filters, setFilters] = useState<ColumnFilter[]>([]);
+  const [own, setOwn] = useState<ColumnFilter[]>([]);
+  const controlled = urlState?.filters;
+  const filters = controlled ?? own;
   const resetPage = useCallback(() => {
     if (urlState && urlState.page !== null) urlState.onChange({ sorting: urlState.sorting, page: null }, 'reset');
   }, [urlState]);
+  const write = useCallback((next: ColumnFilter[], reason: 'user' | 'reset') => {
+    if (urlState && controlled) urlState.onChange({ sorting: urlState.sorting, page: null, filters: next }, reason);
+  }, [urlState, controlled]);
   const apply = useCallback((id: string, next: ColumnFilter | null) => {
-    setFilters(prev => [...prev.filter(f => f.id !== id), ...(next ? [next] : [])]);
+    const list = [...filters.filter(f => f.id !== id), ...(next ? [next] : [])];
+    if (controlled) { write(list, 'user'); return; }
+    setOwn(list);
     resetPage();
-  }, [resetPage]);
-  const clear = useCallback(() => { setFilters([]); resetPage(); }, [resetPage]);
+  }, [filters, controlled, write, resetPage]);
+  const clear = useCallback(() => {
+    if (controlled) { write([], 'reset'); return; }
+    setOwn([]); resetPage();
+  }, [controlled, write, resetPage]);
   return { filters, apply, clear };
 }
 
@@ -48,27 +73,32 @@ export function describeFilter(filter: ColumnFilter, spec: ColumnFilterSpec | un
     case 'lte': return `≤ ${filter.value}`;
     // Operators the current UI never produces (ADR-0105 vocabulary); readable fallback until the filter editor node.
     case 'notContains': case 'startsWith': case 'endsWith': case 'notEquals': case 'neq': case 'gt': case 'lt': case 'before': case 'after':
-      return `${filter.op} ${String(filter.value)}`;
-    case 'isEmpty': case 'isNotEmpty': return filter.op;
-    case 'notIn': return `${filter.op} ${filter.value.join(', ')}`;
+      return `${FILTER_OP_LABELS[filter.op][lang]} ${String(filter.value)}`;
+    case 'isEmpty': case 'isNotEmpty': return FILTER_OP_LABELS[filter.op][lang];
+    case 'notIn': return `${FILTER_OP_LABELS.notIn[lang]} ${filter.value.join(', ')}`;
     case 'in': {
       const labels = spec?.kind === 'enum' ? new Map(spec.options.map(o => [o.value, o.label])) : new Map<string, string>();
       return filter.value.map(v => labels.get(v) ?? v).join(', ');
     }
     case 'between': {
       if (Array.isArray(filter.value)) return `${filter.value[0]} ~ ${filter.value[1]}`;
+      if (spec?.kind === 'instant') return `${filter.value.from ? instantText(filter.value.from, lang) : ''} ~ ${filter.value.to ? instantText(filter.value.to, lang) : ''}`.trim();
       const from = filter.value.from ?? '';
-      const to = filter.value.to ? addDays(filter.value.to, -1) : '';
+      const to = filter.value.to ? inclusiveDay(filter.value.to) : '';
       return `${from} ~ ${to}`.trim();
     }
   }
 }
 
-/** Rows for the XLSX 조회 정보 sheet: one `[label, value]` per active column filter. */
-export function filterInfoRows<T extends Named & { filter?: ColumnFilterSpec }>(filters: readonly ColumnFilter[], columns: readonly T[], lang: Lang): [string, string][] {
+/** A filterable field as the XLSX sheet names it: a column (`header`) or a non-column field (`label`). The label comes from exactly one of the two. */
+export type FilterInfoField = { id: string; filter?: ColumnFilterSpec } & ({ header: string } | { label: string });
+
+/** Rows for the XLSX 조회 정보 sheet: one `[필터 · <label>, value]` per active condition, column or not (the id when no field is known). */
+export function filterInfoRows(filters: readonly ColumnFilter[], fields: readonly FilterInfoField[], lang: Lang): [string, string][] {
   return filters.map(f => {
-    const column = columns.find(c => c.id === f.id);
-    return [`${lang === 'ko' ? '열 필터' : 'Column filter'} · ${column?.header ?? f.id}`, describeFilter(f, column?.filter, lang)];
+    const field = fields.find(c => c.id === f.id);
+    const label = field ? ('label' in field ? field.label : field.header) : f.id;
+    return [`${lang === 'ko' ? '필터' : 'Filter'} · ${label}`, describeFilter(f, field?.filter, lang)];
   });
 }
 
@@ -79,7 +109,7 @@ function initialDraft(spec: ColumnFilterSpec, active: ColumnFilter | undefined):
   if (active.op === 'in') return { ...empty, op: 'in', picked: active.value };
   if (active.op === 'between') {
     if (Array.isArray(active.value)) return { ...empty, op: 'between', a: String(active.value[0]), b: String(active.value[1]) };
-    return { ...empty, op: 'between', a: active.value.from ?? '', b: active.value.to ? addDays(active.value.to, -1) : '' };
+    return { ...empty, op: 'between', a: active.value.from ?? '', b: active.value.to ? inclusiveDay(active.value.to) : '' };
   }
   // Operators without a single scalar value are never produced by this UI; open them as an empty draft.
   if (!('value' in active) || Array.isArray(active.value) || typeof active.value === 'object') return empty;

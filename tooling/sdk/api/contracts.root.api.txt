@@ -65,7 +65,10 @@ EquipmentSearchPage | type | type EquipmentSearchPage = { items: @ap/contracts#E
 EquipmentSummary | type | type EquipmentSummary = { axes: Readonly<Record<string, readonly string[]>>; equipmentId: string; room: string; }
 ExpectedVersion | type | type ExpectedVersion = { expectedVersion: number; }
 FILTER_OPS_BY_KIND | const | const FILTER_OPS_BY_KIND: { readonly date: readonly [ "between", "before", "after", "isEmpty", "isNotEmpty" ]; readonly enum: readonly [ "in", "notIn", "isEmpty", "isNotEmpty" ]; readonly instant: readonly [ "between", "isEmpty", "isNotEmpty" ]; readonly number: readonly [ "eq", "neq", "gt", "gte", "lt", "lte", "between", "isEmpty", "isNotEmpty" ]; readonly text: readonly [ "contains", "notContains", "startsWith", "endsWith", "equals", "notEquals", "isEmpty", "isNotEmpty" ]; }
+FILTER_PARAM_LIMITS | const | const FILTER_PARAM_LIMITS: { readonly conditions: 20; readonly encodedLength: 2400; readonly listValues: 50; }
 FieldError | type | type FieldError = { code: string; path: readonly string[]; }
+FilterParamRejection | type | type FilterParamRejection = 'malformed' | 'too-long' | 'too-many-conditions' | 'too-many-values' | @ap/contracts#FilterRejection
+FilterParamsResult | type | type FilterParamsResult = { filters: @ap/contracts#ColumnFilter[]; ok: true; } | { ok: false; reason: @ap/contracts#FilterParamRejection; value: string; }
 FilterRejection | type | type FilterRejection = 'bad-value' | 'duplicate-field' | 'invalid-id' | 'multiple-not-allowed' | 'op-not-allowed' | 'requires-unmet' | 'undeclared-field'
 FilterRowsOptions | type | type FilterRowsOptions = { specs?: Readonly<Record<string, @ap/contracts#ColumnFilterSpec>>; }
 FilterValidation | type | type FilterValidation = { filter: @ap/contracts#ColumnFilter; ok: false; reason: @ap/contracts#FilterRejection; } | { ok: true; }
@@ -199,6 +202,9 @@ contextCapabilities | function | function contextCapabilities(declared?: Partial
 defineAction | const | const defineAction: <I, T>(spec: Omit<@ap/contracts#ActionSpec<I, T>, "_types">) => @ap/contracts#ActionSpec<I, T>
 defineEndpoint | const | const defineEndpoint: <P, T>(spec: Omit<@ap/contracts#EndpointSpec<P, T>, "_types">) => @ap/contracts#EndpointSpec<P, T>
 emptyGlobal | const | const emptyGlobal: @ap/contracts#GlobalContext
+encodeFilterParam | function | function encodeFilterParam(filter: @ap/contracts#ColumnFilter): string
+encodeFilterParams | const | const encodeFilterParams: (filters: readonly @ap/contracts#ColumnFilter[]) => string[]
+filterParamLimit | function | function filterParamLimit(values: readonly string[], key?: string): 'too-long' | 'too-many-conditions' | 'too-many-values' | null
 filterRows | function | function filterRows<T>(rows: readonly T[], filters: readonly @ap/contracts#ColumnFilter[] | undefined, accessor?: (row: T, id: string) => unknown, options?: @ap/contracts#FilterRowsOptions): T[]
 formatDateTime | function | function formatDateTime(date: Date): string
 formatInstant | function | function formatInstant(instant: number | string, lang: keyof @ap/contracts#Text, timeZone?: string): string
@@ -218,6 +224,7 @@ missingRequiredContext | function | function missingRequiredContext(keys: readon
 narrowCondition | function | function narrowCondition(condition: @ap/contracts#Condition | null, axes: readonly string[]): @ap/contracts#Condition | null
 normalizeSet | function | function normalizeSet(values: string[], field?: string, urlKey?: string): string[]
 parseDateTime | function | function parseDateTime(value: string, field: string, urlKey?: string): Date
+parseFilterParams | function | function parseFilterParams(values: readonly string[], specs: Readonly<Record<string, @ap/contracts#ColumnFilterSpec>>, key?: string): @ap/contracts#FilterParamsResult
 parsePlatformInboundLink | function | function parsePlatformInboundLink(url: string, expectedOrigin: string): { context: @ap/contracts#GlobalContext; extras: @ap/contracts#Pair[]; hop: @ap/contracts#PlatformHop; returnTo: null | string; }
 parseQuery | function | function parseQuery(search: string, pageKeys?: readonly string[], options?: { repeated?: readonly string[]; }): @ap/contracts#ParsedQuery
 periodHours | function | function periodHours(g: { from: null | string; to: null | string; }): null | number
