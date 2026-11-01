@@ -354,7 +354,7 @@ describe('filter editor fix round 1', () => {
     expect(onChange).toHaveBeenCalledTimes(1);
   });
 
-  it('F3: too many values and too many conditions are refused with their own explanation', async () => {
+  it('F3: too many values are refused with their own explanation', async () => {
     const many = Array.from({ length: 51 }, (_, i) => ({ value: `v${i}`, label: `값${i}` }));
     const onChange = vi.fn();
     const first = render(<Owner cols={[{ id: 'status', header: '상태', filter: { kind: 'enum', options: many } }]} onChange={onChange} />);
@@ -366,6 +366,11 @@ describe('filter editor fix round 1', () => {
     expect((await screen.findByRole('alert')).textContent).toContain('값을 너무 많이');
     expect(onChange).not.toHaveBeenCalled();
     first.unmount();
+  });
+
+  // Split from the values case: one test rendering both heavy tables in sequence ran past the 5 s timeout on loaded CI runners.
+  it('F3: too many conditions are refused with their own explanation', async () => {
+    const onChange = vi.fn();
     const cols: PlatformColumn<Row>[] = Array.from({ length: 21 }, (_, i) => ({ id: `c${i}`, header: `열${i}`, filter: { kind: 'text' as const }, value: () => '-' }));
     const initial: ColumnFilter[] = cols.slice(0, 20).map(c => ({ id: c.id, op: 'contains', value: 'a' }));
     render(<Owner cols={cols} initial={initial} onChange={onChange} />);
