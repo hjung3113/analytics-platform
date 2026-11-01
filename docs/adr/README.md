@@ -116,6 +116,7 @@
 | [0103](0103-compact-analysis-and-snap-dock.md) | Compact page density, explicit gentle chart emphasis and native Dock previews | Decided (2026-10-30, owner, #1141 B) |
 | [0104](0104-table-column-filters-selection-groups.md) | 표 열 필터(#556b)·전체 선택·그룹 소계: 선택(opt-in) 범용 SDK 조각, 의미는 서버 소유, `TableQuery`는 `PageQuery`를 바꾸지 않음 | Decided (2026-11-01, lead under owner's #556 instruction, reversible) |
 | [0105](0105-one-table-filter-model.md) | 표 필터는 하나의 모델: 페이지·열 필터 통합, Excel 수준 연산자·와이어 스펙(`ops`·`instant`·`requires`), 빈 값·부정 연산자 의미, 숨은 페이지 상태. 0022·0037·0104 보충 | Decided (2026-11-01, owner, #1217) |
+| [0106](0106-improvement-task-is-quest.md) | 과제(Quest)는 개선 실행 시스템의 객체: BRAVO·MARS·CLAS는 출처, 개선 아이템은 과제 아래 업무 객체(편집형 표 조각은 #540), 효과 확인은 SDK 기준일 전후 비교 조각(#1243), 이름 `과제(Quest)` 병용. 0065 보충 | Decided (2026-11-02, owner, #1241) |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 
