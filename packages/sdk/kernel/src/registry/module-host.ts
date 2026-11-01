@@ -52,7 +52,7 @@ export function useModuleHost(entry: ModuleMenuEntry, params: Readonly<Record<st
   });
   // A write elsewhere refreshes queries the module cannot see: its listeners hear every epoch bump.
   const epochTotal = useSyncExternalStore(platform.refreshEpochs.subscribe, platform.refreshEpochs.total);
-  const changeKey = `${platform.revision}|${platform.url}|${epochTotal}`;
+  const changeKey = `${platform.revision}|${platform.appliedUrl}|${epochTotal}`;
   const seen = useRef(changeKey);
   useEffect(() => {
     if (seen.current === changeKey) return;
@@ -82,7 +82,8 @@ export function useModuleHost(entry: ModuleMenuEntry, params: Readonly<Record<st
     };
   }, [instance]);
 
-  const { revision, url, session, scope } = platform;
+  // `appliedUrl` carries the hidden page pairs too: a hidden-only update must rebuild the readers and the `setPage` closure (ADR-0105).
+  const { revision, appliedUrl, session, scope } = platform;
   return useMemo((): ModuleHost => {
     const p = platform;
     const declared = (key: string) => entry.pageKeys.includes(key);
@@ -105,6 +106,7 @@ export function useModuleHost(entry: ModuleMenuEntry, params: Readonly<Record<st
       can: permission => p.can(permission as ModuleScopedId),
       params: () => params,
       page: key => declared(key) ? p.pageParam(key) : null,
+      pages: key => declared(key) ? p.pageParams(key) : [],
       setPage(patch, options) {
         const undeclared = Object.keys(patch).find(key => !declared(key));
         if (undeclared !== undefined) throw new RangeError(`Module "${entry.module}" screen "${entry.id}" does not declare page key "${undeclared}"`);
@@ -204,5 +206,5 @@ export function useModuleHost(entry: ModuleMenuEntry, params: Readonly<Record<st
     return host;
     // The host is rebuilt when what its synchronous reads depend on changes; `ports` are read through portsRef.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `useHostPlatform()` returns a fresh object every render: depending on it would rebuild the host each render, so the memo lists the platform values the snapshot reads
-  }, [entry, params, lang, revision, url, session, scope, ports.detail, instance]);
+  }, [entry, params, lang, revision, appliedUrl, session, scope, ports.detail, instance]);
 }

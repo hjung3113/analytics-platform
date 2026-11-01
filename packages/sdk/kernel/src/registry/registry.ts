@@ -232,6 +232,16 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
       }
     }
     if (clash) fail(`Menu "${m.id}" page key "${clash}" collides with a global Context key`);
+    for (const [field, keys] of [['repeatedPageKeys', m.repeatedPageKeys], ['hiddenPageKeys', m.hiddenPageKeys]] as const) {
+      if (keys === undefined) continue;
+      if (!Array.isArray(keys)) fail(`Menu "${m.id}" ${field} must be a list`);
+      const seen = new Set<string>();
+      for (const key of keys) {
+        if (!m.pageKeys.includes(key)) fail(`Menu "${m.id}" ${field} key "${String(key)}" is not a declared page key`);
+        if (seen.has(key)) fail(`Menu "${m.id}" ${field} key "${key}" is declared twice`);
+        seen.add(key);
+      }
+    }
     const menuCarrySet = m.carrySet === undefined ? undefined : carrySetByIdMap.get(m.carrySet) ?? fail(`Menu "${m.id}" uses undeclared carry set "${String(m.carrySet)}"`);
     const missingCarried = (menuCarrySet?.pageKeys ?? []).find(k => !m.pageKeys.includes(k));
     if (missingCarried) fail(`Menu "${m.id}" does not declare carry set "${menuCarrySet?.id}" page key "${missingCarried}" in pageKeys`);
@@ -296,6 +306,13 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
         if (key === RETURN_TO_KEY) fail(`Menu "${m.id}" drill resetKey "${RETURN_TO_KEY}" cannot be reset by a drill step`);
       }
     }
+    // A repeated key holds a list; a drill level, a condition-preset holder and a navView preset key hold exactly one value (plan-review P1).
+    for (const key of m.repeatedPageKeys ?? []) {
+      const role = (m.drill?.levels ?? []).some(level => level.key === key) ? 'a drill level key'
+        : m.conditionPreset?.key === key ? 'the conditionPreset key'
+          : (m.navViews ?? []).some(view => Object.keys(view.page).includes(key)) ? 'a navView preset key' : null;
+      if (role) fail(`Menu "${m.id}" repeatedPageKeys key "${key}" cannot also be ${role}`);
+    }
     // Same shape once parameter names are erased (/a/:x vs /a/:y) is ambiguous; static-vs-param overlaps are resolved below.
     for (const path of [m.path, ...(m.aliases ?? [])]) {
       const shape = '/' + segments(path).map(s => (isParam(s) ? ':' : s)).join('/');
@@ -303,6 +320,14 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
       if (other === m.id) fail(`Menu "${m.id}" declares the route shape ${shape} more than once`);
       if (other) fail(`Menus "${other}" and "${m.id}" declare the same route shape ${shape}`);
       shapes.set(shape, m.id);
+    }
+  }
+  // Members of one carry set must agree on whether a carried key is a list, or a two-item source would land on a one-value destination.
+  for (const set of carrySets) {
+    for (const key of set.pageKeys) {
+      const members = menus.filter(m => m.carrySet === set.id);
+      const lists = members.filter(m => m.repeatedPageKeys?.includes(key));
+      if (lists.length > 0 && lists.length < members.length) fail(`Carry set "${set.id}" key "${key}" is a repeated page key of menu "${lists[0].id}" but not of menu "${members.find(m => !m.repeatedPageKeys?.includes(key))!.id}"`);
     }
   }
   const homeMenus = menus.filter(m => groupSpace.get(m.group) === null && [m.path, ...(m.aliases ?? [])].some(path => segments(path).length === 0));
@@ -380,7 +405,7 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
     const search = q === -1 ? '' : value.slice(q);
     const route = matchRoute(path);
     if (!route || route.menu.navHidden) return null;
-    try { parseQuery(search, route.menu.pageKeys); } catch { return null; }
+    try { parseQuery(search, route.menu.pageKeys, { repeated: route.menu.repeatedPageKeys }); } catch { return null; }
     return value;
   };
 

@@ -122,3 +122,25 @@ describe('Condition basis and global Line/PRC copy (#552)', () => {
     expect(copied).toMatchObject({ condition: { alpha: ['A', 'B'], beta: ['C'] }, membershipBasis: 'asOf', lineNames: ['L'], prcGroups: ['P'], selection: ['E'] });
   });
 });
+
+describe('repeated page keys in board Context actions (F4)', () => {
+  const repeating = createRegistry({
+    spaces: [testSpace({ homeMenuId: 'home' })],
+    groups: [{ id: groupId('equipment'), label: { ko: '그룹', en: 'Group' }, icon: House, space: spaceId('mars') }],
+    menus: [
+      { ...entry('home', '/', { features: { ...features, board: false } }), primary: true },
+      entry('alpha', '/alpha', { pageKeys: ['tag'], repeatedPageKeys: ['tag'] }),
+      entry('beta', '/beta', { pageKeys: ['tag'], repeatedPageKeys: ['tag'] }),
+    ],
+  });
+  it('a pane whose address repeats a declared key still takes part: signals, apply-to-sheet and sheet copy keep every pair in order', () => {
+    const source = pane('?lotIds=LOT&tag=b&tag=a');
+    const other = pane('?lotIds=OTHER&tag=y&tag=x', 'beta');
+    expect(paneSignals(repeating, canOpen, [source, other], '없음').every(signal => signal !== null)).toBe(true);
+    const applied = applyContextToSheet(repeating, canOpen, sheet([source, other]), 0)!;
+    expect(applied.edits).toHaveLength(1);
+    expect(parseQuery(applied.edits[0].after!.query, ['tag'], { repeated: ['tag'] })).toMatchObject({ global: { lotIds: ['LOT'] }, page: [['tag', 'y'], ['tag', 'x']] });
+    const copied = copyContextToSheet(repeating, canOpen, sheet([source, null]), sheet([other, null]));
+    expect(parseQuery(copied[0].after!.query, ['tag'], { repeated: ['tag'] }).page).toEqual([['tag', 'y'], ['tag', 'x']]);
+  });
+});

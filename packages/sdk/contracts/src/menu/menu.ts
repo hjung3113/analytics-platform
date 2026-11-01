@@ -105,6 +105,17 @@ export type MenuMeta = {
    * History traversal (popstate, `navigate`, Back/Forward) never clears them — restored entries are exact (§6.4).
    */
   contextResetKeys?: readonly string[];
+  /**
+   * Subset of `pageKeys` that may appear more than once: a collection written as one URL pair per item, order kept (§6.1).
+   * Every other page key still rejects a duplicate (`duplicate_page_key`). A repeated key may also be a carry-set key or a `contextResetKeys` entry.
+   */
+  repeatedPageKeys?: readonly string[];
+  /**
+   * Subset of `pageKeys` the main screen keeps out of the address bar (§6.1, ADR-0105). The Kernel holds them in the history entry's state and rewrites the
+   * address without them; share links and saved menu views carry them. A hidden key may also be repeated, a carry-set key or a `contextResetKeys` entry.
+   * A pane has no address bar, so there they are ordinary page state.
+   */
+  hiddenPageKeys?: readonly string[];
   /** Id-only metricId is completed from PUBLISHED_METRICS. Every other menu rejects it as metric_pair_incomplete. */
   initializesMetric?: boolean;
   /** Detail/destination routes are reachable through Context Links, not the sidebar. */

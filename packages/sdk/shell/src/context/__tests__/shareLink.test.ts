@@ -55,6 +55,18 @@ describe('buildShareLink', () => {
     expect(buildShareLink({ ...base, kind: 'conditions', ...over })).toEqual({ ok: false, reason });
   });
 
+  it('conditions carry hidden page pairs (the copied link only); the bound counts them', () => {
+    const hidden = { ...base, page: [['q', 'x'], ['filter', 'a:1,2'], ['filter', 'b']] as [string, string][] };
+    const result = buildShareLink({ ...hidden, kind: 'conditions' });
+    expect(result.ok && parseQuery(new URL(result.href).search, ['q', 'filter'], { repeated: ['filter'] }).page).toEqual(hidden.page);
+    const short = buildShareLink({ ...base, kind: 'conditions' });
+    expect(short.ok).toBe(true);
+    const limit = short.ok ? short.href.length + 5 : 0;
+    expect(buildShareLink({ ...base, kind: 'conditions', maxLength: limit }).ok).toBe(true);
+    expect(buildShareLink({ ...hidden, kind: 'conditions', maxLength: limit })).toEqual({ ok: false, reason: 'too-long' });
+    expect(buildShareLink({ ...hidden, kind: 'menu' })).toEqual({ ok: true, href: 'https://app.test/base/mars/home' });
+  });
+
   it('menu over the bound is also refused', () => {
     expect(buildShareLink({ ...base, kind: 'menu', maxLength: 5 })).toEqual({ ok: false, reason: 'too-long' });
   });

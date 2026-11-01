@@ -49,8 +49,8 @@ const menuOf = (registry: Registry, screen: PaneScreen): MenuEntry | null => reg
 /** Parse an address's Context; only a ContractError means the address is unreadable. */
 function globalOfUrl(registry: Registry, menuId: string, url: string): GlobalContext | null {
   try {
-    const pageKeys = registry.menus.find(menu => menu.id === menuId)?.pageKeys ?? [];
-    return parseQuery(url, pageKeys).global;
+    const menu = registry.menus.find(m => m.id === menuId);
+    return parseQuery(url, menu?.pageKeys ?? [], { repeated: menu?.repeatedPageKeys }).global;
   } catch (error) {
     if (error instanceof ContractError) return null;
     throw error;

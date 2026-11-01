@@ -2,9 +2,12 @@
 export type PlatformLocation = {
   /** null means the browser pathname is outside this deployment. */
   read: () => string | null;
-  push: (url: string) => void;
-  /** `keepFragment`: a kernel rewrite of the same arrival (alias redirect, default materialization) keeps the address-bar `#fragment`; the write stays one history call. */
-  replace: (url: string, options?: { keepFragment?: boolean }) => void;
+  /** `state` is the new entry's `history.state`; absent = null, as before hidden page keys (ADR-0105). */
+  push: (url: string, state?: unknown) => void;
+  /** `keepFragment`: a kernel rewrite of the same arrival (alias redirect, default materialization) keeps the address-bar `#fragment`; the write stays one history call. `state`: as for `push`. */
+  replace: (url: string, options?: { keepFragment?: boolean; state?: unknown }) => void;
+  /** The current entry's `history.state`. A boundary without it carries no hidden page keys. */
+  readState?: () => unknown;
   href: (url: string) => string;
   absoluteUrl: (url: string) => string;
 };
@@ -13,8 +16,9 @@ export type PlatformLocation = {
 export function createBrowserLocation(): PlatformLocation {
   return {
     read: () => window.location.pathname + window.location.search,
-    push: url => window.history.pushState(null, '', url),
-    replace: (url, options) => window.history.replaceState(null, '', options?.keepFragment ? url + window.location.hash : url),
+    push: (url, state) => window.history.pushState(state ?? null, '', url),
+    replace: (url, options) => window.history.replaceState(options?.state ?? null, '', options?.keepFragment ? url + window.location.hash : url),
+    readState: () => window.history.state,
     href: url => url,
     absoluteUrl: url => window.location.origin + url,
   };
@@ -39,8 +43,9 @@ export function createBasePathLocation(basePath: string): PlatformLocation {
     read: () => window.location.pathname.startsWith(base)
       ? '/' + window.location.pathname.slice(base.length) + window.location.search
       : null,
-    push: url => window.history.pushState(null, '', href(url)),
-    replace: (url, options) => window.history.replaceState(null, '', href(url) + (options?.keepFragment ? window.location.hash : '')),
+    push: (url, state) => window.history.pushState(state ?? null, '', href(url)),
+    replace: (url, options) => window.history.replaceState(options?.state ?? null, '', href(url) + (options?.keepFragment ? window.location.hash : '')),
+    readState: () => window.history.state,
     href,
     absoluteUrl: url => window.location.origin + href(url),
   };

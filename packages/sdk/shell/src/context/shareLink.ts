@@ -11,7 +11,7 @@ export const SHARE_LINK_MAX_LENGTH = 4000;
 /**
  * The one serializer behind "share current conditions", "copy menu address" and the VOC repro link (cross-menu-links.md).
  * `menu` = the deployment-aware canonical path with its route params, no query. `conditions` = that path + the v1 query of the
- * APPLIED `global`/`page` pairs: `returnTo` and unregistered extras are never written, and a query-bar draft is not an input here.
+ * APPLIED `global`/`page` pairs (hidden page keys included: the address omits them, the copied link carries them, and the bound counts them): `returnTo` and unregistered extras are never written, and a query-bar draft is not an input here.
  * A failure never degrades to a shorter link: no truncation, no bare-path fallback.
  */
 export function buildShareLink({ kind, route, global, page, absoluteUrl, maxLength = SHARE_LINK_MAX_LENGTH }: {
