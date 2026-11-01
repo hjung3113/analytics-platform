@@ -1,0 +1,200 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "anyOf": [
+    {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[^:]+$"
+        },
+        "op": {
+          "type": "string",
+          "enum": [
+            "contains",
+            "notContains",
+            "startsWith",
+            "endsWith",
+            "equals",
+            "notEquals"
+          ]
+        },
+        "value": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "op",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[^:]+$"
+        },
+        "op": {
+          "type": "string",
+          "enum": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte"
+          ]
+        },
+        "value": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "op",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[^:]+$"
+        },
+        "op": {
+          "type": "string",
+          "const": "between"
+        },
+        "value": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "op",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[^:]+$"
+        },
+        "op": {
+          "type": "string",
+          "const": "between"
+        },
+        "value": {
+          "type": "object",
+          "properties": {
+            "from": {
+              "type": "string"
+            },
+            "to": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "id",
+        "op",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[^:]+$"
+        },
+        "op": {
+          "type": "string",
+          "enum": [
+            "before",
+            "after"
+          ]
+        },
+        "value": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        }
+      },
+      "required": [
+        "id",
+        "op",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[^:]+$"
+        },
+        "op": {
+          "type": "string",
+          "enum": [
+            "in",
+            "notIn"
+          ]
+        },
+        "value": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "op",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[^:]+$"
+        },
+        "op": {
+          "type": "string",
+          "enum": [
+            "isEmpty",
+            "isNotEmpty"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "op"
+      ],
+      "additionalProperties": false
+    }
+  ]
+}

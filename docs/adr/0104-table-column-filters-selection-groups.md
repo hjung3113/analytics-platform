@@ -48,3 +48,5 @@
 
 - [Components §15](../contract/components.md#15-platform-data-table-contract): 열 필터 선언·와이어·초기화·내보내기.
 - [실서버 연결 체크리스트](../integration/real-server-checklist.md): 서버가 `filters`를 적용하는 규칙.
+
+Amended by [ADR-0105](0105-one-table-filter-model.md) (2026-11-01): column filters join page filters in one model; the operator vocabulary and wire spec widen (additive), and conditions are shared by link and saved view (hidden page state) instead of being table-local.
