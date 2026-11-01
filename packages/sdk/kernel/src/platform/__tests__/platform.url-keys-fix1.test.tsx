@@ -5,6 +5,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { carrySetId, groupId, spaceId } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry } from '../../index';
 import { useHostPlatform } from '../../host';
+import { readReturnHidden, rememberReturnHidden } from '../../context/returnHidden';
+import { createBasePathLocation, type PlatformLocation } from '../../context/location';
 import { noContext, testAdapter, testSession, testSpace } from '../../testing';
 
 const features = { export: false, savedView: false, annotate: false, compare: false };
@@ -77,12 +79,82 @@ describe('F1: returnTo never carries hidden pairs; they come back on the return 
   });
 
   it('restored pairs are validated against the destination: undeclared keys and extra values of a single-value key are dropped', () => {
-    window.sessionStorage.setItem('ap.kernel.returnHidden', JSON.stringify({ v: 1, entries: [['/mars/other?v=1', [['mode', 'a'], ['mode', 'b'], ['filter', 'c']]]] }));
     mount('/mars/detail?v=1&returnTo=%2Fmars%2Fother%3Fv%3D1');
+    const owner = JSON.stringify([platform.user.id, platform.location.absoluteUrl('/'), 'other']);
+    window.sessionStorage.setItem('ap.kernel.returnHidden', JSON.stringify({ v: 2, entries: [['/mars/other?v=1', owner, [['mode', 'a'], ['mode', 'b'], ['filter', 'c']]]] }));
     act(() => { platform.navigate(platform.returnTarget()); });
     expect(platform.pageParams('mode')).toEqual(['a']);
     expect(platform.pageParams('filter')).toEqual([]);
     expect(address()).toBe('/mars/other?v=1');
+  });
+});
+
+describe('G1/G2: a snapshot belongs to its user, deployment and menu; a failed write fails closed', () => {
+  function tripThenReturn() {
+    act(() => platform.setPage({ filter: ['private'] }));
+    act(() => { platform.navigate(platform.linkTo('detail', { returnTo: true })); });
+  }
+  function mountAs(url: string, userId: string, location?: PlatformLocation) {
+    window.history.replaceState(null, '', url);
+    const other = testSession(['platform:view'], { user: { id: userId } });
+    const as = testAdapter({ session: () => other });
+    render(<I18nProvider><PlatformProvider adapter={as} registry={registry} location={location}><Probe /></PlatformProvider></I18nProvider>);
+  }
+  it('another user following the same return link restores nothing', () => {
+    mount('/mars/items?v=1&q=x');
+    tripThenReturn();
+    cleanup();
+    mountAs(window.location.pathname + window.location.search, 'u2');
+    act(() => { platform.navigate(platform.returnTarget()); });
+    expect(address()).toBe('/mars/items?v=1&q=x');
+    expect(platform.pageParams('filter')).toEqual([]);
+  });
+
+  it('the same user under another base path restores nothing', () => {
+    window.history.replaceState(null, '', '/a/mars/items?v=1&q=x');
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry} location={createBasePathLocation('/a/')}><Probe /></PlatformProvider></I18nProvider>);
+    tripThenReturn();
+    const detail = window.location.pathname.replace('/a/', '/b/') + window.location.search;
+    cleanup();
+    mountAs(detail, 'u1', createBasePathLocation('/b/'));
+    act(() => { platform.navigate(platform.returnTarget()); });
+    expect(platform.pageParams('filter')).toEqual([]);
+  });
+
+  it('a snapshot stored for one menu is not read for another', () => {
+    const owner = { user: 'u1', deployment: 'http://localhost/', menu: 'items' };
+    rememberReturnHidden('/mars/items?v=1', [['filter', 'a']], owner);
+    expect(readReturnHidden('/mars/items?v=1', owner)).toEqual([['filter', 'a']]);
+    expect(readReturnHidden('/mars/items?v=1', { ...owner, menu: 'other' })).toEqual([]);
+    expect(readReturnHidden('/mars/items?v=1', { ...owner, user: 'u2' })).toEqual([]);
+    expect(readReturnHidden('/mars/items?v=1', { ...owner, deployment: 'http://localhost/b/' })).toEqual([]);
+  });
+
+  /** A storage that reads what is already stored but refuses writes (and, optionally, removals). */
+  function readOnlyStorage(blockRemove: boolean) {
+    const real = window.sessionStorage;
+    const view = { getItem: (k: string) => real.getItem(k), setItem: () => { throw new Error('quota'); }, removeItem: (k: string) => { if (blockRemove) throw new Error('denied'); real.removeItem(k); } };
+    vi.spyOn(window, 'sessionStorage', 'get').mockImplementation(() => view as unknown as Storage);
+  }
+  it('readable but unwritable storage: the older snapshot is not restored', () => {
+    mount('/mars/items?v=1&q=x');
+    tripThenReturn();
+    act(() => { platform.navigate(platform.returnTarget()); });
+    expect(platform.pageParams('filter')).toEqual(['private']);
+    act(() => platform.setPage({ filter: ['newer'] }));
+    readOnlyStorage(false);
+    act(() => { platform.navigate(platform.linkTo('detail', { returnTo: true })); });
+    act(() => { platform.navigate(platform.returnTarget()); });
+    expect(address()).toBe('/mars/items?v=1&q=x');
+    expect(platform.pageParams('filter')).toEqual([]);
+  });
+
+  it('even when the stale slot cannot be removed, the failed trip restores nothing', () => {
+    const owner = { user: 'u1', deployment: 'http://localhost/', menu: 'items' };
+    rememberReturnHidden('/mars/items?v=1', [['filter', 'old']], owner);
+    readOnlyStorage(true);
+    rememberReturnHidden('/mars/items?v=1', [['filter', 'new']], owner);
+    expect(readReturnHidden('/mars/items?v=1', owner)).toEqual([]);
   });
 });
 

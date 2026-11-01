@@ -5,7 +5,7 @@ import { sameItems, useStable } from '../stable';
 import { isBoardPath, pathFor, type MenuEntry } from '../registry/registry';
 import { useI18n } from '../i18n';
 import { hasDotSegment } from '../context/location';
-import { readReturnHidden, rememberReturnHidden } from '../context/returnHidden';
+import { readReturnHidden, rememberReturnHidden, type ReturnHiddenOwner } from '../context/returnHidden';
 import { sameParams } from './preferences';
 import { dropResetKeys } from '../context/paneContext';
 import { dropDrillResetKeys } from '../context/drillReset';
@@ -93,6 +93,10 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   const extras = useMemo(() => parsed?.extras ?? [], [parsed]);
 
   // Only the main screen's navigation marks how the next entry was reached; a pane that leaves hands over to the main one (onLeave).
+  const returnOwner = useCallback((address: string): ReturnHiddenOwner | null => {
+    const menu = matchRoute(address.split('?')[0] || '/')?.menu.id;
+    return menu === undefined ? null : { user: userId, deployment: app.pub.location.absoluteUrl('/'), menu };
+  }, [matchRoute, userId, app.pub.location]);
   const navigate = useCallback((next: string, options?: { replace?: boolean; focus?: PageFocus; via?: UsageVia }) => {
     const trail = usageNav.current;
     const before = trail.via;
@@ -101,14 +105,14 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     if (mode === 'main') {
       // The return link names only the visible address (ADR-0105): leaving with this screen as the origin parks its hidden pairs in the session, following the return link takes them back.
       const q = next.indexOf('?');
-      if (q !== -1 && new URLSearchParams(next.slice(q + 1)).get(RETURN_TO_KEY) === visibleUrl) rememberReturnHidden(visibleUrl, hidden ?? []);
+      if (q !== -1 && new URLSearchParams(next.slice(q + 1)).get(RETURN_TO_KEY) === visibleUrl) { const owner = returnOwner(visibleUrl); if (owner !== null) rememberReturnHidden(visibleUrl, hidden ?? [], owner); }
       const origin = safeReturnTo(page.find(([k]) => k === RETURN_TO_KEY)?.[1] ?? null);
-      if (origin !== null && origin === next) restoreHidden = readReturnHidden(origin);
+      if (origin !== null && origin === next) { const owner = returnOwner(origin); if (owner !== null) restoreHidden = readReturnHidden(origin, owner); }
     }
     const moved = go(next, restoreHidden && restoreHidden.length > 0 ? { ...options, restoreHidden } : options);
     if (mode === 'main' && !moved) trail.via = before;
     return moved;
-  }, [go, mode, usageNav, visibleUrl, hidden, safeReturnTo, page]);
+  }, [go, mode, usageNav, visibleUrl, hidden, safeReturnTo, page, returnOwner]);
 
   // A deliberate global-Context change drops the manifest's contextResetKeys (e.g. the result-set page index)
   // from the page pairs in the SAME navigation — one history entry, so Back returns to the pre-change URL
