@@ -9,6 +9,8 @@ export { chartTheme, EChart, token, type EChartProps } from './chart/EChart';
 export * from './filters/PageFilterBar';
 export * from './table/PlatformDataTable';
 export * from './table/tableUrlWarning';
+export type { LegacyFilterKey, TableFilterOption, TableFilterProblem, TableFilterRead } from './table/tableFilterUrl';
+export { FILTER_OP_LABELS } from './table/filterOps';
 export { RecoverButton } from './state/RecoverButton';
 export { focusPageFallback } from './state/pageFocus';
 export { checkWorkbook, toWorkbookXlsx, WorkbookError, WORKBOOK_LIMITS, type WorkbookCell, type WorkbookErrorCode, type WorkbookSheet } from './table/workbook';

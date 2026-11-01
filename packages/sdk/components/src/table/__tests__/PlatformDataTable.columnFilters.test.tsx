@@ -229,7 +229,7 @@ describe('PlatformDataTable column filters (#556b)', () => {
     expect(exportRows).toHaveBeenCalledWith({ scope: { kind: 'filtered' }, sorting: [], filters: [{ id: 'name', op: 'contains', value: 'abc' }] }, expect.anything());
     const info = (await readXlsx(downloads[0])).sheets[1] as Record<string, unknown>;
     const rows = Object.fromEntries(Object.keys(info).filter(k => k.startsWith('A')).map(k => [String(info[k]), info['B' + k.slice(1)]]));
-    expect(rows['열 필터 · 이름']).toBe('포함 "abc"');
+    expect(rows['필터 · 이름']).toBe('포함 "abc"');
 
     exportRows.mockClear();
     fireEvent.click(screen.getByRole('checkbox', { name: '선택 r1' }));

@@ -221,3 +221,142 @@ export function validateFilters(filters: readonly ColumnFilter[], specs: Readonl
   }
   return { ok: true };
 }
+
+/**
+ * URL codec (ADR-0105 §6, 06 §15): one condition per page-key value, `<id>:<op>[:<value>]`, split on the FIRST TWO `:` only, so a
+ * value keeps its own `:` (`type:equals:Future.Type:v2`). Percent-encoding is the URL layer's job; this codec never produces or reads `%`.
+ *
+ * Value per op: text ops and `before`/`after` = the string as is; `eq`..`lte` = the number (`String(n)`); `isEmpty`/`isNotEmpty` = no
+ * value part at all; `between` = `from~to` (number pair, or a date/instant range whose absent end is the empty string); `in`/`notIn` =
+ * items joined by `~`. Inside a list item, `~` and the escape character `\` are written `\~` and `\\`; nothing else is escaped (`,` `:`
+ * spaces and Korean pass through), and a `\` before any other character is malformed. Commas are never separators (kernel.md §URL).
+ */
+export const FILTER_PARAM_LIMITS = {
+  /** Conditions in one table (= repeated values of the page key). */
+  conditions: 20,
+  /** Items of one `in`/`notIn` list. */
+  listValues: 50,
+  /**
+   * Sum over conditions of `encodeURIComponent(condition).length + 16` (the `filter=` key, `&` and slack). A Hangul syllable costs 9
+   * characters once percent-encoded, so this budget (not the counts) is what keeps the copied link under `SHARE_LINK_MAX_LENGTH`
+   * (4000) with room for the path, the global Context and the short keys (`sort` `page` `q`).
+   */
+  encodedLength: 2400,
+} as const;
+
+export type FilterParamRejection = FilterRejection | 'malformed' | 'too-many-conditions' | 'too-many-values' | 'too-long';
+export type FilterParamsResult = { ok: true; filters: ColumnFilter[] } | { ok: false; reason: FilterParamRejection; value: string };
+
+const escapePart = (part: string): string => part.replace(/[\\~]/g, ch => `\\${ch}`);
+const joinParts = (parts: readonly string[]): string => parts.map(escapePart).join('~');
+
+/** Split on unescaped `~`; `undefined` when the text has a bad escape (a `\` not followed by `\` or `~`, or a trailing `\`). */
+function splitParts(text: string): string[] | undefined {
+  const parts = [''];
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i] as string;
+    if (ch === '\\') {
+      const next = text[i + 1];
+      if (next !== '\\' && next !== '~') return undefined;
+      parts[parts.length - 1] += next;
+      i++;
+    } else if (ch === '~') parts.push('');
+    else parts[parts.length - 1] += ch;
+  }
+  return parts;
+}
+
+/** One condition as its page-key value. Throws `RangeError` for a filter that cannot be encoded (an id with `:`, an empty id, a non-finite number): validate with `validateFilters` first. */
+export function encodeFilterParam(filter: ColumnFilter): string {
+  if (filter.id === '' || filter.id.includes(':')) throw new RangeError(`encodeFilterParam: invalid field id "${filter.id}"`);
+  const head = `${filter.id}:${filter.op}`;
+  switch (filter.op) {
+    case 'isEmpty': case 'isNotEmpty': return head;
+    case 'in': case 'notIn': return `${head}:${joinParts(filter.value)}`;
+    case 'between':
+      if (Array.isArray(filter.value)) {
+        if (!filter.value.every(Number.isFinite)) throw new RangeError('encodeFilterParam: non-finite number');
+        return `${head}:${filter.value.join('~')}`;
+      }
+      return `${head}:${joinParts([filter.value.from ?? '', filter.value.to ?? ''])}`;
+    case 'eq': case 'neq': case 'gt': case 'gte': case 'lt': case 'lte':
+      if (!Number.isFinite(filter.value)) throw new RangeError('encodeFilterParam: non-finite number');
+      return `${head}:${filter.value}`;
+    default: return `${head}:${filter.value}`;
+  }
+}
+
+/** Page-key values for a filter list, in order (`[]` for none). */
+export const encodeFilterParams = (filters: readonly ColumnFilter[]): string[] => filters.map(encodeFilterParam);
+
+const encodedCost = (values: readonly string[]): number => values.reduce((sum, value) => sum + encodeURIComponent(value).length + 16, 0);
+
+/** The cap an encoded list would break (`null` = within all of them): the editor uses it to refuse an Apply, `parseFilterParams` to refuse a link. */
+export function filterParamLimit(values: readonly string[]): 'too-many-conditions' | 'too-many-values' | 'too-long' | null {
+  if (values.length > FILTER_PARAM_LIMITS.conditions) return 'too-many-conditions';
+  if (values.some(value => (splitParts(value.split(':').slice(2).join(':'))?.length ?? 0) > FILTER_PARAM_LIMITS.listValues && /^[^:]+:(?:in|notIn):/.test(value))) return 'too-many-values';
+  return encodedCost(values) > FILTER_PARAM_LIMITS.encodedLength ? 'too-long' : null;
+}
+
+const NUMBER_RE = /^-?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/;
+const OP_SET: ReadonlySet<string> = new Set(Object.values(FILTER_OPS_BY_KIND).flat());
+
+/** Raw text of one condition → a typed filter, or a rejection (`malformed` = syntax; the rest is `validateFilters`'s). */
+function parseOne(raw: string, specs: Readonly<Record<string, ColumnFilterSpec>>): ColumnFilter | FilterParamRejection {
+  const first = raw.indexOf(':');
+  if (first <= 0) return 'malformed';
+  const id = raw.slice(0, first);
+  const rest = raw.slice(first + 1);
+  const second = rest.indexOf(':');
+  const op = second === -1 ? rest : rest.slice(0, second);
+  const text = second === -1 ? undefined : rest.slice(second + 1);
+  if (!OP_SET.has(op)) return 'malformed';
+  const spec = Object.prototype.hasOwnProperty.call(specs, id) ? specs[id] : undefined;
+  if (!spec) return 'undeclared-field';
+  if (!(FILTER_OPS_BY_KIND[spec.kind] as readonly string[]).includes(op) || !(spec.ops ?? FILTER_OPS_BY_KIND[spec.kind]).includes(op as never)) return 'op-not-allowed';
+  switch (op) {
+    case 'isEmpty': case 'isNotEmpty': return text === undefined ? { id, op } : 'bad-value';
+  }
+  if (text === undefined) return 'malformed';
+  switch (op) {
+    case 'eq': case 'neq': case 'gt': case 'gte': case 'lt': case 'lte':
+      return NUMBER_RE.test(text) ? { id, op, value: Number(text) } : 'bad-value';
+    case 'in': case 'notIn': {
+      const items = splitParts(text);
+      if (!items) return 'malformed';
+      return items.length > FILTER_PARAM_LIMITS.listValues ? 'too-many-values' : { id, op, value: items };
+    }
+    case 'between': {
+      const parts = splitParts(text);
+      if (!parts || parts.length !== 2) return 'malformed';
+      if (spec.kind === 'number') {
+        return parts.every(part => NUMBER_RE.test(part)) ? { id, op, value: [Number(parts[0]), Number(parts[1])] } : 'bad-value';
+      }
+      const [from, to] = parts as [string, string];
+      return { id, op, value: { ...(from !== '' ? { from } : {}), ...(to !== '' ? { to } : {}) } };
+    }
+    default: return { id, op, value: text } as ColumnFilter;
+  }
+}
+
+/**
+ * Page-key values → typed filters, or the first problem with the offending raw value (shown to the user as entered, ADR-0034).
+ * Syntax and caps are checked here, everything else (undeclared field/op, shape, `requires`, `multiple: false`, a second condition on
+ * one field) by `validateFilters`. A value is never corrected or dropped.
+ */
+export function parseFilterParams(values: readonly string[], specs: Readonly<Record<string, ColumnFilterSpec>>): FilterParamsResult {
+  const fail = (reason: FilterParamRejection, value: string): FilterParamsResult => ({ ok: false, reason, value });
+  if (values.length > FILTER_PARAM_LIMITS.conditions) return fail('too-many-conditions', values[FILTER_PARAM_LIMITS.conditions] as string);
+  let cost = 0;
+  const filters: ColumnFilter[] = [];
+  for (const value of values) {
+    cost += encodedCost([value]);
+    if (cost > FILTER_PARAM_LIMITS.encodedLength) return fail('too-long', value);
+    const parsed = parseOne(value, specs);
+    if (typeof parsed === 'string') return fail(parsed, value);
+    filters.push(parsed);
+  }
+  const check = validateFilters(filters, specs);
+  if (!check.ok) return fail(check.reason, values[filters.indexOf(check.filter)] as string);
+  return { ok: true, filters };
+}
