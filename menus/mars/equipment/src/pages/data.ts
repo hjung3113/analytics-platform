@@ -1,4 +1,4 @@
-import type { Equipment, EquipmentExportFilter, EquipmentFilter } from '../endpoints';
+import { EQUIPMENT_STATUS_VALUES, equipmentFilterSpecs, type Equipment, type EquipmentExportFilter, type EquipmentFilter } from '../endpoints';
 import { exportScopeIds, type TableExportRequest } from '@ap/components';
 import { parseDateTime, shift, type ColumnFilterSpec } from '@ap/contracts';
 export const statusText = {
@@ -15,15 +15,28 @@ export const fields: { key: keyof Equipment; ko: string; en: string }[] = [
   { key: 'validFrom', ko: '유효 시작', en: 'Valid from' }, { key: 'validTo', ko: '유효 종료일', en: 'Valid to' },
   { key: 'updatedAt', ko: '변경 시각', en: 'Updated at' }, { key: 'updatedBy', ko: '변경자', en: 'Updated by' },
 ];
-/** Production lines the mock generates (`L1`–`L4`, world.ts). */
-const lineOptions = ['L1', 'L2', 'L3', 'L4'];
-/** Column filters EquipmentMaster opts in to (#556b): enum line, text model, wall-clock date validity columns. 상태 stays a page filter only (ADR-0104). */
-export function columnFilter(key: keyof Equipment): ColumnFilterSpec | undefined {
-  if (key === 'line') return { kind: 'enum', options: lineOptions.map(value => ({ value, label: value })) };
-  if (key === 'model' || key === 'updatedBy') return { kind: 'text' };
-  if (key === 'validFrom' || key === 'validTo') return { kind: 'date' };
-  return undefined;
+/** Pinned filter fields (ADR-0105, R2): their buttons sit on the filter line even before a condition is set. */
+export const pinnedFilterKeys: readonly (keyof Equipment)[] = ['status', 'maker'];
+/**
+ * Filter fields EquipmentMaster declares (ADR-0104/0105): the wire kind and operators come from `equipmentFilterSpecs` (endpoints.ts), the
+ * words from here — 상태 labels per language, Maker options from the makers endpoint (`makers`, the chosen values stay selectable while it loads).
+ */
+export function columnFilter(key: keyof Equipment, makers: readonly string[] = [], lang: 'ko' | 'en' = 'ko'): ColumnFilterSpec | undefined {
+  const wire = equipmentFilterSpecs[key];
+  if (!wire || wire.kind !== 'enum') return wire;
+  if (key === 'status') return { ...wire, options: EQUIPMENT_STATUS_VALUES.map(value => ({ value, label: statusText[value][lang] })) };
+  if (key === 'maker') return { ...wire, options: makers.map(value => ({ value, label: value })) };
+  return wire;
 }
+/** Every filterable field by id: the table's column filters and the URL codec read the same declaration. */
+export function filterSpecs(makers: readonly string[], lang: 'ko' | 'en'): Record<string, ColumnFilterSpec> {
+  return Object.fromEntries(fields.flatMap(f => { const spec = columnFilter(f.key, makers, lang); return spec ? [[f.key, spec]] : []; }));
+}
+/** The old single page keys (`?status=active`, `?maker=TEL`) as filter conditions; read for one release and rewritten away (ADR-0105 §6, P8). */
+export const legacyFilterKeys = [
+  { key: 'status', toFilter: (raw: string) => ({ id: 'status', op: 'in' as const, value: [raw] }) },
+  { key: 'maker', toFilter: (raw: string) => ({ id: 'maker', op: 'in' as const, value: [raw] }) },
+];
 /** §6.1: sortable columns are exactly the data fields; the synthetic _select/_action columns never join the allow-list. */
 export const sortFields: readonly (keyof Equipment)[] = fields.map(f => f.key);
 export function validity(e: Equipment) {
@@ -35,21 +48,17 @@ export function validity(e: Equipment) {
   ];
 }
 
-/** Table-owned export params (#173): the page filters, the selection ids (`null` = every filtered row) and the table's active sort. */
+/** Table-owned export params (#173): the quick search, the selection ids (`null` = every filtered row) and the table's active sort. */
 export function exportParams(
-  { q, status, maker }: EquipmentFilter,
+  { q }: EquipmentFilter,
   request: TableExportRequest,
 ): EquipmentExportFilter {
   const scope = exportScopeIds(request.scope);
   const selection = scope.mode === 'all-except' ? { ids: null, excludedIds: scope.excludedIds } : { ids: scope.ids };
-  return { q, status, maker, ...selection, sorting: request.sorting, ...(request.filters ? { filters: request.filters } : {}) };
+  return { q, ...selection, sorting: request.sorting, ...(request.filters ? { filters: request.filters } : {}) };
 }
 
-/** Readable page filters for the XLSX 조회 정보 sheet (#173 review P2-3); unset filters are omitted. */
-export function exportFilterSummary({ q, status, maker }: EquipmentFilter, lang: 'ko' | 'en'): [string, string][] {
-  const rows: [string, string][] = [];
-  if (q) rows.push([lang === 'ko' ? '검색어' : 'Search', q]);
-  if (status && status in statusText) rows.push([lang === 'ko' ? '상태' : 'Status', statusText[status as Equipment['status']][lang]]);
-  if (maker) rows.push(['Maker', maker]);
-  return rows;
+/** Readable page filter for the XLSX 조회 정보 sheet (#173 review P2-3); an unset search is omitted. Conditions are listed by the table itself (`필터 · <label>`). */
+export function exportFilterSummary({ q }: EquipmentFilter, lang: 'ko' | 'en'): [string, string][] {
+  return q ? [[lang === 'ko' ? '검색어' : 'Search', q]] : [];
 }

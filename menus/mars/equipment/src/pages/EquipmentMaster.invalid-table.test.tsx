@@ -47,11 +47,10 @@ const makerQueries = () => queries.filter(q => q.endpoint === 'equipment.master.
 
 describe('EquipmentMaster invalid sort/page (ADR-0034)', () => {
   // The sentences and Reset are owned by tableUrlWarning.test.tsx; this file keeps what the screen adds.
-  it('keeps the filter slot and asks no makers while sort/page is invalid', async () => {
+  it('keeps the quick search and asks no makers while sort/page is invalid', async () => {
     mount('?v=1&scopeId=MEM&sort=nope&page=0');
     await screen.findByText('정렬·페이지 값이 올바르지 않습니다');
     expect(screen.getByLabelText('설비 ID 검색')).toBeTruthy();
-    expect(screen.getByLabelText('상태')).toBeTruthy();
     // Let the scope check settle: a request would have gone out by now if the gate were open.
     await new Promise(resolve => setTimeout(resolve, 50));
     expect(makerQueries()).toHaveLength(0);
