@@ -187,7 +187,7 @@ describe('filter editor (#1217b)', () => {
     const load = makeLoad();
     render(<Harness columns={[{ id: 'name', header: '이름' }]} filterFields={fields} loadPage={load} />);
     await ready();
-    fireEvent.click(screen.getByRole('button', { name: '필터' }));
+    fireEvent.click(screen.getByRole('button', { name: '필터 추가' }));
     fireEvent.click(await screen.findByRole('button', { name: /^종류/ }));
     const dialog = await screen.findByRole('dialog', { name: '종류' });
     expect(within(dialog).queryAllByRole('checkbox')).toHaveLength(0);

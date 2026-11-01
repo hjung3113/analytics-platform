@@ -76,7 +76,7 @@ function AddFilter({ fields, filters, lang, onApply, limit }: { fields: readonly
   };
   return <Popover open={open} onOpenChange={next => { setOpen(next); setChosen(null); setQuery(''); }}>
     <PopoverTrigger asChild>
-      <button type="button" data-filter-add className={cn(chipClass, 'gap-1 border-border-control px-2 text-text-secondary hover:text-text-primary', slotFocus)}>
+      <button type="button" data-filter-add aria-label={ko ? '필터 추가' : 'Add filter'} className={cn(chipClass, 'gap-1 border-border-control px-2 text-text-secondary hover:text-text-primary', slotFocus)}>
         <Plus className="size-3" aria-hidden />{ko ? '필터' : 'Filter'}
       </button>
     </PopoverTrigger>
