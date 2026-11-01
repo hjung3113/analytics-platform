@@ -533,10 +533,10 @@ describe('filter editor fix round 1', () => {
 
 // Fix round 2: UX-1 (instant entry on the chip) and UX-2 (a missing `requires` condition is explained, never dropped).
 describe('filter editor fix round 2', () => {
-  function Owner({ initial = [], onChange, cols }: { initial?: ColumnFilter[]; onChange: (next: ColumnFilter[]) => void; cols?: PlatformColumn<Row>[] }) {
+  function Owner({ initial = [], onChange, cols, fields = pinnedFields }: { initial?: ColumnFilter[]; onChange: (next: ColumnFilter[]) => void; cols?: PlatformColumn<Row>[]; fields?: TableFilterField[] }) {
     const [filters, setFilters] = useState<ColumnFilter[]>(initial);
     const urlState: TableUrlState = { page: null, sorting: [], filters, onChange: next => { if (next.filters) { onChange(next.filters); setFilters(next.filters); } } };
-    return <Harness columns={cols} filterFields={pinnedFields} loadPage={makeLoad()} urlState={urlState} />;
+    return <Harness columns={cols} filterFields={fields} loadPage={makeLoad()} urlState={urlState} />;
   }
   const pinnedFields: TableFilterField[] = [
     { id: 'kind', label: { ko: '대상 유형', en: 'Target type' }, spec: { kind: 'text', ops: ['equals'] }, pinned: 1 },
@@ -574,6 +574,20 @@ describe('filter editor fix round 2', () => {
     const view = render(<Owner onChange={onChange} initial={[{ id: 'kind', op: 'equals', value: 'metric' }, { id: 'target', op: 'equals', value: 'cycle_time' }]} />);
     await ready();
     fireEvent.click(view.container.querySelector('[data-filter-remove="kind"]')!);
+    expect(onChange).toHaveBeenLastCalledWith([]);
+    await waitFor(() => expect(view.container.querySelector('[data-filter-dropped]')!.textContent).toContain('대상 ID 조건도 함께 지웠습니다'));
+  });
+
+  it('UX-2: removing 대상 유형 through its header funnel (지우기) also removes 대상 ID and says so', async () => {
+    const onChange = vi.fn();
+    const cols: PlatformColumn<Row>[] = [
+      { id: 'kind', header: '대상 유형', filter: { kind: 'text', ops: ['equals'] }, value: () => '-' },
+      { id: 'target', header: '대상 ID', filter: { kind: 'text', ops: ['equals'], requires: ['kind'] }, value: () => '-' },
+    ];
+    const view = render(<Owner cols={cols} fields={[]} onChange={onChange} initial={[{ id: 'kind', op: 'equals', value: 'metric' }, { id: 'target', op: 'equals', value: 'cycle_time' }]} />);
+    await ready();
+    fireEvent.click(view.container.querySelector('[data-column-filter="kind"]')!);
+    fireEvent.click(await screen.findByRole('button', { name: '지우기' }));
     expect(onChange).toHaveBeenLastCalledWith([]);
     await waitFor(() => expect(view.container.querySelector('[data-filter-dropped]')!.textContent).toContain('대상 ID 조건도 함께 지웠습니다'));
   });

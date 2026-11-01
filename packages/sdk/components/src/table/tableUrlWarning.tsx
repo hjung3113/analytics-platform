@@ -145,7 +145,7 @@ function UrlWarning({ title, sentences, action, filters }: { title: string; sent
  * The shared invalid sort/page message (06 §15): replaces the table, never substitutes a value, Reset clears both keys in one `setPage`.
  * `recoverKeys` (`useTableUrlWarning().recoverKeys`) narrows or widens that one write to exactly the bad keys when the page opted into URL filters (ADR-0105); the default is `sort` and `page`.
  * `cause` (`useTableUrlWarning().cause`) names the title after what is actually wrong: sort/page (default), only a filter condition, or both.
- * `filters` is the management layout's filter slot (the `필터 · n` control when the rail is hidden); it renders above the message with the toolbar's gap.
+ * `filters` is an optional node (e.g. the page's quick search) that renders above the message with the toolbar's gap.
  */
 export function TableUrlWarning({ sentences, filters, recoverKeys = ['sort', 'page'], cause = 'sortPage' }: { sentences: readonly string[]; filters?: ReactNode; recoverKeys?: readonly string[]; cause?: TableUrlWarningCause }) {
   const { t } = useI18n();

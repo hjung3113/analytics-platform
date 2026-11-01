@@ -112,8 +112,20 @@ export function fieldCheck(field: ResolvedFilterField, filters: readonly ColumnF
   return next => requiresIssue(field, filters, all) ?? check?.(next) ?? null;
 }
 
-export function FilterLine({ fields, filters, lang, onApply, onClear, limit, check }: {
-  fields: readonly ResolvedFilterField[]; filters: readonly ColumnFilter[]; lang: Lang; onApply: Apply; onClear: () => void; limit: Limit; check?: ValueCheck;
+/** Every condition change goes through here, so each removal path (chip ×, editors, `+ 필터`, header funnel) announces what `pruneUnmet` took along. */
+export function useDroppedNote(fields: readonly ResolvedFilterField[], filters: readonly ColumnFilter[], apply: Apply) {
+  const [dropped, setDropped] = useState<string[]>([]);
+  const change = (field: ResolvedFilterField, next: ColumnFilter | null) => {
+    // Removing a condition other conditions require removes those too (`pruneUnmet`): say so instead of letting chips vanish.
+    const left = pruneUnmet(filters.filter(f => f.id !== field.id), fields);
+    setDropped(next === null ? filters.filter(f => f.id !== field.id && !left.some(g => g.id === f.id)).map(f => fields.find(x => x.id === f.id)?.label ?? f.id) : []);
+    apply(field.id, next);
+  };
+  return { dropped, change, reset: () => setDropped([]) };
+}
+
+export function FilterLine({ fields, filters, lang, dropped, onChange, onClear, limit, check }: {
+  fields: readonly ResolvedFilterField[]; filters: readonly ColumnFilter[]; lang: Lang; dropped: readonly string[]; onChange: (field: ResolvedFilterField, next: ColumnFilter | null) => void; onClear: () => void; limit: Limit; check?: ValueCheck;
 }) {
   // Sits inside the result line (06 §15, 1217c): the line owns the border and the padding.
   const ko = lang === 'ko';
@@ -125,13 +137,9 @@ export function FilterLine({ fields, filters, lang, onApply, onClear, limit, che
     const timer = setTimeout(() => { root.current?.querySelector<HTMLElement>(refocus)?.focus(); setRefocus(null); }, 0);
     return () => clearTimeout(timer);
   }, [refocus]);
-  const [dropped, setDropped] = useState<string[]>([]);
   const change = (field: ResolvedFilterField, next: ColumnFilter | null) => {
     const wasActive = filters.some(f => f.id === field.id);
-    // Removing a condition other conditions require removes those too (`pruneUnmet`): say so instead of letting chips vanish.
-    const left = pruneUnmet(filters.filter(f => f.id !== field.id), fields);
-    setDropped(next === null ? filters.filter(f => f.id !== field.id && !left.some(g => g.id === f.id)).map(f => fields.find(x => x.id === f.id)?.label ?? f.id) : []);
-    onApply(field.id, next);
+    onChange(field, next);
     if (next === null && wasActive) setRefocus(field.pinned ? `[data-filter-body="${field.id}"]` : '[data-filter-add]');
   };
   const pinned = pinnedInRank(fields);
@@ -141,7 +149,7 @@ export function FilterLine({ fields, filters, lang, onApply, onClear, limit, che
     {others.map(({ field, filter }) => <FieldSlot key={field.id} field={field} active={filter} lang={lang} onApply={next => change(field, next)} onRemove={() => change(field, null)} limit={limit} check={fieldCheck(field, filters, fields, check)} />)}
     <AddFilter fields={fields} filters={filters} lang={lang} limit={limit} check={check} onApply={(id, next) => change(fields.find(f => f.id === id)!, next)} />
     <span role="status" data-filter-dropped className={dropped.length > 0 ? 'text-text-muted' : 'sr-only'}>{dropped.length > 0 ? (ko ? `${dropped.join(', ')} 조건도 함께 지웠습니다 (먼저 필요한 조건이 없어져서).` : `Also cleared ${dropped.join(', ')} (it needed the condition just cleared).`) : ''}</span>
-    {filters.length > 0 && <Button type="button" variant="ghost" size="toolbar" className="h-6" onClick={() => { onClear(); setDropped([]); setRefocus('[data-filter-add]'); }}>{ko ? '모두 지우기' : 'Clear all'}</Button>}
+    {filters.length > 0 && <Button type="button" variant="ghost" size="toolbar" className="h-6" onClick={() => { onClear(); setRefocus('[data-filter-add]'); }}>{ko ? '모두 지우기' : 'Clear all'}</Button>}
   </div>;
 }
 

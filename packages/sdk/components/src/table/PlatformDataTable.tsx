@@ -23,7 +23,7 @@ import { usePagedRows } from './usePagedRows';
 import { useColumnFilters } from './columnFilters';
 import { resolveFilterFields, type InstantEntry, type TableFilterField } from './filterFields';
 import type { FilterValueCheck } from './tableFilterUrl';
-import { FilterLine, HeaderFunnel, fieldCheck } from './filterLine';
+import { FilterLine, HeaderFunnel, fieldCheck, useDroppedNote } from './filterLine';
 import { useTableTransfer } from './useTableTransfer';
 import { useTableSelection, type TableExportRequest, type TableSelection } from './useTableSelection';
 import { SelectAllBar } from './selectAllBar';
@@ -241,6 +241,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const activeSorting = p.urlState ? p.urlState.sorting : sorting;
   const filterFields = useMemo(() => resolveFilterFields(p.columns, p.filterFields, lang), [p.columns, p.filterFields, lang]);
   const columnFilters = useColumnFilters(p.urlState, filterFields);
+  const droppedNote = useDroppedNote(filterFields, columnFilters.filters, columnFilters.apply);
   // With filters the right-hand blocks get what the filter block (basis 320) leaves; when even the count does not fit beside it, the row wraps and they have the whole line.
   const sharedWidth = statusLine.width === null ? null : statusLine.width - FILTER_BASIS - STATUS_GAP;
   const trustRoom = statusLine.width === null || filterFields.length === 0 || sharedWidth === null || sharedWidth < (countSpan.width ?? 0) ? statusLine.width : sharedWidth;
@@ -654,7 +655,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
 
     {/* Result line (06 §15, 1217c): always rendered. Left = the filter line when the table has filterable fields; right = 건수 · 쪽 · 신뢰 요약 (the former status row). */}
     <div ref={statusLine.ref} data-table-status-line className="relative flex min-h-9 min-w-0 flex-wrap items-center gap-x-2 gap-y-1 border-t border-border-subtle px-3 py-1.5 text-xs text-text-muted" aria-live={groupedOutcome ? 'off' : 'polite'}>
-      {filterFields.length > 0 && <div className="min-w-0 flex-1 basis-80"><FilterLine fields={filterFields} filters={columnFilters.filters} lang={lang} onApply={columnFilters.apply} onClear={columnFilters.clear} limit={columnFilters.limit} check={p.urlState?.validate} /></div>}
+      {filterFields.length > 0 && <div className="min-w-0 flex-1 basis-80"><FilterLine fields={filterFields} filters={columnFilters.filters} lang={lang} dropped={droppedNote.dropped} onChange={droppedNote.change} onClear={() => { columnFilters.clear(); droppedNote.reset(); }} limit={columnFilters.limit} check={p.urlState?.validate} /></div>}
       <span ref={countSpan.ref} className="ml-auto tabular whitespace-nowrap">{!shown || (loading && outOfRange) ? t('loading')
         : !success ? '—'
         : outOfRange
@@ -704,7 +705,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
                   : <span className="min-w-0 truncate">{flexRender(h.column.columnDef.header, h.getContext())}</span>}
                 {(() => {
                   const field = filterFields.find(f => f.origin === 'column' && f.id === h.column.id);
-                  return field ? <HeaderFunnel field={field} lang={lang} limit={columnFilters.limit} check={fieldCheck(field, columnFilters.filters, filterFields, p.urlState?.validate)} active={columnFilters.filters.find(f => f.id === field.id)} onApply={next => columnFilters.apply(field.id, next)} /> : null;
+                  return field ? <HeaderFunnel field={field} lang={lang} limit={columnFilters.limit} check={fieldCheck(field, columnFilters.filters, filterFields, p.urlState?.validate)} active={columnFilters.filters.find(f => f.id === field.id)} onApply={next => droppedNote.change(field, next)} /> : null;
                 })()}
                 {/* #239: an always-visible 1px divider with an 8px grab area; double-click restores the default width. */}
                 {h.column.getCanResize() && <div aria-hidden data-column-resizer onMouseDown={startResize(h)} onTouchStart={startResize(h)} onDoubleClick={event => { event.preventDefault(); h.column.resetSize(); }} className="group/resize absolute right-0 top-0 flex h-full w-2 cursor-col-resize touch-none justify-end">
