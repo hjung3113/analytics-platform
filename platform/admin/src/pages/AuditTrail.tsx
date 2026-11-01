@@ -6,7 +6,7 @@ import { ManagementLayout, RowAction, type PlatformColumn, PlatformDataTable, Pl
 import { Button, StatusBadge } from '@ap/ui';
 import { auditDestination } from '../audit-destination';
 import { ACTION_LABEL, SORT_FIELDS, SOURCE_LABEL, TYPE_LABEL } from '../audit-query';
-import { AUDIT_LEGACY_KEYS, AUDIT_PINNED, auditFilterSpecs, toAuditQuery } from '../audit-filters';
+import { AUDIT_LEGACY_KEYS, AUDIT_PINNED, auditFilterSpecs, auditTimeEntry, auditValueCheck, toAuditQuery } from '../audit-filters';
 import { viewerTimeZone } from '../audit-window';
 
 const NO_FILTERS: ColumnFilter[] = [];
@@ -28,7 +28,7 @@ export default function AuditTrail() {
   // release and rewritten (replace) into it. A bad sort/page/condition is the table warning, which clears exactly the bad keys.
   const specs = useMemo(() => auditFilterSpecs(lang), [lang]);
   const urlFilters = useMemo(() => ({
-    key: 'filter', specs, legacy: AUDIT_LEGACY_KEYS,
+    key: 'filter', specs, legacy: AUDIT_LEGACY_KEYS, validate: auditValueCheck,
     labels: { at: ko ? '시각' : 'At', actor: ko ? '행위자' : 'Actor', action: ko ? '작업' : 'Action', source: ko ? '출처' : 'Source', targetType: ko ? '대상 유형' : 'Target type', targetId: ko ? '대상 ID' : 'Target ID',
       // The old single keys that name a different field than their id (`type` is the 대상 유형 column, `fromAt`/`toAt` the two ends of 시각).
       type: ko ? '대상 유형' : 'Target type', fromAt: ko ? '시각 이후' : 'At or after', toAt: ko ? '시각 미만' : 'Before' },
@@ -36,7 +36,7 @@ export default function AuditTrail() {
   const { urlState, invalid, sentences, recoverKeys, cause } = useTableUrlState(SORT_FIELDS, { filters: urlFilters });
   const conditions = urlState?.filters ?? NO_FILTERS;
   const columns = useMemo<PlatformColumn<AuditEvent>[]>(() => [
-    { id: 'at', header: ko ? '시각' : 'At', size: 150, filter: specs.at, cell: row => <span className="tabular">{formatInstant(row.at, lang, timeZone)}</span> },
+    { id: 'at', header: ko ? '시각' : 'At', size: 150, filter: specs.at, filterEntry: auditTimeEntry(timeZone), cell: row => <span className="tabular">{formatInstant(row.at, lang, timeZone)}</span> },
     { id: 'actor', header: ko ? '행위자' : 'Actor', size: 130, filter: specs.actor, filterPinned: AUDIT_PINNED.actor, cell: row => mono(row.actor) },
     { id: 'action', header: ko ? '작업' : 'Action', size: 110, filter: specs.action, filterPinned: AUDIT_PINNED.action, cell: row => ACTION_LABEL[row.action][lang] },
     { id: 'source', header: ko ? '출처' : 'Source', size: 100, filter: specs.source, cell: row => <StatusBadge tone={row.source === 'system' ? 'neutral' : 'info'}>{SOURCE_LABEL[row.source][lang]}</StatusBadge> },

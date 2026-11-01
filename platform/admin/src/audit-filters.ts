@@ -3,7 +3,8 @@
  * page maps them to the typed `auditTrail` port query (`toAuditQuery`), the port itself is unchanged. The ids are the table's column ids, so the
  * port's `type` is the `targetType` column. Pure and node-runnable.
  */
-import { instantEpochMs, type AuditSortField, type AuditTrailQuery, type ColumnFilter, type ColumnFilterSpec, type PageSort } from '@ap/contracts';
+import { instantEpochMs, type AuditSortField, type AuditTrailQuery, type ColumnFilter, type ColumnFilterSpec, type PageSort, type Text } from '@ap/contracts';
+import type { InstantEntry } from '@ap/components';
 import { ACTION_LABEL, AT_INSTANT, AUDIT_ACTIONS, AUDIT_SOURCES, AUDIT_TYPE_TOKEN, SOURCE_LABEL, invalidText } from './audit-query';
 
 type Lang = 'ko' | 'en';
@@ -49,6 +50,24 @@ export const AUDIT_LEGACY_KEYS = [
   { key: 'toAt', toFilter: (raw: string) => instantEnd('to', raw) },
   { key: 'targetId', toFilter: (raw: string) => equalsText('targetId', raw) },
 ];
+
+/** 시각 is entered to the second in the viewer's explicit zone: a nonexistent or repeated local time (DST) is refused in the editor, never moved (#305). */
+export const auditTimeEntry = (timeZone: string): InstantEntry => ({ timeZone, precision: 'second' });
+
+const BAD_TOKEN: Text = { ko: '공백·특수문자 없는 80자 이하 값이어야 합니다.', en: 'Must be 80 characters or fewer with no spaces or special characters.' };
+const BAD_TYPE: Text = { ko: '영문자로 시작하는 80자 이하 토큰이어야 합니다 (영문·숫자·_ . : -).', en: 'Must be a token of up to 80 characters that starts with a letter (letters, digits, _ . : -).' };
+const BAD_MEMBER: Text = { ko: '목록에 없는 값입니다.', en: 'This value is not in the list.' };
+
+/** The port's value rules, checked before any query (address and editor): token shapes of `type`/`actor`/`targetId` and membership of `action`/`source`. A well-formed unknown type is allowed. */
+export function auditValueCheck(filter: ColumnFilter): Text | null {
+  switch (filter.id) {
+    case 'targetType': return filter.op === 'equals' && !AUDIT_TYPE_TOKEN.test(filter.value) ? BAD_TYPE : null;
+    case 'actor': case 'targetId': return filter.op === 'equals' && invalidText(filter.value) ? BAD_TOKEN : null;
+    case 'action': return filter.op === 'in' && !filter.value.every(v => AUDIT_ACTIONS.includes(v)) ? BAD_MEMBER : null;
+    case 'source': return filter.op === 'in' && !filter.value.every(v => AUDIT_SOURCES.includes(v)) ? BAD_MEMBER : null;
+    default: return null;
+  }
+}
 
 /** The table page being asked for: 1-based page, the page size and the active sort. */
 export type AuditPage = { page: number; pageSize: number; sorting: readonly PageSort[] };

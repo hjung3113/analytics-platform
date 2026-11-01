@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseFilterParams, validateFilters, type ColumnFilter } from '@ap/contracts';
-import { AUDIT_FILTER_IDS, AUDIT_LEGACY_KEYS, auditFilterSpecs, toAuditQuery } from './audit-filters';
+import { AUDIT_FILTER_IDS, AUDIT_LEGACY_KEYS, auditFilterSpecs, auditValueCheck, toAuditQuery } from './audit-filters';
 
 const page = { page: 3, pageSize: 25, sorting: [] };
 const FROM = '2026-09-26T02:00:00.000Z';
@@ -86,5 +86,28 @@ describe('legacy keys (P8)', () => {
     ['fromAt', '2026-09-26T02:00:00'], ['fromAt', '2026-02-30T00:00:00.000Z'], ['toAt', 'soon'], ['targetId', 'a b'],
   ])('%s=%s is refused (null), never repaired', (key, raw) => {
     expect(legacy(key, raw)).toBeNull();
+  });
+});
+
+describe('auditValueCheck (the port rules, before any query)', () => {
+  it.each<[string, ColumnFilter]>([
+    ['a type with a leading digit', { id: 'targetType', op: 'equals', value: '9bogus' }],
+    ['a type with a space', { id: 'targetType', op: 'equals', value: 'voc x' }],
+    ['a type over 80 chars', { id: 'targetType', op: 'equals', value: 'a'.repeat(81) }],
+    ['an actor with a space', { id: 'actor', op: 'equals', value: 'a b' }],
+    ['a target id with a query mark', { id: 'targetId', op: 'equals', value: 'a?b' }],
+    ['an unknown action', { id: 'action', op: 'in', value: ['purge'] }],
+    ['an unknown source', { id: 'source', op: 'in', value: ['cron'] }],
+  ])('refuses %s', (_name, filter) => {
+    expect(auditValueCheck(filter)).not.toBeNull();
+  });
+  it.each<ColumnFilter>([
+    { id: 'targetType', op: 'equals', value: 'Future.Type:v2-x' },
+    { id: 'actor', op: 'equals', value: 'Park.Seo' },
+    { id: 'action', op: 'in', value: ['delete'] },
+    { id: 'source', op: 'in', value: ['system'] },
+    { id: 'at', op: 'between', value: { from: FROM } },
+  ])('allows %j (a well-formed unknown type stays allowed)', filter => {
+    expect(auditValueCheck(filter)).toBeNull();
   });
 });

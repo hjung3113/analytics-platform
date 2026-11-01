@@ -280,3 +280,54 @@ describe('legacy keys that are the two ends of one range field', () => {
     expect(latest!.invalid).toBe(true);
   });
 });
+
+describe('useTableUrlState filters: range order and the page value check', () => {
+  const withRange: TableFilterOption = { ...filtersOption, specs: { ...specs, at: { kind: 'instant' }, day: { kind: 'date' } }, labels: { at: '시각', day: '날짜' } };
+  const A = '2026-09-26T02:00:00.000Z';
+  const B = '2026-09-26T03:00:00.000Z';
+  it.each([
+    ['a reversed instant window', `at:between:${B}~${A}`],
+    ['an equal instant window', `at:between:${A}~${A}`],
+    ['an equal date window', 'day:between:2026-01-05~2026-01-05'],
+    ['a reversed date window', 'day:between:2026-01-06~2026-01-05'],
+    ['a reversed number range', 'size:between:5~1'],
+  ])('%s is a filter problem', (_name, raw) => {
+    mount('?v=1', true, { apHidden: { v: 1, pairs: [['filter', raw]] } }, withRange);
+    expect(latest!.invalid).toBe(true);
+    expect(latest!.urlState).toBeUndefined();
+  });
+
+  it('keeps a forward window and one-ended windows', () => {
+    mount('?v=1', true, { apHidden: { v: 1, pairs: [['filter', `at:between:${A}~${B}`], ['filter', 'day:between:2026-01-05~']] } }, withRange);
+    expect(latest!.invalid).toBe(false);
+  });
+
+  it('a legacy window whose two old keys are reversed is a problem, not a repair', () => {
+    const option: TableFilterOption = { ...withRange, legacy: [
+      { key: 'status', toFilter: raw => ({ id: 'at', op: 'between', value: { from: raw } }) },
+      { key: 'maker', toFilter: raw => ({ id: 'at', op: 'between', value: { to: raw } }) },
+    ] };
+    mount(`?status=${B}&maker=${A}`, true, null, option);
+    expect(latest!.invalid).toBe(true);
+    expect(latest!.sentences.join(' ')).toContain('시각');
+  });
+
+  it('the page value check refuses a condition the codec accepts, with its field, raw value and reason', () => {
+    const validate = (f: ColumnFilter) => (f.id === 'maker' && f.op === 'equals' && f.value.includes(' ') ? { ko: '공백 없이 쓰세요.', en: 'No spaces.' } : null);
+    mount('?v=1', true, { apHidden: { v: 1, pairs: [['filter', 'maker:equals:a b']] } }, { ...filtersOption, validate });
+    expect(latest!.invalid).toBe(true);
+    expect(latest!.sentences.join(' ')).toContain('제조사');
+    expect(latest!.sentences.join(' ')).toContain('a b');
+    expect(latest!.sentences.join(' ')).toContain('공백 없이 쓰세요.');
+    expect(latest!.recoverKeys).toEqual(expect.arrayContaining(['filter']));
+  });
+
+  it('exposes the check on urlState for the editor, and its absence leaves the codec unchanged', () => {
+    const validate = () => null;
+    mount('?v=1', true, null, { ...filtersOption, validate });
+    expect(latest!.urlState!.validate).toBe(validate);
+    cleanup();
+    mount('?v=1', true, null, filtersOption);
+    expect(latest!.urlState!.validate).toBeUndefined();
+  });
+});

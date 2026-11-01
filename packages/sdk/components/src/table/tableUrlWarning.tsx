@@ -44,9 +44,9 @@ export function useTableUrlWarning(allowedSort: readonly string[], filters?: Tab
   const sentences = [
     !parsedSort.ok ? invalidValueSentence(lang, 'value', text('invalidTableSort'), sortRaw ?? '') : null,
     !parsedPage.ok ? invalidValueSentence(lang, 'value', text('invalidTablePage'), pageRaw ?? '') : null,
-    ...(filterRead && !filterRead.ok ? filterRead.problems.map(({ field, raw, reason }) => {
+    ...(filterRead && !filterRead.ok ? filterRead.problems.map(({ field, raw, reason, detail }) => {
       const name = field === '' ? GENERIC_FILTER_LABEL : { ko: filters?.labels?.[field] ?? field, en: filters?.labels?.[field] ?? field };
-      return `${invalidValueSentence(lang, 'filter', name, raw)} ${FILTER_PROBLEM_CAUSES[reason][lang]}`;
+      return `${invalidValueSentence(lang, 'filter', name, raw)} ${(detail ?? FILTER_PROBLEM_CAUSES[reason])[lang]}`;
     }) : []),
   ].filter((sentence): sentence is string => sentence !== null);
   const recoverKeys = [
@@ -97,6 +97,7 @@ export function useTableUrlState(
     page: parsedPage.page === 1 ? null : parsedPage.page,
     sorting: parsedSort.sorting,
     ...(filterRead?.ok ? { filters: filterRead.filters } : {}),
+    ...(filterOption?.validate ? { validate: filterOption.validate } : {}),
     onChange: ({ page, sorting, filters }, reason) => setPage(
       { sort: encodeTableSort(sorting), page: page === null ? null : String(page), ...(filters && filterWrite ? filterWrite(filters) : {}), ...extraPatch?.(reason) },
       { replace: reason === 'clamp' },

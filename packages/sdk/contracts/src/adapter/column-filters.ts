@@ -172,6 +172,18 @@ export function filterRows<T>(rows: readonly T[], filters: readonly ColumnFilter
   return rows.filter(row => filters.every(f => matches(f, accessor(row, f.id), options?.specs?.[f.id])));
 }
 
+/**
+ * Whether a `between` value runs forward. Date/instant: `from` must be strictly before `to` (the window is half-open, so equal ends are
+ * empty); number: `min <= max` (inclusive, equal is one value). A one-ended range is always ordered. Used by `validateFilters`, the URL
+ * codec and the filter editor, so a reversed window is refused everywhere before any query.
+ */
+export function betweenOrdered(kind: 'number' | 'date' | 'instant', value: [number, number] | { from?: string; to?: string }): boolean {
+  if (Array.isArray(value)) return value[0] <= value[1];
+  const { from, to } = value;
+  if (!from || !to) return true;
+  return kind === 'instant' ? instantEpochMs(from) < instantEpochMs(to) : from < to;
+}
+
 export type FilterRejection = 'invalid-id' | 'undeclared-field' | 'duplicate-field' | 'op-not-allowed' | 'bad-value' | 'multiple-not-allowed' | 'requires-unmet';
 export type FilterValidation = { ok: true } | { ok: false; reason: FilterRejection; filter: ColumnFilter };
 
@@ -186,11 +198,11 @@ function valueFits(filter: ColumnFilter, spec: ColumnFilterSpec): boolean {
     case 'before': case 'after': return isWallClockDate(value);
     case 'in': case 'notIn': return Array.isArray(value) && value.length > 0 && value.every(v => typeof v === 'string');
     case 'between': {
-      if (spec.kind === 'number') return Array.isArray(value) && value.length === 2 && value.every(v => typeof v === 'number' && Number.isFinite(v));
+      if (spec.kind === 'number') return Array.isArray(value) && value.length === 2 && value.every(v => typeof v === 'number' && Number.isFinite(v)) && betweenOrdered('number', value as [number, number]);
       if (!isRange(value)) return false;
       const ok = spec.kind === 'instant' ? isInstant : isWallClockDate;
       const { from, to } = value;
-      return (from !== undefined || to !== undefined) && (from === undefined || ok(from)) && (to === undefined || ok(to));
+      return (from !== undefined || to !== undefined) && (from === undefined || ok(from)) && (to === undefined || ok(to)) && betweenOrdered(spec.kind === 'instant' ? 'instant' : 'date', value);
     }
   }
 }

@@ -96,8 +96,20 @@ const applyOne = async (id: string, label: string) => {
 };
 const pick = (id: string) => waitFor(() => { const el = document.querySelector<HTMLElement>(`[data-filter-pick="${id}"]`); if (!el) throw new Error('no pick'); return el; });
 const url = () => new URLSearchParams(window.location.search);
-// The editor reads and writes datetime-local text in the machine zone, so expected instants are derived the same way.
-const localIso = (text: string) => new Date(text).toISOString();
+// The process zone is pinned to New York while the viewer zone (mocked `viewerTimeZone`) is Seoul/New York per test, so an editor that fell back
+// to the machine zone would produce different instants than the literals below.
+const originalTz = process.env.TZ;
+beforeAll(() => { process.env.TZ = 'America/New_York'; });
+afterAll(() => { if (originalTz === undefined) delete process.env.TZ; else process.env.TZ = originalTz; });
+// jsdom's datetime-local may append `.000` to a seconds value; a browser does not at step 1.
+const fieldValue = (el: HTMLElement) => (el as HTMLInputElement).value.replace(/\.000$/, '');
+const setBound = (dialog: HTMLElement, label: string, value: string) => fireEvent.change(within(dialog).getByLabelText(label), { target: { value } });
+const openAt = async (f: ReturnType<typeof renderAudit>) => {
+  await waitFor(() => expect(f.calls).toHaveLength(1));
+  fireEvent.click(line().querySelector('[data-filter-add]')!);
+  fireEvent.click(await pick('at'));
+  return screen.findByRole('dialog');
+};
 
 beforeEach(() => {
   window.history.replaceState(null, '', '/admin/audit');
@@ -152,13 +164,14 @@ describe('AuditTrail filter model (ADR-0105, #1217 e2)', () => {
     fireEvent.change(within(dialog).getByLabelText('시작 (이상)'), { target: { value: '2026-09-26T11:00' } });
     apply(dialog);
     await waitFor(() => expect(f.calls).toHaveLength(2));
-    expect(f.calls[1]).toMatchObject({ fromAt: localIso('2026-09-26T11:00') });
+    // 11:00 in the viewer zone (Seoul, +09:00) although the process zone is New York.
+    expect(f.calls[1]).toMatchObject({ fromAt: '2026-09-26T02:00:00.000Z' });
     expect(f.calls[1].toAt).toBeUndefined();
     const edit = await openField('at');
     fireEvent.change(within(edit).getByLabelText('끝 (미만)'), { target: { value: '2026-09-26T12:00' } });
     apply(edit);
     await waitFor(() => expect(f.calls).toHaveLength(3));
-    expect(f.calls[2]).toMatchObject({ fromAt: localIso('2026-09-26T11:00'), toAt: localIso('2026-09-26T12:00') });
+    expect(f.calls[2]).toMatchObject({ fromAt: '2026-09-26T02:00:00.000Z', toAt: '2026-09-26T03:00:00.000Z' });
   });
 
   it('대상 ID needs 대상 유형: it cannot be added before the type, and removing the type removes it', async () => {
@@ -233,9 +246,104 @@ describe('AuditTrail filter model (ADR-0105, #1217 e2)', () => {
     expect(Object.keys(params).every(k => url().has(k))).toBe(true);
   });
 
-  it('a reversed old window is not repaired: the port is asked as written and answers its own error', async () => {
-    const f = renderAudit(`/admin/audit?${new URLSearchParams({ fromAt: TO, toAt: FROM })}`);
-    await waitFor(() => expect(f.calls[0]).toMatchObject({ fromAt: TO, toAt: FROM }));
+  it.each([
+    ['a reversed old window', new URLSearchParams({ fromAt: TO, toAt: FROM }), '시각'],
+    ['an equal old window', new URLSearchParams({ fromAt: FROM, toAt: FROM }), '시각'],
+    ['a reversed new-key window', new URLSearchParams([['filter', `at:between:${TO}~${FROM}`]]), '시각'],
+    ['a malformed new-key type', new URLSearchParams([['filter', 'targetType:equals:9bogus']]), '대상 유형'],
+    ['a malformed new-key actor', new URLSearchParams([['filter', 'actor:equals:a b']]), '행위자'],
+    ['a malformed new-key target id', new URLSearchParams([['filter', 'targetType:equals:voc'], ['filter', 'targetId:equals:a?b']]), '대상 ID'],
+    ['an unknown new-key action', new URLSearchParams([['filter', 'action:in:purge']]), '작업'],
+    ['an unknown new-key source', new URLSearchParams([['filter', 'source:in:cron']]), '출처'],
+  ])('%s: a filter warning with the offending field, no port query, and the reset recovers', async (_name, params, fragment) => {
+    const f = renderAudit(`/admin/audit?${params}`);
+    const alert = screen.getByRole('alert');
+    expect(alert.textContent).toContain('필터 값이 올바르지 않습니다');
+    expect(alert.textContent).toContain(fragment);
+    expect(f.calls).toHaveLength(0);
+    fireEvent.click(within(alert).getByRole('button', { name: '초기화' }));
+    await waitFor(() => expect(f.calls).toHaveLength(1));
+    expect(f.calls[0]).toEqual({ page: 1, pageSize: 25 });
+  });
+
+  it('a seconds bound is entered and kept to the second in the viewer zone', async () => {
+    const f = renderAudit('/admin/audit');
+    const dialog = await openAt(f);
+    expect(within(dialog).getByLabelText('시작 (이상)').getAttribute('step')).toBe('1');
+    setBound(dialog, '시작 (이상)', '2026-09-26T11:10:35');
+    apply(dialog);
+    await waitFor(() => expect(f.calls).toHaveLength(2));
+    expect(f.calls[1]).toMatchObject({ fromAt: '2026-09-26T02:10:35.000Z' });
+    // Reopened, the field shows the seconds; editing only the seconds changes only the seconds.
+    const edit = await openField('at');
+    expect(fieldValue(within(edit).getByLabelText('시작 (이상)'))).toBe('2026-09-26T11:10:35');
+    setBound(edit, '시작 (이상)', '2026-09-26T11:10:36');
+    apply(edit);
+    await waitFor(() => expect(f.calls).toHaveLength(3));
+    expect(f.calls[2]).toMatchObject({ fromAt: '2026-09-26T02:10:36.000Z' });
+  });
+
+  it('a row-time round trip: a stored instant shows as the viewer-zone field and returns to the same instant', async () => {
+    const from = '2026-09-26T02:10:35.000Z';
+    const f = renderAudit(`/admin/audit?${new URLSearchParams({ fromAt: from })}`);
+    await waitFor(() => expect(f.calls).toHaveLength(1));
+    const dialog = await openField('at');
+    const input = within(dialog).getByLabelText('시작 (이상)');
+    expect(fieldValue(input)).toBe('2026-09-26T11:10:35');
+    setBound(dialog, '끝 (미만)', '2026-09-26T12:00:00');
+    apply(dialog);
+    await waitFor(() => expect(f.calls).toHaveLength(2));
+    expect(f.calls[1]).toMatchObject({ fromAt: from, toAt: '2026-09-26T03:00:00.000Z' });
+  });
+
+  it('a changed viewer zone re-reads the same instants as that zone\'s wall clock', async () => {
+    viewerTz.value = 'America/New_York';
+    const from = '2026-09-26T02:10:35.000Z';
+    const f = renderAudit(`/admin/audit?${new URLSearchParams({ fromAt: from })}`);
+    await waitFor(() => expect(f.calls).toHaveLength(1));
+    const dialog = await openField('at');
+    expect(fieldValue(within(dialog).getByLabelText('시작 (이상)'))).toBe('2026-09-25T22:10:35');
+  });
+
+  it.each([
+    ['a spring gap', '2026-03-08T02:30:00', /없는 시각/],
+    ['an autumn fold', '2026-11-01T01:30:00', /두 번 있는 시각/],
+  ])('New York %s is refused inline in the editor, never moved', async (_name, text, message) => {
+    viewerTz.value = 'America/New_York';
+    const f = renderAudit('/admin/audit');
+    const dialog = await openAt(f);
+    setBound(dialog, '시작 (이상)', text);
+    expect(within(dialog).getByRole('alert').textContent).toMatch(message);
+    expect((within(dialog).getByRole('button', { name: '적용' }) as HTMLButtonElement).disabled).toBe(true);
+    setBound(dialog, '시작 (이상)', '2026-03-08T03:30:00');
+    expect(within(dialog).queryByRole('alert')).toBeNull();
+    apply(dialog);
+    await waitFor(() => expect(f.calls).toHaveLength(2));
+    expect(f.calls[1]).toMatchObject({ fromAt: '2026-03-08T07:30:00.000Z' });
+  });
+
+  it('the editor blocks a reversed or equal window and a malformed token with a reason, Apply disabled', async () => {
+    const f = renderAudit('/admin/audit');
+    const dialog = await openAt(f);
+    setBound(dialog, '시작 (이상)', '2026-09-26T12:00:00');
+    setBound(dialog, '끝 (미만)', '2026-09-26T11:00:00');
+    expect(within(dialog).getByRole('alert').textContent).toContain('시작은 끝보다 앞이어야 합니다');
+    expect((within(dialog).getByRole('button', { name: '적용' }) as HTMLButtonElement).disabled).toBe(true);
+    setBound(dialog, '끝 (미만)', '2026-09-26T12:00:00');
+    expect((within(dialog).getByRole('button', { name: '적용' }) as HTMLButtonElement).disabled).toBe(true);
+    setBound(dialog, '끝 (미만)', '2026-09-26T12:00:01');
+    expect((within(dialog).getByRole('button', { name: '적용' }) as HTMLButtonElement).disabled).toBe(false);
+    expect(f.calls).toHaveLength(1);
+  });
+
+  it('the editor blocks a malformed token with a reason, Apply disabled', async () => {
+    const f = renderAudit('/admin/audit');
+    await waitFor(() => expect(f.calls).toHaveLength(1));
+    const actor = await openField('actor');
+    fireEvent.change(within(actor).getByRole('textbox', { name: '값' }), { target: { value: 'a b' } });
+    expect(within(actor).getByRole('alert').textContent).toContain('80자');
+    expect((within(actor).getByRole('button', { name: '적용' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(f.calls).toHaveLength(1);
   });
 
   it('filter warning reset (recoverKeys) clears the bad old keys only and keeps the sort', () => {

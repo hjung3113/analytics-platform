@@ -168,7 +168,7 @@ Kernel은 받은 `ok`/`empty`의 kind가 선언과 다르면 `contract_violation
 
 | 구분 | 계약 | 이유 또는 범위 |
 | --- | --- | --- |
-| 실행 | 운영 콘솔의 메뉴 활용률 서버 집계 delta, 접근 카탈로그, 감사 빈 결과, 메뉴 레지스트리 직접 진입 | 두 접근 가능한 콘솔 메뉴의 방문 수가 각각 테스트 전보다 1 증가하는지 확인한다. 감사는 존재하지 않는 임의 행위자(`actor=<uuid>`, 대상 유형·ID 없음)로 `POST /api/v1/platform/audit-trail/search`가 200 `empty`로 답하고 화면이 명시적 빈 결과를 보이는지 확인한다. 대상 유형 필터 [#1091](https://github.com/hjung3113/analytics-platform/issues/1091)은 구현됨(ADR-0101): `console.admin.real.spec.ts`가 `type=equipment&targetId=<없는 UUID>`의 200 `empty`와 빈 결과 화면, `type=voc`가 `Invalid audit filter` 없이 `ok`/`empty`로 답함, 형식 맞는 미지 유형이 URL에 남음을 확인한다(실행은 호스트 몫). |
+| 실행 | 운영 콘솔의 메뉴 활용률 서버 집계 delta, 접근 카탈로그, 감사 빈 결과, 메뉴 레지스트리 직접 진입 | 두 접근 가능한 콘솔 메뉴의 방문 수가 각각 테스트 전보다 1 증가하는지 확인한다. 감사는 존재하지 않는 임의 행위자(`actor=<uuid>`, 대상 유형·ID 없음)로 `POST /api/v1/platform/audit-trail/search`가 200 `empty`로 답하고 화면이 명시적 빈 결과를 보이는지 확인한다. 대상 유형 필터 [#1091](https://github.com/hjung3113/analytics-platform/issues/1091)은 구현됨(ADR-0101): `console.admin.real.spec.ts`가 `type=equipment&targetId=<없는 UUID>`의 200 `empty`와 빈 결과 화면, `type=voc`가 `Invalid audit filter` 없이 `ok`/`empty`로 답함, 형식 맞는 미지 유형이 대상 유형 칩으로 남고(옛 `?type=`은 숨은 `filter` 키로 옮겨 주소에서 사라지며 새로고침 뒤에도 복원됨) 빈 결과로 답함을 확인한다(실행은 호스트 몫). |
 | 실행 | 기능 공간 대시보드·연동 화면, 홈·메뉴 검색·알림·내 VOC | 각 bridge/global 데이터 화면은 예상한 기능 GET의 2xx 응답과 실제 목록 또는 화면의 유효한 빈 결과를 확인한다. 홈은 Todo 세 원본 API가 성공하고 업무 시스템 카드가 표시되는지 확인한다. 홈 `공지` 카드의 메뉴 데이터 조회 `http_404`는 알려진 한계(#708, [backlog](../../.planning/backlog.md))라 이 검사가 덮지 않는다. |
 | 실행 | 관리자와 core 사용자 공간 접근, 로그인 전 직접 URL 이동, 백엔드 연결 실패 | 관리자는 콘솔/기능에 접근하고 `mock-user-1`은 둘 다 보지 못한다. 미인증 이동은 로그인 경로에 돌아갈 주소를 보존한다. |
 | 사용 불가 | MARS·BRAVO·CLAS 분석, 설비·지표·차트·보드·저장된 뷰 및 site 범위 검사 | core 세션에는 site 범위가 없고 서버가 분석 메뉴 권한·메뉴 조회 포트를 제공하지 않는다. 권한·grant를 추가하지 않는다. |

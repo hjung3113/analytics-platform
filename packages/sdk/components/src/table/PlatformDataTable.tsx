@@ -21,7 +21,8 @@ import { effectiveOrder, moveWithinGroup, pinnedInOrder } from './columnOrder';
 import { useColumnPreferences } from './useColumnPreferences';
 import { usePagedRows } from './usePagedRows';
 import { useColumnFilters } from './columnFilters';
-import { resolveFilterFields, type TableFilterField } from './filterFields';
+import { resolveFilterFields, type InstantEntry, type TableFilterField } from './filterFields';
+import type { FilterValueCheck } from './tableFilterUrl';
 import { FilterLine, HeaderFunnel } from './filterLine';
 import { useTableTransfer } from './useTableTransfer';
 import { useTableSelection, type TableExportRequest, type TableSelection } from './useTableSelection';
@@ -74,6 +75,8 @@ export type PlatformColumn<T> = {
   filterPinned?: boolean | number;
   /** Display only: the field name in the filter line, editor and XLSX 조회 정보; default = `header`. */
   filterLabel?: string;
+  /** Display/entry only, `instant` filters: the time zone and precision of the editor's date-time inputs (`InstantEntry`). Default: browser zone, minutes. */
+  filterEntry?: InstantEntry;
   /**
    * Opt-in row groups (#556d, ADR-0104): the toolbar offers 「그룹」 with this column; choosing it sends `groupBy: <id>` to `loadPage`,
    * and the server answers rows ordered by group plus `groups` describing the whole filtered result. The id is the server field.
@@ -109,6 +112,8 @@ export type TableUrlState = {
    * filter state is unused; absent, the table keeps its own state as before. The table never knows the key name.
    */
   filters?: ColumnFilter[];
+  /** The page's value check (`useTableUrlState(..., { filters: { validate } })`): the filter editor refuses a draft the address would refuse, inline. */
+  validate?: FilterValueCheck;
 };
 
 export type PlatformDataTableProps<T> = {
@@ -649,7 +654,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
 
     {/* Result line (06 §15, 1217c): always rendered. Left = the filter line when the table has filterable fields; right = 건수 · 쪽 · 신뢰 요약 (the former status row). */}
     <div ref={statusLine.ref} data-table-status-line className="relative flex min-h-9 min-w-0 flex-wrap items-center gap-x-2 gap-y-1 border-t border-border-subtle px-3 py-1.5 text-xs text-text-muted" aria-live={groupedOutcome ? 'off' : 'polite'}>
-      {filterFields.length > 0 && <div className="min-w-0 flex-1 basis-80"><FilterLine fields={filterFields} filters={columnFilters.filters} lang={lang} onApply={columnFilters.apply} onClear={columnFilters.clear} limit={columnFilters.limit} /></div>}
+      {filterFields.length > 0 && <div className="min-w-0 flex-1 basis-80"><FilterLine fields={filterFields} filters={columnFilters.filters} lang={lang} onApply={columnFilters.apply} onClear={columnFilters.clear} limit={columnFilters.limit} check={p.urlState?.validate} /></div>}
       <span ref={countSpan.ref} className="ml-auto tabular whitespace-nowrap">{!shown || (loading && outOfRange) ? t('loading')
         : !success ? '—'
         : outOfRange
@@ -699,7 +704,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
                   : <span className="min-w-0 truncate">{flexRender(h.column.columnDef.header, h.getContext())}</span>}
                 {(() => {
                   const field = filterFields.find(f => f.origin === 'column' && f.id === h.column.id);
-                  return field ? <HeaderFunnel field={field} lang={lang} limit={columnFilters.limit} active={columnFilters.filters.find(f => f.id === field.id)} onApply={next => columnFilters.apply(field.id, next)} /> : null;
+                  return field ? <HeaderFunnel field={field} lang={lang} limit={columnFilters.limit} check={p.urlState?.validate} active={columnFilters.filters.find(f => f.id === field.id)} onApply={next => columnFilters.apply(field.id, next)} /> : null;
                 })()}
                 {/* #239: an always-visible 1px divider with an 8px grab area; double-click restores the default width. */}
                 {h.column.getCanResize() && <div aria-hidden data-column-resizer onMouseDown={startResize(h)} onTouchStart={startResize(h)} onDoubleClick={event => { event.preventDefault(); h.column.resetSize(); }} className="group/resize absolute right-0 top-0 flex h-full w-2 cursor-col-resize touch-none justify-end">

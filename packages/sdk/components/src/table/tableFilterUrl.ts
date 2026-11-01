@@ -1,4 +1,4 @@
-import { encodeFilterParams, filterParamLimit, FILTER_PARAM_LIMITS, parseFilterParams, validateFilters, type ColumnFilter, type ColumnFilterSpec, type FilterParamRejection } from '@ap/contracts';
+import { encodeFilterParams, filterParamLimit, FILTER_PARAM_LIMITS, parseFilterParams, validateFilters, type ColumnFilter, type ColumnFilterSpec, type FilterParamRejection, type Text } from '@ap/contracts';
 
 /**
  * A page-declared old single key (`status=active`) read for one release and rewritten into the filter key (ADR-0105 §6). The SDK has
@@ -6,16 +6,25 @@ import { encodeFilterParams, filterParamLimit, FILTER_PARAM_LIMITS, parseFilterP
  */
 export type LegacyFilterKey = { key: string; toFilter: (raw: string) => ColumnFilter | null };
 
+/**
+ * A page's own check of one condition's value, beyond the wire shape the codec already enforces (a token rule the port applies, membership in a
+ * registry). `null` = fine; otherwise the reason in the user's words. Opt-in (absent = no check); runs on every condition read from the address
+ * (new key and converted legacy keys) and on the editor's draft, so the same value is refused in both places before any query.
+ */
+export type FilterValueCheck = (filter: ColumnFilter) => Text | null;
+
 /** What a page hands `useTableUrlState` to opt into URL-held column filters. `key` must be in the menu's `pageKeys`, `repeatedPageKeys` (and normally `hiddenPageKeys`); each legacy key must be in `pageKeys`. */
 export type TableFilterOption = {
   key: string;
   specs: Readonly<Record<string, ColumnFilterSpec>>;
   /** User-facing field names for the warning sentences; an id without an entry reads as the id. */
   labels?: Readonly<Record<string, string>>;
+  /** Page-owned value check, see `FilterValueCheck`. The table's editor uses the same function through `urlState`. */
+  validate?: FilterValueCheck;
   legacy?: readonly LegacyFilterKey[];
 };
 
-export type TableFilterProblem = { reason: FilterParamRejection | 'legacy-invalid'; field: string; raw: string };
+export type TableFilterProblem = { reason: FilterParamRejection | 'legacy-invalid' | 'value-invalid'; field: string; raw: string; /** The page check's own reason (`value-invalid`); replaces the generic cause in the sentence. */ detail?: Text };
 export type TableFilterRead =
   | { ok: true; filters: ColumnFilter[]; legacyPresent: boolean }
   | { ok: false; problems: TableFilterProblem[] };
@@ -33,6 +42,7 @@ export const FILTER_PROBLEM_CAUSES: Readonly<Record<TableFilterProblem['reason']
   'too-many-conditions': { ko: `조건은 ${FILTER_PARAM_LIMITS.conditions}개까지 쓸 수 있습니다.`, en: `At most ${FILTER_PARAM_LIMITS.conditions} conditions are allowed.` },
   'too-many-values': { ko: `한 조건의 값은 ${FILTER_PARAM_LIMITS.listValues}개까지 쓸 수 있습니다.`, en: `A condition takes at most ${FILTER_PARAM_LIMITS.listValues} values.` },
   'too-long': { ko: '조건이 너무 길어 링크로 공유할 수 없습니다.', en: 'The conditions are too long to share as a link.' },
+  'value-invalid': { ko: '이 항목에서 쓸 수 없는 값입니다.', en: 'This value cannot be used for this field.' },
   'legacy-invalid': { ko: '예전 주소의 값을 조건으로 바꿀 수 없습니다.', en: 'The old address value cannot be turned into a condition.' },
 };
 
@@ -84,6 +94,12 @@ export function readTableFilters(option: TableFilterOption, values: readonly str
   if (!check.ok) {
     const raw = raws[filters.indexOf(check.filter)] as string;
     return { ok: false, problems: [{ reason: check.reason, field: check.filter.id, raw }] };
+  }
+  if (option.validate) {
+    for (let i = 0; i < filters.length; i++) {
+      const detail = option.validate(filters[i] as ColumnFilter);
+      if (detail) return { ok: false, problems: [{ reason: 'value-invalid', field: (filters[i] as ColumnFilter).id, raw: raws[i] as string, detail }] };
+    }
   }
   const limit = legacyPresent ? filterParamLimit(encodeFilterParams(filters), option.key) : null;
   if (limit) return { ok: false, problems: [{ reason: limit, field: '', raw: raws[raws.length - 1] as string }] };

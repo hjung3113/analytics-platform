@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseFilterParams, type ColumnFilter } from '@ap/contracts';
-import { accessFilterSpecs, accessLegacyKeys, toAccessQuery } from './access-filters';
+import { accessFilterSpecs, accessLegacyKeys, accessValueCheck, toAccessQuery } from './access-filters';
 
 const permissions = ['platform:view', 'console:access'];
 const page = { page: 2, pageSize: 25, sorting: [] };
@@ -36,5 +36,22 @@ describe('access specs and legacy keys', () => {
     expect(of('permission', 'console:access')).toEqual({ id: 'permission', op: 'in', value: ['console:access'] });
     expect(of('role', 'a b')).toBeNull();
     expect(of('permission', 'ghost:view')).toBeNull();
+  });
+});
+
+describe('accessValueCheck (the port rules, before any query)', () => {
+  const check = accessValueCheck(permissions);
+  it.each<ColumnFilter>([
+    { id: 'role', op: 'equals', value: 'a b' },
+    { id: 'role', op: 'equals', value: 'x'.repeat(81) },
+    { id: 'permission', op: 'in', value: ['ghost:view'] },
+  ])('refuses %j', filter => {
+    expect(check(filter)).not.toBeNull();
+  });
+  it.each<ColumnFilter>([
+    { id: 'role', op: 'equals', value: 'Engineer' },
+    { id: 'permission', op: 'in', value: ['console:access'] },
+  ])('allows %j', filter => {
+    expect(check(filter)).toBeNull();
   });
 });

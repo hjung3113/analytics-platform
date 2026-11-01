@@ -470,6 +470,51 @@ describe('AccessDirectory (issue #49: /admin/roles)', () => {
     expect(f.calls[2]).toEqual({ page: 1, pageSize: 25 });
   });
 
+  it('모두 지우기 from a focused, tabbed, filtered state closes focus and tab in the same write (#673)', async () => {
+    const f = renderRoles('/admin/roles?filter=role:equals:engineer&focus=engineer&tab=sites');
+    await waitFor(() => expect(f.calls).toHaveLength(1));
+    clearAll();
+    await waitFor(() => expect(f.calls).toHaveLength(2));
+    expect(f.calls[1]).toEqual({ page: 1, pageSize: 25 });
+    expect(url().has('filter')).toBe(false);
+    expect(url().has('focus')).toBe(false);
+    expect(url().has('tab')).toBe(false);
+  });
+
+  it('the empty-state reset from a focused, tabbed, filtered state closes focus and tab too', async () => {
+    const f = renderRoles('/admin/roles?filter=role:equals:ghost&focus=engineer&tab=sites', { outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' });
+    fireEvent.click(await screen.findByRole('button', { name: '필터 초기화' }));
+    await waitFor(() => expect(f.calls).toHaveLength(2));
+    expect(url().has('filter')).toBe(false);
+    expect(url().has('focus')).toBe(false);
+    expect(url().has('tab')).toBe(false);
+  });
+
+  it.each([
+    ['a malformed role', 'role:equals:a b', '역할'],
+    ['an unregistered permission', 'permission:in:ghost:view', '권한'],
+  ])('%s in the new filter key: a filter warning, no port query, the reset recovers', async (_name, condition, fragment) => {
+    const f = renderRoles(`/admin/roles?${new URLSearchParams([['filter', condition]])}`);
+    const alert = screen.getByRole('alert');
+    expect(alert.textContent).toContain('필터 값이 올바르지 않습니다');
+    expect(alert.textContent).toContain(fragment);
+    expect(f.calls).toHaveLength(0);
+    fireEvent.click(within(alert).getByRole('button', { name: '초기화' }));
+    await waitFor(() => expect(f.calls).toHaveLength(1));
+    expect(f.calls[0]).toEqual({ page: 1, pageSize: 25 });
+  });
+
+  it('the 역할 editor blocks a malformed token inline with Apply disabled', async () => {
+    const f = renderRoles('/admin/roles');
+    await waitFor(() => expect(f.calls).toHaveLength(1));
+    fireEvent.click(document.querySelector<HTMLElement>('[data-filter-body="role"]')!);
+    const dialog = await screen.findByRole('dialog', { name: '역할' });
+    fireEvent.change(within(dialog).getByRole('textbox', { name: '값' }), { target: { value: 'a b' } });
+    expect(within(dialog).getByRole('alert').textContent).toContain('80자');
+    expect((within(dialog).getByRole('button', { name: '적용' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(f.calls).toHaveLength(1);
+  });
+
   // UX B-06 / #301: every row shared the name 보기/View — a screen reader on the list cannot tell rows apart.
   it('names each row action after its actual principal id, keeping the short visible label', async () => {
     renderRoles('/admin/roles');

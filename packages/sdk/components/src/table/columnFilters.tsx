@@ -64,7 +64,8 @@ export function useColumnFilters(urlState: TableUrlState | undefined, fields: re
     resetPage();
   }, [filters, fields, controlled, write, resetPage]);
   const clear = useCallback(() => {
-    if (controlled) { write([], 'reset'); return; }
+    // 모두 지우기 is a user gesture like a chip removal (reason `user`): a page that closes its focused row on a user filter change closes it here too. `reset` stays the table's own page return.
+    if (controlled) { write([], 'user'); return; }
     setOwn([]); resetPage();
   }, [controlled, write, resetPage]);
   const limit = useCallback((id: string, next: ColumnFilter): FilterLimit | null => filterListLimit(proposeFilters(filters, id, next, fields)), [filters, fields]);

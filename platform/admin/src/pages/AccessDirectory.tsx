@@ -6,7 +6,7 @@ import { DetailDrawer, RowAction, ManagementLayout, type PlatformColumn, Platfor
 import { Button, StatusBadge } from '@ap/ui';
 import { grantTotals, menusForPermissions } from '../access-rows';
 import { SORT_FIELDS, invalidText } from '../access-query';
-import { accessFilterSpecs, accessLegacyKeys, toAccessQuery } from '../access-filters';
+import { accessFilterSpecs, accessLegacyKeys, accessValueCheck, toAccessQuery } from '../access-filters';
 
 const NO_FILTERS: ColumnFilter[] = [];
 
@@ -31,7 +31,7 @@ export default function AccessDirectory() {
   // ADR-0105: 역할 and 권한 are conditions of one hidden repeated page key `filter`; the old `role=` / `permission=` links are read for one release and rewritten.
   const specs = useMemo(() => accessFilterSpecs(registry.permissions), [registry.permissions]);
   const urlFilters = useMemo(() => ({
-    key: 'filter', specs, legacy: accessLegacyKeys(registry.permissions),
+    key: 'filter', specs, legacy: accessLegacyKeys(registry.permissions), validate: accessValueCheck(registry.permissions),
     labels: { role: ko ? '역할' : 'Role', permission: ko ? '권한' : 'Permission' },
   }), [specs, registry.permissions, ko]);
   // A user sort/page/filter change moves rows between pages, so the focused row leaves with them (bot review P2).
@@ -150,7 +150,7 @@ export default function AccessDirectory() {
             ...(response.message !== undefined && { message: response.message }),
           };
         }}
-        emptyAction={conditions.length > 0 ? <Button type="button" size="sm" variant="secondary" onClick={() => setPage({ filter: null, page: null })}>{t('clearFilters')}</Button> : null}
+        emptyAction={conditions.length > 0 ? <Button type="button" size="sm" variant="secondary" onClick={() => setPage({ filter: null, page: null, focus: null, tab: null })}>{t('clearFilters')}</Button> : null}
         rowAction={(row, { compact }) => <RowAction compact={compact} icon={PanelRight} label={ko ? `${row.id} 보기` : `View ${row.id}`} text={ko ? '보기' : 'View'} onClick={() => setPage({ focus: row.id, tab: null })} />}
       />} />
   </PlatformPage>;

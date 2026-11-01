@@ -6,10 +6,17 @@ import type { PlatformColumn } from './PlatformDataTable';
  * words. `id` is the server field and must be unique across columns and fields (no `:`). `pinned` shows its button on the filter line; a number is
  * its pinned position (1 first), `true` keeps declaration order after the numbered ones.
  */
-export type TableFilterField = { id: string; label: Text; spec: ColumnFilterSpec; pinned?: boolean | number };
+export type TableFilterField = { id: string; label: Text; spec: ColumnFilterSpec; pinned?: boolean | number; entry?: InstantEntry };
+
+/**
+ * How the editor reads and shows an `instant` field's date-time inputs (display/entry only; the wire is the same ISO instant). Absent = unchanged:
+ * the browser's zone, minute precision. `timeZone` is an IANA zone used to show AND parse the inputs; a local time that does not exist there
+ * (DST gap) or exists twice (DST fold) is refused inline, never moved. `precision: 'second'` adds a seconds step to the inputs.
+ */
+export type InstantEntry = { timeZone?: string; precision?: 'minute' | 'second' };
 
 /** One filterable field as the filter line and the editor see it, whether it came from a column or from `filterFields`. */
-export type ResolvedFilterField = { id: string; label: string; spec: ColumnFilterSpec; pinned: boolean; /** Pinned position (lower first); `Infinity` for an unnumbered pin. */ pinRank: number; origin: 'column' | 'field' };
+export type ResolvedFilterField = { id: string; label: string; spec: ColumnFilterSpec; pinned: boolean; /** Pinned position (lower first); `Infinity` for an unnumbered pin. */ pinRank: number; origin: 'column' | 'field'; entry?: InstantEntry };
 
 const pinRankOf = (pinned: boolean | number | undefined): number => (typeof pinned === 'number' ? pinned : Number.POSITIVE_INFINITY);
 /** The pinned fields in display order: numbered ones by position, then the rest in their given (column, then field) order. */
@@ -27,8 +34,8 @@ export function resolveFilterFields<T>(columns: readonly PlatformColumn<T>[], fi
   };
   // Every column id is taken, filterable or not: a field id may not shadow any column (the export and the wire share the id space).
   for (const c of columns) if (!c.filter) seen.add(c.id);
-  for (const c of columns) if (c.filter) add({ id: c.id, label: c.filterLabel ?? c.header, spec: c.filter, pinned: c.filterPinned === true || typeof c.filterPinned === 'number', pinRank: pinRankOf(c.filterPinned), origin: 'column' });
-  for (const f of fields ?? []) add({ id: f.id, label: f.label[lang], spec: f.spec, pinned: f.pinned === true || typeof f.pinned === 'number', pinRank: pinRankOf(f.pinned), origin: 'field' });
+  for (const c of columns) if (c.filter) add({ id: c.id, label: c.filterLabel ?? c.header, spec: c.filter, pinned: c.filterPinned === true || typeof c.filterPinned === 'number', pinRank: pinRankOf(c.filterPinned), origin: 'column', ...(c.filterEntry ? { entry: c.filterEntry } : {}) });
+  for (const f of fields ?? []) add({ id: f.id, label: f.label[lang], spec: f.spec, pinned: f.pinned === true || typeof f.pinned === 'number', pinRank: pinRankOf(f.pinned), origin: 'field', ...(f.entry ? { entry: f.entry } : {}) });
   return out;
 }
 
