@@ -28,3 +28,5 @@ Amended 2026-10-20: 크기·밀도 선택지와 기본값·상속 규칙은 [06 
 - 필터 값·URL page key·초안 적용·초기화 의미는 소비자가 소유한다. 레일 접힘 기억과 좁은 폭 팝오버는 공통 레이아웃이 소유한다.
 - `AnalysisLayout`을 사이클타임 상세에서 소비하며 메뉴별 접힘 기억과 접기·복원 포커스 이동을 공통 레이아웃이 소유한다. 프로토타입 코드와 variant 분기는 본 코드에 넣지 않는다.
 - 06 §12.6과 DESIGN.md가 레이아웃 계약과 시각 규칙을 소유한다.
+
+Amended by [ADR-0105](0105-one-table-filter-model.md) (2026-11-01): the management filter rail gives way to the one table filter model (a filter line above the table); the rail is removed in steps (expand → migrate → remove).

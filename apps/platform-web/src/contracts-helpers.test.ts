@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { NO_FEATURES, filterRows, groupPage, type ColumnFilter, RETURN_TO_KEY, carriesReturnTo, compareAuditEvents, contextCapabilities, isRecord, withoutReturnTo, type AuditEvent, type Capability, type ContextKey } from '@ap/contracts';
+import { NO_FEATURES, filterRows, groupPage, validateFilters, type ColumnFilter, type ColumnFilterSpec, RETURN_TO_KEY, carriesReturnTo, compareAuditEvents, contextCapabilities, isRecord, withoutReturnTo, type AuditEvent, type Capability, type ContextKey } from '@ap/contracts';
 
 // #673: shared @ap/contracts helpers — the manifest defaults every menu index and the gen-menu scaffold share (06 §5), `isRecord`, and the `returnTo` rule (#851).
 const ALL_UNSUPPORTED: Record<ContextKey, Capability> = {
@@ -121,6 +121,161 @@ describe('filterRows (column filters, ADR-0104)', () => {
   });
   it('filters AND together; a missing value matches nothing', () => {
     expect(ids([{ id: 's', op: 'in', value: ['a'] }, { id: 'n', op: 'gte', value: 0 }])).toEqual(['Alpha']);
+  });
+});
+
+describe('filterRows vocabulary (ADR-0105)', () => {
+  type R = { id: string; name: string | null; n: number | null; d: string | null; s: string | null; at: string | null };
+  const rows: R[] = [
+    { id: 'r1', name: 'Alpha', n: 1, d: '2026-01-05T09:00:00', s: 'a', at: '2026-01-05T00:30:00Z' },
+    { id: 'r2', name: 'beta', n: 5, d: '2026-01-06', s: 'b', at: '2026-01-05T09:30:00+09:00' },
+    { id: 'r3', name: 'GAMMA', n: 10, d: '2026-01-07T23:59:59', s: 'c', at: '2026-01-06T00:00:00Z' },
+    { id: 'r4', name: null, n: null, d: null, s: null, at: null },
+    { id: 'r5', name: '', n: 0, d: '', s: 'a', at: '' },
+  ];
+  const ids = (f: ColumnFilter[], specs?: Record<string, ColumnFilterSpec>) => filterRows(rows, f, undefined, specs ? { specs } : undefined).map(r => r.id);
+
+  it.each<[ColumnFilter, string[]]>([
+    [{ id: 'name', op: 'contains', value: 'AL' }, ['r1']],
+    [{ id: 'name', op: 'notContains', value: 'a' }, []],
+    [{ id: 'name', op: 'notContains', value: 'alp' }, ['r2', 'r3']],
+    [{ id: 'name', op: 'startsWith', value: 'be' }, ['r2']],
+    [{ id: 'name', op: 'endsWith', value: 'MA' }, ['r3']],
+    [{ id: 'name', op: 'equals', value: 'BETA' }, ['r2']],
+    [{ id: 'name', op: 'notEquals', value: 'beta' }, ['r1', 'r3']],
+    [{ id: 'name', op: 'isEmpty' }, ['r4', 'r5']],
+    [{ id: 'name', op: 'isNotEmpty' }, ['r1', 'r2', 'r3']],
+  ])('text %j', (filter, expected) => expect(ids([filter])).toEqual(expected));
+
+  it.each<[ColumnFilter, string[]]>([
+    [{ id: 'n', op: 'eq', value: 0 }, ['r5']],
+    [{ id: 'n', op: 'neq', value: 5 }, ['r1', 'r3', 'r5']],
+    [{ id: 'n', op: 'gt', value: 5 }, ['r3']],
+    [{ id: 'n', op: 'gte', value: 5 }, ['r2', 'r3']],
+    [{ id: 'n', op: 'lt', value: 5 }, ['r1', 'r5']],
+    [{ id: 'n', op: 'lte', value: 5 }, ['r1', 'r2', 'r5']],
+    [{ id: 'n', op: 'between', value: [1, 5] }, ['r1', 'r2']],
+    [{ id: 'n', op: 'isEmpty' }, ['r4']],
+    [{ id: 'n', op: 'isNotEmpty' }, ['r1', 'r2', 'r3', 'r5']],
+  ])('number %j (null excluded from every comparison, 0 is a value)', (filter, expected) => expect(ids([filter])).toEqual(expected));
+
+  it.each<[ColumnFilter, string[]]>([
+    [{ id: 'd', op: 'between', value: { from: '2026-01-06', to: '2026-01-07' } }, ['r2']],
+    [{ id: 'd', op: 'before', value: '2026-01-06' }, ['r1']],
+    [{ id: 'd', op: 'before', value: '2026-01-07' }, ['r1', 'r2']],
+    [{ id: 'd', op: 'after', value: '2026-01-05' }, ['r2', 'r3']],
+    [{ id: 'd', op: 'after', value: '2026-01-07' }, []],
+    [{ id: 'd', op: 'isEmpty' }, ['r4']],
+    [{ id: 'd', op: 'isNotEmpty' }, ['r1', 'r2', 'r3', 'r5']],
+  ])('date %j (declared date kind: "" is a value; before is < day, after is >= next day)', (filter, expected) => {
+    // r5 holds '' (a value for a date kind, see the blank test below), so the range cases read the other rows.
+    const dated = filterRows(rows.filter(r => r.id !== 'r5' || filter.op === 'isEmpty' || filter.op === 'isNotEmpty'), [filter], undefined, { specs: { d: { kind: 'date' } } }).map(r => r.id);
+    expect(dated).toEqual(expected);
+  });
+
+  it('date after crosses month and leap-year ends', () => {
+    const r = [{ d: '2028-03-01T00:00:00' }, { d: '2028-02-29T23:00:00' }];
+    expect(filterRows(r, [{ id: 'd', op: 'after', value: '2028-02-29' }]).length).toBe(1);
+  });
+
+  it.each<[ColumnFilter, string[]]>([
+    [{ id: 's', op: 'in', value: ['a', 'c'] }, ['r1', 'r3', 'r5']],
+    [{ id: 's', op: 'notIn', value: ['a'] }, ['r2', 'r3']],
+    [{ id: 's', op: 'isEmpty' }, ['r4']],
+    [{ id: 's', op: 'isNotEmpty' }, ['r1', 'r2', 'r3', 'r5']],
+  ])('enum %j (negation excludes blank)', (filter, expected) => expect(ids([filter])).toEqual(expected));
+
+  it('text caseSensitive from the spec compares exactly', () => {
+    const specs: Record<string, ColumnFilterSpec> = { name: { kind: 'text', caseSensitive: true } };
+    expect(ids([{ id: 'name', op: 'equals', value: 'BETA' }], specs)).toEqual([]);
+    expect(ids([{ id: 'name', op: 'equals', value: 'beta' }], specs)).toEqual(['r2']);
+    expect(ids([{ id: 'name', op: 'contains', value: 'Al' }], specs)).toEqual(['r1']);
+    expect(ids([{ id: 'name', op: 'notContains', value: 'al' }], specs)).toEqual(['r1', 'r2', 'r3']);
+  });
+
+  it('instant between is half-open over real instants, not strings', () => {
+    const specs: Record<string, ColumnFilterSpec> = { at: { kind: 'instant' } };
+    // r2 (09:30+09:00) and r1 are the same instant, 00:30Z; as strings they would sort apart.
+    expect(ids([{ id: 'at', op: 'between', value: { from: '2026-01-05T00:30:00Z', to: '2026-01-06T00:00:00Z' } }], specs)).toEqual(['r1', 'r2']);
+    expect(ids([{ id: 'at', op: 'between', value: { to: '2026-01-05T00:30:00Z' } }], specs)).toEqual([]);
+    expect(ids([{ id: 'at', op: 'isEmpty' }], specs)).toEqual(['r4']);
+  });
+
+  it('blank is "" only for text: with a non-text spec "" is a value', () => {
+    expect(ids([{ id: 'd', op: 'isEmpty' }], { d: { kind: 'date' } })).toEqual(['r4']);
+  });
+
+  // Without specs the old ops keep their pre-vocabulary results: '' is a value for every op that is not a text op.
+  it.each<[string, Record<string, unknown>[], ColumnFilter, number]>([
+    ['number eq 0 keeps ""', [{ v: '' }], { id: 'v', op: 'eq', value: 0 }, 1],
+    ['number neq 5 keeps ""', [{ v: '' }], { id: 'v', op: 'neq', value: 5 }, 1],
+    ['number lte keeps ""', [{ v: '' }], { id: 'v', op: 'lte', value: 3 }, 1],
+    ['number between keeps ""', [{ v: '' }], { id: 'v', op: 'between', value: [0, 3] }, 1],
+    ['enum in [""] keeps ""', [{ v: '' }], { id: 'v', op: 'in', value: [''] }, 1],
+    ['enum notIn [a] keeps ""', [{ v: '' }], { id: 'v', op: 'notIn', value: ['a'] }, 1],
+    ['date before keeps ""', [{ v: '' }], { id: 'v', op: 'before', value: '2026-01-01' }, 1],
+    ['date range from "" keeps ""', [{ v: '' }], { id: 'v', op: 'between', value: { to: '2026-01-01' } }, 1],
+    ['text contains still drops ""', [{ v: '' }], { id: 'v', op: 'notContains', value: 'x' }, 0],
+  ])('no specs: %s', (_name, data, filter, count) => {
+    expect(filterRows(data, [filter]).length).toBe(count);
+  });
+
+  it('with specs the kind decides what "" is', () => {
+    const data = [{ v: '' }];
+    expect(filterRows(data, [{ id: 'v', op: 'in', value: [''] }], undefined, { specs: { v: { kind: 'enum', options: [{ value: '', label: '-' }] } } }).length).toBe(1);
+    expect(filterRows(data, [{ id: 'v', op: 'isEmpty' }], undefined, { specs: { v: { kind: 'number' } } }).length).toBe(0);
+    expect(filterRows(data, [{ id: 'v', op: 'isEmpty' }], undefined, { specs: { v: { kind: 'text' } } }).length).toBe(1);
+  });
+});
+
+describe('validateFilters (ADR-0105)', () => {
+  const specs: Record<string, ColumnFilterSpec> = {
+    name: { kind: 'text', ops: ['contains', 'equals'] },
+    n: { kind: 'number' },
+    d: { kind: 'date' },
+    at: { kind: 'instant' },
+    s: { kind: 'enum', options: [{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }] },
+    one: { kind: 'enum', options: [{ value: 'a', label: 'A' }], multiple: false },
+    targetId: { kind: 'text', requires: ['targetType'] },
+    targetType: { kind: 'enum', options: [{ value: 't', label: 'T' }], multiple: false },
+  };
+  const reason = (f: ColumnFilter[]) => { const r = validateFilters(f, specs); return r.ok ? 'ok' : r.reason; };
+
+  it('accepts a valid mixed set and the empty set', () => {
+    expect(validateFilters([], specs)).toEqual({ ok: true });
+    expect(reason([{ id: 'name', op: 'contains', value: 'x' }, { id: 'n', op: 'between', value: [1, 2] }, { id: 'd', op: 'after', value: '2026-02-28' }, { id: 's', op: 'notIn', value: ['a'] }, { id: 'at', op: 'between', value: { from: '2026-01-01T00:00:00+09:00' } }])).toBe('ok');
+  });
+  it('returns the offending filter', () => {
+    const bad: ColumnFilter = { id: 'nope', op: 'isEmpty' };
+    expect(validateFilters([{ id: 'n', op: 'eq', value: 1 }, bad], specs)).toEqual({ ok: false, reason: 'undeclared-field', filter: bad });
+  });
+  it.each<[string, ColumnFilter[], string]>([
+    ['undeclared field', [{ id: 'zzz', op: 'eq', value: 1 }], 'undeclared-field'],
+    ['prototype key is not a field', [{ id: 'constructor', op: 'isEmpty' }], 'undeclared-field'],
+    ['colon in id', [{ id: 'a:b', op: 'isEmpty' }], 'invalid-id'],
+    ['two conditions on one field', [{ id: 'n', op: 'eq', value: 1 }, { id: 'n', op: 'gt', value: 0 }], 'duplicate-field'],
+    ['op outside spec.ops', [{ id: 'name', op: 'startsWith', value: 'x' }], 'op-not-allowed'],
+    ['op of another kind', [{ id: 'n', op: 'contains', value: 'x' }], 'op-not-allowed'],
+    ['instant has no before', [{ id: 'at', op: 'before', value: '2026-01-01' }], 'op-not-allowed'],
+    ['number value is a string', [{ id: 'n', op: 'eq', value: '1' as never }], 'bad-value'],
+    ['number is NaN', [{ id: 'n', op: 'gt', value: Number.NaN }], 'bad-value'],
+    ['between tuple length', [{ id: 'n', op: 'between', value: [1] as never }], 'bad-value'],
+    ['date is not a calendar day', [{ id: 'd', op: 'before', value: '2026-02-30' }], 'bad-value'],
+    ['date range empty', [{ id: 'd', op: 'between', value: {} }], 'bad-value'],
+    ['date range with a date-time', [{ id: 'd', op: 'between', value: { from: '2026-01-01T00:00:00' } }], 'bad-value'],
+    ['instant without offset', [{ id: 'at', op: 'between', value: { from: '2026-01-01T00:00:00' } }], 'bad-value'],
+    ['instant impossible day (Feb 30)', [{ id: 'at', op: 'between', value: { from: '2026-02-30T00:00:00Z' } }], 'bad-value'],
+    ['instant Feb 29 in a non-leap year', [{ id: 'at', op: 'between', value: { to: '2027-02-29T00:00:00+09:00' } }], 'bad-value'],
+    ['instant hour 24', [{ id: 'at', op: 'between', value: { from: '2026-01-01T24:00:00Z' } }], 'bad-value'],
+    ['instant minute 60', [{ id: 'at', op: 'between', value: { to: '2026-01-01T00:60:00Z' } }], 'bad-value'],
+    ['instant month 13', [{ id: 'at', op: 'between', value: { to: '2026-13-01T00:00:00Z' } }], 'bad-value'],
+    ['isEmpty with a value', [{ id: 'n', op: 'isEmpty', value: 1 } as unknown as ColumnFilter], 'bad-value'],
+    ['in with an empty list', [{ id: 's', op: 'in', value: [] }], 'bad-value'],
+    ['multiple:false with two values', [{ id: 'one', op: 'in', value: ['a', 'a'] }], 'multiple-not-allowed'],
+    ['requires unmet', [{ id: 'targetId', op: 'equals', value: 'x' }], 'requires-unmet'],
+  ])('rejects %s', (_label, filters, expected) => expect(reason(filters)).toBe(expected));
+  it('requires met', () => {
+    expect(reason([{ id: 'targetId', op: 'contains', value: 'x' }, { id: 'targetType', op: 'in', value: ['t'] }])).toBe('ok');
   });
 });
 

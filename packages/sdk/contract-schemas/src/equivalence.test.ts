@@ -1,12 +1,14 @@
 // Type equivalence between the Zod sources and the hand-written @ap/contracts types (ADR-0096). `tsc --noEmit` (the package's
 // `typecheck`) proves it; `vitest run` only loads the file, because `expectTypeOf` is a no-op at runtime.
-import type { CreateNoticeInput, DeleteNoticeInput, GroupMember, JsonValue, Notice, NoticeListPage, PreferencesImport, PreferencesPatch, PreferencesSnapshot, SaveNoticeInput, UpdateNoticeInput, ApiResponse, Capability, Assessment, AssessmentKind, AnyEndpointSpec, MenuQuery, MenuQueryContext, Outcome, Trust } from '@ap/contracts';
+import type { CreateNoticeInput, DeleteNoticeInput, GroupMember, JsonValue, Notice, NoticeListPage, PreferencesImport, PreferencesPatch, PreferencesSnapshot, SaveNoticeInput, UpdateNoticeInput, ApiResponse, Capability, Assessment, AssessmentKind, AnyEndpointSpec, ColumnFilter, ColumnFilterSpec, MenuQuery, MenuQueryContext, Outcome, Trust } from '@ap/contracts';
 import { describe, expectTypeOf, it } from 'vitest';
 import { z } from 'zod/v4';
 import {
   apiResponseSchema,
   assessmentKindSchema,
   assessmentSchema,
+  columnFilterSchema,
+  columnFilterSpecSchema,
   endpointDeclarationSchema,
   menuQueryContextSchema,
   menuQuerySchema,
@@ -28,8 +30,8 @@ import {
 import { contextCapabilitySchema } from './menu-query.ts';
 import { APPLIED_CAPABILITIES } from './vocab.ts';
 
-/** Readonly arrays and properties are a source-type nicety; the wire shape is mutable. Mapping also flattens intersections. */
-type Wire<T> = T extends readonly (infer U)[] ? Wire<U>[] : T extends object ? { -readonly [K in keyof T]: Wire<T[K]> } : T;
+/** Readonly arrays and properties are a source-type nicety; the wire shape is mutable. Mapping also flattens intersections. A fixed-length tuple keeps its length (part of the wire shape); only unbounded arrays collapse to `Wire<U>[]`. */
+type Wire<T> = T extends readonly (infer U)[] ? (number extends T['length'] ? Wire<U>[] : { -readonly [K in keyof T]: Wire<T[K]> }) : T extends object ? { -readonly [K in keyof T]: Wire<T[K]> } : T;
 
 // The contracts type with its three non-wire parts replaced: the branded `Permission` is a plain string on the wire, `paramKeys`
 // is the key list of the runtime allow-list, and the phantom `_types` is dropped.
@@ -78,5 +80,19 @@ describe('schemas and @ap/contracts types are the same type', () => {
     expectTypeOf<Wire<z.infer<typeof updateNoticeInputSchema>>>().toEqualTypeOf<Wire<UpdateNoticeInput>>();
     expectTypeOf<Wire<z.infer<typeof saveNoticeInputSchema>>>().toEqualTypeOf<Wire<SaveNoticeInput>>();
     expectTypeOf<Wire<z.infer<typeof deleteNoticeInputSchema>>>().toEqualTypeOf<Wire<DeleteNoticeInput>>();
+  });
+
+  it('column filter and its field spec (ADR-0105)', () => {
+    expectTypeOf<Wire<z.infer<typeof columnFilterSchema>>>().toEqualTypeOf<Wire<ColumnFilter>>();
+    expectTypeOf<Wire<z.infer<typeof columnFilterSpecSchema>>>().toEqualTypeOf<Wire<ColumnFilterSpec>>();
+  });
+
+  it('Wire keeps tuple length: a 3-tuple, a 1-tuple or an unbounded array is not the number pair', () => {
+    expectTypeOf<Wire<readonly [number, number]>>().toEqualTypeOf<[number, number]>();
+    expectTypeOf<Wire<[number, number, number]>>().not.toEqualTypeOf<Wire<[number, number]>>();
+    expectTypeOf<Wire<[number]>>().not.toEqualTypeOf<Wire<[number, number]>>();
+    expectTypeOf<Wire<number[]>>().not.toEqualTypeOf<Wire<[number, number]>>();
+    type Pair = Extract<z.infer<typeof columnFilterSchema>, { op: 'between'; value: [number, number] }>;
+    expectTypeOf<Pair['value']>().toEqualTypeOf<[number, number]>();
   });
 });

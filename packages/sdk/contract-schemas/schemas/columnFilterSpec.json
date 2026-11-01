@@ -1,0 +1,202 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "anyOf": [
+    {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "text"
+        },
+        "ops": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "contains",
+              "notContains",
+              "startsWith",
+              "endsWith",
+              "equals",
+              "notEquals",
+              "isEmpty",
+              "isNotEmpty"
+            ]
+          }
+        },
+        "caseSensitive": {
+          "type": "boolean",
+          "const": true
+        },
+        "requires": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[^:]+$"
+          }
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "number"
+        },
+        "ops": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "eq",
+              "neq",
+              "gt",
+              "gte",
+              "lt",
+              "lte",
+              "between",
+              "isEmpty",
+              "isNotEmpty"
+            ]
+          }
+        },
+        "requires": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[^:]+$"
+          }
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "date"
+        },
+        "ops": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "between",
+              "before",
+              "after",
+              "isEmpty",
+              "isNotEmpty"
+            ]
+          }
+        },
+        "requires": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[^:]+$"
+          }
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "instant"
+        },
+        "ops": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "between",
+              "isEmpty",
+              "isNotEmpty"
+            ]
+          }
+        },
+        "requires": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[^:]+$"
+          }
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "enum"
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "value": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "value",
+              "label"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "ops": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "in",
+              "notIn",
+              "isEmpty",
+              "isNotEmpty"
+            ]
+          }
+        },
+        "multiple": {
+          "type": "boolean",
+          "const": false
+        },
+        "requires": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[^:]+$"
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "options"
+      ],
+      "additionalProperties": false
+    }
+  ]
+}

@@ -46,6 +46,11 @@ export function describeFilter(filter: ColumnFilter, spec: ColumnFilterSpec | un
     case 'eq': return `= ${filter.value}`;
     case 'gte': return `≥ ${filter.value}`;
     case 'lte': return `≤ ${filter.value}`;
+    // Operators the current UI never produces (ADR-0105 vocabulary); readable fallback until the filter editor node.
+    case 'notContains': case 'startsWith': case 'endsWith': case 'notEquals': case 'neq': case 'gt': case 'lt': case 'before': case 'after':
+      return `${filter.op} ${String(filter.value)}`;
+    case 'isEmpty': case 'isNotEmpty': return filter.op;
+    case 'notIn': return `${filter.op} ${filter.value.join(', ')}`;
     case 'in': {
       const labels = spec?.kind === 'enum' ? new Map(spec.options.map(o => [o.value, o.label])) : new Map<string, string>();
       return filter.value.map(v => labels.get(v) ?? v).join(', ');
@@ -76,6 +81,8 @@ function initialDraft(spec: ColumnFilterSpec, active: ColumnFilter | undefined):
     if (Array.isArray(active.value)) return { ...empty, op: 'between', a: String(active.value[0]), b: String(active.value[1]) };
     return { ...empty, op: 'between', a: active.value.from ?? '', b: active.value.to ? addDays(active.value.to, -1) : '' };
   }
+  // Operators without a single scalar value are never produced by this UI; open them as an empty draft.
+  if (!('value' in active) || Array.isArray(active.value) || typeof active.value === 'object') return empty;
   return { ...empty, op: active.op, a: String(active.value) };
 }
 
@@ -93,6 +100,7 @@ function toFilter(id: string, spec: ColumnFilterSpec, d: Draft): ColumnFilter | 
       return { id, op: 'between', value: { ...(d.a ? { from: d.a } : {}), ...(d.b ? { to: addDays(d.b, 1) } : {}) } };
     }
     case 'enum': return d.picked.length > 0 ? { id, op: 'in', value: d.picked } : null;
+    case 'instant': return null; // no editor for instant ranges yet (ADR-0105)
   }
 }
 
