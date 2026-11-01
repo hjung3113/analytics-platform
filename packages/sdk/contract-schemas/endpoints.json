@@ -369,8 +369,6 @@
     "menuId": "equipment-master",
     "paramKeys": [
       "q",
-      "status",
-      "maker",
       "ids",
       "sorting",
       "filters",
@@ -416,8 +414,6 @@
     "menuId": "equipment-master",
     "paramKeys": [
       "q",
-      "status",
-      "maker",
       "page",
       "pageSize",
       "sorting",

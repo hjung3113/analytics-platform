@@ -76,7 +76,7 @@ test.describe('딥링크 복원 (06 §6.4)', () => {
   test('표 정렬·페이지·드로어 탭을 등록된 page key로 복원하고 새로고침에도 유지한다', async ({ page }, testInfo) => {
     // Fixture: MEM equipment list fills page 1 (25/row) and overflows to page 2.
     await page.goto('/mars/equipment-master?v=1&scopeId=MEM');
-    await expect(page.getByTestId('page-filter-bar')).toBeVisible();
+    await expect(page.getByRole('region', { name: '설비 마스터 목록' })).toBeVisible();
     const focus = await page.locator('[data-row-id]').first().getAttribute('data-row-id');
     expect(focus).toBeTruthy();
 
