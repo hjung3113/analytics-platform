@@ -60,6 +60,9 @@ const originalCreate = URL.createObjectURL;
 const originalRevoke = URL.revokeObjectURL;
 const downloads: Blob[] = [];
 beforeAll(() => {
+  HTMLElement.prototype.scrollIntoView = vi.fn();
+  HTMLElement.prototype.hasPointerCapture = () => false;
+  HTMLElement.prototype.releasePointerCapture = () => {};
   vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} }); // Radix Checkbox inside the popover
   Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, get() { return (this as Element).getAttribute('role') === 'row' ? 32 : 420; } });
   Object.defineProperty(HTMLElement.prototype, 'offsetWidth', { configurable: true, get() { return 800; } });
@@ -117,7 +120,8 @@ describe('PlatformDataTable column filters (#556b)', () => {
     await waitFor(() => expect(lastQuery(load).filters).toEqual([{ id: 'status', op: 'in', value: ['idle'] }]));
 
     fireEvent.click(screen.getByRole('button', { name: '수량 필터' }));
-    fireEvent.change(await screen.findByLabelText('연산자'), { target: { value: 'between' } });
+    fireEvent.keyDown(await screen.findByRole('combobox', { name: '연산자' }), { key: 'ArrowDown' });
+    fireEvent.click(await screen.findByRole('option', { name: '범위' }));
     fireEvent.change(screen.getByLabelText('최솟값'), { target: { value: '2' } });
     fireEvent.change(screen.getByLabelText('최댓값'), { target: { value: '9' } });
     fireEvent.click(screen.getByRole('button', { name: '적용' }));

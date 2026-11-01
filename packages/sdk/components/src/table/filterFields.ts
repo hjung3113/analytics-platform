@@ -20,6 +20,8 @@ export function resolveFilterFields<T>(columns: readonly PlatformColumn<T>[], fi
     seen.add(field.id);
     out.push(field);
   };
+  // Every column id is taken, filterable or not: a field id may not shadow any column (the export and the wire share the id space).
+  for (const c of columns) if (!c.filter) seen.add(c.id);
   for (const c of columns) if (c.filter) add({ id: c.id, label: c.filterLabel ?? c.header, spec: c.filter, pinned: c.filterPinned === true, origin: 'column' });
   for (const f of fields ?? []) add({ id: f.id, label: f.label[lang], spec: f.spec, pinned: f.pinned === true, origin: 'field' });
   return out;

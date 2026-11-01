@@ -4,7 +4,7 @@
  * The table never filters rows itself — it only sends `ColumnFilter[]` to the server (`loadPage`, `exportRows`).
  */
 import { useCallback, useState } from 'react';
-import { formatInstant, type ColumnFilter, type ColumnFilterSpec } from '@ap/contracts';
+import { encodeFilterParams, filterParamLimit, formatInstant, type ColumnFilter, type ColumnFilterSpec } from '@ap/contracts';
 import { FILTER_OP_LABELS } from './filterOps';
 import { pruneUnmet, type ResolvedFilterField } from './filterFields';
 import type { TableUrlState } from './PlatformDataTable';
@@ -27,6 +27,20 @@ function instantText(value: string, lang: Lang): string {
 /** The exclusive wire `to` of a date range as the inclusive day the user typed; anything that is not a plain day (an instant) is not calendar arithmetic. */
 export const inclusiveDay = (to: string): string => (WALL_CLOCK_DAY.test(to) ? addDays(to, -1) : to);
 
+/** The list after setting (or, with `null`, removing) one field's condition: order and one slot per field kept, unmet `requires` pruned. */
+export function proposeFilters(filters: readonly ColumnFilter[], id: string, next: ColumnFilter | null, fields: readonly ResolvedFilterField[]): ColumnFilter[] {
+  const at = filters.findIndex(f => f.id === id);
+  const kept = next === null ? filters.filter(f => f.id !== id) : at >= 0 ? filters.map((f, i) => (i === at ? next : f)) : [...filters, next];
+  return pruneUnmet(kept, fields);
+}
+
+export type FilterLimit = NonNullable<ReturnType<typeof filterParamLimit>>;
+
+/** The codec cap (`FILTER_PARAM_LIMITS`) a list would break under the default page key, or `null`. The editor refuses such an Apply before it writes. */
+export function filterListLimit(list: readonly ColumnFilter[]): FilterLimit | null {
+  try { return filterParamLimit(encodeFilterParams(list)); } catch { return null; }
+}
+
 /**
  * One filter per column. A change returns a controlled table to page 1 itself (the table owns this state, the page owns the URL keys).
  * A page that opts in with `urlState.filters` (ADR-0105) owns the filter state too: the table reads it and writes a change through
@@ -44,9 +58,7 @@ export function useColumnFilters(urlState: TableUrlState | undefined, fields: re
   }, [urlState, controlled]);
   const apply = useCallback((id: string, next: ColumnFilter | null) => {
     // A condition whose `requires` field just lost its condition goes with it (the server would refuse it).
-    const at = filters.findIndex(f => f.id === id);
-    const kept = next === null ? filters.filter(f => f.id !== id) : at >= 0 ? filters.map((f, i) => (i === at ? next : f)) : [...filters, next];
-    const list = pruneUnmet(kept, fields);
+    const list = proposeFilters(filters, id, next, fields);
     if (controlled) { write(list, 'user'); return; }
     setOwn(list);
     resetPage();
@@ -55,7 +67,8 @@ export function useColumnFilters(urlState: TableUrlState | undefined, fields: re
     if (controlled) { write([], 'reset'); return; }
     setOwn([]); resetPage();
   }, [controlled, write, resetPage]);
-  return { filters, apply, clear };
+  const limit = useCallback((id: string, next: ColumnFilter): FilterLimit | null => filterListLimit(proposeFilters(filters, id, next, fields)), [filters, fields]);
+  return { filters, apply, clear, limit };
 }
 
 /** Readable value of a filter as the user set it (a date range reads inclusive: the wire's exclusive `to` is shown as the day before). */
@@ -68,7 +81,9 @@ export function describeFilter(filter: ColumnFilter, spec: ColumnFilterSpec | un
     case 'gte': return `≥ ${filter.value}`;
     case 'lte': return `≤ ${filter.value}`;
     // Operators beyond the first editor's two per kind (ADR-0105 vocabulary).
-    case 'notContains': case 'startsWith': case 'endsWith': case 'notEquals': case 'neq': case 'gt': case 'lt': case 'before': case 'after':
+    case 'startsWith': return ko ? `"${filter.value}"로 시작` : `starts with "${filter.value}"`;
+    case 'endsWith': return ko ? `"${filter.value}"로 끝남` : `ends with "${filter.value}"`;
+    case 'notContains': case 'notEquals': case 'neq': case 'gt': case 'lt': case 'before': case 'after':
       return `${FILTER_OP_LABELS[filter.op][lang]} ${String(filter.value)}`;
     case 'isEmpty': case 'isNotEmpty': return FILTER_OP_LABELS[filter.op][lang];
     case 'notIn': case 'in': {

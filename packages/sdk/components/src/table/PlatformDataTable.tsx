@@ -573,7 +573,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       </div>
     </div>
 
-    {filterFields.length > 0 && <FilterLine fields={filterFields} filters={columnFilters.filters} lang={lang} onApply={columnFilters.apply} onClear={columnFilters.clear} />}
+    {filterFields.length > 0 && <FilterLine fields={filterFields} filters={columnFilters.filters} lang={lang} onApply={columnFilters.apply} onClear={columnFilters.clear} limit={columnFilters.limit} />}
 
     <SelectAllBar lang={lang} pageRows={data.rows.length} total={data.total} offer={selectionState.offerAll} all={selectionState.all} excluded={selectionState.excludedIds.length} onSelectAll={selectionState.selectAll} onClear={clearSelection} />
 
@@ -625,7 +625,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
                   : <span className="min-w-0 truncate">{flexRender(h.column.columnDef.header, h.getContext())}</span>}
                 {(() => {
                   const field = filterFields.find(f => f.origin === 'column' && f.id === h.column.id);
-                  return field ? <HeaderFunnel field={field} lang={lang} active={columnFilters.filters.find(f => f.id === field.id)} onApply={next => columnFilters.apply(field.id, next)} /> : null;
+                  return field ? <HeaderFunnel field={field} lang={lang} limit={columnFilters.limit} active={columnFilters.filters.find(f => f.id === field.id)} onApply={next => columnFilters.apply(field.id, next)} /> : null;
                 })()}
                 {/* #239: an always-visible 1px divider with an 8px grab area; double-click restores the default width. */}
                 {h.column.getCanResize() && <div aria-hidden data-column-resizer onMouseDown={startResize(h)} onTouchStart={startResize(h)} onDoubleClick={event => { event.preventDefault(); h.column.resetSize(); }} className="group/resize absolute right-0 top-0 flex h-full w-2 cursor-col-resize touch-none justify-end">

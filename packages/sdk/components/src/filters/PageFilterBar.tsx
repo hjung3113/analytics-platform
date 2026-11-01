@@ -1,7 +1,8 @@
-import { useEffect, useId, useLayoutEffect, useRef, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
+import { useId, useLayoutEffect, useRef, type FormEvent, type ReactNode } from 'react';
 import { ChevronDown, ChevronUp, Search } from 'lucide-react';
 import { useI18n } from '@ap/kernel';
 import { useCollapsePreference } from './useCollapsePreference';
+import { useImeEnterGuard } from './useImeEnterGuard';
 import { Button, cn, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ap/ui';
 
 export type PageFilterOption = { value: string; label: string };
@@ -71,8 +72,6 @@ function emptyOptionValue(options: readonly PageFilterOption[]) {
   return value;
 }
 
-const TEXT_INPUT_TYPES = new Set(['text', 'search']);
-const isTextInput = (target: EventTarget): target is HTMLInputElement => target instanceof HTMLInputElement && TEXT_INPUT_TYPES.has(target.type);
 const FIRST_FIELD = 'input:not(:disabled), [role="combobox"]:not(:disabled)';
 
 /**
@@ -81,11 +80,8 @@ const FIRST_FIELD = 'input:not(:disabled), [role="combobox"]:not(:disabled)';
  */
 function ApplyForm({ onApply, children }: { onApply: () => void; children: ReactNode }) {
   const form = useRef<HTMLFormElement>(null);
-  const afterComposition = useRef(false);
-  const releaseFrame = useRef(0);
+  const ime = useImeEnterGuard();
   const submitter = useRef<HTMLElement | null>(null);
-
-  useEffect(() => () => cancelAnimationFrame(releaseFrame.current), []);
 
   // Apply can disable its button and clear can remove its button; focus the first field of this same container.
   // A field that submitted with Enter keeps its focus, and an unchanged (enabled) button keeps its own.
@@ -98,15 +94,6 @@ function ApplyForm({ onApply, children }: { onApply: () => void; children: React
     form.current?.querySelector<HTMLElement>(FIRST_FIELD)?.focus();
   });
 
-  const release = () => { afterComposition.current = false; };
-  const onKeyDown = (event: KeyboardEvent<HTMLFormElement>) => {
-    if (event.defaultPrevented) return;
-    if (event.key !== 'Enter') { release(); return; }
-    if (!isTextInput(event.target as EventTarget)) return;
-    const composing = event.nativeEvent.isComposing || event.keyCode === 229 || afterComposition.current;
-    release();
-    if (composing) event.preventDefault();
-  };
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const from = (event.nativeEvent as Partial<SubmitEvent>).submitter ?? document.activeElement;
@@ -114,18 +101,12 @@ function ApplyForm({ onApply, children }: { onApply: () => void; children: React
     onApply();
   };
 
-  return <form ref={form} className="min-w-0" onSubmit={onSubmit} onKeyDown={onKeyDown}
+  return <form ref={form} className="min-w-0" onSubmit={onSubmit} onKeyDown={ime.onKeyDown}
     onClickCapture={event => {
       const button = event.target instanceof Element ? event.target.closest('button') : null;
       submitter.current = button && event.currentTarget.contains(button) ? button : null;
     }}
-    onCompositionStart={release}
-    onCompositionEnd={event => {
-      if (!isTextInput(event.target as EventTarget)) return;
-      afterComposition.current = true;
-      cancelAnimationFrame(releaseFrame.current);
-      releaseFrame.current = requestAnimationFrame(release);
-    }}>
+    onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd}>
     {children}
   </form>;
 }

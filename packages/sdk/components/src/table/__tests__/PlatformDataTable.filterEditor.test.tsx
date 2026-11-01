@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { House } from 'lucide-react';
 import { useState } from 'react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -47,6 +48,9 @@ function Harness(props: { columns?: PlatformColumn<Row>[]; filterFields?: TableF
 const originalOffsetHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight');
 const originalOffsetWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth');
 beforeAll(() => {
+  HTMLElement.prototype.scrollIntoView = vi.fn();
+  HTMLElement.prototype.hasPointerCapture = () => false;
+  HTMLElement.prototype.releasePointerCapture = () => {};
   vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
   Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, get() { return (this as Element).getAttribute('role') === 'row' ? 32 : 420; } });
   Object.defineProperty(HTMLElement.prototype, 'offsetWidth', { configurable: true, get() { return 800; } });
@@ -64,7 +68,22 @@ afterAll(() => {
 beforeEach(() => { window.history.replaceState(null, '', '/'); });
 
 const ready = async () => { await screen.findByText(/1\/1/); };
-const optionNames = (select: HTMLElement) => [...(select as HTMLSelectElement).options].map(o => o.textContent);
+// The operator is a @ap/ui Select (a combobox): open it from the keyboard, read or pick its options.
+const openOperator = async (scope: Pick<typeof screen, 'getByRole'>) => {
+  const trigger = scope.getByRole('combobox', { name: '연산자' });
+  fireEvent.keyDown(trigger, { key: 'ArrowDown' });
+  return trigger;
+};
+const optionNames = async (scope: Pick<typeof screen, 'getByRole'>) => {
+  await openOperator(scope);
+  const names = (await screen.findAllByRole('option')).map(o => o.textContent);
+  fireEvent.keyDown(screen.getAllByRole('option')[0], { key: 'Escape' });
+  return names;
+};
+const pickOperator = async (scope: Pick<typeof screen, 'getByRole'>, name: string) => {
+  await openOperator(scope);
+  fireEvent.click(await screen.findByRole('option', { name }));
+};
 
 describe('filter line (#1217b)', () => {
   it('shows a pinned button that becomes a chip in the same slot, then the other conditions as chips after it', async () => {
@@ -99,7 +118,7 @@ describe('filter line (#1217b)', () => {
     fireEvent.click(chip().querySelector('[data-filter-body]')!);
     const dialog = await screen.findByRole('dialog', { name: '이름' });
     expect((within(dialog).getByLabelText('값') as HTMLInputElement).value).toBe('ab');
-    expect((within(dialog).getByLabelText('연산자') as HTMLSelectElement).value).toBe('equals');
+    expect(within(dialog).getByRole('combobox', { name: '연산자' })).toHaveTextContent('같음');
     fireEvent.keyDown(within(dialog).getByLabelText('값'), { key: 'Escape' });
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     fireEvent.click(within(chip()).getByRole('button', { name: '이름 필터 지우기' }));
@@ -134,7 +153,8 @@ describe('filter editor (#1217b)', () => {
     render(<Harness loadPage={makeLoad()} />);
     await ready();
     fireEvent.click(screen.getByRole('button', { name: '이름 필터' }));
-    expect(optionNames(await screen.findByLabelText('연산자'))).toEqual(['같음', '시작', '비어 있음']);
+    await screen.findByRole('combobox', { name: '연산자' });
+    expect(await optionNames(screen)).toEqual(['같음', '다음으로 시작', '비어 있음']);
   });
 
   it('isEmpty has no value control and applies as a bare condition', async () => {
@@ -142,7 +162,8 @@ describe('filter editor (#1217b)', () => {
     render(<Harness loadPage={load} />);
     await ready();
     fireEvent.click(screen.getByRole('button', { name: '이름 필터' }));
-    fireEvent.change(await screen.findByLabelText('연산자'), { target: { value: 'isEmpty' } });
+    await screen.findByRole('combobox', { name: '연산자' });
+    await pickOperator(screen, '비어 있음');
     expect(screen.queryByLabelText('값')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: '적용' }));
     await waitFor(() => expect(lastQuery(load).filters).toEqual([{ id: 'name', op: 'isEmpty' }]));
@@ -155,14 +176,14 @@ describe('filter editor (#1217b)', () => {
     fireEvent.click(screen.getByRole('button', { name: '수량(개) 필터' }));
     const apply = await screen.findByRole('button', { name: '적용' });
     expect((apply as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.change(screen.getByLabelText('연산자'), { target: { value: 'between' } });
+    await pickOperator(screen, '범위');
     fireEvent.change(screen.getByLabelText('최솟값'), { target: { value: '9' } });
     fireEvent.change(screen.getByLabelText('최댓값'), { target: { value: '2' } });
     fireEvent.click(screen.getByRole('button', { name: '적용' }));
     await waitFor(() => expect(lastQuery(load).filters).toEqual([{ id: 'n', op: 'between', value: [2, 9] }]));
   });
 
-  it('an enum with multiple:false is a single choice and offers 다음 중 하나 / 다음 제외', async () => {
+  it('an enum with multiple:false is a single choice and offers 다음 중 하나 / 다음 중 아님', async () => {
     const load = makeLoad();
     render(<Harness columns={[{ id: 'name', header: '이름' }]} filterFields={fields} loadPage={load} />);
     await ready();
@@ -173,7 +194,7 @@ describe('filter editor (#1217b)', () => {
     fireEvent.click(within(dialog).getByRole('radio', { name: '사용중' }));
     fireEvent.click(within(dialog).getByRole('radio', { name: '대기' }));
     expect((within(dialog).getByRole('radio', { name: '사용중' }) as HTMLInputElement).checked).toBe(false);
-    expect(optionNames(within(dialog).getByLabelText('연산자'))).toEqual(['다음 중 하나', '다음 제외', '비어 있음', '비어 있지 않음']);
+    expect(await optionNames(within(dialog))).toEqual(['다음 중 하나', '다음 중 아님', '비어 있음', '비어 있지 않음']);
     fireEvent.click(within(dialog).getByRole('button', { name: '적용' }));
     await waitFor(() => expect(lastQuery(load).filters).toEqual([{ id: 'kind', op: 'in', value: ['idle'] }]));
   });
@@ -221,7 +242,7 @@ describe('filter editor (#1217b)', () => {
     fireEvent.click(view.container.querySelector('[data-column-filter="name"]')!);
     const dialog = await screen.findByRole('dialog', { name: '이름' });
     expect((within(dialog).getByLabelText('값') as HTMLInputElement).value).toBe('q');
-    expect(view.container.querySelector('[data-column-filter-chip="name"]')!.textContent).toContain('시작');
+    expect(view.container.querySelector('[data-column-filter-chip="name"]')!.textContent).toContain('"q"로 시작');
   });
 });
 
@@ -269,5 +290,145 @@ describe('+ 필터 (#1217b)', () => {
     const list: ColumnFilter[] = [{ id: 'target', op: 'contains', value: 'a' }, { id: 'name', op: 'equals', value: 'b' }];
     expect(pruneUnmet(list, all)).toEqual([{ id: 'name', op: 'equals', value: 'b' }]);
     expect(pruneUnmet([{ id: 'kind', op: 'in', value: ['active'] }, ...list], all)).toHaveLength(3);
+  });
+});
+
+// Fix round 1 (F1–F5, UX-1/2/3).
+describe('filter editor fix round 1', () => {
+  function Owner({ initial = [], cols, onChange }: { initial?: ColumnFilter[]; cols?: PlatformColumn<Row>[]; onChange: (next: ColumnFilter[]) => void }) {
+    const [filters, setFilters] = useState<ColumnFilter[]>(initial);
+    const urlState: TableUrlState = { page: null, sorting: [], filters, onChange: next => { if (next.filters) { onChange(next.filters); setFilters(next.filters); } } };
+    return <Harness columns={cols} loadPage={makeLoad()} urlState={urlState} />;
+  }
+  const openName = async () => { fireEvent.click(screen.getByRole('button', { name: '이름 필터' })); return screen.findByLabelText('값'); };
+
+  it('F1: an Enter that belongs to an IME composition (isComposing, 229, right after compositionend) does not apply; a later Enter applies once', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<Owner onChange={onChange} />);
+    await ready();
+    const input = await openName();
+    await user.type(input, 'ㅎ');
+    expect(fireEvent.keyDown(input, { key: 'Enter', isComposing: true })).toBe(false);
+    expect(fireEvent.keyDown(input, { key: 'Enter', keyCode: 229 })).toBe(false);
+    fireEvent.compositionStart(input);
+    fireEvent.compositionEnd(input);
+    await user.keyboard('{Enter}');
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog', { name: '이름' })).toBeTruthy();
+    await user.keyboard('{Enter}');
+    expect(onChange).toHaveBeenCalledTimes(1);
+  });
+
+  it('F2: reopening an instant condition and applying it unchanged keeps its seconds and milliseconds; editing one bound keeps the other', async () => {
+    const from = '2026-01-01T00:00:30.123Z';
+    const to = '2026-01-02T00:00:45.500Z';
+    const cols: PlatformColumn<Row>[] = [{ id: 'at', header: '시각', filter: { kind: 'instant' }, value: () => '-' }];
+    const onChange = vi.fn();
+    render(<Owner cols={cols} initial={[{ id: 'at', op: 'between', value: { from, to } }]} onChange={onChange} />);
+    await ready();
+    fireEvent.click(screen.getByRole('button', { name: '시각 필터' }));
+    fireEvent.click(await screen.findByRole('button', { name: '적용' }));
+    expect(onChange).toHaveBeenLastCalledWith([{ id: 'at', op: 'between', value: { from, to } }]);
+    fireEvent.click(screen.getByRole('button', { name: '시각 필터' }));
+    fireEvent.change(await screen.findByLabelText('끝 (미만)'), { target: { value: '2026-01-05T10:00' } });
+    fireEvent.click(screen.getByRole('button', { name: '적용' }));
+    const value = (onChange.mock.lastCall![0] as { value: { from: string; to: string } }[])[0].value;
+    expect(value.from).toBe(from);
+    expect(value.to).toBe(new Date('2026-01-05T10:00').toISOString());
+  });
+
+  it('F3: an Apply that would exceed a codec cap writes nothing, keeps the editor and the draft, and says why; a value within the cap applies', async () => {
+    const onChange = vi.fn();
+    render(<Owner onChange={onChange} />);
+    await ready();
+    const input = await openName();
+    fireEvent.change(input, { target: { value: '가'.repeat(270) } });
+    fireEvent.click(screen.getByRole('button', { name: '적용' }));
+    expect(onChange).not.toHaveBeenCalled();
+    expect((await screen.findByRole('alert')).textContent).toContain('너무 길어');
+    expect((screen.getByLabelText('값') as HTMLInputElement).value).toBe('가'.repeat(270));
+    fireEvent.change(screen.getByLabelText('값'), { target: { value: '가'.repeat(100) } });
+    expect(screen.queryByRole('alert')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: '적용' }));
+    expect(onChange).toHaveBeenCalledTimes(1);
+  });
+
+  it('F3: too many values and too many conditions are refused with their own explanation', async () => {
+    const many = Array.from({ length: 51 }, (_, i) => ({ value: `v${i}`, label: `값${i}` }));
+    const onChange = vi.fn();
+    const first = render(<Owner cols={[{ id: 'status', header: '상태', filter: { kind: 'enum', options: many } }]} onChange={onChange} />);
+    await ready();
+    fireEvent.click(screen.getByRole('button', { name: '상태 필터' }));
+    const dialog = await screen.findByRole('dialog', { name: '상태' });
+    for (const box of within(dialog).getAllByRole('checkbox')) fireEvent.click(box);
+    fireEvent.click(within(dialog).getByRole('button', { name: '적용' }));
+    expect((await screen.findByRole('alert')).textContent).toContain('값을 너무 많이');
+    expect(onChange).not.toHaveBeenCalled();
+    first.unmount();
+    const cols: PlatformColumn<Row>[] = Array.from({ length: 21 }, (_, i) => ({ id: `c${i}`, header: `열${i}`, filter: { kind: 'text' as const }, value: () => '-' }));
+    const initial: ColumnFilter[] = cols.slice(0, 20).map(c => ({ id: c.id, op: 'contains', value: 'a' }));
+    render(<Owner cols={cols} initial={initial} onChange={onChange} />);
+    await ready();
+    fireEvent.click(screen.getByRole('button', { name: '열20 필터' }));
+    fireEvent.change(await screen.findByLabelText('값'), { target: { value: 'b' } });
+    fireEvent.click(screen.getByRole('button', { name: '적용' }));
+    expect((await screen.findByRole('alert')).textContent).toContain('조건이 너무 많아');
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('F4: a non-composing Enter in the enum value search applies the condition once', async () => {
+    const user = userEvent.setup();
+    const many = Array.from({ length: 8 }, (_, i) => ({ value: `v${i}`, label: `값${i}` }));
+    const onChange = vi.fn();
+    render(<Owner cols={[{ id: 'status', header: '상태', filter: { kind: 'enum', options: many } }]} onChange={onChange} />);
+    await ready();
+    fireEvent.click(screen.getByRole('button', { name: '상태 필터' }));
+    const dialog = await screen.findByRole('dialog', { name: '상태' });
+    await user.click(within(dialog).getByRole('checkbox', { name: '값2' }));
+    await user.click(within(dialog).getByRole('searchbox', { name: '값 검색' }));
+    await user.keyboard('{Enter}');
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith([{ id: 'status', op: 'in', value: ['v2'] }]);
+  });
+
+  it('F5: a filterFields id may not equal ANY column id, filterable or not', () => {
+    expect(() => resolveFilterFields(columns, [{ id: 'plain', label: { ko: '메모2', en: 'Memo2' }, spec: { kind: 'text' } }], 'ko')).toThrow(/"plain" is declared twice/);
+  });
+
+  it('F6/UX-3: header row = label + operator Select, footer after a divider with 지우기 left and 적용 right; no native select', async () => {
+    render(<Harness loadPage={makeLoad()} />);
+    await ready();
+    fireEvent.click(screen.getByRole('button', { name: '이름 필터' }));
+    const dialog = await screen.findByRole('dialog', { name: '이름' });
+    expect(dialog.querySelector('select:not([aria-hidden])')).toBeNull(); // Radix keeps only a hidden form-mirror select
+    const head = within(dialog).getByRole('combobox', { name: '연산자' }).parentElement!;
+    expect(head.textContent).toContain('이름');
+    const footer = within(dialog).getByRole('button', { name: '지우기' }).parentElement!;
+    expect(footer.className).toContain('border-t');
+    expect([...footer.querySelectorAll('button')].map(b => b.textContent)).toEqual(['지우기', '적용']);
+  });
+
+  it('UX-2: operator and chip wording follows the approved R2 words', async () => {
+    const view = render(<Harness loadPage={makeLoad()} columns={[{ id: 'name', header: 'Model', filter: { kind: 'text' } }]} urlState={{ page: null, sorting: [], filters: [{ id: 'name', op: 'startsWith', value: 'Lith' }], onChange: () => {} }} />);
+    await ready();
+    expect(view.container.querySelector('[data-column-filter-chip="name"]')!.textContent).toBe('Model "Lith"로 시작');
+    fireEvent.click(view.container.querySelector('[data-filter-body="name"]')!);
+    await screen.findByRole('dialog', { name: 'Model' });
+    expect(await optionNames(screen)).toEqual(['포함', '포함하지 않음', '다음으로 시작', '다음으로 끝남', '같음', '같지 않음', '비어 있음', '비어 있지 않음']);
+  });
+
+  it('UX-1: focus returns to where the editor was opened — the header funnel, or the chip that replaced a pinned button', async () => {
+    const view = render(<Harness loadPage={makeLoad()} />);
+    await ready();
+    const funnel = view.container.querySelector('[data-column-filter="name"]') as HTMLElement;
+    fireEvent.click(funnel);
+    fireEvent.change(await screen.findByLabelText('값'), { target: { value: 'x' } });
+    fireEvent.click(screen.getByRole('button', { name: '적용' }));
+    await waitFor(() => expect(document.activeElement).toBe(funnel));
+    fireEvent.click(view.container.querySelector('[data-filter-body="status"]')!);
+    fireEvent.click(await screen.findByRole('checkbox', { name: '대기' }));
+    fireEvent.click(screen.getByRole('button', { name: '적용' }));
+    await waitFor(() => expect(document.activeElement).toBe(view.container.querySelector('[data-column-filter-chip="status"] [data-filter-body]')));
   });
 });

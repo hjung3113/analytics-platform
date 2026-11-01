@@ -5,13 +5,15 @@
  */
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { FILTER_OPS_BY_KIND, type ColumnFilter, type ColumnFilterOp, type ColumnFilterSpec } from '@ap/contracts';
-import { Button, Checkbox, Input, Label, PopoverContent } from '@ap/ui';
-import { addDays, inclusiveDay } from './columnFilters';
+import { Button, Checkbox, Input, Label, PopoverContent, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ap/ui';
+import { useImeEnterGuard } from '../filters/useImeEnterGuard';
+import { addDays, inclusiveDay, type FilterLimit } from './columnFilters';
 import { FILTER_OP_LABELS } from './filterOps';
 import type { ResolvedFilterField } from './filterFields';
 
 type Lang = 'ko' | 'en';
-type Draft = { op: ColumnFilterOp; a: string; b: string; picked: string[] };
+/** `keep`: the instant bounds the draft opened with (full ISO), used while the user has not edited that bound's text. */
+type Draft = { op: ColumnFilterOp; a: string; b: string; picked: string[]; keep?: { a?: [string, string]; b?: [string, string] } };
 
 /** Operators the user may pick for a spec: its `ops` (the server-supported subset) or every op of its kind. */
 export function allowedOps(spec: ColumnFilterSpec): readonly ColumnFilterOp[] {
@@ -29,8 +31,9 @@ function toLocalInput(iso: string | undefined): string {
   const p = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
 }
-const fromLocalInput = (text: string): string | undefined => {
+const fromLocalInput = (text: string, kept?: [string, string]): string | undefined => {
   if (!text) return undefined;
+  if (kept && kept[0] === text) return kept[1];
   const d = new Date(text);
   return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
 };
@@ -45,7 +48,12 @@ function initialDraft(spec: ColumnFilterSpec, active: ColumnFilter | undefined):
   if (active.op === 'in' || active.op === 'notIn') return { ...base, picked: active.value };
   if (active.op === 'between') {
     if (Array.isArray(active.value)) return { ...base, a: String(active.value[0]), b: String(active.value[1]) };
-    if (spec.kind === 'instant') return { ...base, a: toLocalInput(active.value.from), b: toLocalInput(active.value.to) };
+    if (spec.kind === 'instant') {
+      const { from, to } = active.value;
+      const a = toLocalInput(from);
+      const b = toLocalInput(to);
+      return { ...base, a, b, keep: { ...(from && a ? { a: [a, from] as [string, string] } : {}), ...(to && b ? { b: [b, to] as [string, string] } : {}) } };
+    }
     return { ...base, a: active.value.from ?? '', b: active.value.to ? inclusiveDay(active.value.to) : '' };
   }
   return 'value' in active ? { ...base, a: String(active.value) } : base;
@@ -70,29 +78,37 @@ function toFilter(id: string, spec: ColumnFilterSpec, d: Draft): ColumnFilter | 
       return { id, op: 'between', value: { ...(d.a ? { from: d.a } : {}), ...(d.b ? { to: addDays(d.b, 1) } : {}) } };
     }
     case 'instant': {
-      const from = fromLocalInput(d.a);
-      const to = fromLocalInput(d.b);
+      const from = fromLocalInput(d.a, d.keep?.a);
+      const to = fromLocalInput(d.b, d.keep?.b);
       return from || to ? { id, op: 'between', value: { ...(from ? { from } : {}), ...(to ? { to } : {}) } } : null;
     }
     default: return null;
   }
 }
 
-const controlClass = 'h-8 w-full rounded-md border border-border-control bg-surface-card px-2 text-xs';
+const LIMIT_TEXT: Record<FilterLimit, { ko: string; en: string }> = {
+  'too-many-conditions': { ko: '조건이 너무 많아 적용할 수 없습니다. 다른 조건을 지운 뒤 다시 적용하세요.', en: 'Too many conditions to apply. Clear another condition and apply again.' },
+  'too-many-values': { ko: '값을 너무 많이 골랐습니다. 값을 줄인 뒤 다시 적용하세요.', en: 'Too many values selected. Select fewer and apply again.' },
+  'too-long': { ko: '조건이 너무 길어 적용할 수 없습니다. 값을 줄인 뒤 다시 적용하세요.', en: 'The condition is too long to apply. Shorten the value and apply again.' },
+};
 const SEARCH_FROM = 6;
 
 /** The form for one field's editor (labelled by `titleId`, the caller's dialog name): `onApply(null)` clears the condition. The caller closes its popover after `onApply`. */
-export function FilterEditorForm({ field, active, lang, onApply, titleId }: {
+export function FilterEditorForm({ field, active, lang, onApply, titleId, limit }: {
   field: ResolvedFilterField; active: ColumnFilter | undefined; lang: Lang; onApply: (next: ColumnFilter | null) => void; titleId: string;
+  /** The codec cap the complete list would break if this condition were applied (`null` = fine); 적용 is refused with an explanation, 지우기 never is. */
+  limit?: (next: ColumnFilter) => FilterLimit | null;
 }) {
   const ko = lang === 'ko';
   const { spec } = field;
   const [draft, setDraft] = useState<Draft>(() => initialDraft(spec, active));
   const [query, setQuery] = useState('');
-  const patch = (next: Partial<Draft>) => setDraft(d => ({ ...d, ...next }));
+  const [refused, setRefused] = useState<FilterLimit | null>(null);
+  const ime = useImeEnterGuard();
+  const patch = (next: Partial<Draft>) => { setRefused(null); setDraft(d => ({ ...d, ...next })); };
   const baseId = useId();
   const root = useRef<HTMLFormElement>(null);
-  useEffect(() => { (root.current?.querySelector<HTMLElement>('[data-editor-focus]') ?? root.current?.querySelector<HTMLElement>('select'))?.focus(); }, []);
+  useEffect(() => { (root.current?.querySelector<HTMLElement>('[data-editor-focus]') ?? root.current?.querySelector<HTMLElement>('[role="combobox"]'))?.focus(); }, []);
   const filter = toFilter(field.id, spec, draft);
   const ops = allowedOps(spec);
   const hasValue = !NO_VALUE.has(draft.op);
@@ -129,7 +145,7 @@ export function FilterEditorForm({ field, active, lang, onApply, titleId }: {
       const options = spec.options.filter(o => o.label.toLowerCase().includes(needle) || o.value.toLowerCase().includes(needle));
       value = <div role="group" aria-label={ko ? '값 목록' : 'Values'} className="space-y-2">
         {spec.options.length >= SEARCH_FROM && <Input data-editor-focus type="search" aria-label={ko ? '값 검색' : 'Search values'} placeholder={ko ? '값 검색' : 'Search values'} value={query}
-          onChange={e => setQuery(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); } }} />}
+          onChange={e => setQuery(e.target.value)} />}
         <ul className="max-h-48 space-y-1 overflow-auto">
           {options.map(o => {
             const checked = draft.picked.includes(o.value);
@@ -148,14 +164,26 @@ export function FilterEditorForm({ field, active, lang, onApply, titleId }: {
     }
   }
 
-  return <form ref={root} data-filter-editor={field.id} className="space-y-2" onSubmit={event => { event.preventDefault(); if (filter) onApply(filter); }}>
-      <p id={titleId} className="t-card-title">{field.label}</p>
-      <select aria-label={ko ? '연산자' : 'Operator'} className={controlClass} value={draft.op}
-        onChange={e => patch({ op: e.target.value as ColumnFilterOp, ...(single && draft.picked.length > 1 ? { picked: draft.picked.slice(0, 1) } : {}) })}>
-        {ops.map(op => <option key={op} value={op}>{word(op)}</option>)}
-      </select>
+  const submit = () => {
+    if (!filter) return;
+    const over = limit?.(filter) ?? null;
+    if (over) { setRefused(over); return; }
+    onApply(filter);
+  };
+  return <form ref={root} data-filter-editor={field.id} className="space-y-3" onSubmit={event => { event.preventDefault(); submit(); }}
+    onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd}>
+      <div className="flex items-center justify-between gap-2">
+        <p id={titleId} className="t-card-title min-w-0 truncate">{field.label}</p>
+        <Select value={draft.op} onValueChange={next => patch({ op: next as ColumnFilterOp, ...(single && draft.picked.length > 1 ? { picked: draft.picked.slice(0, 1) } : {}) })}>
+          <SelectTrigger density="compact" aria-label={ko ? '연산자' : 'Operator'} className="w-auto min-w-32 shrink-0 border-border-control">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>{ops.map(op => <SelectItem key={op} value={op}>{word(op)}</SelectItem>)}</SelectContent>
+        </Select>
+      </div>
       {value}
-      <div className="flex items-center justify-between gap-2 pt-1">
+      {refused && <p role="alert" className="text-xs text-text-danger-label">{LIMIT_TEXT[refused][lang]}</p>}
+      <div className="flex items-center justify-between gap-2 border-t border-border-subtle pt-2">
         <Button type="button" variant="ghost" size="toolbar" onClick={() => onApply(null)}>{ko ? '지우기' : 'Clear'}</Button>
         <Button type="submit" size="toolbar" disabled={!filter}>{ko ? '적용' : 'Apply'}</Button>
       </div>
@@ -163,11 +191,11 @@ export function FilterEditorForm({ field, active, lang, onApply, titleId }: {
 }
 
 /** The popover surface of an editor opened directly (chip, pinned button, header funnel). */
-export function FilterEditorContent({ field, active, lang, onApply, align = 'start' }: {
-  field: ResolvedFilterField; active: ColumnFilter | undefined; lang: Lang; onApply: (next: ColumnFilter | null) => void; align?: 'start' | 'end';
+export function FilterEditorContent({ field, active, lang, onApply, limit, align = 'start' }: {
+  field: ResolvedFilterField; active: ColumnFilter | undefined; lang: Lang; onApply: (next: ColumnFilter | null) => void; limit?: (next: ColumnFilter) => FilterLimit | null; align?: 'start' | 'end';
 }) {
   const titleId = useId();
   return <PopoverContent align={align} className="w-80" aria-labelledby={titleId}>
-    <FilterEditorForm field={field} active={active} lang={lang} onApply={onApply} titleId={titleId} />
+    <FilterEditorForm field={field} active={active} lang={lang} onApply={onApply} titleId={titleId} limit={limit} />
   </PopoverContent>;
 }

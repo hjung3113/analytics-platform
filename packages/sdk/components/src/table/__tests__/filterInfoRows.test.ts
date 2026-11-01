@@ -18,7 +18,7 @@ describe('filterInfoRows (XLSX 조회 정보, ADR-0105)', () => {
     const rows = filterInfoRows([
       { id: 'a', op: 'notContains', value: 'x' }, { id: 'b', op: 'gt', value: 3 }, { id: 'c', op: 'before', value: '2026-01-01' }, { id: 'd', op: 'notIn', value: ['p', 'q'] }, { id: 'e', op: 'isNotEmpty' },
     ], [], 'ko');
-    expect(rows.map(r => r[1])).toEqual(['포함하지 않음 x', '초과 3', '이전 2026-01-01', '다음 제외 p, q', '비어 있지 않음']);
+    expect(rows.map(r => r[1])).toEqual(['포함하지 않음 x', '초과 3', '이전 2026-01-01', '다음 중 아님 p, q', '비어 있지 않음']);
   });
 
   it('has a Korean and English word for every operator of the vocabulary', () => {

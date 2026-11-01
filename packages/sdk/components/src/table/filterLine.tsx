@@ -8,11 +8,13 @@ import { Check, ChevronDown, ListFilter, Plus, X } from 'lucide-react';
 import type { ColumnFilter } from '@ap/contracts';
 import { Button, cn, Input, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
 import { describeFilter } from './columnFilters';
+import type { FilterLimit } from './columnFilters';
 import { FilterEditorContent, FilterEditorForm } from './filterEditor';
 import { unmetRequirement, type ResolvedFilterField } from './filterFields';
 
 type Lang = 'ko' | 'en';
 type Apply = (id: string, next: ColumnFilter | null) => void;
+type Limit = (id: string, next: ColumnFilter) => FilterLimit | null;
 
 const chipClass = 'inline-flex h-6 items-center rounded-md border text-xs';
 const slotFocus = 'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring';
@@ -27,8 +29,8 @@ function ChipText({ field, filter, lang }: { field: ResolvedFilterField; filter:
 }
 
 /** One condition's slot: an empty pinned button, or the chip (body button = edit, × = remove). The body button is the popover trigger in both states, so focus stays put when a pinned button turns into a chip. */
-function FieldSlot({ field, active, lang, onApply, onRemove }: {
-  field: ResolvedFilterField; active: ColumnFilter | undefined; lang: Lang; onApply: (next: ColumnFilter | null) => void; onRemove: () => void;
+function FieldSlot({ field, active, lang, onApply, onRemove, limit }: {
+  field: ResolvedFilterField; active: ColumnFilter | undefined; lang: Lang; onApply: (next: ColumnFilter | null) => void; onRemove: () => void; limit: Limit;
 }) {
   const ko = lang === 'ko';
   const [open, setOpen] = useState(false);
@@ -40,7 +42,7 @@ function FieldSlot({ field, active, lang, onApply, onRemove }: {
           {active ? <ChipText field={field} filter={active} lang={lang} /> : <>{field.label}<ChevronDown className="size-3" aria-hidden /></>}
         </button>
       </PopoverTrigger>
-      {open && <FilterEditorContent field={field} active={active} lang={lang} onApply={next => { setOpen(false); onApply(next); }} />}
+      {open && <FilterEditorContent field={field} active={active} lang={lang} limit={next => limit(field.id, next)} onApply={next => { setOpen(false); onApply(next); }} />}
     </Popover>
     {active && <button type="button" data-filter-remove={field.id} aria-label={ko ? `${field.label} 필터 지우기` : `Clear ${field.label} filter`}
       className={cn('inline-flex size-6 items-center justify-center rounded-r-md text-text-secondary hover:text-text-primary', slotFocus)} onClick={onRemove}><X className="size-3" aria-hidden /></button>}
@@ -51,7 +53,7 @@ const GROUP_LABEL = { pinned: { ko: '고정', en: 'Pinned' }, column: { ko: '열
 const SEARCH_FROM = 8;
 
 /** `+ 필터`: a searchable list of every filterable field (grouped), then the editor for the chosen one in the same popover. */
-function AddFilter({ fields, filters, lang, onApply }: { fields: readonly ResolvedFilterField[]; filters: readonly ColumnFilter[]; lang: Lang; onApply: Apply }) {
+function AddFilter({ fields, filters, lang, onApply, limit }: { fields: readonly ResolvedFilterField[]; filters: readonly ColumnFilter[]; lang: Lang; onApply: Apply; limit: Limit }) {
   const ko = lang === 'ko';
   const [open, setOpen] = useState(false);
   const [chosen, setChosen] = useState<string | null>(null);
@@ -80,7 +82,7 @@ function AddFilter({ fields, filters, lang, onApply }: { fields: readonly Resolv
     </PopoverTrigger>
     {open && <PopoverContent align="start" className={field ? 'w-80' : 'w-72'} aria-labelledby={field ? editTitle : pickTitle}>
       {field
-        ? <FilterEditorForm field={field} active={filters.find(f => f.id === field.id)} lang={lang} titleId={editTitle} onApply={next => { setOpen(false); setChosen(null); onApply(field.id, next); }} />
+        ? <FilterEditorForm field={field} active={filters.find(f => f.id === field.id)} lang={lang} titleId={editTitle} limit={next => limit(field.id, next)} onApply={next => { setOpen(false); setChosen(null); onApply(field.id, next); }} />
         : <div ref={list} className="space-y-2" onKeyDown={move}>
           <p id={pickTitle} className="t-card-title">{ko ? '필터 추가' : 'Add filter'}</p>
           {fields.length > SEARCH_FROM && <Input autoFocus type="search" aria-label={ko ? '필드 찾기' : 'Find field'} placeholder={ko ? '필드 찾기' : 'Find field'} value={query} onChange={e => setQuery(e.target.value)} />}
@@ -104,8 +106,8 @@ function AddFilter({ fields, filters, lang, onApply }: { fields: readonly Resolv
   </Popover>;
 }
 
-export function FilterLine({ fields, filters, lang, onApply, onClear }: {
-  fields: readonly ResolvedFilterField[]; filters: readonly ColumnFilter[]; lang: Lang; onApply: Apply; onClear: () => void;
+export function FilterLine({ fields, filters, lang, onApply, onClear, limit }: {
+  fields: readonly ResolvedFilterField[]; filters: readonly ColumnFilter[]; lang: Lang; onApply: Apply; onClear: () => void; limit: Limit;
 }) {
   const ko = lang === 'ko';
   const root = useRef<HTMLDivElement>(null);
@@ -124,15 +126,15 @@ export function FilterLine({ fields, filters, lang, onApply, onClear }: {
   const pinned = fields.filter(f => f.pinned);
   const others = filters.flatMap(f => { const field = fields.find(x => x.id === f.id); return field && !field.pinned ? [{ field, filter: f }] : []; });
   return <div ref={root} role="group" aria-label={ko ? '필터' : 'Filters'} data-filter-line className="flex flex-wrap items-center gap-2 border-t border-border-subtle px-3 py-1.5 text-xs">
-    {pinned.map(f => <FieldSlot key={f.id} field={f} active={filters.find(c => c.id === f.id)} lang={lang} onApply={next => change(f, next)} onRemove={() => change(f, null)} />)}
-    {others.map(({ field, filter }) => <FieldSlot key={field.id} field={field} active={filter} lang={lang} onApply={next => change(field, next)} onRemove={() => change(field, null)} />)}
-    <AddFilter fields={fields} filters={filters} lang={lang} onApply={(id, next) => change(fields.find(f => f.id === id)!, next)} />
+    {pinned.map(f => <FieldSlot key={f.id} field={f} active={filters.find(c => c.id === f.id)} lang={lang} onApply={next => change(f, next)} onRemove={() => change(f, null)} limit={limit} />)}
+    {others.map(({ field, filter }) => <FieldSlot key={field.id} field={field} active={filter} lang={lang} onApply={next => change(field, next)} onRemove={() => change(field, null)} limit={limit} />)}
+    <AddFilter fields={fields} filters={filters} lang={lang} limit={limit} onApply={(id, next) => change(fields.find(f => f.id === id)!, next)} />
     {filters.length > 0 && <Button type="button" variant="ghost" size="toolbar" className="h-6" onClick={() => { onClear(); setRefocus('[data-filter-add]'); }}>{ko ? '모두 지우기' : 'Clear all'}</Button>}
   </div>;
 }
 
 /** The funnel in a filterable column header: the same editor, anchored to the header. Quiet until the header is hovered, focused or the column is filtered. */
-export function HeaderFunnel({ field, active, lang, onApply }: { field: ResolvedFilterField; active: ColumnFilter | undefined; lang: Lang; onApply: (next: ColumnFilter | null) => void }) {
+export function HeaderFunnel({ field, active, lang, onApply, limit }: { field: ResolvedFilterField; active: ColumnFilter | undefined; lang: Lang; onApply: (next: ColumnFilter | null) => void; limit: Limit }) {
   const [open, setOpen] = useState(false);
   return <Popover open={open} onOpenChange={setOpen}>
     <PopoverTrigger asChild>
@@ -142,6 +144,6 @@ export function HeaderFunnel({ field, active, lang, onApply }: { field: Resolved
         <ListFilter className="size-3" aria-hidden />
       </button>
     </PopoverTrigger>
-    {open && <FilterEditorContent field={field} active={active} lang={lang} onApply={next => { setOpen(false); onApply(next); }} />}
+    {open && <FilterEditorContent field={field} active={active} lang={lang} limit={next => limit(field.id, next)} onApply={next => { setOpen(false); onApply(next); }} />}
   </Popover>;
 }
