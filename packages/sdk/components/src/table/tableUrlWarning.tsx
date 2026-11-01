@@ -145,7 +145,7 @@ function UrlWarning({ title, sentences, action, filters }: { title: string; sent
  * The shared invalid sort/page message (06 §15): replaces the table, never substitutes a value, Reset clears both keys in one `setPage`.
  * `recoverKeys` (`useTableUrlWarning().recoverKeys`) narrows or widens that one write to exactly the bad keys when the page opted into URL filters (ADR-0105); the default is `sort` and `page`.
  * `cause` (`useTableUrlWarning().cause`) names the title after what is actually wrong: sort/page (default), only a filter condition, or both.
- * `filters` is the management layout's filter slot (the `필터 · n` control when the rail is hidden); it renders above the message with the toolbar's gap.
+ * `filters` is an optional node (e.g. the page's quick search) that renders above the message with the toolbar's gap.
  */
 export function TableUrlWarning({ sentences, filters, recoverKeys = ['sort', 'page'], cause = 'sortPage' }: { sentences: readonly string[]; filters?: ReactNode; recoverKeys?: readonly string[]; cause?: TableUrlWarningCause }) {
   const { t } = useI18n();
@@ -155,18 +155,10 @@ export function TableUrlWarning({ sentences, filters, recoverKeys = ['sort', 'pa
 }
 
 /**
- * The shared invalid filter-key message of a management screen: same frame as `TableUrlWarning`, one ADR-0034 sentence per bad
- * key. `recover` is the screen's reset action — `useManagementFilters().recoverButton`, which moves focus to main first (06 §26).
- */
-export function FilterUrlWarning({ sentences, filters, recover }: { sentences: readonly string[]; filters?: ReactNode; recover: ReactNode }) {
-  const { t } = useI18n();
-  return <UrlWarning title={t('invalidFilterTitle')} sentences={sentences} filters={filters} action={recover} />;
-}
-
-/**
- * The rejected page-key message of a screen (06 §6, ADR-0034): the same frame as `FilterUrlWarning`, one sentence per bad key
+ * The rejected page-key message of a screen (06 §6, ADR-0034): one sentence per bad key
  * (`usePageKeyRules().sentences`), and a Reset that clears exactly those keys (`recover`) after focus moved off the button.
  */
 export function PageKeyWarning({ sentences, onRecover, filters }: { sentences: readonly string[]; onRecover: () => void; filters?: ReactNode }) {
-  return <FilterUrlWarning sentences={sentences} filters={filters} recover={<RecoverButton onRecover={onRecover} />} />;
+  const { t } = useI18n();
+  return <UrlWarning title={t('invalidFilterTitle')} sentences={sentences} filters={filters} action={<RecoverButton onRecover={onRecover} />} />;
 }

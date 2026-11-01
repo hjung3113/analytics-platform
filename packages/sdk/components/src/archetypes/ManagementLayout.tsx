@@ -1,131 +1,21 @@
-import { useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { PanelLeftClose, SlidersHorizontal } from 'lucide-react';
-import { useI18n } from '@ap/kernel';
-import { useCompactPageDensity } from '../pageDensity';
-import { Button, Popover, PopoverContent, PopoverTrigger, readLocalStorage, writeLocalStorage } from '@ap/ui';
+import type { ReactNode } from 'react';
 
 export type ManagementLayoutProps = {
-  /** Page-owned filters, usually a column PageFilterBar or its form. */
-  filter?: ReactNode;
-  /** Number of filter page keys with URL values, excluding sort/page/focus/tab. */
-  activeFilterCount?: number;
-  /** Draft changes not yet applied (draft + apply screens, ADR-0037); shown beside the applied count even when the filter is collapsed. */
-  pendingFilterCount?: number;
   /**
-   * The page's quick search field (06 §12.3, node 1217c), e.g. `<Input inputSize="toolbar" …/>`. It is handed to `table` as its second argument and goes
-   * to `PlatformDataTable`'s `search` slot, i.e. into the table toolbar. It stays there whether or not the filter rail is shown.
+   * The page's quick search field (06 §12.3, node 1217c), e.g. `<Input inputSize="toolbar" …/>`. It is handed to `table` as its argument and goes
+   * to `PlatformDataTable`'s `search` slot, i.e. into the table toolbar. Filters are the table's column filters (ADR-0105); there is no filter rail.
    */
   search?: ReactNode;
-  /** The table consumes the collapsed/narrow filter button in its filters slot and the quick search field in its `search` slot. */
-  table: (filterSlot: ReactNode | undefined, search?: ReactNode) => ReactNode;
+  /** The table consumes the quick search field in its `search` slot. */
+  table: (search?: ReactNode) => ReactNode;
   /** Detail content continues to use the shell's detail slot (ADR-0013). */
   drawer?: ReactNode;
 };
 
-const COLLAPSE_KEY = 'platform:filter-rail-collapsed';
-function initialCollapsed() {
-  return readLocalStorage(COLLAPSE_KEY, v => v === '1', false);
-}
-
-/** Management slots (06 §12.6): respond to available content width, including a docked detail. */
-export function ManagementLayout({ filter, activeFilterCount = 0, pendingFilterCount = 0, search, table, drawer }: ManagementLayoutProps) {
-  const { t } = useI18n();
-  const compact = useCompactPageDensity();
-  const root = useRef<HTMLDivElement>(null);
-  const closeButton = useRef<HTMLButtonElement>(null);
-  const filterButton = useRef<HTMLButtonElement>(null);
-  const pendingFocus = useRef<Element | null>(null);
-  const rail = useRef<HTMLElement>(null);
-  const popover = useRef<HTMLDivElement>(null);
-  const measuredWide = useRef(false);
-  const bodyId = useId();
-  const titleId = useId();
-  const stateId = useId();
-  const [wide, setWide] = useState(false);
-  const [collapsed, setCollapsed] = useState(initialCollapsed);
-  const [open, setOpen] = useState(false);
-  const hasFilter = filter != null && filter !== false;
-  const railVisible = hasFilter && wide && !collapsed;
-
-  useLayoutEffect(() => {
-    const element = root.current;
-    if (!element) return;
-    const measure = () => {
-      const nextWide = element.getBoundingClientRect().width >= 960;
-      if (nextWide !== measuredWide.current) {
-        const active = document.activeElement;
-        if (active && (rail.current?.contains(active) || popover.current?.contains(active) || filterButton.current === active)) {
-          pendingFocus.current = active;
-        }
-        measuredWide.current = nextWide;
-      }
-      setWide(nextWide);
-      if (nextWide) setOpen(false);
-    };
-    measure();
-    if (typeof ResizeObserver === 'undefined') {
-      window.addEventListener('resize', measure);
-      return () => window.removeEventListener('resize', measure);
-    }
-    const observer = new ResizeObserver(measure);
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
-
-  useLayoutEffect(() => {
-    if (!pendingFocus.current) return;
-    const previous = pendingFocus.current;
-    pendingFocus.current = null;
-    const active = document.activeElement;
-    if (active !== previous && active !== document.body) return;
-    (railVisible ? closeButton : filterButton).current?.focus();
-  }, [railVisible, wide]);
-
-  const setRailCollapsed = (next: boolean) => {
-    pendingFocus.current = document.activeElement;
-    setCollapsed(next);
-    writeLocalStorage(COLLAPSE_KEY, next ? '1' : null); // preference stays in memory when storage refuses
-  };
-  const pending = pendingFilterCount > 0;
-  // The marker is visible text but aria-hidden so the accessible name stays `필터 · N`; a hidden sentence describes the state.
-  const button = <Button ref={filterButton} type="button" variant="secondary" size="sm"
-    title={t('expandFilters')} aria-expanded={wide ? false : open} aria-controls={!wide && open ? bodyId : undefined}
-    aria-describedby={pending ? stateId : undefined}
-    onClick={wide ? () => setRailCollapsed(false) : undefined}>
-    <SlidersHorizontal className="size-3.5" aria-hidden />{t('filters')}{activeFilterCount > 0 ? ` · ${activeFilterCount}` : ''}
-    {pending && <span aria-hidden className="rounded-sm border border-border-subtle bg-surface-sunken px-1 text-xs font-medium text-text-primary">{t('unappliedFilterMarker', { count: pendingFilterCount })}</span>}
-  </Button>;
-  const stateNote = pending && <span id={stateId} hidden>{t('filterStateDescription', { applied: activeFilterCount, count: pendingFilterCount })}</span>;
-  const filterSlot = !hasFilter || railVisible ? undefined : wide ? <>{button}{stateNote}</> :
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>{button}</PopoverTrigger>
-      {stateNote}
-      <PopoverContent ref={popover} id={bodyId} onCloseAutoFocus={event => { if (measuredWide.current) event.preventDefault(); }} aria-label={t('filters')} align="start" className="max-h-[70vh] w-80 overflow-y-auto">
-        {filter}
-      </PopoverContent>
-    </Popover>;
-
-  return <div ref={root} className="min-w-0">
-    <div className={railVisible ? `grid grid-cols-[260px_minmax(0,1fr)] items-start ${compact ? 'gap-3' : 'gap-4'}` : 'min-w-0'}>
-      {railVisible && <section ref={rail} aria-labelledby={titleId}
-        className="sticky top-[calc(var(--page-sticky-offset,0px)_+_12px)] max-h-[calc(100dvh-var(--page-sticky-offset,0px)_-_24px)] flex min-h-0 flex-col overflow-hidden rounded-lg border border-border-subtle bg-surface-card">
-        <header className="flex shrink-0 items-center justify-between gap-2 border-b border-border-subtle px-4 py-3">
-          <div>
-            <h2 id={titleId} className="t-card-title">{t('filters')}</h2>
-            {(activeFilterCount > 0 || pending) && <p className="text-xs text-text-muted">
-              {activeFilterCount > 0 && t('appliedFilterCount', { count: activeFilterCount })}
-              {pending && `${activeFilterCount > 0 ? ' · ' : ''}${t('unappliedFilterRail', { count: pendingFilterCount })}`}
-            </p>}
-          </div>
-          <Button ref={closeButton} type="button" variant="ghost" size="icon-sm" className="shrink-0" aria-label={t('collapseFilters')}
-            title={t('collapseFilters')} aria-expanded="true" aria-controls={bodyId} onClick={() => setRailCollapsed(true)}>
-            <PanelLeftClose className="size-4" aria-hidden />
-          </Button>
-        </header>
-        <div id={bodyId} className="min-h-0 overflow-y-auto p-3">{filter}</div>
-      </section>}
-      <div key="table" className="min-w-0">{search === undefined ? table(filterSlot) : table(filterSlot, search)}</div>
-    </div>
+/** Management slots (06 §12.6): toolbar search, the table with its filter line, and a detail drawer. No filter rail (node 1217f, ADR-0105). */
+export function ManagementLayout({ search, table, drawer }: ManagementLayoutProps) {
+  return <div className="min-w-0">
+    <div className="min-w-0">{search === undefined ? table() : table(search)}</div>
     {drawer}
   </div>;
 }

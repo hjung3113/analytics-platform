@@ -29,9 +29,9 @@ test.describe('토큰 소비 계약 (06 §23, ADR-0011/ADR-0058)', () => {
   });
 });
 
-test.describe('관리 레이아웃 필터 레일 (06 §12.6, ADR-0022)', () => {
-  // #1217 (node e2): 변경 감사 and 권한/역할 were the last consumers of the filter rail; their conditions are the table's filter line now. The rail's
-  // collapse/popover/seven-field assertions are replaced by the filter-model equivalents: no rail, the filter line above the first row, pinned fields.
+test.describe('관리 레이아웃 필터 줄 — 레일 없음 (06 §12.6, ADR-0105)', () => {
+  // #1217 (node e2): 변경 감사 and 권한/역할 had the management filter rail; their conditions are the table's filter line now. This describe checks the
+  // management layout without a rail: no rail or `필터` button, the filter line above the first row, pinned fields, the hidden `filter` key.
   test('1440 변경 감사는 필터 레일 없이 표 위 필터 줄에 고정 필드를 두고 첫 행이 그 아래에서 시작한다', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
     await page.setViewportSize({ width: 1440, height: 900 });

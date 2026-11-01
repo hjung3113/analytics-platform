@@ -99,7 +99,7 @@
 | 기능 | AP | FO | EV | 판정 |
 | --- | --- | --- | --- | --- |
 | 표·가상화·내보내기 | `PlatformDataTable`(`@tanstack/react-table`·`react-virtual`·xlsx 내보내기) | 표 래퍼 없음, `ListShell`은 스크롤·가상화를 호출자에게 위임 | `@eqv/ui` `DataTable`(AP 32px 행 복사) | ✅ AP. EV 표는 SDK 소비로 교체 후보 |
-| 필터·초안 적용 | `PageFilterBar`·`useFilterDraft` | `useCommittedSearchDraft`(한글 디바운스) | 해당 없음 | ✅ AP. ⬇ 한글 입력 디바운스는 비교 |
+| 필터·초안 적용 | `PageFilterBar` | `useCommittedSearchDraft`(한글 디바운스) | 해당 없음 | ✅ AP. ⬇ 한글 입력 디바운스는 비교 |
 | 빈·로딩·오류 상태 | `StateView`·`QueryView`·`OutcomeView` | `ListStateMessage`(empty/filtered/error) | `StateMessage`·`LoadingBlock` | ✅ AP |
 | 차트 프레임·상호작용 | `AnalysisChartFrame`·`EChart`(주석·범위·비교) | 없음 | SVG 렌더러(`TopViewer`) | ✅ AP. ⬜ EV 렌더러 |
 | 감사 타임라인 | `AuditTimeline` | 백엔드 감사만 | 없음 | ✅ AP |

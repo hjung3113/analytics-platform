@@ -49,11 +49,10 @@ type PageFilterBarShared = {
 };
 
 export type PageFilterBarProps =
-  | (PageFilterBarShared & { collapsible?: false; orientation?: 'row' | 'column' })
+  | (PageFilterBarShared & { collapsible?: false })
   | (PageFilterBarShared & {
       /** Row orientation only: the collapsed summary line replaces the always-visible field row. */
       collapsible: true;
-      orientation?: 'row';
       /** Stable per-menu preference id; the collapse preference is stored per key. */
       preferenceKey: string;
       /** Consumer-provided label/value summary of every field; conditions are never dropped. */
@@ -115,7 +114,7 @@ function withApplyForm(onApply: (() => void) | undefined, bar: ReactNode) {
   return onApply ? <ApplyForm onApply={onApply}>{bar}</ApplyForm> : bar;
 }
 
-function PageFilterFieldControl({ field, id, column }: { field: PageFilterField; id: string; column: boolean }) {
+function PageFilterFieldControl({ field, id }: { field: PageFilterField; id: string }) {
   const labelId = `${id}-label`;
 
   if (field.kind === 'custom') {
@@ -132,10 +131,10 @@ function PageFilterFieldControl({ field, id, column }: { field: PageFilterField;
     const emptyValue = emptyOptionValue(options);
     const value = field.value === '' && field.emptyOptionLabel ? emptyValue : field.value;
 
-    return <div className={cn('grid gap-1 text-xs text-text-secondary', column ? 'min-w-0 w-full' : 'min-w-36')}>
+    return <div className={'grid min-w-36 gap-1 text-xs text-text-secondary'}>
       <label htmlFor={id} id={labelId} onClick={event => { event.preventDefault(); event.currentTarget.control?.focus(); }}>{field.label}</label>
       <Select value={value} onValueChange={next => field.onValueChange(next === emptyValue ? '' : next)}>
-        <SelectTrigger id={id} aria-labelledby={labelId} data-testid={field.testId} className={cn('border-border-control', column ? 'min-w-0 w-full' : 'min-w-36')}>
+        <SelectTrigger id={id} aria-labelledby={labelId} data-testid={field.testId} className={'min-w-36 border-border-control'}>
           <SelectValue placeholder={field.placeholder} />
         </SelectTrigger>
         <SelectContent>
@@ -148,7 +147,7 @@ function PageFilterFieldControl({ field, id, column }: { field: PageFilterField;
 
   return <div className="grid min-w-0 gap-1 text-xs text-text-secondary">
     <label htmlFor={id} id={labelId} onClick={event => { event.preventDefault(); event.currentTarget.control?.focus(); }}>{field.label}</label>
-    <span className={cn('relative block max-w-full', column ? 'w-full' : 'w-56')}>
+    <span className={'relative block w-56 max-w-full'}>
       {field.kind === 'search' && <Search aria-hidden data-page-filter-search-icon className="pointer-events-none absolute left-2 top-3 size-4 text-text-secondary" />}
       <Input
         id={id}
@@ -176,17 +175,15 @@ export function PageFilterBar(props: PageFilterBarProps) {
   return <CollapsiblePageFilterBar key={storageKey} {...props} storageKey={storageKey} />;
 }
 
-function StaticPageFilterBar({ label, fields, actions, onApply, mode, orientation = 'row' }: PageFilterBarShared & { collapsible?: false; orientation?: 'row' | 'column' }) {
+function StaticPageFilterBar({ label, fields, actions, onApply, mode }: PageFilterBarShared & { collapsible?: false }) {
   const id = useId();
-  const column = orientation === 'column';
 
-  return withApplyForm(mode === 'draft' ? undefined : onApply, <fieldset data-testid="page-filter-bar" className={column ? 'min-w-0 w-full' : 'mb-3 rounded-md border border-border-subtle bg-surface-card p-3'}>
-    <legend className={column ? 'sr-only' : 'px-1 text-xs text-text-secondary'}>{label}</legend>
-    <div className={column ? 'grid min-w-0 gap-3' : 'flex flex-wrap items-end gap-3'}>
-      {fields.map((field, index) => <PageFilterFieldControl key={field.key} field={field} column={column} id={`${id}-field-${index}`} />)}
-      {!column && actions != null && <div className="flex flex-wrap items-end gap-2">{actions}</div>}
+  return withApplyForm(mode === 'draft' ? undefined : onApply, <fieldset data-testid="page-filter-bar" className="mb-3 rounded-md border border-border-subtle bg-surface-card p-3">
+    <legend className="px-1 text-xs text-text-secondary">{label}</legend>
+    <div className="flex flex-wrap items-end gap-3">
+      {fields.map((field, index) => <PageFilterFieldControl key={field.key} field={field} id={`${id}-field-${index}`} />)}
+      {actions != null && <div className="flex flex-wrap items-end gap-2">{actions}</div>}
     </div>
-    {column && actions != null && <div className="sticky bottom-0 mt-3 flex flex-wrap items-end gap-2 border-t border-border-subtle bg-surface-card py-3">{actions}</div>}
   </fieldset>);
 }
 
@@ -224,7 +221,7 @@ function CollapsiblePageFilterBar({ label, fields, actions, onApply, mode, summa
     {/* Shell stays mounted with the same id in both states so aria-controls never points at a missing element. */}
     <div id={panelId} hidden={collapsed} className={collapsed ? undefined : 'flex flex-wrap items-end gap-3'}>
       {!collapsed && <>
-        {fields.map((field, index) => <PageFilterFieldControl key={field.key} field={field} column={false} id={`${id}-field-${index}`} />)}
+        {fields.map((field, index) => <PageFilterFieldControl key={field.key} field={field} id={`${id}-field-${index}`} />)}
         <div className="flex flex-wrap items-end gap-2">
           {actions}
           <Button ref={collapseRef} type="button" variant="ghost" size="toolbar" onClick={() => toggle(true)}

@@ -67,7 +67,7 @@ export default function EquipmentMaster() {
       headerActions={<Button asChild size="sm" variant="secondary"><PlatformLink href={linkTo('equipment-detail', { params: { equipmentId: focus }, page: detailPage, returnTo: true })}>{ko ? '전체 화면' : 'Full page'}</PlatformLink></Button>}
       tabs={validTab ? [{ id: 'attributes', label: ko ? '속성' : 'Attributes', content: <EquipmentPanel id={focus} kind="attributes" /> }, { id: 'validity', label: ko ? '유효구간 이력' : 'Validity history', content: <EquipmentPanel id={focus} kind="validity" /> }, { id: 'audit', label: ko ? '변경 이력' : 'Change history', content: <EquipmentPanel id={focus} kind="audit" /> }]
         : [{ id: 'invalid', label: ko ? '알 수 없는 탭' : 'Unregistered tab', content: <p role="alert">{ko ? '등록되지 않은 탭입니다.' : 'This tab is not registered.'} <Button size="sm" variant="secondary" onClick={() => setPage({ tab: null })}>{ko ? '속성 열기' : 'Open attributes'}</Button></p> }]} />}
-      table={(_filterSlot, search) => tableInvalid ? <TableUrlWarning filters={search} sentences={invalidTableSentences} recoverKeys={recoverKeys} cause={cause} /> :
+      table={search => tableInvalid ? <TableUrlWarning filters={search} sentences={invalidTableSentences} recoverKeys={recoverKeys} cause={cause} /> :
     <PlatformDataTable<Equipment>
       title={ko ? '설비 목록' : 'Equipment list'} ariaLabel={ko ? '설비 마스터 목록' : 'Equipment master list'}
       subtitle={ko ? '행을 체크하면 내보내거나, ‘선택 설비로 분석’으로 그 설비들을 분석할 수 있습니다.' : 'Check rows to export them, or to analyse them with ‘Analyze selected equipment’.'}

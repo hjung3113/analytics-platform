@@ -248,7 +248,7 @@ Domain이 소유:
 - row actions
 - domain filter
 
-페이지 필터 행과 입력 primitive는 `PageFilterBar`가 공통화하고 초안 값·변경 수는 `useFilterDraft`가, 적용의 `page: null`과 초기화 배선은 `useManagementFilters`가 맡지만, 메뉴는 필터 의미·URL page key·초기화 키 목록·적용 patch 구성(검증 포함)을 소유한다. 이 경계는 표 툴바의 컬럼·복사·내보내기 동작을 바꾸지 않는다(ADR-0016).
+페이지 필터 행과 입력 primitive는 `PageFilterBar`(행 배치만, 레일용 column 배치는 노드 1217f에서 제거)가 공통화한다. 관리 화면의 필터 초안·적용(`useFilterDraft`·`useManagementFilters`·`FilterApplyButton`)은 한 표 필터 모델(ADR-0105)로 바뀌어 지웠고, 메뉴는 필터 의미·URL page key·초기화 키 목록을 소유한다. 이 경계는 표 툴바의 컬럼·복사·내보내기 동작을 바꾸지 않는다(ADR-0016).
 
 ---
 
