@@ -797,11 +797,11 @@ test.describe('표 필터 모델 (#1217)', () => {
     await expect(page.getByRole('region', { name: '필터', exact: true })).toHaveCount(0);
 
     await page.locator('[data-filter-body="status"]').click();
-    await page.getByRole('dialog').getByRole('checkbox', { name: '사용중' }).click();
+    await page.getByRole('dialog').getByRole('checkbox', { name: '사용중', exact: true }).click();
     await page.getByRole('dialog').getByRole('button', { name: '적용' }).click();
     await expect(page.locator('[data-column-filter-chip="status"]')).toContainText('사용중');
     await page.getByRole('button', { name: '라인 필터' }).click();
-    await page.getByRole('dialog').getByRole('checkbox', { name: 'L2' }).click();
+    await page.getByRole('dialog').getByRole('checkbox', { name: 'L2', exact: true }).click();
     await page.getByRole('dialog').getByRole('button', { name: '적용' }).click();
     await expect(page.locator('[data-column-filter-chip="line"]')).toContainText('L2');
     await expect.poll(() => total(page)).toBeLessThan(all);
