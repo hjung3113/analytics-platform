@@ -357,11 +357,13 @@ describe('filter editor fix round 1', () => {
   it('F3: too many values are refused with their own explanation', async () => {
     const many = Array.from({ length: 51 }, (_, i) => ({ value: `v${i}`, label: `값${i}` }));
     const onChange = vi.fn();
-    const first = render(<Owner cols={[{ id: 'status', header: '상태', filter: { kind: 'enum', options: many } }]} onChange={onChange} />);
+    // Seed the 51-value condition instead of clicking 51 boxes: every click re-renders the whole checklist, which ran past the
+    // 5 s timeout on loaded CI runners; the refusal path under test is the same (Apply re-checks the proposed list).
+    const seeded: ColumnFilter[] = [{ id: 'status', op: 'in', value: many.map(o => o.value) }];
+    const first = render(<Owner cols={[{ id: 'status', header: '상태', filter: { kind: 'enum', options: many } }]} initial={seeded} onChange={onChange} />);
     await ready();
     fireEvent.click(screen.getByRole('button', { name: '상태 필터' }));
     const dialog = await screen.findByRole('dialog', { name: '상태' });
-    for (const box of within(dialog).getAllByRole('checkbox')) fireEvent.click(box);
     fireEvent.click(within(dialog).getByRole('button', { name: '적용' }));
     expect((await screen.findByRole('alert')).textContent).toContain('값을 너무 많이');
     expect(onChange).not.toHaveBeenCalled();
