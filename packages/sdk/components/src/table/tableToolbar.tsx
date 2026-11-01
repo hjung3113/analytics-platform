@@ -24,20 +24,22 @@ export function collapsedControls(width: number | null): ReadonlySet<Collapsible
 }
 
 /** Title (truncates, full text in `title`) and, when a description exists, the ⓘ button whose tooltip carries it. `srOnly` (a panel title, #1166) hides only the title text: the ⓘ stays visible in every mode, because the description (population, basis) has no other place on screen. */
-export function ToolbarTitle({ title, subtitle, srOnly, lang }: { title: ReactNode; subtitle?: ReactNode; srOnly: boolean; lang: Lang }) {
+export function ToolbarTitle({ title, subtitle, srOnly, lang, descriptionId }: { title: ReactNode; subtitle?: ReactNode; srOnly: boolean; lang: Lang; descriptionId?: string }) {
   return <div className="flex min-w-0 items-center gap-1">
     <h2 className={cn('t-card-title min-w-0 truncate', srOnly && 'sr-only')} title={typeof title === 'string' ? title : undefined}>{title}</h2>
     {subtitle && <TooltipProvider delayDuration={200}>
       <Tooltip>
         <TooltipTrigger asChild>
-          <button type="button" data-table-description aria-label={lang === 'ko' ? '설명' : 'Description'}
+          <button type="button" data-table-description aria-describedby={descriptionId} aria-label={lang === 'ko' ? '설명' : 'Description'}
             className="inline-flex size-6 shrink-0 items-center justify-center rounded-xs text-text-muted hover:text-text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring">
             <Info className="size-3.5" aria-hidden />
           </button>
         </TooltipTrigger>
-        <TooltipContent size="sm" className="max-w-72">{subtitle}</TooltipContent>
+        <TooltipContent portal size="sm" className="max-w-72">{subtitle}</TooltipContent>
       </Tooltip>
     </TooltipProvider>}
+    {/* The description stays in the DOM in every mode (visually hidden): the section's and the ⓘ's accessible description. The tooltip shows the same text. */}
+    {subtitle && <p id={descriptionId} className="sr-only">{subtitle}</p>}
   </div>;
 }
 

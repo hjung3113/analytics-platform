@@ -524,6 +524,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
     ? (lang === 'ko' ? '행을 선택하면 복사할 수 있습니다' : 'Select rows to copy')
     : (lang === 'ko' ? `${shortcutLabel('C')}로도 복사할 수 있습니다(표 안에서)` : `You can also copy with ${shortcutLabel('C')} (inside the table)`);
   const copyHelpId = `${columnPrefsId}-copy-help`;
+  const descriptionId = `${columnPrefsId}-description`;
   const exportBody = <>
     {selectedCount > 0 && <>
       <DropdownMenuGroup>
@@ -578,11 +579,11 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       <div className="mt-3"><Button type="button" variant="secondary" size="toolbar" onClick={resetPreferences}>{lang === 'ko' ? '기본값으로' : 'Reset to default'}</Button></div>
     </PopoverContent>
   </Popover>;
-  return <section ref={section} tabIndex={-1} aria-label={p.ariaLabel} onKeyDown={onShortcut} className={cn('flex flex-col rounded-lg border border-border-subtle bg-surface-card', embedded && 'rounded-none border-0 shadow-none')}>
+  return <section ref={section} tabIndex={-1} aria-label={p.ariaLabel} aria-describedby={p.subtitle ? descriptionId : undefined} onKeyDown={onShortcut} className={cn('flex flex-col rounded-lg border border-border-subtle bg-surface-card', embedded && 'rounded-none border-0 shadow-none')}>
     {/* Toolbar line (06 §15, 1217c): one row of 32px controls. Left = title (ⓘ carries the description) + quick search slot; right = 그룹, [표 크기: 1217d], 컬럼, 복사, 내보내기, and `⋯` for what no longer fits. */}
     <div ref={toolbar.ref} data-table-toolbar className={cn('flex items-center justify-between gap-2', embedded ? 'min-h-10 px-2 py-1.5' : densePage ? 'min-h-14 px-3 py-3' : 'min-h-14 p-4', analysisSection && 'pr-12')}>
       <div className="flex min-w-0 flex-1 items-center gap-2">
-        <ToolbarTitle title={p.title} subtitle={p.subtitle} srOnly={inPanel} lang={lang} />
+        <ToolbarTitle title={p.title} subtitle={p.subtitle} srOnly={inPanel} lang={lang} descriptionId={descriptionId} />
         {p.search && <div data-table-search className="min-w-0 max-w-xs flex-1">{p.search}</div>}
       </div>
       <div className="flex shrink-0 items-center gap-2">
@@ -604,7 +605,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
                 {copyLabel}
               </Button>
             </TooltipTrigger>
-            <TooltipContent size="sm">{copyHelp}</TooltipContent>
+            <TooltipContent portal size="sm">{copyHelp}</TooltipContent>
           </Tooltip>
         </TooltipProvider>}
         {canExport && !exportIn && <DropdownMenu onOpenChange={open => setOverlayOpen(o => ({ ...o, export: open }))}>

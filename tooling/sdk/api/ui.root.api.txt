@@ -267,7 +267,7 @@ ToggleGroupAppearance | type | type ToggleGroupAppearance = 'default' | 'filter'
 ToggleGroupItemAppearance | type | type ToggleGroupItemAppearance = 'default' | 'selected-filter'
 ToggleGroupItemProps | interface | interface ToggleGroupItemProps extends React.ComponentPropsWithoutRef<typeof ToggleGroupPrimitive.Item> { appearance?: ToggleGroupItemAppearance; }
 ToggleGroupProps | type | type ToggleGroupProps = React.ComponentPropsWithoutRef<typeof ToggleGroupPrimitive.Root> & VariantProps<typeof toggleGroupItemVariants> & { appearance?: ToggleGroupAppearance; }
-TooltipContentProps | interface | interface TooltipContentProps extends React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content> { size?: 'default' | 'sm'; }
+TooltipContentProps | interface | interface TooltipContentProps extends React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content> { portal?: boolean; size?: 'default' | 'sm'; }
 UISurface | type | type UISurface = (typeof UI_SURFACES)[number]
 UI_SURFACES | const | const UI_SURFACES: readonly [ "voc-description", "reporter-reply", "public-update", "internal-comment" ]
 sheetVariants | const | const sheetVariants: (props?: ({ side?: "bottom" | "left" | "right" | "top" | null | undefined; } & import("class-variance-authority/types").ClassProp) | undefined) => string

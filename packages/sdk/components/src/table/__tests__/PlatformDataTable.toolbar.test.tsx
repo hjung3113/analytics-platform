@@ -80,13 +80,33 @@ describe('PlatformDataTable one-line toolbar (1217c)', () => {
     const user = userEvent.setup();
     const view = render(<Harness subtitle="설명 문장" />);
     await screen.findByText(/1\/1/);
-    expect(within(toolbar()).queryByText('설명 문장')).toBeNull();
+    // Not a visible second line: the description is in the DOM only as visually hidden text (FIX3).
+    expect(within(toolbar()).getByText('설명 문장')).toHaveClass('sr-only');
     await user.hover(screen.getByRole('button', { name: '설명' }));
     expect((await screen.findAllByText('설명 문장')).length).toBeGreaterThan(0);
     view.unmount();
     render(<Harness />);
     await screen.findByText(/1\/1/);
     expect(screen.queryByRole('button', { name: '설명' })).toBeNull();
+  });
+
+  it.each([false, true])('the description stays in the DOM as the table region\'s and the ⓘ\'s accessible description (panel: %s)', async panel => {
+    const ui = <Harness subtitle="설명 문장" />;
+    render(panel ? <InWorkspacePanelProvider value>{ui}</InWorkspacePanelProvider> : ui);
+    await screen.findByText(/1\/1/);
+    const text = screen.getByText('설명 문장');
+    expect(text).toHaveClass('sr-only');
+    expect(screen.getByRole('region', { name: 'table' })).toHaveAccessibleDescription('설명 문장');
+    expect(screen.getByRole('button', { name: '설명' })).toHaveAttribute('aria-describedby', text.id);
+  });
+
+  it('the ⓘ tooltip renders in a portal on body, outside the clipping table section (FIX3)', async () => {
+    const user = userEvent.setup();
+    render(<Harness subtitle="설명 문장" />);
+    await screen.findByText(/1\/1/);
+    await user.hover(screen.getByRole('button', { name: '설명' }));
+    const tip = await screen.findByRole('tooltip');
+    expect(tip.closest('section')).toBeNull();
   });
 
   it.each(['hover', 'keyboard focus'])('a panel title stays screen-reader only but the ⓘ stays visible: %s reaches the description (UX-1)', async how => {
