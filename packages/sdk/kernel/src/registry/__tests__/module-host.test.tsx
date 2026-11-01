@@ -168,6 +168,13 @@ describe('useModuleHost: reads', () => {
     expect(window.location.search).toContain('junk=1');
   });
 
+  it('pages() reads every value of a declared key and nothing for an undeclared one', () => {
+    const { seen } = setup('/fx?v=1&q=a&junk=1');
+    expect(seen.host.pages('q')).toEqual(['a']);
+    expect(seen.host.pages('junk')).toEqual([]);
+    expect(seen.host.pages('tab')).toEqual([]);
+  });
+
   it('href({ screen }) stays inside the module, drops undeclared page keys and returns null for an unknown target', () => {
     const { seen } = setup();
     expect(seen.host.href({ screen: 'item', params: { id: '7' }, page: { tab: 'a', nope: 'x' } })?.href).toMatch(/^\/mars\/fx-item\/7\?.*tab=a/);

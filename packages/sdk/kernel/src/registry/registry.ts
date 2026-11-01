@@ -232,6 +232,16 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
       }
     }
     if (clash) fail(`Menu "${m.id}" page key "${clash}" collides with a global Context key`);
+    for (const [field, keys] of [['repeatedPageKeys', m.repeatedPageKeys], ['hiddenPageKeys', m.hiddenPageKeys]] as const) {
+      if (keys === undefined) continue;
+      if (!Array.isArray(keys)) fail(`Menu "${m.id}" ${field} must be a list`);
+      const seen = new Set<string>();
+      for (const key of keys) {
+        if (!m.pageKeys.includes(key)) fail(`Menu "${m.id}" ${field} key "${String(key)}" is not a declared page key`);
+        if (seen.has(key)) fail(`Menu "${m.id}" ${field} key "${key}" is declared twice`);
+        seen.add(key);
+      }
+    }
     const menuCarrySet = m.carrySet === undefined ? undefined : carrySetByIdMap.get(m.carrySet) ?? fail(`Menu "${m.id}" uses undeclared carry set "${String(m.carrySet)}"`);
     const missingCarried = (menuCarrySet?.pageKeys ?? []).find(k => !m.pageKeys.includes(k));
     if (missingCarried) fail(`Menu "${m.id}" does not declare carry set "${menuCarrySet?.id}" page key "${missingCarried}" in pageKeys`);
@@ -380,7 +390,7 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
     const search = q === -1 ? '' : value.slice(q);
     const route = matchRoute(path);
     if (!route || route.menu.navHidden) return null;
-    try { parseQuery(search, route.menu.pageKeys); } catch { return null; }
+    try { parseQuery(search, route.menu.pageKeys, { repeated: route.menu.repeatedPageKeys }); } catch { return null; }
     return value;
   };
 

@@ -5,12 +5,12 @@ import type { PortCache } from '../scope/selection-port-cache';
 import type { MenuEntry } from '../registry/registry';
 import type { DraftStore } from '../query/draft-state';
 import type { QueryEngine } from '../query/query-engine';
-import type { SpaceDef, UsageVia } from '@ap/contracts';
+import type { Pair, SpaceDef, UsageVia } from '@ap/contracts';
 import type { SupportRegistry } from '../saved-view/useSavedViewSupport';
 import type { HostPlatform, Recent, Toast } from './types';
 
 /** Fields of the screen state: what a menu page reads about the screen it is shown on (the main screen or one board pane). */
-export type ScreenFields = 'queryHistory' | 'queryDraft' | 'queryPolicy' | 'url' | 'pathname' | 'route' | 'platformScreen' | 'contractError' | 'metricInit' | 'global' | 'page' | 'extras' | 'pageParam' | 'pageNavigation' | 'navigate' | 'setGlobal' | 'setPage' | 'resetContext' | 'linkTo' | 'resolveLink' | 'reportError' | 'returnTarget' | 'returnOrigin' | 'scope' | 'retryScope' | 'currentSpace';
+export type ScreenFields = 'queryHistory' | 'queryDraft' | 'queryPolicy' | 'url' | 'pathname' | 'route' | 'platformScreen' | 'contractError' | 'metricInit' | 'global' | 'page' | 'extras' | 'pageParam' | 'pageParams' | 'pageNavigation' | 'navigate' | 'setGlobal' | 'setPage' | 'resetContext' | 'linkTo' | 'resolveLink' | 'reportError' | 'returnTarget' | 'returnOrigin' | 'scope' | 'retryScope' | 'currentSpace';
 /** Shell navigation state that always follows the main screen, even when read from inside a pane (ADR-0049). */
 export type MainBoundFields = 'visibleMenus' | 'sidebarSpace' | 'spaceResume' | 'spaceEntry' | 'switchSpace';
 export type ScreenState = Pick<HostPlatform, ScreenFields | 'screenMode' | 'paneId' | 'paneLabel'>;
@@ -63,6 +63,8 @@ export type ScreenSource = {
   paneLabel?: string | null;
   /** The screen's address: the browser URL for the main screen, the pane's virtual path plus its own query. */
   url: string;
+  /** Main only: the hidden page pairs of the entry (`hiddenPageKeys`, ADR-0105). They are page state like the pairs in `url` but are not part of the address. A pane has none: its query holds every key. */
+  hidden?: readonly Pair[];
   navigation: ReturnType<typeof createPageNavigation>;
   /** Writes this screen's own address (history for main, `onChange` for a pane). Stable identity. False when nothing was written. */
   commit: (next: string, how: 'push' | 'replace', options?: CommitOptions) => boolean;

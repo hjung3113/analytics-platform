@@ -120,8 +120,9 @@ function conditionToJson(c: Condition): string | null {
 /**
  * Parse a query string. `pageKeys` are the registered page-owned keys of the current route;
  * anything else unregistered stays in `extras` (kept on the current URL, never transferred).
+ * A page key appears once unless it is listed in `options.repeated` (a menu's `repeatedPageKeys`): then every pair is kept in URL order.
  */
-export function parseQuery(search: string, pageKeys: readonly string[] = []): ParsedQuery {
+export function parseQuery(search: string, pageKeys: readonly string[] = [], options: { repeated?: readonly string[] } = {}): ParsedQuery {
   const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
   const all: Pair[] = [...params.entries()];
   const values = (key: string) => all.filter(([k]) => k === key).map(([, v]) => v);
@@ -171,9 +172,10 @@ export function parseQuery(search: string, pageKeys: readonly string[] = []): Pa
 
   const pageSet = new Set(pageKeys);
   const page = all.filter(([k]) => pageSet.has(k));
+  const repeated = new Set(options.repeated ?? []);
   const seenPage = new Set<string>();
   for (const [key] of page) {
-    if (seenPage.has(key)) fail('duplicate_page_key', `${key} appears more than once`);
+    if (seenPage.has(key) && !repeated.has(key)) fail('duplicate_page_key', `${key} appears more than once`);
     seenPage.add(key);
   }
   return {

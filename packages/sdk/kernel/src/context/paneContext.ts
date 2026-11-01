@@ -20,8 +20,8 @@ export function dropResetKeys(menu: ResetRule | null | undefined, pairs: Pair[],
  * page keys and extras except the menu's `contextResetKeys`, exactly as a Context write on that screen would leave them. Pure; throws
  * `ContractError` when `query` does not parse for this menu, so callers decide what an unreadable address means.
  */
-export function withPaneContext(menu: Pick<MenuEntry, 'pageKeys' | 'contextResetKeys'>, query: string, global: GlobalContext): string {
-  const parsed = parseQuery(query, menu.pageKeys);
+export function withPaneContext(menu: Pick<MenuEntry, 'pageKeys' | 'contextResetKeys' | 'repeatedPageKeys'>, query: string, global: GlobalContext): string {
+  const parsed = parseQuery(query, menu.pageKeys, { repeated: menu.repeatedPageKeys });
   return buildQuery(global, dropResetKeys(menu, parsed.page, parsed.global, global), parsed.extras);
 }
 

@@ -105,6 +105,7 @@ export function useModuleHost(entry: ModuleMenuEntry, params: Readonly<Record<st
       can: permission => p.can(permission as ModuleScopedId),
       params: () => params,
       page: key => declared(key) ? p.pageParam(key) : null,
+      pages: key => declared(key) ? p.pageParams(key) : [],
       setPage(patch, options) {
         const undeclared = Object.keys(patch).find(key => !declared(key));
         if (undeclared !== undefined) throw new RangeError(`Module "${entry.module}" screen "${entry.id}" does not declare page key "${undeclared}"`);

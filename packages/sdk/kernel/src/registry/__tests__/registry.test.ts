@@ -67,6 +67,17 @@ describe('createRegistry validation (platform-packages.md §5)', () => {
     expect(() => createRegistry({ spaces: homeA, groups, menus: [menu('a', '/a', { primary: true, pageKeys: ['sort', 'page', 'bucket', 'bin'], contextResetKeys: ['page', 'bucket', 'bin'] })] })).not.toThrow();
   });
 
+  it('repeatedPageKeys and hiddenPageKeys must be declared pageKeys, listed once; carry sets and contextResetKeys may name them', () => {
+    const make = (over: Record<string, unknown>) => () => createRegistry({ spaces: homeA, groups, menus: [menu('a', '/a', { primary: true, pageKeys: ['filter', 'tag', 'sort'], ...over })] });
+    expect(make({ repeatedPageKeys: ['nope'] })).toThrow(/repeatedPageKeys key "nope" is not a declared page key/);
+    expect(make({ hiddenPageKeys: ['nope'] })).toThrow(/hiddenPageKeys key "nope" is not a declared page key/);
+    expect(make({ repeatedPageKeys: ['tag', 'tag'] })).toThrow(/declared twice/);
+    expect(make({ hiddenPageKeys: ['scopeId'] })).toThrow(/not a declared page key/);
+    expect(make({ pageKeys: ['scopeId'], repeatedPageKeys: ['scopeId'] })).toThrow(/global Context key/);
+    expect(make({ repeatedPageKeys: ['filter', 'tag'], hiddenPageKeys: ['filter'], contextResetKeys: ['filter'] })).not.toThrow();
+    expect(() => createRegistry({ spaces: homeA, groups, carrySets: [{ id: carrySetId('c'), pageKeys: ['filter'] }], menus: [menu('a', '/a', { primary: true, pageKeys: ['filter'], carrySet: carrySetId('c'), repeatedPageKeys: ['filter'], hiddenPageKeys: ['filter'] })] })).not.toThrow();
+  });
+
   const level = (key: string) => ({ key, label: { ko: key, en: key } });
 
   it('rejects a drill with no levels', () => {

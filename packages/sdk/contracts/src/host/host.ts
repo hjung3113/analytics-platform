@@ -55,7 +55,10 @@ export type ModuleHost = {
   can(permission: string): boolean;
   params(): Readonly<Record<string, string>>;
   page(key: string): string | null;
-  setPage(patch: Record<string, string | null>, options?: { replace?: boolean }): void;
+  /** Every value of a page key (`[]` when absent); a key the screen did not declare reads `[]`. More than one only for a repeated page key. */
+  pages(key: string): string[];
+  /** A value may be a list for a repeated page key (one URL pair per item); `[]` and null remove the key. */
+  setPage(patch: Record<string, string | readonly string[] | null>, options?: { replace?: boolean }): void;
   href(target: ModuleTarget): { href: string; allowed: boolean } | null;
   navigate(target: ModuleTarget, options?: { replace?: boolean }): boolean;
   returnTarget(): string;

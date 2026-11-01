@@ -1,5 +1,5 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { validateSavedView, type JsonValue, type Result, type SavedViewDraft, type SavedViewEntry, type SavedViewListItem, type SavedViewStore, type SavedViewSupport } from '@ap/contracts';
+import { buildQuery, validateSavedView, type JsonValue, type Result, type SavedViewDraft, type SavedViewEntry, type SavedViewListItem, type SavedViewStore, type SavedViewSupport } from '@ap/contracts';
 import { useHostPlatform } from '../platform/platform';
 import { AppContext } from '../platform/contexts';
 import { captureApplied, viewState, type ViewState } from './capture';
@@ -171,7 +171,9 @@ export function useSavedViews(): SavedViews {
     if (!result.ok) return fail(result.reason);
     if (!result.applied) return { ok: true, unsupported: NO_UNSUPPORTED };
     // One write: a default replaces the bare entry so Back leaves the app; a picked view is a normal push.
-    if (result.href !== current.url && !current.navigate(result.href, { replace: source === 'default' })) return fail('unavailable');
+    // The address omits hidden page keys (ADR-0105), so "already here" also compares the full applied state.
+    const sameAddress = result.href === current.url || result.href === current.pathname + buildQuery(current.global, current.page, current.extras);
+    if (!sameAddress && !current.navigate(result.href, { replace: source === 'default' })) return fail('unavailable');
     setFresh({ gen: at, entry: found });
     setSelected(id);
     return { ok: true, unsupported: result.unsupported };

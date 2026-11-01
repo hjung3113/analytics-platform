@@ -128,10 +128,13 @@ export type HostPlatform = {
   page: Pair[];
   extras: Pair[];
   pageParam: (key: string) => string | null;
+  /** Every value of a page key in address order; `[]` when absent. At most one for a key that is not in the menu's `repeatedPageKeys`. Includes hidden keys. */
+  pageParams: (key: string) => string[];
   pageNavigation: PageNavigation;
   navigate: (url: string, options?: { replace?: boolean; focus?: PageFocus; via?: UsageVia }) => boolean;
   setGlobal: (patch: Partial<GlobalContext>, options?: { replace?: boolean; silent?: boolean }) => void;
-  setPage: (patch: Record<string, string | null>, options?: { replace?: boolean; focus?: PageFocus }) => void;
+  /** A value may be a list for a `repeatedPageKeys` key (one pair per item; more than one value on another key throws `RangeError`); `[]` and null remove the key. A hidden key is written to a new history entry (or `replace`) whose address is unchanged. */
+  setPage: (patch: Record<string, string | readonly string[] | null>, options?: { replace?: boolean; focus?: PageFocus }) => void;
   resetContext: () => void;
   linkTo: (menuId: string, options?: LinkOptions) => string;
   /** `linkTo` plus what a menu needs to draw the link honestly: whether the user may open it and which page keys were dropped. */
@@ -203,7 +206,7 @@ export type HostPlatform = {
  * What a menu page sees through `usePlatform()` (ADR-0076): the same runtime value as `HostPlatform`, narrowed to the menu contract.
  * A field a menu needs that is missing here moves up from `HostPlatform`; a menu never imports `@ap/kernel/host`.
  */
-export type MenuPlatform = Pick<HostPlatform, 'route' | 'url' | 'pathname' | 'absoluteUrl' | 'location' | 'global' | 'page' | 'pageParam' | 'setGlobal' | 'setPage' | 'resetContext' | 'navigate' | 'linkTo' | 'resolveLink' | 'session' | 'user' | 'revision' | 'can' | 'canOpen' | 'scope' | 'toast' | 'dismissToast' | 'registry' | 'adapter' | 'favorites' | 'toggleFavorite' | 'accessibleSpaces' | 'spaceEntry' | 'homeTodo'>;
+export type MenuPlatform = Pick<HostPlatform, 'route' | 'url' | 'pathname' | 'absoluteUrl' | 'location' | 'global' | 'page' | 'pageParam' | 'pageParams' | 'setGlobal' | 'setPage' | 'resetContext' | 'navigate' | 'linkTo' | 'resolveLink' | 'session' | 'user' | 'revision' | 'can' | 'canOpen' | 'scope' | 'toast' | 'dismissToast' | 'registry' | 'adapter' | 'favorites' | 'toggleFavorite' | 'accessibleSpaces' | 'spaceEntry' | 'homeTodo'>;
 
 /** Context items named by return notifications, separate from menu capabilities. */
 export type ReturnContextKey = ContextKey | 'scope';

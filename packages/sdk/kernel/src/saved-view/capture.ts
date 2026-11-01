@@ -45,7 +45,7 @@ export function resolveContext(context: SavedViewContext, anchor: string | null)
 
 /** Canonical text of a state, so two states are equal exactly when their address would be. */
 export function stateKey(state: SavedState): string {
-  const g = parseQuery(buildQuery({ ...EMPTY, ...(state.context as Partial<GlobalContext>) } as GlobalContext, state.page), state.page.map(([k]) => k)).global;
+  const g = parseQuery(buildQuery({ ...EMPTY, ...(state.context as Partial<GlobalContext>) } as GlobalContext, state.page), state.page.map(([k]) => k), { repeated: state.page.map(([k]) => k) }).global;
   return JSON.stringify([buildQuery(g), pagePairs(state.page)]);
 }
 const EMPTY: GlobalContext = { scopeId: null, from: null, to: null, roomNames: null, condition: null, lineNames: null, prcGroups: null, membershipBasis: null, selection: null, lotIds: null, ppid: null, recipeIds: null, metricId: null, metricVersion: null };
