@@ -242,7 +242,7 @@
     <h3>페이지 유형 · 같은 틀, 다른 메뉴</h3>
     <div class="tile-row">
       <figure class="shot-figure"><span class="shot-frame"><button type="button" class="shot-zoom" data-shot-open="assets/layouts/layouts-overview.jpg" aria-haspopup="dialog" aria-label="Overview 유형 생산성 개요 크게 보기"><img src="assets/layouts/layouts-overview.jpg" loading="lazy" width="2880" height="1800" alt="MARS 생산성 개요. 조건 바 아래 네 지표 요약 카드와 Job 처리량 추세 막대 차트가 있습니다."></button></span><figcaption><b>Overview</b> · MARS 생산성 개요 · 지표 요약과 추세</figcaption></figure>
-      <figure class="shot-figure"><span class="shot-frame"><button type="button" class="shot-zoom" data-shot-open="assets/layouts/layouts-management.jpg" aria-haspopup="dialog" aria-label="Management 유형 설비 마스터 크게 보기"><img src="assets/layouts/layouts-management.jpg" loading="lazy" width="2880" height="1800" alt="MARS 설비 마스터. 왼쪽 필터 열과 오른쪽 설비 목록 표가 나란히 있습니다."></button></span><figcaption><b>Management</b> · MARS 설비 마스터 · 필터 열과 목록</figcaption></figure>
+      <figure class="shot-figure"><span class="shot-frame"><button type="button" class="shot-zoom" data-shot-open="assets/layouts/layouts-management.jpg" aria-haspopup="dialog" aria-label="Management 유형 설비 마스터 크게 보기"><img src="assets/layouts/layouts-management.jpg" loading="lazy" width="2880" height="1800" alt="MARS 설비 마스터. 표 위에 검색과 필터 조건, 아래에 설비 목록이 있습니다."></button></span><figcaption><b>Management</b> · MARS 설비 마스터 · 필터와 목록</figcaption></figure>
       <figure class="shot-figure"><span class="shot-frame"><button type="button" class="shot-zoom" data-shot-open="assets/layouts/layouts-catalog.jpg" aria-haspopup="dialog" aria-label="Catalog 유형 지표 카탈로그 크게 보기"><img src="assets/layouts/layouts-catalog.jpg" loading="lazy" width="2880" height="1800" alt="BRAVO 지표 카탈로그. 페이지 필터 아래 지표 이름·도메인·grain 목록 표가 있습니다."></button></span><figcaption><b>Catalog</b> · BRAVO 지표 카탈로그 · 페이지 필터와 목록</figcaption></figure>
     </div>
     <p class="cap-line">페이지 유형 5종 · Analysis Workspace는 위 HW Time 비교 · Workflow는 공통 부품 조립 · 전용 레이아웃 부품은 Management·Analysis 2종 · <a class="source-ref" href="#source-L19">L19</a> · <a class="source-ref" href="#source-L17">L17</a> · <a class="source-ref" href="#source-L148">L148</a></p>
@@ -863,7 +863,7 @@
               <h3>화면 유형 다섯 가지로 시작합니다.</h3>
               <p>
                 Overview·Analysis Workspace·Management·Catalog·Workflow. manifest의 화면 유형이 생성기 뼈대를 정하고,
-                관리 화면(필터 열 + 표)과 분석 화면(KPI 띠·차트 2열·분해 표)은 공통 레이아웃 컴포넌트로, 드릴다운은
+                관리 화면(툴바 한 줄 + 필터·결과 줄 + 표)과 분석 화면(KPI 띠·차트 2열·분해 표)은 공통 레이아웃 컴포넌트로, 드릴다운은
                 DrillLayout으로 제공합니다. 셸은 시스템 레일 52px·사이드바 240px·머리 50px입니다.
               </p>
               <p>이 화면에서: 시스템 레일·사이드바·머리 + KPI 카드·차트·분해 표 자리</p>
@@ -1293,13 +1293,14 @@
                 >
                   <span class="preview" aria-hidden="true"
                     ><span class="preview-div wire-management"
-                      ><span class="preview-div">260px 필터</span><span class="preview-div">표</span
+                      ><span class="preview-div">툴바</span><span class="preview-div">필터·결과 줄</span
+                      ><span class="preview-div">표</span
                       ><span class="preview-div">상세</span></span
                     ></span
                   ><span class="card-name"><code>ManagementLayout</code> <span class="more">+1</span></span
                   ><span class="caption">@ap/components</span
                   ><span class="card-gain"
-                    >자기 폭 960px 이상이면 필터 열, 좁으면 팝오버, 접힘 기억·포커스 이동</span
+                    >표 위 툴바 한 줄(제목·검색·표 컨트롤)과 필터·결과 줄 하나, 상세 슬롯</span
                   ></button
                 ><button
                   type="button"
@@ -1789,7 +1790,7 @@
             </article>
             <article id="detail-C12" class="component-detail" data-detail="C12">
               <h3 tabindex="-1"><code>ManagementLayout</code> · <code>ManagementLayoutProps</code></h3>
-              <p><b>받는 것</b> 자기 폭 960px 이상이면 필터 열 · 좁으면 팝오버 · 접힘 기억·포커스 이동</p>
+              <p><b>받는 것</b> 표 위 툴바 한 줄(제목·검색·표 컨트롤) · 필터·결과 줄 하나 · 상세 슬롯</p>
               <p><b>화면이 할 일</b> 슬롯 내용</p>
               <p class="caption">
                 원본:
@@ -3237,9 +3238,9 @@ export type ModuleHost = {
           <summary>콘텐츠 원장 L01–L149</summary>
           <div id="source-L01">
             <h3>L01</h3>
-            <a href="https://github.com/hjung3113/analytics-platform/blob/main/.planning/README.md">공개 원본 보기</a>
-            <p>최신 앱 릴리스 v0.15.0(2026-10-21), 최신 SDK 릴리스 sdk-v0.12.0(2026-10-23), .planning/README.md와 GitHub Release 기준</p>
-            <p class="caption"><code>.planning/README.md</code> 「끝난 것」, GitHub Release <code>sdk-v0.12.0</code> · 2026-10-23 최신 릴리스로 갱신</p>
+            <a href="https://github.com/hjung3113/analytics-platform/releases/tag/v0.22.0">공개 원본 보기</a>
+            <p>최신 앱 릴리스 v0.22.0(2026-11-01), 최신 SDK 릴리스 sdk-v0.26.0(2026-11-01), .planning/README.md와 GitHub Release 기준. SDK 릴리스: <a href="https://github.com/hjung3113/analytics-platform/releases/tag/sdk-v0.26.0">sdk-v0.26.0</a></p>
+            <p class="caption"><code>.planning/README.md</code> 「끝난 것」, GitHub Release <code>v0.22.0</code>·<code>sdk-v0.26.0</code> · 2026-11-01 최신 릴리스로 갱신</p>
           </div>
           <div id="source-L02">
             <h3>L02</h3>
@@ -3426,10 +3427,11 @@ export type ModuleHost = {
               >공개 원본 보기</a
             >
             <p>
-              ManagementLayout: 자기 폭 960px 이상 260px 필터 열, 좁으면 팝오버. AnalysisLayout: KPI 띠·차트(960px
-              이상·펼친 차트 2개 이상이면 2열)·분해 표, 단위별 접기
+              ManagementLayout: 필터 레일 없이 표 툴바 한 줄(제목·검색·표 컨트롤)과 그 아래 필터 줄 하나(2026-11-01,
+              sdk-v0.26.0, ADR-0105). AnalysisLayout: KPI 띠·차트(960px 이상·펼친 차트 2개 이상이면 2열)·분해 표,
+              단위별 접기
             </p>
-            <p class="caption">플랫폼 UI 계약 §12.6, ADR-0022 · —</p>
+            <p class="caption">플랫폼 UI 계약 §12.6, ADR-0022·ADR-0105 · —</p>
           </div>
           <div id="source-L18">
             <h3>L18</h3>
