@@ -5,17 +5,18 @@
  */
 import { type ReactNode, type Ref } from 'react';
 import { ChevronDown, Info, MoreHorizontal } from 'lucide-react';
+import { TABLE_SIZES, TABLE_SIZE_STEPS, parseTableSize, type TableSize } from './tableSize';
 import {
   Button, cn, DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger,
   DropdownMenuTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from '@ap/ui';
 
 type Lang = 'ko' | 'en';
-/** The toolbar controls that can move into `⋯`, in the order they leave the bar as the toolbar narrows (the menu lists them in toolbar order). 표 크기 (1217d) joins the end of this list. */
-export const COLLAPSE_ORDER = ['copy', 'group', 'columns', 'export'] as const;
+/** The toolbar controls that can move into `⋯`, in the order they leave the bar as the toolbar narrows (the menu lists them in toolbar order). 표 크기 (1217d) leaves right after 그룹: both change what the rows show and sit side by side. */
+export const COLLAPSE_ORDER = ['copy', 'group', 'size', 'columns', 'export'] as const;
 export type Collapsible = typeof COLLAPSE_ORDER[number];
 /** Toolbar width (px) below which the control at the same index of COLLAPSE_ORDER is in `⋯`: wide panes keep everything, a 220px board cell keeps only the title and `⋯`. */
-export const COLLAPSE_BELOW: Record<Collapsible, number> = { copy: 640, group: 520, columns: 420, export: 300 };
+export const COLLAPSE_BELOW: Record<Collapsible, number> = { copy: 640, group: 520, size: 470, columns: 420, export: 300 };
 
 /** What is in `⋯` at this toolbar width; an unmeasured width (null) collapses nothing. */
 export function collapsedControls(width: number | null): ReadonlySet<Collapsible> {
@@ -70,6 +71,32 @@ export function GroupSubmenu({ lang, value, options, onChange }: { lang: Lang; v
   return <DropdownMenuSub>
     <DropdownMenuSubTrigger data-row-group-select>{groupLabel(lang)}: {groupValueText(value, options, lang)}</DropdownMenuSubTrigger>
     <DropdownMenuSubContent><GroupRadios lang={lang} value={value} options={options} onChange={onChange} /></DropdownMenuSubContent>
+  </DropdownMenuSub>;
+}
+
+const sizeLabel = (lang: Lang) => lang === 'ko' ? '표 크기' : 'Table size';
+const sizeName = (size: TableSize, lang: Lang) => TABLE_SIZE_STEPS[size][lang];
+function SizeRadios({ lang, value, onChange }: { lang: Lang; value: TableSize; onChange: (size: TableSize) => void }) {
+  return <DropdownMenuRadioGroup value={value} onValueChange={v => { const size = parseTableSize(v); if (size) onChange(size); }}>
+    {TABLE_SIZES.map(size => <DropdownMenuRadioItem key={size} value={size}>{sizeName(size, lang)}</DropdownMenuRadioItem>)}
+  </DropdownMenuRadioGroup>;
+}
+
+/** 「표 크기: 보통 ▾」: a 32px menu button like 그룹 (▾ because it picks a value) over a radio list: 작게 / 보통 / 크게. One per-user setting for every table. */
+export function TableSizeMenu({ lang, value, onChange }: { lang: Lang; value: TableSize; onChange: (size: TableSize) => void }) {
+  return <DropdownMenu>
+    <DropdownMenuTrigger asChild>
+      <Button variant="secondary" size="toolbar" data-table-size-select>{sizeLabel(lang)}: {sizeName(value, lang)}<ChevronDown className="size-3.5" aria-hidden /></Button>
+    </DropdownMenuTrigger>
+    <DropdownMenuContent align="end" className="min-w-40"><SizeRadios lang={lang} value={value} onChange={onChange} /></DropdownMenuContent>
+  </DropdownMenu>;
+}
+
+/** The same choice inside `⋯`, as a submenu. */
+export function TableSizeSubmenu({ lang, value, onChange }: { lang: Lang; value: TableSize; onChange: (size: TableSize) => void }) {
+  return <DropdownMenuSub>
+    <DropdownMenuSubTrigger data-table-size-select>{sizeLabel(lang)}: {sizeName(value, lang)}</DropdownMenuSubTrigger>
+    <DropdownMenuSubContent><SizeRadios lang={lang} value={value} onChange={onChange} /></DropdownMenuSubContent>
   </DropdownMenuSub>;
 }
 

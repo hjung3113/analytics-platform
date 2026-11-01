@@ -61,13 +61,13 @@ function Harness(p: { load?: ReturnType<typeof makeLoad>; subtitle?: string; sea
 const toolbar = () => document.querySelector('[data-table-toolbar]') as HTMLElement;
 
 describe('PlatformDataTable one-line toolbar (1217c)', () => {
-  it('lists title, search, 그룹, 컬럼, 복사, 내보내기 in that order; every control is a 32px (h-8) toolbar control; ▾ only on menus', async () => {
+  it('lists title, search, 그룹, 표 크기, 컬럼, 복사, 내보내기 in that order; every control is a 32px (h-8) toolbar control; ▾ only on menus', async () => {
     render(<Harness subtitle="설명 문장" search={<input aria-label="검색" />} />);
     await screen.findByText(/1\/1/);
     const bar = toolbar();
     const order = [...bar.querySelectorAll('h2, [data-table-search], button')].map(el => el.tagName === 'H2' ? 'title' : el.hasAttribute('data-table-search') ? 'search' : el.textContent?.trim() || el.getAttribute('aria-label'));
-    expect(order).toEqual(['title', '설명', 'search', '그룹: 없음', '컬럼', '복사', '내보내기']);
-    for (const name of ['그룹: 없음', '컬럼', '복사', '내보내기']) expect(within(bar).getByRole('button', { name })).toHaveClass('h-8');
+    expect(order).toEqual(['title', '설명', 'search', '그룹: 없음', '표 크기: 보통', '컬럼', '복사', '내보내기']);
+    for (const name of ['그룹: 없음', '표 크기: 보통', '컬럼', '복사', '내보내기']) expect(within(bar).getByRole('button', { name })).toHaveClass('h-8');
     // ▾ (chevron) only on the two menu buttons that pick a value or open a menu; 컬럼 (popover) and 복사 (action) have none.
     expect(within(bar).getByRole('button', { name: '그룹: 없음' }).querySelector('.lucide-chevron-down')).not.toBeNull();
     expect(within(bar).getByRole('button', { name: '내보내기' }).querySelector('.lucide-chevron-down')).not.toBeNull();
@@ -162,8 +162,8 @@ describe('PlatformDataTable result line (1217c)', () => {
 });
 
 describe('PlatformDataTable toolbar overflow (1217c, P10)', () => {
-  it('collapse order is copy, group, columns, export and each leaves at its own width', () => {
-    expect([...COLLAPSE_ORDER]).toEqual(['copy', 'group', 'columns', 'export']);
+  it('collapse order is copy, group, size, columns, export and each leaves at its own width', () => {
+    expect([...COLLAPSE_ORDER]).toEqual(['copy', 'group', 'size', 'columns', 'export']);
     const widths = COLLAPSE_ORDER.map(k => COLLAPSE_BELOW[k]);
     expect(widths).toEqual([...widths].sort((a, b) => b - a));
     expect(collapsedControls(null).size).toBe(0);
@@ -171,11 +171,12 @@ describe('PlatformDataTable toolbar overflow (1217c, P10)', () => {
   });
 
   it.each([
-    [1280, ['그룹: 없음', '컬럼', '복사', '내보내기'], []],
-    [600, ['그룹: 없음', '컬럼', '내보내기', '더보기'], ['복사']],
-    [450, ['컬럼', '내보내기', '더보기'], ['그룹: 없음', '복사']],
-    [350, ['내보내기', '더보기'], ['그룹: 없음', '컬럼', '복사']],
-    [220, ['더보기'], ['그룹: 없음', '컬럼', '복사', '내보내기']],
+    [1280, ['그룹: 없음', '표 크기: 보통', '컬럼', '복사', '내보내기'], []],
+    [600, ['그룹: 없음', '표 크기: 보통', '컬럼', '내보내기', '더보기'], ['복사']],
+    [500, ['표 크기: 보통', '컬럼', '내보내기', '더보기'], ['그룹: 없음', '복사']],
+    [450, ['컬럼', '내보내기', '더보기'], ['그룹: 없음', '표 크기: 보통', '복사']],
+    [350, ['내보내기', '더보기'], ['그룹: 없음', '표 크기: 보통', '컬럼', '복사']],
+    [220, ['더보기'], ['그룹: 없음', '표 크기: 보통', '컬럼', '복사', '내보내기']],
   ])('at %ipx the bar keeps %j and `⋯` holds %j, listed in toolbar order', async (width, bar, moved) => {
     toolbarWidth = width;
     const user = userEvent.setup();

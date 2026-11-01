@@ -27,7 +27,8 @@ import { useTableTransfer } from './useTableTransfer';
 import { useTableSelection, type TableExportRequest, type TableSelection } from './useTableSelection';
 import { SelectAllBar } from './selectAllBar';
 import { buildGroupedItems, GroupHeaderCells, groupHeaderLayout, groupKeyOf } from './rowGroups';
-import { collapsedControls, GroupMenu, GroupSubmenu, MoreMenu, ToolbarTitle } from './tableToolbar';
+import { collapsedControls, GroupMenu, GroupSubmenu, MoreMenu, TableSizeMenu, TableSizeSubmenu, ToolbarTitle } from './tableToolbar';
+import { BASE_ROW_HEIGHT, TABLE_SIZE_STEPS, useTableSize } from './tableSize';
 
 export type { GroupedPageResult, PageGroup, PageQuery, PageResult } from '@ap/contracts';
 export { sortAndPage } from '@ap/contracts';
@@ -175,6 +176,13 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const analysisSection = useContext(AnalysisSectionContext);
   const inPanel = useInWorkspacePanel();
   const densePage = useCompactPageDensity();
+  // 1217d: one per-user size for every table, a step relative to this context's baseline; 보통 renders exactly as before (no size class or style is added).
+  const [tableSize, setTableSize] = useTableSize();
+  const sized = tableSize !== 'normal';
+  const step = TABLE_SIZE_STEPS[tableSize];
+  const rowHeight = BASE_ROW_HEIGHT + step.rowDelta;
+  const widthScale = step.widthScale;
+  const sizeVars = { '--ap-table-font': step.font, '--ap-table-mono-font': `calc(${step.font} - 1px)`, '--ap-table-head-font': step.head, '--ap-table-row-h': `${rowHeight}px` } as CSSProperties;
   const embedded = useEmbeddedChrome();
   const { route } = usePlatform();
   const { screenMode } = useHostPlatform();
@@ -258,7 +266,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const columnPrefsId = useId();
   // ADR-0037: the action column is pinned right whenever the scrollport keeps room beside the user's left pins; narrower
   // it scrolls with the rest so pinned regions never overlap. Never user-pinnable, never stored (`_action` stays out of preferences).
-  const leftPinnedWidth = (preferences.pinning.left ?? []).reduce((sum, id) => preferences.visibility[id] === false ? sum : sum + (preferences.sizing[id] ?? p.columns.find(c => c.id === id)?.size ?? DEFAULT_COLUMN_WIDTH), 0);
+  const leftPinnedWidth = (preferences.pinning.left ?? []).reduce((sum, id) => preferences.visibility[id] === false ? sum : sum + (preferences.sizing[id] ?? Math.round((p.columns.find(c => c.id === id)?.size ?? DEFAULT_COLUMN_WIDTH) * widthScale)), 0);
   // When only the compact (72px, icon-only) form fits beside the left pins it stays pinned; narrower still it unpins in the normal form.
   const fitsFull = fit.width === null || fit.width === 0 || fit.width >= leftPinnedWidth + ACTION_COLUMN_WIDTH + ACTION_PIN_MIN_SCROLL;
   const actionCompact = !!p.rowAction && !fitsFull && fit.width !== null && fit.width >= leftPinnedWidth + COMPACT_ACTION_WIDTH + ACTION_PIN_MIN_SCROLL;
@@ -283,8 +291,9 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       },
       cell: ({ row }) => <Checkbox aria-label={`${lang === 'ko' ? '선택' : 'Select'} ${row.id}`} checked={row.getIsSelected()} onCheckedChange={v => row.toggleSelected(v === true)} className="size-3.5 border-border-control" />,
     } as ColumnDef<T>] : []),
-    ...p.columns.map(toColumnDef),
-  ], [p.columns, lang, selectable]);
+    // 크게 widens the DEFAULT widths by the font ratio; a width the user dragged is stored in `preferences.sizing` and wins over it.
+    ...p.columns.map(c => toColumnDef(widthScale === 1 ? c : { ...c, size: Math.round((c.size ?? DEFAULT_COLUMN_WIDTH) * widthScale) })),
+  ], [p.columns, lang, selectable, widthScale]);
   const hasAction = !!p.rowAction;
   const allColumns = useMemo<ColumnDef<T>[]>(() => [
     ...baseColumns,
@@ -333,7 +342,8 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
     ? buildGroupedItems(rows, data.groups, row => groupKeyOf(groupColumn.value ? groupColumn.value(row.original) : (row.original as Record<string, unknown>)[groupColumn.id]), collapsed)
     : null, [groupColumn, rows, data.groups, collapsed]);
   const items = groupedItems ?? rows.map(row => ({ kind: 'row' as const, key: row.id, row }));
-  const virtual = useVirtualizer({ count: items.length, getScrollElement: () => viewport.current, estimateSize: () => 32, overscan: 8, getItemKey: i => items[i].key });
+  const virtual = useVirtualizer({ count: items.length, getScrollElement: () => viewport.current, estimateSize: () => rowHeight, overscan: 8, getItemKey: i => items[i].key });
+  useLayoutEffect(() => { virtual.measure(); }, [rowHeight]); // eslint-disable-line react-hooks/exhaustive-deps -- `virtual` is stable; a size change re-measures the cached rows
   // Selected rows of this page that a collapsed group hides: the page selection still covers them, and the count says so.
   const hiddenSelected = groupedItems ? rows.filter(r => r.getIsSelected()).length - groupedItems.filter(it => it.kind === 'row' && it.row.getIsSelected()).length : 0;
   const changeGroup = (id: string) => {
@@ -419,8 +429,13 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
     return { width: widthOf(column), flexShrink: 0, position: pinned ? 'sticky' : 'relative', left: pinned === 'left' ? column.getStart('left') : undefined, right: pinned === 'right' ? column.getAfter('right') : undefined, zIndex: pinned ? 2 : undefined };
   }
   const align = (column: Column<T>) => ((column.columnDef.meta as ColumnMeta | undefined)?.align === 'right' ? 'justify-end text-right tabular' : '');
-  const headerBase = 'flex min-h-8 items-center overflow-hidden whitespace-nowrap px-4 py-1 pointer-coarse:min-h-11';
-  const cellBase = cn(headerBase, 'overflow-visible whitespace-normal [overflow-wrap:anywhere]');
+  // 보통 keeps today's literal; 작게/크게 take the row height and font from the section's variables (checkboxes are excluded from the 작게 button height: they stay 14×14).
+  const headerBase = sized ? 'flex min-h-(--ap-table-row-h) items-center overflow-hidden whitespace-nowrap px-4 py-0 pointer-coarse:min-h-11' : 'flex min-h-8 items-center overflow-hidden whitespace-nowrap px-4 py-1 pointer-coarse:min-h-11';
+  const cellBase = cn(headerBase, 'overflow-visible whitespace-normal [overflow-wrap:anywhere]',
+    sized && 'py-0.5 [&_a]:text-(length:--ap-table-font) [&_button:not([role=checkbox])]:text-(length:--ap-table-font) [&_.t-mono]:text-(length:--ap-table-mono-font)',
+    tableSize === 'small' && '[&_button:not([role=checkbox])]:h-6');
+  const cellText = sized ? 'text-(length:--ap-table-font)' : 'text-sm';
+  const headStyle = (column: Column<T>): CSSProperties => sized ? { ...cellStyle(column), fontSize: 'var(--ap-table-head-font)' } : cellStyle(column);
   /** The right-pinned action column keeps a visible edge while content scrolls beneath it (a border token; DESIGN.md allows no shadow). */
   const pinEdge = 'border-l border-l-border-control';
   /** A pinned cell fades the column scrolling beneath its inner edge (a pseudo-element of the cell itself, no pointer events), so a half-clipped column never reads as cut text. */
@@ -512,10 +527,11 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   // No `ok` result yet (new Context loading, refused page): the count is unknown, so the group label says “필터 결과 전체” with no number.
   const filteredCount = shown?.outcome === 'ok' ? data.total : null;
   const groupIn = groupColumns.length > 0 && overflow.has('group');
+  const sizeIn = overflow.has('size');
   const columnsIn = overflow.has('columns');
   const copyIn = canExport && overflow.has('copy');
   const exportIn = canExport && overflow.has('export');
-  const hasMore = groupIn || columnsIn || copyIn || exportIn;
+  const hasMore = groupIn || sizeIn || columnsIn || copyIn || exportIn;
   const copyLabel = selectedIds.length === 0 ? (lang === 'ko' ? '복사' : 'Copy') : lang === 'ko' ? `${selectedIds.length}행 복사` : `Copy ${selectedIds.length} ${selectedIds.length === 1 ? 'row' : 'rows'}`;
   // Same wording as the wide 복사 button's tooltip; the overflow item carries it as its description (no hover/focus tooltip inside a menu).
   const copyHelp = selectionState.all
@@ -547,6 +563,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
     setOverlayOpen(o => ({ ...o, columns: true }));
   }}>
     {groupIn && <GroupSubmenu lang={lang} value={groupBy ?? ''} options={groupColumns} onChange={changeGroup} />}
+    {sizeIn && <TableSizeSubmenu lang={lang} value={tableSize} onChange={setTableSize} />}
     {columnsIn && <DropdownMenuItem className={exportItemClass} onSelect={() => { openColumnsAfterMenu.current = true; }}><Columns3 className="mr-2 size-3.5" aria-hidden />{lang === 'ko' ? '컬럼' : 'Columns'}</DropdownMenuItem>}
     {copyIn && <DropdownMenuItem className={exportItemClass} disabled={selectedIds.length === 0 || copying} aria-label={copyLabel} aria-describedby={copyHelpId} aria-keyshortcuts={selectedIds.length > 0 ? 'Control+C Meta+C' : undefined} onSelect={() => { void runCopy(); }}><Copy className="mr-2 size-3.5" aria-hidden />{copyLabel}</DropdownMenuItem>}
     {exportIn && <DropdownMenuSub>
@@ -579,7 +596,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       <div className="mt-3"><Button type="button" variant="secondary" size="toolbar" onClick={resetPreferences}>{lang === 'ko' ? '기본값으로' : 'Reset to default'}</Button></div>
     </PopoverContent>
   </Popover>;
-  return <section ref={section} tabIndex={-1} aria-label={p.ariaLabel} aria-describedby={p.subtitle ? descriptionId : undefined} onKeyDown={onShortcut} className={cn('flex flex-col rounded-lg border border-border-subtle bg-surface-card', embedded && 'rounded-none border-0 shadow-none')}>
+  return <section ref={section} tabIndex={-1} aria-label={p.ariaLabel} aria-describedby={p.subtitle ? descriptionId : undefined} onKeyDown={onShortcut} style={sizeVars} data-table-size={tableSize} className={cn('flex flex-col rounded-lg border border-border-subtle bg-surface-card', embedded && 'rounded-none border-0 shadow-none')}>
     {/* Toolbar line (06 §15, 1217c): one row of 32px controls. Left = title (ⓘ carries the description) + quick search slot; right = 그룹, [표 크기: 1217d], 컬럼, 복사, 내보내기, and `⋯` for what no longer fits. */}
     <div ref={toolbar.ref} data-table-toolbar className={cn('flex items-center justify-between gap-2', embedded ? 'min-h-10 px-2 py-1.5' : densePage ? 'min-h-14 px-3 py-3' : 'min-h-14 p-4', analysisSection && 'pr-12')}>
       <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -589,7 +606,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       <div className="flex shrink-0 items-center gap-2">
         {p.filters}
         {groupColumns.length > 0 && !groupIn && <GroupMenu lang={lang} value={groupBy ?? ''} options={groupColumns} onChange={changeGroup} />}
-        {/* 표 크기 ▾ (node 1217d) takes this place; nothing renders until then. */}
+        {!sizeIn && <TableSizeMenu lang={lang} value={tableSize} onChange={setTableSize} />}
         {!columnsIn && columnsPopover}
         {/* Toolbar D (#172): fixed order [컬럼] [복사] [내보내기 ▾]; the opt-in 「그룹」 menu (#556d) sits before 「컬럼」 — both change what the rows show, and a table without a groupable column keeps the order above. */}
         {canExport && !copyIn && <TooltipProvider delayDuration={200}>
@@ -671,7 +688,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
             <div role="row" className="flex">{table.getHeaderGroups()[0].headers.map(h => {
               const sorted = h.column.getIsSorted();
               // eslint-disable-next-line shadcn/no-inline-styles -- column width and pin offset come from column sizing at runtime
-              return <div role="columnheader" key={h.id} data-column={h.column.id} style={cellStyle(h.column)} title={typeof h.column.columnDef.header === 'string' ? h.column.columnDef.header : undefined}
+              return <div role="columnheader" key={h.id} data-column={h.column.id} style={headStyle(h.column)} title={typeof h.column.columnDef.header === 'string' ? h.column.columnDef.header : undefined}
                 aria-sort={sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : h.column.getCanSort() ? 'none' : undefined}
                 className={cn(headerBase, 'group/head t-table-header border-b border-border-subtle bg-surface-sunken text-text-secondary', h.column.getIsPinned() === 'right' && pinEdge, fadeClass(h.column.getIsPinned(), false), align(h.column))}>
                 {h.column.getCanSort()
@@ -704,7 +721,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
                   // eslint-disable-next-line shadcn/no-inline-styles -- row offset is the virtual item position computed at runtime
                   className="group absolute left-0 top-0 flex w-full" style={{ transform: `translateY(${item.start}px)` }}>
                   <GroupHeaderCells lang={lang} item={entry} onToggle={() => toggleGroup(entry.group.key)}
-                    cellClassName={cn(cellBase, 'border-b border-border-subtle bg-surface-sunken text-sm')}
+                    cellClassName={cn(cellBase, 'border-b border-border-subtle bg-surface-sunken', cellText)}
                     lead={{ style: { width: leading.reduce((sum, c) => sum + widthOf(c), 0), flexShrink: 0 }, span: leading.length, stickyLeft: table.getLeftVisibleLeafColumns().reduce((sum, c) => sum + widthOf(c), 0), subtotal: leadSubtotal ? { id: leadSubtotal.id } : undefined }}
                     trailing={trailing.map(c => ({ id: c.id, subtotal: subtotalIds.has(c.id), style: cellStyle(c), className: c.getIsPinned() === 'right' ? pinEdge : undefined }))} />
                 </div>;
@@ -725,7 +742,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
                 </div>}
                 {/* eslint-disable-next-line shadcn/no-inline-styles -- cell width and pin offset come from column sizing at runtime */}
                 {cells.map((cell, cellIndex) => <div role="cell" key={cell.id} data-column={cell.column.id} style={cellStyle(cell.column)}
-                  className={cn(cellBase, 'border-b border-border-subtle bg-surface-card text-sm group-hover:bg-surface-row-hover group-aria-selected:bg-surface-row-selected', active && 'bg-surface-row-selected', active && cellIndex === firstDataCell && 'font-medium', cell.column.id === '_action' && (actionCompact ? 'py-0 px-0' : 'py-0'), cell.column.getIsPinned() === 'right' && pinEdge, fadeClass(cell.column.getIsPinned(), true, active), align(cell.column))}>
+                  className={cn(cellBase, 'border-b border-border-subtle bg-surface-card', cellText, 'group-hover:bg-surface-row-hover group-aria-selected:bg-surface-row-selected', active && 'bg-surface-row-selected', active && cellIndex === firstDataCell && 'font-medium', cell.column.id === '_action' && (actionCompact ? 'py-0 px-0' : 'py-0'), cell.column.getIsPinned() === 'right' && pinEdge, fadeClass(cell.column.getIsPinned(), true, active), align(cell.column))}>
                   {/* The _action column cell is not used — rowAction renders directly to preserve DOM identity (#296). */}
                   {cell.column.id === '_action' ? p.rowAction?.(row.original, { compact: actionCompact }) : flexRender(cell.column.columnDef.cell, cell.getContext())}
                 </div>)}
