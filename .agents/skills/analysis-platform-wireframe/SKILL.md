@@ -11,7 +11,7 @@ Read `references/wireframe-rules.md` before Step 2 — it has the wireframe temp
 
 ## Why this exists
 
-Four design skills are installed in this project and their scopes overlap on paper:
+This workflow names four design skills. ui-ux-pro-max is active locally; interface-design, frontend-design and web-design-guidelines are parked in .agents/skills-off/. For a gated stage that needs one, use an available global copy or read its parked SKILL.md explicitly; see ../../README.md (Run and Maintenance). Their scopes overlap on paper:
 
 | Skill | Owns | Does NOT own |
 |---|---|---|
