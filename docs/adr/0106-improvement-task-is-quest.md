@@ -25,6 +25,6 @@
 
 ## 결과
 
-- GLOSSARY에 `과제(Quest)`·`개선 아이템`·`효과 확인`·`PI`를 올린다.
+- GLOSSARY에 `과제(Quest)`·`개선 아이템`·`효과 확인`·`PI`(Process Innovation)를 올린다.
 - 개선 실행 화면·서버는 사내에서 만든다(루트 `AGENTS.md`). 플랫폼 몫은 편집형 표 조각(#540)과 기준일 전후 비교 조각(#1243)이며, 둘 다 구현 안 함이다.
 - [ADR-0065](0065-log-dev-and-improvement-spaces-work-queue-first.md)를 보충한다(개선 실행의 `과제`가 발표의 Quest).
