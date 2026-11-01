@@ -145,7 +145,7 @@ async function empty(dir) {
 }
 await mkdir(out, { recursive: true });
 await empty(out);
-for (const name of ["index.html", "glossary.html", "assets"]) await cp(join(site, name), join(out, name), { recursive: true });
+for (const name of ["index.html", "glossary.html", "assets", "presentation"]) await cp(join(site, name), join(out, name), { recursive: true });
 await mkdir(join(out, "assets/tokens"), { recursive: true });
 for (const [source, name] of tokens) await cp(source, join(out, "assets/tokens", name));
 // SVG image documents cannot reliably import external token stylesheets. Resolve
