@@ -42,9 +42,15 @@ const rawField = (raw: string): string => raw.slice(0, Math.max(raw.indexOf(':')
 const withoutRequires = (specs: Readonly<Record<string, ColumnFilterSpec>>): Record<string, ColumnFilterSpec> =>
   Object.fromEntries(Object.entries(specs).map(([id, spec]) => [id, spec.requires ? { ...spec, requires: [] } : spec]));
 
+type RangeFilter = Extract<ColumnFilter, { op: 'between'; value: { from?: string; to?: string } }>;
+const isRange = (filter: ColumnFilter): filter is RangeFilter => filter.op === 'between' && !Array.isArray(filter.value);
+/** True when both ranges set the same end, so they cannot be the two halves of one range. */
+const hasBothEnds = (a: RangeFilter, b: RangeFilter): boolean => ('from' in a.value && 'from' in b.value) || ('to' in a.value && 'to' in b.value);
+
 /**
  * The filters the URL holds: the new key's values through the codec, then every present legacy key converted and merged (a legacy key
- * and a condition on the same field, an unconvertible legacy value, or any failed rule is a problem, never a repair). Pure.
+ * and a condition on the same field, an unconvertible legacy value, or any failed rule is a problem, never a repair; the one exception: two old keys that
+ * each give one end of the same `between` range field merge into that one range). Pure.
  */
 export function readTableFilters(option: TableFilterOption, values: readonly string[], legacyRaw: readonly (string | null)[]): TableFilterRead {
   // `requires` spans conditions, so it is judged once on the merged set below (a legacy key may satisfy a new condition and vice versa).
@@ -54,14 +60,24 @@ export function readTableFilters(option: TableFilterOption, values: readonly str
   const raws = [...values];
   const legacy = option.legacy ?? [];
   const problems: TableFilterProblem[] = [];
+  const legacyAdded = new Map<string, number>();
   let legacyPresent = false;
   legacy.forEach((entry, index) => {
     const raw = legacyRaw[index];
     if (raw === null || raw === undefined) return;
     legacyPresent = true;
     const filter = entry.toFilter(raw);
-    if (!filter) problems.push({ reason: 'legacy-invalid', field: entry.key, raw });
-    else { filters.push(filter); raws.push(raw); }
+    if (!filter) { problems.push({ reason: 'legacy-invalid', field: entry.key, raw }); return; }
+    // Two old keys that are the two ends of one range field (`fromAt` + `toAt`) are one condition; a clash with a new-key condition is left to `validateFilters`.
+    const at = legacyAdded.get(filter.id);
+    const prev = at === undefined ? undefined : filters[at];
+    if (at !== undefined && prev && isRange(prev) && isRange(filter) && !hasBothEnds(prev, filter)) {
+      filters[at] = { id: filter.id, op: 'between', value: { ...prev.value, ...filter.value } };
+      return;
+    }
+    legacyAdded.set(filter.id, filters.length);
+    filters.push(filter);
+    raws.push(raw);
   });
   if (problems.length > 0) return { ok: false, problems };
   const check = validateFilters(filters, option.specs);

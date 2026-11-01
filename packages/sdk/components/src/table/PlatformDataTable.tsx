@@ -70,8 +70,8 @@ export type PlatformColumn<T> = {
    * to `loadPage` (`query.filters`) and `exportRows`. The id is the server field; the server applies the filter.
    */
   filter?: ColumnFilterSpec;
-  /** Display only (ADR-0105): this column's filter button sits on the filter line (a chip once set). Needs `filter`. */
-  filterPinned?: boolean;
+  /** Display only (ADR-0105): this column's filter button sits on the filter line (a chip once set). Needs `filter`. A number is the pinned position (1 first); `true` keeps column order after the numbered ones. */
+  filterPinned?: boolean | number;
   /** Display only: the field name in the filter line, editor and XLSX 조회 정보; default = `header`. */
   filterLabel?: string;
   /**

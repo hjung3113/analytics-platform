@@ -26,7 +26,7 @@ export type ParsedAccessKeys =
   | { ok: false };
 
 /** True when the operator text is not a plain token: empty, over 80 chars, or URL/whitespace-bearing. */
-const invalidText = (value: string): boolean => !value || value.length > 80 || /[?#&\s]/.test(value);
+export const invalidText = (value: string): boolean => !value || value.length > 80 || /[?#&\s]/.test(value);
 
 /** The filter keys (not sort/page) whose wire value is unusable, in role → permission → focus order. `permissions` is the registry's list (`registry.permissions`). */
 export function badAccessFilterKeys(raw: { role: string | null; permission: string | null; focus: string | null }, permissions: readonly string[]): ('role' | 'permission' | 'focus')[] {

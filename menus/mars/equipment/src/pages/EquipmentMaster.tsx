@@ -28,7 +28,7 @@ export default function EquipmentMaster() {
     key: 'filter', specs: filterSpecs([], lang), legacy: legacyFilterKeys,
     labels: Object.fromEntries(fields.map(f => [f.key, f[lang]])),
   }), [lang]);
-  const { urlState: tableUrlState, invalid: tableInvalid, sentences: invalidTableSentences, recoverKeys } = useTableUrlState(sortFields, { filters: urlFilters });
+  const { urlState: tableUrlState, invalid: tableInvalid, sentences: invalidTableSentences, recoverKeys, cause } = useTableUrlState(sortFields, { filters: urlFilters });
   const conditions = tableUrlState?.filters ?? NO_FILTERS;
   const filterKey = q;
   // #173 review P2-4: the full list is no longer the render gate. Maker options come from a small distinct-values
@@ -51,7 +51,7 @@ export default function EquipmentMaster() {
     exportValue: f.key === 'status' ? (row: Equipment) => statusText[row.status][lang] : undefined,
     // ADR-0104/0105: filter fields — 상태 and Maker (pinned), the line enum, two text columns and the validity dates; the server applies them.
     filter: columnFilter(f.key, makerOptions, lang),
-    filterPinned: pinnedFilterKeys.includes(f.key) || undefined,
+    filterPinned: pinnedFilterKeys.includes(f.key) ? pinnedFilterKeys.indexOf(f.key) + 1 : undefined, // the position in `pinnedFilterKeys` (상태, then Maker), not the column order
     // #556d: rows can be grouped by line (a column filter, not a page filter); the export stays flat rows.
     groupable: f.key === 'line',
   })), [lang, makerOptions]);
@@ -67,7 +67,7 @@ export default function EquipmentMaster() {
       headerActions={<Button asChild size="sm" variant="secondary"><PlatformLink href={linkTo('equipment-detail', { params: { equipmentId: focus }, page: detailPage, returnTo: true })}>{ko ? '전체 화면' : 'Full page'}</PlatformLink></Button>}
       tabs={validTab ? [{ id: 'attributes', label: ko ? '속성' : 'Attributes', content: <EquipmentPanel id={focus} kind="attributes" /> }, { id: 'validity', label: ko ? '유효구간 이력' : 'Validity history', content: <EquipmentPanel id={focus} kind="validity" /> }, { id: 'audit', label: ko ? '변경 이력' : 'Change history', content: <EquipmentPanel id={focus} kind="audit" /> }]
         : [{ id: 'invalid', label: ko ? '알 수 없는 탭' : 'Unregistered tab', content: <p role="alert">{ko ? '등록되지 않은 탭입니다.' : 'This tab is not registered.'} <Button size="sm" variant="secondary" onClick={() => setPage({ tab: null })}>{ko ? '속성 열기' : 'Open attributes'}</Button></p> }]} />}
-      table={(_filterSlot, search) => tableInvalid ? <TableUrlWarning filters={search} sentences={invalidTableSentences} recoverKeys={recoverKeys} /> :
+      table={(_filterSlot, search) => tableInvalid ? <TableUrlWarning filters={search} sentences={invalidTableSentences} recoverKeys={recoverKeys} cause={cause} /> :
     <PlatformDataTable<Equipment>
       title={ko ? '설비 목록' : 'Equipment list'} ariaLabel={ko ? '설비 마스터 목록' : 'Equipment master list'}
       subtitle={ko ? '행을 체크하면 내보내거나, ‘선택 설비로 분석’으로 그 설비들을 분석할 수 있습니다.' : 'Check rows to export them, or to analyse them with ‘Analyze selected equipment’.'}

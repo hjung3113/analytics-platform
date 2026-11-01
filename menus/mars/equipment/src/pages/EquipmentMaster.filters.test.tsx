@@ -41,6 +41,20 @@ const pageQueries = () => queries.filter(q => q.endpoint === 'equipment.master.p
 const lastPageParams = () => pageQueries().at(-1)!.params as Record<string, unknown>;
 
 describe('EquipmentMaster filter model (ADR-0105)', () => {
+  it('pins 상태 before Maker on the filter line (R2 order), not in column order', async () => {
+    mount('');
+    await vi.waitFor(() => expect(pageQueries().length).toBeGreaterThan(0), { timeout: 8000 });
+    const line = document.querySelector('[data-filter-line]')!;
+    expect([...line.querySelectorAll('[data-filter-body]')].map(b => b.getAttribute('data-filter-body'))).toEqual(['status', 'maker']);
+  });
+
+  it('a bad filter in the address names the filter in the warning title, not sort/page', async () => {
+    mount('&filter=ghost:contains:x');
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('필터 값이 올바르지 않습니다');
+    expect(alert.textContent).not.toContain('정렬·페이지');
+  });
+
   it('converts an old ?status=&maker= link into filter conditions, sends them in `filters` and drops the old params', async () => {
     mount('&status=active&maker=TEL');
     await vi.waitFor(() => expect(lastPageParams().filters).toEqual([{ id: 'status', op: 'in', value: ['active'] }, { id: 'maker', op: 'in', value: ['TEL'] }]), { timeout: 8000 });

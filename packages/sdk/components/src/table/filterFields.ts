@@ -3,12 +3,17 @@ import type { PlatformColumn } from './PlatformDataTable';
 
 /**
  * A filterable field that is not a column (ADR-0105, 06 §15): the same wire spec as `PlatformColumn.filter`, plus the display
- * words. `id` is the server field and must be unique across columns and fields (no `:`). `pinned` shows its button on the filter line.
+ * words. `id` is the server field and must be unique across columns and fields (no `:`). `pinned` shows its button on the filter line; a number is
+ * its pinned position (1 first), `true` keeps declaration order after the numbered ones.
  */
-export type TableFilterField = { id: string; label: Text; spec: ColumnFilterSpec; pinned?: boolean };
+export type TableFilterField = { id: string; label: Text; spec: ColumnFilterSpec; pinned?: boolean | number };
 
 /** One filterable field as the filter line and the editor see it, whether it came from a column or from `filterFields`. */
-export type ResolvedFilterField = { id: string; label: string; spec: ColumnFilterSpec; pinned: boolean; origin: 'column' | 'field' };
+export type ResolvedFilterField = { id: string; label: string; spec: ColumnFilterSpec; pinned: boolean; /** Pinned position (lower first); `Infinity` for an unnumbered pin. */ pinRank: number; origin: 'column' | 'field' };
+
+const pinRankOf = (pinned: boolean | number | undefined): number => (typeof pinned === 'number' ? pinned : Number.POSITIVE_INFINITY);
+/** The pinned fields in display order: numbered ones by position, then the rest in their given (column, then field) order. */
+export const pinnedInRank = (fields: readonly ResolvedFilterField[]): ResolvedFilterField[] => fields.filter(f => f.pinned).sort((a, b) => (a.pinRank === b.pinRank ? 0 : a.pinRank < b.pinRank ? -1 : 1));
 
 /** Columns with `filter` first (column order), then `filterFields`. A duplicate or `:`-containing id is a declaration bug and throws. */
 export function resolveFilterFields<T>(columns: readonly PlatformColumn<T>[], fields: readonly TableFilterField[] | undefined, lang: 'ko' | 'en'): ResolvedFilterField[] {
@@ -22,8 +27,8 @@ export function resolveFilterFields<T>(columns: readonly PlatformColumn<T>[], fi
   };
   // Every column id is taken, filterable or not: a field id may not shadow any column (the export and the wire share the id space).
   for (const c of columns) if (!c.filter) seen.add(c.id);
-  for (const c of columns) if (c.filter) add({ id: c.id, label: c.filterLabel ?? c.header, spec: c.filter, pinned: c.filterPinned === true, origin: 'column' });
-  for (const f of fields ?? []) add({ id: f.id, label: f.label[lang], spec: f.spec, pinned: f.pinned === true, origin: 'field' });
+  for (const c of columns) if (c.filter) add({ id: c.id, label: c.filterLabel ?? c.header, spec: c.filter, pinned: c.filterPinned === true || typeof c.filterPinned === 'number', pinRank: pinRankOf(c.filterPinned), origin: 'column' });
+  for (const f of fields ?? []) add({ id: f.id, label: f.label[lang], spec: f.spec, pinned: f.pinned === true || typeof f.pinned === 'number', pinRank: pinRankOf(f.pinned), origin: 'field' });
   return out;
 }
 

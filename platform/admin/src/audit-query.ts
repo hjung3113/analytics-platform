@@ -44,10 +44,10 @@ export const TYPE_LABEL: Record<string, { ko: string; en: string }> = {
 
 /** An opaque, case-sensitive subject-type token: no trimming or normalization. Keep in lockstep with the mock
  *  (`packages/adapters/mock-server/src/audit/audit.ts`) and the server (`apps/platform-api/.../audit-query.ts`) copies. */
-const AUDIT_TYPE_TOKEN = /^[A-Za-z][A-Za-z0-9_.:-]{0,79}$/;
+export const AUDIT_TYPE_TOKEN = /^[A-Za-z][A-Za-z0-9_.:-]{0,79}$/;
 
-const AUDIT_ACTIONS: readonly string[] = Object.keys(ACTION_LABEL);
-const AUDIT_SOURCES: readonly string[] = Object.keys(SOURCE_LABEL);
+export const AUDIT_ACTIONS: readonly string[] = Object.keys(ACTION_LABEL);
+export const AUDIT_SOURCES: readonly string[] = Object.keys(SOURCE_LABEL);
 
 export type AuditFilters = {
   type: string | null;
@@ -77,12 +77,12 @@ type AuditRaw = {
 };
 
 /** True when the operator text is not a plain token: empty, over 80 chars, or URL/whitespace-bearing. */
-const invalidText = (value: string): boolean => !value || value.length > 80 || /[?#&\s]/.test(value);
+export const invalidText = (value: string): boolean => !value || value.length > 80 || /[?#&\s]/.test(value);
 
 /** The time keys' wire form (ISO-8601 instant with a required zone), matching the anchored grammar
  *  `instantEpochMs` accepts. Tested first because `instantEpochMs` throws one error for both a format
  *  miss and a calendar miss, and @ap/contracts is not the menu's to change. Keep in lockstep. */
-const AT_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|z|[+-]\d{2}:?\d{2})$/;
+export const AT_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|z|[+-]\d{2}:?\d{2})$/;
 
 /** The first key the server would reject, or null when the URL is a query the adapter may see. */
 export function auditKeyProblem(raw: AuditRaw): AuditKeyProblem | null {

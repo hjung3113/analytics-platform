@@ -85,6 +85,27 @@ const pickOperator = async (scope: Pick<typeof screen, 'getByRole'>, name: strin
   fireEvent.click(await screen.findByRole('option', { name }));
 };
 
+describe('pinned order (#1217e2)', () => {
+  const cols: PlatformColumn<Row>[] = [
+    { id: 'status', header: '상태', filter: { kind: 'enum', options }, filterPinned: true },
+    { id: 'name', header: '이름', filter: { kind: 'text' }, filterPinned: 1 },
+    { id: 'n', header: '수량', filter: { kind: 'number' }, filterPinned: 2 },
+  ];
+  const pinnedNames = (container: HTMLElement) => [...container.querySelectorAll('[data-filter-line] [data-filter-body]')].map(b => b.getAttribute('data-filter-body'));
+
+  it('numbered pins come first by number, then unnumbered pins in column order; a field can be numbered too', async () => {
+    const view = render(<Harness columns={cols} filterFields={[{ id: 'extra', label: { ko: '기타', en: 'Extra' }, spec: { kind: 'text' }, pinned: 1 }]} loadPage={makeLoad()} />);
+    await ready();
+    expect(pinnedNames(view.container)).toEqual(['name', 'extra', 'n', 'status']);
+  });
+
+  it('without numbers the pinned order is the column order (unchanged)', async () => {
+    const view = render(<Harness columns={cols.map(c => ({ ...c, filterPinned: true }))} loadPage={makeLoad()} />);
+    await ready();
+    expect(pinnedNames(view.container)).toEqual(['status', 'name', 'n']);
+  });
+});
+
 describe('filter line (#1217b)', () => {
   it('shows a pinned button that becomes a chip in the same slot, then the other conditions as chips after it', async () => {
     const load = makeLoad();

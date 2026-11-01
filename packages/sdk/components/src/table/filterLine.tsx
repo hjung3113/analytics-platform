@@ -10,7 +10,7 @@ import { Button, cn, Input, Popover, PopoverContent, PopoverTrigger } from '@ap/
 import { describeFilter } from './columnFilters';
 import type { FilterLimit } from './columnFilters';
 import { FilterEditorContent, FilterEditorForm } from './filterEditor';
-import { unmetRequirement, type ResolvedFilterField } from './filterFields';
+import { pinnedInRank, unmetRequirement, type ResolvedFilterField } from './filterFields';
 
 type Lang = 'ko' | 'en';
 type Apply = (id: string, next: ColumnFilter | null) => void;
@@ -64,7 +64,7 @@ function AddFilter({ fields, filters, lang, onApply, limit }: { fields: readonly
   const field = fields.find(f => f.id === chosen);
   const needle = query.trim().toLowerCase();
   const shown = fields.filter(f => f.label.toLowerCase().includes(needle));
-  const groups = (['pinned', 'column', 'field'] as const).map(key => ({ key, items: shown.filter(f => (f.pinned ? 'pinned' : f.origin) === key) })).filter(g => g.items.length > 0);
+  const groups = (['pinned', 'column', 'field'] as const).map(key => ({ key, items: (key === 'pinned' ? pinnedInRank(shown) : shown.filter(f => !f.pinned && f.origin === key)) })).filter(g => g.items.length > 0);
   const move = (event: KeyboardEvent) => {
     if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
     const items = [...(list.current?.querySelectorAll<HTMLElement>('[data-filter-pick]') ?? [])];
@@ -124,7 +124,7 @@ export function FilterLine({ fields, filters, lang, onApply, onClear, limit }: {
     onApply(field.id, next);
     if (next === null && wasActive) setRefocus(field.pinned ? `[data-filter-body="${field.id}"]` : '[data-filter-add]');
   };
-  const pinned = fields.filter(f => f.pinned);
+  const pinned = pinnedInRank(fields);
   const others = filters.flatMap(f => { const field = fields.find(x => x.id === f.id); return field && !field.pinned ? [{ field, filter: f }] : []; });
   return <div ref={root} role="group" aria-label={ko ? '필터' : 'Filters'} data-filter-line className="flex min-w-0 flex-wrap items-center gap-2 text-xs">
     {pinned.map(f => <FieldSlot key={f.id} field={f} active={filters.find(c => c.id === f.id)} lang={lang} onApply={next => change(f, next)} onRemove={() => change(f, null)} limit={limit} />)}

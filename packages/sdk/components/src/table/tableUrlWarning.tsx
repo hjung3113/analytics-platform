@@ -7,6 +7,10 @@ import { FILTER_PROBLEM_CAUSES, readTableFilters, type TableFilterOption, type T
 import { StateMessage } from '../StateView';
 import { RecoverButton } from '../state/RecoverButton';
 
+/** What is wrong in the address: `sortPage` (default), `filter` (only a condition) or `both`; names the warning's title. */
+export type TableUrlWarningCause = 'sortPage' | 'filter' | 'both';
+const WARNING_TITLE = { sortPage: 'invalidTableTitle', filter: 'invalidFilterTitle', both: 'invalidTableFilterTitle' } as const;
+
 const GENERIC_FILTER_LABEL: Text = { ko: '필터', en: 'Filter' };
 
 /**
@@ -49,7 +53,9 @@ export function useTableUrlWarning(allowedSort: readonly string[], filters?: Tab
     ...(sortPageBad || !filterBad ? ['sort', 'page'] : []),
     ...(filterBad && filters ? [filters.key, ...(filters.legacy ?? []).map(entry => entry.key)] : []),
   ];
-  return { parsedSort, parsedPage, filterRead, invalid: sortPageBad || filterBad, sentences, recoverKeys };
+  // Which part is bad, for the warning's title: only the filter, only sort/page, or both.
+  const cause: TableUrlWarningCause = filterBad ? (sortPageBad ? 'both' : 'filter') : 'sortPage';
+  return { parsedSort, parsedPage, filterRead, invalid: sortPageBad || filterBad, sentences, recoverKeys, cause };
 }
 
 /** Why the table asked for a sort/page write (`TableUrlState.onChange`'s reason). */
@@ -137,12 +143,13 @@ function UrlWarning({ title, sentences, action, filters }: { title: string; sent
 /**
  * The shared invalid sort/page message (06 §15): replaces the table, never substitutes a value, Reset clears both keys in one `setPage`.
  * `recoverKeys` (`useTableUrlWarning().recoverKeys`) narrows or widens that one write to exactly the bad keys when the page opted into URL filters (ADR-0105); the default is `sort` and `page`.
+ * `cause` (`useTableUrlWarning().cause`) names the title after what is actually wrong: sort/page (default), only a filter condition, or both.
  * `filters` is the management layout's filter slot (the `필터 · n` control when the rail is hidden); it renders above the message with the toolbar's gap.
  */
-export function TableUrlWarning({ sentences, filters, recoverKeys = ['sort', 'page'] }: { sentences: readonly string[]; filters?: ReactNode; recoverKeys?: readonly string[] }) {
+export function TableUrlWarning({ sentences, filters, recoverKeys = ['sort', 'page'], cause = 'sortPage' }: { sentences: readonly string[]; filters?: ReactNode; recoverKeys?: readonly string[]; cause?: TableUrlWarningCause }) {
   const { t } = useI18n();
   const { setPage } = usePlatform();
-  return <UrlWarning title={t('invalidTableTitle')} sentences={sentences} filters={filters}
+  return <UrlWarning title={t(WARNING_TITLE[cause])} sentences={sentences} filters={filters}
     action={<RecoverButton onRecover={() => setPage(Object.fromEntries(recoverKeys.map(key => [key, null])))} />} />;
 }
 
