@@ -5,17 +5,17 @@
 
 ## Decision
 
-`PlatformDataTable`의 고급 기능은 도메인을 모르는 **선택(opt-in) 조각**으로 SDK가 제공한다. 선언하지 않은 표는 지금과 똑같이 그린다. 필터·그룹·소계의 **의미는 서버가 소유**한다. 표는 서버 쪽을 클라이언트에서 흉내 내지 않고 요청만 만든다. 이 문서는 노드별로 절이 늘어난다(556b 열 필터 → 556c 전체 선택 → 556d 그룹·소계).
+`PlatformDataTable`의 고급 기능은 도메인을 모르는 **선택(opt-in) 조각**으로 SDK가 제공한다. 선언하지 않은 표는 지금과 똑같이 그린다. 필터·그룹·소계의 **의미는 서버가 소유**한다. 표는 서버 쪽을 클라이언트에서 흉내 내지 않고 요청만 만든다.
 
 ### 열 필터 (#556b)
 
 - 열이 `PlatformColumn.filter`로 종류를 선언한다: `text` · `number` · `date` · `enum`(`options: {value,label}[]`). 선언한 열의 머리글에만 필터 단추가 생기고, 팝오버에서 종류별 고정 연산자와 값을 입력하고(적용/지우기), 적용된 필터는 표 위 칩으로 보인다(칩마다 해제, 「필터 모두 해제」).
 - 와이어 모양은 `@ap/contracts`의 `ColumnFilter`(`{ id, op, value }` 타입 합집합)이다. text `contains`·`equals`(대소문자 무시, 로케일 독립 소문자), number `eq`·`gte`·`lte`·`between`(양 끝 포함), date `between`(`{ from?, to? }` wall-clock `YYYY-MM-DD`, `from` 포함·`to` 제외, 06 §6.3 — 순간(instant)이 아님), enum `in`(`string[]`). UI의 「~까지(포함)」는 와이어에서 +1일 제외 경계로 바뀐다.
 - `PageQuery`는 바꾸지 않는다. `loadPage`는 `TableQuery = PageQuery & { filters?: ColumnFilter[] }`를 받고(`PageQuery`로 쓰던 기존 loader는 그대로 컴파일), `filters`는 **비어 있지 않을 때만** 키로 보낸다. 선택한 엔드포인트(EquipmentMaster)만 `paramKeys`에 `filters`를 선언한다. 목 서버는 `filterRows(rows, filters, accessor)`(순수, `sortAndPage` 앞)로 구현한다.
-- **두 가지 필터 체계.** 페이지 필터(`filterKey`/`filters` 슬롯, [ADR-0037](0037-table-filter-consistency.md))는 페이지의 업무 조건이며 URL 키를 가진다. 열 필터는 표 안에서 좁히는 표 로컬 상태다. 둘은 AND로 함께 적용되고, 같은 필드를 둘 다에 선언하지 않는다. 페이지 필터가 바뀌어도 열 필터는 유지되지만 1쪽·선택 해제는 일어난다.
+- 필터 상태·적용·공유 결정은 [ADR-0105](0105-one-table-filter-model.md)가 대체한다. 현행 규칙은 Components §15를 따른다. 서버가 의미를 소유한다는 결정과 `PageQuery`를 바꾸지 않는 확장 방식은 유지한다.
 - 열 필터는 `usePagedRows`의 `contextIdentity`에 들어가므로 바뀌면 1쪽으로 돌아가고 선택을 비우며 진행 중인 내보내기·복사를 취소한다. 제어형 표(`urlState`)는 같은 때 `onChange({ page: null }, 'reset')`을 부른다.
 - 내보내기: `exportRows` 요청 최상위에 `filters?: ColumnFilter[]`(`scope` 안이 아님)가 `filtered`·`all` 범위에서 실린다(`selected`는 ids 자체가 대상이라 싣지 않는다). XLSX 「조회 정보」 시트는 활성 열 필터를 `열 필터 · <열>` 줄로 적는다(ADR-0105 이후 `필터 · <라벨>`, 열이 아닌 필드 포함).
-- 열 필터의 URL 공유(`urlState.filters` 코덱)는 이번에 하지 않았다(`.planning/backlog.md`).
+- 열 필터의 URL 공유(`urlState.filters` 코덱)는 이 ADR에서 하지 않았고 [ADR-0105](0105-one-table-filter-model.md)가 숨은 page key와 공유 링크로 구현했다.
 
 ### 전체 선택 (#556c)
 

@@ -124,12 +124,11 @@ export type PlatformDataTableProps<T> = {
   getRowId: (row: T) => string;
   /** Server-side sort/page. Returns the §19 envelope; the table renders the outcome taxonomy. */
   loadPage: (query: TableQuery, signal: AbortSignal) => Promise<ApiResponse<GroupedPageResult<T>>>;
-  /** Identity of page-owned filters; a change returns to page 1 and clears row selection. */
-  filterKey: string;
-  filters?: ReactNode;
+  /** Identity of page-owned filters (a query the page holds outside the column filters, e.g. a search); a change returns to page 1 and clears row selection. Default `''`: no page-owned filter. */
+  filterKey?: string;
   /**
    * Quick search slot (06 §15, node 1217c): the page's search field, rendered in the toolbar line beside the title. The table does not own the
-   * query — the page does (`<Input inputSize="toolbar" …/>` bound to its page key); the slot only places it. `ManagementLayout` passes its `search` here.
+   * query — the page does (`<Input inputSize="toolbar" …/>` bound to its page key); the slot only places it.
    */
   search?: ReactNode;
   rowAction?: (row: T, context: { compact: boolean }) => ReactNode;
@@ -254,7 +253,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const groupBy = groupColumns.some(c => c.id === groupChoice) ? groupChoice : null;
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
   const { setPage, retry, effectivePage, shown, shownPage, loading, data, pageCount, success, outOfRange } = usePagedRows<T>({
-    loadPage: p.loadPage, filterKey: p.filterKey, urlState: p.urlState, pageSize, activeSorting, viewport, columnFilters: columnFilters.filters, groupBy,
+    loadPage: p.loadPage, filterKey: p.filterKey ?? '', urlState: p.urlState, pageSize, activeSorting, viewport, columnFilters: columnFilters.filters, groupBy,
     // Selection never survives a Context change; an in-flight export/copy belongs to the old result set.
     onContextChange: () => { selectionState.clear(); abortTransfers(); setCollapsed(new Set()); },
   });
@@ -610,7 +609,6 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
         {p.search && <div data-table-search className="min-w-0 max-w-xs flex-1">{p.search}</div>}
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        {p.filters}
         {groupColumns.length > 0 && !groupIn && <GroupMenu lang={lang} value={groupBy ?? ''} options={groupColumns} onChange={changeGroup} />}
         {!sizeIn && <TableSizeMenu lang={lang} value={tableSize} onChange={setTableSize} />}
         {!columnsIn && columnsPopover}

@@ -3,7 +3,7 @@
  * registry). Both live in the hidden repeated page key `filter`; `toAccessQuery` maps them to the typed `accessDirectory` port query, the port is unchanged.
  */
 import type { AccessDirectoryQuery, AccessSortField, ColumnFilter, ColumnFilterSpec, PageSort, Permission, Text } from '@ap/contracts';
-import { invalidText } from './access-query';
+import { BAD_TOKEN, invalidText } from './token';
 
 export const ACCESS_FILTER_IDS = ['role', 'permission'] as const;
 
@@ -41,7 +41,7 @@ export function toAccessQuery(filters: readonly ColumnFilter[], { page, pageSize
 
 /** The port's value rules, checked before any query (address and editor): the role token and registry membership of the permission (what the old `?permission=` check did). */
 export const accessValueCheck = (permissions: readonly string[]) => (filter: ColumnFilter): Text | null => {
-  if (filter.id === 'role' && filter.op === 'equals' && invalidText(filter.value)) return { ko: '공백·특수문자 없는 80자 이하 값이어야 합니다.', en: 'Must be 80 characters or fewer with no spaces or special characters.' };
+  if (filter.id === 'role' && filter.op === 'equals' && invalidText(filter.value)) return BAD_TOKEN;
   if (filter.id === 'permission' && filter.op === 'in' && !filter.value.every(v => permissions.includes(v))) return { ko: '등록되지 않은 권한입니다.', en: 'This permission is not registered.' };
   return null;
 };

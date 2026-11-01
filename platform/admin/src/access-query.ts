@@ -7,6 +7,3 @@ import type { AccessSortField } from '@ap/contracts';
 
 /** Sortable columns only — the server sorts, the client never re-sorts a page. */
 export const SORT_FIELDS = ['name', 'role', 'permissionCount', 'grantCount'] satisfies readonly AccessSortField[];
-
-/** True when the operator text is not a plain token: empty, over 80 chars, or URL/whitespace-bearing. */
-export const invalidText = (value: string): boolean => !value || value.length > 80 || /[?#&\s]/.test(value);

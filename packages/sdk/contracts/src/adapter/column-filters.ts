@@ -1,4 +1,4 @@
-import { instantEpochMs } from '../values/instant.js';
+import { instantEpochMs, isIsoInstant } from '../values/instant.js';
 import type { PageQuery } from './paging.js';
 
 /**
@@ -91,16 +91,6 @@ function isWallClockDate(value: unknown): value is string {
 function nextDay(value: string): string {
   const [y, m, d] = value.split('-').map(Number) as [number, number, number];
   return new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10);
-}
-const INSTANT_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/;
-/** Filter grammar (regex) plus the repo's strict instant check, so `2026-02-30T00:00:00Z` is rejected, not rolled into March. */
-function isInstant(value: unknown): value is string {
-  if (typeof value !== 'string' || !INSTANT_RE.test(value)) return false;
-  try {
-    return Number.isFinite(instantEpochMs(value));
-  } catch {
-    return false;
-  }
 }
 
 export type FilterRowsOptions = {
@@ -200,7 +190,7 @@ function valueFits(filter: ColumnFilter, spec: ColumnFilterSpec): boolean {
     case 'between': {
       if (spec.kind === 'number') return Array.isArray(value) && value.length === 2 && value.every(v => typeof v === 'number' && Number.isFinite(v)) && betweenOrdered('number', value as [number, number]);
       if (!isRange(value)) return false;
-      const ok = spec.kind === 'instant' ? isInstant : isWallClockDate;
+      const ok = spec.kind === 'instant' ? isIsoInstant : isWallClockDate;
       const { from, to } = value;
       return (from !== undefined || to !== undefined) && (from === undefined || ok(from)) && (to === undefined || ok(to)) && betweenOrdered(spec.kind === 'instant' ? 'instant' : 'date', value);
     }

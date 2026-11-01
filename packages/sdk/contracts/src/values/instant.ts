@@ -46,6 +46,17 @@ function parseInstant(instant: string): string {
   return instant;
 }
 
+/** True when `value` is a string in the instant grammar above with a real calendar date/time. The one predicate for
+ *  "is this an instant" (column-filter values, legacy page keys): never a copied regex. */
+export function isIsoInstant(value: unknown): value is string {
+  if (typeof value !== 'string') return false;
+  try {
+    return Number.isFinite(instantEpochMs(value));
+  } catch {
+    return false;
+  }
+}
+
 /** Format a real instant (epoch ms, or ISO-8601 with an explicit offset/Z) with Intl date+time 'short' in
  *  `timeZone` (default: the viewer's). A naive string — formatDateTime's wall-clock domain — is rejected,
  *  so silent UTC-digits-as-local rendering cannot happen. */

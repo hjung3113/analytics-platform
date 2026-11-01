@@ -48,13 +48,13 @@ export default function AuditTrail() {
   ], [ko, lang, timeZone, specs]);
   return <PlatformPage description={ko ? '모든 사이트의 마스터 변경 로그입니다. 행의 링크는 각 상세 화면의 변경 이력 탭으로 이동합니다.' : 'The master-change log across all sites. A row link opens the destination detail\'s change-history tab.'}>
     <ManagementLayout
-      table={() => invalid ? <TableUrlWarning sentences={sentences} recoverKeys={recoverKeys} cause={cause} /> :
+      table={invalid ? <TableUrlWarning sentences={sentences} recoverKeys={recoverKeys} cause={cause} /> :
     <PlatformDataTable<AuditEvent>
         // #1167 B-1: the page head already shows this title; keep it for the outline only, the table's name is ariaLabel.
         title={<span className="sr-only">{ko ? '변경 감사' : 'Audit trail'}</span>}
         ariaLabel={ko ? '변경 감사 목록' : 'Audit trail list'}
         subtitle={ko ? '기본 정렬은 최신순이며 room 필터를 적용하지 않습니다.' : 'Default sort is newest first; no room filter is applied.'}
-        columns={columns} getRowId={row => row.id} filterKey=""
+        columns={columns} getRowId={row => row.id}
         preferenceKey="admin-audit:columns:v1" pageSize={25}
         urlState={urlState}
         loadPage={async (pageQuery, signal) => {

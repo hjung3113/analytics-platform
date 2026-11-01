@@ -5,7 +5,8 @@ import { PanelRight } from 'lucide-react';
 import { DetailDrawer, RowAction, ManagementLayout, type PlatformColumn, PlatformDataTable, PlatformPage, PageKeyWarning, TableUrlWarning, usePageKeyRules, useTableUrlState, type TableFilterField } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import { grantTotals, menusForPermissions } from '../access-rows';
-import { SORT_FIELDS, invalidText } from '../access-query';
+import { SORT_FIELDS } from '../access-query';
+import { invalidText } from '../token';
 import { accessFilterSpecs, accessLegacyKeys, accessValueCheck, toAccessQuery } from '../access-filters';
 
 const NO_FILTERS: ColumnFilter[] = [];
@@ -123,13 +124,13 @@ export default function AccessDirectory() {
     ? '조회 전용 화면입니다. 권한 부여·회수는 하지 않습니다.'
     : 'Read-only view. Grants and revocations are not made here.'}>
     <ManagementLayout drawer={drawer}
-      table={() => invalid ? <TableUrlWarning sentences={sentences} recoverKeys={recoverKeys} cause={cause} />
+      table={invalid ? <TableUrlWarning sentences={sentences} recoverKeys={recoverKeys} cause={cause} />
         : focusRule.invalid ? <PageKeyWarning sentences={focusRule.sentences} onRecover={focusRule.recover} /> :
     <PlatformDataTable<AccessPrincipal>
         title={ko ? '권한/역할' : 'Roles & access'}
         ariaLabel={ko ? '권한/역할 목록' : 'Roles and access list'}
         subtitle={ko ? '권한·room 부여 조회 전용입니다.' : 'Read-only permissions and room grants.'}
-        columns={columns} filterFields={filterFields} getRowId={row => row.id} filterKey=""
+        columns={columns} filterFields={filterFields} getRowId={row => row.id}
         preferenceKey="admin-roles:columns:v1" pageSize={25} activeRowId={focus ?? undefined}
         urlState={urlState}
         loadPage={async (pageQuery, signal) => {

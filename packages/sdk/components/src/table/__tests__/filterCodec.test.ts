@@ -48,6 +48,10 @@ describe('filter URL codec (ADR-0105 §6)', () => {
     ['date range open end', { id: 'day', op: 'between', value: { from: '2026-01-01' } }],
     ['date range open start', { id: 'day', op: 'between', value: { to: '2026-02-01' } }],
     ['instant range', { id: 'at', op: 'between', value: { from: '2026-01-01T00:00:00+09:00', to: '2026-01-02T00:00:00Z' } }],
+    ['instant with lowercase z', { id: 'at', op: 'between', value: { from: '2026-01-01T00:00:00z' } }],
+    ['instant with ±HHMM offset', { id: 'at', op: 'between', value: { from: '2026-01-01T00:00:00+0900' } }],
+    ['instant without seconds', { id: 'at', op: 'between', value: { from: '2026-01-01T00:00+09:00' } }],
+    ['instant with fraction', { id: 'at', op: 'between', value: { to: '2026-01-01T00:00:00.250Z' } }],
     ['value with colons after the op', { id: 'name', op: 'equals', value: 'Future.Type:v2' }],
   ])('round-trips %s', (_name, filter) => {
     expect(parseFilterParams([encodeFilterParam(filter)], specs)).toEqual({ ok: true, filters: [filter] });
@@ -92,6 +96,9 @@ describe('filter URL codec (ADR-0105 §6)', () => {
     ['number range half empty', ['size:between:1~'], 'bad-value'],
     ['impossible date', ['day:before:2026-02-30'], 'bad-value'],
     ['empty range', ['day:between:~'], 'bad-value'],
+    ['instant with an hour-only offset', ['at:between:2026-01-01T00:00:00+09~'], 'bad-value'],
+    ['instant without a zone', ['at:between:2026-01-01T00:00:00~'], 'bad-value'],
+    ['impossible instant', ['at:between:2026-02-30T00:00:00Z~'], 'bad-value'],
     ['date range with an instant', ['day:between:2026-01-01T00:00:00Z~'], 'bad-value'],
     ['undeclared field', ['nope:contains:x'], 'undeclared-field'],
     ['inherited name is not a field', ['constructor:contains:x'], 'undeclared-field'],
@@ -150,9 +157,15 @@ describe('filter URL codec (ADR-0105 §6)', () => {
       ['Korean', '가'], ['tilde', '~'], ['percent', '%'], ['hash', '#'], ['slash', '/'], ['backslash', '\\'], ['punctuation', "!'()*"], ['ascii letters', 'a'],
     ])('a single %s condition filled to the budget stays a shareable link (counted by buildQuery, like the share path)', (_name, ch) => {
       const prefix = 'name:contains:';
-      let n = 0;
       const make = (count: number) => encodeFilterParam({ id: 'name', op: 'contains', value: ch.repeat(count) });
-      while (filterParamLimit([make(n + 1)]) === null) n++;
+      // The cost only grows with the length, so a binary search finds the largest fitting length (a linear scan was O(n²) and hit the 5 s timeout on CI).
+      let n = 0;
+      let over = 1;
+      while (filterParamLimit([make(over)]) === null) over *= 2;
+      while (over - n > 1) {
+        const mid = (n + over) >> 1;
+        if (filterParamLimit([make(mid)]) === null) n = mid; else over = mid;
+      }
       const at = make(n);
       expect(filterParamLimit([at])).toBeNull();
     

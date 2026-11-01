@@ -3,9 +3,10 @@
  * page maps them to the typed `auditTrail` port query (`toAuditQuery`), the port itself is unchanged. The ids are the table's column ids, so the
  * port's `type` is the `targetType` column. Pure and node-runnable.
  */
-import { instantEpochMs, type AuditSortField, type AuditTrailQuery, type ColumnFilter, type ColumnFilterSpec, type PageSort, type Text } from '@ap/contracts';
+import { isIsoInstant, type AuditSortField, type AuditTrailQuery, type ColumnFilter, type ColumnFilterSpec, type PageSort, type Text } from '@ap/contracts';
 import type { InstantEntry } from '@ap/components';
-import { ACTION_LABEL, AT_INSTANT, AUDIT_ACTIONS, AUDIT_SOURCES, AUDIT_TYPE_TOKEN, SOURCE_LABEL, invalidText } from './audit-query';
+import { ACTION_LABEL, AUDIT_ACTIONS, AUDIT_SOURCES, AUDIT_TYPE_TOKEN, SOURCE_LABEL } from './audit-query';
+import { BAD_TOKEN, invalidText } from './token';
 
 type Lang = 'ko' | 'en';
 
@@ -32,8 +33,7 @@ export const AUDIT_PINNED: Readonly<Record<string, number>> = { action: 1, actor
 const equalsText = (id: string, raw: string): ColumnFilter | null => (invalidText(raw) ? null : { id, op: 'equals', value: raw });
 const oneOf = (id: string, raw: string, allowed: readonly string[]): ColumnFilter | null => (allowed.includes(raw) ? { id, op: 'in', value: [raw] } : null);
 const instantEnd = (end: 'from' | 'to', raw: string): ColumnFilter | null => {
-  if (!AT_INSTANT.test(raw)) return null;
-  try { instantEpochMs(raw); } catch { return null; }
+  if (!isIsoInstant(raw)) return null;
   return { id: 'at', op: 'between', value: { [end]: raw } };
 };
 
@@ -54,7 +54,6 @@ export const AUDIT_LEGACY_KEYS = [
 /** 시각 is entered to the second in the viewer's explicit zone: a nonexistent or repeated local time (DST) is refused in the editor, never moved (#305). */
 export const auditTimeEntry = (timeZone: string): InstantEntry => ({ timeZone, precision: 'second' });
 
-const BAD_TOKEN: Text = { ko: '공백·특수문자 없는 80자 이하 값이어야 합니다.', en: 'Must be 80 characters or fewer with no spaces or special characters.' };
 const BAD_TYPE: Text = { ko: '영문자로 시작하는 80자 이하 토큰이어야 합니다 (영문·숫자·_ . : -).', en: 'Must be a token of up to 80 characters that starts with a letter (letters, digits, _ . : -).' };
 const BAD_MEMBER: Text = { ko: '목록에 없는 값입니다.', en: 'This value is not in the list.' };
 

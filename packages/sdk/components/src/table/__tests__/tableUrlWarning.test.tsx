@@ -29,7 +29,7 @@ function Probe() {
 function FilterProbe({ withFilters }: { withFilters: boolean }) {
   const warning = useTableUrlWarning(['name']);
   const slot = <button type="button">필터 · 1</button>;
-  return withFilters ? <TableUrlWarning filters={slot} sentences={warning.sentences} /> : <>{slot}<TableUrlWarning sentences={warning.sentences} /></>;
+  return withFilters ? <TableUrlWarning search={slot} sentences={warning.sentences} /> : <>{slot}<TableUrlWarning sentences={warning.sentences} /></>;
 }
 
 function mount(search: string) {
@@ -100,20 +100,6 @@ describe('useTableUrlWarning + TableUrlWarning (06 §15, ADR-0034)', () => {
 
     expect(screen.queryByRole('button', { name: '초기화' })).toBeNull();
     expect(document.activeElement).toBe(screen.getByRole('main'));
-  });
-});
-
-describe('PageKeyWarning filters slot (ADR-0034)', () => {
-  it('renders the filters slot above the alert inside a gap-3 wrapper', () => {
-    window.history.replaceState(null, '', '/list?v=1');
-    render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}>
-      <PageKeyWarning sentences={['역할 “x”은 이 화면에서 쓸 수 없는 값입니다.']} onRecover={() => {}} filters={<button type="button">필터 · 1</button>} />
-    </PlatformProvider></I18nProvider>);
-    const slot = screen.getByRole('button', { name: '필터 · 1' });
-    const alert = screen.getByRole('alert');
-    expect(slot.compareDocumentPosition(alert) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(slot.parentElement!.classList.contains('gap-3')).toBe(true);
-    expect(alert.parentElement).toBe(slot.parentElement);
   });
 });
 

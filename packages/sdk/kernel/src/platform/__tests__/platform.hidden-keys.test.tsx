@@ -41,7 +41,7 @@ const stateHidden = () => (window.history.state as { apHidden?: { v: number; pai
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); window.sessionStorage.clear(); window.history.replaceState(null, '', '/'); });
 
-describe('F1: returnTo never carries hidden pairs; they come back on the return trip', () => {
+describe('returnTo never carries hidden pairs; they come back on the return trip', () => {
   it('the outbound address and the return link hold no hidden value, and following the return link restores the hidden pairs', () => {
     mount('/mars/items?v=1&q=x');
     act(() => platform.setPage({ filter: ['secret', 'two'] }));
@@ -89,7 +89,7 @@ describe('F1: returnTo never carries hidden pairs; they come back on the return 
   });
 });
 
-describe('G1/G2: a snapshot belongs to its user, deployment and menu; a failed write fails closed', () => {
+describe('a snapshot belongs to its user, deployment and menu; a failed write fails closed', () => {
   function tripThenReturn() {
     act(() => platform.setPage({ filter: ['private'] }));
     act(() => { platform.navigate(platform.linkTo('detail', { returnTo: true })); });
@@ -158,7 +158,7 @@ describe('G1/G2: a snapshot belongs to its user, deployment and menu; a failed w
   });
 });
 
-describe('F5: a carry set carries the whole ordered collection', () => {
+describe('a carry set carries the whole ordered collection', () => {
   it('visible and hidden repeated carry keys keep every value in order', () => {
     mount('/mars/ca?v=1&tag=b&tag=a', { apHidden: { v: 1, pairs: [['filter', 'y'], ['filter', 'x']] } });
     const href = platform.linkTo('cb');
@@ -170,7 +170,7 @@ describe('F5: a carry set carries the whole ordered collection', () => {
   });
 });
 
-describe('F10: a pending arrival rewrite yields to a newer commit', () => {
+describe('a pending arrival rewrite yields to a newer commit', () => {
   it('a child write that lands before the arrival rewrite keeps its value in the entry state, the address and the live page', () => {
     function Writer() {
       const host = useHostPlatform();

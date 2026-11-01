@@ -772,7 +772,7 @@ test.describe('표 필터 모델 (#1217)', () => {
     await page.goto('/mars/equipment-master?v=1&scopeId=MEM');
     await expect.poll(() => total(page)).toBeGreaterThan(0);
     const all = await total(page);
-    // No rail: the page passes ManagementLayout no filter.
+    // No rail: ManagementLayout has no filter slot.
     await expect(page.getByRole('region', { name: '필터', exact: true })).toHaveCount(0);
 
     await page.locator('[data-filter-body="status"]').click();

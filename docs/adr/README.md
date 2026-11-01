@@ -114,7 +114,7 @@
 | [0101](0101-opaque-audit-target-filter.md) | `auditTrail`의 `type` 필터는 불투명 ASCII 토큰(`[A-Za-z][A-Za-z0-9_.:-]{0,79}`)이다. 형식 맞는 미지 유형은 `empty`, 틀리면 `error`. 공개는 기존 SQL 투영만 결정한다 | Decided(2026-10-29, 팀장 위임·되돌릴 수 있음) — #1091 |
 | [0102](0102-home-launcher-app-groups.md) | 홈 A 그룹 타일: 앱 표시 메타데이터와 비공개 `@ap/menu-home/launcher` 설정, 미분류는 기타. 권한·URL·SDK 계약은 유지 | Decided(2026-10-30, 사용자 A안 선택) — #1109 |
 | [0103](0103-compact-analysis-and-snap-dock.md) | Compact page density, explicit gentle chart emphasis and native Dock previews | Decided (2026-10-30, owner, #1141 B) |
-| [0104](0104-table-column-filters-selection-groups.md) | 표 열 필터(#556b)·전체 선택·그룹 소계: 선택(opt-in) 범용 SDK 조각, 의미는 서버 소유, `TableQuery`는 `PageQuery`를 바꾸지 않음. 556c·556d가 절을 더한다 | Decided (2026-11-01, lead under owner's #556 instruction, reversible) |
+| [0104](0104-table-column-filters-selection-groups.md) | 표 열 필터(#556b)·전체 선택·그룹 소계: 선택(opt-in) 범용 SDK 조각, 의미는 서버 소유, `TableQuery`는 `PageQuery`를 바꾸지 않음 | Decided (2026-11-01, lead under owner's #556 instruction, reversible) |
 | [0105](0105-one-table-filter-model.md) | 표 필터는 하나의 모델: 페이지·열 필터 통합, Excel 수준 연산자·와이어 스펙(`ops`·`instant`·`requires`), 빈 값·부정 연산자 의미, 숨은 페이지 상태. 0022·0037·0104 보충 | Decided (2026-11-01, owner, #1217) |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.

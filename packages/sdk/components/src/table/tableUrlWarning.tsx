@@ -133,24 +133,24 @@ export function usePageKeyRules(rules: readonly PageKeyRule[]): { invalid: boole
   };
 }
 
-function UrlWarning({ title, sentences, action, filters }: { title: string; sentences: readonly string[]; action: ReactNode; filters?: ReactNode }) {
+function UrlWarning({ title, sentences, action, search }: { title: string; sentences: readonly string[]; action: ReactNode; search?: ReactNode }) {
   const message = <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />}
     title={title}
     body={sentences.map((sentence, index) => <p key={index}>{sentence}</p>)}
     action={action} />;
-  return filters ? <div className="flex flex-col gap-3">{filters}{message}</div> : message;
+  return search ? <div className="flex flex-col gap-3">{search}{message}</div> : message;
 }
 
 /**
  * The shared invalid sort/page message (06 §15): replaces the table, never substitutes a value, Reset clears both keys in one `setPage`.
  * `recoverKeys` (`useTableUrlWarning().recoverKeys`) narrows or widens that one write to exactly the bad keys when the page opted into URL filters (ADR-0105); the default is `sort` and `page`.
  * `cause` (`useTableUrlWarning().cause`) names the title after what is actually wrong: sort/page (default), only a filter condition, or both.
- * `filters` is an optional node (e.g. the page's quick search) that renders above the message with the toolbar's gap.
+ * `search` is an optional node (the page's quick search, as it sits in the table toolbar) that renders above the message with the toolbar's gap.
  */
-export function TableUrlWarning({ sentences, filters, recoverKeys = ['sort', 'page'], cause = 'sortPage' }: { sentences: readonly string[]; filters?: ReactNode; recoverKeys?: readonly string[]; cause?: TableUrlWarningCause }) {
+export function TableUrlWarning({ sentences, search, recoverKeys = ['sort', 'page'], cause = 'sortPage' }: { sentences: readonly string[]; search?: ReactNode; recoverKeys?: readonly string[]; cause?: TableUrlWarningCause }) {
   const { t } = useI18n();
   const { setPage } = usePlatform();
-  return <UrlWarning title={t(WARNING_TITLE[cause])} sentences={sentences} filters={filters}
+  return <UrlWarning title={t(WARNING_TITLE[cause])} sentences={sentences} search={search}
     action={<RecoverButton onRecover={() => setPage(Object.fromEntries(recoverKeys.map(key => [key, null])))} />} />;
 }
 
@@ -158,7 +158,7 @@ export function TableUrlWarning({ sentences, filters, recoverKeys = ['sort', 'pa
  * The rejected page-key message of a screen (06 §6, ADR-0034): one sentence per bad key
  * (`usePageKeyRules().sentences`), and a Reset that clears exactly those keys (`recover`) after focus moved off the button.
  */
-export function PageKeyWarning({ sentences, onRecover, filters }: { sentences: readonly string[]; onRecover: () => void; filters?: ReactNode }) {
+export function PageKeyWarning({ sentences, onRecover }: { sentences: readonly string[]; onRecover: () => void }) {
   const { t } = useI18n();
-  return <UrlWarning title={t('invalidFilterTitle')} sentences={sentences} filters={filters} action={<RecoverButton onRecover={onRecover} />} />;
+  return <UrlWarning title={t('invalidFilterTitle')} sentences={sentences} action={<RecoverButton onRecover={onRecover} />} />;
 }
