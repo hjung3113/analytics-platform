@@ -143,6 +143,8 @@ Detail Drawer
 History / Audit
 ```
 
+검색 필드는 `ManagementLayout`의 `search`로 넘기면 표 툴바 줄(제목 옆)에 놓인다(노드 1217c, [components.md §15](components.md)). 페이지가 `filter`를 함께 주면 필터 레일은 그대로 남는다(제거는 1217f). 레일과 표 사이 간격은 페이지 밀도가 compact이면 12px(형제 패널 간격), `comfortable`이면 16px다.
+
 ### 12.4 Catalog
 
 사용 목적: Metric처럼 정의·버전·사용처가 중요한 객체.

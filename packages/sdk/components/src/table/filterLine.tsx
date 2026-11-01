@@ -109,6 +109,7 @@ function AddFilter({ fields, filters, lang, onApply, limit }: { fields: readonly
 export function FilterLine({ fields, filters, lang, onApply, onClear, limit }: {
   fields: readonly ResolvedFilterField[]; filters: readonly ColumnFilter[]; lang: Lang; onApply: Apply; onClear: () => void; limit: Limit;
 }) {
+  // Sits inside the result line (06 §15, 1217c): the line owns the border and the padding.
   const ko = lang === 'ko';
   const root = useRef<HTMLDivElement>(null);
   const [refocus, setRefocus] = useState<string | null>(null);
@@ -125,7 +126,7 @@ export function FilterLine({ fields, filters, lang, onApply, onClear, limit }: {
   };
   const pinned = fields.filter(f => f.pinned);
   const others = filters.flatMap(f => { const field = fields.find(x => x.id === f.id); return field && !field.pinned ? [{ field, filter: f }] : []; });
-  return <div ref={root} role="group" aria-label={ko ? '필터' : 'Filters'} data-filter-line className="flex flex-wrap items-center gap-2 border-t border-border-subtle px-3 py-1.5 text-xs">
+  return <div ref={root} role="group" aria-label={ko ? '필터' : 'Filters'} data-filter-line className="flex min-w-0 flex-wrap items-center gap-2 text-xs">
     {pinned.map(f => <FieldSlot key={f.id} field={f} active={filters.find(c => c.id === f.id)} lang={lang} onApply={next => change(f, next)} onRemove={() => change(f, null)} limit={limit} />)}
     {others.map(({ field, filter }) => <FieldSlot key={field.id} field={field} active={filter} lang={lang} onApply={next => change(field, next)} onRemove={() => change(field, null)} limit={limit} />)}
     <AddFilter fields={fields} filters={filters} lang={lang} limit={limit} onApply={(id, next) => change(fields.find(f => f.id === id)!, next)} />

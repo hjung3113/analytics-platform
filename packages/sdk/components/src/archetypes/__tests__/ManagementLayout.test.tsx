@@ -7,6 +7,7 @@ import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { DetailDrawer } from '../../drawer/DetailDrawer';
 import { I18nProvider } from '@ap/kernel';
 import { ManagementLayout } from '../ManagementLayout';
+import { PageDensityProvider } from '../../pageDensity';
 
 let width = 1200;
 let resize: (() => void) | undefined;
@@ -307,4 +308,24 @@ it.each(['rail', 'trigger', 'popover'])('does not consume pending %s focus after
   });
   await act(() => new Promise(resolve => setTimeout(resolve, 30)));
   expect(table).toHaveFocus();
+});
+
+describe('ManagementLayout search slot and rail gap (1217c)', () => {
+  // 1217c: the page's quick search goes to the table's toolbar slot; the rail stays when the page also passes `filter`.
+  it('hands `search` to the table as its second argument and keeps the rail beside it', () => {
+    const search = <input aria-label="빠른 검색" />;
+    const table = vi.fn((slot, searchSlot) => <section aria-label="표">{searchSlot}<p>표 내용</p></section>);
+    render(<I18nProvider><ManagementLayout filter={<input aria-label="상태 필터" />} search={search} table={table} /></I18nProvider>);
+    expect(table).toHaveBeenLastCalledWith(undefined, search);
+    expect(within(screen.getByRole('region', { name: '표' })).getByLabelText('빠른 검색')).toBeTruthy();
+    expect(collapse()).toBeTruthy();
+    expect(screen.getByLabelText('상태 필터')).toBeTruthy();
+  });
+
+  it.each([['compact', 'gap-3', 'gap-4'], ['comfortable', 'gap-4', 'gap-3']] as const)('rail gap follows page density: %s uses %s', (density, yes, no) => {
+    const { container } = render(<PageDensityProvider value={density}><I18nProvider><ManagementLayout filter={<input aria-label="상태 필터" />} table={() => <p>표</p>} /></I18nProvider></PageDensityProvider>);
+    const grid = container.querySelector('.grid')!;
+    expect(grid).toHaveClass(yes);
+    expect(grid).not.toHaveClass(no);
+  });
 });

@@ -96,7 +96,7 @@ HoverCard | const | const HoverCard: React.FC<HoverCardPrimitive.HoverCardProps>
 HoverCardContent | const | const HoverCardContent: React.ForwardRefExoticComponent<Omit<HoverCardPrimitive.HoverCardContentProps & React.RefAttributes<HTMLDivElement>, "ref"> & React.RefAttributes<HTMLDivElement>>
 HoverCardTrigger | const | const HoverCardTrigger: React.ForwardRefExoticComponent<HoverCardPrimitive.HoverCardTriggerProps & React.RefAttributes<HTMLAnchorElement>>
 Input | const | const Input: React.ForwardRefExoticComponent<@ap/ui#InputProps & React.RefAttributes<HTMLInputElement>>
-InputProps | interface | interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> { }
+InputProps | interface | interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size'> { size?: 'default' | 'toolbar'; }
 KeyboardShortcut | function | function KeyboardShortcut({ children, className, testId }: @ap/ui#KeyboardShortcutProps): React.JSX.Element
 KeyboardShortcutProps | interface | interface KeyboardShortcutProps { children: React.ReactNode; className?: string; testId?: string; }
 Label | const | const Label: React.ForwardRefExoticComponent<Omit<LabelPrimitive.LabelProps & React.RefAttributes<HTMLLabelElement>, "ref"> & React.RefAttributes<HTMLLabelElement>>

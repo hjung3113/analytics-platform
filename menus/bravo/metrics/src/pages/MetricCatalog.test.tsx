@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { Gauge } from 'lucide-react';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
@@ -10,6 +10,9 @@ import { groupId, spaceId, type ApiResponse, type MenuQuery, type PlatformAdapte
 import { PERMISSION } from '../permission';
 
 afterEach(cleanup);
+
+/** 1217c: the table description is no longer a visible second line — it sits in the ⓘ tooltip, opened here by focus. */
+const descriptionTip = async () => { fireEvent.focus(await screen.findByRole('button', { name: '설명' })); return screen.findByRole('tooltip'); };
 
 // Real manifests so /metrics keeps its declared pageKeys; only the group/space wiring is added.
 const registry = createRegistry({
@@ -53,23 +56,24 @@ describe('metric catalog count under a failed list query (UXA-4)', () => {
     const { adapter, release } = deferredFixture();
     render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><MetricCatalogPage params={{}} /></PlatformProvider></I18nProvider>);
     // No response yet: the count stays pending, it is neither a number nor a failure statement.
-    const pending = await screen.findByText(/발행 포인터는 레코드에 저장된 값/);
+    const pending = await descriptionTip();
+    expect(pending.textContent).toContain('발행 포인터는 레코드에 저장된 값');
     expect(pending.textContent).toContain('합성 …건');
     expect(pending.textContent).not.toContain('합성 지표입니다');
     await act(async () => {
       release({ outcome: 'error', data: null, message: 'catalog unavailable', assessments: [], trust: null, correlationId: 'fixture' });
     });
-    expect(await screen.findByText(/합성 지표입니다/)).toBeTruthy();
-    expect(screen.getByText(/발행 포인터는 레코드에 저장된 값/).textContent).not.toContain('…');
+    await waitFor(() => expect(screen.getByRole('tooltip').textContent).toContain('합성 지표입니다'));
+    expect(screen.getByRole('tooltip').textContent).not.toContain('…');
   });
 
   it('drops the numeric count (no …) once the count query failed', async () => {
     window.history.replaceState(null, '', '/metrics');
     render(<I18nProvider><PlatformProvider adapter={fixture()} registry={registry}><MetricCatalogPage params={{}} /></PlatformProvider></I18nProvider>);
     // The count line first paints as pending (…) — wait for the failure itself, not the first paint.
-    await screen.findByText(/합성 지표입니다/);
-    const subtitle = screen.getByText(/발행 포인터는 레코드에 저장된 값/);
-    expect(subtitle.textContent).toContain('합성 지표입니다');
+    const subtitle = await descriptionTip();
+    await waitFor(() => expect(subtitle.textContent).toContain('합성 지표입니다'));
+    expect(subtitle.textContent).toContain('발행 포인터는 레코드에 저장된 값');
     expect(subtitle.textContent).not.toContain('…');
   });
 });

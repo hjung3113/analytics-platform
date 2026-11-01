@@ -1,6 +1,7 @@
 import { useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { PanelLeftClose, SlidersHorizontal } from 'lucide-react';
 import { useI18n } from '@ap/kernel';
+import { useCompactPageDensity } from '../pageDensity';
 import { Button, Popover, PopoverContent, PopoverTrigger, readLocalStorage, writeLocalStorage } from '@ap/ui';
 
 export type ManagementLayoutProps = {
@@ -10,8 +11,13 @@ export type ManagementLayoutProps = {
   activeFilterCount?: number;
   /** Draft changes not yet applied (draft + apply screens, ADR-0037); shown beside the applied count even when the filter is collapsed. */
   pendingFilterCount?: number;
-  /** The table consumes the collapsed/narrow filter button in its filters slot. */
-  table: (filterSlot: ReactNode | undefined) => ReactNode;
+  /**
+   * The page's quick search field (06 §12.3, node 1217c), e.g. `<Input size="toolbar" …/>`. It is handed to `table` as its second argument and goes
+   * to `PlatformDataTable`'s `search` slot, i.e. into the table toolbar. It stays there whether or not the filter rail is shown.
+   */
+  search?: ReactNode;
+  /** The table consumes the collapsed/narrow filter button in its filters slot and the quick search field in its `search` slot. */
+  table: (filterSlot: ReactNode | undefined, search?: ReactNode) => ReactNode;
   /** Detail content continues to use the shell's detail slot (ADR-0013). */
   drawer?: ReactNode;
 };
@@ -22,8 +28,9 @@ function initialCollapsed() {
 }
 
 /** Management slots (06 §12.6): respond to available content width, including a docked detail. */
-export function ManagementLayout({ filter, activeFilterCount = 0, pendingFilterCount = 0, table, drawer }: ManagementLayoutProps) {
+export function ManagementLayout({ filter, activeFilterCount = 0, pendingFilterCount = 0, search, table, drawer }: ManagementLayoutProps) {
   const { t } = useI18n();
+  const compact = useCompactPageDensity();
   const root = useRef<HTMLDivElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
   const filterButton = useRef<HTMLButtonElement>(null);
@@ -99,7 +106,7 @@ export function ManagementLayout({ filter, activeFilterCount = 0, pendingFilterC
     </Popover>;
 
   return <div ref={root} className="min-w-0">
-    <div className={railVisible ? 'grid grid-cols-[260px_minmax(0,1fr)] items-start gap-4' : 'min-w-0'}>
+    <div className={railVisible ? `grid grid-cols-[260px_minmax(0,1fr)] items-start ${compact ? 'gap-3' : 'gap-4'}` : 'min-w-0'}>
       {railVisible && <section ref={rail} aria-labelledby={titleId}
         className="sticky top-[calc(var(--page-sticky-offset,0px)_+_12px)] max-h-[calc(100dvh-var(--page-sticky-offset,0px)_-_24px)] flex min-h-0 flex-col overflow-hidden rounded-lg border border-border-subtle bg-surface-card">
         <header className="flex shrink-0 items-center justify-between gap-2 border-b border-border-subtle px-4 py-3">
@@ -117,7 +124,7 @@ export function ManagementLayout({ filter, activeFilterCount = 0, pendingFilterC
         </header>
         <div id={bodyId} className="min-h-0 overflow-y-auto p-3">{filter}</div>
       </section>}
-      <div key="table" className="min-w-0">{table(filterSlot)}</div>
+      <div key="table" className="min-w-0">{search === undefined ? table(filterSlot) : table(filterSlot, search)}</div>
     </div>
     {drawer}
   </div>;

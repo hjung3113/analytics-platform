@@ -771,7 +771,8 @@ test.describe('표 고급 기능 (#556)', () => {
     await expect(page.locator('[role="row"][data-row-id]').first()).toBeVisible();
     const headers = page.locator('[data-group-row]');
     await expect(headers).toHaveCount(0);
-    await page.getByRole('combobox', { name: '그룹' }).selectOption('line');
+    await page.getByRole('button', { name: /^그룹: / }).click();
+    await page.getByRole('menuitemradio', { name: '라인' }).click();
     await expect(headers.first()).toBeVisible();
     await expect(headers.first()).toContainText(/\d+행 \(전체 결과\)/);
     await expect(page.getByRole('table', { name: /.+/ })).toHaveAttribute('aria-rowcount', '-1');
@@ -785,7 +786,8 @@ test.describe('표 고급 기능 (#556)', () => {
     await toggle.click();
     await expect(first.getByRole('button', { name: /그룹 펼치기$/ })).toHaveAttribute('aria-expanded', 'false');
     await expect.poll(() => dataRows.count()).toBeLessThan(before);
-    await page.getByRole('combobox', { name: '그룹' }).selectOption('');
+    await page.getByRole('button', { name: /^그룹: / }).click();
+    await page.getByRole('menuitemradio', { name: '그룹 없음' }).click();
     await expect(headers).toHaveCount(0);
     await expect(page.locator('[role="row"][data-row-id]').first()).toBeVisible();
   });

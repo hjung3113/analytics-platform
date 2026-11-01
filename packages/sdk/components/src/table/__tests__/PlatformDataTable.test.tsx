@@ -1719,8 +1719,9 @@ describe('compact table chrome (#1141)', () => {
     expect(section).toHaveAttribute('aria-label', 'table');
     expect(section).toHaveClass(card ? 'border' : 'border-0');
     const toolbar = section.firstElementChild!;
-    expect(toolbar).toHaveClass(density === 'compact' ? 'min-h-10' : 'min-h-11');
-    expect(toolbar).toHaveClass(density === 'compact' ? 'py-1.5' : 'p-3');
+    // 1217c: the toolbar is one 32px-control row (R2 56px band); a panel/pane body keeps the tight 40px row.
+    expect(toolbar).toHaveClass(embedded ? 'min-h-10' : 'min-h-14');
+    expect(toolbar).toHaveClass(embedded ? 'py-1.5' : density === 'compact' ? 'py-3' : 'p-4');
     expect(screen.getByRole('heading', { name: 'T' }).classList.contains('sr-only')).toBe(embedded);
     expect((await within(table).findAllByRole('cell'))[0]).toHaveClass('min-h-8');
   });
