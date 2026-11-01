@@ -26,7 +26,7 @@
 | L14 | AnalysisChartFrame: 확대·구간 선택·초기화·비교·주석·내보내기, Brush 로컬, 전역 기간은 확인 뒤, 주석 `(chartId, scopeId)`, 같은 데이터 표 보기. 툴바 문구 `확대`·`구간 선택`·`초기화`·`비교`·`주석`·`내보내기`·`분석 구간 적용…` | `packages/sdk/components/src/chart/AnalysisChartFrame.tsx:292-348`, 플랫폼 UI 계약 §16 | — |
 | L15 | DataTrustIndicator: 이슈·미확인·coverage·갱신 시각·원천·잠정 상태·원천 로직 버전 혼재 배지와 상세, unknown을 정상·0으로 바꾸지 않음 | 플랫폼 UI 계약 §18 | — |
 | L16 | 조회 상태 loading·empty·forbidden·too_large·timeout·error 구분, 위젯별 부분 실패 격리. 데모 DevTools 응답 시나리오 11종(정상·느린 응답·0건·상태 원천 미확인·일부 위젯 실패·권한 거부·조회 과대·시간 초과·서버 오류·응답 형식 오류·Scope 확인 실패) | `packages/sdk/components/src/StateView.tsx`, `apps/platform-web/src/dev/DevTools.tsx:14-26`, `docs/integration/in-house-rollout.md` §5-7 | — |
-| L17 | ManagementLayout: 필터 레일 없이 표 툴바 한 줄(제목·검색·표 컨트롤)과 그 아래 필터 줄 하나(2026-11-01, sdk-v0.26.0, ADR-0105). AnalysisLayout: KPI 띠·차트(960px 이상·펼친 차트 2개 이상이면 2열)·분해 표, 단위별 접기 | 플랫폼 UI 계약 §12.6, ADR-0022·ADR-0105 | — |
+| L17 | ManagementLayout: 왼쪽 필터 칸 없이 표 툴바 한 줄(제목·검색·표 컨트롤)과 그 아래 필터 줄 하나(2026-11-01, sdk-v0.26.0, ADR-0105). AnalysisLayout: KPI 띠·차트(960px 이상·펼친 차트 2개 이상이면 2열)·분해 표, 단위별 접기 | 플랫폼 UI 계약 §12.6, ADR-0022·ADR-0105 | — |
 | L18 | 드릴 단계 공정 → StGroup → 설비, 단계마다 page key, 경로 칩, 복귀 | `menus/mars/analytics/src/index.ts:22-27`, `.planning` v0.4.0 | — |
 | L19 | Page Archetype 5종, 전용 레이아웃 컴포넌트는 Management·Analysis 2종, 나머지는 공통 부품 조립 + 생성기 뼈대 | 플랫폼 UI 계약 §12 | 06 절 각주로만 |
 | L20 | 셸 치수 시스템 레일 52px · 사이드바 240/56px · 머리 50px · 상세 슬롯 440px | 기능 화면 `tokens.css:169-174` | — |
