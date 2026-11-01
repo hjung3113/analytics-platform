@@ -80,7 +80,8 @@ afterAll(() => {
   if (originalOffsetHeight) Object.defineProperty(HTMLElement.prototype, 'offsetHeight', originalOffsetHeight);
   if (originalOffsetWidth) Object.defineProperty(HTMLElement.prototype, 'offsetWidth', originalOffsetWidth);
   URL.createObjectURL = originalCreate;
-  URL.revokeObjectURL = originalRevoke;
+  // jsdom has no revokeObjectURL; a download's 1 s revoke timer may still be pending after the file ends (#1217b CI).
+  URL.revokeObjectURL = originalRevoke ?? (() => {});
 });
 beforeEach(() => { downloads.length = 0; window.history.replaceState(null, '', '/'); });
 
