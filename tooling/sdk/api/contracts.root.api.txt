@@ -217,6 +217,7 @@ incompleteMetricPair | function | function incompleteMetricPair(menu: null | { i
 instantEpochMs | function | function instantEpochMs(instant: string): number
 isAppRelativePath | function | function isAppRelativePath(value: string): boolean
 isForbiddenSavedViewKey | const | const isForbiddenSavedViewKey: (key: string) => boolean
+isIsoInstant | function | function isIsoInstant(value: unknown): value is string
 isPortError | function | function isPortError(e: unknown): e is @ap/contracts#PortError
 isRecord | const | const isRecord: (value: unknown) => value is Record<string, unknown>
 menuPermission | const | const menuPermission: <const S extends string>(id: S) => S & @ap/contracts#MenuPermission

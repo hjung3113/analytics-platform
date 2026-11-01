@@ -76,6 +76,7 @@ describe('legacy keys (P8)', () => {
     ['source', 'user', { id: 'source', op: 'in', value: ['user'] }],
     ['fromAt', FROM, { id: 'at', op: 'between', value: { from: FROM } }],
     ['toAt', TO, { id: 'at', op: 'between', value: { to: TO } }],
+    ['fromAt', '2026-09-24T09:00:05+0900', { id: 'at', op: 'between', value: { from: '2026-09-24T09:00:05+0900' } }],
     ['targetId', 'MEM-1', { id: 'targetId', op: 'equals', value: 'MEM-1' }],
   ])('%s=%s converts', (key, raw, expected) => {
     expect(legacy(key, raw)).toEqual(expected);

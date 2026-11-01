@@ -1591,7 +1591,7 @@ describe('Action DOM identity (#296)', () => {
     function Fixture() {
       const [open, setOpen] = useState(false);
       return <section aria-label="management fixture"><ManagementLayout
-        table={() => <PlatformDataTable title="T" ariaLabel="table" preferenceKey="test-table"
+        table={<PlatformDataTable title="T" ariaLabel="table" preferenceKey="test-table"
           columns={columns} getRowId={row => row.id} loadPage={loadPage} filterKey="f" height={200}
           rowAction={row => <button onClick={() => setOpen(true)}>보기 {row.id}</button>} />}
         drawer={open && <DetailDrawer title="상세" onClose={() => setOpen(false)} tabs={[{ id: 'a', label: '속성', content: '내용' }]} />} /></section>;

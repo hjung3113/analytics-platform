@@ -15,7 +15,7 @@
 - **두 가지 필터 체계.** 페이지 필터(`filterKey`/`filters` 슬롯, [ADR-0037](0037-table-filter-consistency.md))는 페이지의 업무 조건이며 URL 키를 가진다. 열 필터는 표 안에서 좁히는 표 로컬 상태다. 둘은 AND로 함께 적용되고, 같은 필드를 둘 다에 선언하지 않는다. 페이지 필터가 바뀌어도 열 필터는 유지되지만 1쪽·선택 해제는 일어난다.
 - 열 필터는 `usePagedRows`의 `contextIdentity`에 들어가므로 바뀌면 1쪽으로 돌아가고 선택을 비우며 진행 중인 내보내기·복사를 취소한다. 제어형 표(`urlState`)는 같은 때 `onChange({ page: null }, 'reset')`을 부른다.
 - 내보내기: `exportRows` 요청 최상위에 `filters?: ColumnFilter[]`(`scope` 안이 아님)가 `filtered`·`all` 범위에서 실린다(`selected`는 ids 자체가 대상이라 싣지 않는다). XLSX 「조회 정보」 시트는 활성 열 필터를 `열 필터 · <열>` 줄로 적는다(ADR-0105 이후 `필터 · <라벨>`, 열이 아닌 필드 포함).
-- 열 필터의 URL 공유(`urlState.filters` 코덱)는 이번에 하지 않았다(`.planning/backlog.md`).
+- 열 필터의 URL 공유(`urlState.filters` 코덱)는 이 ADR에서 하지 않았고 [ADR-0105](0105-one-table-filter-model.md)가 숨은 page key와 공유 링크로 구현했다.
 
 ### 전체 선택 (#556c)
 

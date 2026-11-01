@@ -59,15 +59,16 @@ export default function EquipmentMaster() {
   const clearButton = q || conditions.length > 0
     ? <Button type="button" size="sm" variant="secondary" onClick={() => setPage({ q: null, filter: null, page: null })}>{t('clearFilters')}</Button>
     : null;
+  const search = <QuickSearch applied={q} label={ko ? '설비 ID 검색' : 'Search equipment ID'} onApply={value => setPage({ q: value === '' ? null : value, page: null })} />;
   return <PlatformPage description={ko ? '설비 속성 → 유효구간 → 변경 이력. 합성 데이터 · 조회 전용.' : 'Equipment attributes → validity → change history. Synthetic data · read-only.'}>
-    <ManagementLayout search={<QuickSearch applied={q} label={ko ? '설비 ID 검색' : 'Search equipment ID'} onApply={value => setPage({ q: value === '' ? null : value, page: null })} />}
+    <ManagementLayout
       drawer={focus && <DetailDrawer key={focus} title={<span className="t-mono">{focus}</span>} subtitle={ko ? '설비 상세 · 합성 데이터' : 'Equipment details · synthetic data'}
       onClose={() => setPage({ focus: null, tab: null })} tab={validTab ? drawerTab : 'invalid'} onTabChange={tab => setPage({ tab: tab === 'attributes' ? null : tab })}
       context={ko ? '목록 필터와 설비 선택은 그대로입니다.' : 'List filters and the equipment selection stay as they are.'}
       headerActions={<Button asChild size="sm" variant="secondary"><PlatformLink href={linkTo('equipment-detail', { params: { equipmentId: focus }, page: detailPage, returnTo: true })}>{ko ? '전체 화면' : 'Full page'}</PlatformLink></Button>}
       tabs={validTab ? [{ id: 'attributes', label: ko ? '속성' : 'Attributes', content: <EquipmentPanel id={focus} kind="attributes" /> }, { id: 'validity', label: ko ? '유효구간 이력' : 'Validity history', content: <EquipmentPanel id={focus} kind="validity" /> }, { id: 'audit', label: ko ? '변경 이력' : 'Change history', content: <EquipmentPanel id={focus} kind="audit" /> }]
         : [{ id: 'invalid', label: ko ? '알 수 없는 탭' : 'Unregistered tab', content: <p role="alert">{ko ? '등록되지 않은 탭입니다.' : 'This tab is not registered.'} <Button size="sm" variant="secondary" onClick={() => setPage({ tab: null })}>{ko ? '속성 열기' : 'Open attributes'}</Button></p> }]} />}
-      table={search => tableInvalid ? <TableUrlWarning filters={search} sentences={invalidTableSentences} recoverKeys={recoverKeys} cause={cause} /> :
+      table={tableInvalid ? <TableUrlWarning search={search} sentences={invalidTableSentences} recoverKeys={recoverKeys} cause={cause} /> :
     <PlatformDataTable<Equipment>
       title={ko ? '설비 목록' : 'Equipment list'} ariaLabel={ko ? '설비 마스터 목록' : 'Equipment master list'}
       subtitle={ko ? '행을 체크하면 내보내거나, ‘선택 설비로 분석’으로 그 설비들을 분석할 수 있습니다.' : 'Check rows to export them, or to analyse them with ‘Analyze selected equipment’.'}

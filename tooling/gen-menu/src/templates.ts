@@ -245,8 +245,7 @@ function pageTsx(i: MenuInputs): string {
   </section>;
 ` : '';
   const slotsMarkup = i.pageType === 'management' ? `      <ManagementLayout
-        search={<>{slotPlaceholder('filter')}{/* Replace Search + Filter with a toolbar search Input; column filters come from PlatformDataTable (ADR-0105). */}</>}
-        table={search => <>{search}{slotPlaceholder('table')}{/* Replace Data Table with PlatformDataTable (search slot, column filters). */}</>}
+        table={<>{slotPlaceholder('filter')}{/* Replace Search + Filter with a toolbar search Input on PlatformDataTable's search prop; column filters come from the table (ADR-0105). */}{slotPlaceholder('table')}{/* Replace Data Table with PlatformDataTable (search prop, column filters). */}</>}
       />
       <div className="space-y-3">
         {slotPlaceholder('actions')}
