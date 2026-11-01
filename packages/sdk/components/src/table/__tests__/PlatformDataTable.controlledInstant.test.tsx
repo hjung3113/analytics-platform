@@ -44,7 +44,7 @@ describe('controlled instant filters', () => {
     render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}>
       <PlatformDataTable<Row> title="T" ariaLabel="table" columns={columns} getRowId={r => r.id} loadPage={async () => ok} filterKey="f" preferenceKey="ci" pageSize={25} height={200} urlState={urlState} />
     </PlatformProvider></I18nProvider>);
-    const chips = await screen.findByRole('group', { name: '적용된 열 필터' });
+    const chips = await screen.findByRole('group', { name: '필터' });
     if (value.to) expect(within(chips).getByText(new RegExp(formatInstant(value.to, 'ko').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))).toBeTruthy();
   });
 

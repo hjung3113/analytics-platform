@@ -20,7 +20,9 @@ import { exportItemName, exportTarget, FORMAT_LABEL, type ExportScopeKind } from
 import { effectiveOrder, moveWithinGroup, pinnedInOrder } from './columnOrder';
 import { useColumnPreferences } from './useColumnPreferences';
 import { usePagedRows } from './usePagedRows';
-import { ColumnFilterButton, ColumnFilterChips, useColumnFilters } from './columnFilters';
+import { useColumnFilters } from './columnFilters';
+import { resolveFilterFields, type TableFilterField } from './filterFields';
+import { FilterLine, HeaderFunnel } from './filterLine';
 import { useTableTransfer } from './useTableTransfer';
 import { useTableSelection, type TableExportRequest, type TableSelection } from './useTableSelection';
 import { SelectAllBar } from './selectAllBar';
@@ -28,6 +30,7 @@ import { buildGroupedItems, GroupHeaderCells, groupHeaderLayout, groupKeyOf, Gro
 
 export type { GroupedPageResult, PageGroup, PageQuery, PageResult } from '@ap/contracts';
 export { sortAndPage } from '@ap/contracts';
+export type { TableFilterField } from './filterFields';
 export type { TableExportRequest, TableSelection } from './useTableSelection';
 
 /** Read by the stable `_select` header renderer from `table.options.meta`. */
@@ -65,6 +68,10 @@ export type PlatformColumn<T> = {
    * to `loadPage` (`query.filters`) and `exportRows`. The id is the server field; the server applies the filter.
    */
   filter?: ColumnFilterSpec;
+  /** Display only (ADR-0105): this column's filter button sits on the filter line (a chip once set). Needs `filter`. */
+  filterPinned?: boolean;
+  /** Display only: the field name in the filter line, editor and XLSX 조회 정보; default = `header`. */
+  filterLabel?: string;
   /**
    * Opt-in row groups (#556d, ADR-0104): the toolbar offers 「그룹」 with this column; choosing it sends `groupBy: <id>` to `loadPage`,
    * and the server answers rows ordered by group plus `groups` describing the whole filtered result. The id is the server field.
@@ -148,6 +155,8 @@ export type PlatformDataTableProps<T> = {
   /** Maximum row-area height; default fits the page (content height, up to the room left on the page, never under 240px). */
   height?: number;
   emptyAction?: ReactNode;
+  /** Filterable fields that are not columns (ADR-0105). Ids are unique across columns and these fields; the filter line renders when there is at least one filterable field. */
+  filterFields?: TableFilterField[];
   /** Controlled sort/page (§6.1 page keys). Omit to keep today's internal state. The table never knows URL key names. */
   urlState?: TableUrlState;
 };
@@ -204,7 +213,8 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const focusedRetry = useRef(false);
   // urlState (§6.1): controlled sort/page. The page writes the URL via onChange; the table never touches keys.
   const activeSorting = p.urlState ? p.urlState.sorting : sorting;
-  const columnFilters = useColumnFilters(p.urlState);
+  const filterFields = useMemo(() => resolveFilterFields(p.columns, p.filterFields, lang), [p.columns, p.filterFields, lang]);
+  const columnFilters = useColumnFilters(p.urlState, filterFields);
   // #556d: one group column (a groupable column of this table), collapse state keyed by group key. A group change returns to page 1 and
   // expands every group; the selection is kept (it is by row id, and sorting/grouping do not change the result set).
   const groupColumns = useMemo(() => p.columns.filter(c => c.groupable), [p.columns]);
@@ -224,7 +234,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const { headerState, clear: clearSelection } = selectionState;
   const { exporting, copying, exportNote, copyNote, runExport, runCopy, onShortcut, abortTransfers } = useTableTransfer<T>({
     columns: p.columns, getRowId: p.getRowId, exportRows: p.exportRows, menuNote: p.exportNote, exportFilterSummary: p.exportFilterSummary, exportContext: p.exportContext,
-    canExport, selectedIds, selection: effectiveSelection, allSelection: selectionState.all ? { excludedIds: selectionState.excludedIds, count: selectedCount } : null, columnFilters: columnFilters.filters, loadedRows: data.rows, total: data.total, resultOk: shown?.outcome === 'ok', activeSorting, preferences, overlayOpen,
+    canExport, selectedIds, selection: effectiveSelection, allSelection: selectionState.all ? { excludedIds: selectionState.excludedIds, count: selectedCount } : null, columnFilters: columnFilters.filters, filterFields, loadedRows: data.rows, total: data.total, resultOk: shown?.outcome === 'ok', activeSorting, preferences, overlayOpen,
   });
 
   const columnPrefsId = useId();
@@ -563,7 +573,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       </div>
     </div>
 
-    <ColumnFilterChips filters={columnFilters.filters} columns={p.columns} lang={lang} onRemove={id => columnFilters.apply(id, null)} onClear={columnFilters.clear} />
+    {filterFields.length > 0 && <FilterLine fields={filterFields} filters={columnFilters.filters} lang={lang} onApply={columnFilters.apply} onClear={columnFilters.clear} limit={columnFilters.limit} />}
 
     <SelectAllBar lang={lang} pageRows={data.rows.length} total={data.total} offer={selectionState.offerAll} all={selectionState.all} excluded={selectionState.excludedIds.length} onSelectAll={selectionState.selectAll} onClear={clearSelection} />
 
@@ -606,7 +616,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
               // eslint-disable-next-line shadcn/no-inline-styles -- column width and pin offset come from column sizing at runtime
               return <div role="columnheader" key={h.id} data-column={h.column.id} style={cellStyle(h.column)} title={typeof h.column.columnDef.header === 'string' ? h.column.columnDef.header : undefined}
                 aria-sort={sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : h.column.getCanSort() ? 'none' : undefined}
-                className={cn(headerBase, 't-table-header border-b border-border-subtle bg-surface-sunken text-text-secondary', h.column.getIsPinned() === 'right' && pinEdge, fadeClass(h.column.getIsPinned(), false), align(h.column))}>
+                className={cn(headerBase, 'group/head t-table-header border-b border-border-subtle bg-surface-sunken text-text-secondary', h.column.getIsPinned() === 'right' && pinEdge, fadeClass(h.column.getIsPinned(), false), align(h.column))}>
                 {h.column.getCanSort()
                   ? <button type="button" onClick={h.column.getToggleSortingHandler()} className="-mx-1 inline-flex min-w-0 items-center gap-1 rounded-xs px-1 uppercase hover:text-text-primary">
                       <span className="min-w-0 truncate">{flexRender(h.column.columnDef.header, h.getContext())}</span>
@@ -614,8 +624,8 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
                     </button>
                   : <span className="min-w-0 truncate">{flexRender(h.column.columnDef.header, h.getContext())}</span>}
                 {(() => {
-                  const column = p.columns.find(c => c.id === h.column.id);
-                  return column?.filter ? <ColumnFilterButton column={column} spec={column.filter} lang={lang} active={columnFilters.filters.find(f => f.id === column.id)} onApply={next => columnFilters.apply(column.id, next)} /> : null;
+                  const field = filterFields.find(f => f.origin === 'column' && f.id === h.column.id);
+                  return field ? <HeaderFunnel field={field} lang={lang} limit={columnFilters.limit} active={columnFilters.filters.find(f => f.id === field.id)} onApply={next => columnFilters.apply(field.id, next)} /> : null;
                 })()}
                 {/* #239: an always-visible 1px divider with an 8px grab area; double-click restores the default width. */}
                 {h.column.getCanResize() && <div aria-hidden data-column-resizer onMouseDown={startResize(h)} onTouchStart={startResize(h)} onDoubleClick={event => { event.preventDefault(); h.column.resetSize(); }} className="group/resize absolute right-0 top-0 flex h-full w-2 cursor-col-resize touch-none justify-end">
