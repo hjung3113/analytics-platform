@@ -165,9 +165,13 @@ describe('filterRows vocabulary (ADR-0105)', () => {
     [{ id: 'd', op: 'before', value: '2026-01-07' }, ['r1', 'r2']],
     [{ id: 'd', op: 'after', value: '2026-01-05' }, ['r2', 'r3']],
     [{ id: 'd', op: 'after', value: '2026-01-07' }, []],
-    [{ id: 'd', op: 'isEmpty' }, ['r4', 'r5']],
-    [{ id: 'd', op: 'isNotEmpty' }, ['r1', 'r2', 'r3']],
-  ])('date %j (wall-clock; before is < day, after is >= next day)', (filter, expected) => expect(ids([filter])).toEqual(expected));
+    [{ id: 'd', op: 'isEmpty' }, ['r4']],
+    [{ id: 'd', op: 'isNotEmpty' }, ['r1', 'r2', 'r3', 'r5']],
+  ])('date %j (declared date kind: "" is a value; before is < day, after is >= next day)', (filter, expected) => {
+    // r5 holds '' (a value for a date kind, see the blank test below), so the range cases read the other rows.
+    const dated = filterRows(rows.filter(r => r.id !== 'r5' || filter.op === 'isEmpty' || filter.op === 'isNotEmpty'), [filter], undefined, { specs: { d: { kind: 'date' } } }).map(r => r.id);
+    expect(dated).toEqual(expected);
+  });
 
   it('date after crosses month and leap-year ends', () => {
     const r = [{ d: '2028-03-01T00:00:00' }, { d: '2028-02-29T23:00:00' }];
@@ -199,6 +203,28 @@ describe('filterRows vocabulary (ADR-0105)', () => {
 
   it('blank is "" only for text: with a non-text spec "" is a value', () => {
     expect(ids([{ id: 'd', op: 'isEmpty' }], { d: { kind: 'date' } })).toEqual(['r4']);
+  });
+
+  // Without specs the old ops keep their pre-vocabulary results: '' is a value for every op that is not a text op.
+  it.each<[string, Record<string, unknown>[], ColumnFilter, number]>([
+    ['number eq 0 keeps ""', [{ v: '' }], { id: 'v', op: 'eq', value: 0 }, 1],
+    ['number neq 5 keeps ""', [{ v: '' }], { id: 'v', op: 'neq', value: 5 }, 1],
+    ['number lte keeps ""', [{ v: '' }], { id: 'v', op: 'lte', value: 3 }, 1],
+    ['number between keeps ""', [{ v: '' }], { id: 'v', op: 'between', value: [0, 3] }, 1],
+    ['enum in [""] keeps ""', [{ v: '' }], { id: 'v', op: 'in', value: [''] }, 1],
+    ['enum notIn [a] keeps ""', [{ v: '' }], { id: 'v', op: 'notIn', value: ['a'] }, 1],
+    ['date before keeps ""', [{ v: '' }], { id: 'v', op: 'before', value: '2026-01-01' }, 1],
+    ['date range from "" keeps ""', [{ v: '' }], { id: 'v', op: 'between', value: { to: '2026-01-01' } }, 1],
+    ['text contains still drops ""', [{ v: '' }], { id: 'v', op: 'notContains', value: 'x' }, 0],
+  ])('no specs: %s', (_name, data, filter, count) => {
+    expect(filterRows(data, [filter]).length).toBe(count);
+  });
+
+  it('with specs the kind decides what "" is', () => {
+    const data = [{ v: '' }];
+    expect(filterRows(data, [{ id: 'v', op: 'in', value: [''] }], undefined, { specs: { v: { kind: 'enum', options: [{ value: '', label: '-' }] } } }).length).toBe(1);
+    expect(filterRows(data, [{ id: 'v', op: 'isEmpty' }], undefined, { specs: { v: { kind: 'number' } } }).length).toBe(0);
+    expect(filterRows(data, [{ id: 'v', op: 'isEmpty' }], undefined, { specs: { v: { kind: 'text' } } }).length).toBe(1);
   });
 });
 
@@ -238,6 +264,11 @@ describe('validateFilters (ADR-0105)', () => {
     ['date range empty', [{ id: 'd', op: 'between', value: {} }], 'bad-value'],
     ['date range with a date-time', [{ id: 'd', op: 'between', value: { from: '2026-01-01T00:00:00' } }], 'bad-value'],
     ['instant without offset', [{ id: 'at', op: 'between', value: { from: '2026-01-01T00:00:00' } }], 'bad-value'],
+    ['instant impossible day (Feb 30)', [{ id: 'at', op: 'between', value: { from: '2026-02-30T00:00:00Z' } }], 'bad-value'],
+    ['instant Feb 29 in a non-leap year', [{ id: 'at', op: 'between', value: { to: '2027-02-29T00:00:00+09:00' } }], 'bad-value'],
+    ['instant hour 24', [{ id: 'at', op: 'between', value: { from: '2026-01-01T24:00:00Z' } }], 'bad-value'],
+    ['instant minute 60', [{ id: 'at', op: 'between', value: { to: '2026-01-01T00:60:00Z' } }], 'bad-value'],
+    ['instant month 13', [{ id: 'at', op: 'between', value: { to: '2026-13-01T00:00:00Z' } }], 'bad-value'],
     ['isEmpty with a value', [{ id: 'n', op: 'isEmpty', value: 1 } as unknown as ColumnFilter], 'bad-value'],
     ['in with an empty list', [{ id: 's', op: 'in', value: [] }], 'bad-value'],
     ['multiple:false with two values', [{ id: 'one', op: 'in', value: ['a', 'a'] }], 'multiple-not-allowed'],

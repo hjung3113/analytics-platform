@@ -1,3 +1,4 @@
+import { instantEpochMs } from '../values/instant.js';
 import type { PageQuery } from './paging.js';
 
 /**
@@ -92,16 +93,33 @@ function nextDay(value: string): string {
   return new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10);
 }
 const INSTANT_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/;
-const isInstant = (value: unknown): value is string => typeof value === 'string' && INSTANT_RE.test(value) && Number.isFinite(Date.parse(value));
+/** Filter grammar (regex) plus the repo's strict instant check, so `2026-02-30T00:00:00Z` is rejected, not rolled into March. */
+function isInstant(value: unknown): value is string {
+  if (typeof value !== 'string' || !INSTANT_RE.test(value)) return false;
+  try {
+    return Number.isFinite(instantEpochMs(value));
+  } catch {
+    return false;
+  }
+}
 
 export type FilterRowsOptions = {
-  /** Field specs by id. Optional: with them `filterRows` honours `caseSensitive` (text), `instant` ranges and kind-specific blanks. */
+  /** Field specs by id. Optional: with them `filterRows` honours `caseSensitive` (text), `instant` ranges and kind-specific blanks. Without them the old ops behave exactly as before (`''` is a value for every op that is not a text op). */
   specs?: Readonly<Record<string, ColumnFilterSpec>>;
 };
 
+const TEXT_OP_SET: ReadonlySet<string> = new Set(['contains', 'notContains', 'startsWith', 'endsWith', 'equals', 'notEquals']);
+
+/** `''` is blank for text only. With a spec the kind decides; without one only the op can tell: text ops and `isEmpty`/`isNotEmpty` (kind unknown) treat `''` as blank, every other (old) op keeps `''` a value. */
+function isBlank(filter: ColumnFilter, raw: unknown, spec: ColumnFilterSpec | undefined): boolean {
+  if (raw === null || raw === undefined) return true;
+  if (raw !== '') return false;
+  if (spec) return spec.kind === 'text';
+  return TEXT_OP_SET.has(filter.op) || filter.op === 'isEmpty' || filter.op === 'isNotEmpty';
+}
+
 function matches(filter: ColumnFilter, raw: unknown, spec: ColumnFilterSpec | undefined): boolean {
-  // Blank: '' counts for text, and also when the kind is unknown (no specs given). Other kinds: null/undefined only.
-  const blank = raw === null || raw === undefined || (raw === '' && (spec === undefined || spec.kind === 'text'));
+  const blank = isBlank(filter, raw, spec);
   switch (filter.op) {
     case 'isEmpty': return blank;
     case 'isNotEmpty': return !blank;

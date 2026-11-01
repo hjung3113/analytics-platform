@@ -1,6 +1,6 @@
 import { DATE_OPS, ENUM_OPS, INSTANT_OPS, NUMBER_OPS, TEXT_OPS, validateFilters, type ColumnFilter, type ColumnFilterSpec } from '@ap/contracts';
 import { describe, expect, it } from 'vitest';
-import { columnFilterSchema, columnFilterSpecSchema } from './index.ts';
+import { columnFilterSchema, columnFilterSpecSchema, toJsonSchema } from './index.ts';
 import { DATE_FILTER_OPS, ENUM_FILTER_OPS, INSTANT_FILTER_OPS, NUMBER_FILTER_OPS, TEXT_FILTER_OPS } from './vocab.ts';
 
 describe('column filter schema agrees with @ap/contracts (ADR-0105)', () => {
@@ -42,5 +42,20 @@ describe('column filter schema agrees with @ap/contracts (ADR-0105)', () => {
     expect(columnFilterSpecSchema.safeParse({ kind: 'enum', options: [], multiple: false, ops: ['in'] }).success).toBe(true);
     expect(columnFilterSpecSchema.safeParse({ kind: 'enum', options: [], multiple: true }).success).toBe(false);
     expect(columnFilterSpecSchema.safeParse({ kind: 'number', ops: ['contains'] }).success).toBe(false);
+  });
+
+  it('the emitted JSON Schema closes the number tuple: exactly two items', () => {
+    const branches = (toJsonSchema(columnFilterSchema).anyOf as { properties: { value: Record<string, unknown> } }[]).map(b => b.properties.value);
+    const tuple = branches.find(v => Array.isArray(v.prefixItems));
+    expect(tuple).toEqual({ type: 'array', prefixItems: [{ type: 'number' }, { type: 'number' }], minItems: 2, maxItems: 2, items: false });
+  });
+
+  it.each<[string, unknown]>([
+    ['empty tuple', []],
+    ['one number', [1]],
+    ['three numbers', [1, 2, 3]],
+    ['non-number member', [1, 'x']],
+  ])('number between rejects %s in the Zod source', (_name, value) => {
+    expect(columnFilterSchema.safeParse({ id: 'n', op: 'between', value }).success).toBe(false);
   });
 });
