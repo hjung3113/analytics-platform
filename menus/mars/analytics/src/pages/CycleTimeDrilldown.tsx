@@ -157,7 +157,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
   ].filter(([, , ok]) => !ok).map(([key, label]) => ({ key: String(key), label: String(label), reason: unknownRaw(draftParam(String(key))) }));
   const resetFilters = <Button type="button" variant="ghost" size="toolbar" onClick={() => queryDraft.setDraftPage({ granularity: null, percentile: null, sort: null, bucket: null, bin: null, page: null })}>{ko ? '페이지 조건 기본값' : 'Reset page filters'}</Button>;
 
-  return <PlatformPage layout="fill" density="compact"
+  return <PlatformPage layout="fill"
     queryResult={{ completedAt: kpi.completedAt, status: kpi.status }}
     queryBarExtension={{ pageSummary, appliedPageSummary, historyPageSummary, issues }}
     description={ko

@@ -137,7 +137,7 @@ export default function StepsPage(_props: PageProps) {
       rowActions={data.level === 0 ? undefined : state.rowActionsOf} />;
   };
 
-  return <PlatformPage layout="fill" density="compact">
+  return <PlatformPage layout="fill">
     <div className="flex h-full min-h-0 gap-3">
       <aside className="w-64 shrink-0 overflow-hidden rounded-lg border border-border-subtle bg-surface-card">
         <Inspector form="stack" persistKey="hw-time-steps" label={{ ko: '분석 보조', en: 'Analysis aids' }} sections={sections} />

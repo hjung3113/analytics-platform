@@ -135,7 +135,7 @@ export default function TablePage(_props: PageProps) {
         exportContext={hwTime.exportRows.context}
       />;
 
-  return <PlatformPage layout="fill" density="compact">
+  return <PlatformPage layout="fill">
     <DrillLayout fill summary={summary}>
       {levelFailure && <QueryView query={levelQ} widgetName={ko ? '단계 요약' : 'Level summary'} compact>{() => null}</QueryView>}
       {table}

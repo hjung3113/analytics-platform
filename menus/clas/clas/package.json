@@ -1,8 +1,10 @@
 {
   "name": "@ap/menu-clas",
   "private": true,
-  "version": "0.1.1",
-  "ap": { "sdk": ">=0.25.0 <0.26.0" },
+  "version": "0.1.2",
+  "ap": {
+    "sdk": ">=0.25.0 <0.26.0"
+  },
   "type": "module",
   "exports": {
     ".": "./src/index.ts",

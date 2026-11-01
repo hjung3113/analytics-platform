@@ -282,7 +282,7 @@ export default function ${i.page}Screen() {
   const { lang } = useI18n();
   const query = useMenuQuery(sampleEndpoint, {});
   const caption = lang === 'ko' ? '${i.labelKo}' : '${i.labelEn}';
-${slotHelpers}  return <PlatformPage${i.pageType === 'analysis' ? ' density="compact"' : ''}>
+${slotHelpers}  return <PlatformPage>
     <QueryView query={query}>{() => <div className="space-y-3">
       <p className="t-caption text-text-muted">{caption}</p>
 ${slotsMarkup}

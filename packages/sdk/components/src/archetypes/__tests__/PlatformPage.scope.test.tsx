@@ -116,7 +116,7 @@ describe('PlatformPage 50px header (#194)', () => {
     const content = view.container.querySelector('[data-platform-page-content]');
     expect(content).toBe(screen.getByText('page body').parentElement);
     expect(view.container.querySelectorAll('[data-platform-page-content]')).toHaveLength(1);
-    expect(content?.className).toContain('px-8');
+    expect(content?.className).toContain('px-4');
     expect(content?.contains(header)).toBe(false);
     expect(content?.contains(screen.getByText('global context'))).toBe(false);
     fireEvent.click(screen.getByRole('button', { name: '즐겨찾기에 추가' }));

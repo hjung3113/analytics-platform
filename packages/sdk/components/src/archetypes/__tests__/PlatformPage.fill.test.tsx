@@ -60,7 +60,7 @@ describe('PlatformPage layout', () => {
     const root = document.querySelector<HTMLElement>('[data-platform-page]')!;
     expect(root).not.toHaveAttribute('data-page-layout');
     expect(root.className).toBe('flex min-h-full flex-col');
-    expect(document.querySelector('[data-platform-page-content]')!.className).toBe('flex-1 px-8 pb-9 pt-7');
+    expect(document.querySelector('[data-platform-page-content]')!.className).toBe('flex-1 px-4 pb-4 pt-3');
     expect(document.querySelector('[data-platform-page-fill]')).toBeNull();
   });
 });
@@ -131,37 +131,45 @@ describe('PlatformPage layout: a workspace in stack mode turns the fill page int
   });
 });
 
-describe('opt-in page density (#1141)', () => {
-  it.each(['flow', 'fill'] as const)('%s keeps comfortable spacing by default and compact preserves height behavior', layout => {
+describe('page density (#1141; default compact since #1217)', () => {
+  it.each(['flow', 'fill'] as const)('%s: an undeclared page renders compact insets and explicit comfortable keeps 32/28/36px', layout => {
     const view = mount({ layout });
-    expect(document.querySelector('[data-platform-page-content]')).toHaveClass('px-8', 'pt-7', 'pb-9');
-    view.unmount();
-    mount({ layout, density: 'compact' });
     expect(document.querySelector('[data-platform-page-content]')).toHaveClass('px-4', 'pt-3', 'pb-4');
     expect(document.querySelector('[data-platform-page]')).toHaveClass(layout === 'fill' ? 'h-full' : 'min-h-full');
     if (layout === 'fill') expect(document.querySelector('[data-platform-page-fill]')).toHaveClass('min-h-[520px]');
+    view.unmount();
+    mount({ layout, density: 'comfortable' });
+    expect(document.querySelector('[data-platform-page-content]')).toHaveClass('px-8', 'pt-7', 'pb-9');
+    expect(document.querySelector('[data-platform-page-content]')).not.toHaveClass('px-4');
   });
 });
 
 describe('page-level rows follow page density (#1166)', () => {
-  it.each(['flow', 'fill'] as const)('%s: the contextExtension row insets 32px in comfortable and aligns with the compact content at 16px', layout => {
+  it.each(['flow', 'fill'] as const)('%s: the contextExtension row aligns with the compact content at 16px by default and insets 32px only in comfortable', layout => {
     const props = { layout, contextExtension: <div data-testid="ext">집계 단위</div> };
     const view = mount(props);
     const row = () => screen.getByTestId('ext').closest<HTMLElement>(layout === 'fill' ? '[data-page-head]' : '.pt-3')!;
-    expect(row()).toHaveClass('px-8');
-    view.unmount();
-    mount({ ...props, density: 'compact' });
     expect(row()).toHaveClass('px-4');
     expect(row()).not.toHaveClass('px-8');
     expect(document.querySelector('[data-platform-page-content]')).toHaveClass('px-4');
+    view.unmount();
+    mount({ ...props, density: 'comfortable' });
+    expect(row()).toHaveClass('px-8');
+    expect(row()).not.toHaveClass('px-4');
+    expect(document.querySelector('[data-platform-page-content]')).toHaveClass('px-8');
   });
 });
 
-it('PlatformPage carries visual density to descendants and nested pages retain their own default (#1141)', () => {
+it('PlatformPage carries visual density to descendants and nested pages keep their own default (#1141, #1217)', () => {
   function DensityProbe({ id }: { id: string }) { return <span data-testid={id}>{String(useCompactPageDensity())}</span>; }
   render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}>
-    <PlatformPage density="compact"><DensityProbe id="dense" /><PlatformPage><DensityProbe id="normal" /></PlatformPage></PlatformPage>
+    <PlatformPage><DensityProbe id="undeclared" /></PlatformPage>
   </PlatformProvider></I18nProvider>);
-  expect(screen.getByTestId('dense')).toHaveTextContent('true');
-  expect(screen.getByTestId('normal')).toHaveTextContent('false');
+  expect(screen.getByTestId('undeclared')).toHaveTextContent('true');
+  cleanup();
+  render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}>
+    <PlatformPage density="comfortable"><DensityProbe id="cozy" /><PlatformPage><DensityProbe id="nested" /></PlatformPage></PlatformPage>
+  </PlatformProvider></I18nProvider>);
+  expect(screen.getByTestId('cozy')).toHaveTextContent('false');
+  expect(screen.getByTestId('nested')).toHaveTextContent('true');
 });

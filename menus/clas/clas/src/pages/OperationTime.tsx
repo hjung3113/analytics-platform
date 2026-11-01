@@ -16,7 +16,7 @@ const displayTime = (value: string | null) => (value ?? '').replace('T', ' ');
 export default function OperationTimeScreen() {
   const { pageParam } = usePlatform();
   const query = useMenuQuery(operationTimeEndpoint, { eqp: pageParam('eqp') ?? '' });
-  return <PlatformPage density="compact" dataTrustSummary={query.response ? <DataTrustIndicator trust={query.response.trust} assessments={query.response.assessments} /> : undefined}>
+  return <PlatformPage dataTrustSummary={query.response ? <DataTrustIndicator trust={query.response.trust} assessments={query.response.assessments} /> : undefined}>
     <QueryView query={query}>{data => <OperationTimeBody data={data} />}</QueryView>
   </PlatformPage>;
 }

@@ -212,11 +212,8 @@ describe('page archetype skeletons (06 §12, #104)', () => {
     expect(pageOf('analysis')).toContain('<AnalysisLayout');
   });
 
-  it('only the analysis page declares compact density (06 §12.2, #1166)', () => {
-    for (const t of PAGE_TYPES) {
-      if (t === 'analysis') expect(pageOf(t)).toContain('<PlatformPage density="compact">');
-      else expect(pageOf(t)).not.toContain('density=');
-    }
+  it('no page declares density — compact is the SDK default on every page (06 §12, #1217)', () => {
+    for (const t of PAGE_TYPES) expect(pageOf(t)).not.toContain('density=');
   });
 
   it('a slot label with an apostrophe or backslash still yields a parseable string literal', () => {
