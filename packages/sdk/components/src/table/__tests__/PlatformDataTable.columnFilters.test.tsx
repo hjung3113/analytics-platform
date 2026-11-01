@@ -85,13 +85,14 @@ describe('PlatformDataTable column filters (#556b)', () => {
   it('only filter-declared columns get a header filter button; a table without filter has no button and no chip row', async () => {
     const view = render(<Harness columns={filterable} loadPage={makeLoad()} />);
     await screen.findByText(/1\/1/);
-    expect(screen.getAllByRole('button', { name: /필터$/ }).map(b => b.getAttribute('aria-label'))).toEqual(['상태 필터', '이름 필터', '수량 필터', '일자 필터']);
+    expect([...view.container.querySelectorAll('[data-column-filter]')].map(b => b.getAttribute('aria-label'))).toEqual(['상태 필터', '이름 필터', '수량 필터', '일자 필터']);
+    expect(view.container.querySelector('[data-filter-line]')).not.toBeNull();
     expect(view.container.querySelector('[data-column="plain"] [data-column-filter]')).toBeNull();
     view.unmount();
     const bare = render(<Harness columns={plain} loadPage={makeLoad()} />);
     await screen.findByText(/1\/1/);
     expect(bare.container.querySelector('[data-column-filter]')).toBeNull();
-    expect(bare.container.querySelector('[data-column-filter-chips]')).toBeNull();
+    expect(bare.container.querySelector('[data-filter-line]')).toBeNull();
   });
 
   it('applying calls loadPage with filters; clearing calls it without the key; no filters key before any filter', async () => {
@@ -101,7 +102,7 @@ describe('PlatformDataTable column filters (#556b)', () => {
     expect(lastQuery(load)).not.toHaveProperty('filters');
     await applyText('이름', 'abc');
     await waitFor(() => expect(lastQuery(load).filters).toEqual([{ id: 'name', op: 'contains', value: 'abc' }]));
-    fireEvent.click(screen.getByRole('button', { name: '이름 필터 해제' }));
+    fireEvent.click(screen.getByRole('button', { name: '이름 필터 지우기' }));
     await waitFor(() => expect(lastQuery(load)).not.toHaveProperty('filters'));
     expect(Object.keys(lastQuery(load)).sort()).toEqual(['page', 'pageSize', 'sorting']);
   });
@@ -149,8 +150,9 @@ describe('PlatformDataTable column filters (#556b)', () => {
     render(<Harness columns={filterable} loadPage={makeLoad()} />);
     await screen.findByText(/1\/1/);
     fireEvent.click(screen.getByRole('button', { name: '일자 필터' }));
-    const dialog = await screen.findByRole('dialog', { name: '일자 필터' });
-    expect(within(dialog).getByText('일자 필터')).toBeTruthy();
+    // The editor is named by the field label (ADR-0105); the funnel button keeps 「‹label› 필터」.
+    const dialog = await screen.findByRole('dialog', { name: '일자' });
+    expect(within(dialog).getByText('일자')).toBeTruthy();
     expect(within(dialog).getByText('~부터').tagName).toBe('LABEL');
     expect(within(dialog).getByText('~까지 (포함)').tagName).toBe('LABEL');
     expect((within(dialog).getByLabelText('~부터') as HTMLInputElement).type).toBe('date');
@@ -184,7 +186,7 @@ describe('PlatformDataTable column filters (#556b)', () => {
     fireEvent.click(screen.getByRole('button', { name: '다음' }));
     await screen.findByText(/2\/3/);
     expect(onChange).toHaveBeenCalledTimes(2);
-    fireEvent.click(within(screen.getByRole('group', { name: '적용된 열 필터' })).getByRole('button', { name: '이름 필터 해제' }));
+    fireEvent.click(within(screen.getByRole('group', { name: '필터' })).getByRole('button', { name: '이름 필터 지우기' }));
     await screen.findByText(/1\/3/);
     expect(onChange.mock.calls.at(-1)).toEqual([{ sorting: [{ id: 'name', desc: false }], page: null }, 'reset']);
     await waitFor(() => expect(lastQuery(load)).not.toHaveProperty('filters'));
@@ -202,16 +204,16 @@ describe('PlatformDataTable column filters (#556b)', () => {
     fireEvent.click(screen.getByRole('button', { name: '수량 필터' }));
     fireEvent.change(await screen.findByLabelText('값'), { target: { value: '3' } });
     fireEvent.click(screen.getByRole('button', { name: '적용' }));
-    const chips = await screen.findByRole('group', { name: '적용된 열 필터' });
+    const chips = await screen.findByRole('group', { name: '필터' });
     expect(chips.querySelectorAll('[data-column-filter-chip]')).toHaveLength(2);
     view.rerender(<Harness columns={filterable} loadPage={load} filterKey="other" />);
-    expect(screen.getByRole('group', { name: '적용된 열 필터' }).querySelectorAll('[data-column-filter-chip]')).toHaveLength(2);
+    expect(screen.getByRole('group', { name: '필터' }).querySelectorAll('[data-column-filter-chip]')).toHaveLength(2);
     await waitFor(() => expect(lastQuery(load).filters).toHaveLength(2));
-    fireEvent.click(within(screen.getByRole('group', { name: '적용된 열 필터' })).getByRole('button', { name: '이름 필터 해제' }));
+    fireEvent.click(within(screen.getByRole('group', { name: '필터' })).getByRole('button', { name: '이름 필터 지우기' }));
     await waitFor(() => expect(lastQuery(load).filters).toEqual([{ id: 'n', op: 'eq', value: 3 }]));
-    fireEvent.click(screen.getByRole('button', { name: '필터 모두 해제' }));
+    fireEvent.click(screen.getByRole('button', { name: '모두 지우기' }));
     await waitFor(() => expect(lastQuery(load)).not.toHaveProperty('filters'));
-    expect(screen.queryByRole('group', { name: '적용된 열 필터' })).toBeNull();
+    expect(view.container.querySelector('[data-column-filter-chip]')).toBeNull();
   });
 
   it('a filtered export carries the filters at the request top level and the XLSX 조회 정보 lists them; a selection export does not', async () => {

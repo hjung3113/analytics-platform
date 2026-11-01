@@ -731,7 +731,7 @@ test.describe('표 고급 기능 (#556)', () => {
     await expect.poll(total).toBeLessThan(before);
     await expect(page.locator('[role="row"][data-row-id]').first()).toBeVisible();
     await evidence(page, testInfo, 'column-filter-line');
-    await chip.getByRole('button', { name: '라인 필터 해제' }).click();
+    await chip.getByRole('button', { name: '라인 필터 지우기' }).click();
     await expect(chip).toHaveCount(0);
     await expect.poll(total).toBe(before);
   });

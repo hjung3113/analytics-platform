@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import type { RowSelectionState } from '@tanstack/react-table';
-import type { ApiResponse, Capability, ColumnFilter, ContextKey, PageSort } from '@ap/contracts';
+import type { ApiResponse, Capability, ColumnFilter, ColumnFilterSpec, ContextKey, PageSort } from '@ap/contracts';
 import { useEquipmentAxes, useI18n, usePlatform, useQueryContext } from '@ap/kernel';
 import { isProductionEnv } from '@ap/ui';
 import type { PlatformColumn } from './PlatformDataTable';
@@ -43,6 +43,8 @@ type TransferInput<T> = {
   allSelection: { excludedIds: string[]; count: number } | null;
   /** Active column filters: sent with a `filtered` export and listed on the 조회 정보 sheet (#556b). */
   columnFilters: ColumnFilter[];
+  /** Filterable fields (columns and non-column) — the one label source of the XLSX 조회 정보 `필터 · <label>` rows. */
+  filterFields: readonly { id: string; label: string; spec: ColumnFilterSpec }[];
   /** Rows of the shown page, for the loaded-rows-only copy path. */
   loadedRows: T[];
   /** Total of the shown result; only meaningful when `resultOk`. */
@@ -160,7 +162,7 @@ export function useTableTransfer<T>(input: TransferInput<T>) {
           ...(menu?.requiresScope ? [['Scope', global.scopeId ?? ''] as [string, string]] : []),
           ...(appliedContext?.time === 'apply' ? [[L.period, global.from && global.to ? `${global.from} – ${global.to}` : ''] as [string, string]] : []),
           ...(input.exportFilterSummary ?? []).map(([label, value]) => [label, value] as [string, string]),
-          ...(filters ? filterInfoRows(filters, columns, lang) : []),
+          ...(filters ? filterInfoRows(filters, input.filterFields.map(f => ({ id: f.id, label: f.label, filter: f.spec })), lang) : []),
           ...(appliedContext ? globalContextRows(queryContext, appliedContext, lang, axes, t('membershipAsOf')) : []),
           [L.updatedAt, trust?.updatedAt?.replace('T', ' ') ?? ''],
           [L.dataThrough, trust?.dataThrough?.replace('T', ' ') ?? ''],
