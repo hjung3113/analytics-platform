@@ -34,3 +34,19 @@ The gate, env, reset contract, and teardown rules are in `apps/platform-api/AGEN
 ## Authorization is two layers
 
 `roleSatisfies` is only the bottom layer; the admin-bypass layer on top is described in `apps/platform-api/src/modules/permissions/AGENTS.md`. To decide whether an actor has a capability, read the enforcement path the route actually calls. Persona grants for `SEED_MODE=personas` are pinned in `apps/platform-api/src/db/__tests__/persona-seed.integration.test.ts`.
+
+## Mutation checks
+
+Mutation-check new tests once per issue: break the fix, see the named test fail, restore. Worker output is uncommitted, so copy the target file aside first (`git checkout <file>` would wipe the whole chunk).
+
+- Record which assertion fired, not just that the test died. A count assertion placed before a set-difference assertion masks it (`expected 47 to be 46` names nothing). Put name-revealing assertions first, counts after, and include one mutant with an equal count but a different set.
+- Confirm the mutation applied: use single-line grep patterns (multiline ones miss) and `cmp` after restoring.
+- A survivor is usually the fixture, not the code:
+  - a priority rule tested with nothing to beat (a deny test whose actor had no allow): make the lower-priority side true first;
+  - a negative assertion against a list that has not rendered: anchor with a positive "N rows rendered" first;
+  - a negative assertion inside an async-mounting `RouterProvider` harness: await a mounted marker first;
+  - a React Query refetch inside `act` asserts before the re-render: flush with `await new Promise((r) => setTimeout(r, 0))`.
+- Or a survivor is dead code: if deleting a line breaks nothing because another path does the same, delete the line.
+- Some defense-in-depth assertions cannot fire alone (`not.toHaveBeenCalled()` after `toBeDisabled`); list them as such, not as gaps.
+- Passing worker-written tests can still miss the safeguard (an advisory lock, an HMAC check): mutate each core safeguard, and when one survives add a targeted test plus a positive pair.
+- SQL `SECURITY DEFINER` mutants: `psql -f` exits 0 on error, and neither the migration role nor the owner role can replace the function. Dump with `pg_get_functiondef`, apply the mutant and the restore as superuser on the throwaway DB with `-v ON_ERROR_STOP=1`, then check `proowner`/`prosecdef`. Anchor text replacements uniquely.

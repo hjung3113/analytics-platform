@@ -1,6 +1,6 @@
 ---
 name: analysis-platform-wireframe
-description: Orchestrates the UI/UX workflow for this analysis platform (data-heavy dashboards, admin tools, internal enterprise screens) — Requirements → IA → Conceptual Contract → Wireframe → Open Decisions. Design System, Prototype, Visual Polish and implementation review are optional gated follow-ups. Use when asked to design, plan, wireframe, or spec a new page/feature/screen for this project, before any JSX/HTML is written. Does not replace the other design skills — it sequences them and stops each one at its own boundary. Not for marketing/landing pages.
+description: Sequences the UI/UX workflow for this analysis platform (dashboards, admin tools, internal screens): Requirements → IA → Conceptual Contract → Wireframe → Open Decisions; later stages are gated. Use before any JSX/HTML when asked to design, plan, wireframe or spec a screen. Not for marketing pages.
 ---
 
 # Analysis Platform Wireframe
