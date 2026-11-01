@@ -123,6 +123,7 @@ Reports are in Korean.
   - Keyboard: 06 §26.
   - Copy: Korean, existing i18n wording, `GLOSSARY.md` terms.
   - Visuals: 50px page header, tokens, `@ap/ui`/`@ap/components`.
+  - UI/UX heuristics (after the checks above): read `.agents/skills/ui-ux-pro-max/SKILL.md` and walk its priority table (accessibility, interaction, layout, typography and color, forms and feedback, data and charts) against the changed screens; query `--domain` only for a category you flag. Skip mobile- and touch-only rules (desktop scope). Repo docs win on any conflict; cite the rule for each finding. Reason: the repo lens covers contracts, not general interaction quality.
 - **Severity:** blocker = data from another Scope is visible. major = 06 violation.
 
 ## Review lens: quality
