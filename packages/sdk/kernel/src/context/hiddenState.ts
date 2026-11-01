@@ -38,3 +38,11 @@ export function splitHidden(url: string, keys: readonly string[]): { url: string
 }
 
 export const sameHidden = (a: readonly Pair[], b: readonly Pair[]): boolean => a.length === b.length && a.every(([k, v], i) => k === b[i][0] && v === b[i][1]);
+
+/** The pairs a menu may take as hidden state: only its declared hidden keys, and one value for a key that is not repeated. Anything else is dropped (a restored value is never trusted). */
+export function validateHidden(pairs: readonly Pair[], menu: { hiddenPageKeys?: readonly string[]; repeatedPageKeys?: readonly string[] } | undefined): Pair[] {
+  const hiddenKeys = menu?.hiddenPageKeys ?? [];
+  const kept = pairs.filter(([key, value]) => hiddenKeys.includes(key) && value !== '');
+  const repeated = menu?.repeatedPageKeys ?? [];
+  return kept.filter(([key], index) => repeated.includes(key) || kept.findIndex(([k]) => k === key) === index);
+}

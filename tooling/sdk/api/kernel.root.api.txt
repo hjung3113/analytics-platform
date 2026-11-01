@@ -22,7 +22,7 @@ HomeTodoSlot | type | type HomeTodoSlot = { Todo: ComponentType; }
 I18nProvider | function | function I18nProvider({ children }: { children: ReactNode; }): import("react").JSX.Element
 Key | type | type Key = keyof typeof dict
 Lang | type | type Lang = 'en' | 'ko'
-LinkOptions | type | type LinkOptions = { global?: Partial<@ap/contracts#GlobalContext>; page?: Record<string, null | string>; params?: Record<string, string>; returnTo?: boolean; }
+LinkOptions | type | type LinkOptions = { global?: Partial<@ap/contracts#GlobalContext>; page?: Record<string, null | readonly string[] | string>; params?: Record<string, string>; returnTo?: boolean; }
 LinkResolution | type | type LinkResolution = { allowed: boolean; droppedPageKeys: string[]; href: string; }
 MenuActionState | type | type MenuActionState<I, T> = { pending: boolean; ready: boolean; run: (input: I, options?: { expectedVersion?: string; }) => Promise<@ap/contracts#ActionResult<T>>; }
 MenuEntry | type | type MenuEntry = @ap/kernel#ModuleMenuEntry | @ap/kernel#PlatformMenuEntry

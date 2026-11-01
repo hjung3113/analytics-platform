@@ -1,7 +1,7 @@
 import { StrictMode, useEffect, useLayoutEffect } from 'react';
 import { act, cleanup, render } from '@testing-library/react';
 import { House } from 'lucide-react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
 import { defineAction, defineEndpoint, type ActionResponse, type ActionResult, type ApiResponse, type ContextKey, type EndpointSpec, type GlobalContext, type MenuAction, type MenuQuery, type ModuleHost, type ModuleManifest, type ModuleScreenMeta, type Session, groupId, spaceId } from '@ap/contracts';
 import { I18nProvider } from '../../i18n';
 import { mountModule } from '../module';
@@ -170,9 +170,18 @@ describe('useModuleHost: reads', () => {
 
   it('pages() reads every value of a declared key and nothing for an undeclared one', () => {
     const { seen } = setup('/fx?v=1&q=a&junk=1');
-    expect(seen.host.pages('q')).toEqual(['a']);
-    expect(seen.host.pages('junk')).toEqual([]);
-    expect(seen.host.pages('tab')).toEqual([]);
+    expect(seen.host.pages?.('q')).toEqual(['a']);
+    expect(seen.host.pages?.('junk')).toEqual([]);
+    expect(seen.host.pages?.('tab')).toEqual([]);
+  });
+
+  it('`pages` is an optional capability under contract 1 (ADR-0053 amendment): a host without it is a valid ModuleHost and module code checks for it', () => {
+    expectTypeOf<ModuleHost['pages']>().toEqualTypeOf<((key: string) => string[]) | undefined>();
+    const older = { contract: 1, page: () => 'a' } as unknown as ModuleHost;
+    const read = (host: ModuleHost) => host.pages?.('q') ?? (host.page('q') === null ? [] : [host.page('q')!]);
+    expect(read(older)).toEqual(['a']);
+    const { seen } = setup('/fx?v=1&q=b');
+    expect(read(seen.host)).toEqual(['b']);
   });
 
   it('href({ screen }) stays inside the module, drops undeclared page keys and returns null for an unknown target', () => {

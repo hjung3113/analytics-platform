@@ -10,7 +10,7 @@ import type { SupportRegistry } from '../saved-view/useSavedViewSupport';
 import type { HostPlatform, Recent, Toast } from './types';
 
 /** Fields of the screen state: what a menu page reads about the screen it is shown on (the main screen or one board pane). */
-export type ScreenFields = 'queryHistory' | 'queryDraft' | 'queryPolicy' | 'url' | 'pathname' | 'route' | 'platformScreen' | 'contractError' | 'metricInit' | 'global' | 'page' | 'extras' | 'pageParam' | 'pageParams' | 'pageNavigation' | 'navigate' | 'setGlobal' | 'setPage' | 'resetContext' | 'linkTo' | 'resolveLink' | 'reportError' | 'returnTarget' | 'returnOrigin' | 'scope' | 'retryScope' | 'currentSpace';
+export type ScreenFields = 'queryHistory' | 'queryDraft' | 'queryPolicy' | 'url' | 'appliedUrl' | 'pathname' | 'route' | 'platformScreen' | 'contractError' | 'metricInit' | 'global' | 'page' | 'extras' | 'pageParam' | 'pageParams' | 'pageNavigation' | 'navigate' | 'setGlobal' | 'setPage' | 'resetContext' | 'linkTo' | 'resolveLink' | 'reportError' | 'returnTarget' | 'returnOrigin' | 'scope' | 'retryScope' | 'currentSpace';
 /** Shell navigation state that always follows the main screen, even when read from inside a pane (ADR-0049). */
 export type MainBoundFields = 'visibleMenus' | 'sidebarSpace' | 'spaceResume' | 'spaceEntry' | 'switchSpace';
 export type ScreenState = Pick<HostPlatform, ScreenFields | 'screenMode' | 'paneId' | 'paneLabel'>;
@@ -54,7 +54,7 @@ export const OverlayContext = createContext<OverlayState | null>(null);
 export const RecentContext = createContext<readonly Recent[] | null>(null);
 
 /** `redirect`: replace an alias address by its canonical one (ADR-0093) — the same arrival, so a pending focus request and the address-bar hash survive. */
-export type CommitOptions = { focus?: PageFocus; materialize?: boolean; redirect?: boolean };
+export type CommitOptions = { focus?: PageFocus; materialize?: boolean; redirect?: boolean; /** Hidden pairs restored for the destination (a return trip, F1): validated against the destination's declared hidden keys. */ restoreHidden?: readonly Pair[] };
 /** What the screen state hook needs from its owner: where the URL lives and how a write or a navigation lands. */
 export type ScreenSource = {
   draftStore?: DraftStore;
@@ -69,7 +69,7 @@ export type ScreenSource = {
   /** Writes this screen's own address (history for main, `onChange` for a pane). Stable identity. False when nothing was written. */
   commit: (next: string, how: 'push' | 'replace', options?: CommitOptions) => boolean;
   /** Imperative navigation to any app-relative href. Stable identity. */
-  go: (href: string, options?: { replace?: boolean; focus?: PageFocus }) => boolean;
+  go: (href: string, options?: { replace?: boolean; focus?: PageFocus; restoreHidden?: readonly Pair[] }) => boolean;
   /** A pane reads the sidebar space from the main screen; the main screen derives its own. */
   sidebarSpace?: SpaceDef | null;
   /** Main only: remember a Scope the server confirmed. */

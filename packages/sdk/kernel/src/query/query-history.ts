@@ -40,7 +40,8 @@ function sameTag(a: Tag | null, b: Tag) {
 }
 export function canonicalHistoryQuery(values: DraftValues, pageKeys: readonly string[], repeated: readonly string[] = []): string {
   const normalized = parseQuery(buildQuery(values.global, withoutReturnTo(values.page).filter(([key]) => pageKeys.includes(key))), pageKeys, { repeated });
-  const page = normalized.page.sort(([ak, av], [bk, bv]) => compareHistoryText(ak, bk) || compareHistoryText(av, bv));
+  // Keys are ordered; the values of one repeated key keep their order (a stable sort on the key alone).
+  const page = normalized.page.sort(([ak], [bk]) => compareHistoryText(ak, bk));
   return buildQuery(normalized.global, page);
 }
 function historyEmpty(input: DraftInputs): boolean {

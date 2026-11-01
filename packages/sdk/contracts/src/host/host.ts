@@ -55,8 +55,8 @@ export type ModuleHost = {
   can(permission: string): boolean;
   params(): Readonly<Record<string, string>>;
   page(key: string): string | null;
-  /** Every value of a page key (`[]` when absent); a key the screen did not declare reads `[]`. More than one only for a repeated page key. */
-  pages(key: string): string[];
+  /** Optional capability (ADR-0053 amendment): present on hosts that support repeated page keys, so module code checks for it and falls back to `page`. Every value of a page key (`[]` when absent); a key the screen did not declare reads `[]`. More than one only for a repeated page key. */
+  pages?(key: string): string[];
   /** A value may be a list for a repeated page key (one URL pair per item); `[]` and null remove the key. */
   setPage(patch: Record<string, string | readonly string[] | null>, options?: { replace?: boolean }): void;
   href(target: ModuleTarget): { href: string; allowed: boolean } | null;

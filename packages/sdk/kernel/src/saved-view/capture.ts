@@ -15,10 +15,10 @@ export function supportedFields(support: SupportedKeys): ReadonlySet<keyof Saved
 }
 const savable = ([key]: Pair) => key !== RETURN_TO_KEY && !isForbiddenSavedViewKey(key);
 
-/** Normalizes one page representation (pairs or key map) to sorted pairs so equal pages compare equal. */
+/** Normalizes one page representation (pairs or key map) to pairs ordered by key; the values of one repeated key keep their order, which is part of the state. */
 export function pagePairs(page: Pair[] | Record<string, string[]>): Pair[] {
   const pairs: Pair[] = Array.isArray(page) ? page.map(([k, v]) => [k, v]) : Object.entries(page).flatMap(([k, vs]) => vs.map((v): Pair => [k, v]));
-  return pairs.filter(([, value]) => value !== '').sort(([ak, av], [bk, bv]) => (ak < bk ? -1 : ak > bk ? 1 : av < bv ? -1 : av > bv ? 1 : 0));
+  return pairs.filter(([, value]) => value !== '').sort(([ak], [bk]) => (ak < bk ? -1 : ak > bk ? 1 : 0));
 }
 
 /**

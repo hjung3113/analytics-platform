@@ -78,6 +78,21 @@ describe('createRegistry validation (platform-packages.md §5)', () => {
     expect(() => createRegistry({ spaces: homeA, groups, carrySets: [{ id: carrySetId('c'), pageKeys: ['filter'] }], menus: [menu('a', '/a', { primary: true, pageKeys: ['filter'], carrySet: carrySetId('c'), repeatedPageKeys: ['filter'], hiddenPageKeys: ['filter'] })] })).not.toThrow();
   });
 
+  it('a repeated key cannot be a drill level, the conditionPreset key or a navView preset key (error names the key and the role)', () => {
+    const preset = (id: string) => ({ id, label: { ko: id, en: id }, axes: ['team'] });
+    const one = (over: Record<string, unknown>) => () => createRegistry({ spaces: homeA, groups, menus: [menu('a', '/a', { primary: true, ...over })] });
+    expect(one({ pageKeys: ['room'], contextResetKeys: ['room'], repeatedPageKeys: ['room'], drill: { levels: [level('room')] } })).toThrow(/repeatedPageKeys key "room" cannot also be a drill level key/);
+    expect(one({ pageKeys: ['view'], repeatedPageKeys: ['view'], context: { ...none, condition: 'apply' }, conditionPresets: [preset('a'), preset('b')], conditionPreset: { key: 'view', default: 'a' } })).toThrow(/repeatedPageKeys key "view" cannot also be the conditionPreset key/);
+    expect(one({ pageKeys: ['tab'], repeatedPageKeys: ['tab'], navViews: [{ id: 'v', label: { ko: 'v', en: 'v' }, page: { tab: 'x' } }] })).toThrow(/repeatedPageKeys key "tab" cannot also be a navView preset key/);
+  });
+
+  it('carry set members must agree on whether a carried key is a repeated page key', () => {
+    const set = [{ id: carrySetId('c'), pageKeys: ['tag'] }];
+    const member = (id: string, path: string, repeated: boolean, extra: Partial<PlatformMenuEntry> = {}) => menu(id, path, { pageKeys: ['tag'], carrySet: carrySetId('c'), ...(repeated ? { repeatedPageKeys: ['tag'] } : {}), ...extra });
+    expect(() => createRegistry({ spaces: homeA, groups, carrySets: set, menus: [member('a', '/a', true, { primary: true }), member('b', '/b', false)] })).toThrow(/Carry set "c" key "tag" is a repeated page key of menu "a" but not of menu "b"/);
+    expect(() => createRegistry({ spaces: homeA, groups, carrySets: set, menus: [member('a', '/a', true, { primary: true }), member('b', '/b', true)] })).not.toThrow();
+  });
+
   const level = (key: string) => ({ key, label: { ko: key, en: key } });
 
   it('rejects a drill with no levels', () => {

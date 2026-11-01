@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { emptyGlobal, type SavedViewSupport } from '@ap/contracts';
-import { captureApplied, viewState } from '../capture';
+import { captureApplied, stateKey, viewState } from '../capture';
 import { hasExplicitContext, restoreSavedView, savedStateOf, unsupportedOf } from '../restore';
 import { resolveContext } from '../capture';
 import { createSupportRegistry } from '../useSavedViewSupport';
@@ -20,6 +20,15 @@ describe('hidden and repeated page pairs (ADR-0105)', () => {
     expect(state.page).toEqual([['filter', 'x'], ['filter', 'y'], ['sort', 'a']]);
     const result = run({ view: viewOf({ id: 'v', kind: 'menu-view', menuId: 'home', menuSchemaVersion: 2, context: state.context, page: state.page }), current: bare });
     expect(result.ok && result.applied && result.href).toContain('filter=x&filter=y&sort=a');
+  });
+});
+
+describe('repeated values keep their order (F6)', () => {
+  const orderSupport = { ...support, pageKeys: ['filter'] };
+  const order = (values: string[]) => ({ global: { ...emptyGlobal, from: '2026-09-01T00:00:00', to: anchor }, page: values.map((v): [string, string] => ['filter', v]) });
+  it('capture stores z,a as z,a and the two orders are different states', () => {
+    expect(captureApplied(order(['z', 'a']), orderSupport).page).toEqual([['filter', 'z'], ['filter', 'a']]);
+    expect(stateKey(captureApplied(order(['z', 'a']), orderSupport))).not.toBe(stateKey(captureApplied(order(['a', 'z']), orderSupport)));
   });
 });
 

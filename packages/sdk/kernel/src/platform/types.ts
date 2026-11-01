@@ -88,7 +88,7 @@ export type NavCountsSlot = { For: (spaceId: SpaceId, menu: MenuEntry | null) =>
  */
 export type SpaceNavSectionSlot = { For: (spaceId: SpaceId, menu: MenuEntry | null) => { label: Text; Body: ComponentType } | null };
 export type PlatformSlots = { scopeControl?: ScopeControlSlot; contextBar?: ReactNode; topBarTools?: ReactNode; features?: FeatureSlot; plannedSpaces?: readonly PlannedSpace[]; boardEntry?: ReactNode; notifications?: NotificationsSlot; vocCompose?: VocComposeSlot; homeTodo?: HomeTodoSlot; navCounts?: NavCountsSlot; spaceNavSection?: SpaceNavSectionSlot };
-export type LinkOptions = { params?: Record<string, string>; page?: Record<string, string | null>; global?: Partial<GlobalContext>; returnTo?: boolean };
+export type LinkOptions = { params?: Record<string, string>; /** A value may be a list for a repeated page key of the destination: one pair per item, in order. */ page?: Record<string, string | readonly string[] | null>; global?: Partial<GlobalContext>; returnTo?: boolean };
 export type LinkResolution = {
   href: string;
   /** False when the signed-in user lacks the target's permission or, for a space menu, space entry. A global utility menu is permission only. Display only — never a permission proof. */
@@ -115,6 +115,8 @@ export type HostPlatform = {
   location: PlatformLocation;
   absoluteUrl: (url: string) => string;
   url: string;
+  /** `url` plus the hidden page pairs (ADR-0105): the identity of the applied state. Equal to `url` when the entry carries no hidden pair. Host-only. */
+  appliedUrl: string;
   pathname: string;
   route: RouteMatch | null;
   /**

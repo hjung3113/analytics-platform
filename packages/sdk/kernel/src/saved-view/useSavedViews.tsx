@@ -149,11 +149,11 @@ export function useSavedViews(): SavedViews {
     if (!enabled || !support || blocked || stale(gen)) return { ok: false, reason: 'unavailable' };
     const at = gen;
     const mine = ++intent.current;
-    const startUrl = live.current.host.url;
+    const startUrl = live.current.host.appliedUrl;
     // Always asks the store: a restore is judged on the view's current capabilities, never on an earlier list answer or the cached copy.
     let found: SavedViewListItem | null;
     try { found = await store.get(id); } catch { found = null; }
-    if (stale(at) || intent.current !== mine || live.current.host.url !== startUrl) {
+    if (stale(at) || intent.current !== mine || live.current.host.appliedUrl !== startUrl) {
       // Only a default that nobody replaced (no newer intent) and that is still on screen is retried; the restore rule refuses it if the address now carries explicit Context.
       if (source === 'default' && alive.current && intent.current === mine) {
         if (retries.current.entry !== entryGen) retries.current = { entry: entryGen, n: 0 };
@@ -172,7 +172,8 @@ export function useSavedViews(): SavedViews {
     if (!result.applied) return { ok: true, unsupported: NO_UNSUPPORTED };
     // One write: a default replaces the bare entry so Back leaves the app; a picked view is a normal push.
     // The address omits hidden page keys (ADR-0105), so "already here" also compares the full applied state.
-    const sameAddress = result.href === current.url || result.href === current.pathname + buildQuery(current.global, current.page, current.extras);
+    // With no hidden pair the address is the whole state; with some, only the full rebuilt query can equal the target.
+    const sameAddress = (current.appliedUrl === current.url && result.href === current.url) || result.href === current.pathname + buildQuery(current.global, current.page, current.extras);
     if (!sameAddress && !current.navigate(result.href, { replace: source === 'default' })) return fail('unavailable');
     setFresh({ gen: at, entry: found });
     setSelected(id);
@@ -207,7 +208,7 @@ export function useSavedViews(): SavedViews {
     traversed.current = false;
     if (selected && support && differs(selected.view, support)) clearSelection();
   // eslint-disable-next-line react-hooks/exhaustive-deps -- `differs` is rebuilt every render from `applied`/`anchor`, both listed
-  }, [host.url, selected, support, applied, anchor, clearSelection]);
+  }, [host.appliedUrl, selected, support, applied, anchor, clearSelection]);
 
   const select = useCallback((id: string) => apply(id, 'selected'), [apply]);
   const saveAs = useCallback(async (input: SaveInput): Promise<Result<SavedViewEntry>> => {
@@ -222,11 +223,11 @@ export function useSavedViews(): SavedViews {
     const at = gen;
     if (stale(at)) return OFF;
     const mine = ++intent.current;
-    const startUrl = live.current.host.url;
+    const startUrl = live.current.host.appliedUrl;
     let result: Result<SavedViewEntry>;
     try { result = await store.save(checked.value as SavedViewDraft); } catch { return OFF; }
     if (result.ok && !stale(at)) {
-      if (intent.current === mine && live.current.host.url === startUrl) { setFresh({ gen: at, entry: result.value }); setSelected(result.value.view.id); }
+      if (intent.current === mine && live.current.host.appliedUrl === startUrl) { setFresh({ gen: at, entry: result.value }); setSelected(result.value.view.id); }
       refresh();
     }
     return result;
