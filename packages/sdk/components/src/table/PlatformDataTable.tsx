@@ -87,6 +87,8 @@ export type PlatformColumn<T> = {
 /** The trust button's own inline padding (px-2 × 2) and the status line's flex gap (gap-x-2): the probe measures content only. */
 const TRUST_BUTTON_PADDING = 16;
 const STATUS_GAP = 8;
+/** The filter block's flex-basis on the result line (`basis-80` = 20rem); it shares the row with count and trust until the row wraps. */
+const FILTER_BASIS = 320;
 const ACTION_COLUMN_WIDTH = 128;
 /** Icon-only action column: two 32px icon buttons and a 4px gap fit with `px-0`. */
 const COMPACT_ACTION_WIDTH = 72;
@@ -121,7 +123,7 @@ export type PlatformDataTableProps<T> = {
   filters?: ReactNode;
   /**
    * Quick search slot (06 §15, node 1217c): the page's search field, rendered in the toolbar line beside the title. The table does not own the
-   * query — the page does (`<Input size="toolbar" …/>` bound to its page key); the slot only places it. `ManagementLayout` passes its `search` here.
+   * query — the page does (`<Input inputSize="toolbar" …/>` bound to its page key); the slot only places it. `ManagementLayout` passes its `search` here.
    */
   search?: ReactNode;
   rowAction?: (row: T, context: { compact: boolean }) => ReactNode;
@@ -199,11 +201,12 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   // Toolbar overflow (06 §15): below fixed widths the secondary controls move into `⋯` in COLLAPSE_ORDER (copy, group, columns, export).
   const overflow = collapsedControls(toolbar.width);
   const openColumnsAfterMenu = useRef(false);
+  // 「컬럼」 in `⋯`: the popover has only an anchor (no trigger), so `⋯` is the focus-return target and a pointer-outside close keeps the pointer's focus.
+  const moreButton = useRef<HTMLButtonElement>(null);
+  const columnsOutside = useRef(false);
   const countSpan = useElementSize();
   const refreshSpan = useElementSize();
   const probe = useElementSize();
-  const statusNarrow = statusLine.width !== null && statusLine.width > 0 && probe.width !== null && probe.width > 0
-    && probe.width + TRUST_BUTTON_PADDING + (countSpan.width ? countSpan.width + STATUS_GAP : 0) + (refreshSpan.width ? refreshSpan.width + STATUS_GAP : 0) > statusLine.width;
   // Right-pinned column fade: only while the row area overflows horizontally and is not scrolled to its end.
   const [fade, setFade] = useState({ left: false, right: false });
   const updateFade = useCallback(() => {
@@ -225,6 +228,11 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const activeSorting = p.urlState ? p.urlState.sorting : sorting;
   const filterFields = useMemo(() => resolveFilterFields(p.columns, p.filterFields, lang), [p.columns, p.filterFields, lang]);
   const columnFilters = useColumnFilters(p.urlState, filterFields);
+  // With filters the right-hand blocks get what the filter block (basis 320) leaves; when even the count does not fit beside it, the row wraps and they have the whole line.
+  const sharedWidth = statusLine.width === null ? null : statusLine.width - FILTER_BASIS - STATUS_GAP;
+  const trustRoom = statusLine.width === null || filterFields.length === 0 || sharedWidth === null || sharedWidth < (countSpan.width ?? 0) ? statusLine.width : sharedWidth;
+  const statusNarrow = trustRoom !== null && trustRoom > 0 && probe.width !== null && probe.width > 0
+    && probe.width + TRUST_BUTTON_PADDING + (countSpan.width ? countSpan.width + STATUS_GAP : 0) + (refreshSpan.width ? refreshSpan.width + STATUS_GAP : 0) > trustRoom;
   // #556d: one group column (a groupable column of this table), collapse state keyed by group key. A group change returns to page 1 and
   // expands every group; the selection is kept (it is by row id, and sorting/grouping do not change the result set).
   const groupColumns = useMemo(() => p.columns.filter(c => c.groupable), [p.columns]);
@@ -509,6 +517,13 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const exportIn = canExport && overflow.has('export');
   const hasMore = groupIn || columnsIn || copyIn || exportIn;
   const copyLabel = selectedIds.length === 0 ? (lang === 'ko' ? '복사' : 'Copy') : lang === 'ko' ? `${selectedIds.length}행 복사` : `Copy ${selectedIds.length} ${selectedIds.length === 1 ? 'row' : 'rows'}`;
+  // Same wording as the wide 복사 button's tooltip; the overflow item carries it as its description (no hover/focus tooltip inside a menu).
+  const copyHelp = selectionState.all
+    ? (lang === 'ko' ? '필터 결과 전체 선택은 복사할 수 없습니다 — 복사는 불러온 행만 읽습니다. 쪽에서 행을 골라 복사하거나 내보내기를 쓰세요' : 'Copy is unavailable for a whole-result selection — it reads loaded rows only. Select rows on a page to copy, or use Export')
+    : selectedIds.length === 0
+    ? (lang === 'ko' ? '행을 선택하면 복사할 수 있습니다' : 'Select rows to copy')
+    : (lang === 'ko' ? `${shortcutLabel('C')}로도 복사할 수 있습니다(표 안에서)` : `You can also copy with ${shortcutLabel('C')} (inside the table)`);
+  const copyHelpId = `${columnPrefsId}-copy-help`;
   const exportBody = <>
     {selectedCount > 0 && <>
       <DropdownMenuGroup>
@@ -522,7 +537,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       {exportItems('filtered', filteredCount)}
     </DropdownMenuGroup>
   </>;
-  const moreMenu = hasMore ? <MoreMenu lang={lang} onCloseAutoFocus={event => {
+  const moreMenu = hasMore ? <MoreMenu lang={lang} triggerRef={moreButton} onCloseAutoFocus={event => {
     // 「컬럼」 chosen in `⋯`: the popover opens after the menu closed, so the menu's focus return does not take focus from it.
     if (!openColumnsAfterMenu.current) return;
     openColumnsAfterMenu.current = false;
@@ -531,7 +546,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   }}>
     {groupIn && <GroupSubmenu lang={lang} value={groupBy ?? ''} options={groupColumns} onChange={changeGroup} />}
     {columnsIn && <DropdownMenuItem className={exportItemClass} onSelect={() => { openColumnsAfterMenu.current = true; }}><Columns3 className="mr-2 size-3.5" aria-hidden />{lang === 'ko' ? '컬럼' : 'Columns'}</DropdownMenuItem>}
-    {copyIn && <DropdownMenuItem className={exportItemClass} disabled={selectedIds.length === 0 || copying} onSelect={() => { void runCopy(); }}><Copy className="mr-2 size-3.5" aria-hidden />{copyLabel}</DropdownMenuItem>}
+    {copyIn && <DropdownMenuItem className={exportItemClass} disabled={selectedIds.length === 0 || copying} aria-label={copyLabel} aria-describedby={copyHelpId} aria-keyshortcuts={selectedIds.length > 0 ? 'Control+C Meta+C' : undefined} onSelect={() => { void runCopy(); }}><Copy className="mr-2 size-3.5" aria-hidden />{copyLabel}</DropdownMenuItem>}
     {exportIn && <DropdownMenuSub>
       <DropdownMenuSubTrigger><Download className="mr-2 size-3.5" aria-hidden />{t('export')}</DropdownMenuSubTrigger>
       <DropdownMenuSubContent className="min-w-56">{exportBody}</DropdownMenuSubContent>
@@ -541,7 +556,11 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   // With 「컬럼」 in `⋯`, the popover anchors to the `⋯` button and is rendered last, so `⋯` ends the row.
   const columnsPopover = <Popover open={overlayOpen.columns} onOpenChange={open => setOverlayOpen(o => ({ ...o, columns: open }))}>
     {columnsIn ? <PopoverAnchor asChild><span className="inline-flex">{moreMenu}</span></PopoverAnchor> : <PopoverTrigger asChild>{columnsButton}</PopoverTrigger>}
-    <PopoverContent align="end" className="w-72">
+    <PopoverContent align="end" className="w-72" onInteractOutside={() => { columnsOutside.current = true; }} onCloseAutoFocus={columnsIn ? event => {
+      event.preventDefault();
+      if (!columnsOutside.current) moreButton.current?.focus();
+      columnsOutside.current = false;
+    } : undefined}>
       <p className="t-card-title mb-2">{lang === 'ko' ? '컬럼 설정 (브라우저에 저장)' : 'Column preferences (saved locally)'}</p>
       <div className="space-y-3">
         {pinnedPrefs.length > 0 && <div>
@@ -584,11 +603,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
                 {copyLabel}
               </Button>
             </TooltipTrigger>
-            <TooltipContent size="sm">{selectionState.all
-              ? (lang === 'ko' ? '필터 결과 전체 선택은 복사할 수 없습니다 — 복사는 불러온 행만 읽습니다. 쪽에서 행을 골라 복사하거나 내보내기를 쓰세요' : 'Copy is unavailable for a whole-result selection — it reads loaded rows only. Select rows on a page to copy, or use Export')
-              : selectedIds.length === 0
-              ? (lang === 'ko' ? '행을 선택하면 복사할 수 있습니다' : 'Select rows to copy')
-              : (lang === 'ko' ? `${shortcutLabel('C')}로도 복사할 수 있습니다(표 안에서)` : `You can also copy with ${shortcutLabel('C')} (inside the table)`)}</TooltipContent>
+            <TooltipContent size="sm">{copyHelp}</TooltipContent>
           </Tooltip>
         </TooltipProvider>}
         {canExport && !exportIn && <DropdownMenu onOpenChange={open => setOverlayOpen(o => ({ ...o, export: open }))}>
@@ -605,6 +620,8 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
           <DropdownMenuContent align="end" className="min-w-56">{exportBody}</DropdownMenuContent>
         </DropdownMenu>}
         {columnsIn ? columnsPopover : moreMenu}
+        {/* The overflow 복사 item's description lives outside the portaled menu so the menu's item text stays the label (aria-describedby). */}
+        {copyIn && <span id={copyHelpId} className="sr-only">{copyHelp}</span>}
         {/* Visually hidden (width-stable) so screen readers hear what the export is preparing (#173 UX P2-3). */}
         {/* Always mounted while export is available; only the text changes, so screen readers announce it (#173 review N-P3-2). */}
         {canExport && <span role="status" className="sr-only" data-testid="export-status">{[exportNote, copyNote].filter(Boolean).join(' · ')}</span>}

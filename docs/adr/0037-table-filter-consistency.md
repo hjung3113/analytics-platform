@@ -27,4 +27,4 @@
 - 구현의 합격 기준: 1280 + 상세 패널에서 본문 전체가 가로로 스크롤되지 않고, 가로 스크롤은 표 안에서만 일어난다. 툴바는 줄을 바꿔 들어간다. 건수는 끊기지 않고, 신뢰 정보는 이름 붙은 컨트롤로 끝까지 볼 수 있다. 구현 PR의 UX 리뷰는 내 VOC와 1280 + 상세 패널 화면을 본다.
 - 합격 기준은 1024 + 상세 패널도 포함한다(소유자 결정 2026-10-17, #399): 128px 동작 열이 고정될 수 없으면 72px 아이콘 + 툴팁 compact 형태로 계속 고정한다(06 §15).
 
-Amended by [ADR-0105](0105-one-table-filter-model.md) (2026-11-01): management tables apply filters per condition instead of the form-wide `적용 (n)`, and `@ap/ui` Input gains a named `size="toolbar"` (32px). Node 1217c implements it: the table toolbar's quick search uses `Input size="toolbar"` (`h-8`, `surface-sunken`, `text-sm` = 13px); the default stays 40px.
+Amended by [ADR-0105](0105-one-table-filter-model.md) (2026-11-01): management tables apply filters per condition instead of the form-wide `적용 (n)`, and `@ap/ui` Input gains a named `inputSize="toolbar"` (32px; native numeric `size` stays). Node 1217c implements it: the table toolbar's quick search uses `Input inputSize="toolbar"` (`h-8`, `surface-sunken`, `text-sm` = 13px); the default stays 40px.

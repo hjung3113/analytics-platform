@@ -22,7 +22,7 @@
 
 ## 다른 ADR과의 관계
 - [ADR-0022](0022-management-filter-rail-analysis-two-column.md) — 관리 화면 필터 레일을 보충한다(표 위 필터 줄과 편집기 하나로).
-- [ADR-0037](0037-table-filter-consistency.md) — 관리 표의 form 전체 적용을 조건 단위 적용으로, `@ap/ui` Input에 이름 있는 `size="toolbar"`(32px)를 더하도록 보충한다.
+- [ADR-0037](0037-table-filter-consistency.md) — 관리 표의 form 전체 적용을 조건 단위 적용으로, `@ap/ui` Input에 이름 있는 `inputSize="toolbar"`(32px, 네이티브 숫자 `size`는 그대로)를 더하도록 보충한다.
 - [ADR-0104](0104-table-column-filters-selection-groups.md) — 열 필터가 URL로 공유되지 않던 제한을 푼다(숨은 페이지 상태 + 공유 링크). 서버가 의미를 소유한다는 원칙은 그대로다.
 
 ## 결과

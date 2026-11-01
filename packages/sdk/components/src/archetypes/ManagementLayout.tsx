@@ -12,7 +12,7 @@ export type ManagementLayoutProps = {
   /** Draft changes not yet applied (draft + apply screens, ADR-0037); shown beside the applied count even when the filter is collapsed. */
   pendingFilterCount?: number;
   /**
-   * The page's quick search field (06 §12.3, node 1217c), e.g. `<Input size="toolbar" …/>`. It is handed to `table` as its second argument and goes
+   * The page's quick search field (06 §12.3, node 1217c), e.g. `<Input inputSize="toolbar" …/>`. It is handed to `table` as its second argument and goes
    * to `PlatformDataTable`'s `search` slot, i.e. into the table toolbar. It stays there whether or not the filter rail is shown.
    */
   search?: ReactNode;

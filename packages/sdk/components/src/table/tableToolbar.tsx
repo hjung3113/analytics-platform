@@ -3,7 +3,7 @@
  * menu (replaces the native select), the `⋯` overflow menu and the width rule that decides what moves into it.
  * Internal module: not exported from `index.ts`.
  */
-import { type ReactNode } from 'react';
+import { type ReactNode, type Ref } from 'react';
 import { ChevronDown, Info, MoreHorizontal } from 'lucide-react';
 import {
   Button, cn, DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger,
@@ -74,10 +74,10 @@ export function GroupSubmenu({ lang, value, options, onChange }: { lang: Lang; v
 }
 
 /** `⋯`: the controls that no longer fit, as menu items in toolbar order. Rendered only when something collapsed. */
-export function MoreMenu({ lang, children, onCloseAutoFocus }: { lang: Lang; children: ReactNode; onCloseAutoFocus?: (event: Event) => void }) {
+export function MoreMenu({ lang, children, onCloseAutoFocus, triggerRef }: { lang: Lang; children: ReactNode; onCloseAutoFocus?: (event: Event) => void; triggerRef?: Ref<HTMLButtonElement> }) {
   return <DropdownMenu>
     <DropdownMenuTrigger asChild>
-      <Button variant="secondary" size="toolbar" data-table-more aria-label={lang === 'ko' ? '더보기' : 'More'}><MoreHorizontal className="size-3.5" aria-hidden /></Button>
+      <Button ref={triggerRef} variant="secondary" size="toolbar" data-table-more aria-label={lang === 'ko' ? '더보기' : 'More'}><MoreHorizontal className="size-3.5" aria-hidden /></Button>
     </DropdownMenuTrigger>
     <DropdownMenuContent align="end" className="min-w-48" onCloseAutoFocus={onCloseAutoFocus}>{children}</DropdownMenuContent>
   </DropdownMenu>;

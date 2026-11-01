@@ -171,6 +171,45 @@ describe('PlatformDataTable toolbar overflow (1217c, P10)', () => {
     expect(await screen.findByText('컬럼 설정 (브라우저에 저장)')).toBeTruthy();
   });
 
+  it('Escape in the 컬럼 popover opened from `⋯` returns focus to `⋯` (F1)', async () => {
+    toolbarWidth = 220;
+    const user = userEvent.setup();
+    render(<Harness />);
+    await screen.findByText(/1\/1/);
+    const more = within(toolbar()).getByRole('button', { name: '더보기' });
+    more.focus();
+    await user.keyboard('{Enter}');
+    await user.click(await screen.findByRole('menuitem', { name: '컬럼' }));
+    expect(await screen.findByText('컬럼 설정 (브라우저에 저장)')).toBeTruthy();
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByText('컬럼 설정 (브라우저에 저장)')).toBeNull());
+    expect(document.activeElement).toBe(more);
+  });
+
+  it('overflow 「복사」 carries the wide button\'s reason and shortcut (F3)', async () => {
+    toolbarWidth = 220;
+    const user = userEvent.setup();
+    render(<Harness />);
+    await screen.findByText(/1\/1/);
+    await user.click(within(toolbar()).getByRole('button', { name: '더보기' }));
+    const item = await screen.findByRole('menuitem', { name: /복사/ });
+    expect(item).toHaveAccessibleDescription('행을 선택하면 복사할 수 있습니다');
+    expect(item.getAttribute('aria-keyshortcuts')).toBeNull();
+  });
+
+  it('overflow 「복사」 with a selection names the shortcut (F3)', async () => {
+    toolbarWidth = 220;
+    const user = userEvent.setup();
+    render(<Harness />);
+    await screen.findByText(/1\/1/);
+    await user.click(screen.getAllByRole('checkbox', { name: /선택/ })[1]);
+    await user.click(within(toolbar()).getByRole('button', { name: '더보기' }));
+    const item = await screen.findByRole('menuitem', { name: /1행 복사/ });
+    expect(item.getAttribute('aria-keyshortcuts')).toBe('Control+C Meta+C');
+    expect(item.getAttribute('aria-describedby')).toBeTruthy();
+    expect(item).toHaveAccessibleDescription(/복사할 수 있습니다\(표 안에서\)/);
+  });
+
   it('the title truncates with its full text in title', async () => {
     toolbarWidth = 220;
     render(<Harness />);
