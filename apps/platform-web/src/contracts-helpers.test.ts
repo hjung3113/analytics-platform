@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { NO_FEATURES, filterRows, groupPage, validateFilters, type ColumnFilter, type ColumnFilterSpec, RETURN_TO_KEY, carriesReturnTo, compareAuditEvents, contextCapabilities, isRecord, withoutReturnTo, type AuditEvent, type Capability, type ContextKey } from '@ap/contracts';
+import { NO_FEATURES, betweenOrdered, filterRows, groupPage, validateFilters, type ColumnFilter, type ColumnFilterSpec, RETURN_TO_KEY, carriesReturnTo, compareAuditEvents, contextCapabilities, isRecord, withoutReturnTo, type AuditEvent, type Capability, type ContextKey } from '@ap/contracts';
 
 // #673: shared @ap/contracts helpers — the manifest defaults every menu index and the gen-menu scaffold share (06 §5), `isRecord`, and the `returnTo` rule (#851).
 const ALL_UNSUPPORTED: Record<ContextKey, Capability> = {
@@ -240,6 +240,20 @@ describe('validateFilters (ADR-0105)', () => {
     targetType: { kind: 'enum', options: [{ value: 't', label: 'T' }], multiple: false },
   };
   const reason = (f: ColumnFilter[]) => { const r = validateFilters(f, specs); return r.ok ? 'ok' : r.reason; };
+
+  it('rejects a reversed or empty between for every ranged kind, and accepts forward and one-ended ranges (betweenOrdered)', () => {
+    const A = '2026-09-26T02:00:00.000Z';
+    const B = '2026-09-26T03:00:00.000Z';
+    expect(reason([{ id: 'at', op: 'between', value: { from: B, to: A } }])).toBe('bad-value');
+    expect(reason([{ id: 'at', op: 'between', value: { from: A, to: A } }])).toBe('bad-value');
+    expect(reason([{ id: 'd', op: 'between', value: { from: '2026-01-05', to: '2026-01-05' } }])).toBe('bad-value');
+    expect(reason([{ id: 'd', op: 'between', value: { from: '2026-01-06', to: '2026-01-05' } }])).toBe('bad-value');
+    expect(reason([{ id: 'n', op: 'between', value: [5, 1] }])).toBe('bad-value');
+    expect(reason([{ id: 'at', op: 'between', value: { from: A, to: B } }, { id: 'd', op: 'between', value: { from: '2026-01-05', to: '2026-01-06' } }, { id: 'n', op: 'between', value: [1, 5] }])).toBe('ok');
+    expect(reason([{ id: 'n', op: 'between', value: [3, 3] }])).toBe('ok'); // number is inclusive: min = max is one value
+    expect(reason([{ id: 'at', op: 'between', value: { from: B } }])).toBe('ok');
+    expect(betweenOrdered('instant', { from: '2026-09-26T11:00:00+09:00', to: '2026-09-26T03:00:00Z' })).toBe(true);
+  });
 
   it('accepts a valid mixed set and the empty set', () => {
     expect(validateFilters([], specs)).toEqual({ ok: true });

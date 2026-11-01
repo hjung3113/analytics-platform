@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { instantToLocalField, localFieldToInstant } from './audit-window';
+import { instantToLocalField, localFieldToInstant } from '../zonedInstant';
 
-describe('audit window local field (#305)', () => {
+describe('zoned instant local field (moved from the audit screen, #305)', () => {
   it('round-trips a Seoul local time through a zoned instant', () => {
     expect(localFieldToInstant('2026-09-26 11:00:00', 'Asia/Seoul')).toEqual({
       ok: true,

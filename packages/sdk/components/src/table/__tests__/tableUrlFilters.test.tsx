@@ -40,7 +40,7 @@ function Probe({ withFilters = true, option = filtersOption }: { withFilters?: b
   latest = useTableUrlState(['name', 'size'], withFilters ? { filters: option } : undefined);
   const { pageParams } = latestPlatform!;
   pagesSeen = pageParams('filter');
-  return latest.invalid ? <TableUrlWarning sentences={latest.sentences} recoverKeys={latest.recoverKeys} /> : <span data-testid="state">{latest.urlState ? 'controlled' : 'none'}</span>;
+  return latest.invalid ? <TableUrlWarning sentences={latest.sentences} recoverKeys={latest.recoverKeys} cause={latest.cause} /> : <span data-testid="state">{latest.urlState ? 'controlled' : 'none'}</span>;
 }
 
 function mount(search: string, withFilters = true, state: unknown = null, option: TableFilterOption = filtersOption) {
@@ -238,5 +238,96 @@ describe('useTableUrlState filters option (ADR-0105)', () => {
       change({ page: null, sorting: [], filters: [{ id: 'name', op: 'contains', value: 'a' }] });
       expect(pagesSeen).toEqual([]);
     });
+  });
+});
+
+describe('warning title names the actual cause (#1217 UX-2)', () => {
+  it.each([
+    ['only a filter', '?v=1', [['filter', 'ghost:contains:x']], 'filter', '필터 값이 올바르지 않습니다'],
+    ['only sort/page', '?v=1&sort=nope', [], 'sortPage', '정렬·페이지 값이 올바르지 않습니다'],
+    ['both', '?v=1&page=0', [['filter', 'ghost:contains:x']], 'both', '정렬·페이지·필터 값이 올바르지 않습니다'],
+  ])('%s', (_name, search, pairs, cause, title) => {
+    mount(search, true, pairs.length ? { apHidden: { v: 1, pairs } } : null);
+    expect(latest!.cause).toBe(cause);
+    const heading = screen.getByRole('alert').textContent!;
+    expect(heading).toContain(title);
+    if (cause === 'filter') expect(heading).not.toContain('정렬·페이지');
+    if (cause === 'sortPage') expect(heading).not.toContain('필터 값이');
+  });
+});
+
+describe('legacy keys that are the two ends of one range field', () => {
+  const at: ColumnFilterSpec = { kind: 'instant', ops: ['between'] };
+  const end = (key: string, side: 'from' | 'to'): LegacyFilterKey => ({ key, toFilter: raw => ({ id: 'at', op: 'between', value: { [side]: raw } }) });
+  const option: TableFilterOption = { key: 'filter', specs: { at }, legacy: [end('status', 'from'), end('maker', 'to')] };
+  const A = '2026-09-26T02:00:00.000Z';
+  const B = '2026-09-26T03:00:00.000Z';
+
+  it('merge into one condition and are rewritten away', () => {
+    mount(`?v=1&status=${A}&maker=${B}`, true, null, option);
+    expect(latest!.urlState!.filters).toEqual([{ id: 'at', op: 'between', value: { from: A, to: B } }]);
+    expect(params().has('status')).toBe(false);
+    expect(params().has('maker')).toBe(false);
+  });
+
+  it('one end alone stays an open range', () => {
+    mount(`?v=1&maker=${B}`, true, null, option);
+    expect(latest!.urlState!.filters).toEqual([{ id: 'at', op: 'between', value: { to: B } }]);
+  });
+
+  it('a clash with a new-key condition on the same field is still a problem', () => {
+    mount(`?v=1&status=${A}`, true, { apHidden: { v: 1, pairs: [['filter', `at:between:${A}~`]] } }, option);
+    expect(latest!.invalid).toBe(true);
+  });
+});
+
+describe('useTableUrlState filters: range order and the page value check', () => {
+  const withRange: TableFilterOption = { ...filtersOption, specs: { ...specs, at: { kind: 'instant' }, day: { kind: 'date' } }, labels: { at: '시각', day: '날짜' } };
+  const A = '2026-09-26T02:00:00.000Z';
+  const B = '2026-09-26T03:00:00.000Z';
+  it.each([
+    ['a reversed instant window', `at:between:${B}~${A}`],
+    ['an equal instant window', `at:between:${A}~${A}`],
+    ['an equal date window', 'day:between:2026-01-05~2026-01-05'],
+    ['a reversed date window', 'day:between:2026-01-06~2026-01-05'],
+    ['a reversed number range', 'size:between:5~1'],
+  ])('%s is a filter problem', (_name, raw) => {
+    mount('?v=1', true, { apHidden: { v: 1, pairs: [['filter', raw]] } }, withRange);
+    expect(latest!.invalid).toBe(true);
+    expect(latest!.urlState).toBeUndefined();
+  });
+
+  it('keeps a forward window and one-ended windows', () => {
+    mount('?v=1', true, { apHidden: { v: 1, pairs: [['filter', `at:between:${A}~${B}`], ['filter', 'day:between:2026-01-05~']] } }, withRange);
+    expect(latest!.invalid).toBe(false);
+  });
+
+  it('a legacy window whose two old keys are reversed is a problem, not a repair', () => {
+    const option: TableFilterOption = { ...withRange, legacy: [
+      { key: 'status', toFilter: raw => ({ id: 'at', op: 'between', value: { from: raw } }) },
+      { key: 'maker', toFilter: raw => ({ id: 'at', op: 'between', value: { to: raw } }) },
+    ] };
+    mount(`?status=${B}&maker=${A}`, true, null, option);
+    expect(latest!.invalid).toBe(true);
+    expect(latest!.sentences.join(' ')).toContain('시각');
+  });
+
+  it('the page value check refuses a condition the codec accepts, with its field, raw value and reason', () => {
+    const validate = (f: ColumnFilter) => (f.id === 'maker' && f.op === 'equals' && f.value.includes(' ') ? { ko: '공백 없이 쓰세요.', en: 'No spaces.' } : null);
+    mount('?v=1', true, { apHidden: { v: 1, pairs: [['filter', 'maker:equals:a b']] } }, { ...filtersOption, validate });
+    expect(latest!.invalid).toBe(true);
+    expect(latest!.sentences.join(' ')).toContain('제조사');
+    expect(latest!.sentences.join(' ')).toContain('a b');
+    expect(latest!.sentences.join(' ')).toContain('공백 없이 쓰세요.');
+    expect(latest!.recoverKeys).toEqual(expect.arrayContaining(['filter']));
+  });
+
+  it('exposes the check on urlState for the editor, and its absence leaves the codec unchanged', () => {
+    const validate = () => null;
+    mount('?v=1', true, null, { ...filtersOption, validate });
+    expect(latest!.urlState!.validate).toBe(validate);
+    cleanup();
+    mount('?v=1', true, null, filtersOption);
+    expect(latest!.urlState!.validate).toBeUndefined();
   });
 });

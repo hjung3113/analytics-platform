@@ -66,12 +66,18 @@ test.describe('운영 콘솔 실서버 (06 §4·§9.1·§17)', () => {
     await evidence(page, testInfo, 'real-audit-voc');
   });
 
-  test('형식이 맞는 알 수 없는 대상 유형은 URL에 남고 빈 결과로 답한다 (#1091)', async ({ page }) => {
+  test('형식이 맞는 알 수 없는 대상 유형은 대상 유형 칩으로 남고 빈 결과로 답한다 (#1091, #1217)', async ({ page }) => {
     const search = waitForAuditSearch(page, { type: 'Future.Type:v2' });
     await page.goto('/operations/admin-audit?type=Future.Type%3Av2');
     expect(((await (await search).json()) as { outcome?: unknown }).outcome).toBe('empty');
     await expect(page.getByRole('main').getByText('조건에 맞는 결과가 없습니다')).toBeVisible();
-    expect(new URL(page.url()).searchParams.get('type')).toBe('Future.Type:v2');
+    // The old `?type=` link is read once and rewritten into the hidden `filter` key (ADR-0105): the chip carries it, the address does not show it.
+    await expect(page.locator('[data-column-filter-chip="targetType"]')).toContainText('Future.Type:v2');
+    await expect.poll(() => new URL(page.url()).searchParams.has('type')).toBe(false);
+    expect(new URL(page.url()).searchParams.has('filter')).toBe(false);
+    await page.reload();
+    await expect(page.locator('[data-column-filter-chip="targetType"]')).toContainText('Future.Type:v2');
+    await expect(page.getByRole('main').getByText('조건에 맞는 결과가 없습니다')).toBeVisible();
   });
 
   test('직접 URL에서 장비 메뉴 선언의 경로와 권한을 읽는다', async ({ page }, testInfo) => {

@@ -30,79 +30,57 @@ test.describe('토큰 소비 계약 (06 §23, ADR-0011/ADR-0058)', () => {
 });
 
 test.describe('관리 레이아웃 필터 레일 (06 §12.6, ADR-0022)', () => {
-  // #1217 (node e1): 설비 마스터 no longer has a rail (its conditions are the table's filter line), so the rail contract is observed on the audit page, which still passes `filter`.
-  test('1440 변경 감사는 접기 기억과 펼치기 포커스를 제공한다', async ({ page }, testInfo) => {
+  // #1217 (node e2): 변경 감사 and 권한/역할 were the last consumers of the filter rail; their conditions are the table's filter line now. The rail's
+  // collapse/popover/seven-field assertions are replaced by the filter-model equivalents: no rail, the filter line above the first row, pinned fields.
+  test('1440 변경 감사는 필터 레일 없이 표 위 필터 줄에 고정 필드를 두고 첫 행이 그 아래에서 시작한다', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/operations/admin-audit?v=1');
-    const rail = page.getByRole('region', { name: '필터', exact: true });
-    const tableCard = page.getByRole('region', { name: '변경 감사 목록' });
-    await expect(rail.getByRole('heading', { name: '필터', exact: true })).toBeVisible();
-    const collapse = rail.getByRole('button', { name: '필터 접기' });
-    await expect(collapse).toBeVisible();
-    await evidence(page, testInfo, 'management-rail-expanded');
-    await collapse.click();
-    await expect(rail).toHaveCount(0);
-    const expand = tableCard.getByRole('button', { name: '필터', exact: true });
-    await expect(expand).toBeVisible();
-    await expect(expand).toBeFocused();
-    await evidence(page, testInfo, 'management-rail-collapsed');
-    await page.reload();
-    await expect(expand).toBeVisible();
-    await expect(rail).toHaveCount(0);
-    await evidence(page, testInfo, 'management-rail-collapsed-reloaded');
-    await expand.click();
-    await expect(collapse).toBeVisible();
-    await expect(collapse).toBeFocused();
+    await expect(page.getByRole('region', { name: '필터', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^필터(?: · \d+)?$/ })).toHaveCount(0);
+    const line = page.locator('[data-filter-line]');
+    await expect(line).toBeVisible();
+    await expect(line.locator('[data-filter-body]')).toHaveCount(2);
+    await expect(line.locator('[data-filter-body]').first()).toHaveAttribute('data-filter-body', 'action');
+    await expect(line.locator('[data-filter-body]').nth(1)).toHaveAttribute('data-filter-body', 'actor');
+    const firstRow = page.locator('[role="row"][data-row-id]').first();
+    await expect(firstRow).toBeVisible();
+    const lineBox = (await line.boundingBox())!;
+    const rowBox = (await firstRow.boundingBox())!;
+    expect(rowBox.y).toBeGreaterThan(lineBox.y + lineBox.height);
+    expect(rowBox.y).toBeLessThan(500);
+    await evidence(page, testInfo, 'management-audit-filter-line');
   });
 
-  test('1024 변경 감사는 자기 폭에 맞춰 필터 팝오버로 전환하고 URL 필터를 편집한다', async ({ page }, testInfo) => {
+  test('1024 변경 감사의 행위자 조건은 편집기에서 걸리고 주소에 보이지 않는다', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
     await page.setViewportSize({ width: 1024, height: 900 });
     await page.goto('/operations/admin-audit?v=1');
-    await expect(page.getByRole('region', { name: '필터', exact: true })).toHaveCount(0);
-    const button = page.getByRole('region', { name: '변경 감사 목록' }).getByRole('button', { name: /^필터(?: · \d+)?$/ });
-    await expect(button).toBeVisible();
-    await button.click();
-    const popover = page.getByRole('dialog', { name: '필터', exact: true });
-    await expect(popover).toBeVisible();
-    await popover.getByRole('textbox', { name: '행위자 정확 일치' }).fill('kim');
-    // ADR-0037: a management filter is a draft until 적용; the trigger shows the pending change meanwhile.
-    await expect(popover.getByRole('button', { name: '적용 (1)', exact: true })).toBeEnabled();
+    await page.locator('[data-filter-body="actor"]').click();
+    const editor = page.getByRole('dialog', { name: '행위자' });
+    await editor.getByRole('textbox', { name: '값' }).fill('kim');
+    await editor.getByRole('button', { name: '적용' }).click();
+    await expect(page.locator('[data-column-filter-chip="actor"]')).toContainText('kim');
     expect(query(page).has('actor')).toBe(false);
-    await expect(button).toHaveAccessibleName('필터');
-    await expect(button).toContainText('미적용 1');
-    await popover.getByRole('button', { name: '적용 (1)', exact: true }).click();
-    await expect.poll(() => query(page).get('actor')).toBe('kim');
-    await expect(button).toHaveText('필터 · 1');
-    await expect(button).toHaveAttribute('aria-expanded', 'true');
-    await evidence(page, testInfo, 'management-audit-filter-popover');
+    expect(query(page).has('filter')).toBe(false);
+    await evidence(page, testInfo, 'management-audit-filter-editor');
   });
 
-  test('1440 관리자 감사 레일은 일곱 필드와 초안 적용을 제공한다', async ({ page }, testInfo) => {
+  test('1440 변경 감사의 필터 줄은 여섯 필드를 제공한다 (고정 둘, 나머지는 + 필터)', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/operations/admin-audit?v=1');
-    const rail = page.getByRole('region', { name: '필터', exact: true });
-    await expect(rail.getByRole('button', { name: '필터 접기' })).toBeVisible();
-    await expect(rail.getByRole('combobox')).toHaveCount(3);
-    await expect(rail.getByRole('textbox')).toHaveCount(4);
-    // #305: viewer-local time fields, no contract words in the labels.
-    await expect(rail.getByRole('textbox', { name: '시각 이후' })).toBeVisible();
-    await expect(rail.getByRole('textbox', { name: '시각 미만' })).toBeVisible();
-    await expect(rail).not.toContainText('ISO');
-    await expect(rail.getByRole('button', { name: '적용', exact: true })).toBeDisabled();
-    await rail.getByRole('textbox', { name: '행위자 정확 일치' }).fill('kim');
-    await expect(rail.getByRole('button', { name: '적용 (1)', exact: true })).toBeEnabled();
-    await expect(rail).toContainText('미적용 변경 1개');
-    expect(query(page).has('actor')).toBe(false);
-    await evidence(page, testInfo, 'management-audit-seven-filters');
+    await page.locator('[data-filter-add]').click();
+    await expect(page.locator('[data-filter-pick]')).toHaveCount(6);
+    // 대상 ID needs 대상 유형 first.
+    await expect(page.locator('[data-filter-pick="targetId"]')).toHaveAttribute('aria-disabled', 'true');
+    await expect(page.locator('[data-filter-pick="at"]')).toBeVisible();
+    await evidence(page, testInfo, 'management-audit-six-fields');
   });
 
   test('감사 대상 유형 필터는 알 수 없는 형식 유효 값을 유지하고 잘못된 값은 전체 조회로 넓히지 않는다 (#1091)', async ({ page }) => {
     await signInAs(page, 'admin');
     await page.setViewportSize({ width: 1440, height: 900 });
-    const rail = page.getByRole('region', { name: '필터', exact: true });
     const table = page.getByLabel('스크롤 가능한 행 영역', { exact: true }).getByRole('table');
     const empty = page.getByText('조건에 맞는 결과가 없습니다');
     // Positive control: the unfiltered query has rows, so an empty result below is caused by the type filter.
@@ -110,15 +88,16 @@ test.describe('관리 레이아웃 필터 레일 (06 §12.6, ADR-0022)', () => {
     await expect(table.getByRole('row').filter({ has: page.getByRole('link', { name: /상세$/ }) }).first()).toBeVisible();
     await expect(empty).toHaveCount(0);
     await page.goto('/operations/admin-audit?type=Future.Type%3Av2');
-    await expect(rail.getByRole('combobox', { name: '대상 유형' })).toContainText('Future.Type:v2');
+    await expect(page.locator('[data-column-filter-chip="targetType"]')).toContainText('Future.Type:v2');
     await expect(empty).toBeVisible();
     await expect(table).toHaveCount(0);
     await expect(page.getByRole('alert')).toHaveCount(0);
+    // The old `type` key is rewritten into the hidden filter and survives a reload.
+    await expect.poll(() => query(page).has('type')).toBe(false);
     await page.reload();
-    await expect(rail.getByRole('combobox', { name: '대상 유형' })).toContainText('Future.Type:v2');
+    await expect(page.locator('[data-column-filter-chip="targetType"]')).toContainText('Future.Type:v2');
     await expect(empty).toBeVisible();
     await expect(table).toHaveCount(0);
-    expect(query(page).get('type')).toBe('Future.Type:v2');
     await page.goto('/operations/admin-audit?type=9bad');
     await expect(page.getByRole('alert')).toBeVisible();
     await expect(table).toHaveCount(0);
@@ -840,6 +819,23 @@ test.describe('표 필터 모델 (#1217)', () => {
     expect(query(page).has('filter')).toBe(false);
     await expect(page.locator('[role="row"][data-row-id]').first()).toBeVisible();
     expect(await rowIds(page)).toEqual(expected);
+  });
+
+  test('옛 감사 링크 ?actor=는 같은 행을 보이고, 주소에서 키가 사라지며, 행위자 조건 칩이 보인다 (1217e2)', async ({ page }) => {
+    await signInAs(page, 'admin');
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/operations/admin-audit?v=1');
+    const rowsOf = () => page.locator('[role="row"][data-row-id]');
+    await expect(rowsOf().first()).toBeVisible();
+    // Any actor that appears in the log: read it from the first row's actor cell.
+    const actor = (await rowsOf().first().locator('.t-mono').first().textContent())!.trim();
+    await page.goto(`/operations/admin-audit?v=1&actor=${encodeURIComponent(actor)}`);
+    await expect(page.locator('[data-column-filter-chip="actor"]')).toContainText(actor);
+    await expect(page.locator('[data-column-filter-chip="actor"]')).toContainText('행위자');
+    await expect.poll(() => query(page).has('actor')).toBe(false);
+    expect(query(page).has('filter')).toBe(false);
+    await expect(rowsOf().first()).toBeVisible();
+    for (const text of await rowsOf().evaluateAll(rows => rows.map(row => row.textContent ?? ''))) expect(text).toContain(actor);
   });
 });
 

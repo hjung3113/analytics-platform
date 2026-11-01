@@ -188,6 +188,7 @@ const dict = {
   invalidUrlPlain: { ko: '{field} “{raw}”{particle} 이 화면에서 쓸 수 없습니다.', en: '{field} “{raw}” cannot be used on this page.' },
   invalidTableTitle: { ko: '정렬·페이지 값이 올바르지 않습니다', en: 'The sort or page value cannot be used' },
   invalidFilterTitle: { ko: '필터 값이 올바르지 않습니다', en: 'A filter value cannot be used' },
+  invalidTableFilterTitle: { ko: '정렬·페이지·필터 값이 올바르지 않습니다', en: 'The sort, page or filter value cannot be used' },
   invalidTableSort: { ko: '정렬', en: 'Sort' },
   invalidTablePage: { ko: '페이지', en: 'Page' },
   preferencesUnsaved: { ko: '설정을 서버에 저장하지 못했습니다. 이 브라우저에는 남아 있으며 다시 시도합니다.', en: 'Your settings could not be saved to the server. They stay in this browser and will be retried.' },

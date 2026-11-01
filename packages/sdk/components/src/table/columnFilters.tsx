@@ -4,9 +4,9 @@
  * The table never filters rows itself — it only sends `ColumnFilter[]` to the server (`loadPage`, `exportRows`).
  */
 import { useCallback, useState } from 'react';
-import { encodeFilterParams, filterParamLimit, formatInstant, type ColumnFilter, type ColumnFilterSpec } from '@ap/contracts';
+import { encodeFilterParams, filterParamLimit, formatInstant, instantEpochMs, type ColumnFilter, type ColumnFilterSpec } from '@ap/contracts';
 import { FILTER_OP_LABELS } from './filterOps';
-import { pruneUnmet, type ResolvedFilterField } from './filterFields';
+import { pruneUnmet, type InstantEntry, type ResolvedFilterField } from './filterFields';
 import type { TableUrlState } from './PlatformDataTable';
 
 type Lang = 'ko' | 'en';
@@ -19,9 +19,12 @@ export function addDays(ymd: string, days: number): string {
 
 const WALL_CLOCK_DAY = /^\d{4}-\d{2}-\d{2}$/;
 
-/** An instant bound in the viewer's zone (06 §6.3); an unreadable value shows as given instead of failing the render. */
-function instantText(value: string, lang: Lang): string {
-  try { return formatInstant(value, lang); } catch { return value; }
+/** An instant bound in the field's `entry` zone (default: the viewer's, 06 §6.3), with seconds when `entry.precision` is `second`; an unreadable value shows as given instead of failing the render. */
+function instantText(value: string, lang: Lang, entry?: InstantEntry): string {
+  try {
+    if (entry?.precision !== 'second') return formatInstant(value, lang, entry?.timeZone);
+    return new Date(instantEpochMs(value)).toLocaleString(lang === 'ko' ? 'ko-KR' : 'en-US', { dateStyle: 'short', timeStyle: 'medium', timeZone: entry.timeZone });
+  } catch { return value; }
 }
 
 /** The exclusive wire `to` of a date range as the inclusive day the user typed; anything that is not a plain day (an instant) is not calendar arithmetic. */
@@ -64,7 +67,8 @@ export function useColumnFilters(urlState: TableUrlState | undefined, fields: re
     resetPage();
   }, [filters, fields, controlled, write, resetPage]);
   const clear = useCallback(() => {
-    if (controlled) { write([], 'reset'); return; }
+    // 모두 지우기 is a user gesture like a chip removal (reason `user`): a page that closes its focused row on a user filter change closes it here too. `reset` stays the table's own page return.
+    if (controlled) { write([], 'user'); return; }
     setOwn([]); resetPage();
   }, [controlled, write, resetPage]);
   const limit = useCallback((id: string, next: ColumnFilter): FilterLimit | null => filterListLimit(proposeFilters(filters, id, next, fields)), [filters, fields]);
@@ -72,7 +76,7 @@ export function useColumnFilters(urlState: TableUrlState | undefined, fields: re
 }
 
 /** Readable value of a filter as the user set it (a date range reads inclusive: the wire's exclusive `to` is shown as the day before). */
-export function describeFilter(filter: ColumnFilter, spec: ColumnFilterSpec | undefined, lang: Lang): string {
+export function describeFilter(filter: ColumnFilter, spec: ColumnFilterSpec | undefined, lang: Lang, entry?: InstantEntry): string {
   const ko = lang === 'ko';
   switch (filter.op) {
     case 'contains': return ko ? `포함 "${filter.value}"` : `contains "${filter.value}"`;
@@ -93,7 +97,7 @@ export function describeFilter(filter: ColumnFilter, spec: ColumnFilterSpec | un
     }
     case 'between': {
       if (Array.isArray(filter.value)) return `${filter.value[0]} ~ ${filter.value[1]}`;
-      if (spec?.kind === 'instant') return `${filter.value.from ? instantText(filter.value.from, lang) : ''} ~ ${filter.value.to ? instantText(filter.value.to, lang) : ''}`.trim();
+      if (spec?.kind === 'instant') return `${filter.value.from ? instantText(filter.value.from, lang, entry) : ''} ~ ${filter.value.to ? instantText(filter.value.to, lang, entry) : ''}`.trim();
       const from = filter.value.from ?? '';
       const to = filter.value.to ? inclusiveDay(filter.value.to) : '';
       return `${from} ~ ${to}`.trim();
@@ -102,13 +106,13 @@ export function describeFilter(filter: ColumnFilter, spec: ColumnFilterSpec | un
 }
 
 /** A filterable field as the XLSX sheet names it: a column (`header`) or a non-column field (`label`). The label comes from exactly one of the two. */
-export type FilterInfoField = { id: string; filter?: ColumnFilterSpec } & ({ header: string } | { label: string });
+export type FilterInfoField = { id: string; filter?: ColumnFilterSpec; entry?: InstantEntry } & ({ header: string } | { label: string });
 
 /** Rows for the XLSX 조회 정보 sheet: one `[필터 · <label>, value]` per active condition, column or not (the id when no field is known). */
 export function filterInfoRows(filters: readonly ColumnFilter[], fields: readonly FilterInfoField[], lang: Lang): [string, string][] {
   return filters.map(f => {
     const field = fields.find(c => c.id === f.id);
     const label = field ? ('label' in field ? field.label : field.header) : f.id;
-    return [`${lang === 'ko' ? '필터' : 'Filter'} · ${label}`, describeFilter(f, field?.filter, lang)];
+    return [`${lang === 'ko' ? '필터' : 'Filter'} · ${label}`, describeFilter(f, field?.filter, lang, field?.entry)];
   });
 }

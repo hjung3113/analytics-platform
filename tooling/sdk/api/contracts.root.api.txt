@@ -186,6 +186,7 @@ ViewGroup | type | type ViewGroup = { id: string; kind: 'custom' | 'org-team'; m
 ViewGroupEntry | type | type ViewGroupEntry = { capabilities: @ap/contracts#GroupCapabilities; group: @ap/contracts#ViewGroup; members: readonly @ap/contracts#GroupMember[]; }
 ViewSharing | type | type ViewSharing = { approval: @ap/contracts#ViewApproval; approvalNote?: string; visibility: @ap/contracts#ViewVisibility; }
 ViewVisibility | type | type ViewVisibility = { groupIds: string[]; kind: 'groups'; } | { kind: 'official'; } | { kind: 'people'; userIds: string[]; } | { kind: 'private'; }
+betweenOrdered | function | function betweenOrdered(kind: 'date' | 'instant' | 'number', value: [ number, number ] | { from?: string; to?: string; }): boolean
 bucketStart | function | function bucketStart(instant: string, grain: @ap/contracts#Grain): string
 buildPlatformInboundLink | function | function buildPlatformInboundLink(input: { context: @ap/contracts#GlobalContext; hop: @ap/contracts#PlatformHop; origin: string; returnTo?: string; }): string
 buildQuery | function | function buildQuery(g: @ap/contracts#GlobalContext, page?: @ap/contracts#Pair[], extras?: @ap/contracts#Pair[]): string

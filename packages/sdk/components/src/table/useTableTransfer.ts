@@ -14,6 +14,7 @@ import {
 import type { Preferences } from './useColumnPreferences';
 import type { TableExportRequest } from './useTableSelection';
 import { filterInfoRows } from './columnFilters';
+import type { InstantEntry } from './filterFields';
 
 /**
  * Row copy (#174) clipboard path, by feature detection — never by `.catch`: in an insecure context (in-house HTTP)
@@ -44,7 +45,7 @@ type TransferInput<T> = {
   /** Active column filters: sent with a `filtered` export and listed on the 조회 정보 sheet (#556b). */
   columnFilters: ColumnFilter[];
   /** Filterable fields (columns and non-column) — the one label source of the XLSX 조회 정보 `필터 · <label>` rows. */
-  filterFields: readonly { id: string; label: string; spec: ColumnFilterSpec }[];
+  filterFields: readonly { id: string; label: string; spec: ColumnFilterSpec; entry?: InstantEntry }[];
   /** Rows of the shown page, for the loaded-rows-only copy path. */
   loadedRows: T[];
   /** Total of the shown result; only meaningful when `resultOk`. */
@@ -162,7 +163,7 @@ export function useTableTransfer<T>(input: TransferInput<T>) {
           ...(menu?.requiresScope ? [['Scope', global.scopeId ?? ''] as [string, string]] : []),
           ...(appliedContext?.time === 'apply' ? [[L.period, global.from && global.to ? `${global.from} – ${global.to}` : ''] as [string, string]] : []),
           ...(input.exportFilterSummary ?? []).map(([label, value]) => [label, value] as [string, string]),
-          ...(filters ? filterInfoRows(filters, input.filterFields.map(f => ({ id: f.id, label: f.label, filter: f.spec })), lang) : []),
+          ...(filters ? filterInfoRows(filters, input.filterFields.map(f => ({ id: f.id, label: f.label, filter: f.spec, entry: f.entry })), lang) : []),
           ...(appliedContext ? globalContextRows(queryContext, appliedContext, lang, axes, t('membershipAsOf')) : []),
           [L.updatedAt, trust?.updatedAt?.replace('T', ' ') ?? ''],
           [L.dataThrough, trust?.dataThrough?.replace('T', ' ') ?? ''],

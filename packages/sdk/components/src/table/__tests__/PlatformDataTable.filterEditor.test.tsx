@@ -5,9 +5,10 @@ import { useState } from 'react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
-import { groupId, spaceId, type ApiResponse, type ColumnFilter, type TableQuery } from '@ap/contracts';
+import { formatInstant, groupId, spaceId, type ApiResponse, type ColumnFilter, type TableQuery } from '@ap/contracts';
 import { PlatformDataTable, type PageResult, type PlatformColumn, type TableFilterField, type TableUrlState } from '../PlatformDataTable';
 import { pruneUnmet, resolveFilterFields } from '../filterFields';
+import type { FilterValueCheck } from '../tableFilterUrl';
 
 // #1217 node b: the filter line and the one editor (ADR-0105, 06 §15).
 afterEach(cleanup);
@@ -84,6 +85,27 @@ const pickOperator = async (scope: Pick<typeof screen, 'getByRole'>, name: strin
   await openOperator(scope);
   fireEvent.click(await screen.findByRole('option', { name }));
 };
+
+describe('pinned order (#1217e2)', () => {
+  const cols: PlatformColumn<Row>[] = [
+    { id: 'status', header: '상태', filter: { kind: 'enum', options }, filterPinned: true },
+    { id: 'name', header: '이름', filter: { kind: 'text' }, filterPinned: 1 },
+    { id: 'n', header: '수량', filter: { kind: 'number' }, filterPinned: 2 },
+  ];
+  const pinnedNames = (container: HTMLElement) => [...container.querySelectorAll('[data-filter-line] [data-filter-body]')].map(b => b.getAttribute('data-filter-body'));
+
+  it('numbered pins come first by number, then unnumbered pins in column order; a field can be numbered too', async () => {
+    const view = render(<Harness columns={cols} filterFields={[{ id: 'extra', label: { ko: '기타', en: 'Extra' }, spec: { kind: 'text' }, pinned: 1 }]} loadPage={makeLoad()} />);
+    await ready();
+    expect(pinnedNames(view.container)).toEqual(['name', 'extra', 'n', 'status']);
+  });
+
+  it('without numbers the pinned order is the column order (unchanged)', async () => {
+    const view = render(<Harness columns={cols.map(c => ({ ...c, filterPinned: true }))} loadPage={makeLoad()} />);
+    await ready();
+    expect(pinnedNames(view.container)).toEqual(['status', 'name', 'n']);
+  });
+});
 
 describe('filter line (#1217b)', () => {
   it('shows a pinned button that becomes a chip in the same slot, then the other conditions as chips after it', async () => {
@@ -233,6 +255,14 @@ describe('filter editor (#1217b)', () => {
     expect(onChange).toHaveBeenCalledWith({ sorting: [], page: null, filters: [{ id: 'name', op: 'equals', value: 'x' }] }, 'user');
   });
 
+  it('모두 지우기 is a user write (reason `user`, filters emptied, page 1), like a chip removal', async () => {
+    const onChange = vi.fn();
+    const urlState: TableUrlState = { page: 3, sorting: [], filters: [{ id: 'name', op: 'equals', value: 'x' }], onChange };
+    render(<Harness loadPage={makeLoad()} urlState={urlState} />);
+    fireEvent.click(await screen.findByRole('button', { name: '모두 지우기' }));
+    expect(onChange).toHaveBeenCalledWith({ sorting: [], page: null, filters: [] }, 'user');
+  });
+
   it('the header funnel is pressed while its column is filtered and opens the editor of that field', async () => {
     const view = render(<Harness loadPage={makeLoad()} urlState={{ page: null, sorting: [], filters: [{ id: 'name', op: 'startsWith', value: 'q' }], onChange: () => {} }} />);
     await ready();
@@ -295,9 +325,9 @@ describe('+ 필터 (#1217b)', () => {
 
 // Fix round 1 (F1–F5, UX-1/2/3).
 describe('filter editor fix round 1', () => {
-  function Owner({ initial = [], cols, onChange }: { initial?: ColumnFilter[]; cols?: PlatformColumn<Row>[]; onChange: (next: ColumnFilter[]) => void }) {
+  function Owner({ initial = [], cols, onChange, validate }: { initial?: ColumnFilter[]; cols?: PlatformColumn<Row>[]; onChange: (next: ColumnFilter[]) => void; validate?: FilterValueCheck }) {
     const [filters, setFilters] = useState<ColumnFilter[]>(initial);
-    const urlState: TableUrlState = { page: null, sorting: [], filters, onChange: next => { if (next.filters) { onChange(next.filters); setFilters(next.filters); } } };
+    const urlState: TableUrlState = { page: null, sorting: [], filters, ...(validate ? { validate } : {}), onChange: next => { if (next.filters) { onChange(next.filters); setFilters(next.filters); } } };
     return <Harness columns={cols} loadPage={makeLoad()} urlState={urlState} />;
   }
   const openName = async () => { fireEvent.click(screen.getByRole('button', { name: '이름 필터' })); return screen.findByLabelText('값'); };
@@ -336,6 +366,67 @@ describe('filter editor fix round 1', () => {
     const value = (onChange.mock.lastCall![0] as { value: { from: string; to: string } }[])[0].value;
     expect(value.from).toBe(from);
     expect(value.to).toBe(new Date('2026-01-05T10:00').toISOString());
+  });
+
+  const atCols = (entry?: PlatformColumn<Row>['filterEntry']): PlatformColumn<Row>[] => [{ id: 'at', header: '시각', filter: { kind: 'instant' }, ...(entry ? { filterEntry: entry } : {}), value: () => '-' }];
+  const openAt = async () => { fireEvent.click(screen.getByRole('button', { name: '시각 필터' })); return screen.findByLabelText('시작 (이상)'); };
+
+  it('instant entry: an explicit timeZone and second precision read and write the bound in that zone to the second, whatever the machine zone', async () => {
+    const onChange = vi.fn();
+    render(<Owner cols={atCols({ timeZone: 'Asia/Seoul', precision: 'second' })} onChange={onChange} />);
+    await ready();
+    const from = await openAt();
+    expect(from.getAttribute('step')).toBe('1');
+    fireEvent.change(from, { target: { value: '2026-09-26T11:10:35' } });
+    fireEvent.click(screen.getByRole('button', { name: '적용' }));
+    expect(onChange).toHaveBeenLastCalledWith([{ id: 'at', op: 'between', value: { from: '2026-09-26T02:10:35.000Z' } }]);
+    fireEvent.click(screen.getByRole('button', { name: '시각 필터' }));
+    expect(((await screen.findByLabelText('시작 (이상)')) as HTMLInputElement).value.replace(/\.000$/, '')).toBe('2026-09-26T11:10:35');
+  });
+
+  it.each([
+    ['a nonexistent DST-gap time', '2026-03-08T02:30:00', /없는 시각/],
+    ['an ambiguous DST-fold time', '2026-11-01T01:30:00', /두 번 있는 시각/],
+  ])('instant entry: %s in America/New_York is refused inline, never normalised', async (_name, text, message) => {
+    const onChange = vi.fn();
+    render(<Owner cols={atCols({ timeZone: 'America/New_York', precision: 'second' })} onChange={onChange} />);
+    await ready();
+    fireEvent.change(await openAt(), { target: { value: text } });
+    expect((await screen.findByRole('alert')).textContent).toMatch(message);
+    expect((screen.getByRole('button', { name: '적용' }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.submit(screen.getByLabelText('시작 (이상)').closest('form')!);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['instant', atCols(), '시작 (이상)', '2026-01-02T10:00', '끝 (미만)', '2026-01-02T10:00'],
+    ['instant, reversed', atCols(), '시작 (이상)', '2026-01-03T10:00', '끝 (미만)', '2026-01-02T10:00'],
+    ['date', [{ id: 'd', header: '날짜', filter: { kind: 'date' as const }, value: () => '-' }], '~부터', '2026-01-05', '~까지 (포함)', '2026-01-04'],
+  ])('a reversed or empty %s window is blocked inline with a reason', async (_name, cols, fromLabel, fromText, toLabel, toText) => {
+    const onChange = vi.fn();
+    render(<Owner cols={cols} onChange={onChange} />);
+    await ready();
+    fireEvent.click(screen.getByRole('button', { name: cols[0]!.header + ' 필터' }));
+    fireEvent.change(await screen.findByLabelText(fromLabel), { target: { value: fromText } });
+    fireEvent.change(screen.getByLabelText(toLabel), { target: { value: toText } });
+    expect((await screen.findByRole('alert')).textContent).toContain('시작은 끝보다 앞이어야 합니다');
+    expect((screen.getByRole('button', { name: '적용' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('a page value check shows its reason inline and disables 적용; a passing value applies', async () => {
+    const onChange = vi.fn();
+    const validate: FilterValueCheck = f => (f.id === 'name' && f.op === 'equals' && f.value.includes(' ') ? { ko: '공백이 있으면 안 됩니다.', en: 'No spaces.' } : null);
+    render(<Owner onChange={onChange} validate={validate} />);
+    await ready();
+    const input = await openName();
+    fireEvent.change(input, { target: { value: 'a b' } });
+    expect((await screen.findByRole('alert')).textContent).toContain('공백이 있으면 안 됩니다');
+    expect((screen.getByRole('button', { name: '적용' }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(input, { target: { value: 'ab' } });
+    expect(screen.queryByRole('alert')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: '적용' }));
+    expect(onChange).toHaveBeenCalledTimes(1);
   });
 
   it('F3: an Apply that would exceed a codec cap writes nothing, keeps the editor and the draft, and says why; a value within the cap applies', async () => {
@@ -437,5 +528,70 @@ describe('filter editor fix round 1', () => {
     fireEvent.click(await screen.findByRole('checkbox', { name: '대기' }));
     fireEvent.click(screen.getByRole('button', { name: '적용' }));
     await waitFor(() => expect(document.activeElement).toBe(view.container.querySelector('[data-column-filter-chip="status"] [data-filter-body]')));
+  });
+});
+
+// Fix round 2: UX-1 (instant entry on the chip) and UX-2 (a missing `requires` condition is explained, never dropped).
+describe('filter editor fix round 2', () => {
+  function Owner({ initial = [], onChange, cols }: { initial?: ColumnFilter[]; onChange: (next: ColumnFilter[]) => void; cols?: PlatformColumn<Row>[] }) {
+    const [filters, setFilters] = useState<ColumnFilter[]>(initial);
+    const urlState: TableUrlState = { page: null, sorting: [], filters, onChange: next => { if (next.filters) { onChange(next.filters); setFilters(next.filters); } } };
+    return <Harness columns={cols} filterFields={pinnedFields} loadPage={makeLoad()} urlState={urlState} />;
+  }
+  const pinnedFields: TableFilterField[] = [
+    { id: 'kind', label: { ko: '대상 유형', en: 'Target type' }, spec: { kind: 'text', ops: ['equals'] }, pinned: 1 },
+    { id: 'target', label: { ko: '대상 ID', en: 'Target ID' }, spec: { kind: 'text', ops: ['equals'], requires: ['kind'] }, pinned: 2 },
+  ];
+  const body = (view: { container: HTMLElement }, id: string) => view.container.querySelector<HTMLElement>(`[data-filter-body="${id}"]`)!;
+
+  it('UX-2: 대상 ID without 대상 유형 keeps the value, names the missing field, disables 적용 and writes nothing; with 대상 유형 it applies', async () => {
+    const onChange = vi.fn();
+    const view = render(<Owner onChange={onChange} />);
+    await ready();
+    fireEvent.click(body(view, 'target'));
+    const input = await screen.findByLabelText('값');
+    fireEvent.change(input, { target: { value: 'cycle_time' } });
+    expect((await screen.findByRole('alert')).textContent).toBe('대상 ID는 대상 유형과 함께 있어야 합니다.');
+    expect((screen.getByRole('button', { name: '적용' }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.submit(input.closest('form')!);
+    expect(onChange).not.toHaveBeenCalled();
+    expect((screen.getByLabelText('값') as HTMLInputElement).value).toBe('cycle_time');
+  });
+
+  it('UX-2: with 대상 유형 already applied, 대상 ID applies', async () => {
+    const onChange = vi.fn();
+    const view = render(<Owner onChange={onChange} initial={[{ id: 'kind', op: 'equals', value: 'metric' }]} />);
+    await ready();
+    fireEvent.click(body(view, 'target'));
+    fireEvent.change(await screen.findByLabelText('값'), { target: { value: 'cycle_time' } });
+    expect(screen.queryByRole('alert')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: '적용' }));
+    expect(onChange).toHaveBeenLastCalledWith([{ id: 'kind', op: 'equals', value: 'metric' }, { id: 'target', op: 'equals', value: 'cycle_time' }]);
+  });
+
+  it('UX-2: removing 대상 유형 while 대상 ID exists removes both and says so (the chip never vanishes silently)', async () => {
+    const onChange = vi.fn();
+    const view = render(<Owner onChange={onChange} initial={[{ id: 'kind', op: 'equals', value: 'metric' }, { id: 'target', op: 'equals', value: 'cycle_time' }]} />);
+    await ready();
+    fireEvent.click(view.container.querySelector('[data-filter-remove="kind"]')!);
+    expect(onChange).toHaveBeenLastCalledWith([]);
+    await waitFor(() => expect(view.container.querySelector('[data-filter-dropped]')!.textContent).toContain('대상 ID 조건도 함께 지웠습니다'));
+  });
+
+  it('UX-1: an instant chip with second precision shows both ends to the second in the entry zone; without entry it is unchanged', async () => {
+    const at = (entry?: PlatformColumn<Row>['filterEntry']): PlatformColumn<Row>[] => [{ id: 'at', header: '시각', filter: { kind: 'instant' }, ...(entry ? { filterEntry: entry } : {}), value: () => '-' }];
+    const initial: ColumnFilter[] = [{ id: 'at', op: 'between', value: { from: '2026-09-24T00:00:05Z', to: '2026-09-24T00:00:10Z' } }];
+    const chipText = (view: { container: HTMLElement }) => view.container.querySelector('[data-column-filter-chip="at"]')!.textContent!;
+    const withSeconds = render(<Owner cols={at({ timeZone: 'Asia/Seoul', precision: 'second' })} initial={initial} onChange={vi.fn()} />);
+    await ready();
+    expect(chipText(withSeconds)).toContain('26. 9. 24. 오전 9:00:05 ~ 26. 9. 24. 오전 9:00:10');
+    withSeconds.unmount();
+    const minute = render(<Owner cols={at({ timeZone: 'Asia/Seoul' })} initial={initial} onChange={vi.fn()} />);
+    await ready();
+    expect(chipText(minute)).toContain('26. 9. 24. 오전 9:00 ~ 26. 9. 24. 오전 9:00');
+    minute.unmount();
+    const bare = render(<Owner cols={at()} initial={initial} onChange={vi.fn()} />);
+    await ready();
+    expect(chipText(bare)).toContain(`${formatInstant('2026-09-24T00:00:05Z', 'ko')} ~ ${formatInstant('2026-09-24T00:00:10Z', 'ko')}`);
   });
 });
