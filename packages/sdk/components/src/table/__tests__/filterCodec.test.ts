@@ -157,9 +157,15 @@ describe('filter URL codec (ADR-0105 §6)', () => {
       ['Korean', '가'], ['tilde', '~'], ['percent', '%'], ['hash', '#'], ['slash', '/'], ['backslash', '\\'], ['punctuation', "!'()*"], ['ascii letters', 'a'],
     ])('a single %s condition filled to the budget stays a shareable link (counted by buildQuery, like the share path)', (_name, ch) => {
       const prefix = 'name:contains:';
-      let n = 0;
       const make = (count: number) => encodeFilterParam({ id: 'name', op: 'contains', value: ch.repeat(count) });
-      while (filterParamLimit([make(n + 1)]) === null) n++;
+      // The cost only grows with the length, so a binary search finds the largest fitting length (a linear scan was O(n²) and hit the 5 s timeout on CI).
+      let n = 0;
+      let over = 1;
+      while (filterParamLimit([make(over)]) === null) over *= 2;
+      while (over - n > 1) {
+        const mid = (n + over) >> 1;
+        if (filterParamLimit([make(mid)]) === null) n = mid; else over = mid;
+      }
       const at = make(n);
       expect(filterParamLimit([at])).toBeNull();
     
