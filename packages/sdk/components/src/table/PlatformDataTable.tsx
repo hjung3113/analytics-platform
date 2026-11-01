@@ -542,6 +542,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
     if (!openColumnsAfterMenu.current) return;
     openColumnsAfterMenu.current = false;
     event.preventDefault();
+    columnsOutside.current = false;
     setOverlayOpen(o => ({ ...o, columns: true }));
   }}>
     {groupIn && <GroupSubmenu lang={lang} value={groupBy ?? ''} options={groupColumns} onChange={changeGroup} />}

@@ -1,5 +1,5 @@
 import userEvent from '@testing-library/user-event';
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
@@ -29,9 +29,13 @@ const makeLoad = () => vi.fn(async (q: TableQuery, _s: AbortSignal) => q.groupBy
   : ok({ rows: data, total: data.length }));
 
 let toolbarWidth: number | null = 1280;
+/** Live toolbar observers, so a test can narrow the bar after mount. */
+const toolbarObservers: Array<{ cb: ResizeObserverCallback; target: Element }> = [];
+const resizeToolbar = (width: number) => act(() => { toolbarWidth = width; for (const o of toolbarObservers) o.cb([{ target: o.target, contentRect: { width, height: 800 } } as ResizeObserverEntry], {} as ResizeObserver); });
 let restoreGeometry: () => void;
 beforeEach(() => {
   toolbarWidth = 1280;
+  toolbarObservers.length = 0;
   restoreGeometry = stubCompactTableGeometry(1280);
   vi.stubGlobal('localStorage', memoryStorage());
   window.history.replaceState(null, '', '/');
@@ -39,6 +43,7 @@ beforeEach(() => {
     constructor(private cb: ResizeObserverCallback) {}
     observe(target: Element) {
       const width = target.hasAttribute('data-table-toolbar') ? toolbarWidth : 1280;
+      if (target.hasAttribute('data-table-toolbar')) toolbarObservers.push({ cb: this.cb, target });
       if (width !== null) this.cb([{ target, contentRect: { width, height: 800 } } as ResizeObserverEntry], this as unknown as ResizeObserver);
     }
     unobserve() {} disconnect() {}
@@ -46,11 +51,11 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); restoreGeometry(); });
 
-function Harness(p: { load?: ReturnType<typeof makeLoad>; subtitle?: string; search?: React.ReactNode; cols?: PlatformColumn<Row>[]; filterable?: boolean }) {
+function Harness(p: { load?: ReturnType<typeof makeLoad>; subtitle?: string; search?: React.ReactNode; cols?: PlatformColumn<Row>[]; filterable?: boolean; selectAllResults?: boolean }) {
   const cols = p.cols ?? (p.filterable ? [{ ...columns[0], filter: { kind: 'text' as const } }, columns[1]] : columns);
   return <I18nProvider><PlatformProvider equipmentAxes={axes} adapter={adapter} registry={registry}>
     <PlatformDataTable<Row> title="설비 목록" subtitle={p.subtitle} search={p.search} ariaLabel="table" columns={cols} getRowId={r => r.id} loadPage={p.load ?? makeLoad()}
-      filterKey="f" preferenceKey="toolbar-test" pageSize={25} height={300} exportRows={async () => ({ outcome: 'ok', assessments: [], trust: null, correlationId: 'c', data })} />
+      selectAllResults={p.selectAllResults} filterKey="f" preferenceKey="toolbar-test" pageSize={25} height={300} exportRows={async () => ({ outcome: 'ok', assessments: [], trust: null, correlationId: 'c', data })} />
   </PlatformProvider></I18nProvider>;
 }
 const toolbar = () => document.querySelector('[data-table-toolbar]') as HTMLElement;
@@ -84,11 +89,15 @@ describe('PlatformDataTable one-line toolbar (1217c)', () => {
     expect(screen.queryByRole('button', { name: '설명' })).toBeNull();
   });
 
-  it('a panel title stays screen-reader only: the toolbar has no visible title and no ⓘ, the subtitle is sr-only', async () => {
+  it.each(['hover', 'keyboard focus'])('a panel title stays screen-reader only but the ⓘ stays visible: %s reaches the description (UX-1)', async how => {
+    const user = userEvent.setup();
     render(<InWorkspacePanelProvider value><Harness subtitle="설명 문장" /></InWorkspacePanelProvider>);
     expect(await screen.findByRole('heading', { name: '설비 목록' })).toHaveClass('sr-only');
-    expect(screen.queryByRole('button', { name: '설명' })).toBeNull();
-    expect(screen.getByText('설명 문장')).toHaveClass('sr-only');
+    const info = within(toolbar()).getByRole('button', { name: '설명' });
+    expect(info).not.toHaveClass('sr-only');
+    if (how === 'hover') await user.hover(info);
+    else { await user.tab(); while (document.activeElement !== info && document.activeElement !== document.body) await user.tab(); expect(document.activeElement).toBe(info); }
+    expect((await screen.findAllByText('설명 문장')).length).toBeGreaterThan(0);
   });
 
   it('the 그룹 menu replaces the native select: keyboard opens it, ArrowDown + Enter chooses, the button names the choice', async () => {
@@ -208,6 +217,40 @@ describe('PlatformDataTable toolbar overflow (1217c, P10)', () => {
     expect(item.getAttribute('aria-keyshortcuts')).toBe('Control+C Meta+C');
     expect(item.getAttribute('aria-describedby')).toBeTruthy();
     expect(item).toHaveAccessibleDescription(/복사할 수 있습니다\(표 안에서\)/);
+  });
+
+  it('overflow 「복사」 with a whole-result selection stays disabled, says why and advertises no shortcut (C3)', async () => {
+    toolbarWidth = 220;
+    const user = userEvent.setup();
+    const load = vi.fn(async (_q: TableQuery, _s: AbortSignal) => ok({ rows: data, total: 54 }));
+    render(<Harness load={load} selectAllResults />);
+    await screen.findByText(/1\/3/);
+    await user.click(screen.getByRole('checkbox', { name: '현재 페이지 전체 선택' }));
+    await user.click(await screen.findByRole('button', { name: /필터 결과 전체 54행 선택/ }));
+    await user.click(within(toolbar()).getByRole('button', { name: '더보기' }));
+    const item = await screen.findByRole('menuitem', { name: /복사/ });
+    expect(item).toHaveAttribute('aria-disabled', 'true');
+    expect(item.getAttribute('aria-keyshortcuts')).toBeNull();
+    expect(item).toHaveAccessibleDescription(/전체 선택은 복사할 수 없습니다/);
+  });
+
+  it('a stale outside-close flag from the wide 컬럼 path does not block the `⋯` focus return (C2)', async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+    await screen.findByText(/1\/1/);
+    await user.click(within(toolbar()).getByRole('button', { name: '컬럼' }));
+    expect(await screen.findByText('컬럼 설정 (브라우저에 저장)')).toBeTruthy();
+    await user.click(document.body);
+    await waitFor(() => expect(screen.queryByText('컬럼 설정 (브라우저에 저장)')).toBeNull());
+    resizeToolbar(220);
+    const more = await within(toolbar()).findByRole('button', { name: '더보기' });
+    more.focus();
+    await user.keyboard('{Enter}');
+    await user.click(await screen.findByRole('menuitem', { name: '컬럼' }));
+    expect(await screen.findByText('컬럼 설정 (브라우저에 저장)')).toBeTruthy();
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByText('컬럼 설정 (브라우저에 저장)')).toBeNull());
+    expect(document.activeElement).toBe(more);
   });
 
   it('the title truncates with its full text in title', async () => {
