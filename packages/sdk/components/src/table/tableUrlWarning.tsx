@@ -155,18 +155,10 @@ export function TableUrlWarning({ sentences, filters, recoverKeys = ['sort', 'pa
 }
 
 /**
- * The shared invalid filter-key message of a management screen: same frame as `TableUrlWarning`, one ADR-0034 sentence per bad
- * key. `recover` is the screen's reset action — `useManagementFilters().recoverButton`, which moves focus to main first (06 §26).
- */
-export function FilterUrlWarning({ sentences, filters, recover }: { sentences: readonly string[]; filters?: ReactNode; recover: ReactNode }) {
-  const { t } = useI18n();
-  return <UrlWarning title={t('invalidFilterTitle')} sentences={sentences} filters={filters} action={recover} />;
-}
-
-/**
- * The rejected page-key message of a screen (06 §6, ADR-0034): the same frame as `FilterUrlWarning`, one sentence per bad key
+ * The rejected page-key message of a screen (06 §6, ADR-0034): one sentence per bad key
  * (`usePageKeyRules().sentences`), and a Reset that clears exactly those keys (`recover`) after focus moved off the button.
  */
 export function PageKeyWarning({ sentences, onRecover, filters }: { sentences: readonly string[]; onRecover: () => void; filters?: ReactNode }) {
-  return <FilterUrlWarning sentences={sentences} filters={filters} recover={<RecoverButton onRecover={onRecover} />} />;
+  const { t } = useI18n();
+  return <UrlWarning title={t('invalidFilterTitle')} sentences={sentences} filters={filters} action={<RecoverButton onRecover={onRecover} />} />;
 }

@@ -32,8 +32,6 @@ EChartProps | type | type EChartProps = { ariaLabel: string; className?: string;
 EmbeddedPane | function | function EmbeddedPane({ children }: { children: ReactNode; }): ReactElement
 FILTER_OP_LABELS | const | const FILTER_OP_LABELS: Readonly<Record<@ap/contracts#ColumnFilterOp, { en: string; ko: string; }>>
 FLOATING_MIN_SIZE | const | const FLOATING_MIN_SIZE: @ap/components#FloatingSize
-FilterDraft | type | type FilterDraft<K extends string> = { changedCount: number; patch: () => Record<K, null | string>; reset: (next?: Partial<Record<K, string>>) => void; set: (key: K, value: string) => void; values: Record<K, string>; }
-FilterUrlWarning | function | function FilterUrlWarning({ sentences, filters, recover }: { filters?: ReactNode; recover: ReactNode; sentences: readonly string[]; }): import("react").JSX.Element
 FilterValueCheck | type | type FilterValueCheck = (filter: @ap/contracts#ColumnFilter) => @ap/contracts#Text | null
 FloatingArea | type | type FloatingArea = { height: number; left: number; top: number; width: number; }
 FloatingGeometry | type | type FloatingGeometry = { height: number; width: number; x: number; y: number; }
@@ -67,12 +65,11 @@ LegendTreeSort | type | type LegendTreeSort = 'asc' | 'desc' | null
 LoadingBlock | function | function LoadingBlock({ rows, height, className }: { className?: string; height?: number; rows?: number; }): import("react").JSX.Element
 LocalFieldFailure | type | type LocalFieldFailure = 'calendar' | 'fold' | 'format' | 'gap' | 'zone'
 LocalFieldResult | type | type LocalFieldResult = { instant: string; ok: true; } | { ok: false; reason: @ap/components#LocalFieldFailure; }
-ManagementFiltersOptions | type | type ManagementFiltersOptions<K extends string> = { applied: Record<K, string>; clearKeys: readonly string[]; identity?: string; onRebase?: () => void; toPatch?: (draftPatch: Record<K, null | string>) => Record<string, null | string> | null; }
-ManagementLayout | function | function ManagementLayout({ filter, activeFilterCount, pendingFilterCount, search, table, drawer }: @ap/components#ManagementLayoutProps): import("react").JSX.Element
-ManagementLayoutProps | type | type ManagementLayoutProps = { activeFilterCount?: number; drawer?: ReactNode; filter?: ReactNode; pendingFilterCount?: number; search?: ReactNode; table: (filterSlot: ReactNode | undefined, search?: ReactNode) => ReactNode; }
+ManagementLayout | function | function ManagementLayout({ search, table, drawer }: @ap/components#ManagementLayoutProps): import("react").JSX.Element
+ManagementLayoutProps | type | type ManagementLayoutProps = { drawer?: ReactNode; search?: ReactNode; table: (search?: ReactNode) => ReactNode; }
 OutcomeView | function | function OutcomeView<T>({ response, onRetry, emptyAction, compact, children }: { children: (data: T) => ReactNode; compact?: boolean; emptyAction?: ReactNode; onRetry: () => void; response: @ap/contracts#ApiResponse<T>; }): import("react").JSX.Element
 PageFilterBar | function | function PageFilterBar(props: @ap/components#PageFilterBarProps): import("react").JSX.Element
-PageFilterBarProps | type | type PageFilterBarProps = (PageFilterBarShared & { collapsedActions?: ReactNode; collapsible: true; hasPendingChanges?: boolean; orientation?: 'row'; preferenceKey: string; summaryItems: readonly @ap/components#PageFilterSummaryItem[]; }) | (PageFilterBarShared & { collapsible?: false; orientation?: 'column' | 'row'; })
+PageFilterBarProps | type | type PageFilterBarProps = (PageFilterBarShared & { collapsedActions?: ReactNode; collapsible: true; hasPendingChanges?: boolean; preferenceKey: string; summaryItems: readonly @ap/components#PageFilterSummaryItem[]; }) | (PageFilterBarShared & { collapsible?: false; })
 PageFilterField | type | type PageFilterField = (PageFilterFieldBase & { content: ReactNode; kind: 'custom'; }) | (PageFilterFieldBase & { emptyOptionLabel?: string; kind: 'select'; onValueChange: (value: string) => void; options: readonly @ap/components#PageFilterOption[]; placeholder?: string; value: string; }) | (PageFilterFieldBase & { kind: 'search' | 'text'; onValueChange: (value: string) => void; placeholder?: string; value: string; })
 PageFilterOption | type | type PageFilterOption = { label: string; value: string; }
 PageFilterSummaryItem | type | type PageFilterSummaryItem = { key: string; label: string; value: string; }
@@ -186,7 +183,6 @@ token | function | function token(name: @ap/ui/theme#ThemeColorToken): string
 useCompactPageDensity | const | const useCompactPageDensity: () => boolean
 useCopyLink | function | function useCopyLink(successText: string, options?: CopyLinkOptions): (url: string) => Promise<boolean>
 useHeaderOverflowDialog | function | function useHeaderOverflowDialog(): ShowHeaderDialog | null
-useManagementFilters | function | function useManagementFilters<K extends string>({ applied, identity, clearKeys, toPatch, onRebase }: @ap/components#ManagementFiltersOptions<K>): { barProps: { actions: import("react").JSX.Element; onApply: () => void; }; clear: () => void; clearButton: import("react").ReactElement<unknown, import("react").JSXElementConstructor<any> | string> | null; draft: @ap/components#FilterDraft<K>; layoutProps: { activeFilterCount: number; pendingFilterCount: number; }; recoverButton: import("react").ReactElement<unknown, import("react").JSXElementConstructor<any> | string>; }
 usePageKeyRules | function | function usePageKeyRules(rules: readonly @ap/components#PageKeyRule[]): { badKeys: string[]; invalid: boolean; recover: () => void; sentences: string[]; }
 usePeopleSearch | function | function usePeopleSearch(search: @ap/components#PeopleSearch, query: string): @ap/components#PeopleSearchState
 useQueryBarExtension | function | function useQueryBarExtension(): @ap/components#QueryBarExtension | undefined

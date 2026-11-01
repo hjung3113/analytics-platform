@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { House } from 'lucide-react';
 import { I18nProvider, PlatformProvider, createRegistry, type MenuEntry } from '@ap/kernel';
-import { FilterUrlWarning, PageKeyWarning, TableUrlWarning, usePageKeyRules, useTableUrlWarning, type PageKeyRule } from '../tableUrlWarning';
+import { PageKeyWarning, TableUrlWarning, usePageKeyRules, useTableUrlWarning, type PageKeyRule } from '../tableUrlWarning';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { groupId, spaceId } from '@ap/contracts';
 
@@ -103,25 +103,12 @@ describe('useTableUrlWarning + TableUrlWarning (06 §15, ADR-0034)', () => {
   });
 });
 
-describe('FilterUrlWarning (invalid filter keys, ADR-0034)', () => {
-  const mountFilter = (withFilters: boolean) => render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}>
-    <FilterUrlWarning sentences={['역할 “x”은 이 화면에서 쓸 수 없는 값입니다.', '권한 “y”은 이 화면에서 쓸 수 없는 값입니다.']}
-      filters={withFilters ? <button type="button">필터 · 1</button> : undefined} recover={<button type="button">되돌리기</button>} />
-  </PlatformProvider></I18nProvider>);
-
-  it('is one danger alert with the filter title, one paragraph per sentence and the given recover node', () => {
-    window.history.replaceState(null, '', '/list?v=1');
-    mountFilter(false);
-    const alert = screen.getByRole('alert');
-    expect(alert.textContent).toContain('필터 값이 올바르지 않습니다');
-    expect(alert.textContent).not.toContain('정렬·페이지');
-    expect([...alert.querySelectorAll('p')].map(p => p.textContent)).toEqual(['역할 “x”은 이 화면에서 쓸 수 없는 값입니다.', '권한 “y”은 이 화면에서 쓸 수 없는 값입니다.']);
-    expect(alert.contains(screen.getByRole('button', { name: '되돌리기' }))).toBe(true);
-  });
-
+describe('PageKeyWarning filters slot (ADR-0034)', () => {
   it('renders the filters slot above the alert inside a gap-3 wrapper', () => {
     window.history.replaceState(null, '', '/list?v=1');
-    mountFilter(true);
+    render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}>
+      <PageKeyWarning sentences={['역할 “x”은 이 화면에서 쓸 수 없는 값입니다.']} onRecover={() => {}} filters={<button type="button">필터 · 1</button>} />
+    </PlatformProvider></I18nProvider>);
     const slot = screen.getByRole('button', { name: '필터 · 1' });
     const alert = screen.getByRole('alert');
     expect(slot.compareDocumentPosition(alert) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();

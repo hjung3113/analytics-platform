@@ -4,6 +4,7 @@
 
 ## 작은 후속 (확인된 것)
 
+- **구현 안 함 — 옛 필터 page key 별칭 제거(#1217 노드 f):** 설비 `status`·`maker`, 감사 7키, 권한 2키는 한 필터 모델(ADR-0105)로 옮긴 뒤에도 옛 링크가 같은 결과를 보이도록 manifest `pageKeys`에 별칭으로 남긴다(한 릴리스). 이유: 이미 공유된 링크를 바로 깨지 않는다(계획 P8). 다시 볼 조건: #1217을 싣는 릴리스의 다음 릴리스 — 별칭, 메뉴의 `legacy` 선언, 별칭 테스트·E2E를 지운다. (#419 ② 「관리 화면 필터 초기화 범위 통일」 줄은 `useManagementFilters`가 사라져 한 필터 모델로 대체되어 닫았다.)
 - **구현 안 함 — 필터 편집기 상한 경계 테스트(#1217b 점검 C3):** 상한 거절은 테스트로 고정했지만 정확히 20개 조건·50개 값·2400자가 적용되는 경계는 고정하지 않았다. 이유: 코덱 쪽(1217a2c)이 경계를 이미 테스트하고 편집기는 같은 함수를 부른다. 다시 여는 조건: 상한 값이나 상한 함수를 바꿀 때.
 - **구현 안 함 — 돌아가기 숨은 상태 저장소 세부(#1217a2k 점검 C2–C4):** 쓰기 실패 때 해당 칸만이 아니라 저장소 전체를 지운다(C2). 실패 표식은 탭 메모리라 `setItem`·`removeItem`이 모두 실패하는 저장소에서 새로고침하면 사라진다(C3). 옛 v1 문서를 거부하는 회귀 테스트가 없다(C4). 이유: 동작은 fail closed로 안전하고 영향은 이상한 저장소에서만 생긴다. 다시 여는 조건: 반환 상태 저장소를 다시 손댈 때, 또는 저장소 오류 신고가 들어올 때.
 - **구현 안 함 — `groupPage` 혼합 타입 그룹 키 비교(#556d 리뷰 C3):** `groupPage`는 원래 값끼리 비교하지만 그룹 버킷 신원은 `String(value)`라, 한 열에 `3`과 `'3'`이 섞이면 같은 버킷인데 비교가 비대칭이다. 이유: 서버 열 하나는 한 타입이라 지금 영향이 없다. 다시 여는 조건: 혼합 타입 열로 그룹을 묶는 소비자가 생길 때.
@@ -169,7 +170,6 @@
 - `AnalysisChartFrame` Compare에 이전 기간 x축 정렬 옵션이 없어 생산성 개요가 bucket index 정렬로 우회한다(`ProductivityOverview.tsx`의 우회 주석).
 - 차트 더보기 팝오버(`AnalysisChartFrame`)가 `shadow-md`를 쓴다. DESIGN의 그림자 규칙과 맞는지 확인(공유 floating primitive 전체로 넓히지 않는다는 문장만 있다).
 - **구현 안 함 — 간헐 실패 1회 기록:** `packages/sdk/shell/src/frame/__tests__/SystemSwitcher.test.tsx` "lets a lazy arrival keep the title when the switcher is reopened before it resolves"가 main 기준 문서만 바뀐 PR(#447)의 CI에서 1회 실패했다(`h1` 대신 전환 버튼이 포커스를 가짐, 1655ms). 로컬에서는 부하 루프(CPU ×20)로 파일 전체 12회·단일 12회·무부하 12회 모두 통과해 재현하지 못했다. 미검증 가설: Escape 뒤 Radix `onCloseAutoFocus`(`setTimeout 0`)와 새 제목의 도착 포커스 effect(React 스케줄러) 순서가 느린 러너에서 뒤집힌다. 다시 열 조건: 두 번째 발생 — 이슈로 올리고 그때 CI 로그 두 건을 대조해 진단한다.
-- **구현 안 함 — 관리 화면 필터 초기화 범위 통일(#419 ②):** `useManagementFilters`의 초기화가 화면마다 다르다(설비는 sort 유지, 권한·감사는 sort·focus·tab까지 지움, #411 이전부터). 이유: 동작을 바꾸는 상태 코드이고 사용자 불편 신고가 없다(정비 슬라이스 15 콘덕터 결정, 2026-10-19). 다시 볼 조건: 초기화 동작에 대한 사용자 지적, 또는 `useManagementFilters`를 다시 만질 때.
 - **구현 안 함 — `RowAction`의 컨트롤별 `TooltipProvider`(#419 ④):** 컨트롤마다 provider를 만든다. 이유: 측정된 성능 문제가 없다. 다시 볼 조건: 행이 많은 표에서 렌더 비용이 측정될 때.
 - **구현 안 함 — `@ap/ui` 팔레트 층 경로 하나로(슬라이스 15 품질 Q5):** 팔레트 층을 만드는 길이 둘이다(`DialogContent scrim="palette"`와 `DialogOverlay`+`DialogContentBare variant="palette"`, 후자는 비공개). `z-60`도 두 곳에 따로 적혀 있다. 팔레트 내용이 z-60이라 앞으로 팔레트 안에 Tooltip·Popover·Select(z-50 portal)를 넣으면 뒤로 숨는다(지금은 그런 자식이 없다). 이유: 지금 소비자 하나, 결함 없음. 다시 볼 조건: 팔레트 안에 portal 자식을 넣을 때, 또는 `DialogContentBare`를 공개할 때.
 - **소유자 결정 후보 — FeedbackOps 링크 E2E 겹침(슬라이스 15 품질 Q2 관련):** #451의 공간 수 test 3건이 #251 describe의 admin 블록 test와 engineer·viewer "전체 링크 없음" test를 거의 다 덮는다. 테스트 삭제·합치기는 소유자 결정이라 하지 않았다. 다시 볼 조건: 소유자가 정할 때.

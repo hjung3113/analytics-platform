@@ -143,7 +143,7 @@ Detail Drawer
 History / Audit
 ```
 
-검색 필드는 `ManagementLayout`의 `search`로 넘기면 표 툴바 줄(제목 옆)에 놓인다(노드 1217c, [components.md §15](components.md)). 페이지가 `filter`를 함께 주면 필터 레일은 그대로 남는다(제거는 1217f). 레일과 표 사이 간격은 페이지 밀도가 compact이면 12px(형제 패널 간격), `comfortable`이면 16px다.
+검색 필드는 `ManagementLayout`의 `search`로 넘기면 표 툴바 줄(제목 옆)에 놓인다(노드 1217c, [components.md §15](components.md)). 필터 레일은 없다(노드 1217f에서 제거).
 
 ### 12.4 Catalog
 
@@ -178,7 +178,7 @@ Domain 메뉴는 가능하면 이 Archetype을 조합하고, 새로운 Page Type
 
 **지금 pageType이 강제하는 것:** manifest의 `pageType`(5종 중 하나)과, 생성기(`pnpm gen:menu --page-type`)가 만드는 화면 뼈대의 콘텐츠 슬롯(위 12.1–12.5의 슬롯 이름, 읽는 순서 그대로)이다. Page Header·Global Context는 셸 슬롯(§8)이라 `PlatformPage`·셸이 이미 그리므로 뼈대에 다시 넣지 않는다. Data Trust는 12.1·12.2가 슬롯으로 적으므로 뼈대에 `trust` 슬롯으로 넣는다 — `PlatformPage`는 소비자가 넘긴 `dataTrustSummary`만 그리므로 신뢰 정보를 가진 화면이 그 슬롯을 채워야 한다. 슬롯 이름은 12.1–12.5의 영문 표기 그대로다. Management 공통 레이아웃은 `ManagementLayout`, Analysis 공통 레이아웃은 `AnalysisLayout`으로 제공한다. Management 뼈대는 filter·table 자리표시를 공통 레이아웃 안에, actions·drawer·history를 레이아웃 아래에 렌더한다. Analysis 뼈대는 kpi·chart·breakdown 자리표시를 공통 레이아웃 안에 렌더하며, annotation은 chart 노드 안에서 chart 자리표시 바로 뒤에, trust는 레이아웃 아래에 두어 kpi → chart → annotation → breakdown → trust 읽는 순서를 유지한다. 나머지 archetype 뼈대는 점선 구획으로 렌더한다.
 
-**Management — Decided ([ADR-0022](../adr/0022-management-filter-rail-analysis-two-column.md)):** `ManagementLayout`은 `filter`/`table`/`drawer` 슬롯을 제공한다. 자기 폭 960px 이상에서는 260px 왼쪽 필터 레일과 표를 16px 간격으로 나란히 둔다. 레일은 페이지 sticky 머리 아래에 머물고 본문만 스크롤한다. 접기·펼치기와 공통 접힘 기억을 제공하며, 접힘·좁음에서는 표 툴바의 `필터 · N` 버튼(적용 수 0이면 숫자 생략)으로 접근한다. 좁음에서는 팝오버로 필터를 편집하며 접힘 기억을 바꾸지 않는다. 필터 필드는 [PageFilterBar](../adr/0016-page-filter-bar.md)의 column 배치로 소비하고, 상세는 셸 슬롯(ADR-0013)에 둔다. 드로어 열림은 URL page key(§6.1)다. **필터 적용 (Decided, [ADR-0037](../adr/0037-table-filter-consistency.md)):** 관리 화면 필터는 텍스트와 Select 모두 초안이고 `적용`(`적용 (n)`: 적용된 값과 다른 필드 수, 바뀐 것이 없으면 꺼짐)으로 `setPage` 한 번에 반영한다. 초안은 `ManagementLayout` 위의 화면이 소유해 레일·팝오버 이동과 접힘에서도 남고, 적용된 URL 값이 바뀌면(이동·뒤로/앞으로·초기화) 초안을 다시 맞춘다. 접힌·좁은 `필터 · N` 버튼에는 `미적용 n` 글 표식과 "적용된 필터 N개, 미적용 변경 n개" 설명이 붙고, 레일 머리에는 `· 미적용 변경 n개`가 붙는다. `필터 초기화`는 적용된 필터가 있을 때만 보인다. 카탈로그·분석 막대의 필터는 즉시 반영을 유지한다.
+**Management — Decided ([ADR-0022](../adr/0022-management-filter-rail-analysis-two-column.md), 구조는 [ADR-0105](../adr/0105-one-table-filter-model.md)로 바뀜, 소유자 결정 2026-11-01):** `ManagementLayout`은 `search`/`table`/`drawer` 슬롯을 제공한다. 필터 레일은 없다(노드 1217f에서 `filter` 슬롯·레일·접힘 기억·좁은 폭 팝오버를 지움). 구조는 표 툴바 줄의 빠른 검색(`search`, `table`의 인자로 `PlatformDataTable`의 `search` 슬롯에 들어감) → 표 위 필터 줄(컬럼 필터 칩, [components.md §15](components.md)) → 표 → 결과 줄이다. 필터는 열마다 조건 하나씩 즉시 적용되고 URL의 숨은 `filter` 키 하나가 담는다(옛 page key는 한 릴리스 동안 별칭으로 읽는다). 상세는 셸 슬롯(ADR-0013)에 두고 드로어 열림은 URL page key(§6.1)다. 필터 의미·URL key·초기화 키 목록은 화면이 소유한다. 카탈로그·분석 막대의 `PageFilterBar` 행은 그대로다.
 
 **Analysis — Decided ([ADR-0022](../adr/0022-management-filter-rail-analysis-two-column.md)):** `AnalysisLayout`은 `kpi`/`chart`/`breakdown` 슬롯을 KPI 띠·차트·분해 표 순서로 16px 간격으로 배치한다. 기본 `density: 'regular'`에서는 자기 폭 960px 이상이고 펼친 차트가 2개 이상이면 차트는 2열이며 홀수 개의 마지막 차트는 전체 폭을 쓴다. 좁거나 펼친 차트가 하나면 1열이다. 같은 행의 차트는 머리·범례 높이를 공유하여 그림 영역 윗변을 맞추고 카드가 행 높이를 채운다. KPI·분해 표는 전체 폭이다. KPI 띠·각 차트·분해 표를 각각 접을 수 있으며 접은 단위는 배치에서 빠지고 맨 위 “접힌 항목” 칩으로 원래 순서에 복원한다. 접으면 칩으로, 펼치면 접기 버튼으로 포커스가 이동한다. 접힌 단위 id는 메뉴별 localStorage `platform:analysis-collapsed:<menuId>`에 기억하고 모르는 id는 무시한다. 조회 중단은 보장하지 않으며 펼칠 때 차트·표 로컬 상태는 초기화될 수 있다. 사내에서 분석 메뉴를 새로 만드는 플랫폼 목적에 따라 사용자 결정으로 §24의 반복 기준(소비자 2–3곳)보다 먼저 공통 레이아웃으로 올린다.
 
