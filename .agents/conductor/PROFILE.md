@@ -44,6 +44,11 @@ Route to `impl-complex` (always full) if any of these hold:
   - Environment: `WAVE_STATE`, `WAVE_BRIEFS`, `AP_MAIN`.
   - Role: `WORKER_ROLE`. Overrides: `WORKER_MODEL`, `WORKER_EFFORT`.
 - Capacity and slots: see [`LANES.md`](LANES.md) §Machine resources. Run issues in parallel only when their files do not overlap.
+- **Parallelism checkpoint.** At every wake (a worker finished, a wait was armed, a node is blocked, before a local root verify) the progress message names the independent work that could start now and starts it, or says what blocks it (memory slot, file overlap, dependency). Candidates:
+  - review-final, review-ux (when the review plan says `ux=required`) and the host root verify start together on the first implementation commit; their findings go into one fix round, and review-ux re-checks only the fixed items. Reason: a review-ux run after the fix round adds a second fix round.
+  - A graph node whose dependencies are already committed on an in-flight branch starts stacked on that branch (`orca worktree create --base-branch <branch>`, then `launch-worker.py --reuse`); its brief names the base branch's in-flight files it must not edit, and it is rebased onto `main` after the base merges. Reason: waiting for the base's review rounds idles the slot.
+  - Research and plans for the next issue (read-only) run while workers implement.
+  - Only local root test/build/E2E runs are serial (memory); worker runs and reviews are not.
 - Feature issues: `launch-worker.py <n> <slug> feature`.
   - `scripts/feature-prepare.sh` fills `.env` and creates the issue DB on 5439 (`verify-db.sh create <n>`).
   - Rules: `addenda/impl-rules-feature.md`.
