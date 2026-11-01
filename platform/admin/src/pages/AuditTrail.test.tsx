@@ -246,7 +246,7 @@ describe('AuditTrail filter model (ADR-0105, #1217 e2)', () => {
   });
 
   it.each([
-    ['a calendar-invalid instant bound', new URLSearchParams([['filter', 'at:between:2026-02-30T00:00:00.000Z']]), '시각'],
+    ['a calendar-invalid instant bound', new URLSearchParams([['filter', 'at:between:2026-02-30T00:00:00.000Z~']]), '값의 형식이 맞지 않습니다'],
     ['a target id without a type', new URLSearchParams([['filter', 'targetId:equals:EQ-1']]), '대상 ID'],
     ['a malformed new-key actor', new URLSearchParams([['filter', 'actor:equals:a b']]), '행위자'],
   ])('%s in the address: a filter warning, no query, nothing repaired', (_name, params, fragment) => {
