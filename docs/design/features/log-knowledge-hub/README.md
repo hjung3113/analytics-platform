@@ -6,7 +6,9 @@
 
 1. **[design-v0.6-candidate.md](./design-v0.6-candidate.md)** — **최신 설계 기준선**. 플랫폼 직접 탑재, Fastify/DB/API/ACL, 40개 **후보** 테이블, 트랜잭션·검색·검수 및 2026-11-01 재검수 내용. §14에 검토 수정·미결 게이트 명시.
 2. **[product-ux-reference-v0.4.md](./product-ux-reference-v0.4.md)** — 제품 결정 1–17번, 카탈로그 관리 5단계 UX(§15), 상세 화면/와이어프레임(§16), 합성 검증 시나리오(§17). **독립 실행·이중 Shell/서버 관련 문장은 폐기된 역사적 내용**이며 v0.6보다 우선하지 않음.
-3. 별도 `Log_Knowledge_Hub_UI_Reference_v0.4.html` 정적 그래픽 레퍼런스는 이번 PR에 포함하지 않음. 플랫폼 실제 UI/코드를 검증한 것으로 간주하지 말 것.
+3. **[ADR-0107](../../../adr/0107-log-knowledge-catalog-authority-keys-and-edit-rights.md)** — P0 카탈로그의 원천·`code_key` 정규화와 유일성·편집 capability(Decided 2026-11-02). v0.6 §12.1의 1번과 카탈로그 편집 권한을 대체한다.
+4. **캡처 범위:** 시각 검수는 데스크톱 1440×900과 1280 폭만 한다(루트 `AGENTS.md` 검증 절). v0.4 §16–17의 1024×768·768–1023·768 미만 항목은 범위 밖이며, 소유자가 범위를 바꾸기 전에는 구현·검수하지 않는다.
+5. 별도 `Log_Knowledge_Hub_UI_Reference_v0.4.html` 정적 그래픽 레퍼런스는 이번 PR에 포함하지 않음. 플랫폼 실제 UI/코드를 검증한 것으로 간주하지 말 것.
 
 ## 추적
 

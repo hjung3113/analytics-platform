@@ -117,7 +117,7 @@ Space: log-dev  (기존)
 | Item 상세/검색 | 관찰/기대/해석/개선/Evidence/판단 이력 분리; 교차 SW 유사 Item 별개 결과 |
 | 검토 | 사람/AI/Validator 출처 구분, Evidence–제안 Diff 비교, digest/expectedVersion 확인 |
 | 선택 UX | 비선택 Bar/모듈 불투명도 극단적으로 낮추지 않음; 1~2px outline/soft highlight |
-| 시각 품질 게이트 | v0.4 §16–17의 1440×900, 1280×800, 1024×768 및 기본/빈/오류/권한/충돌 캡처 유지 |
+| 시각 품질 게이트 | 데스크톱 1440×900과 1280 폭에서 기본/빈/오류/권한/충돌 캡처(레포 캡처 범위 — 루트 `AGENTS.md` 검증 절). v0.4 §16–17의 1024×768·태블릿·모바일 항목은 범위 밖 |
 
 ## 3. 백엔드 모듈·서비스 경계
 
@@ -525,7 +525,7 @@ Human UI: GET Draft(DraftVersion+Digest), 편집/근거 Diff 확인
 | 5 | Item single owner/Revision/Assessment/Evidence/분류·그룹·검색 | 독립 Item 검색, Model Item 미전파, 증거 ACL, 판단 이력 불변 |
 | 6 | 사람/AI/Validator Draft Review 및 Skill | AI publish/approve API 우회 불가, digest CAS, human direct publish 가능 |
 | 7 | Top View Viewer+Studio link, Parser/Validator 실제 Evidence Adapter | SW 매핑 유지, Viewer 실제 동작, 검증과 기술 판단 구분 |
-| 8 | 통합 검색 품질/성능·보안/UX, 원본 ID 연결·운영 문서 | ACL/한국어/방향 반례, 1440/1280/1024 Visual regression, 운영 rollback |
+| 8 | 통합 검색 품질/성능·보안/UX, 원본 ID 연결·운영 문서 | ACL/한국어/방향 반례, 1440×900·1280 Visual regression, 운영 rollback |
 
 - **Phase 0 제품 목표로 카탈로그 4개 엔터티 CRUD+Import는 반드시 포함**. 다만 플랫폼 권한/Host 공통 계약이 아직 Candidate/미구현이면 임시 우회(독립 앱, 직접 FastAPI 호출, 자체 인증)를 만들지 말고 해당 의존성과 검증 게이트를 명시한다.
 - 실제 업무 Space ID는 **`log-dev`**이다. 새로운 Space를 중복 등록하지 않는다.
@@ -558,7 +558,7 @@ Human UI: GET Draft(DraftVersion+Digest), 편집/근거 Diff 확인
 | 지식 검색 outbox 지연·오래된 메시지 | 승인 원본 불변, 최신 version만 색인 | background/integration |
 | MARS 분석 Scope·Menu 정상 작동 | 기존 Regression 통과, Site 없는 메뉴만 Scope 표현 제한 | platform E2E |
 | 실제 Top View Layout 미연결 | Viewer가 가짜 도면 대신 미연결 표시 | UI/E2E |
-| 1440/1280/1024 및 키보드/강조 강도 | v0.4 §16–17 시각·접근성 기준 | screenshots/Playwright |
+| 1440×900·1280 및 키보드/강조 강도 | v0.4 §16–17 시각·접근성 기준 | screenshots/Playwright |
 
 **테스트 실행 위험:** `pnpm --filter @ap/platform-api test:integration`은 DB를 초기화/재시드하므로 **반드시 폐기 가능한 DB**에서만 실행. 기본 `pnpm test`는 DB-free 경로만 증명하므로 DB 계약 검증으로 대체할 수 없다. RBAC 테스트는 `platform_app`로, 마이그레이션은 `platform_migrate`로 수행해야 `GRANT` 검증이 의미 있다.
 
@@ -581,9 +581,9 @@ Human UI: GET Draft(DraftVersion+Digest), 편집/근거 Diff 확인
 
 ### 12.1 아직 사람·운영 정책 결정이 필요한 항목
 
-1. 카탈로그의 외부 공식 기준정보 원천, `vendor_code/model_code/version_key` 정규화·유일성 정책, 재소유 이동 승인.
+1. ~~카탈로그의 외부 공식 기준정보 원천, `vendor_code/model_code/version_key` 정규화·유일성 정책, 재소유 이동 승인.~~ **결정됨** — [ADR-0107](../../../adr/0107-log-knowledge-catalog-authority-keys-and-edit-rights.md) 1·2(재소유 이동은 P0에서 거절).
 2. `knowledge` Workspace/조직 간 공유 범위, default internal vs restricted 모델의 객체 ACL 수용 기준, 근거 source ACL과 결합 방식.
-3. Contributor 작성 초안의 자기 승인 허용 여부, Publisher가 다른 사람·AI Draft도 승인 가능한지, Reviewer/Publisher 분리 구체 Capability Matrix.
+3. (카탈로그 편집 권한은 [ADR-0107](../../../adr/0107-log-knowledge-catalog-authority-keys-and-edit-rights.md) 3에서 결정됨.) Contributor 작성 초안의 자기 승인 허용 여부, Publisher가 다른 사람·AI Draft도 승인 가능한지, Reviewer/Publisher 분리 구체 Capability Matrix.
 4. 사내 Agent/Validator 서비스 계정 발급·토큰 갱신·네트워크·호출량·감사 보관, 원본 로그 발췌 허용 정책.
 5. Catalog CSV/XLSX 크기·시트/파일 정책·보관 기간·개별 행 실패 처리/재시도 기간, 외부 변경 권위 우선순위.
 6. SW Module/Event 안정 키 정의, 원본 Spec 문서 식별자, Model Common Candidate의 임계/동치 판정 기준.
