@@ -111,4 +111,37 @@ describe.skipIf(!runIntegration)('jobs inventory and replay CLIs', () => {
     expect(await state(createdId)).toBe('created');
     expect(JSON.stringify(applied)).not.toContain(SECRET);
   });
+
+  it('--apply counts only the rows still failed when a selected job vanishes first', async () => {
+    const extra: string[] = [];
+    for (let i = 0; i < 2; i += 1) {
+      const id = await boss.send(QUEUE, { summary: SECRET, correlation_id: `ov-${randomUUID()}` });
+      if (!id) throw new Error('send returned no id');
+      extra.push(id);
+      await migrateDb.pool.query(
+        `update pgboss.job set state = 'failed', created_on = now() + interval '1 hour' where id = $1`,
+        [id],
+      );
+    }
+    const racing = {
+      async retry(name: string, ids: string[]) {
+        await migrateDb.pool.query('delete from pgboss.job where id = $1', [extra[0]]);
+        return boss.retry(name, ids);
+      },
+    };
+    const since2 = new Date(Date.now() + 30 * 60 * 1000);
+    try {
+      const out = await replayFailedJobs(appDb.pool, racing, {
+        queue: QUEUE,
+        state: 'failed',
+        since: since2,
+        limit: 2,
+        apply: true,
+      });
+      expect(out).toMatchObject({ selected: 2, retried: 1 });
+      expect(await state(extra[1] as string)).toBe('retry');
+    } finally {
+      await migrateDb.pool.query('delete from pgboss.job where id = any($1::uuid[])', [extra]);
+    }
+  });
 });

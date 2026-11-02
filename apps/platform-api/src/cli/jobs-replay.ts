@@ -11,7 +11,8 @@
 //
 // Environment: DATABASE_URL (the runtime role). It holds SELECT/UPDATE on all
 // pgboss tables (migration 0002), which is all `retry` needs: no DDL.
-// Output: JSON with queue, state, selected ids and counts. Job `data` payloads
+// Output: JSON with queue, state, selected ids and counts (`selected` = rows chosen,
+// `retried` = rows pg-boss actually re-queued; they differ when a job changed meanwhile). Job `data` payloads
 // are never selected or printed.
 // Exit codes: 0 ok, 1 failure, 2 usage error or refused queue.
 
@@ -45,7 +46,7 @@ export interface ReplaySummary {
 }
 
 export interface RetryTarget {
-  retry(name: string, ids: string[]): Promise<unknown>;
+  retry(name: string, ids: string[]): Promise<{ affected?: number } | unknown>;
 }
 
 export function parseReplayArgs(argv: string[]): ReplayOptions {
@@ -103,7 +104,17 @@ export async function replayFailedJobs(
     [options.queue, options.since ?? null, options.limit],
   );
   const ids = selected.rows.map((row) => row.id);
-  if (options.apply && ids.length > 0) await boss.retry(options.queue, ids);
+  // `retry` only updates rows still in `failed`; `affected` is what changed, which can
+  // be fewer than `selected` when another operator or maintenance got there first.
+  let retried = 0;
+  if (options.apply && ids.length > 0) {
+    const result = await boss.retry(options.queue, ids);
+    const affected = (result as { affected?: unknown } | null | undefined)?.affected;
+    if (typeof affected !== 'number' || !Number.isInteger(affected) || affected < 0) {
+      throw new Error('pg-boss retry returned no affected count');
+    }
+    retried = Math.min(affected, ids.length);
+  }
   return {
     queue: options.queue,
     state: 'failed',
@@ -111,9 +122,34 @@ export async function replayFailedJobs(
     since: options.since ? options.since.toISOString() : null,
     limit: options.limit,
     selected: ids.length,
-    retried: options.apply ? ids.length : 0,
+    retried,
     job_ids: ids,
   };
+}
+
+export interface ReplayRuntime {
+  pool: Queryable & { end(): Promise<void> };
+  /** Connection pool owned by this CLI and handed to pg-boss (so we can always close it). */
+  bossPool: { end(): Promise<void> };
+  boss: RetryTarget & {
+    start(): Promise<unknown>;
+    stop(options: { graceful: boolean; close: boolean }): Promise<unknown>;
+  };
+}
+
+/** Runs one replay and always releases every connection, including after a failed `boss.start()`. */
+export async function runReplay(options: ReplayOptions, runtime: ReplayRuntime): Promise<void> {
+  const { pool, bossPool, boss } = runtime;
+  try {
+    if (options.apply) await boss.start();
+    const summary = await replayFailedJobs(pool, boss, options);
+    console.info(JSON.stringify(summary, null, 2));
+  } finally {
+    // pg-boss `stop()` is a no-op until `start()` finished, so its pool is closed here.
+    if (options.apply) await boss.stop({ graceful: false, close: false }).catch(() => {});
+    await bossPool.end().catch(() => {});
+    await pool.end();
+  }
 }
 
 async function main(): Promise<void> {
@@ -127,8 +163,9 @@ async function main(): Promise<void> {
     );
   }
   const pool = new pg.Pool({ connectionString: url, max: 1 });
+  const bossPool = new pg.Pool({ connectionString: url, max: 2 });
   const boss = new PgBoss({
-    connectionString: url,
+    db: { executeSql: (text, values) => bossPool.query(text, values as unknown[] | undefined) },
     schema: 'pgboss',
     migrate: false,
     createSchema: false,
@@ -136,14 +173,7 @@ async function main(): Promise<void> {
     schedule: false,
   });
   boss.on('error', () => {});
-  try {
-    if (options.apply) await boss.start();
-    const summary = await replayFailedJobs(pool, boss, options);
-    console.info(JSON.stringify(summary, null, 2));
-  } finally {
-    if (options.apply) await boss.stop({ graceful: false, close: true }).catch(() => {});
-    await pool.end();
-  }
+  await runReplay(options, { pool, bossPool, boss });
 }
 
 const invokedAsScript =

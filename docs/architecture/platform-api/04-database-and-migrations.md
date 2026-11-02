@@ -512,10 +512,13 @@ is `(workspace_id, actor_id, read_at, created_at DESC)`. `platform_app` has
 
 The same migration pre-creates the `notifications.dispatch` pg-boss queue
 with FO ADR-0009 retry defaults (5 retries, 30 second delay, backoff enabled).
-Notification jobs are enqueued in the caller's transaction; the handler
-persists one actor-scoped inbox row and makes the email claim while holding
-that row transaction open. Email delivery is at-least-once because a process
-can send successfully and fail before the transaction commits.
+Notification jobs are enqueued in the caller's transaction. The handler is
+inbox-first: it commits the actor-scoped inbox row (idempotent on the unique
+key above) in its own short transaction, then sends the email outside any
+transaction, then stamps `email_sent_at` with a guarded update. A failed send
+leaves the committed row and a null stamp, so the pg-boss retry sends again.
+Email delivery is at-least-once: a crash after a successful send but before the
+stamp, or two overlapping handlers that both read a null stamp, can send twice.
 
 ## Issue #182: conversion-link visibility backfill
 
