@@ -25,6 +25,7 @@ import { type DbHandle, createDb } from '../db/client.js';
 import { actors, analyticsAreas, managedSystems, workspaces } from '../db/schema/core.js';
 import { permissionGrants } from '../db/schema/permission.js';
 import { seedKnowledgeCatalog } from './knowledge-fixtures.js';
+import { seedKnowledgeItems } from './knowledge-item-fixtures.js';
 import { seedPreviewScale } from './scale-fixtures.js';
 import { ensureSeedTeam, seedSlice3Vocs } from './voc-fixtures.js';
 
@@ -336,6 +337,7 @@ export async function runSeed(handle: DbHandle): Promise<SeedResult> {
   // Synthetic log knowledge catalog (#1194 a): previews only, never the core baseline.
   if (config.SEED_MODE === 'personas' || config.SEED_MODE === 'scale') {
     await seedKnowledgeCatalog(handle, workspaceId, adminActorId);
+    await seedKnowledgeItems(handle, workspaceId, adminActorId);
   }
 
   if (config.SEED_MODE === 'scale') await seedPreviewScale(handle, workspaceId);

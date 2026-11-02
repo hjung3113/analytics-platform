@@ -1,6 +1,6 @@
 # Log Knowledge
 
-Index and global rules: [03-api-contracts.md](../03-api-contracts.md). This file is the normative contract for the log knowledge catalog reads (#1193, [ADR-0107](../../../adr/0107-log-knowledge-catalog-authority-keys-and-edit-rights.md), design [v0.6 §7.1](../../../design/features/log-knowledge-hub/design-v0.6-candidate.md)). The write actions (#1194 a) are in [Write actions](#write-actions); import is #1195.
+Index and global rules: [03-api-contracts.md](../03-api-contracts.md). This file is the normative contract for the log knowledge catalog reads (#1193, [ADR-0107](../../../adr/0107-log-knowledge-catalog-authority-keys-and-edit-rights.md), design [v0.6 §7.1](../../../design/features/log-knowledge-hub/design-v0.6-candidate.md)). The write actions (#1194 a) are in [Write actions](#write-actions); import is #1195. The item reads (#1197 a, [ADR-0109](../../../adr/0109-log-knowledge-item-ownership-revisions-assessments.md)) are in [Item reads](#item-reads).
 
 ## Transport
 
@@ -91,3 +91,39 @@ An unknown field, an operator outside the field's list, a value of the wrong sha
 **Audit** (same transaction, non-sensitive): `knowledge.catalog.created`, `.updated`, `.deactivated`, `.reactivated`; `subject_type` `knowledge_vendor` | `knowledge_process` | `knowledge_model` | `knowledge_software`; detail `{ code, name, changes?: { field: [before, after] } }` (a model's `processIds` change as sorted id lists; `changes` is absent when nothing differed). Platform actions: created → `create`, updated and reactivated → `update`, deactivated → `retire`. The four subject types are in the `core.platform_audit_events` allowlist (migration 0081).
 
 **`invalidates`** (read endpoints of this menu the Kernel refreshes): vendor writes → `vendors`, `models`; process → `processes`, `models`; model → `models`, `vendors`, `processes`, `softwareVersions`; software → `softwareVersions`, `models`.
+
+## Item reads
+
+Four more menu-query endpoints (`modules/log-knowledge/item-endpoints.ts`), same transport, `platform:view`, `requiresScope: false`, no Context key; the workspace is the session actor's. Each has its own menu id: `log-knowledge-models`, `log-knowledge-model`, `log-knowledge-items`, `log-knowledge-item`. The menu package mirrors these declarations later (node r of #1197); until then `catalog-menu-drift.test.ts` compares only the `log-knowledge-catalog` endpoints.
+
+The dispatch outcome set has no `not_found`: an unknown or other-workspace id answers **`ok` with `data: null`**. Actors (`createdBy`, `publishedBy`, `actorId`) are returned as ids; no approved cross-module name read exists for this module yet.
+
+| Endpoint id | Menu | Params | Data |
+| --- | --- | --- | --- |
+| `logKnowledge.exploreModels` | `log-knowledge-models` | the common params; filters and sort columns of `models` | the `models` row plus `modelItemCount` (published items owned directly by the model) |
+| `logKnowledge.modelProfile` | `log-knowledge-model` | `modelId` (uuid) | `{ model, softwareVersions, truncated, modelItems }` or `null` |
+| `logKnowledge.items` | `log-knowledge-items` | the common params | `{ rows: ItemRow[], total }` |
+| `logKnowledge.itemDetail` | `log-knowledge-item` | `itemId` (uuid), optional `revisionNo` (integer ≥ 1) | `ItemDetail` or `null` (also `null` for a `revisionNo` the item does not have) |
+
+`modelProfile` data: `model: { id, code, name, active, vendor: { id, code, name, active }, processes: { id, code, name }[], createdAt, updatedAt }`; `softwareVersions: { id, versionLabel, name, active, itemCount, updatedAt }[]` (every version, active or not, newest `createdAt` first, cut at 500 with `truncated: true`); `modelItems: { total }` (published items owned directly by the model). `itemCount` counts the version's published items.
+
+`items`: `q` matches the latest revision's title (contains, case-insensitive) and `KI-<n>` / `<n>` (the item number). Sort columns `itemNo`, `title`, `updatedAt`; default `updatedAt` descending. **No `publicationState` condition = published items only** (unlike the catalog reads); archived items answer only when asked. `ItemRow`: `{ id, itemNo, title, typeCode, owner: { kind: 'model' | 'software', modelId, modelName, softwareId?, versionLabel? }, verificationState, processingState, publicationState, latestRevisionNo, updatedAt }`; `title` and `typeCode` are the latest revision's.
+
+| Field | Operators | Values | Meaning |
+| --- | --- | --- | --- |
+| `ownerKind` | `in`, `notIn` | `model`, `software` | model-owned / SW-owned items |
+| `ownerModelId` | `in`, `notIn` | uuid strings (≤ 200) | items owned **directly** by the model; with `includeSoftware in ['true']` also items of its SW versions |
+| `includeSoftware` | `in` | `'true'` or `'false'` (one value) | only widens `ownerModelId`; default false, so a profile's model-common list never shows SW items. Alone it constrains nothing |
+| `ownerSoftwareId` | `in`, `notIn` | uuid strings | items owned by the SW version |
+| `typeCode` | `in`, `notIn` | `anomaly`, `needs_check`, `behavior_note`, `guideline` | latest revision's type |
+| `verificationState` | `in`, `notIn` | `not_checked`, `observed`, `verified`, `disputed` | |
+| `processingState` | `in`, `notIn` | `open`, `under_investigation`, `resolved` | |
+| `publicationState` | `in`, `notIn` | `published`, `archived` | replaces the published-only default |
+
+`notIn` on `ownerModelId` / `ownerSoftwareId` excludes items without that owner column. Enum filters accept only the listed values (anything else is an `error` outcome).
+
+`ItemDetail`: `item` (an `ItemRow` plus `version`, `createdBy`, `createdAt`); `revision` (the requested revision, default latest: `revisionNo, title, typeCode, observation, expected, analysisOpinion, improvement, changeNote, publishedBy, publishedAt, evidence: { ordinal, sourceKind, sourceOwner, sourceRef, sourceVersion, contentHash, locator, note }[]`); `revisions` (all, newest first: `revisionNo, title, publishedBy, publishedAt, changeNote`); `assessments` (all, newest first: `id, dimension, priorState, newState, rationale, actorId, basedOnRevisionNo, observedAt`); `links: { kind, direction: 'outgoing' | 'incoming', itemId, itemNo, title, owner, sourceRevisionNo }[]`. For `derived_from`, `outgoing` means this item was derived from `itemId` at `sourceRevisionNo` of that original; `incoming` means `itemId` was derived from this item. `related` has no revision (`null`).
+
+### Storage invariants (migration 0082)
+
+Five tables plus the number counter, every key composite with `workspace_id`. An item has exactly one of `owner_model_id` / `owner_software_id` (CHECK, composite FK, `ON DELETE RESTRICT`); `platform_app` may UPDATE only `latest_revision_no, publication_state, verification_state, processing_state, row_version, updated_by, updated_at`. Revisions, evidence, assessment events and links are SELECT/INSERT only for `platform_app`. `item_no` comes from `item_counter` through one atomic upsert (`repositories/item-number.ts`). Writes, the capability `knowledge.item.publish` and audit are node w.

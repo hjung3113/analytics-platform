@@ -18,8 +18,10 @@ export interface CatalogFilterFieldSpec {
   multiple: boolean;
   /** `many`: the row's cell is a set of values (an array cell). */
   cell: 'scalar' | 'many';
-  /** What a value looks like. */
-  values: 'boolean' | 'uuid';
+  /** What a value looks like; `enum` = one of `allowed`. */
+  values: 'boolean' | 'uuid' | 'enum';
+  /** The closed value list of an `enum` field. */
+  allowed?: readonly string[];
 }
 
 const SCALAR_OPS = ['in', 'notIn'] as const;
@@ -96,12 +98,19 @@ export function parseCatalogFilters(
     }
     for (const v of value as unknown[]) {
       const good =
-        typeof v === 'string' && (spec.values === 'boolean' ? v === 'true' || v === 'false' : UUID.test(v));
+        typeof v === 'string' &&
+        (spec.values === 'boolean'
+          ? v === 'true' || v === 'false'
+          : spec.values === 'enum'
+            ? (spec.allowed ?? []).includes(v)
+            : UUID.test(v));
       if (!good) {
         return refuse(
           spec.values === 'boolean'
             ? `filter ${id} values are 'true' or 'false'`
-            : `filter ${id} values are uuid strings`,
+            : spec.values === 'enum'
+              ? `filter ${id} values are one of ${(spec.allowed ?? []).join(', ')}`
+              : `filter ${id} values are uuid strings`,
         );
       }
     }

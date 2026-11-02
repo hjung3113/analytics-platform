@@ -101,7 +101,14 @@ describe.skipIf(!enabled)('preview scale seed through runSeed', () => {
           [workspace],
         );
         for (const table of [
-          // Catalog rows reference the seed Admin; delete them before the actors (FK order).
+          // Catalog rows reference the seed Admin; delete them before the actors (FK order). Items go first:
+          // they reference the models and software versions.
+          'knowledge.item_link',
+          'knowledge.item_assessment_event',
+          'knowledge.item_revision_evidence',
+          'knowledge.knowledge_item_revision',
+          'knowledge.knowledge_item',
+          'knowledge.item_counter',
           'knowledge.model_process',
           'knowledge.software_version',
           'knowledge.external_identity_map',
@@ -164,6 +171,21 @@ describe.skipIf(!enabled)('preview scale seed through runSeed', () => {
     expect(result.vocsInserted).toBe(0);
     expect(result.personaActorsInserted).toBe(0);
     expect(result.personaGrantsInserted).toBe(0);
+  }, 120_000);
+
+  it('seeds the knowledge items once: a second run adds none and numbers stay 1..n', async () => {
+    const items = () =>
+      handle.pool
+        .query(
+          `select count(*)::int n, min(item_no)::int lo, max(item_no)::int hi, (select last_item_no from knowledge.item_counter where workspace_id=$1)::int last from knowledge.knowledge_item where workspace_id=$1`,
+          [workspace],
+        )
+        .then((r) => r.rows[0] as { n: number; lo: number; hi: number; last: number });
+    const before = await items();
+    expect(before.n).toBe(12);
+    expect(before).toMatchObject({ lo: 1, hi: 12, last: 12 });
+    await runSeed(handle);
+    expect(await items()).toEqual(before);
   }, 120_000);
 
   it('preserves baseline VOC and preview membership across both runs (c)', async () => {

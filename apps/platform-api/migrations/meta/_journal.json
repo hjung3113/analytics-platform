@@ -575,6 +575,13 @@
       "when": 1793585342137,
       "tag": "0081_knowledge_catalog_audit",
       "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "7",
+      "when": 1793606388784,
+      "tag": "0082_knowledge_items",
+      "breakpoints": true
     }
   ]
 }

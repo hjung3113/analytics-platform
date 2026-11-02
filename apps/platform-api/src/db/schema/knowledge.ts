@@ -266,3 +266,262 @@ export const externalIdentityMaps = knowledgeSchema.table(
     versionCheck: check('external_identity_map_row_version_check', sql`${t.rowVersion} >= 1`),
   }),
 );
+
+// Log knowledge items (ADR-0109, #1197 a): design v0.6 §5.2 rows 19–24. An item belongs to exactly one model or
+// one software version and never changes owner; revisions, evidence, assessment events and links are
+// append-only (the runtime role holds SELECT and INSERT only, see migration 0082).
+const ITEM_TEXT_MAX = 20000;
+const VERIFICATION_STATES = "('not_checked','observed','verified','disputed')";
+const PROCESSING_STATES = "('open','under_investigation','resolved')";
+
+/** Per-workspace allocator of `knowledge_item.item_no`: one atomic `INSERT … ON CONFLICT DO UPDATE … RETURNING`. */
+export const itemCounters = knowledgeSchema.table('item_counter', {
+  workspaceId: uuid('workspace_id')
+    .primaryKey()
+    .references(() => workspaces.id),
+  lastItemNo: integer('last_item_no').notNull(),
+});
+
+export const knowledgeItems = knowledgeSchema.table(
+  'knowledge_item',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    itemNo: integer('item_no').notNull(),
+    ownerModelId: uuid('owner_model_id'),
+    ownerSoftwareId: uuid('owner_software_id'),
+    latestRevisionNo: integer('latest_revision_no').notNull(),
+    publicationState: text('publication_state').notNull(),
+    verificationState: text('verification_state').notNull().default('not_checked'),
+    processingState: text('processing_state').notNull().default('open'),
+    rowVersion: integer('row_version').notNull().default(1),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    createdBy: uuid('created_by')
+      .notNull()
+      .references(() => actors.id),
+    updatedBy: uuid('updated_by')
+      .notNull()
+      .references(() => actors.id),
+  },
+  (t) => ({
+    workspaceIdUq: unique('knowledge_item_workspace_id_id_uq').on(t.workspaceId, t.id),
+    itemNoUq: uniqueIndex('knowledge_item_workspace_item_no_uq').on(t.workspaceId, t.itemNo),
+    modelFk: foreignKey({
+      name: 'knowledge_item_owner_model_fk',
+      columns: [t.workspaceId, t.ownerModelId],
+      foreignColumns: [equipmentModels.workspaceId, equipmentModels.id],
+    }).onDelete('restrict'),
+    softwareFk: foreignKey({
+      name: 'knowledge_item_owner_software_fk',
+      columns: [t.workspaceId, t.ownerSoftwareId],
+      foreignColumns: [softwareVersions.workspaceId, softwareVersions.id],
+    }).onDelete('restrict'),
+    modelIdx: index('knowledge_item_owner_model_idx').on(t.workspaceId, t.ownerModelId),
+    softwareIdx: index('knowledge_item_owner_software_idx').on(t.workspaceId, t.ownerSoftwareId),
+    ownerXor: check('knowledge_item_owner_xor', sql`num_nonnulls(${t.ownerModelId}, ${t.ownerSoftwareId}) = 1`),
+    itemNoCheck: check('knowledge_item_item_no_check', sql`${t.itemNo} >= 1`),
+    latestCheck: check('knowledge_item_latest_revision_no_check', sql`${t.latestRevisionNo} >= 1`),
+    publicationCheck: check(
+      'knowledge_item_publication_state_check',
+      sql`${t.publicationState} in ('published','archived')`,
+    ),
+    verificationCheck: check(
+      'knowledge_item_verification_state_check',
+      sql`${t.verificationState} in ${sql.raw(VERIFICATION_STATES)}`,
+    ),
+    processingCheck: check(
+      'knowledge_item_processing_state_check',
+      sql`${t.processingState} in ${sql.raw(PROCESSING_STATES)}`,
+    ),
+    versionCheck: check('knowledge_item_row_version_check', sql`${t.rowVersion} >= 1`),
+  }),
+);
+
+export const knowledgeItemRevisions = knowledgeSchema.table(
+  'knowledge_item_revision',
+  {
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    itemId: uuid('item_id').notNull(),
+    revisionNo: integer('revision_no').notNull(),
+    title: text('title').notNull(),
+    typeCode: text('type_code').notNull(),
+    observation: text('observation'),
+    expected: text('expected'),
+    analysisOpinion: text('analysis_opinion'),
+    improvement: text('improvement'),
+    changeNote: text('change_note'),
+    publishedBy: uuid('published_by')
+      .notNull()
+      .references(() => actors.id),
+    publishedAt: timestamp('published_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    pk: primaryKey({ name: 'knowledge_item_revision_pk', columns: [t.workspaceId, t.itemId, t.revisionNo] }),
+    itemFk: foreignKey({
+      name: 'knowledge_item_revision_item_fk',
+      columns: [t.workspaceId, t.itemId],
+      foreignColumns: [knowledgeItems.workspaceId, knowledgeItems.id],
+    }).onDelete('restrict'),
+    revisionCheck: check('knowledge_item_revision_no_check', sql`${t.revisionNo} >= 1`),
+    titleCheck: check(
+      'knowledge_item_revision_title_check',
+      sql`char_length(${t.title}) between 1 and 200 and btrim(${t.title}) <> ''`,
+    ),
+    typeCheck: check(
+      'knowledge_item_revision_type_code_check',
+      sql`${t.typeCode} in ('anomaly','needs_check','behavior_note','guideline')`,
+    ),
+    textCheck: check(
+      'knowledge_item_revision_text_check',
+      sql`coalesce(char_length(${t.observation}), 0) <= ${sql.raw(String(ITEM_TEXT_MAX))} and coalesce(char_length(${t.expected}), 0) <= ${sql.raw(String(ITEM_TEXT_MAX))} and coalesce(char_length(${t.analysisOpinion}), 0) <= ${sql.raw(String(ITEM_TEXT_MAX))} and coalesce(char_length(${t.improvement}), 0) <= ${sql.raw(String(ITEM_TEXT_MAX))}`,
+    ),
+    contentCheck: check(
+      'knowledge_item_revision_content_check',
+      sql`btrim(coalesce(${t.observation}, '')) <> '' or btrim(coalesce(${t.expected}, '')) <> ''`,
+    ),
+  }),
+);
+
+export const itemRevisionEvidence = knowledgeSchema.table(
+  'item_revision_evidence',
+  {
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    itemId: uuid('item_id').notNull(),
+    revisionNo: integer('revision_no').notNull(),
+    ordinal: integer('ordinal').notNull(),
+    sourceKind: text('source_kind').notNull(),
+    sourceOwner: text('source_owner').notNull(),
+    sourceRef: text('source_ref').notNull(),
+    sourceVersion: text('source_version'),
+    contentHash: text('content_hash'),
+    locator: text('locator'),
+    note: text('note'),
+  },
+  (t) => ({
+    pk: primaryKey({
+      name: 'item_revision_evidence_pk',
+      columns: [t.workspaceId, t.itemId, t.revisionNo, t.ordinal],
+    }),
+    revisionFk: foreignKey({
+      name: 'item_revision_evidence_revision_fk',
+      columns: [t.workspaceId, t.itemId, t.revisionNo],
+      foreignColumns: [
+        knowledgeItemRevisions.workspaceId,
+        knowledgeItemRevisions.itemId,
+        knowledgeItemRevisions.revisionNo,
+      ],
+    }).onDelete('restrict'),
+    ordinalCheck: check('item_revision_evidence_ordinal_check', sql`${t.ordinal} >= 1`),
+    kindCheck: check(
+      'item_revision_evidence_source_kind_check',
+      sql`${t.sourceKind} in ('log_file','spec','image','validation_run','other')`,
+    ),
+    sourceCheck: check(
+      'item_revision_evidence_source_check',
+      sql`btrim(${t.sourceOwner}) <> '' and btrim(${t.sourceRef}) <> ''`,
+    ),
+    noteCheck: check('item_revision_evidence_note_check', sql`coalesce(char_length(${t.note}), 0) <= 500`),
+  }),
+);
+
+export const itemAssessmentEvents = knowledgeSchema.table(
+  'item_assessment_event',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    itemId: uuid('item_id').notNull(),
+    basedOnRevisionNo: integer('based_on_revision_no').notNull(),
+    dimension: text('dimension').notNull(),
+    priorState: text('prior_state').notNull(),
+    newState: text('new_state').notNull(),
+    rationale: text('rationale').notNull(),
+    actorId: uuid('actor_id')
+      .notNull()
+      .references(() => actors.id),
+    observedAt: timestamp('observed_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    workspaceIdUq: unique('item_assessment_event_workspace_id_id_uq').on(t.workspaceId, t.id),
+    itemIdx: index('item_assessment_event_item_idx').on(t.workspaceId, t.itemId, t.observedAt),
+    itemFk: foreignKey({
+      name: 'item_assessment_event_item_fk',
+      columns: [t.workspaceId, t.itemId],
+      foreignColumns: [knowledgeItems.workspaceId, knowledgeItems.id],
+    }).onDelete('restrict'),
+    revisionFk: foreignKey({
+      name: 'item_assessment_event_revision_fk',
+      columns: [t.workspaceId, t.itemId, t.basedOnRevisionNo],
+      foreignColumns: [
+        knowledgeItemRevisions.workspaceId,
+        knowledgeItemRevisions.itemId,
+        knowledgeItemRevisions.revisionNo,
+      ],
+    }).onDelete('restrict'),
+    dimensionCheck: check(
+      'item_assessment_event_states_check',
+      sql`(${t.dimension} = 'verification' and ${t.priorState} in ${sql.raw(VERIFICATION_STATES)} and ${t.newState} in ${sql.raw(VERIFICATION_STATES)}) or (${t.dimension} = 'processing' and ${t.priorState} in ${sql.raw(PROCESSING_STATES)} and ${t.newState} in ${sql.raw(PROCESSING_STATES)})`,
+    ),
+    rationaleCheck: check(
+      'item_assessment_event_rationale_check',
+      sql`char_length(${t.rationale}) between 1 and 2000 and btrim(${t.rationale}) <> ''`,
+    ),
+  }),
+);
+
+export const itemLinks = knowledgeSchema.table(
+  'item_link',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    sourceItemId: uuid('source_item_id').notNull(),
+    targetItemId: uuid('target_item_id').notNull(),
+    linkKind: text('link_kind').notNull(),
+    // `derived_from`: the revision of the target (the original) the new item was derived from.
+    sourceRevisionNo: integer('source_revision_no'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    createdBy: uuid('created_by')
+      .notNull()
+      .references(() => actors.id),
+  },
+  (t) => ({
+    workspaceIdUq: unique('item_link_workspace_id_id_uq').on(t.workspaceId, t.id),
+    pairUq: uniqueIndex('item_link_pair_uq').on(t.workspaceId, t.sourceItemId, t.targetItemId, t.linkKind),
+    targetIdx: index('item_link_target_idx').on(t.workspaceId, t.targetItemId),
+    sourceFk: foreignKey({
+      name: 'item_link_source_fk',
+      columns: [t.workspaceId, t.sourceItemId],
+      foreignColumns: [knowledgeItems.workspaceId, knowledgeItems.id],
+    }).onDelete('restrict'),
+    targetFk: foreignKey({
+      name: 'item_link_target_fk',
+      columns: [t.workspaceId, t.targetItemId],
+      foreignColumns: [knowledgeItems.workspaceId, knowledgeItems.id],
+    }).onDelete('restrict'),
+    revisionFk: foreignKey({
+      name: 'item_link_target_revision_fk',
+      columns: [t.workspaceId, t.targetItemId, t.sourceRevisionNo],
+      foreignColumns: [
+        knowledgeItemRevisions.workspaceId,
+        knowledgeItemRevisions.itemId,
+        knowledgeItemRevisions.revisionNo,
+      ],
+    }).onDelete('restrict'),
+    kindCheck: check('item_link_kind_check', sql`${t.linkKind} in ('derived_from','related')`),
+    selfCheck: check('item_link_not_self_check', sql`${t.sourceItemId} <> ${t.targetItemId}`),
+    revisionCheck: check(
+      'item_link_revision_check',
+      sql`(${t.linkKind} = 'derived_from') = (${t.sourceRevisionNo} is not null)`,
+    ),
+  }),
+);

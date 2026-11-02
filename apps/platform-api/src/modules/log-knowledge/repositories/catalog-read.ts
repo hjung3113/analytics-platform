@@ -7,6 +7,7 @@ import { type SQL, and, asc, desc, eq, exists, ilike, inArray, like, not, notInA
 
 import {
   equipmentModels,
+  knowledgeItems,
   modelProcesses,
   processCategories,
   softwareVersions,
@@ -57,6 +58,8 @@ export interface ModelRow extends Stamps {
   softwareCount: number;
   /** Label of the newest active software version (highest created_at, then id); null when none. */
   latestSoftwareLabel: string | null;
+  /** Only on the explore-models read: published items owned directly by the model (ADR-0109). */
+  modelItemCount?: number;
 }
 export interface SoftwareRow extends Stamps {
   modelId: string;
@@ -204,7 +207,11 @@ function processFilter(
   }
 }
 
-export async function listModels(tx: Tx, q: ListQuery): Promise<Page<ModelRow>> {
+export async function listModels(
+  tx: Tx,
+  q: ListQuery,
+  options: { withItemCount?: boolean } = {},
+): Promise<Page<ModelRow>> {
   const t = equipmentModels;
   const where = and(
     eq(t.workspaceId, q.workspaceId),
@@ -216,6 +223,7 @@ export async function listModels(tx: Tx, q: ListQuery): Promise<Page<ModelRow>> 
   );
   const softwareCount = sql<number>`(select count(*)::int from ${softwareVersions} s where s.workspace_id = ${t.workspaceId} and s.model_id = ${t.id} and s.active)`;
   const latestSoftwareLabel = sql<string | null>`(select s.version_label from ${softwareVersions} s where s.workspace_id = ${t.workspaceId} and s.model_id = ${t.id} and s.active order by s.created_at desc, s.id desc limit 1)`;
+  const modelItemCount = sql<number>`(select count(*)::int from ${knowledgeItems} ki where ki.workspace_id = ${t.workspaceId} and ki.owner_model_id = ${t.id} and ki.publication_state = 'published')`;
   const sortable: Record<string, SQL | AnyPgColumn> = {
     code: t.codeKey,
     name: t.name,
@@ -226,7 +234,7 @@ export async function listModels(tx: Tx, q: ListQuery): Promise<Page<ModelRow>> 
     updatedAt: t.updatedAt,
   };
   const rows = await tx
-    .select({ row: t, vendorName: vendors.name, softwareCount, latestSoftwareLabel })
+    .select({ row: t, vendorName: vendors.name, softwareCount, latestSoftwareLabel, modelItemCount: options.withItemCount ? modelItemCount : sql<number>`0` })
     .from(t)
     .innerJoin(vendors, and(eq(vendors.workspaceId, t.workspaceId), eq(vendors.id, t.vendorId)))
     .where(where)
@@ -256,13 +264,14 @@ export async function listModels(tx: Tx, q: ListQuery): Promise<Page<ModelRow>> 
           .orderBy(asc(processCategories.name), asc(processCategories.id));
   return {
     total: totalRow?.n ?? 0,
-    rows: rows.map(({ row, vendorName, softwareCount: count, latestSoftwareLabel: latest }) => ({
+    rows: rows.map(({ row, vendorName, softwareCount: count, latestSoftwareLabel: latest, modelItemCount: items }) => ({
       ...stamps(row),
       vendorId: row.vendorId,
       vendorName,
       processes: mapped.filter((m) => m.modelId === row.id).map(({ id, name }) => ({ id, name })),
       softwareCount: count,
       latestSoftwareLabel: latest,
+      ...(options.withItemCount ? { modelItemCount: items } : {}),
     })),
   };
 }

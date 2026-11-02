@@ -106,7 +106,9 @@ describe('parseListParams', () => {
 });
 
 describe('logKnowledgeContribution declarations', () => {
-  const endpoints = logKnowledgeContribution({ db: {} as never, checkService: {} as never }).endpoints ?? [];
+  const endpoints = logKnowledgeContribution({ db: {} as never, checkService: {} as never }).endpoints?.filter(
+    (e) => e.spec.menuId === 'log-knowledge-catalog',
+  ) ?? [];
 
   it('declares the four reads under the owning menu with platform:view', () => {
     expect(endpoints.map((e) => e.spec.id)).toEqual([
