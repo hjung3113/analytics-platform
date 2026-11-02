@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { type DbHandle, createDb } from '../../db/client.js';
+import { toCodeKey } from '../../modules/log-knowledge/domain/code-key.js';
 import { runSeed } from '../index.js';
 
 const enabled = Boolean(
@@ -83,6 +84,16 @@ describe.skipIf(!enabled)('preview scale seed through runSeed', () => {
       values($1,$2,$3)`,
       [cluster, baselineVoc, existing.rows[0].actor],
     );
+    // A same-code model under another vendor exists before the catalog seed runs (ADR-0107 scopes model codes by
+    // vendor); the item seed must neither fill it nor fail on it.
+    await migrate.pool.query(
+      `with v as (
+         insert into knowledge.vendor (workspace_id, code, code_key, name, active, created_by, updated_by)
+         values ($1, 'Vendor C', $2, 'Vendor C (retired)', false, $3, $3) returning id)
+       insert into knowledge.equipment_model (workspace_id, vendor_id, code, code_key, name, created_by, updated_by)
+       select $1, v.id, 'MX-300', $4, 'Decoy MX-300', $3, $3 from v`,
+      [workspace, toCodeKey('Vendor C'), existing.rows[0].actor, toCodeKey('MX-300')],
+    );
     vi.stubEnv('SEED_MODE', 'scale');
     await runSeed(handle);
   }, 120_000);
@@ -101,7 +112,14 @@ describe.skipIf(!enabled)('preview scale seed through runSeed', () => {
           [workspace],
         );
         for (const table of [
-          // Catalog rows reference the seed Admin; delete them before the actors (FK order).
+          // Catalog rows reference the seed Admin; delete them before the actors (FK order). Items go first:
+          // they reference the models and software versions.
+          'knowledge.item_link',
+          'knowledge.item_assessment_event',
+          'knowledge.item_revision_evidence',
+          'knowledge.knowledge_item_revision',
+          'knowledge.knowledge_item',
+          'knowledge.item_counter',
           'knowledge.model_process',
           'knowledge.software_version',
           'knowledge.external_identity_map',
@@ -164,6 +182,81 @@ describe.skipIf(!enabled)('preview scale seed through runSeed', () => {
     expect(result.vocsInserted).toBe(0);
     expect(result.personaActorsInserted).toBe(0);
     expect(result.personaGrantsInserted).toBe(0);
+  }, 120_000);
+
+  it('seeds the knowledge items once: a second run adds none and numbers stay 1..n', async () => {
+    const items = () =>
+      handle.pool
+        .query(
+          `select count(*)::int n, min(item_no)::int lo, max(item_no)::int hi, (select last_item_no from knowledge.item_counter where workspace_id=$1)::int last from knowledge.knowledge_item where workspace_id=$1`,
+          [workspace],
+        )
+        .then((r) => r.rows[0] as { n: number; lo: number; hi: number; last: number });
+    const before = await items();
+    expect(before.n).toBe(12);
+    expect(before).toMatchObject({ lo: 1, hi: 12, last: 12 });
+    await runSeed(handle);
+    expect(await items()).toEqual(before);
+  }, 120_000);
+
+  it('seeds items under the seeded vendor-scoped model, never the same-code model of another vendor', async () => {
+    const decoy = await handle.pool.query(
+      `select count(*)::int n from knowledge.knowledge_item i
+       join knowledge.equipment_model m on m.workspace_id=i.workspace_id and m.name='Decoy MX-300'
+       left join knowledge.software_version s on s.workspace_id=i.workspace_id and s.id=i.owner_software_id
+       where i.workspace_id=$1 and (i.owner_model_id=m.id or s.model_id=m.id)`,
+      [workspace],
+    );
+    expect(decoy.rows[0].n).toBe(0);
+    const owned = await handle.pool.query(
+      `select count(*)::int n from knowledge.knowledge_item i
+       join knowledge.equipment_model m on m.workspace_id=i.workspace_id and m.id=i.owner_model_id
+       where i.workspace_id=$1 and m.code='MX-300' and m.name<>'Decoy MX-300'`,
+      [workspace],
+    );
+    expect(owned.rows[0].n).toBeGreaterThan(0);
+  });
+
+  it('completes an interrupted item on rerun: no duplicates, no missing child rows', async () => {
+    const counts = () =>
+      handle.pool
+        .query(
+          `select (select count(*) from knowledge.knowledge_item where workspace_id=$1)::int items,
+                  (select count(*) from knowledge.knowledge_item_revision where workspace_id=$1)::int revisions,
+                  (select count(*) from knowledge.item_revision_evidence where workspace_id=$1)::int evidence,
+                  (select count(*) from knowledge.item_assessment_event where workspace_id=$1)::int events,
+                  (select count(*) from knowledge.item_link where workspace_id=$1)::int links`,
+          [workspace],
+        )
+        .then((r) => r.rows[0] as Record<string, number>);
+    const before = await counts();
+    // Item 1 (a1, two revisions): drop its second revision and last event. Item 2 (a2): leave only the bare item row.
+    const ids = await migrate.pool.query(
+      `select id, item_no from knowledge.knowledge_item where workspace_id=$1 and item_no in (1,2) order by item_no`,
+      [workspace],
+    );
+    const [first, second] = ids.rows as { id: string }[];
+    await migrate.pool.query(
+      `delete from knowledge.item_revision_evidence where workspace_id=$1 and item_id=$2 and revision_no=2`,
+      [workspace, first?.id],
+    );
+    await migrate.pool.query(
+      `delete from knowledge.item_assessment_event where workspace_id=$1 and item_id=$2 and based_on_revision_no=2`,
+      [workspace, first?.id],
+    );
+    await migrate.pool.query(`delete from knowledge.knowledge_item_revision where workspace_id=$1 and item_id=$2 and revision_no=2`, [workspace, first?.id]);
+    for (const table of ['item_link', 'item_assessment_event', 'item_revision_evidence', 'knowledge_item_revision']) {
+      const col = table === 'item_link' ? '(source_item_id=$2 or target_item_id=$2)' : 'item_id=$2';
+      await migrate.pool.query(`delete from knowledge.${table} where workspace_id=$1 and ${col}`, [workspace, second?.id]);
+    }
+    expect((await counts()).revisions).toBeLessThan(before.revisions as number);
+    await runSeed(handle);
+    expect(await counts()).toEqual(before);
+    const nos = await handle.pool.query(
+      `select count(distinct item_no)::int d, count(*)::int n from knowledge.knowledge_item where workspace_id=$1`,
+      [workspace],
+    );
+    expect(nos.rows[0]).toEqual({ d: 12, n: 12 });
   }, 120_000);
 
   it('preserves baseline VOC and preview membership across both runs (c)', async () => {

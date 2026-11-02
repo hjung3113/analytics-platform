@@ -5,24 +5,19 @@
 // refusal (`error`), not an empty page. Filters are the table's `filters` param (ADR-0105); with no `active`
 // condition every row answers (the client pins its own default).
 
-import type { Db } from '../../db/client.js';
 import type {
   EndpointHandlerArgs,
   MenuDispatchContribution,
   MenuEndpointDeclaration,
   ParamsJudgment,
 } from '../menu-dispatch/types.js';
-import type { CheckService } from '../permissions/check-service.js';
+import type { LogKnowledgeDeps } from './deps.js';
 import { holdsPlatformPermission } from '../platform-port/permissions.js';
-import { unsafeText } from '../platform-port/text-safety.js';
 import { catalogActions } from './catalog-actions.js';
-import {
-  CATALOG_FILTER_SPECS,
-  type CatalogEndpointName,
-  type CatalogFilterFieldSpec,
-  parseCatalogFilters,
-} from './domain/catalog-filters.js';
+import { CATALOG_FILTER_SPECS, type CatalogEndpointName } from './domain/catalog-filters.js';
+import { PAGE_SIZE_MAX, Q_MAX, parseListParams } from './domain/list-params.js';
 import { LOG_KNOWLEDGE_MENU_ID } from './catalog-menu.js';
+import { itemEndpoints } from './item-endpoints.js';
 export { LOG_KNOWLEDGE_MENU_ID };
 import {
   type ListQuery,
@@ -36,68 +31,9 @@ import {
   listVendors,
 } from './repositories/catalog-read.js';
 
-export const PAGE_SIZE_MAX = 200;
-export const Q_MAX = 200;
-const SORT_KEYS_MAX = 3;
+export { PAGE_SIZE_MAX, Q_MAX, parseListParams };
+export type { LogKnowledgeDeps };
 
-export interface LogKnowledgeDeps {
-  db: Db;
-  checkService: CheckService;
-}
-
-type Parsed = { ok: true; value: ListQuery } | { ok: false; message: string };
-
-const fail = (message: string): { ok: false; message: string } => ({ ok: false, message });
-
-/** Parses the common list params; an absent key takes its default, an explicit null is a refusal (except q, where null means no search). `filterSpecs` are the endpoint's filter fields (ADR-0105); no `filters` = every row. */
-export function parseListParams(
-  params: Record<string, unknown>,
-  sortIds: readonly string[],
-  filterSpecs: Readonly<Record<string, CatalogFilterFieldSpec>>,
-): Parsed {
-  const q = params.q ?? null;
-  if (q !== null && (typeof q !== 'string' || q.length > Q_MAX || unsafeText(q))) {
-    return fail(`q must be a string of at most ${Q_MAX} characters or null`);
-  }
-  const page = params.page === undefined ? 0 : params.page;
-  if (typeof page !== 'number' || !Number.isInteger(page) || page < 0 || page > 1_000_000) {
-    return fail('page must be a non-negative integer (0-based)');
-  }
-  const pageSize = params.pageSize === undefined ? 50 : params.pageSize;
-  if (typeof pageSize !== 'number' || !Number.isInteger(pageSize) || pageSize < 1 || pageSize > PAGE_SIZE_MAX) {
-    return fail(`pageSize must be an integer from 1 to ${PAGE_SIZE_MAX}`);
-  }
-  const sorting = params.sorting === undefined ? [] : params.sorting;
-  if (!Array.isArray(sorting) || sorting.length > SORT_KEYS_MAX) {
-    return fail(`sorting must be a list of at most ${SORT_KEYS_MAX} sort keys`);
-  }
-  const seen = new Set<string>();
-  const sorts: { id: string; desc: boolean }[] = [];
-  for (const entry of sorting as unknown[]) {
-    if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) return fail('a sort key must be an object');
-    const { id, desc, ...rest } = entry as Record<string, unknown>;
-    if (Object.keys(rest).length > 0 || typeof id !== 'string' || typeof desc !== 'boolean') {
-      return fail('a sort key is { id: string, desc: boolean }');
-    }
-    if (!sortIds.includes(id)) return fail(`sorting by ${id} is not supported`);
-    if (seen.has(id)) return fail(`sorting by ${id} twice`);
-    seen.add(id);
-    sorts.push({ id, desc });
-  }
-  const filters = parseCatalogFilters(params.filters, filterSpecs);
-  if (!filters.ok) return filters;
-  return {
-    ok: true,
-    value: {
-      workspaceId: '',
-      q: q as string | null,
-      conditions: filters.value,
-      page,
-      pageSize,
-      sorting: sorts.length > 0 ? sorts : [{ id: sortIds[0] as string, desc: false }],
-    },
-  };
-}
 
 function declare(
   deps: LogKnowledgeDeps,
@@ -140,6 +76,7 @@ export function logKnowledgeContribution(deps: LogKnowledgeDeps): MenuDispatchCo
       declare(deps, 'processes', PROCESS_SORT_IDS, (_a, q) => listProcesses(deps.db, q)),
       declare(deps, 'models', MODEL_SORT_IDS, (_a, q) => listModels(deps.db, q)),
       declare(deps, 'softwareVersions', SOFTWARE_SORT_IDS, (_a, q) => listSoftwareVersions(deps.db, q)),
+      ...itemEndpoints(deps),
     ],
   };
 }
