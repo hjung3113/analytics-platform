@@ -94,20 +94,20 @@ An unknown field, an operator outside the field's list, a value of the wrong sha
 
 ## Item reads
 
-Four more menu-query endpoints (`modules/log-knowledge/item-endpoints.ts`), same transport, `platform:view`, `requiresScope: false`, no Context key; the workspace is the session actor's. Each has its own menu id: `log-knowledge-models`, `log-knowledge-model`, `log-knowledge-items`, `log-knowledge-item`. The menu package mirrors these declarations later (node r of #1197); until then `catalog-menu-drift.test.ts` compares only the `log-knowledge-catalog` endpoints.
+Four more menu-query endpoints (`modules/log-knowledge/item-endpoints.ts`), same transport, `platform:view`, `requiresScope: false`, no Context key; the workspace is the session actor's. Two owning menus: `log-knowledge-models` (explore, model profile) and `log-knowledge-items` (item list, item detail). The detail screens `log-knowledge-model` / `log-knowledge-item` are navHidden children that read their parent's endpoints (the engine allows `invalidates` only within an action's own menu). The menu package mirrors these declarations later (node r of #1197); until then `catalog-menu-drift.test.ts` compares only the `log-knowledge-catalog` endpoints.
 
 The dispatch outcome set has no `not_found`: an unknown or other-workspace id answers **`ok` with `data: null`**. Actors (`createdBy`, `publishedBy`, `actorId`) are returned as ids; no approved cross-module name read exists for this module yet.
 
 | Endpoint id | Menu | Params | Data |
 | --- | --- | --- | --- |
 | `logKnowledge.exploreModels` | `log-knowledge-models` | the common params; filters and sort columns of `models` | the `models` row plus `modelItemCount` (published items owned directly by the model) |
-| `logKnowledge.modelProfile` | `log-knowledge-model` | `modelId` (uuid) | `{ model, softwareVersions, truncated, modelItems }` or `null` |
+| `logKnowledge.modelProfile` | `log-knowledge-models` | `modelId` (uuid) | `{ model, softwareVersions, truncated, modelItems }` or `null` |
 | `logKnowledge.items` | `log-knowledge-items` | the common params | `{ rows: ItemRow[], total }` |
-| `logKnowledge.itemDetail` | `log-knowledge-item` | `itemId` (uuid), optional `revisionNo` (integer ≥ 1) | `ItemDetail` or `null` (also `null` for a `revisionNo` the item does not have) |
+| `logKnowledge.itemDetail` | `log-knowledge-items` | `itemId` (uuid), optional `revisionNo` (integer ≥ 1) | `ItemDetail` or `null` (also `null` for a `revisionNo` the item does not have) |
 
 `modelProfile` data: `model: { id, code, name, active, vendor: { id, code, name, active }, processes: { id, code, name }[], createdAt, updatedAt }`; `softwareVersions: { id, versionLabel, name, active, itemCount, updatedAt }[]` (every version, active or not, newest `createdAt` first, cut at 500 with `truncated: true`); `modelItems: { total }` (published items owned directly by the model). `itemCount` counts the version's published items.
 
-`items`: `q` matches the latest revision's title (contains, case-insensitive) and `KI-<n>` / `<n>` (the item number). Sort columns `itemNo`, `title`, `updatedAt`; default `updatedAt` descending. **No `publicationState` condition = published items only** (unlike the catalog reads); archived items answer only when asked. `ItemRow`: `{ id, itemNo, title, typeCode, owner: { kind: 'model' | 'software', modelId, modelName, softwareId?, versionLabel? }, verificationState, processingState, publicationState, latestRevisionNo, updatedAt }`; `title` and `typeCode` are the latest revision's.
+`items`: `q` matches the latest revision's title (contains, case-insensitive) and `KI-<n>` / `KI<n>` (the item number, case-insensitive; a bare number is not parsed and only searches titles). Sort columns `itemNo`, `title`, `updatedAt`; default `updatedAt` descending. **No `publicationState` condition = published items only** (unlike the catalog reads); archived items answer only when asked. `ItemRow`: `{ id, itemNo, title, typeCode, owner: { kind: 'model' | 'software', modelId, modelName, softwareId?, versionLabel? }, verificationState, processingState, publicationState, latestRevisionNo, updatedAt }`; `title` and `typeCode` are the latest revision's.
 
 | Field | Operators | Values | Meaning |
 | --- | --- | --- | --- |

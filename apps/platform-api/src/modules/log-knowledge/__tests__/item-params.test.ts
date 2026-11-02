@@ -52,12 +52,12 @@ describe('item list params', () => {
 });
 
 describe('item read declarations', () => {
-  it('declares four reads on their own menus with the view right and no scope', () => {
+  it('declares four reads on the two owning menus with the view right and no scope', () => {
     expect(endpoints.map((e) => [e.spec.id, e.spec.menuId, e.spec.permission, e.spec.requiresScope])).toEqual([
       ['logKnowledge.exploreModels', 'log-knowledge-models', 'platform:view', false],
-      ['logKnowledge.modelProfile', 'log-knowledge-model', 'platform:view', false],
+      ['logKnowledge.modelProfile', 'log-knowledge-models', 'platform:view', false],
       ['logKnowledge.items', 'log-knowledge-items', 'platform:view', false],
-      ['logKnowledge.itemDetail', 'log-knowledge-item', 'platform:view', false],
+      ['logKnowledge.itemDetail', 'log-knowledge-items', 'platform:view', false],
     ]);
   });
 

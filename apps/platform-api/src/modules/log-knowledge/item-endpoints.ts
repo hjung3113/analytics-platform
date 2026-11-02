@@ -7,9 +7,7 @@ import type { EndpointResult, MenuEndpointDeclaration, ParamsJudgment } from '..
 import { holdsPlatformPermission } from '../platform-port/permissions.js';
 import {
   LOG_KNOWLEDGE_ITEMS_MENU_ID,
-  LOG_KNOWLEDGE_ITEM_MENU_ID,
   LOG_KNOWLEDGE_MODELS_MENU_ID,
-  LOG_KNOWLEDGE_MODEL_MENU_ID,
 } from './catalog-menu.js';
 import { CATALOG_FILTER_SPECS } from './domain/catalog-filters.js';
 import { ITEM_FILTER_SPECS } from './domain/item-filters.js';
@@ -93,7 +91,7 @@ export function itemEndpoints(deps: LogKnowledgeDeps): MenuEndpointDeclaration[]
       const page = await listModels(deps.db, { ...parsed.value, workspaceId }, { withItemCount: true });
       return { outcome: 'ok', data: page };
     }),
-    declareRead(deps, 'logKnowledge.modelProfile', LOG_KNOWLEDGE_MODEL_MENU_ID, ['modelId'], modelProfileJudge, async (workspaceId, params) => {
+    declareRead(deps, 'logKnowledge.modelProfile', LOG_KNOWLEDGE_MODELS_MENU_ID, ['modelId'], modelProfileJudge, async (workspaceId, params) => {
       const profile = await getModelProfile(deps.db, workspaceId, uuidParam(params, 'modelId') as string);
       return { outcome: 'ok', data: profile };
     }),
@@ -103,7 +101,7 @@ export function itemEndpoints(deps: LogKnowledgeDeps): MenuEndpointDeclaration[]
       const page = await listItems(deps.db, { ...parsed.value, workspaceId });
       return { outcome: 'ok', data: page };
     }),
-    declareRead(deps, 'logKnowledge.itemDetail', LOG_KNOWLEDGE_ITEM_MENU_ID, ['itemId', 'revisionNo'], itemDetailJudge, async (workspaceId, params) => {
+    declareRead(deps, 'logKnowledge.itemDetail', LOG_KNOWLEDGE_ITEMS_MENU_ID, ['itemId', 'revisionNo'], itemDetailJudge, async (workspaceId, params) => {
       const revisionNo = revisionNoOf(params);
       const detail = await getItemDetail(
         deps.db,

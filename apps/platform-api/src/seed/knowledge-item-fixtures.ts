@@ -1,7 +1,8 @@
 // Synthetic knowledge items for `SEED_MODE=personas|scale` (ADR-0109, #1197 a): 12 items over three models
 // (model-owned and SW-owned), two with a second revision, assessments on both axes (one `disputed`), a
 // `derived_from` pair across SW versions, a `related` pair across models and one archived item. Text is synthetic.
-// Idempotent: an item is keyed by its first revision's title within its owner; a rerun adds nothing. The core seed
+// Idempotent: an item is keyed by its first revision's title within its owner and each item is seeded in one
+// transaction; a rerun adds nothing, or completes an item that is missing child rows. The core seed
 // never calls this. Runs after `seedKnowledgeCatalog` (owners must exist).
 
 import { and, eq } from 'drizzle-orm';
@@ -15,6 +16,7 @@ import {
   knowledgeItemRevisions,
   knowledgeItems,
   softwareVersions,
+  vendors,
 } from '../db/schema/knowledge.js';
 import { toCodeKey } from '../modules/log-knowledge/domain/code-key.js';
 import { allocateItemNo } from '../modules/log-knowledge/repositories/item-number.js';
@@ -240,6 +242,16 @@ const ITEMS: readonly SeedItem[] = [
   },
 ];
 
+/** Vendor code of each seeded model: models are keyed by vendor + model code (ADR-0107), never by model code alone. */
+const MODEL_VENDOR: Readonly<Record<string, string>> = {
+  'MX-100': 'Vendor A',
+  'MX-200': 'Vendor A',
+  'MX-300': 'Vendor B',
+  'MX-400': 'Vendor B',
+  'MX-500': 'Vendor B',
+  'MX-600': 'Vendor C',
+};
+
 export async function seedKnowledgeItems(
   handle: DbHandle,
   workspaceId: string,
@@ -250,11 +262,23 @@ export async function seedKnowledgeItems(
   const existing = new Map<string, string>();
 
   for (const item of ITEMS) {
+    const vendorCode = MODEL_VENDOR[item.model];
+    if (!vendorCode) throw new Error(`seed model ${item.model} has no vendor mapping`);
     const [model] = await db
       .select({ id: equipmentModels.id })
       .from(equipmentModels)
-      .where(and(eq(equipmentModels.workspaceId, workspaceId), eq(equipmentModels.codeKey, toCodeKey(item.model))));
-    if (!model) throw new Error(`seed model ${item.model} is missing; seed the catalog first`);
+      .innerJoin(
+        vendors,
+        and(eq(vendors.workspaceId, equipmentModels.workspaceId), eq(vendors.id, equipmentModels.vendorId)),
+      )
+      .where(
+        and(
+          eq(equipmentModels.workspaceId, workspaceId),
+          eq(vendors.codeKey, toCodeKey(vendorCode)),
+          eq(equipmentModels.codeKey, toCodeKey(item.model)),
+        ),
+      );
+    if (!model) throw new Error(`seed model ${vendorCode} ${item.model} is missing; seed the catalog first`);
     let softwareId: string | null = null;
     if (item.software) {
       const [sw] = await db
@@ -271,93 +295,134 @@ export async function seedKnowledgeItems(
       softwareId = sw.id;
     }
     const firstTitle = (item.revisions[0] as SeedRevision).title;
-    const owner = softwareId === null ? eq(knowledgeItems.ownerModelId, model.id) : eq(knowledgeItems.ownerSoftwareId, softwareId);
-    const [found] = await db
-      .select({ id: knowledgeItems.id })
-      .from(knowledgeItems)
-      .innerJoin(
-        knowledgeItemRevisions,
-        and(
-          eq(knowledgeItemRevisions.workspaceId, knowledgeItems.workspaceId),
-          eq(knowledgeItemRevisions.itemId, knowledgeItems.id),
-          eq(knowledgeItemRevisions.revisionNo, 1),
-        ),
-      )
-      .where(and(eq(knowledgeItems.workspaceId, workspaceId), owner, eq(knowledgeItemRevisions.title, firstTitle)));
-    if (found) {
-      existing.set(item.key, found.id);
-      continue;
-    }
-
+    const ownerCond = softwareId === null ? eq(knowledgeItems.ownerModelId, model.id) : eq(knowledgeItems.ownerSoftwareId, softwareId);
+    const ownerModelId = softwareId === null ? model.id : null;
     const state = { verification: 'not_checked', processing: 'open' } as Record<Axis, string>;
     for (const e of item.events ?? []) state[e.axis] = e.to;
-    const itemNo = await allocateItemNo(db, workspaceId);
-    const [created] = await db
-      .insert(knowledgeItems)
-      .values({
-        workspaceId,
-        itemNo,
-        ownerModelId: softwareId === null ? model.id : null,
-        ownerSoftwareId: softwareId,
-        latestRevisionNo: item.revisions.length,
-        publicationState: item.archived ? 'archived' : 'published',
-        verificationState: state.verification,
-        processingState: state.processing,
-        createdBy: actorId,
-        updatedBy: actorId,
-      })
-      .returning({ id: knowledgeItems.id });
-    const itemId = (created as { id: string }).id;
-    existing.set(item.key, itemId);
-    rowsInserted += 1;
 
-    for (const [index, rev] of item.revisions.entries()) {
-      const revisionNo = index + 1;
-      await db.insert(knowledgeItemRevisions).values({
-        workspaceId,
-        itemId,
-        revisionNo,
-        title: rev.title,
-        typeCode: rev.typeCode,
-        observation: rev.observation ?? null,
-        expected: rev.expected ?? null,
-        analysisOpinion: rev.analysisOpinion ?? null,
-        improvement: rev.improvement ?? null,
-        changeNote: rev.changeNote ?? null,
-        publishedBy: actorId,
-      });
-      rowsInserted += 1;
-      for (const [n, ev] of (rev.evidence ?? []).entries()) {
-        await db.insert(itemRevisionEvidence).values({
-          workspaceId,
-          itemId,
-          revisionNo,
-          ordinal: n + 1,
-          sourceKind: ev.kind,
-          sourceOwner: 'Synthetic source system',
-          sourceRef: ev.ref,
-          locator: ev.locator ?? null,
-        });
+    // One transaction per item: allocation, item row, revisions, evidence and events commit together, so an
+    // interrupted seed leaves no half item. A rerun completes whatever an item is still missing (rows written by an
+    // older, non-atomic seed too), and an item is complete only when all its child rows exist.
+    const itemId = await db.transaction(async (tx) => {
+      const candidates = await tx
+        .select({
+          id: knowledgeItems.id,
+          title: knowledgeItemRevisions.title,
+          latest: knowledgeItems.latestRevisionNo,
+        })
+        .from(knowledgeItems)
+        .leftJoin(
+          knowledgeItemRevisions,
+          and(
+            eq(knowledgeItemRevisions.workspaceId, knowledgeItems.workspaceId),
+            eq(knowledgeItemRevisions.itemId, knowledgeItems.id),
+            eq(knowledgeItemRevisions.revisionNo, 1),
+          ),
+        )
+        .where(and(eq(knowledgeItems.workspaceId, workspaceId), ownerCond));
+      // Match by first title, or adopt a skeleton row that has no revision at all (same revision count).
+      const found =
+        candidates.find((c) => c.title === firstTitle) ??
+        candidates.find((c) => c.title === null && c.latest === item.revisions.length);
+      let id: string;
+      if (found) {
+        id = found.id;
+      } else {
+        const itemNo = await allocateItemNo(tx, workspaceId);
+        const [created] = await tx
+          .insert(knowledgeItems)
+          .values({
+            workspaceId,
+            itemNo,
+            ownerModelId,
+            ownerSoftwareId: softwareId,
+            latestRevisionNo: item.revisions.length,
+            publicationState: item.archived ? 'archived' : 'published',
+            verificationState: state.verification,
+            processingState: state.processing,
+            createdBy: actorId,
+            updatedBy: actorId,
+          })
+          .returning({ id: knowledgeItems.id });
+        id = (created as { id: string }).id;
         rowsInserted += 1;
       }
-    }
 
-    const prior = { verification: 'not_checked', processing: 'open' } as Record<Axis, string>;
-    for (const e of item.events ?? []) {
-      await db.insert(itemAssessmentEvents).values({
-        workspaceId,
-        itemId,
-        basedOnRevisionNo: e.basedOn,
-        dimension: e.axis,
-        priorState: prior[e.axis],
-        newState: e.to,
-        rationale: e.rationale,
-        actorId,
-      });
-      prior[e.axis] = e.to;
-      rowsInserted += 1;
-    }
+      for (const [index, rev] of item.revisions.entries()) {
+        const revisionNo = index + 1;
+        const insertedRev = await tx
+          .insert(knowledgeItemRevisions)
+          .values({
+            workspaceId,
+            itemId: id,
+            revisionNo,
+            title: rev.title,
+            typeCode: rev.typeCode,
+            observation: rev.observation ?? null,
+            expected: rev.expected ?? null,
+            analysisOpinion: rev.analysisOpinion ?? null,
+            improvement: rev.improvement ?? null,
+            changeNote: rev.changeNote ?? null,
+            publishedBy: actorId,
+          })
+          .onConflictDoNothing()
+          .returning({ no: knowledgeItemRevisions.revisionNo });
+        rowsInserted += insertedRev.length;
+        for (const [n, ev] of (rev.evidence ?? []).entries()) {
+          const insertedEv = await tx
+            .insert(itemRevisionEvidence)
+            .values({
+              workspaceId,
+              itemId: id,
+              revisionNo,
+              ordinal: n + 1,
+              sourceKind: ev.kind,
+              sourceOwner: 'Synthetic source system',
+              sourceRef: ev.ref,
+              locator: ev.locator ?? null,
+            })
+            .onConflictDoNothing()
+            .returning({ ordinal: itemRevisionEvidence.ordinal });
+          rowsInserted += insertedEv.length;
+        }
+      }
+
+      // Events have no unique key: an event is present when one with the same axis, target state, basis and
+      // rationale exists for the item.
+      const haveEvents = await tx
+        .select({
+          dimension: itemAssessmentEvents.dimension,
+          newState: itemAssessmentEvents.newState,
+          basedOn: itemAssessmentEvents.basedOnRevisionNo,
+          rationale: itemAssessmentEvents.rationale,
+        })
+        .from(itemAssessmentEvents)
+        .where(and(eq(itemAssessmentEvents.workspaceId, workspaceId), eq(itemAssessmentEvents.itemId, id)));
+      const prior = { verification: 'not_checked', processing: 'open' } as Record<Axis, string>;
+      for (const e of item.events ?? []) {
+        const present = haveEvents.some(
+          (h) => h.dimension === e.axis && h.newState === e.to && h.basedOn === e.basedOn && h.rationale === e.rationale,
+        );
+        if (!present) {
+          await tx.insert(itemAssessmentEvents).values({
+            workspaceId,
+            itemId: id,
+            basedOnRevisionNo: e.basedOn,
+            dimension: e.axis,
+            priorState: prior[e.axis],
+            newState: e.to,
+            rationale: e.rationale,
+            actorId,
+          });
+          rowsInserted += 1;
+        }
+        prior[e.axis] = e.to;
+      }
+      return id;
+    });
+    existing.set(item.key, itemId);
   }
+
 
   // Links: the unique (source, target, kind) index makes a rerun a no-op.
   for (const item of ITEMS) {
