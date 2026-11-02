@@ -228,6 +228,41 @@ describe('filterRows vocabulary (ADR-0105)', () => {
   });
 });
 
+describe('filterRows array-valued enum cell (ADR-0105 amendment)', () => {
+  const options = [{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }, { value: 'c', label: 'C' }];
+  const many: Record<string, ColumnFilterSpec> = { t: { kind: 'enum', options, cell: 'many' } };
+  const rows: { id: string; t: unknown }[] = [
+    { id: 'ab', t: ['a', 'b'] },
+    { id: 'c', t: ['c'] },
+    { id: 'empty', t: [] },
+    { id: 'null', t: null },
+    { id: 'undef', t: undefined },
+    { id: 'bare', t: 'a' },
+  ];
+  const ids = (filter: ColumnFilter, specs?: Record<string, ColumnFilterSpec>) => filterRows(rows, [filter], undefined, specs ? { specs } : undefined).map(r => r.id);
+
+  it.each<[string, ColumnFilter, string[]]>([
+    ['in: any element matches', { id: 't', op: 'in', value: ['a'] }, ['ab', 'bare']],
+    ['in: several values are OR', { id: 't', op: 'in', value: ['b', 'c'] }, ['ab', 'c']],
+    ['in: no element matches', { id: 't', op: 'in', value: ['z'] }, []],
+    ['notIn: none of the elements, blanks excluded', { id: 't', op: 'notIn', value: ['a'] }, ['c']],
+    ['notIn: a row with one hit and one miss is out', { id: 't', op: 'notIn', value: ['b'] }, ['c', 'bare']],
+    ['isEmpty: [] / null / undefined', { id: 't', op: 'isEmpty' }, ['empty', 'null', 'undef']],
+    ['isNotEmpty: at least one element', { id: 't', op: 'isNotEmpty' }, ['ab', 'c', 'bare']],
+  ])('many: %s', (_name, filter, expected) => {
+    expect(ids(filter, many)).toEqual(expected);
+  });
+
+  it('scalar and an absent cell keep today: an array is stringified, not searched', () => {
+    const scalar: Record<string, ColumnFilterSpec> = { t: { kind: 'enum', options, cell: 'scalar' } };
+    const plain: Record<string, ColumnFilterSpec> = { t: { kind: 'enum', options } };
+    const multi = [{ id: 'x', t: ['a', 'b'] }];
+    const f: ColumnFilter = { id: 't', op: 'in', value: ['a'] };
+    for (const specs of [scalar, plain, undefined]) expect(filterRows(multi, [f], undefined, specs ? { specs } : undefined)).toEqual([]);
+    expect(ids({ id: 't', op: 'in', value: ['a'] }, plain)).toEqual(['bare']);
+  });
+});
+
 describe('validateFilters (ADR-0105)', () => {
   const specs: Record<string, ColumnFilterSpec> = {
     name: { kind: 'text', ops: ['contains', 'equals'] },

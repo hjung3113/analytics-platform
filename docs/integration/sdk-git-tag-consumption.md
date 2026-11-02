@@ -10,6 +10,7 @@
 
 | 확인 | 결과 | 소비자 조건 |
 | --- | --- | --- |
+| 다음 SDK 릴리스 (#1194 노드 s) | contracts, contract-schemas, components | Additive (opt-in; absent = unchanged): `PlatformDataTable.isRowMuted?: (row: T) => boolean` (muted data cells, `text-text-secondary` on hover/selected/active, `data-muted="true"`) and enum `ColumnFilterSpec.cell?: 'scalar' \| 'many'` (array-valued row cell; `filterRows` honours it with `options.specs`; wire `ColumnFilter` and URL codec unchanged; `@ap/contract-schemas` `columnFilterSpec` gains `cell`). | None required; servers that implement a `cell: 'many'` field follow the `real-server-checklist.md` array-enum sentence. |
 | 다음 SDK 릴리스 (#1251) | contracts, kernel, shell | Additive (opt-in; absent = unchanged): optional `SpaceDef.scopePresentation?: 'default' \| 'hidden'`. `'hidden'` removes the sidebar's analytics `ScopeSelector` fallback for that space (a component the app's `scopeControl.For` returns still renders; otherwise nothing is drawn). `createRegistry` rejects a `'hidden'` space that holds a `requiresScope: true` menu. | None required; set the field on a site-independent space whose menus all have `requiresScope: false` and whose endpoints/actions do not require Scope. |
 | 하위 경로 패키지가 풀리는가 | 된다. `@ap/ui`의 `dependencies`에 `@ap/*`·`workspace:` 항목이 없어(`@ap/eslint-config`·`@ap/tsconfig`는 devDependencies) 다른 패키지를 끌어오지 않는다. 서브모듈은 받지 않는다 | `@ap/ui`가 `@ap/*` 런타임 의존을 갖게 되면 이 결과를 다시 확인한다 |
 | TS 소스 export(`./src/index.ts`)로 빌드되는가 | 된다. Vite가 `node_modules`의 `.ts`·`.tsx`를 그대로 변환한다 | — |

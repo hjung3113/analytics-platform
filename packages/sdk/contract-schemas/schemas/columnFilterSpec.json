@@ -184,6 +184,13 @@
           "type": "boolean",
           "const": false
         },
+        "cell": {
+          "type": "string",
+          "enum": [
+            "scalar",
+            "many"
+          ]
+        },
         "requires": {
           "type": "array",
           "items": {
