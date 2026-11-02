@@ -21,6 +21,10 @@
 
 두 capability는 워크스페이스 범위로 부여한다(`managed_system_id` 없음). 카탈로그가 워크스페이스 전체 것이고 `log-dev`는 Managed System이 아니기 때문이다. `adminModuleBypass: 'always'`, sensitive 아님. Developer는 기존 권한 요청에서 Managed System 없이 요청한다. 결정자: 코디네이터, 사용자의 2026-11-02 ADR-0107 승인 아래(#1193).
 
+## 결정 4: 비활성화는 하위로 번지지 않는다
+
+Vendor·Process·Model을 비활성화해도 하위 행(Vendor의 Model, Model의 SW, Process의 매핑)의 `active`는 그대로다. 재활성화도 행마다 한다. 화면은 영향 개수(활성 하위 Model·SW 수)를 보여 준다. 비활성 상위 아래에 새 Model·SW를 만들거나 비활성 Process를 새로 매핑하는 것은 거절한다(`inactive`). 이미 매핑된 Process가 나중에 비활성이 된 경우 그 매핑은 Model 수정에서 유지할 수 있다. 이유: 한 번의 비활성화가 수백 행을 바꾸면 되돌릴 때 원래 비활성이던 행과 구분할 수 없고, 감사 기록도 행마다 남아야 한다. 결정자: 코디네이터, 사용자의 2026-11-02 A 화면 승인 아래(#1194).
+
 ## 다른 안
 
 - 공식 마스터가 정해질 때까지 카탈로그를 막는다 — P0 전체가 외부 대기가 되어 버렸다.

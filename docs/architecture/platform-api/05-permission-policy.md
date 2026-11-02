@@ -168,7 +168,7 @@ survey.export
 
 Every other capability is non-sensitive and needs no reason beyond the route's `min(1)`.
 
-`knowledge.catalog.manage` and `knowledge.catalog.import` (log knowledge hub, ADR-0107 decision 3) are workspace-scoped: a grant carries `managed_system_id` null because the catalog is workspace-wide and `log-dev` is not a Managed System. Both are non-sensitive with `adminModuleBypass: 'always'`; they are requestable through the ordinary permission request with no Managed System. Catalog reads need no capability: every active workspace session holds `platform:view`. Who holds them by role is owned by `docs/product/features/09-permission-access.md`.
+`knowledge.catalog.manage` and `knowledge.catalog.import` (log knowledge hub, ADR-0107 decision 3) are workspace-scoped: a grant carries `managed_system_id` null because the catalog is workspace-wide and `log-dev` is not a Managed System. Both are non-sensitive with `adminModuleBypass: 'always'`; they are requestable through the ordinary permission request with no Managed System. Catalog reads need no capability: every active workspace session holds `platform:view`. `knowledge.catalog.manage` is enforced by the `logKnowledge.*` write actions (`modules/log-knowledge/catalog-actions.ts`, capability check plus `applyAdminModuleBypass`; api/log-knowledge.md §Write actions); `.import` is enforced by #1195. Who holds them by role is owned by `docs/product/features/09-permission-access.md`.
 
 Requester expiration is optional, with no automatic default (FO ADR-0044, confirmed
 by FO ADR-0066). Any supplied/resolved non-null expiry must be future in create,

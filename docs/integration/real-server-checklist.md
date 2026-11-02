@@ -101,7 +101,7 @@ platform-api의 `menuQuery`·`menuAction`은 `apps/platform-api/src/modules/menu
 5. **재생** → `(사용자, 키)` 기록이 있고 정규화한 요청(`action`·`scopeId`·`expectedVersion`·`input`, 키 정렬)이 같으면 저장한 답을 `replayed: true`로 돌려준다. 같은 키에 다른 요청이면 `error`(`idempotency_key_reuse`). 권한·Scope를 재생보다 먼저 보므로 권한을 잃은 사용자는 같은 키로도 저장된 답을 받지 못한다.
 6. **입력 값** → `inputKeys` 밖 키는 `invalid`, 키마다 `{ path: [키], code: 'unexpected_field' }`(행위자·시각 필드가 여기서 걸린다). 그다음 동작의 값 검증이 거부하면 `invalid`와 그 필드 오류.
 7. **버전** → 버전 방식이면 대상이 없으면 `not_found`, `expectedVersion`이 현재와 다르면 `conflict`이고 `version`에 현재 버전을 싣는다.
-8. **핸들러** → 쓰기를 적용하고 `ok`에 `data`와 쓴 뒤의 `version`을 싣는다.
+8. **핸들러** → 쓰기를 적용하고 `ok`에 `data`와 쓴 뒤의 `version`을 싣는다. 데이터베이스만 판정할 수 있는 거부(중복 키, 모르는·비활성 상위 행)는 핸들러가 `MenuActionInvalidError(fieldErrors)`를 던져 알린다 — 엔진이 트랜잭션 밖에서 받아 쓰기를 되돌리고 `invalid`와 그 필드 오류로 답하며 아무것도 기록하지 않는다(500이 아니다).
 
 `replayed`는 새 답에서 항상 `false`다. 기록하는 것은 핸들러가 상태를 바꾼 `ok`뿐이다 — `invalid`·`conflict`·`not_found`·`forbidden`·`error`는 같은 키로 다시 보내면 처음부터 다시 판정한다. 보관 기간은 서버가 정하며 24시간 이상이다(mock은 기한 없이 보관). 감사는 핸들러가 같은 트랜잭션에서 남긴다 — 플랫폼 엔진은 감사 행을 쓰지 않으며, 계약은 입력에 행위자·시각이 오는 것만 금지한다(6단계).
 

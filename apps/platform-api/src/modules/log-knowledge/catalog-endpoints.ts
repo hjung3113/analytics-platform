@@ -13,6 +13,9 @@ import type {
 import type { CheckService } from '../permissions/check-service.js';
 import { holdsPlatformPermission } from '../platform-port/permissions.js';
 import { unsafeText } from '../platform-port/text-safety.js';
+import { catalogActions } from './catalog-actions.js';
+import { LOG_KNOWLEDGE_MENU_ID } from './catalog-menu.js';
+export { LOG_KNOWLEDGE_MENU_ID };
 import {
   type ListQuery,
   MODEL_SORT_IDS,
@@ -26,7 +29,6 @@ import {
   listVendors,
 } from './repositories/catalog-read.js';
 
-export const LOG_KNOWLEDGE_MENU_ID = 'log-knowledge-catalog';
 export const PAGE_SIZE_MAX = 200;
 export const Q_MAX = 200;
 const SORT_KEYS_MAX = 3;
@@ -137,6 +139,7 @@ function declare(
 
 export function logKnowledgeContribution(deps: LogKnowledgeDeps): MenuDispatchContribution {
   return {
+    actions: catalogActions({ checkService: deps.checkService }),
     endpoints: [
       declare(deps, 'vendors', [], VENDOR_SORT_IDS, (_a, q) => listVendors(deps.db, q)),
       declare(deps, 'processes', [], PROCESS_SORT_IDS, (_a, q) => listProcesses(deps.db, q)),

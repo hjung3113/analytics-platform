@@ -11,6 +11,7 @@ export * from './audit/voc.js';
 export * from './audit/attachments.js';
 export * from './audit/survey.js';
 export * from './audit/analytics-area.js';
+export * from './audit/log-knowledge-catalog.js';
 export * from './audit/entity-link.js';
 export * from './audit/finding.js';
 export * from './audit/managed-system.js';
