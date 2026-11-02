@@ -70,8 +70,14 @@ const IMPLEMENTED: readonly PortMethod[] = [
  * not have — an actor without `notice:view` (granted to every active session) and the analytical
  * endpoints. The positive Home response is asserted by notices.integration.test.ts. The drift guard only
  * recognizes the route as served; it never lists the port as implemented.
+ *
+ * `menuAction` is served by the generic dispatch (#1193, `POST /api/v1/menu-action`) but this server
+ * registers no real write yet, and the kit's action checks need a declared sample (`actions`) the
+ * production assembly does not have. They stay a visible `actions: no sample` skip; the engine's judgment is
+ * asserted by menu-dispatch.integration.test.ts against a test-only action. Add it to IMPLEMENTED with a
+ * sample once a module registers its first real action.
  */
-const SERVED_PARTIAL: readonly PortMethod[] = ['menuQuery'];
+const SERVED_PARTIAL: readonly PortMethod[] = ['menuQuery', 'menuAction'];
 
 /**
  * Served only as a gate (#622 decision 6): the route exists and answers `forbidden` to everyone, so the
