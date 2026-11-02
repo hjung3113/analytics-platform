@@ -1,6 +1,7 @@
 import { errorCodeSchema } from '@ap/feature-shared';
 import type { FastifyInstance } from 'fastify';
 
+import { replyIfDbTimeout } from './db-timeout.js';
 import { type ZodIssueShape, fieldsFromZodIssues, statusForCode } from './errors.js';
 
 // ── Error handler ─ ADR-0012 envelope ────────────────────────────────
@@ -42,6 +43,9 @@ export function registerHttpErrorHandler(app: FastifyInstance): void {
         return reply.code(status).send(envelope);
       }
     }
+    // #1266 b3: DB time budgets (statement/lock/idle-tx/pool acquire) → 503.
+    const timedOut = replyIfDbTimeout(err, req, reply);
+    if (timedOut) return timedOut;
     // Zod validation errors surface via fastify-type-provider-zod with
     // statusCode 400; remap to ADR-0012 envelope. Review HTTP-M-1:
     // fastify-type-provider-zod returns the raw ZodIssue array in

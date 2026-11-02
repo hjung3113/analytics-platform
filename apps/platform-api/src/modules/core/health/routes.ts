@@ -12,6 +12,7 @@ import {
   type InFlightProbe,
   runReadinessChecks,
 } from '../../../lib/health.js';
+import type { DrainState } from '../../../lib/shutdown.js';
 import type { StorageBackend } from '../../../lib/storage/index.js';
 
 export interface HealthRoutesOptions {
@@ -24,10 +25,12 @@ export interface HealthRoutesOptions {
   boss?: PgBoss | undefined;
   storage: StorageBackend;
   healthProbeTimeoutMs?: number;
+  /** Set by the shutdown sequence; readiness answers 503 `draining` once it is draining. */
+  drain?: DrainState | undefined;
 }
 
 export const healthRoutes: FastifyPluginAsync<HealthRoutesOptions> = async (app, opts) => {
-  const { pool, boss, storage, healthProbeTimeoutMs } = opts;
+  const { pool, boss, storage, healthProbeTimeoutMs, drain } = opts;
   // One map per buildServer, not a module singleton: health tests build
   // several apps in one process and must not share probe state.
   const readinessInFlight = new Map<HealthCheckName, InFlightProbe>();
@@ -81,10 +84,25 @@ export const healthRoutes: FastifyPluginAsync<HealthRoutesOptions> = async (app,
     schema: {
       response: {
         200: z.object({ status: z.literal('ok'), checks: healthChecksSchema }),
-        503: z.object({ status: z.literal('unavailable'), checks: healthChecksSchema }),
+        503: z.object({
+          status: z.literal('unavailable'),
+          checks: healthChecksSchema,
+          // Present only while the process is shutting down (#1266 b3).
+          reason: z.literal('draining').optional(),
+        }),
       },
     },
     handler: async (req, reply) => {
+      // Draining: shutdown started, so stop taking traffic. Dependencies are
+      // not probed (the pool and boss are being closed); every check reports
+      // 'fail' to mean "not serving".
+      if (drain?.isDraining()) {
+        return reply.code(503).send({
+          status: 'unavailable',
+          checks: { database: 'fail', pg_boss: 'fail', storage: 'fail' },
+          reason: 'draining',
+        });
+      }
       const result = await runReadinessChecks({
         pool,
         boss,

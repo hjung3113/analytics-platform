@@ -104,6 +104,7 @@ describe('errorMapper — ERROR_CODES coverage', () => {
     ['conflict.survey_not_open', 'error'],
     ['conflict.survey_response_already_submitted', 'info'],
     ['conflict.survey_results_unavailable', 'error'],
+    ['service.unavailable', 'error'],
   ] as const)('AC-1 maps %s to non-generic %s copy', (code, tone) => {
     const mapped = errorMapper({ code, message: '' });
 

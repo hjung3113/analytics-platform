@@ -6,6 +6,7 @@
 import { errorCodeSchema } from '@ap/feature-shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
+import { replyIfDbTimeout } from '../../lib/db-timeout.js';
 import { sendError, statusForCode } from '../../lib/errors.js';
 import { SESSION_COOKIE_NAME } from '../../middleware/require-session.js';
 import type { ActorRecord, SessionRecord, SessionService } from '../auth/session-service.js';
@@ -65,6 +66,8 @@ export function installPlatformTransport(
         .code(status)
         .send({ code: parsed.data, message: err.message, ...(detail ? { detail } : {}) });
     }
+    const timedOut = replyIfDbTimeout(err, req, reply);
+    if (timedOut) return timedOut;
     const statusCode = (err as { statusCode?: unknown }).statusCode;
     if (typeof statusCode === 'number' && statusCode >= 400 && statusCode <= 499) {
       return reply

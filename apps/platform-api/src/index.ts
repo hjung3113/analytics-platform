@@ -18,6 +18,7 @@ import { RuntimeRoleError, assertRuntimeDbRole } from './db/runtime-role.js';
 import { toJobLog } from './lib/job-log.js';
 import { initBoss, shutdownBoss } from './lib/jobs.js';
 import { createRootLogger } from './lib/logger.js';
+import { createDrainState, createShutdown } from './lib/shutdown.js';
 import { getStorage } from './lib/storage/factory.js';
 import { createAuditService } from './modules/core/audit/index.js';
 import { registerCoreJobs } from './modules/core/jobs/index.js';
@@ -40,7 +41,24 @@ if (!config.DATABASE_URL) {
   process.exit(1);
 }
 
-const dbHandle = createDb(config.DATABASE_URL);
+// #1266 b3: the runtime pool carries the DB time budgets and logs (never exits
+// on) an idle-client error. The root logger is created further below, after the
+// startup guards, so the listener resolves it lazily and falls back to stderr.
+const poolErrorLog: { current?: ReturnType<typeof createRootLogger> } = {};
+const dbHandle = createDb(config.DATABASE_URL, {
+  budgets: {
+    poolMax: config.DB_POOL_MAX,
+    acquireTimeoutMs: config.DB_POOL_ACQUIRE_TIMEOUT_MS,
+    statementTimeoutMs: config.DB_STATEMENT_TIMEOUT_MS,
+    lockTimeoutMs: config.DB_LOCK_TIMEOUT_MS,
+    idleInTransactionTimeoutMs: config.DB_IDLE_IN_TRANSACTION_TIMEOUT_MS,
+  },
+  onPoolError: (err) => {
+    const fields = { errName: err.name, code: (err as { code?: unknown }).code };
+    if (poolErrorLog.current) poolErrorLog.current.error(fields, 'db pool error');
+    else process.stderr.write(`db pool error ${JSON.stringify(fields)}\n`);
+  },
+});
 
 // #402 (ADR-0008): fail fast unless the runtime connection is actually
 // authenticated as the plain platform_app role. The guard queries the connected
@@ -66,6 +84,7 @@ try {
 // and request logs share its level + redaction. Created after the
 // console.error guards above, which run before a logger can be trusted.
 const logger = createRootLogger(config);
+poolErrorLog.current = logger;
 const jobLog = toJobLog(logger);
 
 const boss = await initBoss({ connectionString: config.DATABASE_URL, log: jobLog });
@@ -107,8 +126,10 @@ await registerNotificationJobs(boss, {
   log: jobLog,
 });
 
+const drainState = createDrainState();
 const app = await buildServer({
   config,
+  drainState,
   dbHandle,
   boss,
   logger,
@@ -116,26 +137,16 @@ const app = await buildServer({
   embeddingProvider,
 });
 
-// Single-shot shutdown handler. Multiple signals (e.g. SIGTERM then SIGINT)
-// short-circuit through the `shuttingDown` flag so we don't try to close pools
-// twice.
-let shuttingDown = false;
-async function shutdown(signal: string, code = 0): Promise<void> {
-  if (shuttingDown) return;
-  shuttingDown = true;
-  app.log.info({ signal }, 'shutting down');
-  try {
-    // ADR-0009: pg-boss drains BEFORE Fastify so in-flight jobs that need a
-    // live HTTP path (e.g. webhook callouts) still have one.
-    await shutdownBoss(boss);
-    await app.close();
-    await dbHandle.close();
-  } catch (err) {
-    app.log.error({ err }, 'error during shutdown');
-    process.exit(1);
-  }
-  process.exit(code);
-}
+// Single-shot, deadline-bounded shutdown (lib/shutdown.ts): drain flag first so
+// readiness turns 503, then pg-boss → Fastify → pool (ADR-0009), 40 s in total.
+const shutdown = createShutdown({
+  drain: drainState,
+  log: app.log,
+  stopBoss: ({ timeoutMs }) => shutdownBoss(boss, { timeoutMs }),
+  closeApp: () => app.close(),
+  closePool: () => dbHandle.close(),
+  exit: (code) => process.exit(code),
+});
 
 process.on('SIGTERM', () => {
   void shutdown('SIGTERM');
