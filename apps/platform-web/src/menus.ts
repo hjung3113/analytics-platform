@@ -4,7 +4,7 @@
  * live in their own menu package (docs/integration/platform-packages.md §5); the app concatenates them.
  */
 import {
-  BarChart3, Boxes, ClipboardCheck, ClipboardList, Cpu, Database, FileSearch, Gauge, Inbox, LayoutDashboard, LineChart, ListChecks, ListTodo, Megaphone, Ruler, Settings, ShieldCheck, Timer, UserCog, UserRound, Waves, Workflow, CircleGauge,
+  BarChart3, Boxes, ClipboardCheck, ClipboardList, Cpu, Database, FileSearch, Gauge, Inbox, LayoutDashboard, LineChart, ListChecks, ListTodo, Megaphone, Library, Ruler, Settings, ShieldCheck, Timer, UserCog, UserRound, Waves, Workflow, CircleGauge,
 } from 'lucide-react';
 import { carrySetId, groupId, menuPermission, spaceId, type CarrySetDef, type SpaceDef } from '@ap/contracts';
 import { createRegistry, type GroupDef, type MenuEntry } from '@ap/kernel';
@@ -24,6 +24,7 @@ import { manifests as logMyWork } from '@ap/menu-log-my-work';
 import { manifests as logModels } from '@ap/menu-log-models';
 import { manifests as logCross } from '@ap/menu-log-cross';
 import { manifests as logRules } from '@ap/menu-log-rules';
+import { manifests as logKnowledge } from '@ap/menu-log-knowledge';
 import { manifests as impMyWork } from '@ap/menu-imp-my-work';
 import { manifests as impTasks } from '@ap/menu-imp-tasks';
 import { manifests as impReports } from '@ap/menu-imp-reports';
@@ -62,6 +63,7 @@ export const GROUPS: GroupDef[] = [
   { id: groupId('logModels'), label: { ko: '모델', en: 'Models' }, icon: Cpu, space: spaceId('log-dev') },
   { id: groupId('logCross'), label: { ko: '전체 모아 보기', en: 'Across models' }, icon: FileSearch, space: spaceId('log-dev') },
   { id: groupId('logRules'), label: { ko: '기준', en: 'Rules' }, icon: Ruler, space: spaceId('log-dev') },
+  { id: groupId('logKnowledge'), label: { ko: '로그 지식 허브', en: 'Log Knowledge' }, icon: Library, space: spaceId('log-dev') },
   { id: groupId('impMyWork'), label: { ko: '내 작업', en: 'My work' }, icon: Inbox, space: spaceId('improvement') },
   { id: groupId('impTasks'), label: { ko: '과제', en: 'Tasks' }, icon: ClipboardList, space: spaceId('improvement') },
   { id: groupId('impReports'), label: { ko: '보고', en: 'Reports' }, icon: BarChart3, space: spaceId('improvement') },
@@ -122,6 +124,7 @@ export const MENUS: MenuEntry[] = [
   ...logModels,
   ...logCross,
   ...logRules,
+  ...logKnowledge,
   ...impMyWork,
   ...impTasks,
   ...impReports,
