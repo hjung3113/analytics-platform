@@ -319,7 +319,8 @@ describe.skipIf(!runIntegration)('log knowledge catalog reads and schema (#1193)
     });
 
     it('sort by vendorName', async () => {
-      const byVendor = await read('logKnowledge.models', { sorting: [{ id: 'vendorName', desc: true }] });
+      // Active rows only: with no filter the read returns inactive models too, and an inactive model of the same vendor ties on vendorName (id tie-break).
+      const byVendor = await read('logKnowledge.models', { sorting: [{ id: 'vendorName', desc: true }], filters: [flt('active', 'in', ['true'])] });
       expect(codes(byVendor)[0]).toBe(`${TAG}-m3`);
     });
   });
