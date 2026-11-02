@@ -1,3 +1,4 @@
+import type { EvidenceSourceKind } from '../../endpoints';
 /**
  * Pure model of the item screens (#1197 s2): vocabulary labels (ADR-0109), the item number and owner wording, the
  * default list filter and the `rev` page-key rule. No React, so it is unit-tested without a DOM and node s3 reuses it.
@@ -59,3 +60,7 @@ export const instantText = (iso: string, timeZone: string = Intl.DateTimeFormat(
 export const shortActor = (id: string): string => id.slice(0, 8);
 
 export type { ItemTypeCode, ProcessingState, PublicationState, VerificationState };
+
+/** Korean label of an evidence source kind; an unknown kind shows as sent. */
+export const EVIDENCE_KIND_LABEL: Record<EvidenceSourceKind, string> = { log_file: '로그 파일', spec: '명세', image: '이미지', validation_run: '검증 실행', other: '기타' };
+export const evidenceKindLabel = (kind: string): string => (EVIDENCE_KIND_LABEL as Record<string, string>)[kind] ?? kind;

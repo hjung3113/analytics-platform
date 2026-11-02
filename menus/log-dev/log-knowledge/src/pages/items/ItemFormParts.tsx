@@ -6,6 +6,7 @@ import { Button, Combobox, DirtyConfirmation, FieldLabel, Input, RadioGroup, Rad
 import { ITEM_LIMITS, EVIDENCE_SOURCE_KINDS, modelsEndpoint, softwareVersionsEndpoint, type CatalogPageParams, type EvidenceSourceKind } from '../../endpoints';
 import { useOptionPicker, toOption, type Option } from '../useCatalogOptions';
 import { emptyEvidence, evidenceKey, type EvidenceRow, type WriteForm } from './itemWriteModel';
+import { EVIDENCE_KIND_LABEL } from './itemModel';
 
 export function Field({ id, label, error, hint, required, badge, children }: { id: string; label: string; error?: string | undefined; hint?: string; required?: boolean; badge?: string; children: React.ReactNode }) {
   return <div className="grid gap-1.5">
@@ -84,7 +85,7 @@ export function OwnerPicker({ uid, form, onChange, error }: { uid: string; form:
   </Field>;
 }
 
-const KIND_LABEL: Record<EvidenceSourceKind, string> = { log_file: '로그 파일', spec: '명세', image: '이미지', validation_run: '검증 실행', other: '기타' };
+const KIND_LABEL = EVIDENCE_KIND_LABEL;
 
 export function EvidenceEditor({ uid, rows, onChange, errors }: { uid: string; rows: EvidenceRow[]; onChange: (rows: EvidenceRow[]) => void; errors: Record<string, string> }) {
   const patch = (i: number, change: Partial<EvidenceRow>) => onChange(rows.map((row, at) => (at === i ? { ...row, ...change } : row)));

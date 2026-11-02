@@ -215,7 +215,8 @@ describe('기술 Item detail', () => {
   it('lists evidence pointers with kind, owner, ref, version, hash, locator and note', async () => {
     mountDetail(idOf(1));
     const evidence = await screen.findByRole('region', { name: '근거' }, slow);
-    for (const text of ['log_file', 'MARS', 'sha256:9f2c41ab77d0', 'L120-L148', '중복 구간 발췌']) expect(evidence.textContent).toContain(text);
+    for (const text of ['로그 파일', 'MARS', 'sha256:9f2c41ab77d0', 'L120-L148', '중복 구간 발췌']) expect(evidence.textContent).toContain(text);
+    expect(evidence.textContent).not.toContain('log_file');
   });
 
   it('links both directions: 이 Item에서 파생 on the original, 파생 원본 on the derived item', async () => {
