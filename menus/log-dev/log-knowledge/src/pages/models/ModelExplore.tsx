@@ -52,16 +52,16 @@ export default function ModelExplore() {
   const search = <SearchInput placeholder="모델 코드·이름 검색" value={draft.text} onValueChange={text => setDraft({ applied: q, text })} onCommit={commit} />;
 
   const columns = useMemo<PlatformColumn<ExploreModelRow>[]>(() => [
-    { id: 'code', header: '모델 코드', size: 116, cell: r => <PlatformLink className="t-mono text-accent-primary hover:underline" href={linkTo('log-knowledge-model', { params: { modelId: r.id }, returnTo: true })}>{r.code}</PlatformLink> },
-    { id: 'name', header: '모델명', size: 150 },
-    { id: 'vendorName', header: '제조사', size: 130 },
-    { id: 'processNames', header: '공정', size: 170, sortable: false, exportValue: r => r.processes.map(p => p.name).join(', '), cell: r => <ProcessBadges processes={r.processes} /> },
-    { id: 'softwareCount', header: '활성 SW', size: 96, align: 'right', exportValue: r => r.softwareCount,
+    { id: 'code', header: '모델 코드', size: 100, cell: r => <PlatformLink className="t-mono text-accent-primary hover:underline" href={linkTo('log-knowledge-model', { params: { modelId: r.id }, returnTo: true })}>{r.code}</PlatformLink> },
+    { id: 'name', header: '모델명', size: 140 },
+    { id: 'vendorName', header: '제조사', size: 124 },
+    { id: 'processNames', header: '공정', size: 160, sortable: false, exportValue: r => r.processes.map(p => p.name).join(', '), cell: r => <ProcessBadges processes={r.processes} /> },
+    { id: 'softwareCount', header: '활성 SW', size: 88, align: 'right', exportValue: r => r.softwareCount,
       cell: r => (r.softwareCount === 0 ? <span className="font-semibold text-text-warning-label">활성 SW 0</span> : <span className="tabular">{r.softwareCount}</span>) },
-    { id: 'modelItemCount', header: '모델 공통 Item 수', size: 124, align: 'right', sortable: false, exportValue: r => r.modelItemCount, cell: r => <span className="tabular">{r.modelItemCount}</span> },
-    { id: 'active', header: '상태', size: 88, filter: specs.active, filterPinned: 1, filterLabel: FIELD_NAME.active, exportValue: r => statusText(r.active),
+    { id: 'modelItemCount', header: '공통 Item', size: 88, align: 'right', sortable: false, exportValue: r => r.modelItemCount, cell: r => <span className="tabular">{r.modelItemCount}</span> },
+    { id: 'active', header: '상태', size: 100, filter: specs.active, filterPinned: 1, filterLabel: FIELD_NAME.active, exportValue: r => statusText(r.active),
       cell: r => <StatusBadge tone={r.active ? 'success' : 'neutral'}>{statusText(r.active)}</StatusBadge> },
-    { id: 'updatedAt', header: '최근 변경', size: 168, cell: r => <span className="tabular">{instantText(r.updatedAt)}</span> },
+    { id: 'updatedAt', header: '최근 변경', size: 176, cell: r => <span className="tabular">{instantText(r.updatedAt)}</span> },
   ], [specs, linkTo]);
 
   const fields = useMemo<TableFilterField[]>(() => (['vendorId', 'processes'] as const).flatMap((id, i) => {
