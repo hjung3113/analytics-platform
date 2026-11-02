@@ -48,8 +48,12 @@ import * as React from 'react';
 
 // `workspace.admin` is never ordinarily requestable (supported-scope policy); the server decides the rest.
 const REQUESTABLE_CAPABILITIES = CAPABILITIES.filter((c) => c !== 'workspace.admin');
-// `workspace.read` takes no Managed System; `survey.export` takes one or the whole workspace; the others need one.
-const NO_MANAGED_SYSTEM: ReadonlySet<string> = new Set<Capability>(['workspace.read']);
+// `workspace.read` and the log knowledge catalog capabilities take no Managed System; `survey.export` takes one or the whole workspace; the others need one.
+const NO_MANAGED_SYSTEM: ReadonlySet<string> = new Set<Capability>([
+  'workspace.read',
+  'knowledge.catalog.manage',
+  'knowledge.catalog.import',
+]);
 const OPTIONAL_MANAGED_SYSTEM: ReadonlySet<string> = new Set<Capability>(['survey.export']);
 const WORKSPACE_WIDE = '__workspace__';
 const REASON_MAX = 2000;

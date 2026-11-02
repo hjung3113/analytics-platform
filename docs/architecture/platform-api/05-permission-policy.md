@@ -78,7 +78,7 @@ alone.
    Developer satisfies none and needs Managed System grants.
 2. Module bypass, declared per capability in CAPABILITY_META.adminModuleBypass
    (packages/feature-shared/src/enums/capabilities.ts):
-   - always: finding.read, finding.manage, task_request.self_approve
+   - always: finding.read, finding.manage, task_request.self_approve, knowledge.catalog.manage, knowledge.catalog.import
    - unless_denied: survey.read, survey.manage (an explicit deny still wins, FO ADR-0033 section C)
    - none: every other capability, including survey.read_personal_responses and survey.export
 ```
@@ -167,6 +167,8 @@ survey.export
 ```
 
 Every other capability is non-sensitive and needs no reason beyond the route's `min(1)`.
+
+`knowledge.catalog.manage` and `knowledge.catalog.import` (log knowledge hub, ADR-0107 decision 3) are workspace-scoped: a grant carries `managed_system_id` null because the catalog is workspace-wide and `log-dev` is not a Managed System. Both are non-sensitive with `adminModuleBypass: 'always'`; they are requestable through the ordinary permission request with no Managed System. Catalog reads need no capability: every active workspace session holds `platform:view`. Who holds them by role is owned by `docs/product/features/09-permission-access.md`.
 
 Requester expiration is optional, with no automatic default (FO ADR-0044, confirmed
 by FO ADR-0066). Any supplied/resolved non-null expiry must be future in create,

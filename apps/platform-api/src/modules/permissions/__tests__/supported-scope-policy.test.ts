@@ -9,6 +9,8 @@ describe('isOrdinarilyRequestable', () => {
     ['workspace.admin', false],
     ['finding.manage', true],
     ['survey.export', true],
+    ['knowledge.catalog.manage', true],
+    ['knowledge.catalog.import', true],
   ] as const)('%s → %s', (capability: Capability, expected) => {
     expect(isOrdinarilyRequestable(capability)).toBe(expected);
   });

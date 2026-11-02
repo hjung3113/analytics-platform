@@ -17,6 +17,10 @@
    - 이유: 대소문자·공백·전각 차이로 같은 장비가 두 행이 되는 것이 실제로 가장 흔한 중복이다. 원문은 그대로 남아 표시 정보를 잃지 않는다.
 3. **편집은 capability로 준다.** 카탈로그 읽기는 워크스페이스에 접근할 수 있는 모든 사용자에게 허용한다(객체 ACL은 #1197·#1199에서). 쓰기는 `knowledge.catalog.manage`(CRUD·비활성화·Model–Process 매핑)와 `knowledge.catalog.import`(Import 검증·해결·적용) 두 capability로 나눈다. Admin은 항상 갖는다. Developer는 기존 권한 요청·직접 부여 흐름으로 받는다. User는 받지 않는다. 둘 다 sensitive가 아니다. 새 Role Level은 만들지 않는다. 부여 범위(어느 scope 키에 거는지)는 #1194에서 기존 부여 모델을 보고 정하고, 그 결정을 이 ADR에 덧붙인다. 이유: 기존 Role Level·부여 흐름을 그대로 쓰면 권한 화면·감사가 따로 필요 없고, Import는 한 번에 많은 행을 바꾸므로 CRUD와 따로 줄 수 있어야 한다.
 
+## 결정 3 보충: 부여 범위
+
+두 capability는 워크스페이스 범위로 부여한다(`managed_system_id` 없음). 카탈로그가 워크스페이스 전체 것이고 `log-dev`는 Managed System이 아니기 때문이다. `adminModuleBypass: 'always'`, sensitive 아님. Developer는 기존 권한 요청에서 Managed System 없이 요청한다. 결정자: 코디네이터, 사용자의 2026-11-02 ADR-0107 승인 아래(#1193).
+
 ## 다른 안
 
 - 공식 마스터가 정해질 때까지 카탈로그를 막는다 — P0 전체가 외부 대기가 되어 버렸다.

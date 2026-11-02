@@ -19,7 +19,13 @@ const workspaceMismatch: Decision = {
 };
 
 /** Capabilities a module lets the admin role through on, and how. */
-const ALWAYS: Capability[] = ['finding.read', 'finding.manage', 'task_request.self_approve'];
+const ALWAYS: Capability[] = [
+  'finding.read',
+  'finding.manage',
+  'task_request.self_approve',
+  'knowledge.catalog.manage',
+  'knowledge.catalog.import',
+];
 const UNLESS_DENIED: Capability[] = ['survey.read', 'survey.manage'];
 const NONE: Capability[] = [
   'workspace.read',

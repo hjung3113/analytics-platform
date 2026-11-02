@@ -15,6 +15,8 @@ const EXPECTED_LABELS: Record<Capability, string> = {
   'survey.manage': 'Survey 관리',
   'survey.read_personal_responses': '개인 응답 조회',
   'survey.export': 'Survey 데이터 내보내기',
+  'knowledge.catalog.manage': '카탈로그 관리',
+  'knowledge.catalog.import': '카탈로그 가져오기',
 };
 
 describe('capability display copy', () => {

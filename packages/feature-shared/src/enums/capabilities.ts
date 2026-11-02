@@ -22,6 +22,8 @@ export const CAPABILITIES = [
   'survey.manage',
   'survey.read_personal_responses',
   'survey.export',
+  'knowledge.catalog.manage',
+  'knowledge.catalog.import',
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -88,6 +90,10 @@ export const CAPABILITY_META: Readonly<Record<Capability, CapabilityMeta>> = {
   // Workspace Admin does not bypass this by role alone; explicit permission is required.
   // See docs/product/features/07-survey-system.md and ADR-0033 §C ("no role bypass, including Admin").
   'survey.export': { sensitive: true, adminModuleBypass: 'none' },
+  // Log knowledge catalog (ADR-0107 decision 3): workspace-scoped (no Managed System), not sensitive;
+  // the Admin role always holds them.
+  'knowledge.catalog.manage': { sensitive: false, adminModuleBypass: 'always' },
+  'knowledge.catalog.import': { sensitive: false, adminModuleBypass: 'always' },
 };
 
 export function isCapability(value: string): value is Capability {

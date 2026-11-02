@@ -98,6 +98,7 @@ describe('workspace assembly (#260)', () => {
       ['logModels', 'log-dev'],
       ['logCross', 'log-dev'],
       ['logRules', 'log-dev'],
+      ['logKnowledge', 'log-dev'],
       ['impMyWork', 'improvement'],
       ['impTasks', 'improvement'],
       ['impReports', 'improvement'],
@@ -206,7 +207,7 @@ describe('workspace assembly (#260)', () => {
     expect(SPACE_DEFS.slice(4, 6).every(space => space.permission === undefined)).toBe(true);
     const planned = registry.menus.filter(menu => ['log-dev', 'improvement'].includes(registry.spaceOf(menu)?.id ?? ''));
     expect(planned.map(menu => menu.id)).toEqual([
-      'log-my-queue', 'log-recent-models', 'log-models', 'log-defects', 'log-partner-reviews', 'log-rules',
+      'log-my-queue', 'log-recent-models', 'log-models', 'log-defects', 'log-partner-reviews', 'log-rules', 'log-knowledge-catalog',
       'imp-my-tasks', 'imp-tasks', 'imp-effect-report', 'imp-equipment-history',
     ]);
     expect(planned.every(menu => !menu.component && menu.permission === 'platform:view')).toBe(true);

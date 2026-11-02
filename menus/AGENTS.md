@@ -17,6 +17,7 @@
 | `@ap/menu-metrics` | `menus/bravo/metrics` | `metrics` | MetricCatalog(틀린 `status`·`domain`은 고치지 않고 SDK `usePageKeyRules`·`PageKeyWarning`으로 거부, #924), MetricDetail |
 | `@ap/menu-clas` | `menus/clas/clas` | `clas` | OperationTime |
 | `@ap/menu-log-my-work`·`-log-models`·`-log-cross`·`-log-rules` | `menus/log-dev/*` | `logMyWork`·`logModels`·`logCross`·`logRules` | 없음(계획 메뉴 manifest만, ADR-0065) |
+| `@ap/menu-log-knowledge` | `menus/log-dev/log-knowledge` | `logKnowledge` | 없음(계획 메뉴 manifest만. 서버 조회 `logKnowledge.*`는 #1193, 화면은 #1194) |
 | `@ap/menu-imp-my-work`·`-imp-tasks`·`-imp-reports` | `menus/improvement/*` | `impMyWork`·`impTasks`·`impReports` | 없음(계획 메뉴 manifest만, ADR-0065) |
 
 ## 규칙

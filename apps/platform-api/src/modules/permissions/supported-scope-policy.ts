@@ -14,7 +14,12 @@ export async function supportedScopeCandidates(
   workspaceId: string,
   capability: Capability,
 ): Promise<PermissionScopeCandidate[]> {
-  if (capability === 'workspace.read' || capability === 'workspace.admin') {
+  if (
+    capability === 'workspace.read' ||
+    capability === 'workspace.admin' ||
+    capability === 'knowledge.catalog.manage' ||
+    capability === 'knowledge.catalog.import'
+  ) {
     return [{ managed_system_id: null }];
   }
   const ids = await allManagedSystemIds(tx, workspaceId);
