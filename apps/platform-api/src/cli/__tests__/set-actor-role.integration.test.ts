@@ -144,10 +144,40 @@ describe.skipIf(!runIntegration)('set-actor-role', () => {
     await resetAdmins();
     await addActor('sub-c', 'admin');
     await addActor('sub-d', 'admin');
-    const results = await Promise.allSettled([
-      setActorRole(h, { workspaceId, externalId: 'sub-c', role: 'user' }),
-      setActorRole(h2, { workspaceId, externalId: 'sub-d', role: 'user' }),
+    let signalCounted: () => void = () => undefined;
+    const aCounted = new Promise<void>((r) => {
+      signalCounted = r;
+    });
+    let release: () => void = () => undefined;
+    const released = new Promise<void>((r) => {
+      release = r;
+    });
+    // A pauses inside its transaction after counting admins; B starts only then.
+    const a = setActorRole(
+      h,
+      { workspaceId, externalId: 'sub-c', role: 'user' },
+      {
+        afterAdminCount: async () => {
+          signalCounted();
+          await released;
+        },
+      },
+    );
+    await aCounted;
+    const b = setActorRole(h2, { workspaceId, externalId: 'sub-d', role: 'user' });
+    const bSettled = b.then(
+      () => 'ok',
+      () => 'rejected',
+    );
+    // B must be blocked behind A's lock (or, without the lock, would race ahead).
+    const early = await Promise.race([
+      bSettled,
+      new Promise<string>((r) => setTimeout(() => r('blocked'), 300)),
     ]);
+    release();
+    const results = await Promise.allSettled([a, b]);
+    // Without the lock B finishes during the pause and both demote.
+    expect(early).toBe('blocked');
     const ok = results.filter((r) => r.status === 'fulfilled');
     const bad = results.filter((r) => r.status === 'rejected');
     expect(ok).toHaveLength(1);
@@ -161,6 +191,24 @@ describe.skipIf(!runIntegration)('set-actor-role', () => {
     );
     expect(admins.rowCount).toBe(1);
     expect(await auditRows()).toHaveLength(1);
+  });
+
+  it('rolls the role change back when the audit write fails', async () => {
+    await resetAdmins();
+    await addActor('sub-e', 'user');
+    await expect(
+      setActorRole(
+        h,
+        { workspaceId, externalId: 'sub-e', role: 'admin' },
+        {
+          afterUpdate: async () => {
+            throw new Error('audit unavailable');
+          },
+        },
+      ),
+    ).rejects.toThrow('audit unavailable');
+    expect(await roleOf('sub-e')).toBe('user');
+    expect(await auditRows()).toHaveLength(0);
   });
 
   it.each([

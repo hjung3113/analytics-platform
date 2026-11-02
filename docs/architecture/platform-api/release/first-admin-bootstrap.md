@@ -12,9 +12,9 @@ All commands run as one-off jobs from the migrate/tools image in the operator Co
 2. **Seed the workspace.** `SEED_MODE=bootstrap` creates the Workspace (`WORKSPACE_ID`, `WORKSPACE_NAME`) and the `system` Actor, nothing else. Rerunning changes nothing and exits 0. The seed connects with `DATABASE_URL` (the `platform_app` role); the migrate image entrypoint also needs `DATABASE_URL_MIGRATE`, so pass both:
 
        docker compose --project-name platform-api --env-file .env.release -f docker-compose.release.yml \
-         run --rm -e SEED_MODE=bootstrap migrate node_modules/.bin/tsx src/seed/index.ts
+         run --rm -e SEED_MODE=bootstrap -e WORKSPACE_ID -e WORKSPACE_NAME migrate node_modules/.bin/tsx src/seed/index.ts
 
-   The job reads `WORKSPACE_ID` and `WORKSPACE_NAME` from the same env as the backend.
+   The command forwards `WORKSPACE_ID` and `WORKSPACE_NAME` explicitly from the operator shell or `--env-file`; set both to the values the backend uses.
 3. **First login.** The future admin signs in once through the company IdP. The first OIDC login creates their Actor with role `user`. Find their external id (the IdP `sub`) from the IdP or from `core.actors.external_id`.
 4. **Promote.** `set-actor-role` changes an existing Actor by external id. It needs only `DATABASE_URL_MIGRATE` and `WORKSPACE_ID`:
 

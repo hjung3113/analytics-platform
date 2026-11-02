@@ -50,9 +50,18 @@ export interface SetActorRoleResult {
   afterRole: SettableRole;
 }
 
+/** Test-only seam; the CLI never passes it. Each hook runs inside the transaction. */
+export interface SetActorRoleHooks {
+  /** After the last-admin count, before the update. */
+  afterAdminCount?: () => Promise<void>;
+  /** After the update, before the audit row. */
+  afterUpdate?: () => Promise<void>;
+}
+
 export async function setActorRole(
   handle: DbHandle,
   input: SetActorRoleInput,
+  hooks: SetActorRoleHooks = {},
 ): Promise<SetActorRoleResult> {
   const audit = createAuditService();
   return handle.db.transaction(async (tx) => {
@@ -107,6 +116,8 @@ export async function setActorRole(
       }
     }
 
+    await hooks.afterAdminCount?.();
+
     const [system] = await tx
       .select({ id: actors.id })
       .from(actors)
@@ -122,6 +133,7 @@ export async function setActorRole(
       .update(actors)
       .set({ roleLevel: input.role })
       .where(and(eq(actors.workspaceId, input.workspaceId), eq(actors.id, target.id)));
+    await hooks.afterUpdate?.();
     await audit.record(tx, {
       workspace_id: input.workspaceId,
       actor_id: system.id,
