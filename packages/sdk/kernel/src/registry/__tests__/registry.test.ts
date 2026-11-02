@@ -258,6 +258,35 @@ describe('spaces (06 §9.1)', () => {
     expect(() => createRegistry({ spaces: [{ ...analyticsSpace, subtitle }], groups, menus: [catalog] })).toThrow(/Space "mars" subtitle must not be empty/);
   });
 
+  it.each([undefined, 'default', 'hidden'] as const)('accepts scopePresentation %s on a space whose menus do not require Scope', scopePresentation => {
+    const space: SpaceDef = scopePresentation ? { ...analyticsSpace, scopePresentation } : analyticsSpace;
+    expect(createRegistry({ spaces: [space], groups, menus: [catalog] }).spaces[0]?.scopePresentation).toBe(scopePresentation);
+  });
+
+  it('accepts a default space with a Scope-requiring menu', () => {
+    const scoped = menu('catalog', '/metrics', { primary: true, requiresScope: true });
+    expect(() => createRegistry({ spaces: [{ ...analyticsSpace, scopePresentation: 'default' }], groups, menus: [scoped] })).not.toThrow();
+  });
+
+  it('rejects an unknown scopePresentation value', () => {
+    expect(() => createRegistry({ spaces: [{ ...analyticsSpace, scopePresentation: 'site' as never }], groups, menus: [catalog] })).toThrow(/Space "mars" scopePresentation must be/);
+  });
+
+  it('rejects a hidden space that holds a Scope-requiring platform menu, naming space and menu', () => {
+    const scoped = menu('scoped', '/scoped', { requiresScope: true });
+    expect(() => createRegistry({ spaces: [{ ...analyticsSpace, scopePresentation: 'hidden' }], groups, menus: [catalog, scoped] })).toThrow(/Space "mars" hides Scope but menu "scoped" requires Scope/);
+  });
+
+  it('rejects a hidden space that holds a Scope-requiring module menu', () => {
+    const modGroup: GroupDef = { id: 'fx:main', module: 'fx', label: { ko: '모', en: 'M' }, icon: House, space: spaceId('mars') };
+    const mod: ModuleMenuEntry = {
+      id: 'fx-home', module: 'fx', group: 'fx:main', permission: 'fx:view', label: { ko: 'f', en: 'f' }, description: { ko: '', en: '' }, path: '/fx', icon: House,
+      requiresScope: true, context: none, pageType: 'catalog', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [], primary: true,
+      moduleScreen: () => null,
+    };
+    expect(() => createRegistry({ spaces: [{ ...analyticsSpace, scopePresentation: 'hidden' }], groups: [...groups, modGroup], menus: [catalog, mod] })).toThrow(/Space "mars" hides Scope but menu "fx-home" requires Scope/);
+  });
+
   it('rejects a home menu whose permission differs from the space permission', () => {
     const viewerRoles = menu('admin-roles', '/admin/roles', { group: groupId('admin'), permission: 'platform:view', primary: true });
     expect(() => createRegistry({ spaces: [operations], groups: adminGroups, menus: [viewerRoles] })).toThrow(/Space "operations" home permission must be "console:access"/);

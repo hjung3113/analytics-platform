@@ -177,3 +177,16 @@ describeServerConformance('server boundary conformance — mock adapter', {
     try { return await fn(); } finally { setRole(previous); }
   },
 });
+
+describe('hidden Scope presentation (#1251)', () => {
+  it('no Scope-requiring endpoint belongs to a menu in a space with scopePresentation "hidden"', () => {
+    const offenders = endpoints
+      .filter(endpoint => endpoint.spec.requiresScope)
+      .filter(endpoint => {
+        const menu = registry.menus.find(entry => entry.id === endpoint.spec.menuId);
+        return menu !== undefined && registry.spaceOf(menu)?.scopePresentation === 'hidden';
+      })
+      .map(endpoint => endpoint.spec.id);
+    expect(offenders).toEqual([]);
+  });
+});
