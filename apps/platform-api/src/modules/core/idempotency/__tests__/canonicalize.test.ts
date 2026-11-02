@@ -25,3 +25,18 @@ describe('canonicalizeJson undefined sentinel (S-008)', () => {
     expect(JSON.stringify(canonicalizeJson({ a: undefined }))).toBe('{"a":"__platform_undefined__"}');
   });
 });
+
+describe('canonicalizeJson prototype-safe keys (#1193 F5)', () => {
+  it('keeps an own JSON "__proto__" member in the fingerprint', () => {
+    const withProto = JSON.parse('{"id":"x","__proto__":{"extra":true}}') as unknown;
+    const without = JSON.parse('{"id":"x"}') as unknown;
+    expect(hashRequestBody(withProto)).not.toBe(hashRequestBody(without));
+    expect(hashRequestBody(JSON.parse('{"__proto__":1}'))).not.toBe(hashRequestBody({}));
+  });
+
+  it('is still independent of member order', () => {
+    expect(hashRequestBody(JSON.parse('{"a":1,"__proto__":2,"b":{"d":1,"c":2}}'))).toBe(
+      hashRequestBody(JSON.parse('{"b":{"c":2,"d":1},"__proto__":2,"a":1}')),
+    );
+  });
+});

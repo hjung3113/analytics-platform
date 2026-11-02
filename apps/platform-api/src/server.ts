@@ -61,7 +61,17 @@ import {
   createManagedSystemService,
   managedSystemsRoutes,
 } from './modules/managed-systems/index.js';
-import { MENU_QUERY_PREFIX, menuQueryRoutes } from './modules/menu-query/index.js';
+import {
+  MENU_ACTION_PREFIX,
+  type MenuDispatchContribution,
+  createMenuDispatchRegistry,
+  menuActionRoutes,
+} from './modules/menu-dispatch/index.js';
+import {
+  MENU_QUERY_PREFIX,
+  homeNoticesContribution,
+  menuQueryRoutes,
+} from './modules/menu-query/index.js';
 import { createMilestonesService, milestonesRoutes } from './modules/milestones/index.js';
 import {
   type NavCountsService,
@@ -167,6 +177,12 @@ export interface BuildServerOptions {
   navCountsService?: NavCountsService;
   /** Route-test seam; production constructs the navigation resolve service below. */
   navResolveService?: NavResolveService;
+  /**
+   * Menu endpoints/actions that business modules contribute to `POST /api/v1/menu-query` and
+   * `POST /api/v1/menu-action` (menu-dispatch). Added to the platform's own `home.notices`; a failing
+   * registration validation stops the boot. Tests pass their own pair here.
+   */
+  menuDispatch?: readonly MenuDispatchContribution[];
 }
 
 export async function buildServer(opts: BuildServerOptions): Promise<FastifyInstance> {
@@ -798,13 +814,26 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     workspaceId,
     db: dbHandle.db,
   });
-  // The first business menuQuery route (#1106, ADR-0095 §1): `home.notices` only.
+  // The business menu ports (#1106 menu-query, #1193 menu-action): one declaration registry that
+  // modules contribute to. Registration problems throw here and stop the boot.
+  const menuRegistry = createMenuDispatchRegistry([
+    homeNoticesContribution({ db: dbHandle.db, checkService }),
+    ...(opts.menuDispatch ?? []),
+  ]);
   await app.register(menuQueryRoutes, {
     prefix: MENU_QUERY_PREFIX,
     sessionService,
     checkService,
     workspaceId,
     db: dbHandle.db,
+    registry: menuRegistry,
+  });
+  await app.register(menuActionRoutes, {
+    prefix: MENU_ACTION_PREFIX,
+    sessionService,
+    workspaceId,
+    db: dbHandle.db,
+    registry: menuRegistry,
   });
   await app.register(navRoutes, {
     sessionService,
