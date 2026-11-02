@@ -258,7 +258,19 @@ describe.skipIf(!runIntegration)('notification dispatch integration', () => {
     });
   });
 
-  it('rolls back inbox and email claim when send fails, then allows a successful retry', async () => {
+  const keyParams = (payload: NotificationJobPayload) => [
+    WORKSPACE_ID,
+    payload.actor_id,
+    payload.event_type,
+    payload.subject_id,
+    payload.correlation_id,
+  ];
+  const ROW_SQL = `select email_sent_at from core.notifications
+        where workspace_id = $1 and actor_id = $2 and event_type = $3
+          and subject_id = $4 and correlation_id = $5`;
+
+  // Replaces 'rolls back inbox and email claim when send fails' (old single-transaction contract).
+  it('keeps the inbox row when send fails, then a retry sends once without a duplicate row', async () => {
     const payload = notificationPayload('permission_request.decided');
     const failingHandler = notificationDispatchHandler({
       db: appDb.db,
@@ -270,19 +282,11 @@ describe.skipIf(!runIntegration)('notification dispatch integration', () => {
     });
     await expect(failingHandler([{ data: payload }])).rejects.toThrow('channel unavailable');
 
-    const afterFailure = await migrateDb.pool.query(
-      `select 1 from core.notifications
-        where workspace_id = $1 and actor_id = $2 and event_type = $3
-          and subject_id = $4 and correlation_id = $5`,
-      [
-        WORKSPACE_ID,
-        payload.actor_id,
-        payload.event_type,
-        payload.subject_id,
-        payload.correlation_id,
-      ],
+    const afterFailure = await migrateDb.pool.query<{ email_sent_at: Date | null }>(
+      ROW_SQL,
+      keyParams(payload),
     );
-    expect(afterFailure.rowCount).toBe(0);
+    expect(afterFailure.rows).toEqual([{ email_sent_at: null }]);
 
     const sent: NotificationEmailEnvelope[] = [];
     const successfulHandler = notificationDispatchHandler({
@@ -291,20 +295,65 @@ describe.skipIf(!runIntegration)('notification dispatch integration', () => {
     });
     await successfulHandler([{ data: payload }]);
     const afterRetry = await migrateDb.pool.query<{ email_sent_at: Date | null }>(
-      `select email_sent_at from core.notifications
-        where workspace_id = $1 and actor_id = $2 and event_type = $3
-          and subject_id = $4 and correlation_id = $5`,
-      [
-        WORKSPACE_ID,
-        payload.actor_id,
-        payload.event_type,
-        payload.subject_id,
-        payload.correlation_id,
-      ],
+      ROW_SQL,
+      keyParams(payload),
     );
     expect(afterRetry.rows).toHaveLength(1);
     expect(afterRetry.rows[0]?.email_sent_at).toBeInstanceOf(Date);
     expect(sent).toHaveLength(1);
+  });
+
+  it('does not let one failing job in a batch undo or block the others', async () => {
+    const failing = notificationPayload('permission_request.decided', actorIds[0] ?? '');
+    const other = notificationPayload('permission_request.decided', actorIds[1] ?? '');
+    const sent: string[] = [];
+    const handler = notificationDispatchHandler({
+      db: appDb.db,
+      channel: {
+        send: async (envelope) => {
+          if (envelope.actor_id === failing.actor_id) throw new Error('channel unavailable');
+          sent.push(envelope.actor_id);
+        },
+      },
+    });
+    await expect(handler([{ data: failing }, { data: other }])).rejects.toThrow(
+      'channel unavailable',
+    );
+    const failingRow = await migrateDb.pool.query(ROW_SQL, keyParams(failing));
+    const otherRow = await migrateDb.pool.query<{ email_sent_at: Date | null }>(
+      ROW_SQL,
+      keyParams(other),
+    );
+    expect(failingRow.rows).toEqual([{ email_sent_at: null }]);
+    expect(otherRow.rows[0]?.email_sent_at).toBeInstanceOf(Date);
+    expect(sent).toEqual([other.actor_id]);
+  });
+
+  it('holds no database transaction open while the channel is sending', async () => {
+    const payload = notificationPayload('permission_request.decided');
+    let observed: Array<{ state: string | null; xact_start: Date | null }> = [];
+    const handler = notificationDispatchHandler({
+      db: appDb.db,
+      channel: {
+        send: async () => {
+          // Same role as the handler's pool; a held-open transaction would show here.
+          const activity = await appDb.pool.query<{
+            state: string | null;
+            xact_start: Date | null;
+          }>(
+            `select state, xact_start from pg_stat_activity
+              where datname = current_database()
+                and usename = current_user
+                and pid <> pg_backend_pid()`,
+          );
+          observed = activity.rows;
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        },
+      },
+    });
+    await handler([{ data: payload }]);
+    expect(observed.filter((row) => row.state?.startsWith('idle in transaction'))).toEqual([]);
+    expect(observed.filter((row) => row.xact_start !== null && row.state !== 'idle')).toEqual([]);
   });
 
   it('persists email-disabled events without calling the channel or setting a claim', async () => {
