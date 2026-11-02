@@ -66,11 +66,11 @@ export function CatalogTable({ kind, q, focus, rowsRef, options, labels, remembe
     const open = (row: CatalogRow) => { remember(row.id, row.name || row.code); setPage(tabPatch(childLink(row, kind))); };
     const code: PlatformColumn<CatalogRow> = { id: 'code', header: kind === 'software' ? '버전' : '코드', size: 140, cell: r => <span className="t-mono">{r.code}</span> };
     const status: PlatformColumn<CatalogRow> = {
-      id: 'active', header: '상태', size: 96, filter: specs.active, filterPinned: 1, exportValue: r => (r.active ? '활성' : '비활성'),
+      id: 'active', header: '상태', size: 116, filter: specs.active, filterPinned: 1, exportValue: r => (r.active ? '활성' : '비활성'),
       cell: r => <StatusBadge tone={r.active ? 'success' : 'neutral'}>{r.active ? '활성' : '비활성'}</StatusBadge>,
     };
-    const name: PlatformColumn<CatalogRow> = { id: 'name', header: '이름', size: 200, cell: r => r.name || '—' };
-    const updated: PlatformColumn<CatalogRow> = { id: 'updatedAt', header: '수정일', size: 120, cell: r => <span className="tabular">{r.updatedAt.slice(0, 10)}</span> };
+    const name: PlatformColumn<CatalogRow> = { id: 'name', header: '이름', size: 180, cell: r => r.name || '—' };
+    const updated: PlatformColumn<CatalogRow> = { id: 'updatedAt', header: '수정일', size: 132, cell: r => <span className="tabular">{r.updatedAt.slice(0, 10)}</span> };
     if (kind === 'vendor' || kind === 'process') {
       return [code, status, name, {
         id: 'modelCount', header: '모델 수', size: 96, align: 'right', exportValue: r => (r as VendorRow | ProcessRow).modelCount,
