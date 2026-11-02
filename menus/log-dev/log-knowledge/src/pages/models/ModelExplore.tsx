@@ -53,10 +53,10 @@ export default function ModelExplore() {
 
   const columns = useMemo<PlatformColumn<ExploreModelRow>[]>(() => [
     { id: 'code', header: '모델 코드', size: 100, cell: r => <PlatformLink className="t-mono text-accent-primary hover:underline" href={linkTo('log-knowledge-model', { params: { modelId: r.id }, returnTo: true })}>{r.code}</PlatformLink> },
-    { id: 'name', header: '모델명', size: 140 },
+    { id: 'name', header: '모델명', size: 134 },
     { id: 'vendorName', header: '제조사', size: 124 },
-    { id: 'processNames', header: '공정', size: 160, sortable: false, exportValue: r => r.processes.map(p => p.name).join(', '), cell: r => <ProcessBadges processes={r.processes} /> },
-    { id: 'softwareCount', header: '활성 SW', size: 88, align: 'right', exportValue: r => r.softwareCount,
+    { id: 'processNames', header: '공정', size: 148, sortable: false, exportValue: r => r.processes.map(p => p.name).join(', '), cell: r => <ProcessBadges processes={r.processes} /> },
+    { id: 'softwareCount', header: '활성 SW', size: 100, align: 'right', exportValue: r => r.softwareCount,
       cell: r => (r.softwareCount === 0 ? <span className="font-semibold text-text-warning-label">활성 SW 0</span> : <span className="tabular">{r.softwareCount}</span>) },
     { id: 'modelItemCount', header: '공통 Item', size: 88, align: 'right', sortable: false, exportValue: r => r.modelItemCount, cell: r => <span className="tabular">{r.modelItemCount}</span> },
     { id: 'active', header: '상태', size: 100, filter: specs.active, filterPinned: 1, filterLabel: FIELD_NAME.active, exportValue: r => statusText(r.active),
