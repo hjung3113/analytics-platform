@@ -2,7 +2,12 @@
 // (real-server-checklist §3 «등록 검증»). A failing validation throws, which stops `buildServer`.
 // Checks the server can make without the app's menu Registry: duplicate ids, `invalidates` entries
 // are registered endpoints of the same menu, a `version` action has `currentVersion`, `limits`
-// rules, and the two refusals that wait for a server Scope resolver (#1087).
+// rules, scope-free endpoints applying no site-bound Context (rule 6), and the two refusals that wait
+// for a server Scope resolver (#1087).
+//
+// Action replay size bound: an `ok` answer is stored whole in `core.idempotency_keys` for replay, up to
+// 128 KiB of JSON (`MENU_ACTION_REPLAY_MAX_BYTES`). A handler whose `data` is larger gets its transaction
+// rolled back and the answer `error` (`response too large to record`), so a handler's `data` must fit.
 
 import type {
   ActionDeclarationSpec,
@@ -24,6 +29,9 @@ export interface MenuDispatchRegistry {
 /** Paging params: `limits.maxRows` is refused beside them (checklist rule 7, #175). */
 const PAGING_KEYS = ['page', 'pageSize', 'cursor'] as const;
 
+/** Site-bound Context keys: a scope-free endpoint may not apply them (checklist §3 rule 6; same set as the mock adapter). */
+const SITE_BOUND_KEYS = ['roomNames', 'condition', 'selection', 'lot', 'recipe', 'ppid'] as const;
+
 const SCOPE_BLOCKER =
   'the server has no Scope resolver yet (#1087); site/room grants cannot be judged';
 
@@ -42,6 +50,13 @@ function endpointProblems(spec: EndpointDeclarationSpec): string[] {
     problems.push(
       `${at}: mergeTimeDomain is refused — step 7 (§6.3) compares the time domains of the resolved equipment set, and ${SCOPE_BLOCKER}`,
     );
+  }
+  if (!spec.requiresScope) {
+    for (const key of SITE_BOUND_KEYS) {
+      if (spec.context[key] === 'apply') {
+        problems.push(`${at}: a scope-free endpoint cannot apply site-bound context ${key}`);
+      }
+    }
   }
   for (const key of spec.requiredContext ?? []) {
     if (spec.context[key] !== 'apply') problems.push(`${at}: requiredContext ${key} is not applied`);

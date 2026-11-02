@@ -84,9 +84,11 @@ Kernel은 받은 `ok`/`empty`의 kind가 선언과 다르면 `contract_violation
 
 platform-api의 `menuQuery`·`menuAction`은 `apps/platform-api/src/modules/menu-dispatch`의 선언 등록부 하나로 판정한다([아키텍처 02](../architecture/platform-api/02-domain-module-boundaries.md) Menu Dispatch). 업무 모듈이 엔드포인트·동작 선언(`spec` + `authorize`·`validate`·`handle`, 동작은 `currentVersion`)을 `buildServer({ menuDispatch })`로 기여하고, 엔진은 이 문서의 판정 순서와 아래 등록 검증만 맡는다. 쓰기와 감사는 선언의 핸들러가 같은 트랜잭션에서 한다. 라우트는 `POST /api/v1/menu-query`·`POST /api/v1/menu-action`이고 멱등 키·버전은 본문 값으로 판정한다(어댑터가 같은 값을 `Idempotency-Key`·`If-Match`로도 보낸다). 쓰기는 공지 쓰기(notice)와 같은 CSRF 검사를 세션 확인 뒤에 한다.
 
+**쓰기 답 크기 상한:** 재생을 위해 `ok` 답(JSON)을 통째로 저장하며 상한은 128 KiB(UTF-8 바이트)다. 넘으면 트랜잭션(핸들러의 쓰기 포함)을 되돌리고 `error`, `message: 'response too large to record'`로 답한다 — 재생할 수 없는 `ok`는 내지 않는다. 핸들러의 `data`는 이 안에 들어와야 한다. 멱등 키는 소문자 UUID로 정규화해 잠금·조회·기록에 쓴다.
+
 - **시간 도메인(§3 7단계)** — 선언의 `mergeTimeDomain` 플래그로 정해지지만 서버는 아직 이 판정을 하지 못한다. 합칠 설비 집합이 Scope에서 나오기 때문이다.
 - **구현 안 함 — `requiresScope`·`mergeTimeDomain` 선언(4·7단계):** 서버에 Scope 해석기(site·room 부여)가 없어 두 선언은 기동 시 등록 검증이 거부한다(메시지에 #1087). 이유: 부여를 판정하지 못한 채 받으면 `forbidden`을 낼 근거가 없다. 다시 여는 조건: #1087 서버 Scope 해석기가 생길 때(백로그 줄 참조).
-- 서버가 하는 등록 검증: 동작·엔드포인트 id 중복 없음, `invalidates`가 같은 `menuId`의 등록된 엔드포인트, `concurrency: 'version'`에 `currentVersion`, `limits.maxRows` 양의 정수이고 페이지·커서 엔드포인트 아님, `limits.maxHours` 양수이고 `context.time` 적용, `requiredContext`는 적용된 키. 메뉴 Registry와 대조하는 항목(`menuId`·권한 이름·`apply` 키 일치)은 서버가 앱의 메뉴 Registry를 갖지 않아 하지 않는다.
+- 서버가 하는 등록 검증: 동작·엔드포인트 id 중복 없음, `invalidates`가 같은 `menuId`의 등록된 엔드포인트, `concurrency: 'version'`에 `currentVersion`, `limits.maxRows` 양의 정수이고 페이지·커서 엔드포인트 아님, `limits.maxHours` 양수이고 `context.time` 적용, `requiredContext`는 적용된 키, Scope 없는 엔드포인트는 site 종속 키(`roomNames`·`condition`·`selection`·`lot`·`recipe`·`ppid`)를 `apply`하지 않음(규칙 6). 메뉴 Registry와 대조하는 항목(`menuId`·권한 이름·`apply` 키 일치)은 서버가 앱의 메뉴 Registry를 갖지 않아 하지 않는다.
 
 ### `menuAction` 판정 순서
 

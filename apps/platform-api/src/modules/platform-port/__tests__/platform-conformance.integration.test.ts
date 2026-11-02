@@ -10,13 +10,14 @@
 
 import {
   ENTITY_AUDIT_PAGE_MAX as CONTRACT_ENTITY_AUDIT_PAGE_MAX,
+  type AnyActionSpec,
   type PlatformAdapter,
   type SavedViewStore,
   menuPermission,
   spaceId,
 } from '@ap/contracts';
 import { bootstrapHttpAdapter } from '@ap/http-adapter';
-import { type PortMethod, describeServerConformance } from '@ap/server-conformance';
+import { type PortMethod, type ServerConformanceHarness, describeServerConformance } from '@ap/server-conformance';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -31,6 +32,7 @@ import { insertFindingRow } from '../../../test-support/findings-fixtures.js';
 import { uid } from '../../../test-support/ids.js';
 import { grantCapability } from '../../../test-support/permissions-fixtures.js';
 import { insertVocDirectly } from '../../../test-support/voc-fixtures.js';
+import type { MenuActionDeclaration } from '../../menu-dispatch/types.js';
 import { ENTITY_AUDIT_PAGE_MAX } from '../entity-audit-cursor.js';
 
 const APP_URL = process.env.DATABASE_URL ?? '';
@@ -38,6 +40,47 @@ const MIGRATE_URL = process.env.DATABASE_URL_MIGRATE ?? '';
 const WORKSPACE_ID = process.env.WORKSPACE_ID ?? '';
 const runIntegration = Boolean(APP_URL && MIGRATE_URL && WORKSPACE_ID);
 const PREFIX = uid('it-conformance');
+
+/** The test-only write pair the kit's menuAction checks run against (#1193 F7). In-memory state; permission is a set of actor ids. */
+const ACTION_PERMISSION = menuPermission(`${PREFIX}:write`);
+const mayWriteActions = new Set<string>();
+const actionState = { name: 'initial', revision: 1 };
+const noneSpec: AnyActionSpec = {
+  id: `${PREFIX}.note`,
+  menuId: `${PREFIX}-menu`,
+  inputKeys: { name: true },
+  permission: ACTION_PERMISSION,
+  requiresScope: false,
+  concurrency: 'none',
+  invalidates: [],
+};
+const versionSpec: AnyActionSpec = { ...noneSpec, id: `${PREFIX}.rename`, concurrency: 'version' };
+const actionDeclaration = (spec: AnyActionSpec): MenuActionDeclaration => ({
+  spec: {
+    id: spec.id,
+    menuId: spec.menuId,
+    inputKeys: Object.keys(spec.inputKeys),
+    permission: spec.permission,
+    requiresScope: false,
+    concurrency: spec.concurrency,
+    invalidates: [],
+  },
+  authorize: async (actor) => mayWriteActions.has(actor.actor_id),
+  validate: (input) =>
+    typeof input.name === 'string' && input.name.length > 0
+      ? []
+      : [{ path: ['name'], code: 'required' }],
+  currentVersion: async () => String(actionState.revision),
+  handle: async (_tx, _actor, input) => {
+    actionState.name = String(input.name);
+    actionState.revision += 1;
+    return {
+      data: { name: actionState.name },
+      version: spec.concurrency === 'version' ? String(actionState.revision) : null,
+    };
+  },
+});
+const testActionPair = { actions: [actionDeclaration(noneSpec), actionDeclaration(versionSpec)] };
 
 type Account = 'granted' | 'plain' | 'console' | 'otherAnnotator' | 'svUser' | 'svAdmin';
 type Role = 'admin' | 'developer' | 'user';
@@ -72,10 +115,10 @@ const IMPLEMENTED: readonly PortMethod[] = [
  * recognizes the route as served; it never lists the port as implemented.
  *
  * `menuAction` is served by the generic dispatch (#1193, `POST /api/v1/menu-action`) but this server
- * registers no real write yet, and the kit's action checks need a declared sample (`actions`) the
- * production assembly does not have. They stay a visible `actions: no sample` skip; the engine's judgment is
- * asserted by menu-dispatch.integration.test.ts against a test-only action. Add it to IMPLEMENTED with a
- * sample once a module registers its first real action.
+ * registers no real write yet, so the production readiness run has no action sample and keeps a visible
+ * `actions: no sample` skip. The kit's action checks do run, in the second run below, against a test-only
+ * action pair registered through `buildServer({ menuDispatch })` (the harness accepts a server-provided
+ * `actions` sample). Add it to IMPLEMENTED with a production sample once a module registers its first real action.
  */
 const SERVED_PARTIAL: readonly PortMethod[] = ['menuQuery', 'menuAction'];
 
@@ -275,7 +318,7 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
     // probes without a session, mock-logins), so it clears the table on the way in and out; left
     // behind, they push a later suite's mock-login over the 50/min limit (#681).
     await migrateHandle.pool.query('delete from core.rate_limits');
-    app = await buildServer({ config: loadConfig(), dbHandle });
+    app = await buildServer({ config: loadConfig(), dbHandle, menuDispatch: [testActionPair] });
     await app.ready();
 
     msId = await insertMsDirectly(migrateHandle, WORKSPACE_ID, `${PREFIX}-ms`, 'Conformance MS');
@@ -284,6 +327,7 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
     // console: admin → workspace.admin → console:access.
     const grantedId = await signIn('granted', 'developer');
     grantedPersonId = grantedId;
+    mayWriteActions.add(grantedId);
     await signIn('plain', 'user');
     const adminId = await signIn('console', 'admin');
     await signIn('otherAnnotator', 'developer');
@@ -407,7 +451,7 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
     });
   });
 
-  describeServerConformance('Platform API through @ap/http-adapter', {
+  const harness: ServerConformanceHarness = {
     adapter,
     implemented: IMPLEMENTED,
     siteGrants: false,
@@ -467,9 +511,27 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
     withoutPermission: (permission, fn) => {
       if (permission === 'features:access') return as('plain', fn);
       if (permission === 'console:access') return as('granted', fn);
+      if (permission === ACTION_PERMISSION) return as('plain', fn);
       throw new Error(`no account without ${permission}`);
     },
     asConsole: (fn) => as('console', fn),
     asOtherAnnotator: (fn) => as('otherAnnotator', fn),
+  };
+
+  describeServerConformance('Platform API through @ap/http-adapter', harness);
+
+  // The menuAction checks against the test-only pair. Only `menuAction` is declared implemented here, so every
+  // other check is a skip (it ran, or was skipped, in the production run above); production readiness is unchanged.
+  describeServerConformance('menuAction through @ap/http-adapter (test-only pair, #1193)', {
+    ...harness,
+    implemented: ['menuAction'],
+    actions: [
+      { spec: noneSpec, input: { name: 'conformance' } },
+      {
+        spec: versionSpec,
+        input: { name: 'conformance' },
+        currentVersion: async () => String(actionState.revision),
+      },
+    ],
   });
 });

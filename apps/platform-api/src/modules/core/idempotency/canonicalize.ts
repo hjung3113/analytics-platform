@@ -14,7 +14,8 @@ export function canonicalizeJson(value: unknown): unknown {
   if (value === undefined) return UNDEFINED_SENTINEL;
   if (value === null || typeof value !== 'object') return value;
   if (Array.isArray(value)) return value.map(canonicalizeJson);
-  const out: Record<string, unknown> = {};
+  // Null prototype: assigning an own JSON key `__proto__` must create a member, not call the inherited setter.
+  const out: Record<string, unknown> = Object.create(null) as Record<string, unknown>;
   for (const key of Object.keys(value as Record<string, unknown>).sort()) {
     out[key] = canonicalizeJson((value as Record<string, unknown>)[key]);
   }

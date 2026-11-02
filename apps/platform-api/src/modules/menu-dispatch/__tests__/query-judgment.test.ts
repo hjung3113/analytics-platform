@@ -5,10 +5,10 @@ import type { Db } from '../../../db/client.js';
 import type { CheckService } from '../../permissions/check-service.js';
 import { createMenuDispatchRegistry } from '../registry.js';
 import { judgeQueryShape, runQuery } from '../query.js';
-import { registryOf, testEndpoint } from './test-declarations.js';
+import { registryOf, testEndpoint, unvalidatedRegistry } from './test-declarations.js';
 
 const actor = { actor_id: 'a', workspace_id: 'w', role_level: 'user' };
-const run = (declarationRegistry: ReturnType<typeof registryOf>, body: unknown) => {
+const run = (declarationRegistry: Parameters<typeof judgeQueryShape>[1], body: unknown) => {
   const shape = judgeQueryShape(body, declarationRegistry);
   return shape.ok ? runQuery(shape, actor, 'cid') : Promise.resolve(shape);
 };
@@ -82,7 +82,7 @@ describe('judgeQueryShape (applied Context)', () => {
     expect(
       judgeQueryShape({ endpoint: 'test.rows', context: { metricId: null, metricVersion: 'v1' }, params: { q: 1 } }, metric),
     ).toMatchObject({ ok: false });
-    const basis = registryOf([testEndpoint({ context: { condition: 'apply' } }).declaration]);
+    const basis = unvalidatedRegistry(testEndpoint({ requiresScope: true, context: { condition: 'apply' } }).declaration);
     expect(
       judgeQueryShape({ endpoint: 'test.rows', context: { condition: null, membershipBasis: 'asOf' }, params: { q: 1 } }, basis),
     ).toMatchObject({ ok: false });
@@ -92,6 +92,55 @@ describe('judgeQueryShape (applied Context)', () => {
     const required = registryOf([testEndpoint({ ...timeSpec, requiredContext: ['line'] }).declaration]);
     expect(judgeQueryShape(withLine(null), required)).toMatchObject({ ok: false });
     expect(judgeQueryShape(withLine([]), required)).toMatchObject({ ok: true });
+  });
+
+  it('accepts absent optional params; only keys outside paramKeys are an error (F1)', () => {
+    const paged = registryOf([testEndpoint({ paramKeys: ['cursor', 'filters'] }).declaration]);
+    expect(judgeQueryShape({ endpoint: 'test.rows', context: {}, params: {} }, paged)).toMatchObject({ ok: true });
+    expect(
+      judgeQueryShape({ endpoint: 'test.rows', context: {}, params: { other: 1 } }, paged),
+    ).toMatchObject({ ok: false });
+  });
+
+  // F6: the cases createMockAdapter (mock-server query/endpoints.ts) rejects.
+  it.each([
+    ['a blank required metricId', { metricId: '', metricVersion: null }],
+    ['a blank required metricVersion', { metricId: 'm', metricVersion: '' }],
+    ['a null required metricId', { metricId: null, metricVersion: null }],
+  ])('rejects %s', (_name, context) => {
+    const required = registryOf([
+      testEndpoint({ context: { metric: 'apply' }, requiredContext: ['metric'] }).declaration,
+    ]);
+    expect(judgeQueryShape({ endpoint: 'test.rows', context, params: { q: 1 } }, required)).toMatchObject({ ok: false });
+  });
+
+  it.each([
+    ['from after to', '2026-10-02T00:00:00', '2026-10-01T00:00:00'],
+    ['from equal to', '2026-10-01T00:00:00', '2026-10-01T00:00:00'],
+    ['a non-calendar date', '2026-02-30T00:00:00', '2026-03-01T00:00:00'],
+    ['hour 24', '2026-10-01T24:00:00', '2026-10-02T00:00:00'],
+  ])('rejects a required time with %s', (_name, from, to) => {
+    const required = registryOf([testEndpoint({ context: { time: 'apply' }, requiredContext: ['time'] }).declaration]);
+    expect(judgeQueryShape({ endpoint: 'test.rows', context: { from, to }, params: { q: 1 } }, required)).toMatchObject({ ok: false });
+  });
+
+  it('rejects a non-calendar time on a maxHours endpoint and accepts a real one', () => {
+    const limited = registryOf([testEndpoint({ context: { time: 'apply' }, limits: { maxHours: 24 } }).declaration]);
+    const at = (from: string, to: string) => ({ endpoint: 'test.rows', context: { from, to }, params: { q: 1 } });
+    expect(judgeQueryShape(at('2026-02-30T00:00:00', '2026-03-01T00:00:00'), limited)).toMatchObject({ ok: false });
+    expect(judgeQueryShape(at('2026-10-01T00:00:00', '2026-10-02T00:00:00'), limited)).toMatchObject({ ok: true });
+  });
+
+  it('rejects asOf together with a condition (the mock answers membership_basis_unsupported)', () => {
+    const basis = unvalidatedRegistry(
+      testEndpoint({ requiresScope: true, context: { condition: 'apply', prcGroup: 'apply' } }).declaration,
+    );
+    expect(
+      judgeQueryShape(
+        { endpoint: 'test.rows', context: { condition: { axis: ['A'] }, prcGroups: null, membershipBasis: 'asOf' }, params: { q: 1 } },
+        basis,
+      ),
+    ).toMatchObject({ ok: false });
   });
 
   it('lets the endpoint refuse a param value as an error', () => {
@@ -143,9 +192,10 @@ describe('runQuery order (steps 3–10)', () => {
   });
 
   it('judges maxHours before the empty set, and a narrowing Selection lifts it', async () => {
-    const spec = { context: { time: 'apply', selection: 'apply' } as const, limits: { maxHours: 24 } };
+    // A selection endpoint needs Scope, which registration refuses (F3, #1087): the judgment is exercised on a stub registry.
+    const spec = { requiresScope: true, context: { time: 'apply', selection: 'apply' } as const, limits: { maxHours: 24 } };
     const { declaration, calls } = testEndpoint(spec);
-    const registry = registryOf([declaration]);
+    const registry = unvalidatedRegistry(declaration);
     const wide = (selection: string[] | null) => ({
       endpoint: 'test.rows',
       context: { from: '2026-10-01T00:00:00', to: '2026-10-03T00:00:00', selection },

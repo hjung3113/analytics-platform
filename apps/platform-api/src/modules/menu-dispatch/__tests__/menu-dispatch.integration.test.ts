@@ -16,6 +16,7 @@ import { buildServer } from '../../../server.js';
 import { insertActorRow } from '../../../test-support/actor-fixtures.js';
 import { loginAs } from '../../../test-support/auth.js';
 import { uid } from '../../../test-support/ids.js';
+import { MENU_ACTION_REPLAY_MAX_BYTES } from '../action.js';
 import type {
   FieldError,
   MenuActionDeclaration,
@@ -132,9 +133,30 @@ describe.skipIf(!runIntegration)('menu dispatch: menu-query + menu-action (#1193
     },
   };
 
+  const bigId = `${PREFIX}.big`;
+  let bigHandled = 0;
+  /** Returns an answer over the replay bound: `ok` could never be replayed, so the engine must refuse it (F4). */
+  const bigAction: MenuActionDeclaration = {
+    spec: {
+      id: bigId,
+      menuId,
+      inputKeys: ['id'],
+      permission: 'itest:write',
+      requiresScope: false,
+      concurrency: 'none',
+      invalidates: [endpointId],
+    },
+    authorize: async (actor) => mayWrite.has(actor.actor_id),
+    validate: () => [],
+    handle: async () => {
+      bigHandled += 1;
+      return { data: { text: 'x'.repeat(MENU_ACTION_REPLAY_MAX_BYTES + 1) }, version: null };
+    },
+  };
+
   const contribution: MenuDispatchContribution = {
     endpoints: [endpoint],
-    actions: [setAction, noteAction],
+    actions: [setAction, noteAction, bigAction],
   };
 
   const cookieHeader = (cookie: string) => ({ cookie: `${SESSION_COOKIE_NAME}=${cookie}` });
@@ -378,6 +400,48 @@ describe.skipIf(!runIntegration)('menu dispatch: menu-query + menu-action (#1193
       expect(results.map((r) => r.answer.outcome)).toEqual(['ok', 'ok', 'ok']);
       expect(results.filter((r) => r.answer.replayed)).toHaveLength(2);
       expect(written.length - before).toBe(1);
+    });
+
+    it('treats an upper- and lower-case spelling of one key as one key: one write, one replay (F2)', async () => {
+      const id = `${PREFIX}-case`;
+      const lower = randomUUID().toLowerCase();
+      const before = written.length;
+      const results = await Promise.all(
+        [lower, lower.toUpperCase(), lower].map((key) =>
+          act({ action: noteId, input: { id, name: 'case' } }, { key }),
+        ),
+      );
+      expect(results.map((r) => r.answer.outcome)).toEqual(['ok', 'ok', 'ok']);
+      expect(results.filter((r) => r.answer.replayed)).toHaveLength(2);
+      expect(written.length - before).toBe(1);
+      expect(await storedRows(lower, writer.id)).toHaveLength(1);
+    });
+
+    it('does not replay a request that differs only by an own "__proto__" member (F5)', async () => {
+      const id = `${PREFIX}-proto`;
+      const first = await act({ action: noteId, input: { id, name: 'one' } });
+      expect(first.answer.outcome).toBe('ok');
+      const input = JSON.parse(`{"id":"${id}","name":"one","__proto__":{"extra":true}}`) as Record<string, unknown>;
+      expect(Object.hasOwn(input, '__proto__')).toBe(true);
+      const other = await act({ action: noteId, input }, { key: first.key });
+      expect(other.answer).toMatchObject({ outcome: 'error', message: 'idempotency_key_reuse', replayed: false });
+    });
+
+    it('answers error and records nothing when the ok answer cannot be stored whole (F4)', async () => {
+      const key = randomUUID();
+      const before = bigHandled;
+      const first = await act({ action: bigId, input: {} }, { key });
+      expect(first.answer).toMatchObject({
+        outcome: 'error',
+        message: 'response too large to record',
+        data: null,
+        replayed: false,
+      });
+      expect(bigHandled - before).toBe(1);
+      expect(await storedRows(key, writer.id)).toHaveLength(0);
+      // Never an ok that cannot replay: the retry is judged afresh, not answered from a marker row.
+      const retry = await act({ action: bigId, input: {} }, { key });
+      expect(retry.answer).toMatchObject({ outcome: 'error', message: 'response too large to record' });
     });
 
     it.each([

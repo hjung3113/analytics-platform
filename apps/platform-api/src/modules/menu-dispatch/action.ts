@@ -4,6 +4,8 @@
 // key with another input — an extra key included — is `error`, not `invalid`. Only an `ok` answer
 // is recorded. The engine writes no audit row: the declaration's handler does, in the same transaction.
 
+import { Buffer } from 'node:buffer';
+
 import { sql } from 'drizzle-orm';
 
 import type { Db } from '../../db/client.js';
@@ -14,8 +16,20 @@ import type { PlatformActor } from '../platform-port/permissions.js';
 import type { MenuDispatchRegistry } from './registry.js';
 import type { ActionAnswer, ActionOutcome, FieldError, MenuActionDeclaration } from './types.js';
 
-/** Stored-answer bound for a replay (same reasoning and size as the notice writes): the engine cannot know a handler's answer size. */
+/**
+ * Stored-answer bound for a replay. An `ok` answer is recorded in full or not at all: when its JSON
+ * exceeds this size the transaction rolls back and the answer is `error` (`response too large to
+ * record`), because an `ok` that cannot replay would break step 5. A handler's `data` must fit.
+ */
 export const MENU_ACTION_REPLAY_MAX_BYTES = 128 * 1024;
+
+export const REPLAY_TOO_LARGE_MESSAGE = 'response too large to record';
+
+/** True when the answer is small enough for `core.idempotency_keys` to keep whole. */
+export const fitsReplayRecord = (answer: unknown): boolean =>
+  Buffer.byteLength(JSON.stringify(answer) ?? 'null', 'utf8') <= MENU_ACTION_REPLAY_MAX_BYTES;
+
+class ReplayTooLargeError extends Error {}
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -105,7 +119,8 @@ export function createMenuActionEngine(deps: MenuActionEngineDeps) {
     if (!shape.ok) return answer(correlationId, 'error', { message: shape.message });
     const keyError = judgeIdempotencyKey(shape.idempotencyKey);
     if (keyError) return answer(correlationId, 'invalid', { fieldErrors: [keyError] });
-    const key = shape.idempotencyKey as string;
+    // The uuid column folds spelling, so lock, lookup and record all use one canonical spelling.
+    const key = (shape.idempotencyKey as string).toLowerCase();
     const { declaration, input, expectedVersion } = shape;
     const { spec } = declaration;
 
@@ -122,60 +137,69 @@ export function createMenuActionEngine(deps: MenuActionEngineDeps) {
       input,
     });
 
-    return deps.db.transaction(async (tx: Tx): Promise<ActionAnswer> => {
-      await tx.execute(
-        sql`SELECT pg_advisory_xact_lock(hashtext(${actor.actor_id}), hashtext(${key}))`,
-      );
-      // Judged on the transaction after the lock wait: a grant lost while queued writes nothing.
-      if (!(await declaration.authorize(actor, tx))) return forbidden();
-
-      // Step 5: replay.
-      const hit = await idempotency.lookup(tx, actor.actor_id, key, requestHash);
-      if (hit.kind === 'match') {
-        return { ...(hit.body as ActionAnswer), replayed: true, correlationId };
-      }
-      if (hit.kind === 'mismatch') {
-        return answer(correlationId, 'error', {
-          message: 'idempotency_key_reuse',
-          fieldErrors: [{ path: ['idempotencyKey'], code: 'idempotency_key_reuse' }],
-        });
-      }
-
-      // Step 6: input values.
-      const unexpected = Object.keys(input).filter((k) => !spec.inputKeys.includes(k));
-      if (unexpected.length > 0) {
-        return answer(correlationId, 'invalid', {
-          fieldErrors: unexpected.map((k) => ({ path: [k], code: 'unexpected_field' })),
-        });
-      }
-      const invalid = declaration.validate(input);
-      if (invalid.length > 0) return answer(correlationId, 'invalid', { fieldErrors: invalid });
-
-      // Step 7: version.
-      if (spec.concurrency === 'version') {
-        const current = await declaration.currentVersion?.(tx, actor, input);
-        if (current === undefined) {
-          throw new Error(`action ${spec.id}: concurrency 'version' without a currentVersion reader`);
-        }
-        // The read may have queued behind a writer; judge permission again before revealing anything.
+    try {
+      return await deps.db.transaction(async (tx: Tx): Promise<ActionAnswer> => {
+        await tx.execute(
+          sql`SELECT pg_advisory_xact_lock(hashtext(${actor.actor_id}), hashtext(${key}))`,
+        );
+        // Judged on the transaction after the lock wait: a grant lost while queued writes nothing.
         if (!(await declaration.authorize(actor, tx))) return forbidden();
-        if (current === null) return answer(correlationId, 'not_found');
-        if (current !== expectedVersion) {
-          return answer(correlationId, 'conflict', { version: current });
-        }
-      }
 
-      // Step 8: the write.
-      const written = await declaration.handle(tx, actor, input, { correlationId });
-      if (spec.concurrency === 'version' && typeof written.version !== 'string') {
-        throw new Error(`action ${spec.id}: a versioned write must return the new version`);
-      }
-      const result = answer(correlationId, 'ok', { data: written.data ?? null, version: written.version });
-      await idempotency.record(tx, actor.actor_id, key, requestHash, 200, result, {
-        responseBodyMaxBytes: MENU_ACTION_REPLAY_MAX_BYTES,
+        // Step 5: replay.
+        const hit = await idempotency.lookup(tx, actor.actor_id, key, requestHash);
+        if (hit.kind === 'match') {
+          return { ...(hit.body as ActionAnswer), replayed: true, correlationId };
+        }
+        if (hit.kind === 'mismatch') {
+          return answer(correlationId, 'error', {
+            message: 'idempotency_key_reuse',
+            fieldErrors: [{ path: ['idempotencyKey'], code: 'idempotency_key_reuse' }],
+          });
+        }
+
+        // Step 6: input values.
+        const unexpected = Object.keys(input).filter((k) => !spec.inputKeys.includes(k));
+        if (unexpected.length > 0) {
+          return answer(correlationId, 'invalid', {
+            fieldErrors: unexpected.map((k) => ({ path: [k], code: 'unexpected_field' })),
+          });
+        }
+        const invalid = declaration.validate(input);
+        if (invalid.length > 0) return answer(correlationId, 'invalid', { fieldErrors: invalid });
+
+        // Step 7: version.
+        if (spec.concurrency === 'version') {
+          const current = await declaration.currentVersion?.(tx, actor, input);
+          if (current === undefined) {
+            throw new Error(`action ${spec.id}: concurrency 'version' without a currentVersion reader`);
+          }
+          // The read may have queued behind a writer; judge permission again before revealing anything.
+          if (!(await declaration.authorize(actor, tx))) return forbidden();
+          if (current === null) return answer(correlationId, 'not_found');
+          if (current !== expectedVersion) {
+            return answer(correlationId, 'conflict', { version: current });
+          }
+        }
+
+        // Step 8: the write.
+        const written = await declaration.handle(tx, actor, input, { correlationId });
+        if (spec.concurrency === 'version' && typeof written.version !== 'string') {
+          throw new Error(`action ${spec.id}: a versioned write must return the new version`);
+        }
+        const result = answer(correlationId, 'ok', { data: written.data ?? null, version: written.version });
+        // Never answer `ok` for a write that cannot replay: roll the whole transaction back instead.
+        if (!fitsReplayRecord(result)) throw new ReplayTooLargeError();
+        await idempotency.record(tx, actor.actor_id, key, requestHash, 200, result, {
+          responseBodyMaxBytes: MENU_ACTION_REPLAY_MAX_BYTES,
       });
       return result;
-    });
+      });
+    } catch (error) {
+      if (error instanceof ReplayTooLargeError) {
+        return answer(correlationId, 'error', { message: REPLAY_TOO_LARGE_MESSAGE });
+      }
+      throw error;
+    }
   }
 
   return { run };

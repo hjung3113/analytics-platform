@@ -10,7 +10,12 @@ import {
   stubSessionService,
   transportApp,
 } from '../../../test-support/platform-route-stubs.js';
-import { judgeActionShape, judgeIdempotencyKey } from '../action.js';
+import {
+  MENU_ACTION_REPLAY_MAX_BYTES,
+  fitsReplayRecord,
+  judgeActionShape,
+  judgeIdempotencyKey,
+} from '../action.js';
 import { menuActionRoutes } from '../routes.js';
 import { registryOf, testAction } from './test-declarations.js';
 
@@ -166,5 +171,14 @@ describe('POST /api/v1/menu-action (judgment before the transaction)', () => {
       payload: base,
     });
     expect(res.statusCode).toBe(404);
+  });
+});
+
+describe('fitsReplayRecord (F4)', () => {
+  it('accepts an answer within the replay bound and refuses one over it, counting UTF-8 bytes', () => {
+    expect(fitsReplayRecord({ data: { text: 'x'.repeat(1000) } })).toBe(true);
+    expect(fitsReplayRecord({ data: { text: 'x'.repeat(MENU_ACTION_REPLAY_MAX_BYTES) } })).toBe(false);
+    // 3 bytes per char: under the limit by length, over it by bytes.
+    expect(fitsReplayRecord({ data: '가'.repeat(MENU_ACTION_REPLAY_MAX_BYTES / 3) })).toBe(false);
   });
 });

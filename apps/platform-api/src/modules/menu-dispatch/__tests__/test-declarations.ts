@@ -82,3 +82,11 @@ export const registryOf = (
   endpoints: MenuEndpointDeclaration[] = [],
   actions: MenuActionDeclaration[] = [],
 ) => createMenuDispatchRegistry([{ endpoints, actions }]);
+
+/** A registry that skips registration validation: for judgment of declarations startup refuses (Scope-bound, #1087). */
+export const unvalidatedRegistry = (declaration: MenuEndpointDeclaration) => ({
+  endpoint: (id: string) => (id === declaration.spec.id ? declaration : undefined),
+  action: () => undefined,
+  endpointIds: [declaration.spec.id],
+  actionIds: [],
+});

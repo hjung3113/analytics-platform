@@ -21,6 +21,22 @@ export interface QueryAnswer {
 const isPlain = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value);
 
+const DATETIME = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})$/;
+
+/** Wall-clock epoch ms of `YYYY-MM-DDTHH:mm:ss` read as UTC digits, or NaN when it is not a real calendar time (kernel §6.3). */
+function wallMs(value: unknown): number {
+  const m = typeof value === 'string' ? DATETIME.exec(value) : null;
+  if (!m) return Number.NaN;
+  const [y, mo, d, h, mi, s] = m.slice(1).map(Number) as [number, number, number, number, number, number];
+  const date = new Date(Date.UTC(y, mo - 1, d, h, mi, s));
+  const real =
+    date.getUTCFullYear() === y && date.getUTCMonth() === mo - 1 && date.getUTCDate() === d &&
+    h <= 23 && mi <= 59 && s <= 59;
+  return real ? date.getTime() : Number.NaN;
+}
+
+const isCalendarTime = (value: unknown): boolean => !Number.isNaN(wallMs(value));
+
 /** The wire fields each applied Context key puts into `context` (`projectContext`, menu-query.ts). */
 const WIRE_FIELDS: Readonly<Record<ContextKey, readonly string[]>> = {
   time: ['from', 'to'],
@@ -97,18 +113,31 @@ export function judgeQueryShape(body: unknown, registry: MenuDispatchRegistry): 
   if (context.membershipBasis === 'asOf' && context.condition == null && context.prcGroups == null) {
     return fail(`${spec.id}: asOf needs a condition or PRC groups`);
   }
+  // Mirrors createMockAdapter (mock-server query/endpoints.ts): asOf is not supported with a condition.
+  if (context.membershipBasis === 'asOf' && context.condition != null) {
+    return fail('membership_basis_unsupported');
+  }
+  // Mirrors the mock: a limits.maxHours endpoint reads the period, so a non-calendar bound is an error.
+  if (
+    spec.limits?.maxHours !== undefined &&
+    (!isCalendarTime(context.from) || !isCalendarTime(context.to))
+  ) {
+    return fail('invalid request context');
+  }
+  // Mirrors the mock's missingRequiredContext: null or '' in any field; a required time also needs from < to.
   for (const key of spec.requiredContext ?? []) {
-    if (WIRE_FIELDS[key].some((field) => context[field] === null)) {
-      return fail(`${spec.id}: required context ${key} is null`);
+    if (WIRE_FIELDS[key].some((field) => context[field] == null || context[field] === '')) {
+      return fail(`${spec.id}: required context ${key} is missing`);
+    }
+    if (key === 'time' && !(wallMs(context.from) < wallMs(context.to))) {
+      return fail(`${spec.id}: required context time is not an increasing period`);
     }
   }
 
   if (!isPlain(params)) return fail(`${spec.id}: params must be an object`);
+  // Absent optional params are allowed; required values are the declaration's own `validate`.
   for (const key of Object.keys(params)) {
     if (!spec.paramKeys.includes(key)) return fail(`${spec.id} takes no param ${key}`);
-  }
-  for (const key of spec.paramKeys) {
-    if (!Object.hasOwn(params, key)) return fail(`${spec.id} needs param ${key}`);
   }
   const judged = declaration.validate(params);
   if (!judged.ok) return fail(judged.message);
@@ -128,7 +157,7 @@ function overHourLimit(declaration: MenuEndpointDeclaration, context: Record<str
   if (maxHours === undefined || typeof context.from !== 'string' || typeof context.to !== 'string') {
     return false;
   }
-  const hours = (Date.parse(`${context.to}Z`) - Date.parse(`${context.from}Z`)) / WALL_CLOCK_HOUR_MS;
+  const hours = (wallMs(context.to) - wallMs(context.from)) / WALL_CLOCK_HOUR_MS;
   const narrowed = Array.isArray(context.selection) && context.selection.length > 0;
   return hours > maxHours && !narrowed;
 }

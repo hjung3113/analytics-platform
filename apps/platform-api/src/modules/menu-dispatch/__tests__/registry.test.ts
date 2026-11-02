@@ -48,9 +48,25 @@ describe('menu dispatch registration validation', () => {
     ['maxRows on a paged endpoint', () => registryOf([testEndpoint({ paramKeys: ['page', 'pageSize'], limits: { maxRows: 10 } }).declaration]), /paged endpoint/],
     ['maxRows on a cursor endpoint', () => registryOf([testEndpoint({ paramKeys: ['cursor'], limits: { maxRows: 10 } }).declaration]), /paged endpoint/],
     ['maxHours without time', () => registryOf([testEndpoint({ limits: { maxHours: 24 } }).declaration]), /context\.time/],
+    ...(['roomNames', 'condition', 'selection', 'lot', 'recipe', 'ppid'] as const).map(
+      (key): [string, () => unknown, RegExp] => [
+        `scope-free endpoint applying ${key} (rule 6)`,
+        () => registryOf([testEndpoint({ context: { [key]: 'apply' } }).declaration]),
+        new RegExp(`site-bound context ${key}`),
+      ],
+    ),
     ['requiredContext not applied', () => registryOf([testEndpoint({ requiredContext: ['line'] }).declaration]), /requiredContext line/],
   ])('refuses %s', (_name, build, message) => {
     expect(refused(build)).toMatch(message);
+  });
+
+  it('accepts scope-free time/line/prcGroup/metric/reference of a site-bound key', () => {
+    expect(() =>
+      registryOf([
+        testEndpoint({ context: { time: 'apply', line: 'apply', prcGroup: 'apply', metric: 'apply', selection: 'reference' } })
+          .declaration,
+      ]),
+    ).not.toThrow();
   });
 
   it('reports every problem at once, not only the first', () => {
