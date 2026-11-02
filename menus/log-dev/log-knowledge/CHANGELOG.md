@@ -2,6 +2,11 @@
 
 내부 버전이며 발행하지 않는다. SDK 범위는 package.json의 ap.sdk를 따른다.
 
+## 0.4.0 — 2026-11-02
+
+- 모델 탐색(`log-knowledge-models`, 그룹의 primary — 카탈로그 관리의 `primary` 해제, 사이드바에서 카탈로그 관리 앞)와 모델 공통 프로파일(`log-knowledge-model`, 숨김 자식, `/log/knowledge/models/:modelId`) 화면(#1197 s1, A안). 조회 2종 `logKnowledge.exploreModels`·`modelProfile` 선언(`src/endpoints.ts`)과 mock(`src/mock/models.ts`).
+- 모델 탐색: 제조사·공정·활성 필터(활성 기본), 검색은 모델 코드·이름, 공정 배지 2개 + `+N`, `SW 0` 강조, 행 열기는 `returnTo` 링크, 「모델 등록」은 카탈로그 관리 권한자에게만(카탈로그 모델 탭 링크). 프로파일: 모델 요약·SW 버전 표·모델 공통 Item 개수·Top View 빈 상태, 「SW 버전 추가」는 권한자에게만, 없는 모델은 안내 + 모델 탐색 링크.
+
 ## 0.3.0 — 2026-11-02
 
 - 카탈로그 관리 화면(#1194 b, A안: 탭 + 오른쪽 서랍): 제조사·공정·모델·SW 버전 탭, 서버 페이징 표와 필터, 만들기·수정·비활성화, 칸 오류·충돌 안내. 모델 행에 `latestSoftwareLabel`.

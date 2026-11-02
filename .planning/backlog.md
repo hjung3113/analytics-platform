@@ -382,3 +382,5 @@
 - **구현 안 함 — SW 프로파일 화면(#1196, #1197a):** `logKnowledge.modelProfile`은 SW 버전 목록과 `itemCount`까지만 주고 SW 단위 프로파일 읽기·화면은 없다. 이유: SW 명세는 #1196이고 사용자 결정(2026-11-02)으로 뒤로 미뤘다. 다시 여는 조건: #1196 착수.
 - **구현 안 함 — Item 쓰기의 모델 쪽 개수 무효화(#1197w):** `logKnowledge.item*` 쓰기는 같은 메뉴(`log-knowledge-items`)의 `items`·`itemDetail`만 무효화한다. `exploreModels.modelItemCount`와 `modelProfile` 개수는 메뉴 `log-knowledge-models` 소속이고 엔진은 동작 자기 메뉴 안에서만 `invalidates`를 허용해서, 쓰기 직후 모델 화면의 개수가 새로 고침 전까지 옛 값이다. 다시 여는 조건: 엔진에 메뉴 간 무효화가 생길 때, 또는 화면이 쓰기 뒤 낡은 개수를 보여 줄 때.
 - **구현 안 함 — #1108 HierarchyExplorer(SDK 트리 탐색기):** 사용자가 트리(B안) 대신 표 필터 탐색기(A안)를 골랐다(2026-11-02, [#1197 댓글](https://github.com/hjung3113/analytics-platform/issues/1197)). 동적 breadcrumb은 `PlatformPage crumbs`로 이미 덮인다. 다시 여는 조건: 실제 소비자 화면이 트리 탐색을 고를 때.
+
+- **구현 안 함 — 모델 프로파일의 설명·외부 출처 줄(#1197 s1):** 설계 시안 A의 모델 요약에 있던 「설명」과 「외부 출처」 줄을 화면에 두지 않았다. 이유: 카탈로그에 설명·출처 필드가 없어 `modelProfile`이 돌려줄 값이 없다(가짜 문구를 넣지 않음). 다시 여는 조건: 카탈로그 스키마에 설명·출처 필드가 생길 때.
