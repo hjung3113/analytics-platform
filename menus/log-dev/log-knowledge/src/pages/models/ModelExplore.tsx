@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ExternalLink } from 'lucide-react';
 import type { ApiResponse, GroupedPageResult, TableQuery } from '@ap/contracts';
 import { PlatformLink, useMenuFetch, usePlatform } from '@ap/kernel';
@@ -8,7 +8,7 @@ import { CATALOG_MANAGE_PERMISSION, MODEL_SORT_IDS, exploreModelsEndpoint, type 
 import { chosenIds, defaultFilterParams, isRowMuted } from '../catalogModel';
 import { filterSpecsFor } from '../CatalogTable';
 import { useCatalogOptions } from '../useCatalogOptions';
-import { DEFAULT_SORT, dateOf, splitProcesses, statusText } from './modelPresentation';
+import { DEFAULT_SORT, instantText, splitProcesses, statusText } from './modelPresentation';
 
 const FIELD_NAME = { active: '활성', vendorId: '제조사', processes: '공정' } as const;
 
@@ -36,10 +36,13 @@ export default function ModelExplore() {
   const urlFilters = useMemo(() => ({ key: 'filter', specs, labels: FIELD_NAME as Record<string, string> }), [specs]);
   const { urlState, invalid, sentences, recoverKeys, cause } = useTableUrlState(MODEL_SORT_IDS, { filters: urlFilters });
 
-  // A bare address opens with the 활성 filter and the default sort. The sort is written with it, so an address that names a sort never gets the default
-  // again: a later clear of the filter stays cleared on refresh, Back and a shared link.
+  // A bare address opens with the 활성 filter and the default sort, once per arrival. The sort is written with it; the ref keeps a later explicit
+  // clear (filters, then sort) from re-applying the default while the page stays open. Any state in the address at arrival also counts as seen.
   const rawSort = pageParam('sort'), rawPage = pageParam('page'), rawQ = pageParam('q'), hasFilter = pageParams('filter').length > 0;
+  const seeded = useRef(false);
   useEffect(() => {
+    if (seeded.current) return;
+    seeded.current = true;
     if (rawSort === null && rawPage === null && !hasFilter && rawQ === null) setPage({ sort: encodeTableSort([DEFAULT_SORT]), filter: defaultFilterParams() }, { replace: true });
   }, [rawSort, rawPage, rawQ, hasFilter, setPage]);
 
@@ -49,16 +52,16 @@ export default function ModelExplore() {
   const search = <SearchInput placeholder="모델 코드·이름 검색" value={draft.text} onValueChange={text => setDraft({ applied: q, text })} onCommit={commit} />;
 
   const columns = useMemo<PlatformColumn<ExploreModelRow>[]>(() => [
-    { id: 'code', header: '모델 코드', size: 120, cell: r => <PlatformLink className="t-mono text-accent-primary hover:underline" href={linkTo('log-knowledge-model', { params: { modelId: r.id }, returnTo: true })}>{r.code}</PlatformLink> },
-    { id: 'name', header: '모델명', size: 170 },
-    { id: 'vendorName', header: '제조사', size: 140 },
-    { id: 'processNames', header: '공정', size: 190, sortable: false, exportValue: r => r.processes.map(p => p.name).join(', '), cell: r => <ProcessBadges processes={r.processes} /> },
-    { id: 'softwareCount', header: 'SW 버전 수', size: 104, align: 'right', exportValue: r => r.softwareCount,
-      cell: r => (r.softwareCount === 0 ? <span className="font-semibold text-text-warning-label">SW 0</span> : <span className="tabular">{r.softwareCount}</span>) },
-    { id: 'modelItemCount', header: '모델 공통 Item 수', size: 136, align: 'right', sortable: false, exportValue: r => r.modelItemCount, cell: r => <span className="tabular">{r.modelItemCount}</span> },
-    { id: 'active', header: '상태', size: 96, filter: specs.active, filterPinned: 1, filterLabel: FIELD_NAME.active, exportValue: r => statusText(r.active),
+    { id: 'code', header: '모델 코드', size: 116, cell: r => <PlatformLink className="t-mono text-accent-primary hover:underline" href={linkTo('log-knowledge-model', { params: { modelId: r.id }, returnTo: true })}>{r.code}</PlatformLink> },
+    { id: 'name', header: '모델명', size: 150 },
+    { id: 'vendorName', header: '제조사', size: 130 },
+    { id: 'processNames', header: '공정', size: 170, sortable: false, exportValue: r => r.processes.map(p => p.name).join(', '), cell: r => <ProcessBadges processes={r.processes} /> },
+    { id: 'softwareCount', header: '활성 SW', size: 96, align: 'right', exportValue: r => r.softwareCount,
+      cell: r => (r.softwareCount === 0 ? <span className="font-semibold text-text-warning-label">활성 SW 0</span> : <span className="tabular">{r.softwareCount}</span>) },
+    { id: 'modelItemCount', header: '모델 공통 Item 수', size: 124, align: 'right', sortable: false, exportValue: r => r.modelItemCount, cell: r => <span className="tabular">{r.modelItemCount}</span> },
+    { id: 'active', header: '상태', size: 88, filter: specs.active, filterPinned: 1, filterLabel: FIELD_NAME.active, exportValue: r => statusText(r.active),
       cell: r => <StatusBadge tone={r.active ? 'success' : 'neutral'}>{statusText(r.active)}</StatusBadge> },
-    { id: 'updatedAt', header: '최근 변경', size: 112, cell: r => <span className="tabular">{dateOf(r.updatedAt)}</span> },
+    { id: 'updatedAt', header: '최근 변경', size: 168, cell: r => <span className="tabular">{instantText(r.updatedAt)}</span> },
   ], [specs, linkTo]);
 
   const fields = useMemo<TableFilterField[]>(() => (['vendorId', 'processes'] as const).flatMap((id, i) => {

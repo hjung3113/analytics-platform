@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { StatusBadge, cn } from '@ap/ui';
 import type { ModelProfileData } from '../../endpoints';
-import { dateOf, dateTimeOf, statusText } from './modelPresentation';
+import { instantText, statusText } from './modelPresentation';
 
 export function Section({ id, title, count, actions, children }: { id: string; title: string; count?: number; actions?: ReactNode; children: ReactNode }) {
   return <section id={id} aria-label={title} className="scroll-mt-12 rounded-md border border-border-subtle bg-surface-card">
@@ -38,8 +38,8 @@ export function ModelSummary({ model }: { model: ModelProfileData['model'] }) {
     <dt className="text-text-muted">제조사</dt><dd>{model.vendor.name}{!model.vendor.active && <StatusBadge tone="neutral" className="ml-2">비활성</StatusBadge>}</dd>
     <dt className="text-text-muted">공정</dt><dd><ProcessBadgeList processes={model.processes} /></dd>
     <dt className="text-text-muted">상태</dt><dd><StatusBadge tone={model.active ? 'success' : 'neutral'}>{statusText(model.active)}</StatusBadge></dd>
-    <dt className="text-text-muted">등록 시각</dt><dd className="tabular">{dateTimeOf(model.createdAt)}</dd>
-    <dt className="text-text-muted">변경 시각</dt><dd className="tabular">{dateTimeOf(model.updatedAt)}</dd>
+    <dt className="text-text-muted">등록 시각</dt><dd className="tabular">{instantText(model.createdAt)}</dd>
+    <dt className="text-text-muted">변경 시각</dt><dd className="tabular">{instantText(model.updatedAt)}</dd>
   </dl>;
 }
 
@@ -52,7 +52,7 @@ export function SoftwareTable({ versions }: { versions: ModelProfileData['softwa
     </tr></thead>
     <tbody>{versions.map(v => <tr key={v.id} className={cn('h-9 border-b border-border-subtle last:border-b-0', !v.active && 'text-text-muted')}>
       <td className="t-mono">{v.versionLabel}</td><td>{v.name || '—'}</td><td className="tabular text-right">{v.itemCount}</td>
-      <td className="pl-6"><StatusBadge tone={v.active ? 'success' : 'neutral'}>{statusText(v.active)}</StatusBadge></td><td className="tabular">{dateOf(v.updatedAt)}</td>
+      <td className="pl-6"><StatusBadge tone={v.active ? 'success' : 'neutral'}>{statusText(v.active)}</StatusBadge></td><td className="tabular">{instantText(v.updatedAt)}</td>
     </tr>)}</tbody>
   </table>;
 }

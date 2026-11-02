@@ -67,6 +67,24 @@ describe('모델 탐색 URL state', () => {
     expect(lastRead()?.filters ?? []).toEqual([]);
   });
 
+  it('after filters and sort are both cleared, the page stays bare: 활성 is not applied again while it is open', async () => {
+    mount('');
+    await screen.findByText('A-100', {}, slow);
+    await waitFor(() => expect(lastRead()).toMatchObject({ filters: [ACTIVE] }));
+    // Clear the filters, then the sort: the address holds no table state at all.
+    window.history.pushState(null, '', '/log/knowledge/models?v=1&sort=name:asc');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+    await waitFor(() => expect(lastRead()?.filters ?? []).toEqual([]));
+    kit.queries = [];
+    window.history.pushState(null, '', '/log/knowledge/models?v=1');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+    await waitFor(() => expect(kit.queries.length).toBeGreaterThan(0), slow);
+    await new Promise(resolve => setTimeout(resolve, 300));
+    expect(url().get('sort')).toBeNull();
+    expect(lastRead()?.filters ?? []).toEqual([]);
+    expect(row(MODEL_ID)).toBeTruthy();
+  });
+
   it('refuses a sort column the server does not sort by', async () => {
     mount(`&sort=modelItemCount:asc${filterQuery([ACTIVE])}`);
     expect((await screen.findByRole('alert', {}, slow)).textContent).toContain('modelItemCount');
@@ -86,12 +104,12 @@ describe('모델 탐색 table', () => {
     mount(`&sort=name:asc${filterQuery([ACTIVE])}`);
     await screen.findByText('A-100', {}, slow);
     const table = screen.getByRole('table', { name: '모델 목록' });
-    for (const header of ['모델 코드', '모델명', '제조사', '공정', 'SW 버전 수', '모델 공통 Item 수', '상태', '최근 변경']) expect(within(table).getByText(header)).toBeTruthy();
+    for (const header of ['모델 코드', '모델명', '제조사', '공정', '활성 SW', '모델 공통 Item 수', '상태', '최근 변경']) expect(within(table).getByText(header)).toBeTruthy();
     expect(screen.getByPlaceholderText('모델 코드·이름 검색')).toBeTruthy();
     for (const label of ['활성', '제조사', '공정']) expect(screen.getAllByText(label).length).toBeGreaterThan(0);
   });
 
-  it('shows at most two process badges and a +N that names the rest; SW 0 is emphasized; an unmapped model reads 미분류', async () => {
+  it('shows at most two process badges and a +N that names the rest; 활성 SW 0 is emphasized; an unmapped model reads 미분류', async () => {
     mount(`&sort=name:asc${filterQuery([ACTIVE])}`);
     await screen.findByText('A-100', {}, slow);
     const alpha = row(MODEL_ID);
@@ -101,10 +119,10 @@ describe('모델 탐색 table', () => {
     const more = within(alpha).getByText(/^\+1/);
     expect(more.getAttribute('title')).toBe('Planarization');
     expect(more.textContent).toContain('Planarization');
-    expect(within(alpha).queryByText('SW 0')).toBeNull();
+    expect(within(alpha).queryByText('활성 SW 0')).toBeNull();
     expect(within(alpha).getByText('4')).toBeTruthy();
     const beta = row(modelRows[1]!.id);
-    expect(within(beta).getByText('SW 0').className).toContain('font-semibold');
+    expect(within(beta).getByText('활성 SW 0').className).toContain('font-semibold');
     expect(within(beta).getByText('미분류')).toBeTruthy();
   });
 

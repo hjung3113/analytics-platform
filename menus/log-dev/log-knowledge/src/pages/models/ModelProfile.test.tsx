@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, within } from '@testing-library/react';
+import { instantText } from './modelPresentation';
 import ModelProfile from './ModelProfile';
 import { MODEL_ID, Providers, admin, makeAdapter, profileOf, viewer, type Kit } from './test-support';
 
@@ -40,8 +41,8 @@ describe('모델 프로파일 sections', () => {
     expect(within(nav).getAllByRole('button').map(b => b.textContent)).toEqual(['모델 요약', 'SW 버전', '모델 공통 Item', 'Top View']);
     const summary = section('모델 요약');
     for (const label of ['모델 코드', '제조사', '공정', '상태', '등록 시각', '변경 시각']) expect(within(summary).getByText(label)).toBeTruthy();
-    expect(within(summary).getByText('2026-10-01 00:00')).toBeTruthy();
-    expect(within(summary).getByText('2026-10-02 09:30')).toBeTruthy();
+    expect(within(summary).getByText(instantText('2026-10-01T00:00:00.000Z'))).toBeTruthy();
+    expect(within(summary).getByText(instantText('2026-10-02T09:30:00.000Z'))).toBeTruthy();
     expect(within(section('모델 공통 Item')).getByText('모델 공통 Item 4건')).toBeTruthy();
     expect(within(section('Top View')).getByText('연결된 Top View가 없습니다')).toBeTruthy();
   });
@@ -52,8 +53,8 @@ describe('모델 프로파일 sections', () => {
     const table = within(section('SW 버전')).getByRole('table');
     expect(within(table).getAllByRole('columnheader').map(h => h.textContent)).toEqual(['버전', '이름', '기술 Item 수', '상태', '최종 변경']);
     const [first, second] = within(table).getAllByRole('row').slice(1);
-    expect(first!.textContent).toBe('v2.0Major3활성2026-10-03');
-    expect(second!.textContent).toBe('v1.0—0비활성2026-10-01');
+    expect(first!.textContent).toBe(`v2.0Major3활성${instantText('2026-10-03T00:00:00.000Z')}`);
+    expect(second!.textContent).toBe(`v1.0—0비활성${instantText('2026-10-01T00:00:00.000Z')}`);
     expect(within(table).queryByRole('link')).toBeNull();
     expect(within(table).queryByRole('button')).toBeNull();
     expect(screen.queryByText('최근 500개만 표시')).toBeNull();
