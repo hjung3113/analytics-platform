@@ -431,9 +431,18 @@ describe.skipIf(!runIntegration)('log knowledge item write actions (#1197 w)', (
       const source = await newItem('derive-src', { evidence: [pointer('src-ev')] });
       const revised = await act('itemRevise', { id: source.id, ...body('derive-src'), changeNote: 'c' }, { expectedVersion: source.version });
       expect(revised.outcome).toBe('ok');
+      // Move the source off the defaults so a derive that copied its states/evidence/events would be caught.
+      const verified = await act('itemAssess', { id: source.id, dimension: 'verification', newState: 'verified', rationale: 'r' }, { expectedVersion: revised.version as string });
+      expect(verified.outcome).toBe('ok');
+      const resolved = await act('itemAssess', { id: source.id, dimension: 'processing', newState: 'resolved', rationale: 'r' }, { expectedVersion: verified.version as string });
+      expect(resolved.outcome).toBe('ok');
+      expect(await itemRow(source.id)).toMatchObject({ verification_state: 'verified', processing_state: 'resolved' });
+      expect((await evidence(source.id)).length).toBeGreaterThan(0);
+      expect(await events(source.id)).toHaveLength(2);
       const a = await act('itemDerive', { sourceItemId: source.id, sourceRevisionNo: 1, ownerSoftwareId: ids.sw, ...body('derived') });
       expect(a).toMatchObject({ outcome: 'ok', version: '1' });
       const id = a.data?.id as string;
+      expect(await events(id)).toEqual([]);
       expect(await itemRow(id)).toMatchObject({ owner_software_id: ids.sw, owner_model_id: null, verification_state: 'not_checked', processing_state: 'open', latest_revision_no: 1, row_version: 1 });
       expect(await evidence(id)).toEqual([]);
       expect(await links(id)).toEqual([
