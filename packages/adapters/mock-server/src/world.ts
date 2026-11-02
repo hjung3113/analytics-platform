@@ -18,8 +18,8 @@ const SAMPLE_MENU_PERMISSIONS = [menuPermission('equipment:view'), menuPermissio
 /** Default vocabulary, kernel first: used when `createMockAdapter` gets no permission list. */
 export const WORLD_PERMISSIONS: readonly Permission[] = [...KERNEL_PERMISSIONS, ...SAMPLE_MENU_PERMISSIONS];
 
-/** `knowledge:catalog-manage`: the server grants it to Admin or a workspace grant; the mock has no grants, so only admin holds it (#1194 r). */
-const ENGINEER_EXCLUDED: readonly string[] = ['console:access', 'features:access', 'knowledge:catalog-manage'];
+/** `knowledge:catalog-manage` and `knowledge:item-publish`: the server grants them to Admin or a workspace grant; the mock has no grants, so only admin holds them (#1194 r, #1197 s3a). */
+const ENGINEER_EXCLUDED: readonly string[] = ['console:access', 'features:access', 'knowledge:catalog-manage', 'knowledge:item-publish'];
 const VIEWER_GRANTS: readonly string[] = ['platform:view', 'metrics:view', 'notice:view', 'voc:view'];
 
 /**

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { KERNEL_PERMISSIONS, emptyGlobal, groupId, type ColumnFilter, type FieldError, type MenuMeta } from '@ap/contracts';
 import { createMockAdapter, setRole, type AnyMockAction } from '@ap/mock-server';
-import { CATALOG_MANAGE_PERMISSION, LOG_KNOWLEDGE_MODELS_MENU_ID, catalogActionSpecs, catalogEndpointSpecs, itemEndpointSpecs, modelEndpointSpecs } from '../endpoints';
+import { CATALOG_MANAGE_PERMISSION, ITEM_PUBLISH_PERMISSION, LOG_KNOWLEDGE_MODELS_MENU_ID, catalogActionSpecs, catalogEndpointSpecs, itemActionSpecs, itemEndpointSpecs, modelEndpointSpecs } from '../endpoints';
 import { logKnowledgeActionsMock, logKnowledgeMock, resetCatalog } from './index';
 
 type Row = Record<string, unknown>;
@@ -204,13 +204,13 @@ describe('registration with the mock adapter', () => {
   const adapter = () => createMockAdapter({
     endpoints: logKnowledgeMock, actions: logKnowledgeActionsMock,
     registry: { menus: [menu('log-knowledge-catalog', CATALOG_MANAGE_PERMISSION), menu(LOG_KNOWLEDGE_MODELS_MENU_ID, 'platform:view'), menu('log-knowledge-items', 'platform:view'), menu('home', 'platform:view')] },
-    permissions: [...KERNEL_PERMISSIONS, CATALOG_MANAGE_PERMISSION],
+    permissions: [...KERNEL_PERMISSIONS, CATALOG_MANAGE_PERMISSION, ITEM_PUBLISH_PERMISSION],
   });
 
-  it('registers the four catalog reads, the two model reads and twelve writes (menu, permission and invalidates are valid)', () => {
+  it('registers the reads, the twelve catalog writes and the five item writes (menu, permission and invalidates are valid)', () => {
     expect(() => adapter()).not.toThrow();
     expect(logKnowledgeMock.map(e => e.spec)).toEqual([...catalogEndpointSpecs, ...modelEndpointSpecs, ...itemEndpointSpecs]);
-    expect(logKnowledgeActionsMock.map(a => a.spec)).toEqual([...catalogActionSpecs]);
+    expect(logKnowledgeActionsMock.map(a => a.spec)).toEqual([...catalogActionSpecs, ...itemActionSpecs]);
   });
 
   it.each([['vendors'], ['processes'], ['models'], ['softwareVersions']])('%s: a query with no match answers ok with an empty page, like the server', async id => {

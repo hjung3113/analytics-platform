@@ -18,6 +18,7 @@ import {
   vendorUpdate, vendorsEndpoint, type CatalogPageParams, type CatalogSummary, type ModelRow,
 } from '../endpoints';
 import { modelReadsMock } from './models';
+import { itemActionsMock } from './itemActions';
 import { itemReadsMock } from './itemReads';
 import { activeChildren, all, byId, latestSoftwareLabel, insert, keyTaken, processIdsOf, processesOf, setProcesses, toCodeKey, touch, type Kind, type Rec } from './store';
 
@@ -252,6 +253,7 @@ export const logKnowledgeActionsMock: readonly AnyMockAction[] = [
   ...writes('process', { create: processCreate, update: processUpdate, setActive: processSetActive }),
   ...writes('model', { create: modelCreate, update: modelUpdate, setActive: modelSetActive }),
   ...writes('software', { create: softwareCreate, update: softwareUpdate, setActive: softwareSetActive }),
+  ...itemActionsMock,
 ];
 
 export { resetCatalog } from './store';

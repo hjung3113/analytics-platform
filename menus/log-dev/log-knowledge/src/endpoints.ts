@@ -217,3 +217,55 @@ export const itemDetailEndpoint = defineEndpoint<ItemDetailParams, ItemDetail | 
   requiresScope: false, context: {}, kinds: [], mergeTimeDomain: false,
 });
 export const itemEndpointSpecs = [itemsEndpoint, itemDetailEndpoint] as const;
+
+// ---- knowledge item writes (ADR-0109, #1197 s3a) -----------------------------------------------------------------
+// Owned by the `log-knowledge-items` menu, judged with its own right (`knowledge:item-publish`) although the menu itself
+// is `platform:view` — reading is open, publishing is not. The server mirror is
+// `apps/platform-api/src/modules/log-knowledge/item-actions.ts`; the drift test compares both.
+
+/** Permission of the five item writes (design v0.6 §2.1): Admin, or a Developer with the workspace grant. Not any menu's entry permission, so the app lists it in its vocabulary. */
+export const ITEM_PUBLISH_PERMISSION: Permission = menuPermission('knowledge:item-publish');
+
+export const EVIDENCE_SOURCE_KINDS = ['log_file', 'spec', 'image', 'validation_run', 'other'] as const;
+export const ASSESSMENT_DIMENSIONS = ['verification', 'processing'] as const;
+export type EvidenceSourceKind = (typeof EVIDENCE_SOURCE_KINDS)[number];
+export type AssessmentDimension = (typeof ASSESSMENT_DIMENSIONS)[number];
+/** Input limits (code points), the server's: migration 0082 CHECKs and the API caps. */
+export const ITEM_LIMITS = { title: 200, body: 20000, evidence: 20, evidenceField: 1000, evidenceNote: 500, changeNote: 500, rationale: 2000 } as const;
+
+export type EvidenceInput = {
+  sourceKind: EvidenceSourceKind; sourceOwner: string; sourceRef: string;
+  sourceVersion?: string | null; contentHash?: string | null; locator?: string | null; note?: string | null;
+};
+/** The four body texts and the type: `observation` or `expected` must have text (`required_one`). Blank optional texts are stored as null. */
+export type ItemContentInput = {
+  typeCode: ItemTypeCode; title: string;
+  observation?: string | null; expected?: string | null; analysisOpinion?: string | null; improvement?: string | null;
+};
+/** Exactly one owner (`required_one` on `owner`); never changed afterwards. */
+export type ItemOwnerInput = { ownerModelId?: string | null; ownerSoftwareId?: string | null };
+export type ItemCreateInput = ItemOwnerInput & ItemContentInput & { evidence?: EvidenceInput[] | null };
+export type ItemReviseInput = ItemContentInput & { id: string; evidence?: EvidenceInput[] | null; changeNote: string };
+export type ItemAssessInput = { id: string; dimension: AssessmentDimension; newState: string; rationale: string };
+export type ItemDeriveInput = ItemOwnerInput & ItemContentInput & { sourceItemId: string; sourceRevisionNo: number };
+export type ItemSetArchivedInput = { id: string; archived: boolean };
+export type ItemWriteResult = { id: string; itemNo: number };
+export type ItemReviseResult = ItemWriteResult & { revisionNo: number };
+
+/** Reads an item write changes — those of its own menu (the engine invalidates only within an action's menu; the model-side counts are a stale-until-refresh limit). */
+const itemWriteReads = [itemsEndpoint, itemDetailEndpoint];
+const itemWrite = <I, O>(name: string, inputKeys: Record<keyof I & string, true>, concurrency: 'none' | 'version') =>
+  defineAction<I, O>({
+    id: `logKnowledge.${name}`, menuId: LOG_KNOWLEDGE_ITEMS_MENU_ID, inputKeys, permission: ITEM_PUBLISH_PERMISSION,
+    requiresScope: false, concurrency, invalidates: itemWriteReads,
+  });
+const contentKeys = { typeCode: true, title: true, observation: true, expected: true, analysisOpinion: true, improvement: true } as const;
+
+export const itemCreate = itemWrite<ItemCreateInput, ItemWriteResult>('itemCreate', { ownerModelId: true, ownerSoftwareId: true, ...contentKeys, evidence: true }, 'none');
+export const itemRevise = itemWrite<ItemReviseInput, ItemReviseResult>('itemRevise', { id: true, ...contentKeys, evidence: true, changeNote: true }, 'version');
+export const itemAssess = itemWrite<ItemAssessInput, ItemWriteResult>('itemAssess', { id: true, dimension: true, newState: true, rationale: true }, 'version');
+export const itemDerive = itemWrite<ItemDeriveInput, ItemWriteResult>('itemDerive', { sourceItemId: true, sourceRevisionNo: true, ownerModelId: true, ownerSoftwareId: true, ...contentKeys }, 'none');
+export const itemSetArchived = itemWrite<ItemSetArchivedInput, ItemWriteResult>('itemSetArchived', { id: true, archived: true }, 'version');
+
+/** The five item writes in the server's order. */
+export const itemActionSpecs = [itemCreate, itemRevise, itemAssess, itemDerive, itemSetArchived] as const;

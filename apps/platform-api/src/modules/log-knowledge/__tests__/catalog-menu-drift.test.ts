@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  ASSESSMENT_DIMENSIONS as MENU_ASSESSMENT_DIMENSIONS,
   CATALOG_MANAGE_PERMISSION,
+  EVIDENCE_SOURCE_KINDS as MENU_EVIDENCE_SOURCE_KINDS,
+  ITEM_LIMITS,
+  ITEM_PUBLISH_PERMISSION,
   LOG_KNOWLEDGE_MENU_ID,
   LOG_KNOWLEDGE_MODELS_MENU_ID,
   MODEL_SORT_IDS as MENU_MODEL_SORT_IDS,
@@ -12,6 +16,7 @@ import {
   ITEM_SORT_IDS as MENU_ITEM_SORT_IDS,
   LOG_KNOWLEDGE_ITEMS_MENU_ID,
   catalogEndpointSpecs,
+  itemActionSpecs,
   itemEndpointSpecs,
   itemFilterSpecs,
   modelEndpointSpecs,
@@ -22,9 +27,21 @@ import {
 } from '../../../../../../menus/log-dev/log-knowledge/src/endpoints.js';
 import { LOG_KNOWLEDGE_MODELS_MENU_ID as SERVER_MODELS_MENU_ID } from '../catalog-menu.js';
 import { CATALOG_MENU_PERMISSION } from '../catalog-actions.js';
+import { ITEM_MENU_PERMISSION } from '../item-actions.js';
 import { logKnowledgeContribution } from '../catalog-endpoints.js';
 import { CATALOG_FILTER_SPECS } from '../domain/catalog-filters.js';
 import { ITEM_FILTER_SPECS } from '../domain/item-filters.js';
+import {
+  ASSESSMENT_DIMENSIONS,
+  BODY_MAX,
+  CHANGE_NOTE_MAX,
+  EVIDENCE_FIELD_MAX,
+  EVIDENCE_MAX,
+  EVIDENCE_NOTE_MAX,
+  EVIDENCE_SOURCE_KINDS,
+  RATIONALE_MAX,
+  TITLE_MAX,
+} from '../domain/item-input.js';
 import { MODEL_SORT_IDS, PROCESS_SORT_IDS, SOFTWARE_SORT_IDS, VENDOR_SORT_IDS } from '../repositories/catalog-read.js';
 import { ITEM_SORT_IDS } from '../repositories/item-read.js';
 
@@ -154,5 +171,43 @@ describe('log knowledge item reads vs the server', () => {
       if (mirror?.values === 'enum') expect(mirror.allowed, `items.${field} enum has a vocabulary`).toBeDefined();
     }
     expect([...MENU_ITEM_SORT_IDS]).toEqual([...ITEM_SORT_IDS]);
+  });
+});
+
+// The five item writes of the `log-knowledge-items` menu (#1197 s3a): ids, menu, input keys, concurrency, permission,
+// scope and the reads they invalidate. The server lists them in create, revise, assess, derive, set-archived order.
+describe('log knowledge item writes vs the server', () => {
+  const serverItemActions = (server.actions ?? []).filter((a) => a.spec.menuId === LOG_KNOWLEDGE_ITEMS_MENU_ID);
+
+  it('uses the server\'s menu permission name for the writes', () => {
+    expect(ITEM_PUBLISH_PERMISSION).toBe(ITEM_MENU_PERMISSION);
+  });
+
+  it('declares the same five writes on the same menu in the same order', () => {
+    expect(serverItemActions).toHaveLength(5);
+    expect(itemActionSpecs.map((s) => s.id)).toEqual(serverItemActions.map((a) => a.spec.id));
+    itemActionSpecs.forEach((menu, i) => {
+      const spec = serverItemActions[i]?.spec;
+      expect(sorted(Object.keys(menu.inputKeys)), menu.id).toEqual(sorted(spec?.inputKeys ?? []));
+      expect(menu.invalidates.map((e) => e.id), menu.id).toEqual([...(spec?.invalidates ?? [])]);
+      expect(
+        { menuId: menu.menuId, permission: menu.permission, requiresScope: menu.requiresScope, concurrency: menu.concurrency },
+        menu.id,
+      ).toEqual({ menuId: spec?.menuId, permission: spec?.permission, requiresScope: spec?.requiresScope, concurrency: spec?.concurrency });
+    });
+  });
+
+  it('invalidates reads that are endpoints of the same menu', () => {
+    const itemReadIds = itemEndpointSpecs.map((s) => s.id);
+    for (const menu of itemActionSpecs) expect(menu.invalidates.map((e) => e.id), menu.id).toEqual(itemReadIds);
+  });
+
+  it('shares the input vocabularies and limits the mock validates against', () => {
+    expect([...MENU_EVIDENCE_SOURCE_KINDS]).toEqual([...EVIDENCE_SOURCE_KINDS]);
+    expect([...MENU_ASSESSMENT_DIMENSIONS]).toEqual([...ASSESSMENT_DIMENSIONS]);
+    expect(ITEM_LIMITS).toEqual({
+      title: TITLE_MAX, body: BODY_MAX, evidence: EVIDENCE_MAX, evidenceField: EVIDENCE_FIELD_MAX,
+      evidenceNote: EVIDENCE_NOTE_MAX, changeNote: CHANGE_NOTE_MAX, rationale: RATIONALE_MAX,
+    });
   });
 });
