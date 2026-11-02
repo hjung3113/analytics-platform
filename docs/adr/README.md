@@ -118,6 +118,7 @@
 | [0105](0105-one-table-filter-model.md) | 표 필터는 하나의 모델: 페이지·열 필터 통합, Excel 수준 연산자·와이어 스펙(`ops`·`instant`·`requires`), 빈 값·부정 연산자 의미, 숨은 페이지 상태. 0022·0037·0104 보충 | Decided (2026-11-01, owner, #1217) |
 | [0106](0106-improvement-task-is-quest.md) | 과제(Quest)는 개선 실행 시스템의 객체: BRAVO·MARS·CLAS는 출처, 개선 아이템은 과제 아래 업무 객체(편집형 표 조각은 #540), 효과 확인은 SDK 기준일 전후 비교 조각(#1243), 이름 `과제(Quest)` 병용. 0065 보충 | Decided (2026-11-02, owner, #1241) |
 | [0107](0107-log-knowledge-catalog-authority-keys-and-edit-rights.md) | 로그 지식 허브 P0 카탈로그: 원천은 허브(외부 공식 마스터는 `external_identity_map` 매핑만, 자동 병합 금지), 코드 원문 + NFKC·공백·대문자 `code_key` 유일, 비활성 행도 키 보유, Vendor 이동 거절, 편집은 `knowledge.catalog.manage`·`.import` capability(Admin 항상, Developer 요청) | Decided (2026-11-02, owner, #1192) |
+| [0108](0108-space-scope-presentation-field.md) | 사이드바 Scope 표시는 공간 필드 `SpaceDef.scopePresentation`(`default`·`hidden`)으로 숨긴다: `hidden`은 `ScopeSelector` 대체만 없애고 `scopeControl` 컴포넌트는 그대로, Registry는 `requiresScope` 메뉴를 거부, 엔드포인트는 앱 테스트로 확인(동작은 규칙만, 자동 검사 없음) | Decided (2026-11-02, owner 승인·코디네이터 설계, #1251) |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 

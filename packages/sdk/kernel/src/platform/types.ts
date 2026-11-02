@@ -65,7 +65,7 @@ export type HomeTodoSlot = { Todo: ComponentType };
  * features: space-scoped in-shell entries (ADR-0028, ADR-0045).
  * plannedSpaces: the system switcher's not-yet-available rows (ADR-0042, 15 §3.2).
  * boardEntry: the `분석 보드에 열기…` item `PlatformPage` appends to a board menu's `⋯` menu (docs/16 §6); components never import the shell.
- * scopeControl: a space's own sidebar list-scope control in place of the analytics `ScopeSelector` (ADR-0081 decision 4, 06 §8); `For` returns null for spaces and current menus that keep the default.
+ * scopeControl: a space's own sidebar list-scope control in place of the analytics `ScopeSelector` (ADR-0081 decision 4, 06 §8); `For` returns null for spaces and current menus that keep the default. A space with `SpaceDef.scopePresentation: 'hidden'` never falls back to the `ScopeSelector`: a component `For` returns still renders, null draws nothing (#1251).
  * The three sidebar slots (`scopeControl`, `navCounts`, `spaceNavSection`) resolve by the space and the current route's menu (`null` off a route), so a consumer can decline a menu by its own declaration before any of its subtree mounts (#1099c).
  * notifications: the rail bell and the platform-menu unread badge (ADR-0070 decision 4, #652).
  * vocCompose: the body of the rail `VOC 등록` docked drawer; the shell owns position, frozen Context chips, draft and close rules (ADR-0070 decision 5, #655).

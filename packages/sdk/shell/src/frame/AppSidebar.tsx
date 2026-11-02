@@ -107,11 +107,13 @@ function currentNavView(views: readonly NavView[], page: readonly (readonly [str
 }
 
 // A space may supply its own list-scope control (06 §8 `scopeControl`); every other space and space-less page keeps the analytics Scope selector.
+// `scopePresentation: 'hidden'` only removes that fallback: the space's own control still renders, otherwise nothing (#1251).
 function SidebarScope({ collapsed }: { collapsed: boolean }) {
   const { slots, sidebarSpace, route, canOpen } = useHostPlatform();
   const denied = route !== null && !canOpen(route.menu.id);
   const Control = sidebarSpace === null || denied ? null : slots.scopeControl?.For(sidebarSpace.id, route?.menu ?? null) ?? null;
-  return Control === null ? <ScopeSelector collapsed={collapsed} /> : <Control collapsed={collapsed} />;
+  if (Control !== null) return <Control collapsed={collapsed} />;
+  return sidebarSpace?.scopePresentation === 'hidden' ? null : <ScopeSelector collapsed={collapsed} />;
 }
 
 function FeatureBlock({ collapsed }: { collapsed: boolean }) {

@@ -164,7 +164,7 @@ SelectionResolveResult | type | type SelectionResolveResult = { items: @ap/contr
 Session | type | type Session = { scopes: readonly @ap/contracts#ScopeOption[]; user: @ap/contracts#SessionUser; }
 SessionUser | type | type SessionUser = { id: string; name: string; permissions: readonly (@ap/contracts#ModuleScopedId | @ap/contracts#Permission)[]; title: @ap/contracts#Text; }
 SiteGrant | type | type SiteGrant = { grantedRooms: readonly string[]; id: string; label: string; totalRooms: number; }
-SpaceDef | type | type SpaceDef = { description: @ap/contracts#Text; homeMenuId: string; id: @ap/contracts#SpaceId; label: @ap/contracts#Text; permission?: @ap/contracts#Permission; subtitle?: @ap/contracts#Text; }
+SpaceDef | type | type SpaceDef = { description: @ap/contracts#Text; homeMenuId: string; id: @ap/contracts#SpaceId; label: @ap/contracts#Text; permission?: @ap/contracts#Permission; scopePresentation?: 'default' | 'hidden'; subtitle?: @ap/contracts#Text; }
 SpaceId | type | type SpaceId = Brand<'SpaceId'>
 TEXT_OPS | const | const TEXT_OPS: readonly [ "contains", "notContains", "startsWith", "endsWith", "equals", "notEquals", "isEmpty", "isNotEmpty" ]
 TableQuery | type | type TableQuery = @ap/contracts#PageQuery & { filters?: @ap/contracts#ColumnFilter[]; groupBy?: string; }

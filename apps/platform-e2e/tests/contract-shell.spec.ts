@@ -598,6 +598,19 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     // goto adds exactly one entry; a push by the alias redirect would make it two.
     expect(await page.evaluate(() => history.length)).toBe(before + 1);
   });
+
+  test('Scope 표시를 숨긴 공간(표준 로그 개발)은 펼친·접힌 사이드바 모두 Scope 선택기가 없고 MARS는 그대로 보인다 (#1251)', async ({ page }) => {
+    await signInAs(page, 'engineer');
+    await page.addInitScript(() => localStorage.setItem('platform:sidebar-collapsed', '0'));
+    await page.goto('/log-dev/log-my-queue');
+    await expect(page.getByRole('button', { name: '사이드바 접기' })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Scope:/ })).toHaveCount(0);
+    await page.getByRole('button', { name: '사이드바 접기' }).click();
+    await expect(page.getByRole('button', { name: '사이드바 펼치기' })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Scope:/ })).toHaveCount(0);
+    await page.goto(`/mars/equipment-master?v=1&scopeId=MEM&${PERIOD}`);
+    await expect(page.getByRole('button', { name: /^Scope:/ })).toHaveCount(1);
+  });
 });
 
 test.describe('플랫폼 홈 · 전역 화면 (ADR-0028, ADR-0070)', () => {

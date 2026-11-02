@@ -344,6 +344,11 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
   for (const s of spaces) {
     if (typeof s.description?.ko !== 'string' || s.description.ko.trim() === '' || typeof s.description?.en !== 'string' || s.description.en.trim() === '') fail(`Space "${s.id}" description must not be empty`);
     if (s.subtitle !== undefined && (typeof s.subtitle.ko !== 'string' || s.subtitle.ko.trim() === '' || typeof s.subtitle.en !== 'string' || s.subtitle.en.trim() === '')) fail(`Space "${s.id}" subtitle must not be empty`);
+    if (s.scopePresentation !== undefined && s.scopePresentation !== 'default' && s.scopePresentation !== 'hidden') fail(`Space "${s.id}" scopePresentation must be "default" or "hidden"`);
+    if (s.scopePresentation === 'hidden') {
+      const scoped = menus.find(m => m.requiresScope && groupSpace.get(m.group) === s.id);
+      if (scoped !== undefined) fail(`Space "${s.id}" hides Scope but menu "${scoped.id}" requires Scope`);
+    }
     const home = byId.get(s.homeMenuId) ?? fail(`Space "${s.id}" homeMenuId "${s.homeMenuId}" is unknown`);
     if (groupSpace.get(home.group) !== s.id) fail(`Space "${s.id}" homeMenuId "${s.homeMenuId}" is not in that space`);
     // Space entry lands on the home menu without params, so its route must not need any.
