@@ -30,7 +30,6 @@ export class MockEmailChannel implements NotificationChannel {
       subject_type: envelope.subject_type,
       subject_id: envelope.subject_id,
       locale: envelope.locale,
-      summary: envelope.summary,
     });
   }
 }
