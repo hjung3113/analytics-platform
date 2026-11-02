@@ -10,7 +10,7 @@ import { describeServerConformance, type ConformanceCase } from '@ap/server-conf
 import { MOCK_ACTIONS, MOCK_AUDIT_EVENTS, MOCK_ENDPOINTS, MODULE_MOCK_ENDPOINTS } from './dev/mock-assembly';
 import { registry } from './menus';
 import { modulePermissions } from './modules';
-import { defineAction, menuPermission, menuPermissions, spaceId, type Permission } from '@ap/contracts';
+import { defineAction, emptyGlobal, menuPermission, menuPermissions, spaceId, type Permission } from '@ap/contracts';
 import { ACTORS } from './saved-view-seed';
 import { createLocalSavedViewStore } from './saved-view-store';
 
@@ -102,15 +102,36 @@ const catalogSamples: Record<string, () => Record<string, unknown>> = {
   softwareUpdate: () => ({ id: A100_V1, versionLabel: 'v1.0', name: '' }),
   softwareSetActive: () => ({ id: A100_V1, active: true }),
 };
+// The item writes (#1197 s3a) run on seed items (`menus/log-dev/log-knowledge/src/mock/items.ts`, ids `00000005-…-<n>`):
+// 2 is published and stays so, 3 is archived (never written here). Each kit check writes with a fresh key, so every
+// sample must succeed again: a revise appends a revision, a derive and a create hand out new items, a set-archived to
+// `false` on a published item changes nothing, and an assess asks for the state the item does not have right now.
+const itemSeedId = (n: number) => `00000005-0000-4000-8000-${n.toString(16).padStart(12, '0')}`;
+const ITEM_PUBLISHED = itemSeedId(2);
+const ITEM_ASSESSED = itemSeedId(6);
+const itemDetailRead = MOCK_ENDPOINTS.find(endpoint => endpoint.spec.id === 'logKnowledge.itemDetail')!;
+const verificationOf = (itemId: string) =>
+  (itemDetailRead.handle({ equipment: [], context: emptyGlobal, params: { itemId }, actor: 'admin' }) as { item: { verificationState: string } }).item.verificationState;
+const itemBody = { typeCode: 'anomaly', observation: '적합성 표본 관찰', expected: '적합성 표본 기대' };
+const itemSamples: Record<string, () => Record<string, unknown>> = {
+  itemCreate: () => ({ ownerModelId: A100, title: unique('I'), ...itemBody }),
+  itemRevise: () => ({ id: ITEM_PUBLISHED, title: unique('R'), ...itemBody, changeNote: '적합성 표본 보완' }),
+  itemAssess: () => ({ id: ITEM_ASSESSED, dimension: 'verification', newState: verificationOf(ITEM_ASSESSED) === 'verified' ? 'observed' : 'verified', rationale: '적합성 표본 근거' }),
+  itemDerive: () => ({ sourceItemId: itemSeedId(1), sourceRevisionNo: 1, ownerModelId: A100, title: unique('D'), ...itemBody }),
+  itemSetArchived: () => ({ id: ITEM_PUBLISHED, archived: false }),
+};
+const writeSamples = { ...catalogSamples, ...itemSamples };
 const catalogActionCases = MOCK_ACTIONS.map(action => {
-  const sample = catalogSamples[action.spec.id.replace('logKnowledge.', '')]!;
+  const sample = writeSamples[action.spec.id.replace('logKnowledge.', '')]!;
   const currentVersion = async () => action.version!({ input: sample(), actor: 'admin', scopeId: null }) ?? '';
   return { spec: action.spec, get input() { return sample(); }, ...(action.spec.concurrency === 'version' ? { currentVersion } : {}) };
 });
 const GRANTED: RoleId = 'engineer';
-// Only admin holds `knowledge:catalog-manage` in the mock (the server: Admin or a workspace grant), so the catalog
-// writes run as admin; the removed-permission check removes it from admin's list too (`withoutPermission` below).
+// Only admin holds `knowledge:catalog-manage` and `knowledge:item-publish` in the mock (the server: Admin or a workspace
+// grant), so these writes run as admin; the removed-permission check removes the permission from admin's list too
+// (`withoutPermission` below), so it really takes the action actor's right away.
 const CATALOG_PERMISSION = menuPermission('knowledge:catalog-manage');
+const ITEM_PUBLISH = menuPermission('knowledge:item-publish');
 const asRole = async <T,>(role: RoleId, fn: () => Promise<T>): Promise<T> => {
   const previous = getRole();
   setRole(role);
@@ -207,7 +228,7 @@ describeServerConformance('server boundary conformance — mock adapter', {
   },
   withoutPermission: async (permission: Permission, fn) => {
     const previous = getRole();
-    setRole(permission === CATALOG_PERMISSION ? 'admin' : GRANTED);
+    setRole(permission === CATALOG_PERMISSION || permission === ITEM_PUBLISH ? 'admin' : GRANTED);
     // The adapter's world is built from the vocabulary above, not the default USERS, so the granted role's list is the session's own array.
     const permissions = adapter.session().user.permissions as Permission[];
     const kept = [...permissions];

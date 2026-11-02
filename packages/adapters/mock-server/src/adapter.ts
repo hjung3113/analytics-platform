@@ -72,6 +72,8 @@ export function createMockAdapter(o: {
   /**
    * The app's permission vocabulary (`registry.permissions`: kernel + declared). The mock roles are built from it:
    * admin holds all, engineer all but console/feature menus, viewer only its explicit grants. Omit for the sample four.
+   * When given, an endpoint or action may also declare any permission of this list (not only a registered menu's own
+   * permission), e.g. a publishing right that is no menu's entry permission; omitted, only a menu's permission is accepted.
    */
   permissions?: readonly Permission[];
 }): PlatformAdapter {
@@ -79,6 +81,10 @@ export function createMockAdapter(o: {
   const sessionFor = sessionsOf(world);
   const seeds = o.auditEvents ?? [];
   checkAuditSeeds(seeds);
+  // An endpoint or action permission is some registered menu's own permission, or (opt-in) a member of the app
+  // vocabulary: a write right that is no menu's entry permission still registers, and a typo is still caught.
+  const permissionDeclared = (permission: string): boolean =>
+    o.registry.menus.some(menu => menu.permission === permission) || (o.permissions?.some(p => p === permission) ?? false);
   const endpoints = new Map<string, AnyMockEndpoint>();
   for (const endpoint of o.endpoints) {
     const { spec } = endpoint;
@@ -86,7 +92,7 @@ export function createMockAdapter(o: {
 
     const owner = o.registry.menus.find(menu => menu.id === spec.menuId);
     if (!owner) throw new MockRegistrationError(`endpoint ${spec.id}: menu ${spec.menuId} is not registered`);
-    if (!o.registry.menus.some(menu => menu.permission === spec.permission)) {
+    if (!permissionDeclared(spec.permission)) {
       throw new MockRegistrationError(`endpoint ${spec.id}: permission ${spec.permission} is not declared by any menu`);
     }
 
@@ -138,7 +144,7 @@ export function createMockAdapter(o: {
     if (actions.has(spec.id)) throw new MockRegistrationError(`action ${spec.id}: duplicate id`);
     const owner = o.registry.menus.find(menu => menu.id === spec.menuId);
     if (!owner) throw new MockRegistrationError(`action ${spec.id}: menu ${spec.menuId} is not registered`);
-    if (!o.registry.menus.some(menu => menu.permission === spec.permission)) {
+    if (!permissionDeclared(spec.permission)) {
       throw new MockRegistrationError(`action ${spec.id}: permission ${spec.permission} is not declared by any menu`);
     }
     if (owner.requiresScope && !spec.requiresScope) throw new MockRegistrationError(`action ${spec.id}: menu ${spec.menuId} requires scope`);

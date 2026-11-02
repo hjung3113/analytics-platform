@@ -78,7 +78,7 @@ Kernel은 받은 `ok`/`empty`의 kind가 선언과 다르면 `contract_violation
 
 ### 등록 검증 (서버 기동 시)
 
-앱이 넘긴 메뉴 Registry로 엔드포인트 목록을 검증하고 하나라도 어긋나면 기동을 거부한다: 엔드포인트 id 중복 없음, `menuId`가 Registry에 있음, 권한 이름이 어떤 메뉴가 선언한 권한임, 엔드포인트가 `apply`한 키를 소유 메뉴도 `apply`함, 메뉴가 Scope를 요구하면 엔드포인트도 요구, Scope 없는 엔드포인트는 site 종속 키(`roomNames`·`condition`·`selection`·`lot`·`recipe`·`ppid`)를 `apply`할 수 없음(규칙 6), `limits.maxRows`는 양의 정수이고 페이지·커서 엔드포인트(`page`·`pageSize`·`cursor` paramKeys)가 아닐 것(규칙 7, #175). 원본: `packages/adapters/mock-server/src/adapter.ts` `createMockAdapter`.
+앱이 넘긴 메뉴 Registry로 엔드포인트 목록을 검증하고 하나라도 어긋나면 기동을 거부한다: 엔드포인트 id 중복 없음, `menuId`가 Registry에 있음, 권한 이름이 어떤 메뉴가 선언한 권한임(앱이 권한 어휘를 넘기면 그 어휘의 권한도 허용 — 어휘를 넘기지 않으면 메뉴가 선언한 권한만, 동작도 같음), 엔드포인트가 `apply`한 키를 소유 메뉴도 `apply`함, 메뉴가 Scope를 요구하면 엔드포인트도 요구, Scope 없는 엔드포인트는 site 종속 키(`roomNames`·`condition`·`selection`·`lot`·`recipe`·`ppid`)를 `apply`할 수 없음(규칙 6), `limits.maxRows`는 양의 정수이고 페이지·커서 엔드포인트(`page`·`pageSize`·`cursor` paramKeys)가 아닐 것(규칙 7, #175). 원본: `packages/adapters/mock-server/src/adapter.ts` `createMockAdapter`.
 
 ### 서버 선언 등록부 (platform-api)
 
@@ -107,7 +107,7 @@ platform-api의 `menuQuery`·`menuAction`은 `apps/platform-api/src/modules/menu
 
 전송은 `POST` + `Idempotency-Key`·`If-Match` 헤더가 기본 후보지만 정하는 주체는 HTTP 어댑터(#149)다 — 이 문서는 라우트나 헤더를 확정하지 않는다.
 
-**등록 검증 (서버 기동 시)** — 동작도 엔드포인트처럼 검증하고 하나라도 어긋나면 기동을 거부한다: 동작 id 중복 없음, `menuId`가 Registry에 있음, 권한 이름이 어떤 메뉴가 선언한 권한임, 메뉴가 Scope를 요구하면 동작도 요구, `invalidates`의 각 항목이 같은 `menuId`의 등록된 엔드포인트임, `concurrency: 'version'` 동작에는 현재 버전을 읽는 핸들러가 있음. 원본: `packages/adapters/mock-server/src/adapter.ts` `createMockAdapter`.
+**등록 검증 (서버 기동 시)** — 동작도 엔드포인트처럼 검증하고 하나라도 어긋나면 기동을 거부한다: 동작 id 중복 없음, `menuId`가 Registry에 있음, 권한 이름이 어떤 메뉴가 선언한 권한임(앱이 권한 어휘 `permissions`를 넘기면 그 어휘의 권한도 허용 — 메뉴의 진입 권한이 아닌 게시 권한 같은 쓰기 권한용이고, 오타는 여전히 거부함. 어휘를 넘기지 않으면 메뉴가 선언한 권한만 허용), 메뉴가 Scope를 요구하면 동작도 요구, `invalidates`의 각 항목이 같은 `menuId`의 등록된 엔드포인트임, `concurrency: 'version'` 동작에는 현재 버전을 읽는 핸들러가 있음. 원본: `packages/adapters/mock-server/src/adapter.ts` `createMockAdapter`.
 
 ## 4. 적합성 묶음으로 확인하기
 

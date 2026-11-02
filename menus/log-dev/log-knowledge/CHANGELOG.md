@@ -5,6 +5,7 @@
 ## 0.5.0 — 2026-11-02
 
 - 전체 기술 Item 목록·Item 상세 화면(#1197 s2, A안, 읽기 전용): 메뉴 `log-knowledge-items`(표·필터·검색)와 숨김 상세 `log-knowledge-item`(본문 4블록, 근거, 연결 Item, 리비전 `?rev=`, 판단 변경 이력). 조회 2종(`logKnowledge.items`·`itemDetail`) 선언·mock 저장소(`src/mock/items.ts`)·서버 drift 검사.
+- 기술 Item 쓰기 5종 선언(`itemCreate`·`itemRevise`·`itemAssess`·`itemDerive`·`itemSetArchived`, 권한 `ITEM_PUBLISH_PERMISSION`=`knowledge:item-publish`)과 mock 쓰기(`src/mock/itemActions.ts`, Item 저장소 변경 함수), 서버 drift 검사(#1197 s3a, 화면 없음).
 
 ## 0.4.0 — 2026-11-02
 

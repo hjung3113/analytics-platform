@@ -2,7 +2,7 @@
  * In-memory knowledge items of the mock server (ADR-0109, #1197 s2): a deterministic synthetic seed of ~30 items over the
  * synthetic catalog (`store.ts`), shaped like the real `knowledge.item*` tables (item, revision + evidence, assessment
  * events, links). Module state like the catalog store; `resetItems()` restores the seed. Pure data — the reads are in
- * `index.ts`, and node s3 adds its write actions over this same store.
+ * `index.ts`; the write actions (`itemActions.ts`, #1197 s3a) change this same store through the mutators at the end.
  */
 import { all, byId } from './store';
 
@@ -28,6 +28,8 @@ const day = (d: number, hour = 9): string => `2026-10-${String(d).padStart(2, '0
 
 let items: ItemRec[] = [];
 let links: LinkRec[] = [];
+let nextItemNo = 1;
+let nextAssessmentNo = 1;
 
 const TYPES = ['anomaly', 'needs_check', 'behavior_note', 'guideline'] as const;
 const VERIFICATIONS = ['not_checked', 'observed', 'verified', 'disputed'] as const;
@@ -93,6 +95,7 @@ export function resetItems(): void {
   // KI-5 (SW-owned) was derived from KI-1 at its revision 2; KI-2 and KI-6 are related.
   links.push({ kind: 'derived_from', sourceItemId: itemUuid(5), targetItemId: itemUuid(1), sourceRevisionNo: 2 });
   links.push({ kind: 'related', sourceItemId: itemUuid(2), targetItemId: itemUuid(6), sourceRevisionNo: null });
+  nextItemNo = items.length + 1; nextAssessmentNo = assessmentSeq + 1;
 }
 resetItems();
 
@@ -108,4 +111,58 @@ export function ownerOf(rec: ItemRec) {
   return sw === null
     ? { kind: 'model' as const, modelId: model.id, modelName: model.name }
     : { kind: 'software' as const, modelId: model.id, modelName: model.name, softwareId: sw.id, versionLabel: sw.code };
+}
+
+// ---- mutators (the write actions, #1197 s3a) ---------------------------------------------------------------------
+// Plain store changes; the rules (validation, refusals, outcomes) live in `itemActions.ts`. The server writes through
+// `repositories/item-write.ts`; here a bump of `rowVersion` and `updatedAt` marks every successful change.
+
+/** The acting user of every mock write. The mock engine hands the handler a role id, not a user id, so one fixed actor stands in. */
+export const MOCK_ACTOR_ID = ACTORS[0];
+
+export type EvidenceRec = RevisionRec['evidence'][number];
+/** The normalised content of one revision (blank optional texts are already null, title trimmed). */
+export type RevisionContent = Pick<RevisionRec, 'title' | 'typeCode' | 'observation' | 'expected' | 'analysisOpinion' | 'improvement'>;
+
+const now = (): string => new Date().toISOString();
+const bump = (rec: ItemRec): ItemRec => { rec.rowVersion += 1; rec.updatedAt = now(); return rec; };
+const revisionOf = (revisionNo: number, content: RevisionContent, changeNote: string | null, evidence: readonly Omit<EvidenceRec, 'ordinal'>[]): RevisionRec => ({
+  revisionNo, ...content, changeNote, publishedBy: MOCK_ACTOR_ID, publishedAt: now(),
+  evidence: evidence.map((e, i) => ({ ordinal: i + 1, ...e })),
+});
+
+/** A new published item (`not_checked`, `open`) with revision 1; the number is the next of the workspace counter. */
+export function insertItem(owner: { modelId: string | null; softwareId: string | null }, content: RevisionContent, evidence: readonly Omit<EvidenceRec, 'ordinal'>[]): ItemRec {
+  const itemNo = nextItemNo++;
+  const at = now();
+  const rec: ItemRec = {
+    id: itemUuid(itemNo), itemNo, ownerModelId: owner.modelId, ownerSoftwareId: owner.softwareId,
+    verificationState: 'not_checked', processingState: 'open', publicationState: 'published', rowVersion: 1,
+    createdBy: MOCK_ACTOR_ID, createdAt: at, updatedAt: at, revisions: [revisionOf(1, content, null, evidence)], assessments: [],
+  };
+  items.push(rec);
+  return rec;
+}
+/** Appends revision `latest + 1`; the evidence belongs to it, the earlier revisions stay as they are. */
+export function appendRevision(rec: ItemRec, content: RevisionContent, changeNote: string, evidence: readonly Omit<EvidenceRec, 'ordinal'>[]): ItemRec {
+  rec.revisions.push(revisionOf(latestRevision(rec).revisionNo + 1, content, changeNote, evidence));
+  return bump(rec);
+}
+/** One assessment event (prior = the current projection, based on the latest revision) and the dimension's new projection. */
+export function appendAssessment(rec: ItemRec, dimension: 'verification' | 'processing', newState: string, rationale: string): ItemRec {
+  const prior = dimension === 'verification' ? rec.verificationState : rec.processingState;
+  rec.assessments.push({
+    id: assessmentUuid(nextAssessmentNo++), dimension, priorState: prior, newState, rationale,
+    actorId: MOCK_ACTOR_ID, basedOnRevisionNo: latestRevision(rec).revisionNo, observedAt: now(),
+  });
+  if (dimension === 'verification') rec.verificationState = newState; else rec.processingState = newState;
+  return bump(rec);
+}
+export function setPublicationState(rec: ItemRec, state: 'published' | 'archived'): ItemRec {
+  rec.publicationState = state;
+  return bump(rec);
+}
+/** `derived_from`: the new item (source of the link) points at the original at the revision it was derived from. */
+export function insertDerivedLink(newItemId: string, originalItemId: string, originalRevisionNo: number): void {
+  links.push({ kind: 'derived_from', sourceItemId: newItemId, targetItemId: originalItemId, sourceRevisionNo: originalRevisionNo });
 }
