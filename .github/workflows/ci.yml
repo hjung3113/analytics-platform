@@ -425,7 +425,7 @@ jobs:
               if (Object.keys(mod).length === 0) throw new Error(name + ' has no exports');
             }
             for (const dev of ['@ap/contracts', '@ap/http-adapter', '@ap/server-conformance', 'vitest', 'typescript']) {
-              // Resolve without evaluating: only "not found" counts as absent; any other error fails the step.
+              // Resolve without evaluating: only a not-found error counts as absent; any other error fails the step.
               let present = true;
               try { import.meta.resolve(dev); } catch (error) { if (error?.code !== 'ERR_MODULE_NOT_FOUND') throw error; present = false; }
               if (present) throw new Error('dev dependency present in runtime image: ' + dev);
