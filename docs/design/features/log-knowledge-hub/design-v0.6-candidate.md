@@ -7,7 +7,7 @@
 > **버전:** v0.6 — 플랫폼 직접 탑재 및 기술 상세 설계 (Review Candidate, 2026-11-01)  
 > **기준 문서:** [`product-ux-reference-v0.4.md`](./product-ux-reference-v0.4.md)(2026-10-30, 사용자 확정 1–17번 제품 정책, 카탈로그 §15, UI/UX §16–17)  
 > **주요 변경:** 독립 웹 우선/후속 플랫폼 이식을 폐기하고 `hjung3113/analytics-platform` 내부 **`log-dev` 업무 시스템에 직접 탑재**하는 방식으로 변경. 기존 v0.4의 도메인 정책과 화면 품질 기준은 유지.  
-> **상태 의미:** *요구 방향은 사용자 요청 반영* / *아키텍처·DDL·API 세부는 검수된 구현 후보* / *실제 코드·마이그레이션·배포는 아직 수행하지 않음*. 플랫폼 원본과 충돌하면 최신 Decided ADR 및 실제 런타임 계약이 우선.
+> **상태 의미:** *요구 방향은 사용자 요청 반영* / *아키텍처·DDL·API 세부는 검수된 구현 후보* / *카탈로그·모델→Item 최소판의 코드와 마이그레이션은 구현됨. 나머지 기술 설계는 Candidate이며 실제 배포·운영 검증 상태와는 별개*. 플랫폼 원본과 충돌하면 최신 Decided ADR 및 실제 런타임 계약이 우선.
 
 ## 0. 결론과 설계 권위
 
@@ -562,44 +562,29 @@ Human UI: GET Draft(DraftVersion+Digest), 편집/근거 Diff 확인
 
 **테스트 실행 위험:** `pnpm --filter @ap/platform-api test:integration`은 DB를 초기화/재시드하므로 **반드시 폐기 가능한 DB**에서만 실행. 기본 `pnpm test`는 DB-free 경로만 증명하므로 DB 계약 검증으로 대체할 수 없다. RBAC 테스트는 `platform_app`로, 마이그레이션은 `platform_migrate`로 수행해야 `GRANT` 검증이 의미 있다.
 
-## 12. 설계 자체에 대한 적대적 검수(2026-10-30)
+## 12. 미결 게이트
 
-| 검수 관점 | 발견한 충돌/실패 가능성 | 반영한 수정 | 남은 확인 |
-|---|---|---|---|
-| 제품 정책 | v0.2에는 Item M:N 소유, v0.4 결정에는 단일 소유 | Model/SW owner XOR; N:M은 Subject/Process/Group뿐 | Owner 변경 업무 수요 |
-| 명세·버전 | 과거 공통 baseline+SW override는 v0.4와 충돌 | SW Spec 독립 원본, common은 사람 승인 파생본 | 정확한 Spec field vocabulary |
-| 도메인 형상 | SW Build 필수 키가 사용자 결정과 충돌 | `software_version`만, Build 계층 제외 | 장기 Build 필요 시 schema migration |
-| 플랫폼 아키텍처 | 독립 서버/독립 로그인/독립 DB 및 별도 audit은 중복 소유 | `log-dev` 내 정적 Group+Fastify+`knowledge` schema+Core 서비스 재사용 | 실제 `menuAction`·신규 `menuQuery` 핸들러 구현 현황 |
-| 권한·보안 | Site Scope 숨김을 ACL 삭제로 오해할 수 있음 | Space/menu/data/evidence 권한 독립, #1108 UI 정책 의존 | #1087 Site scope 미결정과 무관한 권한 최소 set |
-| 이력 무결성 | Item Revision만 불변이면 Evidence/Subject/Tag가 나중에 바뀜 | **Revision별 근거·Subject·Tag·관계 스냅샷** | 물리 DDL 전체 FK/제거 정책 |
-| Agent 경합 | 초안 승인 중 AI 수정 또는 Item 경합 | draft digest+item expectedVersion+row lock+트랜잭션 | machine credential 발급/회수 |
-| 검색 | 교차 SW 유사 현상 자동 합치기/역순검색 위양성 | `item_id`만 중복 제거, Event 방향/관찰·기대 분리 | 한국어 검색 정량 품질 |
-| 카탈로그 | 파일 Preview가 바로 DB 쓰거나 parent 없는 row 생성 | 5단계 staging, immutable Plan, row idempotency, 위상순 적용 | 실제 파일 한도·보관 정책 |
-| 감사·원본 | 기밀 로그 복제/첨부 중복/다른 모듈 테이블 직접 쓰기 | Evidence 포인터+플랫폼 Attachment·Core Audit+Owner port | 실제 원천 ACL adapter 인증 |
-| Top View | Viewer 링크만 제공한 뒤 완성으로 보고 | 실제 Viewer 최종 DoD, Studio 편집, SW mapping | equipment-visualization viewer 계약/버전 |
-| UI | Standalone 전용 Shell와 플랫폼 Shell 이중 렌더 | platform Shell 단독, v0.4 UX 상세 유지 | #1108 실제 Hierarchy 컴포넌트 출시 |
+아직 사람·운영 정책 결정이나 실측이 필요한 질문이다. 미결을 무음으로 `Decided`로 승격하거나 일반 사용자에게 사내 민감 자료를 일괄 공개하지 않는다. 각 질문은 해당 개발 이슈의 결정 게이트로 관리한다. 이미 결정된 사항은 아래 소유 절·ADR을 따른다.
 
-### 12.1 아직 사람·운영 정책 결정이 필요한 항목
+- **결정됨(미결 아님):** 카탈로그 원천·`code_key` 정규화·유일성·편집 권한은 [ADR-0107](../../../adr/0107-log-knowledge-catalog-authority-keys-and-edit-rights.md), Item 소유·Revision·판단 이력·쓰기 권한은 [ADR-0109](../../../adr/0109-log-knowledge-item-ownership-revisions-assessments.md), 공간의 사이드바 Scope 표시는 [ADR-0108](../../../adr/0108-space-scope-presentation-field.md). Item 소유는 Model/SW XOR(§4), Revision별 근거·Subject·Tag 스냅샷은 §5, 승인 원자성은 §6.5, 검색 중복 제거는 §9가 소유한다.
 
-1. ~~카탈로그의 외부 공식 기준정보 원천, `vendor_code/model_code/version_key` 정규화·유일성 정책, 재소유 이동 승인.~~ **결정됨** — [ADR-0107](../../../adr/0107-log-knowledge-catalog-authority-keys-and-edit-rights.md) 1·2(재소유 이동은 P0에서 거절).
+1. 카탈로그 관련(#1195): Import 파일 크기·시트/파일 정책·보관 기간·행 실패 재시도 기간, 외부 변경 권위 우선순위, sealed plan 재계획 시 기존 적용 결과를 덮어쓰지 않는 규칙의 schema/integration 확정, 대용량 파일 파싱을 별도 내부 helper에 맡길 때 카탈로그 쓰기 권위를 Fastify에 두는 아키텍처 확인.
 2. `knowledge` Workspace/조직 간 공유 범위, default internal vs restricted 모델의 객체 ACL 수용 기준, 근거 source ACL과 결합 방식.
-3. (카탈로그 편집 권한은 [ADR-0107](../../../adr/0107-log-knowledge-catalog-authority-keys-and-edit-rights.md) 3에서 결정됨.) Contributor 작성 초안의 자기 승인 허용 여부, Publisher가 다른 사람·AI Draft도 승인 가능한지, Reviewer/Publisher 분리 구체 Capability Matrix.
+3. Contributor 작성 초안의 자기 승인 허용 여부, Publisher가 다른 사람·AI Draft도 승인 가능한지, Reviewer/Publisher 분리 구체 Capability Matrix(#1198).
 4. 사내 Agent/Validator 서비스 계정 발급·토큰 갱신·네트워크·호출량·감사 보관, 원본 로그 발췌 허용 정책.
-5. Catalog CSV/XLSX 크기·시트/파일 정책·보관 기간·개별 행 실패 처리/재시도 기간, 외부 변경 권위 우선순위.
-6. SW Module/Event 안정 키 정의, 원본 Spec 문서 식별자, Model Common Candidate의 임계/동치 판정 기준.
-7. 기존 Platform Saved Views의 본 도메인 검색 필터 수용 능력, `knowledge_saved_query`가 정말 필요한지.
-8. Top View Viewer/Studio 실제 배포 버전 및 SW Mapping ID, Validator Finding 안정 참조 계약, Parser 원본 접근 API.
-9. 플랫폼 `menuAction`/동적 HierarchyExplorer/#1108·권한 세부/#1087의 **실제 구현 상태**(ADR 결정 ≠ 구현 완료) 및 통합 단계.
-
-미결을 무음으로 `Decided`로 승격하거나 일반 사용자에게 사내 민감 자료를 일괄 공개하지 않는다. 미결은 개발 이슈의 별도 결정 게이트로 관리한다.
+5. SW Module/Event 안정 키 정의, 원본 Spec 문서 식별자, Model Common Candidate의 임계/동치 판정 기준, 정확한 Spec field vocabulary(#1196).
+6. 기존 Platform Saved Views의 본 도메인 검색 필터 수용 능력, `knowledge_saved_query`가 정말 필요한지, 한국어 검색 정량 품질과 검색·자동완성의 동적 ACL 재검증 실측(#1199·#1201).
+7. Top View Viewer/Studio 실제 배포 버전 및 SW Mapping ID, Validator Finding 안정 참조 계약, Parser 원본 접근 API, 실제 원천 ACL adapter 인증(#1200·#1201).
+8. 동적 HierarchyExplorer(#1108)의 출시와 분석 Site 권한(#1087)의 결정. Knowledge가 Site Scope를 요구한다는 뜻은 아니며, 권한 최소 set은 이와 무관하게 정한다.
+9. 40개 테이블 중 후속 기능을 도입할 때마다 FK/제거 정책/인덱스/상태 머신 확인, 장기 Build 계층이 필요해질 때의 schema migration, Owner 변경 업무 수요.
 
 ## 13. 문서·구현 권위 및 갱신 규칙
 
 - **이 v0.6:** 플랫폼 직접 탑재 방향, 기술 데이터 소유권, DB/API 제약, 트랜잭션/권한/검수의 기준선. 상세 SQL은 실행 전 후보.
-- **v0.4:** 제품 결정 1–17번, 카탈로그 관리 Phase0 §15, UI/UX 상세 §16–17의 원본. 이 v0.6와 v0.4 사이에서 *통합 방식·Standalone 관련 문장*만 v0.5가 대체한다. v0.4 UI 레퍼런스 HTML은 정적 참고 자료, 런타임 검증 대체 불가.
+- **v0.4:** 제품 결정 1–17번, 카탈로그 관리 Phase0 §15, UI/UX 상세 §16–17의 원본. 이 v0.6와 v0.4 사이에서 *통합 방식·Standalone 관련 문장*만 이 v0.6이 대체한다. v0.4 UI 레퍼런스 HTML은 정적 참고 자료, 런타임 검증 대체 불가.
 - **플랫폼:** `docs/contract/*`, `docs/adr/0095...`, `0054...`, `0096...`, `docs/architecture/platform-api/02/03/04/05/06...`, `apps/platform-api/AGENTS.md`, 실제 구현/마이그레이션·API 스키마가 실행과 기술 경계의 우선 원본.
 - 구현 시 `docs/architecture/platform-api/api/log-knowledge.md` 및 플랫폼 DB/권한·계약 문서에 최종 API/DDL을 반영. 변경 이슈/PR은 제품 v0.4 사용자 결정 및 마이그레이션/보안 게이트를 근거로 나눠 추적.
-- 실제 배포 완료/이슈 등록/코드 변경/테스트 통과와 이 설계 문서의 작성은 별개의 상태. **이번 작업 범위는 검수된 설계 문서 최신화**다.
+- 이 문서는 잔여 기능의 설계 후보이며, 구현·검증 상태는 [.planning/README.md](../../../../.planning/README.md)와 현행 API·ADR을 따른다.
 
 ### 대조한 플랫폼 참고 문서
 
@@ -619,30 +604,7 @@ Human UI: GET Draft(DraftVersion+Digest), 편집/근거 Diff 확인
 
 **최종 설계 원칙:** `log-dev` 내 단일 플랫폼 Shell·Fastify 업무 모듈·PostgreSQL `knowledge` 도메인으로 붙인다. **Model↔Process는 N:M, SW 명세는 독립 원본, Item 소유는 Model/SW XOR, 모델 공통정보는 사람 승인 파생본, AI/Validator는 초안만, 감사/파일/인증은 플랫폼 공통 소유**를 유지한다.
 
-## 14. 2026-11-01 GitHub 등록 전 재검수 보정 및 실행 게이트
-
-### 14.1 확인된 플랫폼 상태 (문서 후보와 구분)
-
-- 저장소 `hjung3113/analytics-platform`의 기본 브랜치 `main` / **public**. 비기밀 설계와 합성 예시만 게시하며 실제 장비/SW 식별정보·로그·도면·내부 호스트·토큰·개인정보는 넣지 않는다.
-- 현재 메뉴 패키지는 `menus/<system>/<group>/src/index.ts`의 `manifests` export 형태다(`menus/AGENTS.md` 확인). 이전 v0.5 표에 있던 `manifest.ts` 가정은 `index.ts`로 교정했다.
-- `apps/platform-api/src/modules/*`·`platform` DB·Drizzle journal·`platform_app/platform_migrate` 분리는 현재 플랫폼 계약과 일치한다.
-- #1098(폴더 이동), #1099(SDK 내비게이션/명칭 변경)은 **closed**. 더 이상 미완료 선행 작업으로 표시하지 않는다. #1108(범용 계층 탐색)은 **open**이며 도메인 종속 기능은 이 이슈로 보내지 않는다. #1087(분석 Site 부여)은 **open**이지만 Knowledge가 Site Scope를 요구한다는 의미가 아니다.
-- 브라우저 `menuAction` 계약과 HTTP adapter 정의는 확인했으나 **Knowledge용 Fastify handler/권한/Drizzle migration은 아직 존재한다고 주장하지 않는다**. 구현 착수 게이트에서 실제 server route/readiness 확인.
-
-### 14.2 설계 결함/보완과 보류 사항
-
-| 검수 항목 | 보정/정책 | 인수 판단 |
-|---|---|---|
-| Import sealed plan 일관성 | `catalog_import_job.sealed_plan_hash` + `catalog_import_row.plan_hash`를 후보 컬럼에 추가; 적용 시 planVersion·해시·행 상태 CAS, 중복 적용 방지. 원본 Job/Row가 재계획 가능하다면 새 planVersion에서 **기존 적용 결과를 덮어쓰지 말 것** | P0 #1195에서 schema/integration 확정 |
-| 40개 테이블 과설계 위험 | 전체 논리 설계는 보존, P0에서 카탈로그/Import 최소 스키마만 materialize. 후속 기능 도입할 때 FK/인덱스/상태 머신 확인 | #1193–#1201 개별 PR |
-| 메뉴 코드 실제 진입점 | `src/index.ts`는 manifests 전용; 메뉴·코어 import 경계 및 SDK tag/CODEOWNERS 준수 | P0 #1193 |
-| 문서 우선순위 | v0.4 단독 셸/URL/DB·인증 관련 표현은 legacy; v0.6 및 현재 플랫폼 계약 우선. UI 독립 레퍼런스 HTML은 **이번 PR에 포함되지 않음**; 텍스트 화면·테스트 시나리오는 v0.4 §15–17에 보존 | UI #1194/#1201 |
-| 카탈로그 공식 source of truth | 관리 원천·code_key 정규화·외부 ID 매핑 권위·모델 소유 이동은 구현 전에 명시적 결정. 서로 다른 외부 키 자동 병합 금지 | #1194/#1195 결정 게이트 |
-| 검색·Evidence 보안 | 검색 색인과 텍스트 스니펫/자동완성의 동적 ACL 재검증, source ACL 철회 fail-closed. PG FTS의 한국어 성능 미보장 | #1199/#1201 실측 |
-| 승인 권한/서비스 신원 | AI/Validator Draft-only, human session + capability, digest/expectedVersion CAS. 자기 승인·Reviewer/Publisher 권한 매트릭스와 machine token 보관 정책은 별도 사람 결정 | #1198 결정 게이트 |
-| 데이터 소유권/Excel 처리 | Fastify가 Knowledge 도메인 변경의 유일한 소유자. 대용량 파일 파싱을 별도 내부 helper에 위임하더라도 카탈로그 쓰기 권위는 옮기지 않음 | #1195 아키텍처 게이트 |
-
-### 14.3 구현 단계/연결
+## 14. 구현 단계/연결
 
 상위 추적 이슈: [#1192](https://github.com/hjung3113/analytics-platform/issues/1192). P0 [#1193](https://github.com/hjung3113/analytics-platform/issues/1193)·[#1194](https://github.com/hjung3113/analytics-platform/issues/1194)·[#1195](https://github.com/hjung3113/analytics-platform/issues/1195), P1 [#1196](https://github.com/hjung3113/analytics-platform/issues/1196)·[#1197](https://github.com/hjung3113/analytics-platform/issues/1197)·[#1198](https://github.com/hjung3113/analytics-platform/issues/1198)·[#1199](https://github.com/hjung3113/analytics-platform/issues/1199), P2 [#1200](https://github.com/hjung3113/analytics-platform/issues/1200)·[#1201](https://github.com/hjung3113/analytics-platform/issues/1201).
 
@@ -650,4 +612,3 @@ P0 #1193 구현됨: 스키마 표 1–6(`knowledge` 스키마, migration 0080)�
 
 #1194 화면 구현: A안(탭 + 오른쪽 서랍, 소유자 확정). 제조사·공정·모델·SW 버전 4탭(`tab`, 기본 모델), 탭마다 서버 페이징 표와 열 필터(`filter`), 만들기·수정은 서랍(`focus` = 행 id 또는 `new`), 비활성화는 확인 대화상자, 모델 표에 B안의 SW 버전 열(최신 표기 + `외 n`). Import 단추는 #1195가 표 툴바에 더한다.
 
-**이 PR은 설계 문서만 추가한다.** 생성된 폴더/문서는 feature implementation, 실행 가능한 migration, API 구현, 실제 운영 검증을 의미하지 않는다.

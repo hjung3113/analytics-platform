@@ -1,14 +1,20 @@
 # Log Knowledge Hub — 설계 문서 색인
 
-> **Status: Candidate / 구현 전.** 이 문서 디렉터리는 공개 저장소에서 검토 가능한 **합성/비기밀 설계**만 담는다. 기술 결정은 실제 플랫폼 코드·Decided ADR이 우선하며, 문서 PR은 설계 검토용이다.
+> **Status: 잔여 설계는 Candidate. 카탈로그와 모델→Item 최소판은 구현됨(#1193·#1194·#1197). 현행 구현 계약은 아래 API·Decided ADR을 따른다.** 이 문서 디렉터리는 공개 저장소에서 검토 가능한 **합성/비기밀 설계**만 담는다. 기술 결정은 실제 플랫폼 코드·Decided ADR이 우선하며, 문서 PR은 설계 검토용이다.
 
 ## 문서 권위
 
-1. **[design-v0.6-candidate.md](./design-v0.6-candidate.md)** — **최신 설계 기준선**. 플랫폼 직접 탑재, Fastify/DB/API/ACL, 40개 **후보** 테이블, 트랜잭션·검색·검수 및 2026-11-01 재검수 내용. §14에 검토 수정·미결 게이트 명시.
+1. **[design-v0.6-candidate.md](./design-v0.6-candidate.md)** — **최신 설계 기준선**. 플랫폼 직접 탑재, Fastify/DB/API/ACL, 40개 **후보** 테이블, 트랜잭션·검색·검수 및 §12에 미결 게이트 명시.
 2. **[product-ux-reference-v0.4.md](./product-ux-reference-v0.4.md)** — 제품 결정 1–17번, 카탈로그 관리 5단계 UX(§15), 상세 화면/와이어프레임(§16), 합성 검증 시나리오(§17). **독립 실행·이중 Shell/서버 관련 문장은 폐기된 역사적 내용**이며 v0.6보다 우선하지 않음.
 3. **[ADR-0107](../../../adr/0107-log-knowledge-catalog-authority-keys-and-edit-rights.md)** — P0 카탈로그의 원천·`code_key` 정규화와 유일성·편집 capability(Decided 2026-11-02). v0.6 §12.1의 1번과 카탈로그 편집 권한을 대체한다.
 4. **캡처 범위:** 시각 검수는 데스크톱 1440×900과 1280 폭만 한다(루트 `AGENTS.md` 검증 절). v0.4 §16–17의 1024×768·768–1023·768 미만 항목은 범위 밖이며, 소유자가 범위를 바꾸기 전에는 구현·검수하지 않는다.
 5. 별도 `Log_Knowledge_Hub_UI_Reference_v0.4.html` 정적 그래픽 레퍼런스는 이번 PR에 포함하지 않음. 플랫폼 실제 UI/코드를 검증한 것으로 간주하지 말 것.
+
+## 현행 계약 참조
+
+- [현행 조회·쓰기 API](../../../architecture/platform-api/api/log-knowledge.md) — 카탈로그·모델 탐색·Item의 구현 계약.
+- [ADR-0108](../../../adr/0108-space-scope-presentation-field.md) — 공간의 사이드바 Scope 표시.
+- [ADR-0109](../../../adr/0109-log-knowledge-item-ownership-revisions-assessments.md) — Item 소유·Revision·판단 이력·쓰기 권한.
 
 ## 추적
 
