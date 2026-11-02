@@ -207,7 +207,7 @@ describe('registration with the mock adapter', () => {
     }) as unknown as MenuMeta;
   const adapter = () => createMockAdapter({
     endpoints: logKnowledgeMock, actions: logKnowledgeActionsMock,
-    registry: { menus: [menu('log-knowledge-catalog', CATALOG_MANAGE_PERMISSION), menu('log-knowledge-items', 'platform:view'), menu('home', 'platform:view')] },
+    registry: { menus: [menu('log-knowledge-catalog', CATALOG_MANAGE_PERMISSION), menu('log-knowledge-models', 'platform:view'), menu('log-knowledge-items', 'platform:view'), menu('home', 'platform:view')] },
     permissions: [...KERNEL_PERMISSIONS, CATALOG_MANAGE_PERMISSION, ITEM_PUBLISH_PERMISSION],
   });
   let keySeq = 0;
