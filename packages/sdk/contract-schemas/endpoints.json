@@ -566,6 +566,35 @@
     "mergeTimeDomain": false
   },
   {
+    "id": "logKnowledge.itemDetail",
+    "menuId": "log-knowledge-items",
+    "paramKeys": [
+      "itemId",
+      "revisionNo"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logKnowledge.items",
+    "menuId": "log-knowledge-items",
+    "paramKeys": [
+      "q",
+      "page",
+      "pageSize",
+      "sorting",
+      "filters"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
     "id": "logKnowledge.modelProfile",
     "menuId": "log-knowledge-models",
     "paramKeys": [

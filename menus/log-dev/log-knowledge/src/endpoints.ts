@@ -137,3 +137,83 @@ export const catalogActionSpecs = [
   modelCreate, modelUpdate, modelSetActive, softwareCreate, softwareUpdate, softwareSetActive,
 ] as const;
 export const catalogEndpointSpecs = [vendorsEndpoint, processesEndpoint, modelsEndpoint, softwareVersionsEndpoint] as const;
+
+// ---- knowledge item reads (ADR-0109, #1197 s2) -------------------------------------------------------------------
+// Owned by the `log-knowledge-items` menu; the navHidden detail screen `log-knowledge-item` reads its parent's endpoints.
+// The server mirror is `apps/platform-api/src/modules/log-knowledge/item-endpoints.ts`; the drift test compares both.
+
+export const LOG_KNOWLEDGE_ITEMS_MENU_ID = 'log-knowledge-items';
+
+export const ITEM_TYPE_CODES = ['anomaly', 'needs_check', 'behavior_note', 'guideline'] as const;
+export const VERIFICATION_STATES = ['not_checked', 'observed', 'verified', 'disputed'] as const;
+export const PROCESSING_STATES = ['open', 'under_investigation', 'resolved'] as const;
+export const PUBLICATION_STATES = ['published', 'archived'] as const;
+export const OWNER_KINDS = ['model', 'software'] as const;
+export type ItemTypeCode = (typeof ITEM_TYPE_CODES)[number];
+export type VerificationState = (typeof VERIFICATION_STATES)[number];
+export type ProcessingState = (typeof PROCESSING_STATES)[number];
+export type PublicationState = (typeof PUBLICATION_STATES)[number];
+
+export type ItemOwner = { kind: 'model' | 'software'; modelId: string; modelName: string; softwareId?: string; versionLabel?: string };
+export type ItemRow = {
+  id: string; itemNo: number; title: string; typeCode: ItemTypeCode; owner: ItemOwner;
+  verificationState: VerificationState; processingState: ProcessingState; publicationState: PublicationState;
+  latestRevisionNo: number; updatedAt: string;
+};
+export type ItemEvidence = {
+  ordinal: number; sourceKind: string; sourceOwner: string; sourceRef: string; sourceVersion: string | null;
+  contentHash: string | null; locator: string | null; note: string | null;
+};
+export type ItemRevision = {
+  revisionNo: number; title: string; typeCode: ItemTypeCode; observation: string | null; expected: string | null;
+  analysisOpinion: string | null; improvement: string | null; changeNote: string | null; publishedBy: string; publishedAt: string;
+  evidence: ItemEvidence[];
+};
+export type ItemAssessment = {
+  id: string; dimension: 'verification' | 'processing' | 'publication' | string; priorState: string; newState: string;
+  rationale: string; actorId: string; basedOnRevisionNo: number; observedAt: string;
+};
+export type ItemLinkRow = {
+  kind: 'derived_from' | 'related'; direction: 'outgoing' | 'incoming'; itemId: string; itemNo: number; title: string;
+  owner: ItemOwner; sourceRevisionNo: number | null;
+};
+export type ItemDetail = {
+  item: ItemRow & { version: string; createdBy: string; createdAt: string };
+  revision: ItemRevision;
+  revisions: { revisionNo: number; title: string; publishedBy: string; publishedAt: string; changeNote: string | null }[];
+  assessments: ItemAssessment[];
+  links: ItemLinkRow[];
+};
+
+export const ITEM_SORT_IDS = ['itemNo', 'title', 'updatedAt'] as const;
+const itemEnum = (values: readonly string[], labels: Record<string, string>, multiple?: false): ColumnFilterSpec => ({
+  kind: 'enum', options: values.map(value => ({ value, label: labels[value] ?? value })), ops: ['in', 'notIn'], ...(multiple === false ? { multiple: false as const } : {}),
+});
+export const ITEM_TYPE_LABEL: Record<ItemTypeCode, string> = { anomaly: '이상 사례', needs_check: '확인 필요', behavior_note: '동작 설명', guideline: '작업 기준' };
+export const VERIFICATION_LABEL: Record<VerificationState, string> = { not_checked: '미확인', observed: '관찰됨', verified: '검증됨', disputed: '이견 있음' };
+export const PROCESSING_LABEL: Record<ProcessingState, string> = { open: '열림', under_investigation: '조사 중', resolved: '해결됨' };
+export const PUBLICATION_LABEL: Record<PublicationState, string> = { published: '게시됨', archived: '보관됨' };
+
+/** Filter fields of the item list (wire meaning, ADR-0105). No `publicationState` condition = published items only (the server's rule). */
+export const itemFilterSpecs: Readonly<Record<string, ColumnFilterSpec>> = {
+  ownerKind: itemEnum(OWNER_KINDS, { model: '모델', software: 'SW 버전' }),
+  ownerModelId: idSpec,
+  ownerSoftwareId: idSpec,
+  includeSoftware: { kind: 'enum', options: [{ value: 'true', label: '예' }, { value: 'false', label: '아니오' }], ops: ['in'], multiple: false },
+  typeCode: itemEnum(ITEM_TYPE_CODES, ITEM_TYPE_LABEL),
+  verificationState: itemEnum(VERIFICATION_STATES, VERIFICATION_LABEL),
+  processingState: itemEnum(PROCESSING_STATES, PROCESSING_LABEL),
+  publicationState: itemEnum(PUBLICATION_STATES, PUBLICATION_LABEL),
+};
+
+export const itemsEndpoint = defineEndpoint<CatalogPageParams, PageResult<ItemRow>>({
+  id: 'logKnowledge.items', menuId: LOG_KNOWLEDGE_ITEMS_MENU_ID, paramKeys, permission: 'platform:view',
+  requiresScope: false, context: {}, kinds: [], mergeTimeDomain: false,
+});
+export type ItemDetailParams = { itemId: string; revisionNo?: number };
+/** `null` data: an unknown id, another workspace's item, or a revision the item does not have (the outcome set has no `not_found`). */
+export const itemDetailEndpoint = defineEndpoint<ItemDetailParams, ItemDetail | null>({
+  id: 'logKnowledge.itemDetail', menuId: LOG_KNOWLEDGE_ITEMS_MENU_ID, paramKeys: { itemId: true, revisionNo: true }, permission: 'platform:view',
+  requiresScope: false, context: {}, kinds: [], mergeTimeDomain: false,
+});
+export const itemEndpointSpecs = [itemsEndpoint, itemDetailEndpoint] as const;

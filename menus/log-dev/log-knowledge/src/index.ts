@@ -3,7 +3,7 @@
  * The catalog screen is #1194 (variant A: tabs + right drawer); the server reads are `logKnowledge.*` (apps/platform-api).
  */
 import { lazy } from 'react';
-import { BookOpen, Cpu } from 'lucide-react';
+import { BookOpen, Cpu, FileText, ListChecks } from 'lucide-react';
 import { NO_FEATURES, contextCapabilities, groupId } from '@ap/contracts';
 import { CATALOG_MANAGE_PERMISSION } from './endpoints';
 import type { MenuEntry } from '@ap/kernel';
@@ -22,6 +22,20 @@ export const manifests: MenuEntry[] = [
     path: '/log/knowledge/models/:modelId', icon: Cpu, permission: 'platform:view', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES, pageKeys: ['returnTo'],
     component: lazy(() => import('./pages/models/ModelProfile')),
+  },
+  {
+    id: 'log-knowledge-items', group: groupId('logKnowledge'), label: { ko: '전체 기술 Item', en: 'Technical items' },
+    description: { ko: '모든 모델·SW 버전의 기술 Item을 유형·검증·처리·게시 상태로 찾습니다', en: 'Find technical items of every model and software version by type, verification, processing and publication state' },
+    path: '/log/knowledge/items', icon: ListChecks, permission: 'platform:view', requiresScope: false, pageType: 'management',
+    context: contextCapabilities(), features: NO_FEATURES, pageKeys: ['q', 'filter', 'sort', 'page'], repeatedPageKeys: ['filter'], hiddenPageKeys: ['filter'], contextResetKeys: ['page'],
+    component: lazy(() => import('./pages/items/ItemList')),
+  },
+  {
+    id: 'log-knowledge-item', group: groupId('logKnowledge'), parent: 'log-knowledge-items', navHidden: true, label: { ko: '기술 Item 상세', en: 'Item detail' },
+    description: { ko: 'Item 한 건의 본문·근거·연결·리비전·판단 변경 이력을 읽습니다', en: 'Read one item: body, evidence, links, revisions and assessment history' },
+    path: '/log/knowledge/items/:itemId', icon: FileText, permission: 'platform:view', requiresScope: false, pageType: 'management',
+    context: contextCapabilities(), features: NO_FEATURES, pageKeys: ['rev', 'returnTo'],
+    component: lazy(() => import('./pages/items/ItemDetail')),
   },
   {
     id: 'log-knowledge-catalog', group: groupId('logKnowledge'), label: { ko: '카탈로그 관리', en: 'Catalog' },

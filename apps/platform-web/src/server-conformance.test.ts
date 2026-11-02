@@ -55,6 +55,9 @@ const PARAMS: Record<string, Record<string, unknown>> = {
   // #1197 s1: the model reads; `modelProfile` takes a seed model id (store.ts sequence 8 = A-100, see `seedId` below).
   'logKnowledge.exploreModels': { q: null, ...page },
   'logKnowledge.modelProfile': { modelId: '00000003-0000-4000-8000-000000000008' },
+  // Knowledge item reads (#1197 s2): the mock seed's first item (uuid by sequence, `src/mock/items.ts`).
+  'logKnowledge.items': { q: null, ...page },
+  'logKnowledge.itemDetail': { itemId: '00000005-0000-4000-8000-000000000001' },
   // EV (#801): the synthetic fixture's equipment; `continuationToken` stays omitted (first page).
   'eqv.topview-context': { equipmentId: 'eq-synth-01' },
   'eqv.topview-events': { equipmentId: 'eq-synth-01' },
