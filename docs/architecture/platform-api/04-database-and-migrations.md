@@ -828,3 +828,36 @@ actor and the server request id. Grants: `platform_app` has `INSERT, SELECT, UPD
 `INSERT` only on `client_errors`; `USAGE` on the schema for `platform_app` and `platform_migrate`. There is no
 retention job (usage is unlimited with a manual delete path, docs/05; client-error retention is in
 `.planning/backlog.md`) and no annotation table.
+
+## DB time budgets (#1266)
+
+The runtime app pool (`createDb(DATABASE_URL, { budgets, onPoolError })` in `src/index.ts`) bounds how long
+a request can hold a connection or wait for one. Operator pools (`seed`, migrations, tests calling
+`createDb(url)` without options) keep the server defaults, so long migrations are never cut.
+
+| Env | Default | Effect |
+| --- | --- | --- |
+| `DB_POOL_MAX` | 10 | Max connections in the app pool |
+| `DB_POOL_ACQUIRE_TIMEOUT_MS` | 5000 | Wait for a free connection (pool `connectionTimeoutMillis`) |
+| `DB_STATEMENT_TIMEOUT_MS` | 15000 | Session `statement_timeout` (SQLSTATE `57014`) |
+| `DB_LOCK_TIMEOUT_MS` | 5000 | Session `lock_timeout` (`55P03`) |
+| `DB_IDLE_IN_TRANSACTION_TIMEOUT_MS` | 30000 | Session `idle_in_transaction_session_timeout` (`25P03`) |
+| `HTTP_REQUEST_TIMEOUT_MS` | 30000 | Fastify `requestTimeout` (time to receive a complete request) |
+
+- The session timeouts are pg client options on the pool, so the self-approval pool (`server.ts`, built from
+  `dbHandle.pool.options`) inherits them; it overrides only `max` and the acquire timeout.
+- A timeout error reaches the client as HTTP 503 `service.unavailable` (new shared code, closed enum in
+  `@ap/feature-shared`; the `service.` prefix maps to 503 in `lib/errors.ts`). Both error handlers map it
+  (`src/lib/db-timeout.ts`): the root handler and the plugin-scoped platform/menu-query transport. The warn log
+  carries the request id, the kind and the SQLSTATE; never SQL text, parameters or the driver message.
+- The transaction of `runIdempotentCommand` rolls back on a timeout, so the idempotency claim is released and a
+  retry with the same key runs normally.
+- Background work shares the app pool and therefore the defaults. Jobs that need longer set their own
+  budget with `SET LOCAL statement_timeout` inside their transaction (`voc/jobs/cluster-autogen-shadow.ts`,
+  `voc/jobs/cluster-suggestions.ts`), which overrides the session value. pg-boss keeps its own pool and settings.
+- Every runtime pool has an `'error'` listener that logs the error name and code and continues; a failed idle
+  client never ends the process.
+- Shutdown (`src/lib/shutdown.ts`): the first SIGTERM/SIGINT flips a draining flag, `GET /health/ready` then
+  answers 503 `{ status: 'unavailable', checks, reason: 'draining' }` (checks are not probed and read `fail`;
+  `/health/live` is unchanged). Order stays pg-boss (at most 30 s) → Fastify → pool, all within 40 s; past the
+  deadline the process logs and exits 1. The compose `stop_grace_period` (45 s) must stay above 40 s.

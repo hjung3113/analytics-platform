@@ -66,6 +66,15 @@ const envSchema = z
     EMBEDDING_PROVIDER: z.enum(['voyage', 'fake', 'disabled']).default('disabled'),
     EMBEDDING_API_KEY: optionalEnvString,
     EMBEDDING_VERSION: z.coerce.number().int().positive().default(1),
+    // #1266 b3: runtime DB time budgets and HTTP request timeout. The DB
+    // budgets apply to the runtime app pool only (createDb opts); migrate and
+    // seed pools keep the server defaults. pg-boss keeps its own settings.
+    DB_POOL_MAX: z.coerce.number().int().positive().default(10),
+    DB_POOL_ACQUIRE_TIMEOUT_MS: z.coerce.number().int().positive().default(5_000),
+    DB_STATEMENT_TIMEOUT_MS: z.coerce.number().int().positive().default(15_000),
+    DB_LOCK_TIMEOUT_MS: z.coerce.number().int().positive().default(5_000),
+    DB_IDLE_IN_TRANSACTION_TIMEOUT_MS: z.coerce.number().int().positive().default(30_000),
+    HTTP_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(30_000),
   })
   .superRefine((config, context) => {
     const originIssue = validateAttachmentOrigin(config.PUBLIC_ATTACHMENT_ORIGIN, config.NODE_ENV);

@@ -29,3 +29,9 @@ describe('statusForCode — PLAN-22 C3a storage prefix', () => {
     expect(statusForCode('not_implemented.todo' as never)).toBe(501);
   });
 });
+
+describe('statusForCode — #1266 b3 service prefix', () => {
+  it('service.unavailable → 503', () => {
+    expect(statusForCode('service.unavailable')).toBe(503);
+  });
+});

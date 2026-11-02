@@ -78,6 +78,8 @@ export const ERROR_CODES = [
   'attachment.unsupported_type',
   // not_implemented.* → 501 (PLAN-22 C3a — stubbed happy path until C3b)
   'not_implemented.todo',
+  // service.* → 503 (#1266 b3 — DB statement/lock/idle-tx timeout or pool acquire timeout)
+  'service.unavailable',
 ] as const;
 
 export const errorCodeSchema = z.enum(ERROR_CODES);

@@ -58,3 +58,9 @@ describe('errorCodeSchema — ADR-0061 permission revocation', () => {
     );
   });
 });
+
+describe('errorCodeSchema — #1266 b3 DB time budget code', () => {
+  it('parses service.unavailable', () => {
+    expect(errorCodeSchema.parse('service.unavailable')).toBe('service.unavailable');
+  });
+});

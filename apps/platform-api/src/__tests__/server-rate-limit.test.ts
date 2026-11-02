@@ -44,6 +44,12 @@ function config(): AppConfig {
     EMBEDDING_PROVIDER: 'disabled',
     EMBEDDING_VERSION: 1,
     OIDC_SCOPES: 'openid email profile',
+    DB_POOL_MAX: 10,
+    DB_POOL_ACQUIRE_TIMEOUT_MS: 5_000,
+    DB_STATEMENT_TIMEOUT_MS: 15_000,
+    DB_LOCK_TIMEOUT_MS: 5_000,
+    DB_IDLE_IN_TRANSACTION_TIMEOUT_MS: 30_000,
+    HTTP_REQUEST_TIMEOUT_MS: 30_000,
   };
 }
 

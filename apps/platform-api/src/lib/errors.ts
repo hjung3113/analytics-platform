@@ -24,6 +24,8 @@ const STATUS_BY_PREFIX: ReadonlyArray<[string, number]> = [
   ['storage.', 502],
   // PLAN-22 C3a: stub-path marker until C3b lands real implementation.
   ['not_implemented.', 501],
+  // #1266 b3: a DB time budget ran out; retryable dependency-unavailable.
+  ['service.', 503],
 ];
 
 export function statusForCode(code: ErrorCode): number {

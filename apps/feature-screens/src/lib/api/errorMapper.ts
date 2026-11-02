@@ -100,6 +100,9 @@ export const CATALOG: Partial<Record<ErrorCode, CatalogEntry>> = {
   // storage.*
   'storage.unavailable': { tone: 'error', message: '파일 저장소에 접근할 수 없습니다. 잠시 후 다시 시도해 주세요.' },
 
+  // service.* (#1266 b3 — DB time budget ran out; retryable)
+  'service.unavailable': { tone: 'error', message: '서버가 요청을 제때 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.' },
+
   // reporter_facing_status.*
   'reporter_facing_status.invalid_transition': { tone: 'warning', message: '허용되지 않는 상태 전환입니다.' },
   'reporter_facing_status.gate_blocked':       { tone: 'warning', message: '권한 게이트로 상태를 변경할 수 없습니다.' },

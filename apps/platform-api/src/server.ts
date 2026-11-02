@@ -19,7 +19,7 @@ import pg from 'pg';
 import type { PgBoss } from 'pg-boss';
 import type { Logger as PinoLogger } from 'pino';
 import type { AppConfig } from './config.js';
-import type { DbHandle } from './db/client.js';
+import { type DbHandle, attachPoolErrorListener } from './db/client.js';
 import { buildEntityLinkProviders } from './entity-link-providers.js';
 import { registerHttpErrorHandler } from './lib/http-error-handler.js';
 import { toJobLog } from './lib/job-log.js';
@@ -30,6 +30,7 @@ import {
   createSensitiveActorRateLimit,
 } from './lib/rate-limit-pg-store.js';
 import { buildRateLimitTiers } from './lib/rate-limit-tiers.js';
+import type { DrainState } from './lib/shutdown.js';
 import { getStorage } from './lib/storage/factory.js';
 import type { StorageBackend } from './lib/storage/index.js';
 import { SESSION_COOKIE_NAME } from './middleware/require-session.js';
@@ -174,6 +175,8 @@ export interface BuildServerOptions {
    * hanging-dependency cases fast; production uses the 2000 ms default.
    */
   healthProbeTimeoutMs?: number;
+  /** Draining state flipped by the shutdown sequence (index.ts); readiness reports 503 once set. */
+  drainState?: DrainState;
   /** Route-test seam; production constructs the navigation read model below. */
   navCountsService?: NavCountsService;
   /** Route-test seam; production constructs the navigation resolve service below. */
@@ -233,6 +236,8 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
             serializers: { req: reqLogSerializer },
           },
         }),
+    // #1266 b3: bound the time a client may take to send a full request.
+    requestTimeout: config.HTTP_REQUEST_TIMEOUT_MS,
     disableRequestLogging: config.NODE_ENV === 'test',
     // F-009 + Review HTTP-H-2: `trustProxy: true` is too permissive — it
     // trusts the entire X-Forwarded-For chain, so any client can spoof
@@ -387,6 +392,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     ...(opts.healthProbeTimeoutMs !== undefined
       ? { healthProbeTimeoutMs: opts.healthProbeTimeoutMs }
       : {}),
+    drain: opts.drainState,
   });
 
   // ADR-0006:16 — the two providers are swapped by the AUTH_PROVIDER env
@@ -587,11 +593,16 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
   // ── Task Requests module — Slice 6 issue #132 ─────────────────────────────
   // The independent increment runs while the command holds a transaction
   // connection. A separate bounded pool prevents command-pool starvation.
+  // `pool.options` carries the runtime time budgets (statement/lock/idle-tx
+  // timeouts), so this pool inherits them; only size and acquire timeout differ.
   const selfApprovalPool = new pg.Pool({
     ...dbHandle.pool.options,
     max: 2,
     connectionTimeoutMillis: 5_000,
   });
+  attachPoolErrorListener(selfApprovalPool, (err) =>
+    app.log.error({ errName: err.name, code: (err as { code?: unknown }).code }, 'self-approval pool error'),
+  );
   app.addHook('onClose', async () => selfApprovalPool.end());
   const taskRequestsService = createTaskRequestsService({
     consumeSelfApprovalRateLimit: createSensitiveActorRateLimit(selfApprovalPool),
