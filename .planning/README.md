@@ -43,7 +43,7 @@
 
 **로그 지식 허브 #1194 노드 s (SDK 선택 옵션 둘, 구현 중).** 카탈로그 관리 화면(노드 b)이 쓸 범용 조각: `PlatformDataTable.isRowMuted`(비활성 행을 흐리게)와 enum 필터 스펙 `cell: 'many'`(배열 값 열의 `in`/`notIn`/`isEmpty`). 둘 다 없으면 지금과 같은 선택 옵션이며([ADR-0105](../docs/adr/0105-one-table-filter-model.md) 개정 한 줄), 화면·서버 배선은 노드 b·r 몫이다.
 
-**로그 지식 허브 #1194 노드 r (카탈로그 조회 필터 모델·메뉴 선언·mock, 구현 중).** 카탈로그 조회 4종이 표 필터 모델 `filters`(ADR-0105)를 받고(`status`·`vendorId`·`processId`·`modelId` 제거, 필터 없으면 전체 행), 메뉴 패키지가 조회·쓰기 12종 선언과 mock 핸들러를 갖는다(드리프트 테스트로 서버 선언과 대조). 카탈로그 관리는 관리자 기능 메뉴라 메뉴 권한 `knowledge:catalog-manage`를 새로 두고(서버 판정 = Admin 또는 `knowledge.catalog.manage` 부여), 화면(노드 b)은 대기.
+**로그 지식 허브 #1194 노드 r (카탈로그 조회 필터 모델·메뉴 선언·mock, 구현 중).** 카탈로그 조회 4종이 표 필터 모델 `filters`(ADR-0105)를 받고(`status`·`vendorId`·`processId`·`modelId` 제거, 필터 없으면 전체 행), 메뉴 패키지가 조회·쓰기 12종 선언과 mock 핸들러를 갖는다(드리프트 테스트로 서버 선언과 대조). 카탈로그 관리는 관리자 기능 메뉴라 메뉴 권한 `knowledge:catalog-manage`를 새로 두고(서버 판정 = Admin 또는 `knowledge.catalog.manage` 부여), 화면은 노드 b.
 
 **Scope 표시 숨김 [#1251](https://github.com/hjung3113/analytics-platform/issues/1251)(#1108 분할, 2026-11-02, 구현 중).** 사이트와 무관한 공간용 SDK 선택 필드 `SpaceDef.scopePresentation: 'hidden'`([ADR-0108](../docs/adr/0108-space-scope-presentation-field.md)). 첫 소비자는 `log-dev`. 메뉴 단위 재정의는 구현 안 함(백로그).
 
@@ -98,3 +98,5 @@
 | #163 Perspective 자유 피벗 POC | 자유 피벗이 업무 필수로 확인될 때 |
 | #164 AG Grid Enterprise 평가 | 셀 범위 복붙·채우기가 사내 메뉴 2–3곳에서 필수로 확인될 때 |
 | #91 전역 감사 조회에 room 권한 적용(결정됨, 05) | 일부 room만 가진 콘솔 역할이 생길 때 서버에서 구현 |
+
+**로그 지식 허브 #1194 노드 b (카탈로그 관리 화면, A안, 구현 중 — 병합되면 #1194 완료).** 4탭 표 + 오른쪽 서랍, 모델 읽기에 `latestSoftwareLabel` 추가(서버 변경은 이것뿐). 가져오기(CSV/XLSX)는 #1195.

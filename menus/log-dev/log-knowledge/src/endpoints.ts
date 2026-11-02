@@ -16,7 +16,7 @@ export const CATALOG_MANAGE_PERMISSION: Permission = menuPermission('knowledge:c
 type Stamps = { id: string; code: string; name: string; active: boolean; version: string; createdAt: string; updatedAt: string };
 export type VendorRow = Stamps & { modelCount: number };
 export type ProcessRow = Stamps & { modelCount: number };
-export type ModelRow = Stamps & { vendorId: string; vendorName: string; processes: { id: string; name: string }[]; softwareCount: number };
+export type ModelRow = Stamps & { vendorId: string; vendorName: string; processes: { id: string; name: string }[]; softwareCount: number; latestSoftwareLabel: string | null };
 export type SoftwareRow = Stamps & { modelId: string; versionLabel: string };
 
 /** Quick search, paging, sorting and the table's filter conditions of one catalog read. */

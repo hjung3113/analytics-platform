@@ -17,7 +17,7 @@ import {
   softwareFilterSpecs, softwareSetActive, softwareUpdate, softwareVersionsEndpoint, vendorCreate, vendorFilterSpecs, vendorSetActive,
   vendorUpdate, vendorsEndpoint, type CatalogPageParams, type CatalogSummary,
 } from '../endpoints';
-import { activeChildren, all, byId, insert, keyTaken, processIdsOf, processesOf, setProcesses, toCodeKey, touch, type Kind, type Rec } from './store';
+import { activeChildren, all, byId, latestSoftwareLabel, insert, keyTaken, processIdsOf, processesOf, setProcesses, toCodeKey, touch, type Kind, type Rec } from './store';
 
 const PAGE_SIZE_MAX = 200;
 const Q_MAX = 200;
@@ -116,7 +116,7 @@ const read = (kind: Kind, params: CatalogPageParams) => {
   const result = page(kind, params);
   return { total: result.total, rows: result.rows.map(r => {
     if (kind === 'vendor' || kind === 'process') return { ...stamps(r), modelCount: activeChildren(r) };
-    if (kind === 'model') return { ...stamps(r), vendorId: r.parentId!, vendorName: byId(r.parentId)!.name, processes: processesOf(r.id), softwareCount: activeChildren(r) };
+    if (kind === 'model') return { ...stamps(r), vendorId: r.parentId!, vendorName: byId(r.parentId)!.name, processes: processesOf(r.id), softwareCount: activeChildren(r), latestSoftwareLabel: latestSoftwareLabel(r.id) };
     return { ...stamps(r), modelId: r.parentId!, versionLabel: r.code };
   }) };
 };

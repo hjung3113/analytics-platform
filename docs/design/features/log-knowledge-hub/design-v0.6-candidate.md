@@ -648,4 +648,6 @@ Human UI: GET Draft(DraftVersion+Digest), 편집/근거 Diff 확인
 
 P0 #1193 구현됨: 스키마 표 1–6(`knowledge` 스키마, migration 0080)과 카탈로그 조회 4종(`logKnowledge.*`). 쓰기·화면은 #1194, Import 표 7–9는 #1195.
 
+#1194 화면 구현: A안(탭 + 오른쪽 서랍, 소유자 확정). 제조사·공정·모델·SW 버전 4탭(`tab`, 기본 모델), 탭마다 서버 페이징 표와 열 필터(`filter`), 만들기·수정은 서랍(`focus` = 행 id 또는 `new`), 비활성화는 확인 대화상자, 모델 표에 B안의 SW 버전 열(최신 표기 + `외 n`). Import 단추는 #1195가 표 툴바에 더한다.
+
 **이 PR은 설계 문서만 추가한다.** 생성된 폴더/문서는 feature implementation, 실행 가능한 migration, API 구현, 실제 운영 검증을 의미하지 않는다.

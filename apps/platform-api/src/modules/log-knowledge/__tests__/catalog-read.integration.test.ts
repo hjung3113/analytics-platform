@@ -270,12 +270,16 @@ describe.skipIf(!runIntegration)('log knowledge catalog reads and schema (#1193)
         vendorId: ids.va,
         vendorName: `${TAG} Alpha Vendor`,
         softwareCount: 2,
+        latestSoftwareLabel: `${TAG}-v2.0`,
         version: '1',
       });
       expect(m1?.processes).toEqual([
         { id: ids.pDep, name: 'Deposition' },
         { id: ids.pEtch, name: 'Etch' },
       ]);
+      expect(res.data?.rows[1]?.latestSoftwareLabel).toBe(`${TAG}-v1.0`);
+      const m3 = (await filtered('logKnowledge.models', flt('vendorId', 'in', [ids.vb]))).data?.rows.find((r) => r.id === ids.m3);
+      expect(m3?.latestSoftwareLabel).toBeNull();
       expect(codes(await filtered('logKnowledge.models', flt('vendorId', 'in', [ids.va, ids.vb])))).toHaveLength(4);
       expect(codes(await filtered('logKnowledge.models', flt('vendorId', 'notIn', [ids.va])))).toEqual([`${TAG}-m3`, `${TAG}-moff`]);
     });

@@ -80,3 +80,10 @@ export function setProcesses(modelId: string, processIds: readonly string[]): vo
   mappings = mappings.filter(m => m.modelId !== modelId);
   for (const id of new Set(processIds.map(p => p.toLowerCase()))) mappings.push({ modelId, processId: id });
 }
+
+/** Label of the newest active software version of a model (highest createdAt, then later insertion); null when none. */
+export const latestSoftwareLabel = (modelId: string): string | null => {
+  const active = all('software').filter(s => s.parentId === modelId && s.active);
+  if (active.length === 0) return null;
+  return active.reduce((best, s) => (s.createdAt >= best.createdAt ? s : best)).code;
+};

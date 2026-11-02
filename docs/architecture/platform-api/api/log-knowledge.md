@@ -32,10 +32,11 @@ Data shape: `{ rows, total }` (`PageResult`), outcome `ok` also when `rows` is e
 | --- | --- | --- | --- |
 | `logKnowledge.vendors` | `filters`: `active` | `code`, `name`, `active`, `modelCount`, `createdAt`, `updatedAt` | `id, code, name, active, version, modelCount, createdAt, updatedAt` |
 | `logKnowledge.processes` | `filters`: `active` | same as vendors | same as vendors |
-| `logKnowledge.models` | `filters`: `active`, `vendorId`, `processes` | `code`, `name`, `vendorName`, `active`, `softwareCount`, `createdAt`, `updatedAt` | `id, code, name, active, version, vendorId, vendorName, processes: {id, name}[], softwareCount, createdAt, updatedAt` |
+| `logKnowledge.models` | `filters`: `active`, `vendorId`, `processes` | `code`, `name`, `vendorName`, `active`, `softwareCount`, `createdAt`, `updatedAt` | `id, code, name, active, version, vendorId, vendorName, processes: {id, name}[], softwareCount, latestSoftwareLabel, createdAt, updatedAt` |
 | `logKnowledge.softwareVersions` | `filters`: `active`, `modelId` | `versionLabel`, `name`, `active`, `createdAt`, `updatedAt` | `id, code, versionLabel, name, active, version, modelId, createdAt, updatedAt` (`code` = `versionLabel`) |
 
 - `code` is the typed original; sorting by `code` and `versionLabel` orders by the comparison key.
+- `latestSoftwareLabel` (model) is the `versionLabel` of the model's newest active software version (highest `createdAt`, ties by id); `null` when it has none.
 - `modelCount` (vendor, process) and `softwareCount` (model) count active models and active software versions.
 - A model in several processes appears once under a `processes` filter (EXISTS, never a join). `processes` in the row lists every mapped process, by name.
 

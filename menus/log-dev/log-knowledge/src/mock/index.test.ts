@@ -96,7 +96,7 @@ describe('catalog reads speak the table filter model', () => {
   it('row shapes carry counts, vendor name and mapped processes', () => {
     expect(read('vendors').rows[0]).toMatchObject({ code: 'ALPHA', modelCount: 2, version: '1', active: true });
     const a100 = read('models').rows[0]!;
-    expect(a100).toMatchObject({ code: 'A-100', vendorName: 'Alpha Semicap', softwareCount: 2 });
+    expect(a100).toMatchObject({ code: 'A-100', vendorName: 'Alpha Semicap', softwareCount: 2, latestSoftwareLabel: 'v2.0' });
     expect(a100.processes).toEqual([{ id: idOf('processes', 'DEP'), name: 'Deposition' }, { id: idOf('processes', 'ETCH'), name: 'Etch' }]);
     expect(read('softwareVersions').rows[0]).toMatchObject({ versionLabel: 'v1.0', code: 'v1.0' });
   });
