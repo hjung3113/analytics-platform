@@ -1,18 +1,21 @@
 # Build context for the platform API release images (ops/platform-api/docker-compose.release.yml, #642): only what
-# those Dockerfiles COPY. Everything else in the repository stays out of the context.
+# apps/platform-api/Dockerfile COPYs. An entry no Dockerfile COPYs does not belong here (the web image was retired, #597).
+# Everything else in the repository stays out of the context.
 *
 !package.json
 !pnpm-lock.yaml
 !pnpm-workspace.yaml
 !patches
-!packages/sdk/ui
-!tooling/eslint/package.json
-!tooling/tsconfig/package.json
-!tooling/tsconfig/base.json
-!apps/platform-api
-!apps/feature-screens
+# Workspace closure of @ap/platform-api (Dockerfile build stage): manifests for the filtered install, sources for the
+# packages that are built or emitted.
+!packages/sdk/contracts/package.json
+!packages/sdk/contract-schemas
+!packages/adapters/http-adapter/package.json
+!packages/adapters/server-conformance/package.json
 !packages/feature-shared
-!packages/feature-ui
+!tooling/eslint/package.json
+!tooling/tsconfig
+!apps/platform-api
 !ops/platform-api/package.json
 !ops/platform-api/tsconfig.base.json
 !ops/platform-api/paths.sh
@@ -28,4 +31,3 @@
 **/.turbo
 **/.env*
 !**/.env.example
-apps/feature-screens/tests/visual/baselines
