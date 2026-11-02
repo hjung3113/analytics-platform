@@ -89,7 +89,7 @@ describe.skipIf(!runIntegration)('log knowledge catalog write actions (#1194 a)'
       method: 'POST',
       url: '/api/v1/menu-query',
       headers: { 'content-type': 'application/json', ...cookieHeader(admin.cookie) },
-      payload: JSON.stringify({ endpoint: `logKnowledge.${endpoint}`, context: {}, params: { q: TAG, status: 'all', ...params } }),
+      payload: JSON.stringify({ endpoint: `logKnowledge.${endpoint}`, context: {}, params: { q: TAG, ...params } }),
     });
     return res.json<{ outcome: string; data: { rows: Record<string, unknown>[]; total: number } }>().data;
   }
@@ -449,14 +449,14 @@ describe.skipIf(!runIntegration)('log knowledge catalog write actions (#1194 a)'
     });
 
     it('the read endpoints reflect the writes (counts, status, version)', async () => {
-      const models = await read('models', { vendorId: ids.va });
+      const models = await read('models', { filters: [{ id: 'vendorId', op: 'in', value: [ids.va] }] });
       const m1 = models.rows.find((r) => r.id === ids.m1);
       expect(m1).toMatchObject({ name: 'Model One 2', processes: [], softwareCount: 1 });
       const vendors = await read('vendors');
       expect(vendors.rows.find((r) => r.id === ids.va)).toMatchObject({ active: true });
       // models under va: m1, moff(inactive), keep → active ones count
       expect(vendors.rows.find((r) => r.id === ids.va)?.modelCount).toBe(2);
-      const software = await read('softwareVersions', { modelId: ids.m1 });
+      const software = await read('softwareVersions', { filters: [{ id: 'modelId', op: 'in', value: [ids.m1] }] });
       expect(software.rows).toHaveLength(1);
       expect(software.rows[0]).toMatchObject({ versionLabel: code('v1'), name: 'SW named' });
     });

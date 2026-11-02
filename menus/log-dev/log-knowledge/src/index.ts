@@ -4,13 +4,14 @@
  */
 import { BookOpen } from 'lucide-react';
 import { NO_FEATURES, contextCapabilities, groupId } from '@ap/contracts';
+import { CATALOG_MANAGE_PERMISSION } from './endpoints';
 import type { MenuEntry } from '@ap/kernel';
 
 export const manifests: MenuEntry[] = [
   {
     id: 'log-knowledge-catalog', primary: true, group: groupId('logKnowledge'), label: { ko: '카탈로그 관리', en: 'Catalog' },
     description: { ko: 'Vendor·공정·장비 모델·SW 버전 기준 목록 (예정)', en: 'Reference lists of vendors, processes, equipment models and software versions (planned)' },
-    path: '/log/knowledge/catalog', icon: BookOpen, permission: 'platform:view', requiresScope: false, pageType: 'management',
+    path: '/log/knowledge/catalog', icon: BookOpen, permission: CATALOG_MANAGE_PERMISSION, requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES, pageKeys: [],
   },
 ];

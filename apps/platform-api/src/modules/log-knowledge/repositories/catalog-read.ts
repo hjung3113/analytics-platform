@@ -3,7 +3,7 @@
 // or skips a row between requests.
 
 import type { AnyPgColumn } from 'drizzle-orm/pg-core';
-import { type SQL, and, asc, desc, eq, exists, ilike, inArray, like, or, sql } from 'drizzle-orm';
+import { type SQL, and, asc, desc, eq, exists, ilike, inArray, like, not, notInArray, or, sql } from 'drizzle-orm';
 
 import {
   equipmentModels,
@@ -13,9 +13,9 @@ import {
   vendors,
 } from '../../../db/schema/knowledge.js';
 import type { Tx } from '../../../db/tx.js';
+import type { FilterCondition, FilterConditions } from '../domain/catalog-filters.js';
 import { toCodeKey } from '../domain/code-key.js';
 
-export type StatusFilter = 'active' | 'inactive' | 'all';
 export interface PageSort {
   id: string;
   desc: boolean;
@@ -23,7 +23,8 @@ export interface PageSort {
 export interface ListQuery {
   workspaceId: string;
   q: string | null;
-  status: StatusFilter;
+  /** Parsed `filters` of the request (ADR-0105); no condition on a field = no constraint (an absent `active` means every row). */
+  conditions: FilterConditions;
   page: number;
   pageSize: number;
   sorting: readonly PageSort[];
@@ -84,8 +85,15 @@ function textFilter(
   );
 }
 
-const statusFilter = (column: AnyPgColumn, status: StatusFilter): SQL | undefined =>
-  status === 'all' ? undefined : eq(column, status === 'active');
+/** `in` / `notIn` over a not-null column of values. */
+function columnFilter(column: AnyPgColumn, condition: FilterCondition | undefined, as: (v: string) => unknown = (v) => v): SQL | undefined {
+  if (!condition) return undefined;
+  const values = condition.values.map(as);
+  return condition.op === 'notIn' ? notInArray(column, values) : inArray(column, values);
+}
+
+const activeFilter = (column: AnyPgColumn, conditions: FilterConditions): SQL | undefined =>
+  columnFilter(column, conditions.active, (v) => v === 'true');
 
 const order = (expr: SQL | AnyPgColumn, descending: boolean): SQL =>
   descending ? desc(expr) : asc(expr);
@@ -93,7 +101,7 @@ const order = (expr: SQL | AnyPgColumn, descending: boolean): SQL =>
 export async function listVendors(tx: Tx, q: ListQuery): Promise<Page<VendorRow>> {
   const where = and(
     eq(vendors.workspaceId, q.workspaceId),
-    statusFilter(vendors.active, q.status),
+    activeFilter(vendors.active, q.conditions),
     textFilter(vendors.codeKey, vendors.name, q.q),
   );
   // Outer columns are written qualified: a single-table select renders `${vendors.id}` unqualified, which
@@ -129,7 +137,7 @@ export async function listProcesses(tx: Tx, q: ListQuery): Promise<Page<ProcessR
   const t = processCategories;
   const where = and(
     eq(t.workspaceId, q.workspaceId),
-    statusFilter(t.active, q.status),
+    activeFilter(t.active, q.conditions),
     textFilter(t.codeKey, t.name, q.q),
   );
   const modelCount = sql<number>`(select count(*)::int from ${modelProcesses} mp join ${equipmentModels} m on m.workspace_id = mp.workspace_id and m.id = mp.model_id where mp.workspace_id = "knowledge"."process_category"."workspace_id" and mp.process_id = "knowledge"."process_category"."id" and m.active)`;
@@ -155,33 +163,51 @@ export async function listProcesses(tx: Tx, q: ListQuery): Promise<Page<ProcessR
   };
 }
 
-export interface ModelQuery extends ListQuery {
-  vendorId: string | null;
-  processId: string | null;
+
+/**
+ * The `processes` condition of the models read (an array cell: the model's mapped processes). EXISTS / NOT EXISTS,
+ * never a join: a model in two processes still appears once.
+ */
+function processFilter(
+  tx: Tx,
+  condition: FilterCondition | undefined,
+  workspaceId: AnyPgColumn,
+  modelId: AnyPgColumn,
+): SQL | undefined {
+  if (!condition) return undefined;
+  const mapped = (processIds?: readonly string[]) =>
+    exists(
+      tx
+        .select({ one: sql`1` })
+        .from(modelProcesses)
+        .where(
+          and(
+            eq(modelProcesses.workspaceId, workspaceId),
+            eq(modelProcesses.modelId, modelId),
+            processIds ? inArray(modelProcesses.processId, [...processIds]) : undefined,
+          ),
+        ),
+    );
+  switch (condition.op) {
+    case 'in':
+      return mapped(condition.values);
+    case 'notIn':
+      return and(mapped(), not(mapped(condition.values)));
+    case 'isEmpty':
+      return not(mapped());
+    case 'isNotEmpty':
+      return mapped();
+  }
 }
 
-export async function listModels(tx: Tx, q: ModelQuery): Promise<Page<ModelRow>> {
+export async function listModels(tx: Tx, q: ListQuery): Promise<Page<ModelRow>> {
   const t = equipmentModels;
   const where = and(
     eq(t.workspaceId, q.workspaceId),
-    statusFilter(t.active, q.status),
+    activeFilter(t.active, q.conditions),
     textFilter(t.codeKey, t.name, q.q),
-    q.vendorId === null ? undefined : eq(t.vendorId, q.vendorId),
-    // EXISTS, not a join: a model in two processes still appears once.
-    q.processId === null
-      ? undefined
-      : exists(
-          tx
-            .select({ one: sql`1` })
-            .from(modelProcesses)
-            .where(
-              and(
-                eq(modelProcesses.workspaceId, t.workspaceId),
-                eq(modelProcesses.modelId, t.id),
-                eq(modelProcesses.processId, q.processId),
-              ),
-            ),
-        ),
+    columnFilter(t.vendorId, q.conditions.vendorId),
+    processFilter(tx, q.conditions.processes, t.workspaceId, t.id),
   );
   const softwareCount = sql<number>`(select count(*)::int from ${softwareVersions} s where s.workspace_id = ${t.workspaceId} and s.model_id = ${t.id} and s.active)`;
   const sortable: Record<string, SQL | AnyPgColumn> = {
@@ -234,17 +260,13 @@ export async function listModels(tx: Tx, q: ModelQuery): Promise<Page<ModelRow>>
   };
 }
 
-export interface SoftwareQuery extends ListQuery {
-  modelId: string | null;
-}
-
-export async function listSoftwareVersions(tx: Tx, q: SoftwareQuery): Promise<Page<SoftwareRow>> {
+export async function listSoftwareVersions(tx: Tx, q: ListQuery): Promise<Page<SoftwareRow>> {
   const t = softwareVersions;
   const where = and(
     eq(t.workspaceId, q.workspaceId),
-    statusFilter(t.active, q.status),
+    activeFilter(t.active, q.conditions),
     textFilter(t.versionKey, t.name, q.q),
-    q.modelId === null ? undefined : eq(t.modelId, q.modelId),
+    columnFilter(t.modelId, q.conditions.modelId),
   );
   const sortable: Record<string, SQL | AnyPgColumn> = {
     versionLabel: t.versionKey,

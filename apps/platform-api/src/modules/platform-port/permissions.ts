@@ -7,7 +7,7 @@
 // an app declares (ADR-0072) are not listed: feature grants none of them.
 
 import type { Tx } from '../../db/tx.js';
-import type { CheckService } from '../permissions/check-service.js';
+import { type CheckService, applyAdminModuleBypass } from '../permissions/check-service.js';
 
 export type PlatformPermissionRule =
   /** Every active session. Not gated on `workspace.read`: `roleSatisfies('developer', …)` is false. */
@@ -15,7 +15,9 @@ export type PlatformPermissionRule =
   /** Role Level developer/admin, or an active grant of a feature working capability. */
   | 'features-access'
   /** `workspace.admin` allowed. */
-  | 'workspace-admin';
+  | 'workspace-admin'
+  /** Admin role, or an active workspace grant of `knowledge.catalog.manage` (the write capability of the log knowledge catalog). */
+  | 'catalog-manage';
 
 export const PLATFORM_PERMISSION_TABLE = [
   { permission: 'platform:view', rule: 'every-session' },
@@ -23,6 +25,10 @@ export const PLATFORM_PERMISSION_TABLE = [
   { permission: 'voc:view', rule: 'every-session' },
   { permission: 'console:access', rule: 'workspace-admin' },
   { permission: 'features:access', rule: 'features-access' },
+  // Not a kernel permission: the menu permission of the log knowledge catalog management menu (design v0.6 §2.1,
+  // #1194 r). The app declares it with `menuPermission`; this entry makes bootstrap list it for exactly the users
+  // the catalog write actions accept.
+  { permission: 'knowledge:catalog-manage', rule: 'catalog-manage' },
 ] as const satisfies ReadonlyArray<{ permission: string; rule: PlatformPermissionRule }>;
 
 /** Capabilities whose active grant (workspace or Managed-System scoped) opens `features:access`. */
@@ -80,6 +86,16 @@ async function holds(
         options,
       );
       return decision.allow;
+    }
+    case 'catalog-manage': {
+      // The same decision the write actions take (`catalog-actions.ts`): capability check, then the module's Admin bypass.
+      const decision = await checkService.checkCapability(
+        actor,
+        'knowledge.catalog.manage',
+        { workspace_id: actor.workspace_id },
+        options,
+      );
+      return applyAdminModuleBypass(actor.role_level, 'knowledge.catalog.manage', decision).allow;
     }
     case 'features-access': {
       if (actor.role_level === 'developer' || actor.role_level === 'admin') return true;

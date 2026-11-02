@@ -372,3 +372,5 @@
 
 - **구현 안 함 — Scope 표시의 메뉴 단위 재정의(#1251):** `SpaceDef.scopePresentation`은 공간 단위만 있고 메뉴가 따로 숨기거나 보이는 선언은 없다. 이유: 필요가 업무 시스템 단위이고 지금 메뉴 단위 소비자가 없다([ADR-0108](../docs/adr/0108-space-scope-presentation-field.md)). 다시 여는 조건: 한 공간에 사이트 종속 메뉴와 사이트 무관 메뉴가 섞일 때.
 - **구현 안 함 — #1194 수용 기준 «source identity map 검증»은 #1195로 옮김(#1194a):** `knowledge.external_identity_map` 쓰기·검증은 #1194 노드 a(카탈로그 쓰기)에 넣지 않았다. 이유: 외부 키 매핑은 Import가 만들고 소비한다. 다시 여는 조건: #1195 착수.
+- **구현 안 함 — mock 동작(`MockAction`) 생성기 지원(#1194r):** `pnpm gen:menu`는 엔드포인트 마커(`MOCK_ENDPOINTS`)만 쓰고, 메뉴의 mock 동작은 `apps/platform-web/src/dev/mock-assembly.tsx`의 `MOCK_ACTIONS`에 손으로 배선한다(`@ap/menu-log-knowledge/mock`의 `logKnowledgeActionsMock` 하나). 이유: mock 동작을 가진 메뉴가 하나뿐이라 생성기 규약을 정할 근거가 없다. 다시 여는 조건: mock 동작을 가진 두 번째 메뉴가 생길 때.
+- **구현 안 함 — mock 쓰기의 감사 행·판정 순서 차이(#1194r):** 로그 지식 mock 동작은 감사 행을 쓰지 않고(mock 엔진에 동작용 감사 훅이 없다), `validate`가 버전 검사보다 먼저 돌아 오래된 버전 + 중복 코드는 `conflict`가 아니라 `invalid`로 답한다(서버는 `conflict`). 이유: 화면 개발용 대역이고 규칙 대부분은 같다. 다시 여는 조건: 화면이 이 차이에 기대는 시나리오(감사 이력 탭, 워크스페이스 부여를 가진 개발자)를 검증해야 할 때.

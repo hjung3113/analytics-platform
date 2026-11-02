@@ -714,12 +714,21 @@ importers:
 
   menus/log-dev/log-knowledge:
     dependencies:
+      '@ap/components':
+        specifier: workspace:*
+        version: link:../../../packages/sdk/components
       '@ap/contracts':
         specifier: workspace:*
         version: link:../../../packages/sdk/contracts
       '@ap/kernel':
         specifier: workspace:*
         version: link:../../../packages/sdk/kernel
+      '@ap/mock-server':
+        specifier: workspace:*
+        version: link:../../../packages/adapters/mock-server
+      '@ap/ui':
+        specifier: workspace:*
+        version: link:../../../packages/sdk/ui
       lucide-react:
         specifier: ^1.48.0
         version: 1.48.0(react@19.3.0)
@@ -748,6 +757,9 @@ importers:
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
+      vitest:
+        specifier: ^3.2.7
+        version: 3.2.7(@types/debug@4.1.13)(@types/node@26.6.3)(happy-dom@20.14.6)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)(yaml@2.9.1)
 
   menus/log-dev/log-models:
     dependencies:
@@ -2921,11 +2933,11 @@ packages:
     resolution: {integrity: sha512-z33Il7l5dKjUgGULTqBsQBQwckHh5AbIuxhdsIxDDiZAzBOrZO6q9ogcWC65kU382AfynTfgNumVcNIjuIua6w==}
 
   '@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.2/eqv-core-0.8.2.tgz':
-    resolution: {integrity: sha512-LjMrWK0bZQFyYFqtq2ZGCg2siSAwe+gUtkMZp2HueqafIp6BV2dpQkmuZCE6uuiW1Mtf0JWuNUSQ/7Z7kLpLNQ==, tarball: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.2/eqv-core-0.8.2.tgz}
+    resolution: {tarball: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.2/eqv-core-0.8.2.tgz}
     version: 0.8.2
 
   '@eqv/platform-adapter@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.2/eqv-platform-adapter-0.8.2.tgz':
-    resolution: {integrity: sha512-TqGMkMVpvbqVHKpOnOjiGcnTqdttho/63gcCBIYSkdIjmFCGUQW5MtBeI444POprUL2WBa8mty4T2rosmyZD7g==, tarball: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.2/eqv-platform-adapter-0.8.2.tgz}
+    resolution: {tarball: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.2/eqv-platform-adapter-0.8.2.tgz}
     version: 0.8.2
     peerDependencies:
       '@ap/contracts': 0.15.0
@@ -2939,14 +2951,14 @@ packages:
       react-dom: ^19.0.0
 
   '@eqv/renderer@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.2/eqv-renderer-0.8.2.tgz':
-    resolution: {integrity: sha512-DzeGxkHZiXotRjJrdH4poJtBCTBilesFXNcHX2smjyf1xYGtvcoxTdi0bdXM3KKYZmoPnqPpKbqw7CT+9cwXZw==, tarball: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.2/eqv-renderer-0.8.2.tgz}
+    resolution: {tarball: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.2/eqv-renderer-0.8.2.tgz}
     version: 0.8.2
     peerDependencies:
       '@eqv/core': 0.8.2
       react: ^19.0.0
 
   '@eqv/replay@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.2/eqv-replay-0.8.2.tgz':
-    resolution: {integrity: sha512-HsS7iCeJc30K1/VXHzHsd9X0iri9xEFHc1IXbYafEVf24X2+yCpfc5e5lA04bporoyOB1hZkpwvbCYOlUa+xNQ==, tarball: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.2/eqv-replay-0.8.2.tgz}
+    resolution: {tarball: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.2/eqv-replay-0.8.2.tgz}
     version: 0.8.2
     peerDependencies:
       '@ap/ui': 0.15.0
@@ -2955,7 +2967,7 @@ packages:
       react: ^19.0.0
 
   '@eqv/ui@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.2/eqv-ui-0.8.2.tgz':
-    resolution: {integrity: sha512-agjvzP+L2Pi5KMwwXmA8Pk6/4fPbjyyNvEgriJVryrmm6Ovy2hUZz2XFXu5F9CAKJOIqH/UTI8gJgB5MD3ENtA==, tarball: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.2/eqv-ui-0.8.2.tgz}
+    resolution: {tarball: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.2/eqv-ui-0.8.2.tgz}
     version: 0.8.2
     peerDependencies:
       '@ap/ui': 0.15.0
@@ -2963,7 +2975,7 @@ packages:
       react: ^19.0.0
 
   '@eqv/views@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.2/eqv-views-0.8.2.tgz':
-    resolution: {integrity: sha512-a71zR+nGP8U3anYeN3WTgz4oXLSOaSC3YhN/wrw+9jL/mVNLQtDLI025ABCJI0UT/XLfFZVnetjU/ohrYnDZvw==, tarball: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.2/eqv-views-0.8.2.tgz}
+    resolution: {tarball: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.2/eqv-views-0.8.2.tgz}
     version: 0.8.2
     peerDependencies:
       '@ap/ui': 0.15.0

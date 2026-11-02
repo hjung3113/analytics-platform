@@ -89,6 +89,8 @@ describe.skipIf(!runIntegration)('log knowledge catalog reads and schema (#1193)
     expect(res.statusCode).toBe(200);
     return res.json<Answer>();
   };
+  const flt = (id: string, op: string, value?: unknown) => ({ id, op, ...(value === undefined ? {} : { value }) });
+  const filtered = (endpoint: string, ...filters: Record<string, unknown>[]) => read(endpoint, { filters });
   const codes = (answer: Answer) => (answer.data?.rows ?? []).map((r) => r.code);
 
   beforeAll(async () => {
@@ -176,12 +178,15 @@ describe.skipIf(!runIntegration)('log knowledge catalog reads and schema (#1193)
   });
 
   describe('logKnowledge.vendors', () => {
-    it('defaults to active rows and filters by status', async () => {
-      expect(codes(await read('logKnowledge.vendors'))).toEqual([`${TAG}-va`, `${TAG}-vb`]);
-      expect(codes(await read('logKnowledge.vendors', { status: 'inactive' }))).toEqual([`${TAG}-voff`]);
-      const all = await read('logKnowledge.vendors', { status: 'all' });
+    it('answers every row without an active condition, and filters by active', async () => {
+      const all = await read('logKnowledge.vendors');
       expect(codes(all)).toEqual([`${TAG}-va`, `${TAG}-vb`, `${TAG}-voff`]);
       expect(all.data?.total).toBe(3);
+      expect(codes(await filtered('logKnowledge.vendors', flt('active', 'in', ['true'])))).toEqual([`${TAG}-va`, `${TAG}-vb`]);
+      expect(codes(await filtered('logKnowledge.vendors', flt('active', 'in', ['false'])))).toEqual([`${TAG}-voff`]);
+      expect(codes(await filtered('logKnowledge.vendors', flt('active', 'notIn', ['true'])))).toEqual([`${TAG}-voff`]);
+      expect(codes(await filtered('logKnowledge.vendors', flt('active', 'notIn', ['false'])))).toEqual([`${TAG}-va`, `${TAG}-vb`]);
+      expect(codes(await read('logKnowledge.vendors', { filters: [] }))).toEqual([`${TAG}-va`, `${TAG}-vb`, `${TAG}-voff`]);
     });
 
     it('row shape: id, code (original), name, active, version, counts, timestamps', async () => {
@@ -221,27 +226,27 @@ describe.skipIf(!runIntegration)('log knowledge catalog reads and schema (#1193)
     });
 
     it('pages with a total, and sorts with a deterministic id tie-break', async () => {
-      const first = await read('logKnowledge.vendors', { status: 'all', page: 0, pageSize: 2 });
-      const second = await read('logKnowledge.vendors', { status: 'all', page: 1, pageSize: 2 });
+      const first = await read('logKnowledge.vendors', { page: 0, pageSize: 2 });
+      const second = await read('logKnowledge.vendors', { page: 1, pageSize: 2 });
       expect(first.data?.total).toBe(3);
       expect(codes(first)).toHaveLength(2);
       expect(codes(second)).toHaveLength(1);
       expect([...codes(first), ...codes(second)]).toEqual([`${TAG}-va`, `${TAG}-vb`, `${TAG}-voff`]);
       // all three share `active` ties in pairs: order falls to id, the same on every request
-      const tied = () => read('logKnowledge.vendors', { status: 'all', sorting: [{ id: 'active', desc: true }] });
+      const tied = () => read('logKnowledge.vendors', { sorting: [{ id: 'active', desc: true }] });
       const a = (await tied()).data?.rows.map((r) => r.id);
       const b = (await tied()).data?.rows.map((r) => r.id);
       expect(a).toEqual(b);
       const activeIds = [ids.va, ids.vb].sort();
       expect(a?.slice(0, 2)).toEqual(activeIds);
-      const desc = await read('logKnowledge.vendors', { sorting: [{ id: 'name', desc: true }] });
+      const desc = await read('logKnowledge.vendors', { sorting: [{ id: 'name', desc: true }], filters: [flt('active', 'in', ['true'])] });
       expect(codes(desc)).toEqual([`${TAG}-vb`, `${TAG}-va`]);
     });
 
-    it('never returns another workspace`s rows, by q or by status all', async () => {
-      const res = await read('logKnowledge.vendors', { status: 'all' });
+    it('never returns another workspace`s rows, by q or with no filter', async () => {
+      const res = await read('logKnowledge.vendors');
       expect(res.data?.rows.map((r) => r.id)).not.toContain(ids.vOther);
-      expect(codes(await read('logKnowledge.vendors', { q: `${TAG}-vother`, status: 'all' }))).toEqual([]);
+      expect(codes(await read('logKnowledge.vendors', { q: `${TAG}-vother` }))).toEqual([]);
     });
   });
 
@@ -257,7 +262,7 @@ describe.skipIf(!runIntegration)('log knowledge catalog reads and schema (#1193)
 
   describe('logKnowledge.models', () => {
     it('filters by vendor, and shows vendor name, processes and software count', async () => {
-      const res = await read('logKnowledge.models', { vendorId: ids.va });
+      const res = await filtered('logKnowledge.models', flt('vendorId', 'in', [ids.va]));
       expect(codes(res)).toEqual([`${TAG}-m1`, `${TAG}-m2`]);
       const m1 = res.data?.rows[0];
       expect(m1).toMatchObject({
@@ -271,43 +276,80 @@ describe.skipIf(!runIntegration)('log knowledge catalog reads and schema (#1193)
         { id: ids.pDep, name: 'Deposition' },
         { id: ids.pEtch, name: 'Etch' },
       ]);
+      expect(codes(await filtered('logKnowledge.models', flt('vendorId', 'in', [ids.va, ids.vb])))).toHaveLength(4);
+      expect(codes(await filtered('logKnowledge.models', flt('vendorId', 'notIn', [ids.va])))).toEqual([`${TAG}-m3`, `${TAG}-moff`]);
     });
 
-    it('filters by process; a model in two processes appears once', async () => {
-      const etch = await read('logKnowledge.models', { processId: ids.pEtch });
+    it('answers every model without an active condition, and filters by active', async () => {
+      expect(codes(await read('logKnowledge.models'))).toEqual([`${TAG}-m1`, `${TAG}-m2`, `${TAG}-m3`, `${TAG}-moff`]);
+      expect(codes(await filtered('logKnowledge.models', flt('active', 'in', ['false'])))).toEqual([`${TAG}-moff`]);
+      expect(codes(await filtered('logKnowledge.models', flt('active', 'in', ['true'])))).toEqual([`${TAG}-m1`, `${TAG}-m2`, `${TAG}-m3`]);
+    });
+
+    it('processes in: any mapped process matches; a model in two processes appears once, total counts it once', async () => {
+      const etch = await filtered('logKnowledge.models', flt('processes', 'in', [ids.pEtch]));
       expect(codes(etch)).toEqual([`${TAG}-m1`, `${TAG}-m2`]);
       expect(etch.data?.total).toBe(2);
-      const dep = await read('logKnowledge.models', { processId: ids.pDep });
-      expect(codes(dep)).toEqual([`${TAG}-m1`]);
-      const both = await read('logKnowledge.models', { vendorId: ids.vb, processId: ids.pEtch });
-      expect(both.data?.total).toBe(0);
-      expect(both.outcome).toBe('ok');
+      expect(codes(await filtered('logKnowledge.models', flt('processes', 'in', [ids.pDep])))).toEqual([`${TAG}-m1`]);
+      const both = await filtered('logKnowledge.models', flt('processes', 'in', [ids.pEtch, ids.pDep]));
+      expect(codes(both)).toEqual([`${TAG}-m1`, `${TAG}-m2`]);
+      expect(both.data?.total).toBe(2);
+      const none = await filtered('logKnowledge.models', flt('vendorId', 'in', [ids.vb]), flt('processes', 'in', [ids.pEtch]));
+      expect(none.data?.total).toBe(0);
+      expect(none.outcome).toBe('ok');
     });
 
-    it('status filter and sort by vendorName', async () => {
-      expect(codes(await read('logKnowledge.models', { status: 'inactive' }))).toEqual([`${TAG}-moff`]);
-      const byVendor = await read('logKnowledge.models', { sorting: [{ id: 'vendorName', desc: true }] });
+    it('processes notIn: at least one process AND none of the values (unmapped models are excluded)', async () => {
+      expect(codes(await filtered('logKnowledge.models', flt('processes', 'notIn', [ids.pDep])))).toEqual([`${TAG}-m2`]);
+      expect(codes(await filtered('logKnowledge.models', flt('processes', 'notIn', [ids.pEtch])))).toEqual([]);
+      expect(codes(await filtered('logKnowledge.models', flt('processes', 'notIn', [ids.pEtch, ids.pDep])))).toEqual([]);
+    });
+
+    it('processes isEmpty / isNotEmpty: unmapped models vs models with any process', async () => {
+      expect(codes(await filtered('logKnowledge.models', flt('processes', 'isEmpty')))).toEqual([`${TAG}-m3`, `${TAG}-moff`]);
+      expect(codes(await filtered('logKnowledge.models', flt('processes', 'isNotEmpty')))).toEqual([`${TAG}-m1`, `${TAG}-m2`]);
+      const unmappedActive = await filtered('logKnowledge.models', flt('processes', 'isEmpty'), flt('active', 'in', ['true']));
+      expect(codes(unmappedActive)).toEqual([`${TAG}-m3`]);
+    });
+
+    it('an unknown process id matches nothing and is still an ok page', async () => {
+      const foreign = await filtered('logKnowledge.models', flt('processes', 'in', ['00000000-0000-4000-8000-000000000000']));
+      expect(foreign.outcome).toBe('ok');
+      expect(foreign.data?.total).toBe(0);
+    });
+
+    it('sort by vendorName', async () => {
+      // Active rows only: with no filter the read returns inactive models too, and an inactive model of the same vendor ties on vendorName (id tie-break).
+      const byVendor = await read('logKnowledge.models', { sorting: [{ id: 'vendorName', desc: true }], filters: [flt('active', 'in', ['true'])] });
       expect(codes(byVendor)[0]).toBe(`${TAG}-m3`);
     });
   });
 
   describe('logKnowledge.softwareVersions', () => {
     it('filters by model and q, using the original label as code', async () => {
-      const m1 = await read('logKnowledge.softwareVersions', { modelId: ids.m1 });
+      const m1 = await filtered('logKnowledge.softwareVersions', flt('modelId', 'in', [ids.m1]));
       expect(codes(m1)).toEqual([`${TAG}-v1.0`, `${TAG}-v2.0`]);
       expect(m1.data?.rows[0]).toMatchObject({ modelId: ids.m1, versionLabel: `${TAG}-v1.0` });
       expect(codes(await read('logKnowledge.softwareVersions', { q: `${TAG}-V2` }))).toEqual([`${TAG}-v2.0`]);
       expect((await read('logKnowledge.softwareVersions')).data?.total).toBe(3);
+      expect(codes(await filtered('logKnowledge.softwareVersions', flt('modelId', 'notIn', [ids.m1])))).toEqual([`${TAG}-v1.0`]);
+      expect(codes(await filtered('logKnowledge.softwareVersions', flt('active', 'in', ['false'])))).toEqual([]);
     });
   });
 
   describe('judgment', () => {
     it.each([
       ['unknown param key', { q: TAG, nope: 1 }],
-      ['bad status', { status: 'deleted' }],
+      ['the removed status param', { q: TAG, status: 'active' }],
+      ['the removed vendorId param', { q: TAG, vendorId: 'x' }],
+      ['unknown filter field', { filters: [flt('codeKey', 'in', ['x'])] }],
+      ['unknown filter op', { filters: [flt('active', 'contains', 'x')] }],
+      ['duplicate filter field', { filters: [flt('active', 'in', ['true']), flt('active', 'in', ['false'])] }],
+      ['filter value of the wrong shape', { filters: [flt('active', 'in', 'true')] }],
+      ['filters not a list', { filters: { id: 'active' } }],
       ['pageSize over the bound', { pageSize: 1000 }],
       ['sort column off the whitelist', { sorting: [{ id: 'codeKey', desc: false }] }],
-      ['vendorId not a uuid', { vendorId: 'x' }],
+      ['vendorId value not a uuid', { filters: [flt('vendorId', 'in', ['x'])] }],
     ])('%s is an error outcome, not an empty page', async (_name, params) => {
       const res = await query('logKnowledge.models', params);
       expect(res.statusCode).toBe(200);
@@ -325,7 +367,7 @@ describe.skipIf(!runIntegration)('log knowledge catalog reads and schema (#1193)
     });
 
     it.each([
-      ['status', { status: null }],
+      ['filters', { filters: null }],
       ['page', { page: null }],
       ['pageSize', { pageSize: null }],
       ['sorting', { sorting: null }],

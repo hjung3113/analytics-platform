@@ -6,12 +6,15 @@ import { homeMock } from '@ap/menu-home/mock';
 import { metricsMock } from '@ap/menu-metrics/mock';
 import { clasMock } from '@ap/menu-clas/mock';
 import { hwTimeMock } from '@ap/menu-hw-time/mock';
+import { logKnowledgeMock } from '@ap/menu-log-knowledge/mock';
 // </gen:menu-mock-imports>
 // Audit seeds of menu-owned destinations (ADR-0048) — hand-wired, outside the generator's import region.
 import { metricsAuditEvents } from '@ap/menu-metrics/mock';
+// Menu mock actions (ADR-0054) — hand-wired: the generator writes endpoint markers only (backlog: generator support once a second menu has mock actions).
+import { logKnowledgeActionsMock } from '@ap/menu-log-knowledge/mock';
 import type { CreateAssembly } from '#platform-assembly';
 import { menuPermissions, type AuditEvent } from '@ap/contracts';
-import { createMockAdapter, storedUsage, type AnyMockEndpoint } from '@ap/mock-server';
+import { createMockAdapter, storedUsage, type AnyMockAction, type AnyMockEndpoint } from '@ap/mock-server';
 import { DevTools } from './DevTools';
 import { eqvMock } from './eqv-mock';
 import { modulePermissions } from '../modules';
@@ -29,6 +32,7 @@ export const MOCK_ENDPOINTS: readonly AnyMockEndpoint[] = [
   ...metricsMock,
   ...clasMock,
   ...hwTimeMock,
+  ...logKnowledgeMock,
   // </gen:menu-mock-spreads>
 ];
 
@@ -37,6 +41,11 @@ export const MOCK_ENDPOINTS: readonly AnyMockEndpoint[] = [
  * The mock adapter below and the conformance test read `[...MOCK_ENDPOINTS, ...MODULE_MOCK_ENDPOINTS]`.
  */
 export const MODULE_MOCK_ENDPOINTS: readonly AnyMockEndpoint[] = [...eqvMock];
+
+/**
+ * Every menu mock action the app registers (hand-wired, ADR-0054). The mock adapter below and the conformance test read it.
+ */
+export const MOCK_ACTIONS: readonly AnyMockAction[] = [...logKnowledgeActionsMock];
 
 /**
  * Audit events of menu-owned destinations (ADR-0048). The mock server joins them with its own equipment events,
@@ -49,7 +58,7 @@ export const MOCK_AUDIT_EVENTS: readonly AuditEvent[] = [...metricsAuditEvents];
  * Menu mocks are registered in MOCK_ENDPOINTS by `pnpm gen:menu`, module mocks in MODULE_MOCK_ENDPOINTS by hand; a production build never reaches this file.
  */
 export const createAssembly: CreateAssembly = ({ registry }) => {
-  const adapter = createMockAdapter({ equipmentAxes: EQUIPMENT_AXES, endpoints: [...MOCK_ENDPOINTS, ...MODULE_MOCK_ENDPOINTS], registry, permissions: [...registry.permissions, ...modulePermissions(registry)], auditEvents: MOCK_AUDIT_EVENTS });
+  const adapter = createMockAdapter({ equipmentAxes: EQUIPMENT_AXES, endpoints: [...MOCK_ENDPOINTS, ...MODULE_MOCK_ENDPOINTS], registry, permissions: [...registry.permissions, ...modulePermissions(registry)], auditEvents: MOCK_AUDIT_EVENTS, actions: MOCK_ACTIONS });
   const savedViews = createLocalSavedViewStore({
     menuPermissionsOf: menuId => { try { return menuPermissions(registry.menuById(menuId)); } catch { return undefined; } },
     sessionPermissions: () => adapter.session().user.permissions,

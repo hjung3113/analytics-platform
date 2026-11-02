@@ -43,6 +43,8 @@
 
 **로그 지식 허브 #1194 노드 s (SDK 선택 옵션 둘, 구현 중).** 카탈로그 관리 화면(노드 b)이 쓸 범용 조각: `PlatformDataTable.isRowMuted`(비활성 행을 흐리게)와 enum 필터 스펙 `cell: 'many'`(배열 값 열의 `in`/`notIn`/`isEmpty`). 둘 다 없으면 지금과 같은 선택 옵션이며([ADR-0105](../docs/adr/0105-one-table-filter-model.md) 개정 한 줄), 화면·서버 배선은 노드 b·r 몫이다.
 
+**로그 지식 허브 #1194 노드 r (카탈로그 조회 필터 모델·메뉴 선언·mock, 구현 중).** 카탈로그 조회 4종이 표 필터 모델 `filters`(ADR-0105)를 받고(`status`·`vendorId`·`processId`·`modelId` 제거, 필터 없으면 전체 행), 메뉴 패키지가 조회·쓰기 12종 선언과 mock 핸들러를 갖는다(드리프트 테스트로 서버 선언과 대조). 카탈로그 관리는 관리자 기능 메뉴라 메뉴 권한 `knowledge:catalog-manage`를 새로 두고(서버 판정 = Admin 또는 `knowledge.catalog.manage` 부여), 화면(노드 b)은 대기.
+
 **Scope 표시 숨김 [#1251](https://github.com/hjung3113/analytics-platform/issues/1251)(#1108 분할, 2026-11-02, 구현 중).** 사이트와 무관한 공간용 SDK 선택 필드 `SpaceDef.scopePresentation: 'hidden'`([ADR-0108](../docs/adr/0108-space-scope-presentation-field.md)). 첫 소비자는 `log-dev`. 메뉴 단위 재정의는 구현 안 함(백로그).
 
 **`v0.23.0`(2026-11-02, 도입 발표·소개 페이지 정합).** [#1239](https://github.com/hjung3113/analytics-platform/issues/1239)를 끝냈다. 소유자가 Claude Design에서 만든 소개 발표 v2(18장, 오프라인 단독 HTML)를 그대로 `site/presentation/intro.html`에 넣고 소개 페이지에서 링크로 연다(#1242). 소개 페이지 사실 정정(#1245): 기술 표(TanStack Query·Dockview 사용 중), 공통 컴포넌트 38개·셸 10개, 보드 시트당 칸 8개·표시 영역 4개, 사내 적용에 #155·#150·#151 준비, As-Is 로그인 원장 L151. 옛 필터 page key 별칭(설비·감사·권한)을 지웠다(#1246, ADR-0105 한 릴리스 경과; SDK `legacy` 옵션은 범용 조각으로 남김). 발표에서 나온 개념 과제(Quest)·개선 아이템·효과 확인을 정했다([#1241](https://github.com/hjung3113/analytics-platform/issues/1241), [ADR-0106](../docs/adr/0106-improvement-task-is-quest.md)); 기준일 전후 비교 SDK 조각은 [#1243](https://github.com/hjung3113/analytics-platform/issues/1243)(구현 안 함). 상시 에이전트 컨텍스트를 줄였다(#1240). SDK 공개 API 변화가 없어 `sdk-v*`는 내지 않았다.
