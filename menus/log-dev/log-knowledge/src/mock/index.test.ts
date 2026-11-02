@@ -70,6 +70,15 @@ describe('catalog reads speak the table filter model', () => {
     expect(read('softwareVersions').total).toBe(4);
   });
 
+  it('matches uuid filter values case-insensitively (the server compares uuid columns)', () => {
+    const upper = (id: string) => id.toUpperCase();
+    const a100 = idOf('models', 'A-100');
+    const etch = idOf('processes', 'ETCH');
+    expect(codes('softwareVersions', { filters: [flt('modelId', 'in', [upper(a100)])] })).toEqual(['v1.0', 'v2.0']);
+    expect(codes('models', { filters: [flt('processes', 'in', [upper(etch)])] })).toEqual(codes('models', { filters: [flt('processes', 'in', [etch])] }));
+    expect(codes('models', { filters: [flt('vendorId', 'notIn', [upper(idOf('vendors', 'ALPHA'))])] })).toEqual(['B-10', 'B-20', 'B-30', 'G-1']);
+  });
+
   it('q matches the code key by prefix (width/case-insensitive) and the name by contains', () => {
     expect(codes('vendors', { q: 'alpha' })).toEqual(['ALPHA']);
     expect(codes('vendors', { q: 'SYSTEMS' })).toEqual(['BETA']);
@@ -103,6 +112,8 @@ describe('catalog reads speak the table filter model', () => {
     ['sort off the whitelist', 'vendors', { sorting: [{ id: 'codeKey', desc: false }] }],
     ['pageSize over the bound', 'vendors', { pageSize: 201 }],
     ['negative page', 'vendors', { page: -1 }],
+    ['extra property on a filter', 'vendors', { filters: [{ ...flt('active', 'in', ['true']), extra: 1 }] }],
+    ['extra property on a sort key', 'vendors', { sorting: [{ id: 'code', desc: false, extra: 1 }] }],
   ])('refuses %s instead of answering an empty page', (_n, id, params) => {
     expect(judge(id, params as Params)).toEqual(expect.any(String));
   });
@@ -193,10 +204,17 @@ describe('registration with the mock adapter', () => {
     expect(logKnowledgeActionsMock.map(a => a.spec)).toEqual([...catalogActionSpecs]);
   });
 
-  it('a viewer lacks the write permission (forbidden); an admin writes', async () => {
+  it.each([['vendors'], ['processes'], ['models'], ['softwareVersions']])('%s: a query with no match answers ok with an empty page, like the server', async id => {
+    const result = await adapter().menuQuery({ endpoint: `logKnowledge.${id}`, context: {}, params: { q: 'no-such-row-anywhere', page: 0, pageSize: 10, sorting: [], filters: [] } });
+    expect(result).toMatchObject({ outcome: 'ok', data: { rows: [], total: 0 } });
+  });
+
+  it('a viewer and an engineer lack the write permission (forbidden); an admin writes', async () => {
     const a = adapter();
     const req = { action: 'logKnowledge.vendorCreate', context: {}, input: { code: 'NEWV', name: 'New' }, idempotencyKey: '3f2b8a40-6c1e-4d5a-9b7e-1a2b3c4d5e6f' };
     setRole('viewer');
+    expect((await a.menuAction(req)).outcome).toBe('forbidden');
+    setRole('engineer');
     expect((await a.menuAction(req)).outcome).toBe('forbidden');
     setRole('admin');
     expect((await a.menuAction(req)).outcome).toBe('ok');

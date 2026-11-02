@@ -54,6 +54,10 @@ const SHAPES: Record<Kind, Shape> = {
 
 /** What the server's value-shape rules add to `validateFilters`: `active` values are 'true'|'false', id values are uuids, at most 200 values. */
 function filterMessage(filters: readonly ColumnFilter[], shape: Shape): string | null {
+  // The wire shape is strict like the server's: a plain object with exactly { id, op, value? }.
+  for (const f of filters as readonly unknown[]) {
+    if (typeof f !== 'object' || f === null || Array.isArray(f) || Object.keys(f).some(k => k !== 'id' && k !== 'op' && k !== 'value')) return 'a filter is { id, op, value }';
+  }
   const check = validateFilters(filters, shape.specs);
   if (!check.ok) return `invalid filter ${check.filter.id}:${check.filter.op} (${check.reason})`;
   for (const f of filters) {
@@ -73,7 +77,7 @@ function paramsMessage(params: CatalogPageParams, shape: Shape): string | null {
   if (!Array.isArray(sorting) || sorting.length > SORT_KEYS_MAX) return `sorting must be a list of at most ${SORT_KEYS_MAX} sort keys`;
   const seen = new Set<string>();
   for (const s of sorting) {
-    if (typeof s?.id !== 'string' || typeof s.desc !== 'boolean') return 'a sort key is { id: string, desc: boolean }';
+    if (typeof s !== 'object' || s === null || Array.isArray(s) || Object.keys(s).some(k => k !== 'id' && k !== 'desc') || typeof s.id !== 'string' || typeof s.desc !== 'boolean') return 'a sort key is { id: string, desc: boolean }';
     if (!shape.sortIds.includes(s.id)) return `sorting by ${s.id} is not supported`;
     if (seen.has(s.id)) return `sorting by ${s.id} twice`;
     seen.add(s.id);
@@ -91,11 +95,15 @@ const matchesQ = (rec: Rec, q: string | null): boolean => {
 
 const compare = (a: Sortable, b: Sortable): number => (a === b ? 0 : a < b ? -1 : 1);
 
+/** Stored ids are lowercase; the server compares uuid columns, so uuid filter values match case-insensitively. */
+const canonicalFilters = (filters: readonly ColumnFilter[] | undefined): readonly ColumnFilter[] | undefined =>
+  filters?.map(f => ((f.op === 'in' || f.op === 'notIn') && f.id !== 'active' ? { ...f, value: f.value.map(v => v.toLowerCase()) } : f));
+
 function page(kind: Kind, params: CatalogPageParams): PageResult<Rec> {
   const shape = SHAPES[kind];
   const { q = null, page: p = 0, pageSize = 50, sorting = [], filters } = params;
   const keys = sorting.length > 0 ? sorting : [{ id: shape.sortIds[0]!, desc: false }];
-  const rows = filterRows(shape.rows().filter(r => matchesQ(r, q)), filters, (r, id) => shape.cell(r, id), { specs: shape.specs });
+  const rows = filterRows(shape.rows().filter(r => matchesQ(r, q)), canonicalFilters(filters), (r, id) => shape.cell(r, id), { specs: shape.specs });
   const sorted = [...rows].sort((a, b) => {
     for (const k of keys) { const c = compare(shape.sortValue(a, k.id), shape.sortValue(b, k.id)); if (c !== 0) return k.desc ? -c : c; }
     return compare(a.id, b.id);
@@ -118,7 +126,6 @@ const readMock = <T>(spec: Parameters<typeof defineMockEndpoint<CatalogPageParam
     mart: false,
     validate: ({ params }) => paramsMessage(params, SHAPES[kind]),
     handle: ({ params }) => read(kind, params) as PageResult<T>,
-    isEmpty: data => data.total === 0,
   });
 
 export const logKnowledgeMock: readonly AnyMockEndpoint[] = [

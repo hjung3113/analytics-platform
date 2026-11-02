@@ -102,6 +102,14 @@ const catalogActionCases = MOCK_ACTIONS.map(action => {
   return { spec: action.spec, get input() { return sample(); }, ...(action.spec.concurrency === 'version' ? { currentVersion } : {}) };
 });
 const GRANTED: RoleId = 'engineer';
+// Only admin holds `knowledge:catalog-manage` in the mock (the server: Admin or a workspace grant), so the catalog
+// writes run as admin; the removed-permission check removes it from admin's list too (`withoutPermission` below).
+const CATALOG_PERMISSION = menuPermission('knowledge:catalog-manage');
+const asRole = async <T,>(role: RoleId, fn: () => Promise<T>): Promise<T> => {
+  const previous = getRole();
+  setRole(role);
+  try { return await fn(); } finally { setRole(previous); }
+};
 const CONSOLE: RoleId = 'admin';
 // Choose a granted group with different teams so the sample proves strict AND narrowing.
 const grantedEquipment = EQUIPMENT.filter(e => e.site === 'MEM' && USERS[GRANTED].grants.MEM.includes(e.room));
@@ -140,8 +148,13 @@ const savedViewStoreOf = (role: 'engineer' | 'admin') => createLocalSavedViewSto
   menuPermissionsOf: menuId => { try { return menuPermissions(registry.menuById(menuId)); } catch { return undefined; } },
 });
 
+const conformanceAdapter = Object.assign(Object.create(adapter), {
+  menuAction: (req: Parameters<typeof adapter.menuAction>[0]) =>
+    req.action.startsWith('logKnowledge.') ? asRole('admin', () => adapter.menuAction(req)) : adapter.menuAction(req),
+}) as typeof adapter;
+
 describeServerConformance('server boundary conformance — mock adapter', {
-  adapter,
+  adapter: conformanceAdapter,
   cases,
   actions: [{ spec: fixtureSave, input: { text: 'sample' }, currentVersion: async () => String(fixtureVersion) }, ...catalogActionCases],
   context: { scopeId: 'MEM', from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' },
@@ -188,7 +201,7 @@ describeServerConformance('server boundary conformance — mock adapter', {
   },
   withoutPermission: async (permission: Permission, fn) => {
     const previous = getRole();
-    setRole(GRANTED);
+    setRole(permission === CATALOG_PERMISSION ? 'admin' : GRANTED);
     // The adapter's world is built from the vocabulary above, not the default USERS, so the granted role's list is the session's own array.
     const permissions = adapter.session().user.permissions as Permission[];
     const kept = [...permissions];
