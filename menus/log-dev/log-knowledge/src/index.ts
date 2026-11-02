@@ -27,14 +27,14 @@ export const manifests: MenuEntry[] = [
     id: 'log-knowledge-items', group: groupId('logKnowledge'), label: { ko: '전체 기술 Item', en: 'Technical items' },
     description: { ko: '모든 모델·SW 버전의 기술 Item을 유형·검증·처리·게시 상태로 찾습니다', en: 'Find technical items of every model and software version by type, verification, processing and publication state' },
     path: '/log/knowledge/items', icon: ListChecks, permission: 'platform:view', requiresScope: false, pageType: 'management',
-    context: contextCapabilities(), features: NO_FEATURES, pageKeys: ['q', 'filter', 'sort', 'page'], repeatedPageKeys: ['filter'], hiddenPageKeys: ['filter'], contextResetKeys: ['page'],
+    context: contextCapabilities(), features: NO_FEATURES, pageKeys: ['q', 'filter', 'sort', 'page', 'focus', 'owner'], repeatedPageKeys: ['filter'], hiddenPageKeys: ['filter'], contextResetKeys: ['page'],
     component: lazy(() => import('./pages/items/ItemList')),
   },
   {
     id: 'log-knowledge-item', group: groupId('logKnowledge'), parent: 'log-knowledge-items', navHidden: true, label: { ko: '기술 Item 상세', en: 'Item detail' },
     description: { ko: 'Item 한 건의 본문·근거·연결·리비전·판단 변경 이력을 읽습니다', en: 'Read one item: body, evidence, links, revisions and assessment history' },
     path: '/log/knowledge/items/:itemId', icon: FileText, permission: 'platform:view', requiresScope: false, pageType: 'management',
-    context: contextCapabilities(), features: NO_FEATURES, pageKeys: ['rev', 'returnTo'],
+    context: contextCapabilities(), features: NO_FEATURES, pageKeys: ['rev', 'returnTo', 'drawer'],
     component: lazy(() => import('./pages/items/ItemDetail')),
   },
   {

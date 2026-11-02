@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMenuFetch, useMenuQuery } from '@ap/kernel';
-import { modelsEndpoint, processesEndpoint, vendorsEndpoint, type CatalogPageParams, type ModelRow, type ProcessRow, type VendorRow } from '../endpoints';
+import type { ColumnFilter } from '@ap/contracts';
+import { modelsEndpoint, processesEndpoint, softwareVersionsEndpoint, vendorsEndpoint, type CatalogPageParams, type ModelRow, type ProcessRow, type VendorRow } from '../endpoints';
 
 /** The lists the filter row chooses from: one read of up to 200 rows by name (the server's page-size cap), inactive ones included but disabled. */
 const OPTION_PARAMS: CatalogPageParams = { q: null, page: 0, pageSize: 200, sorting: [{ id: 'name', desc: false }] };
@@ -33,29 +34,34 @@ export function useCatalogOptions(need: { vendors: boolean; processes: boolean; 
   return { ...result, labels, remember };
 }
 
-type Endpoint = typeof vendorsEndpoint | typeof processesEndpoint | typeof modelsEndpoint;
+type Endpoint = typeof vendorsEndpoint | typeof processesEndpoint | typeof modelsEndpoint | typeof softwareVersionsEndpoint;
+/** An SW version reads as its version label (the name is optional), not the name. */
+const toSoftwareOption = (r: Named & { versionLabel?: string }): Option => ({ value: r.id, label: `${r.versionLabel || r.code}${r.name ? ` · ${r.name}` : ''}`, disabled: !r.active });
 /**
  * A form picker over one declared read: server search (`q`) and load-more by page, so any row is reachable, not the first 200.
- * Only active rows are offered. The caller keeps its selected values visible (a `MultiCombobox` resolves them with `getLabel`).
+ * Only active rows are offered; `extraFilters` adds conditions (e.g. an SW version's `modelId`). The caller keeps its selected values visible (a `MultiCombobox` resolves them with `getLabel`).
  */
-export function useOptionPicker(endpoint: Endpoint, enabled = true) {
+export function useOptionPicker(endpoint: Endpoint, enabled = true, extraFilters?: readonly ColumnFilter[]) {
   const { fetch } = useMenuFetch(endpoint as unknown as Parameters<typeof useMenuFetch<CatalogPageParams, { rows: Named[]; total: number }>>[0]);
   const fetchRef = useRef(fetch);
   useEffect(() => { fetchRef.current = fetch; });
+  const filtersRef = useRef(extraFilters);
+  const filterKey = JSON.stringify(extraFilters ?? []);
+  useEffect(() => { filtersRef.current = extraFilters; });
   const [search, setSearch] = useState('');
   const [nonce, setNonce] = useState(0);
   const [state, setState] = useState({ search: '', options: [] as Option[], total: 0, page: -1, loading: false, failed: false });
   const run = useCallback(async (text: string, page: number, signal: AbortSignal) => {
     setState(s => ({ ...s, loading: true, failed: false }));
     try {
-      const params: CatalogPageParams = { q: text.trim() === '' ? null : text.trim(), page, pageSize: PICKER_PAGE, sorting: [{ id: 'name', desc: false }], filters: [{ id: 'active', op: 'in', value: ['true'] }] };
+      const params: CatalogPageParams = { q: text.trim() === '' ? null : text.trim(), page, pageSize: PICKER_PAGE, sorting: [{ id: 'name', desc: false }], filters: [{ id: 'active', op: 'in', value: ['true'] }, ...(filtersRef.current ?? [])] };
       const res = await fetchRef.current(params, signal);
       if (signal.aborted) return;
       if ((res.outcome !== 'ok' && res.outcome !== 'empty') || !res.data) { setState(s => ({ ...s, loading: false, failed: true })); return; }
-      const next = res.data.rows.map(toOption);
+      const next = res.data.rows.map(endpoint === softwareVersionsEndpoint ? toSoftwareOption : toOption);
       setState(s => page > 0 && s.search !== text ? s : ({ search: text, options: page === 0 ? next : [...s.options, ...next.filter(o => !s.options.some(x => x.value === o.value))], total: res.data!.total, page, loading: false, failed: false }));
     } catch { if (!signal.aborted) setState(s => ({ ...s, loading: false, failed: true })); }
-  }, []);
+  }, [endpoint]);
   const controller = useRef<AbortController | null>(null);
   useEffect(() => {
     if (!enabled) return;
@@ -64,7 +70,7 @@ export function useOptionPicker(endpoint: Endpoint, enabled = true) {
     controller.current = next;
     void run(search, 0, next.signal);
     return () => next.abort();
-  }, [enabled, search, nonce, run]);
+  }, [enabled, search, nonce, run, filterKey]);
   const loadMore = () => {
     if (state.loading || state.search !== search) return;
     const next = new AbortController();

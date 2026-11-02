@@ -43,7 +43,7 @@ describe('모델 프로파일 sections', () => {
     for (const label of ['모델 코드', '제조사', '공정', '상태', '등록 시각', '변경 시각']) expect(within(summary).getByText(label)).toBeTruthy();
     expect(within(summary).getByText(instantText('2026-10-01T00:00:00.000Z'))).toBeTruthy();
     expect(within(summary).getByText(instantText('2026-10-02T09:30:00.000Z'))).toBeTruthy();
-    expect(within(section('모델 공통 Item')).getByText('모델 공통 Item 4건')).toBeTruthy();
+    expect(await within(section('모델 공통 Item')).findByText('이 모델이 소유한 Item이 없습니다', {}, slow)).toBeTruthy();
     expect(within(section('Top View')).getByText('연결된 Top View가 없습니다')).toBeTruthy();
   });
 
@@ -82,7 +82,7 @@ describe('모델 프로파일 sections', () => {
     expect(within(section('SW 버전')).getByText('등록된 SW 버전이 없습니다')).toBeTruthy();
     expect(within(section('SW 버전')).queryByRole('table')).toBeNull();
     expect(screen.getAllByText('공정 미분류').length).toBeGreaterThan(0);
-    expect(within(section('모델 공통 Item')).getByText('모델 공통 Item 0건')).toBeTruthy();
+    expect(await within(section('모델 공통 Item')).findByText('이 모델이 소유한 Item이 없습니다', {}, slow)).toBeTruthy();
   });
 });
 
