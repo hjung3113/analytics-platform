@@ -92,6 +92,20 @@ export interface ActionDeclarationSpec {
   invalidates: readonly string[];
 }
 
+/**
+ * Thrown by `currentVersion` or `handle` for a refusal only the database can judge (a duplicate key, an
+ * unknown or inactive parent). The engine catches it outside the transaction: the throw rolls the write
+ * back, and the answer is `invalid` with these field errors (nothing is recorded for replay).
+ */
+export class MenuActionInvalidError extends Error {
+  readonly fieldErrors: readonly FieldError[];
+  constructor(fieldErrors: readonly FieldError[]) {
+    super(`invalid: ${fieldErrors.map((e) => `${e.path.join('.')}/${e.code}`).join(', ')}`);
+    this.name = 'MenuActionInvalidError';
+    this.fieldErrors = fieldErrors;
+  }
+}
+
 export interface ActionHandlerResult {
   data: unknown;
   /** Version after the write; required for `concurrency: 'version'`. */

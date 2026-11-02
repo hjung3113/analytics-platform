@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import type { FastifyInstance } from 'fastify';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   COOKIE,
@@ -12,12 +12,24 @@ import {
 } from '../../../test-support/platform-route-stubs.js';
 import {
   MENU_ACTION_REPLAY_MAX_BYTES,
+  createMenuActionEngine,
   fitsReplayRecord,
   judgeActionShape,
   judgeIdempotencyKey,
 } from '../action.js';
 import { menuActionRoutes } from '../routes.js';
+import { MenuActionInvalidError } from '../types.js';
 import { registryOf, testAction } from './test-declarations.js';
+
+const recorded: unknown[] = [];
+vi.mock('../../core/idempotency/idempotency-service.js', () => ({
+  createIdempotencyService: () => ({
+    lookup: async () => ({ kind: 'miss' }),
+    record: async (...args: unknown[]) => {
+      recorded.push(args);
+    },
+  }),
+}));
 
 const key = randomUUID();
 const base = { action: 'test.save', context: {}, input: { name: 'a' }, idempotencyKey: key };
@@ -180,5 +192,58 @@ describe('fitsReplayRecord (F4)', () => {
     expect(fitsReplayRecord({ data: { text: 'x'.repeat(MENU_ACTION_REPLAY_MAX_BYTES) } })).toBe(false);
     // 3 bytes per char: under the limit by length, over it by bytes.
     expect(fitsReplayRecord({ data: '가'.repeat(MENU_ACTION_REPLAY_MAX_BYTES / 3) })).toBe(false);
+  });
+});
+
+describe('MenuActionInvalidError (step 8 channel for DB-judged refusals)', () => {
+  const actor = { actor_id: 'a', workspace_id: 'w', role_level: 'admin' } as never;
+
+  async function runWith(handle: () => Promise<{ data: unknown; version: string | null }>) {
+    const { declaration } = testAction();
+    declaration.handle = handle;
+    let rolledBack = false;
+    const db = {
+      transaction: async (fn: (tx: unknown) => Promise<unknown>) => {
+        try {
+          return await fn({ execute: async () => undefined });
+        } catch (error) {
+          rolledBack = true;
+          throw error;
+        }
+      },
+    };
+    const engine = createMenuActionEngine({ db: db as never, registry: registryOf([], [declaration]) });
+    return { result: await engine.run(actor, base, 'corr-1'), rolledBack: () => rolledBack };
+  }
+
+  it('answers invalid with the thrown field errors, rolls back and records nothing', async () => {
+    recorded.length = 0;
+    const run = await runWith(async () => {
+      throw new MenuActionInvalidError([{ path: ['code'], code: 'duplicate' }]);
+    });
+    expect(run.result).toMatchObject({
+      outcome: 'invalid',
+      data: null,
+      version: null,
+      replayed: false,
+      fieldErrors: [{ path: ['code'], code: 'duplicate' }],
+    });
+    expect(run.rolledBack()).toBe(true);
+    expect(recorded).toEqual([]);
+  });
+
+  it('lets any other handler throw escape (a programmer error is not an invalid answer)', async () => {
+    await expect(
+      runWith(async () => {
+        throw new Error('boom');
+      }),
+    ).rejects.toThrow('boom');
+  });
+
+  it('keeps the success shape: a normal handler answers ok and records the answer', async () => {
+    recorded.length = 0;
+    const run = await runWith(async () => ({ data: { saved: true }, version: '2' }));
+    expect(run.result).toMatchObject({ outcome: 'ok', version: '2' });
+    expect(recorded).toHaveLength(1);
   });
 });

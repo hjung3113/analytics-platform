@@ -4,8 +4,9 @@
 // action. An event type missing from the map is excluded by the projection (fail closed).
 //
 // create: names containing _created/_submitted/_registered/_uploaded/_requested/_added,
-//   plus entity_link.created. delete: *_deleted/*_removed and entity_link.detached.
-// retire: state-ending *_archived/_retired/_closed/_revoked/_expired/_dismissed.
+//   plus entity_link.created and knowledge.catalog.created. delete: *_deleted/*_removed and entity_link.detached.
+// retire: state-ending *_archived/_retired/_closed/_revoked/_expired/_dismissed,
+//   plus knowledge.catalog.deactivated.
 // sync: none — no event is a system recompute (voc_recommendation_* and
 //   voc_cluster_suggestion_* are user decisions); a future recompute event needs a decision.
 // update: everything else.
@@ -111,4 +112,8 @@ export const AUDIT_ACTION_BY_EVENT_TYPE: Record<AuditEventType, PlatformAuditAct
   saved_view_group_created: 'create',
   saved_view_group_updated: 'update',
   saved_view_import_submitted: 'create',
+  'knowledge.catalog.created': 'create',
+  'knowledge.catalog.updated': 'update',
+  'knowledge.catalog.deactivated': 'retire',
+  'knowledge.catalog.reactivated': 'update',
 };

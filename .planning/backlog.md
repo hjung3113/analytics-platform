@@ -371,3 +371,4 @@
 - **구현 안 함 — 카탈로그 권한의 Developer 요청 성공 통합 테스트(#1193 재리뷰 C1, minor):** `knowledge.catalog.manage`·`.import`를 Developer가 요청하면 대기 요청이 저장되는지 `/permission-requests` 경로로 확인하는 통합 테스트가 없다. 단위 테스트(`supported-scope-policy.test.ts`)가 Developer 통과를, 통합 테스트가 User 거부와 Developer 직접 부여를 확인한다. 이유: minor, 같은 판정 함수를 단위 테스트가 덮음. 다시 여는 조건: 권한 요청 경로를 다시 고칠 때 또는 #1194a에서 카탈로그 쓰기 권한 테스트를 쓸 때.
 
 - **구현 안 함 — Scope 표시의 메뉴 단위 재정의(#1251):** `SpaceDef.scopePresentation`은 공간 단위만 있고 메뉴가 따로 숨기거나 보이는 선언은 없다. 이유: 필요가 업무 시스템 단위이고 지금 메뉴 단위 소비자가 없다([ADR-0108](../docs/adr/0108-space-scope-presentation-field.md)). 다시 여는 조건: 한 공간에 사이트 종속 메뉴와 사이트 무관 메뉴가 섞일 때.
+- **구현 안 함 — #1194 수용 기준 «source identity map 검증»은 #1195로 옮김(#1194a):** `knowledge.external_identity_map` 쓰기·검증은 #1194 노드 a(카탈로그 쓰기)에 넣지 않았다. 이유: 외부 키 매핑은 Import가 만들고 소비한다. 다시 여는 조건: #1195 착수.

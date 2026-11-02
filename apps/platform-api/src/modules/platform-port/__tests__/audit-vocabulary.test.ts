@@ -39,6 +39,10 @@ describe('audit action map vs @ap/contracts AuditAction', () => {
     ['voc_recommendation_dismissed', 'retire'],
     ['task_request_approved', 'update'],
     ['voc_recommendation_confirmed', 'update'],
+    ['knowledge.catalog.created', 'create'],
+    ['knowledge.catalog.updated', 'update'],
+    ['knowledge.catalog.deactivated', 'retire'],
+    ['knowledge.catalog.reactivated', 'update'],
   ] as const)('%s → %s', (type, action) => {
     expect(AUDIT_ACTION_BY_EVENT_TYPE[type]).toBe(action);
   });
@@ -74,11 +78,11 @@ describe('toAuditEvent field mapping', () => {
 describe('0074 permission allowlist vs the capability registry', () => {
   it('lists exactly the non-sensitive capabilities (DB-free twin of the integration it.each)', () => {
     const sql = readFileSync(
-      new URL('../../../../migrations/0080_knowledge_catalog.sql', import.meta.url),
+      new URL('../../../../migrations/0081_knowledge_catalog_audit.sql', import.meta.url),
       'utf8',
     );
     const list = /\(l\.detail ->> 'capability'\) = ANY \(ARRAY\[([^\]]+)\]/.exec(sql)?.[1];
-    if (list === undefined) throw new Error('capability allowlist not found in 0080 (latest definition)');
+    if (list === undefined) throw new Error('capability allowlist not found in 0081 (latest definition)');
     const listed = [...list.matchAll(/'([^']+)'/g)].map((m) => m[1] as string).sort();
     expect(listed).toEqual(CAPABILITIES.filter((c) => !isSensitiveCapability(c)).sort());
   });

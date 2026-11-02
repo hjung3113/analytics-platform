@@ -14,7 +14,13 @@ import { hashRequestBody } from '../core/idempotency/canonicalize.js';
 import { createIdempotencyService } from '../core/idempotency/idempotency-service.js';
 import type { PlatformActor } from '../platform-port/permissions.js';
 import type { MenuDispatchRegistry } from './registry.js';
-import type { ActionAnswer, ActionOutcome, FieldError, MenuActionDeclaration } from './types.js';
+import {
+  type ActionAnswer,
+  type ActionOutcome,
+  type FieldError,
+  type MenuActionDeclaration,
+  MenuActionInvalidError,
+} from './types.js';
 
 /**
  * Stored-answer bound for a replay. An `ok` answer is recorded in full or not at all: when its JSON
@@ -197,6 +203,10 @@ export function createMenuActionEngine(deps: MenuActionEngineDeps) {
     } catch (error) {
       if (error instanceof ReplayTooLargeError) {
         return answer(correlationId, 'error', { message: REPLAY_TOO_LARGE_MESSAGE });
+      }
+      // A DB-judged refusal thrown by the declaration: the transaction already rolled back.
+      if (error instanceof MenuActionInvalidError) {
+        return answer(correlationId, 'invalid', { fieldErrors: error.fieldErrors });
       }
       throw error;
     }

@@ -101,6 +101,13 @@ describe.skipIf(!enabled)('preview scale seed through runSeed', () => {
           [workspace],
         );
         for (const table of [
+          // Catalog rows reference the seed Admin; delete them before the actors (FK order).
+          'knowledge.model_process',
+          'knowledge.software_version',
+          'knowledge.external_identity_map',
+          'knowledge.equipment_model',
+          'knowledge.vendor',
+          'knowledge.process_category',
           'task.tasks',
           'task_request.task_requests',
           'finding.evidence_highlights',
