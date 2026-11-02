@@ -68,16 +68,40 @@ export function createDb(url: string, opts: CreateDbOptions = {}): DbHandle {
   };
 }
 
-/** Pool 'error' listener for pools built outside createDb (e.g. the self-approval pool). */
+/**
+ * Error handling for pools built outside createDb (e.g. the self-approval pool).
+ *
+ * Two layers, because pg-pool only covers idle clients: it removes its own
+ * client 'error' listener while a client is checked out, and drizzle's
+ * transaction client installs none. PostgreSQL terminating a checked-out
+ * session (e.g. 25P03 after idle_in_transaction_session_timeout while the code
+ * awaits non-DB work) would otherwise emit an unhandled 'error' and kill the
+ * process. So:
+ *   - pool 'error' covers idle clients;
+ *   - a client-level listener, installed once per client on 'connect', covers
+ *     the client's whole life. pg marks the errored client non-queryable, so
+ *     pg-pool discards it on release instead of reusing it.
+ * Each error is reported once (checked-out clients report here, idle ones via
+ * the pool event).
+ */
 export function attachPoolErrorListener(pool: pg.Pool, onPoolError: (err: Error) => void): void {
-  pool.on('error', (err) => {
+  const report = (err: Error): void => {
     // A throwing listener would itself be an uncaught exception.
     try {
       onPoolError(err);
     } catch {
       // logging must never take the process down
     }
+  };
+  const checkedOut = new WeakSet<pg.PoolClient>();
+  pool.on('acquire', (client) => checkedOut.add(client));
+  pool.on('release', (_err, client) => checkedOut.delete(client));
+  pool.on('connect', (client) => {
+    client.on('error', (err: Error) => {
+      if (checkedOut.has(client)) report(err);
+    });
   });
+  pool.on('error', report);
 }
 
 export type { DrizzleTx, Tx } from './tx.js';

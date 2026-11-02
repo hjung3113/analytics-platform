@@ -23,7 +23,23 @@ const ACQUIRE_TIMEOUT_MESSAGES: ReadonlySet<string> = new Set([
   'Connection terminated due to connection timeout',
 ]);
 
-export type DbTimeoutKind = 'statement' | 'lock' | 'idle_in_transaction' | 'pool_acquire';
+/**
+ * After PostgreSQL kills a checked-out session (25P03 etc.) the transaction's
+ * ROLLBACK fails with one of these pg-client messages and replaces the original
+ * reason; the original is reported by the client error listener (db/client.ts).
+ */
+const CONNECTION_LOST_MESSAGES: ReadonlySet<string> = new Set([
+  'Client has encountered a connection error and is not queryable',
+  'Connection terminated unexpectedly',
+  'Connection terminated',
+]);
+
+export type DbTimeoutKind =
+  | 'statement'
+  | 'lock'
+  | 'idle_in_transaction'
+  | 'pool_acquire'
+  | 'connection_lost';
 
 const KIND_BY_SQLSTATE: Record<string, DbTimeoutKind> = {
   '57014': 'statement',
@@ -40,6 +56,7 @@ export function dbTimeoutKind(err: unknown): DbTimeoutKind | null {
       return KIND_BY_SQLSTATE[code] ?? null;
     }
     if (ACQUIRE_TIMEOUT_MESSAGES.has(current.message)) return 'pool_acquire';
+    if (CONNECTION_LOST_MESSAGES.has(current.message)) return 'connection_lost';
     current = (current as { cause?: unknown }).cause;
   }
   return null;
