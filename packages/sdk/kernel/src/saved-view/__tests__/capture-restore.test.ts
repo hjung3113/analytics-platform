@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { emptyGlobal, type SavedViewSupport } from '@ap/contracts';
-import { captureApplied, viewState } from '../capture';
+import { captureApplied, stateKey, viewState } from '../capture';
 import { hasExplicitContext, restoreSavedView, savedStateOf, unsupportedOf } from '../restore';
 import { resolveContext } from '../capture';
 import { createSupportRegistry } from '../useSavedViewSupport';
@@ -11,6 +11,26 @@ const anchor = '2026-09-02T00:00:00';
 const bare = { global: emptyGlobal, page: [] };
 const applied = { global: { ...emptyGlobal, from: '2026-09-01T00:00:00', to: anchor, lineNames: ['L1'], selection: ['E1'] }, page: [['filter', 'a'], ['hover', 'x'], ['returnTo', '/x'], ['other', 'y']] as [string, string][] };
 const run = (over: Partial<Parameters<typeof restoreSavedView>[0]>) => restoreSavedView({ view: viewOf({ id: 'v' }), support, current: bare, extras: [], pathname: '/home', anchor, source: 'selected', ...over });
+
+describe('hidden and repeated page pairs (ADR-0105)', () => {
+  const hiddenSupport = { ...support, pageKeys: ['filter', 'sort'] };
+  const withHidden = { global: { ...emptyGlobal, from: '2026-09-01T00:00:00', to: anchor }, page: [['sort', 'a'], ['filter', 'x'], ['filter', 'y']] as [string, string][] };
+  it('a saved menu view stores the page pairs the address omits and restores them in order', () => {
+    const state = captureApplied(withHidden, hiddenSupport);
+    expect(state.page).toEqual([['filter', 'x'], ['filter', 'y'], ['sort', 'a']]);
+    const result = run({ view: viewOf({ id: 'v', kind: 'menu-view', menuId: 'home', menuSchemaVersion: 2, context: state.context, page: state.page }), current: bare });
+    expect(result.ok && result.applied && result.href).toContain('filter=x&filter=y&sort=a');
+  });
+});
+
+describe('repeated values keep their order (F6)', () => {
+  const orderSupport = { ...support, pageKeys: ['filter'] };
+  const order = (values: string[]) => ({ global: { ...emptyGlobal, from: '2026-09-01T00:00:00', to: anchor }, page: values.map((v): [string, string] => ['filter', v]) });
+  it('capture stores z,a as z,a and the two orders are different states', () => {
+    expect(captureApplied(order(['z', 'a']), orderSupport).page).toEqual([['filter', 'z'], ['filter', 'a']]);
+    expect(stateKey(captureApplied(order(['z', 'a']), orderSupport))).not.toBe(stateKey(captureApplied(order(['a', 'z']), orderSupport)));
+  });
+});
 
 describe('captureApplied', () => {
   it('stores only the supported applied keys, never page keys the menu did not declare, transient keys or returnTo', () => {

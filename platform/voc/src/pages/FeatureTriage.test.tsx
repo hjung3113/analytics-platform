@@ -2,6 +2,7 @@ import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
 import { setFeatureApi } from '@ap/feature-bridge/feature-api';
+import { LAZY_MOUNT_WAIT } from '@ap/feature-bridge/testing';
 import { useHostSeam } from '@/lib/host/host-seam';
 import { mountAt, warmPages } from '../test-support';
 
@@ -26,7 +27,7 @@ describe('Triage without a feature API (mock preview)', () => {
   it('shows 실서버 필요 and mounts no screen', async () => {
     mountAt('/operations/triage');
     // The first mount lazy-loads the page module, which can pass the default 1 s under a loaded run.
-    expect(await screen.findByRole('heading', { name: 'Triage' }, { timeout: 3000 })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Triage' }, LAZY_MOUNT_WAIT)).toBeTruthy();
     expect(screen.getByRole('status').textContent).toContain('실서버 필요');
     expect(screen.queryByTestId('triage')).toBeNull();
   });

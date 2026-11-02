@@ -38,27 +38,28 @@ export function createHistoryState() {
 function sameTag(a: Tag | null, b: Tag) {
   return a !== null && a.port === b.port && a.session === b.session && a.revision === b.revision && a.identity === b.identity && a.scope === b.scope && a.axes === b.axes && a.allowed === b.allowed;
 }
-export function canonicalHistoryQuery(values: DraftValues, pageKeys: readonly string[]): string {
-  const normalized = parseQuery(buildQuery(values.global, withoutReturnTo(values.page).filter(([key]) => pageKeys.includes(key))), pageKeys);
-  const page = normalized.page.sort(([ak, av], [bk, bv]) => compareHistoryText(ak, bk) || compareHistoryText(av, bv));
+export function canonicalHistoryQuery(values: DraftValues, pageKeys: readonly string[], repeated: readonly string[] = []): string {
+  const normalized = parseQuery(buildQuery(values.global, withoutReturnTo(values.page).filter(([key]) => pageKeys.includes(key))), pageKeys, { repeated });
+  // Keys are ordered; the values of one repeated key keep their order (a stable sort on the key alone).
+  const page = normalized.page.sort(([ak], [bk]) => compareHistoryText(ak, bk));
   return buildQuery(normalized.global, page);
 }
 function historyEmpty(input: DraftInputs): boolean {
   if (input.invalid) return false;
   try {
-    const parsed = parseQuery(input.url.includes('?') ? input.url.slice(input.url.indexOf('?')) : '', input.menu?.pageKeys);
+    const parsed = parseQuery(input.url.includes('?') ? input.url.slice(input.url.indexOf('?')) : '', input.menu?.pageKeys, { repeated: input.menu?.repeatedPageKeys });
     return parsed.page.length === 0 && Object.keys(emptyGlobal).every(key => key === 'scopeId' || parsed.global[key as keyof GlobalContext] === null);
   } catch { return false; }
 }
 function candidate(input: DraftInputs, entry: QueryHistoryEntry, normalize: (values: DraftValues) => DraftValues): DraftValues | null {
   try {
     if (entry.schemaVersion !== 1) return null;
-    const parsed = parseQuery(entry.query, input.menu?.pageKeys);
+    const parsed = parseQuery(entry.query, input.menu?.pageKeys, { repeated: input.menu?.repeatedPageKeys });
     if (new URLSearchParams(entry.query).has(RETURN_TO_KEY) || parsed.extras.length || parsed.global.scopeId !== input.global.scopeId || (parsed.global.metricId !== null && parsed.global.metricVersion === null)) return null;
     // History is a complete applied condition, never an incomplete or silently materialized candidate.
     if (parsed.global.from === null || parsed.global.to === null) return null;
     const normalized = normalize(parsed);
-    if (canonicalHistoryQuery(normalized, input.menu?.pageKeys ?? []) !== canonicalHistoryQuery(parsed, input.menu?.pageKeys ?? [])) return null;
+    if (canonicalHistoryQuery(normalized, input.menu?.pageKeys ?? [], input.menu?.repeatedPageKeys) !== canonicalHistoryQuery(parsed, input.menu?.pageKeys ?? [], input.menu?.repeatedPageKeys)) return null;
     return normalized;
   } catch { return null; }
 }

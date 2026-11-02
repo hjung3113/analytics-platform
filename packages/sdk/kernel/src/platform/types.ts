@@ -88,7 +88,7 @@ export type NavCountsSlot = { For: (spaceId: SpaceId, menu: MenuEntry | null) =>
  */
 export type SpaceNavSectionSlot = { For: (spaceId: SpaceId, menu: MenuEntry | null) => { label: Text; Body: ComponentType } | null };
 export type PlatformSlots = { scopeControl?: ScopeControlSlot; contextBar?: ReactNode; topBarTools?: ReactNode; features?: FeatureSlot; plannedSpaces?: readonly PlannedSpace[]; boardEntry?: ReactNode; notifications?: NotificationsSlot; vocCompose?: VocComposeSlot; homeTodo?: HomeTodoSlot; navCounts?: NavCountsSlot; spaceNavSection?: SpaceNavSectionSlot };
-export type LinkOptions = { params?: Record<string, string>; page?: Record<string, string | null>; global?: Partial<GlobalContext>; returnTo?: boolean };
+export type LinkOptions = { params?: Record<string, string>; /** A value may be a list for a repeated page key of the destination: one pair per item, in order. */ page?: Record<string, string | readonly string[] | null>; global?: Partial<GlobalContext>; returnTo?: boolean };
 export type LinkResolution = {
   href: string;
   /** False when the signed-in user lacks the target's permission or, for a space menu, space entry. A global utility menu is permission only. Display only — never a permission proof. */
@@ -115,6 +115,8 @@ export type HostPlatform = {
   location: PlatformLocation;
   absoluteUrl: (url: string) => string;
   url: string;
+  /** `url` plus the hidden page pairs (ADR-0105): the identity of the applied state. Equal to `url` when the entry carries no hidden pair. Host-only. */
+  appliedUrl: string;
   pathname: string;
   route: RouteMatch | null;
   /**
@@ -128,10 +130,13 @@ export type HostPlatform = {
   page: Pair[];
   extras: Pair[];
   pageParam: (key: string) => string | null;
+  /** Every value of a page key in address order; `[]` when absent. At most one for a key that is not in the menu's `repeatedPageKeys`. Includes hidden keys. */
+  pageParams: (key: string) => string[];
   pageNavigation: PageNavigation;
   navigate: (url: string, options?: { replace?: boolean; focus?: PageFocus; via?: UsageVia }) => boolean;
   setGlobal: (patch: Partial<GlobalContext>, options?: { replace?: boolean; silent?: boolean }) => void;
-  setPage: (patch: Record<string, string | null>, options?: { replace?: boolean; focus?: PageFocus }) => void;
+  /** A value may be a list for a `repeatedPageKeys` key (one pair per item; more than one value on another key throws `RangeError`); `[]` and null remove the key. A hidden key is written to a new history entry (or `replace`) whose address is unchanged. */
+  setPage: (patch: Record<string, string | readonly string[] | null>, options?: { replace?: boolean; focus?: PageFocus }) => void;
   resetContext: () => void;
   linkTo: (menuId: string, options?: LinkOptions) => string;
   /** `linkTo` plus what a menu needs to draw the link honestly: whether the user may open it and which page keys were dropped. */
@@ -203,7 +208,7 @@ export type HostPlatform = {
  * What a menu page sees through `usePlatform()` (ADR-0076): the same runtime value as `HostPlatform`, narrowed to the menu contract.
  * A field a menu needs that is missing here moves up from `HostPlatform`; a menu never imports `@ap/kernel/host`.
  */
-export type MenuPlatform = Pick<HostPlatform, 'route' | 'url' | 'pathname' | 'absoluteUrl' | 'location' | 'global' | 'page' | 'pageParam' | 'setGlobal' | 'setPage' | 'resetContext' | 'navigate' | 'linkTo' | 'resolveLink' | 'session' | 'user' | 'revision' | 'can' | 'canOpen' | 'scope' | 'toast' | 'dismissToast' | 'registry' | 'adapter' | 'favorites' | 'toggleFavorite' | 'accessibleSpaces' | 'spaceEntry' | 'homeTodo'>;
+export type MenuPlatform = Pick<HostPlatform, 'route' | 'url' | 'pathname' | 'absoluteUrl' | 'location' | 'global' | 'page' | 'pageParam' | 'pageParams' | 'setGlobal' | 'setPage' | 'resetContext' | 'navigate' | 'linkTo' | 'resolveLink' | 'session' | 'user' | 'revision' | 'can' | 'canOpen' | 'scope' | 'toast' | 'dismissToast' | 'registry' | 'adapter' | 'favorites' | 'toggleFavorite' | 'accessibleSpaces' | 'spaceEntry' | 'homeTodo'>;
 
 /** Context items named by return notifications, separate from menu capabilities. */
 export type ReturnContextKey = ContextKey | 'scope';

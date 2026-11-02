@@ -4,7 +4,7 @@
 
 ## 파일
 
-- `src/index.ts` — 공개 진입점: `bootstrapHttpAdapter(options)`와 그 타입. 결과는 `ready`(어댑터)·`login`(401·3xx·`opaqueredirect`)·`unavailable`(correlationId)이고 reject하지 않는다.
+- `src/index.ts` — 공개 진입점: `bootstrapHttpAdapter(options)`와 그 타입. 결과는 `ready`(어댑터)·`login`(401·3xx·`opaqueredirect`)·`unavailable`(correlationId)·`throttled`(429, correlationId·`retryAfterSeconds?`)이고 reject하지 않는다.
 - `src/session/bootstrap.ts` — 첫 부트스트랩과 조립.
 - `src/calls/transport.ts` — `fetch` 한 번: Kernel `signal`과 내부 타이머의 수동 연결(`AbortSignal.any` 미사용), `redirect: 'manual'`, `credentials: 'same-origin'`, `X-Correlation-Id`. 내부 타임아웃은 `AbortError`가 아니다.
 - `src/calls/calls.ts` — 호출 묶음별 변환: envelope(reject 없음), 쓰기(`unknown`), 비 envelope(`TransportError`), 선택 포트(`PortError`).

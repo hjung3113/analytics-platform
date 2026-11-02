@@ -5,7 +5,7 @@ import { defineEndpoint, buildQuery, emptyGlobal, type QueryHistoryEntry, type Q
 import { useLayoutEffect, useState } from 'react';
 import { useMenuQuery } from '../query';
 import { PaneQueryDraftProvider, PaneScreenProvider, type PaneScreen, PlatformProvider, useHostPlatform } from '../../platform/platform';
-import { useQueryHistory } from '../query-history';
+import { canonicalHistoryQuery, useQueryHistory } from '../query-history';
 import { createRegistry } from '../../registry/registry';
 import { noContext, testAdapter, testSession, testSpace } from '../../testing';
 import { I18nProvider } from '../../i18n';
@@ -344,4 +344,11 @@ it('a descendant layout effect calling restore() in the commit where the same Sc
   // A restore() issued in the layout effect of the `valid` commit sees the `valid` Scope; on the earlier `validating` input it would return false.
   expect(openOnValid).toBe(false);
   expect(await restored).toBe(true);
+});
+
+it('applied-query history keeps the order of a repeated key: z,a and a,z are different canonical queries (F6)', () => {
+  const values = (filters: string[]) => ({ global, page: filters.map((v): [string, string] => ['filter', v]) });
+  const z = canonicalHistoryQuery(values(['z', 'a']), ['filter'], ['filter']);
+  expect(z).toContain('filter=z&filter=a');
+  expect(canonicalHistoryQuery(values(['a', 'z']), ['filter'], ['filter'])).not.toBe(z);
 });

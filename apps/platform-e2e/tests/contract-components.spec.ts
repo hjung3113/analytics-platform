@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { PERIOD } from './contract-helpers';
-import { evidence, expandPageHead, query, setScenario, signInAs, tableStatusLine } from './support';
+import { contextBar, evidence, expandPageHead, query, setScenario, signInAs, tableStatusLine } from './support';
 
 /**
  * Platform contract checks (#44). Each `describe` is one contract area of docs/06; each test is one reported check.
@@ -29,96 +29,76 @@ test.describe('토큰 소비 계약 (06 §23, ADR-0011/ADR-0058)', () => {
   });
 });
 
-test.describe('관리 레이아웃 필터 레일 (06 §12.6, ADR-0022)', () => {
-  test('1440 설비 마스터는 접기 기억과 펼치기 포커스를 제공한다', async ({ page }, testInfo) => {
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto('/mars/equipment-master?v=1&scopeId=MEM');
-    const rail = page.getByRole('region', { name: '필터', exact: true });
-    const tableCard = page.getByRole('region', { name: '설비 마스터 목록' });
-    await expect(rail.getByRole('heading', { name: '필터', exact: true })).toBeVisible();
-    const collapse = rail.getByRole('button', { name: '필터 접기' });
-    await expect(collapse).toBeVisible();
-    await evidence(page, testInfo, 'management-rail-expanded');
-    await collapse.click();
-    await expect(rail).toHaveCount(0);
-    const expand = tableCard.getByRole('button', { name: '필터', exact: true });
-    await expect(expand).toBeVisible();
-    await expect(expand).toBeFocused();
-    await evidence(page, testInfo, 'management-rail-collapsed');
-    await page.reload();
-    await expect(expand).toBeVisible();
-    await expect(rail).toHaveCount(0);
-    await evidence(page, testInfo, 'management-rail-collapsed-reloaded');
-    await expand.click();
-    await expect(collapse).toBeVisible();
-    await expect(collapse).toBeFocused();
-  });
-
-  test('1280 상세 슬롯은 자기 폭에 맞춰 필터 팝오버로 전환하고 URL 필터를 편집한다', async ({ page }, testInfo) => {
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await page.goto('/mars/equipment-master?v=1&scopeId=MEM&focus=MEM-PHOTO-0103');
-    await expect(page.getByRole('complementary', { name: '상세 패널' }).getByRole('dialog')).toBeVisible();
-    await expect(page.getByRole('region', { name: '필터', exact: true })).toHaveCount(0);
-    const button = page.getByRole('region', { name: '설비 마스터 목록' }).getByRole('button', { name: /^필터(?: · \d+)?$/ });
-    await expect(button).toBeVisible();
-    await button.click();
-    const popover = page.getByRole('dialog', { name: '필터', exact: true });
-    await expect(popover).toBeVisible();
-    await popover.getByRole('combobox', { name: '상태', exact: true }).click();
-    await page.getByRole('option', { name: '정비', exact: true }).click();
-    // ADR-0037: a management filter is a draft until 적용; the trigger shows the pending change meanwhile.
-    await expect(popover.getByRole('button', { name: '적용 (1)', exact: true })).toBeEnabled();
-    expect(query(page).has('status')).toBe(false);
-    await expect(button).toHaveAccessibleName('필터');
-    await expect(button).toContainText('미적용 1');
-    await popover.getByRole('button', { name: '적용 (1)', exact: true }).click();
-    await expect.poll(() => query(page).get('status')).toBe('maintenance');
-    await expect(button).toHaveText('필터 · 1');
-    await expect(button).toHaveAttribute('aria-expanded', 'true');
-    await evidence(page, testInfo, 'management-detail-filter-popover');
-  });
-
-  test('1440 관리자 감사 레일은 일곱 필드와 초안 적용을 제공한다', async ({ page }, testInfo) => {
+test.describe('관리 레이아웃 필터 줄 — 레일 없음 (06 §12.6, ADR-0105)', () => {
+  // #1217 (node e2): 변경 감사 and 권한/역할 had the management filter rail; their conditions are the table's filter line now. This describe checks the
+  // management layout without a rail: no rail or `필터` button, the filter line above the first row, pinned fields, the hidden `filter` key.
+  test('1440 변경 감사는 필터 레일 없이 표 위 필터 줄에 고정 필드를 두고 첫 행이 그 아래에서 시작한다', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/operations/admin-audit?v=1');
-    const rail = page.getByRole('region', { name: '필터', exact: true });
-    await expect(rail.getByRole('button', { name: '필터 접기' })).toBeVisible();
-    await expect(rail.getByRole('combobox')).toHaveCount(3);
-    await expect(rail.getByRole('textbox')).toHaveCount(4);
-    // #305: viewer-local time fields, no contract words in the labels.
-    await expect(rail.getByRole('textbox', { name: '시각 이후' })).toBeVisible();
-    await expect(rail.getByRole('textbox', { name: '시각 미만' })).toBeVisible();
-    await expect(rail).not.toContainText('ISO');
-    await expect(rail.getByRole('button', { name: '적용', exact: true })).toBeDisabled();
-    await rail.getByRole('textbox', { name: '행위자 정확 일치' }).fill('kim');
-    await expect(rail.getByRole('button', { name: '적용 (1)', exact: true })).toBeEnabled();
-    await expect(rail).toContainText('미적용 변경 1개');
+    await expect(page.getByRole('region', { name: '필터', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^필터(?: · \d+)?$/ })).toHaveCount(0);
+    const line = page.locator('[data-filter-line]');
+    await expect(line).toBeVisible();
+    await expect(line.locator('[data-filter-body]')).toHaveCount(2);
+    await expect(line.locator('[data-filter-body]').first()).toHaveAttribute('data-filter-body', 'action');
+    await expect(line.locator('[data-filter-body]').nth(1)).toHaveAttribute('data-filter-body', 'actor');
+    const firstRow = page.locator('[role="row"][data-row-id]').first();
+    await expect(firstRow).toBeVisible();
+    const lineBox = (await line.boundingBox())!;
+    const rowBox = (await firstRow.boundingBox())!;
+    expect(rowBox.y).toBeGreaterThan(lineBox.y + lineBox.height);
+    expect(rowBox.y).toBeLessThan(500);
+    await evidence(page, testInfo, 'management-audit-filter-line');
+  });
+
+  test('1024 변경 감사의 행위자 조건은 편집기에서 걸리고 주소에 보이지 않는다', async ({ page }, testInfo) => {
+    await signInAs(page, 'admin');
+    await page.setViewportSize({ width: 1024, height: 900 });
+    await page.goto('/operations/admin-audit?v=1');
+    await page.locator('[data-filter-body="actor"]').click();
+    const editor = page.getByRole('dialog', { name: '행위자' });
+    await editor.getByRole('textbox', { name: '값' }).fill('kim');
+    await editor.getByRole('button', { name: '적용' }).click();
+    await expect(page.locator('[data-column-filter-chip="actor"]')).toContainText('kim');
     expect(query(page).has('actor')).toBe(false);
-    await evidence(page, testInfo, 'management-audit-seven-filters');
+    expect(query(page).has('filter')).toBe(false);
+    await evidence(page, testInfo, 'management-audit-filter-editor');
+  });
+
+  test('1440 변경 감사의 필터 줄은 여섯 필드를 제공한다 (고정 둘, 나머지는 + 필터)', async ({ page }, testInfo) => {
+    await signInAs(page, 'admin');
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/operations/admin-audit?v=1');
+    await page.locator('[data-filter-add]').click();
+    await expect(page.locator('[data-filter-pick]')).toHaveCount(6);
+    // 대상 ID needs 대상 유형 first.
+    await expect(page.locator('[data-filter-pick="targetId"]')).toHaveAttribute('aria-disabled', 'true');
+    await expect(page.locator('[data-filter-pick="at"]')).toBeVisible();
+    await evidence(page, testInfo, 'management-audit-six-fields');
   });
 
   test('감사 대상 유형 필터는 알 수 없는 형식 유효 값을 유지하고 잘못된 값은 전체 조회로 넓히지 않는다 (#1091)', async ({ page }) => {
     await signInAs(page, 'admin');
     await page.setViewportSize({ width: 1440, height: 900 });
-    const rail = page.getByRole('region', { name: '필터', exact: true });
     const table = page.getByLabel('스크롤 가능한 행 영역', { exact: true }).getByRole('table');
     const empty = page.getByText('조건에 맞는 결과가 없습니다');
     // Positive control: the unfiltered query has rows, so an empty result below is caused by the type filter.
     await page.goto('/operations/admin-audit');
     await expect(table.getByRole('row').filter({ has: page.getByRole('link', { name: /상세$/ }) }).first()).toBeVisible();
     await expect(empty).toHaveCount(0);
-    await page.goto('/operations/admin-audit?type=Future.Type%3Av2');
-    await expect(rail.getByRole('combobox', { name: '대상 유형' })).toContainText('Future.Type:v2');
+    await page.goto('/operations/admin-audit?filter=targetType:equals:Future.Type%3Av2');
+    await expect(page.locator('[data-column-filter-chip="targetType"]')).toContainText('Future.Type:v2');
     await expect(empty).toBeVisible();
     await expect(table).toHaveCount(0);
     await expect(page.getByRole('alert')).toHaveCount(0);
+    // The hidden filter key is read from the link, moved into history state and survives a reload.
+    await expect.poll(() => query(page).has('filter')).toBe(false);
     await page.reload();
-    await expect(rail.getByRole('combobox', { name: '대상 유형' })).toContainText('Future.Type:v2');
+    await expect(page.locator('[data-column-filter-chip="targetType"]')).toContainText('Future.Type:v2');
     await expect(empty).toBeVisible();
     await expect(table).toHaveCount(0);
-    expect(query(page).get('type')).toBe('Future.Type:v2');
-    await page.goto('/operations/admin-audit?type=9bad');
+    await page.goto('/operations/admin-audit?filter=targetType:equals:9bad');
     await expect(page.getByRole('alert')).toBeVisible();
     await expect(table).toHaveCount(0);
     await expect(empty).toHaveCount(0);
@@ -126,9 +106,9 @@ test.describe('관리 레이아웃 필터 레일 (06 §12.6, ADR-0022)', () => {
 });
 
 test.describe('PageFilterBar page-key 계약 (#54)', () => {
-  test('설비 q/status/maker는 동일한 page key를 쓰고 page와 전체 필터를 초기화한다', async ({ page }, testInfo) => {
+  // #1217 (node e1): q is the toolbar search (draft + Enter, ADR-0037); 상태·Maker moved into the hidden `filter` key (describe 「표 필터 모델 (#1217)」).
+  test('설비 q는 page key를 쓰고 Enter로 적용하며 page를 초기화하고, 필터 초기화는 q와 조건을 함께 지운다', async ({ page }, testInfo) => {
     await page.goto('/mars/equipment-master?v=1&scopeId=MEM&page=2');
-    // ADR-0037: drafts until 적용 (Enter in the search field submits), then one navigation that drops page.
     await expect(page.getByRole('button', { name: '필터 초기화' })).toHaveCount(0);
     const search = page.getByRole('searchbox', { name: '설비 ID 검색' });
     await search.fill('PHOTO');
@@ -138,34 +118,18 @@ test.describe('PageFilterBar page-key 계약 (#54)', () => {
     await expect.poll(() => query(page).get('q')).toBe('PHOTO');
     await expect.poll(() => query(page).has('page')).toBe(false);
     await expect(search).toBeFocused();
-
-    await page.goto('/mars/equipment-master?v=1&scopeId=MEM&page=2');
-    await chooseFilterOption(page, '상태', '정비');
-    expect(query(page).has('status')).toBe(false);
-    await page.getByRole('button', { name: '적용 (1)', exact: true }).click();
-    await expect.poll(() => query(page).get('status')).toBe('maintenance');
-    await expect.poll(() => query(page).has('page')).toBe(false);
-    await chooseFilterOption(page, '상태', '전체');
-    expect(query(page).get('status')).toBe('maintenance');
-    await page.getByRole('button', { name: '적용 (1)', exact: true }).click();
-    await expect.poll(() => query(page).has('status')).toBe(false);
-
-    await page.goto('/mars/equipment-master?v=1&scopeId=MEM&maker=ZZZ&page=2');
-    const maker = page.getByRole('combobox', { name: 'Maker' });
-    await expect(maker).toHaveText('ZZZ');
-    await chooseFilterOption(page, 'Maker', 'TEL');
-    expect(query(page).get('maker')).toBe('ZZZ');
-    await page.getByRole('button', { name: '적용 (1)', exact: true }).click();
-    await expect.poll(() => query(page).get('maker')).toBe('TEL');
-    await expect.poll(() => query(page).has('page')).toBe(false);
-
-    await page.goto('/mars/equipment-master?v=1&scopeId=MEM&q=PHOTO&status=maintenance&maker=ZZZ&page=2');
-    // Scoped to the bar: once the list answers, its empty state shows a second 필터 초기화 (the old 450 ms read hid it, #917).
-    await page.getByTestId('page-filter-bar').getByRole('button', { name: '필터 초기화' }).click();
+    // Emptying the field applies at once.
+    await search.fill('');
     await expect.poll(() => query(page).has('q')).toBe(false);
-    expect(query(page).has('status')).toBe(false);
-    expect(query(page).has('maker')).toBe(false);
+
+    // A shared link with status/maker conditions; Maker ZZZ matches nothing, so the empty state offers the one clear.
+    await page.goto('/mars/equipment-master?v=1&scopeId=MEM&q=PHOTO&filter=status:in:maintenance&filter=maker:in:ZZZ&page=2');
+    await expect(page.locator('[data-column-filter-chip="maker"]')).toBeVisible();
+    await page.getByRole('button', { name: '필터 초기화' }).click();
+    await expect.poll(() => query(page).has('q')).toBe(false);
+    expect(query(page).has('filter')).toBe(false);
     expect(query(page).has('page')).toBe(false);
+    await expect(page.locator('[data-column-filter-chip]')).toHaveCount(0);
     await evidence(page, testInfo, 'equipment-filter-page-keys');
   });
 
@@ -648,8 +612,10 @@ test.describe('표 높이·고정 동작 열 (06 §15, ADR-0037)', () => {
 
   // #399 AC-3: at 1024 with the expanded sidebar and the docked detail panel the scrollport is ~226px, so the full 128px
   // action column cannot stay pinned; the compact 72px icon form stays pinned and still opens the row's drawer.
-  test('1024px 펼친 사이드바·상세 패널에서 동작 열은 72px 아이콘으로 고정되고 눌린다 (#399)', async ({ page }, testInfo) => {
-    await page.setViewportSize({ width: 1024, height: 900 });
+  // 992px: since #1217x the default compact page inset (16px) gives the table 32px more than the old 32px inset, so at 1024px the
+  // 128px action fits; 992px keeps the scenario "128px does not fit, 72px does" this test pins.
+  test('992px 펼친 사이드바·상세 패널에서 동작 열은 72px 아이콘으로 고정되고 눌린다 (#399)', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 992, height: 900 });
     await signInAs(page, 'admin');
     await page.addInitScript(() => localStorage.setItem('platform:sidebar-collapsed', '0'));
     await page.goto('/operations/admin-roles?v=1');
@@ -685,6 +651,157 @@ test.describe('표 높이·고정 동작 열 (06 §15, ADR-0037)', () => {
     await expect(restored).toHaveText('보기');
     await expect(restored).toBeFocused();
   });
+});
+
+// #556a (ADR-0024 amendment): the Columns popover reorders columns; the header, the saved preference and reset follow.
+test.describe('표 고급 기능 (#556)', () => {
+  test('컬럼 팝오버에서 열을 아래로 옮기면 머리 순서가 바뀌고 새로고침 뒤에도 남으며 기본값으로 되돌린다', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/mars/equipment-master?v=1&scopeId=MEM');
+    const headers = page.locator('[role="columnheader"][data-column]:not([data-column^="_"])');
+    await expect(headers.first()).toBeVisible();
+    const declared = await headers.evaluateAll(els => els.map(el => el.getAttribute('data-column')));
+    expect(declared.length).toBeGreaterThan(2);
+    const moved = [declared[1], declared[0], ...declared.slice(2)];
+    const open = async () => {
+      await page.getByRole('button', { name: '컬럼', exact: true }).click();
+      return page.getByRole('dialog');
+    };
+    let popover = await open();
+    await popover.locator('[data-column-pref-row]').first().getByRole('button', { name: /아래로$/ }).click();
+    await expect.poll(() => headers.evaluateAll(els => els.map(el => el.getAttribute('data-column')))).toEqual(moved);
+    await evidence(page, testInfo, 'column-order-moved');
+    await page.keyboard.press('Escape');
+    await page.reload();
+    await expect(headers.first()).toBeVisible();
+    await expect.poll(() => headers.evaluateAll(els => els.map(el => el.getAttribute('data-column')))).toEqual(moved);
+    popover = await open();
+    await popover.getByRole('button', { name: '기본값으로' }).click();
+    await expect.poll(() => headers.evaluateAll(els => els.map(el => el.getAttribute('data-column')))).toEqual(declared);
+  });
+
+  // #556b (ADR-0104): a header column filter narrows the server result; the chip shows it and removing it restores the total.
+  test('라인 열 필터를 적용하면 건수가 줄고 칩이 보이며, 칩을 지우면 되돌아온다', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/mars/equipment-master?v=1&scopeId=MEM');
+    const status = page.locator('[data-table-status-line]').first();
+    const total = async () => Number(/([\d,]+)건/.exec((await status.textContent()) ?? '')?.[1].replace(/,/g, ''));
+    await expect.poll(total).toBeGreaterThan(0);
+    const before = await total();
+    await page.getByRole('button', { name: '라인 필터' }).click();
+    await page.getByRole('dialog').getByRole('checkbox', { name: 'L2' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: '적용' }).click();
+    const chip = page.locator('[data-column-filter-chip="line"]');
+    await expect(chip).toBeVisible();
+    await expect(chip).toContainText('L2');
+    await expect.poll(total).toBeLessThan(before);
+    await expect(page.locator('[role="row"][data-row-id]').first()).toBeVisible();
+    await evidence(page, testInfo, 'column-filter-line');
+    await chip.getByRole('button', { name: '라인 필터 지우기' }).click();
+    await expect(chip).toHaveCount(0);
+    await expect.poll(total).toBe(before);
+  });
+
+  // #556c (ADR-0104): the page selection widens to the whole filtered result without an id list; an exclusion shows as 「K행 제외」; a column filter resets it.
+  test('현재 쪽을 선택한 뒤 필터 결과 전체를 고르고 한 행을 빼면 제외 건수가 보이며, 열 필터를 바꾸면 선택이 풀린다', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/mars/equipment-master?v=1&scopeId=MEM');
+    const status = page.locator('[data-table-status-line]').first();
+    const total = async () => Number(/([\d,]+)건/.exec((await status.textContent()) ?? '')?.[1].replace(/,/g, ''));
+    await expect.poll(total).toBeGreaterThan(25);
+    const all = await total();
+    await expect(page.locator('[role="row"][data-row-id]').first()).toBeVisible();
+    await page.getByRole('checkbox', { name: '현재 페이지 전체 선택' }).click();
+    const bar = page.getByTestId('select-all-bar');
+    await expect(bar).toContainText('이 쪽의');
+    await bar.getByRole('button', { name: `필터 결과 전체 ${all.toLocaleString('ko-KR')}행 선택` }).click();
+    await expect(bar).toContainText(`필터 결과 전체 ${all.toLocaleString('ko-KR')}행을 선택했습니다`);
+    await expect(page.getByTestId('selected-count')).toHaveText(`전체 ${all.toLocaleString('ko-KR')}행 선택`);
+    await page.getByRole('checkbox', { name: /^선택 / }).first().click();
+    await expect(page.getByTestId('selected-count')).toHaveText(`전체 ${all.toLocaleString('ko-KR')}행 중 1행 제외`);
+    await evidence(page, testInfo, 'select-all-results');
+    await page.getByRole('button', { name: '라인 필터' }).click();
+    await page.getByRole('dialog').getByRole('checkbox', { name: 'L2' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: '적용' }).click();
+    await expect(page.locator('[data-column-filter-chip="line"]')).toBeVisible();
+    await expect(page.getByTestId('selected-count')).toHaveCount(0);
+    await expect(page.getByTestId('select-all-bar')).toHaveCount(0);
+  });
+
+  // #556d (ADR-0104): the server answers rows ordered by group plus whole-result counts; a header collapses its rows; 「그룹 없음」 is flat again.
+  test('라인으로 묶으면 그룹 머리 행이 건수와 함께 보이고, 하나를 접으면 그 행이 숨으며, 그룹 없음이면 다시 평평하다', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/mars/equipment-master?v=1&scopeId=MEM');
+    await expect(page.locator('[role="row"][data-row-id]').first()).toBeVisible();
+    const headers = page.locator('[data-group-row]');
+    await expect(headers).toHaveCount(0);
+    await page.getByRole('button', { name: /^그룹: / }).click();
+    await page.getByRole('menuitemradio', { name: '라인' }).click();
+    await expect(headers.first()).toBeVisible();
+    await expect(headers.first()).toContainText(/\d+행 \(전체 결과\)/);
+    await expect(page.getByRole('table', { name: /.+/ })).toHaveAttribute('aria-rowcount', '-1');
+    await evidence(page, testInfo, 'row-groups');
+    const first = headers.first();
+    const dataRows = page.locator('[role="row"][data-row-id]');
+    await expect(dataRows.first()).toBeVisible();
+    const before = await dataRows.count();
+    const toggle = first.getByRole('button', { name: /그룹 접기$/ });
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await toggle.click();
+    await expect(first.getByRole('button', { name: /그룹 펼치기$/ })).toHaveAttribute('aria-expanded', 'false');
+    await expect.poll(() => dataRows.count()).toBeLessThan(before);
+    await page.getByRole('button', { name: /^그룹: / }).click();
+    await page.getByRole('menuitemradio', { name: '그룹 없음' }).click();
+    await expect(headers).toHaveCount(0);
+    await expect(page.locator('[role="row"][data-row-id]').first()).toBeVisible();
+  });
+});
+
+// #1217 (ADR-0105): 상태·Maker are pinned fields, every column filter is a field, and all conditions are one hidden repeated `filter` key.
+test.describe('표 필터 모델 (#1217)', () => {
+  const total = async (page: Page) => Number(/([\d,]+)건/.exec((await page.locator('[data-table-status-line]').first().textContent()) ?? '')?.[1].replace(/,/g, ''));
+  const rowIds = (page: Page) => page.locator('[role="row"][data-row-id]').evaluateAll(rows => rows.map(row => row.getAttribute('data-row-id')));
+
+  test('고정 상태 버튼과 열 조건이 주소에 보이지 않고, 새로고침이 복원하며, 현재 조건 공유 링크에 실린다', async ({ page }, testInfo) => {
+    // A refused clipboard write makes the share control show the exact generated link in its read-only field (no clipboard read).
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: () => Promise.reject(new Error('denied')), readText: () => Promise.resolve('') } });
+    });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/mars/equipment-master?v=1&scopeId=MEM');
+    await expect.poll(() => total(page)).toBeGreaterThan(0);
+    const all = await total(page);
+    // No rail: ManagementLayout has no filter slot.
+    await expect(page.getByRole('region', { name: '필터', exact: true })).toHaveCount(0);
+
+    await page.locator('[data-filter-body="status"]').click();
+    await page.getByRole('dialog').getByRole('checkbox', { name: '사용중', exact: true }).click();
+    await page.getByRole('dialog').getByRole('button', { name: '적용' }).click();
+    await expect(page.locator('[data-column-filter-chip="status"]')).toContainText('사용중');
+    await page.getByRole('button', { name: '라인 필터' }).click();
+    await page.getByRole('dialog').getByRole('checkbox', { name: 'L2', exact: true }).click();
+    await page.getByRole('dialog').getByRole('button', { name: '적용' }).click();
+    await expect(page.locator('[data-column-filter-chip="line"]')).toContainText('L2');
+    await expect.poll(() => total(page)).toBeLessThan(all);
+    const filtered = await total(page);
+    // Hidden page state: neither condition is in the address.
+    expect(query(page).has('filter')).toBe(false);
+    expect(query(page).has('status')).toBe(false);
+    await evidence(page, testInfo, 'equipment-filter-line');
+
+    await page.reload();
+    await expect(page.locator('[data-column-filter-chip="status"]')).toContainText('사용중');
+    await expect(page.locator('[data-column-filter-chip="line"]')).toContainText('L2');
+    await expect.poll(() => total(page)).toBe(filtered);
+    expect(query(page).has('filter')).toBe(false);
+
+    await contextBar(page).getByRole('button', { name: '현재 조건 공유', exact: true }).click();
+    const link = new URL(await page.getByRole('textbox', { name: '복사할 링크' }).inputValue());
+    expect(link.searchParams.getAll('filter').sort()).toEqual(['line:in:L2', 'status:in:active']);
+    expect(link.searchParams.has('status')).toBe(false);
+    await evidence(page, testInfo, 'equipment-filter-share-link');
+  });
+
 });
 
 // #680 (ADR-0075): a fill page's head (notes + page filter + chips) folds to one line; shared responses become a thin strip.

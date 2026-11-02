@@ -1,11 +1,13 @@
 import { apiResponseSchema, assessmentKindSchema, assessmentSchema, outcomeSchema, trustSchema } from './response.ts';
 import { endpointDeclarationSchema, menuQueryContextSchema, menuQuerySchema } from './menu-query.ts';
+import { columnFilterSchema, columnFilterSpecSchema } from './column-filter.ts';
 import * as ports from './service-ports.ts';
 import * as views from './saved-view-commands.ts';
 import { z } from 'zod/v4';
 
 export { apiResponseSchema, assessmentKindSchema, assessmentSchema, outcomeSchema, trustSchema } from './response.ts';
 export { endpointDeclarationSchema, menuQueryContextSchema, menuQuerySchema } from './menu-query.ts';
+export { columnFilterSchema, columnFilterSpecSchema } from './column-filter.ts';
 export {
   createNoticeInputSchema,
   deleteNoticeInputSchema,
@@ -61,6 +63,8 @@ export const SCHEMA_FILES: Readonly<Record<string, z.ZodType>> = {
   menuQueryContext: menuQueryContextSchema,
   menuQuery: menuQuerySchema,
   endpointDeclaration: endpointDeclarationSchema,
+  columnFilter: columnFilterSchema,
+  columnFilterSpec: columnFilterSpecSchema,
   jsonValue: ports.jsonValueSchema,
   preferenceKey: ports.preferenceKeySchema,
   preferencesSnapshot: ports.preferencesSnapshotSchema,

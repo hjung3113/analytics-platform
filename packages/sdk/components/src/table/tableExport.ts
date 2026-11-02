@@ -6,17 +6,20 @@
  */
 import { isProductionEnv } from '@ap/ui';
 import type { PlatformColumn } from './PlatformDataTable';
+import { effectiveOrder, pinnedInOrder } from './columnOrder';
 
-type ExportPreferences = { visibility: Record<string, boolean>; pinning: { left?: string[] } };
+type ExportPreferences = { visibility: Record<string, boolean>; pinning: { left?: string[] }; order?: string[] };
 
 /**
- * Visible, exportable columns in export order: left-pinned first (pinning order), then declaration order.
+ * Visible, exportable columns in export order = the displayed order (#556a): left-pinned first, then the rest; both in the saved column
+ * order, which is the declaration order (pins: pinning order) while nobody has reordered.
  * The `_select`/`_action` system columns never join (they are not `PlatformColumn`s).
  */
-export function exportColumns<T>(columns: PlatformColumn<T>[], { visibility, pinning }: ExportPreferences): PlatformColumn<T>[] {
-  const visible = columns.filter(c => c.exportable !== false && visibility[c.id] !== false);
-  const left = pinning.left ?? [];
+export function exportColumns<T>(columns: PlatformColumn<T>[], { visibility, pinning, order = [] }: ExportPreferences): PlatformColumn<T>[] {
+  const effective = effectiveOrder(columns.map(c => c.id), order);
+  const left = pinnedInOrder(pinning.left ?? [], effective, order.length > 0);
   const pinned = new Set(left);
+  const visible = effective.flatMap(id => columns.filter(c => c.id === id && c.exportable !== false && visibility[c.id] !== false));
   return [
     ...left.flatMap(id => visible.filter(c => c.id === id)),
     ...visible.filter(c => !pinned.has(c.id)),

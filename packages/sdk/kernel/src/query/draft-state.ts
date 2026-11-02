@@ -71,7 +71,7 @@ function normalize(input: DraftInputs, values: Values): Values {
   if (metric.phase === 'confirm') g = { ...g, metricVersion: metric.metricVersion };
   const pairError = incompleteMetricPair(input.menu, g.metricId, g.metricVersion);
   if (pairError) throw pairError;
-  const parsed = parseQuery(buildQuery(g, values.page), input.menu?.pageKeys);
+  const parsed = parseQuery(buildQuery(g, values.page), input.menu?.pageKeys, { repeated: input.menu?.repeatedPageKeys });
   for (const axisId of Object.keys(parsed.global.condition ?? {})) {
     const axis = input.axes.find(a => a.id === axisId);
     if (!axis) throw new RangeError('invalid_condition');
@@ -80,13 +80,19 @@ function normalize(input: DraftInputs, values: Values): Values {
   if (g.membershipBasis !== null && parsed.global.membershipBasis === null) throw new RangeError('membership_basis_pair');
   return { global: parsed.global, page: parsed.page.filter(([, value]) => value !== '') };
 }
+/** Same pairs: keys in any order, but the values of one key in the same order. */
+function samePage(a: readonly Pair[], b: readonly Pair[]): boolean {
+  const keys = [...new Set([...a, ...b].map(([key]) => key))];
+  return keys.every(key => JSON.stringify(a.filter(([k]) => k === key).map(([, v]) => v)) === JSON.stringify(b.filter(([k]) => k === key).map(([, v]) => v)));
+}
 /** `applied` is the entry draft: the applied values plus the seeded default period, which is not a change (#913). */
 function dirtyFields(applied: Values, draft: Values): string[] {
   const normalized = (g: GlobalContext) => parseQuery(buildQuery(g)).global;
   const a = normalized(applied.global); const b = normalized(draft.global);
   const changed = (Object.keys(emptyGlobal) as (keyof GlobalContext)[]).filter(key => JSON.stringify(a[key]) !== JSON.stringify(b[key]));
   const keys = [...new Set([...applied.page, ...draft.page].map(([key]) => key))];
-  return [...changed, ...keys.filter(key => (applied.page.find(([k]) => k === key)?.[1] || null) !== (draft.page.find(([k]) => k === key)?.[1] || null))];
+  const valuesOf = (page: Pair[], key: string) => JSON.stringify(page.filter(([k, v]) => k === key && v !== '').map(([, v]) => v));
+  return [...changed, ...keys.filter(key => valuesOf(applied.page, key) !== valuesOf(draft.page, key))];
 }
 export function useScreenDraft(rawInput: DraftInputs) {
   // The screen state rebuilds this object every render; one identity per distinct content keeps `queryDraft` and `queryHistory` stable (#824).
@@ -154,9 +160,9 @@ function draftApi(input: DraftInputs, store: DraftStore, state: Snapshot, active
       let next: Values;
       try { next = candidate(previous.draft); } catch { return; }
       if (queryMissing(input.menu, next.global, next.page).length || missingRequiredContext(['time'], next.global).length || !scopeValid(next.global)) return;
-      if (sameGlobal(input.global, next.global) && JSON.stringify([...input.page].sort()) === JSON.stringify([...next.page].sort())) return;
+      if (sameGlobal(input.global, next.global) && samePage(input.page, next.page)) return;
       const target = input.url.split('?')[0] + buildQuery(next.global, next.page, input.extras);
-      const query = canonicalHistoryQuery(next, input.menu?.pageKeys ?? []);
+      const query = canonicalHistoryQuery(next, input.menu?.pageKeys ?? [], input.menu?.repeatedPageKeys);
       const record: RecordEvent | undefined = input.history && input.menu ? { port: input.history, key: { userId: input.session.user.id, menuId: input.menu.id, scopeId: next.global.scopeId }, entry: { id: queryHistoryId(query), query, schemaVersion: 1, lastAppliedAt: Date.now(), count: 1 } } : undefined;
       const pending = { source: input.url, target, dispatching: true, editRevision: previous.editRevision + 1, record };
       store.put({ ...previous, draft: next, pending, editRevision: previous.editRevision + 1 });

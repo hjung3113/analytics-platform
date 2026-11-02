@@ -369,10 +369,10 @@
     "menuId": "equipment-master",
     "paramKeys": [
       "q",
-      "status",
-      "maker",
       "ids",
-      "sorting"
+      "sorting",
+      "filters",
+      "excludedIds"
     ],
     "permission": "equipment:view",
     "requiresScope": true,
@@ -414,11 +414,11 @@
     "menuId": "equipment-master",
     "paramKeys": [
       "q",
-      "status",
-      "maker",
       "page",
       "pageSize",
-      "sorting"
+      "sorting",
+      "filters",
+      "groupBy"
     ],
     "permission": "equipment:view",
     "requiresScope": true,

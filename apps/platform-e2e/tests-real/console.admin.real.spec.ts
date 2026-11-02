@@ -33,7 +33,7 @@ test.describe('운영 콘솔 실서버 (06 §4·§9.1·§17)', () => {
     const actor = randomUUID();
     // No target type/id: the console and backend audit parsers disagree on target types (#1091), but both accept an actor filter.
     const search = waitForAuditSearch(page, actor);
-    await page.goto(`/operations/admin-audit?actor=${actor}`);
+    await page.goto(`/operations/admin-audit?filter=actor:equals:${actor}`);
     const response = await search;
     expect(response.status(), 'audit-trail search must return HTTP 200').toBe(200);
     expect(((await response.json()) as { outcome?: unknown }).outcome, 'audit-trail search must answer empty for an unknown actor').toBe('empty');
@@ -46,7 +46,7 @@ test.describe('운영 콘솔 실서버 (06 §4·§9.1·§17)', () => {
   test('대상 유형 필터는 존재하지 않는 대상을 명시적 빈 결과로 보여준다 (#1091)', async ({ page }, testInfo) => {
     const targetId = randomUUID();
     const search = waitForAuditSearch(page, { type: 'equipment', targetId });
-    await page.goto(`/operations/admin-audit?type=equipment&targetId=${targetId}`);
+    await page.goto(`/operations/admin-audit?filter=targetType:equals:equipment&filter=targetId:equals:${targetId}`);
     const response = await search;
     expect(response.status(), 'audit-trail search must return HTTP 200 for a target type filter').toBe(200);
     expect(((await response.json()) as { outcome?: unknown }).outcome, 'audit-trail search must answer empty for an unknown target').toBe('empty');
@@ -57,7 +57,7 @@ test.describe('운영 콘솔 실서버 (06 §4·§9.1·§17)', () => {
 
   test('실제 대상 유형 voc 필터는 잘못된 필터 오류 없이 답한다 (#1091)', async ({ page }, testInfo) => {
     const search = waitForAuditSearch(page, { type: 'voc' });
-    await page.goto('/operations/admin-audit?type=voc');
+    await page.goto('/operations/admin-audit?filter=targetType:equals:voc');
     const response = await search;
     expect(response.status(), 'audit-trail search must return HTTP 200 for type=voc').toBe(200);
     expect(['ok', 'empty'], 'type=voc is a valid filter: ok or empty, never error').toContain(((await response.json()) as { outcome?: string }).outcome);
@@ -66,12 +66,17 @@ test.describe('운영 콘솔 실서버 (06 §4·§9.1·§17)', () => {
     await evidence(page, testInfo, 'real-audit-voc');
   });
 
-  test('형식이 맞는 알 수 없는 대상 유형은 URL에 남고 빈 결과로 답한다 (#1091)', async ({ page }) => {
+  test('형식이 맞는 알 수 없는 대상 유형은 대상 유형 칩으로 남고 빈 결과로 답한다 (#1091, #1217)', async ({ page }) => {
     const search = waitForAuditSearch(page, { type: 'Future.Type:v2' });
-    await page.goto('/operations/admin-audit?type=Future.Type%3Av2');
+    await page.goto('/operations/admin-audit?filter=targetType:equals:Future.Type%3Av2');
     expect(((await (await search).json()) as { outcome?: unknown }).outcome).toBe('empty');
     await expect(page.getByRole('main').getByText('조건에 맞는 결과가 없습니다')).toBeVisible();
-    expect(new URL(page.url()).searchParams.get('type')).toBe('Future.Type:v2');
+    // The condition travels in the hidden `filter` key (ADR-0105): the chip carries it, the address does not show it.
+    await expect(page.locator('[data-column-filter-chip="targetType"]')).toContainText('Future.Type:v2');
+    await expect.poll(() => new URL(page.url()).searchParams.has('filter')).toBe(false);
+    await page.reload();
+    await expect(page.locator('[data-column-filter-chip="targetType"]')).toContainText('Future.Type:v2');
+    await expect(page.getByRole('main').getByText('조건에 맞는 결과가 없습니다')).toBeVisible();
   });
 
   test('직접 URL에서 장비 메뉴 선언의 경로와 권한을 읽는다', async ({ page }, testInfo) => {

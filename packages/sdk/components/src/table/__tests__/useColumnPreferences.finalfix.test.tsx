@@ -11,7 +11,7 @@ const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId(
 const ok = (values: Record<string, JsonValue>) => ({ outcome: 'ok' as const, data: { values, importedAt: '2026-10-29T00:00:00Z' }, assessments: [], trust: null, correlationId: 'c' });
 const session = (): Session => testSession(['platform:view'], { user: { id: 'user-a', name: 'a', title: { ko: 'a', en: 'a' } } });
 const hashKey = async (raw: string) => `columns:h1_${[...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(raw)))].map(b => b.toString(16).padStart(2, '0')).join('')}`;
-const table = (over: Partial<{ sizing: Record<string, number>; visibility: Record<string, boolean> }> = {}) => ({ sizing: {}, visibility: {}, pinning: { left: [], right: [] }, ...over });
+const table = (over: Partial<{ sizing: Record<string, number>; visibility: Record<string, boolean> }> = {}) => ({ sizing: {}, visibility: {}, pinning: { left: [], right: [] }, order: [], ...over });
 
 function fixture(seed: Record<string, JsonValue> = {}) {
   let current = session();

@@ -1,4 +1,4 @@
-import { PageDensityProvider, useCompactPageDensity } from '../pageDensity';
+import { PageDensityProvider, pageInsetX, useCompactPageDensity } from '../pageDensity';
 import { carriesReturnTo, formatInstant } from '@ap/contracts';
 import { formatQuerySummary, summaryPreset } from '../filters/querySummary';
 import { QueryBarExtensionContext, usePublishQueryBarExtension, type QueryBarExtension } from '../filters/QueryBarExtension';
@@ -117,7 +117,7 @@ export type PlatformPageProps = {
    * body) and the body takes what the header leaves, so a `PanelWorkspace` child fills it; the body keeps at least 520 px (a 300 px plot plus the card chrome), so a tall chrome scrolls the page instead of crushing the workspace. Opt in only for a workspace page.
    */
   layout?: 'flow' | 'fill';
-  /** Visual spacing inherited by SDK descendants; default comfortable. Never persisted. */
+  /** Visual spacing inherited by SDK descendants; compact by default (#1217) — `comfortable` is the explicit developer option. Never persisted. */
   density?: 'comfortable' | 'compact';
   /** Where `page`/`return` arrival focus lands instead of the heading, while the returned element is connected (a `drill` arrival keeps the current step). */
   arrivalTarget?: () => HTMLElement | null;
@@ -125,7 +125,7 @@ export type PlatformPageProps = {
 };
 
 /** §8 Shell Slots. Pages never insert global UI outside these slots. */
-export function PlatformPage({ title, description, primaryAction, secondaryActions, contextExtension, contextNotes, dataTrustSummary, queryBarExtension, queryResult, crumbs = [], layout = 'flow', density = 'comfortable', arrivalTarget, children }: PlatformPageProps) {
+export function PlatformPage({ title, description, primaryAction, secondaryActions, contextExtension, contextNotes, dataTrustSummary, queryBarExtension, queryResult, crumbs = [], layout = 'flow', density = 'compact', arrivalTarget, children }: PlatformPageProps) {
   const { global, page, equipmentAxes, route, favorites, toggleFavorite, scope, retryScope, setGlobal, lastScope, linkTo, registry, slots, url, pathname, pageNavigation, currentSpace, screenMode, canOpen, queryDraft } = useHostPlatform();
   const conditionPreset = useConditionPreset();
   // A board pane draws content only: the board owns the pane head and the Context bar, and no arrival focus moves here (ADR-0049).
@@ -323,9 +323,9 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
       ? <PageContextHead key={menu.id} menuId={menu.id} notes={notes} extension={contextExtension}
           summary={queryBarExtension?.appliedPageSummary ?? queryBarExtension?.pageSummary ?? []}
           pendingChanges={queryDraft.dirty.some(key => menu.pageKeys.includes(key))} issueCount={queryBarExtension?.issues.length ?? 0} />
-      : <div className={density === 'compact' ? 'px-4 pt-3' : 'px-8 pt-3'}><PageHeadBody notes={notes} extension={contextExtension} /></div>)}
+      : <div className={cn(pageInsetX(density === 'compact'), 'pt-3')}><PageHeadBody notes={notes} extension={contextExtension} /></div>)}
     {screenMode === 'main' && !gate && carriesReturnTo(registry.carrySetOf(menu)) && <ReturnRow />}
-    <div data-platform-page-content tabIndex={-1} className={cn(layout === 'fill' ? 'flex flex-1 flex-col' : 'flex-1', density === 'compact' ? 'px-4 pb-4 pt-3' : 'px-8 pb-9 pt-7')}>{gate ?? <OutcomeScope><OutcomeBanners compact={layout === 'fill'} />{layout === 'fill' ? <div data-platform-page-fill className={fixedFill ? 'flex min-h-[520px] flex-1 flex-col' : 'flex flex-1 flex-col'}>{children}</div> : children}</OutcomeScope>}</div>
+    <div data-platform-page-content tabIndex={-1} className={cn(layout === 'fill' ? 'flex flex-1 flex-col' : 'flex-1', pageInsetX(density === 'compact'), density === 'compact' ? 'pb-4 pt-3' : 'pb-9 pt-7')}>{gate ?? <OutcomeScope><OutcomeBanners compact={layout === 'fill'} />{layout === 'fill' ? <div data-platform-page-fill className={fixedFill ? 'flex min-h-[520px] flex-1 flex-col' : 'flex flex-1 flex-col'}>{children}</div> : children}</OutcomeScope>}</div>
   </div></PageFlowContext.Provider></QueryBarStatusContext.Provider></QueryBarExtensionContext.Provider></PageDensityProvider>;
 }
 
@@ -336,7 +336,7 @@ function ReturnRow() {
   const { t, tx } = useI18n();
   const compact = useCompactPageDensity();
   if (!origin.accepted) return null;
-  return <div data-return-row className={cn('flex h-8 shrink-0 items-center gap-3 border-b border-border-subtle text-xs', compact ? 'px-4' : 'px-8')}>
+  return <div data-return-row className={cn('flex h-8 shrink-0 items-center gap-3 border-b border-border-subtle text-xs', pageInsetX(compact))}>
     <PlatformLink via="return" href={origin.href} onNavigate={onNavigate} className="font-medium text-accent-primary hover:underline">{t('returnRowBack', { menu: tx(origin.menuLabel) })}</PlatformLink>
     {origin.spaceLabel !== null && <span className="text-text-muted">{t('returnRowFrom', { system: tx(origin.spaceLabel) })}</span>}
   </div>;

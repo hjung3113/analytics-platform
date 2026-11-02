@@ -76,7 +76,7 @@ test.describe('딥링크 복원 (06 §6.4)', () => {
   test('표 정렬·페이지·드로어 탭을 등록된 page key로 복원하고 새로고침에도 유지한다', async ({ page }, testInfo) => {
     // Fixture: MEM equipment list fills page 1 (25/row) and overflows to page 2.
     await page.goto('/mars/equipment-master?v=1&scopeId=MEM');
-    await expect(page.getByTestId('page-filter-bar')).toBeVisible();
+    await expect(page.getByRole('region', { name: '설비 마스터 목록' })).toBeVisible();
     const focus = await page.locator('[data-row-id]').first().getAttribute('data-row-id');
     expect(focus).toBeTruthy();
 
@@ -371,7 +371,7 @@ test.describe('메뉴 간 링크 허용 여부 (06 §22 — 목적지 권한을 
 
 test.describe('returnTo 복귀 (06 §22)', () => {
   test('상세로 갔다가 복귀 버튼을 누르면 떠난 URL로 정확히 돌아온다', async ({ page }, testInfo) => {
-    await page.goto(`/mars/equipment-master?v=1&scopeId=MEM&${PERIOD}&status=active`);
+    await page.goto(`/mars/equipment-master?v=1&scopeId=MEM&${PERIOD}&filter=status:in:active`);
     await expect(page.getByRole('table')).toBeVisible();
     await page.getByRole('table').getByRole('button', { name: '보기' }).first().click();
     await expect.poll(() => query(page).get('focus')).not.toBeNull();

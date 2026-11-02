@@ -41,7 +41,7 @@ export default function UsageOverview() {
           title={<span className="sr-only">{ko ? '메뉴 활용률' : 'Menu usage'}</span>}
           ariaLabel={ko ? '메뉴 활용률 목록' : 'Menu usage list'}
           subtitle={ko ? '방문 사용자는 세션 사용자 기준으로 집계합니다.' : 'Distinct users are counted per session user.'}
-          columns={columns} getRowId={row => row.id} filterKey=""
+          columns={columns} getRowId={row => row.id}
           preferenceKey="admin-usage:columns:v1" pageSize={25}
           urlState={tableUrlState}
           loadPage={async page => ({ outcome: 'ok', data: sortAndPage(rows, page), assessments: [], trust: null, correlationId: 'client-usage' })}

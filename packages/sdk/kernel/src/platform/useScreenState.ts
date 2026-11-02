@@ -5,6 +5,7 @@ import { sameItems, useStable } from '../stable';
 import { isBoardPath, pathFor, type MenuEntry } from '../registry/registry';
 import { useI18n } from '../i18n';
 import { hasDotSegment } from '../context/location';
+import { readReturnHidden, rememberReturnHidden, type ReturnHiddenOwner } from '../context/returnHidden';
 import { sameParams } from './preferences';
 import { dropResetKeys } from '../context/paneContext';
 import { dropDrillResetKeys } from '../context/drillReset';
@@ -24,7 +25,7 @@ function consecutiveDrillTrail(menu: MenuEntry, search: string): { label: Text; 
   const levels = menu.drill?.levels ?? [];
   if (levels.length === 0) return [];
   let page: Pair[];
-  try { page = parseQuery(search, menu.pageKeys).page; } catch { return []; }
+  try { page = parseQuery(search, menu.pageKeys, { repeated: menu.repeatedPageKeys }).page; } catch { return []; }
   const values = new Map(page);
   const trail: { label: Text; value: string }[] = [];
   for (const level of levels) {
@@ -43,7 +44,9 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   const { registry, adapter, session, user, can, canOpen, toast, accessibleSpaces, defaultRangeTo, equipmentAxes } = app.pub;
   const { enters, usageSessionId, userIdRef, usageNav } = app.internal;
   const { matchRoute, menuById, safeReturnTo } = registry;
-  const { url, navigation: pageNavigation, commit, go, mode, paneId } = source;
+  const { url: visibleUrl, hidden, navigation: pageNavigation, commit, go, mode, paneId } = source;
+  // The screen reads visible + hidden pairs as one query; only the Provider's `commit` splits them again (ADR-0105).
+  const url = useMemo(() => (hidden && hidden.length > 0 ? visibleUrl + (visibleUrl.includes('?') ? '&' : '?') + new URLSearchParams(hidden.map(([k, v]): [string, string] => [k, v])).toString() : visibleUrl), [visibleUrl, hidden]);
   const paneLabel = source.paneLabel ?? null;
   const { lang } = useI18n();
   const userId = user.id;
@@ -67,7 +70,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     // The board owns its own query (`?sheet=`), not the Context codec: the main Context there is empty.
     if (platformScreen !== null) return { parsed: null, contractError: null };
     try {
-      const parsed = parseQuery(search, route?.menu.pageKeys ?? []);
+      const parsed = parseQuery(search, route?.menu.pageKeys ?? [], { repeated: route?.menu.repeatedPageKeys });
       for (const axisId of Object.keys(parsed.global.condition ?? {})) {
         const axis = equipmentAxes.find(a => a.id === axisId);
         if (!axis) throw new ContractError('invalid_condition', 'Unknown equipment axis', 'equipmentGroup', new URLSearchParams(search).get('equipmentGroup') ?? '');
@@ -90,14 +93,26 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   const extras = useMemo(() => parsed?.extras ?? [], [parsed]);
 
   // Only the main screen's navigation marks how the next entry was reached; a pane that leaves hands over to the main one (onLeave).
+  const returnOwner = useCallback((address: string): ReturnHiddenOwner | null => {
+    const menu = matchRoute(address.split('?')[0] || '/')?.menu.id;
+    return menu === undefined ? null : { user: userId, deployment: app.pub.location.absoluteUrl('/'), menu };
+  }, [matchRoute, userId, app.pub.location]);
   const navigate = useCallback((next: string, options?: { replace?: boolean; focus?: PageFocus; via?: UsageVia }) => {
     const trail = usageNav.current;
     const before = trail.via;
     if (mode === 'main') trail.via = options?.via ?? null;
-    const moved = go(next, options);
+    let restoreHidden: readonly Pair[] | undefined;
+    if (mode === 'main') {
+      // The return link names only the visible address (ADR-0105): leaving with this screen as the origin parks its hidden pairs in the session, following the return link takes them back.
+      const q = next.indexOf('?');
+      if (q !== -1 && new URLSearchParams(next.slice(q + 1)).get(RETURN_TO_KEY) === visibleUrl) { const owner = returnOwner(visibleUrl); if (owner !== null) rememberReturnHidden(visibleUrl, hidden ?? [], owner); }
+      const origin = safeReturnTo(page.find(([k]) => k === RETURN_TO_KEY)?.[1] ?? null);
+      if (origin !== null && origin === next) { const owner = returnOwner(origin); if (owner !== null) restoreHidden = readReturnHidden(origin, owner); }
+    }
+    const moved = go(next, restoreHidden && restoreHidden.length > 0 ? { ...options, restoreHidden } : options);
     if (mode === 'main' && !moved) trail.via = before;
     return moved;
-  }, [go, mode, usageNav]);
+  }, [go, mode, usageNav, visibleUrl, hidden, safeReturnTo, page, returnOwner]);
 
   // A deliberate global-Context change drops the manifest's contextResetKeys (e.g. the result-set page index)
   // from the page pairs in the SAME navigation — one history entry, so Back returns to the pre-change URL
@@ -122,11 +137,18 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   }, [global, page, extras, pathname, write, toast, lang, dropContextResetKeys]);
 
   // A patch that changes a drill level value also drops the menu's `drill.resetKeys` in the same write (one history entry, 06 §6.4).
-  const setPage = useCallback((requested: Record<string, string | null>, options?: { replace?: boolean; focus?: PageFocus }) => {
-    const patch = dropDrillResetKeys(route?.menu, page, requested);
+  const setPage = useCallback((requested: Record<string, string | readonly string[] | null>, options?: { replace?: boolean; focus?: PageFocus }) => {
+    for (const [key, value] of Object.entries(requested)) {
+      if (typeof value === 'object' && value !== null && value.filter(v => v !== '').length > 1 && !route?.menu.repeatedPageKeys?.includes(key)) throw new RangeError(`setPage: "${key}" is not a repeated page key`);
+    }
+    // Drill resets look at one value per step; a repeated key is never a drill level, so its first value stands for it there.
+    const single: Record<string, string | null> = Object.assign(Object.create(null) as Record<string, string | null>, Object.fromEntries(Object.entries(requested).map(([k, v]) => [k, typeof v === 'string' || v === null ? v : (v[0] ?? null)])));
+    const dropped = dropDrillResetKeys(route?.menu, page, single);
+    const patch: Record<string, string | readonly string[] | null> = Object.assign(Object.create(null) as Record<string, string | readonly string[] | null>, requested);
+    for (const key of Object.keys(dropped)) if (!Object.hasOwn(patch, key)) patch[key] = dropped[key];
     const keys = Object.keys(patch);
     const kept = page.filter(([k]) => !keys.includes(k));
-    const added = Object.entries(patch).filter((e): e is [string, string] => e[1] !== null && e[1] !== '');
+    const added = Object.entries(patch).flatMap(([k, v]): Pair[] => (v === null ? [] : (typeof v === 'string' ? [v] : v).map((item): Pair => [k, item]))).filter(([, item]) => item !== '');
     write(pathname + buildQuery(global, [...kept, ...added], extras), options);
   }, [global, page, extras, pathname, write, route]);
 
@@ -150,7 +172,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     const g = { ...carried, ...options.global };
     const requested = Object.entries(options.page ?? {});
     const pagePairs: Pair[] = [];
-    for (const [k, v] of requested) if (v !== null && target.pageKeys.includes(k)) pagePairs.push([k, v]);
+    for (const [k, v] of requested) if (v !== null && target.pageKeys.includes(k)) for (const item of typeof v === 'string' ? [v] : v) pagePairs.push([k, item]);
     // Carried keys: same carry set, every member declares them; explicit value wins, explicit null omits.
     // A set that carries `returnTo` only carries it: inside that set `options.returnTo` never mints or replaces the origin (#760, ADR-0081 UX-10).
     // `carry` is false only for kernel entries (space entry/resume): they start clean and never borrow the current set state. Favorites use the public resolver with explicit nulls.
@@ -160,17 +182,18 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
       sameCarryingSet = carriesReturnTo(targetSet);
       for (const k of targetSet.pageKeys) {
         if (!target.pageKeys.includes(k) || options.page?.[k] !== undefined) continue;
-        const current = page.find(([pk]) => pk === k);
-        if (current) pagePairs.push(current);
+        // The whole ordered collection travels; a key the destination does not take as a list keeps one value (members agree on this, the Registry checks).
+        const values = page.filter(([pk]) => pk === k);
+        for (const pair of target.repeatedPageKeys?.includes(k) ? values : values.slice(0, 1)) pagePairs.push(pair);
       }
     }
-    if (options.returnTo && !sameCarryingSet && target.pageKeys.includes(RETURN_TO_KEY) && !pagePairs.some(([k]) => k === RETURN_TO_KEY) && options.page?.[RETURN_TO_KEY] === undefined) pagePairs.push([RETURN_TO_KEY, url]);
+    if (options.returnTo && !sameCarryingSet && target.pageKeys.includes(RETURN_TO_KEY) && !pagePairs.some(([k]) => k === RETURN_TO_KEY) && options.page?.[RETURN_TO_KEY] === undefined) pagePairs.push([RETURN_TO_KEY, visibleUrl]);
     return {
       href: pathFor(target, options.params) + buildQuery(g, pagePairs),
       allowed: canOpen(menuId),
       droppedPageKeys: requested.map(([k]) => k).filter(k => !target.pageKeys.includes(k)),
     };
-  }, [global, url, menuById, canOpen, page, route, registry]);
+  }, [global, visibleUrl, menuById, canOpen, page, route, registry]);
   const resolveLink = useCallback((menuId: string, options: LinkOptions = {}): LinkResolution => resolveWith(menuId, options, true), [resolveWith]);
   const resolveEntryLink = useCallback((menuId: string, options: LinkOptions = {}): LinkResolution => resolveWith(menuId, options, false), [resolveWith]);
   const linkTo = useCallback((menuId: string, options: LinkOptions = {}) => resolveLink(menuId, options).href, [resolveLink]);
@@ -311,6 +334,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   }, [countsUsage, route, routeContractError, pathname, userId, can, enters, registry, adapter, usageSessionId, userIdRef, usageNav, paneId, mode]);
 
   const pageParam = useCallback((key: string) => page.find(([k]) => k === key)?.[1] ?? null, [page]);
+  const pageParams = useCallback((key: string) => page.filter(([k]) => k === key).map(([, v]) => v), [page]);
   const resolveReturnOrigin = useCallback((): ReturnOrigin => {
     const safe = safeReturnTo(pageParam(RETURN_TO_KEY));
     if (safe) {
@@ -319,7 +343,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
       const search = q === -1 ? '' : safe.slice(q);
       const matched = matchRoute(path);
       if (matched && canOpen(matched.menu.id)) {
-        const starting = parseQuery(search, matched.menu.pageKeys).global;
+        const starting = parseQuery(search, matched.menu.pageKeys, { repeated: matched.menu.repeatedPageKeys }).global;
         const fields: Record<ReturnContextKey, (keyof GlobalContext)[]> = {
           scope: ['scopeId'],
           time: ['from', 'to'], roomNames: ['roomNames'], line: ['lineNames'], prcGroup: ['prcGroups', 'membershipBasis'], condition: ['condition', 'membershipBasis'], selection: ['selection'],
@@ -363,12 +387,12 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
 
   const queryPolicy = useStable({ ...appliedQueryPolicy(route?.menu ?? null, global, page, routeContractError !== null || metricInit.phase !== 'skip'),
     ready: route?.menu.query?.mode !== 'apply' || !route.menu.requiresScope || (scopeView.status === 'valid' && scopeView.scopeId === global.scopeId && scopeView.validatedFor === session) }, sameQueryPolicy);
-  const { queryDraft, queryHistory } = useScreenDraft({ store: source.draftStore, menu: route?.menu ?? null, identity: `${route?.menu.id ?? ''}\0${pathname}`, session, url,
+  const { queryDraft, queryHistory } = useScreenDraft({ store: source.draftStore, menu: route?.menu ?? null, identity: `${route?.menu.id ?? ''}\0${pathname}`, session, url: hidden && hidden.length > 0 && parsed ? pathname + buildQuery(global, page, extras) : url,
     global, page, extras, defaultRangeTo, scope: scopeView, adapter, axes: equipmentAxes, invalid: routeContractError !== null,
     commit, setGlobal, setPage, history: app.pub.queryHistoryStore, revision: app.pub.revision, currentRevision: app.internal.currentRevision, allowed: route !== null && app.pub.canOpen(route.menu.id) });
   const screen = useMemo((): ScreenState => ({ queryDraft, queryHistory, queryPolicy,
-    url, pathname, route, platformScreen, pageNavigation, contractError: routeContractError, metricInit, global, page, extras, pageParam, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, reportError, returnTarget, returnOrigin,
+    url: visibleUrl, appliedUrl: url, pathname, route, platformScreen, pageNavigation, contractError: routeContractError, metricInit, global, page, extras, pageParam, pageParams, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, reportError, returnTarget, returnOrigin,
     currentSpace, scope: scopeView, retryScope, screenMode: mode, paneId, paneLabel,
-  }), [queryDraft, queryHistory, queryPolicy, url, pathname, route, platformScreen, pageNavigation, routeContractError, metricInit, global, page, extras, pageParam, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, reportError, returnTarget, returnOrigin, currentSpace, scopeView, retryScope, mode, paneId, paneLabel]);
+  }), [queryDraft, queryHistory, queryPolicy, visibleUrl, url, pathname, route, platformScreen, pageNavigation, routeContractError, metricInit, global, page, extras, pageParam, pageParams, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, reportError, returnTarget, returnOrigin, currentSpace, scopeView, retryScope, mode, paneId, paneLabel]);
   return { screen, sidebarSpace, resolveEntryLink };
 }

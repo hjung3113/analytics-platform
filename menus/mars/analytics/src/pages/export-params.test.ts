@@ -26,6 +26,13 @@ describe('cycle-time export params', () => {
   });
 });
 
+describe('cycle-time export params with a select-all scope (#556c)', () => {
+  it('refuses the all scope: this table does not enable selectAllResults, and ids: null would export the excluded rows', () => {
+    const filter: SlowFilter = { tail: 'p95', granularity: 'hour', bucket: null, bin: null };
+    expect(() => exportParams(filter, { scope: { kind: 'all', excludedIds: ['a|b'] }, sorting })).toThrow(/select-all/);
+  });
+});
+
 describe('cycle-time export filter summary (#173 review P2-3)', () => {
   it('labels tail, grain, bucket and histogram exactly as the screen chips do, in the screen order', () => {
     expect(exportFilterSummary({ tail: 'p95', granularity: 'day', bucket: '2026-09-25T10:00:00', bin: { from: '45-60', to: '60-75' } }, true))

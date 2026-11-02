@@ -509,7 +509,10 @@
                       {
                         "type": "string"
                       }
-                    ]
+                    ],
+                    "minItems": 2,
+                    "maxItems": 2,
+                    "items": false
                   }
                 },
                 {

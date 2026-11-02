@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { House } from 'lucide-react';
 import { I18nProvider, PlatformProvider, createRegistry, type MenuEntry } from '@ap/kernel';
-import { FilterUrlWarning, PageKeyWarning, TableUrlWarning, usePageKeyRules, useTableUrlWarning, type PageKeyRule } from '../tableUrlWarning';
+import { PageKeyWarning, TableUrlWarning, usePageKeyRules, useTableUrlWarning, type PageKeyRule } from '../tableUrlWarning';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { groupId, spaceId } from '@ap/contracts';
 
@@ -29,7 +29,7 @@ function Probe() {
 function FilterProbe({ withFilters }: { withFilters: boolean }) {
   const warning = useTableUrlWarning(['name']);
   const slot = <button type="button">필터 · 1</button>;
-  return withFilters ? <TableUrlWarning filters={slot} sentences={warning.sentences} /> : <>{slot}<TableUrlWarning sentences={warning.sentences} /></>;
+  return withFilters ? <TableUrlWarning search={slot} sentences={warning.sentences} /> : <>{slot}<TableUrlWarning sentences={warning.sentences} /></>;
 }
 
 function mount(search: string) {
@@ -100,33 +100,6 @@ describe('useTableUrlWarning + TableUrlWarning (06 §15, ADR-0034)', () => {
 
     expect(screen.queryByRole('button', { name: '초기화' })).toBeNull();
     expect(document.activeElement).toBe(screen.getByRole('main'));
-  });
-});
-
-describe('FilterUrlWarning (invalid filter keys, ADR-0034)', () => {
-  const mountFilter = (withFilters: boolean) => render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}>
-    <FilterUrlWarning sentences={['역할 “x”은 이 화면에서 쓸 수 없는 값입니다.', '권한 “y”은 이 화면에서 쓸 수 없는 값입니다.']}
-      filters={withFilters ? <button type="button">필터 · 1</button> : undefined} recover={<button type="button">되돌리기</button>} />
-  </PlatformProvider></I18nProvider>);
-
-  it('is one danger alert with the filter title, one paragraph per sentence and the given recover node', () => {
-    window.history.replaceState(null, '', '/list?v=1');
-    mountFilter(false);
-    const alert = screen.getByRole('alert');
-    expect(alert.textContent).toContain('필터 값이 올바르지 않습니다');
-    expect(alert.textContent).not.toContain('정렬·페이지');
-    expect([...alert.querySelectorAll('p')].map(p => p.textContent)).toEqual(['역할 “x”은 이 화면에서 쓸 수 없는 값입니다.', '권한 “y”은 이 화면에서 쓸 수 없는 값입니다.']);
-    expect(alert.contains(screen.getByRole('button', { name: '되돌리기' }))).toBe(true);
-  });
-
-  it('renders the filters slot above the alert inside a gap-3 wrapper', () => {
-    window.history.replaceState(null, '', '/list?v=1');
-    mountFilter(true);
-    const slot = screen.getByRole('button', { name: '필터 · 1' });
-    const alert = screen.getByRole('alert');
-    expect(slot.compareDocumentPosition(alert) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(slot.parentElement!.classList.contains('gap-3')).toBe(true);
-    expect(alert.parentElement).toBe(slot.parentElement);
   });
 });
 

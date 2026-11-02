@@ -4,7 +4,7 @@ import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/re
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
 import { setFeatureApi } from '@ap/feature-bridge/feature-api';
-import { createFeatureMenuHarness } from '@ap/feature-bridge/testing';
+import { createFeatureMenuHarness, LAZY_MOUNT_WAIT } from '@ap/feature-bridge/testing';
 import { useHostSeam } from '@/lib/host/host-seam';
 import { harnessMenus, homeStub, mountAt, warmPages } from '../test-support';
 
@@ -83,7 +83,7 @@ describe('관리자 without a feature API (mock preview)', () => {
     [SETTINGS, '기능 설정', 'settings'],
   ])('%s shows 실서버 필요 and mounts no screen', async (path, title, testId) => {
     mountAt(path);
-    await screen.findByRole('heading', { name: title }, { timeout: 3000 });
+    await screen.findByRole('heading', { name: title }, LAZY_MOUNT_WAIT);
     expect(screen.getByRole('status').textContent).toContain('실서버 필요');
     expect(screen.queryByTestId(testId)).toBeNull();
   });
@@ -172,7 +172,7 @@ describe('관리자 with an invalid address value', () => {
   ])('%s rejects %s=%s, keeps the address and requests nothing', async (path, key, value) => {
     const search = `?${key}=${encodeURIComponent(value)}`;
     mountAt(`${path}${search}`);
-    expect(await screen.findByText(`주소의 ${key} 값이 올바르지 않습니다`, undefined, { timeout: 3000 })).toBeTruthy();
+    expect(await screen.findByText(`주소의 ${key} 값이 올바르지 않습니다`, undefined, LAZY_MOUNT_WAIT)).toBeTruthy();
     for (const testId of ['areas', 'requests', 'grants', 'settings']) expect(screen.queryByTestId(testId)).toBeNull();
     expect(screenMock.areas).toEqual([]);
     expect(screenMock.requests).toEqual([]);

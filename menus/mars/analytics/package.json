@@ -1,8 +1,10 @@
 {
   "name": "@ap/menu-analytics",
   "private": true,
-  "version": "0.3.1",
-  "ap": { "sdk": ">=0.24.0 <0.25.0" },
+  "version": "0.3.3",
+  "ap": {
+    "sdk": ">=0.26.0 <0.27.0"
+  },
   "type": "module",
   "exports": {
     ".": "./src/index.ts",

@@ -23,7 +23,7 @@ export default function ChartCatalog() {
   // An invalid breakdown node is rejected before, and without, the catalogue query (06 §6.4).
   const rejectedNode = kind === 'breakdown' ? invalidBreakdownNode(pageParam('node')) : null;
   const query = useMenuQuery(chartCatalogEndpoint, { kind }, rejectedNode === null);
-  return <PlatformPage density="compact" dataTrustSummary={query.response ? <DataTrustIndicator trust={query.response.trust} assessments={query.response.assessments} /> : undefined}>
+  return <PlatformPage dataTrustSummary={query.response ? <DataTrustIndicator trust={query.response.trust} assessments={query.response.assessments} /> : undefined}>
     <CatalogWorkspace query={query} rejectedNode={rejectedNode} />
   </PlatformPage>;
 }
@@ -82,12 +82,12 @@ function CatalogWorkspace({ query, rejectedNode }: { query: QueryState<CatalogDa
   return <div ref={root} role="region" aria-label={tx({ ko: '차트 카탈로그 작업 영역', en: 'Chart catalog workspace' })} className="flex min-h-0 flex-col gap-2" onKeyDown={escape}>
       <Tabs value={kind} onValueChange={value => { if (isCatalogKind(value)) setPage({ kind: value }); }} className="flex min-h-0 flex-1 flex-col">
         <div className="flex shrink-0 items-center justify-between gap-2">
-          <div hidden={focus} className="min-w-0 overflow-x-auto">
-            <TabsList aria-label={tx({ ko: '차트 종류', en: 'Chart kind' })}>
+          <div hidden={focus} className="min-w-0 flex-1">
+            <TabsList overflow="menu" moreLabel={tx({ ko: '더보기', en: 'More' })} aria-label={tx({ ko: '차트 종류', en: 'Chart kind' })}>
               {CHART_KINDS.map(item => {
                 const counts = supportCounts(supportFor(item, route?.menu.features));
                 const mark = tx({ ko: `지원 ${counts.supported} · 조건부 ${counts.conditional} · 미지원 ${counts.unsupported}`, en: `${counts.supported} supported · ${counts.conditional} conditional · ${counts.unsupported} unsupported` });
-                return <TabsTrigger key={item} value={item} aria-label={`${tx(kindLabels[item])} ${mark}`}>{tx(kindLabels[item])}<span className="ml-2 text-tiny text-text-muted">{tx({ ko: `지원 ${counts.supported}/8`, en: `${counts.supported}/8 supported` })}</span></TabsTrigger>;
+                return <TabsTrigger key={item} value={item} aria-label={`${tx(kindLabels[item])} ${mark}`}>{tx(kindLabels[item])}</TabsTrigger>;
               })}
             </TabsList>
           </div>

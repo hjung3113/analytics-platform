@@ -26,7 +26,9 @@ export type BootstrapResult =
    */
   | { kind: 'ready'; adapter: PlatformAdapter; store: SavedViewStore; importLocal: ImportLocal }
   | { kind: 'login' }
-  | { kind: 'unavailable'; correlationId: string };
+  | { kind: 'unavailable'; correlationId: string }
+  /** 429: the rate limit is full. `retryAfterSeconds` is the server's `Retry-After` when it sent a parseable delay in seconds (#1179). */
+  | { kind: 'throttled'; correlationId: string; retryAfterSeconds?: number };
 
 /**
  * Reads `GET /api/v1/platform/bootstrap` and, when it answers, returns the adapter. Never rejects: the host picks
@@ -38,6 +40,10 @@ export async function bootstrapHttpAdapter(options: HttpAdapterOptions = {}): Pr
     const transport = createTransport({ fetch: options.fetch ?? ((input, init) => globalThis.fetch(input, init)), base: options.base ?? '' });
     const read = await readBootstrap(transport, timeoutMs);
     if (read.kind === 'login') return { kind: 'login' };
+    if (read.kind === 'throttled') {
+      const retryAfterSeconds = read.retryAfterSeconds;
+      return { kind: 'throttled', correlationId: read.correlationId, ...(retryAfterSeconds === undefined ? {} : { retryAfterSeconds }) };
+    }
     if (read.kind === 'failed') return { kind: 'unavailable', correlationId: read.correlationId || newRequestId() };
     const store = createSessionStore(read.payload, { transport, pollMs: options.pollMs ?? 300_000, timeoutMs, onSessionLost: options.onSessionLost });
     const context = { transport, store, timeoutMs, fireAndForgetTimeoutMs: options.fireAndForgetTimeoutMs ?? 10_000 };

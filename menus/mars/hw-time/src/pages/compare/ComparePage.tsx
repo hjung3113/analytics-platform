@@ -213,7 +213,7 @@ export default function ComparePage(_props: PageProps) {
     trendPanel,
   ];
 
-  return <PlatformPage layout="fill" density="compact">
+  return <PlatformPage layout="fill">
     <div className="flex h-full min-h-0 gap-3">
       <aside className="shrink-0 overflow-hidden rounded-lg border border-border-subtle bg-surface-card">
         <Inspector form="rail" persistKey="hw-time-compare" label={{ ko: '분석 보조', en: 'Analysis aids' }} sections={sections} />

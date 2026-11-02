@@ -1,26 +1,61 @@
-import type { ReactNode } from 'react';
+import { useEffect, useMemo, type ReactNode } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { invalidValueSentence, useI18n, usePlatform, type Text } from '@ap/kernel';
+import { encodeFilterParams, type ColumnFilter } from '@ap/contracts';
 import { encodeTableSort, parsePageIndex, parseTableSort, type TableUrlState } from './PlatformDataTable';
+import { FILTER_PROBLEM_CAUSES, readTableFilters, type TableFilterOption, type TableFilterRead } from './tableFilterUrl';
 import { StateMessage } from '../StateView';
 import { RecoverButton } from '../state/RecoverButton';
+
+/** What is wrong in the address: `sortPage` (default), `filter` (only a condition) or `both`; names the warning's title. */
+export type TableUrlWarningCause = 'sortPage' | 'filter' | 'both';
+const WARNING_TITLE = { sortPage: 'invalidTableTitle', filter: 'invalidFilterTitle', both: 'invalidTableFilterTitle' } as const;
+
+const GENERIC_FILTER_LABEL: Text = { ko: '필터', en: 'Filter' };
 
 /**
  * §6.1 `sort`/`page` raw values parsed against the page's allowed sort columns, plus the ADR-0034 sentences
  * (user field name + raw value as entered, one sentence per bad field — never `key=value`). Allowed columns stay page-owned.
+ *
+ * With `filters` (ADR-0105, opt-in) the page's filter key and its legacy keys are read through the codec as well: a bad condition adds
+ * one sentence (the field's label from `labels`, else its id; the whole raw condition as entered; a cap names the generic 「필터」),
+ * `invalid` covers it, `filterRead` carries the parsed filters and `recoverKeys` the keys the one Reset must clear: `sort`+`page` when
+ * either is bad (as before), the filter key + legacy keys when a filter is bad — each only when it is the bad one, so a bad sort never
+ * drops the conditions and a bad filter never drops the sort. Without the option nothing here changes.
  */
-export function useTableUrlWarning(allowedSort: readonly string[]) {
-  const { pageParam } = usePlatform();
+export function useTableUrlWarning(allowedSort: readonly string[], filters?: TableFilterOption) {
+  const { pageParam, pageParams } = usePlatform();
   const { lang, text } = useI18n();
   const sortRaw = pageParam('sort');
   const pageRaw = pageParam('page');
   const parsedSort = parseTableSort(sortRaw, allowedSort);
   const parsedPage = parsePageIndex(pageRaw);
+  const values = filters ? pageParams(filters.key) : [];
+  const legacyRaw = (filters?.legacy ?? []).map(entry => pageParam(entry.key));
+  const signature = JSON.stringify([values, legacyRaw]);
+  // The read result is memoised on the raw strings so a re-render never hands the table (and `loadPage`) a new filter array.
+  const filterRead: TableFilterRead | null = useMemo(
+    () => filters ? readTableFilters(filters, values, legacyRaw) : null,
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `filters` is the page's declaration and the raw strings are its only changing input
+    [signature, filters?.key, filters?.specs],
+  );
+  const filterBad = filterRead !== null && !filterRead.ok;
+  const sortPageBad = !parsedSort.ok || !parsedPage.ok;
   const sentences = [
     !parsedSort.ok ? invalidValueSentence(lang, 'value', text('invalidTableSort'), sortRaw ?? '') : null,
     !parsedPage.ok ? invalidValueSentence(lang, 'value', text('invalidTablePage'), pageRaw ?? '') : null,
+    ...(filterRead && !filterRead.ok ? filterRead.problems.map(({ field, raw, reason, detail }) => {
+      const name = field === '' ? GENERIC_FILTER_LABEL : { ko: filters?.labels?.[field] ?? field, en: filters?.labels?.[field] ?? field };
+      return `${invalidValueSentence(lang, 'filter', name, raw)} ${(detail ?? FILTER_PROBLEM_CAUSES[reason])[lang]}`;
+    }) : []),
   ].filter((sentence): sentence is string => sentence !== null);
-  return { parsedSort, parsedPage, invalid: !parsedSort.ok || !parsedPage.ok, sentences };
+  const recoverKeys = [
+    ...(sortPageBad || !filterBad ? ['sort', 'page'] : []),
+    ...(filterBad && filters ? [filters.key, ...(filters.legacy ?? []).map(entry => entry.key)] : []),
+  ];
+  // Which part is bad, for the warning's title: only the filter, only sort/page, or both.
+  const cause: TableUrlWarningCause = filterBad ? (sortPageBad ? 'both' : 'filter') : 'sortPage';
+  return { parsedSort, parsedPage, filterRead, invalid: sortPageBad || filterBad, sentences, recoverKeys, cause };
 }
 
 /** Why the table asked for a sort/page write (`TableUrlState.onChange`'s reason). */
@@ -31,20 +66,40 @@ export type TableUrlChangeReason = Parameters<TableUrlState['onChange']>[1];
  * (the page shows `TableUrlWarning` instead), else the parsed values (page 1 kept off the URL as `null`) and one `onChange` that
  * writes `sort` and `page` in one `setPage` — a `replace` entry only for the table's own `clamp`, a history entry otherwise.
  * `extraPatch(reason)` adds page-owned keys to that same write (e.g. closing the focused row on a user sort/page change).
+ *
+ * `filters` (ADR-0105, opt-in): the page's repeated (and normally hidden) filter key. `urlState` then also carries `filters`, and an
+ * `onChange` that carries `filters` writes the encoded conditions (one value each; none removes the key) together with `page` in the
+ * same `setPage`, clearing the legacy keys too. A change without `filters` (sort, page, clamp) leaves the filter key alone. Present
+ * legacy keys are rewritten once into the filter key with `replace`. A bad filter state makes `urlState` `undefined` like a bad sort.
  */
 export function useTableUrlState(
   allowedSort: readonly string[],
-  options?: { extraPatch?: (reason: TableUrlChangeReason) => Record<string, string | null> | undefined },
+  options?: { extraPatch?: (reason: TableUrlChangeReason) => Record<string, string | null> | undefined; filters?: TableFilterOption },
 ) {
-  const warning = useTableUrlWarning(allowedSort);
+  const filterOption = options?.filters;
+  const warning = useTableUrlWarning(allowedSort, filterOption);
   const { setPage } = usePlatform();
-  const { parsedSort, parsedPage } = warning;
+  const { parsedSort, parsedPage, filterRead } = warning;
   const extraPatch = options?.extraPatch;
-  const urlState: TableUrlState | undefined = parsedSort.ok && parsedPage.ok ? {
+  const legacyKeys = (filterOption?.legacy ?? []).map(entry => entry.key);
+  const rewrite = filterOption && filterRead?.ok && filterRead.legacyPresent ? { key: filterOption.key, values: encodeFilterParams(filterRead.filters) } : null;
+  const rewriteSignature = rewrite ? JSON.stringify([rewrite, legacyKeys]) : null;
+  useEffect(() => {
+    if (!rewrite) return;
+    setPage({ [rewrite.key]: rewrite.values, ...Object.fromEntries(legacyKeys.map(key => [key, null])) }, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once per distinct legacy state; `rewriteSignature` is that state
+  }, [rewriteSignature]);
+  const filterWrite = filterOption ? (filters: readonly ColumnFilter[]) => ({
+    [filterOption.key]: encodeFilterParams(filters),
+    ...Object.fromEntries(legacyKeys.map(key => [key, null])),
+  }) : null;
+  const urlState: TableUrlState | undefined = parsedSort.ok && parsedPage.ok && (!filterRead || filterRead.ok) ? {
     page: parsedPage.page === 1 ? null : parsedPage.page,
     sorting: parsedSort.sorting,
-    onChange: ({ page, sorting }, reason) => setPage(
-      { sort: encodeTableSort(sorting), page: page === null ? null : String(page), ...extraPatch?.(reason) },
+    ...(filterRead?.ok ? { filters: filterRead.filters } : {}),
+    ...(filterOption?.validate ? { validate: filterOption.validate } : {}),
+    onChange: ({ page, sorting, filters }, reason) => setPage(
+      { sort: encodeTableSort(sorting), page: page === null ? null : String(page), ...(filters && filterWrite ? filterWrite(filters) : {}), ...extraPatch?.(reason) },
       { replace: reason === 'clamp' },
     ),
   } : undefined;
@@ -78,38 +133,32 @@ export function usePageKeyRules(rules: readonly PageKeyRule[]): { invalid: boole
   };
 }
 
-function UrlWarning({ title, sentences, action, filters }: { title: string; sentences: readonly string[]; action: ReactNode; filters?: ReactNode }) {
+function UrlWarning({ title, sentences, action, search }: { title: string; sentences: readonly string[]; action: ReactNode; search?: ReactNode }) {
   const message = <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />}
     title={title}
     body={sentences.map((sentence, index) => <p key={index}>{sentence}</p>)}
     action={action} />;
-  return filters ? <div className="flex flex-col gap-3">{filters}{message}</div> : message;
+  return search ? <div className="flex flex-col gap-3">{search}{message}</div> : message;
 }
 
 /**
  * The shared invalid sort/page message (06 §15): replaces the table, never substitutes a value, Reset clears both keys in one `setPage`.
- * `filters` is the management layout's filter slot (the `필터 · n` control when the rail is hidden); it renders above the message with the toolbar's gap.
+ * `recoverKeys` (`useTableUrlWarning().recoverKeys`) narrows or widens that one write to exactly the bad keys when the page opted into URL filters (ADR-0105); the default is `sort` and `page`.
+ * `cause` (`useTableUrlWarning().cause`) names the title after what is actually wrong: sort/page (default), only a filter condition, or both.
+ * `search` is an optional node (the page's quick search, as it sits in the table toolbar) that renders above the message with the toolbar's gap.
  */
-export function TableUrlWarning({ sentences, filters }: { sentences: readonly string[]; filters?: ReactNode }) {
+export function TableUrlWarning({ sentences, search, recoverKeys = ['sort', 'page'], cause = 'sortPage' }: { sentences: readonly string[]; search?: ReactNode; recoverKeys?: readonly string[]; cause?: TableUrlWarningCause }) {
   const { t } = useI18n();
   const { setPage } = usePlatform();
-  return <UrlWarning title={t('invalidTableTitle')} sentences={sentences} filters={filters}
-    action={<RecoverButton onRecover={() => setPage({ sort: null, page: null })} />} />;
+  return <UrlWarning title={t(WARNING_TITLE[cause])} sentences={sentences} search={search}
+    action={<RecoverButton onRecover={() => setPage(Object.fromEntries(recoverKeys.map(key => [key, null])))} />} />;
 }
 
 /**
- * The shared invalid filter-key message of a management screen: same frame as `TableUrlWarning`, one ADR-0034 sentence per bad
- * key. `recover` is the screen's reset action — `useManagementFilters().recoverButton`, which moves focus to main first (06 §26).
- */
-export function FilterUrlWarning({ sentences, filters, recover }: { sentences: readonly string[]; filters?: ReactNode; recover: ReactNode }) {
-  const { t } = useI18n();
-  return <UrlWarning title={t('invalidFilterTitle')} sentences={sentences} filters={filters} action={recover} />;
-}
-
-/**
- * The rejected page-key message of a screen (06 §6, ADR-0034): the same frame as `FilterUrlWarning`, one sentence per bad key
+ * The rejected page-key message of a screen (06 §6, ADR-0034): one sentence per bad key
  * (`usePageKeyRules().sentences`), and a Reset that clears exactly those keys (`recover`) after focus moved off the button.
  */
-export function PageKeyWarning({ sentences, onRecover, filters }: { sentences: readonly string[]; onRecover: () => void; filters?: ReactNode }) {
-  return <FilterUrlWarning sentences={sentences} filters={filters} recover={<RecoverButton onRecover={onRecover} />} />;
+export function PageKeyWarning({ sentences, onRecover }: { sentences: readonly string[]; onRecover: () => void }) {
+  const { t } = useI18n();
+  return <UrlWarning title={t('invalidFilterTitle')} sentences={sentences} action={<RecoverButton onRecover={onRecover} />} />;
 }

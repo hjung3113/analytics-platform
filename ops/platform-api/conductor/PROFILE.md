@@ -270,3 +270,17 @@ addenda, not engine forks or their tests.
   `mutation` tier is 10/min per actor. A 429 in an untouched integration suite means a neighbour spent the shared
   persona's budget: the suite clears its cohort's buckets in `beforeEach`/`beforeAll` (#1275, #1281). A delete by bare
   `actor.id::text` matches nothing (#1214).
+- An existing test goes red after a worker change: diff the worker's edits to OLD tests first. A changed fixture,
+  setup or entry point is as suspicious as a changed assertion, because it can hide a real regression. A fix brief
+  forbids changing the setup or entry point of existing tests.
+- Docs land in the same PR as the change, and the owning ADR or spec states the new reality; a deviations note alone
+  does not cover a contract change. No status prose ("the current slice covers X", "TBD, next slice"): it rots silently.
+- "Edit one item" makes workers rewrite the whole line or object (a contract list loses implemented actions; a field
+  replaced in a `.strict()` zod schema fails deep links at runtime with typecheck green). Brief it as "preserve every
+  other item/field verbatim", show the final object literal for schema edits, and review the diff item by item.
+- "Not on screen" is not "not specified", and "feature X is missing" can be a locked design. Before ruling a behavior
+  unwanted or planning a missing feature, `grep -rn "<feature>" docs/` including `docs/adr/`. If a spec contracts it,
+  implement it; if an ADR locked it out, surface the designated alternative path (revising an ADR is the owner's
+  decision); if everything is silent, mirror a shipped component instead of inventing.
+- Black-box UI rounds (who writes, who executes, how blockers and root causes are handled): read
+  [addenda/blackbox-testing.md](addenda/blackbox-testing.md) when planning one.

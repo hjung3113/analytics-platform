@@ -1,8 +1,9 @@
-import { memo, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { hasDotSegment } from '../context/location';
+import { readHiddenState, sameHidden, splitHidden, validateHidden, withHiddenState } from '../context/hiddenState';
 import type { PageFocus } from '../context/pageNavigation';
 import { routeParamNames } from '../registry/registry';
-import { incompleteMetricPair, menuPermissions, isAppRelativePath, type ParsedQuery, parseQuery, RETURN_TO_KEY, type SpaceId } from '@ap/contracts';
+import { incompleteMetricPair, menuPermissions, isAppRelativePath, type Pair, type ParsedQuery, parseQuery, RETURN_TO_KEY, type SpaceId } from '@ap/contracts';
 import { readSpaceLast, sameParams, writeSpaceLast } from './preferences';
 import { MainBoundContext, ScreenContext, type AppValue, type CommitOptions, type MainBound, type ScreenSource } from './contexts';
 import { useScreenState } from './useScreenState';
@@ -13,7 +14,31 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
   const { enters, mainNavigation: pageNavigation, initialUrl, recordVisit, rememberScope, spaceIdMigrations } = app.internal;
   const { matchRoute } = registry;
   const userId = user.id;
-  const [url, setUrl] = useState(initialUrl);
+  // Hidden page keys (ADR-0105): `url` is the visible address; the hidden pairs ride in the history entry's state and are mirrored here.
+  const menuFor = useCallback((href: string) => matchRoute(href.split('?')[0])?.menu, [matchRoute]);
+  const hiddenKeysFor = useCallback((href: string): readonly string[] => menuFor(href)?.hiddenPageKeys ?? [], [menuFor]);
+  // An address that still carries hidden keys (share link, load, Back to an old entry) is split; otherwise the entry's own state decides.
+  const arrive = useCallback((raw: string, fromState: Pair[]): { url: string; hidden: Pair[]; rewrite: boolean } => {
+    const keys = hiddenKeysFor(raw);
+    if (keys.length === 0) return { url: raw, hidden: [], rewrite: false };
+    const split = splitHidden(raw, keys);
+    if (split.hidden.length > 0) return { url: split.url, hidden: split.hidden, rewrite: true };
+    return { url: raw, hidden: fromState.filter(([key]) => keys.includes(key)), rewrite: false };
+  }, [hiddenKeysFor]);
+  const [{ arrival, url, hidden }, setView] = useState(() => {
+    const arrival = arrive(initialUrl, readHiddenState(location.readState?.()));
+    return { arrival, url: arrival.url, hidden: arrival.hidden };
+  });
+  const hiddenRef = useRef(hidden);
+  hiddenRef.current = hidden;
+  // The newest arrival record: a commit or a traversal that lands before the rewrite below runs replaces it, which cancels that rewrite.
+  const latestArrival = useRef(arrival);
+  // The one rewrite of the arrival address: same history entry, no new entry (replace), the fragment stays.
+  useEffect(() => {
+    if (!arrival.rewrite || latestArrival.current !== arrival) return;
+    pageNavigation.redirect(arrival.url);
+    location.replace(arrival.url, { keepFragment: true, state: withHiddenState(location.readState?.(), arrival.hidden) });
+  }, [arrival, location, pageNavigation]);
 
   const commit = useCallback((next: string, how: 'push' | 'replace', options: CommitOptions = {}) => {
     if (options.redirect) { // a write that landed before this effect ran keeps its query: only the path is ours
@@ -24,34 +49,52 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
     // A redirect destination was built by pathFor and checked by the caller (same menu, same params); its query is the address's own and already
     // passed the URL reader, so the return-link guard (which also rejects a decoded `#` or `:`) does not apply to it.
     const allowed = options.redirect ? next.startsWith('/') && !next.startsWith('//') && !/[#\\\u0000-\u001F\u007F]/.test(next.split('?')[0]) : isAppRelativePath(next);
-    if (!allowed || next === (location.read() ?? '')) { if (!options.materialize) pageNavigation.cancel(); return false; }
-    if (options.redirect) pageNavigation.redirect(next);
-    else if (options.materialize) pageNavigation.materialize(next);
-    else pageNavigation.advance(next, options.focus);
+    // Hidden keys of the destination leave the address and travel in the entry's state; an alias redirect keeps the hidden pairs of the entry it replaces.
+    const keys = hiddenKeysFor(next);
+    const split = splitHidden(next, keys);
+    // A return trip restores the hidden pairs the origin held, checked against what the destination declares (F1).
+    const nextHidden = options.redirect ? hiddenRef.current : split.hidden.length > 0 || !options.restoreHidden ? split.hidden : validateHidden(options.restoreHidden, menuFor(next));
+    if (!allowed || (split.url === (location.read() ?? '') && sameHidden(nextHidden, hiddenRef.current))) { if (!options.materialize) pageNavigation.cancel(); return false; }
+    if (options.redirect) pageNavigation.redirect(split.url);
+    else if (options.materialize) pageNavigation.materialize(split.url);
+    else pageNavigation.advance(split.url, options.focus);
     // The URL state carries pathname + search only; a kernel rewrite of the same arrival keeps the fragment in the same history write.
-    if (how === 'replace') location.replace(next, { keepFragment: options.redirect || options.materialize }); else location.push(next);
-    setUrl(location.read() ?? '');
+    // A menu that declares no hidden keys writes no state, exactly as before.
+    const declares = keys.length > 0;
+    if (how === 'replace') location.replace(split.url, { keepFragment: options.redirect || options.materialize, ...(declares ? { state: withHiddenState(location.readState?.(), nextHidden) } : {}) });
+    else if (declares) location.push(split.url, withHiddenState(null, nextHidden)); else location.push(split.url);
+    hiddenRef.current = nextHidden;
+    const committed = { url: split.url, hidden: nextHidden, rewrite: false };
+    latestArrival.current = committed;
+    setView({ arrival: committed, url: location.read() ?? '', hidden: nextHidden });
     if (how === 'push') document.getElementById('platform-main')?.scrollTo({ top: 0 });
     return true;
-  }, [pageNavigation, location]);
-  const go = useCallback((next: string, options?: { replace?: boolean; focus?: PageFocus }) => commit(next, options?.replace ? 'replace' : 'push', { focus: options?.focus }), [commit]);
+  }, [pageNavigation, location, hiddenKeysFor, menuFor]);
+  const go = useCallback((next: string, options?: { replace?: boolean; focus?: PageFocus; restoreHidden?: readonly Pair[] }) => commit(next, options?.replace ? 'replace' : 'push', { focus: options?.focus, restoreHidden: options?.restoreHidden }), [commit]);
 
-  const source: ScreenSource = { mode: 'main', paneId: null, paneLabel: null, url, navigation: pageNavigation, commit, go, onScopeValid: rememberScope };
+  const source: ScreenSource = { mode: 'main', paneId: null, paneLabel: null, url, hidden, navigation: pageNavigation, commit, go, onScopeValid: rememberScope };
   const { screen, sidebarSpace, resolveEntryLink } = useScreenState(app, source);
   const { pathname, route, contractError, navigate, currentSpace } = screen;
 
   useEffect(() => {
     const onPop = () => {
-      const next = location.read() ?? '';
+      const raw = location.read() ?? '';
+      const arrived = arrive(raw, readHiddenState(location.readState?.()));
+      const next = arrived.url;
+      // An old entry that still carries hidden keys in its address is tidied in place (same entry).
+      if (arrived.rewrite) location.replace(next, { keepFragment: true, state: withHiddenState(location.readState?.(), arrived.hidden) });
       // Back/Forward across menus arrives like a link (06 §26): the title takes focus and a carried
       // `focus=` does not claim the detail panel (ADR-0032). Same-screen history keeps the close-button claim.
       pageNavigation.advance(next, next.split('?')[0] !== pathname ? 'page' : undefined);
       app.internal.usageNav.current.via = 'history';
-      setUrl(next);
+      hiddenRef.current = arrived.hidden;
+      const traversed = { url: next, hidden: arrived.hidden, rewrite: false };
+      latestArrival.current = traversed;
+      setView({ arrival: traversed, url: next, hidden: arrived.hidden });
     };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
-  }, [pageNavigation, location, pathname, app.internal.usageNav]);
+  }, [pageNavigation, location, pathname, app.internal.usageNav, arrive]);
 
   // Recent visits (the main screen's own history; a pane never writes them).
   useEffect(() => {
@@ -77,10 +120,15 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
     if (registry.spaceOf(matched.menu)?.id !== spaceId) return null;
     if (!canOpen(matched.menu.id)) return null;
     let parsed: ParsedQuery;
-    try { parsed = parseQuery(search, matched.menu.pageKeys); } catch { return null; }
+    try { parsed = parseQuery(search, matched.menu.pageKeys, { repeated: matched.menu.repeatedPageKeys }); } catch { return null; }
     if (incompleteMetricPair(matched.menu, parsed.global.metricId, parsed.global.metricVersion)) return null;
-    const page: Record<string, string> = {};
-    for (const [key, value] of parsed.page) if (key !== RETURN_TO_KEY) page[key] = value;
+    // Every pair of a repeated key stays, in order (a record would keep only the last).
+    const page: Record<string, string | string[]> = {};
+    for (const [key, value] of parsed.page) {
+      if (key === RETURN_TO_KEY) continue;
+      const seen = page[key];
+      page[key] = seen === undefined ? (matched.menu.repeatedPageKeys?.includes(key) ? [value] : value) : [...(Array.isArray(seen) ? seen : [seen]), value];
+    }
     const href = resolveEntryLink(matched.menu.id, { params: matched.params, page }).href;
     let normalized: string;
     try { normalized = new URL(href, 'http://x').pathname; } catch { return null; }

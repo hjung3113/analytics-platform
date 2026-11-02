@@ -27,7 +27,7 @@ export type MenuInputs = {
  * it, because the server re-validates data permission per request (#47). Kept in one place so the
  * two never drift apart.
  */
-export const SDK_RANGE = '>=0.24.0 <0.25.0';
+export const SDK_RANGE = '>=0.26.0 <0.27.0';
 
 export const SCAFFOLD_PERMISSION = 'platform:view';
 
@@ -245,8 +245,7 @@ function pageTsx(i: MenuInputs): string {
   </section>;
 ` : '';
   const slotsMarkup = i.pageType === 'management' ? `      <ManagementLayout
-        filter={<>{slotPlaceholder('filter')}{/* Replace Search + Filter with PageFilterBar orientation="column". */}</>}
-        table={filterSlot => <>{filterSlot}{slotPlaceholder('table')}{/* Replace Data Table with PlatformDataTable. */}</>}
+        table={<>{slotPlaceholder('filter')}{/* Replace Search + Filter with a toolbar search Input on PlatformDataTable's search prop; column filters come from the table (ADR-0105). */}{slotPlaceholder('table')}{/* Replace Data Table with PlatformDataTable (search prop, column filters). */}</>}
       />
       <div className="space-y-3">
         {slotPlaceholder('actions')}
@@ -282,7 +281,7 @@ export default function ${i.page}Screen() {
   const { lang } = useI18n();
   const query = useMenuQuery(sampleEndpoint, {});
   const caption = lang === 'ko' ? '${i.labelKo}' : '${i.labelEn}';
-${slotHelpers}  return <PlatformPage${i.pageType === 'analysis' ? ' density="compact"' : ''}>
+${slotHelpers}  return <PlatformPage>
     <QueryView query={query}>{() => <div className="space-y-3">
       <p className="t-caption text-text-muted">{caption}</p>
 ${slotsMarkup}

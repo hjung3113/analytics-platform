@@ -13,7 +13,7 @@
 - **Open**: Scope 부모·자식 상속, 최초 기본 Δ, timeDomain assertion 공급 근거, 다중 Site의 같은 날짜·교대일/영업일 등 각 절에 명시한 미결 입력. URL 메커니즘과 Site→room_name→StGroup→Equipment 관계의 Decided 상태 및 공개 필드명·enum의 Candidate 상태와 구별한다.
 - **Deferred**: 저장된 뷰 등 후속 구현 범위. 이 설계가 기능 제공 시점을 확정하지 않는다.
 
-§5~6, §8~9, §11, §17, §19의 책임·행동 규칙은 Decided다. §7 셸 구조·치수는 2026-10-04 [ADR-0011](../adr/0011-design-direction-feedbackops-shell.md)로 기능 화면 AppFrame 구조(레일 52px·사이드바 240/56px·상단 바 없음·페이지 머리 50px)로 Decided됐다. 치수 값의 단일 원본은 `packages/sdk/ui/src/styles/tokens.css`의 레이아웃 토큰이다(FeedbackOps `a8d768b8`에서 이전). §15 테이블 밀도(최소 32px)는 2026-09-21 `DESIGN.md` canonical 값으로 Decided다. §23 토큰 값의 원본은 ADR-0011로 Decided이며, 나머지 §23 정책·§25 반응형 정책은 아직 Candidate다. 구현 순서와 남은 일은 [`.planning/README.md`](../../.planning/README.md)가 관리하며 이 문서의 계약 상태와 별개다.
+§5~6, §8~9, §11, §17, §19의 책임·행동 규칙은 Decided다. §7 셸 구조·치수는 2026-10-04 [ADR-0011](../adr/0011-design-direction-feedbackops-shell.md)로 기능 화면 AppFrame 구조(레일 52px·사이드바 240/56px·상단 바 없음·페이지 머리 50px)로 Decided됐다. 치수 값의 단일 원본은 `packages/sdk/ui/src/styles/tokens.css`의 레이아웃 토큰이다(FeedbackOps `a8d768b8`에서 이전). §15 테이블 밀도(보통 크기 기준 32px, 크기별 값은 §15 Table size)는 2026-09-21 `DESIGN.md` canonical 값으로 Decided다. §23 토큰 값의 원본은 ADR-0011로 Decided이며, 나머지 §23 정책·§25 반응형 정책은 아직 Candidate다. 구현 순서와 남은 일은 [`.planning/README.md`](../../.planning/README.md)가 관리하며 이 문서의 계약 상태와 별개다.
 
 구현 순서·배치 시점은 Deferred이며, 이 문서의 계약은 각 기능이 구현될 때 따라야 할 조건이다. 와이어프레임에 표현됐다는 이유만으로 해당 기능의 구현이 승인되지는 않는다. 구체 셸 배치·사용자 작업·상태 시나리오는 `../wireframes/app-shell.md`가 관리한다.
 
@@ -70,7 +70,7 @@
 
 개별 메뉴는 플랫폼을 검증하는 대표 Consumer다. 첫 분석 화면이나 설비관리 화면을 잘 만드는 것 자체가 성공 기준이 아니라, 그 과정에서 만든 계약을 두 번째·세 번째 메뉴가 재사용할 수 있어야 한다.
 
-단, 플랫폼을 목표로 한다는 이유만으로 처음부터 범용 위젯 엔진·외부 플러그인 SDK·저코드 빌더를 만들지는 않는다. **메뉴에서 나온 책임은 실제 메뉴 2~3개에서 반복이 확인된 뒤에만 플랫폼 기능으로 승격**한다. §4 Platform Kernel 책임은 이 반복 기준의 대상이 아니다(§24 적용 범위).
+단, 플랫폼을 목표로 한다는 이유만으로 처음부터 범용 위젯 엔진·외부 플러그인 SDK·저코드 빌더를 만들지는 않는다. **메뉴에서 나온 책임은 실제 메뉴 2~3개에서 반복이 확인된 뒤에만 플랫폼 기능으로 승격**한다. §4 Platform Kernel 책임과 도메인을 모르는 범용 SDK 조각은 이 반복 기준의 대상이 아니다(§24 적용 범위).
 
 ---
 
@@ -167,7 +167,7 @@ Equipment / 기간 / Metric Version / Scope가 분석 중 사라지지 않아야
 
 한 화면에서만 쓰이는 복잡한 도메인 컴포넌트를 범용 프레임워크로 일반화하지 않는다.
 
-**적용 범위(Decided, 2026-09-22):** "실제 소비자 2–3곳에서 반복될 때 승격"은 메뉴에서 나온 패턴을 공통 컴포넌트로 추출할 때의 기준이다. §4 Platform Kernel 책임(App Shell, Menu Registry, 전역 Context, 딥링크, 권한·Scope, 감사, 메뉴 활용률 계측)은 그 정의상 플랫폼 기능이므로 메뉴 반복을 기다리지 않고 Kernel 준비 순서에 따라 판단한다.
+**적용 범위(Decided, 2026-09-22):** "실제 소비자 2–3곳에서 반복될 때 승격"은 메뉴에서 나온 패턴을 공통 컴포넌트로 추출할 때의 기준이다. §4 Platform Kernel 책임(App Shell, Menu Registry, 전역 Context, 딥링크, 권한·Scope, 감사, 메뉴 활용률 계측)은 그 정의상 플랫폼 기능이므로 메뉴 반복을 기다리지 않고 Kernel 준비 순서에 따라 판단한다. 도메인을 모르는 범용 조각(특정 제품의 데이터·문구·권한을 박지 않은 부품·동작)도 이 반복 기준의 대상이 아니다 — 재사용 여지가 있으면 지금 필요한 메뉴가 하나뿐이거나 없어도 SDK에 두고, 기존 소비자에 영향 없는 선택 옵션으로 넣는다([ADR-0052](../adr/0052-rich-content-stays-in-the-sdk.md) 보충 2026-11-01).
 
 ### Decorative Visualization
 

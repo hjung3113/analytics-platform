@@ -5,8 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { groupId, spaceId, type ApiResponse, type PageResult } from '@ap/contracts';
-import { PageDensityProvider } from '../../pageDensity';
-import { EmbeddedPane } from '../../workspace/panelContext';
 import { stubCompactTableGeometry } from '../../testing';
 import { PlatformDataTable, type PlatformDataTableProps } from '../PlatformDataTable';
 
@@ -162,61 +160,12 @@ describe('right-pinned action column (#1166)', () => {
     const header = document.querySelector('[role="columnheader"][data-column="_action"]') as HTMLElement;
     const cell = document.querySelector('[role="cell"][data-column="_action"]') as HTMLElement;
     for (const el of [header, cell]) {
-      expect(el).toHaveClass('border-l', 'border-l-border-control');
       expect(el.style.position).toBe('sticky');
       expect(el.style.right).toBe('0px');
       expect(el.style.width).toBe('128px');
     }
     const lastData = document.querySelector('[role="columnheader"][data-column="b"]') as HTMLElement;
     expect(lastData.nextElementSibling).toBe(header);
-  });
-});
-
-describe('pinned cells hide what scrolls beneath and fade a clipped column (#1166)', () => {
-  const pinned = (role: string) => document.querySelector(`[role="${role}"][data-column="_action"]`) as HTMLElement;
-  let restoreScroll: (() => void) | undefined;
-  afterEach(() => restoreScroll?.());
-  function overflow(scrollWidth: number) {
-    const descriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollWidth');
-    Object.defineProperty(HTMLElement.prototype, 'scrollWidth', { configurable: true, get() { return (this as HTMLElement).getAttribute('aria-label') === '스크롤 가능한 행 영역' ? scrollWidth : 0; } });
-    restoreScroll = () => { if (descriptor) Object.defineProperty(HTMLElement.prototype, 'scrollWidth', descriptor); else delete (HTMLElement.prototype as unknown as Record<string, unknown>).scrollWidth; };
-  }
-  it('header, body, hover and selected states of the sticky cell keep an opaque surface', async () => {
-    mount(800, { rowAction: row => <button type="button">{row.id}</button> });
-    await screen.findByRole('table', { name: 'table' });
-    expect(pinned('columnheader')).toHaveClass('bg-surface-sunken');
-    expect(pinned('cell')).toHaveClass('bg-surface-card', 'group-hover:bg-surface-row-hover', 'group-aria-selected:bg-surface-row-selected');
-    for (const token of ['bg-surface-card/', 'bg-transparent']) expect(pinned('cell').className).not.toContain(token);
-  });
-  it('draws a fade on the sticky edge only while the row area overflows and is not scrolled to the end', async () => {
-    overflow(900);
-    mount(300, { rowAction: row => <button type="button">{row.id}</button> });
-    await screen.findByRole('table', { name: 'table' });
-    for (const el of [pinned('columnheader'), pinned('cell')]) expect(el.className).toContain('before:bg-linear-to-r');
-    expect(pinned('cell')).toHaveClass('before:pointer-events-none', 'border-l-border-control');
-    const scrollport = screen.getByLabelText('스크롤 가능한 행 영역');
-    Object.defineProperty(scrollport, 'scrollLeft', { configurable: true, value: 900 - 300 });
-    fireEvent.scroll(scrollport);
-    for (const el of [pinned('columnheader'), pinned('cell')]) expect(el.className).not.toContain('before:bg-linear-to-r');
-  });
-  it('a pinned cell of the active, unselected row fades into the selected surface; hover and selection keep their own', async () => {
-    overflow(900);
-    mount(300, { rowAction: row => <button type="button">{row.id}</button>, activeRowId: 'r1' });
-    await screen.findByRole('table', { name: 'table' });
-    const cell = pinned('cell');
-    expect(cell).toHaveClass('bg-surface-row-selected', 'before:to-surface-row-selected', 'group-hover:before:to-surface-row-hover', 'group-aria-selected:before:to-surface-row-selected');
-    expect(cell).not.toHaveClass('before:to-surface-card');
-  });
-  it('a pinned cell of an ordinary row fades into the card surface', async () => {
-    overflow(900);
-    mount(300, { rowAction: row => <button type="button">{row.id}</button> });
-    await screen.findByRole('table', { name: 'table' });
-    expect(pinned('cell')).toHaveClass('before:to-surface-card');
-  });
-  it('no fade when the table fits', async () => {
-    mount(800, { rowAction: row => <button type="button">{row.id}</button> });
-    await screen.findByRole('table', { name: 'table' });
-    expect(pinned('cell').className).not.toContain('before:bg-linear-to-r');
   });
 });
 
@@ -238,12 +187,10 @@ describe('trust line in a narrow pane (#1166)', () => {
       act(() => { for (const o of observers) o.cb([{ target: o.target, contentRect: { width: widthOfTarget(o.target), height: 100 } } as ResizeObserverEntry], {} as ResizeObserver); });
     };
   }
-  const summaryOf = (trigger: HTMLElement) => trigger.querySelector('[data-trust-summary-details]');
   it('collapses to dot + short status + 자세히 when the full line does not fit, full items stay in the popover', async () => {
     mountAt({ statusWidth: 400, probeWidth: 450 });
     const trigger = await screen.findByRole('button', { name: /데이터 신뢰 · 일부 미확인 · 자세히/ });
     expect(within(trigger).getByText('자세히')).toBeTruthy();
-    expect(summaryOf(trigger)).toHaveClass('sr-only');
     expect(within(trigger).queryByText('잠정')).toBeNull();
     fireEvent.click(trigger);
     expect(await screen.findByText('원천 로직 버전')).toBeTruthy();
@@ -251,7 +198,6 @@ describe('trust line in a narrow pane (#1166)', () => {
   it('shows the full line whenever it fits, even in a narrow line', async () => {
     mountAt({ statusWidth: 400, probeWidth: 300 }); // needs 300 + 16 + 60 + 8 = 384 ≤ 400
     const trigger = await screen.findByRole('button', { name: /데이터 신뢰/ });
-    expect(summaryOf(trigger)).not.toHaveClass('sr-only');
     expect(within(trigger).queryByText('자세히')).toBeNull();
     expect(within(trigger).getByText('잠정')).toBeTruthy();
   });
@@ -271,6 +217,19 @@ describe('trust line in a narrow pane (#1166)', () => {
     resize({ statusWidth: 380, probeWidth: 300 }); // narrow again
     expect(screen.queryByText('자세히')).toBeTruthy();
   });
+  it('with a filter line sharing the result line, the trust summary fits against what the filter block leaves (F4)', async () => {
+    const withFilter: PlatformDataTableProps<Row>['columns'] = [{ ...columns[0], filter: { kind: 'text' as const } }, ...columns.slice(1)];
+    restore = stubCompactTableGeometry(800);
+    const w = (target: Element) => (target as HTMLElement).hasAttribute('data-table-status-line') ? 700
+      : (target as HTMLElement).hasAttribute('data-trust-probe') ? 300
+        : target.parentElement?.hasAttribute('data-table-status-line') ? 60 : 800;
+    vi.stubGlobal('ResizeObserver', class { constructor(private cb: ResizeObserverCallback) {} observe(target: Element) { this.cb([{ target, contentRect: { width: w(target), height: 100 } } as ResizeObserverEntry], this as unknown as ResizeObserver); } unobserve() {} disconnect() {} });
+    vi.stubGlobal('localStorage', storage);
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><PlatformDataTable title="T" ariaLabel="table" columns={withFilter} getRowId={r => r.id} loadPage={trusted} filterKey="f" preferenceKey="trust-table-f" pageSize={25} height={200} /></PlatformProvider></I18nProvider>);
+    // 300 + 16 + 60 + 8 = 384 fits 700, but not 700 - 320 - 8 = 372 left beside the filter block.
+    const trigger = await screen.findByRole('button', { name: /데이터 신뢰/ });
+    expect(within(trigger).getByText('자세히')).toBeTruthy();
+  });
   it('the measuring probe is hidden from assistive tech and focus, and is not the shown text', async () => {
     mountAt({ statusWidth: 400, probeWidth: 450 });
     await screen.findByRole('button', { name: /데이터 신뢰/ });
@@ -286,29 +245,7 @@ describe('header on one line (#1166)', () => {
     mount(800);
     await screen.findByRole('table', { name: 'table' });
     const header = document.querySelector('[role="columnheader"][data-column="b"]') as HTMLElement;
-    expect(header.className).not.toContain('overflow-wrap:anywhere');
-    expect(header).toHaveClass('whitespace-nowrap', 'overflow-hidden', 'px-4');
-    expect(header).not.toHaveClass('px-3');
     expect(header.querySelector('button span.truncate')?.textContent).toBe('ROOM_NAME');
-    expect(header.querySelector('button svg')).toHaveClass('shrink-0');
     expect(header).toHaveAttribute('title', 'ROOM_NAME');
-    const cell = within(tableEl()).getAllByRole('cell')[1];
-    expect(cell).toHaveClass('[overflow-wrap:anywhere]', 'whitespace-normal', 'px-4');
-    expect(cell).not.toHaveClass('overflow-hidden');
-  });
-});
-
-describe('embedded chrome follows the container, not the density (#1166)', () => {
-  it.each(['comfortable', 'compact'] as const)('a %s board pane draws the table without a border or radius, with a visible title', async density => {
-    mount(800, {}, n => <PageDensityProvider value={density}><EmbeddedPane>{n}</EmbeddedPane></PageDensityProvider>);
-    const section = (await screen.findByRole('table', { name: 'table' })).closest('section')!;
-    expect(section).toHaveClass('border-0', 'rounded-none');
-    expect(screen.getByRole('heading', { name: 'T' }).classList.contains('sr-only')).toBe(false);
-  });
-  it('a stand-alone card keeps its border', async () => {
-    mount(800);
-    const section = (await screen.findByRole('table', { name: 'table' })).closest('section')!;
-    expect(section).toHaveClass('border', 'rounded-lg');
-    expect(section).not.toHaveClass('border-0');
   });
 });

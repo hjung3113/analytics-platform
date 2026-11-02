@@ -9,6 +9,10 @@ export { chartTheme, EChart, token, type EChartProps } from './chart/EChart';
 export * from './filters/PageFilterBar';
 export * from './table/PlatformDataTable';
 export * from './table/tableUrlWarning';
+export type { FilterValueCheck, LegacyFilterKey, TableFilterOption, TableFilterProblem, TableFilterRead } from './table/tableFilterUrl';
+export { FILTER_OP_LABELS } from './table/filterOps';
+export { instantToLocalField, localFieldToInstant, type LocalFieldFailure, type LocalFieldResult } from './table/zonedInstant';
+export type { InstantEntry } from './table/filterFields';
 export { RecoverButton } from './state/RecoverButton';
 export { focusPageFallback } from './state/pageFocus';
 export { checkWorkbook, toWorkbookXlsx, WorkbookError, WORKBOOK_LIMITS, type WorkbookCell, type WorkbookErrorCode, type WorkbookSheet } from './table/workbook';
@@ -19,7 +23,6 @@ export { RowAction, type RowActionProps } from './drawer/RowAction';
 export * from './state/StatCard';
 // Explicit: OutcomeContent stays package-internal (QueryView and PlatformDataTable draw through it; no new public contract).
 export { LoadingBlock, OutcomeView, QueryView, StateMessage } from './StateView';
-export { useManagementFilters, type FilterDraft, type ManagementFiltersOptions } from './filters/useFilterDraft';
 
 export { ManagementLayout, type ManagementLayoutProps } from './archetypes/ManagementLayout';
 

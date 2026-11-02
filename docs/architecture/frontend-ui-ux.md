@@ -18,7 +18,7 @@
 | 스타일링 | **Tailwind CSS v4** | Tailwind CSS v4(CSS-first `@theme`). 기능 화면도 v4다(옛 저장소 이슈 #743, ADR-0058). 플랫폼은 `@ap/ui/styles.css`에서 `@ap/feature-ui/styles/*`를 import한다([ADR-0010](../adr/0010-feedbackops-design-system-shared-on-tailwind-v4.md)·[0011](../adr/0011-design-direction-feedbackops-shell.md)) | 사용 중(Tailwind 4.3, `@theme`) |
 | UI 컴포넌트 | **shadcn/ui + Radix**(`@ap/ui` 소유) + 플랫폼 공용 부품(`@ap/components`) | 디자인 시스템 primitive는 `@ap/ui`가 소유한다([ADR-0046](../adr/0046-design-system-source-moves-to-platform-whole-package.md), ADR-0050). 플랫폼 자체: `StatusBadge`·`DetailPanelSlot` | 사용 중 — `@ap/ui`와 `@ap/components`가 플랫폼 UI를 제공한다 |
 | 라우팅 | TanStack Router | 기능과 동일. 타입 있는 검색 파라미터로 06 §6.4 URL 계약을 타입 안전하게 관리하되, 버전·폐기 필드·미지원 필터 처리는 이 문서 §6.4 메커니즘을 별도로 구현해야 한다 | **미도입** — Kernel 자체 History + URL codec이 06 §6.4를 소유(Unit A부터 알려진 divergence). 도입·미채택 확정은 Open(05) |
-| 서버 상태 | TanStack Query | 기능과 동일 | **미도입** — Kernel `usePlatformQuery`·`useMenuQuery`가 조회 수명주기 소유. 5분 폴링·계산 세대 재검증(#165)을 만들 때 Kernel 내부 구현 후보(메뉴 비노출) |
+| 서버 상태 | TanStack Query | 기능과 동일 | **Kernel 내부 채택** — Kernel `usePlatformQuery`·`useMenuQuery` 등 조회 훅의 수명주기가 `@tanstack/react-query` 5.62.7로 돈다([ADR-0086](../adr/0086-kernel-query-engine-tanstack.md)). 메뉴에는 노출하지 않는다(lint `denyQueryEngine`). 5분 폴링·계산 세대 재검증(#165)은 아직 미구현 |
 | UI 상태 | Zustand | 기능과 동일 | **미도입** — 전역 상태는 Kernel Context + URL로 충분 |
 | Form | react-hook-form + zod (+ `@hookform/resolvers`) | 기능과 동일 | **미도입** — 쓰기 폼(권한 부여 등, #98 뒤)이 생길 때 |
 | 아이콘 | lucide-react | 기능과 동일(버전은 다르다: 플랫폼 ^1.48 / 기능 0.469, 정렬은 후속). 2026-09-22 grilling에서 이미 Candidate→Decided로 확정된 것과 일치 | 사용 중 |
@@ -33,9 +33,9 @@
 
 **아직 Candidate로 남는 것**: 대시보드 편집(react-grid-layout, Deferred 기능이라 채택 보류), 정확한 라이브러리 버전 고정(실제 구현 착수 시 재검증), 기능 컴포넌트/토큰 이식의 세부 매핑(실제 포팅 작업에서 확정).
 
-**결정과 코드의 차이(2026-10-05 확인):** 위 표의 "현재 코드" 열이 실제 의존(`package.json`)과 구현이다. 결정 자체는 바꾸지 않았다. 라우팅·UI 상태처럼 Kernel이 자체 구현으로 대신하는 항목을 "미채택"으로 확정할지는(서버 상태 TanStack Query는 미채택 후보가 아니라 #165의 Kernel 내부 후보) [05 Open](../overview/roadmap-and-open-questions.md)에 올렸다. 새 라이브러리는 그것이 필요한 기능을 만들 때 Kernel·공통 컴포넌트 **안**에 넣고, 메뉴에 노출하지 않는다.
+**결정과 코드의 차이(2026-10-05 확인):** 위 표의 "현재 코드" 열이 실제 의존(`package.json`)과 구현이다. 결정 자체는 바꾸지 않았다. 라우팅·UI 상태처럼 Kernel이 자체 구현으로 대신하는 항목을 "미채택"으로 확정할지는(서버 상태 TanStack Query는 미채택이 아니라 Kernel 내부 엔진으로 채택됐다, [ADR-0086](../adr/0086-kernel-query-engine-tanstack.md)) [05 Open](../overview/roadmap-and-open-questions.md)에 올렸다. 새 라이브러리는 그것이 필요한 기능을 만들 때 Kernel·공통 컴포넌트 **안**에 넣고, 메뉴에 노출하지 않는다.
 
-Node/NestJS는 프론트와의 언어 통일·SQL-first 관점에서 비교했던 대안이다. 현재 백엔드는 FastAPI 방향이 Decided이며 세부 버전·구성은 Candidate다([05 결정 상태](../overview/roadmap-and-open-questions.md), [03 백엔드 스택](backend-stack.md)).
+Node/NestJS는 프론트와의 언어 통일·SQL-first 관점에서 비교했던 대안이다. 현재 백엔드는 Fastify 코어 서버(유일한 입구) + 내부 FastAPI 분석 데이터 서버의 이중 구조가 Decided이며([ADR-0095](../adr/0095-dual-backend-fastify-core-fastapi-analytics.md)) 세부 버전·구성은 Candidate다([05 결정 상태](../overview/roadmap-and-open-questions.md), [03 백엔드 스택](backend-stack.md)).
 
 ## 그리드·차트·데이터 도구 검토 (2026-10-02)
 
@@ -58,7 +58,7 @@ Node/NestJS는 프론트와의 언어 통일·SQL-first 관점에서 비교했�
 | **Perspective** | Apache-2.0 | 보류 — 자유 피벗의 무료 1순위 | 아래 "Perspective 사용 방식". 요구 확인 뒤 POC(#163) |
 | Apache ECharts | Apache-2.0 | **유지** | 이미 채택·구현(지연 청크 #48). 설비 상태 타임라인(custom range-bar)·히트맵·박스플롯도 ECharts로. 단 메뉴 2–3곳에서 반복되기 전까지 각 메뉴의 도메인 컴포넌트(06 §24) |
 | Plotly.js · uPlot | MIT | 보류 | 통계 trace·고빈도 파형 요구가 생길 때. 엔진을 미리 늘리지 않는다 |
-| TanStack Query | MIT | Kernel 내부 후보 | 위 스택 표 "서버 상태" 행, #165 |
+| TanStack Query | MIT | **Kernel 내부 채택**(메뉴 비노출) | [ADR-0086](../adr/0086-kernel-query-engine-tanstack.md), 위 스택 표 "서버 상태" 행 |
 | Polars · Pandera | MIT | 보류 | [03](backend-stack.md) SQL-first — API 요청 경로에서 데이터프레임 금지. mart는 지금 pg_cron SQL이라 쓸 곳이 없다. 원천 처리 검증은 파서 저장소 책임이라 Pandera를 플랫폼에 들이면 역할이 겹친다 |
 | DuckDB + Parquet | MIT | 보류 | 병목이 입증될 때 비교(리서치 [SYNTHESIS](../research/platform-build-2026-09-22/SYNTHESIS.md)) |
 
@@ -96,7 +96,7 @@ Perspective(조사 시점 최신 5.x — v5.5.1, 2026-09-18)는 C++ 엔진을 WA
 
 ### 개발 에이전트 스킬
 
-FastAPI 공식·Postgres Best Practices·React Best Practices를 `.agents/skills`로 들인다(#162). AG Grid 스킬은 유료 전환 때, shadcn 스킬은 필요해질 때, TanStack Intent는 Query 도입 때, Polars 스킬은 채택 때. webapp-testing은 Playwright E2E·ego-browser가 이미 있어 넣지 않는다. 외부 스킬은 제품 계약을 덮어쓰지 않는다.
+개발 에이전트 스킬의 원본·활성 상태는 [에이전트 자산 안내](../../.agents/README.md#run-and-maintenance)를 따른다. FastAPI·Postgres 사본은 #155 착수 전까지 `.agents/skills-off/`에 두고, React Best Practices·shadcn은 전역 사본을 쓴다. shadcn의 적용 범위는 기능 화면이다. AG Grid 스킬은 유료 전환 때, Polars 스킬은 채택 때. TanStack Intent는 아직 들이지 않았다(Query는 Kernel 안에 이미 있다, [ADR-0086](../adr/0086-kernel-query-engine-tanstack.md)). webapp-testing은 Playwright E2E·ego-browser가 이미 있어 넣지 않는다. 외부 스킬은 제품 계약을 덮어쓰지 않는다.
 
 출처: [AG Grid Community vs Enterprise](https://www.ag-grid.com/react-data-grid/community-vs-enterprise/), [AG Grid Fill Handle(Enterprise)](https://www.ag-grid.com/react-data-grid/cell-selection-fill-handle/), [AG Grid Excel Export](https://www.ag-grid.com/react-data-grid/excel-export/), [AG Grid 수식·호환성](https://www.ag-grid.com/react-data-grid/formulas/), [Glide Data Grid](https://github.com/glideapps/glide-data-grid), [Handsontable 라이선스](https://handsontable.com/docs/react-data-grid/license-key/), [HyperFormula 라이선스](https://hyperformula.handsontable.com/docs/guide/license-key.html), [Univer](https://github.com/dream-num/univer), [SpreadJS 라이선스](https://developer.mescius.com/spreadjs/licensing), [Perspective](https://github.com/perspective-dev/perspective), [Perspective Virtual Servers](https://perspective-dev.github.io/guide/explanation/virtual_servers.html), [Apache ECharts](https://github.com/apache/echarts), [Plotly.js](https://github.com/plotly/plotly.js), [uPlot](https://github.com/leeoniya/uPlot), [Polars](https://github.com/pola-rs/polars), [Pandera](https://github.com/unionai-oss/pandera), [DuckDB 동시성](https://duckdb.org/docs/current/connect/concurrency).
 

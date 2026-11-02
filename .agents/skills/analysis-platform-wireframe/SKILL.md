@@ -1,6 +1,6 @@
 ---
 name: analysis-platform-wireframe
-description: Orchestrates the UI/UX workflow for this analysis platform (data-heavy dashboards, admin tools, internal enterprise screens) — Requirements → IA → Conceptual Contract → Wireframe → Open Decisions. Design System, Prototype, Visual Polish and implementation review are optional gated follow-ups. Use when asked to design, plan, wireframe, or spec a new page/feature/screen for this project, before any JSX/HTML is written. Does not replace the other design skills — it sequences them and stops each one at its own boundary. Not for marketing/landing pages.
+description: Sequences the UI/UX workflow for this analysis platform (dashboards, admin tools, internal screens): Requirements → IA → Conceptual Contract → Wireframe → Open Decisions; later stages are gated. Use before any JSX/HTML when asked to design, plan, wireframe or spec a screen. Not for marketing pages.
 ---
 
 # Analysis Platform Wireframe
@@ -11,7 +11,7 @@ Read `references/wireframe-rules.md` before Step 2 — it has the wireframe temp
 
 ## Why this exists
 
-Four design skills are installed in this project and their scopes overlap on paper:
+This workflow names four design skills. ui-ux-pro-max is active locally; interface-design, frontend-design and web-design-guidelines are parked in .agents/skills-off/. For a gated stage that needs one, use an available global copy or read its parked SKILL.md explicitly; see ../../README.md (Run and Maintenance). Their scopes overlap on paper:
 
 | Skill | Owns | Does NOT own |
 |---|---|---|

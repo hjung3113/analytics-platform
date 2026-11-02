@@ -212,11 +212,18 @@ describe('page archetype skeletons (06 §12, #104)', () => {
     expect(pageOf('analysis')).toContain('<AnalysisLayout');
   });
 
-  it('only the analysis page declares compact density (06 §12.2, #1166)', () => {
-    for (const t of PAGE_TYPES) {
-      if (t === 'analysis') expect(pageOf(t)).toContain('<PlatformPage density="compact">');
-      else expect(pageOf(t)).not.toContain('density=');
-    }
+  it('the management page has the R2 shape: toolbar search slot, no filter rail (node 1217f, ADR-0105)', () => {
+    const page = pageOf('management');
+    expect(page).toContain('table={<>');
+    expect(page).not.toContain('search={');
+    expect(page).not.toContain('table={search');
+    expect(page).not.toMatch(/\sfilter=\{/);
+    expect(page).not.toContain('orientation="column"');
+    expect(page).not.toContain('filterSlot');
+  });
+
+  it('no page declares density — compact is the SDK default on every page (06 §12, #1217)', () => {
+    for (const t of PAGE_TYPES) expect(pageOf(t)).not.toContain('density=');
   });
 
   it('a slot label with an apostrophe or backslash still yields a parseable string literal', () => {
@@ -348,7 +355,7 @@ it('generates version metadata and a matching changelog', () => {
   const files = renderFiles(INPUTS, '2026-01-02');
   const pkg = JSON.parse(files.find(f => f.relPath === 'package.json')!.content) as { version: string; ap: { sdk: string } };
   expect(pkg.version).toBe('0.1.0');
-  expect(pkg.ap.sdk).toBe('>=0.24.0 <0.25.0');
+  expect(pkg.ap.sdk).toBe('>=0.26.0 <0.27.0');
   expect(files.find(f => f.relPath === 'CHANGELOG.md')?.content).toMatch(/^# @ap\/menu-gen-probe 변경 기록[\s\S]*^## 0\.1\.0 — 2026-01-02$/m);
 });
 

@@ -51,6 +51,12 @@ beforeEach(() => { Object.defineProperty(HTMLElement.prototype, 'scrollIntoView'
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe('chart catalog route and lifetime', () => {
+  it('drops the visible 지원 N/8 tag but keeps the support counts in the tab name', async () => {
+    mount();
+    const tab = await screen.findByRole('tab', { name: /^선 / });
+    expect(tab.textContent).not.toMatch(/지원\s*\d+\/8/);
+    expect(tab.getAttribute('aria-label')).toMatch(/지원 \d+ · 조건부 \d+ · 미지원 \d+/);
+  });
   it('restores a kind, uses shared tab keyboard navigation, and falls back safely for unknown values', async () => {
     mount('nonsense');
     const tab = await screen.findByRole('tab', { name: /^선 / });

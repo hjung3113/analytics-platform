@@ -2,8 +2,8 @@ import { House } from 'lucide-react';
 import { describe, expect, it } from 'vitest';
 import { createRegistry } from '@ap/kernel';
 import { noContext, testSpace } from '@ap/kernel/testing';
-import { emptyGlobal, groupId, parseQuery, spaceId, type GlobalContext } from '@ap/contracts';
-import { buildShareLink } from '../shareLink';
+import { emptyGlobal, encodeFilterParam, filterParamLimit, groupId, parseQuery, spaceId, type GlobalContext } from '@ap/contracts';
+import { SHARE_LINK_MAX_LENGTH, buildShareLink } from '../shareLink';
 
 const menu = (id: string, path: string) => ({
   id, group: groupId('overview'), primary: id === 'home', label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, permission: 'platform:view' as const,
@@ -55,7 +55,30 @@ describe('buildShareLink', () => {
     expect(buildShareLink({ ...base, kind: 'conditions', ...over })).toEqual({ ok: false, reason });
   });
 
+  it('conditions carry hidden page pairs (the copied link only); the bound counts them', () => {
+    const hidden = { ...base, page: [['q', 'x'], ['filter', 'a:1,2'], ['filter', 'b']] as [string, string][] };
+    const result = buildShareLink({ ...hidden, kind: 'conditions' });
+    expect(result.ok && parseQuery(new URL(result.href).search, ['q', 'filter'], { repeated: ['filter'] }).page).toEqual(hidden.page);
+    const short = buildShareLink({ ...base, kind: 'conditions' });
+    expect(short.ok).toBe(true);
+    const limit = short.ok ? short.href.length + 5 : 0;
+    expect(buildShareLink({ ...base, kind: 'conditions', maxLength: limit }).ok).toBe(true);
+    expect(buildShareLink({ ...hidden, kind: 'conditions', maxLength: limit })).toEqual({ ok: false, reason: 'too-long' });
+    expect(buildShareLink({ ...hidden, kind: 'menu' })).toEqual({ ok: true, href: 'https://app.test/base/mars/home' });
+  });
+
   it('menu over the bound is also refused', () => {
     expect(buildShareLink({ ...base, kind: 'menu', maxLength: 5 })).toEqual({ ok: false, reason: 'too-long' });
   });
+
+  it.each([['Korean', '가'], ['tilde', '~'], ['percent', '%'], ['hash', '#'], ['slash', '/'], ['backslash', '\\'], ['punctuation', "!'()*"]])(
+    'a %s filter condition filled to the codec budget (ADR-0105) still builds a share link under the limit', (_name, ch) => {
+      let n = 0;
+      const make = (count: number) => encodeFilterParam({ id: 'name', op: 'contains', value: ch.repeat(count) });
+      while (filterParamLimit([make(n + 1)]) === null) n++;
+      const page: [string, string][] = [['q', '검색어'.repeat(10)], ['filter', make(n)]];
+      const result = buildShareLink({ ...base, kind: 'conditions', page });
+      expect(result.ok).toBe(true);
+      expect((result as { href: string }).href.length).toBeLessThan(SHARE_LINK_MAX_LENGTH);
+    });
 });

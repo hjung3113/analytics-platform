@@ -27,6 +27,18 @@ describe('exportColumns (#173)', () => {
   });
 });
 
+describe('exportColumns follows the saved column order (#556a)', () => {
+  it('rest columns follow the saved order; a missing column keeps its declared place; an empty order is declaration order', () => {
+    expect(exportColumns(columns, { visibility: {}, pinning: {}, order: ['flag', 'id', 'label', 'count'] }).map(c => c.id)).toEqual(['flag', 'id', 'label', 'count']);
+    expect(exportColumns(columns, { visibility: {}, pinning: {}, order: ['count', 'id', 'flag'] }).map(c => c.id)).toEqual(['count', 'id', 'label', 'flag']);
+    expect(exportColumns(columns, { visibility: {}, pinning: {}, order: [] }).map(c => c.id)).toEqual(['id', 'label', 'count', 'flag']);
+  });
+  it('pinned columns come first in the saved order, hidden ones stay out', () => {
+    const out = exportColumns(columns, { visibility: { label: false }, pinning: { left: ['id', 'flag'] }, order: ['flag', 'count', 'id', 'label'] });
+    expect(out.map(c => c.id)).toEqual(['flag', 'id', 'count']);
+  });
+});
+
 describe('exportCell coercion (#173)', () => {
   it('empty for null/undefined/NaN/±Infinity, TRUE/FALSE for booleans, number stays number, string stays string', () => {
     const row: Row = { id: 'a', label: null, count: 3, flag: true };

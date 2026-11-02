@@ -14,14 +14,14 @@ export const manifests: MenuEntry[] = [
     id: 'admin-roles', primary: true, group: GROUP, label: { ko: '권한/역할 관리', en: 'Roles & access' },
     description: { ko: '메뉴 × 데이터 Scope 권한', en: 'Menu × data-scope permissions' },
     path: '/admin/roles', icon: Users, permission: 'console:access', requiresScope: false, pageType: 'management', context: contextCapabilities(), features: NO_FEATURES,
-    pageKeys: ['role', 'permission', 'sort', 'page', 'focus', 'tab'],
+    pageKeys: ['filter', 'sort', 'page', 'focus', 'tab'], repeatedPageKeys: ['filter'], hiddenPageKeys: ['filter'],
     component: lazy(() => import('./pages/AccessDirectory')),
   },
   {
     id: 'admin-audit', group: GROUP, label: { ko: '변경 감사', en: 'Audit trail' },
     description: { ko: '전역 Audit Trail (각 상세에도 탭으로 노출)', en: 'Global audit trail (also a tab on each detail)' },
     path: '/admin/audit', icon: FileClock, permission: 'console:access', requiresScope: false, pageType: 'management', context: contextCapabilities(), features: NO_FEATURES,
-    pageKeys: ['type', 'actor', 'action', 'source', 'fromAt', 'toAt', 'targetId', 'sort', 'page'],
+    pageKeys: ['filter', 'sort', 'page'], repeatedPageKeys: ['filter'], hiddenPageKeys: ['filter'],
     component: lazy(() => import('./pages/AuditTrail')),
   },
   {

@@ -4,14 +4,15 @@ import { readLocalStorage, writeLocalStorage } from '@ap/ui';
 import type { JsonValue } from '@ap/contracts';
 import { usePreferenceController, usePreferenceState, type PreferenceController } from '@ap/kernel';
 
-export type Preferences = { sizing: ColumnSizingState; visibility: VisibilityState; pinning: ColumnPinningState };
-const defaults: Preferences = { sizing: {}, visibility: {}, pinning: { left: [], right: [] } };
-function sanitize(p: { sizing?: object; visibility?: object; pinning?: { left?: unknown } } | null): Preferences {
+export type Preferences = { sizing: ColumnSizingState; visibility: VisibilityState; pinning: ColumnPinningState; /** Column ids in display order; `[]` = declaration order (#556a). */ order: string[] };
+const defaults: Preferences = { sizing: {}, visibility: {}, pinning: { left: [], right: [] }, order: [] };
+function sanitize(p: { sizing?: object; visibility?: object; pinning?: { left?: unknown }; order?: unknown } | null): Preferences {
   if (!p || typeof p !== 'object') return defaults;
   return {
     sizing: Object.fromEntries(Object.entries(p.sizing || {}).filter(([, v]) => typeof v === 'number' && v >= 60 && v <= 600)) as ColumnSizingState,
     visibility: Object.fromEntries(Object.entries(p.visibility || {}).filter(([, v]) => typeof v === 'boolean')) as VisibilityState,
     pinning: { left: Array.isArray(p.pinning?.left) ? p.pinning.left.filter((v: unknown) => typeof v === 'string') : [], right: [] },
+    order: Array.isArray(p.order) ? p.order.filter((v: unknown): v is string => typeof v === 'string') : [],
   };
 }
 function readPreferences(key: string): Preferences {
@@ -100,7 +101,8 @@ export function useColumnPreferences(preferenceKey: string) {
     const next = typeof u === 'function' ? u({ left: pr.pinning.left ?? [], right: actionPinned ? ['_action'] : [] }) : u;
     return { ...pr, pinning: { left: (next.left ?? []).filter(id => id !== '_action'), right: [] } };
   }); };
-  /** Visibility, width and pin back to the column defaults; sort, page and selection stay. */
-  const resetPreferences = () => { touch(); write.current = 'now'; setPreferences({ sizing: {}, visibility: {}, pinning: { left: [], right: [] } }); };
-  return { preferences, onColumnSizingChange, onColumnVisibilityChange, onColumnPinningChange, resetPreferences };
+  const onColumnOrderChange = (order: string[]) => { touch(); write.current = 'now'; setPreferences(pr => ({ ...pr, order })); };
+  /** Visibility, width, pin and order back to the column defaults; sort, page and selection stay. */
+  const resetPreferences = () => { touch(); write.current = 'now'; setPreferences({ sizing: {}, visibility: {}, pinning: { left: [], right: [] }, order: [] }); };
+  return { preferences, onColumnSizingChange, onColumnVisibilityChange, onColumnPinningChange, onColumnOrderChange, resetPreferences };
 }

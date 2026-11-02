@@ -96,7 +96,7 @@ HoverCard | const | const HoverCard: React.FC<HoverCardPrimitive.HoverCardProps>
 HoverCardContent | const | const HoverCardContent: React.ForwardRefExoticComponent<Omit<HoverCardPrimitive.HoverCardContentProps & React.RefAttributes<HTMLDivElement>, "ref"> & React.RefAttributes<HTMLDivElement>>
 HoverCardTrigger | const | const HoverCardTrigger: React.ForwardRefExoticComponent<HoverCardPrimitive.HoverCardTriggerProps & React.RefAttributes<HTMLAnchorElement>>
 Input | const | const Input: React.ForwardRefExoticComponent<@ap/ui#InputProps & React.RefAttributes<HTMLInputElement>>
-InputProps | interface | interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> { }
+InputProps | interface | interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> { inputSize?: 'default' | 'toolbar'; }
 KeyboardShortcut | function | function KeyboardShortcut({ children, className, testId }: @ap/ui#KeyboardShortcutProps): React.JSX.Element
 KeyboardShortcutProps | interface | interface KeyboardShortcutProps { children: React.ReactNode; className?: string; testId?: string; }
 Label | const | const Label: React.ForwardRefExoticComponent<Omit<LabelPrimitive.LabelProps & React.RefAttributes<HTMLLabelElement>, "ref"> & React.RefAttributes<HTMLLabelElement>>
@@ -196,7 +196,7 @@ StatusBadgeTone | type | type StatusBadgeTone = 'danger' | 'internal-doing' | 'i
 SurfacePauseScope | function | function SurfacePauseScope({ paused, children }: { children: ReactNode; paused: boolean; }): import("react").JSX.Element
 Tabs | const | const Tabs: React.ForwardRefExoticComponent<TabsPrimitive.TabsProps & React.RefAttributes<HTMLDivElement>>
 TabsContent | const | const TabsContent: React.ForwardRefExoticComponent<Omit<TabsPrimitive.TabsContentProps & React.RefAttributes<HTMLDivElement>, "ref"> & React.RefAttributes<HTMLDivElement>>
-TabsList | const | const TabsList: React.ForwardRefExoticComponent<Omit<Omit<import("@radix-ui/react-tabs").TabsListProps & React.RefAttributes<HTMLDivElement>, "ref"> & React.RefAttributes<HTMLDivElement>, "ref"> & React.RefAttributes<HTMLDivElement>>
+TabsList | const | const TabsList: React.ForwardRefExoticComponent<Omit<Omit<import("@radix-ui/react-tabs").TabsListProps & React.RefAttributes<HTMLDivElement>, "ref"> & React.RefAttributes<HTMLDivElement>, "ref"> & { moreLabel?: string; overflow?: "menu" | "scroll"; } & React.RefAttributes<HTMLDivElement>>
 TabsListBase | const | const TabsListBase: React.ForwardRefExoticComponent<Omit<TabsPrimitive.TabsListProps & React.RefAttributes<HTMLDivElement>, "ref"> & React.RefAttributes<HTMLDivElement>>
 TabsTrigger | const | const TabsTrigger: React.ForwardRefExoticComponent<Omit<Omit<import("@radix-ui/react-tabs").TabsTriggerProps & React.RefAttributes<HTMLButtonElement>, "ref"> & React.RefAttributes<HTMLButtonElement>, "ref"> & React.RefAttributes<HTMLButtonElement>>
 TabsTriggerBase | const | const TabsTriggerBase: React.ForwardRefExoticComponent<Omit<TabsPrimitive.TabsTriggerProps & React.RefAttributes<HTMLButtonElement>, "ref"> & React.RefAttributes<HTMLButtonElement>>
@@ -267,7 +267,7 @@ ToggleGroupAppearance | type | type ToggleGroupAppearance = 'default' | 'filter'
 ToggleGroupItemAppearance | type | type ToggleGroupItemAppearance = 'default' | 'selected-filter'
 ToggleGroupItemProps | interface | interface ToggleGroupItemProps extends React.ComponentPropsWithoutRef<typeof ToggleGroupPrimitive.Item> { appearance?: ToggleGroupItemAppearance; }
 ToggleGroupProps | type | type ToggleGroupProps = React.ComponentPropsWithoutRef<typeof ToggleGroupPrimitive.Root> & VariantProps<typeof toggleGroupItemVariants> & { appearance?: ToggleGroupAppearance; }
-TooltipContentProps | interface | interface TooltipContentProps extends React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content> { size?: 'default' | 'sm'; }
+TooltipContentProps | interface | interface TooltipContentProps extends React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content> { portal?: boolean; size?: 'default' | 'sm'; }
 UISurface | type | type UISurface = (typeof UI_SURFACES)[number]
 UI_SURFACES | const | const UI_SURFACES: readonly [ "voc-description", "reporter-reply", "public-update", "internal-comment" ]
 sheetVariants | const | const sheetVariants: (props?: ({ side?: "bottom" | "left" | "right" | "top" | null | undefined; } & import("class-variance-authority/types").ClassProp) | undefined) => string

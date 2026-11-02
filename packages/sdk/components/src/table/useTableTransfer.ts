@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import type { RowSelectionState } from '@tanstack/react-table';
-import type { ApiResponse, Capability, ContextKey, PageSort } from '@ap/contracts';
+import type { ApiResponse, Capability, ColumnFilter, ColumnFilterSpec, ContextKey, PageSort } from '@ap/contracts';
 import { useEquipmentAxes, useI18n, usePlatform, useQueryContext } from '@ap/kernel';
 import { isProductionEnv } from '@ap/ui';
 import type { PlatformColumn } from './PlatformDataTable';
@@ -12,6 +12,9 @@ import {
   type ExportFormat, type ExportScopeKind,
 } from './tableMessages';
 import type { Preferences } from './useColumnPreferences';
+import type { TableExportRequest } from './useTableSelection';
+import { filterInfoRows } from './columnFilters';
+import type { InstantEntry } from './filterFields';
 
 /**
  * Row copy (#174) clipboard path, by feature detection — never by `.catch`: in an insecure context (in-house HTTP)
@@ -29,7 +32,7 @@ class ClipboardRejected extends Error { constructor(readonly cause: unknown) { s
 type TransferInput<T> = {
   columns: PlatformColumn<T>[];
   getRowId: (row: T) => string;
-  exportRows: ((request: { scope: { kind: 'selected'; ids: string[] } | { kind: 'filtered' }; sorting: PageSort[] }, signal: AbortSignal) => Promise<ApiResponse<T[]>>) | undefined;
+  exportRows: ((request: TableExportRequest, signal: AbortSignal) => Promise<ApiResponse<T[]>>) | undefined;
   /** Menu note appended to the export toast. */
   menuNote: string | undefined;
   exportFilterSummary: readonly (readonly [string, string])[] | undefined;
@@ -37,6 +40,12 @@ type TransferInput<T> = {
   canExport: boolean;
   selectedIds: string[];
   selection: RowSelectionState;
+  /** A whole-result selection (#556c): exported as the `all` scope; copy is unavailable (it reads loaded rows only). */
+  allSelection: { excludedIds: string[]; count: number } | null;
+  /** Active column filters: sent with a `filtered` export and listed on the 조회 정보 sheet (#556b). */
+  columnFilters: ColumnFilter[];
+  /** Filterable fields (columns and non-column) — the one label source of the XLSX 조회 정보 `필터 · <label>` rows. */
+  filterFields: readonly { id: string; label: string; spec: ColumnFilterSpec; entry?: InstantEntry }[];
   /** Rows of the shown page, for the loaded-rows-only copy path. */
   loadedRows: T[];
   /** Total of the shown result; only meaningful when `resultOk`. */
@@ -86,17 +95,20 @@ export function useTableTransfer<T>(input: TransferInput<T>) {
   // size guard, file and toasts live here.
   async function runExport(format: ExportFormat, kind: ExportScopeKind) {
     if (exportAbort.current) return; // busy guard (#173 review P3-3): the trigger uses aria-disabled, so re-entry is possible
-    const scope = kind === 'selected' ? { kind: 'selected' as const, ids: selectedIds } : { kind: 'filtered' as const };
+    const allSelection = kind === 'selected' ? input.allSelection : null;
+    const scope: TableExportRequest['scope'] = allSelection ? { kind: 'all', excludedIds: allSelection.excludedIds }
+      : kind === 'selected' ? { kind: 'selected', ids: selectedIds } : { kind: 'filtered' };
     const controller = new AbortController();
     exportAbort.current = controller;
     setExporting(true);
-    const startTarget = exportTarget(kind, kind === 'selected' ? selectedIds.length : input.resultOk ? input.total : null, lang);
+    const startTarget = exportTarget(kind, kind === 'selected' ? (allSelection ? allSelection.count : selectedIds.length) : input.resultOk ? input.total : null, lang);
     setExportNote(exportPreparingNote(startTarget, format, lang));
     // Only this export's controller cancels (#186, like the Kernel #183): an exportRows that rejects with its
     // own DOMException('…','AbortError') (internal timeout) is a failure, so the failure toast must appear.
     const cancelled = () => controller.signal.aborted;
     try {
-      const response = await input.exportRows!({ scope, sorting: activeSorting }, controller.signal);
+      const filters = scope.kind !== 'selected' && input.columnFilters.length > 0 ? input.columnFilters : undefined;
+      const response = await input.exportRows!({ scope, sorting: activeSorting, ...(filters ? { filters } : {}) }, controller.signal);
       if (controller.signal.aborted) return;
       if (response.outcome !== 'ok' && response.outcome !== 'empty') {
         const refusalOf = exportRefusal(response.outcome, response, lang);
@@ -131,7 +143,7 @@ export function useTableTransfer<T>(input: TransferInput<T>) {
       const now = new Date();
       const pad = (n: number) => String(n).padStart(2, '0');
       const stamp = fileStamp(now);
-      const target = exportTarget(scope.kind, rows.length, lang);
+      const target = exportTarget(kind, rows.length, lang);
       let blob: Blob;
       if (format === 'csv') {
         blob = new Blob([toCsv(headers, cells)], { type: 'text/csv;charset=utf-8' });
@@ -146,11 +158,12 @@ export function useTableTransfer<T>(input: TransferInput<T>) {
         const appliedContext = input.exportContext ?? menu?.context;
         const info: [string, string | number][] = [
           [L.menu, menu?.id ?? ''],
-          [L.target, exportTarget(scope.kind, rows.length, lang)],
+          [L.target, exportTarget(kind, rows.length, lang)],
           [L.exportedAt, `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`],
           ...(menu?.requiresScope ? [['Scope', global.scopeId ?? ''] as [string, string]] : []),
           ...(appliedContext?.time === 'apply' ? [[L.period, global.from && global.to ? `${global.from} – ${global.to}` : ''] as [string, string]] : []),
           ...(input.exportFilterSummary ?? []).map(([label, value]) => [label, value] as [string, string]),
+          ...(filters ? filterInfoRows(filters, input.filterFields.map(f => ({ id: f.id, label: f.label, filter: f.spec, entry: f.entry })), lang) : []),
           ...(appliedContext ? globalContextRows(queryContext, appliedContext, lang, axes, t('membershipAsOf')) : []),
           [L.updatedAt, trust?.updatedAt?.replace('T', ' ') ?? ''],
           [L.dataThrough, trust?.dataThrough?.replace('T', ' ') ?? ''],
@@ -211,7 +224,7 @@ export function useTableTransfer<T>(input: TransferInput<T>) {
   }
   /** Must run synchronously inside the click/keydown: `clipboard.write` / `execCommand` are called before any await. */
   function runCopy() {
-    if (!canExport || selectedIds.length === 0 || copyAbort.current) return; // gate + busy guard
+    if (!canExport || input.allSelection || selectedIds.length === 0 || copyAbort.current) return; // gate + busy guard
     if (!asyncClipboard()) { copyLoaded(); return; }
     const ids = selectedIds;
     const controller = new AbortController();
@@ -288,7 +301,7 @@ export function useTableTransfer<T>(input: TransferInput<T>) {
   }
   /** Ctrl/⌘+C belongs to the table only with a selection, focus in the table section, and nothing native to copy. */
   function shortcutApplies(target: EventTarget | null): boolean {
-    if (!canExport || selectedIds.length === 0 || overlayOpen.columns || overlayOpen.export) return false;
+    if (!canExport || input.allSelection || selectedIds.length === 0 || overlayOpen.columns || overlayOpen.export) return false;
     if (target instanceof Element && target.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"], [role="menu"], [role="dialog"], [data-radix-popper-content-wrapper]')) return false;
     if (target instanceof HTMLElement && target.isContentEditable) return false;
     return !(window.getSelection()?.toString());

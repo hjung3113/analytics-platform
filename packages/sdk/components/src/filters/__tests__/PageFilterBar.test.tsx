@@ -14,19 +14,6 @@ afterAll(() => {
 afterEach(cleanup);
 
 describe('PageFilterBar', () => {
-  it('keeps the column legend accessible without fieldset borders and gives fields full width', () => {
-    render(<PageFilterBar orientation="column" label="Column filters" fields={[
-      { kind: 'text', key: 'actor', label: 'Actor', value: '', onValueChange: vi.fn() },
-      { kind: 'select', key: 'status', label: 'Status', value: '', options: [], onValueChange: vi.fn() },
-    ]} actions={<button>Apply</button>} />);
-    const bar = screen.getByRole('group', { name: 'Column filters' });
-    expect(bar).not.toHaveClass('border', 'border-border-subtle');
-    expect(screen.getByText('Column filters')).toHaveClass('sr-only');
-    expect(screen.getByRole('textbox', { name: 'Actor' }).parentElement).toHaveClass('w-full');
-    expect(screen.getByRole('combobox', { name: 'Status' })).toHaveClass('w-full');
-    expect(screen.getByRole('button', { name: 'Apply' }).parentElement).toHaveClass('sticky', 'bottom-0', 'border-t', 'bg-surface-card');
-  });
-
   it('renders labeled search, exact-text, categorical, and custom fields with consumer actions', async () => {
     const onSearch = vi.fn();
     const onExactId = vi.fn();
@@ -133,10 +120,10 @@ describe('PageFilterBar', () => {
   });
 });
 
-function ApplyHarness({ onApply, fail = false, orientation = 'column' as const }: { onApply: () => void; fail?: boolean; orientation?: 'row' | 'column' }) {
+function ApplyHarness({ onApply, fail = false }: { onApply: () => void; fail?: boolean }) {
   const [text, setText] = useState('');
   const [applied, setApplied] = useState('');
-  return <PageFilterBar label="Filters" orientation={orientation}
+  return <PageFilterBar label="Filters"
     onApply={() => { onApply(); if (!fail) setApplied(text); }}
     fields={[
       { kind: 'text', key: 'actor', label: 'Actor', value: text, onValueChange: setText },
@@ -324,7 +311,7 @@ describe('PageFilterBar collapsible', () => {
     expect(screen.getByRole('button', { name: '페이지 필터 접기' })).toBeInTheDocument();
     expect(document.activeElement).toBe(document.body);
 
-    render(<PageFilterBar label="레일 필터" orientation="column" fields={[{ kind: 'text', key: 'actor', label: 'Actor', value: '', onValueChange: vi.fn() }]} />);
+    render(<PageFilterBar label="두 번째 필터" fields={[{ kind: 'text', key: 'actor', label: 'Actor', value: '', onValueChange: vi.fn() }]} />);
     expect(screen.getAllByTestId('page-filter-bar')).toHaveLength(2);
   });
 
@@ -419,21 +406,10 @@ describe('PageFilterBar collapsible', () => {
     expect(screen.getByRole('button', { name: '페이지 필터 펼치기' })).toHaveFocus();
   });
 
-  it('rejects column orientation at type level (assignment, spread, and direct prop) and still runs the collapsible row', () => {
-    const forced = { ...collapsibleProps, collapsible: true as const, orientation: 'column' as const };
-    // @ts-expect-error — column rails own their own collapse; collapsible is row-only
-    const rejected: PageFilterBarProps = forced;
-
-    // @ts-expect-error — column rails own their own collapse; collapsible is row-only
-    render(<I18nProvider><PageFilterBar {...forced} /></I18nProvider>);
-    // @ts-expect-error — column rails own their own collapse; collapsible is row-only
-    render(<I18nProvider><PageFilterBar {...collapsibleProps} orientation="column" /></I18nProvider>);
-    expect(rejected.orientation).toBe('column');
-    expect(screen.getAllByRole('button', { name: '페이지 필터 접기' })).toHaveLength(2);
-    expect(screen.getAllByRole('combobox', { name: '느린 실행 기준' })).toHaveLength(2);
-
-    render(<I18nProvider><PageFilterBar {...collapsibleProps} orientation="row" /></I18nProvider>);
-    expect(screen.getAllByRole('combobox', { name: '느린 실행 기준' })).toHaveLength(3);
+  it('has no `orientation` prop any more (the column rail form is removed, node 1217f)', () => {
+    // @ts-expect-error — orientation was only for the removed filter rail
+    const rejected: PageFilterBarProps = { ...collapsibleProps, orientation: 'column' };
+    expect(rejected.collapsible).toBe(true);
   });
 
   it('keeps every summary value as DOM text (no truncate class or title); layout clipping is covered by E2E (#278)', () => {

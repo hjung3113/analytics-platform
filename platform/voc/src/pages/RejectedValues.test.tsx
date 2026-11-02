@@ -2,6 +2,7 @@ import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
 import { setFeatureApi } from '@ap/feature-bridge/feature-api';
+import { LAZY_MOUNT_WAIT } from '@ap/feature-bridge/testing';
 import { mountAt, warmPages } from '../test-support';
 
 /** Screens and the drawer are doubles that would request feature data when mounted; the page value check (the feature screens' real search schema) is not mocked. */
@@ -40,7 +41,7 @@ describe.each([
   it.each(cases)('rejects an invalid %s, keeps the address and requests nothing from feature', async (key, value) => {
     const search = `?${key}=${encodeURIComponent(value)}&managedSystem=${SYSTEM}`;
     mountAt(`${path}${search}`);
-    expect((await screen.findByText(`주소의 ${key} 값이 올바르지 않습니다`, undefined, { timeout: 3000 }))).toBeTruthy();
+    expect((await screen.findByText(`주소의 ${key} 값이 올바르지 않습니다`, undefined, LAZY_MOUNT_WAIT))).toBeTruthy();
     expect(screen.getByText('다른 값으로 바꾸지 않았습니다.')).toBeTruthy();
     expect(screen.queryByTestId(testId)).toBeNull();
     expect(mounted).toEqual({ screens: 0, details: 0 });
@@ -50,7 +51,7 @@ describe.each([
 
   it('clears only the rejected key, then mounts the screen with the other keys kept', async () => {
     mountAt(`${path}?tab=bogus&managedSystem=${SYSTEM}`);
-    fireEvent.click(await screen.findByRole('button', { name: '값 지우기' }, { timeout: 3000 }));
+    fireEvent.click(await screen.findByRole('button', { name: '값 지우기' }, LAZY_MOUNT_WAIT));
     expect(await screen.findByTestId(testId)).toBeTruthy();
     const params = new URLSearchParams(window.location.search);
     expect(params.has('tab')).toBe(false);
@@ -59,7 +60,7 @@ describe.each([
 
   it('mounts normally for valid values (an area UUID, "unset", a UUID focus, a 100-character q)', async () => {
     mountAt(`${path}?tab=unassigned&area=unset&focus=${VOC}&managedSystem=${SYSTEM}`);
-    expect(await screen.findByTestId(testId, undefined, { timeout: 3000 })).toBeTruthy();
+    expect(await screen.findByTestId(testId, undefined, LAZY_MOUNT_WAIT)).toBeTruthy();
     await waitFor(() => expect(screen.queryByText(/값이 올바르지 않습니다/)).toBeNull());
   });
 });
@@ -67,6 +68,6 @@ describe.each([
 describe('수신함 filters', () => {
   it('accepts a 100-character q (101 is rejected above)', async () => {
     mountAt(`/operations/inbox?q=${'q'.repeat(100)}`);
-    expect(await screen.findByTestId('inbox', undefined, { timeout: 3000 })).toBeTruthy();
+    expect(await screen.findByTestId('inbox', undefined, LAZY_MOUNT_WAIT)).toBeTruthy();
   });
 });

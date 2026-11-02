@@ -16,7 +16,8 @@ export const manifests: MenuEntry[] = [
     description: { ko: '설비 속성과 유효구간 이력을 조회하고 상세·감사 이력을 확인합니다.', en: 'Browse equipment attributes with validity history, details and audit.' },
     path: '/equipment', icon: Boxes, permission: PERMISSION, requiresScope: true, pageType: 'management',
     context: contextCapabilities({ time: 'reference', roomNames: 'apply', condition: 'apply', selection: 'apply' }),
-    features: { ...NO_FEATURES, export: true, board: true }, pageKeys: ['q', 'status', 'maker', 'focus', 'sort', 'page', 'tab'], contextResetKeys: ['page'],
+    features: { ...NO_FEATURES, export: true, board: true }, // ADR-0105: every filter condition is the hidden repeated key `filter`.
+    pageKeys: ['q', 'filter', 'focus', 'sort', 'page', 'tab'], repeatedPageKeys: ['filter'], hiddenPageKeys: ['filter'], contextResetKeys: ['page'],
     component: lazy(() => import('./pages/EquipmentMaster')),
   },
   {
