@@ -11,6 +11,7 @@ describe('isOrdinarilyRequestable', () => {
     ['survey.export', true],
     ['knowledge.catalog.manage', true],
     ['knowledge.catalog.import', true],
+    ['knowledge.item.publish', true],
   ] as const)('%s → %s', (capability: Capability, expected) => {
     expect(isOrdinarilyRequestable(capability)).toBe(expected);
   });
@@ -28,7 +29,7 @@ describe('isOrdinarilyRequestable', () => {
 
 describe('recipient role for the log knowledge capabilities (ADR-0107 decision 3)', () => {
   const tx = {} as Tx;
-  it.each(['knowledge.catalog.manage', 'knowledge.catalog.import'] as const)(
+  it.each(['knowledge.catalog.manage', 'knowledge.catalog.import', 'knowledge.item.publish'] as const)(
     '%s: a User recipient is refused on the ordinary and the approval path',
     async (capability) => {
       await expect(
@@ -43,7 +44,7 @@ describe('recipient role for the log knowledge capabilities (ADR-0107 decision 3
     },
   );
 
-  it.each(['knowledge.catalog.manage', 'knowledge.catalog.import'] as const)(
+  it.each(['knowledge.catalog.manage', 'knowledge.catalog.import', 'knowledge.item.publish'] as const)(
     '%s: a Developer or Admin recipient passes',
     async (capability) => {
       for (const recipientRole of ['developer', 'admin']) {

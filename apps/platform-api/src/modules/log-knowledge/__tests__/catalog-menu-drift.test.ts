@@ -26,7 +26,7 @@ const server = logKnowledgeContribution({ db: {} as never, checkService: {} as n
 // The item reads (ADR-0109) sit on their own menu ids; the menu package mirrors them in node r of #1197, so until
 // then only the catalog menu's declarations are compared.
 const serverEndpoints = (server.endpoints ?? []).filter((e) => e.spec.menuId === LOG_KNOWLEDGE_MENU_ID);
-const serverActions = server.actions ?? [];
+const serverActions = (server.actions ?? []).filter((a) => a.spec.menuId === LOG_KNOWLEDGE_MENU_ID);
 const sorted = (keys: Iterable<string>) => [...keys].sort();
 
 describe('log knowledge menu declarations vs the server', () => {

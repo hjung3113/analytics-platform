@@ -17,7 +17,9 @@ export type PlatformPermissionRule =
   /** `workspace.admin` allowed. */
   | 'workspace-admin'
   /** Admin role, or an active workspace grant of `knowledge.catalog.manage` (the write capability of the log knowledge catalog). */
-  | 'catalog-manage';
+  | 'catalog-manage'
+  /** Admin role, or an active workspace grant of `knowledge.item.publish` (the write capability of the log knowledge items). */
+  | 'item-publish';
 
 export const PLATFORM_PERMISSION_TABLE = [
   { permission: 'platform:view', rule: 'every-session' },
@@ -29,6 +31,8 @@ export const PLATFORM_PERMISSION_TABLE = [
   // #1194 r). The app declares it with `menuPermission`; this entry makes bootstrap list it for exactly the users
   // the catalog write actions accept.
   { permission: 'knowledge:catalog-manage', rule: 'catalog-manage' },
+  // Menu permission of the log knowledge item menus (ADR-0109, #1197 w); the item write actions declare it.
+  { permission: 'knowledge:item-publish', rule: 'item-publish' },
 ] as const satisfies ReadonlyArray<{ permission: string; rule: PlatformPermissionRule }>;
 
 /** Capabilities whose active grant (workspace or Managed-System scoped) opens `features:access`. */
@@ -96,6 +100,16 @@ async function holds(
         options,
       );
       return applyAdminModuleBypass(actor.role_level, 'knowledge.catalog.manage', decision).allow;
+    }
+    case 'item-publish': {
+      // The same decision the item write actions take (`item-actions.ts`): capability check, then the module's Admin bypass.
+      const decision = await checkService.checkCapability(
+        actor,
+        'knowledge.item.publish',
+        { workspace_id: actor.workspace_id },
+        options,
+      );
+      return applyAdminModuleBypass(actor.role_level, 'knowledge.item.publish', decision).allow;
     }
     case 'features-access': {
       if (actor.role_level === 'developer' || actor.role_level === 'admin') return true;

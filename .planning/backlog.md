@@ -380,3 +380,5 @@
 - **구현 안 함 — Evidence 출처 ACL 재검사(#1197 수락 기준 4, #1197a):** 근거는 포인터(출처 시스템·외부 id·위치)만 저장하고, 상세 읽기는 출처 소유 시스템의 접근 권한을 다시 묻지 않는다. 이유: 외부 Evidence 어댑터가 없다. 다시 여는 조건: 외부 Evidence 어댑터가 생길 때.
 - **구현 안 함 — 검색이 SW 사이 같은 현상을 합치지 않음 검증(#1197 수락 기준 5, #1197a):** Item 목록 `q`는 최신 Revision 제목과 `KI-<n>`만 찾고 통합 검색은 없다. 이유: 검색은 후속 이슈다. 다시 여는 조건: 검색 이슈 착수.
 - **구현 안 함 — SW 프로파일 화면(#1196, #1197a):** `logKnowledge.modelProfile`은 SW 버전 목록과 `itemCount`까지만 주고 SW 단위 프로파일 읽기·화면은 없다. 이유: SW 명세는 #1196이고 사용자 결정(2026-11-02)으로 뒤로 미뤘다. 다시 여는 조건: #1196 착수.
+- **구현 안 함 — Item 쓰기의 모델 쪽 개수 무효화(#1197w):** `logKnowledge.item*` 쓰기는 같은 메뉴(`log-knowledge-items`)의 `items`·`itemDetail`만 무효화한다. `exploreModels.modelItemCount`와 `modelProfile` 개수는 메뉴 `log-knowledge-models` 소속이고 엔진은 동작 자기 메뉴 안에서만 `invalidates`를 허용해서, 쓰기 직후 모델 화면의 개수가 새로 고침 전까지 옛 값이다. 다시 여는 조건: 엔진에 메뉴 간 무효화가 생길 때, 또는 화면이 쓰기 뒤 낡은 개수를 보여 줄 때.
+- **구현 안 함 — #1108 HierarchyExplorer(SDK 트리 탐색기):** 사용자가 트리(B안) 대신 표 필터 탐색기(A안)를 골랐다(2026-11-02, [#1197 댓글](https://github.com/hjung3113/analytics-platform/issues/1197)). 동적 breadcrumb은 `PlatformPage crumbs`로 이미 덮인다. 다시 여는 조건: 실제 소비자 화면이 트리 탐색을 고를 때.

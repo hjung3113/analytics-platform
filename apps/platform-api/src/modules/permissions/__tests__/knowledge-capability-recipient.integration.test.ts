@@ -22,6 +22,7 @@ const TAG = `KCR${randomUUID().slice(0, 6).toUpperCase()}`;
 const CAPABILITIES = [
   "knowledge.catalog.manage",
   "knowledge.catalog.import",
+  "knowledge.item.publish",
 ] as const;
 
 describe.skipIf(!runIntegration)(
@@ -40,12 +41,13 @@ describe.skipIf(!runIntegration)(
       migrate = createDb(MIGRATE_URL);
       app = await buildServer({ config: loadConfig(), dbHandle });
       await app.ready();
-      for (const role of ["admin", "developer", "user"] as const) {
+      // `admin2` takes the Developer grants: the sensitive rate-limit tier is per actor and one admin cannot make them all.
+      for (const role of ["admin", "admin2", "developer", "user"] as const) {
         const externalId = `${TAG}-${role}`;
         const { id } = await insertActorRow(dbHandle, {
           workspaceId: WORKSPACE_ID,
           externalId,
-          roleLevel: role,
+          roleLevel: role === "admin2" ? "admin" : role,
         });
         actorIds.push(id);
         ids[role] = id;
@@ -125,7 +127,7 @@ describe.skipIf(!runIntegration)(
     it.each(CAPABILITIES)(
       "a direct grant of %s to a Developer succeeds",
       async (capability) => {
-        const res = await post("/permissions/grants", "admin", {
+        const res = await post("/permissions/grants", "admin2", {
           actor_id: ids.developer,
           capability,
           reason: "test",

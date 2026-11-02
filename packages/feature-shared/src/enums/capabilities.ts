@@ -24,6 +24,7 @@ export const CAPABILITIES = [
   'survey.export',
   'knowledge.catalog.manage',
   'knowledge.catalog.import',
+  'knowledge.item.publish',
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -94,6 +95,8 @@ export const CAPABILITY_META: Readonly<Record<Capability, CapabilityMeta>> = {
   // the Admin role always holds them.
   'knowledge.catalog.manage': { sensitive: false, adminModuleBypass: 'always' },
   'knowledge.catalog.import': { sensitive: false, adminModuleBypass: 'always' },
+  // Log knowledge items (ADR-0109): same shape as the catalog rights; writes a published item.
+  'knowledge.item.publish': { sensitive: false, adminModuleBypass: 'always' },
 };
 
 export function isCapability(value: string): value is Capability {

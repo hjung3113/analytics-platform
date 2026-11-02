@@ -13,6 +13,7 @@ export function isOrdinarilyRequestable(capability: Capability): boolean {
 const NOT_FOR_USER_ROLE: ReadonlySet<Capability> = new Set([
   'knowledge.catalog.manage',
   'knowledge.catalog.import',
+  'knowledge.item.publish',
 ]);
 
 export async function supportedScopeCandidates(
@@ -24,7 +25,8 @@ export async function supportedScopeCandidates(
     capability === 'workspace.read' ||
     capability === 'workspace.admin' ||
     capability === 'knowledge.catalog.manage' ||
-    capability === 'knowledge.catalog.import'
+    capability === 'knowledge.catalog.import' ||
+    capability === 'knowledge.item.publish'
   ) {
     return [{ managed_system_id: null }];
   }

@@ -114,12 +114,18 @@ const EXPECTED_AUDIT_EVENT_TYPES = [
   'knowledge.catalog.updated',
   'knowledge.catalog.deactivated',
   'knowledge.catalog.reactivated',
+  'knowledge.item.created',
+  'knowledge.item.revised',
+  'knowledge.item.assessed',
+  'knowledge.item.derived',
+  'knowledge.item.archived',
+  'knowledge.item.restored',
 ] as const;
 
 describe('audit event registry', () => {
   it('locks event-type order, uniqueness, and detail-map key coverage', () => {
     expect([...AUDIT_EVENT_TYPES]).toEqual([...EXPECTED_AUDIT_EVENT_TYPES]);
-    expect(new Set(AUDIT_EVENT_TYPES).size).toBe(99);
+    expect(new Set(AUDIT_EVENT_TYPES).size).toBe(105);
     expect(Object.keys(AUDIT_EVENT_DETAIL_SCHEMAS)).toEqual([...EXPECTED_AUDIT_EVENT_TYPES]);
   });
 });

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { PLATFORM_PERMISSION_TABLE } from '../permissions.js';
 import { CATALOG_MENU_PERMISSION } from '../../log-knowledge/catalog-actions.js';
+import { ITEM_MENU_PERMISSION } from '../../log-knowledge/item-actions.js';
 import { platformVocab } from './platform-vocab.js';
 
 // ADR-0068 "one vocabulary": the kernel's own permissions (@ap/contracts/vocab.json `kernelPermissions`)
@@ -12,9 +13,9 @@ describe('platform permission table vs @ap/contracts KERNEL_PERMISSIONS', () => 
   it('lists every kernel permission exactly once and nothing else', () => {
     const vocabulary = kernelPermissions();
     expect(vocabulary.length).toBeGreaterThan(0);
-    // The table also lists the catalog menu permission (#1194 r): a menu permission, not a kernel one.
+    // The table also lists the catalog and item menu permissions (#1194 r, #1197 w): a menu permission, not a kernel one.
     const tabled = PLATFORM_PERMISSION_TABLE.map((entry) => entry.permission as string).filter(
-      (permission) => permission !== CATALOG_MENU_PERMISSION,
+      (permission) => permission !== CATALOG_MENU_PERMISSION && permission !== ITEM_MENU_PERMISSION,
     );
     expect([...tabled].sort()).toEqual([...vocabulary].sort());
     for (const permission of vocabulary) {
@@ -29,6 +30,12 @@ describe('platform permission table vs @ap/contracts KERNEL_PERMISSIONS', () => 
     const entries = PLATFORM_PERMISSION_TABLE.filter((entry) => entry.permission === CATALOG_MENU_PERMISSION);
     expect(entries).toEqual([{ permission: 'knowledge:catalog-manage', rule: 'catalog-manage' }]);
     expect(kernelPermissions()).not.toContain(CATALOG_MENU_PERMISSION);
+  });
+
+  it('lists the item menu permission once, with the rule the item write actions use', () => {
+    const entries = PLATFORM_PERMISSION_TABLE.filter((entry) => entry.permission === ITEM_MENU_PERMISSION);
+    expect(entries).toEqual([{ permission: 'knowledge:item-publish', rule: 'item-publish' }]);
+    expect(kernelPermissions()).not.toContain(ITEM_MENU_PERMISSION);
   });
 
   it('names the feature permission features:access and keeps no feedbackops:access fallback', () => {
