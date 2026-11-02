@@ -30,12 +30,13 @@ Data shape: `{ rows, total }` (`PageResult`), outcome `ok` also when `rows` is e
 
 | Endpoint id | Filter fields | Sort columns | Row |
 | --- | --- | --- | --- |
-| `logKnowledge.vendors` | `filters`: `active` | `code`, `name`, `active`, `modelCount`, `createdAt`, `updatedAt` | `id, code, name, active, version, modelCount, createdAt, updatedAt` |
-| `logKnowledge.processes` | `filters`: `active` | same as vendors | same as vendors |
-| `logKnowledge.models` | `filters`: `active`, `vendorId`, `processes` | `code`, `name`, `vendorName`, `active`, `softwareCount`, `createdAt`, `updatedAt` | `id, code, name, active, version, vendorId, vendorName, processes: {id, name}[], softwareCount, createdAt, updatedAt` |
-| `logKnowledge.softwareVersions` | `filters`: `active`, `modelId` | `versionLabel`, `name`, `active`, `createdAt`, `updatedAt` | `id, code, versionLabel, name, active, version, modelId, createdAt, updatedAt` (`code` = `versionLabel`) |
+| `logKnowledge.vendors` | `filters`: `active`, `id` | `code`, `name`, `active`, `modelCount`, `createdAt`, `updatedAt` | `id, code, name, active, version, modelCount, createdAt, updatedAt` |
+| `logKnowledge.processes` | `filters`: `active`, `id` | same as vendors | same as vendors |
+| `logKnowledge.models` | `filters`: `active`, `id`, `vendorId`, `processes` | `code`, `name`, `vendorName`, `active`, `softwareCount`, `createdAt`, `updatedAt` | `id, code, name, active, version, vendorId, vendorName, processes: {id, name}[], softwareCount, latestSoftwareLabel, createdAt, updatedAt` |
+| `logKnowledge.softwareVersions` | `filters`: `active`, `id`, `modelId` | `versionLabel`, `name`, `active`, `createdAt`, `updatedAt` | `id, code, versionLabel, name, active, version, modelId, createdAt, updatedAt` (`code` = `versionLabel`) |
 
 - `code` is the typed original; sorting by `code` and `versionLabel` orders by the comparison key.
+- `latestSoftwareLabel` (model) is the `versionLabel` of the model's newest active software version (highest `createdAt`, ties by id); `null` when it has none.
 - `modelCount` (vendor, process) and `softwareCount` (model) count active models and active software versions.
 - A model in several processes appears once under a `processes` filter (EXISTS, never a join). `processes` in the row lists every mapped process, by name.
 
@@ -46,6 +47,7 @@ Wire and semantics are the table filter model's (`ColumnFilter`, real-server-che
 | Endpoint | Field | Operators | Values | Meaning |
 | --- | --- | --- | --- | --- |
 | all four | `active` | `in`, `notIn` | one of `'true'`, `'false'` (`multiple: false`: one value) | `in ['true']` active rows; `notIn ['true']` inactive rows |
+| all four | `id` | `in`, `notIn` | uuid strings (≤ 200); any uuid is accepted | the row's id is / is not one of the values (the drawer resolves a row by `id in [focus]`, one read) |
 | `models` | `vendorId` | `in`, `notIn` | uuid strings (≤ 200); options are not enumerated, any uuid is accepted | the model's vendor is / is not one of the values |
 | `models` | `processes` (`cell: 'many'`) | `in`, `notIn`, `isEmpty`, `isNotEmpty` | uuid strings (≤ 200); none for `isEmpty`/`isNotEmpty` | `in`: some mapped process is in the values; `notIn`: at least one mapped process and none in the values (unmapped models are excluded); `isEmpty`: no mapped process; `isNotEmpty`: some |
 | `softwareVersions` | `modelId` | `in`, `notIn` | uuid strings (≤ 200) | the version's model is / is not one of the values |

@@ -55,6 +55,8 @@ export interface ModelRow extends Stamps {
   vendorName: string;
   processes: { id: string; name: string }[];
   softwareCount: number;
+  /** Label of the newest active software version (highest created_at, then id); null when none. */
+  latestSoftwareLabel: string | null;
 }
 export interface SoftwareRow extends Stamps {
   modelId: string;
@@ -102,6 +104,7 @@ export async function listVendors(tx: Tx, q: ListQuery): Promise<Page<VendorRow>
   const where = and(
     eq(vendors.workspaceId, q.workspaceId),
     activeFilter(vendors.active, q.conditions),
+    columnFilter(vendors.id, q.conditions.id),
     textFilter(vendors.codeKey, vendors.name, q.q),
   );
   // Outer columns are written qualified: a single-table select renders `${vendors.id}` unqualified, which
@@ -138,6 +141,7 @@ export async function listProcesses(tx: Tx, q: ListQuery): Promise<Page<ProcessR
   const where = and(
     eq(t.workspaceId, q.workspaceId),
     activeFilter(t.active, q.conditions),
+    columnFilter(t.id, q.conditions.id),
     textFilter(t.codeKey, t.name, q.q),
   );
   const modelCount = sql<number>`(select count(*)::int from ${modelProcesses} mp join ${equipmentModels} m on m.workspace_id = mp.workspace_id and m.id = mp.model_id where mp.workspace_id = "knowledge"."process_category"."workspace_id" and mp.process_id = "knowledge"."process_category"."id" and m.active)`;
@@ -205,11 +209,13 @@ export async function listModels(tx: Tx, q: ListQuery): Promise<Page<ModelRow>> 
   const where = and(
     eq(t.workspaceId, q.workspaceId),
     activeFilter(t.active, q.conditions),
+    columnFilter(t.id, q.conditions.id),
     textFilter(t.codeKey, t.name, q.q),
     columnFilter(t.vendorId, q.conditions.vendorId),
     processFilter(tx, q.conditions.processes, t.workspaceId, t.id),
   );
   const softwareCount = sql<number>`(select count(*)::int from ${softwareVersions} s where s.workspace_id = ${t.workspaceId} and s.model_id = ${t.id} and s.active)`;
+  const latestSoftwareLabel = sql<string | null>`(select s.version_label from ${softwareVersions} s where s.workspace_id = ${t.workspaceId} and s.model_id = ${t.id} and s.active order by s.created_at desc, s.id desc limit 1)`;
   const sortable: Record<string, SQL | AnyPgColumn> = {
     code: t.codeKey,
     name: t.name,
@@ -220,7 +226,7 @@ export async function listModels(tx: Tx, q: ListQuery): Promise<Page<ModelRow>> 
     updatedAt: t.updatedAt,
   };
   const rows = await tx
-    .select({ row: t, vendorName: vendors.name, softwareCount })
+    .select({ row: t, vendorName: vendors.name, softwareCount, latestSoftwareLabel })
     .from(t)
     .innerJoin(vendors, and(eq(vendors.workspaceId, t.workspaceId), eq(vendors.id, t.vendorId)))
     .where(where)
@@ -250,12 +256,13 @@ export async function listModels(tx: Tx, q: ListQuery): Promise<Page<ModelRow>> 
           .orderBy(asc(processCategories.name), asc(processCategories.id));
   return {
     total: totalRow?.n ?? 0,
-    rows: rows.map(({ row, vendorName, softwareCount: count }) => ({
+    rows: rows.map(({ row, vendorName, softwareCount: count, latestSoftwareLabel: latest }) => ({
       ...stamps(row),
       vendorId: row.vendorId,
       vendorName,
       processes: mapped.filter((m) => m.modelId === row.id).map(({ id, name }) => ({ id, name })),
       softwareCount: count,
+      latestSoftwareLabel: latest,
     })),
   };
 }
@@ -265,6 +272,7 @@ export async function listSoftwareVersions(tx: Tx, q: ListQuery): Promise<Page<S
   const where = and(
     eq(t.workspaceId, q.workspaceId),
     activeFilter(t.active, q.conditions),
+    columnFilter(t.id, q.conditions.id),
     textFilter(t.versionKey, t.name, q.q),
     columnFilter(t.modelId, q.conditions.modelId),
   );

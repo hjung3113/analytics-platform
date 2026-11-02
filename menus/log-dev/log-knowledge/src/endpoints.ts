@@ -16,7 +16,7 @@ export const CATALOG_MANAGE_PERMISSION: Permission = menuPermission('knowledge:c
 type Stamps = { id: string; code: string; name: string; active: boolean; version: string; createdAt: string; updatedAt: string };
 export type VendorRow = Stamps & { modelCount: number };
 export type ProcessRow = Stamps & { modelCount: number };
-export type ModelRow = Stamps & { vendorId: string; vendorName: string; processes: { id: string; name: string }[]; softwareCount: number };
+export type ModelRow = Stamps & { vendorId: string; vendorName: string; processes: { id: string; name: string }[]; softwareCount: number; latestSoftwareLabel: string | null };
 export type SoftwareRow = Stamps & { modelId: string; versionLabel: string };
 
 /** Quick search, paging, sorting and the table's filter conditions of one catalog read. */
@@ -33,19 +33,20 @@ const activeSpec: ColumnFilterSpec = {
   ops: ['in', 'notIn'],
   multiple: false,
 };
-/** Options are data (the other lists), so the wire list is empty; the server accepts any uuid and checks the shape. */
+/** Options are data (the other lists), so the wire list is empty; the server accepts any uuid and checks the shape. `id` is the drawer's by-id lookup. */
 const idSpec: ColumnFilterSpec = { kind: 'enum', options: [], ops: ['in', 'notIn'] };
 
 /** Filter fields per read (the wire meaning, ADR-0105): the mock and the server refuse a field, operator or value outside it. */
-export const vendorFilterSpecs: Readonly<Record<string, ColumnFilterSpec>> = { active: activeSpec };
-export const processFilterSpecs: Readonly<Record<string, ColumnFilterSpec>> = { active: activeSpec };
+export const vendorFilterSpecs: Readonly<Record<string, ColumnFilterSpec>> = { active: activeSpec, id: idSpec };
+export const processFilterSpecs: Readonly<Record<string, ColumnFilterSpec>> = { active: activeSpec, id: idSpec };
 export const modelFilterSpecs: Readonly<Record<string, ColumnFilterSpec>> = {
   active: activeSpec,
+  id: idSpec,
   vendorId: idSpec,
   // The model's mapped processes: an array cell. `isEmpty` finds unmapped models.
   processes: { kind: 'enum', options: [], ops: ['in', 'notIn', 'isEmpty', 'isNotEmpty'], cell: 'many' },
 };
-export const softwareFilterSpecs: Readonly<Record<string, ColumnFilterSpec>> = { active: activeSpec, modelId: idSpec };
+export const softwareFilterSpecs: Readonly<Record<string, ColumnFilterSpec>> = { active: activeSpec, id: idSpec, modelId: idSpec };
 
 const paramKeys = { q: true, page: true, pageSize: true, sorting: true, filters: true } as const;
 const read = <T>(name: string) =>

@@ -884,3 +884,37 @@ test.describe('페이지 머리 접기 (#680)', () => {
   });
 });
 
+
+test.describe('로그 지식 허브 카탈로그 관리 (#1194)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await signInAs(page, 'admin');
+    await page.goto('/log/knowledge/catalog');
+  });
+
+  test('관리자가 모델을 열어 이름을 저장하면 표에 바뀐 이름이 보인다', async ({ page }, testInfo) => {
+    await expect(page.getByRole('tab', { name: /모델/ })).toHaveAttribute('aria-selected', 'true');
+    const table = page.getByRole('main');
+    await expect(table.getByText('A-100', { exact: true })).toBeVisible();
+    await expect(table.getByText('Alpha 100', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'A-100 수정' }).click();
+    await expect(page.getByRole('heading', { name: 'A-100' })).toBeVisible();
+    await expect.poll(() => query(page).get('focus')).not.toBeNull();
+    const name = page.getByRole('textbox', { name: /^이름/ });
+    await name.fill('Alpha 100 Rev2');
+    await page.getByRole('button', { name: '저장', exact: true }).click();
+    await expect(table.getByText('Alpha 100 Rev2', { exact: true })).toBeVisible();
+    await expect.poll(async () => name.inputValue()).toBe('Alpha 100 Rev2');
+    await evidence(page, testInfo, 'catalog-model-saved');
+  });
+
+  test('이미 있는 코드로 저장하면 그 칸 아래에 오류가 보이고 입력은 남는다', async ({ page }) => {
+    await page.getByRole('button', { name: 'A-200 수정' }).click();
+    const code = page.getByRole('textbox', { name: /^코드/ });
+    await code.fill('a-100');
+    await page.getByRole('button', { name: '저장', exact: true }).click();
+    await expect(page.getByText('같은 코드가 이미 있습니다')).toBeVisible();
+    await expect(code).toHaveValue('a-100');
+    await expect(code).toHaveAttribute('aria-invalid', 'true');
+  });
+});

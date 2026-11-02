@@ -250,6 +250,19 @@ describe.skipIf(!runIntegration)('log knowledge catalog reads and schema (#1193)
     });
   });
 
+  describe('the id filter (drawer lookup, #1194)', () => {
+    it('returns exactly the row with that id on every read, and nothing for another workspace`s id', async () => {
+      const sw = (await read('logKnowledge.softwareVersions')).data?.rows[0]?.id as string;
+      expect(codes(await filtered('logKnowledge.vendors', flt('id', 'in', [ids.vb])))).toEqual([`${TAG}-vb`]);
+      expect(codes(await filtered('logKnowledge.processes', flt('id', 'in', [ids.pDep])))).toEqual([`${TAG}-dep`]);
+      expect(codes(await filtered('logKnowledge.models', flt('id', 'in', [ids.m2])))).toEqual([`${TAG}-m2`]);
+      expect((await filtered('logKnowledge.softwareVersions', flt('id', 'in', [sw]))).data?.rows.map((r) => r.id)).toEqual([sw]);
+      expect(codes(await filtered('logKnowledge.vendors', flt('id', 'in', [ids.va, ids.vOff])))).toEqual([`${TAG}-va`, `${TAG}-voff`]);
+      expect((await filtered('logKnowledge.vendors', flt('id', 'in', [ids.vOther]))).data).toEqual({ rows: [], total: 0 });
+      expect((await filtered('logKnowledge.vendors', flt('id', 'in', ['x']))).outcome).toBe('error');
+    });
+  });
+
   describe('logKnowledge.processes', () => {
     it('lists processes with the count of active models', async () => {
       const res = await read('logKnowledge.processes', { sorting: [{ id: 'name', desc: false }] });
@@ -270,12 +283,16 @@ describe.skipIf(!runIntegration)('log knowledge catalog reads and schema (#1193)
         vendorId: ids.va,
         vendorName: `${TAG} Alpha Vendor`,
         softwareCount: 2,
+        latestSoftwareLabel: `${TAG}-v2.0`,
         version: '1',
       });
       expect(m1?.processes).toEqual([
         { id: ids.pDep, name: 'Deposition' },
         { id: ids.pEtch, name: 'Etch' },
       ]);
+      expect(res.data?.rows[1]?.latestSoftwareLabel).toBe(`${TAG}-v1.0`);
+      const m3 = (await filtered('logKnowledge.models', flt('vendorId', 'in', [ids.vb]))).data?.rows.find((r) => r.id === ids.m3);
+      expect(m3?.latestSoftwareLabel).toBeNull();
       expect(codes(await filtered('logKnowledge.models', flt('vendorId', 'in', [ids.va, ids.vb])))).toHaveLength(4);
       expect(codes(await filtered('logKnowledge.models', flt('vendorId', 'notIn', [ids.va])))).toEqual([`${TAG}-m3`, `${TAG}-moff`]);
     });

@@ -70,6 +70,15 @@ describe('catalog reads speak the table filter model', () => {
     expect(read('softwareVersions').total).toBe(4);
   });
 
+  it('id filter resolves exactly the rows asked for on every read', () => {
+    const a100 = idOf('models', 'A-100');
+    expect(codes('models', { filters: [flt('id', 'in', [a100])] })).toEqual(['A-100']);
+    expect(codes('vendors', { filters: [flt('id', 'in', [idOf('vendors', 'BETA'), idOf('vendors', 'ALPHA')])] })).toEqual(['ALPHA', 'BETA']);
+    expect(codes('processes', { filters: [flt('id', 'in', [idOf('processes', 'ETCH')])] })).toEqual(['ETCH']);
+    expect(codes('softwareVersions', { filters: [flt('id', 'in', [a100])] })).toEqual([]);
+    expect(codes('models', { filters: [flt('id', 'in', ['00000000-0000-4000-8000-00000000ffff'])] })).toEqual([]);
+  });
+
   it('matches uuid filter values case-insensitively (the server compares uuid columns)', () => {
     const upper = (id: string) => id.toUpperCase();
     const a100 = idOf('models', 'A-100');
@@ -96,7 +105,7 @@ describe('catalog reads speak the table filter model', () => {
   it('row shapes carry counts, vendor name and mapped processes', () => {
     expect(read('vendors').rows[0]).toMatchObject({ code: 'ALPHA', modelCount: 2, version: '1', active: true });
     const a100 = read('models').rows[0]!;
-    expect(a100).toMatchObject({ code: 'A-100', vendorName: 'Alpha Semicap', softwareCount: 2 });
+    expect(a100).toMatchObject({ code: 'A-100', vendorName: 'Alpha Semicap', softwareCount: 2, latestSoftwareLabel: 'v2.0' });
     expect(a100.processes).toEqual([{ id: idOf('processes', 'DEP'), name: 'Deposition' }, { id: idOf('processes', 'ETCH'), name: 'Etch' }]);
     expect(read('softwareVersions').rows[0]).toMatchObject({ versionLabel: 'v1.0', code: 'v1.0' });
   });

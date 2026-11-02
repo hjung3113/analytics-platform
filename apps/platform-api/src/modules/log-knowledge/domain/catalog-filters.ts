@@ -28,10 +28,11 @@ const UUID_FIELD: CatalogFilterFieldSpec = { ops: SCALAR_OPS, multiple: true, ce
 
 /** Filter fields of each read endpoint. */
 export const CATALOG_FILTER_SPECS = {
-  vendors: { active: ACTIVE },
-  processes: { active: ACTIVE },
+  vendors: { active: ACTIVE, id: UUID_FIELD },
+  processes: { active: ACTIVE, id: UUID_FIELD },
   models: {
     active: ACTIVE,
+    id: UUID_FIELD,
     vendorId: UUID_FIELD,
     processes: {
       ops: ['in', 'notIn', 'isEmpty', 'isNotEmpty'],
@@ -40,7 +41,7 @@ export const CATALOG_FILTER_SPECS = {
       values: 'uuid',
     },
   },
-  softwareVersions: { active: ACTIVE, modelId: UUID_FIELD },
+  softwareVersions: { active: ACTIVE, id: UUID_FIELD, modelId: UUID_FIELD },
 } as const satisfies Record<string, Record<string, CatalogFilterFieldSpec>>;
 
 export type CatalogEndpointName = keyof typeof CATALOG_FILTER_SPECS;

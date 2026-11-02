@@ -13,7 +13,7 @@
 ## 추적
 
 - **Epic:** [#1192](https://github.com/hjung3113/analytics-platform/issues/1192)
-- **P0:** [#1193](https://github.com/hjung3113/analytics-platform/issues/1193) 플랫폼/DB, [#1194](https://github.com/hjung3113/analytics-platform/issues/1194) 카탈로그, [#1195](https://github.com/hjung3113/analytics-platform/issues/1195) Import
+- **P0:** [#1193](https://github.com/hjung3113/analytics-platform/issues/1193) 플랫폼/DB, [#1194](https://github.com/hjung3113/analytics-platform/issues/1194) 카탈로그(화면: A안 탭 + 오른쪽 서랍), [#1195](https://github.com/hjung3113/analytics-platform/issues/1195) Import
 - **P1:** [#1196](https://github.com/hjung3113/analytics-platform/issues/1196) Spec, [#1197](https://github.com/hjung3113/analytics-platform/issues/1197) Item, [#1198](https://github.com/hjung3113/analytics-platform/issues/1198) Draft/승인, [#1199](https://github.com/hjung3113/analytics-platform/issues/1199) 검색
 - **P2:** [#1200](https://github.com/hjung3113/analytics-platform/issues/1200) Viewer/외부 근거, [#1201](https://github.com/hjung3113/analytics-platform/issues/1201) 통합 인수
 - **기존 공통 기능:** [#1108](https://github.com/hjung3113/analytics-platform/issues/1108) 계층 탐색, [#1087](https://github.com/hjung3113/analytics-platform/issues/1087) 분석 Site 권한(별도)
