@@ -24,6 +24,7 @@ import { loadConfig } from '../config.js';
 import { type DbHandle, createDb } from '../db/client.js';
 import { actors, analyticsAreas, managedSystems, workspaces } from '../db/schema/core.js';
 import { permissionGrants } from '../db/schema/permission.js';
+import { runBootstrapSeed } from './bootstrap.js';
 import { seedKnowledgeCatalog } from './knowledge-fixtures.js';
 import { seedKnowledgeItems } from './knowledge-item-fixtures.js';
 import { seedPreviewScale } from './scale-fixtures.js';
@@ -147,6 +148,26 @@ export async function runSeed(handle: DbHandle): Promise<SeedResult> {
 
   const { db } = handle;
   const workspaceId = config.WORKSPACE_ID;
+
+  // Operator data: workspace + system actor only, none of the fixtures below.
+  if (config.SEED_MODE === 'bootstrap') {
+    const boot = await runBootstrapSeed(handle, {
+      workspaceId,
+      workspaceName: config.WORKSPACE_NAME,
+    });
+    return {
+      workspaceId,
+      workspaceInserted: boot.workspaceInserted,
+      actorsInserted: boot.actorsInserted,
+      managedSystemsInserted: 0,
+      analyticsAreasInserted: 0,
+      vocsInserted: 0,
+      conversationRowsInserted: 0,
+      permissionFixturesInserted: 0,
+      personaActorsInserted: 0,
+      personaGrantsInserted: 0,
+    };
+  }
 
   // ── Workspace upsert ────────────────────────────────────────────────
   const wsRows = await db

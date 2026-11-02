@@ -56,6 +56,7 @@
 - [ ] 사내 표준 브라우저와 버전(MVP는 데스크톱 웹만)
 - [ ] 사내 주소가 HTTPS인지 — 표 행 복사(#174)는 보안 컨텍스트에서만 여러 페이지 선택을 서버에서 읽어 복사하고, HTTP면 현재 페이지에 보이는 선택 행만 복사한다(버튼·Ctrl/⌘+C 같은 경로; 현재 페이지에 선택 행이 없으면 복사하지 않고 그 페이지로 가라고 안내)
 - [ ] 환경 수(개발·스테이징·운영)와 환경별 URL — IdP redirect URI와 환경별 플랫폼 origin
+- [ ] 운영 데이터는 `SEED_MODE=bootstrap`(Workspace·system Actor만)으로 시작하고 첫 관리자는 `set-actor-role`로 올린다 — 절차 [첫 관리자 부트스트랩](../architecture/platform-api/release/first-admin-bootstrap.md)
 - [ ] 파서 Postgres 접근: 같은 인스턴스·별도 스키마·read-only 계정 요청 절차(03)
 - [ ] 서버 로그 수집처 — 오류 보고·Correlation ID 추적 경로
 - [ ] 프록시 read timeout 60초 이상 가능 여부(서버 25초·클라이언트 30초보다 길게 — [전송 형식 초안](http-adapter-contract.md) §5)
