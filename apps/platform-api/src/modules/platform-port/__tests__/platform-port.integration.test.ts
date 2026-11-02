@@ -149,7 +149,14 @@ describe.skipIf(!runIntegration)('platform port /api/v1/platform (#620)', () => 
     it.each([
       [
         'admin',
-        ['console:access', 'features:access', 'notice:view', 'platform:view', 'voc:view'],
+        [
+          'console:access',
+          'features:access',
+          'knowledge:catalog-manage',
+          'notice:view',
+          'platform:view',
+          'voc:view',
+        ],
         { ko: '관리자', en: 'Admin' },
       ],
       [
@@ -185,6 +192,21 @@ describe.skipIf(!runIntegration)('platform port /api/v1/platform (#620)', () => 
       const asInstant = Date.parse(`${defaultRangeTo}Z`) - 9 * 3600 * 1000;
       expect(asInstant).toBeLessThanOrEqual(Date.now());
       expect(before - asInstant).toBeLessThan(61_000);
+    });
+
+    it('knowledge:catalog-manage is listed for Admin and for a workspace grant of knowledge.catalog.manage, not for a plain user or a developer', async () => {
+      const admin = await newActor('admin');
+      const has = async (cookie: string) =>
+        (await bootstrap(cookie)).session.user.permissions.includes('knowledge:catalog-manage');
+      expect(await has(admin.cookie)).toBe(true);
+      const developer = await newActor('developer');
+      expect(await has(developer.cookie)).toBe(false);
+      const plain = await newActor('user');
+      expect(await has(plain.cookie)).toBe(false);
+      await grantCapability(dbHandle, WORKSPACE_ID, plain.id, 'knowledge.catalog.manage', null, admin.id);
+      expect(await has(plain.cookie)).toBe(true);
+      await grantCapability(dbHandle, WORKSPACE_ID, developer.id, 'knowledge.catalog.manage', null, admin.id);
+      expect(await has(developer.cookie)).toBe(true);
     });
 
     it('features:access follows grants, workspace denies, revocation and expiry for a user-level actor', async () => {

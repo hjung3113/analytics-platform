@@ -210,7 +210,8 @@ describe('workspace assembly (#260)', () => {
       'log-my-queue', 'log-recent-models', 'log-models', 'log-defects', 'log-partner-reviews', 'log-rules', 'log-knowledge-catalog',
       'imp-my-tasks', 'imp-tasks', 'imp-effect-report', 'imp-equipment-history',
     ]);
-    expect(planned.every(menu => !menu.component && menu.permission === 'platform:view')).toBe(true);
+    // #1194 r: the catalog management menu is the one admin-capability menu (design v0.6 §2.1); the rest stay open to every signed-in user.
+    expect(planned.every(menu => !menu.component && menu.permission === (menu.id === 'log-knowledge-catalog' ? 'knowledge:catalog-manage' : 'platform:view'))).toBe(true);
     expect(registry.menuById('home').label).toEqual({ ko: '플랫폼 홈', en: 'Platform home' });
     expect(registry.menuById('equipment-master').path).toBe('/mars/equipment-master');
     expect(registry.menuById('equipment-master').aliases).toEqual(['/equipment']);

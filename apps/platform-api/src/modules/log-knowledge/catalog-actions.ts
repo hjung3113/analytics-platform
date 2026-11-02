@@ -37,6 +37,8 @@ import {
 } from './repositories/catalog-write.js';
 
 export const CATALOG_PERMISSION = 'knowledge.catalog.manage';
+/** The menu permission the twelve actions declare (and the menu manifest uses): bootstrap lists it exactly for the users `CATALOG_PERMISSION` lets write (`platform-port/permissions.ts`). */
+export const CATALOG_MENU_PERMISSION = 'knowledge:catalog-manage';
 
 const SUBJECT = {
   vendor: 'knowledge_vendor',
@@ -174,7 +176,7 @@ export function catalogActions(deps: CatalogActionDeps): MenuActionDeclaration[]
         id: `logKnowledge.${kind}Create`,
         menuId: LOG_KNOWLEDGE_MENU_ID,
         inputKeys: INPUT_KEYS[kind].create,
-        permission: CATALOG_PERMISSION,
+        permission: CATALOG_MENU_PERMISSION,
         requiresScope: false,
         concurrency: 'none',
         invalidates: INVALIDATES[kind],
@@ -224,7 +226,7 @@ export function catalogActions(deps: CatalogActionDeps): MenuActionDeclaration[]
         id: `logKnowledge.${kind}Update`,
         menuId: LOG_KNOWLEDGE_MENU_ID,
         inputKeys: INPUT_KEYS[kind].update,
-        permission: CATALOG_PERMISSION,
+        permission: CATALOG_MENU_PERMISSION,
         requiresScope: false,
         concurrency: 'version',
         invalidates: INVALIDATES[kind],
@@ -283,7 +285,7 @@ export function catalogActions(deps: CatalogActionDeps): MenuActionDeclaration[]
         id: `logKnowledge.${kind}SetActive`,
         menuId: LOG_KNOWLEDGE_MENU_ID,
         inputKeys: INPUT_KEYS[kind].setActive,
-        permission: CATALOG_PERMISSION,
+        permission: CATALOG_MENU_PERMISSION,
         requiresScope: false,
         concurrency: 'version',
         invalidates: INVALIDATES[kind],

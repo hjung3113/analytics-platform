@@ -17,7 +17,7 @@
 | `@ap/menu-metrics` | `menus/bravo/metrics` | `metrics` | MetricCatalog(틀린 `status`·`domain`은 고치지 않고 SDK `usePageKeyRules`·`PageKeyWarning`으로 거부, #924), MetricDetail |
 | `@ap/menu-clas` | `menus/clas/clas` | `clas` | OperationTime |
 | `@ap/menu-log-my-work`·`-log-models`·`-log-cross`·`-log-rules` | `menus/log-dev/*` | `logMyWork`·`logModels`·`logCross`·`logRules` | 없음(계획 메뉴 manifest만, ADR-0065) |
-| `@ap/menu-log-knowledge` | `menus/log-dev/log-knowledge` | `logKnowledge` | 없음(계획 메뉴 manifest만. 서버 조회 `logKnowledge.*`는 #1193, 화면은 #1194) |
+| `@ap/menu-log-knowledge` | `menus/log-dev/log-knowledge` | `logKnowledge` | `logKnowledge.*` 조회 4종(표 필터 모델 `filters`)·쓰기 12종 선언, mock `./mock`(조회 + 쓰기 `logKnowledgeActionsMock`). 계획 메뉴 manifest(권한 `knowledge:catalog-manage`), 화면은 #1194 노드 b |
 | `@ap/menu-imp-my-work`·`-imp-tasks`·`-imp-reports` | `menus/improvement/*` | `impMyWork`·`impTasks`·`impReports` | 없음(계획 메뉴 manifest만, ADR-0065) |
 
 ## 규칙
@@ -40,6 +40,6 @@
 
 ## 검증
 
-- `pnpm --filter @ap/menu-<group> test`로 좁혀 본 뒤 루트 검사(루트 `AGENTS.md`). `test` 스크립트(vitest)는 계획 메뉴만 가진 패키지(`@ap/menu-master-data`, `menus/log-dev/*`, `menus/improvement/*`)를 뺀 모든 메뉴 패키지에 있다. 화면이 바뀌면 `pnpm dev`로 브라우저에서 확인한다. lint상 `@ap/mock-server`를 import하는 메뉴 파일은 `src/mock/**`뿐이며, 테스트(`*.test.ts`)도 이 규칙의 면제 대상이 아니다.
+- `pnpm --filter @ap/menu-<group> test`로 좁혀 본 뒤 루트 검사(루트 `AGENTS.md`). `test` 스크립트(vitest)는 계획 메뉴만 가진 패키지(`@ap/menu-master-data`, `menus/log-dev/*`(`log-knowledge` 제외), `menus/improvement/*`)를 뺀 모든 메뉴 패키지에 있다. 화면이 바뀌면 `pnpm dev`로 브라우저에서 확인한다. lint상 `@ap/mock-server`를 import하는 메뉴 파일은 `src/mock/**`뿐이며, 테스트(`*.test.ts`)도 이 규칙의 면제 대상이 아니다.
 
 다음 단계: 화면 작성법은 [apps/platform-web README "페이지 작성 가이드"](../apps/platform-web/README.md#페이지-작성-가이드-consumer-규칙), 메뉴 선언 계약은 06 §5.

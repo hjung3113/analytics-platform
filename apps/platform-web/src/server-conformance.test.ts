@@ -7,7 +7,7 @@ import { EQUIPMENT_AXES } from './equipmentAxes';
 import { describe, expect, it } from 'vitest';
 import { createMockAdapter, defineMockAction, EQUIPMENT, getRole, jobsForEquipmentDay, setRole, USERS, type RoleId } from '@ap/mock-server';
 import { describeServerConformance, type ConformanceCase } from '@ap/server-conformance';
-import { MOCK_AUDIT_EVENTS, MOCK_ENDPOINTS, MODULE_MOCK_ENDPOINTS } from './dev/mock-assembly';
+import { MOCK_ACTIONS, MOCK_AUDIT_EVENTS, MOCK_ENDPOINTS, MODULE_MOCK_ENDPOINTS } from './dev/mock-assembly';
 import { registry } from './menus';
 import { modulePermissions } from './modules';
 import { defineAction, menuPermission, menuPermissions, spaceId, type Permission } from '@ap/contracts';
@@ -47,6 +47,11 @@ const PARAMS: Record<string, Record<string, unknown>> = {
   'metrics.catalog.page': { q: null, status: null, domain: null, lang: 'ko', ...page },
   'metrics.definition': { metricId: 'cycle_time', version: '4' },
   'metrics.usage': { metricId: 'cycle_time', version: '4' },
+  // Log knowledge catalog reads (#1194 r): the table's page + `filters` shape, no filter = every row.
+  'logKnowledge.vendors': { q: null, ...page },
+  'logKnowledge.processes': { q: null, ...page },
+  'logKnowledge.models': { q: null, ...page },
+  'logKnowledge.softwareVersions': { q: null, ...page },
   // EV (#801): the synthetic fixture's equipment; `continuationToken` stays omitted (first page).
   'eqv.topview-context': { equipmentId: 'eq-synth-01' },
   'eqv.topview-events': { equipmentId: 'eq-synth-01' },
@@ -68,6 +73,34 @@ const fixtureMockAction = defineMockAction(fixtureSave, {
   version: () => String(fixtureVersion),
   handle: () => { fixtureVersion += 1; return { data: { id: fixtureVersion }, version: String(fixtureVersion) }; },
 });
+
+// The catalog writes (#1194 r) run against the mock's own actions. Each kit check writes with a fresh key, so a create
+// sample hands out a new code every time (a getter) and the others re-send values the row already has. Seed ids are the
+// deterministic ones of `menus/log-dev/log-knowledge/src/mock/store.ts` (sequence order: vendors 1-3, processes 4-7, models
+// 8-13, software 14-17); that package's mock test pins them.
+const seedId = (kind: number, n: number) => `${String(kind).padStart(8, '0')}-0000-4000-8000-${n.toString(16).padStart(12, '0')}`;
+const [ALPHA, ETCH, A100, A100_V1] = [seedId(1, 1), seedId(2, 4), seedId(3, 8), seedId(4, 14)];
+let sampleSeq = 0;
+const unique = (label: string) => `CF-${label}-${++sampleSeq}`;
+const catalogSamples: Record<string, () => Record<string, unknown>> = {
+  vendorCreate: () => ({ code: unique('V'), name: 'Conformance vendor' }),
+  vendorUpdate: () => ({ id: ALPHA, code: 'ALPHA', name: 'Alpha Semicap' }),
+  vendorSetActive: () => ({ id: ALPHA, active: true }),
+  processCreate: () => ({ code: unique('P'), name: 'Conformance process' }),
+  processUpdate: () => ({ id: ETCH, code: 'ETCH', name: 'Etch' }),
+  processSetActive: () => ({ id: ETCH, active: true }),
+  modelCreate: () => ({ vendorId: ALPHA, code: unique('M'), name: 'Conformance model', processIds: [ETCH] }),
+  modelUpdate: () => ({ id: A100, code: 'A-100', name: 'Alpha 100', processIds: [ETCH] }),
+  modelSetActive: () => ({ id: A100, active: true }),
+  softwareCreate: () => ({ modelId: A100, versionLabel: unique('S'), name: '' }),
+  softwareUpdate: () => ({ id: A100_V1, versionLabel: 'v1.0', name: '' }),
+  softwareSetActive: () => ({ id: A100_V1, active: true }),
+};
+const catalogActionCases = MOCK_ACTIONS.map(action => {
+  const sample = catalogSamples[action.spec.id.replace('logKnowledge.', '')]!;
+  const currentVersion = async () => action.version!({ input: sample(), actor: 'admin', scopeId: null }) ?? '';
+  return { spec: action.spec, get input() { return sample(); }, ...(action.spec.concurrency === 'version' ? { currentVersion } : {}) };
+});
 const GRANTED: RoleId = 'engineer';
 const CONSOLE: RoleId = 'admin';
 // Choose a granted group with different teams so the sample proves strict AND narrowing.
@@ -84,7 +117,7 @@ describe('conformance harness covers what the app registers', () => {
 });
 
 // The vocabulary carries the mounted modules' permissions (`eqv:view`), so the mock roles are built from it (#801).
-const adapter = createMockAdapter({ equipmentAxes: EQUIPMENT_AXES, endpoints, registry, permissions: [...registry.permissions, ...modulePermissions(registry)], auditEvents: MOCK_AUDIT_EVENTS, actions: [fixtureMockAction] });
+const adapter = createMockAdapter({ equipmentAxes: EQUIPMENT_AXES, endpoints, registry, permissions: [...registry.permissions, ...modulePermissions(registry)], auditEvents: MOCK_AUDIT_EVENTS, actions: [fixtureMockAction, ...MOCK_ACTIONS] });
 
 // The SavedViewStore conformance sample (#1131): the browser-local store judged by the same checks as the real
 // server's. Both actors come from the mock directory (saved-view-seed) so the group share between them is real;
@@ -110,7 +143,7 @@ const savedViewStoreOf = (role: 'engineer' | 'admin') => createLocalSavedViewSto
 describeServerConformance('server boundary conformance — mock adapter', {
   adapter,
   cases,
-  actions: [{ spec: fixtureSave, input: { text: 'sample' }, currentVersion: async () => String(fixtureVersion) }],
+  actions: [{ spec: fixtureSave, input: { text: 'sample' }, currentVersion: async () => String(fixtureVersion) }, ...catalogActionCases],
   context: { scopeId: 'MEM', from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' },
   foreignScopeId: 'XIA',
   // Real mock data: the equipment sample sits in MEM/PHOTO (an engineer room), the engineer holds MEM + FDRY and
