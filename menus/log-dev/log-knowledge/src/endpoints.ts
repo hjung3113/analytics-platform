@@ -60,6 +60,35 @@ export const processesEndpoint = read<ProcessRow>('processes');
 export const modelsEndpoint = read<ModelRow>('models');
 export const softwareVersionsEndpoint = read<SoftwareRow>('softwareVersions');
 
+/** The model reads' owning menu (#1197 s1): the explore table and the profile screen, a navHidden child, share it. */
+export const LOG_KNOWLEDGE_MODELS_MENU_ID = 'log-knowledge-models';
+/** `exploreModels` row: the `models` row plus the published items the model owns directly. */
+export type ExploreModelRow = ModelRow & { modelItemCount: number };
+/** `modelProfile` data (docs/architecture/platform-api/api/log-knowledge.md §Item reads); `null` when the id is unknown. */
+export type ModelProfileData = {
+  model: {
+    id: string; code: string; name: string; active: boolean;
+    vendor: { id: string; code: string; name: string; active: boolean };
+    processes: { id: string; code: string; name: string }[]; createdAt: string; updatedAt: string;
+  };
+  softwareVersions: { id: string; versionLabel: string; name: string; active: boolean; itemCount: number; updatedAt: string }[];
+  truncated: boolean;
+  modelItems: { total: number };
+};
+export type ModelProfileParams = { modelId: string };
+
+/** Same filter fields and sort columns as the `models` read. */
+export const exploreModelsEndpoint = defineEndpoint<CatalogPageParams, PageResult<ExploreModelRow>>({
+  id: 'logKnowledge.exploreModels', menuId: LOG_KNOWLEDGE_MODELS_MENU_ID, paramKeys, permission: 'platform:view',
+  requiresScope: false, context: {}, kinds: [], mergeTimeDomain: false,
+});
+export const modelProfileEndpoint = defineEndpoint<ModelProfileParams, ModelProfileData | null>({
+  id: 'logKnowledge.modelProfile', menuId: LOG_KNOWLEDGE_MODELS_MENU_ID, paramKeys: { modelId: true }, permission: 'platform:view',
+  requiresScope: false, context: {}, kinds: [], mergeTimeDomain: false,
+});
+/** The model reads in the server's order (`item-endpoints.ts`). */
+export const modelEndpointSpecs = [exploreModelsEndpoint, modelProfileEndpoint] as const;
+
 /** What every write answers: the row's identity and its new version. */
 export type CatalogSummary = { id: string; code: string; name: string; active: boolean; version: string };
 

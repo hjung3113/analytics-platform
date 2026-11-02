@@ -15,8 +15,9 @@ import {
   MODEL_SORT_IDS, PROCESS_SORT_IDS, SOFTWARE_SORT_IDS, VENDOR_SORT_IDS, modelCreate, modelFilterSpecs, modelSetActive, modelUpdate,
   modelsEndpoint, processCreate, processFilterSpecs, processSetActive, processUpdate, processesEndpoint, softwareCreate,
   softwareFilterSpecs, softwareSetActive, softwareUpdate, softwareVersionsEndpoint, vendorCreate, vendorFilterSpecs, vendorSetActive,
-  vendorUpdate, vendorsEndpoint, type CatalogPageParams, type CatalogSummary,
+  vendorUpdate, vendorsEndpoint, type CatalogPageParams, type CatalogSummary, type ModelRow,
 } from '../endpoints';
+import { modelReadsMock } from './models';
 import { activeChildren, all, byId, latestSoftwareLabel, insert, keyTaken, processIdsOf, processesOf, setProcesses, toCodeKey, touch, type Kind, type Rec } from './store';
 
 const PAGE_SIZE_MAX = 200;
@@ -130,6 +131,7 @@ const readMock = <T>(spec: Parameters<typeof defineMockEndpoint<CatalogPageParam
 
 export const logKnowledgeMock: readonly AnyMockEndpoint[] = [
   readMock(vendorsEndpoint, 'vendor'), readMock(processesEndpoint, 'process'), readMock(modelsEndpoint, 'model'), readMock(softwareVersionsEndpoint, 'software'),
+  ...modelReadsMock({ message: params => paramsMessage(params, SHAPES.model), page: params => read('model', params) as unknown as PageResult<ModelRow> }),
 ];
 
 // ---- writes ----------------------------------------------------------------------------------------------------

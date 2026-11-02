@@ -3,17 +3,20 @@ import { describe, expect, it } from 'vitest';
 import {
   CATALOG_MANAGE_PERMISSION,
   LOG_KNOWLEDGE_MENU_ID,
+  LOG_KNOWLEDGE_MODELS_MENU_ID,
   MODEL_SORT_IDS as MENU_MODEL_SORT_IDS,
   PROCESS_SORT_IDS as MENU_PROCESS_SORT_IDS,
   SOFTWARE_SORT_IDS as MENU_SOFTWARE_SORT_IDS,
   VENDOR_SORT_IDS as MENU_VENDOR_SORT_IDS,
   catalogActionSpecs,
   catalogEndpointSpecs,
+  modelEndpointSpecs,
   modelFilterSpecs,
   processFilterSpecs,
   softwareFilterSpecs,
   vendorFilterSpecs,
 } from '../../../../../../menus/log-dev/log-knowledge/src/endpoints.js';
+import { LOG_KNOWLEDGE_MODELS_MENU_ID as SERVER_MODELS_MENU_ID } from '../catalog-menu.js';
 import { CATALOG_MENU_PERMISSION } from '../catalog-actions.js';
 import { logKnowledgeContribution } from '../catalog-endpoints.js';
 import { CATALOG_FILTER_SPECS } from '../domain/catalog-filters.js';
@@ -23,8 +26,8 @@ import { MODEL_SORT_IDS, PROCESS_SORT_IDS, SOFTWARE_SORT_IDS, VENDOR_SORT_IDS } 
 // declares the same ids, keys and filter fields for the client and the mock. This test imports the menu's client-safe
 // `src/endpoints.ts` and fails when the two sides differ (#1194 r).
 const server = logKnowledgeContribution({ db: {} as never, checkService: {} as never });
-// The item reads (ADR-0109) sit on their own menu ids; the menu package mirrors them in node r of #1197, so until
-// then only the catalog menu's declarations are compared.
+// The item reads (ADR-0109) sit on their own menu ids; the model reads (menu `log-knowledge-models`, #1197 s1) are
+// compared below, the item reads are mirrored by the items menu (s2).
 const serverEndpoints = (server.endpoints ?? []).filter((e) => e.spec.menuId === LOG_KNOWLEDGE_MENU_ID);
 const serverActions = (server.actions ?? []).filter((a) => a.spec.menuId === LOG_KNOWLEDGE_MENU_ID);
 const sorted = (keys: Iterable<string>) => [...keys].sort();
@@ -79,5 +82,32 @@ describe('log knowledge menu declarations vs the server', () => {
       ).toEqual({ ops: sorted(mirror?.ops ?? []), multiple: mirror?.multiple, cell: mirror?.cell });
     }
     expect([...menuSort]).toEqual([...serverSort]);
+  });
+});
+
+describe('model reads (menu log-knowledge-models) vs the server', () => {
+  const serverModelEndpoints = (server.endpoints ?? []).filter((e) => e.spec.menuId === LOG_KNOWLEDGE_MODELS_MENU_ID);
+
+  it('uses the server menu id', () => {
+    expect(LOG_KNOWLEDGE_MODELS_MENU_ID).toBe(SERVER_MODELS_MENU_ID);
+  });
+
+  it('declares the same two reads in the same order, with the same keys, right and workspace rule', () => {
+    expect(serverModelEndpoints).toHaveLength(2);
+    expect(modelEndpointSpecs.map((s) => s.id)).toEqual(serverModelEndpoints.map((e) => e.spec.id));
+    modelEndpointSpecs.forEach((menu, i) => {
+      const spec = serverModelEndpoints[i]?.spec;
+      expect(sorted(Object.keys(menu.paramKeys)), menu.id).toEqual(sorted(spec?.paramKeys ?? []));
+      expect(
+        { menuId: menu.menuId, permission: menu.permission, requiresScope: menu.requiresScope, context: menu.context, mergeTimeDomain: menu.mergeTimeDomain },
+        menu.id,
+      ).toEqual({ menuId: spec?.menuId, permission: spec?.permission, requiresScope: spec?.requiresScope, context: spec?.context, mergeTimeDomain: spec?.mergeTimeDomain });
+    });
+  });
+
+  it('exploreModels takes the filters and sort ids of the models read', () => {
+    // The server parses exploreModels with `CATALOG_FILTER_SPECS.models` and `MODEL_SORT_IDS` (item-endpoints.ts); the menu reuses its models declarations.
+    expect(sorted(Object.keys(modelFilterSpecs))).toEqual(sorted(Object.keys(CATALOG_FILTER_SPECS.models)));
+    expect([...MENU_MODEL_SORT_IDS]).toEqual([...MODEL_SORT_IDS]);
   });
 });

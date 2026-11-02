@@ -52,6 +52,9 @@ const PARAMS: Record<string, Record<string, unknown>> = {
   'logKnowledge.processes': { q: null, ...page },
   'logKnowledge.models': { q: null, ...page },
   'logKnowledge.softwareVersions': { q: null, ...page },
+  // #1197 s1: the model reads; `modelProfile` takes a seed model id (store.ts sequence 8 = A-100, see `seedId` below).
+  'logKnowledge.exploreModels': { q: null, ...page },
+  'logKnowledge.modelProfile': { modelId: '00000003-0000-4000-8000-000000000008' },
   // EV (#801): the synthetic fixture's equipment; `continuationToken` stays omitted (first page).
   'eqv.topview-context': { equipmentId: 'eq-synth-01' },
   'eqv.topview-events': { equipmentId: 'eq-synth-01' },
