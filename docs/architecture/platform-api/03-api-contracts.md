@@ -26,6 +26,7 @@ Detailed schemas may later move into OpenAPI; until they do, `api/*.md` remains 
 | [`api/permissions.md`](api/permissions.md) | Permission |
 | [`api/notifications.md`](api/notifications.md) | Notifications Inbox; Producers |
 | [`api/saved-views.md`](api/saved-views.md) | Saved Views |
+| [`api/log-knowledge.md`](api/log-knowledge.md) | Log knowledge catalog reads (`logKnowledge.*` menu-query endpoints) |
 | [`api/entity-links.md`](api/entity-links.md) | Entity Links; Workspace inventory pagination |
 | [`api/next-actions.md`](api/next-actions.md) | Next Action Contract |
 | [`api/cross-system.md`](api/cross-system.md) | Reporter Summary Contract; Cross-System Endpoint Decisions |

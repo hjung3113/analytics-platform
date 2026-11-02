@@ -207,6 +207,12 @@ describe('새 권한 요청', () => {
       expectedBody: { requested_capability: 'workspace.read', reason: '사유' },
     },
     {
+      label: 'knowledge.catalog.manage has no Managed System field',
+      capability: '카탈로그 관리',
+      system: null,
+      expectedBody: { requested_capability: 'knowledge.catalog.manage', reason: '사유' },
+    },
+    {
       label: 'survey.export workspace-wide omits the Managed System',
       capability: 'Survey 데이터 내보내기',
       system: '전체 (워크스페이스)',

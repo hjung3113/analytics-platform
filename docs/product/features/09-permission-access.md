@@ -93,6 +93,8 @@ The backend returns effective navigation and capability states for the current w
 | Answer open Survey | yes | yes | yes |
 | Read personal Survey responses | no | permission required | no — explicit capability required |
 | Export Survey data (`survey.export`) | no | permission required | permission required |
+| Manage log knowledge catalog (`knowledge.catalog.manage`) | no | permission required (workspace-wide) | yes |
+| Import log knowledge catalog (`knowledge.catalog.import`) | no | permission required (workspace-wide) | yes |
 | Approve Permission Request | no | no | yes |
 
 Notes:

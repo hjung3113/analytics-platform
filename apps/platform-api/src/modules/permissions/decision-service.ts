@@ -201,6 +201,14 @@ export function createDecisionService(deps: DecisionServiceDeps) {
         }
 
         let grantedManagedSystemId = request.requestedManagedSystemId;
+        // The capability's holder is the requester, not the approving Admin.
+        const requester =
+          action === 'approve'
+            ? await lockWorkspaceActor(tx, {
+                workspaceId: actor.workspace_id,
+                actorId: request.requesterActorId,
+              })
+            : null;
         if (action === 'approve') {
           await validateSupportedScope(
             tx,
@@ -209,7 +217,7 @@ export function createDecisionService(deps: DecisionServiceDeps) {
             request.requestedManagedSystemId,
             request.requestedObjectType,
             request.requestedObjectId,
-            { approval: true },
+            { approval: true, recipientRole: requester?.role_level },
           );
           if (body.granted_managed_system_id !== undefined) {
             if (
@@ -232,7 +240,11 @@ export function createDecisionService(deps: DecisionServiceDeps) {
               grantedManagedSystemId,
               null,
               null,
-              { approval: true, field: 'granted_managed_system_id' },
+              {
+                approval: true,
+                field: 'granted_managed_system_id',
+                recipientRole: requester?.role_level,
+              },
             );
           }
         }

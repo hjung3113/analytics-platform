@@ -57,6 +57,7 @@ import {
   findingsRoutes,
   reconcileFindingExecution,
 } from './modules/findings/index.js';
+import { logKnowledgeContribution } from './modules/log-knowledge/index.js';
 import {
   createManagedSystemService,
   managedSystemsRoutes,
@@ -818,6 +819,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
   // modules contribute to. Registration problems throw here and stop the boot.
   const menuRegistry = createMenuDispatchRegistry([
     homeNoticesContribution({ db: dbHandle.db, checkService }),
+    logKnowledgeContribution({ db: dbHandle.db, checkService }),
     ...(opts.menuDispatch ?? []),
   ]);
   await app.register(menuQueryRoutes, {

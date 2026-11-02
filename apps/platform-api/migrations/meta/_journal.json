@@ -561,6 +561,13 @@
       "when": 1793232177382,
       "tag": "0079_platform_notices",
       "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1793585341137,
+      "tag": "0080_knowledge_catalog",
+      "breakpoints": true
     }
   ]
 }

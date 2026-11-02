@@ -36,6 +36,7 @@
     "@ap/menu-imp-tasks": "workspace:*",
     "@ap/menu-integration": "workspace:*",
     "@ap/menu-log-cross": "workspace:*",
+    "@ap/menu-log-knowledge": "workspace:*",
     "@ap/menu-log-models": "workspace:*",
     "@ap/menu-log-my-work": "workspace:*",
     "@ap/menu-log-rules": "workspace:*",

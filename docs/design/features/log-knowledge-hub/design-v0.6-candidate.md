@@ -646,4 +646,6 @@ Human UI: GET Draft(DraftVersion+Digest), 편집/근거 Diff 확인
 
 상위 추적 이슈: [#1192](https://github.com/hjung3113/analytics-platform/issues/1192). P0 [#1193](https://github.com/hjung3113/analytics-platform/issues/1193)·[#1194](https://github.com/hjung3113/analytics-platform/issues/1194)·[#1195](https://github.com/hjung3113/analytics-platform/issues/1195), P1 [#1196](https://github.com/hjung3113/analytics-platform/issues/1196)·[#1197](https://github.com/hjung3113/analytics-platform/issues/1197)·[#1198](https://github.com/hjung3113/analytics-platform/issues/1198)·[#1199](https://github.com/hjung3113/analytics-platform/issues/1199), P2 [#1200](https://github.com/hjung3113/analytics-platform/issues/1200)·[#1201](https://github.com/hjung3113/analytics-platform/issues/1201).
 
+P0 #1193 구현됨: 스키마 표 1–6(`knowledge` 스키마, migration 0080)과 카탈로그 조회 4종(`logKnowledge.*`). 쓰기·화면은 #1194, Import 표 7–9는 #1195.
+
 **이 PR은 설계 문서만 추가한다.** 생성된 폴더/문서는 feature implementation, 실행 가능한 migration, API 구현, 실제 운영 검증을 의미하지 않는다.

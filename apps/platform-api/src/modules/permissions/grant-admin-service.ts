@@ -264,7 +264,12 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
           managedSystemId,
           null,
           null,
-          { approval: true, field: 'managed_system_id' },
+          {
+            approval: true,
+            field: 'managed_system_id',
+            recipientRole: recipient.role_level,
+            capabilityField: 'capability',
+          },
         );
         const expiresAt = input.expires_at ? new Date(input.expires_at) : null;
         validateRequestExpiration(expiresAt, 'expires_at');
