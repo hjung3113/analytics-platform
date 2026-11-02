@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ExternalLink, Plus } from 'lucide-react';
 import { type ApiResponse, type ColumnFilterSpec, type PageResult, type TableQuery } from '@ap/contracts';
 import { PlatformLink, useMenuFetch, usePlatform } from '@ap/kernel';
-import { ManagementLayout, PlatformDataTable, PlatformPage, RowAction, TableUrlWarning, useTableUrlState, type PlatformColumn, type TableFilterField } from '@ap/components';
+import { ManagementLayout, PageKeyWarning, PlatformDataTable, PlatformPage, RowAction, TableUrlWarning, useTableUrlState, type PlatformColumn, type TableFilterField } from '@ap/components';
 import { Button, SearchInput } from '@ap/ui';
 import { ITEM_PUBLISH_PERMISSION, ITEM_SORT_IDS, itemFilterSpecs, itemsEndpoint, modelsEndpoint, type CatalogPageParams, type ItemRow, type ModelRow } from '../../endpoints';
 import { OwnerChip, StateBadge, TypeBadge } from './ItemBadges';
@@ -32,6 +32,33 @@ function useModelNames(ids: readonly string[]): ReadonlyMap<string, string> {
     return () => controller.abort();
   }, [key]);
   return names;
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+type OwnerPreset = { state: 'none' } | { state: 'pending' } | { state: 'ok'; id: string } | { state: 'refused' };
+/**
+ * The `owner` address value is accepted as the create form's owner only after it resolves to an active model (the picker offers active
+ * ones only). A malformed, unknown or inactive id, or a failed lookup, gives `refused` and the form starts with no owner.
+ */
+function useOwnerPreset(raw: string | null): OwnerPreset {
+  const { fetch } = useMenuFetch(modelsEndpoint) as unknown as ReturnType<typeof useMenuFetch<CatalogPageParams, PageResult<ModelRow>>>;
+  const fetchRef = useRef(fetch);
+  useEffect(() => { fetchRef.current = fetch; });
+  const [done, setDone] = useState<{ raw: string; ok: boolean } | null>(null);
+  useEffect(() => {
+    if (raw === null || !UUID.test(raw)) return;
+    const controller = new AbortController();
+    void fetchRef.current({ q: null, page: 0, pageSize: 1, sorting: [{ id: 'createdAt', desc: false }], filters: [{ id: 'id', op: 'in', value: [raw] }] }, controller.signal).then(res => {
+      if (controller.signal.aborted) return;
+      const row = (res.outcome === 'ok' || res.outcome === 'empty') ? res.data?.rows.find(r => r.id === raw) : undefined;
+      setDone({ raw, ok: !!row && row.active });
+    }).catch(() => { if (!controller.signal.aborted) setDone({ raw, ok: false }); });
+    return () => controller.abort();
+  }, [raw]);
+  if (raw === null) return { state: 'none' };
+  if (!UUID.test(raw)) return { state: 'refused' };
+  if (done?.raw !== raw) return { state: 'pending' };
+  return done.ok ? { state: 'ok', id: raw } : { state: 'refused' };
 }
 
 function ItemTable({ q }: { q: string }) {
@@ -93,10 +120,11 @@ export default function ItemList() {
   const { can } = usePlatform();
   const canWrite = can(ITEM_PUBLISH_PERMISSION);
   const creating = canWrite && pageParam('focus') === 'new';
-  const owner = pageParam('owner');
+  const owner = useOwnerPreset(creating ? pageParam('owner') : null);
   return <PlatformPage description="모든 모델·SW 버전의 기술 Item을 찾습니다. Item마다 소유 대상은 하나입니다."
     primaryAction={canWrite ? <Button type="button" onClick={() => setPage({ focus: 'new' })}><Plus className="size-3.5" aria-hidden />새 기술 Item</Button> : undefined}>
-    {creating && <ItemWriteDrawer target={{ mode: 'create', ownerModelId: owner ?? '' }} onClose={() => setPage({ focus: null, owner: null })} />}
+    {creating && owner.state === 'refused' && <PageKeyWarning sentences={['소유 대상(owner)이 활성 모델이 아니어서 비워 두었습니다. 목록에서 모델을 골라 주세요.']} onRecover={() => setPage({ owner: null })} />}
+    {creating && owner.state !== 'pending' && <ItemWriteDrawer target={{ mode: 'create', ownerModelId: owner.state === 'ok' ? owner.id : '' }} onClose={() => setPage({ focus: null, owner: null })} />}
     <ManagementLayout table={<ItemTable q={q} />} />
   </PlatformPage>;
 }

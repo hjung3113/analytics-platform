@@ -14,7 +14,7 @@ const PREVIEW = 5;
  * The 모델 공통 Item section body (#1197 s3b): the model's five most recently updated published items, owned by the model itself —
  * SW-owned items are not listed (ADR-0109: not inherited). `모두 보기 (N)` opens 전체 기술 Item filtered to this model.
  */
-export function ModelItems({ modelId }: { modelId: string }) {
+export function ModelItems({ modelId, active }: { modelId: string; active: boolean }) {
   const { linkTo, can } = usePlatform();
   const params = useMemo<CatalogPageParams>(() => ({
     q: null, page: 0, pageSize: PREVIEW, sorting: [{ id: 'updatedAt', desc: true }],
@@ -24,7 +24,8 @@ export function ModelItems({ modelId }: { modelId: string }) {
   const data = query.response?.outcome === 'ok' || query.response?.outcome === 'empty' ? (query.response.data as PageResult<ItemRow> | null) : null;
   if (!data) return <p className="text-sm text-text-muted">{query.response ? '모델 공통 Item을 불러오지 못했습니다.' : '불러오는 중…'}</p>;
   if (data.rows.length === 0) {
-    const create = can(ITEM_PUBLISH_PERMISSION)
+    // An inactive model cannot own a new item (the server refuses), so it offers no create entry.
+    const create = active && can(ITEM_PUBLISH_PERMISSION)
       ? <Button asChild size="sm" variant="secondary"><PlatformLink href={linkTo('log-knowledge-items', { page: { filter: defaultFilterParams(), focus: 'new', owner: modelId } })}><Plus className="size-3.5" aria-hidden />새 기술 Item</PlatformLink></Button>
       : null;
     return <EmptyNote text="이 모델이 소유한 Item이 없습니다" action={create} />;

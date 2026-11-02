@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import type { ApiResponse, PageResult } from '@ap/contracts';
 import { useMenuFetch } from '@ap/kernel';
-import { Button, Combobox, FieldLabel, Input, RadioGroup, RadioGroupItem, cn } from '@ap/ui';
+import { Button, Combobox, DirtyConfirmation, FieldLabel, Input, RadioGroup, RadioGroupItem, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea } from '@ap/ui';
 import { ITEM_LIMITS, EVIDENCE_SOURCE_KINDS, modelsEndpoint, softwareVersionsEndpoint, type CatalogPageParams, type EvidenceSourceKind } from '../../endpoints';
 import { useOptionPicker, toOption, type Option } from '../useCatalogOptions';
 import { emptyEvidence, evidenceKey, type EvidenceRow, type WriteForm } from './itemWriteModel';
@@ -14,15 +14,6 @@ export function Field({ id, label, error, hint, required, badge, children }: { i
     {hint && !error && <p id={`${id}-hint`} className="text-xs text-text-muted">{hint}</p>}
     {error && <p id={`${id}-error`} role="alert" className="text-xs text-text-danger-label">{error}</p>}
   </div>;
-}
-
-const FIELD = 'w-full rounded-md border border-border-subtle bg-surface-field px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50';
-
-export function TextArea({ rows = 4, className, ...props }: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return <textarea rows={rows} className={cn(FIELD, 'resize-y leading-6', className)} {...props} />;
-}
-export function NativeSelect({ className, ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select className={cn(FIELD, 'h-10 py-0', className)} {...props} />;
 }
 
 /** The chosen option's label survives a changing list; a value given without a label (an address `owner`) is read once by id. */
@@ -45,27 +36,36 @@ function useChosenOption(endpoint: typeof modelsEndpoint | typeof softwareVersio
   return { known, remember: setPicked };
 }
 
+/** The next page of a picker's matches (and a failed page's retry), beside the combobox: the single-select `Combobox` has no load-more row of its own. */
+function PickerPaging({ picker, label }: { picker: Pick<ReturnType<typeof useOptionPicker>, 'hasMore' | 'failed' | 'loading' | 'loadMore' | 'retry'>; label: string }) {
+  if (picker.failed) return <div className="flex items-center gap-2 text-xs text-text-danger-label"><span role="alert">{label} 목록을 불러오지 못했습니다</span><Button type="button" size="sm" variant="ghost" onClick={picker.retry}>다시 시도</Button></div>;
+  if (!picker.hasMore) return null;
+  return <div><Button type="button" size="sm" variant="ghost" disabled={picker.loading} onClick={picker.loadMore}>{picker.loading ? '불러오는 중…' : `${label} 더 보기`}</Button></div>;
+}
+
 type PickerShared = { id: string; invalid: boolean; describedBy: string | undefined };
 function ModelPicker({ value, onChange, id, invalid, describedBy }: PickerShared & { value: string; onChange: (value: string) => void }) {
   const picker = useOptionPicker(modelsEndpoint);
   const { known, remember } = useChosenOption(modelsEndpoint, value, picker.options);
   const options = known && !picker.options.some(o => o.value === known.value) ? [known, ...picker.options] : picker.options;
-  return <Combobox id={id} options={options} value={value || null} filterOptions={false}
+  return <><Combobox id={id} options={options} value={value || null} filterOptions={false}
     onChange={next => { remember(options.find(o => o.value === next) ?? null); onChange(next); }} onSearchChange={picker.setSearch}
     placeholder="모델 선택" searchPlaceholder="모델 코드·이름 검색" listboxLabel="모델 목록"
-    {...(picker.hasMore ? { footerText: '일부만 보입니다 — 검색으로 좁혀 주세요' } : {})}
-    emptyText={picker.loading ? '불러오는 중…' : picker.failed ? '불러오지 못했습니다' : '결과가 없습니다'} aria-invalid={invalid} aria-describedby={describedBy} />;
+    {...(picker.hasMore ? { footerText: '일부만 보입니다 — 검색하거나 아래 더 보기를 누르세요' } : {})}
+    emptyText={picker.loading ? '불러오는 중…' : picker.failed ? '불러오지 못했습니다' : '결과가 없습니다'} aria-invalid={invalid} aria-describedby={describedBy} />
+    <PickerPaging picker={picker} label="모델" /></>;
 }
 /** Active SW versions of one model; keyed by the model by the caller, so a model change starts a fresh list. */
 function SoftwarePicker({ modelId, value, onChange, id, invalid, describedBy }: PickerShared & { modelId: string; value: string; onChange: (value: string) => void }) {
   const picker = useOptionPicker(softwareVersionsEndpoint, true, [{ id: 'modelId', op: 'in', value: [modelId] }]);
   const { known, remember } = useChosenOption(softwareVersionsEndpoint, value, picker.options);
   const options = known && !picker.options.some(o => o.value === known.value) ? [known, ...picker.options] : picker.options;
-  return <Combobox id={id} options={options} value={value || null} filterOptions={false}
+  return <><Combobox id={id} options={options} value={value || null} filterOptions={false}
     onChange={next => { remember(options.find(o => o.value === next) ?? null); onChange(next); }} onSearchChange={picker.setSearch}
     placeholder="SW 버전 선택" searchPlaceholder="버전 검색" listboxLabel="SW 버전 목록"
-    {...(picker.hasMore ? { footerText: '일부만 보입니다 — 검색으로 좁혀 주세요' } : {})}
-    emptyText={picker.loading ? '불러오는 중…' : picker.failed ? '불러오지 못했습니다' : '이 모델에 활성 SW 버전이 없습니다'} aria-invalid={invalid} aria-describedby={describedBy} />;
+    {...(picker.hasMore ? { footerText: '일부만 보입니다 — 검색하거나 아래 더 보기를 누르세요' } : {})}
+    emptyText={picker.loading ? '불러오는 중…' : picker.failed ? '불러오지 못했습니다' : '이 모델에 활성 SW 버전이 없습니다'} aria-invalid={invalid} aria-describedby={describedBy} />
+    <PickerPaging picker={picker} label="SW 버전" /></>;
 }
 
 /** 소유 종류 (모델 | SW 버전) → 모델 → (SW 버전). Changing the model clears the SW version; switching to 모델 drops it. */
@@ -103,9 +103,10 @@ export function EvidenceEditor({ uid, rows, onChange, errors }: { uid: string; r
       </legend>
       {errors[`evidence.${i}`] && <p role="alert" className="text-xs text-text-danger-label">{errors[`evidence.${i}`]}</p>}
       <Field id={`${uid}-ev-${i}-sourceKind`} label="출처 종류" error={errors[evidenceKey(i, 'sourceKind')]}>
-        <NativeSelect id={`${uid}-ev-${i}-sourceKind`} value={row.sourceKind} onChange={e => patch(i, { sourceKind: e.target.value as EvidenceSourceKind })}>
-          {EVIDENCE_SOURCE_KINDS.map(kind => <option key={kind} value={kind}>{KIND_LABEL[kind]}</option>)}
-        </NativeSelect>
+        <Select value={row.sourceKind} onValueChange={next => patch(i, { sourceKind: next as EvidenceSourceKind })}>
+          <SelectTrigger appearance="field" id={`${uid}-ev-${i}-sourceKind`} aria-invalid={errors[evidenceKey(i, 'sourceKind')] !== undefined} aria-describedby={errors[evidenceKey(i, 'sourceKind')] ? `${uid}-ev-${i}-sourceKind-error` : undefined}><SelectValue placeholder="종류를 골라 주세요" /></SelectTrigger>
+          <SelectContent>{EVIDENCE_SOURCE_KINDS.map(kind => <SelectItem key={kind} value={kind}>{KIND_LABEL[kind]}</SelectItem>)}</SelectContent>
+        </Select>
       </Field>
       <div className="grid grid-cols-2 gap-2">{text(i, 'sourceOwner', '출처 소유', true)}{text(i, 'sourceRef', '참조', true)}</div>
       <div className="grid grid-cols-3 gap-2">{text(i, 'sourceVersion', '버전')}{text(i, 'contentHash', '해시')}{text(i, 'locator', '위치')}</div>
@@ -124,4 +125,27 @@ export function useSyncedVersion(live: string) {
   const [state, setState] = useState({ synced: live, waiting: false });
   if (state.waiting && live !== state.synced) setState({ synced: live, waiting: false });
   return { synced: state.synced, sync: () => setState(s => ({ ...s, waiting: true })) };
+}
+
+/**
+ * Closing a drawer with unsaved input asks first. `request` is what Escape, the close button and 취소 call; `force` closes without asking
+ * (after a save). The form reports whether it differs from its start through `markDirty`; `dialog` is rendered once beside the drawer.
+ */
+export function useCloseGuard(onClose: () => void) {
+  const dirty = useRef(false);
+  const [asking, setAsking] = useState(false);
+  const closeRef = useRef(onClose);
+  useEffect(() => { closeRef.current = onClose; });
+  const request = () => { if (dirty.current) setAsking(true); else closeRef.current(); };
+  const dialog = <DirtyConfirmation open={asking} title="작성 중인 내용이 사라집니다. 닫을까요?" message="닫으면 입력한 내용을 되찾을 수 없습니다." confirmLabel="닫기" cancelLabel="계속 작성"
+    onCancel={() => setAsking(false)} onConfirm={() => { setAsking(false); dirty.current = false; closeRef.current(); }} />;
+  const markDirty = useCallback((value: boolean) => { dirty.current = value; }, []);
+  return { markDirty, request, force: () => { dirty.current = false; closeRef.current(); }, dialog };
+}
+
+/** Whether `value` differs from what it was when the form first mounted; reports each change to `markDirty`. */
+export function useDirtyReport(value: unknown, markDirty: (dirty: boolean) => void): void {
+  const [start] = useState(() => JSON.stringify(value));
+  const now = JSON.stringify(value) !== start;
+  useEffect(() => { markDirty(now); }, [now, markDirty]);
 }

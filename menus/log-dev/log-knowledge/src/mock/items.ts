@@ -61,7 +61,7 @@ export function resetItems(): void {
     changeNote: note, publishedBy: ACTORS[n % 2]!, publishedAt: day(2 + n * 3),
     evidence: withEvidence ? [
       { ordinal: 1, sourceKind: 'log_file', sourceOwner: 'MARS', sourceRef: `logs/${title.length}-0${n}.log`, sourceVersion: `v${n}`, contentHash: 'sha256:9f2c41ab77d0', locator: 'L120-L148', note: '중복 구간 발췌' },
-      { ordinal: 2, sourceKind: 'document', sourceOwner: 'Wiki', sourceRef: 'manuals/chamber-pressure', sourceVersion: null, contentHash: null, locator: '§4.2', note: null },
+      { ordinal: 2, sourceKind: 'spec', sourceOwner: 'Wiki', sourceRef: 'manuals/chamber-pressure', sourceVersion: null, contentHash: null, locator: '§4.2', note: null },
     ].slice(0, 1 + (n % 2)) : [],
   });
   for (let n = 1; n <= 30; n++) {

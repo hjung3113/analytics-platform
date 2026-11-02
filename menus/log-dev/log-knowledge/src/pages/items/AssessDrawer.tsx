@@ -2,17 +2,17 @@ import { useId, useState } from 'react';
 import type { ActionResult } from '@ap/contracts';
 import { useMenuAction, usePlatform } from '@ap/kernel';
 import { DetailDrawer } from '@ap/components';
-import { Button, Callout, RadioGroup, RadioGroupItem } from '@ap/ui';
+import { Button, Callout, RadioGroup, RadioGroupItem, Textarea } from '@ap/ui';
 import { ASSESSMENT_DIMENSIONS, ITEM_LIMITS, PROCESSING_STATES, VERIFICATION_STATES, itemAssess, type AssessmentDimension, type ItemDetail } from '../../endpoints';
 import { StateBadge } from './ItemBadges';
-import { Field, TextArea, useSyncedVersion } from './ItemFormParts';
+import { Field, useCloseGuard, useDirtyReport, useSyncedVersion } from './ItemFormParts';
 import { AXIS_LABEL, itemNoLabel, ownerText, stateLabel } from './itemModel';
 import { itemErrorText, mapItemErrors, type FormErrors } from './itemWriteModel';
 
 const STATES: Record<AssessmentDimension, readonly string[]> = { verification: VERIFICATION_STATES, processing: PROCESSING_STATES };
 const KNOWN = ['dimension', 'newState', 'rationale'] as const;
 
-function AssessForm({ detail, onReload, onClose }: { detail: ItemDetail; onReload: () => void; onClose: () => void }) {
+function AssessForm({ detail, onReload, guard }: { detail: ItemDetail; onReload: () => void; guard: ReturnType<typeof useCloseGuard> }) {
   const { setPage, toast } = usePlatform();
   const assess = useMenuAction(itemAssess);
   const uid = useId();
@@ -24,6 +24,7 @@ function AssessForm({ detail, onReload, onClose }: { detail: ItemDetail; onReloa
   const [errors, setErrors] = useState<FormErrors>({});
   const [conflict, setConflict] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
+  useDirtyReport({ dimension, newState, rationale }, guard.markDirty);
   const current = (axis: AssessmentDimension) => (axis === 'verification' ? item.verificationState : item.processingState);
 
   function settle(res: ActionResult<unknown>) {
@@ -74,10 +75,10 @@ function AssessForm({ detail, onReload, onClose }: { detail: ItemDetail; onReloa
       </RadioGroup>
     </Field>
     <Field id={`${uid}-rationale`} label="사유" required error={errors['rationale']} hint={`판단 변경 이력에 남습니다 (${ITEM_LIMITS.rationale}자 이하)`}>
-      <TextArea id={`${uid}-rationale`} value={rationale} onChange={e => setRationale(e.target.value)} aria-invalid={errors['rationale'] !== undefined} aria-describedby={errors['rationale'] ? `${uid}-rationale-error` : undefined} />
+      <Textarea id={`${uid}-rationale`} value={rationale} onChange={e => setRationale(e.target.value)} aria-invalid={errors['rationale'] !== undefined} aria-describedby={errors['rationale'] ? `${uid}-rationale-error` : undefined} />
     </Field>
     <div className="sticky bottom-0 z-10 -mx-5 mt-auto flex items-center justify-end gap-2 border-t border-border-subtle bg-surface-detail px-5 py-3">
-      <Button type="button" variant="secondary" onClick={onClose}>취소</Button>
+      <Button type="button" variant="secondary" onClick={guard.request}>취소</Button>
       <Button type="submit" disabled={assess.pending}>{assess.pending ? '저장 중…' : '판단 변경'}</Button>
     </div>
   </form>;
@@ -86,6 +87,10 @@ function AssessForm({ detail, onReload, onClose }: { detail: ItemDetail; onReloa
 /** 판단 변경 (#1197 s3b): one axis, its new state (the current one disabled), a required rationale; the item's version guards the write. */
 export function AssessDrawer({ detail, onReload, onClose }: { detail: ItemDetail; onReload: () => void; onClose: () => void }) {
   const { synced, sync } = useSyncedVersion(detail.item.version);
-  return <DetailDrawer title="판단 변경" subtitle={`${itemNoLabel(detail.item.itemNo)} · ${ownerText(detail.item.owner)}`} onClose={onClose}
-    tabs={[{ id: 'form', label: '내용', content: <AssessForm key={synced} detail={detail} onReload={() => { sync(); onReload(); }} onClose={onClose} /> }]} />;
+  const guard = useCloseGuard(onClose);
+  return <>
+    <DetailDrawer title="판단 변경" subtitle={`${itemNoLabel(detail.item.itemNo)} · ${ownerText(detail.item.owner)}`} onClose={guard.request}
+      tabs={[{ id: 'form', label: '내용', content: <AssessForm key={synced} detail={detail} guard={guard} onReload={() => { sync(); onReload(); }} /> }]} />
+    {guard.dialog}
+  </>;
 }

@@ -1,6 +1,7 @@
 import { SearchX } from 'lucide-react';
+import { useState } from 'react';
 import { PlatformLink, useMenuQuery, usePlatform, type PageProps } from '@ap/kernel';
-import { PageKeyWarning, PlatformPage, QueryView, ReturnLink, StateMessage, usePageKeyRules } from '@ap/components';
+import { DetailDrawer, PageKeyWarning, PlatformPage, QueryView, ReturnLink, StateMessage, usePageKeyRules } from '@ap/components';
 import { Button } from '@ap/ui';
 import { ITEM_PUBLISH_PERMISSION, itemDetailEndpoint, type ItemDetail as ItemDetailData, type ItemDetailParams } from '../../endpoints';
 import { ArchiveAction } from './ArchiveAction';
@@ -75,11 +76,20 @@ function DrawerHost({ kind, detail, viewedRevisionNo, onReload }: { kind: Drawer
   const { setPage } = usePlatform();
   const shownIsLatest = detail.revision.revisionNo === detail.item.latestRevisionNo;
   const latestQuery = useMenuQuery(itemDetailEndpoint, { itemId: detail.item.id } satisfies ItemDetailParams, kind === 'revise' && !shownIsLatest);
-  const latest = shownIsLatest ? detail : latestQuery.response?.outcome === 'ok' ? latestQuery.response.data : null;
+  const fresh = latestQuery.response?.outcome === 'ok' ? latestQuery.response.data : null;
+  // A failed re-read after a conflict keeps the form (and its draft) on the last good latest instead of unmounting it.
+  const [kept, setKept] = useState(fresh);
+  if (fresh && fresh !== kept) setKept(fresh);
+  const latest = shownIsLatest ? detail : fresh ?? kept;
   const close = () => setPage({ drawer: null });
   if (kind === 'derive') return <ItemWriteDrawer target={{ mode: 'derive', detail }} onClose={close} />;
   if (kind === 'assess') return detail.item.publicationState === 'archived' ? null : <AssessDrawer detail={detail} onReload={onReload} onClose={close} />;
-  if (detail.item.publicationState === 'archived' || !latest) return null;
+  if (detail.item.publicationState === 'archived') return null;
+  if (!latest) return <DetailDrawer title="기술 Item 수정" subtitle={itemNoLabel(detail.item.itemNo)} onClose={close}
+    tabs={[{ id: 'form', label: '내용', content: latestQuery.response === null || latestQuery.response === undefined
+      ? <p role="status" className="text-sm text-text-muted">최신 리비전을 불러오는 중…</p>
+      : <div className="grid gap-3"><p role="alert" className="text-sm text-text-danger-label">최신 리비전을 불러오지 못했습니다. 수정은 항상 최신 리비전을 바탕으로 합니다.</p>
+        <div className="flex gap-2"><Button type="button" size="sm" variant="secondary" onClick={() => latestQuery.refetch()}>다시 시도</Button><Button type="button" size="sm" variant="ghost" onClick={close}>닫기</Button></div></div> }]} />;
   return <ItemWriteDrawer target={{ mode: 'revise', detail: latest, viewedRevisionNo, onReload: () => { onReload(); latestQuery.refetch(); } }} onClose={close} />;
 }
 

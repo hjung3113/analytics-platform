@@ -5,7 +5,7 @@
  */
 import type { FieldError } from '@ap/contracts';
 import {
-  ITEM_LIMITS, type EvidenceInput, type EvidenceSourceKind, type ItemCreateInput, type ItemDeriveInput, type ItemDetail, type ItemOwner,
+  EVIDENCE_SOURCE_KINDS, ITEM_LIMITS, type EvidenceInput, type EvidenceSourceKind, type ItemCreateInput, type ItemDeriveInput, type ItemDetail, type ItemOwner,
   type ItemReviseInput, type ItemTypeCode,
 } from '../../endpoints';
 
@@ -55,6 +55,7 @@ export function itemErrorText(code: string): string {
     case 'required_one': return '관찰 사실과 기대·기준 중 하나는 써야 합니다';
     case 'too_long': return '입력 길이가 너무 깁니다';
     case 'malformed': return '사용할 수 없는 문자가 들어 있습니다';
+    case 'bad_kind': return '지원하지 않는 출처 종류입니다 — 목록에서 다시 골라 주세요';
     case 'not_found': return '찾을 수 없는 항목입니다';
     case 'inactive': return '비활성 항목에는 연결할 수 없습니다';
     case 'archived': return '보관된 Item은 바꿀 수 없습니다';
@@ -80,7 +81,7 @@ export function mapItemErrors(errors: readonly FieldError[], known: readonly str
     const [head = '', second, third] = path;
     if (head === 'evidence' && second !== undefined) {
       const index = Number(second);
-      if (Number.isInteger(index) && index >= 0 && index < evidenceCount && (EVIDENCE_FIELDS as readonly string[]).includes(third ?? '')) { put(evidenceKey(index, third!), code); continue; }
+      if (Number.isInteger(index) && index >= 0 && index < evidenceCount && (EVIDENCE_FIELDS as readonly string[]).includes(third ?? '')) { put(evidenceKey(index, third!), third === 'sourceKind' && code === 'malformed' ? 'bad_kind' : code); continue; }
       if (Number.isInteger(index) && index >= 0 && index < evidenceCount) { put(`evidence.${index}`, code); continue; }
     } else if (head === 'evidence') { put('evidenceList', code); continue; }
     else if (head === 'owner' || head === 'ownerModelId' || head === 'ownerSoftwareId') { put('owner', code); continue; }
@@ -106,6 +107,7 @@ export function validateForm(form: WriteForm, mode: WriteMode): FormErrors {
   if (mode === 'revise') put('changeNote', form.changeNote.trim() === '' ? itemErrorText('required') : textError(form.changeNote, ITEM_LIMITS.changeNote));
   if (mode !== 'derive') {
     form.evidence.forEach((row, i) => {
+      if (!(EVIDENCE_SOURCE_KINDS as readonly string[]).includes(row.sourceKind)) out[evidenceKey(i, 'sourceKind')] ??= itemErrorText('bad_kind');
       put(evidenceKey(i, 'sourceOwner'), row.sourceOwner.trim() === '' ? itemErrorText('required') : textError(row.sourceOwner, ITEM_LIMITS.evidenceField));
       put(evidenceKey(i, 'sourceRef'), row.sourceRef.trim() === '' ? itemErrorText('required') : textError(row.sourceRef, ITEM_LIMITS.evidenceField));
       for (const field of ['sourceVersion', 'contentHash', 'locator'] as const) put(evidenceKey(i, field), textError(row[field], ITEM_LIMITS.evidenceField));

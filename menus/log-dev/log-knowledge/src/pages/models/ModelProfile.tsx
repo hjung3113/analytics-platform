@@ -29,7 +29,7 @@ function Sections({ profile, modelId, canEdit }: { profile: ModelProfileData; mo
         {truncated && <p className="text-xs text-text-muted">{SOFTWARE_LIST_NOTE}</p>}
       </div>}
     </Section>
-    <Section id={anchor('items')} title="모델 공통 Item"><ModelItems modelId={modelId} /></Section>
+    <Section id={anchor('items')} title="모델 공통 Item"><ModelItems modelId={modelId} active={profile.model.active} /></Section>
     <Section id={anchor('topview')} title="Top View"><p className="text-sm text-text-muted">연결된 Top View가 없습니다</p></Section>
   </div>;
 }
