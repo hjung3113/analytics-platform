@@ -2,7 +2,7 @@
   "name": "@ap/menu-admin",
   "private": true,
   "version": "0.2.2",
-  "ap": { "sdk": ">=0.26.0 <0.27.0" },
+  "ap": { "sdk": ">=0.27.0 <0.28.0" },
   "type": "module",
   "exports": {
     ".": "./src/index.ts",

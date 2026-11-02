@@ -282,6 +282,7 @@ knowledge (log knowledge hub, migration 0080, #1193, ADR-0107)
 - vendor / process_category / equipment_model / software_version (typed `code` + module-computed `code_key`; `row_version`; `active` — deactivate only, `platform_app` has SELECT, INSERT, UPDATE and no DELETE)
 - model_process (model–process mapping; `platform_app` also has DELETE: a mapping is not a catalog object)
 - external_identity_map (source identity to catalog target; `proposed`/`accepted`/`rejected`; no DELETE)
+- migration 0082 (#1197, ADR-0109): knowledge_item, knowledge_item_revision, item_revision_evidence, item_assessment_event, item_link, item_counter. Owner XOR, append-only tables and the restricted UPDATE grant: see ADR-0109 and the storage description in [api/log-knowledge.md](api/log-knowledge.md). The audit projection continues in migrations 0081 and 0083.
 ```
 
 `core.attachments` does not exist as a shared attachment table as of Slice 6;
