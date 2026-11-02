@@ -15,6 +15,7 @@ import {
   MALFORMED_BODY,
   platformActorOf,
 } from '../platform-port/transport.js';
+import { createAuditService } from '../core/audit/audit-service.js';
 import { createPlatformNoticeService } from './service.js';
 
 export interface PlatformNoticeRoutesOptions {
@@ -32,6 +33,7 @@ export const platformNoticeRoutes: FastifyPluginAsync<PlatformNoticeRoutesOption
   const notices = createPlatformNoticeService({
     db: opts.db,
     checkService: opts.checkService,
+    audit: createAuditService(),
     ...(opts.now ? { now: opts.now } : {}),
   });
 

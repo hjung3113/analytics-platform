@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { Db } from '../../../db/client.js';
 import type { Tx } from '../../../db/tx.js';
+import { createAuditService } from '../../core/audit/audit-service.js';
 import type { CheckService } from '../../permissions/check-service.js';
 import { createPlatformNoticeService } from '../service.js';
 
@@ -26,7 +27,11 @@ const setup = (allow: (tx: unknown) => boolean) => {
     via: 'direct_grant' as const,
   }));
   const checkService = { checkCapability, capabilityScope: vi.fn() } as unknown as CheckService;
-  return { tx, checkCapability, service: createPlatformNoticeService({ db, checkService }) };
+  return {
+    tx,
+    checkCapability,
+    service: createPlatformNoticeService({ db, checkService, audit: createAuditService() }),
+  };
 };
 
 const create = {

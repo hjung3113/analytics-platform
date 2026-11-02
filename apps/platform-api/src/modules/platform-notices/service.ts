@@ -12,6 +12,7 @@ import { sql } from 'drizzle-orm';
 
 import type { Db } from '../../db/client.js';
 import type { Tx } from '../../db/tx.js';
+import type { AuditService } from '../core/audit/audit-service.js';
 import { hashRequestBody } from '../core/idempotency/canonicalize.js';
 import { createIdempotencyService } from '../core/idempotency/idempotency-service.js';
 import type { CheckService } from '../permissions/check-service.js';
@@ -62,6 +63,8 @@ export interface NoticeWriteRequest {
 export interface NoticeServiceDeps {
   db: Db;
   checkService: CheckService;
+  /** Core audit: notice mutations record in the mutation's own transaction (SEC-04). */
+  audit: AuditService;
   now?: () => Date;
 }
 
@@ -151,10 +154,28 @@ export function createPlatformNoticeService(deps: NoticeServiceDeps) {
         });
       }
 
+      // Ids and revisions only; the notice title/body never enter an audit row. A throw here rolls
+      // back the mutation (same transaction).
+      const auditNotice = (
+        eventType: 'platform_notice_created' | 'platform_notice_updated' | 'platform_notice_deleted',
+        noticeId: string,
+        revisions: { revision_before?: number; revision_after?: number },
+      ) =>
+        deps.audit.record(tx, {
+          workspace_id: actor.workspace_id,
+          actor_id: actor.actor_id,
+          event_type: eventType,
+          subject_type: 'platform_notice',
+          subject_id: noticeId,
+          summary: eventType.replace('platform_', '').replace('_', ' '),
+          detail: { ...revisions, correlation_id: correlationId },
+        });
+
       async function apply(): Promise<Answer> {
         if (input.kind === 'create') {
           const row = await insertNotice(tx, actor.workspace_id, actor.actor_id, input.draft);
           const notice = toNotice(row);
+          await auditNotice('platform_notice_created', notice.id, { revision_after: row.revision });
           return answer<Notice>(correlationId, 'ok', { data: notice, version: notice.version });
         }
         // A non-UUID id can never name a row; never let it reach a uuid cast.
@@ -170,12 +191,20 @@ export function createPlatformNoticeService(deps: NoticeServiceDeps) {
         }
         if (input.kind === 'delete') {
           await deleteNotice(tx, current);
+          await auditNotice('platform_notice_deleted', current.id, {
+            revision_before: current.revision,
+          });
           return answer<{ id: string }>(correlationId, 'ok', {
             data: { id: current.id },
             version: currentVersion,
           });
         }
-        const notice = toNotice(await updateNotice(tx, current, input.draft));
+        const updated = await updateNotice(tx, current, input.draft);
+        await auditNotice('platform_notice_updated', current.id, {
+          revision_before: current.revision,
+          revision_after: updated.revision,
+        });
+        const notice = toNotice(updated);
         return answer<Notice>(correlationId, 'ok', { data: notice, version: notice.version });
       }
 

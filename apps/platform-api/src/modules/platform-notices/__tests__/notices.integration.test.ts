@@ -16,6 +16,7 @@ import { buildServer } from '../../../server.js';
 import { insertActorRow } from '../../../test-support/actor-fixtures.js';
 import { loginAs } from '../../../test-support/auth.js';
 import { uid } from '../../../test-support/ids.js';
+import { createAuditService } from '../../core/audit/audit-service.js';
 import { createIdempotencyService } from '../../core/idempotency/idempotency-service.js';
 import type { CheckService } from '../../permissions/check-service.js';
 import { createPlatformNoticeService } from '../service.js';
@@ -756,6 +757,7 @@ describe.skipIf(!runIntegration)('platform notices and home.notices (#1106)', ()
       const service = createPlatformNoticeService({
         db: dbHandle.db,
         checkService: {} as CheckService,
+        audit: createAuditService(),
         now: () => at,
       });
       const result = await service.homeNotices(
@@ -1068,6 +1070,144 @@ describe.skipIf(!runIntegration)('platform notices and home.notices (#1106)', ()
         expect(await cacheCount(who)).toBe(0);
       });
     });
+  });
+
+  describe('durable audit (SEC-04)', () => {
+    const auditRows = async (subjectId: string) =>
+      (
+        await migrateHandle.pool.query(
+          `select actor_id, workspace_id, event_type, subject_type, subject_id, summary, detail
+             from core.audit_log where subject_type = 'platform_notice' and subject_id = $1 order by created_at, id`,
+          [subjectId],
+        )
+      ).rows as Array<{
+        actor_id: string;
+        workspace_id: string;
+        event_type: string;
+        subject_type: string;
+        subject_id: string;
+        summary: string;
+        detail: Record<string, unknown>;
+      }>;
+    const auditCountBy = async (actorId: string) =>
+      (
+        await migrateHandle.pool.query(
+          `select count(*)::int as n from core.audit_log where subject_type = 'platform_notice' and actor_id = $1`,
+          [actorId],
+        )
+      ).rows[0].n as number;
+
+    it('create, update and delete each write exactly one row: actor, subject, revisions, no prose', async () => {
+      const created = await write('save', draft('audit-flow'));
+      const id = idOf(created);
+      const updated = await write('save', {
+        ...draft('audit-flow-2'),
+        id,
+        expectedVersion: 'v1',
+      });
+      const removed = await write('delete', { id, expectedVersion: 'v2' });
+
+      const rows = await auditRows(id);
+      expect(rows.map((r) => r.event_type)).toEqual([
+        'platform_notice_created',
+        'platform_notice_updated',
+        'platform_notice_deleted',
+      ]);
+      for (const row of rows) {
+        expect(row).toMatchObject({
+          actor_id: admin.id,
+          workspace_id: WORKSPACE_ID,
+          subject_type: 'platform_notice',
+          subject_id: id,
+        });
+        expect(JSON.stringify(row)).not.toContain(PREFIX);
+        expect(JSON.stringify(row)).not.toContain('본문');
+      }
+      expect(rows.map((r) => r.summary)).toEqual(['notice created', 'notice updated', 'notice deleted']);
+      expect(rows[0]?.detail).toEqual({
+        revision_after: 1,
+        correlation_id: ans(created).correlationId,
+      });
+      expect(rows[1]?.detail).toEqual({
+        revision_before: 1,
+        revision_after: 2,
+        correlation_id: ans(updated).correlationId,
+      });
+      expect(rows[2]?.detail).toEqual({
+        revision_before: 2,
+        correlation_id: ans(removed).correlationId,
+      });
+    });
+
+    it('an idempotent replay writes no second audit row', async () => {
+      const first = await write('save', draft('audit-replay'));
+      const id = idOf(first);
+      const replay = await write('save', draft('audit-replay'), { key: first.key });
+      expect(ans(replay)).toMatchObject({ outcome: 'ok', replayed: true });
+      expect(await auditRows(id)).toHaveLength(1);
+    });
+
+    it('conflict, not_found, forbidden and invalid write no audit row', async () => {
+      const created = await write('save', draft('audit-none'));
+      const id = idOf(created);
+      const before = await auditCountBy(admin.id);
+      const userBefore = await auditCountBy(user.id);
+
+      expect(
+        (await write('save', { ...draft('x'), id, expectedVersion: 'v9' })).answer?.outcome,
+      ).toBe('conflict');
+      expect(
+        (await write('delete', { id: randomUUID(), expectedVersion: 'v1' })).answer?.outcome,
+      ).toBe('not_found');
+      expect((await write('save', draft('audit-user'), { who: user })).answer?.outcome).toBe(
+        'forbidden',
+      );
+      expect((await write('save', { title: 5 })).answer?.outcome).not.toBe('ok');
+
+      expect(await auditCountBy(admin.id)).toBe(before);
+      expect(await auditCountBy(user.id)).toBe(userBefore);
+      expect(await auditRows(id)).toHaveLength(1);
+    });
+
+    it.each(['create', 'update', 'delete'] as const)(
+      'a failing audit write rolls back the %s and records no receipt',
+      async (kind) => {
+        const seeded = await write('save', draft(`audit-fail-${kind}`));
+        const id = idOf(seeded);
+        const failing = createPlatformNoticeService({
+          db: dbHandle.db,
+          checkService: {
+            checkCapability: async () => ({ allow: true, via: 'direct_grant' }),
+            capabilityScope: async () => null,
+          } as unknown as CheckService,
+          audit: {
+            record: async () => {
+              throw new Error('audit unavailable');
+            },
+          },
+        });
+        const actor = { actor_id: admin.id, workspace_id: WORKSPACE_ID, role_level: 'admin' };
+        const key = randomUUID();
+        const headers = { idempotencyKey: key, ifMatch: kind === 'create' ? undefined : 'v1' };
+        const requests = {
+          create: { operation: 'save', body: { ...draft('audit-fail-new'), idempotencyKey: key } },
+          update: {
+            operation: 'save',
+            body: { ...draft('audit-fail-changed'), id, expectedVersion: 'v1', idempotencyKey: key },
+          },
+          delete: { operation: 'delete', body: { id, expectedVersion: 'v1', idempotencyKey: key } },
+        } as const;
+        await expect(
+          failing.write(actor, { ...requests[kind], headers, correlationId: 'c-fail' }),
+        ).rejects.toThrow('audit unavailable');
+
+        const [row] = await rowsOf(`${PREFIX} audit-fail-${kind}%`);
+        expect(row?.revision).toBe(1);
+        expect(await rowsOf(`${PREFIX} audit-fail-new%`)).toHaveLength(0);
+        expect(await rowsOf(`${PREFIX} audit-fail-changed%`)).toHaveLength(0);
+        expect(await cacheRow(admin.id, key)).toBeUndefined();
+      },
+    );
   });
 
   describe('roles and teardown graph', () => {

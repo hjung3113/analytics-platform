@@ -123,4 +123,7 @@ export const AUDIT_ACTION_BY_EVENT_TYPE: Record<AuditEventType, PlatformAuditAct
   'knowledge.item.restored': 'update',
   'knowledge.item.archived': 'retire',
   actor_role_changed: 'update',
+  platform_notice_created: 'create',
+  platform_notice_updated: 'update',
+  platform_notice_deleted: 'delete',
 };

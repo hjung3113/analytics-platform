@@ -4,6 +4,7 @@
 // Every other endpoint id is an `error`, not a proxy to a fake.
 
 import type { Db } from '../../db/client.js';
+import { createAuditService } from '../core/audit/audit-service.js';
 import type { MenuDispatchContribution } from '../menu-dispatch/types.js';
 import type { CheckService } from '../permissions/check-service.js';
 import { createPlatformNoticeService } from '../platform-notices/index.js';
@@ -22,6 +23,7 @@ export function homeNoticesContribution(deps: HomeNoticesDeps): MenuDispatchCont
   const notices = createPlatformNoticeService({
     db: deps.db,
     checkService: deps.checkService,
+    audit: createAuditService(),
     ...(deps.now ? { now: deps.now } : {}),
   });
   return {
