@@ -153,6 +153,7 @@ describe.skipIf(!runIntegration)('platform port /api/v1/platform (#620)', () => 
           'console:access',
           'features:access',
           'knowledge:catalog-manage',
+          'knowledge:item-publish',
           'notice:view',
           'platform:view',
           'voc:view',
@@ -206,6 +207,21 @@ describe.skipIf(!runIntegration)('platform port /api/v1/platform (#620)', () => 
       await grantCapability(dbHandle, WORKSPACE_ID, plain.id, 'knowledge.catalog.manage', null, admin.id);
       expect(await has(plain.cookie)).toBe(true);
       await grantCapability(dbHandle, WORKSPACE_ID, developer.id, 'knowledge.catalog.manage', null, admin.id);
+      expect(await has(developer.cookie)).toBe(true);
+    });
+
+    it('knowledge:item-publish is listed for Admin and for a workspace grant of knowledge.item.publish, not for a plain user or a developer', async () => {
+      const admin = await newActor('admin');
+      const has = async (cookie: string) =>
+        (await bootstrap(cookie)).session.user.permissions.includes('knowledge:item-publish');
+      expect(await has(admin.cookie)).toBe(true);
+      const developer = await newActor('developer');
+      expect(await has(developer.cookie)).toBe(false);
+      const plain = await newActor('user');
+      expect(await has(plain.cookie)).toBe(false);
+      await grantCapability(dbHandle, WORKSPACE_ID, plain.id, 'knowledge.item.publish', null, admin.id);
+      expect(await has(plain.cookie)).toBe(true);
+      await grantCapability(dbHandle, WORKSPACE_ID, developer.id, 'knowledge.item.publish', null, admin.id);
       expect(await has(developer.cookie)).toBe(true);
     });
 

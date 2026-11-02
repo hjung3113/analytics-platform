@@ -1,6 +1,6 @@
 # Log Knowledge
 
-Index and global rules: [03-api-contracts.md](../03-api-contracts.md). This file is the normative contract for the log knowledge catalog reads (#1193, [ADR-0107](../../../adr/0107-log-knowledge-catalog-authority-keys-and-edit-rights.md), design [v0.6 §7.1](../../../design/features/log-knowledge-hub/design-v0.6-candidate.md)). The write actions (#1194 a) are in [Write actions](#write-actions); import is #1195. The item reads (#1197 a, [ADR-0109](../../../adr/0109-log-knowledge-item-ownership-revisions-assessments.md)) are in [Item reads](#item-reads).
+Index and global rules: [03-api-contracts.md](../03-api-contracts.md). This file is the normative contract for the log knowledge catalog reads (#1193, [ADR-0107](../../../adr/0107-log-knowledge-catalog-authority-keys-and-edit-rights.md), design [v0.6 §7.1](../../../design/features/log-knowledge-hub/design-v0.6-candidate.md)). The write actions (#1194 a) are in [Write actions](#write-actions), the item writes (#1197 w) in [Item write actions](#item-write-actions); import is #1195. The item reads (#1197 a, [ADR-0109](../../../adr/0109-log-knowledge-item-ownership-revisions-assessments.md)) are in [Item reads](#item-reads).
 
 ## Transport
 
@@ -91,6 +91,45 @@ An unknown field, an operator outside the field's list, a value of the wrong sha
 **Audit** (same transaction, non-sensitive): `knowledge.catalog.created`, `.updated`, `.deactivated`, `.reactivated`; `subject_type` `knowledge_vendor` | `knowledge_process` | `knowledge_model` | `knowledge_software`; detail `{ code, name, changes?: { field: [before, after] } }` (a model's `processIds` change as sorted id lists; `changes` is absent when nothing differed). Platform actions: created → `create`, updated and reactivated → `update`, deactivated → `retire`. The four subject types are in the `core.platform_audit_events` allowlist (migration 0081).
 
 **`invalidates`** (read endpoints of this menu the Kernel refreshes): vendor writes → `vendors`, `models`; process → `processes`, `models`; model → `models`, `vendors`, `processes`, `softwareVersions`; software → `softwareVersions`, `models`.
+
+## Item write actions
+
+Five more `menu-action` writes (#1197 w, [ADR-0109](../../../adr/0109-log-knowledge-item-ownership-revisions-assessments.md)); same transport, replay and `If-Match`/key rules as [Write actions](#write-actions). Declarations: `modules/log-knowledge/item-actions.ts`, value checks `domain/item-input.ts` (zod; shared by `validate` and the handler), SQL `repositories/item-write.ts` (`knowledge.*` item tables and the item counter only). Owning menu `log-knowledge-items`, `requiresScope: false`.
+
+**Permission.** Menu permission `knowledge:item-publish`, judged with the capability `knowledge.item.publish` (workspace-scoped, no Managed System, non-sensitive) plus `applyAdminModuleBypass` (`always`), the same pairing as `knowledge:catalog-manage` ↔ `knowledge.catalog.manage`: Admin passes with no grant, a Developer needs the grant (requestable and grantable), a User is refused at request and at grant and is `forbidden` here. Bootstrap lists `knowledge:item-publish` exactly for the users the actions accept (`platform-port/permissions.ts`, rule `item-publish`). Reads stay `platform:view`.
+
+| Action | `input` | Concurrency | `data` |
+| --- | --- | --- | --- |
+| `logKnowledge.itemCreate` | exactly one of `ownerModelId` / `ownerSoftwareId`; `typeCode`, `title`, `observation?`, `expected?`, `analysisOpinion?`, `improvement?`, `evidence?` (≤ 20 pointers) | `none` | `{ id, itemNo }` |
+| `logKnowledge.itemRevise` | `id`, `typeCode`, `title`, the four bodies, `evidence?`, `changeNote` (1–500) | `version` | `{ id, itemNo, revisionNo }` |
+| `logKnowledge.itemAssess` | `id`, `dimension` (`verification` \| `processing`), `newState`, `rationale` (1–2000) | `version` | `{ id, itemNo }` |
+| `logKnowledge.itemDerive` | `sourceItemId`, `sourceRevisionNo`, exactly one owner, `typeCode`, `title`, the four bodies (no `evidence`) | `none` | `{ id, itemNo }` |
+| `logKnowledge.itemSetArchived` | `id`, `archived` | `version` | `{ id, itemNo }` |
+
+- `version` is `row_version` as a string; every successful write that changes the item bumps it and sets `updated_at`/`updated_by`; create and derive answer `version: "1"`. `expectedVersion` differing from the current one answers `conflict` before the handler (also for a same-value SetArchived).
+- **Create / Derive**: the number comes from the workspace counter (`allocateItemNo`), the item is `published`, `not_checked`, `open`, revision 1 is written with its evidence (server-assigned `ordinal` 1..n). Derive also inserts `item_link(derived_from, source = new item, target = original, source_revision_no)` pinned to the given revision, and takes no evidence. The owner never changes afterwards (`itemRevise` has no owner input).
+- **Revise** appends revision `latest + 1`; evidence belongs to that revision (omitted = none) and the earlier revisions and their evidence are untouched. `latest_revision_no` moves with it.
+- **Assess** inserts one `item_assessment_event` (`prior_state` = the current projection, `based_on_revision_no` = latest) and sets the dimension's projection in the same transaction.
+- **SetArchived** is non-destructive. To the value the item already has: nothing changes, no bump, no audit, `ok` with the current version. An archived item refuses revise and assess.
+- `EvidencePointer`: `sourceKind` (`log_file` \| `spec` \| `image` \| `validation_run` \| `other`), `sourceOwner`, `sourceRef` (non-blank, ≤ 1000), `sourceVersion?`, `contentHash?`, `locator?` (≤ 1000), `note?` (≤ 500); optional texts that are blank are stored as null. The 1000 cap is the API's (no DB CHECK). No body text is audited.
+
+**`invalid` field errors** (value checks at step 6; the database-judged ones are thrown as `MenuActionInvalidError`, never a 500):
+
+| Code | When | Path |
+| --- | --- | --- |
+| `required` | missing, wrong type or blank (`title`, `typeCode`, `changeNote`, `rationale`, `dimension`, `newState`, `archived`, evidence `sourceKind`/`sourceOwner`/`sourceRef`) | the field, or `evidence.<i>.<field>` |
+| `required_one` | both or none of the two owners; neither `observation` nor `expected` has text | `owner`; `observation` |
+| `too_long` | `title` > 200, a body > 20000, `changeNote` > 500, `rationale` > 2000, `evidence` > 20, evidence `note` > 500 (code points) | the field |
+| `malformed` | not a uuid, unknown enum value, `sourceRevisionNo` not an integer ≥ 1, NUL or lone surrogate | the field |
+| `invalid_state` | `newState` does not belong to `dimension` | `newState` |
+| `not_found` | owner unknown or of another workspace; derive source item or revision unknown | `ownerModelId` / `ownerSoftwareId`; `sourceItemId` / `sourceRevisionNo` |
+| `inactive` | the owner model, the owner SW, or the SW's model is inactive | `ownerModelId` / `ownerSoftwareId` |
+| `archived` | revise or assess on an archived item | `id` |
+| `unchanged` | `newState` equals the current state of the dimension | `newState` |
+
+**Audit** (same transaction, non-sensitive): `knowledge.item.created`, `.revised`, `.assessed`, `.derived`, `.archived`, `.restored`; `subject_type` `knowledge_item`; detail `{ itemNo, title, revisionNo?, dimension?, priorState?, newState?, sourceItemId?, sourceRevisionNo? }`. Platform actions: created/derived → `create`, revised/assessed/restored → `update`, archived → `retire`. Migration 0083 adds `knowledge_item` and `knowledge.item.publish` to the audit projection's allowlists.
+
+**`invalidates`**: `logKnowledge.items`, `logKnowledge.itemDetail`. **Accepted limit:** the model-side counts (`exploreModels.modelItemCount`, the `modelProfile` counts) belong to menu `log-knowledge-models`, and the engine invalidates only within an action's own menu, so those reads show a stale count until they refresh on their own (backlog, not implemented).
 
 ## Item reads
 

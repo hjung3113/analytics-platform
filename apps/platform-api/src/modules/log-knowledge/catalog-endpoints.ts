@@ -17,6 +17,7 @@ import { catalogActions } from './catalog-actions.js';
 import { CATALOG_FILTER_SPECS, type CatalogEndpointName } from './domain/catalog-filters.js';
 import { PAGE_SIZE_MAX, Q_MAX, parseListParams } from './domain/list-params.js';
 import { LOG_KNOWLEDGE_MENU_ID } from './catalog-menu.js';
+import { itemActions } from './item-actions.js';
 import { itemEndpoints } from './item-endpoints.js';
 export { LOG_KNOWLEDGE_MENU_ID };
 import {
@@ -70,7 +71,10 @@ function declare(
 
 export function logKnowledgeContribution(deps: LogKnowledgeDeps): MenuDispatchContribution {
   return {
-    actions: catalogActions({ checkService: deps.checkService }),
+    actions: [
+      ...catalogActions({ checkService: deps.checkService }),
+      ...itemActions({ checkService: deps.checkService }),
+    ],
     endpoints: [
       declare(deps, 'vendors', VENDOR_SORT_IDS, (_a, q) => listVendors(deps.db, q)),
       declare(deps, 'processes', PROCESS_SORT_IDS, (_a, q) => listProcesses(deps.db, q)),

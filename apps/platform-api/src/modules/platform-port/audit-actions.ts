@@ -116,4 +116,10 @@ export const AUDIT_ACTION_BY_EVENT_TYPE: Record<AuditEventType, PlatformAuditAct
   'knowledge.catalog.updated': 'update',
   'knowledge.catalog.deactivated': 'retire',
   'knowledge.catalog.reactivated': 'update',
+  'knowledge.item.created': 'create',
+  'knowledge.item.derived': 'create',
+  'knowledge.item.revised': 'update',
+  'knowledge.item.assessed': 'update',
+  'knowledge.item.restored': 'update',
+  'knowledge.item.archived': 'retire',
 };

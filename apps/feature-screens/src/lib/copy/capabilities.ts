@@ -14,6 +14,7 @@ export const CAPABILITY_LABELS: Readonly<Record<Capability, string>> = {
   'survey.export': 'Survey 데이터 내보내기',
   'knowledge.catalog.manage': '카탈로그 관리',
   'knowledge.catalog.import': '카탈로그 가져오기',
+  'knowledge.item.publish': '지식 Item 게시',
 };
 
 export function getCapabilityDisplayLabel(capability: string): string {

@@ -15,7 +15,7 @@
 4. **근거는 포인터만 둔다.** `item_revision_evidence`는 출처 종류·출처 시스템·외부 id·버전·해시·위치(행/시간 범위)·메모(≤500자)만 갖고 내용을 복사하지 않는다. 추가 전용.
 5. **파생은 새 Item이다.** 다른 SW에서 같은 현상을 확인하면 새 Item을 만들고 `item_link`의 `derived_from`(새 Item → 원본, 원본의 Revision 고정)을 잇는다. 새 Item은 `not_checked`·`open`으로 시작하고 근거를 복사하지 않는다. `related` 링크는 Revision 없이 잇는다. 링크는 추가 전용이고 자기 연결을 거절한다.
 6. **표시 번호는 워크스페이스별 카운터다.** `item_no`(`KI-<n>`)는 `item_counter`의 한 행을 원자적 upsert(`INSERT … ON CONFLICT DO UPDATE … RETURNING`)로 올려 받는다. 같은 워크스페이스의 동시 발급은 이 행에서 직렬화되고(첫 Item도 같다), 롤백하면 카운터도 되돌아 빈 번호가 없다. `(workspace_id, item_no)` 유일 인덱스가 보조 장치다.
-7. **쓰기 권한은 새 워크스페이스 capability `knowledge.item.publish`다.** Developer는 요청해 받고, User는 거절되고, Admin은 항상 갖는다(구현은 쓰기 노드). 이번 슬라이스의 읽기는 `platform:view`다.
+7. **쓰기 권한은 새 워크스페이스 capability `knowledge.item.publish`다.** Developer는 요청해 받고, User는 거절되고, Admin은 항상 갖는다(구현은 쓰기 노드). 메뉴 권한 `knowledge:item-publish`가 이 capability에 대응한다(`knowledge:catalog-manage` ↔ `knowledge.catalog.manage`와 같은 짝, 부트스트랩 규칙 `item-publish`). 이번 슬라이스의 읽기는 `platform:view`다.
 8. **미룬 것.** 초안·검토, 카테고리·태그·수동 그룹, 근거 출처 ACL 재검사, 검색은 후속이다([backlog](../../.planning/backlog.md)).
 
 ## 결과

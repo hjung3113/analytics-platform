@@ -582,6 +582,13 @@
       "when": 1793606388784,
       "tag": "0082_knowledge_items",
       "breakpoints": true
+    },
+    {
+      "idx": 83,
+      "version": "7",
+      "when": 1793606389784,
+      "tag": "0083_knowledge_item_audit",
+      "breakpoints": true
     }
   ]
 }

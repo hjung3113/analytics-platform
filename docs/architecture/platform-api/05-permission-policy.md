@@ -78,7 +78,7 @@ alone.
    Developer satisfies none and needs Managed System grants.
 2. Module bypass, declared per capability in CAPABILITY_META.adminModuleBypass
    (packages/feature-shared/src/enums/capabilities.ts):
-   - always: finding.read, finding.manage, task_request.self_approve, knowledge.catalog.manage, knowledge.catalog.import
+   - always: finding.read, finding.manage, task_request.self_approve, knowledge.catalog.manage, knowledge.catalog.import, knowledge.item.publish
    - unless_denied: survey.read, survey.manage (an explicit deny still wins, FO ADR-0033 section C)
    - none: every other capability, including survey.read_personal_responses and survey.export
 ```
@@ -169,6 +169,8 @@ survey.export
 Every other capability is non-sensitive and needs no reason beyond the route's `min(1)`.
 
 `knowledge.catalog.manage` and `knowledge.catalog.import` (log knowledge hub, ADR-0107 decision 3) are workspace-scoped: a grant carries `managed_system_id` null because the catalog is workspace-wide and `log-dev` is not a Managed System. Both are non-sensitive with `adminModuleBypass: 'always'`; they are requestable through the ordinary permission request with no Managed System. Catalog reads need no capability: every active workspace session holds `platform:view`. `knowledge.catalog.manage` is enforced by the `logKnowledge.*` write actions (`modules/log-knowledge/catalog-actions.ts`, capability check plus `applyAdminModuleBypass`; api/log-knowledge.md §Write actions); `.import` is enforced by #1195. Who holds them by role is owned by `docs/product/features/09-permission-access.md`.
+
+`knowledge.item.publish` (ADR-0109 decision 7, #1197 w) follows the same pattern: workspace-scoped, non-sensitive, `adminModuleBypass: 'always'`, requestable with no Managed System, refused for a User recipient at request, approval and direct grant (`NOT_FOR_USER_ROLE`). It is enforced by the five `logKnowledge.item*` write actions (`modules/log-knowledge/item-actions.ts`, capability check plus `applyAdminModuleBypass`), whose menu permission `knowledge:item-publish` maps to it in `PLATFORM_PERMISSION_TABLE` (rule `item-publish`).
 
 Requester expiration is optional, with no automatic default (FO ADR-0044, confirmed
 by FO ADR-0066). Any supplied/resolved non-null expiry must be future in create,

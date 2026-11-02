@@ -25,6 +25,7 @@ const ALWAYS: Capability[] = [
   'task_request.self_approve',
   'knowledge.catalog.manage',
   'knowledge.catalog.import',
+  'knowledge.item.publish',
 ];
 const UNLESS_DENIED: Capability[] = ['survey.read', 'survey.manage'];
 const NONE: Capability[] = [
