@@ -207,16 +207,18 @@ describe('workspace assembly (#260)', () => {
     expect(SPACE_DEFS.slice(4, 6).every(space => space.permission === undefined)).toBe(true);
     const planned = registry.menus.filter(menu => ['log-dev', 'improvement'].includes(registry.spaceOf(menu)?.id ?? ''));
     expect(planned.map(menu => menu.id)).toEqual([
-      'log-my-queue', 'log-recent-models', 'log-models', 'log-defects', 'log-partner-reviews', 'log-rules', 'log-knowledge-models', 'log-knowledge-model', 'log-knowledge-catalog',
+      'log-my-queue', 'log-recent-models', 'log-models', 'log-defects', 'log-partner-reviews', 'log-rules', 'log-knowledge-models', 'log-knowledge-model', 'log-knowledge-items', 'log-knowledge-item', 'log-knowledge-catalog',
       'imp-my-tasks', 'imp-tasks', 'imp-effect-report', 'imp-equipment-history',
     ]);
     // #1194 r: the catalog management menu is the one admin-capability menu (design v0.6 §2.1); the rest stay open to every signed-in user.
     // #1194 b: it has its screen now, so only the others are component-less planned menus.
     expect(planned.every(menu => menu.permission === (menu.id === 'log-knowledge-catalog' ? 'knowledge:catalog-manage' : 'platform:view'))).toBe(true);
     // #1197 s1: 모델 탐색 (the group's primary) and its hidden 모델 프로파일 child have screens too.
-    expect(planned.filter(menu => menu.component).map(menu => menu.id)).toEqual(['log-knowledge-models', 'log-knowledge-model', 'log-knowledge-catalog']);
+    expect(planned.filter(menu => menu.component).map(menu => menu.id)).toEqual(['log-knowledge-models', 'log-knowledge-model', 'log-knowledge-items', 'log-knowledge-item', 'log-knowledge-catalog']);
     expect(registry.menuById('log-knowledge-model')).toMatchObject({ parent: 'log-knowledge-models', navHidden: true });
     expect(registry.menus.filter(menu => menu.group === 'logKnowledge' && menu.primary).map(menu => menu.id)).toEqual(['log-knowledge-models']);
+    // #1197 s2: the item list and its navHidden detail screen have components too.
+    expect(registry.menuById('log-knowledge-item')).toMatchObject({ parent: 'log-knowledge-items', navHidden: true, pageKeys: ['rev', 'returnTo'] });
     expect(registry.menuById('home').label).toEqual({ ko: '플랫폼 홈', en: 'Platform home' });
     expect(registry.menuById('equipment-master').path).toBe('/mars/equipment-master');
     expect(registry.menuById('equipment-master').aliases).toEqual(['/equipment']);

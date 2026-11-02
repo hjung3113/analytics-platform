@@ -9,7 +9,11 @@ import {
   SOFTWARE_SORT_IDS as MENU_SOFTWARE_SORT_IDS,
   VENDOR_SORT_IDS as MENU_VENDOR_SORT_IDS,
   catalogActionSpecs,
+  ITEM_SORT_IDS as MENU_ITEM_SORT_IDS,
+  LOG_KNOWLEDGE_ITEMS_MENU_ID,
   catalogEndpointSpecs,
+  itemEndpointSpecs,
+  itemFilterSpecs,
   modelEndpointSpecs,
   modelFilterSpecs,
   processFilterSpecs,
@@ -20,14 +24,16 @@ import { LOG_KNOWLEDGE_MODELS_MENU_ID as SERVER_MODELS_MENU_ID } from '../catalo
 import { CATALOG_MENU_PERMISSION } from '../catalog-actions.js';
 import { logKnowledgeContribution } from '../catalog-endpoints.js';
 import { CATALOG_FILTER_SPECS } from '../domain/catalog-filters.js';
+import { ITEM_FILTER_SPECS } from '../domain/item-filters.js';
 import { MODEL_SORT_IDS, PROCESS_SORT_IDS, SOFTWARE_SORT_IDS, VENDOR_SORT_IDS } from '../repositories/catalog-read.js';
+import { ITEM_SORT_IDS } from '../repositories/item-read.js';
 
 // The server declares the catalog reads and writes (it may not import the menu package at runtime) and the menu
 // declares the same ids, keys and filter fields for the client and the mock. This test imports the menu's client-safe
 // `src/endpoints.ts` and fails when the two sides differ (#1194 r).
 const server = logKnowledgeContribution({ db: {} as never, checkService: {} as never });
 // The item reads (ADR-0109) sit on their own menu ids; the model reads (menu `log-knowledge-models`, #1197 s1) are
-// compared below, the item reads are mirrored by the items menu (s2).
+// compared below, then the item reads (menu `log-knowledge-items`, #1197 s2).
 const serverEndpoints = (server.endpoints ?? []).filter((e) => e.spec.menuId === LOG_KNOWLEDGE_MENU_ID);
 const serverActions = (server.actions ?? []).filter((a) => a.spec.menuId === LOG_KNOWLEDGE_MENU_ID);
 const sorted = (keys: Iterable<string>) => [...keys].sort();
@@ -109,5 +115,44 @@ describe('model reads (menu log-knowledge-models) vs the server', () => {
     // The server parses exploreModels with `CATALOG_FILTER_SPECS.models` and `MODEL_SORT_IDS` (item-endpoints.ts); the menu reuses its models declarations.
     expect(sorted(Object.keys(modelFilterSpecs))).toEqual(sorted(Object.keys(CATALOG_FILTER_SPECS.models)));
     expect([...MENU_MODEL_SORT_IDS]).toEqual([...MODEL_SORT_IDS]);
+  });
+});
+
+// The two item reads of the `log-knowledge-items` menu (#1197 s2); the model reads are node s1's block.
+describe('log knowledge item reads vs the server', () => {
+  const serverItemReads = (server.endpoints ?? []).filter((e) => e.spec.menuId === LOG_KNOWLEDGE_ITEMS_MENU_ID);
+
+  it('declares the same two reads on the same menu in the same order', () => {
+    expect(serverItemReads).toHaveLength(2);
+    expect(itemEndpointSpecs.map((s) => s.id)).toEqual(serverItemReads.map((e) => e.spec.id));
+    itemEndpointSpecs.forEach((menu, i) => {
+      const spec = serverItemReads[i]?.spec;
+      expect(sorted(Object.keys(menu.paramKeys)), menu.id).toEqual(sorted(spec?.paramKeys ?? []));
+      expect(
+        { menuId: menu.menuId, permission: menu.permission, requiresScope: menu.requiresScope, context: menu.context, mergeTimeDomain: menu.mergeTimeDomain },
+        menu.id,
+      ).toEqual({ menuId: spec?.menuId, permission: spec?.permission, requiresScope: spec?.requiresScope, context: spec?.context, mergeTimeDomain: spec?.mergeTimeDomain });
+    });
+  });
+
+  it('items: same filter fields, operators, multiple, cell and enum values, and the same sort ids', () => {
+    const serverSpecs: Record<string, { ops: readonly string[]; multiple: boolean; cell: string; values: 'boolean' | 'uuid' | 'enum'; allowed?: readonly string[] }> = ITEM_FILTER_SPECS;
+    expect(sorted(Object.keys(itemFilterSpecs))).toEqual(sorted(Object.keys(serverSpecs)));
+    for (const [field, spec] of Object.entries(itemFilterSpecs)) {
+      expect(spec.kind, `items.${field}`).toBe('enum');
+      if (spec.kind !== 'enum') continue;
+      const mirror = serverSpecs[field];
+      expect(
+        { ops: sorted(spec.ops ?? []), multiple: spec.multiple !== false, cell: spec.cell ?? 'scalar' },
+        `items.${field}`,
+      ).toEqual({ ops: sorted(mirror?.ops ?? []), multiple: mirror?.multiple, cell: mirror?.cell });
+      // A field with a closed vocabulary lists exactly the server's values; the uuid and boolean fields carry their own shape rules.
+      if (mirror?.allowed) expect(sorted(spec.options.map((o) => o.value)), `items.${field} values`).toEqual(sorted(mirror.allowed));
+      // Value shapes: a boolean field offers exactly 'true'/'false'; a uuid field has no closed vocabulary (the menu lists none, the server takes uuid strings).
+      if (mirror?.values === 'boolean') expect(sorted(spec.options.map((o) => o.value)), `items.${field} boolean values`).toEqual(['false', 'true']);
+      if (mirror?.values === 'uuid') expect(spec.options, `items.${field} uuid values`).toEqual([]);
+      if (mirror?.values === 'enum') expect(mirror.allowed, `items.${field} enum has a vocabulary`).toBeDefined();
+    }
+    expect([...MENU_ITEM_SORT_IDS]).toEqual([...ITEM_SORT_IDS]);
   });
 });

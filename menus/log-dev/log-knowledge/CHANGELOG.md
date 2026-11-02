@@ -2,6 +2,10 @@
 
 내부 버전이며 발행하지 않는다. SDK 범위는 package.json의 ap.sdk를 따른다.
 
+## 0.5.0 — 2026-11-02
+
+- 전체 기술 Item 목록·Item 상세 화면(#1197 s2, A안, 읽기 전용): 메뉴 `log-knowledge-items`(표·필터·검색)와 숨김 상세 `log-knowledge-item`(본문 4블록, 근거, 연결 Item, 리비전 `?rev=`, 판단 변경 이력). 조회 2종(`logKnowledge.items`·`itemDetail`) 선언·mock 저장소(`src/mock/items.ts`)·서버 drift 검사.
+
 ## 0.4.0 — 2026-11-02
 
 - 모델 탐색(`log-knowledge-models`, 그룹의 primary — 카탈로그 관리의 `primary` 해제, 사이드바에서 카탈로그 관리 앞)와 모델 공통 프로파일(`log-knowledge-model`, 숨김 자식, `/log/knowledge/models/:modelId`) 화면(#1197 s1, A안). 조회 2종 `logKnowledge.exploreModels`·`modelProfile` 선언(`src/endpoints.ts`)과 mock(`src/mock/models.ts`).

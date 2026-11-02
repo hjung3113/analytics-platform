@@ -18,6 +18,7 @@ import {
   vendorUpdate, vendorsEndpoint, type CatalogPageParams, type CatalogSummary, type ModelRow,
 } from '../endpoints';
 import { modelReadsMock } from './models';
+import { itemReadsMock } from './itemReads';
 import { activeChildren, all, byId, latestSoftwareLabel, insert, keyTaken, processIdsOf, processesOf, setProcesses, toCodeKey, touch, type Kind, type Rec } from './store';
 
 const PAGE_SIZE_MAX = 200;
@@ -132,6 +133,7 @@ const readMock = <T>(spec: Parameters<typeof defineMockEndpoint<CatalogPageParam
 export const logKnowledgeMock: readonly AnyMockEndpoint[] = [
   readMock(vendorsEndpoint, 'vendor'), readMock(processesEndpoint, 'process'), readMock(modelsEndpoint, 'model'), readMock(softwareVersionsEndpoint, 'software'),
   ...modelReadsMock({ message: params => paramsMessage(params, SHAPES.model), page: params => read('model', params) as unknown as PageResult<ModelRow> }),
+  ...itemReadsMock,
 ];
 
 // ---- writes ----------------------------------------------------------------------------------------------------
@@ -253,3 +255,4 @@ export const logKnowledgeActionsMock: readonly AnyMockAction[] = [
 ];
 
 export { resetCatalog } from './store';
+export { resetItems } from './items';
