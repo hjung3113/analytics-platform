@@ -1,4 +1,5 @@
 import Fastify, { type FastifyInstance } from 'fastify';
+import pg from 'pg';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { installPlatformTransport } from '../../modules/platform-port/transport.js';
@@ -21,6 +22,31 @@ describe('dbTimeoutKind', () => {
     ['57014', null],
   ])('%s → %s', (err, kind) => {
     expect(dbTimeoutKind(err)).toBe(kind);
+  });
+});
+
+describe('dbTimeoutKind connection_lost provenance', () => {
+  // A real pg client that is no longer queryable, as after the server killed it.
+  async function realDeadClientError(): Promise<Error> {
+    const client = new pg.Client();
+    (client as unknown as { _queryable: boolean })._queryable = false;
+    return (await client.query('select 1').catch((e: unknown) => e)) as Error;
+  }
+
+  it('classifies the error pg itself raises, directly and as a cause', async () => {
+    const err = await realDeadClientError();
+    expect(err.message).toBe('Client has encountered a connection error and is not queryable');
+    expect(dbTimeoutKind(err)).toBe('connection_lost');
+    expect(dbTimeoutKind(new Error('wrapped', { cause: err }))).toBe('connection_lost');
+  });
+
+  it.each([
+    'Connection terminated',
+    'Connection terminated unexpectedly',
+    'Client has encountered a connection error and is not queryable',
+  ])('does not classify an application-thrown %j', (message) => {
+    expect(dbTimeoutKind(new Error(message))).toBeNull();
+    expect(dbTimeoutKind(new Error('wrapped', { cause: new Error(message) }))).toBeNull();
   });
 });
 
@@ -47,6 +73,9 @@ function build(kind: 'root' | 'platform'): { app: FastifyInstance; logs: Logged[
     app.get('/plain', async () => {
       throw new Error('boom');
     });
+    app.get('/app-thrown', async () => {
+      throw new Error('Connection terminated');
+    });
   } else {
     void app.register(async (scope) => {
       installPlatformTransport(scope, { notFound: false });
@@ -58,6 +87,9 @@ function build(kind: 'root' | 'platform'): { app: FastifyInstance; logs: Logged[
       });
       scope.get('/plain', async () => {
         throw new Error('boom');
+      });
+      scope.get('/app-thrown', async () => {
+        throw new Error('Connection terminated');
       });
     });
   }
@@ -93,5 +125,8 @@ describe.each(['root', 'platform'] as const)('%s error handler maps DB timeouts'
     const plain = await app.inject({ method: 'GET', url: '/plain' });
     expect(plain.statusCode).toBe(500);
     expect(plain.json().code).toBe('internal.unexpected');
+    const appThrown = await app.inject({ method: 'GET', url: '/app-thrown' });
+    expect(appThrown.statusCode).toBe(500);
+    expect(appThrown.json().code).toBe('internal.unexpected');
   });
 });

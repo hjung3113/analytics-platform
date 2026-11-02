@@ -81,11 +81,25 @@ export function createDb(url: string, opts: CreateDbOptions = {}): DbHandle {
  *   - a client-level listener, installed once per client on 'connect', covers
  *     the client's whole life. pg marks the errored client non-queryable, so
  *     pg-pool discards it on release instead of reusing it.
- * Each error is reported once (checked-out clients report here, idle ones via
- * the pool event).
+ * Each client is reported once (checked-out clients report here, idle ones via
+ * the pool event). Must be called before the pool creates its first client
+ * (throws otherwise); createDb does so at construction.
  */
 export function attachPoolErrorListener(pool: pg.Pool, onPoolError: (err: Error) => void): void {
-  const report = (err: Error): void => {
+  // pg-pool emits 'connect' only for new clients, so a client that already
+  // exists would never get the client-level listener (and idle clients are not
+  // enumerable through the public API). Attach at construction, before first use.
+  if (pool.totalCount > 0) {
+    throw new Error('attachPoolErrorListener must be called before the pool creates any client');
+  }
+  // One disconnect → one report per client: the server error (e.g. 25P03) is
+  // followed by the socket end ("Connection terminated unexpectedly").
+  const reported = new WeakSet<object>();
+  const report = (err: Error, client?: object): void => {
+    if (client) {
+      if (reported.has(client)) return;
+      reported.add(client);
+    }
     // A throwing listener would itself be an uncaught exception.
     try {
       onPoolError(err);
@@ -98,10 +112,10 @@ export function attachPoolErrorListener(pool: pg.Pool, onPoolError: (err: Error)
   pool.on('release', (_err, client) => checkedOut.delete(client));
   pool.on('connect', (client) => {
     client.on('error', (err: Error) => {
-      if (checkedOut.has(client)) report(err);
+      if (checkedOut.has(client)) report(err, client);
     });
   });
-  pool.on('error', report);
+  pool.on('error', (err, client) => report(err, client));
 }
 
 export type { DrizzleTx, Tx } from './tx.js';

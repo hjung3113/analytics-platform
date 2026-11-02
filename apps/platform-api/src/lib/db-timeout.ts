@@ -34,6 +34,19 @@ const CONNECTION_LOST_MESSAGES: ReadonlySet<string> = new Set([
   'Connection terminated',
 ]);
 
+/**
+ * These messages carry no code, so the message alone is not evidence: any code
+ * can `throw new Error('Connection terminated')`. pg raises them from
+ * pg/lib/client.js, so require the error's creation site (top stack frame) to
+ * be in the pg client. drizzle 0.38 does not wrap driver errors.
+ */
+const PG_CLIENT_FRAME = /[\\/]pg[\\/]lib[\\/]client\.js:/;
+
+function raisedByPgClient(err: Error): boolean {
+  const topFrame = err.stack?.split('\n').find((line) => line.trimStart().startsWith('at '));
+  return topFrame !== undefined && PG_CLIENT_FRAME.test(topFrame);
+}
+
 export type DbTimeoutKind =
   | 'statement'
   | 'lock'
@@ -56,7 +69,9 @@ export function dbTimeoutKind(err: unknown): DbTimeoutKind | null {
       return KIND_BY_SQLSTATE[code] ?? null;
     }
     if (ACQUIRE_TIMEOUT_MESSAGES.has(current.message)) return 'pool_acquire';
-    if (CONNECTION_LOST_MESSAGES.has(current.message)) return 'connection_lost';
+    if (CONNECTION_LOST_MESSAGES.has(current.message) && raisedByPgClient(current)) {
+      return 'connection_lost';
+    }
     current = (current as { cause?: unknown }).cause;
   }
   return null;

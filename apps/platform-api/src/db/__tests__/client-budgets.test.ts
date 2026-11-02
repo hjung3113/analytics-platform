@@ -1,3 +1,6 @@
+import { EventEmitter } from 'node:events';
+
+import type pg from 'pg';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { attachPoolErrorListener, createDb } from '../client.js';
@@ -57,6 +60,32 @@ describe('createDb time budgets (#1266 b3)', () => {
       throw new Error('logger down');
     });
     expect(() => handle.pool.emit('error', new Error('x'))).not.toThrow();
+    await handle.close();
+  });
+
+  it('refuses to attach once the pool already has clients', () => {
+    const lateBound = { totalCount: 1, on: vi.fn() } as unknown as pg.Pool;
+    expect(() => attachPoolErrorListener(lateBound, vi.fn())).toThrow(/before the pool creates/);
+    expect(lateBound.on).not.toHaveBeenCalled();
+  });
+
+  it('reports one disconnect once per client', async () => {
+    const onPoolError = vi.fn();
+    const handle = createDb(URL, { onPoolError });
+    const client = new EventEmitter() as unknown as pg.PoolClient;
+    handle.pool.emit('connect', client);
+    handle.pool.emit('acquire', client);
+    const first = Object.assign(new Error('terminating'), { code: '25P03' });
+    client.emit('error', first);
+    client.emit('error', new Error('Connection terminated unexpectedly'));
+    expect(onPoolError).toHaveBeenCalledTimes(1);
+    expect(onPoolError).toHaveBeenCalledWith(first);
+    // another client is reported independently
+    const other = new EventEmitter() as unknown as pg.PoolClient;
+    handle.pool.emit('connect', other);
+    handle.pool.emit('acquire', other);
+    other.emit('error', new Error('x'));
+    expect(onPoolError).toHaveBeenCalledTimes(2);
     await handle.close();
   });
 });
