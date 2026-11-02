@@ -4,6 +4,7 @@ import { PlatformPage, QueryView, ReturnLink, StateMessage } from '@ap/component
 import { Button } from '@ap/ui';
 import { CATALOG_MANAGE_PERMISSION, modelProfileEndpoint, type ModelProfileData } from '../../endpoints';
 import { SOFTWARE_LIST_NOTE, softwareTabPage } from './modelPresentation';
+import { ModelItems } from './ModelItems';
 import { EmptyNote, ModelMeta, ModelSummary, Section, SoftwareTable } from './ProfileParts';
 
 const SECTIONS = [['summary', '모델 요약'], ['software', 'SW 버전'], ['items', '모델 공통 Item'], ['topview', 'Top View']] as const;
@@ -18,7 +19,7 @@ function SectionNav() {
 function Sections({ profile, modelId, canEdit }: { profile: ModelProfileData; modelId: string; canEdit: boolean }) {
   const { linkTo } = usePlatform();
   const addSoftware = canEdit ? <Button asChild size="sm" variant="secondary"><PlatformLink href={linkTo('log-knowledge-catalog', { page: softwareTabPage(modelId) })}><Plus className="size-3.5" aria-hidden />SW 버전 추가</PlatformLink></Button> : null;
-  const { softwareVersions, truncated, modelItems } = profile;
+  const { softwareVersions, truncated } = profile;
   return <div className="grid gap-3">
     <SectionNav />
     <Section id={anchor('summary')} title="모델 요약"><ModelSummary model={profile.model} /></Section>
@@ -28,7 +29,7 @@ function Sections({ profile, modelId, canEdit }: { profile: ModelProfileData; mo
         {truncated && <p className="text-xs text-text-muted">{SOFTWARE_LIST_NOTE}</p>}
       </div>}
     </Section>
-    <Section id={anchor('items')} title="모델 공통 Item"><p className="tabular text-sm">모델 공통 Item {modelItems.total}건</p></Section>
+    <Section id={anchor('items')} title="모델 공통 Item"><ModelItems modelId={modelId} active={profile.model.active} /></Section>
     <Section id={anchor('topview')} title="Top View"><p className="text-sm text-text-muted">연결된 Top View가 없습니다</p></Section>
   </div>;
 }

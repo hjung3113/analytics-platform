@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { KERNEL_PERMISSIONS, groupId, type FieldError, type MenuMeta } from '@ap/contracts';
 import { createMockAdapter, setRole, type AnyMockAction } from '@ap/mock-server';
-import { CATALOG_MANAGE_PERMISSION, ITEM_PUBLISH_PERMISSION, itemActionSpecs, itemDetailEndpoint, itemsEndpoint } from '../endpoints';
+import { CATALOG_MANAGE_PERMISSION, EVIDENCE_SOURCE_KINDS, ITEM_PUBLISH_PERMISSION, itemActionSpecs, itemDetailEndpoint, itemsEndpoint } from '../endpoints';
 import { logKnowledgeActionsMock, logKnowledgeMock, resetCatalog, resetItems } from './index';
 import { allItems, allLinks, itemById, latestRevision } from './items';
 import { all } from './store';
@@ -83,6 +83,25 @@ describe('itemCreate', () => {
 });
 
 const body = { typeCode: 'guideline', title: '고친 제목', observation: '새 관찰', expected: '새 기대', changeNote: '  보완  ' };
+describe('seeded items round-trip through revise', () => {
+  it('every seeded evidence kind is a declared kind', () => {
+    const kinds = allItems().flatMap(rec => rec.revisions.flatMap(r => r.evidence.map(e => e.sourceKind)));
+    expect(kinds.length).toBeGreaterThan(0);
+    for (const kind of kinds) expect(EVIDENCE_SOURCE_KINDS as readonly string[]).toContain(kind);
+  });
+
+  it('revising each live seeded item with its latest content and evidence unchanged is valid', () => {
+    const live = allItems().filter(rec => rec.publicationState === 'published');
+    expect(live.length).toBeGreaterThan(0);
+    for (const rec of live) {
+      const r = latestRevision(rec);
+      const evidence = r.evidence.map(({ ordinal: _ordinal, ...e }) => e);
+      const input = { id: rec.id, typeCode: r.typeCode, title: r.title, observation: r.observation, expected: r.expected, analysisOpinion: r.analysisOpinion, improvement: r.improvement, evidence, changeNote: '그대로 다시 저장' };
+      expect(errors('itemRevise', input), `KI-${rec.itemNo}`).toEqual([]);
+    }
+  });
+});
+
 describe('itemRevise', () => {
   it('appends revision latest + 1 with its own evidence, bumps the version, leaves the earlier revisions', () => {
     const rec = itemById(itemId(1))!;

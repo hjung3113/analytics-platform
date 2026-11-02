@@ -1,3 +1,4 @@
+import type { EvidenceSourceKind } from '../../endpoints';
 /**
  * Pure model of the item screens (#1197 s2): vocabulary labels (ADR-0109), the item number and owner wording, the
  * default list filter and the `rev` page-key rule. No React, so it is unit-tested without a DOM and node s3 reuses it.
@@ -36,6 +37,17 @@ export const isRowMuted = (row: Pick<ItemRow, 'publicationState'>): boolean => r
 export const PUBLISHED_ONLY: ColumnFilter = { id: 'publicationState', op: 'in', value: ['published'] };
 export const defaultFilterParams = (): string[] => encodeFilterParams([PUBLISHED_ONLY]);
 
+/** Model ids of the address's `ownerModelId in [...]` conditions (raw `filter` params `id:op:v1~v2`); anything else is ignored. */
+export function chosenOwnerModelIds(rawFilters: readonly string[]): string[] {
+  const out: string[] = [];
+  for (const raw of rawFilters) {
+    const [id, op, value] = raw.split(':', 3) as [string, string | undefined, string | undefined];
+    if (id !== 'ownerModelId' || op !== 'in' || !value) continue;
+    for (const v of value.split('~')) if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v) && !out.includes(v)) out.push(v);
+  }
+  return out;
+}
+
 /** Page key `rev`: a positive integer revision number up to the server's inclusive bound (`REVISION_NO_MAX`, item-endpoints.ts); an absent key reads the latest. */
 export const REVISION_NO_MAX = 1_000_000;
 export const isRevisionParam = (raw: string): boolean => /^[1-9]\d{0,6}$/.test(raw) && Number(raw) <= REVISION_NO_MAX;
@@ -48,3 +60,7 @@ export const instantText = (iso: string, timeZone: string = Intl.DateTimeFormat(
 export const shortActor = (id: string): string => id.slice(0, 8);
 
 export type { ItemTypeCode, ProcessingState, PublicationState, VerificationState };
+
+/** Korean label of an evidence source kind; an unknown kind shows as sent. */
+export const EVIDENCE_KIND_LABEL: Record<EvidenceSourceKind, string> = { log_file: '로그 파일', spec: '명세', image: '이미지', validation_run: '검증 실행', other: '기타' };
+export const evidenceKindLabel = (kind: string): string => (EVIDENCE_KIND_LABEL as Record<string, string>)[kind] ?? kind;

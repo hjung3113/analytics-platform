@@ -3,7 +3,7 @@ import { PlatformLink, usePlatform } from '@ap/kernel';
 import { cn } from '@ap/ui';
 import type { ItemAssessment, ItemDetail, ItemEvidence, ItemLinkRow } from '../../endpoints';
 import { OwnerChip, StateBadge } from './ItemBadges';
-import { AXIS_LABEL, AXIS_OF_DIMENSION, instantText, itemNoLabel, shortActor, stateLabel } from './itemModel';
+import { AXIS_LABEL, AXIS_OF_DIMENSION, evidenceKindLabel, instantText, itemNoLabel, shortActor, stateLabel } from './itemModel';
 
 /** A server instant, rendered through the kernel `formatInstant` in the viewer's zone (`instantText`). */
 export const stamp = instantText;
@@ -42,7 +42,7 @@ export function EvidenceList({ evidence }: { evidence: readonly ItemEvidence[] }
     ['출처', e.sourceOwner], ['참조', e.sourceRef, true], ['버전', e.sourceVersion], ['해시', e.contentHash, true], ['위치', e.locator, true], ['메모', e.note],
   ];
   return <ul className="grid grid-cols-[minmax(0,1fr)] gap-2">{evidence.map(e => <li key={e.ordinal} className="grid gap-1 rounded-md border border-border-subtle p-2.5 text-sm">
-    <span className="text-xs font-semibold text-text-secondary">{e.sourceKind}</span>
+    <span className="text-xs font-semibold text-text-secondary">{evidenceKindLabel(e.sourceKind)}</span>
     <dl className="grid grid-cols-[3rem_minmax(0,1fr)] gap-x-2 gap-y-0.5 text-xs">
       {rows(e).filter(([, value]) => value !== null && value !== '').map(([label, value, mono]) => <div key={label} className="contents">
         <dt className="text-text-muted">{label}</dt><dd className={cn('break-all text-text-primary', mono && 't-mono')}>{value}</dd>

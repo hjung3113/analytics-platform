@@ -6,6 +6,7 @@
 
 - 전체 기술 Item 목록·Item 상세 화면(#1197 s2, A안, 읽기 전용): 메뉴 `log-knowledge-items`(표·필터·검색)와 숨김 상세 `log-knowledge-item`(본문 4블록, 근거, 연결 Item, 리비전 `?rev=`, 판단 변경 이력). 조회 2종(`logKnowledge.items`·`itemDetail`) 선언·mock 저장소(`src/mock/items.ts`)·서버 drift 검사.
 - 기술 Item 쓰기 5종 선언(`itemCreate`·`itemRevise`·`itemAssess`·`itemDerive`·`itemSetArchived`, 권한 `ITEM_PUBLISH_PERMISSION`=`knowledge:item-publish`)과 mock 쓰기(`src/mock/itemActions.ts`, Item 저장소 변경 함수), 서버 drift 검사(#1197 s3a, 화면 없음).
+- 기술 Item 쓰기 화면(#1197 s3b, A안, 권한 `knowledge:item-publish` 보유자에게만): 전체 기술 Item의 「새 기술 Item」 서랍(소유 종류 모델|SW 버전 선택, 근거 포인터 ≤ 20, 주소 `focus=new`·`owner`), Item 상세의 「수정」(최신 리비전 기준, 변경 사유 필수, 주소 `drawer=revise`)·「판단 변경」·「관련 Item으로 신규 작성」(`drawer=assess|derive`, 근거·판단 상태 미승계)·`보관`/`보관 해제` 확인, 서버 `invalid` 경로(`evidence.<i>.<field>` 포함)를 칸에 연결, 충돌 시 새로 불러오기. 모델 프로파일 «모델 공통 Item»은 개수 한 줄 대신 모델 소유 게시 Item 5건과 `모두 보기 (N)`(Item 목록 `ownerModelId` 필터)로 바뀌었다. 선택 목록 `useOptionPicker`가 추가 필터(SW 버전의 `modelId`)를 받는다.
 
 ## 0.4.0 — 2026-11-02
 
