@@ -13,6 +13,8 @@ import type { PageQuery } from './paging.js';
  * - Positive ops (`contains`, `equals`, `eq`, `gt`, `in`, `between`, ...) never match a blank value.
  * - Negated ops (`notContains`, `notEquals`, `neq`, `notIn`) EXCLUDE blanks too (SQL `NOT x` with NULL is not true). Use
  *   `isEmpty` / `isNotEmpty` to ask about blanks explicitly.
+ * - An enum spec with `cell: 'many'` holds an array: blank = `null | undefined | []`; `in` = EXISTS element in the values;
+ *   `notIn` = at least one element AND NOT EXISTS element in the values; `isEmpty` = no element.
  * - Text is case-insensitive (locale-independent lower-case) unless the spec says `caseSensitive: true`.
  * - Number `between` is inclusive on both ends. Date values are wall-clock `YYYY-MM-DD` (06 §6.3): `between` is `from`
  *   inclusive / `to` EXCLUSIVE, `before` = strictly before that day (`< value`), `after` = strictly after that day (`>=` the
@@ -50,14 +52,16 @@ type SpecBase = {
 /**
  * `ops` is the server-supported subset of the kind's operators; absent = all of them. `text.caseSensitive: true` makes
  * `equals`/`contains`/... compare exactly. `enum.multiple: false` allows exactly one value. `instant` is a real-time range
- * (ISO instants with offset or `Z`), distinct from the wall-clock `date`.
+ * (ISO instants with offset or `Z`), distinct from the wall-clock `date`. `enum.cell: 'many'` says the row value is an ARRAY of
+ * option values (absent = `'scalar'`, one value): `in` = some element is in the filter value, `notIn` = at least one element and
+ * none is in it, `isEmpty` = no element (`null`/`undefined`/`[]`). The wire `ColumnFilter` is the same for both.
  */
 export type ColumnFilterSpec =
   | (SpecBase & { kind: 'text'; ops?: readonly TextOp[]; caseSensitive?: true })
   | (SpecBase & { kind: 'number'; ops?: readonly NumberOp[] })
   | (SpecBase & { kind: 'date'; ops?: readonly DateOp[] })
   | (SpecBase & { kind: 'instant'; ops?: readonly InstantOp[] })
-  | (SpecBase & { kind: 'enum'; options: { value: string; label: string }[]; ops?: readonly EnumOp[]; multiple?: false });
+  | (SpecBase & { kind: 'enum'; options: { value: string; label: string }[]; ops?: readonly EnumOp[]; multiple?: false; cell?: 'scalar' | 'many' });
 
 /** `id` is the field id (= the server field), without `:`. Operators are fixed per kind. */
 export type ColumnFilter =
@@ -108,7 +112,22 @@ function isBlank(filter: ColumnFilter, raw: unknown, spec: ColumnFilterSpec | un
   return TEXT_OP_SET.has(filter.op) || filter.op === 'isEmpty' || filter.op === 'isNotEmpty';
 }
 
+/** `cell: 'many'` enum value as a list (a bare non-array value is a one-element list); `undefined` for any other spec. */
+function manyElements(raw: unknown, spec: ColumnFilterSpec | undefined): unknown[] | undefined {
+  if (spec?.kind !== 'enum' || spec.cell !== 'many') return undefined;
+  if (raw === null || raw === undefined) return [];
+  return Array.isArray(raw) ? raw : [raw];
+}
+
 function matches(filter: ColumnFilter, raw: unknown, spec: ColumnFilterSpec | undefined): boolean {
+  const elements = manyElements(raw, spec);
+  if (elements) {
+    if (elements.length === 0) return filter.op === 'isEmpty';
+    if (filter.op === 'isEmpty') return false;
+    if (filter.op === 'isNotEmpty') return true;
+    if (filter.op === 'in') return elements.some(e => filter.value.includes(String(e)));
+    if (filter.op === 'notIn') return !elements.some(e => filter.value.includes(String(e)));
+  }
   const blank = isBlank(filter, raw, spec);
   switch (filter.op) {
     case 'isEmpty': return blank;

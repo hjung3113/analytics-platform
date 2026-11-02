@@ -44,6 +44,13 @@ describe('column filter schema agrees with @ap/contracts (ADR-0105)', () => {
     expect(columnFilterSpecSchema.safeParse({ kind: 'number', ops: ['contains'] }).success).toBe(false);
   });
 
+  it('enum cell is scalar | many; other kinds do not take it', () => {
+    expect(columnFilterSpecSchema.safeParse({ kind: 'enum', options: [], cell: 'many' }).success).toBe(true);
+    expect(columnFilterSpecSchema.safeParse({ kind: 'enum', options: [], cell: 'scalar' }).success).toBe(true);
+    expect(columnFilterSpecSchema.safeParse({ kind: 'enum', options: [], cell: 'list' }).success).toBe(false);
+    expect(columnFilterSpecSchema.safeParse({ kind: 'text', cell: 'many' }).success).toBe(false);
+  });
+
   it('the emitted JSON Schema closes the number tuple: exactly two items', () => {
     const branches = (toJsonSchema(columnFilterSchema).anyOf as { properties: { value: Record<string, unknown> } }[]).map(b => b.properties.value);
     const tuple = branches.find(v => Array.isArray(v.prefixItems));

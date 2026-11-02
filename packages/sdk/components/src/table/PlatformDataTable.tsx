@@ -163,6 +163,14 @@ export type PlatformDataTableProps<T> = {
    */
   exportContext?: Readonly<Partial<Record<ContextKey, Capability>>>;
   activeRowId?: string | null;
+  /**
+   * Opt-in: rows for which this returns true read as secondary. Their data cells take `text-text-muted` at rest and
+   * `text-text-secondary` while hovered, selected or active (muted text fails contrast on those surfaces, DESIGN.md §색);
+   * `_select`/`_action` cells and content with its own colour class (badges, links) are untouched, the row gets
+   * `data-muted="true"`. Visual only: selection, focus, row action and export are unchanged, so the meaning (e.g. 비활성)
+   * must also sit in a visible cell such as a status badge. Default absent = no row is muted.
+   */
+  isRowMuted?: (row: T) => boolean;
   preferenceKey: string;
   pageSize?: number;
   /** Maximum row-area height; default fits the page (content height, up to the room left on the page, never under 240px). */
@@ -735,8 +743,9 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
               // Weight goes to the first cell with content — the selection checkbox and the trailing action stay unweighted (UXA-5).
               const cells = row.getVisibleCells();
               const firstDataCell = cells.findIndex(cell => cell.column.id !== '_select' && cell.column.id !== '_action');
+              const muted = p.isRowMuted?.(row.original) === true;
               return <div role="row" key={row.id} ref={virtual.measureElement} data-index={item.index} aria-rowindex={groupedItems ? item.index + 2 : shownPage * pageSize + item.index + 2}
-                aria-selected={row.getIsSelected()} aria-current={active ? 'true' : undefined} data-row-id={row.id}
+                aria-selected={row.getIsSelected()} aria-current={active ? 'true' : undefined} data-row-id={row.id} data-muted={muted ? 'true' : undefined}
                 // eslint-disable-next-line shadcn/no-inline-styles -- row offset is the virtual item position computed at runtime
                 className="group absolute left-0 top-0 flex w-full" style={{ transform: `translateY(${item.start}px)` }}>
                 {/* The active bar rides a zero-width element pinned to the scrollport's left edge, so it stays visible at
@@ -746,7 +755,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
                 </div>}
                 {/* eslint-disable-next-line shadcn/no-inline-styles -- cell width and pin offset come from column sizing at runtime */}
                 {cells.map((cell, cellIndex) => <div role="cell" key={cell.id} data-column={cell.column.id} style={cellStyle(cell.column)}
-                  className={cn(cellBase, 'border-b border-border-subtle bg-surface-card', cellText, 'group-hover:bg-surface-row-hover group-aria-selected:bg-surface-row-selected', active && 'bg-surface-row-selected', active && cellIndex === firstDataCell && 'font-medium', cell.column.id === '_action' && (actionCompact ? 'py-0 px-0' : 'py-0'), cell.column.getIsPinned() === 'right' && pinEdge, fadeClass(cell.column.getIsPinned(), true, active), align(cell.column))}>
+                  className={cn(cellBase, 'border-b border-border-subtle bg-surface-card', cellText, 'group-hover:bg-surface-row-hover group-aria-selected:bg-surface-row-selected', active && 'bg-surface-row-selected', active && cellIndex === firstDataCell && 'font-medium', muted && cell.column.id !== '_select' && cell.column.id !== '_action' && cn('text-text-muted group-hover:text-text-secondary group-aria-selected:text-text-secondary', active && 'text-text-secondary'), cell.column.id === '_action' && (actionCompact ? 'py-0 px-0' : 'py-0'), cell.column.getIsPinned() === 'right' && pinEdge, fadeClass(cell.column.getIsPinned(), true, active), align(cell.column))}>
                   {/* The _action column cell is not used — rowAction renders directly to preserve DOM identity (#296). */}
                   {cell.column.id === '_action' ? p.rowAction?.(row.original, { compact: actionCompact }) : flexRender(cell.column.columnDef.cell, cell.getContext())}
                 </div>)}

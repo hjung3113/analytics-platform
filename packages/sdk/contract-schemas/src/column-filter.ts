@@ -33,5 +33,5 @@ export const columnFilterSpecSchema = z.union([
   z.strictObject({ kind: z.literal('number'), ops: z.array(opOf(NUMBER_FILTER_OPS)).optional(), requires }),
   z.strictObject({ kind: z.literal('date'), ops: z.array(opOf(DATE_FILTER_OPS)).optional(), requires }),
   z.strictObject({ kind: z.literal('instant'), ops: z.array(opOf(INSTANT_FILTER_OPS)).optional(), requires }),
-  z.strictObject({ kind: z.literal('enum'), options: z.array(optionSchema), ops: z.array(opOf(ENUM_FILTER_OPS)).optional(), multiple: z.literal(false).optional(), requires }),
+  z.strictObject({ kind: z.literal('enum'), options: z.array(optionSchema), ops: z.array(opOf(ENUM_FILTER_OPS)).optional(), multiple: z.literal(false).optional(), cell: z.enum(['scalar', 'many']).optional(), requires }),
 ]);
