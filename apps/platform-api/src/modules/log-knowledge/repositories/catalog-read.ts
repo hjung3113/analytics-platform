@@ -104,6 +104,7 @@ export async function listVendors(tx: Tx, q: ListQuery): Promise<Page<VendorRow>
   const where = and(
     eq(vendors.workspaceId, q.workspaceId),
     activeFilter(vendors.active, q.conditions),
+    columnFilter(vendors.id, q.conditions.id),
     textFilter(vendors.codeKey, vendors.name, q.q),
   );
   // Outer columns are written qualified: a single-table select renders `${vendors.id}` unqualified, which
@@ -140,6 +141,7 @@ export async function listProcesses(tx: Tx, q: ListQuery): Promise<Page<ProcessR
   const where = and(
     eq(t.workspaceId, q.workspaceId),
     activeFilter(t.active, q.conditions),
+    columnFilter(t.id, q.conditions.id),
     textFilter(t.codeKey, t.name, q.q),
   );
   const modelCount = sql<number>`(select count(*)::int from ${modelProcesses} mp join ${equipmentModels} m on m.workspace_id = mp.workspace_id and m.id = mp.model_id where mp.workspace_id = "knowledge"."process_category"."workspace_id" and mp.process_id = "knowledge"."process_category"."id" and m.active)`;
@@ -207,6 +209,7 @@ export async function listModels(tx: Tx, q: ListQuery): Promise<Page<ModelRow>> 
   const where = and(
     eq(t.workspaceId, q.workspaceId),
     activeFilter(t.active, q.conditions),
+    columnFilter(t.id, q.conditions.id),
     textFilter(t.codeKey, t.name, q.q),
     columnFilter(t.vendorId, q.conditions.vendorId),
     processFilter(tx, q.conditions.processes, t.workspaceId, t.id),
@@ -269,6 +272,7 @@ export async function listSoftwareVersions(tx: Tx, q: ListQuery): Promise<Page<S
   const where = and(
     eq(t.workspaceId, q.workspaceId),
     activeFilter(t.active, q.conditions),
+    columnFilter(t.id, q.conditions.id),
     textFilter(t.versionKey, t.name, q.q),
     columnFilter(t.modelId, q.conditions.modelId),
   );

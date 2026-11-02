@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useMemo, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type RefObject } from 'react';
 import { encodeFilterParams, type ActionResult, type ActionSpec, type ApiResponse, type PageResult } from '@ap/contracts';
 import { PlatformLink, useMenuAction, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
 import { DetailDrawer } from '@ap/components';
@@ -11,7 +11,7 @@ import {
   softwareVersionsEndpoint, vendorCreate, vendorSetActive, vendorUpdate, vendorsEndpoint, type CatalogPageParams, type CatalogSummary, type ModelRow, type SoftwareRow,
 } from '../endpoints';
 import { ACTIVE_ONLY, TAB_LABEL, failureText, impactText, mapFieldErrors, type Banner, type CatalogKind, type CatalogRow } from './catalogModel';
-import type { Option } from './useCatalogOptions';
+import { useOptionPicker, type Option } from './useCatalogOptions';
 
 type Write = ActionSpec<Record<string, unknown>, CatalogSummary>;
 const asWrite = (spec: unknown) => spec as Write;
@@ -23,41 +23,42 @@ const ACTIONS: Record<CatalogKind, { create: Write; update: Write; setActive: Wr
 };
 const ENDPOINTS = { vendor: vendorsEndpoint, process: processesEndpoint, model: modelsEndpoint, software: softwareVersionsEndpoint } as const;
 const NO_ROW = 'new';
-const PAGE = 200, MAX_PAGES = 50;
 
 type Lookup = { state: 'loading' } | { state: 'ready'; row: CatalogRow | null } | { state: 'missing' } | { state: 'error' };
+type Held = { key: string; lookup: Lookup };
 
 /**
- * The row behind `focus=<id>`. The reads have no by-id lookup, so it comes from the pages the table already read, else from
- * a scan of the whole list (at most 50 × 200 rows). `reload()` skips the cache: a conflict or a save needs the server's row.
+ * The row behind `focus=<id>`: from the pages the table already read, else one read with `id in [focus]` (no paging, no scan).
+ * The result is scoped to (kind, focus): a result held for another row is never returned, so the form never shows or writes another row.
+ * `reload()` skips the cache (a conflict or a save needs the server's row) and starts over for the next row.
  */
 export function useCatalogRow(kind: CatalogKind, focus: string, rowsRef: RefObject<Map<string, CatalogRow>>) {
   const endpoint = ENDPOINTS[kind] as unknown as Parameters<typeof useMenuFetch<CatalogPageParams, PageResult<CatalogRow>>>[0];
   const { fetch } = useMenuFetch(endpoint);
-  const [lookup, setLookup] = useState<Lookup>(() => focus === NO_ROW ? { state: 'ready', row: null } : { state: 'loading' });
-  const [token, setToken] = useState(0);
+  const fetchRef = useRef(fetch);
+  useEffect(() => { fetchRef.current = fetch; });
+  const key = `${kind}:${focus}`;
+  const [held, setHeld] = useState<Held>(() => ({ key, lookup: focus === NO_ROW ? { state: 'ready', row: null } : { state: 'loading' } }));
+  const [reloads, setReloads] = useState({ key, n: 0 });
+  const n = reloads.key === key ? reloads.n : 0;
   useEffect(() => {
-    if (focus === NO_ROW) { setLookup({ state: 'ready', row: null }); return; }
-    const cached = token === 0 ? rowsRef.current.get(focus) : undefined;
-    if (cached) { setLookup({ state: 'ready', row: cached }); return; }
+    if (focus === NO_ROW) { setHeld({ key, lookup: { state: 'ready', row: null } }); return; }
+    const cached = n === 0 ? rowsRef.current.get(focus.toLowerCase()) : undefined;
+    if (cached) { setHeld({ key, lookup: { state: 'ready', row: cached } }); return; }
     const controller = new AbortController();
-    setLookup(prev => (prev.state === 'ready' && token > 0 ? prev : { state: 'loading' }));
+    // A reload of the same row keeps the row on screen until the server answers; any other row starts empty.
+    setHeld(prev => (prev.key === key && prev.lookup.state === 'ready' && n > 0 ? prev : { key, lookup: { state: 'loading' } }));
+    const settle = (lookup: Lookup) => { if (!controller.signal.aborted) setHeld({ key, lookup }); };
     (async () => {
-      for (let page = 0; page < MAX_PAGES; page += 1) {
-        const res: ApiResponse<PageResult<CatalogRow>> = await fetch({ q: null, page, pageSize: PAGE, sorting: [{ id: 'createdAt', desc: false }] }, controller.signal);
-        if (controller.signal.aborted) return;
-        if (res.outcome !== 'ok' && res.outcome !== 'empty') { setLookup({ state: 'error' }); return; }
-        const found = res.data?.rows.find(r => r.id === focus.toLowerCase());
-        if (found) { rowsRef.current.set(found.id, found); setLookup({ state: 'ready', row: found }); return; }
-        if (!res.data || (page + 1) * PAGE >= res.data.total) break;
-      }
-      setLookup({ state: 'missing' });
-    })().catch(() => { if (!controller.signal.aborted) setLookup({ state: 'error' }); });
+      const res: ApiResponse<PageResult<CatalogRow>> = await fetchRef.current({ q: null, page: 0, pageSize: 1, sorting: [{ id: 'createdAt', desc: false }], filters: [{ id: 'id', op: 'in', value: [focus.toLowerCase()] }] }, controller.signal);
+      if (res.outcome !== 'ok' && res.outcome !== 'empty') { settle({ state: 'error' }); return; }
+      const found = res.data?.rows.find(r => r.id === focus.toLowerCase());
+      if (found) { rowsRef.current.set(found.id, found); settle({ state: 'ready', row: found }); } else settle({ state: 'missing' });
+    })().catch(() => settle({ state: 'error' }));
     return () => controller.abort();
-    // `fetch` changes identity each render; the lookup runs for a new focus or an explicit reload only.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focus, token]);
-  return { lookup, reload: useCallback(() => setToken(n => n + 1), []) };
+  }, [kind, focus, key, n, rowsRef]);
+  const lookup: Lookup = held.key === key ? held.lookup : focus === NO_ROW ? { state: 'ready', row: null } : { state: 'loading' };
+  return { lookup, reload: useCallback(() => setReloads(r => ({ key, n: (r.key === key ? r.n : 0) + 1 })), [key]) };
 }
 
 function Field({ id, label, error, hint, required, children }: { id: string; label: string; error?: string; hint?: string; required?: boolean; children: React.ReactNode }) {
@@ -67,6 +68,33 @@ function Field({ id, label, error, hint, required, children }: { id: string; lab
     {hint && !error && <p id={`${id}-hint`} className="text-xs text-text-muted">{hint}</p>}
     {error && <p id={`${id}-error`} role="alert" className="text-xs text-text-danger-label">{error}</p>}
   </div>;
+}
+
+type PickerProps = { id: string; invalid: boolean; describedBy: string | undefined };
+/** 제조사 / 모델 chooser of a new row: server search over the declared read, the chosen one kept visible while the text changes. */
+function ParentPicker({ kind, value, onChange, id, invalid, describedBy }: PickerProps & { kind: 'model' | 'software'; value: string; onChange: (value: string) => void }) {
+  const label = kind === 'model' ? '제조사' : '모델';
+  const picker = useOptionPicker(kind === 'model' ? vendorsEndpoint : modelsEndpoint);
+  const [picked, setPicked] = useState<Option | null>(null);
+  const options = picked && !picker.options.some(o => o.value === picked.value) ? [picked, ...picker.options] : picker.options;
+  return <Combobox id={id} options={options} value={value || null} filterOptions={false}
+    onChange={next => { setPicked(options.find(o => o.value === next) ?? null); onChange(next); }} onSearchChange={picker.setSearch}
+    placeholder={`${label} 선택`} searchPlaceholder={`${label} 검색`} listboxLabel={`${label} 목록`} emptyText={picker.loading ? '불러오는 중…' : picker.failed ? '불러오지 못했습니다' : '결과가 없습니다'}
+    aria-invalid={invalid} aria-describedby={describedBy} />;
+}
+
+/** 공정 chooser: server search and load-more; chips of chosen processes keep their names while the list changes. */
+function ProcessPicker({ values, onChange, known, id, invalid, describedBy }: PickerProps & { values: string[]; onChange: (values: string[]) => void; known: ReadonlyMap<string, string> }) {
+  const picker = useOptionPicker(processesEndpoint);
+  const [names, setNames] = useState(() => new Map(known));
+  useEffect(() => { setNames(prev => { let next = prev; for (const o of picker.options) if (prev.get(o.value) !== o.label) { if (next === prev) next = new Map(prev); next.set(o.value, o.label); } return next; }); }, [picker.options]);
+  const options = [...picker.options, ...values.filter(v => !picker.options.some(o => o.value === v)).map(v => ({ value: v, label: names.get(v) ?? v, disabled: false }))];
+  return <MultiCombobox id={id} label="공정" values={values} onValuesChange={onChange} options={options} getLabel={value => names.get(value) ?? value}
+    search={picker.search} onSearchChange={picker.setSearch} loading={picker.loading} error={picker.failed ? '공정을 불러오지 못했습니다' : undefined} onRetry={picker.retry}
+    hasMore={picker.hasMore} onLoadMore={picker.loadMore}
+    listboxLabel="공정 목록" emptyText="결과가 없습니다" loadingText="불러오는 중…" retryLabel="다시 시도" placeholder="공정 선택" searchPlaceholder="공정 검색"
+    selectedSummaryLabel={n => `공정 ${n}개 선택`} moreLabel="더 보기" clearAllLabel="모두 지우기" removeLabel={name => `${name} 빼기`}
+    aria-invalid={invalid} aria-describedby={describedBy} />;
 }
 
 function ModelSoftware({ modelId }: { modelId: string }) {
@@ -142,10 +170,15 @@ function CatalogForm({ kind, row, options, onWritten, onReload, onClose }: {
   const codeField = kind === 'software' ? 'versionLabel' : 'code';
   const err = (field: string) => errors[field];
   const describedBy = (field: string) => (err(field) ? `${uid}-${field}-error` : undefined);
-  const parentOptions = kind === 'model' ? options.vendors : options.models;
   const parentField = kind === 'model' ? 'vendorId' : 'modelId';
   const parentLabel = kind === 'model' ? '제조사' : '모델';
-  return <form className="grid gap-4" noValidate onSubmit={event => { event.preventDefault(); if (!busy) save(); }}>
+  const knownProcesses = new Map((model?.processes ?? []).map(p => [p.id, p.name] as const));
+  return <form className="flex min-h-full flex-col gap-4" noValidate onSubmit={event => { event.preventDefault(); if (!busy) save(); }}>
+    {row && !row.active && <div role="status" className="grid gap-2 rounded-md border border-border-subtle bg-surface-sunken p-3">
+      <p className="text-sm font-semibold">비활성 {TAB_LABEL[kind]}</p>
+      <p className="text-xs text-text-secondary">이 {TAB_LABEL[kind]}은(는) 비활성이라 새 연결을 만들 수 없습니다. 코드와 기존 연결은 그대로 남습니다.</p>
+      <div><Button type="button" size="sm" variant="secondary" disabled={busy} onClick={() => toggle(true)}>다시 활성화</Button></div>
+    </div>}
     {banner?.kind === 'conflict' && <Callout tone="amber" title="다른 사람이 먼저 고쳤습니다" action={<Button type="button" size="sm" variant="secondary" onClick={() => { setBanner(null); setErrors({}); onReload(); }}>새로 불러오기</Button>}>
       저장하지 않은 입력은 새로 불러오면 사라집니다.
     </Callout>}
@@ -153,29 +186,22 @@ function CatalogForm({ kind, row, options, onWritten, onReload, onClose }: {
     {(kind === 'model' || kind === 'software') && <Field id={`${uid}-${parentField}`} label={parentLabel} required error={err(parentField)}
       hint={isNew ? undefined : `등록 후에는 ${parentLabel}${kind === 'model' ? '를' : '을'} 바꿀 수 없습니다`}>
       {isNew
-        ? <Combobox id={`${uid}-${parentField}`} options={parentOptions.map(o => ({ value: o.value, label: o.label, disabled: o.disabled }))} value={values[parentField] || null}
-          onChange={value => set(parentField, value)} placeholder={`${parentLabel} 선택`} searchPlaceholder={`${parentLabel} 검색`} listboxLabel={`${parentLabel} 목록`} emptyText="결과가 없습니다"
-          aria-invalid={err(parentField) !== undefined} aria-describedby={describedBy(parentField)} />
-        : <p className="text-sm" id={`${uid}-${parentField}`}>{kind === 'model' ? model?.vendorName : parentOptions.find(o => o.value === values[parentField])?.label ?? values[parentField]}</p>}
+        ? <ParentPicker kind={kind} id={`${uid}-${parentField}`} value={values[parentField] ?? ''} onChange={value => set(parentField, value)} invalid={err(parentField) !== undefined} describedBy={describedBy(parentField)} />
+        : <p className="text-sm" id={`${uid}-${parentField}`}>{kind === 'model' ? model?.vendorName : options.models.find(o => o.value === values[parentField])?.label ?? values[parentField]}</p>}
     </Field>}
-    <Field id={`${uid}-${codeField}`} label={kind === 'software' ? '버전 표기' : '코드'} required error={err(codeField)}>
-      <Input id={`${uid}-${codeField}`} value={values[codeField]} onChange={e => set(codeField, e.target.value)} aria-invalid={err(codeField) !== undefined} aria-describedby={describedBy(codeField)} />
-    </Field>
-    <Field id={`${uid}-name`} label={kind === 'software' ? '이름 (선택)' : '이름'} required={kind !== 'software'} error={err('name')}>
-      <Input id={`${uid}-name`} value={values['name']} onChange={e => set('name', e.target.value)} aria-invalid={err('name') !== undefined} aria-describedby={describedBy('name')} />
-    </Field>
+    <div className="grid grid-cols-2 gap-3">
+      <Field id={`${uid}-${codeField}`} label={kind === 'software' ? '버전 표기' : '코드'} required error={err(codeField)}>
+        <Input id={`${uid}-${codeField}`} value={values[codeField]} onChange={e => set(codeField, e.target.value)} aria-invalid={err(codeField) !== undefined} aria-describedby={describedBy(codeField)} />
+      </Field>
+      <Field id={`${uid}-name`} label={kind === 'software' ? '이름 (선택)' : '이름'} required={kind !== 'software'} error={err('name')}>
+        <Input id={`${uid}-name`} value={values['name']} onChange={e => set('name', e.target.value)} aria-invalid={err('name') !== undefined} aria-describedby={describedBy('name')} />
+      </Field>
+    </div>
     {kind === 'model' && <Field id={`${uid}-processIds`} label="공정" error={err('processIds')} hint="고르지 않으면 미분류입니다">
-      <MultiCombobox id={`${uid}-processIds`} label="공정" values={processIds} onValuesChange={setProcessIds}
-        options={options.processes.map(o => ({ value: o.value, label: o.label, disabled: o.disabled && !processIds.includes(o.value) }))}
-        getLabel={value => model?.processes.find(p => p.id === value)?.name ?? value}
-        listboxLabel="공정 목록" emptyText="결과가 없습니다" loadingText="불러오는 중…" retryLabel="다시 시도" placeholder="공정 선택" searchPlaceholder="공정 검색"
-        selectedSummaryLabel={n => `공정 ${n}개 선택`} moreLabel="더 보기" clearAllLabel="모두 지우기" removeLabel={name => `${name} 빼기`}
-        aria-invalid={err('processIds') !== undefined} aria-describedby={describedBy('processIds')} />
+      <ProcessPicker id={`${uid}-processIds`} values={processIds} onChange={setProcessIds} known={knownProcesses} invalid={err('processIds') !== undefined} describedBy={describedBy('processIds')} />
     </Field>}
-    <div className="flex items-center justify-between gap-2 border-t border-border-subtle pt-3">
-      <div>{row && (row.active
-        ? <Button type="button" variant="secondary" disabled={busy} onClick={() => setConfirming(true)}>비활성화</Button>
-        : <Button type="button" variant="secondary" disabled={busy} onClick={() => toggle(true)}>다시 활성화</Button>)}</div>
+    <div className="sticky bottom-0 z-10 -mx-5 mt-auto flex items-center justify-between gap-2 border-t border-border-subtle bg-surface-detail px-5 py-3">
+      <div>{row?.active && <Button type="button" variant="secondary" disabled={busy} onClick={() => setConfirming(true)}>비활성화</Button>}</div>
       <div className="flex gap-2">
         <Button type="button" variant="secondary" onClick={onClose}>취소</Button>
         <Button type="submit" disabled={busy}>{busy ? '저장 중…' : '저장'}</Button>

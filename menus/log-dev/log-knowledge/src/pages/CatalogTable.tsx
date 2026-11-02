@@ -8,7 +8,7 @@ import {
   MODEL_SORT_IDS, PROCESS_SORT_IDS, SOFTWARE_SORT_IDS, VENDOR_SORT_IDS, modelFilterSpecs, modelsEndpoint, processFilterSpecs, processesEndpoint,
   softwareFilterSpecs, softwareVersionsEndpoint, vendorFilterSpecs, vendorsEndpoint, type CatalogPageParams, type ModelRow, type ProcessRow, type VendorRow,
 } from '../endpoints';
-import { TAB_LABEL, childLink, isRowMuted, softwareSummary, tabPatch, type CatalogKind, type CatalogRow } from './catalogModel';
+import { TAB_LABEL, childLink, chosenIds, isRowMuted, softwareSummary, tabPatch, type CatalogKind, type CatalogRow } from './catalogModel';
 import type { Option } from './useCatalogOptions';
 
 const ENDPOINTS = { vendor: vendorsEndpoint, process: processesEndpoint, model: modelsEndpoint, software: softwareVersionsEndpoint } as const;
@@ -17,29 +17,44 @@ const SPECS = { vendor: vendorFilterSpecs, process: processFilterSpecs, model: m
 const FIELD_NAME = { active: '상태', vendorId: '제조사', processes: '공정', modelId: '모델' } as const;
 const NOUN = { vendor: '제조사', process: '공정', model: '모델', software: 'SW 버전' } as const;
 
-/** The ids the URL codec and the filter line know for a tab: the wire specs with the lists the screen reads for the id fields. */
-export function filterSpecsFor(kind: CatalogKind, options: { vendors: Option[]; processes: Option[]; models: Option[] }): Record<string, ColumnFilterSpec> {
+/**
+ * The ids the URL codec and the filter line know for a tab: the wire specs with the lists the screen reads for the id fields. Each list is bounded
+ * (first 200 by name), so the values the address already chose are always added to it (named from `labels`, else by id).
+ */
+export function filterSpecsFor(
+  kind: CatalogKind, options: { vendors: Option[]; processes: Option[]; models: Option[] }, chosen: Record<string, string[]> = {}, labels?: ReadonlyMap<string, string>,
+): Record<string, ColumnFilterSpec> {
   const specs: Record<string, ColumnFilterSpec> = { ...SPECS[kind] };
-  const withOptions = (id: string, list: Option[]) => { const spec = specs[id]; if (spec) specs[id] = { ...spec, options: list.map(({ value, label }) => ({ value, label })) } as ColumnFilterSpec; };
+  const withOptions = (id: string, list: Option[]) => {
+    const spec = specs[id];
+    if (!spec) return;
+    const known = new Set(list.map(o => o.value));
+    const extra = [...new Set(chosen[id] ?? [])].filter(v => !known.has(v)).map(v => ({ value: v, label: labels?.get(v) ?? v }));
+    specs[id] = { ...spec, options: [...list.map(({ value, label }) => ({ value, label })), ...extra] } as ColumnFilterSpec;
+  };
   withOptions('vendorId', options.vendors); withOptions('processes', options.processes); withOptions('modelId', options.models);
   return specs;
 }
 
-function Count({ n, label, onOpen }: { n: number; label: string; onOpen: () => void }) {
-  return <span className="tabular"><Button type="button" variant="link" size="sm" aria-label={label} onClick={onOpen}>{n}</Button></span>;
+function Count({ n, label, text, onOpen }: { n: number; label: string; text?: string; onOpen: () => void }) {
+  return <span className="tabular"><Button type="button" variant="link" size="sm" aria-label={label} onClick={onOpen}>{text ?? n}</Button></span>;
 }
 
-export function CatalogTable({ kind, q, focus, rowsRef, options, onTotal }: {
+export function CatalogTable({ kind, q, focus, rowsRef, options, labels, remember, onTotal }: {
   kind: CatalogKind; q: string; focus: string | null;
   /** Rows of the pages this tab has read, by id: the drawer opens a row from here before it asks the server. */
   rowsRef: RefObject<Map<string, CatalogRow>>;
   options: { vendors: Option[]; processes: Option[]; models: Option[] };
+  /** Names seen so far by id, for chosen filter values the bounded option list lacks. */
+  labels: ReadonlyMap<string, string>;
+  remember: (id: string, label: string) => void;
   onTotal: (kind: CatalogKind, total: number) => void;
 }) {
-  const { setPage } = usePlatform();
+  const { setPage, pageParams } = usePlatform();
   const endpoint = ENDPOINTS[kind] as unknown as Parameters<typeof useMenuFetch<CatalogPageParams, GroupedPageResult<CatalogRow>>>[0];
   const pages = useMenuFetch(endpoint);
-  const specs = useMemo(() => filterSpecsFor(kind, options), [kind, options]);
+  const chosenKey = pageParams('filter').join('\n');
+  const specs = useMemo(() => filterSpecsFor(kind, options, chosenIds(chosenKey === '' ? [] : chosenKey.split('\n')), labels), [kind, options, chosenKey, labels]);
   const urlFilters = useMemo(() => ({ key: 'filter', specs, labels: FIELD_NAME as Record<string, string> }), [specs]);
   const { urlState, invalid, sentences, recoverKeys, cause } = useTableUrlState(SORT_IDS[kind], { filters: urlFilters });
   const [draft, setDraft] = useState<{ applied: string; text: string }>({ applied: q, text: q });
@@ -48,7 +63,7 @@ export function CatalogTable({ kind, q, focus, rowsRef, options, onTotal }: {
   const search = <SearchInput placeholder={`${NOUN[kind]} 코드·이름 검색`} value={draft.text} onValueChange={text => setDraft({ applied: q, text })} onCommit={commit} />;
 
   const columns = useMemo<PlatformColumn<CatalogRow>[]>(() => {
-    const open = (row: CatalogRow) => setPage(tabPatch(childLink(row, kind)));
+    const open = (row: CatalogRow) => { remember(row.id, row.name || row.code); setPage(tabPatch(childLink(row, kind))); };
     const code: PlatformColumn<CatalogRow> = { id: 'code', header: kind === 'software' ? '버전' : '코드', size: 140, cell: r => <span className="t-mono">{r.code}</span> };
     const status: PlatformColumn<CatalogRow> = {
       id: 'active', header: '상태', size: 96, filter: specs.active, filterPinned: 1, exportValue: r => (r.active ? '활성' : '비활성'),
@@ -72,12 +87,12 @@ export function CatalogTable({ kind, q, focus, rowsRef, options, onTotal }: {
         { id: 'softwareCount', header: 'SW 버전', size: 150, exportValue: r => softwareSummary(models(r)),
           cell: r => models(r).softwareCount === 0 ? '—' : <span className="inline-flex items-baseline gap-1.5">
             <span className="t-mono">{models(r).latestSoftwareLabel}</span>
-            {models(r).softwareCount > 1 && <Count n={models(r).softwareCount - 1} label={`${r.name} SW 버전 ${models(r).softwareCount}개 보기`} onOpen={() => open(r)} />}
+            {models(r).softwareCount > 1 && <Count n={models(r).softwareCount - 1} text={`외 ${models(r).softwareCount - 1}`} label={`${r.name} SW 버전 ${models(r).softwareCount}개 보기`} onOpen={() => open(r)} />}
           </span> },
         updated];
     }
     return [{ ...code, id: 'versionLabel' }, status, name, updated];
-  }, [kind, specs, setPage]);
+  }, [kind, specs, setPage, remember]);
 
   const fields = useMemo<TableFilterField[]>(() => (['vendorId', 'processes', 'modelId'] as const).flatMap((id, i) => {
     const spec = specs[id];

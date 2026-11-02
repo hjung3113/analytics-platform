@@ -38,17 +38,17 @@ const common = (rec: Rec, id: string): Sortable | undefined =>
   ({ code: rec.key, name: rec.name, active: rec.active, createdAt: rec.createdAt, updatedAt: rec.updatedAt })[id as 'code'];
 
 const SHAPES: Record<Kind, Shape> = {
-  vendor: { specs: vendorFilterSpecs, sortIds: VENDOR_SORT_IDS, rows: () => all('vendor'), sortValue: (r, id) => (id === 'modelCount' ? activeChildren(r) : common(r, id)!), cell: (r, id) => (id === 'active' ? String(r.active) : undefined) },
-  process: { specs: processFilterSpecs, sortIds: PROCESS_SORT_IDS, rows: () => all('process'), sortValue: (r, id) => (id === 'modelCount' ? activeChildren(r) : common(r, id)!), cell: (r, id) => (id === 'active' ? String(r.active) : undefined) },
+  vendor: { specs: vendorFilterSpecs, sortIds: VENDOR_SORT_IDS, rows: () => all('vendor'), sortValue: (r, id) => (id === 'modelCount' ? activeChildren(r) : common(r, id)!), cell: (r, id) => (id === 'active' ? String(r.active) : id === 'id' ? r.id : undefined) },
+  process: { specs: processFilterSpecs, sortIds: PROCESS_SORT_IDS, rows: () => all('process'), sortValue: (r, id) => (id === 'modelCount' ? activeChildren(r) : common(r, id)!), cell: (r, id) => (id === 'active' ? String(r.active) : id === 'id' ? r.id : undefined) },
   model: {
     specs: modelFilterSpecs, sortIds: MODEL_SORT_IDS, rows: () => all('model'),
     sortValue: (r, id) => (id === 'vendorName' ? byId(r.parentId)!.name : id === 'softwareCount' ? activeChildren(r) : common(r, id)!),
-    cell: (r, id) => (id === 'active' ? String(r.active) : id === 'vendorId' ? r.parentId : id === 'processes' ? processIdsOf(r.id) : undefined),
+    cell: (r, id) => (id === 'active' ? String(r.active) : id === 'id' ? r.id : id === 'vendorId' ? r.parentId : id === 'processes' ? processIdsOf(r.id) : undefined),
   },
   software: {
     specs: softwareFilterSpecs, sortIds: SOFTWARE_SORT_IDS, rows: () => all('software'),
     sortValue: (r, id) => (id === 'versionLabel' ? r.key : common(r, id)!),
-    cell: (r, id) => (id === 'active' ? String(r.active) : id === 'modelId' ? r.parentId : undefined),
+    cell: (r, id) => (id === 'active' ? String(r.active) : id === 'id' ? r.id : id === 'modelId' ? r.parentId : undefined),
   },
 };
 

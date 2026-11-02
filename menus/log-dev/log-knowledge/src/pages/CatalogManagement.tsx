@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { usePlatform } from '@ap/kernel';
 import { ManagementLayout, PageKeyWarning, PlatformPage, usePageKeyRules } from '@ap/components';
 import { Button, Tabs, TabsList, TabsTrigger } from '@ap/ui';
-import { CATALOG_TABS, TAB_LABEL, defaultFilterParams, isCatalogTab, isFocusValue, tabOf, tabPatch, type CatalogKind, type CatalogRow } from './catalogModel';
+import { CATALOG_TABS, DEFAULT_TAB, TAB_LABEL, defaultFilterParams, isCatalogTab, isFocusValue, tabOf, tabPatch, type CatalogKind, type CatalogRow } from './catalogModel';
 import { CatalogDrawer } from './CatalogDrawer';
 import { CatalogTable } from './CatalogTable';
 import { useCatalogOptions } from './useCatalogOptions';
@@ -29,23 +29,20 @@ export default function CatalogManagement() {
   const kind = tab === 'invalid' ? null : tab;
   const options = useCatalogOptions({ vendors: kind === 'model', processes: kind === 'model', models: kind === 'software' });
 
-  // A bare address opens the default tab with the 상태 filter at 활성; a later clear of the filter stays cleared (and in the URL).
-  const entered = useRef(false);
+  // A bare address opens the default tab with the 상태 filter at 활성. The tab is written with it, so an address that names a tab never gets
+  // the default again: a later clear of the filter stays cleared on refresh, Back and a shared link.
+  const rawTab = pageParam('tab'), rawQ = pageParam('q'), hasFilter = pageParams('filter').length > 0;
   useEffect(() => {
-    if (entered.current) return;
-    entered.current = true;
-    if (pageParam('tab') === null && pageParams('filter').length === 0 && pageParam('q') === null) setPage({ filter: defaultFilterParams() }, { replace: true });
-    // Runs once on arrival.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (rawTab === null && !hasFilter && rawQ === null) setPage({ tab: DEFAULT_TAB, filter: defaultFilterParams() }, { replace: true });
+  }, [rawTab, hasFilter, rawQ, setPage]);
 
-  const body = keys.invalid || kind === null ? <PageKeyWarning sentences={keys.sentences} onRecover={keys.recover} /> : <div className="grid min-w-0 gap-3">
+  const body = keys.invalid || kind === null ? <PageKeyWarning sentences={keys.sentences} onRecover={keys.recover} /> : <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3 *:min-w-0">
     <Tabs value={kind} onValueChange={next => { if (isCatalogTab(next)) setPage(tabPatch({ tab: next, filter: defaultFilterParams() })); }}>
       <TabsList aria-label="카탈로그 종류">
         {CATALOG_TABS.map(id => <TabsTrigger key={id} value={id}>{TAB_LABEL[id]}{counts[id] !== undefined && <span className="tabular ml-1.5 text-text-muted">{counts[id]}</span>}</TabsTrigger>)}
       </TabsList>
     </Tabs>
-    <CatalogTable key={`${kind}:${revision}`} kind={kind} q={q} focus={focus} rowsRef={rowsRef} options={options}
+    <CatalogTable key={`${kind}:${revision}`} kind={kind} q={q} focus={focus} rowsRef={rowsRef} options={options} labels={options.labels} remember={options.remember}
       onTotal={(k, total) => setCounts(c => (c[k] === total ? c : { ...c, [k]: total }))} />
   </div>;
   return <PlatformPage description="제조사·공정·모델·SW 버전 기준 목록을 관리합니다. 비활성화해도 기존 연결은 그대로 남습니다."

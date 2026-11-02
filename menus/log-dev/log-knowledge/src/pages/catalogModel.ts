@@ -24,6 +24,17 @@ export const isFocusValue = (raw: string): boolean => raw === 'new' || UUID.test
 export const ACTIVE_ONLY: ColumnFilter = { id: 'active', op: 'in', value: ['true'] };
 export const defaultFilterParams = (): string[] => encodeFilterParams([ACTIVE_ONLY]);
 
+/** The ids a table URL already names on the pickable fields (vendorId, processes, modelId): they stay selectable even when the bounded option list lacks them. */
+export function chosenIds(rawFilters: readonly string[]): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  for (const raw of rawFilters) {
+    const [id, op, value] = raw.split(':', 3) as [string, string | undefined, string | undefined];
+    if (!['vendorId', 'processes', 'modelId'].includes(id) || (op !== 'in' && op !== 'notIn') || !value) continue;
+    out[id] = [...(out[id] ?? []), ...value.split('~').filter(v => UUID.test(v))];
+  }
+  return out;
+}
+
 /** Muted rows are the inactive ones (the 상태 badge keeps the state visible when the drawer narrows the table). */
 export const isRowMuted = (row: { active: boolean }): boolean => !row.active;
 
