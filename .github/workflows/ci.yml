@@ -378,7 +378,7 @@ jobs:
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
-          if [ "$EVENT" = pull_request ] && git diff --name-only "$BASE" "$HEAD" > changed.txt; then
+          if [ "$EVENT" = pull_request ] && git diff --no-renames --name-only "$BASE" "$HEAD" > changed.txt; then
             if grep -Eq '^(apps/platform-api/|packages/(sdk/contracts|sdk/contract-schemas|adapters/http-adapter|adapters/server-conformance|feature-shared)/|tooling/(eslint|tsconfig)/|ops/platform-api/|patches/|\.dockerignore$|package\.json$|pnpm-lock\.yaml$|pnpm-workspace\.yaml$|\.github/workflows/ci\.yml$)' changed.txt; then
               echo "run=true" >> "$GITHUB_OUTPUT"
             else
@@ -425,8 +425,10 @@ jobs:
               if (Object.keys(mod).length === 0) throw new Error(name + ' has no exports');
             }
             for (const dev of ['@ap/contracts', '@ap/http-adapter', '@ap/server-conformance', 'vitest', 'typescript']) {
-              try { await import(dev); } catch { continue; }
-              throw new Error('dev dependency present in runtime image: ' + dev);
+              // Resolve without evaluating: only "not found" counts as absent; any other error fails the step.
+              let present = true;
+              try { import.meta.resolve(dev); } catch (error) { if (error?.code !== 'ERR_MODULE_NOT_FOUND') throw error; present = false; }
+              if (present) throw new Error('dev dependency present in runtime image: ' + dev);
             }
           "
 
