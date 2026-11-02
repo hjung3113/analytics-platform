@@ -59,7 +59,7 @@ export type SpaceDef = {
   /**
    * How the sidebar presents Scope for this space (#1251). Absent or `'default'`: the space's `scopeControl` component, else the analytics `ScopeSelector`.
    * `'hidden'`: no analytics `ScopeSelector` fallback; a component the app's `scopeControl.For` returns still renders, otherwise nothing is drawn. Presentation only, no ACL or query change.
-   * The registry refuses `'hidden'` on a space with any menu that has `requiresScope: true`. A menu in a hidden space must not use a Scope-requiring endpoint or action (the registry does not see them; the app's integration test checks).
+   * The registry refuses `'hidden'` on a space with any menu that has `requiresScope: true`. A menu in a hidden space must not use a Scope-requiring endpoint or action (the registry does not see them; the app's integration test checks endpoints only — actions are not checked automatically).
    */
   scopePresentation?: 'default' | 'hidden';
 };
