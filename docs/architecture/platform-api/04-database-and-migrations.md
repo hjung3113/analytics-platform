@@ -546,6 +546,8 @@ The seed is a separate, idempotent command (`pnpm --filter @ap/platform-api db:s
 
 Core/personas modes do not seed Findings, Evidence Highlights, Task Requests, Tasks, Surveys, or Dashboard rows.
 
+- `SEED_MODE=bootstrap` creates only the Workspace (`WORKSPACE_ID`, `WORKSPACE_NAME`) and the `system` Actor: no mock actors, Managed Systems, Analytics Areas, team, VOCs or knowledge fixtures. It is idempotent. Operator data uses only `bootstrap`; `core`, `personas` and `scale` are for development, test and preview databases. The first admin is then promoted with the `set-actor-role` CLI ([first-admin-bootstrap.md](release/first-admin-bootstrap.md)).
+
 - `SEED_MODE=scale pnpm --filter @ap/platform-api db:seed` is for throwaway preview DBs only. It includes personas and adds 40 reporters, 5,000 VOCs, 5,000 Tasks, 300 Findings, 250 Task Requests, 60 Clusters and 25 Milestones across Tableau/Power BI, with five years of history, evidence links and memberships. Existing baseline/preview rows survive. The cohort and reserved `fops-preview-scale-complete` actor marker commit atomically; stable IDs and per-group deduplication permit partial-cohort retries when the marker is absent. Scale creates no Survey data; it inserts one VOC Evidence Highlight per `evidence_of` VOC, so `evidence_count` equals both the link count and the highlight-row count.
 
 ## Permission close-out migration contract (FO ADR-0066; migration 0058 applied)
