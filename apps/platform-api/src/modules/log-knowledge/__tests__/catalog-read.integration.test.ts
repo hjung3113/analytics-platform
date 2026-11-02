@@ -111,8 +111,8 @@ describe.skipIf(!runIntegration)('log knowledge catalog reads and schema (#1193)
     ).rows[0].id as string;
     workspaceIds.push(otherWorkspace);
 
-    ids.va = await entity('vendor', `${TAG}-va`, 'Alpha Vendor');
-    ids.vb = await entity('vendor', `${TAG}-vb`, 'Beta 벤더');
+    ids.va = await entity('vendor', `${TAG}-va`, `${TAG} Alpha Vendor`);
+    ids.vb = await entity('vendor', `${TAG}-vb`, `${TAG} Beta 벤더`);
     ids.vOff = await entity('vendor', `${TAG}-voff`, 'Off Vendor', { active: false });
     ids.vOther = await entity('vendor', `${TAG}-vother`, 'Other WS', {}, otherWorkspace);
     ids.pEtch = await entity('process_category', `${TAG}-etch`, 'Etch');
@@ -189,7 +189,7 @@ describe.skipIf(!runIntegration)('log knowledge catalog reads and schema (#1193)
       expect(row).toEqual({
         id: ids.va,
         code: `${TAG}-va`,
-        name: 'Alpha Vendor',
+        name: `${TAG} Alpha Vendor`,
         active: true,
         version: '1',
         modelCount: 2,
@@ -201,13 +201,22 @@ describe.skipIf(!runIntegration)('log knowledge catalog reads and schema (#1193)
     it('q matches the code case- and width-insensitively, and the name by contains', async () => {
       const fullWidth = [...`${TAG}-VA`.toLowerCase()].map((c) => (c === '-' ? '－' : c)).join('');
       expect(codes(await read('logKnowledge.vendors', { q: fullWidth }))).toEqual([`${TAG}-va`]);
-      expect(codes(await read('logKnowledge.vendors', { q: 'beta' }))).toEqual([`${TAG}-vb`]);
-      expect(codes(await read('logKnowledge.vendors', { q: '벤더' }))).toEqual([`${TAG}-vb`]);
-      expect(codes(await read('logKnowledge.vendors', { q: 'ALPHA vend' }))).toEqual([`${TAG}-va`]);
+      expect(codes(await read('logKnowledge.vendors', { q: `${TAG} beta` }))).toEqual([`${TAG}-vb`]);
+      expect(codes(await read('logKnowledge.vendors', { q: `${TAG} Beta 벤더` }))).toEqual([`${TAG}-vb`]);
+      expect(codes(await read('logKnowledge.vendors', { q: `${TAG} ALPHA vend` }))).toEqual([`${TAG}-va`]);
     });
 
     it('q treats % and _ as literals', async () => {
-      expect((await read('logKnowledge.vendors', { q: '%' })).data?.total).toBe(0);
+      // dedicated fixtures: one name holds a literal `%`, the other matches only if `%` were a wildcard
+      const extra = [
+        await entity('vendor', `${TAG}-pct`, `${TAG} 100% Match`),
+        await entity('vendor', `${TAG}-pcx`, `${TAG} 100X Nomatch`),
+      ];
+      try {
+        expect(codes(await read('logKnowledge.vendors', { q: `${TAG} 100%` }))).toEqual([`${TAG}-pct`]);
+      } finally {
+        await sql('delete from knowledge.vendor where id = any($1)', [extra]);
+      }
       expect((await read('logKnowledge.vendors', { q: `${TAG}_va` })).data?.total).toBe(0);
     });
 
@@ -254,7 +263,7 @@ describe.skipIf(!runIntegration)('log knowledge catalog reads and schema (#1193)
       expect(m1).toMatchObject({
         id: ids.m1,
         vendorId: ids.va,
-        vendorName: 'Alpha Vendor',
+        vendorName: `${TAG} Alpha Vendor`,
         softwareCount: 2,
         version: '1',
       });
@@ -302,6 +311,26 @@ describe.skipIf(!runIntegration)('log knowledge catalog reads and schema (#1193)
     ])('%s is an error outcome, not an empty page', async (_name, params) => {
       const res = await query('logKnowledge.models', params);
       expect(res.statusCode).toBe(200);
+      expect(res.json<Answer>()).toMatchObject({ outcome: 'error', data: null });
+    });
+
+    it('absent optional params take their defaults over the real dispatcher', async () => {
+      const res = await query('logKnowledge.vendors', {});
+      expect(res.statusCode).toBe(200);
+      const answer = res.json<Answer>();
+      expect(answer.outcome).toBe('ok');
+      expect(answer.data?.rows.length).toBeGreaterThan(0);
+      const partial = await query('logKnowledge.models', { q: TAG });
+      expect(partial.json<Answer>().outcome).toBe('ok');
+    });
+
+    it.each([
+      ['status', { status: null }],
+      ['page', { page: null }],
+      ['pageSize', { pageSize: null }],
+      ['sorting', { sorting: null }],
+    ])('explicit null %s is an error outcome', async (_name, params) => {
+      const res = await query('logKnowledge.vendors', { q: TAG, ...params });
       expect(res.json<Answer>()).toMatchObject({ outcome: 'error', data: null });
     });
 
@@ -372,9 +401,9 @@ describe.skipIf(!runIntegration)('log knowledge catalog reads and schema (#1193)
       await expect(entity('vendor', 'X'.repeat(65), 'Long')).rejects.toMatchObject({ code: '23514' });
       const base = {
         workspace_id: WORKSPACE_ID,
-        source_system: 's',
-        source_type: 't',
-        external_key: 'k',
+        source_system: `${TAG}-s`,
+        source_type: `${TAG}-t`,
+        external_key: `${TAG}-k`,
         target_id: ids.va,
         created_by: actorId,
         updated_by: actorId,

@@ -25,3 +25,32 @@ describe('isOrdinarilyRequestable', () => {
     ).resolves.toBeUndefined();
   });
 });
+
+describe('recipient role for the log knowledge capabilities (ADR-0107 decision 3)', () => {
+  const tx = {} as Tx;
+  it.each(['knowledge.catalog.manage', 'knowledge.catalog.import'] as const)(
+    '%s: a User recipient is refused on the ordinary and the approval path',
+    async (capability) => {
+      await expect(
+        validateSupportedScope(tx, 'ws', capability, null, null, null, { recipientRole: 'user' }),
+      ).rejects.toMatchObject({ code: 'validation.failed' });
+      await expect(
+        validateSupportedScope(tx, 'ws', capability, null, null, null, {
+          approval: true,
+          recipientRole: 'user',
+        }),
+      ).rejects.toMatchObject({ code: 'validation.failed' });
+    },
+  );
+
+  it.each(['knowledge.catalog.manage', 'knowledge.catalog.import'] as const)(
+    '%s: a Developer or Admin recipient passes',
+    async (capability) => {
+      for (const recipientRole of ['developer', 'admin']) {
+        await expect(
+          validateSupportedScope(tx, 'ws', capability, null, null, null, { recipientRole }),
+        ).resolves.toBeUndefined();
+      }
+    },
+  );
+});

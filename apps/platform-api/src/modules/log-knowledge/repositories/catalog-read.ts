@@ -96,7 +96,9 @@ export async function listVendors(tx: Tx, q: ListQuery): Promise<Page<VendorRow>
     statusFilter(vendors.active, q.status),
     textFilter(vendors.codeKey, vendors.name, q.q),
   );
-  const modelCount = sql<number>`(select count(*)::int from ${equipmentModels} m where m.workspace_id = ${vendors.workspaceId} and m.vendor_id = ${vendors.id} and m.active)`;
+  // Outer columns are written qualified: a single-table select renders `${vendors.id}` unqualified, which
+  // would bind to the subquery's own table.
+  const modelCount = sql<number>`(select count(*)::int from ${equipmentModels} m where m.workspace_id = "knowledge"."vendor"."workspace_id" and m.vendor_id = "knowledge"."vendor"."id" and m.active)`;
   const sortable: Record<string, SQL | AnyPgColumn> = {
     code: vendors.codeKey,
     name: vendors.name,
@@ -130,7 +132,7 @@ export async function listProcesses(tx: Tx, q: ListQuery): Promise<Page<ProcessR
     statusFilter(t.active, q.status),
     textFilter(t.codeKey, t.name, q.q),
   );
-  const modelCount = sql<number>`(select count(*)::int from ${modelProcesses} mp join ${equipmentModels} m on m.workspace_id = mp.workspace_id and m.id = mp.model_id where mp.workspace_id = ${t.workspaceId} and mp.process_id = ${t.id} and m.active)`;
+  const modelCount = sql<number>`(select count(*)::int from ${modelProcesses} mp join ${equipmentModels} m on m.workspace_id = mp.workspace_id and m.id = mp.model_id where mp.workspace_id = "knowledge"."process_category"."workspace_id" and mp.process_id = "knowledge"."process_category"."id" and m.active)`;
   const sortable: Record<string, SQL | AnyPgColumn> = {
     code: t.codeKey,
     name: t.name,

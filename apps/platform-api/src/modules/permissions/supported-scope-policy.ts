@@ -9,6 +9,12 @@ export function isOrdinarilyRequestable(capability: Capability): boolean {
   return capability !== 'workspace.admin';
 }
 
+/** ADR-0107 decision 3: Admin and Developer receive these; a User does not (request, approval, direct grant). */
+const NOT_FOR_USER_ROLE: ReadonlySet<Capability> = new Set([
+  'knowledge.catalog.manage',
+  'knowledge.catalog.import',
+]);
+
 export async function supportedScopeCandidates(
   tx: Tx,
   workspaceId: string,
@@ -49,11 +55,22 @@ export async function validateSupportedScope(
   managedSystemId: string | null,
   objectType: string | null,
   objectId: string | null,
-  options: { approval?: boolean; field?: string } = {},
+  options: {
+    approval?: boolean;
+    field?: string;
+    /** Role Level of the actor who would hold the capability. */
+    recipientRole?: string | undefined;
+    capabilityField?: string;
+  } = {},
 ): Promise<void> {
   if (!options.approval && !isOrdinarilyRequestable(capability)) {
     throw new HttpError('validation.failed', 'ordinary workspace.admin requests are unsupported', {
       fields: [{ path: ['requested_capability'], code: 'custom' }],
+    });
+  }
+  if (options.recipientRole === 'user' && NOT_FOR_USER_ROLE.has(capability)) {
+    throw new HttpError('validation.failed', 'capability is not available to the User role', {
+      fields: [{ path: [options.capabilityField ?? 'requested_capability'], code: 'custom' }],
     });
   }
   if (objectType !== null || objectId !== null) {

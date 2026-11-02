@@ -74,18 +74,13 @@ describe('toAuditEvent field mapping', () => {
 describe('0074 permission allowlist vs the capability registry', () => {
   it('lists exactly the non-sensitive capabilities (DB-free twin of the integration it.each)', () => {
     const sql = readFileSync(
-      new URL('../../../../migrations/0074_platform_audit_projection.sql', import.meta.url),
+      new URL('../../../../migrations/0080_knowledge_catalog.sql', import.meta.url),
       'utf8',
     );
     const list = /\(l\.detail ->> 'capability'\) = ANY \(ARRAY\[([^\]]+)\]/.exec(sql)?.[1];
-    if (list === undefined) throw new Error('capability allowlist not found in 0074');
+    if (list === undefined) throw new Error('capability allowlist not found in 0080 (latest definition)');
     const listed = [...list.matchAll(/'([^']+)'/g)].map((m) => m[1] as string).sort();
-    // Capabilities added after 0074 that the projection does not list yet (fail closed: their permission
-    // events stay out of the platform audit screen). Backlog: .planning/backlog.md, log knowledge audit projection.
-    const NOT_PROJECTED = ['knowledge.catalog.manage', 'knowledge.catalog.import'];
-    expect(listed).toEqual(
-      CAPABILITIES.filter((c) => !isSensitiveCapability(c) && !NOT_PROJECTED.includes(c)).sort(),
-    );
+    expect(listed).toEqual(CAPABILITIES.filter((c) => !isSensitiveCapability(c)).sort());
   });
 });
 

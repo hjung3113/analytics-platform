@@ -152,6 +152,7 @@ export function createRequestService(deps: RequestServiceDeps) {
           body.requested_managed_system_id ?? null,
           body.requested_object_type ?? null,
           body.requested_object_id ?? null,
+          { recipientRole: actor.role_level },
         );
         validateRequestExpiration(
           body.requested_expiration ? new Date(body.requested_expiration) : null,
@@ -384,6 +385,7 @@ export function createRequestService(deps: RequestServiceDeps) {
           requestedManagedSystemId,
           requestedObjectType,
           requestedObjectId,
+          { recipientRole: actor.role_level },
         );
         validateRequestExpiration(requestedExpiration);
 

@@ -42,7 +42,7 @@ type Parsed = { ok: true; value: ListQuery & Record<string, unknown> } | { ok: f
 
 const fail = (message: string): { ok: false; message: string } => ({ ok: false, message });
 
-/** Parses the common list params; absent keys take their default. `ids` is the endpoint's own optional uuid filters. */
+/** Parses the common list params; an absent key takes its default, an explicit null is a refusal (except q and the id filters, where null means no filter). `ids` is the endpoint's own optional uuid filters. */
 export function parseListParams(
   params: Record<string, unknown>,
   sortIds: readonly string[],
@@ -52,17 +52,17 @@ export function parseListParams(
   if (q !== null && (typeof q !== 'string' || q.length > Q_MAX || unsafeText(q))) {
     return fail(`q must be a string of at most ${Q_MAX} characters or null`);
   }
-  const status = params.status ?? 'active';
+  const status = params.status === undefined ? 'active' : params.status;
   if (!STATUSES.includes(status as StatusFilter)) return fail('status must be active, inactive or all');
-  const page = params.page ?? 0;
+  const page = params.page === undefined ? 0 : params.page;
   if (typeof page !== 'number' || !Number.isInteger(page) || page < 0 || page > 1_000_000) {
     return fail('page must be a non-negative integer (0-based)');
   }
-  const pageSize = params.pageSize ?? 50;
+  const pageSize = params.pageSize === undefined ? 50 : params.pageSize;
   if (typeof pageSize !== 'number' || !Number.isInteger(pageSize) || pageSize < 1 || pageSize > PAGE_SIZE_MAX) {
     return fail(`pageSize must be an integer from 1 to ${PAGE_SIZE_MAX}`);
   }
-  const sorting = params.sorting ?? [];
+  const sorting = params.sorting === undefined ? [] : params.sorting;
   if (!Array.isArray(sorting) || sorting.length > SORT_KEYS_MAX) {
     return fail(`sorting must be a list of at most ${SORT_KEYS_MAX} sort keys`);
   }

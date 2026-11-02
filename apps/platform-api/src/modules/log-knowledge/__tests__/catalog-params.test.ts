@@ -44,10 +44,21 @@ describe('parseListParams', () => {
     ['sort key with an extra field', { sorting: [{ id: 'code', desc: false, x: 1 }] }],
     ['sort desc not boolean', { sorting: [{ id: 'code', desc: 'yes' }] }],
     ['the same column twice', { sorting: [{ id: 'code', desc: false }, { id: 'code', desc: true }] }],
+    ['explicit null status', { status: null }],
+    ['explicit null page', { page: null }],
+    ['explicit null pageSize', { pageSize: null }],
+    ['explicit null sorting', { sorting: null }],
     ['vendorId not a uuid', { vendorId: 'abc' }],
     ['processId a number', { processId: 7 }],
   ])('refuses: %s', (_name, params) => {
     expect(parse(params).ok).toBe(false);
+  });
+
+  it('accepts null as "no filter" for q and the id filters', () => {
+    expect(parse({ q: null, vendorId: null, processId: null })).toMatchObject({
+      ok: true,
+      value: { q: null, vendorId: null, processId: null },
+    });
   });
 
   it('each endpoint accepts only its own sort columns', () => {
