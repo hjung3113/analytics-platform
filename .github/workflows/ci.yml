@@ -358,6 +358,80 @@ jobs:
         env:
           CI_PG_ADMIN_URL: postgres://postgres:postgres@localhost:5432/postgres
 
+  # Not a required check (OPS-01, #1266 b1a): builds the release images from a clean context so a missing workspace manifest,
+  # source or emitted export fails here instead of on the host. It runs on every code change but the steps start only when a
+  # PR touches an image input (Dockerfile, .dockerignore, lockfile/workspace files, a closure package, ops scripts the
+  # image COPYs); push and manual runs always build. No push, no credentials.
+  backend-images:
+    name: Backend images (docker build)
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - id: gate
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ "$EVENT" = pull_request ] && git diff --no-renames --name-only "$BASE" "$HEAD" > changed.txt; then
+            if grep -Eq '^(apps/platform-api/|packages/(sdk/contracts|sdk/contract-schemas|adapters/http-adapter|adapters/server-conformance|feature-shared)/|tooling/(eslint|tsconfig)/|ops/platform-api/|patches/|\.dockerignore$|package\.json$|pnpm-lock\.yaml$|pnpm-workspace\.yaml$|\.github/workflows/ci\.yml$)' changed.txt; then
+              echo "run=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "run=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: ${{ steps.gate.outputs.run == 'true' }}
+        uses: docker/setup-buildx-action@v3
+      - name: Build runtime image
+        if: ${{ steps.gate.outputs.run == 'true' }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/platform-api/Dockerfile
+          target: runtime
+          load: true
+          push: false
+          tags: platform-api-runtime:ci
+          cache-from: type=gha,scope=backend-image
+          cache-to: type=gha,scope=backend-image,mode=max
+      - name: Build migrate image
+        if: ${{ steps.gate.outputs.run == 'true' }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/platform-api/Dockerfile
+          target: migrate
+          load: true
+          push: false
+          tags: platform-api-migrate:ci
+          cache-from: type=gha,scope=backend-image
+      # Every @ap/* package the server imports at runtime (apps/platform-api/src, non-test) must resolve to emitted JS in the
+      # runtime image, and the runtime image must not carry dev dependencies.
+      - name: Runtime image resolves workspace imports
+        if: ${{ steps.gate.outputs.run == 'true' }}
+        run: |
+          docker run --rm --entrypoint node platform-api-runtime:ci --input-type=module -e "
+            const cs = await import('@ap/contract-schemas');
+            const fs = await import('@ap/feature-shared');
+            const en = await import('@ap/feature-shared/enums');
+            for (const [name, mod] of Object.entries({ cs, fs, en })) {
+              if (Object.keys(mod).length === 0) throw new Error(name + ' has no exports');
+            }
+            for (const dev of ['@ap/contracts', '@ap/http-adapter', '@ap/server-conformance', 'vitest', 'typescript']) {
+              // Resolve without evaluating: only a not-found error counts as absent; any other error fails the step.
+              let present = true;
+              try { import.meta.resolve(dev); } catch (error) { if (error?.code !== 'ERR_MODULE_NOT_FOUND') throw error; present = false; }
+              if (present) throw new Error('dev dependency present in runtime image: ' + dev);
+            }
+          "
+
   # The required check keeps its name (ruleset `main: required CI`). A required job skipped as a whole would report Success, so this one always runs
   # and fails unless static, test and integration are success (docs-only permits only the intentional integration skip).
   platform-workspace:

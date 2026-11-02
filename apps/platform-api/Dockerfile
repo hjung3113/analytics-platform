@@ -11,26 +11,45 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY patches ./patches
 COPY ops/platform-api/package.json ./ops/platform-api/package.json
 COPY ops/platform-api/tsconfig.base.json ./ops/platform-api/tsconfig.base.json
+# Workspace closure of @ap/platform-api (`pnpm --filter @ap/platform-api... ls`, prod and dev, transitively). The filtered
+# install below links every one of them, so each manifest must be in the context: contract-schemas and feature-shared
+# (runtime), contracts, http-adapter, server-conformance, eslint-config and tsconfig (dev only; migrate is built FROM build).
+# .dockerignore allows exactly these paths.
+COPY packages/sdk/contracts/package.json ./packages/sdk/contracts/package.json
+COPY packages/sdk/contract-schemas/package.json ./packages/sdk/contract-schemas/package.json
+COPY packages/adapters/http-adapter/package.json ./packages/adapters/http-adapter/package.json
+COPY packages/adapters/server-conformance/package.json ./packages/adapters/server-conformance/package.json
 COPY packages/feature-shared/package.json ./packages/feature-shared/package.json
+COPY tooling/eslint/package.json ./tooling/eslint/package.json
+COPY tooling/tsconfig ./tooling/tsconfig
 COPY apps/platform-api/package.json ./apps/platform-api/package.json
 RUN pnpm install --filter @ap/platform-api... --frozen-lockfile
 
+# Sources only for what the build reads: contract-schemas (emits dist, extends @ap/tsconfig), feature-shared (extends
+# ops/platform-api/tsconfig.base.json) and the API itself. The dev-only packages are never imported by emitted code
+# (their only user is a type-check-only test excluded from tsconfig.json), so they stay manifest-only.
+COPY packages/sdk/contract-schemas ./packages/sdk/contract-schemas
 COPY packages/feature-shared ./packages/feature-shared
 COPY apps/platform-api ./apps/platform-api
-RUN pnpm --filter @ap/platform-api... build \
+# contract-schemas exports its built dist, so it is built before the API's tsc resolves its types.
+RUN pnpm --filter @ap/contract-schemas run build \
+  && pnpm --filter @ap/platform-api run build \
   && pnpm --filter @ap/feature-shared exec tsc -p tsconfig.json --noEmit false
 
 # pnpm deploy creates an isolated production dependency tree. Shared is
 # TypeScript-only in the workspace, so stage its emitted JS and point only the
 # deployed copy at it; the committed workspace package remains unchanged.
+# contract-schemas already exports its own dist; its dist is copied over the deployed package so the emitted exports are
+# present even if deploy's file selection skipped them.
 # pnpm deploy hardlinks workspace files, so overwrite with --remove-destination
 # and unlink package.json before rewriting it (never edit the shared inode).
 # pnpm 11 deploy needs injected workspace packages. The flag is passed here, not set in pnpm-workspace.yaml, so platform
 # packages keep linking their workspace dependencies. `--legacy` would skip the lockfile and re-resolve ranges. The
 # auto-animate patch belongs to the frontend only, so deploy must tolerate it being unused for this package.
 RUN pnpm --filter @ap/platform-api deploy --prod --config.inject-workspace-packages=true --config.allow-unused-patches=true /deploy \
-  && mkdir -p /deploy/dist /deploy/node_modules/@ap/feature-shared/dist \
+  && mkdir -p /deploy/dist /deploy/node_modules/@ap/feature-shared/dist /deploy/node_modules/@ap/contract-schemas/dist \
   && cp -a --remove-destination apps/platform-api/dist/. /deploy/dist/ \
+  && cp -a --remove-destination packages/sdk/contract-schemas/dist/. /deploy/node_modules/@ap/contract-schemas/dist/ \
   && cp -a --remove-destination packages/feature-shared/dist/. /deploy/node_modules/@ap/feature-shared/dist/ \
   && node --input-type=module -e 'import { readFileSync, rmSync, writeFileSync } from "node:fs"; const path = "/deploy/node_modules/@ap/feature-shared/package.json"; const pkg = JSON.parse(readFileSync(path, "utf8")); rmSync(path); pkg.main = "./dist/index.js"; pkg.exports = { ".": "./dist/index.js", "./enums": "./dist/enums/index.js" }; writeFileSync(path, JSON.stringify(pkg, null, 2));'
 
