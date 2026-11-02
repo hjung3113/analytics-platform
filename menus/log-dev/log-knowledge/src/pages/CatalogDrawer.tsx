@@ -176,7 +176,7 @@ function CatalogForm({ kind, row, options, onWritten, onReload, onClose }: {
   return <form className="flex min-h-full flex-col gap-4" noValidate onSubmit={event => { event.preventDefault(); if (!busy) save(); }}>
     {row && !row.active && <div role="status" className="grid gap-2 rounded-md border border-border-subtle bg-surface-sunken p-3">
       <p className="text-sm font-semibold">비활성 {TAB_LABEL[kind]}</p>
-      <p className="text-xs text-text-secondary">이 {TAB_LABEL[kind]}은(는) 비활성이라 새 연결을 만들 수 없습니다. 코드와 기존 연결은 그대로 남습니다.</p>
+      <p className="text-xs text-text-secondary">비활성 항목이라 새 연결을 만들 수 없습니다. 코드와 기존 연결은 그대로 남습니다.</p>
       <div><Button type="button" size="sm" variant="secondary" disabled={busy} onClick={() => toggle(true)}>다시 활성화</Button></div>
     </div>}
     {banner?.kind === 'conflict' && <Callout tone="amber" title="다른 사람이 먼저 고쳤습니다" action={<Button type="button" size="sm" variant="secondary" onClick={() => { setBanner(null); setErrors({}); onReload(); }}>새로 불러오기</Button>}>
