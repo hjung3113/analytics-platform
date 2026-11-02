@@ -230,10 +230,20 @@ describe.skipIf(!runIntegration)('log knowledge catalog write actions (#1194 a)'
       expect(Object.keys((last?.detail.changes ?? {}) as object)).toEqual([field]);
     });
 
-    it('a changed code recomputes the comparison key', async () => {
-      const a = await act('vendorUpdate', { id: ids.va, code: code('vA'), name: 'Vendor VA 2' }, { expectedVersion: '2' });
+    it('a renamed code recomputes the comparison key: old key is free, new key collides', async () => {
+      const a = await act('vendorUpdate', { id: ids.va, code: code('vz'), name: 'Vendor VA 2' }, { expectedVersion: '2' });
       expect(a.outcome).toBe('ok');
-      expect(await rowOf('vendor', ids.va)).toMatchObject({ code: code('vA'), code_key: toCodeKey(code('va')), row_version: 3 });
+      expect(await rowOf('vendor', ids.va)).toMatchObject({ code: code('vz'), code_key: toCodeKey(code('vz')), row_version: 3 });
+      const reuse = await act('vendorCreate', { code: code('va'), name: 'Reuses the old code' });
+      expect(reuse).toMatchObject({ outcome: 'ok', data: { code: code('va') } });
+      const reuseId = reuse.data?.id as string;
+      const clash = await act('vendorCreate', { code: code('VZ'), name: 'dup of new code' });
+      expect(clash).toMatchObject({ outcome: 'invalid', data: null });
+      expect(fe(clash)).toEqual(['code:duplicate']);
+      const found = await sql('select id from knowledge.vendor where workspace_id = $1 and code_key = $2', [WORKSPACE_ID, toCodeKey(code('vz'))]);
+      expect(found.rows.map((r: { id: string }) => r.id)).toEqual([ids.va]);
+      const gone = await sql('select id from knowledge.vendor where workspace_id = $1 and code_key = $2', [WORKSPACE_ID, toCodeKey(code('va'))]);
+      expect(gone.rows.map((r: { id: string }) => r.id)).toEqual([reuseId]);
     });
 
     it('rejects changing the vendor of a model (no vendorId input)', async () => {
