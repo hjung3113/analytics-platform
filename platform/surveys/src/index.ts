@@ -16,7 +16,7 @@ const GROUP = groupId('surveys');
 export const manifests: MenuEntry[] = [
   {
     id: 'survey-management', primary: true, group: GROUP, label: { ko: '설문 관리', en: 'Survey management' },
-    description: { ko: 'Survey를 만들고 상태와 후속 조치 필요 여부로 찾아 봅니다', en: 'Create Surveys and find them by status and follow-up need' },
+    description: { ko: '설문을 만들고 상태와 후속 조치 필요 여부로 찾아 봅니다', en: 'Create Surveys and find them by status and follow-up need' },
     path: '/flow/survey-management', icon: ClipboardList, permission: 'features:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['focus', 'area', 'status', 'follow_up', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
@@ -24,7 +24,7 @@ export const manifests: MenuEntry[] = [
   },
   {
     id: 'survey-builder', group: GROUP, label: { ko: '설문 빌더', en: 'Survey builder' }, navHidden: true, parent: 'survey-management',
-    description: { ko: 'Survey의 질문을 편집하고 시작합니다', en: 'Edit a Survey\'s questions and launch it' },
+    description: { ko: '설문의 질문을 편집하고 시작합니다', en: 'Edit a Survey\'s questions and launch it' },
     path: '/flow/survey-builder/:surveyId', icon: PencilRuler, permission: 'features:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['area', 'status', 'follow_up', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
@@ -32,7 +32,7 @@ export const manifests: MenuEntry[] = [
   },
   {
     id: 'survey-results', group: GROUP, label: { ko: '설문 결과', en: 'Survey results' }, navHidden: true, parent: 'survey-management',
-    description: { ko: 'Survey 응답을 요약해 봅니다', en: 'See a summary of a Survey\'s responses' },
+    description: { ko: '설문 응답을 요약해 봅니다', en: 'See a summary of a Survey\'s responses' },
     path: '/flow/survey-results/:surveyId', icon: FileSpreadsheet, permission: 'features:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['area', 'status', 'follow_up', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
