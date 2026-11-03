@@ -257,7 +257,7 @@
 - 도식은 도메인 컴포넌트로 유지(반복 확인 전 범용 다이어그램 엔진 금지).
 - 접근성 릴리스 게이트(색만으로 상태 구분 금지).
 - 브라우저 지원 매트릭스(→ #151).
-- 플랫폼 메타 DB 백업/복구 전략(감사·지표 버전 이력).
+- ~~플랫폼 메타 DB 백업/복구 전략(감사·지표 버전 이력).~~ 끝(#1266 b6): 하루 1회 묶음 백업, 격리 복원, 업그레이드 절차 — [backup-restore-upgrade.md](../docs/architecture/platform-api/release/backup-restore-upgrade.md).
 - 운영 관측/runbook(API 실패·쿼리 지연을 Correlation ID로 연결).
 - 쓰기 동시성/중복 실행 정책(마스터 수정, 지표 발행, VOC 전이, backfill 충돌).
 
