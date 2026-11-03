@@ -63,3 +63,28 @@ export async function lockLiveManagedSystemForShare(
       AND archived_at IS NULL FOR SHARE`);
   return result.rows.length > 0;
 }
+
+/** `external_key` of the 「플랫폼」 system, the Managed System whose VOCs every signed-in user may read (ADR-0110 decision 3). */
+export const PLATFORM_MANAGED_SYSTEM_EXTERNAL_KEY = 'platform';
+
+/**
+ * The workspace's 「플랫폼」 Managed System: the one non-archived row whose `external_key` is
+ * `platform`. No row, or more than one, returns null — the public-read platform arm fails closed
+ * (`external_key` has no unique index; uniqueness is created with the system itself).
+ */
+export async function platformManagedSystemId(
+  db: Db | Tx,
+  workspaceId: string,
+): Promise<string | null> {
+  const rows = await (db as Db)
+    .select({ id: managedSystems.id })
+    .from(managedSystems)
+    .where(
+      sql`${managedSystems.workspaceId} = ${workspaceId}
+        AND ${managedSystems.externalKey} = ${PLATFORM_MANAGED_SYSTEM_EXTERNAL_KEY}
+        AND ${managedSystems.archivedAt} IS NULL`,
+    )
+    .limit(2);
+  const [only, second] = rows;
+  return only !== undefined && second === undefined ? only.id : null;
+}

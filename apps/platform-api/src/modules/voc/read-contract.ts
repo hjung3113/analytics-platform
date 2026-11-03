@@ -1,6 +1,7 @@
 import type { ListVocsQuery } from '@ap/feature-shared';
 
 import type { Scope } from './authorization.js';
+import type { VocPublicReadService } from './public-read/service.js';
 import type { VocReadService } from './read-service.js';
 
 /** Count queries use the same predicates as the list, without list-only fields. */
@@ -44,3 +45,6 @@ export type VocDisplayIdReader = Pick<VocReadService, 'resolveDisplayId'>;
 export type VocDetailReader = Pick<VocReadService, 'getVocDetail'>;
 
 export type VocAttachmentReader = Pick<VocReadService, 'getVocDetail' | 'canReadConversationEntry'>;
+
+/** Public-read arm of the attachment download entitlement (ADR-0110 decision 3); separate from `VocAttachmentReader`. */
+export type VocPublicAttachmentReader = Pick<VocPublicReadService, 'canReadPublicAttachment'>;

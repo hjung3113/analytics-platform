@@ -15,6 +15,7 @@ export const CAPABILITIES = [
   'workspace.admin',
   'voc.triage',
   'voc.read',
+  'voc.read_public',
   'finding.read',
   'finding.manage',
   'task_request.self_approve',
@@ -72,6 +73,9 @@ export const CAPABILITY_META: Readonly<Record<Capability, CapabilityMeta>> = {
   'voc.triage': { sensitive: false, adminModuleBypass: 'none' },
   // voc.read: NOT sensitive — Developers may request it for a specific MS to view VOCs.
   'voc.read': { sensitive: false, adminModuleBypass: 'none' },
+  // voc.read_public (ADR-0110 decision 3): the public part of a VOC (`/vocs/public`). Requestable by every
+  // role for one Managed System; it never widens voc.read, the operator surfaces or the ADR-0031 rule.
+  'voc.read_public': { sensitive: false, adminModuleBypass: 'none' },
   // Finding point authorization short-circuits on the admin role before
   // consulting Permission (`modules/findings/authorization.ts`).
   'finding.read': { sensitive: false, adminModuleBypass: 'always' },
