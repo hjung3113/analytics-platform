@@ -9,6 +9,7 @@ import { expect } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform, type MenuEntry } from '@ap/kernel';
 import { testAdapter, testSession } from '@ap/kernel/testing';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
+import { featureQueryClient } from './feature/session';
 import { carrySetId, groupId, menuPermissions, spaceId, type Permission } from '@ap/contracts';
 
 type Group = { id: string; label: { ko: string; en: string }; icon: LucideIcon };
@@ -65,14 +66,16 @@ export { resetFeatureSessionForTests } from './feature/session';
 type FetchMock = { mock: { calls: unknown[][]; results: { type: string; value: unknown }[] } };
 
 /**
- * An observable "the server answered" signal for an absence assertion: waits until a request whose URL contains `urlPart` (any request when omitted) was made,
- * awaits every response promise the stub has returned so far, then flushes the state updates those responses trigger. Use it instead of a fixed sleep: a
- * sleep passes on a slow machine before the answer arrives, this does not.
+ * An observable "the server answered and the screen drew it" signal for an absence assertion: waits until a request whose URL contains `urlPart` (any request
+ * when omitted) was made, then until the feature query client has no query in flight (a query settles only after the response body was read and parsed), then
+ * runs one timer turn inside `act` so React Query's scheduled observer notification renders. Use it instead of a fixed sleep: a sleep passes on a slow machine
+ * before the answer arrives, and the fetch promise alone resolves before the body is consumed.
  */
 export async function settleFetch(request: FetchMock, urlPart?: string): Promise<void> {
   const asked = () => request.mock.calls.some(([input]) => urlPart === undefined || String(input).includes(urlPart));
   await waitFor(() => expect(asked()).toBe(true));
-  await act(async () => { await Promise.all(request.mock.results.map(result => result.value)); });
+  await waitFor(() => expect(featureQueryClient.isFetching()).toBe(0));
+  await act(async () => { await new Promise<void>(resolve => { setTimeout(resolve, 0); }); });
   await act(async () => {});
 }
 

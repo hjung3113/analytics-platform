@@ -43,7 +43,7 @@ const seam: HostSeam = {
 function mount(page: 'ms' | 'aa', hosted: boolean) {
   const Page = page === 'ms' ? ManagedSystemsAdminPage : AnalyticsAreasAdminPage;
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
+  const view = render(
     <QueryClientProvider client={client}>
       {hosted ? (
         <HeadTargetHost base={seam}><Page /></HeadTargetHost>
@@ -52,6 +52,7 @@ function mount(page: 'ms' | 'aa', hosted: boolean) {
       )}
     </QueryClientProvider>,
   );
+  return { ...view, client };
 }
 
 const CASES = [
@@ -80,11 +81,12 @@ describe('admin registry screens — primary action placement (#1291 B2)', () =>
 
   it.each(CASES)('%s is absent from the head for a user without workspace.admin', async (_label, page, testId) => {
     installFetch('blocked_non_requestable');
-    mount(page, true);
-    // Observable signal instead of a sleep: the capability check was asked, its answer was consumed and the resulting updates flushed.
+    const { client } = mount(page, true);
+    // Observable signal instead of a sleep: the capability check was asked, its query completed (body read and parsed) and the observer update rendered.
     const fetchMock = vi.mocked(globalThis.fetch);
     await waitFor(() => expect(fetchMock.mock.calls.some(([input]) => String(input).includes('/me/permissions/check'))).toBe(true));
-    await act(async () => { await Promise.all(fetchMock.mock.results.map((result) => result.value)); });
+    await waitFor(() => expect(client.isFetching()).toBe(0));
+    await act(async () => { await new Promise<void>((resolve) => { setTimeout(resolve, 0); }); });
     await act(async () => {});
     expect(screen.queryByTestId(testId)).toBeNull();
     expect(within(screen.getByTestId('host-head')).queryByRole('button')).toBeNull();
