@@ -73,6 +73,9 @@ FROM node:26.7.0-bookworm-slim AS runtime
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=3001
 WORKDIR /app
 COPY --from=build --chown=node:node /deploy/ ./
+# Business systems the startup sync registers (#1289 node i, ADR-0110 decision 5): the committed file, read from this path.
+COPY --chown=node:node apps/platform-web/platform-systems.json ./platform-systems.json
+ENV PLATFORM_SYSTEMS_FILE=/app/platform-systems.json
 USER node
 EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 CMD ["node", "-e", "fetch('http://127.0.0.1:3001/health/live').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"]

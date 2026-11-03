@@ -64,12 +64,17 @@ describe.skipIf(!runIntegration)('attachment download: public-read arm (#1288 g)
     expect(await status(inA.bodyAttachment, 'plain')).toBe(403);
   });
 
-  it('a platform arm that fails closed (duplicate key) closes the platform attachments again', async () => {
+  it('a platform arm that fails closed (no live platform row) closes the platform attachments again', async () => {
+    // Migration 0086's unique index refuses a duplicate live `platform` key, so the arm is closed through zero live rows.
     const s = await w.seedConversationAndAttachments(await w.insertVoc(w.systems.platform, 'admin', 'platform VOC'));
     expect(await status(s.bodyAttachment, 'plain')).toBe(200);
-    await w.insertSystem('dup', { externalKey: 'platform' });
-    expect(await status(s.bodyAttachment, 'plain')).toBe(403);
-    expect(await status(s.publicUpdateAttachment, 'plain')).toBe(403);
+    await w.migrate.pool.query(`update core.managed_systems set archived_at = now() where id = $1`, [w.systems.platform]);
+    try {
+      expect(await status(s.bodyAttachment, 'plain')).toBe(403);
+      expect(await status(s.publicUpdateAttachment, 'plain')).toBe(403);
+    } finally {
+      await w.migrate.pool.query(`update core.managed_systems set archived_at = null where id = $1`, [w.systems.platform]);
+    }
   });
 
   it('an attachment whose key belongs to another workspace is 404, even on a public VOC', async () => {

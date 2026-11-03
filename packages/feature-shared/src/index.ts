@@ -24,6 +24,7 @@ export * from './audit/voc-cluster-suggestion.js';
 export * from './audit/workspace-settings.js';
 export * from './audit/platform-saved-view.js';
 export * from './entity-links.js';
+export * from './platform-systems.js';
 export * from './findings/index.js';
 export * from './task-requests/index.js';
 export * from './tasks/index.js';

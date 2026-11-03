@@ -62,6 +62,7 @@ export const CATALOG: Partial<Record<ErrorCode, CatalogEntry>> = {
   'conflict.duplicate_slug':               { tone: 'error', message: '이미 사용 중인 식별자입니다.' },
   'conflict.parent_archived':              { tone: 'error', message: '상위 항목이 보관되어 더 이상 변경할 수 없습니다.' },
   'conflict.record_archived':              { tone: 'error', message: '이 항목은 보관되어 더 이상 변경할 수 없습니다.' },
+  'conflict.system_managed':               { tone: 'error', message: '플랫폼이 자동으로 관리하는 시스템은 보관할 수 없습니다.' },
   'conflict.saved_view_name_taken':        { tone: 'error', message: '이미 사용 중인 저장된 보기 이름입니다.' },
   'conflict.stale_write': {
     tone: 'warning',

@@ -7,6 +7,7 @@ name: platform-api
 #   docker compose --env-file .env.production -f docker-compose.production.yml run --rm cutover
 #   docker compose --env-file .env.production -f docker-compose.production.yml up -d
 #   docker compose --env-file .env.production -f docker-compose.production.yml run --rm bootstrap
+#   docker compose --env-file .env.production -f docker-compose.production.yml restart backend   # registers the 「플랫폼」 and business systems (#1289 node i)
 #   docker compose --env-file .env.production -f docker-compose.production.yml run --rm set-actor-role --external-id <sub> --role admin
 # The backend never receives DATABASE_URL_MIGRATE or the postgres superuser password; only the job services do.
 # Role passwords come from PLATFORM_APP_DB_PASSWORD / PLATFORM_MIGRATE_DB_PASSWORD; set-role-passwords applies them (also
@@ -210,6 +211,8 @@ services:
       AUTH_PROVIDER: oidc
       DATABASE_URL: postgresql://platform_app:${PLATFORM_APP_DB_PASSWORD:?set PLATFORM_APP_DB_PASSWORD in .env.production}@postgres:5432/platform
       WORKSPACE_ID: ${WORKSPACE_ID:?set WORKSPACE_ID in .env.production}
+      # Empty or unset keeps the image default (the file baked into the image); never an empty value.
+      PLATFORM_SYSTEMS_FILE: ${PLATFORM_SYSTEMS_FILE:-/app/platform-systems.json}
       OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:?set the https OIDC issuer in .env.production}
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:?set OIDC_CLIENT_ID in .env.production}
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:?set OIDC_CLIENT_SECRET in .env.production}

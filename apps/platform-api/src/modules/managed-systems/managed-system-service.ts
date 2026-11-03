@@ -25,6 +25,7 @@ import type { AuditEventType, ManagedSystemDefaultCandidates } from '@ap/feature
 
 import type { Db } from '../../db/client.js';
 import { actors, managedSystems } from '../../db/schema/core.js';
+import { spaceLinks } from '../../db/schema/space-links.js';
 import type { Tx } from '../../db/tx.js';
 import { HttpError } from '../../lib/errors.js';
 import { cascadeArchiveActiveChildren } from '../analytics-areas/analytics-area-service.js';
@@ -33,6 +34,11 @@ import { hashRequestBody } from '../core/idempotency/canonicalize.js';
 import type { IdempotencyService } from '../core/idempotency/idempotency-service.js';
 import type { ActorContext, CheckService } from '../permissions/check-service.js';
 import { readDefaultDiagnostics } from './default-diagnostics.js';
+import {
+  PLATFORM_MANAGED_SYSTEM_EXTERNAL_KEY,
+  isRegistryOwnedKey,
+  lockPlatformSystemsSync,
+} from './registry-keys.js';
 import {
   responsibilityTargetFailure,
   validateResponsibilityDefault,
@@ -44,6 +50,19 @@ export const MS_SLUG_REGEX = /^[a-z][a-z0-9-]*$/;
 const REGISTERED: AuditEventType = 'managed_system_registered';
 const UPDATED: AuditEventType = 'managed_system_updated';
 const ARCHIVED: AuditEventType = 'managed_system_archived';
+
+function systemManagedError(): HttpError {
+  return new HttpError('conflict.system_managed', 'registry-owned system cannot be archived', {
+    fields: [{ path: ['id'], code: 'system_managed' }],
+  });
+}
+
+// #1289 node i: `platform` and `space:*` are registry-owned sync keys (migration 0086); only the startup sync writes them.
+function reservedExternalKeyError(): HttpError {
+  return new HttpError('validation.failed', 'external_key is reserved for registry-owned systems', {
+    fields: [{ path: ['external_key'], code: 'reserved_external_key' }],
+  });
+}
 
 export interface RegisterManagedSystemBody {
   slug: string;
@@ -172,6 +191,7 @@ export function createManagedSystemService(deps: ManagedSystemServiceDeps) {
         },
       );
     }
+    if (isRegistryOwnedKey(body.external_key)) throw reservedExternalKeyError();
     const requestHash = hashRequestBody(body);
 
     return await db.transaction(async (tx) => {
@@ -312,6 +332,11 @@ export function createManagedSystemService(deps: ManagedSystemServiceDeps) {
           patch.name = body.name;
         }
         if (body.external_key !== undefined && body.external_key !== existing.externalKey) {
+          // Assigning a registry-owned key, or changing/clearing one, would let a manual edit forge or strip the sync
+          // identity (and with it the archive protection). An unchanged key and unrelated edits pass.
+          if (isRegistryOwnedKey(body.external_key) || isRegistryOwnedKey(existing.externalKey)) {
+            throw reservedExternalKeyError();
+          }
           changes.external_key = { from: existing.externalKey, to: body.external_key ?? null };
           patch.externalKey = body.external_key ?? null;
         }
@@ -477,6 +502,8 @@ export function createManagedSystemService(deps: ManagedSystemServiceDeps) {
     return await db.transaction(async (tx) => {
       const run = async () => {
         await requireWorkspaceAdmin(checkService, actor, tx);
+        // Serialize with the startup sync (it may re-declare this system's link) before the eligibility read.
+        await lockPlatformSystemsSync(tx, actor.workspace_id);
 
         const existingRows = await tx
           .select()
@@ -494,6 +521,24 @@ export function createManagedSystemService(deps: ManagedSystemServiceDeps) {
           const body = { ...toDto(existing), cascaded_analytics_area_ids: [] as string[] };
           return { status: 200, body };
         }
+
+        // ADR-0110 decision 5: the 「플랫폼」 system and a system whose space still declares feedbackTracking are
+        // registry-owned. A system whose space stopped declaring (link declared=false) may be archived.
+        if (existing.externalKey === PLATFORM_MANAGED_SYSTEM_EXTERNAL_KEY) {
+          throw systemManagedError();
+        }
+        const declaredLinks = await tx
+          .select({ spaceId: spaceLinks.spaceId })
+          .from(spaceLinks)
+          .where(
+            and(
+              eq(spaceLinks.workspaceId, actor.workspace_id),
+              eq(spaceLinks.managedSystemId, id),
+              eq(spaceLinks.declared, true),
+            ),
+          )
+          .limit(1);
+        if (declaredLinks.length > 0) throw systemManagedError();
 
         const now = new Date();
         const archivedRows = await tx

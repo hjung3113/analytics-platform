@@ -385,6 +385,13 @@ export const managedSystems = coreSchema.table(
     workspaceSlugActiveUq: uniqueIndex('managed_systems_workspace_slug_active_uq')
       .on(t.workspaceId, t.slug)
       .where(sql`${t.archivedAt} is null`),
+    // #1289 node i: `platform` and `space:*` are registry-owned sync keys (the startup sync writes them); every other
+    // key stays free metadata. One active row per key per workspace.
+    registryKeyActiveUq: uniqueIndex('managed_systems_registry_key_active_uq')
+      .on(t.workspaceId, t.externalKey)
+      .where(
+        sql`${t.archivedAt} is null and (${t.externalKey} = 'platform' or ${t.externalKey} like 'space:%')`,
+      ),
     defaultOwnerXorCheck: check(
       'managed_systems_default_owner_xor_check',
       sql`${t.defaultOwnerActorId} is null or ${t.defaultOwnerTeamId} is null`,

@@ -16,6 +16,7 @@
     "sdk:api": "node tooling/sdk/sdk-api-snapshot.mjs",
     "check:lazy-chunks": "node tooling/scripts/check-lazy-chunks.mjs",
     "gen:menu": "node tooling/gen-menu/src/cli.ts",
+    "gen:platform-systems": "pnpm --filter @ap/platform-web run gen:platform-systems",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",

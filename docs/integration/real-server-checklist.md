@@ -80,6 +80,10 @@ Kernel은 받은 `ok`/`empty`의 kind가 선언과 다르면 `contract_violation
 
 앱이 넘긴 메뉴 Registry로 엔드포인트 목록을 검증하고 하나라도 어긋나면 기동을 거부한다: 엔드포인트 id 중복 없음, `menuId`가 Registry에 있음, 권한 이름이 어떤 메뉴가 선언한 권한임(앱이 권한 어휘를 넘기면 그 어휘의 권한도 허용 — 어휘를 넘기지 않으면 메뉴가 선언한 권한만, 동작도 같음), 엔드포인트가 `apply`한 키를 소유 메뉴도 `apply`함, 메뉴가 Scope를 요구하면 엔드포인트도 요구, Scope 없는 엔드포인트는 site 종속 키(`roomNames`·`condition`·`selection`·`lot`·`recipe`·`ppid`)를 `apply`할 수 없음(규칙 6), `limits.maxRows`는 양의 정수이고 페이지·커서 엔드포인트(`page`·`pageSize`·`cursor` paramKeys)가 아닐 것(규칙 7, #175). 원본: `packages/adapters/mock-server/src/adapter.ts` `createMockAdapter`.
 
+### 업무 시스템 자동 등록 (platform-api, #1289 노드 i)
+
+`SpaceDef.feedbackTracking: true`를 선언한 업무 시스템은 서버가 시작할 때 Managed System으로 자동 등록된다(「플랫폼」 시스템 포함, [ADR-0110](../adr/0110-platform-feature-roles-and-scope.md) 결정 5). 앱 Registry의 선언은 `apps/platform-web/platform-systems.json`(생성·커밋, `pnpm gen:platform-systems`; 낡으면 `platform-systems.test.ts`가 실패)에 담기고, 서버는 환경 변수 `PLATFORM_SYSTEMS_FILE`(선택)이 가리키는 그 파일을 읽는다. 백엔드 이미지는 파일을 `/app/platform-systems.json`에 넣고 변수의 기본값으로 쓴다. 파일이 없으면 「플랫폼」만 등록하고, 형식이 틀리면 오류 한 줄만 남기고 그 파일에서는 아무것도 등록하지 않는다(서버는 계속 뜬다). 사내 앱이 별도 이미지를 만들면 같은 모양의 파일을 넣고 이 변수로 가리킨다. 부트스트랩 전에 먼저 뜬 백엔드는 `system` Actor가 없어 건너뛰므로 `bootstrap` 뒤에 백엔드를 한 번 재시작한다([운영 절차](../architecture/platform-api/release/oidc-and-images.md#production-stack)). 동작 세부는 [core API](../architecture/platform-api/api/core.md#registry-owned-managed-systems-1289-node-i)가 갖는다.
+
 ### 서버 선언 등록부 (platform-api)
 
 platform-api의 `menuQuery`·`menuAction`은 `apps/platform-api/src/modules/menu-dispatch`의 선언 등록부 하나로 판정한다([아키텍처 02](../architecture/platform-api/02-domain-module-boundaries.md) Menu Dispatch). 업무 모듈이 엔드포인트·동작 선언(`spec` + `authorize`·`validate`·`handle`, 동작은 `currentVersion`)을 `buildServer({ menuDispatch })`로 기여하고, 엔진은 이 문서의 판정 순서와 아래 등록 검증만 맡는다. 쓰기와 감사는 선언의 핸들러가 같은 트랜잭션에서 한다. 라우트는 `POST /api/v1/menu-query`·`POST /api/v1/menu-action`이고 멱등 키·버전은 본문 값으로 판정한다(어댑터가 같은 값을 `Idempotency-Key`·`If-Match`로도 보낸다). 쓰기는 공지 쓰기(notice)와 같은 CSRF 검사를 세션 확인 뒤에 한다.

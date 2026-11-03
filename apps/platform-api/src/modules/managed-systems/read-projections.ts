@@ -3,6 +3,7 @@ import { type SQL, type SQLWrapper, sql } from 'drizzle-orm';
 import type { Db } from '../../db/client.js';
 import { managedSystems } from '../../db/schema/core.js';
 import type { Tx } from '../../db/tx.js';
+import { PLATFORM_MANAGED_SYSTEM_EXTERNAL_KEY } from './registry-keys.js';
 
 /** Non-archived managed system ids for a workspace. */
 export async function allManagedSystemIds(db: Db | Tx, workspaceId: string): Promise<string[]> {
@@ -90,13 +91,12 @@ export async function lockLiveManagedSystemForShare(
   return result.rows.length > 0;
 }
 
-/** `external_key` of the 「플랫폼」 system, the Managed System whose VOCs every signed-in user may read (ADR-0110 decision 3). */
-export const PLATFORM_MANAGED_SYSTEM_EXTERNAL_KEY = 'platform';
+export { PLATFORM_MANAGED_SYSTEM_EXTERNAL_KEY };
 
 /**
  * The workspace's 「플랫폼」 Managed System: the one non-archived row whose `external_key` is
  * `platform`. No row, or more than one, returns null — the public-read platform arm fails closed
- * (`external_key` has no unique index; uniqueness is created with the system itself).
+ * (a partial unique index keeps the key unique among active rows, #1289 node i).
  */
 export async function platformManagedSystemId(
   db: Db | Tx,

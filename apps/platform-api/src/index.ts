@@ -21,6 +21,7 @@ import { createRootLogger } from './lib/logger.js';
 import { createDrainState, createShutdown } from './lib/shutdown.js';
 import { getStorage } from './lib/storage/factory.js';
 import { createAuditService } from './modules/core/audit/index.js';
+import { createPlatformSystemsSync } from './modules/managed-systems/index.js';
 import { registerCoreJobs } from './modules/core/jobs/index.js';
 import { registerDashboardJobs } from './modules/dashboard/jobs/index.js';
 import {
@@ -87,6 +88,24 @@ try {
 const logger = createRootLogger(config);
 poolErrorLog.current = logger;
 const jobLog = toJobLog(logger);
+
+// #1289 node i (ADR-0110 decision 5): ensure the 「플랫폼」 system and the declared business systems after the guards
+// and before HTTP. It never blocks boot: a missing workspace/system actor (production starts the backend before
+// `bootstrap`; restart the backend afterwards) or a DB error is logged and the server starts.
+try {
+  await createPlatformSystemsSync({
+    db: dbHandle.db,
+    auditService: createAuditService(),
+    log: jobLog,
+    workspaceId,
+    filePath: config.PLATFORM_SYSTEMS_FILE,
+  }).run();
+} catch (err) {
+  logger.error(
+    { errName: err instanceof Error ? err.name : 'unknown', code: (err as { code?: unknown }).code },
+    'platform systems sync failed; continuing without it',
+  );
+}
 
 const boss = await initBoss({
   connectionString: config.DATABASE_URL,

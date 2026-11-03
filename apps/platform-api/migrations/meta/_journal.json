@@ -603,6 +603,13 @@
       "when": 1793697009006,
       "tag": "0085_voc_read_public_audit",
       "breakpoints": true
+    },
+    {
+      "idx": 86,
+      "version": "7",
+      "when": 1793704133782,
+      "tag": "0086_managed_system_registry_keys",
+      "breakpoints": true
     }
   ]
 }
