@@ -8,6 +8,7 @@ import { useVocClusterList } from '@/features/voc-cluster/hooks/useVocClusterLis
 import { vocClustersSearchSchema } from '@/features/voc-cluster/lib/cluster-search';
 import { useMeBridge } from '@/lib/api/me';
 import { useHostNavigate, useHostSearch } from '@/lib/host/host-seam';
+import { HostPrimaryAction } from '@/lib/host/HostPrimaryAction';
 import { searchHref } from '@/lib/host/search';
 import { parseRouteSearch } from '@/lib/host/search-fields';
 import { Button } from '@ap/ui';
@@ -107,15 +108,17 @@ export function ClusterListScreen({
         {...(renderDetail !== undefined ? { renderDetail } : {})}
         toolbarActions={
           canCreate ? (
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => setCreateOpen(true)}
-              data-testid="cluster-create-button"
-            >
-              <Plus className="h-4 w-4" />
-              Cluster 생성
-            </Button>
+            <HostPrimaryAction>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setCreateOpen(true)}
+                data-testid="cluster-create-button"
+              >
+                <Plus className="h-4 w-4" />
+                Cluster 생성
+              </Button>
+            </HostPrimaryAction>
           ) : (
             <span className="text-xs text-text-muted" data-testid="cluster-create-hint">
               관리자 또는 개발자 권한이 필요합니다.

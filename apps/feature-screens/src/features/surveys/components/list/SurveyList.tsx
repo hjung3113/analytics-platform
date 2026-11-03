@@ -6,6 +6,7 @@ import { GLOSSARY } from '@/lib/copy/glossary';
 import { SURVEY_PARTICIPATION_COPY } from '@/lib/copy/survey-participation';
 import { SURVEY_LIST_COPY } from '@/lib/copy/surveys';
 import { HostLink, useHostSeam } from '@/lib/host/host-seam';
+import { HostPrimaryAction } from '@/lib/host/HostPrimaryAction';
 import {
   ActiveFilterBar,
   type ActiveFilterBarProps,
@@ -143,15 +144,17 @@ export function SurveyList({
               </button>
             </div>
             {canCreate && onCreate && !emptyList && (
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={onCreate}
-                data-testid="survey-create-button"
-              >
-                <Plus className="h-4 w-4" />
-                Survey 생성
-              </Button>
+              <HostPrimaryAction>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={onCreate}
+                  data-testid="survey-create-button"
+                >
+                  <Plus className="h-4 w-4" />
+                  Survey 생성
+                </Button>
+              </HostPrimaryAction>
             )}
           </div>
         }

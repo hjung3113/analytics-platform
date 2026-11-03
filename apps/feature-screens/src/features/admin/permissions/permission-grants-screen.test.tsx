@@ -13,6 +13,7 @@ import type React from 'react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import { ApiError } from '@/lib/api/types';
+import { HeadTargetHost } from '@/test/primary-action-host';
 import {
   directPermissionGrantSchema,
   listPermissionDeniesResponseSchema,
@@ -1914,6 +1915,84 @@ describe('/admin/permissions/grants screen', () => {
     expect(screen.queryByRole('button', { name: 'VOC 조회 권한도 부여' })).not.toBeInTheDocument();
     expect(directPermissionGrantSchema.parse(grantPosts(api)[0]?.body).capability).toBe(
       'voc.triage',
+    );
+  });
+});
+
+// #1291 B2 — under a host that offers a head target, the direct-grant trigger is drawn there; the form and the focus recovery keep their place in the screen.
+function renderHostedScreen(initialPath = '/admin/permissions/grants') {
+  const rootRoute = createRootRoute({ component: () => <Outlet /> });
+  const route = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/admin/permissions/grants',
+    validateSearch: (raw) => permissionGrantsSearchSchema.parse(raw),
+    component: () => (
+      <HeadTargetHost>
+        <PermissionGrantsScreen />
+      </HeadTargetHost>
+    ),
+  });
+  const router = createRouter({
+    routeTree: rootRoute.addChildren([route]),
+    history: createMemoryHistory({ initialEntries: [initialPath] }),
+  });
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
+  return { router };
+}
+
+describe('/admin/permissions/grants screen — host head action (#1291 B2)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    useMeMock.mockReset();
+    useWorkspaceSettingsMock.mockReset();
+    workspaceActorsMock.actors = null;
+  });
+
+  test('draws 권한 부여 once, in the host head and not in the toolbar', async () => {
+    installApi();
+    renderHostedScreen();
+
+    const trigger = await screen.findByRole('button', { name: '권한 부여' });
+    expect(within(screen.getByTestId('host-head')).getByRole('button', { name: '권한 부여' })).toBe(
+      trigger,
+    );
+    expect(screen.getAllByRole('button', { name: '권한 부여' })).toHaveLength(1);
+  });
+
+  test('opens one form from the head trigger and returns focus to it when no row is mounted', async () => {
+    const api = installApi({ deferLists: true, deferDirectGrant: true, initialGrants: [] });
+    const { router } = renderHostedScreen(`/admin/permissions/grants?tab=denies&selected=${DENY_ID}`);
+
+    const dialog = await openDirectGrantDialog();
+    expect(screen.getAllByRole('dialog', { name: '권한 부여' })).toHaveLength(1);
+    await selectDirectGrantTargetAndScope();
+    fireEvent.change(within(dialog).getByLabelText('사유 · 필수'), {
+      target: { value: '머리 버튼으로 연 폼의 초안입니다.' },
+    });
+    expect(within(dialog).getByLabelText('사유 · 필수')).toHaveValue('머리 버튼으로 연 폼의 초안입니다.');
+    fireEvent.click(within(dialog).getByTestId('direct-grant-submit'));
+    await waitFor(() =>
+      expect(
+        api.requests.some(
+          (request) => request.method === 'POST' && request.path === '/permissions/grants',
+        ),
+      ).toBe(true),
+    );
+    await act(async () =>
+      router.navigate({
+        to: '/admin/permissions/grants',
+        search: { tab: 'denies', selected: GRANT_ID },
+      }),
+    );
+    await act(async () => api.releaseDirectGrant());
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '권한 부여' })).toBeNull());
+    expect(document.activeElement).toBe(
+      within(screen.getByTestId('host-head')).getByRole('button', { name: '권한 부여' }),
     );
   });
 });

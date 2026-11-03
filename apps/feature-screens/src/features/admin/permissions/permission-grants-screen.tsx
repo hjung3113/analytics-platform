@@ -10,6 +10,7 @@ import { SCOPE_SELECTOR_COPY } from '@/lib/copy/managed-system-scope';
 import { formatDateOnly, formatDateTime } from '@/lib/format/datetime';
 import type { ClosableDetailParts } from '@/lib/host/detail-parts';
 import { useHostSeam } from '@/lib/host/host-seam';
+import { HostPrimaryAction } from '@/lib/host/HostPrimaryAction';
 import { shortId } from '@/lib/identity';
 
 import {
@@ -171,17 +172,19 @@ export function PermissionGrantsScreen({
             }),
         actions: (
           <>
-            <Button
-              ref={directGrantTriggerRef}
-              type="button"
-              size="sm"
-              onClick={() => {
-                setDirectGrantDraft(null);
-                setDirectGrantOpen(true);
-              }}
-            >
-              {ADMIN_PERMISSIONS_COPY.directGrant.action}
-            </Button>
+            <HostPrimaryAction>
+              <Button
+                ref={directGrantTriggerRef}
+                type="button"
+                size="sm"
+                onClick={() => {
+                  setDirectGrantDraft(null);
+                  setDirectGrantOpen(true);
+                }}
+              >
+                {ADMIN_PERMISSIONS_COPY.directGrant.action}
+              </Button>
+            </HostPrimaryAction>
             <PermissionDirectGrantForm
               open={directGrantOpen}
               selectionContext={selectionContext}

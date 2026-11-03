@@ -55,6 +55,11 @@ export type HostSeam = {
   hostOwnsTitle?: boolean;
   /** True when the host carries the return path itself (the platform's `returnTo`), so a screen adds no feature `returnTo` to an outbound href and draws no feature-only back link. Absent = the screen does. */
   hostCarriesReturn?: boolean;
+  /**
+   * Hook, stable like the others. The element in the host's page head where a screen draws its one primary action (create/register), or `null` when the host has none
+   * (standalone app, a gated page): the screen then keeps the action in its own toolbar. See `HostPrimaryAction`.
+   */
+  usePrimaryActionTarget?: () => HTMLElement | null;
   /** An absolute URL for the feature path `to` (copy-link actions), or `null` when this host has no address to give. */
   absoluteHref?: (to: string) => string | null;
 };
@@ -98,6 +103,14 @@ export function useHostTitle(title: string | null): void {
   const { useTitle } = useHostSeam();
   if (useTitle === undefined) throw new Error('HostSeamProvider is missing');
   useTitle(title);
+}
+
+const useNoPrimaryActionTarget = (): HTMLElement | null => null;
+
+/** The host's primary-action element, or `null` when the seam has none. */
+export function useHostPrimaryActionTarget(): HTMLElement | null {
+  const { usePrimaryActionTarget = useNoPrimaryActionTarget } = useHostSeam();
+  return usePrimaryActionTarget();
 }
 
 export function useHostNotice(): {
