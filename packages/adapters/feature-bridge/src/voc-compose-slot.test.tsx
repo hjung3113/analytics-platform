@@ -7,6 +7,7 @@ import { groupId, spaceId } from '@ap/contracts';
 import { UserRound } from 'lucide-react';
 import { setFeatureApi } from './feature-api';
 import { featureQueryClient } from './feature/session';
+import { LAZY_MOUNT_WAIT } from './testing';
 import type { DefaultStatus } from './default-status';
 import { vocComposeSlot } from './voc-compose-slot';
 
@@ -67,7 +68,7 @@ const checked = (name: string) => screen.getByRole('radio', { name }).getAttribu
 describe('VOC 등록 slot with an app lookup that answers late (#1289 node j)', () => {
   it('opens while the lookup is pending: the form is usable, the submit is blocked with a short message, and the default appears once the lookup is ready', async () => {
     mount();
-    await screen.findByRole('radio', { name: '플랫폼' });
+    await screen.findByRole('radio', { name: '플랫폼' }, LAZY_MOUNT_WAIT);
     expect(checked('플랫폼')).toBe('false');
     fireEvent.change(screen.getByRole('textbox', { name: /제목/ }), { target: { value: '제목' } });
     fireEvent.change(screen.getByRole('textbox', { name: '상세 설명' }), { target: { value: '내용' } });
@@ -82,7 +83,7 @@ describe('VOC 등록 slot with an app lookup that answers late (#1289 node j)', 
 
   it('keeps a system the user chose while the lookup was pending', async () => {
     mount();
-    fireEvent.click(await screen.findByRole('radio', { name: 'Other MS' }));
+    fireEvent.click(await screen.findByRole('radio', { name: 'Other MS' }, LAZY_MOUNT_WAIT));
     settle('ready', PLATFORM);
     await waitFor(() => expect(screen.queryByTestId('voc-default-blocked')).toBeNull());
     expect(checked('Other MS')).toBe('true');
@@ -91,7 +92,7 @@ describe('VOC 등록 slot with an app lookup that answers late (#1289 node j)', 
 
   it('a failed lookup blocks the submit with a retry-on-reopen message', async () => {
     mount();
-    await screen.findByRole('radio', { name: '플랫폼' });
+    await screen.findByRole('radio', { name: '플랫폼' }, LAZY_MOUNT_WAIT);
     settle('failed', null);
     await waitFor(() => expect(screen.getByTestId('voc-default-blocked').textContent).toMatch(/다시 열면/));
     expect((screen.getByRole('button', { name: 'VOC 제출' }) as HTMLButtonElement).disabled).toBe(true);
