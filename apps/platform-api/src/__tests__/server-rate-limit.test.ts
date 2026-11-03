@@ -51,6 +51,7 @@ function config(): AppConfig {
     DB_IDLE_IN_TRANSACTION_TIMEOUT_MS: 30_000,
     HTTP_REQUEST_TIMEOUT_MS: 30_000,
     ATTACHMENT_UPLOAD_CONCURRENCY: 4,
+    JOBS_DISABLED: false,
   };
 }
 

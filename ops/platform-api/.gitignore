@@ -7,3 +7,12 @@
 
 # MinIO local data volume (docker-compose.dev.yml)
 minio_data/
+
+# Maintenance lock of backup.sh/upgrade.sh (one directory per compose project)
+.maintenance/
+
+# Image pin file of a restored installation (restore.sh writes it, upgrade.sh keeps it current) and its previous versions:
+# installation state, back it up with the env file
+docker-compose.restore-*.yml
+docker-compose.restore-*.yml.pre-*
+docker-compose.restore-*.yml.new-*

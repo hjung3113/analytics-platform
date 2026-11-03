@@ -75,6 +75,13 @@ const envSchema = z
     DB_LOCK_TIMEOUT_MS: z.coerce.number().int().positive().default(5_000),
     DB_IDLE_IN_TRANSACTION_TIMEOUT_MS: z.coerce.number().int().positive().default(30_000),
     HTTP_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(30_000),
+    // #1266 b10: operator maintenance only. true starts pg-boss (readiness and enqueueing still work) without the
+    // supervisor or cron scheduler and registers no job worker, so copied pending jobs are neither run nor stamped.
+    // Used by restore verification; never set it on a serving stack.
+    JOBS_DISABLED: z.preprocess(
+      (value) => (value === '' ? undefined : value),
+      z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
+    ),
     // #1266 b4: per-process cap on concurrent POST /attachments (each buffers up to 25 MiB).
     ATTACHMENT_UPLOAD_CONCURRENCY: z.coerce.number().int().positive().default(4),
   })

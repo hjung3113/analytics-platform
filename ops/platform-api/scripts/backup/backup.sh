@@ -10,12 +10,21 @@
 #                    core.sessions are NOT in it (the table definition is), restore needs no live session
 #   globals.sql      pg_dumpall --globals-only --no-role-passwords (roles and memberships, no password)
 #   objects/         mirror of the attachment bucket;  objects.sha256  sha256 inventory of it
-#   manifest.json    timestamp, identity, image ids, journal state, row counts, object count/bytes, file checksums
+#   manifest.json    timestamp, identity, image ids (backend, migrate, web) with images.verified, journal state, row counts,
+#                    object count/bytes, file checksums
 #
 # Quiesce: the backend (HTTP writers AND the pg-boss jobs, one process) is stopped while the database and the bucket
 # are captured, so the pair is consistent; downtime = capture time (printed). `edge` and the data services stay up;
 # the edge answers 502 meanwhile. Standalone runs start the backend again; --keep-stopped (used by upgrade.sh) does not.
 # Online backup is not supported.
+#
+# One maintenance lock per installation (ops/platform-api/.maintenance/<project>.lock) is held from before the backend is
+# looked at until the final restart or failure exit; upgrade.sh holds it and its nested backup runs under it. A second
+# backup/upgrade exits 3 at once, touching nothing. A stale lock is reported with its holder pid, never taken over.
+#
+# Images: the manifest records the image ids of the containers that produced the data (backend, the last successful
+# migrate run, the edge), not the mutable :local tags. If the backend container's image cannot be identified the backup
+# still runs, images.backend is empty and images.verified is false (restore then treats it as a mismatch).
 #
 # Runs on the docker host against the compose project; psql/pg_dump run inside the postgres container, the bucket is
 # mirrored with mc from the pinned MinIO server image on the project network. No credential is written to a file, log or argument:
@@ -25,8 +34,9 @@
 # mixed install is refused: run the identity cutover first (docs/architecture/platform-api/release/backup-restore-upgrade.md).
 #
 # Environment: BACKUP_ROOT (required), BACKUP_KEEP (default 7), STORAGE_S3_BUCKET (else read from the env file, default
-# platform-attachments), BACKUP_MC_IMAGE (default: the stack's pinned minio/minio image, entrypoint mc), BACKUP_BACKEND_IMAGE / BACKUP_MIGRATE_IMAGE
-# (default platform-release-{backend,migrate}:local; recorded in the manifest).
+# platform-attachments), BACKUP_MC_IMAGE (default: the stack's pinned minio/minio image, entrypoint mc), BACKUP_MIGRATE_IMAGE
+# (default platform-release-migrate:local; recorded only when its migrations equal the database journal and no migrate
+# container is left), BACKUP_MAINTENANCE_DIR (default <ops>/.maintenance).
 # stdout: only the final backup directory path. Everything else goes to stderr.
 
 set -Eeuo pipefail
@@ -43,7 +53,7 @@ ENV_FILE="${BACKUP_ENV_FILE:-$OPS_ROOT/.env.production}"
 COMPOSE_FILE="${BACKUP_COMPOSE_FILE:-$OPS_ROOT/docker-compose.production.yml}"
 KEEP_STOPPED=0
 
-usage() { sed -n '3,30p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2; }
+usage() { sed -n '3,40p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2; }
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --help|-h) usage; exit 0 ;;
@@ -85,16 +95,24 @@ restart_backend() {
 }
 cleanup() {
   local rc=$?
+  # No second signal may cut the restart and the lock release short. No child is running here: bash runs a trap only
+  # between commands, so an interrupt waits for the active docker call and this cleanup then restarts and releases.
+  trap '' INT TERM HUP
   trap - EXIT
   restart_backend
+  bk_lock_release
   if [ -d "$WORK" ]; then
     [ "$rc" -eq 0 ] || bk_log "failed; partial files removed: $WORK"
     rm -rf -- "${WORK:?}"
   fi
-  [ "$rc" -eq 0 ] || { [ "$KEEP_STOPPED" -eq 0 ] || bk_log 'backend left stopped (--keep-stopped)'; }
+  [ "$rc" -eq 0 ] || { [ "$KEEP_STOPPED" -eq 0 ] || [ "$BACKEND_STOPPED" -eq 0 ] || bk_log 'backend left stopped (--keep-stopped)'; }
   exit "$rc"
 }
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
 trap cleanup EXIT
+bk_lock_acquire backup
 
 # 1. Data services up (no dependencies started), identity check.
 bk_log "project $PROJECT: starting postgres and minio if needed"
@@ -105,7 +123,6 @@ if [ "$ident" != '1 0 2 0' ]; then
 fi
 IDENTITY=platform
 BUCKET="$(bk_bucket)"
-BACKEND_IMAGE="${BACKUP_BACKEND_IMAGE:-$BK_IMAGE_BACKEND_DEFAULT}"
 MIGRATE_IMAGE="${BACKUP_MIGRATE_IMAGE:-$BK_IMAGE_MIGRATE_DEFAULT}"
 # Fail closed: an error while asking compose is not "backend stopped" (the dump would then run against live writers).
 if ! RUNNING_SERVICES="$(bk_dc ps --status running --services)"; then
@@ -116,11 +133,32 @@ if printf '%s\n' "$RUNNING_SERVICES" | grep -qx backend; then BACKEND_WAS_RUNNIN
 mkdir -p "$WORK/objects"
 chmod 700 "$WORK" "$WORK/objects"
 
+# 1b. Images that produced this data, read from the containers (never from the mutable :local tags). Done before the stop;
+# the lock keeps them from changing meanwhile.
+BACKEND_ID="$(bk_container_image backend)" || BACKEND_ID=''
+WEB_ID="$(bk_container_image edge)" || WEB_ID=''
+MIGRATE_ID="$(bk_container_image migrate ok)" || MIGRATE_ID=''
+if [ -z "$MIGRATE_ID" ]; then
+  # `run --rm` leaves no container: trust the migrate image ref only if its migrations are exactly the applied ones.
+  if bk_db_hashes >"$WORK/.db-hashes" 2>/dev/null && ( bk_image_hashes "$MIGRATE_IMAGE" ) >"$WORK/.img-hashes" 2>/dev/null \
+    && [ "$(bk_journal_pending "$WORK/.db-hashes" "$WORK/.img-hashes" 2>/dev/null)" = 0 ]; then
+    MIGRATE_ID="$(docker image inspect --format '{{.Id}}' "$MIGRATE_IMAGE" 2>/dev/null)" || MIGRATE_ID=''
+  fi
+  rm -f -- "$WORK/.db-hashes" "$WORK/.img-hashes"
+fi
+IMAGES_VERIFIED=true
+if [ -z "$BACKEND_ID" ]; then
+  IMAGES_VERIFIED=false
+  bk_log 'WARNING: the backend container image could not be identified; the backup runs, but images.verified is false and a restore will treat the images as a mismatch'
+fi
+[ -n "$MIGRATE_ID" ] || bk_log 'note: no migrate image could be identified for this data; restore decides by the journal check'
+
 # 2. Quiesce: stop the backend (writers and pg-boss jobs).
 if [ "$BACKEND_WAS_RUNNING" -eq 1 ]; then
   bk_log 'stopping backend (writers and jobs)'
-  bk_dc stop backend >/dev/null
+  # Marked before the call: a signal that lands while docker stops it must still lead to a restart.
   BACKEND_STOPPED=1
+  bk_dc stop backend >/dev/null
 fi
 STOP_AT="$(date +%s)"
 
@@ -163,8 +201,6 @@ DOWN="$(( $(date +%s) - STOP_AT ))"
 bk_log "capture finished; backend was stopped for ${DOWN}s"
 
 # 6. Manifest (checksums of the payload files and the inventory; the manifest does not checksum itself).
-BACKEND_ID="$(docker image inspect --format '{{.Id}}' "$BACKEND_IMAGE" 2>/dev/null || echo unknown)"
-MIGRATE_ID="$(docker image inspect --format '{{.Id}}' "$MIGRATE_IMAGE" 2>/dev/null || echo unknown)"
 {
   printf '{\n'
   printf '  "format": 1,\n'
@@ -174,7 +210,7 @@ MIGRATE_ID="$(docker image inspect --format '{{.Id}}' "$MIGRATE_IMAGE" 2>/dev/nu
   printf '  "project": "%s",\n' "$PROJECT"
   printf '  "bucket": "%s",\n' "$BUCKET"
   printf '  "backendDowntimeSeconds": %s,\n' "$DOWN"
-  printf '  "images": {\n    "backend": "%s",\n    "migrate": "%s"\n  },\n' "$BACKEND_ID" "$MIGRATE_ID"
+  printf '  "images": {\n    "backend": "%s",\n    "migrate": "%s",\n    "web": "%s",\n    "verified": %s\n  },\n' "$BACKEND_ID" "$MIGRATE_ID" "$WEB_ID" "$IMAGES_VERIFIED"
   printf '  "journal": {\n    "count": %s,\n    "lastHash": "%s",\n    "digest": "%s"\n  },\n' "$JOURNAL_COUNT" "$JOURNAL_LAST" "$JOURNAL_DIGEST"
   printf '  "rowCounts": {\n'
   printf '%s\n' "$COUNTS" | awk -F'|' 'NF == 2 { lines[++n] = sprintf("    \"%s\": %s", $1, $2) } END { for (i = 1; i <= n; i++) printf "%s%s\n", lines[i], (i < n ? "," : "") }'

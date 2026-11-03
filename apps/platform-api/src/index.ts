@@ -16,7 +16,7 @@ import { createDb } from './db/client.js';
 import { IdentityNotReadyError, assertPlatformIdentityReady } from './db/identity-readiness.js';
 import { RuntimeRoleError, assertRuntimeDbRole } from './db/runtime-role.js';
 import { toJobLog } from './lib/job-log.js';
-import { initBoss, shutdownBoss } from './lib/jobs.js';
+import { initBoss, registerJobsUnlessDisabled, shutdownBoss } from './lib/jobs.js';
 import { createRootLogger } from './lib/logger.js';
 import { createDrainState, createShutdown } from './lib/shutdown.js';
 import { getStorage } from './lib/storage/factory.js';
@@ -35,7 +35,8 @@ import { createPublicUpdateReviewCandidatesService } from './modules/voc/public-
 import { buildServer } from './server.js';
 
 const config = loadConfig();
-if (!config.WORKSPACE_ID) throw new Error('WORKSPACE_ID is required for recovery reconciliation');
+const workspaceId = config.WORKSPACE_ID;
+if (!workspaceId) throw new Error('WORKSPACE_ID is required for recovery reconciliation');
 if (!config.DATABASE_URL) {
   console.error('DATABASE_URL is required to start the backend (platform_app role).');
   process.exit(1);
@@ -87,44 +88,55 @@ const logger = createRootLogger(config);
 poolErrorLog.current = logger;
 const jobLog = toJobLog(logger);
 
-const boss = await initBoss({ connectionString: config.DATABASE_URL, log: jobLog });
-await registerDashboardJobs(boss, {
-  db: dbHandle.db,
-  workspaceId: config.WORKSPACE_ID,
+const boss = await initBoss({
+  connectionString: config.DATABASE_URL,
   log: jobLog,
+  jobsDisabled: config.JOBS_DISABLED,
 });
 const notificationDispatcher = createPgBossNotificationDispatcher(boss);
 const notify = createNotificationNotifier(notificationDispatcher);
-await registerCoreJobs(boss, {
-  db: dbHandle.db,
-  pool: dbHandle.pool,
-  // First getStorage() call wins the cached singleton: passing the job log
-  // HERE (before buildServer's bare `getStorage()`) is what puts the
-  // `storage: materialized` line on the structured root logger.
-  storage: getStorage(undefined, { log: jobLog }),
-  log: jobLog,
-});
-// #168 (ADR-0034 D6). Registered even when the provider is disabled: the
-// backfill cron row must exist so enabling a provider is a config change, not
+// #168 (ADR-0034 D6). The VOC registrar runs even when the provider is disabled:
+// the backfill cron row must exist so enabling a provider is a config change, not
 // a queue-registration change. Both handlers no-op while disabled.
 const embeddingProvider = createEmbeddingProvider(config);
-await registerVocJobs(boss, {
-  db: dbHandle.db,
-  provider: embeddingProvider,
-  embeddingVersion: config.EMBEDDING_VERSION,
-  embeddingEnabled: isEmbeddingEnabled(config),
-  publicUpdateReviewCandidatesService: createPublicUpdateReviewCandidatesService({
-    db: dbHandle.db,
-    auditService: createAuditService(),
-    notify,
-  }),
-  log: jobLog,
-});
-await registerNotificationJobs(boss, {
-  db: dbHandle.db,
-  channel: await createNotificationEmailChannel(jobLog, config),
-  log: jobLog,
-});
+// JOBS_DISABLED (operator maintenance, restore verification): no registrar runs, so no worker and no cron.
+await registerJobsUnlessDisabled(config.JOBS_DISABLED, jobLog, [
+  () =>
+    registerDashboardJobs(boss, {
+      db: dbHandle.db,
+      workspaceId,
+      log: jobLog,
+    }),
+  () =>
+    registerCoreJobs(boss, {
+      db: dbHandle.db,
+      pool: dbHandle.pool,
+      // First getStorage() call wins the cached singleton: passing the job log
+      // HERE (before buildServer's bare `getStorage()`) is what puts the
+      // `storage: materialized` line on the structured root logger.
+      storage: getStorage(undefined, { log: jobLog }),
+      log: jobLog,
+    }),
+  () =>
+    registerVocJobs(boss, {
+      db: dbHandle.db,
+      provider: embeddingProvider,
+      embeddingVersion: config.EMBEDDING_VERSION,
+      embeddingEnabled: isEmbeddingEnabled(config),
+      publicUpdateReviewCandidatesService: createPublicUpdateReviewCandidatesService({
+        db: dbHandle.db,
+        auditService: createAuditService(),
+        notify,
+      }),
+      log: jobLog,
+    }),
+  async () =>
+    registerNotificationJobs(boss, {
+      db: dbHandle.db,
+      channel: await createNotificationEmailChannel(jobLog, config),
+      log: jobLog,
+    }),
+]);
 
 const drainState = createDrainState();
 const app = await buildServer({

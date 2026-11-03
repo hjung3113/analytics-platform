@@ -16,8 +16,8 @@ these objects are invisible to it.
 
 ## Command
 
-Runs from the runtime image (production stack: `$P exec backend node dist/cli/attachments-orphans.js`, with
-`P='docker compose --env-file .env.production -f docker-compose.production.yml'`) or a checkout
+Runs from the runtime image (production stack: `$P exec backend node dist/cli/attachments-orphans.js`, with `P` as defined in
+[oidc-and-images.md](oidc-and-images.md) «Production stack», which includes the restore pin file of a restored installation) or a checkout
 (`pnpm --filter @ap/platform-api exec tsx src/cli/attachments-orphans.ts`). Environment: `DATABASE_URL`
 (runtime role, read on `voc.voc_attachments`) and the `STORAGE_S3_*` variables the server uses.
 
