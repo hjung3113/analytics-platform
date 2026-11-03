@@ -10,7 +10,13 @@ the same `.env.production` as the stack. DB tools run inside the `postgres` cont
 - **RPO 24 hours:** one backup per day. Data created after the last backup is lost on a restore.
 - **RTO 4 hours:** from the decision to restore until the restored stack answers `/health/ready` (for the ~100-user data
   size). The restore is a copy, not a rebuild: verified restore time is the number below.
-- Rehearsal (conductor): not yet run
+- Rehearsal (conductor, 2026-11-03, #1266 b6): disposable source and target projects with real images on one host,
+  small data set (12 VOCs, 3 attachments / 1.2 MB, 85 migrations). `backup.sh` 3 s (backend stopped 1 s); `restore.sh`
+  into an isolated project 18 s, all checks passed, an attachment downloaded from the restored stack was byte-identical;
+  `upgrade.sh` with one pending migration 11 s (backup first, journal 85 → 86, data and attachments preserved); a failing
+  migration left the backend stopped with the journal unchanged and printed the restore and image-rollback commands; a
+  divergent image history was refused before anything was stopped. Durations scale with data size; the 4-hour RTO was
+  not measured on production-size data — rehearse once on a copy of the real installation before relying on it.
 - Not covered: point-in-time recovery, online backup, HA, and shipping backups off the host (the operator's job).
 
 ## Supported installs
@@ -38,7 +44,7 @@ One run writes `<BACKUP_ROOT>/<UTC timestamp>/` (directory 0700, files 0600):
 How it stays consistent: the script stops `backend` (the HTTP writers and the pg-boss jobs are one process), dumps the
 database, mirrors the bucket, then starts `backend` again; downtime is printed and recorded as `backendDowntimeSeconds`.
 `edge` and the data services stay up and the edge answers 502 meanwhile. The bucket mirror uses the pinned
-`minio/mc` image on the project network (`BACKUP_MC_IMAGE` overrides the tag); the MinIO key reaches `mc` as an exported
+MinIO server image the stack already uses (`minio/minio`, run with entrypoint `mc`; `BACKUP_MC_IMAGE` overrides it); the MinIO key reaches `mc` as an exported
 `MC_HOST_bk` variable, never as an argument. After the capture the script verifies the new directory
 (`verify-backup.sh`: checksums, inventory, counts; no database) and removes everything but the newest `BACKUP_KEEP`
 (default 7) timestamp directories; it never deletes the directory it just wrote or anything outside `BACKUP_ROOT`.

@@ -4,8 +4,10 @@
 
 BK_IMAGE_BACKEND_DEFAULT='platform-release-backend:local'
 BK_IMAGE_MIGRATE_DEFAULT='platform-release-migrate:local'
-# Pinned mc image (never :latest). Override with BACKUP_MC_IMAGE only to mirror an internal registry copy.
-BK_MC_IMAGE_DEFAULT='minio/mc:RELEASE.2024-11-21T17-21-54Z'
+# mc runs from the stack's own pinned MinIO server image (it ships the mc binary): no extra image to pull, and the
+# separate minio/mc images are no longer published on Docker Hub. Override with BACKUP_MC_IMAGE only to use an internal
+# registry copy of the same image; the entrypoint is always mc.
+BK_MC_IMAGE_DEFAULT='minio/minio:RELEASE.2024-12-18T13-15-44Z'
 BK_STAMP_RE='^[0-9]{8}T[0-9]{6}Z$'
 # Fixed list of key tables whose row counts the manifest records (a table missing in an older schema is skipped;
 # core.workspaces and the drizzle journal are required). core.sessions is deliberately absent (F10).
@@ -179,10 +181,10 @@ bk_mc_env() {
 bk_mc() { # bk_mc <host-dir-or-empty> <mc args...> ; the compose network of $PROJECT; credentials via -e MC_HOST_bk (no value in argv)
   local dir="$1"; shift
   if [ -n "$dir" ]; then
-    docker run --rm --network "${PROJECT}_default" -e MC_HOST_bk -e HOME=/tmp --user "$(id -u):$(id -g)" \
+    docker run --rm --network "${PROJECT}_default" -e MC_HOST_bk -e HOME=/tmp --user "$(id -u):$(id -g)" --entrypoint mc \
       -v "$dir:/data" "${BACKUP_MC_IMAGE:-$BK_MC_IMAGE_DEFAULT}" --quiet "$@"
   else
-    docker run --rm --network "${PROJECT}_default" -e MC_HOST_bk -e HOME=/tmp --user "$(id -u):$(id -g)" \
+    docker run --rm --network "${PROJECT}_default" -e MC_HOST_bk -e HOME=/tmp --user "$(id -u):$(id -g)" --entrypoint mc \
       "${BACKUP_MC_IMAGE:-$BK_MC_IMAGE_DEFAULT}" --quiet "$@"
   fi
 }

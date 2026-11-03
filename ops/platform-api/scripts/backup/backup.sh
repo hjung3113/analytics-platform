@@ -18,14 +18,14 @@
 # Online backup is not supported.
 #
 # Runs on the docker host against the compose project; psql/pg_dump run inside the postgres container, the bucket is
-# mirrored with the pinned minio/mc image on the project network. No credential is written to a file, log or argument:
+# mirrored with mc from the pinned MinIO server image on the project network. No credential is written to a file, log or argument:
 # the MinIO key reaches mc through an exported MC_HOST_bk variable that docker passes by name.
 #
 # Supported identity: database `platform` with roles platform_* (v0.24.0 and later). A pre-0076 `feedbackops`/fops_* or
 # mixed install is refused: run the identity cutover first (docs/architecture/platform-api/release/backup-restore-upgrade.md).
 #
 # Environment: BACKUP_ROOT (required), BACKUP_KEEP (default 7), STORAGE_S3_BUCKET (else read from the env file, default
-# platform-attachments), BACKUP_MC_IMAGE (default pinned minio/mc), BACKUP_BACKEND_IMAGE / BACKUP_MIGRATE_IMAGE
+# platform-attachments), BACKUP_MC_IMAGE (default: the stack's pinned minio/minio image, entrypoint mc), BACKUP_BACKEND_IMAGE / BACKUP_MIGRATE_IMAGE
 # (default platform-release-{backend,migrate}:local; recorded in the manifest).
 # stdout: only the final backup directory path. Everything else goes to stderr.
 
