@@ -119,13 +119,17 @@ export type PlatformPageProps = {
   layout?: 'flow' | 'fill';
   /** Visual spacing inherited by SDK descendants; compact by default (#1217) — `comfortable` is the explicit developer option. Never persisted. */
   density?: 'comfortable' | 'compact';
+  /**
+   * `'none'` removes the content body's horizontal inset and top/bottom padding so an edge-to-edge child (a list shell, a board, a split pane) meets the page edges; for screens that draw their own full-bleed frame. A gate message and the outcome banners keep the inset. Visual only; `default` leaves the body as is (#1291).
+   */
+  bodyInset?: 'default' | 'none';
   /** Where `page`/`return` arrival focus lands instead of the heading, while the returned element is connected (a `drill` arrival keeps the current step). */
   arrivalTarget?: () => HTMLElement | null;
   children: ReactNode;
 };
 
 /** §8 Shell Slots. Pages never insert global UI outside these slots. */
-export function PlatformPage({ title, description, primaryAction, secondaryActions, contextExtension, contextNotes, dataTrustSummary, queryBarExtension, queryResult, crumbs = [], layout = 'flow', density = 'compact', arrivalTarget, children }: PlatformPageProps) {
+export function PlatformPage({ title, description, primaryAction, secondaryActions, contextExtension, contextNotes, dataTrustSummary, queryBarExtension, queryResult, crumbs = [], layout = 'flow', density = 'compact', bodyInset = 'default', arrivalTarget, children }: PlatformPageProps) {
   const { global, page, equipmentAxes, route, favorites, toggleFavorite, scope, retryScope, setGlobal, lastScope, linkTo, registry, slots, url, pathname, pageNavigation, currentSpace, screenMode, canOpen, queryDraft } = useHostPlatform();
   const conditionPreset = useConditionPreset();
   // A board pane draws content only: the board owns the pane head and the Context bar, and no arrival focus moves here (ADR-0049).
@@ -325,7 +329,14 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
           pendingChanges={queryDraft.dirty.some(key => menu.pageKeys.includes(key))} issueCount={queryBarExtension?.issues.length ?? 0} />
       : <div className={cn(pageInsetX(density === 'compact'), 'pt-3')}><PageHeadBody notes={notes} extension={contextExtension} /></div>)}
     {screenMode === 'main' && !gate && carriesReturnTo(registry.carrySetOf(menu)) && <ReturnRow />}
-    <div data-platform-page-content tabIndex={-1} className={cn(layout === 'fill' ? 'flex flex-1 flex-col' : 'flex-1', pageInsetX(density === 'compact'), density === 'compact' ? 'pb-4 pt-3' : 'pb-9 pt-7')}>{gate ?? <OutcomeScope><OutcomeBanners compact={layout === 'fill'} />{layout === 'fill' ? <div data-platform-page-fill className={fixedFill ? 'flex min-h-[520px] flex-1 flex-col' : 'flex flex-1 flex-col'}>{children}</div> : children}</OutcomeScope>}</div>
+    <div data-platform-page-content tabIndex={-1} data-body-inset={bodyInset === 'none' ? 'none' : undefined} className={cn(layout === 'fill' ? 'flex flex-1 flex-col' : 'flex-1', bodyInset === 'none' ? undefined : [pageInsetX(density === 'compact'), density === 'compact' ? 'pb-4 pt-3' : 'pb-9 pt-7'])}>{gate
+      ? bodyInset === 'none' ? <div className={cn(pageInsetX(density === 'compact'), density === 'compact' ? 'pb-4 pt-3' : 'pb-9 pt-7')}>{gate}</div> : gate
+      : <OutcomeScope>
+        {bodyInset === 'none'
+          ? <div className={cn(pageInsetX(density === 'compact'), 'has-[[data-outcome-banner]]:pt-3')}><OutcomeBanners compact={layout === 'fill'} /></div>
+          : <OutcomeBanners compact={layout === 'fill'} />}
+        {layout === 'fill' ? <div data-platform-page-fill className={fixedFill ? 'flex min-h-[520px] flex-1 flex-col' : 'flex flex-1 flex-col'}>{children}</div> : children}
+      </OutcomeScope>}</div>
   </div></PageFlowContext.Provider></QueryBarStatusContext.Provider></QueryBarExtensionContext.Provider></PageDensityProvider>;
 }
 
