@@ -6,17 +6,23 @@ Never run `SEED_MODE=core`, `personas` or `scale` against operator data: they cr
 
 ## Steps
 
-All commands run as one-off jobs from the migrate/tools image in the operator Compose project (see [oidc-and-images.md](oidc-and-images.md) for the project, env file and volume variables). The long-running backend workload never receives `DATABASE_URL_MIGRATE`; use operator-job secrets only.
+All commands run as one-off jobs from the migrate/tools image in the operator Compose project (see [oidc-and-images.md](oidc-and-images.md) for the project, env file and volume variables). Set `P='docker compose --env-file .env.production -f docker-compose.production.yml'` and run from `ops/platform-api`. The long-running backend workload never receives `DATABASE_URL_MIGRATE`; use operator-job secrets only.
 
 1. **Migrate.** Run the migration job so the schema and roles are current.
-2. **Seed the workspace.** `SEED_MODE=bootstrap` creates the Workspace (`WORKSPACE_ID`, `WORKSPACE_NAME`) and the `system` Actor, nothing else. Rerunning changes nothing and exits 0. The seed connects with `DATABASE_URL` (the `platform_app` role); the migrate image entrypoint also needs `DATABASE_URL_MIGRATE`, so pass both:
+2. **Seed the workspace.** `SEED_MODE=bootstrap` creates the Workspace (`WORKSPACE_ID`, `WORKSPACE_NAME`) and the `system` Actor, nothing else. Rerunning changes nothing and exits 0. On the production stack the `bootstrap` job service (profile `bootstrap`) carries `SEED_MODE=bootstrap`, `WORKSPACE_ID`, `WORKSPACE_NAME` and both database URLs from `.env.production`:
+
+       $P --profile bootstrap run --rm bootstrap
+
+   *Local smoke stack only* (`release.yml`; never operator data):
 
        docker compose --project-name platform-api --env-file .env.release -f docker-compose.release.yml \
          run --rm -e SEED_MODE=bootstrap -e WORKSPACE_ID -e WORKSPACE_NAME migrate node_modules/.bin/tsx src/seed/index.ts
-
-   The command forwards `WORKSPACE_ID` and `WORKSPACE_NAME` explicitly from the operator shell or `--env-file`; set both to the values the backend uses.
 3. **First login.** The future admin signs in once through the company IdP. The first OIDC login creates their Actor with role `user`. Find their external id (the IdP `sub`) from the IdP or from `core.actors.external_id`.
-4. **Promote.** `set-actor-role` changes an existing Actor by external id. It needs only `DATABASE_URL_MIGRATE` and `WORKSPACE_ID`:
+4. **Promote.** `set-actor-role` changes an existing Actor by external id. It needs only `DATABASE_URL_MIGRATE` and `WORKSPACE_ID`. On the production stack it is the `set-actor-role` job service (profile `admin`):
+
+       $P --profile admin run --rm set-actor-role --external-id <idp-sub> --role admin --reason "first admin"
+
+   *Local smoke stack only:*
 
        docker compose --project-name platform-api --env-file .env.release -f docker-compose.release.yml \
          run --rm migrate node_modules/.bin/tsx src/cli/set-actor-role.ts \

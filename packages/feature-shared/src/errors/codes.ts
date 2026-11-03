@@ -76,7 +76,7 @@ export const ERROR_CODES = [
   // attachment.* → 422 (PLAN-22 C3a — declared content type / size cap)
   'attachment.too_large',
   'attachment.unsupported_type',
-  // not_implemented.* → 501 (PLAN-22 C3a — stubbed happy path until C3b)
+  // not_implemented.* → 501 (PLAN-22 C3a: stub-path marker until C3b lands real implementation.)
   'not_implemented.todo',
   // service.* → 503 (#1266 b3 — DB statement/lock/idle-tx timeout or pool acquire timeout)
   'service.unavailable',
