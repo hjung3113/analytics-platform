@@ -149,9 +149,16 @@ _Avoid_: 플랫폼 — 플랫폼 전체와 섞인다.
 업무 시스템과 제품이 받아 쓰는 플랫폼 공개 패키지 묶음(`@ap/contracts`·`@ap/ui`·`@ap/kernel`·`@ap/components`·`@ap/shell`). 하나의 묶음 버전으로 릴리스한다([ADR-0043](docs/adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md), [ADR-0044](docs/adr/0044-sdk-source-in-platform-repo-released-separately.md)).
 
 **업무 시스템** (코드 이름 `Space`):
-플랫폼 위에 올라가는 독립된 업무 단위. 자기 메뉴 그룹·메뉴·업무 객체와 진입 권한을 소유하고, 다른 시스템의 객체를 흡수하지 않는다. 지금 등록된 것은 MARS·CLAS(생산성 분석), BRAVO(지표관리), 표준 로그 개발, 개선 실행, 운영 콘솔이다. VOC·설문·Task·Finding은 별도 피드백 운영 시스템이 아닌 플랫폼 기능이고, 운영 화면은 `운영 콘솔` 하나에 있다([ADR-0097](docs/adr/0097-platform-features-and-role-based-names.md), [ADR-0100](docs/adr/0100-feature-navigation-and-independent-access.md)).
+플랫폼 위에 올라가는 독립된 업무 단위. 자기 메뉴 그룹·메뉴·업무 객체와 진입 권한을 소유하고, 다른 시스템의 객체를 흡수하지 않는다. 지금 등록된 것은 MARS·CLAS(생산성 분석), BRAVO(지표관리), 표준 로그 개발, 개선 실행, 업무 흐름, 운영 콘솔이다. VOC·설문·Task·Finding은 플랫폼 기능이고, 담당자 처리 화면은 `업무 흐름`, 플랫폼 관리는 `운영 콘솔`에 있다([ADR-0097](docs/adr/0097-platform-features-and-role-based-names.md), [ADR-0110](docs/adr/0110-platform-feature-roles-and-scope.md)).
 CLAS는 약어 그대로 쓰고 영어 풀이 이름은 쓰지 않는다(어차피 바뀔 이름, 사용자 2026-10-27). 메뉴·설명에도 `Equipment operation`·`operation time` 같은 풀이를 두지 않는다. MARS와 CLAS는 메뉴가 달라 별도 시스템으로 둔다(이 플랫폼의 CLAS에는 견본 메뉴 하나가 있고, 기존 CLAS 화면 이전은 계획).
-_Avoid_: 워크스페이스, 공간, 앱, 모듈 — 워크스페이스는 코어 서버의 workspace(테넌트)·작업 영역과, 모듈은 호스트 모듈·설비 Module과 섞인다. 화면 문구는 `업무 시스템`(짧게 `시스템`)이고, `Space`는 코드 이름으로만 쓴다.
+_Avoid_: 워크스페이스, 공간, 앱, 모듈 — 워크스페이스는 코어 서버의 workspace(테넌트)·작업 영역과, 모듈은 호스트 모듈·설비 Module과 섞인다. 화면 문구는 `업무 시스템`(짧게 `시스템`)이고, `Space`는 코드 이름으로만 쓴다. 화면의 `시스템`은 Managed System도 함께 뜻한다(셀프 등록으로 업무 시스템마다 같은 이름의 Managed System이 생긴다, [ADR-0110](docs/adr/0110-platform-feature-roles-and-scope.md) 결정 6).
+
+**업무 흐름** (공간 id `flow`):
+담당자가 VOC 처리·분류·Finding·Task·설문 운영과 기능 설정(시스템·Analytics Area·흐름 정책)을 하는 업무 시스템. 제품 이름이 아니라 역할로 묶은 공간이며, 모든 사용자가 쓰는 VOC·설문·공지 화면은 공간 없는 직속 메뉴에 있다([ADR-0110](docs/adr/0110-platform-feature-roles-and-scope.md)).
+_Avoid_: 피드백 운영, FeedbackOps, 운영 콘솔 — 운영 콘솔은 플랫폼 관리만 한다.
+
+**운영 콘솔** (공간 id `operations`):
+플랫폼 관리 업무 시스템. 권한 요청 검토·부여 목록, 업무 시스템과 시스템 연결 상태, 권한·역할 조회, 감사, 사용 현황, Registry를 둔다. 기능 처리 화면은 업무 흐름에 있다([ADR-0110](docs/adr/0110-platform-feature-roles-and-scope.md)).
 
 **메뉴 그룹** (`GroupDef`):
 업무 시스템 사이드바의 한 묶음이자 레일의 섹션 하나(예: MARS의 생산성 분석·설비관리·기준정보관리). 업무 시스템 소속은 메뉴 그룹에 걸리고, 메뉴는 그룹만 고른다. 메뉴 패키지 하나가 그룹 하나를 소유한다.
@@ -215,14 +222,21 @@ _Avoid_: 서버 포트, API(단독) — 포트는 네트워크 포트와, API는
 VOC·Task·설문·알림의 정의와 관계는 이 용어집의 기능 도메인 절이 원본이다.
 
 **Managed System**:
-플랫폼이 피드백과 개선 작업을 추적하는 사내 시스템 하나. 업무 시스템은 Managed System 하나에 연결될 수 있지만 같은 개념이 아니다 — 업무 시스템 둘이 같은 Managed System을 가리킬 수 있고, 연결은 기본값과 이동에만 쓰이며 권한을 주지 않는다([ADR-0068](docs/adr/0068-permission-scope-and-business-system-link.md)). Scope(room_name)와도 다르다.
-_Avoid_: Customer system, external service
+플랫폼이 피드백과 개선 작업을 추적하는 사내 시스템 하나. 업무 시스템은 Managed System 하나에 연결될 수 있지만 같은 개념이 아니다 — 업무 시스템 둘이 같은 Managed System을 가리킬 수 있고, 연결은 기본값과 이동에만 쓰이며 권한을 주지 않는다([ADR-0068](docs/adr/0068-permission-scope-and-business-system-link.md)). Scope(room_name)와도 다르다. 화면 이름은 `시스템`이다(코드·API는 `Managed System`). 업무 시스템 선언의 `feedbackTracking`이 켜진 업무 시스템은 같은 키의 Managed System을 서버가 스스로 등록하고, 플랫폼 밖 사내 시스템은 손으로 등록해 `플랫폼 밖` 표시를 단다([ADR-0110](docs/adr/0110-platform-feature-roles-and-scope.md) 결정 5).
+_Avoid_: Customer system, external service, 추적 대상
+
+**「플랫폼」 시스템**:
+플랫폼 자체에 대한 피드백을 받는 Managed System. 늘 하나 있고 업무 시스템이 아니라 공간 연결이 없으며 보관할 수 없다. 셸·홈·공지·내 활동처럼 공간 없는 화면에서 등록한 VOC의 기본 시스템이고, 그 VOC의 공개 부분은 로그인 전원에게 보인다([ADR-0110](docs/adr/0110-platform-feature-roles-and-scope.md) 결정 3·5).
+
+**VOC 공개 열람** (`voc.read_public`):
+VOC의 공개 부분(제목·본문·신고자용 상태·담당자 답변·신고자 답글·공개 첨부)을 읽는 권한. 시스템 단위로 부여하고, 내부 부분(내부 메모·분류 상태·심각도·담당 배정·Cluster·연결 객체)은 주지 않는다([ADR-0110](docs/adr/0110-platform-feature-roles-and-scope.md) 결정 3).
+_Avoid_: 전체 공개 — 범위 없이 모두에게 여는 안은 채택하지 않았다.
 
 **전체 협업 허브** (폐기된 화면 문구 `FeedbackOps 전체`):
-여러 Managed System의 협업 기능을 묶던 이전 진입점. 현재 운영 기능은 운영 콘솔에, 개인 기능은 전역 내 활동과 플랫폼 메뉴에 배치된다([ADR-0100](docs/adr/0100-feature-navigation-and-independent-access.md)). 별도 저장소나 권한 경계가 아니다.
+여러 Managed System의 협업 기능을 묶던 이전 진입점. 현재 처리 기능은 업무 흐름에, 플랫폼 관리는 운영 콘솔에, 개인 기능은 전역 내 활동과 플랫폼 메뉴에 배치된다([ADR-0110](docs/adr/0110-platform-feature-roles-and-scope.md)). 별도 저장소나 권한 경계가 아니다.
 
 **피드백 운영** (폐기된 업무 시스템 이름):
-FeedbackOps의 운영 화면(수신함·Triage·Finding·Task·설문 관리·설정 등)을 올릴 업무 시스템으로 계획했으나 만들지 않는다. 그 화면들은 `운영 콘솔`의 VOC·Finding·Task 관리·설문 관리·대시보드·연동·기능 관리 섹션이다([ADR-0100](docs/adr/0100-feature-navigation-and-independent-access.md)). 모든 사용자가 쓰는 VOC 등록·내 VOC·설문 응답은 여기가 아니라 플랫폼 메뉴와 레일이다.
+FeedbackOps의 운영 화면(수신함·Triage·Finding·Task·설문 관리·설정 등)을 올릴 업무 시스템으로 계획했으나 만들지 않는다. 그 화면들은 역할로 묶은 `업무 흐름` 공간에 있다([ADR-0110](docs/adr/0110-platform-feature-roles-and-scope.md)). 모든 사용자가 쓰는 VOC 등록·내 VOC·설문 응답은 여기가 아니라 플랫폼 메뉴와 레일이다.
 
 **발행** (지표 버전, en `Released`):
 지표 버전 하나를 분석이 기본으로 쓰는 버전으로 공개하는 것. BRAVO가 소유한다.
@@ -415,7 +429,7 @@ A permission whose grant or use requires a written reason and explicit audit met
 _Avoid_: Restricted action, locked feature
 
 **Task**:
-Internal execution work for one **Managed System**. 요청 단계는 Task Request다. 로그 결함·검증 Round(표준 로그 개발), 개선 과제·실적(개선 실행), 지표 정의·버전(지표관리)과 다른 객체이며 관계만 링크한다.
+Internal execution work for one **Managed System**. 요청 단계는 Task Request다. 화면에서도 `Task`로 쓰고 상태 값만 한국어 문구로 보인다([ADR-0110](docs/adr/0110-platform-feature-roles-and-scope.md) 결정 6). `작업`은 `내 작업` 그룹과 겹쳐 쓰지 않는다. 로그 결함·검증 Round(표준 로그 개발), 개선 과제·실적(개선 실행), 지표 정의·버전(지표관리)과 다른 객체이며 관계만 링크한다.
 _Avoid_: Reporter-facing VOC status, 이슈 — 시스템마다 뜻이 달라 단독으로 쓰지 않는다. 개선 실행의 `과제`를 영어로 Task라 쓰지 않는다.
 
 **Progress note**:
