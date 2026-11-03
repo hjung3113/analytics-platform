@@ -103,6 +103,8 @@ export interface SessionServiceDeps {
   db: Db;
   workspaceId: string;
   now?: () => Date;
+  /** Optional structured logger; a refused system-Actor login logs one warning. */
+  log?: { warn: (msg: string, meta?: Record<string, unknown>) => void };
 }
 
 export interface CreateSessionInput {
@@ -157,6 +159,14 @@ export function createSessionService(deps: SessionServiceDeps) {
         let actor: ActorRecord;
         if (existing[0]) {
           const row = existing[0];
+          // A non-human (system) Actor never gets an interactive session. Refuse
+          // before any write; the message does not confirm the account exists.
+          if (row.actorType === 'system') {
+            deps.log?.warn('interactive login refused for system actor', {
+              externalId: claims.sub,
+            });
+            throw new HttpError('permission.denied', 'login is not permitted');
+          }
           if (row.email !== claims.email || row.displayName !== claims.display_name) {
             await tx
               .update(actors)
@@ -281,6 +291,10 @@ export function createSessionService(deps: SessionServiceDeps) {
            WHERE id = ${sessionId}
              AND revoked_at IS NULL
              AND expires_at > ${rightNow}
+             AND NOT EXISTS (
+               SELECT 1 FROM core.actors sa
+                WHERE sa.id = core.sessions.actor_id AND sa.actor_type = 'system'
+             )
         RETURNING id, actor_id, workspace_id
         )
         SELECT t.id AS session_id,
@@ -298,7 +312,7 @@ export function createSessionService(deps: SessionServiceDeps) {
       `);
 
       const row = result.rows[0];
-      if (!row) return null;
+      if (!row || row.actor_type === 'system') return null;
 
       return {
         session: {
@@ -359,7 +373,7 @@ export function createSessionService(deps: SessionServiceDeps) {
       `);
 
       const row = result.rows[0];
-      if (!row) return null;
+      if (!row || row.actor_type === 'system') return null;
 
       return {
         session: {
