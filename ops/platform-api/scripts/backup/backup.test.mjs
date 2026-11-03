@@ -4,14 +4,15 @@
 // Run: node --test scripts/backup/backup.test.mjs
 
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
   chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
-  readdirSync,
   readFileSync,
+  readdirSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -20,7 +21,6 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { spawnSync } from 'node:child_process';
 
 const HERE = fileURLToPath(new URL('.', import.meta.url));
 const OPS = join(HERE, '..', '..');
@@ -32,6 +32,8 @@ const UPGRADE = join(OPS, 'scripts', 'release', 'upgrade.sh');
 const COMPOSE = join(OPS, 'docker-compose.production.yml');
 
 const SECRET = 'secretpass0123456789';
+const ROLE_SECRET = 'SCRAM-SHA-256:4096:roleSecretSalt:roleSecretHash';
+const SESSION_SECRET = 'sess-token-0123456789abcdef';
 const roots = [];
 function tmp() {
   const d = mkdtempSync(join(tmpdir(), 'backup-test-'));
@@ -146,7 +148,13 @@ describe('backup.sh refusals', () => {
 });
 
 describe('retention', () => {
-  const stamps = ['20260101T000000Z', '20260102T000000Z', '20260103T000000Z', '20260104T000000Z', '20260105T000000Z'];
+  const stamps = [
+    '20260101T000000Z',
+    '20260102T000000Z',
+    '20260103T000000Z',
+    '20260104T000000Z',
+    '20260105T000000Z',
+  ];
   function populate() {
     const root = tmp();
     const outside = tmp();
@@ -266,14 +274,22 @@ describe('restore.sh refusals', () => {
   test('--replace-live needs RESTORE_CONFIRM equal to the project', () => {
     const dir = makeBackup(tmp());
     for (const confirm of [undefined, 'yes', 'other']) {
-      const r = bash(RESTORE, [dir, '--project', 'platform-api', '--replace-live'], env(confirm ? { RESTORE_CONFIRM: confirm } : {}));
+      const r = bash(
+        RESTORE,
+        [dir, '--project', 'platform-api', '--replace-live'],
+        env(confirm ? { RESTORE_CONFIRM: confirm } : {}),
+      );
       assert.notEqual(r.code, 0);
       assert.match(r.err, /RESTORE_CONFIRM=platform-api/);
     }
   });
   test('--replace-live is refused for any other project name', () => {
     const dir = makeBackup(tmp());
-    const r = bash(RESTORE, [dir, '--project', 'restored', '--replace-live'], env({ RESTORE_CONFIRM: 'restored' }));
+    const r = bash(
+      RESTORE,
+      [dir, '--project', 'restored', '--replace-live'],
+      env({ RESTORE_CONFIRM: 'restored' }),
+    );
     assert.notEqual(r.code, 0);
     assert.match(r.err, /applies only to the live/);
   });
@@ -304,53 +320,68 @@ exit 0
     const base = ({ bin }, extra = {}) => ({ PATH: `${bin}:${process.env.PATH}`, ...extra });
     test('target volume equal to a source volume is refused', () => {
       const s = setup();
-      const r = bash(RESTORE, [s.dir, '--project', 'foo', '--env-file', s.envFile, '--compose-file', COMPOSE], base(s, { RELEASE_POSTGRES_VOLUME: 'foo_postgres' }));
+      const r = bash(
+        RESTORE,
+        [s.dir, '--project', 'foo', '--env-file', s.envFile, '--compose-file', COMPOSE],
+        base(s, { RELEASE_POSTGRES_VOLUME: 'foo_postgres' }),
+      );
       assert.notEqual(r.code, 0);
       assert.match(r.err, /source\/live volume/);
     });
     test('a pre-existing target volume is refused before any start', () => {
       const s = setup();
-      const r = bash(RESTORE, [s.dir, '--project', 'restored', '--env-file', s.envFile, '--compose-file', COMPOSE], base(s, { STUB_EXISTING_VOLUME: 'restored_minio' }));
+      const r = bash(
+        RESTORE,
+        [s.dir, '--project', 'restored', '--env-file', s.envFile, '--compose-file', COMPOSE],
+        base(s, { STUB_EXISTING_VOLUME: 'restored_minio' }),
+      );
       assert.notEqual(r.code, 0);
       assert.match(r.err, /volume 'restored_minio' already exists/);
     });
   });
 });
 
-describe('upgrade.sh ordering (stub docker)', () => {
-  function stub(bin, logFile) {
-    writeFileSync(
-      join(bin, 'docker'),
-      `#!/usr/bin/env bash
+// Stub `docker` for the backup/upgrade flows: records every call and answers the queries the scripts make.
+function writeStub(bin, logFile) {
+  writeFileSync(
+    join(bin, 'docker'),
+    `#!/usr/bin/env bash
 printf '%s\\n' "$*" >>"${logFile}"
 case "$*" in
-  "compose version --short") echo 2.29.1; exit 0 ;;
-  "image inspect --format"*) echo sha256:imageid; exit 0 ;;
-  "image inspect"*) exit 0 ;;
-  "inspect --format"*) echo sha256:oldimage; exit 0 ;;
-  *"ps --status running --services"*) echo backend; exit 0 ;;
-  *"ps -a -q"*) echo cid1; exit 0 ;;
-  *"exec -T minio printenv MINIO_ROOT_USER"*) echo minioadmin; exit 0 ;;
-  *"exec -T minio printenv MINIO_ROOT_PASSWORD"*) echo ${SECRET}; exit 0 ;;
-  *"datname='platform'"*) echo '1 0 2 0'; exit 0 ;;
-  *to_regclass*) printf 'core.workspaces\\ndrizzle.__drizzle_migrations\\n'; exit 0 ;;
-  *"union all"*) printf 'core.workspaces|1\\ndrizzle.__drizzle_migrations|2\\n'; exit 0 ;;
-  *"__drizzle_migrations order by id"*) printf 'h1\\nh2\\n'; exit 0 ;;
-  *"exec -T postgres pg_dumpall"*) echo GLOBALS; exit 0 ;;
-  *"exec -T postgres pg_dump "*) echo DUMP; exit 0 ;;
-  *"--entrypoint cat"*) echo '{"entries":[{"tag":"0000_a"},{"tag":"0001_b"},{"tag":"0002_c"}]}'; exit 0 ;;
-  *"--entrypoint sh"*) printf 'h1  0000_a.sql\\nh2  0001_b.sql\\nh3  0002_c.sql\\n'; exit 0 ;;
-  *"run --rm --no-deps migrate"*) exit "\${STUB_MIGRATE_RC:-0}" ;;
+"compose version --short") echo 2.29.1; exit 0 ;;
+"image inspect --format"*) echo sha256:imageid; exit 0 ;;
+"image inspect"*) exit 0 ;;
+"inspect --format"*) echo sha256:oldimage; exit 0 ;;
+*"ps --status running --services"*) [ -n "\${STUB_PS_RC:-}" ] && exit "\$STUB_PS_RC"; echo backend; exit 0 ;;
+*" start backend"*) exit "\${STUB_START_RC:-0}" ;;
+*"ps -a -q"*) echo cid1; exit 0 ;;
+*"exec -T minio printenv MINIO_ROOT_USER"*) echo minioadmin; exit 0 ;;
+*"exec -T minio printenv MINIO_ROOT_PASSWORD"*) echo ${SECRET}; exit 0 ;;
+*"datname='platform'"*) echo '1 0 2 0'; exit 0 ;;
+*to_regclass*) printf 'core.workspaces\\ndrizzle.__drizzle_migrations\\n'; exit 0 ;;
+*"union all"*) printf 'core.workspaces|1\\ndrizzle.__drizzle_migrations|2\\n'; exit 0 ;;
+*"__drizzle_migrations order by id"*) printf 'h1\\nh2\\n'; exit 0 ;;
+*"exec -T postgres pg_dumpall"*)
+  case "$*" in *--globals-only*--no-role-passwords*) echo GLOBALS ;; *) echo "ALTER ROLE platform_app PASSWORD '${ROLE_SECRET}'" ;; esac
+  exit 0 ;;
+*"exec -T postgres pg_dump "*)
+  case "$*" in *--exclude-table-data=core.sessions*) echo DUMP ;; *) echo "COPY core.sessions FROM stdin; ${SESSION_SECRET}" ;; esac
+  exit 0 ;;
+*"--entrypoint cat"*) echo '{"entries":[{"tag":"0000_a"},{"tag":"0001_b"},{"tag":"0002_c"}]}'; exit 0 ;;
+*"--entrypoint sh"*) printf 'h1  0000_a.sql\\nh2  0001_b.sql\\nh3  0002_c.sql\\n'; exit 0 ;;
+*"run --rm --no-deps migrate"*) exit "\${STUB_MIGRATE_RC:-0}" ;;
 esac
 exit 0
 `,
-    );
-    chmodSync(join(bin, 'docker'), 0o755);
-  }
+  );
+  chmodSync(join(bin, 'docker'), 0o755);
+}
+
+describe('upgrade.sh ordering (stub docker)', () => {
   function go(extraEnv = {}) {
     const bin = tmp();
     const log = join(tmp(), 'calls.log');
-    stub(bin, log);
+    writeStub(bin, log);
     const envFile = join(tmp(), 'env');
     writeFileSync(envFile, 'POSTGRES_PASSWORD=x\n');
     const root = tmp();
@@ -363,7 +394,10 @@ exit 0
     return { ...r, calls, root, log: calls.join('\n') };
   }
   const idx = (calls, re) => calls.findIndex((c) => re.test(c));
-  const startsBackend = (c) => /(^| )start backend$/.test(c) || (/ up -d/.test(c) && !/--no-deps/.test(c));
+  // Any way to start the backend: `start backend`, or `up -d` that names backend (with or without --no-deps) or names nothing.
+  const startsBackend = (c) =>
+    /(^| )start backend$/.test(c) ||
+    (/ up -d/.test(c) && (/(^| )backend( |$)/.test(c) || !/--no-deps/.test(c)));
 
   test('success: stop -> dump -> migrate -> only then any start; backup verified and secret-free', () => {
     const r = go();
@@ -377,6 +411,20 @@ exit 0
     assert.doesNotMatch(r.log, new RegExp(SECRET));
     assert.doesNotMatch(r.out + r.err, new RegExp(SECRET));
   });
+  test('the dump commands carry the secret-exclusion flags', () => {
+    const r = go();
+    assert.equal(r.code, 0, r.err);
+    assert.ok(
+      r.calls.some((c) =>
+        / pg_dump -U postgres -d platform -Fc --exclude-table-data=core\.sessions$/.test(c),
+      ),
+      r.log,
+    );
+    assert.ok(
+      r.calls.some((c) => / pg_dumpall -U postgres --globals-only --no-role-passwords$/.test(c)),
+      r.log,
+    );
+  });
   test('the written backup passes verify-backup and holds no credential', () => {
     const r = go();
     assert.equal(r.code, 0, r.err);
@@ -384,9 +432,14 @@ exit 0
     assert.ok(name, 'a backup directory exists');
     const dir = join(r.root, name);
     assert.equal(bash(VERIFY, [dir], {}).code, 0);
-    for (const f of ['manifest.json', 'globals.sql', 'objects.sha256']) {
-      assert.doesNotMatch(readFileSync(join(dir, f), 'utf8'), new RegExp(SECRET));
+    // The stub leaks a role password / session row into the output when the matching dump flag is missing.
+    for (const f of ['manifest.json', 'globals.sql', 'objects.sha256', 'platform.dump']) {
+      const text = readFileSync(join(dir, f), 'utf8');
+      for (const secret of [SECRET, ROLE_SECRET, SESSION_SECRET])
+        assert.ok(!text.includes(secret), `${f} holds a credential`);
     }
+    assert.match(readFileSync(join(dir, 'platform.dump'), 'utf8'), /^DUMP$/m);
+    assert.match(readFileSync(join(dir, 'globals.sql'), 'utf8'), /^GLOBALS$/m);
     assert.match(readFileSync(join(dir, 'manifest.json'), 'utf8'), /"identity": "platform"/);
   });
   test('migration failure: no backend start at all, restore command printed, exit 1', () => {
@@ -400,9 +453,12 @@ exit 0
   test('backup failure: migrate never runs and the backend stays stopped', () => {
     const bin = tmp();
     const log = join(tmp(), 'calls.log');
-    stub(bin, log);
+    writeStub(bin, log);
     // dump fails: replace the pg_dump answer
-    const text = readFileSync(join(bin, 'docker'), 'utf8').replace('echo DUMP; exit 0', 'exit 3');
+    const text = readFileSync(join(bin, 'docker'), 'utf8').replace(
+      '*"exec -T postgres pg_dump "*)',
+      '*"exec -T postgres pg_dump "*) exit 3 ;;\n  *"unused-pattern"*)',
+    );
     writeFileSync(join(bin, 'docker'), text);
     const envFile = join(tmp(), 'env');
     writeFileSync(envFile, 'POSTGRES_PASSWORD=x\n');
@@ -412,13 +468,16 @@ exit 0
     });
     const calls = readFileSync(log, 'utf8').split('\n').filter(Boolean);
     assert.notEqual(r.code, 0);
-    assert.equal(calls.findIndex((c) => /run --rm --no-deps migrate/.test(c)), -1);
+    assert.equal(
+      calls.findIndex((c) => /run --rm --no-deps migrate/.test(c)),
+      -1,
+    );
     assert.equal(calls.findIndex(startsBackend), -1);
   });
   test('a divergent journal is refused before the backend is touched', () => {
     const bin = tmp();
     const log = join(tmp(), 'calls.log');
-    stub(bin, log);
+    writeStub(bin, log);
     const text = readFileSync(join(bin, 'docker'), 'utf8').replace("'h1\\nh2\\n'", "'h1\\nXX\\n'");
     writeFileSync(join(bin, 'docker'), text);
     const envFile = join(tmp(), 'env');
@@ -430,11 +489,197 @@ exit 0
     const calls = readFileSync(log, 'utf8').split('\n').filter(Boolean);
     assert.notEqual(r.code, 0);
     assert.match(r.err, /diverge/);
-    assert.equal(calls.findIndex((c) => /stop backend/.test(c)), -1);
+    assert.equal(
+      calls.findIndex((c) => /stop backend/.test(c)),
+      -1,
+    );
   });
   test('usage', () => {
     assert.equal(bash(UPGRADE, [], { BACKUP_ROOT: tmp() }).code, 2);
     assert.equal(bash(UPGRADE, ['local'], {}).code, 2);
     assert.equal(bash(UPGRADE, ['bad tag!'], { BACKUP_ROOT: tmp() }).code, 2);
+  });
+});
+
+describe('backup.sh standalone (stub docker)', () => {
+  const stubDir = () => ({ bin: tmp(), log: join(tmp(), 'calls.log') });
+  function runBackup(extraEnv = {}) {
+    const { bin, log } = stubDir();
+    writeStub(bin, log);
+    const envFile = join(tmp(), 'env');
+    writeFileSync(envFile, 'POSTGRES_PASSWORD=x\n');
+    const root = tmp();
+    const r = run('bash', [BACKUP, '--env-file', envFile, '--compose-file', COMPOSE], {
+      PATH: `${bin}:${process.env.PATH}`,
+      BACKUP_ROOT: root,
+      ...extraEnv,
+    });
+    const calls = existsSync(log) ? readFileSync(log, 'utf8').split('\n').filter(Boolean) : [];
+    return { ...r, calls, root, log: calls.join('\n') };
+  }
+  test('F3: a failed backend state query is a failure: no dump, no mirror, backend untouched', () => {
+    const r = runBackup({ STUB_PS_RC: '1' });
+    assert.notEqual(r.code, 0);
+    assert.match(r.err, /could not read the backend state/);
+    assert.equal(
+      r.calls.findIndex((c) => /pg_dump|stop backend|^run /.test(c)),
+      -1,
+      r.log,
+    );
+    assert.deepEqual(
+      readdirSync(r.root).filter((n) => /^\d{8}T/.test(n)),
+      [],
+    );
+  });
+  test('F4: a backend that cannot be started again makes the run fail and names the valid backup', () => {
+    const r = runBackup({ STUB_START_RC: '1' });
+    assert.notEqual(r.code, 0);
+    assert.match(r.err, /could not start the backend again/);
+    const name = readdirSync(r.root).find((n) => /^\d{8}T\d{6}Z$/.test(n));
+    assert.ok(name, 'the backup directory stays');
+    assert.ok(r.err.includes(join(r.root, name)), 'the message names the backup directory');
+    assert.equal(bash(VERIFY, [join(r.root, name)], {}).code, 0);
+  });
+  test('a successful standalone run starts the backend again and exits 0', () => {
+    const r = runBackup();
+    assert.equal(r.code, 0, r.err);
+    assert.ok(r.calls.some((c) => /start backend$/.test(c)));
+  });
+});
+
+describe('restore.sh image pair and cleanup (stub docker)', () => {
+  // A stub that lets a restore run to the end: every check query answers with its expected value.
+  function writeRestoreStub(bin, logFile) {
+    writeFileSync(
+      join(bin, 'docker'),
+      `#!/usr/bin/env bash
+printf '%s\\n' "$*" >>"${logFile}"
+case "$*" in
+  "volume inspect "*) exit 1 ;;
+  "compose version --short") echo 2.29.1; exit 0 ;;
+  "image inspect --format"*platform-release-backend*) echo "\${STUB_BACKEND_ID:-sha256:b}"; exit 0 ;;
+  "image inspect --format"*platform-release-migrate*) echo "\${STUB_MIGRATE_ID:-sha256:m}"; exit 0 ;;
+  *"psql"*"-f -"*) cat >/dev/null; exit 0 ;;
+  *"pg_restore --exit-on-error"*) exit "\${STUB_PGRESTORE_RC:-0}" ;;
+  *"exec -T backend node"*) exit 0 ;;
+  *"pg_roles where rolname !~"*) echo 0; exit 0 ;;
+  *"datname not in"*) echo 0; exit 0 ;;
+  *"select count(*) from core.workspaces"*) echo 1; exit 0 ;;
+  *"select count(*) from drizzle.__drizzle_migrations"*) echo 2; exit 0 ;;
+  *"select count(*) from core.sessions"*) echo 0; exit 0 ;;
+  *"string_agg(rolname"*) echo 'platform_app:true:true,platform_migrate:true:true'; exit 0 ;;
+  *"like 'fops"*) echo 0; exit 0 ;;
+  *"_owner' and rolcanlogin"*) echo 0; exit 0 ;;
+  *"pg_auth_members"*) echo 7; exit 0 ;;
+  *"pg_get_userbyid"*) echo platform_migrate; exit 0 ;;
+  *"pg_extension"*) echo 1; exit 0 ;;
+  *"relowner"*) echo 0; exit 0 ;;
+  *"has_database_privilege"*) echo t; exit 0 ;;
+  *"encode(sha256"*) echo d; exit 0 ;;
+  *"__drizzle_migrations order by id"*) printf '%s' "\${STUB_DB_HASHES:-h1\\nh2\\n}" | sed 's/\\\\n/\\n/g'; exit 0 ;;
+  *"--entrypoint cat"*) echo '{"entries":[{"tag":"0000_a"},{"tag":"0001_b"}'"\${STUB_EXTRA_TAG:-}"']}'; exit 0 ;;
+  *"--entrypoint sh"*) printf 'h1  0000_a.sql\\nh2  0001_b.sql\\nh3  0002_c.sql\\n'; exit 0 ;;
+  *"exec -T minio printenv MINIO_ROOT_USER"*) echo minioadmin; exit 0 ;;
+  *"exec -T minio printenv MINIO_ROOT_PASSWORD"*) echo ${SECRET}; exit 0 ;;
+  *"--entrypoint mc"*"ls --recursive"*) printf '{"type":"file","size":10}\\n{"type":"file","size":11}\\n'; exit 0 ;;
+  *"--entrypoint mc"*"mirror bk/"*)
+    for a in "$@"; do case "$a" in *:/data) cp -R "\${STUB_BACKUP_DIR}/objects/." "\${a%:/data}/" ;; esac; done
+    exit 0 ;;
+esac
+exit 0
+`,
+    );
+    chmodSync(join(bin, 'docker'), 0o755);
+  }
+  function go(extraEnv = {}) {
+    const bin = tmp();
+    const log = join(tmp(), 'calls.log');
+    writeRestoreStub(bin, log);
+    const envFile = join(tmp(), 'env');
+    writeFileSync(envFile, 'POSTGRES_PASSWORD=x\n');
+    const dir = makeBackup(tmp());
+    const r = run(
+      'bash',
+      [RESTORE, dir, '--project', 'restored', '--env-file', envFile, '--compose-file', COMPOSE],
+      {
+        PATH: `${bin}:${process.env.PATH}`,
+        STUB_BACKUP_DIR: dir,
+        ...extraEnv,
+      },
+    );
+    const calls = existsSync(log) ? readFileSync(log, 'utf8').split('\n').filter(Boolean) : [];
+    return { ...r, calls, log: calls.join('\n') };
+  }
+  const startsBackend = (c) => / up -d/.test(c) && /(^| )backend( |$)/.test(c);
+  const startsAnything = (c) =>
+    / up -d/.test(c) || /(^| )start( |$)/.test(c) || / run --rm/.test(c);
+
+  test('matching images: restore proceeds, backend starts, no migrate', () => {
+    const r = go();
+    assert.equal(r.code, 0, r.err + r.log);
+    assert.ok(r.calls.some(startsBackend));
+    assert.doesNotMatch(r.log, /run --rm --no-deps migrate|bootstrap/);
+  });
+  test('F1: images differing from the manifest are refused before anything starts', () => {
+    const r = go({ STUB_BACKEND_ID: 'sha256:other' });
+    assert.notEqual(r.code, 0);
+    assert.match(r.err, /not the pair this backup was taken with/);
+    assert.equal(r.calls.findIndex(startsAnything), -1, r.log);
+  });
+  test('F1: a missing local migrate image is a mismatch too', () => {
+    const r = go({ STUB_MIGRATE_ID: 'sha256:other' });
+    assert.notEqual(r.code, 0);
+    assert.equal(r.calls.findIndex(startsBackend), -1, r.log);
+  });
+  test('F1: mismatch + RESTORE_IMAGE_MISMATCH_OK with a pending migration is refused, no backend start', () => {
+    const r = go({
+      STUB_BACKEND_ID: 'sha256:other',
+      RESTORE_IMAGE_MISMATCH_OK: '1',
+      STUB_EXTRA_TAG: ',{"tag":"0002_c"}',
+    });
+    assert.notEqual(r.code, 0);
+    assert.match(r.err, /1 pending migration/);
+    assert.equal(r.calls.findIndex(startsBackend), -1, r.log);
+    assert.doesNotMatch(r.log, /run --rm --no-deps migrate/);
+  });
+  test('F1: mismatch + ack with a divergent journal is refused', () => {
+    const r = go({
+      STUB_BACKEND_ID: 'sha256:other',
+      RESTORE_IMAGE_MISMATCH_OK: '1',
+      STUB_DB_HASHES: 'h1\\nXX\\n',
+    });
+    assert.notEqual(r.code, 0);
+    assert.match(r.err, /diverge/);
+    assert.equal(r.calls.findIndex(startsBackend), -1, r.log);
+  });
+  test('F1: mismatch + ack with an identical journal proceeds', () => {
+    const r = go({ STUB_BACKEND_ID: 'sha256:other', RESTORE_IMAGE_MISMATCH_OK: '1' });
+    assert.equal(r.code, 0, r.err + r.log);
+    assert.ok(r.calls.some(startsBackend));
+  });
+  test('F2: a failure after the first start stops the target and starts nothing more', () => {
+    const r = go({ STUB_PGRESTORE_RC: '3' });
+    assert.notEqual(r.code, 0);
+    const firstUp = r.calls.findIndex((c) => / up -d/.test(c));
+    const stop = r.calls.findIndex(
+      (c, i) => i > firstUp && /-p restored .* stop$| stop$/.test(c) && !/stop backend/.test(c),
+    );
+    assert.ok(firstUp >= 0 && stop > firstUp, r.log);
+    assert.equal(
+      r.calls.slice(stop).findIndex((c) => / up -d|(^| )start( |$)/.test(c)),
+      -1,
+      r.log,
+    );
+    assert.equal(r.calls.findIndex(startsBackend), -1);
+    assert.doesNotMatch(r.calls.join('\n'), / down|volume rm/);
+    assert.match(r.err, /target project 'restored' stopped/);
+  });
+  test('F2: a failure before the first start runs no stop', () => {
+    const r = go({ STUB_BACKEND_ID: 'sha256:other' });
+    assert.equal(
+      r.calls.findIndex((c) => / stop$/.test(c)),
+      -1,
+      r.log,
+    );
   });
 });

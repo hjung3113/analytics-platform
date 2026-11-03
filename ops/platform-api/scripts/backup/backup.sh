@@ -71,9 +71,15 @@ WORK="$BACKUP_ROOT/.tmp-$STAMP-$$"
 BACKEND_WAS_RUNNING=0
 BACKEND_STOPPED=0
 STOP_AT=0
+RESTART_FAILED=0
 restart_backend() {
   if [ "$BACKEND_STOPPED" -eq 1 ] && [ "$KEEP_STOPPED" -eq 0 ] && [ "$BACKEND_WAS_RUNNING" -eq 1 ]; then
-    bk_dc start backend >/dev/null 2>&1 && bk_log 'backend started again' || bk_log 'WARNING: could not start the backend; run: docker compose ... start backend'
+    if bk_dc start backend >/dev/null 2>&1; then
+      bk_log 'backend started again'
+    else
+      RESTART_FAILED=1
+      bk_log 'ERROR: could not start the backend again; it is STOPPED. Start it: docker compose -p '"$PROJECT"' --env-file <env> -f <compose> start backend'
+    fi
     BACKEND_STOPPED=0
   fi
 }
@@ -101,7 +107,11 @@ IDENTITY=platform
 BUCKET="$(bk_bucket)"
 BACKEND_IMAGE="${BACKUP_BACKEND_IMAGE:-$BK_IMAGE_BACKEND_DEFAULT}"
 MIGRATE_IMAGE="${BACKUP_MIGRATE_IMAGE:-$BK_IMAGE_MIGRATE_DEFAULT}"
-bk_dc ps --status running --services 2>/dev/null | grep -qx backend && BACKEND_WAS_RUNNING=1 || true
+# Fail closed: an error while asking compose is not "backend stopped" (the dump would then run against live writers).
+if ! RUNNING_SERVICES="$(bk_dc ps --status running --services)"; then
+  bk_die 'could not read the backend state (docker compose ps failed); nothing was dumped, the backend was not touched'
+fi
+if printf '%s\n' "$RUNNING_SERVICES" | grep -qx backend; then BACKEND_WAS_RUNNING=1; fi
 
 mkdir -p "$WORK/objects"
 chmod 700 "$WORK" "$WORK/objects"
@@ -187,3 +197,7 @@ removed="$(bk_retention "$BACKUP_ROOT" "$BACKUP_KEEP" "$STAMP")"
 [ -z "$removed" ] || bk_log "retention (keep $BACKUP_KEEP) removed: $(printf '%s' "$removed" | tr '\n' ' ')"
 bk_log "backup complete: $FINAL (database + $OBJ_COUNT objects / $OBJ_BYTES bytes)"
 printf '%s\n' "$FINAL"
+if [ "$RESTART_FAILED" -eq 1 ]; then
+  bk_log "BACKUP IS VALID ($FINAL) but the backend could NOT be started again and is stopped; start it, then check /health/ready."
+  exit 1
+fi

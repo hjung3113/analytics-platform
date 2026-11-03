@@ -52,9 +52,9 @@ MinIO server image the stack already uses (`minio/minio`, run with entrypoint `m
 No credential is in a backup file, the manifest, a log or a process argument. The backup does hold business data
 (attachments, audit log, VOCs): protect `BACKUP_ROOT` like the live database and encrypt any off-host copy.
 
-Schedule (host crontab, quiet hour; mail goes to the cron owner on failure):
+Schedule (host crontab, quiet hour; the log takes all output; the `||` echo is the only output cron mails, so a failed run mails the owner):
 
-    15 3 * * * cd /opt/platform/ops/platform-api && BACKUP_ROOT=/srv/platform-backups bash scripts/backup/backup.sh >>/var/log/platform-backup.log 2>&1
+    15 3 * * * cd /opt/platform/ops/platform-api && BACKUP_ROOT=/srv/platform-backups bash scripts/backup/backup.sh >>/var/log/platform-backup.log 2>&1 || echo "platform backup FAILED, see /var/log/platform-backup.log"
 
 Copying `BACKUP_ROOT` off the host after each run is the operator's responsibility; without it a host loss loses the backups.
 Check a copy with `bash scripts/backup/verify-backup.sh <dir>` (works anywhere with bash; no Docker, no database).
@@ -67,6 +67,12 @@ The target gets fresh volumes `platform-restore_postgres` and `platform-restore_
 alone does not isolate data (the compose file pins volume names through `RELEASE_POSTGRES_VOLUME` / `RELEASE_MINIO_VOLUME`),
 so the script sets both for every target call and refuses before any start or write if either name equals a source or
 live volume or already exists. The live volumes are never touched.
+
+**Images.** Before anything starts, the local `platform-release-backend:local` and `platform-release-migrate:local` image ids
+must equal `images.backend` / `images.migrate` of the manifest; otherwise the restore is refused. Load or retag the matching
+pair first (the `:pre-<timestamp>` tags of an upgrade). `RESTORE_IMAGE_MISMATCH_OK=1` accepts a different build only if the
+restored journal equals the local migrate image exactly (read-only compare, as `upgrade.sh` does); a pending or divergent
+migration still refuses, before any backend start.
 
 What it does, in order: verify the backup files; start an empty Postgres (no `init.sql`; docker compose 2.24+ for the
 override); apply `globals.sql` and stop on the first error (only the `postgres` role lines are skipped); create database
@@ -86,8 +92,8 @@ project name `platform-api` instead, run the restore with `--project platform-ap
 `RESTORE_CONFIRM=platform-api`: the live containers are stopped first, the live volumes stay untouched, and the old
 values of the two `RELEASE_*` variables are the rollback.
 
-**Failed restore.** The script stops at the first failing step, prints the reason and keeps the half-built target volumes for
-inspection. The source backup and the live volumes are unchanged, so the live stack keeps running (or, after
+**Failed restore.** The script stops at the first failing step, prints the reason, stops the target's containers (nothing
+keeps running on unverified data) and keeps the half-built target volumes for inspection. The source backup and the live volumes are unchanged, so the live stack keeps running (or, after
 `--replace-live`, start it again with the original env). Fix the cause (damaged file → use the previous backup; password or
 env problem → fix `.env.production`) and restore into a new `--project` name. Remove a failed target only after inspecting it:
 `docker compose -p <target> down; docker volume rm <target>_postgres <target>_minio`.

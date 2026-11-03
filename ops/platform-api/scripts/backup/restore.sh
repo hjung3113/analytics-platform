@@ -21,7 +21,11 @@
 #   is left STOPPED with its data; the switch-over commands are printed. On any failure the script stops and prints the
 #   failed-restore branch; the source is untouched and the half-built target is kept for inspection.
 #
-# Environment: RESTORE_CONFIRM, RESTORE_LIVE_PROJECT (default platform-api), BACKUP_MC_IMAGE, STORAGE_S3_BUCKET.
+# Images: the local backend/migrate images must be the pair recorded in the manifest; otherwise the restore is refused
+# unless RESTORE_IMAGE_MISMATCH_OK=1, which still requires zero pending/divergent migrations (read-only compare).
+#
+# Environment: RESTORE_CONFIRM, RESTORE_LIVE_PROJECT (default platform-api), RESTORE_IMAGE_MISMATCH_OK, BACKUP_MC_IMAGE,
+# BACKUP_BACKEND_IMAGE / BACKUP_MIGRATE_IMAGE (default platform-release-{backend,migrate}:local), STORAGE_S3_BUCKET.
 
 set -Eeuo pipefail
 set +x
@@ -38,7 +42,7 @@ REPLACE_LIVE=0
 ENV_FILE="${BACKUP_ENV_FILE:-$OPS_ROOT/.env.production}"
 COMPOSE_FILE="${BACKUP_COMPOSE_FILE:-$OPS_ROOT/docker-compose.production.yml}"
 
-usage() { sed -n '3,28p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2; }
+usage() { sed -n '3,32p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2; }
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --help|-h) usage; exit 0 ;;
@@ -102,6 +106,23 @@ cv="${cv#v}"
 IFS=. read -r cv_major cv_minor _ <<<"$cv"
 { [ "${cv_major:-0}" -gt 2 ] || { [ "${cv_major:-0}" -eq 2 ] && [ "${cv_minor:-0}" -ge 24 ]; }; } || bk_die "docker compose >= 2.24 is required (found '$cv')"
 
+# 3b. Image pair (F1): the backend started below must be the build this backup was taken with, or provably
+# schema-compatible. Checked before anything starts.
+IMG_MISMATCH=0
+for kind in backend migrate; do
+  want_id="$(bk_m_section_value "$M" images "$kind")"
+  case "$kind" in backend) ref="${BACKUP_BACKEND_IMAGE:-$BK_IMAGE_BACKEND_DEFAULT}" ;; *) ref="${BACKUP_MIGRATE_IMAGE:-$BK_IMAGE_MIGRATE_DEFAULT}" ;; esac
+  have_id="$(docker image inspect --format '{{.Id}}' "$ref" 2>/dev/null || echo missing)"
+  if [ -z "$want_id" ] || [ "$want_id" = unknown ] || [ "$have_id" != "$want_id" ]; then
+    bk_log "$kind image $ref is '$have_id'; the backup was taken with '${want_id:-none}'"
+    IMG_MISMATCH=1
+  fi
+done
+if [ "$IMG_MISMATCH" -eq 1 ]; then
+  [ "${RESTORE_IMAGE_MISMATCH_OK:-}" = 1 ] || bk_die "the local backend/migrate images are not the pair this backup was taken with. Load the matching images (docker load / retag :pre-<timestamp>), or set RESTORE_IMAGE_MISMATCH_OK=1 to accept a different build: the restored journal is then compared with the local migrate image and any pending or divergent migration still refuses the restore."
+  bk_log 'RESTORE_IMAGE_MISMATCH_OK=1: different images accepted only if the restored journal matches the local migrate image exactly'
+fi
+
 umask 077
 TMP="$BACKUP_DIR/../.restore-tmp-$PROJECT-$$"
 mkdir -p "$TMP" && chmod 700 "$TMP"
@@ -115,10 +136,17 @@ services:
 YAML
 
 LIVE_STOPPED=0
+TARGET_STARTED=0
 fail_hint() {
   local rc=$?
   trap - EXIT ERR
   if [ "$rc" -ne 0 ]; then
+    if [ "$TARGET_STARTED" -eq 1 ]; then
+      # Stop (never remove) the target before the override file goes away: no mutable service keeps running on
+      # unverified data; the data stays in the volumes for inspection.
+      if bk_dc stop >/dev/null 2>&1; then bk_log "target project '$PROJECT' stopped (data stays in its volumes)"
+      else bk_log "WARNING: could not stop the target project '$PROJECT'; stop it yourself: docker compose -p $PROJECT --env-file <env> -f <compose> stop"; fi
+    fi
     bk_log "RESTORE FAILED (exit $rc). The source backup and the live volumes were not modified."
     bk_log "Target project '$PROJECT' keeps its half-built volumes for inspection: $PG_VOL, $MINIO_VOL."
     bk_log "Failed-restore branch: read the error above, fix the cause, then restore into a NEW --project name; remove the failed target only after inspecting it:"
@@ -151,6 +179,7 @@ export BACKEND_PORT BACKEND_BIND=127.0.0.1
 bk_log "target project $PROJECT, volumes $PG_VOL and $MINIO_VOL, verification backend on 127.0.0.1:$BACKEND_PORT"
 
 # 4. Empty cluster.
+TARGET_STARTED=1
 bk_dc up -d --no-deps --wait postgres >/dev/null
 leftover="$(bk_psql -d postgres -c "select count(*) from pg_roles where rolname !~ '^pg_' and rolname <> 'postgres'")"
 nodb="$(bk_psql -d postgres -c "select count(*) from pg_database where datname not in ('postgres','template0','template1')")"
@@ -216,6 +245,15 @@ bk_mc "$TMP/export" mirror "bk/$BUCKET" /data >&2 || bk_die 'could not export th
 bk_inventory "$TMP/export" | cmp -s - "$BACKUP_DIR/objects.sha256" || bk_die 'restored object checksums differ from objects.sha256'
 unset MC_HOST_bk
 bk_log "ok: $want_stats objects (count bytes) and sha256 inventory equal the backup"
+
+# 9b. Different image build accepted: the restored schema must equal what that build expects (read-only, never migrate).
+if [ "$IMG_MISMATCH" -eq 1 ]; then
+  bk_db_hashes >"$TMP/db-hashes" || bk_die 'could not read the restored migration journal'
+  bk_image_hashes "${BACKUP_MIGRATE_IMAGE:-$BK_IMAGE_MIGRATE_DEFAULT}" >"$TMP/img-hashes"
+  pend="$(bk_journal_pending "$TMP/db-hashes" "$TMP/img-hashes")" || bk_die 'the restored journal and the local migrate image diverge; no backend was started'
+  [ "$pend" = 0 ] || bk_die "the local migrate image would apply $pend pending migration(s) to the restored data; restore refuses (a backend on an older schema is not verified). Use the matching images; no backend was started."
+  bk_log 'ok: restored journal equals the local migrate image (0 pending)'
+fi
 
 # 10. Backend under the runtime role, no migrate, no bootstrap, no dependencies started.
 bk_log 'starting backend (platform_app) and waiting for /health/ready'
