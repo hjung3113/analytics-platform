@@ -135,12 +135,12 @@ describe.skipIf(!runIntegration)('public-only voc.read_public grant vs protected
       const other = await w.insertVoc(w.systems.a, 'admin', 'someone else A');
       const res = await send('GET', `/vocs/pre-submit-peers?managed_system_id=${w.systems.a}`, w.cookies.granted);
       expect(res.statusCode).toBe(200);
-      const text = JSON.stringify(res.json());
-      expect(text).toContain(own); // positive control: the route reached the peer query
-      expect(text).not.toContain(other);
-      // Positive control for the negative: a voc.read holder on A sees `other`.
+      const peerIds = bodyOf<{ items: Array<{ id: string }> }>(res).items.map((i) => i.id);
+      expect(peerIds).toContain(own); // positive control: the route reached the peer query
+      expect(peerIds).not.toContain(other);
+      // Positive control for the negative: a voc.read holder on A sees `other` in the peer collection.
       const reader = await send('GET', `/vocs/pre-submit-peers?managed_system_id=${w.systems.a}`, cookies.finderRead);
-      expect(JSON.stringify(reader.json())).toContain(other);
+      expect(bodyOf<{ items: Array<{ id: string }> }>(reader).items.map((i) => i.id)).toContain(other);
     });
   });
 
@@ -444,16 +444,17 @@ describe.skipIf(!runIntegration)('public-only voc.read_public grant vs protected
     it('same VOC set: voc.read holder counts all, a public-only actor gets no VOC count keys', async () => {
       await w.insertVoc(w.systems.a, 'admin', 'A one');
       await w.insertVoc(w.systems.a, 'admin', 'A two');
-      await w.insertVoc(w.systems.a, 'granted', 'A own');
       const url = `/nav/counts?managed_system_id=${w.systems.a}`;
+      const before = bodyOf<{ counts: Record<string, number> }>(await send('GET', url, w.cookies.granted)).counts;
+      await w.insertVoc(w.systems.a, 'granted', 'A own');
       const reader = bodyOf<{ counts: Record<string, number> }>(await send('GET', url, cookies.finderRead)).counts;
       expect(reader['voc.inbox']).toBe(3); // control: the three A VOCs
       const pub = await send('GET', url, w.cookies.granted);
       expect(pub.statusCode).toBe(200);
       const counts = bodyOf<{ counts: Record<string, number> }>(pub).counts;
       expect(Object.keys(counts).filter((k) => k.startsWith('voc.') && k !== 'voc.my' && k !== 'voc.clusters')).toEqual([]);
-      // The owner view is the actor's own VOC only, never the operator population.
-      expect(counts['voc.my'] ?? 0).toBeLessThanOrEqual(1);
+      // The owner view grows by exactly the actor's own new VOC, never the operator population.
+      expect(counts['voc.my']).toBe((before['voc.my'] ?? 0) + 1);
     });
   });
 
@@ -481,15 +482,13 @@ describe.skipIf(!runIntegration)('public-only voc.read_public grant vs protected
       const items = bodyOf<List>(pub).items;
       expect(items.map((i) => i.id).sort()).toEqual([nRestricted, nOwn].sort());
       expect(items.find((i) => i.id === nRestricted)?.subject_ref).toEqual({ visibility_state: 'unavailable' });
-      const ownRef = items.find((i) => i.id === nOwn)?.subject_ref;
-      expect(ownRef).toMatchObject({ visibility_state: 'allowed' });
-      expect(JSON.stringify(ownRef)).toContain('own subject');
+      const displayId = async (voc: string): Promise<string> =>
+        (await w.migrate.pool.query<{ display_id: string }>('select display_id from voc.vocs where id = $1', [voc])).rows[0]?.display_id ?? '';
+      expect(items.find((i) => i.id === nOwn)?.subject_ref).toEqual({ visibility_state: 'allowed', display_id: await displayId(own), title: 'own subject' });
       expect(JSON.stringify(pub.json())).not.toContain('restricted subject');
       const reader = bodyOf<List>(await send('GET', '/notifications', cookies.finderRead));
       expect(reader.items.map((i) => i.id).sort()).toEqual([nReader, nOtherRecipient].sort());
-      const readerRef = reader.items.find((i) => i.id === nReader)?.subject_ref;
-      expect(readerRef).toMatchObject({ visibility_state: 'allowed' });
-      expect(JSON.stringify(readerRef)).toContain('restricted subject');
+      expect(reader.items.find((i) => i.id === nReader)?.subject_ref).toEqual({ visibility_state: 'allowed', display_id: await displayId(restricted), title: 'restricted subject' });
     });
   });
 
