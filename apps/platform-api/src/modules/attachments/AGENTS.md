@@ -8,7 +8,8 @@ It is the implementation of Core's attachment governance (`docs/architecture/pla
 
 ## Invariants
 
-- The storage `put` runs before the DB INSERT, so no row ever points at missing bytes. If the INSERT fails, the service makes a best-effort `storage.delete` and rethrows the INSERT error (`service.ts`).
+- The storage `put` runs before the metadata transaction opens (never inside a DB transaction), so no row ever points at missing bytes and no connection is held during object-store I/O. If the transaction fails, or the idempotency lookup shows a replay or key conflict, `uploadAttachmentCommand` makes a best-effort `storage.delete` of the just-written object (a failed delete is logged without the key and never changes the outcome) and rethrows or replays (`service.ts`). Leftovers are found by `src/cli/attachments-orphans.ts` (`docs/architecture/platform-api/release/attachment-orphans.md`).
+- `POST /attachments` takes a per-process admission slot (`ATTACHMENT_UPLOAD_CONCURRENCY`, default 4) before buffering the body and releases it in a `finally`; when none is free it answers 503 `service.unavailable` with `Retry-After: 5` and does not queue (`upload-admission.ts`). The S3 client has a 30 s request and 5 s connect deadline (`STORAGE_S3_REQUEST_TIMEOUT_MS`, `STORAGE_S3_CONNECT_TIMEOUT_MS`).
 - The `attachment_uploaded` audit detail schema is `.strict()` and must never carry the filename: filenames can hold PII and controlled operator audit history retains attribution (app raw SELECT is revoked by ADR-0064) (`packages/feature-shared/src/audit/attachments.ts`).
 - The MIME allowlist (`mime-allowlist.ts`) is a closed set checked against the declared Content-Type; anything else is `attachment.unsupported_type`. The size cap is `MAX_ATTACHMENT_BYTES` (25 MB).
 - Every filename passes `sanitizeFilename` (strips `/`, `\`, and control characters; clamps to 255 UTF-8 bytes; an empty result is rejected) before it enters the storage key `{workspace_id}/{uuid}/{filename}`.
@@ -25,4 +26,4 @@ It is the implementation of Core's attachment governance (`docs/architecture/pla
 
 ## Verification
 
-- Test a failing INSERT after a successful put, the audit detail rejecting `filename`, MIME and filename rejection, cross-workspace 404, download entitlement for linked and unlinked rows, and the link guard predicates when touched.
+- Test a failing INSERT after a successful put, a replay deleting its extra object, slot release after success, error and client abort, the audit detail rejecting `filename`, MIME and filename rejection, cross-workspace 404, download entitlement for linked and unlinked rows, and the link guard predicates when touched.

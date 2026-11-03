@@ -2,9 +2,9 @@
 //
 // Covers:
 //   * 201 envelope shape (id/name/size_bytes/mime_type/uploaded_by_actor_id/created_at).
-//   * storage.put runs BEFORE the DB INSERT (operation ordering).
-//   * Idempotency replay returns the cached envelope without a second
-//     storage.put.
+//   * storage.put runs BEFORE the DB transaction (operation ordering).
+//   * Idempotency replay returns the cached envelope, one committed row, and
+//     leaves one object (the replay's extra put is deleted; #1266 b4).
 //   * storage.put failure → 502 storage.unavailable, no row inserted, no
 //     audit emitted.
 //   * INSERT failure triggers best-effort storage.delete cleanup.
@@ -232,7 +232,7 @@ describe.skipIf(!runIntegration)('POST /attachments — PLAN-22 C3b happy path',
     // together with the recorded put is sufficient for upload-then-insert.
   });
 
-  it('idempotency replay returns the cached 201 envelope without a second storage.put', async () => {
+  it('idempotency replay returns the cached 201 envelope, one row, one surviving object (#1266 b4)', async () => {
     const cookie = await loginAs(app, 'mock-user-1');
     const key = randomUUID();
     const first = await postAttachment(app, {
@@ -244,7 +244,7 @@ describe.skipIf(!runIntegration)('POST /attachments — PLAN-22 C3b happy path',
     });
     expect(first.statusCode).toBe(201);
     const firstBody = first.json();
-    const putCountAfterFirst = storage.calls.filter((c) => c.op === 'put').length;
+    const firstId = (firstBody as { id: string }).id;
 
     const second = await postAttachment(app, {
       cookie,
@@ -255,8 +255,14 @@ describe.skipIf(!runIntegration)('POST /attachments — PLAN-22 C3b happy path',
     });
     expect(second.statusCode).toBe(201);
     expect(second.json()).toEqual(firstBody);
-    const putCountAfterSecond = storage.calls.filter((c) => c.op === 'put').length;
-    expect(putCountAfterSecond).toBe(putCountAfterFirst);
+    // Put-before-lookup: the replay put a second object and deleted it.
+    expect(storage.calls.filter((c) => c.op === 'put')).toHaveLength(2);
+    expect(storage.calls.filter((c) => c.op === 'delete')).toHaveLength(1);
+    expect(storage.store.size).toBe(1);
+    const stored = [...storage.store.keys()][0] ?? '';
+    expect(stored.split('/')[1]).toBe(firstId);
+    const rows = await dbHandle.pool.query('select id from voc.voc_attachments');
+    expect(rows.rowCount).toBe(1);
   });
 
   it('storage.put failure → 502 storage.unavailable, no row inserted, no audit emitted', async () => {

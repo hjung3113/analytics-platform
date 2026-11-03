@@ -54,19 +54,26 @@ interface StorageCall {
 
 interface FakeStorage extends StorageBackend {
   calls: StorageCall[];
+  /** Keys currently stored (put and not deleted). */
+  live: Set<string>;
   putBehavior: 'ok' | 'throw-unavailable';
+  /** #1266 b4: a failing best-effort delete must never change the command outcome. */
+  deleteBehavior: 'ok' | 'throw-unavailable';
 }
 
 function createFakeStorage(): FakeStorage {
   const calls: StorageCall[] = [];
   const fake: FakeStorage = {
     calls,
+    live: new Set<string>(),
     putBehavior: 'ok',
+    deleteBehavior: 'ok',
     async put(input: StoragePutInput) {
       calls.push({ op: 'put', key: input.key });
       if (fake.putBehavior === 'throw-unavailable') {
         throw new StorageUnavailableError('fake storage offline');
       }
+      fake.live.add(input.key);
       return { key: input.key };
     },
     async get(key: string): Promise<StorageGetResult> {
@@ -75,6 +82,10 @@ function createFakeStorage(): FakeStorage {
     },
     async delete(key: string) {
       calls.push({ op: 'delete', key });
+      if (fake.deleteBehavior === 'throw-unavailable') {
+        throw new StorageUnavailableError('fake storage delete offline');
+      }
+      fake.live.delete(key);
     },
     async exists(key: string) {
       calls.push({ op: 'exists', key });
@@ -227,7 +238,9 @@ describe.skipIf(!runIntegration)('uploadAttachmentCommand (#393)', () => {
   beforeEach(async () => {
     await cleanupDb();
     storage.calls.length = 0;
+    storage.live.clear();
     storage.putBehavior = 'ok';
+    storage.deleteBehavior = 'ok';
   });
 
   it('(a) 201 → envelope, one voc_attachments row, one attachment_uploaded audit row, one storage put', async () => {
@@ -255,7 +268,7 @@ describe.skipIf(!runIntegration)('uploadAttachmentCommand (#393)', () => {
     expect(puts[0]?.key).toBe(`${workspaceId}/${first.body.id}/${FILENAME}`);
   });
 
-  it('(b) replay with same key+hash → identical result, still one row and one put', async () => {
+  it('(b) replay with same key+hash → identical result, one row, the extra object put before the lookup is deleted (#1266 b4)', async () => {
     const args = commandArgs();
     const first = await attachmentsService.uploadAttachmentCommand(args);
     expect(first.status).toBe(201);
@@ -265,10 +278,14 @@ describe.skipIf(!runIntegration)('uploadAttachmentCommand (#393)', () => {
 
     expect(await attachmentRowCount(adminActorId)).toBe(1);
     expect(await auditEventTypes(first.body.id)).toEqual(['attachment_uploaded']);
-    expect(storagePuts()).toHaveLength(1);
+    // Put-before-lookup: the replay wrote a second object, then removed it.
+    expect(storagePuts()).toHaveLength(2);
+    expect(storageDeletes()).toHaveLength(1);
+    expect(storageDeletes()[0]?.key).toBe(storagePuts()[1]?.key);
+    expect([...storage.live]).toEqual([`${workspaceId}/${first.body.id}/${FILENAME}`]);
   });
 
-  it('(c) same key, different hash → conflict.idempotency_key_reuse, no extra row or put', async () => {
+  it('(c) same key, different hash → conflict.idempotency_key_reuse, no extra row, the extra object is deleted (#1266 b4)', async () => {
     const key = randomUUID();
     const first = await attachmentsService.uploadAttachmentCommand(
       commandArgs({ idempotencyKey: key }),
@@ -284,7 +301,12 @@ describe.skipIf(!runIntegration)('uploadAttachmentCommand (#393)', () => {
     ).rejects.toMatchObject({ code: 'conflict.idempotency_key_reuse' });
 
     expect(await attachmentRowCount(adminActorId)).toBe(1);
-    expect(storagePuts()).toHaveLength(1);
+    expect(storagePuts()).toHaveLength(2);
+    expect(storageDeletes()).toHaveLength(1);
+    expect(storage.live.size).toBe(1);
+    expect([...storage.live]).toEqual([
+      `${workspaceId}/${first.body.id}/${FILENAME}`,
+    ]);
   });
 
   it('(d) storage put failure → storage.unavailable, no row, no idempotency record; retry succeeds once storage recovers', async () => {
@@ -364,7 +386,8 @@ describe.skipIf(!runIntegration)('uploadAttachmentCommand (#393)', () => {
       expect(waiting, 'command must be blocked on the advisory lock').toBeGreaterThan(0);
       // Still blocked after the lock wait is confirmed:
       expect(settled, 'command must wait for the advisory lock').toBe(false);
-      expect(storagePuts()).toHaveLength(0);
+      // #1266 b4: the put runs BEFORE the transaction (and its lock wait).
+      expect(storagePuts()).toHaveLength(1);
 
       await holder.query('commit');
       const result = (await command) as { status: number };
@@ -378,7 +401,7 @@ describe.skipIf(!runIntegration)('uploadAttachmentCommand (#393)', () => {
     }
   });
 
-  it('(g) 6-way race on same actor+key+hash: all fulfill identically, exactly one row and one put', async () => {
+  it('(g) 6-way race on same actor+key+hash: all fulfill identically, exactly one row and one surviving object (#1266 b4)', async () => {
     const key = randomUUID();
     const args = commandArgs({ idempotencyKey: key });
 
@@ -395,6 +418,67 @@ describe.skipIf(!runIntegration)('uploadAttachmentCommand (#393)', () => {
       expect(value).toEqual(bodies[0]);
     }
     expect(await attachmentRowCount(adminActorId)).toBe(1);
-    expect(storagePuts()).toHaveLength(1);
+    // Every racer put its own object; the five replays deleted theirs.
+    expect(storagePuts()).toHaveLength(6);
+    expect(storageDeletes()).toHaveLength(5);
+    expect(storage.live.size).toBe(1);
+    const firstBody = bodies[0]?.body as { id: string };
+    expect([...storage.live]).toEqual([`${workspaceId}/${firstBody.id}/${FILENAME}`]);
+  });
+
+  it('(h) replay when the cleanup delete fails → same cached response, one row, failure swallowed (#1266 b4)', async () => {
+    const args = commandArgs();
+    const first = await attachmentsService.uploadAttachmentCommand(args);
+
+    storage.deleteBehavior = 'throw-unavailable';
+    const replay = await attachmentsService.uploadAttachmentCommand(args);
+
+    expect(replay).toEqual(first);
+    expect(await attachmentRowCount(adminActorId)).toBe(1);
+    // The orphan stays in the bucket for the attachments-orphans inventory.
+    expect(storage.live.size).toBe(2);
+  });
+
+  it('(i) conflict when the cleanup delete fails → conflict still surfaces, not the storage error (#1266 b4)', async () => {
+    const key = randomUUID();
+    await attachmentsService.uploadAttachmentCommand(commandArgs({ idempotencyKey: key }));
+    storage.deleteBehavior = 'throw-unavailable';
+    await expect(
+      attachmentsService.uploadAttachmentCommand({
+        ...commandArgs({ idempotencyKey: key }),
+        requestHash: attachmentHash('different.png', MIME, BYTES.byteLength),
+      }),
+    ).rejects.toMatchObject({ code: 'conflict.idempotency_key_reuse' });
+    expect(await attachmentRowCount(adminActorId)).toBe(1);
+  });
+
+  it('(j) holds no connection or open transaction while the storage put is in flight (#1266 b4)', async () => {
+    let observed: Array<{ state: string | null; xact_start: Date | null }> = [];
+    let checkedOut = -1;
+    const originalPut = storage.put.bind(storage);
+    storage.put = async (input: StoragePutInput) => {
+      const activity = await migrateHandle.pool.query<{
+        state: string | null;
+        xact_start: Date | null;
+      }>(
+        `select state, xact_start from pg_stat_activity
+          where datname = current_database()
+            and usename = 'platform_app'
+            and pid <> pg_backend_pid()`,
+      );
+      observed = activity.rows;
+      checkedOut = dbHandle.pool.totalCount - dbHandle.pool.idleCount;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      return originalPut(input);
+    };
+    try {
+      const result = await attachmentsService.uploadAttachmentCommand(commandArgs());
+      expect(result.status).toBe(201);
+    } finally {
+      storage.put = originalPut;
+    }
+    expect(checkedOut).toBe(0);
+    expect(observed.filter((row) => row.state?.startsWith('idle in transaction'))).toEqual([]);
+    expect(observed.filter((row) => row.xact_start !== null && row.state !== 'idle')).toEqual([]);
   });
 });

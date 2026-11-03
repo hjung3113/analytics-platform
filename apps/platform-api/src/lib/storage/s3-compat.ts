@@ -44,7 +44,14 @@ export interface S3CompatConfig {
   secretAccessKey: string;
   /** MinIO and most non-AWS S3 implementations require path-style addressing. */
   forcePathStyle: boolean;
+  /** #1266 b4: per-request socket timeout (ms). Default 30 s. */
+  requestTimeoutMs?: number;
+  /** #1266 b4: TCP connect timeout (ms). Default 5 s. */
+  connectTimeoutMs?: number;
 }
+
+export const DEFAULT_S3_REQUEST_TIMEOUT_MS = 30_000;
+export const DEFAULT_S3_CONNECT_TIMEOUT_MS = 5_000;
 
 const NETWORK_ERROR_CODES = new Set([
   'ECONNREFUSED',
@@ -60,6 +67,7 @@ const UNAVAILABLE_AWS_NAMES = new Set([
   'ServiceUnavailable',
   'SlowDown',
   'RequestTimeout',
+  'TimeoutError',
   'InternalError',
   'InternalFailure',
 ]);
@@ -96,6 +104,11 @@ export class S3CompatStorageBackend implements StorageBackend {
       endpoint: cfg.endpoint,
       region: cfg.region,
       forcePathStyle: cfg.forcePathStyle,
+      requestHandler: {
+        requestTimeout: cfg.requestTimeoutMs ?? DEFAULT_S3_REQUEST_TIMEOUT_MS,
+        throwOnRequestTimeout: true,
+        connectionTimeout: cfg.connectTimeoutMs ?? DEFAULT_S3_CONNECT_TIMEOUT_MS,
+      },
       credentials: {
         accessKeyId: cfg.accessKeyId,
         secretAccessKey: cfg.secretAccessKey,
