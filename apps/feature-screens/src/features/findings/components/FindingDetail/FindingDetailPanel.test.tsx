@@ -531,7 +531,7 @@ describe('FindingDetailPanel', () => {
         }),
       );
       const failureMessage = await screen.findByRole('alert');
-      expect(failureMessage).toHaveTextContent('Task 요청를 확인하지 못했습니다.');
+      expect(failureMessage).toHaveTextContent('Task 요청을 확인하지 못했습니다.');
       expect(failureMessage).toHaveClass('text-text-danger');
       expect(screen.getByRole('button', { name: '다시 시도' })).toBeInTheDocument();
       expect(screen.queryByRole('group', { name: '주요 실행' })).not.toBeInTheDocument();

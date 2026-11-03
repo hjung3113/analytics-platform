@@ -36,8 +36,8 @@ const KIND_LABELS: Record<DetailPanelKind, string> = {
   finding: 'Finding',
   task_request: 'Task 요청',
   task: 'Task',
-  survey: 'Survey',
-  cluster: 'Cluster',
+  survey: '설문',
+  cluster: '반복 VOC',
   milestone: 'Milestone',
 };
 

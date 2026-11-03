@@ -54,7 +54,7 @@ const TAB_CONFIGS: TabConfig[] = [
   },
   {
     surface: 'reply',
-    label: '신고자에게 답장',
+    label: '신고자 답글',
     activeBorderClass: 'border-b-accent-info',
     visibilityKey: 'showReply',
   },

@@ -595,7 +595,7 @@ describe('설문 screens', () => {
 
     const header = await screen.findByTestId('detail-panel-header-content');
     expect(header.parentElement).toHaveAttribute('data-kind', 'survey');
-    expect(within(header).getByText('Survey')).toBeInTheDocument();
+    expect(within(header).getByText('설문')).toBeInTheDocument();
     expect(within(header).getByText('SRV-1')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '패널 닫기' }));
     expect(onClose).toHaveBeenCalledTimes(1);

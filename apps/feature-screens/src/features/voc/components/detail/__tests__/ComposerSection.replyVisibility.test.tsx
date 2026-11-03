@@ -93,7 +93,7 @@ function Wrapper({ children }: { children: React.ReactNode }) {
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
 
-const REPLY_TAB = { name: '신고자에게 답장' };
+const REPLY_TAB = { name: '신고자 답글' };
 
 describe('<ComposerSection> reply visibility (real useComposerVisibility)', () => {
   it('falls back to the first visible tab, moves focus out of the removed Reply body, and keeps other drafts', () => {

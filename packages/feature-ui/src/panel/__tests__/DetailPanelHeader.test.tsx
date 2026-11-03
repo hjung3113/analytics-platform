@@ -39,9 +39,9 @@ const KIND_LABELS: Record<DetailPanelKind, string> = {
   voc: 'VOC',
   finding: 'Finding',
   task: 'Task',
-  task_request: 'Task Request',
-  survey: 'Survey',
-  cluster: 'Cluster',
+  task_request: 'Task 요청',
+  survey: '설문',
+  cluster: '반복 VOC',
   milestone: 'Milestone',
 };
 

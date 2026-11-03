@@ -159,7 +159,7 @@ export function FindingExecutionRequestRow({
                 ? { 'aria-live': 'polite' as const }
                 : { role: 'alert' as const })}
             >
-              {retryInProgress ? '확인 중…' : 'Task 요청를 확인하지 못했습니다.'}
+              {retryInProgress ? '확인 중…' : 'Task 요청을 확인하지 못했습니다.'}
             </span>
             <Button
               type="button"

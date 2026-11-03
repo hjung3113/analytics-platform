@@ -265,7 +265,7 @@ describe('Composer flow — integration (C6.3)', () => {
 
     // Tab labels from ComposerTabs TAB_CONFIGS: 'Public update', 'Reporter reply', 'Internal note'
     expect(screen.getByRole('tab', { name: /담당자 답변/i })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /신고자에게 답장/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /신고자 답글/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /내부 코멘트/i })).toBeInTheDocument();
   });
 
@@ -280,7 +280,7 @@ describe('Composer flow — integration (C6.3)', () => {
 
     expect(screen.getByRole('tab', { name: /담당자 답변/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /내부 코멘트/i })).toBeInTheDocument();
-    expect(screen.queryByRole('tab', { name: /신고자에게 답장/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: /신고자 답글/i })).not.toBeInTheDocument();
   });
 
   // ── Test 2: Reporter sees only Reply tab ───────────────────────────────────
@@ -294,7 +294,7 @@ describe('Composer flow — integration (C6.3)', () => {
     );
 
     // Only Reporter reply tab shown
-    expect(screen.getByRole('tab', { name: /신고자에게 답장/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /신고자 답글/i })).toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: /담당자 답변/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: /내부 코멘트/i })).not.toBeInTheDocument();
   });
@@ -319,7 +319,7 @@ describe('Composer flow — integration (C6.3)', () => {
     });
 
     // Switch to Reporter reply
-    fireEvent.click(screen.getByRole('tab', { name: /신고자에게 답장/i }));
+    fireEvent.click(screen.getByRole('tab', { name: /신고자 답글/i }));
     await waitFor(() => {
       expect(screen.getByTestId('rich-editor-reporter-reply')).toBeInTheDocument();
     });

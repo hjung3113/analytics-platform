@@ -304,7 +304,7 @@ describe('/surveys/:surveyId/follow-up route', () => {
       .getByTestId('follow-up-detail-panel')
       .querySelector('[data-kind="survey"]');
     expect(detailHeader).toBeInTheDocument();
-    expect(detailHeader).toHaveTextContent('Survey');
+    expect(detailHeader).toHaveTextContent('설문');
     expect(detailHeader).toHaveTextContent('응답 #04');
     expect(detailHeader).not.toHaveTextContent('RESPONSE');
 
