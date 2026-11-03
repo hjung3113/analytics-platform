@@ -120,6 +120,7 @@
 | [0107](0107-log-knowledge-catalog-authority-keys-and-edit-rights.md) | 로그 지식 허브 P0 카탈로그: 원천은 허브(외부 공식 마스터는 `external_identity_map` 매핑만, 자동 병합 금지), 코드 원문 + NFKC·공백·대문자 `code_key` 유일, 비활성 행도 키 보유, Vendor 이동 거절, 편집은 `knowledge.catalog.manage`·`.import` capability(Admin 항상, Developer 요청) | Decided (2026-11-02, owner, #1192) |
 | [0108](0108-space-scope-presentation-field.md) | 사이드바 Scope 표시는 공간 필드 `SpaceDef.scopePresentation`(`default`·`hidden`)으로 숨긴다: `hidden`은 `ScopeSelector` 대체만 없애고 `scopeControl` 컴포넌트는 그대로, Registry는 `requiresScope` 메뉴를 거부, 엔드포인트는 앱 테스트로 확인(동작은 규칙만, 자동 검사 없음) | Decided (2026-11-02, owner 승인·코디네이터 설계, #1251) |
 | [0109](0109-log-knowledge-item-ownership-revisions-assessments.md) | 로그 지식 Item은 Model 또는 SW 하나가 소유하고 소유는 바뀌지 않는다; Revision·판단 이벤트(확인/처리 두 축)·근거 포인터·링크는 추가 전용; 파생은 새 Item + 고정 Revision의 `derived_from`; 번호는 워크스페이스 카운터 원자 upsert; 쓰기 권한은 `knowledge.item.publish` | Decided (2026-11-02, owner 승인·코디네이터 세부, #1197) |
+| [0110](0110-platform-feature-roles-and-scope.md) | 플랫폼 기능은 역할로 세 자리(직속·업무 흐름 `flow`·운영 콘솔)에 나눈다; VOC 공개 열람은 `voc.read_public` 시스템 단위 부여, 「플랫폼」 시스템 VOC는 로그인 전원 공개, Site·room은 #98 뒤; 업무 시스템은 `SpaceDef.feedbackTracking`과 빌드 산출물로 시스템을 스스로 등록하고 「플랫폼」 시스템을 늘 둔다; 화면 용어 `시스템`·`Task` | Decided (2026-11-03, 소유자, #1287–#1291) |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 

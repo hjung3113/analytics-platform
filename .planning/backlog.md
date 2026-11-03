@@ -4,6 +4,12 @@
 
 ## 작은 후속 (확인된 것)
 
+- **구현 안 함 — 부여 범위 종류 `scope_kind`(space·site·site_room)와 VOC Site 속성(ADR-0110 결정 3):** 이번 릴리스의 VOC 공개 열람은 기존 Managed System 범위 부여만 쓴다. 이유: 지금 권한 판정은 시스템 지정 없는 부여를 workspace 전체로 읽어, 새 종류는 그 해석을 모두 바꾸는 변경(부여·거부·요청 표 포함)과 함께 들어와야 하고, 실서버 bootstrap Site 범위와 부여 쓰기 원천이 아직 없다. 다시 여는 조건: [#98](https://github.com/hjung3113/analytics-platform/issues/98) 답 + 실서버 Site 범위 제공 — 소유자의 세부 권한 규칙 정리와 함께.
+- **구현 안 함 — FAQ 기능(ADR-0110):** 이번 릴리스는 직속 메뉴 자리(manifest)만 둔다(소유자 2026-11-03). 다시 여는 조건: 다음 릴리스 범위를 정할 때.
+- **구현 안 함 — 플랫폼 기능 켜기/끄기(ADR-0110):** 운영 콘솔에서 VOC·설문 같은 기능을 끄는 설정. 이유: 지금 요구가 없다. 다시 여는 조건: 사내 도입에서 기능별 끄기 요구가 나올 때.
+- **구현 안 함 — 개선 실행 `과제`와 기능 Task를 한 공간에서 보이기(ADR-0110):** 이유: 두 객체의 관계와 화면 용어 정리가 먼저다. 다시 여는 조건: 개선 실행 이관 범위를 정할 때.
+- **구현 안 함 — 업무 흐름 VOC 처리함과 직속 VOC 목록 통합(ADR-0110):** 지금은 목적(처리 큐 vs 찾아보기)과 응답 투영이 달라 두 화면으로 둔다. 다시 여는 조건: 두 화면이 같은 열을 2/3 이상 공유할 때.
+- **구현 안 함 — 흐름 정책(옛 `기능 설정`)을 Developer에게 열기(ADR-0110):** 업무 흐름 `설정`은 지금처럼 F∧C로 시작한다. 다시 여는 조건: 소유자의 세부 권한 규칙 정리.
 - **구현 안 함 — 플랫폼 port 권한 표의 업무 모듈 메뉴 권한 하드코딩(#1266 A5):** `modules/platform-port/permissions.ts`에 `knowledge:catalog-manage`·`knowledge:item-publish`가 직접 적혀 있다. 이유: 지금 메뉴 권한을 가진 업무 모듈이 하나라 영향이 없고 계약 모양을 바꾸는 일이다. 다시 여는 조건: 메뉴 권한을 가진 업무 모듈을 새로 만들 때 — `MenuDispatchContribution`이 메뉴 권한과 판정 규칙을 선언하고 port는 등록된 선언을 읽게 한다.
 - **구현 안 함 — 통합 테스트 teardown 순서를 suite마다 손으로 씀(#1266 A6):** 약 70곳이 `delete from core.sessions` 등을 직접 쓰며 FK 순서(audit_log → sessions → actors, migrate 역할; #205)를 다시 구현한다. #1275에서 고친 IP별 로그인 버킷 초기화도 같은 종류다. 이유: 동작 변경 없는 테스트 정리 작업이라 #1266 범위 밖이다. 다시 여는 조건: 새 suite를 추가할 때 — `src/test-support`에 `cleanupActors(migrateHandle, actorIds)`를 하나 두고 새 suite부터 쓴다.
 - **구현 안 함 — ADR-0012 오류 envelope 처리기 두 벌(#1266 A7):** `src/lib/http-error-handler.ts`와 `modules/platform-port/transport.ts`가 각각 envelope를 만들고 이미 어긋났다(`requestable_permission` hoist, malformed 로그). 이유: 지금 platform 경로는 그 필드를 던지지 않아 wire 차이가 없다. 다시 여는 조건: 업무 모듈 action이 `permission.*`에 requestable 상세를 붙여 던질 때 — envelope 생성 함수를 하나 뽑아 두 처리기가 공유한다.
