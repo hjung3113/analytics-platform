@@ -1,10 +1,10 @@
 // #1291 B2 — the real 권한 부여 screen through the bridge: its one grant button is drawn in the platform page head, once, and stays behind the menu gate.
-import { cleanup, screen } from '@testing-library/react';
+import { act, cleanup } from '@testing-library/react';
 import { KeyRound } from 'lucide-react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
 import { setFeatureApi } from '@ap/feature-bridge/feature-api';
-import { createFeatureMenuHarness, LAZY_MOUNT_WAIT } from '@ap/feature-bridge/testing';
+import { createFeatureMenuHarness, expectHeadPrimaryAction } from '@ap/feature-bridge/testing';
 import { harnessMenus, homeStub, mountAt, warmPages } from '../test-support';
 
 const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
@@ -38,18 +38,15 @@ describe('권한 부여 through the bridge', () => {
   it('is drawn once, in the page head, and not in the screen body', async () => {
     installFetch();
     const { container } = mountAt(GRANTS);
-    const button = await screen.findByRole('button', { name: '권한 부여' }, LAZY_MOUNT_WAIT);
-    expect(container.querySelector('header [data-feature-primary-action]')?.contains(button)).toBe(true);
-    expect(screen.getAllByRole('button', { name: '권한 부여' })).toHaveLength(1);
+    await expectHeadPrimaryAction({ container, locate: { name: '권한 부여' }, drawn: true });
   });
 
   it('is absent for a user without console:access (the menu gate refuses the page)', async () => {
     const request = installFetch();
     const { mountAt: mountPlain } = createFeatureMenuHarness({ manifests: harnessMenus, homeMenuId: homeStub.id, group: { id: 'access', label: { ko: '권한', en: 'Access' }, icon: KeyRound }, space: { id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' } } });
     const { container } = mountPlain(GRANTS);
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    expect(screen.queryByRole('button', { name: '권한 부여' })).toBeNull();
-    expect(container.querySelector('[data-feature-primary-action]')).toBeNull();
+    // Nothing is requested for a refused page, so the signal is the (already warmed) page chunk having had its chance to mount.
+    await expectHeadPrimaryAction({ container, locate: { name: '권한 부여' }, drawn: false, noSlot: true, settled: async () => { await warmPages(); await act(async () => {}); } });
     expect(request).not.toHaveBeenCalled();
   });
 });

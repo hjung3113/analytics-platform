@@ -8,18 +8,7 @@ export {
   RespondSurveyScreen,
   SurveyParticipationScreen,
 } from '@/features/surveys/components/participation/SurveyParticipationScreens';
-export {
-  MyVocListScreen,
-  type MyVocInitialFocus,
-} from '@/features/voc/components/reporter/MyVocListScreen';
-export {
-  MY_VOC_DEFAULT_SORT,
-  MY_VOC_QUERY_MAX,
-  MY_VOC_SORTS,
-  REPORTER_FACING_STATUS_ALL,
-  type MyVocQuery,
-  type MyVocSort,
-} from '@/features/voc/components/reporter/my-voc-query';
+export { REPORTER_FACING_STATUS_ALL } from '@/lib/copy/reporter-status-labels';
 export {
   PublicVocListScreen,
   type PublicVocInitialFocus,

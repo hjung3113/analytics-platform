@@ -95,7 +95,7 @@ describe('Feature bridge entry graph (ADR-0071)', () => {
   });
 
   it('reaches the reporter VOC screens and not the operator inbox or detail panel', () => {
-    expect(reached).toEqual(expect.arrayContaining(['features/voc/components/reporter/MyVocListScreen.tsx', 'features/voc/components/reporter/ReporterVocDetail.tsx']));
+    expect(reached).toEqual(expect.arrayContaining(['features/voc/components/reporter/ReporterVocDetail.tsx']));
     expect(reached.filter(file => /^features\/voc\/(routes\/|components\/(list\/VocList\.tsx|detail\/(VocDetailPanel|FullDetailView)\.tsx))/.test(file))).toEqual([]);
   });
 

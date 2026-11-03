@@ -4,6 +4,8 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 
+import { spaceLinksResponseSchema } from '@ap/feature-shared';
+
 import { HttpError, fieldsFromZodIssues, sendError } from '../../lib/errors.js';
 import { optionalIdempotencyKey } from '../../lib/http-headers.js';
 import { requireSession } from '../../middleware/require-session.js';
@@ -188,6 +190,7 @@ export const managedSystemsRoutes: FastifyPluginAsync<ManagedSystemsRoutesOption
   app.route({
     method: 'GET',
     url: '/managed-systems/space-links',
+    schema: { response: { 200: spaceLinksResponseSchema } },
     preHandler: [requireSession(sessionService), requireWorkspace(workspaceId)],
     handler: async (req) => {
       const sess = req.session;

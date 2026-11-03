@@ -1,6 +1,6 @@
 // #1291 B2 — the registry screens draw their one create/register button in the host head (not in the screen's own header actions) and keep it gated.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
@@ -43,7 +43,7 @@ const seam: HostSeam = {
 function mount(page: 'ms' | 'aa', hosted: boolean) {
   const Page = page === 'ms' ? ManagedSystemsAdminPage : AnalyticsAreasAdminPage;
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
+  const view = render(
     <QueryClientProvider client={client}>
       {hosted ? (
         <HeadTargetHost base={seam}><Page /></HeadTargetHost>
@@ -52,6 +52,7 @@ function mount(page: 'ms' | 'aa', hosted: boolean) {
       )}
     </QueryClientProvider>,
   );
+  return { ...view, client };
 }
 
 const CASES = [
@@ -80,9 +81,13 @@ describe('admin registry screens — primary action placement (#1291 B2)', () =>
 
   it.each(CASES)('%s is absent from the head for a user without workspace.admin', async (_label, page, testId) => {
     installFetch('blocked_non_requestable');
-    mount(page, true);
-    await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled());
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    const { client } = mount(page, true);
+    // Observable signal instead of a sleep: the capability check was asked, its query completed (body read and parsed) and the observer update rendered.
+    const fetchMock = vi.mocked(globalThis.fetch);
+    await waitFor(() => expect(fetchMock.mock.calls.some(([input]) => String(input).includes('/me/permissions/check'))).toBe(true));
+    await waitFor(() => expect(client.isFetching()).toBe(0));
+    await act(async () => { await new Promise<void>((resolve) => { setTimeout(resolve, 0); }); });
+    await act(async () => {});
     expect(screen.queryByTestId(testId)).toBeNull();
     expect(within(screen.getByTestId('host-head')).queryByRole('button')).toBeNull();
   });

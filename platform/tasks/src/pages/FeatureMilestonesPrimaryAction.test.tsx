@@ -1,11 +1,11 @@
 // #1291 B2 — the real Milestones screen through the bridge: Milestone 생성 is drawn in the platform page head, once, and not in the toolbar; a user without features:access gets no page.
-import { cleanup, fireEvent, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, screen } from '@testing-library/react';
 import { ClipboardList, UserRound } from 'lucide-react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MenuEntry } from '@ap/kernel';
 import { memoryStorage } from '@ap/kernel/testing';
 import { setFeatureApi } from '@ap/feature-bridge/feature-api';
-import { createFeatureMenuHarness, LAZY_MOUNT_WAIT } from '@ap/feature-bridge/testing';
+import { createFeatureMenuHarness, expectHeadPrimaryAction, LAZY_MOUNT_WAIT } from '@ap/feature-bridge/testing';
 import { manifests } from '../index';
 import { mountAt } from '../test-support';
 
@@ -35,9 +35,8 @@ describe('Milestone 생성 through the bridge', () => {
   it('is drawn once in the page head, not in the toolbar, and opens the create block', async () => {
     installFetch();
     const { container } = mountAt(MILESTONES);
-    const button = await screen.findByRole('button', { name: 'Milestone 생성' }, LAZY_MOUNT_WAIT);
-    expect(container.querySelector('header [data-feature-primary-action]')?.contains(button)).toBe(true);
-    expect(screen.getAllByRole('button', { name: 'Milestone 생성' })).toHaveLength(1);
+    await expectHeadPrimaryAction({ container, locate: { name: 'Milestone 생성' }, drawn: true });
+    const button = screen.getByRole('button', { name: 'Milestone 생성' });
     fireEvent.click(button);
     expect(await screen.findByRole('complementary', { name: '상세 패널' })).toBeTruthy();
   });
@@ -46,9 +45,8 @@ describe('Milestone 생성 through the bridge', () => {
     const request = installFetch();
     const { mountAt: mountPlain } = createFeatureMenuHarness({ manifests: [...manifests, myActivityStub], homeMenuId: 'tasks', globalGroups: [{ id: 'myActivity', label: { ko: '내 활동', en: 'My activity' }, icon: UserRound }], group: { id: 'tasks', label: { ko: 'Tasks', en: 'Tasks' }, icon: ClipboardList }, permissions: ['platform:view'] });
     const { container } = mountPlain(MILESTONES);
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    expect(screen.queryByRole('button', { name: 'Milestone 생성' })).toBeNull();
-    expect(container.querySelector('[data-feature-primary-action]')).toBeNull();
+    // Nothing is requested for a refused page, so the signal is the (already imported) page chunk having had its chance to mount.
+    await expectHeadPrimaryAction({ container, locate: { name: 'Milestone 생성' }, drawn: false, noSlot: true, settled: async () => { await import('./FeatureMilestones'); await act(async () => {}); } });
     expect(request).not.toHaveBeenCalled();
   });
 });
