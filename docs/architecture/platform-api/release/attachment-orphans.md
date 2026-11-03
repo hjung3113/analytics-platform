@@ -41,6 +41,6 @@ Runs from the runtime image (`node dist/cli/attachments-orphans.js`) or a checko
 - Every candidate is checked against `voc.voc_attachments` during the scan and checked again in small batches
   immediately before deletion. A candidate that gained a reference in between is skipped and counted in
   `skipped_referenced`. A referenced object (including a row claimed by the purge job) is never deleted.
-- The age floor (1 h, default 24 h) is what keeps in-flight uploads out of the candidate set; it cannot be disabled.
+- The age floor (1 h, default 24 h) is what keeps in-flight uploads out of the candidate set; it cannot be disabled. A storage key is referenced only by the upload transaction that wrote its object, and an upload is bounded by the 30 s request timeout and the DB time budgets, so no in-flight upload is older than 1 h.
 - Unknown or malformed arguments print one fixed usage line (exit 2); the input is never echoed.
 - Exit codes: 0 ok, 1 failure (error class only), 2 usage error.

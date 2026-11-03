@@ -122,6 +122,12 @@ export async function findOrphans(
   options: OrphansOptions,
   now: Date = new Date(),
 ): Promise<OrphansSummary> {
+  // The floor is enforced here too, not only by the argument parser (check C2). Why 1 h is enough: a storage key is
+  // referenced only by the upload transaction that wrote the object, and that upload is bounded by the request timeout
+  // (HTTP_REQUEST_TIMEOUT_MS, 30 s) and the DB budgets (#1266 b3), so no in-flight upload is older than the floor.
+  if (!Number.isInteger(options.minAgeHours) || options.minAgeHours < MIN_AGE_HOURS_FLOOR) {
+    throw new UsageError(USAGE);
+  }
   const cutoff = now.getTime() - options.minAgeHours * 3_600_000;
   const orphanKeys: string[] = [];
   let scanned = 0;

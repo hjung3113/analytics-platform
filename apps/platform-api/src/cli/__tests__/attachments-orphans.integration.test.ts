@@ -102,6 +102,17 @@ describe('parseOrphansArgs output', () => {
   });
 });
 
+describe('findOrphans age floor (check C2)', () => {
+  it('refuses an age below the floor before touching the database or storage', async () => {
+    const untouched = new Proxy({}, { get: () => { throw new Error('must not be used'); } });
+    for (const minAgeHours of [0, -1, 0.5]) {
+      await expect(
+        findOrphans(untouched as never, untouched as never, { apply: true, minAgeHours, limit: 10 }),
+      ).rejects.toBeInstanceOf(UsageError);
+    }
+  });
+});
+
 describe('orphanIdentifier', () => {
   it('is workspace/attachment UUIDs for a well-formed key and never the filename', () => {
     const attachment = randomUUID();
