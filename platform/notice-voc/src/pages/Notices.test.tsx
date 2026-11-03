@@ -32,18 +32,18 @@ const action = <T,>(over: Partial<ActionResponse<T>>): ActionResponse<T> => ({ o
 /** Switches the UI language through the Kernel setter (menu code never touches storage). */
 function UseLang({ lang }: { lang: 'en' }) {
   const i18n = useI18n();
-  useLayoutEffect(() => { i18n.setLang(lang); }, []); // eslint-disable-line react-hooks/exhaustive-deps -- once, on mount
+  useLayoutEffect(() => { const before = i18n.lang; i18n.setLang(lang); return () => i18n.setLang(before); }, []); // eslint-disable-line react-hooks/exhaustive-deps -- once, on mount
   return null;
 }
 
-type Over = { lang?: 'en'; items?: readonly Notice[]; save?: (input: unknown) => Promise<ActionResponse<Notice>>; del?: (input: unknown) => Promise<ActionResponse<{ id: string }>> };
+type Over = { lang?: 'en'; items?: readonly Notice[]; listItems?: () => readonly Notice[]; save?: (input: unknown) => Promise<ActionResponse<Notice>>; del?: (input: unknown) => Promise<ActionResponse<{ id: string }>> };
 function mount(permissions: Permission[], path = '/notices', over: Over = {}) {
   window.history.replaceState(null, '', path);
   // session() is a store snapshot: a new object (and a notification) per change.
   let session = testSession(permissions);
   const listeners = new Set<() => void>();
   const setPermissions = (next: Permission[]) => { session = testSession(next); listeners.forEach(l => l()); };
-  const listNotices = vi.fn(async () => list(over.items ?? NOTICES));
+  const listNotices = vi.fn(async () => list(over.listItems?.() ?? over.items ?? NOTICES));
   const saveNotice = vi.fn(over.save ?? (async () => action<Notice>({})));
   const deleteNotice = vi.fn(over.del ?? (async () => action<{ id: string }>({})));
   const adapter = testAdapter({ session: () => session, subscribe: listener => { listeners.add(listener); return () => { listeners.delete(listener); }; }, listNotices, saveNotice: saveNotice as never, deleteNotice: deleteNotice as never });
@@ -287,10 +287,22 @@ describe('delete focus', () => {
     await waitFor(() => expect(document.activeElement?.textContent).toContain('제목 n-soon'));
   });
 
-  it('moves focus to the list heading when no next item exists', async () => {
+  it('moves focus to the list region when no next item exists', async () => {
     mount(ADMIN, '/notices?focus=n-soon');
     await deleteSelected();
-    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { name: '공지 목록' })));
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('region', { name: '공지 목록 영역' })));
+  });
+
+  it('keeps focus on the connected list region when the last notice is deleted and the list becomes empty', async () => {
+    let items: readonly Notice[] = [notice('n-only', '2026-12-01T00:00:00')];
+    const m = mount(ADMIN, '/notices?focus=n-only', { items: [], listItems: () => items, del: async () => { items = []; return action<{ id: string }>({}); } });
+    await deleteSelected();
+    await waitFor(() => expect(m.listNotices).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText('조건에 맞는 결과가 없습니다')).toBeTruthy();
+    await settleQueries();
+    const region = screen.getByRole('region', { name: '공지 목록 영역' });
+    expect(region.isConnected).toBe(true);
+    expect(document.activeElement).toBe(region);
   });
 });
 

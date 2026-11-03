@@ -29,15 +29,15 @@ export function NoticesScreen({ clock }: { clock: () => string }) {
   const dialog = openDialog && canWrite && openDialog.session === session ? openDialog : null;
   useEffect(() => { if (openDialog && !dialog) setDialog(null); }, [openDialog, dialog]);
   const listRef = useRef<HTMLDivElement>(null);
-  const headingRef = useRef<HTMLHeadingElement>(null);
+  const regionRef = useRef<HTMLDivElement>(null);
   const afterDelete = useRef<HTMLElement | null>(null);
   const openWith = (next: { kind: 'form'; notice: Notice | null } | { kind: 'delete'; notice: Notice }) => setDialog({ ...next, session });
 
-  /** After a delete the focus goes to the next row of the list, else to the list heading. */
+  /** After a delete the focus goes to the next row, else to the list region, which stays mounted in the populated and the empty state. */
   const focusTargetAfter = (id: string): HTMLElement | null => {
     const rows = Array.from(listRef.current?.querySelectorAll<HTMLElement>('[data-notice-id]') ?? []);
     const index = rows.findIndex(row => row.dataset.noticeId === id);
-    return (index >= 0 ? rows[index + 1] : undefined) ?? headingRef.current;
+    return (index >= 0 ? rows[index + 1] : undefined) ?? regionRef.current;
   };
 
   const onDone = (done: WriteDone) => {
@@ -97,7 +97,7 @@ export function NoticesScreen({ clock }: { clock: () => string }) {
     }
     return <div className="grid min-h-96 grid-cols-1 rounded-md border border-border-subtle md:grid-cols-[minmax(16rem,22rem)_minmax(0,1fr)]">
       <div ref={listRef} className="border-b border-border-subtle md:border-b-0 md:border-r">
-        <h2 ref={headingRef} tabIndex={-1} className="border-b border-border-subtle px-3 py-2 text-sm font-semibold focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring">{ko ? '공지 목록' : 'Notice list'}</h2>
+        <h2 className="border-b border-border-subtle px-3 py-2 text-sm font-semibold">{ko ? '공지 목록' : 'Notice list'}</h2>
         {active.length === 0 && <p className="border-b border-border-subtle p-3 text-sm text-text-muted">{ko ? '진행 중인 공지가 없습니다.' : 'No active notices.'}</p>}
         <ul aria-label={ko ? '진행 중인 공지' : 'Active notices'}>{active.map(n => row(n, false))}</ul>
         {expired.length > 0 && <div>
@@ -116,10 +116,12 @@ export function NoticesScreen({ clock }: { clock: () => string }) {
     description={ko ? '플랫폼 공지 목록과 내용입니다.' : 'Platform notices and their content.'}
     primaryAction={canWrite ? <Button size="sm" onClick={() => openWith({ kind: 'form', notice: null })}><Plus className="size-3.5" aria-hidden />{ko ? '공지 작성' : 'Write notice'}</Button> : undefined}>
     {focus !== null && query.response?.outcome === 'empty' && rejected(focus)}
-    <QueryView widgetName={ko ? '공지' : 'Notices'} query={query}
-      emptyAction={canWrite ? <Button size="sm" onClick={() => openWith({ kind: 'form', notice: null })}>{ko ? '공지 작성' : 'Write notice'}</Button> : undefined}>
-      {data => body(data.items)}
-    </QueryView>
+    <div ref={regionRef} role="region" aria-label={ko ? '공지 목록 영역' : 'Notice list area'} tabIndex={-1} className="focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring">
+      <QueryView widgetName={ko ? '공지' : 'Notices'} query={query}
+        emptyAction={canWrite ? <Button size="sm" onClick={() => openWith({ kind: 'form', notice: null })}>{ko ? '공지 작성' : 'Write notice'}</Button> : undefined}>
+        {data => body(data.items)}
+      </QueryView>
+    </div>
     {dialog?.kind === 'form' && <NoticeFormDialog key={dialog.notice?.id ?? 'new'} notice={dialog.notice} ko={ko} scopes={session.scopes} onDone={onDone} />}
     {dialog?.kind === 'delete' && <NoticeDeleteDialog notice={dialog.notice} ko={ko} onDone={onDone} onCloseAutoFocus={onDeleteClosed} />}
   </PlatformPage>;
