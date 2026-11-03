@@ -7,9 +7,7 @@
 //
 // Gate: DATABASE_URL + WORKSPACE_ID. Without DATABASE_URL the suite skips.
 //
-// The happy-path branch returns 501 not_implemented.todo until C3b lands.
-// That test below is intentionally a tombstone — flip it to 201 when C3b
-// replaces the stub.
+// Happy-path upload coverage lives in the other attachment suites; this file covers request validation only.
 
 import { randomUUID } from 'node:crypto';
 
@@ -252,7 +250,7 @@ describe.skipIf(!runIntegration)('POST /attachments — PLAN-22 C3a validation',
     const cookie = await loginAs(app, 'mock-user-1');
     // The traversal filename `../../etc/passwd` sanitizes to a non-empty
     // string `....etcpasswd` — the slashes get stripped. So this case
-    // currently passes sanitization but fails on the not_implemented stub.
+    // currently passes sanitization and is not a validation failure.
     // To force validation.failed we use a filename that collapses to empty.
     const res = await postAttachment(app, {
       cookie,
