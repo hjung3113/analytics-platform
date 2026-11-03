@@ -596,12 +596,13 @@ The committed search draft hook is shared at `apps/feature-screens/src/lib/useCo
 `내 VOC` hides severity filters and sort options and the `high` / `high-no-link`
 tabs for every actor. Restored bookmarks and saved views drop severity filters,
 severity sorting, and these tabs from the URL before fetching with My VOC defaults.
-Absent wire severity renders no indicator or badge and a
-neutral row bar. Visible null severity renders the same neutral row bar with no
-standalone indicator and no `심각도 미지정` announcement. Severity is encoded
+Absent wire severity renders no indicator or badge. Visible null severity renders
+no standalone indicator and no `심각도 미지정` announcement. The list row draws a left
+accent bar only while it is selected (the accent token for every severity state,
+including absent and null); unselected rows have no bar. Severity is encoded
 once per view: the list row announces it only through its `SeverityBadge`
-(`심각도 낮음/중간/높음/심각`; the severity-colored left stripe is decorative),
-and the detail panel keeps severity in the Triage block — the metadata strip
+(`심각도 낮음/중간/높음/심각`, retained on every row), the selected-row accent bar is
+decorative, and the detail panel keeps severity in the Triage block — the metadata strip
 below the body carries only Managed System and source context.
 
 ### Detail follow-up trail and primary action (#1225)

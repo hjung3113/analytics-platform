@@ -34,6 +34,8 @@ EquipmentDeactivateButton
 
 shadcn/ui + Radix 조합은 [04 프론트엔드 기술 스택](../architecture/frontend-ui-ux.md#프론트엔드-기술-스택-decided-2026-09-25)에서 Decided(2026-09-25)다. primitive 구현과 공개 export는 SDK `@ap/ui`가 소유하며, 소비자는 `@ap/ui`에서 직접 import한다([ADR-0043](../adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)·[ADR-0046](../adr/0046-design-system-source-moves-to-platform-whole-package.md)). `TabsList`·`TabsTrigger`는 같은 패키지의 shadcn 탭을 감싼 플랫폼 선택 표식 구현이다([ADR-0023 개정](../adr/0023-feedbackops-primitive-shapes-and-sizes.md#개정--탭-선택-표식-2026-10-15)). `TabsList`는 선택 prop `overflow`(`'scroll'` 기본 = 넘치면 가로 스크롤, `'menu'`)와 `moreLabel`(기본 `더보기`, `@ap/ui`는 i18n을 모르므로 메뉴가 자기 문구를 넘긴다)을 받는다. `overflow="menu"`는 들어가지 않는 탭을 마지막 보이는 탭 바로 뒤의 `더보기 ⌄` 메뉴로 옮기고(선택 탭이 숨으면 버튼이 그 탭 이름과 선택 막대를 보인다), 목록 자신의 상자 너비를 재므로 컨테이너가 확정된 너비를 줘야 한다(flex 행이면 `min-w-0 flex-1`). 숨은 탭은 DOM에 `hidden`으로 남아 `TabsContent`의 `aria-labelledby`가 계속 풀린다. 키보드는 ←/→/Home/End가 [보이는 탭…, 더보기 버튼] 순서를 돌고, 버튼에서 Enter/Space/↓로 메뉴(`menuitemradio`)를 열며, Tab 정거장은 목록 하나(선택 탭이 숨었으면 더보기 버튼)다. `@ap/feature-ui`는 표식 없는 `TabsListBase`·`TabsTriggerBase`를 각각 `TabsList`·`TabsTrigger`라는 기능 이름으로 재수출한다. 아래 primitive 역할 예시는 그 구체 컴포넌트 매핑까지 확정하는 것은 아니다.
 
+`ListTabs`·`ListToolbar`(`@ap/ui`)의 선택 prop `maxVisible?: number`(`ListToolbar`는 `tabsMaxVisible`로 넘긴다, #1291)는 `TabsList overflow="menu"`와 별개인 개수 기준 접기다. 값이 없으면(기본) 지금과 같다. 값이 있고 탭이 그보다 많으면 앞 N개만 탭 줄에 두고 나머지는 「더보기 ‹숨은 수›」 메뉴 버튼 하나에 담는다(메뉴 항목은 아이콘·라벨·tip·숫자를 그대로 싣는다). 선택된 탭이 숨은 쪽이면 마지막 보이는 자리에 올리고 밀려난 탭이 메뉴로 간다(선택 필터는 항상 보인다). 탭 목록의 화살표 키는 그대로이고, 메뉴 버튼은 Tab으로 닿아 Enter·Space·↓로 열며 Esc로 닫으면 포커스가 그 버튼으로 돌아온다. 이유: 한 줄 툴바가 빠른 필터 몇 개만 보여 주고 나머지를 접을 수 있어야 메뉴마다 같은 방식으로 쓴다(도메인을 모르는 조각, [ADR-0052](../adr/0052-rich-content-stays-in-the-sdk.md)).
+
 예:
 
 - Button

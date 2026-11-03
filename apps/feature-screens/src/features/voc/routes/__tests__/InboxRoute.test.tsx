@@ -691,6 +691,37 @@ describe('InboxScreen', () => {
     ]);
   });
 
+  it('keeps focus usable when a 더보기 pick is applied to the URL and the promoted tab rerenders', async () => {
+    searchState = { view: 'inbox' };
+    const { rerender } = render(<InboxTestHarness view="inbox" />);
+    await screen.findByRole('tab', { name: '미분류' });
+    const more = screen.getByRole('button', { name: /^더보기/ });
+    more.focus();
+    fireEvent.keyDown(more, { key: 'Enter' });
+    fireEvent.click(screen.getByRole('menuitem', { name: '연결 없음' }));
+
+    // The host applies the navigation to the search and renders again.
+    searchState = { view: 'inbox', ...lastNav().search };
+    rerender(<InboxTestHarness view="inbox" />);
+
+    const promoted = await screen.findByRole('tab', { name: '연결 없음' });
+    expect(promoted).toHaveAttribute('data-state', 'active');
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual([
+      '미분류',
+      '높음',
+      '연결 없음',
+    ]);
+    // Focus lands on the 더보기 trigger, which stays mounted with the displaced 미배정 tab inside it.
+    await waitFor(() => expect(screen.getByRole('button', { name: /^더보기/ })).toHaveFocus());
+    fireEvent.keyDown(screen.getByRole('button', { name: /^더보기/ }), { key: 'Enter' });
+    expect(screen.getByRole('menuitem', { name: '미배정' })).toBeInTheDocument();
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+    // The strip stays keyboard-walkable after the rerender.
+    promoted.focus();
+    fireEvent.keyDown(promoted, { key: 'ArrowLeft' });
+    await waitFor(() => expect(screen.getByRole('tab', { name: '높음' })).toHaveFocus());
+  });
+
   it('my view renders 내 VOC title instead of tabs', async () => {
     searchState = { view: 'my' };
     render(<InboxTestHarness view="my" />);

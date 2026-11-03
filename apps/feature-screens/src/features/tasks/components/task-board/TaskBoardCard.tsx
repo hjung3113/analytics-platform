@@ -94,15 +94,18 @@ function TaskBoardCardContent({
   return (
     <>
       <div className="flex items-center gap-1.5">
-        <span className="font-mono text-xs text-text-muted">{task.display_id}</span>
+        <span className="shrink-0 whitespace-nowrap font-mono text-xs text-text-muted">
+          {task.display_id}
+        </span>
         <SeverityBadge
           severity={taskPriorityToSeverity(task.priority)}
           label={TASK_PRIORITY_LABELS[task.priority]}
           ariaLabel={`우선순위 ${TASK_PRIORITY_LABELS[task.priority]}`}
+          className="shrink-0 whitespace-nowrap"
         />
       </div>
       {/* TaskDto does not project finding linkage or linked VOC counts; only TaskDetailDto.source does. */}
-      <div className="mt-2 text-sm font-medium text-text-primary">{task.title}</div>
+      <div className="mt-2 break-words text-sm font-medium text-text-primary">{task.title}</div>
       <div className="mt-3 flex items-center justify-between gap-2 text-xs text-text-muted">
         <span className="flex min-w-0 items-center gap-1.5 truncate">
           <span className="h-1.5 w-1.5 rounded-full bg-accent-info" />

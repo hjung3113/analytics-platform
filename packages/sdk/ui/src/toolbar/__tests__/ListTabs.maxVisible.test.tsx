@@ -85,18 +85,58 @@ describe('ListTabs maxVisible', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: /^더보기/ })).toHaveFocus());
   });
 
-  it('opens with Enter, Space or ArrowDown and keeps the tab list arrow keys', () => {
+  it('opens the menu with Enter, Space or ArrowDown', () => {
     render(<ListTabs tabs={tabs} activeTab="a" maxVisible={3} />);
     for (const key of ['Enter', ' ', 'ArrowDown']) {
       fireEvent.keyDown(screen.getByRole('button', { name: /^더보기/ }), { key });
       expect(screen.getByRole('menu')).toBeInTheDocument();
       fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
     }
-    // The 더보기 button is reachable by Tab: it is a plain button after the tab list.
-    const list = screen.getByRole('tablist');
+  });
+
+  it('walks the visible tabs with ArrowLeft/ArrowRight and keeps walking after a keyboard-picked hidden tab is promoted', async () => {
+    function Harness() {
+      const [active, setActive] = useState('a');
+      return <ListTabs tabs={tabs} activeTab={active} onTabChange={setActive} maxVisible={3} />;
+    }
+    render(<Harness />);
+    const tab = (name: string) => screen.getByRole('tab', { name });
+    tab('가').focus();
+    fireEvent.keyDown(tab('가'), { key: 'ArrowRight' });
+    await waitFor(() => expect(tab('나')).toHaveFocus());
+    fireEvent.keyDown(tab('나'), { key: 'ArrowRight' });
+    await waitFor(() => expect(tab('다')).toHaveFocus());
+    // The strip holds only the visible tabs: the arrow keys wrap inside it and never land on the menu button.
+    fireEvent.keyDown(tab('다'), { key: 'ArrowRight' });
+    await waitFor(() => expect(tab('가')).toHaveFocus());
+    fireEvent.keyDown(tab('가'), { key: 'ArrowLeft' });
+    await waitFor(() => expect(tab('다')).toHaveFocus());
+
+    // Keyboard-pick a hidden tab: it takes the last visible slot and the displaced tab moves into the menu.
     const more = screen.getByRole('button', { name: /^더보기/ });
-    expect(list.compareDocumentPosition(more) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(more).not.toHaveAttribute('tabindex', '-1');
+    more.focus();
+    fireEvent.keyDown(more, { key: 'ArrowDown' });
+    fireEvent.keyDown(screen.getByRole('menuitem', { name: '라' }), { key: 'Enter' });
+    expect(tabLabels()).toEqual(['가', '나', '라']);
+    expect(tab('라')).toHaveAttribute('data-state', 'active');
+    await waitFor(() => expect(screen.getByRole('button', { name: /^더보기/ })).toHaveFocus());
+
+    // Arrow navigation still works on the promoted strip; focusing a tab selects it (automatic activation),
+    // so the strip follows the selection: 나 is visible and 라 goes back into the menu.
+    tab('라').focus();
+    fireEvent.keyDown(tab('라'), { key: 'ArrowLeft' });
+    await waitFor(() => expect(tab('나')).toHaveFocus());
+    expect(tab('나')).toHaveAttribute('data-state', 'active');
+    expect(tabLabels()).toEqual(['가', '나', '다']);
+    fireEvent.keyDown(tab('나'), { key: 'ArrowRight' });
+    await waitFor(() => expect(tab('다')).toHaveFocus());
+    // Tab order: the tab list is a single stop that precedes the menu button.
+    const list = screen.getByRole('tablist');
+    expect(
+      list.compareDocumentPosition(screen.getByRole('button', { name: /^더보기/ })) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^더보기/ })).not.toHaveAttribute('tabindex', '-1');
   });
 
   it('passes maxVisible through ListToolbar via tabsMaxVisible', () => {
