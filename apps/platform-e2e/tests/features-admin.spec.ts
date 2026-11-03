@@ -108,6 +108,10 @@ test.describe('업무 흐름 설정·운영 콘솔 권한 그룹(#764 p2, #1099c
   test('공간 하단 항목은 관리자 메뉴를 열지 않는다(관리자는 하단 블록에 없다)', async ({ page }) => {
     await signInAs(page, 'admin');
     await page.goto(PRODUCTIVITY);
-    await expect(page.getByRole('navigation', { name: '기능 · MARS' }).getByRole('link', { name: /Managed System|관리자/ })).toHaveCount(0);
+    const block = page.getByRole('navigation', { name: '기능 · MARS' });
+    // Destinations, not labels: no shortcut to the flow settings or the operations console.
+    for (const path of ['/flow/managed-systems', '/flow/analytics-areas', '/flow/settings', '/operations/']) {
+      await expect(block.locator(`a[href*="${path}"]`)).toHaveCount(0);
+    }
   });
 });

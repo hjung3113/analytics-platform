@@ -48,8 +48,8 @@ export const PERMISSIONS = [menuPermission('equipment:view'), menuPermission('ma
 
 export const GROUPS: GroupDef[] = [
   { id: groupId('overview'), label: { ko: '운영 개요', en: 'Overview' }, icon: LayoutDashboard, space: null, hideLabelWhenSingle: true },
-  { id: groupId('myActivity'), label: { ko: '내 활동', en: 'My activity' }, icon: UserRound, space: null },
   { id: groupId('noticeVoc'), label: { ko: '소통', en: 'Communication' }, icon: Megaphone, space: null },
+  { id: groupId('myActivity'), label: { ko: '내 활동', en: 'My activity' }, icon: UserRound, space: null },
   { id: groupId('analytics'), label: { ko: '생산성 분석', en: 'Analytics' }, icon: BarChart3, space: spaceId('mars') },
   { id: groupId('equipment'), label: { ko: '설비관리', en: 'Equipment' }, icon: Cpu, space: spaceId('mars') },
   { id: groupId('masterData'), label: { ko: '기준정보관리', en: 'Master Data' }, icon: Database, space: spaceId('mars') },

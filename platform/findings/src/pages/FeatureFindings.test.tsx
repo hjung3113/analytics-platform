@@ -179,6 +179,7 @@ describe('근거 through the feature bridge', () => {
     expect(await screen.findByText(`주소의 ${key} 값이 올바르지 않습니다`, undefined, LAZY_MOUNT_WAIT)).toBeTruthy();
     expect(screen.queryByTestId('evidence')).toBeNull();
     expect(screenMock.evidence).toEqual([]);
+    expect(request).not.toHaveBeenCalled();
     expect(window.location.search).toBe(search);
   });
 });
