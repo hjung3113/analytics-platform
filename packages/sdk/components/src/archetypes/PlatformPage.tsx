@@ -333,7 +333,7 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
       ? bodyInset === 'none' ? <div className={cn(pageInsetX(density === 'compact'), density === 'compact' ? 'pb-4 pt-3' : 'pb-9 pt-7')}>{gate}</div> : gate
       : <OutcomeScope>
         {bodyInset === 'none'
-          ? <div className={cn(pageInsetX(density === 'compact'), 'has-[[data-outcome-banner]]:pt-3')}><OutcomeBanners compact={layout === 'fill'} /></div>
+          ? <div className={cn(pageInsetX(density === 'compact'), density === 'compact' ? 'has-[[data-outcome-banner]]:pt-3' : 'has-[[data-outcome-banner]]:pt-7')}><OutcomeBanners compact={layout === 'fill'} /></div>
           : <OutcomeBanners compact={layout === 'fill'} />}
         {layout === 'fill' ? <div data-platform-page-fill className={fixedFill ? 'flex min-h-[520px] flex-1 flex-col' : 'flex flex-1 flex-col'}>{children}</div> : children}
       </OutcomeScope>}</div>
