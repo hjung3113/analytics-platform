@@ -382,6 +382,8 @@ SQL은 **핵심 제약의 예시**이고 전체 실행 migration은 아니다. �
 | ④ 충돌 해결 | `catalog_import_resolution`+검토 버전, Catalog 실제 행 불변 | 사람이 원본↔현재 DB 비교 후 행별 map/skip/create/abort 선택 |
 | ⑤ 적용 결과 | **확정된 행 단위** Catalog transaction + Core audit + 결과 상태 | job planVersion CAS·중복 키·재검증·부분 실패/재시도 보고 |
 
+**구현 상태(#1195 node a):** 단계 ①–③은 구현됨(정본 `docs/architecture/platform-api/api/log-knowledge.md` §Catalog import staging). 업로드는 Attachment 저장소를 쓰지 않고 knowledge 전용 `POST /api/v1/log-knowledge/imports`(multipart, `Idempotency-Key` 필수, 권한 `knowledge.catalog.import`)가 job과 행을 한 트랜잭션에 만든다. 원본 바이트는 저장하지 않고 `file_name/file_size/file_type/file_sha256`만 남긴다. 한도: 5 MB, 데이터 5,000행, 50열, CSV는 UTF-8(BOM 제거), XLSX는 시트 1개. 단계 ④–⑤(해결·봉인·적용·보고서 다운로드)는 미구현(node b).
+
 **원자성 후보:** 전체 파일을 하나의 거대한 트랜잭션으로 처리하지 않는다. Job 적용 승인을 하나의 고정된 Plan Snapshot으로 봉인한 뒤, `Vendor/Process → Model → SW` 위상순으로 **행/참조 묶음 단위 트랜잭션** 적용. 각 행 `(job_id,row_no,plan_hash)`로 정확히 한 번 적용; 실패 행만 재시도하되 `expected_target_version`이 바뀌면 `conflict`로 재검토. 미해결 충돌 자동 덮어쓰기/자동 신규 생성 금지. 일부 성공이면 `partial_failure`이며 집계는 성공·기존 유지·skip·실패를 구분. 내보내기 CSV 수식 주입 방어.
 
 ### 6.3 SW 독립 Spec 및 모델 공통 추출

@@ -610,6 +610,13 @@
       "when": 1793704133782,
       "tag": "0086_managed_system_registry_keys",
       "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "7",
+      "when": 1793711029665,
+      "tag": "0087_ancient_korvac",
+      "breakpoints": true
     }
   ]
 }

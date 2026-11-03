@@ -566,6 +566,22 @@
     "mergeTimeDomain": false
   },
   {
+    "id": "logKnowledge.importDetail",
+    "menuId": "log-knowledge-catalog",
+    "paramKeys": [
+      "jobId",
+      "page",
+      "pageSize",
+      "sorting",
+      "filters"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
     "id": "logKnowledge.itemDetail",
     "menuId": "log-knowledge-items",
     "paramKeys": [

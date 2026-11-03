@@ -269,3 +269,55 @@ export const itemSetArchived = itemWrite<ItemSetArchivedInput, ItemWriteResult>(
 
 /** The five item writes in the server's order. */
 export const itemActionSpecs = [itemCreate, itemRevise, itemAssess, itemDerive, itemSetArchived] as const;
+
+// ---- catalog import staging (#1195 a, design v0.6 §6.2 ①–③) -----------------------------------------------------
+// Specs only (no screen, no mock): the upload itself is a multipart route (`POST /api/v1/log-knowledge/imports`), not a
+// menu action. The server mirror is `apps/platform-api/src/modules/log-knowledge/import-actions.ts` /
+// `import-endpoints.ts`; the drift test compares both. The actions are judged with the server capability
+// `knowledge.catalog.import`; they declare the catalog menu permission (a manager's entry, the server decides).
+
+export const IMPORT_ENTITY_TYPES = ['vendor', 'process', 'model', 'software'] as const;
+export const IMPORT_PLAN_STATES = ['pending', 'new', 'unchanged', 'update', 'conflict', 'error'] as const;
+export const IMPORT_ROW_SORT_IDS = ['rowNo'] as const;
+export type ImportEntityType = (typeof IMPORT_ENTITY_TYPES)[number];
+export type ImportPlanState = (typeof IMPORT_PLAN_STATES)[number];
+export type ImportJobStatus = 'uploaded' | 'mapped' | 'validated' | 'review_required' | 'applying' | 'completed' | 'partial_failure' | 'failed' | 'cancelled';
+
+export const importRowFilterSpecs: Readonly<Record<string, ColumnFilterSpec>> = {
+  planState: { kind: 'enum', options: IMPORT_PLAN_STATES.map((value) => ({ value, label: value })), ops: ['in', 'notIn'] },
+};
+
+export type ImportDetailParams = { jobId: string; page?: number; pageSize?: number; sorting?: PageSort[]; filters?: ColumnFilter[] };
+export type ImportJobView = {
+  id: string; entityType: ImportEntityType; fileName: string; fileSize: number; fileType: 'csv' | 'xlsx'; fileSha256: string;
+  headers: string[]; mapping: Record<string, string> | null; status: ImportJobStatus; planVersion: number; rowVersion: number;
+  createdAt: string; updatedAt: string;
+};
+export type ImportRowView = {
+  rowNo: number; raw: Record<string, string>; normalized: unknown; errors: { field: string; code: string }[];
+  planState: ImportPlanState; targetId: string | null; targetVersion: number | null;
+};
+/** The outcome set has no `not_found`: an unknown or other-workspace job answers `error` with message `not_found`. */
+export type ImportDetail = { job: ImportJobView; rows: ImportRowView[]; total: number };
+
+export const importDetailEndpoint = defineEndpoint<ImportDetailParams, ImportDetail>({
+  id: 'logKnowledge.importDetail', menuId: LOG_KNOWLEDGE_MENU_ID,
+  paramKeys: { jobId: true, page: true, pageSize: true, sorting: true, filters: true }, permission: 'platform:view',
+  requiresScope: false, context: {}, kinds: [], mergeTimeDomain: false,
+});
+
+export type ImportMapInput = { jobId: string; mapping: Record<string, string> };
+export type ImportValidateInput = { jobId: string };
+/** Counts and ids only (the replayed answer is capped at 128 KiB). */
+export type ImportStepResult = { jobId: string; status: ImportJobStatus; planVersion: number; counts?: Record<ImportPlanState, number> };
+
+export const importMap = defineAction<ImportMapInput, ImportStepResult>({
+  id: 'logKnowledge.importMap', menuId: LOG_KNOWLEDGE_MENU_ID, inputKeys: { jobId: true, mapping: true },
+  permission: CATALOG_MANAGE_PERMISSION, requiresScope: false, concurrency: 'version', invalidates: [importDetailEndpoint],
+});
+export const importValidate = defineAction<ImportValidateInput, ImportStepResult>({
+  id: 'logKnowledge.importValidate', menuId: LOG_KNOWLEDGE_MENU_ID, inputKeys: { jobId: true },
+  permission: CATALOG_MANAGE_PERMISSION, requiresScope: false, concurrency: 'version', invalidates: [importDetailEndpoint],
+});
+export const importActionSpecs = [importMap, importValidate] as const;
+export const importEndpointSpecs = [importDetailEndpoint] as const;
