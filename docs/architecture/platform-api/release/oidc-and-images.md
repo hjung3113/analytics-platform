@@ -94,6 +94,8 @@ The `edge` service (nginx, image from `apps/platform-web/Dockerfile`, config `op
 
 Failed background jobs: [failed-jobs-replay.md](failed-jobs-replay.md).
 
+Backup, isolated restore and upgrade of this stack (RPO 24 h, RTO 4 h): [backup-restore-upgrade.md](backup-restore-upgrade.md).
+
 Capacity checks (run periodically and before upgrades):
 
 - Docker disk: `docker system df`; free space on the volume host: `df -h "$(docker info --format '{{.DockerRootDir}}')"`.
