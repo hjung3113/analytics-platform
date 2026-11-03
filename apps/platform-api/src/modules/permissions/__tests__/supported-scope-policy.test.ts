@@ -12,6 +12,7 @@ describe('isOrdinarilyRequestable', () => {
     ['knowledge.catalog.manage', true],
     ['knowledge.catalog.import', true],
     ['knowledge.item.publish', true],
+    ['voc.read_public', true],
   ] as const)('%s → %s', (capability: Capability, expected) => {
     expect(isOrdinarilyRequestable(capability)).toBe(expected);
   });

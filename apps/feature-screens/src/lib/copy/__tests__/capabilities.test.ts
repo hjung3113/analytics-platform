@@ -8,6 +8,7 @@ const EXPECTED_LABELS: Record<Capability, string> = {
   'workspace.admin': '워크스페이스 관리자 권한',
   'voc.triage': 'VOC Triage',
   'voc.read': 'VOC 조회',
+  'voc.read_public': '공개 VOC 열람',
   'finding.read': 'Finding 조회',
   'finding.manage': 'Finding 관리',
   'task_request.self_approve': '본인 Task Request 직접 승인',

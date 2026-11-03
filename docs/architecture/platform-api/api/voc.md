@@ -291,6 +291,18 @@ VOC Cluster endpoint catalog: [voc-clusters.md](voc-clusters.md) §VOC Cluster.
 | Rate limit | 30/min per actor — dedicated `reporterEdit` bucket, separate from the 10/min `mutation` tier. |
 | Error codes | `validation.failed` · `validation.unexpected_field` · `permission.denied` · `not_found.record` · `conflict.triage_already_committed` (new in #17) · `conflict.stale_write` · `conflict.record_archived` · `conflict.parent_archived` · `conflict.idempotency_key_reuse` · `rich_content.disallowed_node` · `rich_content.disallowed_attr` · `rich_content.invalid_attr_value` · `rich_content.missing_required_attr` · `rich_content.external_image_forbidden` · `rate_limited.actor` |
 
+## VOC public read (ADR-0110 decision 3, #1288 g)
+
+Two routes, separate from the operator `/vocs` handlers (`routes/public-read.ts`; no shared branch). Both need a session; rate-limit key `<workspace_id>:<actor_id>` (read bucket). The rule is `modules/voc/public-read/rule.ts` (see `05-permission-policy.md`); the response is built from an allowlist and parsed with the strict schemas in `packages/feature-shared/src/vocs/public-view.ts`.
+
+`GET /vocs/public` — query: `mine` (`true|false`, default `false`; `true` = only the caller's VOCs), `managed_system_id` (uuid, narrows inside the visible set), `q` (trimmed, ≤100 chars; `display_id` prefix or title contains), `cursor` (opaque, the shared list cursor), `limit` (1–50, default 20). Order `created_at desc, id desc`. Response `{ items: PublicVocListItem[], page: { cursor?, has_more } }`; an item is exactly `id, display_id, title, reporter_facing_status, managed_system { id, name }, created_at, updated_at, mine`. Malformed query or cursor → 422 `validation.failed`.
+
+`GET /vocs/public/:id` — response exactly `id, display_id, title, description_rich_content, reporter_facing_status, managed_system { id, name }, created_at, updated_at, mine, entries[], attachments[]`. `entries[]` holds only `public_update` entries that carry a body (skipped updates excluded), newest 200, oldest first: `id, kind: 'public_update', body_rich_content, created_at, attachments[]`. Attachments are `id, name, size_bytes, mime_type, created_at, linked_at` — the `LinkedAttachment` shape without `uploaded_by_actor_id`, never a storage key or URI. Rich content is passed through as stored: it was sanitized on write for the `voc-description` / `public-update` surfaces, neither of which admits `mention` nodes; `attachmentRef` ids in it are downloadable under the attachment rule below.
+
+A nonexistent, archived, other-workspace or not-visible id returns the same 404 `not_found.record` through one query (the visibility predicate is part of the WHERE); a non-UUID id is the usual 422.
+
+Attachment downloads gain one arm: when the existing rule denies, the attachment of the VOC body or of a bodied `public_update` is allowed if the VOC passes the public rule (`VocPublicAttachmentReader.canReadPublicAttachment`). Reporter-reply and internal-comment attachments keep the 403 above; the cross-workspace 404 and the unlinked uploader-only rule are unchanged.
+
 ## VOC List And Triage Fields
 
 `GET /vocs` (query schema `listVocsQuerySchema`, `packages/feature-shared/src/vocs/list-query.ts`):

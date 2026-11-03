@@ -116,6 +116,7 @@ import {
   createConversationService,
   createPublicUpdateReviewCandidateService,
   createVocEmbeddingEnqueuer,
+  createVocPublicReadService,
   createVocReadService,
   createVocRecommendationsService,
   createVocService,
@@ -634,6 +635,8 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     checkService,
     entityLinksService,
   });
+  // ADR-0110 decision 3: the public part of a VOC; its own rule, never the ADR-0031 one.
+  const vocPublicReadService = createVocPublicReadService({ db: dbHandle.db });
 
   // ── Tasks module — Slice 6 issue #134 ────────────────────────────────────
   const tasksService = createTasksService({
@@ -984,6 +987,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     sessionService,
     vocService,
     vocReadService,
+    vocPublicReadService,
     findingsService,
     taskRequestsService,
     conversationService,
@@ -1005,6 +1009,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     db: dbHandle.db,
     idempotencyService,
     vocReadService,
+    vocPublicAttachmentReader: vocPublicReadService,
     log: { warn: (msg, meta) => app.log.warn(meta ?? {}, msg) },
   });
   await app.register(attachmentsRoutes, {

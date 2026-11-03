@@ -110,7 +110,7 @@ Notes:
 - Task Request self-approval is a sensitive scoped capability, not an automatic Developer permission.
 - Task internal comments are progress notes (`docs/adr/history/feedbackops/0049-finding-task-progress-notes.md`). Reading them is not "assigned". It is Admin, or Developer with `finding.manage` on that Task's Managed System. A User is denied before grants are consulted. Finding progress notes are a different gate: read is Admin or Developer with `finding.read` (a User is denied before grants, even with `finding.read`); write is `finding.manage`, and an explicit grant is enough for a User.
 - Explicit Deny overrides this matrix.
-- VOC public part = title, body, reporter-facing status, Public Updates, Reporter Replies and public attachments only, served by its own allowlist response and route. The VOC's system is its `primary_managed_system_id`; system-scoped grants use the existing Managed System scope (no `scope_kind` yet). Site and room scopes follow #98 (`docs/adr/0110-platform-feature-roles-and-scope.md` decision 3).
+- VOC public part = title, body, reporter-facing status, Public Updates and the attachments of the body and of Public Updates only (Reporter Replies and their attachments stay with the Reporter and scoped triage), served by its own allowlist response and route. The VOC's system is its `primary_managed_system_id`; system-scoped grants use the existing Managed System scope (no `scope_kind` yet). Site and room scopes follow #98 (`docs/adr/0110-platform-feature-roles-and-scope.md` decision 3).
 - Source object visibility still applies through entity_links.
 ```
 

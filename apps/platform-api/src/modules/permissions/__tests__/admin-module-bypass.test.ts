@@ -33,6 +33,7 @@ const NONE: Capability[] = [
   'workspace.admin',
   'voc.triage',
   'voc.read',
+  'voc.read_public',
   'survey.read_personal_responses',
   'survey.export',
 ];

@@ -37,7 +37,7 @@ import { StorageUnavailableError } from '../../lib/storage/index.js';
 import type { AuditService } from '../core/audit/audit-service.js';
 import type { IdempotencyService } from '../core/idempotency/idempotency-service.js';
 import { runIdempotentCommand } from '../core/idempotency/idempotent-command.js';
-import type { VocAttachmentReader } from '../voc/index.js';
+import type { VocAttachmentReader, VocPublicAttachmentReader } from '../voc/index.js';
 import { insertAttachment } from './repo.js';
 
 export interface UploadAttachmentActor {
@@ -60,6 +60,8 @@ export interface AttachmentsServiceDeps {
   db: Db;
   idempotencyService: IdempotencyService;
   vocReadService: VocAttachmentReader;
+  /** Public-read arm of the download entitlement (ADR-0110 decision 3); absent = no public arm. */
+  vocPublicAttachmentReader?: VocPublicAttachmentReader;
   /** Optional structured log for cleanup warnings (no keys, no filenames). */
   log?: Pick<JobLog, 'warn'>;
 }
@@ -227,54 +229,17 @@ export function createAttachmentsService(deps: AttachmentsServiceDeps) {
     }
   }
 
-  // ── downloadAttachment — PLAN-22 C4a ────────────────────────────────────
-  //
-  // Streaming GET path: select metadata, gate on entitlement, then hand the
-  // route a Readable + headers. Entitlement model:
-  //   * Workspace gate: storage_key MUST start with `${ctx.workspace_id}/`.
-  //     Cross-workspace returns 404 (not 403) — leaking 403 confirms the row
-  //     exists under another workspace.
-  //   * Linked to a VOC: reuse vocReadService.getVocDetail. `kind: 'full'`
-  //     → permit. `kind: 'summary'` → 403. getVocDetail throwing
-  //     not_found.record → 403 (caller cannot see the parent).
-  //   * Linked to a comment: VOC's exact-entry conversation read seam owns
-  //     both parent resolution and visibility (including deny-aware triage).
-  //   * Unlinked (voc_id IS NULL AND comment_id IS NULL): permit only the
-  //     original uploader.
-  async function downloadAttachment(
-    input: DownloadAttachmentInput,
-  ): Promise<DownloadAttachmentResult> {
-    const { actor, id } = input;
+  type DownloadRow = {
+    voc_id: string | null;
+    comment_id: string | null;
+    comment_kind: string | null;
+    uploaded_by_actor_id: string;
+  };
 
-    // 1. Fetch attachment metadata.
-    const rows = await deps.db.execute<{
-      id: string;
-      voc_id: string | null;
-      comment_id: string | null;
-      comment_kind: string | null;
-      name: string;
-      size_bytes: string | number;
-      mime_type: string;
-      storage_key: string;
-      uploaded_by_actor_id: string;
-    }>(sql`
-      select id, voc_id, comment_id, comment_kind, name, size_bytes,
-             mime_type, storage_key, uploaded_by_actor_id
-        from voc.voc_attachments
-       where id = ${id}
-       limit 1
-    `);
-    const row = rows.rows[0];
-    if (!row) throw new HttpError('not_found.record', 'attachment not found');
-
-    // 2. Workspace gate via storage_key prefix. The attachments table has no
-    //    direct workspace_id column; the prefix is the canonical workspace
-    //    binding (per uploadAttachment's `${workspace_id}/${uuid}/${name}`).
-    if (!row.storage_key.startsWith(`${actor.workspace_id}/`)) {
-      throw new HttpError('not_found.record', 'attachment not found');
-    }
-
-    // 3. Entitlement.
+  async function assertOperatorOrReporterEntitlement(
+    actor: DownloadAttachmentActor,
+    row: DownloadRow,
+  ): Promise<void> {
     if (row.voc_id) {
       try {
         const detail = await deps.vocReadService.getVocDetail({
@@ -318,6 +283,84 @@ export function createAttachmentsService(deps: AttachmentsServiceDeps) {
       if (row.uploaded_by_actor_id !== actor.actor_id) {
         throw new HttpError('permission.denied', 'attachment not accessible to caller');
       }
+    }
+  }
+
+  async function publicArmAllows(actor: DownloadAttachmentActor, row: DownloadRow): Promise<boolean> {
+    if (!deps.vocPublicAttachmentReader) return false;
+    if (row.voc_id) {
+      return deps.vocPublicAttachmentReader.canReadPublicAttachment({
+        actor,
+        parent: { vocId: row.voc_id },
+      });
+    }
+    if (row.comment_id) {
+      return deps.vocPublicAttachmentReader.canReadPublicAttachment({
+        actor,
+        parent: { commentKind: row.comment_kind ?? '', commentId: row.comment_id },
+      });
+    }
+    return false;
+  }
+
+  // ── downloadAttachment — PLAN-22 C4a ────────────────────────────────────
+  //
+  // Streaming GET path: select metadata, gate on entitlement, then hand the
+  // route a Readable + headers. Entitlement model:
+  //   * Workspace gate: storage_key MUST start with `${ctx.workspace_id}/`.
+  //     Cross-workspace returns 404 (not 403) — leaking 403 confirms the row
+  //     exists under another workspace.
+  //   * Linked to a VOC: reuse vocReadService.getVocDetail. `kind: 'full'`
+  //     → permit. `kind: 'summary'` → 403. getVocDetail throwing
+  //     not_found.record → 403 (caller cannot see the parent).
+  //   * Linked to a comment: VOC's exact-entry conversation read seam owns
+  //     both parent resolution and visibility (including deny-aware triage).
+  //   * Unlinked (voc_id IS NULL AND comment_id IS NULL): permit only the
+  //     original uploader.
+  //   * Public arm (ADR-0110 decision 3): when the rules above deny, a VOC-body or `public_update`
+  //     attachment of a VOC that passes the public read rule is permitted; reporter-reply and
+  //     internal-comment attachments stay denied.
+  async function downloadAttachment(
+    input: DownloadAttachmentInput,
+  ): Promise<DownloadAttachmentResult> {
+    const { actor, id } = input;
+
+    // 1. Fetch attachment metadata.
+    const rows = await deps.db.execute<{
+      id: string;
+      voc_id: string | null;
+      comment_id: string | null;
+      comment_kind: string | null;
+      name: string;
+      size_bytes: string | number;
+      mime_type: string;
+      storage_key: string;
+      uploaded_by_actor_id: string;
+    }>(sql`
+      select id, voc_id, comment_id, comment_kind, name, size_bytes,
+             mime_type, storage_key, uploaded_by_actor_id
+        from voc.voc_attachments
+       where id = ${id}
+       limit 1
+    `);
+    const row = rows.rows[0];
+    if (!row) throw new HttpError('not_found.record', 'attachment not found');
+
+    // 2. Workspace gate via storage_key prefix. The attachments table has no
+    //    direct workspace_id column; the prefix is the canonical workspace
+    //    binding (per uploadAttachment's `${workspace_id}/${uuid}/${name}`).
+    if (!row.storage_key.startsWith(`${actor.workspace_id}/`)) {
+      throw new HttpError('not_found.record', 'attachment not found');
+    }
+
+    // 3. Entitlement. The existing operator/reporter rule decides first; only when it denies does the
+    //    public-read arm (a VOC-body or `public_update` attachment of a publicly readable VOC) get a
+    //    say, and a denial there re-raises the original error unchanged.
+    try {
+      await assertOperatorOrReporterEntitlement(actor, row);
+    } catch (err) {
+      if (!(err instanceof HttpError) || err.code !== 'permission.denied') throw err;
+      if (!(await publicArmAllows(actor, row))) throw err;
     }
 
     // 4. Stream from storage. Surface StorageUnavailableError as 502;

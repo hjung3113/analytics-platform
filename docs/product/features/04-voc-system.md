@@ -62,6 +62,8 @@ VOC = 내부 AD 인증 Actor가 직접 제출한 고객 또는 사용자 의견,
 
 Reporter is the Actor who submitted a specific VOC. Reporter is not a Role Level, persona, or external customer contact in MVP.
 
+**VOC public part (ADR-0110 decision 3, #1288 g).** The part of a VOC any signed-in user may read when the VOC is theirs, in a system they hold `voc.read_public` (or `voc.read`/`voc.triage`) on, or in the 「플랫폼」 system: title, body (rich content), reporter-facing status, Public Updates (visibility `public`, with a body) and the attachments of the body and of those Public Updates. It is served by `GET /vocs/public` and `GET /vocs/public/:id` as an allowlist, never as a filtered operator response. Reporter identity and uploader, owner, severity, triage state, Cluster, links, linked execution, similar VOCs, permission decisions, Reporter Replies (and their attachments) and Internal Comments are not part of it. Site and room scopes follow #98.
+
 ## Status Model
 
 Reporter-facing VOC Status:
