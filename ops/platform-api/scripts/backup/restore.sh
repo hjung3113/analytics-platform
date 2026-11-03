@@ -21,11 +21,15 @@
 #   is left STOPPED with its data; the switch-over commands are printed. On any failure the script stops and prints the
 #   failed-restore branch; the source is untouched and the half-built target is kept for inspection.
 #
-# Images: the local backend/migrate images must be the pair recorded in the manifest; otherwise the restore is refused
-# unless RESTORE_IMAGE_MISMATCH_OK=1, which still requires zero pending/divergent migrations (read-only compare).
+# Images: the local backend/migrate/web images must be the ones recorded in the manifest; otherwise (or when the manifest
+# has images.verified false) the restore is refused unless RESTORE_IMAGE_MISMATCH_OK=1. Either way the read-only journal
+# comparison (restored ledger vs the migrate image) ALWAYS runs before any backend starts, and zero pending/divergent
+# migrations is required. The checked images are pinned by id in docker-compose.restore-<project>.yml next to the compose
+# file (kept; the switch-over command uses it with -f), so the launched images are the checked ones.
 #
 # Environment: RESTORE_CONFIRM, RESTORE_LIVE_PROJECT (default platform-api), RESTORE_IMAGE_MISMATCH_OK, BACKUP_MC_IMAGE,
-# BACKUP_BACKEND_IMAGE / BACKUP_MIGRATE_IMAGE (default platform-release-{backend,migrate}:local), STORAGE_S3_BUCKET.
+# BACKUP_BACKEND_IMAGE / BACKUP_MIGRATE_IMAGE / BACKUP_WEB_IMAGE (default platform-release-{backend,migrate,web}:local),
+# STORAGE_S3_BUCKET.
 
 set -Eeuo pipefail
 set +x
@@ -42,7 +46,7 @@ REPLACE_LIVE=0
 ENV_FILE="${BACKUP_ENV_FILE:-$OPS_ROOT/.env.production}"
 COMPOSE_FILE="${BACKUP_COMPOSE_FILE:-$OPS_ROOT/docker-compose.production.yml}"
 
-usage() { sed -n '3,32p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2; }
+usage() { sed -n '3,38p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2; }
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --help|-h) usage; exit 0 ;;
@@ -106,26 +110,56 @@ cv="${cv#v}"
 IFS=. read -r cv_major cv_minor _ <<<"$cv"
 { [ "${cv_major:-0}" -gt 2 ] || { [ "${cv_major:-0}" -eq 2 ] && [ "${cv_minor:-0}" -ge 24 ]; }; } || bk_die "docker compose >= 2.24 is required (found '$cv')"
 
-# 3b. Image pair (F1): the backend started below must be the build this backup was taken with, or provably
-# schema-compatible. Checked before anything starts.
+# 3b. Image pair: the images started below must be the build this backup was taken with, or provably
+# schema-compatible (journal check below, always). Checked before anything starts; the checked image ids are pinned.
 IMG_MISMATCH=0
-for kind in backend migrate; do
+IMAGES_VERIFIED="$(bk_m_section_value "$M" images verified)"
+PIN_BACKEND=''; PIN_MIGRATE=''; PIN_WEB=''
+for kind in backend migrate web; do
   want_id="$(bk_m_section_value "$M" images "$kind")"
-  case "$kind" in backend) ref="${BACKUP_BACKEND_IMAGE:-$BK_IMAGE_BACKEND_DEFAULT}" ;; *) ref="${BACKUP_MIGRATE_IMAGE:-$BK_IMAGE_MIGRATE_DEFAULT}" ;; esac
+  case "$kind" in
+    backend) ref="${BACKUP_BACKEND_IMAGE:-$BK_IMAGE_BACKEND_DEFAULT}" ;;
+    migrate) ref="${BACKUP_MIGRATE_IMAGE:-$BK_IMAGE_MIGRATE_DEFAULT}" ;;
+    *) ref="${BACKUP_WEB_IMAGE:-$BK_IMAGE_WEB_DEFAULT}" ;;
+  esac
   have_id="$(docker image inspect --format '{{.Id}}' "$ref" 2>/dev/null || echo missing)"
-  if [ -z "$want_id" ] || [ "$want_id" = unknown ] || [ "$have_id" != "$want_id" ]; then
-    bk_log "$kind image $ref is '$have_id'; the backup was taken with '${want_id:-none}'"
+  if [ "$kind" = web ] && { [ -z "$want_id" ] || [ "$want_id" = unknown ]; }; then
+    bk_log "the backup records no web image (older backup or edge not running); the local web image $ref is used"
+  elif [ -z "$want_id" ] || [ "$want_id" = unknown ] || [ "$have_id" != "$want_id" ] || { [ "$kind" = backend ] && [ "$IMAGES_VERIFIED" = false ]; }; then
+    bk_log "$kind image $ref is '$have_id'; the backup was taken with '${want_id:-none}'${IMAGES_VERIFIED:+ (images.verified $IMAGES_VERIFIED)}"
     IMG_MISMATCH=1
   fi
+  case "$kind" in
+    backend) PIN_BACKEND="$have_id" ;;
+    migrate) PIN_MIGRATE="$have_id" ;;
+    *) PIN_WEB="$have_id" ;;
+  esac
 done
 if [ "$IMG_MISMATCH" -eq 1 ]; then
-  [ "${RESTORE_IMAGE_MISMATCH_OK:-}" = 1 ] || bk_die "the local backend/migrate images are not the pair this backup was taken with. Load the matching images (docker load / retag :pre-<timestamp>), or set RESTORE_IMAGE_MISMATCH_OK=1 to accept a different build: the restored journal is then compared with the local migrate image and any pending or divergent migration still refuses the restore."
-  bk_log 'RESTORE_IMAGE_MISMATCH_OK=1: different images accepted only if the restored journal matches the local migrate image exactly'
+  [ "${RESTORE_IMAGE_MISMATCH_OK:-}" = 1 ] || bk_die "the local backend/migrate/web images are not the pair this backup was taken with (or the backup could not identify them). Load the matching images (docker load / retag :pre-<timestamp>), or set RESTORE_IMAGE_MISMATCH_OK=1 to accept a different build: the restored journal is then compared with the local migrate image and any pending or divergent migration still refuses the restore."
+  bk_log 'RESTORE_IMAGE_MISMATCH_OK=1: different images accepted only if the restored journal matches the migrate image exactly'
+fi
+[ "$PIN_BACKEND" != missing ] || bk_die "backend image ${BACKUP_BACKEND_IMAGE:-$BK_IMAGE_BACKEND_DEFAULT} is not on this host"
+[ "$PIN_MIGRATE" != missing ] || bk_die "migrate image ${BACKUP_MIGRATE_IMAGE:-$BK_IMAGE_MIGRATE_DEFAULT} is not on this host"
+if [ "$PIN_WEB" = missing ]; then
+  bk_log "WARNING: web image ${BACKUP_WEB_IMAGE:-$BK_IMAGE_WEB_DEFAULT} is not on this host; the edge is not pinned and cannot start until it is loaded"
+  PIN_WEB=''
 fi
 
 umask 077
 TMP="$BACKUP_DIR/../.restore-tmp-$PROJECT-$$"
 mkdir -p "$TMP" && chmod 700 "$TMP"
+PINS_FILE="$(dirname "$COMPOSE_FILE")/docker-compose.restore-$PROJECT.yml"
+{
+  printf '# Written by restore.sh for project %s from %s.\n' "$PROJECT" "$BACKUP_DIR"
+  printf '# Pins the images that were checked against the restored data (immutable ids). KEEP this file: every start of this\n'
+  printf '# project must use it: docker compose -f docker-compose.production.yml -f %s ...\n' "$(basename "$PINS_FILE")"
+  printf 'services:\n'
+  for svc in backend minio-bootstrap; do printf '  %s:\n    image: %s\n    pull_policy: never\n' "$svc" "$PIN_BACKEND"; done
+  for svc in migrate cutover set-role-passwords bootstrap set-actor-role; do printf '  %s:\n    image: %s\n    pull_policy: never\n' "$svc" "$PIN_MIGRATE"; done
+  [ -z "$PIN_WEB" ] || printf '  edge:\n    image: %s\n    pull_policy: never\n' "$PIN_WEB"
+} >"$PINS_FILE"
+BK_COMPOSE_PINS="$PINS_FILE"
 BK_COMPOSE_OVERRIDE="$TMP/no-init.override.yml"
 cat >"$BK_COMPOSE_OVERRIDE" <<'YAML'
 # Restore target: the cluster is built from globals.sql + pg_restore, so init.sql must NOT be mounted.
@@ -147,6 +181,7 @@ fail_hint() {
       if bk_dc stop >/dev/null 2>&1; then bk_log "target project '$PROJECT' stopped (data stays in its volumes)"
       else bk_log "WARNING: could not stop the target project '$PROJECT'; stop it yourself: docker compose -p $PROJECT --env-file <env> -f <compose> stop"; fi
     fi
+    [ -z "${PINS_FILE:-}" ] || rm -f -- "$PINS_FILE"
     bk_log "RESTORE FAILED (exit $rc). The source backup and the live volumes were not modified."
     bk_log "Target project '$PROJECT' keeps its half-built volumes for inspection: $PG_VOL, $MINIO_VOL."
     bk_log "Failed-restore branch: read the error above, fix the cause, then restore into a NEW --project name; remove the failed target only after inspecting it:"
@@ -231,6 +266,14 @@ check 'no product table owned by the superuser' "select count(*) from pg_class c
 check 'runtime grants (platform_app)' "select has_database_privilege('platform_app','$DB','CONNECT') and has_schema_privilege('platform_app','core','USAGE') and has_table_privilege('platform_app','core.actors','SELECT')" t
 check 'journal digest' "select encode(sha256(convert_to(string_agg(hash, E'\\n' order by id) || E'\\n', 'UTF8')), 'hex') from drizzle.__drizzle_migrations" "$(bk_m_section_value "$M" journal digest)"
 
+# 8b. Journal check, ALWAYS (an image id match is not enough): the restored ledger must equal what the migrate image
+# expects. Read-only, never migrate; no backend has started yet.
+bk_db_hashes >"$TMP/db-hashes" || bk_die 'could not read the restored migration journal'
+bk_image_hashes "$PIN_MIGRATE" >"$TMP/img-hashes"
+pend="$(bk_journal_pending "$TMP/db-hashes" "$TMP/img-hashes")" || bk_die 'the restored journal and the migrate image diverge; no backend was started'
+[ "$pend" = 0 ] || bk_die "the migrate image would apply $pend pending migration(s) to the restored data; restore refuses (a backend on an older schema is not verified). Use the matching images; no backend was started."
+bk_log 'ok: restored journal equals the migrate image (0 pending)'
+
 # 9. Objects: bucket first, mirror back, compare keys/bytes/sha256 through a second export.
 bk_log "restoring bucket $BUCKET"
 bk_dc up -d --no-deps --wait minio >/dev/null
@@ -245,15 +288,6 @@ bk_mc "$TMP/export" mirror "bk/$BUCKET" /data >&2 || bk_die 'could not export th
 bk_inventory "$TMP/export" | cmp -s - "$BACKUP_DIR/objects.sha256" || bk_die 'restored object checksums differ from objects.sha256'
 unset MC_HOST_bk
 bk_log "ok: $want_stats objects (count bytes) and sha256 inventory equal the backup"
-
-# 9b. Different image build accepted: the restored schema must equal what that build expects (read-only, never migrate).
-if [ "$IMG_MISMATCH" -eq 1 ]; then
-  bk_db_hashes >"$TMP/db-hashes" || bk_die 'could not read the restored migration journal'
-  bk_image_hashes "${BACKUP_MIGRATE_IMAGE:-$BK_IMAGE_MIGRATE_DEFAULT}" >"$TMP/img-hashes"
-  pend="$(bk_journal_pending "$TMP/db-hashes" "$TMP/img-hashes")" || bk_die 'the restored journal and the local migrate image diverge; no backend was started'
-  [ "$pend" = 0 ] || bk_die "the local migrate image would apply $pend pending migration(s) to the restored data; restore refuses (a backend on an older schema is not verified). Use the matching images; no backend was started."
-  bk_log 'ok: restored journal equals the local migrate image (0 pending)'
-fi
 
 # 10. Backend under the runtime role, no migrate, no bootstrap, no dependencies started.
 bk_log 'starting backend (platform_app) and waiting for /health/ready'
@@ -272,6 +306,7 @@ bk_dc stop >/dev/null
 bk_log "RESTORE VERIFIED into project '$PROJECT' (volumes $PG_VOL, $MINIO_VOL). Stack is stopped."
 bk_log "Switch traffic: stop the old stack's edge/backend, then start this one with the SAME env plus"
 bk_log "  RELEASE_POSTGRES_VOLUME=$PG_VOL RELEASE_MINIO_VOLUME=$MINIO_VOL (put both lines in .env.production),"
-bk_log "  and run: docker compose -p <project> --env-file .env.production -f docker-compose.production.yml up -d"
+bk_log "  and run (keep $PINS_FILE: it pins the verified images; use it on every start of this project):"
+bk_log "  docker compose -p $PROJECT --env-file .env.production -f $COMPOSE_FILE -f $PINS_FILE up -d"
 trap - EXIT
 rm -rf -- "${TMP:?}"

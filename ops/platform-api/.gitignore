@@ -7,3 +7,6 @@
 
 # MinIO local data volume (docker-compose.dev.yml)
 minio_data/
+
+# Maintenance lock of backup.sh/upgrade.sh (one directory per compose project)
+.maintenance/

@@ -5,19 +5,23 @@
 #   BACKUP_ROOT=/srv/platform-backups bash scripts/release/upgrade.sh <local | new-image-tag> [--project NAME]
 #                                                                    [--env-file FILE] [--compose-file FILE]
 #
-# The new images must already exist on this host (build or `docker load` them first):
-#   local        they are already tagged platform-release-backend:local and platform-release-migrate:local
-#   <tag>        platform-release-backend:<tag> and platform-release-migrate:<tag> exist; they are retagged to :local
+# The new images must already exist on this host (build or `docker load` them first; the web image comes from
+# scripts/release/build-web-image.sh run at the same commit, then `docker tag platform-release-web:local platform-release-web:<tag>`):
+#   local        they are already tagged platform-release-{backend,migrate,web}:local (warns when the web image is older
+#                than the backend image)
+#   <tag>        platform-release-{backend,migrate,web}:<tag> exist (all three, or nothing is stopped); they are retagged
+#                to :local together
 #
 # Steps (stops at the first failure; the backend is NOT started again until the migration succeeded):
 #   1. data services up, supported identity (platform, v0.24.0 or later), current journal vs the target migrate image's
 #      journal (read-only compare of applied migration hashes with the hashes of the image's migrations; refuses on divergence)
-#   2. current images tagged :pre-<UTC timestamp> (the rollback pair)
-#   3. stop the backend (writers and jobs), backup.sh --keep-stopped, verify-backup.sh; either failing = stop here
+#   2. current images (backend, migrate, and the running edge's web image) tagged :pre-<UTC timestamp> (the rollback set)
+#   3. stop the backend (writers and jobs), backup.sh --keep-stopped (under this script's maintenance lock), verify-backup.sh; either failing = stop here
 #   4. only now the new images take the :local tags, then the migrate job runs (drizzle-kit migrate); a non-zero exit leaves
 #      the backend stopped and prints the restore command for the matching backup and the image rollback command
 #   5. docker compose up -d, then /health/ready must return 200
-# No down migrations. No fixture seed or bootstrap is ever run. A pre-0076 (feedbackops/fops_*) install is refused by the
+# The whole run holds the per-installation maintenance lock (ops/platform-api/.maintenance/<project>.lock); a second
+# backup/upgrade exits 3 at once. No down migrations. No fixture seed or bootstrap is ever run. A pre-0076 (feedbackops/fops_*) install is refused by the
 # backup step: finish the identity cutover first (docs/architecture/platform-api/release/backup-restore-upgrade.md).
 
 set -Eeuo pipefail
@@ -35,7 +39,7 @@ ENV_FILE="${BACKUP_ENV_FILE:-$OPS_ROOT/.env.production}"
 COMPOSE_FILE="${BACKUP_COMPOSE_FILE:-$OPS_ROOT/docker-compose.production.yml}"
 TARGET=''
 
-usage() { sed -n '3,25p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2; }
+usage() { sed -n '3,32p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2; }
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --help|-h) usage; exit 0 ;;
@@ -59,11 +63,25 @@ BACKEND_REPO="${BACKUP_BACKEND_IMAGE_REPO:-platform-release-backend}"
 MIGRATE_REPO="${BACKUP_MIGRATE_IMAGE_REPO:-platform-release-migrate}"
 NEW_MIGRATE="$MIGRATE_REPO:$TARGET"
 NEW_BACKEND="$BACKEND_REPO:$TARGET"
+WEB_REPO="${BACKUP_WEB_IMAGE_REPO:-platform-release-web}"
+NEW_WEB="$WEB_REPO:$TARGET"
 docker image inspect "$NEW_MIGRATE" >/dev/null 2>&1 || bk_die "image $NEW_MIGRATE not found on this host; build or load it first"
 docker image inspect "$NEW_BACKEND" >/dev/null 2>&1 || bk_die "image $NEW_BACKEND not found on this host; build or load it first"
+if [ "$TARGET" != local ]; then
+  docker image inspect "$NEW_WEB" >/dev/null 2>&1 || bk_die "image $NEW_WEB not found on this host; nothing was stopped. Build it at the same commit (scripts/release/build-web-image.sh) and tag it: docker tag $WEB_REPO:local $NEW_WEB"
+else
+  web_created="$(docker image inspect --format '{{.Created}}' "$WEB_REPO:local" 2>/dev/null)" || web_created=''
+  backend_created="$(docker image inspect --format '{{.Created}}' "$BACKEND_REPO:local" 2>/dev/null)" || backend_created=''
+  if [ -z "$web_created" ]; then
+    bk_log "WARNING: $WEB_REPO:local not found; the edge would keep running (or fail to start) with another web build"
+  elif [ -n "$backend_created" ] && [[ "${web_created:0:19}" < "${backend_created:0:19}" ]]; then
+    bk_log "WARNING: $WEB_REPO:local ($web_created) is older than $BACKEND_REPO:local ($backend_created): the web bundle may not match the new API. Rebuild it with scripts/release/build-web-image.sh from the same commit unless that is intended."
+  fi
+fi
 
 tmp="$(mktemp -d)"
-trap 'rc=$?; trap - EXIT; rm -rf -- "${tmp:?}"; [ "$rc" -eq 0 ] || bk_log "UPGRADE STOPPED (exit $rc). The backend was not started again by this script."; exit "$rc"' EXIT
+bk_lock_acquire upgrade
+trap 'rc=$?; trap - EXIT; rm -rf -- "${tmp:?}"; bk_lock_release; [ "$rc" -eq 0 ] || bk_log "UPGRADE STOPPED (exit $rc). The backend was not started again by this script."; exit "$rc"' EXIT
 
 # 1. Compare journals without changing anything.
 bk_log "project $PROJECT: data services up"
@@ -77,6 +95,7 @@ bk_log "migrations applied: $(grep -c . "$tmp/db"); pending in the target image:
 TS="$(date -u +%Y%m%dT%H%M%SZ)"
 PRE_BACKEND=''
 PRE_MIGRATE=''
+PRE_WEB=''
 cid="$(bk_dc ps -a -q backend | head -n 1 || true)"
 if [ -n "$cid" ]; then
   id="$(docker inspect --format '{{.Image}}' "$cid")"
@@ -87,14 +106,18 @@ if [ -n "$cid" ]; then
   id="$(docker inspect --format '{{.Image}}' "$cid")"
   docker tag "$id" "$MIGRATE_REPO:pre-$TS" && PRE_MIGRATE="$MIGRATE_REPO:pre-$TS"
 fi
+# The web rollback image is the one the running edge container uses, not the mutable :local tag.
+if id="$(bk_container_image edge)"; then
+  docker tag "$id" "$WEB_REPO:pre-$TS" && PRE_WEB="$WEB_REPO:pre-$TS"
+fi
+[ -n "$PRE_WEB" ] || bk_log "WARNING: no edge container found; no :pre-$TS rollback tag for the web image"
 [ -n "$PRE_BACKEND" ] || bk_log "WARNING: no backend container found; no :pre-$TS rollback tag for the backend image"
-[ -z "$PRE_BACKEND" ] || bk_log "rollback images: $PRE_BACKEND ${PRE_MIGRATE:-(no migrate container)}"
+[ -z "$PRE_BACKEND" ] || bk_log "rollback images: $PRE_BACKEND ${PRE_MIGRATE:-(no migrate container)} ${PRE_WEB:-(no web image)}"
 
 # 3. Quiesce, back up, verify. A failure here leaves the backend stopped.
 bk_log 'stopping backend (writers and jobs)'
 bk_dc stop backend >/dev/null
 BACKUP_DIR="$(BACKUP_PROJECT="$PROJECT" BACKUP_ENV_FILE="$ENV_FILE" BACKUP_COMPOSE_FILE="$COMPOSE_FILE" \
-  BACKUP_BACKEND_IMAGE="${BACKUP_BACKEND_IMAGE:-${PRE_BACKEND:-$BACKEND_REPO:local}}" \
   BACKUP_MIGRATE_IMAGE="${BACKUP_MIGRATE_IMAGE:-${PRE_MIGRATE:-$MIGRATE_REPO:local}}" \
   bash "$BACKUP_SCRIPTS/backup.sh" --keep-stopped)" || bk_die 'backup failed; nothing was migrated and the backend stays stopped'
 [ -d "$BACKUP_DIR" ] || bk_die 'backup.sh did not report a backup directory'
@@ -105,6 +128,7 @@ RESTORE_CMD="BACKUP_ROOT=\"$BACKUP_ROOT\" bash $BACKUP_SCRIPTS/restore.sh \"$BAC
 if [ "$TARGET" != local ]; then
   docker tag "$NEW_BACKEND" "$BACKEND_REPO:local"
   docker tag "$NEW_MIGRATE" "$MIGRATE_REPO:local"
+  docker tag "$NEW_WEB" "$WEB_REPO:local"
 fi
 bk_log 'running the migrate job'
 if ! bk_dc run --rm --no-deps migrate >&2; then
@@ -112,7 +136,7 @@ if ! bk_dc run --rm --no-deps migrate >&2; then
   bk_log "1. Inspect what was applied: docker compose -p $PROJECT --env-file <env> -f <compose> exec -T postgres psql -U postgres -d platform -c 'select id, hash, created_at from drizzle.__drizzle_migrations order by id desc limit 5'"
   bk_log "2. Forward-fix (new image, rerun this script) or restore the matching data and image pair:"
   bk_log "   $RESTORE_CMD"
-  [ -z "$PRE_BACKEND" ] || bk_log "   image rollback: docker tag $PRE_BACKEND $BACKEND_REPO:local${PRE_MIGRATE:+; docker tag $PRE_MIGRATE $MIGRATE_REPO:local}"
+  [ -z "$PRE_BACKEND" ] || bk_log "   image rollback: docker tag $PRE_BACKEND $BACKEND_REPO:local${PRE_MIGRATE:+; docker tag $PRE_MIGRATE $MIGRATE_REPO:local}${PRE_WEB:+; docker tag $PRE_WEB $WEB_REPO:local}"
   exit 1
 fi
 

@@ -4,10 +4,11 @@
 // Run: node --test scripts/backup/backup.test.mjs
 
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
   chmodSync,
+  copyFileSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -45,12 +46,15 @@ after(() => {
   for (const d of roots) rmSync(d, { recursive: true, force: true });
 });
 
+// Default maintenance directory of every script run (never the repository's ops/.maintenance); tests that look at the
+// lock pass their own.
+const MAINT = tmp();
 const sha = (s) => createHash('sha256').update(s).digest('hex');
 
 function run(cmd, args, env = {}, extra = {}) {
   const r = spawnSync(cmd, args, {
     encoding: 'utf8',
-    env: { PATH: process.env.PATH, HOME: process.env.HOME, ...env },
+    env: { PATH: process.env.PATH, HOME: process.env.HOME, BACKUP_MAINTENANCE_DIR: MAINT, ...env },
     ...extra,
   });
   return { code: r.status, out: r.stdout, err: r.stderr };
@@ -58,7 +62,34 @@ function run(cmd, args, env = {}, extra = {}) {
 const bash = (script, args, env) => run('bash', [script, ...args], env);
 
 // A hand-built backup directory in the exact manifest layout backup.sh writes.
-function makeBackup(root, stamp = '20260101T000000Z', { project = 'platform-api' } = {}) {
+const IMAGE_BLOCKS = {
+  new: `  "images": {
+    "backend": "sha256:b",
+    "migrate": "sha256:m",
+    "web": "sha256:w",
+    "verified": true
+  },`,
+  // Backups written before the web image and the verified flag existed.
+  legacy: `  "images": {
+    "backend": "sha256:b",
+    "migrate": "sha256:m"
+  },`,
+  unverified: `  "images": {
+    "backend": "",
+    "migrate": "sha256:m",
+    "web": "sha256:w",
+    "verified": false
+  },`,
+  unknown: `  "images": {
+    "backend": "unknown",
+    "migrate": "unknown"
+  },`,
+};
+function makeBackup(
+  root,
+  stamp = '20260101T000000Z',
+  { project = 'platform-api', images = 'new' } = {},
+) {
   const dir = join(root, stamp);
   mkdirSync(join(dir, 'objects', 'a'), { recursive: true, mode: 0o700 });
   const objects = { './a/one.bin': 'object-one', './two.bin': 'object-two!' };
@@ -80,10 +111,7 @@ function makeBackup(root, stamp = '20260101T000000Z', { project = 'platform-api'
   "project": "${project}",
   "bucket": "platform-attachments",
   "backendDowntimeSeconds": 3,
-  "images": {
-    "backend": "sha256:b",
-    "migrate": "sha256:m"
-  },
+${IMAGE_BLOCKS[images]}
   "journal": {
     "count": 2,
     "lastHash": "h2",
@@ -314,7 +342,7 @@ exit 0
       );
       chmodSync(join(bin, 'docker'), 0o755);
       const envFile = join(tmp(), 'env');
-      writeFileSync(envFile, 'POSTGRES_PASSWORD=x\n');
+      writeFileSync(envFile, 'POSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n');
       return { bin, envFile, dir: makeBackup(tmp()) };
     }
     const base = ({ bin }, extra = {}) => ({ PATH: `${bin}:${process.env.PATH}`, ...extra });
@@ -349,12 +377,19 @@ function writeStub(bin, logFile) {
 printf '%s\\n' "$*" >>"${logFile}"
 case "$*" in
 "compose version --short") echo 2.29.1; exit 0 ;;
+"image inspect --format {{.Created}}"*platform-release-web*) echo "\${STUB_WEB_CREATED:-2026-01-02T00:00:00Z}"; exit 0 ;;
+"image inspect --format {{.Created}}"*platform-release-backend*) echo 2026-01-01T00:00:00Z; exit 0 ;;
+"image inspect --format"*platform-release-backend:local) echo "\${STUB_LOCAL_BACKEND_ID:-sha256:imageid}"; exit 0 ;;
 "image inspect --format"*) echo sha256:imageid; exit 0 ;;
-"image inspect"*) exit 0 ;;
+"image inspect"*) case "$*" in *"\${STUB_MISSING_IMAGE:-@@none@@}"*) exit 1 ;; esac; exit 0 ;;
+"tag "*) exit 0 ;;
+"inspect --format {{.State.ExitCode}}"*) echo 0; exit 0 ;;
+"inspect --format {{.Image}} cid-"*) echo "sha256:c\${4#cid-}"; exit 0 ;;
 "inspect --format"*) echo sha256:oldimage; exit 0 ;;
 *"ps --status running --services"*) [ -n "\${STUB_PS_RC:-}" ] && exit "\$STUB_PS_RC"; echo backend; exit 0 ;;
 *" start backend"*) exit "\${STUB_START_RC:-0}" ;;
-*"ps -a -q"*) echo cid1; exit 0 ;;
+*"ps -a -q"*) case " \${STUB_NO_CID:-} " in *" \${@: -1} "*) exit 0 ;; esac; echo "cid-\${@: -1}"; exit 0 ;;
+*" stop backend"*) if [ -n "\${STUB_BLOCK_DIR:-}" ]; then : >"\$STUB_BLOCK_DIR/reached"; while [ ! -e "\$STUB_BLOCK_DIR/release" ]; do sleep 0.05; done; fi; exit 0 ;;
 *"exec -T minio printenv MINIO_ROOT_USER"*) echo minioadmin; exit 0 ;;
 *"exec -T minio printenv MINIO_ROOT_PASSWORD"*) echo ${SECRET}; exit 0 ;;
 *"datname='platform'"*) echo '1 0 2 0'; exit 0 ;;
@@ -367,7 +402,7 @@ case "$*" in
 *"exec -T postgres pg_dump "*)
   case "$*" in *--exclude-table-data=core.sessions*) echo DUMP ;; *) echo "COPY core.sessions FROM stdin; ${SESSION_SECRET}" ;; esac
   exit 0 ;;
-*"--entrypoint cat"*) echo '{"entries":[{"tag":"0000_a"},{"tag":"0001_b"},{"tag":"0002_c"}]}'; exit 0 ;;
+*"--entrypoint cat"*) if [ -n "\${STUB_TWO_TAGS:-}" ]; then echo '{"entries":[{"tag":"0000_a"},{"tag":"0001_b"}]}'; else echo '{"entries":[{"tag":"0000_a"},{"tag":"0001_b"},{"tag":"0002_c"}]}'; fi; exit 0 ;;
 *"--entrypoint sh"*) printf 'h1  0000_a.sql\\nh2  0001_b.sql\\nh3  0002_c.sql\\n'; exit 0 ;;
 *"run --rm --no-deps migrate"*) exit "\${STUB_MIGRATE_RC:-0}" ;;
 esac
@@ -383,7 +418,7 @@ describe('upgrade.sh ordering (stub docker)', () => {
     const log = join(tmp(), 'calls.log');
     writeStub(bin, log);
     const envFile = join(tmp(), 'env');
-    writeFileSync(envFile, 'POSTGRES_PASSWORD=x\n');
+    writeFileSync(envFile, 'POSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n');
     const root = tmp();
     const r = run('bash', [UPGRADE, 'local', '--env-file', envFile, '--compose-file', COMPOSE], {
       PATH: `${bin}:${process.env.PATH}`,
@@ -461,7 +496,7 @@ describe('upgrade.sh ordering (stub docker)', () => {
     );
     writeFileSync(join(bin, 'docker'), text);
     const envFile = join(tmp(), 'env');
-    writeFileSync(envFile, 'POSTGRES_PASSWORD=x\n');
+    writeFileSync(envFile, 'POSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n');
     const r = run('bash', [UPGRADE, 'local', '--env-file', envFile, '--compose-file', COMPOSE], {
       PATH: `${bin}:${process.env.PATH}`,
       BACKUP_ROOT: tmp(),
@@ -481,7 +516,7 @@ describe('upgrade.sh ordering (stub docker)', () => {
     const text = readFileSync(join(bin, 'docker'), 'utf8').replace("'h1\\nh2\\n'", "'h1\\nXX\\n'");
     writeFileSync(join(bin, 'docker'), text);
     const envFile = join(tmp(), 'env');
-    writeFileSync(envFile, 'POSTGRES_PASSWORD=x\n');
+    writeFileSync(envFile, 'POSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n');
     const r = run('bash', [UPGRADE, 'local', '--env-file', envFile, '--compose-file', COMPOSE], {
       PATH: `${bin}:${process.env.PATH}`,
       BACKUP_ROOT: tmp(),
@@ -507,7 +542,7 @@ describe('backup.sh standalone (stub docker)', () => {
     const { bin, log } = stubDir();
     writeStub(bin, log);
     const envFile = join(tmp(), 'env');
-    writeFileSync(envFile, 'POSTGRES_PASSWORD=x\n');
+    writeFileSync(envFile, 'POSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n');
     const root = tmp();
     const r = run('bash', [BACKUP, '--env-file', envFile, '--compose-file', COMPOSE], {
       PATH: `${bin}:${process.env.PATH}`,
@@ -547,18 +582,21 @@ describe('backup.sh standalone (stub docker)', () => {
   });
 });
 
-describe('restore.sh image pair and cleanup (stub docker)', () => {
-  // A stub that lets a restore run to the end: every check query answers with its expected value.
-  function writeRestoreStub(bin, logFile) {
-    writeFileSync(
-      join(bin, 'docker'),
-      `#!/usr/bin/env bash
+function writeRestoreStubFile(bin, logFile) {
+  writeFileSync(
+    join(bin, 'docker'),
+    `#!/usr/bin/env bash
 printf '%s\\n' "$*" >>"${logFile}"
+for a in "$@"; do case "$a" in *docker-compose.restore-*.yml) [ -f "$a" ] && cp "$a" "\${STUB_CAPTURE_DIR:?}/pins.yml" ;; esac; done
 case "$*" in
   "volume inspect "*) exit 1 ;;
   "compose version --short") echo 2.29.1; exit 0 ;;
   "image inspect --format"*platform-release-backend*) echo "\${STUB_BACKEND_ID:-sha256:b}"; exit 0 ;;
   "image inspect --format"*platform-release-migrate*) echo "\${STUB_MIGRATE_ID:-sha256:m}"; exit 0 ;;
+  "image inspect --format"*platform-release-web*) [ "\${STUB_WEB_ID:-sha256:w}" = missing ] && exit 1; echo "\${STUB_WEB_ID:-sha256:w}"; exit 0 ;;
+  "image inspect --format"*registry.local/be*) echo sha256:b; exit 0 ;;
+  "image inspect --format"*registry.local/mig*) echo sha256:m; exit 0 ;;
+  "image inspect --format"*registry.local/web*) echo sha256:w; exit 0 ;;
   *"psql"*"-f -"*) cat >/dev/null; exit 0 ;;
   *"pg_restore --exit-on-error"*) exit "\${STUB_PGRESTORE_RC:-0}" ;;
   *"exec -T backend node"*) exit 0 ;;
@@ -588,27 +626,46 @@ case "$*" in
 esac
 exit 0
 `,
-    );
-    chmodSync(join(bin, 'docker'), 0o755);
-  }
-  function go(extraEnv = {}) {
+  );
+  chmodSync(join(bin, 'docker'), 0o755);
+}
+
+describe('restore.sh image pair and cleanup (stub docker)', () => {
+  const writeRestoreStub = writeRestoreStubFile;
+  function go(extraEnv = {}, backupOpts = {}) {
     const bin = tmp();
     const log = join(tmp(), 'calls.log');
     writeRestoreStub(bin, log);
     const envFile = join(tmp(), 'env');
-    writeFileSync(envFile, 'POSTGRES_PASSWORD=x\n');
-    const dir = makeBackup(tmp());
+    writeFileSync(envFile, 'POSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n');
+    const dir = makeBackup(tmp(), undefined, backupOpts);
+    // The pin file is written next to the compose file: use a private copy so the repository stays clean.
+    const composeDir = tmp();
+    const compose = join(composeDir, 'docker-compose.production.yml');
+    copyFileSync(COMPOSE, compose);
+    const capture = tmp();
     const r = run(
       'bash',
-      [RESTORE, dir, '--project', 'restored', '--env-file', envFile, '--compose-file', COMPOSE],
+      [RESTORE, dir, '--project', 'restored', '--env-file', envFile, '--compose-file', compose],
       {
         PATH: `${bin}:${process.env.PATH}`,
         STUB_BACKUP_DIR: dir,
+        STUB_CAPTURE_DIR: capture,
         ...extraEnv,
       },
     );
     const calls = existsSync(log) ? readFileSync(log, 'utf8').split('\n').filter(Boolean) : [];
-    return { ...r, calls, log: calls.join('\n') };
+    const pinsPath = join(composeDir, 'docker-compose.restore-restored.yml');
+    const captured = join(capture, 'pins.yml');
+    return {
+      ...r,
+      calls,
+      log: calls.join('\n'),
+      compose,
+      pinsPath,
+      pinsKept: existsSync(pinsPath),
+      pins: existsSync(captured) ? readFileSync(captured, 'utf8') : '',
+    };
   }
   const startsBackend = (c) => / up -d/.test(c) && /(^| )backend( |$)/.test(c);
   const startsAnything = (c) =>
@@ -681,5 +738,380 @@ exit 0
       -1,
       r.log,
     );
+  });
+});
+
+const readCalls = (log) =>
+  existsSync(log) ? readFileSync(log, 'utf8').split('\n').filter(Boolean) : [];
+const manifestOf = (root) => {
+  const name = readdirSync(root).find((n) => /^\d{8}T\d{6}Z$/.test(n));
+  assert.ok(name, 'a backup directory exists');
+  return readFileSync(join(root, name, 'manifest.json'), 'utf8');
+};
+function backupRun(extraEnv = {}) {
+  const bin = tmp();
+  const log = join(tmp(), 'calls.log');
+  writeStub(bin, log);
+  const envFile = join(tmp(), 'env');
+  writeFileSync(envFile, 'POSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n');
+  const root = tmp();
+  const r = run('bash', [BACKUP, '--env-file', envFile, '--compose-file', COMPOSE], {
+    PATH: `${bin}:${process.env.PATH}`,
+    BACKUP_ROOT: root,
+    ...extraEnv,
+  });
+  return { ...r, root, calls: readCalls(log) };
+}
+
+describe('OPS-04 backup records the images that produced the data (stub docker)', () => {
+  test('container image ids, not the :local tags, after :local was retagged', () => {
+    const r = backupRun({ STUB_LOCAL_BACKEND_ID: 'sha256:retagged' });
+    assert.equal(r.code, 0, r.err);
+    const m = manifestOf(r.root);
+    assert.match(m, /"backend": "sha256:cbackend"/);
+    assert.match(m, /"migrate": "sha256:cmigrate"/);
+    assert.match(m, /"web": "sha256:cedge"/);
+    assert.match(m, /"verified": true/);
+    assert.doesNotMatch(m, /retagged|imageid|unknown/);
+  });
+  test('an unidentifiable backend image: the backup runs, verified false, no "unknown"', () => {
+    const r = backupRun({ STUB_NO_CID: 'backend' });
+    assert.equal(r.code, 0, r.err);
+    const m = manifestOf(r.root);
+    assert.match(m, /"backend": ""/);
+    assert.match(m, /"verified": false/);
+    assert.doesNotMatch(m, /unknown/);
+    assert.match(r.err, /images\.verified is false/);
+  });
+  test('no migrate container: the :local ref is trusted only when its journal equals the database', () => {
+    const differs = backupRun({ STUB_NO_CID: 'migrate' }); // image knows 3 migrations, database 2
+    assert.equal(differs.code, 0, differs.err);
+    assert.match(manifestOf(differs.root), /"migrate": ""/);
+    const equal = backupRun({ STUB_NO_CID: 'migrate', STUB_TWO_TAGS: '1' });
+    assert.equal(equal.code, 0, equal.err);
+    assert.match(manifestOf(equal.root), /"migrate": "sha256:imageid"/);
+  });
+  test('the image ids are read before the backend is stopped', () => {
+    const r = backupRun();
+    const stop = r.calls.findIndex((c) => / stop backend$/.test(c));
+    const inspectBackend = r.calls.findIndex((c) =>
+      /^inspect --format \{\{\.Image\}\} cid-backend$/.test(c),
+    );
+    assert.ok(inspectBackend >= 0 && inspectBackend < stop, r.calls.join('\n'));
+  });
+});
+
+describe('OPS-05 one maintenance lock per installation (stub docker)', () => {
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  async function waitFor(path, ms = 20000) {
+    const end = Date.now() + ms;
+    while (!existsSync(path)) {
+      if (Date.now() > end) throw new Error(`timed out waiting for ${path}`);
+      await sleep(25);
+    }
+  }
+  function stubbed() {
+    const bin = tmp();
+    const log = join(tmp(), 'calls.log');
+    writeStub(bin, log);
+    const envFile = join(tmp(), 'env');
+    writeFileSync(envFile, 'POSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n');
+    return { bin, log, envFile };
+  }
+
+  test('a second backup during an upgrade is refused at once, touching nothing; the nested backup proceeds', async () => {
+    const maint = tmp();
+    const block = tmp();
+    const up = stubbed();
+    const child = spawn(
+      'bash',
+      [UPGRADE, 'local', '--env-file', up.envFile, '--compose-file', COMPOSE],
+      {
+        env: {
+          PATH: `${up.bin}:${process.env.PATH}`,
+          HOME: process.env.HOME,
+          BACKUP_ROOT: tmp(),
+          BACKUP_MAINTENANCE_DIR: maint,
+          STUB_BLOCK_DIR: block,
+        },
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    );
+    let stderr = '';
+    child.stderr.on('data', (d) => {
+      stderr += d;
+    });
+    const exited = new Promise((resolve) => child.on('close', resolve));
+    try {
+      // Barrier: the upgrade is stopped inside its stop window (the stub blocks `stop backend`).
+      await waitFor(join(block, 'reached'));
+      const second = stubbed();
+      const other = run('bash', [BACKUP, '--env-file', second.envFile, '--compose-file', COMPOSE], {
+        PATH: `${second.bin}:${process.env.PATH}`,
+        BACKUP_ROOT: tmp(), // a different backup root must not bypass the lock
+        BACKUP_MAINTENANCE_DIR: maint,
+      });
+      assert.equal(other.code, 3, other.err);
+      assert.match(other.err, /another maintenance operation holds/);
+      assert.match(other.err, /upgrade/);
+      assert.match(other.err, /pid \d+ is running/);
+      assert.match(other.err, /never taken over automatically/);
+      assert.deepEqual(
+        readCalls(second.log),
+        [],
+        'the refused backup ran no docker command at all',
+      );
+    } finally {
+      writeFileSync(join(block, 'release'), '');
+    }
+    const code = await exited;
+    assert.equal(code, 0, stderr);
+    const calls = readCalls(up.log);
+    assert.ok(
+      calls.some((c) => /pg_dump /.test(c)),
+      'the nested backup ran',
+    );
+    assert.ok(
+      calls.findIndex((c) => /pg_dump /.test(c)) <
+        calls.findIndex((c) => /run --rm --no-deps migrate/.test(c)),
+    );
+    assert.doesNotMatch(stderr, /another maintenance operation/);
+    assert.deepEqual(readdirSync(maint), [], 'the lock is released at the end');
+  });
+
+  test('a stale lock is reported with its holder pid and is never taken over', () => {
+    const maint = tmp();
+    const lock = join(maint, 'platform-api.lock');
+    mkdirSync(lock);
+    writeFileSync(
+      join(lock, 'owner'),
+      'pid=2147483646\ntoken=x\noperation=backup\nsince=2026-01-01T03:15:00Z\n',
+    );
+    const r = backupRun({ BACKUP_MAINTENANCE_DIR: maint });
+    assert.equal(r.code, 3);
+    assert.match(r.err, /pid 2147483646 is NOT running/);
+    assert.ok(r.err.includes(lock), 'names the lock to clear');
+    assert.deepEqual(r.calls, []);
+    assert.ok(existsSync(join(lock, 'owner')), 'the lock was not removed');
+  });
+
+  test('a lock directory of another compose project does not block', () => {
+    const maint = tmp();
+    mkdirSync(join(maint, 'other-project.lock'));
+    const r = backupRun({ BACKUP_MAINTENANCE_DIR: maint });
+    assert.equal(r.code, 0, r.err);
+  });
+
+  test('the lock is released after success and after a failure', () => {
+    const maint = tmp();
+    assert.equal(backupRun({ BACKUP_MAINTENANCE_DIR: maint }).code, 0);
+    assert.deepEqual(readdirSync(maint), []);
+    const failed = backupRun({ BACKUP_MAINTENANCE_DIR: maint, STUB_PS_RC: '1' });
+    assert.notEqual(failed.code, 0);
+    assert.deepEqual(readdirSync(maint), []);
+  });
+
+  test('the backup restarts the backend only after it still holds the lock', () => {
+    const r = backupRun();
+    assert.equal(r.code, 0, r.err);
+    assert.ok(r.calls.some((c) => / start backend$/.test(c)));
+  });
+});
+
+describe('N2 upgrade handles the web image with the others (stub docker)', () => {
+  function upgradeRun(target, extraEnv = {}) {
+    const bin = tmp();
+    const log = join(tmp(), 'calls.log');
+    writeStub(bin, log);
+    const envFile = join(tmp(), 'env');
+    writeFileSync(envFile, 'POSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n');
+    const r = run('bash', [UPGRADE, target, '--env-file', envFile, '--compose-file', COMPOSE], {
+      PATH: `${bin}:${process.env.PATH}`,
+      BACKUP_ROOT: tmp(),
+      ...extraEnv,
+    });
+    return { ...r, calls: readCalls(log), log: readCalls(log).join('\n') };
+  }
+
+  test('<tag> without platform-release-web:<tag> refuses before stopping anything', () => {
+    const r = upgradeRun('v2', { STUB_MISSING_IMAGE: 'platform-release-web:v2' });
+    assert.notEqual(r.code, 0);
+    assert.match(r.err, /platform-release-web:v2 not found/);
+    assert.match(r.err, /docker tag platform-release-web:local platform-release-web:v2/);
+    assert.equal(
+      r.calls.findIndex((c) => /^compose |^tag |^run /.test(c)),
+      -1,
+      `no compose, tag or run call:\n${r.log}`,
+    );
+  });
+
+  test('<tag>: web gets a :pre tag from the running edge container and moves to :local with the others', () => {
+    const r = upgradeRun('v2');
+    assert.equal(r.code, 0, r.err);
+    const preWeb = r.calls.findIndex((c) => /^tag sha256:cedge platform-release-web:pre-/.test(c));
+    const dump = r.calls.findIndex((c) => /pg_dump /.test(c));
+    const toLocal = r.calls.findIndex(
+      (c) => c === 'tag platform-release-web:v2 platform-release-web:local',
+    );
+    const migrate = r.calls.findIndex((c) => /run --rm --no-deps migrate/.test(c));
+    assert.ok(preWeb >= 0 && preWeb < dump, r.log);
+    assert.ok(dump < toLocal && toLocal < migrate, r.log);
+    assert.ok(r.calls.includes('tag platform-release-backend:v2 platform-release-backend:local'));
+    assert.ok(r.calls.includes('tag platform-release-migrate:v2 platform-release-migrate:local'));
+  });
+
+  test('a failed migration prints the web image in the rollback command', () => {
+    const r = upgradeRun('v2', { STUB_MIGRATE_RC: '1' });
+    assert.equal(r.code, 1);
+    assert.match(
+      r.err,
+      /image rollback: docker tag platform-release-backend:pre-\S+ platform-release-backend:local/,
+    );
+    assert.match(r.err, /docker tag platform-release-web:pre-\S+ platform-release-web:local/);
+  });
+
+  test('local warns when the web image is older than the backend image, and stays quiet otherwise', () => {
+    const old = upgradeRun('local', { STUB_WEB_CREATED: '2025-12-31T00:00:00Z' });
+    assert.equal(old.code, 0, old.err);
+    assert.match(
+      old.err,
+      /platform-release-web:local .* is older than platform-release-backend:local/,
+    );
+    const fresh = upgradeRun('local');
+    assert.doesNotMatch(fresh.err, /is older than/);
+  });
+});
+
+describe('OPS-04 restore: journal check always, images pinned (stub docker)', () => {
+  // Reuses the restore stub and runner of the "restore.sh image pair" suite through a local copy of its helpers.
+  function writeStubAndGo(extraEnv = {}, backupOpts = {}) {
+    const bin = tmp();
+    const log = join(tmp(), 'calls.log');
+    const envFile = join(tmp(), 'env');
+    writeFileSync(envFile, 'POSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n');
+    const dir = makeBackup(tmp(), undefined, backupOpts);
+    const composeDir = tmp();
+    const compose = join(composeDir, 'docker-compose.production.yml');
+    copyFileSync(COMPOSE, compose);
+    const capture = tmp();
+    writeRestoreStubFile(bin, log);
+    const r = run(
+      'bash',
+      [RESTORE, dir, '--project', 'restored', '--env-file', envFile, '--compose-file', compose],
+      {
+        PATH: `${bin}:${process.env.PATH}`,
+        STUB_BACKUP_DIR: dir,
+        STUB_CAPTURE_DIR: capture,
+        ...extraEnv,
+      },
+    );
+    const calls = readCalls(log);
+    const pinsPath = join(composeDir, 'docker-compose.restore-restored.yml');
+    const captured = join(capture, 'pins.yml');
+    return {
+      ...r,
+      calls,
+      log: calls.join('\n'),
+      compose,
+      pinsPath,
+      pinsKept: existsSync(pinsPath),
+      pins: existsSync(captured) ? readFileSync(captured, 'utf8') : '',
+    };
+  }
+  const startsBackend = (c) => / up -d/.test(c) && /(^| )backend( |$)/.test(c);
+  const pinned = (pins, service, id) =>
+    new RegExp(`^  ${service}:\\n    image: ${id}\\n    pull_policy: never$`, 'm').test(pins);
+
+  test('matching ids: the journal comparison runs before any backend start and all three images are pinned', () => {
+    const r = writeStubAndGo();
+    assert.equal(r.code, 0, r.err + r.log);
+    const journal = r.calls.findIndex((c) => /run --rm --entrypoint cat sha256:m /.test(c));
+    assert.ok(journal >= 0, `the journal check ran against the pinned migrate id:\n${r.log}`);
+    assert.ok(journal < r.calls.findIndex(startsBackend), r.log);
+    for (const svc of ['backend', 'minio-bootstrap'])
+      assert.ok(pinned(r.pins, svc, 'sha256:b'), r.pins);
+    for (const svc of ['migrate', 'cutover', 'set-role-passwords', 'bootstrap', 'set-actor-role'])
+      assert.ok(pinned(r.pins, svc, 'sha256:m'), r.pins);
+    assert.ok(pinned(r.pins, 'edge', 'sha256:w'), r.pins);
+    // The target is started through the pin file (every start), and the switch-over command uses it too.
+    assert.ok(
+      r.calls.filter(startsBackend).every((c) => c.includes(`-f ${r.pinsPath}`)),
+      r.log,
+    );
+    assert.ok(r.pinsKept, 'the pin file is kept for later starts');
+    assert.match(
+      r.err,
+      new RegExp(
+        `-f ${r.compose.replace(/[.]/g, '\\.')} -f ${r.pinsPath.replace(/[.]/g, '\\.')} up -d`,
+      ),
+    );
+  });
+
+  test('matching ids but a pending migration: refused, no backend start, no pin file left', () => {
+    const r = writeStubAndGo({ STUB_EXTRA_TAG: ',{"tag":"0002_c"}' });
+    assert.notEqual(r.code, 0);
+    assert.match(r.err, /1 pending migration/);
+    assert.equal(r.calls.findIndex(startsBackend), -1, r.log);
+    assert.equal(r.pinsKept, false);
+  });
+
+  test('explicit BACKUP_*_IMAGE refs are checked and pinned by their ids', () => {
+    const r = writeStubAndGo({
+      BACKUP_BACKEND_IMAGE: 'registry.local/be:9',
+      BACKUP_MIGRATE_IMAGE: 'registry.local/mig:9',
+      BACKUP_WEB_IMAGE: 'registry.local/web:9',
+    });
+    assert.equal(r.code, 0, r.err + r.log);
+    assert.ok(r.calls.includes('image inspect --format {{.Id}} registry.local/be:9'), r.log);
+    assert.ok(
+      pinned(r.pins, 'backend', 'sha256:b') && pinned(r.pins, 'migrate', 'sha256:m'),
+      r.pins,
+    );
+    assert.ok(pinned(r.pins, 'edge', 'sha256:w'), r.pins);
+    assert.doesNotMatch(r.pins, /:local/);
+  });
+
+  test('a changed web image is a mismatch like the others', () => {
+    const r = writeStubAndGo({ STUB_WEB_ID: 'sha256:newweb' });
+    assert.notEqual(r.code, 0);
+    assert.match(r.err, /not the pair this backup was taken with/);
+    assert.equal(
+      r.calls.findIndex((c) => / up -d/.test(c)),
+      -1,
+      r.log,
+    );
+    const ok = writeStubAndGo({ STUB_WEB_ID: 'sha256:newweb', RESTORE_IMAGE_MISMATCH_OK: '1' });
+    assert.equal(ok.code, 0, ok.err + ok.log);
+    assert.ok(pinned(ok.pins, 'edge', 'sha256:newweb'), ok.pins);
+  });
+
+  test('images.verified false (backend not identified) is a mismatch: refused without the acknowledgement', () => {
+    const refused = writeStubAndGo({}, { images: 'unverified' });
+    assert.notEqual(refused.code, 0);
+    assert.match(refused.err, /images\.verified false/);
+    assert.equal(
+      refused.calls.findIndex((c) => / up -d/.test(c)),
+      -1,
+      refused.log,
+    );
+    const ok = writeStubAndGo({ RESTORE_IMAGE_MISMATCH_OK: '1' }, { images: 'unverified' });
+    assert.equal(ok.code, 0, ok.err + ok.log);
+    assert.ok(
+      ok.calls.some((c) => /--entrypoint cat sha256:m /.test(c)),
+      'journal check still ran',
+    );
+  });
+
+  test('"unknown" ids of an old backup are never accepted as a match', () => {
+    const r = writeStubAndGo({}, { images: 'unknown' });
+    assert.notEqual(r.code, 0);
+    assert.match(r.err, /not the pair this backup was taken with/);
+  });
+
+  test('an old two-field manifest still restores; the local web image is pinned', () => {
+    const r = writeStubAndGo({}, { images: 'legacy' });
+    assert.equal(r.code, 0, r.err + r.log);
+    assert.match(r.err, /records no web image/);
+    assert.ok(pinned(r.pins, 'edge', 'sha256:w'), r.pins);
   });
 });

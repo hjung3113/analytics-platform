@@ -39,7 +39,23 @@ One run writes `<BACKUP_ROOT>/<UTC timestamp>/` (directory 0700, files 0600):
 | `platform.dump` | `pg_dump -Fc` of database `platform`: all schemas including `pgboss` and `drizzle`. Rows of `core.sessions` are excluded (the table definition stays). |
 | `globals.sql` | `pg_dumpall --globals-only --no-role-passwords`: roles, attributes, memberships. No password. |
 | `objects/`, `objects.sha256` | Mirror of the attachment bucket (`STORAGE_S3_BUCKET`, default `platform-attachments`) and its sha256 inventory. |
-| `manifest.json` | Timestamp, identity, project, backend downtime, backend/migrate image ids, journal (count, last hash, digest), row counts of a fixed table list, object count and bytes, sha256 of `platform.dump`, `globals.sql` and `objects.sha256`. The manifest does not checksum itself. |
+| `manifest.json` | Timestamp, identity, project, backend downtime, image ids (`images.backend`, `images.migrate`, `images.web`, `images.verified`), journal (count, last hash, digest), row counts of a fixed table list, object count and bytes, sha256 of `platform.dump`, `globals.sql` and `objects.sha256`. The manifest does not checksum itself. |
+
+**Image pairing.** The ids come from the containers that produced the data, never from the mutable `:local` tags: the
+`backend` container's image, the `edge` container's image, and the image of the last successful `migrate` container. A
+`migrate` run started with `run --rm` leaves no container; then `platform-release-migrate:local` (or `BACKUP_MIGRATE_IMAGE`)
+is recorded only if its migrations are exactly the applied ones, else `images.migrate` is empty. If the backend container's
+image cannot be identified the backup still runs, `images.backend` is empty and `images.verified` is `false`; restore
+treats that as an image mismatch. `unknown` is never written as an id. Preloading the next release as `:local` before the
+daily backup therefore no longer relabels old-schema data.
+
+**One maintenance lock.** `backup.sh` and `upgrade.sh` share `ops/platform-api/.maintenance/<compose project>.lock`
+(a directory with an owner file; git-ignored; independent of `BACKUP_ROOT`). It is taken before the backend state is read
+and held until the final restart or the failure exit. `upgrade.sh` holds it for the whole run and its nested
+`backup.sh --keep-stopped` continues under it. A second backup or upgrade exits **3** at once, without stopping or starting
+anything, and prints the holder (operation, since, pid and whether that pid is running). A stale lock (holder pid not running,
+for example after a host crash) is never removed automatically: after checking that no backup or upgrade is running, remove
+the directory the message names. Because the refusal is a non-zero exit, the cron line below mails it.
 
 How it stays consistent: the script stops `backend` (the HTTP writers and the pg-boss jobs are one process), dumps the
 database, mirrors the bucket, then starts `backend` again; downtime is printed and recorded as `backendDowntimeSeconds`.
@@ -68,11 +84,19 @@ alone does not isolate data (the compose file pins volume names through `RELEASE
 so the script sets both for every target call and refuses before any start or write if either name equals a source or
 live volume or already exists. The live volumes are never touched.
 
-**Images.** Before anything starts, the local `platform-release-backend:local` and `platform-release-migrate:local` image ids
-must equal `images.backend` / `images.migrate` of the manifest; otherwise the restore is refused. Load or retag the matching
-pair first (the `:pre-<timestamp>` tags of an upgrade). `RESTORE_IMAGE_MISMATCH_OK=1` accepts a different build only if the
-restored journal equals the local migrate image exactly (read-only compare, as `upgrade.sh` does); a pending or divergent
-migration still refuses, before any backend start.
+**Images.** Before anything starts, the ids of `platform-release-backend:local`, `platform-release-migrate:local` and
+`platform-release-web:local` (or `BACKUP_BACKEND_IMAGE` / `BACKUP_MIGRATE_IMAGE` / `BACKUP_WEB_IMAGE`) must equal
+`images.backend` / `images.migrate` / `images.web` of the manifest; otherwise (also when `images.verified` is `false`, or an
+old backup holds no or `unknown` ids) the restore is refused. Load or retag the matching set first (the `:pre-<timestamp>`
+tags of an upgrade). `RESTORE_IMAGE_MISMATCH_OK=1` accepts different images. In every case, matching or not, the restore
+compares the restored migration ledger with the migrate image (read-only, as `upgrade.sh` does) **before any backend
+starts** and refuses on a pending or divergent migration: an id match is not a compatibility proof by itself. An old backup
+without `images.web` restores with the local web image.
+
+The checked image ids are pinned in `docker-compose.restore-<project>.yml`, written next to the compose file
+(`backend`, `minio-bootstrap`, `migrate`, `cutover`, `set-role-passwords`, `bootstrap`, `set-actor-role`, `edge`; `pull_policy: never`).
+Every target call uses it, so the image that starts is the one that was checked. **Keep the file**: it is part of the restored
+installation; a failed restore deletes it.
 
 What it does, in order: verify the backup files; start an empty Postgres (no `init.sql`; docker compose 2.24+ for the
 override); apply `globals.sql` and stop on the first error (only the `postgres` role lines are skipped); create database
@@ -87,7 +111,8 @@ export), starts `backend` alone under `platform_app` on a free port and waits fo
 
 **Switch traffic.** Put the two printed lines `RELEASE_POSTGRES_VOLUME=…` and `RELEASE_MINIO_VOLUME=…` into
 `.env.production`. Stop the old stack's `edge` (and `backend`), then start the restored stack on the published port:
-`docker compose --env-file .env.production -f docker-compose.production.yml -p platform-restore up -d`. To keep the
+`docker compose --env-file .env.production -f docker-compose.production.yml -f docker-compose.restore-platform-restore.yml -p platform-restore up -d`
+(the script prints the exact command; every later start keeps both `-f` files, otherwise the `:local` tags apply again). To keep the
 project name `platform-api` instead, run the restore with `--project platform-api --replace-live` and
 `RESTORE_CONFIRM=platform-api`: the live containers are stopped first, the live volumes stay untouched, and the old
 values of the two `RELEASE_*` variables are the rollback.
@@ -100,19 +125,30 @@ env problem → fix `.env.production`) and restore into a new `--project` name. 
 
 ## Upgrade
 
-Build or load the new images on the host first, under the tags `platform-release-backend:<tag>` and
-`platform-release-migrate:<tag>` (or directly as `:local`), then:
+Step 1 is the web image: build it from the same commit as the backend and migrate images with
+`bash scripts/release/build-web-image.sh` (it writes only `platform-release-web:local`), then tag it with the release tag:
+`docker tag platform-release-web:local platform-release-web:<tag>`. Load the other two images under
+`platform-release-backend:<tag>` and `platform-release-migrate:<tag>`, then:
 
     export BACKUP_ROOT=/srv/platform-backups
-    bash scripts/release/upgrade.sh <tag>        # or: upgrade.sh local
+    bash scripts/release/upgrade.sh <tag>
+
+`upgrade.sh <tag>` needs all three `:<tag>` images and refuses before stopping anything when one is missing. Do not run
+`build-web-image.sh` again between tagging and the upgrade (it moves `:local`).
+
+`upgrade.sh local` (images already tagged `:local`) does not need `:<tag>` images. It warns when `platform-release-web:local`
+is older than `platform-release-backend:local` or missing: rebuild the web image first unless a stale bundle is intended.
+The nested backup still records the containers' images, so preloaded `:local` tags do not mislabel the data.
 
 1. Compares the applied migrations of the database (`drizzle.__drizzle_migrations`, count and hashes) with the migrations of the
    new migrate image (read-only). Refuses if the database holds a migration the image does not know or if they diverge.
-2. Tags the running images `:pre-<UTC timestamp>` (the rollback pair).
-3. Stops `backend`, runs `backup.sh --keep-stopped` and `verify-backup.sh`. If either fails the script stops: nothing is
+2. Tags the running images `:pre-<UTC timestamp>` (the rollback set): backend, migrate and the web image of the **running
+   `edge` container** (not the mutable `:local` tag).
+3. Stops `backend`, runs `backup.sh --keep-stopped` and `verify-backup.sh`, all under the maintenance lock. If either fails the script stops: nothing is
    migrated and the backend stays stopped.
-4. Moves the new images onto the `:local` tags and runs the `migrate` job. On a non-zero exit the backend **stays stopped**
-   and the script prints the journal inspection command, the `restore.sh` command for the matching backup and the image rollback tags.
+4. Moves the new backend, migrate and web images onto the `:local` tags together and runs the `migrate` job. On a non-zero exit
+   the backend **stays stopped** and the script prints the journal inspection command, the `restore.sh` command for the
+   matching backup and the image rollback tags (backend, migrate and web).
 5. `up -d`, then waits for `/health/ready` 200.
 
 No down migrations exist. The script never runs a fixture seed or `bootstrap`.
@@ -121,12 +157,13 @@ No down migrations exist. The script never runs a fixture seed or `bootstrap`.
 order by id desc limit 5` (inside the postgres container). Migrations are applied in order; a failed one is not recorded. Then:
 
 - *Forward-fix:* correct the cause (a data problem, a fixed image) and run `upgrade.sh` again; it takes a new backup first.
-- *Restore the matched pair:* retag the `:pre-<ts>` images to `:local` and `restore.sh` the backup the upgrade printed, as above.
+- *Restore the matched set:* retag the `:pre-<ts>` images (backend, migrate, web) to `:local` and `restore.sh` the backup the upgrade printed, as above.
 - The identity cutover is resumable only for its own case (pre-0076 → platform identity) and not part of this script.
 
 Do not start the backend by hand on a partially migrated database.
 
 ## Open items
 
-- Off-host copy, encryption of the copy and alerting on a failed cron run are the operator's.
+- Off-host copy, encryption of the copy and alerting on a failed cron run are the operator's. A cron run refused by the
+  maintenance lock exits 3 and mails like any failure; the log holds the holder's pid and the lock path.
 - Backup while the backend runs (online) is not supported; the stop window is the price of a consistent pair.

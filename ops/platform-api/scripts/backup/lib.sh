@@ -4,6 +4,7 @@
 
 BK_IMAGE_BACKEND_DEFAULT='platform-release-backend:local'
 BK_IMAGE_MIGRATE_DEFAULT='platform-release-migrate:local'
+BK_IMAGE_WEB_DEFAULT='platform-release-web:local'
 # mc runs from the stack's own pinned MinIO server image (it ships the mc binary): no extra image to pull, and the
 # separate minio/mc images are no longer published on Docker Hub. Override with BACKUP_MC_IMAGE only to use an internal
 # registry copy of the same image; the entrypoint is always mc.
@@ -149,12 +150,67 @@ bk_journal_pending() { # bk_journal_pending <db-hashes-file> <image-hashes-file>
 }
 
 # --- docker helpers shared by backup.sh, restore.sh and upgrade.sh (callers set PROJECT, ENV_FILE, COMPOSE_FILE) ---
-bk_dc() { # compose with the production file; BK_COMPOSE_OVERRIDE adds a second file when set
-  if [ -n "${BK_COMPOSE_OVERRIDE:-}" ]; then
-    docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" -f "$BK_COMPOSE_OVERRIDE" -p "$PROJECT" "$@"
-  else
-    docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" -p "$PROJECT" "$@"
+bk_dc() { # compose with the production file; BK_COMPOSE_OVERRIDE (temporary) and BK_COMPOSE_PINS (image pins) add files when set
+  local -a files=(-f "$COMPOSE_FILE")
+  [ -z "${BK_COMPOSE_OVERRIDE:-}" ] || files+=(-f "$BK_COMPOSE_OVERRIDE")
+  [ -z "${BK_COMPOSE_PINS:-}" ] || files+=(-f "$BK_COMPOSE_PINS")
+  docker compose --env-file "$ENV_FILE" "${files[@]}" -p "$PROJECT" "$@"
+}
+# Image id (sha256:...) of the container of a compose service, running or not; fails when there is none.
+# With `ok` as second argument the container must also have exited 0 (the last successful migrate run).
+bk_container_image() { # bk_container_image <service> [ok]
+  local cid id code
+  cid="$(bk_dc ps -a -q "$1" 2>/dev/null | head -n 1)" || cid=''
+  [ -n "$cid" ] || return 1
+  if [ "${2:-}" = ok ]; then
+    code="$(docker inspect --format '{{.State.ExitCode}}' "$cid" 2>/dev/null)" || return 1
+    [ "$code" = 0 ] || return 1
   fi
+  id="$(docker inspect --format '{{.Image}}' "$cid" 2>/dev/null)" || return 1
+  [[ "$id" =~ ^sha256:[A-Za-z0-9]+$ ]] || return 1
+  printf '%s\n' "$id"
+}
+
+# --- one maintenance lock per installation (OPS-05) ---
+# backup.sh and upgrade.sh hold ops/platform-api/.maintenance/<project>.lock (a directory; mkdir is atomic and works on
+# every host, bash 3.2 included) from before they look at the backend until their final restart or failure exit. A second
+# operation exits at once. The lock is never taken over automatically. upgrade.sh exports BK_LOCK_TOKEN so its nested
+# backup.sh recognises the owner file and does not wait for itself. Callers set OPS_ROOT and PROJECT.
+BK_LOCK_HELD=0
+bk_lock_path() { printf '%s/%s.lock\n' "${BACKUP_MAINTENANCE_DIR:-$OPS_ROOT/.maintenance}" "$PROJECT"; }
+bk_lock_acquire() { # bk_lock_acquire <operation name>
+  local path holder_pid holder_op holder_since state
+  path="$(bk_lock_path)"
+  mkdir -p -- "$(dirname "$path")" || bk_die "could not create the maintenance directory $(dirname "$path")" 2
+  if [ -n "${BK_LOCK_TOKEN:-}" ] && [ -f "$path/owner" ] && [ "$(sed -n 's/^token=//p' "$path/owner")" = "$BK_LOCK_TOKEN" ]; then
+    bk_log 'maintenance lock owned by the calling upgrade; continuing under it'
+    return 0
+  fi
+  if mkdir -- "$path" 2>/dev/null; then
+    BK_LOCK_TOKEN="$$.$(date +%s).$RANDOM"
+    printf 'pid=%s\ntoken=%s\noperation=%s\nsince=%s\n' "$$" "$BK_LOCK_TOKEN" "$1" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >"$path/owner"
+    export BK_LOCK_TOKEN
+    BK_LOCK_HELD=1
+    return 0
+  fi
+  holder_pid="$(sed -n 's/^pid=//p' "$path/owner" 2>/dev/null | head -n 1)"
+  holder_op="$(sed -n 's/^operation=//p' "$path/owner" 2>/dev/null | head -n 1)"
+  holder_since="$(sed -n 's/^since=//p' "$path/owner" 2>/dev/null | head -n 1)"
+  state='holder unknown (the lock is just being taken, or its owner file is gone)'
+  if [[ "$holder_pid" =~ ^[0-9]+$ ]]; then
+    if kill -0 "$holder_pid" 2>/dev/null; then state="holder pid $holder_pid is running"; else state="holder pid $holder_pid is NOT running (stale lock?)"; fi
+  fi
+  bk_log "another maintenance operation holds $path: ${holder_op:-unknown operation} since ${holder_since:-unknown}; $state."
+  bk_log 'Nothing was stopped or started. Wait for it to finish. A lock is never taken over automatically: only if you checked that no backup or upgrade is running, remove it with: rm -rf '"'$path'"
+  exit 3
+}
+bk_lock_release() {
+  local path
+  [ "$BK_LOCK_HELD" -eq 1 ] || return 0
+  BK_LOCK_HELD=0
+  path="$(bk_lock_path)"
+  rm -f -- "$path/owner"
+  rmdir -- "$path" 2>/dev/null || true
 }
 bk_psql() { # superuser psql through the socket inside the postgres container (trust auth; no password anywhere)
   bk_dc exec -T postgres psql -X -v ON_ERROR_STOP=1 -U postgres -tA -F '|' "$@"
