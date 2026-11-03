@@ -23,20 +23,22 @@ const subscribeRetired = (listener: () => void): (() => void) => {
 const readRetired = (): number | null => retiredEpoch;
 
 /** The unauthorized handler of the generation configured last (`null` until a feature session mounted). Written only inside the layout effect. */
-type Active = { fire: () => void };
+type Active = { epoch: number; fire: () => void };
 let active: Active | null = null;
 
 /**
  * For reads outside React Query's configured client (the space-links transport): captured when a request STARTS, the returned function runs the
- * shared unauthorized handling (retire subtrees, clear the cache, then the host redirect) only while that same generation is still the current one.
- * A request that began under an older generation (or before any feature session, and a session has started since) does nothing. With no feature
+ * shared unauthorized handling (retire subtrees, clear the cache, then the host redirect) only while that same session generation (epoch) is still the current one;
+ * mounting another consumer inside the same generation does not matter. A request that began under an older generation does nothing. A request that began before
+ * any feature session is handled by whichever session is current when its 401 arrives. With no feature
  * session mounted at all it falls back to the host's own `onSessionLost`.
  */
 export function unauthorizedReporter(api: { onSessionLost: () => void }): () => void {
-  const bound = active;
+  const boundEpoch = active?.epoch ?? null;
   return () => {
-    if (bound !== active) return;
-    if (bound === null) api.onSessionLost(); else bound.fire();
+    // Only the session generation (epoch) decides: a hook mount inside the same generation replaces `active` but must not mute a live request.
+    if (boundEpoch !== null && active?.epoch !== boundEpoch) return;
+    if (active === null) api.onSessionLost(); else active.fire();
   };
 }
 
@@ -71,7 +73,7 @@ export function useFeatureSession(): FeatureSession {
       featureQueryClient.clear();
       api.onSessionLost();
     };
-    active = { fire };
+    active = { epoch, fire };
     configureApiClient({ basePath: api.basePath, onUnauthorized: fire });
     setReady(lastReady);
   }, [api, adapter, revision, userId]);
