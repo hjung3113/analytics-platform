@@ -1,5 +1,5 @@
 {
-  "id": "1d325f39-a313-4490-84ce-7c3ef8de0cec",
+  "id": "e7dfed6f-115f-4a9e-b85c-6a238db01c3e",
   "prevId": "1a3bed8a-0bcb-4bbe-a9aa-9977a4f9b7e4",
   "version": "7",
   "dialect": "postgresql",
@@ -7821,37 +7821,6 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "sessions_expires_at_idx": {
-          "name": "sessions_expires_at_idx",
-          "columns": [
-            {
-              "expression": "expires_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "sessions_revoked_at_idx": {
-          "name": "sessions_revoked_at_idx",
-          "columns": [
-            {
-              "expression": "revoked_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "where": "\"core\".\"sessions\".\"revoked_at\" is not null",
           "concurrently": false,
           "method": "btree",
           "with": {}

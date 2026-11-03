@@ -11,6 +11,11 @@
 // Deletes run in batches so no single statement approaches the DB statement
 // budget (`DB_STATEMENT_TIMEOUT_MS`, default 15 s); the loop ends when a
 // batch comes back short, so a re-run on a clean table is a no-op.
+//
+// There is no index on `expires_at` / `revoked_at`: ADR-0015 requires every
+// workspace-scoped index to start with `workspace_id`, and this cross-workspace
+// query cannot use one. With 7-day retention the table stays in the low
+// thousands of rows, so the batched delete is cheap without an index.
 
 import { sql } from 'drizzle-orm';
 import type { PgBoss } from 'pg-boss';

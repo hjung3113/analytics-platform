@@ -873,9 +873,11 @@ a request can hold a connection or wait for one. Operator pools (`seed`, migrati
   (`audit_log` has no session FK), and no audit row is deleted. Deletes run 1000 rows per statement until a
   batch comes back short, so no statement approaches `DB_STATEMENT_TIMEOUT_MS`; a rerun on a clean table is a
   no-op. Code: `src/modules/core/jobs/sessions-purge.ts`.
+- **No session index.** The purge is a cross-workspace maintenance query, and ADR-0015 requires every
+  workspace-scoped index to start with `workspace_id`, so no `expires_at` / `revoked_at` index exists. With
+  7-day retention the table stays in the low thousands of rows (~100 users), so the batched delete is cheap.
 - **Indexes** (plain `CREATE INDEX`, not `CONCURRENTLY`; they take a write lock on the table while building, so
-  apply them in the maintenance window documented with the deployment runbook): `sessions_expires_at_idx`,
-  `sessions_revoked_at_idx` (partial, `revoked_at IS NOT NULL`), `tasks_workspace_updated_idx`
+  apply them in the maintenance window documented with the deployment runbook): `tasks_workspace_updated_idx`
   `(workspace_id, updated_at DESC, id DESC)` and `task_requests_workspace_created_idx`
   `(workspace_id, created_at DESC, id DESC)`, matching the keyset `ORDER BY` of the Task and Task Request lists.
 - **Item history.** The knowledge item detail read selects only `revisionNo, title, publishedBy, publishedAt,

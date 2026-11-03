@@ -1,5 +1,3 @@
-CREATE INDEX "sessions_expires_at_idx" ON "core"."sessions" USING btree ("expires_at");--> statement-breakpoint
-CREATE INDEX "sessions_revoked_at_idx" ON "core"."sessions" USING btree ("revoked_at") WHERE "core"."sessions"."revoked_at" is not null;--> statement-breakpoint
 CREATE INDEX "task_requests_workspace_created_idx" ON "task_request"."task_requests" USING btree ("workspace_id","created_at" DESC NULLS FIRST,"id" DESC NULLS FIRST);--> statement-breakpoint
 CREATE INDEX "tasks_workspace_updated_idx" ON "task"."tasks" USING btree ("workspace_id","updated_at" DESC NULLS FIRST,"id" DESC NULLS FIRST);
 --> statement-breakpoint
