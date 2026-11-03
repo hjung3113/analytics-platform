@@ -157,8 +157,9 @@ and the `fops_*` roles. Pick one path; neither is done for you.
    ```
 
    Then point your ignored local `.env` at `platform_app` / `platform_migrate` and database `platform`. The
-   passwords stay what they were; to change them use `ALTER ROLE platform_app PASSWORD '...'` as an admin and
-   update `.env` to match. If the script refuses (MD5 hash, active session, conflicting names) fix that and run the
+   passwords stay what they were. Production sets and rotates them with `scripts/db/set-role-passwords.sh` (see
+   [DB role passwords](release/oidc-and-images.md#db-role-passwords)); for a local database use
+   `ALTER ROLE platform_app PASSWORD '...'` as an admin and update `.env` to match. If the script refuses (MD5 hash, active session, conflicting names) fix that and run the
    same command again.
 2. **Start fresh.** Keep the old volume as a backup (never `docker compose down -v`, never delete it). Start an
    empty pgvector Postgres 16 with `scripts/db/init.sql` mounted into `/docker-entrypoint-initdb.d/` on a free port

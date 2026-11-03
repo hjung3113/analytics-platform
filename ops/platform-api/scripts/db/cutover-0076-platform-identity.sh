@@ -155,7 +155,21 @@ drizzle_migrate() {
   )
 }
 
-adm() { psql -X -v ON_ERROR_STOP=1 -tA "$ADMIN_URL" "$@"; }
+# psql against a URL without ever putting its password in argv: the password moves into that one child's PGPASSWORD
+# (overriding an inherited one, e.g. the superuser's) and the URL passed as the argument is password-free.
+psql_url() { # psql_url <url> [psql args...]
+  local url=$1 pw bare
+  shift
+  pw="$(PG_TARGET_URL="$url" node -e 'process.stdout.write(decodeURIComponent(new URL(process.env.PG_TARGET_URL).password))')"
+  bare="$(PG_TARGET_URL="$url" node -e 'const u = new URL(process.env.PG_TARGET_URL); u.password = ""; process.stdout.write(u.toString())')"
+  if [ -n "$pw" ]; then
+    PGPASSWORD="$pw" psql -X -v ON_ERROR_STOP=1 -tA "$bare" "$@"
+  else
+    psql -X -v ON_ERROR_STOP=1 -tA "$bare" "$@"
+  fi
+}
+
+adm() { psql_url "$ADMIN_URL" "$@"; }
 
 detect_state() {
   local old_n new_n
@@ -183,7 +197,7 @@ detect_state() {
 ledger_rows() { # ledger_rows <database>; prints the row count, 0 when there is no ledger yet
   local db_url
   db_url="$(url_with_db "$ADMIN_URL" "$1")"
-  psql -X -v ON_ERROR_STOP=1 -tA "$db_url" \
+  psql_url "$db_url" \
     -c "select case when to_regclass('drizzle.__drizzle_migrations') is null then 0 else (select count(*) from drizzle.__drizzle_migrations) end"
 }
 
@@ -280,7 +294,7 @@ stage_migrate() {
   log 'migrate: db:migrate as platform_migrate (applies 0076 and later)'
   DATABASE_URL_MIGRATE="$url" drizzle_migrate
   local marked
-  marked="$(psql -X -v ON_ERROR_STOP=1 -tA "$url" -c "select count(*) from unnest(array['voc.guard_cluster_suggestion_bucket_delete()','voc.guard_similarity_preview_request_delete()','voc.guard_similarity_preview_budget_delete()']) s(sig) where obj_description(to_regprocedure(s.sig)::oid, 'pg_proc') = 'platform identity 0076: owner-based delete guard'")"
+  marked="$(psql_url "$url" -c "select count(*) from unnest(array['voc.guard_cluster_suggestion_bucket_delete()','voc.guard_similarity_preview_request_delete()','voc.guard_similarity_preview_budget_delete()']) s(sig) where obj_description(to_regprocedure(s.sig)::oid, 'pg_proc') = 'platform identity 0076: owner-based delete guard'")"
   [ "$marked" = 3 ] || die "0076 is not recorded after db:migrate ($marked of 3 guards attested)" 4
   log 'migrate: 0076 committed; the backend may start'
 }
