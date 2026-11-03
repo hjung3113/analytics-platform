@@ -1,9 +1,13 @@
 // voc.read_public end to end (#1288 g): request → approve → grant scoped to A → A public, B hidden; scope
 // validation; the platform audit projection lists the lifecycle events. Throwaway DB only.
+import { randomUUID } from 'node:crypto';
+
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { publicVocListResponseSchema } from '@ap/feature-shared';
 
+import { insertActorRow } from '../../../test-support/actor-fixtures.js';
+import { loginAs } from '../../../test-support/auth.js';
 import { AUDIT_ACTION_BY_EVENT_TYPE } from '../../platform-port/audit-actions.js';
 import { SESSION_COOKIE_NAME } from '../../../middleware/require-session.js';
 import { type World, WORKSPACE_ID, createWorld, runIntegration } from '../../voc/public-read/__tests__/_world.js';
@@ -29,11 +33,11 @@ describe.skipIf(!runIntegration)('voc.read_public request → approve → public
     await w.migrate.pool.query(`update core.managed_systems set external_key = null where slug like $1`, [`${TAG}-%`]);
   });
 
-  const post = (url: string, who: Parameters<World['get']>[1], payload: Record<string, unknown>) =>
+  const post = (url: string, who: Parameters<World['get']>[1], payload: Record<string, unknown>, cookie?: string) =>
     w.app.inject({
       method: 'POST',
       url,
-      headers: { cookie: `${SESSION_COOKIE_NAME}=${w.cookies[who ?? 'plain']}`, 'content-type': 'application/json' },
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${cookie ?? w.cookies[who ?? 'plain']}`, 'content-type': 'application/json' },
       payload,
     });
 
@@ -104,26 +108,73 @@ describe.skipIf(!runIntegration)('voc.read_public request → approve → public
   });
 
   // Needs migration 0085 (the audit projection filters permission rows by an explicit capability list).
-  it('the platform audit projection lists the capability lifecycle events', async () => {
-    const migrated = await w.migrate.pool.query<{ ok: boolean }>(
-      `select position('voc.read_public' in prosrc) > 0 as ok from pg_proc where proname = 'platform_audit_events'`,
-    );
-    if (migrated.rows[0]?.ok !== true) {
-      // Migration 0085 is not applied to this database; the conductor runs this on the recreated one.
-      return;
-    }
-    const created = await post('/permission-requests', 'plain', {
-      requested_capability: 'voc.read_public',
-      requested_managed_system_id: w.systems.a,
-      reason: 'audit probe',
+  // Each path uses a fresh actor, so the 409 `capability_already_granted` of an earlier test cannot hide it.
+  describe('the platform audit projection lists the capability lifecycle events', () => {
+    const extra: string[] = [];
+    afterAll(async () => {
+      if (extra.length === 0) return;
+      await w.migrate.pool.query(`delete from core.idempotency_keys where actor_id = any($1::uuid[])`, [extra]);
+      await w.migrate.pool.query(`delete from permission.permission_requests where requester_actor_id = any($1::uuid[])`, [extra]);
+      await w.migrate.pool.query(`delete from permission.permission_grants where actor_id = any($1::uuid[])`, [extra]);
+      await w.migrate.pool.query(`delete from core.sessions where actor_id = any($1::uuid[])`, [extra]);
+      await w.migrate.pool.query(`delete from core.audit_log where actor_id = any($1::uuid[])`, [extra]);
+      await w.migrate.pool.query(`delete from core.actors where id = any($1::uuid[])`, [extra]);
     });
-    const requestId = created.json<{ id: string }>().id;
-    await post(`/permissions/requests/${requestId}/approve`, 'admin', { expected_revision: 1 });
-    const { rows } = await w.migrate.pool.query<{ event_type: string }>(
-      `select event_type from core.platform_audit_events($1, null, null, null, null, null, null, null, $2::jsonb, 'at', true, 200, 0)
-        where subject_id = $3`,
-      [WORKSPACE_ID, JSON.stringify(AUDIT_ACTION_BY_EVENT_TYPE), requestId],
-    );
-    expect(rows.map((r) => r.event_type)).toEqual(expect.arrayContaining(['permission_requested', 'permission_approved']));
+
+    async function freshUser(label: string) {
+      const externalId = `${TAG}-${label}-${randomUUID().slice(0, 8)}`;
+      const { id } = await insertActorRow(w.migrate, { workspaceId: WORKSPACE_ID, externalId, roleLevel: 'user' });
+      extra.push(id);
+      const cookie = await loginAs(w.app, externalId);
+      return { id, cookie };
+    }
+    const asCookie = (cookie: string) => ({ cookie: `${SESSION_COOKIE_NAME}=${cookie}`, 'content-type': 'application/json' });
+
+    async function projection(subjectId: string) {
+      // The projection must know the capability (migration 0085); a database without it fails here.
+      const migrated = await w.migrate.pool.query<{ ok: boolean }>(
+        `select position('voc.read_public' in prosrc) > 0 as ok from pg_proc where proname = 'platform_audit_events'`,
+      );
+      expect(migrated.rows[0]?.ok, 'migration 0085 is applied to this database').toBe(true);
+      const { rows } = await w.appHandle.pool.query<{ event_type: string }>(
+        `select event_type from core.platform_audit_events($1, null, null, null, null, null, null, null, $2::jsonb, 'at', true, 200, 0)
+          where subject_id = $3`,
+        [WORKSPACE_ID, JSON.stringify(AUDIT_ACTION_BY_EVENT_TYPE), subjectId],
+      );
+      return rows.map((r) => r.event_type);
+    }
+
+    it('request and approval events', async () => {
+      const user = await freshUser('audit-req');
+      const created = await post(
+        '/permission-requests',
+        'plain',
+        { requested_capability: 'voc.read_public', requested_managed_system_id: w.systems.a, reason: 'audit probe' },
+        user.cookie,
+      );
+      expect(created.statusCode).toBe(201);
+      const requestId = created.json<{ id: string }>().id;
+      const approved = await post(`/permissions/requests/${requestId}/approve`, 'admin', { expected_revision: 1 });
+      expect(approved.statusCode).toBe(200);
+      expect(await projection(requestId)).toEqual(expect.arrayContaining(['permission_requested', 'permission_approved']));
+    });
+
+    it('direct grant event on the grant id', async () => {
+      const user = await freshUser('audit-grant');
+      const granted = await w.app.inject({
+        method: 'POST',
+        url: '/permissions/grants',
+        headers: { ...asCookie(w.cookies.admin), 'idempotency-key': randomUUID() },
+        payload: {
+          actor_id: user.id,
+          capability: 'voc.read_public',
+          managed_system_id: w.systems.a,
+          reason: 'audit direct grant',
+        },
+      });
+      expect(granted.statusCode).toBe(201);
+      const grantId = granted.json<{ id: string }>().id;
+      expect(await projection(grantId)).toContain('permission_granted');
+    });
   });
 });

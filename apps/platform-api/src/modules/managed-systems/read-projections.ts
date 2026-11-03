@@ -52,6 +52,32 @@ export function managedSystemIsLiveSql(managedSystemIdColumn: SQLWrapper): SQL {
   )`;
 }
 
+/**
+ * SQL condition: the Managed System referenced by `managedSystemIdColumn` belongs to the workspace
+ * (archived systems included). For read projections in other modules that must drop rows whose
+ * system is not in the caller's workspace, without reading `core.managed_systems` themselves.
+ */
+export function managedSystemInWorkspaceSql(
+  managedSystemIdColumn: SQLWrapper,
+  workspaceId: string,
+): SQL {
+  return sql`EXISTS (
+    SELECT 1 FROM ${managedSystems} ms
+    WHERE ms.id = ${managedSystemIdColumn} AND ms.workspace_id = ${workspaceId}
+  )`;
+}
+
+/** SQL scalar: the name of the workspace's Managed System referenced by `managedSystemIdColumn`. */
+export function managedSystemNameInWorkspaceSql(
+  managedSystemIdColumn: SQLWrapper,
+  workspaceId: string,
+): SQL {
+  return sql`(
+    SELECT ms.name FROM ${managedSystems} ms
+    WHERE ms.id = ${managedSystemIdColumn} AND ms.workspace_id = ${workspaceId}
+  )`;
+}
+
 /** Active workspace-owned MS lock for bounded VOC suggestion admission (ADR-0068). */
 export async function lockLiveManagedSystemForShare(
   tx: Tx,

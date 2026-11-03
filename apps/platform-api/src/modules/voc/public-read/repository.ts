@@ -7,6 +7,10 @@ import { sql } from 'drizzle-orm';
 
 import type { Db } from '../../../db/client.js';
 import type { Tx } from '../../../db/tx.js';
+import {
+  managedSystemInWorkspaceSql,
+  managedSystemNameInWorkspaceSql,
+} from '../../managed-systems/read-projections.js';
 import { escapeLikePattern } from '../../../lib/sql-like.js';
 import { type PublicReadRule, publicVocVisibilityPredicate } from './rule.js';
 
@@ -52,6 +56,7 @@ export async function selectPublicVocPage(
   const wheres = [
     sql`v.workspace_id = ${workspaceId}`,
     sql`v.archived_at IS NULL`,
+    managedSystemInWorkspaceSql(sql`v.primary_managed_system_id`, workspaceId),
     args.mine ? sql`v.reporter_id = ${rule.actorId}` : publicVocVisibilityPredicate(rule, V),
   ];
   if (args.managedSystemId !== undefined) {
@@ -71,11 +76,9 @@ export async function selectPublicVocPage(
   }
   const result = await (db as Db).execute<PublicVocRow>(sql`
     SELECT v.id, v.display_id, v.title, v.reporter_facing_status,
-           v.primary_managed_system_id AS managed_system_id, ms.name AS managed_system_name,
+           v.primary_managed_system_id AS managed_system_id, ${managedSystemNameInWorkspaceSql(sql`v.primary_managed_system_id`, workspaceId)} AS managed_system_name,
            v.created_at, v.updated_at, v.created_at::text AS created_at_raw, ${mineColumn(rule)}
       FROM voc.vocs v
-      JOIN core.managed_systems ms
-        ON ms.id = v.primary_managed_system_id AND ms.workspace_id = ${workspaceId}
      WHERE ${sql.join(wheres, sql` AND `)}
      ORDER BY v.created_at DESC, v.id DESC
      LIMIT ${args.limit + 1}
@@ -91,15 +94,14 @@ export async function selectPublicVocById(
   const { workspaceId, rule, vocId } = args;
   const result = await (db as Db).execute<PublicVocRow>(sql`
     SELECT v.id, v.display_id, v.title, v.reporter_facing_status,
-           v.primary_managed_system_id AS managed_system_id, ms.name AS managed_system_name,
+           v.primary_managed_system_id AS managed_system_id, ${managedSystemNameInWorkspaceSql(sql`v.primary_managed_system_id`, workspaceId)} AS managed_system_name,
            v.created_at, v.updated_at, v.created_at::text AS created_at_raw,
            v.description_rich_content, ${mineColumn(rule)}
       FROM voc.vocs v
-      JOIN core.managed_systems ms
-        ON ms.id = v.primary_managed_system_id AND ms.workspace_id = ${workspaceId}
      WHERE v.id = ${vocId}::uuid
        AND v.workspace_id = ${workspaceId}
        AND v.archived_at IS NULL
+       AND ${managedSystemInWorkspaceSql(sql`v.primary_managed_system_id`, workspaceId)}
        AND ${publicVocVisibilityPredicate(rule, V)}
      LIMIT 1
   `);
