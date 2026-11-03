@@ -110,20 +110,24 @@ export function useVocComposeController({
 
   // The Managed System the screen came from, applied once and only when the fetched list holds it (ADR-0070
   // decision 5: no guess from a screen name). It is the form's initial value, so it does not make the draft dirty.
+  // The host's lookup can answer after the list does (#1289 node j), so a null `initialManagedSystemId` keeps the default open; it closes
+  // once applied, or once the user has chosen a system first (a late default never overwrites a selection).
   const [defaultManagedSystemId, setDefaultManagedSystemId] = React.useState('');
   const defaultResolved = React.useRef(false);
   const managedSystems = msQuery.data?.items;
   React.useEffect(() => {
     if (defaultResolved.current || managedSystems === undefined) return;
+    if (selectedMs !== '') {
+      defaultResolved.current = true;
+      return;
+    }
+    if (initialManagedSystemId === null) return;
     defaultResolved.current = true;
-    if (
-      initialManagedSystemId !== null &&
-      managedSystems.some((ms) => ms.id === initialManagedSystemId)
-    ) {
+    if (managedSystems.some((ms) => ms.id === initialManagedSystemId)) {
       setDefaultManagedSystemId(initialManagedSystemId);
       form.setValue('primary_managed_system_id', initialManagedSystemId, { shouldValidate: true });
     }
-  }, [managedSystems, initialManagedSystemId, form]);
+  }, [managedSystems, initialManagedSystemId, selectedMs, form]);
 
   // Same cache entry as the admin catalog (`analyticsAreasCatalogQuery`), read through `registry-reads` (bridge-safe).
   const aaQuery = useQuery({

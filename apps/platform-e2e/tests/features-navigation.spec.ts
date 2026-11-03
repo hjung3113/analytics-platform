@@ -19,7 +19,7 @@ test.describe('#1099 B 업무 흐름·운영 콘솔과 내 활동·소통', () =
     await evidence(page, testInfo, 'navigation-my-activity-order');
   });
 
-  test('업무 흐름 레일은 일곱 섹션, 운영 콘솔 레일은 두 섹션을 정해진 순서로 보이고 기능 업무 시스템 행은 없다', async ({ page }, testInfo) => {
+  test('업무 흐름 레일은 일곱 섹션, 운영 콘솔 레일은 세 섹션을 정해진 순서로 보이고 기능 업무 시스템 행은 없다', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
     await page.goto('/flow/dashboard');
     const flowLabels = ['대시보드', 'VOC 처리', 'Finding', 'Task', '설문 운영', '연동', '설정'];
@@ -28,7 +28,7 @@ test.describe('#1099 B 업무 흐름·운영 콘솔과 내 활동·소통', () =
     await expect(popover.getByRole('button', { name: /^FeedbackOps/ })).toHaveCount(0);
     await evidence(page, testInfo, 'navigation-flow-sections');
     await page.goto('/operations/admin-roles');
-    const operationsLabels = ['플랫폼 관리', '권한'];
+    const operationsLabels = ['플랫폼 관리', '권한', '시스템'];
     await expect.poll(async () => (await sections(page).getByRole('button').evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-label') ?? ''))).filter(label => operationsLabels.includes(label))).toEqual(operationsLabels);
     await evidence(page, testInfo, 'navigation-console-sections');
   });

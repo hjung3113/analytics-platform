@@ -18,6 +18,7 @@ import { menuPermissions, type AuditEvent } from '@ap/contracts';
 import { createMockAdapter, storedUsage, type AnyMockAction, type AnyMockEndpoint } from '@ap/mock-server';
 import { DevTools } from './DevTools';
 import { eqvMock } from './eqv-mock';
+import { MOCK_SPACE_SYSTEMS } from './mock-space-systems';
 import { modulePermissions } from '../modules';
 import { createLocalSavedViewStore } from '../saved-view-store';
 
@@ -77,5 +78,6 @@ export const createAssembly: CreateAssembly = ({ registry }) => {
     } },
     topBarTools: <DevTools />,
     savedViews,
+    spaceSystems: async () => MOCK_SPACE_SYSTEMS,
   };
 };

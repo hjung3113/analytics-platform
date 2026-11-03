@@ -49,10 +49,10 @@ describe('업무 흐름 and 운영 콘솔 access: F and C stay independent (#109
   });
 
   it.each([
-    ['F only', [...PERSONAL, 'features:access'], { inbox: true, tasks: true, 'my-tasks': true, 'survey-management': true, 'managed-systems': false, 'permission-grants': false, 'admin-roles': false }],
-    ['C only', [...PERSONAL, 'console:access'], { inbox: false, tasks: false, 'my-tasks': false, 'survey-management': false, 'managed-systems': false, 'permission-grants': false, 'admin-roles': true }],
-    ['F and C', [...PERSONAL, 'features:access', 'console:access'], { inbox: true, tasks: true, 'my-tasks': true, 'survey-management': true, 'managed-systems': true, 'permission-grants': true, 'admin-roles': true }],
-  ])('%s opens exactly its sections: operator F, flow settings and access F and C, platform management C, 내 Task F without C', (_, permissions, expected) => {
+    ['F only', [...PERSONAL, 'features:access'], { inbox: true, tasks: true, 'my-tasks': true, 'survey-management': true, 'managed-systems': false, 'permission-grants': false, 'admin-roles': false, systems: false }],
+    ['C only', [...PERSONAL, 'console:access'], { inbox: false, tasks: false, 'my-tasks': false, 'survey-management': false, 'managed-systems': false, 'permission-grants': false, 'admin-roles': true, systems: true }],
+    ['F and C', [...PERSONAL, 'features:access', 'console:access'], { inbox: true, tasks: true, 'my-tasks': true, 'survey-management': true, 'managed-systems': true, 'permission-grants': true, 'admin-roles': true, systems: true }],
+  ])('%s opens exactly its sections: operator F, flow settings and access F and C, platform management and 시스템 C, 내 Task F without C', (_, permissions, expected) => {
     const result = mount(permissions, '/home', Object.keys(expected));
     expect(result.open).toEqual(expected);
   });
@@ -70,13 +70,14 @@ describe('one list scope policy across the surfaces (#1099c)', () => {
   const query = (href: string) => new URL(href, 'http://x').searchParams.get('managedSystem');
 
   it('carries a filtered VOC list scope to 내 Task and on to another operator menu, and never to personal or console-admin entries', () => {
-    const fromVoc = mount(ALL, `/flow/inbox?managedSystem=${SYSTEM}`, [], [['my-tasks'], ['tasks'], ['managed-systems'], ['admin-roles'], ['voc'], ['home']]);
+    const fromVoc = mount(ALL, `/flow/inbox?managedSystem=${SYSTEM}`, [], [['my-tasks'], ['tasks'], ['managed-systems'], ['admin-roles'], ['voc'], ['home'], ['systems']]);
     expect(query(fromVoc.links['0:my-tasks']!)).toBe(SYSTEM);
     expect(query(fromVoc.links['1:tasks']!)).toBe(SYSTEM);
     expect(query(fromVoc.links['2:managed-systems']!)).toBe(SYSTEM);
     expect(query(fromVoc.links['3:admin-roles']!)).toBeNull();
     expect(query(fromVoc.links['4:voc']!)).toBeNull();
     expect(query(fromVoc.links['5:home']!)).toBeNull();
+    expect(query(fromVoc.links['6:systems']!)).toBeNull();
     cleanup();
     const fromTasks = mount(ALL, `/my-tasks?managedSystem=${SYSTEM}`, [], [['inbox'], ['voc'], ['notifications'], ['admin-roles']]);
     expect(query(fromTasks.links['0:inbox']!)).toBe(SYSTEM);

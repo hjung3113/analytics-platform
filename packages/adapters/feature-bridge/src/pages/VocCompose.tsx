@@ -4,6 +4,7 @@ import { VocComposeScreen } from '@ap/feature-screens/global-screens';
 import { FeatureBridge } from '../feature/FeatureBridge';
 import { featureQueryClient } from '../feature/session';
 import { isUuid } from '../feature/uuid';
+import type { DefaultStatus } from '../default-status';
 
 /**
  * The form's initial Managed System (ADR-0070 decision 5): the frozen screen's carried `managedSystem` when it is one UUID (only a carry-set member menu has one, whichever space or global group it is in: operator menus and 내 Task), otherwise the
@@ -20,7 +21,7 @@ export function initialManagedSystem(context: Pick<VocComposeProps['context'], '
  * description; the screen reads it when the form is submitted, so a chip removed after typing leaves the typed values alone. Without a feature API
  * (mock preview) it shows `실서버 필요` and requests nothing.
  */
-export default function VocCompose({ context, onSubmitted, onCancel, onDirtyChange, managedSystemFor }: VocComposeProps & { managedSystemFor: (spaceId: string | null) => string | null }) {
+export default function VocCompose({ context, onSubmitted, onCancel, onDirtyChange, managedSystemFor, defaultStatus = 'ready' }: VocComposeProps & { managedSystemFor: (spaceId: string | null) => string | null; defaultStatus?: DefaultStatus }) {
   const submitted = useCallback((result: { vocId: string; displayId: string }) => {
     // The new VOC belongs in 내 VOC; a list that is not cached has nothing to refresh.
     void featureQueryClient.invalidateQueries({ queryKey: ['vocs', 'my'] });
@@ -28,7 +29,7 @@ export default function VocCompose({ context, onSubmitted, onCancel, onDirtyChan
   }, [onSubmitted]);
   return <div className="h-full min-h-0">
     <FeatureBridge>
-      <VocComposeScreen contextBlock={{ items: context.items.map(({ label, value }) => ({ label, value })), href: context.href }} initialManagedSystemId={initialManagedSystem(context, managedSystemFor)}
+      <VocComposeScreen contextBlock={{ items: context.items.map(({ label, value }) => ({ label, value })), href: context.href }} initialManagedSystemId={initialManagedSystem(context, managedSystemFor)} defaultStatus={defaultStatus}
         onSubmitted={submitted} onCancel={onCancel} onDirtyChange={onDirtyChange} />
     </FeatureBridge>
   </div>;

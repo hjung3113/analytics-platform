@@ -1,4 +1,5 @@
 import { Alert, AlertDescription, AlertTitle, Button } from '@ap/ui';
+import { fetchSpaceLinks } from '@ap/feature-bridge';
 import { bootstrapHttpAdapter, type BootstrapResult, type HttpAdapterOptions } from '@ap/http-adapter';
 import { FEATURE_API_PREFIX } from '../../scripts/real-dev-proxy.ts';
 import type { AssemblyOutcome, CreateAssembly } from '#platform-assembly';
@@ -92,7 +93,9 @@ export function createRealAssembly({ bootstrap, where, importEnvironment = pageE
     if (result.kind === 'ready') {
       // One decorated adapter per bootstrap (never per render): a notice write refreshes the Home banner (#1106).
       const invalidation = createEndpointInvalidation();
-      return { adapter: withNoticeInvalidation(result.adapter, invalidation), topBarTools: null, serverPreferences: true, savedViews: serverSavedViews(result, importEnvironment), featureApi: { basePath: FEATURE_API_PREFIX, onSessionLost }, invalidation: { subscribe: invalidation.subscribe } };
+      const featureApi = { basePath: FEATURE_API_PREFIX, onSessionLost };
+      // Space → system links (#1289 node j): read with the same feature API the bridge screens use; `main.tsx` loads it once per session.
+      return { adapter: withNoticeInvalidation(result.adapter, invalidation), topBarTools: null, serverPreferences: true, savedViews: serverSavedViews(result, importEnvironment), featureApi, spaceSystems: () => fetchSpaceLinks(featureApi), invalidation: { subscribe: invalidation.subscribe } };
     }
     if (result.kind === 'login') return login;
     if (result.kind === 'throttled') return { screen: <Throttled correlationId={result.correlationId} retryAfterSeconds={result.retryAfterSeconds} /> };

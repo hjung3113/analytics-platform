@@ -88,7 +88,9 @@ describe('assembled registry: canonical paths and legacy aliases', () => {
     const access = ['permission-request-review', 'permission-grants'].map(id => registry.menuById(id));
     expect(settings.map(menu => menu.path)).toEqual(settings.map(menu => `/flow/${menu.id}`));
     expect(access.map(menu => menu.path)).toEqual(['/operations/permission-request-review', '/operations/permission-grants']);
-    const admin = [...settings, ...access];
+    // #1289 node j: 시스템 is the third 운영 콘솔 section, read-only, also without an alias.
+    expect(registry.menuById('systems').path).toBe('/operations/systems');
+    const admin = [...settings, ...access, registry.menuById('systems')];
     for (const menu of admin) expect(menu.aliases).toBeUndefined();
     for (const menu of admin) expect((menu.aliases ?? []).some(alias => /^\/admin(\/|$)/.test(alias))).toBe(false);
     expect(registry.matchRoute('/admin/roles')).toMatchObject({ menu: { id: 'admin-roles' } });

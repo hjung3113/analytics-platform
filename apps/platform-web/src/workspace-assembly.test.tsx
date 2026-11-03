@@ -5,6 +5,7 @@ import { testAdapter, testSession } from '@ap/kernel/testing';
 import { createAssembly, type Assembly } from '#platform-assembly';
 import { GROUPS, SPACES, registry } from './menus';
 import { appSlots } from './slots';
+import { spaceSystems } from './space-systems';
 import { NO_FEATURES, spaceId, type PlatformAdapter, type SpaceDef } from '@ap/contracts';
 import { EQUIPMENT_AXES } from './equipmentAxes';
 
@@ -112,6 +113,7 @@ describe('workspace assembly (#260)', () => {
       ['flowSettings', 'flow'],
       ['admin', 'operations'],
       ['access', 'operations'],
+      ['systems', 'operations'],
     ]);
     expect(SPACES.map(space => space.id)).toEqual(['mars', 'bravo', 'clas', 'tools', 'log-dev', 'improvement', 'flow', 'operations']);
     expect(SPACE_DEFS[0]).toMatchObject({
@@ -244,12 +246,12 @@ describe('workspace assembly (#260)', () => {
     expect(registry.menuById('voc').path).toBe('/voc');
   });
 
-  it.skipIf(probeRun)('shows the seven 업무 흐름 and two 운영 콘솔 sections, the 내 활동 entries and the 소통 entries in the decided order (#1099c, ADR-0110)', () => {
+  it.skipIf(probeRun)('shows the seven 업무 흐름 and three 운영 콘솔 sections, the 내 활동 entries and the 소통 entries in the decided order (#1099c, ADR-0110)', () => {
     expect(registry.groups.filter(group => group.space === 'flow').map(group => group.label.ko)).toEqual(['대시보드', 'VOC 처리', 'Finding', 'Task', '설문 운영', '연동', '설정']);
     expect(registry.groups.filter(group => group.space === 'flow').map(group => group.id)).toEqual(['dashboard', 'voc', 'findings', 'tasks', 'surveys', 'integration', 'flowSettings']);
     expect(registry.groups.find(group => group.id === 'dashboard')?.hideLabelWhenSingle).toBe(true);
-    expect(registry.groups.filter(group => group.space === 'operations').map(group => group.label.ko)).toEqual(['플랫폼 관리', '권한']);
-    expect(registry.groups.filter(group => group.space === 'operations').map(group => group.id)).toEqual(['admin', 'access']);
+    expect(registry.groups.filter(group => group.space === 'operations').map(group => group.label.ko)).toEqual(['플랫폼 관리', '권한', '시스템']);
+    expect(registry.groups.filter(group => group.space === 'operations').map(group => group.id)).toEqual(['admin', 'access', 'systems']);
     expect(registry.menus.filter(menu => menu.group === 'myActivity' && !menu.navHidden).map(menu => menu.label.ko)).toEqual(['알림', '내 Task', '권한 요청']);
     expect(registry.groups.find(group => group.id === 'noticeVoc')?.label).toEqual({ ko: '소통', en: 'Communication' });
     expect(registry.menus.filter(menu => menu.group === 'noticeVoc' && !menu.navHidden).map(menu => menu.label.ko)).toEqual(['공지', 'FAQ', 'VOC', '설문']);
@@ -262,6 +264,12 @@ describe('workspace assembly (#260)', () => {
     expect(need('permission-grants')).toMatchObject({ permission: 'console:access', additionalPermissions: ['features:access'] });
     expect(need('admin-roles')).toMatchObject({ permission: 'console:access' });
     expect(need('admin-roles').additionalPermissions).toBeUndefined();
+    // #1289 node j: 시스템 (the third 운영 콘솔 section) is read-only, C only; the link it shows grants nothing (ADR-0068 decision 1).
+    expect(need('systems')).toMatchObject({ permission: 'console:access', path: '/operations/systems', primary: true, group: 'systems', requiresScope: false });
+    expect(need('systems').additionalPermissions).toBeUndefined();
+    expect(need('systems').carrySet).toBeUndefined();
+    expect(registry.spaceOf(need('systems'))?.id).toBe('operations');
+    expect(SPACE_DEFS[7]!.homeMenuId).toBe('admin-roles');
     expect(registry.menuById('voc').permission).toBe('voc:view');
     expect(registry.menuById('surveys').permission).toBe('platform:view');
   });
@@ -276,7 +284,11 @@ describe('workspace assembly (#260)', () => {
     const fakeSection: SpaceNavSectionSlot = { For: () => null };
     const slots = appSlots(assembly, fakeSlot, fakeVocCompose, fakeHomeTodo, fakeScopeControl, fakeNavCounts, fakeSection);
     expect(slots.topBarTools).toBe(assembly.topBarTools);
-    // The real composition (#251): mapped spaces get three in-shell entries (VOC, Task, 설문); operations has no row.
+    // The links come from the assembly's source into the app store (#1289 node j); until it answers the slot draws nothing.
+    expect(slots.features?.entriesFor(spaceId('bravo'))).toBeNull();
+    spaceSystems.start(['workspace-assembly'], assembly.spaceSystems ?? null);
+    await vi.waitFor(() => expect(spaceSystems.getSnapshot().status).toBe('ready'));
+    // The real composition (#251): mapped spaces get three in-shell entries (VOC, Task, 설문); operations has no link.
     expect(slots.features?.entriesFor(spaceId('bravo'))?.map(entry => entry.key)).toEqual(['voc', 'task', 'survey']);
     expect(slots.features?.entriesFor(spaceId('operations'))).toBeNull();
     expect(slots.features?.entriesFor(spaceId('flow'))).toBeNull();

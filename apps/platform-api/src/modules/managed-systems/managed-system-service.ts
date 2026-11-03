@@ -21,7 +21,11 @@
 import { and, asc, count, eq, isNull, sql } from 'drizzle-orm';
 import type { DatabaseError } from 'pg';
 
-import type { AuditEventType, ManagedSystemDefaultCandidates } from '@ap/feature-shared';
+import type {
+  AuditEventType,
+  ManagedSystemDefaultCandidates,
+  SpaceLinksResponse,
+} from '@ap/feature-shared';
 
 import type { Db } from '../../db/client.js';
 import { actors, managedSystems } from '../../db/schema/core.js';
@@ -34,6 +38,7 @@ import { hashRequestBody } from '../core/idempotency/canonicalize.js';
 import type { IdempotencyService } from '../core/idempotency/idempotency-service.js';
 import type { ActorContext, CheckService } from '../permissions/check-service.js';
 import { readDefaultDiagnostics } from './default-diagnostics.js';
+import { platformManagedSystemId } from './read-projections.js';
 import {
   PLATFORM_MANAGED_SYSTEM_EXTERNAL_KEY,
   isRegistryOwnedKey,
@@ -616,6 +621,24 @@ export function createManagedSystemService(deps: ManagedSystemServiceDeps) {
     return { items: rows.map(toDto), total };
   }
 
+  // Navigation/default metadata for any signed-in session (ADR-0068 decision 1: the link grants nothing). Every link
+  // row of the workspace, declared or not, so the app can show a disconnected system as such.
+  async function listSpaceLinks(actor: ActorContext): Promise<SpaceLinksResponse> {
+    const rows = await db
+      .select({
+        space_id: spaceLinks.spaceId,
+        managed_system_id: spaceLinks.managedSystemId,
+        declared: spaceLinks.declared,
+      })
+      .from(spaceLinks)
+      .where(eq(spaceLinks.workspaceId, actor.workspace_id))
+      .orderBy(asc(spaceLinks.spaceId));
+    return {
+      items: rows,
+      platform_managed_system_id: await platformManagedSystemId(db, actor.workspace_id),
+    };
+  }
+
   async function getDefaultCandidates(actor: ActorContext, managedSystemId?: string) {
     return db.transaction(async (tx): Promise<ManagedSystemDefaultCandidates> => {
       await requireWorkspaceAdmin(checkService, actor, tx);
@@ -677,6 +700,7 @@ export function createManagedSystemService(deps: ManagedSystemServiceDeps) {
     updateManagedSystem,
     archiveManagedSystem,
     listManagedSystems,
+    listSpaceLinks,
   };
 }
 

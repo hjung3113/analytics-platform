@@ -183,6 +183,23 @@ export const managedSystemsRoutes: FastifyPluginAsync<ManagedSystemsRoutesOption
     },
   });
 
+  // ── GET /managed-systems/space-links ──────────────────────────────────
+  // Navigation/default metadata (#1289 node j): readable by every signed-in user, like GET /managed-systems.
+  app.route({
+    method: 'GET',
+    url: '/managed-systems/space-links',
+    preHandler: [requireSession(sessionService), requireWorkspace(workspaceId)],
+    handler: async (req) => {
+      const sess = req.session;
+      if (!sess) throw new HttpError('internal.unexpected', 'session missing after middleware');
+      return managedSystemService.listSpaceLinks({
+        actor_id: sess.actor_id,
+        workspace_id: sess.workspace_id,
+        role_level: sess.role_level,
+      });
+    },
+  });
+
   // ── GET /managed-systems ──────────────────────────────────────────────
   app.route({
     method: 'GET',

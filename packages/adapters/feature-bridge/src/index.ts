@@ -12,7 +12,10 @@ export { hostLinks, permissionRequestsTarget, type PlatformTarget, type TargetOf
 export { featureQueryClient, useFeatureSession } from './feature/session';
 export { canSurveyLink, SURVEY_ID, SurveyLink, surveyTarget } from './feature/survey-links';
 export { canVocLink, VOC_ID, VocLink, vocListTarget, vocTarget } from './feature/voc-links';
+export type { DefaultStatus } from './default-status';
 export { ListScope } from './feature/ListScope';
+export { fetchAllManagedSystems, fetchSpaceLinks, FeatureReadError, parseSpaceLinks, type ManagedSystemRow, type SpaceLink, type SpaceLinks } from './feature/space-links';
+export { useSystemsOverview, type SystemsOverviewData } from './feature/systems-overview';
 export { FeatureDetailDrawer } from './feature/FeatureDetailDrawer';
 export { operatorHostLinks } from './feature/operator-links';
 export {
