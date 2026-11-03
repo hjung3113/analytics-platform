@@ -7,7 +7,7 @@ describe.each([
   ['Findings', listFindingsQuerySchema],
 ] as const)('%s list search contract', (_name, schema) => {
   it('normalizes search and rejects overlong text at q', () => {
-    expect(schema.parse({ q: '  MiXeD %_\\  ' })).toEqual({ q: 'MiXeD %_\\' });
+    expect(schema.parse({ q: '  MiXeD %_\\  ' })).toEqual({ q: 'MiXeD %_\\', limit: 50 });
     expect(schema.parse({ q: '  ' }).q).toBeUndefined();
     expect(schema.parse({}).q).toBeUndefined();
     expect(schema.safeParse({ q: 'a'.repeat(100) }).success).toBe(true);

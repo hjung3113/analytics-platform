@@ -184,6 +184,20 @@ async function request(path, { method = 'GET', persona, body, query, idempotency
   return { ok: false, status: response.status, code, body: parsed };
 }
 
+// List endpoints answer one page (default 50, cap 100); fixture lookup needs every row, so follow the cursor.
+async function requestAllPages(path, options = {}) {
+  const items = [];
+  let cursor;
+  for (;;) {
+    const query = { ...options.query, limit: 100, ...(cursor === undefined ? {} : { cursor }) };
+    const page = await request(path, { ...options, query });
+    if (!page.ok) return page;
+    items.push(...itemsOf(page.body));
+    cursor = page.body?.page?.has_more ? page.body.page.cursor : undefined;
+    if (cursor === undefined) return { ok: true, status: page.status, body: { items } };
+  }
+}
+
 function cookieHeader(response) {
   const list =
     typeof response.headers.getSetCookie === 'function' ? response.headers.getSetCookie() : [];
@@ -259,7 +273,7 @@ async function loadSeedVocs() {
 async function stepFinding(vocs) {
   const step = 'finding';
   if (!vocs) return null;
-  const listed = await request('/findings', { persona: 'mock-admin-1' });
+  const listed = await requestAllPages('/findings', { persona: 'mock-admin-1' });
   if (!listed.ok) {
     recordFailed(step, listed.status, listed.code);
     return null;
@@ -285,7 +299,7 @@ async function stepFinding(vocs) {
 
 async function stepTaskRequest(finding) {
   const step = 'task_request';
-  const listed = await request('/task-requests', { persona: 'mock-admin-1' });
+  const listed = await requestAllPages('/task-requests', { persona: 'mock-admin-1' });
   if (!listed.ok) {
     recordFailed(step, listed.status, listed.code);
     return null;
@@ -318,7 +332,7 @@ async function stepTaskRequest(finding) {
 
 async function stepTaskRequestPending(finding) {
   const step = 'task_request_pending';
-  const listed = await request('/task-requests', {
+  const listed = await requestAllPages('/task-requests', {
     persona: 'mock-admin-1',
     query: { status: 'pending_review' },
   });
@@ -354,7 +368,7 @@ async function stepTaskRequestPending(finding) {
 
 async function stepTask(taskRequest) {
   const step = 'task';
-  const listed = await request('/tasks', { persona: 'mock-admin-1' });
+  const listed = await requestAllPages('/tasks', { persona: 'mock-admin-1' });
   if (!listed.ok) {
     recordFailed(step, listed.status, listed.code);
     return null;

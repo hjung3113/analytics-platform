@@ -2,6 +2,7 @@ import type { ListFindingsResponse } from '@ap/feature-shared';
 import {
   type FindingDto,
   type FindingStatus,
+  LIST_DEFAULT_LIMIT,
   type LinkTaskRequest,
   type PatchFindingRequest,
   registeredEntityLinkPairSchema,
@@ -105,8 +106,10 @@ export function createFindingRecord(deps: FindingsServiceDeps) {
     ownerTeamId?: string;
     assignment?: 'assigned' | 'unassigned';
     cursor?: string;
+    /** Absent means the shared default (50). */
     limit?: number;
   }): Promise<ListFindingsResponse> {
+    const limit = args.limit ?? LIST_DEFAULT_LIMIT;
     if (args.actor.role_level !== 'admin' && args.actor.role_level !== 'developer') {
       throw new HttpError('permission.denied', 'finding.read capability required');
     }
@@ -136,15 +139,13 @@ export function createFindingRecord(deps: FindingsServiceDeps) {
       ? []
       : await listFindingsByWorkspace(deps.db, {
           ...input,
-          ...(args.limit === undefined
-            ? {}
-            : { limit: args.limit, ...(cursor === undefined ? {} : { cursor }) }),
+          limit,
+          ...(cursor === undefined ? {} : { cursor }),
         });
-    const hasMore = args.limit !== undefined && rows.length > args.limit;
-    const pageRows = args.limit === undefined ? rows : rows.slice(0, args.limit);
+    const hasMore = rows.length > limit;
+    const pageRows = rows.slice(0, limit);
 
     const items = pageRows.map((row) => toDto(row));
-    if (args.limit === undefined) return { items };
     const last = pageRows.at(-1);
     return {
       items,

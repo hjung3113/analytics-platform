@@ -5,7 +5,7 @@
 import { apiRequest } from '@/lib/api/client';
 import { ApiError, ApiParseError } from '@/lib/api/types';
 import { placeholderDataForSearchOnly } from '@/lib/query/placeholder-data-for-search';
-import { listFindingsResponseSchema } from '@ap/feature-shared';
+import { LIST_MAX_LIMIT, listFindingsResponseSchema } from '@ap/feature-shared';
 import type { ListFindingsResponse } from '@ap/feature-shared';
 import { type UseQueryResult, useInfiniteQuery, useQuery } from '@tanstack/react-query';
 
@@ -17,13 +17,21 @@ export function useFindingsList(
   return useQuery({
     queryKey: ['findings', { managedSystemId, execution }] as const,
     queryFn: async ({ signal }) => {
-      const params = new URLSearchParams();
-      if (managedSystemId !== undefined) params.set('managed_system_id', managedSystemId);
-      if (execution === 'none') params.set('execution', 'none');
-      const query = params.toString();
-      const path = query.length > 0 ? `/findings?${query}` : '/findings';
-      const res = await apiRequest('GET', path, listFindingsResponseSchema, { signal });
-      return res.data;
+      // Callers pick from the whole set, so follow the cursor of the paged endpoint (cap 100).
+      const items: ListFindingsResponse['items'] = [];
+      let cursor: string | undefined;
+      do {
+        const params = new URLSearchParams({ limit: String(LIST_MAX_LIMIT) });
+        if (managedSystemId !== undefined) params.set('managed_system_id', managedSystemId);
+        if (execution === 'none') params.set('execution', 'none');
+        if (cursor !== undefined) params.set('cursor', cursor);
+        const res = await apiRequest('GET', `/findings?${params}`, listFindingsResponseSchema, {
+          signal,
+        });
+        items.push(...res.data.items);
+        cursor = res.data.page?.has_more ? res.data.page.cursor : undefined;
+      } while (cursor !== undefined);
+      return { items, page: { has_more: false } };
     },
     staleTime: 30_000,
     retry: (failureCount, error) =>

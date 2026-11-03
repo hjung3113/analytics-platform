@@ -549,7 +549,7 @@ describe.skipIf(!runIntegration)('Finding authorization consumer contract (#169)
       taskRequestsService.listTaskRequests({
         actor: actor('unscopedDeveloper', 'developer'),
       }),
-    ).resolves.toEqual({ items: [] });
+    ).resolves.toMatchObject({ items: [], page: { has_more: false, total: 0 } });
     await expect(
       taskRequestsService.listTaskRequests({
         actor: actor('scopedDeveloper', 'developer'),

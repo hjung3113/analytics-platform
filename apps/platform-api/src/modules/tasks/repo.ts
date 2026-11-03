@@ -308,7 +308,10 @@ interface ListInput {
   milestoneAny?: boolean;
   milestoneNone?: boolean;
   allowedSystemIds?: string[];
-  limit?: number;
+}
+
+interface ListPageInput extends ListInput {
+  limit: number;
   cursor?: ListCursor;
 }
 
@@ -422,7 +425,7 @@ function listPredicates(input: ListInput) {
   return predicates;
 }
 
-export async function listTasksByWorkspace(db: Db | Tx, input: ListInput): Promise<TaskRow[]> {
+export async function listTasksByWorkspace(db: Db | Tx, input: ListPageInput): Promise<TaskRow[]> {
   const predicates = listPredicates(input);
   if (input.cursor !== undefined)
     predicates.push(
@@ -433,7 +436,7 @@ export async function listTasksByWorkspace(db: Db | Tx, input: ListInput): Promi
       FROM task.tasks
      WHERE ${sql.join(predicates, sql` AND `)}
      ORDER BY updated_at DESC, id DESC
-    ${input.limit === undefined ? sql`` : sql`LIMIT ${input.limit + 1}`}
+    LIMIT ${input.limit + 1}
   `);
   return result.rows.map(mapTaskRow);
 }

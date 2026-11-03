@@ -51,13 +51,24 @@ providers that do not supply an internal summary leave the field absent. Hidden
 and denied DTOs never include endpoint IDs or internal summaries. A
 `summary_visible` DTO continues to expose only its reporter-safe `summary`.
 
-## Workspace inventory pagination
+## Pagination (both modes)
 
 Workspace inventory mode is selected by `scope=workspace` or by omitting both
-source and target endpoints. It accepts `limit` (default `50`, maximum `100`)
-and an opaque `cursor`. The cursor continues the stable `created_at DESC, id
-DESC` order. Pagination parameters are only valid for inventory mode; endpoint
-relation reads keep their `{ items }` response and existing behavior.
+source and target endpoints; endpoint mode by one source or target endpoint.
+Both modes accept `limit` (default `50`, maximum `100`; other values return
+`422 validation.failed`) and an opaque `cursor`, and both always answer with a
+`page`. The cursor continues the stable `created_at DESC, id DESC` order; an
+invalid cursor returns `422` with `detail.fields: [{ path: ['cursor'], code:
+'invalid_cursor' }]`. Paging never widens scope: endpoint mode still answers
+`404 not_found.record` for an unreadable focused endpoint before reading any
+page, and every row on every page passes the same visibility decision.
+
+Endpoint mode responses are `{ items: EntityLinkDto[], page: { has_more:
+boolean, cursor? } }` over the endpoint's active links; they carry no
+`status_counts`. The page limit applies to stored rows before list-visibility
+filtering, so a page can hold fewer than `limit` items while `has_more` is true.
+A consumer that needs every link of an endpoint follows `page.cursor` with
+`limit=100` until `has_more` is false.
 
 Inventory responses are `{ items: EntityLinkDto[], page: { has_more: boolean,
 cursor?: string, status_counts?: { active, stale, detached, revoked } } }`.

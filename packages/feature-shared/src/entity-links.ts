@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { listLimitSchema } from './list-page.js';
+
 export const entityLinkEntityTypeSchema = z.enum([
   'voc',
   'survey_response',
@@ -214,7 +216,7 @@ export const listEntityLinksQuerySchema = z
     status: csvEntityLinkStatusSchema,
     relation_type: entityLinkRelationTypeSchema.optional(),
     managed_system_id: z.string().uuid().optional(),
-    limit: z.coerce.number().int().min(1).max(100).optional(),
+    limit: listLimitSchema,
     cursor: z.string().min(1).optional(),
   })
   .strict()
@@ -255,13 +257,6 @@ export const listEntityLinksQuerySchema = z
         message: 'target_type and target_id must be provided together',
       });
     }
-    if (hasEndpoint && (value.limit !== undefined || value.cursor !== undefined)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: value.cursor !== undefined ? ['cursor'] : ['limit'],
-        message: 'pagination is only available for workspace inventory',
-      });
-    }
     if (value.scope !== 'workspace' && hasEndpoint && hasSource === hasTarget) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -269,9 +264,9 @@ export const listEntityLinksQuerySchema = z
         message: 'provide exactly one source or target endpoint',
       });
     }
-  })
-  .transform((value) => ({ ...value, limit: value.limit ?? 50 }));
-export type ListEntityLinksQuery = z.infer<typeof listEntityLinksQuerySchema>;
+  });
+/** Request shape: `limit` may be absent (the schema defaults it to 50). */
+export type ListEntityLinksQuery = z.input<typeof listEntityLinksQuerySchema>;
 
 export const allowedEntityLinkSchema = z.object({
   id: z.string().uuid(),

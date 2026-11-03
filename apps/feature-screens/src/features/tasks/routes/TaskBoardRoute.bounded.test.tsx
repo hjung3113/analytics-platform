@@ -402,7 +402,7 @@ describe('bounded Task board (#1178)', () => {
     },
   );
 
-  it('groups only the open set with no limit and says closed Tasks are excluded', async () => {
+  it('groups only the open set, fetched at the page cap, and says closed Tasks are excluded', async () => {
     mount();
     await screen.findByLabelText('Backlog 열');
     const before = server.lists.length;
@@ -414,13 +414,38 @@ describe('bounded Task board (#1178)', () => {
     const added = server.lists.slice(before).filter((query) => query.limit !== 1);
     expect(added).toHaveLength(1);
     expect(added[0]).toMatchObject({ status_group: 'open' });
-    expect(added[0]?.limit).toBeUndefined();
+    expect(added[0]?.limit).toBe(100);
+    expect(added[0]?.cursor).toBeUndefined();
     expect(added[0]?.status).toBeUndefined();
     await waitFor(() => expect(screen.getByLabelText('높음 열')).toBeInTheDocument());
     expect(
       screen.getByText('완료·배포된 Task는 제외됩니다. 상태별 보기에서 확인하세요.'),
     ).toBeInTheDocument();
     expect(screen.queryByText((done[0] as TaskDto).display_id)).not.toBeInTheDocument();
+  });
+
+  it('follows the cursor so a grouped open set past one page is not truncated', async () => {
+    server = startServer(many('backlog', 130));
+    mount();
+    await screen.findByLabelText('Backlog 열');
+    const before = server.lists.length;
+    fireEvent.click(screen.getByRole('button', { name: '그룹화' }));
+    fireEvent.click(await screen.findByRole('radio', { name: '우선순위' }));
+    await waitFor(() =>
+      expect(
+        within(screen.getByLabelText('높음 열')).queryAllByRole('button', {
+          name: /^TASK-\d+:/,
+        }),
+      ).toHaveLength(130),
+    );
+    const open = server.lists
+      .slice(before)
+      .filter((query) => query.status_group === 'open')
+      .map((query) => [query.limit, query.cursor]);
+    expect(open).toEqual([
+      [100, undefined],
+      [100, '100'],
+    ]);
   });
 
   it('moves a card across columns, adjusts both totals, and restores both when the write fails', async () => {

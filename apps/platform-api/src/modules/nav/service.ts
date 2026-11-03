@@ -25,8 +25,9 @@ async function authorizationAbsent<T>(read: () => Promise<T>): Promise<T | undef
 type NavCountsDeps = {
   vocReadService: VocCountReader;
   findingsService: {
-    listFindings(args: { actor: NavActor; managedSystemId?: string }): Promise<{
-      items: readonly unknown[];
+    listFindings(args: { actor: NavActor; managedSystemId?: string; limit?: number }): Promise<{
+      /** `page.total` is the authorized population count on a first page. */
+      page?: { total?: number | undefined } | undefined;
     }>;
   };
   surveysService: {
@@ -75,6 +76,8 @@ export function createNavCountsService(deps: NavCountsDeps) {
       authorizationAbsent(() =>
         deps.findingsService.listFindings({
           actor,
+          // Count only: the first page's authorized `page.total` is the badge value.
+          limit: 1,
           ...(managedSystemId ? { managedSystemId } : {}),
         }),
       ),
@@ -88,7 +91,7 @@ export function createNavCountsService(deps: NavCountsDeps) {
     ]);
     return {
       ...vocCounts,
-      ...(findings === undefined ? {} : { 'findings.all': findings.items.length }),
+      ...(findings === undefined ? {} : { 'findings.all': findings.page?.total ?? 0 }),
       ...(surveys === undefined ? {} : { 'surveys.all': surveys.length }),
       ...(vocClusters === undefined ? {} : { 'voc.clusters': vocClusters.items.length }),
     };

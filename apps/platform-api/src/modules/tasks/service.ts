@@ -13,6 +13,7 @@ import {
   type TaskCommentDto,
   type TaskDetailDto,
   type TaskDto,
+  LIST_DEFAULT_LIMIT,
   registeredEntityLinkPairSchema,
   splitTaskListTokens,
 } from '@ap/feature-shared';
@@ -1126,19 +1127,18 @@ export function createTasksService(deps: TasksServiceDeps) {
       ...(allowedSystemIds === undefined ? {} : { allowedSystemIds }),
     };
     const empty = allowedSystemIds?.length === 0;
+    const limit = args.query.limit ?? LIST_DEFAULT_LIMIT;
     const rows = empty
       ? []
       : await listTasksByWorkspace(deps.db, {
           ...input,
-          ...(args.query.limit === undefined
-            ? {}
-            : { limit: args.query.limit, ...(cursor === undefined ? {} : { cursor }) }),
+          limit,
+          ...(cursor === undefined ? {} : { cursor }),
         });
-    const hasMore = args.query.limit !== undefined && rows.length > args.query.limit;
-    const pageRows = args.query.limit === undefined ? rows : rows.slice(0, args.query.limit);
+    const hasMore = rows.length > limit;
+    const pageRows = rows.slice(0, limit);
 
     const items = pageRows.map((row) => taskToDto(row));
-    if (args.query.limit === undefined) return { items };
     const last = pageRows.at(-1);
     return {
       items,

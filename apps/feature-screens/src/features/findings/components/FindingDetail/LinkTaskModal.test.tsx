@@ -219,4 +219,38 @@ describe('LinkTaskModal', () => {
     expect(screen.queryByText('Task 목록을 불러오지 못했습니다.')).not.toBeInTheDocument();
     expect(listTasks).toHaveBeenCalledTimes(2);
   });
+
+  it('keeps an eligible Task that sits after the first 50 selectable by following the cursor', async () => {
+    const fillers = Array.from({ length: 100 }, (_, index) => ({
+      ...CANDIDATE,
+      id: `21000000-0000-0000-0000-${String(index).padStart(12, '0')}`,
+      display_id: `TASK-F${index}`,
+      title: `Filler ${index}`,
+    })) as TaskDto[];
+    vi.mocked(listTasks).mockClear();
+    vi.mocked(listTasks).mockImplementation(async (options) =>
+      options?.cursor === undefined
+        ? { items: fillers, page: { has_more: true, cursor: 'next-page' } }
+        : { items: [{ ...CANDIDATE, display_id: 'TASK-LATE' } as TaskDto], page: { has_more: false } },
+    );
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    const user = userEvent.setup();
+    render(
+      <QueryClientProvider client={client}>
+        <LinkTaskModal finding={FINDING} open onClose={vi.fn()} />
+      </QueryClientProvider>,
+    );
+
+    await user.click(await screen.findByRole('combobox'));
+    expect(await screen.findByRole('option', { name: /TASK-LATE/ })).toBeInTheDocument();
+    expect(vi.mocked(listTasks).mock.calls.map(([options]) => [options?.limit, options?.cursor])).toEqual([
+      [100, undefined],
+      [100, 'next-page'],
+    ]);
+    expect(vi.mocked(listTasks).mock.calls[0]?.[0]).toMatchObject({
+      managed_system_id: IDS.managedSystem,
+    });
+  });
 });

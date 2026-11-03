@@ -1,6 +1,7 @@
 import { mapUnknownError } from '@/lib/api/errorMapper';
 import { fetchPermissionCheckViaClient } from '@/lib/api/permission-reads';
-import { linkExistingTask, listTasks } from '@/lib/api/tasks';
+import { listAllTasks } from '@/lib/api/list-all';
+import { linkExistingTask } from '@/lib/api/tasks';
 import type { ApiError } from '@/lib/api/types';
 import { useHostSeam } from '@/lib/host/host-seam';
 import { invalidateNavCounts } from '@/lib/query/navCounts';
@@ -59,8 +60,9 @@ export function useTaskRequestLink({
   const canManage = currentRole === 'admin' || manageCheck.data?.state === 'approved';
 
   const tasksQuery = useQuery({
-    queryKey: ['tasks', 'backlog-picker'] as const,
-    queryFn: ({ signal }) => listTasks({ signal }),
+    queryKey: ['tasks', 'backlog-picker', item.primary_managed_system_id] as const,
+    queryFn: ({ signal }) =>
+      listAllTasks({ managed_system_id: item.primary_managed_system_id, signal }),
     enabled: linkOpen,
     staleTime: 30 * 1000,
   });

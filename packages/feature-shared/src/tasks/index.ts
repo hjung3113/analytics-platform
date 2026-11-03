@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { listPageSchema } from '../list-page.js';
+import { listLimitSchema, listPageSchema } from '../list-page.js';
 import { reporterFacingStatusEnumSchema } from '../vocs/list-item.js';
 
 import { taskStatusSchema } from './status.js';
@@ -192,10 +192,11 @@ export const listTasksQuerySchema = z
       20,
     ).optional(),
     cursor: z.string().optional(),
-    limit: z.coerce.number().int().min(1).max(100).optional(),
+    limit: listLimitSchema,
   })
   .strict();
-export type ListTasksQuery = z.infer<typeof listTasksQuerySchema>;
+/** Request shape: `limit` may be absent (the schema defaults it to 50). */
+export type ListTasksQuery = z.input<typeof listTasksQuerySchema>;
 
 export * from './comments.js';
 

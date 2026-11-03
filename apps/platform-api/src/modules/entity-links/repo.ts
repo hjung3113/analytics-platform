@@ -221,6 +221,22 @@ export async function selectActiveEntityLink(
   return row ? mapEntityLinkRow(row) : null;
 }
 
+function endpointSidePredicate(input: {
+  endpointType: EntityLinkEntityType;
+  endpointId: string;
+  side?: 'source' | 'target';
+}) {
+  if (input.side === 'source')
+    return sql`source_type = ${input.endpointType} AND source_id = ${input.endpointId}`;
+  if (input.side === 'target')
+    return sql`target_type = ${input.endpointType} AND target_id = ${input.endpointId}`;
+  return sql`(
+    (source_type = ${input.endpointType} AND source_id = ${input.endpointId})
+    OR (target_type = ${input.endpointType} AND target_id = ${input.endpointId})
+  )`;
+}
+
+/** Every active link of the endpoint (internal callers that need the complete set). */
 export async function selectActiveLinksForEndpoint(
   db: Db | Tx,
   input: {
@@ -230,16 +246,7 @@ export async function selectActiveLinksForEndpoint(
     side?: 'source' | 'target';
   },
 ): Promise<EntityLinkRow[]> {
-  const sidePredicate =
-    input.side === 'source'
-      ? sql`source_type = ${input.endpointType} AND source_id = ${input.endpointId}`
-      : input.side === 'target'
-        ? sql`target_type = ${input.endpointType} AND target_id = ${input.endpointId}`
-        : sql`(
-            (source_type = ${input.endpointType} AND source_id = ${input.endpointId})
-            OR (target_type = ${input.endpointType} AND target_id = ${input.endpointId})
-          )`;
-
+  const sidePredicate = endpointSidePredicate(input);
   const result = await (db as Db).execute<Record<string, unknown>>(sql`
     SELECT
       id, workspace_id, source_type, source_id, target_type, target_id,
@@ -252,6 +259,57 @@ export async function selectActiveLinksForEndpoint(
     ORDER BY created_at DESC, id DESC
   `);
   return result.rows.map(mapEntityLinkRow);
+}
+
+/** One keyset page (`created_at DESC, id DESC`) of the endpoint's active links. */
+export async function selectActiveLinksForEndpointPage(
+  db: Db | Tx,
+  input: {
+    workspaceId: string;
+    endpointType: EntityLinkEntityType;
+    endpointId: string;
+    side?: 'source' | 'target';
+    limit: number;
+    cursor?: { createdAt: string; id: string };
+  },
+): Promise<{
+  items: EntityLinkRow[];
+  hasMore: boolean;
+  nextCursor?: { createdAtRaw: string; id: string };
+}> {
+  const predicates = [
+    sql`workspace_id = ${input.workspaceId}`,
+    sql`status = 'active'`,
+    endpointSidePredicate(input),
+  ];
+  if (input.cursor !== undefined) {
+    predicates.push(sql`(created_at, id) < (
+      ${input.cursor.createdAt}::timestamptz, ${input.cursor.id}::uuid
+    )`);
+  }
+  const result = await (db as Db).execute<Record<string, unknown>>(sql`
+    SELECT
+      id, workspace_id, source_type, source_id, target_type, target_id,
+      relation_type, visibility, status, managed_system_id, created_by,
+      created_at, created_at::text AS cursor_created_at,
+      updated_at, detached_by, detach_reason, detached_at
+    FROM core.entity_links_app
+    WHERE ${sql.join(predicates, sql` AND `)}
+    ORDER BY created_at DESC, id DESC
+    LIMIT ${input.limit + 1}
+  `);
+  const hasMore = result.rows.length > input.limit;
+  const pageRows = result.rows.slice(0, input.limit);
+  const last = pageRows.at(-1);
+  const nextCursor =
+    hasMore && last
+      ? { createdAtRaw: last.cursor_created_at as string, id: last.id as string }
+      : undefined;
+  return {
+    items: pageRows.map(mapEntityLinkRow),
+    hasMore,
+    ...(nextCursor !== undefined ? { nextCursor } : {}),
+  };
 }
 
 export async function selectActiveLinksForEndpoints(

@@ -184,11 +184,14 @@ interface ListInput {
   status?: TaskRequestRow['status'];
   managedSystemId?: string;
   allowedSystemIds?: string[];
-  limit?: number;
-  cursor?: ListCursor;
   taskRequestId?: string;
   reviewerActorId?: string;
   reviewerTeamId?: string;
+}
+
+interface ListPageInput extends ListInput {
+  limit: number;
+  cursor?: ListCursor;
 }
 
 function listPredicates(input: ListInput) {
@@ -211,7 +214,7 @@ function listPredicates(input: ListInput) {
 
 export async function listTaskRequestsByWorkspace(
   db: Db | Tx,
-  input: ListInput,
+  input: ListPageInput,
 ): Promise<TaskRequestRow[]> {
   const predicates = listPredicates(input);
   if (input.cursor !== undefined)
@@ -248,7 +251,7 @@ export async function listTaskRequestsByWorkspace(
      AND c.primary_managed_system_id = tr.primary_managed_system_id
     WHERE ${sql.join(predicates, sql` AND `)}
     ORDER BY tr.created_at DESC, tr.id DESC
-    ${input.limit === undefined ? sql`` : sql`LIMIT ${input.limit + 1}`}
+    LIMIT ${input.limit + 1}
   `);
   return result.rows.map(mapTaskRequestRow);
 }

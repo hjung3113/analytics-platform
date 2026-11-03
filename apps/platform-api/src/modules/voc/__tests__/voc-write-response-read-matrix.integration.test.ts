@@ -257,6 +257,8 @@ describe.skipIf(!runIntegration)('VOC write responses follow the read matrix (#1
     );
     adminActorId = adminRow.rows[0]?.id ?? '';
     if (!adminActorId) throw new Error('mock-admin-1 not found');
+    // Files run one at a time; start the logins below from an empty unauthenticated (per-IP) bucket.
+    await dbHandle.pool.query(`delete from core.rate_limits where key like '127.0.0.%'`);
     cookies.admin = await loginAs(app, 'mock-admin-1');
 
     // Cleaned by cleanupReadTestTables through the `mock-dev-read-` prefix.

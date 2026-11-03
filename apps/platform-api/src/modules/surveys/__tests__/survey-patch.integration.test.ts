@@ -31,6 +31,9 @@ describe.skipIf(!runIntegration)('survey scalar patch and question reorder (#233
     migrateHandle = createDb(MIGRATE_URL);
     app = await buildServer({ config: loadConfig(), dbHandle: appHandle });
     await app.ready();
+    // Files run one at a time; start from an empty unauthenticated (per-IP) bucket so the logins below do not
+    // depend on what the previous file left behind.
+    await migrateHandle.pool.query(`delete from core.rate_limits where key like '127.0.0.%'`);
     adminCookie = await loginAs(app, 'mock-admin-1');
     const admin = await appHandle.pool.query<{ id: string }>(
       `select id from core.actors where workspace_id = $1 and external_id = 'mock-admin-1'`,
@@ -40,7 +43,11 @@ describe.skipIf(!runIntegration)('survey scalar patch and question reorder (#233
     if (!adminActorId) throw new Error('mock admin actor not found');
   });
 
-  beforeEach(async () => cleanupFixtures());
+  beforeEach(async () => {
+    await cleanupFixtures();
+    // Each test logs in fresh actors; keep the per-IP login bucket from filling across tests.
+    await migrateHandle.pool.query(`delete from core.rate_limits where key like '127.0.0.%'`);
+  });
 
   afterAll(async () => {
     await cleanupFixtures();
