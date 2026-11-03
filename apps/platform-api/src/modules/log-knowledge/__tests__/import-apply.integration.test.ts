@@ -744,10 +744,19 @@ describe.skipIf(!runIntegration)('catalog import resolve and apply (#1195 b)', (
         // Release A only once B's identity insert is observed waiting on a lock (A's uncommitted row), so the
         // schedule is the real overlap and never collapses into "A already committed".
         await waitFor(async () => {
-          // The app's role hides query text from this connection, so observe the wait itself: a backend waiting
-          // on another transaction's lock (the unique-index entry A inserted but has not committed).
+          // The app's role hides query text from this connection, so observe the wait itself: a backend that holds a
+          // lock on external_identity_map (B, inside its claim insert) waits on a transaction lock of a backend that
+          // also holds one on that table (A, whose identity row is uncommitted). Unrelated waiters cannot match.
           const blocked = await sql(
-            `select 1 from pg_locks where not granted and locktype in ('transactionid', 'speculative token')`,
+            `select 1
+               from pg_locks w
+               join pg_locks wr on wr.pid = w.pid and wr.granted
+                and wr.relation = 'knowledge.external_identity_map'::regclass
+              where not w.granted and w.locktype in ('transactionid', 'speculative token')
+                and exists (
+                  select 1 from pg_locks hr
+                   where hr.granted and hr.relation = 'knowledge.external_identity_map'::regclass
+                     and hr.pid = any (pg_blocking_pids(w.pid)))`,
           );
           return blocked.rows.length > 0;
         });
