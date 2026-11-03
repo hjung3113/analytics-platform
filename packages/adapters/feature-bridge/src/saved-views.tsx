@@ -34,5 +34,5 @@ const SECTION = { label: { ko: '저장된 보기', en: 'Saved views' }, Body: BO
 
 /** The feature saved VOC views section (06 §8 `spaceNavSection`, #761 p3, #595 4c). Only `apps/platform-web/src/main.tsx` imports this. */
 export const savedViewsSlot: SpaceNavSectionSlot = {
-  For: (id, menu) => usesSavedViews(id, menu) ? SECTION : null,
+  For: (_id, menu) => usesSavedViews(menu) ? SECTION : null,
 };

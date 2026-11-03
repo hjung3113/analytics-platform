@@ -4,6 +4,7 @@
 # Explicit group entries allow changing one line when group ownership diverges.
 
 /platform/ @hjung3113
+/platform/access/ @hjung3113
 /platform/admin/ @hjung3113
 /platform/dashboard/ @hjung3113
 /platform/feature-admin/ @hjung3113

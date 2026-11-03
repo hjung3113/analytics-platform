@@ -10,15 +10,18 @@ import Notifications from '../pages/Notifications';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { groupId, spaceId, type Permission } from '@ap/contracts';
 
-// The real manifests in their global group; a space needs one menu of its own, so a filler stands in for it.
-const filler = { ...manifests.find(m => m.id === 'surveys')!, primary: true, id: 'filler', group: 'noticeVoc', path: '/filler', aliases: undefined } as MenuEntry;
+// The real manifests in their global groups (내 활동, 소통); a space needs one menu of its own, so a filler in its own group stands in for it.
+const filler = { ...manifests.find(m => m.id === 'surveys')!, primary: true, id: 'filler', group: 'filler', path: '/filler', aliases: undefined } as MenuEntry;
+// 소통 needs its one primary menu; the real 공지 lives in `@ap/menu-notice-voc`, so a stand-in primary takes its place.
+const notices = { ...filler, id: 'notices', group: 'noticeVoc', path: '/notices', component: undefined } as MenuEntry;
 export const registry = createRegistry({
   spaces: [{ id: spaceId('mars'), label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'filler' }],
   groups: [
     { id: groupId('myActivity'), label: { ko: '내 활동', en: 'My activity' }, icon: UserRound, space: null },
-    { id: groupId('noticeVoc'), label: { ko: '공지·VOC', en: 'Notice·VOC' }, icon: UserRound, space: spaceId('mars') },
+    { id: groupId('noticeVoc'), label: { ko: '소통', en: 'Communication' }, icon: UserRound, space: null },
+    { id: groupId('filler'), label: { ko: '채움', en: 'Filler' }, icon: UserRound, space: spaceId('mars') },
   ],
-  menus: [...manifests, filler],
+  menus: [...manifests, filler, notices],
 });
 
 export const ID_A = '11111111-1111-4111-8111-111111111111';

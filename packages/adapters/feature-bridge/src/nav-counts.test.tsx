@@ -14,7 +14,7 @@ import { navCountsSlot } from './nav-counts';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const SPACE = spaceId('operations');
+const SPACE = spaceId('flow');
 const GROUP = groupId('voc');
 const registry = createRegistry({
   carrySets: [{ id: carrySetId('features'), pageKeys: ['managedSystem'] }],
@@ -22,7 +22,7 @@ const registry = createRegistry({
   groups: [{ id: GROUP, label: { ko: 'VOC', en: 'VOC' }, icon: Inbox, space: SPACE }],
   menus: [{
     id: 'inbox', primary: true, group: GROUP, label: { ko: '수신함', en: 'Inbox' }, description: { ko: '수신함', en: 'Inbox' },
-    path: '/operations/inbox', icon: Inbox, permission: 'features:access', requiresScope: false, pageType: 'management',
+    path: '/flow/inbox', icon: Inbox, permission: 'features:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES, pageKeys: ['managedSystem'], carrySet: carrySetId('features'), component: lazy(async () => ({ default: () => null })),
   }],
 });
@@ -58,7 +58,7 @@ describe('navCounts slot with an active feature observer on the same key', () =>
       return new Response(JSON.stringify({ counts: { 'voc.inbox': n } }), { status: 200, headers: { 'content-type': 'application/json' } });
     }));
     const seen: Array<Record<string, number> | null> = [];
-    window.history.replaceState(null, '', '/operations/inbox');
+    window.history.replaceState(null, '', '/flow/inbox');
     const session = testSession(['platform:view', 'features:access'], { user: { id: 'admin', name: 'admin', title: { ko: 'admin', en: 'admin' } } });
     host = document.createElement('div');
     document.body.append(host);
@@ -86,7 +86,7 @@ describe('navCounts slot with an active feature observer on the same key', () =>
 
   it('maps surveys.all to the Survey 관리 menu (survey-management), next to findings.all', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ counts: { 'findings.all': 3, 'surveys.all': 7 } }), { status: 200, headers: { 'content-type': 'application/json' } })));
-    window.history.replaceState(null, '', '/operations/inbox');
+    window.history.replaceState(null, '', '/flow/inbox');
     const session = testSession(['platform:view', 'features:access'], { user: { id: 'admin', name: 'admin', title: { ko: 'admin', en: 'admin' } } });
     host = document.createElement('div');
     document.body.append(host);

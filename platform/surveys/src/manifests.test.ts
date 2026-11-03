@@ -1,13 +1,8 @@
 // @vitest-environment node
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { surveyBuilderRoute, surveyFollowUpRoute, surveyResultsRoute, surveysRoute } from '@ap/feature-bridge';
 import { manifests } from './index';
 
-const FRONTEND = '../../../apps/feature-screens/src/';
-const read = (path: string) => readFileSync(fileURLToPath(new URL(`${FRONTEND}${path}`, import.meta.url)), 'utf8');
-const PARTICIPATION_COPY = read('lib/copy/survey-participation.ts');
 const byId = (id: string) => manifests.find(entry => entry.id === id)!;
 
 describe('Surveys manifests', () => {
@@ -16,7 +11,7 @@ describe('Surveys manifests', () => {
     expect(manifests.filter(entry => entry.primary).map(entry => entry.id)).toEqual(['survey-management']);
     expect(manifests.every(entry => entry.group === 'surveys')).toBe(true);
     expect(manifests.map(entry => entry.path)).toEqual([
-      '/operations/survey-management', '/operations/survey-builder/:surveyId', '/operations/survey-results/:surveyId', '/operations/survey-follow-up/:surveyId',
+      '/flow/survey-management', '/flow/survey-builder/:surveyId', '/flow/survey-results/:surveyId', '/flow/survey-follow-up/:surveyId',
     ]);
   });
 
@@ -46,7 +41,7 @@ describe('Surveys manifests', () => {
     }
   });
 
-  it('keeps the Survey management ko label equal to the feature participation copy', () => {
-    expect(byId('survey-management').label.ko).toBe(new RegExp("\\bmanage: '([^']+)'").exec(PARTICIPATION_COPY)?.[1]);
+  it('names the menus and hidden children as decided (ADR-0110; the screens\' own copy follows in node D)', () => {
+    expect(manifests.map(entry => entry.label.ko)).toEqual(['설문 관리', '설문 빌더', '설문 결과', '설문 후속 조치']);
   });
 });

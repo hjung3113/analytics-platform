@@ -35,8 +35,8 @@ const INBOX_CASES = [
 const TRIAGE_CASES = [['tab', 'bogus'], ['area', 'not-a-uuid'], ['focus', 'abc'], ['tab', '']] as const;
 
 describe.each([
-  ['수신함', '/operations/inbox', INBOX_CASES, 'inbox'],
-  ['Triage', '/operations/triage', TRIAGE_CASES, 'triage'],
+  ['VOC 처리함', '/flow/inbox', INBOX_CASES, 'inbox'],
+  ['분류', '/flow/triage', TRIAGE_CASES, 'triage'],
 ] as const)('%s with an invalid address value', (_name, path, cases, testId) => {
   it.each(cases)('rejects an invalid %s, keeps the address and requests nothing from feature', async (key, value) => {
     const search = `?${key}=${encodeURIComponent(value)}&managedSystem=${SYSTEM}`;
@@ -67,7 +67,7 @@ describe.each([
 
 describe('수신함 filters', () => {
   it('accepts a 100-character q (101 is rejected above)', async () => {
-    mountAt(`/operations/inbox?q=${'q'.repeat(100)}`);
+    mountAt(`/flow/inbox?q=${'q'.repeat(100)}`);
     expect(await screen.findByTestId('inbox', undefined, LAZY_MOUNT_WAIT)).toBeTruthy();
   });
 });

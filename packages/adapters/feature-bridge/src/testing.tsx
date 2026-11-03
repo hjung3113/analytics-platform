@@ -29,17 +29,21 @@ function Routes() {
   return Page ? <Suspense fallback={null}><Page key={route.menu.id} params={route.params} /></Suspense> : null;
 }
 
+/** The space a harness registry builds: menu paths are canonical under its id (`/flow/…` by default). */
+type HarnessSpace = { id: string; label: { ko: string; en: string } };
+const FLOW_SPACE: HarnessSpace = { id: 'flow', label: { ko: '업무 흐름', en: 'Workflow' } };
+
 /**
- * An `operations` space with one group holding `manifests` (plus the `globalGroups` a manifest may declare, such as 내 Task's `myActivity`), and `mountAt(url)` to render the matched page on a platform with an admin session.
- * `permissions` (default `platform:view` and `features:access`) are the session's. `detailSlot` (default on) adds the shell's detail slot a `DetailDrawer` portals into. `options.registry` mounts a different registry; `options.extra` renders beside the page.
+ * A `flow` space (or the given `space`) with one group holding `manifests` (plus the `globalGroups` a manifest may declare, such as 내 Task's `myActivity`), and `mountAt(url)` to render the matched page on a platform with an admin session.
+ * `permissions` (default `platform:view` and `features:access`) are the session's. `space` (default `flow`) is the one space the menu paths live under (the 운영 콘솔 `operations` for the access menus). `detailSlot` (default on) adds the shell's detail slot a `DetailDrawer` portals into. `options.registry` mounts a different registry; `options.extra` renders beside the page.
  */
-export function createFeatureMenuHarness({ manifests, homeMenuId, group, globalGroups = [], detailSlot = true, permissions = ['platform:view', 'features:access'] }: {
-  manifests: readonly MenuEntry[]; homeMenuId: string; group: Group; globalGroups?: readonly Group[]; detailSlot?: boolean; permissions?: readonly Permission[];
+export function createFeatureMenuHarness({ manifests, homeMenuId, group, globalGroups = [], detailSlot = true, permissions = ['platform:view', 'features:access'], space = FLOW_SPACE }: {
+  manifests: readonly MenuEntry[]; homeMenuId: string; group: Group; globalGroups?: readonly Group[]; detailSlot?: boolean; permissions?: readonly Permission[]; space?: HarnessSpace;
 }) {
   const registry = createRegistry({
     carrySets: [{ id: carrySetId('features'), pageKeys: ['managedSystem', 'returnTo'] }],
-    spaces: [{ id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations console' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId }],
-    groups: [{ id: groupId(group.id), label: group.label, icon: group.icon, space: spaceId('operations') }, ...globalGroups.map(global => ({ id: groupId(global.id), label: global.label, icon: global.icon, space: null }))],
+    spaces: [{ id: spaceId(space.id), label: space.label, description: { ko: '목적', en: 'Purpose' }, homeMenuId }],
+    groups: [{ id: groupId(group.id), label: group.label, icon: group.icon, space: spaceId(space.id) }, ...globalGroups.map(global => ({ id: groupId(global.id), label: global.label, icon: global.icon, space: null }))],
     menus: manifests,
   });
   const session = testSession([...permissions], { user: { id: 'admin', name: 'admin', title: { ko: 'admin', en: 'admin' } } });

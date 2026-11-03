@@ -47,7 +47,7 @@ describe('내 Task 목록 범위 (page-owned, #1099c B02)', () => {
   });
 
   it('does not draw the picker on the operator Task list, and rejects an invalid managedSystem before any picker mounts', async () => {
-    mountAt(`/operations/task-list?managedSystem=${SYSTEM}`);
+    mountAt(`/flow/task-list?managedSystem=${SYSTEM}`);
     await screen.findByTestId('list');
     expect(screen.queryByTestId('picker')).toBeNull();
     cleanup();

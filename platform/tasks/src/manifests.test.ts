@@ -28,12 +28,12 @@ describe('Tasks manifests', () => {
 
   it('serves the paths of the plan, the board being the primary', () => {
     expect(manifests.filter(entry => entry.primary).map(entry => entry.id)).toEqual(['tasks']);
-    expect(manifests.map(entry => entry.path)).toEqual(['/operations/task-requests', '/operations/tasks', '/my-tasks', '/operations/milestones', '/operations/task-list']);
+    expect(manifests.map(entry => entry.path)).toEqual(['/flow/task-requests', '/flow/tasks', '/my-tasks', '/flow/milestones', '/flow/task-list']);
   });
 
   it('keeps the approved ko labels in sidebar order', () => {
     const shown = manifests.filter(entry => entry.navHidden !== true).map(entry => entry.label.ko);
-    expect(shown).toEqual(['Task Requests', 'Tasks', '내 Task', 'Milestones']);
+    expect(shown).toEqual(['Task 요청', 'Task 보드', '내 Task', '마일스톤']);
   });
 
   it('hides Task 목록 under Tasks (feature has no sidebar row for it)', () => {

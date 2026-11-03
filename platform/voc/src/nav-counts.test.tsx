@@ -14,7 +14,7 @@ const SYSTEM = '33333333-3333-4333-8333-333333333333';
 const ALL = '/api/features/nav/counts';
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 const INBOX = registry.menuById('inbox');
-const Counts = navCountsSlot.For(spaceId('operations'), INBOX)!;
+const Counts = navCountsSlot.For(spaceId('flow'), INBOX)!;
 
 function stubFetch(handle: (path: string) => Response | Promise<Response>) {
   const calls: string[] = [];
@@ -39,24 +39,26 @@ beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); featureQueryC
 afterEach(() => { cleanup(); setFeatureApi(null); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
 describe('navCounts slot', () => {
-  it('serves only a counted operator menu of the operations console, with one stable component', () => {
-    expect(navCountsSlot.For(spaceId('operations'), INBOX)).not.toBeNull();
-    expect(navCountsSlot.For(spaceId('bravo'), INBOX)).toBeNull();
-    expect(navCountsSlot.For(spaceId('operations'), INBOX)).toBe(navCountsSlot.For(spaceId('operations'), INBOX));
+  it('serves only a counted operator menu (the group and page key decide, not the space), with one stable component', () => {
+    expect(navCountsSlot.For(spaceId('flow'), INBOX)).not.toBeNull();
+    expect(navCountsSlot.For(spaceId('bravo'), INBOX)).toBe(navCountsSlot.For(spaceId('flow'), INBOX));
+    expect(navCountsSlot.For(spaceId('flow'), INBOX)).toBe(navCountsSlot.For(spaceId('flow'), INBOX));
   });
 
   it.each<[string, MenuEntry | null]>([
     ['no current menu', null],
     ['a platform administration menu (no managedSystem key, group admin)', ({ ...INBOX, id: 'admin-roles', group: groupId('admin'), pageKeys: [] }) as MenuEntry],
+    ['an access menu (group access)', ({ ...INBOX, id: 'permission-grants', group: groupId('access') }) as MenuEntry],
+    ['the global 내 Task menu (group myActivity)', ({ ...INBOX, id: 'my-tasks', group: groupId('myActivity') }) as MenuEntry],
     ['an operator menu whose group has no counts', ({ ...INBOX, id: 'tasks', group: groupId('tasks') }) as MenuEntry],
     ['an operator menu without the managedSystem key', ({ ...INBOX, pageKeys: ['focus'] }) as MenuEntry],
   ])('mounts nothing for %s, so no operator query can start', (_, menu) => {
-    expect(navCountsSlot.For(spaceId('operations'), menu)).toBeNull();
+    expect(navCountsSlot.For(spaceId('flow'), menu)).toBeNull();
   });
 
   it('without a feature API gives null and requests nothing', async () => {
     const calls = stubFetch(() => json({ counts: {} }));
-    mountAt('/operations/inbox');
+    mountAt('/flow/inbox');
     expect(read()).toBeNull();
     await act(async () => { await Promise.resolve(); });
     expect(read()).toBeNull();
@@ -68,38 +70,38 @@ describe('navCounts slot', () => {
 
     it('maps feature count keys to menu and view keys, keeps 0 and leaves an omitted key absent', async () => {
       stubFetch(() => json({ counts: { 'voc.inbox': 12, 'voc.triage': 0, 'voc.inbox.no-link': 4, 'voc.tab.high': 2, 'voc.my': 9, 'voc.clusters': 1 } }));
-      mountAt('/operations/inbox');
+      mountAt('/flow/inbox');
       await waitFor(() => expect(read()).not.toBeNull());
       expect(read()).toEqual({ 'inbox': 12, 'triage': 0, 'inbox/no-link': 4, 'triage/high': 2, 'clusters': 1 });
     });
 
     it('maps findings.all to the findings slot and leaves it absent when omitted', async () => {
       stubFetch(() => json({ counts: { 'voc.inbox': 1, 'findings.all': 7 } }));
-      mountAt('/operations/inbox');
+      mountAt('/flow/inbox');
       await waitFor(() => expect(read()).not.toBeNull());
       expect(read()).toEqual({ 'inbox': 1, 'findings': 7 });
       cleanup();
       stubFetch(() => json({ counts: { 'voc.inbox': 1 } }));
-      mountAt('/operations/inbox');
+      mountAt('/flow/inbox');
       await waitFor(() => expect(read()).not.toBeNull());
       expect(read()).toEqual({ 'inbox': 1 });
     });
 
     it('asks for all systems without managedSystem and forwards the page value when present', async () => {
       const calls = stubFetch(() => json({ counts: { 'voc.inbox': 1 } }));
-      mountAt('/operations/inbox');
+      mountAt('/flow/inbox');
       await waitFor(() => expect(read()).not.toBeNull());
       expect(calls).toEqual([ALL]);
       cleanup();
       calls.length = 0;
-      mountAt(`/operations/triage?managedSystem=${SYSTEM}`);
+      mountAt(`/flow/triage?managedSystem=${SYSTEM}`);
       await waitFor(() => expect(read()).not.toBeNull());
       expect(calls).toEqual([`${ALL}?managed_system_id=${SYSTEM}`]);
     });
 
     it('gives null after an error', async () => {
       const calls = stubFetch(() => json({ error: 'boom' }, 500));
-      mountAt('/operations/inbox');
+      mountAt('/flow/inbox');
       await waitFor(() => expect(calls.length).toBe(1));
       await act(async () => { await Promise.resolve(); });
       expect(read()).toBeNull();
@@ -108,7 +110,7 @@ describe('navCounts slot', () => {
     it('calls children at one stable position: the sibling element survives loading → ready', async () => {
       let release: (response: Response) => void = () => {};
       stubFetch(() => new Promise<Response>(resolve => { release = resolve; }));
-      mountAt('/operations/inbox');
+      mountAt('/flow/inbox');
       const sentinel = screen.getByLabelText('sentinel');
       expect(read()).toBeNull();
       await act(async () => { release(json({ counts: { 'voc.inbox': 5 } })); });
@@ -119,7 +121,7 @@ describe('navCounts slot', () => {
     it('refreshes when feature invalidates the nav counts', async () => {
       let n = 1;
       const calls = stubFetch(() => json({ counts: { 'voc.inbox': n } }));
-      mountAt('/operations/inbox');
+      mountAt('/flow/inbox');
       await waitFor(() => expect(read()).toEqual({ 'inbox': 1 }));
       n = 2;
       await act(async () => { invalidateNavCounts(featureQueryClient); });
@@ -130,7 +132,7 @@ describe('navCounts slot', () => {
     it('shows the result of a refetch it did not start', async () => {
       let n = 1;
       stubFetch(() => json({ counts: { 'voc.inbox': n } }));
-      mountAt('/operations/inbox');
+      mountAt('/flow/inbox');
       await waitFor(() => expect(read()).toEqual({ 'inbox': 1 }));
       n = 7;
       await act(async () => { await featureQueryClient.refetchQueries({ queryKey: ['nav-counts'] }); });
@@ -140,7 +142,7 @@ describe('navCounts slot', () => {
     it('clears loaded counts when a later read fails and shows them again on recovery', async () => {
       let fail = false;
       stubFetch(() => fail ? json({ error: 'boom' }, 500) : json({ counts: { 'voc.inbox': 3 } }));
-      mountAt('/operations/inbox');
+      mountAt('/flow/inbox');
       await waitFor(() => expect(read()).toEqual({ 'inbox': 3 }));
       fail = true;
       await act(async () => { invalidateNavCounts(featureQueryClient); });
@@ -152,12 +154,12 @@ describe('navCounts slot', () => {
 
     it('shows only the new scope after a scope change in one mounted slot', async () => {
       const calls = stubFetch(path => json({ counts: { 'voc.inbox': path.includes(SYSTEM) ? 20 : 10 } }));
-      mountAt('/operations/inbox');
+      mountAt('/flow/inbox');
       await waitFor(() => expect(read()).toEqual({ 'inbox': 10 }));
       const sentinel = screen.getByLabelText('sentinel');
       let release: (response: Response) => void = () => {};
       vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => { calls.push(String(input)); return new Promise<Response>(resolve => { release = resolve; }); }));
-      await act(async () => { window.history.pushState(null, '', `/operations/inbox?managedSystem=${SYSTEM}`); window.dispatchEvent(new PopStateEvent('popstate')); });
+      await act(async () => { window.history.pushState(null, '', `/flow/inbox?managedSystem=${SYSTEM}`); window.dispatchEvent(new PopStateEvent('popstate')); });
       await waitFor(() => expect(calls).toContain(`${ALL}?managed_system_id=${SYSTEM}`));
       expect(read()).toBeNull();
       await act(async () => { release(json({ counts: { 'voc.inbox': 20 } })); });
@@ -171,10 +173,10 @@ describe('navCounts slot', () => {
         signals.push(init!.signal!);
         return new Promise<Response>(() => {});
       }));
-      const view = mountAt('/operations/inbox');
+      const view = mountAt('/flow/inbox');
       await waitFor(() => expect(signals.length).toBe(1));
       expect(signals[0]!.aborted).toBe(false);
-      await act(async () => { window.history.pushState(null, '', `/operations/inbox?managedSystem=${SYSTEM}`); window.dispatchEvent(new PopStateEvent('popstate')); });
+      await act(async () => { window.history.pushState(null, '', `/flow/inbox?managedSystem=${SYSTEM}`); window.dispatchEvent(new PopStateEvent('popstate')); });
       await waitFor(() => expect(signals.length).toBe(2));
       await waitFor(() => expect(signals[0]!.aborted).toBe(true));
       expect(signals[1]!.aborted).toBe(false);

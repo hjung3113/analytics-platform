@@ -10,12 +10,10 @@ import { harnessMenus, homeStub, mountAt, warmPages } from '../test-support';
 
 type Parts = Record<string, unknown>;
 type DetailProps = { renderDetail?: (parts: Parts) => ReactNode };
-/** The five feature entries are doubles that record how the pages drive them; the value checks (the feature screens' real admin-search validators) are not mocked. */
+/** The three feature entries are doubles that record how the pages drive them; the value checks (the feature screens' real admin-search validators) are not mocked. */
 const screenMock = vi.hoisted(() => ({
   managedSystems: 0,
   areas: [] as DetailProps[],
-  requests: [] as (DetailProps & { autoSelect?: boolean })[],
-  grants: [] as (DetailProps & { autoSelect?: boolean })[],
   settings: [] as { section?: string | null }[],
   requestClose: vi.fn(),
 }));
@@ -34,20 +32,6 @@ vi.mock('@ap/feature-screens/operator-screens/analytics-areas', () => ({
     return <div data-testid="areas" data-here={seam.useHere!()}>{detail(props)}</div>;
   },
 }));
-vi.mock('@ap/feature-screens/operator-screens/permission-requests', () => ({
-  PermissionRequestsScreen: (props: DetailProps & { autoSelect?: boolean }) => {
-    screenMock.requests.push(props);
-    const seam = useHostSeam();
-    return <div data-testid="requests" data-here={seam.useHere!()}>{detail(props)}</div>;
-  },
-}));
-vi.mock('@ap/feature-screens/operator-screens/permission-grants', () => ({
-  PermissionGrantsScreen: (props: DetailProps & { autoSelect?: boolean }) => {
-    screenMock.grants.push(props);
-    const seam = useHostSeam();
-    return <div data-testid="grants" data-here={seam.useHere!()}>{detail(props)}</div>;
-  },
-}));
 vi.mock('@ap/feature-screens/operator-screens/settings', () => ({
   WorkspaceSettingsScreen: (props: { section?: string | null }) => {
     screenMock.settings.push(props);
@@ -58,11 +42,9 @@ vi.mock('@ap/feature-screens/operator-screens/settings', () => ({
 
 const SYSTEM = '33333333-3333-4333-8333-333333333333';
 const ROW = '99999999-9999-4999-8999-99999999999a';
-const MS = '/operations/managed-systems';
-const AREAS = '/operations/analytics-areas';
-const REQUESTS = '/operations/permission-request-review';
-const GRANTS = '/operations/permission-grants';
-const SETTINGS = '/operations/settings';
+const MS = '/flow/managed-systems';
+const AREAS = '/flow/analytics-areas';
+const SETTINGS = '/flow/settings';
 const request = vi.fn();
 const hereOf = (testId: string) => new URL(screen.getByTestId(testId).getAttribute('data-here')!, 'http://x');
 
@@ -70,17 +52,15 @@ beforeAll(warmPages, 60_000);
 beforeEach(() => {
   vi.stubGlobal('localStorage', memoryStorage());
   vi.stubGlobal('fetch', request);
-  screenMock.managedSystems = 0; screenMock.areas.length = 0; screenMock.requests.length = 0; screenMock.grants.length = 0; screenMock.settings.length = 0; screenMock.requestClose.mockReset(); request.mockReset();
+  screenMock.managedSystems = 0; screenMock.areas.length = 0; screenMock.settings.length = 0; screenMock.requestClose.mockReset(); request.mockReset();
 });
 afterEach(() => { cleanup(); setFeatureApi(null); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
-describe('관리자 without a feature API (mock preview)', () => {
+describe('흐름 설정 without a feature API (mock preview)', () => {
   it.each([
-    [MS, 'Managed System', 'managed-systems'],
-    [AREAS, 'Analytics Area', 'areas'],
-    [REQUESTS, '권한 요청 검토', 'requests'],
-    [GRANTS, '부여 목록', 'grants'],
-    [SETTINGS, '기능 설정', 'settings'],
+    [MS, '시스템', 'managed-systems'],
+    [AREAS, '분석 영역', 'areas'],
+    [SETTINGS, '흐름 정책', 'settings'],
   ])('%s shows 실서버 필요 and mounts no screen', async (path, title, testId) => {
     mountAt(path);
     await screen.findByRole('heading', { name: title }, LAZY_MOUNT_WAIT);
@@ -90,18 +70,18 @@ describe('관리자 without a feature API (mock preview)', () => {
 });
 
 describe('a user with features:access but without console:access', () => {
-  const { mountAt: mountPlain } = createFeatureMenuHarness({ manifests: harnessMenus, homeMenuId: homeStub.id, group: { id: 'featureAdmin', label: { ko: '관리자', en: 'Admin' }, icon: UserCog } });
+  const { mountAt: mountPlain } = createFeatureMenuHarness({ manifests: harnessMenus, homeMenuId: homeStub.id, group: { id: 'flowSettings', label: { ko: '설정', en: 'Settings' }, icon: UserCog } });
   beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() }); });
 
-  it.each([[MS], [AREAS], [REQUESTS], [GRANTS], [SETTINGS]])('%s never mounts its screen and requests nothing', async path => {
+  it.each([[MS], [AREAS], [SETTINGS]])('%s never mounts its screen and requests nothing', async path => {
     mountPlain(path);
     await new Promise(resolve => setTimeout(resolve, 300));
-    for (const testId of ['managed-systems', 'areas', 'requests', 'grants', 'settings']) expect(screen.queryByTestId(testId)).toBeNull();
+    for (const testId of ['managed-systems', 'areas', 'settings']) expect(screen.queryByTestId(testId)).toBeNull();
     expect(request).not.toHaveBeenCalled();
   });
 });
 
-describe('관리자 through the feature bridge', () => {
+describe('흐름 설정 through the feature bridge', () => {
   beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() }); });
 
   it('mounts Managed System reading the page as /admin/managed-systems with the host owning the title; the carried scope is ignored', async () => {
@@ -125,21 +105,6 @@ describe('관리자 through the feature bridge', () => {
     expect(screenMock.requestClose).toHaveBeenCalledOnce();
   });
 
-  it.each([
-    [REQUESTS, 'requests', '/admin/permissions/requests', 'approved', () => screenMock.requests],
-    [GRANTS, 'grants', '/admin/permissions/grants', 'denies', () => screenMock.grants],
-  ])('%s mounts the console with no auto-select, tab and focus from the address, and the detail in the shell slot', async (path, testId, screenPath, tab, calls) => {
-    mountAt(`${path}?tab=${tab}&focus=${ROW}`);
-    await screen.findByTestId(testId);
-    const here = hereOf(testId);
-    expect(here.pathname).toBe(screenPath);
-    expect(Object.fromEntries(here.searchParams)).toEqual({ tab, selected: ROW });
-    expect(calls().at(-1)!.autoSelect).toBe(false);
-    expect(within(await screen.findByRole('complementary', { name: '상세 패널' })).getByText('상세 본문')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: '상세 닫기' }));
-    expect(screenMock.requestClose).toHaveBeenCalledOnce();
-  });
-
   it('mounts 설정 reading the page as /admin/settings#coverage on section=coverage and passes the section to the screen', async () => {
     mountAt(`${SETTINGS}?section=coverage`);
     await screen.findByTestId('settings');
@@ -157,26 +122,20 @@ describe('관리자 through the feature bridge', () => {
   });
 });
 
-describe('관리자 with an invalid address value', () => {
+describe('흐름 설정 with an invalid address value', () => {
   beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() }); });
 
   it.each([
     [AREAS, 'system', 'x'],
     [AREAS, 'includeArchived', 'yes'],
     [AREAS, 'focus', 'not-a-uuid'],
-    [REQUESTS, 'tab', 'x'],
-    [REQUESTS, 'focus', 'not-a-uuid'],
-    [GRANTS, 'tab', 'x'],
-    [GRANTS, 'focus', 'not-a-uuid'],
     [SETTINGS, 'section', 'other'],
   ])('%s rejects %s=%s, keeps the address and requests nothing', async (path, key, value) => {
     const search = `?${key}=${encodeURIComponent(value)}`;
     mountAt(`${path}${search}`);
     expect(await screen.findByText(`주소의 ${key} 값이 올바르지 않습니다`, undefined, LAZY_MOUNT_WAIT)).toBeTruthy();
-    for (const testId of ['areas', 'requests', 'grants', 'settings']) expect(screen.queryByTestId(testId)).toBeNull();
+    for (const testId of ['areas', 'settings']) expect(screen.queryByTestId(testId)).toBeNull();
     expect(screenMock.areas).toEqual([]);
-    expect(screenMock.requests).toEqual([]);
-    expect(screenMock.grants).toEqual([]);
     expect(screenMock.settings).toEqual([]);
     expect(request).not.toHaveBeenCalled();
     expect(window.location.search).toBe(search);

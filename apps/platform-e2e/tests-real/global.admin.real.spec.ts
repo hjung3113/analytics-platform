@@ -46,10 +46,10 @@ test.describe('플랫폼 홈과 전역 화면 실서버 (ADR-0070, 06 §9.1)', (
     await expect(mainHeading(page)).toHaveText('플랫폼 홈');
     const systems = page.getByRole('region', { name: '업무 시스템' });
     await expect(systems).toBeVisible();
-    for (const label of ['운영 콘솔', '표준 로그 개발', '개선 실행']) {
+    for (const label of ['업무 흐름', '운영 콘솔', '표준 로그 개발', '개선 실행']) {
       await expect(systems.getByRole('link', { name: new RegExp(label) })).toBeVisible();
     }
-    // ADR-0100 (#1099c): operator features live in the one console, not a separate work-system card.
+    // ADR-0110: operator features live in the 업무 흐름 space (platform administration and access in the 운영 콘솔), not a separate FeedbackOps card.
     await expect(systems.getByRole('link', { name: /FeedbackOps/ })).toHaveCount(0);
     await expect(systems.getByRole('link', { name: /MARS/ })).toHaveCount(0);
     // home.notices is served by the real server (#1106): HTTP 200 and an ok/empty envelope, never the old documented 404.
@@ -95,7 +95,7 @@ test.describe('플랫폼 홈과 전역 화면 실서버 (ADR-0070, 06 §9.1)', (
     const myVocs = waitForFoRead(page, '/vocs', { view: 'my' });
     await page.goto('/voc');
     await expectSuccessfulFoReads([myVocs]);
-    await expect(mainHeading(page)).toHaveText('내 VOC');
+    await expect(mainHeading(page)).toHaveText('VOC');
     await expectLoadedOrEmpty(
       main.getByRole('region', { name: 'VOC 목록' }).getByRole('row'),
       main.getByText('내가 제출한 VOC가 없습니다'),
