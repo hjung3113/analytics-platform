@@ -76,7 +76,7 @@ test.describe('플랫폼 홈과 전역 화면 실서버 (ADR-0070, 06 §9.1)', (
     await evidence(page, testInfo, 'real-menu-search');
   });
 
-  test('알림과 내 VOC는 실제 조회 결과 또는 유효한 빈 결과를 보여준다', async ({ page }, testInfo) => {
+  test('알림과 VOC는 실제 조회 결과 또는 유효한 빈 결과를 보여준다', async ({ page }, testInfo) => {
     const notifications = waitForFoRead(page, '/notifications', {
       unread: 'true',
       limit: undefined,

@@ -1,6 +1,6 @@
 # 기능 사용자 매뉴얼
 
-Current platform entry and navigation are owned by [ADR-0100](../../adr/0100-feature-navigation-and-independent-access.md). Operator features are in the operations console; personal features use global My Activity and platform entry points. Routes in this document describe feature intents interpreted by the platform bridge, not a separate application or product space.
+Current platform entry and navigation are owned by [ADR-0100](../../adr/0100-feature-navigation-and-independent-access.md). Operator features are in the 업무 흐름 space (`/flow/<menu id>`), permission review in the operations console; personal features use global My Activity and platform entry points. Routes in this document describe feature intents interpreted by the platform bridge, not a separate application or product space.
 
 이 문서는 **하려는 일**을 기준으로 정리돼 있습니다. 기능 목록이 아니라 "이걸 하고 싶은데 어디로 가야 하나"에 답하는 순서입니다.
 
@@ -50,7 +50,7 @@ Task를 `released`로 옮겨도 연결된 VOC가 저절로 `resolved`가 되지 
 
 ### 화면 구조
 
-왼쪽 레일이 큰 영역(Home · VOC · Findings · Tasks · Integration · Surveys · Admin)이고, 그 옆 사이드바가 해당 영역의 세부 화면입니다. 사이드바 위쪽의 **Managed System 선택기**는 필터가 아니라 **권한 범위**입니다 — 내 권한 밖 시스템을 고르면 화면이 그에 맞게 제한됩니다.
+왼쪽 레일이 큰 영역(홈 · 소통(공지·FAQ·VOC·설문) · 내 활동 · 업무 흐름 · 운영 콘솔)이고, 그 옆 사이드바가 해당 영역의 세부 화면입니다. `업무 흐름`은 담당자(와 Admin)에게, `운영 콘솔`은 Admin에게만 보입니다. 사이드바 위쪽의 **Managed System 선택기**는 필터가 아니라 **권한 범위**입니다 — 내 권한 밖 시스템을 고르면 화면이 그에 맞게 제한됩니다.
 
 ---
 
@@ -292,7 +292,7 @@ draft  ──►  open  ──►  closed
 ### 요청하고 승인받기
 
 1. 막힌 화면에서 **권한 요청**을 누르고 사유를 적습니다. 민감한 권한은 사유가 **필수**입니다.
-2. Admin이 `/admin/permissions/requests`에서 검토합니다. 승인 / 거절 / 추가 정보 요청 중에 고릅니다.
+2. Admin이 운영 콘솔 `권한 요청 검토`(`/operations/permission-request-review`)에서 검토합니다. 승인 / 거절 / 추가 정보 요청 중에 고릅니다.
 3. 승인되면 해당 Managed System 범위로 권한이 생깁니다.
 
 ### Admin이 스스로에게 권한을 주는 경우
@@ -311,15 +311,15 @@ draft  ──►  open  ──►  closed
 
 ## 10. 워크스페이스를 관리해야 한다
 
-**Admin 전용** (`/admin/*`).
+**담당자와 Admin** (`업무 흐름 › 설정`, `/flow/*`) 및 **Admin 전용** (`운영 콘솔 › 권한`, `/operations/*`).
 
 | 화면 | 하는 일 |
 |---|---|
-| **Managed System** (`/admin/managed-systems`) | 시스템 등록·보관, 기본 담당자/검토자 지정 |
-| **Analytics Area** (`/admin/analytics-areas`) | 시스템 하위 분석 영역 관리 |
-| **활성 권한** (`/admin/permissions/grants`) | 부여된 권한 취소, 차단 해제 (사유 필수) |
-| **권한 요청** (`/admin/permissions/requests`) | 권한 요청 검토 |
-| **워크스페이스 설정** (`/admin/settings`) | 운영 정책. self-approval 허용 여부 등 |
+| **시스템**(Managed System, `/flow/managed-systems`) | 시스템 등록·보관, 기본 담당자/검토자 지정 |
+| **분석 영역**(Analytics Area, `/flow/analytics-areas`) | 시스템 하위 분석 영역 관리 |
+| **부여 목록** (`/operations/permission-grants`) | 부여된 권한 취소, 차단 해제 (사유 필수) |
+| **권한 요청 검토** (`/operations/permission-request-review`) | 권한 요청 검토 |
+| **흐름 정책** (`/flow/settings`) | 운영 정책. self-approval 허용 여부 등 |
 
 **기본 담당자는** Managed System에서 VOC, Finding, Task Request를 만들 때 자동으로 적용됩니다. 적격한 기본 담당자가 정해지지 않으면 권한이 있는 Managed System 큐로 처리합니다. 담당자가 지정되어도 VOC Triage가 완료된 것은 아니므로 분류와 검토를 계속하세요.
 
