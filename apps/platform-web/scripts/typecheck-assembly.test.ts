@@ -22,18 +22,25 @@ describe('typecheckAssembly (#153)', () => {
     expect(resolveAssemblyPath('/abs/a.ts', '/repo/app')).toBe('/abs/a.ts');
   });
 
-  it('passes the mock assembly', () => {
+  it('passes the mock assembly, and keeps the event loop free while tsc runs (#1311: a blocked Vitest worker misses its onTaskUpdate RPC)', async () => {
     const before = leftovers().length;
-    expect(typecheckAssembly(resolveAssemblyPath('src/dev/mock-assembly.tsx'), APP_ROOT, tmpRoot)).toBeNull();
+    let ticks = 0;
+    const timer = setInterval(() => { ticks += 1; }, 50);
+    try {
+      expect(await typecheckAssembly(resolveAssemblyPath('src/dev/mock-assembly.tsx'), APP_ROOT, tmpRoot)).toBeNull();
+    } finally {
+      clearInterval(timer);
+    }
+    expect(ticks).toBeGreaterThan(5);
     expect(leftovers().length).toBe(before);
   }, 60_000);
 
-  it('rejects browser assembly access to process.env keys other than NODE_ENV', () => {
+  it('rejects browser assembly access to process.env keys other than NODE_ENV', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'ap-env-assembly-'));
     try {
       const file = join(dir, 'env-assembly.ts');
       writeFileSync(file, `export { createAssembly } from ${JSON.stringify(resolveAssemblyPath('src/dev/mock-assembly.tsx'))};\nexport const apiUrl = process.env.API_URL;\n`);
-      const errors = typecheckAssembly(file);
+      const errors = await typecheckAssembly(file);
       expect(errors).toContain('API_URL');
       expect(errors).toContain('TS2339');
     } finally {
@@ -41,13 +48,13 @@ describe('typecheckAssembly (#153)', () => {
     }
   }, 60_000);
 
-  it('fails an assembly of the wrong shape with a tsc error naming the property', () => {
+  it('fails an assembly of the wrong shape with a tsc error naming the property', async () => {
     const before = leftovers().length;
     const dir = mkdtempSync(join(tmpdir(), 'ap-bad-assembly-'));
     try {
       const file = join(dir, 'bad-assembly.ts');
       writeFileSync(file, 'export const createAssembly = () => ({ topBarTools: null });\n');
-      const errors = typecheckAssembly(file, APP_ROOT, tmpRoot);
+      const errors = await typecheckAssembly(file, APP_ROOT, tmpRoot);
       expect(errors).toMatch(/error TS\d+/);
       expect(errors).toContain('adapter');
     } finally {
