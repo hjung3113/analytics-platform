@@ -56,10 +56,9 @@ describe('SurveyList primary action placement (#1291 B2)', () => {
     expect(screen.queryByTestId('survey-create-button')).toBeNull();
   });
 
-  it('keeps the empty state as the one opener on a truly empty list — no head action', () => {
+  it('keeps the head action on a truly empty list; the empty state keeps its own opener (#1291 U2)', () => {
     render(<HeadTargetHost>{list([])}</HeadTargetHost>);
-    expect(within(screen.getByTestId('host-head')).queryByRole('button')).toBeNull();
+    expect(within(screen.getByTestId('host-head')).getByTestId('survey-create-button')).toBeInTheDocument();
     expect(within(screen.getByTestId('host-body')).getByTestId('survey-empty-create-button')).toBeInTheDocument();
-    expect(screen.queryByTestId('survey-create-button')).toBeNull();
   });
 });

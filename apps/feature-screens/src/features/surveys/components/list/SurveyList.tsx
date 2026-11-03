@@ -5,7 +5,7 @@ import { SURVEY_STATUS_LABELS, SURVEY_TYPE_LABELS } from '@/lib/copy/enum-labels
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { SURVEY_PARTICIPATION_COPY } from '@/lib/copy/survey-participation';
 import { SURVEY_LIST_COPY } from '@/lib/copy/surveys';
-import { HostLink, useHostSeam } from '@/lib/host/host-seam';
+import { HostLink, useHostPrimaryActionTarget, useHostSeam } from '@/lib/host/host-seam';
 import { HostPrimaryAction } from '@/lib/host/HostPrimaryAction';
 import {
   ActiveFilterBar,
@@ -62,6 +62,7 @@ export function SurveyList({
   actorNamesById,
 }: SurveyListProps) {
   const { canLink } = useHostSeam();
+  const hostTarget = useHostPrimaryActionTarget();
   const [status, setStatus] = React.useState<SurveyStatus | 'all'>('all');
   const [search, setSearch] = React.useState('');
   const [viewMode, setViewMode] = React.useState<'list' | 'card'>('list');
@@ -95,7 +96,7 @@ export function SurveyList({
   const hasUrlFilters = urlFilters.length > 0;
   const isFilteredEmpty =
     visible.length === 0 && activeConditions.length > 0 && (hasUrlFilters || surveys.length > 0);
-  // #1167 C-3: one primary Survey 생성 opener — the empty state owns it on a truly empty list, the toolbar otherwise.
+  // #1167 C-3: standalone keeps one opener — the empty state owns it on a truly empty list, the toolbar otherwise. With a host head target (#1291 U2) the head action stays always, beside the empty state's own call to action.
   const emptyList = visible.length === 0 && !isFilteredEmpty;
   const toolbarTabs: ListToolbarTab[] = tabs.map((tab) => ({
     value: tab.value,
@@ -143,7 +144,7 @@ export function SurveyList({
                 <Grid2X2 className="h-3.5 w-3.5" />
               </button>
             </div>
-            {canCreate && onCreate && !emptyList && (
+            {canCreate && onCreate && !(emptyList && hostTarget === null) && (
               <HostPrimaryAction>
                 <Button
                   variant="primary"
