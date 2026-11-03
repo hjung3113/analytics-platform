@@ -93,7 +93,7 @@ function Wrapper({ children }: { children: React.ReactNode }) {
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
 
-const REPLY_TAB = { name: '제출자 답변' };
+const REPLY_TAB = { name: '신고자 답글' };
 
 describe('<ComposerSection> reply visibility (real useComposerVisibility)', () => {
   it('falls back to the first visible tab, moves focus out of the removed Reply body, and keeps other drafts', () => {
@@ -111,7 +111,7 @@ describe('<ComposerSection> reply visibility (real useComposerVisibility)', () =
 
     expect(screen.queryByRole('tab', REPLY_TAB)).not.toBeInTheDocument();
     expect(screen.queryByTestId('reporter-reply-composer')).not.toBeInTheDocument();
-    const publicTab = screen.getByRole('tab', { name: '공개 업데이트' });
+    const publicTab = screen.getByRole('tab', { name: '담당자 답변' });
     expect(publicTab).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByTestId('public-update-composer')).toBeVisible();
     expect(document.activeElement).toBe(publicTab);
@@ -134,7 +134,7 @@ describe('<ComposerSection> reply visibility (real useComposerVisibility)', () =
 
     rerender(<ComposerSection voc={{ ...someoneElses, id: 'voc-uuid-2222' }} me={me} canTriage />);
 
-    expect(screen.getByRole('tab', { name: '공개 업데이트' })).toHaveAttribute(
+    expect(screen.getByRole('tab', { name: '담당자 답변' })).toHaveAttribute(
       'aria-selected',
       'true',
     );

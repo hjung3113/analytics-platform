@@ -84,7 +84,7 @@ export const CATALOG: Partial<Record<ErrorCode, CatalogEntry>> = {
 
   // voc.*
   'voc.severity_not_user_settable':             { tone: 'error', message: '심각도는 분류 단계에서만 설정할 수 있습니다.' },
-  'voc.reporter_status_via_public_update_only': { tone: 'error', message: '공개 상태는 공개 업데이트를 통해서만 변경됩니다.' },
+  'voc.reporter_status_via_public_update_only': { tone: 'error', message: '공개 상태는 담당자 답변을 통해서만 변경됩니다.' },
 
   // rich_content.*
   'rich_content.disallowed_node':          { tone: 'error', message: '허용되지 않는 콘텐츠 요소가 포함되어 있습니다.' },

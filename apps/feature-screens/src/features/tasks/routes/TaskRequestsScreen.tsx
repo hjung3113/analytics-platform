@@ -270,7 +270,7 @@ export function TaskRequestsScreen({ autoSelect, renderDetail, titleInHeader }: 
                 decisionRecovery:
                   retainedPanel && (queue.hasError || queue.loadMoreError) ? (
                     <div role="alert">
-                      <p>Task Request 목록을 불러오지 못했습니다</p>
+                      <p>Task 요청 목록을 불러오지 못했습니다</p>
                       <Button
                         type="button"
                         onClick={queue.loadMoreError ? queue.loadMore : queue.refetch}
@@ -279,7 +279,7 @@ export function TaskRequestsScreen({ autoSelect, renderDetail, titleInHeader }: 
                       </Button>
                     </div>
                   ) : retainedPanel && queue.selectedId === null ? (
-                    <output>Task Request을 불러오는 중…</output>
+                    <output>Task 요청을 불러오는 중…</output>
                   ) : null,
               }),
             )
@@ -342,7 +342,7 @@ export function TaskRequestsScreen({ autoSelect, renderDetail, titleInHeader }: 
             />
             <div ref={listRef} className="flex min-h-0 flex-1 flex-col">
               {queue.isLoading ? (
-                <div className="p-4 text-sm text-text-muted">Task Request을 불러오는 중…</div>
+                <div className="p-4 text-sm text-text-muted">Task 요청을 불러오는 중…</div>
               ) : queue.permissionDeniedError ? (
                 <PermissionBlockedPanel
                   state="denied"
@@ -353,7 +353,7 @@ export function TaskRequestsScreen({ autoSelect, renderDetail, titleInHeader }: 
               ) : queue.hasError ? (
                 <ListStateMessage
                   variant="error"
-                  title="Task Request 목록을 불러오지 못했습니다"
+                  title="Task 요청 목록을 불러오지 못했습니다"
                   body="잠시 후 다시 시도하세요."
                   action={{ label: '다시 시도', onClick: queue.refetch }}
                 />
@@ -391,7 +391,7 @@ export function TaskRequestsScreen({ autoSelect, renderDetail, titleInHeader }: 
                     (isReviewFilteredEmpty ? (
                       <ListStateMessage
                         variant="filtered"
-                        title="현재 조건에 맞는 Task Request가 없습니다"
+                        title="현재 조건에 맞는 Task 요청이 없습니다"
                         body={`검토자 필터가 설정되어 있습니다. 선택한 상태: ${activeTabLabel}`}
                         action={{
                           label: '필터 초기화',
@@ -401,13 +401,13 @@ export function TaskRequestsScreen({ autoSelect, renderDetail, titleInHeader }: 
                     ) : isPendingEmpty ? (
                       <ListStateMessage
                         variant="filtered"
-                        title="검토 대기 중인 Task Request가 없습니다"
-                        body="다른 상태의 Task Request가 있습니다."
+                        title="검토 대기 중인 Task 요청이 없습니다"
+                        body="다른 상태의 Task 요청이 있습니다."
                       />
                     ) : isStatusFilteredEmpty ? (
                       <ListStateMessage
                         variant="filtered"
-                        title="현재 조건에 맞는 Task Request가 없습니다"
+                        title="현재 조건에 맞는 Task 요청이 없습니다"
                         body={`선택한 상태: ${activeTabLabel}`}
                         action={{
                           label: '필터 초기화',
@@ -417,7 +417,7 @@ export function TaskRequestsScreen({ autoSelect, renderDetail, titleInHeader }: 
                     ) : (
                       <ListStateMessage
                         variant="empty"
-                        title="Task Request가 없습니다."
+                        title="Task 요청이 없습니다."
                         body="검토 요청이 접수되면 이 목록에 표시됩니다."
                       />
                     ))}

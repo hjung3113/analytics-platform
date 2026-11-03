@@ -360,8 +360,8 @@ describe('TaskBoardRoute', () => {
       ).toBeInTheDocument();
     }
     expect(screen.getAllByText('비어있음').length).toBe(6);
-    expect(screen.getByText('Task는 Task Request에서 전환됩니다.')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Task Request 검토' })).toHaveAttribute(
+    expect(screen.getByText('Task는 Task 요청에서 전환됩니다.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Task 요청 검토' })).toHaveAttribute(
       'href',
       '/tasks?view=requests',
     );
@@ -375,8 +375,8 @@ describe('TaskBoardRoute', () => {
     renderBoard(undefined, managedSystem);
 
     const emptyBoard = await screen.findByRole('status');
-    expect(emptyBoard).toHaveTextContent('Task는 Task Request에서 전환됩니다.');
-    const links = screen.getAllByRole('link', { name: 'Task Request 검토' });
+    expect(emptyBoard).toHaveTextContent('Task는 Task 요청에서 전환됩니다.');
+    const links = screen.getAllByRole('link', { name: 'Task 요청 검토' });
     expect(links).toHaveLength(2);
     for (const link of links) {
       expect(link).toHaveAttribute('href', '/tasks?view=requests&managedSystem=all');
@@ -497,7 +497,7 @@ describe('TaskBoardRoute', () => {
     expect(liveRegion).toContainElement(error);
     expect(screen.queryByText('0건')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '그룹화' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Task Request 검토' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Task 요청 검토' })).toBeInTheDocument();
 
     const retry = screen.getByRole('button', { name: '다시 시도' });
     expect(liveRegion).toContainElement(retry);

@@ -75,7 +75,7 @@ describe('FindingExecutionSection host links', () => {
       href: `/tasks?view=backlog&param=${TASK_ID}`,
     },
     {
-      label: 'Task Request 보기',
+      label: 'Task 요청 보기',
       linkedTaskId: null,
       pendingTaskRequest: REQUEST,
       canLink: true,

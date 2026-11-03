@@ -17,8 +17,8 @@ import { AttachmentChipList } from './AttachmentChip';
 // ── Korean labels ────────────────────────────────────────────────────────────
 
 const KIND_LABELS: Record<ConversationEntry['kind'], string> = {
-  public_update: '공개 업데이트',
-  reporter_reply: '제출자 답변',
+  public_update: '담당자 답변',
+  reporter_reply: '신고자 답글',
   internal_comment: '내부 코멘트',
 };
 

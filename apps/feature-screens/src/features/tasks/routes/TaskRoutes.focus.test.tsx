@@ -474,7 +474,7 @@ it.each(['approved', 'rejected'] as const)(
     const { router } = createTasksRouter('requests', (children) => (
       <AppFrame
         activeDomain="tasks"
-        sidebarEntries={[{ id: 'requests', label: 'Task Requests', href: '/tasks?view=requests' }]}
+        sidebarEntries={[{ id: 'requests', label: 'Task 요청', href: '/tasks?view=requests' }]}
       >
         {children}
       </AppFrame>
@@ -549,7 +549,7 @@ it.each(
         disconnectedFocus.push(document.activeElement);
     });
     const recordFocus = (event: FocusEvent) => {
-      if ((event.target as HTMLElement).textContent === '현재 조건에 맞는 Task Request가 없습니다')
+      if ((event.target as HTMLElement).textContent === '현재 조건에 맞는 Task 요청이 없습니다')
         hiddenAtHeadingFocus = screen.getByTestId('app-main').hidden;
     };
     document.addEventListener('focusin', recordFocus);
@@ -576,11 +576,11 @@ it.each(
       await waitFor(() => expect(router.state.location.search.param).toBeUndefined());
       expect(dialog.isConnected).toBe(true);
       expect(
-        screen.queryByRole('heading', { name: '현재 조건에 맞는 Task Request가 없습니다' }),
+        screen.queryByRole('heading', { name: '현재 조건에 맞는 Task 요청이 없습니다' }),
       ).not.toBeInTheDocument();
       await act(async () => release(taskRequestPage([], { status: row.status })));
       const heading = await screen.findByRole('heading', {
-        name: '현재 조건에 맞는 Task Request가 없습니다',
+        name: '현재 조건에 맞는 Task 요청이 없습니다',
       });
       await waitFor(() => expect(heading).toHaveFocus());
       expect(heading).toHaveAttribute('tabindex', '-1');
@@ -680,7 +680,7 @@ it('keeps the sole URL-selected row connected through delayed refetch and remain
     );
     await waitFor(() => expect(releaseNext).toBeTypeOf('function'));
     expect(dialog.isConnected).toBe(true);
-    expect(screen.queryByText('검토 대기 중인 Task Request가 없습니다')).not.toBeInTheDocument();
+    expect(screen.queryByText('검토 대기 중인 Task 요청이 없습니다')).not.toBeInTheDocument();
     await act(async () => releaseNext(taskRequestPage([request2])));
     await waitFor(() => expect(screen.getByRole('button', { name: /REQ-1072/ })).toHaveFocus());
     expect(router.state.location.search.param).toBe(request2.id);
@@ -868,7 +868,7 @@ it.each([10, 60])(
         <AppFrame
           activeDomain="tasks"
           sidebarEntries={[
-            { id: 'requests', label: 'Task Requests', href: '/tasks?view=requests' },
+            { id: 'requests', label: 'Task 요청', href: '/tasks?view=requests' },
           ]}
         >
           {children}

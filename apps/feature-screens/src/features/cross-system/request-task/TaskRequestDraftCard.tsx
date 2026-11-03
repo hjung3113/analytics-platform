@@ -84,7 +84,7 @@ export function TaskRequestDraftCard({
   return (
     // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- the card handles Escape bubbling from its focusable form controls (focus and Escape behavior contract); it exposes no interaction of its own
     <section
-      aria-label="Task Request 초안"
+      aria-label="Task 요청 초안"
       className={[
         'mt-3 flex flex-col gap-3 rounded-md',
         // eslint-disable-next-line shadcn/no-arbitrary-values -- the queued-request edge blends selected and subtle borders at the 52% mix drawn in docs/design/history/feedbackops-prototype/flow-drafts.jsx:101
@@ -100,9 +100,9 @@ export function TaskRequestDraftCard({
         <div className="flex min-w-0 flex-col gap-1">
           <OutlineBadge>
             <ClipboardList aria-hidden className="h-3.5 w-3.5" />
-            Task Request 초안
+            Task 요청 초안
           </OutlineBadge>
-          <h3 className="text-sm font-semibold text-text-primary">Task Request 초안 작성</h3>
+          <h3 className="text-sm font-semibold text-text-primary">Task 요청 초안 작성</h3>
           <p className="text-xs text-text-muted">
             출처 <span className="font-mono">{sourceDisplayId}</span> · {sourceKind}
           </p>
@@ -127,7 +127,7 @@ export function TaskRequestDraftCard({
           className="rounded-md border border-border-subtle bg-surface-card px-3 py-2 text-sm text-text-primary"
           data-testid="request-task-pending-notice"
         >
-          이 소스에 검토 대기 중인 Task Request가 있습니다.{' '}
+          이 소스에 검토 대기 중인 Task 요청이 있습니다.{' '}
           <HostLink
             className="text-accent-primary underline underline-offset-2"
             to={`/tasks?view=requests&param=${pendingRequest.id}`}
@@ -207,7 +207,7 @@ export function TaskRequestDraftCard({
           <Button asChild size="sm" variant="secondary">
             <HostLink to="/tasks?view=requests">
               <ArrowRight aria-hidden className="h-3.5 w-3.5" />
-              Task Requests에서 검토
+              Task 요청에서 검토
             </HostLink>
           </Button>
           <Button
@@ -220,7 +220,7 @@ export function TaskRequestDraftCard({
             초기화
           </Button>
         </div>
-        <p className="text-xs text-text-muted">제출 후 Task Requests에서 리뷰됩니다.</p>
+        <p className="text-xs text-text-muted">제출 후 Task 요청에서 리뷰됩니다.</p>
       </form>
     </section>
   );

@@ -33,7 +33,7 @@ const notification = (n: number, over: Record<string, unknown> = {}) => ({
   subject_type: 'voc',
   subject_id: uuid(100 + n),
   subject_ref: { visibility_state: 'allowed', display_id: `VOC-${n}`, title: `VOC 제목 ${n}` },
-  summary: '공개 업데이트가 올라왔습니다.',
+  summary: '담당자 답변이 올라왔습니다.',
   detail: { voc_id: uuid(200 + n) },
   created_at: ago(n * 60_000),
   read_at: null,

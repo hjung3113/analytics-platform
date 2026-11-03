@@ -117,7 +117,7 @@ export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   review: '검토',
   done: '완료',
   released: '배포됨',
-  reopened: 'Reopened',
+  reopened: '다시 열림',
 };
 
 export const TASK_REQUEST_STATUS_LABELS: Record<TaskRequestStatus, string> = {

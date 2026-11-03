@@ -241,7 +241,7 @@ describe('Composer error matrix (C5.5)', () => {
 
     render(<PublicUpdateComposer voc={BASE_VOC} me={ME_ADMIN} />, { wrapper: makeWrapper() });
     fireEvent.click(screen.getByRole('textbox'));
-    fireEvent.click(screen.getByRole('button', { name: /공개 업데이트 게시/ }));
+    fireEvent.click(screen.getByRole('button', { name: /담당자 답변 게시/ }));
 
     await waitFor(() => {
       expect(publicMutate).toHaveBeenCalledTimes(1);
@@ -327,7 +327,7 @@ describe('Composer error matrix (C5.5)', () => {
 
     await waitFor(() => {
       const previewBtn = screen.getByRole('button', { name: /미리보기/ });
-      const submitBtn = screen.getByRole('button', { name: /공개 업데이트 게시/ });
+      const submitBtn = screen.getByRole('button', { name: /담당자 답변 게시/ });
       // Both must be disabled when idempotency_key_reuse error is active
       expect(previewBtn).toBeDisabled();
       expect(submitBtn).toBeDisabled();

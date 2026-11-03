@@ -242,7 +242,7 @@ describe('workspace assembly (#260)', () => {
     expect(registry.menuById('equipment-master').aliases).toEqual(['/equipment']);
     expect(registry.menuById('notices').path).toBe('/notices');
     expect(registry.menuById('faq')).toMatchObject({ group: 'noticeVoc', path: '/faq', permission: 'notice:view', label: { ko: 'FAQ', en: 'FAQ' } });
-    expect(registry.menuById('faq').component).toBeUndefined();
+    expect(registry.menuById('faq').component).toBeDefined();
     expect(registry.menuById('voc').path).toBe('/voc');
   });
 

@@ -172,7 +172,7 @@ function publicUpdateEnvelope(
       voc_id: VOC_ADMIN_VIEW.id,
       body_rich_content: {
         type: 'doc',
-        content: [{ type: 'paragraph', content: [{ type: 'text', text: '공개 업데이트' }] }],
+        content: [{ type: 'paragraph', content: [{ type: 'text', text: '담당자 답변' }] }],
       },
       reporter_facing_status_before: VOC_ADMIN_VIEW.reporter_facing_status,
       reporter_facing_status_after: voc.reporter_facing_status,
@@ -214,7 +214,7 @@ function fillPublicUpdate(value: string): void {
 }
 
 function previewDialog() {
-  return screen.findByRole('dialog', { name: '공개 업데이트 — 제출자 미리보기' });
+  return screen.findByRole('dialog', { name: '담당자 답변 — 신고자 미리보기' });
 }
 
 /**
@@ -264,8 +264,8 @@ describe('Composer flow — integration (C6.3)', () => {
     );
 
     // Tab labels from ComposerTabs TAB_CONFIGS: 'Public update', 'Reporter reply', 'Internal note'
-    expect(screen.getByRole('tab', { name: /공개 업데이트/i })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /제출자 답변/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /담당자 답변/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /신고자 답글/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /내부 코멘트/i })).toBeInTheDocument();
   });
 
@@ -278,9 +278,9 @@ describe('Composer flow — integration (C6.3)', () => {
       </Wrapper>,
     );
 
-    expect(screen.getByRole('tab', { name: /공개 업데이트/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /담당자 답변/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /내부 코멘트/i })).toBeInTheDocument();
-    expect(screen.queryByRole('tab', { name: /제출자 답변/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: /신고자 답글/i })).not.toBeInTheDocument();
   });
 
   // ── Test 2: Reporter sees only Reply tab ───────────────────────────────────
@@ -294,8 +294,8 @@ describe('Composer flow — integration (C6.3)', () => {
     );
 
     // Only Reporter reply tab shown
-    expect(screen.getByRole('tab', { name: /제출자 답변/i })).toBeInTheDocument();
-    expect(screen.queryByRole('tab', { name: /공개 업데이트/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /신고자 답글/i })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: /담당자 답변/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: /내부 코멘트/i })).not.toBeInTheDocument();
   });
 
@@ -319,7 +319,7 @@ describe('Composer flow — integration (C6.3)', () => {
     });
 
     // Switch to Reporter reply
-    fireEvent.click(screen.getByRole('tab', { name: /제출자 답변/i }));
+    fireEvent.click(screen.getByRole('tab', { name: /신고자 답글/i }));
     await waitFor(() => {
       expect(screen.getByTestId('rich-editor-reporter-reply')).toBeInTheDocument();
     });
@@ -348,12 +348,12 @@ describe('Composer flow — integration (C6.3)', () => {
 
     // Type into the public-update rich editor (mocked as textarea)
     const editor = screen.getByTestId('rich-editor-public-update');
-    fireEvent.change(editor, { target: { value: '공개 업데이트 내용입니다.' } });
+    fireEvent.change(editor, { target: { value: '담당자 답변 내용입니다.' } });
     fireEvent.click(screen.getByRole('combobox', { name: '다음 공개 상태 선택' }));
     fireEvent.click(await screen.findByRole('option', { name: '해결됨' }));
 
     // Find the Publish button on the ComposerFooter and click it
-    const publishBtn = screen.getByRole('button', { name: /공개 업데이트 게시/ });
+    const publishBtn = screen.getByRole('button', { name: /담당자 답변 게시/ });
     expect(publishBtn).not.toBeDisabled();
 
     await act(async () => {
@@ -373,7 +373,7 @@ describe('Composer flow — integration (C6.3)', () => {
 
     // Success toast fired
     await waitFor(() => {
-      expect(toast.success).toHaveBeenCalledWith('공개 업데이트가 게시되었습니다.');
+      expect(toast.success).toHaveBeenCalledWith('담당자 답변이 게시되었습니다.');
     });
   });
 
@@ -431,7 +431,7 @@ describe('Composer flow — integration (C6.3)', () => {
     const editor = screen.getByTestId('rich-editor-public-update');
     fireEvent.change(editor, { target: { value: '쿼리 무효화 테스트' } });
 
-    const publishBtn = screen.getByRole('button', { name: /공개 업데이트 게시/ });
+    const publishBtn = screen.getByRole('button', { name: /담당자 답변 게시/ });
     await act(async () => {
       fireEvent.click(publishBtn);
     });
@@ -462,12 +462,12 @@ describe('Composer flow — integration (C6.3)', () => {
     const preview = await previewDialog();
 
     await act(async () => {
-      fireEvent.click(within(preview).getByRole('button', { name: '공개 업데이트 게시' }));
+      fireEvent.click(within(preview).getByRole('button', { name: '담당자 답변 게시' }));
     });
 
     await waitFor(() => expect(requests).toHaveLength(1));
     expect(
-      screen.queryByRole('dialog', { name: '공개 업데이트 — 제출자 미리보기' }),
+      screen.queryByRole('dialog', { name: '담당자 답변 — 신고자 미리보기' }),
     ).not.toBeInTheDocument();
 
     const request = requests[0];
@@ -503,7 +503,7 @@ describe('Composer flow — integration (C6.3)', () => {
 
     await waitFor(() => {
       expect(
-        screen.queryByRole('dialog', { name: '공개 업데이트 — 제출자 미리보기' }),
+        screen.queryByRole('dialog', { name: '담당자 답변 — 신고자 미리보기' }),
       ).not.toBeInTheDocument();
     });
     // The draft survives: this closed the preview, it did not discard the update.
@@ -524,7 +524,7 @@ describe('Composer flow — integration (C6.3)', () => {
     await screen.findByTestId('rich-editor-public-update');
     fireEvent.click(screen.getByRole('button', { name: '미리보기' }));
     const preview = await previewDialog();
-    const publish = within(preview).getByRole('button', { name: '공개 업데이트 게시' });
+    const publish = within(preview).getByRole('button', { name: '담당자 답변 게시' });
     expect(publish).toBeDisabled();
     fireEvent.click(publish);
     await flushMutations();
@@ -543,7 +543,7 @@ describe('Composer flow — integration (C6.3)', () => {
     fillPublicUpdate('게이트가 막은 업데이트');
     fireEvent.click(screen.getByRole('button', { name: '미리보기' }));
     const preview = await previewDialog();
-    const publish = within(preview).getByRole('button', { name: '공개 업데이트 게시' });
+    const publish = within(preview).getByRole('button', { name: '담당자 답변 게시' });
     expect(publish).toBeDisabled();
     fireEvent.click(publish);
     await flushMutations();
@@ -572,7 +572,7 @@ describe('Composer flow — integration (C6.3)', () => {
     await screen.findByText(/업로드 중/);
     fireEvent.click(screen.getByRole('button', { name: '미리보기' }));
     const preview = await previewDialog();
-    const publish = within(preview).getByRole('button', { name: '공개 업데이트 게시' });
+    const publish = within(preview).getByRole('button', { name: '담당자 답변 게시' });
     expect(publish).toBeDisabled();
     fireEvent.click(publish);
     await flushMutations();
@@ -584,7 +584,7 @@ describe('Composer flow — integration (C6.3)', () => {
     // Once the upload settles the same control becomes publishable — proving the
     // assertion above was blocked by the upload, not by a permanently dead button.
     await waitFor(() =>
-      expect(within(preview).getByRole('button', { name: '공개 업데이트 게시' })).toBeEnabled(),
+      expect(within(preview).getByRole('button', { name: '담당자 답변 게시' })).toBeEnabled(),
     );
   });
 
@@ -610,7 +610,7 @@ describe('Composer flow — integration (C6.3)', () => {
     fillPublicUpdate('프리뷰 연타 방지');
     fireEvent.click(screen.getByRole('button', { name: '미리보기' }));
     const preview = await previewDialog();
-    const publish = within(preview).getByRole('button', { name: '공개 업데이트 게시' });
+    const publish = within(preview).getByRole('button', { name: '담당자 답변 게시' });
     await act(async () => {
       fireEvent.click(publish);
       fireEvent.click(publish);
@@ -642,7 +642,7 @@ describe('Composer flow — integration (C6.3)', () => {
     );
 
     fillPublicUpdate('푸터 발행 회귀 방지');
-    fireEvent.click(screen.getByRole('button', { name: '공개 업데이트 게시' }));
+    fireEvent.click(screen.getByRole('button', { name: '담당자 답변 게시' }));
 
     await waitFor(() => expect(capturedBody).toBeTruthy());
     expect(String(capturedRequest?.input)).toContain(`/vocs/${VOC_ADMIN_VIEW.id}/public-updates`);

@@ -110,7 +110,7 @@ describe('<LinkedEntityTrailSection>', () => {
 
     expect(screen.queryByText('담당 팀')).not.toBeInTheDocument();
     expect(screen.queryByText('예상 해결일')).not.toBeInTheDocument();
-    expect(screen.queryByText('최근 공개 업데이트')).not.toBeInTheDocument();
+    expect(screen.queryByText('최근 담당자 답변')).not.toBeInTheDocument();
   });
 
   it('does not leak an allowed Task full DTO in reporter context', () => {

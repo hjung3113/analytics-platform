@@ -36,16 +36,16 @@ const BASE: Omit<ConversationEntry, 'kind' | 'visibility'> = {
 };
 
 describe('<TimelineEntry>', () => {
-  it('renders "공개 업데이트" kind chip', () => {
+  it('renders "담당자 답변" kind chip', () => {
     const entry: ConversationEntry = { ...BASE, kind: 'public_update', visibility: 'public' };
     render(<TimelineEntry entry={entry} />);
-    expect(screen.getByText('공개 업데이트')).toBeInTheDocument();
+    expect(screen.getByText('담당자 답변')).toBeInTheDocument();
   });
 
-  it('renders "제출자 답변" kind chip', () => {
+  it('renders "신고자 답글" kind chip', () => {
     const entry: ConversationEntry = { ...BASE, kind: 'reporter_reply', visibility: 'reporter' };
     render(<TimelineEntry entry={entry} />);
-    expect(screen.getByText('제출자 답변')).toBeInTheDocument();
+    expect(screen.getByText('신고자 답글')).toBeInTheDocument();
   });
 
   it('renders "내부 코멘트" kind chip', () => {

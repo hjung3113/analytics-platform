@@ -1,7 +1,7 @@
 export const TASK_REQUEST_REVIEW_DECISION_LABEL = '검토 결정';
 
 export const TASK_REQUEST_LINK_MISSING_MESSAGE =
-  '요청한 Task Request를 찾을 수 없습니다. 삭제되었거나 현재 권한·범위 밖일 수 있습니다.';
+  '요청한 Task 요청을 찾을 수 없습니다. 삭제되었거나 현재 권한·범위 밖일 수 있습니다.';
 
 export const TASK_REQUEST_COPY = {
   decisions: {
@@ -16,8 +16,8 @@ export const TASK_REQUEST_COPY = {
     `Task ${displayId}${/[036]$/.test(displayId) ? '으로' : '로'} 전환했습니다. 담당자: ${assignee}`,
   convertToTask: 'Task로 전환',
   openTask: 'Task 열기',
-  created: 'Task Request가 생성되었습니다.',
-  openRequest: 'Task Request 열기',
+  created: 'Task 요청이 생성되었습니다.',
+  openRequest: 'Task 요청 열기',
   selfApproved: '본인이 승인함',
   peerApproved: '다른 검토자가 승인함',
   notApproved: '아직 승인되지 않음',

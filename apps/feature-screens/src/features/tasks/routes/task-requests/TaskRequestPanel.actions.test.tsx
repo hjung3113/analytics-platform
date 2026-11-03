@@ -155,7 +155,7 @@ describe('TaskRequestPanel next actions', () => {
 
     const header = container.querySelector('[data-kind="task_request"]');
     expect(header).toBeInTheDocument();
-    expect(within(header as HTMLElement).getByText('Task Request')).toHaveClass('rounded');
+    expect(within(header as HTMLElement).getByText('Task 요청')).toHaveClass('rounded');
     expect(within(header as HTMLElement).getByText('REQ-42')).toBeInTheDocument();
     expect(screen.getAllByText(GLOSSARY.unknownUser)).toHaveLength(2);
     expect(screen.getByText('검토자 없음')).toBeInTheDocument();

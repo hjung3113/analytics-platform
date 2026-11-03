@@ -216,7 +216,7 @@ it('removes a single key, restores it with Back/Forward, then clears all filters
   expect(
     screen.getByRole('button', { name: '상태: 할 일·진행 중·검토 필터 제거' }),
   ).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: '공개 업데이트 없음 필터 제거' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '담당자 답변 없음 필터 제거' })).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: '기한 지남 필터 제거' }));
   const { overdue: _overdue, ...remaining } = filters;
   await waitFor(() =>
@@ -272,7 +272,7 @@ it('names intersecting filters in the filtered-empty state with one reset', asyn
   expect(screen.getAllByRole('button', { name: '필터 초기화' })).toHaveLength(1);
   expect(
     screen.getByText(
-      '분석 영역: 미지정 · 상태: 대기 · 상태: 할 일·진행 중·검토 · 기한 지남 · 공개 업데이트 없음 · 보고자 업데이트 필요',
+      '분석 영역: 미지정 · 상태: 대기 · 상태: 할 일·진행 중·검토 · 기한 지남 · 담당자 답변 없음 · 보고자 업데이트 필요',
     ),
   ).toBeInTheDocument();
 });
@@ -282,7 +282,7 @@ it.each([
   ['status', '상태: 대기'],
   ['status_group', '상태: 할 일·진행 중·검토'],
   ['overdue', '기한 지남'],
-  ['public_update', '공개 업데이트 없음'],
+  ['public_update', '담당자 답변 없음'],
   ['reporter_update', '보고자 업데이트 필요'],
 ] as const)('removes only Task %s and requests the remaining intersection', async (key, label) => {
   const mounted = mount(initial);

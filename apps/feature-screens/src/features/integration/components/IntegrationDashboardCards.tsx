@@ -21,12 +21,12 @@ const QUEUE_COPY: Record<QueueId, { title: string; detail: string }> = {
   },
   'actionable-finding-no-execution': {
     title: '실행 계획 없는 Finding',
-    detail: '진행 중 상태의 Finding 중 Task Request 또는 Task 링크가 없는 항목입니다.',
+    detail: '진행 중 상태의 Finding 중 Task 요청 또는 Task 링크가 없는 항목입니다.',
   },
   'released-task-unresolved-voc': {
     title: '배포된 Task · 미해결 VOC',
     detail:
-      'Task는 배포됨이지만 연결된 공개 상태가 해결됨이 아닙니다. 공개 업데이트 검토가 필요합니다.',
+      'Task는 배포됨이지만 연결된 공개 상태가 해결됨이 아닙니다. 담당자 답변 검토가 필요합니다.',
   },
   'bad-outcome-no-followup': {
     title: '후속 조치 없는 부정 성과 설문',

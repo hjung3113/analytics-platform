@@ -41,7 +41,7 @@ function me(id: string, role_level: 'user' | 'admin'): MeResponse {
 describe('ReporterReplyComposer placeholder', () => {
   it.each([
     ['reporter', me(REPORTER_ID, 'user'), '담당자에게 보낼 답장 내용을 입력하세요...'],
-    ['operator', me(ADMIN_ID, 'admin'), '제출자에게 보낼 답장 내용을 입력하세요...'],
+    ['operator', me(ADMIN_ID, 'admin'), '신고자에게 보낼 답장 내용을 입력하세요...'],
   ])('addresses the other party for the %s', (_who, viewer, expected) => {
     const client = new QueryClient();
     render(

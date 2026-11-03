@@ -1064,14 +1064,14 @@ describe('SurveyResultsSummary', () => {
       firstLoad.resolve({ data: firstFinding });
       await firstLoad.promise;
     });
-    expect(screen.queryByRole('region', { name: 'Task Request 초안' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Task 요청 초안' })).not.toBeInTheDocument();
 
     await act(async () => {
       secondLoad.resolve({ data: secondFinding });
       await secondLoad.promise;
     });
-    await screen.findByRole('region', { name: 'Task Request 초안' });
-    expect(screen.getAllByRole('region', { name: 'Task Request 초안' })).toHaveLength(1);
+    await screen.findByRole('region', { name: 'Task 요청 초안' });
+    expect(screen.getAllByRole('region', { name: 'Task 요청 초안' })).toHaveLength(1);
     expect(screen.getByTestId('request-task-evidence-summary-input')).toHaveValue(
       secondFinding.summary,
     );
@@ -1122,10 +1122,10 @@ describe('SurveyResultsSummary', () => {
     const button = screen.getByRole('button', { name: 'Task 요청' });
     await user.click(button);
     expect(await screen.findByRole('alert')).toHaveTextContent('Finding을 불러오지 못했습니다.');
-    expect(screen.queryByRole('region', { name: 'Task Request 초안' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Task 요청 초안' })).not.toBeInTheDocument();
 
     await user.click(button);
-    await screen.findByRole('region', { name: 'Task Request 초안' });
+    await screen.findByRole('region', { name: 'Task 요청 초안' });
     expect(screen.getByTestId('request-task-evidence-summary-input')).toHaveValue(finding.summary);
     expect(
       apiRequest.mock.calls.filter(([, path]) => path === `/findings/${ids.finding}`),
@@ -1157,7 +1157,7 @@ describe('SurveyResultsSummary', () => {
 
     await user.click(screen.getByRole('button', { name: 'Task 요청' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Finding을 불러오지 못했습니다.');
-    expect(screen.queryByRole('region', { name: 'Task Request 초안' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Task 요청 초안' })).not.toBeInTheDocument();
 
     await act(async () => {
       await queryClient.refetchQueries({ queryKey: ['finding', ids.finding], type: 'all' });
@@ -1166,7 +1166,7 @@ describe('SurveyResultsSummary', () => {
       apiRequest.mock.calls.filter(([, path]) => path === `/findings/${ids.finding}`),
     ).toHaveLength(2);
     expect(queryClient.getQueryData(['finding', ids.finding])).toEqual(finding);
-    expect(screen.queryByRole('region', { name: 'Task Request 초안' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Task 요청 초안' })).not.toBeInTheDocument();
     expect(screen.getByRole('alert')).toHaveTextContent('Finding을 불러오지 못했습니다.');
   });
 });

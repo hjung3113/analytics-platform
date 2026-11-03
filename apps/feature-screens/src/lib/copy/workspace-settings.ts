@@ -9,7 +9,7 @@ export const WORKSPACE_SETTINGS_SELF_APPROVAL_COPY = {
     '관리자만 all을 워크스페이스 전체로 해석합니다. 다른 역할은 워크스페이스 범위와 부여된 범위가 겹치는 부분만 적용합니다.',
   settingDescription:
     '요청자가 직접 자기 권한 요청을 승인하려면 범위 내 권한이 필요합니다. 감사 로그에 본인 승인으로 기록됩니다.',
-  taskRequestNote: 'Task Request 자가승인은 별도 규칙을 따르며 이 설정과 무관합니다.',
+  taskRequestNote: 'Task 요청 자가승인은 별도 규칙을 따르며 이 설정과 무관합니다.',
   pastRecordsKept:
     '과거의 직접 승인 기록은 감사 로그에 본인 승인으로 영구 보존되며 회수되지 않습니다.',
 } as const;
@@ -22,7 +22,7 @@ const COVERAGE_BAND_ROW_DESCRIPTIONS = {
   'voc-task': '열린 VOC 중 Task와 연결된 비율입니다.',
   'finding-execution': '활성 Finding 중 실행 항목으로 이어진 비율입니다.',
   'high-followup': '열린 높은 심각도 VOC 중 후속 연결이 있는 비율입니다.',
-  'released-update': 'VOC와 연결된 배포된 Task 중 공개 업데이트가 있는 비율입니다.',
+  'released-update': 'VOC와 연결된 배포된 Task 중 담당자 답변이 있는 비율입니다.',
   'analytics-area': '열린 VOC 중 분석 영역이 지정된 비율입니다.',
 } satisfies Record<CoverageMetricId, string>;
 

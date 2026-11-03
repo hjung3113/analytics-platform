@@ -6,7 +6,7 @@ export const COVERAGE_METRIC_LABELS = {
   'finding-execution': '실행 중인 Finding',
   'milestone-outcome': '성과 설문이 있는 Milestone',
   'high-followup': '높은 심각도 VOC 후속 조치',
-  'released-update': '공개 업데이트가 있는 배포된 Task',
+  'released-update': '담당자 답변이 있는 배포된 Task',
   'analytics-area': '분석 영역이 지정된 VOC',
 } satisfies Record<DashboardCoverageId, string>;
 

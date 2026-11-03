@@ -46,7 +46,7 @@ export const TASK_REPORT_FILTER_COPY = {
   inFlight: '상태: 할 일·진행 중·검토',
   inFlightOption: '할 일·진행 중·검토',
   overdue: '기한 지남',
-  publicUpdate: '공개 업데이트 없음',
+  publicUpdate: '담당자 답변 없음',
   reporterUpdate: '보고자 업데이트 필요',
   empty: '현재 조건에 맞는 Task가 없습니다',
 } as const;

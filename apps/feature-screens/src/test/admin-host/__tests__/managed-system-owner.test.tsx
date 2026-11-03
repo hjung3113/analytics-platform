@@ -461,7 +461,7 @@ describe('시스템 default owner', () => {
     expect(row).toHaveTextContent(
       'Team Owned System · 기본 검토자 · 배정에 필요한 권한이 없습니다. · 현재 설정',
     );
-    expect(row).not.toHaveTextContent('Task Request');
+    expect(row).not.toHaveTextContent('Task 요청');
     const failures = screen.getAllByText(
       '생성 시 기본 배정 실패 2건 · 마지막 2026. 10. 13. 오전 9:00',
     );
@@ -469,10 +469,10 @@ describe('시스템 default owner', () => {
     const lines = [row.textContent, ...failures.map((item) => item.closest('li')?.textContent)];
     expect(new Set(lines).size).toBe(3);
     expect(failures[0]?.closest('li')).toHaveTextContent(
-      'Task Request · 시스템 기본 검토자',
+      'Task 요청 · 시스템 기본 검토자',
     );
     expect(failures[1]?.closest('li')).toHaveTextContent(
-      'Task Request · 시스템 기본 담당자',
+      'Task 요청 · 시스템 기본 담당자',
     );
     expect(screen.queryByText(/생성 시 미배정/)).not.toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: 'Team Owned System 설정 열기' })).toHaveLength(3);
@@ -521,7 +521,7 @@ describe('시스템 default owner', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Team Owned System 설정 열기' }));
     expect(screen.getByRole('heading', { name: 'Team Owned System 설정' })).toBeInTheDocument();
     expect(
-      screen.getByText('Task Request 검토에 자동 배정됩니다. 비우면 기본 담당자가 검토합니다.'),
+      screen.getByText('Task 요청 검토에 자동 배정됩니다. 비우면 기본 담당자가 검토합니다.'),
     ).toBeInTheDocument();
   });
 

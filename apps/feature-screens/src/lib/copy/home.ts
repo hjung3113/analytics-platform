@@ -38,7 +38,7 @@ export const HOME_COPY = {
 export const HOME_KPI_COPY = {
   open_voc: '미해결 VOC',
   active_finding: '활성 Finding',
-  pending_request: '대기 중 Task Request',
+  pending_request: '대기 중 Task 요청',
   tasks_in_flight: GLOSSARY.tasksInFlight,
 } as const;
 
@@ -63,14 +63,14 @@ export const HOME_QUEUE_COPY: Record<
     title: GLOSSARY.highNoLink,
     sidebarLabel: GLOSSARY.highNoLink,
     detail:
-      '높음·심각 VOC 중 Finding, Task Request, Task 연결이 없고, 소속 반복 VOC의 Finding 또는 Task Request 연결도 없는 항목입니다.',
+      '높음·심각 VOC 중 Finding, Task 요청, Task 연결이 없고, 소속 반복 VOC의 Finding 또는 Task 요청 연결도 없는 항목입니다.',
     primaryAction: '높은 심각도 VOC 검토',
     secondaryAction: '큐 열기',
   },
   'actionable-finding-no-execution': {
     title: '실행 계획 없는 Finding',
     sidebarLabel: '실행 계획 없는 Finding',
-    detail: '진행 중 상태의 Finding 중 Task Request 또는 Task 링크가 없는 항목입니다.',
+    detail: '진행 중 상태의 Finding 중 Task 요청 또는 Task 링크가 없는 항목입니다.',
     // #1179: the link opens the Findings list, so it keeps the Integration
     // wording for the same destination instead of promising a Task Request.
     primaryAction: DASHBOARD_QUEUE_ACTION_LABELS['actionable-finding-no-execution'],
@@ -111,11 +111,11 @@ export const HOME_INBOX_COPY = {
   all: GLOSSARY.all,
   categories: {
     voc: 'VOC',
-    task_request: 'Task Request',
+    task_request: 'Task 요청',
     task: 'Task',
     permission_request: '권한 요청',
     permission_grant: '권한',
-    public_update_review_candidate: '공개 업데이트',
+    public_update_review_candidate: '담당자 답변',
   },
   emptyUnread: '읽지 않은 알림이 없습니다.',
   emptyAll: '받은 알림이 없습니다.',

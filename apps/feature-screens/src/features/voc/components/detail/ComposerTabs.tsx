@@ -48,13 +48,13 @@ interface TabConfig {
 const TAB_CONFIGS: TabConfig[] = [
   {
     surface: 'public',
-    label: '공개 업데이트',
+    label: '담당자 답변',
     activeBorderClass: 'border-b-accent-primary',
     visibilityKey: 'showPublic',
   },
   {
     surface: 'reply',
-    label: '제출자 답변',
+    label: '신고자 답글',
     activeBorderClass: 'border-b-accent-info',
     visibilityKey: 'showReply',
   },
