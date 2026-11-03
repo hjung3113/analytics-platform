@@ -15,7 +15,7 @@ async function managedSystemOf(page: Page, space: string) {
   const links = block.getByRole('link');
   await expect(links).toHaveCount(3);
   const found = new Set<string>();
-  const inShell = [['VOC', '/operations/inbox'], ['Task', '/operations/task-list'], ['설문', '/operations/survey-management']] as const;
+  const inShell = [['VOC', '/flow/inbox'], ['Task', '/flow/task-list'], ['설문', '/flow/survey-management']] as const;
   for (const [index, [name, pathname]] of inShell.entries()) {
     const link = links.nth(index);
     await expect(link).toHaveAccessibleName(`${name} — ${space}, 기능`);
@@ -49,7 +49,7 @@ async function linkUrl(link: Locator) {
 
 
 test.describe('기능 공간별 진입(#251)', () => {
-  test('admin의 MARS·BRAVO 사이드바 블록은 그 공간의 managedSystem만 담은 링크 셋(VOC·Task·설문 모두 셸 안)이고, 운영 콘솔에는 블록이 없다', async ({ page }, testInfo) => {
+  test('admin의 MARS·BRAVO 사이드바 블록은 그 공간의 managedSystem만 담은 링크 셋(VOC·Task·설문 모두 셸 안)이고, 업무 흐름·운영 콘솔에는 블록이 없다', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
     await page.goto(PRODUCTIVITY);
     const analytics = await managedSystemOf(page, 'MARS');
@@ -57,6 +57,9 @@ test.describe('기능 공간별 진입(#251)', () => {
     const metrics = await managedSystemOf(page, 'BRAVO');
     expect(metrics).not.toBe(analytics);
     await evidence(page, testInfo, 'feedbackops-space-links');
+    await page.goto('/flow/dashboard?v=1');
+    await expect(page.getByRole('main').getByRole('heading', { level: 1 })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: /^기능/ })).toHaveCount(0);
     await page.goto('/operations/admin-roles?v=1');
     await expect(page.getByRole('main').getByRole('heading', { level: 1 })).toBeVisible();
     await expect(page.getByRole('navigation', { name: /^기능/ })).toHaveCount(0);
@@ -136,13 +139,13 @@ test.describe('기능 진입 링크 회귀(#451, 06 §22)', () => {
       const destinations: string[] = [];
       for (const link of links) {
         const href = await linkUrl(link);
-        if (href.pathname === '/operations/inbox') {
+        if (href.pathname === '/flow/inbox') {
           expectExactQueryKeys(href, ['v', 'managedSystem', 'returnTo']);
           destinations.push('vocs:inbox');
-        } else if (href.pathname === '/operations/task-list') {
+        } else if (href.pathname === '/flow/task-list') {
           expectExactQueryKeys(href, ['v', 'managedSystem', 'returnTo']);
           destinations.push('tasks');
-        } else if (href.pathname === '/operations/survey-management') {
+        } else if (href.pathname === '/flow/survey-management') {
           expectExactQueryKeys(href, ['v', 'managedSystem', 'returnTo']);
           destinations.push('surveys');
         } else {
@@ -210,7 +213,7 @@ test.describe('기능 진입 링크 회귀(#451, 06 §22)', () => {
     await page.keyboard.press('Escape');
   });
 
-  test('공간 셋(admin)은 두 공간 블록, 운영 콘솔 블록 없음, 전체 링크 없음', async ({ page }, testInfo) => {
+  test('공간 셋(admin)은 두 공간 블록, 업무 흐름·운영 콘솔 블록 없음, 전체 링크 없음', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
     await expectNoBlockOnGlobalScreens(page);
     await page.goto(PRODUCTIVITY);
@@ -218,8 +221,13 @@ test.describe('기능 진입 링크 회귀(#451, 06 §22)', () => {
     await chooseSystem(page, 'BRAVO');
     await expect.poll(() => new URL(page.url()).pathname).toBe('/bravo/metric-catalog');
     expect(await managedSystemOf(page, 'BRAVO')).not.toBe(analytics);
+    await chooseSystem(page, '업무 흐름');
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/flow/dashboard');
+    await expect(page.getByRole('navigation', { name: /^기능/ })).toHaveCount(0);
+    await expect(await feedbackOpsOverallLink(page)).toHaveCount(0);
+    await page.keyboard.press('Escape'); // the user menu hides the rail while open
     await chooseSystem(page, '운영 콘솔');
-    await expect.poll(() => new URL(page.url()).pathname).toBe('/operations/dashboard');
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/operations/admin-roles');
     await expect(page.getByRole('navigation', { name: /^기능/ })).toHaveCount(0);
     await expect(await feedbackOpsOverallLink(page)).toHaveCount(0);
     await evidence(page, testInfo, 'feedbackops-space-count-admin');
@@ -229,13 +237,13 @@ test.describe('기능 진입 링크 회귀(#451, 06 §22)', () => {
 test.describe('기능 바닥 블록 셸 안 이동(#760)', () => {
   const returnRow = (page: Page) => page.locator('[data-return-row]');
 
-  test('VOC는 같은 탭에서 /operations/inbox로 열리고 되돌아가기 줄이 본문 맨 위에 서며, 기능 안 이동에도 남고, 복귀하면 원래 기간·Scope로 돌아온다', async ({ page }, testInfo) => {
+  test('VOC는 같은 탭에서 /flow/inbox로 열리고 되돌아가기 줄이 본문 맨 위에 서며, 기능 안 이동에도 남고, 복귀하면 원래 기간·Scope로 돌아온다', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
     await page.goto(PRODUCTIVITY);
     await expect(mainHeading(page)).toHaveText('생산성 개요');
     const start = page.url();
     await page.getByRole('navigation', { name: '기능 · MARS' }).getByRole('link', { name: /^VOC/ }).click();
-    await expect.poll(() => new URL(page.url()).pathname).toBe('/operations/inbox');
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/flow/inbox');
     expect([...query(page).keys()].sort()).toEqual(['managedSystem', 'returnTo', 'v']);
     expect(query(page).get('managedSystem')).toMatch(UUID);
     expect(query(page).get('returnTo')).toBe(new URL(start).pathname + new URL(start).search);
@@ -245,8 +253,8 @@ test.describe('기능 바닥 블록 셸 안 이동(#760)', () => {
     await evidence(page, testInfo, 'feedbackops-return-row');
 
     // Moving inside the feature keeps the way back.
-    await page.getByRole('navigation', { name: '주 메뉴' }).getByRole('link', { name: 'Triage' }).click();
-    await expect.poll(() => new URL(page.url()).pathname).toBe('/operations/triage');
+    await page.getByRole('navigation', { name: '주 메뉴' }).getByRole('link', { name: '분류', exact: true }).click();
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/flow/triage');
     await expect(returnRow(page)).toBeVisible();
     expect(query(page).get('returnTo')).toBe(new URL(start).pathname + new URL(start).search);
 
@@ -258,18 +266,18 @@ test.describe('기능 바닥 블록 셸 안 이동(#760)', () => {
     expect(query(page).has('returnTo')).toBe(false);
   });
 
-  test('전환기로 운영 콘솔에 들어오면 줄이 없고, 운영 콘솔 안 이동으로도 만들어지지 않는다', async ({ page }) => {
+  test('전환기로 업무 흐름에 들어오면 줄이 없고, 업무 흐름 안 이동으로도 만들어지지 않는다', async ({ page }) => {
     await signInAs(page, 'admin');
     await page.goto(PRODUCTIVITY);
-    await chooseSystem(page, '운영 콘솔');
-    await expect.poll(() => new URL(page.url()).pathname).toMatch(/^\/operations\//);
+    await chooseSystem(page, '업무 흐름');
+    await expect.poll(() => new URL(page.url()).pathname).toMatch(/^\/flow\//);
     await expect(mainHeading(page)).toBeVisible();
     await expect(returnRow(page)).toHaveCount(0);
     expect(query(page).has('returnTo')).toBe(false);
-    // The landing is the dashboard; the VOC section brings Triage into the sidebar, then feature-internal moves must not create a row or a returnTo.
-    await railSection(page, 'VOC').click();
-    await page.getByRole('navigation', { name: '주 메뉴' }).getByRole('link', { name: 'Triage' }).click();
-    await expect.poll(() => new URL(page.url()).pathname).toBe('/operations/triage');
+    // The landing is the dashboard; the VOC 처리 section brings 분류 into the sidebar, then feature-internal moves must not create a row or a returnTo.
+    await railSection(page, 'VOC 처리').click();
+    await page.getByRole('navigation', { name: '주 메뉴' }).getByRole('link', { name: '분류', exact: true }).click();
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/flow/triage');
     await expect(returnRow(page)).toHaveCount(0);
     expect(query(page).has('returnTo')).toBe(false);
   });

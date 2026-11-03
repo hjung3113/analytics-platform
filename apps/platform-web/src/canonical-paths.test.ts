@@ -10,7 +10,7 @@ vi.mock('@ap/kernel', async importOriginal => {
 });
 // The first call is menus.ts at import time.
 const ASSEMBLY_CALL = vi.mocked(createRegistry).mock.calls[0]![0];
-const RESERVED_ROOTS = ['home', 'survey', 'voc', 'notifications', 'notices', 'permission-requests', 'my-tasks'];
+const RESERVED_ROOTS = ['home', 'survey', 'voc', 'notifications', 'notices', 'permission-requests', 'my-tasks', 'faq'];
 
 // ADR-0093 / kernel.md §6.4: the assembled app's old → canonical path table. A menu added without canonical/alias coverage fails here.
 const RAW = [...MENUS, ...EQV_MODULE.menus];
@@ -74,18 +74,21 @@ describe('assembled registry: canonical paths and legacy aliases', () => {
     expect(registry.menuById('survey-respond')).toMatchObject({ path: '/survey/:surveyId/respond', aliases: ['/surveys/:surveyId/respond'] });
   });
 
-  it('puts the Survey 관리 menus under /operations with no legacy alias, and aliases none of them to the reporter /surveys paths (#764 p1)', () => {
+  it('puts the Survey 관리 menus under /flow with no legacy alias, and aliases none of them to the reporter /surveys paths (#764 p1)', () => {
     const operator = ['survey-management', 'survey-builder', 'survey-results', 'survey-follow-up'].map(id => registry.menuById(id));
-    expect(operator.map(menu => menu.path)).toEqual(['/operations/survey-management', '/operations/survey-builder/:surveyId', '/operations/survey-results/:surveyId', '/operations/survey-follow-up/:surveyId']);
+    expect(operator.map(menu => menu.path)).toEqual(['/flow/survey-management', '/flow/survey-builder/:surveyId', '/flow/survey-results/:surveyId', '/flow/survey-follow-up/:surveyId']);
     for (const menu of operator) expect(menu.aliases).toBeUndefined();
     for (const menu of operator) expect((menu.aliases ?? []).some(alias => /^\/surveys(\/|$)/.test(alias))).toBe(false);
     expect(registry.matchRoute('/surveys')).toMatchObject({ menu: { id: 'surveys' }, viaAlias: true });
     expect(registry.matchRoute('/surveys/x1/respond')).toMatchObject({ menu: { id: 'survey-respond' }, viaAlias: true });
   });
 
-  it('puts the 관리자 menus under /operations with no legacy alias, and aliases none of them to the platform /admin paths (#764 p2)', () => {
-    const admin = ['managed-systems', 'analytics-areas', 'permission-request-review', 'permission-grants', 'settings'].map(id => registry.menuById(id));
-    expect(admin.map(menu => menu.path)).toEqual(admin.map(menu => `/operations/${menu.id}`));
+  it('puts the 흐름 설정 menus under /flow and the 권한 menus under /operations, with no legacy alias, and aliases none of them to the platform /admin paths (#764 p2, ADR-0110)', () => {
+    const settings = ['managed-systems', 'analytics-areas', 'settings'].map(id => registry.menuById(id));
+    const access = ['permission-request-review', 'permission-grants'].map(id => registry.menuById(id));
+    expect(settings.map(menu => menu.path)).toEqual(settings.map(menu => `/flow/${menu.id}`));
+    expect(access.map(menu => menu.path)).toEqual(['/operations/permission-request-review', '/operations/permission-grants']);
+    const admin = [...settings, ...access];
     for (const menu of admin) expect(menu.aliases).toBeUndefined();
     for (const menu of admin) expect((menu.aliases ?? []).some(alias => /^\/admin(\/|$)/.test(alias))).toBe(false);
     expect(registry.matchRoute('/admin/roles')).toMatchObject({ menu: { id: 'admin-roles' } });

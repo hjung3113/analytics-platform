@@ -64,8 +64,8 @@ const SURVEY_A = '99999999-9999-4999-8999-99999999999a';
 const SURVEY_B = '99999999-9999-4999-8999-99999999999b';
 const RESPONSE_A = '77777777-7777-4777-8777-77777777777a';
 const RESPONSE_B = '77777777-7777-4777-8777-77777777777b';
-const LIST = '/operations/survey-management';
-const child = (menu: string, id: string) => `/operations/${menu}/${id}`;
+const LIST = '/flow/survey-management';
+const child = (menu: string, id: string) => `/flow/${menu}/${id}`;
 const request = vi.fn();
 const hereOf = (testId: string) => new URL(screen.getByTestId(testId).getAttribute('data-here')!, 'http://x');
 const hop = (url: string) => { window.history.replaceState(null, '', url); act(() => { window.dispatchEvent(new PopStateEvent('popstate')); }); };
@@ -80,10 +80,10 @@ afterEach(() => { cleanup(); setFeatureApi(null); vi.unstubAllGlobals(); window.
 
 describe('Survey 관리 without a feature API (mock preview)', () => {
   it.each([
-    [LIST, 'Survey 관리', 'list'],
-    [child('survey-builder', SURVEY_A), 'Survey 빌더', 'builder'],
-    [child('survey-results', SURVEY_A), 'Survey 결과', 'results'],
-    [child('survey-follow-up', SURVEY_A), 'Survey 후속 조치', 'follow-up'],
+    [LIST, '설문 관리', 'list'],
+    [child('survey-builder', SURVEY_A), '설문 빌더', 'builder'],
+    [child('survey-results', SURVEY_A), '설문 결과', 'results'],
+    [child('survey-follow-up', SURVEY_A), '설문 후속 조치', 'follow-up'],
   ])('%s shows 실서버 필요 and mounts no screen', async (path, title, testId) => {
     mountAt(path);
     await screen.findByRole('heading', { name: title }, LAZY_MOUNT_WAIT);

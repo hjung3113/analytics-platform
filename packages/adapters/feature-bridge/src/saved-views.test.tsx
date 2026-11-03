@@ -11,7 +11,7 @@ import { savedViewsSlot } from './saved-views';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const SPACE = spaceId('operations');
+const SPACE = spaceId('flow');
 const GROUP = groupId('voc');
 const menu = (id: string, path: string, pageKeys: string[], primary = false) => ({
   id, primary, group: GROUP, label: { ko: id, en: id }, description: { ko: id, en: id }, path, icon: Inbox, permission: 'features:access' as const,
@@ -22,9 +22,9 @@ const registry = createRegistry({
   spaces: [{ id: SPACE, label: { ko: 'Feature', en: 'Feature' }, description: { ko: '목적', en: 'Purpose' }, permission: 'features:access', homeMenuId: 'dashboard' }],
   groups: [{ id: GROUP, label: { ko: 'VOC', en: 'VOC' }, icon: Inbox, space: SPACE }],
   menus: [
-    menu('dashboard', '/operations/dashboard', ['managedSystem', 'returnTo'], true),
-    menu('inbox', '/operations/inbox', ['focus', 'q', 'tab', 'sort', 'severity', 'reporterStatus', 'owner', 'area', 'managedSystem', 'returnTo']),
-    menu('triage', '/operations/triage', ['focus', 'tab', 'managedSystem', 'area', 'returnTo']),
+    menu('dashboard', '/flow/dashboard', ['managedSystem', 'returnTo'], true),
+    menu('inbox', '/flow/inbox', ['focus', 'q', 'tab', 'sort', 'severity', 'reporterStatus', 'owner', 'area', 'managedSystem', 'returnTo']),
+    menu('triage', '/flow/triage', ['focus', 'tab', 'managedSystem', 'area', 'returnTo']),
   ],
 });
 
@@ -126,7 +126,7 @@ afterEach(() => {
 describe('savedViewsSlot', () => {
   it('is the feature section with one module-level Body', () => {
     const inbox = registry.menuById('inbox');
-    expect(savedViewsSlot.For(spaceId('bravo'), inbox)).toBeNull();
+    expect(savedViewsSlot.For(spaceId('bravo'), inbox)!.Body).toBe(Body);
     expect(section.label).toEqual({ ko: '저장된 보기', en: 'Saved views' });
     expect(savedViewsSlot.For(SPACE, inbox)!.Body).toBe(Body);
   });
@@ -134,6 +134,8 @@ describe('savedViewsSlot', () => {
   it.each<[string, MenuEntry | null]>([
     ['no current menu', null],
     ['a platform administration menu', ({ ...registry.menuById('inbox'), id: 'admin-roles', group: groupId('admin'), pageKeys: [] }) as MenuEntry],
+    ['an access menu', ({ ...registry.menuById('inbox'), id: 'permission-grants', group: groupId('access') }) as MenuEntry],
+    ['a menu without the managedSystem key', ({ ...registry.menuById('inbox'), pageKeys: ['q'] }) as MenuEntry],
     ['a Task menu (saved views are the VOC views)', ({ ...registry.menuById('inbox'), id: 'tasks', group: groupId('tasks') }) as MenuEntry],
   ])('draws no section, and mounts no session or query, for %s', (_, menu) => {
     expect(savedViewsSlot.For(SPACE, menu)).toBeNull();
@@ -141,13 +143,13 @@ describe('savedViewsSlot', () => {
 
   it('shows one muted 실서버 필요 line and requests nothing without a feature API', async () => {
     setFeatureApi(null);
-    await mount('/operations/dashboard');
+    await mount('/flow/dashboard');
     expect(host!.textContent).toContain('실서버 필요');
     expect(calls).toEqual([]);
   });
 
   it('on the dashboard shows the guidance line, never an empty body', async () => {
-    await mount('/operations/dashboard');
+    await mount('/flow/dashboard');
     await settle();
     expect(host!.textContent).toContain('수신함이나 Triage에서 현재 필터를 저장할 수 있습니다.');
     expect(input()).toBeNull();
@@ -155,7 +157,7 @@ describe('savedViewsSlot', () => {
 
   it('on the dashboard lists the saved views', async () => {
     rows = [row('a', '높음 보기', { view: 'inbox', 'filter.severity': 'high' })];
-    await mount('/operations/dashboard');
+    await mount('/flow/dashboard');
     await settle();
     expect(applyButton('높음 보기')).toBeTruthy();
     expect(host!.textContent).not.toContain('수신함이나 Triage');
@@ -164,7 +166,7 @@ describe('savedViewsSlot', () => {
 
 describe('save', () => {
   it('posts the mapped inbox filter', async () => {
-    await mount('/operations/inbox?q=abc&severity=high&managedSystem=ms1&area=x&focus=9');
+    await mount('/flow/inbox?q=abc&severity=high&managedSystem=ms1&area=x&focus=9');
     await settle();
     await type('내 보기');
     expect(posted).toEqual([{ surface: 'voc', name: '내 보기', filter: { view: 'inbox', q: 'abc', 'filter.severity': 'high', managed_system_id: 'ms1' } }]);
@@ -172,7 +174,7 @@ describe('save', () => {
   });
 
   it('stores no returnTo when saved from a screen that carries one (#760)', async () => {
-    await mount('/operations/inbox?q=abc&managedSystem=ms1&returnTo=%2Forigin%3Fv%3D1');
+    await mount('/flow/inbox?q=abc&managedSystem=ms1&returnTo=%2Forigin%3Fv%3D1');
     await settle();
     await type('돌아가기 없는 보기');
     expect(JSON.stringify(posted)).not.toContain('returnTo');
@@ -180,7 +182,7 @@ describe('save', () => {
   });
 
   it('posts the Triage view with its fixed view key', async () => {
-    await mount('/operations/triage?tab=high&managedSystem=ms1');
+    await mount('/flow/triage?tab=high&managedSystem=ms1');
     await settle();
     await type('트리아지');
     expect(posted).toEqual([{ surface: 'voc', name: '트리아지', filter: { view: 'triage', tab: 'high', managed_system_id: 'ms1' } }]);
@@ -188,7 +190,7 @@ describe('save', () => {
 
   it('reports a taken name through the kernel toast with screen copy and keeps the typed name', async () => {
     failPost = { status: 409, code: 'conflict.saved_view_name_taken' };
-    await mount('/operations/inbox');
+    await mount('/flow/inbox');
     await settle();
     await type('중복');
     expect(toasts()).toEqual([['danger', '이미 사용 중인 저장된 보기 이름입니다.']]);
@@ -202,10 +204,10 @@ describe('apply', () => {
 
   it('lands on 수신함 with exactly the stored keys and clears a carried managedSystem', async () => {
     rows = [row('a', '높음', { view: 'inbox', 'filter.severity': 'high' })];
-    await mount('/operations/inbox?q=old&managedSystem=ms1&sort=-created&returnTo=%2Forigin%3Fv%3D1');
+    await mount('/flow/inbox?q=old&managedSystem=ms1&sort=-created&returnTo=%2Forigin%3Fv%3D1');
     await settle();
     await click('높음');
-    expect(window.location.pathname).toBe('/operations/inbox');
+    expect(window.location.pathname).toBe('/flow/inbox');
     const search = new URLSearchParams(window.location.search);
     expect(search.get('severity')).toBe('high');
     expect([...search.keys()].filter(key => key !== 'severity' && key !== 'v')).toEqual([]);
@@ -214,18 +216,18 @@ describe('apply', () => {
 
   it('keeps the stored managedSystem and lands on Triage for a triage view from another menu', async () => {
     rows = [row('a', '트리아지', { view: 'triage', tab: 'high', managed_system_id: 'ms2' })];
-    await mount('/operations/dashboard');
+    await mount('/flow/dashboard');
     await settle();
     await click('트리아지');
-    expect(new URL(path(), 'http://x').pathname).toBe('/operations/triage');
+    expect(new URL(path(), 'http://x').pathname).toBe('/flow/triage');
     const search = new URLSearchParams(window.location.search);
     expect(search.get('tab')).toBe('high');
     expect(search.get('managedSystem')).toBe('ms2');
   });
 
   it.each([
-    ['inbox', '/operations/inbox?managedSystem=ms1', '/operations/inbox'],
-    ['triage', '/operations/triage?managedSystem=ms1', '/operations/triage'],
+    ['inbox', '/flow/inbox?managedSystem=ms1', '/flow/inbox'],
+    ['triage', '/flow/triage?managedSystem=ms1', '/flow/triage'],
   ])('applies a stored managed_system_id all as a cleared scope for a %s view', async (view, start, pathname) => {
     rows = [row('a', '전체', { view, managed_system_id: 'all' })];
     await mount(start);
@@ -238,10 +240,10 @@ describe('apply', () => {
 
   it('leaves a stored view no table maps inert', async () => {
     rows = [row('a', '이상함', { view: 'mystery' })];
-    await mount('/operations/dashboard');
+    await mount('/flow/dashboard');
     await settle();
     await click('이상함');
-    expect(path()).toBe('/operations/dashboard');
+    expect(path()).toBe('/flow/dashboard');
   });
 });
 
@@ -249,7 +251,7 @@ describe('session states', () => {
   it('shows a loading line, not 실서버 필요, while the list loads', async () => {
     let release!: () => void;
     getGate = new Promise<void>(resolve => { release = resolve; });
-    await mount('/operations/dashboard');
+    await mount('/flow/dashboard');
     await settle();
     expect(host!.textContent).toContain('불러오는 중…');
     expect(host!.textContent).not.toContain('실서버 필요');
@@ -261,7 +263,7 @@ describe('session states', () => {
 
   it('shows the session-lost wording once the session is retired', async () => {
     unauthorized = true;
-    await mount('/operations/dashboard');
+    await mount('/flow/dashboard');
     await settle();
     expect(host!.textContent).toContain('세션이 만료되었습니다');
     expect(host!.textContent).not.toContain('실서버 필요');
@@ -277,7 +279,7 @@ describe('delete and focus recovery', () => {
 
   it('focuses the next surviving row', async () => {
     rows = three();
-    await mount('/operations/dashboard');
+    await mount('/flow/dashboard');
     await settle();
     await del('B');
     expect(document.activeElement).toBe(applyButton('C'));
@@ -285,7 +287,7 @@ describe('delete and focus recovery', () => {
 
   it('focuses the previous row when the last one is deleted', async () => {
     rows = three();
-    await mount('/operations/dashboard');
+    await mount('/flow/dashboard');
     await settle();
     await del('C');
     expect(document.activeElement).toBe(applyButton('B'));
@@ -293,7 +295,7 @@ describe('delete and focus recovery', () => {
 
   it('focuses the save input when the last row is deleted on 수신함', async () => {
     rows = [row('a', 'A', { view: 'inbox' })];
-    await mount('/operations/inbox');
+    await mount('/flow/inbox');
     await settle();
     await del('A');
     expect(document.activeElement).toBe(input());
@@ -302,7 +304,7 @@ describe('delete and focus recovery', () => {
   it('keeps focus and reports a rejected delete through the toast', async () => {
     rows = three();
     failDelete = true;
-    await mount('/operations/dashboard');
+    await mount('/flow/dashboard');
     await settle();
     const button = host!.querySelector<HTMLButtonElement>('button[aria-label="저장된 보기 B 삭제"]')!;
     button.focus();
@@ -316,10 +318,10 @@ describe('delete and focus recovery', () => {
     rows = three();
     let release!: () => void;
     deleteGate = new Promise<void>(resolve => { release = resolve; });
-    await mount('/operations/inbox');
+    await mount('/flow/inbox');
     await settle();
     await act(async () => { host!.querySelector<HTMLButtonElement>('button[aria-label="저장된 보기 B 삭제"]')!.click(); });
-    await act(async () => { go('/operations/triage'); });
+    await act(async () => { go('/flow/triage'); });
     await settle();
     input()!.focus();
     await act(async () => { release(); });
@@ -330,13 +332,13 @@ describe('delete and focus recovery', () => {
 
   it('drops an armed recovery when the route changes before the list refetch lands', async () => {
     rows = three();
-    await mount('/operations/inbox');
+    await mount('/flow/inbox');
     await settle();
     let release!: () => void;
     getGate = new Promise<void>(resolve => { release = resolve; });
     await act(async () => { host!.querySelector<HTMLButtonElement>('button[aria-label="저장된 보기 B 삭제"]')!.click(); });
     await act(async () => { await new Promise(resolve => setTimeout(resolve, 100)); });
-    await act(async () => { go('/operations/triage'); });
+    await act(async () => { go('/flow/triage'); });
     input()!.focus();
     await act(async () => { release(); });
     await settle();
@@ -348,7 +350,7 @@ describe('delete and focus recovery', () => {
     rows = three();
     let release!: () => void;
     deleteGate = new Promise<void>(resolve => { release = resolve; });
-    await mount('/operations/dashboard');
+    await mount('/flow/dashboard');
     await settle();
     await act(async () => { host!.querySelector<HTMLButtonElement>('button[aria-label="저장된 보기 B 삭제"]')!.click(); });
     await act(async () => { release(); });
@@ -371,7 +373,7 @@ describe('saved-view focus and drafts across navigation (#597)', () => {
     rows = [row('a', 'A', {view: 'inbox'}), row('b', 'B', {view: 'inbox'})];
     let release!: () => void;
     deleteGate = new Promise<void>(resolve => {release = resolve;});
-    await mount('/operations/inbox'); await settle();
+    await mount('/flow/inbox'); await settle();
     await act(async () => {host!.querySelector<HTMLButtonElement>('button[aria-label="저장된 보기 A 삭제"]')!.click();});
     const field = outside();
     await act(async () => {release();}); await settle();
@@ -383,7 +385,7 @@ describe('saved-view focus and drafts across navigation (#597)', () => {
     rows = [row('a', 'A', {view: 'inbox'})]; failDelete = true;
     let release!: () => void;
     deleteGate = new Promise<void>(resolve => {release = resolve;});
-    await mount('/operations/inbox'); await settle();
+    await mount('/flow/inbox'); await settle();
     await act(async () => {host!.querySelector<HTMLButtonElement>('button[aria-label="저장된 보기 A 삭제"]')!.click();});
     const field = outside();
     await act(async () => {release();}); await settle();
@@ -395,10 +397,10 @@ describe('saved-view focus and drafts across navigation (#597)', () => {
     rows = [row('a', 'A', {view: 'inbox'}), row('b', 'B', {view: 'inbox'})];
     let release!: () => void;
     deleteGate = new Promise<void>(resolve => {release = resolve;});
-    await mount('/operations/inbox'); await settle();
+    await mount('/flow/inbox'); await settle();
     await act(async () => {host!.querySelector<HTMLButtonElement>('button[aria-label="저장된 보기 A 삭제"]')!.click();});
-    await act(async () => {go('/operations/triage');}); await settle();
-    await act(async () => {go('/operations/inbox');}); await settle();
+    await act(async () => {go('/flow/triage');}); await settle();
+    await act(async () => {go('/flow/inbox');}); await settle();
     const field = outside();
     await act(async () => {release();}); await settle();
     expect(document.activeElement).toBe(field);
@@ -407,7 +409,7 @@ describe('saved-view focus and drafts across navigation (#597)', () => {
   it('keeps a long name discoverable through its full title and clipped label', async () => {
     const name = '가'.repeat(200);
     rows = [row('a', name, {view: 'inbox'})];
-    await mount('/operations/inbox'); await settle();
+    await mount('/flow/inbox'); await settle();
     expect(applyButton(name).title).toBe(name);
     expect(applyButton(name).querySelector('span')!.classList.contains('truncate')).toBe(true);
   });
@@ -418,7 +420,7 @@ it.each([['c', 'b'], ['b', 'c']])('concurrent deletes settling %s then %s focus 
   rows = [row('a', 'A', { view: 'inbox' }), row('b', 'B', { view: 'inbox' }), row('c', 'C', { view: 'inbox' })];
   const releases = new Map<string, () => void>();
   for (const id of ['b', 'c']) deleteGates.set(id, new Promise<void>(resolve => { releases.set(id, resolve); }));
-  await mount('/operations/inbox'); await settle();
+  await mount('/flow/inbox'); await settle();
   await act(async () => {
     for (const name of ['C', 'B']) {
       const button = host!.querySelector<HTMLButtonElement>(`button[aria-label="저장된 보기 ${name} 삭제"]`)!;

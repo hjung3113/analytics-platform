@@ -21,16 +21,16 @@ beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); picker.props.
 afterEach(() => { cleanup(); setFeatureApi(null); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
 describe('목록 범위 picker (ready session)', () => {
-  const Control = scopeControlSlot.For(spaceId('operations'), manifests[0]!)!;
+  const Control = scopeControlSlot.For(spaceId('flow'), manifests[0]!)!;
 
   it('gets a uuid managedSystem as its value', async () => {
-    mountAt(`/operations/dashboard?managedSystem=${SYSTEM}`, { extra: <Control collapsed={false} /> });
+    mountAt(`/flow/dashboard?managedSystem=${SYSTEM}`, { extra: <Control collapsed={false} /> });
     await screen.findByTestId('picker', undefined, LAZY_MOUNT_WAIT);
     expect(picker.props.at(-1)?.value).toBe(SYSTEM);
   });
 
   it.each(['not-a-uuid', ''])('does not pass the invalid managedSystem %j to the picker as a selection', async value => {
-    mountAt(`/operations/dashboard?managedSystem=${value}`, { extra: <Control collapsed={false} /> });
+    mountAt(`/flow/dashboard?managedSystem=${value}`, { extra: <Control collapsed={false} /> });
     await screen.findByTestId('picker', undefined, LAZY_MOUNT_WAIT);
     await waitFor(() => expect(picker.props.length).toBeGreaterThan(0));
     expect(picker.props.every(props => props.value === undefined)).toBe(true);
@@ -45,21 +45,21 @@ describe('scope change (screen parity, #762 k)', () => {
   const probe = (id: string, path: string, pageKeys: string[]) => ({ ...manifests[0]!, id, primary: false, path, pageKeys });
   const registry = createRegistry({
     carrySets: [{ id: carrySetId('features'), pageKeys: ['managedSystem', 'returnTo'] }],
-    spaces: [{ id: spaceId('operations'), label: { ko: 'Feature', en: 'Feature' }, description: { ko: '목적', en: 'Purpose' }, permission: 'features:access', homeMenuId: 'dashboard' }],
-    groups: [{ id: groupId('dashboard'), label: { ko: '대시보드', en: 'Dashboard' }, icon: ListTodo, space: spaceId('operations') }],
-    menus: [...manifests, probe('probe-area', '/operations/probe-area', ['focus', 'managedSystem', 'area', 'returnTo']), probe('probe-cursor', '/operations/probe-cursor', ['focus', 'managedSystem', 'cursor', 'returnTo'])],
+    spaces: [{ id: spaceId('flow'), label: { ko: 'Feature', en: 'Feature' }, description: { ko: '목적', en: 'Purpose' }, permission: 'features:access', homeMenuId: 'dashboard' }],
+    groups: [{ id: groupId('dashboard'), label: { ko: '대시보드', en: 'Dashboard' }, icon: ListTodo, space: spaceId('flow') }],
+    menus: [...manifests, probe('probe-area', '/flow/probe-area', ['focus', 'managedSystem', 'area', 'returnTo']), probe('probe-cursor', '/flow/probe-cursor', ['focus', 'managedSystem', 'cursor', 'returnTo'])],
   });
   const session = testSession(['platform:view', 'features:access'], { user: { id: 'admin', name: 'admin', title: { ko: 'admin', en: 'admin' } } });
-  const Control = scopeControlSlot.For(spaceId('operations'), manifests[0]!)!;
+  const Control = scopeControlSlot.For(spaceId('flow'), manifests[0]!)!;
 
   it.each<[string, string, string | undefined, Record<string, string | null>]>([
-    ['/operations/probe-area', `managedSystem=${S1}&cursor=c1`, S2, { managedSystem: S2, cursor: 'c1' }],
-    ['/operations/probe-area', `managedSystem=${S1}&cursor=c1`, undefined, { managedSystem: null, cursor: 'c1' }],
-    ['/operations/probe-area', `managedSystem=${S1}&area=${AREA}&focus=${FOCUS}`, S2, { managedSystem: S2, area: null, focus: FOCUS }],
-    ['/operations/probe-area', `managedSystem=${S1}&area=unset`, S2, { managedSystem: S2, area: 'unset' }],
-    ['/operations/probe-area', `managedSystem=${S1}&area=${AREA}`, undefined, { managedSystem: null, area: AREA }],
-    ['/operations/probe-cursor', `managedSystem=${S1}&cursor=c1&focus=${FOCUS}`, S2, { managedSystem: S2, cursor: null, focus: FOCUS }],
-    ['/operations/probe-cursor', `managedSystem=${S1}&cursor=c1`, undefined, { managedSystem: null, cursor: null }],
+    ['/flow/probe-area', `managedSystem=${S1}&cursor=c1`, S2, { managedSystem: S2, cursor: 'c1' }],
+    ['/flow/probe-area', `managedSystem=${S1}&cursor=c1`, undefined, { managedSystem: null, cursor: 'c1' }],
+    ['/flow/probe-area', `managedSystem=${S1}&area=${AREA}&focus=${FOCUS}`, S2, { managedSystem: S2, area: null, focus: FOCUS }],
+    ['/flow/probe-area', `managedSystem=${S1}&area=unset`, S2, { managedSystem: S2, area: 'unset' }],
+    ['/flow/probe-area', `managedSystem=${S1}&area=${AREA}`, undefined, { managedSystem: null, area: AREA }],
+    ['/flow/probe-cursor', `managedSystem=${S1}&cursor=c1&focus=${FOCUS}`, S2, { managedSystem: S2, cursor: null, focus: FOCUS }],
+    ['/flow/probe-cursor', `managedSystem=${S1}&cursor=c1`, undefined, { managedSystem: null, cursor: null }],
   ])('%s?%s choosing %s', async (path, query, next, expected) => {
     window.history.replaceState(null, '', `${path}?${query}`);
     render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}><Control collapsed={false} /></PlatformProvider></I18nProvider>);
@@ -70,7 +70,7 @@ describe('scope change (screen parity, #762 k)', () => {
   });
 
   it('writes only managedSystem on a menu that declares neither area nor cursor', async () => {
-    window.history.replaceState(null, '', `/operations/dashboard?managedSystem=${S1}`);
+    window.history.replaceState(null, '', `/flow/dashboard?managedSystem=${S1}`);
     render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}><Control collapsed={false} /></PlatformProvider></I18nProvider>);
     await screen.findByTestId('picker', undefined, LAZY_MOUNT_WAIT);
     act(() => picker.props.at(-1)!.onChange(S2));
@@ -86,25 +86,25 @@ describe('관리자 group turns 목록 범위 off (#764 k, ADR-0081 d4)', () => 
   const probe = (id: string, path: string, group: string) => ({ ...manifests[0]!, id, primary: true, path, group: groupId(group), pageKeys: ['focus', 'managedSystem', 'returnTo'] }) as (typeof manifests)[number];
   const registry = createRegistry({
     carrySets: [{ id: carrySetId('features'), pageKeys: ['managedSystem', 'returnTo'] }],
-    spaces: [{ id: spaceId('operations'), label: { ko: 'Feature', en: 'Feature' }, description: { ko: '목적', en: 'Purpose' }, permission: 'features:access', homeMenuId: 'dashboard' }],
-    groups: ['dashboard', 'featureAdmin', 'voc'].map(id => ({ id: groupId(id), label: { ko: id, en: id }, icon: ListTodo, space: spaceId('operations') })),
-    menus: [...manifests, probe('probe-admin', '/operations/probe-admin', 'featureAdmin'), probe('probe-voc', '/operations/probe-voc', 'voc')],
+    spaces: [{ id: spaceId('flow'), label: { ko: 'Feature', en: 'Feature' }, description: { ko: '목적', en: 'Purpose' }, permission: 'features:access', homeMenuId: 'dashboard' }],
+    groups: ['dashboard', 'flowSettings', 'voc'].map(id => ({ id: groupId(id), label: { ko: id, en: id }, icon: ListTodo, space: spaceId('flow') })),
+    menus: [...manifests, probe('probe-admin', '/flow/probe-admin', 'flowSettings'), probe('probe-voc', '/flow/probe-voc', 'voc')],
   });
   const session = testSession(['platform:view', 'features:access'], { user: { id: 'admin', name: 'admin', title: { ko: 'admin', en: 'admin' } } });
-  const Control = scopeControlSlot.For(spaceId('operations'), manifests[0]!)!;
+  const Control = scopeControlSlot.For(spaceId('flow'), manifests[0]!)!;
   const mount = async (path: string) => {
     window.history.replaceState(null, '', `${path}?managedSystem=${S1}`);
     render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}><Control collapsed={false} /></PlatformProvider></I18nProvider>);
     await screen.findByTestId('picker', undefined, LAZY_MOUNT_WAIT);
   };
 
-  it('disables the picker on a featureAdmin menu and keeps the carried value', async () => {
-    await mount('/operations/probe-admin');
+  it('disables the picker on a flowSettings menu and keeps the carried value', async () => {
+    await mount('/flow/probe-admin');
     expect(picker.props.at(-1)?.disabled).toBe(true);
     expect(picker.props.at(-1)?.value).toBe(S1);
   });
 
-  it.each(['/operations/dashboard', '/operations/probe-voc'])('leaves the picker enabled on %s', async path => {
+  it.each(['/flow/dashboard', '/flow/probe-voc'])('leaves the picker enabled on %s', async path => {
     await mount(path);
     expect(picker.props.every(props => props.disabled === undefined)).toBe(true);
   });

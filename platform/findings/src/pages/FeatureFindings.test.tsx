@@ -3,6 +3,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { memoryStorage } from '@ap/kernel/testing';
 import { setFeatureApi } from '@ap/feature-bridge/feature-api';
 import { LAZY_MOUNT_WAIT } from '@ap/feature-bridge/testing';
+import type { ReactNode } from 'react';
 import { useHostSeam } from '@/lib/host/host-seam';
 import { mountAt, warmPages } from '../test-support';
 
@@ -11,6 +12,18 @@ const screenMock = vi.hoisted(() => ({
   list: [] as { renderDetail: (id: string | null, options: { listDenied: boolean; returnTo: string | null }) => unknown }[],
   detailArgs: [] as { findingId: string; onClose: () => void }[],
   mounts: 0,
+  evidence: [] as { renderDetail: (parts: Parts) => ReactNode }[],
+  requestClose: vi.fn(),
+}));
+vi.mock('@ap/feature-screens/operator-screens/evidence', () => ({
+  EvidenceScreen: (props: { renderDetail: (parts: Parts) => ReactNode }) => {
+    screenMock.evidence.push(props);
+    const seam = useHostSeam();
+    const selected = seam.useSearch!().selected;
+    return <div data-testid="evidence" data-selected={selected ?? ''} data-here={seam.useHere!()}>
+      {selected !== undefined && props.renderDetail({ title: `근거 ${selected}`, body: <p>근거 본문 {selected}</p>, requestClose: screenMock.requestClose })}
+    </div>;
+  },
 }));
 vi.mock('@ap/feature-screens/operator-screens/findings', () => ({
   FindingsScreen: (props: { renderDetail: (id: string | null, options: { listDenied: boolean; returnTo: string | null }) => unknown }) => {
@@ -33,14 +46,17 @@ vi.mock('@ap/feature-screens/operator-screens/finding-detail', async () => {
 const SYSTEM = '33333333-3333-4333-8333-333333333333';
 const FINDING_A = '99999999-9999-4999-8999-99999999999a';
 const FINDING_B = '99999999-9999-4999-8999-99999999999b';
-const PATH = '/operations/findings';
+const PATH = '/flow/findings';
+const EVIDENCE_PATH = '/flow/evidence';
+const EVIDENCE = '99999999-9999-4999-8999-999999999999';
+type Parts = Record<string, unknown>;
 const request = vi.fn();
 
 beforeAll(warmPages, 60_000);
 beforeEach(() => {
   vi.stubGlobal('localStorage', memoryStorage());
   vi.stubGlobal('fetch', request);
-  screenMock.list.length = 0; screenMock.detailArgs.length = 0; screenMock.mounts = 0; request.mockReset();
+  screenMock.list.length = 0; screenMock.detailArgs.length = 0; screenMock.mounts = 0; screenMock.evidence.length = 0; screenMock.requestClose.mockReset(); request.mockReset();
 });
 afterEach(() => { cleanup(); setFeatureApi(null); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
@@ -122,6 +138,47 @@ describe('전체 Finding with an invalid address value', () => {
     expect(screen.queryByTestId('list')).toBeNull();
     expect(screenMock.list).toEqual([]);
     expect(screenMock.detailArgs).toEqual([]);
+    expect(request).not.toHaveBeenCalled();
+    expect(window.location.search).toBe(search);
+  });
+});
+
+describe('근거 without a feature API (mock preview)', () => {
+  it('shows 실서버 필요 and mounts no screen', async () => {
+    mountAt(EVIDENCE_PATH);
+    await screen.findByRole('heading', { name: '근거' }, LAZY_MOUNT_WAIT);
+    expect(screen.getByRole('status').textContent).toContain('실서버 필요');
+    expect(screen.queryByTestId('evidence')).toBeNull();
+  });
+});
+
+describe('근거 through the feature bridge', () => {
+  beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() }); });
+
+  it('mounts the screen reading the page as the screen /integration/evidence path', async () => {
+    mountAt(`${EVIDENCE_PATH}?source=voc&q=pump&managedSystem=${SYSTEM}`);
+    await screen.findByTestId('evidence');
+    const here = new URL(screen.getByTestId('evidence').getAttribute('data-here')!, 'http://x');
+    expect(here.pathname).toBe('/integration/evidence');
+    expect(Object.fromEntries(here.searchParams)).toEqual({ source: 'voc', q: 'pump', managedSystem: SYSTEM });
+  });
+
+  it('renders the screen\'s renderDetail(parts) result as the drawer in place, and its close is requestClose', async () => {
+    mountAt(`${EVIDENCE_PATH}?focus=${EVIDENCE}`);
+    expect((await screen.findByTestId('evidence')).getAttribute('data-selected')).toBe(EVIDENCE);
+    const dialog = await within(await screen.findByRole('complementary', { name: '상세 패널' })).findByRole('dialog');
+    expect(within(dialog).getByText(`근거 본문 ${EVIDENCE}`)).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole('button', { name: '상세 닫기' }));
+    expect(screenMock.requestClose).toHaveBeenCalledOnce();
+    expect(new URLSearchParams(window.location.search).get('focus')).toBe(EVIDENCE);
+  });
+
+  it.each([['source', 'x'], ['managedSystem', 'x']])('rejects an invalid %s=%s, keeps the address and mounts no screen', async (key, value) => {
+    const search = `?${key}=${encodeURIComponent(value)}`;
+    mountAt(`${EVIDENCE_PATH}${search}`);
+    expect(await screen.findByText(`주소의 ${key} 값이 올바르지 않습니다`, undefined, LAZY_MOUNT_WAIT)).toBeTruthy();
+    expect(screen.queryByTestId('evidence')).toBeNull();
+    expect(screenMock.evidence).toEqual([]);
     expect(request).not.toHaveBeenCalled();
     expect(window.location.search).toBe(search);
   });

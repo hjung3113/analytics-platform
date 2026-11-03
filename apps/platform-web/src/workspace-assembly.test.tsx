@@ -46,10 +46,10 @@ describe('workspace assembly (#260)', () => {
     vi.unstubAllGlobals();
   });
 
-  it('registers the 내 활동 menus as global menus behind platform:view; 알림, 설문 and 권한 요청 have screens (ADR-0070, ADR-0071)', () => {
-    for (const [id, path] of [['notifications', '/notifications'], ['surveys', '/survey'], ['permission-requests', '/permission-requests']] as const) {
+  it('registers the 알림 and 권한 요청 (내 활동) and 설문 (소통) menus as global menus behind platform:view; all have screens (ADR-0070, ADR-0071, ADR-0110)', () => {
+    for (const [id, group, path] of [['notifications', 'myActivity', '/notifications'], ['surveys', 'noticeVoc', '/survey'], ['permission-requests', 'myActivity', '/permission-requests']] as const) {
       const entry = registry.menuById(id);
-      expect(entry).toMatchObject({ group: 'myActivity', path, permission: 'platform:view' });
+      expect(entry).toMatchObject({ group, path, permission: 'platform:view' });
       expect(registry.spaceOf(entry)).toBeNull();
       expect(entry.component).toBeDefined();
       expect(entry.moduleScreen).toBeUndefined();
@@ -58,7 +58,7 @@ describe('workspace assembly (#260)', () => {
 
   it('registers the survey response page as a navHidden child of 설문 with the survey ID as a path parameter (#653)', () => {
     const entry = registry.menuById('survey-respond');
-    expect(entry).toMatchObject({ group: 'myActivity', parent: 'surveys', navHidden: true, path: '/survey/:surveyId/respond', aliases: ['/surveys/:surveyId/respond'], permission: 'platform:view', pageKeys: ['returnTo'] });
+    expect(entry).toMatchObject({ group: 'noticeVoc', parent: 'surveys', navHidden: true, path: '/survey/:surveyId/respond', aliases: ['/surveys/:surveyId/respond'], permission: 'platform:view', pageKeys: ['returnTo'] });
     expect(entry.component).toBeDefined();
     expect(registry.spaceOf(entry)).toBeNull();
     expect(registry.matchRoute('/survey/11111111-1111-4111-8111-111111111111/respond')).toMatchObject({ viaAlias: false, params: { surveyId: '11111111-1111-4111-8111-111111111111' } });
@@ -66,24 +66,25 @@ describe('workspace assembly (#260)', () => {
     expect(registry.matchRoute('/surveys')).toMatchObject({ viaAlias: true, menu: { id: 'surveys' } });
   });
 
-  it('registers 내 VOC in 내 활동 behind voc:view with the reporter page keys, and its detail as a navHidden child with the VOC ID as a path parameter (#654)', () => {
+  it('registers VOC in 소통 behind voc:view with the reporter page keys, and its detail as a navHidden child with the VOC ID as a path parameter (#654)', () => {
     const entry = registry.menuById('voc');
-    expect(entry).toMatchObject({ group: 'myActivity', path: '/voc', permission: 'voc:view', pageKeys: ['q', 'status', 'sort', 'focus'] });
+    expect(entry).toMatchObject({ group: 'noticeVoc', path: '/voc', permission: 'voc:view', pageKeys: ['q', 'status', 'sort', 'focus'] });
     expect(entry.component).toBeDefined();
     expect(registry.spaceOf(entry)).toBeNull();
     const detail = registry.menuById('voc-detail');
-    expect(detail).toMatchObject({ group: 'myActivity', parent: 'voc', navHidden: true, path: '/voc/:vocId', permission: 'voc:view', pageKeys: ['returnTo'] });
+    expect(detail).toMatchObject({ group: 'noticeVoc', parent: 'voc', navHidden: true, path: '/voc/:vocId', permission: 'voc:view', pageKeys: ['returnTo'] });
     expect(detail.component).toBeDefined();
     expect(registry.matchRoute('/voc/11111111-1111-4111-8111-111111111111')?.menu.id).toBe('voc-detail');
     expect(registry.matchRoute('/voc')?.menu.id).toBe('voc');
-    expect(registry.menus.filter(menu => menu.group === 'myActivity' && !menu.navHidden).map(menu => menu.id)).toEqual(['notifications', 'voc', 'my-tasks', 'surveys', 'permission-requests']);
+    expect(registry.menus.filter(menu => menu.group === 'myActivity' && !menu.navHidden).map(menu => menu.id)).toEqual(['notifications', 'my-tasks', 'permission-requests']);
+    expect(registry.menus.filter(menu => menu.group === 'noticeVoc' && !menu.navHidden).map(menu => menu.id)).toEqual(['notices', 'faq', 'voc', 'surveys']);
   });
 
-  it.skipIf(probeRun)('registers seven spaces and the decided group order', () => {
+  it.skipIf(probeRun)('registers eight spaces and the decided group order', () => {
     expect(GROUPS.map(group => [group.id, group.space])).toEqual([
       ['overview', null],
-      ['myActivity', null],
       ['noticeVoc', null],
+      ['myActivity', null],
       ['analytics', 'mars'],
       ['equipment', 'mars'],
       ['masterData', 'mars'],
@@ -102,16 +103,17 @@ describe('workspace assembly (#260)', () => {
       ['impMyWork', 'improvement'],
       ['impTasks', 'improvement'],
       ['impReports', 'improvement'],
-      ['voc', 'operations'],
-      ['findings', 'operations'],
-      ['tasks', 'operations'],
-      ['surveys', 'operations'],
-      ['dashboard', 'operations'],
-      ['integration', 'operations'],
-      ['featureAdmin', 'operations'],
+      ['dashboard', 'flow'],
+      ['voc', 'flow'],
+      ['findings', 'flow'],
+      ['tasks', 'flow'],
+      ['surveys', 'flow'],
+      ['integration', 'flow'],
+      ['flowSettings', 'flow'],
       ['admin', 'operations'],
+      ['access', 'operations'],
     ]);
-    expect(SPACES.map(space => space.id)).toEqual(['mars', 'bravo', 'clas', 'tools', 'log-dev', 'improvement', 'operations']);
+    expect(SPACES.map(space => space.id)).toEqual(['mars', 'bravo', 'clas', 'tools', 'log-dev', 'improvement', 'flow', 'operations']);
     expect(SPACE_DEFS[0]).toMatchObject({
       label: { ko: 'MARS', en: 'MARS' },
       subtitle: { ko: '생산성 분석', en: 'Productivity analysis' },
@@ -135,71 +137,85 @@ describe('workspace assembly (#260)', () => {
     // #817: the EV Top View lives in its own "tools" space; no entry permission (a space permission must be a platform permission, the module one is eqv:view).
     expect(SPACE_DEFS[3]).toMatchObject({ label: { ko: '도구', en: 'Tools' }, homeMenuId: 'eqv:topview' });
     expect(SPACE_DEFS[3].permission).toBeUndefined();
-    // #1099c: one operations console, no common F/C gate; it shows only when a member menu is permitted and lands on the dashboard (F) or the first permitted menu (C only).
-    expect(SPACE_DEFS[6]).toMatchObject({ label: { ko: '운영 콘솔', en: 'Operations console' }, homeMenuId: 'dashboard' });
+    // ADR-0110: the 업무 흐름 space (F menus; lands on the dashboard) and the reduced 운영 콘솔 (C menus: platform management and access; lands on 역할); neither has a space permission, each shows only when a member menu is permitted.
+    expect(SPACE_DEFS[6]).toMatchObject({ label: { ko: '업무 흐름', en: 'Workflow' }, description: { ko: '들어온 VOC를 판단하고 Task로 실행한 뒤 설문으로 효과를 확인합니다.', en: 'Judge incoming VOC, run it as Tasks and confirm the effect with surveys.' }, homeMenuId: 'dashboard' });
     expect(SPACE_DEFS[6].permission).toBeUndefined();
     expect(SPACE_DEFS[6].subtitle).toBeUndefined();
-    // #1099b: the one production carry set; every feature operator and feature-admin menu is a member, no other menu is, and the space declares nothing.
+    expect(SPACE_DEFS[7]).toMatchObject({ label: { ko: '운영 콘솔', en: 'Operations console' }, description: { ko: '플랫폼 관리와 권한을 다룹니다.', en: 'Platform administration and access.' }, homeMenuId: 'admin-roles' });
+    expect(SPACE_DEFS[7].permission).toBeUndefined();
+    expect(SPACE_DEFS[7].subtitle).toBeUndefined();
+    // #1099b: the one production carry set; every 업무 흐름 menu is a member, no other menu is, and the space declares nothing.
     expect(registry.carrySets).toEqual([{ id: 'features', pageKeys: ['managedSystem', 'returnTo'] }]);
     expect(SPACE_DEFS[6]).not.toHaveProperty('carriedPageKeys');
-    // Members: every operator and feature-admin menu in the operations console, plus global 내 Task; platform administration (group admin) is not a member.
+    expect(SPACE_DEFS[7]).not.toHaveProperty('carriedPageKeys');
+    // Members: every 업무 흐름 menu and the two access menus (carry set `features`), plus global 내 Task; platform administration (group admin) is not a member.
+    const flowMenus = registry.menus.filter(menu => registry.spaceOf(menu)?.id === 'flow');
     const operationsMenus = registry.menus.filter(menu => registry.spaceOf(menu)?.id === 'operations');
-    const operatorMenus = operationsMenus.filter(menu => menu.group !== 'admin');
-    expect(operatorMenus.length).toBeGreaterThan(0);
-    expect(operatorMenus.every(menu => menu.carrySet === 'features')).toBe(true);
+    const accessMenus = operationsMenus.filter(menu => menu.group === 'access');
+    expect(flowMenus.length).toBeGreaterThan(0);
+    expect(flowMenus.every(menu => menu.carrySet === 'features')).toBe(true);
+    expect(accessMenus.map(menu => menu.id)).toEqual(['permission-request-review', 'permission-grants']);
+    expect(accessMenus.every(menu => menu.carrySet === 'features')).toBe(true);
     expect(operationsMenus.filter(menu => menu.group === 'admin').every(menu => menu.carrySet === undefined)).toBe(true);
-    expect(registry.menus.filter(menu => menu.carrySet !== undefined).map(menu => menu.id).sort()).toEqual([...operatorMenus.map(menu => menu.id), 'my-tasks'].sort());
-    expect(registry.menuById('dashboard')).toMatchObject({ group: 'dashboard', path: '/operations/dashboard', permission: 'features:access', requiresScope: false, pageKeys: ['managedSystem', 'returnTo'] });
-    // #761 p1: the VOC group opens the operations console; every operator menu declares managedSystem and the VOC menus a focus.
+    expect(registry.menus.filter(menu => menu.carrySet !== undefined).map(menu => menu.id).sort()).toEqual([...flowMenus.map(menu => menu.id), ...accessMenus.map(menu => menu.id), 'my-tasks'].sort());
+    // Every group has exactly one primary menu (the Kernel enforces it; pinned here so a moved menu cannot leave a group without one).
+    for (const group of registry.groups) expect(registry.menus.filter(menu => menu.group === group.id && menu.primary === true)).toHaveLength(1);
+    expect(registry.menuById('dashboard')).toMatchObject({ group: 'dashboard', path: '/flow/dashboard', permission: 'features:access', requiresScope: false, pageKeys: ['managedSystem', 'returnTo'] });
+    // #761 p1: the VOC group opens the 업무 흐름 space after the dashboard; every operator menu declares managedSystem and the VOC menus a focus.
     expect(registry.menus.filter(menu => menu.group === 'voc').map(menu => menu.id)).toEqual(['inbox', 'triage', 'clusters']);
-    expect(registry.menuById('inbox')).toMatchObject({ path: '/operations/inbox', permission: 'features:access', requiresScope: false });
-    expect(registry.menuById('triage')).toMatchObject({ path: '/operations/triage', permission: 'features:access', requiresScope: false });
-    expect(registry.menuById('clusters')).toMatchObject({ path: '/operations/clusters', permission: 'features:access', requiresScope: false });
+    expect(registry.menuById('inbox')).toMatchObject({ path: '/flow/inbox', permission: 'features:access', requiresScope: false });
+    expect(registry.menuById('triage')).toMatchObject({ path: '/flow/triage', permission: 'features:access', requiresScope: false });
+    expect(registry.menuById('clusters')).toMatchObject({ path: '/flow/clusters', permission: 'features:access', requiresScope: false });
     for (const id of ['inbox', 'triage', 'clusters']) expect(registry.menuById(id).pageKeys).toEqual(expect.arrayContaining(['managedSystem', 'focus', 'returnTo']));
-    expect(registry.spaceOf(registry.menuById('inbox'))?.id).toBe('operations');
-    // #762 p1: the Findings group sits between VOC and Tasks; its one menu declares managedSystem, returnTo and focus.
-    expect(registry.menus.filter(menu => menu.group === 'findings').map(menu => menu.id)).toEqual(['findings']);
-    expect(registry.menuById('findings')).toMatchObject({ path: '/operations/findings', primary: true, permission: 'features:access', requiresScope: false });
+    expect(registry.spaceOf(registry.menuById('inbox'))?.id).toBe('flow');
+    // #762 p1: the Findings group sits between VOC and Tasks; its menus declare managedSystem, returnTo and focus. 근거 (evidence) joined it in ADR-0110.
+    expect(registry.menus.filter(menu => menu.group === 'findings').map(menu => menu.id)).toEqual(['findings', 'evidence']);
+    expect(registry.menuById('findings')).toMatchObject({ path: '/flow/findings', primary: true, permission: 'features:access', requiresScope: false });
     expect(registry.menuById('findings').pageKeys).toEqual(expect.arrayContaining(['managedSystem', 'focus', 'returnTo']));
-    expect(registry.spaceOf(registry.menuById('findings'))?.id).toBe('operations');
+    expect(registry.spaceOf(registry.menuById('findings'))?.id).toBe('flow');
     // #763: the Tasks group follows VOC (p2 adds Task Requests and Milestones); the Task list is hidden under Tasks (which the shell marks current for it), and every menu declares managedSystem, returnTo and focus.
     expect(registry.menus.filter(menu => menu.group === 'tasks').map(menu => menu.id)).toEqual(['task-requests', 'tasks', 'milestones', 'task-list']);
-    expect(registry.menuById('tasks')).toMatchObject({ path: '/operations/tasks', primary: true, permission: 'features:access', requiresScope: false });
+    expect(registry.menuById('tasks')).toMatchObject({ path: '/flow/tasks', primary: true, permission: 'features:access', requiresScope: false });
     expect(registry.menuById('my-tasks')).toMatchObject({ group: 'myActivity', path: '/my-tasks', permission: 'features:access', requiresScope: false });
     expect(registry.spaceOf(registry.menuById('my-tasks'))).toBeNull();
-    expect(registry.menuById('task-requests')).toMatchObject({ path: '/operations/task-requests', permission: 'features:access', requiresScope: false });
-    expect(registry.menuById('milestones')).toMatchObject({ path: '/operations/milestones', permission: 'features:access', requiresScope: false });
-    expect(registry.menuById('task-list')).toMatchObject({ path: '/operations/task-list', navHidden: true, parent: 'tasks' });
+    expect(registry.menuById('task-requests')).toMatchObject({ path: '/flow/task-requests', permission: 'features:access', requiresScope: false });
+    expect(registry.menuById('milestones')).toMatchObject({ path: '/flow/milestones', permission: 'features:access', requiresScope: false });
+    expect(registry.menuById('task-list')).toMatchObject({ path: '/flow/task-list', navHidden: true, parent: 'tasks' });
     for (const id of ['task-requests', 'tasks', 'my-tasks', 'milestones', 'task-list']) expect(registry.menuById(id).pageKeys).toEqual(expect.arrayContaining(['managedSystem', 'focus', 'returnTo']));
-    expect(registry.spaceOf(registry.menuById('task-list'))?.id).toBe('operations');
-    // #762 p2: the 연동 group closes the rail; four menus, no Findings row (ADR-0081 decision 3), every menu declares managedSystem and returnTo.
-    expect(registry.menus.filter(menu => menu.group === 'integration').map(menu => menu.id)).toEqual(['integration', 'evidence', 'entity-links', 'coverage']);
-    expect(registry.menuById('integration')).toMatchObject({ path: '/operations/integration', primary: true, permission: 'features:access', requiresScope: false });
-    expect(registry.menuById('evidence')).toMatchObject({ path: '/operations/evidence', permission: 'features:access', requiresScope: false });
-    expect(registry.menuById('entity-links')).toMatchObject({ path: '/operations/entity-links', permission: 'features:access', requiresScope: false });
-    expect(registry.menuById('coverage')).toMatchObject({ path: '/operations/coverage', permission: 'features:access', requiresScope: false });
+    expect(registry.spaceOf(registry.menuById('task-list'))?.id).toBe('flow');
+    // #762 p2: the 연동 group has three menus (evidence moved to the findings group, ADR-0110), no Findings row (ADR-0081 decision 3), every menu declares managedSystem and returnTo.
+    expect(registry.menus.filter(menu => menu.group === 'integration').map(menu => menu.id)).toEqual(['integration', 'entity-links', 'coverage']);
+    expect(registry.menuById('integration')).toMatchObject({ path: '/flow/integration', primary: true, permission: 'features:access', requiresScope: false });
+    expect(registry.menuById('evidence')).toMatchObject({ path: '/flow/evidence', permission: 'features:access', requiresScope: false });
+    expect(registry.menuById('entity-links')).toMatchObject({ path: '/flow/entity-links', permission: 'features:access', requiresScope: false });
+    expect(registry.menuById('coverage')).toMatchObject({ path: '/flow/coverage', permission: 'features:access', requiresScope: false });
     for (const id of ['integration', 'evidence', 'entity-links', 'coverage']) {
       expect(registry.menuById(id).pageKeys).toEqual(expect.arrayContaining(['managedSystem', 'returnTo']));
-      expect(registry.spaceOf(registry.menuById(id))?.id).toBe('operations');
+      expect(registry.spaceOf(registry.menuById(id))?.id).toBe('flow');
     }
     // #764 p1: the Surveys group follows 연동; Survey 관리 is primary, its three screens are hidden children (navHidden, parent survey-management) with a :surveyId path param.
     expect(registry.menus.filter(menu => menu.group === 'surveys').map(menu => menu.id)).toEqual(['survey-management', 'survey-builder', 'survey-results', 'survey-follow-up']);
-    expect(registry.menuById('survey-management')).toMatchObject({ path: '/operations/survey-management', primary: true, permission: 'features:access', requiresScope: false });
+    expect(registry.menuById('survey-management')).toMatchObject({ path: '/flow/survey-management', primary: true, permission: 'features:access', requiresScope: false });
     for (const id of ['survey-builder', 'survey-results', 'survey-follow-up']) {
-      expect(registry.menuById(id)).toMatchObject({ path: `/operations/${id}/:surveyId`, navHidden: true, parent: 'survey-management' });
+      expect(registry.menuById(id)).toMatchObject({ path: `/flow/${id}/:surveyId`, navHidden: true, parent: 'survey-management' });
     }
     for (const id of ['survey-management', 'survey-builder', 'survey-results', 'survey-follow-up']) {
       expect(registry.menuById(id).pageKeys).toEqual(expect.arrayContaining(['managedSystem', 'returnTo']));
-      expect(registry.spaceOf(registry.menuById(id))?.id).toBe('operations');
+      expect(registry.spaceOf(registry.menuById(id))?.id).toBe('flow');
     }
-    // #764 p2: the 관리자 group follows Surveys; every screen needs console:access (the workspace-admin rule), not just features:access.
-    const adminIds = ['managed-systems', 'analytics-areas', 'permission-request-review', 'permission-grants', 'settings'];
-    expect(registry.menus.filter(menu => menu.group === 'featureAdmin').map(menu => menu.id)).toEqual(adminIds);
-    expect(registry.menuById('managed-systems')).toMatchObject({ path: '/operations/managed-systems', primary: true });
-    for (const id of adminIds) {
-      expect(registry.menuById(id)).toMatchObject({ permission: 'console:access', requiresScope: false, pageType: 'management' });
+    // #764 p2, ADR-0110: the 설정 group (flowSettings) closes the 업무 흐름 rail; the access group (권한) sits in the 운영 콘솔 under the paths it kept. Every screen needs console:access (the workspace-admin rule), not just features:access.
+    const settingsIds = ['managed-systems', 'analytics-areas', 'settings'];
+    expect(registry.menus.filter(menu => menu.group === 'flowSettings').map(menu => menu.id)).toEqual(settingsIds);
+    expect(registry.menuById('managed-systems')).toMatchObject({ path: '/flow/managed-systems', primary: true });
+    const accessIds = ['permission-request-review', 'permission-grants'];
+    expect(registry.menus.filter(menu => menu.group === 'access').map(menu => menu.id)).toEqual(accessIds);
+    expect(registry.menuById('permission-request-review')).toMatchObject({ path: '/operations/permission-request-review', primary: true });
+    expect(registry.menuById('permission-grants')).toMatchObject({ path: '/operations/permission-grants' });
+    expect(registry.menuById('permission-grants').primary).toBeUndefined();
+    for (const id of [...settingsIds, ...accessIds]) {
+      expect(registry.menuById(id)).toMatchObject({ permission: 'console:access', additionalPermissions: ['features:access'], requiresScope: false, pageType: 'management' });
       expect(registry.menuById(id).pageKeys).toEqual(expect.arrayContaining(['managedSystem', 'returnTo']));
-      expect(registry.spaceOf(registry.menuById(id))?.id).toBe('operations');
+      expect(registry.spaceOf(registry.menuById(id))?.id).toBe(accessIds.includes(id) ? 'operations' : 'flow');
     }
     // #252 (ADR-0065): work-queue first; every menu is planned and open to every signed-in user for now.
     expect(SPACE_DEFS[4]).toMatchObject({ label: { ko: '표준 로그 개발', en: 'Standard log development' }, homeMenuId: 'log-my-queue' });
@@ -223,18 +239,27 @@ describe('workspace assembly (#260)', () => {
     expect(registry.menuById('equipment-master').path).toBe('/mars/equipment-master');
     expect(registry.menuById('equipment-master').aliases).toEqual(['/equipment']);
     expect(registry.menuById('notices').path).toBe('/notices');
+    expect(registry.menuById('faq')).toMatchObject({ group: 'noticeVoc', path: '/faq', permission: 'notice:view', label: { ko: 'FAQ', en: 'FAQ' } });
+    expect(registry.menuById('faq').component).toBeUndefined();
     expect(registry.menuById('voc').path).toBe('/voc');
   });
 
-  it.skipIf(probeRun)('shows the eight operations sections in the decided order and the five 내 활동 entries in the decided order (#1099c)', () => {
-    expect(registry.groups.filter(group => group.space === 'operations').map(group => group.label.ko)).toEqual(['VOC', 'Finding', 'Task 관리', '설문 관리', '대시보드', '연동', '기능 관리', '플랫폼 관리']);
-    expect(registry.groups.filter(group => group.space === 'operations').map(group => group.id)).toEqual(['voc', 'findings', 'tasks', 'surveys', 'dashboard', 'integration', 'featureAdmin', 'admin']);
-    expect(registry.menus.filter(menu => menu.group === 'myActivity' && !menu.navHidden).map(menu => menu.label.ko)).toEqual(['알림', '내 VOC', '내 Task', '응답 설문', '권한 요청']);
-    expect(registry.groups.filter(group => group.space === null).map(group => group.id)).toEqual(['overview', 'myActivity', 'noticeVoc']);
+  it.skipIf(probeRun)('shows the seven 업무 흐름 and two 운영 콘솔 sections, the 내 활동 entries and the 소통 entries in the decided order (#1099c, ADR-0110)', () => {
+    expect(registry.groups.filter(group => group.space === 'flow').map(group => group.label.ko)).toEqual(['대시보드', 'VOC 처리', 'Finding', 'Task', '설문 운영', '연동', '설정']);
+    expect(registry.groups.filter(group => group.space === 'flow').map(group => group.id)).toEqual(['dashboard', 'voc', 'findings', 'tasks', 'surveys', 'integration', 'flowSettings']);
+    expect(registry.groups.find(group => group.id === 'dashboard')?.hideLabelWhenSingle).toBe(true);
+    expect(registry.groups.filter(group => group.space === 'operations').map(group => group.label.ko)).toEqual(['플랫폼 관리', '권한']);
+    expect(registry.groups.filter(group => group.space === 'operations').map(group => group.id)).toEqual(['admin', 'access']);
+    expect(registry.menus.filter(menu => menu.group === 'myActivity' && !menu.navHidden).map(menu => menu.label.ko)).toEqual(['알림', '내 Task', '권한 요청']);
+    expect(registry.groups.find(group => group.id === 'noticeVoc')?.label).toEqual({ ko: '소통', en: 'Communication' });
+    expect(registry.menus.filter(menu => menu.group === 'noticeVoc' && !menu.navHidden).map(menu => menu.label.ko)).toEqual(['공지', 'FAQ', 'VOC', '설문']);
+    expect(registry.menus.filter(menu => menu.group === 'noticeVoc').map(menu => menu.id)).toEqual(['notices', 'faq', 'voc', 'voc-detail', 'surveys', 'survey-respond']);
+    expect(registry.groups.filter(group => group.space === null).map(group => group.id)).toEqual(['overview', 'noticeVoc', 'myActivity']);
     // F and C stay independent: operator sections need F, feature management F and C, platform management C, and 내 Task F without C.
     const need = (id: string) => registry.menuById(id);
-    expect([need('inbox'), need('findings'), need('tasks'), need('survey-management'), need('dashboard'), need('integration'), need('my-tasks')].every(menu => menu.permission === 'features:access' && menu.additionalPermissions === undefined)).toBe(true);
+    expect([need('inbox'), need('findings'), need('evidence'), need('tasks'), need('survey-management'), need('dashboard'), need('integration'), need('my-tasks')].every(menu => menu.permission === 'features:access' && menu.additionalPermissions === undefined)).toBe(true);
     expect(need('managed-systems')).toMatchObject({ permission: 'console:access', additionalPermissions: ['features:access'] });
+    expect(need('permission-grants')).toMatchObject({ permission: 'console:access', additionalPermissions: ['features:access'] });
     expect(need('admin-roles')).toMatchObject({ permission: 'console:access' });
     expect(need('admin-roles').additionalPermissions).toBeUndefined();
     expect(registry.menuById('voc').permission).toBe('voc:view');
@@ -254,6 +279,7 @@ describe('workspace assembly (#260)', () => {
     // The real composition (#251): mapped spaces get three in-shell entries (VOC, Task, 설문); operations has no row.
     expect(slots.features?.entriesFor(spaceId('bravo'))?.map(entry => entry.key)).toEqual(['voc', 'task', 'survey']);
     expect(slots.features?.entriesFor(spaceId('operations'))).toBeNull();
+    expect(slots.features?.entriesFor(spaceId('flow'))).toBeNull();
     expect(slots.features?.entriesFor(spaceId('bravo'))?.map(entry => entry.menuId)).toEqual(['inbox', 'task-list', 'survey-management']);
     expect(Object.keys(slots)).toEqual(['contextBar', 'topBarTools', 'features', 'plannedSpaces', 'boardEntry', 'notifications', 'vocCompose', 'homeTodo', 'scopeControl', 'navCounts', 'spaceNavSection']);
     expect(slots.notifications).toBe(fakeSlot);

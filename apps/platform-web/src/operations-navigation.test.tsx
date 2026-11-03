@@ -10,14 +10,14 @@ const SYSTEM = '33333333-3333-4333-8333-333333333333';
 const OTHER = '44444444-4444-4444-8444-444444444444';
 const PERSONAL = ['platform:view', 'voc:view', 'notice:view'] as const;
 
-type Out = { spaces: string[]; entry: string | null; open: Record<string, boolean>; links: Record<string, string> };
+type Out = { spaces: string[]; entries: Record<'flow' | 'operations', string | null>; open: Record<string, boolean>; links: Record<string, string> };
 let out: Out | null = null;
 
 function Probe({ ids, links }: { ids: string[]; links: Array<[string, Parameters<ReturnType<typeof usePlatform>['resolveLink']>[1]?]> }) {
   const { accessibleSpaces, spaceEntry, canOpen, resolveLink } = usePlatform();
   out = {
     spaces: accessibleSpaces.map(space => space.id),
-    entry: spaceEntry(accessibleSpaces.find(space => space.id === 'operations')?.id ?? ('operations' as never))?.menuId ?? null,
+    entries: Object.fromEntries((['flow', 'operations'] as const).map(id => [id, spaceEntry(accessibleSpaces.find(space => space.id === id)?.id ?? (id as never))?.menuId ?? null])) as Out['entries'],
     open: Object.fromEntries(ids.map(id => [id, canOpen(id)])),
     links: Object.fromEntries(links.map(([id, options], index) => [`${index}:${id}`, resolveLink(id, options).href])),
   };
@@ -35,28 +35,29 @@ function mount(permissions: readonly string[], url: string, ids: string[] = [], 
 beforeEach(() => { out = null; vi.stubGlobal('localStorage', memoryStorage()); vi.stubGlobal('sessionStorage', memoryStorage()); });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
-describe('operations console access: F and C stay independent (#1099c)', () => {
+describe('업무 흐름 and 운영 콘솔 access: F and C stay independent (#1099c, ADR-0110)', () => {
   it.each([
-    ['neither F nor C', [...PERSONAL], false, null],
-    ['F only', [...PERSONAL, 'features:access'], true, 'dashboard'],
-    ['C only', [...PERSONAL, 'console:access'], true, 'admin-roles'],
-    ['F and C', [...PERSONAL, 'features:access', 'console:access'], true, 'dashboard'],
-  ])('%s: the console card and landing follow the permitted members (last → allowed dashboard home → first allowed menu)', (_, permissions, shown, landing) => {
+    ['neither F nor C', [...PERSONAL], false, false, null, null],
+    ['F only', [...PERSONAL, 'features:access'], true, false, 'dashboard', null],
+    ['C only', [...PERSONAL, 'console:access'], false, true, null, 'admin-roles'],
+    ['F and C', [...PERSONAL, 'features:access', 'console:access'], true, true, 'dashboard', 'admin-roles'],
+  ])('%s: the space cards and landings follow the permitted members (last → allowed home → first allowed menu)', (_, permissions, flowShown, operationsShown, flowLanding, operationsLanding) => {
     const result = mount(permissions, '/home');
-    expect(result.spaces.includes('operations')).toBe(shown);
-    expect(result.entry).toBe(landing);
+    expect(result.spaces.includes('flow')).toBe(flowShown);
+    expect(result.spaces.includes('operations')).toBe(operationsShown);
+    expect(result.entries).toEqual({ flow: flowLanding, operations: operationsLanding });
   });
 
   it.each([
-    ['F only', [...PERSONAL, 'features:access'], { inbox: true, tasks: true, 'my-tasks': true, 'survey-management': true, 'managed-systems': false, 'admin-roles': false }],
-    ['C only', [...PERSONAL, 'console:access'], { inbox: false, tasks: false, 'my-tasks': false, 'survey-management': false, 'managed-systems': false, 'admin-roles': true }],
-    ['F and C', [...PERSONAL, 'features:access', 'console:access'], { inbox: true, tasks: true, 'my-tasks': true, 'survey-management': true, 'managed-systems': true, 'admin-roles': true }],
-  ])('%s opens exactly its sections: operator F, feature management F and C, platform management C, 내 Task F without C', (_, permissions, expected) => {
+    ['F only', [...PERSONAL, 'features:access'], { inbox: true, tasks: true, 'my-tasks': true, 'survey-management': true, 'managed-systems': false, 'permission-grants': false, 'admin-roles': false }],
+    ['C only', [...PERSONAL, 'console:access'], { inbox: false, tasks: false, 'my-tasks': false, 'survey-management': false, 'managed-systems': false, 'permission-grants': false, 'admin-roles': true }],
+    ['F and C', [...PERSONAL, 'features:access', 'console:access'], { inbox: true, tasks: true, 'my-tasks': true, 'survey-management': true, 'managed-systems': true, 'permission-grants': true, 'admin-roles': true }],
+  ])('%s opens exactly its sections: operator F, flow settings and access F and C, platform management C, 내 Task F without C', (_, permissions, expected) => {
     const result = mount(permissions, '/home', Object.keys(expected));
     expect(result.open).toEqual(expected);
   });
 
-  it('keeps 내 VOC on voc:view and 응답 설문 on platform:view whatever F and C say', () => {
+  it('keeps VOC on voc:view and 설문 on platform:view whatever F and C say', () => {
     const result = mount(['voc:view'], '/home', ['voc', 'surveys', 'notifications', 'permission-requests']);
     expect(result.open).toEqual({ voc: true, surveys: false, notifications: false, 'permission-requests': false });
     cleanup();
@@ -69,7 +70,7 @@ describe('one list scope policy across the surfaces (#1099c)', () => {
   const query = (href: string) => new URL(href, 'http://x').searchParams.get('managedSystem');
 
   it('carries a filtered VOC list scope to 내 Task and on to another operator menu, and never to personal or console-admin entries', () => {
-    const fromVoc = mount(ALL, `/operations/inbox?managedSystem=${SYSTEM}`, [], [['my-tasks'], ['tasks'], ['managed-systems'], ['admin-roles'], ['voc'], ['home']]);
+    const fromVoc = mount(ALL, `/flow/inbox?managedSystem=${SYSTEM}`, [], [['my-tasks'], ['tasks'], ['managed-systems'], ['admin-roles'], ['voc'], ['home']]);
     expect(query(fromVoc.links['0:my-tasks']!)).toBe(SYSTEM);
     expect(query(fromVoc.links['1:tasks']!)).toBe(SYSTEM);
     expect(query(fromVoc.links['2:managed-systems']!)).toBe(SYSTEM);
@@ -94,7 +95,7 @@ describe('one list scope policy across the surfaces (#1099c)', () => {
   it('serves 내 Task at /my-tasks and no operator menu at a retired /feedbackops address', () => {
     const result = mount(ALL, '/home', [], [['my-tasks'], ['dashboard']]);
     expect(result.links['0:my-tasks']).toMatch(/^\/my-tasks(\?|$)/);
-    expect(result.links['1:dashboard']).toMatch(/^\/operations\/dashboard/);
+    expect(result.links['1:dashboard']).toMatch(/^\/flow\/dashboard/);
     for (const href of Object.values(result.links)) expect(href).not.toContain('/feedbackops');
   });
 });

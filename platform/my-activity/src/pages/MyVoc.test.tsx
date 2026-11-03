@@ -81,8 +81,8 @@ afterEach(() => {
 
 describe('내 VOC without a feature API (mock preview) — V1', () => {
   it.each([
-    ['/voc?v=1', '내 VOC'],
-    [`/voc/${ID_A}?v=1`, '내 VOC 상세'],
+    ['/voc?v=1', 'VOC'],
+    [`/voc/${ID_A}?v=1`, 'VOC 상세'],
   ])('%s shows %s and 실서버 필요 and requests nothing', async (url, heading) => {
     setFeatureApi(null);
     const calls = vocFetch();
@@ -295,7 +295,7 @@ describe('내 VOC through the feature bridge', () => {
   it.each(['not-a-uuid', '..%2F..%2Fme'])('V7: the invalid VOC ID %s is not found and requests nothing', async vocId => {
     const calls = vocFetch();
     mountAt(session().adapter, `/voc/${vocId}?v=1`);
-    expect(await screen.findByRole('heading', { name: '내 VOC 상세' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'VOC 상세' })).toBeTruthy();
     expect(screen.getByText('VOC를 찾을 수 없습니다')).toBeTruthy();
     expect(calls).toEqual([]);
   });

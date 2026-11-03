@@ -26,8 +26,8 @@ vi.mock('@ap/feature-screens/operator-screens/survey-follow-up', () => ({
 
 const AREA = '55555555-5555-4555-8555-555555555555';
 const SURVEY_A = '99999999-9999-4999-8999-99999999999a';
-const LIST = '/operations/survey-management';
-const child = (menu: string) => `/operations/${menu}/${SURVEY_A}`;
+const LIST = '/flow/survey-management';
+const child = (menu: string) => `/flow/${menu}/${SURVEY_A}`;
 const params = () => new URLSearchParams(window.location.search);
 
 beforeAll(warmPages, 60_000);

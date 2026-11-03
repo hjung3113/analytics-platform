@@ -1,10 +1,10 @@
 /**
- * @ap/menu-findings — findings group manifest (feature space Findings: 전체 Finding; ADR-0081, #762).
- * The feature operator Findings screen through the bridge; the page keys equal the route table in `@ap/feature-bridge` (`findingsRoute`; pinned by the page tests),
- * and the app-declared carry set carries `managedSystem` (#1099b, replacing ADR-0081 decision 4). `focus` is the selected Finding (06 §13); the page draws its detail drawer.
+ * @ap/menu-findings — findings group manifest (업무 흐름 space Finding: 전체 Finding, 근거; ADR-0081, #762).
+ * The feature operator Findings screen through the bridge; the page keys equal the route table in `@ap/feature-bridge` (`findingsRoute`, `evidenceRoute`; pinned by the page tests),
+ * and the app-declared carry set carries `managedSystem` (#1099b, replacing ADR-0081 decision 4). `focus` is the selected Finding or Evidence (06 §13); the pages draw their detail drawer.
  */
 import { lazy } from 'react';
-import { ListChecks } from 'lucide-react';
+import { FileBarChart, ListChecks } from 'lucide-react';
 import { NO_FEATURES, contextCapabilities, carrySetId, groupId } from '@ap/contracts';
 import type { MenuEntry } from '@ap/kernel';
 
@@ -17,9 +17,17 @@ export const manifests: MenuEntry[] = [
   {
     id: 'findings', primary: true, group: GROUP, label: { ko: '전체 Finding', en: 'All Findings' },
     description: { ko: 'Finding을 목록에서 찾아 상세를 열고 Evidence와 Task를 연결합니다', en: 'Find Findings in a list, open the detail and link Evidence and Tasks' },
-    path: '/operations/findings', icon: ListChecks, permission: 'features:access', requiresScope: false, pageType: 'management',
+    path: '/flow/findings', icon: ListChecks, permission: 'features:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['focus', 'q', 'area', 'status', 'execution', 'assignment', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
     component: lazy(() => import('./pages/FeatureFindings')),
+  },
+  {
+    id: 'evidence', group: GROUP, label: { ko: '근거', en: 'Evidence' },
+    description: { ko: 'Finding에 연결된 Evidence를 출처별로 찾아 봅니다', en: 'Find Evidence linked to Findings by source' },
+    path: '/flow/evidence', icon: FileBarChart, permission: 'features:access', requiresScope: false, pageType: 'management',
+    context: contextCapabilities(), features: NO_FEATURES,
+    pageKeys: ['focus', 'source', 'q', 'cursor', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
+    component: lazy(() => import('./pages/FeatureEvidence')),
   },
 ];

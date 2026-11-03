@@ -36,4 +36,4 @@ function Control({ collapsed }: { collapsed: boolean }) {
 const CONTROL: ComponentType<{ collapsed: boolean }> = Control;
 
 /** The sidebar list-scope slot for the operator menus of the operations console (ADR-0081 decision 4, #759; #1099c: the menu's own declaration decides, so platform administration mounts nothing). Only `apps/platform-web/src/main.tsx` imports this. */
-export const scopeControlSlot: ScopeControlSlot = { For: (id, menu) => usesListScope(id, menu) ? CONTROL : null };
+export const scopeControlSlot: ScopeControlSlot = { For: (_id, menu) => usesListScope(menu) ? CONTROL : null };

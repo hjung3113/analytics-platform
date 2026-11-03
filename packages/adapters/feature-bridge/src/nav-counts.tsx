@@ -60,4 +60,4 @@ function NavCounts({ children }: { children: (counts: Readonly<Record<string, nu
 const COUNTS: ComponentType<{ children: (counts: Readonly<Record<string, number>> | null) => ReactNode }> = NavCounts;
 
 /** The feature sidebar count badges (06 §8 `navCounts`, #761). Only `apps/platform-web/src/main.tsx` imports this. */
-export const navCountsSlot: NavCountsSlot = { For: (id, menu) => usesNavCounts(id, menu) ? COUNTS : null };
+export const navCountsSlot: NavCountsSlot = { For: (_id, menu) => usesNavCounts(menu) ? COUNTS : null };

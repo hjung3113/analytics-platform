@@ -3,29 +3,33 @@ import { evidence, mainHeading, query, signInAs } from './support';
 import { openSwitcher } from './contract-helpers';
 
 /**
- * #1099 B navigation: one operations console, global 내 활동 with 내 Task, and the list scope only where a menu declares it.
+ * #1099 B navigation (ADR-0110): the 업무 흐름 space and the reduced 운영 콘솔, global 내 활동 with 내 Task and 소통, and the list scope only where a menu declares it.
  * The e2e run uses the mock adapter (`FeatureBridge` renders `실서버 필요`), so the scope picker's choices and server states are the page tests'
  * and the conductor's real-server check; this describe pins composition, order, landing, entry and keyboard reach.
  */
 const SYSTEM = '33333333-3333-4333-8333-333333333333';
 const sections = (page: Page) => page.getByRole('navigation', { name: '시스템 레일' }).getByRole('group', { name: '시스템 섹션' });
 
-test.describe('#1099 B 운영 콘솔과 내 활동', () => {
-  test('admin의 전환기 플랫폼 메뉴는 홈·알림·내 VOC·내 Task·응답 설문·권한 요청·공지 순이다', async ({ page }, testInfo) => {
+test.describe('#1099 B 업무 흐름·운영 콘솔과 내 활동·소통', () => {
+  test('admin의 전환기 플랫폼 메뉴는 홈·공지·FAQ·VOC·설문·알림·내 Task·권한 요청 순이다', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
     await page.goto('/bravo/metric-catalog');
     const popover = await openSwitcher(page);
-    await expect(popover.getByRole('navigation', { name: '플랫폼 메뉴' }).getByRole('link')).toHaveText(['홈', '알림', '내 VOC', '내 Task', '응답 설문', '권한 요청', '공지']);
+    await expect(popover.getByRole('navigation', { name: '플랫폼 메뉴' }).getByRole('link')).toHaveText(['홈', '공지', 'FAQ', 'VOC', '설문', '알림', '내 Task', '권한 요청']);
     await evidence(page, testInfo, 'navigation-my-activity-order');
   });
 
-  test('운영 콘솔 레일은 여덟 섹션을 정해진 순서로 보이고 기능 업무 시스템 행은 없다', async ({ page }, testInfo) => {
+  test('업무 흐름 레일은 일곱 섹션, 운영 콘솔 레일은 두 섹션을 정해진 순서로 보이고 기능 업무 시스템 행은 없다', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
-    await page.goto('/operations/dashboard');
-    const labels = ['VOC', 'Finding', 'Task 관리', '설문 관리', '대시보드', '연동', '기능 관리', '플랫폼 관리'];
-    await expect.poll(async () => (await sections(page).getByRole('button').evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-label') ?? ''))).filter(label => labels.includes(label))).toEqual(labels);
+    await page.goto('/flow/dashboard');
+    const flowLabels = ['대시보드', 'VOC 처리', 'Finding', 'Task', '설문 운영', '연동', '설정'];
+    await expect.poll(async () => (await sections(page).getByRole('button').evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-label') ?? ''))).filter(label => flowLabels.includes(label))).toEqual(flowLabels);
     const popover = await openSwitcher(page);
     await expect(popover.getByRole('button', { name: /^FeedbackOps/ })).toHaveCount(0);
+    await evidence(page, testInfo, 'navigation-flow-sections');
+    await page.goto('/operations/admin-roles');
+    const operationsLabels = ['플랫폼 관리', '권한'];
+    await expect.poll(async () => (await sections(page).getByRole('button').evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-label') ?? ''))).filter(label => operationsLabels.includes(label))).toEqual(operationsLabels);
     await evidence(page, testInfo, 'navigation-console-sections');
   });
 
@@ -41,25 +45,25 @@ test.describe('#1099 B 운영 콘솔과 내 활동', () => {
     }
   });
 
-  test('목록 범위는 운영 메뉴에만 있고 플랫폼 관리 메뉴에는 마운트되지 않는다', async ({ page }) => {
+  test('목록 범위는 업무 흐름 메뉴에만 있고 플랫폼 관리 메뉴에는 마운트되지 않는다', async ({ page }) => {
     await signInAs(page, 'admin');
-    await page.goto(`/operations/inbox?managedSystem=${SYSTEM}`);
+    await page.goto(`/flow/inbox?managedSystem=${SYSTEM}`);
     await expect(page.getByText('목록 범위')).toBeVisible();
     await page.goto('/operations/admin-roles');
     await expect(page.getByRole('main').getByRole('heading', { name: '권한/역할 관리' })).toBeVisible();
     await expect(page.getByText('목록 범위')).toHaveCount(0);
   });
 
-  test('팔레트(Ctrl+K)는 내 Task와 운영 목적지를 전체 경로로 구분해 찾고, 취소하면 열었던 곳으로 포커스가 돌아온다', async ({ page }) => {
+  test('팔레트(Ctrl+K)는 내 Task와 업무 흐름 목적지를 전체 경로로 구분해 찾고, 취소하면 열었던 곳으로 포커스가 돌아온다', async ({ page }) => {
     await signInAs(page, 'admin');
-    await page.goto('/operations/dashboard');
+    await page.goto('/flow/dashboard');
     const opener = page.getByRole('button', { name: '메뉴 검색…' });
     await opener.focus();
     await page.keyboard.press('Control+K');
     const dialog = page.getByRole('dialog');
     await dialog.getByRole('combobox').fill('Task');
     await expect(dialog.getByRole('option', { name: /내 활동.*내 Task/ })).toHaveCount(1);
-    await expect(dialog.getByRole('option', { name: /운영 콘솔.*Task 관리.*Tasks/ })).toHaveCount(1);
+    await expect(dialog.getByRole('option', { name: /업무 흐름.*Task.*Task 보드/ })).toHaveCount(1);
     await page.keyboard.press('Escape');
     await expect(dialog).toHaveCount(0);
     await expect(opener).toBeFocused();

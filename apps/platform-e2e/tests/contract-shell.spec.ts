@@ -408,7 +408,7 @@ test.describe('워크스페이스 (06 §9.1)', () => {
   // without narrowing the 54 rows, so page=2 is a real page and Back can restore it exactly.
   const EQUIPMENT_URL = `/mars/equipment-master?v=1&scopeId=MEM&${PERIOD}&lotIds=LOT-0001&page=2`;
 
-  test('권한이 좁은 역할은 메뉴가 허락하는 공간 카드만 보고 운영 콘솔 메뉴가 보이지 않는다', async ({ page }, testInfo) => {
+  test('권한이 좁은 역할은 메뉴가 허락하는 공간 카드만 보고 업무 흐름·운영 콘솔 메뉴가 보이지 않는다', async ({ page }, testInfo) => {
     await signInAs(page, 'viewer');
     await page.goto('/bravo/metric-catalog');
     await expect(systemSwitcher(page)).toBeVisible();
@@ -417,7 +417,7 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     // #252 (ADR-0065): the two planned workspaces carry no entry permission, so every signed-in role sees them.
     await expect(popover.getByRole('button', { name: /^(표준 로그 개발|개선 실행)/ })).toHaveCount(2);
     // CLAS shares MARS's analytics:view gate (#590), so a viewer sees neither.
-    await expect(popover.getByRole('button', { name: /^(MARS|CLAS|운영 콘솔)/ })).toHaveCount(0);
+    await expect(popover.getByRole('button', { name: /^(MARS|CLAS|업무 흐름|운영 콘솔)/ })).toHaveCount(0);
     await page.keyboard.press('Escape');
     await expect(popover).toHaveCount(0);
     const nav = page.getByRole('navigation', { name: '주 메뉴' });
@@ -429,13 +429,14 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     await evidence(page, testInfo, 'viewer-limited-spaces');
   });
 
-  test('engineer는 전환기에 MARS·BRAVO·CLAS 카드를 갖고 운영 콘솔은 보이지 않는다', async ({ page }, testInfo) => {
+  test('engineer는 전환기에 MARS·BRAVO·CLAS 카드를 갖고 업무 흐름·운영 콘솔은 보이지 않는다', async ({ page }, testInfo) => {
     await signInAs(page, 'engineer');
     await page.goto('/mars/equipment-master?v=1&scopeId=MEM');
     const popover = await openSwitcher(page);
     await expect(popover.getByRole('button', { name: /^MARS/ })).toHaveAttribute('aria-current', 'true');
     await expect(popover.getByRole('button', { name: /^BRAVO/ })).toBeVisible();
     await expect(popover.getByRole('button', { name: /^CLAS/ })).toBeVisible();
+    await expect(popover.getByRole('button', { name: /^업무 흐름/ })).toHaveCount(0);
     await expect(popover.getByRole('button', { name: /^운영 콘솔/ })).toHaveCount(0);
     await page.keyboard.press('Escape');
     await expect(popover).toHaveCount(0);
@@ -445,8 +446,8 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     await evidence(page, testInfo, 'engineer-two-spaces');
   });
 
-  // #1099: operations is visible through its accessible member menus; only admin has these grants in the mock.
-  test('운영 콘솔은 열린 멤버 메뉴가 있는 admin에게 보이고 대시보드·VOC(수신함·Triage)·목록 범위가 실서버 필요 상태로 열린다', async ({ page }, testInfo) => {
+  // #1099, ADR-0110: 업무 흐름 and 운영 콘솔 are visible through their accessible member menus; only admin has these grants in the mock.
+  test('업무 흐름은 열린 멤버 메뉴가 있는 admin에게 보이고 대시보드·VOC(VOC 처리함·분류)·목록 범위가 실서버 필요 상태로 열린다', async ({ page }, testInfo) => {
     for (const role of ['engineer', 'viewer'] as const) {
       await signInAs(page, role);
       await page.goto('/mars/equipment-master?v=1&scopeId=MEM');
@@ -457,11 +458,12 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     await signInAs(page, 'admin');
     await page.goto('/mars/equipment-master?v=1&scopeId=MEM');
     const popover = await openSwitcher(page);
+    await expect(popover.getByRole('button', { name: /^업무 흐름/ })).toBeVisible();
     await expect(popover.getByRole('button', { name: /^운영 콘솔/ })).toBeVisible();
     await expect(popover.getByRole('button', { name: /^FeedbackOps/ })).toHaveCount(0);
     await page.keyboard.press('Escape');
-    await chooseSystem(page, '운영 콘솔');
-    await expect.poll(() => new URL(page.url()).pathname).toBe('/operations/dashboard');
+    await chooseSystem(page, '업무 흐름');
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/flow/dashboard');
     const nav = page.getByRole('navigation', { name: '주 메뉴' });
     await expect(nav.getByRole('link', { name: '대시보드' })).toBeVisible();
     await expect(page.getByRole('heading', { name: '대시보드' })).toBeVisible();
@@ -471,26 +473,26 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     await expect(page.getByText('목록 범위', { exact: true })).toBeVisible();
     await expect(page.getByTitle('실서버 필요').filter({ hasText: '전체' })).toBeDisabled();
     await evidence(page, testInfo, 'feedbackops-dashboard-mock');
-    // #761: the VOC group (수신함, Triage) is bridge menus too; without a feature API each body is 실서버 필요.
-    // The sidebar draws only the current section, so the rail's VOC section brings its menus in.
-    await railSection(page, 'VOC').click();
-    await expect(nav.getByRole('link', { name: '수신함' })).toBeVisible();
-    await expect(nav.getByRole('link', { name: 'Triage' })).toBeVisible();
-    await nav.getByRole('link', { name: '수신함' }).click();
-    await expect.poll(() => new URL(page.url()).pathname).toBe('/operations/inbox');
+    // #761: the VOC group (VOC 처리함, 분류) is bridge menus too; without a feature API each body is 실서버 필요.
+    // The sidebar draws only the current section, so the rail's VOC 처리 section brings its menus in.
+    await railSection(page, 'VOC 처리').click();
+    await expect(nav.getByRole('link', { name: 'VOC 처리함', exact: true })).toBeVisible();
+    await expect(nav.getByRole('link', { name: '분류', exact: true })).toBeVisible();
+    await nav.getByRole('link', { name: 'VOC 처리함', exact: true }).click();
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/flow/inbox');
     await expect(page.getByRole('main').getByRole('status').filter({ hasText: '실서버 필요' })).toBeVisible();
-    await nav.getByRole('link', { name: 'Triage' }).click();
-    await expect.poll(() => new URL(page.url()).pathname).toBe('/operations/triage');
+    await nav.getByRole('link', { name: '분류', exact: true }).click();
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/flow/triage');
     await expect(page.getByRole('main').getByRole('status').filter({ hasText: '실서버 필요' })).toBeVisible();
-    // #761 p2: Clusters is the third bridge menu of the group.
-    await nav.getByRole('link', { name: 'Clusters', exact: true }).click();
-    await expect.poll(() => new URL(page.url()).pathname).toBe('/operations/clusters');
+    // #761 p2: 반복 VOC is the third bridge menu of the group.
+    await nav.getByRole('link', { name: '반복 VOC', exact: true }).click();
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/flow/clusters');
     await expect(page.getByRole('main').getByRole('status').filter({ hasText: '실서버 필요' })).toBeVisible();
     // #761 p1b: the sidebar views are links under their menus; in the mock no count badge is drawn (a badge would add the count to the link's accessible name, so the exact names prove it).
     await expect(nav.getByRole('link', { name: '연결 없음', exact: true })).toBeVisible();
     await expect(nav.getByRole('link', { name: '미배정', exact: true })).toBeVisible();
     await nav.getByRole('link', { name: '높음', exact: true }).click();
-    await expect.poll(() => { const url = new URL(page.url()); return `${url.pathname}?tab=${url.searchParams.get('tab')}`; }).toBe('/operations/triage?tab=high');
+    await expect.poll(() => { const url = new URL(page.url()); return `${url.pathname}?tab=${url.searchParams.get('tab')}`; }).toBe('/flow/triage?tab=high');
     await expect(nav.locator('[aria-current="page"]')).toHaveCount(1);
     await expect(nav.getByRole('link', { name: '높음', exact: true })).toHaveAttribute('aria-current', 'page');
     // #761 p3: the 저장된 보기 section is drawn by the shell; in the mock its body is 실서버 필요, and the collapsed sidebar has no section.
@@ -500,6 +502,10 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     await expect(page.getByRole('region', { name: '저장된 보기' })).toHaveCount(0);
     await page.getByRole('button', { name: '사이드바 펼치기' }).click();
     await evidence(page, testInfo, 'feedbackops-voc-mock');
+    // 운영 콘솔 is the other space: it lands on 역할 (its home), keeps the global context and draws no 목록 범위.
+    await chooseSystem(page, '운영 콘솔');
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/operations/admin-roles');
+    await expect(page.getByText('목록 범위', { exact: true })).toHaveCount(0);
   });
 
   test('공통 공간 권한 없는 운영 콘솔의 직접 URL은 멤버 메뉴 권한으로 거부한다', async ({ page }, testInfo) => {
@@ -522,7 +528,7 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     }
   });
 
-  test('관리자는 전환기로 운영 콘솔을 오가며 전역 Context를 보존한다', async ({ page }, testInfo) => {
+  test('관리자는 전환기로 업무 흐름을 오가며 전역 Context를 보존한다', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
     await page.goto(EQUIPMENT_URL);
     await expect(systemSwitcher(page)).toHaveAccessibleName('시스템 및 플랫폼 메뉴 · 현재: MARS');
@@ -536,8 +542,8 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     await page.keyboard.press('Escape');
     await evidence(page, testInfo, 'admin-analytics');
 
-    await chooseSystem(page, '운영 콘솔');
-    await expect.poll(() => new URL(page.url()).pathname).toBe('/operations/dashboard');
+    await chooseSystem(page, '업무 흐름');
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/flow/dashboard');
     const q = query(page);
     expect(q.get('scopeId')).toBe('MEM');
     expect(q.get('from')).toBe('2026-09-25T09:00:00');
@@ -548,7 +554,7 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     await expect(nav.getByRole('link', { name: '대시보드' })).toBeVisible();
     await expect(nav.getByRole('link', { name: '설비 마스터' })).toHaveCount(0);
     // Current markers: the switcher names the system, the rail section carries aria-current="true" (not "page").
-    await expect(systemSwitcher(page)).toHaveAccessibleName('시스템 및 플랫폼 메뉴 · 현재: 운영 콘솔');
+    await expect(systemSwitcher(page)).toHaveAccessibleName('시스템 및 플랫폼 메뉴 · 현재: 업무 흐름');
     await expect(railSection(page, '대시보드')).toHaveAttribute('aria-current', 'true');
     await evidence(page, testInfo, 'admin-operations');
 
@@ -564,7 +570,7 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     await page.goForward();
     // Forward returns to the entry switchSpace pushed: console home path, globals kept, page key dropped
     // (compared decoded — the kernel's buildQuery percent-encodes values in the pushed URL).
-    await expect.poll(() => new URL(page.url()).pathname).toBe('/operations/dashboard');
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/flow/dashboard');
     const fwd = query(page);
     expect(fwd.get('scopeId')).toBe('MEM');
     expect(fwd.get('from')).toBe('2026-09-25T09:00:00');
@@ -672,7 +678,7 @@ test.describe('전역 기능 자리 (ADR-0070, 06 §9.1·§10)', () => {
     await page.goto('/bravo/metric-catalog');
     const popover = await openSwitcher(page);
     const platformMenu = popover.getByRole('navigation', { name: '플랫폼 메뉴' });
-    await expect(platformMenu.getByRole('link')).toHaveText(['홈', '알림', '내 VOC', '응답 설문', '권한 요청', '공지']);
+    await expect(platformMenu.getByRole('link')).toHaveText(['홈', '공지', 'FAQ', 'VOC', '설문', '알림', '권한 요청']);
     await evidence(page, testInfo, 'platform-menu-switcher');
     await platformMenu.getByRole('link', { name: '알림' }).click();
     await expect(popover).toHaveCount(0);
@@ -717,11 +723,11 @@ test.describe('전역 기능 자리 (ADR-0070, 06 §9.1·§10)', () => {
     await signInAs(page, 'viewer');
     await page.goto('/bravo/metric-catalog');
     const popover = await openSwitcher(page);
-    await popover.getByRole('navigation', { name: '플랫폼 메뉴' }).getByRole('link', { name: '설문' }).click();
+    await popover.getByRole('navigation', { name: '플랫폼 메뉴' }).getByRole('link', { name: '설문', exact: true }).click();
     await expect.poll(() => new URL(page.url()).pathname).toBe('/survey');
-    await expect(page.getByRole('main').getByRole('heading', { name: '응답 설문' })).toBeFocused();
+    await expect(page.getByRole('main').getByRole('heading', { name: '설문' })).toBeFocused();
     await expect(page.getByRole('status')).toContainText('실서버 필요');
-    const sidebarSurveys = page.getByRole('navigation', { name: '플랫폼 메뉴' }).getByRole('link', { name: '응답 설문', exact: true });
+    const sidebarSurveys = page.getByRole('navigation', { name: '플랫폼 메뉴' }).getByRole('link', { name: '설문', exact: true });
     await expect(sidebarSurveys).toHaveAttribute('aria-current', 'page');
 
     await page.goto('/survey/11111111-1111-4111-8111-111111111111/respond');
@@ -729,25 +735,25 @@ test.describe('전역 기능 자리 (ADR-0070, 06 §9.1·§10)', () => {
     await expect(page.getByRole('status')).toContainText('실서버 필요');
     await expect(sidebarSurveys).toHaveAttribute('aria-current', 'page');
     const switcher = await openSwitcher(page);
-    await expect(switcher.getByRole('navigation', { name: '플랫폼 메뉴' }).getByRole('link')).toHaveText(['홈', '알림', '내 VOC', '응답 설문', '권한 요청', '공지']);
+    await expect(switcher.getByRole('navigation', { name: '플랫폼 메뉴' }).getByRole('link')).toHaveText(['홈', '공지', 'FAQ', 'VOC', '설문', '알림', '권한 요청']);
 
     await page.goto('/survey/not-a-uuid/respond');
     await expect(page.getByText('설문을 찾을 수 없습니다')).toBeVisible();
   });
 
-  test('내 VOC는 mock에서 실서버 필요 상태를 보이고 상세 주소는 내 VOC 아래에 놓이며 잘못된 VOC ID는 찾을 수 없음이다 (#654)', async ({ page }) => {
+  test('VOC(소통)는 mock에서 실서버 필요 상태를 보이고 상세 주소는 VOC 아래에 놓이며 잘못된 VOC ID는 찾을 수 없음이다 (#654)', async ({ page }) => {
     await signInAs(page, 'viewer');
     await page.goto('/bravo/metric-catalog');
     const popover = await openSwitcher(page);
-    await popover.getByRole('navigation', { name: '플랫폼 메뉴' }).getByRole('link', { name: '내 VOC' }).click();
+    await popover.getByRole('navigation', { name: '플랫폼 메뉴' }).getByRole('link', { name: 'VOC', exact: true }).click();
     await expect.poll(() => new URL(page.url()).pathname).toBe('/voc');
-    await expect(page.getByRole('main').getByRole('heading', { name: '내 VOC' })).toBeFocused();
+    await expect(page.getByRole('main').getByRole('heading', { name: 'VOC', exact: true })).toBeFocused();
     await expect(page.getByRole('status')).toContainText('실서버 필요');
-    const sidebarVoc = page.getByRole('navigation', { name: '플랫폼 메뉴' }).getByRole('link', { name: '내 VOC', exact: true });
+    const sidebarVoc = page.getByRole('navigation', { name: '플랫폼 메뉴' }).getByRole('link', { name: 'VOC', exact: true });
     await expect(sidebarVoc).toHaveAttribute('aria-current', 'page');
 
     await page.goto('/voc/11111111-1111-4111-8111-111111111111');
-    await expect(page.getByRole('main').getByRole('heading', { name: '내 VOC 상세' })).toBeVisible();
+    await expect(page.getByRole('main').getByRole('heading', { name: 'VOC 상세' })).toBeVisible();
     await expect(page.getByRole('status')).toContainText('실서버 필요');
     await expect(sidebarVoc).toHaveAttribute('aria-current', 'page');
 

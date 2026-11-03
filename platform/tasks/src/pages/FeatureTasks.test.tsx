@@ -87,11 +87,11 @@ beforeEach(() => {
 afterEach(() => { cleanup(); setFeatureApi(null); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
 const PAGES = [
-  ['Task Requests', '/operations/task-requests', 'requests'],
-  ['Milestones', '/operations/milestones', 'milestones'],
-  ['Tasks', '/operations/tasks', 'board'],
+  ['Task 요청', '/flow/task-requests', 'requests'],
+  ['마일스톤', '/flow/milestones', 'milestones'],
+  ['Task 보드', '/flow/tasks', 'board'],
   ['내 Task', '/my-tasks', 'list'],
-  ['Task 목록', '/operations/task-list', 'list'],
+  ['Task 목록', '/flow/task-list', 'list'],
 ] as const;
 
 describe.each(PAGES)('%s without a feature API (mock preview)', (_name, path, testId) => {
@@ -103,7 +103,7 @@ describe.each(PAGES)('%s without a feature API (mock preview)', (_name, path, te
   });
 });
 
-describe.each([['내 Task', '/my-tasks', 'my'], ['Task 목록', '/operations/task-list', 'backlog']] as const)('%s through the feature bridge', (_name, path, view) => {
+describe.each([['내 Task', '/my-tasks', 'my'], ['Task 목록', '/flow/task-list', 'backlog']] as const)('%s through the feature bridge', (_name, path, view) => {
   beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() }); });
 
   it(`mounts the list with view ${view}, no auto-select and no detail node for screen's ListShell`, async () => {
@@ -153,7 +153,7 @@ describe('Task Requests through the feature bridge', () => {
   beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() }); });
 
   it('mounts the queue without auto-select, reading the page as the screen requests path', async () => {
-    mountAt(`/operations/task-requests?reviewer=me&managedSystem=${SYSTEM}`);
+    mountAt(`/flow/task-requests?reviewer=me&managedSystem=${SYSTEM}`);
     const screenNode = await screen.findByTestId('requests');
     expect(screenMock.requests.at(-1)).toMatchObject({ autoSelect: false });
     const here = new URL(screenNode.getAttribute('data-here')!, 'http://x');
@@ -162,7 +162,7 @@ describe('Task Requests through the feature bridge', () => {
   });
 
   it('reads focus as the screen param and renders the panel parts in the shell slot; its close is requestClose', async () => {
-    mountAt(`/operations/task-requests?focus=${TASK_A}`);
+    mountAt(`/flow/task-requests?focus=${TASK_A}`);
     expect((await screen.findByTestId('requests')).getAttribute('data-param')).toBe(TASK_A);
     const dialog = await within(await screen.findByRole('complementary', { name: '상세 패널' })).findByRole('dialog');
     expect(within(dialog).getByText(`요청 본문 ${TASK_A}`)).toBeTruthy();
@@ -177,7 +177,7 @@ describe('Milestones through the feature bridge', () => {
   beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() }); });
 
   it('renders the detail parts on focus and the create parts of Milestone 생성 in the shell slot', async () => {
-    mountAt('/operations/milestones?focus=m-1');
+    mountAt('/flow/milestones?focus=m-1');
     const aside = await screen.findByRole('complementary', { name: '상세 패널' });
     expect(await within(aside).findByText('Milestone 본문 m-1')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Milestone 생성' }));
@@ -187,7 +187,7 @@ describe('Milestones through the feature bridge', () => {
   });
 
   it('moves focus when the screen navigates to a Milestone href (the dirty-decline restore)', async () => {
-    mountAt('/operations/milestones?managedSystem=' + SYSTEM);
+    mountAt('/flow/milestones?managedSystem=' + SYSTEM);
     fireEvent.click(await screen.findByRole('button', { name: '복원' }));
     await waitFor(() => expect(new URLSearchParams(window.location.search).get('focus')).toBe('m-1'));
     expect(new URLSearchParams(window.location.search).get('managedSystem')).toBe(SYSTEM);
@@ -198,14 +198,14 @@ describe('Tasks board through the feature bridge', () => {
   beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() }); });
 
   it('mounts the board with the page read as the screen board path', async () => {
-    mountAt(`/operations/tasks?publicUpdate=missing&managedSystem=${SYSTEM}`);
+    mountAt(`/flow/tasks?publicUpdate=missing&managedSystem=${SYSTEM}`);
     const here = new URL((await screen.findByTestId('board')).getAttribute('data-here')!, 'http://x');
     expect(here.pathname).toBe('/tasks');
     expect(Object.fromEntries(here.searchParams)).toEqual({ view: 'board', public_update: 'missing', managedSystem: SYSTEM });
   });
 
   it('renders the Task detail the screen asks for in place, in the slot, with the next-status footer, and moves through the screen', async () => {
-    mountAt('/operations/tasks');
+    mountAt('/flow/tasks');
     fireEvent.click(await screen.findByRole('button', { name: '선택' }));
     const dialog = await within(await screen.findByRole('complementary', { name: '상세 패널' })).findByRole('dialog');
     expect(within(dialog).getByText(`상세 본문 ${TASK_A}`)).toBeTruthy();
@@ -215,7 +215,7 @@ describe('Tasks board through the feature bridge', () => {
   });
 
   it('closes through the screen (its onClose), not by writing focus itself', async () => {
-    mountAt('/operations/tasks');
+    mountAt('/flow/tasks');
     fireEvent.click(await screen.findByRole('button', { name: '선택' }));
     fireEvent.click(await screen.findByRole('button', { name: '상세 닫기' }));
     expect(screenMock.boardClose).toHaveBeenCalledOnce();
@@ -223,16 +223,16 @@ describe('Tasks board through the feature bridge', () => {
 });
 
 const REJECTED = [
-  ['Task Requests', '/operations/task-requests', 'requests', 'reviewer', 'x'],
-  ['Task Requests', '/operations/task-requests', 'requests', 'reviewerTeam', 'x'],
-  ['Milestones', '/operations/milestones', 'milestones', 'managedSystem', 'x'],
-  ['Tasks', '/operations/tasks', 'board', 'publicUpdate', 'x'],
-  ['Tasks', '/operations/tasks', 'board', 'managedSystem', 'x'],
+  ['Task 요청', '/flow/task-requests', 'requests', 'reviewer', 'x'],
+  ['Task 요청', '/flow/task-requests', 'requests', 'reviewerTeam', 'x'],
+  ['마일스톤', '/flow/milestones', 'milestones', 'managedSystem', 'x'],
+  ['Task 보드', '/flow/tasks', 'board', 'publicUpdate', 'x'],
+  ['Task 보드', '/flow/tasks', 'board', 'managedSystem', 'x'],
   ['내 Task', '/my-tasks', 'list', 'publicUpdate', 'x'],
   ['내 Task', '/my-tasks', 'list', 'managedSystem', 'x'],
   ['내 Task', '/my-tasks', 'list', 'status', 'bogus'],
-  ['Task 목록', '/operations/task-list', 'list', 'status', 'bogus'],
-  ['Task 목록', '/operations/task-list', 'list', 'managedSystem', 'x'],
+  ['Task 목록', '/flow/task-list', 'list', 'status', 'bogus'],
+  ['Task 목록', '/flow/task-list', 'list', 'managedSystem', 'x'],
 ] as const;
 
 describe('Task pages with an invalid address value', () => {
@@ -250,7 +250,7 @@ describe('Task pages with an invalid address value', () => {
   });
 
   it('clears only the rejected key, then mounts the screen with the other keys kept', async () => {
-    mountAt(`/operations/tasks?publicUpdate=x&q=pump`);
+    mountAt(`/flow/tasks?publicUpdate=x&q=pump`);
     fireEvent.click(await screen.findByRole('button', { name: '값 지우기' }, LAZY_MOUNT_WAIT));
     expect(await screen.findByTestId('board')).toBeTruthy();
     const params = new URLSearchParams(window.location.search);
@@ -259,7 +259,7 @@ describe('Task pages with an invalid address value', () => {
   });
 
   it('mounts the board when only an extra key (status, not a board key) is invalid', async () => {
-    mountAt('/operations/tasks?status=bogus');
+    mountAt('/flow/tasks?status=bogus');
     expect(await screen.findByTestId('board')).toBeTruthy();
   });
 });
