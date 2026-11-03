@@ -14,6 +14,10 @@ import {
   VENDOR_SORT_IDS as MENU_VENDOR_SORT_IDS,
   catalogActionSpecs,
   ITEM_SORT_IDS as MENU_ITEM_SORT_IDS,
+  IMPORT_ROW_SORT_IDS as MENU_IMPORT_ROW_SORT_IDS,
+  importActionSpecs,
+  importEndpointSpecs,
+  importRowFilterSpecs,
   LOG_KNOWLEDGE_ITEMS_MENU_ID,
   catalogEndpointSpecs,
   itemActionSpecs,
@@ -29,6 +33,7 @@ import { LOG_KNOWLEDGE_MODELS_MENU_ID as SERVER_MODELS_MENU_ID } from '../catalo
 import { CATALOG_MENU_PERMISSION } from '../catalog-actions.js';
 import { ITEM_MENU_PERMISSION } from '../item-actions.js';
 import { logKnowledgeContribution } from '../catalog-endpoints.js';
+import { IMPORT_ROW_FILTER_SPECS, IMPORT_ROW_SORT_IDS } from '../import-endpoints.js';
 import { CATALOG_FILTER_SPECS } from '../domain/catalog-filters.js';
 import { ITEM_FILTER_SPECS } from '../domain/item-filters.js';
 import {
@@ -51,8 +56,12 @@ import { ITEM_SORT_IDS } from '../repositories/item-read.js';
 const server = logKnowledgeContribution({ db: {} as never, checkService: {} as never });
 // The item reads (ADR-0109) sit on their own menu ids; the model reads (menu `log-knowledge-models`, #1197 s1) are
 // compared below, then the item reads (menu `log-knowledge-items`, #1197 s2).
-const serverEndpoints = (server.endpoints ?? []).filter((e) => e.spec.menuId === LOG_KNOWLEDGE_MENU_ID);
-const serverActions = (server.actions ?? []).filter((a) => a.spec.menuId === LOG_KNOWLEDGE_MENU_ID);
+// The import staging declarations (#1195 a) share the catalog menu id and are compared in their own block below.
+const isImport = (id: string) => id.startsWith('logKnowledge.import');
+const serverEndpoints = (server.endpoints ?? []).filter((e) => e.spec.menuId === LOG_KNOWLEDGE_MENU_ID && !isImport(e.spec.id));
+const serverActions = (server.actions ?? []).filter((a) => a.spec.menuId === LOG_KNOWLEDGE_MENU_ID && !isImport(a.spec.id));
+const serverImportEndpoints = (server.endpoints ?? []).filter((e) => isImport(e.spec.id));
+const serverImportActions = (server.actions ?? []).filter((a) => isImport(a.spec.id));
 const sorted = (keys: Iterable<string>) => [...keys].sort();
 
 describe('log knowledge menu declarations vs the server', () => {
@@ -209,5 +218,44 @@ describe('log knowledge item writes vs the server', () => {
       title: TITLE_MAX, body: BODY_MAX, evidence: EVIDENCE_MAX, evidenceField: EVIDENCE_FIELD_MAX,
       evidenceNote: EVIDENCE_NOTE_MAX, changeNote: CHANGE_NOTE_MAX, rationale: RATIONALE_MAX,
     });
+  });
+});
+
+describe('catalog import staging declarations (#1195 a) vs the server', () => {
+  it('declares the same read in the same order, with the same keys, right and workspace rule', () => {
+    expect(serverImportEndpoints).toHaveLength(1);
+    expect(importEndpointSpecs.map((s) => s.id)).toEqual(serverImportEndpoints.map((e) => e.spec.id));
+    importEndpointSpecs.forEach((menu, i) => {
+      const spec = serverImportEndpoints[i]?.spec;
+      expect(sorted(Object.keys(menu.paramKeys)), menu.id).toEqual(sorted(spec?.paramKeys ?? []));
+      expect(
+        { menuId: menu.menuId, permission: menu.permission, requiresScope: menu.requiresScope, context: menu.context, mergeTimeDomain: menu.mergeTimeDomain },
+        menu.id,
+      ).toEqual({ menuId: spec?.menuId, permission: spec?.permission, requiresScope: spec?.requiresScope, context: spec?.context, mergeTimeDomain: spec?.mergeTimeDomain });
+    });
+  });
+
+  it('declares the same two actions in the same order, with keys, permission, concurrency and invalidations', () => {
+    expect(serverImportActions).toHaveLength(2);
+    expect(importActionSpecs.map((s) => s.id)).toEqual(serverImportActions.map((a) => a.spec.id));
+    importActionSpecs.forEach((menu, i) => {
+      const spec = serverImportActions[i]?.spec;
+      expect(sorted(Object.keys(menu.inputKeys)), menu.id).toEqual(sorted(spec?.inputKeys ?? []));
+      expect(menu.invalidates.map((e) => e.id), menu.id).toEqual([...(spec?.invalidates ?? [])]);
+      expect(
+        { menuId: menu.menuId, permission: menu.permission, requiresScope: menu.requiresScope, concurrency: menu.concurrency },
+        menu.id,
+      ).toEqual({ menuId: spec?.menuId, permission: spec?.permission, requiresScope: spec?.requiresScope, concurrency: spec?.concurrency });
+    });
+  });
+
+  it('importDetail: same filter field, operators, allowed values and sort ids', () => {
+    expect(sorted(Object.keys(importRowFilterSpecs))).toEqual(sorted(Object.keys(IMPORT_ROW_FILTER_SPECS)));
+    const menu = importRowFilterSpecs.planState;
+    expect(menu?.kind).toBe('enum');
+    if (menu?.kind !== 'enum') return;
+    expect(sorted(menu.ops ?? [])).toEqual(sorted(IMPORT_ROW_FILTER_SPECS.planState.ops));
+    expect(sorted(menu.options.map((o) => o.value))).toEqual(sorted(IMPORT_ROW_FILTER_SPECS.planState.allowed));
+    expect([...MENU_IMPORT_ROW_SORT_IDS]).toEqual([...IMPORT_ROW_SORT_IDS]);
   });
 });

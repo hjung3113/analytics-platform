@@ -33,6 +33,11 @@ export interface IdempotentCommandArgs<TBody> {
   status: number;
   /** Recovery writers serialize before the idempotency lock as well. */
   recoveryWorkspaceId?: string;
+  /**
+   * Optional: runs inside the transaction after the idempotency lock and before the replay lookup, so a caller can
+   * judge current permission on a replay as well as on a first run. Throwing aborts with no replay body.
+   */
+  beforeReplay?: (tx: Tx) => Promise<void>;
   work: (tx: Tx) => Promise<TBody>;
   /**
    * Set to true once the transaction body has finished and only COMMIT remains. A rejection while this is false
@@ -52,6 +57,7 @@ export async function runIdempotentCommand<TBody>(
     await tx.execute(
       sql`SELECT pg_advisory_xact_lock(hashtext(${actorId}), hashtext(${idempotencyKey}))`,
     );
+    if (args.beforeReplay) await args.beforeReplay(tx);
     const hit = await idempotencyService.lookup(tx, actorId, idempotencyKey, requestHash);
     if (hit.kind === 'match') {
       if (args.commitPhase) args.commitPhase.reached = true;

@@ -5,6 +5,7 @@ import {
   foreignKey,
   index,
   integer,
+  jsonb,
   pgSchema,
   primaryKey,
   text,
@@ -522,6 +523,125 @@ export const itemLinks = knowledgeSchema.table(
     revisionCheck: check(
       'item_link_revision_check',
       sql`(${t.linkKind} = 'derived_from') = (${t.sourceRevisionNo} is not null)`,
+    ),
+  }),
+);
+
+// Catalog import staging (#1195 a, design v0.6 §6.2 steps ①–③): an uploaded file is parsed into rows, mapped and
+// validated here; nothing in these tables touches the catalog. The file bytes are not stored (name, size, type and
+// sha256 only). The runtime role has SELECT/INSERT/UPDATE, no DELETE (migration of #1195 a).
+const IMPORT_ENTITY_TYPES = "('vendor','process','model','software')";
+const IMPORT_JOB_STATUSES =
+  "('uploaded','mapped','validated','review_required','applying','completed','partial_failure','failed','cancelled')";
+const IMPORT_PLAN_STATES = "('pending','new','unchanged','update','conflict','error')";
+const IMPORT_RESOLUTIONS = "('skip','map','create','abort')";
+
+export const catalogImportJobs = knowledgeSchema.table(
+  'catalog_import_job',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    entityType: text('entity_type').notNull(),
+    fileName: text('file_name').notNull(),
+    fileSize: integer('file_size').notNull(),
+    fileType: text('file_type').notNull(),
+    fileSha256: text('file_sha256').notNull(),
+    headers: jsonb('headers').notNull(),
+    mappingJson: jsonb('mapping_json'),
+    status: text('status').notNull().default('uploaded'),
+    planVersion: integer('plan_version').notNull().default(1),
+    sealedPlanHash: text('sealed_plan_hash'),
+    appliedAt: timestamp('applied_at', { withTimezone: true }),
+    rowVersion: integer('row_version').notNull().default(1),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    createdBy: uuid('created_by')
+      .notNull()
+      .references(() => actors.id),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedBy: uuid('updated_by')
+      .notNull()
+      .references(() => actors.id),
+  },
+  (t) => ({
+    workspaceIdUq: unique('catalog_import_job_workspace_id_id_uq').on(t.workspaceId, t.id),
+    entityCheck: check(
+      'catalog_import_job_entity_type_check',
+      sql`${t.entityType} in ${sql.raw(IMPORT_ENTITY_TYPES)}`,
+    ),
+    fileTypeCheck: check('catalog_import_job_file_type_check', sql`${t.fileType} in ('csv','xlsx')`),
+    statusCheck: check(
+      'catalog_import_job_status_check',
+      sql`${t.status} in ${sql.raw(IMPORT_JOB_STATUSES)}`,
+    ),
+    planVersionCheck: check('catalog_import_job_plan_version_check', sql`${t.planVersion} >= 1`),
+    versionCheck: check('catalog_import_job_row_version_check', sql`${t.rowVersion} >= 1`),
+  }),
+);
+
+export const catalogImportRows = knowledgeSchema.table(
+  'catalog_import_row',
+  {
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    jobId: uuid('job_id').notNull(),
+    rowNo: integer('row_no').notNull(),
+    rawJson: jsonb('raw_json').notNull(),
+    // Immutable after upload: cell errors found while reading the file (`formula`, `merged`, `unsupported_cell`).
+    parseErrors: jsonb('parse_errors').notNull().default(sql`'[]'::jsonb`),
+    normalizedJson: jsonb('normalized_json'),
+    validationErrors: jsonb('validation_errors').notNull().default(sql`'[]'::jsonb`),
+    planState: text('plan_state').notNull().default('pending'),
+    targetId: uuid('target_id'),
+    targetVersion: integer('target_version'),
+    planHash: text('plan_hash'),
+    applyStatus: text('apply_status'),
+    resultTargetId: uuid('result_target_id'),
+  },
+  (t) => ({
+    pk: primaryKey({ name: 'catalog_import_row_pk', columns: [t.workspaceId, t.jobId, t.rowNo] }),
+    jobFk: foreignKey({
+      name: 'catalog_import_row_job_fk',
+      columns: [t.workspaceId, t.jobId],
+      foreignColumns: [catalogImportJobs.workspaceId, catalogImportJobs.id],
+    }).onDelete('restrict'),
+    planStateIdx: index('catalog_import_row_plan_state_idx').on(t.workspaceId, t.jobId, t.planState),
+    planStateCheck: check(
+      'catalog_import_row_plan_state_check',
+      sql`${t.planState} in ${sql.raw(IMPORT_PLAN_STATES)}`,
+    ),
+    rowNoCheck: check('catalog_import_row_row_no_check', sql`${t.rowNo} >= 1`),
+  }),
+);
+
+export const catalogImportResolutions = knowledgeSchema.table(
+  'catalog_import_resolution',
+  {
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    jobId: uuid('job_id').notNull(),
+    rowNo: integer('row_no').notNull(),
+    resolution: text('resolution').notNull(),
+    mapTargetId: uuid('map_target_id'),
+    expectedTargetVersion: integer('expected_target_version'),
+    resolvedBy: uuid('resolved_by')
+      .notNull()
+      .references(() => actors.id),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    pk: primaryKey({ name: 'catalog_import_resolution_pk', columns: [t.workspaceId, t.jobId, t.rowNo] }),
+    rowFk: foreignKey({
+      name: 'catalog_import_resolution_row_fk',
+      columns: [t.workspaceId, t.jobId, t.rowNo],
+      foreignColumns: [catalogImportRows.workspaceId, catalogImportRows.jobId, catalogImportRows.rowNo],
+    }).onDelete('restrict'),
+    resolutionCheck: check(
+      'catalog_import_resolution_resolution_check',
+      sql`${t.resolution} in ${sql.raw(IMPORT_RESOLUTIONS)}`,
     ),
   }),
 );

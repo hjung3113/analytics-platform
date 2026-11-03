@@ -58,7 +58,11 @@ import {
   findingsRoutes,
   reconcileFindingExecution,
 } from './modules/findings/index.js';
-import { logKnowledgeContribution } from './modules/log-knowledge/index.js';
+import {
+  LOG_KNOWLEDGE_ROUTE_PREFIX,
+  importRoutes as logKnowledgeImportRoutes,
+  logKnowledgeContribution,
+} from './modules/log-knowledge/index.js';
 import {
   createManagedSystemService,
   managedSystemsRoutes,
@@ -840,6 +844,16 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     logKnowledgeContribution({ db: dbHandle.db, checkService }),
     ...(opts.menuDispatch ?? []),
   ]);
+  // The catalog import upload (#1195 a) is a multipart route, which the menu-action port cannot carry: it is
+  // registered here beside the module's contribution (the contribution type has no route hook).
+  await app.register(logKnowledgeImportRoutes, {
+    prefix: LOG_KNOWLEDGE_ROUTE_PREFIX,
+    sessionService,
+    checkService,
+    idempotencyService,
+    db: dbHandle.db,
+    workspaceId,
+  });
   await app.register(menuQueryRoutes, {
     prefix: MENU_QUERY_PREFIX,
     sessionService,
