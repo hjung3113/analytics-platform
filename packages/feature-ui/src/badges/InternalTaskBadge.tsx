@@ -16,12 +16,12 @@ export interface InternalTaskBadgeProps {
 
 /** English labels verbatim from `InternalTaskStatusLabels` in `docs/design/history/feedbackops-prototype/data.js`. */
 const LABELS: Record<InternalTaskStatusEnum, string> = {
-  backlog: 'Backlog',
-  todo: 'Todo',
-  doing: 'Doing',
-  review: 'Review',
-  done: 'Done',
-  released: 'Released',
+  backlog: '대기',
+  todo: '할 일',
+  doing: '진행 중',
+  review: '검토',
+  done: '완료',
+  released: '배포됨',
   reopened: 'Reopened',
 };
 

@@ -245,11 +245,11 @@ function RegisterDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent data-testid="ms-register-dialog">
         <DialogHeader>
-          <DialogTitle>{prefill ? '보관된 시스템 재등록' : 'Managed System 등록'}</DialogTitle>
+          <DialogTitle>{prefill ? '보관된 시스템 재등록' : '시스템 등록'}</DialogTitle>
           <DialogDescription>
             {prefill
               ? `보관된 "${prefill.slug}"를 같은 슬러그로 다시 등록합니다. 보관 해제가 아니라 새 레코드가 만들어지며, 기존 VOC·Finding·Task 등 과거 참조는 보관된 시스템에 그대로 남습니다.`
-              : '새 Managed System을 레지스트리에 추가합니다.'}
+              : '새 시스템을 레지스트리에 추가합니다.'}
           </DialogDescription>
         </DialogHeader>
         <form

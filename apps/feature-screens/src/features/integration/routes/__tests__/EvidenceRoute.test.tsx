@@ -184,7 +184,7 @@ it('resolves a later-page selection independently, saves cursor, and restores it
   await act(async () =>
     router.navigate({ to: '/integration/evidence', search: { source: 'voc', selected: ID } }),
   );
-  await screen.findByText('선택한 Evidence가 현재 조건에 맞지 않습니다.');
+  await screen.findByText('선택한 근거가 현재 조건에 맞지 않습니다.');
   await act(async () => history.back());
   await screen.findByRole('link', { name: 'Finding 보기' });
   expect(router.state.location.href).toBe(saved);
@@ -286,7 +286,7 @@ it.each(['success', 'failure'] as const)(
       );
     });
     if (outcome === 'failure') {
-      await screen.findByText('다음 Evidence를 불러오지 못했습니다.');
+      await screen.findByText('다음 근거를 불러오지 못했습니다.');
       expect(screen.getByRole('button', { name: /월간 다운로드/ })).toBeVisible();
       expect(screen.queryByRole('button', { name: '더 보기' })).toBeNull();
       const failedRequest = settle;
@@ -303,7 +303,7 @@ it.each(['success', 'failure'] as const)(
       screen.getByRole('button', { name: /월간 다운로드/ }),
       screen.getByRole('button', { name: /세 번째 페이지 메모/ }),
     ]);
-    expect(screen.queryByText('다음 Evidence를 불러오지 못했습니다.')).toBeNull();
+    expect(screen.queryByText('다음 근거를 불러오지 못했습니다.')).toBeNull();
     expect(screen.queryByRole('button', { name: '더 보기' })).toBeNull();
   },
 );
@@ -323,7 +323,7 @@ it('keeps first-page rows on page-two failure and retries the failed cursor', as
   );
   await mount();
   fireEvent.click(await screen.findByRole('button', { name: '더 보기' }));
-  await screen.findByText('다음 Evidence를 불러오지 못했습니다.');
+  await screen.findByText('다음 근거를 불러오지 못했습니다.');
   expect(screen.getByRole('button', { name: /월간 다운로드/ })).toBeVisible();
   fail = false;
   fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
@@ -404,7 +404,7 @@ it.each(['source', 'q', 'scope'] as const)(
           search: { selected: ID, managedSystem: PARENT },
         }),
       );
-    await screen.findByText('선택한 Evidence가 현재 조건에 맞지 않습니다.');
+    await screen.findByText('선택한 근거가 현재 조건에 맞지 않습니다.');
     expect(router.state.location.search.cursor).toBeUndefined();
     expect(screen.queryByRole('link', { name: 'Finding 보기' })).toBeNull();
   },
@@ -484,7 +484,7 @@ it.each(['withheld', 'missing', 'denied'] as const)(
       ...metadata,
       content_state: 'withheld',
     });
-    const other = { ...item, id: PARENT, quote_or_summary: '다른 Evidence 메모' };
+    const other = { ...item, id: PARENT, quote_or_summary: '다른 근거 메모' };
     installFetch(
       () => response({ items: [revoked ? safe : voc, other], page: { has_more: false } }),
       () =>
@@ -513,7 +513,7 @@ it.each(['withheld', 'missing', 'denied'] as const)(
     } else
       await screen.findAllByText(
         state === 'missing'
-          ? '선택한 Evidence를 찾을 수 없습니다.'
+          ? '선택한 근거를 찾을 수 없습니다.'
           : '원본 접근 권한 또는 승인 상태가 변경되어 내용을 표시할 수 없습니다.',
       );
     expect(screen.queryByText(item.quote_or_summary as string)).toBeNull();
@@ -522,7 +522,7 @@ it.each(['withheld', 'missing', 'denied'] as const)(
     await waitFor(() => expect(screen.queryByTestId('evidence-panel')).toBeNull());
     expect(screen.queryByText(item.quote_or_summary as string)).toBeNull();
     expect(screen.queryByText(/비공개 원본 제목/)).toBeNull();
-    fireEvent.click(await screen.findByRole('button', { name: /다른 Evidence 메모/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /다른 근거 메모/ }));
     await screen.findByRole('link', { name: 'Finding 보기' });
     expect(screen.queryByText(item.quote_or_summary as string)).toBeNull();
     expect(screen.queryByText(/비공개 원본 제목/)).toBeNull();
@@ -567,7 +567,7 @@ it.each([false, true])('shows true-empty versus filtered-empty (filtered=%s)', a
   installFetch(() => response({ items: [], page: { has_more: false } }));
   await mount(filtered ? '/integration/evidence?q=없음' : '/integration/evidence');
   await screen.findByText(
-    filtered ? '조건에 맞는 Evidence가 없습니다.' : '표시할 Evidence가 없습니다.',
+    filtered ? '조건에 맞는 근거가 없습니다.' : '표시할 근거가 없습니다.',
   );
   expect(screen.queryByText('0')).toBeNull();
 });
@@ -578,7 +578,7 @@ it.each(['q-only', 'source-only'] as const)(
     await mount(
       state === 'q-only' ? '/integration/evidence?q=없음' : '/integration/evidence?source=voc',
     );
-    await screen.findByText('조건에 맞는 Evidence가 없습니다.');
+    await screen.findByText('조건에 맞는 근거가 없습니다.');
     expect(screen.queryByRole('button', { name: '전체에서 검색' })).toBeNull();
     expect(screen.getByRole('button', { name: '조건 초기화' })).toBeVisible();
   },
@@ -619,7 +619,7 @@ it('restores the scoped empty result when going Back after the all-source search
   expect(router.state.location.search).toEqual({ q: '다운로드' });
   await act(async () => history.back());
   expect(router.state.location.search).toEqual({ source: 'voc', q: '다운로드' });
-  await screen.findByText('조건에 맞는 Evidence가 없습니다.');
+  await screen.findByText('조건에 맞는 근거가 없습니다.');
   expect(screen.getByRole('button', { name: '전체에서 검색' })).toBeVisible();
 });
 it('retries first-page failure into a real successful inventory', async () => {
@@ -630,7 +630,7 @@ it('retries first-page failure into a real successful inventory', async () => {
       : response({ items: [item], page: { has_more: false } }),
   );
   await mount();
-  await screen.findByText('Evidence를 불러오지 못했습니다.');
+  await screen.findByText('근거를 불러오지 못했습니다.');
   fail = false;
   fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
   await screen.findByRole('button', { name: /월간 다운로드/ });
@@ -701,7 +701,7 @@ it.each(
       ...metadata,
       content_state: 'withheld',
     });
-    const other = { ...item, id: PARENT, quote_or_summary: '다른 Evidence 메모' };
+    const other = { ...item, id: PARENT, quote_or_summary: '다른 근거 메모' };
     installFetch(
       () => {
         const result = response({ items: [voc, other], page: { has_more: false } });
@@ -736,7 +736,7 @@ it.each(
     } else {
       await screen.findAllByText(
         state === 'missing'
-          ? '선택한 Evidence를 찾을 수 없습니다.'
+          ? '선택한 근거를 찾을 수 없습니다.'
           : '원본 접근 권한 또는 승인 상태가 변경되어 내용을 표시할 수 없습니다.',
       );
     }
@@ -747,7 +747,7 @@ it.each(
       await waitFor(() => expect(screen.queryByTestId('evidence-panel')).toBeNull());
       expect(screen.queryByText(item.quote_or_summary as string)).toBeNull();
       expect(screen.queryByText(/철회된 원본 제목/)).toBeNull();
-      fireEvent.click(await screen.findByRole('button', { name: /다른 Evidence 메모/ }));
+      fireEvent.click(await screen.findByRole('button', { name: /다른 근거 메모/ }));
     } else {
       await act(async () =>
         router.navigate({ to: '/integration/evidence', search: { selected: PARENT } }),
@@ -761,17 +761,17 @@ it.each(
     expect(screen.queryByText(item.quote_or_summary as string)).toBeNull();
     expect(screen.queryByText(/철회된 원본 제목/)).toBeNull();
     if (restore === 'other-refetch') {
-      fireEvent.click(await screen.findByRole('button', { name: /다른 Evidence 메모/ }));
+      fireEvent.click(await screen.findByRole('button', { name: /다른 근거 메모/ }));
       await screen.findByRole('link', { name: 'Finding 보기' });
     }
     if (restore === 'history') {
       await act(async () =>
         router.navigate({ to: '/integration/evidence', search: { cursor: 'stale-page' } }),
       );
-      await screen.findByRole('button', { name: /다른 Evidence 메모/ });
+      await screen.findByRole('button', { name: /다른 근거 메모/ });
       await act(async () => history.back());
       await waitFor(() => expect(router.state.location.search.cursor).toBeUndefined());
-      await screen.findByRole('button', { name: /다른 Evidence 메모/ });
+      await screen.findByRole('button', { name: /다른 근거 메모/ });
       expect(screen.queryByText(item.quote_or_summary as string)).toBeNull();
       expect(screen.queryByText(/철회된 원본 제목/)).toBeNull();
       await act(async () => history.forward());
@@ -784,13 +784,13 @@ it.each(
           predicate: (query) => query.queryKey.includes('list'),
         });
       });
-      await screen.findByRole('status', { name: 'Evidence 확인 중…' });
+      await screen.findByRole('status', { name: '근거 확인 중…' });
       await act(async () => {
         settleList?.();
         await refetch;
       });
     }
-    await screen.findByRole('button', { name: /다른 Evidence 메모/ });
+    await screen.findByRole('button', { name: /다른 근거 메모/ });
     await waitFor(() => expect(client.isFetching({ queryKey: ['evidence-inventory'] })).toBe(0));
     expect(screen.queryByText(item.quote_or_summary as string)).toBeNull();
     expect(screen.queryByText(/철회된 원본 제목/)).toBeNull();
@@ -838,12 +838,12 @@ it('keeps initial pending reads distinct from empty and error', async () => {
   );
   await mount();
   await waitFor(() => expect(settle).toBeTypeOf('function'));
-  await screen.findByRole('status', { name: 'Evidence 확인 중…' });
-  expect(screen.queryByText('표시할 Evidence가 없습니다.')).toBeNull();
+  await screen.findByRole('status', { name: '근거 확인 중…' });
+  expect(screen.queryByText('표시할 근거가 없습니다.')).toBeNull();
   await act(async () => {
     settle(response({ items: [], page: { has_more: false } }));
   });
-  await screen.findByText('표시할 Evidence가 없습니다.');
+  await screen.findByText('표시할 근거가 없습니다.');
 });
 it('rejects a malformed inventory payload instead of rendering unparsed content', async () => {
   installFetch(() =>
@@ -853,7 +853,7 @@ it('rejects a malformed inventory payload instead of rendering unparsed content'
     }),
   );
   await mount();
-  await screen.findByText('Evidence를 불러오지 못했습니다.');
+  await screen.findByText('근거를 불러오지 못했습니다.');
   expect(screen.queryByText('숨겨진 서버 오류 텍스트')).toBeNull();
 });
 
@@ -884,14 +884,14 @@ it('replaces a rejected first-page cursor with the first page and retains filter
   expect(router.state.location.search.cursor).toBeUndefined();
   await act(async () => history.back());
   expect(router.state.location.search.cursor).toBeUndefined();
-  expect(screen.queryByText('Evidence를 불러오지 못했습니다.')).toBeNull();
+  expect(screen.queryByText('근거를 불러오지 못했습니다.')).toBeNull();
 });
 
 it('explains list permission denial and disables the source tabs, search and refresh', async () => {
   installFetch(() => response({ code: 'permission.denied' }, 403));
   await mount();
   await screen.findByText(
-    'Evidence 목록을 볼 권한이 없습니다. 워크스페이스 관리자에게 권한을 요청하세요.',
+    '근거 목록을 볼 권한이 없습니다. 워크스페이스 관리자에게 권한을 요청하세요.',
   );
   for (const tab of screen.getAllByRole('tab')) expect(tab).toBeDisabled();
   expect(screen.getByRole('searchbox')).toBeDisabled();

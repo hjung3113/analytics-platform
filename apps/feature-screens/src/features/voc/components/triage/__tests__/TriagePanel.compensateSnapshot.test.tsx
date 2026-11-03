@@ -131,12 +131,12 @@ describe('TriagePanel — compensating PATCH payload (REV-1 #3)', () => {
     fireEvent.click(highChip);
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /triage 확정/i })).not.toBeDisabled();
+      expect(screen.getByRole('button', { name: /분류 확정/i })).not.toBeDisabled();
     });
 
     // Confirm
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /triage 확정/i }));
+      fireEvent.click(screen.getByRole('button', { name: /분류 확정/i }));
     });
 
     await waitFor(() => expect(requests.length).toBeGreaterThanOrEqual(1));
@@ -197,10 +197,10 @@ describe('TriagePanel — compensating PATCH payload (REV-1 #3)', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: /^높음$/ }));
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /triage 확정/i })).not.toBeDisabled();
+      expect(screen.getByRole('button', { name: /분류 확정/i })).not.toBeDisabled();
     });
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /triage 확정/i }));
+      fireEvent.click(screen.getByRole('button', { name: /분류 확정/i }));
     });
     await waitFor(() => expect(onProcessed).toHaveBeenCalledWith(1));
     expect(requests[0]?.body).toMatchObject({ triage_state: 'triaged', severity: 'high' });

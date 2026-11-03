@@ -26,7 +26,7 @@ export function TriageBlock({
   return (
     <div className="mt-8">
       <div className="flex items-center justify-between">
-        <PanelSectionTitle>Triage (읽기 전용)</PanelSectionTitle>
+        <PanelSectionTitle>분류 (읽기 전용)</PanelSectionTitle>
         {canTriage && onOpenTriage !== undefined && (
           <Button
             variant="ghost"
@@ -34,7 +34,7 @@ export function TriageBlock({
             data-testid="triage-open-console"
             onClick={onOpenTriage}
           >
-            Triage에서 변경
+            분류에서 변경
           </Button>
         )}
       </div>
@@ -58,16 +58,16 @@ export function TriageBlock({
       </FieldRow>
 
       {/* Analytics Area */}
-      <FieldRow label="Analytics Area" inset="none">
+      <FieldRow label="분석 영역" inset="none">
         {voc.analytics_area_id !== null ? (
-          <span className="text-sm text-text-primary">{analyticsAreaName ?? 'Analytics Area'}</span>
+          <span className="text-sm text-text-primary">{analyticsAreaName ?? '분석 영역'}</span>
         ) : (
           <span className="text-sm text-text-warning">미지정</span>
         )}
       </FieldRow>
 
       {/* Triage 상태 */}
-      <FieldRow label="Triage 상태" inset="none">
+      <FieldRow label="분류 상태" inset="none">
         <span className="text-sm text-text-primary">{TRIAGE_STATE_LABELS[voc.triage_state]}</span>
       </FieldRow>
     </div>

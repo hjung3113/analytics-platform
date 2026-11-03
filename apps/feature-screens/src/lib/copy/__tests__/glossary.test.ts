@@ -10,7 +10,7 @@ describe('lib/copy/glossary', () => {
     expect(GLOSSARY.sort).toBe('정렬');
     expect(GLOSSARY.refresh).toBe('새로고침');
     expect(GLOSSARY.save).toBe('저장');
-    expect(GLOSSARY.inbox).toBe('수신함');
+    expect(GLOSSARY.inbox).toBe('VOC 처리함');
     expect(GLOSSARY.myVocs).toBe('내 VOC');
     expect(GLOSSARY.entityLinks).toBe('엔티티 링크');
     expect(GLOSSARY.permissionRequests).toBe('권한 요청');
@@ -36,10 +36,10 @@ describe('lib/copy/glossary', () => {
     expect(GLOSSARY.milestoneStatusPlanning).toBe('계획 중');
     expect(GLOSSARY.milestoneStatusInProgress).toBe('진행 중');
     expect(GLOSSARY.milestoneStatusReleased).toBe('릴리스됨');
-    expect(GLOSSARY.triageQueue).toBe('Triage 대기열');
+    expect(GLOSSARY.triageQueue).toBe('분류 대기열');
     expect(GLOSSARY.unknownUser).toBe('알 수 없는 사용자');
-    expect(GLOSSARY.evidenceHighlight).toBe('Evidence 하이라이트');
-    expect(GLOSSARY.addEvidence).toBe('Evidence 추가');
+    expect(GLOSSARY.evidenceHighlight).toBe('근거 하이라이트');
+    expect(GLOSSARY.addEvidence).toBe('근거 추가');
   });
 
   it('formats templated patterns', () => {

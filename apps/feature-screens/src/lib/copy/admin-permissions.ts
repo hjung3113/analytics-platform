@@ -80,7 +80,7 @@ export const ADMIN_PERMISSIONS_COPY = {
     allScope: '워크스페이스 전체',
     directGrant: '직접 부여',
     roleAccess: 'Role Level',
-    managedSystemAccess: 'Managed System 범위',
+    managedSystemAccess: '시스템 범위',
     accessReasons: {
       workspace_mismatch: '워크스페이스 불일치',
       explicit_deny: '명시적 차단',

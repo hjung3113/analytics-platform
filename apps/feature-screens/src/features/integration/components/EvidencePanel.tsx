@@ -59,7 +59,7 @@ function EvidencePanelBody({ item, loading, error, mismatch, onRetry }: Evidence
         {loading ? (
           <Skeleton className="h-32" role="status" aria-label={COPY.loading} />
         ) : error instanceof ApiError && (error.status === 403 || error.status === 401) ? (
-          <PermissionBlockedPanel state="denied" category="Evidence" />
+          <PermissionBlockedPanel state="denied" category="근거" />
         ) : error ? (
           <ListStateMessage
             variant="error"

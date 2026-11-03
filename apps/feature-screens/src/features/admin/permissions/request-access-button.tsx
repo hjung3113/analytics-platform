@@ -186,7 +186,7 @@ export function RequestAccessButton(props: RequestAccessButtonProps) {
                 </dd>
                 <dt className="text-text-muted">권한</dt>
                 <dd className="text-text-primary">{getCapabilityDisplayLabel(props.capability)}</dd>
-                <dt className="text-text-muted">Managed System</dt>
+                <dt className="text-text-muted">시스템</dt>
                 <dd
                   className={
                     props.managedSystemId && !managedSystemName
@@ -258,7 +258,7 @@ export function RequestAccessButton(props: RequestAccessButtonProps) {
                   <dd className="text-text-primary">
                     {getCapabilityDisplayLabel(props.capability)}
                   </dd>
-                  <dt className="text-text-muted">Managed System</dt>
+                  <dt className="text-text-muted">시스템</dt>
                   <dd
                     className={
                       props.managedSystemId && !managedSystemName

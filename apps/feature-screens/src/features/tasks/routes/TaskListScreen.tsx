@@ -384,7 +384,7 @@ export function TaskListScreen({ view, autoSelect, renderDetail }: TaskListScree
                         {dot()}
                         <span>
                           {managedSystemNamesById.get(task.primary_managed_system_id) ??
-                            'Managed System'}
+                            '시스템'}
                         </span>
                         {dot()}
                         <span>{formatShortDateTime(task.updated_at)}</span>

@@ -67,9 +67,9 @@ function makeItem(
   };
 }
 
-const KIND_LABEL = { voc: 'VOC', voc_cluster: 'VOC Cluster' } as const;
+const KIND_LABEL = { voc: 'VOC', voc_cluster: '반복 VOC' } as const;
 
-describe('Task Request source section for VOC and Cluster origins (#1243)', () => {
+describe('Task Request source section for VOC and 반복 VOC origins (#1243)', () => {
   it.each(['voc', 'voc_cluster'] as const)(
     '%s shows the display id and title when the payload carries both',
     (type) => {

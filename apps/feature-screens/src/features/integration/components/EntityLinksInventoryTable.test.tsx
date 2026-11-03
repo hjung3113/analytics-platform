@@ -65,7 +65,7 @@ describe('EntityLinksInventoryTable identity', () => {
     expect(screen.getByText('활성')).toHaveClass('text-text-muted');
     expect(screen.getByText('활성')).not.toHaveClass('text-text-success-label');
     expect(row.querySelectorAll('[data-entity-type]')).toHaveLength(2);
-    expect(screen.getByText('Managed System')).toBeInTheDocument();
+    expect(screen.getByText('시스템')).toBeInTheDocument();
     expect(screen.getByText('알 수 없는 사용자')).toBeInTheDocument();
     expect(
       screen.queryByText('40000000', { selector: '.text-text-primary' }),

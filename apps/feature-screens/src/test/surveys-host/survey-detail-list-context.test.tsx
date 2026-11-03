@@ -101,7 +101,7 @@ test('detail list keeps filter context through chips and selection, then close r
       id: ACTOR_ID,
       external_id: 'manager',
       email: 'manager@example.test',
-      display_name: 'Survey manager',
+      display_name: '설문 manager',
       role_level: 'admin',
     },
     workspace_id: WORKSPACE_ID,
@@ -118,7 +118,7 @@ test('detail list keeps filter context through chips and selection, then close r
     </QueryClientProvider>,
   );
 
-  expect(await screen.findByRole('heading', { name: 'Surveys' })).toBeInTheDocument();
+  expect(await screen.findByRole('heading', { name: '설문' })).toBeInTheDocument();
   expect(await screen.findByTestId('survey-create-button')).toBeInTheDocument();
   await waitFor(() =>
     expect(
@@ -135,7 +135,7 @@ test('detail list keeps filter context through chips and selection, then close r
     ).toBe(true),
   );
   expect(
-    screen.getByRole('button', { name: 'Analytics Area: 미지정 필터 제거' }),
+    screen.getByRole('button', { name: '분석 영역: 미지정 필터 제거' }),
   ).toBeInTheDocument();
   expect(screen.getByRole('button', { name: '상태: 진행 중 필터 제거' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: '후속 조치 필요 필터 제거' })).toBeInTheDocument();

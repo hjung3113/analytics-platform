@@ -14,7 +14,7 @@ function ScopeControlHost({ disabled, children }: { disabled: boolean; children:
     </>
   );
 }
-it('#518 disables the scope selector on a route that does not support Managed System scope', async () => {
+it('#518 disables the scope selector on a route that does not support 시스템 scope', async () => {
   const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input);
     if (url === '/me')
@@ -79,9 +79,9 @@ it('renders non-admin scope options when /me omits actor', async () => {
     await waitFor(() => expect(screen.getByTestId('scope-selector')).toBeInTheDocument());
     fireEvent.click(screen.getByTestId('scope-selector'));
 
-    expect(screen.getByTestId('scope-name')).toHaveTextContent('전체 Managed System');
+    expect(screen.getByTestId('scope-name')).toHaveTextContent('전체 시스템');
     expect(screen.getByTestId('scope-selector')).toHaveAccessibleName(
-      '목록 범위, 전체 Managed System, 내 담당 범위',
+      '시스템, 전체 시스템, 내 담당 범위',
     );
     expect(screen.queryByTestId('scope-union-badge')).not.toBeInTheDocument();
     expect(await screen.findByTestId(`scope-option-${MS_ONE}`)).toBeInTheDocument();
@@ -89,7 +89,7 @@ it('renders non-admin scope options when /me omits actor', async () => {
     // The denominator comes from the loaded system list, so this has to be
     // asserted after the options render — before that it is legitimately 0/0.
     expect(screen.getByTestId('scope-option-all')).toHaveTextContent('내 담당 0 / 2');
-    expect(screen.getByTestId('scope-option-all')).toHaveTextContent('전체 Managed System');
+    expect(screen.getByTestId('scope-option-all')).toHaveTextContent('전체 시스템');
   } finally {
     globalThis.fetch = originalFetch;
   }

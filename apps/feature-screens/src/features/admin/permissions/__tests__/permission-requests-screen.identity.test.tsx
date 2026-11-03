@@ -64,14 +64,14 @@ describe('PermissionRequestsScreen identity', () => {
     expect(screen.getByText('10000000')).toHaveClass('text-text-muted');
   });
 
-  it('uses safe requester and Managed System labels when lookups have no names', () => {
+  it('uses safe requester and 시스템 labels when lookups have no names', () => {
     consoleState.actorNames = {};
     consoleState.managedSystemNames = {};
 
     render(<PermissionRequestsScreen />);
 
     expect(screen.getByText('알 수 없는 사용자 · Finding 관리')).toBeInTheDocument();
-    expect(screen.getByText('Managed System')).toBeInTheDocument();
+    expect(screen.getByText('시스템')).toBeInTheDocument();
     expect(screen.getByText('20000000')).toHaveClass('font-mono');
     expect(screen.getByText('30000000')).toHaveClass('font-mono');
   });

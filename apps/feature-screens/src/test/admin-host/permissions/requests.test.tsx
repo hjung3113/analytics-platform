@@ -861,7 +861,7 @@ describe('/admin/permissions/requests', () => {
     fireEvent.click(screen.getByRole('button', { name: '승인' }));
     const scope = screen.getByRole('combobox', { name: '승인 범위' });
     fireEvent.keyDown(scope, { key: 'ArrowDown' });
-    const option = await screen.findByRole('option', { name: 'Managed System · cccccccc' });
+    const option = await screen.findByRole('option', { name: '시스템 · cccccccc' });
     fireEvent.click(option);
     fireEvent.click(screen.getByTestId('permission-decision-submit'));
     await waitFor(() => expect(decisionPosts()).toHaveLength(1));

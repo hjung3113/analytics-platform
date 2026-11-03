@@ -39,7 +39,7 @@ type ResolutionFilter = OutcomeFollowUpItem['resolution'];
 type DecisionAction = 'mark' | 'reopen';
 
 const NOT_CLASSIFIABLE_BODY =
-  '후속 검토는 마감된 성과 Survey 중 충분한 응답이 모인 경우에만 제공됩니다.';
+  '후속 검토는 마감된 성과 설문 중 충분한 응답이 모인 경우에만 제공됩니다.';
 
 function displayResponseNumber(value: number): string {
   // Option B pads single-digit response numbers in both the list and detail header.

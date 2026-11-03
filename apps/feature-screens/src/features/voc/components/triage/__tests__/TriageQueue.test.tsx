@@ -138,7 +138,7 @@ function RetryQueryHarness({ load }: { load: () => Promise<VocListItem[]> }) {
   );
 }
 
-describe('Triage retry accessibility (#953)', () => {
+describe('분류 retry accessibility (#953)', () => {
   function renderQuery(load: () => Promise<VocListItem[]>) {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     return render(
@@ -164,7 +164,7 @@ describe('Triage retry accessibility (#953)', () => {
         .mockReturnValueOnce(retry);
       renderQuery(load);
       await user.click(await screen.findByRole('button', { name: '다시 시도' }));
-      const target = screen.getByRole('region', { name: 'Triage 대기열' });
+      const target = screen.getByRole('region', { name: '분류 대기열' });
       await screen.findByRole('status');
       await waitFor(() => expect(document.activeElement).toBe(target));
       if (outcome === 'error') {

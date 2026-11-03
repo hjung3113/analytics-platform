@@ -355,13 +355,13 @@ describe('<VocDetailPanel>', () => {
     },
   );
 
-  it('shows Cluster-origin Finding provenance and selects the linked-state CTA', async () => {
+  it('shows 반복 VOC-origin Finding provenance and selects the linked-state CTA', async () => {
     const clusterId = '77777777-7777-4777-8777-777777777777';
     const cluster = {
       type: 'voc_cluster' as const,
       id: clusterId,
       display_id: 'CLU-1225',
-      title: '공통 장애 Cluster',
+      title: '공통 장애 반복 VOC',
       summary: null,
       status: 'draft',
       primary_managed_system_id: DETAIL_ENVELOPE.primary_managed_system_id,
@@ -396,7 +396,7 @@ describe('<VocDetailPanel>', () => {
       }),
     );
     renderWithClient(<VocDetailPanel vocId={DETAIL_ENVELOPE.id} onClose={vi.fn()} />);
-    expect(screen.getByText('공통 장애 Cluster')).toBeInTheDocument();
+    expect(screen.getByText('공통 장애 반복 VOC')).toBeInTheDocument();
     expect(screen.queryByText('연결된 실행 없음')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Finding 생성' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '연결된 실행 확인' })).toBeInTheDocument();
@@ -560,7 +560,7 @@ describe('<VocDetailPanel>', () => {
       },
     ]);
 
-    expect(screen.getAllByText('Backlog').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('대기').length).toBeGreaterThan(0);
     expect(screen.queryByText('backlog', { exact: true })).not.toBeInTheDocument();
   });
 
@@ -683,7 +683,7 @@ describe('<VocDetailPanel>', () => {
     renderWithClient(<VocDetailPanel vocId={DETAIL_ENVELOPE.id} onClose={vi.fn()} />, queryClient);
 
     expect(screen.getByText('캐시된 내부 Task 제목')).toBeInTheDocument();
-    expect(screen.getByText('Done')).toBeInTheDocument();
+    expect(screen.getByText('완료')).toBeInTheDocument();
     expect(getTask).not.toHaveBeenCalled();
   });
 
@@ -745,7 +745,7 @@ describe('<VocDetailPanel>', () => {
     });
   });
 
-  it('closes a mounted detail when the Managed System scope changes outside its envelope', async () => {
+  it('closes a mounted detail when the 시스템 scope changes outside its envelope', async () => {
     vi.mocked(useVocDetail).mockReturnValue(makeDetailQuery());
     const onClose = vi.fn();
     const { rerender } = renderWithClient(
@@ -773,7 +773,7 @@ describe('<VocDetailPanel>', () => {
     expect(screen.queryByText('VOC를 찾을 수 없습니다.')).not.toBeInTheDocument();
   });
 
-  it('keeps a selected detail open for all Managed Systems', async () => {
+  it('keeps a selected detail open for all 시스템', async () => {
     vi.mocked(useVocDetail).mockReturnValue(makeDetailQuery());
     const onClose = vi.fn();
     renderWithClient(<VocDetailPanel vocId={DETAIL_ENVELOPE.id} onClose={onClose} />);
@@ -804,7 +804,7 @@ describe('<VocDetailPanel>', () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
-  it('keeps a selected detail open when its Managed System scope remains the same', async () => {
+  it('keeps a selected detail open when its 시스템 scope remains the same', async () => {
     vi.mocked(useVocDetail).mockReturnValue(makeDetailQuery());
     const onClose = vi.fn();
     const { rerender } = renderWithClient(
@@ -943,7 +943,7 @@ describe('<VocDetailPanel>', () => {
   it('does not render an empty related-entity section in the happy path', () => {
     vi.mocked(useVocDetail).mockReturnValue(makeDetailQuery());
     renderWithClient(<VocDetailPanel vocId="voc-uuid-1111" onClose={vi.fn()} />);
-    expect(screen.getByRole('heading', { name: 'Triage (읽기 전용)' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '분류 (읽기 전용)' })).toBeInTheDocument();
     // #679 FIX2: the reference's relaxed 'BODY' variance is superseded by the
     // Korean-chrome policy; the label is 본문.
     expect(screen.getByText('본문')).toBeInTheDocument();
@@ -959,7 +959,7 @@ describe('<VocDetailPanel>', () => {
     );
 
     expect(
-      screen.queryByRole('button', { name: '같은 Managed System의 VOC' }),
+      screen.queryByRole('button', { name: '같은 시스템의 VOC' }),
     ).not.toBeInTheDocument();
     expect(container.querySelector('[data-anchor="similar"]')).toBeNull();
 
@@ -989,8 +989,8 @@ describe('<VocDetailPanel>', () => {
     );
 
     fireEvent.keyDown(screen.getByRole('button', { name: /더보기/ }), { key: 'Enter' });
-    expect(screen.getByRole('menuitem', { name: '같은 Managed System의 VOC' })).toBeInTheDocument();
-    expect(screen.getByLabelText('같은 Managed System의 VOC 1건')).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: '같은 시스템의 VOC' })).toBeInTheDocument();
+    expect(screen.getByLabelText('같은 시스템의 VOC 1건')).toBeInTheDocument();
     expect(container.querySelector('[data-anchor="similar"]')).not.toBeNull();
   });
 
@@ -1073,7 +1073,7 @@ describe('<VocDetailPanel>', () => {
     expect(screen.queryByRole('button', { name: '추가 작업' })).toBeNull();
   });
 
-  it('#337: reporter-arm envelope omits Triage, Similar, and their navigation entries', async () => {
+  it('#337: reporter-arm envelope omits 분류, Similar, and their navigation entries', async () => {
     const {
       analytics_area_id: _analyticsAreaId,
       owner_user_id: _ownerUserId,
@@ -1087,11 +1087,11 @@ describe('<VocDetailPanel>', () => {
     renderWithClient(<VocDetailPanel vocId={DETAIL_ENVELOPE.id} onClose={vi.fn()} />);
 
     await screen.findByText('테스트 VOC 제목');
-    expect(screen.queryByText('Triage (읽기 전용)')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText(/같은 Managed System의 VOC/)).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Triage' })).not.toBeInTheDocument();
+    expect(screen.queryByText('분류 (읽기 전용)')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/같은 시스템의 VOC/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '분류' })).not.toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: '같은 Managed System의 VOC' }),
+      screen.queryByRole('button', { name: '같은 시스템의 VOC' }),
     ).not.toBeInTheDocument();
   });
 
@@ -1105,11 +1105,11 @@ describe('<VocDetailPanel>', () => {
     renderWithClient(<VocDetailPanel vocId={DETAIL_ENVELOPE.id} onClose={vi.fn()} />);
 
     await screen.findByText('테스트 VOC 제목');
-    expect(screen.queryByText('Triage (읽기 전용)')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Triage' })).not.toBeInTheDocument();
+    expect(screen.queryByText('분류 (읽기 전용)')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '분류' })).not.toBeInTheDocument();
   });
 
-  it('#337: scoped envelope renders Triage and Similar with their navigation entries', async () => {
+  it('#337: scoped envelope renders 분류 and Similar with their navigation entries', async () => {
     const user = userEvent.setup();
     vi.mocked(useVocDetail).mockReturnValue(
       makeDetailQuery({
@@ -1136,14 +1136,14 @@ describe('<VocDetailPanel>', () => {
     );
 
     await screen.findByText('테스트 VOC 제목');
-    expect(screen.getByRole('heading', { name: 'Triage (읽기 전용)' })).toBeInTheDocument();
-    expect(screen.getByLabelText('같은 Managed System의 VOC 1건')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Triage' })).toBeInTheDocument();
-    for (const label of ['요약', 'Triage', '이력', '작성']) {
+    expect(screen.getByRole('heading', { name: '분류 (읽기 전용)' })).toBeInTheDocument();
+    expect(screen.getByLabelText('같은 시스템의 VOC 1건')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '분류' })).toBeInTheDocument();
+    for (const label of ['요약', '분류', '이력', '작성']) {
       expect(screen.getByRole('button', { name: label })).toBeInTheDocument();
     }
     expect(
-      screen.queryByRole('button', { name: '같은 Managed System의 VOC' }),
+      screen.queryByRole('button', { name: '같은 시스템의 VOC' }),
     ).not.toBeInTheDocument();
     const moreButton = screen.getByRole('button', { name: /더보기/ });
     expect(moreButton).toBeInTheDocument();
@@ -1156,7 +1156,7 @@ describe('<VocDetailPanel>', () => {
 
     fireEvent.keyDown(moreButton, { key: 'Enter' });
     const descriptionItem = screen.getByRole('menuitem', { name: '본문' });
-    const similarItem = screen.getByRole('menuitem', { name: '같은 Managed System의 VOC' });
+    const similarItem = screen.getByRole('menuitem', { name: '같은 시스템의 VOC' });
     expect(descriptionItem).toHaveFocus();
     await user.keyboard('{ArrowDown}');
     expect(similarItem).toHaveFocus();
@@ -1210,7 +1210,7 @@ describe('<VocDetailPanel>', () => {
         type: 'voc_cluster' as const,
         id: clusterId,
         display_id: 'CLU-1225',
-        title: '공통 장애 Cluster',
+        title: '공통 장애 반복 VOC',
         summary: null,
         status: 'draft',
         primary_managed_system_id: DETAIL_ENVELOPE.primary_managed_system_id,
@@ -1247,10 +1247,10 @@ describe('<VocDetailPanel>', () => {
       renderWithClient(<VocDetailPanel vocId={DETAIL_ENVELOPE.id} onClose={vi.fn()} />);
     }
 
-    it('opens the linked Cluster as a path, not a search key', async () => {
+    it('opens the linked 반복 VOC as a path, not a search key', async () => {
       renderClusterTrail();
 
-      await userEvent.click(screen.getByRole('button', { name: /공통 장애 Cluster/ }));
+      await userEvent.click(screen.getByRole('button', { name: /공통 장애 반복 VOC/ }));
 
       expect(navigate).toHaveBeenCalledWith(`/voc-clusters/${clusterId}`);
     });
@@ -1273,9 +1273,9 @@ describe('<VocDetailPanel>', () => {
       hostCanLink = (to) => to.startsWith('/vocs') && !to.includes('view=triage');
       renderClusterTrail();
 
-      expect(screen.getByText('공통 장애 Cluster')).toBeInTheDocument();
+      expect(screen.getByText('공통 장애 반복 VOC')).toBeInTheDocument();
       expect(screen.getByText('로그 유실 Finding')).toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: /공통 장애 Cluster/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /공통 장애 반복 VOC/ })).not.toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /로그 유실 Finding/ })).not.toBeInTheDocument();
       expect(screen.queryByTestId('triage-open-console')).not.toBeInTheDocument();
     });

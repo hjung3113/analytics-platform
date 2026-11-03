@@ -97,7 +97,7 @@ function setup(
               {
                 ...surveyEvidenceCandidates.items[0],
                 approved_excerpt_id: SURVEY.otherExcerpt,
-                redacted_excerpt: '새 Survey 승인 발췌',
+                redacted_excerpt: '새 설문 승인 발췌',
               },
             ],
           }),
@@ -166,7 +166,7 @@ function setup(
 }
 async function chooseSurvey(displayId = 'SRV-42') {
   fireEvent.click(screen.getByTestId('evidence-source-type-select'));
-  fireEvent.click(await screen.findByRole('option', { name: /^Survey$/ }));
+  fireEvent.click(await screen.findByRole('option', { name: /^설문$/ }));
   fireEvent.click(await screen.findByRole('combobox', { name: COPY.survey }));
   fireEvent.click(await screen.findByRole('option', { name: new RegExp(displayId) }));
 }
@@ -175,8 +175,8 @@ async function chooseExcerpt() {
 }
 afterEach(() => vi.unstubAllGlobals());
 
-describe('AddEvidenceModal approved Survey attachment', () => {
-  it('labels each excerpt with its question without repeating the chosen Survey ID', async () => {
+describe('AddEvidenceModal approved 설문 attachment', () => {
+  it('labels each excerpt with its question without repeating the chosen 설문 ID', async () => {
     setup();
     await chooseSurvey();
     const excerpt = await screen.findByRole('radio', { name: /로그인 과정/ });
@@ -185,7 +185,7 @@ describe('AddEvidenceModal approved Survey attachment', () => {
     expect(excerpt).not.toHaveAccessibleName(/SRV-42/);
   });
 
-  it('explains access limits when the Survey catalog is empty', async () => {
+  it('explains access limits when the 설문 catalog is empty', async () => {
     const context = setup();
     const originalFetch = context.fetchMock.getMockImplementation();
     context.fetchMock.mockImplementation(async (input, init) => {
@@ -193,14 +193,14 @@ describe('AddEvidenceModal approved Survey attachment', () => {
       return originalFetch?.(input, init) ?? json({});
     });
     fireEvent.click(screen.getByTestId('evidence-source-type-select'));
-    fireEvent.click(await screen.findByRole('option', { name: /^Survey$/ }));
+    fireEvent.click(await screen.findByRole('option', { name: /^설문$/ }));
 
-    expect(await screen.findByText('접근 권한이 있는 Survey만 표시됩니다.')).toBeInTheDocument();
+    expect(await screen.findByText('접근 권한이 있는 설문만 표시됩니다.')).toBeInTheDocument();
     expect(screen.getByText(COPY.catalogEmpty)).toBeInTheDocument();
   });
 
   it.each([500, 422])(
-    'focuses the submit error after a Survey attachment fails with %s',
+    'focuses the submit error after a 설문 attachment fails with %s',
     async (status) => {
       setup({ postStatus: status });
       await chooseSurvey();
@@ -287,7 +287,7 @@ describe('AddEvidenceModal approved Survey attachment', () => {
     );
     await chooseSurvey();
     expect(screen.getByRole('combobox', { name: COPY.survey })).toHaveTextContent(
-      'Managed System: Research Hub',
+      '시스템: Research Hub',
     );
     expect(screen.queryByTestId('evidence-source-id-input')).not.toBeInTheDocument();
     expect(screen.queryByTestId('evidence-quote-input')).not.toBeInTheDocument();
@@ -436,7 +436,7 @@ describe('AddEvidenceModal approved Survey attachment', () => {
   it('keeps a denied catalog separate from an empty catalog', async () => {
     setup({ catalogDenied: true });
     fireEvent.click(screen.getByTestId('evidence-source-type-select'));
-    fireEvent.click(await screen.findByRole('option', { name: /^Survey$/ }));
+    fireEvent.click(await screen.findByRole('option', { name: /^설문$/ }));
     expect(await screen.findByRole('alert')).toHaveTextContent(COPY.error);
     expect(screen.getByRole('button', { name: COPY.retry })).toBeEnabled();
     expect(screen.getByTestId('add-evidence-submit')).toBeDisabled();
@@ -471,7 +471,7 @@ describe('AddEvidenceModal approved Survey attachment', () => {
   });
 
   it.each(['cancel', 'Escape', 'external'] as const)(
-    'resets Survey draft on %s close and reopens as a note',
+    'resets 설문 draft on %s close and reopens as a note',
     async (way) => {
       const context = setup({ postStatus: 500 });
       function ControlledHost() {
@@ -512,25 +512,25 @@ describe('AddEvidenceModal approved Survey attachment', () => {
       expect(screen.getByTestId('evidence-source-type-select')).toHaveTextContent('수동 메모');
       expect(screen.getByTestId('evidence-quote-input')).toHaveValue('');
       fireEvent.click(screen.getByTestId('evidence-source-type-select'));
-      fireEvent.click(await screen.findByRole('option', { name: /^Survey$/ }));
+      fireEvent.click(await screen.findByRole('option', { name: /^설문$/ }));
       expect(screen.getByRole('combobox', { name: COPY.survey })).toHaveTextContent(COPY.survey);
       expect(screen.getByTestId('add-evidence-submit')).toBeDisabled();
       expect(screen.queryByText(COPY.attachError)).not.toBeInTheDocument();
     },
   );
 
-  it('does not restore a late page from a previously selected Survey', async () => {
+  it('does not restore a late page from a previously selected 설문', async () => {
     const context = setup({ holdCandidate: true });
     await chooseSurvey();
     expect(screen.getByTestId('add-evidence-submit')).toBeDisabled();
     fireEvent.click(screen.getByRole('combobox', { name: COPY.survey }));
     fireEvent.click(await screen.findByRole('option', { name: /SRV-43/ }));
-    fireEvent.click(await screen.findByRole('radio', { name: /새 Survey/ }));
+    fireEvent.click(await screen.findByRole('radio', { name: /새 설문/ }));
     await act(async () => {
       context.releaseCandidate();
       await Promise.resolve();
     });
-    expect(screen.getByRole('radio', { name: /새 Survey/ })).toBeChecked();
+    expect(screen.getByRole('radio', { name: /새 설문/ })).toBeChecked();
     expect(screen.queryByText(SURVEY_EVIDENCE_QUOTE)).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId('add-evidence-submit'));
     await waitFor(() => expect(context.close).toHaveBeenCalledOnce());
@@ -578,7 +578,7 @@ describe('AddEvidenceModal approved Survey attachment', () => {
     });
   });
 
-  it('pages safe candidates and resets selection when Survey or source changes', async () => {
+  it('pages safe candidates and resets selection when 설문 or source changes', async () => {
     const context = setup({ paged: true });
     await chooseSurvey();
     await chooseExcerpt();

@@ -50,7 +50,7 @@ function formatScore(score: number): string {
 
 function mutationErrorMessage(err: ApiError): string {
   if (isCrossManagedSystemError(err)) {
-    return '다른 Managed System의 VOC와는 Cluster를 만들 수 없습니다.';
+    return '다른 시스템의 VOC와는 반복 VOC를 만들 수 없습니다.';
   }
   if (err.status === 404) {
     return '이 VOC를 더 이상 볼 수 없습니다. 추천 목록을 새로 불러왔습니다.';
@@ -99,8 +99,8 @@ export function ClusterSectionReadOnly({
           setFeedback({
             tone: 'ok',
             text: res.cluster_created
-              ? `${item.display_id}와(과) 새 Cluster를 만들었습니다.`
-              : `${item.display_id}을(를) 기존 Cluster에 추가했습니다.`,
+              ? `${item.display_id}와(과) 새 반복 VOC를 만들었습니다.`
+              : `${item.display_id}을(를) 기존 반복 VOC에 추가했습니다.`,
           });
         },
         onError: (err) => {

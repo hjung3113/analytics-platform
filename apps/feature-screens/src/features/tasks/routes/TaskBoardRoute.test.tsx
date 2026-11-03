@@ -9,6 +9,7 @@ import type * as React from 'react';
 import { toast } from 'sonner';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { boardList } from './taskBoardTestServer';
+import { TASK_STATUS_LABELS } from '@/lib/copy/enum-labels';
 
 const task = {
   id: '10000000-0000-0000-0000-000000000001',
@@ -355,7 +356,7 @@ describe('TaskBoardRoute', () => {
     await screen.findByText('TASK-1000');
     for (const status of ['backlog', 'todo', 'doing', 'review', 'done', 'released', 'reopened']) {
       expect(
-        screen.getByLabelText(`${status.charAt(0).toUpperCase()}${status.slice(1)} 열`),
+        screen.getByLabelText(`${TASK_STATUS_LABELS[status as keyof typeof TASK_STATUS_LABELS]} 열`),
       ).toBeInTheDocument();
     }
     expect(screen.getAllByText('비어있음').length).toBe(6);
@@ -368,7 +369,7 @@ describe('TaskBoardRoute', () => {
     expect(screen.queryByRole('button', { name: /Task 추가/ })).not.toBeInTheDocument();
   });
 
-  it('shows the conversion guidance in the empty board and preserves Managed System in its link', async () => {
+  it('shows the conversion guidance in the empty board and preserves 시스템 in its link', async () => {
     const managedSystem = 'all';
     api.listTasks.mockImplementation(boardList([]));
     renderBoard(undefined, managedSystem);
@@ -395,7 +396,7 @@ describe('TaskBoardRoute', () => {
     const card = screen.getByRole('button', { name: 'TASK-1000: 매출 리포트 쿼리 플랜 개선' });
     expect(within(card).getByText('담당자 없음')).toBeInTheDocument();
     expect(screen.getAllByText('미배정').length).toBeGreaterThan(0);
-    expect(screen.getByText('진행 중')).toBeInTheDocument();
+    expect(screen.getAllByText('진행 중')).toHaveLength(2);
     expect(screen.queryByText('Total tasks')).not.toBeInTheDocument();
     expect(screen.queryByText('In progress')).not.toBeInTheDocument();
   });
@@ -562,7 +563,7 @@ describe('TaskBoardRoute', () => {
         expect.objectContaining({ ifMatch: task.updated_at, idempotencyKey: expect.any(String) }),
       ),
     );
-    expect(screen.getByLabelText('Doing 열')).toHaveTextContent('TASK-1000');
+    expect(screen.getByLabelText('진행 중 열')).toHaveTextContent('TASK-1000');
   });
 
   it('rolls back a failed mutation', async () => {
@@ -572,9 +573,9 @@ describe('TaskBoardRoute', () => {
     renderBoard();
     await screen.findByText('TASK-1000');
     fireEvent.click(screen.getByRole('button', { name: 'simulate drag to doing' }));
-    await waitFor(() => expect(screen.getByLabelText('Doing 열')).toHaveTextContent('TASK-1000'));
+    await waitFor(() => expect(screen.getByLabelText('진행 중 열')).toHaveTextContent('TASK-1000'));
     update.reject(new Error('update failed'));
-    await waitFor(() => expect(screen.getByLabelText('Backlog 열')).toHaveTextContent('TASK-1000'));
+    await waitFor(() => expect(screen.getByLabelText('대기 열')).toHaveTextContent('TASK-1000'));
   });
 
   it('does not allow an older failed mutation to clobber a newer optimistic move', async () => {
@@ -585,10 +586,10 @@ describe('TaskBoardRoute', () => {
     renderBoard();
     await screen.findByText('TASK-1000');
     fireEvent.click(screen.getByRole('button', { name: 'simulate drag to doing' }));
-    await waitFor(() => expect(screen.getByLabelText('Doing 열')).toHaveTextContent('TASK-1000'));
+    await waitFor(() => expect(screen.getByLabelText('진행 중 열')).toHaveTextContent('TASK-1000'));
     fireEvent.click(screen.getByRole('button', { name: 'simulate drag to doing' }));
     first.reject(new Error('first failed'));
-    await waitFor(() => expect(screen.getByLabelText('Doing 열')).toHaveTextContent('TASK-1000'));
+    await waitFor(() => expect(screen.getByLabelText('진행 중 열')).toHaveTextContent('TASK-1000'));
   });
 
   it('rolls back and refetches after a stale-write conflict', async () => {
@@ -598,9 +599,9 @@ describe('TaskBoardRoute', () => {
     renderBoard();
     await screen.findByText('TASK-1000');
     fireEvent.click(screen.getByRole('button', { name: 'simulate drag to doing' }));
-    await waitFor(() => expect(screen.getByLabelText('Doing 열')).toHaveTextContent('TASK-1000'));
+    await waitFor(() => expect(screen.getByLabelText('진행 중 열')).toHaveTextContent('TASK-1000'));
     update.reject(new ApiError(409, { code: 'conflict.stale_write', message: 'stale' }));
-    await waitFor(() => expect(screen.getByLabelText('Backlog 열')).toHaveTextContent('TASK-1000'));
+    await waitFor(() => expect(screen.getByLabelText('대기 열')).toHaveTextContent('TASK-1000'));
     await waitFor(() => expect(api.listTasks.mock.calls.length).toBeGreaterThan(1));
     expect(toast.error).toHaveBeenCalledWith(
       '다른 사용자가 먼저 변경했습니다. 최신 내용을 불러올까요?',
@@ -771,7 +772,7 @@ describe('TaskBoardRoute', () => {
 
     renderBoard(doneTask.id);
     const footerAction = await screen.findByRole('button', { name: '다음 상태로 이동' });
-    expect(screen.getAllByText('Done').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('완료').length).toBeGreaterThan(0);
 
     fireEvent.click(footerAction);
 
@@ -779,7 +780,7 @@ describe('TaskBoardRoute', () => {
     await waitFor(() =>
       expect(screen.queryByRole('button', { name: '다음 상태로 이동' })).not.toBeInTheDocument(),
     );
-    expect(screen.getAllByText('Released').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('배포됨').length).toBeGreaterThan(0);
   });
 
   // #290: ADR-0030 allows every status to reach every other status, but the
@@ -804,7 +805,7 @@ describe('TaskBoardRoute', () => {
     await waitFor(() => expect(api.updateTaskStatus).toHaveBeenCalledTimes(1));
     expect(api.updateTaskStatus.mock.calls[0]?.[0]).toBe(backlogTask.id);
     expect(api.updateTaskStatus.mock.calls[0]?.[1]).toBe('todo');
-    await waitFor(() => expect(screen.getAllByText('Todo').length).toBeGreaterThan(0));
+    await waitFor(() => expect(screen.getAllByText('할 일').length).toBeGreaterThan(0));
   });
 
   it.each(['backlog', 'my', 'inbox'] as const)('keeps the %s view on TaskListRoute', (view) => {

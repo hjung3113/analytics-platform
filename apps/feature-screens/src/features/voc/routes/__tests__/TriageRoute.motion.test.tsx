@@ -136,7 +136,7 @@ it('animates same-context optimistic removal while retaining queue scroll and se
   container.scrollTop = 123;
   environment.animate.mockClear();
   fireEvent.click(screen.getByRole('button', { name: '낮음' }));
-  fireEvent.click(screen.getByRole('button', { name: /Triage 확정/ }));
+  fireEvent.click(screen.getByRole('button', { name: /분류 확정/ }));
   await waitFor(() => expect(environment.animate).toHaveBeenCalled());
   await screen.findByRole('heading', { name: 'Queue item 3' });
   expect(screen.getByRole('button', { name: /VOC-3/ }).parentElement).toBe(container);
@@ -189,7 +189,7 @@ it('skips stale cached tab refresh motion, then preserves motion and scroll for 
   const container = screen.getByRole('button', { name: /VOC-2/ }).parentElement as HTMLElement;
   container.scrollTop = 123;
   fireEvent.click(screen.getByRole('button', { name: '낮음' }));
-  fireEvent.click(screen.getByRole('button', { name: /Triage 확정/ }));
+  fireEvent.click(screen.getByRole('button', { name: /분류 확정/ }));
   await waitFor(() => expect(environment.animate).toHaveBeenCalled());
   await screen.findByRole('heading', { name: 'Queue item 3' });
   await waitFor(() => expect(client.isFetching()).toBe(0));

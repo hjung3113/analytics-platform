@@ -24,11 +24,11 @@ export function TaskRequestPropertiesSection({
   return (
     <section data-anchor="properties" className="border-t border-border-subtle px-4 py-4">
       <PanelSectionTitle>속성</PanelSectionTitle>
-      <FieldRow label="Managed System">
+      <FieldRow label="시스템">
         <span className="flex flex-col gap-1">
           <ManagedSystemPill
             name={
-              names.managedSystemsById[item.primary_managed_system_id]?.name ?? 'Managed System'
+              names.managedSystemsById[item.primary_managed_system_id]?.name ?? '시스템'
             }
           />
           {!names.managedSystemsById[item.primary_managed_system_id] && (

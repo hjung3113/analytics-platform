@@ -162,7 +162,7 @@ export function useTriagePanelController({
       // The undo notice (the standalone app's UndoToast; the platform draws the action).
       // Prototype ref: screen-voc-create.jsx:699-730 → UndoToast positioning
       const message =
-        kind === 'finding' ? `${voc.display_id} Finding 만들기` : `${voc.display_id} Triage 확정됨`;
+        kind === 'finding' ? `${voc.display_id} Finding 만들기` : `${voc.display_id} 분류 확정됨`;
 
       const successToastId = notify({
         tone: 'success',

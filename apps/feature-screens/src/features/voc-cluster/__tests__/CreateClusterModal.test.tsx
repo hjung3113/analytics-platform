@@ -66,7 +66,7 @@ describe('CreateClusterModal', () => {
     mocks.navigate.mockReset();
   });
 
-  it('submits the selected Managed System in the cluster create request', async () => {
+  it('submits the selected 시스템 in the cluster create request', async () => {
     const { VocClusterListPage } = await import('@/test/clusters-host/index');
     render(<VocClusterListPage />);
 
@@ -74,7 +74,7 @@ describe('CreateClusterModal', () => {
     fireEvent.change(screen.getByTestId('cluster-title-input'), {
       target: { value: '결제 장애 클러스터' },
     });
-    fireEvent.click(screen.getByRole('combobox', { name: 'Managed System' }));
+    fireEvent.click(screen.getByRole('combobox', { name: '시스템' }));
     fireEvent.click(await screen.findByRole('option', { name: 'Billing Ops' }));
     fireEvent.click(screen.getByTestId('create-cluster-submit'));
 

@@ -172,7 +172,7 @@ export function VocRow({
               ) : voc.analytics_area_id === null && !reporterView ? (
                 <>
                   <RowDot />
-                  <span className="text-text-warning-label">Analytics Area 없음</span>
+                  <span className="text-text-warning-label">분석 영역 없음</span>
                 </>
               ) : null}
               <RowDot />

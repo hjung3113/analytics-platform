@@ -93,7 +93,7 @@ function renderToast(container: HTMLElement, idx: number, hostId: string): HTMLE
   return toastEl;
 }
 
-describe('TriagePanel — UndoToast token binding (REV-3 Cluster X)', () => {
+describe('TriagePanel — UndoToast token binding (REV-3 반복 VOC X)', () => {
   const originalFetch = globalThis.fetch;
 
   afterEach(() => {
@@ -144,10 +144,10 @@ describe('TriagePanel — UndoToast token binding (REV-3 Cluster X)', () => {
     // ── Call A ────────────────────────────────────────────────────────────
     clickSeverity(0);
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /triage 확정/i })).not.toBeDisabled();
+      expect(screen.getByRole('button', { name: /분류 확정/i })).not.toBeDisabled();
     });
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /triage 확정/i }));
+      fireEvent.click(screen.getByRole('button', { name: /분류 확정/i }));
     });
 
     // Wait until call A resolves (toast captured + patchCount === 1).
@@ -173,10 +173,10 @@ describe('TriagePanel — UndoToast token binding (REV-3 Cluster X)', () => {
     // ── Call B (never resolves) ───────────────────────────────────────────
     clickSeverity(1);
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /triage 확정/i })).not.toBeDisabled();
+      expect(screen.getByRole('button', { name: /분류 확정/i })).not.toBeDisabled();
     });
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /triage 확정/i }));
+      fireEvent.click(screen.getByRole('button', { name: /분류 확정/i }));
     });
 
     await waitFor(() => {

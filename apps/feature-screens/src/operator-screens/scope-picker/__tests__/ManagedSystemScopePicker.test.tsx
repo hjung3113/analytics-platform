@@ -28,12 +28,12 @@ describe('ManagedSystemScopePicker', () => {
         />,
       );
       const trigger = screen.getByTestId('scope-selector');
-      expect(screen.getByTestId('scope-name')).toHaveTextContent('전체 Managed System');
+      expect(screen.getByTestId('scope-name')).toHaveTextContent('전체 시스템');
       if (workspaceWideScope) {
-        expect(trigger).toHaveAccessibleName('전체 Managed System');
+        expect(trigger).toHaveAccessibleName('전체 시스템');
         expect(trigger).not.toHaveTextContent('내 담당:');
       } else {
-        expect(trigger).toHaveAccessibleName('전체 Managed System, 내 담당 범위');
+        expect(trigger).toHaveAccessibleName('전체 시스템, 내 담당 범위');
         expect(trigger).toHaveTextContent('내 담당: Alpha · Beta');
       }
       fireEvent.click(trigger);
@@ -67,7 +67,7 @@ describe('ManagedSystemScopePicker', () => {
     );
     const trigger = screen.getByTestId('scope-selector');
     expect(trigger).toBeDisabled();
-    expect(trigger).toHaveAttribute('title', '이 화면은 Managed System 범위를 지원하지 않습니다');
+    expect(trigger).toHaveAttribute('title', '이 화면은 시스템 범위를 지원하지 않습니다');
     expect(screen.getByTestId('scope-name')).toHaveTextContent('워크스페이스 전체');
   });
 
@@ -87,10 +87,10 @@ describe('ManagedSystemScopePicker', () => {
         onChange={vi.fn()}
         isAdmin
         workspaceWideScope
-        label="목록 범위"
+        label="시스템"
       />,
     );
-    expect(screen.getByTestId('scope-label')).toHaveTextContent('목록 범위');
+    expect(screen.getByTestId('scope-label')).toHaveTextContent('시스템');
     rerender(
       <ManagedSystemScopePicker
         managedSystems={SYSTEMS}
@@ -110,7 +110,7 @@ describe('ManagedSystemScopePicker', () => {
     fireEvent.click(screen.getByTestId('scope-selector'));
     fireEvent.click(screen.getByTestId('scope-option-b'));
     expect(onChange).toHaveBeenLastCalledWith('b');
-    expect(screen.getByTestId('scope-name')).toHaveTextContent('전체 Managed System');
+    expect(screen.getByTestId('scope-name')).toHaveTextContent('전체 시스템');
     rerender(<ManagedSystemScopePicker {...props} value="c" />);
     expect(screen.getByTestId('scope-name')).toHaveTextContent('Cygnus');
     expect(screen.getByTestId('scope-out-of-scope-badge')).toHaveTextContent('범위 밖');
@@ -233,7 +233,7 @@ describe('ManagedSystemScopePicker', () => {
         );
         open();
         const all = screen.getByTestId('scope-option-all');
-        expect(all).toHaveAccessibleName('전체 Managed System');
+        expect(all).toHaveAccessibleName('전체 시스템');
         expect(all).toHaveAccessibleDescription(
           workspaceWideScope ? '워크스페이스 전체' : '내 담당 2 / 4',
         );
@@ -243,16 +243,16 @@ describe('ManagedSystemScopePicker', () => {
 
   describe('trigger name with a label', () => {
     it.each([
-      ['union', { workspaceWideScope: false }, '목록 범위, 전체 Managed System, 내 담당 범위'],
-      ['out of scope', { value: 'c', workspaceWideScope: false }, '목록 범위, Cygnus, 범위 밖'],
-      ['disabled', { workspaceWideScope: true, disabled: true }, '목록 범위, 워크스페이스 전체'],
+      ['union', { workspaceWideScope: false }, '시스템, 전체 시스템, 내 담당 범위'],
+      ['out of scope', { value: 'c', workspaceWideScope: false }, '시스템, Cygnus, 범위 밖'],
+      ['disabled', { workspaceWideScope: true, disabled: true }, '시스템, 워크스페이스 전체'],
     ])('%s', (_name, props, name) => {
       render(
         <ManagedSystemScopePicker
           managedSystems={SYSTEMS}
           isAdmin={false}
           onChange={vi.fn()}
-          label="목록 범위"
+          label="시스템"
           {...props}
         />,
       );
@@ -260,12 +260,12 @@ describe('ManagedSystemScopePicker', () => {
     });
   });
 
-  describe('unknown Managed System', () => {
+  describe('unknown 시스템', () => {
     const props = { isAdmin: false, workspaceWideScope: false, value: 'zz', onChange: vi.fn() };
 
     it('shows the unknown label, no badge, no selected option and focuses 전체', () => {
       render(<ManagedSystemScopePicker {...props} managedSystems={SYSTEMS} />);
-      expect(screen.getByTestId('scope-name')).toHaveTextContent('알 수 없는 Managed System');
+      expect(screen.getByTestId('scope-name')).toHaveTextContent('알 수 없는 시스템');
       expect(screen.queryByTestId('scope-out-of-scope-badge')).toBeNull();
       expect(screen.getByTestId('scope-selector')).not.toHaveTextContent('내 담당:');
       fireEvent.click(screen.getByTestId('scope-selector'));
@@ -277,7 +277,7 @@ describe('ManagedSystemScopePicker', () => {
 
     it('keeps 전체 while the list is empty', () => {
       render(<ManagedSystemScopePicker {...props} managedSystems={[]} />);
-      expect(screen.getByTestId('scope-name')).toHaveTextContent('전체 Managed System');
+      expect(screen.getByTestId('scope-name')).toHaveTextContent('전체 시스템');
     });
   });
 });

@@ -49,7 +49,7 @@ export function TriageActions({
       {/* Primary CTA — Triage 확정 */}
       <button
         type="button"
-        aria-label="Triage 확정 & 다음 VOC"
+        aria-label="분류 확정 & 다음 VOC"
         disabled={confirmDisabled}
         onClick={onConfirm}
         className={cn(
@@ -61,7 +61,7 @@ export function TriageActions({
         )}
       >
         <Check size={12} aria-hidden="true" />
-        Triage 확정 &amp; 다음 VOC
+        분류 확정 &amp; 다음 VOC
       </button>
 
       {/* Secondary actions row.

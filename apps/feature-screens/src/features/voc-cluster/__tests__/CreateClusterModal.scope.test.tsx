@@ -73,7 +73,7 @@ vi.mock('@/lib/api/me', () => ({
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn() } }));
 
-describe('CreateClusterModal Managed System scope', () => {
+describe('CreateClusterModal 시스템 scope', () => {
   beforeEach(() => {
     mocks.createCluster.mockReset();
     mocks.scopeState = {};
@@ -86,7 +86,7 @@ describe('CreateClusterModal Managed System scope', () => {
 
     fireEvent.click(screen.getByTestId('cluster-create-button'));
 
-    expect(screen.getByRole('combobox', { name: 'Managed System' })).toBeDisabled();
+    expect(screen.getByRole('combobox', { name: '시스템' })).toBeDisabled();
   });
 
   it('lists every active system when the scope query errors', async () => {
@@ -95,7 +95,7 @@ describe('CreateClusterModal Managed System scope', () => {
     render(<VocClusterListPage />);
 
     fireEvent.click(screen.getByTestId('cluster-create-button'));
-    fireEvent.click(screen.getByRole('combobox', { name: 'Managed System' }));
+    fireEvent.click(screen.getByRole('combobox', { name: '시스템' }));
 
     expect(await screen.findByRole('option', { name: 'Billing Ops' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'Growth Lab' })).toBeInTheDocument();
@@ -108,23 +108,23 @@ describe('CreateClusterModal Managed System scope', () => {
 
     fireEvent.click(screen.getByTestId('cluster-create-button'));
     fireEvent.change(screen.getByTestId('cluster-title-input'), { target: { value: '제목' } });
-    fireEvent.click(screen.getByRole('combobox', { name: 'Managed System' }));
+    fireEvent.click(screen.getByRole('combobox', { name: '시스템' }));
     fireEvent.click(await screen.findByRole('option', { name: 'Growth Lab' }));
 
     mocks.scopeState = {};
     rerender(<VocClusterListPage />);
     fireEvent.click(screen.getByTestId('create-cluster-submit'));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Managed System을 선택하세요.');
+    expect(await screen.findByRole('alert')).toHaveTextContent('시스템을 선택하세요.');
     expect(mocks.createCluster).not.toHaveBeenCalled();
   });
 
-  it('lists only the Managed Systems inside the finding.manage scope', async () => {
+  it('lists only the 시스템 inside the finding.manage scope', async () => {
     const { VocClusterListPage } = await import('@/test/clusters-host/index');
     render(<VocClusterListPage />);
 
     fireEvent.click(screen.getByTestId('cluster-create-button'));
-    fireEvent.click(screen.getByRole('combobox', { name: 'Managed System' }));
+    fireEvent.click(screen.getByRole('combobox', { name: '시스템' }));
 
     expect(await screen.findByRole('option', { name: 'Billing Ops' })).toBeInTheDocument();
     expect(screen.queryByRole('option', { name: 'Growth Lab' })).not.toBeInTheDocument();
@@ -142,7 +142,7 @@ describe('CreateClusterModal Managed System scope', () => {
 
     fireEvent.click(screen.getByTestId('cluster-create-button'));
     fireEvent.change(screen.getByTestId('cluster-title-input'), { target: { value: '제목' } });
-    fireEvent.click(screen.getByRole('combobox', { name: 'Managed System' }));
+    fireEvent.click(screen.getByRole('combobox', { name: '시스템' }));
     fireEvent.click(await screen.findByRole('option', { name: 'Billing Ops' }));
     fireEvent.click(screen.getByTestId('create-cluster-submit'));
 
@@ -162,7 +162,7 @@ describe('CreateClusterModal Managed System scope', () => {
 
     fireEvent.click(screen.getByTestId('cluster-create-button'));
     fireEvent.change(screen.getByTestId('cluster-title-input'), { target: { value: '제목' } });
-    fireEvent.click(screen.getByRole('combobox', { name: 'Managed System' }));
+    fireEvent.click(screen.getByRole('combobox', { name: '시스템' }));
     fireEvent.click(await screen.findByRole('option', { name: 'Billing Ops' }));
     fireEvent.click(screen.getByTestId('create-cluster-submit'));
 

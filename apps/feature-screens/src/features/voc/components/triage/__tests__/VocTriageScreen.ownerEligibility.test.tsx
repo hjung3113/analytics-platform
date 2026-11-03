@@ -110,7 +110,7 @@ describe('owner validation race after optimistic confirm (#1172)', () => {
         </QueryClientProvider>,
       );
       fireEvent.click(await screen.findByRole('button', { name: /배정 후보/ }));
-      fireEvent.click(screen.getByRole('button', { name: /Triage 확정/ }));
+      fireEvent.click(screen.getByRole('button', { name: /분류 확정/ }));
       await waitFor(() =>
         expect(patches).toEqual([
           {
@@ -137,7 +137,7 @@ describe('owner validation race after optimistic confirm (#1172)', () => {
         );
         expect(noticeMessages('error')).toEqual([]);
       } else {
-        expect(screen.queryByRole('button', { name: /Triage 확정/ })).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: /분류 확정/ })).not.toBeInTheDocument();
       }
       await act(async () => {
         release();

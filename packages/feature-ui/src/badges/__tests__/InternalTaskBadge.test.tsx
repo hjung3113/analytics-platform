@@ -3,12 +3,12 @@ import { render, screen } from '@testing-library/react';
 import { InternalTaskBadge, type InternalTaskStatusEnum } from '../InternalTaskBadge.js';
 
 const cases: Array<{ status: InternalTaskStatusEnum; label: string }> = [
-  { status: 'backlog', label: 'Backlog' },
-  { status: 'todo', label: 'Todo' },
-  { status: 'doing', label: 'Doing' },
-  { status: 'review', label: 'Review' },
-  { status: 'done', label: 'Done' },
-  { status: 'released', label: 'Released' },
+  { status: 'backlog', label: '대기' },
+  { status: 'todo', label: '할 일' },
+  { status: 'doing', label: '진행 중' },
+  { status: 'review', label: '검토' },
+  { status: 'done', label: '완료' },
+  { status: 'released', label: '배포됨' },
   { status: 'reopened', label: 'Reopened' },
 ];
 

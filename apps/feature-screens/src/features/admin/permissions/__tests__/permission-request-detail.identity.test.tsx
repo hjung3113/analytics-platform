@@ -47,13 +47,13 @@ describe('PermissionRequestDetail identity', () => {
     expect(header?.querySelectorAll('p')).toHaveLength(2);
   });
 
-  it('uses safe labels when actor and Managed System names are unavailable', () => {
+  it('uses safe labels when actor and 시스템 names are unavailable', () => {
     render(
       <PermissionRequestDetail request={adminDetailFixture(REQUEST)} onClose={() => undefined} />,
     );
 
     expect(screen.getByText('알 수 없는 사용자')).toBeInTheDocument();
-    expect(screen.getByText('Managed System')).toBeInTheDocument();
+    expect(screen.getByText('시스템')).toBeInTheDocument();
     expect(screen.getByText('20000000')).toHaveClass('text-text-muted');
     expect(screen.getByText('30000000')).toHaveClass('text-text-muted');
   });

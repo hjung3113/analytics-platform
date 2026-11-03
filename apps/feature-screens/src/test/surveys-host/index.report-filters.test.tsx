@@ -46,9 +46,9 @@ vi.mock('@ap/ui', async (importOriginal) => {
 
 vi.mock('@/lib/useAnalyticsAreaFilterLabel', () => ({
   useAnalyticsAreaFilterLabel: (area: string | undefined) =>
-    area === 'unset' ? 'Analytics Area: 미지정' : areaLabel,
+    area === 'unset' ? '분석 영역: 미지정' : areaLabel,
 }));
-let areaLabel = 'Analytics Area: Revenue';
+let areaLabel = '분석 영역: Revenue';
 import { SurveysIndexRoute, surveysSearchSchema } from '@/test/surveys-host/screen';
 
 // uuid-shaped ids — the search schema rejects non-uuid values.
@@ -208,7 +208,7 @@ afterEach(() => {
 const filters = { 'filter.analytics_area': 'unset', status: 'open', follow_up: 'needed' } as const;
 const initial = `/surveys?managedSystem=${MS_1}&${new URLSearchParams(filters)}`;
 
-test('forwards Survey filters and keeps them through selection and close', async () => {
+test('forwards 설문 filters and keeps them through selection and close', async () => {
   const c = { requested: [] as string[] };
   const router = renderUrlState(c, initial);
   fireEvent.click(await screen.findByTestId(`survey-row-${S1_ID}`));
@@ -221,7 +221,7 @@ test('forwards Survey filters and keeps them through selection and close', async
   const query = c.requested
     .map((url) => new URL(url, 'http://localhost'))
     .find((url) => url.pathname === '/surveys');
-  if (!query) throw new Error('Survey list request missing');
+  if (!query) throw new Error('설문 list request missing');
   expect(listSurveysQuerySchema.parse(Object.fromEntries(query.searchParams))).toEqual({
     managed_system_id: MS_1,
     analytics_area_id: 'unset',
@@ -264,11 +264,11 @@ test('removes one filter, restores Back/Forward, and clear-all keeps selected an
 });
 
 test.each([
-  ['unset', 'Analytics Area: 미지정'],
-  [MS_1, 'Analytics Area: Revenue'],
-  [MS_1, 'Analytics Area: Revenue (보관됨)'],
-  [MS_1, 'Analytics Area: 선택한 Area'],
-])('renders and removes Survey Area %s as %s', async (area, label) => {
+  ['unset', '분석 영역: 미지정'],
+  [MS_1, '분석 영역: Revenue'],
+  [MS_1, '분석 영역: Revenue (보관됨)'],
+  [MS_1, '분석 영역: 선택한 영역'],
+])('renders and removes 설문 Area %s as %s', async (area, label) => {
   areaLabel = label;
   const router = renderUrlState(
     { requested: [] },
@@ -280,9 +280,9 @@ test.each([
 
 test('URL-filtered empty names the filters and has only the filter-bar reset', async () => {
   const router = renderUrlState({ requested: [], emptyList: true }, `${initial}&selected=${S1_ID}`);
-  expect(await screen.findByText('현재 조건에 맞는 Survey가 없습니다')).toBeInTheDocument();
+  expect(await screen.findByText('현재 조건에 맞는 설문이 없습니다')).toBeInTheDocument();
   expect(
-    screen.getByText('Analytics Area: 미지정 · 상태: 진행 중 · 후속 조치 필요'),
+    screen.getByText('분석 영역: 미지정 · 상태: 진행 중 · 후속 조치 필요'),
   ).toBeInTheDocument();
   expect(screen.getAllByRole('button', { name: '필터 초기화' })).toHaveLength(1);
   await waitFor(() =>
@@ -294,7 +294,7 @@ test('URL filters intersect local tabs/search without adding another reset', asy
   renderUrlState({ requested: [] }, initial);
   await screen.findByTestId(`survey-row-${S1_ID}`);
   fireEvent.mouseDown(screen.getByRole('tab', { name: /^종료됨/ }));
-  expect(await screen.findByText('현재 조건에 맞는 Survey가 없습니다')).toBeInTheDocument();
+  expect(await screen.findByText('현재 조건에 맞는 설문이 없습니다')).toBeInTheDocument();
   expect(screen.getAllByRole('button', { name: '필터 초기화' })).toHaveLength(1);
 });
 
@@ -305,13 +305,13 @@ test('one reset clears URL Area, local search and status tab', async () => {
   );
   await screen.findByTestId(`survey-row-${S1_ID}`);
   fireEvent.mouseDown(screen.getByRole('tab', { name: /^종료됨/ }));
-  const search = screen.getByRole('textbox', { name: 'Survey 검색' });
+  const search = screen.getByRole('textbox', { name: '설문 검색' });
   fireEvent.change(search, { target: { value: 'zzz' } });
-  expect(screen.getByText('현재 조건에 맞는 Survey가 없습니다')).toBeInTheDocument();
+  expect(screen.getByText('현재 조건에 맞는 설문이 없습니다')).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: '필터 초기화' }));
   await waitFor(() => expect(router.state.location.search).toEqual({ managedSystem: MS_1 }));
   expect(await screen.findByTestId(`survey-row-${S1_ID}`)).toBeInTheDocument();
-  expect(screen.getByRole('textbox', { name: 'Survey 검색' })).toHaveValue('');
+  expect(screen.getByRole('textbox', { name: '설문 검색' })).toHaveValue('');
   expect(screen.getByRole('tab', { name: /^전체/ })).toHaveAttribute('aria-selected', 'true');
   expect(screen.queryByRole('button', { name: '필터 초기화' })).not.toBeInTheDocument();
 });
@@ -319,21 +319,21 @@ test('one reset clears URL Area, local search and status tab', async () => {
 test('local-only search keeps its existing filtered-empty reset', async () => {
   renderUrlState({ requested: [] }, '/surveys');
   await screen.findByTestId(`survey-row-${S1_ID}`);
-  fireEvent.change(screen.getByRole('textbox', { name: 'Survey 검색' }), {
+  fireEvent.change(screen.getByRole('textbox', { name: '설문 검색' }), {
     target: { value: 'no-match' },
   });
-  expect(await screen.findByText('현재 조건에 맞는 Survey가 없습니다')).toBeInTheDocument();
+  expect(await screen.findByText('현재 조건에 맞는 설문이 없습니다')).toBeInTheDocument();
   expect(screen.getAllByRole('button', { name: '필터 초기화' })).toHaveLength(1);
   fireEvent.click(screen.getByRole('button', { name: '필터 초기화' }));
   expect(await screen.findByTestId(`survey-row-${S1_ID}`)).toBeInTheDocument();
 });
 
 test.each([
-  ['filter.analytics_area', 'Analytics Area: 미지정'],
+  ['filter.analytics_area', '분석 영역: 미지정'],
   ['status', '상태: 진행 중'],
   ['follow_up', '후속 조치 필요'],
 ] as const)(
-  'removes only Survey %s and requests the remaining intersection',
+  'removes only 설문 %s and requests the remaining intersection',
   async (key, label) => {
     const c = { requested: [] as string[] };
     const router = renderUrlState(c, initial);
@@ -354,7 +354,7 @@ test.each([
         .map((url) => new URL(url, 'http://localhost'))
         .filter((url) => url.pathname === '/surveys')
         .at(-1);
-      if (!query) throw new Error('Survey list request missing');
+      if (!query) throw new Error('설문 list request missing');
       expect(listSurveysQuerySchema.parse(Object.fromEntries(query.searchParams))).toEqual(
         expectedWire,
       );

@@ -28,11 +28,11 @@ export function OutOfScopeSummaryBanner({
         summary={
           <div className="flex flex-col gap-1">
             <span className="text-sm text-text-secondary">
-              Triage 큐에 보이지 않는 <strong className="text-accent-primary">{count}건</strong>의{' '}
+              분류 큐에 보이지 않는 <strong className="text-accent-primary">{count}건</strong>의{' '}
               {GLOSSARY.untriaged} VOC가 있습니다.
             </span>
             <span className="text-xs text-text-muted">
-              Managed System 권한 밖이며, 심각도 분포만 노출됩니다 ·{' '}
+              시스템 권한 밖이며, 심각도 분포만 노출됩니다 ·{' '}
               {severityKeys.map((key) => SEVERITY_LABELS[key as SeverityEnum] ?? key).join(' · ')}
             </span>
           </div>

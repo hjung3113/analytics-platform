@@ -118,7 +118,7 @@ describe('TriageActions mutation wire-up', () => {
 
   // 1. optimistic remove fires synchronously on confirm ────────────────────
 
-  it('calls onOptimisticRemove synchronously when Triage 확정 is clicked', async () => {
+  it('calls onOptimisticRemove synchronously when 분류 확정 is clicked', async () => {
     // Long-running fetch so the mutation stays in-flight
     globalThis.fetch = vi.fn(
       () =>
@@ -141,11 +141,11 @@ describe('TriageActions mutation wire-up', () => {
 
     // Wait for confirm button to become enabled
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /triage 확정/i })).not.toBeDisabled();
+      expect(screen.getByRole('button', { name: /분류 확정/i })).not.toBeDisabled();
     });
 
     // Click confirm — optimistic remove should fire synchronously
-    fireEvent.click(screen.getByRole('button', { name: /triage 확정/i }));
+    fireEvent.click(screen.getByRole('button', { name: /분류 확정/i }));
     expect(onOptimisticRemove).toHaveBeenCalledWith(MOCK_VOC.id);
   });
 
@@ -190,12 +190,12 @@ describe('TriageActions mutation wire-up', () => {
     clickSeverity();
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /triage 확정/i })).not.toBeDisabled();
+      expect(screen.getByRole('button', { name: /분류 확정/i })).not.toBeDisabled();
     });
 
     // Fire confirm — initial PATCH settles quickly
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /triage 확정/i }));
+      fireEvent.click(screen.getByRole('button', { name: /분류 확정/i }));
     });
 
     // Wait for the initial mutation to settle (at least one fetch call)
@@ -256,11 +256,11 @@ describe('TriageActions mutation wire-up', () => {
     clickSeverity();
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /triage 확정/i })).not.toBeDisabled();
+      expect(screen.getByRole('button', { name: /분류 확정/i })).not.toBeDisabled();
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /triage 확정/i }));
+      fireEvent.click(screen.getByRole('button', { name: /분류 확정/i }));
     });
 
     // Backend returns 409 stale_write → VOC must be re-inserted
@@ -271,7 +271,7 @@ describe('TriageActions mutation wire-up', () => {
 
   // 4. idempotency_key_reuse → panel locked ──────────────────────────────────
 
-  it('idempotency_key_reuse (409) disables the Triage 확정 button (panel locked)', async () => {
+  it('idempotency_key_reuse (409) disables the 분류 확정 button (panel locked)', async () => {
     globalThis.fetch = vi.fn(async () =>
       jsonResponse(
         { code: 'conflict.idempotency_key_reuse', message: '이미 처리된 요청입니다.' },
@@ -291,16 +291,16 @@ describe('TriageActions mutation wire-up', () => {
     clickSeverity();
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /triage 확정/i })).not.toBeDisabled();
+      expect(screen.getByRole('button', { name: /분류 확정/i })).not.toBeDisabled();
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /triage 확정/i }));
+      fireEvent.click(screen.getByRole('button', { name: /분류 확정/i }));
     });
 
     // After idempotency_key_reuse, panel must be locked → confirm disabled
     await waitFor(
-      () => expect(screen.getByRole('button', { name: /triage 확정/i })).toBeDisabled(),
+      () => expect(screen.getByRole('button', { name: /분류 확정/i })).toBeDisabled(),
       { timeout: 3000 },
     );
   });
@@ -313,9 +313,9 @@ describe('TriageActions mutation wire-up', () => {
       trigger: async () => {
         clickSeverity();
         await waitFor(() => {
-          expect(screen.getByRole('button', { name: /triage 확정/i })).not.toBeDisabled();
+          expect(screen.getByRole('button', { name: /분류 확정/i })).not.toBeDisabled();
         });
-        fireEvent.click(screen.getByRole('button', { name: /triage 확정/i }));
+        fireEvent.click(screen.getByRole('button', { name: /분류 확정/i }));
       },
     },
     {
@@ -374,14 +374,14 @@ describe('TriageActions mutation wire-up', () => {
 
     clickSeverity();
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /triage 확정/i })).not.toBeDisabled();
+      expect(screen.getByRole('button', { name: /분류 확정/i })).not.toBeDisabled();
     });
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /triage 확정/i }));
+      fireEvent.click(screen.getByRole('button', { name: /분류 확정/i }));
     });
 
     expect(noticeHost.notify).toHaveBeenCalledWith(
-      expect.objectContaining({ message: `${MOCK_VOC.display_id} Triage 확정됨` }),
+      expect.objectContaining({ message: `${MOCK_VOC.display_id} 분류 확정됨` }),
     );
     await waitFor(() => expect(noticeHost.dismiss).toHaveBeenCalledWith('toast-id-001'), {
       timeout: 3000,
@@ -413,10 +413,10 @@ describe('TriageActions mutation wire-up', () => {
 
     clickSeverity();
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /triage 확정/i })).not.toBeDisabled();
+      expect(screen.getByRole('button', { name: /분류 확정/i })).not.toBeDisabled();
     });
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /triage 확정/i }));
+      fireEvent.click(screen.getByRole('button', { name: /분류 확정/i }));
     });
 
     const notice = noticeHost.notify.mock.calls.at(-1)?.[0];

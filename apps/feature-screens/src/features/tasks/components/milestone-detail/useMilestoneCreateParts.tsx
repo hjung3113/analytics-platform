@@ -188,7 +188,7 @@ export function useMilestoneCreateParts({
       startDate === '' ||
       targetDate === ''
     ) {
-      setFormError('제목, 사유, Managed System, 시작일, 목표일을 입력해 주세요.');
+      setFormError('제목, 사유, 시스템, 시작일, 목표일을 입력해 주세요.');
       return;
     }
     setFormError(null);
@@ -246,7 +246,7 @@ export function useMilestoneCreateParts({
                 onChange={(event) => setWhy(event.target.value)}
               />
             </FieldRow>
-            <FieldRow label="Managed System">
+            <FieldRow label="시스템">
               <Select
                 value={managedSystemId || NO_SELECTION}
                 disabled={createMutation.isPending}
@@ -254,7 +254,7 @@ export function useMilestoneCreateParts({
                   handleManagedSystemChange(value === NO_SELECTION ? '' : value)
                 }
               >
-                <SelectTrigger aria-label="Managed System" value={managedSystemId} className="w-48">
+                <SelectTrigger aria-label="시스템" value={managedSystemId} className="w-48">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -267,13 +267,13 @@ export function useMilestoneCreateParts({
                 </SelectContent>
               </Select>
             </FieldRow>
-            <FieldRow label="Analytics Area">
+            <FieldRow label="분석 영역">
               <Select
                 value={analyticsAreaId || NO_SELECTION}
                 disabled={createMutation.isPending}
                 onValueChange={(value) => setAnalyticsAreaId(value === NO_SELECTION ? '' : value)}
               >
-                <SelectTrigger aria-label="Analytics Area" value={analyticsAreaId} className="w-48">
+                <SelectTrigger aria-label="분석 영역" value={analyticsAreaId} className="w-48">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

@@ -49,7 +49,7 @@ export function MilestoneDetailContent({
       : undefined;
   const ownerName = actorNamesById.get(milestone.owner_actor_id);
   const managedSystemName =
-    managedSystemNamesById.get(milestone.primary_managed_system_id) ?? 'Managed System';
+    managedSystemNamesById.get(milestone.primary_managed_system_id) ?? '시스템';
 
   return (
     <>
@@ -86,7 +86,7 @@ export function MilestoneDetailContent({
           {/* Progress strip — real child-Task buckets from progress (B1c); planned tasks are prototype-only. */}
           <div className="mb-8 flex flex-col gap-2.5 rounded-md bg-surface-canvas p-3">
             <div className="text-sm font-medium text-text-primary">
-              Released {milestone.progress.released_done}/{milestone.progress.total}
+              배포됨 {milestone.progress.released_done}/{milestone.progress.total}
             </div>
             {/* Decorative bar — the strip's text already carries the numbers. */}
             <ProgressMeter
@@ -132,7 +132,7 @@ export function MilestoneDetailContent({
         />
 
         <div data-anchor="evidence" className="mb-8 last:mb-0">
-          <MilestonePanelSectionTitle>Evidence</MilestonePanelSectionTitle>
+          <MilestonePanelSectionTitle>근거</MilestonePanelSectionTitle>
           {/* No evidence read path in these slices (manual linking is §7 item 14); empty copy only. */}
           <EmptyState
             size="sm"

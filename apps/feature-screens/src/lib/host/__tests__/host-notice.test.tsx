@@ -74,7 +74,7 @@ describe.each([
     expect(
       host.notify?.({
         tone: 'success',
-        message: 'VOC-1 Triage 확정됨',
+        message: 'VOC-1 분류 확정됨',
         action: { label: '실행 취소', onAction },
         variant: 'undo',
       }),
@@ -87,7 +87,7 @@ describe.each([
     expect(options).toEqual({ duration: Number.POSITIVE_INFINITY });
 
     const view = render(render_('toast-1'));
-    expect(screen.getByText('VOC-1 Triage 확정됨')).toBeInTheDocument();
+    expect(screen.getByText('VOC-1 분류 확정됨')).toBeInTheDocument();
     act(() => screen.getByRole('button', { name: /실행 취소|Undo/ }).click());
     expect(onAction).toHaveBeenCalledOnce();
     expect(toast.dismiss).toHaveBeenCalledWith('toast-1');

@@ -163,7 +163,7 @@ function PermissionRequestRow({
         <>
           <span>
             {request.requested_managed_system_id
-              ? (managedSystemName ?? 'Managed System')
+              ? (managedSystemName ?? '시스템')
               : '워크스페이스 전체'}
           </span>
           {request.requested_managed_system_id && !managedSystemName && (

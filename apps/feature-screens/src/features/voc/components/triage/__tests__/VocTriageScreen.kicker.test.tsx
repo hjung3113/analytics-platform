@@ -194,7 +194,7 @@ describe('VocTriageScreen — V1 inline kicker', () => {
     expect(consoleLabel.textContent).toBe('콘솔');
   });
 
-  it('renders "Triage" kicker name in the toolbar', () => {
+  it('renders "분류" kicker name in the toolbar', () => {
     render(
       <Wrapper>
         <VocTriageScreen
@@ -210,7 +210,7 @@ describe('VocTriageScreen — V1 inline kicker', () => {
     // The kicker "Triage" segment must be present.
     const triageLabel = screen.getByTestId('triage-kicker-name');
     expect(triageLabel).toBeInTheDocument();
-    expect(triageLabel.textContent).toBe('Triage');
+    expect(triageLabel.textContent).toBe('분류');
   });
 
   it('kicker wrapper precedes the flag icon in DOM order (left-edge placement)', () => {
@@ -293,7 +293,7 @@ describe('VocTriageScreen — V1 inline kicker', () => {
     // Stage a severity so the confirm button enables, then confirm to trigger
     // the command; only its successful response drives the processed count.
     fireEvent.click(screen.getByRole('button', { name: /높음/ }));
-    fireEvent.click(screen.getByRole('button', { name: /Triage 확정/ }));
+    fireEvent.click(screen.getByRole('button', { name: /분류 확정/ }));
 
     expect(screen.queryByTestId('triage-processed-count')).not.toBeInTheDocument();
     const count = await screen.findByTestId('triage-processed-count');

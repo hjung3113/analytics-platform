@@ -80,9 +80,9 @@ function RegisterForm({
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Analytics Area 생성</DialogTitle>
+        <DialogTitle>분석 영역 생성</DialogTitle>
         <DialogDescription>
-          Managed System 하위에 새 Analytics Area 를 등록합니다.
+          시스템 하위에 새 분석 영역을 등록합니다.
         </DialogDescription>
       </DialogHeader>
       <form
@@ -93,7 +93,7 @@ function RegisterForm({
           e.preventDefault();
           setError(null);
           const nextErrors: Partial<Record<'managedSystem' | 'slug' | 'name', string>> = {};
-          if (!msId) nextErrors.managedSystem = 'Managed System을 선택해 주세요.';
+          if (!msId) nextErrors.managedSystem = '시스템을 선택해 주세요.';
           if (!slug.trim()) nextErrors.slug = '슬러그를 입력해 주세요.';
           if (!name.trim()) nextErrors.name = '이름을 입력해 주세요.';
           if (Object.keys(nextErrors).length > 0) {
@@ -124,7 +124,7 @@ function RegisterForm({
           aria-required="true"
         >
           <FieldLabel id="aa-create-managed-system-label" tone="secondary">
-            Managed System <span className="text-accent-danger">· 필수</span>
+            시스템 <span className="text-accent-danger">· 필수</span>
           </FieldLabel>
           <ManagedSystemPicker
             options={msOptions}

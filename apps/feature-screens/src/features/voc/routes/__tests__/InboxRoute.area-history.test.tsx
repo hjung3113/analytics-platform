@@ -94,7 +94,7 @@ describe('VOC Area filter history', () => {
           <RouterProvider router={router} />
         </QueryClientProvider>,
       );
-      const label = `Analytics Area: 결제${archived ? ' (보관됨)' : ''}`;
+      const label = `분석 영역: 결제${archived ? ' (보관됨)' : ''}`;
       expect(await screen.findByRole('button', { name: `${label} 필터 제거` })).toBeInTheDocument();
       fireEvent.click(screen.getByRole('button', { name: 'VOC 선택' }));
       await waitFor(() => expect(router.state.location.search.selected).toBe(VOC));

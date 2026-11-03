@@ -114,11 +114,11 @@ describe('TriagePanel — undo while in-flight (REV-1 #1)', () => {
 
     clickSeverity();
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /triage 확정/i })).not.toBeDisabled();
+      expect(screen.getByRole('button', { name: /분류 확정/i })).not.toBeDisabled();
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /triage 확정/i }));
+      fireEvent.click(screen.getByRole('button', { name: /분류 확정/i }));
     });
 
     // Optimistic remove fired

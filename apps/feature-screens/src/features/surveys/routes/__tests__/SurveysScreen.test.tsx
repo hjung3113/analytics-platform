@@ -69,14 +69,14 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('SurveysScreen over the host seam', () => {
-  it('draws its own Surveys toolbar title standalone and drops it when the host owns the title', async () => {
+  it('draws its own 설문 toolbar title standalone and drops it when the host owns the title', async () => {
     const standalone = mount({});
     await screen.findByText('온보딩 설문');
-    expect(screen.getByText('Surveys')).toBeTruthy();
+    expect(screen.getByText('설문')).toBeTruthy();
     standalone.unmount();
     mount({}, { hostOwnsTitle: true });
     await screen.findByText('온보딩 설문');
-    expect(screen.queryByText('Surveys')).toBeNull();
+    expect(screen.queryByText('설문')).toBeNull();
   });
 
   it('writes selected as a push when a row is picked, and never selects on its own', async () => {

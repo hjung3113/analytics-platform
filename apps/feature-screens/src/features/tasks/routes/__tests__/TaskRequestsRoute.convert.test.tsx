@@ -396,7 +396,7 @@ describe('TaskRequestsRoute conversion priority labels', () => {
     },
   );
 
-  it('#1159 UX-2 names the cause beside the actor picker when the server rejects the assignee as ineligible for the Managed System', async () => {
+  it('#1159 UX-2 names the cause beside the actor picker when the server rejects the assignee as ineligible for the 시스템', async () => {
     const id = '60000000-0000-0000-0000-000000000006';
     api.workspaceActors = [
       {
@@ -490,8 +490,8 @@ describe('TaskRequestsRoute conversion priority labels', () => {
   });
 });
 
-describe('TaskRequestsRoute Analytics Area inheritance', () => {
-  it('AC-681-3 defaults conversion to the source Finding Analytics Area', async () => {
+describe('TaskRequestsRoute 분석 영역 inheritance', () => {
+  it('AC-681-3 defaults conversion to the source Finding 분석 영역', async () => {
     const analyticsAreaId = '30000000-0000-4000-8000-000000000021';
     api.useFindingDetail.mockReturnValue({
       data: { id: taskRequest.source_id, analytics_area_id: analyticsAreaId },
@@ -560,13 +560,13 @@ describe('TaskRequestsRoute Analytics Area inheritance', () => {
 
     const submit = screen.getByTestId('task-request-convert-submit');
     expect(submit).toBeDisabled();
-    await chooseOption('Analytics Area', 'Alternative Area');
+    await chooseOption('분석 영역', 'Alternative Area');
     expect(submit).toBeEnabled();
 
     if (!settleSourceFinding) throw new Error('Expected a deferred source Finding read.');
     settleSourceFinding({ id: taskRequest.source_id, analytics_area_id: sourceAreaId });
     await waitFor(() =>
-      expect(screen.getByRole('combobox', { name: 'Analytics Area' })).toHaveTextContent(
+      expect(screen.getByRole('combobox', { name: '분석 영역' })).toHaveTextContent(
         'Alternative Area',
       ),
     );
@@ -614,11 +614,11 @@ describe('TaskRequestsRoute Analytics Area inheritance', () => {
 
       const { queryClient } = await openConvertFormReturnsClient();
       await waitFor(() => {
-        expect(screen.getByRole('combobox', { name: 'Analytics Area' })).toHaveTextContent(
+        expect(screen.getByRole('combobox', { name: '분석 영역' })).toHaveTextContent(
           'Source Area',
         );
       });
-      await chooseOption('Analytics Area', label);
+      await chooseOption('분석 영역', label);
 
       queryClient.setQueryData(['task-request', taskRequest.id], {
         ...taskRequest,
@@ -626,7 +626,7 @@ describe('TaskRequestsRoute Analytics Area inheritance', () => {
       });
 
       expect(await screen.findByTestId('task-request-convert-title-input')).toBeInTheDocument();
-      expect(screen.getByRole('combobox', { name: 'Analytics Area' })).toHaveTextContent(label);
+      expect(screen.getByRole('combobox', { name: '분석 영역' })).toHaveTextContent(label);
       fireEvent.click(screen.getByTestId('task-request-convert-submit'));
 
       await waitFor(() =>
@@ -683,10 +683,10 @@ describe('TaskRequestsRoute Analytics Area inheritance', () => {
 
       await openConvertForm();
       const hint = await screen.findByText(
-        '원본 Finding의 Analytics Area가 보관되어 있습니다. 다른 Analytics Area를 선택하거나 없음을 선택하세요.',
+        '원본 Finding의 분석 영역이 보관되어 있습니다. 다른 분석 영역을 선택하거나 없음을 선택하세요.',
       );
-      const areaPicker = screen.getByRole('combobox', { name: 'Analytics Area' });
-      expect(areaPicker).toHaveTextContent('Analytics Area 선택 필요');
+      const areaPicker = screen.getByRole('combobox', { name: '분석 영역' });
+      expect(areaPicker).toHaveTextContent('분석 영역 선택 필요');
       expect(areaPicker).toHaveAccessibleDescription(hint.textContent ?? '');
       const submit = screen.getByTestId('task-request-convert-submit');
       expect(submit).toBeDisabled();
@@ -698,7 +698,7 @@ describe('TaskRequestsRoute Analytics Area inheritance', () => {
       });
       expect(api.convertTaskRequest).not.toHaveBeenCalled();
 
-      await chooseOption('Analytics Area', choice);
+      await chooseOption('분석 영역', choice);
       expect(submit).toBeEnabled();
       fireEvent.click(submit);
 
@@ -753,16 +753,16 @@ describe('TaskRequestsRoute Analytics Area inheritance', () => {
     api.convertTaskRequest.mockReset().mockResolvedValue({ display_id: 'TASK-7' });
 
     const { queryClient } = await openConvertFormReturnsClient();
-    await chooseOption('Analytics Area', 'Alternative Area');
+    await chooseOption('분석 영역', 'Alternative Area');
     await queryClient.invalidateQueries({
       queryKey: ['analytics-areas', 'catalog', taskRequest.primary_managed_system_id],
     });
 
     const hint = await screen.findByText(
-      '선택한 Analytics Area를 더 이상 사용할 수 없습니다. 다른 Analytics Area를 선택하거나 없음을 선택하세요.',
+      '선택한 분석 영역을 더 이상 사용할 수 없습니다. 다른 분석 영역을 선택하거나 없음을 선택하세요.',
     );
-    const areaPicker = screen.getByRole('combobox', { name: 'Analytics Area' });
-    expect(areaPicker).toHaveTextContent('Analytics Area 선택 필요');
+    const areaPicker = screen.getByRole('combobox', { name: '분석 영역' });
+    expect(areaPicker).toHaveTextContent('분석 영역 선택 필요');
     expect(areaPicker).toHaveAccessibleDescription(hint.textContent ?? '');
     const submit = screen.getByTestId('task-request-convert-submit');
     expect(submit).toBeDisabled();
@@ -774,7 +774,7 @@ describe('TaskRequestsRoute Analytics Area inheritance', () => {
     });
     expect(api.convertTaskRequest).not.toHaveBeenCalled();
 
-    await chooseOption('Analytics Area', '없음');
+    await chooseOption('분석 영역', '없음');
     expect(submit).toBeEnabled();
     fireEvent.click(submit);
 
@@ -793,7 +793,7 @@ describe('TaskRequestsRoute conversion milestone picker', () => {
     api.convertTaskRequest.mockResolvedValue({ display_id: 'TASK-7' });
   });
 
-  it('B3a offers None plus the milestones of the request primary Managed System', async () => {
+  it('B3a offers None plus the milestones of the request primary 시스템', async () => {
     await openConvertForm();
     const options = await readOptions('Milestone');
     const optionNames = options.map((option) => option.textContent?.trim());

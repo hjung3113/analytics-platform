@@ -149,7 +149,7 @@ function AddVocPicker({
       await mutateAsync({ clusterId, vocId });
       if (!mounted.current) return;
       setAdded((current) => addToSet(current, vocId));
-      notifySuccess('VOC가 Cluster에 추가되었습니다.');
+      notifySuccess('VOC가 반복 VOC에 추가되었습니다.');
     } catch (err) {
       if (!mounted.current) return;
       const message = errorMapper((err as ApiError).envelope).message;

@@ -1,6 +1,6 @@
 // TriageActions.test.tsx — TDD RED tests for the triage footer action buttons.
 // Prototype ref: screen-voc-create.jsx:572-584
-// Three buttons: "Triage 확정 & 다음 VOC" (disabled when !canConfirm), "Finding 만들기", "보류".
+// Three buttons: "분류 확정 & 다음 VOC" (disabled when !canConfirm), "Finding 만들기", "보류".
 
 import * as React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
@@ -18,12 +18,12 @@ describe('TriageActions', () => {
         onSkip={vi.fn()}
       />,
     );
-    expect(screen.getByRole('button', { name: /triage 확정/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /분류 확정/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /finding 만들기/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /보류/i })).toBeInTheDocument();
   });
 
-  it('"Triage 확정" is disabled when canConfirm=false', () => {
+  it('"분류 확정" is disabled when canConfirm=false', () => {
     render(
       <TriageActions
         canConfirm={false}
@@ -33,10 +33,10 @@ describe('TriageActions', () => {
         onSkip={vi.fn()}
       />,
     );
-    expect(screen.getByRole('button', { name: /triage 확정/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /분류 확정/i })).toBeDisabled();
   });
 
-  it('"Triage 확정" is enabled when canConfirm=true', () => {
+  it('"분류 확정" is enabled when canConfirm=true', () => {
     render(
       <TriageActions
         canConfirm={true}
@@ -46,10 +46,10 @@ describe('TriageActions', () => {
         onSkip={vi.fn()}
       />,
     );
-    expect(screen.getByRole('button', { name: /triage 확정/i })).not.toBeDisabled();
+    expect(screen.getByRole('button', { name: /분류 확정/i })).not.toBeDisabled();
   });
 
-  it('calls onConfirm when "Triage 확정" clicked and canConfirm=true', () => {
+  it('calls onConfirm when "분류 확정" clicked and canConfirm=true', () => {
     const onConfirm = vi.fn();
     render(
       <TriageActions
@@ -60,7 +60,7 @@ describe('TriageActions', () => {
         onSkip={vi.fn()}
       />,
     );
-    fireEvent.click(screen.getByRole('button', { name: /triage 확정/i }));
+    fireEvent.click(screen.getByRole('button', { name: /분류 확정/i }));
     expect(onConfirm).toHaveBeenCalledOnce();
   });
 

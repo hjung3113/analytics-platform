@@ -1,6 +1,6 @@
 export const SURVEY_LIST_COPY = {
-  emptyUnmanagedTitle: '관리할 수 있는 Survey가 없습니다.',
-  emptyUnmanagedBody: '참여할 Survey는 Survey 참여에서 확인하세요.',
+  emptyUnmanagedTitle: '관리할 수 있는 설문이 없습니다.',
+  emptyUnmanagedBody: '참여할 설문은 설문 참여에서 확인하세요.',
 } as const;
 
 export const SURVEY_REPORT_FILTER_COPY = {

@@ -40,7 +40,7 @@ describe('TaskRequestRow identity', () => {
     expect(screen.getByText('검토자 없음')).toBeInTheDocument();
   });
 
-  it('uses safe source, Managed System, and requester labels when names are unavailable', () => {
+  it('uses safe source, 시스템, and requester labels when names are unavailable', () => {
     render(
       <TaskRequestRow
         item={REQUEST}
@@ -53,10 +53,10 @@ describe('TaskRequestRow identity', () => {
     expect(screen.getByRole('button', { name: /REQ-42/ })).toBeInTheDocument();
     expect(screen.getByText(REQUEST.requested_outcome)).toBeInTheDocument();
     expect(screen.getByText(/↔ Finding/)).toBeInTheDocument();
-    expect(screen.getByText('Managed System')).toBeInTheDocument();
+    expect(screen.getByText('시스템')).toBeInTheDocument();
     expect(screen.getByText('알 수 없는 사용자')).toBeInTheDocument();
     expect(screen.queryByText('40000000')).not.toBeInTheDocument();
-    expect(screen.queryByText('Evidence 1')).not.toBeInTheDocument();
+    expect(screen.queryByText('근거 1')).not.toBeInTheDocument();
     expect(screen.getByText('30000000')).toHaveClass('text-text-muted');
     expect(screen.getByText('20000000')).toHaveClass('text-text-muted');
     expect(screen.queryByText('10000000')).not.toBeInTheDocument();
@@ -87,8 +87,8 @@ describe('TaskRequestRow identity', () => {
     expect(screen.getByText(/↔ FIN-181/)).toBeInTheDocument();
     expect(screen.getByText('리포트 속도 저하')).toBeInTheDocument();
     expect(screen.getByText(REQUEST.requested_outcome)).toHaveClass('text-text-muted');
-    expect(screen.getByText('Evidence · 7')).toBeInTheDocument();
-    expect(screen.queryByText('Evidence 1')).not.toBeInTheDocument();
+    expect(screen.getByText('근거 · 7')).toBeInTheDocument();
+    expect(screen.queryByText('근거 1')).not.toBeInTheDocument();
     expect(screen.queryByText('40000000')).not.toBeInTheDocument();
   });
 

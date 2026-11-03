@@ -6,6 +6,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import type * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { listBoardTasks, parseBoardQuery } from './taskBoardTestServer';
+import { TASK_STATUS_LABELS } from '@/lib/copy/enum-labels';
 
 // #1178: the board loads one bounded page per status column, groups the open set for the other
 // groupings, keeps operational totals in a three-request strip, and resolves unloaded deep links.
@@ -263,9 +264,10 @@ function mount(props: React.ComponentProps<typeof TaskBoardRoute> = {}) {
 }
 
 const column = (status: string) =>
-  screen.getByLabelText(`${status[0]?.toUpperCase()}${status.slice(1)} 열`);
+  screen.getByLabelText(`${TASK_STATUS_LABELS[status as keyof typeof TASK_STATUS_LABELS]} 열`);
 const headerCount = (status: string) => column(status).querySelector('header span:last-child');
-const stat = (label: string) => screen.getByText(label).nextElementSibling;
+const stat = (label: string) =>
+  screen.getAllByText(label).find((el) => !el.closest('header'))?.nextElementSibling;
 const cardsIn = (status: string) =>
   within(column(status)).queryAllByRole('button', { name: /^TASK-\d+:/ });
 
@@ -306,7 +308,7 @@ describe('bounded Task board (#1178)', () => {
 
   it('sends one bounded request per status column and shows each column total in its header', async () => {
     mount();
-    await screen.findByLabelText('Backlog 열');
+    await screen.findByLabelText('대기 열');
     await waitFor(() => expect(headerCount('done')).toHaveTextContent('120'));
     const board = server.boardLists();
     expect(board.map((query) => query.status).sort()).toEqual([...STATUSES].sort());
@@ -322,7 +324,7 @@ describe('bounded Task board (#1178)', () => {
 
   it('loads the next page of one column with only that column cursor', async () => {
     mount();
-    await screen.findByLabelText('Backlog 열');
+    await screen.findByLabelText('대기 열');
     await waitFor(() => expect(cardsIn('backlog')).toHaveLength(50));
     const before = server.lists.length;
     fireEvent.click(within(column('backlog')).getByRole('button', { name: '더 불러오기' }));
@@ -335,7 +337,7 @@ describe('bounded Task board (#1178)', () => {
 
   it('shows summary strip totals from three limit=1 requests and a title badge equal to the column totals', async () => {
     mount();
-    await screen.findByLabelText('Backlog 열');
+    await screen.findByLabelText('대기 열');
     await waitFor(() => expect(stat('전체 Task')).toHaveTextContent('187'));
     expect(stat('미배정')).toHaveTextContent('186');
     expect(stat('진행 중')).toHaveTextContent('1');
@@ -353,7 +355,7 @@ describe('bounded Task board (#1178)', () => {
 
   it('sends a personal filter to every board request, resets cursors, and leaves the strip alone', async () => {
     mount();
-    await screen.findByLabelText('Backlog 열');
+    await screen.findByLabelText('대기 열');
     await waitFor(() => expect(cardsIn('backlog')).toHaveLength(50));
     fireEvent.click(within(column('backlog')).getByRole('button', { name: '더 불러오기' }));
     await waitFor(() => expect(cardsIn('backlog')).toHaveLength(60));
@@ -389,7 +391,7 @@ describe('bounded Task board (#1178)', () => {
     'sends %s choices as one token list on every board request',
     async (_name, labels, key, token) => {
       mount();
-      await screen.findByLabelText('Backlog 열');
+      await screen.findByLabelText('대기 열');
       const before = server.lists.length;
       fireEvent.click(screen.getByRole('button', { name: '필터' }));
       for (const label of labels)
@@ -404,7 +406,7 @@ describe('bounded Task board (#1178)', () => {
 
   it('groups only the open set, fetched at the page cap, and says closed Tasks are excluded', async () => {
     mount();
-    await screen.findByLabelText('Backlog 열');
+    await screen.findByLabelText('대기 열');
     const before = server.lists.length;
     fireEvent.click(screen.getByRole('button', { name: '그룹화' }));
     fireEvent.click(await screen.findByRole('radio', { name: '우선순위' }));
@@ -427,7 +429,7 @@ describe('bounded Task board (#1178)', () => {
   it('follows the cursor so a grouped open set past one page is not truncated', async () => {
     server = startServer(many('backlog', 130));
     mount();
-    await screen.findByLabelText('Backlog 열');
+    await screen.findByLabelText('대기 열');
     const before = server.lists.length;
     fireEvent.click(screen.getByRole('button', { name: '그룹화' }));
     fireEvent.click(await screen.findByRole('radio', { name: '우선순위' }));
@@ -450,7 +452,7 @@ describe('bounded Task board (#1178)', () => {
 
   it('moves a card across columns, adjusts both totals, and restores both when the write fails', async () => {
     mount();
-    await screen.findByLabelText('Backlog 열');
+    await screen.findByLabelText('대기 열');
     await waitFor(() => expect(headerCount('todo')).toHaveTextContent('2'));
     const moved = backlog[0] as TaskDto;
     server.hold(moved.id);
@@ -471,7 +473,7 @@ describe('bounded Task board (#1178)', () => {
 
   it('keeps a later move when an earlier move between the same columns is rejected', async () => {
     mount();
-    await screen.findByLabelText('Backlog 열');
+    await screen.findByLabelText('대기 열');
     await waitFor(() => expect(headerCount('todo')).toHaveTextContent('2'));
     const a = backlog[0] as TaskDto;
     const b = backlog[1] as TaskDto;
@@ -678,7 +680,7 @@ describe('bounded Task board (#1178)', () => {
       expect(headerCount('backlog')).toHaveTextContent(sourceTotal);
       expect(headerCount('todo')).toHaveTextContent(targetTotal);
       const detail = document.querySelector('aside') as HTMLElement;
-      await waitFor(() => expect(within(detail).getAllByText('Todo').length).toBeGreaterThan(0));
+      await waitFor(() => expect(within(detail).getAllByText('할 일').length).toBeGreaterThan(0));
     },
   );
 
@@ -721,7 +723,7 @@ describe('bounded Task board (#1178)', () => {
     expect(screen.queryByTestId('tasks-link-missing')).toBeNull();
   });
 
-  it('treats an in-scope Task of another Managed System as missing under an explicit scope', async () => {
+  it('treats an in-scope Task of another 시스템 as missing under an explicit scope', async () => {
     const foreign = makeTask('backlog', { primary_managed_system_id: OTHER_MS });
     server.tasks.push(foreign);
     mount({ selectedParam: foreign.id, managedSystem: MS });
@@ -729,7 +731,7 @@ describe('bounded Task board (#1178)', () => {
     expect(screen.queryByRole('button', { name: '다음 상태로 이동' })).toBeNull();
   });
 
-  it('keeps the Managed System scope in the URL when a card is selected and the panel closes', async () => {
+  it('keeps the 시스템 scope in the URL when a card is selected and the panel closes', async () => {
     mount({ managedSystem: 'all' });
     await waitFor(() => expect(cardsIn('backlog').length).toBeGreaterThan(0));
     fireEvent.click(cardsIn('backlog')[0] as HTMLElement);
@@ -748,7 +750,7 @@ describe('bounded Task board (#1178)', () => {
 
   it('writes a literal search text as the string it is, even when the previous search had no q (763b review F1)', async () => {
     mount({ managedSystem: MS });
-    await screen.findByLabelText('Backlog 열');
+    await screen.findByLabelText('대기 열');
     const box = screen.getByRole('searchbox');
     fireEvent.change(box, { target: { value: 'undefined' } });
     fireEvent.keyDown(box, { key: 'Enter' });
@@ -763,7 +765,7 @@ describe('bounded Task board (#1178)', () => {
 
   it('shows the public-update chip with q, removes it by dropping the param, and clears it', async () => {
     mount({ publicUpdate: 'missing', q: 'Task' });
-    await screen.findByLabelText('Backlog 열');
+    await screen.findByLabelText('대기 열');
     const bar = screen.getByRole('group', { name: '적용된 필터' });
     expect(within(bar).getByText('공개 업데이트 없음')).toBeInTheDocument();
     const added = server.boardLists();

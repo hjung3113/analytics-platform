@@ -65,7 +65,7 @@ export function SurveyEvidencePicker({
         onChange={onSurveyChange}
         options={(catalog.isError ? [] : (catalog.data ?? [])).map((survey) => ({
           value: survey.id,
-          label: `${survey.display_id} · ${survey.title}${survey.primary_managed_system_id !== managedSystemId ? ` · Managed System: ${systemNames.get(survey.primary_managed_system_id) ?? survey.primary_managed_system_id}` : ''}`,
+          label: `${survey.display_id} · ${survey.title}${survey.primary_managed_system_id !== managedSystemId ? ` · 시스템: ${systemNames.get(survey.primary_managed_system_id) ?? survey.primary_managed_system_id}` : ''}`,
         }))}
         placeholder={COPY.survey}
         searchPlaceholder={COPY.search}

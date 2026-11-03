@@ -66,9 +66,9 @@ describe('VocClusterListShell list states (#609)', () => {
           'data-variant',
           'empty',
         );
-        expect(screen.getByText('생성된 VOC Cluster가 없습니다.')).toBeInTheDocument();
+        expect(screen.getByText('생성된 반복 VOC가 없습니다.')).toBeInTheDocument();
         expect(
-          screen.getByText('VOC를 묶어 만든 Cluster가 여기에 표시됩니다.'),
+          screen.getByText('VOC를 묶어 만든 반복 VOC가 여기에 표시됩니다.'),
         ).toBeInTheDocument();
         return;
       }
@@ -80,7 +80,7 @@ describe('VocClusterListShell list states (#609)', () => {
           'data-variant',
           'filtered',
         );
-        expect(screen.getByText('이 필터에 해당하는 Cluster가 없습니다')).toBeInTheDocument();
+        expect(screen.getByText('이 필터에 해당하는 반복 VOC가 없습니다')).toBeInTheDocument();
         expect(screen.getByText('선택한 조건: 확정')).toBeInTheDocument();
         await user.click(screen.getByRole('button', { name: '필터 초기화' }));
         expect(await screen.findByText(draftNoFinding.title)).toBeInTheDocument();
@@ -95,7 +95,7 @@ describe('VocClusterListShell list states (#609)', () => {
       expect(
         await screen.findByTestId('list-state-message', {}, { timeout: 5000 }),
       ).toHaveAttribute('data-variant', 'error');
-      expect(screen.getByText('VOC Cluster 목록을 불러오지 못했습니다')).toBeInTheDocument();
+      expect(screen.getByText('반복 VOC 목록을 불러오지 못했습니다')).toBeInTheDocument();
       expect(screen.getByText('잠시 후 다시 시도하세요.')).toBeInTheDocument();
       await user.click(screen.getByRole('button', { name: '다시 시도' }));
       expect(await screen.findByText(draftNoFinding.title)).toBeInTheDocument();
@@ -113,13 +113,13 @@ describe('VocClusterListShell list states (#609)', () => {
 
     expect(
       await screen.findByText(
-        'VOC Cluster 목록을 볼 권한이 없습니다. 워크스페이스 관리자에게 권한을 요청하세요.',
+        '반복 VOC 목록을 볼 권한이 없습니다. 워크스페이스 관리자에게 권한을 요청하세요.',
         {},
         { timeout: 5000 },
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText('VOC Cluster')).toBeInTheDocument();
-    expect(screen.queryByRole('tablist', { name: 'Cluster 필터' })).not.toBeInTheDocument();
+    expect(screen.getByText('반복 VOC')).toBeInTheDocument();
+    expect(screen.queryByRole('tablist', { name: '반복 VOC 필터' })).not.toBeInTheDocument();
     expect(screen.queryByRole('tab')).not.toBeInTheDocument();
     expect(screen.queryByText(/전체 0|확정 0|Finding 없음 0/)).not.toBeInTheDocument();
     expect(screen.queryByText('0개')).not.toBeInTheDocument();

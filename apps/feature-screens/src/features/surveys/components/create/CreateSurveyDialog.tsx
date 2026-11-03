@@ -217,7 +217,7 @@ export function CreateSurveyDialog({
         }}
       >
         <DialogHeader>
-          <DialogTitle>Survey 생성</DialogTitle>
+          <DialogTitle>설문 생성</DialogTitle>
           <DialogDescription>{COPY.intro}</DialogDescription>
         </DialogHeader>
         <form
@@ -321,7 +321,7 @@ export function CreateSurveyDialog({
                 />
               </label>
               <div className="block text-sm">
-                Survey 유형
+                설문 유형
                 <Select
                   value={type}
                   disabled={startingPointChosen}
@@ -329,7 +329,7 @@ export function CreateSurveyDialog({
                     setType(value as SurveyType);
                   }}
                 >
-                  <SelectTrigger aria-label="Survey 유형">
+                  <SelectTrigger aria-label="설문 유형">
                     <SelectValue placeholder="유형 선택" />
                   </SelectTrigger>
                   <SelectContent>
@@ -345,7 +345,7 @@ export function CreateSurveyDialog({
                 ) : null}
               </div>
               <div className="block text-sm">
-                Managed System
+                시스템
                 <Select
                   value={system}
                   onValueChange={(value) => {
@@ -356,8 +356,8 @@ export function CreateSurveyDialog({
                     setDebouncedSearch('');
                   }}
                 >
-                  <SelectTrigger aria-label="Managed System">
-                    <SelectValue placeholder="Managed System 선택" />
+                  <SelectTrigger aria-label="시스템">
+                    <SelectValue placeholder="시스템 선택" />
                   </SelectTrigger>
                   <SelectContent>
                     {allowedSystems.map((candidate) => (
@@ -553,9 +553,9 @@ export function CreateSurveyDialog({
                 />
               </label>
               <div className="block text-sm">
-                Analytics Area (선택)
+                분석 영역 (선택)
                 <Select value={analyticsArea} onValueChange={setAnalyticsArea} disabled={!system}>
-                  <SelectTrigger aria-label="Analytics Area">
+                  <SelectTrigger aria-label="분석 영역">
                     <SelectValue placeholder="선택 안 함" />
                   </SelectTrigger>
                   <SelectContent>

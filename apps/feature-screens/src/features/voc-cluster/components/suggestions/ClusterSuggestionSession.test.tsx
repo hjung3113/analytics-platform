@@ -112,15 +112,15 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.useRealTimers();
 });
-describe('Cluster suggestion review', () => {
-  it('reviews both texts and confirms the displayed pair once with a Cluster link and queue invalidation', async () => {
+describe('반복 VOC suggestion review', () => {
+  it('reviews both texts and confirms the displayed pair once with a 반복 VOC link and queue invalidation', async () => {
     const { client } = mount();
     for (const key of [['voc-clusters'], ['nav-counts'], ['recovery'], ['dashboard-summary']])
       client.setQueryData(key, { cached: true });
     fireEvent.click(await screen.findByRole('button', { name: /VOC-12/ }));
     expect(screen.getByText('첫 번째 본문')).toBeInTheDocument();
     expect(screen.getByText('두 번째 본문')).toBeInTheDocument();
-    const button = screen.getByRole('button', { name: '확인 후 Cluster 생성' });
+    const button = screen.getByRole('button', { name: '확인 후 반복 VOC 생성' });
     await act(async () => {
       fireEvent.click(button);
       fireEvent.click(button);
@@ -136,7 +136,7 @@ describe('Cluster suggestion review', () => {
     );
     await waitFor(() => expect(toastSuccess).toHaveBeenCalled());
     // The Cluster link is the notice's action now (761c); where it goes is pinned in the host-seam tests below.
-    expect(toastSuccess.mock.calls[0]?.[1].action.label).toBe('Cluster 보기');
+    expect(toastSuccess.mock.calls[0]?.[1].action.label).toBe('반복 VOC 보기');
     for (const key of [['voc-clusters'], ['nav-counts'], ['recovery'], ['dashboard-summary']])
       expect(client.getQueryState(key)?.isInvalidated).toBe(true);
   });
@@ -236,7 +236,7 @@ it.each([403, 404, 409])(
       );
     };
     fireEvent.click(await screen.findByRole('button', { name: /VOC-12/ }));
-    fireEvent.click(screen.getByRole('button', { name: '확인 후 Cluster 생성' }));
+    fireEvent.click(screen.getByRole('button', { name: '확인 후 반복 VOC 생성' }));
     await waitFor(() => expect(screen.queryByText('첫 번째 본문')).not.toBeInTheDocument());
     expect(screen.queryByText('두 번째 본문')).not.toBeInTheDocument();
     expect(screen.getByTestId('count')).toHaveTextContent('0');
@@ -251,20 +251,20 @@ it('reuses the full intent key after a transport failure and mints a new key aft
     throw new TypeError('offline');
   };
   fireEvent.click(await screen.findByRole('button', { name: /VOC-12/ }));
-  fireEvent.click(screen.getByRole('button', { name: '확인 후 Cluster 생성' }));
+  fireEvent.click(screen.getByRole('button', { name: '확인 후 반복 VOC 생성' }));
   await screen.findByRole('alert');
-  fireEvent.click(screen.getByRole('button', { name: '확인 후 Cluster 생성' }));
+  fireEvent.click(screen.getByRole('button', { name: '확인 후 반복 VOC 생성' }));
   await waitFor(() => expect(posts).toHaveLength(2));
   expect(posts[1]?.key).toBe(posts[0]?.key);
   await waitFor(() =>
-    expect(screen.getByRole('button', { name: '확인 후 Cluster 생성' })).toBeEnabled(),
+    expect(screen.getByRole('button', { name: '확인 후 반복 VOC 생성' })).toBeEnabled(),
   );
   items = [{ ...pair, revision: 6 }];
   await act(async () => {
     await client.invalidateQueries({ queryKey: ['voc-cluster-suggestions'] });
   });
   fireEvent.click(screen.getByRole('button', { name: /VOC-12/ }));
-  fireEvent.click(screen.getByRole('button', { name: '확인 후 Cluster 생성' }));
+  fireEvent.click(screen.getByRole('button', { name: '확인 후 반복 VOC 생성' }));
   await waitFor(() => expect(posts).toHaveLength(3));
   expect(posts[2]?.key).not.toBe(posts[1]?.key);
   expect(confirmVocClusterSuggestionRequestSchema.parse(posts[2]?.body).expected_revision).toBe(6);
@@ -350,7 +350,7 @@ it('finishes cache invalidation after unmount without resurrecting a panel or fo
   const { client, unmount } = mount();
   client.setQueryData(['recovery'], { cached: true });
   fireEvent.click(await screen.findByRole('button', { name: /VOC-12/ }));
-  fireEvent.click(screen.getByRole('button', { name: '확인 후 Cluster 생성' }));
+  fireEvent.click(screen.getByRole('button', { name: '확인 후 반복 VOC 생성' }));
   await waitFor(() => expect(posts).toHaveLength(1));
   unmount();
   await act(async () => {
@@ -377,10 +377,10 @@ it('does not re-enable the reviewed stale payload after a failed refetch', async
     return json({ code: 'conflict.stale_write', message: 'changed' }, 409);
   };
   fireEvent.click(await screen.findByRole('button', { name: /VOC-12/ }));
-  fireEvent.click(screen.getByRole('button', { name: '확인 후 Cluster 생성' }));
+  fireEvent.click(screen.getByRole('button', { name: '확인 후 반복 VOC 생성' }));
   await screen.findByRole('alert');
   await waitFor(() =>
-    expect(screen.getByRole('button', { name: '확인 후 Cluster 생성' })).toBeDisabled(),
+    expect(screen.getByRole('button', { name: '확인 후 반복 VOC 생성' })).toBeDisabled(),
   );
   expect(posts).toHaveLength(1);
 });
@@ -391,7 +391,7 @@ it('renders the empty read state', async () => {
     vi.fn(async () => json({ available: true, items: [] })),
   );
   mount();
-  expect(await screen.findByText('검토할 Cluster 제안이 없습니다')).toBeInTheDocument();
+  expect(await screen.findByText('검토할 반복 VOC 제안이 없습니다')).toBeInTheDocument();
   expect(screen.queryByText('첫 번째 본문')).not.toBeInTheDocument();
 });
 
@@ -408,7 +408,7 @@ it('drops an already-expired discard response without rendering an undo', async 
   };
   fireEvent.click(await screen.findByRole('button', { name: /VOC-12/ }));
   fireEvent.click(screen.getByRole('button', { name: '기각' }));
-  await screen.findByText('검토할 Cluster 제안이 없습니다');
+  await screen.findByText('검토할 반복 VOC 제안이 없습니다');
   expect(screen.queryByRole('button', { name: '되돌리기' })).not.toBeInTheDocument();
 });
 
@@ -416,7 +416,7 @@ it('excludes confirm and discard in the same event turn', async () => {
   mount();
   postResponse = () => new Promise(() => {});
   fireEvent.click(await screen.findByRole('button', { name: /VOC-12/ }));
-  const confirm = screen.getByRole('button', { name: '확인 후 Cluster 생성' });
+  const confirm = screen.getByRole('button', { name: '확인 후 반복 VOC 생성' });
   const discard = screen.getByRole('button', { name: '기각' });
   await act(async () => {
     fireEvent.click(confirm);
@@ -487,7 +487,7 @@ it('expires while restore is pending and uses a bounded focus fallback if the re
   await act(async () => {
     await vi.advanceTimersByTimeAsync(1000);
   });
-  expect(screen.getByLabelText('Cluster 제안')).toHaveFocus();
+  expect(screen.getByLabelText('반복 VOC 제안')).toHaveFocus();
 });
 
 it.each([403, 404])(
@@ -529,7 +529,7 @@ it.each([403, 404])(
       });
     const { rerender } = render(view(true));
     fireEvent.click(await screen.findByRole('button', { name: /VOC-12/ }));
-    fireEvent.click(screen.getByRole('button', { name: '확인 후 Cluster 생성' }));
+    fireEvent.click(screen.getByRole('button', { name: '확인 후 반복 VOC 생성' }));
     await waitFor(() => expect(posts).toHaveLength(1));
     rerender(view(false));
     const reads: Array<(response: Response) => void> = [];
@@ -659,7 +659,7 @@ it.each(
             ? '되돌리기'
             : action === 'discard'
               ? '기각'
-              : '확인 후 Cluster 생성',
+              : '확인 후 반복 VOC 생성',
       }),
     );
     await screen.findByRole('alert');
@@ -805,7 +805,7 @@ it('does not replay a dismissed notice when another pair is keyboard-opened', as
   const first = (await screen.findAllByRole('button', { name: /VOC-12/ }))[0];
   if (!first) throw new Error('First suggestion missing');
   fireEvent.click(first);
-  fireEvent.click(screen.getByRole('button', { name: '확인 후 Cluster 생성' }));
+  fireEvent.click(screen.getByRole('button', { name: '확인 후 반복 VOC 생성' }));
   await waitFor(() => expect(screen.getByRole('alert')).toHaveFocus());
   fireEvent.click(screen.getByRole('button', { name: '패널 닫기' }));
   const row = await screen.findByRole('button', { name: /VOC-12/ });
@@ -852,7 +852,7 @@ describe('confirm notice through the host seam (761c)', () => {
       </QueryClientProvider>,
     );
     fireEvent.click(await screen.findByRole('button', { name: /VOC-12/ }));
-    fireEvent.click(screen.getByRole('button', { name: '확인 후 Cluster 생성' }));
+    fireEvent.click(screen.getByRole('button', { name: '확인 후 반복 VOC 생성' }));
     await waitFor(() => expect(notify).toHaveBeenCalled());
     return (notify.mock.calls[0] as unknown as [HostNotice])[0];
   }
@@ -863,7 +863,7 @@ describe('confirm notice through the host seam (761c)', () => {
 
   it('raises a success notice whose action opens the new cluster path when the host maps it', async () => {
     const notice = await confirmWith(seam(true, { managedSystem: 'all' }));
-    expect(notice).toMatchObject({ tone: 'success', action: { label: 'Cluster 보기' } });
+    expect(notice).toMatchObject({ tone: 'success', action: { label: '반복 VOC 보기' } });
     notice.action?.onAction();
     expect(navigate).toHaveBeenCalledWith(`/voc-clusters/${clusterId}`);
   });
@@ -895,6 +895,6 @@ it('places the suggestion title beside the kind chip in the panel identity group
   mountWithRouter();
   fireEvent.click(await screen.findByRole('button', { name: /VOC-12/ }));
   const header = screen.getByTestId('detail-panel-header-content');
-  expect(header.firstElementChild).toHaveTextContent('Cluster 제안');
-  expect(header.firstElementChild).toHaveTextContent('Cluster');
+  expect(header.firstElementChild).toHaveTextContent('반복 VOC 제안');
+  expect(header.firstElementChild).toHaveTextContent('반복 VOC');
 });

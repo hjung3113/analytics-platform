@@ -47,7 +47,7 @@ import { EditDialog, RegisterDialog } from './ManagedSystemsDialogs.js';
 import { useManagedSystemsRegistry } from './useManagedSystemsRegistry.js';
 
 const SUBTITLE =
-  'Managed System은 권한과 집계의 기준 단위입니다. 기본 담당자·검토자, Analytics Area 매핑, 활성 상태를 관리합니다.';
+  '시스템은 권한과 집계의 기준 단위입니다. 기본 담당자·검토자, 분석 영역 매핑, 활성 상태를 관리합니다.';
 
 export function ManagedSystemsAdminPage() {
   const { hostOwnsTitle } = useHostSeam();
@@ -56,7 +56,7 @@ export function ManagedSystemsAdminPage() {
   return (
     <PageShell
       header={{
-        ...(hostOwnsTitle ? {} : { title: 'Managed System', subtitle: SUBTITLE }),
+        ...(hostOwnsTitle ? {} : { title: '시스템', subtitle: SUBTITLE }),
         actions: (
           <PermissionGate capability="workspace.admin" fallback={null} loading={null}>
             <ManagedSystemsFilter
@@ -71,7 +71,7 @@ export function ManagedSystemsAdminPage() {
                 data-testid="ms-register-button"
               >
                 <Plus className="h-4 w-4" />
-                Managed System 등록
+                시스템 등록
               </Button>
             </HostPrimaryAction>
           </PermissionGate>
@@ -138,7 +138,7 @@ function ManagedSystemsBody({
             레지스트리
           </h3>
           <span className="text-xs text-text-muted">
-            Managed System {systems.length}개 · Analytics Area {renderedAreaCount}개
+            시스템 {systems.length}개 · 분석 영역 {renderedAreaCount}개
           </span>
         </div>
 
@@ -153,7 +153,7 @@ function ManagedSystemsBody({
             className="rounded-md border border-border-subtle bg-surface-card p-8 text-center text-sm text-text-muted"
             data-testid="ms-empty-state"
           >
-            등록된 Managed System 이 없습니다.
+            등록된 시스템이 없습니다.
           </div>
         ) : (
           <div
@@ -204,7 +204,7 @@ function ManagedSystemsBody({
                 ? systems.some((system) => system.id !== target.id && system.name === target.name)
                   ? `${target.name} (${target.slug})`
                   : target.name
-                : 'Managed System';
+                : '시스템';
               return (
                 <li
                   key={`${warning.managed_system_id}-${warning.workflow}-${warning.rule}-${warning.category}-${warning.origin}`}

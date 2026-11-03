@@ -121,7 +121,7 @@ export function surveyDetailPieces({
       {canManage && survey.status === 'open' && (
         <div className="mt-3 px-5">
           <Button variant="secondary" size="sm" onClick={() => closing.setOpen(true)}>
-            Survey 종료
+            설문 종료
           </Button>
         </div>
       )}
@@ -147,10 +147,10 @@ export function surveyDetailPieces({
       </section>
       {!canEditQuestions && (
         <section className="mt-6 px-5">
-          <h2 className="mb-2 text-sm font-medium">Survey 빌더</h2>
+          <h2 className="mb-2 text-sm font-medium">설문 빌더</h2>
           <p className="text-xs text-text-muted">
             {survey.status === 'draft'
-              ? 'Survey 관리 권한이 없습니다.'
+              ? '설문 관리 권한이 없습니다.'
               : '질문 변경은 잠겨 있습니다.'}
           </p>
         </section>
@@ -186,7 +186,7 @@ export function surveyDetailPieces({
       <section className="mt-6 space-y-3 px-5 pb-5 text-sm">
         <div>
           <h2 className="font-medium">권한 경계</h2>
-          <p className="text-text-muted">Survey 응답은 VOC를 생성하지 않습니다.</p>
+          <p className="text-text-muted">설문 응답은 VOC를 생성하지 않습니다.</p>
         </div>
         <div>
           <h2 className="font-medium">개인정보</h2>
@@ -220,7 +220,7 @@ export function surveyDetailPieces({
 
 function SurveyDetailSkeleton(): React.ReactElement {
   return (
-    <div className="flex flex-col gap-4 p-6" aria-label="Survey 상세 불러오는 중">
+    <div className="flex flex-col gap-4 p-6" aria-label="설문 상세 불러오는 중">
       <SkeletonBlocks
         blocks={[
           { kind: 'title', size: 'large', width: 'half' },
@@ -251,11 +251,11 @@ function SurveyDetailSkeleton(): React.ReactElement {
 function SurveyNotFound({ onClose }: { onClose: () => void }): React.ReactElement {
   return (
     <EmptyState
-      title="Survey를 찾을 수 없습니다."
+      title="설문을 찾을 수 없습니다."
       body="삭제되었거나 접근 권한이 없습니다."
       action={
         <Button variant="outline" size="sm" onClick={onClose}>
-          Survey 목록으로
+          설문 목록으로
         </Button>
       }
       padding="wide"
@@ -293,7 +293,7 @@ export function useSurveyDetailParts({
   );
 
   const frame = (view: SurveyDetailView, body: React.ReactNode): SurveyDetailParts => ({
-    title: 'Survey',
+    title: '설문',
     view,
     body,
   });
@@ -321,7 +321,7 @@ export function useSurveyDetailParts({
         <div className="flex h-full items-center justify-center p-6">
           <PermissionBlockedPanel
             state="denied"
-            category="Survey 상세"
+            category="설문 상세"
             reason={PERMISSION_BLOCKED_REASONS.surveyDetail}
           />
         </div>,

@@ -104,7 +104,7 @@ export function EvidenceHighlightsSection({
 
   if (isLoading) {
     return (
-      <div className="flex flex-col gap-2" aria-label="Evidence 불러오는 중">
+      <div className="flex flex-col gap-2" aria-label="근거 불러오는 중">
         <SkeletonBlocks
           blocks={[
             { kind: 'body', size: 'compact', width: 'full' },
@@ -116,7 +116,7 @@ export function EvidenceHighlightsSection({
   }
 
   if (isError) {
-    return <p className="text-sm text-text-danger">Evidence 목록을 불러오지 못했습니다.</p>;
+    return <p className="text-sm text-text-danger">근거 목록을 불러오지 못했습니다.</p>;
   }
 
   const items = highlights ?? [];
@@ -127,8 +127,8 @@ export function EvidenceHighlightsSection({
         <EmptyState
           size="sm"
           padding="wide"
-          title="Evidence 하이라이트가 없습니다."
-          body="Evidence 추가 버튼으로 Evidence를 추가하세요."
+          title="근거 하이라이트가 없습니다."
+          body="근거 추가 버튼으로 근거를 추가하세요."
           className={
             // eslint-disable-next-line shadcn/no-restyle -- the evidence empty state uses a dashed card edge to mark the add-evidence area
             'rounded-md border border-dashed border-border-subtle bg-surface-card'

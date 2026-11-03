@@ -144,13 +144,13 @@ describe('MilestoneDetailPanel (#514 B2d)', () => {
 
     expect(await screen.findByRole('heading', { name: 'SSO Stabilization' })).toBeInTheDocument();
     expect(screen.getByText('이 Milestone의 목적')).toBeInTheDocument();
-    expect(screen.getByText('Released 0/1')).toBeInTheDocument();
-    expect(screen.queryByText('Task 1개 중 0개 Released')).not.toBeInTheDocument();
-    expect(screen.queryByText('Released/Done')).not.toBeInTheDocument();
+    expect(screen.getByText('배포됨 0/1')).toBeInTheDocument();
+    expect(screen.queryByText('Task 1개 중 0개 배포됨')).not.toBeInTheDocument();
+    expect(screen.queryByText('배포됨/완료')).not.toBeInTheDocument();
     expect(screen.queryByText('대기 중')).not.toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: '상태' })).toBeInTheDocument();
-    expect(screen.queryByText('Managed System', { exact: true })).not.toBeInTheDocument();
-    expect(screen.queryByText('Analytics Area', { exact: true })).not.toBeInTheDocument();
+    expect(screen.queryByText('시스템', { exact: true })).not.toBeInTheDocument();
+    expect(screen.queryByText('분석 영역', { exact: true })).not.toBeInTheDocument();
     expect(screen.getAllByText('Power BI', { exact: true })).toHaveLength(1);
     expect(screen.getAllByText('Product Usage', { exact: true })).toHaveLength(1);
     expect(screen.getByRole('heading', { name: 'Tasks' })).toBeInTheDocument();
@@ -162,7 +162,7 @@ describe('MilestoneDetailPanel (#514 B2d)', () => {
     // Existing linked source Finding keeps its display card (approved contract).
     expect(screen.getByText('Finding에서')).toBeInTheDocument();
     expect(screen.getByText('FIN-181')).toBeInTheDocument();
-    expect(screen.getByText('Evidence · 7')).toBeInTheDocument();
+    expect(screen.getByText('근거 · 7')).toBeInTheDocument();
 
     // #514 CP-pixel finding 4 — Owner renders the shared UserChip
     // (avatar initial + display name), not bare text.
@@ -191,11 +191,11 @@ describe('MilestoneDetailPanel (#514 B2d)', () => {
     expect(screen.queryByRole('button', { name: 'Link source finding' })).not.toBeInTheDocument();
   });
 
-  it('renders empty Evidence and history copy without outcome-survey controls', async () => {
+  it('renders empty 근거 and history copy without outcome-survey controls', async () => {
     renderPanel(linkedDetail);
 
     await screen.findByRole('heading', { name: 'SSO Stabilization' });
-    expect(screen.getByText('연결된 Evidence 하이라이트가 없습니다.')).toBeInTheDocument();
+    expect(screen.getByText('연결된 근거 하이라이트가 없습니다.')).toBeInTheDocument();
     expect(screen.getByText('활동 기록이 없습니다.')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '이력' })).toBeInTheDocument();
     // FOP-OUT-014: no Milestone → Outcome Survey validation in MVP.
@@ -215,11 +215,11 @@ describe('MilestoneDetailPanel (#514 B2d)', () => {
       .map((button) => button.textContent);
     // 'Tasks0' = the label plus the count pill (DetailPanelSectionNav renders
     // the count as a child span once the child read resolves).
-    expect(labels).toEqual(['요약', 'Tasks0', 'Evidence', '이력']);
+    expect(labels).toEqual(['요약', 'Tasks0', '근거', '이력']);
     expect(screen.queryByRole('button', { name: 'Timeline' })).not.toBeInTheDocument();
   });
 
-  it('renders the header Managed System as read-only text, not an input', async () => {
+  it('renders the header 시스템 as read-only text, not an input', async () => {
     renderPanel(linkedDetail);
 
     await screen.findByRole('heading', { name: 'SSO Stabilization' });
@@ -506,7 +506,7 @@ describe('MilestoneDetailPanel (#514 B2d)', () => {
       within(row as HTMLElement).getByText('Power BI 임베디드 SSO 재인증 핸들러 구현'),
     ).toBeInTheDocument();
     // Internal task status — distinct from reporter-facing status.
-    expect(within(row as HTMLElement).getByText('Doing')).toBeInTheDocument();
+    expect(within(row as HTMLElement).getByText('진행 중')).toBeInTheDocument();
     // UserAvatar renders the assignee's Hangul initial only.
     expect(within(row as HTMLElement).getByText('정')).toBeInTheDocument();
   });
@@ -651,7 +651,7 @@ describe('MilestoneDetailPanel (#514 B2d)', () => {
     const labels = within(nav)
       .getAllByRole('button')
       .map((button) => button.textContent);
-    expect(labels).toEqual(['요약', 'Tasks', 'Evidence', '이력']);
+    expect(labels).toEqual(['요약', 'Tasks', '근거', '이력']);
     // Rows and empty copy stay hidden: a denied read is not an empty success.
     expect(screen.queryByText('TASK-902')).not.toBeInTheDocument();
     expect(screen.queryByText('아직 연결된 Task 가 없습니다.')).not.toBeInTheDocument();

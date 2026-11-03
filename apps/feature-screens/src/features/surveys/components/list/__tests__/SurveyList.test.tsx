@@ -69,13 +69,13 @@ describe('SurveyList empty state', () => {
   it('renders the existing creation recovery when survey creation is allowed', () => {
     renderEmptyList({ canCreate: true });
 
-    expect(screen.getByText('생성된 Survey가 없습니다.')).toBeInTheDocument();
-    expect(screen.getByText('Survey를 만들어 응답을 수집하세요.')).toBeInTheDocument();
+    expect(screen.getByText('생성된 설문이 없습니다.')).toBeInTheDocument();
+    expect(screen.getByText('설문을 만들어 응답을 수집하세요.')).toBeInTheDocument();
     expect(screen.getByTestId('survey-empty-create-button')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '필터 초기화' })).not.toBeInTheDocument();
   });
 
-  it('shows one primary Survey 생성 opener on an empty list — the empty state owns it (#1167 C-3)', () => {
+  it('shows one primary 설문 생성 opener on an empty list — the empty state owns it (#1167 C-3)', () => {
     renderEmptyList({ canCreate: true });
 
     expect(screen.getByTestId('survey-empty-create-button')).toBeInTheDocument();
@@ -94,23 +94,23 @@ describe('SurveyList empty state', () => {
     );
 
     await userEvent.click(screen.getByRole('tab', { name: /진행 중/ }));
-    await userEvent.type(screen.getByRole('textbox', { name: 'Survey 검색' }), '찾을 수 없음');
+    await userEvent.type(screen.getByRole('textbox', { name: '설문 검색' }), '찾을 수 없음');
 
-    expect(await screen.findByText('현재 조건에 맞는 Survey가 없습니다')).toBeInTheDocument();
+    expect(await screen.findByText('현재 조건에 맞는 설문이 없습니다')).toBeInTheDocument();
     expect(screen.getByText('상태: 진행 중 · 검색어: 찾을 수 없음')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: '필터 초기화' }));
 
     expect(await screen.findByText('Q3 사용성 진단')).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /전체/ })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByRole('textbox', { name: 'Survey 검색' })).toHaveValue('');
+    expect(screen.getByRole('textbox', { name: '설문 검색' })).toHaveValue('');
   });
 
   it('renders request access for a requestable missing survey.manage permission', () => {
     renderEmptyList({ canCreate: false, permissionState: 'request_access' });
 
-    expect(screen.getByText('관리할 수 있는 Survey가 없습니다.')).toBeInTheDocument();
-    expect(screen.getByText('참여할 Survey는 Survey 참여에서 확인하세요.')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Survey 참여' })).toHaveAttribute(
+    expect(screen.getByText('관리할 수 있는 설문이 없습니다.')).toBeInTheDocument();
+    expect(screen.getByText('참여할 설문은 설문 참여에서 확인하세요.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '설문 참여' })).toHaveAttribute(
       'href',
       '/surveys/participate',
     );
@@ -121,9 +121,9 @@ describe('SurveyList empty state', () => {
   it('renders contact-admin recovery for a non-requestable missing survey.manage permission', () => {
     renderEmptyList({ canCreate: false, permissionState: 'blocked_non_requestable' });
 
-    expect(screen.getByText('관리할 수 있는 Survey가 없습니다.')).toBeInTheDocument();
-    expect(screen.getByText('참여할 Survey는 Survey 참여에서 확인하세요.')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Survey 참여' })).toHaveAttribute(
+    expect(screen.getByText('관리할 수 있는 설문이 없습니다.')).toBeInTheDocument();
+    expect(screen.getByText('참여할 설문은 설문 참여에서 확인하세요.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '설문 참여' })).toHaveAttribute(
       'href',
       '/surveys/participate',
     );
@@ -137,9 +137,9 @@ describe('SurveyList empty state', () => {
     // Omit the optional prop to preserve the unavailable-state fail-closed path.
     renderEmptyList({ canCreate: false });
 
-    expect(screen.getByText('관리할 수 있는 Survey가 없습니다.')).toBeInTheDocument();
-    expect(screen.getByText('참여할 Survey는 Survey 참여에서 확인하세요.')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Survey 참여' })).toHaveAttribute(
+    expect(screen.getByText('관리할 수 있는 설문이 없습니다.')).toBeInTheDocument();
+    expect(screen.getByText('참여할 설문은 설문 참여에서 확인하세요.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '설문 참여' })).toHaveAttribute(
       'href',
       '/surveys/participate',
     );
@@ -168,7 +168,7 @@ describe('SurveyList tabs', () => {
       />,
     );
 
-    expect(screen.getByRole('tablist', { name: 'Survey status' })).toBeInTheDocument();
+    expect(screen.getByRole('tablist', { name: '설문 상태' })).toBeInTheDocument();
     const allTab = screen.getByRole('tab', { name: /^전체\s*,\s*2$/ });
     const panel = screen.getByRole('tabpanel');
     expect(allTab).toHaveAttribute('aria-selected', 'true');

@@ -142,7 +142,7 @@ export function CreateFindingModal({
     showSeverityError && form.formState.errors.severity ? '심각도를 선택해 주세요.' : undefined;
   const analyticsAreaError =
     showAnalyticsAreaError && form.formState.errors.analytics_area_id
-      ? '올바른 Analytics Area를 선택해 주세요.'
+      ? '올바른 분석 영역을 선택해 주세요.'
       : undefined;
 
   const analyticsAreasQuery = useQuery({
@@ -311,14 +311,14 @@ export function CreateFindingModal({
 
           {/* Analytics Area */}
           <div className="flex flex-col gap-1.5">
-            <FieldLabel>Analytics Area (선택)</FieldLabel>
+            <FieldLabel>분석 영역 (선택)</FieldLabel>
             {analyticsAreasQuery.isLoading ? (
-              <p className="text-xs text-text-muted">Analytics Area를 불러오는 중입니다.</p>
+              <p className="text-xs text-text-muted">분석 영역을 불러오는 중입니다.</p>
             ) : analyticsAreasQuery.isError ? (
-              <p className="text-xs text-text-danger">Analytics Area를 불러오지 못했습니다.</p>
+              <p className="text-xs text-text-danger">분석 영역을 불러오지 못했습니다.</p>
             ) : analyticsAreaOptions.length === 0 ? (
               <p className="text-xs text-text-muted">
-                이 Managed System에 선택할 수 있는 Analytics Area가 없습니다.
+                이 시스템에 선택할 수 있는 분석 영역이 없습니다.
               </p>
             ) : (
               <Controller
@@ -329,14 +329,14 @@ export function CreateFindingModal({
                     options={analyticsAreaOptions}
                     value={field.value ?? null}
                     onChange={(id) => field.onChange(id ?? undefined)}
-                    placeholder="Analytics Area 선택"
+                    placeholder="분석 영역 선택"
                     testId="create-finding-aa-picker"
                   />
                 )}
               />
             )}
             <p className="text-xs text-text-muted">
-              소스 VOC의 Analytics Area를 승계하며 생성 전에 변경할 수 있습니다.
+              소스 VOC의 분석 영역을 승계하며 생성 전에 변경할 수 있습니다.
             </p>
             {analyticsAreaError && (
               <p className="text-xs text-text-danger" role="alert">

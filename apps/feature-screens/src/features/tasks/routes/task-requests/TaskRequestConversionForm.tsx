@@ -56,9 +56,9 @@ export function TaskRequestConversionForm({
         : UNRESOLVED_ANALYTICS_AREA;
   const analyticsAreaHint =
     conversion.analyticsAreaUnresolvedReason === 'source-unavailable'
-      ? '원본 Finding의 Analytics Area가 보관되어 있습니다. 다른 Analytics Area를 선택하거나 없음을 선택하세요.'
+      ? '원본 Finding의 분석 영역이 보관되어 있습니다. 다른 분석 영역을 선택하거나 없음을 선택하세요.'
       : conversion.analyticsAreaUnresolvedReason === 'selection-unavailable'
-        ? '선택한 Analytics Area를 더 이상 사용할 수 없습니다. 다른 Analytics Area를 선택하거나 없음을 선택하세요.'
+        ? '선택한 분석 영역을 더 이상 사용할 수 없습니다. 다른 분석 영역을 선택하거나 없음을 선택하세요.'
         : null;
 
   return (
@@ -197,7 +197,7 @@ export function TaskRequestConversionForm({
         )}
       </div>
       <div className="flex flex-col gap-1">
-        <FieldLabel htmlFor="task-request-convert-analytics-area">Analytics Area</FieldLabel>
+        <FieldLabel htmlFor="task-request-convert-analytics-area">분석 영역</FieldLabel>
         <Select
           value={analyticsAreaValue}
           onValueChange={(value) => {
@@ -209,7 +209,7 @@ export function TaskRequestConversionForm({
         >
           <SelectTrigger
             id="task-request-convert-analytics-area"
-            aria-label="Analytics Area"
+            aria-label="분석 영역"
             {...(analyticsAreaHint === null ? {} : { 'aria-describedby': ANALYTICS_AREA_HINT_ID })}
           >
             <SelectValue />
@@ -218,7 +218,7 @@ export function TaskRequestConversionForm({
             <SelectItem value={NO_SELECTION}>없음</SelectItem>
             {conversion.analyticsAreaSelection.kind === 'unresolved' && (
               <SelectItem value={UNRESOLVED_ANALYTICS_AREA} disabled>
-                Analytics Area 선택 필요
+                분석 영역 선택 필요
               </SelectItem>
             )}
             {conversion.analyticsAreas?.map((area) => (

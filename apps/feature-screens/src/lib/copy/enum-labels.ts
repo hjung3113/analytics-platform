@@ -72,15 +72,15 @@ export const FINDING_CONFIDENCE_LABELS: Record<FindingConfidence, string> = {
 
 export const FINDING_SOURCE_TYPE_LABELS: Record<FindingDto['source_type'], string> = {
   voc: 'VOC',
-  voc_cluster: 'VOC Cluster',
-  survey: 'Survey',
-  survey_response: 'Survey 응답',
+  voc_cluster: '반복 VOC',
+  survey: '설문',
+  survey_response: '설문 응답',
   manual: '수동',
 };
 
 export const EVIDENCE_SOURCE_TYPE_LABELS: Record<EvidenceHighlightSourceType, string> = {
   voc: 'VOC',
-  survey_response: 'Survey',
+  survey_response: '설문',
   note: '수동 메모',
 };
 
@@ -111,12 +111,12 @@ export const FINDING_STATUS_LABELS: Record<FindingStatus, string> = {
 };
 
 export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
-  backlog: 'Backlog',
-  todo: 'Todo',
-  doing: 'Doing',
-  review: 'Review',
-  done: 'Done',
-  released: 'Released',
+  backlog: '대기',
+  todo: '할 일',
+  doing: '진행 중',
+  review: '검토',
+  done: '완료',
+  released: '배포됨',
   reopened: 'Reopened',
 };
 

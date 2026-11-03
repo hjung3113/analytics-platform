@@ -143,11 +143,11 @@ describe('VocTriageScreen — error rollback after auto-advance (REV-1 #5)', () 
 
     clickSeverity();
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /triage 확정/i })).not.toBeDisabled();
+      expect(screen.getByRole('button', { name: /분류 확정/i })).not.toBeDisabled();
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /triage 확정/i }));
+      fireEvent.click(screen.getByRole('button', { name: /분류 확정/i }));
     });
 
     // VOC_A optimistically removed → VocTriageScreen auto-advances to VOC_B.
@@ -195,11 +195,11 @@ describe('VocTriageScreen — error rollback after auto-advance (REV-1 #5)', () 
 
     clickSeverity();
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /triage 확정/i })).not.toBeDisabled();
+      expect(screen.getByRole('button', { name: /분류 확정/i })).not.toBeDisabled();
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /triage 확정/i }));
+      fireEvent.click(screen.getByRole('button', { name: /분류 확정/i }));
     });
 
     await waitFor(() => {

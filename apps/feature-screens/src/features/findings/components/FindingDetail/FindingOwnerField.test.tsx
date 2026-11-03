@@ -225,7 +225,7 @@ it('maps an ineligible_actor 422 to the specific owner copy', async () => {
   await user.click(screen.getByRole('button', { name: '저장' }));
 
   expect(await screen.findByRole('alert')).toHaveTextContent(
-    '이 사용자는 이 Managed System의 Finding을 담당할 수 없습니다.',
+    '이 사용자는 이 시스템의 Finding을 담당할 수 없습니다.',
   );
   expect(screen.getByRole('combobox', { name: '담당자' })).toBeInTheDocument();
 });

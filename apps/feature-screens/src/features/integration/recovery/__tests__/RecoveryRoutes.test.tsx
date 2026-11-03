@@ -268,7 +268,7 @@ it('unregisters Home detail slot on Inbox and restores selected detail on Dashbo
   install();
   const { router, history } = await mount(`/home?selected=${RECOVERY_VISUAL_ID}`);
   await screen.findByRole('button', { name: '내 화면에서 1일 숨기기' });
-  fireEvent.mouseDown(screen.getByRole('tab', { name: /수신함/ }), { button: 0, ctrlKey: false });
+  fireEvent.mouseDown(screen.getByRole('tab', { name: /VOC 처리함/ }), { button: 0, ctrlKey: false });
   await waitFor(() => expect(screen.queryByTestId('recovery-panel')).toBeNull());
   expect(router.state.location.search.selected).toBe(RECOVERY_VISUAL_ID);
   await act(async () => history.back());

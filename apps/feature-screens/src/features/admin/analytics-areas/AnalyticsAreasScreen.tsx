@@ -32,10 +32,10 @@ import { AnalyticsAreasBody } from './AnalyticsAreasContainer.js';
 import { AnalyticsAreasFilter } from './AnalyticsAreasList.js';
 import { validateAnalyticsAreasSearch } from './search.js';
 
-const SUBTITLE = 'Managed System 안에서 Analytics Area 분류 기준을 관리합니다.';
-const GUARDRAIL_TITLE = 'Analytics Area는 권한 경계가 아닙니다';
+const SUBTITLE = '시스템 안에서 분석 영역 분류 기준을 관리합니다.';
+const GUARDRAIL_TITLE = '분석 영역은 권한 경계가 아닙니다';
 const GUARDRAIL_BODY =
-  'Analytics Area는 Managed System 안에서 분류와 집계에만 쓰입니다. 권한 범위는 Managed System으로만 정해집니다.';
+  '분석 영역은 시스템 안에서 분류와 집계에만 쓰입니다. 권한 범위는 시스템으로만 정해집니다.';
 
 export type AnalyticsAreasScreenProps = {
   /** The host places the detail parts in its drawer; absent keeps the standalone Sheet. */
@@ -96,7 +96,7 @@ export function AnalyticsAreasAdminPage({ renderDetail, titleInHeader }: Analyti
   return (
     <PageShell
       header={{
-        ...(hostOwnsTitle ? {} : { title: 'Analytics Area', subtitle: SUBTITLE }),
+        ...(hostOwnsTitle ? {} : { title: '분석 영역', subtitle: SUBTITLE }),
         actions: (
           <PermissionGate capability="workspace.admin" fallback={null} loading={null}>
             <AnalyticsAreasFilter
@@ -113,7 +113,7 @@ export function AnalyticsAreasAdminPage({ renderDetail, titleInHeader }: Analyti
                 data-testid="aa-new-area-button"
               >
                 <Plus className="h-4 w-4" />
-                {createLabel('Analytics Area')}
+                {createLabel('분석 영역')}
               </Button>
             </HostPrimaryAction>
           </PermissionGate>

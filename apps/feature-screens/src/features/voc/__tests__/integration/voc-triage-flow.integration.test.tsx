@@ -3,8 +3,8 @@
 // Exercises the full triage user flow:
 //   1. Render VocTriageScreen with 5 VOCs (mocked queue)
 //   2. Select a VOC → TriagePanel renders
-//   3. Make dirty (click severity chip) → Triage 확정 enabled
-//   4. Click Triage 확정 → optimistic remove (VOC disappears from queue locally)
+//   3. Make dirty (click severity chip) → 분류 확정 enabled
+//   4. Click 분류 확정 → optimistic remove (VOC disappears from queue locally)
 //   5. Initial PATCH settles → UndoToast rendered
 //   6. Click 실행 취소 → compensating PATCH fires with fresh Idempotency-Key
 //   7. 409 conflict.stale_write path → VOC re-inserted into queue
@@ -343,7 +343,7 @@ const UNDO_OTHER: VocListItem = {
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
-describe('Triage flow — integration (C6.3)', () => {
+describe('분류 flow — integration (C6.3)', () => {
   const originalFetch = globalThis.fetch;
 
   beforeEach(() => {
@@ -484,7 +484,7 @@ describe('Triage flow — integration (C6.3)', () => {
       if (kind === 'confirm') clickAnySeverityChip();
       await act(async () => {
         fireEvent.click(
-          screen.getByRole('button', { name: kind === 'skip' ? '보류' : 'Triage 확정 & 다음 VOC' }),
+          screen.getByRole('button', { name: kind === 'skip' ? '보류' : '분류 확정 & 다음 VOC' }),
         );
       });
       expect(screen.getByRole('button', { name: /VOC-I-002/ })).toHaveAttribute(
@@ -1073,7 +1073,7 @@ describe('Triage flow — integration (C6.3)', () => {
         ).toBeInTheDocument();
       }
       clickAnySeverityChip();
-      await act(async () => fireEvent.click(screen.getByRole('button', { name: /triage 확정/i })));
+      await act(async () => fireEvent.click(screen.getByRole('button', { name: /분류 확정/i })));
       const forwardCount = serverTimestamp === null ? 2 : 1;
       await waitFor(() => expect(patches).toHaveLength(forwardCount));
       const host = renderCapturedToast(baseElement);
@@ -1135,18 +1135,18 @@ describe('Triage flow — integration (C6.3)', () => {
     expect(queueRows.length).toBeGreaterThanOrEqual(5);
 
     // TriagePanel renders for the selected VOC (확정 button)
-    expect(screen.getByRole('button', { name: /triage 확정/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /분류 확정/i })).toBeInTheDocument();
 
     // Panel dirty: click a severity chip
     clickAnySeverityChip();
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /triage 확정/i })).not.toBeDisabled();
+      expect(screen.getByRole('button', { name: /분류 확정/i })).not.toBeDisabled();
     });
 
     // Click 확정 → optimistic remove + PATCH fires
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /triage 확정/i }));
+      fireEvent.click(screen.getByRole('button', { name: /분류 확정/i }));
     });
 
     // After optimistic remove, one fewer queue row
@@ -1215,11 +1215,11 @@ describe('Triage flow — integration (C6.3)', () => {
 
     clickAnySeverityChip();
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /triage 확정/i })).not.toBeDisabled();
+      expect(screen.getByRole('button', { name: /분류 확정/i })).not.toBeDisabled();
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /triage 확정/i }));
+      fireEvent.click(screen.getByRole('button', { name: /분류 확정/i }));
     });
 
     // stale_write → onOptimisticRestore should be called with the VOC id
@@ -1254,11 +1254,11 @@ describe('Triage flow — integration (C6.3)', () => {
 
     clickAnySeverityChip();
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /triage 확정/i })).not.toBeDisabled();
+      expect(screen.getByRole('button', { name: /분류 확정/i })).not.toBeDisabled();
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /triage 확정/i }));
+      fireEvent.click(screen.getByRole('button', { name: /분류 확정/i }));
     });
 
     await waitFor(
@@ -1296,11 +1296,11 @@ describe('Triage flow — integration (C6.3)', () => {
 
     clickAnySeverityChip();
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /triage 확정/i })).not.toBeDisabled();
+      expect(screen.getByRole('button', { name: /분류 확정/i })).not.toBeDisabled();
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /triage 확정/i }));
+      fireEvent.click(screen.getByRole('button', { name: /분류 확정/i }));
     });
 
     await waitFor(() => expect(capturedUrl).toBeTruthy());
@@ -1337,7 +1337,7 @@ describe('Triage flow — integration (C6.3)', () => {
       try {
         fireEvent.click(screen.getByRole('button', { name: '높음' }));
         await waitFor(() => {
-          expect(screen.getByRole('button', { name: /triage 확정/i })).not.toBeDisabled();
+          expect(screen.getByRole('button', { name: /분류 확정/i })).not.toBeDisabled();
         });
 
         // Freeze the clock for the two sequential 1 s PATCH waits. Date and
@@ -1348,7 +1348,7 @@ describe('Triage flow — integration (C6.3)', () => {
         });
 
         await act(async () => {
-          fireEvent.click(screen.getByRole('button', { name: /triage 확정/i }));
+          fireEvent.click(screen.getByRole('button', { name: /분류 확정/i }));
         });
 
         // The forward PATCH is committed immediately, and has not settled yet.
@@ -1365,14 +1365,14 @@ describe('Triage flow — integration (C6.3)', () => {
           expect(
             screen.queryByRole('button', { name: /VOC-UNDO-TARGET/i }),
           ).not.toBeInTheDocument();
-          expect(screen.queryByRole('button', { name: /triage 확정/i })).not.toBeInTheDocument();
+          expect(screen.queryByRole('button', { name: /분류 확정/i })).not.toBeInTheDocument();
           expect(screen.getByText('이 탭에 해당하는 VOC가 없습니다')).toBeInTheDocument();
         } else {
           expect(screen.getByRole('button', { name: /VOC-UNDO-OTHER/i })).toBeInTheDocument();
           expect(
             screen.queryByRole('button', { name: /VOC-UNDO-TARGET/i }),
           ).not.toBeInTheDocument();
-          expect(screen.getByRole('button', { name: /triage 확정/i })).toBeInTheDocument();
+          expect(screen.getByRole('button', { name: /분류 확정/i })).toBeInTheDocument();
         }
 
         expect(capturedToastRenderer).not.toBeNull();

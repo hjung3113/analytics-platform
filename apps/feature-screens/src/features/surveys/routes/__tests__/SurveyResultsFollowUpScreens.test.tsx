@@ -160,7 +160,7 @@ describe('SurveyResultsScreen under a bare host', () => {
       },
     });
     mount(<SurveyResultsScreen surveyId={SURVEY_ID} />, host().seam);
-    expect(screen.getByText('Survey 결과')).toBeInTheDocument();
+    expect(screen.getByText('설문 결과')).toBeInTheDocument();
   });
 
   it('renders the 404 empty state', () => {
@@ -174,7 +174,7 @@ describe('SurveyResultsScreen under a bare host', () => {
       },
     });
     mount(<SurveyResultsScreen surveyId={SURVEY_ID} />, host().seam);
-    expect(screen.getByText('Survey를 찾을 수 없습니다.')).toBeInTheDocument();
+    expect(screen.getByText('설문을 찾을 수 없습니다.')).toBeInTheDocument();
     expect(screen.getByText('삭제되었거나 접근 권한이 없습니다.')).toBeInTheDocument();
   });
 
@@ -190,7 +190,7 @@ describe('SurveyResultsScreen under a bare host', () => {
       },
     });
     mount(<SurveyResultsScreen surveyId={SURVEY_ID} />, host().seam);
-    expect(screen.getByText('Survey를 불러오지 못했습니다.')).toBeInTheDocument();
+    expect(screen.getByText('설문을 불러오지 못했습니다.')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
     expect(refetch).toHaveBeenCalledTimes(1);
   });
@@ -210,7 +210,7 @@ describe('SurveyResultsScreen under a bare host', () => {
       host({ canLink: (to) => to === '/surveys' }).seam,
     );
     expect(screen.getByText('결과를 불러오는 중…')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Surveys /' })).toHaveAttribute('href', '/surveys');
+    expect(screen.getByRole('link', { name: '설문 /' })).toHaveAttribute('href', '/surveys');
     expect(screen.queryByRole('link', { name: /후속 조치/ })).not.toBeInTheDocument();
   });
 
@@ -264,14 +264,14 @@ describe('SurveyFollowUpScreen states under a bare host', () => {
     followUpQueries();
     useSurvey.mockReturnValue({ data: undefined, isLoading: false, isError: true });
     mount(<SurveyFollowUpScreen surveyId={SURVEY_ID} />, host().seam);
-    expect(screen.getByText('Survey를 찾을 수 없습니다.')).toBeInTheDocument();
+    expect(screen.getByText('설문을 찾을 수 없습니다.')).toBeInTheDocument();
   });
 
   it('renders blocked', () => {
     followUpQueries();
     useSurveyReadGate.mockReturnValue({ canRead: false, gateState: undefined });
     mount(<SurveyFollowUpScreen surveyId={SURVEY_ID} />, host().seam);
-    expect(screen.getByText('Survey 결과')).toBeInTheDocument();
+    expect(screen.getByText('설문 결과')).toBeInTheDocument();
   });
 
   it('renders unavailable for a non-outcome survey, linking back only when mapped', () => {

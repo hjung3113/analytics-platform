@@ -59,7 +59,7 @@ export function LinkExistingFindingModal({
       {
         onSuccess: () => {
           markConsumed();
-          notifySuccess('Finding이 Cluster에 연결되었습니다.');
+          notifySuccess('Finding이 반복 VOC에 연결되었습니다.');
           closeAndReset();
         },
         onError: (err: ApiError) => {

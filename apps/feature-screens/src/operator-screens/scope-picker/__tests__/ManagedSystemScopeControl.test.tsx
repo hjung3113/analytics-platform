@@ -64,9 +64,9 @@ describe('ManagedSystemScopeControl', () => {
     await waitFor(() =>
       expect(screen.getByTestId('scope-selector')).toHaveTextContent('내 담당: Alpha'),
     );
-    expect(screen.getByTestId('scope-label')).toHaveTextContent('목록 범위');
+    expect(screen.getByTestId('scope-label')).toHaveTextContent('시스템');
     expect(screen.getByTestId('scope-selector')).toHaveAccessibleName(
-      '목록 범위, 전체 Managed System, 내 담당 범위',
+      '시스템, 전체 시스템, 내 담당 범위',
     );
     expect(apiRequest.mock.calls.map((call) => call[1]).sort()).toEqual([
       '/managed-systems',
@@ -93,7 +93,7 @@ describe('ManagedSystemScopeControl', () => {
     renderControl();
     await waitFor(() =>
       expect(screen.getByTestId('scope-selector')).toHaveAccessibleName(
-        '목록 범위, 전체 Managed System',
+        '시스템, 전체 시스템',
       ),
     );
     expect(screen.getByTestId('scope-selector')).not.toHaveTextContent('내 담당:');

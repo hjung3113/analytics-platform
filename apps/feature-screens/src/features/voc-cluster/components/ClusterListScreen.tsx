@@ -116,7 +116,7 @@ export function ClusterListScreen({
                 data-testid="cluster-create-button"
               >
                 <Plus className="h-4 w-4" />
-                Cluster 생성
+                반복 VOC 생성
               </Button>
             </HostPrimaryAction>
           ) : (

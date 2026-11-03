@@ -11,7 +11,7 @@ const initialSettings = {
   voc_cluster_suggestions_enabled: false,
 };
 afterEach(() => vi.unstubAllGlobals());
-it('toggles Cluster suggestions and saves only the boolean while preserving other settings', async () => {
+it('toggles 반복 VOC suggestions and saves only the boolean while preserving other settings', async () => {
   const patches: unknown[] = [];
   vi.stubGlobal(
     'fetch',
@@ -42,11 +42,11 @@ it('toggles Cluster suggestions and saves only the boolean while preserving othe
       <WorkspaceSettingsForm initialSettings={initialSettings} />
     </QueryClientProvider>,
   );
-  const section = (await screen.findByRole('heading', { name: 'Cluster 제안' })).closest('section');
+  const section = (await screen.findByRole('heading', { name: '반복 VOC 제안' })).closest('section');
   if (!section) throw new Error('Suggestion section missing');
   expect(within(section).getByText('사용 안 함')).toBeInTheDocument();
   fireEvent.click(within(section).getByRole('button', { name: '편집' }));
-  fireEvent.click(screen.getByRole('combobox', { name: 'Cluster 제안 생성' }));
+  fireEvent.click(screen.getByRole('combobox', { name: '반복 VOC 제안 생성' }));
   fireEvent.click(await screen.findByRole('option', { name: /^사용$/ }));
   fireEvent.click(screen.getByRole('button', { name: '변경사항 저장' }));
   await waitFor(() => expect(patches).toEqual([{ voc_cluster_suggestions_enabled: true }]));
@@ -103,7 +103,7 @@ it('omits the opt-in for unavailable embeddings and never patches an untouched s
       ]),
     ).toMatchObject({ available: false }),
   );
-  expect(screen.queryByRole('heading', { name: 'Cluster 제안' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: '반복 VOC 제안' })).not.toBeInTheDocument();
   const edit = screen.getAllByRole('button', { name: '편집' })[1];
   if (!edit) throw new Error('Anonymity edit missing');
   fireEvent.click(edit);
@@ -143,13 +143,13 @@ it('names the edited suggestion row in the save bar', async () => {
       <WorkspaceSettingsForm initialSettings={initialSettings} />
     </QueryClientProvider>,
   );
-  const section = (await screen.findByRole('heading', { name: 'Cluster 제안' })).closest('section');
+  const section = (await screen.findByRole('heading', { name: '반복 VOC 제안' })).closest('section');
   if (!section) throw new Error('Suggestion section missing');
   fireEvent.click(within(section).getByRole('button', { name: '편집' }));
-  fireEvent.click(screen.getByRole('combobox', { name: 'Cluster 제안 생성' }));
+  fireEvent.click(screen.getByRole('combobox', { name: '반복 VOC 제안 생성' }));
   fireEvent.click(await screen.findByRole('option', { name: /^사용$/ }));
   expect(
-    within(screen.getByTestId('workspace-settings-save-bar')).getByText('Cluster 제안 생성', {
+    within(screen.getByTestId('workspace-settings-save-bar')).getByText('반복 VOC 제안 생성', {
       exact: true,
     }),
   ).toBeInTheDocument();

@@ -104,16 +104,16 @@ export function TriageSummaryCard({
           {areaChanged && (
             <DiffRow
               id="Analytics Area"
-              label="Analytics Area"
+              label="분석 영역"
               from={
                 baseline.analyticsAreaId === null
                   ? '미지정'
-                  : (baselineAnalyticsAreaName ?? 'Analytics Area')
+                  : (baselineAnalyticsAreaName ?? '분석 영역')
               }
               to={
                 panelState.analyticsAreaId === null
                   ? '미지정'
-                  : (analyticsAreaName ?? 'Analytics Area')
+                  : (analyticsAreaName ?? '분석 영역')
               }
             />
           )}

@@ -54,7 +54,7 @@ function clusterDisplayId(data: {
   id: string;
   display_id?: string | null;
 }): string {
-  return data.display_id?.trim() ? data.display_id : 'VOC Cluster';
+  return data.display_id?.trim() ? data.display_id : '반복 VOC';
 }
 
 // ADR-0057 A2 amendment localizes Korean navigation and preserves domain nouns.
@@ -115,7 +115,7 @@ export function useClusterDetailParts({ clusterId }: { clusterId: string }): Clu
       body: (
         <div
           className="flex flex-col gap-4 p-6"
-          aria-label="Cluster 상세 불러오는 중"
+          aria-label="반복 VOC 상세 불러오는 중"
           data-testid="cluster-detail-skeleton"
         >
           <SkeletonBlocks
@@ -143,7 +143,7 @@ export function useClusterDetailParts({ clusterId }: { clusterId: string }): Clu
         >
           <p className="text-sm text-text-danger">
             {code === 'not_found.record'
-              ? 'Cluster를 찾을 수 없습니다.'
+              ? '반복 VOC를 찾을 수 없습니다.'
               : '데이터를 불러오지 못했습니다.'}
           </p>
           <Button
@@ -164,7 +164,7 @@ export function useClusterDetailParts({ clusterId }: { clusterId: string }): Clu
 
   function handleConfirm() {
     confirmMutation.mutate(clusterId, {
-      onSuccess: () => notifySuccess('Cluster가 확정되었습니다.'),
+      onSuccess: () => notifySuccess('반복 VOC가 확정되었습니다.'),
       onError: (err: ApiError) => notifyError(errorMapper(err.envelope).message),
     });
   }
@@ -173,7 +173,7 @@ export function useClusterDetailParts({ clusterId }: { clusterId: string }): Clu
     removeMemberMutation.mutate(
       { clusterId, vocId },
       {
-        onSuccess: () => notifySuccess('VOC가 Cluster에서 제거되었습니다.'),
+        onSuccess: () => notifySuccess('VOC가 반복 VOC에서 제거되었습니다.'),
         onError: (err: ApiError) => notifyError(errorMapper(err.envelope).message),
       },
     );
@@ -317,7 +317,7 @@ export function useClusterDetailParts({ clusterId }: { clusterId: string }): Clu
               )}
               {canMutate && requestTaskOpen && (
                 <TaskRequestDraftCard
-                  sourceKind="VOC Cluster"
+                  sourceKind="반복 VOC"
                   sourceDisplayId={data.display_id}
                   evidenceSummaryDefault={vocClusterEvidenceSummaryDefault(data)}
                   isSubmitting={requestTaskMutation.isPending}
@@ -397,10 +397,10 @@ export function useClusterDetailParts({ clusterId }: { clusterId: string }): Clu
 
             <section className="flex flex-col gap-2" data-anchor="properties">
               <PanelSectionTitle>속성</PanelSectionTitle>
-              <FieldRow label="Managed System" inset="none">
+              <FieldRow label="시스템" inset="none">
                 <span data-testid="cluster-detail-managed-system">
                   <ManagedSystemPill
-                    name={managedSystem?.name ?? 'Managed System'}
+                    name={managedSystem?.name ?? '시스템'}
                     {...(managedSystem?.mark ? { mark: managedSystem.mark } : {})}
                     {...(managedSystem ? { archived: managedSystem.archived } : {})}
                   />
@@ -498,7 +498,7 @@ export function useClusterDetailParts({ clusterId }: { clusterId: string }): Clu
             </>
           ) : (
             <span className="text-xs text-text-muted" data-testid="cluster-cta-hint">
-              관리자 또는 개발자 권한이 있어야 Cluster를 관리할 수 있습니다.
+              관리자 또는 개발자 권한이 있어야 반복 VOC를 관리할 수 있습니다.
             </span>
           )}
         </div>

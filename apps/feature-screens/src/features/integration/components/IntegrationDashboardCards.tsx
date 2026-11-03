@@ -24,13 +24,13 @@ const QUEUE_COPY: Record<QueueId, { title: string; detail: string }> = {
     detail: '진행 중 상태의 Finding 중 Task Request 또는 Task 링크가 없는 항목입니다.',
   },
   'released-task-unresolved-voc': {
-    title: 'Released Task · 미해결 VOC',
+    title: '배포된 Task · 미해결 VOC',
     detail:
       'Task는 Released지만 연결된 공개 상태가 해결됨이 아닙니다. 공개 업데이트 검토가 필요합니다.',
   },
   'bad-outcome-no-followup': {
-    title: '후속 조치 없는 부정 성과 Survey',
-    detail: '부정 성과 Survey 결과에 대한 후속 Finding/Task가 구성되어 있지 않습니다.',
+    title: '후속 조치 없는 부정 성과 설문',
+    detail: '부정 성과 설문 결과에 대한 후속 Finding/Task가 구성되어 있지 않습니다.',
   },
   'permission-requests-pending': {
     title: '검토 대기 중인 권한 요청',

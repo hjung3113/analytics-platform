@@ -32,7 +32,7 @@ const IDS = {
 const VOC: VocListItem = {
   id: IDS.voc,
   display_id: 'VOC-B4',
-  title: 'Analytics Area 배선 확인',
+  title: '분석 영역 배선 확인',
   primary_managed_system_id: IDS.targetMs,
   analytics_area_id: IDS.targetCurrent,
   reporter_id: '00000000-0000-4000-8000-000000000002',
@@ -102,7 +102,7 @@ function renderPanel(voc: VocListItem = VOC) {
   );
 }
 
-describe('TriagePanel Analytics Area and optional owner', () => {
+describe('TriagePanel 분석 영역 and optional owner', () => {
   const originalFetch = globalThis.fetch;
 
   beforeEach(() => {
@@ -115,7 +115,7 @@ describe('TriagePanel Analytics Area and optional owner', () => {
     vi.restoreAllMocks();
   });
 
-  it('AC-B4a renders only the selected Managed System active area name set', async () => {
+  it('AC-B4a renders only the selected 시스템 active area name set', async () => {
     renderPanel();
 
     const picker = await screen.findByTestId('triage-aa-picker');
@@ -127,7 +127,7 @@ describe('TriagePanel Analytics Area and optional owner', () => {
     expect(screen.queryByRole('radio', { name: '타 시스템 성장 분석' })).not.toBeInTheDocument();
   });
 
-  it('AC-B4b fetches Analytics Areas exactly once with the VOC Managed System id', async () => {
+  it('AC-B4b fetches Analytics Areas exactly once with the VOC 시스템 id', async () => {
     renderPanel();
 
     await screen.findByTestId('triage-aa-picker');
@@ -141,7 +141,7 @@ describe('TriagePanel Analytics Area and optional owner', () => {
     });
   });
 
-  it('AC-B4c renders the current Analytics Area name instead of its id', async () => {
+  it('AC-B4c renders the current 분석 영역 name instead of its id', async () => {
     renderPanel();
 
     const current = await screen.findByRole('radio', { name: '매출 운영 분석' });
@@ -160,12 +160,12 @@ describe('TriagePanel Analytics Area and optional owner', () => {
     expect(screen.getByRole('radio', { name: '매출 운영 분석' })).toBeInTheDocument();
   });
 
-  it('AC-B4e renders an explicit empty state when the Managed System has no areas', async () => {
+  it('AC-B4e renders an explicit empty state when the 시스템 has no areas', async () => {
     vi.mocked(fetchAnalyticsAreas).mockResolvedValue({ items: [], total: 0 });
     renderPanel({ ...VOC, analytics_area_id: null });
 
     expect(
-      await screen.findByText('이 Managed System에 선택할 수 있는 Analytics Area가 없습니다.'),
+      await screen.findByText('이 시스템에 선택할 수 있는 분석 영역이 없습니다.'),
     ).toBeInTheDocument();
     expect(screen.queryByTestId('triage-aa-picker')).not.toBeInTheDocument();
   });
@@ -181,7 +181,7 @@ describe('TriagePanel Analytics Area and optional owner', () => {
     renderPanel({ ...VOC, analytics_area_id: null });
     fireEvent.click(screen.getByRole('button', { name: /낮음/ }));
 
-    const confirm = screen.getByRole('button', { name: /Triage 확정 & 다음 VOC/i });
+    const confirm = screen.getByRole('button', { name: /분류 확정 & 다음 VOC/i });
     expect(confirm).toBeEnabled();
     fireEvent.click(confirm);
 

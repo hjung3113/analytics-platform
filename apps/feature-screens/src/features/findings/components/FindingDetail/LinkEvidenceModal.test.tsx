@@ -143,7 +143,7 @@ describe('LinkEvidenceModal', () => {
   });
 
   it.each([
-    { outcome: 'success', expected: 'Evidence가 연결되었습니다.' },
+    { outcome: 'success', expected: '근거가 연결되었습니다.' },
     { outcome: 'error', expected: '일시적 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.' },
   ] as const)('notifies the host on $outcome', async ({ outcome, expected }) => {
     vi.mocked(toast.success).mockClear();

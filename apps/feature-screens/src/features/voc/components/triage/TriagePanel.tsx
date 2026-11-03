@@ -243,14 +243,14 @@ export function TriagePanel({
           </div>
 
           <div>
-            <PanelSectionTitle>Analytics Area 연결</PanelSectionTitle>
+            <PanelSectionTitle>분석 영역 연결</PanelSectionTitle>
             {analyticsAreasQuery.isLoading ? (
-              <p className="text-xs text-text-muted">Analytics Area를 불러오는 중입니다.</p>
+              <p className="text-xs text-text-muted">분석 영역을 불러오는 중입니다.</p>
             ) : analyticsAreasQuery.isError ? (
-              <p className="text-xs text-text-danger">Analytics Area를 불러오지 못했습니다.</p>
+              <p className="text-xs text-text-danger">분석 영역을 불러오지 못했습니다.</p>
             ) : aaOptions.length === 0 ? (
               <p className="text-xs text-text-muted">
-                이 Managed System에 선택할 수 있는 Analytics Area가 없습니다.
+                이 시스템에 선택할 수 있는 분석 영역이 없습니다.
               </p>
             ) : (
               <AnalyticsAreaPicker
@@ -259,12 +259,12 @@ export function TriagePanel({
                 onChange={(id) => {
                   dispatch({ type: 'set_analytics_area', analyticsAreaId: id });
                 }}
-                placeholder="Analytics Area 선택"
+                placeholder="분석 영역 선택"
                 testId="triage-aa-picker"
               />
             )}
             <p className="text-xs text-text-muted mt-2 leading-relaxed">
-              Analytics Area는 권한 경계가 아닙니다. 분류·기본값 용도로만 사용됩니다.
+              분석 영역은 권한 경계가 아닙니다. 분류·기본값 용도로만 사용됩니다.
             </p>
           </div>
         </div>

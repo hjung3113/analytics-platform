@@ -283,7 +283,7 @@ describe('HomeScreen route content', () => {
     renderHome();
 
     await screen.findByText(
-      '운영 큐와 커버리지는 Managed System 담당 범위가 있을 때만 표시됩니다. 지금은 나에게 배정된 작업만 보입니다.',
+      '운영 큐와 커버리지는 시스템 담당 범위가 있을 때만 표시됩니다. 지금은 나에게 배정된 작업만 보입니다.',
     );
     expect(screen.queryByRole('heading', { name: '복구 · 후속 조치 큐' })).toBeNull();
     expect(screen.queryByTestId('home-action-queues')).toBeNull();
@@ -725,7 +725,7 @@ describe('HomeScreen route content', () => {
       fireEvent.click(await screen.findByRole('button', { name: /Finding 관리/ }));
       await screen.findByDisplayValue('original reason');
       fireEvent.keyDown(screen.getByRole('combobox', { name: '요청 범위' }), { key: 'ArrowDown' });
-      fireEvent.click(await screen.findByRole('option', { name: 'Managed System · cccccccc' }));
+      fireEvent.click(await screen.findByRole('option', { name: '시스템 · cccccccc' }));
       fireEvent.click(screen.getByRole('radio', { name: mode }));
       if (date) fireEvent.change(screen.getByLabelText('새 만료일'), { target: { value: date } });
       fireEvent.click(screen.getByRole('button', { name: '수정' }));
@@ -1286,7 +1286,7 @@ describe('HomeScreen route content', () => {
     // tracked target is what the refused PATCH must return focus to.
     trigger.focus();
     fireEvent.keyDown(trigger, { key: 'ArrowDown' });
-    fireEvent.click(await screen.findByRole('option', { name: 'Managed System · cccccccc' }));
+    fireEvent.click(await screen.findByRole('option', { name: '시스템 · cccccccc' }));
     await user.click(screen.getByRole('button', { name: '수정' }));
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent('이미 권한이 부여되어 있습니다.');
@@ -1327,7 +1327,7 @@ describe('HomeScreen route content', () => {
         const trigger = screen.getByRole('combobox', { name: '요청 범위' });
         trigger.focus();
         fireEvent.keyDown(trigger, { key: 'ArrowDown' });
-        fireEvent.click(await screen.findByRole('option', { name: 'Managed System · cccccccc' }));
+        fireEvent.click(await screen.findByRole('option', { name: '시스템 · cccccccc' }));
       } else {
         await user.click(screen.getByRole('radio', { name: '만료일 변경' }));
         fireEvent.change(screen.getByLabelText('새 만료일'), { target: { value: '2099-12-30' } });
@@ -1381,7 +1381,7 @@ describe('HomeScreen route content', () => {
     expect(writes).toBe(0);
   });
 
-  it('resolves Managed System names in the scope select and the stale comparison', async () => {
+  it('resolves 시스템 names in the scope select and the stale comparison', async () => {
     const detail = {
       ...ownerDetailFixture(),
       requested_managed_system_id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
@@ -1545,7 +1545,7 @@ describe('HomeScreen route content', () => {
       installFetch(emptySummary, { roleLevel: 'user', personalWorkStatus: status });
       renderHome();
 
-      await screen.findByRole('heading', { name: '응답할 Survey' });
+      await screen.findByRole('heading', { name: '응답할 설문' });
       await waitFor(() =>
         expect(screen.queryByTestId('home-reporter-layout') !== null).toBe(reporterEmpty),
       );
@@ -1581,7 +1581,7 @@ describe('HomeScreen route content', () => {
     ],
     ['a non-empty action queue', { summary: response }],
   ] as const)(
-    'leads a reporter with Survey and 내 VOC when personal work is denied and the actor has %s',
+    'leads a reporter with 설문 and 내 VOC when personal work is denied and the actor has %s',
     async (caseName, extra) => {
       const emptySummary = dashboardSummarySchema.parse({
         ...response,
@@ -1597,7 +1597,7 @@ describe('HomeScreen route content', () => {
       });
       renderHome();
 
-      const surveys = await screen.findByRole('heading', { name: '응답할 Survey' });
+      const surveys = await screen.findByRole('heading', { name: '응답할 설문' });
       const myVocs = await screen.findByRole('link', { name: '내 VOC' });
       expect(screen.queryByText('내게 배정됨')).not.toBeInTheDocument();
       expect(screen.queryByTestId('home-my-work')).not.toBeInTheDocument();
@@ -1626,7 +1626,7 @@ describe('HomeScreen route content', () => {
 
     expect(await screen.findByText('홈 요약을 불러올 수 없습니다.')).toBeInTheDocument();
     expect(await screen.findByText('TSK-701 — 담당 Task')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: '응답할 Survey' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '응답할 설문' })).toBeInTheDocument();
   });
 
   it('requests only the current Actor assigned-reviewer queue and keeps scope-wide summary', async () => {
@@ -1731,9 +1731,9 @@ describe('HomeScreen route content', () => {
     renderHome('/home?tab=inbox');
 
     await screen.findByTestId('home-inbox-list');
-    expect(screen.getByRole('tab', { name: /^수신함/ })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: /^VOC 처리함/ })).toHaveAttribute('aria-selected', 'true');
     await waitFor(() =>
-      expect(screen.getByRole('tab', { name: /^수신함/ })).toHaveTextContent('3'),
+      expect(screen.getByRole('tab', { name: /^VOC 처리함/ })).toHaveTextContent('3'),
     );
   });
 
@@ -1756,7 +1756,7 @@ describe('HomeScreen route content', () => {
       failUnreadCountAfterFirst: true,
     });
     const { queryClient } = renderHome();
-    const inboxTab = await screen.findByRole('tab', { name: /^수신함/ });
+    const inboxTab = await screen.findByRole('tab', { name: /^VOC 처리함/ });
 
     await waitFor(() => expect(inboxTab).toHaveTextContent('99+'));
     expect(inboxTab).not.toHaveTextContent('120');
@@ -1785,7 +1785,7 @@ describe('HomeScreen route content', () => {
         .length;
     const before = personalReads();
 
-    fireEvent.mouseDown(await screen.findByRole('tab', { name: /^수신함/ }));
+    fireEvent.mouseDown(await screen.findByRole('tab', { name: /^VOC 처리함/ }));
     await screen.findByTestId('home-inbox-list');
     fireEvent.mouseDown(await screen.findByRole('tab', { name: /^대시보드/ }));
 
@@ -1798,7 +1798,7 @@ describe('HomeScreen route content', () => {
     installFetch(response, { unreadCount: 4 });
     const { router } = renderHome(`/home?managedSystem=${managedSystemId}`);
 
-    fireEvent.mouseDown(await screen.findByRole('tab', { name: /^수신함/ }));
+    fireEvent.mouseDown(await screen.findByRole('tab', { name: /^VOC 처리함/ }));
     await screen.findByTestId('home-inbox-list');
     await waitFor(() =>
       expect(router.state.location.search).toEqual({
@@ -1806,7 +1806,7 @@ describe('HomeScreen route content', () => {
         tab: 'inbox',
       }),
     );
-    expect(screen.getByRole('tab', { name: /^수신함/ })).toHaveTextContent('4');
+    expect(screen.getByRole('tab', { name: /^VOC 처리함/ })).toHaveTextContent('4');
 
     fireEvent.mouseDown(await screen.findByRole('tab', { name: /^대시보드/ }));
     await screen.findByTestId('home-kpis');

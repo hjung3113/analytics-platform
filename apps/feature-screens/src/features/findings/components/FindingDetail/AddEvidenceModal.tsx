@@ -146,7 +146,7 @@ export function AddEvidenceModal({
       onSuccess: () => {
         markConsumed();
         closeAndReset();
-        notifySuccess('Evidence가 추가되었습니다.');
+        notifySuccess('근거가 추가되었습니다.');
       },
     });
   }

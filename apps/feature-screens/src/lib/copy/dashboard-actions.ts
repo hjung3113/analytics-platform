@@ -11,8 +11,8 @@ export const DASHBOARD_QUEUE_ACTION_LABELS: Record<QueueId, string> = {
   'unassigned-voc': 'VOC 검토',
   'high-severity-unlinked': '높은 심각도 VOC 검토',
   'actionable-finding-no-execution': 'Finding 검토',
-  'released-task-unresolved-voc': 'Released Task 검토',
-  'bad-outcome-no-followup': '성과 Survey 검토',
+  'released-task-unresolved-voc': '배포된 Task 검토',
+  'bad-outcome-no-followup': '성과 설문 검토',
   'permission-requests-pending': '권한 요청 열기',
 };
 
@@ -20,8 +20,8 @@ export const DASHBOARD_ACTION_LABELS: Record<string, string> = {
   triage: 'VOC 검토',
   bulk_assign: '미배정 VOC 보기',
   plan_execution: 'Finding 검토',
-  request_reporter_update: 'Released Task 검토',
-  create_followup: '성과 Survey 검토',
+  request_reporter_update: '배포된 Task 검토',
+  create_followup: '성과 설문 검토',
   review_permissions: '권한 요청 열기',
 };
 

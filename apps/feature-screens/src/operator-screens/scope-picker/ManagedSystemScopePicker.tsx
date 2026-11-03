@@ -155,7 +155,7 @@ export function ManagedSystemScopePicker({
         aria-controls={open ? listId : undefined}
         aria-label={scopeAccessibleName}
         title={
-          scopeControlEnabled ? scopeName : '이 화면은 Managed System 범위를 지원하지 않습니다'
+          scopeControlEnabled ? scopeName : '이 화면은 시스템 범위를 지원하지 않습니다'
         }
         data-testid="scope-selector"
       >
@@ -192,7 +192,7 @@ export function ManagedSystemScopePicker({
             id={listId}
             // a11y note (no ESLint counterpart; kept from the former Biome exception): a custom listbox with helper text per option; a native <select> cannot render it.
             role="listbox"
-            aria-label="Managed System 범위"
+            aria-label="시스템 범위"
             onKeyDown={onListKeyDown}
           >
             {/* a11y note (no ESLint counterpart; kept from the former Biome exception): see the listbox above. */}

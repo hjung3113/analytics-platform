@@ -133,11 +133,11 @@ function clickSeverity() {
 async function fireMutationAndUndo(container: HTMLElement) {
   clickSeverity();
   await waitFor(() => {
-    expect(screen.getByRole('button', { name: /triage 확정/i })).not.toBeDisabled();
+    expect(screen.getByRole('button', { name: /분류 확정/i })).not.toBeDisabled();
   });
 
   await act(async () => {
-    fireEvent.click(screen.getByRole('button', { name: /triage 확정/i }));
+    fireEvent.click(screen.getByRole('button', { name: /분류 확정/i }));
   });
 
   // Wait for the mutation to settle and the toast renderer to be captured
@@ -162,7 +162,7 @@ async function fireMutationAndUndo(container: HTMLElement) {
 
 // ── tests ────────────────────────────────────────────────────────────────────
 
-describe('TriagePanel — refetch-failure path (REV-4 Cluster Y)', () => {
+describe('TriagePanel — refetch-failure path (REV-4 반복 VOC Y)', () => {
   const originalFetch = globalThis.fetch;
 
   afterEach(() => {

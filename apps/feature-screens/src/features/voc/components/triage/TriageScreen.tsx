@@ -225,14 +225,14 @@ export function TriageScreen(): React.ReactElement {
             renderTrigger={(onRequestAccess) => (
               <PermissionBlockedPanel
                 state={panelState}
-                category="Triage"
+                category="분류"
                 reason={reason}
                 onRequestAccess={onRequestAccess}
               />
             )}
           />
         ) : (
-          <PermissionBlockedPanel state={panelState} category="Triage" reason={reason} />
+          <PermissionBlockedPanel state={panelState} category="분류" reason={reason} />
         )}
       </div>
     );

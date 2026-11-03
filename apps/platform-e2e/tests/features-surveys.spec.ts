@@ -42,7 +42,7 @@ test.describe('업무 흐름 설문 운영 그룹(#764 p1, #1099c)', () => {
 
   test('UUID가 아닌 surveyId는 찾을 수 없음 화면이다', async ({ page }) => {
     await page.goto('/flow/survey-builder/not-a-uuid');
-    await expect(page.getByText('Survey를 찾을 수 없습니다')).toBeVisible();
+    await expect(page.getByText('설문을 찾을 수 없습니다')).toBeVisible();
   });
 
   test('틀린 status 값은 목록 대신 거절 화면이고 주소는 그대로다', async ({ page }) => {

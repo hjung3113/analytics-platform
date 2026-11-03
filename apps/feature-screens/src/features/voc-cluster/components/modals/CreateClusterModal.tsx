@@ -87,7 +87,7 @@ export function CreateClusterModal({
     e.preventDefault();
     setError(null);
     if (selectedSystemId === '') {
-      setManagedSystemError('Managed System을 선택하세요.');
+      setManagedSystemError('시스템을 선택하세요.');
       managedSystemTriggerRef.current?.focus();
       return;
     }
@@ -122,7 +122,7 @@ export function CreateClusterModal({
     >
       <DialogContent data-testid="create-cluster-modal">
         <DialogHeader>
-          <DialogTitle>Cluster 생성</DialogTitle>
+          <DialogTitle>반복 VOC 생성</DialogTitle>
         </DialogHeader>
         <form
           id="create-cluster-form"
@@ -139,7 +139,7 @@ export function CreateClusterModal({
               id="cluster-title"
               required
               value={title}
-              placeholder="Cluster 제목을 입력하세요."
+              placeholder="반복 VOC 제목을 입력하세요."
               onChange={(e) => setTitle(e.target.value)}
               data-testid="cluster-title-input"
             />
@@ -154,7 +154,7 @@ export function CreateClusterModal({
               id="cluster-summary"
               rows={3}
               value={summary}
-              placeholder="Cluster에 대한 간단한 설명을 입력하세요."
+              placeholder="반복 VOC에 대한 간단한 설명을 입력하세요."
               onChange={(e) => setSummary(e.target.value)}
               data-testid="cluster-summary-input"
             />
@@ -163,7 +163,7 @@ export function CreateClusterModal({
           {/* Managed System */}
           <div className="flex flex-col gap-1.5">
             <FieldLabel htmlFor="cluster-managed-system" tone="secondary">
-              Managed System <span aria-hidden>*</span>
+              시스템 <span aria-hidden>*</span>
             </FieldLabel>
             <Select
               value={selectedSystemId || NO_MANAGED_SYSTEM}
@@ -176,7 +176,7 @@ export function CreateClusterModal({
               <SelectTrigger
                 ref={managedSystemTriggerRef}
                 id="cluster-managed-system"
-                aria-label="Managed System"
+                aria-label="시스템"
                 aria-required="true"
                 aria-invalid={managedSystemError !== null}
                 {...(managedSystemError

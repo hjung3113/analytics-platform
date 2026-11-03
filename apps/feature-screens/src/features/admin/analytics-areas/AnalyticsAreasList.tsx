@@ -51,7 +51,7 @@ export function AnalyticsAreasFilter({
       <PopoverContent align="end">
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <Label htmlFor="aa-filter-managed-system">Managed System</Label>
+            <Label htmlFor="aa-filter-managed-system">시스템</Label>
             <Select
               value={managedSystemId ?? 'all'}
               onValueChange={(value) =>
@@ -132,7 +132,7 @@ export function AnalyticsAreasCatalog({
             카탈로그
           </PanelSectionTitle>
           <span className="text-xs text-text-muted">
-            Analytics Area {renderedAreaCount}개 · Managed System {renderedSystems.length}개
+            분석 영역 {renderedAreaCount}개 · 시스템 {renderedSystems.length}개
           </span>
         </div>
 
@@ -147,14 +147,14 @@ export function AnalyticsAreasCatalog({
             className="rounded-md border border-border-subtle bg-surface-card p-8 text-center text-sm text-text-muted"
             data-testid="aa-empty-state"
           >
-            등록된 Managed System 이 없습니다.
+            등록된 시스템이 없습니다.
           </div>
         ) : renderedSystems.length === 0 ? (
           <div
             className="rounded-md border border-border-subtle bg-surface-card p-8 text-center text-sm text-text-muted"
             data-testid="aa-filter-empty-state"
           >
-            <p>필터에 해당하는 Managed System이 없습니다.</p>
+            <p>필터에 해당하는 시스템이 없습니다.</p>
             <Button
               variant="subtle"
               size="sm"
@@ -207,7 +207,7 @@ function GroupCard({
         <ManagedSystemMark label={mark.label} color={mark.color} size={22} />
         <span className="text-sm font-semibold text-text-primary">{ms.name}</span>
         {ms.archived_at !== null ? <OutlineBadge>보관됨</OutlineBadge> : null}
-        <span className="text-xs text-text-muted">· Analytics Area {areas.length}개</span>
+        <span className="text-xs text-text-muted">· 분석 영역 {areas.length}개</span>
         <div className="flex-1" />
         <Button
           variant="subtle"
@@ -216,13 +216,13 @@ function GroupCard({
           data-testid={`aa-add-area-${ms.slug}`}
         >
           <Plus className="h-3 w-3" />
-          Analytics Area 생성
+          분석 영역 생성
         </Button>
       </div>
 
       {areas.length === 0 ? (
         <div className="px-4 py-4 text-center text-xs text-text-muted">
-          등록된 Analytics Area 가 없습니다.
+          등록된 분석 영역이 없습니다.
         </div>
       ) : (
         areas.map((a, i) => {

@@ -157,10 +157,10 @@ it('My Tasks status control sends status and status_group and clears them', asyn
   mount('my');
   expect(screen.getByRole('combobox', { name: 'Task 상태' })).toHaveTextContent('상태:');
   fireEvent.click(screen.getByRole('combobox', { name: 'Task 상태' }));
-  fireEvent.click(await screen.findByRole('option', { name: 'Doing' }));
+  fireEvent.click(await screen.findByRole('option', { name: '진행 중' }));
   await waitFor(() => expect(queries.at(-1)?.status).toBe('doing'));
   fireEvent.click(screen.getByRole('combobox', { name: 'Task 상태' }));
-  fireEvent.click(await screen.findByRole('option', { name: 'Todo·Doing·Review' }));
+  fireEvent.click(await screen.findByRole('option', { name: '할 일·진행 중·검토' }));
   await waitFor(() => expect(queries.at(-1)?.status_group).toBe('in-flight'));
   expect(queries.at(-1)?.status).toBeUndefined();
   expect(queries.at(-1)?.assignee).toBe('me');

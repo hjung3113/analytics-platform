@@ -3,31 +3,31 @@ export const PERMISSION_BLOCKED_REASONS = {
   taskDetail: '이 Task를 볼 권한이 없습니다.',
   milestoneList: 'Milestone 목록을 볼 권한이 없습니다. 워크스페이스 관리자에게 권한을 요청하세요.',
   vocClusterList:
-    'VOC Cluster 목록을 볼 권한이 없습니다. 워크스페이스 관리자에게 권한을 요청하세요.',
+    '반복 VOC 목록을 볼 권한이 없습니다. 워크스페이스 관리자에게 권한을 요청하세요.',
   milestoneDetail: '이 Milestone을 볼 권한이 없습니다.',
   milestoneTasks: '이 Milestone의 Task를 볼 권한이 없습니다.',
   taskRequestQueue:
     'Task Request 목록을 볼 권한이 없습니다. 워크스페이스 관리자에게 권한을 요청하세요.',
   entityLinks: '엔티티 링크 목록을 볼 권한이 없습니다.',
   findingsList: 'Finding 목록을 볼 권한이 없습니다. 워크스페이스 관리자에게 권한을 요청하세요.',
-  vocTriage: 'VOC Triage 권한이 없습니다. 워크스페이스 관리자에게 권한을 요청하세요.',
-  vocTriageManagedSystem: '선택한 Managed System의 VOC Triage 권한이 없습니다.',
-  vocTriageMissingRead: 'VOC Triage 권한이 있어도 VOC 조회 권한이 없으면 VOC를 볼 수 없습니다.',
+  vocTriage: 'VOC 분류 권한이 없습니다. 워크스페이스 관리자에게 권한을 요청하세요.',
+  vocTriageManagedSystem: '선택한 시스템의 VOC 분류 권한이 없습니다.',
+  vocTriageMissingRead: 'VOC 분류 권한이 있어도 VOC 조회 권한이 없으면 VOC를 볼 수 없습니다.',
   vocTriageMissingReadManagedSystem:
-    '선택한 Managed System의 VOC 조회 권한이 없습니다. VOC Triage만으로는 VOC를 볼 수 없습니다.',
-  vocTriageMissingReadSelectSystem: 'Managed System을 선택한 뒤 VOC 조회 권한을 요청하세요.',
-  vocInbox: 'VOC 수신함을 볼 권한이 없습니다. 내가 접수한 VOC는 내 VOC에서 확인할 수 있습니다.',
-  vocInboxManagedSystem: '선택한 Managed System의 VOC를 볼 권한이 없습니다.',
+    '선택한 시스템의 VOC 조회 권한이 없습니다. VOC 분류만으로는 VOC를 볼 수 없습니다.',
+  vocTriageMissingReadSelectSystem: '시스템을 선택한 뒤 VOC 조회 권한을 요청하세요.',
+  vocInbox: 'VOC 처리함을 볼 권한이 없습니다. 내가 접수한 VOC는 내 VOC에서 확인할 수 있습니다.',
+  vocInboxManagedSystem: '선택한 시스템의 VOC를 볼 권한이 없습니다.',
   findingDetail:
-    '이 Finding을 볼 권한이 없습니다. 해당 Managed System의 개발자 이상 권한이 필요합니다.',
-  surveyResult: 'Survey 결과를 볼 권한이 없습니다.',
-  surveyBuilder: 'Survey 관리 권한이 없습니다.',
-  surveyDetail: '이 Survey를 볼 권한이 없습니다.',
+    '이 Finding을 볼 권한이 없습니다. 해당 시스템의 개발자 이상 권한이 필요합니다.',
+  surveyResult: '설문 결과를 볼 권한이 없습니다.',
+  surveyBuilder: '설문 관리 권한이 없습니다.',
+  surveyDetail: '이 설문을 볼 권한이 없습니다.',
 } as const;
 
 export const VOC_READ_PERMISSION_REASONS: Readonly<Record<string, string>> = {
-  explicit_deny: '이 Managed System의 VOC 조회가 제한되어 있습니다.',
+  explicit_deny: '이 시스템의 VOC 조회가 제한되어 있습니다.',
   grant_expired: 'VOC 조회 권한이 만료되었습니다.',
   grant_revoked: 'VOC 조회 권한이 회수되었습니다.',
-  no_grant: '이 Managed System의 VOC를 볼 권한이 없습니다.',
+  no_grant: '이 시스템의 VOC를 볼 권한이 없습니다.',
 };

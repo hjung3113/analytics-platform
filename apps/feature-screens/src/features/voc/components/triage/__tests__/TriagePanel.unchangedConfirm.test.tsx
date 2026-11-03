@@ -79,7 +79,7 @@ describe('TriagePanel confirm without field changes (#1175)', () => {
       expect(screen.getByTestId('summary-no-changes')).toHaveTextContent(
         '변경 없음 — 현재 값 그대로 확정됩니다.',
       );
-      const confirm = screen.getByRole('button', { name: /Triage 확정 & 다음 VOC/ });
+      const confirm = screen.getByRole('button', { name: /분류 확정 & 다음 VOC/ });
       expect(confirm).toBeEnabled();
       fireEvent.click(confirm);
 
@@ -112,7 +112,7 @@ describe('TriagePanel confirm without field changes (#1175)', () => {
         }),
     ) as typeof globalThis.fetch;
     renderPanel(VOC);
-    fireEvent.click(screen.getByRole('button', { name: /Triage 확정 & 다음 VOC/ }));
+    fireEvent.click(screen.getByRole('button', { name: /분류 확정 & 다음 VOC/ }));
     await waitFor(() =>
       expect(
         vi.mocked(globalThis.fetch).mock.calls.some(([, init]) => init?.method === 'PATCH'),
@@ -133,7 +133,7 @@ describe('TriagePanel confirm without field changes (#1175)', () => {
   it('keeps confirm disabled for an already triaged VOC with nothing changed', () => {
     renderPanel({ ...VOC, triage_state: 'triaged' });
 
-    expect(screen.getByRole('button', { name: /Triage 확정 & 다음 VOC/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /분류 확정 & 다음 VOC/ })).toBeDisabled();
     const note = screen.getByTestId('summary-no-changes');
     expect(note).toHaveTextContent('변경 없음');
     expect(note).not.toHaveTextContent('그대로 확정됩니다');
@@ -142,6 +142,6 @@ describe('TriagePanel confirm without field changes (#1175)', () => {
   it('enables confirm for an already triaged VOC once a field changes', () => {
     renderPanel({ ...VOC, triage_state: 'triaged' });
     fireEvent.click(screen.getByRole('button', { name: /낮음/ }));
-    expect(screen.getByRole('button', { name: /Triage 확정 & 다음 VOC/ })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /분류 확정 & 다음 VOC/ })).toBeEnabled();
   });
 });

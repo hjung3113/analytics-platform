@@ -94,7 +94,7 @@ export function PermissionRequestDetail({
           <span className="flex flex-col gap-0.5">
             <span>
               {request.requested_managed_system_id
-                ? (managedSystemName ?? 'Managed System')
+                ? (managedSystemName ?? '시스템')
                 : '워크스페이스 전체'}
             </span>
             {request.requested_managed_system_id && !managedSystemName && (
@@ -303,7 +303,7 @@ function formatManagedSystemScope(
 ): string {
   if (managedSystemId === null) return ADMIN_PERMISSIONS_COPY.riskReview.allScope;
   const name = managedSystemNames[managedSystemId];
-  return name ? name : `Managed System (${shortId(managedSystemId)})`;
+  return name ? name : `시스템 (${shortId(managedSystemId)})`;
 }
 
 function formatEffectiveScope(

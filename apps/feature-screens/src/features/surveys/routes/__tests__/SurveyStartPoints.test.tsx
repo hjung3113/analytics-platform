@@ -78,7 +78,7 @@ it('starts from a built-in with visible questions and explicit privacy, using th
   screen.getByRole('combobox', { name: '시작 방법' }).focus();
   await user.keyboard('{Enter}');
   await user.click(screen.getByRole('option', { name: '기본 템플릿' }));
-  screen.getByRole('combobox', { name: 'Managed System' }).focus();
+  screen.getByRole('combobox', { name: '시스템' }).focus();
   await user.keyboard('{Enter}');
   await user.click(await screen.findByRole('option', { name: 'Revenue Analytics' }));
   await user.click(await screen.findByRole('radio', { name: /Discovery 기본 템플릿/ }));
@@ -113,8 +113,8 @@ function mountDialog(props: Partial<React.ComponentProps<typeof CreateSurveyDial
   );
 }
 async function existing(user: ReturnType<typeof userEvent.setup>) {
-  await choose(user, '시작 방법', '기존 Survey 문항 사용');
-  await choose(user, 'Managed System', 'Revenue Analytics');
+  await choose(user, '시작 방법', '기존 설문 문항 사용');
+  await choose(user, '시스템', 'Revenue Analytics');
 }
 
 it('searches and loads another page, previews saved branches/rating, and loads persisted builder questions', async () => {
@@ -177,7 +177,7 @@ it('searches and loads another page, previews saved branches/rating, and loads p
     </QueryClientProvider>,
   );
   await existing(user);
-  await user.type(screen.getByLabelText('기존 Survey 검색'), '지난');
+  await user.type(screen.getByLabelText('기존 설문 검색'), '지난');
   await waitFor(() =>
     expect(requests.some((path) => path.includes('q=%EC%A7%80%EB%82%9C'))).toBe(true),
   );
@@ -229,7 +229,7 @@ it.each([
     'no sources',
     200,
     { items: [], page: { has_more: false } },
-    '사용할 수 있는 Survey가 없습니다.',
+    '사용할 수 있는 설문이 없습니다.',
   ],
   [
     'preview failure',
@@ -259,7 +259,7 @@ it.each([
     await user.click(await screen.findByRole('radio', { name: /지난 라운드 문항/ }));
   expect(await screen.findByText(message)).toBeVisible();
   expect(screen.getByTestId('survey-create-submit')).toBeDisabled();
-  await choose(user, '시작 방법', '빈 Survey');
+  await choose(user, '시작 방법', '빈 설문');
   expect(screen.queryByText(message)).not.toBeInTheDocument();
 });
 
@@ -311,7 +311,7 @@ it.each([403, 404, 409])(
     // form input for a changed/forbidden source.
     expect(screen.getAllByRole('alert')).toHaveLength(1);
     expect(
-      screen.queryByText('Survey를 만들지 못했습니다. 입력을 확인하고 다시 시도하세요.'),
+      screen.queryByText('설문을 만들지 못했습니다. 입력을 확인하고 다시 시도하세요.'),
     ).not.toBeInTheDocument();
     expect(screen.getByLabelText('제목')).toHaveValue('지난 라운드 문항');
     expect(screen.getByTestId('survey-create-submit')).toBeDisabled();
@@ -323,7 +323,7 @@ it.each([403, 404, 409])(
     await waitFor(() => expect(screen.getByTestId('survey-create-submit')).toBeEnabled());
     // Reselecting must also have cleared the failed attempt's error state.
     expect(
-      screen.queryByText('Survey를 만들지 못했습니다. 입력을 확인하고 다시 시도하세요.'),
+      screen.queryByText('설문을 만들지 못했습니다. 입력을 확인하고 다시 시도하세요.'),
     ).not.toBeInTheDocument();
   },
 );
@@ -333,7 +333,7 @@ it('opens with initial focus on 제목 as blank creation does on develop', async
   await waitFor(() => expect(screen.getByLabelText('제목')).toHaveFocus());
 });
 
-it('states near the source list that the source sets the Survey type', async () => {
+it('states near the source list that the source sets the 설문 type', async () => {
   const user = userEvent.setup();
   vi.stubGlobal(
     'fetch',
@@ -350,7 +350,7 @@ it('states near the source list that the source sets the Survey type', async () 
   );
   mountDialog();
   await existing(user);
-  expect(screen.getByText('Survey 유형은 선택한 Survey를 따릅니다.')).toBeVisible();
+  expect(screen.getByText('설문 유형은 선택한 설문을 따릅니다.')).toBeVisible();
 });
 
 it('shows a search-specific empty line when no source matches the search', async () => {
@@ -372,9 +372,9 @@ it('shows a search-specific empty line when no source matches the search', async
   );
   mountDialog();
   await existing(user);
-  await user.type(screen.getByLabelText('기존 Survey 검색'), '없는검색어');
+  await user.type(screen.getByLabelText('기존 설문 검색'), '없는검색어');
   expect(await screen.findByText('검색 결과가 없습니다.')).toBeVisible();
-  expect(screen.queryByText('사용할 수 있는 Survey가 없습니다.')).not.toBeInTheDocument();
+  expect(screen.queryByText('사용할 수 있는 설문이 없습니다.')).not.toBeInTheDocument();
 });
 
 it.each([
@@ -448,7 +448,7 @@ it.each(['cancel', 'X', 'Escape', 'outside', 'external close', 'permission loss'
     );
     const rendered = render(view(true));
     await choose(user, '시작 방법', '기본 템플릿');
-    await choose(user, 'Managed System', 'Revenue Analytics');
+    await choose(user, '시스템', 'Revenue Analytics');
     await user.click(await screen.findByRole('radio', { name: /Discovery 기본 템플릿/ }));
     await choose(user, '응답 익명 보호', '보호함');
     await act(async () => {
@@ -491,7 +491,7 @@ it('finishes a request even if the observer is unmounted', async () => {
   );
   const rendered = mountDialog({ onCreated: created });
   await choose(user, '시작 방법', '기본 템플릿');
-  await choose(user, 'Managed System', 'Revenue Analytics');
+  await choose(user, '시스템', 'Revenue Analytics');
   await user.click(await screen.findByRole('radio', { name: /Discovery 기본 템플릿/ }));
   await choose(user, '응답 익명 보호', '보호함');
   await user.click(screen.getByTestId('survey-create-submit'));
@@ -548,7 +548,7 @@ it.each(['empty', 'toolbar'])(
     await user.keyboard('{Enter}');
     screen.getByRole('combobox', { name: '시작 방법' }).focus();
     await user.keyboard('{Enter}{ArrowDown}{Enter}');
-    screen.getByRole('combobox', { name: 'Managed System' }).focus();
+    screen.getByRole('combobox', { name: '시스템' }).focus();
     await user.keyboard('{Enter}{Enter}');
     const radio = await screen.findByRole('radio', { name: /Discovery 기본 템플릿/ });
     radio.focus();
@@ -562,7 +562,7 @@ it.each(['empty', 'toolbar'])(
   },
 );
 
-it('keeps a selected starting point when the type cannot change, and clears it with the Managed System', async () => {
+it('keeps a selected starting point when the type cannot change, and clears it with the 시스템', async () => {
   const user = userEvent.setup();
   vi.stubGlobal(
     'fetch',
@@ -587,23 +587,23 @@ it('keeps a selected starting point when the type cannot change, and clears it w
   await user.type(screen.getByLabelText('제목'), '작성한 제목');
   await user.type(screen.getByLabelText('설명 (선택)'), '작성한 설명');
   await choose(user, '시작 방법', '기본 템플릿');
-  await choose(user, 'Managed System', 'Revenue Analytics');
+  await choose(user, '시스템', 'Revenue Analytics');
   await user.click(await screen.findByRole('radio', { name: /Discovery 기본 템플릿/ }));
   expect(await screen.findByText(/이 Managed System을 얼마나 자주/)).toBeVisible();
-  const typeSelect = screen.getByRole('combobox', { name: 'Survey 유형' });
+  const typeSelect = screen.getByRole('combobox', { name: '설문 유형' });
   expect(typeSelect).toBeDisabled();
   expect(typeSelect).toHaveTextContent('탐색');
-  expect(screen.getByText('Survey 유형은 선택한 Survey를 따릅니다.')).toBeVisible();
-  await choose(user, 'Managed System', 'Another System');
+  expect(screen.getByText('설문 유형은 선택한 설문을 따릅니다.')).toBeVisible();
+  await choose(user, '시스템', 'Another System');
   expect(screen.queryByText(/이 Managed System을 얼마나 자주/)).not.toBeInTheDocument();
-  expect(screen.getByRole('combobox', { name: 'Survey 유형' })).toBeEnabled();
+  expect(screen.getByRole('combobox', { name: '설문 유형' })).toBeEnabled();
   expect(screen.getByLabelText('제목')).toHaveValue('작성한 제목');
   expect(screen.getByLabelText('설명 (선택)')).toHaveValue('작성한 설명');
   expect(screen.getByTestId('survey-create-submit')).toBeDisabled();
   await user.click(screen.getByTestId('survey-create-cancel'));
   await user.click(screen.getByRole('button', { name: '다시 열기' }));
   expect(screen.getByLabelText('제목')).toHaveValue('');
-  expect(screen.getByRole('combobox', { name: '시작 방법' })).toHaveTextContent('빈 Survey');
+  expect(screen.getByRole('combobox', { name: '시작 방법' })).toHaveTextContent('빈 설문');
   expect(screen.getByRole('combobox', { name: '응답 익명 보호' })).toHaveTextContent(
     '보호 여부 선택',
   );
@@ -627,12 +627,12 @@ it('disables the type select for a copy source and re-enables it when the mode i
   mountDialog();
   await existing(user);
   await user.click(await screen.findByRole('radio', { name: /지난 라운드 문항/ }));
-  const typeSelect = screen.getByRole('combobox', { name: 'Survey 유형' });
+  const typeSelect = screen.getByRole('combobox', { name: '설문 유형' });
   await waitFor(() => expect(typeSelect).toHaveTextContent('탐색'));
   expect(typeSelect).toBeDisabled();
-  expect(screen.getByText('Survey 유형은 선택한 Survey를 따릅니다.')).toBeVisible();
-  await choose(user, '시작 방법', '빈 Survey');
-  expect(screen.getByRole('combobox', { name: 'Survey 유형' })).toBeEnabled();
+  expect(screen.getByText('설문 유형은 선택한 설문을 따릅니다.')).toBeVisible();
+  await choose(user, '시작 방법', '빈 설문');
+  expect(screen.getByRole('combobox', { name: '설문 유형' })).toBeEnabled();
 });
 
 it('sends one copy-source request after the search settles', async () => {
@@ -655,7 +655,7 @@ it('sends one copy-source request after the search settles', async () => {
   mountDialog();
   await existing(user);
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
-  const input = screen.getByLabelText('기존 Survey 검색');
+  const input = screen.getByLabelText('기존 설문 검색');
   fireEvent.change(input, { target: { value: 'a' } });
   await act(async () => {
     await vi.advanceTimersByTimeAsync(100);
@@ -690,11 +690,11 @@ it('preserves an uncertain attempt body/key through a rendered retry and uses a 
   );
   mountDialog({ onCreated: created });
   await choose(user, '시작 방법', '기본 템플릿');
-  await choose(user, 'Managed System', 'Revenue Analytics');
+  await choose(user, '시스템', 'Revenue Analytics');
   await user.click(await screen.findByRole('radio', { name: /Discovery 기본 템플릿/ }));
   await choose(user, '응답 익명 보호', '보호함');
   await user.click(screen.getByTestId('survey-create-submit'));
-  expect(await screen.findByRole('alert')).toHaveTextContent('Survey를 만들지 못했습니다.');
+  expect(await screen.findByRole('alert')).toHaveTextContent('설문을 만들지 못했습니다.');
   await user.click(screen.getByTestId('survey-create-submit'));
   await waitFor(() => expect(requests).toHaveLength(2));
   expect(requests[1]?.body).toBe(requests[0]?.body);
@@ -863,7 +863,7 @@ it('replays the pinned token and key when a background snapshot refetch changes 
   expect(await screen.findByText(/분기:/)).toBeVisible();
   await choose(user, '응답 익명 보호', '보호함');
   await user.click(screen.getByTestId('survey-create-submit'));
-  expect(await screen.findByRole('alert')).toHaveTextContent('Survey를 만들지 못했습니다.');
+  expect(await screen.findByRole('alert')).toHaveTextContent('설문을 만들지 못했습니다.');
   token = 'refetched-definition-v2';
   refetched = true;
   await act(async () => {
@@ -910,11 +910,11 @@ it('clears source titles and preview immediately on system change, without inher
   expect(screen.getByRole('combobox', { name: '응답 익명 보호' })).toHaveTextContent(
     '보호 여부 선택',
   );
-  await choose(user, 'Managed System', 'Another System');
+  await choose(user, '시스템', 'Another System');
   expect(screen.queryByRole('radio', { name: /지난 라운드 문항/ })).not.toBeInTheDocument();
   expect(screen.queryByText(/분기:/)).not.toBeInTheDocument();
   expect(screen.getByLabelText('제목')).toHaveValue('직접 작성');
-  expect(await screen.findByText('사용할 수 있는 Survey가 없습니다.')).toBeVisible();
+  expect(await screen.findByText('사용할 수 있는 설문이 없습니다.')).toBeVisible();
 });
 
 it.each(['catalog', 'snapshot', 'create'])(
@@ -939,8 +939,8 @@ it.each(['catalog', 'snapshot', 'create'])(
       }),
     );
     mountDialog({ onCreated: created });
-    await choose(user, '시작 방법', stage === 'snapshot' ? '기존 Survey 문항 사용' : '기본 템플릿');
-    await choose(user, 'Managed System', 'Revenue Analytics');
+    await choose(user, '시작 방법', stage === 'snapshot' ? '기존 설문 문항 사용' : '기본 템플릿');
+    await choose(user, '시스템', 'Revenue Analytics');
     if (stage === 'snapshot')
       await user.click(await screen.findByRole('radio', { name: /지난 라운드 문항/ }));
     if (stage === 'create') {
@@ -953,7 +953,7 @@ it.each(['catalog', 'snapshot', 'create'])(
         ? '시작 문항을 불러오지 못했습니다.'
         : stage === 'snapshot'
           ? '미리보기를 불러오지 못했습니다.'
-          : 'Survey를 만들지 못했습니다.',
+          : '설문을 만들지 못했습니다.',
     );
     expect(created).not.toHaveBeenCalled();
   },

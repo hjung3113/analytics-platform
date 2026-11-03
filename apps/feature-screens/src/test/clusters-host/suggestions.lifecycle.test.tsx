@@ -126,7 +126,7 @@ function mountWithProductionCallbacks(initialPath: string) {
   return { router, history };
 }
 async function enter() {
-  const tab = await screen.findByRole('tab', { name: /^Cluster 제안/ });
+  const tab = await screen.findByRole('tab', { name: /^반복 VOC 제안/ });
   fireEvent.mouseDown(tab, { button: 0 });
   fireEvent.click(await screen.findByRole('button', { name: /VOC-12/ }));
   await screen.findByText(
@@ -193,11 +193,11 @@ it.each(['admin', 'developer'])(
     fireEvent.mouseDown(screen.getByRole('tab', { name: /^전체/ }), { button: 0 });
     await screen.findByTestId('cluster-detail-title');
     expect(history.location.href).toBe(href);
-    fireEvent.mouseDown(screen.getByRole('tab', { name: /^Cluster 제안/ }), { button: 0 });
+    fireEvent.mouseDown(screen.getByRole('tab', { name: /^반복 VOC 제안/ }), { button: 0 });
     expect(screen.queryByTestId('cluster-suggestion-panel')).not.toBeInTheDocument();
   },
 );
-it('defers the first-success Cluster default until returning from suggestions', async () => {
+it('defers the first-success 반복 VOC default until returning from suggestions', async () => {
   let release!: (response: Response) => void;
   listRead = () =>
     new Promise((resolve) => {
@@ -222,19 +222,19 @@ it('preserves the detail-path host through suggestions and return', async () => 
   await screen.findByTestId('cluster-detail-title');
   expect(history.location.href).toBe(`/voc-clusters/${IDS.draft}`);
 });
-it('keeps an unreadable detail path and shows no other Cluster', async () => {
+it('keeps an unreadable detail path and shows no other 반복 VOC', async () => {
   const unreadableId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
   const initialPath = `/voc-clusters/${unreadableId}`;
   unreadableClusterId = unreadableId;
   listRead = async () => json({ items: populatedList.items.slice(0, 2) });
   const { history } = mountWithProductionCallbacks(initialPath);
-  expect(await screen.findByText('Cluster를 찾을 수 없습니다.')).toBeInTheDocument();
+  expect(await screen.findByText('반복 VOC를 찾을 수 없습니다.')).toBeInTheDocument();
   expect(history.location.href).toBe(initialPath);
   expect(screen.queryByTestId('cluster-detail-title')).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Finding 생성' })).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Task 요청' })).not.toBeInTheDocument();
 });
-it('drops pair selection when Managed System context changes', async () => {
+it('drops pair selection when 시스템 context changes', async () => {
   const { router } = mount();
   await enter();
   await act(async () => {
@@ -256,7 +256,7 @@ it('hides tab and pair when role eligibility is revoked', async () => {
     client.setQueryData(['me'], me());
   });
   await waitFor(() =>
-    expect(screen.queryByRole('tab', { name: /^Cluster 제안/ })).not.toBeInTheDocument(),
+    expect(screen.queryByRole('tab', { name: /^반복 VOC 제안/ })).not.toBeInTheDocument(),
   );
   expect(screen.queryByTestId('cluster-suggestion-panel')).not.toBeInTheDocument();
 });
@@ -273,7 +273,7 @@ it.each(['unavailable', 'error', 'loading'])(
       await waitFor(() =>
         expect(client.isFetching({ queryKey: ['voc-cluster-suggestions'] })).toBe(0),
       );
-    expect(screen.queryByRole('tab', { name: /^Cluster 제안/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: /^반복 VOC 제안/ })).not.toBeInTheDocument();
     expect(screen.getAllByRole('tab')).toHaveLength(3);
   },
 );
@@ -288,7 +288,7 @@ it('returns to default tab without changing the URL when availability becomes fa
   await waitFor(() =>
     expect(screen.getByRole('tab', { name: /^전체/ })).toHaveAttribute('aria-selected', 'true'),
   );
-  expect(screen.queryByRole('tab', { name: /^Cluster 제안/ })).not.toBeInTheDocument();
+  expect(screen.queryByRole('tab', { name: /^반복 VOC 제안/ })).not.toBeInTheDocument();
   expect(screen.queryByTestId('cluster-suggestion-panel')).not.toBeInTheDocument();
   expect(history.location.href).toBe(href);
 });
@@ -297,7 +297,7 @@ it('keeps the suggestion tab hidden for a User even when the provider is enabled
   role = 'user';
   mount();
   await screen.findByTestId('cluster-detail-title');
-  expect(screen.queryByRole('tab', { name: /^Cluster 제안/ })).not.toBeInTheDocument();
+  expect(screen.queryByRole('tab', { name: /^반복 VOC 제안/ })).not.toBeInTheDocument();
 });
 it('drops undo on tab exit and never restores it on re-entry', async () => {
   mount();
@@ -309,12 +309,12 @@ it('drops undo on tab exit and never restores it on re-entry', async () => {
   await waitFor(() =>
     expect(screen.queryByRole('button', { name: '되돌리기' })).not.toBeInTheDocument(),
   );
-  fireEvent.mouseDown(screen.getByRole('tab', { name: /^Cluster 제안/ }), { button: 0 });
-  await screen.findByText('검토할 Cluster 제안이 없습니다');
+  fireEvent.mouseDown(screen.getByRole('tab', { name: /^반복 VOC 제안/ }), { button: 0 });
+  await screen.findByText('검토할 반복 VOC 제안이 없습니다');
   expect(screen.queryByRole('button', { name: '되돌리기' })).not.toBeInTheDocument();
 });
 
-it('preserves an absent selected param when availability drops after a deferred first Cluster read', async () => {
+it('preserves an absent selected param when availability drops after a deferred first 반복 VOC read', async () => {
   let release!: (response: Response) => void;
   listRead = () =>
     new Promise((resolve) => {

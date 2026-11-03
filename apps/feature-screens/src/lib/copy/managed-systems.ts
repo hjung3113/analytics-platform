@@ -20,9 +20,9 @@ export const MANAGED_SYSTEM_COPY = {
   creationFailure: (count: number) => `생성 시 기본 배정 실패 ${count}건`,
   lastFailure: '마지막',
   rules: {
-    managed_system_owner: 'Managed System 기본 담당자',
-    managed_system_reviewer: 'Managed System 기본 검토자',
-    analytics_area_owner: 'Analytics Area 담당 팀',
+    managed_system_owner: '시스템 기본 담당자',
+    managed_system_reviewer: '시스템 기본 검토자',
+    analytics_area_owner: '분석 영역 담당 팀',
   },
   roles: { owner: '기본 담당자', reviewer: '기본 검토자' },
   categories: {

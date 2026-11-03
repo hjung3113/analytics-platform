@@ -18,7 +18,7 @@ describe('TriageEmpty', () => {
       // Default (whole-queue) variant: title plus the helper sub-text.
       tabScoped: false,
       title: '큐가 비었습니다',
-      subtext: '현재 범위에 Triage할 VOC가 없습니다. 새 VOC가 들어오면 자동으로 추가됩니다.',
+      subtext: '현재 범위에 분류할 VOC가 없습니다. 새 VOC가 들어오면 자동으로 추가됩니다.',
     },
   ])(
     'picks the right copy for the empty variant (tabScoped=$tabScoped)',
@@ -28,7 +28,7 @@ describe('TriageEmpty', () => {
       if (subtext === null) {
         // The tab-scoped variant must not claim the whole queue was processed.
         expect(screen.queryByText(/큐가 비었습니다/)).not.toBeInTheDocument();
-        expect(screen.queryByText(/모든 VOC를 Triage 처리했습니다/)).not.toBeInTheDocument();
+        expect(screen.queryByText(/모든 VOC를 분류 처리했습니다/)).not.toBeInTheDocument();
       } else {
         expect(screen.getByText(subtext)).toBeInTheDocument();
       }

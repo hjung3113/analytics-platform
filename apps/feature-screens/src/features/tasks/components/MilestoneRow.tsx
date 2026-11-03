@@ -60,7 +60,7 @@ export function MilestoneRow({
       </div>
       <div className="flex flex-wrap items-center gap-2.5 text-xs text-text-muted">
         <span className="tabular-nums">
-          Released {milestone.progress.released_done}/{milestone.progress.total}
+          배포됨 {milestone.progress.released_done}/{milestone.progress.total}
         </span>
         <span className="h-1 w-1 rounded-full bg-text-muted/60" aria-hidden="true" />
         <span className="inline-flex items-center gap-1">

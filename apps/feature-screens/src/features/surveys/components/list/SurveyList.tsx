@@ -82,7 +82,7 @@ export function SurveyList({
       <div data-testid="survey-list-error">
         <ListStateMessage
           variant="error"
-          title="Survey 목록을 불러오지 못했습니다"
+          title="설문 목록을 불러오지 못했습니다"
           body="잠시 후 다시 시도하세요."
           {...(onRetry !== undefined ? { action: { label: '다시 시도', onClick: onRetry } } : {})}
         />
@@ -114,15 +114,15 @@ export function SurveyList({
         tabs={toolbarTabs}
         activeTab={status}
         onTabChange={(next) => setStatus(next as SurveyStatus | 'all')}
-        tabsAriaLabel="Survey status"
+        tabsAriaLabel="설문 상태"
         action={
           <div className="flex items-center gap-2">
             <Input
-              aria-label="Survey 검색"
+              aria-label="설문 검색"
               className="max-w-xs"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Survey 검색…"
+              placeholder="설문 검색…"
             />
             <div className="flex rounded border border-border-subtle p-0.5">
               <button
@@ -153,7 +153,7 @@ export function SurveyList({
                   data-testid="survey-create-button"
                 >
                   <Plus className="h-4 w-4" />
-                  Survey 생성
+                  설문 생성
                 </Button>
               </HostPrimaryAction>
             )}
@@ -176,7 +176,7 @@ export function SurveyList({
           isFilteredEmpty ? (
             <ListStateMessage
               variant="filtered"
-              title="현재 조건에 맞는 Survey가 없습니다"
+              title="현재 조건에 맞는 설문이 없습니다"
               body={activeConditions.join(' · ')}
               {...(hasUrlFilters
                 ? {}
@@ -193,10 +193,10 @@ export function SurveyList({
           ) : (
             <ListStateMessage
               variant="empty"
-              title={canCreate ? '생성된 Survey가 없습니다.' : SURVEY_LIST_COPY.emptyUnmanagedTitle}
+              title={canCreate ? '생성된 설문이 없습니다.' : SURVEY_LIST_COPY.emptyUnmanagedTitle}
               body={
                 canCreate
-                  ? 'Survey를 만들어 응답을 수집하세요.'
+                  ? '설문을 만들어 응답을 수집하세요.'
                   : SURVEY_LIST_COPY.emptyUnmanagedBody
               }
               actionContent={
@@ -209,7 +209,7 @@ export function SurveyList({
                       data-testid="survey-empty-create-button"
                     >
                       <Plus className="h-4 w-4" />
-                      Survey 생성
+                      설문 생성
                     </Button>
                   )
                 ) : (
