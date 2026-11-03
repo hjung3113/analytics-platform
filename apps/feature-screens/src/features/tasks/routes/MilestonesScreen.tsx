@@ -7,6 +7,7 @@ import { analyticsAreasCatalogQuery } from '@/lib/cross-system/analyticsAreasCat
 import { managedSystemsCatalogQuery } from '@/lib/cross-system/useManagedSystemNames';
 import { useWorkspaceActors } from '@/lib/cross-system/useWorkspaceActors';
 import { useHostNavigate, useHostSearch } from '@/lib/host/host-seam';
+import { HostPrimaryAction } from '@/lib/host/HostPrimaryAction';
 import { searchHref } from '@/lib/host/search';
 import type { MilestoneStatusFilter } from '@ap/feature-shared';
 import {
@@ -349,24 +350,26 @@ export function MilestonesScreen({ renderDetail }: MilestonesScreenProps) {
                   </Button>
                   {/* B2e — opens the property block in a create state in the
                     detail slot; no separate create screen. */}
-                  <Button
-                    variant="primary"
-                    size="toolbar"
-                    onClick={() => {
-                      // R3 — an edited unsaved title confirms before the
-                      // create block replaces the detail panel.
-                      if (detailTitleDirty) {
-                        setPendingCreate(true);
-                        setPendingSelection(null);
-                        setSelectionConfirmOpen(true);
-                        return;
-                      }
-                      setCreating(true);
-                    }}
-                  >
-                    <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-                    Milestone 생성
-                  </Button>
+                  <HostPrimaryAction>
+                    <Button
+                      variant="primary"
+                      size="toolbar"
+                      onClick={() => {
+                        // R3 — an edited unsaved title confirms before the
+                        // create block replaces the detail panel.
+                        if (detailTitleDirty) {
+                          setPendingCreate(true);
+                          setPendingSelection(null);
+                          setSelectionConfirmOpen(true);
+                          return;
+                        }
+                        setCreating(true);
+                      }}
+                    >
+                      <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                      Milestone 생성
+                    </Button>
+                  </HostPrimaryAction>
                 </div>
               }
             />

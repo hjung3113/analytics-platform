@@ -25,6 +25,7 @@ import { useState } from 'react';
 import { createLabel } from '@/lib/copy/glossary';
 import type { ClosableDetailParts } from '@/lib/host/detail-parts';
 import { useHostSeam } from '@/lib/host/host-seam';
+import { HostPrimaryAction } from '@/lib/host/HostPrimaryAction';
 import { useHostSearchWriter } from '@/lib/host/useHostSearchWriter';
 import { PermissionGate } from '../permissions/permission-gate.js';
 import { AnalyticsAreasBody } from './AnalyticsAreasContainer.js';
@@ -104,15 +105,17 @@ export function AnalyticsAreasAdminPage({ renderDetail, titleInHeader }: Analyti
               onIncludeArchivedChange={handleIncludeArchivedChange}
               onManagedSystemIdChange={handleManagedSystemChange}
             />
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => setRegisterCtx({ open: true, msId: null })}
-              data-testid="aa-new-area-button"
-            >
-              <Plus className="h-4 w-4" />
-              {createLabel('Analytics Area')}
-            </Button>
+            <HostPrimaryAction>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setRegisterCtx({ open: true, msId: null })}
+                data-testid="aa-new-area-button"
+              >
+                <Plus className="h-4 w-4" />
+                {createLabel('Analytics Area')}
+              </Button>
+            </HostPrimaryAction>
           </PermissionGate>
         ),
       }}

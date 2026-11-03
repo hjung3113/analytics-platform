@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { carrySetId, groupId, spaceId } from '@ap/contracts';
+import { HostPrimaryAction } from '@/lib/host/HostPrimaryAction';
 import { useHostSearch } from '@/lib/host/host-seam';
 import { setFeatureApi } from '../feature-api';
 import { FeatureScreenPage } from './FeatureScreenPage';
@@ -40,6 +41,15 @@ const page = (isValid: (key: string, value: string) => boolean, detail?: ReactNo
     <FeatureScreenPage route={route} isValid={isValid} useSearch={useSearch} useHere={useHere} detail={detail}><Screen label="screen" /></FeatureScreenPage>
   </PlatformProvider></I18nProvider>;
 
+/** A screen that draws its one primary action through the seam, as the seven operator screens do. */
+function ActionScreen() {
+  return <div data-testid="screen-body"><HostPrimaryAction><button type="button">생성</button></HostPrimaryAction></div>;
+}
+const actionPage = (withAdapter: typeof adapter) =>
+  <I18nProvider><PlatformProvider adapter={withAdapter} registry={registry}>
+    <FeatureScreenPage route={route} isValid={() => true} useSearch={useSearch} useHere={useHere}><ActionScreen /></FeatureScreenPage>
+  </PlatformProvider></I18nProvider>;
+
 beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() }); mounted.mockClear(); });
 afterEach(() => { cleanup(); setFeatureApi(null); window.history.replaceState(null, '', '/'); });
 
@@ -68,5 +78,37 @@ describe('FeatureScreenPage', () => {
     expect(await screen.findByText('주소의 managedSystem 값이 올바르지 않습니다')).toBeTruthy();
     expect(isValid).toHaveBeenCalledWith('selected', 'abc');
     expect(isValid).toHaveBeenCalledWith('managedSystem', 'ms1');
+  });
+
+  it('draws the body edge-to-edge', async () => {
+    window.history.replaceState(null, '', '/inbox?v=1');
+    const { container } = render(page(() => true));
+    await screen.findByText(/^screen/);
+    expect(container.querySelector('[data-platform-page-content]')?.getAttribute('data-body-inset')).toBe('none');
+  });
+
+  it('draws a screen primary action in the page head, once, and not in the screen body', async () => {
+    window.history.replaceState(null, '', '/inbox?v=1');
+    const { container } = render(actionPage(adapter));
+    const button = await screen.findByRole('button', { name: '생성' });
+    expect(container.querySelector('header [data-feature-primary-action]')?.contains(button)).toBe(true);
+    expect(container.querySelector('[data-testid="screen-body"]')?.contains(button)).toBe(false);
+    expect(screen.getAllByRole('button', { name: '생성' })).toHaveLength(1);
+  });
+
+  it('draws no head slot while the page shows a gate (a scope menu without a scope): the screen is not mounted either', async () => {
+    window.history.replaceState(null, '', '/inbox?v=1');
+    const scoped = createRegistry({
+      carrySets: [{ id: carrySetId('features'), pageKeys: ['managedSystem', 'returnTo'] }],
+      spaces: [space],
+      groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
+      menus: [{ ...registry.menuById('inbox')!, requiresScope: true }],
+    });
+    const { container } = render(<I18nProvider><PlatformProvider adapter={adapter} registry={scoped}>
+      <FeatureScreenPage route={route} isValid={() => true} useSearch={useSearch} useHere={useHere}><ActionScreen /></FeatureScreenPage>
+    </PlatformProvider></I18nProvider>);
+    await screen.findByText('Scope를 선택하세요');
+    expect(container.querySelector('[data-feature-primary-action]')).toBeNull();
+    expect(screen.queryByRole('button', { name: '생성' })).toBeNull();
   });
 });

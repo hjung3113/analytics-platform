@@ -31,6 +31,7 @@ import { GLOSSARY } from '@/lib/copy/glossary';
 import { MANAGED_SYSTEM_COPY } from '@/lib/copy/managed-systems';
 import { formatDateTime } from '@/lib/format/datetime';
 import { HostLink, useHostSeam } from '@/lib/host/host-seam';
+import { HostPrimaryAction } from '@/lib/host/HostPrimaryAction';
 import type { ResolveActorsResponse } from '../../../lib/api/actors';
 import type { AnalyticsAreaDto, ManagedSystemDto } from '../../../lib/api/registry-reads';
 import { envelopeMessage } from '../lib/envelopeMessage.js';
@@ -62,15 +63,17 @@ export function ManagedSystemsAdminPage() {
               includeArchived={includeArchived}
               onIncludeArchivedChange={setIncludeArchived}
             />
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => setRegisterOpen(true)}
-              data-testid="ms-register-button"
-            >
-              <Plus className="h-4 w-4" />
-              Managed System 등록
-            </Button>
+            <HostPrimaryAction>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setRegisterOpen(true)}
+                data-testid="ms-register-button"
+              >
+                <Plus className="h-4 w-4" />
+                Managed System 등록
+              </Button>
+            </HostPrimaryAction>
           </PermissionGate>
         ),
       }}

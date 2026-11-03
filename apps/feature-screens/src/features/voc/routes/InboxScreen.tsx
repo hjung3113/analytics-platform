@@ -12,6 +12,7 @@ import { LIST_SEARCH_PLACEHOLDER } from '@/lib/copy/list-search';
 import { PERMISSION_BLOCKED_REASONS } from '@/lib/copy/permission-reasons';
 import { VOC_INBOX_LABEL } from '@/lib/copy/voc-views';
 import { HostLink, useHostSeam } from '@/lib/host/host-seam';
+import { HostPrimaryAction } from '@/lib/host/HostPrimaryAction';
 import {
   ActiveFilterBar,
   Button,
@@ -101,12 +102,14 @@ export function InboxScreen({ view, renderDetail }: InboxScreenProps): React.Rea
         action={
           inboxPermissionBlocked ? (
             canCreate ? (
-              <Button asChild variant="secondary" size="sm" spacing="compact">
-                <HostLink to={CREATE_HREF}>
-                  <Plus className="h-4 w-4" aria-hidden="true" />
-                  {createLabel('VOC')}
-                </HostLink>
-              </Button>
+              <HostPrimaryAction>
+                <Button asChild variant="secondary" size="sm" spacing="compact">
+                  <HostLink to={CREATE_HREF}>
+                    <Plus className="h-4 w-4" aria-hidden="true" />
+                    {createLabel('VOC')}
+                  </HostLink>
+                </Button>
+              </HostPrimaryAction>
             ) : undefined
           ) : (
             // #886 UX-7: on a narrow toolbar the actions get their own row; the controls wrap within it rather than overflow.
@@ -146,12 +149,14 @@ export function InboxScreen({ view, renderDetail }: InboxScreenProps): React.Rea
               />
               {/* Prototype: primary Button (not a text link). #679 Korean-first label. */}
               {canCreate && (
-                <Button asChild variant="primary" size="sm" spacing="compact">
-                  <HostLink to={CREATE_HREF}>
-                    <Plus className="h-4 w-4" aria-hidden="true" />
-                    {createLabel('VOC')}
-                  </HostLink>
-                </Button>
+                <HostPrimaryAction>
+                  <Button asChild variant="primary" size="sm" spacing="compact">
+                    <HostLink to={CREATE_HREF}>
+                      <Plus className="h-4 w-4" aria-hidden="true" />
+                      {createLabel('VOC')}
+                    </HostLink>
+                  </Button>
+                </HostPrimaryAction>
               )}
             </div>
           )
