@@ -62,7 +62,7 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends postgresql-client \
   && rm -rf /var/lib/apt/lists/*
 COPY ops/platform-api/paths.sh /workspace/ops/platform-api/paths.sh
-COPY ops/platform-api/scripts/db/cutover-0076-platform-identity.sh ops/platform-api/scripts/db/pg-target.mjs ops/platform-api/scripts/db/init.sql /workspace/ops/platform-api/scripts/db/
+COPY ops/platform-api/scripts/db/cutover-0076-platform-identity.sh ops/platform-api/scripts/db/set-role-passwords.sh ops/platform-api/scripts/db/pg-target.mjs ops/platform-api/scripts/db/init.sql /workspace/ops/platform-api/scripts/db/
 COPY --chmod=755 apps/platform-api/docker-migrate-entrypoint.sh /usr/local/bin/migrate-entrypoint
 USER node
 ENTRYPOINT ["/usr/local/bin/migrate-entrypoint"]

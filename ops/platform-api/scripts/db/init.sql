@@ -1,4 +1,6 @@
 -- Postgres bootstrap for local dev / CI (fresh installs only).
+-- The login-role passwords below are dev/CI literals. Production overrides them with scripts/db/set-role-passwords.sh
+-- (docker-compose.production.yml service set-role-passwords) before any login-role use.
 --
 -- IDENTITY NOTE (#1100 a, ADR-0097). The final identity is database `platform` and nine
 -- platform_* roles. Migrations 0000..0075 are immutable history and still name the fops_* roles,

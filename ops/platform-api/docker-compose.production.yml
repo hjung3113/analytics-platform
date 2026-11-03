@@ -3,12 +3,14 @@ name: platform-api
 # docker-compose.release.yml is the LOCAL SMOKE stack (mock IdP, development mode); never deploy it. Run
 # scripts/release/production-preflight.sh <env-file> first: it rejects placeholder/demo secrets and non-https OIDC.
 # Order on a new volume (details: docs/architecture/platform-api/release/oidc-and-images.md "Production stack"):
+#   docker compose --env-file .env.production -f docker-compose.production.yml run --rm set-role-passwords
 #   docker compose --env-file .env.production -f docker-compose.production.yml run --rm cutover
 #   docker compose --env-file .env.production -f docker-compose.production.yml up -d
 #   docker compose --env-file .env.production -f docker-compose.production.yml run --rm bootstrap
 #   docker compose --env-file .env.production -f docker-compose.production.yml run --rm set-actor-role --external-id <sub> --role admin
 # The backend never receives DATABASE_URL_MIGRATE or the postgres superuser password; only the job services do.
-# Role passwords stay literal here (node b1c replaces them). The edge proxy and web image come in node b1d: until
+# Role passwords come from PLATFORM_APP_DB_PASSWORD / PLATFORM_MIGRATE_DB_PASSWORD; set-role-passwords applies them (also
+# for rotation). The edge proxy and web image come in node b1d: until
 # then the backend is published on loopback only (BACKEND_BIND).
 
 # Ownership marker, as in the smoke stack: operators leave RELEASE_OWNER unset (`operator`).
@@ -53,8 +55,8 @@ services:
     restart: "no"
     command: ["node_modules/.bin/drizzle-kit", "migrate"]
     environment:
-      DATABASE_URL: postgresql://platform_app:platform_app@postgres:5432/platform
-      DATABASE_URL_MIGRATE: postgresql://platform_migrate:platform_migrate@postgres:5432/platform
+      DATABASE_URL: postgresql://platform_app:${PLATFORM_APP_DB_PASSWORD:?set PLATFORM_APP_DB_PASSWORD in .env.production}@postgres:5432/platform
+      DATABASE_URL_MIGRATE: postgresql://platform_migrate:${PLATFORM_MIGRATE_DB_PASSWORD:?set PLATFORM_MIGRATE_DB_PASSWORD in .env.production}@postgres:5432/platform
       WORKSPACE_ID: ${WORKSPACE_ID:?set WORKSPACE_ID in .env.production}
     depends_on:
       postgres:
@@ -76,11 +78,36 @@ services:
     environment:
       CUTOVER_ADMIN_URL: postgresql://postgres@postgres:5432/postgres
       PGPASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.production}
-      DATABASE_URL_MIGRATE: postgresql://platform_migrate:platform_migrate@postgres:5432/platform
+      DATABASE_URL_MIGRATE: postgresql://platform_migrate:${PLATFORM_MIGRATE_DB_PASSWORD:?set PLATFORM_MIGRATE_DB_PASSWORD in .env.production}@postgres:5432/platform
+      # A fresh volume still holds the fops_* replay logins until the cutover renames them.
+      CUTOVER_OLD_MIGRATE_URL: postgresql://fops_migrate:${PLATFORM_MIGRATE_DB_PASSWORD:?set PLATFORM_MIGRATE_DB_PASSWORD in .env.production}@postgres:5432/platform
     depends_on:
       postgres:
         condition: service_healthy
     mem_limit: 768m
+
+  # Job-only (profile roles): sets the app and migrate login passwords from the env file (first provisioning and
+  # every rotation; idempotent). Run it BEFORE the cutover on a new volume. Holds the superuser credential like cutover.
+  set-role-passwords:
+    labels: *ownership
+    logging: *logging
+    profiles: ["roles"]
+    image: platform-release-migrate:local
+    build:
+      context: ../..
+      dockerfile: apps/platform-api/Dockerfile
+      target: migrate
+    restart: "no"
+    entrypoint: ["bash", "/workspace/ops/platform-api/scripts/db/set-role-passwords.sh"]
+    environment:
+      ROLE_PASSWORDS_ADMIN_URL: postgresql://postgres@postgres:5432/postgres
+      PGPASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.production}
+      PLATFORM_APP_DB_PASSWORD: ${PLATFORM_APP_DB_PASSWORD:?set PLATFORM_APP_DB_PASSWORD in .env.production}
+      PLATFORM_MIGRATE_DB_PASSWORD: ${PLATFORM_MIGRATE_DB_PASSWORD:?set PLATFORM_MIGRATE_DB_PASSWORD in .env.production}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    mem_limit: 256m
 
   # Job-only (profile bootstrap): creates the Workspace and the `system` Actor, nothing else. Idempotent.
   bootstrap:
@@ -96,8 +123,8 @@ services:
     command: ["node_modules/.bin/tsx", "src/seed/index.ts"]
     environment:
       SEED_MODE: bootstrap
-      DATABASE_URL: postgresql://platform_app:platform_app@postgres:5432/platform
-      DATABASE_URL_MIGRATE: postgresql://platform_migrate:platform_migrate@postgres:5432/platform
+      DATABASE_URL: postgresql://platform_app:${PLATFORM_APP_DB_PASSWORD:?set PLATFORM_APP_DB_PASSWORD in .env.production}@postgres:5432/platform
+      DATABASE_URL_MIGRATE: postgresql://platform_migrate:${PLATFORM_MIGRATE_DB_PASSWORD:?set PLATFORM_MIGRATE_DB_PASSWORD in .env.production}@postgres:5432/platform
       WORKSPACE_ID: ${WORKSPACE_ID:?set WORKSPACE_ID in .env.production}
       WORKSPACE_NAME: ${WORKSPACE_NAME:-Platform}
     depends_on:
@@ -120,7 +147,7 @@ services:
     restart: "no"
     entrypoint: ["/usr/local/bin/migrate-entrypoint", "node_modules/.bin/tsx", "src/cli/set-actor-role.ts"]
     environment:
-      DATABASE_URL_MIGRATE: postgresql://platform_migrate:platform_migrate@postgres:5432/platform
+      DATABASE_URL_MIGRATE: postgresql://platform_migrate:${PLATFORM_MIGRATE_DB_PASSWORD:?set PLATFORM_MIGRATE_DB_PASSWORD in .env.production}@postgres:5432/platform
       WORKSPACE_ID: ${WORKSPACE_ID:?set WORKSPACE_ID in .env.production}
     depends_on:
       postgres:
@@ -183,7 +210,7 @@ services:
       HOST: 0.0.0.0
       PORT: 3001
       AUTH_PROVIDER: oidc
-      DATABASE_URL: postgresql://platform_app:platform_app@postgres:5432/platform
+      DATABASE_URL: postgresql://platform_app:${PLATFORM_APP_DB_PASSWORD:?set PLATFORM_APP_DB_PASSWORD in .env.production}@postgres:5432/platform
       WORKSPACE_ID: ${WORKSPACE_ID:?set WORKSPACE_ID in .env.production}
       OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:?set the https OIDC issuer in .env.production}
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:?set OIDC_CLIENT_ID in .env.production}

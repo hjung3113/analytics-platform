@@ -23,6 +23,8 @@ const GOOD = {
   OIDC_CLIENT_SECRET: 'oidc-Zx9-real-value',
   MINIO_ROOT_PASSWORD: 'minio-Zx9-real-value',
   MINIO_ROOT_USER: 'platform-minio',
+  PLATFORM_APP_DB_PASSWORD: 'a1b2c3d4e5f60718293a4b5c6d7e8f90',
+  PLATFORM_MIGRATE_DB_PASSWORD: 'f09e8d7c6b5a49382716f5e4d3c2b1a0',
   OIDC_CLIENT_ID: 'platform',
   OIDC_ISSUER_URL: 'https://idp.corp.example/realms/platform',
   OIDC_REDIRECT_URI: 'https://platform.corp.example/auth/callback',
@@ -98,6 +100,20 @@ for (const [name, overrides, needle] of [
     'demo minio password',
     { MINIO_ROOT_PASSWORD: demoValue('MINIO_ROOT_PASSWORD') },
     'MINIO_ROOT_PASSWORD',
+  ],
+  ['empty app db password', { PLATFORM_APP_DB_PASSWORD: '' }, 'PLATFORM_APP_DB_PASSWORD'],
+  ['missing migrate db password', { PLATFORM_MIGRATE_DB_PASSWORD: undefined }, 'PLATFORM_MIGRATE_DB_PASSWORD'],
+  ['CHANGE_ME app db password', { PLATFORM_APP_DB_PASSWORD: 'CHANGE_ME' }, 'PLATFORM_APP_DB_PASSWORD'],
+  ['short db password', { PLATFORM_APP_DB_PASSWORD: 'short-1234' }, 'PLATFORM_APP_DB_PASSWORD'],
+  [
+    'db password with a URL-reserved character',
+    { PLATFORM_MIGRATE_DB_PASSWORD: 'abcdefghij@lmnopqrstuvwxyz' },
+    'PLATFORM_MIGRATE_DB_PASSWORD',
+  ],
+  [
+    'equal db passwords',
+    { PLATFORM_MIGRATE_DB_PASSWORD: 'a1b2c3d4e5f60718293a4b5c6d7e8f90' },
+    'must differ',
   ],
   ['zero proxy hops', { TRUSTED_PROXY_HOPS: '0' }, 'TRUSTED_PROXY_HOPS'],
   ['non-numeric proxy hops', { TRUSTED_PROXY_HOPS: 'one' }, 'TRUSTED_PROXY_HOPS'],
@@ -270,6 +286,20 @@ test('production compose: no mock IdP, no fixture seed, production mode, real OI
   assert.match(production, /TRUSTED_PROXY_HOPS: \$\{TRUSTED_PROXY_HOPS:\?/);
   assert.match(production, /"\$\{BACKEND_BIND:-127\.0\.0\.1\}:\$\{BACKEND_PORT:-3001\}:3001"/);
   assert.match(production, /stop_grace_period: 45s/);
+});
+
+test('production compose: no literal role passwords; backend gets only the app password', () => {
+  assert.doesNotMatch(production, /platform_(app|migrate):platform_(app|migrate)@/);
+  assert.doesNotMatch(production, /fops_migrate:platform_migrate@/);
+  const backend = production.match(/^ {2}backend:\n([\s\S]*?)(?=^\S)/m)[1];
+  assert.match(backend, /PLATFORM_APP_DB_PASSWORD:\?/);
+  assert.doesNotMatch(backend, /PLATFORM_MIGRATE_DB_PASSWORD/);
+  const job = production.match(/^ {2}set-role-passwords:\n([\s\S]*?)(?=^ {2}\S|^\S)/m)[1];
+  assert.match(job, /entrypoint: \["bash", "\/workspace\/ops\/platform-api\/scripts\/db\/set-role-passwords\.sh"\]/);
+  assert.match(job, /profiles: \["roles"\]/);
+  assert.doesNotMatch(job, /DATABASE_URL/);
+  const cutover = production.match(/^ {2}cutover:\n([\s\S]*?)(?=^ {2}\S|^\S)/m)[1];
+  assert.match(cutover, /CUTOVER_OLD_MIGRATE_URL: postgresql:\/\/fops_migrate:\$\{PLATFORM_MIGRATE_DB_PASSWORD:\?/);
 });
 
 test('production compose: only job services receive the migrate credential', () => {

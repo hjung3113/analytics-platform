@@ -94,9 +94,20 @@ secret_ok() { # name
   done < <(demo_values)
 }
 
-for name in POSTGRES_PASSWORD OIDC_CLIENT_SECRET MINIO_ROOT_PASSWORD MINIO_ROOT_USER OIDC_CLIENT_ID; do
+for name in POSTGRES_PASSWORD OIDC_CLIENT_SECRET MINIO_ROOT_PASSWORD MINIO_ROOT_USER OIDC_CLIENT_ID PLATFORM_APP_DB_PASSWORD PLATFORM_MIGRATE_DB_PASSWORD; do
   secret_ok "$name"
 done
+
+# DB login-role passwords sit unencoded in postgresql://user:pass@host URLs: restricted charset, and two different values.
+for name in PLATFORM_APP_DB_PASSWORD PLATFORM_MIGRATE_DB_PASSWORD; do
+  v="$(val_of "$name")"
+  if [ -n "$v" ] && [ "$v" != "CHANGE_ME" ] && ! [[ "$v" =~ ^[A-Za-z0-9_-]{24,}$ ]]; then
+    fail "$name must match ^[A-Za-z0-9_-]{24,}\$ (openssl rand -hex 24)"
+  fi
+done
+if [ -n "$(val_of PLATFORM_APP_DB_PASSWORD)" ] && [ "$(val_of PLATFORM_APP_DB_PASSWORD)" != "CHANGE_ME" ] && [ "$(val_of PLATFORM_APP_DB_PASSWORD)" = "$(val_of PLATFORM_MIGRATE_DB_PASSWORD)" ]; then
+  fail "PLATFORM_APP_DB_PASSWORD and PLATFORM_MIGRATE_DB_PASSWORD must differ"
+fi
 
 # Absolute https URL with a host, no userinfo, query or fragment. Prints the path (possibly empty) on success.
 https_path() {
