@@ -73,7 +73,7 @@ On a rebase, keep both sides of a conflicting table or list row.
 10. **Tier:** follow the `tier=` in the assignment comment, and confirm it with `tier.sh` before ship ([PROFILE §Size and path](PROFILE.md)).
 11. **New issue:** first run `gh issue list --state all --limit 20 --search "<keywords>"`. If the cause is the same, comment on the existing issue instead.
 
-## Lead
+## Lead (팀장)
 
 - **Assignment:** label the issue and comment `배정: lane-<lane>, 분류 <Kernel|SDK 조각|SDK 운영|메뉴 몫|없음>, tier=<full|light>, 순서 …`. Set the tier from the planned paths and the Complexity list ([PROFILE §Size and path](PROFILE.md)).
 - **Lead → lane:** use terminal input.
@@ -109,7 +109,7 @@ On a rebase, keep both sides of a conflicting table or list row.
   3. Run a one-off doc audit with the `review-doc` role and [addenda/doc-audit.md](addenda/doc-audit.md). Fold its findings into the release-docs PR.
   4. Run a full cold CI on the SHA to tag: `gh workflow run ci.yml --ref main -f full=true`. PR and main-push CI run only what changed (turbo cache; E2E specs picked by `.github/scripts/select-e2e.mjs`), so this run is the only whole, cold gate. Take the run id from `gh run list --workflow ci.yml --event workflow_dispatch --limit 1 --json databaseId` and require `headSha` = tag SHA and `success`. Rerun it if the SHA moves.
   5. Tag `sdk-v*` with the tarballs and a GitHub Release; at tag time also run `pnpm sdk:schemas --version X.Y.Z --out <empty-or-absent-schemas-dir>` and `gh release upload sdk-vX.Y.Z <schemas-dir>/contract-schemas-X.Y.Z.tgz <schemas-dir>/SHA256SUMS-schemas`. Ask the owner before tagging an app `v0.x`. For an app release, the site lane updates `site/`.
-- **Lead rotation:** before the skill's session limit, at a quiet point, update `LEAD.md`. A new lead resumes in this order:
+- **Lead rotation (팀장 이어받기):** before the skill's session limit, at a quiet point, update `LEAD.md`. A new lead resumes in this order, before any HANDOFF checklist, and reads `PROFILE.md` in full before the first launch:
   1. `bash .agents/conductor/scripts/lead-check.sh` — machine, locks, wave state and board; act on every finding it prints
   2. this file
   3. `LEAD.md` (free-form notes only; the board is `board.json`)

@@ -33,6 +33,8 @@
 | 에이전트 운영 메모(작업자 샌드박스, worktree, 캡처 함정) | [`docs/agents/operations.md`](docs/agents/operations.md) |
 | 여러 세션의 흐름 분담·요청 분류(Kernel·SDK 조각·메뉴 몫)·팀장·릴리스 | [`.agents/conductor/LANES.md`](.agents/conductor/LANES.md) |
 
+**팀장(lead)을 맡거나 이어받으면** HANDOFF의 체크리스트보다 먼저 [`LANES.md`](.agents/conductor/LANES.md) §Lead «Lead rotation» 순서대로 재개하고 [`PROFILE.md`](.agents/conductor/PROFILE.md)를 끝까지 읽는다. 이유: HANDOFF는 작업 상태만 담고, 재개 점검·보드·병렬화 규칙은 이 두 문서에만 있다.
+
 작업하는 폴더에 `AGENTS.md`가 있으면 함께 따른다(아래 표). 폴더 지침이 루트와 충돌하면 루트를 따른다.
 
 ## 코드
