@@ -66,6 +66,14 @@ describe.skipIf(!runIntegration)('catalog import resolve and apply (#1195 b)', (
     beforeCommit: (rowNo) => hooks.beforeCommit?.(rowNo) ?? Promise.resolve(),
   };
 
+  async function waitFor(check: () => Promise<boolean>, timeoutMs = 15_000) {
+    const deadline = Date.now() + timeoutMs;
+    while (!(await check())) {
+      if (Date.now() > deadline) throw new Error('timed out waiting for the expected database state');
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+  }
+
   async function person(roleLevel: 'admin' | 'developer' | 'user'): Promise<Person> {
     const externalId = `${TAG}-${roleLevel}-${n++}`;
     const { id } = await insertActorRow(dbHandle, { workspaceId: WORKSPACE_ID, externalId, roleLevel });
@@ -733,7 +741,16 @@ describe.skipIf(!runIntegration)('catalog import resolve and apply (#1195 b)', (
         const a = apply(jobA, ownerA);
         await reached;
         const b = apply(jobB, ownerB); // blocks on the unique index until A commits
-        await new Promise((resolve) => setTimeout(resolve, 300));
+        // Release A only once B's identity insert is observed waiting on a lock (A's uncommitted row), so the
+        // schedule is the real overlap and never collapses into "A already committed".
+        await waitFor(async () => {
+          // The app's role hides query text from this connection, so observe the wait itself: a backend waiting
+          // on another transaction's lock (the unique-index entry A inserted but has not committed).
+          const blocked = await sql(
+            `select 1 from pg_locks where not granted and locktype in ('transactionid', 'speculative token')`,
+          );
+          return blocked.rows.length > 0;
+        });
         release();
         [winner, loser] = await Promise.all([a, b]);
       } finally {
