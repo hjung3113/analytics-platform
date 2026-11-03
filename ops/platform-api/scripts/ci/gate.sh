@@ -55,6 +55,7 @@ stage_static_extra() {
   step node "$FEATURE_OPS/scripts/test-integration.test.mjs"
   step node "$FEATURE_OPS/scripts/release/release-identity.test.mjs"
   step node "$FEATURE_OPS/scripts/release/production-preflight.test.mjs"
+  step node "$FEATURE_OPS/edge/nginx.test.mjs"
   step node "$FEATURE_OPS/scripts/db/cutover-0076.test.mjs"
   step node "$FEATURE_OPS/scripts/db/set-role-passwords.test.mjs"
   step node apps/platform-e2e/tests-real/database-safety.test.ts

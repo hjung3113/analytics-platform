@@ -10,8 +10,8 @@ name: platform-api
 #   docker compose --env-file .env.production -f docker-compose.production.yml run --rm set-actor-role --external-id <sub> --role admin
 # The backend never receives DATABASE_URL_MIGRATE or the postgres superuser password; only the job services do.
 # Role passwords come from PLATFORM_APP_DB_PASSWORD / PLATFORM_MIGRATE_DB_PASSWORD; set-role-passwords applies them (also
-# for rotation). The edge proxy and web image come in node b1d: until
-# then the backend is published on loopback only (BACKEND_BIND).
+# for rotation). Only the `edge` service is published (EDGE_BIND:EDGE_PORT); build its image first with
+# scripts/release/build-web-image.sh (platform-release-web:local, never pulled or built here).
 
 # Ownership marker, as in the smoke stack: operators leave RELEASE_OWNER unset (`operator`).
 x-ownership: &ownership
@@ -203,8 +203,6 @@ services:
     restart: unless-stopped
     # server.ts bounds shutdown at 40 s (#1269); leave headroom before SIGKILL.
     stop_grace_period: 45s
-    ports:
-      - "${BACKEND_BIND:-127.0.0.1}:${BACKEND_PORT:-3001}:3001"
     environment:
       NODE_ENV: production
       HOST: 0.0.0.0
@@ -247,6 +245,31 @@ services:
       retries: 10
       start_period: 15s
     mem_limit: 1g
+
+  # Same-origin edge: nginx serving the prebuilt real web bundle, /api and /auth proxied to the backend (#1266 b1d).
+  # The image comes only from scripts/release/build-web-image.sh (it needs the prebuilt dist), so there is no build: key
+  # and compose fails with "image not found" when the script was not run. TLS terminates at the company ingress in front.
+  edge:
+    labels: *ownership
+    logging: *logging
+    image: platform-release-web:local
+    pull_policy: never
+    restart: unless-stopped
+    environment:
+      # Same value the backend's CSP uses; rendered into the edge's document CSP at container start.
+      PUBLIC_ATTACHMENT_ORIGIN: ${PUBLIC_ATTACHMENT_ORIGIN:-'self'}
+    ports:
+      - "${EDGE_BIND:?set EDGE_BIND to the interface only the company ingress reaches in .env.production}:${EDGE_PORT:-8080}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:80/"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 5s
+    mem_limit: 256m
 
 volumes:
   # Same pinned names as docker-compose.release.yml: an existing install keeps its data (see "Existing installs: data

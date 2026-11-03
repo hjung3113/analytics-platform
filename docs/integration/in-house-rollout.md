@@ -49,7 +49,7 @@
 
 ### 3.2 인프라 담당 — [#151](https://github.com/hjung3113/analytics-platform/issues/151)
 
-- [ ] 정적 산출물(`apps/platform-web/dist`) + `/api` 리버스 프록시 → FastAPI 구조 가능 여부, 컨테이너인지 VM인지
+- [ ] 정적 산출물(`apps/platform-web/dist`) + `/api`·`/auth` 리버스 프록시 → Fastify `platform-api`(같은 출처) 구조 가능 여부, 컨테이너인지 VM인지
 - [ ] 같은 출처 배포 가능 여부(쿠키 세션·CSRF 설계가 달라짐)
 - [ ] 망분리 빌드: npm·PyPI 사내 미러, Node 26.7.0·pnpm 11.1.1 설치(폰트는 이미 자체 호스팅)
 - [ ] CI: GitHub Actions 사용 가능 여부 / 사내 CI로 이행 여부, 저장소를 사내 Git으로 옮기는지(이슈·PR 흐름이 GitHub 전제)
