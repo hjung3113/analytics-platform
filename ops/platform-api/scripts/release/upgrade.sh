@@ -80,8 +80,78 @@ else
 fi
 
 tmp="$(mktemp -d)"
+
+# Interruption (INT/TERM/HUP) and every other exit: the lock is released only when nothing of this run can still be
+# working. The nested backup (a background child that is waited for) and the migrate job (a background docker client
+# plus its container) are told to stop and checked; if one cannot be confirmed stopped the lock stays, with the way to
+# check and clear it. SIGKILL cannot be handled: it leaves the lock for the documented stale-lock procedure.
+CHILD_PID=''
+CHILD_KIND=''
+MIGRATE_MAY_RUN=0
+SETTLE_SECONDS="${BK_SETTLE_SECONDS:-60}"
+run_child() { # run_child <backup|migrate> <command...>; the command's stdout is this function's stdout
+  CHILD_KIND="$1"; shift
+  "$@" &
+  CHILD_PID=$!
+  local rc=0
+  wait "$CHILD_PID" || rc=$?
+  CHILD_PID=''
+  return "$rc"
+}
+migrate_containers() { # ids of running migrate containers of this project (one-off runs included); fails when docker cannot answer
+  docker ps -q --filter "label=com.docker.compose.project=$PROJECT" --filter 'label=com.docker.compose.service=migrate'
+}
+settle_children() { # 0 = nothing started by this run can still be working
+  local waited=0 ids
+  if [ -n "$CHILD_PID" ] && kill -0 "$CHILD_PID" 2>/dev/null; then
+    bk_log "interrupted: stopping the active $CHILD_KIND (waiting up to ${SETTLE_SECONDS}s)"
+    while kill -0 "$CHILD_PID" 2>/dev/null; do
+      # Repeated: a child that is busy in a foreground command acts on the signal only after that command.
+      [ "$CHILD_KIND" != migrate ] || pkill -TERM -P "$CHILD_PID" 2>/dev/null || true
+      kill -TERM "$CHILD_PID" 2>/dev/null || true
+      [ "$waited" -lt "$SETTLE_SECONDS" ] || { bk_log "the $CHILD_KIND (pid $CHILD_PID) is still running"; return 1; }
+      sleep 1
+      waited=$((waited + 1))
+    done
+    wait "$CHILD_PID" 2>/dev/null || true
+  fi
+  CHILD_PID=''
+  if [ "$MIGRATE_MAY_RUN" -eq 1 ]; then
+    ids="$(migrate_containers 2>/dev/null)" || { bk_log 'could not ask docker whether the migrate job is still running'; return 1; }
+    if [ -n "$ids" ]; then
+      bk_log 'stopping the migrate container'
+      # shellcheck disable=SC2086
+      docker stop $ids >/dev/null 2>&1 || true
+      ids="$(migrate_containers 2>/dev/null)" || ids='unknown'
+      [ -z "$ids" ] || { bk_log 'the migrate container is still running'; return 1; }
+    fi
+  fi
+  return 0
+}
+on_exit() {
+  local rc=$?
+  trap '' INT TERM HUP
+  trap - EXIT
+  if settle_children; then
+    rm -rf -- "${tmp:?}"
+    if [ "$BK_LOCK_HELD" -eq 1 ]; then
+      bk_lock_release
+      [ "$rc" -eq 0 ] || bk_log "UPGRADE STOPPED (exit $rc). The backend was not started again by this script."
+    fi
+  else
+    rm -rf -- "${tmp:?}"
+    bk_log "UPGRADE STOPPED (exit $rc) but maintenance work of this run may still be running. The maintenance lock is KEPT: $(bk_lock_path)"
+    bk_log "Check: ps -p ${CHILD_PID:-<pid above>}; docker ps --filter label=com.docker.compose.project=$PROJECT --filter label=com.docker.compose.service=migrate"
+    bk_log "Only when nothing is running any more, clear the lock: rm -rf '$(bk_lock_path)'"
+    [ "$rc" -ne 0 ] || rc=1
+  fi
+  exit "$rc"
+}
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
+trap on_exit EXIT
 bk_lock_acquire upgrade
-trap 'rc=$?; trap - EXIT; rm -rf -- "${tmp:?}"; bk_lock_release; [ "$rc" -eq 0 ] || bk_log "UPGRADE STOPPED (exit $rc). The backend was not started again by this script."; exit "$rc"' EXIT
 
 # 1. Compare journals without changing anything.
 bk_log "project $PROJECT: data services up"
@@ -117,9 +187,10 @@ fi
 # 3. Quiesce, back up, verify. A failure here leaves the backend stopped.
 bk_log 'stopping backend (writers and jobs)'
 bk_dc stop backend >/dev/null
-BACKUP_DIR="$(BACKUP_PROJECT="$PROJECT" BACKUP_ENV_FILE="$ENV_FILE" BACKUP_COMPOSE_FILE="$COMPOSE_FILE" \
+run_child backup env BK_LOCK_TOKEN="$BK_LOCK_OWN_TOKEN" BACKUP_PROJECT="$PROJECT" BACKUP_ENV_FILE="$ENV_FILE" BACKUP_COMPOSE_FILE="$COMPOSE_FILE" \
   BACKUP_MIGRATE_IMAGE="${BACKUP_MIGRATE_IMAGE:-${PRE_MIGRATE:-$MIGRATE_REPO:local}}" \
-  bash "$BACKUP_SCRIPTS/backup.sh" --keep-stopped)" || bk_die 'backup failed; nothing was migrated and the backend stays stopped'
+  bash "$BACKUP_SCRIPTS/backup.sh" --keep-stopped >"$tmp/backup.out" || bk_die 'backup failed; nothing was migrated and the backend stays stopped'
+BACKUP_DIR="$(tail -n 1 "$tmp/backup.out")"
 [ -d "$BACKUP_DIR" ] || bk_die 'backup.sh did not report a backup directory'
 bash "$BACKUP_SCRIPTS/verify-backup.sh" "$BACKUP_DIR" || bk_die "verification of $BACKUP_DIR failed; nothing was migrated and the backend stays stopped"
 RESTORE_CMD="BACKUP_ROOT=\"$BACKUP_ROOT\" bash $BACKUP_SCRIPTS/restore.sh \"$BACKUP_DIR\" --project <new-project>"
@@ -131,7 +202,8 @@ if [ "$TARGET" != local ]; then
   docker tag "$NEW_WEB" "$WEB_REPO:local"
 fi
 bk_log 'running the migrate job'
-if ! bk_dc run --rm --no-deps migrate >&2; then
+MIGRATE_MAY_RUN=1
+if ! run_child migrate bk_dc run --rm --no-deps migrate >&2; then
   bk_log 'MIGRATION FAILED. The backend stays stopped.'
   bk_log "1. Inspect what was applied: docker compose -p $PROJECT --env-file <env> -f <compose> exec -T postgres psql -U postgres -d platform -c 'select id, hash, created_at from drizzle.__drizzle_migrations order by id desc limit 5'"
   bk_log "2. Forward-fix (new image, rerun this script) or restore the matching data and image pair:"
@@ -139,6 +211,7 @@ if ! bk_dc run --rm --no-deps migrate >&2; then
   [ -z "$PRE_BACKEND" ] || bk_log "   image rollback: docker tag $PRE_BACKEND $BACKEND_REPO:local${PRE_MIGRATE:+; docker tag $PRE_MIGRATE $MIGRATE_REPO:local}${PRE_WEB:+; docker tag $PRE_WEB $WEB_REPO:local}"
   exit 1
 fi
+MIGRATE_MAY_RUN=0
 
 # 5. Start and check readiness.
 bk_log 'starting the stack'

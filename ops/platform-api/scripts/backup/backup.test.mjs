@@ -15,6 +15,7 @@ import {
   readFileSync,
   readdirSync,
   rmSync,
+  statSync,
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
@@ -31,6 +32,18 @@ const VERIFY = join(HERE, 'verify-backup.sh');
 const LIB = join(HERE, 'lib.sh');
 const UPGRADE = join(OPS, 'scripts', 'release', 'upgrade.sh');
 const COMPOSE = join(OPS, 'docker-compose.production.yml');
+
+// What is in the repository's ops directory before the suite runs (names, sizes, mtimes; node_modules left out).
+function repoSnapshot() {
+  return readdirSync(OPS, { recursive: true })
+    .filter((f) => !f.split('/').includes('node_modules'))
+    .sort()
+    .map((f) => {
+      const st = statSync(join(OPS, f));
+      return `${f}:${st.isDirectory() ? 'dir' : `${st.size}:${st.mtimeMs}`}`;
+    });
+}
+const REPO_BEFORE = repoSnapshot();
 
 const SECRET = 'secretpass0123456789';
 const ROLE_SECRET = 'SCRAM-SHA-256:4096:roleSecretSalt:roleSecretHash';
@@ -387,7 +400,7 @@ case "$*" in
 "inspect --format {{.Image}} cid-"*) echo "sha256:c\${4#cid-}"; exit 0 ;;
 "inspect --format"*) echo sha256:oldimage; exit 0 ;;
 *"ps --status running --services"*) [ -n "\${STUB_PS_RC:-}" ] && exit "\$STUB_PS_RC"; echo backend; exit 0 ;;
-*" start backend"*) exit "\${STUB_START_RC:-0}" ;;
+*" start backend"*) if [ -n "\${STUB_LOCK_OWNER:-}" ]; then if [ -f "\$STUB_LOCK_OWNER" ]; then echo held; else echo free; fi >>"\${STUB_LOCK_LOG:?}"; fi; exit "\${STUB_START_RC:-0}" ;;
 *"ps -a -q"*) case " \${STUB_NO_CID:-} " in *" \${@: -1} "*) exit 0 ;; esac; echo "cid-\${@: -1}"; exit 0 ;;
 *" stop backend"*) if [ -n "\${STUB_BLOCK_DIR:-}" ]; then : >"\$STUB_BLOCK_DIR/reached"; while [ ! -e "\$STUB_BLOCK_DIR/release" ]; do sleep 0.05; done; fi; exit 0 ;;
 *"exec -T minio printenv MINIO_ROOT_USER"*) echo minioadmin; exit 0 ;;
@@ -400,11 +413,16 @@ case "$*" in
   case "$*" in *--globals-only*--no-role-passwords*) echo GLOBALS ;; *) echo "ALTER ROLE platform_app PASSWORD '${ROLE_SECRET}'" ;; esac
   exit 0 ;;
 *"exec -T postgres pg_dump "*)
+  if [ -n "\${STUB_BLOCK_DUMP_DIR:-}" ]; then : >"\$STUB_BLOCK_DUMP_DIR/reached"; while [ ! -e "\$STUB_BLOCK_DUMP_DIR/release" ]; do sleep 0.05; done; fi
   case "$*" in *--exclude-table-data=core.sessions*) echo DUMP ;; *) echo "COPY core.sessions FROM stdin; ${SESSION_SECRET}" ;; esac
   exit 0 ;;
 *"--entrypoint cat"*) if [ -n "\${STUB_TWO_TAGS:-}" ]; then echo '{"entries":[{"tag":"0000_a"},{"tag":"0001_b"}]}'; else echo '{"entries":[{"tag":"0000_a"},{"tag":"0001_b"},{"tag":"0002_c"}]}'; fi; exit 0 ;;
 *"--entrypoint sh"*) printf 'h1  0000_a.sql\\nh2  0001_b.sql\\nh3  0002_c.sql\\n'; exit 0 ;;
-*"run --rm --no-deps migrate"*) exit "\${STUB_MIGRATE_RC:-0}" ;;
+*"ps -q --filter label=com.docker.compose.project="*"service=migrate"*) [ -e "\${STUB_MIGRATE_RUNNING:-@@none@@}" ] && echo cid-migrate-run; exit 0 ;;
+"stop cid-migrate-run"*) [ -n "\${STUB_MIGRATE_STUCK:-}" ] || rm -f "\${STUB_MIGRATE_RUNNING:-@@none@@}"; exit 0 ;;
+*"run --rm --no-deps migrate"*)
+  if [ -n "\${STUB_BLOCK_MIGRATE_DIR:-}" ]; then : >"\${STUB_MIGRATE_RUNNING:?}"; : >"\$STUB_BLOCK_MIGRATE_DIR/reached"; while [ ! -e "\$STUB_BLOCK_MIGRATE_DIR/release" ]; do sleep 0.05; done; fi
+  exit "\${STUB_MIGRATE_RC:-0}" ;;
 esac
 exit 0
 `,
@@ -587,7 +605,8 @@ function writeRestoreStubFile(bin, logFile) {
     join(bin, 'docker'),
     `#!/usr/bin/env bash
 printf '%s\\n' "$*" >>"${logFile}"
-for a in "$@"; do case "$a" in *docker-compose.restore-*.yml) [ -f "$a" ] && cp "$a" "\${STUB_CAPTURE_DIR:?}/pins.yml" ;; esac; done
+for a in "$@"; do case "$a" in *docker-compose.restore-*.yml) [ -f "$a" ] && cp "$a" "\${STUB_CAPTURE_DIR:?}/pins.yml" ;; *no-init.override.yml) [ -f "$a" ] && cp "$a" "\${STUB_CAPTURE_DIR:?}/verify.yml" ;; esac; done
+case "$*" in *" -p "*" stop") if [ -n "\${STUB_LOCK_OWNER:-}" ]; then if [ -f "\$STUB_LOCK_OWNER" ]; then echo "stop held"; else echo "stop free"; fi >>"\${STUB_LOCK_LOG:?}"; fi ;; esac
 case "$*" in
   "volume inspect "*) exit 1 ;;
   "compose version --short") echo 2.29.1; exit 0 ;;
@@ -911,10 +930,19 @@ describe('OPS-05 one maintenance lock per installation (stub docker)', () => {
     assert.deepEqual(readdirSync(maint), []);
   });
 
-  test('the backup restarts the backend only after it still holds the lock', () => {
-    const r = backupRun();
+  test('the backup restarts the backend only while it still holds the lock', () => {
+    const maint = tmp();
+    const probe = join(tmp(), 'lock-at-start.log');
+    const r = backupRun({
+      BACKUP_MAINTENANCE_DIR: maint,
+      STUB_LOCK_OWNER: join(maint, 'platform-api.lock', 'owner'),
+      STUB_LOCK_LOG: probe,
+    });
     assert.equal(r.code, 0, r.err);
     assert.ok(r.calls.some((c) => / start backend$/.test(c)));
+    // The stub looks at the owner file at the very moment `start backend` runs: releasing before the restart fails this.
+    assert.equal(readFileSync(probe, 'utf8').trim(), 'held');
+    assert.deepEqual(readdirSync(maint), [], 'released after the restart');
   });
 });
 
@@ -1114,4 +1142,376 @@ describe('OPS-04 restore: journal check always, images pinned (stub docker)', ()
     assert.match(r.err, /records no web image/);
     assert.ok(pinned(r.pins, 'edge', 'sha256:w'), r.pins);
   });
+});
+
+describe('b10b F1 the lock token is bound to the owning upgrade (stub docker)', () => {
+  function heldLock(owner) {
+    const maint = tmp();
+    const lock = join(maint, 'platform-api.lock');
+    mkdirSync(lock);
+    writeFileSync(
+      join(lock, 'owner'),
+      `pid=${owner.pid}\ntoken=COPIED\noperation=${owner.operation}\nsince=2026-01-01T03:15:00Z\n`,
+    );
+    return maint;
+  }
+  const sleeper = () => spawn('sleep', ['60'], { stdio: 'ignore' });
+
+  test('a token copied into an unrelated process is refused: the owner pid is not its ancestor', () => {
+    const other = sleeper();
+    try {
+      const maint = heldLock({ pid: other.pid, operation: 'upgrade' });
+      const r = backupRun({ BACKUP_MAINTENANCE_DIR: maint, BK_LOCK_TOKEN: 'COPIED' });
+      assert.equal(r.code, 3, r.err);
+      assert.match(r.err, /another maintenance operation holds/);
+      assert.deepEqual(r.calls, [], 'no docker call');
+      assert.ok(existsSync(join(maint, 'platform-api.lock', 'owner')), 'the lock was not touched');
+    } finally {
+      other.kill();
+    }
+  });
+  test('a token is accepted only for an upgrade owner: a standalone backup owner cannot be borrowed', () => {
+    // process.pid IS an ancestor of the script the test starts, so only the operation check can refuse here.
+    const refused = backupRun({
+      BACKUP_MAINTENANCE_DIR: heldLock({ pid: process.pid, operation: 'backup' }),
+      BK_LOCK_TOKEN: 'COPIED',
+    });
+    assert.equal(refused.code, 3, refused.err);
+    assert.deepEqual(refused.calls, []);
+  });
+  test('the right token + an upgrade owner that is an ancestor continues under the lock and leaves it in place', () => {
+    const maint = heldLock({ pid: process.pid, operation: 'upgrade' });
+    const r = backupRun({ BACKUP_MAINTENANCE_DIR: maint, BK_LOCK_TOKEN: 'COPIED' });
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.err, /owned by the calling upgrade/);
+    assert.ok(
+      existsSync(join(maint, 'platform-api.lock', 'owner')),
+      'the nested run never releases',
+    );
+  });
+  test('the owner keeps the token out of the environment; the lock files are private', () => {
+    const maint = tmp();
+    const r = lib(
+      `PROJECT=platform-api OPS_ROOT=/nonexistent; bk_lock_acquire upgrade; env | grep -c '^BK_LOCK_TOKEN=' || true; test -n "$BK_LOCK_OWN_TOKEN"`,
+      { BACKUP_MAINTENANCE_DIR: maint },
+    );
+    assert.equal(r.code, 0, r.err);
+    assert.equal(r.out.trim(), '0', 'BK_LOCK_TOKEN is not exported');
+    const lock = join(maint, 'platform-api.lock');
+    assert.equal(statSync(lock).mode & 0o077, 0, 'lock dir is private');
+    assert.equal(statSync(join(lock, 'owner')).mode & 0o077, 0, 'owner file is private');
+  });
+});
+
+describe('b10b F2 interruption does not release a lock while work may still run (stub docker)', () => {
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  async function waitFor(path, ms = 20000) {
+    const end = Date.now() + ms;
+    while (!existsSync(path)) {
+      if (Date.now() > end) throw new Error(`timed out waiting for ${path}`);
+      await sleep(25);
+    }
+  }
+  function start(script, args, extraEnv = {}) {
+    const bin = tmp();
+    const log = join(tmp(), 'calls.log');
+    writeStub(bin, log);
+    const envFile = join(tmp(), 'env');
+    writeFileSync(envFile, 'POSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n');
+    const maint = tmp();
+    const child = spawn(
+      'bash',
+      [script, ...args, '--env-file', envFile, '--compose-file', COMPOSE],
+      {
+        env: {
+          PATH: `${bin}:${process.env.PATH}`,
+          HOME: process.env.HOME,
+          BACKUP_ROOT: tmp(),
+          BACKUP_MAINTENANCE_DIR: maint,
+          BK_SETTLE_SECONDS: '3',
+          ...extraEnv,
+        },
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    );
+    const state = { stderr: '' };
+    child.stderr.on('data', (d) => {
+      state.stderr += d;
+    });
+    // 'exit', not 'close': a child that must outlive the signal still holds the pipes.
+    const exited = new Promise((resolve) =>
+      child.on('exit', async (code) => {
+        await sleep(150);
+        resolve(code);
+      }),
+    );
+    return { child, exited, maint, log, state, lock: join(maint, 'platform-api.lock') };
+  }
+  const calls = (r) => readCalls(r.log);
+
+  test('upgrade: SIGTERM during the nested backup waits for it, then releases', async () => {
+    const dump = tmp();
+    const r = start(UPGRADE, ['local'], { STUB_BLOCK_DUMP_DIR: dump });
+    await waitFor(join(dump, 'reached'));
+    r.child.kill('SIGTERM');
+    // The nested backup is told to stop but is inside a docker call (the stub): the lock must still be there.
+    await sleep(800);
+    assert.ok(existsSync(join(r.lock, 'owner')), 'lock held while the nested backup still runs');
+    writeFileSync(join(dump, 'release'), '');
+    const code = await r.exited;
+    assert.equal(code, 143, r.state.stderr);
+    assert.match(r.state.stderr, /interrupted: stopping the active backup/);
+    assert.deepEqual(readdirSync(r.maint), [], 'released once the child was gone');
+    assert.equal(
+      calls(r).findIndex((c) => /run --rm --no-deps migrate/.test(c)),
+      -1,
+      'no migration after the interruption',
+    );
+  });
+
+  test('upgrade: a nested backup that does not stop keeps the lock and says how to check and clear it', async () => {
+    const dump = tmp();
+    const r = start(UPGRADE, ['local'], { STUB_BLOCK_DUMP_DIR: dump });
+    await waitFor(join(dump, 'reached'));
+    r.child.kill('SIGINT');
+    const code = await r.exited; // settle window is 3 s; the child stays busy for longer
+    try {
+      assert.notEqual(code, 0);
+      assert.ok(existsSync(join(r.lock, 'owner')), 'lock KEPT: the child may still run');
+      assert.match(r.state.stderr, /lock is KEPT/);
+      assert.match(r.state.stderr, /Check: ps -p \d+/);
+      assert.match(r.state.stderr, /Only when nothing is running any more, clear the lock: rm -rf/);
+      const otherEnv = join(tmp(), 'env');
+      writeFileSync(otherEnv, 'POSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n');
+      const second = run('bash', [BACKUP, '--env-file', otherEnv, '--compose-file', COMPOSE], {
+        BACKUP_ROOT: tmp(),
+        BACKUP_MAINTENANCE_DIR: r.maint,
+      });
+      assert.equal(second.code, 3, 'another operation is still refused');
+    } finally {
+      writeFileSync(join(dump, 'release'), ''); // let the stub finish so no process outlives the test
+    }
+  });
+
+  test('upgrade: SIGHUP during the migrate job stops the job container before the lock is released', async () => {
+    const block = tmp();
+    const running = join(tmp(), 'migrate-running');
+    const r = start(UPGRADE, ['local'], {
+      STUB_BLOCK_MIGRATE_DIR: block,
+      STUB_MIGRATE_RUNNING: running,
+    });
+    await waitFor(join(block, 'reached'));
+    assert.ok(existsSync(running));
+    r.child.kill('SIGHUP');
+    const code = await r.exited;
+    assert.equal(code, 129, r.state.stderr);
+    assert.ok(
+      calls(r).some((c) => c === 'stop cid-migrate-run'),
+      'the migrate container was stopped',
+    );
+    assert.equal(existsSync(running), false);
+    assert.deepEqual(
+      readdirSync(r.maint),
+      [],
+      'released after the container was confirmed stopped',
+    );
+    assert.equal(
+      calls(r).findIndex((c) => /up -d$/.test(c) && !/--no-deps/.test(c)),
+      -1,
+      'the stack was not started after an interrupted migration',
+    );
+  });
+
+  test('upgrade: a migrate container that cannot be stopped keeps the lock', async () => {
+    const block = tmp();
+    const running = join(tmp(), 'migrate-running');
+    const r = start(UPGRADE, ['local'], {
+      STUB_BLOCK_MIGRATE_DIR: block,
+      STUB_MIGRATE_RUNNING: running,
+      STUB_MIGRATE_STUCK: '1',
+    });
+    await waitFor(join(block, 'reached'));
+    r.child.kill('SIGTERM');
+    const code = await r.exited;
+    assert.notEqual(code, 0);
+    assert.ok(existsSync(join(r.lock, 'owner')), 'lock KEPT');
+    assert.match(r.state.stderr, /the migrate container is still running/);
+    assert.match(r.state.stderr, /lock is KEPT/);
+    assert.match(
+      r.state.stderr,
+      /docker ps --filter label=com\.docker\.compose\.project=platform-api/,
+    );
+  });
+
+  test('backup.sh: SIGTERM during the capture waits for it, restarts the backend, then releases (standalone)', async () => {
+    const dump = tmp();
+    const maint = tmp();
+    const probe = join(tmp(), 'lock-at-start.log');
+    const r = start(BACKUP, [], {
+      STUB_BLOCK_DUMP_DIR: dump,
+      STUB_LOCK_OWNER: join(maint, 'platform-api.lock', 'owner'),
+      STUB_LOCK_LOG: probe,
+      BACKUP_MAINTENANCE_DIR: maint,
+    });
+    await waitFor(join(dump, 'reached'));
+    r.child.kill('SIGTERM');
+    await sleep(500);
+    assert.ok(
+      existsSync(join(maint, 'platform-api.lock', 'owner')),
+      'lock held during the capture',
+    );
+    writeFileSync(join(dump, 'release'), '');
+    const code = await r.exited;
+    assert.equal(code, 143, r.state.stderr);
+    assert.ok(
+      calls(r).some((c) => / start backend$/.test(c)),
+      'the backend was started again',
+    );
+    assert.equal(readFileSync(probe, 'utf8').trim(), 'held', 'restart ran while the lock was held');
+    assert.deepEqual(readdirSync(maint), []);
+  });
+});
+
+describe('b10b restore: web image, verification isolation, --replace-live lock (stub docker)', () => {
+  function restoreRun(extraEnv = {}, { backupOpts = {}, args = [], project = 'restored' } = {}) {
+    const bin = tmp();
+    const log = join(tmp(), 'calls.log');
+    writeRestoreStubFile(bin, log);
+    const envFile = join(tmp(), 'env');
+    writeFileSync(
+      envFile,
+      'POSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=smtp\nSMTP_HOST=relay.example\n',
+    );
+    const dir = makeBackup(tmp(), undefined, backupOpts);
+    const composeDir = tmp();
+    const compose = join(composeDir, 'docker-compose.production.yml');
+    copyFileSync(COMPOSE, compose);
+    const capture = tmp();
+    const r = run(
+      'bash',
+      [
+        RESTORE,
+        dir,
+        '--project',
+        project,
+        '--env-file',
+        envFile,
+        '--compose-file',
+        compose,
+        ...args,
+      ],
+      {
+        PATH: `${bin}:${process.env.PATH}`,
+        STUB_BACKUP_DIR: dir,
+        STUB_CAPTURE_DIR: capture,
+        ...extraEnv,
+      },
+    );
+    const read = (f) =>
+      existsSync(join(capture, f)) ? readFileSync(join(capture, f), 'utf8') : '';
+    return {
+      ...r,
+      calls: readCalls(log),
+      pinsKept: existsSync(join(composeDir, `docker-compose.restore-${project}.yml`)),
+      pins: read('pins.yml'),
+      verify: read('verify.yml'),
+    };
+  }
+  const anyStart = (c) => / up -d/.test(c) || / run --rm/.test(c) || /(^| )start( |$)/.test(c);
+
+  test('F3: a missing web image is a refusal for a legacy manifest, before anything starts or is written', () => {
+    const r = restoreRun({ STUB_WEB_ID: 'missing' }, { backupOpts: { images: 'legacy' } });
+    assert.notEqual(r.code, 0);
+    assert.match(r.err, /web image platform-release-web:local is not on this host/);
+    assert.equal(r.calls.findIndex(anyStart), -1);
+    assert.equal(r.pinsKept, false);
+    assert.doesNotMatch(r.err, /RESTORE VERIFIED/);
+  });
+  test('F3: a missing web image is a refusal even with RESTORE_IMAGE_MISMATCH_OK=1', () => {
+    const r = restoreRun({ STUB_WEB_ID: 'missing', RESTORE_IMAGE_MISMATCH_OK: '1' });
+    assert.notEqual(r.code, 0);
+    assert.match(r.err, /web image platform-release-web:local is not on this host/);
+    assert.equal(r.calls.findIndex(anyStart), -1);
+    assert.equal(r.pinsKept, false);
+  });
+
+  test('b10c F1: verification starts the backend with the mock channel and no relay; the kept switch-over file has neither', () => {
+    const r = restoreRun({ SMTP_HOST: 'relay.example', SMTP_PASSWORD: 'relaypass' });
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.verify, /NOTIFICATION_EMAIL_CHANNEL: mock/);
+    for (const k of ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASSWORD', 'SMTP_FROM'])
+      assert.match(r.verify, new RegExp(`${k}: ""`), k);
+    assert.ok(r.pinsKept);
+    assert.doesNotMatch(
+      r.pins,
+      /NOTIFICATION_EMAIL_CHANNEL|SMTP_/,
+      'switch-over file has the real settings',
+    );
+    assert.match(
+      r.err,
+      /docker compose -p restored --env-file \.env\.production -f \S+ -f \S+ up -d/,
+    );
+    assert.doesNotMatch(
+      r.err,
+      /no-init|override/,
+      'the switch-over command does not use the verification file',
+    );
+    assert.doesNotMatch(r.err, /relaypass/);
+  });
+
+  test('--replace-live holds the maintenance lock while the live stack is stopped, to the end', () => {
+    const maint = tmp();
+    const probe = join(tmp(), 'lock.log');
+    const r = restoreRun(
+      {
+        RESTORE_CONFIRM: 'platform-api',
+        BACKUP_MAINTENANCE_DIR: maint,
+        STUB_LOCK_OWNER: join(maint, 'platform-api.lock', 'owner'),
+        STUB_LOCK_LOG: probe,
+      },
+      { args: ['--replace-live'], project: 'platform-api' },
+    );
+    assert.equal(r.code, 0, r.err);
+    assert.ok(
+      readFileSync(probe, 'utf8').split('\n').includes('stop held'),
+      'the first stop (live stack) ran under the lock',
+    );
+    assert.doesNotMatch(readFileSync(probe, 'utf8'), /stop free/);
+    assert.deepEqual(readdirSync(maint), [], 'released at the end');
+  });
+  test('--replace-live is refused (exit 3, live stack untouched) while a backup or upgrade holds the lock', () => {
+    const maint = tmp();
+    mkdirSync(join(maint, 'platform-api.lock'));
+    writeFileSync(
+      join(maint, 'platform-api.lock', 'owner'),
+      `pid=${process.pid}\ntoken=x\noperation=upgrade\nsince=2026-01-01T03:15:00Z\n`,
+    );
+    const r = restoreRun(
+      { RESTORE_CONFIRM: 'platform-api', BACKUP_MAINTENANCE_DIR: maint },
+      { args: ['--replace-live'], project: 'platform-api' },
+    );
+    assert.equal(r.code, 3, r.err);
+    assert.match(r.err, /another maintenance operation holds/);
+    assert.equal(
+      r.calls.findIndex((c) => /(^| )stop$/.test(c) || anyStart(c)),
+      -1,
+      'nothing was stopped or started',
+    );
+    assert.ok(existsSync(join(maint, 'platform-api.lock', 'owner')), 'the foreign lock stays');
+  });
+  test('a failed --replace-live restore releases the lock it took', () => {
+    const maint = tmp();
+    const r = restoreRun(
+      { RESTORE_CONFIRM: 'platform-api', BACKUP_MAINTENANCE_DIR: maint, STUB_PGRESTORE_RC: '1' },
+      { args: ['--replace-live'], project: 'platform-api' },
+    );
+    assert.notEqual(r.code, 0);
+    assert.deepEqual(readdirSync(maint), []);
+  });
+});
+
+// Every test above writes under a temp directory. The repository directory must look exactly as it did when the suite
+// started (no pin files, no .maintenance lock directory, no stray backup).
+test('the suite left the repository directory unchanged', () => {
+  assert.deepEqual(repoSnapshot(), REPO_BEFORE);
 });

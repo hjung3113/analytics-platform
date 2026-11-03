@@ -52,10 +52,15 @@ daily backup therefore no longer relabels old-schema data.
 **One maintenance lock.** `backup.sh` and `upgrade.sh` share `ops/platform-api/.maintenance/<compose project>.lock`
 (a directory with an owner file; git-ignored; independent of `BACKUP_ROOT`). It is taken before the backend state is read
 and held until the final restart or the failure exit. `upgrade.sh` holds it for the whole run and its nested
-`backup.sh --keep-stopped` continues under it. A second backup or upgrade exits **3** at once, without stopping or starting
+`backup.sh --keep-stopped` continues under it: the owner passes a token to that one child only (never exported), and the
+child accepts it only if the owner file names an `upgrade` whose pid is the child's ancestor, so a copied token admits no
+other run. `restore.sh --replace-live` takes the same lock before it stops the live stack and holds it to the end. A second backup or upgrade exits **3** at once, without stopping or starting
 anything, and prints the holder (operation, since, pid and whether that pid is running). A stale lock (holder pid not running,
 for example after a host crash) is never removed automatically: after checking that no backup or upgrade is running, remove
-the directory the message names. Because the refusal is a non-zero exit, the cron line below mails it.
+the directory the message names. On INT/TERM/HUP `upgrade.sh` stops or waits for its active child (nested backup, migrate
+container) before it releases; if it cannot confirm the child stopped, it keeps the lock and prints how to check
+(`ps`, `docker ps` on the migrate service) and how to clear it. `backup.sh` handles the same signals after the running
+docker call and then restarts the backend and releases. SIGKILL leaves the lock: use the stale-lock procedure. Because the refusal is a non-zero exit, the cron line below mails it.
 
 How it stays consistent: the script stops `backend` (the HTTP writers and the pg-boss jobs are one process), dumps the
 database, mirrors the bucket, then starts `backend` again; downtime is printed and recorded as `backendDowntimeSeconds`.
@@ -91,7 +96,8 @@ old backup holds no or `unknown` ids) the restore is refused. Load or retag the 
 tags of an upgrade). `RESTORE_IMAGE_MISMATCH_OK=1` accepts different images. In every case, matching or not, the restore
 compares the restored migration ledger with the migrate image (read-only, as `upgrade.sh` does) **before any backend
 starts** and refuses on a pending or divergent migration: an id match is not a compatibility proof by itself. An old backup
-without `images.web` restores with the local web image.
+without `images.web` restores with the local web image. A missing backend, migrate or **web** image is always a refusal, even
+with `RESTORE_IMAGE_MISMATCH_OK=1`: the edge is pinned too, and an unpinned edge would start whatever `:local` holds later.
 
 The checked image ids are pinned in `docker-compose.restore-<project>.yml`, written next to the compose file
 (`backend`, `minio-bootstrap`, `migrate`, `cutover`, `set-role-passwords`, `bootstrap`, `set-actor-role`, `edge`; `pull_policy: never`).
@@ -106,7 +112,10 @@ re-grant `CONNECT`; run `set-role-passwords` (passwords from `.env.production`);
 login roles and attributes, no `fops_*` role, owner roles `NOLOGIN` with the seven memberships, database owner, extension,
 no product table owned by the superuser, runtime grants of `platform_app`, journal digest equals the manifest. Then it
 creates the bucket, mirrors the objects back and compares object count, bytes and the sha256 inventory (through a second
-export), starts `backend` alone under `platform_app` on a free port and waits for `/health/ready` 200. It never runs
+export), starts `backend` alone under `platform_app` on a free port and waits for `/health/ready` 200. That verification start uses
+`NOTIFICATION_EMAIL_CHANNEL=mock` and blank `SMTP_*` (a temporary override file that is deleted, not the kept pin file), so
+copied pg-boss jobs send nothing outward; jobs it completes are completed in the restored copy only. The **switch-over start
+uses the operator's real settings** from `.env.production`. It never runs
 `migrate` or `bootstrap`. On success the restored stack is left stopped with its data.
 
 **Switch traffic.** Put the two printed lines `RELEASE_POSTGRES_VOLUME=…` and `RELEASE_MINIO_VOLUME=…` into

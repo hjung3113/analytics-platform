@@ -174,25 +174,46 @@ bk_container_image() { # bk_container_image <service> [ok]
 # --- one maintenance lock per installation (OPS-05) ---
 # backup.sh and upgrade.sh hold ops/platform-api/.maintenance/<project>.lock (a directory; mkdir is atomic and works on
 # every host, bash 3.2 included) from before they look at the backend until their final restart or failure exit. A second
-# operation exits at once. The lock is never taken over automatically. upgrade.sh exports BK_LOCK_TOKEN so its nested
-# backup.sh recognises the owner file and does not wait for itself. Callers set OPS_ROOT and PROJECT.
+# operation exits at once. The lock is never taken over automatically.
+# Nested use: upgrade.sh runs backup.sh as its own child and hands it the token in that one command's environment
+# (BK_LOCK_TOKEN="$BK_LOCK_OWN_TOKEN" bash backup.sh; the owner keeps the token in an unexported shell variable). The
+# child accepts it only if the owner file names an `upgrade` operation whose pid is an ancestor of the child; a token
+# copied into any other process is refused like no token. Callers set OPS_ROOT and PROJECT.
 BK_LOCK_HELD=0
+BK_LOCK_OWN_TOKEN=''
 bk_lock_path() { printf '%s/%s.lock\n' "${BACKUP_MAINTENANCE_DIR:-$OPS_ROOT/.maintenance}" "$PROJECT"; }
+bk_is_ancestor() { # bk_is_ancestor <pid>: is it a parent, grandparent, ... of this shell?
+  local want="$1" p="$$" i=0
+  [[ "$want" =~ ^[0-9]+$ ]] || return 1
+  while [ "$i" -lt 32 ]; do
+    p="$(ps -o ppid= -p "$p" 2>/dev/null | tr -d ' ')" || return 1
+    { [[ "$p" =~ ^[0-9]+$ ]] && [ "$p" -gt 1 ]; } || return 1
+    [ "$p" = "$want" ] && return 0
+    i=$((i + 1))
+  done
+  return 1
+}
 bk_lock_acquire() { # bk_lock_acquire <operation name>
-  local path holder_pid holder_op holder_since state
+  local path holder_pid holder_op holder_since state old_umask
   path="$(bk_lock_path)"
   mkdir -p -- "$(dirname "$path")" || bk_die "could not create the maintenance directory $(dirname "$path")" 2
-  if [ -n "${BK_LOCK_TOKEN:-}" ] && [ -f "$path/owner" ] && [ "$(sed -n 's/^token=//p' "$path/owner")" = "$BK_LOCK_TOKEN" ]; then
+  if [ -n "${BK_LOCK_TOKEN:-}" ] && [ -f "$path/owner" ] && [ "$(sed -n 's/^token=//p' "$path/owner")" = "$BK_LOCK_TOKEN" ] \
+    && [ "$(sed -n 's/^operation=//p' "$path/owner")" = upgrade ] && bk_is_ancestor "$(sed -n 's/^pid=//p' "$path/owner")"; then
+    unset BK_LOCK_TOKEN
     bk_log 'maintenance lock owned by the calling upgrade; continuing under it'
     return 0
   fi
+  unset BK_LOCK_TOKEN
+  old_umask="$(umask)"
+  umask 077
   if mkdir -- "$path" 2>/dev/null; then
-    BK_LOCK_TOKEN="$$.$(date +%s).$RANDOM"
-    printf 'pid=%s\ntoken=%s\noperation=%s\nsince=%s\n' "$$" "$BK_LOCK_TOKEN" "$1" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >"$path/owner"
-    export BK_LOCK_TOKEN
+    BK_LOCK_OWN_TOKEN="$$.$(date +%s).$RANDOM$RANDOM"
+    printf 'pid=%s\ntoken=%s\noperation=%s\nsince=%s\n' "$$" "$BK_LOCK_OWN_TOKEN" "$1" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >"$path/owner"
+    umask "$old_umask"
     BK_LOCK_HELD=1
     return 0
   fi
+  umask "$old_umask"
   holder_pid="$(sed -n 's/^pid=//p' "$path/owner" 2>/dev/null | head -n 1)"
   holder_op="$(sed -n 's/^operation=//p' "$path/owner" 2>/dev/null | head -n 1)"
   holder_since="$(sed -n 's/^since=//p' "$path/owner" 2>/dev/null | head -n 1)"

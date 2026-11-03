@@ -95,6 +95,9 @@ restart_backend() {
 }
 cleanup() {
   local rc=$?
+  # No second signal may cut the restart and the lock release short. No child is running here: bash runs a trap only
+  # between commands, so an interrupt waits for the active docker call and this cleanup then restarts and releases.
+  trap '' INT TERM HUP
   trap - EXIT
   restart_backend
   bk_lock_release
@@ -102,11 +105,14 @@ cleanup() {
     [ "$rc" -eq 0 ] || bk_log "failed; partial files removed: $WORK"
     rm -rf -- "${WORK:?}"
   fi
-  [ "$rc" -eq 0 ] || { [ "$KEEP_STOPPED" -eq 0 ] || bk_log 'backend left stopped (--keep-stopped)'; }
+  [ "$rc" -eq 0 ] || { [ "$KEEP_STOPPED" -eq 0 ] || [ "$BACKEND_STOPPED" -eq 0 ] || bk_log 'backend left stopped (--keep-stopped)'; }
   exit "$rc"
 }
-bk_lock_acquire backup
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
 trap cleanup EXIT
+bk_lock_acquire backup
 
 # 1. Data services up (no dependencies started), identity check.
 bk_log "project $PROJECT: starting postgres and minio if needed"

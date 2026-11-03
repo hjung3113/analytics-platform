@@ -27,6 +27,10 @@
 # migrations is required. The checked images are pinned by id in docker-compose.restore-<project>.yml next to the compose
 # file (kept; the switch-over command uses it with -f), so the launched images are the checked ones.
 #
+# Verification starts the backend with NOTIFICATION_EMAIL_CHANNEL=mock and blank SMTP_* (temporary override, not the kept
+# pin file); the switch-over start uses the operator's real settings. A missing backend/migrate/web image is always refused.
+# --replace-live holds the maintenance lock (stop of the live stack to the end).
+#
 # Environment: RESTORE_CONFIRM, RESTORE_LIVE_PROJECT (default platform-api), RESTORE_IMAGE_MISMATCH_OK, BACKUP_MC_IMAGE,
 # BACKUP_BACKEND_IMAGE / BACKUP_MIGRATE_IMAGE / BACKUP_WEB_IMAGE (default platform-release-{backend,migrate,web}:local),
 # STORAGE_S3_BUCKET.
@@ -46,7 +50,7 @@ REPLACE_LIVE=0
 ENV_FILE="${BACKUP_ENV_FILE:-$OPS_ROOT/.env.production}"
 COMPOSE_FILE="${BACKUP_COMPOSE_FILE:-$OPS_ROOT/docker-compose.production.yml}"
 
-usage() { sed -n '3,38p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2; }
+usage() { sed -n '3,42p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2; }
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --help|-h) usage; exit 0 ;;
@@ -135,15 +139,14 @@ for kind in backend migrate web; do
     *) PIN_WEB="$have_id" ;;
   esac
 done
+# A missing image is never acknowledged away: without all three there is nothing to pin, and an unpinned edge would start
+# whatever :local holds later. Load the image or retag the :pre-<timestamp> one.
+[ "$PIN_BACKEND" != missing ] || bk_die "backend image ${BACKUP_BACKEND_IMAGE:-$BK_IMAGE_BACKEND_DEFAULT} is not on this host; load it first (docker load / retag :pre-<timestamp>). Nothing was started."
+[ "$PIN_MIGRATE" != missing ] || bk_die "migrate image ${BACKUP_MIGRATE_IMAGE:-$BK_IMAGE_MIGRATE_DEFAULT} is not on this host; load it first (docker load / retag :pre-<timestamp>). Nothing was started."
+[ "$PIN_WEB" != missing ] || bk_die "web image ${BACKUP_WEB_IMAGE:-$BK_IMAGE_WEB_DEFAULT} is not on this host; load it first (docker load / retag :pre-<timestamp>): the restored edge is pinned to it and cannot be verified without it. Nothing was started."
 if [ "$IMG_MISMATCH" -eq 1 ]; then
   [ "${RESTORE_IMAGE_MISMATCH_OK:-}" = 1 ] || bk_die "the local backend/migrate/web images are not the pair this backup was taken with (or the backup could not identify them). Load the matching images (docker load / retag :pre-<timestamp>), or set RESTORE_IMAGE_MISMATCH_OK=1 to accept a different build: the restored journal is then compared with the local migrate image and any pending or divergent migration still refuses the restore."
   bk_log 'RESTORE_IMAGE_MISMATCH_OK=1: different images accepted only if the restored journal matches the migrate image exactly'
-fi
-[ "$PIN_BACKEND" != missing ] || bk_die "backend image ${BACKUP_BACKEND_IMAGE:-$BK_IMAGE_BACKEND_DEFAULT} is not on this host"
-[ "$PIN_MIGRATE" != missing ] || bk_die "migrate image ${BACKUP_MIGRATE_IMAGE:-$BK_IMAGE_MIGRATE_DEFAULT} is not on this host"
-if [ "$PIN_WEB" = missing ]; then
-  bk_log "WARNING: web image ${BACKUP_WEB_IMAGE:-$BK_IMAGE_WEB_DEFAULT} is not on this host; the edge is not pinned and cannot start until it is loaded"
-  PIN_WEB=''
 fi
 
 umask 077
@@ -157,7 +160,7 @@ PINS_FILE="$(dirname "$COMPOSE_FILE")/docker-compose.restore-$PROJECT.yml"
   printf 'services:\n'
   for svc in backend minio-bootstrap; do printf '  %s:\n    image: %s\n    pull_policy: never\n' "$svc" "$PIN_BACKEND"; done
   for svc in migrate cutover set-role-passwords bootstrap set-actor-role; do printf '  %s:\n    image: %s\n    pull_policy: never\n' "$svc" "$PIN_MIGRATE"; done
-  [ -z "$PIN_WEB" ] || printf '  edge:\n    image: %s\n    pull_policy: never\n' "$PIN_WEB"
+  printf '  edge:\n    image: %s\n    pull_policy: never\n' "$PIN_WEB"
 } >"$PINS_FILE"
 BK_COMPOSE_PINS="$PINS_FILE"
 BK_COMPOSE_OVERRIDE="$TMP/no-init.override.yml"
@@ -167,6 +170,17 @@ services:
   postgres:
     volumes: !override
       - release-postgres-data:/var/lib/postgresql/data
+  # Verification only (this file lives in the temp dir and is deleted; the kept switch-over file does not contain it): the
+  # copied pg-boss jobs must not send mail while the restored data is checked, so the backend runs with the mock channel
+  # and no relay. The switch-over start uses the operator's real settings from .env.production.
+  backend:
+    environment:
+      NOTIFICATION_EMAIL_CHANNEL: mock
+      SMTP_HOST: ""
+      SMTP_PORT: ""
+      SMTP_USER: ""
+      SMTP_PASSWORD: ""
+      SMTP_FROM: ""
 YAML
 
 LIVE_STOPPED=0
@@ -189,11 +203,17 @@ fail_hint() {
     [ "$LIVE_STOPPED" -eq 0 ] || bk_log "The live project '$PROJECT' was stopped for --replace-live; its volumes are unchanged. Start it again with the original env (unset RELEASE_*_VOLUME overrides): docker compose -p $PROJECT ... up -d"
   fi
   [ -z "${TMP:-}" ] || rm -rf -- "${TMP:?}"
+  bk_lock_release
   exit "$rc"
 }
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
 trap fail_hint EXIT
 
 if [ "$IS_LIVE" -eq 1 ]; then
+  # The live stack is replaced: no backup or upgrade may run (or start) on it until this restore has finished.
+  bk_lock_acquire restore
   bk_log "--replace-live confirmed: stopping the running '$PROJECT' stack (volumes stay untouched)"
   bk_dc stop >/dev/null
   LIVE_STOPPED=1
@@ -310,3 +330,4 @@ bk_log "  and run (keep $PINS_FILE: it pins the verified images; use it on every
 bk_log "  docker compose -p $PROJECT --env-file .env.production -f $COMPOSE_FILE -f $PINS_FILE up -d"
 trap - EXIT
 rm -rf -- "${TMP:?}"
+bk_lock_release
