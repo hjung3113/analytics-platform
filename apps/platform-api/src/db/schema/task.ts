@@ -109,8 +109,8 @@ export const tasks = taskSchema.table(
     // 0084 (#1266 b5a): keyset list order (updated_at DESC, id DESC).
     workspaceUpdatedIdx: index('tasks_workspace_updated_idx').on(
       t.workspaceId,
-      t.updatedAt.desc(),
-      t.id.desc(),
+      t.updatedAt.desc().nullsFirst(),
+      t.id.desc().nullsFirst(),
     ),
     // 0049 (#514 A2): partial index mirroring tasks_milestone_id_idx.
     milestoneIdIdx: index('tasks_milestone_id_idx')

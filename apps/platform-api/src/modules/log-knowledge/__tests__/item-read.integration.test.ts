@@ -4,11 +4,14 @@
 
 import { randomUUID } from 'node:crypto';
 
+import { drizzle } from 'drizzle-orm/node-postgres';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { loadConfig } from '../../../config.js';
 import { type DbHandle, createDb } from '../../../db/client.js';
+import * as coreSchema from '../../../db/schema/core.js';
+import * as permissionSchema from '../../../db/schema/permission.js';
 import { SESSION_COOKIE_NAME } from '../../../middleware/require-session.js';
 import { buildServer } from '../../../server.js';
 import { insertActorRow } from '../../../test-support/actor-fixtures.js';
@@ -38,6 +41,8 @@ describe.skipIf(!runIntegration)('knowledge items schema and reads (#1197 a)', (
   const actorIds: string[] = [];
   const workspaceIds: string[] = [];
   const ids: Record<string, string> = {};
+  /** Every statement the app handle issues (drizzle logger), to pin which columns a read selects. */
+  const issued: string[] = [];
 
   const sql = (text: string, params: unknown[] = []) => migrate.pool.query(text, params);
   const appSql = (text: string, params: unknown[] = []) => dbHandle.pool.query(text, params);
@@ -96,6 +101,10 @@ describe.skipIf(!runIntegration)('knowledge items schema and reads (#1197 a)', (
   beforeAll(async () => {
     process.env.NODE_ENV = 'test';
     dbHandle = createDb(APP_URL);
+    dbHandle.db = drizzle(dbHandle.pool, {
+      schema: { ...coreSchema, ...permissionSchema },
+      logger: { logQuery: (text) => void issued.push(text) },
+    });
     migrate = createDb(MIGRATE_URL);
     app = await buildServer({ config: loadConfig(), dbHandle });
     await app.ready();
@@ -400,6 +409,21 @@ describe.skipIf(!runIntegration)('knowledge items schema and reads (#1197 a)', (
         { revisionNo: 2, title: `${TAG} model item one`, publishedBy: actorId, publishedAt: expect.any(String), changeNote: null },
         { revisionNo: 1, title: `${TAG} model item one (old)`, publishedBy: actorId, publishedAt: expect.any(String), changeNote: null },
       ]);
+    });
+
+    it('selects no body column for the revision history, only for the one revision shown', async () => {
+      issued.length = 0;
+      await read('logKnowledge.itemDetail', { itemId: ids.i1 });
+      const onRevisions = issued.filter((q) => /from "knowledge"\."knowledge_item_revision"/.test(q));
+      const withBody = onRevisions.filter((q) => q.includes('"observation"'));
+      const history = onRevisions.filter((q) => !q.includes('"observation"'));
+      // exactly one full-row read (the shown revision) and one history read
+      expect(onRevisions).toHaveLength(2);
+      expect(withBody).toHaveLength(1);
+      expect(history).toHaveLength(1);
+      const historyText = history[0] ?? '';
+      for (const body of ['"expected"', '"analysis_opinion"', '"improvement"']) expect(historyText).not.toContain(body);
+      expect(historyText).toMatch(/^select "revision_no", "title", "published_by", "published_at", "change_note" from /);
     });
 
     it('reads an older revision on request, without its later evidence', async () => {
