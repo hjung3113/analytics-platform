@@ -111,6 +111,156 @@ for (const [name, overrides, needle] of [
   });
 }
 
+// Raw env-file forms: the preflight must judge the value Compose will use, and refuse forms it cannot judge.
+function runRaw(lines) {
+  const file = join(dir, `env-${n++}`);
+  const base = Object.entries(GOOD).map(([k, v]) => `${k}=${v}`);
+  writeFileSync(file, [...lines(base)].join('\n'));
+  const r = spawnSync('bash', [PREFLIGHT, file], { encoding: 'utf8' });
+  return { code: r.status, lines: r.stdout.split('\n').filter(Boolean) };
+}
+const without = (base, key) => base.filter((l) => !l.startsWith(`${key}=`));
+
+test('preflight: accepts quotes, comments, blank lines and inline comments', () => {
+  const r = runRaw((base) => [
+    '# a comment',
+    '',
+    ...without(
+      without(without(base, 'POSTGRES_PASSWORD'), 'OIDC_CLIENT_SECRET'),
+      'MINIO_ROOT_USER',
+    ),
+    'POSTGRES_PASSWORD="pg-Zx9 real # value"',
+    "OIDC_CLIENT_SECRET='oidc-Zx9-$real'",
+    'MINIO_ROOT_USER=platform-minio # inline comment',
+  ]);
+  assert.deepEqual(r.lines, ['preflight: ok']);
+  assert.equal(r.code, 0);
+});
+
+for (const [name, lines, needle] of [
+  [
+    'commented real secret followed by a placeholder',
+    (b) => [
+      ...without(b, 'OIDC_CLIENT_SECRET'),
+      '# OIDC_CLIENT_SECRET=real-secret-value',
+      'OIDC_CLIENT_SECRET=CHANGE_ME',
+    ],
+    'OIDC_CLIENT_SECRET',
+  ],
+  [
+    'placeholder with an inline comment',
+    (b) => [...without(b, 'OIDC_CLIENT_SECRET'), 'OIDC_CLIENT_SECRET=CHANGE_ME # replace me'],
+    'OIDC_CLIENT_SECRET',
+  ],
+  [
+    'double-quoted placeholder',
+    (b) => [...without(b, 'POSTGRES_PASSWORD'), 'POSTGRES_PASSWORD="CHANGE_ME"'],
+    'POSTGRES_PASSWORD',
+  ],
+  [
+    'single-quoted placeholder',
+    (b) => [...without(b, 'POSTGRES_PASSWORD'), "POSTGRES_PASSWORD='CHANGE_ME'"],
+    'POSTGRES_PASSWORD',
+  ],
+  [
+    'export form',
+    (b) => ['export POSTGRES_PASSWORD=real-value', ...without(b, 'POSTGRES_PASSWORD')],
+    'export',
+  ],
+  [
+    'interpolation (unquoted)',
+    (b) => [...without(b, 'OIDC_CLIENT_SECRET'), 'OIDC_CLIENT_SECRET=${OTHER}'],
+    'OIDC_CLIENT_SECRET',
+  ],
+  [
+    'interpolation (double-quoted)',
+    (b) => [...without(b, 'OIDC_CLIENT_SECRET'), 'OIDC_CLIENT_SECRET="pre-$OTHER"'],
+    'OIDC_CLIENT_SECRET',
+  ],
+  [
+    'multi-line value',
+    (b) => [...without(b, 'OIDC_CLIENT_SECRET'), 'OIDC_CLIENT_SECRET="line one', 'line two"'],
+    'OIDC_CLIENT_SECRET',
+  ],
+  ['duplicate key', (b) => [...b, 'POSTGRES_PASSWORD=another-real-value'], 'POSTGRES_PASSWORD'],
+  [
+    'text after a closing quote',
+    (b) => [...without(b, 'POSTGRES_PASSWORD'), 'POSTGRES_PASSWORD="real"tail'],
+    'POSTGRES_PASSWORD',
+  ],
+]) {
+  test(`preflight: refuses ${name}`, () => {
+    const r = runRaw(lines);
+    assert.equal(r.code, 1);
+    assert.ok(r.lines.length >= 1);
+    assert.match(r.lines[0], new RegExp(needle));
+    assert.doesNotMatch(r.lines.join('\n'), /real-secret-value|another-real-value/);
+  });
+}
+
+for (const [name, overrides, needle] of [
+  ['issuer without a host', { OIDC_ISSUER_URL: 'https://:443' }, 'OIDC_ISSUER_URL'],
+  [
+    'issuer with userinfo',
+    { OIDC_ISSUER_URL: 'https://user:pw@idp.corp.example' },
+    'OIDC_ISSUER_URL',
+  ],
+  ['issuer with a query', { OIDC_ISSUER_URL: 'https://idp.corp.example/r?x=1' }, 'OIDC_ISSUER_URL'],
+  [
+    'issuer with a fragment',
+    { OIDC_ISSUER_URL: 'https://idp.corp.example/r#x' },
+    'OIDC_ISSUER_URL',
+  ],
+  [
+    'redirect without a host',
+    { OIDC_REDIRECT_URI: 'https://:443/auth/callback' },
+    'OIDC_REDIRECT_URI',
+  ],
+  [
+    'redirect with userinfo',
+    { OIDC_REDIRECT_URI: 'https://u@platform.corp.example/auth/callback' },
+    'OIDC_REDIRECT_URI',
+  ],
+  [
+    'redirect with a query',
+    { OIDC_REDIRECT_URI: 'https://platform.corp.example/auth/callback?x=1' },
+    'OIDC_REDIRECT_URI',
+  ],
+  [
+    'redirect with a fragment',
+    { OIDC_REDIRECT_URI: 'https://platform.corp.example/auth/callback#x' },
+    'OIDC_REDIRECT_URI',
+  ],
+  [
+    'redirect with a trailing slash',
+    { OIDC_REDIRECT_URI: 'https://platform.corp.example/auth/callback/' },
+    'OIDC_REDIRECT_URI',
+  ],
+]) {
+  test(`preflight: rejects ${name}`, () => {
+    const r = run(overrides);
+    assert.equal(r.code, 1);
+    assert.equal(r.lines.length, 1, r.lines.join('\n'));
+    assert.match(r.lines[0], new RegExp(needle));
+  });
+}
+
+test('production compose: bootstrap and set-actor-role wait for a completed migration', () => {
+  for (const svc of ['bootstrap', 'set-actor-role']) {
+    const block = production.match(
+      new RegExp(`^ {2}${svc}:\\n([\\s\\S]*?)(?=^ {2}\\S|^\\S)`, 'm'),
+    )[1];
+    assert.match(block, /migrate:\n {8}condition: service_completed_successfully/, svc);
+    assert.match(block, /postgres:\n {8}condition: service_healthy/, svc);
+  }
+});
+
+test('ops gitignore covers .env.production but not its example', () => {
+  const ignore = readFileSync(path('../../.gitignore'), 'utf8').split('\n');
+  assert.ok(ignore.includes('.env.production'));
+  assert.ok(!ignore.some((l) => /\.env\.production\.example|^\.env\.\*$/.test(l)));
+});
+
 test('production compose: no mock IdP, no fixture seed, production mode, real OIDC', () => {
   assert.doesNotMatch(production, /mock-oauth2-server|network_mode|^ {2}oidc:/m);
   assert.doesNotMatch(production, /SEED_MODE: (core|personas|scale)/);

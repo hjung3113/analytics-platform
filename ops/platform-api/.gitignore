@@ -3,6 +3,7 @@
 .env.local
 .env.*.local
 .env.release
+.env.production
 
 # MinIO local data volume (docker-compose.dev.yml)
 minio_data/

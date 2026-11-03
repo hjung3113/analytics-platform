@@ -103,6 +103,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     mem_limit: 768m
 
   # Job-only (profile admin): `docker compose run --rm set-actor-role --external-id <sub> --role admin [--reason <text>]`.
@@ -123,6 +125,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     mem_limit: 512m
 
   minio:

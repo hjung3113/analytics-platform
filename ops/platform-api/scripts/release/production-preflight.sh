@@ -11,20 +11,54 @@ fi
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 demo_file="$here/../../.env.release.example"
 
-# Read KEY=VALUE lines without sourcing (values are data, never executed). Last assignment wins; one pair of
-# matching quotes is stripped.
-read_env() {
-  local file="$1" line key val
+# Strict dotenv reader that mirrors what `docker compose --env-file` consumes for the forms accepted here, so the
+# checks below see the value Compose will use. Values are data, never sourced or executed. Accepted: KEY=value,
+# KEY="value", KEY='value', blank lines, full-line # comments, and a trailing " #..." comment after the value.
+# Anything else is refused with one "!error<TAB>message" record naming the key (or the line number when no key
+# can be read): `export KEY=...`, ${...}/$VAR interpolation, backslashes in double quotes, an unterminated
+# (multi-line) quote, text after a closing quote, stray quotes in an unquoted value, duplicate keys.
+read_env() { # file
+  local file="$1" line key val n=0 seen=$'\n' rest
   while IFS= read -r line || [ -n "$line" ]; do
+    n=$((n + 1))
     line="${line%$'\r'}"
+    line="${line#"${line%%[![:space:]]*}"}"
     case "$line" in ''|'#'*) continue ;; esac
-    key="${line%%=*}"
-    [ "$key" = "$line" ] && continue
-    val="${line#*=}"
-    key="${key//[[:space:]]/}"
+    if [[ "$line" =~ ^export[[:space:]] ]]; then
+      printf '!error\tline %s: "export KEY=..." is not supported\n' "$n"; continue
+    fi
+    if ! [[ "$line" =~ ^([A-Za-z_][A-Za-z0-9_.-]*)=(.*)$ ]]; then
+      printf '!error\tline %s: not a KEY=value line\n' "$n"; continue
+    fi
+    key="${BASH_REMATCH[1]}"; val="${BASH_REMATCH[2]}"
+    case "$seen" in *$'\n'"$key"$'\n'*)
+      printf '!error\t%s: duplicate key\n' "$key"; continue ;;
+    esac
+    seen="$seen$key"$'\n'
     case "$val" in
-      \"*\") val="${val#\"}"; val="${val%\"}" ;;
-      \'*\') val="${val#\'}"; val="${val%\'}" ;;
+      \"*)
+        if ! [[ "$val" =~ ^\"([^\"]*)\"([[:space:]]+\#.*|[[:space:]]*)$ ]]; then
+          printf '!error\t%s: unterminated or malformed double-quoted value\n' "$key"; continue
+        fi
+        val="${BASH_REMATCH[1]}"
+        case "$val" in *'$'*|*'\'*) printf '!error\t%s: interpolation or escapes are not supported\n' "$key"; continue ;; esac
+        ;;
+      \'*)
+        if ! [[ "$val" =~ ^\'([^\']*)\'([[:space:]]+\#.*|[[:space:]]*)$ ]]; then
+          printf '!error\t%s: unterminated or malformed single-quoted value\n' "$key"; continue
+        fi
+        val="${BASH_REMATCH[1]}"
+        ;;
+      *)
+        rest="$val"
+        if [[ "$rest" =~ ^(.*[^[:space:]])?[[:space:]]+\#.*$ ]]; then rest="${BASH_REMATCH[1]}"; fi
+        if [[ "$val" =~ ^[[:space:]]*\#.*$ ]]; then rest=""; fi
+        rest="${rest%"${rest##*[![:space:]]}"}"
+        rest="${rest#"${rest%%[![:space:]]*}"}"
+        case "$rest" in *'$'*) printf '!error\t%s: interpolation is not supported\n' "$key"; continue ;; esac
+        case "$rest" in *'"'*|*"'"*) printf '!error\t%s: quote inside an unquoted value\n' "$key"; continue ;; esac
+        val="$rest"
+        ;;
     esac
     printf '%s\t%s\n' "$key" "$val"
   done <"$file"
@@ -33,7 +67,11 @@ read_env() {
 # bash 3.2 (macOS) has no associative arrays: keep the parsed pairs in strings and look keys up by function.
 parsed="$(read_env "$env_file")"
 demo_parsed=""
-[ -f "$demo_file" ] && demo_parsed="$(read_env "$demo_file")"
+[ -f "$demo_file" ] && demo_parsed="$(read_env "$demo_file" | awk -F'\t' '$1 != "!error"')"
+if printf '%s\n' "$parsed" | awk -F'\t' '$1 == "!error"' | grep -q .; then
+  printf '%s\n' "$parsed" | awk -F'\t' '$1 == "!error" { print "preflight: " $2 }'
+  exit 1
+fi
 
 lookup() { # key, pairs -> last value
   printf '%s\n' "$2" | awk -F'\t' -v k="$1" '$1 == k { v = $2; found = 1 } END { if (found) printf "%s", v }'
@@ -60,22 +98,38 @@ for name in POSTGRES_PASSWORD OIDC_CLIENT_SECRET MINIO_ROOT_PASSWORD MINIO_ROOT_
   secret_ok "$name"
 done
 
+# Absolute https URL with a host, no userinfo, query or fragment. Prints the path (possibly empty) on success.
+https_path() {
+  local url="$1" rest authority
+  case "$url" in https://?*) ;; *) return 1 ;; esac
+  case "$url" in *[[:space:]?#@]*|*'\'*) return 1 ;; esac
+  rest="${url#https://}"
+  authority="${rest%%/*}"
+  if [[ "$authority" =~ ^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?(:[0-9]{1,5})?$ ]] ||
+     [[ "$authority" =~ ^\[[0-9a-fA-F:.]+\](:[0-9]{1,5})?$ ]]; then
+    [ "$authority" = "$rest" ] && { printf ''; return 0; }
+    printf '/%s' "${rest#*/}"
+    return 0
+  fi
+  return 1
+}
+
 issuer="$(val_of OIDC_ISSUER_URL)"
 case "$issuer" in
-  https://?*) [ "$issuer" = "https://CHANGE_ME" ] && fail "OIDC_ISSUER_URL is still a placeholder" ;;
-  *) fail "OIDC_ISSUER_URL must start with https://" ;;
+  *CHANGE_ME*) fail "OIDC_ISSUER_URL is still a placeholder" ;;
+  *) https_path "$issuer" >/dev/null || fail "OIDC_ISSUER_URL must be an absolute https URL with a host, no credentials, query or fragment" ;;
 esac
 
 redirect="$(val_of OIDC_REDIRECT_URI)"
 case "$redirect" in
-  https://?*)
-    rest="${redirect#https://}"
-    path="/${rest#*/}"
-    [ "$rest" = "${rest#*/}" ] && path=""
-    [ "$path" = "/auth/callback" ] || fail "OIDC_REDIRECT_URI path must be exactly /auth/callback"
-    case "$redirect" in *CHANGE_ME*) fail "OIDC_REDIRECT_URI is still a placeholder" ;; esac
+  *CHANGE_ME*) fail "OIDC_REDIRECT_URI is still a placeholder" ;;
+  *)
+    if path="$(https_path "$redirect")"; then
+      [ "$path" = "/auth/callback" ] || fail "OIDC_REDIRECT_URI path must be exactly /auth/callback"
+    else
+      fail "OIDC_REDIRECT_URI must be an absolute https URL with a host, no credentials, query or fragment"
+    fi
     ;;
-  *) fail "OIDC_REDIRECT_URI must start with https://" ;;
 esac
 
 hops="$(val_of TRUSTED_PROXY_HOPS)"
