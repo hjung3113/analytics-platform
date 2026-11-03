@@ -17,7 +17,12 @@
 
 import type { JobLog } from '../job-log.js';
 import type { StorageBackend } from './index.js';
-import { type S3CompatConfig, S3CompatStorageBackend } from './s3-compat.js';
+import {
+  DEFAULT_S3_CONNECT_TIMEOUT_MS,
+  DEFAULT_S3_REQUEST_TIMEOUT_MS,
+  type S3CompatConfig,
+  S3CompatStorageBackend,
+} from './s3-compat.js';
 
 const REDACTED = '***REDACTED***';
 
@@ -28,11 +33,23 @@ export interface StorageEnv {
   STORAGE_S3_ACCESS_KEY_ID?: string | undefined;
   STORAGE_S3_SECRET_ACCESS_KEY?: string | undefined;
   STORAGE_S3_FORCE_PATH_STYLE?: string | undefined;
+  STORAGE_S3_REQUEST_TIMEOUT_MS?: string | undefined;
+  STORAGE_S3_CONNECT_TIMEOUT_MS?: string | undefined;
   // An environment bag carries arbitrary other keys. Without this, every
   // property is optional and TypeScript's weak-type check rejects
   // `process.env` outright (TS2559) for sharing no declared property with
   // this interface — which is exactly what `cli/storage-bootstrap.ts` passes.
   [key: string]: string | undefined;
+}
+
+function parseTimeoutMs(name: string, raw: string | undefined, fallback: number): number {
+  const trimmed = raw?.trim();
+  if (trimmed === undefined || trimmed === '') return fallback;
+  const value = Number(trimmed);
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new Error(`storage: ${name} must be a positive integer (milliseconds)`);
+  }
+  return value;
 }
 
 /** Pure env → config parser. Throws on missing required fields. Exported for tests. */
@@ -71,6 +88,16 @@ export function parseStorageEnv(env: StorageEnv): S3CompatConfig {
     accessKeyId: accessKeyId as string,
     secretAccessKey: secretAccessKey as string,
     forcePathStyle,
+    requestTimeoutMs: parseTimeoutMs(
+      'STORAGE_S3_REQUEST_TIMEOUT_MS',
+      env.STORAGE_S3_REQUEST_TIMEOUT_MS,
+      DEFAULT_S3_REQUEST_TIMEOUT_MS,
+    ),
+    connectTimeoutMs: parseTimeoutMs(
+      'STORAGE_S3_CONNECT_TIMEOUT_MS',
+      env.STORAGE_S3_CONNECT_TIMEOUT_MS,
+      DEFAULT_S3_CONNECT_TIMEOUT_MS,
+    ),
   };
 }
 
@@ -87,6 +114,8 @@ export function redactConfig(cfg: S3CompatConfig): Record<string, unknown> {
     accessKeyId: cfg.accessKeyId,
     secretAccessKey: REDACTED,
     forcePathStyle: cfg.forcePathStyle,
+    requestTimeoutMs: cfg.requestTimeoutMs,
+    connectTimeoutMs: cfg.connectTimeoutMs,
   };
 }
 

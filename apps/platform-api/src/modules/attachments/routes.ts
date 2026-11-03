@@ -30,6 +30,10 @@ import type { AttachmentsService } from './service.js';
 import { FilenameSanitizeError, sanitizeFilename } from './filename-sanitize.js';
 import { MIME_ALLOWLIST } from './mime-allowlist.js';
 import { asciiFallback, encodeRfc5987 } from './rfc5987.js';
+import { createUploadAdmission, type UploadAdmission } from './upload-admission.js';
+
+export const DEFAULT_ATTACHMENT_UPLOAD_CONCURRENCY = 4;
+export const UPLOAD_BUSY_RETRY_AFTER_SECONDS = 5;
 
 export const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 
@@ -37,6 +41,10 @@ export interface AttachmentsRoutesOptions {
   sessionService: SessionService;
   attachmentsService: AttachmentsService;
   workspaceId: string;
+  /** Concurrent uploads per process (ATTACHMENT_UPLOAD_CONCURRENCY). Ignored when `uploadAdmission` is given. */
+  uploadConcurrency?: number;
+  /** Test seam: share one admission across registrations. */
+  uploadAdmission?: UploadAdmission;
   rateLimitConfig?: {
     attachmentMutation: Record<string, unknown>;
   };
@@ -47,6 +55,9 @@ export const attachmentsRoutes: FastifyPluginAsync<AttachmentsRoutesOptions> = a
   opts,
 ) => {
   const { sessionService, attachmentsService, workspaceId, rateLimitConfig } = opts;
+  const admission =
+    opts.uploadAdmission ??
+    createUploadAdmission(opts.uploadConcurrency ?? DEFAULT_ATTACHMENT_UPLOAD_CONCURRENCY);
 
   app.route({
     method: 'POST',
@@ -78,9 +89,33 @@ export const attachmentsRoutes: FastifyPluginAsync<AttachmentsRoutesOptions> = a
         });
       }
 
+      // 2b. Admission (#1266 b4): take a slot BEFORE any bytes are buffered;
+      //     refuse at once when none is free. The slot is held until the
+      //     response is built (buffer lifetime) and always released.
+      const release = admission.tryAcquire();
+      if (!release) {
+        reply.header('Retry-After', String(UPLOAD_BUSY_RETRY_AFTER_SECONDS));
+        reply.header('Connection', 'close');
+        return sendError(reply, 'service.unavailable', 'too many uploads in progress; retry shortly');
+      }
+      try {
+        return await handleUpload(req, reply, sess, idempotencyKey, reqAny.file.bind(req));
+      } finally {
+        release();
+      }
+    },
+  });
+
+  async function handleUpload(
+    req: FastifyRequest,
+    reply: FastifyReply,
+    sess: { actor_id: string; workspace_id: string },
+    idempotencyKey: string,
+    readFile: () => Promise<MultipartFile | undefined>,
+  ): Promise<FastifyReply> {
       let part: MultipartFile | undefined;
       try {
-        part = await reqAny.file();
+        part = await readFile();
       } catch (err) {
         // @fastify/multipart throws a synthetic error for limit violations.
         if (isRequestFileTooLargeError(err)) {
@@ -174,8 +209,7 @@ export const attachmentsRoutes: FastifyPluginAsync<AttachmentsRoutesOptions> = a
         requestHash: hash,
       });
       return reply.code(result.status).send(result.body);
-    },
-  });
+  }
 
   // ── GET /attachments/:id/download — PLAN-22 C4a ─────────────────────────
   //

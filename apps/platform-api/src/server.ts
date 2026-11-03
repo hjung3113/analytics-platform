@@ -1001,11 +1001,13 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     db: dbHandle.db,
     idempotencyService,
     vocReadService,
+    log: { warn: (msg, meta) => app.log.warn(meta ?? {}, msg) },
   });
   await app.register(attachmentsRoutes, {
     sessionService,
     attachmentsService,
     workspaceId,
+    uploadConcurrency: config.ATTACHMENT_UPLOAD_CONCURRENCY,
     rateLimitConfig: {
       attachmentMutation: app.rateLimitConfig.attachmentMutation,
     },

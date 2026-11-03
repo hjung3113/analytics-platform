@@ -75,6 +75,8 @@ const envSchema = z
     DB_LOCK_TIMEOUT_MS: z.coerce.number().int().positive().default(5_000),
     DB_IDLE_IN_TRANSACTION_TIMEOUT_MS: z.coerce.number().int().positive().default(30_000),
     HTTP_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(30_000),
+    // #1266 b4: per-process cap on concurrent POST /attachments (each buffers up to 25 MiB).
+    ATTACHMENT_UPLOAD_CONCURRENCY: z.coerce.number().int().positive().default(4),
   })
   .superRefine((config, context) => {
     const originIssue = validateAttachmentOrigin(config.PUBLIC_ATTACHMENT_ORIGIN, config.NODE_ENV);

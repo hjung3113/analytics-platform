@@ -18,9 +18,10 @@
 //
 // Layer rule: `uploadAttachmentCommand` owns the transaction + ADR-0015
 // idempotency frame the POST /attachments route used to own (#393, same
-// shape as the VOC application commands); `uploadAttachment` stays the
-// Tx-aware internal invoked inside the frame. The storage put runs BEFORE
-// the DB INSERT so we never persist a row that points at missing bytes.
+// shape as the VOC application commands). #1266 b4: the command puts the
+// object BEFORE opening the transaction (storage I/O never holds a DB
+// connection), so we never persist a row that points at missing bytes; a
+// replay, conflict or failed transaction deletes the extra object.
 
 import { randomUUID } from 'node:crypto';
 import type { Readable } from 'node:stream';
@@ -30,6 +31,7 @@ import { sql } from 'drizzle-orm';
 import type { Db } from '../../db/client.js';
 import type { Tx } from '../../db/tx.js';
 import { HttpError } from '../../lib/errors.js';
+import type { JobLog } from '../../lib/job-log.js';
 import type { StorageBackend } from '../../lib/storage/index.js';
 import { StorageUnavailableError } from '../../lib/storage/index.js';
 import type { AuditService } from '../core/audit/audit-service.js';
@@ -41,14 +43,6 @@ import { insertAttachment } from './repo.js';
 export interface UploadAttachmentActor {
   actor_id: string;
   workspace_id: string;
-}
-
-export interface UploadAttachmentInput {
-  tx: Tx;
-  actor: UploadAttachmentActor;
-  bytes: Buffer;
-  mimeType: string;
-  filename: string;
 }
 
 export interface AttachmentEnvelope {
@@ -66,6 +60,8 @@ export interface AttachmentsServiceDeps {
   db: Db;
   idempotencyService: IdempotencyService;
   vocReadService: VocAttachmentReader;
+  /** Optional structured log for cleanup warnings (no keys, no filenames). */
+  log?: Pick<JobLog, 'warn'>;
 }
 
 export interface DownloadAttachmentActor {
@@ -87,45 +83,58 @@ export interface DownloadAttachmentResult {
 }
 
 export function createAttachmentsService(deps: AttachmentsServiceDeps) {
-  async function uploadAttachment(input: UploadAttachmentInput): Promise<AttachmentEnvelope> {
-    const { tx, actor, bytes, mimeType, filename } = input;
-
-    const attachmentId = randomUUID();
-    const storageKey = `${actor.workspace_id}/${attachmentId}/${filename}`;
-
-    // 1. Upload first — never INSERT a DB row that references missing bytes.
+  // #1266 b4: object-store I/O never runs inside a DB transaction (a slow put
+  // would hold a connection and trip the idle-in-transaction budget). The
+  // command puts the object first, then the transaction only touches the DB.
+  async function putObject(args: {
+    storageKey: string;
+    bytes: Buffer;
+    mimeType: string;
+  }): Promise<void> {
     try {
-      await deps.storage.put({ key: storageKey, bytes, mimeType });
+      await deps.storage.put({ key: args.storageKey, bytes: args.bytes, mimeType: args.mimeType });
     } catch (err) {
       if (err instanceof StorageUnavailableError) {
         throw new HttpError('storage.unavailable', err.message);
       }
       throw err;
     }
+  }
 
-    // 2. INSERT. On failure, best-effort cleanup of the just-uploaded bytes
-    //    so the bucket does not accumulate orphans.
-    let row;
+  // Best-effort: a failed delete leaves an orphan the attachments-orphans CLI
+  // inventories; it must never mask the original outcome. Logs carry no key.
+  async function discardObject(storageKey: string): Promise<void> {
     try {
-      row = await insertAttachment(tx, {
-        id: attachmentId,
-        workspaceId: actor.workspace_id,
-        name: filename,
-        sizeBytes: bytes.length,
-        mimeType,
-        storageKey,
-        uploadedByActorId: actor.actor_id,
+      await deps.storage.delete(storageKey);
+    } catch (err) {
+      deps.log?.warn('attachments: orphan cleanup failed', {
+        error: err instanceof Error ? err.name : typeof err,
       });
-    } catch (insertErr) {
-      try {
-        await deps.storage.delete(storageKey);
-      } catch {
-        /* swallow — best-effort cleanup */
-      }
-      throw insertErr;
     }
+  }
 
-    // 3. Audit (same tx, ADR-0008). Detail schema rejects `filename`.
+  // DB-only step, runs in the caller's transaction after the object exists.
+  async function insertUploadedAttachment(input: {
+    tx: Tx;
+    actor: UploadAttachmentActor;
+    attachmentId: string;
+    storageKey: string;
+    bytes: Buffer;
+    mimeType: string;
+    filename: string;
+  }): Promise<AttachmentEnvelope> {
+    const { tx, actor, attachmentId, storageKey, bytes, mimeType, filename } = input;
+    const row = await insertAttachment(tx, {
+      id: attachmentId,
+      workspaceId: actor.workspace_id,
+      name: filename,
+      sizeBytes: bytes.length,
+      mimeType,
+      storageKey,
+      uploadedByActorId: actor.actor_id,
+    });
+
+    // Audit (same tx, ADR-0008). Detail schema rejects `filename`.
     await deps.auditService.record(tx, {
       workspace_id: actor.workspace_id,
       actor_id: actor.actor_id,
@@ -152,13 +161,14 @@ export function createAttachmentsService(deps: AttachmentsServiceDeps) {
     };
   }
 
-  // ── uploadAttachmentCommand (#393) ──────────────────────────────────────
+  // ── uploadAttachmentCommand (#393, #1266 b4) ────────────────────────────
   //
-  // Application command owning the full atomic frame for POST /attachments
-  // (and non-HTTP callers): transaction, advisory lock, idempotency
-  // lookup/replay/record — statement order identical to the route frame it
-  // replaces. Returns exactly what the route used to assemble
-  // (`{ status, body }`); replay replays the stored status + envelope.
+  // Order: (1) put the object (no transaction open), (2) transaction: advisory
+  // lock, idempotency lookup, INSERT + audit, record. A replay, a key
+  // conflict or a failure before COMMIT deletes the just-written object
+  // best-effort; a failure at/after COMMIT keeps it (outcome unknown). Returns what
+  // the route assembles (`{ status, body }`); replay returns the stored
+  // status + envelope.
   async function uploadAttachmentCommand(args: {
     actor: UploadAttachmentActor;
     bytes: Buffer;
@@ -168,15 +178,53 @@ export function createAttachmentsService(deps: AttachmentsServiceDeps) {
     requestHash: string;
   }): Promise<{ status: number; body: AttachmentEnvelope }> {
     const { actor, bytes, mimeType, filename, idempotencyKey, requestHash } = args;
-    return runIdempotentCommand({
-      db: deps.db,
-      idempotencyService: deps.idempotencyService,
-      actorId: actor.actor_id,
-      idempotencyKey,
-      requestHash,
-      status: 201,
-      work: (tx) => uploadAttachment({ tx, actor, bytes, mimeType, filename }),
-    });
+    const attachmentId = randomUUID();
+    const storageKey = `${actor.workspace_id}/${attachmentId}/${filename}`;
+
+    await putObject({ storageKey, bytes, mimeType });
+
+    let inserted = false;
+    const commitPhase = { reached: false };
+    try {
+      const result = await runIdempotentCommand({
+        db: deps.db,
+        idempotencyService: deps.idempotencyService,
+        actorId: actor.actor_id,
+        idempotencyKey,
+        requestHash,
+        status: 201,
+        commitPhase,
+        work: async (tx) => {
+          const envelope = await insertUploadedAttachment({
+            tx,
+            actor,
+            attachmentId,
+            storageKey,
+            bytes,
+            mimeType,
+            filename,
+          });
+          inserted = true;
+          return envelope;
+        },
+      });
+      // Replay: the stored response references the first upload's object.
+      if (!inserted) await discardObject(storageKey);
+      return result;
+    } catch (err) {
+      // Delete only when the transaction definitely did not commit: the body (or the key/hash check inside it)
+      // failed before COMMIT. A failure at or after COMMIT is ambiguous (the server may have committed and lost
+      // the acknowledgement), so the object is kept for the reference-aware orphan CLI.
+      if (!commitPhase.reached) {
+        await discardObject(storageKey);
+      } else {
+        deps.log?.warn('attachments: upload outcome uncertain, object kept for orphan cleanup', {
+          error: err instanceof Error ? err.name : typeof err,
+          attachment_id: attachmentId,
+        });
+      }
+      throw err;
+    }
   }
 
   // ── downloadAttachment — PLAN-22 C4a ────────────────────────────────────
@@ -300,7 +348,7 @@ export function createAttachmentsService(deps: AttachmentsServiceDeps) {
     };
   }
 
-  return { uploadAttachment, uploadAttachmentCommand, downloadAttachment };
+  return { uploadAttachmentCommand, downloadAttachment };
 }
 
 export type AttachmentsService = ReturnType<typeof createAttachmentsService>;

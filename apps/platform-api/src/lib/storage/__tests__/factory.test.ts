@@ -54,6 +54,8 @@ describe('factory', () => {
       accessKeyId: 'minio',
       secretAccessKey: 'super-secret-key-do-not-log',
       forcePathStyle: true,
+      requestTimeoutMs: 30_000,
+      connectTimeoutMs: 5_000,
     });
 
     const a = getStorage(VALID_ENV);
