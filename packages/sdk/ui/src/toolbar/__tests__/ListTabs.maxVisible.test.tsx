@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { Flag } from 'lucide-react';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -137,6 +138,48 @@ describe('ListTabs maxVisible', () => {
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(screen.getByRole('button', { name: /^더보기/ })).not.toHaveAttribute('tabindex', '-1');
+  });
+
+  it('Tab moves from the strip to 더보기 to the next control, and Shift+Tab walks back, also after promotion', async () => {
+    const user = userEvent.setup();
+    function Harness() {
+      const [active, setActive] = useState('a');
+      return (
+        <>
+          <button type="button">앞</button>
+          <ListTabs tabs={tabs} activeTab={active} onTabChange={setActive} maxVisible={3} />
+          <button type="button">뒤</button>
+        </>
+      );
+    }
+    render(<Harness />);
+    const tab = (name: string) => screen.getByRole('tab', { name });
+    const more = () => screen.getByRole('button', { name: /^더보기/ });
+    const walk = async () => {
+      // The strip is one roving stop: the active tab. One Tab leaves it for 더보기, one more for the next control.
+      await user.click(screen.getByRole('button', { name: '앞' }));
+      await user.tab();
+      expect(screen.getByRole('tab', { selected: true })).toHaveFocus();
+      await user.tab();
+      expect(more()).toHaveFocus();
+      await user.tab();
+      expect(screen.getByRole('button', { name: '뒤' })).toHaveFocus();
+      await user.tab({ shift: true });
+      expect(more()).toHaveFocus();
+      await user.tab({ shift: true });
+      expect(screen.getByRole('tab', { selected: true })).toHaveFocus();
+      await user.tab({ shift: true });
+      expect(screen.getByRole('button', { name: '앞' })).toHaveFocus();
+    };
+    await walk();
+
+    // Promote a hidden tab through the keyboard, then repeat the walk on the promoted strip.
+    more().focus();
+    await user.keyboard('{ArrowDown}');
+    await user.keyboard('{Enter}');
+    expect(tabLabels()).toEqual(['가', '나', '라']);
+    await walk();
+    expect(tab('라')).toHaveAttribute('data-state', 'active');
   });
 
   it('passes maxVisible through ListToolbar via tabsMaxVisible', () => {
