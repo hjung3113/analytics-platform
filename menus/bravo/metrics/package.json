@@ -2,7 +2,7 @@
   "name": "@ap/menu-metrics",
   "private": true,
   "version": "0.1.1",
-  "ap": { "sdk": ">=0.27.0 <0.28.0" },
+  "ap": { "sdk": ">=0.28.0 <0.29.0" },
   "type": "module",
   "exports": {
     ".": "./src/index.ts",

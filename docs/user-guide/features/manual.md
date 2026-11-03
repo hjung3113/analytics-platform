@@ -1,10 +1,10 @@
 # 기능 사용자 매뉴얼
 
-Current platform entry and navigation are owned by [ADR-0100](../../adr/0100-feature-navigation-and-independent-access.md). Operator features are in the 업무 흐름 space (`/flow/<menu id>`), permission review in the operations console; personal features use global My Activity and platform entry points. Routes in this document describe feature intents interpreted by the platform bridge, not a separate application or product space.
+현행 배치는 [ADR-0110](../../adr/0110-platform-feature-roles-and-scope.md)을 따른다. 아래 주소는 플랫폼에서 직접 여는 정규 경로다. 내부 feature 경로 변환은 feature-bridge가 소유한다.
 
 이 문서는 **하려는 일**을 기준으로 정리돼 있습니다. 기능 목록이 아니라 "이걸 하고 싶은데 어디로 가야 하나"에 답하는 순서입니다.
 
-화면과 함께 따라가려면 [대화형 사용자 안내](../history/feedbackops/index.html)를 여세요.
+통합 전 화면을 담은 과거 참고: [대화형 사용자 안내](../history/feedbackops/index.html).
 
 기능 설명이 아니라 왜 그렇게 동작하는지가 궁금하면 [FO ADR 기록](../../adr/history/feedbackops)과 [현재 플랫폼 결정](../../adr/README.md)를 보세요. 화면을 바꾸려면 [`AGENTS.md`](../../agents/feature-implementation.md)가 먼저입니다.
 
@@ -58,7 +58,7 @@ Task를 `released`로 옮겨도 연결된 VOC가 저절로 `resolved`가 되지 
 
 **누구나 할 수 있습니다.** 권한이 따로 필요 없습니다.
 
-`VOC 생성`(`/vocs?action=create`)으로 갑니다.
+왼쪽 레일 `VOC 등록` 버튼으로 등록 창을 엽니다.
 
 적어야 하는 것:
 
@@ -81,7 +81,7 @@ Task를 `released`로 옮겨도 연결된 VOC가 저절로 `resolved`가 되지 
 
 `소통 › VOC`(`/voc`)에서 범위 안의 VOC가 목록으로 보이고, `내가 등록한`을 고르면 내가 올린 것만 모입니다. 목록에서 하나를 고르면 오른쪽에 처리 상태와 담당자 답변이 열립니다. 내가 올린 VOC에서는 대화를 보고 답글을 남길 수 있고, 남이 올린 VOC에서는 공개된 답변만 보입니다.
 
-**내게 온 알림을 보려면** `홈`(`/home?tab=inbox`)의 `수신함` 탭이나 왼쪽 레일의 종 모양 버튼을 누릅니다. `읽지 않음` / `전체`를 선택해 읽지 않은 알림만 보거나 읽음 여부와 상관없이 확인하고, 읽음 처리하거나 보관할 수 있습니다. 이 알림함은 VOC 목록의 `수신함` 보기(`/vocs?view=inbox`)와 다릅니다.
+**내게 온 알림을 보려면** `홈`(`/home?tab=inbox`)의 `수신함` 탭이나 왼쪽 레일의 종 모양 버튼을 누릅니다. `읽지 않음` / `전체`를 선택해 읽지 않은 알림만 보거나 읽음 여부와 상관없이 확인하고, 읽음 처리하거나 보관할 수 있습니다. 이 알림함은 `VOC 처리함`(`/flow/inbox`)와 다릅니다.
 
 **리포터에게 보이는 상태**는 여덟 단계입니다:
 
@@ -110,8 +110,8 @@ received → reviewing → assigned → progress → prep → resolved
 
 | 화면 | 용도 |
 |---|---|
-| `VOC 처리함` (`/vocs?view=inbox`) | 내 범위의 전체 VOC |
-| `분류` (`/vocs?view=triage`) | **처리 대기 큐.** 여기가 실제 작업 공간입니다 |
+| `VOC 처리함` (`/flow/inbox`) | 내 범위의 전체 VOC |
+| `분류` (`/flow/triage`) | **처리 대기 큐.** 여기가 실제 작업 공간입니다 |
 | `높음` / `미배정` / `연결 없음` | 트리아지 큐의 저장된 관점. 사이드바 숫자가 남은 건수입니다 |
 
 ### 트리아지에서 정하는 것
@@ -152,7 +152,7 @@ VOC 상세 패널의 트리아지 영역에서 **`분류에서 변경`** 버튼�
 
 ## 5. 같은 얘기가 반복해서 들어온다
 
-`반복 VOC`(`/voc-clusters`)에서 여러 VOC를 하나로 묶습니다.
+`반복 VOC`(`/flow/clusters`)에서 여러 VOC를 하나로 묶습니다.
 
 클러스터는 `draft`로 시작해 `confirmed`가 됩니다. 초안 동안 구성원을 넣고 빼며 정말 같은 문제인지 확인하고, 확정하면 그 묶음이 이후 근거의 단위가 됩니다.
 
@@ -168,7 +168,7 @@ VOC 상세 패널의 트리아지 영역에서 **`분류에서 변경`** 버튼�
 
 **필요 권한:** `finding.read` / `finding.manage`. Admin은 역할만으로 가집니다.
 
-`Findings`(`/findings`)로 갑니다. Finding은 **"근거를 보니 이렇다"는 판단**이고, 실행 요청의 출발점입니다.
+`전체 Finding`(`/flow/findings`)로 갑니다. Finding은 **"근거를 보니 이렇다"는 판단**이고, 실행 요청의 출발점입니다.
 
 만들 때 적는 것: 제목, 요약, 심각도, 신뢰도(low / medium / high), 대상 시스템, 필요하면 분석 영역.
 
@@ -181,7 +181,7 @@ Finding 상태는 `draft` → `active` → `converted`(실행으로 넘어감) �
 
 Finding 상세에서 **근거를 더 붙이거나**(근거 추가 / 기존 근거 연결) **연결된 VOC·Task로 바로 이동**할 수 있습니다.
 
-이미 저장한 근거를 찾을 때는 **Integration → 근거** (`/integration/evidence`)를 엽니다. Admin 또는 Finding을 읽을 수 있는 범위의 Developer가 인용문, 출처의 안전한 정보, 부모 Finding 이름으로 검색할 수 있습니다. 출처와 시스템 범위를 선택하고 행을 열면 상세가 표시됩니다. **Finding 보기**로 부모 Finding을 열고 뒤로 가면 검색 조건과 선택을 복원합니다. 원본 권한이나 승인이 사라진 내용은 가려집니다. 근거 화면은 읽기 전용이며 추가·수정은 Finding 상세에서 합니다.
+이미 저장한 근거를 찾을 때는 `업무 흐름 › Finding › 근거`(`/flow/evidence`)를 엽니다. Admin 또는 Finding을 읽을 수 있는 범위의 Developer가 인용문, 출처의 안전한 정보, 부모 Finding 이름으로 검색할 수 있습니다. 출처와 시스템 범위를 선택하고 행을 열면 상세가 표시됩니다. **Finding 보기**로 부모 Finding을 열고 뒤로 가면 검색 조건과 선택을 복원합니다. 원본 권한이나 승인이 사라진 내용은 가려집니다. 근거 화면은 읽기 전용이며 추가·수정은 Finding 상세에서 합니다.
 
 > **신뢰도를 낮게 적는 걸 두려워하지 마세요.** `low`로 적힌 Finding은 "더 봐야 한다"는 정직한 신호이고, 나중에 근거가 쌓이면 올리면 됩니다.
 
@@ -205,13 +205,13 @@ Finding / VOC / 반복 VOC
                             └──►  rejected
 ```
 
-`Task Requests`(`/tasks?view=requests`)에서 검토합니다. 승인·반려·근거 보강 요청 중에 고르고, 승인하면 Task로 전환하거나 이미 있는 Task에 연결합니다.
+`Task 요청`(`/flow/task-requests`)에서 검토합니다. 승인·반려·근거 보강 요청 중에 고르고, 승인하면 Task로 전환하거나 이미 있는 Task에 연결합니다.
 
 **자기가 올린 요청을 자기가 승인하는 경우**(self-approval)는 워크스페이스 정책이 허용할 때만 가능하고, 감사 기록에 별도 라벨이 붙습니다. 필요 권한은 `task_request.self_approve`이며 Admin은 역할만으로 가집니다.
 
 ### Task 다루기
 
-`Tasks`(`/tasks?view=board`)는 칸반 보드입니다. 카드를 끌어 상태를 옮깁니다.
+`Task 보드`(`/flow/tasks`)는 칸반 보드입니다. 카드를 끌어 상태를 옮깁니다.
 
 ```
 backlog → todo → doing → review → done → released
@@ -219,9 +219,9 @@ backlog → todo → doing → review → done → released
                                         reopened
 ```
 
-`내 Task`(`/tasks?view=my`)에 내게 배정된 것만 모입니다.
+`내 Task`(`/my-tasks`)에 내게 배정된 것만 모입니다.
 
-Milestone은 관련 Task를 묶는 계획 단위입니다. `Milestones`(`/tasks?view=milestones`)에서 만들고, 열어 연결된 Task 목록을 확인합니다.
+Milestone은 관련 Task를 묶는 계획 단위입니다. `마일스톤`(`/flow/milestones`)에서 만들고, 열어 연결된 Task 목록을 확인합니다.
 
 **Milestone 필요 권한:** Admin 또는 해당 시스템에 `finding.manage`가 있는 Developer.
 
@@ -235,7 +235,7 @@ Task 상세의 **맥락**에서 이 작업이 어느 Finding에서 나왔는지 
 
 **필요 권한:** 읽기는 `survey.read`, 만들고 운영하는 것은 `survey.manage`. Admin은 둘 다 역할로 가집니다(단, 해당 권한에 **명시적 거부**가 걸려 있으면 거부가 이깁니다).
 
-`설문`(`/surveys`)로 갑니다.
+`업무 흐름 › 설문 운영 › 설문 관리`(`/flow/survey-management`)에서 만듭니다.
 
 ### 설문 시작하기
 
@@ -258,7 +258,7 @@ draft  ──►  open  ──►  closed
 
 ### 결과 보기
 
-`/surveys/{id}/results`에서 집계를 봅니다. 여기에 **익명성 규칙**이 걸려 있습니다:
+`/flow/survey-results/{id}`에서 집계를 봅니다. 여기에 **익명성 규칙**이 걸려 있습니다:
 
 - **응답이 5건 미만인 구간은 표시되지 않습니다.** 필터를 걸어 대상을 좁혔을 때도 마찬가지입니다.
 - 필터를 이리저리 바꿔가며 빼기로 특정인의 응답을 역산하는 것도 막혀 있습니다.
@@ -311,7 +311,7 @@ draft  ──►  open  ──►  closed
 
 ## 10. 워크스페이스를 관리해야 한다
 
-**담당자와 Admin** (`업무 흐름 › 설정`, `/flow/*`) 및 **Admin 전용** (`운영 콘솔 › 권한`, `/operations/*`).
+업무 흐름 설정은 `console:access`와 `features:access`가 모두 필요하다. 담당자에게 설정을 여는 범위는 아직 구현하지 않았다([ADR-0110](../../adr/0110-platform-feature-roles-and-scope.md), backlog). **Admin 전용** (`운영 콘솔 › 권한`, `/operations/*`).
 
 | 화면 | 하는 일 |
 |---|---|

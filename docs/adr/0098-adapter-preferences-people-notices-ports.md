@@ -38,7 +38,7 @@
 - `listNotices`는 만료 포함 목록이고 **전역(`scopeId:null`) 공지만** 돌려준다. site 지정 공지는 그 site를 부여받은 세션에게만 보여야 하는데 서버는 아직 권위 있는 site 부여를 모른다(`scopes: []`).
 - **구현 안 함 — site 지정 공지 작성:** 위와 같은 이유로 `scopeId`가 null이 아닌 저장은 `invalid`(`path:["scopeId"]`)다. 다시 여는 조건: 서버가 세션별 site 부여를 권위 있게 공급할 때(그때 목록 데이터 범위와 작성 검증을 함께 연다). 클라이언트가 보낸 부여는 믿지 않는다.
 - `home.notices`: 세션 워크스페이스, 정확한 `targetScopeId` 일치(null은 전역만), `until`이 Asia/Seoul wall-clock 현재(초 단위)보다 **뒤**인 것만, 결정적 순서로 `id`·`title`·`scopeId`·`until`만 돌려준다. 순서는 체크리스트 §3(요청 모양 → params 값 → `notice:view` → 핸들러)이고 미지원 엔드포인트·키는 HTTP 200 `error`다. 분석 엔드포인트를 대신 답하지 않는다(구현 안 함 — 백로그).
-- Home 갱신: 앱 조립(`apps/platform-web/src/real`)이 실어댑터의 `saveNotice`·`deleteNotice`를 한 번 감싸 `ok`·`conflict`·`unknown`(과 던진 호출) 뒤에 앱이 선언한 `home.notices`를 목표 무효화(`refreshEpochs.bump`)한다. `adapter.subscribe`의 전체 무효화는 쓰지 않고 Kernel은 메뉴 이름을 모른다. 공지 화면(목록 + 읽기 창, `console:access`인 사용자에게만 작성·수정·삭제 노출)은 #1290에서 `@ap/menu-notice-voc`가 이 포트만 써서 구현했다(옛 문장 「CRUD 화면은 이 릴리스에 없다」는 이 시점 이전의 상태다).
+- Home 갱신: 앱 조립(`apps/platform-web/src/real`)이 실어댑터의 `saveNotice`·`deleteNotice`를 한 번 감싸 `ok`·`conflict`·`unknown`(과 던진 호출) 뒤에 앱이 선언한 `home.notices`를 목표 무효화(`refreshEpochs.bump`)한다. `adapter.subscribe`의 전체 무효화는 쓰지 않고 Kernel은 메뉴 이름을 모른다. 공지 화면(목록 + 읽기 창, `console:access`인 사용자에게만 작성·수정·삭제 노출)은 #1290에서 `@ap/menu-notice-voc`가 이 포트만 써서 구현했다.
 
 ### 5. `defaultRangeTo`는 `string | null`이다
 

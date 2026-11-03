@@ -229,7 +229,7 @@ _Avoid_: Customer system, external service, 추적 대상
 플랫폼 자체에 대한 피드백을 받는 Managed System. 늘 하나 있고 업무 시스템이 아니라 공간 연결이 없으며 보관할 수 없다. 셸·홈·공지·내 활동처럼 공간 없는 화면에서 등록한 VOC의 기본 시스템이고, 그 VOC의 공개 부분은 로그인 전원에게 보인다([ADR-0110](docs/adr/0110-platform-feature-roles-and-scope.md) 결정 3·5).
 
 **VOC 공개 열람** (`voc.read_public`):
-VOC의 공개 부분(제목·본문·신고자용 상태·담당자 답변·신고자 답글·공개 첨부)을 읽는 권한. 시스템 단위로 부여하고, 내부 부분(내부 메모·분류 상태·심각도·담당 배정·Cluster·연결 객체)은 주지 않는다([ADR-0110](docs/adr/0110-platform-feature-roles-and-scope.md) 결정 3).
+VOC의 공개 부분을 읽는 권한. 공개 필드와 첨부 범위는 [VOC API의 공개 열람 계약](docs/architecture/platform-api/api/voc.md#voc-public-read-adr-0110-decision-3-1288-g)을 따른다. 신고자 답글과 그 첨부는 공개 부분에 포함하지 않는다. 시스템 단위로 부여하고, 내부 부분(내부 메모·분류 상태·심각도·담당 배정·Cluster·연결 객체)은 주지 않는다([ADR-0110](docs/adr/0110-platform-feature-roles-and-scope.md) 결정 3).
 _Avoid_: 전체 공개 — 범위 없이 모두에게 여는 안은 채택하지 않았다.
 
 **전체 협업 허브** (폐기된 화면 문구 `FeedbackOps 전체`):
