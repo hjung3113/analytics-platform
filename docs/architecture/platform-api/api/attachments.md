@@ -11,7 +11,11 @@ GET /attachments/:id/download
 
 `POST /attachments` requires an authenticated Actor in the workspace, an
 `Idempotency-Key`, and a `multipart/form-data` file part. Uploads are limited to
-25 MiB.
+25 MiB. Before buffering the body, each server process takes an upload
+admission slot (`ATTACHMENT_UPLOAD_CONCURRENCY`, default 4). If all slots are
+occupied, it immediately returns HTTP 503 `service.unavailable` with
+`Retry-After: 5`; it does not queue the upload. The slot is released after
+success, failure, or client abort.
 A malformed multipart body (no boundary, or a file part truncated after its
 headers) returns 422 `validation.malformed_request`.
 

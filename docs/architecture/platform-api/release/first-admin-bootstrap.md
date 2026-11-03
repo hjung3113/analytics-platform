@@ -6,7 +6,7 @@ Never run `SEED_MODE=core`, `personas` or `scale` against operator data: they cr
 
 ## Steps
 
-All commands run as one-off jobs from the migrate/tools image in the operator Compose project (see [oidc-and-images.md](oidc-and-images.md) for the project, env file and volume variables). Define `P` as in [oidc-and-images.md](oidc-and-images.md) «Production stack» (project and restore pin file included) and run from `ops/platform-api`. The long-running backend workload never receives `DATABASE_URL_MIGRATE`; use operator-job secrets only.
+All commands run as one-off jobs from the migrate/tools image in the operator Compose project (see [oidc-and-images.md](oidc-and-images.md) for the project, env file and volume variables). Define `P` as in [oidc-and-images.md](oidc-and-images.md) «Production stack» (project and restore pin file included) and run from `ops/platform-api` in the same Bash session. The long-running backend workload never receives `DATABASE_URL_MIGRATE`; use operator-job secrets only.
 
 1. **Migrate.** Run the migration job so the schema and roles are current.
 2. **Seed the workspace.** `SEED_MODE=bootstrap` creates the Workspace (`WORKSPACE_ID`, `WORKSPACE_NAME`) and the `system` Actor, nothing else. Rerunning changes nothing and exits 0. On the production stack the `bootstrap` job service (profile `bootstrap`) carries `SEED_MODE=bootstrap`, `WORKSPACE_ID`, `WORKSPACE_NAME` and both database URLs from `.env.production`:
