@@ -68,7 +68,7 @@ describe('workspace assembly (#260)', () => {
 
   it('registers VOC in 소통 behind voc:view with the reporter page keys, and its detail as a navHidden child with the VOC ID as a path parameter (#654)', () => {
     const entry = registry.menuById('voc');
-    expect(entry).toMatchObject({ group: 'noticeVoc', path: '/voc', permission: 'voc:view', pageKeys: ['q', 'status', 'sort', 'focus'] });
+    expect(entry).toMatchObject({ group: 'noticeVoc', path: '/voc', permission: 'voc:view', pageKeys: ['q', 'status', 'sort', 'focus', 'mine', 'system'] });
     expect(entry.component).toBeDefined();
     expect(registry.spaceOf(entry)).toBeNull();
     const detail = registry.menuById('voc-detail');

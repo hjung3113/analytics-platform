@@ -21,9 +21,9 @@ export const manifests: MenuEntry[] = [
   {
     // The Kernel permission literal `voc:view` (ADR-0069 maps it to every signed-in actor): a menu move does not change it.
     id: 'voc', group: COMMUNICATION, label: { ko: 'VOC', en: 'VOC' },
-    description: { ko: '내가 등록한 VOC와 처리 상태·담당자 답변', en: 'VOCs you registered, their status and replies' },
+    description: { ko: '범위 안의 VOC와 처리 상태·담당자 답변', en: 'VOCs in your reach, their status and replies' },
     path: '/voc', icon: MessageSquareWarning, permission: 'voc:view', requiresScope: false, pageType: 'management',
-    context: contextCapabilities(), features: NO_FEATURES, pageKeys: ['q', 'status', 'sort', 'focus'],
+    context: contextCapabilities(), features: NO_FEATURES, pageKeys: ['q', 'status', 'sort', 'focus', 'mine', 'system'],
     component: lazy(() => import('./pages/MyVoc')),
   },
   {

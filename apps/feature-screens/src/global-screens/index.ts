@@ -20,6 +20,16 @@ export {
   type MyVocQuery,
   type MyVocSort,
 } from '@/features/voc/components/reporter/my-voc-query';
+export {
+  PublicVocListScreen,
+  type PublicVocInitialFocus,
+} from '@/features/voc/components/public/PublicVocListScreen';
+export { PublicVocDetail } from '@/features/voc/components/public/PublicVocDetail';
+export { VocReadingPane } from '@/features/voc/components/public/VocReadingPane';
+export {
+  PUBLIC_VOC_QUERY_MAX,
+  type PublicVocQuery,
+} from '@/features/voc/components/public/public-voc-query';
 export { ReporterVocDetail } from '@/features/voc/components/reporter/ReporterVocDetail';
 export {
   VocComposeScreen,

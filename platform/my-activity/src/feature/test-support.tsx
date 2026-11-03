@@ -14,6 +14,8 @@ import { groupId, spaceId, type Permission } from '@ap/contracts';
 const filler = { ...manifests.find(m => m.id === 'surveys')!, primary: true, id: 'filler', group: 'filler', path: '/filler', aliases: undefined } as MenuEntry;
 // 소통 needs its one primary menu; the real 공지 lives in `@ap/menu-notice-voc`, so a stand-in primary takes its place.
 const notices = { ...filler, id: 'notices', group: 'noticeVoc', path: '/notices', component: undefined } as MenuEntry;
+// The operator inbox, the destination of 소통 › VOC's 「업무 흐름에서 처리」 link: gated like the real `inbox` (`features:access`) and declaring `focus` and `returnTo`.
+const inbox = { ...filler, primary: false, id: 'inbox', path: '/flow/inbox', permission: 'features:access', pageKeys: ['focus', 'returnTo'] } as MenuEntry;
 export const registry = createRegistry({
   spaces: [{ id: spaceId('mars'), label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'filler' }],
   groups: [
@@ -21,7 +23,7 @@ export const registry = createRegistry({
     { id: groupId('noticeVoc'), label: { ko: '소통', en: 'Communication' }, icon: UserRound, space: null },
     { id: groupId('filler'), label: { ko: '채움', en: 'Filler' }, icon: UserRound, space: spaceId('mars') },
   ],
-  menus: [...manifests, filler, notices],
+  menus: [...manifests, filler, notices, inbox],
 });
 
 export const ID_A = '11111111-1111-4111-8111-111111111111';
