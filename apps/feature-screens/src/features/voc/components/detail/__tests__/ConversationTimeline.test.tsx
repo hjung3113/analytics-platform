@@ -143,7 +143,7 @@ describe('<ConversationTimeline>', () => {
         postSignal={{ tab: 'internal', seq: 0 }}
       />,
     );
-    const publicTab = screen.getByRole('tab', { name: '공개' });
+    const publicTab = screen.getByRole('tab', { name: '제출자 대화' });
     expect(publicTab).toHaveAttribute('aria-selected', 'true');
 
     rerender(
@@ -155,7 +155,7 @@ describe('<ConversationTimeline>', () => {
     );
 
     expect(screen.getByRole('tab', { name: '내부' })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByRole('tab', { name: '공개' })).toBe(publicTab);
+    expect(screen.getByRole('tab', { name: '제출자 대화' })).toBe(publicTab);
 
     // The reader can go back to 공개; an unchanged signal does not pull them away again.
     fireEvent.mouseDown(publicTab);
@@ -193,7 +193,7 @@ describe('<ConversationTimeline>', () => {
           postSignal={{ tab: 'public', seq: 2 }}
         />,
       );
-      expect(screen.getByRole('tab', { name: '공개' })).toHaveAttribute('aria-selected', 'true');
+      expect(screen.getByRole('tab', { name: '제출자 대화' })).toHaveAttribute('aria-selected', 'true');
     },
   );
 
@@ -206,13 +206,13 @@ describe('<ConversationTimeline>', () => {
         postSignal={{ tab: 'internal', seq: 1 }}
       />,
     );
-    expect(screen.getByRole('tab', { name: '공개' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: '제출자 대화' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.queryByRole('tab', { name: '내부' })).not.toBeInTheDocument();
   });
 
   it('renders both tabs for a viewer with operator capability', () => {
     render(<ConversationTimeline voc={DETAIL_ENVELOPE} canTriage={true} />);
-    expect(screen.getByRole('tab', { name: '공개' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '제출자 대화' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: '내부' })).toBeInTheDocument();
   });
 
@@ -222,8 +222,8 @@ describe('<ConversationTimeline>', () => {
       conversation_timeline: [PUBLIC_ENTRY, INTERNAL_ENTRY],
     };
     render(<ConversationTimeline voc={vocWithInternalEntry} canTriage={false} />);
-    expect(screen.getByRole('tab', { name: '공개' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: '공개' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: '제출자 대화' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '제출자 대화' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.queryByRole('tab', { name: '내부' })).not.toBeInTheDocument();
     expect(screen.getByText('공개 업데이트')).toBeInTheDocument();
   });
@@ -243,7 +243,7 @@ describe('<ConversationTimeline>', () => {
 
     rerender(<ConversationTimeline voc={vocWithEntries} canTriage={false} />);
 
-    const publicTab = screen.getByRole('tab', { name: '공개' });
+    const publicTab = screen.getByRole('tab', { name: '제출자 대화' });
     expect(publicTab).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByText('공개 업데이트')).toBeInTheDocument();
     expect(document.activeElement).toBe(publicTab);

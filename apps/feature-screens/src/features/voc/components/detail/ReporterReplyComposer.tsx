@@ -160,8 +160,8 @@ export function ReporterReplyComposer({
     });
   }
 
-  // Status hint — prototype: "공개 타임라인에 기록됨" for reply surface
-  const statusHint = <span className="text-xs text-text-muted">공개 타임라인에 기록됨</span>;
+  // Status hint: a Reporter Reply is private to the reporter and the operators (ADR-0110 decision 3), never the public timeline.
+  const statusHint = <span className="text-xs text-text-muted">나와 담당자에게만 보입니다</span>;
 
   // ── Error matrix ─────────────────────────────────────────────────────────────
   const mutationError = mutation.error as ApiError | null;

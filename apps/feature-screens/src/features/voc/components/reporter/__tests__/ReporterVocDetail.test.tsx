@@ -190,7 +190,9 @@ describe('<ReporterVocDetail> fed an operator envelope', () => {
     expect(await screen.findByRole('heading', { name: '로그인이 안 됩니다' })).toBeTruthy();
     expect(screen.getAllByRole('heading', { level: 2 })).toHaveLength(1);
     expect(screen.getByText('VOC-0042')).toBeTruthy();
-    expect(screen.getByText('검토 중')).toBeTruthy();
+    // The status badge and the progress stage line (current step) both name the status.
+    expect(screen.getAllByText('검토 중')).toHaveLength(2);
+    expect(screen.getByRole('listitem', { current: 'step' }).textContent).toBe('검토 중');
     expect(screen.getByText('아침마다 로그인이 실패합니다.')).toBeTruthy();
     expect(screen.getByRole('link', { name: /log\.txt/ })).toBeTruthy();
     // The public update and the reporter's own reply stay; names come from the actors list.

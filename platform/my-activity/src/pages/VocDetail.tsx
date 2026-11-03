@@ -1,12 +1,12 @@
 import { SearchX } from 'lucide-react';
 import { useI18n, usePlatform, type PageProps } from '@ap/kernel';
 import { PlatformPage, ReturnLink, StateMessage } from '@ap/components';
-import { ReporterVocDetail } from '@ap/feature-screens/global-screens';
+import { VocReadingPane } from '@ap/feature-screens/global-screens';
 import { FeatureBridge } from '@ap/feature-bridge';
 import { VOC_ID } from '../feature/voc-query';
 
 /**
- * 내 VOC 상세 (ADR-0070, ADR-0071): one VOC as its reporter sees it, full page. The VOC ID is a path segment, so a malformed one is
+ * VOC 상세 (ADR-0070, ADR-0071, ADR-0110): one VOC, full page — the reporter detail for the actor's own VOC, the public projection for any other (`VocReadingPane`). The VOC ID is a path segment, so a malformed one is
  * not-found here and never becomes a feature request path. The way back is only ever the Kernel's `returnOrigin()` (`ReturnLink`).
  */
 export default function VocDetail({ params }: PageProps) {
@@ -22,6 +22,6 @@ export default function VocDetail({ params }: PageProps) {
     </PlatformPage>;
   }
   return <PlatformPage secondaryActions={pageParam('returnTo') !== null ? <ReturnLink /> : undefined}>
-    <FeatureBridge><ReporterVocDetail vocId={vocId} /></FeatureBridge>
+    <FeatureBridge><VocReadingPane vocId={vocId} /></FeatureBridge>
   </PlatformPage>;
 }

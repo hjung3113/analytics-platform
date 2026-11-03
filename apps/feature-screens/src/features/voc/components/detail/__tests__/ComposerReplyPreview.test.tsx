@@ -53,4 +53,13 @@ describe('<ComposerReplyPreview>', () => {
     // Empty-body italic placeholder
     expect(screen.getByText('(메시지 본문이 비어있습니다)')).toBeInTheDocument();
   });
+
+  it('U1: says the reply is visible only to the reporter and operators, never public', () => {
+    const emptyDoc = { type: 'doc', content: [] } as import('@ap/ui').TipTapDoc;
+    const { container } = render(
+      <ComposerReplyPreview voc={BASE_VOC} owner={OWNER} reporter={REPORTER} draftDoc={emptyDoc} />,
+    );
+    expect(screen.getByText(/제출자와 담당자에게만 보입니다/)).toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/공개/);
+  });
 });
