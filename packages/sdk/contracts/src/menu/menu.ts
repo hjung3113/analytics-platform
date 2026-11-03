@@ -62,6 +62,11 @@ export type SpaceDef = {
    * The registry refuses `'hidden'` on a space with any menu that has `requiresScope: true`. A menu in a hidden space must not use a Scope-requiring endpoint or action (the registry does not see them; the app's integration test checks endpoints only — actions are not checked automatically).
    */
   scopePresentation?: 'default' | 'hidden';
+  /**
+   * Present (`true`): the server registers this business system as a feedback-tracked system at startup (ADR-0110 decision 5). Absent: not registered automatically (it may still be registered by hand).
+   * Declaration only: no ACL, query or UI change, and the link never grants permission (ADR-0068 decision 1). The registry refuses any value but `true`.
+   */
+  feedbackTracking?: true;
 };
 /** Permissions the platform's own features judge, whatever app is assembled — emitted to `vocab.json` for servers outside this workspace (#674). Canonical order. */
 export const KERNEL_PERMISSIONS = ['platform:view', 'notice:view', 'voc:view', 'console:access', 'features:access'] as const;

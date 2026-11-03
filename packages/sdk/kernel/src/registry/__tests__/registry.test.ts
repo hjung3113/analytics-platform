@@ -263,6 +263,15 @@ describe('spaces (06 §9.1)', () => {
     expect(createRegistry({ spaces: [space], groups, menus: [catalog] }).spaces[0]?.scopePresentation).toBe(scopePresentation);
   });
 
+  it.each([undefined, true] as const)('accepts feedbackTracking %s and keeps it on the space', feedbackTracking => {
+    const space: SpaceDef = feedbackTracking ? { ...analyticsSpace, feedbackTracking } : analyticsSpace;
+    expect(createRegistry({ spaces: [space], groups, menus: [catalog] }).spaces[0]?.feedbackTracking).toBe(feedbackTracking);
+  });
+
+  it.each([false, 'yes'])('rejects feedbackTracking %j', feedbackTracking => {
+    expect(() => createRegistry({ spaces: [{ ...analyticsSpace, feedbackTracking: feedbackTracking as never }], groups, menus: [catalog] })).toThrow('Space "mars" feedbackTracking must be true when present');
+  });
+
   it('accepts a default space with a Scope-requiring menu', () => {
     const scoped = menu('catalog', '/metrics', { primary: true, requiresScope: true });
     expect(() => createRegistry({ spaces: [{ ...analyticsSpace, scopePresentation: 'default' }], groups, menus: [scoped] })).not.toThrow();
