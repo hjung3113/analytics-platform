@@ -182,15 +182,17 @@ fi
 
 # Notification email: the channel is an explicit choice (compose has no default). Values are never echoed.
 mock_notice=no
+# The backend rejects any supplied SMTP_PORT that is not a positive integer, whatever the channel.
+smtp_port="$(val_of SMTP_PORT)"
+if [ -n "$smtp_port" ] && { ! [[ "$smtp_port" =~ ^[0-9]+$ ]] || [ "${#smtp_port}" -gt 5 ] || [ "$((10#$smtp_port))" -lt 1 ]; }; then
+  fail "SMTP_PORT must be a positive integer when set"
+fi
 channel="$(val_of NOTIFICATION_EMAIL_CHANNEL)"
 case "$channel" in
   mock) mock_notice=yes ;;
   smtp)
     [ -n "$(val_of SMTP_HOST)" ] || fail "SMTP_HOST is required when NOTIFICATION_EMAIL_CHANNEL=smtp"
-    smtp_port="$(val_of SMTP_PORT)"
-    if ! [[ "$smtp_port" =~ ^[0-9]+$ ]] || [ "${#smtp_port}" -gt 5 ] || [ "$((10#$smtp_port))" -lt 1 ]; then
-      fail "SMTP_PORT must be a positive integer when NOTIFICATION_EMAIL_CHANNEL=smtp"
-    fi
+    [ -n "$smtp_port" ] || fail "SMTP_PORT is required when NOTIFICATION_EMAIL_CHANNEL=smtp"
     [ -n "$(val_of SMTP_FROM)" ] || fail "SMTP_FROM is required when NOTIFICATION_EMAIL_CHANNEL=smtp"
     smtp_user="$(val_of SMTP_USERNAME)"
     smtp_pass="$(val_of SMTP_PASSWORD)"

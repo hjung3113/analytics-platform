@@ -52,7 +52,10 @@ function run(overrides = {}) {
 test('preflight: a complete https configuration passes', () => {
   const r = run();
   assert.equal(r.code, 0);
-  assert.deepEqual(r.lines, ['preflight: email disabled (mock): notifications reach the inbox only', 'preflight: ok']);
+  assert.deepEqual(r.lines, [
+    'preflight: email disabled (mock): notifications reach the inbox only',
+    'preflight: ok',
+  ]);
 });
 
 test('preflight: the shipped example is rejected', () => {
@@ -192,7 +195,10 @@ test('preflight: accepts quotes, comments, blank lines and inline comments', () 
     "OIDC_CLIENT_SECRET='oidc-Zx9-$real'",
     'MINIO_ROOT_USER=platform-minio # inline comment',
   ]);
-  assert.deepEqual(r.lines, ['preflight: email disabled (mock): notifications reach the inbox only', 'preflight: ok']);
+  assert.deepEqual(r.lines, [
+    'preflight: email disabled (mock): notifications reach the inbox only',
+    'preflight: ok',
+  ]);
   assert.equal(r.code, 0);
 });
 
@@ -396,10 +402,27 @@ test('preflight: a complete smtp configuration passes without the mock notice', 
 test('preflight: mock channel passes and prints the notice', () => {
   const r = run({ NOTIFICATION_EMAIL_CHANNEL: 'mock' });
   assert.equal(r.code, 0);
-  assert.deepEqual(r.lines, ['preflight: email disabled (mock): notifications reach the inbox only', 'preflight: ok']);
+  assert.deepEqual(r.lines, [
+    'preflight: email disabled (mock): notifications reach the inbox only',
+    'preflight: ok',
+  ]);
+});
+
+test('preflight: mock channel accepts a blank or valid leftover SMTP_PORT', () => {
+  for (const SMTP_PORT of [undefined, '', '587']) {
+    const r = run({ NOTIFICATION_EMAIL_CHANNEL: 'mock', SMTP_PORT });
+    assert.equal(r.code, 0, r.lines.join('\n'));
+  }
 });
 
 for (const [name, overrides, needle] of [
+  [
+    'mock with port not a number',
+    { NOTIFICATION_EMAIL_CHANNEL: 'mock', SMTP_PORT: 'abc' },
+    'SMTP_PORT',
+  ],
+  ['mock with port 0', { NOTIFICATION_EMAIL_CHANNEL: 'mock', SMTP_PORT: '0' }, 'SMTP_PORT'],
+  ['mock with port -1', { NOTIFICATION_EMAIL_CHANNEL: 'mock', SMTP_PORT: '-1' }, 'SMTP_PORT'],
   ['missing channel', { NOTIFICATION_EMAIL_CHANNEL: undefined }, 'NOTIFICATION_EMAIL_CHANNEL'],
   ['unknown channel', { NOTIFICATION_EMAIL_CHANNEL: 'sendgrid' }, 'NOTIFICATION_EMAIL_CHANNEL'],
   ['smtp without host', { ...SMTP, SMTP_HOST: undefined }, 'SMTP_HOST'],
@@ -409,7 +432,11 @@ for (const [name, overrides, needle] of [
   ['smtp port -1', { ...SMTP, SMTP_PORT: '-1' }, 'SMTP_PORT'],
   ['smtp without from', { ...SMTP, SMTP_FROM: undefined }, 'SMTP_FROM'],
   ['smtp username without password', { ...SMTP, SMTP_USERNAME: 'mailer' }, 'SMTP_PASSWORD'],
-  ['smtp password without username', { ...SMTP, SMTP_PASSWORD: 'smtp-Zx9-real-value' }, 'SMTP_USERNAME'],
+  [
+    'smtp password without username',
+    { ...SMTP, SMTP_PASSWORD: 'smtp-Zx9-real-value' },
+    'SMTP_USERNAME',
+  ],
   [
     'smtp CHANGE_ME password',
     { ...SMTP, SMTP_USERNAME: 'mailer', SMTP_PASSWORD: 'CHANGE_ME' },
@@ -417,7 +444,11 @@ for (const [name, overrides, needle] of [
   ],
   [
     'smtp demo password',
-    { ...SMTP, SMTP_USERNAME: 'mailer', SMTP_PASSWORD: demoValue('POSTGRES_PASSWORD') },
+    {
+      ...SMTP,
+      SMTP_USERNAME: 'mailer',
+      SMTP_PASSWORD: demoValue('POSTGRES_PASSWORD'),
+    },
     'SMTP_PASSWORD',
   ],
 ]) {
