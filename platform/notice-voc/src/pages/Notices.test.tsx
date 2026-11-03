@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { createRegistry, I18nProvider, PlatformProvider, type MenuEntry } from '@ap/kernel';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { useLayoutEffect } from 'react';
+import { createRegistry, I18nProvider, useI18n, PlatformProvider, type MenuEntry } from '@ap/kernel';
 import { settleQueries, testAdapter, testSpace, testSession, ToastProbe } from '@ap/kernel/testing';
 import { contextCapabilities, groupId, NO_FEATURES, spaceId, type ActionResponse, type ApiResponse, type Notice, type NoticeListPage, type Permission } from '@ap/contracts';
 import { House } from 'lucide-react';
@@ -28,17 +29,26 @@ const list = (items: readonly Notice[]): ApiResponse<NoticeListPage> => items.le
   : { outcome: 'ok', data: { items }, assessments: [], trust: null, correlationId: 'f' };
 const action = <T,>(over: Partial<ActionResponse<T>>): ActionResponse<T> => ({ outcome: 'ok', data: null, version: null, fieldErrors: [], replayed: false, correlationId: 'f', ...over });
 
-type Over = { items?: readonly Notice[]; save?: (input: unknown) => Promise<ActionResponse<Notice>>; del?: (input: unknown) => Promise<ActionResponse<{ id: string }>> };
+/** Switches the UI language through the Kernel setter (menu code never touches storage). */
+function UseLang({ lang }: { lang: 'en' }) {
+  const i18n = useI18n();
+  useLayoutEffect(() => { i18n.setLang(lang); }, []); // eslint-disable-line react-hooks/exhaustive-deps -- once, on mount
+  return null;
+}
+
+type Over = { lang?: 'en'; items?: readonly Notice[]; save?: (input: unknown) => Promise<ActionResponse<Notice>>; del?: (input: unknown) => Promise<ActionResponse<{ id: string }>> };
 function mount(permissions: Permission[], path = '/notices', over: Over = {}) {
   window.history.replaceState(null, '', path);
-  // session() is a store snapshot: one object per adapter.
-  const session = testSession(permissions);
+  // session() is a store snapshot: a new object (and a notification) per change.
+  let session = testSession(permissions);
+  const listeners = new Set<() => void>();
+  const setPermissions = (next: Permission[]) => { session = testSession(next); listeners.forEach(l => l()); };
   const listNotices = vi.fn(async () => list(over.items ?? NOTICES));
   const saveNotice = vi.fn(over.save ?? (async () => action<Notice>({})));
   const deleteNotice = vi.fn(over.del ?? (async () => action<{ id: string }>({})));
-  const adapter = testAdapter({ session: () => session, listNotices, saveNotice: saveNotice as never, deleteNotice: deleteNotice as never });
-  render(<I18nProvider><PlatformProvider equipmentAxes={axes} adapter={adapter} registry={registry}><NoticesScreen clock={() => NOW} /><ToastProbe /></PlatformProvider></I18nProvider>);
-  return { listNotices, saveNotice, deleteNotice };
+  const adapter = testAdapter({ session: () => session, subscribe: listener => { listeners.add(listener); return () => { listeners.delete(listener); }; }, listNotices, saveNotice: saveNotice as never, deleteNotice: deleteNotice as never });
+  const view = render(<I18nProvider><PlatformProvider equipmentAxes={axes} adapter={adapter} registry={registry}>{over.lang && <UseLang lang={over.lang} />}<NoticesScreen clock={() => NOW} /><ToastProbe /></PlatformProvider></I18nProvider>);
+  return { listNotices, saveNotice, deleteNotice, setPermissions, unmount: view.unmount };
 }
 const focus = () => new URLSearchParams(window.location.search).get('focus');
 const ADMIN: Permission[] = ['notice:view', 'console:access'];
@@ -94,9 +104,35 @@ describe('Notices list and reading pane', () => {
   });
 
   it('falls back to ko when the English text is empty', async () => {
-    mount(['notice:view'], '/notices?focus=n-late', { items: [notice('n-late', '2026-12-01T00:00:00', { title: { ko: '한국어 제목', en: '' } })] });
-    expect(await screen.findByRole('region', { name: '공지 내용' })).toBeTruthy();
-    expect(screen.getAllByText('한국어 제목').length).toBeGreaterThan(0);
+    mount(['notice:view'], '/notices?focus=n-late', { lang: 'en', items: [notice('n-late', '2026-12-01T00:00:00', { title: { ko: '한국어 제목', en: '' }, content: { ko: '한국어 내용', en: '' } })] });
+    // English is really active: the English labels render, not the Korean ones.
+    const pane = await screen.findByRole('region', { name: 'Notice content' });
+    expect(screen.queryByRole('region', { name: '공지 내용' })).toBeNull();
+    expect(within(pane).getByText('한국어 제목')).toBeTruthy();
+    expect(within(pane).getByText('한국어 내용')).toBeTruthy();
+    expect(within(screen.getByRole('list', { name: 'Active notices' })).getByText('한국어 제목')).toBeTruthy();
+  });
+
+  it('rejects an empty focus value on a populated list', async () => {
+    mount(['notice:view'], '/notices?focus=');
+    expect(await screen.findByText('찾을 수 없는 공지입니다')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '값 지우기' }));
+    expect(focus()).toBeNull();
+  });
+
+  it('rejects an unknown focus value when the list is empty and keeps it until cleared', async () => {
+    mount(['notice:view'], '/notices?focus=gone', { items: [] });
+    expect(await screen.findByText('찾을 수 없는 공지입니다')).toBeTruthy();
+    expect(focus()).toBe('gone');
+    fireEvent.click(screen.getByRole('button', { name: '값 지우기' }));
+    expect(focus()).toBeNull();
+  });
+
+  it('puts the list and the reading pane side by side from the md breakpoint', async () => {
+    mount(['notice:view']);
+    const pane = await screen.findByRole('region', { name: '공지 내용' });
+    expect(pane.parentElement!.className).toContain('md:grid-cols-[minmax(16rem,22rem)_minmax(0,1fr)]');
+    expect(pane.parentElement!.className).toContain('grid-cols-1');
   });
 });
 
@@ -206,6 +242,11 @@ describe('save', () => {
     submit(dialog);
     expect(await within(dialog).findAllByText('필수 항목입니다.')).not.toHaveLength(0);
     expect(m.saveNotice).not.toHaveBeenCalled();
+    const title = within(dialog).getByLabelText('제목 (한국어)');
+    expect(title.getAttribute('aria-invalid')).toBe('true');
+    expect(document.getElementById(title.getAttribute('aria-describedby')!)!.textContent).toBe('필수 항목입니다.');
+    // A field without an error carries neither attribute.
+    expect(within(dialog).getByLabelText('제목 (English)').getAttribute('aria-invalid')).toBeNull();
   });
 });
 
@@ -230,5 +271,81 @@ describe('delete', () => {
     expect(focus()).toBe('n-soon');
     expect(m.listNotices).toHaveBeenCalledTimes(1);
     await settleQueries();
+  });
+});
+
+describe('delete focus', () => {
+  const deleteSelected = async () => {
+    fireEvent.click(await screen.findByRole('button', { name: '삭제' }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: '삭제' }));
+  };
+
+  it('moves focus to the next list item after a delete', async () => {
+    mount(ADMIN, '/notices?focus=n-late');
+    await deleteSelected();
+    await waitFor(() => expect(document.activeElement?.textContent).toContain('제목 n-soon'));
+  });
+
+  it('moves focus to the list heading when no next item exists', async () => {
+    mount(ADMIN, '/notices?focus=n-soon');
+    await deleteSelected();
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { name: '공지 목록' })));
+  });
+});
+
+describe('late completion and access changes', () => {
+  const deferred = <T,>() => { let resolve!: (value: T) => void; const promise = new Promise<T>(r => { resolve = r; }); return { promise, resolve }; };
+
+  it('ignores a save that finishes after the screen was left', async () => {
+    const gate = deferred<ActionResponse<Notice>>();
+    const m = mount(ADMIN, '/notices?focus=n-soon', { save: () => gate.promise });
+    fireEvent.click(await screen.findByRole('button', { name: '수정' }));
+    submit(await screen.findByRole('dialog'));
+    await waitFor(() => expect(m.saveNotice).toHaveBeenCalledTimes(1));
+    m.unmount();
+    window.history.replaceState(null, '', '/elsewhere');
+    gate.resolve(action<Notice>({ data: notice('n-new', '2026-12-31T09:30:00') }));
+    await settleQueries();
+    expect(window.location.pathname).toBe('/elsewhere');
+    expect(focus()).toBeNull();
+    expect(m.listNotices).toHaveBeenCalledTimes(1);
+  });
+
+  it('ignores a delete that finishes after the screen was left', async () => {
+    const gate = deferred<ActionResponse<{ id: string }>>();
+    const m = mount(ADMIN, '/notices?focus=n-soon', { del: () => gate.promise });
+    fireEvent.click(await screen.findByRole('button', { name: '삭제' }));
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '삭제' }));
+    await waitFor(() => expect(m.deleteNotice).toHaveBeenCalledTimes(1));
+    m.unmount();
+    window.history.replaceState(null, '', '/elsewhere?focus=keep');
+    gate.resolve(action<{ id: string }>({}));
+    await settleQueries();
+    expect(focus()).toBe('keep');
+    expect(m.listNotices).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes an open form dialog when write access is revoked and ignores its late save', async () => {
+    const gate = deferred<ActionResponse<Notice>>();
+    const m = mount(ADMIN, '/notices?focus=n-soon', { save: () => gate.promise });
+    fireEvent.click(await screen.findByRole('button', { name: '수정' }));
+    submit(await screen.findByRole('dialog'));
+    await waitFor(() => expect(m.saveNotice).toHaveBeenCalledTimes(1));
+    act(() => m.setPermissions(['notice:view']));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(screen.queryByRole('button', { name: '수정' })).toBeNull();
+    gate.resolve(action<Notice>({ data: notice('n-new', '2026-12-31T09:30:00') }));
+    await settleQueries();
+    expect(focus()).toBe('n-soon');
+  });
+
+  it('closes an open delete dialog when write access is revoked', async () => {
+    const m = mount(ADMIN, '/notices?focus=n-soon');
+    fireEvent.click(await screen.findByRole('button', { name: '삭제' }));
+    await screen.findByRole('dialog');
+    act(() => m.setPermissions(['notice:view']));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(m.deleteNotice).not.toHaveBeenCalled();
   });
 });

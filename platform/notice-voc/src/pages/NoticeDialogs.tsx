@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { cloneElement, useEffect, useRef, useState, type ReactElement } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import type { ActionResponse, Notice, ScopeOption } from '@ap/contracts';
 import { usePlatform } from '@ap/kernel';
@@ -24,6 +24,13 @@ function failureOf<T>(res: ActionResponse<T>): Failure | null {
 }
 
 const concluded = (failure: Failure | null): boolean => failure === null || failure.kind !== 'retry';
+
+/** True while the dialog is mounted: a write that finishes after the dialog went away (screen left, session or access changed) must not touch state, toast or navigate. */
+function useAlive() {
+  const alive = useRef(true);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
+  return alive;
+}
 
 function FailureMessage({ failure, ko, onReload, onRetry }: { failure: Failure; ko: boolean; onReload: () => void; onRetry: () => void }) {
   if (failure.kind === 'conflict') {
@@ -53,11 +60,12 @@ const ERROR_TEXT = (ko: boolean): Record<NonNullable<FormErrors[FormField]>, str
   invalid: ko ? '올바른 값이 아닙니다.' : 'Not a valid value.',
 });
 
-function Field({ id, label, error, children }: { id: string; label: string; error?: string; children: React.ReactNode }) {
+/** The error is linked to its control: `aria-invalid` plus `aria-describedby` → the message id. */
+function Field({ id, label, error, children }: { id: string; label: string; error?: string; children: ReactElement<Record<string, unknown>> }) {
   return <div className="grid gap-1">
     <Label htmlFor={id}>{label}</Label>
-    {children}
-    {error && <p className="text-xs text-text-danger-label" role="alert">{error}</p>}
+    {cloneElement(children, error ? { 'aria-invalid': true, 'aria-describedby': `${id}-error` } : {})}
+    {error && <p id={`${id}-error`} className="text-xs text-text-danger-label" role="alert">{error}</p>}
   </div>;
 }
 
@@ -69,6 +77,7 @@ export function NoticeFormDialog({ notice, ko, scopes, onDone }: { notice: Notic
   const [failure, setFailure] = useState<Failure | null>(null);
   const [busy, setBusy] = useState(false);
   const attempt = useRef<Attempt | null>(null);
+  const alive = useAlive();
   const text = ERROR_TEXT(ko);
   const set = (patch: Partial<NoticeForm>) => { setForm(prev => ({ ...prev, ...patch })); setFailure(null); };
   const sites = [...scopes, ...(notice?.scopeId && !scopes.some(s => s.id === notice.scopeId) ? [{ id: notice.scopeId, label: notice.scopeId, grantedRooms: 0, totalRooms: 0 }] : [])];
@@ -85,6 +94,7 @@ export function NoticeFormDialog({ notice, ko, scopes, onDone }: { notice: Notic
     let res: ActionResponse<Notice>;
     try { res = await adapter.saveNotice({ ...input, idempotencyKey: attempt.current.key }); }
     catch { res = { outcome: 'unknown', data: null, version: null, fieldErrors: [], replayed: false, correlationId: 'client' }; }
+    if (!alive.current) return;
     setBusy(false);
     const next = failureOf(res);
     if (concluded(next)) attempt.current = null;
@@ -145,11 +155,12 @@ export function NoticeFormDialog({ notice, ko, scopes, onDone }: { notice: Notic
   </Dialog>;
 }
 
-export function NoticeDeleteDialog({ notice, ko, onDone }: { notice: Notice; ko: boolean; onDone: (done: WriteDone) => void }) {
+export function NoticeDeleteDialog({ notice, ko, onDone, onCloseAutoFocus }: { notice: Notice; ko: boolean; onDone: (done: WriteDone) => void; onCloseAutoFocus?: (event: Event) => void }) {
   const { adapter, toast } = usePlatform();
   const [failure, setFailure] = useState<Failure | null>(null);
   const [busy, setBusy] = useState(false);
   const attempt = useRef<Attempt | null>(null);
+  const alive = useAlive();
 
   async function submit() {
     const input = { id: notice.id, expectedVersion: notice.version };
@@ -158,6 +169,7 @@ export function NoticeDeleteDialog({ notice, ko, onDone }: { notice: Notice; ko:
     let res: ActionResponse<{ id: string }>;
     try { res = await adapter.deleteNotice({ ...input, idempotencyKey: attempt.current.key }); }
     catch { res = { outcome: 'unknown', data: null, version: null, fieldErrors: [], replayed: false, correlationId: 'client' }; }
+    if (!alive.current) return;
     setBusy(false);
     const next = failureOf(res);
     if (concluded(next)) attempt.current = null;
@@ -170,7 +182,7 @@ export function NoticeDeleteDialog({ notice, ko, onDone }: { notice: Notice; ko:
   }
 
   return <Dialog open onOpenChange={open => { if (!open && !busy) onDone({ kind: 'cancel' }); }}>
-    <DialogContent className="max-w-md" closeLabel={ko ? '닫기' : 'Close'}>
+    <DialogContent className="max-w-md" closeLabel={ko ? '닫기' : 'Close'} onCloseAutoFocus={onCloseAutoFocus}>
       <DialogHeader>
         <DialogTitle>{ko ? '공지 삭제' : 'Delete notice'}</DialogTitle>
         <DialogDescription>{ko ? `「${notice.title.ko}」 공지를 삭제합니다. 되돌릴 수 없습니다.` : `Delete “${notice.title.en || notice.title.ko}”. This cannot be undone.`}</DialogDescription>
