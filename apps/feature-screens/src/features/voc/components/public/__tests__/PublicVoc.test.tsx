@@ -1,5 +1,5 @@
 import type { PublicVocView } from '@ap/feature-shared';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { onlineManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -27,7 +27,10 @@ function stubFetch(items: unknown[]) {
   return paths;
 }
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  onlineManager.setOnline(true);
+});
 
 describe('PublicVocListScreen', () => {
   it('draws each public row with its system chip and marks only the own VOC; selecting reports the id', async () => {
@@ -97,6 +100,18 @@ describe('PublicVocListScreen — failures', () => {
     expect(await screen.findByText('불러오기 실패', {}, { timeout: 4000 })).toBeTruthy();
     expect(screen.queryByText('검색 결과가 없습니다.')).toBeNull();
     expect(screen.getByRole('button', { name: '다시 시도' })).toBeTruthy();
+  });
+
+  it('U3: an uncached search paused offline shows the connection error and retry, then recovers when back online', async () => {
+    onlineManager.setOnline(false);
+    stubFetch([item(ID_1, '툴팁이 안 보입니다')]);
+    render(wrap({ q: '툴팁', mine: false, systemId: null }));
+    expect(await screen.findByText('연결을 확인한 뒤 다시 시도해 주세요.')).toBeTruthy();
+    expect(screen.queryByText('검색 결과가 없습니다.')).toBeNull();
+    expect(screen.getByRole('button', { name: '다시 시도' })).toBeTruthy();
+    onlineManager.setOnline(true);
+    expect(await screen.findByText('툴팁이 안 보입니다')).toBeTruthy();
+    expect(screen.queryByText('연결을 확인한 뒤 다시 시도해 주세요.')).toBeNull();
   });
 });
 
