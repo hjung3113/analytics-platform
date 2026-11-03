@@ -161,8 +161,8 @@ print_rollback() { # the one place that tells how to go back after a failure pas
       # The database of $PROJECT already has migrations the previous images do not know: starting them on it is the
       # mismatch the pin file exists to prevent.
       bk_log "   restore pin file $PINS_FILE is unchanged (it still names the previous images). Do NOT start $PROJECT with it: its database is already migrated. Go back by restoring the backup above into a new project (restore.sh writes that project's own pin file)."
-    elif [ "$MIGRATE_STARTED" -eq 1 ]; then
-      bk_log "   restore pin file $PINS_FILE is unchanged (it still names the previous images). Start $PROJECT with it only if step 1 shows none of the $pending pending migration(s) applied: docker compose -p $PROJECT --env-file <env> -f <compose> -f $PINS_FILE up -d; otherwise restore the backup above into a new project."
+    elif [ "$MIGRATE_STARTED" -eq 1 ] && [ "$pending" != 0 ]; then
+      bk_log "   restore pin file $PINS_FILE is unchanged (it still names the previous images). Start $PROJECT with it only if the migration journal shows none of the $pending pending migration(s) applied (docker compose -p $PROJECT --env-file <env> -f <compose> exec -T postgres psql -U postgres -d platform -c 'select id, hash, created_at from drizzle.__drizzle_migrations order by id desc limit 5'): docker compose -p $PROJECT --env-file <env> -f <compose> -f $PINS_FILE up -d; otherwise restore the backup above into a new project."
     else
       bk_log "   restore pin file $PINS_FILE is unchanged (it still names the previous images); start the previous release with it: docker compose -p $PROJECT --env-file <env> -f <compose> -f $PINS_FILE up -d"
     fi
