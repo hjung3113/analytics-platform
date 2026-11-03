@@ -113,8 +113,11 @@ login roles and attributes, no `fops_*` role, owner roles `NOLOGIN` with the sev
 no product table owned by the superuser, runtime grants of `platform_app`, journal digest equals the manifest. Then it
 creates the bucket, mirrors the objects back and compares object count, bytes and the sha256 inventory (through a second
 export), starts `backend` alone under `platform_app` on a free port and waits for `/health/ready` 200. That verification start uses
-`NOTIFICATION_EMAIL_CHANNEL=mock` and blank `SMTP_*` (a temporary override file that is deleted, not the kept pin file), so
-copied pg-boss jobs send nothing outward; jobs it completes are completed in the restored copy only. The **switch-over start
+`JOBS_DISABLED=true`, `NOTIFICATION_EMAIL_CHANNEL=mock` and blank `SMTP_*` (a temporary override file that is deleted, not the
+kept pin file). With `JOBS_DISABLED` the backend still starts pg-boss (readiness needs it, enqueueing works) but without the
+supervisor and cron scheduler and with no job worker registered, so the copied pending jobs are neither run nor stamped
+(`email_sent_at` stays as copied) and nothing is sent outward; they run after the switch-over. `JOBS_DISABLED` is operator
+maintenance only: never set it on a serving stack. The **switch-over start
 uses the operator's real settings** from `.env.production`. It never runs
 `migrate` or `bootstrap`. On success the restored stack is left stopped with its data.
 

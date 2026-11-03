@@ -1372,8 +1372,58 @@ describe('b10b F2 interruption does not release a lock while work may still run 
   });
 });
 
+describe('b10b F2 signal inside the backend stop (stub docker)', () => {
+  test('backup.sh: SIGTERM delivered while docker stops the backend restarts it, then releases', async () => {
+    const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    const block = tmp();
+    const maint = tmp();
+    const probe = join(tmp(), 'lock-at-start.log');
+    const bin = tmp();
+    const log = join(tmp(), 'calls.log');
+    writeStub(bin, log);
+    const envFile = join(tmp(), 'env');
+    writeFileSync(envFile, 'POSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n');
+    const child = spawn('bash', [BACKUP, '--env-file', envFile, '--compose-file', COMPOSE], {
+      env: {
+        PATH: `${bin}:${process.env.PATH}`,
+        HOME: process.env.HOME,
+        BACKUP_ROOT: tmp(),
+        BACKUP_MAINTENANCE_DIR: maint,
+        STUB_BLOCK_DIR: block,
+        STUB_LOCK_OWNER: join(maint, 'platform-api.lock', 'owner'),
+        STUB_LOCK_LOG: probe,
+      },
+      stdio: ['ignore', 'ignore', 'pipe'],
+    });
+    let stderr = '';
+    child.stderr.on('data', (d) => {
+      stderr += d;
+    });
+    const exited = new Promise((resolve) => child.on('exit', resolve));
+    const end = Date.now() + 20000;
+    while (!existsSync(join(block, 'reached'))) {
+      if (Date.now() > end) throw new Error('the stop call was never reached');
+      await sleep(25);
+    }
+    child.kill('SIGTERM');
+    await sleep(300);
+    writeFileSync(join(block, 'release'), '');
+    const code = await exited;
+    assert.equal(code, 143, stderr);
+    assert.ok(
+      readCalls(log).some((c) => / start backend$/.test(c)),
+      'the backend was started again',
+    );
+    assert.equal(readFileSync(probe, 'utf8').trim(), 'held', 'restart ran while the lock was held');
+    assert.deepEqual(readdirSync(maint), [], 'lock released');
+  });
+});
+
 describe('b10b restore: web image, verification isolation, --replace-live lock (stub docker)', () => {
-  function restoreRun(extraEnv = {}, { backupOpts = {}, args = [], project = 'restored' } = {}) {
+  function restoreRun(
+    extraEnv = {},
+    { backupOpts = {}, args = [], project = 'restored', composeDir: givenComposeDir } = {},
+  ) {
     const bin = tmp();
     const log = join(tmp(), 'calls.log');
     writeRestoreStubFile(bin, log);
@@ -1383,7 +1433,7 @@ describe('b10b restore: web image, verification isolation, --replace-live lock (
       'POSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=smtp\nSMTP_HOST=relay.example\n',
     );
     const dir = makeBackup(tmp(), undefined, backupOpts);
-    const composeDir = tmp();
+    const composeDir = givenComposeDir ?? tmp();
     const compose = join(composeDir, 'docker-compose.production.yml');
     copyFileSync(COMPOSE, compose);
     const capture = tmp();
@@ -1439,6 +1489,8 @@ describe('b10b restore: web image, verification isolation, --replace-live lock (
     const r = restoreRun({ SMTP_HOST: 'relay.example', SMTP_PASSWORD: 'relaypass' });
     assert.equal(r.code, 0, r.err);
     assert.match(r.verify, /NOTIFICATION_EMAIL_CHANNEL: mock/);
+    assert.match(r.verify, /JOBS_DISABLED: "true"/, 'no worker or cron while the copy is verified');
+    assert.doesNotMatch(r.pins, /JOBS_DISABLED/, 'the kept pin file starts the jobs again');
     for (const k of ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASSWORD', 'SMTP_FROM'])
       assert.match(r.verify, new RegExp(`${k}: ""`), k);
     assert.ok(r.pinsKept);
@@ -1459,6 +1511,30 @@ describe('b10b restore: web image, verification isolation, --replace-live lock (
     assert.doesNotMatch(r.err, /relaypass/);
   });
 
+  test('--replace-live refused by the lock leaves the holder pin file byte-identical', () => {
+    const maint = tmp();
+    const composeDir = tmp();
+    const pins = join(composeDir, 'docker-compose.restore-platform-api.yml');
+    const holderPins = '# holder run: pins written by the first restore\nservices: {}\n';
+    writeFileSync(pins, holderPins);
+    mkdirSync(join(maint, 'platform-api.lock'));
+    writeFileSync(
+      join(maint, 'platform-api.lock', 'owner'),
+      `pid=${process.pid}\ntoken=x\noperation=restore\nsince=2026-01-01T03:15:00Z\n`,
+    );
+    const r = restoreRun(
+      { RESTORE_CONFIRM: 'platform-api', BACKUP_MAINTENANCE_DIR: maint },
+      { args: ['--replace-live'], project: 'platform-api', composeDir },
+    );
+    assert.equal(r.code, 3, r.err);
+    assert.equal(readFileSync(pins, 'utf8'), holderPins, 'pin file untouched and not removed');
+    assert.deepEqual(
+      readdirSync(composeDir).sort(),
+      ['docker-compose.production.yml', 'docker-compose.restore-platform-api.yml'],
+      'no other file written',
+    );
+    assert.ok(existsSync(join(maint, 'platform-api.lock', 'owner')), 'the holder lock stays');
+  });
   test('--replace-live holds the maintenance lock while the live stack is stopped, to the end', () => {
     const maint = tmp();
     const probe = join(tmp(), 'lock.log');

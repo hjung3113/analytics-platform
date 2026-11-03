@@ -24,6 +24,11 @@ export interface InitBossOptions {
    * logger instead of being swallowed.
    */
   log: JobLog;
+  /**
+   * Operator maintenance only (JOBS_DISABLED). pg-boss still starts so readiness and enqueueing work, but without the
+   * maintenance supervisor and the cron scheduler.
+   */
+  jobsDisabled?: boolean;
 }
 
 export async function initBoss(opts: InitBossOptions): Promise<Boss> {
@@ -38,8 +43,8 @@ export async function initBoss(opts: InitBossOptions): Promise<Boss> {
     migrate: false,
     createSchema: false,
     // Maintenance + cron scheduling stay on; they only need DML.
-    supervise: true,
-    schedule: true,
+    supervise: !opts.jobsDisabled,
+    schedule: !opts.jobsDisabled,
   });
 
   boss.on('error', (err: unknown) => opts.log.error('pg-boss error', errorFields(err)));
@@ -49,6 +54,22 @@ export async function initBoss(opts: InitBossOptions): Promise<Boss> {
 
   await boss.start();
   return boss;
+}
+
+/**
+ * Runs the module job registrars (each one creates queues and attaches workers or cron rows). With jobs disabled none
+ * of them runs and one info line says so; nothing consumes or schedules work in this process.
+ */
+export async function registerJobsUnlessDisabled(
+  disabled: boolean,
+  log: JobLog,
+  registrars: ReadonlyArray<() => Promise<unknown>>,
+): Promise<void> {
+  if (disabled) {
+    log.info('jobs disabled');
+    return;
+  }
+  for (const register of registrars) await register();
 }
 
 export interface ShutdownBossOptions {

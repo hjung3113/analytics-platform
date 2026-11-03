@@ -149,40 +149,6 @@ if [ "$IMG_MISMATCH" -eq 1 ]; then
   bk_log 'RESTORE_IMAGE_MISMATCH_OK=1: different images accepted only if the restored journal matches the migrate image exactly'
 fi
 
-umask 077
-TMP="$BACKUP_DIR/../.restore-tmp-$PROJECT-$$"
-mkdir -p "$TMP" && chmod 700 "$TMP"
-PINS_FILE="$(dirname "$COMPOSE_FILE")/docker-compose.restore-$PROJECT.yml"
-{
-  printf '# Written by restore.sh for project %s from %s.\n' "$PROJECT" "$BACKUP_DIR"
-  printf '# Pins the images that were checked against the restored data (immutable ids). KEEP this file: every start of this\n'
-  printf '# project must use it: docker compose -f docker-compose.production.yml -f %s ...\n' "$(basename "$PINS_FILE")"
-  printf 'services:\n'
-  for svc in backend minio-bootstrap; do printf '  %s:\n    image: %s\n    pull_policy: never\n' "$svc" "$PIN_BACKEND"; done
-  for svc in migrate cutover set-role-passwords bootstrap set-actor-role; do printf '  %s:\n    image: %s\n    pull_policy: never\n' "$svc" "$PIN_MIGRATE"; done
-  printf '  edge:\n    image: %s\n    pull_policy: never\n' "$PIN_WEB"
-} >"$PINS_FILE"
-BK_COMPOSE_PINS="$PINS_FILE"
-BK_COMPOSE_OVERRIDE="$TMP/no-init.override.yml"
-cat >"$BK_COMPOSE_OVERRIDE" <<'YAML'
-# Restore target: the cluster is built from globals.sql + pg_restore, so init.sql must NOT be mounted.
-services:
-  postgres:
-    volumes: !override
-      - release-postgres-data:/var/lib/postgresql/data
-  # Verification only (this file lives in the temp dir and is deleted; the kept switch-over file does not contain it): the
-  # copied pg-boss jobs must not send mail while the restored data is checked, so the backend runs with the mock channel
-  # and no relay. The switch-over start uses the operator's real settings from .env.production.
-  backend:
-    environment:
-      NOTIFICATION_EMAIL_CHANNEL: mock
-      SMTP_HOST: ""
-      SMTP_PORT: ""
-      SMTP_USER: ""
-      SMTP_PASSWORD: ""
-      SMTP_FROM: ""
-YAML
-
 LIVE_STOPPED=0
 TARGET_STARTED=0
 fail_hint() {
@@ -210,10 +176,51 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 trap 'exit 129' HUP
 trap fail_hint EXIT
-
+# A refused concurrent run exits here (3) before any file naming the project is written, so it cannot touch the holder's
+# pin or override files. The cleanup trap above removes only files this invocation wrote (PINS_FILE is set after the lock).
 if [ "$IS_LIVE" -eq 1 ]; then
   # The live stack is replaced: no backup or upgrade may run (or start) on it until this restore has finished.
   bk_lock_acquire restore
+fi
+umask 077
+TMP="$BACKUP_DIR/../.restore-tmp-$PROJECT-$$"
+mkdir -p "$TMP" && chmod 700 "$TMP"
+PINS_FILE="$(dirname "$COMPOSE_FILE")/docker-compose.restore-$PROJECT.yml"
+{
+  printf '# Written by restore.sh for project %s from %s.\n' "$PROJECT" "$BACKUP_DIR"
+  printf '# Pins the images that were checked against the restored data (immutable ids). KEEP this file: every start of this\n'
+  printf '# project must use it: docker compose -f docker-compose.production.yml -f %s ...\n' "$(basename "$PINS_FILE")"
+  printf 'services:\n'
+  for svc in backend minio-bootstrap; do printf '  %s:\n    image: %s\n    pull_policy: never\n' "$svc" "$PIN_BACKEND"; done
+  for svc in migrate cutover set-role-passwords bootstrap set-actor-role; do printf '  %s:\n    image: %s\n    pull_policy: never\n' "$svc" "$PIN_MIGRATE"; done
+  printf '  edge:\n    image: %s\n    pull_policy: never\n' "$PIN_WEB"
+} >"$PINS_FILE"
+BK_COMPOSE_PINS="$PINS_FILE"
+BK_COMPOSE_OVERRIDE="$TMP/no-init.override.yml"
+cat >"$BK_COMPOSE_OVERRIDE" <<'YAML'
+# Restore target: the cluster is built from globals.sql + pg_restore, so init.sql must NOT be mounted.
+services:
+  postgres:
+    volumes: !override
+      - release-postgres-data:/var/lib/postgresql/data
+  # Verification only (this file lives in the temp dir and is deleted; the kept switch-over file does not contain it): the
+  # copied pg-boss jobs must neither run nor send mail while the restored data is checked, so the backend starts with
+  # JOBS_DISABLED (no worker, no cron; pending jobs and sent timestamps stay as copied) and the mock channel, no relay.
+  # The switch-over start uses the operator's real settings from .env.production.
+  backend:
+    environment:
+      JOBS_DISABLED: "true"
+      NOTIFICATION_EMAIL_CHANNEL: mock
+      SMTP_HOST: ""
+      SMTP_PORT: ""
+      SMTP_USER: ""
+      SMTP_PASSWORD: ""
+      SMTP_FROM: ""
+YAML
+
+
+
+if [ "$LIVE_STOPPED" -eq 0 ] && [ "$IS_LIVE" -eq 1 ]; then
   bk_log "--replace-live confirmed: stopping the running '$PROJECT' stack (volumes stay untouched)"
   bk_dc stop >/dev/null
   LIVE_STOPPED=1

@@ -156,8 +156,9 @@ fi
 # 2. Quiesce: stop the backend (writers and pg-boss jobs).
 if [ "$BACKEND_WAS_RUNNING" -eq 1 ]; then
   bk_log 'stopping backend (writers and jobs)'
-  bk_dc stop backend >/dev/null
+  # Marked before the call: a signal that lands while docker stops it must still lead to a restart.
   BACKEND_STOPPED=1
+  bk_dc stop backend >/dev/null
 fi
 STOP_AT="$(date +%s)"
 
