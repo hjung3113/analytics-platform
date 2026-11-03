@@ -200,6 +200,11 @@ export const sessions = coreSchema.table(
   (t) => ({
     workspaceIdx: index('sessions_workspace_idx').on(t.workspaceId),
     workspaceActorIdx: index('sessions_workspace_actor_idx').on(t.workspaceId, t.actorId),
+    // 0084 (#1266 b5a): purge scans by dead-since time; two btrees feed a BitmapOr.
+    expiresAtIdx: index('sessions_expires_at_idx').on(t.expiresAt),
+    revokedAtIdx: index('sessions_revoked_at_idx')
+      .on(t.revokedAt)
+      .where(sql`${t.revokedAt} is not null`),
   }),
 );
 

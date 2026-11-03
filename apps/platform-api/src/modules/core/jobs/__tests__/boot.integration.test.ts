@@ -26,6 +26,8 @@ import {
   IDEMPOTENCY_PURGE_QUEUE,
   RATE_LIMITS_PURGE_CRON,
   RATE_LIMITS_PURGE_QUEUE,
+  SESSIONS_PURGE_CRON,
+  SESSIONS_PURGE_QUEUE,
   registerCoreJobs,
 } from '../index.js';
 
@@ -126,6 +128,17 @@ describe.skipIf(!runIntegration)('pg-boss boot wiring', () => {
     expect(row.rows[0]?.retry_limit).toBe(5);
     expect(row.rows[0]?.retry_delay).toBe(30);
     expect(row.rows[0]?.retry_backoff).toBe(true);
+  });
+
+  it('registers the daily sessions-purge cron and its migration-owned queue', async () => {
+    const schedules = await boss.getSchedules(SESSIONS_PURGE_QUEUE);
+    const ours = schedules.find((s: { name: string }) => s.name === SESSIONS_PURGE_QUEUE);
+    expect(ours?.cron).toBe(SESSIONS_PURGE_CRON);
+    const row = await dbHandle.pool.query(
+      'select retry_limit from pgboss.queue where name = $1',
+      [SESSIONS_PURGE_QUEUE],
+    );
+    expect(row.rowCount).toBe(1);
   });
 
   it('records the rate-limits queue in pgboss.queue with ADR-0009 retry config', async () => {

@@ -864,3 +864,19 @@ a request can hold a connection or wait for one. Operator pools (`seed`, migrati
   answers 503 `{ status: 'unavailable', checks, reason: 'draining' }` (checks are not probed and read `fail`;
   `/health/live` is unchanged). Order stays pg-boss (at most 30 s) → Fastify → pool, all within 40 s; past the
   deadline the process logs and exits 1. The compose `stop_grace_period` (45 s) must stay above 40 s.
+
+## Session purge, list indexes (#1266 b5a, migration 0084)
+
+- **Retention.** The daily job `core.sessions_purge` (cron `30 3 * * *`, queue created by the migration because
+  the runtime role cannot do pg-boss DDL) deletes `core.sessions` rows whose `expires_at` or `revoked_at` is
+  older than 7 days. Active and recently dead sessions are never touched. Nothing references `core.sessions`
+  (`audit_log` has no session FK), and no audit row is deleted. Deletes run 1000 rows per statement until a
+  batch comes back short, so no statement approaches `DB_STATEMENT_TIMEOUT_MS`; a rerun on a clean table is a
+  no-op. Code: `src/modules/core/jobs/sessions-purge.ts`.
+- **Indexes** (plain `CREATE INDEX`, not `CONCURRENTLY`; they take a write lock on the table while building, so
+  apply them in the maintenance window documented with the deployment runbook): `sessions_expires_at_idx`,
+  `sessions_revoked_at_idx` (partial, `revoked_at IS NOT NULL`), `tasks_workspace_updated_idx`
+  `(workspace_id, updated_at DESC, id DESC)` and `task_requests_workspace_created_idx`
+  `(workspace_id, created_at DESC, id DESC)`, matching the keyset `ORDER BY` of the Task and Task Request lists.
+- **Item history.** The knowledge item detail read selects only `revisionNo, title, publishedBy, publishedAt,
+  changeNote` for its revision list; the response shape is unchanged.

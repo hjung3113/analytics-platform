@@ -394,6 +394,14 @@ describe.skipIf(!runIntegration)('knowledge items schema and reads (#1197 a)', (
       ]);
     });
 
+    it('lists revisions with only the five history fields, no bodies', async () => {
+      const res = await read('logKnowledge.itemDetail', { itemId: ids.i1 });
+      expect(res.data.revisions).toEqual([
+        { revisionNo: 2, title: `${TAG} model item one`, publishedBy: actorId, publishedAt: expect.any(String), changeNote: null },
+        { revisionNo: 1, title: `${TAG} model item one (old)`, publishedBy: actorId, publishedAt: expect.any(String), changeNote: null },
+      ]);
+    });
+
     it('reads an older revision on request, without its later evidence', async () => {
       const res = await read('logKnowledge.itemDetail', { itemId: ids.i1, revisionNo: 1 });
       expect(res.data.revision).toMatchObject({ revisionNo: 1, title: `${TAG} model item one (old)`, evidence: [] });

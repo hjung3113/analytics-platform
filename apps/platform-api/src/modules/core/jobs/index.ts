@@ -13,6 +13,7 @@ import type { StorageBackend } from '../../../lib/storage/index.js';
 import { registerIdempotencyPurge } from './idempotency-purge.js';
 import { registerAttachmentsPurge } from './purge-unlinked-attachments.js';
 import { registerRateLimitsPurge } from './rate-limits-purge.js';
+import { registerSessionsPurge } from './sessions-purge.js';
 
 export interface CoreJobDeps {
   db: Db;
@@ -27,6 +28,7 @@ export interface CoreJobDeps {
 export async function registerCoreJobs(boss: PgBoss, deps: CoreJobDeps): Promise<void> {
   await registerIdempotencyPurge(boss, { db: deps.db, log: deps.log });
   await registerRateLimitsPurge(boss, { db: deps.db, log: deps.log });
+  await registerSessionsPurge(boss, { db: deps.db, log: deps.log });
   // Attachments-purge needs raw pool (size_bytes is bigint → easier as text via pg)
   // plus the storage backend. Skip cleanly if either is absent so callers that
   // only need idempotency/rate-limits don't have to wire stub storage.
@@ -49,3 +51,8 @@ export {
   purgeUnlinkedAttachments,
   registerAttachmentsPurge,
 } from './purge-unlinked-attachments.js';
+export {
+  SESSIONS_PURGE_QUEUE,
+  SESSIONS_PURGE_CRON,
+  purgeDeadSessions,
+} from './sessions-purge.js';
