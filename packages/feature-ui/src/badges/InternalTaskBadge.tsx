@@ -22,7 +22,7 @@ const LABELS: Record<InternalTaskStatusEnum, string> = {
   review: '검토',
   done: '완료',
   released: '배포됨',
-  reopened: 'Reopened',
+  reopened: '다시 열림',
 };
 
 const STATUS_CLASS: Record<

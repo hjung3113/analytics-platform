@@ -39,7 +39,7 @@ describe('WorkspaceSettingsForm', () => {
 
     expect(screen.getByText('권한 요청 직접 승인', { exact: true })).toBeInTheDocument();
     expect(
-      screen.getByText('Task Request 자가승인은 별도 규칙을 따르며 이 설정과 무관합니다.', {
+      screen.getByText('Task 요청 자가승인은 별도 규칙을 따르며 이 설정과 무관합니다.', {
         exact: true,
       }),
     ).toBeInTheDocument();

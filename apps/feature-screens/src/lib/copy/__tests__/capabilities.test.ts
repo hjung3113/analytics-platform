@@ -11,7 +11,7 @@ const EXPECTED_LABELS: Record<Capability, string> = {
   'voc.read_public': '공개 VOC 열람',
   'finding.read': 'Finding 조회',
   'finding.manage': 'Finding 관리',
-  'task_request.self_approve': '본인 Task Request 직접 승인',
+  'task_request.self_approve': '본인 Task 요청 직접 승인',
   'survey.read': '설문 조회',
   'survey.manage': '설문 관리',
   'survey.read_personal_responses': '개인 응답 조회',

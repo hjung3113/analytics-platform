@@ -21,9 +21,9 @@ vi.mock('../TimelineEntry', () => ({
   TimelineEntry: ({ entry }: { entry: ConversationEntry }) => (
     <div data-entry-id={entry.id}>
       {entry.kind === 'public_update'
-        ? '공개 업데이트'
+        ? '담당자 답변'
         : entry.kind === 'reporter_reply'
-          ? '제출자 답변'
+          ? '신고자 답글'
           : '내부 코멘트'}
     </div>
   ),
@@ -143,7 +143,7 @@ describe('<ConversationTimeline>', () => {
         postSignal={{ tab: 'internal', seq: 0 }}
       />,
     );
-    const publicTab = screen.getByRole('tab', { name: '제출자 대화' });
+    const publicTab = screen.getByRole('tab', { name: '신고자 대화' });
     expect(publicTab).toHaveAttribute('aria-selected', 'true');
 
     rerender(
@@ -155,7 +155,7 @@ describe('<ConversationTimeline>', () => {
     );
 
     expect(screen.getByRole('tab', { name: '내부' })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByRole('tab', { name: '제출자 대화' })).toBe(publicTab);
+    expect(screen.getByRole('tab', { name: '신고자 대화' })).toBe(publicTab);
 
     // The reader can go back to 공개; an unchanged signal does not pull them away again.
     fireEvent.mouseDown(publicTab);
@@ -193,7 +193,7 @@ describe('<ConversationTimeline>', () => {
           postSignal={{ tab: 'public', seq: 2 }}
         />,
       );
-      expect(screen.getByRole('tab', { name: '제출자 대화' })).toHaveAttribute('aria-selected', 'true');
+      expect(screen.getByRole('tab', { name: '신고자 대화' })).toHaveAttribute('aria-selected', 'true');
     },
   );
 
@@ -206,13 +206,13 @@ describe('<ConversationTimeline>', () => {
         postSignal={{ tab: 'internal', seq: 1 }}
       />,
     );
-    expect(screen.getByRole('tab', { name: '제출자 대화' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: '신고자 대화' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.queryByRole('tab', { name: '내부' })).not.toBeInTheDocument();
   });
 
   it('renders both tabs for a viewer with operator capability', () => {
     render(<ConversationTimeline voc={DETAIL_ENVELOPE} canTriage={true} />);
-    expect(screen.getByRole('tab', { name: '제출자 대화' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '신고자 대화' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: '내부' })).toBeInTheDocument();
   });
 
@@ -222,10 +222,10 @@ describe('<ConversationTimeline>', () => {
       conversation_timeline: [PUBLIC_ENTRY, INTERNAL_ENTRY],
     };
     render(<ConversationTimeline voc={vocWithInternalEntry} canTriage={false} />);
-    expect(screen.getByRole('tab', { name: '제출자 대화' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: '제출자 대화' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: '신고자 대화' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '신고자 대화' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.queryByRole('tab', { name: '내부' })).not.toBeInTheDocument();
-    expect(screen.getByText('공개 업데이트')).toBeInTheDocument();
+    expect(screen.getByText('담당자 답변')).toBeInTheDocument();
   });
 
   it('falls back to public and restores focus when triage access is removed', () => {
@@ -243,9 +243,9 @@ describe('<ConversationTimeline>', () => {
 
     rerender(<ConversationTimeline voc={vocWithEntries} canTriage={false} />);
 
-    const publicTab = screen.getByRole('tab', { name: '제출자 대화' });
+    const publicTab = screen.getByRole('tab', { name: '신고자 대화' });
     expect(publicTab).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByText('공개 업데이트')).toBeInTheDocument();
+    expect(screen.getByText('담당자 답변')).toBeInTheDocument();
     expect(document.activeElement).toBe(publicTab);
   });
 
@@ -256,8 +256,8 @@ describe('<ConversationTimeline>', () => {
     };
     render(<ConversationTimeline voc={vocWithEntries} canTriage={true} />);
     // public tab is default; public + reporter_reply should appear
-    expect(screen.getByText('공개 업데이트')).toBeInTheDocument();
-    expect(screen.getByText('제출자 답변')).toBeInTheDocument();
+    expect(screen.getByText('담당자 답변')).toBeInTheDocument();
+    expect(screen.getByText('신고자 답글')).toBeInTheDocument();
   });
 
   it('shows empty state when no entries in public tab', () => {

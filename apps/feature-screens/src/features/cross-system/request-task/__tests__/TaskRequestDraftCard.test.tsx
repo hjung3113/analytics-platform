@@ -45,9 +45,9 @@ describe('TaskRequestDraftCard', () => {
   ])('shows the source display id and kind for $sourceKind', ({ sourceKind, sourceDisplayId }) => {
     renderCard({ sourceKind, sourceDisplayId });
 
-    const region = screen.getByRole('region', { name: 'Task Request 초안' });
+    const region = screen.getByRole('region', { name: 'Task 요청 초안' });
     expect(region).toHaveTextContent(`출처 ${sourceDisplayId} · ${sourceKind}`);
-    expect(region).toHaveTextContent('Task Request 초안');
+    expect(region).toHaveTextContent('Task 요청 초안');
     expect(within(region).getByRole('button', { name: '요청 등록' })).toBeInTheDocument();
     expect(region).toHaveAttribute('data-testid', 'request-task-draft');
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
@@ -115,7 +115,7 @@ describe('TaskRequestDraftCard', () => {
     });
     renderCard();
 
-    const card = screen.getByRole('region', { name: 'Task Request 초안' });
+    const card = screen.getByRole('region', { name: 'Task 요청 초안' });
     expect(within(card).getByTestId('request-task-pending-notice')).toHaveTextContent('REQ-1000');
     expect(within(card).getByRole('link', { name: 'REQ-1000' })).toHaveAttribute(
       'href',
@@ -133,7 +133,7 @@ describe('TaskRequestDraftCard', () => {
     await user.type(evidence, 'Changed evidence');
     await user.type(outcome, 'Changed outcome');
 
-    expect(screen.getByRole('link', { name: 'Task Requests에서 검토' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Task 요청에서 검토' })).toHaveAttribute(
       'href',
       '/tasks?view=requests',
     );

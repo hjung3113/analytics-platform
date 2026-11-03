@@ -21,7 +21,7 @@ const QUEUE_COPY: Record<QueueId, { title: string; detail: string }> = {
   },
   'actionable-finding-no-execution': {
     title: '실행 계획 없는 Finding',
-    detail: '진행 중 상태의 Finding 중 Task Request 또는 Task 링크가 없는 항목입니다.',
+    detail: '진행 중 상태의 Finding 중 Task 요청 또는 Task 링크가 없는 항목입니다.',
   },
   'released-task-unresolved-voc': {
     title: '배포된 Task · 미해결 VOC',

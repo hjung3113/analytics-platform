@@ -298,7 +298,7 @@ describe('delete focus', () => {
     const m = mount(ADMIN, '/notices?focus=n-only', { items: [], listItems: () => items, del: async () => { items = []; return action<{ id: string }>({}); } });
     await deleteSelected();
     await waitFor(() => expect(m.listNotices).toHaveBeenCalledTimes(2));
-    expect(await screen.findByText('조건에 맞는 결과가 없습니다')).toBeTruthy();
+    expect(await screen.findByText('공지가 없습니다')).toBeTruthy();
     await settleQueries();
     const region = screen.getByRole('region', { name: '공지 목록 영역' });
     expect(region.isConnected).toBe(true);
@@ -359,5 +359,19 @@ describe('late completion and access changes', () => {
     act(() => m.setPermissions(['notice:view']));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(m.deleteNotice).not.toHaveBeenCalled();
+  });
+});
+
+describe('empty list', () => {
+  it('says there are no notices and does not point at query conditions', async () => {
+    mount(['notice:view'], '/notices', { items: [] });
+    expect(await screen.findByText('공지가 없습니다')).toBeTruthy();
+    expect(screen.queryByText(/조건/)).toBeNull();
+  });
+
+  it('offers the write action to writers on the empty list', async () => {
+    mount(ADMIN, '/notices', { items: [] });
+    expect(await screen.findByText('공지가 없습니다')).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: '공지 작성' }).length).toBeGreaterThan(0);
   });
 });

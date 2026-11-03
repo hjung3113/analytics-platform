@@ -252,7 +252,7 @@ describe('TaskRequestsRoute decision dialogs', () => {
         detail: { retry_after_seconds: 30 },
       }),
     );
-    const dialog = await openDialog('승인', 'Task Request 승인');
+    const dialog = await openDialog('승인', 'Task 요청 승인');
     fireEvent.click(within(dialog).getByRole('button', { name: '승인' }));
     await within(dialog).findByRole('alert');
     expect(within(dialog).getByRole('textbox')).toHaveAttribute('aria-invalid', 'false');
@@ -491,19 +491,19 @@ describe('TaskRequestsRoute decision dialogs', () => {
 
   it('opens approval without invoking window.prompt', async () => {
     const prompt = vi.spyOn(window, 'prompt');
-    await openDialog('승인', 'Task Request 승인');
+    await openDialog('승인', 'Task 요청 승인');
     expect(prompt).not.toHaveBeenCalled();
   });
 
   it('shows a Korean required marker in the decision dialog', async () => {
-    await openDialog('반려', 'Task Request 반려');
+    await openDialog('반려', 'Task 요청 반려');
 
     expect(screen.getByText('필수 입력 항목입니다.')).toBeInTheDocument();
     expect(screen.queryByText('Required.')).not.toBeInTheDocument();
   });
 
   it('links the reject reason error to the textarea while it shows', async () => {
-    const dialog = await openDialog('반려', 'Task Request 반려');
+    const dialog = await openDialog('반려', 'Task 요청 반려');
     const textbox = within(dialog).getByRole('textbox');
     expect(textbox).toHaveAttribute('aria-invalid', 'false');
     expect(textbox).not.toHaveAttribute('aria-describedby');
@@ -522,14 +522,14 @@ describe('TaskRequestsRoute decision dialogs', () => {
   });
 
   it('approves another actor request without an optional reason', async () => {
-    await openDialog('승인', 'Task Request 승인');
+    await openDialog('승인', 'Task 요청 승인');
     fireEvent.click(screen.getByRole('button', { name: '승인' }));
     await waitFor(() => expectDecisionCall(api.approveTaskRequest, {}));
   });
 
   it.each([
-    ['승인', 'Task Request 승인', '승인', '승인했습니다. Task로 전환할 수 있습니다.'],
-    ['반려', 'Task Request 반려', '반려', '반려했습니다.'],
+    ['승인', 'Task 요청 승인', '승인', '승인했습니다. Task로 전환할 수 있습니다.'],
+    ['반려', 'Task 요청 반려', '반려', '반려했습니다.'],
     ['근거 추가 요청', '근거 추가 요청', '요청', '추가 근거를 요청했습니다.'],
   ])('shows the exact %s success toast', async (action, title, submit, message) => {
     const dialog = await openDialog(action, title);
@@ -571,14 +571,14 @@ describe('TaskRequestsRoute decision dialogs', () => {
         'true',
       );
       expect(
-        screen.getByRole('heading', { name: '검토 대기 중인 Task Request가 없습니다' }),
+        screen.getByRole('heading', { name: '검토 대기 중인 Task 요청이 없습니다' }),
       ).toHaveFocus();
     },
   );
 
   it.each([
-    ['승인', 'Task Request 승인', '승인', 'approved'],
-    ['반려', 'Task Request 반려', '반려', 'rejected'],
+    ['승인', 'Task 요청 승인', '승인', 'approved'],
+    ['반려', 'Task 요청 반려', '반려', 'rejected'],
     ['근거 추가 요청', '근거 추가 요청', '요청', 'needs_more_evidence'],
   ] as const)(
     'keeps %s submit focused while pending and ignores a second Enter',
@@ -641,12 +641,12 @@ describe('TaskRequestsRoute decision dialogs', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: '승인' }));
     await within(dialog).findByRole('alert', {}, { timeout: 5000 });
     expect(within(dialog).getByTestId('task-request-decision-cancel')).toBeDisabled();
-    expect(screen.queryByText('검토 대기 중인 Task Request가 없습니다')).not.toBeInTheDocument();
+    expect(screen.queryByText('검토 대기 중인 Task 요청이 없습니다')).not.toBeInTheDocument();
     failNext = false;
     fireEvent.click(within(dialog).getByRole('button', { name: '다시 시도' }));
     await waitFor(() => expect(resolvePage).toBeTypeOf('function'));
     expect(dialog.isConnected).toBe(true);
-    expect(screen.queryByText('검토 대기 중인 Task Request가 없습니다')).not.toBeInTheDocument();
+    expect(screen.queryByText('검토 대기 중인 Task 요청이 없습니다')).not.toBeInTheDocument();
     await act(async () => resolvePage({ items: [otherTaskRequest], page: { has_more: false } }));
     await waitFor(() => expect(dialog).not.toBeInTheDocument());
     await act(async () => {
@@ -678,7 +678,7 @@ describe('TaskRequestsRoute decision dialogs', () => {
     expect(api.fetchTaskRequests).toHaveBeenCalledWith(
       expect.objectContaining({ cursor: 'pending-next', status: 'pending_review' }),
     );
-    expect(screen.queryByText('검토 대기 중인 Task Request가 없습니다')).not.toBeInTheDocument();
+    expect(screen.queryByText('검토 대기 중인 Task 요청이 없습니다')).not.toBeInTheDocument();
   });
 
   it('AC-681-1 does not replay an old decision after a converted request is revisited', async () => {
@@ -698,7 +698,7 @@ describe('TaskRequestsRoute decision dialogs', () => {
 
     api.fetchTaskRequests.mockResolvedValue({ items: [approvedItem, otherTaskRequest] });
     fireEvent.click(screen.getByRole('button', { name: '승인' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Task Request 승인' });
+    const dialog = await screen.findByRole('dialog', { name: 'Task 요청 승인' });
     fireEvent.click(within(dialog).getByRole('button', { name: '승인' }));
     await waitFor(() => {
       expect(screen.getByRole('tab', { name: /^검토 대기/ })).toHaveAttribute(
@@ -726,7 +726,7 @@ describe('TaskRequestsRoute decision dialogs', () => {
   });
 
   it('trims an approval reason for another actor request', async () => {
-    await openDialog('승인', 'Task Request 승인');
+    await openDialog('승인', 'Task 요청 승인');
     fireEvent.change(screen.getByRole('textbox', { name: '승인 사유' }), {
       target: { value: '  Ready for execution.  ' },
     });
@@ -740,7 +740,7 @@ describe('TaskRequestsRoute decision dialogs', () => {
     {
       action: 'approve-self',
       buttonName: '승인',
-      dialogName: 'Task Request 승인',
+      dialogName: 'Task 요청 승인',
       textboxName: '본인 승인 사유',
       message: '본인 승인 사유를 입력해 주세요.',
       actorId: requesterId,
@@ -764,7 +764,7 @@ describe('TaskRequestsRoute decision dialogs', () => {
     {
       action: 'reject',
       buttonName: '반려',
-      dialogName: 'Task Request 반려',
+      dialogName: 'Task 요청 반려',
       textboxName: '반려 사유',
       message: '반려 사유를 입력해 주세요.',
       actorId: null,
@@ -805,7 +805,7 @@ describe('TaskRequestsRoute decision dialogs', () => {
     '#1184 U3-4 keyboard reject with %s reason shows the error, focuses the field and sends nothing',
     async (_label, text) => {
       const user = userEvent.setup();
-      const dialog = await openDialog('반려', 'Task Request 반려');
+      const dialog = await openDialog('반려', 'Task 요청 반려');
       const field = screen.getByRole('textbox', { name: '반려 사유' });
       if (text) fireEvent.change(field, { target: { value: text } });
       within(dialog).getByRole('button', { name: '반려' }).focus();
@@ -820,10 +820,10 @@ describe('TaskRequestsRoute decision dialogs', () => {
   );
 
   it('cancels without dispatching a mutation', async () => {
-    await openDialog('승인', 'Task Request 승인');
+    await openDialog('승인', 'Task 요청 승인');
     fireEvent.click(screen.getByTestId('task-request-decision-cancel'));
     await waitFor(() =>
-      expect(screen.queryByRole('dialog', { name: 'Task Request 승인' })).not.toBeInTheDocument(),
+      expect(screen.queryByRole('dialog', { name: 'Task 요청 승인' })).not.toBeInTheDocument(),
     );
     expect(api.approveTaskRequest).not.toHaveBeenCalled();
   });
@@ -836,7 +836,7 @@ describe('TaskRequestsRoute decision dialogs', () => {
           resolveApproval = resolve;
         }),
     );
-    await openDialog('승인', 'Task Request 승인');
+    await openDialog('승인', 'Task 요청 승인');
     const submit = screen.getByRole('button', { name: '승인' });
     // Both clicks land in one batch, so the pending state has not re-rendered the
     // button as disabled yet. The synchronous in-flight guard is the only defense
@@ -862,7 +862,7 @@ describe('TaskRequestsRoute decision dialogs', () => {
     const oldOpener = await screen.findByRole('button', { name: '반려' });
     oldOpener.focus();
     fireEvent.click(oldOpener);
-    const oldDialog = await screen.findByRole('dialog', { name: 'Task Request 반려' });
+    const oldDialog = await screen.findByRole('dialog', { name: 'Task 요청 반려' });
     fireEvent.change(within(oldDialog).getByRole('textbox'), { target: { value: 'old reason' } });
     rerender(view(otherTaskRequest.id));
     await waitFor(() => expect(oldDialog).not.toBeInTheDocument());
@@ -882,12 +882,12 @@ describe('TaskRequestsRoute decision dialogs', () => {
     const approveOpener = screen.getByRole('button', { name: '승인' });
     rejectOpener.focus();
     fireEvent.click(rejectOpener);
-    const rejection = await screen.findByRole('dialog', { name: 'Task Request 반려' });
+    const rejection = await screen.findByRole('dialog', { name: 'Task 요청 반려' });
     fireEvent.click(within(rejection).getByTestId('task-request-decision-cancel'));
     // Open synchronously, before Radix's deferred unmount autofocus can run.
     approveOpener.focus();
     fireEvent.click(approveOpener);
-    const approval = screen.getByRole('dialog', { name: 'Task Request 승인' });
+    const approval = screen.getByRole('dialog', { name: 'Task 요청 승인' });
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
@@ -907,7 +907,7 @@ describe('TaskRequestsRoute decision dialogs', () => {
     const opener = screen.getByRole('button', { name: '반려' });
     opener.focus();
     fireEvent.click(opener);
-    const dialog = await screen.findByRole('dialog', { name: 'Task Request 반려' });
+    const dialog = await screen.findByRole('dialog', { name: 'Task 요청 반려' });
     fireEvent.change(within(dialog).getByRole('textbox'), { target: { value: 'reason' } });
     fireEvent.click(within(dialog).getByRole('button', { name: '반려' }));
     await waitFor(() =>
@@ -928,7 +928,7 @@ describe('TaskRequestsRoute decision dialogs', () => {
       const opener = screen.getByRole('button', { name: '반려' });
       opener.focus();
       fireEvent.click(opener);
-      const dialog = await screen.findByRole('dialog', { name: 'Task Request 반려' });
+      const dialog = await screen.findByRole('dialog', { name: 'Task 요청 반려' });
       if (dismissal === 'Escape') fireEvent.keyDown(dialog, { key: 'Escape' });
       else if (dismissal === 'Cancel') {
         fireEvent.click(within(dialog).getByTestId('task-request-decision-cancel'));
@@ -965,7 +965,7 @@ describe('TaskRequestsRoute decision dialogs', () => {
         const opener = screen.getByRole('button', { name: '반려' });
         opener.focus();
         fireEvent.click(opener);
-        const dialog = await screen.findByRole('dialog', { name: 'Task Request 반려' });
+        const dialog = await screen.findByRole('dialog', { name: 'Task 요청 반려' });
         fireEvent.change(within(dialog).getByRole('textbox'), { target: { value: '반려 메모' } });
         fireEvent.click(within(dialog).getByRole('button', { name: '반려' }));
         expect(await within(dialog).findByRole('alert')).toHaveTextContent(
@@ -976,7 +976,7 @@ describe('TaskRequestsRoute decision dialogs', () => {
         expect(dialog).toBeInTheDocument();
         expect(dialog).toHaveAttribute('data-state', 'closed');
         expect(
-          within(dialog).getByRole('heading', { name: 'Task Request 반려' }),
+          within(dialog).getByRole('heading', { name: 'Task 요청 반려' }),
         ).toBeInTheDocument();
         expect(within(dialog).getByRole('textbox')).toHaveValue('반려 메모');
         expect(within(dialog).getByRole('alert')).toHaveTextContent(
@@ -997,12 +997,12 @@ describe('TaskRequestsRoute decision dialogs', () => {
     api.approveTaskRequest.mockRejectedValueOnce({
       envelope: { message: 'Approval was rejected by the server.' },
     });
-    await openDialog('승인', 'Task Request 승인');
+    await openDialog('승인', 'Task 요청 승인');
     fireEvent.click(screen.getByRole('button', { name: '승인' }));
     expect(await screen.findByRole('alert')).toHaveTextContent(
       '일시적 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.',
     );
-    expect(screen.getByRole('dialog', { name: 'Task Request 승인' })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Task 요청 승인' })).toBeInTheDocument();
   });
 });
 
@@ -1075,7 +1075,7 @@ it('preserves the committed decision value and focus when a request transition i
   const opener = screen.getByTestId('open-decision');
   opener.focus();
   fireEvent.click(opener);
-  const dialog = await screen.findByRole('dialog', { name: 'Task Request 반려' });
+  const dialog = await screen.findByRole('dialog', { name: 'Task 요청 반려' });
   const textbox = within(dialog).getByRole('textbox');
   fireEvent.change(textbox, { target: { value: 'committed reason' } });
   expect(textbox).toHaveFocus();

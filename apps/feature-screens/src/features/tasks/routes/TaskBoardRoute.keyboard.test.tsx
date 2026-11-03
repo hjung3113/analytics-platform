@@ -172,7 +172,7 @@ describe('TaskBoardRoute keyboard dragging', () => {
         '검토',
         '완료',
         '배포됨',
-        'Reopened',
+        '다시 열림',
       ].findIndex((status) => label === `${status} 열`);
       if (index >= 0) return boardRect(index * 300, 288, 600);
       if (
@@ -446,7 +446,7 @@ describe('TaskBoardRoute keyboard dragging', () => {
       fireEvent(document, arrow);
       expect(arrow.defaultPrevented).toBe(true);
     }
-    for (const status of ['할 일', '진행 중', '검토', '완료', '배포됨', 'Reopened']) {
+    for (const status of ['할 일', '진행 중', '검토', '완료', '배포됨', '다시 열림']) {
       const arrow = new KeyboardEvent('keydown', {
         key: 'ArrowRight',
         code: 'ArrowRight',
@@ -539,15 +539,15 @@ describe('TaskBoardRoute keyboard dragging', () => {
         ),
       );
     };
-    for (const status of ['할 일', '진행 중', '검토', '완료', '배포됨', 'Reopened'])
+    for (const status of ['할 일', '진행 중', '검토', '완료', '배포됨', '다시 열림'])
       await press('ArrowRight', status);
-    // Past the last column nothing moves: the announcement and the target stay on Reopened.
+    // Past the last column nothing moves: the announcement and the target stay on 다시 열림.
     for (let extra = 0; extra < 2; extra += 1) {
       fireEvent.keyDown(document, { key: 'ArrowRight', code: 'ArrowRight' });
       await act(async () => {
         await Promise.resolve();
       });
-      await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Reopened 열 위에'));
+      await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('다시 열림 열 위에'));
     }
     for (const status of ['배포됨', '완료', '검토', '진행 중', '할 일', '대기'])
       await press('ArrowLeft', status);

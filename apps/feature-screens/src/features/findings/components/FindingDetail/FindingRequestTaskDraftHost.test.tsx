@@ -106,9 +106,9 @@ describe('FindingRequestTaskDraftHost', () => {
     await waitFor(() => expect(calls.notify).toHaveBeenCalledTimes(1));
     expect(calls.notify).toHaveBeenCalledWith({
       tone: 'success',
-      message: 'Task Request가 생성되었습니다.',
+      message: 'Task 요청이 생성되었습니다.',
       durationMs: Number.POSITIVE_INFINITY,
-      action: { label: 'Task Request 열기', onAction: expect.any(Function) },
+      action: { label: 'Task 요청 열기', onAction: expect.any(Function) },
     });
     const [[notice]] = calls.notify.mock.calls as unknown as [
       [{ action: { onAction: () => void } }],
@@ -126,7 +126,7 @@ describe('FindingRequestTaskDraftHost', () => {
     await waitFor(() => expect(calls.notify).toHaveBeenCalledTimes(1));
     expect(calls.notify).toHaveBeenCalledWith({
       tone: 'success',
-      message: 'Task Request가 생성되었습니다.',
+      message: 'Task 요청이 생성되었습니다.',
       durationMs: Number.POSITIVE_INFINITY,
     });
   });

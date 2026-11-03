@@ -147,7 +147,7 @@ describe('<ComposerSection>', () => {
 
     rerender(<ComposerSection voc={VOC} me={ME} canTriage={false} />);
 
-    const replyTab = screen.getByRole('tab', { name: '제출자 답변' });
+    const replyTab = screen.getByRole('tab', { name: '신고자에게 답장' });
     expect(replyTab).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByTestId('reporter-reply-composer')).toBeVisible();
     expect(document.activeElement).toBe(replyTab);

@@ -439,7 +439,7 @@ describe('FindingDetailPanel', () => {
     expect(requestLink).toHaveAttribute('href', `/tasks?view=requests&param=${taskRequestId}`);
 
     const primaryGroup = screen.getByRole('group', { name: '주요 실행' });
-    expect(within(primaryGroup).getByRole('link', { name: 'Task Request 보기' })).toHaveAttribute(
+    expect(within(primaryGroup).getByRole('link', { name: 'Task 요청 보기' })).toHaveAttribute(
       'href',
       `/tasks?view=requests&param=${taskRequestId}`,
     );
@@ -531,7 +531,7 @@ describe('FindingDetailPanel', () => {
         }),
       );
       const failureMessage = await screen.findByRole('alert');
-      expect(failureMessage).toHaveTextContent('Task Request를 확인하지 못했습니다.');
+      expect(failureMessage).toHaveTextContent('Task 요청를 확인하지 못했습니다.');
       expect(failureMessage).toHaveClass('text-text-danger');
       expect(screen.getByRole('button', { name: '다시 시도' })).toBeInTheDocument();
       expect(screen.queryByRole('group', { name: '주요 실행' })).not.toBeInTheDocument();
@@ -568,7 +568,7 @@ describe('FindingDetailPanel', () => {
       expect(requestLink).toHaveTextContent(TASK_REQUEST_STATUS_LABELS.pending_review);
       expect(
         within(screen.getByRole('group', { name: '주요 실행' })).getByRole('link', {
-          name: 'Task Request 보기',
+          name: 'Task 요청 보기',
         }),
       ).toHaveAttribute('href', `/tasks?view=requests&param=${taskRequestId}`);
     },
@@ -605,7 +605,7 @@ describe('FindingDetailPanel', () => {
     renderWithClient(<FindingDetailPanel findingId="10000000-0000-0000-0000-000000000001" />);
 
     await user.click(await screen.findByTestId('request-task-btn'));
-    const draft = await screen.findByRole('region', { name: 'Task Request 초안' });
+    const draft = await screen.findByRole('region', { name: 'Task 요청 초안' });
     expect(draft).toHaveTextContent('출처 FIN-179 · Finding');
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     await user.type(
@@ -630,7 +630,7 @@ describe('FindingDetailPanel', () => {
     await waitFor(() => expect(screen.queryByTestId('request-task-draft')).not.toBeInTheDocument());
     const options = toast.success.mock.calls.at(-1)?.[1];
     expect(options.duration).toBe(Number.POSITIVE_INFINITY);
-    expect(options.action.label).toEqual('Task Request 열기');
+    expect(options.action.label).toEqual('Task 요청 열기');
     options.action.onClick();
     expect(navigate).toHaveBeenCalledWith({
       to: '/tasks',

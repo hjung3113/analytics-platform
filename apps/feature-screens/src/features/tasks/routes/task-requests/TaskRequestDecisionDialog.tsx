@@ -141,7 +141,7 @@ export function TaskRequestDecisionDialog({
   const details =
     content?.action === 'approve'
       ? {
-          title: 'Task Request 승인',
+          title: 'Task 요청 승인',
           description: '실행 후보를 승인하는 이유를 기록하세요.',
           label: isSelfApproval ? '본인 승인 사유' : '승인 사유',
           submitLabel: '승인',
@@ -156,7 +156,7 @@ export function TaskRequestDecisionDialog({
             required: true,
           }
         : {
-            title: 'Task Request 반려',
+            title: 'Task 요청 반려',
             description: '실행 후보를 반려하는 이유를 기록하세요.',
             label: '반려 사유',
             submitLabel: '반려',

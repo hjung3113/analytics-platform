@@ -13,7 +13,7 @@ const ENTITY_TYPE_LABEL: Record<EntityLinkDto['source_type'], string> = {
   survey_response: '설문 응답',
   finding: 'Finding',
   voc_cluster: '반복 VOC',
-  task_request: 'Task Request',
+  task_request: 'Task 요청',
   task: 'Task',
 };
 

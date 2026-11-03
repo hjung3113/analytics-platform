@@ -134,12 +134,12 @@ describe('<ReporterReplyComposer>', () => {
     expect(onPosted).toHaveBeenCalledWith('public');
   });
 
-  it('uses 제출자 as the fallback identity in the reply preview', async () => {
+  it('uses 신고자 as the fallback identity in the reply preview', async () => {
     render(<ReporterReplyComposer voc={BASE_VOC} me={ME_REPORTER} />, { wrapper: makeWrapper() });
 
     fireEvent.click(screen.getByRole('button', { name: '미리보기' }));
 
-    expect(await screen.findByText(/제출자 ·/)).toBeInTheDocument();
+    expect(await screen.findByText(/신고자 ·/)).toBeInTheDocument();
   });
 
   it('renders the composer and wires submit mutation: invalidates [voc, id] on success', async () => {

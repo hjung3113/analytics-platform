@@ -1026,7 +1026,7 @@ describe('<VocDetailPanel>', () => {
     expect(container.querySelectorAll('.sticky.bottom-0')).toHaveLength(1);
     expect(screen.getByRole('button', { name: 'Finding 생성' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Task 요청' }));
-    const draft = await screen.findByRole('region', { name: 'Task Request 초안' });
+    const draft = await screen.findByRole('region', { name: 'Task 요청 초안' });
     expect(draft).toHaveTextContent('출처 VOC-0001 · VOC');
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     fireEvent.change(screen.getByTestId('request-task-requested-outcome-input'), {

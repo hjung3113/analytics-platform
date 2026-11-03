@@ -264,7 +264,7 @@ describe('TaskBoardScreen under a host seam', () => {
     const unlinked = mount();
     await screen.findByLabelText('대기 열');
     expect(unlinked.container.querySelector('[data-seam-link]')).toBeNull();
-    expect(screen.getByText(/Task는 Task Request에서 전환됩니다\./)).toBeInTheDocument();
+    expect(screen.getByText(/Task는 Task 요청에서 전환됩니다\./)).toBeInTheDocument();
   });
 
   it('notifies a rejected move through the seam and puts the card back', async () => {

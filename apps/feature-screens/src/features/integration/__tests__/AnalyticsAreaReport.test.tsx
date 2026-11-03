@@ -63,13 +63,13 @@ it('renders exact domain links, neutral ratios, unavailable metrics and whole-sy
   }
   expect(screen.getByText('미지정')).toBeVisible();
   expect(screen.getAllByText('보관됨')).toHaveLength(2);
-  expect(screen.getAllByRole('link', { name: /Task Request 검토/ })).toHaveLength(2);
+  expect(screen.getAllByRole('link', { name: /Task 요청 검토/ })).toHaveLength(2);
   for (const [system, id] of [
     ['Identity Platform', IDS.systemA],
     ['Data Warehouse', IDS.systemB],
   ]) {
     expect(
-      screen.getByRole('link', { name: `Task Request 검토 · ${system} 전체 대기열` }),
+      screen.getByRole('link', { name: `Task 요청 검토 · ${system} 전체 대기열` }),
     ).toHaveAttribute('href', `/tasks?view=requests&managedSystem=${id}`);
   }
   expect(
@@ -147,7 +147,7 @@ it.each([
   );
   const count = screen.queryByRole('link', { name: 'Identity Platform · 인증 VOC 전체 10건' });
   const review = screen.queryByRole('link', {
-    name: 'Task Request 검토 · Identity Platform 전체 대기열',
+    name: 'Task 요청 검토 · Identity Platform 전체 대기열',
   });
   expect(count !== null).toBe(allowed);
   expect(review !== null).toBe(allowed);

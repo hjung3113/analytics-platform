@@ -145,7 +145,7 @@ export function FindingExecutionRequestRow({
   } = controller;
 
   return (
-    <FieldRow label="Task Request" inset="none">
+    <FieldRow label="Task 요청" inset="none">
       <div ref={taskRequestRegionRef} tabIndex={-1} className="min-w-0">
         {requestedTaskRequestsState === 'loading' && !retryInProgress ? (
           <span className="text-text-muted" aria-live="polite">
@@ -159,7 +159,7 @@ export function FindingExecutionRequestRow({
                 ? { 'aria-live': 'polite' as const }
                 : { role: 'alert' as const })}
             >
-              {retryInProgress ? '확인 중…' : 'Task Request를 확인하지 못했습니다.'}
+              {retryInProgress ? '확인 중…' : 'Task 요청를 확인하지 못했습니다.'}
             </span>
             <Button
               type="button"
@@ -257,7 +257,7 @@ export function FindingExecutionRequestActions({
       <fieldset className="m-0 min-w-0 border-0 p-0">
         <legend className="sr-only">주요 실행</legend>
         <Button asChild variant="primary" size="sm">
-          <HostLink to={to}>Task Request 보기</HostLink>
+          <HostLink to={to}>Task 요청 보기</HostLink>
         </Button>
       </fieldset>
     );

@@ -88,7 +88,7 @@ export function ConversationTimeline({
       >
         <TabsList>
           <TabsTrigger ref={publicTabRef} value="public">
-            제출자 대화
+            신고자 대화
           </TabsTrigger>
           {canTriage && (
             <TabsTrigger ref={internalTabRef} value="internal">

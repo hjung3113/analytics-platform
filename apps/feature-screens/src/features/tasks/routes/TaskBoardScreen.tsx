@@ -575,13 +575,13 @@ export function TaskBoardScreen({ renderDetail }: TaskBoardScreenProps) {
         actions: (
           <>
             <span className="text-xs text-text-muted">
-              Task는 Task Request에서 전환됩니다.{' '}
+              Task는 Task 요청에서 전환됩니다.{' '}
               {requestsLinkable ? (
                 <HostLink
                   to={requestsHref}
                   className="font-medium underline underline-offset-2 hover:text-text-secondary"
                 >
-                  Task Request 검토
+                  Task 요청 검토
                 </HostLink>
               ) : null}
             </span>
@@ -678,13 +678,13 @@ export function TaskBoardScreen({ renderDetail }: TaskBoardScreenProps) {
             ) : boardEmpty ? (
               <output className="flex flex-1 items-center justify-center p-6">
                 <p className="text-sm text-text-muted">
-                  Task는 Task Request에서 전환됩니다.{' '}
+                  Task는 Task 요청에서 전환됩니다.{' '}
                   {requestsLinkable ? (
                     <HostLink
                       to={requestsHref}
                       className="font-medium underline underline-offset-2 hover:text-text-secondary"
                     >
-                      Task Request 검토
+                      Task 요청 검토
                     </HostLink>
                   ) : null}
                 </p>

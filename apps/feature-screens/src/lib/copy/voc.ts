@@ -64,7 +64,7 @@ export const VOC_FOLLOW_UP_COPY = {
   showExecution: '연결된 실행 확인',
   requestTask: 'Task 요청',
   relatedEntities: '관련 엔티티',
-  linkedRequest: '연결된 Task Request',
+  linkedRequest: '연결된 Task 요청',
 } as const;
 
 export const VOC_NO_FOLLOW_UP = {

@@ -213,8 +213,8 @@ it.each([
         expect(
           screen.getByText(
             switchBy === 'scope'
-              ? '검토 대기 중인 Task Request가 없습니다'
-              : '현재 조건에 맞는 Task Request가 없습니다',
+              ? '검토 대기 중인 Task 요청이 없습니다'
+              : '현재 조건에 맞는 Task 요청이 없습니다',
           ),
         ).toBeInTheDocument();
       await act(async () => {});
@@ -309,6 +309,6 @@ it('keeps all-tab decision membership and load-more boundary and scroll until a 
   fireEvent.click(screen.getByRole('button', { name: 'Convert selected' }));
   await act(async () => resolve(taskRequestPage([])));
   await settled();
-  expect(screen.getByText('Task Request가 없습니다.')).toBeInTheDocument();
+  expect(screen.getByText('Task 요청이 없습니다.')).toBeInTheDocument();
   expect(boundary.isConnected).toBe(false);
 });

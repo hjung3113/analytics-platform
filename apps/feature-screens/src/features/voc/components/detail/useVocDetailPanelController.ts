@@ -127,7 +127,7 @@ export function useVocDetailPanelController({
         markRequestTaskConsumed();
         setRequestTaskOpen(false);
         requestTaskMutation.reset();
-        notifySuccess('Task Request가 생성되었습니다.');
+        notifySuccess('Task 요청이 생성되었습니다.');
       },
     });
   }

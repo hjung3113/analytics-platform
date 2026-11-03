@@ -248,7 +248,7 @@ describe('TaskRequestsRoute display ids', () => {
     );
     renderWithClient(<TaskRequestsRoute />);
 
-    expect(await screen.findByText('Task Request가 없습니다.')).toBeInTheDocument();
+    expect(await screen.findByText('Task 요청이 없습니다.')).toBeInTheDocument();
     expect(screen.getByText('검토 요청이 접수되면 이 목록에 표시됩니다.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '필터 초기화' })).not.toBeInTheDocument();
   });
@@ -270,9 +270,9 @@ describe('TaskRequestsRoute display ids', () => {
     );
     renderWithClient(<TaskRequestsRoute />);
 
-    expect(await screen.findByText('검토 대기 중인 Task Request가 없습니다')).toBeInTheDocument();
-    expect(screen.getByText('다른 상태의 Task Request가 있습니다.')).toBeInTheDocument();
-    expect(screen.queryByText('Task Request가 없습니다.')).not.toBeInTheDocument();
+    expect(await screen.findByText('검토 대기 중인 Task 요청이 없습니다')).toBeInTheDocument();
+    expect(screen.getByText('다른 상태의 Task 요청이 있습니다.')).toBeInTheDocument();
+    expect(screen.queryByText('Task 요청이 없습니다.')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '필터 초기화' })).not.toBeInTheDocument();
   });
 
@@ -283,7 +283,7 @@ describe('TaskRequestsRoute display ids', () => {
     // The tab's accessible name now includes its count (#673).
     await userEvent.click(screen.getByRole('tab', { name: /^승인됨/ }));
 
-    expect(await screen.findByText('현재 조건에 맞는 Task Request가 없습니다')).toBeInTheDocument();
+    expect(await screen.findByText('현재 조건에 맞는 Task 요청이 없습니다')).toBeInTheDocument();
     expect(screen.getByText('선택한 상태: 승인됨')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: '필터 초기화' }));
 
@@ -292,7 +292,7 @@ describe('TaskRequestsRoute display ids', () => {
       'true',
     );
     expect(await screen.findByRole('button', { name: /REQ-42/ })).toBeInTheDocument();
-    expect(screen.queryByText('현재 조건에 맞는 Task Request가 없습니다')).not.toBeInTheDocument();
+    expect(screen.queryByText('현재 조건에 맞는 Task 요청이 없습니다')).not.toBeInTheDocument();
   });
 
   it('renders permission denied instead of the queue unavailable copy for a 403', async () => {
@@ -308,11 +308,11 @@ describe('TaskRequestsRoute display ids', () => {
     expect(panel.closest('[data-state]')).toHaveAttribute('data-state', 'denied');
     expect(
       screen.getByText(
-        'Task Request 목록을 볼 권한이 없습니다. 워크스페이스 관리자에게 권한을 요청하세요.',
+        'Task 요청 목록을 볼 권한이 없습니다. 워크스페이스 관리자에게 권한을 요청하세요.',
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText('finding.manage capability required')).not.toBeInTheDocument();
-    expect(screen.queryByText('Task Request 목록을 불러오지 못했습니다')).not.toBeInTheDocument();
+    expect(screen.queryByText('Task 요청 목록을 불러오지 못했습니다')).not.toBeInTheDocument();
   });
 
   it('keeps a non-permission queue failure unavailable', async () => {
@@ -321,7 +321,7 @@ describe('TaskRequestsRoute display ids', () => {
     );
     renderWithClient(<TaskRequestsRoute />);
 
-    expect(await screen.findByText('Task Request 목록을 불러오지 못했습니다')).toBeInTheDocument();
+    expect(await screen.findByText('Task 요청 목록을 불러오지 못했습니다')).toBeInTheDocument();
     expect(screen.getByText('잠시 후 다시 시도하세요.')).toBeInTheDocument();
     expect(document.querySelector('[data-state="denied"]')).not.toBeInTheDocument();
 
@@ -355,11 +355,11 @@ describe('TaskRequestsRoute display ids', () => {
     await screen.findByRole('button', { name: /REQ-42/ });
     fireEvent.click(screen.getByRole('combobox', { name: '검토자 필터' }));
     fireEvent.click(await screen.findByRole('option', { name: '내 검토 요청' }));
-    expect(await screen.findByText('현재 조건에 맞는 Task Request가 없습니다')).toBeInTheDocument();
-    expect(screen.queryByText('검토 대기 중인 Task Request가 없습니다')).not.toBeInTheDocument();
+    expect(await screen.findByText('현재 조건에 맞는 Task 요청이 없습니다')).toBeInTheDocument();
+    expect(screen.queryByText('검토 대기 중인 Task 요청이 없습니다')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '필터 초기화' }));
     expect(await screen.findByRole('button', { name: /REQ-42/ })).toBeInTheDocument();
-    expect(screen.queryByText('현재 조건에 맞는 Task Request가 없습니다')).not.toBeInTheDocument();
+    expect(screen.queryByText('현재 조건에 맞는 Task 요청이 없습니다')).not.toBeInTheDocument();
   });
 });
 

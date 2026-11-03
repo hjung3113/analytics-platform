@@ -425,7 +425,7 @@ export function useTaskDetailParts({
                   <OutlineBadge>근거 · {sourceFinding.evidence_count}</OutlineBadge>
                   {source?.task_request && (
                     <OutlineBadge>
-                      Task Request · {TASK_REQUEST_STATUS_LABELS[source.task_request.status]}
+                      Task 요청 · {TASK_REQUEST_STATUS_LABELS[source.task_request.status]}
                     </OutlineBadge>
                   )}
                 </div>
@@ -438,7 +438,7 @@ export function useTaskDetailParts({
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <OutlineBadge>
-                    Task Request · {TASK_REQUEST_STATUS_LABELS[sourceTaskRequest.status]}
+                    Task 요청 · {TASK_REQUEST_STATUS_LABELS[sourceTaskRequest.status]}
                   </OutlineBadge>
                   {sourceVoc?.visibility_state === 'allowed' && (
                     <OutlineBadge>VOC · {sourceVoc.display_id}</OutlineBadge>

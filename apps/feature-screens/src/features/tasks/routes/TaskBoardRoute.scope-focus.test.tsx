@@ -100,7 +100,7 @@ describe('TaskBoardRoute keyboard recovery scope', () => {
         '검토',
         '완료',
         '배포됨',
-        'Reopened',
+        '다시 열림',
       ].findIndex((status) => label === `${status} 열`);
       if (index >= 0) return boardRect(index * 300, 288, 600);
       if (

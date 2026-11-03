@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { AlertTriangle, ChevronDown, ChevronRight, Pencil, Plus, Trash2 } from 'lucide-react';
+import { AlertTriangle, ChevronDown, Inbox, ChevronRight, Pencil, Plus, Trash2 } from 'lucide-react';
 import type { Notice, NoticeListPage } from '@ap/contracts';
 import { useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
 import { PlatformPage, QueryView, StateMessage } from '@ap/components';
@@ -117,10 +117,13 @@ export function NoticesScreen({ clock }: { clock: () => string }) {
     primaryAction={canWrite ? <Button size="sm" onClick={() => openWith({ kind: 'form', notice: null })}><Plus className="size-3.5" aria-hidden />{ko ? '공지 작성' : 'Write notice'}</Button> : undefined}>
     {focus !== null && query.response?.outcome === 'empty' && rejected(focus)}
     <div ref={regionRef} role="region" aria-label={ko ? '공지 목록 영역' : 'Notice list area'} tabIndex={-1} className="focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring">
-      <QueryView widgetName={ko ? '공지' : 'Notices'} query={query}
-        emptyAction={canWrite ? <Button size="sm" onClick={() => openWith({ kind: 'form', notice: null })}>{ko ? '공지 작성' : 'Write notice'}</Button> : undefined}>
-        {data => body(data.items)}
-      </QueryView>
+      {query.response?.outcome === 'empty'
+        // The Kernel's empty body tells the user to change query conditions this screen does not have: say plainly there are no notices.
+        ? <StateMessage icon={<Inbox className="size-4" aria-hidden />} title={ko ? '공지가 없습니다' : 'No notices'}
+          action={canWrite ? <Button size="sm" onClick={() => openWith({ kind: 'form', notice: null })}>{ko ? '공지 작성' : 'Write notice'}</Button> : undefined} />
+        : <QueryView widgetName={ko ? '공지' : 'Notices'} query={query}>
+          {data => body(data.items)}
+        </QueryView>}
     </div>
     {dialog?.kind === 'form' && <NoticeFormDialog key={dialog.notice?.id ?? 'new'} notice={dialog.notice} ko={ko} scopes={session.scopes} onDone={onDone} />}
     {dialog?.kind === 'delete' && <NoticeDeleteDialog notice={dialog.notice} ko={ko} onDone={onDone} onCloseAutoFocus={onDeleteClosed} />}

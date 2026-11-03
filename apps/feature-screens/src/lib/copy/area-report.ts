@@ -8,7 +8,7 @@ export const AREA_REPORT_COPY = {
   unavailable: '현재 권한 범위에서 볼 수 없습니다',
   notApplicable: '해당 없음',
   unclassified: '모든 항목이 미분류 상태입니다. 분석 영역 분류는 선택 사항입니다.',
-  review: 'Task Request 검토',
+  review: 'Task 요청 검토',
   reviewScope: '전체 대기열',
   empty: '표시할 분석 영역 현황이 없습니다',
   error: '분석 영역 현황을 불러올 수 없습니다',

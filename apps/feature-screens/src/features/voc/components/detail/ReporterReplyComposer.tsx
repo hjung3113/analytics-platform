@@ -183,7 +183,7 @@ export function ReporterReplyComposer({
   // The envelope carries no reporter display name, so the preview identifies the role.
   const reporter = {
     id: voc.reporter_id,
-    display_name: '제출자',
+    display_name: '신고자',
   };
 
   return (
@@ -191,14 +191,14 @@ export function ReporterReplyComposer({
       {/* RichEditor with ReporterReplyToolbar — prototype: minHeight 84px */}
       <RichEditor
         surface="reporter-reply"
-        ariaLabel="제출자 답변 내용"
+        ariaLabel="신고자 답글 내용"
         // REV-3 Cluster Z: explicit value (null = clear).
         value={draftDoc}
         onChange={(doc) => setDraftDoc(doc)}
         placeholder={
           me?.actor.id === voc.reporter_id
             ? VOC_REPLY_COPY.reporterPlaceholder
-            : '제출자에게 보낼 답장 내용을 입력하세요...'
+            : '신고자에게 보낼 답장 내용을 입력하세요...'
         }
         minHeight={84}
         onAttach={uploadRichEditorAttachment}
@@ -252,7 +252,7 @@ export function ReporterReplyComposer({
       <PreviewModal
         open={previewOpen}
         onClose={() => setPreviewOpen(false)}
-        title="제출자 미리보기"
+        title="신고자 미리보기"
       >
         <ComposerReplyPreview voc={voc} owner={owner} reporter={reporter} draftDoc={draftDoc} />
       </PreviewModal>

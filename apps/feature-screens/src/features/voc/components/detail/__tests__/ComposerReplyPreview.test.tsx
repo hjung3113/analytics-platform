@@ -59,7 +59,7 @@ describe('<ComposerReplyPreview>', () => {
     const { container } = render(
       <ComposerReplyPreview voc={BASE_VOC} owner={OWNER} reporter={REPORTER} draftDoc={emptyDoc} />,
     );
-    expect(screen.getByText(/제출자와 담당자에게만 보입니다/)).toBeInTheDocument();
+    expect(screen.getByText(/신고자와 담당자에게만 보입니다/)).toBeInTheDocument();
     expect(container.textContent).not.toMatch(/공개/);
   });
 });

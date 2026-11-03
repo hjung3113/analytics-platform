@@ -9,7 +9,7 @@ const cases: Array<{ status: InternalTaskStatusEnum; label: string }> = [
   { status: 'review', label: '검토' },
   { status: 'done', label: '완료' },
   { status: 'released', label: '배포됨' },
-  { status: 'reopened', label: 'Reopened' },
+  { status: 'reopened', label: '다시 열림' },
 ];
 
 describe('InternalTaskBadge', () => {

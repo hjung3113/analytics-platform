@@ -237,7 +237,7 @@ export function ReporterStatusChangeBlock({
       <div className="flex flex-col gap-1.5 mt-3">
         <span className="text-xs text-text-muted flex items-center gap-1.5">
           <User size={10} aria-hidden="true" />
-          제출자가 보게 될 화면 미리보기
+          신고자가 보게 될 화면 미리보기
         </span>
 
         <div className="rounded-md p-3 bg-surface-canvas">
