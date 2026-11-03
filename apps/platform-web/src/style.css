@@ -22,3 +22,16 @@
 @import "@ap/menu-feature-admin/styles.css";
 @import "@ap/menu-log-knowledge/styles.css";
 /* </gen:menu-styles> */
+
+/* #1291 THROWAWAY PROTOTYPE ③ — feature screen frame variants (branch prototype/1287-1291-ia-ui only). */
+[data-platform-page-content]:has([data-proto-frame="A"]),
+[data-platform-page-content]:has([data-proto-frame="C"]) { padding: 0 !important; }
+[data-platform-page-content]:has([data-proto-frame="B"]) { padding: 12px 16px 16px !important; }
+[data-proto-frame="B"] > div { border: 1px solid var(--color-border-subtle); border-radius: 8px; overflow: hidden; }
+[data-proto-frame="C"] [role="row"][aria-selected="false"] > .w-row-accent { display: none; }
+[data-proto-frame="C"] [data-task-board-column] { width: auto; flex: 1 1 0; min-width: 180px; }
+[data-proto-frame="C"] [data-shell] [role="tablist"][data-orientation] > button:nth-child(n+4) { display: none; }
+[data-proto-frame="C"] [data-shell] [role="tablist"][data-orientation]:has(> button:nth-child(5))::after {
+  content: "필터 3개 더 ▾"; display: inline-flex; align-items: center; height: 28px; padding: 0 10px; margin-left: 4px;
+  border: 1px dashed var(--color-border-subtle); border-radius: 6px; font-size: 13px; color: var(--color-text-muted);
+}

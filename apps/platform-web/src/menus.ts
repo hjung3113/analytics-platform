@@ -10,6 +10,7 @@ import { carrySetId, groupId, menuPermission, spaceId, type CarrySetDef, type Sp
 import { createRegistry, type GroupDef, type MenuEntry } from '@ap/kernel';
 import { createHomeComponent, type HomeLauncherGroup } from '@ap/menu-home/launcher';
 import { EQV_MODULE } from './modules';
+import { PROTO_IA_ACTIVE, PROTO_ORDER, protoGroups, protoMenus, protoSpaces } from './proto1287/ia';
 // <gen:menu-imports>
 import { manifests as home } from '@ap/menu-home';
 import { manifests as myActivity } from '@ap/menu-my-activity';
@@ -95,7 +96,7 @@ export const SPACES = [
 /** Home-only display order; registry access and per-space ordering remain authoritative. */
 export const HOME_LAUNCHER_GROUPS = [
   { id: 'analysis', label: { ko: '분석', en: 'Analysis' }, spaces: [spaceId('mars'), spaceId('bravo'), spaceId('clas')] },
-  { id: 'work', label: { ko: '업무 운영', en: 'Work operations' }, spaces: [spaceId('log-dev'), spaceId('improvement')] },
+  { id: 'work', label: { ko: '업무 운영', en: 'Work operations' }, spaces: PROTO_IA_ACTIVE ? [spaceId('flow'), spaceId('log-dev'), spaceId('improvement')] : [spaceId('log-dev'), spaceId('improvement')] },
   { id: 'tools', label: { ko: '도구', en: 'Tools' }, spaces: [spaceId('tools')] },
   { id: 'platform', label: { ko: '플랫폼 관리', en: 'Platform administration' }, spaces: [spaceId('operations')] },
 ] satisfies readonly HomeLauncherGroup[];
@@ -145,7 +146,7 @@ export const MENUS: MenuEntry[] = [
 ];
 
 /** The global 내 활동 menus in sidebar order (#1099c): 알림 → 내 VOC → 내 Task → 응답 설문 → 권한 요청. 내 Task is owned by `@ap/menu-tasks`; the app, not a Consumer, decides where it sits. */
-const MY_ACTIVITY_ORDER = ['notifications', 'voc', 'voc-detail', 'my-tasks', 'surveys', 'survey-respond', 'permission-requests'] as const;
+const MY_ACTIVITY_ORDER: readonly string[] = PROTO_IA_ACTIVE ? PROTO_ORDER : ['notifications', 'voc', 'voc-detail', 'my-tasks', 'surveys', 'survey-respond', 'permission-requests'];
 
 /** Moves the declared 내 활동 menus into `MY_ACTIVITY_ORDER`, at the position of the group's first menu; every other menu keeps its place. A listed id that is not declared fails at startup. */
 function placeMyActivity(menus: readonly MenuEntry[]): MenuEntry[] {
@@ -161,7 +162,7 @@ function fail(message: string): never { throw new Error(message); }
 export const CARRY_SETS: readonly CarrySetDef[] = [{ id: carrySetId('features'), pageKeys: ['managedSystem', 'returnTo'] }];
 
 /** Roots the app's own screens and feature serve outside the Registry; no space may take one (ADR-0093). The Kernel reserves only its own `board`, `api` and `auth`. */
-export const APP_RESERVED_ROOTS = ['home', 'survey', 'voc', 'notifications', 'notices', 'permission-requests', 'my-tasks'];
+export const APP_RESERVED_ROOTS = ['home', 'survey', 'voc', 'notifications', 'notices', 'permission-requests', 'my-tasks', ...(PROTO_IA_ACTIVE ? ['faq'] : [])];
 
 /** External host modules (src/modules.ts) join at the registry call only; GROUPS and MENUS stay the platform's own. */
-export const registry = createRegistry({ spaces: SPACES, groups: [...GROUPS, ...EQV_MODULE.groups], menus: placeMyActivity(configureHome([...MENUS, ...EQV_MODULE.menus])), permissions: PERMISSIONS, carrySets: CARRY_SETS, platformHomeMenuId: 'home', reservedRoots: APP_RESERVED_ROOTS });
+export const registry = createRegistry({ spaces: protoSpaces(SPACES), groups: [...protoGroups(GROUPS), ...EQV_MODULE.groups], menus: placeMyActivity(configureHome(protoMenus([...MENUS, ...EQV_MODULE.menus]))), permissions: PERMISSIONS, carrySets: CARRY_SETS, platformHomeMenuId: 'home', reservedRoots: APP_RESERVED_ROOTS });

@@ -1,0 +1,155 @@
+<title>플랫폼 기능 배치 시안</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one column of three decision blocks (①②③); each block = summary table + variant switcher over real captures. */
+:root {
+  --bg: #f5f7fb; --surface: #ffffff; --fg: #18202f; --muted: #5d677a; --line: #dfe4ee;
+  --accent: #1b2a99; --accent-soft: #e6e9fa; --rec: #0f7a4f; --rec-soft: #e2f4ec;
+  --sans: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #11151d; --surface: #191f2b; --fg: #e6eaf2; --muted: #9aa4b6; --line: #2c3444;
+  --accent: #9fb0ff; --accent-soft: #232b4a; --rec: #5fd1a0; --rec-soft: #183a2d; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #11151d; --surface: #191f2b; --fg: #e6eaf2; --muted: #9aa4b6; --line: #2c3444;
+  --accent: #9fb0ff; --accent-soft: #232b4a; --rec: #5fd1a0; --rec-soft: #183a2d; color-scheme: dark }
+body { background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 15px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 32px 64px; }
+main { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 48px; }
+h1 { font-size: 28px; margin: 0; text-wrap: balance; letter-spacing: -0.01em; }
+h2 { font-size: 21px; margin: 0; text-wrap: balance; }
+h3 { font-size: 15px; margin: 0; color: var(--muted); font-weight: 500; }
+p { margin: 0; max-width: 72ch; }
+.lede { color: var(--muted); }
+header.top { display: flex; flex-direction: column; gap: 10px; }
+.meta { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+section.block { display: flex; flex-direction: column; gap: 16px; }
+.head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 14px; }
+.tag { font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; background: var(--rec-soft); color: var(--rec); }
+.tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 14px; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; color: var(--muted); font-weight: 500; letter-spacing: 0.02em; }
+tr:last-child td { border-bottom: 0; }
+tr.rec td:first-child { box-shadow: inset 3px 0 0 var(--rec); }
+td:first-child { white-space: nowrap; font-weight: 600; }
+.switch { display: flex; flex-wrap: wrap; gap: 6px; }
+.switch button { font: inherit; font-size: 14px; padding: 6px 14px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); cursor: pointer; }
+.switch button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.switch button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.screens { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr)); gap: 16px; }
+figure { margin: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+figure a { display: block; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--surface); }
+figure img { display: block; width: 100%; height: auto; aspect-ratio: 1440 / 900; object-fit: cover; }
+figcaption { font-size: 13px; color: var(--muted); }
+.note { font-size: 13px; color: var(--muted); }
+.why { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; border-radius: 8px; background: var(--accent-soft); }
+.why b { font-weight: 600; }
+ul { margin: 0; padding-left: 20px; }
+</style>
+
+<main>
+  <header class="top">
+    <h1>플랫폼 기능 배치·화면 틀 시안</h1>
+    <p class="lede">#1287–#1291. 실제 앱(실서버 + 버리는 DB)에 <code>?variant=A|B|C</code>로 띄워 1440×900으로 찍었습니다. 「지금」은 오늘 main입니다. 안마다 하나를 고르시거나, 섞어서 말씀해 주세요.</p>
+    <p class="meta">브랜치 prototype/1287-1291-ia-ui · 시안 코드는 병합하지 않음 · 2026-11-03</p>
+  </header>
+
+  <section class="block" id="ia">
+    <div class="head"><h2>① 역할별 메뉴 배치</h2><span class="tag">추천 A</span></div>
+    <div class="tablewrap"><table>
+      <thead><tr><th>안</th><th>플랫폼 직속</th><th>업무 흐름 묶음</th><th>화면 이름</th></tr></thead>
+      <tbody>
+        <tr><td>지금</td><td>내 활동(알림·내 VOC·내 Task·응답 설문·권한 요청), 공지(화면 없음)</td><td>운영 콘솔 하나에 8개 섹션</td><td>수신함, Triage, Clusters, Evidence, Task Requests, Tasks, Survey 관리, Managed System</td></tr>
+        <tr class="rec"><td>A</td><td>소통: 공지·FAQ(예정)·VOC·설문<br>내 활동: 내 Task·권한 요청</td><td>대시보드 · VOC 처리 · Finding · Task · 설문 운영 · 연동 · 설정 (대상별)</td><td>VOC 처리함, 분류, 반복 VOC, 근거, Task 요청, Task 보드, 마일스톤, 설문 관리, 시스템, 분석 영역, 흐름 정책</td></tr>
+        <tr><td>B</td><td>참여: A와 같은 4개</td><td>대시보드 · 접수 · 판단 · 실행 · 확인 · 설정 (단계별)</td><td>A와 같음 + 연결 추적, 효과 확인 설문</td></tr>
+        <tr><td>C</td><td>소통: A와 같음</td><td>A와 같은 대상별</td><td>지금 영어 이름 그대로</td></tr>
+      </tbody></table></div>
+    <p class="note">운영 콘솔은 세 안 모두 플랫폼 관리 · 권한 · 시스템 세 묶음입니다. 알림은 레일의 종 하나로 합쳤습니다. 사이드바는 지금 고른 묶음만 펼쳐 보이고, 나머지 묶음은 왼쪽 레일 아이콘입니다.</p>
+    <div class="switch" role="group" aria-label="① 안 고르기" data-for="ia"></div>
+    <div class="screens" data-screens="ia"></div>
+    <div class="why"><b>A를 추천하는 이유</b><ul>
+      <li>담당자가 찾는 기준이 「무엇을」(VOC, Task)이라 대상별 묶음이 메뉴 위치를 외우기 쉽습니다. 단계별(B)은 근거·연결 추적처럼 어느 단계인지 애매한 화면이 생깁니다.</li>
+      <li>한국어 이름(분류·반복 VOC·근거)은 사내 사용자가 처음 봐도 뜻이 통합니다. Finding·Task는 결정대로 그대로 둡니다.</li>
+      <li>구현 크기는 세 안이 같습니다(공간·그룹·경로 이동 + 이름).</li></ul></div>
+  </section>
+
+  <section class="block" id="voc">
+    <div class="head"><h2>② 직속 VOC · 공지</h2><span class="tag">추천 A</span></div>
+    <div class="tablewrap"><table>
+      <thead><tr><th>안</th><th>VOC 목록</th><th>VOC 상세</th><th>공지</th></tr></thead>
+      <tbody>
+        <tr><td>지금</td><td>내 VOC만(본인 것)</td><td>신고자 상세</td><td>화면 없음(홈의 「공지 목록」 링크만)</td></tr>
+        <tr class="rec"><td>A</td><td>표, <code>전체 / 내가 등록한</code> + 시스템 선택, 시스템 배지</td><td>대화 + 오른쪽 정보 열, 처리 권한자에게 「업무 흐름에서 처리」 줄</td><td>목록, 고정 공지 위, 지난 공지는 「지난 공지 보기」로</td></tr>
+        <tr><td>B</td><td>목록 + 읽기 창(한 화면)</td><td>진행 단계 줄 + 한 열</td><td>목록 + 읽기 창, 지난 공지는 「종료됨」 묶음으로 흐리게</td></tr>
+        <tr><td>C</td><td>카드 피드, 최근 답변 미리보기</td><td>A와 같음</td><td>월별 카드, 지난 공지 숨김</td></tr>
+      </tbody></table></div>
+    <p class="note">직속 VOC·공지 화면은 서버 경로가 아직 없어 화면 안 예시 데이터로 그렸습니다(이름·내용은 예시). 사이드바·권한 판정·틀은 실서버 그대로입니다.</p>
+    <div class="switch" role="group" aria-label="② 안 고르기" data-for="voc"></div>
+    <div class="screens" data-screens="voc"></div>
+    <div class="why"><b>A를 추천하는 이유</b><ul>
+      <li>VOC 수가 늘어도(목표 약 5천 건) 표가 한 화면에 가장 많이 보이고, 정렬·필터를 붙이기 쉽습니다. 카드(C)는 10건 남짓에서 스크롤이 길어집니다.</li>
+      <li>상세 주소가 따로 있어 링크로 공유할 수 있습니다. 읽기 창(B)은 목록과 상세가 한 주소라 공유가 어렵습니다.</li>
+      <li>공지는 지난 것을 기본으로 숨기되 찾을 수 있게 둡니다.</li></ul></div>
+  </section>
+
+  <section class="block" id="frame">
+    <div class="head"><h2>③ 기능 화면 틀과 여백</h2><span class="tag">추천 C</span></div>
+    <div class="tablewrap"><table>
+      <thead><tr><th>안</th><th>틀</th><th>화면별 정리</th></tr></thead>
+      <tbody>
+        <tr><td>지금</td><td>페이지 여백 + 기능 화면 자체 여백</td><td>없음</td></tr>
+        <tr><td>A</td><td>여백 없이 가장자리까지</td><td>없음</td></tr>
+        <tr><td>B</td><td>얇은 여백 + 테두리 카드</td><td>없음</td></tr>
+        <tr class="rec"><td>C</td><td>A와 같음</td><td>빠른 필터 3개 + 「더보기」, 선택 안 된 행의 왼쪽 강조선 제거, 보드 열 폭을 화면에 맞춤</td></tr>
+      </tbody></table></div>
+    <p class="note">세 화면(VOC 처리함 · Task 보드 · 분류) 모두 관리자 계정, 실서버 데이터입니다. 응답 설문 화면은 이 틀을 쓰지 않아 ②의 사용자 캡처에 지금 모습만 넣었습니다. 한 주소 값이 ①②③을 함께 바꾸므로, ③의 C 캡처 사이드바에는 ①의 C(영어 이름)가 함께 보입니다. 보드의 Backlog·Todo 같은 상태 이름은 용어 정리(D)에서 한국어로 바꿉니다.</p>
+    <div class="switch" role="group" aria-label="③ 안 고르기" data-for="frame"></div>
+    <div class="screens" data-screens="frame"></div>
+    <div class="why"><b>C를 추천하는 이유</b><ul>
+      <li>틀만 고치면(A) 떠 보이는 문제는 풀리지만, 「다 선택된 것 같은 행」과 칩 6개는 남습니다. C가 사용자가 말한 「작업하는 부분이 이상함」을 한 번에 다룹니다.</li>
+      <li>카드(B)는 기능 화면 안에 이미 테두리가 있어 상자 속 상자가 한 겹 더 생깁니다.</li>
+      <li>틀 변경은 SDK 선택 옵션 하나(기존 화면 기본값은 그대로)라 다른 메뉴로 번지지 않습니다.</li></ul></div>
+  </section>
+</main>
+
+<script>
+const SETS = {
+  ia: { variants: ["지금", "A", "B", "C"], key: ["now", "A", "B", "C"], shots: [
+    ["user-home", "사용자 · 홈과 직속 사이드바"], ["admin-home", "관리자 · 홈 런처(업무 흐름 · 운영 콘솔 카드)"],
+    ["admin-inbox", "관리자 · 업무 흐름 VOC 처리 묶음"], ["admin-console", "관리자 · 운영 콘솔"]],
+    extra: { A: [["dev-home-A", "개발자 · 홈(업무 흐름만, 운영 콘솔 없음)"], ["admin-flowsettings-A", "관리자 · 업무 흐름 설정 묶음"]], 지금: [["dev-home-now", "개발자 · 홈(지금)"]] } },
+  voc: { variants: ["지금", "A", "B", "C"], key: ["now", "A", "B", "C"], shots: [
+    ["user-voc", "사용자 · VOC 목록"], ["user-voc-detail", "사용자 · VOC 상세"], ["user-notices", "사용자 · 공지"], ["user-survey", "사용자 · 설문"]],
+    extra: { A: [["admin-voc-detail-A", "관리자 · VOC 상세(처리 권한자 줄)"], ["admin-notices-A", "관리자 · 공지(작성 버튼)"]] } },
+  frame: { variants: ["지금", "A", "B", "C"], key: ["now", "A", "B", "C"], shots: [
+    ["admin-inbox", "VOC 처리함"], ["admin-board", "Task 보드"], ["admin-triage", "분류"]] },
+};
+const HAVE = new Set(["admin-board-A","admin-board-B","admin-board-C","admin-board-now","admin-console-A","admin-console-B","admin-console-C","admin-console-now","admin-flowsettings-A","admin-home-A","admin-home-B","admin-home-C","admin-home-now","admin-inbox-A","admin-inbox-B","admin-inbox-C","admin-inbox-now","admin-notices-A","admin-triage-A","admin-triage-B","admin-triage-C","admin-triage-now","admin-voc-detail-A","dev-home-A","dev-home-now","user-home-A","user-home-B","user-home-C","user-home-now","user-notices-A","user-notices-B","user-notices-C","user-notices-now","user-survey-A","user-survey-B","user-survey-C","user-survey-now","user-voc-A","user-voc-B","user-voc-C","user-voc-detail-A","user-voc-detail-B","user-voc-detail-C","user-voc-now"]);
+function render(id, idx) {
+  const set = SETS[id];
+  const k = set.key[idx];
+  const box = document.querySelector(`[data-screens="${id}"]`);
+  box.innerHTML = "";
+  const list = set.shots.map(([f, c]) => [`${f}-${k}`, c]).concat(set.extra?.[set.variants[idx]] ?? []);
+  for (const [f, c] of list) {
+    if (!HAVE.has(f)) continue;
+    const fig = document.createElement("figure");
+    fig.innerHTML = `<a href="img/${f}.jpg" target="_blank" rel="noopener"><img src="img/${f}.jpg" alt="${c} — ${set.variants[idx]}" loading="lazy" width="1440" height="900"></a><figcaption>${c}</figcaption>`;
+    box.appendChild(fig);
+  }
+  document.querySelectorAll(`[data-for="${id}"] button`).forEach((b, i) => b.setAttribute("aria-pressed", String(i === idx)));
+}
+for (const id of Object.keys(SETS)) {
+  const sw = document.querySelector(`[data-for="${id}"]`);
+  SETS[id].variants.forEach((v, i) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.textContent = v === "지금" ? "지금" : `안 ${v}`;
+    b.addEventListener("click", () => render(id, i));
+    sw.appendChild(b);
+  });
+  render(id, id === "frame" ? 3 : 1);
+}
+</script>
