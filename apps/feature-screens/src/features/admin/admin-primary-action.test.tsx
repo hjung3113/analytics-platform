@@ -55,8 +55,8 @@ function mount(page: 'ms' | 'aa', hosted: boolean) {
 }
 
 const CASES = [
-  ['Managed System 등록', 'ms', 'ms-register-button'],
-  ['Analytics Area 생성', 'aa', 'aa-new-area-button'],
+  ['시스템 등록', 'ms', 'ms-register-button'],
+  ['분석 영역 생성', 'aa', 'aa-new-area-button'],
 ] as const;
 
 describe('admin registry screens — primary action placement (#1291 B2)', () => {
