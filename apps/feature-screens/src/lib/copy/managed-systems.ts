@@ -1,4 +1,6 @@
 export const MANAGED_SYSTEM_COPY = {
+  externalKeyReserved:
+    '플랫폼이 자동으로 관리하는 키(platform, space:…)는 직접 지정하거나 바꿀 수 없습니다.',
   ownerOptional: '기본 담당자 (선택)',
   reviewerOptional: '기본 검토자 (선택)',
   reviewer: '기본 검토자',

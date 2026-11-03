@@ -14,3 +14,12 @@ export { recordResponsibilityDefaultFailure } from './default-diagnostics.js';
 export { readManagedSystemState } from './repo.js';
 
 export { readManagedSystemMetadata } from './report-metadata.js';
+export {
+  createPlatformSystemsSync,
+  readPlatformSystemsFile,
+  PLATFORM_SYSTEM_SLUG,
+  PLATFORM_SYSTEM_NAME,
+  type PlatformSystemsSync,
+  type PlatformSystemsSyncResult,
+} from './platform-systems-sync.js';
+export { isRegistryOwnedKey, SPACE_EXTERNAL_KEY_PREFIX } from './registry-keys.js';

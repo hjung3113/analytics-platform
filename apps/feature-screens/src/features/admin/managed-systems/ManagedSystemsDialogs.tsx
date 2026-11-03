@@ -90,6 +90,18 @@ function defaultFieldErrors(error: unknown): DefaultErrors {
   return result;
 }
 
+/** #1289 node i: the server refuses a registry-owned external key (`platform`, `space:*`) with this field code. */
+function externalKeyFieldError(error: unknown): string | null {
+  if (!(error instanceof ApiError) || !Array.isArray(error.detail?.fields)) return null;
+  const reserved = (error.detail.fields as { path?: unknown; code?: unknown }[]).some(
+    (field) =>
+      Array.isArray(field.path) &&
+      field.path[0] === 'external_key' &&
+      field.code === 'reserved_external_key',
+  );
+  return reserved ? MANAGED_SYSTEM_COPY.externalKeyReserved : null;
+}
+
 function OwnerSelect({
   value,
   onChange,
@@ -204,8 +216,10 @@ function RegisterDialog({
   const [error, setError] = useState<string | null>(null);
   const [defaultErrors, setDefaultErrors] = useState<DefaultErrors>({});
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<'slug' | 'name', string>>>({});
+  const [keyError, setKeyError] = useState<string | null>(null);
   const slugRef = useRef<HTMLInputElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
+  const keyRef = useRef<HTMLInputElement>(null);
 
   const mutation = useMutation({
     mutationFn: async (body: RegisterManagedSystemBody) => registerManagedSystem(body),
@@ -220,7 +234,10 @@ function RegisterDialog({
     },
     onError: (err) => {
       setDefaultErrors(defaultFieldErrors(err));
-      setError(envelopeMessage(err));
+      const reservedKey = externalKeyFieldError(err);
+      setKeyError(reservedKey);
+      if (reservedKey) keyRef.current?.focus();
+      setError(reservedKey ? null : envelopeMessage(err));
     },
   });
 
@@ -242,6 +259,7 @@ function RegisterDialog({
           onSubmit={(e) => {
             e.preventDefault();
             setError(null);
+            setKeyError(null);
             setDefaultErrors({});
             const nextErrors: Partial<Record<'slug' | 'name', string>> = {};
             if (!slug.trim()) nextErrors.slug = '슬러그를 입력해 주세요.';
@@ -307,10 +325,25 @@ function RegisterDialog({
             </FieldLabel>
             <Input
               id="ms-create-external-key"
+              ref={keyRef}
               value={externalKey}
-              onChange={(e) => setExternalKey(e.target.value)}
+              onChange={(e) => {
+                setExternalKey(e.target.value);
+                setKeyError(null);
+              }}
+              aria-invalid={Boolean(keyError)}
+              aria-describedby={keyError ? 'ms-create-external-key-error' : undefined}
               data-testid="create-external-key"
             />
+            {keyError && (
+              <p
+                id="ms-create-external-key-error"
+                className="text-sm text-accent-danger"
+                data-testid="create-external-key-error"
+              >
+                {keyError}
+              </p>
+            )}
           </div>
           <OwnerSelect
             value={owner}
@@ -433,6 +466,8 @@ function EditForm({
     return () => onDirtyChange(false);
   }, [dirty, onDirtyChange]);
 
+  const [keyError, setKeyError] = useState<string | null>(null);
+
   const updateMutation = useMutation({
     mutationFn: async () => {
       const body: UpdateManagedSystemBody = {};
@@ -457,7 +492,9 @@ function EditForm({
     },
     onError: (err) => {
       setDefaultErrors(defaultFieldErrors(err));
-      setError(envelopeMessage(err));
+      const reservedKey = externalKeyFieldError(err);
+      setKeyError(reservedKey);
+      setError(reservedKey ? null : envelopeMessage(err));
     },
   });
 
@@ -487,6 +524,7 @@ function EditForm({
         onSubmit={(e) => {
           e.preventDefault();
           setError(null);
+          setKeyError(null);
           setDefaultErrors({});
           updateMutation.mutate();
         }}
@@ -527,10 +565,24 @@ function EditForm({
           <Input
             id={`ms-edit-key-${target.slug}`}
             value={externalKey}
-            onChange={(e) => setExternalKey(e.target.value)}
+            onChange={(e) => {
+              setExternalKey(e.target.value);
+              setKeyError(null);
+            }}
             readOnly={isArchived}
+            aria-invalid={Boolean(keyError)}
+            aria-describedby={keyError ? `ms-edit-key-${target.slug}-error` : undefined}
             data-testid={`external-key-input-${target.slug}`}
           />
+          {keyError && (
+            <p
+              id={`ms-edit-key-${target.slug}-error`}
+              className="text-sm text-accent-danger"
+              data-testid={`external-key-error-${target.slug}`}
+            >
+              {keyError}
+            </p>
+          )}
         </div>
         {error && (
           <p data-testid={`row-error-${target.slug}`} className="text-sm text-accent-danger">

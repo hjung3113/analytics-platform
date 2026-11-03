@@ -16,6 +16,10 @@
 !tooling/eslint/package.json
 !tooling/tsconfig
 !apps/platform-api
+# Business systems the startup sync registers (#1289 node i); the Dockerfile copies this one file.
+!apps/platform-web
+apps/platform-web/*
+!apps/platform-web/platform-systems.json
 !ops/platform-api/package.json
 !ops/platform-api/tsconfig.base.json
 !ops/platform-api/paths.sh

@@ -204,25 +204,22 @@ describe.skipIf(!runIntegration)('GET /vocs/public (#1288 g)', () => {
   });
 
   describe('「플랫폼」 arm fails closed (platformManagedSystemId)', () => {
-    it('exactly one live row opens the arm; duplicates and no active row close it', async () => {
+    it('exactly one live row opens the arm; no active row closes it, and a duplicate cannot exist', async () => {
       const f = await fixture();
       expect(ids(await list('plain'))).toEqual([f.plat]);
 
-      // Duplicate live rows → null → no platform arm; reporter and granted access continue.
-      const dup = await w.insertSystem('dup', { externalKey: 'platform' });
+      // Migration 0086 (#1289 node i): a second live `platform` row is refused by the unique index, so the
+      // "two or more rows → null" branch of platformManagedSystemId is defensive only.
+      await expect(w.insertSystem('dup', { externalKey: 'platform' })).rejects.toMatchObject({ code: '23505' });
+      expect(ids(await list('plain'))).toEqual([f.plat]);
+
+      // The only matching row archived while a VOC still references it → zero live rows → closed;
+      // reporter and granted access continue.
+      await w.migrate.pool.query(`update core.managed_systems set archived_at = now() where id = $1`, [w.systems.platform]);
       expect(await list('plain')).toEqual([]);
       expect((await w.get(`/vocs/public/${f.plat}`, 'plain')).statusCode).toBe(404);
       expect(ids(await list('reporter'))).toEqual([f.own]);
       expect(ids(await list('granted'))).toEqual([f.own, f.aOther].sort());
-
-      // One archived duplicate leaves exactly one live row → the arm reopens.
-      await w.migrate.pool.query(`update core.managed_systems set archived_at = now() where id = $1`, [dup]);
-      expect(ids(await list('plain'))).toEqual([f.plat]);
-
-      // The only matching row archived while a VOC still references it → zero live rows → closed.
-      await w.migrate.pool.query(`update core.managed_systems set archived_at = now() where id = $1`, [w.systems.platform]);
-      expect(await list('plain')).toEqual([]);
-      expect(ids(await list('reporter'))).toEqual([f.own]);
     });
 
     it('a same-key row in another workspace neither enables nor disables the arm', async () => {

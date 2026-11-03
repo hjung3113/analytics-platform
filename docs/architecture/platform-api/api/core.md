@@ -198,3 +198,24 @@ are deferred to ADR items 2 and 3. Future VOC generation locks/rechecks the poli
 `getResolvedWorkspaceSettingsForUpdate`; shadow remains independent. Turning off
 stops new automatic suggestions, without deleting pending/history or prohibiting
 human review/confirmation. No preview quota/model/scheduling settings are added.
+
+## Registry-owned Managed Systems (#1289 node i)
+
+Decision: [ADR-0110](../../../adr/0110-platform-feature-roles-and-scope.md) decision 5 (the 「플랫폼」 system is decision 3). This page owns the mechanics; it does not restate the decision.
+
+**External key families.** Two `core.managed_systems.external_key` values are registry-owned sync keys: `platform` (the 「플랫폼」 system) and `space:<space id>` (a business system whose space declares `feedbackTracking`). Every other key stays free metadata (FO ADR-0017). Migration 0086 adds a partial unique index `managed_systems_registry_key_active_uq` on `(workspace_id, external_key)` over active rows of those two families, so each workspace has at most one active row per key (`platformManagedSystemId` therefore returns exactly the synced id; its "two or more rows → null" branch is defensive only). Migration 0086 refuses to run while one workspace holds two active rows with the same reserved key (it names the workspace, key and slugs; nothing is rewritten). A single pre-existing row that already carries such a key is kept and is the row the sync updates.
+
+**Manual register/update.** `POST` refuses `external_key` `platform` or `space:*`. `PATCH` refuses assigning such a key, and also changing or clearing a registry-owned key already on the row; an unchanged key and unrelated fields pass. Both return `422 validation.failed` with `fields: [{ path: ['external_key'], code: 'reserved_external_key' }]`. The create and edit dialogs render it on the external-key input.
+
+**Archive.** `POST /managed-systems/:id/archive` returns `409 conflict.system_managed` (`fields: [{ path: ['id'], code: 'system_managed' }]`) for the 「플랫폼」 row and for a row whose `core.space_links` row has `declared = true`. A row whose space stopped declaring (`declared = false`) and a manual row archive as before.
+
+**`core.space_links`.** `(workspace_id, space_id)` primary key, `managed_system_id`, `declared`, `updated_at`; `platform_app` has `SELECT, INSERT, UPDATE`. It is navigation and default-selection metadata only: no permission check reads it, and the link never grants access (ADR-0068 decision 1). Owned by `managed-systems/` (schema `db/schema/space-links.ts`).
+
+**Startup sync** (`managed-systems/platform-systems-sync.ts`, `createPlatformSystemsSync(...).run()`). `index.ts` calls it after the runtime role guards and before pg-boss and HTTP; `buildServer` never calls it. One transaction under `pg_advisory_xact_lock(hashtext('platform-systems-sync'), hashtext(workspace_id))`:
+
+1. A missing workspace or `system` actor logs a warning and skips (no crash). Production starts the backend before the `bootstrap` job creates that actor, so the first start skips; restart the backend after `bootstrap` (see [oidc-and-images](../release/oidc-and-images.md) «Production stack»).
+2. Ensure 「플랫폼」: the active row with key `platform`, else insert slug `platform`, name `플랫폼`. An active row with slug `platform` but no registry key is logged as a conflict and skipped, never adopted.
+3. For each system in the declaration file: the active row with key `space:<id>` gets its `name` updated when it changed (audit `managed_system_updated`); none → insert slug = space id (same slug-conflict rule), audit `managed_system_registered` (`system` actor, `external_key` in the detail). Upsert the link with `declared = true`.
+4. Only after a file was read and validated, links absent from it are set `declared = false`; nothing is archived. A missing, unset, unreadable or invalid file leaves links and flags untouched (a valid empty list undeclares all) and still ensures 「플랫폼」.
+
+**Declaration file.** `apps/platform-web/platform-systems.json` (`{ "version": 1, "systems": [{ "space_id", "name" }] }`, sorted by `space_id`, `name` = the space's Korean label) is generated from the app Registry's `SPACES` (`feedbackTracking: true`, `docs/contract/kernel.md`) and committed. `apps/platform-web/src/platform-systems.test.ts` fails when it is stale; `pnpm gen:platform-systems` rewrites it. The zod schema is `platformSystemsFileSchema` in `@ap/feature-shared`, shared by that test and the server. Server input is `PLATFORM_SYSTEMS_FILE` (optional); an invalid file logs one error and registers nothing from it.

@@ -71,6 +71,7 @@ All commands run from `ops/platform-api` in Bash. If your current shell is zsh, 
 2. **Set the role passwords, then cut over a new volume.** `$P run --rm set-role-passwords` first (new volume: it sets the `fops_*` replay logins; the cutover then renames them with the passwords intact), then `$P run --rm cutover` (once per new volume; safe to repeat).
 3. **Start.** `$P up -d` (migration, bucket provisioning, then the backend).
 4. **Bootstrap.** `$P run --rm bootstrap` creates the Workspace and the `system` Actor only (idempotent).
+4a. **Restart the backend.** `$P restart backend`. The backend registers the 「플랫폼」 system and the business systems that declare `feedbackTracking` at startup, and it starts before step 4 creates the `system` Actor, so the first start skips with a warning (`platform systems sync skipped`). The restart runs the sync again; it is idempotent, so restarting later is harmless. The declaration file ships inside the backend image at `/app/platform-systems.json` (env `PLATFORM_SYSTEMS_FILE`, default that path; leave it unset or empty to keep the default). Mechanics: [core API](../api/core.md#registry-owned-managed-systems-1289-node-i).
 5. **First IdP login.** The future admin signs in through the platform host; this creates their Actor with role `user`.
 6. **Promote.** `$P run --rm set-actor-role --external-id <idp-sub> --role admin --reason "first admin"` (profile `admin`; see [first-admin-bootstrap.md](first-admin-bootstrap.md)).
 7. **Verify.** The person reloads and `GET /me` shows role Admin.

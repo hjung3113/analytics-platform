@@ -38,6 +38,9 @@ const envSchema = z
     OIDC_SCOPES: z.string().default('openid email profile'),
     WORKSPACE_ID: z.string().uuid().optional(),
     WORKSPACE_NAME: z.string().default('Platform'),
+    // #1289 node i: committed apps/platform-web/platform-systems.json (business systems that declare feedbackTracking).
+    // Unset or missing: only the 「플랫폼」 system is ensured at startup; an invalid file registers nothing from it.
+    PLATFORM_SYSTEMS_FILE: optionalEnvString,
     // `personas` layers black-box test actors and grants over the core seed.
     // `bootstrap` creates only the Workspace and the system Actor (operator data).
     SEED_MODE: z.enum(['core', 'personas', 'scale', 'bootstrap']).default('core'),
