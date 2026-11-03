@@ -4,24 +4,45 @@
 -- Every other key stays free metadata (0005, FO ADR-0017). `core.space_links` records which space a registry-owned
 -- system belongs to; it is navigation/default metadata only and no permission check reads it (ADR-0068 decision 1).
 --
--- Preflight (non-destructive): the unique index cannot be built while two active rows of one workspace carry the same
--- registry-owned key. The migration then stops with the workspace, key and slugs so an operator can clear the extra
--- key by hand (PATCH external_key); it never rewrites or archives data. A single existing row is kept as is: the key
--- was the designation of the 「플랫폼」 system since #1288, and the sync adopts exactly the row that carries the key.
+-- Preflight (non-destructive, nothing is rewritten, archived or deleted). Before the unique index is built, every
+-- active row of a registry-owned key family is classified per workspace:
+--   * the approved conversion: exactly ONE active row with external_key = 'platform' in the workspace. That key has
+--     designated the 「플랫폼」 system since #1295 (platformManagedSystemId), so the row is converted in place: it keeps
+--     its id, slug and associations, and the startup sync from now on finds it by the key (and sets its name to
+--     「플랫폼」). One NOTICE per converted row names it.
+--   * anything else is stopped: a second 'platform' row, or ANY active 'space:*' row. Those keys were free metadata
+--     (0005, FO ADR-0017) before this migration and are not the registry's to take over silently. The migration fails
+--     naming the workspace, key, slug and id of every such row; the operator clears the key on those rows
+--     (PATCH /managed-systems/:id with external_key null or another value, or UPDATE core.managed_systems SET
+--     external_key = NULL WHERE id = ...) and reruns the migration.
 DO $$
 DECLARE
-  dup record;
+  offending text;
+  converted record;
 BEGIN
-  SELECT workspace_id, external_key, array_agg(slug ORDER BY slug) AS slugs INTO dup
-  FROM core.managed_systems
-  WHERE archived_at IS NULL AND (external_key = 'platform' OR external_key LIKE 'space:%')
-  GROUP BY workspace_id, external_key
-  HAVING count(*) > 1
-  LIMIT 1;
-  IF FOUND THEN
-    RAISE EXCEPTION 'migration 0086: workspace % has several active Managed Systems with the registry-owned external_key "%" (slugs: %); clear or change the key on all but one of them, then rerun the migration',
-      dup.workspace_id, dup.external_key, dup.slugs;
+  SELECT string_agg(format('workspace %s key "%s" slug "%s" id %s', workspace_id, external_key, slug, id), '; ' ORDER BY workspace_id, external_key, slug)
+    INTO offending
+  FROM core.managed_systems ms
+  WHERE archived_at IS NULL
+    AND (
+      external_key LIKE 'space:%'
+      OR (
+        external_key = 'platform'
+        AND (SELECT count(*) FROM core.managed_systems o
+             WHERE o.workspace_id = ms.workspace_id AND o.archived_at IS NULL AND o.external_key = 'platform') > 1
+      )
+    );
+  IF offending IS NOT NULL THEN
+    RAISE EXCEPTION 'migration 0086: active Managed Systems already carry registry-owned external_key values that are not the single approved "platform" row: %. Clear external_key on these rows (PATCH /managed-systems/:id or UPDATE core.managed_systems SET external_key = NULL WHERE id = ...) and rerun the migration',
+      offending;
   END IF;
+  FOR converted IN
+    SELECT workspace_id, slug, id FROM core.managed_systems
+    WHERE archived_at IS NULL AND external_key = 'platform'
+  LOOP
+    RAISE NOTICE 'migration 0086: Managed System % (slug "%", workspace %) keeps external_key "platform" and becomes the registry-owned 플랫폼 system',
+      converted.id, converted.slug, converted.workspace_id;
+  END LOOP;
 END
 $$;
 --> statement-breakpoint

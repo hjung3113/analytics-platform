@@ -34,7 +34,11 @@ import { hashRequestBody } from '../core/idempotency/canonicalize.js';
 import type { IdempotencyService } from '../core/idempotency/idempotency-service.js';
 import type { ActorContext, CheckService } from '../permissions/check-service.js';
 import { readDefaultDiagnostics } from './default-diagnostics.js';
-import { PLATFORM_MANAGED_SYSTEM_EXTERNAL_KEY, isRegistryOwnedKey } from './registry-keys.js';
+import {
+  PLATFORM_MANAGED_SYSTEM_EXTERNAL_KEY,
+  isRegistryOwnedKey,
+  lockPlatformSystemsSync,
+} from './registry-keys.js';
 import {
   responsibilityTargetFailure,
   validateResponsibilityDefault,
@@ -498,6 +502,8 @@ export function createManagedSystemService(deps: ManagedSystemServiceDeps) {
     return await db.transaction(async (tx) => {
       const run = async () => {
         await requireWorkspaceAdmin(checkService, actor, tx);
+        // Serialize with the startup sync (it may re-declare this system's link) before the eligibility read.
+        await lockPlatformSystemsSync(tx, actor.workspace_id);
 
         const existingRows = await tx
           .select()

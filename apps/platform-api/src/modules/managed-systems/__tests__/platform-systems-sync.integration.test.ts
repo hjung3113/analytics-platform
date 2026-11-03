@@ -5,12 +5,13 @@
 // Needs migration 0086 (core.space_links, managed_systems_registry_key_active_uq).
 
 import { randomUUID } from 'node:crypto';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import type { FastifyInstance } from 'fastify';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { loadConfig } from '../../../config.js';
 import { type DbHandle, createDb } from '../../../db/client.js';
@@ -213,17 +214,17 @@ describe.skipIf(!runIntegration)('platform systems startup sync', () => {
     expect(lines.filter((l) => l.level === 'warn' && l.msg.includes('slug unavailable')).length).toBe(2);
   });
 
-  it('a single pre-existing row that already carries a registry-owned key is the row the sync keeps', async () => {
+  it('the converted pre-existing 「플랫폼」 row (single key=platform) is the row the sync keeps and renames', async () => {
     const ws = await newWorkspace();
     await ops.pool.query(
-      `insert into core.managed_systems (workspace_id, slug, name, external_key) values ($1, 'mars-old', 'Old name', 'space:mars')`,
+      `insert into core.managed_systems (workspace_id, slug, name, external_key) values ($1, 'legacy-platform', 'Old name', 'platform')`,
       [ws],
     );
-    await syncOf(ws, await writeDeclaration([{ space_id: 'mars', name: 'MARS' }])).sync.run();
+    const result = await syncOf(ws, undefined).sync.run();
+    expect(result.registered).toEqual([]);
     const all = await rows(ws);
-    expect(all.filter((r) => r.external_key === 'space:mars')).toHaveLength(1);
-    expect(all.find((r) => r.slug === 'mars-old')).toMatchObject({ name: 'MARS' });
-    expect(all.find((r) => r.slug === 'mars')).toBeUndefined();
+    expect(all).toHaveLength(1);
+    expect(all[0]).toMatchObject({ slug: 'legacy-platform', name: '플랫폼', external_key: 'platform' });
   });
 
   it('the database refuses a second active row with a registry-owned key, and archived rows do not count', async () => {
@@ -235,6 +236,83 @@ describe.skipIf(!runIntegration)('platform systems startup sync', () => {
     await ops.pool.query(`insert into core.managed_systems (workspace_id, slug, name, external_key) values ($1, 'c', 'C', 'free-key'), ($1, 'd', 'D', 'free-key')`, [ws]);
     await ops.pool.query(`update core.managed_systems set archived_at = now() where workspace_id = $1 and slug = 'a'`, [ws]);
     await ops.pool.query(`insert into core.managed_systems (workspace_id, slug, name, external_key) values ($1, 'e', 'E', 'platform')`, [ws]);
+  });
+
+  describe('migration 0086 preflight on pre-existing reserved-key rows', () => {
+    // Runs the migration's own preflight DO block against rows planted in a throwaway workspace, inside a transaction
+    // that is always rolled back. The unique index is dropped inside that transaction (DDL is transactional) so
+    // pre-0086 duplicate data can exist, and other workspaces' reserved keys are cleared inside it so only the
+    // planted rows are classified.
+    const migrationSql = async () => {
+      const dirHere = dirname(fileURLToPath(import.meta.url));
+      const text = await readFile(join(dirHere, '../../../../migrations/0086_managed_system_registry_keys.sql'), 'utf8');
+      const start = text.indexOf('DO $$');
+      const end = text.indexOf('$$;', start);
+      expect(start).toBeGreaterThanOrEqual(0);
+      return text.slice(start, end + 3);
+    };
+
+    async function preflight(planned: Array<[string, string | null, boolean?]>) {
+      const ws = await newWorkspace();
+      const block = await migrationSql();
+      const client = await ops.pool.connect();
+      const notices: string[] = [];
+      client.on('notice', (n) => notices.push(n.message ?? ''));
+      try {
+        await client.query('BEGIN');
+        await client.query("SET LOCAL lock_timeout = '10s'");
+        await client.query('DROP INDEX core.managed_systems_registry_key_active_uq');
+        await client.query(
+          `UPDATE core.managed_systems SET external_key = NULL WHERE workspace_id <> $1 AND (external_key = 'platform' OR external_key LIKE 'space:%')`,
+          [ws],
+        );
+        const inserted: string[] = [];
+        for (const [slug, key, archived] of planned) {
+          const r = await client.query<{ id: string }>(
+            `INSERT INTO core.managed_systems (workspace_id, slug, name, external_key, archived_at) VALUES ($1, $2, $2, $3, $4) RETURNING id`,
+            [ws, slug, key, archived === true ? new Date() : null],
+          );
+          inserted.push(r.rows[0]?.id ?? '');
+        }
+        try {
+          await client.query(block);
+          return { ok: true as const, notices, ids: inserted, error: '' };
+        } catch (err) {
+          return { ok: false as const, notices, ids: inserted, error: (err as Error).message };
+        }
+      } finally {
+        await client.query('ROLLBACK');
+        client.release();
+      }
+    }
+    it('converts the single key=platform row in place (kept, named in a notice) — the approved case', async () => {
+      const r = await preflight([['legacy-platform', 'platform']]);
+      expect(r.ok).toBe(true);
+      expect(r.notices.join('\n')).toContain(r.ids[0] ?? 'missing');
+      expect(r.notices.join('\n')).toContain('legacy-platform');
+    });
+
+    it.each([
+      ['a single space:* row', [['mars-old', 'space:mars']] as Array<[string, string | null]>],
+      ['two platform rows', [['p1', 'platform'], ['p2', 'platform']] as Array<[string, string | null]>],
+      ['a platform row next to a space:* row', [['p1', 'platform'], ['m', 'space:mars']] as Array<[string, string | null]>],
+    ])('stops on %s, naming key, slug and id of each offending row', async (_label, planned) => {
+      const r = await preflight(planned);
+      expect(r.ok).toBe(false);
+      for (const [slug, key] of planned) {
+        if (key === 'platform' && planned.filter(([, k]) => k === 'platform').length === 1) continue;
+        expect(r.error).toContain(`slug "${slug}"`);
+        expect(r.error).toContain(`key "${key}"`);
+        expect(r.error).toContain(r.ids[planned.findIndex(([sl]) => sl === slug)] ?? 'missing');
+      }
+      expect(r.error).toContain('Clear external_key');
+    });
+
+    it('ignores archived reserved-key rows and free-key rows', async () => {
+      const r = await preflight([['old', 'platform', true], ['old-mars', 'space:mars', true], ['f1', 'free'], ['f2', 'free']]);
+      expect(r.ok).toBe(true);
+      expect(r.notices).toEqual([]);
+    });
   });
 
   it('a space that is declared again after its system was archived gets a fresh active row', async () => {
@@ -358,6 +436,8 @@ describe.skipIf(!runIntegration)('platform systems startup sync', () => {
     const ids: Record<string, string> = {};
     const SPACE = ['it-sys-keep', 'it-sys-drop'];
     const headers = () => ({ cookie: `${SESSION_COOKIE_NAME}=${cookie}`, 'content-type': 'application/json' });
+    // A body-less POST must not claim a JSON content type.
+    const bare = () => ({ cookie: `${SESSION_COOKIE_NAME}=${cookie}` });
 
     beforeAll(async () => {
       app = await buildServer({ config: loadConfig(), dbHandle: appHandle });
@@ -380,6 +460,14 @@ describe.skipIf(!runIntegration)('platform systems startup sync', () => {
       await ops.pool.query('delete from core.managed_systems where id = any($1::uuid[])', [idList]);
       await ops.pool.query('delete from core.idempotency_keys');
       await app?.close();
+    });
+
+    // Mutations share a 10/min per-actor bucket; this block sends more, so the admin's bucket is cleared per case.
+    beforeEach(async () => {
+      await ops.pool.query(
+        `delete from core.rate_limits where key in (select workspace_id::text || ':' || id::text from core.actors where workspace_id = $1 and external_id = 'mock-admin-1')`,
+        [WORKSPACE_ID],
+      );
     });
 
     const reserved = { path: ['external_key'], code: 'reserved_external_key' };
@@ -436,7 +524,7 @@ describe.skipIf(!runIntegration)('platform systems startup sync', () => {
 
     it('archive: 「플랫폼」 and a declared system are refused with 409 conflict.system_managed, also after attempted edits', async () => {
       for (const slug of ['platform', SPACE[0] as string]) {
-        const res = await app.inject({ method: 'POST', url: `/managed-systems/${ids[slug]}/archive`, headers: headers() });
+        const res = await app.inject({ method: 'POST', url: `/managed-systems/${ids[slug]}/archive`, headers: bare() });
         expect(res.statusCode).toBe(409);
         expect(res.json()).toMatchObject({ code: 'conflict.system_managed' });
         expect((await rows(WORKSPACE_ID)).find((r) => r.slug === slug)?.archived_at).toBeNull();
@@ -445,13 +533,99 @@ describe.skipIf(!runIntegration)('platform systems startup sync', () => {
 
     it('archive: a system whose space stopped declaring is archived (200); a manual system too', async () => {
       await syncOf(WORKSPACE_ID, await writeDeclaration([{ space_id: SPACE[0] as string, name: 'Name' }])).sync.run();
-      const dropped = await app.inject({ method: 'POST', url: `/managed-systems/${ids[SPACE[1] as string]}/archive`, headers: headers() });
+      const dropped = await app.inject({ method: 'POST', url: `/managed-systems/${ids[SPACE[1] as string]}/archive`, headers: bare() });
       expect(dropped.statusCode).toBe(200);
       expect(dropped.json().archived_at).not.toBeNull();
-      const manual = await app.inject({ method: 'POST', url: `/managed-systems/${ids['it-reserved-ok']}/archive`, headers: headers() });
+      const manual = await app.inject({ method: 'POST', url: `/managed-systems/${ids['it-reserved-ok']}/archive`, headers: bare() });
       expect(manual.statusCode).toBe(200);
-      const still = await app.inject({ method: 'POST', url: `/managed-systems/${ids[SPACE[0] as string]}/archive`, headers: headers() });
+      const still = await app.inject({ method: 'POST', url: `/managed-systems/${ids[SPACE[0] as string]}/archive`, headers: bare() });
       expect(still.statusCode).toBe(409);
+    });
+
+    describe('archive vs. sync interleavings (same per-workspace lock)', () => {
+      const RACE = 'it-sys-race';
+      const holdLock = async () => {
+        const client = await ops.pool.connect();
+        await client.query('BEGIN');
+        await client.query(`SELECT pg_advisory_xact_lock(hashtext('platform-systems-sync'), hashtext($1))`, [WORKSPACE_ID]);
+        return client;
+      };
+      const waitForBlockedLockers = async (count: number) => {
+        for (let i = 0; i < 100; i += 1) {
+          const r = await ops.pool.query<{ n: number }>(
+            `select count(*)::int as n from pg_locks where locktype = 'advisory' and not granted`,
+          );
+          if ((r.rows[0]?.n ?? 0) >= count) return;
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+        throw new Error('operation never blocked on the advisory lock');
+      };
+      const raceRow = async () =>
+        (await rows(WORKSPACE_ID)).filter((r) => r.external_key === `space:${RACE}`);
+      const noDeclaredLinkOnArchived = async () => {
+        const bad = await ops.pool.query(
+          `select 1 from core.space_links l join core.managed_systems m on m.id = l.managed_system_id
+            where l.workspace_id = $1 and l.declared and m.archived_at is not null and l.space_id = $2`,
+          [WORKSPACE_ID, RACE],
+        );
+        expect(bad.rowCount).toBe(0);
+      };
+
+      beforeAll(async () => {
+        // The race space starts declared (inserted by a sync), then stops being declared.
+        await syncOf(WORKSPACE_ID, await writeDeclaration([...SPACE.map((s) => ({ space_id: s, name: s })), { space_id: RACE, name: 'Race' }])).sync.run();
+        await syncOf(WORKSPACE_ID, await writeDeclaration(SPACE.map((s) => ({ space_id: s, name: s })))).sync.run();
+      });
+
+      it('sync re-declares while archive waits: archive sees the declared link and is refused (409), nothing archived', async () => {
+        const row = (await raceRow())[0];
+        expect((await links(WORKSPACE_ID)).find((l) => l.space_id === RACE)?.declared).toBe(false);
+        const held = await holdLock(); // stands in for a sync run that is mid-transaction
+        try {
+          const archive = app.inject({ method: 'POST', url: `/managed-systems/${row?.id}/archive`, headers: bare() });
+          await waitForBlockedLockers(1);
+          await held.query(`update core.space_links set declared = true where workspace_id = $1 and space_id = $2`, [WORKSPACE_ID, RACE]);
+          await held.query('COMMIT');
+          const res = await archive;
+          expect(res.statusCode).toBe(409);
+          expect(res.json()).toMatchObject({ code: 'conflict.system_managed' });
+        } finally {
+          held.release();
+        }
+        expect((await raceRow())[0]?.archived_at).toBeNull();
+        await noDeclaredLinkOnArchived();
+        await ops.pool.query(`update core.space_links set declared = false where workspace_id = $1 and space_id = $2`, [WORKSPACE_ID, RACE]);
+      });
+
+      it('archive commits first, then sync re-declares: the space gets a fresh active row and the link never points at the archived one', async () => {
+        const row = (await raceRow())[0];
+        const held = await holdLock();
+        let archive: Promise<{ statusCode: number }>;
+        let sync: Promise<unknown>;
+        try {
+          archive = app.inject({ method: 'POST', url: `/managed-systems/${row?.id}/archive`, headers: bare() });
+          await waitForBlockedLockers(1);
+          sync = syncOf(WORKSPACE_ID, await writeDeclaration([...SPACE.map((s) => ({ space_id: s, name: s })), { space_id: RACE, name: 'Race' }])).sync.run();
+          await waitForBlockedLockers(2);
+        } finally {
+          await held.query('COMMIT');
+          held.release();
+        }
+        // Whichever waiter got the lock first, the end state must satisfy the invariant.
+        expect((await archive).statusCode).toBeLessThan(500);
+        await sync;
+        await noDeclaredLinkOnArchived();
+        const active = (await raceRow()).filter((r) => r.archived_at === null);
+        const link = (await links(WORKSPACE_ID)).find((l) => l.space_id === RACE);
+        expect(link?.declared).toBe(true);
+        expect(active.map((r) => r.id)).toContain(link?.managed_system_id);
+      });
+
+      it('sync runs first, then archive: refused (409) because the link is declared', async () => {
+        const active = (await raceRow()).filter((r) => r.archived_at === null)[0];
+        const res = await app.inject({ method: 'POST', url: `/managed-systems/${active?.id}/archive`, headers: bare() });
+        expect(res.statusCode).toBe(409);
+      });
     });
   });
 });

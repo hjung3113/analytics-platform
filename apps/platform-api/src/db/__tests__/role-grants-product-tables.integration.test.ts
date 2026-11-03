@@ -80,6 +80,9 @@ const EXPECTED_GRANTS: Record<string, readonly DmlPrivilege[]> = {
   'core.audit_log': ['INSERT'],
   // 0058: safe routing failures are append-only runtime diagnostic inputs.
   'core.responsibility_default_failures': ['SELECT', 'INSERT'],
+  // Migration 0086: the startup sync upserts the space → system link and flips `declared`; links are never
+  // deleted (an undeclared link is shown as disconnected), so platform_app holds no DELETE.
+  'core.space_links': ['SELECT', 'INSERT', 'UPDATE'],
   // Migration 0054 keeps inbox rows durable; only read/archive/email claim
   // state has column-scoped UPDATE grants.
   'core.notifications': ['SELECT', 'INSERT'],

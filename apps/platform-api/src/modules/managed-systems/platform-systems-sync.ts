@@ -26,7 +26,11 @@ import type { Tx } from '../../db/tx.js';
 import type { JobLog } from '../../lib/job-log.js';
 import type { AuditService } from '../core/audit/audit-service.js';
 import { MS_SLUG_REGEX } from './managed-system-service.js';
-import { PLATFORM_MANAGED_SYSTEM_EXTERNAL_KEY, SPACE_EXTERNAL_KEY_PREFIX } from './registry-keys.js';
+import {
+  PLATFORM_MANAGED_SYSTEM_EXTERNAL_KEY,
+  SPACE_EXTERNAL_KEY_PREFIX,
+  lockPlatformSystemsSync,
+} from './registry-keys.js';
 
 export const PLATFORM_SYSTEM_SLUG = 'platform';
 export const PLATFORM_SYSTEM_NAME = '플랫폼';
@@ -231,9 +235,7 @@ export function createPlatformSystemsSync(deps: PlatformSystemsSyncDeps) {
     };
 
     await db.transaction(async (tx) => {
-      await tx.execute(
-        sql`SELECT pg_advisory_xact_lock(hashtext('platform-systems-sync'), hashtext(${workspaceId}))`,
-      );
+      await lockPlatformSystemsSync(tx, workspaceId);
 
       const [workspace] = await tx
         .select({ id: workspaces.id })
