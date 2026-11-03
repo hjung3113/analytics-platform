@@ -1,5 +1,7 @@
 # Production images and local OIDC check
 
+This page covers two stacks. `docker-compose.release.yml` is the **local smoke** stack (mock IdP, development mode, fixtures); it is described first and is never deployed. The deployable stack is `docker-compose.production.yml`, described in [Production stack](#production-stack).
+
 This local stack exercises the production backend image, the separate migration job, S3-compatible attachment storage, and the OIDC authorization-code path. It uses NODE_ENV=development so the existing config allows the localhost issuer and redirect URI and the browser can receive non-Secure cookies over HTTP.
 
 The local run verifies OIDC discovery/code flow, backend session issuance and revocation, and first-login Actor creation. It does not verify TLS. Production requires an HTTPS issuer and redirect URI and always sets Secure on session and OIDC transaction cookies; verify those properties when connecting the company IdP.
@@ -38,7 +40,7 @@ It is safe to repeat. `image-smoke.sh` runs it; its effective target is validate
       docker compose --project-name "$RELEASE_PROJECT_NAME" --env-file .env.release -f docker-compose.release.yml run --rm -e SEED_MODE=core migrate node_modules/.bin/tsx src/seed/index.ts
     )
 
-With the default project this selects `platform-api-smoke`, `platform-api-smoke_smoke-postgres-data` and `platform-api-smoke_smoke-minio-data`. Never point this command at the operator project `platform-api`: it would write the fixtures into operator data. `bash scripts/release/image-smoke.sh --print-identity` shows the names.
+With the default project this selects `platform-api-smoke`, `platform-api-smoke_smoke-postgres-data` and `platform-api-smoke_smoke-minio-data`. `SEED_MODE=core` is smoke-only — **never on operator data**; operator data uses `SEED_MODE=bootstrap` ([first-admin-bootstrap.md](first-admin-bootstrap.md)). Never point this command at the operator project `platform-api`: it would write the fixtures into operator data. `bash scripts/release/image-smoke.sh --print-identity` shows the names.
 
 The tools image includes the backend development dependency closure because db:seed uses tsx. The command receives both DATABASE_URL (the platform_app runtime role used by the core seed) and DATABASE_URL_MIGRATE (the platform_migrate role used to create the seed team). It also receives the same WORKSPACE_ID as the backend. Core mode creates the Workspace, baseline Actors, Tableau and Power BI Managed Systems, Analytics Areas, team, and core VOC fixtures; it does not create personas or scale data.
 
@@ -53,6 +55,31 @@ Register a VOC from the platform host using one of the seeded Managed Systems. I
 The provider README for tag 6.0.4 documents interactive login, tokenCallbacks/requestMappings, username claim substitution, and authorization code with PKCE S256. It does not document client-secret validation at the token endpoint or the ID Token nonce behavior required by the backend. The Compose config uses only the documented settings; the conductor must verify those interoperability details during the runtime check.
 
 The release stack publishes host ports 8080 (OIDC provider) and 3001 (backend, through the provider's network namespace). Stop a local development backend on port 3001 before `image-smoke.sh`, or `docker compose up` cannot bind the port.
+
+## Production stack
+
+`ops/platform-api/docker-compose.production.yml` runs `NODE_ENV=production` with a real OIDC provider only: no mock IdP, no fixture seed (`core`, `personas`, `scale` do not exist in this file) and no `network_mode` sharing. The backend is published as `${BACKEND_BIND:-127.0.0.1}:${BACKEND_PORT:-3001}:3001` (loopback until the edge proxy is added); it never receives `DATABASE_URL_MIGRATE` or the Postgres superuser password, only the job services do. Role passwords are still the literals of the smoke stack. `postgres`, `minio` and `backend` use `restart: unless-stopped`; jobs use `restart: "no"`; `backend` has `stop_grace_period: 45s` (the API bounds its shutdown at 40 s); every service logs through `json-file` with `max-size: 10m`, `max-file: 5`. The backend DB and HTTP budgets (`DB_POOL_MAX`, `DB_POOL_ACQUIRE_TIMEOUT_MS`, `DB_STATEMENT_TIMEOUT_MS`, `DB_LOCK_TIMEOUT_MS`, `DB_IDLE_IN_TRANSACTION_TIMEOUT_MS`, `HTTP_REQUEST_TIMEOUT_MS`) pass through with the defaults of `.env.example`. The compose healthcheck probes `/health/ready` so dependents wait for database, pg-boss and storage; the image keeps its `/health/live` check.
+
+All commands run from `ops/platform-api`. Set `P='docker compose --env-file .env.production -f docker-compose.production.yml'` (the project defaults to `platform-api`).
+
+1. **Preflight.** `cp .env.production.example .env.production`, replace every `CHANGE_ME`, then `bash scripts/release/production-preflight.sh .env.production`. It makes no network call and prints one line per problem: non-https issuer or redirect, redirect path other than `/auth/callback`, an empty, `CHANGE_ME` or smoke-demo secret, `TRUSTED_PROXY_HOPS` below 1, `WORKSPACE_ID` not a UUID. Continue only on exit 0, then check `$P config`.
+2. **Cut over a new volume.** `$P run --rm cutover` (once per new volume; safe to repeat).
+3. **Start.** `$P up -d` (migration, bucket provisioning, then the backend).
+4. **Bootstrap.** `$P run --rm bootstrap` creates the Workspace and the `system` Actor only (idempotent).
+5. **First IdP login.** The future admin signs in through the platform host; this creates their Actor with role `user`.
+6. **Promote.** `$P run --rm set-actor-role --external-id <idp-sub> --role admin --reason "first admin"` (profile `admin`; see [first-admin-bootstrap.md](first-admin-bootstrap.md)).
+7. **Verify.** The person reloads and `GET /me` shows role Admin.
+
+Failed background jobs: [failed-jobs-replay.md](failed-jobs-replay.md).
+
+Capacity checks (run periodically and before upgrades):
+
+- Docker disk: `docker system df`; free space on the volume host: `df -h "$(docker info --format '{{.DockerRootDir}}')"`.
+- Largest tables: `$P exec postgres psql -U postgres -d platform -c "select relid::regclass, pg_size_pretty(pg_total_relation_size(relid)) from pg_catalog.pg_statio_user_tables order by pg_total_relation_size(relid) desc limit 10"`.
+- Attachment bucket size: `mc du <alias>/platform-attachments` with an `mc` alias for the MinIO endpoint.
+- Job backlog and failures: `jobs-inventory` (see the failed-jobs runbook).
+
+Following one request: every response carries `X-Correlation-Id`, and the same value is the `request_id` field of that request's backend log lines. Take the id from the browser or the proxy, then `$P logs backend | grep <id>`.
 
 ## Routes and image behavior
 
