@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { listPageSchema } from '../list-page.js';
+import { listLimitSchema, listPageSchema } from '../list-page.js';
 import { surveyTypeSchema } from '../surveys/dto.js';
 
 import { findingStatusSchema } from './status.js';
@@ -248,10 +248,11 @@ export const listFindingsQuerySchema = z
     owner_team_id: z.string().uuid().optional(),
     assignment: z.enum(['assigned', 'unassigned']).optional(),
     cursor: z.string().optional(),
-    limit: z.coerce.number().int().min(1).max(100).optional(),
+    limit: listLimitSchema,
   })
   .strict();
-export type ListFindingsQuery = z.infer<typeof listFindingsQuerySchema>;
+/** Request shape: `limit` may be absent (the schema defaults it to 50). */
+export type ListFindingsQuery = z.input<typeof listFindingsQuerySchema>;
 
 export * from './comments.js';
 

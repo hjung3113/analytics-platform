@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { listPageSchema } from '../list-page.js';
+import { listLimitSchema, listPageSchema } from '../list-page.js';
 
 export const taskRequestStatusSchema = z.enum([
   'pending_review',
@@ -38,10 +38,11 @@ export const listTaskRequestsQuerySchema = z
     reviewer_team_id: z.string().uuid().optional(),
     managed_system_id: z.union([z.string().uuid(), z.literal('all')]).optional(),
     cursor: z.string().optional(),
-    limit: z.coerce.number().int().min(1).max(100).optional(),
+    limit: listLimitSchema,
   })
   .strict();
-export type ListTaskRequestsQuery = z.infer<typeof listTaskRequestsQuerySchema>;
+/** Request shape: `limit` may be absent (the schema defaults it to 50). */
+export type ListTaskRequestsQuery = z.input<typeof listTaskRequestsQuerySchema>;
 
 export const approveTaskRequestRequestSchema = z
   .object({

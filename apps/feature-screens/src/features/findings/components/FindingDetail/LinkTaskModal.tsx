@@ -1,5 +1,6 @@
 import { errorMapper } from '@/lib/api/errorMapper';
-import { linkTaskToFinding, listTasks } from '@/lib/api/tasks';
+import { listAllTasks } from '@/lib/api/list-all';
+import { linkTaskToFinding } from '@/lib/api/tasks';
 import type { ApiError } from '@/lib/api/types';
 import { useIdempotencyKey } from '@/lib/api/useIdempotencyKey';
 import { useHostSeam } from '@/lib/host/host-seam';
@@ -34,8 +35,9 @@ export function LinkTaskModal({ finding, open, onClose }: LinkTaskModalProps): R
   const [selectedTaskId, setSelectedTaskId] = React.useState('');
   const { key: idempotencyKey, markConsumed } = useIdempotencyKey();
   const tasksQuery = useQuery({
-    queryKey: ['tasks', 'finding-link-picker'] as const,
-    queryFn: ({ signal }) => listTasks({ signal }),
+    queryKey: ['tasks', 'finding-link-picker', finding.primary_managed_system_id] as const,
+    queryFn: ({ signal }) =>
+      listAllTasks({ managed_system_id: finding.primary_managed_system_id, signal }),
     enabled: open,
     staleTime: 30_000,
   });

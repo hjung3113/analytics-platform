@@ -113,7 +113,10 @@ interface ListInput {
   ownerTeamId?: string;
   assignment?: 'assigned' | 'unassigned';
   allowedSystemIds?: string[];
-  limit?: number;
+}
+
+interface ListPageInput extends ListInput {
+  limit: number;
   cursor?: ListCursor;
 }
 
@@ -154,7 +157,7 @@ function listPredicates(input: ListInput) {
 
 export async function listFindingsByWorkspace(
   db: Db | Tx,
-  input: ListInput,
+  input: ListPageInput,
 ): Promise<FindingReadRow[]> {
   const predicates = listPredicates(input);
   if (input.cursor !== undefined)
@@ -170,7 +173,7 @@ export async function listFindingsByWorkspace(
     FROM ${findings} f
     WHERE ${sql.join(predicates, sql` AND `)}
     ORDER BY f.created_at DESC, f.id DESC
-    ${input.limit === undefined ? sql`` : sql`LIMIT ${input.limit + 1}`}
+    LIMIT ${input.limit + 1}
   `);
   return result.rows.map(mapFindingRow);
 }

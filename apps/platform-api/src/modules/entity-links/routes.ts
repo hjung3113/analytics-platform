@@ -116,7 +116,7 @@ export const entityLinksRoutes: FastifyPluginAsync<EntityLinksRoutesOptions> = a
         throw new HttpError('internal.unexpected', 'validated entity link query lost endpoint');
       }
 
-      const items = await entityLinksService.listLinks({
+      const result = await entityLinksService.listLinksPage({
         actor: {
           actor_id: sess.actor_id,
           workspace_id: sess.workspace_id,
@@ -124,8 +124,10 @@ export const entityLinksRoutes: FastifyPluginAsync<EntityLinksRoutesOptions> = a
         },
         endpoint,
         side,
+        limit: data.limit,
+        ...(data.cursor !== undefined ? { cursor: data.cursor } : {}),
       });
-      return reply.code(200).send({ items });
+      return reply.code(200).send(result);
     },
   });
 

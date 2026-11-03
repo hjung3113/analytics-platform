@@ -48,10 +48,10 @@ query:
   reviewer optional Actor UUID or me (assigned reviewer, not decision Actor)
   reviewer_team_id optional team UUID
   managed_system_id optional uuid or all
-  cursor optional opaque string (used with limit)
-  limit optional integer 1..100; list client sends 50, no server default
-response body without limit: exactly { items: TaskRequestDto[] }
-response body with limit: { items, page: { has_more, cursor?, total?, status_counts? } }
+  cursor optional opaque string
+  limit optional integer 1..100, default 50 (shared list limit); 0, 101 or a
+    non-integer -> 422 validation.failed
+response body (always paged): { items: TaskRequestDto[], page: { has_more, cursor?, total?, status_counts? } }
   page.cursor only when has_more is true
   total only on the first page (no cursor), visible rows under the same filters
   status_counts only on the first page without a status filter; keys:
@@ -67,7 +67,7 @@ auth and permission: Admin or Developer. Admin sees all Task Requests in the
   gate, then applies the allowed-system SQL predicate before LIMIT, total and
   status counts. Explicit denies are preserved. Empty allowed scope returns
   empty rows, first-page total 0, and zero status counts when applicable.
-  Full-set mode uses the same visibility predicate.
+  Every page uses the same visibility predicate.
 sort: created_at DESC, id DESC; cursor continues both columns with raw
   PostgreSQL timestamp precision (including microseconds)
 source projection: when an active `requested_task` link exists, `source`
@@ -211,10 +211,10 @@ query:
   status_group optional in-flight|open
   managed_system_id optional uuid or all
   public_update optional: missing
-  cursor optional opaque string (used with limit)
-  limit optional integer 1..100; list client sends 50, no server default
-response body without limit: exactly { items: TaskDto[] }
-response body with limit: { items, page: { has_more, cursor?, total? } }
+  cursor optional opaque string
+  limit optional integer 1..100, default 50 (shared list limit); 0, 101 or a
+    non-integer -> 422 validation.failed
+response body (always paged): { items: TaskDto[], page: { has_more, cursor?, total? } }
   cursor only when has_more is true; total only on the first page without
   cursor, counting visible rows under the same filters
 validation: invalid cursor -> 422 validation.failed,
@@ -224,7 +224,7 @@ auth and permission: Admin or Developer. Admin sees all workspace Tasks.
   Developer visibility checks finding.manage once per distinct workspace
   Primary Managed System, with the elevated-role gate, and applies the
   allowed-system SQL predicate before LIMIT and total. Explicit denies remain
-  effective in paged and full-set mode. Empty allowed scope returns empty rows
+  effective on every page. Empty allowed scope returns empty rows
   and first-page total 0. User is denied.
 sort: updated_at DESC, id DESC; cursor continues both columns with raw
   PostgreSQL timestamp precision (including microseconds)
@@ -250,15 +250,18 @@ Body/summary text is not searched. A 101-character normalized query returns
 `422 validation.failed` with `detail.fields: [{ path: ['q'], code: 'too_big' }]`.
 The first-page `page.total` counts the complete authorized matching population
 under the same filters, including zero; later pages omit it. Without `limit`,
-all authorized matching rows are returned. Navigation/report/badge counts omit
-`q` and remain unchanged.
+the first 50 authorized matching rows are returned with `page.cursor` when more
+exist; the server never returns an unbounded list and `limit` never exceeds 100.
+Navigation/report/badge counts omit `q` and remain unchanged.
 
-Home and other full-set Task consumers omit `limit` and keep their complete
-population. The Task board pages each status column (`status`, `limit=50`, cursor,
-the column total is the first page's `page.total`), reads the open set once with
-`status_group=open` and no `limit` for its other groupings, and gets its summary
-totals from `limit=1` reads whose `page.total` is the count. Saved Task views reject `cursor` and `limit` at the
-persistence boundary, including historical-filter reads.
+A consumer that needs the whole set (a picker that filters locally, the Task
+board's grouped open set, a Milestone's child Tasks) follows `page.cursor` with
+`limit=100` until `has_more` is false; it never asks for a larger page. Home's
+"assigned to you" panel shows four rows and reads one page of four. The Task
+board pages each status column (`status`, `limit=50`, cursor, the column total is
+the first page's `page.total`), and gets its summary totals from `limit=1`
+reads whose `page.total` is the count. Saved Task views reject `cursor` and
+`limit` at the persistence boundary, including historical-filter reads.
 
 `GET /tasks/:id`
 

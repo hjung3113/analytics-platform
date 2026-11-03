@@ -37,6 +37,7 @@ import {
   detachEntityLink,
   insertActiveEntityLink,
   selectActiveLinksForEndpoint,
+  selectActiveLinksForEndpointPage,
   selectEntityLinkById,
   selectLinksByWorkspace,
   selectVocFollowUpRoots,
@@ -714,6 +715,7 @@ export function createEntityLinksService(deps: EntityLinksServiceDeps) {
     return provider.getInternalSummary(deps.db, actor.workspace_id, endpoint.id);
   }
 
+  /** Internal callers: every visible link of the endpoint (complete set, not paged). */
   async function listLinks(args: {
     actor: EntityLinksActor;
     endpoint: EntityLinkRef;
@@ -722,6 +724,49 @@ export function createEntityLinksService(deps: EntityLinksServiceDeps) {
     onUnreadableFocus?: 'not_found' | 'empty';
     tx?: Tx;
   }): Promise<EntityLinkDto[]> {
+    return (await listEndpointLinks(args)).items;
+  }
+
+  /** GET /entity-links endpoint mode: one keyset page; the cursor is opaque. */
+  async function listLinksPage(args: {
+    actor: EntityLinksActor;
+    endpoint: EntityLinkRef;
+    side?: 'source' | 'target';
+    limit: number;
+    cursor?: string;
+  }): Promise<{ items: EntityLinkDto[]; page: { has_more: boolean; cursor?: string } }> {
+    // Decode before any lookup so a malformed cursor is a validation error, not an existence probe.
+    const decoded =
+      args.cursor !== undefined ? decodeEntityLinksInventoryCursor(args.cursor) : undefined;
+    const result = await listEndpointLinks({
+      actor: args.actor,
+      endpoint: args.endpoint,
+      ...(args.side === undefined ? {} : { side: args.side }),
+      page: { limit: args.limit, ...(decoded === undefined ? {} : { cursor: decoded }) },
+    });
+    return {
+      items: result.items,
+      page: {
+        has_more: result.hasMore,
+        ...(result.nextCursor !== undefined
+          ? { cursor: encodeEntityLinksInventoryCursor(result.nextCursor) }
+          : {}),
+      },
+    };
+  }
+
+  async function listEndpointLinks(args: {
+    actor: EntityLinksActor;
+    endpoint: EntityLinkRef;
+    side?: 'source' | 'target';
+    onUnreadableFocus?: 'not_found' | 'empty';
+    tx?: Tx;
+    page?: { limit: number; cursor?: { createdAt: string; id: string } };
+  }): Promise<{
+    items: EntityLinkDto[];
+    hasMore: boolean;
+    nextCursor?: { createdAtRaw: string; id: string };
+  }> {
     const { actor, endpoint, side } = args;
     const db = args.tx ?? deps.db;
     const readDeps = readDependencies(args.tx);
@@ -733,7 +778,7 @@ export function createEntityLinksService(deps: EntityLinksServiceDeps) {
     const focusAllowed = await provider.canRead(readDeps, actor, focus);
     if (!focusAllowed) {
       if (args.onUnreadableFocus === 'empty') {
-        return [];
+        return { items: [], hasMore: false };
       }
       throw new HttpError('not_found.record', 'entity link endpoint not found');
     }
@@ -743,10 +788,12 @@ export function createEntityLinksService(deps: EntityLinksServiceDeps) {
       endpointType: endpoint.type,
       endpointId: endpoint.id,
     };
-    const rows = await selectActiveLinksForEndpoint(
-      db,
-      side === undefined ? listArgs : { ...listArgs, side },
-    );
+    const endpointArgs = side === undefined ? listArgs : { ...listArgs, side };
+    const paged =
+      args.page === undefined
+        ? undefined
+        : await selectActiveLinksForEndpointPage(db, { ...endpointArgs, ...args.page });
+    const rows = paged?.items ?? (await selectActiveLinksForEndpoint(db, endpointArgs));
 
     const resolvedByEndpoint = new Map<string, LinkEndpointRow | null>([
       [`${endpoint.type}:${endpoint.id}`, focus],
@@ -782,7 +829,11 @@ export function createEntityLinksService(deps: EntityLinksServiceDeps) {
           : undefined;
       items.push(toDtoForDecision(row, decision, summary, endpointSummaries));
     }
-    return items;
+    return {
+      items,
+      hasMore: paged?.hasMore ?? false,
+      ...(paged?.nextCursor !== undefined ? { nextCursor: paged.nextCursor } : {}),
+    };
   }
 
   /** VOC-only projection. Generic Entity Links APIs retain their non-transitive registry. */
@@ -1087,6 +1138,7 @@ export function createEntityLinksService(deps: EntityLinksServiceDeps) {
     canReadEndpoint,
     resolveReadableEndpointSummary,
     listLinks,
+    listLinksPage,
     listInventoryLinks,
     readVocFollowUp,
     detachLink,

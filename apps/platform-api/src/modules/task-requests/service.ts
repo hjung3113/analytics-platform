@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { ListTaskRequestsResponse } from '@ap/feature-shared';
+import { LIST_DEFAULT_LIMIT, type ListTaskRequestsResponse } from '@ap/feature-shared';
 import { lockRecoveryCommand } from '../../db/recovery-command-lock.js';
 import { decodeListCursor, encodeListCursor } from '../../lib/list-cursor.js';
 import type { RecoveryRecorder } from '../dashboard/recorder.js';
@@ -574,6 +574,7 @@ export function createTaskRequestsService(deps: TaskRequestsServiceDeps) {
     const rows = await listTaskRequestsByWorkspace(deps.db, {
       workspaceId: args.actor.workspace_id,
       taskRequestId: args.taskRequestId,
+      limit: 1,
     });
     const row = rows[0];
     const memo = memoizeCapabilityChecks(deps.checkService);
@@ -597,8 +598,10 @@ export function createTaskRequestsService(deps: TaskRequestsServiceDeps) {
     status?: TaskRequestStatus;
     managed_system_id?: string;
     cursor?: string;
+    /** Absent means the shared default (50). */
     limit?: number;
   }): Promise<ListTaskRequestsResponse> {
+    const limit = args.limit ?? LIST_DEFAULT_LIMIT;
     if (!hasElevatedFindingRole(args.actor)) {
       throw new HttpError('permission.denied', 'finding.manage capability required');
     }
@@ -641,15 +644,13 @@ export function createTaskRequestsService(deps: TaskRequestsServiceDeps) {
       ? []
       : await listTaskRequestsByWorkspace(deps.db, {
           ...filteredInput,
-          ...(args.limit === undefined
-            ? {}
-            : { limit: args.limit, ...(cursor === undefined ? {} : { cursor }) }),
+          limit,
+          ...(cursor === undefined ? {} : { cursor }),
         });
-    const hasMore = args.limit !== undefined && rows.length > args.limit;
-    const pageRows = args.limit === undefined ? rows : rows.slice(0, args.limit);
+    const hasMore = rows.length > limit;
+    const pageRows = rows.slice(0, limit);
 
     const items = await projectTaskRequests(args.actor, pageRows, memo);
-    if (args.limit === undefined) return { items };
     const last = pageRows.at(-1);
     return {
       items,

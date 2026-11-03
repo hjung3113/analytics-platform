@@ -63,11 +63,11 @@ the existing `(finding, task, requested_task)` entity link, audit
 
 Query: optional `q` (trimmed string, max 100 characters), `managed_system_id` (UUID), `execution=none`, `owner_actor_id` / `owner_team_id`
 (UUID), `assignment=assigned|unassigned`, optional opaque `cursor`,
-and optional integer `limit` (1..100). The list screen sends `limit=50`;
-there is no server default for this list's limit. Without `limit`, the response
-stays exactly `{ items: FindingDto[] }` for full-set consumers, including
-navigation counts and Finding pickers. With `limit`, the response is
-`{ items, page: { has_more, cursor?, total? } }`.
+and optional integer `limit` (1..100, default 50, the shared list limit; other
+values return `422 validation.failed`). The response is always
+`{ items: FindingDto[], page: { has_more, cursor?, total? } }`. A consumer that
+needs every Finding (a picker) follows `page.cursor` with `limit=100` until
+`has_more` is false.
 
 Optional `q` is trimmed, at most 100 characters; blank/whitespace becomes absent.
 Matching is case-insensitive `display_id` prefix OR `title` contains; `\`, `%`
@@ -77,8 +77,8 @@ Body/summary text is not searched. A 101-character normalized query returns
 `422 validation.failed` with `detail.fields: [{ path: ['q'], code: 'too_big' }]`.
 The first-page `page.total` counts the complete authorized matching population
 under the same filters, including zero; later pages omit it. Without `limit`,
-all authorized matching rows are returned. Navigation/report/badge counts omit
-`q` and remain unchanged.
+the first 50 authorized matching rows are returned. Navigation/report/badge
+counts omit `q` and remain unchanged.
 
 Order is `created_at DESC, id DESC`. The cursor continues both order columns
 using the raw PostgreSQL timestamp (including microseconds) and UUID. It is
@@ -93,7 +93,7 @@ Admin sees the workspace population. Developer visibility uses the existing
 point `finding.read` checks once per distinct Primary Managed System, including
 explicit denies, before the SQL page limit and counts. Empty allowed scope
 returns no rows and a first-page total of zero. The same SQL visibility
-predicate applies in full-set mode. `execution=none` keeps active Findings with no active
+predicate applies on every page. `execution=none` keeps active Findings with no active
 canonical `(finding, task_request, requested_task)` or `(finding, task, requested_task)` link.
 This implemented FO ADR-0069 complement ignores the convenience `linked_task_id` column;
 inactive links do not count as execution. See the destination extension below.
@@ -252,8 +252,8 @@ For report handoff metrics and the existing `execution=none` filter, execution i
 an active canonical `(finding, task_request, requested_task)` or `(finding, task, requested_task)`
 link. `linked_task_id` is a convenience reference and is not the predicate's truth.
 `execution=none` continues to restrict to active Findings, now using the canonical link complement;
-draft/not_actionable/converted/archived Findings are not handoff gaps. Both filters work in full-set
-and paged reads with identical authorized first-page totals. An existing direct Task connection is
+draft/not_actionable/converted/archived Findings are not handoff gaps. Both filters apply on every
+page with identical authorized first-page totals. An existing direct Task connection is
 not Task Request approval or work completion. Scope uses the existing elevated Finding read seam.
 
 ## Survey summaries and highlights — FO ADR-0064 cutover

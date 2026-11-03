@@ -1476,6 +1476,123 @@ describe.skipIf(!runIntegration)('POST/GET /entity-links (#112)', () => {
     expect(invalidLimit.statusCode).toBe(422);
   });
 
+  describe('default page size 50, cap 100 (#1266 b5b)', () => {
+    const LINKS = 55;
+
+    async function seedManyLinks(): Promise<{ msA: string; sourceId: string; linkIds: string[] }> {
+      const { msA, sourceVoc } = await seedVocPair();
+      const targets = await Promise.all(
+        Array.from({ length: LINKS }, (_, index) =>
+          insertVocDirectly(migrateHandle, WORKSPACE_ID, msA, reporterId, `Bulk target ${index}`),
+        ),
+      );
+      const linkIds = await Promise.all(
+        targets.map((target) =>
+          seedEntityLinkDirectly({
+            sourceId: sourceVoc.id,
+            targetId: target.id,
+            managedSystemId: msA,
+            visibility: 'internal_only',
+          }),
+        ),
+      );
+      return { msA, sourceId: sourceVoc.id, linkIds };
+    }
+
+    type LinksPage = {
+      items: Array<{ id: string }>;
+      page: { has_more: boolean; cursor?: string };
+    };
+
+    async function walk(query: string): Promise<{ pages: LinksPage[]; ids: string[] }> {
+      const pages: LinksPage[] = [];
+      let cursor: string | undefined;
+      do {
+        const response = await getEntityLinks(
+          adminCookie,
+          `${query}${cursor === undefined ? '' : `&cursor=${encodeURIComponent(cursor)}`}`,
+        );
+        expect(response.statusCode).toBe(200);
+        const body = response.json<LinksPage>();
+        pages.push(body);
+        cursor = body.page.cursor;
+      } while (cursor !== undefined);
+      return { pages, ids: pages.flatMap((page) => page.items.map((item) => item.id)) };
+    }
+
+    it('inventory mode without limit returns 50 rows and a cursor, then the rest', async () => {
+      const { msA, linkIds } = await seedManyLinks();
+      const { pages, ids } = await walk(`?scope=workspace&managed_system_id=${msA}`);
+      expect(pages.map((page) => page.items.length)).toEqual([50, LINKS - 50]);
+      expect(pages[0]?.page.has_more).toBe(true);
+      expect(pages[1]?.page.has_more).toBe(false);
+      expect(pages[1]?.page.cursor).toBeUndefined();
+      expect(new Set(ids).size).toBe(LINKS);
+      expect([...ids].sort()).toEqual(expect.arrayContaining([...linkIds].sort()));
+    });
+
+    it('endpoint mode without limit returns 50 rows and a cursor, then the rest in stable order', async () => {
+      const { sourceId, linkIds } = await seedManyLinks();
+      const { pages, ids } = await walk(`?source_type=voc&source_id=${sourceId}`);
+      expect(pages.map((page) => page.items.length)).toEqual([50, LINKS - 50]);
+      expect(pages[0]?.page.has_more).toBe(true);
+      expect(pages[1]?.page).toEqual({ has_more: false });
+      expect(new Set(ids).size).toBe(LINKS);
+      expect([...ids].sort()).toEqual([...linkIds].sort());
+      const expectedOrder = await migrateHandle.pool.query<{ id: string }>(
+        `select id from core.entity_links
+          where workspace_id = $1 and id = any($2::uuid[])
+          order by created_at desc, id desc`,
+        [WORKSPACE_ID, linkIds],
+      );
+      expect(ids).toEqual(expectedOrder.rows.map((row) => row.id));
+    });
+
+    it('endpoint mode honours limit, caps it at 100 and rejects a malformed cursor', async () => {
+      const { sourceId } = await seedManyLinks();
+      const small = await getEntityLinks(
+        adminCookie,
+        `?source_type=voc&source_id=${sourceId}&limit=10`,
+      );
+      expect(small.statusCode).toBe(200);
+      expect(small.json<LinksPage>().items).toHaveLength(10);
+      expect(small.json<LinksPage>().page.has_more).toBe(true);
+      const max = await getEntityLinks(
+        adminCookie,
+        `?source_type=voc&source_id=${sourceId}&limit=100`,
+      );
+      expect(max.json<LinksPage>().items).toHaveLength(LINKS);
+      expect(max.json<LinksPage>().page.has_more).toBe(false);
+      const over = await getEntityLinks(
+        adminCookie,
+        `?source_type=voc&source_id=${sourceId}&limit=101`,
+      );
+      expect(over.statusCode).toBe(422);
+      const badCursor = await getEntityLinks(
+        adminCookie,
+        `?source_type=voc&source_id=${sourceId}&cursor=not-a-cursor`,
+      );
+      expect(badCursor.statusCode).toBe(422);
+      expect(badCursor.json().detail.fields).toEqual([
+        expect.objectContaining({ path: ['cursor'], code: 'invalid_cursor' }),
+      ]);
+    });
+
+    it('endpoint mode keeps hiding an unreadable endpoint whatever the paging params are', async () => {
+      const { sourceId } = await seedManyLinks();
+      const stranger = await insertDevActor(dbHandle, WORKSPACE_ID, uid('pagehide'));
+      const strangerCookie = await loginAs(app, stranger.externalId);
+      for (const query of ['', '&limit=5', '&limit=5&cursor=eyJ4IjoxfQ==']) {
+        const response = await getEntityLinks(
+          strangerCookie,
+          `?source_type=voc&source_id=${sourceId}${query}`,
+        );
+        expect([404, 422]).toContain(response.statusCode);
+        if (response.statusCode === 404) expect(response.json().code).toBe('not_found.record');
+      }
+    });
+  });
+
   it('GET workspace inventory filters command-only tuples before applying the page limit', async () => {
     const { msA, sourceVoc, targetVoc } = await seedVocPair();
     const visible = await postEntityLink(adminCookie, sourceVoc.id, targetVoc.id);

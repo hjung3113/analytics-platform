@@ -11,7 +11,7 @@ import { ArrowRight, Check, ClipboardList, X } from 'lucide-react';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 
-import { fetchTaskRequests } from '@/lib/api/task-requests';
+import { fetchAllTaskRequests } from '@/lib/api/list-all';
 import { koreanZodErrorMap } from '@/lib/forms/zodIssueMessage';
 import { HostLink } from '@/lib/host/host-seam';
 
@@ -60,7 +60,7 @@ export function TaskRequestDraftCard({
 
   const pendingRequests = useQuery({
     queryKey: ['task-requests', 'pending-source', source?.type, source?.id] as const,
-    queryFn: ({ signal }) => fetchTaskRequests({ status: 'pending_review', signal }),
+    queryFn: ({ signal }) => fetchAllTaskRequests({ status: 'pending_review', signal }),
     enabled: source !== undefined,
   });
   const pendingRequest = pendingRequests.data?.items?.find(

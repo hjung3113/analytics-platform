@@ -781,7 +781,7 @@ describe.skipIf(!runIntegration)('POST /vocs/:id/create-finding (#122)', () => {
     });
 
     expect(list.statusCode).toBe(200);
-    expect(Object.keys(list.json())).toEqual(['items']);
+    expect(Object.keys(list.json())).toEqual(['items', 'page']);
     const ids = list.json<{ items: Array<{ id: string }> }>().items.map((item) => item.id);
     expect(ids).toContain(createdA.json<{ id: string }>().id);
     expect(ids).not.toContain(createdB.json<{ id: string }>().id);
@@ -1059,7 +1059,7 @@ describe.skipIf(!runIntegration)('POST /vocs/:id/create-finding (#122)', () => {
     const headers = { cookie: `${SESSION_COOKIE_NAME}=${cookie}` };
     const full = await app.inject({ method: 'GET', url: '/findings', headers });
     expect(full.statusCode).toBe(200);
-    expect(Object.keys(full.json())).toEqual(['items']);
+    expect(Object.keys(full.json())).toEqual(['items', 'page']);
     const expected = full.json<{
       items: Array<{ id: string; primary_managed_system_id: string }>;
     }>().items;

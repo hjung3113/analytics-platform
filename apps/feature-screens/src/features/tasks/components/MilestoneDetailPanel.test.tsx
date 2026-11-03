@@ -208,6 +208,8 @@ describe('MilestoneDetailPanel (#514 B2d)', () => {
     await screen.findByRole('heading', { name: 'SSO Stabilization' });
     const nav = screen.getByRole('button', { name: '요약' }).closest('div');
     if (!nav) throw new Error('section nav not found');
+    // The child list is fetched page by page, so the count pill lands a tick after the heading.
+    await within(nav).findByRole('button', { name: /^Tasks\s*0$/ });
     const labels = within(nav)
       .getAllByRole('button')
       .map((button) => button.textContent);
@@ -477,6 +479,7 @@ describe('MilestoneDetailPanel (#514 B2d)', () => {
     await screen.findByRole('heading', { name: 'Tasks' });
     expect(vi.mocked(listTasks)).toHaveBeenCalledWith({
       milestone_id: MILESTONE_ID,
+      limit: 100,
       signal: expect.any(AbortSignal),
     });
   });
@@ -486,7 +489,7 @@ describe('MilestoneDetailPanel (#514 B2d)', () => {
 
     expect(await screen.findByRole('heading', { name: 'Tasks' })).toBeInTheDocument();
     expect(screen.queryByText('Tasks · 0')).not.toBeInTheDocument();
-    expect(screen.getByText('아직 연결된 Task 가 없습니다.')).toBeInTheDocument();
+    expect(await screen.findByText('아직 연결된 Task 가 없습니다.')).toBeInTheDocument();
   });
 
   it('renders a child row with priority, display id, title, internal status, and assignee', async () => {
@@ -497,7 +500,7 @@ describe('MilestoneDetailPanel (#514 B2d)', () => {
     const row = section.closest('[data-anchor="tasks"]');
     if (!row) throw new Error('tasks section not found');
     // SeverityIndicator driven by task.priority (urgent → critical).
-    expect(within(row as HTMLElement).getByLabelText('우선순위 긴급')).toBeInTheDocument();
+    expect(await within(row as HTMLElement).findByLabelText('우선순위 긴급')).toBeInTheDocument();
     expect(within(row as HTMLElement).getByText('TASK-902')).toBeInTheDocument();
     expect(
       within(row as HTMLElement).getByText('Power BI 임베디드 SSO 재인증 핸들러 구현'),
@@ -541,7 +544,7 @@ describe('MilestoneDetailPanel (#514 B2d)', () => {
     if (!row) throw new Error('tasks section not found');
     // The avatar renders the Korean assigned fallback; the badge stays
     // specific to a genuinely null assignment.
-    expect(within(row as HTMLElement).getByText('알')).toBeInTheDocument();
+    expect(await within(row as HTMLElement).findByText('알')).toBeInTheDocument();
     expect(within(row as HTMLElement).queryByText('담당자 없음')).not.toBeInTheDocument();
 
     view.rerender(
@@ -569,7 +572,7 @@ describe('MilestoneDetailPanel (#514 B2d)', () => {
     const row = (await screen.findByRole('heading', { name: 'Tasks' })).closest(
       '[data-anchor="tasks"]',
     );
-    expect(row).toHaveTextContent('2026. 6. 15.');
+    await waitFor(() => expect(row).toHaveTextContent('2026. 6. 15.'));
     expect(row).not.toHaveTextContent('estimate');
   });
 
@@ -580,7 +583,7 @@ describe('MilestoneDetailPanel (#514 B2d)', () => {
     const row = (await screen.findByRole('heading', { name: 'Tasks' })).closest(
       '[data-anchor="tasks"]',
     );
-    expect(row).toHaveTextContent('업데이트 2026. 7. 21.');
+    await waitFor(() => expect(row).toHaveTextContent('업데이트 2026. 7. 21.'));
   });
 
   it('renders no Add task control in the Tasks section', async () => {

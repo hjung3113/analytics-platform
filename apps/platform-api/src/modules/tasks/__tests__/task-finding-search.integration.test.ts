@@ -134,7 +134,7 @@ describe.skipIf(!runIntegration).each(['tasks', 'findings'] as const)(
       expect(ids).not.toContain(hidden.id);
       const full = await get({ q: token });
       expect(full.statusCode).toBe(200);
-      expect(full.json().page).toBeUndefined();
+      expect(full.json().page).toEqual({ has_more: false, total: 3 });
       expect(
         full
           .json<Page>()

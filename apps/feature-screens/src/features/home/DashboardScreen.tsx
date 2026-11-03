@@ -69,6 +69,9 @@ export function DashboardScreen({
   );
 }
 
+/** The "assigned to you" panel shows this many rows; the lists fetch one page of that size (first page, newest first). */
+const MY_WORK_LIMIT = 4;
+
 /**
  * The dashboard's reads and the reporter-layout decision. The standalone `HomeScreen` calls it above its tabs so the
  * observers outlive a tab round trip; `DashboardScreen` calls it itself on the platform.
@@ -90,6 +93,7 @@ export function useDashboardData(actorId: string | undefined, managedSystemId?: 
       listTasks({
         ...(actorId !== undefined ? { assignee: actorId } : {}),
         ...(managedSystemId === undefined ? {} : { managed_system_id: managedSystemId }),
+        limit: MY_WORK_LIMIT,
         signal,
       }),
     retry: false,
@@ -102,6 +106,7 @@ export function useDashboardData(actorId: string | undefined, managedSystemId?: 
         status: 'pending_review',
         reviewer: 'me',
         ...(managedSystemId === undefined ? {} : { managed_system_id: managedSystemId }),
+        limit: MY_WORK_LIMIT,
         signal,
       }),
     retry: false,
@@ -549,7 +554,7 @@ function MyWorkPanel({
       meta: TASK_REQUEST_STATUS_LABELS[request.status],
       href: `/tasks?view=requests&param=${request.id}`,
     })),
-  ].slice(0, 4);
+  ].slice(0, MY_WORK_LIMIT);
   const { canLink } = useHostSeam();
   return (
     <section>

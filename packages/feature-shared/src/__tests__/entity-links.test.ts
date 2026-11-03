@@ -20,14 +20,18 @@ describe('listEntityLinksQuerySchema pagination', () => {
     expect(listEntityLinksQuerySchema.safeParse({ scope: 'workspace', limit }).success).toBe(false);
   });
 
-  it('keeps pagination out of endpoint relation reads', () => {
+  it('pages endpoint relation reads too: default 50, cap 100, cursor accepted', () => {
+    const endpoint = {
+      source_type: 'voc',
+      source_id: '11111111-1111-4111-8111-111111111111',
+    };
+    expect(listEntityLinksQuerySchema.parse(endpoint).limit).toBe(50);
     expect(
-      listEntityLinksQuerySchema.safeParse({
-        source_type: 'voc',
-        source_id: '11111111-1111-4111-8111-111111111111',
-        limit: '10',
-      }).success,
-    ).toBe(false);
+      listEntityLinksQuerySchema.parse({ ...endpoint, limit: '10', cursor: 'opaque' }),
+    ).toMatchObject({ limit: 10, cursor: 'opaque' });
+    expect(listEntityLinksQuerySchema.safeParse({ ...endpoint, limit: '101' }).success).toBe(
+      false,
+    );
   });
 });
 

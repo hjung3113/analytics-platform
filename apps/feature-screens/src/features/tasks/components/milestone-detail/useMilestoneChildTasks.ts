@@ -1,4 +1,4 @@
-import { listTasks } from '@/lib/api/tasks';
+import { listAllTasks } from '@/lib/api/list-all';
 import type { TaskDto } from '@ap/feature-shared';
 import { useQuery } from '@tanstack/react-query';
 
@@ -8,7 +8,7 @@ export function useMilestoneChildTasks(milestoneId: string): {
 } {
   const query = useQuery({
     queryKey: ['tasks', { milestone_id: milestoneId }] as const,
-    queryFn: ({ signal }) => listTasks({ milestone_id: milestoneId, signal }),
+    queryFn: ({ signal }) => listAllTasks({ milestone_id: milestoneId, signal }),
     staleTime: 30 * 1000,
   });
 

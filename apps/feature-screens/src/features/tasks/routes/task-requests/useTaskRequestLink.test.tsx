@@ -82,4 +82,39 @@ describe('useTaskRequestLink', () => {
     rerender({ item: { ...request } });
     expect(result.current.open).toBe(false);
   });
+
+  it('offers an in-scope Task from the second page of the picker read', async () => {
+    api.fetchPermissionCheck.mockResolvedValue({ state: 'approved' });
+    const inScope = (id: string) =>
+      ({ id, primary_managed_system_id: request.primary_managed_system_id }) as TaskDto;
+    api.listTasks.mockImplementation(async (options: { cursor?: string }) =>
+      options.cursor === undefined
+        ? { items: [inScope('t-first')], page: { has_more: true, cursor: 'c2' } }
+        : { items: [inScope('t-after-50')], page: { has_more: false } },
+    );
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { result } = renderHook(
+      () => useTaskRequestLink({ item: request, currentRole: 'admin' }),
+      {
+        wrapper: ({ children }: PropsWithChildren) => (
+          <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+        ),
+      },
+    );
+    act(() => result.current.setOpen(true));
+
+    await waitFor(() =>
+      expect(result.current.inScopeTasks?.map((candidate) => candidate.id)).toEqual([
+        't-first',
+        't-after-50',
+      ]),
+    );
+    expect(api.listTasks).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        cursor: 'c2',
+        limit: 100,
+        managed_system_id: request.primary_managed_system_id,
+      }),
+    );
+  });
 });

@@ -298,7 +298,7 @@ describe.skipIf(!runIntegration)('task-request list managed_system_id filter (#3
       url: `/task-requests?managed_system_id=${msAId}`,
       headers,
     });
-    expect(Object.keys(full.json())).toEqual(['items']);
+    expect(Object.keys(full.json())).toEqual(['items', 'page']);
     const expected = full.json<{ items: Array<{ id: string }> }>().items.map((row) => row.id);
     const walked: string[] = [];
     let cursor: string | undefined;
@@ -366,7 +366,7 @@ describe.skipIf(!runIntegration)('task-request list managed_system_id filter (#3
 
     const omitted = await listTaskRequests();
     expect(omitted.statusCode).toBe(200);
-    expect(Object.keys(omitted.json())).toEqual(['items']);
+    expect(Object.keys(omitted.json())).toEqual(['items', 'page']);
     const omittedIds = ids(omitted.json<{ items: Array<{ id: string }> }>());
     expect(omittedIds).toContain(requestAId);
     expect(omittedIds).toContain(requestBId);
@@ -582,7 +582,7 @@ describe.skipIf(!runIntegration)('task-request list managed_system_id filter (#3
     const headers = { cookie: `${SESSION_COOKIE_NAME}=${cookie}` };
     const full = await app.inject({ method: 'GET', url: '/task-requests', headers });
     expect(full.statusCode).toBe(200);
-    expect(Object.keys(full.json())).toEqual(['items']);
+    expect(Object.keys(full.json())).toEqual(['items', 'page']);
     const expected = full.json<{
       items: Array<{ id: string; primary_managed_system_id: string }>;
     }>().items;

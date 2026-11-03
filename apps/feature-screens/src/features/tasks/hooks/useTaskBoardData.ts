@@ -1,3 +1,4 @@
+import { listAllTasks } from '@/lib/api/list-all';
 import { listTasks } from '@/lib/api/tasks';
 import { placeholderDataForSearchOnly } from '@/lib/query/placeholder-data-for-search';
 import type { ListTasksResponse, TaskDto, TaskStatus } from '@ap/feature-shared';
@@ -144,7 +145,7 @@ function useBoardColumn(
 
 /**
  * Status grouping: one infinite query per status column (fixed hook order, enabled only while
- * grouped by status). Other groupings: one unbounded request for the open set.
+ * grouped by status). Other groupings: the whole open set, fetched page by page (the swimlanes group it locally).
  */
 export function useTaskBoardData({
   scope,
@@ -170,7 +171,7 @@ export function useTaskBoardData({
     placeholderData: (previousData, previousQuery) =>
       placeholderDataForSearchOnly(openKey, previousData, previousQuery),
     queryFn: ({ signal }) =>
-      listTasks({ signal, status_group: 'open', ...scopeParams(scope), ...filters }),
+      listAllTasks({ signal, status_group: 'open', ...scopeParams(scope), ...filters }),
     staleTime: 30_000,
   });
   const openItems = openSet.data?.items ?? NO_TASKS;

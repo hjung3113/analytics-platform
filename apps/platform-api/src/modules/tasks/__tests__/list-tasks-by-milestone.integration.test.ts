@@ -161,7 +161,7 @@ describe.skipIf(!runIntegration)('task list milestone_id filter (#514 B1a)', () 
     const res = await listTasks(devCookie, `?milestone_id=${milestoneId}`);
 
     expect(res.statusCode).toBe(200);
-    expect(res.json<{ items: Array<{ id: string }> }>()).toEqual({ items: [] });
+    expect(res.json<{ items: Array<{ id: string }> }>()).toEqual({ items: [], page: { has_more: false, total: 0 } });
   });
 
   it('keeps the current unfiltered list when milestone_id is omitted', async () => {
@@ -178,6 +178,6 @@ describe.skipIf(!runIntegration)('task list milestone_id filter (#514 B1a)', () 
     const res = await listTasks(adminCookie, `?milestone_id=${randomUUID()}`);
 
     expect(res.statusCode).toBe(200);
-    expect(res.json<{ items: Array<{ id: string }> }>()).toEqual({ items: [] });
+    expect(res.json<{ items: Array<{ id: string }> }>()).toEqual({ items: [], page: { has_more: false, total: 0 } });
   });
 });
