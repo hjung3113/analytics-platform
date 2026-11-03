@@ -5,7 +5,11 @@
 FROM nginx:1.27.5-alpine
 
 COPY apps/platform-web/dist /usr/share/nginx/html
-COPY ops/platform-api/edge/nginx.conf /etc/nginx/conf.d/default.conf
+# The nginx image renders /etc/nginx/templates/*.template into conf.d at start. Only PUBLIC_ATTACHMENT_ORIGIN is
+# substituted (the filter), so nginx variables such as $uri stay. The value is a CSP source list item, default 'self'.
+ENV NGINX_ENVSUBST_FILTER='^PUBLIC_ATTACHMENT_ORIGIN$'
+ENV PUBLIC_ATTACHMENT_ORIGIN="'self'"
+COPY ops/platform-api/edge/nginx.conf /etc/nginx/templates/default.conf.template
 
 # Fail the build when the bundle is missing or empty rather than shipping an edge that serves 404 for the SPA.
 RUN test -s /usr/share/nginx/html/index.html

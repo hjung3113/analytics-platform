@@ -151,15 +151,25 @@ fi
 # The edge is the only published service and trusts X-Forwarded-* from whoever reaches it: it must bind to a specific
 # interface, or to all interfaces only with an explicit acknowledgement (a firewall then restricts EDGE_PORT).
 edge_bind="$(val_of EDGE_BIND)"
+# Every spelling of the IPv6 unspecified address (::, ::0, 0:0:0:0:0:0:0:0, bracketed or not) binds all interfaces.
+edge_bare="${edge_bind#[}"
+edge_bare="${edge_bare%]}"
+edge_any=no
+if [ "$edge_bind" = "0.0.0.0" ]; then
+  edge_any=yes
+elif [[ "$edge_bare" =~ ^[0:]+$ ]] && [[ "$edge_bare" == *:* ]] && [[ "$edge_bare" != *:::* ]] &&
+  [[ "${edge_bare/::/}" != *::* ]] && ! [[ "$edge_bare" =~ 00000 ]]; then
+  edge_any=yes
+fi
+if [ "$edge_any" = yes ]; then
+  [ "$(val_of EDGE_BIND_ALL_INTERFACES_ACK)" = "yes" ] ||
+    fail "EDGE_BIND binds all interfaces: bind the ingress-facing address, or set EDGE_BIND_ALL_INTERFACES_ACK=yes with a firewall allowing only the ingress"
+fi
 case "$edge_bind" in
   '') fail "EDGE_BIND is empty: set the interface only the company ingress reaches" ;;
   *CHANGE_ME*) fail "EDGE_BIND is still a placeholder" ;;
-  0.0.0.0|::|'[::]')
-    [ "$(val_of EDGE_BIND_ALL_INTERFACES_ACK)" = "yes" ] ||
-      fail "EDGE_BIND binds all interfaces: bind the ingress-facing address, or set EDGE_BIND_ALL_INTERFACES_ACK=yes with a firewall allowing only the ingress"
-    ;;
   *)
-    if ! [[ "$edge_bind" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] && ! [[ "$edge_bind" =~ ^\[[0-9a-fA-F:.]+\]$ ]]; then
+    if [ "$edge_any" = no ] && ! [[ "$edge_bind" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] && ! [[ "$edge_bind" =~ ^\[[0-9a-fA-F:.]+\]$ ]]; then
       fail "EDGE_BIND must be an IPv4 address or a bracketed IPv6 address"
     fi
     ;;

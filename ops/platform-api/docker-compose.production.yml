@@ -255,6 +255,9 @@ services:
     image: platform-release-web:local
     pull_policy: never
     restart: unless-stopped
+    environment:
+      # Same value the backend's CSP uses; rendered into the edge's document CSP at container start.
+      PUBLIC_ATTACHMENT_ORIGIN: ${PUBLIC_ATTACHMENT_ORIGIN:-'self'}
     ports:
       - "${EDGE_BIND:?set EDGE_BIND to the interface only the company ingress reaches in .env.production}:${EDGE_PORT:-8080}:80"
     depends_on:

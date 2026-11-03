@@ -66,6 +66,30 @@ test('preflight: all-interfaces edge bind passes with the explicit acknowledgeme
   assert.equal(r.code, 0, r.lines.join('\n'));
 });
 
+for (const bind of [
+  '::',
+  '[::]',
+  '0:0:0:0:0:0:0:0',
+  '[0:0:0:0:0:0:0:0]',
+  '::0',
+  '[::0]',
+  '0000::',
+  '[0::0]',
+]) {
+  test(`preflight: IPv6 unspecified ${bind} needs the acknowledgement`, () => {
+    const refused = run({ EDGE_BIND: bind });
+    assert.equal(refused.code, 1, bind);
+    assert.match(refused.lines.join('\n'), /EDGE_BIND binds all interfaces/);
+    const ok = run({ EDGE_BIND: bind, EDGE_BIND_ALL_INTERFACES_ACK: 'yes' });
+    assert.equal(ok.code, 0, ok.lines.join('\n'));
+  });
+}
+
+test('preflight: a specific IPv6 address needs no acknowledgement', () => {
+  const r = run({ EDGE_BIND: '[fd00::1]' });
+  assert.equal(r.code, 0, r.lines.join('\n'));
+});
+
 test('preflight: usage error without a file', () => {
   assert.equal(spawnSync('bash', [PREFLIGHT], { encoding: 'utf8' }).status, 2);
 });

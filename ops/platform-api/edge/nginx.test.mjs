@@ -50,7 +50,101 @@ test('edge: SPA fallback and cache headers', () => {
   assert.match(byHeader['/'], /try_files \$uri \/index\.html;/);
   assert.match(byHeader['= /index.html'], /Cache-Control "no-cache"/);
   assert.match(byHeader['^~ /assets/'], /try_files \$uri =404;/);
-  assert.match(byHeader['^~ /assets/'], /immutable/);
+  assert.match(byHeader['^~ /assets/'], /add_header Cache-Control \$asset_cache_control;/);
+});
+
+test('edge: long immutable caching only on successful asset responses', () => {
+  const map = conf.match(/map \$status \$asset_cache_control \{([\s\S]*?)\n\}/)[1];
+  assert.match(map, /default ""/);
+  assert.match(map, /^\s*200 "public, max-age=31536000, immutable";/m);
+  assert.doesNotMatch(map, /\b(404|4\d\d|5\d\d)\b/);
+  // No literal immutable header (which would need `always` to reach a 404) anywhere else.
+  assert.doesNotMatch(conf.replace(map, ''), /immutable/);
+  assert.doesNotMatch(
+    locations().find(([h]) => h === '^~ /assets/')[1],
+    /Cache-Control[^\n]*always/,
+  );
+});
+
+test('edge: access log is path-only and never logs query strings or referrers', () => {
+  const format = conf.match(/log_format edge_safe ([\s\S]*?);/)[1];
+  assert.match(format, /\$uri\b/);
+  assert.match(format, /\$status\b/);
+  assert.match(format, /\$body_bytes_sent\b/);
+  assert.match(format, /\$request_time\b/);
+  assert.match(format, /\$http_x_correlation_id\b/);
+  assert.match(format, /\$http_x_forwarded_for\b/);
+  assert.match(conf, /access_log \S+ edge_safe;/);
+  // Not just the format: nothing in the config may log these, whatever the directive.
+  assert.doesNotMatch(conf, /\$request\b(?!_)/);
+  assert.doesNotMatch(
+    conf,
+    /\$args\b|\$query_string\b|\$request_uri\b|\$http_referer\b|\$is_args\b/,
+  );
+  assert.doesNotMatch(conf, /access_log [^\n]*\b(main|combined)\b/);
+  assert.match(conf, /error_log \S+ crit;/);
+});
+
+const DOCUMENT_HEADERS = [
+  /add_header Content-Security-Policy \$document_csp always;/,
+  /add_header X-Content-Type-Options "nosniff" always;/,
+  /add_header Referrer-Policy "no-referrer" always;/,
+  /add_header X-Frame-Options "SAMEORIGIN" always;/,
+];
+
+test('edge: document locations carry the backend Helmet policy, proxied ones add no headers', () => {
+  const csp = conf.match(/set \$document_csp "([^"]+)";/)[1];
+  for (const directive of [
+    "default-src 'self'",
+    "script-src 'self'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: ${PUBLIC_ATTACHMENT_ORIGIN}",
+    "font-src 'self' data:",
+    "connect-src 'self' ${PUBLIC_ATTACHMENT_ORIGIN}",
+    "frame-ancestors 'none'",
+    "form-action 'self'",
+    "base-uri 'self'",
+    "object-src 'none'",
+  ]) {
+    assert.ok(csp.split('; ').includes(directive), directive);
+  }
+  const byHeader = Object.fromEntries(locations());
+  for (const header of ['^~ /assets/', '= /index.html', '/']) {
+    for (const re of DOCUMENT_HEADERS) assert.match(byHeader[header], re, `${header} ${re}`);
+  }
+  for (const header of ['^~ /api/features/', '^~ /api/', '^~ /auth/']) {
+    assert.doesNotMatch(
+      byHeader[header],
+      /add_header|proxy_hide_header|proxy_set_header Content-Security/,
+      header,
+    );
+  }
+  // Server-level add_header would leak into the proxied locations.
+  const serverLevel = conf.replace(/^ {4}location[\s\S]*?^ {4}\}/gm, '');
+  assert.doesNotMatch(serverLevel, /add_header/);
+});
+
+test('edge: nginx-generated redirects are relative', () => {
+  assert.match(conf, /^\s*absolute_redirect off;/m);
+  assert.match(conf, /^\s*port_in_redirect off;/m);
+});
+
+test('edge image: template renders only PUBLIC_ATTACHMENT_ORIGIN, compose passes it', () => {
+  const dockerfile = readFileSync(
+    fileURLToPath(new URL('../../../apps/platform-web/Dockerfile', import.meta.url)),
+    'utf8',
+  );
+  assert.match(dockerfile, /edge\/nginx\.conf \/etc\/nginx\/templates\/default\.conf\.template/);
+  assert.match(dockerfile, /NGINX_ENVSUBST_FILTER='\^PUBLIC_ATTACHMENT_ORIGIN\$'/);
+  assert.match(dockerfile, /ENV PUBLIC_ATTACHMENT_ORIGIN="'self'"/);
+  // The only ${...} placeholder in the template is the one envsubst fills.
+  assert.deepEqual([...new Set(conf.match(/\$\{[^}]*\}/g))], ['${PUBLIC_ATTACHMENT_ORIGIN}']);
+  const compose = readFileSync(
+    fileURLToPath(new URL('../docker-compose.production.yml', import.meta.url)),
+    'utf8',
+  );
+  const edge = compose.match(/^ {2}edge:\n([\s\S]*?)(?=^ {2}\S|^\S)/m)[1];
+  assert.match(edge, /PUBLIC_ATTACHMENT_ORIGIN: \$\{PUBLIC_ATTACHMENT_ORIGIN:-'self'\}/);
 });
 
 test('edge: forwarded headers, body limit and timeouts', () => {
