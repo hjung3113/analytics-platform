@@ -1,5 +1,5 @@
 import type { FeatureApi } from '../feature-api';
-import { unauthorizedReporter } from './session';
+import { unauthorizedReporter, type SessionIdentity } from './session';
 
 /**
  * The server reads behind the app's space→system links and the 운영 콘솔 「시스템」 screen (#1289 node j, ADR-0110 decision 5).
@@ -39,8 +39,8 @@ export function parseSpaceLinks(data: unknown): SpaceLinks {
   return { links, platformManagedSystemId: platform as string | null };
 }
 
-async function getJson(api: FeatureApi, path: string, signal?: AbortSignal): Promise<unknown> {
-  const reportUnauthorized = unauthorizedReporter(api);
+async function getJson(api: FeatureApi, path: string, signal?: AbortSignal, identity?: SessionIdentity): Promise<unknown> {
+  const reportUnauthorized = unauthorizedReporter(api, identity);
   let response: Response;
   try {
     response = await fetch(api.basePath + path, { method: 'GET', credentials: 'include', headers: { Accept: 'application/json' }, ...(signal ? { signal } : {}) });
@@ -59,8 +59,8 @@ async function getJson(api: FeatureApi, path: string, signal?: AbortSignal): Pro
 }
 
 /** `GET /managed-systems/space-links`: every link of the workspace (declared or not) and its 「플랫폼」 system id. */
-export async function fetchSpaceLinks(api: FeatureApi, signal?: AbortSignal): Promise<SpaceLinks> {
-  return parseSpaceLinks(await getJson(api, '/managed-systems/space-links', signal));
+export async function fetchSpaceLinks(api: FeatureApi, signal?: AbortSignal, identity?: SessionIdentity): Promise<SpaceLinks> {
+  return parseSpaceLinks(await getJson(api, '/managed-systems/space-links', signal, identity));
 }
 
 const PAGE_LIMIT = 500;

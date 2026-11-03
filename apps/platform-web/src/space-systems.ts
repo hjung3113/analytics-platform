@@ -12,7 +12,8 @@ import type { SpaceLinks } from '@ap/feature-bridge';
  */
 export type SpaceSystems = SpaceLinks;
 /** Loads the links; the assembly supplies it (the real one reads the feature API, the mock one answers fixed data). */
-export type SpaceSystemsSource = (signal: AbortSignal) => Promise<SpaceSystems>;
+/** `identity` is the session the load runs under (the one passed to `start`), so a late 401 can be tied to its own session. */
+export type SpaceSystemsSource = (signal: AbortSignal, identity: readonly unknown[]) => Promise<SpaceSystems>;
 export type SpaceSystemsStatus = 'pending' | 'ready' | 'failed';
 export type SpaceSystemsSnapshot = { readonly status: SpaceSystemsStatus; readonly data: SpaceSystems | null };
 
@@ -40,9 +41,10 @@ export function createSpaceSystemsStore() {
     const controller = new AbortController();
     inflight = controller;
     const current = source;
+    const identity = session ?? [];
     if (current === null) { publish({ status: 'ready', data: EMPTY }); return; }
     let answer: Promise<SpaceSystems>;
-    try { answer = current(controller.signal); } catch (error) { answer = Promise.reject(error); }
+    try { answer = current(controller.signal, identity); } catch (error) { answer = Promise.reject(error); }
     answer.then(
       (data) => { if (mine === ticket) publish({ status: 'ready', data }); },
       // A failed refresh keeps the links already in hand; only a load with nothing to show is `failed`.

@@ -95,7 +95,7 @@ export function createRealAssembly({ bootstrap, where, importEnvironment = pageE
       const invalidation = createEndpointInvalidation();
       const featureApi = { basePath: FEATURE_API_PREFIX, onSessionLost };
       // Space → system links (#1289 node j): read with the same feature API the bridge screens use; `main.tsx` loads it once per session.
-      return { adapter: withNoticeInvalidation(result.adapter, invalidation), topBarTools: null, serverPreferences: true, savedViews: serverSavedViews(result, importEnvironment), featureApi, spaceSystems: (signal?: AbortSignal) => fetchSpaceLinks(featureApi, signal), invalidation: { subscribe: invalidation.subscribe } };
+      return { adapter: withNoticeInvalidation(result.adapter, invalidation), topBarTools: null, serverPreferences: true, savedViews: serverSavedViews(result, importEnvironment), featureApi, spaceSystems: (signal?: AbortSignal, identity?: readonly unknown[]) => fetchSpaceLinks(featureApi, signal, identity), invalidation: { subscribe: invalidation.subscribe } };
     }
     if (result.kind === 'login') return login;
     if (result.kind === 'throttled') return { screen: <Throttled correlationId={result.correlationId} retryAfterSeconds={result.retryAfterSeconds} /> };

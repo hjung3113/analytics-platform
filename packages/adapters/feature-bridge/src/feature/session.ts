@@ -26,20 +26,35 @@ const readRetired = (): number | null => retiredEpoch;
 type Active = { epoch: number; fire: () => void };
 let active: Active | null = null;
 
+/** The host session a read started under: `[adapter, revision, userId]`, the same tuple `useFeatureSession` and the app's space-systems store key on. */
+export type SessionIdentity = readonly unknown[];
+const sameIdentity = (a: SessionIdentity, b: SessionIdentity): boolean => a.length === b.length && a.every((value, index) => Object.is(value, b[index]));
+
 /**
- * For reads outside React Query's configured client (the space-links transport): captured when a request STARTS, the returned function runs the
- * shared unauthorized handling (retire subtrees, clear the cache, then the host redirect) only while that same session generation (epoch) is still the current one;
- * mounting another consumer inside the same generation does not matter. A request that began under an older generation does nothing. A request that began before
- * any feature session is handled by whichever session is current when its 401 arrives. With no feature
- * session mounted at all it falls back to the host's own `onSessionLost`.
+ * For reads outside React Query's configured client (the space-links transport): called when a request STARTS with the host session identity it runs under;
+ * the returned function runs the shared unauthorized handling (retire subtrees, clear the cache, then the host redirect) only while that same session is the
+ * feature session currently configured. Mounting another consumer inside the same session does not matter. A request of an older session does nothing to the
+ * replacement. Only while no feature session has mounted at all does it fall back to the host's own `onSessionLost`. Without an identity (a read made
+ * under a mounted feature session) it binds to the epoch current at start.
  */
-export function unauthorizedReporter(api: { onSessionLost: () => void }): () => void {
+export function unauthorizedReporter(api: { onSessionLost: () => void }, identity?: SessionIdentity): () => void {
   const boundEpoch = active?.epoch ?? null;
   return () => {
+    if (identity !== undefined) {
+      if (lastReady === null) { api.onSessionLost(); return; }
+      if (sameIdentity(identity, [lastReady.adapter, lastReady.revision, lastReady.userId])) active?.fire();
+      return;
+    }
     // Only the session generation (epoch) decides: a hook mount inside the same generation replaces `active` but must not mute a live request.
     if (boundEpoch !== null && active?.epoch !== boundEpoch) return;
     if (active === null) api.onSessionLost(); else active.fire();
   };
+}
+
+/** Test-only: forget the module's session state so cases do not share one epoch. */
+export function resetFeatureSessionForTests(): void {
+  lastReady = null; retiredEpoch = null; active = null;
+  for (const listener of [...retiredListeners]) listener();
 }
 
 const sameGeneration = (a: Generation, b: Generation): boolean => a.adapter === b.adapter && a.revision === b.revision && a.userId === b.userId;
