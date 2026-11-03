@@ -111,14 +111,11 @@ Slice 4.3 workspace inventory (#114):
 GET /entity-links?scope=workspace
 - default inventory mode is also used when no source or target endpoint is
   supplied.
-- endpoint mode and workspace inventory mode are mutually exclusive; both are paged (limit default 50, cap 100, opaque cursor).
+- endpoint mode and workspace inventory mode are mutually exclusive; both are paged — wire rules in [api/entity-links.md](api/entity-links.md#pagination-both-modes).
 - optional filters: status=active|stale|detached|revoked, relation_type=related_to,
   managed_system_id=<uuid>
-- cursor pagination: limit defaults to 50 and is capped at 100; cursor is opaque
-  and continues the created_at DESC, id DESC order.
 - order: created_at DESC, id DESC
-- response: { items: EntityLinkDto[], page: { has_more: boolean, cursor?: string, status_counts?: { active, stale, detached, revoked } } }; first page without a status filter includes counts across its other filters.
-- endpoint relation reads answer { items: EntityLinkDto[], page: { has_more: boolean, cursor?: string } } (no status_counts), ordered and cursored like the inventory.
+- response shape and `page` fields: see the pagination link above.
 - authz: every row checks voc.read on both endpoints' Managed Systems.
   Rows are visibility_state=allowed only when both endpoints are readable;
   otherwise they are visibility_state=hidden.

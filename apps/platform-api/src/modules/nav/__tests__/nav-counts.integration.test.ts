@@ -343,6 +343,33 @@ describe.skipIf(!runIntegration)('GET /nav/counts (#143)', () => {
     expect(result.body.counts['voc.clusters']).toBe(1);
   });
 
+  it('counts every readable finding beyond one list page and excludes other systems', async () => {
+    const msA = await insertMsDirectly(dbHandle, WORKSPACE_ID, `${PREFIX}-fcount-a`, 'Finding count A');
+    const msB = await insertMsDirectly(dbHandle, WORKSPACE_ID, `${PREFIX}-fcount-b`, 'Finding count B');
+    const vocA = await insertVocDirectly(dbHandle, WORKSPACE_ID, msA, reporterId, 'finding count A');
+    const vocB = await insertVocDirectly(dbHandle, WORKSPACE_ID, msB, reporterId, 'finding count B');
+    for (let i = 0; i < 55; i += 1) {
+      await insertFindingRow(dbHandle, {
+        workspaceId: WORKSPACE_ID,
+        primaryManagedSystemId: msA,
+        sourceId: vocA.id,
+        createdBy: adminActorId,
+      });
+    }
+    for (let i = 0; i < 3; i += 1) {
+      await insertFindingRow(dbHandle, {
+        workspaceId: WORKSPACE_ID,
+        primaryManagedSystemId: msB,
+        sourceId: vocB.id,
+        createdBy: adminActorId,
+      });
+    }
+    const narrowed = await counts(adminCookie, `?managed_system_id=${msA}`);
+    expect(narrowed.body.counts['findings.all']).toBe(55);
+    const all = await counts(adminCookie);
+    expect(all.body.counts['findings.all']).toBeGreaterThanOrEqual(58);
+  });
+
   it('omits inaccessible domain counts while preserving the User VOC count', async () => {
     const ms = await insertMsDirectly(
       dbHandle,
@@ -367,7 +394,7 @@ describe.skipIf(!runIntegration)('GET /nav/counts (#143)', () => {
           throw new Error('injected VOC count failure');
         },
       },
-      findingsService: { listFindings: async () => ({ items: [] }) },
+      findingsService: { listFindings: async () => ({ page: { total: 0 } }) },
       surveysService: { listSurvey: async () => [] },
       vocClustersService: { listClusters: async () => ({ items: [] }) },
     });
