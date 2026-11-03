@@ -77,7 +77,7 @@ afterEach(() => {
 
 beforeAll(() => registerTriageTestHost(() => search, vi.fn()));
 
-describe('Triage request access', () => {
+describe('분류 request access', () => {
   it.each([
     ['default', undefined, 'request_access', false, 'voc.triage', undefined],
     ['selected System', A, 'request_access', false, 'voc.triage', A],
@@ -92,7 +92,7 @@ describe('Triage request access', () => {
       );
       const dialog = screen.getByRole('dialog');
       fireEvent.change(within(dialog).getByTestId('permission-request-reason'), {
-        target: { value: 'Triage 업무에 필요합니다.' },
+        target: { value: '분류 업무에 필요합니다.' },
       });
       fireEvent.click(within(dialog).getByRole('button', { name: '요청 제출' }));
       await waitFor(() => expect(requests).toHaveLength(1));
@@ -103,7 +103,7 @@ describe('Triage request access', () => {
       expect(requests[0]).toEqual({
         requested_capability: capability,
         ...(requestedSystem ? { requested_managed_system_id: requestedSystem } : {}),
-        reason: 'Triage 업무에 필요합니다.',
+        reason: '분류 업무에 필요합니다.',
         return_route_intent: '/vocs?view=triage',
       });
       if (capability === 'voc.read') {
@@ -112,7 +112,7 @@ describe('Triage request access', () => {
         ).toBeInTheDocument();
       } else if (managedSystem) {
         expect(
-          screen.getByText('선택한 Managed System의 VOC Triage 권한이 없습니다.'),
+          screen.getByText('선택한 시스템의 VOC 분류 권한이 없습니다.'),
         ).toBeInTheDocument();
       }
     },
@@ -136,7 +136,7 @@ describe('Triage request access', () => {
     async (state) => {
       search = { managedSystem: A };
       mount(state);
-      expect(await screen.findByRole('heading', { name: 'Triage' })).toBeInTheDocument();
+      expect(await screen.findByRole('heading', { name: '분류' })).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: '권한 요청하기' })).not.toBeInTheDocument();
     },
   );

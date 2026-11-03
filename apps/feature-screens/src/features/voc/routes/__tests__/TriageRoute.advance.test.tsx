@@ -149,7 +149,7 @@ function mount({
 }
 async function confirm() {
   fireEvent.click(screen.getByRole('button', { name: '낮음' }));
-  fireEvent.click(screen.getByRole('button', { name: /Triage 확정/ }));
+  fireEvent.click(screen.getByRole('button', { name: /분류 확정/ }));
 }
 
 it('cancels Finding focus superseded by Back before dismissal and Forward', async () => {
@@ -596,7 +596,7 @@ it.each(['row click', 'action advance'])(
   },
 );
 
-it('clears populated retained rows on a failed Managed System change in the same tab', async () => {
+it('clears populated retained rows on a failed 시스템 change in the same tab', async () => {
   const { router } = mount();
   await screen.findByRole('heading', { name: second.title });
   const client = clients[clients.length - 1] as QueryClient;

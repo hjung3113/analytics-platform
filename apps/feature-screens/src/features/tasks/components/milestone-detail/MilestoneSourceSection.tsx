@@ -68,7 +68,7 @@ export function MilestoneSourceSection({
             <p className="text-xs leading-note text-text-muted">{sourceFinding.summary}</p>
             <div className="flex flex-wrap gap-2">
               <MilestoneOutlineBadge>
-                Evidence · {sourceFinding.evidence_count}
+                근거 · {sourceFinding.evidence_count}
               </MilestoneOutlineBadge>
             </div>
           </div>

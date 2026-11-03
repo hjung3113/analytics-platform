@@ -252,7 +252,7 @@ describe('TaskBoardScreen under a host seam', () => {
 
   it('shows the Task Request review link through the seam only when the host can link', async () => {
     const view = mount();
-    await screen.findByLabelText('Backlog 열');
+    await screen.findByLabelText('대기 열');
     const link = view.container.querySelector('[data-seam-link]');
     expect(link).not.toBeNull();
     expect(parse(link?.getAttribute('href') as string)).toEqual({
@@ -262,7 +262,7 @@ describe('TaskBoardScreen under a host seam', () => {
     cleanup();
     linkable = false;
     const unlinked = mount();
-    await screen.findByLabelText('Backlog 열');
+    await screen.findByLabelText('대기 열');
     expect(unlinked.container.querySelector('[data-seam-link]')).toBeNull();
     expect(screen.getByText(/Task는 Task Request에서 전환됩니다\./)).toBeInTheDocument();
   });
@@ -270,7 +270,7 @@ describe('TaskBoardScreen under a host seam', () => {
   it('notifies a rejected move through the seam and puts the card back', async () => {
     failPatch = true;
     mount();
-    await screen.findByLabelText('Backlog 열');
+    await screen.findByLabelText('대기 열');
     const task = tasks[0] as TaskDto;
     const active = { id: task.id, data: { current: { task } } };
     await act(async () => {
@@ -286,7 +286,7 @@ describe('TaskBoardScreen under a host seam', () => {
     expect(typeof notifyError.mock.calls[0]?.[0]).toBe('string');
     await waitFor(() =>
       expect(
-        within(screen.getByLabelText('Backlog 열')).getByRole('button', { name: /^TASK-1:/ }),
+        within(screen.getByLabelText('대기 열')).getByRole('button', { name: /^TASK-1:/ }),
       ).toBeInTheDocument(),
     );
   });

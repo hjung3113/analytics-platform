@@ -264,7 +264,7 @@ describe('VocSourcePicker', () => {
     ]);
   });
 
-  it('does not offer an exact VOC from another Managed System', async () => {
+  it('does not offer an exact VOC from another 시스템', async () => {
     const voc10 = makeVoc('10000000-0000-0000-0000-000000000010', 'VOC-10', '최근 VOC');
     const fetchMock = installFetch((q) => (q === 'VOC-1' ? [voc10] : []), false, {
       resolve: () => jsonResponse(resolveBody('voc', EXACT_VOC_ID, 'VOC-1')),
@@ -524,7 +524,7 @@ describe('VocSourcePicker', () => {
 
     expect(
       await within(screen.getByRole('listbox', { name: 'VOC 목록' })).findByText(
-        '선택한 Managed System의 VOC를 볼 권한이 없습니다.',
+        '선택한 시스템의 VOC를 볼 권한이 없습니다.',
       ),
     ).toBeInTheDocument();
   });

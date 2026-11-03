@@ -177,7 +177,7 @@ describe('/admin/managed-systems route', () => {
     });
     expect(
       screen.getByText(
-        'Managed System은 권한과 집계의 기준 단위입니다. 기본 담당자·검토자, Analytics Area 매핑, 활성 상태를 관리합니다.',
+        '시스템은 권한과 집계의 기준 단위입니다. 기본 담당자·검토자, 분석 영역 매핑, 활성 상태를 관리합니다.',
       ),
     ).toBeVisible();
     expect(screen.getByTestId('managed-system-row-tableau')).toBeInTheDocument();

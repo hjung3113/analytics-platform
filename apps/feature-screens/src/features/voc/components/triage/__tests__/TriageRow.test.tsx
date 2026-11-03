@@ -43,9 +43,9 @@ describe('TriageRow', () => {
     expect(screen.getByText('담당자 없음')).toBeInTheDocument();
   });
 
-  it('shows "Analytics Area 미지정" when analytics_area_id is null', () => {
+  it('shows "분석 영역 미지정" when analytics_area_id is null', () => {
     render(<TriageRow voc={BASE_VOC} selected={false} onSelect={vi.fn()} />);
-    expect(screen.getByText('Analytics Area 미지정')).toBeInTheDocument();
+    expect(screen.getByText('분석 영역 미지정')).toBeInTheDocument();
   });
 
   it('uses danger tone only for missing owner and keeps the area while omitting the row peer count', () => {
@@ -55,13 +55,13 @@ describe('TriageRow', () => {
 
     const owner = screen.getByText('담당자 없음');
     expect(owner).toBeInTheDocument();
-    const area = screen.getByText('Analytics Area 미지정');
+    const area = screen.getByText('분석 영역 미지정');
     expect(area).toHaveClass('text-text-muted');
     expect(area).not.toHaveClass('text-text-danger', 'text-text-warning', 'text-accent-primary');
-    expect(screen.queryByText('같은 Managed System의 VOC 3건')).not.toBeInTheDocument();
+    expect(screen.queryByText('같은 시스템의 VOC 3건')).not.toBeInTheDocument();
   });
 
-  it('describes postponed status, missing owner and missing Analytics Area on focus', () => {
+  it('describes postponed status, missing owner and missing 분석 영역 on focus', () => {
     render(
       <TriageRow
         voc={{ ...BASE_VOC, review_postponed_at: '2026-10-09T00:00:00.000Z' }}
@@ -71,7 +71,7 @@ describe('TriageRow', () => {
     );
     expect(
       screen.getByRole('button', { name: 'VOC-001 Test VOC title' }),
-    ).toHaveAccessibleDescription('접수됨 보류 Analytics Area 미지정 담당자 없음');
+    ).toHaveAccessibleDescription('접수됨 보류 분석 영역 미지정 담당자 없음');
   });
 
   it('calls onSelect when clicked', () => {
@@ -95,10 +95,10 @@ describe('TriageRow', () => {
     expect(screen.queryByText('담당자 없음')).not.toBeInTheDocument();
   });
 
-  it('does NOT show "Analytics Area 미지정" when analytics_area_id is set', () => {
+  it('does NOT show "분석 영역 미지정" when analytics_area_id is set', () => {
     const vocWithArea = { ...BASE_VOC, analytics_area_id: 'aa-1' };
     render(<TriageRow voc={vocWithArea} selected={false} onSelect={vi.fn()} />);
-    expect(screen.queryByText('Analytics Area 미지정')).not.toBeInTheDocument();
+    expect(screen.queryByText('분석 영역 미지정')).not.toBeInTheDocument();
   });
 });
 

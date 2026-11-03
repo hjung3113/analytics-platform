@@ -335,7 +335,7 @@ describe('MilestonesRoute list (#514 B2c)', () => {
     expect(whyLine.textContent).not.toContain('released');
 
     const metricsLine = body.children[2] as HTMLElement;
-    expect(metricsLine.textContent).toContain('Released 0/1');
+    expect(metricsLine.textContent).toContain('배포됨 0/1');
     expect(metricsLine.textContent).toContain('2026-06-15');
     expect(within(metricsLine).queryByText('1', { exact: true })).not.toBeInTheDocument();
     expect(metricsLine.textContent).not.toContain('SSO 세션');

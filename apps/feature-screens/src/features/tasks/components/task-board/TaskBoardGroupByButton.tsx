@@ -12,7 +12,7 @@ import * as React from 'react';
 export const GROUP_OPTIONS = [
   { value: 'status', label: '상태 (기본)' },
   { value: 'priority', label: '우선순위' },
-  { value: 'managedSystem', label: 'Managed System' },
+  { value: 'managedSystem', label: '시스템' },
   { value: 'assignee', label: '담당자' },
 ] as const;
 

@@ -46,7 +46,7 @@ it('renders exact domain links, neutral ratios, unavailable metrics and whole-sy
     screen.getByRole('link', { name: 'Identity Platform · 인증 Finding 진행 중 10건' }),
   ).toHaveAttribute('href', expect.stringContaining('status=active'));
   expect(
-    screen.getByRole('link', { name: 'Data Warehouse · 미지정 Survey 후속 조치 필요 2건' }),
+    screen.getByRole('link', { name: 'Data Warehouse · 미지정 설문 후속 조치 필요 2건' }),
   ).toHaveAttribute('href', expect.stringContaining('filter.analytics_area=unset'));
   expect(
     screen.getByRole('link', { name: 'Identity Platform · 인증 Task 기한 지남 2건' }),
@@ -73,16 +73,16 @@ it('renders exact domain links, neutral ratios, unavailable metrics and whole-sy
     ).toHaveAttribute('href', `/tasks?view=requests&managedSystem=${id}`);
   }
   expect(
-    screen.getByText('VOC 분류 10/10 · Finding 분류 10/10 · Task 분류 3/3 · Survey 분류 1/1'),
+    screen.getByText('VOC 분류 10/10 · Finding 분류 10/10 · Task 분류 3/3 · 설문 분류 1/1'),
   ).toBeVisible();
   expect(
-    screen.queryByText('모든 항목이 미분류 상태입니다. Analytics Area 분류는 선택 사항입니다.'),
+    screen.queryByText('모든 항목이 미분류 상태입니다. 분석 영역 분류는 선택 사항입니다.'),
   ).toBeNull();
   for (const [name, metric, system, area] of [
     ['Identity Platform · 인증 Finding 진행 중 10건', 'finding.active', IDS.systemA, IDS.areaA],
     ['Identity Platform · 인증 Task 기한 지남 2건', 'task.overdue', IDS.systemA, IDS.areaA],
     [
-      'Data Warehouse · 미지정 Survey 후속 조치 필요 2건',
+      'Data Warehouse · 미지정 설문 후속 조치 필요 2건',
       'survey.follow_up_needed',
       IDS.systemB,
       null,
@@ -95,14 +95,14 @@ it('renders exact domain links, neutral ratios, unavailable metrics and whole-sy
     );
   }
   const row = screen.getByRole('row', { name: /인증/ });
-  for (const label of ['전체 10', 'In-flight (Todo·Doing·Review) 3', '기한 지남 2', 'Open 1']) {
+  for (const label of ['전체 10', 'In-flight (할 일·진행 중·검토) 3', '기한 지남 2', 'Open 1']) {
     expect(within(row).getByText(label)).toBeVisible();
   }
   expect(
     screen.getByRole('link', { name: 'Identity Platform · 인증 Task Todo 3건' }),
   ).toBeVisible();
   expect(
-    screen.getByRole('link', { name: 'Identity Platform · 인증 Survey Open 1건' }),
+    screen.getByRole('link', { name: 'Identity Platform · 인증 설문 Open 1건' }),
   ).toBeVisible();
   expect(within(row).getByText('미배정 0').closest('a')).toBeNull();
   expect(within(row).getByText('미배정 0')).not.toHaveClass('text-accent-primary');
@@ -120,7 +120,7 @@ it.each([
 ])('uses classification context for %s', (_name, report, shown) => {
   render(<AnalyticsAreaReportTable report={report} />);
   expect(
-    screen.queryByText('모든 항목이 미분류 상태입니다. Analytics Area 분류는 선택 사항입니다.') !==
+    screen.queryByText('모든 항목이 미분류 상태입니다. 분석 영역 분류는 선택 사항입니다.') !==
       null,
   ).toBe(shown);
 });

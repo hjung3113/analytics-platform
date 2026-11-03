@@ -126,7 +126,7 @@ export function SurveyBuilder({
           {editable ? (
             <>
               <Input
-                aria-label="Survey 제목"
+                aria-label="설문 제목"
                 aria-invalid={titleIsBlank}
                 {...(titleIsBlank ? { 'aria-describedby': titleErrorId } : {})}
                 className={
@@ -203,7 +203,7 @@ export function SurveyBuilder({
               onClick={() => setLaunchOpen(true)}
             >
               <Megaphone className="h-4 w-4" />
-              Survey 시작
+              설문 시작
             </Button>
           </>
         )}
@@ -232,7 +232,7 @@ export function SurveyBuilder({
         <div className="border-b border-border-subtle bg-surface-detail px-4 py-3 text-sm text-text-muted">
           {survey.status !== 'draft'
             ? `${surveyStatusLabel(survey.status)} 상태 — 질문 변경은 잠겨 있습니다.`
-            : 'Survey 관리 권한이 없습니다.'}
+            : '설문 관리 권한이 없습니다.'}
         </div>
       )}
       {saveFailed && (

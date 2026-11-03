@@ -13,7 +13,7 @@ export const HOME_COPY = {
     if (queues === undefined) return '오늘 워크스페이스의 운영 현황을 불러오는 중입니다.';
     if (queues.length === 0) {
       if (coverage?.length === 0) {
-        return '운영 큐와 커버리지는 Managed System 담당 범위가 있을 때만 표시됩니다. 지금은 나에게 배정된 작업만 보입니다.';
+        return '운영 큐와 커버리지는 시스템 담당 범위가 있을 때만 표시됩니다. 지금은 나에게 배정된 작업만 보입니다.';
       }
       return '현재 확인할 운영 큐가 없습니다.';
     }
@@ -63,7 +63,7 @@ export const HOME_QUEUE_COPY: Record<
     title: GLOSSARY.highNoLink,
     sidebarLabel: GLOSSARY.highNoLink,
     detail:
-      '높음·심각 VOC 중 Finding, Task Request, Task 연결이 없고, 소속 Cluster의 Finding 또는 Task Request 연결도 없는 항목입니다.',
+      '높음·심각 VOC 중 Finding, Task Request, Task 연결이 없고, 소속 반복 VOC의 Finding 또는 Task Request 연결도 없는 항목입니다.',
     primaryAction: '높은 심각도 VOC 검토',
     secondaryAction: '큐 열기',
   },
@@ -77,20 +77,20 @@ export const HOME_QUEUE_COPY: Record<
     secondaryAction: '큐 열기',
   },
   'released-task-unresolved-voc': {
-    title: 'Released Task · 미해결 VOC',
-    sidebarLabel: 'Released Task · 미해결 VOC',
-    detail: 'Task는 Released지만 연결된 공개 상태가 해결됨이 아닙니다.',
+    title: '배포된 Task · 미해결 VOC',
+    sidebarLabel: '배포된 Task · 미해결 VOC',
+    detail: 'Task는 배포됨 상태지만 연결된 공개 상태가 해결됨이 아닙니다.',
     primaryAction: '업데이트 검토',
     secondaryAction: '큐 열기',
   },
   'bad-outcome-no-followup': {
-    title: '후속 조치 없는 부정 성과 Survey',
-    sidebarLabel: '후속 조치 없는 부정 성과 Survey',
-    detail: '부정 성과 Survey 결과에 대한 후속 Finding/Task가 구성되어 있지 않습니다.',
+    title: '후속 조치 없는 부정 성과 설문',
+    sidebarLabel: '후속 조치 없는 부정 성과 설문',
+    detail: '부정 성과 설문 결과에 대한 후속 Finding/Task가 구성되어 있지 않습니다.',
     // #1179: the link opens the outcome Surveys review, so it keeps the
     // Integration wording instead of promising to create the follow-up.
     primaryAction: DASHBOARD_QUEUE_ACTION_LABELS['bad-outcome-no-followup'],
-    secondaryAction: 'Survey 보기',
+    secondaryAction: '설문 보기',
   },
   'permission-requests-pending': {
     title: '검토 대기 중인 권한 요청',

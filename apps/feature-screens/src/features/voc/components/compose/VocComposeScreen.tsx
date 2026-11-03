@@ -174,7 +174,7 @@ export function VocComposeScreen({
           ) : msQuery.isError ? (
             <p className="text-sm text-text-danger">{mapUnknownError(msQuery.error).message}</p>
           ) : msOptions.length === 0 ? (
-            <p className="text-sm text-text-muted">선택할 수 있는 Managed System이 없습니다</p>
+            <p className="text-sm text-text-muted">선택할 수 있는 시스템이 없습니다</p>
           ) : (
             <Controller
               control={form.control}
@@ -184,7 +184,7 @@ export function VocComposeScreen({
                   options={msOptions}
                   value={field.value || null}
                   onChange={(id) => field.onChange(id ?? '')}
-                  placeholder="Managed System 선택"
+                  placeholder="시스템 선택"
                   testId="ms-picker"
                 />
               )}
@@ -201,7 +201,7 @@ export function VocComposeScreen({
           <FieldLabel
             htmlFor="analytics_area_id"
             appearance="section"
-            tip="선택사항. 선택한 Managed System 안의 Analytics Area만 고를 수 있어요."
+            tip="선택사항. 선택한 시스템 안의 분석 영역만 고를 수 있어요."
           >
             {VOC_CREATE_COPY.analyticsAreaField}
           </FieldLabel>
@@ -220,7 +220,7 @@ export function VocComposeScreen({
                   value={field.value ?? null}
                   onChange={(id) => field.onChange(id ?? undefined)}
                   disabled={!selectedMs}
-                  placeholder="Analytics Area 선택"
+                  placeholder="분석 영역 선택"
                   testId="aa-picker"
                 />
               )}

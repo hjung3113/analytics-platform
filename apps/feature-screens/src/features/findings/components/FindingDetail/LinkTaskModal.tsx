@@ -94,7 +94,7 @@ export function LinkTaskModal({ finding, open, onClose }: LinkTaskModalProps): R
             </div>
           ) : candidates.length === 0 ? (
             <p className="text-sm text-text-muted">
-              연결 가능한 같은 Managed System Task가 없습니다.
+              연결 가능한 같은 시스템 Task가 없습니다.
             </p>
           ) : (
             <>

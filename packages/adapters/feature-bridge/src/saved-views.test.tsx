@@ -151,7 +151,7 @@ describe('savedViewsSlot', () => {
   it('on the dashboard shows the guidance line, never an empty body', async () => {
     await mount('/flow/dashboard');
     await settle();
-    expect(host!.textContent).toContain('수신함이나 Triage에서 현재 필터를 저장할 수 있습니다.');
+    expect(host!.textContent).toContain('VOC 처리함이나 분류에서 현재 필터를 저장할 수 있습니다.');
     expect(input()).toBeNull();
   });
 
@@ -160,7 +160,7 @@ describe('savedViewsSlot', () => {
     await mount('/flow/dashboard');
     await settle();
     expect(applyButton('높음 보기')).toBeTruthy();
-    expect(host!.textContent).not.toContain('수신함이나 Triage');
+    expect(host!.textContent).not.toContain('VOC 처리함이나 분류');
   });
 });
 
@@ -255,7 +255,7 @@ describe('session states', () => {
     await settle();
     expect(host!.textContent).toContain('불러오는 중…');
     expect(host!.textContent).not.toContain('실서버 필요');
-    expect(host!.textContent).not.toContain('수신함이나 Triage');
+    expect(host!.textContent).not.toContain('VOC 처리함이나 분류');
     await act(async () => { release(); });
     await settle();
     expect(host!.textContent).not.toContain('불러오는 중…');

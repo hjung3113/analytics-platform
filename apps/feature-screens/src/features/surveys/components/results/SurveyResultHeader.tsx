@@ -43,7 +43,7 @@ export function SurveyResultHeader({
       <div className="flex min-w-0 flex-1 items-center gap-x-2 whitespace-nowrap text-sm">
         {canLink(listHref) && (
           <HostLink className="shrink-0 text-text-muted hover:text-text-primary" to={listHref}>
-            Surveys /
+            설문 /
           </HostLink>
         )}
         <span className="font-mono text-text-muted">{survey.display_id}</span>
@@ -60,7 +60,7 @@ export function SurveyResultHeader({
       </div>
       {/* Two views only exist for personal-response holders; a lone Results tab is noise. */}
       {canReviewResponses && (canLink(resultsHref) || canLink(followUpHref)) && (
-        <nav aria-label="Survey 결과 보기" className="flex items-center gap-1">
+        <nav aria-label="설문 결과 보기" className="flex items-center gap-1">
           {canLink(resultsHref) && (
             <HostLink
               aria-current={activeTab === 'results' ? 'page' : undefined}

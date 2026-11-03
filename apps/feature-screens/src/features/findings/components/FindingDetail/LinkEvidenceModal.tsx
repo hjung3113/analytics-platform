@@ -66,7 +66,7 @@ export function LinkEvidenceModal({
       onSuccess: () => {
         markConsumed();
         closeAndReset();
-        notifySuccess('Evidence가 연결되었습니다.');
+        notifySuccess('근거가 연결되었습니다.');
       },
     });
   }
@@ -94,7 +94,7 @@ export function LinkEvidenceModal({
         data-testid="link-evidence-modal"
       >
         <DialogHeader>
-          <DialogTitle>기존 Evidence 연결</DialogTitle>
+          <DialogTitle>기존 근거 연결</DialogTitle>
         </DialogHeader>
 
         <form

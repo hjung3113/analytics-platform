@@ -134,7 +134,7 @@ describe('permission request risk review', () => {
     expect(review).toHaveTextContent('요청 만료일 없음');
     expect(review).toHaveTextContent('겹치는 활성 차단 2건');
     expect(review).toHaveTextContent(
-      '겹치는 활성 차단 2건 · 워크스페이스 전체 · Managed System (50000000)',
+      '겹치는 활성 차단 2건 · 워크스페이스 전체 · 시스템 (50000000)',
     );
   });
 

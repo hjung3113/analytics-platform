@@ -167,8 +167,8 @@ describe('Surveys through the feature bridge', () => {
   it('S8: an already-submitted form shows the feature message and a link back to 설문', async () => {
     surveyFetch({ form: () => json({ code: 'conflict.survey_response_already_submitted', message: 'survey response already submitted' }, 409) });
     mountAt(switchableAdapter().adapter, respondUrl());
-    expect(await screen.findByText('이 Survey에는 이미 응답을 제출했습니다.')).toBeTruthy();
-    const back = screen.getByRole('link', { name: 'Survey 참여로 돌아가기' });
+    expect(await screen.findByText('이 설문에는 이미 응답을 제출했습니다.')).toBeTruthy();
+    const back = screen.getByRole('link', { name: '설문 참여로 돌아가기' });
     expect(new URL(back.getAttribute('href')!, origin()).pathname).toBe('/survey');
     expect(screen.queryByTestId('survey-respondent-form')).toBeNull();
   });

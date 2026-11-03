@@ -258,7 +258,7 @@ it('selects a row by push and hands the panel to the host, never to ListShell', 
   act(() => setSearch({ selected: ID }));
   await screen.findByTestId('drawer');
   await waitFor(() => expect(detailCalls.length).toBeGreaterThan(0));
-  expect(detailCalls[0]?.title).toBe('Evidence');
+  expect(detailCalls[0]?.title).toBe('근거');
   expect(typeof detailCalls[0]?.requestClose).toBe('function');
   expect(listShell.detailPanels.length).toBeGreaterThan(0);
   expect(listShell.detailPanels.every((panel) => panel === undefined)).toBe(true);

@@ -758,7 +758,7 @@ export function TaskBoardScreen({ renderDetail }: TaskBoardScreenProps) {
                       task={activeTask}
                       selected={activeTask.id === selectedId}
                       managedSystemName={
-                        systemNames.get(activeTask.primary_managed_system_id) ?? 'Managed System'
+                        systemNames.get(activeTask.primary_managed_system_id) ?? '시스템'
                       }
                       assigneeName={
                         activeTask.assignee_team_id

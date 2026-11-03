@@ -96,7 +96,7 @@ function listQuery(index = -1) {
 }
 
 async function choose(option: string) {
-  const trigger = await screen.findByRole('combobox', { name: 'Analytics Area' });
+  const trigger = await screen.findByRole('combobox', { name: '분석 영역' });
   await act(async () => {
     fireEvent.keyDown(trigger, { key: 'Enter' });
   });
@@ -123,8 +123,8 @@ afterEach(() => {
 describe.each(['/vocs?view=inbox', '/vocs?view=triage'])('Area filter on %s', (path) => {
   it('lists all, 미지정 and the actor areas with an archived suffix', async () => {
     mount(path);
-    const trigger = await screen.findByRole('combobox', { name: 'Analytics Area' });
-    expect(trigger).toHaveTextContent('전체 Analytics Area');
+    const trigger = await screen.findByRole('combobox', { name: '분석 영역' });
+    expect(trigger).toHaveTextContent('전체 분석 영역');
     await waitFor(() =>
       expect(mounted?.requests.some((r) => r.url.startsWith('/analytics-areas'))).toBe(true),
     );
@@ -136,7 +136,7 @@ describe.each(['/vocs?view=inbox', '/vocs?view=triage'])('Area filter on %s', (p
       within(listbox)
         .getAllByRole('option')
         .map((option) => option.textContent),
-    ).toEqual(['전체 Analytics Area', '미지정', '결제 분석', '옛 분석 · 보관됨']);
+    ).toEqual(['전체 분석 영역', '미지정', '결제 분석', '옛 분석 · 보관됨']);
   });
 
   it.each([
@@ -150,13 +150,13 @@ describe.each(['/vocs?view=inbox', '/vocs?view=triage'])('Area filter on %s', (p
     await waitFor(() => expect(listQuery()?.['filter.analytics_area']).toBe(value));
     expect(listQuery()?.view).toBe(path.endsWith('triage') ? 'triage' : 'inbox');
 
-    await choose('전체 Analytics Area');
+    await choose('전체 분석 영역');
     // The unfiltered page is already cached, so clearing may send no new request.
     await waitFor(() => expect(urlArea()).toBeUndefined());
   });
 });
 
-describe('Triage Area filter and queue counts', () => {
+describe('분류 Area filter and queue counts', () => {
   it('omits all five unfiltered numbers while filtered and restores them when cleared', async () => {
     mount('/vocs?view=triage');
     const total = await screen.findByTestId('triage-queue-total');
@@ -179,7 +179,7 @@ describe('Triage Area filter and queue counts', () => {
     expect(screenText()).not.toMatch(/\b0 VOC\b/);
     expect(queueText()).not.toMatch(/\b0\b/);
 
-    await choose('전체 Analytics Area');
+    await choose('전체 분석 영역');
     await waitFor(() => expect(total).toHaveTextContent('71 VOC'));
     for (const number of ['72', '73', '74', '75']) {
       expect(screen.getByTestId('triage-toolbar').textContent).toMatch(
@@ -189,7 +189,7 @@ describe('Triage Area filter and queue counts', () => {
   });
 });
 
-describe('Triage Area switch with an optimistic removal in flight', () => {
+describe('분류 Area switch with an optimistic removal in flight', () => {
   it('expires the old exclusion, keeps the session counter and the original command', async () => {
     let settle: (response: Response) => void = () => {};
     patchResponse = new Promise<Response>((resolve) => {
@@ -200,11 +200,11 @@ describe('Triage Area switch with an optimistic removal in flight', () => {
     const rowTitle = () => within(queue).queryByText('영역 필터 행');
     await waitFor(() => expect(rowTitle()).not.toBeNull());
 
-    fireEvent.click(await screen.findByRole('button', { name: /Triage 확정 & 다음 VOC/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /분류 확정 & 다음 VOC/ }));
     await waitFor(() => expect(rowTitle()).toBeNull());
 
     // The new Area's read still returns the row; the old exclusion must not hide it.
-    await choose('전체 Analytics Area');
+    await choose('전체 분석 영역');
     await waitFor(() => expect(rowTitle()).not.toBeNull());
     expect(mounted?.requests.filter((r) => r.method === 'PATCH')).toHaveLength(1);
 
@@ -282,7 +282,7 @@ it.each([
     await act(async () => {
       await mounted?.router.options.context.queryClient.invalidateQueries({ queryKey: ['me'] });
     });
-    const trigger = await screen.findByRole('combobox', { name: 'Analytics Area' });
+    const trigger = await screen.findByRole('combobox', { name: '분석 영역' });
     fireEvent.keyDown(trigger, { key: 'Enter' });
     const listbox = await screen.findByRole('listbox');
     await waitFor(() =>
@@ -292,20 +292,20 @@ it.each([
           .map((o) => o.textContent),
       ).toEqual(
         twoVisible && !scoped
-          ? ['전체 Analytics Area', '미지정', 'Usage · Tableau', 'Usage · Power BI · 보관됨']
-          : ['전체 Analytics Area', '미지정', 'Usage'],
+          ? ['전체 분석 영역', '미지정', 'Usage · Tableau', 'Usage · Power BI · 보관됨']
+          : ['전체 분석 영역', '미지정', 'Usage'],
       ),
     );
     expect(urlArea()).toBe(ARCHIVED_AREA);
     expect(listQuery()?.['filter.analytics_area']).toBe(ARCHIVED_AREA);
     if (view === 'inbox') {
-      expect(screen.getByText('Analytics Area: Usage (보관됨)')).toBeInTheDocument();
+      expect(screen.getByText('분석 영역: Usage (보관됨)')).toBeInTheDocument();
     }
   },
 );
 
 describe('Area options follow the actor voc.read scope (#1211)', () => {
-  const SPECIAL = ['전체 Analytics Area', '미지정'];
+  const SPECIAL = ['전체 분석 영역', '미지정'];
   const SCOPE_AREAS = [
     { id: AREA, name: 'Usage', managed_system_id: MS, archived_at: null },
     { id: ARCHIVED_AREA, name: 'Billing', managed_system_id: OTHER_MS, archived_at: null },
@@ -336,7 +336,7 @@ describe('Area options follow the actor voc.read scope (#1211)', () => {
   }
 
   async function openOptions() {
-    const trigger = await screen.findByRole('combobox', { name: 'Analytics Area' });
+    const trigger = await screen.findByRole('combobox', { name: '분석 영역' });
     await waitFor(() =>
       expect(mounted?.requests.some((r) => r.url.startsWith('/analytics-areas'))).toBe(true),
     );
@@ -416,9 +416,9 @@ it('undo across Area restores only the original VOC and preserves the remaining 
     },
   });
   await screen.findByRole('heading', { name: ROW.title });
-  fireEvent.click(screen.getByRole('button', { name: /Triage 확정 & 다음 VOC/ }));
+  fireEvent.click(screen.getByRole('button', { name: /분류 확정 & 다음 VOC/ }));
   await waitFor(() => expect(mounted?.router.state.location.search.selected).toBe(NEXT_ID));
-  await choose('전체 Analytics Area');
+  await choose('전체 분석 영역');
   await screen.findByRole('button', { name: /VOC-A01/ });
   expect(mounted?.router.state.location.search.selected).toBe(NEXT_ID);
   fireEvent.click(await screen.findByRole('button', { name: '실행 취소' }));

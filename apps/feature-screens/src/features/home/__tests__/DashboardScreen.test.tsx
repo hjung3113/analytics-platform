@@ -158,7 +158,7 @@ describe('DashboardScreen scope status', () => {
       HOME_COPY.subtitle([], []),
     );
     expect(screen.getByTestId('home-scope-status').textContent).toContain(
-      'Managed System 담당 범위',
+      '시스템 담당 범위',
     );
   });
 

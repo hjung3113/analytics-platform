@@ -166,12 +166,12 @@ describe('TaskBoardRoute keyboard dragging', () => {
     ) {
       const label = this.getAttribute('aria-label');
       const index = [
-        'Backlog',
-        'Todo',
-        'Doing',
-        'Review',
-        'Done',
-        'Released',
+        '대기',
+        '할 일',
+        '진행 중',
+        '검토',
+        '완료',
+        '배포됨',
         'Reopened',
       ].findIndex((status) => label === `${status} 열`);
       if (index >= 0) return boardRect(index * 300, 288, 600);
@@ -248,7 +248,7 @@ describe('TaskBoardRoute keyboard dragging', () => {
     await act(async () => {
       await client.refetchQueries({ queryKey: ['tasks'] });
     });
-    await waitFor(() => expect(screen.queryByLabelText('Backlog 열')).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByLabelText('대기 열')).not.toBeInTheDocument());
     const outside = screen.getByRole('button', { name: 'Outside board' });
     outside.focus();
     const afterTeardown = new KeyboardEvent('keydown', {
@@ -302,7 +302,7 @@ describe('TaskBoardRoute keyboard dragging', () => {
     expect(afterCancel.defaultPrevented).toBe(false);
   });
 
-  it('moves a rendered Task from Backlog to Doing with the keyboard sensor', async () => {
+  it('moves a rendered Task from 대기 to 진행 중 with the keyboard sensor', async () => {
     const liveMessages: string[] = [];
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
@@ -319,14 +319,14 @@ describe('TaskBoardRoute keyboard dragging', () => {
       </QueryClientProvider>,
     );
 
-    const backlog = await screen.findByLabelText('Backlog 열');
+    const backlog = await screen.findByLabelText('대기 열');
     const card = within(backlog).getByRole('button', {
       name: 'TASK-1000: Keyboard draggable Task',
     });
     card.focus();
     fireEvent.keyDown(card, { key: ' ', code: 'Space' });
     await waitFor(() =>
-      expect(liveMessages).toContain('TASK-1000 Task를 집었습니다. 현재 열: Backlog.'),
+      expect(liveMessages).toContain('TASK-1000 Task를 집었습니다. 현재 열: 대기.'),
     );
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
@@ -337,20 +337,20 @@ describe('TaskBoardRoute keyboard dragging', () => {
     ).toBeInTheDocument();
     await waitFor(() =>
       expect(screen.getByRole('status').textContent).toBe(
-        'TASK-1000 Task를 집었습니다. 현재 열: Backlog.',
+        'TASK-1000 Task를 집었습니다. 현재 열: 대기.',
       ),
     );
 
     fireEvent.keyDown(document, { key: 'ArrowRight', code: 'ArrowRight' });
     await waitFor(() =>
       expect(screen.getByRole('status').textContent).toBe(
-        'TASK-1000 Task가 Todo 열 위에 있습니다.',
+        'TASK-1000 Task가 할 일 열 위에 있습니다.',
       ),
     );
     fireEvent.keyDown(document, { key: 'ArrowRight', code: 'ArrowRight' });
     await waitFor(() =>
       expect(screen.getByRole('status').textContent).toBe(
-        'TASK-1000 Task가 Doing 열 위에 있습니다.',
+        'TASK-1000 Task가 진행 중 열 위에 있습니다.',
       ),
     );
     fireEvent.keyDown(document, { key: ' ', code: 'Space' });
@@ -362,9 +362,9 @@ describe('TaskBoardRoute keyboard dragging', () => {
         expect.objectContaining({ ifMatch: task.updated_at, idempotencyKey: expect.any(String) }),
       ),
     );
-    expect(screen.getByLabelText('Doing 열')).toHaveTextContent(task.display_id);
+    expect(screen.getByLabelText('진행 중 열')).toHaveTextContent(task.display_id);
     expect(
-      within(screen.getByLabelText('Doing 열')).getByRole('button', {
+      within(screen.getByLabelText('진행 중 열')).getByRole('button', {
         name: 'TASK-1000: Keyboard draggable Task',
       }),
     ).toHaveFocus();
@@ -373,7 +373,7 @@ describe('TaskBoardRoute keyboard dragging', () => {
     ).not.toBeInTheDocument();
     await waitFor(() =>
       expect(screen.getByRole('status').textContent).toBe(
-        'TASK-1000 Task를 Doing 열에 놓았습니다.',
+        'TASK-1000 Task를 진행 중 열에 놓았습니다.',
       ),
     );
   });
@@ -404,7 +404,7 @@ describe('TaskBoardRoute keyboard dragging', () => {
       </QueryClientProvider>,
     );
     const card = await screen.findByRole('button', { name: /TASK-1000:/ });
-    board = screen.getByLabelText('Backlog 열').parentElement;
+    board = screen.getByLabelText('대기 열').parentElement;
     if (!board) throw new Error('Missing board scroller');
     const scroller = board;
     Object.assign(board.style, { overflowX: 'auto' });
@@ -446,7 +446,7 @@ describe('TaskBoardRoute keyboard dragging', () => {
       fireEvent(document, arrow);
       expect(arrow.defaultPrevented).toBe(true);
     }
-    for (const status of ['Todo', 'Doing', 'Review', 'Done', 'Released', 'Reopened']) {
+    for (const status of ['할 일', '진행 중', '검토', '완료', '배포됨', 'Reopened']) {
       const arrow = new KeyboardEvent('keydown', {
         key: 'ArrowRight',
         code: 'ArrowRight',
@@ -504,7 +504,7 @@ describe('TaskBoardRoute keyboard dragging', () => {
       </QueryClientProvider>,
     );
     const card = await screen.findByRole('button', { name: /TASK-1000:/ });
-    board = screen.getByLabelText('Backlog 열').parentElement;
+    board = screen.getByLabelText('대기 열').parentElement;
     if (!board) throw new Error('Missing board scroller');
     const scroller = board;
     Object.defineProperties(board, {
@@ -539,7 +539,7 @@ describe('TaskBoardRoute keyboard dragging', () => {
         ),
       );
     };
-    for (const status of ['Todo', 'Doing', 'Review', 'Done', 'Released', 'Reopened'])
+    for (const status of ['할 일', '진행 중', '검토', '완료', '배포됨', 'Reopened'])
       await press('ArrowRight', status);
     // Past the last column nothing moves: the announcement and the target stay on Reopened.
     for (let extra = 0; extra < 2; extra += 1) {
@@ -549,7 +549,7 @@ describe('TaskBoardRoute keyboard dragging', () => {
       });
       await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Reopened 열 위에'));
     }
-    for (const status of ['Released', 'Done', 'Review', 'Doing', 'Todo', 'Backlog'])
+    for (const status of ['배포됨', '완료', '검토', '진행 중', '할 일', '대기'])
       await press('ArrowLeft', status);
     fireEvent.keyDown(document, { key: 'Escape', code: 'Escape' });
     expect(updateTaskStatus).not.toHaveBeenCalled();
@@ -577,15 +577,15 @@ describe('TaskBoardRoute keyboard dragging', () => {
       </QueryClientProvider>,
     );
     const card = await screen.findByRole('button', { name: /TASK-1000:/ });
-    await waitFor(() => expect(columnCount('Backlog')).toHaveTextContent('1'));
-    expect(columnCount('Doing')).toHaveTextContent('0');
+    await waitFor(() => expect(columnCount('대기')).toHaveTextContent('1'));
+    expect(columnCount('진행 중')).toHaveTextContent('0');
     await keyboardMove(card, 2);
-    const destination = await within(screen.getByLabelText('Doing 열')).findByRole('button', {
+    const destination = await within(screen.getByLabelText('진행 중 열')).findByRole('button', {
       name: /TASK-1000:/,
     });
     await waitFor(() => expect(destination).toHaveFocus());
-    expect(columnCount('Backlog')).toHaveTextContent('0');
-    expect(columnCount('Doing')).toHaveTextContent('1');
+    expect(columnCount('대기')).toHaveTextContent('0');
+    expect(columnCount('진행 중')).toHaveTextContent('1');
   });
 
   it('waits for a destination column that is still loading before moving the card there', async () => {
@@ -605,23 +605,23 @@ describe('TaskBoardRoute keyboard dragging', () => {
       </QueryClientProvider>,
     );
     const card = await screen.findByRole('button', { name: /TASK-1000:/ });
-    expect(columnCount('Doing')).toHaveTextContent('—');
+    expect(columnCount('진행 중')).toHaveTextContent('—');
     await keyboardMove(card, 2);
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
     // No PATCH and no card in Doing until the destination can render it.
     expect(updateTaskStatus).not.toHaveBeenCalled();
-    expect(screen.getByLabelText('Doing 열')).not.toHaveTextContent(task.display_id);
+    expect(screen.getByLabelText('진행 중 열')).not.toHaveTextContent(task.display_id);
     await act(async () => {
       releaseDoing();
     });
-    const destination = await within(screen.getByLabelText('Doing 열')).findByRole('button', {
+    const destination = await within(screen.getByLabelText('진행 중 열')).findByRole('button', {
       name: /TASK-1000:/,
     });
     await waitFor(() => expect(destination).toHaveFocus());
     await waitFor(() => expect(updateTaskStatus).toHaveBeenCalled());
-    expect(columnCount('Backlog')).toHaveTextContent('0');
+    expect(columnCount('대기')).toHaveTextContent('0');
   });
 
   it('does not pull focus when later data returns the card after its move settled', async () => {
@@ -649,7 +649,7 @@ describe('TaskBoardRoute keyboard dragging', () => {
     );
     const card = await screen.findByRole('button', { name: /TASK-1000:/ });
     await keyboardMove(card, 2);
-    const destination = await within(screen.getByLabelText('Doing 열')).findByRole('button', {
+    const destination = await within(screen.getByLabelText('진행 중 열')).findByRole('button', {
       name: /TASK-1000:/,
     });
     await waitFor(() => expect(destination).toHaveFocus());
@@ -668,7 +668,7 @@ describe('TaskBoardRoute keyboard dragging', () => {
     await act(async () => {
       setBoardData(client, [{ ...task, status: 'doing' }, otherTask]);
     });
-    await within(screen.getByLabelText('Doing 열')).findByRole('button', { name: /TASK-1000:/ });
+    await within(screen.getByLabelText('진행 중 열')).findByRole('button', { name: /TASK-1000:/ });
     expect(document.body).toHaveFocus();
   });
 
@@ -687,19 +687,19 @@ describe('TaskBoardRoute keyboard dragging', () => {
     });
     await waitFor(() =>
       expect(screen.getByRole('status')).toHaveTextContent(
-        'TASK-1000 Task를 집었습니다. 현재 열: Backlog.',
+        'TASK-1000 Task를 집었습니다. 현재 열: 대기.',
       ),
     );
     fireEvent.keyDown(document, { key: 'ArrowRight', code: 'ArrowRight' });
     await waitFor(() =>
       expect(screen.getByRole('status')).toHaveTextContent(
-        'TASK-1000 Task가 Todo 열 위에 있습니다.',
+        'TASK-1000 Task가 할 일 열 위에 있습니다.',
       ),
     );
     fireEvent.keyDown(document, { key: 'ArrowLeft', code: 'ArrowLeft' });
     await waitFor(() =>
       expect(screen.getByRole('status')).toHaveTextContent(
-        'TASK-1000 Task가 Backlog 열 위에 있습니다.',
+        'TASK-1000 Task가 대기 열 위에 있습니다.',
       ),
     );
   });
@@ -711,7 +711,7 @@ describe('TaskBoardRoute keyboard dragging', () => {
         <TaskBoardRoute />
       </QueryClientProvider>,
     );
-    const backlog = await screen.findByLabelText('Backlog 열');
+    const backlog = await screen.findByLabelText('대기 열');
     const card = within(backlog).getByRole('button', {
       name: 'TASK-1000: Keyboard draggable Task',
     });
@@ -773,18 +773,18 @@ describe('TaskBoardRoute keyboard dragging', () => {
         await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
       });
       expect(
-        within(screen.getByLabelText('Backlog 열')).getByRole('button', {
+        within(screen.getByLabelText('대기 열')).getByRole('button', {
           name: 'TASK-1000: Keyboard draggable Task',
         }),
       ).toBe(card);
-      expect(screen.getByLabelText('Doing 열')).not.toHaveTextContent(task.display_id);
+      expect(screen.getByLabelText('진행 중 열')).not.toHaveTextContent(task.display_id);
       expect(updateTaskStatus).not.toHaveBeenCalled();
       if (focusLocation === 'outside') expect(outside).toHaveFocus();
       if (focusLocation === 'body') card.blur();
       await act(async () => {
         releaseCancellation();
       });
-      const destination = await within(screen.getByLabelText('Doing 열')).findByRole('button', {
+      const destination = await within(screen.getByLabelText('진행 중 열')).findByRole('button', {
         name: 'TASK-1000: Keyboard draggable Task',
       });
       await waitFor(() => expect(updateTaskStatus).toHaveBeenCalled());
@@ -827,7 +827,7 @@ describe('TaskBoardRoute keyboard dragging', () => {
       fireEvent.keyDown(document, { key: 'ArrowRight', code: 'ArrowRight' });
       fireEvent.keyDown(document, { key: 'ArrowRight', code: 'ArrowRight' });
       fireEvent.keyDown(document, { key: ' ', code: 'Space' });
-      const destination = await within(screen.getByLabelText('Doing 열')).findByRole('button', {
+      const destination = await within(screen.getByLabelText('진행 중 열')).findByRole('button', {
         name: /TASK-1000:/,
       });
       await waitFor(() => expect(destination).toHaveFocus());
@@ -836,7 +836,7 @@ describe('TaskBoardRoute keyboard dragging', () => {
       await act(async () => {
         rejectUpdate(new Error('Move rejected'));
       });
-      const origin = await within(screen.getByLabelText('Backlog 열')).findByRole('button', {
+      const origin = await within(screen.getByLabelText('대기 열')).findByRole('button', {
         name: /TASK-1000:/,
       });
       if (order === 'rollback committed before rejection') {
@@ -874,7 +874,7 @@ describe('TaskBoardRoute keyboard dragging', () => {
     fireEvent.keyDown(document, { code: 'ArrowRight' });
     fireEvent.keyDown(document, { code: 'ArrowRight' });
     fireEvent.keyDown(document, { code: 'Space' });
-    const destination = await within(screen.getByLabelText('Doing 열')).findByRole('button', {
+    const destination = await within(screen.getByLabelText('진행 중 열')).findByRole('button', {
       name: /TASK-1000:/,
     });
     await waitFor(() => expect(destination).toHaveFocus());
@@ -882,14 +882,14 @@ describe('TaskBoardRoute keyboard dragging', () => {
     await act(async () => {
       rejectUpdate(new ApiError(409, { code: 'conflict.stale_write', message: 'Stale move' }));
     });
-    const rollback = await within(screen.getByLabelText('Backlog 열')).findByRole('button', {
+    const rollback = await within(screen.getByLabelText('대기 열')).findByRole('button', {
       name: /TASK-1000:/,
     });
     await waitFor(() => expect(rollback).toHaveFocus());
     await act(async () => {
       refetch.release([{ ...task, status: 'review' }]);
     });
-    const serverCard = await within(screen.getByLabelText('Review 열')).findByRole('button', {
+    const serverCard = await within(screen.getByLabelText('검토 열')).findByRole('button', {
       name: /TASK-1000:/,
     });
     await waitFor(() => expect(serverCard).toHaveFocus());
@@ -940,7 +940,7 @@ describe('TaskBoardRoute keyboard dragging', () => {
       rejectTask(new ApiError(409, { code: 'conflict.stale_write', message: 'Stale move' }));
     });
     await waitFor(() => expect(client.isMutating()).toBe(1));
-    const rollback = within(screen.getByLabelText('Backlog 열')).getByRole('button', {
+    const rollback = within(screen.getByLabelText('대기 열')).getByRole('button', {
       name: /TASK-1000:/,
     });
     await waitFor(() => expect(rollback).toHaveFocus());
@@ -955,7 +955,7 @@ describe('TaskBoardRoute keyboard dragging', () => {
         { ...other, status: 'todo' },
       ]);
     });
-    const serverCard = await within(screen.getByLabelText('Review 열')).findByRole('button', {
+    const serverCard = await within(screen.getByLabelText('검토 열')).findByRole('button', {
       name: /TASK-1000:/,
     });
     await waitFor(() => expect(serverCard).toHaveFocus());
@@ -967,7 +967,7 @@ describe('TaskBoardRoute keyboard dragging', () => {
         { ...other, status: 'todo' },
       ]),
     );
-    await within(screen.getByLabelText('Doing 열')).findByRole('button', { name: /TASK-1000:/ });
+    await within(screen.getByLabelText('진행 중 열')).findByRole('button', { name: /TASK-1000:/ });
     expect(document.body).toHaveFocus();
   });
 
@@ -1002,7 +1002,7 @@ describe('TaskBoardRoute keyboard dragging', () => {
     fireEvent.keyDown(document, { code: 'ArrowRight' });
     fireEvent.keyDown(document, { code: 'ArrowRight' });
     fireEvent.keyDown(document, { code: 'Space' });
-    const destination = await within(screen.getByLabelText('Doing 열')).findByRole('button', {
+    const destination = await within(screen.getByLabelText('진행 중 열')).findByRole('button', {
       name: /TASK-1000:/,
     });
     await waitFor(() => expect(destination).toHaveFocus());
@@ -1020,7 +1020,7 @@ describe('TaskBoardRoute keyboard dragging', () => {
     await act(async () => {
       setBoardData(client, [task, otherTask]);
     });
-    await within(screen.getByLabelText('Backlog 열')).findByRole('button', { name: /TASK-1000:/ });
+    await within(screen.getByLabelText('대기 열')).findByRole('button', { name: /TASK-1000:/ });
     expect(other).toHaveFocus();
   });
 
@@ -1060,7 +1060,7 @@ describe('TaskBoardRoute keyboard dragging', () => {
     fireEvent.keyDown(document, { code: 'ArrowRight' });
     fireEvent.keyDown(document, { code: 'ArrowRight' });
     fireEvent.keyDown(document, { code: 'Space' });
-    const destination = await within(screen.getByLabelText('Doing 열')).findByRole('button', {
+    const destination = await within(screen.getByLabelText('진행 중 열')).findByRole('button', {
       name: /TASK-1000:/,
     });
     await waitFor(() => expect(destination).toHaveFocus());
@@ -1076,7 +1076,7 @@ describe('TaskBoardRoute keyboard dragging', () => {
     await act(async () => {
       refetch.release([{ ...task, status: 'review' }, otherTask]);
     });
-    await within(screen.getByLabelText('Review 열')).findByRole('button', { name: /TASK-1000:/ });
+    await within(screen.getByLabelText('검토 열')).findByRole('button', { name: /TASK-1000:/ });
     await waitFor(() => expect(client.isFetching({ queryKey: ['tasks'] })).toBe(0));
     vi.mocked(listTasks).mockImplementation(boardList([{ ...task, status: 'review' }, otherTask]));
     await act(async () => {
@@ -1090,7 +1090,7 @@ describe('TaskBoardRoute keyboard dragging', () => {
     await act(async () => {
       setBoardData(client, [task, otherTask]);
     });
-    await within(screen.getByLabelText('Backlog 열')).findByRole('button', { name: /TASK-1000:/ });
+    await within(screen.getByLabelText('대기 열')).findByRole('button', { name: /TASK-1000:/ });
     expect(other).toHaveFocus();
   });
 
@@ -1120,14 +1120,14 @@ describe('TaskBoardRoute keyboard dragging', () => {
       fireEvent.keyDown(document, { key: 'ArrowRight', code: 'ArrowRight' });
     }
     fireEvent.keyDown(document, { key: ' ', code: 'Space' });
-    expect(screen.getByLabelText('Doing 열')).not.toHaveTextContent(task.display_id);
+    expect(screen.getByLabelText('진행 중 열')).not.toHaveTextContent(task.display_id);
     expect(updateTaskStatus).not.toHaveBeenCalled();
     await act(async () => {
       releaseCancellation();
     });
     await waitFor(() => expect(client.isMutating()).toBe(0));
     expect(
-      within(screen.getByLabelText('Backlog 열')).getByRole('button', {
+      within(screen.getByLabelText('대기 열')).getByRole('button', {
         name: 'TASK-1000: Keyboard draggable Task',
       }),
     ).toBe(card);
@@ -1138,7 +1138,7 @@ describe('TaskBoardRoute keyboard dragging', () => {
     await act(async () => {
       await client.refetchQueries({ queryKey: ['tasks'] });
     });
-    const destination = await within(screen.getByLabelText('Doing 열')).findByRole('button', {
+    const destination = await within(screen.getByLabelText('진행 중 열')).findByRole('button', {
       name: 'TASK-1000: Keyboard draggable Task',
     });
     expect(destination).not.toHaveFocus();
@@ -1182,8 +1182,8 @@ describe('TaskBoardRoute keyboard dragging', () => {
       await waitFor(() =>
         expect(screen.getByRole('status').textContent).toBe(
           move === 0
-            ? 'TASK-1000 Task가 Doing 열 위에 있습니다.'
-            : 'TASK-1000 Task가 Todo 열 위에 있습니다.',
+            ? 'TASK-1000 Task가 진행 중 열 위에 있습니다.'
+            : 'TASK-1000 Task가 할 일 열 위에 있습니다.',
         ),
       );
       fireEvent.keyDown(document, { key: ' ', code: 'Space' });
@@ -1191,18 +1191,18 @@ describe('TaskBoardRoute keyboard dragging', () => {
         await Promise.resolve();
       });
     }
-    expect(screen.getByLabelText('Doing 열')).not.toHaveTextContent(task.display_id);
+    expect(screen.getByLabelText('진행 중 열')).not.toHaveTextContent(task.display_id);
     expect(updateTaskStatus).not.toHaveBeenCalled();
     await act(async () => {
       releaseOlder();
     });
     await waitFor(() => expect(client.isMutating()).toBe(1));
-    expect(screen.getByLabelText('Todo 열')).not.toHaveTextContent(task.display_id);
+    expect(screen.getByLabelText('할 일 열')).not.toHaveTextContent(task.display_id);
     expect(document.body).toHaveFocus();
     await act(async () => {
       releaseNewer();
     });
-    const destination = await within(screen.getByLabelText('Todo 열')).findByRole('button', {
+    const destination = await within(screen.getByLabelText('할 일 열')).findByRole('button', {
       name: 'TASK-1000: Keyboard draggable Task',
     });
     expect(destination).toHaveFocus();
@@ -1229,7 +1229,7 @@ describe('TaskBoardRoute keyboard dragging', () => {
     });
     await waitFor(() =>
       expect(screen.getByRole('status').textContent).toBe(
-        'TASK-1000 Task를 Backlog 열에 놓았습니다.',
+        'TASK-1000 Task를 대기 열에 놓았습니다.',
       ),
     );
     expect(updateTaskStatus).not.toHaveBeenCalled();
@@ -1257,7 +1257,7 @@ describe('TaskBoardRoute keyboard dragging', () => {
     fireEvent.keyDown(document, { key: 'ArrowLeft', code: 'ArrowLeft' });
     await waitFor(() =>
       expect(screen.getByRole('status').textContent).toBe(
-        'TASK-1000 Task를 집었습니다. 현재 열: Backlog.',
+        'TASK-1000 Task를 집었습니다. 현재 열: 대기.',
       ),
     );
     fireEvent.keyDown(document, { key: ' ', code: 'Space' });
@@ -1266,7 +1266,7 @@ describe('TaskBoardRoute keyboard dragging', () => {
     });
     await waitFor(() =>
       expect(screen.getByRole('status').textContent).toBe(
-        'TASK-1000 Task를 Backlog 열에 놓았습니다.',
+        'TASK-1000 Task를 대기 열에 놓았습니다.',
       ),
     );
     expect(updateTaskStatus).not.toHaveBeenCalled();

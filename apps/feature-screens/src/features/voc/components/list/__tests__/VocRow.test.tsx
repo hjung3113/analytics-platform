@@ -108,7 +108,7 @@ describe('<VocRow>', () => {
       />,
     );
 
-    expect(screen.queryByText(/similar|같은 Managed System의 VOC/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/similar|같은 시스템의 VOC/i)).not.toBeInTheDocument();
   });
 
   it('renders the attachment count chip when attachment_count > 0', () => {
@@ -138,15 +138,15 @@ describe('<VocRow>', () => {
       />,
     );
     expect(screen.getByLabelText('첨부 2개')).toHaveTextContent('2');
-    expect(screen.queryByText(/similar|같은 Managed System의 VOC/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/similar|같은 시스템의 VOC/i)).not.toBeInTheDocument();
   });
 
-  it('renders amber "Analytics Area 없음" when analytics_area_id is null', () => {
+  it('renders amber "분석 영역 없음" when analytics_area_id is null', () => {
     render(<VocRow voc={BASE_VOC} selected={false} onSelect={onSelect} managedSystem={null} />);
-    expect(screen.getByText('Analytics Area 없음')).toBeInTheDocument();
+    expect(screen.getByText('분석 영역 없음')).toBeInTheDocument();
   });
 
-  it('renders the resolved area name instead of "Analytics Area 없음" when present', () => {
+  it('renders the resolved area name instead of "분석 영역 없음" when present', () => {
     const vocWithArea: VocListItem = { ...BASE_VOC, analytics_area_id: 'area-1' };
     render(
       <VocRow
@@ -158,7 +158,7 @@ describe('<VocRow>', () => {
       />,
     );
     expect(screen.getByText('Finance')).toBeInTheDocument();
-    expect(screen.queryByText('Analytics Area 없음')).not.toBeInTheDocument();
+    expect(screen.queryByText('분석 영역 없음')).not.toBeInTheDocument();
   });
 
   it('calls onSelect on click', () => {

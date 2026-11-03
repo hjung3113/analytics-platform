@@ -167,7 +167,7 @@ export function EntityLinksInventoryTable({
                     />
                   ) : (
                     <span className="inline-flex items-center gap-1">
-                      <span>Managed System</span>
+                      <span>시스템</span>
                       <span className="font-mono text-xs text-text-muted">
                         {shortId(link.managed_system_id)}
                       </span>

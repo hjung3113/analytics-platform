@@ -120,14 +120,14 @@ export function AnalyticsAreaSlideOver({
         data-testid="aa-slide-over"
       >
         <SheetTitle className="sr-only">{heading.title}</SheetTitle>
-        <SheetDescription className="sr-only">Analytics Area 상세</SheetDescription>
+        <SheetDescription className="sr-only">분석 영역 상세</SheetDescription>
         <div
           data-testid="aa-slide-over-header"
           className="flex h-toolbar shrink-0 items-center border-b border-border-subtle pl-6 pr-12"
         >
           <span className="inline-flex items-center gap-1.5 rounded-full bg-accent-primary/15 px-2 py-0.5 text-xs font-medium text-accent-primary">
             <span className="h-1.5 w-1.5 rounded-full bg-accent-primary" />
-            Analytics Area
+            분석 영역
           </span>
         </div>
 
@@ -212,7 +212,7 @@ function AnalyticsAreaDetailContent({
 
         <div data-anchor="definition" className="px-4 py-3">
           <PanelSectionTitle>정의</PanelSectionTitle>
-          <FieldRow label="Managed System" inset="none">
+          <FieldRow label="시스템" inset="none">
             <span className="flex items-center gap-1.5">
               {mark && <ManagedSystemMark label={mark.label} color={mark.color} size={18} />}
               <span>{ms?.name ?? area.managed_system_id}</span>
@@ -234,7 +234,7 @@ function AnalyticsAreaDetailContent({
           <FieldRow label="기본 공개 범위" inset="none">
             <span className="inline-flex items-center gap-1 rounded-full border border-border-subtle px-2 py-0.5 text-xs text-text-secondary">
               <Shield className="h-2.5 w-2.5" />
-              내부 · Managed System 범위
+              내부 · 시스템 범위
             </span>
           </FieldRow>
         </div>
@@ -245,12 +245,12 @@ function AnalyticsAreaDetailContent({
             <div className="flex flex-col gap-1 rounded-md bg-surface-canvas p-3">
               <span className="text-xs text-text-muted">활성 Finding</span>
               <span className="text-lg font-semibold text-text-primary">—</span>
-              <span className="text-xs text-text-muted">이 Analytics Area 내</span>
+              <span className="text-xs text-text-muted">이 분석 영역 내</span>
             </div>
             <div className="flex flex-col gap-1 rounded-md bg-surface-canvas p-3">
-              <span className="text-xs text-text-muted">Evidence 하이라이트</span>
+              <span className="text-xs text-text-muted">근거 하이라이트</span>
               <span className="text-lg font-semibold text-text-primary">—</span>
-              <span className="text-xs text-text-muted">이 Analytics Area에 연결됨</span>
+              <span className="text-xs text-text-muted">이 분석 영역에 연결됨</span>
             </div>
           </div>
         </div>
@@ -258,7 +258,7 @@ function AnalyticsAreaDetailContent({
         <div data-anchor="findings" className="px-4 py-3">
           <PanelSectionTitle>{ANALYTICS_AREA_RECENT_FINDINGS_LABEL}</PanelSectionTitle>
           <p className="text-xs text-text-muted" data-testid="aa-findings-defer">
-            Findings · Evidence 집계와 목록은 아직 제공되지 않습니다.
+            Findings · 근거 집계와 목록은 아직 제공되지 않습니다.
           </p>
         </div>
 
@@ -266,9 +266,9 @@ function AnalyticsAreaDetailContent({
           <PanelSectionTitle>사용 위치</PanelSectionTitle>
           <div className="flex flex-col gap-1.5">
             {[
-              { label: 'VOC Triage', meta: '필터 차원' },
+              { label: 'VOC 분류', meta: '필터 차원' },
               { label: 'Findings 목록', meta: '필터 + 그룹화' },
-              { label: 'Survey 대상 지정', meta: '세그먼트 정의' },
+              { label: '설문 대상 지정', meta: '세그먼트 정의' },
             ].map((u) => (
               <div
                 key={u.label}

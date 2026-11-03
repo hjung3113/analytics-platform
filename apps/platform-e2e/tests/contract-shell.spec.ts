@@ -447,7 +447,7 @@ test.describe('워크스페이스 (06 §9.1)', () => {
   });
 
   // #1099, ADR-0110: 업무 흐름 and 운영 콘솔 are visible through their accessible member menus; only admin has these grants in the mock.
-  test('업무 흐름은 열린 멤버 메뉴가 있는 admin에게 보이고 대시보드·VOC(VOC 처리함·분류)·목록 범위가 실서버 필요 상태로 열린다', async ({ page }, testInfo) => {
+  test('업무 흐름은 열린 멤버 메뉴가 있는 admin에게 보이고 대시보드·VOC(VOC 처리함·분류)·시스템 선택기가 실서버 필요 상태로 열린다', async ({ page }, testInfo) => {
     for (const role of ['engineer', 'viewer'] as const) {
       await signInAs(page, role);
       await page.goto('/mars/equipment-master?v=1&scopeId=MEM');
@@ -470,7 +470,7 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     await expect(page.getByRole('main')).toContainText('플랫폼 서버');
     await expect(page.getByRole('button', { name: '새로고침' })).toBeDisabled();
     await expect(page.getByRole('main').getByRole('status').filter({ hasText: '실서버 필요' })).toBeVisible();
-    await expect(page.getByText('목록 범위', { exact: true })).toBeVisible();
+    await expect(page.getByTestId('scope-label')).toBeVisible();
     await expect(page.getByTitle('실서버 필요').filter({ hasText: '전체' })).toBeDisabled();
     await evidence(page, testInfo, 'feedbackops-dashboard-mock');
     // #761: the VOC group (VOC 처리함, 분류) is bridge menus too; without a feature API each body is 실서버 필요.
@@ -502,10 +502,10 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     await expect(page.getByRole('region', { name: '저장된 보기' })).toHaveCount(0);
     await page.getByRole('button', { name: '사이드바 펼치기' }).click();
     await evidence(page, testInfo, 'feedbackops-voc-mock');
-    // 운영 콘솔 is the other space: it lands on 역할 (its home), keeps the global context and draws no 목록 범위.
+    // 운영 콘솔 is the other space: it lands on 역할 (its home), keeps the global context and draws no 시스템 선택기.
     await chooseSystem(page, '운영 콘솔');
     await expect.poll(() => new URL(page.url()).pathname).toBe('/operations/admin-roles');
-    await expect(page.getByText('목록 범위', { exact: true })).toHaveCount(0);
+    await expect(page.getByTestId('scope-label')).toHaveCount(0);
   });
 
   test('공통 공간 권한 없는 운영 콘솔의 직접 URL은 멤버 메뉴 권한으로 거부한다', async ({ page }, testInfo) => {

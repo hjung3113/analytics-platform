@@ -251,9 +251,9 @@ describe('FindingDetailPanel', () => {
 
   it.each([
     ['voc', 'VOC'],
-    ['voc_cluster', 'VOC Cluster'],
-    ['survey', 'Survey'],
-    ['survey_response', 'Survey 응답'],
+    ['voc_cluster', '반복 VOC'],
+    ['survey', '설문'],
+    ['survey_response', '설문 응답'],
     ['manual', '수동'],
   ] as const)('renders source type %s as %s without raw enum values', (sourceType, label) => {
     findingSourceType.value = sourceType;
@@ -280,7 +280,7 @@ describe('FindingDetailPanel', () => {
     expect(screen.queryByText(/10000000/)).not.toBeInTheDocument();
   });
 
-  it('puts execution before Evidence and makes the linked Task the single primary action', async () => {
+  it('puts execution before 근거 and makes the linked Task the single primary action', async () => {
     const linkedFinding = {
       ...mediumFinding,
       linked_task_id: '20000000-0000-0000-0000-000000000002',
@@ -294,8 +294,8 @@ describe('FindingDetailPanel', () => {
     expect(anchors.indexOf('execution')).toBeLessThan(anchors.indexOf('evidence'));
     for (const repeatedHeading of [
       '소스 / 심각도 / 신뢰도',
-      '주요 Managed System',
-      '영향 Analytics Area',
+      '주요 시스템',
+      '영향 분석 영역',
     ]) {
       expect(screen.queryByRole('heading', { name: repeatedHeading })).not.toBeInTheDocument();
     }
@@ -353,7 +353,7 @@ describe('FindingDetailPanel', () => {
 
   // #1174b U2-2: a Cluster-sourced Finding names its source Cluster when the actor
   // may read it, and falls back to the safe placeholder when the read is denied/missing.
-  it('links a cluster-sourced Finding to its readable source Cluster', () => {
+  it('links a cluster-sourced Finding to its readable source 반복 VOC', () => {
     const clusterId = '70000000-0000-7000-8000-000000000007';
     useVocClusterDetailMock.mockReturnValue({
       // #1174 FIX1: the controller projects identity only from a successful
@@ -367,13 +367,13 @@ describe('FindingDetailPanel', () => {
       />,
     );
 
-    expect(screen.getByText('연결된 Cluster')).toBeInTheDocument();
+    expect(screen.getByText('연결된 반복 VOC')).toBeInTheDocument();
     const clusterLink = screen.getByRole('link', { name: /결제 실패 클러스터/ });
     expect(clusterLink.getAttribute('href')).toContain('/voc-clusters');
     expect(clusterLink).toHaveTextContent('CLU-9001');
   });
 
-  it('renders the safe placeholder when the source Cluster read is denied or missing', () => {
+  it('renders the safe placeholder when the source 반복 VOC read is denied or missing', () => {
     const clusterId = '70000000-0000-7000-8000-000000000007';
     useVocClusterDetailMock.mockReturnValue({ data: undefined, isError: true });
     renderWithClient(
@@ -382,7 +382,7 @@ describe('FindingDetailPanel', () => {
       />,
     );
 
-    expect(screen.getByText('연결된 Cluster')).toBeInTheDocument();
+    expect(screen.getByText('연결된 반복 VOC')).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /결제 실패 클러스터/ })).not.toBeInTheDocument();
     expect(screen.queryByText('CLU-9001')).not.toBeInTheDocument();
   });
@@ -586,8 +586,8 @@ describe('FindingDetailPanel', () => {
     expect(taskRequest).toHaveClass('bg-accent-primary', 'text-text-on-accent');
 
     const secondaryActions = [
-      within(secondaryGroup).getByRole('button', { name: 'Evidence 추가' }),
-      within(secondaryGroup).getByRole('button', { name: '기존 Evidence 연결' }),
+      within(secondaryGroup).getByRole('button', { name: '근거 추가' }),
+      within(secondaryGroup).getByRole('button', { name: '기존 근거 연결' }),
       within(secondaryGroup).getByRole('button', { name: '조치 불필요 표시' }),
     ];
     for (const action of secondaryActions) {

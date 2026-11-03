@@ -64,7 +64,7 @@ export function VocAreaFilterSelect({
         onChange(next === ALL ? undefined : next);
       }}
     >
-      <SelectTrigger aria-label="Analytics Area" density="compact" className="w-48">
+      <SelectTrigger aria-label="분석 영역" density="compact" className="w-48">
         <SelectValue placeholder={AREA_COPY.allAreas} />
       </SelectTrigger>
       <SelectContent>

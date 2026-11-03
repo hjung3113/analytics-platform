@@ -12,7 +12,7 @@ const ScopeControl = lazy(() => import('./pages/ScopeControl'));
 /** Mock preview (no feature API): the label and an inert `전체` so the sidebar keeps its place; nothing from feature mounts or is requested. */
 function MockScope() {
   return <div className="border-b border-border-subtle p-2">
-    <div className="px-1 pb-1 text-caption text-text-muted">목록 범위</div>
+    <div className="px-1 pb-1 text-caption text-text-muted" data-testid="scope-label">시스템</div>
     <Button type="button" variant="outline" size="sm" disabled title="실서버 필요" aria-description="실서버 필요" className="w-full justify-between">
       <span>전체</span><ChevronDown className="size-3.5" aria-hidden />
     </Button>

@@ -64,7 +64,7 @@ function candidateLabel(
 ): string {
   const scope = candidate.managed_system_id
     ? (managedSystemNames[candidate.managed_system_id] ??
-      `Managed System · ${shortId(candidate.managed_system_id)}`)
+      `시스템 · ${shortId(candidate.managed_system_id)}`)
     : SCOPE_SELECTOR_COPY.workspaceAll;
   return `${getCapabilityDisplayLabel(candidate.capability)} · ${scope}`;
 }

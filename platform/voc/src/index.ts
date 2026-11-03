@@ -37,7 +37,7 @@ export const manifests: MenuEntry[] = [
   },
   {
     id: 'clusters', group: GROUP, label: { ko: '반복 VOC', en: 'Recurring VOC' },
-    description: { ko: '비슷한 VOC를 묶은 Cluster를 보고 확정합니다', en: 'Review and confirm clusters of similar VOCs' },
+    description: { ko: '비슷한 VOC를 반복 VOC로 묶어 보고 확정합니다', en: 'Review and confirm clusters of similar VOCs' },
     path: '/flow/clusters', icon: Layers, permission: 'features:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['focus', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,

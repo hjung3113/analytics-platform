@@ -46,8 +46,8 @@ function Host({ hostOwnsTitle, children }: { hostOwnsTitle: boolean; children: R
 
 describe('admin screen titles', () => {
   it.each([
-    ['Managed System', () => <ManagedSystemsAdminPage />],
-    ['Analytics Area', () => <AnalyticsAreasAdminPage />],
+    ['시스템', () => <ManagedSystemsAdminPage />],
+    ['분석 영역', () => <AnalyticsAreasAdminPage />],
     ['워크스페이스 설정', () => <WorkspaceSettingsScreen />],
   ])('%s: drawn standalone, absent when the host owns the title', (title, screenEl) => {
     const standalone = render(<Host hostOwnsTitle={false}>{screenEl()}</Host>);

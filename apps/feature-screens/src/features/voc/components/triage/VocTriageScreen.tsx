@@ -198,7 +198,7 @@ export function VocTriageScreen({
         {!hostOwnsTitle && (
           <ToolbarKicker
             label={GLOSSARY.console}
-            name="Triage"
+            name="분류"
             testId="triage-kicker"
             labelTestId="triage-kicker-console"
             nameTestId="triage-kicker-name"

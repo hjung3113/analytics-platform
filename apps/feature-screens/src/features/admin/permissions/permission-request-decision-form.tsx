@@ -420,7 +420,7 @@ export function PermissionRequestDecisionForm({
                     value={candidate.managed_system_id ?? 'workspace'}
                   >
                     {candidate.managed_system_id
-                      ? `${candidate.managed_system_id === request.requested_managed_system_id ? (managedSystemName ?? 'Managed System') : 'Managed System'} · ${shortId(candidate.managed_system_id)}`
+                      ? `${candidate.managed_system_id === request.requested_managed_system_id ? (managedSystemName ?? '시스템') : '시스템'} · ${shortId(candidate.managed_system_id)}`
                       : '워크스페이스 전체'}
                   </SelectItem>
                 ))}
@@ -557,7 +557,7 @@ export function PermissionRequestDecisionForm({
             <span>
               {captureCopy.scope}:{' '}
               {request.requested_managed_system_id
-                ? (managedSystemName ?? 'Managed System')
+                ? (managedSystemName ?? '시스템')
                 : ADMIN_PERMISSIONS_COPY.riskReview.allScope}
             </span>
             {request.requested_managed_system_id && !managedSystemName && (

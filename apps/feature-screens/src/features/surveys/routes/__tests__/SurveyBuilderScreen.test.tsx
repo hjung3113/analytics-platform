@@ -73,7 +73,7 @@ describe('SurveyBuilderScreen over the host seam', () => {
 
   it('shows the not-found state for a missing record, without builder DOM or title', async () => {
     mount(STALE_ID);
-    expect(await screen.findByText('Survey를 찾을 수 없습니다.')).toBeInTheDocument();
+    expect(await screen.findByText('설문을 찾을 수 없습니다.')).toBeInTheDocument();
     expect(screen.getByText('삭제되었거나 접근 권한이 없습니다.')).toBeInTheDocument();
     expect(screen.queryByTestId('survey-builder')).toBeNull();
     expect(titles.every((title) => title === null)).toBe(true);
@@ -82,7 +82,7 @@ describe('SurveyBuilderScreen over the host seam', () => {
   it('renders the blocked panel, not the builder, for a non-manager, and sets no title', async () => {
     installFetch({ canManage: false });
     mount(S1_ID);
-    expect(await screen.findByText('Survey 빌더')).toBeInTheDocument();
+    expect(await screen.findByText('설문 빌더')).toBeInTheDocument();
     expect(screen.queryByTestId('survey-builder')).toBeNull();
     expect(titles.every((title) => title === null)).toBe(true);
   });
@@ -99,7 +99,7 @@ describe('SurveyBuilderScreen over the host seam', () => {
     const beforeUnloadCount = () =>
       add.mock.calls.filter(([type]) => type === 'beforeunload').length;
     mount(DRAFT_ID);
-    const title = await screen.findByLabelText('Survey 제목');
+    const title = await screen.findByLabelText('설문 제목');
     expect(beforeUnloadCount()).toBe(0);
     fireEvent.change(title, { target: { value: '바뀐 제목' } });
     await waitFor(() => expect(beforeUnloadCount()).toBe(1));

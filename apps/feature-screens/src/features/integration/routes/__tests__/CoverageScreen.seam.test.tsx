@@ -156,7 +156,7 @@ describe('CoverageScreen writes through the host seam', () => {
   it('the areas tab adds view and keeps the rest', async () => {
     await mount({ managedSystem: IDS.systemA });
     await act(async () => {
-      fireEvent.mouseDown(screen.getByRole('tab', { name: 'Analytics Area별 현황' }));
+      fireEvent.mouseDown(screen.getByRole('tab', { name: '분석 영역별 현황' }));
     });
     expect(written()).toEqual({
       path: '/integration/coverage',
@@ -195,7 +195,7 @@ describe('CoverageScreen writes through the host seam', () => {
   it('the area select sets the area and drops the cursor', async () => {
     await mount({ view: 'areas', managedSystem: IDS.systemA, cursor: 'old' });
     fireEvent.click(screen.getByTestId('coverage-filter-button'));
-    fireEvent.keyDown(screen.getByRole('combobox', { name: 'Analytics Area' }), {
+    fireEvent.keyDown(screen.getByRole('combobox', { name: '분석 영역' }), {
       key: 'ArrowDown',
     });
     fireEvent.click(await screen.findByRole('option', { name: '성장 지표' }));
@@ -217,7 +217,7 @@ describe('CoverageScreen writes through the host seam', () => {
     [
       'uuid area, all systems',
       IDS.areaA,
-      '전체 Managed System',
+      '전체 시스템',
       { 'filter.analytics_area': IDS.areaA },
     ],
   ])('a system switch with a %s', async (_name, area, option, expected) => {

@@ -77,7 +77,7 @@ describe('VocTriageScreen — deep-link selection (#383)', () => {
 
     // The other VOC's commit form must not have been substituted. Its title
     // still appears in the left queue, so key off the panel's commit control.
-    expect(screen.queryByRole('button', { name: /Triage 확정/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /분류 확정/ })).not.toBeInTheDocument();
   });
 
   it('still auto-advances after the selected VOC is triaged away', () => {
@@ -115,7 +115,7 @@ describe('VocTriageScreen — deep-link selection (#383)', () => {
     // The row was this screen's selection a moment ago, so this is the
     // auto-advance case — NOT a broken deep link.
     expect(screen.queryByTestId('triage-deeplink-missing')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Triage 확정/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /분류 확정/ })).toBeInTheDocument();
   });
 
   it('falls back to the first queue item when no selection is requested', () => {
@@ -132,6 +132,6 @@ describe('VocTriageScreen — deep-link selection (#383)', () => {
     );
 
     expect(screen.queryByTestId('triage-deeplink-missing')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Triage 확정/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /분류 확정/ })).toBeInTheDocument();
   });
 });

@@ -422,7 +422,7 @@ export function MilestonesScreen({ renderDetail }: MilestonesScreenProps) {
                         selected={milestone.id === selectedId}
                         managedSystemName={
                           managedSystemNamesById.get(milestone.primary_managed_system_id) ??
-                          'Managed System'
+                          '시스템'
                         }
                         {...(areaName !== undefined ? { areaName } : {})}
                         {...(ownerName !== undefined ? { owner: { display_name: ownerName } } : {})}

@@ -120,7 +120,7 @@ export function SurveyListScreen({
   return (
     <>
       <ListShell
-        {...(hostOwnsTitle ? {} : { toolbar: { title: 'Surveys' } })}
+        {...(hostOwnsTitle ? {} : { toolbar: { title: '설문' } })}
         list={
           <SurveyList
             surveys={query.data ?? []}

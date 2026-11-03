@@ -202,7 +202,7 @@ async function chooseActor(testId: string) {
   fireEvent.click(await screen.findByRole('option', { name: ACTOR_NAME }));
 }
 
-describe('Managed System default owner', () => {
+describe('시스템 default owner', () => {
   afterEach(() => vi.restoreAllMocks());
 
   test('AC-D9a registration sends exactly one body with the selected actor owner', async () => {
@@ -469,10 +469,10 @@ describe('Managed System default owner', () => {
     const lines = [row.textContent, ...failures.map((item) => item.closest('li')?.textContent)];
     expect(new Set(lines).size).toBe(3);
     expect(failures[0]?.closest('li')).toHaveTextContent(
-      'Task Request · Managed System 기본 검토자',
+      'Task Request · 시스템 기본 검토자',
     );
     expect(failures[1]?.closest('li')).toHaveTextContent(
-      'Task Request · Managed System 기본 담당자',
+      'Task Request · 시스템 기본 담당자',
     );
     expect(screen.queryByText(/생성 시 미배정/)).not.toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: 'Team Owned System 설정 열기' })).toHaveLength(3);

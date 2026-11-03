@@ -162,13 +162,13 @@ function expectNoSelectedRow() {
 }
 vi.mock('@/lib/useAnalyticsAreaFilterLabel', () => ({
   useAnalyticsAreaFilterLabel: (area: string | undefined) =>
-    area === 'unset' ? 'Analytics Area: 미지정' : areaLabel,
+    area === 'unset' ? '분석 영역: 미지정' : areaLabel,
 }));
-let areaLabel = 'Analytics Area: Revenue';
+let areaLabel = '분석 영역: Revenue';
 beforeEach(() => {
   vi.mocked(listTasks).mockReset();
   vi.mocked(getTask).mockReset();
-  areaLabel = 'Analytics Area: Revenue';
+  areaLabel = '분석 영역: Revenue';
   mockTasks();
 });
 afterEach(cleanup);
@@ -212,9 +212,9 @@ it.each(['backlog', 'my'] as const)(
 it('removes a single key, restores it with Back/Forward, then clears all filters keeping context', async () => {
   const mounted = mount(`${initial}&param=${first.id}`);
   await screen.findByTestId('detail');
-  expect(screen.getByRole('button', { name: '상태: Backlog 필터 제거' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '상태: 대기 필터 제거' })).toBeInTheDocument();
   expect(
-    screen.getByRole('button', { name: '상태: Todo·Doing·Review 필터 제거' }),
+    screen.getByRole('button', { name: '상태: 할 일·진행 중·검토 필터 제거' }),
   ).toBeInTheDocument();
   expect(screen.getByRole('button', { name: '공개 업데이트 없음 필터 제거' })).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: '기한 지남 필터 제거' }));
@@ -248,10 +248,10 @@ it('removes a single key, restores it with Back/Forward, then clears all filters
 });
 
 it.each([
-  ['unset', 'Analytics Area: 미지정'],
-  [A, 'Analytics Area: Revenue'],
-  [A, 'Analytics Area: Revenue (보관됨)'],
-  [A, 'Analytics Area: 선택한 Area'],
+  ['unset', '분석 영역: 미지정'],
+  [A, '분석 영역: Revenue'],
+  [A, '분석 영역: Revenue (보관됨)'],
+  [A, '분석 영역: 선택한 영역'],
 ])('renders and removes Area %s as %s', async (area, label) => {
   areaLabel = label;
   const mounted = mount(`/tasks?view=backlog&filter.analytics_area=${area}&public_update=missing`);
@@ -272,15 +272,15 @@ it('names intersecting filters in the filtered-empty state with one reset', asyn
   expect(screen.getAllByRole('button', { name: '필터 초기화' })).toHaveLength(1);
   expect(
     screen.getByText(
-      'Analytics Area: 미지정 · 상태: Backlog · 상태: Todo·Doing·Review · 기한 지남 · 공개 업데이트 없음 · 보고자 업데이트 필요',
+      '분석 영역: 미지정 · 상태: 대기 · 상태: 할 일·진행 중·검토 · 기한 지남 · 공개 업데이트 없음 · 보고자 업데이트 필요',
     ),
   ).toBeInTheDocument();
 });
 
 it.each([
-  ['filter.analytics_area', 'Analytics Area: 미지정'],
-  ['status', '상태: Backlog'],
-  ['status_group', '상태: Todo·Doing·Review'],
+  ['filter.analytics_area', '분석 영역: 미지정'],
+  ['status', '상태: 대기'],
+  ['status_group', '상태: 할 일·진행 중·검토'],
   ['overdue', '기한 지남'],
   ['public_update', '공개 업데이트 없음'],
   ['reporter_update', '보고자 업데이트 필요'],

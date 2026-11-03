@@ -22,7 +22,7 @@ export const RESPONSIBILITY_COPY = {
   teamMark: '팀',
   ineligible: '지정할 수 없음',
   ineligibleForSystem:
-    '선택한 사용자는 이 Managed System의 담당자로 지정할 수 없습니다. Finding 관리 권한이 필요합니다. 다른 사용자를 고르거나 자동 배정을 선택하세요.',
+    '선택한 사용자는 이 시스템의 담당자로 지정할 수 없습니다. Finding 관리 권한이 필요합니다. 다른 사용자를 고르거나 자동 배정을 선택하세요.',
 };
 
 // #1181 Task detail Milestone row: inline assign/move/clear editor.
@@ -43,8 +43,8 @@ export const TASK_MILESTONE_COPY = {
 
 export const TASK_REPORT_FILTER_COPY = {
   status: (label: string) => `상태: ${label}`,
-  inFlight: '상태: Todo·Doing·Review',
-  inFlightOption: 'Todo·Doing·Review',
+  inFlight: '상태: 할 일·진행 중·검토',
+  inFlightOption: '할 일·진행 중·검토',
   overdue: '기한 지남',
   publicUpdate: '공개 업데이트 없음',
   reporterUpdate: '보고자 업데이트 필요',

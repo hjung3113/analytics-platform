@@ -57,22 +57,22 @@ test.describe('업무 흐름 설정·운영 콘솔 권한 그룹(#764 p2, #1099c
     }
   });
 
-  test.describe('목록 범위는 흐름 설정 메뉴에서 꺼져 있고 권한 메뉴에는 없다', () => {
+  test.describe('시스템 선택기는 흐름 설정 메뉴에서 꺼져 있고 권한 메뉴에는 없다', () => {
     const system = '33333333-3333-4333-8333-333333333333';
     test('흐름 정책의 선택기가 비활성이고 주소의 managedSystem은 그대로다', async ({ page }) => {
       await signInAs(page, 'admin');
       await page.goto(`/flow/settings?managedSystem=${system}`);
-      await expect(page.getByText('목록 범위', { exact: true })).toBeVisible();
+      await expect(page.getByTestId('scope-label')).toBeVisible();
       // Without a feature API the picker is disabled for the 실서버 필요 reason as well; the 흐름 설정 tooltip is the `ScopeControl` test's and the real-server check's.
-      await expect(page.getByTitle(/실서버 필요|Managed System 범위를 지원하지 않습니다/).filter({ hasText: '전체' })).toBeDisabled();
+      await expect(page.getByTitle(/실서버 필요|시스템 범위를 지원하지 않습니다/).filter({ hasText: '전체' })).toBeDisabled();
       expect(query(page).get('managedSystem')).toBe(system);
     });
 
-    test('권한 요청 검토에는 목록 범위가 마운트되지 않는다', async ({ page }) => {
+    test('권한 요청 검토에는 시스템 선택기가 마운트되지 않는다', async ({ page }) => {
       await signInAs(page, 'admin');
       await page.goto(`/operations/permission-request-review?managedSystem=${system}`);
       await expect(mainHeading(page)).toHaveText('권한 요청 검토');
-      await expect(page.getByText('목록 범위', { exact: true })).toHaveCount(0);
+      await expect(page.getByTestId('scope-label')).toHaveCount(0);
     });
   });
 

@@ -70,7 +70,7 @@ describe('VOC cluster creation Managed System validation', () => {
     fireEvent.click(screen.getByTestId('create-cluster-submit'));
 
     expect(createClusterMutate).not.toHaveBeenCalled();
-    expect(screen.getByRole('alert')).toHaveTextContent('Managed System을 선택하세요.');
+    expect(screen.getByRole('alert')).toHaveTextContent('시스템을 선택하세요.');
     expect(managedSystem).toHaveAttribute('aria-invalid', 'true');
     expect(managedSystem.getAttribute('aria-describedby')).toBe('cluster-managed-system-error');
     expect(managedSystem).toHaveFocus();
@@ -89,7 +89,7 @@ describe('VOC cluster creation Managed System validation', () => {
     fireEvent.click(screen.getByTestId('create-cluster-submit'));
 
     expect(createClusterMutate).not.toHaveBeenCalled();
-    expect(screen.getByRole('alert')).toHaveTextContent('Managed System을 선택하세요.');
+    expect(screen.getByRole('alert')).toHaveTextContent('시스템을 선택하세요.');
     expect(managedSystem).toHaveFocus();
   });
 });

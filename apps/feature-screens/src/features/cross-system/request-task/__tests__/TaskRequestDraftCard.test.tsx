@@ -40,7 +40,7 @@ describe('TaskRequestDraftCard', () => {
 
   it.each([
     { sourceKind: 'VOC' as const, sourceDisplayId: 'VOC-100' },
-    { sourceKind: 'VOC Cluster' as const, sourceDisplayId: 'CLU-100' },
+    { sourceKind: '반복 VOC' as const, sourceDisplayId: 'CLU-100' },
     { sourceKind: 'Finding' as const, sourceDisplayId: 'FIN-100' },
   ])('shows the source display id and kind for $sourceKind', ({ sourceKind, sourceDisplayId }) => {
     renderCard({ sourceKind, sourceDisplayId });

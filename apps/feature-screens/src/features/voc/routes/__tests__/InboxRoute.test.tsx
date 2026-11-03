@@ -409,7 +409,7 @@ describe('InboxScreen', () => {
         expect(query['filter.analytics_area']).toBe(area);
         expect(query.tab).toBe('no-task');
       });
-      const label = area === 'unset' ? 'Analytics Area: 미지정' : 'Analytics Area: 선택한 Area';
+      const label = area === 'unset' ? '분석 영역: 미지정' : '분석 영역: 선택한 영역';
       fireEvent.click(screen.getByRole('button', { name: `${label} 필터 제거` }));
       const navigation = lastNav();
       expect(navigation.search).toEqual({
@@ -446,8 +446,8 @@ describe('InboxScreen', () => {
   });
 
   it.each([
-    ['11111111-1111-4111-8111-111111111111', 'Analytics Area: 선택한 Area'],
-    ['unset', 'Analytics Area: 미지정'],
+    ['11111111-1111-4111-8111-111111111111', '분석 영역: 선택한 영역'],
+    ['unset', '분석 영역: 미지정'],
   ])(
     'shows filtered-empty Inbox copy for Area %s with a single reset control',
     async (area, label) => {
@@ -582,7 +582,7 @@ describe('InboxScreen', () => {
     );
   });
 
-  it('clears selected after the URL Managed System changes outside the open VOC scope', async () => {
+  it('clears selected after the URL 시스템 changes outside the open VOC scope', async () => {
     const selected = '00000000-0000-0000-0000-000000000001';
     searchState = { view: 'inbox', managedSystem: 'ms-1', selected };
     const { rerender } = render(<InboxTestHarness view="inbox" />);
@@ -601,7 +601,7 @@ describe('InboxScreen', () => {
     expect(screen.queryByTestId('voc-detail-panel-stub')).not.toBeInTheDocument();
   });
 
-  it('passes the selected Managed System to the open detail panel', async () => {
+  it('passes the selected 시스템 to the open detail panel', async () => {
     searchState = {
       view: 'my',
       managedSystem: 'ms-1',
@@ -744,7 +744,7 @@ describe('InboxScreen', () => {
     searchState = { view: 'inbox' };
     render(<InboxTestHarness view="inbox" />);
 
-    const panel = await screen.findByRole('heading', { name: 'VOC 수신함', level: 4 });
+    const panel = await screen.findByRole('heading', { name: 'VOC 처리함', level: 4 });
     // #562: specs/voc.md R-VOC-INBOX — nothing requestable -> blocked_not_requestable.
     expect(panel.closest('[data-state]')).toHaveAttribute('data-state', 'blocked_not_requestable');
     expect(screen.queryByText('불러오기 실패')).not.toBeInTheDocument();
@@ -772,7 +772,7 @@ describe('InboxScreen', () => {
 
     expect(
       await screen.findByText(
-        'VOC 수신함을 볼 권한이 없습니다. 내가 접수한 VOC는 내 VOC에서 확인할 수 있습니다.',
+        'VOC 처리함을 볼 권한이 없습니다. 내가 접수한 VOC는 내 VOC에서 확인할 수 있습니다.',
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText('no voc.read scope for actor')).not.toBeInTheDocument();
@@ -805,7 +805,7 @@ describe('InboxScreen', () => {
     searchState = { view: 'inbox' };
     render(<InboxTestHarness view="inbox" />);
 
-    const panel = await screen.findByRole('heading', { name: 'VOC 수신함', level: 4 });
+    const panel = await screen.findByRole('heading', { name: 'VOC 처리함', level: 4 });
     expect(panel.closest('[data-state]')).toHaveAttribute('data-state', 'request_access');
     const requestButton = screen.getByRole('button', { name: '권한 요청하기' });
     expect(screen.getAllByRole('button', { name: '권한 요청하기' })).toHaveLength(1);
@@ -817,7 +817,7 @@ describe('InboxScreen', () => {
     expect(openRequestAccessMock).toHaveBeenCalledTimes(1);
     // #562: an out-of-scope Managed System is not "no Inbox access" — no 내 VOC detour.
     expect(
-      screen.getByText('선택한 Managed System의 VOC를 볼 권한이 없습니다.'),
+      screen.getByText('선택한 시스템의 VOC를 볼 권한이 없습니다.'),
     ).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: '내 VOC' })).not.toBeInTheDocument();
   });

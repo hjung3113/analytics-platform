@@ -159,7 +159,7 @@ export function VocClusterListShell({
   return (
     <ListShell
       toolbar={{
-        title: 'VOC Cluster',
+        title: '반복 VOC',
         subtitle: 'VOC를 유사 주제로 묶어 Finding으로 승격합니다.',
         actions: toolbarActions,
       }}
@@ -313,7 +313,7 @@ function ClusterListBody({
           tabs={tabs}
           activeTab={activeTab}
           onTabChange={(next) => onTabChange(next as typeof activeTab)}
-          tabsAriaLabel="Cluster 필터"
+          tabsAriaLabel="반복 VOC 필터"
         />
       ) : null}
 
@@ -332,7 +332,7 @@ function ClusterListBody({
         ) : isError && isPermissionDenied(error) ? (
           <PermissionBlockedPanel
             state="denied"
-            category="VOC Cluster list"
+            category="반복 VOC list"
             reason={PERMISSION_BLOCKED_REASONS.vocClusterList}
             className="m-4"
           />
@@ -340,7 +340,7 @@ function ClusterListBody({
           <div data-testid="cluster-list-error">
             <ListStateMessage
               variant="error"
-              title="VOC Cluster 목록을 불러오지 못했습니다"
+              title="반복 VOC 목록을 불러오지 못했습니다"
               body="잠시 후 다시 시도하세요."
               action={{ label: '다시 시도', onClick: onRetry }}
             />
@@ -349,15 +349,15 @@ function ClusterListBody({
           <div data-testid="cluster-empty-state">
             <ListStateMessage
               variant="empty"
-              title="생성된 VOC Cluster가 없습니다."
-              body="VOC를 묶어 만든 Cluster가 여기에 표시됩니다."
+              title="생성된 반복 VOC가 없습니다."
+              body="VOC를 묶어 만든 반복 VOC가 여기에 표시됩니다."
             />
           </div>
         ) : clusters.length === 0 ? (
           // Prototype title casing is surface-specific; the reset action follows ADR-0052.
           <ListStateMessage
             variant="filtered"
-            title="이 필터에 해당하는 Cluster가 없습니다"
+            title="이 필터에 해당하는 반복 VOC가 없습니다"
             body={`선택한 조건: ${activeTab === 'confirmed' ? '확정' : 'Finding 없음'}`}
             action={{
               label: '필터 초기화',

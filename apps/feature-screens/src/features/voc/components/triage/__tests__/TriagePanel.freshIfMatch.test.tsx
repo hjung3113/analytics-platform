@@ -137,11 +137,11 @@ describe('TriagePanel — compensating PATCH If-Match (REV-1 #4)', () => {
 
     clickSeverity();
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /triage 확정/i })).not.toBeDisabled();
+      expect(screen.getByRole('button', { name: /분류 확정/i })).not.toBeDisabled();
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /triage 확정/i }));
+      fireEvent.click(screen.getByRole('button', { name: /분류 확정/i }));
     });
 
     await waitFor(() => expect(patchIfMatchHeaders.length).toBeGreaterThanOrEqual(1));

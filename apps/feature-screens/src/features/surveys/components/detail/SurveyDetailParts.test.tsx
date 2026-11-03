@@ -54,7 +54,7 @@ describe('useSurveyDetailParts', () => {
   it('shows the loading skeleton first, then the full detail with the display id and title', async () => {
     mount(S1_ID);
     expect(screen.getByTestId('view')).toHaveTextContent('loading');
-    expect(screen.getByLabelText('Survey 상세 불러오는 중')).toBeInTheDocument();
+    expect(screen.getByLabelText('설문 상세 불러오는 중')).toBeInTheDocument();
     await waitFor(() => expect(screen.getByTestId('view')).toHaveTextContent('full'));
     expect(screen.getByTestId('title')).toHaveTextContent('SRV-1 · 온보딩 설문');
     expect(screen.getByText('질문이 없습니다.')).toBeInTheDocument();
@@ -63,19 +63,19 @@ describe('useSurveyDetailParts', () => {
   it('renders not-found with a way back to the list', async () => {
     const onClose = mount(STALE_ID);
     await waitFor(() => expect(screen.getByTestId('view')).toHaveTextContent('not-found'));
-    fireEvent.click(screen.getByRole('button', { name: 'Survey 목록으로' }));
+    fireEvent.click(screen.getByRole('button', { name: '설문 목록으로' }));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it('renders the blocked state for a permission denial', async () => {
     mount(DENIED_ID);
     await waitFor(() => expect(screen.getByTestId('view')).toHaveTextContent('blocked'));
-    expect(screen.getByText('이 Survey를 볼 권한이 없습니다.')).toBeInTheDocument();
+    expect(screen.getByText('이 설문을 볼 권한이 없습니다.')).toBeInTheDocument();
   });
 
   it('keeps the close-survey action behind its confirmation', async () => {
     mount(S1_ID);
-    const close = await screen.findByRole('button', { name: 'Survey 종료' });
+    const close = await screen.findByRole('button', { name: '설문 종료' });
     expect(screen.queryByTestId('survey-close-confirmation')).toBeNull();
     fireEvent.click(close);
     expect(await screen.findByTestId('survey-close-confirmation')).toBeInTheDocument();

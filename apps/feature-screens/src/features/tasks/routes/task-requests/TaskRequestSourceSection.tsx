@@ -47,7 +47,7 @@ export function TaskRequestSourceSection({
 
 const PAYLOAD_SOURCE_KIND: Record<Exclude<TaskRequestDto['source_type'], 'finding'>, string> = {
   voc: 'VOC',
-  voc_cluster: 'VOC Cluster',
+  voc_cluster: '반복 VOC',
 };
 
 // VOC / VOC Cluster origins render from the Task Request payload, whose serializer

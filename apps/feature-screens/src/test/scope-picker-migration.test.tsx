@@ -20,7 +20,7 @@ function PickerHost({
     />
   );
 }
-it('AC-E5b keeps every out-of-grant Managed System name visible in the scope list', () => {
+it('AC-E5b keeps every out-of-grant 시스템 name visible in the scope list', () => {
   render(
     <PickerHost
       isAdmin={false}
@@ -73,22 +73,22 @@ it('labels non-admin all scope with the assigned systems on an unobstructed seco
   );
   const selector = screen.getByTestId('scope-selector');
   const scopeName = screen.getByTestId('scope-name');
-  expect(scopeName).toHaveTextContent('전체 Managed System');
+  expect(scopeName).toHaveTextContent('전체 시스템');
   expect(selector).toHaveTextContent('내 담당: Tableau · Power BI');
-  expect(selector).toHaveAccessibleName('전체 Managed System, 내 담당 범위');
+  expect(selector).toHaveAccessibleName('전체 시스템, 내 담당 범위');
   expect(screen.queryByTestId('scope-union-badge')).not.toBeInTheDocument();
   expect(Array.from(scopeName.parentElement?.children ?? [])).toHaveLength(1);
 
   fireEvent.click(selector);
-  expect(screen.getByTestId('scope-option-all')).toHaveTextContent('전체 Managed System');
+  expect(screen.getByTestId('scope-option-all')).toHaveTextContent('전체 시스템');
 });
 it('labels Admin all scope without a second line or qualifier', () => {
   render(
     <PickerHost isAdmin={true} managedSystems={[{ id: 'one', name: 'Identity', granted: true }]} />,
   );
-  expect(screen.getByTestId('scope-name')).toHaveTextContent('전체 Managed System');
+  expect(screen.getByTestId('scope-name')).toHaveTextContent('전체 시스템');
   expect(screen.getByTestId('scope-selector')).not.toHaveTextContent('내 담당:');
-  expect(screen.getByTestId('scope-selector')).toHaveAccessibleName('전체 Managed System');
+  expect(screen.getByTestId('scope-selector')).toHaveAccessibleName('전체 시스템');
   expect(screen.queryByTestId('scope-union-badge')).not.toBeInTheDocument();
 
   fireEvent.click(screen.getByTestId('scope-selector'));

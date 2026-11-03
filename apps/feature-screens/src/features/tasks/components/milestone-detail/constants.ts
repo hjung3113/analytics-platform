@@ -6,7 +6,7 @@ import type { PanelSection } from '@ap/ui';
 export const SECTIONS: PanelSection[] = [
   { id: 'overview', label: '요약' },
   { id: 'tasks', label: 'Tasks' },
-  { id: 'evidence', label: 'Evidence' },
+  { id: 'evidence', label: '근거' },
   { id: 'activity', label: '이력' },
 ];
 

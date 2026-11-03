@@ -45,13 +45,13 @@ test.describe('#1099 B 업무 흐름·운영 콘솔과 내 활동·소통', () =
     }
   });
 
-  test('목록 범위는 업무 흐름 메뉴에만 있고 플랫폼 관리 메뉴에는 마운트되지 않는다', async ({ page }) => {
+  test('시스템 선택기는 업무 흐름 메뉴에만 있고 플랫폼 관리 메뉴에는 마운트되지 않는다', async ({ page }) => {
     await signInAs(page, 'admin');
     await page.goto(`/flow/inbox?managedSystem=${SYSTEM}`);
-    await expect(page.getByText('목록 범위')).toBeVisible();
+    await expect(page.getByTestId('scope-label')).toBeVisible();
     await page.goto('/operations/admin-roles');
     await expect(page.getByRole('main').getByRole('heading', { name: '권한/역할 관리' })).toBeVisible();
-    await expect(page.getByText('목록 범위')).toHaveCount(0);
+    await expect(page.getByTestId('scope-label')).toHaveCount(0);
   });
 
   test('팔레트(Ctrl+K)는 내 Task와 업무 흐름 목적지를 전체 경로로 구분해 찾고, 취소하면 열었던 곳으로 포커스가 돌아온다', async ({ page }) => {

@@ -1,7 +1,7 @@
 import { CREATE_OR_LINK_FINDING_LABEL, GLOSSARY } from './glossary';
 
 // #582 / ADR-0031 replaces the prototype's old "similar" wording for this heuristic.
-export const SAME_MANAGED_SYSTEM_VOC_LABEL = '같은 Managed System의 VOC';
+export const SAME_MANAGED_SYSTEM_VOC_LABEL = '같은 시스템의 VOC';
 export const SEMANTIC_VOC_RECOMMENDATIONS_LABEL = '유사 VOC 추천';
 export const SEMANTIC_VOC_RECOMMENDATIONS_NOTICE =
   '자동 클러스터링은 추천만 합니다. 확정이 필요합니다.';
@@ -15,10 +15,10 @@ export const VOC_SEARCH_EMPTY_LABEL = '검색 결과가 없습니다.';
 export const VOC_CREATE_COPY = {
   titleField: '제목',
   descriptionField: '상세 설명',
-  managedSystemField: 'Managed System',
-  analyticsAreaField: 'Analytics Area',
+  managedSystemField: '시스템',
+  analyticsAreaField: '분석 영역',
   proxyReportHint: '타인 대신 보고는 다른 팀원이나 고객의 경험을 대신 등록하는 경우입니다.',
-  analyticsAreaHint: 'Analytics Area는 VOC를 분석할 때 함께 볼 주제에 맞춰 선택하세요.',
+  analyticsAreaHint: '분석 영역은 VOC를 분석할 때 함께 볼 주제에 맞춰 선택하세요.',
   requiredFieldsPrefix: '필수 항목: ',
   // #656: merged editor + dropzone attachments over the per-parent cap block the submit.
   attachmentLimit: '첨부는 최대 10개까지 연결할 수 있습니다.',

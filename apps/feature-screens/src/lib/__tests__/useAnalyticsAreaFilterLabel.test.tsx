@@ -34,8 +34,8 @@ describe('Area filter label', () => {
       }),
     );
     const { result } = renderHook(() => useAnalyticsAreaFilterLabel(AREA, MS), { wrapper: Wrapper });
-    expect(result.current).toBe('Analytics Area: 선택한 Area');
-    await waitFor(() => expect(result.current).toBe('Analytics Area: 결제 (보관됨)'));
+    expect(result.current).toBe('분석 영역: 선택한 영역');
+    await waitFor(() => expect(result.current).toBe('분석 영역: 결제 (보관됨)'));
     expect(requests.map((url) => url.searchParams.get('offset'))).toEqual(['0', '500']);
     expect(
       requests.every(
@@ -59,7 +59,7 @@ describe('Area filter label', () => {
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 10));
     });
-    expect(result.current).toBe('Analytics Area: 선택한 Area');
+    expect(result.current).toBe('분석 영역: 선택한 영역');
   });
   it('ignores an old scope response after scope changes and resolves an unarchived label', async () => {
     let finishOld!: (response: Response) => void;
@@ -88,7 +88,7 @@ describe('Area filter label', () => {
     await waitFor(() => expect(oldStarted).toBe(true));
     rerender({ scope: AREA });
     await waitFor(() => expect(currentStarted).toBe(true));
-    await waitFor(() => expect(result.current).toBe('Analytics Area: 현재 Area'));
+    await waitFor(() => expect(result.current).toBe('분석 영역: 현재 Area'));
     await act(async () =>
       finishOld(
         new Response(
@@ -96,14 +96,14 @@ describe('Area filter label', () => {
         ),
       ),
     );
-    expect(result.current).toBe('Analytics Area: 현재 Area');
+    expect(result.current).toBe('분석 영역: 현재 Area');
   });
 
   it('labels unset without fetching', () => {
     const fetch = vi.fn();
     vi.stubGlobal('fetch', fetch);
     const { result } = renderHook(() => useAnalyticsAreaFilterLabel('unset'), { wrapper: Wrapper });
-    expect(result.current).toBe('Analytics Area: 미지정');
+    expect(result.current).toBe('분석 영역: 미지정');
     expect(fetch).not.toHaveBeenCalled();
   });
 });

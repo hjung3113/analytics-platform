@@ -138,7 +138,7 @@ describe('/admin/settings route', () => {
     ).not.toBeInTheDocument();
     expect(
       screen.getByText(
-        '다른 Managed System의 항목을 참조하거나 연결할 수 있는지 결정합니다. 접근할 수 없는 항목에는 차단 안내가 표시됩니다.',
+        '다른 시스템의 항목을 참조하거나 연결할 수 있는지 결정합니다. 접근할 수 없는 항목에는 차단 안내가 표시됩니다.',
       ),
     ).toBeInTheDocument();
     expect(
@@ -152,22 +152,22 @@ describe('/admin/settings route', () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getAllByText('금지', { exact: true })).toHaveLength(2);
-    expect(screen.getByText('Survey 응답 → VOC').closest('div[class*="grid"]')).toHaveTextContent(
+    expect(screen.getByText('설문 응답 → VOC').closest('div[class*="grid"]')).toHaveTextContent(
       '금지',
     );
     expect(
       screen
-        .getByText('Survey 응답 → VOC')
+        .getByText('설문 응답 → VOC')
         .closest('div[class*="grid"]')
         ?.querySelector('.text-accent-danger'),
     ).toHaveTextContent('금지');
     expect(screen.getByText('응답 9건', { exact: true })).toBeInTheDocument();
     expect(screen.queryByText('정책 강제 연결 후 편집 가능')).not.toBeInTheDocument();
     for (const label of [
-      'Managed System 간 연결',
+      '시스템 간 연결',
       '권한 요청 재신청 기간',
-      'Survey 응답 → VOC',
-      '개발자의 기본 Managed System 범위',
+      '설문 응답 → VOC',
+      '개발자의 기본 시스템 범위',
       'all = 워크스페이스 전체',
     ]) {
       const row = screen.getByText(label, { exact: true }).closest('div[class*="grid"]');

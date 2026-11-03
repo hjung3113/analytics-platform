@@ -40,7 +40,7 @@ vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
   fetchManagedSystems: async () => ({ items: [] }),
 }));
 vi.mock('@/lib/useAnalyticsAreaFilterLabel', () => ({
-  useAnalyticsAreaFilterLabel: () => 'Analytics Area: Revenue',
+  useAnalyticsAreaFilterLabel: () => '분석 영역: Revenue',
 }));
 
 function makeTask(n: number): TaskDto {
@@ -196,8 +196,8 @@ describe('TaskListScreen URL writes', () => {
 
   it.each([
     ['전체 상태', {}],
-    ['Todo·Doing·Review', { status_group: 'in-flight' }],
-    ['Backlog', { status: 'backlog' }],
+    ['할 일·진행 중·검토', { status_group: 'in-flight' }],
+    ['대기', { status: 'backlog' }],
   ])('내 Task status %s replaces the status filter, as a push', async (option, expected) => {
     searchState = { ...CARRIED, view: 'my', status: 'review' };
     mount('my');

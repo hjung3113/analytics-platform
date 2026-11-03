@@ -5,10 +5,10 @@ import { SummaryPermissionView } from '../SummaryPermissionView';
 
 describe('SummaryPermissionView reason copy', () => {
   it.each([
-    ['explicit_deny', '이 Managed System의 VOC 조회가 제한되어 있습니다.'],
+    ['explicit_deny', '이 시스템의 VOC 조회가 제한되어 있습니다.'],
     ['grant_expired', 'VOC 조회 권한이 만료되었습니다.'],
     ['grant_revoked', 'VOC 조회 권한이 회수되었습니다.'],
-    ['no_grant', '이 Managed System의 VOC를 볼 권한이 없습니다.'],
+    ['no_grant', '이 시스템의 VOC를 볼 권한이 없습니다.'],
     ['unknown_reason', null],
   ])('renders safe Korean copy for %s', (reason, copy) => {
     const data: VocSummaryEnvelope = {

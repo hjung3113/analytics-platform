@@ -224,7 +224,7 @@ describe('/surveys/:surveyId/results route', () => {
       await waitFor(() => {
         expect(screen.queryByTestId('survey-results-summary')).not.toBeInTheDocument();
       });
-      if (gateState !== 'loading') expect(screen.getByText('Survey 결과')).toBeInTheDocument();
+      if (gateState !== 'loading') expect(screen.getByText('설문 결과')).toBeInTheDocument();
     },
   );
 
@@ -315,7 +315,7 @@ describe('/surveys/:surveyId/results route', () => {
     const router = renderSurveyRoute();
     await router.navigate({ to: '/surveys/$surveyId/results', params: { surveyId } });
 
-    const deniedHeading = await screen.findByText('Survey 결과');
+    const deniedHeading = await screen.findByText('설문 결과');
     expect(deniedHeading.closest('.p-6')).toBeInTheDocument();
   });
 
@@ -346,7 +346,7 @@ describe('/surveys/:surveyId/results route', () => {
     expect(liveRegion?.firstElementChild).toBe(header);
     expect(within(header).getByRole('heading', { name: 'Results' })).toBeInTheDocument();
     expect(within(header).getByText('SRV-21')).toBeInTheDocument();
-    expect(within(header).getByRole('link', { name: 'Surveys /' })).toHaveAttribute(
+    expect(within(header).getByRole('link', { name: '설문 /' })).toHaveAttribute(
       'href',
       '/surveys',
     );
@@ -394,12 +394,12 @@ describe('/surveys/:surveyId/results route', () => {
     expect(liveRegion?.firstElementChild).toBe(header);
     expect(within(header).getByRole('heading', { name: 'Results' })).toBeInTheDocument();
     expect(within(header).getByText('SRV-21')).toBeInTheDocument();
-    expect(within(header).getByRole('link', { name: 'Surveys /' })).toHaveAttribute(
+    expect(within(header).getByRole('link', { name: '설문 /' })).toHaveAttribute(
       'href',
       '/surveys',
     );
     expect(within(header).getByRole('link', { name: '후속 조치 · 1' })).toBeInTheDocument();
-    expect(screen.queryByText('Survey 결과를 찾을 수 없습니다.')).not.toBeInTheDocument();
+    expect(screen.queryByText('설문 결과를 찾을 수 없습니다.')).not.toBeInTheDocument();
     const retry = screen.getByRole('button', { name: '다시 시도' });
     expect(liveRegion).toContainElement(retry);
     fireEvent.click(retry);
@@ -435,7 +435,7 @@ describe('/surveys/:surveyId/results route', () => {
     const router = renderSurveyRoute();
     await router.navigate({ to: '/surveys/$surveyId/results', params: { surveyId } });
 
-    expect(await screen.findByText('Survey 결과를 찾을 수 없습니다.')).toBeInTheDocument();
+    expect(await screen.findByText('설문 결과를 찾을 수 없습니다.')).toBeInTheDocument();
     const header = screen.getByTestId('survey-result-header');
     expect(within(header).getByText('SRV-21')).toBeInTheDocument();
     expect(within(header).queryByRole('link', { name: /후속 조치/ })).not.toBeInTheDocument();
@@ -457,7 +457,7 @@ describe('/surveys/:surveyId/results route', () => {
     const router = renderSurveyRoute();
     await router.navigate({ to: '/surveys/$surveyId/results', params: { surveyId } });
 
-    expect(await screen.findByText('Survey 결과를 찾을 수 없습니다.')).toBeInTheDocument();
+    expect(await screen.findByText('설문 결과를 찾을 수 없습니다.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '다시 시도' })).not.toBeInTheDocument();
   });
 
@@ -476,9 +476,9 @@ describe('/surveys/:surveyId/results route', () => {
     const router = renderSurveyRoute();
     await router.navigate({ to: '/surveys/$surveyId/results', params: { surveyId } });
 
-    const deniedHeading = await screen.findByText('Survey 결과');
+    const deniedHeading = await screen.findByText('설문 결과');
     expect(deniedHeading.closest('[aria-live="polite"]')).toBeInTheDocument();
-    expect(screen.queryByText('Survey 결과를 찾을 수 없습니다.')).not.toBeInTheDocument();
+    expect(screen.queryByText('설문 결과를 찾을 수 없습니다.')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '다시 시도' })).not.toBeInTheDocument();
   });
 
@@ -529,16 +529,16 @@ describe('/surveys/:surveyId/results route', () => {
       await router.navigate({ to: '/surveys/$surveyId/results', params: { surveyId } });
 
       if (resultsError.status === 403) {
-        expect(await screen.findByText('Survey 결과')).toBeInTheDocument();
+        expect(await screen.findByText('설문 결과')).toBeInTheDocument();
       } else {
-        expect(await screen.findByText('Survey 결과를 찾을 수 없습니다.')).toBeInTheDocument();
+        expect(await screen.findByText('설문 결과를 찾을 수 없습니다.')).toBeInTheDocument();
       }
       const header = screen.getByTestId('survey-result-header');
       expect(within(header).getByRole('heading', { name: 'Results' })).toBeInTheDocument();
       expect(within(header).getByText('SRV-21')).toBeInTheDocument();
       expect(within(header).getByText('결과')).toBeInTheDocument();
       expect(within(header).getByText('종료됨')).toBeInTheDocument();
-      expect(within(header).getByRole('link', { name: 'Surveys /' })).toHaveAttribute(
+      expect(within(header).getByRole('link', { name: '설문 /' })).toHaveAttribute(
         'href',
         '/surveys',
       );
@@ -552,12 +552,12 @@ describe('/surveys/:surveyId/results route', () => {
     [
       '403 permission denial',
       new ApiError(403, { code: 'permission.denied', message: 'denied' }),
-      'Survey 결과',
+      '설문 결과',
     ],
     [
       '404 denial-shaped not-found',
       new ApiError(404, { code: 'not_found.record', message: 'not found' }),
-      'Survey 결과를 찾을 수 없습니다.',
+      '설문 결과를 찾을 수 없습니다.',
     ],
   ] as const)(
     'hides retained result and Follow-up data after a Follow-up %s',
@@ -658,9 +658,9 @@ describe('/surveys/:surveyId/results route', () => {
     const router = renderSurveyRoute();
     await router.navigate({ to: '/surveys/$surveyId/results', params: { surveyId } });
 
-    const error = await screen.findByText('Survey를 불러오지 못했습니다.');
+    const error = await screen.findByText('설문을 불러오지 못했습니다.');
     expect(error.closest('[aria-live="polite"]')).toBeInTheDocument();
-    expect(screen.queryByText('Survey를 찾을 수 없습니다.')).not.toBeInTheDocument();
+    expect(screen.queryByText('설문을 찾을 수 없습니다.')).not.toBeInTheDocument();
     const retry = await screen.findByRole('button', { name: '다시 시도' });
     retry.click();
     expect(refetch).toHaveBeenCalled();
@@ -681,7 +681,7 @@ describe('/surveys/:surveyId/results route', () => {
     const router = renderSurveyRoute();
     await router.navigate({ to: '/surveys/$surveyId/results', params: { surveyId } });
 
-    expect(await screen.findByText('Survey를 찾을 수 없습니다.')).toBeInTheDocument();
+    expect(await screen.findByText('설문을 찾을 수 없습니다.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '다시 시도' })).not.toBeInTheDocument();
   });
 
@@ -700,8 +700,8 @@ describe('/surveys/:surveyId/results route', () => {
     const router = renderSurveyRoute();
     await router.navigate({ to: '/surveys/$surveyId/results', params: { surveyId } });
 
-    expect(await screen.findByText('Survey 결과')).toBeInTheDocument();
-    expect(screen.queryByText('Survey를 찾을 수 없습니다.')).not.toBeInTheDocument();
+    expect(await screen.findByText('설문 결과')).toBeInTheDocument();
+    expect(screen.queryByText('설문을 찾을 수 없습니다.')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '다시 시도' })).not.toBeInTheDocument();
   });
 
@@ -866,12 +866,12 @@ describe('/surveys/:surveyId/results route', () => {
     [
       '403 permission denial',
       new ApiError(403, { code: 'permission.denied', message: 'denied' }),
-      'Survey 결과',
+      '설문 결과',
     ],
     [
       '404 denial-shaped not-found',
       new ApiError(404, { code: 'not_found.record', message: 'not found' }),
-      'Survey 결과를 찾을 수 없습니다.',
+      '설문 결과를 찾을 수 없습니다.',
     ],
   ] as const)(
     'keeps the %s body when a later Follow-up refetch fails with 500 while results hold pre-denial data',
@@ -927,12 +927,12 @@ describe('/surveys/:surveyId/results route', () => {
     [
       '403 permission denial',
       new ApiError(403, { code: 'permission.denied', message: 'denied' }),
-      'Survey 결과',
+      '설문 결과',
     ],
     [
       '404 denial-shaped not-found',
       new ApiError(404, { code: 'not_found.record', message: 'not found' }),
-      'Survey 결과를 찾을 수 없습니다.',
+      '설문 결과를 찾을 수 없습니다.',
     ],
   ] as const)(
     'keeps the %s body when a later results refetch fails with 500 while Follow-up holds pre-denial data',
@@ -1039,7 +1039,7 @@ describe('/surveys/:surveyId/results route', () => {
 
       const { navigateToResults, remountResultsRoute } = mountResultsRouteForTransition();
       await navigateToResults();
-      expect(await screen.findByText('Survey 결과')).toBeInTheDocument();
+      expect(await screen.findByText('설문 결과')).toBeInTheDocument();
 
       if (read === 'results') {
         useSurveyResults.mockReturnValue({
@@ -1064,7 +1064,7 @@ describe('/surveys/:surveyId/results route', () => {
       }
       await remountResultsRoute();
 
-      expect(await screen.findByText('Survey 결과')).toBeInTheDocument();
+      expect(await screen.findByText('설문 결과')).toBeInTheDocument();
       expect(screen.queryByTestId('survey-results-summary')).not.toBeInTheDocument();
       expect(screen.queryByText('응답 12건')).not.toBeInTheDocument();
       expect(screen.queryByText('Retained distribution')).not.toBeInTheDocument();
@@ -1100,7 +1100,7 @@ describe('/surveys/:surveyId/results route', () => {
     const { navigateToResults, remountResultsRoute } = mountResultsRouteForTransition();
     await navigateToResults();
 
-    expect(await screen.findByText('Survey 결과')).toBeInTheDocument();
+    expect(await screen.findByText('설문 결과')).toBeInTheDocument();
 
     useSurveyResults.mockReturnValue({
       data: retainedResults(),
@@ -1119,7 +1119,7 @@ describe('/surveys/:surveyId/results route', () => {
     });
     await remountResultsRoute();
 
-    expect(await screen.findByText('Survey 결과')).toBeInTheDocument();
+    expect(await screen.findByText('설문 결과')).toBeInTheDocument();
     expect(screen.queryByTestId('survey-results-summary')).not.toBeInTheDocument();
 
     useOutcomeFollowUp.mockReturnValue({
@@ -1172,7 +1172,7 @@ describe('/surveys/:surveyId/results route', () => {
 
     const first = mountRoute();
     await first.router.navigate({ to: '/surveys/$surveyId/results', params: { surveyId } });
-    expect(await screen.findByText('Survey 결과')).toBeInTheDocument();
+    expect(await screen.findByText('설문 결과')).toBeInTheDocument();
     first.unmount();
 
     useSurveyResults.mockReturnValue({
@@ -1194,7 +1194,7 @@ describe('/surveys/:surveyId/results route', () => {
     const second = mountRoute();
     await second.router.navigate({ to: '/surveys/$surveyId/results', params: { surveyId } });
 
-    expect(await screen.findByText('Survey 결과')).toBeInTheDocument();
+    expect(await screen.findByText('설문 결과')).toBeInTheDocument();
     expect(screen.queryByTestId('survey-results-summary')).not.toBeInTheDocument();
     second.unmount();
   });
@@ -1228,7 +1228,7 @@ describe('/surveys/:surveyId/results route', () => {
     await navigateToResults();
 
     // The metadata ordinary error owns the body and nothing is recorded yet.
-    expect(await screen.findByText('Survey를 불러오지 못했습니다.')).toBeInTheDocument();
+    expect(await screen.findByText('설문을 불러오지 못했습니다.')).toBeInTheDocument();
     const denialKey = surveyKeys.resultsReadDenial(surveyId);
     expect(queryClient.getQueryData(denialKey)).toBeUndefined();
 
@@ -1242,7 +1242,7 @@ describe('/surveys/:surveyId/results route', () => {
       errorUpdatedAt: 2000,
     });
     await remountResultsRoute();
-    expect(await screen.findByText('Survey를 불러오지 못했습니다.')).toBeInTheDocument();
+    expect(await screen.findByText('설문을 불러오지 못했습니다.')).toBeInTheDocument();
     expect(queryClient.getQueryData(denialKey)).toMatchObject({ at: 2000, blocked: true });
 
     // An ordinary error replaces the denial error while metadata stays broken.
@@ -1255,13 +1255,13 @@ describe('/surveys/:surveyId/results route', () => {
       errorUpdatedAt: 3000,
     });
     await remountResultsRoute();
-    expect(await screen.findByText('Survey를 불러오지 못했습니다.')).toBeInTheDocument();
+    expect(await screen.findByText('설문을 불러오지 못했습니다.')).toBeInTheDocument();
 
     // Metadata recovers: the recorded denial still blocks, with no R/H/C.
     useSurvey.mockReturnValue({ data: survey, isLoading: false, isError: false, refetch: vi.fn() });
     await remountResultsRoute();
 
-    expect(await screen.findByText('Survey 결과')).toBeInTheDocument();
+    expect(await screen.findByText('설문 결과')).toBeInTheDocument();
     expect(screen.queryByTestId('survey-results-summary')).not.toBeInTheDocument();
     expect(screen.queryByText('응답 12건')).not.toBeInTheDocument();
     expect(screen.queryByText('Retained distribution')).not.toBeInTheDocument();
@@ -1302,7 +1302,7 @@ describe('/surveys/:surveyId/results route', () => {
     const { navigateToResults, remountResultsRoute } = mountResultsRouteForTransition(queryClient);
 
     await navigateToResults();
-    expect(await screen.findByText('Survey 결과')).toBeInTheDocument();
+    expect(await screen.findByText('설문 결과')).toBeInTheDocument();
     const denialKey = surveyKeys.resultsReadDenial(surveyId);
     expect(queryClient.getQueryData(denialKey)).toMatchObject({ at: 2000, blocked: true });
 
@@ -1322,7 +1322,7 @@ describe('/surveys/:surveyId/results route', () => {
     });
     await remountResultsRoute();
 
-    expect(await screen.findByText('Survey 결과')).toBeInTheDocument();
+    expect(await screen.findByText('설문 결과')).toBeInTheDocument();
     expect(screen.queryByTestId('survey-results-summary')).not.toBeInTheDocument();
     expect(screen.queryByText('응답 12건')).not.toBeInTheDocument();
     expect(screen.queryByText('Retained distribution')).not.toBeInTheDocument();
@@ -1368,7 +1368,7 @@ describe('/surveys/:surveyId/results route', () => {
 
     // Nothing was stored before this mount, so the blocked frame can only
     // come from the current errors, not from the persisted record.
-    expect(await screen.findByText('Survey 결과')).toBeInTheDocument();
+    expect(await screen.findByText('설문 결과')).toBeInTheDocument();
     expect(screen.queryByTestId('survey-results-summary')).not.toBeInTheDocument();
     expect(screen.queryByText('응답 12건')).not.toBeInTheDocument();
     expect(screen.queryByText('Retained approved excerpt')).not.toBeInTheDocument();
@@ -1425,7 +1425,7 @@ describe('/surveys/:surveyId/results route', () => {
 
     await navigateToResults();
 
-    expect(await screen.findByText('Survey 결과')).toBeInTheDocument();
+    expect(await screen.findByText('설문 결과')).toBeInTheDocument();
     expect(writesDuringRender).toEqual([]);
     expect(denialWrites).toHaveLength(1);
     expect(queryClient.getQueryData(denialKey)).toMatchObject({ at: 2000, blocked: true });

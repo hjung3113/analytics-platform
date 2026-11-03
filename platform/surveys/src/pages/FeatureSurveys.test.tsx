@@ -220,7 +220,7 @@ describe('the hidden Survey screens', () => {
     ['survey-follow-up', 'follow-up'],
   ])('%s refuses a non-UUID :surveyId as not found and requests nothing', async (menu, testId) => {
     mountAt(child(menu, 'not-a-uuid'));
-    expect(await screen.findByText('Survey를 찾을 수 없습니다', undefined, LAZY_MOUNT_WAIT)).toBeTruthy();
+    expect(await screen.findByText('설문을 찾을 수 없습니다', undefined, LAZY_MOUNT_WAIT)).toBeTruthy();
     expect(screen.queryByTestId(testId)).toBeNull();
     expect(screenMock.builder).toEqual([]);
     expect(screenMock.results).toEqual([]);

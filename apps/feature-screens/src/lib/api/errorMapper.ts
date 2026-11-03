@@ -24,7 +24,7 @@ export const CATALOG: Partial<Record<ErrorCode, CatalogEntry>> = {
 
   // permission.*
   'permission.denied':         { tone: 'error', message: '권한이 없습니다.' },
-  'permission.scope_required': { tone: 'error', message: '해당 Managed System에 대한 권한이 없습니다.' },
+  'permission.scope_required': { tone: 'error', message: '해당 시스템에 대한 권한이 없습니다.' },
 
   // rate_limited.*
   'rate_limited.actor': {
@@ -71,10 +71,10 @@ export const CATALOG: Partial<Record<ErrorCode, CatalogEntry>> = {
         ? '요청 내용이 변경되었습니다. 최신 요청을 확인한 후 다시 시도해 주세요.'
         : '다른 사용자가 먼저 변경했습니다. 최신 내용을 불러올까요?',
   },
-  'conflict.triage_already_committed':     { tone: 'error', message: '이미 Triage가 완료되어 본인이 직접 수정할 수 없습니다.' },
-  'conflict.survey_not_open':              { tone: 'error', message: '이 Survey는 현재 응답을 받을 수 없습니다.' },
-  'conflict.survey_response_already_submitted': { tone: 'info', message: '이 Survey에는 이미 응답을 제출했습니다.' },
-  'conflict.survey_results_unavailable':   { tone: 'error', message: '이 Survey는 아직 결과를 볼 수 없습니다.' },
+  'conflict.triage_already_committed':     { tone: 'error', message: '이미 분류가 완료되어 본인이 직접 수정할 수 없습니다.' },
+  'conflict.survey_not_open':              { tone: 'error', message: '이 설문은 현재 응답을 받을 수 없습니다.' },
+  'conflict.survey_response_already_submitted': { tone: 'info', message: '이 설문에는 이미 응답을 제출했습니다.' },
+  'conflict.survey_results_unavailable':   { tone: 'error', message: '이 설문은 아직 결과를 볼 수 없습니다.' },
 
   // not_found.*
   'not_found.record': { tone: 'error', message: '존재하지 않거나 접근할 수 없는 항목입니다.' },
@@ -83,7 +83,7 @@ export const CATALOG: Partial<Record<ErrorCode, CatalogEntry>> = {
   'internal.unexpected': { tone: 'error', message: GENERIC_ERROR_MESSAGE },
 
   // voc.*
-  'voc.severity_not_user_settable':             { tone: 'error', message: '심각도는 Triage 단계에서만 설정할 수 있습니다.' },
+  'voc.severity_not_user_settable':             { tone: 'error', message: '심각도는 분류 단계에서만 설정할 수 있습니다.' },
   'voc.reporter_status_via_public_update_only': { tone: 'error', message: '공개 상태는 공개 업데이트를 통해서만 변경됩니다.' },
 
   // rich_content.*

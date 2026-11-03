@@ -225,8 +225,8 @@ describe('integration action dashboard route', () => {
     const expectedPrimaryLabels = {
       'unassigned-voc': 'VOC 검토',
       'actionable-finding-no-execution': 'Finding 검토',
-      'released-task-unresolved-voc': 'Released Task 검토',
-      'bad-outcome-no-followup': '성과 Survey 검토',
+      'released-task-unresolved-voc': '배포된 Task 검토',
+      'bad-outcome-no-followup': '성과 설문 검토',
       'high-severity-unlinked': '높은 심각도 VOC 검토',
       'permission-requests-pending': '권한 요청 열기',
     } as const;
@@ -282,7 +282,7 @@ describe('integration action dashboard route', () => {
         'bg-surface-card',
       );
     }
-    expect(surfaces.getByRole('link', { name: /Evidence/ })).toHaveAttribute(
+    expect(surfaces.getByRole('link', { name: /근거/ })).toHaveAttribute(
       'href',
       '/integration/evidence',
     );
@@ -409,13 +409,13 @@ describe('integration action dashboard route', () => {
     );
     expect(
       screen.getByTestId('integration-zero-queue-released-task-unresolved-voc'),
-    ).toHaveTextContent('Released Task · 미해결 VOC 0');
+    ).toHaveTextContent('배포된 Task · 미해결 VOC 0');
     expect(screen.queryByTestId('integration-queue-card-unassigned-voc')).toBeNull();
     expect(screen.queryByTestId('integration-queue-card-released-task-unresolved-voc')).toBeNull();
     expect(screen.queryByTestId('integration-queue-card-high-severity-unlinked')).toBeNull();
   });
 
-  test('maps available Managed System metrics and dashes only the omitted cells', async () => {
+  test('maps available 시스템 metrics and dashes only the omitted cells', async () => {
     const summary = dashboardSummarySchema.parse({
       ...SUMMARY,
       by_managed_system: [
@@ -508,7 +508,7 @@ describe('integration action dashboard route', () => {
     );
   });
 
-  test('passes the selected Managed System to the summary request', async () => {
+  test('passes the selected 시스템 to the summary request', async () => {
     const requestedUrls: string[] = [];
     await renderDashboard(`/integration?managedSystem=${MS_A}`, async (input) => {
       const url = typeof input === 'string' ? input : input.toString();
@@ -586,7 +586,7 @@ describe('integration action dashboard route', () => {
     expect(screen.getByRole('heading', { level: 1, name: '연동 액션 대시보드' })).toBeVisible();
   });
 
-  test('strictly accepts the documented Managed System scope search values', () => {
+  test('strictly accepts the documented 시스템 scope search values', () => {
     expect(integrationDashboardSearchSchema.parse({ managedSystem: MS_A })).toEqual({
       managedSystem: MS_A,
     });
@@ -649,16 +649,16 @@ describe('integration action dashboard route', () => {
   });
 });
 
-test('Evidence entry preserves Managed System without inventing a count (#1107)', async () => {
+test('근거 entry preserves 시스템 without inventing a count (#1107)', async () => {
   await renderDashboard(`/integration?managedSystem=${MS_A}`);
   const card = await screen.findByTestId('integration-surface-evidence');
   expect(card.getAttribute('href')).toBe(`/integration/evidence?managedSystem=${MS_A}`);
-  expect(within(card).getByText('Evidence')).toBeVisible();
+  expect(within(card).getByText('근거')).toBeVisible();
   expect(screen.queryByTestId('integration-surface-evidence-stat')).toBeNull();
 });
 
 test.each(queueFixtures.map((queue) => [queue.id, queue.next_action.route] as const))(
-  'queue card primary link keeps the selected Managed System on %s (#1179)',
+  'queue card primary link keeps the selected 시스템 on %s (#1179)',
   async (id, route) => {
     await renderDashboard(`/integration?managedSystem=${MS_A}`);
     expect(await screen.findByTestId(`integration-queue-primary-${id}`)).toHaveAttribute(
@@ -668,7 +668,7 @@ test.each(queueFixtures.map((queue) => [queue.id, queue.next_action.route] as co
   },
 );
 
-test('queue card secondary link keeps the selected Managed System (#1179)', async () => {
+test('queue card secondary link keeps the selected 시스템 (#1179)', async () => {
   const secondaryAction = {
     label: 'Keep secondary action',
     route: '/vocs?view=inbox&tab=unassigned&action=keep',
@@ -697,7 +697,7 @@ test.each(['', `?managedSystem=${MS_A}`])(
   'Coverage secondary entry keeps scope %s',
   async (scope) => {
     await renderDashboard(`/integration${scope}`);
-    const link = await screen.findByRole('link', { name: 'Analytics Area별 현황' });
+    const link = await screen.findByRole('link', { name: '분석 영역별 현황' });
     expect(link).toHaveAttribute(
       'href',
       `/integration/coverage?view=areas${scope.replace('?', '&')}`,

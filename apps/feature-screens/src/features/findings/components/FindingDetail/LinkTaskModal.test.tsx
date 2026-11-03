@@ -190,7 +190,7 @@ describe('LinkTaskModal', () => {
     expect(screen.getByText('Task 불러오는 중...')).toBeInTheDocument();
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
     expect(
-      screen.queryByText('연결 가능한 같은 Managed System Task가 없습니다.'),
+      screen.queryByText('연결 가능한 같은 시스템 Task가 없습니다.'),
     ).not.toBeInTheDocument();
 
     loadingView.unmount();
@@ -210,11 +210,11 @@ describe('LinkTaskModal', () => {
 
     expect(await screen.findByText('Task 목록을 불러오지 못했습니다.')).toBeInTheDocument();
     expect(
-      screen.queryByText('연결 가능한 같은 Managed System Task가 없습니다.'),
+      screen.queryByText('연결 가능한 같은 시스템 Task가 없습니다.'),
     ).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '다시 시도' }));
     expect(
-      await screen.findByText('연결 가능한 같은 Managed System Task가 없습니다.'),
+      await screen.findByText('연결 가능한 같은 시스템 Task가 없습니다.'),
     ).toBeInTheDocument();
     expect(screen.queryByText('Task 목록을 불러오지 못했습니다.')).not.toBeInTheDocument();
     expect(listTasks).toHaveBeenCalledTimes(2);

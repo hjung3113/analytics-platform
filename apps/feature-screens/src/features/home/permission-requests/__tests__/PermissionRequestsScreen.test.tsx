@@ -94,7 +94,7 @@ function installFetch() {
         requester_actor_id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
         source_summary: null,
         latest_admin_question: {
-          note: '어떤 Survey인지 알려 주세요',
+          note: '어떤 설문인지 알려 주세요',
           created_at: '2026-10-21T00:00:00.000Z',
         },
         editable_scope_candidates: [],
@@ -158,14 +158,14 @@ afterEach(() => {
 });
 
 describe('새 권한 요청', () => {
-  it('F1 posts the capability, Managed System and reason with an Idempotency-Key, then resets and refetches', async () => {
+  it('F1 posts the capability, 시스템 and reason with an Idempotency-Key, then resets and refetches', async () => {
     const { seam, user } = mount();
     await waitFor(() => expect(mineCalls()).toHaveLength(1));
     expect(mineCalls()[0]?.url).toBe('/api/features/permission-requests/mine?status=all');
     expect(submitButton()).toBeEnabled();
 
     await choose(user, '기능', 'VOC 조회');
-    await choose(user, 'Managed System', 'Alpha');
+    await choose(user, '시스템', 'Alpha');
     await user.type(reasonBox(), '  장애 분석에 필요합니다  ');
     await user.click(submitButton());
 
@@ -178,11 +178,11 @@ describe('새 권한 요청', () => {
     });
     expect(posts()[0]?.headers['Idempotency-Key']).toMatch(/^[0-9a-f-]{36}$/);
     expect(reasonBox()).toHaveValue('');
-    expect(screen.queryByRole('combobox', { name: 'Managed System' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: '시스템' })).not.toBeInTheDocument();
     await waitFor(() => expect(mineCalls()).toHaveLength(2));
   });
 
-  it('F2 offers workspace.admin nowhere and only active Managed Systems', async () => {
+  it('F2 offers workspace.admin nowhere and only active 시스템', async () => {
     const { user } = mount();
     screen.getByRole('combobox', { name: '기능' }).focus();
     await user.keyboard('{Enter}');
@@ -193,7 +193,7 @@ describe('새 권한 요청', () => {
     await user.click(screen.getByRole('option', { name: 'VOC 조회' }));
     expect(calls.find((call) => call.url.includes('/managed-systems'))?.url).toContain('limit=500');
 
-    screen.getByRole('combobox', { name: 'Managed System' }).focus();
+    screen.getByRole('combobox', { name: '시스템' }).focus();
     await user.keyboard('{Enter}');
     const options = (await screen.findAllByRole('option')).map((o) => o.textContent);
     expect(options).toEqual(['Alpha', 'Beta']);
@@ -201,26 +201,26 @@ describe('새 권한 요청', () => {
 
   it.each([
     {
-      label: 'workspace.read has no Managed System field',
+      label: 'workspace.read has no 시스템 field',
       capability: '워크스페이스 전체 읽기',
       system: null,
       expectedBody: { requested_capability: 'workspace.read', reason: '사유' },
     },
     {
-      label: 'knowledge.catalog.manage has no Managed System field',
+      label: 'knowledge.catalog.manage has no 시스템 field',
       capability: '카탈로그 관리',
       system: null,
       expectedBody: { requested_capability: 'knowledge.catalog.manage', reason: '사유' },
     },
     {
-      label: 'survey.export workspace-wide omits the Managed System',
-      capability: 'Survey 데이터 내보내기',
+      label: 'survey.export workspace-wide omits the 시스템',
+      capability: '설문 데이터 내보내기',
       system: '전체 (워크스페이스)',
       expectedBody: { requested_capability: 'survey.export', reason: '사유' },
     },
     {
-      label: 'survey.export may name one Managed System',
-      capability: 'Survey 데이터 내보내기',
+      label: 'survey.export may name one 시스템',
+      capability: '설문 데이터 내보내기',
       system: 'Beta',
       expectedBody: {
         requested_capability: 'survey.export',
@@ -232,10 +232,10 @@ describe('새 권한 요청', () => {
     const { user } = mount();
     await choose(user, '기능', capability);
     if (system === null) {
-      expect(screen.queryByRole('combobox', { name: 'Managed System' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('combobox', { name: '시스템' })).not.toBeInTheDocument();
     } else {
-      if (system !== '전체 (워크스페이스)') await choose(user, 'Managed System', system);
-      expect(screen.getByRole('combobox', { name: 'Managed System' })).toBeInTheDocument();
+      if (system !== '전체 (워크스페이스)') await choose(user, '시스템', system);
+      expect(screen.getByRole('combobox', { name: '시스템' })).toBeInTheDocument();
     }
     await user.type(reasonBox(), '사유');
     await user.click(submitButton());
@@ -243,13 +243,13 @@ describe('새 권한 요청', () => {
     expect(posts()[0]?.body).toEqual(expectedBody);
   });
 
-  it('F2 blocks a capability that needs a Managed System until one is chosen', async () => {
+  it('F2 blocks a capability that needs a 시스템 until one is chosen', async () => {
     const { user } = mount();
-    await choose(user, '기능', 'VOC Triage');
+    await choose(user, '기능', 'VOC 분류');
     await user.type(reasonBox(), '사유');
     await user.click(submitButton());
     expect(posts()).toHaveLength(0);
-    await choose(user, 'Managed System', 'Alpha');
+    await choose(user, '시스템', 'Alpha');
     await user.click(submitButton());
     await waitFor(() => expect(posts()).toHaveLength(1));
   });
@@ -277,7 +277,7 @@ describe('새 권한 요청', () => {
     postResponse = () => json({ code, message: 'x' }, status);
     const { seam, user } = mount();
     await choose(user, '기능', 'VOC 조회');
-    await choose(user, 'Managed System', 'Alpha');
+    await choose(user, '시스템', 'Alpha');
     await user.type(reasonBox(), '사유');
     await user.click(submitButton());
 
@@ -321,7 +321,7 @@ describe('내 권한 요청', () => {
     expect(within(approved).getByText(/^전체 ·/)).toBeInTheDocument();
     expect(within(cancelled).getByText('철회')).toBeInTheDocument();
     expect(within(cancelled).getByText(/Gamma/)).toBeInTheDocument();
-    expect(within(moreInfo).getByText(/알 수 없는 Managed System/)).toBeInTheDocument();
+    expect(within(moreInfo).getByText(/알 수 없는 시스템/)).toBeInTheDocument();
     expect(
       within(moreInfo).getByText('철회한 뒤 답을 사유에 적어 다시 요청할 수 있습니다.'),
     ).toBeInTheDocument();
@@ -456,7 +456,7 @@ describe('포커스·필수 입력·관리자 질문 (UX 검토)', () => {
   it('X3 a successful submit focuses the 기능 trigger', async () => {
     const { seam, user } = mount();
     await choose(user, '기능', 'VOC 조회');
-    await choose(user, 'Managed System', 'Alpha');
+    await choose(user, '시스템', 'Alpha');
     await user.type(reasonBox(), '사유');
     await user.click(submitButton());
     await waitFor(() => expect(seam.notifySuccess).toHaveBeenCalled());
@@ -471,19 +471,19 @@ describe('포커스·필수 입력·관리자 질문 (UX 검토)', () => {
       control: () => screen.getByRole('combobox', { name: '기능' }),
     },
     {
-      label: 'Managed System required and empty',
+      label: '시스템 required and empty',
       fill: async (user: ReturnType<typeof userEvent.setup>) => {
-        await choose(user, '기능', 'VOC Triage');
+        await choose(user, '기능', 'VOC 분류');
         await user.type(reasonBox(), '사유');
       },
-      alert: 'Managed System을 선택하세요.',
-      control: () => screen.getByRole('combobox', { name: 'Managed System' }),
+      alert: '시스템을 선택하세요.',
+      control: () => screen.getByRole('combobox', { name: '시스템' }),
     },
     {
       label: 'empty reason',
       fill: async (user: ReturnType<typeof userEvent.setup>) => {
-        await choose(user, '기능', 'VOC Triage');
-        await choose(user, 'Managed System', 'Alpha');
+        await choose(user, '기능', 'VOC 분류');
+        await choose(user, '시스템', 'Alpha');
       },
       alert: '사유는 필수입니다.',
       control: () => reasonBox(),
@@ -502,20 +502,20 @@ describe('포커스·필수 입력·관리자 질문 (UX 검토)', () => {
     },
   );
 
-  it('X4 marks Managed System required and clears an error when its field changes', async () => {
+  it('X4 marks 시스템 required and clears an error when its field changes', async () => {
     const { user } = mount();
-    await choose(user, '기능', 'VOC Triage');
-    expect(screen.getByText('Managed System · 필수')).toBeInTheDocument();
+    await choose(user, '기능', 'VOC 분류');
+    expect(screen.getByText('시스템 · 필수')).toBeInTheDocument();
     await user.click(submitButton());
-    expect(await screen.findByText('Managed System을 선택하세요.')).toBeInTheDocument();
-    await choose(user, 'Managed System', 'Alpha');
-    expect(screen.queryByText('Managed System을 선택하세요.')).not.toBeInTheDocument();
+    expect(await screen.findByText('시스템을 선택하세요.')).toBeInTheDocument();
+    await choose(user, '시스템', 'Alpha');
+    expect(screen.queryByText('시스템을 선택하세요.')).not.toBeInTheDocument();
   });
 
   it('X5 a needs_more_info row shows the admin question; a pending row requests no detail', async () => {
     listRows = [row(ID_PENDING, 'pending'), row(ID_MORE_INFO, 'needs_more_info')];
     mount();
-    expect(await screen.findByText('관리자 질문: 어떤 Survey인지 알려 주세요')).toBeInTheDocument();
+    expect(await screen.findByText('관리자 질문: 어떤 설문인지 알려 주세요')).toBeInTheDocument();
     const detailUrls = calls
       .filter((c) => /\/permission-requests\/[^/?]+$/.test(c.url) && c.method === 'GET')
       .map((c) => c.url);

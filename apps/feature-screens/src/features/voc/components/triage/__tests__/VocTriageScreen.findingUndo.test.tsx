@@ -175,7 +175,7 @@ describe('Finding dialog lifetime through token-bound undo (#1030)', () => {
     const other = { ...VOC, id: '10000000-0000-4000-8000-000000000002', title: 'Other VOC' };
     const { rerender, view, requests } = setup([VOC, other]);
     fireEvent.click(screen.getByRole('button', { name: '중간' }));
-    fireEvent.click(screen.getByRole('button', { name: /Triage 확정/ }));
+    fireEvent.click(screen.getByRole('button', { name: /분류 확정/ }));
     await waitFor(() =>
       expect(requests.some((r) => r.method === 'PATCH' && r.url === `/vocs/${VOC.id}`)).toBe(true),
     );

@@ -79,13 +79,13 @@ export function TaskRequestRow({ item, selected, names, onSelect, rowRef }: Task
     });
   }
   if (evidenceCount !== undefined) {
-    metaParts.push({ key: 'evidence-count', node: <span>Evidence · {evidenceCount}</span> });
+    metaParts.push({ key: 'evidence-count', node: <span>근거 · {evidenceCount}</span> });
   }
   metaParts.push({
     key: 'managed-system',
     node: (
       <>
-        <span>{ms?.name ?? 'Managed System'}</span>
+        <span>{ms?.name ?? '시스템'}</span>
         {!ms && (
           <span className="font-mono text-text-muted">
             {shortId(item.primary_managed_system_id)}

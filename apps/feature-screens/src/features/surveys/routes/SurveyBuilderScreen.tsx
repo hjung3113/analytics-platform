@@ -56,14 +56,14 @@ export function SurveyBuilderView({
   if (query.isLoading) return <div className="p-6 text-sm text-text-muted">불러오는 중…</div>;
   if (query.isError || !query.data)
     return (
-      <EmptyState title="Survey를 찾을 수 없습니다." body="삭제되었거나 접근 권한이 없습니다." />
+      <EmptyState title="설문을 찾을 수 없습니다." body="삭제되었거나 접근 권한이 없습니다." />
     );
   if (!gate.canManage)
     return (
       <div className="p-6">
         <PermissionBlockedPanel
           state="blocked_not_requestable"
-          category="Survey 빌더"
+          category="설문 빌더"
           reason={PERMISSION_BLOCKED_REASONS.surveyBuilder}
         />
       </div>

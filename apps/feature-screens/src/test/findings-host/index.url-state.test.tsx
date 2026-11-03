@@ -220,7 +220,7 @@ describe('/findings URL state', () => {
     );
     expect(await screen.findByRole('button', { name: /FND-101/ })).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: 'Analytics Area: 미지정 필터 제거' }),
+      screen.getByRole('button', { name: '분석 영역: 미지정 필터 제거' }),
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '상태: 진행 중 필터 제거' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '실행 연결 없음 필터 제거' })).toBeInTheDocument();
@@ -412,7 +412,7 @@ describe('/findings URL state', () => {
         return jsonResponse({ code: 'not_found.record' }, 404);
       });
       expect(await screen.findByTestId('finding-filtered-empty-state')).toHaveTextContent(
-        filter.startsWith('status') ? '상태: 진행 중' : 'Analytics Area: 미지정',
+        filter.startsWith('status') ? '상태: 진행 중' : '분석 영역: 미지정',
       );
       expect(screen.getAllByRole('button', { name: '필터 초기화' })).toHaveLength(1);
       fireEvent.click(screen.getByRole('button', { name: '필터 초기화' }));
@@ -721,7 +721,7 @@ describe('/findings URL state', () => {
   });
 
   test.each([
-    { filter: `managedSystem=${MS_1}`, name: 'Managed System' },
+    { filter: `managedSystem=${MS_1}`, name: '시스템' },
     { filter: 'execution=none', name: 'execution' },
   ])(
     'AC-981 reconciles accessible selected detail outside the $name filter',

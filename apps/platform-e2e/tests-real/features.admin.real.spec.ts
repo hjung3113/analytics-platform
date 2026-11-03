@@ -39,12 +39,12 @@ test.describe('기능 실서버 브리지 화면 (06 §9.1·§22)', () => {
     await evidence(page, testInfo, 'real-feedbackops-integration');
   });
 
-  test('Evidence 화면은 실제 목록 API의 유효한 빈 결과를 표시한다', async ({ page }, testInfo) => {
+  test('근거 화면은 실제 목록 API의 유효한 빈 결과를 표시한다', async ({ page }, testInfo) => {
     const inventory = waitForFoRead(page, '/evidence-highlights');
     await page.goto('/flow/evidence');
     await expectSuccessfulFoReads([inventory]);
     await expect(mainHeading(page)).toHaveText('근거');
-    await expect(page.getByRole('main').getByText('표시할 Evidence가 없습니다.')).toBeVisible();
+    await expect(page.getByRole('main').getByText('표시할 근거가 없습니다.')).toBeVisible();
     await evidence(page, testInfo, 'real-feedbackops-evidence');
   });
 

@@ -142,7 +142,7 @@ function OwnerForm({
   const submitting = React.useRef(false);
   const mounted = React.useRef(true);
   const systemName = (managedSystemId: string): string =>
-    managedSystemNames[managedSystemId] ?? `Managed System · ${shortId(managedSystemId)}`;
+    managedSystemNames[managedSystemId] ?? `시스템 · ${shortId(managedSystemId)}`;
   React.useEffect(() => {
     mounted.current = true;
     return () => {

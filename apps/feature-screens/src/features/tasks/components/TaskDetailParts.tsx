@@ -363,10 +363,10 @@ export function useTaskDetailParts({
             <FieldRow label="마감일">
               {task.due_date ?? <span className="text-text-muted">-</span>}
             </FieldRow>
-            <FieldRow label="Managed System">
+            <FieldRow label="시스템">
               <ManagedSystemPill
                 name={
-                  managedSystemNamesById.get(task.primary_managed_system_id) ?? 'Managed System'
+                  managedSystemNamesById.get(task.primary_managed_system_id) ?? '시스템'
                 }
               />
             </FieldRow>
@@ -422,7 +422,7 @@ export function useTaskDetailParts({
                 </div>
                 <p className="text-sm text-text-muted">{sourceFinding.summary}</p>
                 <div className="flex flex-wrap gap-2">
-                  <OutlineBadge>Evidence · {sourceFinding.evidence_count}</OutlineBadge>
+                  <OutlineBadge>근거 · {sourceFinding.evidence_count}</OutlineBadge>
                   {source?.task_request && (
                     <OutlineBadge>
                       Task Request · {TASK_REQUEST_STATUS_LABELS[source.task_request.status]}

@@ -541,7 +541,7 @@ describe('/admin/permissions/grants screen', () => {
     {
       tab: 'grants',
       path: '/admin/permissions/grants',
-      row: 'Actor One · VOC Triage',
+      row: 'Actor One · VOC 분류',
       scope: 'Payments',
       detailField: '부여자',
     },
@@ -1624,7 +1624,7 @@ describe('/admin/permissions/grants screen', () => {
     fireEvent.click(within(dialog).getByRole('combobox', { name: '부여 권한 및 범위' }));
 
     const heldOption = await screen.findByRole('option', {
-      name: /VOC Triage.*Payments.*이미 부여됨/,
+      name: /VOC 분류.*Payments.*이미 부여됨/,
     });
     expect(heldOption).toHaveAttribute('aria-disabled', 'true');
     fireEvent.click(heldOption);
@@ -1646,7 +1646,7 @@ describe('/admin/permissions/grants screen', () => {
       ),
     ).toBe(false);
 
-    const link = within(dialog).getByRole('link', { name: /VOC Triage.*기존 권한 보기/ });
+    const link = within(dialog).getByRole('link', { name: /VOC 분류.*기존 권한 보기/ });
     expect(link).toHaveAttribute('href', `/admin/permissions/grants?selected=${GRANT_ID}`);
     fireEvent.click(link);
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
@@ -1753,13 +1753,13 @@ describe('/admin/permissions/grants screen', () => {
     });
     renderScreen();
     const dialog = await openDirectGrantDialog();
-    await selectDirectGrantTargetAndScope('Actor One', /VOC Triage.*Payments/);
+    await selectDirectGrantTargetAndScope('Actor One', /VOC 분류.*Payments/);
     expect(
       within(dialog).getByText('이 권한만으로는 VOC를 볼 수 없습니다. VOC 조회 권한도 필요합니다.'),
     ).toBeInTheDocument();
 
     fireEvent.change(within(dialog).getByLabelText('사유 · 필수'), {
-      target: { value: 'VOC Triage 운영을 맡깁니다.' },
+      target: { value: 'VOC 분류 운영을 맡깁니다.' },
     });
     fireEvent.change(within(dialog).getByLabelText('만료일 · 선택'), {
       target: { value: '2027-06-15' },
@@ -1772,7 +1772,7 @@ describe('/admin/permissions/grants screen', () => {
       capability: 'voc.triage',
       managed_system_id: MANAGED_SYSTEM_ID,
       expires_at: '2027-06-15T23:59:59.000Z',
-      reason: 'VOC Triage 운영을 맡깁니다.',
+      reason: 'VOC 분류 운영을 맡깁니다.',
     });
     const firstKey = grantPosts(api)[0]?.idempotencyKey;
     await waitFor(() => expect(screen.queryByRole('dialog', { name: '권한 부여' })).toBeNull());
@@ -1787,7 +1787,7 @@ describe('/admin/permissions/grants screen', () => {
       'VOC 조회',
     );
     const reason = within(followUp).getByLabelText('사유 · 필수');
-    expect(reason).toHaveValue('VOC Triage 운영을 맡깁니다.');
+    expect(reason).toHaveValue('VOC 분류 운영을 맡깁니다.');
     expect(reason).toBeEnabled();
     expect(within(followUp).getByLabelText('만료일 · 선택')).toHaveValue('2027-06-15');
     expect(
@@ -1805,7 +1805,7 @@ describe('/admin/permissions/grants screen', () => {
       capability: 'voc.read',
       managed_system_id: MANAGED_SYSTEM_ID,
       expires_at: '2027-06-15T23:59:59.000Z',
-      reason: 'VOC Triage 운영을 맡깁니다.',
+      reason: 'VOC 분류 운영을 맡깁니다.',
     });
     expect(second?.idempotencyKey).toMatch(/^[0-9a-f-]{36}$/i);
     expect(second?.idempotencyKey).not.toBe(firstKey);
@@ -1825,7 +1825,7 @@ describe('/admin/permissions/grants screen', () => {
     });
     renderScreen();
     const dialog = await openDirectGrantDialog();
-    await selectDirectGrantTargetAndScope('Actor One', /VOC Triage.*Payments/);
+    await selectDirectGrantTargetAndScope('Actor One', /VOC 분류.*Payments/);
     expect(
       within(dialog).queryByText(
         '이 권한만으로는 VOC를 볼 수 없습니다. VOC 조회 권한도 필요합니다.',
@@ -1855,7 +1855,7 @@ describe('/admin/permissions/grants screen', () => {
     });
     renderScreen();
     const dialog = await openDirectGrantDialog();
-    await selectDirectGrantTargetAndScope('Actor One', /VOC Triage.*Payments/);
+    await selectDirectGrantTargetAndScope('Actor One', /VOC 분류.*Payments/);
     expect(within(dialog).getByRole('link', { name: '차단 해제 화면 보기' })).toHaveAttribute(
       'href',
       liftRoute,
@@ -1867,7 +1867,7 @@ describe('/admin/permissions/grants screen', () => {
     ).not.toBeInTheDocument();
 
     fireEvent.change(within(dialog).getByLabelText('사유 · 필수'), {
-      target: { value: 'VOC Triage 운영을 맡깁니다.' },
+      target: { value: 'VOC 분류 운영을 맡깁니다.' },
     });
     fireEvent.click(within(dialog).getByTestId('direct-grant-submit'));
     await waitFor(() => expect(grantPosts(api)).toHaveLength(1));
@@ -1896,7 +1896,7 @@ describe('/admin/permissions/grants screen', () => {
     });
     renderScreen();
     const dialog = await openDirectGrantDialog();
-    await selectDirectGrantTargetAndScope('Actor One', /VOC Triage.*Payments/);
+    await selectDirectGrantTargetAndScope('Actor One', /VOC 분류.*Payments/);
     expect(
       within(dialog).getByText('VOC 조회 권한은 차단되어 있어 이어서 부여할 수 없습니다.'),
     ).toBeInTheDocument();
@@ -1906,7 +1906,7 @@ describe('/admin/permissions/grants screen', () => {
     );
 
     fireEvent.change(within(dialog).getByLabelText('사유 · 필수'), {
-      target: { value: 'VOC Triage 운영을 맡깁니다.' },
+      target: { value: 'VOC 분류 운영을 맡깁니다.' },
     });
     fireEvent.click(within(dialog).getByTestId('direct-grant-submit'));
     await waitFor(() => expect(grantPosts(api)).toHaveLength(1));

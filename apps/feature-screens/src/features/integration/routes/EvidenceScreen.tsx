@@ -71,7 +71,7 @@ export function EvidenceScreen({ renderDetail }: EvidenceScreenProps) {
       <ListShell
         list={
           me.isError ? (
-            <PermissionBlockedPanel state="denied" category="Evidence" description={COPY.blocked} />
+            <PermissionBlockedPanel state="denied" category="근거" description={COPY.blocked} />
           ) : (
             <Skeleton className="h-32" role="status" aria-label={COPY.loading} />
           )
@@ -353,7 +353,7 @@ function EvidenceSession({
             {blocked ? (
               <PermissionBlockedPanel
                 state="denied"
-                category="Evidence"
+                category="근거"
                 description={COPY.blocked}
               />
             ) : (list.isPending || list.isFetching) && items.length === 0 ? (

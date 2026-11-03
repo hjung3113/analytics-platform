@@ -157,8 +157,8 @@ function Cells({ row }: { row: Row }) {
       <td className={cell}>
         {row.survey ? (
           <>
-            {count('Survey', m.open, row.survey.open)}
-            {count('Survey', m.follow_up_needed, row.survey.follow_up_needed)}
+            {count('설문', m.open, row.survey.open)}
+            {count('설문', m.follow_up_needed, row.survey.follow_up_needed)}
           </>
         ) : (
           <Unavailable />
@@ -181,7 +181,7 @@ function ReportColumns() {
 export function AnalyticsAreaReportTable({ report }: { report: DashboardAreaReport }) {
   const { canLink } = useHostSeam();
   const domains = ['voc', 'finding', 'task', 'survey'] as const;
-  const names = { voc: 'VOC', finding: 'Finding', task: 'Task', survey: 'Survey' };
+  const names = { voc: 'VOC', finding: 'Finding', task: 'Task', survey: '설문' };
   const available = report.classification_context.flatMap((context) =>
     domains.flatMap((domain) => (context[domain] ? [context[domain]] : [])),
   );
@@ -240,7 +240,7 @@ export function AnalyticsAreaReportTable({ report }: { report: DashboardAreaRepo
                 <ReportColumns />
                 <thead>
                   <tr className="border-b border-border-subtle bg-surface-raised">
-                    {['Analytics Area', 'VOC', 'Finding', 'Task', 'Survey'].map((name) => (
+                    {['분석 영역', 'VOC', 'Finding', 'Task', '설문'].map((name) => (
                       <th
                         key={name}
                         scope="col"

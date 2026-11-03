@@ -28,8 +28,8 @@ function installFetch(state: 'approved' | 'blocked_non_requestable') {
 }
 
 const CASES = [
-  ['Managed System 등록', '/flow/managed-systems', '시스템'],
-  ['Analytics Area 생성', '/flow/analytics-areas', '분석 영역'],
+  ['시스템 등록', '/flow/managed-systems', '시스템'],
+  ['분석 영역 생성', '/flow/analytics-areas', '분석 영역'],
 ] as const;
 
 beforeAll(warmPages, 60_000);

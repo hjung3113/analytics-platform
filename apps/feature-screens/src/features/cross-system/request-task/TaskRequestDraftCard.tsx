@@ -16,7 +16,7 @@ import { koreanZodErrorMap } from '@/lib/forms/zodIssueMessage';
 import { HostLink } from '@/lib/host/host-seam';
 
 export interface TaskRequestDraftCardProps {
-  sourceKind: 'VOC' | 'VOC Cluster' | 'Finding';
+  sourceKind: 'VOC' | '반복 VOC' | 'Finding';
   sourceDisplayId: string;
   evidenceSummaryDefault: string;
   isSubmitting: boolean;

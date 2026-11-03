@@ -84,7 +84,7 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-describe('Survey builder query ownership', () => {
+describe('설문 builder query ownership', () => {
   it('reuses the standalone route’s read when the detail switches to the builder (no second GET, draft kept)', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const view = render(tree(client, <SurveyDetailRoute />));
@@ -95,14 +95,14 @@ describe('Survey builder query ownership', () => {
 
     routeSearch.current = { builder: true };
     view.rerender(tree(client, <SurveyDetailRoute />));
-    const title = await screen.findByLabelText('Survey 제목');
+    const title = await screen.findByLabelText('설문 제목');
     expect(screen.getByTestId('survey-builder')).toBeInTheDocument();
     fireEvent.change(title, { target: { value: '바뀐 제목' } });
 
     // Let any refetch the builder's mount would start land and re-render.
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(detailGets).toBe(1);
-    expect(screen.getByLabelText('Survey 제목')).toHaveValue('바뀐 제목');
+    expect(screen.getByLabelText('설문 제목')).toHaveValue('바뀐 제목');
   });
 
   it('the bridge-style SurveyBuilderScreen alone makes exactly one GET', async () => {

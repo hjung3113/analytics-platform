@@ -12,7 +12,7 @@ const cases = [
     sections: VOC_DETAIL_SECTIONS,
     expected: [
       ['overview', '요약'],
-      ['triage', 'Triage'],
+      ['triage', '분류'],
       ['description', '본문'],
       ['trail', '이력'],
       ['conversation', '대화'],
@@ -53,7 +53,7 @@ const cases = [
     ],
   },
   {
-    panel: 'Cluster',
+    panel: '반복 VOC',
     sections: buildVocClusterDetailSections(),
     expected: [
       ['overview', '요약'],
@@ -69,7 +69,7 @@ const cases = [
     expected: [
       ['overview', '요약'],
       ['tasks', 'Tasks'],
-      ['evidence', 'Evidence'],
+      ['evidence', '근거'],
       ['activity', '이력'],
     ],
   },
@@ -80,9 +80,9 @@ const cases = [
       ['summary', '요약'],
       ['metadata', '소스 / 심각도 / 신뢰도'],
       ['execution', '실행'],
-      ['evidence', 'Evidence'],
-      ['managed-system', 'Managed System'],
-      ['analytics-area', 'Analytics Area'],
+      ['evidence', '근거'],
+      ['managed-system', '시스템'],
+      ['analytics-area', '분석 영역'],
       ['links', '연결'],
       ['notes', '진행 메모'],
     ],

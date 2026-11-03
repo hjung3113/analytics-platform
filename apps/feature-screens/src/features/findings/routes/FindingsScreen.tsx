@@ -343,7 +343,7 @@ function FindingsListShell({
           />
         ) : undefined,
         title: 'Findings',
-        subtitle: 'VOC Evidence에서 실행 후보로 승격된 Finding을 검토합니다.',
+        subtitle: 'VOC 근거에서 실행 후보로 승격된 Finding을 검토합니다.',
       }}
       tabs={
         !isReadDenied ? (
@@ -633,7 +633,7 @@ function FindingRow({
             </>
           ) : null}
           {dot()}
-          <span>Evidence {finding.evidence_count}개</span>
+          <span>근거 {finding.evidence_count}개</span>
           {dot()}
           <span>
             {GLOSSARY.owner}:{' '}

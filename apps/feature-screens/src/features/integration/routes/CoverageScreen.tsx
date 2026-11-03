@@ -298,16 +298,16 @@ export function CoverageScreen(): React.ReactElement {
               </PopoverTrigger>
               <PopoverContent align="end">
                 <div className="space-y-1.5">
-                  <Label htmlFor="coverage-filter-managed-system">Managed System</Label>
+                  <Label htmlFor="coverage-filter-managed-system">시스템</Label>
                   <Select value={managedSystem ?? 'all'} onValueChange={handleFilterChange}>
                     <SelectTrigger
                       id="coverage-filter-managed-system"
                       data-testid="coverage-filter-managed-system"
                     >
-                      <SelectValue placeholder="전체 Managed System" />
+                      <SelectValue placeholder="전체 시스템" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">전체 Managed System</SelectItem>
+                      <SelectItem value="all">전체 시스템</SelectItem>
                       {(systemsQuery.data?.items ?? []).map((system) => (
                         <SelectItem key={system.id} value={system.id}>
                           {system.name}
@@ -318,7 +318,7 @@ export function CoverageScreen(): React.ReactElement {
                 </div>
                 {isAreas && managedSystemId && (
                   <div className="mt-3 flex flex-col gap-1.5">
-                    <Label htmlFor="coverage-filter-area">Analytics Area</Label>
+                    <Label htmlFor="coverage-filter-area">분석 영역</Label>
                     <Select value={area ?? 'all'} onValueChange={handleAreaChange}>
                       <SelectTrigger id="coverage-filter-area">
                         <SelectValue placeholder={AREA_COPY.allAreas} />
@@ -494,7 +494,7 @@ export function CoverageScreen(): React.ReactElement {
                   })}
                 </div>
 
-                <PanelSectionTitle>Managed System별 커버리지</PanelSectionTitle>
+                <PanelSectionTitle>시스템별 커버리지</PanelSectionTitle>
                 <div
                   className="overflow-x-auto rounded-md border border-border-subtle bg-surface-card"
                   data-testid="coverage-by-system"
@@ -506,7 +506,7 @@ export function CoverageScreen(): React.ReactElement {
                     <thead>
                       <tr className="border-b border-border-subtle text-caption uppercase tracking-wide text-text-muted">
                         <th scope="col" className="px-4 py-2 font-medium">
-                          Managed System
+                          시스템
                         </th>
                         {COVERAGE_COLUMNS.map((id) => (
                           <th

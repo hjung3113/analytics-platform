@@ -172,20 +172,20 @@ describe('/admin/analytics-areas route', () => {
       expect(screen.getByTestId('aa-grouped-list')).toBeInTheDocument();
     });
     expect(
-      screen.getByText('Managed System 안에서 Analytics Area 분류 기준을 관리합니다.'),
+      screen.getByText('시스템 안에서 분석 영역 분류 기준을 관리합니다.'),
     ).toBeVisible();
     expect(screen.getByTestId('aa-guardrail-callout')).toHaveTextContent(
-      'Analytics Area는 권한 경계가 아닙니다',
+      '분석 영역은 권한 경계가 아닙니다',
     );
     expect(screen.getByTestId('aa-guardrail-callout')).toHaveTextContent(
-      'Analytics Area는 Managed System 안에서 분류와 집계에만 쓰입니다. 권한 범위는 Managed System으로만 정해집니다.',
+      '분석 영역은 시스템 안에서 분류와 집계에만 쓰입니다. 권한 범위는 시스템으로만 정해집니다.',
     );
-    expect(screen.getAllByText('Analytics Area는 권한 경계가 아닙니다')).toHaveLength(1);
+    expect(screen.getAllByText('분석 영역은 권한 경계가 아닙니다')).toHaveLength(1);
     // Both MS groups render; Tableau has one area, Power BI is empty.
     expect(screen.getByTestId('aa-group-ms-tab')).toBeInTheDocument();
     expect(screen.getByTestId('aa-row-permission-management')).toBeInTheDocument();
     expect(
-      within(screen.getByTestId('aa-group-ms-pbi')).getByText(/등록된 Analytics Area/),
+      within(screen.getByTestId('aa-group-ms-pbi')).getByText(/등록된 분석 영역/),
     ).toBeInTheDocument();
   });
 
@@ -201,7 +201,7 @@ describe('/admin/analytics-areas route', () => {
 
     fireEvent.click(screen.getByTestId('aa-row-permission-management'));
     const detail = await screen.findByTestId('aa-slide-over');
-    expect(screen.getAllByText('Analytics Area는 권한 경계가 아닙니다')).toHaveLength(1);
+    expect(screen.getAllByText('분석 영역은 권한 경계가 아닙니다')).toHaveLength(1);
     expect(detail.querySelector('[data-anchor="guardrail"]')).toBeNull();
   });
 
@@ -222,7 +222,7 @@ describe('/admin/analytics-areas route', () => {
     expect(within(detail).getByRole('button', { name: '닫기' })).toBeInTheDocument();
   });
 
-  test('filters by Managed System and archived inclusion through requests, then clears both', async () => {
+  test('filters by 시스템 and archived inclusion through requests, then clears both', async () => {
     const requests: string[] = [];
     renderPage({
       permissionState: 'approved',
@@ -233,7 +233,7 @@ describe('/admin/analytics-areas route', () => {
     await waitFor(() =>
       expect(screen.getByTestId('aa-row-permission-management')).toBeInTheDocument(),
     );
-    expect(screen.getByText('Analytics Area 2개 · Managed System 2개')).toBeInTheDocument();
+    expect(screen.getByText('분석 영역 2개 · 시스템 2개')).toBeInTheDocument();
     expect(screen.queryByTestId('aa-row-legacy-revenue')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByTestId('aa-filter-button'));
@@ -246,7 +246,7 @@ describe('/admin/analytics-areas route', () => {
       expect(screen.queryByTestId('aa-row-permission-management')).not.toBeInTheDocument();
       expect(screen.getByTestId('aa-group-ms-pbi')).toBeInTheDocument();
       expect(screen.queryByTestId('aa-group-ms-tab')).not.toBeInTheDocument();
-      expect(screen.getByText('Analytics Area 1개 · Managed System 1개')).toBeInTheDocument();
+      expect(screen.getByText('분석 영역 1개 · 시스템 1개')).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByTestId('aa-filter-managed-system'));
@@ -263,7 +263,7 @@ describe('/admin/analytics-areas route', () => {
     await waitFor(() => {
       expect(requests).toContain('/analytics-areas?include_archived=true&limit=500&offset=0');
       expect(screen.getByTestId('aa-row-legacy-revenue')).toBeInTheDocument();
-      expect(screen.getByText('Analytics Area 3개 · Managed System 2개')).toBeInTheDocument();
+      expect(screen.getByText('분석 영역 3개 · 시스템 2개')).toBeInTheDocument();
       expect(screen.getAllByTestId(/^aa-row-/)).toHaveLength(3);
     });
 
@@ -276,7 +276,7 @@ describe('/admin/analytics-areas route', () => {
     });
   });
 
-  test('shows a distinct empty state when no Managed Systems are registered', async () => {
+  test('shows a distinct empty state when no 시스템 are registered', async () => {
     renderPage({
       permissionState: 'approved',
       managedSystems: [],
@@ -284,15 +284,15 @@ describe('/admin/analytics-areas route', () => {
     });
     await waitFor(() => {
       expect(screen.getByTestId('aa-empty-state')).toHaveTextContent(
-        '등록된 Managed System 이 없습니다.',
+        '등록된 시스템이 없습니다.',
       );
     });
     expect(
-      screen.queryByText('필터에 해당하는 Managed System이 없습니다.'),
+      screen.queryByText('필터에 해당하는 시스템이 없습니다.'),
     ).not.toBeInTheDocument();
   });
 
-  test('shows a filter-empty state when a selected archived Managed System is hidden', async () => {
+  test('shows a filter-empty state when a selected archived 시스템 is hidden', async () => {
     renderPage({
       permissionState: 'approved',
       managedSystems: [TABLEAU, ARCHIVED_POWERBI],
@@ -311,7 +311,7 @@ describe('/admin/analytics-areas route', () => {
 
     fireEvent.click(screen.getByTestId('aa-filter-include-archived'));
     await waitFor(() => {
-      expect(screen.getByText('필터에 해당하는 Managed System이 없습니다.')).toBeInTheDocument();
+      expect(screen.getByText('필터에 해당하는 시스템이 없습니다.')).toBeInTheDocument();
       expect(screen.queryByTestId('aa-grouped-list')).not.toBeInTheDocument();
     });
 
@@ -351,7 +351,7 @@ describe('/admin/analytics-areas route', () => {
     expect(within(drawer).queryByTestId('aa-workload-defer')).not.toBeInTheDocument();
     const unavailable = within(drawer).getByTestId('aa-findings-defer');
     expect(unavailable).toHaveTextContent(
-      'Findings · Evidence 집계와 목록은 아직 제공되지 않습니다.',
+      'Findings · 근거 집계와 목록은 아직 제공되지 않습니다.',
     );
     expect(unavailable).toHaveClass('text-xs', 'text-text-muted');
   });
@@ -377,7 +377,7 @@ describe('/admin/analytics-areas route', () => {
     },
   );
 
-  test('Escape returns to the second detail button when two Managed Systems share an area slug', async () => {
+  test('Escape returns to the second detail button when two 시스템 share an area slug', async () => {
     renderPage({
       permissionState: 'approved',
       managedSystems: [TABLEAU, POWERBI],

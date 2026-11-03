@@ -55,9 +55,9 @@ interface LockedSetting {
 
 const lockedPermissionSettings: LockedSetting[] = [
   {
-    label: 'Managed System 간 연결',
+    label: '시스템 간 연결',
     description:
-      '다른 Managed System의 항목을 참조하거나 연결할 수 있는지 결정합니다. 접근할 수 없는 항목에는 차단 안내가 표시됩니다.',
+      '다른 시스템의 항목을 참조하거나 연결할 수 있는지 결정합니다. 접근할 수 없는 항목에는 차단 안내가 표시됩니다.',
     value: '차단 (요청만 가능)',
   },
   {
@@ -70,9 +70,9 @@ const lockedPermissionSettings: LockedSetting[] = [
 
 const lockedSurveySettings: LockedSetting[] = [
   {
-    label: 'Survey 응답 → VOC',
+    label: '설문 응답 → VOC',
     description:
-      'Survey 응답을 VOC로 자동 변환하는 것은 정책으로 금지됩니다. Finding 생성, Evidence 연결, Task 요청, 기존 VOC에 근거 연결만 허용됩니다.',
+      '설문 응답을 VOC로 자동 변환하는 것은 정책으로 금지됩니다. Finding 생성, 근거 연결, Task 요청, 기존 VOC에 근거 연결만 허용됩니다.',
     value: '금지',
     valueTone: 'red',
   },
@@ -80,7 +80,7 @@ const lockedSurveySettings: LockedSetting[] = [
 
 const lockedScopeSettings: LockedSetting[] = [
   {
-    label: '개발자의 기본 Managed System 범위',
+    label: '개발자의 기본 시스템 범위',
     description: WORKSPACE_SETTINGS_SELF_APPROVAL_COPY.developerDefaultScope,
     value: '내 담당 시스템만',
   },
@@ -92,7 +92,7 @@ const lockedScopeSettings: LockedSetting[] = [
 ];
 
 const subtitle =
-  '권한 정책 · 익명성 임계값 · Managed System 간 연결 정책 등 워크스페이스 전역 동작을 정하는 설정입니다.';
+  '권한 정책 · 익명성 임계값 · 시스템 간 연결 정책 등 워크스페이스 전역 동작을 정하는 설정입니다.';
 
 const settingLabels: Record<EditableKey, string> = {
   voc_cluster_suggestions_enabled: SUGGESTIONS.optInLabel,
@@ -371,7 +371,7 @@ export function WorkspaceSettingsForm({
       </section>
 
       <section>
-        <PanelSectionTitle>Survey 정책</PanelSectionTitle>
+        <PanelSectionTitle>설문 정책</PanelSectionTitle>
         <div className="overflow-hidden rounded-md border border-border-subtle bg-surface-card">
           <EditableThresholdRow
             editing={editing === 'survey_anonymity_threshold'}
@@ -787,7 +787,7 @@ function LockedRow({
         <span
           className={`text-sm font-medium ${valueTone === 'red' ? 'text-accent-danger' : 'text-text-primary'}`}
           data-testid={
-            label === 'Survey 응답 → VOC' ? 'locked-value-survey-response-to-voc' : undefined
+            label === '설문 응답 → VOC' ? 'locked-value-survey-response-to-voc' : undefined
           }
         >
           {value}

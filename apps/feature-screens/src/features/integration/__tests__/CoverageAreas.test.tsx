@@ -119,7 +119,7 @@ async function mount(
 it('requests only on tab entry, restores URL paging and filters with history, and drops them on exit', async () => {
   const { router } = await mount();
   expect(requests.filter((url) => url.pathname === '/dashboard/analytics-areas')).toHaveLength(0);
-  fireEvent.mouseDown(screen.getByRole('tab', { name: 'Analytics Area별 현황' }));
+  fireEvent.mouseDown(screen.getByRole('tab', { name: '분석 영역별 현황' }));
   await screen.findByRole('link', { name: 'Identity Platform · 인증 VOC 전체 10건' });
   await act(() =>
     router.navigate({
@@ -163,7 +163,7 @@ it('requests only on tab entry, restores URL paging and filters with history, an
     router.history.back();
   });
   await waitFor(() =>
-    expect(screen.getByRole('tab', { name: 'Analytics Area별 현황' })).toHaveAttribute(
+    expect(screen.getByRole('tab', { name: '분석 영역별 현황' })).toHaveAttribute(
       'aria-selected',
       'true',
     ),
@@ -179,7 +179,7 @@ it('requests only on tab entry, restores URL paging and filters with history, an
   await waitFor(() =>
     expect(screen.getByRole('tab', { name: '개요' })).toHaveAttribute('aria-selected', 'true'),
   );
-  fireEvent.mouseDown(screen.getByRole('tab', { name: 'Analytics Area별 현황' }));
+  fireEvent.mouseDown(screen.getByRole('tab', { name: '분석 영역별 현황' }));
   await screen.findByRole('link', { name: 'Identity Platform · 인증 VOC 전체 10건' });
 });
 it('removes prior scope counts while a new report is delayed', async () => {
@@ -212,7 +212,7 @@ it('removes prior scope counts while a new report is delayed', async () => {
     ).toBe('later'),
   );
   await act(async () => resolve(json({ ...areaReportFixture, items: [] })));
-  await screen.findByText('표시할 Analytics Area 현황이 없습니다');
+  await screen.findByText('표시할 분석 영역 현황이 없습니다');
 });
 
 it.each([
@@ -239,7 +239,7 @@ it.each([
 );
 it.each([
   [IDS.systemA, IDS.systemB, IDS.areaA, undefined, 'Data Warehouse'],
-  [IDS.systemA, 'all', IDS.areaA, IDS.areaA, '전체 Managed System'],
+  [IDS.systemA, 'all', IDS.areaA, IDS.areaA, '전체 시스템'],
   ['all', IDS.systemA, IDS.areaA, undefined, 'Identity Platform'],
   [IDS.systemA, IDS.systemB, 'unset', 'unset', 'Data Warehouse'],
 ])(
@@ -325,9 +325,9 @@ it.each(['permission.denied', 'permission.scope_required', 'internal.unexpected'
       ).toBeNull(),
     );
     if (code === 'empty')
-      expect(await screen.findByText('표시할 Analytics Area 현황이 없습니다')).toBeVisible();
+      expect(await screen.findByText('표시할 분석 영역 현황이 없습니다')).toBeVisible();
     else if (code.startsWith('permission'))
-      expect(await screen.findByRole('heading', { name: 'Analytics Area별 현황' })).toBeVisible();
+      expect(await screen.findByRole('heading', { name: '분석 영역별 현황' })).toBeVisible();
     else {
       reportResponse = () => json(areaReportFixture);
       fireEvent.click(await screen.findByRole('button', { name: '다시 시도' }));
@@ -362,12 +362,12 @@ it('a late old-scope response cannot replace the current scope', async () => {
   expect(screen.queryByRole('link', { name: 'Identity Platform · 인증 VOC 전체 10건' })).toBeNull();
   await waitFor(() => expect(resolveNew).toBeDefined());
   await act(async () => resolveNew(json({ ...areaReportFixture, items: [] })));
-  await screen.findByText('표시할 Analytics Area 현황이 없습니다');
+  await screen.findByText('표시할 분석 영역 현황이 없습니다');
   await act(async () => {
     resolveOld(json(areaReportFixture));
     await refresh;
   });
-  expect(screen.getByText('표시할 Analytics Area 현황이 없습니다')).toBeVisible();
+  expect(screen.getByText('표시할 분석 영역 현황이 없습니다')).toBeVisible();
   expect(screen.queryByRole('link', { name: 'Identity Platform · 인증 VOC 전체 10건' })).toBeNull();
 });
 
@@ -394,7 +394,7 @@ it('walks the scoped archived Area catalog, selects an Area and clears paging', 
     await qc.invalidateQueries({ queryKey: ['analytics-areas'] });
   });
   fireEvent.click(screen.getByTestId('coverage-filter-button'));
-  fireEvent.keyDown(screen.getByLabelText('Analytics Area'), { key: 'ArrowDown' });
+  fireEvent.keyDown(screen.getByLabelText('분석 영역'), { key: 'ArrowDown' });
   fireEvent.click(await screen.findByRole('option', { name: '나중 Area · 보관됨' }));
   await waitFor(() =>
     expect(router.state.location.search['filter.analytics_area']).toBe(IDS.systemB),
@@ -411,10 +411,10 @@ it('walks the scoped archived Area catalog, selects an Area and clears paging', 
         url.searchParams.get('offset') === '1',
     ),
   ).toBe(true);
-  fireEvent.keyDown(screen.getByLabelText('Analytics Area'), { key: 'ArrowDown' });
+  fireEvent.keyDown(screen.getByLabelText('분석 영역'), { key: 'ArrowDown' });
   fireEvent.click(await screen.findByRole('option', { name: '미지정' }));
   await waitFor(() => expect(router.state.location.search['filter.analytics_area']).toBe('unset'));
-  fireEvent.click(screen.getByRole('button', { name: 'Analytics Area: 미지정 필터 제거' }));
+  fireEvent.click(screen.getByRole('button', { name: '분석 영역: 미지정 필터 제거' }));
   await waitFor(() =>
     expect(router.state.location.search['filter.analytics_area']).toBeUndefined(),
   );

@@ -126,7 +126,7 @@ export default function SavedViews() {
     </div>)}
     {isPending && <p className="px-3 py-1 text-xs leading-4 text-text-muted">{ko ? '불러오는 중…' : 'Loading…'}</p>}
     {isError && views.length === 0 && <p className="px-3 py-1 text-xs leading-4 text-text-muted">{ko ? '저장된 보기를 불러오지 못했습니다.' : 'Could not load saved views.'}</p>}
-    {showHint && !isError && <p className="px-3 py-1 text-xs leading-4 text-text-muted">{ko ? '수신함이나 Triage에서 현재 필터를 저장할 수 있습니다.' : 'Save the current filter from Inbox or Triage.'}</p>}
+    {showHint && !isError && <p className="px-3 py-1 text-xs leading-4 text-text-muted">{ko ? 'VOC 처리함이나 분류에서 현재 필터를 저장할 수 있습니다.' : 'Save the current filter from Inbox or Triage.'}</p>}
     {saveRoute !== null && <form className="mt-1 flex gap-1 px-2" onSubmit={save}>
       <input value={name} onChange={event => setName(event.target.value)} maxLength={120} required aria-label="저장된 보기 이름" placeholder="현재 필터 저장"
         className="min-w-0 flex-1 rounded border border-border-subtle bg-surface-canvas px-2 py-1 text-xs" />

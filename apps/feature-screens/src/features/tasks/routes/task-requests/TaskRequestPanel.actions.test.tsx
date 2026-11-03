@@ -354,7 +354,7 @@ describe('TaskRequestPanel next actions', () => {
     ['우선순위', 'task-request-convert-priority'],
     ['마감일', 'task-request-convert-due-date'],
     ['담당자', 'task-request-convert-assignee'],
-    ['Analytics Area', 'task-request-convert-analytics-area'],
+    ['분석 영역', 'task-request-convert-analytics-area'],
     ['Milestone', 'task-request-convert-milestone'],
   ] as const)('uses an associated FieldLabel for %s', (labelText, controlId) => {
     useConversion.mockReturnValue({
@@ -563,7 +563,7 @@ describe('TaskRequestPanel source section mounting', () => {
       renderInRouter({ ...request, source_type: sourceType });
 
       const heading = await screen.findByRole('heading', {
-        name: `출처 ${sourceType === 'voc' ? 'VOC' : 'VOC Cluster'}`,
+        name: `출처 ${sourceType === 'voc' ? 'VOC' : '반복 VOC'}`,
       });
       expect(heading.closest('section')).toHaveAttribute('data-anchor', 'source');
     },

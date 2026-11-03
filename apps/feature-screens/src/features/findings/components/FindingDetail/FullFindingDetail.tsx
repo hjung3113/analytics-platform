@@ -205,19 +205,19 @@ export function FullFindingDetail({
 
           {/* Primary Managed System */}
           <div data-anchor="managed-system" className="flex flex-col gap-2">
-            <FieldRow label="Managed System" inset="none">
+            <FieldRow label="시스템" inset="none">
               <ManagedSystemPill
-                name={managedSystemsById.get(finding.primary_managed_system_id) ?? 'Managed System'}
+                name={managedSystemsById.get(finding.primary_managed_system_id) ?? '시스템'}
               />
             </FieldRow>
           </div>
 
           {/* Affected Analytics Area */}
           <div data-anchor="analytics-area" className="flex flex-col gap-2">
-            <FieldRow label="Analytics Area" inset="none">
+            <FieldRow label="분석 영역" inset="none">
               {finding.analytics_area_id !== null ? (
                 <FitBadge>
-                  {analyticsAreasById.get(finding.analytics_area_id) ?? 'Analytics Area'}
+                  {analyticsAreasById.get(finding.analytics_area_id) ?? '분석 영역'}
                 </FitBadge>
               ) : (
                 <span className="text-text-muted">—</span>
@@ -318,7 +318,7 @@ export function FullFindingDetail({
               disabled={!canManage}
               data-testid="link-evidence-btn"
             >
-              기존 Evidence 연결
+              기존 근거 연결
             </Button>
             {finding.linked_task_id === null && (
               <Button

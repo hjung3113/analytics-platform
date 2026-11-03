@@ -251,7 +251,7 @@ async function readOptionNames(label: string): Promise<string[]> {
 }
 
 async function fillCreateForm(managedSystemId: string): Promise<void> {
-  await chooseOption('Managed System', managedSystemId === IDS_F4.msErp ? 'ERP' : 'Power BI');
+  await chooseOption('시스템', managedSystemId === IDS_F4.msErp ? 'ERP' : 'Power BI');
   fireEvent.change(screen.getByLabelText('제목'), {
     target: { value: 'Launch review hardening' },
   });
@@ -282,7 +282,7 @@ beforeEach(() => {
 });
 
 describe('MilestonesRoute create (#514 B2e)', () => {
-  it('submits the chosen Managed System as primary_managed_system_id, no managed_system_id, no status, with an idempotency key', async () => {
+  it('submits the chosen 시스템 as primary_managed_system_id, no managed_system_id, no status, with an idempotency key', async () => {
     vi.mocked(createMilestone).mockResolvedValue(createdRow());
     vi.mocked(getMilestone).mockResolvedValue(detailFor(createdRow(), 'Launch review hardening'));
     renderWithClient(<MilestonesRoute />);
@@ -334,7 +334,7 @@ describe('MilestonesRoute create (#514 B2e)', () => {
     );
   });
 
-  it('selects the created id via param and preserves the Managed System scope', async () => {
+  it('selects the created id via param and preserves the 시스템 scope', async () => {
     vi.mocked(createMilestone).mockResolvedValue(createdRow());
     vi.mocked(getMilestone).mockResolvedValue(detailFor(createdRow(), 'Launch review hardening'));
     renderWithClient(<MilestonesRoute managedSystem={IDS.msPowerBi} />);
@@ -362,7 +362,7 @@ describe('MilestonesRoute create (#514 B2e)', () => {
 });
 
 describe('MilestonesRoute edit title (#514 B2e)', () => {
-  it('keeps Managed System read-only while editing and PATCHes the title only with If-Match and an idempotency key', async () => {
+  it('keeps 시스템 read-only while editing and PATCHes the title only with If-Match and an idempotency key', async () => {
     vi.mocked(getMilestone)
       .mockResolvedValueOnce(detailFor(SSO_ROW, 'SSO Stabilization'))
       .mockResolvedValue(detailFor(SSO_ROW, 'SSO Stabilization v2'));
@@ -372,12 +372,12 @@ describe('MilestonesRoute edit title (#514 B2e)', () => {
 
     // Read view: the B2e-status control is the only combobox; Managed System
     // stays stored text.
-    expect(screen.queryByRole('combobox', { name: 'Managed System' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: '시스템' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '제목 편집' }));
 
     // Edit state: the title becomes an input — still no Managed System control.
     const titleInput = screen.getByRole('textbox', { name: '제목' });
-    expect(screen.queryByRole('combobox', { name: 'Managed System' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: '시스템' })).not.toBeInTheDocument();
     expect(screen.getAllByText('Power BI').length).toBeGreaterThan(0);
 
     fireEvent.change(titleInput, { target: { value: 'SSO Stabilization v2' } });
@@ -433,7 +433,7 @@ describe('MilestonesRoute edit title (#514 B2e)', () => {
 // confirm before the header close discards them (ui-design-system dirty-form
 // rule). All other B2e create/edit behavior is covered above.
 describe('MilestonesRoute fixup (#514 B2e)', () => {
-  it('replaces create state with the selected record and keeps the Managed System scope', async () => {
+  it('replaces create state with the selected record and keeps the 시스템 scope', async () => {
     vi.mocked(getMilestone).mockResolvedValue(detailFor(SSO_ROW, 'SSO Stabilization'));
     renderWithClient(<MilestonesRoute managedSystem={IDS.msPowerBi} />);
     await screen.findByText('MLS-1021');
@@ -747,16 +747,16 @@ describe('MilestonesRoute create options (Astra finding 4)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Milestone 생성' }));
     expect(await screen.findByTestId('milestone-create-panel')).toBeInTheDocument();
 
-    expect(await readOptionNames('Managed System')).toEqual(['선택…', 'Power BI', 'ERP']);
+    expect(await readOptionNames('시스템')).toEqual(['선택…', 'Power BI', 'ERP']);
 
     // With no system selected, no area can be valid yet.
-    expect(await readOptionNames('Analytics Area')).toEqual(['—']);
+    expect(await readOptionNames('분석 영역')).toEqual(['—']);
 
-    await chooseOption('Managed System', 'Power BI');
-    expect(await readOptionNames('Analytics Area')).toEqual(['—', 'Product Usage']);
+    await chooseOption('시스템', 'Power BI');
+    expect(await readOptionNames('분석 영역')).toEqual(['—', 'Product Usage']);
 
-    await chooseOption('Managed System', 'ERP');
-    expect(await readOptionNames('Analytics Area')).toEqual(['—', 'ERP Usage']);
+    await chooseOption('시스템', 'ERP');
+    expect(await readOptionNames('분석 영역')).toEqual(['—', 'ERP Usage']);
   });
 
   it('clears the area selection when the system changes and the area no longer belongs', async () => {
@@ -767,12 +767,12 @@ describe('MilestonesRoute create options (Astra finding 4)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Milestone 생성' }));
     expect(await screen.findByTestId('milestone-create-panel')).toBeInTheDocument();
 
-    const areaSelect = screen.getByRole('combobox', { name: 'Analytics Area' });
-    await chooseOption('Managed System', 'Power BI');
-    await chooseOption('Analytics Area', 'Product Usage');
+    const areaSelect = screen.getByRole('combobox', { name: '분석 영역' });
+    await chooseOption('시스템', 'Power BI');
+    await chooseOption('분석 영역', 'Product Usage');
     expect(areaSelect).toHaveValue(IDS.areaProduct);
 
-    await chooseOption('Managed System', 'ERP');
+    await chooseOption('시스템', 'ERP');
 
     // The stale selection cannot ride along: it would be a 422 out_of_scope
     // create, and the user re-picks deliberately for the new system.
@@ -868,7 +868,7 @@ describe('MilestonesRoute create archived deep-link default (F4 followup)', () =
     expect(vi.mocked(createMilestone)).not.toHaveBeenCalled();
     expect(screen.getByTestId('milestone-create-panel')).toBeInTheDocument();
     expect(
-      screen.getByText('제목, 사유, Managed System, 시작일, 목표일을 입력해 주세요.'),
+      screen.getByText('제목, 사유, 시스템, 시작일, 목표일을 입력해 주세요.'),
     ).toBeInTheDocument();
   });
 
@@ -1342,8 +1342,8 @@ describe('MilestonesRoute create session (R5)', () => {
     for (const label of [
       '제목',
       '이 Milestone의 목적',
-      'Managed System',
-      'Analytics Area',
+      '시스템',
+      '분석 영역',
       '담당자',
       '시작일',
       '목표일',

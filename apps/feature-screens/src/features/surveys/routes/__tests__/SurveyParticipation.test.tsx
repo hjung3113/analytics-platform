@@ -73,7 +73,7 @@ const answerableSurveysFixture = answerableSurveysResponseSchema.parse({
   page: { has_more: false },
 });
 const answerableSurvey = answerableSurveysFixture.items[0];
-if (answerableSurvey === undefined) throw new Error('answerable Survey fixture is missing');
+if (answerableSurvey === undefined) throw new Error('answerable 설문 fixture is missing');
 
 const formDto = surveyRespondentFormDtoSchema.parse({
   survey: {
@@ -342,8 +342,8 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('Survey participation page', () => {
-  it('shows answerable Surveys and the signed-in Actor response history', async () => {
+describe('설문 participation page', () => {
+  it('shows answerable 설문 and the signed-in Actor response history', async () => {
     installFetch({ history: completedHistory });
     renderWithQuery(<SurveyParticipationPage />);
 
@@ -356,7 +356,7 @@ describe('Survey participation page', () => {
       `/surveys/${surveyId}/respond`,
     );
     expect(
-      screen.getByText('응답할 Survey에 참여하고 내가 제출한 응답을 확인합니다.'),
+      screen.getByText('응답할 설문에 참여하고 내가 제출한 응답을 확인합니다.'),
     ).toBeInTheDocument();
     expect(screen.getByText('내 응답 이력')).toBeInTheDocument();
     expect(screen.getByText('제출 2026. 7. 21.')).toBeInTheDocument();
@@ -371,7 +371,7 @@ describe('Survey participation page', () => {
     expect(screen.getByTestId('participation-history-loading')).toBeInTheDocument();
   });
 
-  it('loads another answerable Survey with the cursor returned by the first page', async () => {
+  it('loads another answerable 설문 with the cursor returned by the first page', async () => {
     const cursor = 'answerable-next-page';
     const nextSurvey = {
       ...answerableSurvey,
@@ -458,14 +458,14 @@ describe('Survey participation page', () => {
     await userEvent.setup().click(await screen.findByRole('button', { name: '더 보기' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      '추가 Survey를 불러오지 못했습니다.',
+      '추가 설문을 불러오지 못했습니다.',
     );
     expect(screen.getByRole('link', { name: /Q3 사용성 진단/ })).toBeInTheDocument();
     await userEvent.setup().click(screen.getByRole('button', { name: '다시 시도' }));
     expect(await screen.findByRole('link', { name: /분기 업무 흐름 설문/ })).toBeInTheDocument();
   });
 
-  it('marks a Survey continuation as loading while the next page is pending', async () => {
+  it('marks a 설문 continuation as loading while the next page is pending', async () => {
     installFetch({
       answerable: answerableSurveysResponseSchema.parse({
         items: [answerableSurvey],
@@ -480,14 +480,14 @@ describe('Survey participation page', () => {
     expect(await screen.findByRole('button', { name: '불러오는 중…' })).toBeDisabled();
   });
 
-  it('shows both empty regions when there is no answerable or submitted Survey', async () => {
+  it('shows both empty regions when there is no answerable or submitted 설문', async () => {
     installFetch({ answerable: { items: [], page: { has_more: false } } });
     renderWithQuery(<SurveyParticipationPage />);
 
-    expect(await screen.findByText('응답할 Survey가 없습니다.')).toBeInTheDocument();
-    expect(screen.getByText('응답한 Survey가 없습니다.')).toBeInTheDocument();
+    expect(await screen.findByText('응답할 설문이 없습니다.')).toBeInTheDocument();
+    expect(screen.getByText('응답한 설문이 없습니다.')).toBeInTheDocument();
     // Both empty branches are small and start-aligned, not a large centred void.
-    for (const text of ['응답할 Survey가 없습니다.', '응답한 Survey가 없습니다.']) {
+    for (const text of ['응답할 설문이 없습니다.', '응답한 설문이 없습니다.']) {
       expect(screen.getByText(text).parentElement).toHaveClass('items-start', 'py-6');
     }
   });
@@ -603,8 +603,8 @@ describe('respondent form', () => {
     });
     renderWithQuery(<RespondSurveyPage surveyId={surveyId} />);
 
-    expect(await screen.findByText('이 Survey에는 이미 응답을 제출했습니다.')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Survey 참여로 돌아가기' })).toHaveAttribute(
+    expect(await screen.findByText('이 설문에는 이미 응답을 제출했습니다.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '설문 참여로 돌아가기' })).toHaveAttribute(
       'href',
       '/surveys/participate',
     );
@@ -621,7 +621,7 @@ describe('respondent form', () => {
     expect(await screen.findByRole('textbox', { name: '어떤 점이 좋았나요?' })).toBeInTheDocument();
   });
 
-  it('drops the completion notice when the route switches to another Survey', async () => {
+  it('drops the completion notice when the route switches to another 설문', async () => {
     const otherId = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
     const otherForm = surveyRespondentFormDtoSchema.parse({
       survey: { ...formDto.survey, id: otherId, title: '다른 설문' },
@@ -729,7 +729,7 @@ describe('respondent form', () => {
     expect(submittedText).toBeInTheDocument();
     expect(document.activeElement).toBe(submittedText);
     expect(submittedText.closest('output')).not.toBeNull();
-    expect(screen.getByRole('link', { name: 'Survey 참여로 돌아가기' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '설문 참여로 돌아가기' })).toHaveAttribute(
       'href',
       '/surveys/participate',
     );
@@ -772,8 +772,8 @@ describe('respondent form', () => {
   });
 
   it.each([
-    ['conflict.survey_not_open', '이 Survey는 현재 응답을 받을 수 없습니다.'],
-    ['conflict.survey_response_already_submitted', '이 Survey에는 이미 응답을 제출했습니다.'],
+    ['conflict.survey_not_open', '이 설문은 현재 응답을 받을 수 없습니다.'],
+    ['conflict.survey_response_already_submitted', '이 설문에는 이미 응답을 제출했습니다.'],
   ])('shows the page-level %s response state', async (code, message) => {
     installFetch({ postStatuses: [{ status: 409, code }] });
     renderWithQuery(<RespondSurveyPage surveyId={surveyId} />);
@@ -783,7 +783,7 @@ describe('respondent form', () => {
 
     expect(await screen.findByText(message)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '제출' })).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Survey 참여로 돌아가기' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '설문 참여로 돌아가기' })).toBeInTheDocument();
   });
 
   it('reuses the idempotency key when retrying an unchanged payload', async () => {
@@ -845,11 +845,11 @@ describe('respondent form', () => {
     expect(keys[0]).not.toBe(keys[1]);
   });
 
-  it('renders the existing not-found state for a missing Survey', async () => {
+  it('renders the existing not-found state for a missing 설문', async () => {
     installFetch({ formStatus: 404 });
     renderWithQuery(<RespondSurveyPage surveyId={surveyId} />);
 
-    expect(await screen.findByText('Survey를 찾을 수 없습니다.')).toBeInTheDocument();
+    expect(await screen.findByText('설문을 찾을 수 없습니다.')).toBeInTheDocument();
   });
 
   it('keeps the completion notice when a focus refetch of the form answers already-submitted', async () => {
@@ -870,11 +870,11 @@ describe('respondent form', () => {
 
     await waitFor(() => expect(formGets()).toBeGreaterThan(before));
     await act(async () => {});
-    expect(screen.queryByText('이 Survey에는 이미 응답을 제출했습니다.')).not.toBeInTheDocument();
+    expect(screen.queryByText('이 설문에는 이미 응답을 제출했습니다.')).not.toBeInTheDocument();
     expect(screen.getByText('응답이 제출되었습니다')).toBeInTheDocument();
   });
 
-  it('invalidates answerable Surveys and response history after submission', async () => {
+  it('invalidates answerable 설문 and response history after submission', async () => {
     installFetch();
     renderWithQuery(
       <>
@@ -896,7 +896,7 @@ describe('respondent form', () => {
 });
 
 describe('respond route', () => {
-  it('renders the routed Survey form once it loads', async () => {
+  it('renders the routed 설문 form once it loads', async () => {
     installFetch({ form: formDto });
     const rootRoute = createRootRoute({
       component: () => <Outlet />,
@@ -918,13 +918,13 @@ describe('respond route', () => {
   });
 });
 
-describe('Home answerable Survey panel', () => {
-  it('limits the populated list to five answerable Surveys with response actions', async () => {
+describe('Home answerable 설문 panel', () => {
+  it('limits the populated list to five answerable 설문 with response actions', async () => {
     const items = Array.from({ length: 6 }, (_, index) => ({
       ...answerableSurvey,
       survey_id: `${String(index + 1).padStart(8, '0')}-aaaa-4aaa-8aaa-aaaaaaaaaaaa`,
       display_id: `SRV-${index + 1}`,
-      title: `Survey ${index + 1}`,
+      title: `설문 ${index + 1}`,
     }));
     installFetch({ answerable: { items, page: { has_more: true, cursor: 'next' } } });
     renderWithQuery(<AnswerableSurveysPanel />);
@@ -933,17 +933,17 @@ describe('Home answerable Survey panel', () => {
     const responseActions = within(list).getAllByRole('link', { name: '응답하기' });
     expect(responseActions).toHaveLength(5);
     expect(responseActions[0]).toHaveAttribute('href', `/surveys/${items[0]?.survey_id}/respond`);
-    expect(screen.getByRole('link', { name: 'Survey 참여에서 모두 보기' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '설문 참여에서 모두 보기' })).toHaveAttribute(
       'href',
       '/surveys/participate',
     );
   });
 
-  it('shows an empty state when the actor has no answerable Survey', async () => {
+  it('shows an empty state when the actor has no answerable 설문', async () => {
     installFetch({ answerable: { items: [], page: { has_more: false } } });
     renderWithQuery(<AnswerableSurveysPanel />);
 
-    const emptyRow = await screen.findByText('응답할 Survey가 없습니다.');
+    const emptyRow = await screen.findByText('응답할 설문이 없습니다.');
     expect(emptyRow.tagName).toBe('P');
     expect(emptyRow).toHaveClass('px-4', 'py-5', 'text-sm', 'text-text-muted');
     expect(emptyRow.parentElement).toHaveClass(
@@ -962,7 +962,7 @@ describe('Home answerable Survey panel', () => {
     expect(screen.getByTestId('home-answerable-surveys-loading')).toBeInTheDocument();
   });
 
-  it('retries an error state and then renders the Survey row', async () => {
+  it('retries an error state and then renders the 설문 row', async () => {
     installFetch({ answerableErrorOnce: true });
     renderWithQuery(<AnswerableSurveysPanel />);
     await userEvent.setup().click(await screen.findByRole('button', { name: '다시 시도' }));
@@ -994,18 +994,18 @@ describe('platform bridge screens (embedded)', () => {
     );
   }
 
-  it('lists Surveys without a main landmark or page heading and links through the host', async () => {
+  it('lists 설문 without a main landmark or page heading and links through the host', async () => {
     installFetch({ history: completedHistory });
     renderWithQuery(inHost(<SurveyParticipationScreen variant="embedded" />));
 
     const respond = await screen.findByText('응답하기');
     expect(respond.closest('a')).toHaveAttribute('data-host-to', `/surveys/${surveyId}/respond`);
     expect(screen.queryByRole('main')).not.toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: 'Survey 참여' })).not.toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: '응답할 Survey' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: '설문 참여' })).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '응답할 설문' })).toBeInTheDocument();
   });
 
-  it('shows the Survey title as a level-2 heading and the success state after a valid submit', async () => {
+  it('shows the 설문 title as a level-2 heading and the success state after a valid submit', async () => {
     installFetch({ form: textForm(true) });
     renderWithQuery(inHost(<RespondSurveyScreen surveyId={surveyId} variant="embedded" />));
 
@@ -1025,7 +1025,7 @@ describe('platform bridge screens (embedded)', () => {
     expect(successHeading).toHaveTextContent('응답이 제출되었습니다');
     expect(document.activeElement).toBe(successHeading);
     expect(successHeading.closest('output')).not.toBeNull();
-    expect(within(success).getByText('Survey 참여로 돌아가기').closest('a')).toHaveAttribute(
+    expect(within(success).getByText('설문 참여로 돌아가기').closest('a')).toHaveAttribute(
       'data-host-to',
       '/surveys/participate',
     );

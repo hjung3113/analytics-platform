@@ -40,7 +40,7 @@ vi.mock('@tanstack/react-router', () => ({
 
 const SOURCE_TYPE_LABELS: Record<EvidenceHighlightSourceType, string> = {
   voc: 'VOC',
-  survey_response: 'Survey',
+  survey_response: '설문',
   note: '수동 메모',
 };
 
@@ -59,7 +59,7 @@ function makeHighlight(
     workspace_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
     finding_id: '22222222-2222-4222-8222-222222222222',
     primary_managed_system_id: '33333333-3333-4333-8333-333333333333',
-    quote_or_summary: 'Evidence quote',
+    quote_or_summary: '근거 quote',
     analytics_area_id: null,
     sentiment: null,
     importance,
@@ -103,7 +103,7 @@ describe('EvidenceHighlightsSection labels', () => {
     vi.clearAllMocks();
   });
 
-  it('shows the safe Survey reference beside its source chip', () => {
+  it('shows the safe 설문 reference beside its source chip', () => {
     useEvidenceHighlightsMock.mockReturnValue({
       data: [
         {

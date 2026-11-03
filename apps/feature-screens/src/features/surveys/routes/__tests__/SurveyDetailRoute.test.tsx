@@ -116,7 +116,7 @@ describe('/surveys/:surveyId route', () => {
     useSurveyManageAnySystemGate.mockReturnValue({ canManage: false });
   });
 
-  it('renders the Surveys toolbar and create action for a manager', () => {
+  it('renders the 설문 toolbar and create action for a manager', () => {
     useSurvey.mockReturnValue({
       data: survey,
       isLoading: false,
@@ -134,7 +134,7 @@ describe('/surveys/:surveyId route', () => {
 
     render(<SurveyDetailRoute />);
 
-    expect(screen.getByRole('heading', { name: 'Surveys' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '설문' })).toBeInTheDocument();
     expect(screen.getByTestId('survey-create-button')).toBeInTheDocument();
   });
 
@@ -199,7 +199,7 @@ describe('/surveys/:surveyId route', () => {
       within(section).queryByRole('heading', { name: '결과 요약' }),
     );
     const builderIndex = sections.findIndex((section) =>
-      within(section).queryByRole('heading', { name: 'Survey 빌더' }),
+      within(section).queryByRole('heading', { name: '설문 빌더' }),
     );
     expect(resultsIndex).toBeGreaterThanOrEqual(0);
     expect(resultsIndex).toBeLessThan(builderIndex);
@@ -251,8 +251,8 @@ describe('/surveys/:surveyId route', () => {
         <SurveyDetailRoute />
       </QueryClientProvider>,
     );
-    const settings = screen.getByText('Survey 설정').closest('aside');
-    if (!settings) throw new Error('Expected the builder Survey 설정 rail');
+    const settings = screen.getByText('설문 설정').closest('aside');
+    if (!settings) throw new Error('Expected the builder 설문 설정 rail');
     expect(within(settings).getByText('Revenue Analytics')).toBeInTheDocument();
   });
 
@@ -270,7 +270,7 @@ describe('/surveys/:surveyId route', () => {
 
     render(<SurveyDetailRoute />);
 
-    expect(screen.getByText('Survey를 찾을 수 없습니다.')).toBeInTheDocument();
+    expect(screen.getByText('설문을 찾을 수 없습니다.')).toBeInTheDocument();
   });
 
   it('retries the survey list from the detail route error state', async () => {
@@ -293,7 +293,7 @@ describe('/surveys/:surveyId route', () => {
 
     render(<SurveyDetailRoute />);
 
-    expect(await screen.findByText('Survey 목록을 불러오지 못했습니다')).toBeInTheDocument();
+    expect(await screen.findByText('설문 목록을 불러오지 못했습니다')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: '다시 시도' }));
     expect(refetch).toHaveBeenCalledTimes(1);
   });

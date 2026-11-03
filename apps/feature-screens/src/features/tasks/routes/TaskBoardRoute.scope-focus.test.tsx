@@ -94,12 +94,12 @@ describe('TaskBoardRoute keyboard recovery scope', () => {
     ) {
       const label = this.getAttribute('aria-label');
       const index = [
-        'Backlog',
-        'Todo',
-        'Doing',
-        'Review',
-        'Done',
-        'Released',
+        '대기',
+        '할 일',
+        '진행 중',
+        '검토',
+        '완료',
+        '배포됨',
         'Reopened',
       ].findIndex((status) => label === `${status} 열`);
       if (index >= 0) return boardRect(index * 300, 288, 600);
@@ -148,13 +148,13 @@ describe('TaskBoardRoute keyboard recovery scope', () => {
       });
       fireEvent.keyDown(document, { key: 'ArrowRight', code: 'ArrowRight' });
       expect(screen.getByRole('status')).toHaveTextContent(
-        'TASK-1000 Task가 Todo 열 위에 있습니다.',
+        'TASK-1000 Task가 할 일 열 위에 있습니다.',
       );
       fireEvent.keyDown(document, { key: ' ', code: 'Space' });
       await act(async () => {
         await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
       });
-      expect(screen.getByLabelText('Todo 열')).not.toHaveTextContent(task.display_id);
+      expect(screen.getByLabelText('할 일 열')).not.toHaveTextContent(task.display_id);
       card.blur();
       if (scope === 'groupBy') {
         fireEvent.click(screen.getByRole('button', { name: '그룹화' }));
@@ -187,14 +187,14 @@ describe('TaskBoardRoute keyboard recovery scope', () => {
       await act(async () => {
         releaseCancellation();
       });
-      await within(screen.getByLabelText('Todo 열')).findByRole('button', { name: /TASK-1000:/ });
+      await within(screen.getByLabelText('할 일 열')).findByRole('button', { name: /TASK-1000:/ });
       await waitFor(() => expect(updateTaskStatus).toHaveBeenCalled());
       expect(document.body).toHaveFocus();
       await act(async () => {
         rejectUpdate(new Error('Older scope move rejected'));
       });
       await waitFor(() => expect(client.isMutating()).toBe(0));
-      await within(screen.getByLabelText('Backlog 열')).findByRole('button', {
+      await within(screen.getByLabelText('대기 열')).findByRole('button', {
         name: /TASK-1000:/,
       });
       expect(document.body).toHaveFocus();

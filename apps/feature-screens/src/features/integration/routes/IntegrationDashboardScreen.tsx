@@ -121,7 +121,7 @@ export function IntegrationDashboardScreen({
               연동 액션 대시보드
             </h1>
             <p className="mt-3 text-sm text-text-muted">
-              VOC · Finding · Task · Survey 사이의 흐름이 끊긴 지점을 추적합니다. 차트가 아니라 다음
+              VOC · Finding · Task · 설문 사이의 흐름이 끊긴 지점을 추적합니다. 차트가 아니라 다음
               행동이 우선합니다.
             </p>
           </div>
@@ -183,7 +183,7 @@ export function IntegrationDashboardScreen({
             <ListStateMessage
               variant="empty"
               title="이 범위에서 표시할 큐가 없습니다."
-              body="역할과 Managed System 범위에서 반환된 큐 데이터만 표시됩니다."
+              body="역할과 시스템 범위에서 반환된 큐 데이터만 표시됩니다."
             />
           ) : activeQueues.length > 0 ? (
             <div
@@ -260,14 +260,14 @@ export function IntegrationDashboardScreen({
 
         {!summary.isError && (
           <div data-testid="integration-managed-system-overview">
-            <PanelSectionTitle>Managed System 개요</PanelSectionTitle>
+            <PanelSectionTitle>시스템 개요</PanelSectionTitle>
             {summary.isPending || systems.isPending ? (
               <Skeleton className="h-48" />
             ) : summary.data === undefined || summary.data.by_managed_system.length === 0 ? (
               <ListStateMessage
                 variant="empty"
-                title="이 범위에서 표시할 Managed System 요약이 없습니다."
-                body="요약이 표시 가능한 항목을 반환할 때 Managed System 행이 나타납니다."
+                title="이 범위에서 표시할 시스템 요약이 없습니다."
+                body="요약이 표시 가능한 항목을 반환할 때 시스템 행이 나타납니다."
               />
             ) : (
               <ManagedSystemOverview
@@ -309,7 +309,7 @@ function ManagedSystemOverview({
         <thead>
           <tr className="border-b border-border-subtle text-caption uppercase tracking-wide text-text-muted">
             <th scope="col" className="px-4 py-2 font-medium">
-              Managed System
+              시스템
             </th>
             <th scope="col" className="px-3 py-2 text-right font-medium">
               미해결 VOC

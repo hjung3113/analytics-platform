@@ -19,7 +19,7 @@ const GROUP = groupId('flowSettings');
 export const manifests: MenuEntry[] = [
   {
     id: 'managed-systems', primary: true, group: GROUP, label: { ko: '시스템', en: 'Systems' },
-    description: { ko: 'Managed System의 기본 담당자·검토자와 활성 상태를 관리합니다', en: 'Manage Managed Systems, their default owners and reviewers, and their active state' },
+    description: { ko: '시스템의 기본 담당자·검토자와 활성 상태를 관리합니다', en: 'Manage Managed Systems, their default owners and reviewers, and their active state' },
     path: '/flow/managed-systems', icon: Server, permission: 'console:access', additionalPermissions: ['features:access'], requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
@@ -27,7 +27,7 @@ export const manifests: MenuEntry[] = [
   },
   {
     id: 'analytics-areas', group: GROUP, label: { ko: '분석 영역', en: 'Analytics areas' },
-    description: { ko: 'Analytics Area를 Managed System별로 보고 관리합니다', en: 'See and manage Analytics Areas by Managed System' },
+    description: { ko: '분석 영역을 시스템별로 보고 관리합니다', en: 'See and manage Analytics Areas by Managed System' },
     path: '/flow/analytics-areas', icon: Network, permission: 'console:access', additionalPermissions: ['features:access'], requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['system', 'includeArchived', 'focus', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,

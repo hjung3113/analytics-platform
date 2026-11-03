@@ -530,7 +530,7 @@ describe('VOC cluster route shells', () => {
     render(<VocClusterListPage />);
 
     expect(screen.getAllByText('반복 결제 문의').length).toBeGreaterThan(0);
-    expect(screen.getByTestId('list-shell-toolbar')).toHaveTextContent('VOC Cluster');
+    expect(screen.getByTestId('list-shell-toolbar')).toHaveTextContent('반복 VOC');
     expect(screen.getByTestId('list-shell-toolbar')).toHaveTextContent(
       'VOC를 유사 주제로 묶어 Finding으로 승격합니다.',
     );
@@ -565,7 +565,7 @@ describe('VOC cluster route shells', () => {
     render(<VocClusterDetailPage />);
 
     expect(document.querySelector('[data-shell="list"]')).toBeInTheDocument();
-    expect(screen.getByTestId('list-shell-toolbar')).toHaveTextContent('VOC Cluster');
+    expect(screen.getByTestId('list-shell-toolbar')).toHaveTextContent('반복 VOC');
     expect(screen.getByTestId('list-shell-toolbar')).toHaveTextContent(
       'VOC를 유사 주제로 묶어 Finding으로 승격합니다.',
     );
@@ -817,7 +817,7 @@ describe('VOC cluster route shells', () => {
 
     fireEvent.click(screen.getByTestId('cluster-request-task-button'));
     const draft = screen.getByTestId('request-task-draft');
-    expect(draft).toHaveTextContent('출처 CLU-31 · VOC Cluster');
+    expect(draft).toHaveTextContent('출처 CLU-31 · 반복 VOC');
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     fireEvent.change(screen.getByTestId('request-task-requested-outcome-input'), {
       target: { value: 'Reduce repeated payment failures' },
@@ -942,7 +942,7 @@ describe('VOC cluster route shells', () => {
   });
 
   it.each([
-    [403, 'permission.scope_required', '해당 Managed System에 대한 권한이 없습니다.'],
+    [403, 'permission.scope_required', '해당 시스템에 대한 권한이 없습니다.'],
     [404, 'not_found.record', '존재하지 않거나 접근할 수 없는 항목입니다.'],
   ] as const)(
     'surfaces the $1 / $2 non-disclosing link error',
@@ -973,7 +973,7 @@ describe('VOC cluster route shells', () => {
     },
   );
 
-  it('AC-E10a keeps current members out of the picker and in the Cluster detail', async () => {
+  it('AC-E10a keeps current members out of the picker and in the 반복 VOC detail', async () => {
     const { VocClusterDetailPanel } = await import(
       '@/features/voc-cluster/components/detail/VocClusterDetailPanel'
     );

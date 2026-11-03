@@ -100,7 +100,7 @@ describe('AddEvidenceModal source kind options', () => {
 
     expect(await screen.findByRole('option', { name: '수동 메모' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'VOC' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'Survey' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: '설문' })).toBeInTheDocument();
     expect(screen.queryByRole('option', { name: 'Note (manual)' })).not.toBeInTheDocument();
   });
 
@@ -134,7 +134,7 @@ describe('AddEvidenceModal source kind options', () => {
     },
   );
 
-  it('uses the VOC picker and replaces Survey UUID and editable quote with selection', async () => {
+  it('uses the VOC picker and replaces 설문 UUID and editable quote with selection', async () => {
     const user = userEvent.setup();
     installVocList();
     render(
@@ -163,11 +163,11 @@ describe('AddEvidenceModal source kind options', () => {
     await user.click(await screen.findByRole('option', { name: 'VOC-12 · 로그인 오류' }));
 
     fireEvent.click(screen.getByTestId('evidence-source-type-select'));
-    fireEvent.click(await screen.findByRole('option', { name: 'Survey' }));
+    fireEvent.click(await screen.findByRole('option', { name: '설문' }));
 
     expect(screen.queryByTestId('evidence-source-id-input')).not.toBeInTheDocument();
     expect(screen.queryByTestId('evidence-quote-input')).not.toBeInTheDocument();
-    expect(screen.getByRole('combobox', { name: 'Survey 선택' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: '설문 선택' })).toBeInTheDocument();
     expect(screen.getByTestId('add-evidence-submit')).toBeDisabled();
   });
 
@@ -226,7 +226,7 @@ describe('AddEvidenceModal source kind options', () => {
   });
 
   it.each([
-    { outcome: 'success', expected: 'Evidence가 추가되었습니다.' },
+    { outcome: 'success', expected: '근거가 추가되었습니다.' },
     { outcome: 'error', expected: '일시적 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.' },
   ] as const)('notifies the host on $outcome', async ({ outcome, expected }) => {
     const seam = {

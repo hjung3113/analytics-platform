@@ -305,7 +305,7 @@ describe('<VocComposeScreen> Context block (F2)', () => {
   });
 });
 
-describe('<VocComposeScreen> Managed System default (F3)', () => {
+describe('<VocComposeScreen> 시스템 default (F3)', () => {
   it.each([
     ['listed', MS_ID, true],
     ['not in the list', MS_OTHER, false],
@@ -328,7 +328,7 @@ describe('<VocComposeScreen> Managed System default (F3)', () => {
     }
   });
 
-  it('keeps an Analytics Area picked after the default Managed System was applied', async () => {
+  it('keeps an 분석 영역 picked after the default 시스템 was applied', async () => {
     installFetch();
     mount({ initialManagedSystemId: MS_ID });
     fireEvent.click(await screen.findByRole('radio', { name: 'Usage AA' }));
@@ -407,7 +407,7 @@ describe('<VocComposeScreen> dirty state (F5)', () => {
     await waitFor(() => expect(vi.mocked(props.onDirtyChange)).toHaveBeenLastCalledWith(true));
   });
 
-  it('does not count the defaulted Managed System as an edit', async () => {
+  it('does not count the defaulted 시스템 as an edit', async () => {
     installFetch();
     const { props } = mount({ initialManagedSystemId: MS_ID });
     const radio = await screen.findByRole('radio', { name: 'Analytics MS' });
@@ -417,7 +417,7 @@ describe('<VocComposeScreen> dirty state (F5)', () => {
 });
 
 describe('<VocComposeScreen> network (F6)', () => {
-  it('asks only for Managed Systems and Analytics Areas while composing', async () => {
+  it('asks only for 시스템 and Analytics Areas while composing', async () => {
     installFetch();
     mount({ initialManagedSystemId: MS_ID });
     await screen.findByRole('radio', { name: 'Usage AA' });
@@ -447,8 +447,8 @@ describe('<VocComposeScreen> narrow drawer layout and helper texts (UX-3, UX-4)'
   it.each([
     ['출처', '타인 대신 보고는 다른 팀원이나 고객의 경험을 대신 등록하는 경우입니다.'],
     [
-      'Analytics Area, before a Managed System is chosen',
-      'Analytics Area는 VOC를 분석할 때 함께 볼 주제에 맞춰 선택하세요.',
+      '분석 영역, before a 시스템 is chosen',
+      '분석 영역은 VOC를 분석할 때 함께 볼 주제에 맞춰 선택하세요.',
     ],
   ])('shows the %s helper text', async (_field, text) => {
     installFetch();
@@ -464,7 +464,7 @@ describe('<VocComposeScreen> required fields and independent choices (migrated f
     mount();
     await screen.findByRole('radio', { name: 'Analytics MS' });
     expect(screen.getByTestId('voc-submit-missing')).toHaveTextContent(
-      '필수 항목: 제목, 상세 설명, Managed System',
+      '필수 항목: 제목, 상세 설명, 시스템',
     );
     expect(screen.getByRole('button', { name: 'VOC 제출' })).toBeDisabled();
 
@@ -482,7 +482,7 @@ describe('<VocComposeScreen> required fields and independent choices (migrated f
     await waitFor(() => expect(screen.queryByTestId('voc-submit-missing')).toBeNull());
   });
 
-  it('submits the source and the Analytics Area as independent values without a warning dialog', async () => {
+  it('submits the source and the 분석 영역 as independent values without a warning dialog', async () => {
     installFetch();
     mount();
     fireEvent.click(await screen.findByRole('radio', { name: 'Analytics MS' }));
@@ -513,8 +513,8 @@ describe('<VocComposeScreen> required fields and independent choices (migrated f
   });
 });
 
-describe('<VocComposeScreen> Managed System list states (migrated from VocCreateScreen)', () => {
-  it('shows the empty-state copy when the user has no Managed System', async () => {
+describe('<VocComposeScreen> 시스템 list states (migrated from VocCreateScreen)', () => {
+  it('shows the empty-state copy when the user has no 시스템', async () => {
     installFetch();
     const base = globalThis.fetch;
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) =>
@@ -523,11 +523,11 @@ describe('<VocComposeScreen> Managed System list states (migrated from VocCreate
         : base(input, init),
     ) as typeof fetch;
     mount();
-    expect(await screen.findByText('선택할 수 있는 Managed System이 없습니다')).toBeTruthy();
+    expect(await screen.findByText('선택할 수 있는 시스템이 없습니다')).toBeTruthy();
     expect(screen.queryByTestId('ms-picker')).toBeNull();
   });
 
-  it('a background 401 on the Managed System list keeps the draft mounted and shows the login copy', async () => {
+  it('a background 401 on the 시스템 list keeps the draft mounted and shows the login copy', async () => {
     installFetch();
     const base = globalThis.fetch;
     let listFails = false;

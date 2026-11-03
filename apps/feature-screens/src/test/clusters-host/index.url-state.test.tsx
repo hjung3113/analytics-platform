@@ -274,7 +274,7 @@ describe('/voc-clusters URL state', () => {
   test('a stale selected uuid shows the not-found notice and opens no other Cluster', async () => {
     const router = renderUrlState({ requested: [] }, `/voc-clusters?selected=${STALE_ID}`);
     await waitFor(
-      () => expect(screen.getByText('Cluster를 찾을 수 없습니다.')).toBeInTheDocument(),
+      () => expect(screen.getByText('반복 VOC를 찾을 수 없습니다.')).toBeInTheDocument(),
       { timeout: 4000 },
     );
     expect(router.state.location.search).toEqual({ selected: STALE_ID });
@@ -370,7 +370,7 @@ describe('/voc-clusters URL state', () => {
         );
       } else {
         await waitFor(
-          () => expect(screen.getByText('Cluster를 찾을 수 없습니다.')).toBeInTheDocument(),
+          () => expect(screen.getByText('반복 VOC를 찾을 수 없습니다.')).toBeInTheDocument(),
           { timeout: 4000 },
         );
         expect(screen.queryByTestId('cluster-detail-title')).not.toBeInTheDocument();

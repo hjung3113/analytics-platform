@@ -73,7 +73,7 @@ export function TaskBoardColumn({
                 onSelect={() => selectTask(task.id)}
                 enabled={enabled}
                 managedSystemName={
-                  names.systems.get(task.primary_managed_system_id) ?? 'Managed System'
+                  names.systems.get(task.primary_managed_system_id) ?? '시스템'
                 }
                 assigneeName={
                   task.assignee_team_id

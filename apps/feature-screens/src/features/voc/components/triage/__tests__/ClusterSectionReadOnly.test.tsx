@@ -97,7 +97,7 @@ describe('ClusterSectionReadOnly — recommendation surface', () => {
 
     expect(screen.getByText('유사 VOC 추천')).toBeInTheDocument();
     const badge = await screen.findByTestId('cluster-similarity-badge');
-    expect(badge).toHaveTextContent('같은 Managed System의 VOC 3건');
+    expect(badge).toHaveTextContent('같은 시스템의 VOC 3건');
   });
 
   it('hides the peer count when similar_count is zero (ADR-0031 heuristic unchanged)', async () => {
@@ -242,7 +242,7 @@ describe('ClusterSectionReadOnly — recommendation surface', () => {
     await userEvent.click(confirmA);
 
     expect(await screen.findByTestId('cluster-recommendation-feedback')).toHaveTextContent(
-      '새 Cluster를 만들었습니다.',
+      '새 반복 VOC를 만들었습니다.',
     );
   });
 
@@ -265,7 +265,7 @@ describe('ClusterSectionReadOnly — recommendation surface', () => {
     await userEvent.click(confirmA);
 
     expect(await screen.findByTestId('cluster-recommendation-feedback')).toHaveTextContent(
-      '다른 Managed System의 VOC와는 Cluster를 만들 수 없습니다.',
+      '다른 시스템의 VOC와는 반복 VOC를 만들 수 없습니다.',
     );
     // The row survives — a rejected confirm is not a dismiss.
     expect(screen.getByTestId(`cluster-recommendation-row-${CANDIDATE_A}`)).toBeInTheDocument();
