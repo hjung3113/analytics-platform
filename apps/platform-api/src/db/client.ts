@@ -16,6 +16,9 @@ const schema = { ...core, ...permission };
 
 export type Db = NodePgDatabase<typeof schema>;
 
+/** A `Db` bound to one checked-out connection: everything (and every transaction) on it uses that connection only. */
+export const dbOnClient = (client: pg.PoolClient): Db => drizzle(client, { schema });
+
 export interface DbHandle {
   db: Db;
   pool: pg.Pool;

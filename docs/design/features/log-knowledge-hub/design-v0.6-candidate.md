@@ -382,7 +382,15 @@ SQL은 **핵심 제약의 예시**이고 전체 실행 migration은 아니다. �
 | ④ 충돌 해결 | `catalog_import_resolution`+검토 버전, Catalog 실제 행 불변 | 사람이 원본↔현재 DB 비교 후 행별 map/skip/create/abort 선택 |
 | ⑤ 적용 결과 | **확정된 행 단위** Catalog transaction + Core audit + 결과 상태 | job planVersion CAS·중복 키·재검증·부분 실패/재시도 보고 |
 
-**구현 상태(#1195 node a):** 단계 ①–③은 구현됨(정본 `docs/architecture/platform-api/api/log-knowledge.md` §Catalog import staging). 업로드는 Attachment 저장소를 쓰지 않고 knowledge 전용 `POST /api/v1/log-knowledge/imports`(multipart, `Idempotency-Key` 필수, 권한 `knowledge.catalog.import`)가 job과 행을 한 트랜잭션에 만든다. 원본 바이트는 저장하지 않고 `file_name/file_size/file_type/file_sha256`만 남긴다. 한도: 5 MB, 데이터 5,000행, 50열, CSV는 UTF-8(BOM 제거), XLSX는 시트 1개. 단계 ④–⑤(해결·봉인·적용·보고서 다운로드)는 미구현(node b).
+**구현 상태(#1195 node a):** 단계 ①–③은 구현됨(정본 `docs/architecture/platform-api/api/log-knowledge.md` §Catalog import staging). 업로드는 Attachment 저장소를 쓰지 않고 knowledge 전용 `POST /api/v1/log-knowledge/imports`(multipart, `Idempotency-Key` 필수, 권한 `knowledge.catalog.import`)가 job과 행을 한 트랜잭션에 만든다. 원본 바이트는 저장하지 않고 `file_name/file_size/file_type/file_sha256`만 남긴다. 한도: 5 MB, 데이터 5,000행, 50열, CSV는 UTF-8(BOM 제거), XLSX는 시트 1개. 
+
+**구현 상태(#1195 node b, 규범):** 단계 ④–⑤ 구현됨(정본 `api/log-knowledge.md` §Catalog import resolve and apply).
+- 해결: 메뉴 액션 `importResolve`(행당 `skip`, `new`/`conflict`에 `map`, `new`에만 `create`; `abort` 없음)와 `importCancel`(봉인 전 어느 상태에서든 `cancelled`). 재매핑·재검증은 검증 세대를 올려 이전 해결을 무효로 한다.
+- 봉인·적용: `POST …/imports/:jobId/apply`. 첫 호출이 행 해시(`plan_hash`)와 job `sealed_plan_hash`를 기록하고 `applying`으로 바꾼다. 행은 `row_no` 순서로 행당 한 트랜잭션에서 적용하며, 시간 예산(기본 15초, 호출당 최소 1행)을 넘기면 중단하고 같은 호출로 이어 간다. 한 pass에서 행은 최대 한 번 시도하고, 끝나면 `completed`(failed·conflict 없음) 또는 `partial_failure`. `partial_failure` 호출은 `failed` 행만 다음 pass로 재시도한다(`conflict`는 재시도하지 않는다). job당 실행자는 하나(advisory lock).
+- 우선순위: `error`→excluded(skip이 있어도), `skip`→skipped, 그다음 plan 상태. 미해결 `conflict`는 unresolved. update/map은 이름(모델은 `process_codes`가 매핑된 때만 공정 집합)만 바꾸고 코드·재활성화는 하지 않는다.
+- `map`은 `external_identity_map`에 `catalog_import` 별칭을 `accepted`로 쓴다. 키는 JSON 배열(vendor/process `[code]`, model `[vendor, code]`, software `[vendor, model, version]`). 같은 키가 다른 대상이면 `conflict identity_conflict`.
+- 감사: 적용한 쓰기는 기존 `knowledge.catalog.created|updated`에 `source:{importJobId,rowNo}`를 담고, 별칭 쓰기는 `knowledge.catalog.identity_mapped`.
+- 보고서: `GET …/imports/:jobId/report.csv`(BOM, CRLF, 모든 셀 수식 방어).
 
 **원자성 후보:** 전체 파일을 하나의 거대한 트랜잭션으로 처리하지 않는다. Job 적용 승인을 하나의 고정된 Plan Snapshot으로 봉인한 뒤, `Vendor/Process → Model → SW` 위상순으로 **행/참조 묶음 단위 트랜잭션** 적용. 각 행 `(job_id,row_no,plan_hash)`로 정확히 한 번 적용; 실패 행만 재시도하되 `expected_target_version`이 바뀌면 `conflict`로 재검토. 미해결 충돌 자동 덮어쓰기/자동 신규 생성 금지. 일부 성공이면 `partial_failure`이며 집계는 성공·기존 유지·skip·실패를 구분. 내보내기 CSV 수식 주입 방어.
 

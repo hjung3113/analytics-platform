@@ -7,7 +7,6 @@
 // transaction. SetActive to the value a row already has changes nothing and answers `ok` with the
 // current version.
 
-import { createAuditService } from '../core/audit/audit-service.js';
 import type { Tx } from '../../db/tx.js';
 import {
   type ActionHandlerResult,
@@ -17,6 +16,7 @@ import {
 } from '../menu-dispatch/types.js';
 import { type CheckService, applyAdminModuleBypass } from '../permissions/check-service.js';
 import type { PlatformActor } from '../platform-port/permissions.js';
+import { recordCatalogAudit } from './catalog-audit.js';
 import { LOG_KNOWLEDGE_MENU_ID } from './catalog-menu.js';
 import { type CatalogOp, validateCatalogInput } from './domain/catalog-input.js';
 import { toCodeKey } from './domain/code-key.js';
@@ -39,15 +39,6 @@ import {
 export const CATALOG_PERMISSION = 'knowledge.catalog.manage';
 /** The menu permission the twelve actions declare (and the menu manifest uses): bootstrap lists it exactly for the users `CATALOG_PERMISSION` lets write (`platform-port/permissions.ts`). */
 export const CATALOG_MENU_PERMISSION = 'knowledge:catalog-manage';
-
-const SUBJECT = {
-  vendor: 'knowledge_vendor',
-  process: 'knowledge_process',
-  model: 'knowledge_model',
-  software: 'knowledge_software',
-} as const;
-
-const NOUN = { vendor: 'Vendor', process: 'Process', model: 'Model', software: 'Software version' } as const;
 
 /** Read endpoints (same menu) that show the rows a write of this kind changes. */
 const INVALIDATES: Record<CatalogKind, readonly string[]> = {
@@ -100,8 +91,6 @@ function summary(row: CatalogRow, rowVersion = row.rowVersion) {
 }
 
 export function catalogActions(deps: CatalogActionDeps): MenuActionDeclaration[] {
-  const audit = createAuditService();
-
   const authorize = async (actor: PlatformActor, tx: Tx) =>
     applyAdminModuleBypass(
       actor.role_level,
@@ -121,16 +110,7 @@ export function catalogActions(deps: CatalogActionDeps): MenuActionDeclaration[]
     type: 'created' | 'updated' | 'deactivated' | 'reactivated',
     row: CatalogRow,
     changes?: Record<string, [unknown, unknown]>,
-  ) =>
-    audit.record(tx, {
-      workspace_id: actor.workspace_id,
-      actor_id: actor.actor_id,
-      event_type: `knowledge.catalog.${type}`,
-      subject_type: SUBJECT[kind],
-      subject_id: row.id,
-      summary: `${NOUN[kind]} ${row.code} ${type}`,
-      detail: { code: row.code, name: row.name, ...(changes ? { changes } : {}) },
-    });
+  ) => recordCatalogAudit(tx, actor, kind, type, row, changes);
 
   const duplicate = (kind: CatalogKind) =>
     new MenuActionInvalidError([{ path: [codeField(kind)], code: 'duplicate' }]);

@@ -15,6 +15,7 @@ import { type CheckService, applyAdminModuleBypass } from '../permissions/check-
 import type { PlatformActor } from '../platform-port/permissions.js';
 import { LOG_KNOWLEDGE_MENU_ID } from './catalog-menu.js';
 import { CATALOG_MENU_PERMISSION } from './catalog-actions.js';
+import { RESOLUTIONS, type Resolution } from './domain/import-apply.js';
 import { mappingShapeErrors, validateMapping } from './domain/import-mapping.js';
 import {
   type NormalizedRow,
@@ -23,6 +24,8 @@ import {
   planRows,
   statusAfterValidate,
 } from './domain/import-plan.js';
+import { lockRow } from './repositories/catalog-write.js';
+import { readPlanRows, upsertResolutions, type ResolutionWrite } from './repositories/import-apply-repo.js';
 import {
   countByPlanState,
   getJob,
@@ -30,6 +33,8 @@ import {
   readRowsForValidation,
   saveMapping,
   saveValidation,
+  setJobStatus,
+  touchPlan,
 } from './repositories/import-repo.js';
 
 export const IMPORT_CAPABILITY = 'knowledge.catalog.import';
@@ -39,6 +44,40 @@ export const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0
 const INVALIDATES = ['logKnowledge.importDetail'] as const;
 const EDITABLE = new Set(['uploaded', 'mapped', 'validated', 'review_required']);
 const VALIDATABLE = new Set(['mapped', 'validated', 'review_required']);
+const RESOLVABLE = new Set(['validated', 'review_required']);
+const CANCELLABLE = new Set(['uploaded', 'mapped', 'validated', 'review_required']);
+export const RESOLVE_MAX = 500;
+
+interface ResolveItem {
+  rowNo: number;
+  resolution: string;
+  mapTargetId?: unknown;
+}
+
+/** Shape of `resolutions`: an array of at most 500 `{rowNo, resolution, mapTargetId?}`; `abort` is not offered. */
+function resolveShapeErrors(value: unknown): FieldError[] {
+  if (!Array.isArray(value) || value.length === 0) return [{ path: ['resolutions'], code: 'required' }];
+  if (value.length > RESOLVE_MAX) return [{ path: ['resolutions'], code: 'too_many' }];
+  const errors: FieldError[] = [];
+  const seen = new Set<number>();
+  value.forEach((raw, i) => {
+    const item = raw as Partial<ResolveItem> | null;
+    if (typeof item !== 'object' || item === null) return void errors.push({ path: ['resolutions', String(i)], code: 'invalid' });
+    if (!Number.isInteger(item.rowNo) || (item.rowNo as number) < 1) errors.push({ path: ['resolutions', String(i), 'rowNo'], code: 'invalid' });
+    else if (seen.has(item.rowNo as number)) errors.push({ path: ['resolutions', String(i), 'rowNo'], code: 'duplicate' });
+    else seen.add(item.rowNo as number);
+    if (!(RESOLUTIONS as readonly unknown[]).includes(item.resolution)) {
+      errors.push({ path: ['resolutions', String(i), 'resolution'], code: 'invalid' });
+    } else if (item.resolution === 'map') {
+      if (typeof item.mapTargetId !== 'string' || !UUID_PATTERN.test(item.mapTargetId)) {
+        errors.push({ path: ['resolutions', String(i), 'mapTargetId'], code: 'required' });
+      }
+    } else if (item.mapTargetId !== undefined && item.mapTargetId !== null) {
+      errors.push({ path: ['resolutions', String(i), 'mapTargetId'], code: 'invalid' });
+    }
+  });
+  return errors;
+}
 
 export interface ImportActionDeps {
   checkService: CheckService;
@@ -142,7 +181,100 @@ export function importActions(deps: ImportActionDeps): MenuActionDeclaration[] {
     },
   };
 
-  return [importMap, importValidate];
+  const importResolve: MenuActionDeclaration = {
+    spec: {
+      id: 'logKnowledge.importResolve',
+      menuId: LOG_KNOWLEDGE_MENU_ID,
+      inputKeys: ['jobId', 'resolutions'],
+      permission: CATALOG_MENU_PERMISSION,
+      requiresScope: false,
+      concurrency: 'version',
+      invalidates: INVALIDATES,
+    },
+    authorize,
+    validate: (input) => [...jobIdErrors(input), ...resolveShapeErrors(input.resolutions)],
+    currentVersion,
+    async handle(tx, actor, input): Promise<ActionHandlerResult> {
+      const ws = actor.workspace_id;
+      const job = await getJob(tx, ws, input.jobId as string, true);
+      if (!job) throw new Error('action importResolve: currentVersion judged not_found first');
+      if (!RESOLVABLE.has(job.status)) throw new MenuActionInvalidError([{ path: ['jobId'], code: 'state' }]);
+      const items = input.resolutions as { rowNo: number; resolution: Resolution; mapTargetId?: string }[];
+      const rows = new Map((await readPlanRows(tx, ws, job.id, items.map((i) => i.rowNo))).map((r) => [r.rowNo, r]));
+      const needsCatalog = items.some((i) => i.resolution === 'map');
+      const catalog = needsCatalog ? await loadCatalogSnapshot(tx, ws, job.entityType) : null;
+      const errors: FieldError[] = [];
+      const writes: ResolutionWrite[] = [];
+      for (const [i, item] of items.entries()) {
+        const at = (leaf: string) => ['resolutions', String(i), leaf];
+        const row = rows.get(item.rowNo);
+        if (!row) {
+          errors.push({ path: at('rowNo'), code: 'not_found' });
+          continue;
+        }
+        if (item.resolution === 'skip') {
+          writes.push({ rowNo: item.rowNo, resolution: 'skip', mapTargetId: null, expectedTargetVersion: null });
+          continue;
+        }
+        if (row.planState !== 'new' && (item.resolution === 'create' || row.planState !== 'conflict')) {
+          errors.push({ path: at('resolution'), code: 'not_allowed' });
+          continue;
+        }
+        if (item.resolution === 'create') {
+          writes.push({ rowNo: item.rowNo, resolution: 'create', mapTargetId: null, expectedTargetVersion: null });
+          continue;
+        }
+        const target = await lockRow(tx, job.entityType, ws, item.mapTargetId as string);
+        if (!target) errors.push({ path: at('mapTargetId'), code: 'not_found' });
+        else if (!target.active) errors.push({ path: at('mapTargetId'), code: 'inactive' });
+        else if (target.parentId !== expectedParent(job.entityType, row.normalized, catalog)) {
+          errors.push({ path: at('mapTargetId'), code: 'scope' });
+        } else {
+          writes.push({
+            rowNo: item.rowNo,
+            resolution: 'map',
+            mapTargetId: target.id,
+            expectedTargetVersion: target.rowVersion,
+          });
+        }
+      }
+      if (errors.length > 0) throw new MenuActionInvalidError(errors);
+      await upsertResolutions(tx, ws, job.id, actor.actor_id, job.validationGeneration, writes);
+      const saved = await touchPlan(tx, ws, job.id, actor.actor_id);
+      return {
+        data: { jobId: saved.id, status: saved.status, planVersion: saved.planVersion, resolved: writes.length },
+        version: String(saved.rowVersion),
+      };
+    },
+  };
+
+  const importCancel: MenuActionDeclaration = {
+    spec: {
+      id: 'logKnowledge.importCancel',
+      menuId: LOG_KNOWLEDGE_MENU_ID,
+      inputKeys: ['jobId'],
+      permission: CATALOG_MENU_PERMISSION,
+      requiresScope: false,
+      concurrency: 'version',
+      invalidates: INVALIDATES,
+    },
+    authorize,
+    validate: (input) => jobIdErrors(input),
+    currentVersion,
+    async handle(tx, actor, input): Promise<ActionHandlerResult> {
+      const ws = actor.workspace_id;
+      const job = await getJob(tx, ws, input.jobId as string, true);
+      if (!job) throw new Error('action importCancel: currentVersion judged not_found first');
+      if (!CANCELLABLE.has(job.status)) throw new MenuActionInvalidError([{ path: ['jobId'], code: 'state' }]);
+      const saved = await setJobStatus(tx, ws, job.id, actor.actor_id, 'cancelled');
+      return {
+        data: { jobId: saved.id, status: saved.status, planVersion: saved.planVersion },
+        version: String(saved.rowVersion),
+      };
+    },
+  };
+
+  return [importMap, importValidate, importResolve, importCancel];
 }
 
 function tallyOf(results: readonly { planState: keyof ReturnType<typeof emptyCounts> }[]) {
@@ -151,3 +283,17 @@ function tallyOf(results: readonly { planState: keyof ReturnType<typeof emptyCou
   return counts;
 }
 const emptyCounts = () => ({ pending: 0, new: 0, unchanged: 0, update: 0, conflict: 0, error: 0 });
+
+/** The parent id a map target must have: the row's resolved vendor (model) or model (software); null for vendor/process. */
+function expectedParent(
+  entity: string,
+  normalized: unknown,
+  catalog: Awaited<ReturnType<typeof loadCatalogSnapshot>> | null,
+): string | null {
+  if (!catalog) return null;
+  const n = normalized as { vendorKey?: string; modelKey?: string; codeKey?: string };
+  const vendor = n.vendorKey ? catalog.vendors.get(n.vendorKey) : undefined;
+  if (entity === 'model') return vendor?.id ?? '';
+  if (entity === 'software') return (vendor && n.modelKey ? catalog.models.get(`${vendor.id}|${n.modelKey}`)?.id : undefined) ?? '';
+  return null;
+}

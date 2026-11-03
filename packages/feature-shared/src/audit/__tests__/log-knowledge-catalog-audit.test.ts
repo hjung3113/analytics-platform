@@ -19,4 +19,13 @@ describe('log knowledge catalog audit detail schemas (ADR-0107)', () => {
   ])('rejects %s', (_label, detail) => {
     expect(AUDIT_EVENT_DETAIL_SCHEMAS['knowledge.catalog.updated'].safeParse(detail).success).toBe(false);
   });
+
+  it('accepts an import source on a catalog write and the identity-mapped detail', () => {
+    const source = { importJobId: 'j1', rowNo: 3 };
+    expect(AUDIT_EVENT_DETAIL_SCHEMAS['knowledge.catalog.created'].safeParse({ code: 'A', name: 'B', source }).success).toBe(true);
+    const mapped = { sourceSystem: 'catalog_import', sourceType: 'model', externalKey: '["V","M"]', source };
+    expect(AUDIT_EVENT_DETAIL_SCHEMAS['knowledge.catalog.identity_mapped'].safeParse(mapped).success).toBe(true);
+    expect(AUDIT_EVENT_DETAIL_SCHEMAS['knowledge.catalog.identity_mapped'].safeParse({ ...mapped, extra: 1 }).success).toBe(false);
+    expect(AUDIT_EVENT_DETAIL_SCHEMAS['knowledge.catalog.created'].safeParse({ code: 'A', name: 'B', source: { importJobId: 'j1' } }).success).toBe(false);
+  });
 });

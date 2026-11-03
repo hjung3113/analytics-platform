@@ -617,6 +617,13 @@
       "when": 1793711029665,
       "tag": "0087_ancient_korvac",
       "breakpoints": true
+    },
+    {
+      "idx": 88,
+      "version": "7",
+      "when": 1793715133936,
+      "tag": "0088_aberrant_the_twelve",
+      "breakpoints": true
     }
   ]
 }

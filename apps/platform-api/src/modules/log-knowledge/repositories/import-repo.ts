@@ -2,10 +2,11 @@
 // table; the catalog is read through `loadCatalogSnapshot`. Every statement is scoped to the actor's workspace. The
 // caller owns the transaction. Bulk statements run in chunks (a job holds up to 5,000 rows).
 
-import { and, asc, eq, inArray, notInArray, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, notInArray, or, sql } from 'drizzle-orm';
 
 import {
   catalogImportJobs,
+  catalogImportResolutions,
   catalogImportRows,
   equipmentModels,
   modelProcesses,
@@ -50,6 +51,9 @@ export interface ImportJob {
   status: ImportJobStatus;
   planVersion: number;
   rowVersion: number;
+  validationGeneration: number;
+  applyPass: number;
+  sealedPlanHash: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -66,6 +70,9 @@ const toJob = (row: typeof catalogImportJobs.$inferSelect): ImportJob => ({
   status: row.status as ImportJobStatus,
   planVersion: row.planVersion,
   rowVersion: row.rowVersion,
+  validationGeneration: row.validationGeneration,
+  applyPass: row.applyPass,
+  sealedPlanHash: row.sealedPlanHash,
   createdAt: row.createdAt.toISOString(),
   updatedAt: row.updatedAt.toISOString(),
 });
@@ -142,6 +149,37 @@ const bump = (actorId: string) => ({
   updatedBy: actorId,
 });
 
+/** A mapping or validation makes every earlier resolution stale (they referred to the old plan). */
+const nextGeneration = { validationGeneration: sql`${catalogImportJobs.validationGeneration} + 1` };
+
+/** Bumps both versions (a resolution changes the plan) without touching the generation. */
+export async function touchPlan(tx: Tx, workspaceId: string, jobId: string, actorId: string): Promise<ImportJob> {
+  const [row] = await tx
+    .update(catalogImportJobs)
+    .set(bump(actorId))
+    .where(and(eq(catalogImportJobs.workspaceId, workspaceId), eq(catalogImportJobs.id, jobId)))
+    .returning();
+  if (!row) throw new Error('catalog import job vanished under its lock');
+  return toJob(row);
+}
+
+/** Moves the job to `status` (cancel); both versions move, the generation does not. */
+export async function setJobStatus(
+  tx: Tx,
+  workspaceId: string,
+  jobId: string,
+  actorId: string,
+  status: ImportJobStatus,
+): Promise<ImportJob> {
+  const [row] = await tx
+    .update(catalogImportJobs)
+    .set({ status, ...bump(actorId) })
+    .where(and(eq(catalogImportJobs.workspaceId, workspaceId), eq(catalogImportJobs.id, jobId)))
+    .returning();
+  if (!row) throw new Error('catalog import job vanished under its lock');
+  return toJob(row);
+}
+
 /** Stores the mapping, bumps the plan version and clears every earlier validation result (never `parse_errors`). */
 export async function saveMapping(
   tx: Tx,
@@ -152,7 +190,7 @@ export async function saveMapping(
 ): Promise<ImportJob> {
   const [row] = await tx
     .update(catalogImportJobs)
-    .set({ mappingJson: mapping, status: 'mapped', ...bump(actorId) })
+    .set({ mappingJson: mapping, status: 'mapped', ...bump(actorId), ...nextGeneration })
     .where(and(eq(catalogImportJobs.workspaceId, workspaceId), eq(catalogImportJobs.id, jobId)))
     .returning();
   if (!row) throw new Error('catalog import job vanished under its lock');
@@ -227,7 +265,7 @@ export async function saveValidation(
   }
   const [row] = await tx
     .update(catalogImportJobs)
-    .set({ status, ...bump(actorId) })
+    .set({ status, ...bump(actorId), ...nextGeneration })
     .where(and(eq(catalogImportJobs.workspaceId, workspaceId), eq(catalogImportJobs.id, jobId)))
     .returning();
   if (!row) throw new Error('catalog import job vanished under its lock');
@@ -257,32 +295,66 @@ export interface ImportRowView {
   planState: PlanState;
   targetId: string | null;
   targetVersion: number | null;
+  /** The resolution written for the job's current validation; null when none (or a stale one). */
+  resolution: string | null;
+  mapTargetId: string | null;
+  applyStatus: string | null;
+  applyError: string | null;
+  resultTargetId: string | null;
+}
+
+export interface ListRowsQuery {
+  page: number;
+  pageSize: number;
+  planStates: { op: 'in' | 'notIn'; values: string[] } | null;
+  applyStatuses: { op: 'in' | 'notIn'; values: string[] } | null;
+  desc: boolean;
 }
 
 export async function listRows(
   tx: Tx,
   workspaceId: string,
   jobId: string,
-  query: { page: number; pageSize: number; planStates: { op: 'in' | 'notIn'; values: string[] } | null; desc: boolean },
+  generation: number,
+  query: ListRowsQuery,
 ): Promise<{ rows: ImportRowView[]; total: number }> {
+  const applyFilter = query.applyStatuses
+    ? query.applyStatuses.op === 'in'
+      ? inArray(catalogImportRows.applyStatus, query.applyStatuses.values)
+      : or(isNull(catalogImportRows.applyStatus), notInArray(catalogImportRows.applyStatus, query.applyStatuses.values))
+    : undefined;
   const where = and(
     eq(catalogImportRows.workspaceId, workspaceId),
     eq(catalogImportRows.jobId, jobId),
     query.planStates
       ? (query.planStates.op === 'in' ? inArray : notInArray)(catalogImportRows.planState, query.planStates.values)
       : undefined,
+    applyFilter,
   );
   const [count] = await tx.select({ n: sql<number>`count(*)::int` }).from(catalogImportRows).where(where);
   const rows = await tx
-    .select()
+    .select({
+      row: catalogImportRows,
+      resolution: catalogImportResolutions.resolution,
+      mapTargetId: catalogImportResolutions.mapTargetId,
+    })
     .from(catalogImportRows)
+    .leftJoin(
+      catalogImportResolutions,
+      and(
+        eq(catalogImportResolutions.workspaceId, catalogImportRows.workspaceId),
+        eq(catalogImportResolutions.jobId, catalogImportRows.jobId),
+        eq(catalogImportResolutions.rowNo, catalogImportRows.rowNo),
+        eq(catalogImportResolutions.basedOnValidation, generation),
+      ),
+    )
     .where(where)
     .orderBy(query.desc ? sql`${catalogImportRows.rowNo} desc` : asc(catalogImportRows.rowNo))
     .limit(query.pageSize)
     .offset(query.page * query.pageSize);
   return {
     total: count?.n ?? 0,
-    rows: rows.map((r) => ({
+    rows: rows.map(({ row: r, resolution, mapTargetId }) => ({
       rowNo: r.rowNo,
       raw: r.rawJson as Record<string, string>,
       normalized: r.normalizedJson ?? null,
@@ -290,6 +362,11 @@ export async function listRows(
       planState: r.planState as PlanState,
       targetId: r.targetId,
       targetVersion: r.targetVersion,
+      resolution,
+      mapTargetId,
+      applyStatus: r.applyStatus,
+      applyError: r.applyError,
+      resultTargetId: r.resultTargetId,
     })),
   };
 }
