@@ -1,0 +1,13 @@
+{
+  "group": "systems",
+  "folder": "systems",
+  "space": "operations",
+  "placement": "platform",
+  "menuId": "systems",
+  "page": "Systems",
+  "path": "/operations/systems",
+  "pageType": "catalog",
+  "labelKo": "시스템",
+  "labelEn": "Systems",
+  "binding": "systems"
+}
