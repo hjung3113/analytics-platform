@@ -1,6 +1,6 @@
 // #1291 B2 — the registry screens draw their one create/register button in the host head (not in the screen's own header actions) and keep it gated.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
@@ -81,8 +81,11 @@ describe('admin registry screens — primary action placement (#1291 B2)', () =>
   it.each(CASES)('%s is absent from the head for a user without workspace.admin', async (_label, page, testId) => {
     installFetch('blocked_non_requestable');
     mount(page, true);
-    await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled());
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    // Observable signal instead of a sleep: the capability check was asked, its answer was consumed and the resulting updates flushed.
+    const fetchMock = vi.mocked(globalThis.fetch);
+    await waitFor(() => expect(fetchMock.mock.calls.some(([input]) => String(input).includes('/me/permissions/check'))).toBe(true));
+    await act(async () => { await Promise.all(fetchMock.mock.results.map((result) => result.value)); });
+    await act(async () => {});
     expect(screen.queryByTestId(testId)).toBeNull();
     expect(within(screen.getByTestId('host-head')).queryByRole('button')).toBeNull();
   });

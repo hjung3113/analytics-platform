@@ -1,9 +1,9 @@
 // #1291 B2 — the real 흐름 설정 registry screens through the bridge: their one create/register button is drawn in the platform page head, once, and stays gated.
-import { cleanup, screen, waitFor } from '@testing-library/react';
+import { cleanup, screen } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
 import { setFeatureApi } from '@ap/feature-bridge/feature-api';
-import { LAZY_MOUNT_WAIT } from '@ap/feature-bridge/testing';
+import { expectHeadPrimaryAction, LAZY_MOUNT_WAIT, settleFetch } from '@ap/feature-bridge/testing';
 import { mountAt, warmPages } from '../test-support';
 
 const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
@@ -43,18 +43,13 @@ describe.each(CASES)('%s through the bridge', (label, path, title) => {
   it('is drawn once, in the page head, and not in the screen body', async () => {
     installFetch('approved');
     const { container } = mountAt(path);
-    const button = await screen.findByRole('button', { name: label }, LAZY_MOUNT_WAIT);
-    expect(container.querySelector('header [data-feature-primary-action]')?.contains(button)).toBe(true);
-    expect(screen.getAllByRole('button', { name: label })).toHaveLength(1);
+    await expectHeadPrimaryAction({ container, locate: { name: label }, drawn: true });
   });
 
   it('is absent for a user the capability check refuses', async () => {
     const request = installFetch('blocked_non_requestable');
     const { container } = mountAt(path);
     await screen.findByRole('heading', { name: title }, LAZY_MOUNT_WAIT);
-    await waitFor(() => expect(request.mock.calls.some(([input]) => String(input).includes('/me/permissions/check'))).toBe(true));
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    expect(screen.queryByRole('button', { name: label })).toBeNull();
-    expect(container.querySelector('header [data-feature-primary-action] button')).toBeNull();
+    await expectHeadPrimaryAction({ container, locate: { name: label }, drawn: false, settled: () => settleFetch(request, '/me/permissions/check') });
   });
 });

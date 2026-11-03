@@ -19,14 +19,19 @@ describe('parseSpaceLinks (strict, like the server schema)', () => {
   it('accepts a null 「플랫폼」 id', () => {
     expect(parseSpaceLinks(body({ platform_managed_system_id: null })).platformManagedSystemId).toBeNull();
   });
+  // The shared rows mirror packages/feature-shared/src/__tests__/space-links.test.ts (spaceLinksResponseSchema); the bridge does not
+  // depend on zod or @ap/feature-shared, so the table is repeated here. A rejection added there belongs here too.
   it.each([
-    ['not an object', []],
     ['an unknown top-level key', body({ extra: 1 })],
+    ['an unknown item key', body({ items: [{ space_id: 'mars', managed_system_id: A, declared: false, scope_kind: 'workspace' }] })],
+    ['a missing declared flag', body({ items: [{ space_id: 'mars', managed_system_id: A }] })],
+    ['a non-uuid system id', body({ items: [{ space_id: 'mars', managed_system_id: 'x', declared: false }] })],
+    ['an empty space id', body({ items: [{ space_id: '', managed_system_id: A, declared: false }] })],
+    ['a missing 「플랫폼」 key', { items: [] }],
+    // Bridge-only rows (the shared schema is not asked these).
+    ['not an object', []],
     ['items missing', { platform_managed_system_id: null }],
-    ['a non-uuid system id', body({ items: [{ space_id: 'mars', managed_system_id: 'x', declared: true }] })],
-    ['an unknown item key', body({ items: [{ space_id: 'mars', managed_system_id: A, declared: true, scope: 'x' }] })],
     ['a non-boolean declared', body({ items: [{ space_id: 'mars', managed_system_id: A, declared: 'yes' }] })],
-    ['an empty space id', body({ items: [{ space_id: '', managed_system_id: A, declared: true }] })],
     ['a non-uuid platform id', body({ platform_managed_system_id: 'x' })],
   ])('rejects %s', (_name, data) => {
     expect(() => parseSpaceLinks(data)).toThrow(FeatureReadError);

@@ -4,7 +4,8 @@
  */
 import { Suspense, type ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { render } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
+import { expect } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform, type MenuEntry } from '@ap/kernel';
 import { testAdapter, testSession } from '@ap/kernel/testing';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
@@ -60,3 +61,42 @@ export function createFeatureMenuHarness({ manifests, homeMenuId, group, globalG
 
 /** Resets the feature session module state so cases do not share one epoch (test files only; not part of the root API). */
 export { resetFeatureSessionForTests } from './feature/session';
+
+type FetchMock = { mock: { calls: unknown[][]; results: { type: string; value: unknown }[] } };
+
+/**
+ * An observable "the server answered" signal for an absence assertion: waits until a request whose URL contains `urlPart` (any request when omitted) was made,
+ * awaits every response promise the stub has returned so far, then flushes the state updates those responses trigger. Use it instead of a fixed sleep: a
+ * sleep passes on a slow machine before the answer arrives, this does not.
+ */
+export async function settleFetch(request: FetchMock, urlPart?: string): Promise<void> {
+  const asked = () => request.mock.calls.some(([input]) => urlPart === undefined || String(input).includes(urlPart));
+  await waitFor(() => expect(asked()).toBe(true));
+  await act(async () => { await Promise.all(request.mock.results.map(result => result.value)); });
+  await act(async () => {});
+}
+
+/** The button a screen hands the platform page head: found by accessible `name` or by `testId`. */
+export type HeadPrimaryActionLocator = { name: string } | { testId: string };
+const locateButtons = (locate: HeadPrimaryActionLocator) => ('name' in locate ? screen.queryAllByRole('button', { name: locate.name }) : screen.queryAllByTestId(locate.testId));
+
+/**
+ * The shared check of a screen's one primary button (#1291 B2), after `mountAt(...)`.
+ * `drawn: true` waits for the button and asserts it sits in the platform page head's `[data-feature-primary-action]` and is the only one on the page.
+ * `drawn: false` first awaits `settled` (the signal that the list rendered and the permission answer was consumed, e.g. `settleFetch`; for a menu gate that
+ * refuses the page, the lazily imported page) and then asserts no such button is in the head or anywhere; `noSlot` also asserts the slot itself is not drawn.
+ */
+export async function expectHeadPrimaryAction({ container, locate, drawn, settled, noSlot = false }: {
+  container: HTMLElement; locate: HeadPrimaryActionLocator; drawn: boolean; settled?: () => Promise<unknown>; noSlot?: boolean;
+}): Promise<void> {
+  if (drawn) {
+    const button = await ('name' in locate ? screen.findByRole('button', { name: locate.name }, LAZY_MOUNT_WAIT) : screen.findByTestId(locate.testId, undefined, LAZY_MOUNT_WAIT));
+    expect(container.querySelector('header [data-feature-primary-action]')?.contains(button)).toBe(true);
+    expect(locateButtons(locate)).toHaveLength(1);
+    return;
+  }
+  await settled?.();
+  expect(locateButtons(locate)).toHaveLength(0);
+  expect(container.querySelector('header [data-feature-primary-action] button')).toBeNull();
+  if (noSlot) expect(container.querySelector('[data-feature-primary-action]')).toBeNull();
+}

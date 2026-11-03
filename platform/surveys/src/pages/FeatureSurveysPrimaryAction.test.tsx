@@ -3,7 +3,7 @@ import { cleanup, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
 import { setFeatureApi } from '@ap/feature-bridge/feature-api';
-import { LAZY_MOUNT_WAIT } from '@ap/feature-bridge/testing';
+import { expectHeadPrimaryAction, LAZY_MOUNT_WAIT, settleFetch } from '@ap/feature-bridge/testing';
 import { mountAt, warmPages } from '../test-support';
 
 const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
@@ -34,9 +34,7 @@ describe('설문 생성 through the bridge', () => {
   it('is drawn once in the page head for a nonempty list', async () => {
     installFetch(true, [survey]);
     const { container } = mountAt(LIST);
-    const button = await screen.findByRole('button', { name: '설문 생성' }, LAZY_MOUNT_WAIT);
-    expect(container.querySelector('header [data-feature-primary-action]')?.contains(button)).toBe(true);
-    expect(screen.getAllByRole('button', { name: '설문 생성' })).toHaveLength(1);
+    await expectHeadPrimaryAction({ container, locate: { name: '설문 생성' }, drawn: true });
   });
 
   it('stays in the page head on a truly empty list, beside the empty state call to action (U2)', async () => {
@@ -56,9 +54,6 @@ describe('설문 생성 through the bridge', () => {
     const request = installFetch(false, [survey]);
     const { container } = mountAt(LIST);
     await screen.findByText('Q3 사용성 진단', undefined, LAZY_MOUNT_WAIT);
-    await waitFor(() => expect(request.mock.calls.some(([input]) => String(input).includes('/me/permissions/scope'))).toBe(true));
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    expect(screen.queryByRole('button', { name: '설문 생성' })).toBeNull();
-    expect(container.querySelector('header [data-feature-primary-action] button')).toBeNull();
+    await expectHeadPrimaryAction({ container, locate: { name: '설문 생성' }, drawn: false, settled: () => settleFetch(request, '/me/permissions/scope') });
   });
 });
