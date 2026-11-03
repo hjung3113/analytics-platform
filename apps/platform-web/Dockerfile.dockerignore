@@ -1,0 +1,5 @@
+# Per-Dockerfile ignore (BuildKit) for apps/platform-web/Dockerfile: allowlist only what the image COPYs.
+# The root .dockerignore belongs to apps/platform-api/Dockerfile and is not used for this build.
+*
+!apps/platform-web/dist
+!ops/platform-api/edge

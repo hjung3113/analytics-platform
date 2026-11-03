@@ -148,6 +148,23 @@ if ! [[ "$hops" =~ ^[0-9]+$ ]] || [ "$hops" -lt 1 ]; then
   fail "TRUSTED_PROXY_HOPS must be an integer >= 1"
 fi
 
+# The edge is the only published service and trusts X-Forwarded-* from whoever reaches it: it must bind to a specific
+# interface, or to all interfaces only with an explicit acknowledgement (a firewall then restricts EDGE_PORT).
+edge_bind="$(val_of EDGE_BIND)"
+case "$edge_bind" in
+  '') fail "EDGE_BIND is empty: set the interface only the company ingress reaches" ;;
+  *CHANGE_ME*) fail "EDGE_BIND is still a placeholder" ;;
+  0.0.0.0|::|'[::]')
+    [ "$(val_of EDGE_BIND_ALL_INTERFACES_ACK)" = "yes" ] ||
+      fail "EDGE_BIND binds all interfaces: bind the ingress-facing address, or set EDGE_BIND_ALL_INTERFACES_ACK=yes with a firewall allowing only the ingress"
+    ;;
+  *)
+    if ! [[ "$edge_bind" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] && ! [[ "$edge_bind" =~ ^\[[0-9a-fA-F:.]+\]$ ]]; then
+      fail "EDGE_BIND must be an IPv4 address or a bracketed IPv6 address"
+    fi
+    ;;
+esac
+
 ws="$(val_of WORKSPACE_ID)"
 if ! [[ "$ws" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]; then
   fail "WORKSPACE_ID must be a UUID"

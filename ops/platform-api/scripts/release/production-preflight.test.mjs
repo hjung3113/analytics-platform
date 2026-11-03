@@ -29,6 +29,7 @@ const GOOD = {
   OIDC_ISSUER_URL: 'https://idp.corp.example/realms/platform',
   OIDC_REDIRECT_URI: 'https://platform.corp.example/auth/callback',
   TRUSTED_PROXY_HOPS: '1',
+  EDGE_BIND: '10.0.0.5',
   WORKSPACE_ID: '123e4567-e89b-42d3-a456-426614174000',
 };
 
@@ -58,6 +59,11 @@ test('preflight: the shipped example is rejected', () => {
     encoding: 'utf8',
   });
   assert.equal(r.status, 1);
+});
+
+test('preflight: all-interfaces edge bind passes with the explicit acknowledgement', () => {
+  const r = run({ EDGE_BIND: '0.0.0.0', EDGE_BIND_ALL_INTERFACES_ACK: 'yes' });
+  assert.equal(r.code, 0, r.lines.join('\n'));
 });
 
 test('preflight: usage error without a file', () => {
@@ -126,6 +132,10 @@ for (const [name, overrides, needle] of [
   ['zero proxy hops', { TRUSTED_PROXY_HOPS: '0' }, 'TRUSTED_PROXY_HOPS'],
   ['non-numeric proxy hops', { TRUSTED_PROXY_HOPS: 'one' }, 'TRUSTED_PROXY_HOPS'],
   ['workspace not a uuid', { WORKSPACE_ID: 'workspace-1' }, 'WORKSPACE_ID'],
+  ['missing edge bind', { EDGE_BIND: undefined }, 'EDGE_BIND'],
+  ['placeholder edge bind', { EDGE_BIND: 'CHANGE_ME' }, 'EDGE_BIND'],
+  ['all-interfaces edge bind', { EDGE_BIND: '0.0.0.0' }, 'EDGE_BIND'],
+  ['edge bind that is a hostname', { EDGE_BIND: 'edge.corp.example' }, 'EDGE_BIND'],
 ]) {
   test(`preflight: rejects ${name}`, () => {
     const r = run(overrides);
@@ -292,7 +302,13 @@ test('production compose: no mock IdP, no fixture seed, production mode, real OI
   assert.match(production, /NODE_ENV: production/);
   assert.match(production, /AUTH_PROVIDER: oidc/);
   assert.match(production, /TRUSTED_PROXY_HOPS: \$\{TRUSTED_PROXY_HOPS:\?/);
-  assert.match(production, /"\$\{BACKEND_BIND:-127\.0\.0\.1\}:\$\{BACKEND_PORT:-3001\}:3001"/);
+  const service = (name) =>
+    production.match(new RegExp(`^ {2}${name}:\\n([\\s\\S]*?)(?=^ {2}\\S|^\\S)`, 'm'))[1];
+  assert.doesNotMatch(service('backend'), /^ {4}ports:/m);
+  assert.match(service('edge'), /"\$\{EDGE_BIND:\?[^}]*\}:\$\{EDGE_PORT:-8080\}:80"/);
+  assert.match(service('edge'), /image: platform-release-web:local\n {4}pull_policy: never/);
+  assert.doesNotMatch(service('edge'), /^ {4}build:/m);
+  assert.match(service('edge'), /backend:\n {8}condition: service_healthy/);
   assert.match(production, /stop_grace_period: 45s/);
 });
 
