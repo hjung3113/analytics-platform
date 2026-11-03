@@ -5,12 +5,15 @@
  * (os.tmpdir(), removed afterwards) whose `check.ts` assigns the module's `createAssembly` to `CreateAssembly` from
  * `src/platform-assembly.d.ts`, and runs the workspace `tsc` on it.
  */
-import { execFileSync } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
+
+const execFileAsync = promisify(execFile);
 
 export const APP_ROOT = fileURLToPath(new URL('..', import.meta.url));
 
@@ -41,8 +44,11 @@ export function checkTsconfig(appRoot = APP_ROOT): string {
   }, null, 2)}\n`;
 }
 
-/** Runs the check; returns tsc's output on failure, `null` on success. */
-export function typecheckAssembly(assemblyPath: string, appRoot = APP_ROOT, tmpRoot = tmpdir()): string | null {
+/**
+ * Runs the check; resolves to tsc's output on failure, `null` on success. tsc runs asynchronously: a synchronous child (20 s+) blocks
+ * the calling event loop, and inside a Vitest worker that starves its onTaskUpdate RPC heartbeat (#1311, same cause as #771).
+ */
+export async function typecheckAssembly(assemblyPath: string, appRoot = APP_ROOT, tmpRoot = tmpdir()): Promise<string | null> {
   const dir = mkdtempSync(join(tmpRoot, 'ap-assembly-check-'));
   try {
     // Only NODE_ENV is replaced by Vite; other Node process APIs must remain type errors.
@@ -51,7 +57,7 @@ export function typecheckAssembly(assemblyPath: string, appRoot = APP_ROOT, tmpR
     writeFileSync(join(dir, 'tsconfig.json'), checkTsconfig(appRoot));
     const tsc = createRequire(join(appRoot, 'package.json')).resolve('typescript/bin/tsc');
     try {
-      execFileSync(process.execPath, [tsc, '-p', dir], { cwd: appRoot, encoding: 'utf8', stdio: 'pipe' });
+      await execFileAsync(process.execPath, [tsc, '-p', dir], { cwd: appRoot, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
       return null;
     } catch (err) {
       const e = err as { stdout?: string; stderr?: string; message: string };
@@ -69,7 +75,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     process.exit(1);
   }
   const assemblyPath = resolveAssemblyPath(value);
-  const errors = typecheckAssembly(assemblyPath);
+  const errors = await typecheckAssembly(assemblyPath);
   if (errors !== null) {
     console.error(`typecheck-assembly FAILED — ${assemblyPath} does not export a createAssembly that satisfies CreateAssembly:\n${errors}`);
     process.exit(1);
