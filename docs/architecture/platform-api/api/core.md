@@ -24,6 +24,12 @@ GET /workspace/settings
 PATCH /workspace/settings
 ```
 
+`GET /health/ready` returns HTTP 503 while the process drains after the first
+SIGTERM/SIGINT: `{ status: 'unavailable', checks: { database: 'fail',
+pg_boss: 'fail', storage: 'fail' }, reason: 'draining' }`. These values mean
+the process is not serving; dependencies are not probed during draining.
+`GET /health/live` remains unchanged.
+
 `GET /workspace/settings` and `PATCH /workspace/settings` (Slice 9 #195) are
 workspace-admin-only policy endpoints. Both require `workspace.admin`; a denied
 caller receives `permission.denied` → `403`. The resolved response is always:

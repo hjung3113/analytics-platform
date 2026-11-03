@@ -16,6 +16,11 @@ GET /me
 `GET /auth/login` starts the configured provider's login flow and accepts an
 optional `return_to`. `GET /auth/callback` completes the OIDC login flow; it
 returns `404 not_found.record` when the configured provider is `mock`.
+An existing Actor with `actor_type=system` cannot receive an interactive
+session: OIDC callback returns HTTP 403 `permission.denied`, clears the OIDC
+transaction cookie, and neither redirects into the app nor issues a session
+or updates the Actor profile. Existing sessions belonging to a system Actor
+are rejected as unauthenticated (`/me` and `/session-state` return 401).
 The OIDC flow keeps its state, nonce and PKCE verifier in a signed,
 short-lived transaction cookie named `platform_oidc_tx` (Path=/auth, HttpOnly,
 SameSite=Lax, Max-Age 600, Secure in production). The signing-key domain label

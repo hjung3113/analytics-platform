@@ -861,9 +861,8 @@ a request can hold a connection or wait for one. Operator pools (`seed`, migrati
   `voc/jobs/cluster-suggestions.ts`), which overrides the session value. pg-boss keeps its own pool and settings.
 - Every runtime pool has an `'error'` listener that logs the error name and code and continues; a failed idle
   client never ends the process.
-- Shutdown (`src/lib/shutdown.ts`): the first SIGTERM/SIGINT flips a draining flag, `GET /health/ready` then
-  answers 503 `{ status: 'unavailable', checks, reason: 'draining' }` (checks are not probed and read `fail`;
-  `/health/live` is unchanged). Order stays pg-boss (at most 30 s) → Fastify → pool, all within 40 s; past the
+- Shutdown (`src/lib/shutdown.ts`): the first SIGTERM/SIGINT flips a draining flag;
+  the probe response is owned by [Core / Health](api/core.md). Order stays pg-boss (at most 30 s) → Fastify → pool, all within 40 s; past the
   deadline the process logs and exits 1. The compose `stop_grace_period` (45 s) must stay above 40 s.
 
 ## Session purge, list indexes (#1266 b5a, migration 0084)

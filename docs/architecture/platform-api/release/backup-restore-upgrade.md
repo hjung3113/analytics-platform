@@ -10,13 +10,9 @@ the same `.env.production` as the stack. DB tools run inside the `postgres` cont
 - **RPO 24 hours:** one backup per day. Data created after the last backup is lost on a restore.
 - **RTO 4 hours:** from the decision to restore until the restored stack answers `/health/ready` (for the ~100-user data
   size). The restore is a copy, not a rebuild: verified restore time is the number below.
-- Rehearsal (conductor, 2026-11-03, #1266 b6): disposable source and target projects with real images on one host,
-  small data set (12 VOCs, 3 attachments / 1.2 MB, 85 migrations). `backup.sh` 3 s (backend stopped 1 s); `restore.sh`
-  into an isolated project 18 s, all checks passed, an attachment downloaded from the restored stack was byte-identical;
-  `upgrade.sh` with one pending migration 11 s (backup first, journal 85 → 86, data and attachments preserved); a failing
-  migration left the backend stopped with the journal unchanged and printed the restore and image-rollback commands; a
-  divergent image history was refused before anything was stopped. Durations scale with data size; the 4-hour RTO was
-  not measured on production-size data — rehearse once on a copy of the real installation before relying on it.
+- The 4-hour RTO has not been measured on production-size data. Rehearse on a copy of the real installation before
+  relying on it. Small-data timings and failure-path observations are kept in the
+  [backup/restore rehearsal record](../../../research/2026-11-03-backup-restore-rehearsal.md).
 - Not covered: point-in-time recovery, online backup, HA, and shipping backups off the host (the operator's job).
 
 ## Supported installs
@@ -46,8 +42,8 @@ One run writes `<BACKUP_ROOT>/<UTC timestamp>/` (directory 0700, files 0600):
 `migrate` run started with `run --rm` leaves no container; then `platform-release-migrate:local` (or `BACKUP_MIGRATE_IMAGE`)
 is recorded only if its migrations are exactly the applied ones, else `images.migrate` is empty. If the backend container's
 image cannot be identified the backup still runs, `images.backend` is empty and `images.verified` is `false`; restore
-treats that as an image mismatch. `unknown` is never written as an id. Preloading the next release as `:local` before the
-daily backup therefore no longer relabels old-schema data.
+treats that as an image mismatch. `unknown` is never written as an id. Preloading the next release as `:local` does not change
+the deployed image ids recorded by a daily backup.
 
 **One maintenance lock.** `backup.sh` and `upgrade.sh` share `ops/platform-api/.maintenance/<compose project>.lock`
 (a directory with an owner file; git-ignored; independent of `BACKUP_ROOT`). It is taken before the backend state is read

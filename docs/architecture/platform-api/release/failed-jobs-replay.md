@@ -3,7 +3,7 @@
 Operator runbook for `notifications.dispatch` jobs that ended in `failed`
 (pg-boss: 5 retries with backoff, then `failed`). The commands run from the
 runtime image (production stack: `$P exec backend node dist/cli/<name>.js …`, with `P` as defined in
-[oidc-and-images.md](oidc-and-images.md) «Production stack», which includes the restore pin file of a restored installation) or in a checkout with
+[oidc-and-images.md](oidc-and-images.md) «Production stack», which includes the restore pin file of a restored installation; in the same Bash session) or in a checkout with
 `pnpm --filter @ap/platform-api exec tsx src/cli/<name>.ts`. They use
 `DATABASE_URL` (the runtime role): migration 0002 grants it `SELECT, UPDATE` on
 `pgboss.*`, and `boss.retry` needs nothing more (no DDL). No other role is
