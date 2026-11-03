@@ -254,6 +254,68 @@ describe.skipIf(!runIntegration)('OIDC provider flow (#390)', () => {
     expect(updated?.role_level).toBe('user');
   });
 
+  async function insertSystemActor(externalId: string): Promise<string> {
+    const inserted = await dbHandle.pool.query(
+      `insert into core.actors (workspace_id, external_id, email, display_name, role_level, actor_type)
+       values ($1, $2, 'system.it@example.com', 'System IT', 'admin', 'system') returning id`,
+      [WORKSPACE_ID, externalId],
+    );
+    return (inserted.rows[0] as { id: string }).id;
+  }
+
+  it('system Actor subject at /auth/callback → 403, no app redirect, no session, profile unchanged, tx cookie cleared', async () => {
+    const sub = 'oidc-it-system';
+    const actorId = await insertSystemActor(sub);
+    const savedProfile = { sub: IT_SUB, email: 'oidc.it.user@example.com', name: 'Oidc IT User' };
+    idp.setProfile({ sub, email: 'changed@example.com', name: 'Changed Name' });
+    try {
+      const { callbackRes } = await drive(app, idp);
+      expect(callbackRes.statusCode).toBe(403);
+      expect((callbackRes.json() as { code?: string }).code).toBe('permission.denied');
+      expect(callbackRes.headers.location).toBeUndefined();
+      expect(findCookie(callbackRes, SESSION_COOKIE_NAME)).toBeUndefined();
+      const tx = findCookie(callbackRes, OIDC_TX_COOKIE_NAME);
+      expect(tx?.value).toBe('');
+      const sessions = await dbHandle.pool.query(
+        `select 1 from core.sessions where actor_id = $1`,
+        [actorId],
+      );
+      expect(sessions.rowCount).toBe(0);
+      const row = await actorRow(sub);
+      expect(row?.email).toBe('system.it@example.com');
+      expect(row?.display_name).toBe('System IT');
+    } finally {
+      idp.setProfile({ ...savedProfile });
+    }
+    // Positive twin: a normal Actor still logs in on the same server.
+    const twin = await drive(app, idp);
+    expect(twin.callbackRes.statusCode).toBe(302);
+  });
+
+  it('a session row that already belongs to the system Actor is no session: /me 401 and session-state unauthenticated', async () => {
+    const actorId = await insertSystemActor('oidc-it-system-legacy');
+    const sid = 'oidc-it-legacy-system-session';
+    await dbHandle.pool.query(
+      `insert into core.sessions (id, actor_id, workspace_id, expires_at, last_seen_at, created_at)
+       values ($1, $2, $3, now() + interval '1 hour', now() - interval '1 hour', now())`,
+      [sid, actorId, WORKSPACE_ID],
+    );
+    const cookie = `${SESSION_COOKIE_NAME}=${sid}`;
+    const me = await app.inject({ method: 'GET', url: '/me', headers: { cookie } });
+    expect(me.statusCode).toBe(401);
+    const state = await app.inject({
+      method: 'GET',
+      url: '/api/v1/platform/session-state',
+      headers: { cookie },
+    });
+    expect(state.statusCode).toBe(401);
+    const seen = await dbHandle.pool.query(
+      `select last_seen_at < now() - interval '30 minutes' as untouched from core.sessions where id = $1`,
+      [sid],
+    );
+    expect((seen.rows[0] as { untouched: boolean }).untouched).toBe(true);
+  });
+
   it('callback without / tampered / expired transaction cookie → 401, no session, no actor', async () => {
     // Negative 1: no tx cookie at all.
     const loginRes = await app.inject({

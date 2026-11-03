@@ -303,7 +303,11 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
   // mutation and sensitive tiers are registered as named groups on the
   // routes that need them. `/health`, `/health/live`, and `/health/ready`
   // are exempt via `allowList` — k8s probes must never see 429.
-  const sessionService = createSessionService({ db: dbHandle.db, workspaceId });
+  const sessionService = createSessionService({
+    db: dbHandle.db,
+    workspaceId,
+    log: { warn: (msg, meta) => app.log.warn(meta ?? {}, msg) },
+  });
 
   // Adversarial review API-C-2: `@fastify/rate-limit` runs as an
   // `onRequest` hook, which fires BEFORE the `requireSession` preHandler
