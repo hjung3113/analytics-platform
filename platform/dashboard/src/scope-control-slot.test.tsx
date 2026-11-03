@@ -30,10 +30,10 @@ describe('scopeControlSlot', () => {
     expect(scopeControlSlot.For(spaceId('flow'), menu)).toBeNull();
   });
 
-  it('in the mock preview draws the 목록 범위 label and a disabled 전체 button titled 실서버 필요', () => {
+  it('in the mock preview draws the 시스템 label and a disabled 전체 button titled 실서버 필요', () => {
     const Control = scopeControlSlot.For(spaceId('flow'), DASHBOARD)!;
     mountAt('/flow/dashboard', { extra: <Control collapsed={false} /> });
-    expect(screen.getByText('목록 범위')).toBeTruthy();
+    expect(screen.getByTestId('scope-label').textContent).toBe('시스템');
     const button = screen.getByRole('button', { name: /전체/ }) as HTMLButtonElement;
     expect(button.disabled).toBe(true);
     expect(button.title).toBe('실서버 필요');
@@ -42,9 +42,9 @@ describe('scopeControlSlot', () => {
   it('draws nothing when collapsed, and nothing off a menu without the managedSystem page key', () => {
     const Control = scopeControlSlot.For(spaceId('flow'), DASHBOARD)!;
     mountAt('/flow/dashboard', { extra: <Control collapsed /> });
-    expect(screen.queryByText('목록 범위')).toBeNull();
+    expect(screen.queryByTestId('scope-label')).toBeNull();
     cleanup();
     mountAt('/nowhere', { extra: <Control collapsed={false} /> });
-    expect(screen.queryByText('목록 범위')).toBeNull();
+    expect(screen.queryByTestId('scope-label')).toBeNull();
   });
 });

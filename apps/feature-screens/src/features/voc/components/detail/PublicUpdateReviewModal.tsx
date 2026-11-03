@@ -169,7 +169,7 @@ export function PublicUpdateReviewModal({
                 <SelectContent>
                   {reviewCandidates.map((candidate) => (
                     <SelectItem key={candidate.id} value={candidate.id}>
-                      Released Task 후보 · {formatDate(candidate.created_at)}
+                      배포된 Task 후보 · {formatDate(candidate.created_at)}
                     </SelectItem>
                   ))}
                 </SelectContent>

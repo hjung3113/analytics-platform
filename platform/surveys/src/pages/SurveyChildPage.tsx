@@ -23,8 +23,8 @@ export function SurveyChildPage({ surveyId, route, useSearch, useHere, children 
   if (!UUID_PATTERN.test(surveyId)) {
     return <PlatformPage>
       <StateMessage icon={<SearchX className="size-4" aria-hidden />}
-        title={ko ? 'Survey를 찾을 수 없습니다' : 'Survey not found'}
-        body={ko ? '주소의 Survey ID가 올바르지 않습니다.' : 'The Survey ID in the address is not valid.'} />
+        title={ko ? '설문을 찾을 수 없습니다' : 'Survey not found'}
+        body={ko ? '주소의 설문 ID가 올바르지 않습니다.' : 'The Survey ID in the address is not valid.'} />
     </PlatformPage>;
   }
   const backToList = () => {

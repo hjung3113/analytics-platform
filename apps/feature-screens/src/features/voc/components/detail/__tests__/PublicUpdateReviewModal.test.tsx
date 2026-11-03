@@ -42,7 +42,7 @@ describe('PublicUpdateReviewModal shared pickers', () => {
     expect(screen.getByRole('button', { name: '취소' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('combobox', { name: '후보' }));
-    fireEvent.click(await screen.findByRole('option', { name: /Released Task 후보/ }));
+    fireEvent.click(await screen.findByRole('option', { name: /배포된 Task 후보/ }));
     fireEvent.click(screen.getByRole('combobox', { name: '공개 상태' }));
     fireEvent.click(await screen.findByRole('option', { name: '해결됨' }));
     fireEvent.change(screen.getByRole('textbox', { name: '공개 업데이트' }), {

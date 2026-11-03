@@ -30,13 +30,13 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); setFeatureApi(null); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
-describe('Survey 생성 through the bridge', () => {
+describe('설문 생성 through the bridge', () => {
   it('is drawn once in the page head for a nonempty list', async () => {
     installFetch(true, [survey]);
     const { container } = mountAt(LIST);
-    const button = await screen.findByRole('button', { name: 'Survey 생성' }, LAZY_MOUNT_WAIT);
+    const button = await screen.findByRole('button', { name: '설문 생성' }, LAZY_MOUNT_WAIT);
     expect(container.querySelector('header [data-feature-primary-action]')?.contains(button)).toBe(true);
-    expect(screen.getAllByRole('button', { name: 'Survey 생성' })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: '설문 생성' })).toHaveLength(1);
   });
 
   it('stays in the page head on a truly empty list, beside the empty state call to action (U2)', async () => {
@@ -58,7 +58,7 @@ describe('Survey 생성 through the bridge', () => {
     await screen.findByText('Q3 사용성 진단', undefined, LAZY_MOUNT_WAIT);
     await waitFor(() => expect(request.mock.calls.some(([input]) => String(input).includes('/me/permissions/scope'))).toBe(true));
     await new Promise((resolve) => setTimeout(resolve, 100));
-    expect(screen.queryByRole('button', { name: 'Survey 생성' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '설문 생성' })).toBeNull();
     expect(container.querySelector('header [data-feature-primary-action] button')).toBeNull();
   });
 });

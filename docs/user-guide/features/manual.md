@@ -110,7 +110,7 @@ received → reviewing → assigned → progress → prep → resolved
 
 | 화면 | 용도 |
 |---|---|
-| `수신함` (`/vocs?view=inbox`) | 내 범위의 전체 VOC |
+| `VOC 처리함` (`/vocs?view=inbox`) | 내 범위의 전체 VOC |
 | `분류` (`/vocs?view=triage`) | **처리 대기 큐.** 여기가 실제 작업 공간입니다 |
 | `높음` / `미배정` / `연결 없음` | 트리아지 큐의 저장된 관점. 사이드바 숫자가 남은 건수입니다 |
 
