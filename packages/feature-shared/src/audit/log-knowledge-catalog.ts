@@ -9,6 +9,7 @@ export const LOG_KNOWLEDGE_CATALOG_AUDIT_EVENT_TYPES = [
   'knowledge.catalog.updated',
   'knowledge.catalog.deactivated',
   'knowledge.catalog.reactivated',
+  'knowledge.catalog.identity_mapped',
 ] as const;
 
 export const LOG_KNOWLEDGE_CATALOG_SUBJECT_TYPES = [
@@ -20,18 +21,33 @@ export const LOG_KNOWLEDGE_CATALOG_SUBJECT_TYPES = [
 
 const changesSchema = z.record(z.string(), z.tuple([z.unknown(), z.unknown()]));
 
+// Set when the write came from a catalog import (#1195 b): the job and the file row that caused it.
+const importSourceSchema = z.object({ importJobId: z.string(), rowNo: z.number().int() }).strict();
+
 export const logKnowledgeCatalogDetailSchema = z
   .object({
     code: z.string(),
     name: z.string(),
     changes: changesSchema.optional(),
+    source: importSourceSchema.optional(),
   })
   .strict();
 export type LogKnowledgeCatalogDetail = z.infer<typeof logKnowledgeCatalogDetailSchema>;
+
+/** An import row was accepted as an alias of an existing catalog row (`external_identity_map`). */
+export const logKnowledgeIdentityMappedDetailSchema = z
+  .object({
+    sourceSystem: z.string(),
+    sourceType: z.string(),
+    externalKey: z.string(),
+    source: importSourceSchema.optional(),
+  })
+  .strict();
 
 export const LOG_KNOWLEDGE_CATALOG_AUDIT_EVENT_DETAIL_SCHEMAS = {
   'knowledge.catalog.created': logKnowledgeCatalogDetailSchema,
   'knowledge.catalog.updated': logKnowledgeCatalogDetailSchema,
   'knowledge.catalog.deactivated': logKnowledgeCatalogDetailSchema,
   'knowledge.catalog.reactivated': logKnowledgeCatalogDetailSchema,
+  'knowledge.catalog.identity_mapped': logKnowledgeIdentityMappedDetailSchema,
 } as const satisfies Record<(typeof LOG_KNOWLEDGE_CATALOG_AUDIT_EVENT_TYPES)[number], z.ZodTypeAny>;

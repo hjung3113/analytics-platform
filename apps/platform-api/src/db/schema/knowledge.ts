@@ -534,6 +534,8 @@ const IMPORT_ENTITY_TYPES = "('vendor','process','model','software')";
 const IMPORT_JOB_STATUSES =
   "('uploaded','mapped','validated','review_required','applying','completed','partial_failure','failed','cancelled')";
 const IMPORT_PLAN_STATES = "('pending','new','unchanged','update','conflict','error')";
+const IMPORT_APPLY_STATUSES =
+  "('applied','unchanged','skipped','excluded','unresolved','conflict','failed')";
 const IMPORT_RESOLUTIONS = "('skip','map','create','abort')";
 
 export const catalogImportJobs = knowledgeSchema.table(
@@ -554,6 +556,10 @@ export const catalogImportJobs = knowledgeSchema.table(
     planVersion: integer('plan_version').notNull().default(1),
     sealedPlanHash: text('sealed_plan_hash'),
     appliedAt: timestamp('applied_at', { withTimezone: true }),
+    // Incremented by every mapping and validation: a resolution counts only for the generation it was written in.
+    validationGeneration: integer('validation_generation').notNull().default(0),
+    // Apply pass (#1195 b): 0 before the seal, 1 after it, +1 for each retry of failed rows.
+    applyPass: integer('apply_pass').notNull().default(0),
     rowVersion: integer('row_version').notNull().default(1),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     createdBy: uuid('created_by')
@@ -598,6 +604,10 @@ export const catalogImportRows = knowledgeSchema.table(
     targetVersion: integer('target_version'),
     planHash: text('plan_hash'),
     applyStatus: text('apply_status'),
+    applyError: text('apply_error'),
+    // The pass of the job (`apply_pass`) in which the row was last attempted.
+    applyPass: integer('apply_pass'),
+    appliedAt: timestamp('applied_at', { withTimezone: true }),
     resultTargetId: uuid('result_target_id'),
   },
   (t) => ({
@@ -613,6 +623,10 @@ export const catalogImportRows = knowledgeSchema.table(
       sql`${t.planState} in ${sql.raw(IMPORT_PLAN_STATES)}`,
     ),
     rowNoCheck: check('catalog_import_row_row_no_check', sql`${t.rowNo} >= 1`),
+    applyStatusCheck: check(
+      'catalog_import_row_apply_status_check',
+      sql`${t.applyStatus} is null or ${t.applyStatus} in ${sql.raw(IMPORT_APPLY_STATUSES)}`,
+    ),
   }),
 );
 
@@ -627,6 +641,8 @@ export const catalogImportResolutions = knowledgeSchema.table(
     resolution: text('resolution').notNull(),
     mapTargetId: uuid('map_target_id'),
     expectedTargetVersion: integer('expected_target_version'),
+    // The job's validation generation when written; stale once the job is mapped or validated again.
+    basedOnValidation: integer('based_on_validation').notNull().default(0),
     resolvedBy: uuid('resolved_by')
       .notNull()
       .references(() => actors.id),

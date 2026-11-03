@@ -10,12 +10,15 @@ import type { LogKnowledgeDeps } from './deps.js';
 import { LOG_KNOWLEDGE_MENU_ID } from './catalog-menu.js';
 import type { CatalogFilterFieldSpec } from './domain/catalog-filters.js';
 import { parseListParams } from './domain/list-params.js';
+import { APPLY_STATUSES } from './domain/import-apply.js';
 import { IMPORT_PLAN_STATES } from './domain/import-plan.js';
-import { getJob, listRows } from './repositories/import-repo.js';
+import { applyCounts } from './repositories/import-apply-repo.js';
+import { type ImportJob, getJob, listRows } from './repositories/import-repo.js';
 
 export const IMPORT_ROW_SORT_IDS = ['rowNo'] as const;
 export const IMPORT_ROW_FILTER_SPECS = {
   planState: { ops: ['in', 'notIn'], multiple: true, cell: 'scalar', values: 'enum', allowed: IMPORT_PLAN_STATES },
+  applyStatus: { ops: ['in', 'notIn'], multiple: true, cell: 'scalar', values: 'enum', allowed: APPLY_STATUSES },
 } as const satisfies Record<string, CatalogFilterFieldSpec>;
 
 const PARAM_KEYS = ['jobId', 'page', 'pageSize', 'sorting', 'filters'] as const;
@@ -28,6 +31,9 @@ function judge(params: Record<string, unknown>) {
   const parsed = parseListParams(rest, IMPORT_ROW_SORT_IDS, IMPORT_ROW_FILTER_SPECS);
   return parsed.ok ? { ok: true as const, jobId: params.jobId, query: parsed.value } : parsed;
 }
+
+/** The job as the screen sees it: no seal hash, no internal generation. */
+const publicJob = ({ validationGeneration: _g, applyPass: _p, sealedPlanHash: _s, ...rest }: ImportJob) => rest;
 
 export function importEndpoints(deps: LogKnowledgeDeps): MenuEndpointDeclaration[] {
   const authorizeImport = importAuthorizer(deps.checkService);
@@ -57,14 +63,17 @@ export function importEndpoints(deps: LogKnowledgeDeps): MenuEndpointDeclaration
         const ws = actor.workspace_id;
         const job = await getJob(deps.db, ws, judged.jobId);
         if (!job) return { outcome: 'error', data: null, message: 'not_found' };
-        const filter = judged.query.conditions.planState;
-        const page = await listRows(deps.db, ws, job.id, {
+        const asFilter = (f: (typeof judged.query.conditions)[string] | undefined) =>
+          f && (f.op === 'in' || f.op === 'notIn') ? { op: f.op, values: f.values } : null;
+        const page = await listRows(deps.db, ws, job.id, job.validationGeneration, {
           page: judged.query.page,
           pageSize: judged.query.pageSize,
-          planStates: filter && (filter.op === 'in' || filter.op === 'notIn') ? { op: filter.op, values: filter.values } : null,
+          planStates: asFilter(judged.query.conditions.planState),
+          applyStatuses: asFilter(judged.query.conditions.applyStatus),
           desc: judged.query.sorting[0]?.desc ?? false,
         });
-        return { outcome: 'ok', data: { job, rows: page.rows, total: page.total } };
+        const counts = await applyCounts(deps.db, ws, job.id, job.applyPass);
+        return { outcome: 'ok', data: { job: publicJob(job), rows: page.rows, total: page.total, applyCounts: counts } };
       },
     },
   ];

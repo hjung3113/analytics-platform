@@ -270,7 +270,7 @@ export const itemSetArchived = itemWrite<ItemSetArchivedInput, ItemWriteResult>(
 /** The five item writes in the server's order. */
 export const itemActionSpecs = [itemCreate, itemRevise, itemAssess, itemDerive, itemSetArchived] as const;
 
-// ---- catalog import staging (#1195 a, design v0.6 §6.2 ①–③) -----------------------------------------------------
+// ---- catalog import staging (#1195 a/b, design v0.6 §6.2) -----------------------------------------------------
 // Specs only (no screen, no mock): the upload itself is a multipart route (`POST /api/v1/log-knowledge/imports`), not a
 // menu action. The server mirror is `apps/platform-api/src/modules/log-knowledge/import-actions.ts` /
 // `import-endpoints.ts`; the drift test compares both. The actions are judged with the server capability
@@ -281,10 +281,15 @@ export const IMPORT_PLAN_STATES = ['pending', 'new', 'unchanged', 'update', 'con
 export const IMPORT_ROW_SORT_IDS = ['rowNo'] as const;
 export type ImportEntityType = (typeof IMPORT_ENTITY_TYPES)[number];
 export type ImportPlanState = (typeof IMPORT_PLAN_STATES)[number];
+export const IMPORT_APPLY_STATUSES = ['applied', 'unchanged', 'skipped', 'excluded', 'unresolved', 'conflict', 'failed'] as const;
+export type ImportApplyStatus = (typeof IMPORT_APPLY_STATUSES)[number];
+export const IMPORT_RESOLUTIONS = ['skip', 'map', 'create'] as const;
+export type ImportResolution = (typeof IMPORT_RESOLUTIONS)[number];
 export type ImportJobStatus = 'uploaded' | 'mapped' | 'validated' | 'review_required' | 'applying' | 'completed' | 'partial_failure' | 'failed' | 'cancelled';
 
 export const importRowFilterSpecs: Readonly<Record<string, ColumnFilterSpec>> = {
   planState: { kind: 'enum', options: IMPORT_PLAN_STATES.map((value) => ({ value, label: value })), ops: ['in', 'notIn'] },
+  applyStatus: { kind: 'enum', options: IMPORT_APPLY_STATUSES.map((value) => ({ value, label: value })), ops: ['in', 'notIn'] },
 };
 
 export type ImportDetailParams = { jobId: string; page?: number; pageSize?: number; sorting?: PageSort[]; filters?: ColumnFilter[] };
@@ -296,9 +301,14 @@ export type ImportJobView = {
 export type ImportRowView = {
   rowNo: number; raw: Record<string, string>; normalized: unknown; errors: { field: string; code: string }[];
   planState: ImportPlanState; targetId: string | null; targetVersion: number | null;
+  /** The resolution written for the job's current validation (a stale one is not shown). */
+  resolution: ImportResolution | null; mapTargetId: string | null;
+  applyStatus: ImportApplyStatus | null; applyError: string | null; resultTargetId: string | null;
 };
+/** Rows per apply outcome; `remaining` = rows still to attempt in the current pass. */
+export type ImportApplyCounts = Record<ImportApplyStatus | 'remaining', number>;
 /** The outcome set has no `not_found`: an unknown or other-workspace job answers `error` with message `not_found`. */
-export type ImportDetail = { job: ImportJobView; rows: ImportRowView[]; total: number };
+export type ImportDetail = { job: ImportJobView; rows: ImportRowView[]; total: number; applyCounts: ImportApplyCounts };
 
 export const importDetailEndpoint = defineEndpoint<ImportDetailParams, ImportDetail>({
   id: 'logKnowledge.importDetail', menuId: LOG_KNOWLEDGE_MENU_ID,
@@ -319,5 +329,17 @@ export const importValidate = defineAction<ImportValidateInput, ImportStepResult
   id: 'logKnowledge.importValidate', menuId: LOG_KNOWLEDGE_MENU_ID, inputKeys: { jobId: true },
   permission: CATALOG_MANAGE_PERMISSION, requiresScope: false, concurrency: 'version', invalidates: [importDetailEndpoint],
 });
-export const importActionSpecs = [importMap, importValidate] as const;
+
+export type ImportResolveInput = { jobId: string; resolutions: { rowNo: number; resolution: ImportResolution; mapTargetId?: string }[] };
+export type ImportCancelInput = { jobId: string };
+export const importResolve = defineAction<ImportResolveInput, ImportStepResult & { resolved: number }>({
+  id: 'logKnowledge.importResolve', menuId: LOG_KNOWLEDGE_MENU_ID, inputKeys: { jobId: true, resolutions: true },
+  permission: CATALOG_MANAGE_PERMISSION, requiresScope: false, concurrency: 'version', invalidates: [importDetailEndpoint],
+});
+export const importCancel = defineAction<ImportCancelInput, ImportStepResult>({
+  id: 'logKnowledge.importCancel', menuId: LOG_KNOWLEDGE_MENU_ID, inputKeys: { jobId: true },
+  permission: CATALOG_MANAGE_PERMISSION, requiresScope: false, concurrency: 'version', invalidates: [importDetailEndpoint],
+});
+/** Apply is not a menu action: `POST /api/v1/log-knowledge/imports/:jobId/apply` (seal + resumable apply) and `GET …/report.csv`. */
+export const importActionSpecs = [importMap, importValidate, importResolve, importCancel] as const;
 export const importEndpointSpecs = [importDetailEndpoint] as const;

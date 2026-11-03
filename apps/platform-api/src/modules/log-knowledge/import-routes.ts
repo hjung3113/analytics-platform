@@ -1,3 +1,4 @@
+// Also `POST …/imports/:jobId/apply` and `GET …/imports/:jobId/report.csv` (#1195 b, below the upload).
 // `POST /api/v1/log-knowledge/imports` — uploads a catalog import file and stages it (#1195 a, design v0.6 §6.2 ①).
 // Multipart: one `file` part and an `entityType` field. Order of judgment: session (401/403) → CSRF (403) →
 // `Idempotency-Key` → `knowledge.catalog.import` (Admin bypass; judged BEFORE replay and again inside the
@@ -6,6 +7,7 @@
 
 import { createHash } from 'node:crypto';
 
+import type pg from 'pg';
 import type { FastifyPluginAsync, FastifyReply, preHandlerHookHandler } from 'fastify';
 
 import type { Db } from '../../db/client.js';
@@ -22,14 +24,18 @@ import {
   createAuthenticator,
   platformActorOf,
 } from '../platform-port/transport.js';
-import { importAuthorizer } from './import-actions.js';
+import { encodeRfc5987, asciiFallback } from '../attachments/rfc5987.js';
+import { UUID_PATTERN, importAuthorizer } from './import-actions.js';
+import { IMPORT_APPLY_BUDGET_MS, type ImportApplyHooks, runApply } from './import-apply-service.js';
+import { toCsvDocument } from './domain/csv-export.js';
+import { readReportRows } from './repositories/import-apply-repo.js';
 import {
   IMPORT_MAX_BYTES,
   type ImportFileRefusal,
   parseImportFile,
 } from './domain/import-file.js';
 import { isImportEntity } from './domain/import-mapping.js';
-import { insertJob, insertRows } from './repositories/import-repo.js';
+import { getJob, insertJob, insertRows } from './repositories/import-repo.js';
 
 export const LOG_KNOWLEDGE_ROUTE_PREFIX = '/api/v1/log-knowledge';
 /** Parses (5 MB, up to 5,000 rows) run a few at a time per process; a busy server answers 503 at once. */
@@ -41,10 +47,16 @@ export interface ImportRoutesOptions {
   checkService: CheckService;
   idempotencyService: IdempotencyService;
   db: Db;
+  /** The pool behind `db`: the apply holds a session-scoped advisory lock on one of its connections. */
+  pool: pg.Pool;
   workspaceId: string;
+  /** Time budget of one apply call (default `IMPORT_APPLY_BUDGET_MS`); tests shrink it. */
+  applyBudgetMs?: number;
+  /** Test seams of the apply (never set in production). */
+  applyHooks?: ImportApplyHooks;
 }
 
-const refuse = (reply: FastifyReply, status: 400 | 413 | 503, code: string, message: string) =>
+const refuse = (reply: FastifyReply, status: 400 | 404 | 413 | 503, code: string, message: string) =>
   reply.code(status).send({ code, message });
 
 const isTooLarge = (err: unknown): boolean => {
@@ -159,5 +171,68 @@ export const importRoutes: FastifyPluginAsync<ImportRoutesOptions> = async (app,
     } finally {
       inFlight -= 1;
     }
+  });
+  // ---- ④–⑤ apply (#1195 b): seals on the first call, then applies rows until the time budget is spent. ----------
+  app.post('/imports/:jobId/apply', { preHandler: [authenticateFirst, csrf] }, async (req, reply) => {
+    const loaded = authenticated.get(req);
+    if (!loaded) return sendError(reply, 'auth.session_invalid', 'session not active');
+    const actor = platformActorOf(loaded);
+    if (!(await authorize(actor, opts.db))) {
+      return sendError(reply, 'permission.denied', 'No permission knowledge.catalog.import');
+    }
+    const jobId = String((req.params as { jobId?: string }).jobId ?? '').toLowerCase();
+    if (!UUID_PATTERN.test(jobId)) return refuse(reply, 404, 'not_found', 'import job not found');
+    const expected = (req.body as { expectedPlanVersion?: unknown } | null)?.expectedPlanVersion;
+    if (typeof expected !== 'number' || !Number.isInteger(expected) || expected < 1) {
+      return refuse(reply, 400, 'invalid', 'expectedPlanVersion must be a positive integer');
+    }
+    const result = await runApply(
+      {
+        db: opts.db,
+        pool: opts.pool,
+        actor,
+        authorize,
+        config: { budgetMs: opts.applyBudgetMs ?? IMPORT_APPLY_BUDGET_MS, ...(opts.applyHooks ? { hooks: opts.applyHooks } : {}) },
+      },
+      jobId,
+      expected,
+    );
+    if (result.kind === 'not_found') return refuse(reply, 404, 'not_found', 'import job not found');
+    if (result.kind === 'conflict') return reply.code(409).send({ code: 'conflict', reason: result.code, message: 'the job changed or is not applicable' });
+    return reply.code(200).send(result.progress);
+  });
+
+  // ---- report: one row per file row with the plan, the resolution and the apply outcome -----------------------
+  app.get('/imports/:jobId/report.csv', async (req, reply) => {
+    const loaded = await authenticate(req, reply, false);
+    if (!loaded) return reply;
+    const actor = platformActorOf(loaded);
+    if (!(await authorize(actor, opts.db))) {
+      return sendError(reply, 'permission.denied', 'No permission knowledge.catalog.import');
+    }
+    const jobId = String((req.params as { jobId?: string }).jobId ?? '').toLowerCase();
+    if (!UUID_PATTERN.test(jobId)) return refuse(reply, 404, 'not_found', 'import job not found');
+    const job = await getJob(opts.db, actor.workspace_id, jobId);
+    if (!job) return refuse(reply, 404, 'not_found', 'import job not found');
+    const rows = await readReportRows(opts.db, actor.workspace_id, job.id, job.validationGeneration);
+    const csv = toCsvDocument(
+      ['row_no', 'plan_state', 'resolution', 'apply_status', 'apply_error', 'result_target_id', ...job.headers],
+      rows.map((r) => [
+        String(r.rowNo),
+        r.planState,
+        r.resolution ?? '',
+        r.applyStatus ?? '',
+        r.applyError ?? '',
+        r.resultTargetId ?? '',
+        ...job.headers.map((h) => r.raw[h] ?? ''),
+      ]),
+    );
+    const base = job.fileName.replace(/\.[^.]*$/, '') || 'import';
+    const name = `${base}-report.csv`;
+    return reply
+      .header('Content-Type', 'text/csv; charset=utf-8')
+      .header('Content-Disposition', `attachment; filename="${asciiFallback(name)}"; filename*=UTF-8''${encodeRfc5987(name)}`)
+      .header('Cache-Control', 'no-store')
+      .send(csv);
   });
 };

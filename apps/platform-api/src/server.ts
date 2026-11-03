@@ -59,6 +59,7 @@ import {
   reconcileFindingExecution,
 } from './modules/findings/index.js';
 import {
+  type ImportApplyHooks,
   LOG_KNOWLEDGE_ROUTE_PREFIX,
   importRoutes as logKnowledgeImportRoutes,
   logKnowledgeContribution,
@@ -192,6 +193,8 @@ export interface BuildServerOptions {
    * registration validation stops the boot. Tests pass their own pair here.
    */
   menuDispatch?: readonly MenuDispatchContribution[];
+  /** Test seam of the catalog import apply (#1195 b): a shorter time budget and failure/barrier hooks. */
+  logKnowledgeImport?: { applyBudgetMs?: number; hooks?: ImportApplyHooks };
 }
 
 export async function buildServer(opts: BuildServerOptions): Promise<FastifyInstance> {
@@ -852,7 +855,12 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     checkService,
     idempotencyService,
     db: dbHandle.db,
+    pool: dbHandle.pool,
     workspaceId,
+    ...(opts.logKnowledgeImport?.applyBudgetMs !== undefined
+      ? { applyBudgetMs: opts.logKnowledgeImport.applyBudgetMs }
+      : {}),
+    ...(opts.logKnowledgeImport?.hooks ? { applyHooks: opts.logKnowledgeImport.hooks } : {}),
   });
   await app.register(menuQueryRoutes, {
     prefix: MENU_QUERY_PREFIX,

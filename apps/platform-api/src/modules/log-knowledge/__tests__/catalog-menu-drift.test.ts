@@ -14,6 +14,8 @@ import {
   VENDOR_SORT_IDS as MENU_VENDOR_SORT_IDS,
   catalogActionSpecs,
   ITEM_SORT_IDS as MENU_ITEM_SORT_IDS,
+  IMPORT_APPLY_STATUSES as MENU_IMPORT_APPLY_STATUSES,
+  IMPORT_RESOLUTIONS as MENU_IMPORT_RESOLUTIONS,
   IMPORT_ROW_SORT_IDS as MENU_IMPORT_ROW_SORT_IDS,
   importActionSpecs,
   importEndpointSpecs,
@@ -33,6 +35,7 @@ import { LOG_KNOWLEDGE_MODELS_MENU_ID as SERVER_MODELS_MENU_ID } from '../catalo
 import { CATALOG_MENU_PERMISSION } from '../catalog-actions.js';
 import { ITEM_MENU_PERMISSION } from '../item-actions.js';
 import { logKnowledgeContribution } from '../catalog-endpoints.js';
+import { APPLY_STATUSES, RESOLUTIONS } from '../domain/import-apply.js';
 import { IMPORT_ROW_FILTER_SPECS, IMPORT_ROW_SORT_IDS } from '../import-endpoints.js';
 import { CATALOG_FILTER_SPECS } from '../domain/catalog-filters.js';
 import { ITEM_FILTER_SPECS } from '../domain/item-filters.js';
@@ -235,8 +238,8 @@ describe('catalog import staging declarations (#1195 a) vs the server', () => {
     });
   });
 
-  it('declares the same two actions in the same order, with keys, permission, concurrency and invalidations', () => {
-    expect(serverImportActions).toHaveLength(2);
+  it('declares the same four actions in the same order, with keys, permission, concurrency and invalidations', () => {
+    expect(serverImportActions).toHaveLength(4);
     expect(importActionSpecs.map((s) => s.id)).toEqual(serverImportActions.map((a) => a.spec.id));
     importActionSpecs.forEach((menu, i) => {
       const spec = serverImportActions[i]?.spec;
@@ -257,5 +260,15 @@ describe('catalog import staging declarations (#1195 a) vs the server', () => {
     expect(sorted(menu.ops ?? [])).toEqual(sorted(IMPORT_ROW_FILTER_SPECS.planState.ops));
     expect(sorted(menu.options.map((o) => o.value))).toEqual(sorted(IMPORT_ROW_FILTER_SPECS.planState.allowed));
     expect([...MENU_IMPORT_ROW_SORT_IDS]).toEqual([...IMPORT_ROW_SORT_IDS]);
+  });
+
+  it('importDetail: the applyStatus filter and the resolution vocabulary match', () => {
+    const menu = importRowFilterSpecs.applyStatus;
+    expect(menu?.kind).toBe('enum');
+    if (menu?.kind !== 'enum') return;
+    expect(sorted(menu.ops ?? [])).toEqual(sorted(IMPORT_ROW_FILTER_SPECS.applyStatus.ops));
+    expect(sorted(menu.options.map((o) => o.value))).toEqual(sorted(IMPORT_ROW_FILTER_SPECS.applyStatus.allowed));
+    expect(sorted(MENU_IMPORT_APPLY_STATUSES)).toEqual(sorted(APPLY_STATUSES));
+    expect(sorted(MENU_IMPORT_RESOLUTIONS)).toEqual(sorted(RESOLUTIONS));
   });
 });
