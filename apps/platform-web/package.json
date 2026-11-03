@@ -19,6 +19,7 @@
     "@ap/components": "workspace:*",
     "@ap/contracts": "workspace:*",
     "@ap/feature-bridge": "workspace:*",
+    "@ap/feature-shared": "workspace:*",
     "@ap/http-adapter": "workspace:*",
     "@ap/kernel": "workspace:*",
     "@ap/menu-access": "workspace:*",

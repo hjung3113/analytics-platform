@@ -269,6 +269,9 @@ importers:
       '@ap/feature-bridge':
         specifier: workspace:*
         version: link:../../packages/adapters/feature-bridge
+      '@ap/feature-shared':
+        specifier: workspace:*
+        version: link:../../packages/feature-shared
       '@ap/http-adapter':
         specifier: workspace:*
         version: link:../../packages/adapters/http-adapter
