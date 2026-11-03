@@ -17,11 +17,21 @@ import { vocDescriptionToolbar } from '../create/VocDescriptionToolbar';
 import type { VocComposeContextBlock } from './context-block';
 import { type VocComposeSubmitted, useVocComposeController } from './useVocComposeController';
 
+const DEFAULT_BLOCKED_MESSAGE = {
+  pending: '기본 시스템을 확인하는 중입니다. 확인이 끝나면 제출할 수 있습니다.',
+  failed: '기본 시스템을 확인하지 못해 제출할 수 없습니다. 창을 닫았다가 다시 열면 다시 확인합니다.',
+} as const;
+
 export interface VocComposeScreenProps {
   /** Frozen screen Context for the `화면 정보` block, read when the form is submitted. */
   contextBlock: VocComposeContextBlock;
   /** Preselected only when the fetched Managed System list holds it; null leaves the choice to the user. */
   initialManagedSystemId: string | null;
+  /**
+   * Whether the host's default-system lookup has answered. `pending`/`failed` block the submit with a short message (a VOC must not silently
+   * lose its default); the form itself stays usable. Absent = `ready`.
+   */
+  defaultStatus?: 'ready' | 'pending' | 'failed';
   onSubmitted: (result: VocComposeSubmitted) => void;
   onCancel: () => void;
   onDirtyChange: (dirty: boolean) => void;
@@ -30,6 +40,7 @@ export interface VocComposeScreenProps {
 export function VocComposeScreen({
   contextBlock,
   initialManagedSystemId,
+  defaultStatus = 'ready',
   onSubmitted,
   onCancel,
   onDirtyChange,
@@ -254,6 +265,16 @@ export function VocComposeScreen({
       )}
 
       <div className="flex flex-col gap-2 border-t border-border-subtle bg-surface-card px-4 py-3 shadow-sm">
+        {defaultStatus !== 'ready' && (
+          <span
+            id="voc-compose-default-blocked"
+            role={defaultStatus === 'failed' ? 'alert' : 'status'}
+            data-testid="voc-default-blocked"
+            className={defaultStatus === 'failed' ? 'text-xs text-text-danger' : 'text-xs text-text-muted'}
+          >
+            {DEFAULT_BLOCKED_MESSAGE[defaultStatus]}
+          </span>
+        )}
         {missingRequired.length > 0 && (
           <span
             id="voc-compose-missing"
@@ -271,8 +292,12 @@ export function VocComposeScreen({
           <Button
             type="submit"
             form="voc-compose-form"
-            {...(missingRequired.length > 0 ? { 'aria-describedby': 'voc-compose-missing' } : {})}
-            disabled={!valid || isSubmitting || attachmentsUploading || hasAttachmentErrors}
+            {...(defaultStatus !== 'ready'
+              ? { 'aria-describedby': 'voc-compose-default-blocked' }
+              : missingRequired.length > 0
+                ? { 'aria-describedby': 'voc-compose-missing' }
+                : {})}
+            disabled={!valid || isSubmitting || attachmentsUploading || hasAttachmentErrors || defaultStatus !== 'ready'}
           >
             VOC 제출
           </Button>

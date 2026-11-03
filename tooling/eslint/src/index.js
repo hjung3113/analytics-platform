@@ -585,7 +585,7 @@ const appOverride = (files, restriction) => ({
 export const app = [
   REACT_HOOKS,
   layerConfig({ restriction: APP_RESTRICTION }),
-  testEntryOverride(APP_RESTRICTION, ABOVE_COMPONENTS_TEST_ENTRIES),
+  testEntryOverride(APP_RESTRICTION, [...ABOVE_COMPONENTS_TEST_ENTRIES, FEATURE_BRIDGE_TESTING_SUBPATH]),
   appOverride(['src/menus.ts'], { ...APP_RESTRICTION, allowSubpaths: [...APP_RESTRICTION.allowSubpaths, 'menu-home/launcher'] }),
   appOverride(['src/main.tsx'], APP_MAIN_RESTRICTION),
   appOverride([APP_CONFORMANCE_FILE], APP_CONFORMANCE_RESTRICTION),

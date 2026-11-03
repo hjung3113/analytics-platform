@@ -4,7 +4,7 @@
  * live in their own menu package (docs/integration/platform-packages.md §5); the app concatenates them.
  */
 import {
-  BarChart3, BookOpen, Boxes, ClipboardCheck, ClipboardList, Cpu, Database, FileSearch, Gauge, Inbox, KeyRound, LayoutDashboard, LineChart, ListChecks, ListTodo, Megaphone, Ruler, Settings, ShieldCheck, SlidersHorizontal, Timer, UserRound, Waves, Workflow, CircleGauge,
+  BarChart3, BookOpen, Boxes, ClipboardCheck, ClipboardList, Cpu, Database, FileSearch, Gauge, Inbox, KeyRound, Server, LayoutDashboard, LineChart, ListChecks, ListTodo, Megaphone, Ruler, Settings, ShieldCheck, SlidersHorizontal, Timer, UserRound, Waves, Workflow, CircleGauge,
 } from 'lucide-react';
 import { carrySetId, groupId, menuPermission, spaceId, type CarrySetDef, type SpaceDef } from '@ap/contracts';
 import { createRegistry, type GroupDef, type MenuEntry } from '@ap/kernel';
@@ -41,6 +41,7 @@ import { manifests as wpt } from '@ap/menu-wpt';
 import { manifests as configuration } from '@ap/menu-configuration';
 import { manifests as logKnowledge } from '@ap/menu-log-knowledge';
 import { manifests as access } from '@ap/menu-access';
+import { manifests as systems } from '@ap/menu-systems';
 // </gen:menu-imports>
 
 /** The menu permissions this app's menus use, on top of the kernel's (ADR-0072). Each menu package spells its own with `menuPermission`; `createRegistry` fails on one missing here. */
@@ -77,6 +78,7 @@ export const GROUPS: GroupDef[] = [
   { id: groupId('flowSettings'), label: { ko: '설정', en: 'Settings' }, icon: SlidersHorizontal, space: spaceId('flow') },
   { id: groupId('admin'), label: { ko: '플랫폼 관리', en: 'Platform management' }, icon: ShieldCheck, space: spaceId('operations') },
   { id: groupId('access'), label: { ko: '권한', en: 'Access' }, icon: KeyRound, space: spaceId('operations') },
+  { id: groupId('systems'), label: { ko: '시스템', en: 'Systems' }, icon: Server, space: spaceId('operations') },
   // </gen:menu-groups>
 ];
 
@@ -145,6 +147,7 @@ export const MENUS: MenuEntry[] = [
   ...wpt,
   ...configuration,
   ...access,
+  ...systems,
   // </gen:menu-spreads>
 ];
 

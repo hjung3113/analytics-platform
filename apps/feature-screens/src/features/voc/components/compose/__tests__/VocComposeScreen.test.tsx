@@ -345,6 +345,54 @@ describe('<VocComposeScreen> Managed System default (F3)', () => {
   });
 });
 
+describe('<VocComposeScreen> late default and blocked submit (#1289 node j)', () => {
+  /** Two systems in the list, so a late default can be told apart from a user's choice. */
+  function installTwoSystems() {
+    installFetch();
+    const base = globalThis.fetch;
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) =>
+      new URL(String(input), 'http://x').pathname === '/api/features/managed-systems'
+        ? json({ items: [MS_ITEM, { ...MS_ITEM, id: MS_OTHER, slug: 'other', name: 'Other MS' }], total: 2 })
+        : base(input, init),
+    ) as typeof fetch;
+  }
+
+  it('applies a default that arrives after the list, without making the draft dirty', async () => {
+    installTwoSystems();
+    const { props, rerender } = mount({ initialManagedSystemId: null });
+    const radio = await screen.findByRole('radio', { name: 'Analytics MS' });
+    expect(radio.getAttribute('aria-checked')).toBe('false');
+    rerender({ initialManagedSystemId: MS_ID });
+    await waitFor(() => expect(radio.getAttribute('aria-checked')).toBe('true'));
+    expect(vi.mocked(props.onDirtyChange).mock.calls.some(([dirty]) => dirty)).toBe(false);
+  });
+
+  it('never overwrites a system the user already chose when the default arrives late', async () => {
+    installTwoSystems();
+    const { rerender } = mount({ initialManagedSystemId: null });
+    fireEvent.click(await screen.findByRole('radio', { name: 'Other MS' }));
+    rerender({ initialManagedSystemId: MS_ID });
+    await waitFor(() =>
+      expect(screen.getByRole('radio', { name: 'Other MS' }).getAttribute('aria-checked')).toBe('true'),
+    );
+    expect(screen.getByRole('radio', { name: 'Analytics MS' }).getAttribute('aria-checked')).toBe('false');
+  });
+
+  it.each([
+    ['pending', /확인하는 중/],
+    ['failed', /확인하지 못해/],
+  ] as const)('%s default lookup blocks the submit with a short message, and ready releases it', async (status, message) => {
+    installFetch();
+    const { rerender } = mount({ defaultStatus: status });
+    await fillAndPick();
+    await waitFor(() => expect(screen.getByTestId('voc-default-blocked').textContent).toMatch(message));
+    expect(screen.getByRole('button', { name: 'VOC 제출' })).toBeDisabled();
+    rerender({ defaultStatus: 'ready' });
+    await waitFor(() => expect(screen.getByRole('button', { name: 'VOC 제출' })).not.toBeDisabled());
+    expect(screen.queryByTestId('voc-default-blocked')).toBeNull();
+  });
+});
+
 describe('<VocComposeScreen> dirty state (F5)', () => {
   it('is not dirty untouched, is dirty after a title, and ignores a Context change', async () => {
     installFetch();

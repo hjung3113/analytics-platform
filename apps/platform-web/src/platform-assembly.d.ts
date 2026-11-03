@@ -10,6 +10,7 @@ declare module '#platform-assembly' {
   import type { ReactNode } from 'react';
   import type { PlatformAdapter, SavedViewStore } from '@ap/contracts';
   import type { Registry } from '@ap/kernel';
+  import type { SpaceLinks } from '@ap/feature-bridge';
 
   /**
    * What a build injects: the server adapter and its top-bar tools (DevTools in mock builds; production writes `null`).
@@ -18,9 +19,9 @@ declare module '#platform-assembly' {
    * Feature session is lost (ADR-0071). `serverPreferences: true` makes the Kernel keep the user's preferences on the
    * server through the adapter's preference ports (ADR-0098); absent keeps browser storage. `invalidation` (real assemblies) is
    * where the app declares which of its endpoint ids a write through the adapter port affects (#1106); `main.tsx` mounts one
-   * bridge that refreshes exactly those. Structural: the Kernel and this contract know no menu.
+   * bridge that refreshes exactly those. `spaceSystems` (#1289 node j, ADR-0110 decision 5) reads which Managed System each business-system space is registered for plus the 「플랫폼」 system; the app holds the answer in `src/space-systems.ts` behind the Kernel's synchronous feature slot. The real assembly reads the feature API, the mock assembly answers fixed data of the same shape; absent = no links (no sidebar feature block, no 「플랫폼」 default). Structural: the Kernel and this contract know no menu.
    */
-  export type Assembly = { adapter: PlatformAdapter; topBarTools: ReactNode; savedViews?: SavedViewStore; featureApi?: { basePath: string; onSessionLost: () => void }; serverPreferences?: boolean; invalidation?: { subscribe: (listener: (endpointIds: readonly string[]) => void) => () => void } };
+  export type Assembly = { adapter: PlatformAdapter; topBarTools: ReactNode; savedViews?: SavedViewStore; featureApi?: { basePath: string; onSessionLost: () => void }; serverPreferences?: boolean; spaceSystems?: (signal?: AbortSignal) => Promise<SpaceLinks>; invalidation?: { subscribe: (listener: (endpointIds: readonly string[]) => void) => () => void } };
   /**
    * What `createAssembly` may answer (#154, http-adapter-contract §3 안 B): the assembly to mount, a `redirect` target
    * (`main.tsx` calls `window.location.replace`, e.g. to the login page), or a `screen` rendered instead of the app

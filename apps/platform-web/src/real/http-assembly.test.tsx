@@ -3,7 +3,14 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { PlatformAdapter, SavedViewStore } from '@ap/contracts';
 import type { BootstrapResult, HttpAdapterOptions } from '@ap/http-adapter';
+import * as bridge from '@ap/feature-bridge';
 import { createRealAssembly, loginHref } from './http-assembly';
+
+// Passthrough spy: the assembly's real source must hand the store's signal and session identity on to the transport.
+vi.mock('@ap/feature-bridge', async (original) => {
+  const actual = await original<typeof import('@ap/feature-bridge')>();
+  return { ...actual, fetchSpaceLinks: vi.fn(actual.fetchSpaceLinks) };
+});
 
 const where = { pathname: '/analytics/cycle-time', search: '?v=1&scopeId=MEM&from=2026-09-25T09:00:00' };
 const adapter = { session: () => ({ user: { id: 'u1' } }) } as unknown as PlatformAdapter;
@@ -21,10 +28,21 @@ function assemblyFor(result: BootstrapResult, extra: Partial<Parameters<typeof c
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe('real assembly (#154)', () => {
+  it('the spaceSystems source passes the feature API, the abort signal and the store\'s session identity to fetchSpaceLinks (#1289 node j)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 500 })));
+    const outcome = await assemblyFor(ready).create();
+    const { spaceSystems, featureApi } = outcome as unknown as { spaceSystems: (signal: AbortSignal, identity: readonly unknown[]) => Promise<unknown>; featureApi: object };
+    const signal = new AbortController().signal;
+    const identity = [adapter, 3, 'u1'];
+    await spaceSystems(signal, identity).catch(() => undefined);
+    expect(bridge.fetchSpaceLinks).toHaveBeenCalledWith(featureApi, signal, identity);
+  });
+
+
   it('ready → the adapter, the server-backed SavedViewStore (ADR-0099) and the feature API, with no top-bar tools (ADR-0071)', async () => {
     const outcome = await assemblyFor(ready).create();
     // The adapter is decorated once (notice writes refresh Home, #1106): every other member is the bootstrap's own.
-    expect(outcome).toEqual({ adapter: expect.objectContaining({ session: adapter.session }), topBarTools: null, serverPreferences: true, savedViews: expect.any(Object), featureApi: { basePath: '/api/features', onSessionLost: expect.any(Function) }, invalidation: { subscribe: expect.any(Function) } });
+    expect(outcome).toEqual({ adapter: expect.objectContaining({ session: adapter.session }), topBarTools: null, serverPreferences: true, savedViews: expect.any(Object), featureApi: { basePath: '/api/features', onSessionLost: expect.any(Function) }, spaceSystems: expect.any(Function), invalidation: { subscribe: expect.any(Function) } });
     // The wrapped real store is injected, not the browser-local simulation: its reads reach the HTTP store.
     const injected = (outcome as { savedViews: SavedViewStore }).savedViews;
     await injected.list({ userId: 'u1', menuId: null });

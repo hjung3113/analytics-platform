@@ -50,6 +50,7 @@
     "@ap/menu-notice-voc": "workspace:*",
     "@ap/menu-rcc": "workspace:*",
     "@ap/menu-surveys": "workspace:*",
+    "@ap/menu-systems": "workspace:*",
     "@ap/menu-tasks": "workspace:*",
     "@ap/menu-voc": "workspace:*",
     "@ap/menu-wpt": "workspace:*",

@@ -95,5 +95,6 @@ FeedbackOps 기능을 플랫폼에 합친 뒤([ADR-0097](0097-platform-features-
 
 - 대체·개정: ADR-0068 결정 3의 배치(설정은 업무 흐름 `설정`, 권한 승인은 운영 콘솔), ADR-0100 결정 2·4와 옮기는 메뉴의 정규 경로, ADR-0045 결정 1(정적 표)은 결정 5가 끝낸다. ADR-0097의 식별자·별칭 없음 원칙은 유지한다.
 - 06 계약 원본([kernel.md §9](../contract/kernel.md))의 운영 콘솔·내 활동 서술을 이 결정으로 고친다.
+- 공간 연결 조회는 `GET /managed-systems/space-links`(로그인한 누구나, 연결·「플랫폼」 id만)이고 앱은 `src/space-systems.ts` 저장소로 받는다. 연결이 끊긴 공간(`declared=false`)은 기본값·사이드바에 쓰지 않고 운영 콘솔 「시스템」 화면에 「연결 끊김」으로만 보인다(#1289 node j).
 - 권한표([09](../product/features/09-permission-access.md))에 `voc.read_public` 줄을 더한다.
 - 미룬 것: Site·room 범위, FAQ 기능, 플랫폼 기능 켜기/끄기, 개선 실행 과제와 Task를 한 공간에서 보이기, VOC 처리함과 직속 VOC 목록 통합, 흐름 정책을 Developer에게 여는 것 — `.planning/backlog.md`.

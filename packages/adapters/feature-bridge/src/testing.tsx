@@ -57,3 +57,6 @@ export function createFeatureMenuHarness({ manifests, homeMenuId, group, globalG
 
   return { registry, mountAt };
 }
+
+/** Resets the feature session module state so cases do not share one epoch (test files only; not part of the root API). */
+export { resetFeatureSessionForTests } from './feature/session';

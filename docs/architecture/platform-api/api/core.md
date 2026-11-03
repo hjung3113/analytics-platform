@@ -11,6 +11,7 @@ GET /health/ready
 GET /managed-systems
 GET /managed-systems/default-diagnostics
 GET /managed-systems/default-candidates
+GET /managed-systems/space-links
 POST /managed-systems
 PATCH /managed-systems/:id
 POST /managed-systems/:id/archive
@@ -102,6 +103,14 @@ clear-and-replace sends both keys together. Mutations require server-side `works
 including explicit-deny rejection. Effective no-op writes no audit; create snapshots
 include both reviewer keys and updates include only effective changes. Older audit
 snapshots without reviewer fields remain readable. `GET /managed-systems` stays session-only.
+
+`GET /managed-systems/space-links` (#1289 node j) is session-only too and workspace-scoped:
+`{ items: [{ space_id, managed_system_id, declared }], platform_managed_system_id: uuid | null }`,
+every `core.space_links` row of the workspace (`declared=false` rows stay, the app shows them as
+disconnected) ordered by `space_id`, plus the 「플랫폼」 system (the one active `external_key='platform'`
+row, `null` when none or ambiguous). Navigation and default-selection metadata only: the link grants
+no permission (ADR-0068 decision 1). The strict response schema is `spaceLinksResponseSchema` in
+`@ap/feature-shared`.
 
 Registry Actor defaults require a same-workspace internal Admin/Developer eligible for
 at least one intended owner workflow (`voc.triage` or `finding.manage`), or `finding.manage`

@@ -7,6 +7,7 @@ import { metricsMock } from '@ap/menu-metrics/mock';
 import { clasMock } from '@ap/menu-clas/mock';
 import { hwTimeMock } from '@ap/menu-hw-time/mock';
 import { logKnowledgeMock } from '@ap/menu-log-knowledge/mock';
+import { systemsMock } from '@ap/menu-systems/mock';
 // </gen:menu-mock-imports>
 // Audit seeds of menu-owned destinations (ADR-0048) — hand-wired, outside the generator's import region.
 import { metricsAuditEvents } from '@ap/menu-metrics/mock';
@@ -17,6 +18,7 @@ import { menuPermissions, type AuditEvent } from '@ap/contracts';
 import { createMockAdapter, storedUsage, type AnyMockAction, type AnyMockEndpoint } from '@ap/mock-server';
 import { DevTools } from './DevTools';
 import { eqvMock } from './eqv-mock';
+import { MOCK_SPACE_SYSTEMS } from './mock-space-systems';
 import { modulePermissions } from '../modules';
 import { createLocalSavedViewStore } from '../saved-view-store';
 
@@ -33,6 +35,7 @@ export const MOCK_ENDPOINTS: readonly AnyMockEndpoint[] = [
   ...clasMock,
   ...hwTimeMock,
   ...logKnowledgeMock,
+  ...systemsMock,
   // </gen:menu-mock-spreads>
 ];
 
@@ -75,5 +78,6 @@ export const createAssembly: CreateAssembly = ({ registry }) => {
     } },
     topBarTools: <DevTools />,
     savedViews,
+    spaceSystems: async () => MOCK_SPACE_SYSTEMS,
   };
 };
