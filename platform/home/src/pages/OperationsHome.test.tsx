@@ -289,17 +289,17 @@ describe('platform home launcher', () => {
   it.each([
     [true, ['platform:view', 'voc:view'] as Session['user']['permissions']],
     [false, ['platform:view'] as Session['user']['permissions']],
-  ])('shows 내 VOC only when voc is allowed (%s)', async (allowed, permissions) => {
+  ])('shows VOC only when voc is allowed (%s)', async (allowed, permissions) => {
     mount(permissions);
     await settled();
     // The header link is a secondary action, so it is inside ⋯ and not mounted until the menu opens (#303).
     if (!allowed) {
       expect(screen.queryByRole('button', { name: '더보기' })).toBeNull();
-      expect(screen.queryByRole('link', { name: '내 VOC' })).toBeNull();
+      expect(screen.queryByRole('link', { name: 'VOC' })).toBeNull();
       return;
     }
     fireEvent.click(screen.getByRole('button', { name: '더보기' }));
-    expect(await screen.findByRole('link', { name: '내 VOC' })).toBeTruthy();
+    expect(await screen.findByRole('link', { name: 'VOC' })).toBeTruthy();
   });
 });
 

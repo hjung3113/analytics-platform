@@ -78,7 +78,7 @@ export default function OperationsHome({ launcherGroups = NO_LAUNCHER_GROUPS }: 
     </PlatformLink>;
   };
 
-  return <PlatformPage secondaryActions={canOpen('voc') ? <PlatformLink href={voc.href} className="text-xs font-medium text-accent-primary hover:underline">{lang === 'ko' ? '내 VOC' : 'My VOC'}</PlatformLink> : undefined}>
+  return <PlatformPage secondaryActions={canOpen('voc') ? <PlatformLink href={voc.href} className="text-xs font-medium text-accent-primary hover:underline">{lang === 'ko' ? 'VOC' : 'VOC'}</PlatformLink> : undefined}>
     {/* #1167 B-3/C-4: the container the launcher grids answer to is the page body, so a detail slot narrows it. */}
     <div className="@container space-y-4">
       <section aria-label={lang === 'ko' ? '업무 시스템' : 'Work systems'}>

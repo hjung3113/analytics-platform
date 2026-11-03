@@ -620,7 +620,7 @@ test.describe('워크스페이스 (06 §9.1)', () => {
 });
 
 test.describe('플랫폼 홈 · 전역 화면 (ADR-0028, ADR-0070)', () => {
-  test('viewer는 홈에서 공지와 내 VOC를 열고, 전역 화면에는 업무 사이드바 대신 플랫폼 사이드바가 있다', async ({ page }, testInfo) => {
+  test('viewer는 홈에서 공지와 VOC를 열고, 전역 화면에는 업무 사이드바 대신 플랫폼 사이드바가 있다', async ({ page }, testInfo) => {
     await signInAs(page, 'viewer');
     await page.goto('/home');
     await expect(page.getByRole('heading', { name: '플랫폼 홈' })).toBeVisible();
@@ -629,7 +629,7 @@ test.describe('플랫폼 홈 · 전역 화면 (ADR-0028, ADR-0070)', () => {
     // Outside a system the switcher stays, names no current system, and the rail has no section area.
     await expect(systemSwitcher(page)).toHaveAccessibleName('시스템 및 플랫폼 메뉴');
     await expect(page.getByRole('group', { name: '시스템 섹션' })).toHaveCount(0);
-    await (await headerMore(page)).getByRole('link', { name: '내 VOC' }).click();
+    await (await headerMore(page)).getByRole('link', { name: 'VOC', exact: true }).click();
     await expect.poll(() => new URL(page.url()).pathname).toBe('/voc');
     await expect(page.getByRole('navigation', { name: '주 메뉴' })).toHaveCount(0);
     await expect(page.getByRole('navigation', { name: '플랫폼 메뉴' })).toBeVisible();
