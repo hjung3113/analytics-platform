@@ -590,6 +590,8 @@ describe.skipIf(!runIntegration)('platform systems startup sync', () => {
           expect(res.statusCode).toBe(409);
           expect(res.json()).toMatchObject({ code: 'conflict.system_managed' });
         } finally {
+          // A failed step above leaves the probe transaction open; never return it to the pool holding the lock.
+          await held.query('ROLLBACK').catch(() => undefined);
           held.release();
         }
         expect((await raceRow())[0]?.archived_at).toBeNull();
@@ -611,13 +613,17 @@ describe.skipIf(!runIntegration)('platform systems startup sync', () => {
           await held.query('COMMIT');
           held.release();
         }
-        // Whichever waiter got the lock first, the end state must satisfy the invariant.
-        expect((await archive).statusCode).toBeLessThan(500);
+        // The archive queued first on the advisory lock, so it is granted first (FIFO waiters): it must succeed,
+        // and the sync that follows must link the re-declared space to a fresh active row.
+        expect((await archive).statusCode).toBe(200);
         await sync;
         await noDeclaredLinkOnArchived();
-        const active = (await raceRow()).filter((r) => r.archived_at === null);
+        const rows = await raceRow();
+        expect(rows.find((r) => r.id === row?.id)?.archived_at).not.toBeNull();
+        const active = rows.filter((r) => r.archived_at === null);
         const link = (await links(WORKSPACE_ID)).find((l) => l.space_id === RACE);
         expect(link?.declared).toBe(true);
+        expect(link?.managed_system_id).not.toBe(row?.id);
         expect(active.map((r) => r.id)).toContain(link?.managed_system_id);
       });
 
