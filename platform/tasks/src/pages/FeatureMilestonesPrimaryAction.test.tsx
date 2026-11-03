@@ -12,7 +12,7 @@ import { mountAt } from '../test-support';
 const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
 /** Same hidden 내 활동 stand-in as `test-support`, so a harness without `features:access` can be built here. */
 const myActivityStub: MenuEntry = { ...manifests.find((menu) => menu.id === 'my-tasks')!, id: 'my-activity-stub', primary: true, navHidden: true, path: '/my-activity-stub', pageKeys: [], carrySet: undefined };
-const MILESTONES = '/operations/milestones';
+const MILESTONES = '/flow/milestones';
 
 function installFetch() {
   const request = vi.fn(async (input: RequestInfo | URL) => {

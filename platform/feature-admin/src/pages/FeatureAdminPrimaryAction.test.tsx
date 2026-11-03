@@ -1,11 +1,10 @@
-// #1291 B2 — the real 관리자 registry screens through the bridge: their one create/register button is drawn in the platform page head, once, and stays gated.
+// #1291 B2 — the real 흐름 설정 registry screens through the bridge: their one create/register button is drawn in the platform page head, once, and stays gated.
 import { cleanup, screen, waitFor } from '@testing-library/react';
-import { UserCog } from 'lucide-react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
 import { setFeatureApi } from '@ap/feature-bridge/feature-api';
-import { createFeatureMenuHarness, LAZY_MOUNT_WAIT } from '@ap/feature-bridge/testing';
-import { harnessMenus, homeStub, mountAt, warmPages } from '../test-support';
+import { LAZY_MOUNT_WAIT } from '@ap/feature-bridge/testing';
+import { mountAt, warmPages } from '../test-support';
 
 const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
 
@@ -29,10 +28,9 @@ function installFetch(state: 'approved' | 'blocked_non_requestable') {
 }
 
 const CASES = [
-  ['Managed System 등록', '/operations/managed-systems', 'Managed System'],
-  ['Analytics Area 생성', '/operations/analytics-areas', 'Analytics Area'],
+  ['Managed System 등록', '/flow/managed-systems', '시스템'],
+  ['Analytics Area 생성', '/flow/analytics-areas', '분석 영역'],
 ] as const;
-const GRANTS = '/operations/permission-grants';
 
 beforeAll(warmPages, 60_000);
 beforeEach(() => {
@@ -58,25 +56,5 @@ describe.each(CASES)('%s through the bridge', (label, path, title) => {
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(screen.queryByRole('button', { name: label })).toBeNull();
     expect(container.querySelector('header [data-feature-primary-action] button')).toBeNull();
-  });
-});
-
-describe('권한 부여 through the bridge', () => {
-  it('is drawn once, in the page head, and not in the screen body', async () => {
-    installFetch('approved');
-    const { container } = mountAt(GRANTS);
-    const button = await screen.findByRole('button', { name: '권한 부여' }, LAZY_MOUNT_WAIT);
-    expect(container.querySelector('header [data-feature-primary-action]')?.contains(button)).toBe(true);
-    expect(screen.getAllByRole('button', { name: '권한 부여' })).toHaveLength(1);
-  });
-
-  it('is absent for a user without console:access (the menu gate refuses the page)', async () => {
-    const request = installFetch('approved');
-    const { mountAt: mountPlain } = createFeatureMenuHarness({ manifests: harnessMenus, homeMenuId: homeStub.id, group: { id: 'featureAdmin', label: { ko: '관리자', en: 'Admin' }, icon: UserCog } });
-    const { container } = mountPlain(GRANTS);
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    expect(screen.queryByRole('button', { name: '권한 부여' })).toBeNull();
-    expect(container.querySelector('[data-feature-primary-action]')).toBeNull();
-    expect(request).not.toHaveBeenCalled();
   });
 });

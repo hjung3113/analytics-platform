@@ -21,7 +21,7 @@ function installFetch(manage: boolean, surveys: unknown[]) {
   return request;
 }
 const survey = { id: '99999999-9999-4999-8999-99999999999a', display_id: 'SRV-1', title: 'Q3 사용성 진단', type: 'discovery', status: 'draft', description: '', primary_managed_system_id: '33333333-3333-4333-8333-333333333333', analytics_area_id: null, operator_actor_id: null, responses_identity_protected: true, created_by: '11111111-1111-4111-8111-111111111111', opened_at: null, closed_at: null, created_at: '2026-07-20T00:00:00.000Z', updated_at: '2026-07-20T00:00:00.000Z', questions: [] };
-const LIST = '/operations/survey-management';
+const LIST = '/flow/survey-management';
 
 beforeAll(warmPages, 60_000);
 beforeEach(() => {

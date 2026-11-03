@@ -7,7 +7,7 @@ import { LAZY_MOUNT_WAIT } from '@ap/feature-bridge/testing';
 import { mountAt } from '../test-support';
 
 const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
-const CLUSTERS = '/operations/clusters';
+const CLUSTERS = '/flow/clusters';
 
 function installFetch(role: string) {
   const request = vi.fn(async (input: RequestInfo | URL) => {
