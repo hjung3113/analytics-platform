@@ -32,17 +32,28 @@ describe('unauthorizedReporter', () => {
     expect(hook.result.current.status).toBe('retired');
   });
 
-  it('a pre-mount request of session A does not retire session B whose hook mounted before A\'s 401', () => {
+  it('a current-host request whose identity has no feature generation reaches only the host callback and leaves a mounted feature session alone', () => {
     const onSessionLost = withApi();
-    const reportA = unauthorizedReporter({ onSessionLost }, identity()); // started under A, no feature hook yet
-    platform.adapter = {} as PlatformAdapter; // session B replaces A; the store is not aborted yet
-    const hookB = renderHook(() => useFeatureSession());
-    featureQueryClient.setQueryData(['b-cache'], 1);
-    expect(hookB.result.current.status).toBe('ready');
-    act(() => reportA());
-    expect(onSessionLost).not.toHaveBeenCalled();
-    expect(hookB.result.current.status).toBe('ready');
+    const hook = renderHook(() => useFeatureSession());
+    featureQueryClient.setQueryData(['kept'], 1);
+    const other = [{} as PlatformAdapter, 1, 'u1'] as const; // host session with no feature hook of its own
+    act(() => unauthorizedReporter({ onSessionLost }, other)());
+    expect(onSessionLost).toHaveBeenCalledTimes(1);
+    expect(hook.result.current.status).toBe('ready');
     expect(featureQueryClient.getQueryCache().getAll()).toHaveLength(1);
+  });
+
+  it('without an identity (systems-overview) a request binds to the epoch it started under', () => {
+    const onSessionLost = withApi();
+    const hook = renderHook(() => useFeatureSession());
+    const report = unauthorizedReporter({ onSessionLost });
+    platform.revision += 1;
+    hook.rerender(); // a new generation: the old epoch's request must do nothing
+    act(() => report());
+    expect(onSessionLost).not.toHaveBeenCalled();
+    expect(hook.result.current.status).toBe('ready');
+    act(() => unauthorizedReporter({ onSessionLost })());
+    expect(onSessionLost).toHaveBeenCalledTimes(1);
   });
 
   it('a current request still reaches the shared handling after another consumer mounted in the same generation', () => {
@@ -58,17 +69,5 @@ describe('unauthorizedReporter', () => {
     expect(featureQueryClient.getQueryCache().getAll()).toHaveLength(0);
     expect(first.result.current.status).toBe('retired');
     expect(second.result.current.status).toBe('retired');
-  });
-
-  it('a request from a superseded generation does nothing to the replacement session', () => {
-    const onSessionLost = withApi();
-    const hook = renderHook(() => useFeatureSession());
-    const report = unauthorizedReporter({ onSessionLost }, identity());
-    platform.revision += 1;
-    hook.rerender();
-    expect(hook.result.current.status).toBe('ready');
-    act(() => report());
-    expect(onSessionLost).not.toHaveBeenCalled();
-    expect(hook.result.current.status).toBe('ready');
   });
 });

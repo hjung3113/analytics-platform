@@ -9,7 +9,7 @@ export { featureApi, setFeatureApi, type FeatureApi } from './feature-api';
 export { FeatureBridge, UnlinkedLink } from './feature/FeatureBridge';
 export { operatorRoute, routeHere, routeSearch, type OperatorRoute, type OperatorRouteSpec } from './feature/operator-route';
 export { hostLinks, permissionRequestsTarget, type PlatformTarget, type TargetOf } from './feature/links';
-export { featureQueryClient, useFeatureSession } from './feature/session';
+export { featureQueryClient, resetFeatureSessionForTests, useFeatureSession } from './feature/session';
 export { canSurveyLink, SURVEY_ID, SurveyLink, surveyTarget } from './feature/survey-links';
 export { canVocLink, VOC_ID, VocLink, vocListTarget, vocTarget } from './feature/voc-links';
 export type { DefaultStatus } from './default-status';
