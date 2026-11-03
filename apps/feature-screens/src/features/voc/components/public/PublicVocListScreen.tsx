@@ -79,15 +79,17 @@ export function PublicVocListScreen({
   const systemItems = systems.data?.items ?? [];
   const knownSystem = systemId === null || systemItems.some((system) => system.id === systemId);
   const filtered = q !== '' || mine || systemId !== null;
-  const loading = list.isLoading;
+  // A query that is still pending (including paused offline) is never an empty result.
+  const loading = list.isPending && list.fetchStatus !== 'paused';
+  const offline = list.isPending && list.fetchStatus === 'paused';
 
   let body: React.ReactNode;
   if (loading && items.length === 0) {
     body = <div aria-busy="true">{SKELETON_KEYS.map((key) => <div key={key} className="h-16 border-b border-border-subtle" />)}</div>;
-  } else if (error !== null && items.length === 0) {
+  } else if ((error !== null || offline) && items.length === 0) {
     body = (
       <div role="alert">
-        <EmptyState title={VOC_LIST_LOAD_ERROR_LABELS.title} body={VOC_LIST_LOAD_ERROR_LABELS.body}
+        <EmptyState title={VOC_LIST_LOAD_ERROR_LABELS.title} body={offline ? '연결을 확인한 뒤 다시 시도해 주세요.' : VOC_LIST_LOAD_ERROR_LABELS.body}
           action={<Button type="button" onClick={() => { void list.refetch(); }}>{VOC_LIST_LOAD_ERROR_LABELS.retry}</Button>} />
       </div>
     );
@@ -134,7 +136,7 @@ export function PublicVocListScreen({
             </div>
             <div className="contents" data-public-voc-control="system">
               <Select value={systemId ?? ALL_SYSTEMS} onValueChange={(value) => { onQueryChange({ systemId: value === ALL_SYSTEMS ? null : value }); }}>
-                <SelectTrigger aria-label="시스템" disabled={systems.isError}><SelectValue /></SelectTrigger>
+                <SelectTrigger aria-label="시스템" disabled={systems.isError} aria-busy={systems.isPending || undefined}><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value={ALL_SYSTEMS}>모든 시스템</SelectItem>
                   {!knownSystem && systemId !== null && <SelectItem value={systemId}>선택한 시스템</SelectItem>}
@@ -142,6 +144,12 @@ export function PublicVocListScreen({
                 </SelectContent>
               </Select>
             </div>
+            {systems.isError && (
+              <span role="alert" className="flex items-center gap-1 text-xs text-text-danger">
+                시스템 목록을 불러오지 못했습니다
+                <Button type="button" size="sm" variant="secondary" onClick={() => { void systems.refetch(); }}>다시 시도</Button>
+              </span>
+            )}
             <div className="contents" data-public-voc-control="q">
               <SearchInput placeholder={LIST_SEARCH_PLACEHOLDER} value={draft} onValueChange={setDraft} onCommit={commit} />
             </div>

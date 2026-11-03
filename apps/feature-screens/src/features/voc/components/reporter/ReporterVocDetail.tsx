@@ -26,6 +26,7 @@ import * as React from 'react';
 import { AttachmentChipList } from '../detail/AttachmentChip';
 import { ConversationTimeline } from '../detail/ConversationTimeline';
 import { LinkedEntityTrailSection } from '../detail/LinkedEntityTrailSection';
+import { VocStageLine } from '../detail/VocStageLine';
 import { LinkedExecutionSection } from '../detail/LinkedExecutionSection';
 import { ReporterReplyComposer } from '../detail/ReporterReplyComposer';
 
@@ -91,7 +92,7 @@ export function ReporterVocDetail({
   const embedded = variant === 'embedded';
   return (
     <div
-      className={embedded ? 'flex flex-col' : 'flex flex-col px-6 pt-7 pb-16'}
+      className={embedded ? 'flex flex-col p-4' : 'flex flex-col px-6 pt-7 pb-16'}
       data-testid="reporter-voc-detail"
     >
       <div className={embedded ? 'mb-4' : 'mb-4 pt-2'}>
@@ -100,6 +101,7 @@ export function ReporterVocDetail({
           <span className="font-mono">{voc.display_id}</span>
           <ReporterStatusBadge status={voc.reporter_facing_status} />
         </div>
+        <VocStageLine status={voc.reporter_facing_status} />
         <dl className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-muted">
           <div className="flex gap-1">
             <dt>접수</dt>

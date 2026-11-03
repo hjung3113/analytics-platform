@@ -1,14 +1,16 @@
-import { MY_VOC_SORTS, PUBLIC_VOC_QUERY_MAX, REPORTER_FACING_STATUS_ALL, type PublicVocQuery } from '@ap/feature-screens/global-screens';
+import { PUBLIC_VOC_QUERY_MAX, type PublicVocQuery } from '@ap/feature-screens/global-screens';
 import { VOC_ID } from '@ap/feature-bridge';
 
 export { VOC_ID };
 
-export type VocPage = { ok: true; query: PublicVocQuery; focus: string | null } | { ok: false; key: string; value: string };
+export type VocPage = { ok: true; query: PublicVocQuery; focus: string | null } | { ok: false; key: string; value: string; unsupported?: true };
 
 /**
  * The page keys of 소통 › VOC (`q`, `mine`, `system`, `focus`) as the feature screens' list query, or the first key whose value is not in its domain.
- * `status` and `sort` are older keys of the previous 내 VOC list: they are validated and kept in the URL, but the public list has no such
- * query (the server takes `mine`, `managed_system_id`, `q`), so they are never sent and change nothing.
+ * `status` and `sort` are older keys of the previous 내 VOC list. The public list (`GET /vocs/public`) takes only `mine`, `managed_system_id`
+ * and `q`, so their meaning cannot be applied across cursor pages (no server change in this node; filtering only the loaded page would change
+ * results as pages load). Any value of either key is therefore rejected and preserved (`unsupported`), never ignored: the page says so and
+ * offers 「값 지우기」. Reopen condition: the public list API gains status/sort.
  * A bad value is rejected and preserved (06 §6.4, ADR-0071 decision 9): nothing is substituted, so nothing is requested for it.
  */
 export function parseVocPage(pageParam: (key: string) => string | null): VocPage {
@@ -16,12 +18,10 @@ export function parseVocPage(pageParam: (key: string) => string | null): VocPage
   if (q.length > PUBLIC_VOC_QUERY_MAX) return { ok: false, key: 'q', value: q };
 
   const rawStatus = pageParam('status');
-  const statuses = rawStatus === null ? [] : rawStatus.split(',');
-  const known = new Set<string>(REPORTER_FACING_STATUS_ALL);
-  if (rawStatus !== null && (statuses.some(status => !known.has(status)) || new Set(statuses).size !== statuses.length)) return { ok: false, key: 'status', value: rawStatus };
+  if (rawStatus !== null) return { ok: false, key: 'status', value: rawStatus, unsupported: true };
 
   const rawSort = pageParam('sort');
-  if (rawSort !== null && !(MY_VOC_SORTS as readonly string[]).includes(rawSort)) return { ok: false, key: 'sort', value: rawSort };
+  if (rawSort !== null) return { ok: false, key: 'sort', value: rawSort, unsupported: true };
 
   const rawMine = pageParam('mine');
   if (rawMine !== null && rawMine !== 'true') return { ok: false, key: 'mine', value: rawMine };

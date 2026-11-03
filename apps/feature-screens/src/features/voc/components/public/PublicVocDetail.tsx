@@ -3,25 +3,21 @@
 // internal comments and operator fields are not in that object, so there is nothing here to hide.
 
 import { ATTACHMENT_FALLBACK_LABEL } from '@/lib/copy/attachments';
-import { REPORTER_FACING_STATUS_ALL, REPORTER_STATUS_LABELS } from '@/lib/copy/reporter-status-labels';
 import { formatDateTime } from '@/lib/format/datetime';
 import { type PublicVocView, isTipTapDocStructurallyEmpty } from '@ap/feature-shared';
 import { ManagedSystemPill, ReporterStatusBadge } from '@ap/feature-ui';
 import { PanelSectionTitle, PanelTitleBlock, RichContentRenderer, type TipTapDoc } from '@ap/ui';
 import type * as React from 'react';
 import { AttachmentChipList } from '../detail/AttachmentChip';
+import { VocStageLine } from '../detail/VocStageLine';
 
 export interface PublicVocDetailProps {
   voc: PublicVocView;
   variant?: 'page' | 'embedded';
 }
 
-// `reopened` is a step back, not a stage of its own: it sits at the reviewing stage.
-const STAGES = REPORTER_FACING_STATUS_ALL.filter((status) => status !== 'reopened');
-
 export function PublicVocDetail({ voc, variant = 'page' }: PublicVocDetailProps): React.ReactElement {
   const embedded = variant === 'embedded';
-  const stage = voc.reporter_facing_status === 'reopened' ? 'reviewing' : voc.reporter_facing_status;
   return (
     <div className={embedded ? 'flex flex-col p-4' : 'flex flex-col px-6 pt-7 pb-16'} data-testid="public-voc-detail">
       <div className="mb-4">
@@ -31,14 +27,7 @@ export function PublicVocDetail({ voc, variant = 'page' }: PublicVocDetailProps)
           <ManagedSystemPill name={voc.managed_system.name} />
           <ReporterStatusBadge status={voc.reporter_facing_status} />
         </div>
-        <ol aria-label="진행 단계" className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-text-muted">
-          {STAGES.map((status) => (
-            <li key={status} aria-current={status === stage ? 'step' : undefined}
-              className={status === stage ? 'font-semibold text-text-primary' : undefined}>
-              {REPORTER_STATUS_LABELS[status]}
-            </li>
-          ))}
-        </ol>
+        <VocStageLine status={voc.reporter_facing_status} />
         <dl className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-muted">
           <div className="flex gap-1"><dt>접수</dt><dd>{formatDateTime(voc.created_at)}</dd></div>
           <div className="flex gap-1"><dt>최근 변경</dt><dd>{formatDateTime(voc.updated_at)}</dd></div>

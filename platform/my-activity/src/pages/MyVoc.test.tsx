@@ -88,6 +88,8 @@ const lastList = (calls: Call[]) => new URL(listCalls(calls).at(-1)!.path, origi
 /** Requests to the reporter/operator VOC routes (`/vocs/<id>…`), which a VOC that is not the actor's own must never cause. */
 const reporterCalls = (calls: Call[], id: string) => calls.filter(call => call.path.startsWith(`/api/features/vocs/${id}`));
 const search = () => new URLSearchParams(window.location.search);
+// Operator-envelope fields the backend may send an own VOC to a reporter who also holds an operator capability: never drawn.
+const FORBIDDEN = [/Critical|critical|심각/, /Triage|triage/, /박운영/, /비슷한 다른 VOC/, /같은 Managed System/, /내부 메모/, /Finding 요청/, /Analytics Area/];
 const NOT_OWN = /아침마다 로그인이 실패합니다|재현했습니다|내부 메모|reporter-reply-composer/;
 
 beforeEach(() => {
@@ -190,18 +192,22 @@ describe('VOC through the feature bridge', () => {
     expect(screen.getByRole('radio', { name: '내가 등록한' }).getAttribute('data-state')).toBe('on');
   });
 
-  it('B2: an older copied URL with status and sort is accepted, requests neither, and keeps both in the URL when another key changes', async () => {
+  it.each([
+    ['status', 'received,closed', 'mine=true'],
+    ['sort', 'created_at:asc', 'q=ab'],
+    ['status', 'bogus', 'q=ab'],
+  ])('B2: an older copied URL with a %s value is rejected as unsupported by the public list, preserved, not requested, and 값 지우기 removes only that key', async (key, value, other) => {
     const calls = vocFetch();
-    const user = userEvent.setup();
-    mountAt(session().adapter, '/voc?v=1&status=received,closed&sort=created_at:asc');
+    mountAt(session().adapter, `/voc?v=1&${key}=${encodeURIComponent(value)}&${other}`);
+    expect(await screen.findByText(`VOC 목록은 주소의 ${key} 조건을 지원하지 않습니다`)).toBeTruthy();
+    expect(search().get(key)).toBe(value);
+    expect(calls).toEqual([]);
+
+    await userEvent.setup().click(screen.getByRole('button', { name: '값 지우기' }));
+    await waitFor(() => expect(search().has(key)).toBe(false));
+    expect(search().has(other.split('=')[0]!)).toBe(true);
     await screen.findByText('차트가 안 열립니다');
-    expect(Object.fromEntries(lastList(calls))).toEqual({ limit: '50' });
-    await user.type(screen.getByRole('searchbox'), '툴팁{Enter}');
-    await waitFor(() => expect(lastList(calls).get('q')).toBe('툴팁'));
-    expect(lastList(calls).has('status')).toBe(false);
-    expect(lastList(calls).has('sort')).toBe(false);
-    expect(search().get('status')).toBe('received,closed');
-    expect(search().get('sort')).toBe('created_at:asc');
+    expect(lastList(calls).has(key)).toBe(false);
   });
 
   it('V3: 더 보기 requests the next cursor page with the same filters and appends its rows', async () => {
@@ -222,8 +228,6 @@ describe('VOC through the feature bridge', () => {
   });
 
   it.each([
-    ['status', 'bogus', 'sort=created_at:asc'],
-    ['sort', 'severity:desc', 'q=ab'],
     ['q', '가'.repeat(101), 'mine=true'],
     ['mine', 'false', 'q=ab'],
     ['system', 'not-a-uuid', 'q=ab'],
@@ -391,6 +395,18 @@ describe('VOC through the feature bridge', () => {
     expect(await screen.findByText('아침마다 로그인이 실패합니다.', {}, LAZY_MOUNT_WAIT)).toBeTruthy();
     expect(await screen.findByTestId('reporter-reply-composer')).toBeTruthy();
     expect(screen.queryByTestId('public-voc-detail')).toBeNull();
+    // V6: the operator envelope behind this own VOC reaches neither route's screen.
+    await screen.findByText('재현했습니다. 곧 고치겠습니다.');
+    for (const pattern of FORBIDDEN) expect(document.body.textContent).not.toMatch(pattern);
+    expect(screen.queryByRole('tab', { name: '내부' })).toBeNull();
+    // The only editor is the reporter's own reply (#1159); no public update or internal comment composer.
+    const editors = screen.getAllByRole('textbox').filter(el => el.closest('[data-testid="reporter-reply-composer"]') !== null || el.getAttribute('type') !== 'search');
+    expect(editors).toHaveLength(1);
+    expect(editors[0]!.closest('[data-testid="reporter-reply-composer"]')).not.toBeNull();
+    expect(screen.queryByTestId('public-update-composer')).toBeNull();
+    expect(screen.queryByTestId('internal-comment-composer')).toBeNull();
+    // U2: the own VOC carries the same progress stage line as the public detail.
+    expect(screen.getByRole('list', { name: '진행 단계' })).toBeTruthy();
   });
 
   it('B3: while the ownership answer is pending the reporter detail is not requested; on a denial it is never mounted', async () => {

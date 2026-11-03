@@ -61,6 +61,45 @@ describe('PublicVocListScreen', () => {
   });
 });
 
+describe('PublicVocListScreen — failures', () => {
+  const wrap = (query = { q: '', mine: false, systemId: null as string | null }) => (
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <PublicVocListScreen query={query} onQueryChange={vi.fn()} selectedId={null} onSelect={vi.fn()} />
+    </QueryClientProvider>
+  );
+
+  it('F2: a failed system list says so, retry reloads it, and the selected system stays selected', async () => {
+    let systemCalls = 0;
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input);
+      const ok = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
+      if (path.startsWith('/managed-systems')) {
+        systemCalls += 1;
+        if (systemCalls === 1) return new Response(JSON.stringify({ code: 'internal.unexpected', message: 'boom' }), { status: 500, headers: { 'content-type': 'application/json' } });
+        return ok({ items: [{ id: MS, workspace_id: MS, slug: 'p', name: '플랫폼', external_key: null, default_owner_actor_id: null, default_owner_team_id: null, default_reviewer_actor_id: null, default_reviewer_team_id: null, archived_at: null, archived_by_actor_id: null, created_at: '2026-07-01T00:00:00.000Z', updated_at: '2026-07-01T00:00:00.000Z' }], total: 1 });
+      }
+      return ok({ items: [item(ID_1, '로그인이 안 됩니다')], page: { has_more: false } });
+    }));
+    render(wrap({ q: '', mine: false, systemId: MS }));
+    expect(await screen.findByText('시스템 목록을 불러오지 못했습니다')).toBeTruthy();
+    expect(screen.getByRole('combobox', { name: '시스템' }).textContent).toContain('선택한 시스템');
+    await userEvent.setup().click(screen.getByRole('button', { name: '다시 시도' }));
+    await waitFor(() => expect(screen.queryByText('시스템 목록을 불러오지 못했습니다')).toBeNull());
+    await waitFor(() => expect(screen.getByRole('combobox', { name: '시스템' }).textContent).toContain('플랫폼'));
+  });
+
+  it('U3: a search that cannot complete is an error state, not 「검색 결과가 없습니다」', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input).startsWith('/managed-systems')) return new Response(JSON.stringify({ items: [], total: 0 }), { status: 200, headers: { 'content-type': 'application/json' } });
+      return new Response(JSON.stringify({ code: 'internal.unexpected', message: 'boom' }), { status: 500, headers: { 'content-type': 'application/json' } });
+    }));
+    render(wrap({ q: '툴팁', mine: false, systemId: null }));
+    expect(await screen.findByText('불러오기 실패', {}, { timeout: 4000 })).toBeTruthy();
+    expect(screen.queryByText('검색 결과가 없습니다.')).toBeNull();
+    expect(screen.getByRole('button', { name: '다시 시도' })).toBeTruthy();
+  });
+});
+
 describe('PublicVocDetail', () => {
   const view: PublicVocView = {
     ...item(ID_2, '차트가 안 열립니다'), description_rich_content: doc('공개 본문'),

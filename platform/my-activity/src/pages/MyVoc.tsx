@@ -27,8 +27,12 @@ export default function MyVoc() {
   if (!parsed.ok) {
     return <PlatformPage>
       <StateMessage tone="warning" icon={<TriangleAlert className="size-4" aria-hidden />}
-        title={ko ? `주소의 ${parsed.key} 값이 올바르지 않습니다` : `The ${parsed.key} value in the address is not valid`}
-        body={ko ? '다른 값으로 바꾸지 않았습니다.' : 'Nothing was substituted.'}
+        title={parsed.unsupported
+          ? (ko ? `VOC 목록은 주소의 ${parsed.key} 조건을 지원하지 않습니다` : `The VOC list does not support the ${parsed.key} condition in the address`)
+          : (ko ? `주소의 ${parsed.key} 값이 올바르지 않습니다` : `The ${parsed.key} value in the address is not valid`)}
+        body={parsed.unsupported
+          ? (ko ? '조건을 적용하지 않고 그대로 두었습니다. 값을 지우면 목록을 볼 수 있습니다.' : 'The condition was neither applied nor changed. Clear the value to see the list.')
+          : (ko ? '다른 값으로 바꾸지 않았습니다.' : 'Nothing was substituted.')}
         action={<Button size="sm" variant="secondary" onClick={() => { setClearedFocus(CLEARED_FOCUS[parsed.key]); setPage({ [parsed.key]: null }); }}>{ko ? '값 지우기' : 'Clear value'}</Button>} />
     </PlatformPage>;
   }
