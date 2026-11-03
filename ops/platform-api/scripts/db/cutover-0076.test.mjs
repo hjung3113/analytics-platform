@@ -12,8 +12,8 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
-  realpathSync,
   readFileSync,
+  realpathSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
@@ -464,11 +464,7 @@ test('migrate stage: no spawned process receives a URL password in argv; each ps
       `printf '${who}|%s|%s|%s\\n' "$PGPASSWORD" "$DATABASE_URL_MIGRATE" "$*" >> '${log}'\n`;
     writeFileSync(
       join(binDir, 'psql'),
-      `#!/bin/sh\n${record('psql')}case "$*" in\n` +
-        `  *"from pg_roles"*platform_migrate*) echo 9;;\n` +
-        `  *"datname = 'platform'"*) echo 1;;\n` +
-        `  *"unnest(array"*) echo 3;;\n` +
-        `  *) echo 0;;\nesac\n`,
+      `#!/bin/sh\n${record('psql')}case "$*" in\n  *"from pg_roles"*platform_migrate*) echo 9;;\n  *"datname = 'platform'"*) echo 1;;\n  *"unnest(array"*) echo 3;;\n  *) echo 0;;\nesac\n`,
     );
     writeFileSync(join(kitDir, 'drizzle-kit'), `#!/bin/sh\n${record('drizzle')}exit 0\n`);
     chmodSync(join(binDir, 'psql'), 0o755);
