@@ -230,7 +230,13 @@ export async function getItemDetail(
     )
     .orderBy(asc(itemRevisionEvidence.ordinal));
   const revisions = await tx
-    .select()
+    .select({
+      revisionNo: r.revisionNo,
+      title: r.title,
+      publishedBy: r.publishedBy,
+      publishedAt: r.publishedAt,
+      changeNote: r.changeNote,
+    })
     .from(r)
     .where(and(eq(r.workspaceId, workspaceId), eq(r.itemId, itemId)))
     .orderBy(desc(r.revisionNo));

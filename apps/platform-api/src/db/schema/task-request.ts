@@ -42,6 +42,12 @@ export const taskRequests = taskRequestSchema.table(
       t.displayId,
     ),
     workspaceStatusIdx: index('task_requests_workspace_status_idx').on(t.workspaceId, t.status),
+    // 0084 (#1266 b5a): keyset list order (created_at DESC, id DESC).
+    workspaceCreatedIdx: index('task_requests_workspace_created_idx').on(
+      t.workspaceId,
+      t.createdAt.desc().nullsFirst(),
+      t.id.desc().nullsFirst(),
+    ),
     workspaceSourceIdx: index('task_requests_workspace_source_idx').on(
       t.workspaceId,
       t.sourceType,
