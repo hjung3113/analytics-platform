@@ -4,12 +4,18 @@
 
 import { randomUUID } from 'node:crypto';
 
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+
 import pg from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   type BucketObject,
+  type OrphanDb,
   type OrphanStorage,
+  USAGE,
+  UsageError,
   findOrphans,
   orphanIdentifier,
   parseOrphansArgs,
@@ -58,12 +64,42 @@ describe('parseOrphansArgs', () => {
     });
   });
 
-  it.each([['--limit', '5001'], ['--limit', '0'], ['--limit', 'x'], ['--min-age-hours', '-1'], ['--nope']])(
+  it.each([['--limit', '5001'], ['--limit', '0'], ['--limit', 'x'], ['--min-age-hours', '-1'], ['--min-age-hours', '0'], ['--nope']])(
     'rejects %s',
     (...argv) => {
       expect(() => parseOrphansArgs(argv)).toThrow();
     },
   );
+});
+
+describe('parseOrphansArgs output', () => {
+  it('refuses unknown arguments with a fixed usage message that never echoes the input', () => {
+    for (const argv of [[SENSITIVE], ['--apply', `${workspace}/x/${SENSITIVE}`], ['--min-age-hours', SENSITIVE], ['--min-age-hours', '0']]) {
+      let message = '';
+      try {
+        parseOrphansArgs(argv);
+      } catch (err) {
+        expect(err).toBeInstanceOf(UsageError);
+        message = (err as Error).message;
+      }
+      expect(message).toBe(USAGE);
+      expect(message).not.toContain('ssn');
+      expect(message).not.toContain(workspace);
+    }
+  });
+
+  it('prints only the fixed usage text on stderr and nothing on stdout (script run)', () => {
+    const result = spawnSync(
+      process.execPath,
+      ['--import', 'tsx', fileURLToPath(new URL('../attachments-orphans.ts', import.meta.url)), SENSITIVE],
+      { encoding: 'utf8', env: { ...process.env, DATABASE_URL: '', STORAGE_S3_SECRET_ACCESS_KEY: 'x' } },
+    );
+    expect(result.status).toBe(2);
+    expect(result.stdout).toBe('');
+    expect(result.stderr).toContain(USAGE);
+    expect(result.stderr + result.stdout).not.toContain('ssn');
+    expect(result.stderr + result.stdout).not.toContain('patient');
+  });
 });
 
 describe('orphanIdentifier', () => {
@@ -175,6 +211,26 @@ describe.skipIf(!runIntegration)('findOrphans', () => {
     const summary = await findOrphans(pool, bucket, { apply: true, minAgeHours: 24, limit: 500 }, NOW);
     expect(summary).toMatchObject({ orphans: 2, deleted: 1, delete_failures: 1 });
     expect(bucket.deleted).toEqual([good]);
+  });
+
+  it('does not delete an object whose reference commits after the scan and counts the skip', async () => {
+    const raced = newKey();
+    const orphan = newKey();
+    bucket.put(raced, 30);
+    bucket.put(orphan, 30);
+    let calls = 0;
+    const racingDb: OrphanDb = {
+      async query(text, values) {
+        calls += 1;
+        // Call 1 is the scan-time check; call 2 is the pre-delete re-check: the upload commits in between.
+        if (calls === 2) await reference(raced);
+        return pool.query(text, values);
+      },
+    };
+    const summary = await findOrphans(racingDb, bucket, { apply: true, minAgeHours: 24, limit: 500 }, NOW);
+    expect(summary).toMatchObject({ orphans: 2, deleted: 1, skipped_referenced: 1 });
+    expect(bucket.deleted).toEqual([orphan]);
+    expect(bucket.objects.has(raced)).toBe(true);
   });
 
   it('emits no raw key, filename or content anywhere in the summary', async () => {

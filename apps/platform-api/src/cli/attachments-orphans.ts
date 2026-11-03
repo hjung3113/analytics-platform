@@ -10,7 +10,8 @@
 // Dry run (default) prints the orphan count and a filename-free identifier per orphan. `--apply` deletes exactly
 // those objects. Only voc.voc_attachments.storage_key references bucket objects. Output never contains raw keys,
 // filenames or content: an identifier is `<workspace uuid>/<attachment uuid>` when the key has the expected shape,
-// otherwise a one-way digest. Exit codes: 0 ok, 1 failure, 2 usage error.
+// otherwise a one-way digest. `--min-age-hours` has a floor of 1 (an in-flight upload must never be a candidate);
+// a candidate referenced at delete time is skipped and counted. Exit codes: 0 ok, 1 failure, 2 usage error.
 
 import { createHash } from 'node:crypto';
 
@@ -21,7 +22,12 @@ import { parseStorageEnv } from '../lib/storage/factory.js';
 import { S3CompatStorageBackend } from '../lib/storage/s3-compat.js';
 
 export const DEFAULT_MIN_AGE_HOURS = 24;
+/** Floor for --min-age-hours: an object younger than this may belong to an upload that has not committed yet. */
+export const MIN_AGE_HOURS_FLOOR = 1;
 export const DEFAULT_LIMIT = 500;
+const APPLY_RECHECK_BATCH = 50;
+export const USAGE =
+  'Usage: attachments-orphans [--apply] [--min-age-hours <1..8760>] [--limit <1..5000>]';
 export const MAX_LIMIT = 5000;
 
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
@@ -58,13 +64,15 @@ export interface OrphansSummary {
   truncated: boolean;
   deleted: number;
   delete_failures: number;
+  /** Candidates a row started referencing between the scan and the delete; left in place. */
+  skipped_referenced: number;
   ids: string[];
 }
 
-function parseIntegerFlag(flag: string, raw: string | undefined, min: number, max: number): number {
-  if (raw === undefined || !/^\d+$/.test(raw)) throw new UsageError(`${flag} needs a positive integer.`);
+function parseIntegerFlag(raw: string | undefined, min: number, max: number): number {
+  if (raw === undefined || !/^\d+$/.test(raw)) throw new UsageError(USAGE);
   const value = Number(raw);
-  if (value < min || value > max) throw new UsageError(`${flag} must be between ${min} and ${max}.`);
+  if (value < min || value > max) throw new UsageError(USAGE);
   return value;
 }
 
@@ -75,13 +83,13 @@ export function parseOrphansArgs(argv: string[]): OrphansOptions {
     if (flag === '--apply') {
       options.apply = true;
     } else if (flag === '--min-age-hours') {
-      options.minAgeHours = parseIntegerFlag(flag, argv[i + 1], 0, 24 * 365);
+      options.minAgeHours = parseIntegerFlag(argv[i + 1], MIN_AGE_HOURS_FLOOR, 24 * 365);
       i += 1;
     } else if (flag === '--limit') {
-      options.limit = parseIntegerFlag(flag, argv[i + 1], 1, MAX_LIMIT);
+      options.limit = parseIntegerFlag(argv[i + 1], 1, MAX_LIMIT);
       i += 1;
     } else {
-      throw new UsageError(`Unknown or incomplete argument '${flag}'.`);
+      throw new UsageError(USAGE);
     }
   }
   return options;
@@ -105,8 +113,8 @@ async function referencedKeys(db: OrphanDb, keys: string[]): Promise<Set<string>
 }
 
 /**
- * Collects up to `limit` old unreferenced keys (held internally) and, with `apply`, deletes them. The reference
- * check runs per batch right before use, so a row committed during the scan still protects its object.
+ * Collects up to `limit` old unreferenced keys (held internally) and, with `apply`, deletes them. Apply re-queries
+ * references for each small batch right before deleting, so a row committed after the scan still protects its object.
  */
 export async function findOrphans(
   db: OrphanDb,
@@ -146,13 +154,24 @@ export async function findOrphans(
 
   let deleted = 0;
   let deleteFailures = 0;
+  let skippedReferenced = 0;
   if (options.apply) {
-    for (const key of orphanKeys) {
-      try {
-        await storage.delete(key);
-        deleted += 1;
-      } catch {
-        deleteFailures += 1;
+    // Re-check references right before deleting each small batch: an upload may have committed its row after
+    // the scan above, and a referenced object must never be deleted.
+    for (let start = 0; start < orphanKeys.length; start += APPLY_RECHECK_BATCH) {
+      const chunk = orphanKeys.slice(start, start + APPLY_RECHECK_BATCH);
+      const referenced = await referencedKeys(db, chunk);
+      for (const key of chunk) {
+        if (referenced.has(key)) {
+          skippedReferenced += 1;
+          continue;
+        }
+        try {
+          await storage.delete(key);
+          deleted += 1;
+        } catch {
+          deleteFailures += 1;
+        }
       }
     }
   }
@@ -166,6 +185,7 @@ export async function findOrphans(
     truncated,
     deleted,
     delete_failures: deleteFailures,
+    skipped_referenced: skippedReferenced,
     ids: orphanKeys.map(orphanIdentifier),
   };
 }
@@ -211,6 +231,7 @@ const invokedAsScript =
 if (invokedAsScript) {
   main().catch((err: unknown) => {
     if (err instanceof UsageError) {
+      // Fixed messages only: never echo user-supplied arguments.
       console.error(`attachments-orphans: ${err.message}`);
       process.exit(2);
     }

@@ -99,6 +99,7 @@ describe.skipIf(!runIntegration)('uploadAttachmentCommand (#393)', () => {
   let dbHandle: DbHandle;
   let migrateHandle: DbHandle;
   let attachmentsService: AttachmentsService;
+  let serviceDeps: Parameters<typeof createAttachmentsService>[0];
   let storage: FakeStorage;
   const workspaceId = randomUUID();
   let adminActorId = '';
@@ -192,13 +193,14 @@ describe.skipIf(!runIntegration)('uploadAttachmentCommand (#393)', () => {
         providers: buildEntityLinkProviders(),
       }),
     });
-    attachmentsService = createAttachmentsService({
+    serviceDeps = {
       storage,
       auditService,
       db: dbHandle.db,
       idempotencyService,
       vocReadService,
-    });
+    };
+    attachmentsService = createAttachmentsService(serviceDeps);
 
     await migrateHandle.pool.query(`insert into core.workspaces (id, name) values ($1, $2)`, [
       workspaceId,
@@ -351,6 +353,39 @@ describe.skipIf(!runIntegration)('uploadAttachmentCommand (#393)', () => {
 
     expect(await attachmentRowCount(ghostActorId)).toBe(0);
     expect(await idempotencyRowCount(ghostActorId, key)).toBe(0);
+  });
+
+  it('(e2) failure at COMMIT (outcome unknown) → the object is kept and the error rethrown, never deleted', async () => {
+    // The real transaction commits, then the call rejects as if the COMMIT acknowledgement was lost.
+    const realDb = serviceDeps.db;
+    const lostAckDb = new Proxy(realDb, {
+      get(target, prop, receiver) {
+        if (prop === 'transaction') {
+          return async (...txArgs: Parameters<typeof realDb.transaction>) => {
+            await target.transaction(...txArgs);
+            throw new Error('connection terminated during COMMIT');
+          };
+        }
+        return Reflect.get(target, prop, receiver);
+      },
+    });
+    const warnings: unknown[] = [];
+    const lostAckService = createAttachmentsService({
+      ...serviceDeps,
+      db: lostAckDb,
+      log: { warn: (...a: unknown[]) => void warnings.push(a) },
+    });
+    const args = commandArgs();
+
+    await expect(lostAckService.uploadAttachmentCommand(args)).rejects.toThrow(/COMMIT/);
+
+    // The row is durable, so its bytes must still exist.
+    expect(await attachmentRowCount(adminActorId)).toBe(1);
+    expect(storageDeletes()).toHaveLength(0);
+    const puts = storagePuts();
+    expect(puts).toHaveLength(1);
+    expect(storage.live.has(puts[0]?.key ?? '')).toBe(true);
+    expect(JSON.stringify(warnings)).not.toContain(FILENAME);
   });
 
   it('(f) holds the actor+key advisory lock: the command blocks while the lock is held elsewhere, then completes 201', async () => {

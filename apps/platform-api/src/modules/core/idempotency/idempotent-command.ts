@@ -34,6 +34,12 @@ export interface IdempotentCommandArgs<TBody> {
   /** Recovery writers serialize before the idempotency lock as well. */
   recoveryWorkspaceId?: string;
   work: (tx: Tx) => Promise<TBody>;
+  /**
+   * Set to true once the transaction body has finished and only COMMIT remains. A rejection while this is false
+   * happened before COMMIT (the transaction rolled back); a rejection while it is true is ambiguous because the
+   * COMMIT acknowledgement may have been lost after the server committed.
+   */
+  commitPhase?: { reached: boolean };
 }
 
 export async function runIdempotentCommand<TBody>(
@@ -48,6 +54,7 @@ export async function runIdempotentCommand<TBody>(
     );
     const hit = await idempotencyService.lookup(tx, actorId, idempotencyKey, requestHash);
     if (hit.kind === 'match') {
+      if (args.commitPhase) args.commitPhase.reached = true;
       return { status: hit.status, body: hit.body as TBody };
     }
     if (hit.kind === 'mismatch') {
@@ -58,6 +65,7 @@ export async function runIdempotentCommand<TBody>(
     }
     const envelope = await work(tx);
     await idempotencyService.record(tx, actorId, idempotencyKey, requestHash, status, envelope);
+    if (args.commitPhase) args.commitPhase.reached = true;
     return { status, body: envelope };
   });
 }

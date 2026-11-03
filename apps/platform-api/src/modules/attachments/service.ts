@@ -164,9 +164,9 @@ export function createAttachmentsService(deps: AttachmentsServiceDeps) {
   // ── uploadAttachmentCommand (#393, #1266 b4) ────────────────────────────
   //
   // Order: (1) put the object (no transaction open), (2) transaction: advisory
-  // lock, idempotency lookup, INSERT + audit, record. A replay or key
-  // conflict never runs the INSERT, and a failed transaction rolls back, so in
-  // both cases the just-written object is deleted best-effort. Returns what
+  // lock, idempotency lookup, INSERT + audit, record. A replay, a key
+  // conflict or a failure before COMMIT deletes the just-written object
+  // best-effort; a failure at/after COMMIT keeps it (outcome unknown). Returns what
   // the route assembles (`{ status, body }`); replay returns the stored
   // status + envelope.
   async function uploadAttachmentCommand(args: {
@@ -184,6 +184,7 @@ export function createAttachmentsService(deps: AttachmentsServiceDeps) {
     await putObject({ storageKey, bytes, mimeType });
 
     let inserted = false;
+    const commitPhase = { reached: false };
     try {
       const result = await runIdempotentCommand({
         db: deps.db,
@@ -192,6 +193,7 @@ export function createAttachmentsService(deps: AttachmentsServiceDeps) {
         idempotencyKey,
         requestHash,
         status: 201,
+        commitPhase,
         work: async (tx) => {
           const envelope = await insertUploadedAttachment({
             tx,
@@ -210,7 +212,17 @@ export function createAttachmentsService(deps: AttachmentsServiceDeps) {
       if (!inserted) await discardObject(storageKey);
       return result;
     } catch (err) {
-      await discardObject(storageKey);
+      // Delete only when the transaction definitely did not commit: the body (or the key/hash check inside it)
+      // failed before COMMIT. A failure at or after COMMIT is ambiguous (the server may have committed and lost
+      // the acknowledgement), so the object is kept for the reference-aware orphan CLI.
+      if (!commitPhase.reached) {
+        await discardObject(storageKey);
+      } else {
+        deps.log?.warn('attachments: upload outcome uncertain, object kept for orphan cleanup', {
+          error: err instanceof Error ? err.name : typeof err,
+          attachment_id: attachmentId,
+        });
+      }
       throw err;
     }
   }
