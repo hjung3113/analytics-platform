@@ -1,0 +1,13 @@
+{
+  "group": "access",
+  "folder": "access",
+  "space": "operations",
+  "placement": "platform",
+  "menuId": "access-scaffold",
+  "page": "AccessScaffold",
+  "path": "/access",
+  "pageType": "management",
+  "labelKo": "권한",
+  "labelEn": "Access",
+  "binding": "access"
+}

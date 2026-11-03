@@ -21,6 +21,7 @@
     "@ap/feature-bridge": "workspace:*",
     "@ap/http-adapter": "workspace:*",
     "@ap/kernel": "workspace:*",
+    "@ap/menu-access": "workspace:*",
     "@ap/menu-admin": "workspace:*",
     "@ap/menu-analytics": "workspace:*",
     "@ap/menu-clas": "workspace:*",
