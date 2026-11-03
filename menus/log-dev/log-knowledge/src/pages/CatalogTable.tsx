@@ -60,7 +60,8 @@ export function CatalogTable({ kind, q, focus, rowsRef, options, labels, remembe
   const [draft, setDraft] = useState<{ applied: string; text: string }>({ applied: q, text: q });
   if (draft.applied !== q) setDraft({ applied: q, text: q });
   const commit = () => { if (draft.text.trim() !== q) setPage({ q: draft.text.trim() === '' ? null : draft.text.trim(), page: null }); };
-  const search = <SearchInput placeholder={`${NOUN[kind]} 코드·이름 검색`} value={draft.text} onValueChange={text => setDraft({ applied: q, text })} onCommit={commit} />;
+  const search = <span className="flex items-center gap-2"><SearchInput placeholder={`${NOUN[kind]} 코드·이름 검색`} value={draft.text} onValueChange={text => setDraft({ applied: q, text })} onCommit={commit} />
+    <Button type="button" variant="secondary" size="sm" onClick={() => setPage({ variant: 'A', step: '1' })}>가져오기</Button></span>; // PROTOTYPE #1195
 
   const columns = useMemo<PlatformColumn<CatalogRow>[]>(() => {
     const open = (row: CatalogRow) => { remember(row.id, row.name || row.code); setPage(tabPatch(childLink(row, kind))); };

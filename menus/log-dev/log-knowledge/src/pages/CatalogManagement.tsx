@@ -6,6 +6,7 @@ import { CATALOG_TABS, DEFAULT_TAB, TAB_LABEL, defaultFilterParams, isCatalogTab
 import { CatalogDrawer } from './CatalogDrawer';
 import { CatalogTable } from './CatalogTable';
 import { useCatalogOptions } from './useCatalogOptions';
+import { ImportPrototype, importVariantOf } from './import/ImportPrototype'; // PROTOTYPE #1195
 
 const RULES = [
   { key: 'tab', label: { ko: '탭', en: 'Tab' }, valid: isCatalogTab },
@@ -26,6 +27,7 @@ export default function CatalogManagement() {
   // Server reads are not refreshed by a write (backlog #502), so a write remounts the table, which reads its URL page again.
   const [revision, setRevision] = useState(0);
   const rowsRef = useRef(new Map<string, CatalogRow>());
+  const importVariant = importVariantOf(pageParam('variant'));
   const kind = tab === 'invalid' ? null : tab;
   const options = useCatalogOptions({ vendors: kind === 'model', processes: kind === 'model', models: kind === 'software' });
 
@@ -47,7 +49,7 @@ export default function CatalogManagement() {
   </div>;
   return <PlatformPage description="제조사·공정·모델·SW 버전 기준 목록을 관리합니다. 비활성화해도 기존 연결은 그대로 남습니다."
     primaryAction={kind && <Button type="button" onClick={() => setPage({ focus: 'new' })}>{TAB_LABEL[kind]} 추가</Button>}>
-    <ManagementLayout table={body}
-      drawer={!keys.invalid && kind && focus && <CatalogDrawer kind={kind} focus={focus} rowsRef={rowsRef} options={options} onWritten={() => setRevision(n => n + 1)} />} />
+    {importVariant === 'A' || importVariant === 'C' ? <ImportPrototype variant={importVariant} table={body} /> : <ManagementLayout table={importVariant === 'B' ? <ImportPrototype variant="B" table={body} /> : body}
+      drawer={!keys.invalid && kind && focus && <CatalogDrawer kind={kind} focus={focus} rowsRef={rowsRef} options={options} onWritten={() => setRevision(n => n + 1)} />} />}
   </PlatformPage>;
 }
