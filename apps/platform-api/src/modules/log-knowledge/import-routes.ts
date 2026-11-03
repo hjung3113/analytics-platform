@@ -1,7 +1,7 @@
 // `POST /api/v1/log-knowledge/imports` — uploads a catalog import file and stages it (#1195 a, design v0.6 §6.2 ①).
 // Multipart: one `file` part and an `entityType` field. Order of judgment: session (401/403) → CSRF (403) →
 // `Idempotency-Key` → `knowledge.catalog.import` (Admin bypass; judged BEFORE replay and again inside the
-// transaction) → file read and limits → one transaction (idempotency frame, job, rows). The file bytes are not
+// transaction after the idempotency lock, before the replay lookup) → file read and limits → one transaction (idempotency frame, job, rows). The file bytes are not
 // stored, only name, size, type and sha256. File-level refusals answer 400/413 with `{ code }` and create no job.
 
 import { createHash } from 'node:crypto';
@@ -71,7 +71,8 @@ export const importRoutes: FastifyPluginAsync<ImportRoutesOptions> = async (app,
     if (!loaded) return sendError(reply, 'auth.session_invalid', 'session not active');
     const actor = platformActorOf(loaded);
 
-    const idempotencyKey = requireIdempotencyKey(req.headers as Record<string, unknown>);
+    // Lowercased once: the DB key is a uuid, so two spellings of it must take the same lock and the same record.
+    const idempotencyKey = requireIdempotencyKey(req.headers as Record<string, unknown>).toLowerCase();
     if (!(await authorize(actor, opts.db))) {
       return sendError(reply, 'permission.denied', 'No permission knowledge.catalog.import');
     }
@@ -129,9 +130,12 @@ export const importRoutes: FastifyPluginAsync<ImportRoutesOptions> = async (app,
         idempotencyKey,
         requestHash,
         status: 201,
-        async work(tx) {
-          // Judged again on the transaction: a revoke between the first check and here still refuses.
+        // Judged on the transaction after the lock and before the replay lookup: a revoke while the file was
+        // arriving or the request queued refuses a replay as well as a first run.
+        async beforeReplay(tx) {
           if (!(await authorize(actor, tx))) throw new HttpError('permission.denied', 'No permission knowledge.catalog.import');
+        },
+        async work(tx) {
           const jobId = await insertJob(tx, {
             workspaceId: actor.workspace_id,
             actorId: actor.actor_id,

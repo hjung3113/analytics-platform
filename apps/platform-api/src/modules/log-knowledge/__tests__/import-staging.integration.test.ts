@@ -166,7 +166,7 @@ describe.skipIf(!runIntegration)('catalog import staging (#1195 a)', () => {
     ).rows[0].id as string;
   const stamp = () => ({ workspace_id: WORKSPACE_ID, created_by: admin.id, updated_by: admin.id });
 
-  const ids = {} as { vAcme: string; vOld: string; pEtch: string; mX1: string; mGone: string; sw10: string };
+  const ids = {} as { vAcme: string; vUpd: string; vOld: string; pEtch: string; mX1: string; mGone: string; sw10: string };
 
   beforeAll(async () => {
     process.env.NODE_ENV = 'test';
@@ -187,6 +187,7 @@ describe.skipIf(!runIntegration)('catalog import staging (#1195 a)', () => {
     workspaceIds.push(otherWorkspace);
 
     ids.vAcme = await seed('vendor', { ...stamp(), code: code('ACME'), code_key: toCodeKey(code('ACME')), name: 'Acme' });
+    ids.vUpd = await seed('vendor', { ...stamp(), code: code('UPD'), code_key: toCodeKey(code('UPD')), name: 'Upd' });
     ids.vOld = await seed('vendor', { ...stamp(), code: code('OLD'), code_key: toCodeKey(code('OLD')), name: 'Old', active: false });
     ids.pEtch = await seed('process_category', { ...stamp(), code: code('ETCH'), code_key: toCodeKey(code('ETCH')), name: 'Etch' });
     ids.mX1 = await seed('equipment_model', { ...stamp(), vendor_id: ids.vAcme, code: code('X1'), code_key: toCodeKey(code('X1')), name: 'X one' });
@@ -222,7 +223,7 @@ describe.skipIf(!runIntegration)('catalog import staging (#1195 a)', () => {
     'code,name',
     `${code('NEWV')},Brand new`, // new
     `${code('acme')},Acme`, // unchanged (key match)
-    `${code('ACME2')},x`.replace('ACME2', 'ACME') + ' renamed', // update
+    `${code('UPD')},Upd renamed`, // update (its own seeded vendor; a second ACME row would be duplicate_in_file)
     `${code('OLD')},Old`, // conflict: inactive keeps its key
     `${code('BLANK')},`, // error: required
     `${code('newv')},Again`, // error: duplicate_in_file
@@ -295,7 +296,7 @@ describe.skipIf(!runIntegration)('catalog import staging (#1195 a)', () => {
       expect(d.outcome).toBe('ok');
       expect(d.data?.rows.map((r) => r.planState)).toEqual(['new', 'unchanged', 'update', 'conflict', 'error', 'error']);
       expect(d.data?.rows[1]).toMatchObject({ targetId: ids.vAcme, targetVersion: 1, normalized: { name: 'Acme' } });
-      expect(d.data?.rows[2]).toMatchObject({ targetId: ids.vAcme });
+      expect(d.data?.rows[2]).toMatchObject({ targetId: ids.vUpd });
       expect(d.data?.rows[3]).toMatchObject({ targetId: ids.vOld });
       expect(d.data?.rows[4]?.errors).toEqual([{ field: 'vendor_name', code: 'required' }]);
       expect(d.data?.rows[5]?.errors).toEqual([{ field: 'vendor_code', code: 'duplicate_in_file' }]);
@@ -506,6 +507,63 @@ describe.skipIf(!runIntegration)('catalog import staging (#1195 a)', () => {
       const replay = await upload({ who: holder, key, fileName });
       expect(replay.res.statusCode).toBe(403);
       expect(replay.body.code).toBe('permission.denied');
+      expect(await jobCountByName(fileName)).toBe(1);
+    });
+  });
+
+  describe('route: replay is judged on current permission, under the lock', () => {
+    const holderWithGrant = async () => {
+      const holder = await person('developer');
+      await sql(
+        `insert into permission.permission_grants (workspace_id, actor_id, capability, managed_system_id, granted_by_actor_id)
+         values ($1, $2, 'knowledge.catalog.import', null, $3)`,
+        [WORKSPACE_ID, holder.id, admin.id],
+      );
+      return holder;
+    };
+
+    it('refuses an in-flight replay when the capability is revoked while it waits for the lock — no replay body', async () => {
+      const key = randomUUID();
+      const fileName = `${TAG}-inflight.csv`;
+      const holder = await holderWithGrant();
+      const first = await upload({ who: holder, key, fileName });
+      expect(first.res.statusCode).toBe(201);
+
+      // Hold the very advisory lock the frame takes, so the replay parks inside its transaction.
+      const client = await migrate.pool.connect();
+      try {
+        await client.query('begin');
+        await client.query('select pg_advisory_xact_lock(hashtext($1::text), hashtext($2::text))', [holder.id, key]);
+        const replay = upload({ who: holder, key, fileName });
+        for (let i = 0; i < 200; i += 1) {
+          const waiting = await sql("select count(*)::int as n from pg_locks where locktype = 'advisory' and not granted");
+          if (Number(waiting.rows[0].n) > 0) break;
+          await new Promise((r) => setTimeout(r, 25));
+        }
+        expect(Number((await sql("select count(*)::int as n from pg_locks where locktype = 'advisory' and not granted")).rows[0].n)).toBeGreaterThan(0);
+        await sql("delete from permission.permission_grants where actor_id = $1 and capability = 'knowledge.catalog.import'", [holder.id]);
+        await client.query('commit');
+        const answered = await replay;
+        expect(answered.res.statusCode).toBe(403);
+        expect(answered.body.code).toBe('permission.denied');
+        expect(answered.body.jobId).toBeUndefined();
+      } finally {
+        await client.query('rollback').catch(() => undefined);
+        client.release();
+      }
+      expect(await jobCountByName(fileName)).toBe(1);
+    });
+
+    it('takes one lock and one record for the two spellings of a key: concurrent mixed-case uploads make one job', async () => {
+      const key = randomUUID();
+      const fileName = `${TAG}-case.csv`;
+      const [lower, upper] = await Promise.all([
+        upload({ key: key.toLowerCase(), fileName }),
+        upload({ key: key.toUpperCase(), fileName }),
+      ]);
+      expect(lower.res.statusCode).toBe(201);
+      expect(upper.res.statusCode).toBe(201);
+      expect(upper.body.jobId).toBe(lower.body.jobId);
       expect(await jobCountByName(fileName)).toBe(1);
     });
   });

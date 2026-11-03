@@ -5,10 +5,17 @@
 
 import { parse as parseCsv } from 'csv-parse/sync';
 import ExcelJS from 'exceljs';
+import JSZip from 'jszip';
 
 export const IMPORT_MAX_BYTES = 5 * 1024 * 1024;
 export const IMPORT_MAX_ROWS = 5000;
 export const IMPORT_MAX_COLUMNS = 50;
+/** A row index above this is refused: a sparse sheet must not make the parser walk or allocate a huge gap. */
+export const IMPORT_MAX_SHEET_ROW = 100_000;
+/** XLSX zip budgets, counted on the bytes the inflater actually emits (header sizes are never trusted). */
+export const IMPORT_ZIP_MAX_ENTRIES = 200;
+export const IMPORT_ZIP_MAX_TOTAL_BYTES = 40 * 1024 * 1024;
+export const IMPORT_ZIP_MAX_ENTRY_BYTES = 25 * 1024 * 1024;
 
 export type ImportFileType = 'csv' | 'xlsx';
 
@@ -84,7 +91,14 @@ function parseCsvBytes(bytes: Uint8Array): ParsedImportFile {
   if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
   let records: string[][];
   try {
-    records = parseCsv(text, { relax_column_count: false, skip_empty_lines: true, bom: false }) as string[][];
+    // `to` stops the reader one record past the limit (header + rows + 1) instead of materializing the whole file.
+    records = parseCsv(text, {
+      relax_column_count: false,
+      skip_empty_lines: true,
+      bom: false,
+      to: IMPORT_MAX_ROWS + 2,
+      max_record_size: IMPORT_MAX_BYTES,
+    }) as string[][];
   } catch {
     return refuse('unreadable');
   }
@@ -122,7 +136,68 @@ function readCell(cell: ExcelJS.Cell): CellRead {
   return { text: '', error: 'unsupported_cell' };
 }
 
+class ImportLimit extends Error {
+  constructor(readonly code: ImportFileRefusal) {
+    super(code);
+  }
+}
+
+/** JSZip's streaming read of one entry; it exists at runtime but is missing from the package's typings. */
+interface EntryStream {
+  on(event: 'data', cb: (chunk: Uint8Array) => void): EntryStream;
+  on(event: 'error', cb: (err: unknown) => void): EntryStream;
+  on(event: 'end', cb: () => void): EntryStream;
+  pause(): EntryStream;
+  resume(): EntryStream;
+}
+type StreamableEntry = JSZip.JSZipObject & { internalStream(type: 'uint8array'): EntryStream };
+
+/**
+ * Opens the zip and streams every entry through the inflater, counting the bytes it really emits and aborting at the
+ * budget. Runs before ExcelJS sees the file, so a small archive that inflates hugely never reaches it.
+ */
+async function checkZipBudgets(bytes: Uint8Array): Promise<ImportFileRefusal | null> {
+  let zip: JSZip;
+  try {
+    zip = await JSZip.loadAsync(bytes);
+  } catch {
+    return 'unreadable';
+  }
+  const entries = Object.values(zip.files).filter((entry) => !entry.dir);
+  if (Object.keys(zip.files).length > IMPORT_ZIP_MAX_ENTRIES) return 'file_too_large';
+  let total = 0;
+  for (const entry of entries) {
+    let entryBytes = 0;
+    const outcome = await new Promise<ImportFileRefusal | null>((resolve) => {
+      const stream = (entry as StreamableEntry).internalStream('uint8array');
+      stream
+        .on('data', (chunk: Uint8Array) => {
+          entryBytes += chunk.byteLength;
+          total += chunk.byteLength;
+          if (entryBytes > IMPORT_ZIP_MAX_ENTRY_BYTES || total > IMPORT_ZIP_MAX_TOTAL_BYTES) {
+            stream.pause();
+            resolve('file_too_large');
+          }
+        })
+        .on('error', () => resolve('unreadable'))
+        .on('end', () => resolve(null))
+        .resume();
+    });
+    if (outcome) return outcome;
+  }
+  return null;
+}
+
+/** A cell that carries something: any value, except a string of only whitespace. */
+const hasContent = (cell: ExcelJS.Cell): boolean => {
+  const value = cell.value;
+  if (value === null || value === undefined) return false;
+  return typeof value !== 'string' || value.trim() !== '';
+};
+
 async function parseXlsxBytes(bytes: Uint8Array): Promise<ParsedImportFile> {
+  const budget = await checkZipBudgets(bytes);
+  if (budget) return refuse(budget);
   const workbook = new ExcelJS.Workbook();
   try {
     await workbook.xlsx.load(Buffer.from(bytes) as unknown as ArrayBuffer);
@@ -133,24 +208,43 @@ async function parseXlsxBytes(bytes: Uint8Array): Promise<ParsedImportFile> {
   const sheet = workbook.worksheets[0];
   if (!sheet) return refuse('empty');
 
+  // Walk only rows that exist and hold a value (never the gaps), stopping at the first limit.
+  const dataRows: ExcelJS.Row[] = [];
+  let width = 0;
+  try {
+    sheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+      if (rowNumber > IMPORT_MAX_SHEET_ROW) throw new ImportLimit('too_many_rows');
+      if (rowNumber > 1) {
+        dataRows.push(row);
+        if (dataRows.length > IMPORT_MAX_ROWS) throw new ImportLimit('too_many_rows');
+      }
+      row.eachCell({ includeEmpty: false }, (cell, col) => {
+        if (col > width && hasContent(cell)) width = col;
+      });
+    });
+  } catch (err) {
+    if (err instanceof ImportLimit) return refuse(err.code);
+    throw err;
+  }
+  // The used width is judged before any trimming: data in column 51 is too wide, not silently dropped.
+  if (width > IMPORT_MAX_COLUMNS) return refuse('too_many_columns');
+
   const headerRow = sheet.getRow(1);
-  const headerCount = Math.max(headerRow.cellCount, headerRow.actualCellCount, 0);
-  const columns = Math.max(sheet.columnCount, headerCount);
   const headers: string[] = [];
   let headerBad = false;
-  for (let c = 1; c <= columns; c += 1) {
+  for (let c = 1; c <= width; c += 1) {
     const read = readCell(headerRow.getCell(c));
     if (read.error) headerBad = true;
     headers.push(read.text.trim());
   }
-  while (headers.length > 0 && headers[headers.length - 1] === '') headers.pop();
+  // A blank header inside the used width (so over a column that holds data) is refused by checkHeaders;
+  // trailing columns that hold nothing but formatting never count toward the width.
   const refusal = checkHeaders(headers);
   if (refusal) return refuse(refusal);
   if (headerBad) return refuse('invalid_headers');
 
   const rows: ParsedImportRow[] = [];
-  for (let r = 2; r <= sheet.rowCount; r += 1) {
-    const row = sheet.getRow(r);
+  for (const row of dataRows) {
     const cells: Record<string, string> = {};
     const parseErrors: ParseError[] = [];
     let any = false;
@@ -165,7 +259,6 @@ async function parseXlsxBytes(bytes: Uint8Array): Promise<ParsedImportFile> {
     });
     if (!any) continue;
     rows.push({ cells, parseErrors });
-    if (rows.length > IMPORT_MAX_ROWS) return refuse('too_many_rows');
   }
   if (rows.length === 0) return refuse('empty');
   return { ok: true, fileType: 'xlsx', headers, rows };

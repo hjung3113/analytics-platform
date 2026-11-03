@@ -1,10 +1,14 @@
 import ExcelJS from 'exceljs';
+import JSZip from 'jszip';
 import { describe, expect, it } from 'vitest';
 
 import {
   IMPORT_MAX_BYTES,
   IMPORT_MAX_COLUMNS,
   IMPORT_MAX_ROWS,
+  IMPORT_MAX_SHEET_ROW,
+  IMPORT_ZIP_MAX_ENTRIES,
+  IMPORT_ZIP_MAX_ENTRY_BYTES,
   detectFileType,
   parseImportFile,
 } from '../domain/import-file.js';
@@ -151,5 +155,101 @@ describe('import file: xlsx', () => {
       ws.addRow([1, 2]);
     });
     expect(await parseImportFile(dup, 'v.xlsx')).toMatchObject({ ok: false, code: 'invalid_headers' });
+  });
+
+  it('accepts exactly 5,000 data rows and refuses 5,001 as too_many_rows', async () => {
+    const book = (n: number) =>
+      xlsx((wb) => {
+        const ws = wb.addWorksheet('s');
+        ws.addRow(['a']);
+        for (let i = 0; i < n; i += 1) ws.addRow([`r${i}`]);
+      });
+    const ok = await parseImportFile(await book(IMPORT_MAX_ROWS), 'v.xlsx');
+    expect(ok).toMatchObject({ ok: true });
+    if (ok.ok) expect(ok.rows).toHaveLength(IMPORT_MAX_ROWS);
+    expect(await parseImportFile(await book(IMPORT_MAX_ROWS + 1), 'v.xlsx')).toMatchObject({ ok: false, code: 'too_many_rows' });
+  });
+
+  it('accepts exactly 50 columns and refuses a populated 51st as too_many_columns', async () => {
+    const names = (n: number) => Array.from({ length: n }, (_, i) => `c${i}`);
+    const book = (header: number, data: number) =>
+      xlsx((wb) => {
+        const ws = wb.addWorksheet('s');
+        ws.addRow(names(header));
+        ws.addRow(names(data).map(() => 'x'));
+      });
+    expect(await parseImportFile(await book(IMPORT_MAX_COLUMNS, IMPORT_MAX_COLUMNS), 'v.xlsx')).toMatchObject({ ok: true });
+    // 50 named headers with data in column 51: too wide, not silently trimmed back to 50.
+    expect(await parseImportFile(await book(IMPORT_MAX_COLUMNS, IMPORT_MAX_COLUMNS + 1), 'v.xlsx')).toMatchObject({
+      ok: false,
+      code: 'too_many_columns',
+      status: 400,
+    });
+    expect(await parseImportFile(await book(IMPORT_MAX_COLUMNS + 1, IMPORT_MAX_COLUMNS + 1), 'v.xlsx')).toMatchObject({
+      ok: false,
+      code: 'too_many_columns',
+    });
+  });
+
+  it('refuses a blank header over a column that holds data, and drops a formatting-only trailing column', async () => {
+    const populated = await xlsx((wb) => {
+      const ws = wb.addWorksheet('s');
+      ws.addRow(['code', 'name']);
+      ws.addRow(['A', 'Acme', 'keep me']);
+    });
+    expect(await parseImportFile(populated, 'v.xlsx')).toMatchObject({ ok: false, code: 'invalid_headers', status: 400 });
+
+    const formatted = await xlsx((wb) => {
+      const ws = wb.addWorksheet('s');
+      ws.addRow(['code', 'name']);
+      ws.addRow(['A', 'Acme']);
+      ws.getCell('C1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFF0000' } };
+      ws.getCell('C2').value = '   ';
+    });
+    const r = await parseImportFile(formatted, 'v.xlsx');
+    expect(r).toMatchObject({ ok: true, headers: ['code', 'name'] });
+  });
+
+  it('refuses a sparse sheet whose data sits above row 100,000 without walking the gap', async () => {
+    const sparse = await xlsx((wb) => {
+      const ws = wb.addWorksheet('s');
+      ws.addRow(['a']);
+      ws.getRow(IMPORT_MAX_SHEET_ROW + 1).getCell(1).value = 'far';
+    });
+    const started = Date.now();
+    expect(await parseImportFile(sparse, 'v.xlsx')).toMatchObject({ ok: false, code: 'too_many_rows' });
+    expect(Date.now() - started).toBeLessThan(5000);
+    const edge = await xlsx((wb) => {
+      const ws = wb.addWorksheet('s');
+      ws.addRow(['a']);
+      ws.getRow(IMPORT_MAX_SHEET_ROW).getCell(1).value = 'edge';
+    });
+    expect(await parseImportFile(edge, 'v.xlsx')).toMatchObject({ ok: true });
+  });
+});
+
+describe('import file: xlsx zip budgets', () => {
+  const zipOf = async (files: Record<string, Buffer | string>) => {
+    const zip = new JSZip();
+    for (const [name, content] of Object.entries(files)) zip.file(name, content);
+    return new Uint8Array(await zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE', compressionOptions: { level: 9 } }));
+  };
+
+  it('refuses one highly compressed oversized entry as file_too_large (413) though the archive is tiny', async () => {
+    const bomb = await zipOf({ '[Content_Types].xml': '<x/>', 'xl/media/bomb.bin': Buffer.alloc(IMPORT_ZIP_MAX_ENTRY_BYTES + 1024 * 1024) });
+    expect(bomb.byteLength).toBeLessThan(IMPORT_MAX_BYTES);
+    expect(await parseImportFile(bomb, 'b.xlsx')).toMatchObject({ ok: false, code: 'file_too_large', status: 413 });
+  });
+
+  it('refuses several entries whose emitted bytes together pass the total budget', async () => {
+    const chunk = Buffer.alloc(IMPORT_ZIP_MAX_ENTRY_BYTES - 1024);
+    const bomb = await zipOf({ 'a.bin': chunk, 'b.bin': chunk });
+    expect(await parseImportFile(bomb, 'b.xlsx')).toMatchObject({ ok: false, code: 'file_too_large', status: 413 });
+  });
+
+  it('refuses more than 200 entries as file_too_large', async () => {
+    const files: Record<string, string> = {};
+    for (let i = 0; i <= IMPORT_ZIP_MAX_ENTRIES; i += 1) files[`f${i}.xml`] = '<x/>';
+    expect(await parseImportFile(await zipOf(files), 'b.xlsx')).toMatchObject({ ok: false, code: 'file_too_large', status: 413 });
   });
 });
