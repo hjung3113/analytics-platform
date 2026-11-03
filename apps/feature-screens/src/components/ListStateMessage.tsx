@@ -16,6 +16,8 @@ export interface ListStateMessageProps {
   action?: ListStateAction;
   /** Preserves existing permission-specific Survey actions that are not plain buttons. */
   actionContent?: ReactNode;
+  /** `start`: small, start-aligned message for list sections that keep their own headings. Default: unchanged. */
+  align?: 'center' | 'start';
 }
 
 export function ListStateMessage({
@@ -24,6 +26,7 @@ export function ListStateMessage({
   body,
   action,
   actionContent,
+  align = 'center',
 }: ListStateMessageProps) {
   const renderedAction =
     action !== undefined ? (
@@ -36,7 +39,12 @@ export function ListStateMessage({
 
   return (
     <div data-testid="list-state-message" data-variant={variant}>
-      <EmptyState title={title} {...(body !== undefined ? { body } : {})} action={renderedAction} />
+      <EmptyState
+        title={title}
+        {...(body !== undefined ? { body } : {})}
+        action={renderedAction}
+        {...(align === 'start' ? { size: 'sm', className: 'items-start px-0 text-left' } : {})}
+      />
     </div>
   );
 }

@@ -486,6 +486,10 @@ describe('Survey participation page', () => {
 
     expect(await screen.findByText('응답할 Survey가 없습니다.')).toBeInTheDocument();
     expect(screen.getByText('응답한 Survey가 없습니다.')).toBeInTheDocument();
+    // Both empty branches are small and start-aligned, not a large centred void.
+    for (const text of ['응답할 Survey가 없습니다.', '응답한 Survey가 없습니다.']) {
+      expect(screen.getByText(text).parentElement).toHaveClass('items-start', 'py-6');
+    }
   });
 
   it('shows a retry action for a failed list region', async () => {

@@ -46,7 +46,7 @@ export function TaskBoardColumn({
   return (
     <section
       data-task-board-column
-      className={`flex min-h-0 w-72 shrink-0 flex-col rounded-sm border border-border-subtle bg-surface-raised ${droppable.isOver ? 'ring-1 ring-accent-primary' : ''}`}
+      className={`flex min-h-0 min-w-40 flex-1 basis-0 flex-col rounded-sm border border-border-subtle bg-surface-raised ${droppable.isOver ? 'ring-1 ring-accent-primary' : ''}`}
       aria-label={`${label} 열`}
     >
       <header className="flex items-center gap-2 border-b border-border-subtle px-3 py-2">

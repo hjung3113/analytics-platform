@@ -11,6 +11,8 @@ export interface ListToolbarProps {
   activeTab?: string;
   onTabChange?: (next: string) => void;
   tabsAriaLabel?: string;
+  /** Pass-through to `ListTabs.maxVisible`; undefined keeps every tab in the strip. */
+  tabsMaxVisible?: number;
   action?: React.ReactNode;
   className?: string;
 }
@@ -27,6 +29,7 @@ export function ListToolbar({
   activeTab,
   onTabChange,
   tabsAriaLabel,
+  tabsMaxVisible,
   action,
   className,
 }: ListToolbarProps) {
@@ -49,6 +52,7 @@ export function ListToolbar({
             {...(activeTab !== undefined ? { activeTab } : {})}
             {...(onTabChange !== undefined ? { onTabChange } : {})}
             {...(tabsAriaLabel !== undefined ? { ariaLabel: tabsAriaLabel } : {})}
+            {...(tabsMaxVisible !== undefined ? { maxVisible: tabsMaxVisible } : {})}
           />
         ) : (
           title !== undefined && (

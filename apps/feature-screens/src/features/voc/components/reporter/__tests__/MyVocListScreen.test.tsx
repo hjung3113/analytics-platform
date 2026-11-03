@@ -92,9 +92,7 @@ describe('<MyVocListScreen>', () => {
     // No severity badge or bar colour, no Analytics Area cue, no owner or unassigned cue.
     expect(rowEl.textContent).not.toMatch(/critical|심각|Critical|Analytics Area|미배정/);
     expect(rowEl.querySelector('[class*="severity"]')).toBeNull();
-    expect(rowEl.querySelector('[data-testid="voc-row-left-bar"]')?.className).not.toContain(
-      'severity',
-    );
+    expect(rowEl.querySelector('[data-testid="voc-row-left-bar"]')).toBeNull();
 
     expect(paths).toHaveLength(1);
     const url = new URL(paths[0] ?? '', 'http://x');

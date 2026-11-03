@@ -1,6 +1,12 @@
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import * as React from 'react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../components/shadcn/dropdown-menu.js';
 import { Tabs, TabsList, TabsTrigger } from '../components/shadcn/tabs.js';
 import {
   Tooltip,
@@ -34,6 +40,11 @@ export interface ListTabsProps {
   ariaLabel?: string;
   align?: 'start' | 'end';
   className?: string;
+  /**
+   * Show only the first N tabs; the rest go into one 「더보기」 menu. A hidden active tab takes the last visible slot
+   * (the active filter stays visible) and the displaced tab moves into the menu. Undefined keeps every tab in the strip.
+   */
+  maxVisible?: number;
 }
 
 /** Edge fade width (px) that masks a partially clipped tab on a scrollable side. */
@@ -46,10 +57,25 @@ export function ListTabs({
   ariaLabel,
   align = 'start',
   className,
+  maxVisible,
 }: ListTabsProps): React.ReactElement {
   const tabViewportRef = React.useRef<HTMLDivElement>(null);
   const [uncontrolledActiveTab, setUncontrolledActiveTab] = React.useState(tabs[0]?.value ?? '');
   const selectedTab = activeTab ?? uncontrolledActiveTab;
+  const { visibleTabs, hiddenTabs } = React.useMemo(() => {
+    if (maxVisible === undefined || maxVisible < 1 || tabs.length <= maxVisible) {
+      return { visibleTabs: tabs, hiddenTabs: [] as ListToolbarTab[] };
+    }
+    const visible = tabs.slice(0, maxVisible);
+    if (!visible.some((tab) => tab.value === selectedTab)) {
+      const active = tabs.find((tab) => tab.value === selectedTab);
+      if (active !== undefined) visible[maxVisible - 1] = active;
+    }
+    return {
+      visibleTabs: visible,
+      hiddenTabs: tabs.filter((tab) => !visible.includes(tab)),
+    };
+  }, [tabs, maxVisible, selectedTab]);
   const tabKey = tabs.map((tab) => tab.value).join('|');
   const overflowState = useHorizontalOverflow(tabViewportRef, { contentKey: tabKey });
   const hasOverflow = overflowState.canScrollLeft || overflowState.canScrollRight;
@@ -159,7 +185,7 @@ export function ListTabs({
                 {...(ariaLabel !== undefined ? { 'aria-label': ariaLabel } : {})}
                 className="h-7 justify-start gap-0.5 rounded-none bg-transparent p-0 text-text-muted"
               >
-                {tabs.map((tab) => {
+                {visibleTabs.map((tab) => {
                   const Icon = tab.icon;
                   return (
                     <TabsTrigger
@@ -197,6 +223,50 @@ export function ListTabs({
               </TabsList>
             </Tabs>
           </div>
+          {hiddenTabs.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  data-list-toolbar-more
+                  className="ml-0.5 inline-flex h-7 shrink-0 items-center gap-1 rounded-md px-2.5 text-sm font-medium text-text-muted transition-colors hover:bg-surface-card hover:text-text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
+                >
+                  더보기
+                  <span className="text-tiny tabular-nums">{hiddenTabs.length}</span>
+                  <ChevronDown className="h-3 w-3" aria-hidden="true" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" aria-label="더보기">
+                {hiddenTabs.map((tab) => {
+                  const Icon = tab.icon;
+                  return (
+                    <DropdownMenuItem
+                      key={tab.value}
+                      {...(tab.disabled !== undefined ? { disabled: tab.disabled } : {})}
+                      onSelect={() => handleTabChange(tab.value)}
+                      {...(tab.testId !== undefined ? { 'data-testid': `${tab.testId}-more` } : {})}
+                      {...(tab.tip !== undefined ? { title: tab.tip } : {})}
+                      className={cn(
+                        'gap-1.5',
+                        tab.urgent === true && 'text-text-danger-label focus:text-text-danger-label',
+                      )}
+                    >
+                      {Icon && <Icon className="h-3 w-3 shrink-0" aria-hidden="true" />}
+                      {tab.label}
+                      {tab.badgeCount !== undefined && (
+                        <>
+                          <span className="sr-only">, </span>
+                          <span className="ml-auto text-tiny text-text-muted tabular-nums">
+                            {tab.badgeCount}
+                          </span>
+                        </>
+                      )}
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
           {hasOverflow && (
             <Tooltip>
               <TooltipTrigger asChild>

@@ -1,8 +1,7 @@
 /**
  * VocRow — single-select row for the VOC inbox list.
  *
- * Mirrors docs/design/history/feedbackops-prototype/screen-voc.jsx `VocRow`: a severity-colored
- * left stripe, a title line (id · title), a meta line
+ * Mirrors docs/design/history/feedbackops-prototype/screen-voc.jsx `VocRow`: a title line (id · title), a meta line
  * (reporter-status badge · severity badge · managed system · area/"No area" ·
  * time · linked finding), and a trailing identity column (owner avatar /
  * shared unassigned badge + reporter avatar).
@@ -11,7 +10,8 @@
  * `--color-neon-lime`) plus a tinted row background — NOT a full ring. Mirrored here.
  *
  * Absent severity is reporter-hidden; null is operator-visible but unassigned.
- * The badge names severity while the left stripe supplies the row color.
+ * The badge names severity; the left bar appears only on the selected row (same as SDK `ObjectRow`),
+ * so unselected rows carry no stripe.
  *
  * HOOK-IN-MAP NOTE: VocRow calls no data hooks. VocList lifts the managed-system,
  * actor (owner/reporter), and analytics-area lookups to single map queries and
@@ -33,19 +33,6 @@ import { Paperclip } from 'lucide-react';
 import type * as React from 'react';
 
 import { formatRelativeTime } from '@/lib/format/datetime';
-
-// ---------------------------------------------------------------------------
-// Severity → left-bar color token
-// ---------------------------------------------------------------------------
-
-type Severity = 'low' | 'medium' | 'high' | 'critical';
-
-const SEVERITY_BAR_CLASS: Record<Severity, string> = {
-  low: 'bg-severity-low',
-  medium: 'bg-severity-medium',
-  high: 'bg-severity-high',
-  critical: 'bg-severity-critical',
-};
 
 // ---------------------------------------------------------------------------
 // Types
@@ -112,13 +99,6 @@ export function VocRow({
     }
   };
 
-  // Determine left-bar color: accent when selected, severity color otherwise.
-  const severityBarClass = selected
-    ? 'bg-accent-primary'
-    : voc.severity != null && !reporterView
-      ? SEVERITY_BAR_CLASS[voc.severity]
-      : 'bg-border-strong';
-
   return (
     <div
       role="row"
@@ -140,14 +120,14 @@ export function VocRow({
         className,
       )}
     >
-      {/* LEFT EDGE BAR — full row height, 3px, severity-colored (accent when selected).
-          Prototype: .severity-indicator { width:3px; height:16px } but shown as a full-height
-          edge bar here per the issue spec. Single element avoids the ::before double-bar problem. */}
-      <div
-        data-testid="voc-row-left-bar"
-        aria-hidden="true"
-        className={cn('absolute left-0 top-0 bottom-0 w-row-accent rounded-r-sm', severityBarClass)}
-      />
+      {/* LEFT EDGE BAR — selected row only, 3px accent; severity is named by the badge. */}
+      {selected && (
+        <div
+          data-testid="voc-row-left-bar"
+          aria-hidden="true"
+          className="absolute left-0 top-0 bottom-0 w-row-accent rounded-r-sm bg-accent-primary"
+        />
+      )}
 
       {/* TITLE + META column */}
       <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
