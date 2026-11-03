@@ -156,6 +156,19 @@ bk_dc() { # compose with the production file; BK_COMPOSE_OVERRIDE (temporary) an
   [ -z "${BK_COMPOSE_PINS:-}" ] || files+=(-f "$BK_COMPOSE_PINS")
   docker compose --env-file "$ENV_FILE" "${files[@]}" -p "$PROJECT" "$@"
 }
+# Image pin file (restore.sh writes it, upgrade.sh keeps it current): immutable ids for every service that runs one of the three images.
+bk_write_pins() { # bk_write_pins <file> <backend-id> <migrate-id> <web-id> <origin comment>
+  local file="$1" svc
+  {
+    printf '# %s\n' "$5"
+    printf '# Pins the images that were checked against the restored data (immutable ids). KEEP this file: every start of this\n'
+    printf '# project must use it: docker compose -f docker-compose.production.yml -f %s ...\n' "$(basename "${file%%.new-*}")"
+    printf 'services:\n'
+    for svc in backend minio-bootstrap; do printf '  %s:\n    image: %s\n    pull_policy: never\n' "$svc" "$2"; done
+    for svc in migrate cutover set-role-passwords bootstrap set-actor-role; do printf '  %s:\n    image: %s\n    pull_policy: never\n' "$svc" "$3"; done
+    printf '  edge:\n    image: %s\n    pull_policy: never\n' "$4"
+  } >"$file"
+}
 # Image id (sha256:...) of the container of a compose service, running or not; fails when there is none.
 # With `ok` as second argument the container must also have exited 0 (the last successful migrate run).
 bk_container_image() { # bk_container_image <service> [ok]

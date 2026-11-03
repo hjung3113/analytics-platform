@@ -20,6 +20,10 @@
 #   4. only now the new images take the :local tags, then the migrate job runs (drizzle-kit migrate); a non-zero exit leaves
 #      the backend stopped and prints the restore command for the matching backup and the image rollback command
 #   5. docker compose up -d, then /health/ready must return 200
+# A restored installation has docker-compose.restore-<project>.yml (restore.sh) pinning the three images by immutable id.
+# Then steps 4-5 run with a pin file naming the TARGET image ids (never the old pins); on success it replaces the restore
+# pin file atomically and the previous one is kept as docker-compose.restore-<project>.yml.pre-<UTC timestamp>; on failure
+# the original pin file is left untouched. Without that file nothing changes.
 # The whole run holds the per-installation maintenance lock (ops/platform-api/.maintenance/<project>.lock); a second
 # backup/upgrade exits 3 at once. No down migrations. No fixture seed or bootstrap is ever run. A pre-0076 (feedbackops/fops_*) install is refused by the
 # backup step: finish the identity cutover first (docs/architecture/platform-api/release/backup-restore-upgrade.md).
@@ -39,7 +43,7 @@ ENV_FILE="${BACKUP_ENV_FILE:-$OPS_ROOT/.env.production}"
 COMPOSE_FILE="${BACKUP_COMPOSE_FILE:-$OPS_ROOT/docker-compose.production.yml}"
 TARGET=''
 
-usage() { sed -n '3,32p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2; }
+usage() { sed -n '3,36p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2; }
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --help|-h) usage; exit 0 ;;
@@ -77,6 +81,18 @@ else
   elif [ -n "$backend_created" ] && [[ "${web_created:0:19}" < "${backend_created:0:19}" ]]; then
     bk_log "WARNING: $WEB_REPO:local ($web_created) is older than $BACKEND_REPO:local ($backend_created): the web bundle may not match the new API. Rebuild it with scripts/release/build-web-image.sh from the same commit unless that is intended."
   fi
+fi
+
+# Restored installation: the pin file must follow the upgrade (otherwise the next documented start returns the old images).
+PINS_FILE="$(dirname "$COMPOSE_FILE")/docker-compose.restore-$PROJECT.yml"
+PINS_NEW=''
+if [ -f "$PINS_FILE" ]; then
+  PIN_IDS=()
+  for img in "$NEW_BACKEND" "$NEW_MIGRATE" "$NEW_WEB"; do
+    pin_id="$(docker image inspect --format '{{.Id}}' "$img" 2>/dev/null)" && [[ "$pin_id" =~ ^sha256:[A-Za-z0-9]+$ ]] \
+      || bk_die "cannot read the immutable id of $img for the restore pin file $PINS_FILE; nothing was stopped"
+    PIN_IDS+=("$pin_id")
+  done
 fi
 
 tmp="$(mktemp -d)"
@@ -132,6 +148,7 @@ on_exit() {
   local rc=$?
   trap '' INT TERM HUP
   trap - EXIT
+  [ -z "$PINS_NEW" ] || rm -f -- "$PINS_NEW"
   if settle_children; then
     rm -rf -- "${tmp:?}"
     if [ "$BK_LOCK_HELD" -eq 1 ]; then
@@ -201,6 +218,13 @@ if [ "$TARGET" != local ]; then
   docker tag "$NEW_MIGRATE" "$MIGRATE_REPO:local"
   docker tag "$NEW_WEB" "$WEB_REPO:local"
 fi
+if [ -f "$PINS_FILE" ]; then
+  # The target ids, for the migrate job and the final start; the restore pin file itself is replaced only after success.
+  PINS_NEW="$PINS_FILE.new-$TS"
+  bk_write_pins "$PINS_NEW" "${PIN_IDS[0]}" "${PIN_IDS[1]}" "${PIN_IDS[2]}" "Written by upgrade.sh for project $PROJECT (target $TARGET)."
+  BK_COMPOSE_PINS="$PINS_NEW"
+  bk_log "restore pin file $PINS_FILE exists: migrate and start use the target image ids"
+fi
 bk_log 'running the migrate job'
 MIGRATE_MAY_RUN=1
 if ! run_child migrate bk_dc run --rm --no-deps migrate >&2; then
@@ -208,6 +232,9 @@ if ! run_child migrate bk_dc run --rm --no-deps migrate >&2; then
   bk_log "1. Inspect what was applied: docker compose -p $PROJECT --env-file <env> -f <compose> exec -T postgres psql -U postgres -d platform -c 'select id, hash, created_at from drizzle.__drizzle_migrations order by id desc limit 5'"
   bk_log "2. Forward-fix (new image, rerun this script) or restore the matching data and image pair:"
   bk_log "   $RESTORE_CMD"
+  if [ -f "$PINS_FILE" ]; then
+    bk_log "   restore pin file $PINS_FILE is unchanged (it still names the previous images); start the previous release with it: docker compose -p $PROJECT --env-file <env> -f <compose> -f $PINS_FILE up -d"
+  fi
   [ -z "$PRE_BACKEND" ] || bk_log "   image rollback: docker tag $PRE_BACKEND $BACKEND_REPO:local${PRE_MIGRATE:+; docker tag $PRE_MIGRATE $MIGRATE_REPO:local}${PRE_WEB:+; docker tag $PRE_WEB $WEB_REPO:local}"
   exit 1
 fi
@@ -225,6 +252,15 @@ done
 if [ "$ready" -ne 1 ]; then
   bk_log 'backend not ready (200 /health/ready) within 120 s after the upgrade. Read: docker compose ... logs backend'
   bk_log "   restore the pre-upgrade pair if needed: $RESTORE_CMD"
+  [ ! -f "$PINS_FILE" ] || bk_log "   restore pin file $PINS_FILE is unchanged (it still names the previous images)"
   exit 1
+fi
+if [ -f "$PINS_FILE" ]; then
+  PINS_PRE="$PINS_FILE.pre-$TS"
+  cp -p -- "$PINS_FILE" "$PINS_PRE"
+  mv -f -- "$PINS_NEW" "$PINS_FILE"
+  PINS_NEW=''
+  bk_log "restore pin file updated to the new images: $PINS_FILE"
+  bk_log "   to roll the pins back: mv -f '$PINS_PRE' '$PINS_FILE' (together with the image rollback)"
 fi
 bk_log "UPGRADE OK. Backup taken first: $BACKUP_DIR"

@@ -20,7 +20,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { after, describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
@@ -67,7 +67,12 @@ const sha = (s) => createHash('sha256').update(s).digest('hex');
 function run(cmd, args, env = {}, extra = {}) {
   const r = spawnSync(cmd, args, {
     encoding: 'utf8',
-    env: { PATH: process.env.PATH, HOME: process.env.HOME, BACKUP_MAINTENANCE_DIR: MAINT, ...env },
+    env: {
+      PATH: process.env.PATH,
+      HOME: process.env.HOME,
+      BACKUP_MAINTENANCE_DIR: MAINT,
+      ...env,
+    },
     ...extra,
   });
   return { code: r.status, out: r.stdout, err: r.stderr };
@@ -358,7 +363,10 @@ exit 0
       writeFileSync(envFile, 'POSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n');
       return { bin, envFile, dir: makeBackup(tmp()) };
     }
-    const base = ({ bin }, extra = {}) => ({ PATH: `${bin}:${process.env.PATH}`, ...extra });
+    const base = ({ bin }, extra = {}) => ({
+      PATH: `${bin}:${process.env.PATH}`,
+      ...extra,
+    });
     test('target volume equal to a source volume is refused', () => {
       const s = setup();
       const r = bash(
@@ -390,6 +398,7 @@ function writeStub(bin, logFile) {
 printf '%s\\n' "$*" >>"${logFile}"
 case "$*" in
 "compose version --short") echo 2.29.1; exit 0 ;;
+"image inspect --format {{.Id}}"*) [ -n "\${STUB_DISTINCT_IDS:-}" ] || { echo sha256:imageid; exit 0; }; echo "sha256:id\$(printf %s "\${5%%:*}" | tr -d -)"; exit 0 ;;
 "image inspect --format {{.Created}}"*platform-release-web*) echo "\${STUB_WEB_CREATED:-2026-01-02T00:00:00Z}"; exit 0 ;;
 "image inspect --format {{.Created}}"*platform-release-backend*) echo 2026-01-01T00:00:00Z; exit 0 ;;
 "image inspect --format"*platform-release-backend:local) echo "\${STUB_LOCAL_BACKEND_ID:-sha256:imageid}"; exit 0 ;;
@@ -729,7 +738,10 @@ describe('restore.sh image pair and cleanup (stub docker)', () => {
     assert.equal(r.calls.findIndex(startsBackend), -1, r.log);
   });
   test('F1: mismatch + ack with an identical journal proceeds', () => {
-    const r = go({ STUB_BACKEND_ID: 'sha256:other', RESTORE_IMAGE_MISMATCH_OK: '1' });
+    const r = go({
+      STUB_BACKEND_ID: 'sha256:other',
+      RESTORE_IMAGE_MISMATCH_OK: '1',
+    });
     assert.equal(r.code, 0, r.err + r.log);
     assert.ok(r.calls.some(startsBackend));
   });
@@ -925,7 +937,10 @@ describe('OPS-05 one maintenance lock per installation (stub docker)', () => {
     const maint = tmp();
     assert.equal(backupRun({ BACKUP_MAINTENANCE_DIR: maint }).code, 0);
     assert.deepEqual(readdirSync(maint), []);
-    const failed = backupRun({ BACKUP_MAINTENANCE_DIR: maint, STUB_PS_RC: '1' });
+    const failed = backupRun({
+      BACKUP_MAINTENANCE_DIR: maint,
+      STUB_PS_RC: '1',
+    });
     assert.notEqual(failed.code, 0);
     assert.deepEqual(readdirSync(maint), []);
   });
@@ -962,7 +977,9 @@ describe('N2 upgrade handles the web image with the others (stub docker)', () =>
   }
 
   test('<tag> without platform-release-web:<tag> refuses before stopping anything', () => {
-    const r = upgradeRun('v2', { STUB_MISSING_IMAGE: 'platform-release-web:v2' });
+    const r = upgradeRun('v2', {
+      STUB_MISSING_IMAGE: 'platform-release-web:v2',
+    });
     assert.notEqual(r.code, 0);
     assert.match(r.err, /platform-release-web:v2 not found/);
     assert.match(r.err, /docker tag platform-release-web:local platform-release-web:v2/);
@@ -999,7 +1016,9 @@ describe('N2 upgrade handles the web image with the others (stub docker)', () =>
   });
 
   test('local warns when the web image is older than the backend image, and stays quiet otherwise', () => {
-    const old = upgradeRun('local', { STUB_WEB_CREATED: '2025-12-31T00:00:00Z' });
+    const old = upgradeRun('local', {
+      STUB_WEB_CREATED: '2025-12-31T00:00:00Z',
+    });
     assert.equal(old.code, 0, old.err);
     assert.match(
       old.err,
@@ -1108,7 +1127,10 @@ describe('OPS-04 restore: journal check always, images pinned (stub docker)', ()
       -1,
       r.log,
     );
-    const ok = writeStubAndGo({ STUB_WEB_ID: 'sha256:newweb', RESTORE_IMAGE_MISMATCH_OK: '1' });
+    const ok = writeStubAndGo({
+      STUB_WEB_ID: 'sha256:newweb',
+      RESTORE_IMAGE_MISMATCH_OK: '1',
+    });
     assert.equal(ok.code, 0, ok.err + ok.log);
     assert.ok(pinned(ok.pins, 'edge', 'sha256:newweb'), ok.pins);
   });
@@ -1161,7 +1183,10 @@ describe('b10b F1 the lock token is bound to the owning upgrade (stub docker)', 
     const other = sleeper();
     try {
       const maint = heldLock({ pid: other.pid, operation: 'upgrade' });
-      const r = backupRun({ BACKUP_MAINTENANCE_DIR: maint, BK_LOCK_TOKEN: 'COPIED' });
+      const r = backupRun({
+        BACKUP_MAINTENANCE_DIR: maint,
+        BK_LOCK_TOKEN: 'COPIED',
+      });
       assert.equal(r.code, 3, r.err);
       assert.match(r.err, /another maintenance operation holds/);
       assert.deepEqual(r.calls, [], 'no docker call');
@@ -1173,7 +1198,10 @@ describe('b10b F1 the lock token is bound to the owning upgrade (stub docker)', 
   test('a token is accepted only for an upgrade owner: a standalone backup owner cannot be borrowed', () => {
     // process.pid IS an ancestor of the script the test starts, so only the operation check can refuse here.
     const refused = backupRun({
-      BACKUP_MAINTENANCE_DIR: heldLock({ pid: process.pid, operation: 'backup' }),
+      BACKUP_MAINTENANCE_DIR: heldLock({
+        pid: process.pid,
+        operation: 'backup',
+      }),
       BK_LOCK_TOKEN: 'COPIED',
     });
     assert.equal(refused.code, 3, refused.err);
@@ -1181,7 +1209,10 @@ describe('b10b F1 the lock token is bound to the owning upgrade (stub docker)', 
   });
   test('the right token + an upgrade owner that is an ancestor continues under the lock and leaves it in place', () => {
     const maint = heldLock({ pid: process.pid, operation: 'upgrade' });
-    const r = backupRun({ BACKUP_MAINTENANCE_DIR: maint, BK_LOCK_TOKEN: 'COPIED' });
+    const r = backupRun({
+      BACKUP_MAINTENANCE_DIR: maint,
+      BK_LOCK_TOKEN: 'COPIED',
+    });
     assert.equal(r.code, 0, r.err);
     assert.match(r.err, /owned by the calling upgrade/);
     assert.ok(
@@ -1245,7 +1276,14 @@ describe('b10b F2 interruption does not release a lock while work may still run 
         resolve(code);
       }),
     );
-    return { child, exited, maint, log, state, lock: join(maint, 'platform-api.lock') };
+    return {
+      child,
+      exited,
+      maint,
+      log,
+      state,
+      lock: join(maint, 'platform-api.lock'),
+    };
   }
   const calls = (r) => readCalls(r.log);
 
@@ -1478,7 +1516,10 @@ describe('b10b restore: web image, verification isolation, --replace-live lock (
     assert.doesNotMatch(r.err, /RESTORE VERIFIED/);
   });
   test('F3: a missing web image is a refusal even with RESTORE_IMAGE_MISMATCH_OK=1', () => {
-    const r = restoreRun({ STUB_WEB_ID: 'missing', RESTORE_IMAGE_MISMATCH_OK: '1' });
+    const r = restoreRun({
+      STUB_WEB_ID: 'missing',
+      RESTORE_IMAGE_MISMATCH_OK: '1',
+    });
     assert.notEqual(r.code, 0);
     assert.match(r.err, /web image platform-release-web:local is not on this host/);
     assert.equal(r.calls.findIndex(anyStart), -1);
@@ -1486,12 +1527,15 @@ describe('b10b restore: web image, verification isolation, --replace-live lock (
   });
 
   test('b10c F1: verification starts the backend with the mock channel and no relay; the kept switch-over file has neither', () => {
-    const r = restoreRun({ SMTP_HOST: 'relay.example', SMTP_PASSWORD: 'relaypass' });
+    const r = restoreRun({
+      SMTP_HOST: 'relay.example',
+      SMTP_PASSWORD: 'relaypass',
+    });
     assert.equal(r.code, 0, r.err);
     assert.match(r.verify, /NOTIFICATION_EMAIL_CHANNEL: mock/);
     assert.match(r.verify, /JOBS_DISABLED: "true"/, 'no worker or cron while the copy is verified');
     assert.doesNotMatch(r.pins, /JOBS_DISABLED/, 'the kept pin file starts the jobs again');
-    for (const k of ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASSWORD', 'SMTP_FROM'])
+    for (const k of ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USERNAME', 'SMTP_PASSWORD', 'SMTP_FROM'])
       assert.match(r.verify, new RegExp(`${k}: ""`), k);
     assert.ok(r.pinsKept);
     assert.doesNotMatch(
@@ -1578,7 +1622,11 @@ describe('b10b restore: web image, verification isolation, --replace-live lock (
   test('a failed --replace-live restore releases the lock it took', () => {
     const maint = tmp();
     const r = restoreRun(
-      { RESTORE_CONFIRM: 'platform-api', BACKUP_MAINTENANCE_DIR: maint, STUB_PGRESTORE_RC: '1' },
+      {
+        RESTORE_CONFIRM: 'platform-api',
+        BACKUP_MAINTENANCE_DIR: maint,
+        STUB_PGRESTORE_RC: '1',
+      },
       { args: ['--replace-live'], project: 'platform-api' },
     );
     assert.notEqual(r.code, 0);
@@ -1588,6 +1636,81 @@ describe('b10b restore: web image, verification isolation, --replace-live lock (
 
 // Every test above writes under a temp directory. The repository directory must look exactly as it did when the suite
 // started (no pin files, no .maintenance lock directory, no stray backup).
+describe('b10b FIX3 upgrade owns the restore pin file (stub docker)', () => {
+  const OLD_PINS = '# old pins\nservices:\n  backend:\n    image: sha256:old\n';
+  function pinned(target, { pins = true, extraEnv = {} } = {}) {
+    const bin = tmp();
+    const log = join(tmp(), 'calls.log');
+    writeStub(bin, log);
+    const envFile = join(tmp(), 'env');
+    writeFileSync(envFile, 'POSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n');
+    const dir = tmp();
+    const compose = join(dir, 'docker-compose.production.yml');
+    writeFileSync(compose, 'services: {}\n');
+    const pinFile = join(dir, 'docker-compose.restore-platform-api.yml');
+    if (pins) writeFileSync(pinFile, OLD_PINS);
+    const r = run('bash', [UPGRADE, target, '--env-file', envFile, '--compose-file', compose], {
+      PATH: `${bin}:${process.env.PATH}`,
+      STUB_DISTINCT_IDS: '1',
+      BACKUP_ROOT: tmp(),
+      ...extraEnv,
+    });
+    const calls = readCalls(log);
+    const files = readdirSync(dir);
+    return {
+      ...r,
+      calls,
+      log: calls.join('\n'),
+      pinFile,
+      files,
+      pins: existsSync(pinFile) ? readFileSync(pinFile, 'utf8') : null,
+      pre: files.filter((f) => f.includes('.yml.pre-')),
+    };
+  }
+  const withPins = (c) => / -f \S*docker-compose\.restore-platform-api\.yml\.new-\S+ /.test(c);
+
+  test('pin file present: migrate and the final up use the target ids; the pin file is rewritten and the old one kept', () => {
+    const r = pinned('v2');
+    assert.equal(r.code, 0, r.err);
+    const migrate = r.calls.find((c) => /run --rm --no-deps migrate/.test(c));
+    const up = r.calls.find((c) => / up -d$/.test(c));
+    assert.ok(withPins(migrate), migrate);
+    assert.ok(withPins(up), up);
+    assert.doesNotMatch(
+      r.log,
+      /docker-compose\.restore-platform-api\.yml( |$)/,
+      'the old pin file is never given to compose',
+    );
+    assert.match(r.pins, /image: sha256:idplatformreleasebackend\n/);
+    assert.match(r.pins, /migrate:\n {4}image: sha256:idplatformreleasemigrate\n/);
+    assert.match(r.pins, /edge:\n {4}image: sha256:idplatformreleaseweb\n/);
+    assert.doesNotMatch(r.pins, /sha256:old/);
+    assert.equal(r.pre.length, 1, r.files.join(','));
+    assert.match(r.pre[0], /^docker-compose\.restore-platform-api\.yml\.pre-\d{8}T\d{6}Z$/);
+    assert.equal(readFileSync(join(dirname(r.pinFile), r.pre[0]), 'utf8'), OLD_PINS);
+    assert.ok(!r.files.some((f) => f.includes('.new-')), 'no temporary pin file is left');
+    assert.match(r.err, new RegExp(`${r.pre[0]}`));
+  });
+
+  test('failing migrate: the pin file is unchanged, no copy, no leftover; the rollback names it', () => {
+    const r = pinned('v2', { extraEnv: { STUB_MIGRATE_RC: '1' } });
+    assert.equal(r.code, 1);
+    assert.ok(withPins(r.calls.find((c) => /run --rm --no-deps migrate/.test(c))));
+    assert.equal(r.pins, OLD_PINS);
+    assert.deepEqual(r.pre, []);
+    assert.ok(!r.files.some((f) => f.includes('.new-')), r.files.join(','));
+    assert.match(r.err, /restore pin file \S+ is unchanged/);
+  });
+
+  test('no pin file: no pin option anywhere and no pin file is created', () => {
+    const r = pinned('v2', { pins: false });
+    assert.equal(r.code, 0, r.err);
+    assert.doesNotMatch(r.log, /docker-compose\.restore/);
+    assert.equal(r.pins, null);
+    assert.deepEqual(r.files, ['docker-compose.production.yml']);
+  });
+});
+
 test('the suite left the repository directory unchanged', () => {
   assert.deepEqual(repoSnapshot(), REPO_BEFORE);
 });

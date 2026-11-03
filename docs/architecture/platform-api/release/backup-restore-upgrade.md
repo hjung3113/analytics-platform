@@ -113,7 +113,7 @@ login roles and attributes, no `fops_*` role, owner roles `NOLOGIN` with the sev
 no product table owned by the superuser, runtime grants of `platform_app`, journal digest equals the manifest. Then it
 creates the bucket, mirrors the objects back and compares object count, bytes and the sha256 inventory (through a second
 export), starts `backend` alone under `platform_app` on a free port and waits for `/health/ready` 200. That verification start uses
-`JOBS_DISABLED=true`, `NOTIFICATION_EMAIL_CHANNEL=mock` and blank `SMTP_*` (a temporary override file that is deleted, not the
+`JOBS_DISABLED=true`, `NOTIFICATION_EMAIL_CHANNEL=mock` and blank `SMTP_*` (including `SMTP_USERNAME`; a temporary override file that is deleted, not the
 kept pin file). With `JOBS_DISABLED` the backend still starts pg-boss (readiness needs it, enqueueing works) but without the
 supervisor and cron scheduler and with no job worker registered, so the copied pending jobs are neither run nor stamped
 (`email_sent_at` stays as copied) and nothing is sent outward; they run after the switch-over. `JOBS_DISABLED` is operator
@@ -124,7 +124,7 @@ uses the operator's real settings** from `.env.production`. It never runs
 **Switch traffic.** Put the two printed lines `RELEASE_POSTGRES_VOLUME=…` and `RELEASE_MINIO_VOLUME=…` into
 `.env.production`. Stop the old stack's `edge` (and `backend`), then start the restored stack on the published port:
 `docker compose --env-file .env.production -f docker-compose.production.yml -f docker-compose.restore-platform-restore.yml -p platform-restore up -d`
-(the script prints the exact command; every later start keeps both `-f` files, otherwise the `:local` tags apply again). To keep the
+(the script prints the exact command). **Later-start rule: if `docker-compose.restore-<project>.yml` exists, every compose command for that project uses both `-f` files; `upgrade.sh` keeps the pin file current.** The pin file is installation state: git-ignored, and backed up together with `.env.production`. To keep the
 project name `platform-api` instead, run the restore with `--project platform-api --replace-live` and
 `RESTORE_CONFIRM=platform-api`: the live containers are stopped first, the live volumes stay untouched, and the old
 values of the two `RELEASE_*` variables are the rollback.
@@ -163,13 +163,21 @@ The nested backup still records the containers' images, so preloaded `:local` ta
    matching backup and the image rollback tags (backend, migrate and web).
 5. `up -d`, then waits for `/health/ready` 200.
 
+**Restored installation (pin file present).** When `docker-compose.restore-<project>.yml` exists next to the compose file,
+steps 4 and 5 never use the old pins: the script writes a temporary pin file with the immutable ids of the target backend,
+migrate and web images (read before anything is stopped) and passes it to the `migrate` job and the final `up -d`. After
+`/health/ready` is 200 it replaces the restore pin file atomically with those ids and keeps the previous one as
+`docker-compose.restore-<project>.yml.pre-<UTC timestamp>` (printed; to roll the pins back, move it over the pin file together
+with the image rollback). On any failure the original pin file is left untouched and the failure output names it. Without a
+pin file nothing of this applies.
+
 No down migrations exist. The script never runs a fixture seed or `bootstrap`.
 
 **Migration failure: decide.** First inspect what was committed: `select id, hash, created_at from drizzle.__drizzle_migrations
 order by id desc limit 5` (inside the postgres container). Migrations are applied in order; a failed one is not recorded. Then:
 
 - *Forward-fix:* correct the cause (a data problem, a fixed image) and run `upgrade.sh` again; it takes a new backup first.
-- *Restore the matched set:* retag the `:pre-<ts>` images (backend, migrate, web) to `:local` and `restore.sh` the backup the upgrade printed, as above.
+- *Restore the matched set:* retag the `:pre-<ts>` images (backend, migrate, web) to `:local` (a restored installation keeps using its unchanged pin file) and `restore.sh` the backup the upgrade printed, as above.
 - The identity cutover is resumable only for its own case (pre-0076 → platform identity) and not part of this script.
 
 Do not start the backend by hand on a partially migrated database.

@@ -186,15 +186,7 @@ umask 077
 TMP="$BACKUP_DIR/../.restore-tmp-$PROJECT-$$"
 mkdir -p "$TMP" && chmod 700 "$TMP"
 PINS_FILE="$(dirname "$COMPOSE_FILE")/docker-compose.restore-$PROJECT.yml"
-{
-  printf '# Written by restore.sh for project %s from %s.\n' "$PROJECT" "$BACKUP_DIR"
-  printf '# Pins the images that were checked against the restored data (immutable ids). KEEP this file: every start of this\n'
-  printf '# project must use it: docker compose -f docker-compose.production.yml -f %s ...\n' "$(basename "$PINS_FILE")"
-  printf 'services:\n'
-  for svc in backend minio-bootstrap; do printf '  %s:\n    image: %s\n    pull_policy: never\n' "$svc" "$PIN_BACKEND"; done
-  for svc in migrate cutover set-role-passwords bootstrap set-actor-role; do printf '  %s:\n    image: %s\n    pull_policy: never\n' "$svc" "$PIN_MIGRATE"; done
-  printf '  edge:\n    image: %s\n    pull_policy: never\n' "$PIN_WEB"
-} >"$PINS_FILE"
+bk_write_pins "$PINS_FILE" "$PIN_BACKEND" "$PIN_MIGRATE" "$PIN_WEB" "Written by restore.sh for project $PROJECT from $BACKUP_DIR."
 BK_COMPOSE_PINS="$PINS_FILE"
 BK_COMPOSE_OVERRIDE="$TMP/no-init.override.yml"
 cat >"$BK_COMPOSE_OVERRIDE" <<'YAML'
@@ -213,7 +205,7 @@ services:
       NOTIFICATION_EMAIL_CHANNEL: mock
       SMTP_HOST: ""
       SMTP_PORT: ""
-      SMTP_USER: ""
+      SMTP_USERNAME: ""
       SMTP_PASSWORD: ""
       SMTP_FROM: ""
 YAML
@@ -333,7 +325,7 @@ bk_dc stop >/dev/null
 bk_log "RESTORE VERIFIED into project '$PROJECT' (volumes $PG_VOL, $MINIO_VOL). Stack is stopped."
 bk_log "Switch traffic: stop the old stack's edge/backend, then start this one with the SAME env plus"
 bk_log "  RELEASE_POSTGRES_VOLUME=$PG_VOL RELEASE_MINIO_VOLUME=$MINIO_VOL (put both lines in .env.production),"
-bk_log "  and run (keep $PINS_FILE: it pins the verified images; use it on every start of this project):"
+bk_log "  and run (keep $PINS_FILE: it pins the verified images; use it on every start of this project; upgrade.sh keeps it current):"
 bk_log "  docker compose -p $PROJECT --env-file .env.production -f $COMPOSE_FILE -f $PINS_FILE up -d"
 trap - EXIT
 rm -rf -- "${TMP:?}"
