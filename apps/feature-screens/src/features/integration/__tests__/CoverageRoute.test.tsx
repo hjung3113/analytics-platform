@@ -360,11 +360,11 @@ describe('integration coverage route', () => {
     await renderCoverage('/integration/coverage');
     expect(screen.getByRole('heading', { level: 1, name: '커버리지' })).toBeVisible();
     const signals = within(screen.getByTestId('coverage-signals'));
-    expect(signals.getByText('공개 업데이트가 있는 배포된 Task')).toBeVisible();
+    expect(signals.getByText('담당자 답변이 있는 배포된 Task')).toBeVisible();
     expect(signals.getByText('분석 영역이 지정된 VOC')).toBeVisible();
     expect(signals.getByText('높은 심각도 VOC 후속 조치')).toBeVisible();
     const table = within(screen.getByTestId('coverage-table'));
-    expect(table.getByText('공개 업데이트가 있는 배포된 Task')).toBeVisible();
+    expect(table.getByText('담당자 답변이 있는 배포된 Task')).toBeVisible();
     expect(table.getByText('분석 영역이 지정된 VOC')).toBeVisible();
     expect(screen.getByText('부분 커버리지. 정책이 요구하는 연결만 표시합니다.')).toBeVisible();
   });

@@ -27,7 +27,7 @@ describe('lib/copy/glossary', () => {
     expect(GLOSSARY.reporterFacingStatus).toBe('공개 상태');
     expect(GLOSSARY.dismiss).toBe('기각');
     expect(GLOSSARY.dismissReason).toBe('기각 사유');
-    expect(GLOSSARY.applyPublicUpdate).toBe('공개 업데이트 적용');
+    expect(GLOSSARY.applyPublicUpdate).toBe('담당자 답변 적용');
     expect(GLOSSARY.owner).toBe('담당자');
     expect(GLOSSARY.start).toBe('시작일');
     expect(GLOSSARY.target).toBe('목표일');

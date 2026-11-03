@@ -26,7 +26,7 @@ const QUEUE_COPY: Record<QueueId, { title: string; detail: string }> = {
   'released-task-unresolved-voc': {
     title: '배포된 Task · 미해결 VOC',
     detail:
-      'Task는 배포됨이지만 연결된 공개 상태가 해결됨이 아닙니다. 공개 업데이트 검토가 필요합니다.',
+      'Task는 배포됨이지만 연결된 공개 상태가 해결됨이 아닙니다. 담당자 답변 검토가 필요합니다.',
   },
   'bad-outcome-no-followup': {
     title: '후속 조치 없는 부정 성과 설문',

@@ -78,7 +78,7 @@ function ReporterTaskSummary({
           )}
           {summary.last_public_update_at !== undefined && (
             <div className="flex gap-2">
-              <dt>최근 공개 업데이트</dt>
+              <dt>최근 담당자 답변</dt>
               <dd>{formatRelativeTime(summary.last_public_update_at)}</dd>
             </div>
           )}

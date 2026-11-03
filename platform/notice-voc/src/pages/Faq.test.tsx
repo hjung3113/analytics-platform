@@ -32,6 +32,7 @@ describe('FAQ placeholder', () => {
 
   it('tells the user the FAQ is being prepared and links to VOC when it can be opened', () => {
     mount(['notice:view', 'voc:view']);
+    expect(screen.getByText('준비 중입니다')).toBeTruthy();
     expect(screen.getByText('자주 묻는 질문은 준비 중입니다. 궁금한 점은 VOC로 남겨 주세요.')).toBeTruthy();
     expect(screen.getByRole('link', { name: 'VOC 남기기' }).getAttribute('href')).toContain('/voc');
     expect(screen.queryByText(/레지스트리|Context/)).toBeNull();

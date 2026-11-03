@@ -767,12 +767,12 @@ describe('bounded Task board (#1178)', () => {
     mount({ publicUpdate: 'missing', q: 'Task' });
     await screen.findByLabelText('대기 열');
     const bar = screen.getByRole('group', { name: '적용된 필터' });
-    expect(within(bar).getByText('공개 업데이트 없음')).toBeInTheDocument();
+    expect(within(bar).getByText('담당자 답변 없음')).toBeInTheDocument();
     const added = server.boardLists();
     expect(added.every((query) => query.public_update === 'missing' && query.q === 'Task')).toBe(
       true,
     );
-    fireEvent.click(within(bar).getByRole('button', { name: '공개 업데이트 없음 필터 제거' }));
+    fireEvent.click(within(bar).getByRole('button', { name: '담당자 답변 없음 필터 제거' }));
     const call = navigate.mock.calls.at(-1)?.[0];
     expect(call.to).toBe('/tasks');
     expect(

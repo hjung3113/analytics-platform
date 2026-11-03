@@ -34,7 +34,7 @@ export interface DetailPanelHeaderProps {
 const KIND_LABELS: Record<DetailPanelKind, string> = {
   voc: 'VOC',
   finding: 'Finding',
-  task_request: 'Task Request',
+  task_request: 'Task 요청',
   task: 'Task',
   survey: 'Survey',
   cluster: 'Cluster',

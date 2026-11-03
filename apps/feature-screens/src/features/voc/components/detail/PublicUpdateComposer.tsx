@@ -54,7 +54,7 @@
 //   body-only:   nextStatus === voc.reporter_facing_status  →  status field sent unchanged
 //   body+status: nextStatus !== voc.reporter_facing_status  →  new status sent
 //
-// On success: invalidate ['voc', voc.id], clear draft, toast 담당자 답변가 게시되었습니다.
+// On success: invalidate ['voc', voc.id], clear draft, toast 담당자 답변이 게시되었습니다.
 //
 // Error matrix (D-5.6: Callout copy sourced from backend detail.reason, not errorMapper):
 //   reporter_facing_status.invalid_transition → red Callout inline
@@ -202,7 +202,7 @@ export function PublicUpdateComposer({
       // through onChange, so attachmentIds clears along the one path it always
       // travels — clearing it here as well would be a second, silent writer.
       setAttachmentResetToken((n) => n + 1);
-      notifySuccess('담당자 답변가 게시되었습니다.');
+      notifySuccess('담당자 답변이 게시되었습니다.');
       onPosted?.('public');
       focusEditor();
     },

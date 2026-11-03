@@ -373,7 +373,7 @@ describe('Composer flow — integration (C6.3)', () => {
 
     // Success toast fired
     await waitFor(() => {
-      expect(toast.success).toHaveBeenCalledWith('담당자 답변가 게시되었습니다.');
+      expect(toast.success).toHaveBeenCalledWith('담당자 답변이 게시되었습니다.');
     });
   });
 

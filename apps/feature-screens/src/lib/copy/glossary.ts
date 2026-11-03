@@ -35,7 +35,7 @@ export const GLOSSARY = {
   reporterFacingStatus: '공개 상태',
   dismiss: '기각',
   dismissReason: '기각 사유',
-  applyPublicUpdate: '공개 업데이트 적용',
+  applyPublicUpdate: '담당자 답변 적용',
   owner: '담당자',
   start: '시작일',
   target: '목표일',

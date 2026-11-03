@@ -22,7 +22,7 @@ const COVERAGE_BAND_ROW_DESCRIPTIONS = {
   'voc-task': '열린 VOC 중 Task와 연결된 비율입니다.',
   'finding-execution': '활성 Finding 중 실행 항목으로 이어진 비율입니다.',
   'high-followup': '열린 높은 심각도 VOC 중 후속 연결이 있는 비율입니다.',
-  'released-update': 'VOC와 연결된 배포된 Task 중 공개 업데이트가 있는 비율입니다.',
+  'released-update': 'VOC와 연결된 배포된 Task 중 담당자 답변이 있는 비율입니다.',
   'analytics-area': '열린 VOC 중 분석 영역이 지정된 비율입니다.',
 } satisfies Record<CoverageMetricId, string>;
 

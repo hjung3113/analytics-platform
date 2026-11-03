@@ -98,7 +98,7 @@ export function PublicUpdateReviewModal({
       },
       {
         onSuccess: () => {
-          notifySuccess('공개 업데이트 검토를 적용했습니다.');
+          notifySuccess('담당자 답변 검토를 적용했습니다.');
           resetForm();
           onOpenChange(false);
         },
@@ -131,7 +131,7 @@ export function PublicUpdateReviewModal({
     >
       <DialogContent data-testid="public-update-review-modal">
         <DialogHeader>
-          <DialogTitle>공개 업데이트 리뷰</DialogTitle>
+          <DialogTitle>담당자 답변 리뷰</DialogTitle>
           <DialogDescription>
             Task 상태를 자동 반영하지 않습니다. 공개 상태를 직접 선택하세요.
           </DialogDescription>
@@ -176,7 +176,7 @@ export function PublicUpdateReviewModal({
               </Select>
             </div>
             <div className="grid gap-1.5 text-sm">
-              <FieldLabel htmlFor="public-update-review-message">공개 업데이트</FieldLabel>
+              <FieldLabel htmlFor="public-update-review-message">담당자 답변</FieldLabel>
               <Textarea
                 id="public-update-review-message"
                 value={message}

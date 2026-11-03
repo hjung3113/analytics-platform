@@ -11,7 +11,7 @@ export default function Faq() {
   return <PlatformPage description={ko ? '자주 묻는 질문 자리입니다.' : 'The place for frequently asked questions.'}>
     <EmptyState
       icon={<HelpCircle className="size-6" />}
-      title="FAQ"
+      title={ko ? '준비 중입니다' : 'Coming soon'}
       body={ko ? '자주 묻는 질문은 준비 중입니다. 궁금한 점은 VOC로 남겨 주세요.' : 'Frequently asked questions are being prepared. Leave a VOC for anything you want to know.'}
       action={canOpen('voc') ? <Button asChild size="sm" variant="secondary"><PlatformLink href={linkTo('voc')}>{ko ? 'VOC 남기기' : 'Open VOC'}</PlatformLink></Button> : undefined} />
   </PlatformPage>;

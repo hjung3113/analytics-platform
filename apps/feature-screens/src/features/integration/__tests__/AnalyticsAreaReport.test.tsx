@@ -55,7 +55,7 @@ it('renders exact domain links, neutral ratios, unavailable metrics and whole-sy
     screen.getByRole('link', { name: 'Identity Platform · 인증 VOC Task 연결 0/10 · 0%' }),
   ).toBeVisible();
   expect(screen.getByText('실행 연결 10/10 · 100%').closest('a')).toBeNull();
-  expect(screen.getByText('공개 업데이트 해당 없음')).toBeVisible();
+  expect(screen.getByText('담당자 답변 해당 없음')).toBeVisible();
   for (const explanation of screen.getAllByText('현재 권한 범위에서 볼 수 없습니다')) {
     expect(explanation).toHaveClass('sr-only');
     expect(explanation.parentElement).toHaveAttribute('title', '현재 권한 범위에서 볼 수 없습니다');
