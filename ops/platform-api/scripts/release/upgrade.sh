@@ -84,16 +84,16 @@ else
 fi
 
 # Restored installation: the pin file must follow the upgrade (otherwise the next documented start returns the old images).
+# Whether it exists, and the target image ids it will name, are decided ONCE below, under the maintenance lock (restore.sh
+# writes this file under the same lock); HAS_PINS is the only thing the rest of the run looks at.
 PINS_FILE="$(dirname "$COMPOSE_FILE")/docker-compose.restore-$PROJECT.yml"
 PINS_NEW=''
-if [ -f "$PINS_FILE" ]; then
-  PIN_IDS=()
-  for img in "$NEW_BACKEND" "$NEW_MIGRATE" "$NEW_WEB"; do
-    pin_id="$(docker image inspect --format '{{.Id}}' "$img" 2>/dev/null)" && [[ "$pin_id" =~ ^sha256:[A-Za-z0-9]+$ ]] \
-      || bk_die "cannot read the immutable id of $img for the restore pin file $PINS_FILE; nothing was stopped"
-    PIN_IDS+=("$pin_id")
-  done
-fi
+PINS_PRE=''
+HAS_PINS=0
+PIN_IDS=()
+BACKUP_DONE=0
+ROLLBACK_PRINTED=0
+RESTORE_CMD=''
 
 tmp="$(mktemp -d)"
 
@@ -144,10 +144,29 @@ settle_children() { # 0 = nothing started by this run can still be working
   fi
   return 0
 }
+pins_committed() { # the pin swap (mv .new -> pin file) is the commit point: it happened when .new-<ts> is gone after the .pre-<ts> copy was made
+  [ "$HAS_PINS" -eq 1 ] && [ -n "$PINS_PRE" ] && [ -n "$PINS_NEW" ] && [ ! -e "$PINS_NEW" ]
+}
+print_rollback() { # the one place that tells how to go back after a failure past the backup step; printed once
+  [ "$ROLLBACK_PRINTED" -eq 0 ] || return 0
+  ROLLBACK_PRINTED=1
+  bk_log "Rollback: restore the matching data and image pair:"
+  bk_log "   $RESTORE_CMD"
+  if [ "$HAS_PINS" -eq 1 ]; then
+    if pins_committed; then
+      bk_log "   restore pin file $PINS_FILE already names the new images; roll back with mv -f '$PINS_PRE' '$PINS_FILE' together with the image rollback"
+    else
+      bk_log "   restore pin file $PINS_FILE is unchanged (it still names the previous images); start the previous release with it: docker compose -p $PROJECT --env-file <env> -f <compose> -f $PINS_FILE up -d"
+    fi
+  fi
+  [ -z "$PRE_BACKEND" ] || bk_log "   image rollback: docker tag $PRE_BACKEND $BACKEND_REPO:local${PRE_MIGRATE:+; docker tag $PRE_MIGRATE $MIGRATE_REPO:local}${PRE_WEB:+; docker tag $PRE_WEB $WEB_REPO:local}"
+}
 on_exit() {
   local rc=$?
   trap '' INT TERM HUP
   trap - EXIT
+  # Before the swap .new-<ts> is only a temporary file; after it the path no longer exists and the original is the new pin.
+  if [ "$rc" -ne 0 ] && [ "$BACKUP_DONE" -eq 1 ]; then print_rollback; fi
   [ -z "$PINS_NEW" ] || rm -f -- "$PINS_NEW"
   if settle_children; then
     rm -rf -- "${tmp:?}"
@@ -169,6 +188,16 @@ trap 'exit 143' TERM
 trap 'exit 129' HUP
 trap on_exit EXIT
 bk_lock_acquire upgrade
+
+# Pin decision under the lock, before anything is stopped. A failure here still says nothing was stopped.
+if [ -f "$PINS_FILE" ]; then
+  HAS_PINS=1
+  for img in "$NEW_BACKEND" "$NEW_MIGRATE" "$NEW_WEB"; do
+    pin_id="$(docker image inspect --format '{{.Id}}' "$img" 2>/dev/null)" && [[ "$pin_id" =~ ^sha256:[A-Za-z0-9]+$ ]] \
+      || bk_die "cannot read the immutable id of $img for the restore pin file $PINS_FILE; nothing was stopped"
+    PIN_IDS+=("$pin_id")
+  done
+fi
 
 # 1. Compare journals without changing anything.
 bk_log "project $PROJECT: data services up"
@@ -210,6 +239,7 @@ run_child backup env BK_LOCK_TOKEN="$BK_LOCK_OWN_TOKEN" BACKUP_PROJECT="$PROJECT
 BACKUP_DIR="$(tail -n 1 "$tmp/backup.out")"
 [ -d "$BACKUP_DIR" ] || bk_die 'backup.sh did not report a backup directory'
 bash "$BACKUP_SCRIPTS/verify-backup.sh" "$BACKUP_DIR" || bk_die "verification of $BACKUP_DIR failed; nothing was migrated and the backend stays stopped"
+BACKUP_DONE=1
 RESTORE_CMD="BACKUP_ROOT=\"$BACKUP_ROOT\" bash $BACKUP_SCRIPTS/restore.sh \"$BACKUP_DIR\" --project <new-project>"
 
 # 4. Migrate with the new images.
@@ -218,7 +248,7 @@ if [ "$TARGET" != local ]; then
   docker tag "$NEW_MIGRATE" "$MIGRATE_REPO:local"
   docker tag "$NEW_WEB" "$WEB_REPO:local"
 fi
-if [ -f "$PINS_FILE" ]; then
+if [ "$HAS_PINS" -eq 1 ]; then
   # The target ids, for the migrate job and the final start; the restore pin file itself is replaced only after success.
   PINS_NEW="$PINS_FILE.new-$TS"
   bk_write_pins "$PINS_NEW" "${PIN_IDS[0]}" "${PIN_IDS[1]}" "${PIN_IDS[2]}" "Written by upgrade.sh for project $PROJECT (target $TARGET)."
@@ -230,12 +260,8 @@ MIGRATE_MAY_RUN=1
 if ! run_child migrate bk_dc run --rm --no-deps migrate >&2; then
   bk_log 'MIGRATION FAILED. The backend stays stopped.'
   bk_log "1. Inspect what was applied: docker compose -p $PROJECT --env-file <env> -f <compose> exec -T postgres psql -U postgres -d platform -c 'select id, hash, created_at from drizzle.__drizzle_migrations order by id desc limit 5'"
-  bk_log "2. Forward-fix (new image, rerun this script) or restore the matching data and image pair:"
-  bk_log "   $RESTORE_CMD"
-  if [ -f "$PINS_FILE" ]; then
-    bk_log "   restore pin file $PINS_FILE is unchanged (it still names the previous images); start the previous release with it: docker compose -p $PROJECT --env-file <env> -f <compose> -f $PINS_FILE up -d"
-  fi
-  [ -z "$PRE_BACKEND" ] || bk_log "   image rollback: docker tag $PRE_BACKEND $BACKEND_REPO:local${PRE_MIGRATE:+; docker tag $PRE_MIGRATE $MIGRATE_REPO:local}${PRE_WEB:+; docker tag $PRE_WEB $WEB_REPO:local}"
+  bk_log "2. Forward-fix (new image, rerun this script) or go back:"
+  print_rollback
   exit 1
 fi
 MIGRATE_MAY_RUN=0
@@ -251,15 +277,15 @@ while [ "$i" -lt 60 ]; do
 done
 if [ "$ready" -ne 1 ]; then
   bk_log 'backend not ready (200 /health/ready) within 120 s after the upgrade. Read: docker compose ... logs backend'
-  bk_log "   restore the pre-upgrade pair if needed: $RESTORE_CMD"
-  [ ! -f "$PINS_FILE" ] || bk_log "   restore pin file $PINS_FILE is unchanged (it still names the previous images)"
+  print_rollback
   exit 1
 fi
-if [ -f "$PINS_FILE" ]; then
+if [ "$HAS_PINS" -eq 1 ]; then
   PINS_PRE="$PINS_FILE.pre-$TS"
   cp -p -- "$PINS_FILE" "$PINS_PRE"
+  # Commit point: after this mv a failure or signal reports the pin as already on the new images (PINS_NEW stays set; its
+  # absence is the proof).
   mv -f -- "$PINS_NEW" "$PINS_FILE"
-  PINS_NEW=''
   bk_log "restore pin file updated to the new images: $PINS_FILE"
   bk_log "   to roll the pins back: mv -f '$PINS_PRE' '$PINS_FILE' (together with the image rollback)"
 fi

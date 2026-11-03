@@ -54,7 +54,7 @@ daily backup therefore no longer relabels old-schema data.
 and held until the final restart or the failure exit. `upgrade.sh` holds it for the whole run and its nested
 `backup.sh --keep-stopped` continues under it: the owner passes a token to that one child only (never exported), and the
 child accepts it only if the owner file names an `upgrade` whose pid is the child's ancestor, so a copied token admits no
-other run. `restore.sh --replace-live` takes the same lock before it stops the live stack and holds it to the end. A second backup or upgrade exits **3** at once, without stopping or starting
+other run. `restore.sh` takes the lock of its target project before it writes any file (the pin file is shared with `upgrade.sh`) and holds it to the end; with `--replace-live` this is also before the live stack is stopped. A second backup or upgrade exits **3** at once, without stopping or starting
 anything, and prints the holder (operation, since, pid and whether that pid is running). A stale lock (holder pid not running,
 for example after a host crash) is never removed automatically: after checking that no backup or upgrade is running, remove
 the directory the message names. On INT/TERM/HUP `upgrade.sh` stops or waits for its active child (nested backup, migrate
@@ -165,10 +165,10 @@ The nested backup still records the containers' images, so preloaded `:local` ta
 
 **Restored installation (pin file present).** When `docker-compose.restore-<project>.yml` exists next to the compose file,
 steps 4 and 5 never use the old pins: the script writes a temporary pin file with the immutable ids of the target backend,
-migrate and web images (read before anything is stopped) and passes it to the `migrate` job and the final `up -d`. After
+migrate and web images (the pin file's existence and these ids are read once, under the maintenance lock, before anything is stopped) and passes it to the `migrate` job and the final `up -d`. After
 `/health/ready` is 200 it replaces the restore pin file atomically with those ids and keeps the previous one as
 `docker-compose.restore-<project>.yml.pre-<UTC timestamp>` (printed; to roll the pins back, move it over the pin file together
-with the image rollback). On any failure the original pin file is left untouched and the failure output names it. Without a
+with the image rollback). The rename is the commit point. On any failure before it the original pin file is left untouched; on any failure after it (error or signal) the output says the pin file already names the new images and prints `mv -f '<pre>' '<pin>'` for the rollback, to run together with the image rollback. Every failure after the backup prints the same rollback block once (restore command, pin-file state, image rollback tags). Without a
 pin file nothing of this applies.
 
 No down migrations exist. The script never runs a fixture seed or `bootstrap`.

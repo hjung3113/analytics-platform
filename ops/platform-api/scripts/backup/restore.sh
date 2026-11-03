@@ -29,7 +29,7 @@
 #
 # Verification starts the backend with NOTIFICATION_EMAIL_CHANNEL=mock and blank SMTP_* (temporary override, not the kept
 # pin file); the switch-over start uses the operator's real settings. A missing backend/migrate/web image is always refused.
-# --replace-live holds the maintenance lock (stop of the live stack to the end).
+# Every restore holds the target project's maintenance lock from before the first file is written to the end.
 #
 # Environment: RESTORE_CONFIRM, RESTORE_LIVE_PROJECT (default platform-api), RESTORE_IMAGE_MISMATCH_OK, BACKUP_MC_IMAGE,
 # BACKUP_BACKEND_IMAGE / BACKUP_MIGRATE_IMAGE / BACKUP_WEB_IMAGE (default platform-release-{backend,migrate,web}:local),
@@ -176,12 +176,12 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 trap 'exit 129' HUP
 trap fail_hint EXIT
-# A refused concurrent run exits here (3) before any file naming the project is written, so it cannot touch the holder's
-# pin or override files. The cleanup trap above removes only files this invocation wrote (PINS_FILE is set after the lock).
-if [ "$IS_LIVE" -eq 1 ]; then
-  # The live stack is replaced: no backup or upgrade may run (or start) on it until this restore has finished.
-  bk_lock_acquire restore
-fi
+# The maintenance lock of the TARGET project is taken for every restore (not only --replace-live): the pin file
+# docker-compose.restore-<project>.yml is shared state with upgrade.sh, which decides on it under the same lock. A refused
+# concurrent run exits here (3) before any file naming the project is written, so it cannot touch the holder's pin or
+# override files. The cleanup trap above removes only files this invocation wrote (PINS_FILE is set after the lock).
+# For --replace-live the live stack is replaced: no backup or upgrade may run (or start) on it until this restore has finished.
+bk_lock_acquire restore
 umask 077
 TMP="$BACKUP_DIR/../.restore-tmp-$PROJECT-$$"
 mkdir -p "$TMP" && chmod 700 "$TMP"

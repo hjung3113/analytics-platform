@@ -405,6 +405,7 @@ case "$*" in
 "image inspect --format"*) echo sha256:imageid; exit 0 ;;
 "image inspect"*) case "$*" in *"\${STUB_MISSING_IMAGE:-@@none@@}"*) exit 1 ;; esac; exit 0 ;;
 "tag "*) exit 0 ;;
+*" up -d") exit "\${STUB_UP_RC:-0}" ;;
 "inspect --format {{.State.ExitCode}}"*) echo 0; exit 0 ;;
 "inspect --format {{.Image}} cid-"*) echo "sha256:c\${4#cid-}"; exit 0 ;;
 "inspect --format"*) echo sha256:oldimage; exit 0 ;;
@@ -679,6 +680,7 @@ describe('restore.sh image pair and cleanup (stub docker)', () => {
         PATH: `${bin}:${process.env.PATH}`,
         STUB_BACKUP_DIR: dir,
         STUB_CAPTURE_DIR: capture,
+        BACKUP_MAINTENANCE_DIR: tmp(),
         ...extraEnv,
       },
     );
@@ -1049,6 +1051,7 @@ describe('OPS-04 restore: journal check always, images pinned (stub docker)', ()
         PATH: `${bin}:${process.env.PATH}`,
         STUB_BACKUP_DIR: dir,
         STUB_CAPTURE_DIR: capture,
+        BACKUP_MAINTENANCE_DIR: tmp(),
         ...extraEnv,
       },
     );
@@ -1492,6 +1495,7 @@ describe('b10b restore: web image, verification isolation, --replace-live lock (
         PATH: `${bin}:${process.env.PATH}`,
         STUB_BACKUP_DIR: dir,
         STUB_CAPTURE_DIR: capture,
+        BACKUP_MAINTENANCE_DIR: tmp(),
         ...extraEnv,
       },
     );
@@ -1579,6 +1583,22 @@ describe('b10b restore: web image, verification isolation, --replace-live lock (
     );
     assert.ok(existsSync(join(maint, 'platform-api.lock', 'owner')), 'the holder lock stays');
   });
+  test("a restore into a non-live project is refused (exit 3) while that project's lock is held, and writes no pin file", () => {
+    const maint = tmp();
+    mkdirSync(join(maint, 'restored.lock'));
+    writeFileSync(
+      join(maint, 'restored.lock', 'owner'),
+      `pid=${process.pid}\ntoken=x\noperation=upgrade\nsince=2026-01-01T03:15:00Z\n`,
+    );
+    const composeDir = tmp();
+    const r = restoreRun({ BACKUP_MAINTENANCE_DIR: maint }, { composeDir });
+    assert.equal(r.code, 3, r.err);
+    assert.match(r.err, /another maintenance operation holds/);
+    assert.equal(r.pinsKept, false);
+    assert.deepEqual(readdirSync(composeDir), ['docker-compose.production.yml']);
+    assert.equal(r.calls.findIndex(anyStart), -1);
+    assert.ok(existsSync(join(maint, 'restored.lock', 'owner')), 'the holder lock stays');
+  });
   test('--replace-live holds the maintenance lock while the live stack is stopped, to the end', () => {
     const maint = tmp();
     const probe = join(tmp(), 'lock.log');
@@ -1638,7 +1658,7 @@ describe('b10b restore: web image, verification isolation, --replace-live lock (
 // started (no pin files, no .maintenance lock directory, no stray backup).
 describe('b10b FIX3 upgrade owns the restore pin file (stub docker)', () => {
   const OLD_PINS = '# old pins\nservices:\n  backend:\n    image: sha256:old\n';
-  function pinned(target, { pins = true, extraEnv = {} } = {}) {
+  function pinned(target, { pins = true, extraEnv = {}, extraBin = '' } = {}) {
     const bin = tmp();
     const log = join(tmp(), 'calls.log');
     writeStub(bin, log);
@@ -1650,7 +1670,7 @@ describe('b10b FIX3 upgrade owns the restore pin file (stub docker)', () => {
     const pinFile = join(dir, 'docker-compose.restore-platform-api.yml');
     if (pins) writeFileSync(pinFile, OLD_PINS);
     const r = run('bash', [UPGRADE, target, '--env-file', envFile, '--compose-file', compose], {
-      PATH: `${bin}:${process.env.PATH}`,
+      PATH: `${extraBin ? `${extraBin}:` : ''}${bin}:${process.env.PATH}`,
       STUB_DISTINCT_IDS: '1',
       BACKUP_ROOT: tmp(),
       ...extraEnv,
@@ -1700,6 +1720,57 @@ describe('b10b FIX3 upgrade owns the restore pin file (stub docker)', () => {
     assert.deepEqual(r.pre, []);
     assert.ok(!r.files.some((f) => f.includes('.new-')), r.files.join(','));
     assert.match(r.err, /restore pin file \S+ is unchanged/);
+  });
+
+  const upgradeRollbackLines = (err) =>
+    err.split('\n').filter((l) => /Rollback|image rollback|restore.sh/.test(l));
+
+  test('up -d failing: nonzero, the pin is unchanged, and the output names the pin, the restore and the image rollback once', () => {
+    const r = pinned('v2', { extraEnv: { STUB_UP_RC: '1' } });
+    assert.notEqual(r.code, 0);
+    assert.equal(r.pins, OLD_PINS);
+    assert.deepEqual(r.pre, []);
+    assert.ok(!r.files.some((f) => f.includes('.new-')), r.files.join(','));
+    assert.match(r.err, /restore pin file \S+ is unchanged/);
+    assert.match(r.err, /restore\.sh/);
+    assert.match(r.err, /image rollback: docker tag \S+pre-/);
+    assert.equal(r.err.split('Rollback: restore').length, 2, 'printed exactly once');
+    assert.equal(upgradeRollbackLines(r.err).filter((l) => /image rollback/.test(l)).length, 1);
+  });
+
+  test('a signal right after the pin swap: the output says the pin already names the new images and the .pre copy exists', () => {
+    const bin = tmp();
+    const real = '/bin/mv';
+    // The real mv, then TERM to the upgrade script (the parent of mv): the trap runs after mv returned.
+    writeFileSync(
+      join(bin, 'mv'),
+      `#!/usr/bin/env bash\n${real} "$@" || exit $?\ncase "$*" in *.yml.new-*) kill -TERM "$PPID" ;; esac\n`,
+    );
+    chmodSync(join(bin, 'mv'), 0o755);
+    const r = pinned('v2', { extraBin: bin });
+    assert.equal(r.code, 143, r.err);
+    assert.match(r.err, /already names the new images; roll back with mv -f '\S+\.pre-\S+' '\S+'/);
+    assert.doesNotMatch(r.err, /is unchanged/);
+    assert.match(r.pins, /sha256:idplatformreleasebackend/);
+    assert.equal(r.pre.length, 1);
+    assert.equal(readFileSync(join(dirname(r.pinFile), r.pre[0]), 'utf8'), OLD_PINS);
+  });
+
+  test('the pin decision is made under the lock: a held lock refuses (exit 3) before any image id is read', () => {
+    const maint = tmp();
+    mkdirSync(join(maint, 'platform-api.lock'));
+    writeFileSync(
+      join(maint, 'platform-api.lock', 'owner'),
+      `pid=${process.pid}\ntoken=x\noperation=restore\nsince=2026-01-01T03:15:00Z\n`,
+    );
+    const r = pinned('v2', { extraEnv: { BACKUP_MAINTENANCE_DIR: maint } });
+    assert.equal(r.code, 3, r.err);
+    assert.equal(
+      r.calls.findIndex((c) => /image inspect --format \{\{\.Id\}\}/.test(c)),
+      -1,
+      'no image id was read before the lock',
+    );
+    assert.equal(r.pins, OLD_PINS);
   });
 
   test('no pin file: no pin option anywhere and no pin file is created', () => {
