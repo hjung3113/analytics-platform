@@ -1738,6 +1738,14 @@ describe('b10b FIX3 upgrade owns the restore pin file (stub docker)', () => {
     assert.equal(upgradeRollbackLines(r.err).filter((l) => /image rollback/.test(l)).length, 1);
   });
 
+  test('a failure after a migration was applied never tells the operator to start the previous images from the pin file', () => {
+    const r = pinned('v2', { extraEnv: { STUB_UP_RC: '1' } });
+    assert.notEqual(r.code, 0);
+    assert.match(r.err, /pending in the target image: [1-9]/, 'fixture must have a pending migration');
+    assert.doesNotMatch(r.err, /start the previous release with it/);
+    assert.match(r.err, /Do NOT start \S+ with it: its database is already migrated/);
+  });
+
   test('a signal right after the pin swap: the output says the pin already names the new images and the .pre copy exists', () => {
     const bin = tmp();
     const real = '/bin/mv';

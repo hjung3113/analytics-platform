@@ -177,7 +177,7 @@ No down migrations exist. The script never runs a fixture seed or `bootstrap`.
 order by id desc limit 5` (inside the postgres container). Migrations are applied in order; a failed one is not recorded. Then:
 
 - *Forward-fix:* correct the cause (a data problem, a fixed image) and run `upgrade.sh` again; it takes a new backup first.
-- *Restore the matched set:* retag the `:pre-<ts>` images (backend, migrate, web) to `:local` (a restored installation keeps using its unchanged pin file) and `restore.sh` the backup the upgrade printed, as above.
+- *Restore the matched set:* retag the `:pre-<ts>` images (backend, migrate, web) to `:local` (a restored installation must not start the previous images from its unchanged pin file once any pending migration was applied: restore the backup into a new project, which writes that project's own pin file; the script prints which case applies) and `restore.sh` the backup the upgrade printed, as above.
 - The identity cutover is resumable only for its own case (pre-0076 → platform identity) and not part of this script.
 
 Do not start the backend by hand on a partially migrated database.

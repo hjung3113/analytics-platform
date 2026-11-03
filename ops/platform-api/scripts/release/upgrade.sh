@@ -93,6 +93,8 @@ HAS_PINS=0
 PIN_IDS=()
 BACKUP_DONE=0
 ROLLBACK_PRINTED=0
+MIGRATE_STARTED=0
+MIGRATED=0
 RESTORE_CMD=''
 
 tmp="$(mktemp -d)"
@@ -155,6 +157,12 @@ print_rollback() { # the one place that tells how to go back after a failure pas
   if [ "$HAS_PINS" -eq 1 ]; then
     if pins_committed; then
       bk_log "   restore pin file $PINS_FILE already names the new images; roll back with mv -f '$PINS_PRE' '$PINS_FILE' together with the image rollback"
+    elif [ "$MIGRATED" -eq 1 ]; then
+      # The database of $PROJECT already has migrations the previous images do not know: starting them on it is the
+      # mismatch the pin file exists to prevent.
+      bk_log "   restore pin file $PINS_FILE is unchanged (it still names the previous images). Do NOT start $PROJECT with it: its database is already migrated. Go back by restoring the backup above into a new project (restore.sh writes that project's own pin file)."
+    elif [ "$MIGRATE_STARTED" -eq 1 ]; then
+      bk_log "   restore pin file $PINS_FILE is unchanged (it still names the previous images). Start $PROJECT with it only if step 1 shows none of the $pending pending migration(s) applied: docker compose -p $PROJECT --env-file <env> -f <compose> -f $PINS_FILE up -d; otherwise restore the backup above into a new project."
     else
       bk_log "   restore pin file $PINS_FILE is unchanged (it still names the previous images); start the previous release with it: docker compose -p $PROJECT --env-file <env> -f <compose> -f $PINS_FILE up -d"
     fi
@@ -257,6 +265,7 @@ if [ "$HAS_PINS" -eq 1 ]; then
 fi
 bk_log 'running the migrate job'
 MIGRATE_MAY_RUN=1
+MIGRATE_STARTED=1
 if ! run_child migrate bk_dc run --rm --no-deps migrate >&2; then
   bk_log 'MIGRATION FAILED. The backend stays stopped.'
   bk_log "1. Inspect what was applied: docker compose -p $PROJECT --env-file <env> -f <compose> exec -T postgres psql -U postgres -d platform -c 'select id, hash, created_at from drizzle.__drizzle_migrations order by id desc limit 5'"
@@ -265,6 +274,7 @@ if ! run_child migrate bk_dc run --rm --no-deps migrate >&2; then
   exit 1
 fi
 MIGRATE_MAY_RUN=0
+[ "$pending" = 0 ] || MIGRATED=1
 
 # 5. Start and check readiness.
 bk_log 'starting the stack'
