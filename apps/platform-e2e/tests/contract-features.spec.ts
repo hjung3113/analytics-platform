@@ -225,6 +225,7 @@ test.describe('기능 진입 링크 회귀(#451, 06 §22)', () => {
     await expect.poll(() => new URL(page.url()).pathname).toBe('/flow/dashboard');
     await expect(page.getByRole('navigation', { name: /^기능/ })).toHaveCount(0);
     await expect(await feedbackOpsOverallLink(page)).toHaveCount(0);
+    await page.keyboard.press('Escape'); // the user menu hides the rail while open
     await chooseSystem(page, '운영 콘솔');
     await expect.poll(() => new URL(page.url()).pathname).toBe('/operations/admin-roles');
     await expect(page.getByRole('navigation', { name: /^기능/ })).toHaveCount(0);
