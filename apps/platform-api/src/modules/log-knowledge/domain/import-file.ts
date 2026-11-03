@@ -169,18 +169,30 @@ async function checkZipBudgets(bytes: Uint8Array): Promise<ImportFileRefusal | n
   for (const entry of entries) {
     let entryBytes = 0;
     const outcome = await new Promise<ImportFileRefusal | null>((resolve) => {
-      const stream = (entry as StreamableEntry).internalStream('uint8array');
+      let stopped = false;
+      let stream: EntryStream | null = (entry as StreamableEntry).internalStream('uint8array');
       stream
         .on('data', (chunk: Uint8Array) => {
+          if (stopped) return;
           entryBytes += chunk.byteLength;
           total += chunk.byteLength;
           if (entryBytes > IMPORT_ZIP_MAX_ENTRY_BYTES || total > IMPORT_ZIP_MAX_TOTAL_BYTES) {
-            stream.pause();
+            // Bound: the pako call already running finishes its current compressed block (JSZip feeds at most
+            // 16 KiB of compressed input per block); that output is only counted, never kept. No further block is
+            // read: the stream is paused, its handlers turn inert (JSZip has no way to remove them) and the
+            // reference is dropped.
+            stopped = true;
+            stream?.pause();
+            stream = null;
             resolve('file_too_large');
           }
         })
-        .on('error', () => resolve('unreadable'))
-        .on('end', () => resolve(null))
+        .on('error', () => {
+          if (!stopped) resolve('unreadable');
+        })
+        .on('end', () => {
+          if (!stopped) resolve(null);
+        })
         .resume();
     });
     if (outcome) return outcome;
@@ -214,13 +226,17 @@ async function parseXlsxBytes(bytes: Uint8Array): Promise<ParsedImportFile> {
   try {
     sheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
       if (rowNumber > IMPORT_MAX_SHEET_ROW) throw new ImportLimit('too_many_rows');
-      if (rowNumber > 1) {
+      let populated = false;
+      row.eachCell({ includeEmpty: false }, (cell, col) => {
+        if (col > width && hasContent(cell)) width = col;
+        const read = readCell(cell);
+        if (read.error || read.text !== '') populated = true;
+      });
+      // Same empty-row rule as the row loop below: a row of empty strings never counts toward the limit.
+      if (rowNumber > 1 && populated) {
         dataRows.push(row);
         if (dataRows.length > IMPORT_MAX_ROWS) throw new ImportLimit('too_many_rows');
       }
-      row.eachCell({ includeEmpty: false }, (cell, col) => {
-        if (col > width && hasContent(cell)) width = col;
-      });
     });
   } catch (err) {
     if (err instanceof ImportLimit) return refuse(err.code);

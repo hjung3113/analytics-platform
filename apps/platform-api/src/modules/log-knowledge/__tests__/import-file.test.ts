@@ -170,6 +170,20 @@ describe('import file: xlsx', () => {
     expect(await parseImportFile(await book(IMPORT_MAX_ROWS + 1), 'v.xlsx')).toMatchObject({ ok: false, code: 'too_many_rows' });
   });
 
+  it('does not count rows of empty-string cells toward the 5,000 data-row limit', async () => {
+    const book = (populated: number) =>
+      xlsx((wb) => {
+        const ws = wb.addWorksheet('s');
+        ws.addRow(['a']);
+        for (let i = 0; i < populated; i += 1) ws.addRow([`r${i}`]);
+        for (let i = 0; i < 3; i += 1) ws.addRow(['']);
+      });
+    const ok = await parseImportFile(await book(IMPORT_MAX_ROWS), 'v.xlsx');
+    expect(ok).toMatchObject({ ok: true });
+    if (ok.ok) expect(ok.rows).toHaveLength(IMPORT_MAX_ROWS);
+    expect(await parseImportFile(await book(IMPORT_MAX_ROWS + 1), 'v.xlsx')).toMatchObject({ ok: false, code: 'too_many_rows' });
+  });
+
   it('accepts exactly 50 columns and refuses a populated 51st as too_many_columns', async () => {
     const names = (n: number) => Array.from({ length: n }, (_, i) => `c${i}`);
     const book = (header: number, data: number) =>
