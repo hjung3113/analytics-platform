@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { fetchSpaceLinks } from '@ap/feature-bridge';
 import { createSpaceSystemsStore, linkedSystemOf, platformSystemOf, type SpaceSystems } from './space-systems';
 
 const A = '4f1b2c3d-5e6f-4a7b-8c9d-0e1f2a3b4c5d';
@@ -9,7 +10,7 @@ const data = (spaceId: string, managedSystemId: string, declared = true, platfor
 /** A source whose answers the test settles by hand, in any order. */
 function deferred() {
   const calls: { resolve: (value: SpaceSystems) => void; reject: (error: unknown) => void }[] = [];
-  const source = vi.fn(() => new Promise<SpaceSystems>((resolve, reject) => { calls.push({ resolve, reject }); }));
+  const source = vi.fn((_signal?: AbortSignal) => new Promise<SpaceSystems>((resolve, reject) => { calls.push({ resolve, reject }); }));
   return { source, calls };
 }
 const flush = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
@@ -167,5 +168,63 @@ describe('space-systems store lifecycle (#1289 node j)', () => {
     expect(store.getSnapshot()).toEqual({ status: 'pending', data: null });
     store.refresh();
     expect(source).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('superseded requests carry cancellation (a 401 of an obsolete request has no side effect)', () => {
+  it('aborts the previous request on a session change, a refresh and reset', () => {
+    const store = createSpaceSystemsStore();
+    const { source } = deferred();
+    store.start(['s1'], source);
+    const first = source.mock.calls[0]![0]!;
+    store.start(['s2'], source);
+    expect(first.aborted).toBe(true);
+    const second = source.mock.calls[1]![0]!;
+    store.refresh();
+    expect(second.aborted).toBe(true);
+    const third = source.mock.calls[2]![0]!;
+    expect(third.aborted).toBe(false);
+    store.reset();
+    expect(third.aborted).toBe(true);
+  });
+
+  it('a 401 for the superseded session answered after the replacement succeeded does not redirect', async () => {
+    const onSessionLost = vi.fn();
+    const api = { basePath: '/api/features', onSessionLost };
+    const releases: (() => void)[] = [];
+    vi.stubGlobal('fetch', vi.fn((_url: string, init?: RequestInit) => {
+      const first = releases.length === 0;
+      return new Promise<Response>((resolve) => {
+        releases.push(() => resolve(first
+          ? new Response('{}', { status: 401 })
+          : new Response(JSON.stringify({ items: [], platform_managed_system_id: null }), { status: 200 })));
+        void init;
+      });
+    }));
+    try {
+      const store = createSpaceSystemsStore();
+      const source = (signal: AbortSignal) => fetchSpaceLinks(api, signal);
+      store.start(['s1'], source);
+      store.start(['s2'], source);
+      releases[1]!();
+      await flush();
+      expect(store.getSnapshot().status).toBe('ready');
+      releases[0]!(); // the earlier session's request answers 401 last
+      await flush();
+      expect(onSessionLost).not.toHaveBeenCalled();
+      expect(store.getSnapshot().status).toBe('ready');
+    } finally { vi.unstubAllGlobals(); }
+  });
+
+  it('a 401 for the current request still reaches the host callback', async () => {
+    const onSessionLost = vi.fn();
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 401 })));
+    try {
+      const store = createSpaceSystemsStore();
+      store.start(['s1'], (signal) => fetchSpaceLinks({ basePath: '/api/features', onSessionLost }, signal));
+      await flush();
+      expect(onSessionLost).toHaveBeenCalledTimes(1);
+      expect(store.getSnapshot().status).toBe('failed');
+    } finally { vi.unstubAllGlobals(); }
   });
 });

@@ -131,5 +131,16 @@ describe('시스템 screen', () => {
     mountAt('/operations/systems');
     await waitFor(() => expect(onSessionLost).toHaveBeenCalled(), LAZY_MOUNT_WAIT);
   });
+
+  it('a 401 goes through the shared session handling: expiry state shown and feature cache empty by the time the host callback runs', async () => {
+    let cacheAtRedirect: number | null = null;
+    const onSessionLost = withApi(vi.fn(() => { cacheAtRedirect = featureQueryClient.getQueryCache().getAll().length; }));
+    stub({ links: () => json({ code: 'auth.unauthenticated', message: 'x' }, 401) });
+    mountAt('/operations/systems');
+    expect(await screen.findByText('세션이 만료되었습니다', {}, LAZY_MOUNT_WAIT)).toBeTruthy();
+    expect(screen.queryByRole('table')).toBeNull();
+    expect(onSessionLost).toHaveBeenCalledTimes(1);
+    expect(cacheAtRedirect).toBe(0);
+  });
 });
 

@@ -46,6 +46,14 @@ describe('fetchSpaceLinks', () => {
     await expect(fetchSpaceLinks(api)).rejects.toMatchObject({ status: 401 });
     expect(onSessionLost).toHaveBeenCalledTimes(1);
   });
+  it('a 401 answered after the request was aborted (superseded) neither redirects nor retires', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => json({ code: 'auth.unauthenticated', message: 'x' }, 401)));
+    const controller = new AbortController();
+    const read = fetchSpaceLinks(api, controller.signal);
+    controller.abort();
+    await expect(read).rejects.toBeDefined();
+    expect(onSessionLost).not.toHaveBeenCalled();
+  });
   it.each([[500], [403]])('a %s is a failed read without a sign-in redirect', async (status) => {
     vi.stubGlobal('fetch', vi.fn(async () => json({ code: 'x', message: 'x' }, status)));
     await expect(fetchSpaceLinks(api)).rejects.toMatchObject({ status });

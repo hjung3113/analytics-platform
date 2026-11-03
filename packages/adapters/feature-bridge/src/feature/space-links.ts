@@ -1,4 +1,5 @@
 import type { FeatureApi } from '../feature-api';
+import { unauthorizedReporter } from './session';
 
 /**
  * The server reads behind the app's space→system links and the 운영 콘솔 「시스템」 screen (#1289 node j, ADR-0110 decision 5).
@@ -39,6 +40,7 @@ export function parseSpaceLinks(data: unknown): SpaceLinks {
 }
 
 async function getJson(api: FeatureApi, path: string, signal?: AbortSignal): Promise<unknown> {
+  const reportUnauthorized = unauthorizedReporter(api);
   let response: Response;
   try {
     response = await fetch(api.basePath + path, { method: 'GET', credentials: 'include', headers: { Accept: 'application/json' }, ...(signal ? { signal } : {}) });
@@ -46,7 +48,12 @@ async function getJson(api: FeatureApi, path: string, signal?: AbortSignal): Pro
     if (signal?.aborted) throw error;
     throw new FeatureReadError(0, 'network failure');
   }
-  if (response.status === 401) { api.onSessionLost(); throw new FeatureReadError(401, 'unauthorized'); }
+  if (response.status === 401) {
+    // A superseded request (aborted) never redirects or retires; a current one goes through the bridge's shared, generation-aware handling.
+    if (signal?.aborted) throw signal.reason ?? new DOMException('aborted', 'AbortError');
+    reportUnauthorized();
+    throw new FeatureReadError(401, 'unauthorized');
+  }
   if (!response.ok) throw new FeatureReadError(response.status, `HTTP ${response.status}`);
   try { return await response.json(); } catch { throw new FeatureReadError(0, 'body is not JSON'); }
 }

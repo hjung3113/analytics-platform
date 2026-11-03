@@ -12,7 +12,7 @@ import type { SpaceLinks } from '@ap/feature-bridge';
  */
 export type SpaceSystems = SpaceLinks;
 /** Loads the links; the assembly supplies it (the real one reads the feature API, the mock one answers fixed data). */
-export type SpaceSystemsSource = () => Promise<SpaceSystems>;
+export type SpaceSystemsSource = (signal: AbortSignal) => Promise<SpaceSystems>;
 export type SpaceSystemsStatus = 'pending' | 'ready' | 'failed';
 export type SpaceSystemsSnapshot = { readonly status: SpaceSystemsStatus; readonly data: SpaceSystems | null };
 
@@ -25,6 +25,7 @@ export function createSpaceSystemsStore() {
   let session: readonly unknown[] | null = null;
   let source: SpaceSystemsSource | null = null;
   let ticket = 0;
+  let inflight: AbortController | null = null;
   const listeners = new Set<() => void>();
 
   function publish(next: SpaceSystemsSnapshot): void {
@@ -34,10 +35,14 @@ export function createSpaceSystemsStore() {
 
   function load(): void {
     const mine = ++ticket;
+    // A superseded request is cancelled so its late answer (a 401 included) can cause no side effect.
+    inflight?.abort();
+    const controller = new AbortController();
+    inflight = controller;
     const current = source;
     if (current === null) { publish({ status: 'ready', data: EMPTY }); return; }
     let answer: Promise<SpaceSystems>;
-    try { answer = current(); } catch (error) { answer = Promise.reject(error); }
+    try { answer = current(controller.signal); } catch (error) { answer = Promise.reject(error); }
     answer.then(
       (data) => { if (mine === ticket) publish({ status: 'ready', data }); },
       // A failed refresh keeps the links already in hand; only a load with nothing to show is `failed`.
@@ -63,7 +68,7 @@ export function createSpaceSystemsStore() {
     /** The next open of the VOC form retries a failed load. */
     retryIfFailed(): void { if (snapshot.status === 'failed') { publish({ status: 'pending', data: null }); load(); } },
     /** Forget the session (sign-out): data cleared, in-flight results ignored. */
-    reset(): void { ticket += 1; session = null; source = null; publish({ status: 'pending', data: null }); },
+    reset(): void { ticket += 1; inflight?.abort(); inflight = null; session = null; source = null; publish({ status: 'pending', data: null }); },
   };
 }
 

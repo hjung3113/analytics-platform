@@ -22,6 +22,24 @@ const subscribeRetired = (listener: () => void): (() => void) => {
 };
 const readRetired = (): number | null => retiredEpoch;
 
+/** The unauthorized handler of the generation configured last (`null` until a feature session mounted). Written only inside the layout effect. */
+type Active = { fire: () => void };
+let active: Active | null = null;
+
+/**
+ * For reads outside React Query's configured client (the space-links transport): captured when a request STARTS, the returned function runs the
+ * shared unauthorized handling (retire subtrees, clear the cache, then the host redirect) only while that same generation is still the current one.
+ * A request that began under an older generation (or before any feature session, and a session has started since) does nothing. With no feature
+ * session mounted at all it falls back to the host's own `onSessionLost`.
+ */
+export function unauthorizedReporter(api: { onSessionLost: () => void }): () => void {
+  const bound = active;
+  return () => {
+    if (bound !== active) return;
+    if (bound === null) api.onSessionLost(); else bound.fire();
+  };
+}
+
 const sameGeneration = (a: Generation, b: Generation): boolean => a.adapter === b.adapter && a.revision === b.revision && a.userId === b.userId;
 
 export type FeatureSession = { status: 'no-api' } | { status: 'pending' } | { status: 'retired' } | { status: 'ready'; epoch: number };
@@ -46,16 +64,15 @@ export function useFeatureSession(): FeatureSession {
       lastReady = { ...current, epoch: (lastReady?.epoch ?? 0) + 1 };
     }
     const epoch = lastReady.epoch;
-    configureApiClient({
-      basePath: api.basePath,
-      onUnauthorized: () => {
-        // Retire every subtree and the cache first: the host's login redirect can take a while, and the previous session's rows must not stay on screen.
-        retiredEpoch = epoch;
-        for (const listener of [...retiredListeners]) listener();
-        featureQueryClient.clear();
-        api.onSessionLost();
-      },
-    });
+    const fire = () => {
+      // Retire every subtree and the cache first: the host's login redirect can take a while, and the previous session's rows must not stay on screen.
+      retiredEpoch = epoch;
+      for (const listener of [...retiredListeners]) listener();
+      featureQueryClient.clear();
+      api.onSessionLost();
+    };
+    active = { fire };
+    configureApiClient({ basePath: api.basePath, onUnauthorized: fire });
     setReady(lastReady);
   }, [api, adapter, revision, userId]);
 
