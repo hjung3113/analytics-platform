@@ -388,27 +388,37 @@ export async function findIdentity(
   return row ?? null;
 }
 
-export async function insertIdentity(
+/**
+ * Claims the identity key for `targetId` in one statement (`ON CONFLICT DO NOTHING`), so two jobs racing for the same
+ * key cannot raise a unique violation. `accepted_by/at` are the stored resolution's `resolved_by/at` (the person who
+ * decided the mapping); created_by/updated_by are the caller who applies it. `claimed` is false when a mapping for the
+ * key already exists: `existing` is then the winner (a concurrent claim is waited for until it commits).
+ */
+export async function claimIdentity(
   tx: Tx,
   workspaceId: string,
   actorId: string,
+  jobId: string,
+  rowNo: number,
   sourceType: CatalogKind,
   externalKey: string,
   targetId: string,
-): Promise<void> {
-  await tx.insert(externalIdentityMaps).values({
-    workspaceId,
-    sourceSystem: IDENTITY_SOURCE_SYSTEM,
-    sourceType,
-    externalKey,
-    targetKind: sourceType,
-    targetId,
-    mappingState: 'accepted',
-    acceptedBy: actorId,
-    acceptedAt: sql`now()`,
-    createdBy: actorId,
-    updatedBy: actorId,
-  });
+): Promise<{ claimed: true } | { claimed: false; existing: IdentityRow }> {
+  const inserted = await tx.execute(sql`
+    INSERT INTO knowledge.external_identity_map
+      (workspace_id, source_system, source_type, external_key, target_kind, target_id, mapping_state,
+       accepted_by, accepted_at, created_by, updated_by)
+    SELECT r.workspace_id, ${IDENTITY_SOURCE_SYSTEM}, ${sourceType}, ${externalKey}, ${sourceType}, ${targetId}::uuid,
+           'accepted', r.resolved_by, r.resolved_at, ${actorId}::uuid, ${actorId}::uuid
+    FROM knowledge.catalog_import_resolution r
+    WHERE r.workspace_id = ${workspaceId}::uuid AND r.job_id = ${jobId}::uuid AND r.row_no = ${rowNo}
+    ON CONFLICT DO NOTHING
+    RETURNING id
+  `);
+  if (inserted.rows.length > 0) return { claimed: true };
+  const existing = await findIdentity(tx, workspaceId, sourceType, externalKey);
+  if (!existing) throw new Error('catalog import identity claim neither inserted nor found');
+  return { claimed: false, existing };
 }
 
 // ---- report ---------------------------------------------------------------------------------------------------

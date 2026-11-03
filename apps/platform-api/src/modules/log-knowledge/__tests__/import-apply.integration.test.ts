@@ -5,7 +5,7 @@
 import { randomUUID } from 'node:crypto';
 
 import type { FastifyInstance } from 'fastify';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { loadConfig } from '../../../config.js';
 import { type DbHandle, createDb } from '../../../db/client.js';
@@ -119,10 +119,10 @@ describe.skipIf(!runIntegration)('catalog import resolve and apply (#1195 b)', (
   const jobRow = async (id: string) => (await sql('select * from knowledge.catalog_import_job where id = $1', [id])).rows[0] as Record<string, unknown>;
 
   /** Upload, map and validate: returns the job id. */
-  async function stage(entity: string, content: string, mapping: Record<string, string>): Promise<string> {
-    const jobId = await upload(entity, content);
-    expect((await act('importMap', { jobId, mapping })).outcome).toBe('ok');
-    expect((await act('importValidate', { jobId })).outcome).toBe('ok');
+  async function stage(entity: string, content: string, mapping: Record<string, string>, who: Person = admin): Promise<string> {
+    const jobId = await upload(entity, content, who);
+    expect((await act('importMap', { jobId, mapping }, who)).outcome).toBe('ok');
+    expect((await act('importValidate', { jobId }, who)).outcome).toBe('ok');
     return jobId;
   }
 
@@ -211,6 +211,12 @@ describe.skipIf(!runIntegration)('catalog import resolve and apply (#1195 b)', (
     );
     otherWorkspace = (await sql('insert into core.workspaces (name) values ($1) returning id', [`${TAG}-ws`])).rows[0].id as string;
     workspaceIds.push(otherWorkspace);
+  });
+
+  // A fresh admin per test: the mutation routes are rate-limited per actor and minute (10), and one admin shared by
+  // all tests runs out of it.
+  beforeEach(async () => {
+    admin = await person('admin');
   });
 
   afterAll(async () => {
@@ -562,6 +568,87 @@ describe.skipIf(!runIntegration)('catalog import resolve and apply (#1195 b)', (
       expect((await rows(jobId))[0]).toMatchObject({ apply_status: 'conflict', apply_error: 'taken' });
       expect(await auditFor(jobId)).toEqual([]);
     });
+
+    it('a grant lost before the failure marking leaves the row non-final and stops the pass with 403; a restored grant resumes', async () => {
+      const owner = await person('admin'); // its own mutation rate-limit window
+      const dev = await person('developer');
+      const grant = () =>
+        sql(
+          `insert into permission.permission_grants (workspace_id, actor_id, capability, managed_system_id, granted_by_actor_id)
+           values ($1, $2, 'knowledge.catalog.import', null, $3)`,
+          [WORKSPACE_ID, dev.id, admin.id],
+        );
+      await grant();
+      const jobId = await stage('vendor', ['code,name', `${code('CF-1')},One`].join('\n'), vendorMapping, owner);
+      hooks = {
+        beforeCommit: async () => {
+          await sql(`delete from permission.permission_grants where actor_id = $1 and capability = 'knowledge.catalog.import'`, [dev.id]);
+          throw new Error('injected');
+        },
+      };
+      try {
+        expect((await apply(jobId, dev)).res.statusCode).toBe(403);
+      } finally {
+        hooks = {};
+      }
+      expect((await rows(jobId))[0]).toMatchObject({ apply_status: null, apply_error: null });
+      expect((await jobRow(jobId)).status).toBe('applying');
+      await grant();
+      expect((await apply(jobId, dev)).body).toMatchObject({ status: 'completed', counts: { applied: 1, failed: 0 } });
+      expect(await vendorBy('CF-1')).toHaveLength(1);
+    });
+
+    it('runs the whole pass on one connection: a pool of 2 serves a runner and a busy caller, a pool of 1 a single apply', async () => {
+      const owner = await person('admin'); // its own mutation rate-limit window
+      const budgets = { poolMax: 2, acquireTimeoutMs: 3000, statementTimeoutMs: 30_000, lockTimeoutMs: 10_000, idleInTransactionTimeoutMs: 30_000 };
+      const small = createDb(APP_URL, { budgets });
+      const tiny = createDb(APP_URL, { budgets: { ...budgets, poolMax: 1 } });
+      const smallApp = await buildServer({ config: loadConfig(), dbHandle: small, logKnowledgeImport: { hooks: delegating } });
+      const tinyApp = await buildServer({ config: loadConfig(), dbHandle: tiny, logKnowledgeImport: { hooks: delegating } });
+      try {
+        await smallApp.ready();
+        await tinyApp.ready();
+        const csv = (label: string) => ['code,name', ...[1, 2].map((i) => `${code(`${label}-${i}`)},Name ${i}`)].join('\n');
+        const jobId = await stage('vendor', csv('PL'), vendorMapping, owner);
+        const single = await stage('vendor', csv('P1'), vendorMapping, owner);
+        let release: () => void = () => undefined;
+        const gate = new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        let reachedFirstRow: () => void = () => undefined;
+        const reached = new Promise<void>((resolve) => {
+          reachedFirstRow = resolve;
+        });
+        hooks = {
+          beforeRow: async (rowNo) => {
+            if (rowNo === 1) {
+              reachedFirstRow();
+              await gate;
+            }
+          },
+        };
+        try {
+          const runner = apply(jobId, owner, smallApp);
+          await reached;
+          const busy = await apply(jobId, owner, smallApp);
+          expect(busy.res.statusCode).toBe(200);
+          expect(busy.body).toMatchObject({ status: 'applying', counts: { applied: 0 }, remaining: 2 });
+          release();
+          expect((await runner).body).toMatchObject({ status: 'completed', counts: { applied: 2 } });
+        } finally {
+          hooks = {};
+          release();
+        }
+        const alone = await apply(single, owner, tinyApp);
+        expect(alone.res.statusCode).toBe(200);
+        expect(alone.body).toMatchObject({ status: 'completed', counts: { applied: 2 } });
+      } finally {
+        await smallApp.close();
+        await tinyApp.close();
+        await small.close();
+        await tiny.close();
+      }
+    });
   });
 
   describe('map: identity map, unmapped fields and scopes', () => {
@@ -572,19 +659,96 @@ describe.skipIf(!runIntegration)('catalog import resolve and apply (#1195 b)', (
       const job1 = await stage('vendor', csv, vendorMapping);
       expect((await act('importResolve', { jobId: job1, resolutions: [{ rowNo: 1, resolution: 'map', mapTargetId: t1 }] })).outcome).toBe('ok');
       expect((await apply(job1)).body).toMatchObject({ status: 'completed', counts: { applied: 1 } });
-      const ids = await identityRows('vendor');
+      const ids = (await identityRows('vendor')).filter((r) => r.external_key === JSON.stringify([key('M-EXT')]));
       expect(ids).toEqual([{ external_key: JSON.stringify([key('M-EXT')]), target_id: t1, mapping_state: 'accepted', accepted_by: admin.id }]);
       expect((await vendorBy('M-T1'))[0]?.name).toBe('Mapped name');
       const audit = await auditFor(job1);
-      expect(audit.map((a) => a.event_type)).toEqual(['knowledge.catalog.updated', 'knowledge.catalog.identity_mapped']);
-      expect(audit[1]).toMatchObject({ subject_id: t1, detail: { sourceSystem: 'catalog_import', sourceType: 'vendor', externalKey: JSON.stringify([key('M-EXT')]) } });
+      // Rows of one transaction share created_at, so the order is by event type, not by position.
+      expect(audit.map((a) => a.event_type).sort()).toEqual(['knowledge.catalog.identity_mapped', 'knowledge.catalog.updated']);
+      expect(audit.find((a) => a.event_type === 'knowledge.catalog.identity_mapped')).toMatchObject({ subject_id: t1, detail: { sourceSystem: 'catalog_import', sourceType: 'vendor', externalKey: JSON.stringify([key('M-EXT')]) } });
 
       const job2 = await stage('vendor', csv, vendorMapping);
       expect((await act('importResolve', { jobId: job2, resolutions: [{ rowNo: 1, resolution: 'map', mapTargetId: t2 }] })).outcome).toBe('ok');
       expect((await apply(job2)).body).toMatchObject({ status: 'partial_failure', counts: { conflict: 1 } });
       expect((await rows(job2))[0]).toMatchObject({ apply_status: 'conflict', apply_error: 'identity_conflict' });
       expect((await vendorBy('M-T2'))[0]).toMatchObject({ name: 'Target two', row_version: 1 });
-      expect(await identityRows('vendor')).toHaveLength(1);
+      expect((await identityRows('vendor')).filter((r) => r.external_key === JSON.stringify([key('M-EXT')]))).toHaveLength(1);
+    });
+
+    it('takes the identity acceptance from the stored resolution, not from the actor who applies', async () => {
+      const resolver = await person('admin');
+      const applier = await person('developer');
+      await sql(
+        `insert into permission.permission_grants (workspace_id, actor_id, capability, managed_system_id, granted_by_actor_id)
+         values ($1, $2, 'knowledge.catalog.import', null, $3)`,
+        [WORKSPACE_ID, applier.id, admin.id],
+      );
+      const target = await seedVendor('PV-T', 'Target');
+      const jobId = await stage('vendor', ['code,name', `${code('PV-EXT')},Mapped by two`].join('\n'), vendorMapping, resolver);
+      expect((await act('importResolve', { jobId, resolutions: [{ rowNo: 1, resolution: 'map', mapTargetId: target }] }, resolver)).outcome).toBe('ok');
+      expect((await apply(jobId, applier)).body).toMatchObject({ status: 'completed', counts: { applied: 1 } });
+      const stored = (
+        await sql(
+          `select i.accepted_by, i.created_by, i.accepted_at = r.resolved_at as same_time
+             from knowledge.external_identity_map i, knowledge.catalog_import_resolution r
+            where r.job_id = $1 and i.workspace_id = $2 and i.source_system = 'catalog_import' and i.external_key = $3`,
+          [jobId, WORKSPACE_ID, JSON.stringify([key('PV-EXT')])],
+        )
+      ).rows;
+      expect(stored).toEqual([{ accepted_by: resolver.id, created_by: applier.id, same_time: true }]);
+      const audit = await sql(`select distinct actor_id from core.audit_log where detail->'source'->>'importJobId' = $1`, [jobId]);
+      expect(audit.rows).toEqual([{ actor_id: applier.id }]);
+    });
+
+    it('two jobs claiming one identity key for different targets at once: one wins, the other is a conflict with no write', async () => {
+      const ownerA = await person('admin'); // own mutation rate-limit windows
+      const ownerB = await person('admin');
+      const t1 = await seedVendor('CC-T1', 'Target one');
+      const t2 = await seedVendor('CC-T2', 'Target two');
+      const csv = ['code,name', `${code('CC-EXT')},Claimed name`].join('\n');
+      const jobA = await stage('vendor', csv, vendorMapping, ownerA);
+      const jobB = await stage('vendor', csv, vendorMapping, ownerB);
+      expect((await act('importResolve', { jobId: jobA, resolutions: [{ rowNo: 1, resolution: 'map', mapTargetId: t1 }] }, ownerA)).outcome).toBe('ok');
+      expect((await act('importResolve', { jobId: jobB, resolutions: [{ rowNo: 1, resolution: 'map', mapTargetId: t2 }] }, ownerB)).outcome).toBe('ok');
+      let release: () => void = () => undefined;
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      let reachedFirst: () => void = () => undefined;
+      const reached = new Promise<void>((resolve) => {
+        reachedFirst = resolve;
+      });
+      let first = true;
+      hooks = {
+        beforeCommit: async () => {
+          if (!first) return;
+          first = false; // the first job holds its (uncommitted) claim here
+          reachedFirst();
+          await gate;
+        },
+      };
+      let winner: Awaited<ReturnType<typeof apply>>;
+      let loser: Awaited<ReturnType<typeof apply>>;
+      try {
+        const a = apply(jobA, ownerA);
+        await reached;
+        const b = apply(jobB, ownerB); // blocks on the unique index until A commits
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        release();
+        [winner, loser] = await Promise.all([a, b]);
+      } finally {
+        hooks = {};
+        release();
+      }
+      expect(winner.body).toMatchObject({ status: 'completed', counts: { applied: 1 } });
+      expect(loser.body).toMatchObject({ status: 'partial_failure', counts: { conflict: 1, failed: 0 } });
+      expect((await rows(jobB))[0]).toMatchObject({ apply_status: 'conflict', apply_error: 'identity_conflict' });
+      const ids = (await identityRows('vendor')).filter((r) => r.external_key === JSON.stringify([key('CC-EXT')]));
+      expect(ids).toEqual([{ external_key: JSON.stringify([key('CC-EXT')]), target_id: t1, mapping_state: 'accepted', accepted_by: ownerA.id }]);
+      expect((await vendorBy('CC-T2'))[0]).toMatchObject({ name: 'Target two', row_version: 1 });
+      expect((await vendorBy('CC-T1'))[0]).toMatchObject({ name: 'Claimed name', row_version: 2 });
+      expect(await auditFor(jobB)).toEqual([]);
+      expect((await auditFor(jobA)).map((x) => x.event_type).sort()).toEqual(['knowledge.catalog.identity_mapped', 'knowledge.catalog.updated']);
     });
 
     it('keeps identity keys apart for the same child key under different vendors; maps a changed target as stale', async () => {
@@ -667,10 +831,11 @@ describe.skipIf(!runIntegration)('catalog import resolve and apply (#1195 b)', (
 
   describe('report and permissions', () => {
     it('writes a guarded CSV with the stored headers, and answers 404 for another workspace', async () => {
+      const owner = await person('admin'); // its own mutation rate-limit window
       const csv = [' code , name ', `${code('C-1')},"=HYPERLINK(""x"")"`, `${code('C-2')},"a, b"`].join('\n');
-      const jobId = await stage('vendor', csv, { vendor_code: 'code', vendor_name: 'name' });
-      await apply(jobId);
-      const res = await app.inject({ method: 'GET', url: `/api/v1/log-knowledge/imports/${jobId}/report.csv`, headers: cookieHeader(admin.cookie) });
+      const jobId = await stage('vendor', csv, { vendor_code: 'code', vendor_name: 'name' }, owner);
+      await apply(jobId, owner);
+      const res = await app.inject({ method: 'GET', url: `/api/v1/log-knowledge/imports/${jobId}/report.csv`, headers: cookieHeader(owner.cookie) });
       expect(res.statusCode).toBe(200);
       expect(res.headers['content-type']).toContain('text/csv');
       expect(String(res.headers['content-disposition'])).toContain('attachment');
@@ -687,21 +852,22 @@ describe.skipIf(!runIntegration)('catalog import resolve and apply (#1195 b)', (
           [otherWorkspace, JSON.stringify(['code']), admin.id],
         )
       ).rows[0].id as string;
-      expect((await app.inject({ method: 'GET', url: `/api/v1/log-knowledge/imports/${foreign}/report.csv`, headers: cookieHeader(admin.cookie) })).statusCode).toBe(404);
-      expect((await app.inject({ method: 'GET', url: `/api/v1/log-knowledge/imports/${randomUUID()}/report.csv`, headers: cookieHeader(admin.cookie) })).statusCode).toBe(404);
-      expect((await apply(foreign)).res.statusCode).toBe(404);
+      expect((await app.inject({ method: 'GET', url: `/api/v1/log-knowledge/imports/${foreign}/report.csv`, headers: cookieHeader(owner.cookie) })).statusCode).toBe(404);
+      expect((await app.inject({ method: 'GET', url: `/api/v1/log-knowledge/imports/${randomUUID()}/report.csv`, headers: cookieHeader(owner.cookie) })).statusCode).toBe(404);
+      expect((await apply(foreign, owner)).res.statusCode).toBe(404);
     });
 
     it('without the capability: resolve, cancel, apply and report are refused; a granted developer may', async () => {
       const csv = ['code,name', `${code('F-1')},One`].join('\n');
-      const jobId = await stage('vendor', csv, vendorMapping);
+      const owner = await person('admin'); // its own mutation rate-limit window
+      const jobId = await stage('vendor', csv, vendorMapping, owner);
       expect((await act('importResolve', { jobId, resolutions: [{ rowNo: 1, resolution: 'skip' }] }, user)).outcome).toBe('forbidden');
       expect((await act('importCancel', { jobId }, user)).outcome).toBe('forbidden');
       expect((await apply(jobId, user)).res.statusCode).toBe(403);
       expect((await app.inject({ method: 'GET', url: `/api/v1/log-knowledge/imports/${jobId}/report.csv`, headers: cookieHeader(user.cookie) })).statusCode).toBe(403);
       expect((await jobRow(jobId)).status).toBe('validated');
 
-      expect((await app.inject({ method: 'POST', url: `/api/v1/log-knowledge/imports/${jobId}/apply`, headers: { 'content-type': 'application/json', ...cookieHeader(admin.cookie) }, payload: '{}' })).statusCode).toBe(403); // no CSRF
+      expect((await app.inject({ method: 'POST', url: `/api/v1/log-knowledge/imports/${jobId}/apply`, headers: { 'content-type': 'application/json', ...cookieHeader(owner.cookie) }, payload: '{}' })).statusCode).toBe(403); // no CSRF
       expect((await apply(jobId, granted)).body).toMatchObject({ status: 'completed', counts: { applied: 1 } });
       expect((await app.inject({ method: 'GET', url: `/api/v1/log-knowledge/imports/${jobId}/report.csv`, headers: cookieHeader(granted.cookie) })).statusCode).toBe(200);
     });

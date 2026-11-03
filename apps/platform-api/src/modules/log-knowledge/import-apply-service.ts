@@ -10,7 +10,7 @@
 
 import type pg from 'pg';
 
-import type { Db } from '../../db/client.js';
+import { type Db, dbOnClient } from '../../db/client.js';
 import type { Tx } from '../../db/tx.js';
 import { HttpError } from '../../lib/errors.js';
 import type { PlatformActor } from '../platform-port/permissions.js';
@@ -40,12 +40,12 @@ import {
 import {
   IDENTITY_SOURCE_SYSTEM,
   applyCounts,
+  claimIdentity,
   findIdentity,
   findModelByKey,
   findProcessesByKeys,
   findVendorByKey,
   finishJob,
-  insertIdentity,
   lockApplyRow,
   lockJob,
   markJobSealed,
@@ -106,44 +106,55 @@ async function progressOf(db: Db, ws: string, jobId: string): Promise<Progress |
   return { jobId: job.id, status: job.status, planVersion: job.planVersion, remaining: counts.remaining, counts };
 }
 
-/** The session-scoped runner lock. `busy` runs when another caller holds it. */
+/**
+ * The session-scoped runner lock. `run` gets a `Db` pinned to the connection that holds the lock, so the whole pass
+ * needs no second connection; a caller that does not get the lock releases its connection before `busy` reads.
+ */
 async function withRunnerLock<T>(
   pool: pg.Pool,
   ws: string,
   jobId: string,
-  run: () => Promise<T>,
+  run: (pinned: Db) => Promise<T>,
   busy: () => Promise<T>,
 ): Promise<T> {
   const client = await pool.connect();
-  let broken = false;
+  let held: boolean;
   try {
     const got = await client.query<{ ok: boolean }>('select pg_try_advisory_lock(hashtext($1), hashtext($2)) as ok', [ws, jobId]);
-    if (!got.rows[0]?.ok) return await busy();
-    try {
-      return await run();
-    } finally {
-      try {
-        await client.query('select pg_advisory_unlock(hashtext($1), hashtext($2))', [ws, jobId]);
-      } catch {
-        broken = true; // dropping the connection releases the session lock
-      }
-    }
+    held = got.rows[0]?.ok === true;
+  } catch (error) {
+    client.release(error instanceof Error ? error : new Error(String(error)));
+    throw error;
+  }
+  if (!held) {
+    client.release();
+    return busy();
+  }
+  let broken = false;
+  try {
+    return await run(dbOnClient(client));
   } finally {
+    try {
+      await client.query('select pg_advisory_unlock(hashtext($1), hashtext($2))', [ws, jobId]);
+    } catch {
+      broken = true; // dropping the connection releases the session lock
+    }
     client.release(broken ? new Error('advisory unlock failed') : undefined);
   }
 }
 
 export async function runApply(
-  ctx: ApplyContext,
+  outer: ApplyContext,
   jobId: string,
   expectedPlanVersion: number,
 ): Promise<ApplyResult> {
-  const ws = ctx.actor.workspace_id;
+  const ws = outer.actor.workspace_id;
   return withRunnerLock(
-    ctx.pool,
+    outer.pool,
     ws,
     jobId,
-    async () => {
+    async (pinned) => {
+      const ctx: ApplyContext = { ...outer, db: pinned };
       let job = await getJob(ctx.db, ws, jobId);
       if (!job) return { kind: 'not_found' };
 
@@ -165,7 +176,7 @@ export async function runApply(
       if (drained) await ctx.db.transaction((tx) => finish(tx, ctx, jobId));
       return progressResult(ctx.db, ws, jobId);
     },
-    () => progressResult(ctx.db, ws, jobId),
+    () => progressResult(outer.db, ws, jobId),
   );
 }
 
@@ -241,6 +252,7 @@ async function applyOne(ctx: ApplyContext, job: ImportJob, rowNo: number): Promi
     if (error instanceof HttpError) throw error;
     // The row's transaction rolled back whole; record the failure on its own so the pass can go on.
     await ctx.db.transaction(async (tx) => {
+      if (!(await ctx.authorize(ctx.actor, tx))) throw denied(); // the row stays non-final; the pass stops with 403
       const row = await lockApplyRow(tx, ctx.actor.workspace_id, job.id, rowNo);
       if (!row || isFinalApplyStatus(row.applyStatus)) return;
       await setRowResult(tx, ctx.actor.workspace_id, job.id, rowNo, job.applyPass, { status: 'failed', error: 'unexpected' });
@@ -401,20 +413,33 @@ async function updateOrMap(
   }
   if (nextName !== target.name) changes.name = [target.name, nextName];
 
+  // Claim the identity key atomically before the first catalog write: a competing job that won the key for another
+  // target makes this row a conflict with nothing written. (The claim cannot be undone — the runtime role has no
+  // DELETE — so every refusal above comes first and a later failure rolls the whole transaction back.)
+  if (writeIdentity) {
+    const claim = await claimIdentity(tx, ws, ctx.actor.actor_id, job.id, rowNo, kind, key, action.targetId);
+    if (!claim.claimed) {
+      const won = claim.existing;
+      if (won.targetId !== action.targetId || won.targetKind !== kind || won.mappingState !== 'accepted') {
+        return conflict('identity_conflict');
+      }
+      writeIdentity = false; // the same mapping was claimed meanwhile: nothing to write or audit
+    }
+  }
+
   let result = target;
   const changed = Object.keys(changes).length > 0;
   if (changed) {
     try {
       result = await updateRow(tx, kind, ws, target.id, ctx.actor.actor_id, { code: target.code, name: nextName });
     } catch (error) {
-      if (error instanceof DuplicateCatalogKeyError) return conflict('taken');
-      throw error;
+      if (error instanceof DuplicateCatalogKeyError && !writeIdentity) return conflict('taken');
+      throw error; // with a claim held, the transaction rolls back whole (the code never changes here)
     }
     if (kind === 'model') await changeModelProcesses(tx, ws, target.id, ctx.actor.actor_id, add, remove);
     await recordCatalogAudit(tx, ctx.actor, kind, 'updated', result, changes, sourceOf(job, rowNo));
   }
   if (writeIdentity) {
-    await insertIdentity(tx, ws, ctx.actor.actor_id, kind, key, target.id);
     await recordIdentityMapped(
       tx,
       ctx.actor,
