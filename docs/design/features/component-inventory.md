@@ -137,7 +137,7 @@ Never built: `IconButton`, `Table` / `DataTable`, `InboxList`, `ScopeFilterBar`,
 
 - `CommandPalette` (`packages/sdk/shell/src/routing/CommandPalette.tsx`) — the inventory's `CommandMenu`, hosted by the platform shell. Its dialog and palette treatment use SDK `@ap/ui` primitives.
 - `apps/feature-screens/src/features/cross-system/request-task/TaskRequestDraftCard.tsx` — neutral inline source request form and pending-source read presentation with the contract fields Evidence Summary and Requested Outcome; source mutations stay in their owning features.
-- `ListTabs` — reusable 28px list tab strip with optional bare counts, icons, native title tips, and overflow controls; composed by `ListToolbar`.
+- `ListTabs` — reusable 28px list tab strip with optional bare counts, icons, native title tips, overflow controls, and an optional `maxVisible` that folds the remaining tabs into a 「더보기」 menu; composed by `ListToolbar`.
 - Internal `useHorizontalOverflow` — shared 1px scroll-edge state, resize observation, direct-child rebinding, and cleanup for `ListTabs` and `DetailPanelSectionNav`. Each consumer retains its active-item reveal, fade or scrollspy behavior, and component-specific layout rules.
 
 ## Status And Signal Catalog

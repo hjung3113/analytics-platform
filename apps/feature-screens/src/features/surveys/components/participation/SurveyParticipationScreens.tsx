@@ -154,7 +154,11 @@ function AnswerableSurveysRegion({
   if (data.length === 0)
     return (
       <>
-        <ListStateMessage variant="empty" title={SURVEY_PARTICIPATION_COPY.noAnswerableSurveys} />
+        <ListStateMessage
+          variant="empty"
+          align="start"
+          title={SURVEY_PARTICIPATION_COPY.noAnswerableSurveys}
+        />
         <SurveyParticipationLoadMore
           hasNextPage={hasNextPage}
           isFetchingNextPage={isFetchingNextPage}
@@ -234,7 +238,11 @@ function SurveyResponseHistoryRegion({
   if (data.length === 0)
     return (
       <>
-        <ListStateMessage variant="empty" title={SURVEY_PARTICIPATION_COPY.noSurveyResponses} />
+        <ListStateMessage
+          variant="empty"
+          align="start"
+          title={SURVEY_PARTICIPATION_COPY.noSurveyResponses}
+        />
         <SurveyParticipationLoadMore
           hasNextPage={hasNextPage}
           isFetchingNextPage={isFetchingNextPage}

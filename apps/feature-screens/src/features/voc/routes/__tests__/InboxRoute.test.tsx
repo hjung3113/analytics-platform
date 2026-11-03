@@ -310,7 +310,7 @@ describe('InboxScreen', () => {
   it.each(['my', 'inbox'] as const)('%s only exposes permitted severity controls', (view) => {
     render(<InboxTestHarness view={view} />);
     const high = screen.queryAllByRole('tab', { name: /^높음/ });
-    expect(high).toHaveLength(view === 'my' ? 0 : 2);
+    expect(high).toHaveLength(view === 'my' ? 0 : 1);
     fireEvent.click(screen.getByRole('button', { name: /정렬/ }));
     if (view === 'my') {
       expect(screen.queryByText('심각도 높은순')).not.toBeInTheDocument();
@@ -484,8 +484,6 @@ describe('InboxScreen', () => {
       ['미분류', '아직 분류되지 않은 VOC'],
       ['높음', '높음 · 심각 심각도'],
       ['미배정', '담당자 미지정'],
-      ['연결 없음', 'Finding / Task 연결 없음'],
-      ['높음 · 연결 없음', '높음 이상인데 Finding / Task 연결 없음'],
     ];
     for (const [label, tip] of expectedTips) {
       const tab = screen.getByRole('tab', { name: label });
@@ -494,10 +492,22 @@ describe('InboxScreen', () => {
       expect(tab).not.toHaveTextContent(/\d/);
     }
 
-    const noTaskTab = screen.getByRole('tab', { name: 'Task 없음' });
-    expect(noTaskTab.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
-    expect(noTaskTab).not.toHaveAttribute('title');
-    expect(noTaskTab).not.toHaveTextContent(/\d/);
+    // The other three live in the 「더보기」 menu with the same tips and no counts.
+    const more = screen.getByRole('button', { name: /^더보기/ });
+    expect(more).toHaveTextContent('3');
+    fireEvent.keyDown(more, { key: 'Enter' });
+    const hiddenTips: Array<[string, string | null]> = [
+      ['연결 없음', 'Finding / Task 연결 없음'],
+      ['높음 · 연결 없음', '높음 이상인데 Finding / Task 연결 없음'],
+      ['Task 없음', null],
+    ];
+    for (const [label, tip] of hiddenTips) {
+      const item = screen.getByRole('menuitem', { name: label });
+      if (tip === null) expect(item).not.toHaveAttribute('title');
+      else expect(item).toHaveAttribute('title', tip);
+      expect(item.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+      expect(item).not.toHaveTextContent(/\d/);
+    }
   });
 
   it('keeps the selected inbox tab in URL state', () => {
@@ -630,31 +640,47 @@ describe('InboxScreen', () => {
 
     const tab = await screen.findByRole('tab', { name: '높음 · 연결 없음' });
     expect(tab).toHaveAttribute('data-state', 'active');
+    // The hidden URL selection takes the last visible slot; the displaced tab moves into the menu.
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual([
+      '미분류',
+      '높음',
+      '높음 · 연결 없음',
+    ]);
+    const more = screen.getByRole('button', { name: /^더보기/ });
+    fireEvent.keyDown(more, { key: 'Enter' });
+    expect(screen.getByRole('menuitem', { name: '미배정' })).toBeInTheDocument();
   });
 
-  it('AC-E6b renders the seven inbox tabs in canonical value order', async () => {
+  it('AC-E6b renders three inbox tabs plus a 더보기 menu holding the rest in canonical order', async () => {
     searchState = { view: 'inbox' };
     render(<InboxTestHarness view="inbox" />);
 
     await screen.findByRole('tab', { name: '미분류' });
     const tabs = screen.getAllByRole('tab');
-    expect(tabs.map((tab) => tab.textContent)).toEqual([
-      '미분류',
-      '높음',
-      '미배정',
-      '연결 없음',
-      '높음 · 연결 없음',
-      'Task 없음',
-    ]);
+    expect(tabs.map((tab) => tab.textContent)).toEqual(['미분류', '높음', '미배정']);
 
     // Untriaged is already the active tab and Radix emits no onValueChange for
     // the selected value, so it is asserted through aria-selected instead of
-    // through a navigation. The other five each have to route.
+    // through a navigation. The other two tabs and the three menu items each have to route.
     expect(tabs[0]).toHaveAttribute('aria-selected', 'true');
 
     // Radix TabsTrigger activates on mousedown, not click. fireEvent.click left
     // navigateMock at 0, so the assertion below had nothing to beat.
     for (const tab of tabs.slice(1)) fireEvent.mouseDown(tab);
+    expect(navigateMock).toHaveBeenCalledTimes(2);
+
+    const menuValues = [
+      ['연결 없음', 'no-link'],
+      ['높음 · 연결 없음', 'high-no-link'],
+      ['Task 없음', 'no-task'],
+    ] as const;
+    for (const [label] of menuValues) {
+      fireEvent.keyDown(screen.getByRole('button', { name: /^더보기/ }), { key: 'Enter' });
+      expect(
+        screen.getAllByRole('menuitem').map((item) => item.textContent),
+      ).toEqual(menuValues.map(([name]) => name));
+      fireEvent.click(screen.getByRole('menuitem', { name: label }));
+    }
     expect(navigateMock).toHaveBeenCalledTimes(5);
     expect(navigations().map((navigation) => navigation.search.tab)).toEqual([
       'high',

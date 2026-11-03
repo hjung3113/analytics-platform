@@ -207,39 +207,30 @@ describe('<VocRow>', () => {
     expect(cls).toContain('border-border-subtle');
   });
 
-  it('renders left-bar with severity-high class for high severity', () => {
-    render(<VocRow voc={BASE_VOC} selected={false} onSelect={onSelect} managedSystem={null} />);
-    const bar = screen.getByTestId('voc-row-left-bar');
-    expect(bar).toBeInTheDocument();
-    expect(bar.className).toContain('bg-severity-high');
-  });
+  it.each([['high'], ['low'], ['medium'], ['critical'], [null]] as const)(
+    'draws no left bar on an unselected row (severity %s) and keeps the severity badge',
+    (severity) => {
+      const voc: VocListItem = { ...BASE_VOC, severity };
+      const { container } = render(
+        <VocRow voc={voc} selected={false} onSelect={onSelect} managedSystem={null} />,
+      );
+      expect(screen.queryByTestId('voc-row-left-bar')).toBeNull();
+      if (severity === null) expect(container.querySelector('[data-severity]')).toBeNull();
+      else expect(container.querySelector('[data-severity]')).not.toBeNull();
+    },
+  );
 
-  it('renders left-bar with severity-low class for low severity', () => {
-    const vocLow: VocListItem = { ...BASE_VOC, severity: 'low' };
-    render(<VocRow voc={vocLow} selected={false} onSelect={onSelect} managedSystem={null} />);
-    const bar = screen.getByTestId('voc-row-left-bar');
-    expect(bar.className).toContain('bg-severity-low');
-  });
-
-  it('renders left-bar with severity-medium class for medium severity', () => {
-    const vocMed: VocListItem = { ...BASE_VOC, severity: 'medium' };
-    render(<VocRow voc={vocMed} selected={false} onSelect={onSelect} managedSystem={null} />);
-    const bar = screen.getByTestId('voc-row-left-bar');
-    expect(bar.className).toContain('bg-severity-medium');
-  });
-
-  it('renders left-bar with severity-critical class for critical severity', () => {
-    const vocCrit: VocListItem = { ...BASE_VOC, severity: 'critical' };
-    render(<VocRow voc={vocCrit} selected={false} onSelect={onSelect} managedSystem={null} />);
-    const bar = screen.getByTestId('voc-row-left-bar');
-    expect(bar.className).toContain('bg-severity-critical');
-  });
-
-  it('renders left-bar with neutral token when severity is null', () => {
-    const vocNull: VocListItem = { ...BASE_VOC, severity: null };
-    render(<VocRow voc={vocNull} selected={false} onSelect={onSelect} managedSystem={null} />);
-    const bar = screen.getByTestId('voc-row-left-bar');
-    expect(bar.className).toContain('bg-border-strong');
+  it('draws no left bar on an unselected permission-limited row', () => {
+    render(
+      <VocRow
+        voc={BASE_VOC}
+        selected={false}
+        onSelect={onSelect}
+        managedSystem={null}
+        permissionLimited={true}
+      />,
+    );
+    expect(screen.queryByTestId('voc-row-left-bar')).toBeNull();
   });
 
   it('left-bar uses accent-primary when selected regardless of severity', () => {
@@ -247,7 +238,7 @@ describe('<VocRow>', () => {
     render(<VocRow voc={vocNull} selected={true} onSelect={onSelect} managedSystem={null} />);
     const bar = screen.getByTestId('voc-row-left-bar');
     expect(bar.className).toContain('bg-accent-primary');
-    expect(bar.className).not.toContain('bg-border-strong');
+    expect(bar.className).not.toContain('bg-severity');
   });
 
   it('renders permission-limited variant — title replaced by peek', () => {
@@ -279,14 +270,14 @@ describe('<VocRow>', () => {
     expect(screen.getByRole('row').className).toContain('opacity-60');
   });
 
-  it('omits the standalone severity glyph when severity is null and keeps the neutral stripe', () => {
+  it('omits the standalone severity glyph when severity is null and has no stripe', () => {
     const vocNoSeverity: VocListItem = { ...BASE_VOC, severity: null };
     const { container } = render(
       <VocRow voc={vocNoSeverity} selected={false} onSelect={onSelect} managedSystem={null} />,
     );
     expect(container.querySelector('[data-severity]')).toBeNull();
     expect(screen.queryByLabelText('심각도 미지정')).not.toBeInTheDocument();
-    expect(screen.getByTestId('voc-row-left-bar')).toHaveClass('bg-border-strong');
+    expect(screen.queryByTestId('voc-row-left-bar')).toBeNull();
   });
 
   it('renders relative time in trailing area', () => {
@@ -307,7 +298,7 @@ it('hides absent severity after parsing the reporter wire row', () => {
   const { container } = render(<VocRow voc={voc} selected={false} onSelect={vi.fn()} />);
   expect(container.querySelector('[data-severity]')).toBeNull();
   expect(screen.queryByText('높음')).not.toBeInTheDocument();
-  expect(screen.getByTestId('voc-row-left-bar')).toHaveClass('bg-border-strong');
+  expect(screen.queryByTestId('voc-row-left-bar')).toBeNull();
 });
 
 it('announces a triaged medium row once in Korean', () => {

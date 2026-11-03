@@ -48,4 +48,24 @@ describe('TaskBoardColumn', () => {
       board,
     ]);
   });
+
+  it('shares the board width instead of a fixed 288px column', () => {
+    render(
+      <TaskBoardColumn
+        id="backlog"
+        label="Backlog"
+        tasks={[]}
+        groupBy="status"
+        selectedId={null}
+        selectTask={() => {}}
+        names={{ systems: new Map(), actors: new Map() }}
+        enabled
+      />,
+    );
+    const column = screen.getByLabelText('Backlog 열');
+    expect(column).toHaveAttribute('data-task-board-column');
+    expect(column).toHaveClass('flex-1', 'basis-0', 'min-w-40');
+    expect(column).not.toHaveClass('w-72');
+    expect(column).not.toHaveClass('shrink-0');
+  });
 });

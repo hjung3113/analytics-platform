@@ -106,10 +106,10 @@ ListShell | function | function ListShell({ toolbar, list, tabs, detailPanel, cl
 ListShellProps | interface | interface ListShellProps { className?: string; detailPanel?: React.ReactNode; list: React.ReactNode; tabs?: React.ReactNode; toolbar?: @ap/ui#ShellHeaderProps; }
 ListSortButton | function | function ListSortButton({ options, value, defaultValue, onChange, className, }: @ap/ui#ListSortButtonProps): React.JSX.Element
 ListSortButtonProps | interface | interface ListSortButtonProps { className?: string; defaultValue: string; onChange: (next: string) => void; options: @ap/ui#SortOption[]; value: string; }
-ListTabs | function | function ListTabs({ tabs, activeTab, onTabChange, ariaLabel, align, className, }: @ap/ui#ListTabsProps): React.ReactElement
-ListTabsProps | interface | interface ListTabsProps { activeTab?: string; align?: 'end' | 'start'; ariaLabel?: string; className?: string; onTabChange?: (next: string) => void; tabs: @ap/ui#ListToolbarTab[]; }
-ListToolbar | function | function ListToolbar({ title, tabs, activeTab, onTabChange, tabsAriaLabel, action, className, }: @ap/ui#ListToolbarProps): React.JSX.Element
-ListToolbarProps | interface | interface ListToolbarProps { action?: React.ReactNode; activeTab?: string; className?: string; onTabChange?: (next: string) => void; tabs?: @ap/ui#ListToolbarTab[]; tabsAriaLabel?: string; title?: string; }
+ListTabs | function | function ListTabs({ tabs, activeTab, onTabChange, ariaLabel, align, className, maxVisible, }: @ap/ui#ListTabsProps): React.ReactElement
+ListTabsProps | interface | interface ListTabsProps { activeTab?: string; align?: 'end' | 'start'; ariaLabel?: string; className?: string; maxVisible?: number; onTabChange?: (next: string) => void; tabs: @ap/ui#ListToolbarTab[]; }
+ListToolbar | function | function ListToolbar({ title, tabs, activeTab, onTabChange, tabsAriaLabel, tabsMaxVisible, action, className, }: @ap/ui#ListToolbarProps): React.JSX.Element
+ListToolbarProps | interface | interface ListToolbarProps { action?: React.ReactNode; activeTab?: string; className?: string; onTabChange?: (next: string) => void; tabs?: @ap/ui#ListToolbarTab[]; tabsAriaLabel?: string; tabsMaxVisible?: number; title?: string; }
 ListToolbarTab | interface | interface ListToolbarTab { badgeCount?: number; controlsId?: string; disabled?: boolean; icon?: LucideIcon; id?: string; label: string; testId?: string; tip?: string; urgent?: boolean; value: string; }
 Mention | const | const Mention: Node<any, any>
 MentionAttrs | interface | interface MentionAttrs { actor_id: string; }

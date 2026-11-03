@@ -95,6 +95,7 @@ export function InboxScreen({ view, renderDetail }: InboxScreenProps): React.Rea
         {...(view === 'inbox' && !inboxPermissionBlocked
           ? {
               tabs: INBOX_TABS,
+              tabsMaxVisible: 3,
               activeTab,
               onTabChange: handleTabChange,
             }

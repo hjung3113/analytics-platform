@@ -187,4 +187,38 @@ describe('Task board drag geometry', () => {
     });
     expect(collisions?.map(({ id }) => id)).toEqual(['backlog']);
   });
+
+  it('hit-tests flexible 164px columns by their live outer rects', () => {
+    const { result } = renderHook(useTaskBoardDragGeometry);
+    // Six shared-width columns with 12px gaps: left edges 0, 176, 352, ...
+    const containers = ['a', 'b', 'c'].map((id, index) => {
+      const { column, dropNode } = boardNodes();
+      vi.spyOn(column, 'getBoundingClientRect').mockReturnValue(
+        new DOMRect(index * 176, 100, 164, 700),
+      );
+      return {
+        id,
+        key: id,
+        disabled: false,
+        node: { current: dropNode },
+        rect: { current: null },
+        data: { current: {} },
+      };
+    });
+    const collide = (left: number) =>
+      result.current.collisionDetection?.({
+        active: {
+          id: 'task',
+          data: { current: {} },
+          rect: { current: { initial: null, translated: null } },
+        },
+        pointerCoordinates: null,
+        collisionRect: new DOMRect(left, 110, 140, 72),
+        droppableRects: new Map(),
+        droppableContainers: containers,
+      })?.[0]?.id;
+    expect(collide(0)).toBe('a');
+    expect(collide(176)).toBe('b');
+    expect(collide(352)).toBe('c');
+  });
 });

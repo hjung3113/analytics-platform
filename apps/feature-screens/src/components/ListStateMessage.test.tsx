@@ -57,4 +57,15 @@ describe('ListStateMessage', () => {
     expect(onClick).toHaveBeenCalledOnce();
     expect(screen.getByTestId('list-state-message')).toHaveAttribute('data-variant', 'error');
   });
+
+  it('aligns to the start in a small size only when asked; the default stays centred', () => {
+    const { rerender } = render(<ListStateMessage variant="empty" title="비어 있음" />);
+    const title = () => screen.getByText('비어 있음');
+    expect(title().parentElement).toHaveClass('items-center', 'py-12');
+    expect(title().parentElement).not.toHaveClass('items-start');
+
+    rerender(<ListStateMessage variant="empty" title="비어 있음" align="start" />);
+    expect(title().parentElement).toHaveClass('items-start', 'text-left', 'py-6');
+    expect(title().parentElement).not.toHaveClass('items-center');
+  });
 });
