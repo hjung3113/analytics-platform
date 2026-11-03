@@ -6,7 +6,17 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  realpathSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -431,5 +441,90 @@ test('a password-free admin URL with PGPASSWORD reaches psql with the secret in 
     }
   } finally {
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// Process-argument safety (#1266 b1c F1): the migrate stage runs end to end against a stub psql and a stub
+// drizzle-kit inside a throwaway copy of the repo layout; no spawned argv may carry a URL password.
+test('migrate stage: no spawned process receives a URL password in argv; each psql gets it through PGPASSWORD', () => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'cutover-argv-'))); // pg-target.mjs compares real paths
+  const binDir = join(root, 'bin');
+  const log = join(root, 'calls.log');
+  const migratePw = 'MigrateSecret0123456789abcdef';
+  const adminPw = 'AdminSecretPw';
+  try {
+    const opsDir = join(root, 'ops/platform-api');
+    const dbDir = join(opsDir, 'scripts/db');
+    const kitDir = join(root, 'apps/platform-api/node_modules/.bin');
+    for (const d of [binDir, dbDir, kitDir]) mkdirSync(d, { recursive: true });
+    copyFileSync(join(SCRIPT, '../../../paths.sh'), join(opsDir, 'paths.sh'));
+    copyFileSync(SCRIPT, join(dbDir, 'cutover-0076-platform-identity.sh'));
+    copyFileSync(join(SCRIPT, '../pg-target.mjs'), join(dbDir, 'pg-target.mjs'));
+    const record = (who) =>
+      `printf '${who}|%s|%s|%s\\n' "$PGPASSWORD" "$DATABASE_URL_MIGRATE" "$*" >> '${log}'\n`;
+    writeFileSync(
+      join(binDir, 'psql'),
+      `#!/bin/sh\n${record('psql')}case "$*" in\n` +
+        `  *"from pg_roles"*platform_migrate*) echo 9;;\n` +
+        `  *"datname = 'platform'"*) echo 1;;\n` +
+        `  *"unnest(array"*) echo 3;;\n` +
+        `  *) echo 0;;\nesac\n`,
+    );
+    writeFileSync(join(kitDir, 'drizzle-kit'), `#!/bin/sh\n${record('drizzle')}exit 0\n`);
+    chmodSync(join(binDir, 'psql'), 0o755);
+    chmodSync(join(kitDir, 'drizzle-kit'), 0o755);
+
+    const migrateUrl = `postgres://platform_migrate:${migratePw}@localhost:5449/platform`;
+    const result = spawnSync(
+      'bash',
+      [join(dbDir, 'cutover-0076-platform-identity.sh'), 'migrate'],
+      {
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          ...noPgEnv,
+          PATH: `${binDir}:${process.env.PATH}`,
+          CUTOVER_ALLOW_DEV_DB: '',
+          CUTOVER_ADMIN_URL: `postgres://postgres:${adminPw}@localhost:5449/postgres`,
+          DATABASE_URL_MIGRATE: migrateUrl,
+          PGPASSWORD: 'InheritedSuperuserPw',
+        },
+      },
+    );
+    const output = `${result.stdout}${result.stderr}`;
+    assert.equal(result.status, 0, output);
+    const calls = readFileSync(log, 'utf8')
+      .trim()
+      .split('\n')
+      .map((l) => l.split('|'));
+    const psqlCalls = calls.filter((c) => c[0] === 'psql');
+    const drizzleCalls = calls.filter((c) => c[0] === 'drizzle');
+    assert.ok(psqlCalls.length >= 3, 'detect_state and the marker query reached psql');
+    assert.equal(drizzleCalls.length, 1);
+    for (const [who, , , argv] of calls) {
+      for (const secret of [migratePw, adminPw]) {
+        assert.ok(!argv.includes(secret), `${who} argv carries a password`);
+        assert.ok(!argv.includes(encodeURIComponent(secret)), `${who} argv carries a password`);
+      }
+    }
+    assert.equal(drizzleCalls[0][3], 'migrate');
+    assert.equal(
+      drizzleCalls[0][2],
+      migrateUrl,
+      'drizzle-kit reads the full URL from its environment',
+    );
+    const marker = psqlCalls.find((c) => c[3].includes('unnest(array'));
+    assert.ok(marker, 'the marker query ran');
+    assert.equal(marker[1], migratePw, 'the marker query authenticates through PGPASSWORD');
+    assert.ok(
+      psqlCalls.some((c) => c[1] === adminPw),
+      'admin queries authenticate through PGPASSWORD',
+    );
+    assert.ok(
+      !output.includes(migratePw) && !output.includes(adminPw),
+      'no password in the output',
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
   }
 });

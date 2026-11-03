@@ -22,6 +22,9 @@
 #   Both passwords must match ^[A-Za-z0-9_-]{24,}$ so they can sit unencoded in postgresql://user:pass@host URLs
 #   (generate with: openssl rand -hex 24).
 #
+# Server logs: the session first sets and verifies log_statement=none, log_min_error_statement=panic and the
+# duration/sample/parameter logging off, and sends no ALTER if that fails (ALTER ROLE text can reach the server log).
+#
 # The passwords reach the server through psql variables imported with \getenv and quoted with :'name', so no secret
 # is in an argument and no shell or SQL injection is possible. The effective target is resolved and validated BEFORE
 # the first connection (scripts/db/pg-target.mjs), the PG* target variables are removed from the environment, and
@@ -99,17 +102,40 @@ for r in platform_migrate fops_migrate; do has "$r" && migrate_roles+=("$r"); do
 [ "${#migrate_roles[@]}" -gt 0 ] || die 'neither platform_migrate nor fops_migrate exists as a login role; run scripts/db/init.sql on a fresh cluster first'
 
 # 4. One transaction; passwords come from the environment through \getenv, quoted by :'name'.
-sql='\getenv app_pw PLATFORM_APP_DB_PASSWORD
+# Before any password-bearing statement the SAME psql session switches off every server-side log that could record
+# the expanded ALTER ROLE text (statement logging, error-statement logging, duration/sample logging, bind parameters)
+# and checks that the settings took effect. Any failure stops psql (ON_ERROR_STOP) before the first ALTER is sent.
+# A pgaudit-style extension or a log hook outside these settings is not covered.
+IFS= read -r -d '' sql <<'SQL' || true
+SET log_statement = 'none';
+SET log_min_error_statement = 'panic';
+SET log_min_duration_statement = -1;
+SET log_min_duration_sample = -1;
+SET log_transaction_sample_rate = 0;
+SET log_parameter_max_length_on_error = 0;
+DO $guard$
+BEGIN
+  IF current_setting('log_statement') <> 'none'
+     OR current_setting('log_min_error_statement') <> 'panic'
+     OR current_setting('log_min_duration_statement') <> '-1'
+     OR current_setting('log_min_duration_sample') <> '-1'
+     OR current_setting('log_transaction_sample_rate')::float8 <> 0
+     OR current_setting('log_parameter_max_length_on_error') <> '0' THEN
+    RAISE EXCEPTION 'server-side statement logging could not be disabled for this session';
+  END IF;
+END
+$guard$;
+\getenv app_pw PLATFORM_APP_DB_PASSWORD
 \getenv migrate_pw PLATFORM_MIGRATE_DB_PASSWORD
 BEGIN;
-'
+SQL
 for r in "${app_roles[@]}"; do sql+="ALTER ROLE $r PASSWORD :'app_pw';"$'\n'; done
 for r in "${migrate_roles[@]}"; do sql+="ALTER ROLE $r PASSWORD :'migrate_pw';"$'\n'; done
 sql+='COMMIT;
 '
 if ! out="$(printf '%s' "$sql" | psql -X -q -v ON_ERROR_STOP=1 "$canon" 2>&1)"; then
   scrub "$out"
-  die 'ALTER ROLE failed; no password was changed (single transaction)'
+  die 'could not disable server-side statement logging, or ALTER ROLE failed; no password was changed (single transaction)'
 fi
 log "set the password of: ${app_roles[*]} ${migrate_roles[*]}"
 

@@ -102,8 +102,16 @@ for (const [name, overrides, needle] of [
     'MINIO_ROOT_PASSWORD',
   ],
   ['empty app db password', { PLATFORM_APP_DB_PASSWORD: '' }, 'PLATFORM_APP_DB_PASSWORD'],
-  ['missing migrate db password', { PLATFORM_MIGRATE_DB_PASSWORD: undefined }, 'PLATFORM_MIGRATE_DB_PASSWORD'],
-  ['CHANGE_ME app db password', { PLATFORM_APP_DB_PASSWORD: 'CHANGE_ME' }, 'PLATFORM_APP_DB_PASSWORD'],
+  [
+    'missing migrate db password',
+    { PLATFORM_MIGRATE_DB_PASSWORD: undefined },
+    'PLATFORM_MIGRATE_DB_PASSWORD',
+  ],
+  [
+    'CHANGE_ME app db password',
+    { PLATFORM_APP_DB_PASSWORD: 'CHANGE_ME' },
+    'PLATFORM_APP_DB_PASSWORD',
+  ],
   ['short db password', { PLATFORM_APP_DB_PASSWORD: 'short-1234' }, 'PLATFORM_APP_DB_PASSWORD'],
   [
     'db password with a URL-reserved character',
@@ -295,11 +303,17 @@ test('production compose: no literal role passwords; backend gets only the app p
   assert.match(backend, /PLATFORM_APP_DB_PASSWORD:\?/);
   assert.doesNotMatch(backend, /PLATFORM_MIGRATE_DB_PASSWORD/);
   const job = production.match(/^ {2}set-role-passwords:\n([\s\S]*?)(?=^ {2}\S|^\S)/m)[1];
-  assert.match(job, /entrypoint: \["bash", "\/workspace\/ops\/platform-api\/scripts\/db\/set-role-passwords\.sh"\]/);
+  assert.match(
+    job,
+    /entrypoint: \["bash", "\/workspace\/ops\/platform-api\/scripts\/db\/set-role-passwords\.sh"\]/,
+  );
   assert.match(job, /profiles: \["roles"\]/);
   assert.doesNotMatch(job, /DATABASE_URL/);
   const cutover = production.match(/^ {2}cutover:\n([\s\S]*?)(?=^ {2}\S|^\S)/m)[1];
-  assert.match(cutover, /CUTOVER_OLD_MIGRATE_URL: postgresql:\/\/fops_migrate:\$\{PLATFORM_MIGRATE_DB_PASSWORD:\?/);
+  assert.match(
+    cutover,
+    /CUTOVER_OLD_MIGRATE_URL: postgresql:\/\/fops_migrate:\$\{PLATFORM_MIGRATE_DB_PASSWORD:\?/,
+  );
 });
 
 test('production compose: only job services receive the migrate credential', () => {
