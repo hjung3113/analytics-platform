@@ -20,9 +20,9 @@ const STATUS_BY_PREFIX: ReadonlyArray<[string, number]> = [
   ['rate_limited.', 429],
   ['internal.', 500],
   ['upstream.', 502],
-  // PLAN-22 C3a: object-store unavailable bubbles as 502 per OQ-2 default.
+  // Object store unavailable bubbles up as a 502.
   ['storage.', 502],
-  // PLAN-22 C3a: stub-path marker until C3b lands real implementation.
+  // `not_implemented.todo` is still a declared code (@ap/feature-shared); no route returns it today.
   ['not_implemented.', 501],
   // #1266 b3: a DB time budget ran out; retryable dependency-unavailable.
   ['service.', 503],

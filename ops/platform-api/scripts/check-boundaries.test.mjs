@@ -104,6 +104,39 @@ runCase(
 );
 
 runCase(
+  'foreign repositories/ file at sibling depth fails',
+  {
+    ...zero,
+    [join(MODULES, 'findings', 'record.ts')]:
+      "import { writeItem } from '../log-knowledge/repositories/item-write.js';\n",
+  },
+  false,
+  `${FEATURE_BACKEND}/src/modules/findings/record.ts:1`,
+);
+
+runCase(
+  'foreign repositories/ file at nested depth fails',
+  {
+    ...zero,
+    [join(MODULES, 'voc', 'jobs', 'purge.ts')]:
+      "import { readItem } from '../../log-knowledge/repositories/item-read.js';\n",
+  },
+  false,
+  `${FEATURE_BACKEND}/src/modules/voc/jobs/purge.ts:1`,
+);
+
+runCase(
+  'same-module repositories/ import passes',
+  {
+    ...zero,
+    [join(MODULES, 'log-knowledge', 'service.ts')]:
+      "import { writeItem } from './repositories/item-write.js';\n",
+  },
+  true,
+  'boundaries: OK',
+);
+
+runCase(
   'seeded forbidden import identifies file and line',
   {
     ...zero,

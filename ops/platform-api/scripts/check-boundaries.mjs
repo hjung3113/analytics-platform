@@ -75,7 +75,7 @@ const RULES = [
     scope: BACKEND_MODULES,
     kind: 'cross-module-repo-import',
     targetBasename: /^repo[^/]*\.js$/,
-    msg: 'backend modules must import another module through its approved public seam, not repo*.js',
+    msg: 'backend modules must import another module through its approved public seam, not repo*.js or repositories/',
   },
   {
     scope: FEATURE_BACKEND,
@@ -131,6 +131,11 @@ function moduleSegment(file) {
   const rel = relative(join(ROOT, BACKEND_MODULES), file);
   if (rel.startsWith('..')) return null;
   return rel.split(sep)[0];
+}
+
+function isInRepositoriesDir(file) {
+  const rel = relative(join(ROOT, BACKEND_MODULES), file);
+  return rel.split(sep)[1] === 'repositories';
 }
 
 function isWithinPath(directory, file) {
@@ -256,7 +261,7 @@ for (const rule of RULES) {
           srcSegment &&
           targetSegment &&
           srcSegment !== targetSegment &&
-          rule.targetBasename.test(basename(target))
+          (rule.targetBasename.test(basename(target)) || isInRepositoriesDir(target))
         ) {
           violations++;
           console.error(

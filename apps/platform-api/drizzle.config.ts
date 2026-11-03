@@ -31,6 +31,8 @@ export default defineConfig({
     'task_request',
     'survey',
     'knowledge',
+    'dashboard',
+    'platform',
   ],
   dbCredentials: {
     url: migrateUrl,
