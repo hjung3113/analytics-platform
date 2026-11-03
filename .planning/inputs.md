@@ -45,7 +45,7 @@
 **11. 업무 모델 세부** — 마스터 필드별 외부/플랫폼 소유권과 전환 순서(ADR-0003), VOC 담당 조직·상태 전이 예외.
 
 <a id="q12"></a>
-**12. 운영 완료 기준** — 가용성·복구 목표(RTO/RPO), 감사 보존 기간, 대량 작업 실패 재개 책임. 정함(소유자, #1266): RPO 24시간·RTO 4시간 — [backup-restore-upgrade.md](../docs/architecture/platform-api/release/backup-restore-upgrade.md). 감사 보존 기간은 아직 정하지 않았다.
+**12. 운영 완료 기준** — 가용성·복구 목표(RTO/RPO), 감사 보존 기간(잠정 결정: 감사 행 전부 보존·삭제 없음, `core.audit_log`+`core.platform_audit_events`가 5 GB를 넘거나 연 1회 중 먼저 오는 때 재검토 — `release/oidc-and-images.md` «Audit retention»), 대량 작업 실패 재개 책임. 정함(소유자, #1266): RPO 24시간·RTO 4시간 — [backup-restore-upgrade.md](../docs/architecture/platform-api/release/backup-restore-upgrade.md).
 
 <a id="q13"></a>
 **13. 추가 메뉴 착수 조건** — 알람/이상탐지·리포트 빌더·저장된 뷰를 정당화할 실제 수요·반복 사례가 있는가.

@@ -180,5 +180,31 @@ if ! [[ "$ws" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0
   fail "WORKSPACE_ID must be a UUID"
 fi
 
+# Notification email: the channel is an explicit choice (compose has no default). Values are never echoed.
+mock_notice=no
+channel="$(val_of NOTIFICATION_EMAIL_CHANNEL)"
+case "$channel" in
+  mock) mock_notice=yes ;;
+  smtp)
+    [ -n "$(val_of SMTP_HOST)" ] || fail "SMTP_HOST is required when NOTIFICATION_EMAIL_CHANNEL=smtp"
+    smtp_port="$(val_of SMTP_PORT)"
+    if ! [[ "$smtp_port" =~ ^[0-9]+$ ]] || [ "${#smtp_port}" -gt 5 ] || [ "$((10#$smtp_port))" -lt 1 ]; then
+      fail "SMTP_PORT must be a positive integer when NOTIFICATION_EMAIL_CHANNEL=smtp"
+    fi
+    [ -n "$(val_of SMTP_FROM)" ] || fail "SMTP_FROM is required when NOTIFICATION_EMAIL_CHANNEL=smtp"
+    smtp_user="$(val_of SMTP_USERNAME)"
+    smtp_pass="$(val_of SMTP_PASSWORD)"
+    if [ -n "$smtp_user" ] && [ -z "$smtp_pass" ]; then
+      fail "SMTP_PASSWORD is required when SMTP_USERNAME is set (both or neither)"
+    elif [ -z "$smtp_user" ] && [ -n "$smtp_pass" ]; then
+      fail "SMTP_USERNAME is required when SMTP_PASSWORD is set (both or neither)"
+    elif [ -n "$smtp_pass" ]; then
+      secret_ok SMTP_PASSWORD
+    fi
+    ;;
+  *) fail "NOTIFICATION_EMAIL_CHANNEL must be mock or smtp" ;;
+esac
+
 [ "$problems" -eq 0 ] || exit 1
+[ "$mock_notice" = yes ] && echo "preflight: email disabled (mock): notifications reach the inbox only"
 echo "preflight: ok"

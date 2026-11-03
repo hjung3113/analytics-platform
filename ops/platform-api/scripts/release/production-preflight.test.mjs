@@ -31,6 +31,7 @@ const GOOD = {
   TRUSTED_PROXY_HOPS: '1',
   EDGE_BIND: '10.0.0.5',
   WORKSPACE_ID: '123e4567-e89b-42d3-a456-426614174000',
+  NOTIFICATION_EMAIL_CHANNEL: 'mock',
 };
 
 let n = 0;
@@ -51,7 +52,7 @@ function run(overrides = {}) {
 test('preflight: a complete https configuration passes', () => {
   const r = run();
   assert.equal(r.code, 0);
-  assert.deepEqual(r.lines, ['preflight: ok']);
+  assert.deepEqual(r.lines, ['preflight: email disabled (mock): notifications reach the inbox only', 'preflight: ok']);
 });
 
 test('preflight: the shipped example is rejected', () => {
@@ -191,7 +192,7 @@ test('preflight: accepts quotes, comments, blank lines and inline comments', () 
     "OIDC_CLIENT_SECRET='oidc-Zx9-$real'",
     'MINIO_ROOT_USER=platform-minio # inline comment',
   ]);
-  assert.deepEqual(r.lines, ['preflight: ok']);
+  assert.deepEqual(r.lines, ['preflight: email disabled (mock): notifications reach the inbox only', 'preflight: ok']);
   assert.equal(r.code, 0);
 });
 
@@ -374,5 +375,63 @@ test('compose files: bounded logging on every service; restart policy on long-ru
       new RegExp(`^ {2}${svc}:\\n([\\s\\S]*?)(?=^ {2}\\S|^\\S)`, 'm'),
     )[1];
     assert.match(block, /restart: unless-stopped/, svc);
+  }
+});
+
+const SMTP = {
+  NOTIFICATION_EMAIL_CHANNEL: 'smtp',
+  SMTP_HOST: 'smtp.corp.example',
+  SMTP_PORT: '587',
+  SMTP_FROM: 'platform@corp.example',
+};
+
+test('preflight: a complete smtp configuration passes without the mock notice', () => {
+  for (const extra of [{}, { SMTP_USERNAME: 'mailer', SMTP_PASSWORD: 'smtp-Zx9-real-value' }]) {
+    const r = run({ ...SMTP, ...extra });
+    assert.equal(r.code, 0, r.lines.join('\n'));
+    assert.deepEqual(r.lines, ['preflight: ok']);
+  }
+});
+
+test('preflight: mock channel passes and prints the notice', () => {
+  const r = run({ NOTIFICATION_EMAIL_CHANNEL: 'mock' });
+  assert.equal(r.code, 0);
+  assert.deepEqual(r.lines, ['preflight: email disabled (mock): notifications reach the inbox only', 'preflight: ok']);
+});
+
+for (const [name, overrides, needle] of [
+  ['missing channel', { NOTIFICATION_EMAIL_CHANNEL: undefined }, 'NOTIFICATION_EMAIL_CHANNEL'],
+  ['unknown channel', { NOTIFICATION_EMAIL_CHANNEL: 'sendgrid' }, 'NOTIFICATION_EMAIL_CHANNEL'],
+  ['smtp without host', { ...SMTP, SMTP_HOST: undefined }, 'SMTP_HOST'],
+  ['smtp without port', { ...SMTP, SMTP_PORT: undefined }, 'SMTP_PORT'],
+  ['smtp port not a number', { ...SMTP, SMTP_PORT: 'abc' }, 'SMTP_PORT'],
+  ['smtp port 0', { ...SMTP, SMTP_PORT: '0' }, 'SMTP_PORT'],
+  ['smtp port -1', { ...SMTP, SMTP_PORT: '-1' }, 'SMTP_PORT'],
+  ['smtp without from', { ...SMTP, SMTP_FROM: undefined }, 'SMTP_FROM'],
+  ['smtp username without password', { ...SMTP, SMTP_USERNAME: 'mailer' }, 'SMTP_PASSWORD'],
+  ['smtp password without username', { ...SMTP, SMTP_PASSWORD: 'smtp-Zx9-real-value' }, 'SMTP_USERNAME'],
+  [
+    'smtp CHANGE_ME password',
+    { ...SMTP, SMTP_USERNAME: 'mailer', SMTP_PASSWORD: 'CHANGE_ME' },
+    'SMTP_PASSWORD',
+  ],
+  [
+    'smtp demo password',
+    { ...SMTP, SMTP_USERNAME: 'mailer', SMTP_PASSWORD: demoValue('POSTGRES_PASSWORD') },
+    'SMTP_PASSWORD',
+  ],
+]) {
+  test(`preflight: ${name} is refused`, () => {
+    const r = run(overrides);
+    assert.equal(r.code, 1, r.lines.join('\n'));
+    assert.match(r.lines.join('\n'), new RegExp(needle));
+    assert.ok(!r.lines.join('\n').includes('smtp-Zx9-real-value'));
+  });
+}
+
+test('preflight: the production backend passes the email settings through', () => {
+  assert.match(production, /NOTIFICATION_EMAIL_CHANNEL: \$\{NOTIFICATION_EMAIL_CHANNEL:\?/);
+  for (const key of ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USERNAME', 'SMTP_PASSWORD', 'SMTP_FROM']) {
+    assert.match(production, new RegExp(`${key}: \\$\\{${key}:-\\}`));
   }
 });

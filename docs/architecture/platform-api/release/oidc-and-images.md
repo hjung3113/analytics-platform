@@ -62,7 +62,7 @@ The release stack publishes host ports 8080 (OIDC provider) and 3001 (backend, t
 
 All commands run from `ops/platform-api`. Set `P='docker compose --env-file .env.production -f docker-compose.production.yml'` (the project defaults to `platform-api`).
 
-1. **Preflight.** `cp .env.production.example .env.production`, replace every `CHANGE_ME`, then `bash scripts/release/production-preflight.sh .env.production`. It makes no network call and prints one line per problem: non-https issuer or redirect, redirect path other than `/auth/callback`, an empty, `CHANGE_ME` or smoke-demo secret, `TRUSTED_PROXY_HOPS` below 1, `EDGE_BIND` unset, a placeholder, not an IP address, or `0.0.0.0` without `EDGE_BIND_ALL_INTERFACES_ACK=yes`, `WORKSPACE_ID` not a UUID. The two DB role passwords must match `^[A-Za-z0-9_-]{24,}$` and differ (generate each with `openssl rand -hex 24`). Continue only on exit 0, then check `$P config --quiet`; never print or paste resolved production config (plain `config` prints the interpolated credentials).
+1. **Preflight.** `cp .env.production.example .env.production`, replace every `CHANGE_ME`, then `bash scripts/release/production-preflight.sh .env.production`. It makes no network call and prints one line per problem: non-https issuer or redirect, redirect path other than `/auth/callback`, an empty, `CHANGE_ME` or smoke-demo secret, `TRUSTED_PROXY_HOPS` below 1, `EDGE_BIND` unset, a placeholder, not an IP address, or `0.0.0.0` without `EDGE_BIND_ALL_INTERFACES_ACK=yes`, `WORKSPACE_ID` not a UUID, `NOTIFICATION_EMAIL_CHANNEL` other than `mock` or `smtp` (no default), and with `smtp` a missing `SMTP_HOST`, `SMTP_PORT` (positive integer) or `SMTP_FROM`, `SMTP_USERNAME`/`SMTP_PASSWORD` not set together, or a placeholder/demo `SMTP_PASSWORD`; with `mock` it prints «email disabled (mock): notifications reach the inbox only» and still exits 0. The two DB role passwords must match `^[A-Za-z0-9_-]{24,}$` and differ (generate each with `openssl rand -hex 24`). Continue only on exit 0, then check `$P config --quiet`; never print or paste resolved production config (plain `config` prints the interpolated credentials).
 1a. **Build the web image.** `bash scripts/release/build-web-image.sh` runs `pnpm --filter @ap/platform-web build:real-prod` and packages `apps/platform-web/dist` with nginx as `platform-release-web:local`. Run it before `$P up -d`: the `edge` service has `pull_policy: never` and no `build:` key, so compose fails with an image-not-found error when the script was not run.
 2. **Set the role passwords, then cut over a new volume.** `$P run --rm set-role-passwords` first (new volume: it sets the `fops_*` replay logins; the cutover then renames them with the passwords intact), then `$P run --rm cutover` (once per new volume; safe to repeat).
 3. **Start.** `$P up -d` (migration, bucket provisioning, then the backend).
@@ -92,7 +92,14 @@ The `edge` service (nginx, image from `apps/platform-web/Dockerfile`, config `op
 - **Limits.** `client_max_body_size 26m` (the 25 MiB attachment limit plus multipart overhead). `proxy_read_timeout` and `proxy_send_timeout` are 60 s, above the backend's 30 s `HTTP_REQUEST_TIMEOUT_MS`. `proxy_request_buffering off`: uploads stream to the backend instead of being spooled on the edge's disk; the backend enforces the size.
 - **TLS.** Terminated by the company ingress in front of the edge; certificates are not handled here.
 
-Failed background jobs: [failed-jobs-replay.md](failed-jobs-replay.md).
+Operator runbooks for this stack, with `P` as above (`$P exec backend node dist/cli/<name>.js …` for CLIs):
+
+- First admin: [first-admin-bootstrap.md](first-admin-bootstrap.md) (`$P --profile bootstrap run --rm bootstrap`, `$P --profile admin run --rm set-actor-role …`).
+- Failed background jobs: [failed-jobs-replay.md](failed-jobs-replay.md) (`jobs-inventory`, `jobs-replay`).
+- Attachment orphans: [attachment-orphans.md](attachment-orphans.md) (`attachments-orphans`).
+- Backup, isolated restore and upgrade (RPO 24 h, RTO 4 h): [backup-restore-upgrade.md](backup-restore-upgrade.md).
+
+Email: the backend gets `NOTIFICATION_EMAIL_CHANNEL` (required: `mock` or `smtp`) and `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM` from `.env.production`. The mock channel only logs; the dispatch job still stamps `email_sent_at`, so with `mock` notifications reach the inbox only.
 
 Backup, isolated restore and upgrade of this stack (RPO 24 h, RTO 4 h): [backup-restore-upgrade.md](backup-restore-upgrade.md).
 
@@ -102,6 +109,9 @@ Capacity checks (run periodically and before upgrades):
 - Largest tables: `$P exec postgres psql -U postgres -d platform -c "select relid::regclass, pg_size_pretty(pg_total_relation_size(relid)) from pg_catalog.pg_statio_user_tables order by pg_total_relation_size(relid) desc limit 10"`.
 - Attachment bucket size: `mc du <alias>/platform-attachments` with an `mc` alias for the MinIO endpoint.
 - Job backlog and failures: `jobs-inventory` (see the failed-jobs runbook).
+- Audit tables: `$P exec postgres psql -U postgres -d platform -c "select pg_size_pretty(pg_total_relation_size('core.audit_log') + pg_total_relation_size('core.platform_audit_events'))"`.
+
+**Audit retention.** Interim policy (conductor decision, reversible): retain all audit rows; nothing purges them and the INSERT-only protections stay. Review the policy when `core.audit_log` plus `core.platform_audit_events` exceed 5 GB or once a year, whichever comes first.
 
 Following one request: every response carries `X-Correlation-Id`, and the same value is the `request_id` field of that request's backend log lines. Take the id from the browser or the proxy, then `$P logs backend | grep <id>`.
 

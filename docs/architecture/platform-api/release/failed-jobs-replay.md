@@ -2,7 +2,8 @@
 
 Operator runbook for `notifications.dispatch` jobs that ended in `failed`
 (pg-boss: 5 retries with backoff, then `failed`). The commands run from the
-runtime image (`node dist/cli/<name>.js`) or in a checkout with
+runtime image (production stack: `$P exec backend node dist/cli/<name>.js …`, with
+`P='docker compose --env-file .env.production -f docker-compose.production.yml'`) or in a checkout with
 `pnpm --filter @ap/platform-api exec tsx src/cli/<name>.ts`. They use
 `DATABASE_URL` (the runtime role): migration 0002 grants it `SELECT, UPDATE` on
 `pgboss.*`, and `boss.retry` needs nothing more (no DDL). No other role is
