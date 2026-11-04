@@ -374,6 +374,19 @@ describe.skipIf(!runIntegration)('improvement item writes (#1328 b)', () => {
       expect((await audit(item.id)).map((r) => r.event_type)).toEqual(['improvement.item.created']);
     });
 
+    it('a resubmitted equivalent origin is a no-op although JSONB reorders object keys', async () => {
+      const item = await make({ origin: { menuId: 'm', context: { b: 2, a: 1, n: { y: 1, x: 2 } } } });
+      const a = await act(
+        'itemUpdate',
+        { itemId: item.id, origin: { menuId: ' m ', context: { a: 1, b: 2, n: { x: 2, y: 1 } } } },
+        { expectedVersion: item.version },
+      );
+      expect(a, JSON.stringify(a)).toMatchObject({ outcome: 'ok', version: '1' });
+      expect((await itemRow(item.id)).row_version).toBe(1);
+      expect((await events(item.id)).map((e) => e.event_type)).toEqual(['created']);
+      expect((await audit(item.id)).map((r) => r.event_type)).toEqual(['improvement.item.created']);
+    });
+
     it('a stale version answers conflict with the current version; a foreign-workspace item is not_found', async () => {
       const item = await make();
       await act('itemUpdate', { itemId: item.id, problem: `one ${TAG}` }, { expectedVersion: item.version });
@@ -405,6 +418,32 @@ describe.skipIf(!runIntegration)('improvement item writes (#1328 b)', () => {
       const item = await make();
       const a = await act('itemUpdate', { itemId: item.id, targets: [EQUIPMENT('A'), EQUIPMENT('A')] }, { expectedVersion: item.version });
       expect(fe(a)).toEqual(['targets.1:duplicate']);
+    });
+
+    it('refuses unsafe origin.context as a field error on create and on update, writing nothing', async () => {
+      // `act` asserts the 200 envelope, so an outcome here proves the error is not an HTTP 500.
+      const context = (v: Record<string, unknown>) => ({ menuId: 'm', context: v });
+      const problem = `unsafe ${TAG}`;
+      for (const bad of [
+        { nested: { deep: 'bad\u0000' } }, // NUL in a nested string value
+        { '\u0000': 1 }, // NUL in an object key
+        { a: { b: { c: { d: { e: { f: { g: { h: { i: 1 } } } } } } } } }, // a container on level 9 (cap is 8)
+      ]) {
+        const a = await act('itemCreate', { problem, origin: context(bad) });
+        expect(a.outcome, JSON.stringify(a)).toBe('invalid');
+        expect(fe(a)).toEqual(['origin.context:malformed']);
+      }
+      expect((await sql('select 1 from improvement.item where problem = $1', [problem])).rowCount).toBe(0);
+
+      const item = await make();
+      const beforeEvents = (await events(item.id)).map((e) => e.event_type);
+      const beforeAudit = (await audit(item.id)).map((r) => r.event_type);
+      const up = await act('itemUpdate', { itemId: item.id, origin: context({ bad: { deep: 'x\ud800' } }) }, { expectedVersion: item.version });
+      expect(up.outcome, JSON.stringify(up)).toBe('invalid');
+      expect(fe(up)).toEqual(['origin.context:malformed']);
+      expect((await itemRow(item.id)).row_version).toBe(1);
+      expect((await events(item.id)).map((e) => e.event_type)).toEqual(beforeEvents);
+      expect((await audit(item.id)).map((r) => r.event_type)).toEqual(beforeAudit);
     });
   });
 
@@ -474,6 +513,10 @@ describe.skipIf(!runIntegration)('improvement item writes (#1328 b)', () => {
       ['a protocol-relative URL', '//evil.example/x'],
       ['a backslash path', '/\\evil'],
       ['a bare word', 'compare'],
+      ['a TAB after the slash', '/\t/evil.example/x'],
+      ['a CR after the slash', '/\r/evil.example/x'],
+      ['a LF after the slash', '/\n/evil.example/x'],
+      ['a percent-encoded protocol-relative path', '/%2F%2Fevil.example/x'],
     ])('refuses a compareLink that is %s', async (_name, compareLink) => {
       const item = await make();
       const v = await toDone(item.id, item.version);

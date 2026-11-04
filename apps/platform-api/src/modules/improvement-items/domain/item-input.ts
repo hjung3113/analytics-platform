@@ -17,8 +17,38 @@ export const SHORT_TEXT_MAX = 200;
 export const TARGETS_MAX = 50;
 export const ORIGIN_CONTEXT_MAX_BYTES = 8 * 1024;
 export const EFFECT_RESULTS = ['effective', 'ineffective', 'inconclusive'] as const;
-/** Same shape as the 0093 `improvement_item_effect_compare_link_check`: one leading slash, then neither `/` nor `\`. */
-export const COMPARE_LINK = /^\/[^/\\]/;
+/** Backend mirror of `isAppRelativePath` (`@ap/contracts` `src/links/url.ts`; exported so the unit test can pin the
+ * mirror to the SDK original): an app-relative, same-origin path. The SDK stays test-only for the backend
+ * (ADR-0073, boundary rule 11), so the rule is mirrored here. A browser URL parser strips TAB, CR and LF, so
+ * without the control-character check `"/\t/evil.example/x"` would normalise into the protocol-relative
+ * `//evil.example/x`. Stricter than the merged 0093 CHECK `improvement_item_effect_compare_link_check`, which keeps
+ * its looser `^/[^/\\]` shape as the DB backstop; tightening it needs a new migration and is a recorded follow-up. */
+export const appRelativePath = (value: string): boolean => {
+  if (!value.startsWith('/') || value.startsWith('//')) return false;
+  if (value.includes('#') || value.includes('\\') || value.includes('//')) return false;
+  if (
+    // eslint-disable-next-line no-control-regex -- the guard rejects C0 controls and DEL on purpose (URL parsers strip them)
+    /[\u0000-\u001F\u007F]/.test(value)
+  ) {
+    return false;
+  }
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(value);
+  } catch {
+    return false;
+  }
+  if (!decoded.startsWith('/') || decoded.startsWith('//')) return false;
+  if (decoded.includes('#') || decoded.includes('\\') || decoded.includes('//')) return false;
+  if (
+    // eslint-disable-next-line no-control-regex -- same check after percent-decoding, e.g. "/%0A" decodes to LF
+    /[\u0000-\u001F\u007F]/.test(decoded)
+  ) {
+    return false;
+  }
+  const path = decoded.split('?')[0] ?? '';
+  return !path.includes(':');
+};
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DAY = /^(\d{4})-(\d{2})-(\d{2})$/;
@@ -56,11 +86,32 @@ function isCalendarDay(value: string): boolean {
 const day = z.string(REQUIRED).refine(isCalendarDay, { message: 'malformed' });
 const clearableDay = day.nullable().optional();
 
+/** The `origin.context` snapshot is flat data: the context object itself is level 1, and an array or object found
+ * nested deeper than this level is refused as `origin.context:malformed`. JSONB carries deeper trees, but a cap
+ * keeps the 8 KiB size cap meaningful and the analysis snapshot surveyable. */
+export const ORIGIN_CONTEXT_MAX_DEPTH = 8;
+
+/** Every string in `origin.context` — object keys and values, at any depth — must pass the same `unsafeText` rule as
+ * the other texts: PostgreSQL JSONB refuses NUL and lone UTF-16 surrogates exactly like `text` does, and the write
+ * would otherwise fail inside the transaction (22P05) and surface as an HTTP 500 instead of a field error. */
+const safeJson = (node: unknown, depth: number): boolean => {
+  if (depth > ORIGIN_CONTEXT_MAX_DEPTH) return false;
+  if (node === null || typeof node === 'number' || typeof node === 'boolean') return true;
+  if (typeof node === 'string') return !unsafeText(node);
+  if (Array.isArray(node)) return node.every((child) => safeJson(child, depth + 1));
+  if (typeof node === 'object') return Object.entries(node).every(([key, child]) => !unsafeText(key) && safeJson(child, depth + 1));
+  return false;
+};
+
 const originSchema = z
   .object({
     menuId: requiredText(SHORT_TEXT_MAX),
-    context: z.record(z.unknown(), REQUIRED).refine((v) => new TextEncoder().encode(JSON.stringify(v)).length <= ORIGIN_CONTEXT_MAX_BYTES, {
-      message: 'too_long',
+    context: z.record(z.unknown(), REQUIRED).superRefine((v, ctx) => {
+      if (new TextEncoder().encode(JSON.stringify(v)).length > ORIGIN_CONTEXT_MAX_BYTES) {
+        ctx.addIssue({ code: 'custom', message: 'too_long' });
+        return;
+      }
+      if (!safeJson(v, 1)) ctx.addIssue({ code: 'custom', message: 'malformed' });
     }),
   })
   .strict({ message: 'malformed' });
@@ -85,7 +136,7 @@ const effectSchema = z
       .nullable()
       .optional()
       .transform((v) => (v === undefined || v === null || v.trim() === '' ? null : v.trim()))
-      .refine((v) => v === null || COMPARE_LINK.test(v), { message: 'malformed' }),
+      .refine((v) => v === null || appRelativePath(v), { message: 'malformed' }),
   })
   .strict({ message: 'malformed' })
   .transform((v) => ({ result: v.result, note: v.note ?? null, compareLink: v.compareLink }));

@@ -251,8 +251,8 @@ describe.skipIf(!runIntegration)('platform port /api/v1/platform (#620)', () => 
       expect(await has(developer.cookie)).toBe(false);
       const plain = await newActor('user');
       expect(await has(plain.cookie)).toBe(false);
-      await grantCapability(dbHandle, WORKSPACE_ID, plain.id, 'improvement.manage', null, admin.id);
-      expect(await has(plain.cookie)).toBe(true);
+      // The grant case uses a Developer recipient on purpose: the supported-scope policy refuses improvement.manage
+      // grants to User recipients, so no raw User-grant fixture here (plan-review P3, #1328 fix round).
       await grantCapability(dbHandle, WORKSPACE_ID, developer.id, 'improvement.manage', null, admin.id);
       expect(await has(developer.cookie)).toBe(true);
     });

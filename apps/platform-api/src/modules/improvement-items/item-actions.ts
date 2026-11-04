@@ -96,7 +96,28 @@ const sortedTargets = (targets: readonly TargetInput[]): TargetSnapshot[] =>
 
 const originOf = (row: ItemWriteRow): OriginInput | null =>
   row.originMenuId === null ? null : { menuId: row.originMenuId, context: (row.originContext ?? {}) as Record<string, unknown> };
-const sameOrigin = (a: OriginInput | null, b: OriginInput | null): boolean => JSON.stringify(a) === JSON.stringify(b);
+/** Structural JSON equality, used to answer whether an update really changed the origin (the no-op contract):
+ * object key order is not meaningful (the stored `origin_context` is JSONB, which reorders keys), array order is
+ * data and is preserved. Primitives compare by value. */
+const jsonEqual = (a: unknown, b: unknown): boolean => {
+  if (a === b) return true;
+  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  if (Array.isArray(a)) {
+    const bArray = b as unknown[];
+    return a.length === bArray.length && a.every((child, i) => jsonEqual(child, bArray[i]));
+  }
+  const aKeys = Object.keys(a as Record<string, unknown>).sort();
+  const bKeys = Object.keys(b as Record<string, unknown>).sort();
+  const bRecord = b as Record<string, unknown>;
+  return (
+    aKeys.length === bKeys.length &&
+    aKeys.every((key, i) => {
+      const bKey = bKeys[i];
+      return bKey !== undefined && key === bKey && jsonEqual((a as Record<string, unknown>)[key], bRecord[bKey]);
+    })
+  );
+};
 
 export function itemActions(deps: ItemActionDeps): MenuActionDeclaration[] {
   const audit = createAuditService();
@@ -274,7 +295,7 @@ export function itemActions(deps: ItemActionDeps): MenuActionDeclaration[] {
         before.actionDate = row.actionDate;
         after.actionDate = next.actionDate;
       }
-      if (!sameOrigin(next.origin, originOf(row))) {
+      if (!jsonEqual(next.origin, originOf(row))) {
         patch.originMenuId = next.origin?.menuId ?? null;
         patch.originContext = next.origin?.context ?? null;
         before.origin = originOf(row);
