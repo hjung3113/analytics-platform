@@ -218,3 +218,26 @@ The owner's import is a one-time bulk load of a **names-only model sheet** (ADR-
 ### Storage invariants (migration 0082)
 
 Five tables plus the number counter, every key composite with `workspace_id`. An item has exactly one of `owner_model_id` / `owner_software_id` (CHECK, composite FK, `ON DELETE RESTRICT`); `platform_app` may UPDATE only `latest_revision_no, publication_state, verification_state, processing_state, row_version, updated_by, updated_at`. Revisions, evidence, assessment events and links are SELECT/INSERT only for `platform_app`. `item_no` comes from `item_counter` through one atomic upsert (`repositories/item-number.ts`). Item writes and their capability/audit contract are defined in [Item write actions](#item-write-actions) above.
+
+## Catalog import by menu actions: paste and apply (#1195 b3, no migration)
+
+A menu reaches the server only through `useMenuFetch` and menu actions, so the import wizard cannot call the multipart upload, `POST …/apply` or `GET …/report.csv`; those stay API-only and unchanged. Two menu actions (menu `log-knowledge`, right `knowledge.catalog.import` with the Admin bypass, judged before replay and again on the transaction; both `concurrency:'none'`, both invalidate `logKnowledge.importDetail`) cover the wizard. The result step shows rows and `applyStatus` from `importDetail` (paged: default 50, max 200) and exports them from the table.
+
+**Paste** `logKnowledge.importPaste` `{text: string, sourceName?: string}` — model sheets only (`entity_type 'model'`).
+- `text` is what the user pasted from Excel or the contents of a CSV the browser read. At most **256 KiB** of UTF-8 and **1,000 data rows** (the upload keeps 5 MB and 5,000); the other limits (50 columns) are the upload's.
+- Delimiter: **tab** when the first non-empty line contains a tab, else **comma**. A leading BOM is dropped. It goes through the upload's CSV parser (one parser, an explicit delimiter and row limit), whatever `sourceName` or its extension says; `sourceName` only names the job.
+- Header recognition and file-level refusals are the upload's (names-only model sheet, aliases, `missing_header`, `duplicate_header`, `invalid_headers`, `empty`, `too_many_columns`, `unreadable`, `too_many_rows`, `file_too_large`; invalid UTF-8 cannot occur in a string).
+- Stored like a CSV upload: `file_type 'csv'`; `file_name` = `sourceName` with control characters and `/ \` turned into `_` (≤ 255), else `붙여넣기.tsv` (tab) or `붙여넣기.csv`; `file_size` = UTF-8 byte length; `file_sha256` = sha256 of the UTF-8 text. Staging only: the catalog is untouched.
+- Answer `ok` `{jobId, rowCount, status: 'mapped'|'uploaded'}` (`mapped` when the headers were recognized).
+- **Refusal** = `invalid`, no job created, field errors in the existing `{path, code}` shape: `{path:['text'], code:<refusal code>}`, plus one `{path:['text','headers',<header text>], code}` per header the refusal names (the missing expected names for `missing_header`, the colliding header texts for `duplicate_header`). Input shape errors: `{path:['text'], code:'required'}` (not a string), `{path:['sourceName'], code:'invalid'}`.
+- One process parses at most **2** pastes/uploads at a time (slots shared with the upload route). With none free the answer is `invalid` `{path:['text'], code:'busy'}`; it is not recorded, so the client retries with the same key shortly.
+
+**Apply** `logKnowledge.importApply` `{jobId, expectedPlanVersion}` (positive integer) runs the same `runApply` as the route. The answer is always `ok` (the engine returns only `ok` data from a handler) with a discriminant:
+- `{outcome:'progress', jobId, status, planVersion, remaining, counts}` — as the route's progress;
+- `{outcome:'not_found'}` — unknown job or another workspace's;
+- `{outcome:'conflict', reason:'plan_version'|'state'}` — as the route's 409;
+- `{outcome:'busy'}` — no apply slot free (two runs per process, shared with the route; the route answers 503 `busy` with `Retry-After`). Nothing waits while the outer transaction is open.
+
+*How `runApply` runs inside the handler.* The engine's transaction holds the `(actor, key)` advisory xact lock and the idempotency record, and nothing of the job (no `currentVersion`). `runApply` uses its own pool connections: one pinned connection holds the session advisory lock (workspace + job) and runs the seal and every per-row transaction on it, so a run takes the engine's connection plus one, at most four for two runs. It never reads or writes the idempotency table or locks the job row from the outer transaction, so it cannot wait on either. The time budget bounds the call (`IMPORT_APPLY_BUDGET_MS`, 15 s).
+
+*Protocol.* Each progress step is a fresh action call with a fresh idempotency key; the client stops at `completed` or `partial_failure`, and a later deliberate call retries the `failed` rows. A retry of an unknown or error result resends its key; a **replay returns the earlier recorded answer** (an earlier progress, or an earlier `busy`), starts no apply and creates nothing, so the client moves on with a fresh key for the next step, and also for a retry after `busy`. Rows commit outside the action record: if the record does not commit (a crash after the rows), the same key re-runs the apply, and the seal plus per-row idempotency (node b, b2) create no catalog, parent, identity or audit row twice.

@@ -194,7 +194,7 @@ export interface BuildServerOptions {
    */
   menuDispatch?: readonly MenuDispatchContribution[];
   /** Test seam of the catalog import apply (#1195 b): a shorter time budget and failure/barrier hooks. */
-  logKnowledgeImport?: { applyBudgetMs?: number; hooks?: ImportApplyHooks };
+  logKnowledgeImport?: { applyBudgetMs?: number; hooks?: ImportApplyHooks & { afterApply?(): Promise<void> } };
 }
 
 export async function buildServer(opts: BuildServerOptions): Promise<FastifyInstance> {
@@ -844,7 +844,13 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
   // modules contribute to. Registration problems throw here and stop the boot.
   const menuRegistry = createMenuDispatchRegistry([
     homeNoticesContribution({ db: dbHandle.db, checkService }),
-    logKnowledgeContribution({ db: dbHandle.db, checkService }),
+    logKnowledgeContribution({
+      db: dbHandle.db,
+      checkService,
+      pool: dbHandle.pool,
+      ...(opts.logKnowledgeImport?.applyBudgetMs !== undefined ? { applyBudgetMs: opts.logKnowledgeImport.applyBudgetMs } : {}),
+      ...(opts.logKnowledgeImport?.hooks ? { applyHooks: opts.logKnowledgeImport.hooks } : {}),
+    }),
     ...(opts.menuDispatch ?? []),
   ]);
   // The catalog import upload (#1195 a) is a multipart route, which the menu-action port cannot carry: it is

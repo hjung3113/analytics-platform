@@ -390,6 +390,8 @@ SQL은 **핵심 제약의 예시**이고 전체 실행 migration은 아니다. �
 - 우선순위: `error`→excluded(skip이 있어도), `skip`→skipped, 그다음 plan 상태. 미해결 `conflict`는 unresolved. update/map은 이름(모델은 `process_codes`가 매핑된 때만 공정 집합)만 바꾸고 코드·재활성화는 하지 않는다.
 - `map`은 `external_identity_map`에 `catalog_import` 별칭을 `accepted`로 쓴다. 키는 JSON 배열(vendor/process `[code]`, model `[vendor, code]`, software `[vendor, model, version]`). 같은 키가 다른 대상이면 `conflict identity_conflict`.
 - 감사: 적용한 쓰기는 기존 `knowledge.catalog.created|updated`에 `source:{importJobId,rowNo}`를 담고, 별칭 쓰기는 `knowledge.catalog.identity_mapped`.
+
+**구현 상태(#1195 node b3, 규범):** 메뉴는 서버에 메뉴 조회·메뉴 액션으로만 닿고 파일 업로드·원시 POST·파일 내려받기가 없다. 그래서 위저드의 ①단계는 **엑셀에서 복사한 행을 붙여넣거나 브라우저가 연 CSV 텍스트**(`logKnowledge.importPaste`, 모델 시트 전용, 256 KiB·1,000행)이고, ⑤단계 적용은 `logKnowledge.importApply`(진행 상황을 돌려주며 `remaining = 0`까지 새 멱등 키로 다시 부른다)다. 결과는 화면 안에서 보여 주고 표에서 내보낸다. 멀티파트 업로드, `POST …/apply`, `GET …/report.csv`는 API 전용으로 남는다(계획 결정 11). XLSX 파일 선택은 구현하지 않았다(`.planning/backlog.md`).
 - 보고서: `GET …/imports/:jobId/report.csv`(BOM, CRLF, 모든 셀 수식 방어).
 
 **구현 상태(#1195 node b2, 규범; 사용자 2026-11-04):** P0 Import는 **4단계**다 — 파일 올리기 → 검사 결과 → 확인 필요 행 정리(충돌이 있을 때만) → 적용 결과. 제품 기준 §15.4 «반드시 5단계»를 P0에서 대신한다. 이유: 파일은 이름만 담고(메이커명·모델명·공정명) 헤더를 서버가 알아보므로 «열 매핑» 단계가 없다(`importMap`은 API로만 남는다). 업로드가 모델 시트의 헤더를 인식해 매핑을 스스로 저장한다. 없는 메이커·공정은 같은 계획에서 새 행으로 만든다. 코드는 이름에서 정한다([ADR-0107](../../../adr/0107-log-knowledge-catalog-authority-keys-and-edit-rights.md) 결정 2 보충). 정본 `api/log-knowledge.md` §Catalog import by names.

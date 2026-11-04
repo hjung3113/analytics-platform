@@ -273,8 +273,10 @@ export const itemSetArchived = itemWrite<ItemSetArchivedInput, ItemWriteResult>(
 export const itemActionSpecs = [itemCreate, itemRevise, itemAssess, itemDerive, itemSetArchived] as const;
 
 // ---- catalog import staging (#1195 a/b, design v0.6 §6.2) -----------------------------------------------------
-// Specs only (no screen, no mock): the upload itself is a multipart route (`POST /api/v1/log-knowledge/imports`), not a
-// menu action. The server mirror is `apps/platform-api/src/modules/log-knowledge/import-actions.ts` /
+// Specs only (no screen, no mock). A menu reaches the server only through `useMenuFetch` and menu actions, so the
+// wizard uses `importPaste` (pasted text or a CSV the browser read) and `importApply`. API-only paths, not offered
+// to a menu: the multipart upload `POST /api/v1/log-knowledge/imports` (CSV or XLSX, every entity), the apply route
+// `POST …/imports/:jobId/apply` and `GET …/imports/:jobId/report.csv`. The server mirror is `apps/platform-api/src/modules/log-knowledge/import-actions.ts` /
 // `import-endpoints.ts`; the drift test compares both. The actions are judged with the server capability
 // `knowledge.catalog.import`; they declare the catalog menu permission (a manager's entry, the server decides).
 
@@ -344,6 +346,29 @@ export const importCancel = defineAction<ImportCancelInput, ImportStepResult>({
   id: 'logKnowledge.importCancel', menuId: LOG_KNOWLEDGE_MENU_ID, inputKeys: { jobId: true },
   permission: CATALOG_MANAGE_PERMISSION, requiresScope: false, concurrency: 'version', invalidates: [importDetailEndpoint],
 });
-/** Apply is not a menu action: `POST /api/v1/log-knowledge/imports/:jobId/apply` (seal + resumable apply) and `GET …/report.csv`. */
-export const importActionSpecs = [importMap, importValidate, importResolve, importCancel] as const;
+
+export type ImportPasteInput = { text: string; sourceName?: string };
+/** `status` is `mapped` when the headers were recognized, else `uploaded` (cannot happen for a recognized model sheet). */
+export type ImportPasteResult = { jobId: string; rowCount: number; status: 'mapped' | 'uploaded' };
+/** Model entity only; at most 256 KiB of UTF-8 and 1,000 data rows; tab-delimited when the first non-empty line holds a tab, else comma. A refusal is `invalid` with `{path:['text'], code}` plus `{path:['text','headers',<header>], code}` per named header and creates no job. */
+export const importPaste = defineAction<ImportPasteInput, ImportPasteResult>({
+  id: 'logKnowledge.importPaste', menuId: LOG_KNOWLEDGE_MENU_ID, inputKeys: { text: true, sourceName: true },
+  permission: CATALOG_MANAGE_PERMISSION, requiresScope: false, concurrency: 'none', invalidates: [importDetailEndpoint],
+});
+
+export type ImportApplyInput = { jobId: string; expectedPlanVersion: number };
+export type ImportApplyProgress = { jobId: string; status: ImportJobStatus; planVersion: number; remaining: number; counts: ImportApplyCounts };
+/** The action engine returns only `ok` data, so conflict, not-found and busy are discriminants of an `ok` answer. */
+export type ImportApplyResult =
+  | ({ outcome: 'progress' } & ImportApplyProgress)
+  | { outcome: 'not_found' }
+  | { outcome: 'conflict'; reason: 'plan_version' | 'state' }
+  | { outcome: 'busy' };
+/** One call applies rows within a time budget; call again with a fresh idempotency key until `remaining` is 0 (`completed` or `partial_failure`). A busy answer is recorded for replay: retry with a new key. */
+export const importApply = defineAction<ImportApplyInput, ImportApplyResult>({
+  id: 'logKnowledge.importApply', menuId: LOG_KNOWLEDGE_MENU_ID, inputKeys: { jobId: true, expectedPlanVersion: true },
+  permission: CATALOG_MANAGE_PERMISSION, requiresScope: false, concurrency: 'none', invalidates: [importDetailEndpoint],
+});
+
+export const importActionSpecs = [importMap, importValidate, importResolve, importCancel, importPaste, importApply] as const;
 export const importEndpointSpecs = [importDetailEndpoint] as const;

@@ -33,15 +33,14 @@ import {
   IMPORT_MAX_BYTES,
   type ImportFileRefusal,
   parseImportFile,
+  sanitizeImportFileName,
 } from './domain/import-file.js';
 import { isImportEntity } from './domain/import-mapping.js';
 import { modelHeaderFailure, recognizeModelHeaders } from './domain/import-headers.js';
 import { getJob, insertJob, insertRows } from './repositories/import-repo.js';
+import { applySlots, parseSlots } from './import-admission.js';
 
 export const LOG_KNOWLEDGE_ROUTE_PREFIX = '/api/v1/log-knowledge';
-/** Parses (5 MB, up to 5,000 rows) run a few at a time per process; a busy server answers 503 at once. */
-const PARSE_CONCURRENCY = 2;
-const FILE_NAME_MAX = 255;
 
 export interface ImportRoutesOptions {
   sessionService: SessionService;
@@ -69,7 +68,6 @@ export const importRoutes: FastifyPluginAsync<ImportRoutesOptions> = async (app,
   const authenticate = createAuthenticator({ sessionService: opts.sessionService, workspaceId: opts.workspaceId });
   const csrf = requireCsrf(opts.sessionService);
   const authorize = importAuthorizer(opts.checkService);
-  let inFlight = 0;
 
   const authenticated = new WeakMap<object, LoadedSession>();
   const authenticateFirst: preHandlerHookHandler = async (req, reply) => {
@@ -91,11 +89,12 @@ export const importRoutes: FastifyPluginAsync<ImportRoutesOptions> = async (app,
     }
     if (!req.isMultipart()) return refuse(reply, 400, 'unsupported_type', 'request must be multipart/form-data');
 
-    if (inFlight >= PARSE_CONCURRENCY) {
+    // Parses (5 MB, up to 5,000 rows) run a few at a time per process (shared with `importPaste`); a busy server answers 503 at once.
+    const releaseParse = parseSlots.tryTake();
+    if (!releaseParse) {
       reply.header('Retry-After', '5');
       return refuse(reply, 503, 'busy', 'too many imports in progress; retry shortly');
     }
-    inFlight += 1;
     try {
       let file: { name: string; bytes: Buffer } | null = null;
       let entityType: unknown;
@@ -119,10 +118,7 @@ export const importRoutes: FastifyPluginAsync<ImportRoutesOptions> = async (app,
         return refuse(reply, 400, 'invalid_entity_type', 'entityType must be vendor, process, model or software');
       }
       if (!file) return refuse(reply, 400, 'empty', 'file part missing');
-      const fileName = [...file.name]
-        .map((ch) => (ch.charCodeAt(0) < 0x20 || ch === '\u007f' || ch === '/' || ch === '\\' ? '_' : ch))
-        .join('')
-        .slice(0, FILE_NAME_MAX);
+      const fileName = sanitizeImportFileName(file.name);
       if (fileName === '') return refuse(reply, 400, 'unsupported_type', 'file name missing');
 
       const parsed = await parseImportFile(file.bytes, fileName, entityType === 'model' ? { recognizeHeaders: modelHeaderFailure } : undefined);
@@ -176,7 +172,7 @@ export const importRoutes: FastifyPluginAsync<ImportRoutesOptions> = async (app,
       });
       return reply.code(result.status).send(result.body);
     } finally {
-      inFlight -= 1;
+      releaseParse();
     }
   });
   // ---- ④–⑤ apply (#1195 b): seals on the first call, then applies rows until the time budget is spent. ----------
@@ -193,6 +189,12 @@ export const importRoutes: FastifyPluginAsync<ImportRoutesOptions> = async (app,
     if (typeof expected !== 'number' || !Number.isInteger(expected) || expected < 1) {
       return refuse(reply, 400, 'invalid', 'expectedPlanVersion must be a positive integer');
     }
+    // At most two apply runs per process, shared with `importApply`; no slot answers 503 at once.
+    const releaseApply = applySlots.tryTake();
+    if (!releaseApply) {
+      reply.header('Retry-After', '5');
+      return refuse(reply, 503, 'busy', 'too many imports in progress; retry shortly');
+    }
     const result = await runApply(
       {
         db: opts.db,
@@ -203,7 +205,7 @@ export const importRoutes: FastifyPluginAsync<ImportRoutesOptions> = async (app,
       },
       jobId,
       expected,
-    );
+    ).finally(releaseApply);
     if (result.kind === 'not_found') return refuse(reply, 404, 'not_found', 'import job not found');
     if (result.kind === 'conflict') return reply.code(409).send({ code: 'conflict', reason: result.code, message: 'the job changed or is not applicable' });
     return reply.code(200).send(result.progress);

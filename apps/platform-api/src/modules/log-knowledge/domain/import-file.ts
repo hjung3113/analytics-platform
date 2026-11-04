@@ -110,15 +110,28 @@ function parseCsvBytes(bytes: Uint8Array, options?: ParseOptions): ParsedImportF
   } catch {
     return refuse('encoding');
   }
-  if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
+  return parseCsvText(text, { delimiter: ',', maxRows: IMPORT_MAX_ROWS }, options);
+}
+
+/**
+ * The one CSV parser: an upload and pasted text both end here, differing only in the delimiter and the row limit.
+ * A leading BOM is dropped.
+ */
+function parseCsvText(
+  input: string,
+  limits: { delimiter: ',' | '\t'; maxRows: number },
+  options?: ParseOptions,
+): ParsedImportFile {
+  const text = input.charCodeAt(0) === 0xfeff ? input.slice(1) : input;
   let records: string[][];
   try {
     // `to` stops the reader one record past the limit (header + rows + 1) instead of materializing the whole file.
     records = parseCsv(text, {
+      delimiter: limits.delimiter,
       relax_column_count: false,
       skip_empty_lines: true,
       bom: false,
-      to: IMPORT_MAX_ROWS + 2,
+      to: limits.maxRows + 2,
       max_record_size: IMPORT_MAX_BYTES,
     }) as string[][];
   } catch {
@@ -130,12 +143,30 @@ function parseCsvBytes(bytes: Uint8Array, options?: ParseOptions): ParsedImportF
   const headerRefusal = checkHeaders(headers, options);
   if (headerRefusal) return refuseHeaders(headerRefusal);
   if (dataRows.length === 0) return refuse('empty');
-  if (dataRows.length > IMPORT_MAX_ROWS) return refuse('too_many_rows');
+  if (dataRows.length > limits.maxRows) return refuse('too_many_rows');
   const rows = dataRows.map((record) => ({
     cells: Object.fromEntries(headers.map((header, i) => [header, record[i] ?? ''])),
     parseErrors: [],
   }));
   return { ok: true, fileType: 'csv', headers, rows };
+}
+
+/** Pasted text (from Excel, or a CSV the browser read; #1195 b3): at most 256 KiB of UTF-8 and 1,000 data rows. */
+export const PASTE_MAX_BYTES = 256 * 1024;
+export const PASTE_MAX_ROWS = 1000;
+
+/** Tab when the first non-empty line holds a tab (Excel copies tab-separated), else comma. */
+export function pasteDelimiter(text: string): ',' | '\t' {
+  const body = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+  const first = body.split(/\r\n|\n|\r/).find((line) => line.trim() !== '');
+  return first?.includes('\t') ? '\t' : ',';
+}
+
+/** Never looks at a file name or extension: the text is CSV-shaped by construction. Same refusals as an upload. */
+export function parsePastedText(text: string, options?: ParseOptions): ParsedImportFile {
+  if (Buffer.byteLength(text, 'utf8') > PASTE_MAX_BYTES) return refuse('file_too_large');
+  if (text.trim() === '') return refuse('empty');
+  return parseCsvText(text, { delimiter: pasteDelimiter(text), maxRows: PASTE_MAX_ROWS }, options);
 }
 
 type CellRead = { text: string; error: ParseError['code'] | null };
@@ -315,3 +346,12 @@ export async function parseImportFile(
 }
 
 export const refusalStatus = (code: ImportFileRefusal): 400 | 413 => REFUSAL_STATUS[code];
+
+export const IMPORT_FILE_NAME_MAX = 255;
+
+/** Control characters and path separators become `_`; at most 255 characters. Shared by the upload and `importPaste`. */
+export const sanitizeImportFileName = (name: string): string =>
+  [...name]
+    .map((ch) => (ch.charCodeAt(0) < 0x20 || ch === '\u007f' || ch === '/' || ch === '\\' ? '_' : ch))
+    .join('')
+    .slice(0, IMPORT_FILE_NAME_MAX);

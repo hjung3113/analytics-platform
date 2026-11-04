@@ -238,8 +238,8 @@ describe('catalog import staging declarations (#1195 a) vs the server', () => {
     });
   });
 
-  it('declares the same four actions in the same order, with keys, permission, concurrency and invalidations', () => {
-    expect(serverImportActions).toHaveLength(4);
+  it('declares the same six actions in the same order, with keys, permission, concurrency and invalidations', () => {
+    expect(serverImportActions).toHaveLength(6);
     expect(importActionSpecs.map((s) => s.id)).toEqual(serverImportActions.map((a) => a.spec.id));
     importActionSpecs.forEach((menu, i) => {
       const spec = serverImportActions[i]?.spec;
