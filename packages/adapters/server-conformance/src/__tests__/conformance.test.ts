@@ -376,7 +376,7 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
         const VIA = e.source === 'board' ? ['paneOpen', 'paneReplace'] : MAIN_VIA;
         const badNavigation = (e.via !== undefined && !breaks.has('usage-accepts-bad-via') && !VIA.includes(e.via))
           || (e.via !== undefined && typeof e.via !== 'string')
-          || (e.fromMenuId !== undefined && e.fromMenuId !== null && !token(e.fromMenuId, 80));
+          || (e.fromMenuId !== undefined && e.fromMenuId !== null && !(breaks.has('usage-accepts-path-from-menu') ? token(e.fromMenuId, 80) : typeof e.fromMenuId === 'string' && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$/.test(e.fromMenuId)));
         const badProvenance = (!breaks.has('usage-accepts-bad-source') && e.source !== undefined && e.source !== 'main' && e.source !== 'board')
           || (!breaks.has('usage-accepts-orphan-stay') && e.stayId !== undefined && (e.source !== 'board' || !token(e.stayId, 80)));
         return Object.keys(e).some(k => !allowed.includes(k) && !(breaks.has('usage-client-user') && k === 'userId'))
@@ -804,6 +804,8 @@ describe('server conformance kit (#145)', () => {
       'port · recordUsage accepts via and fromMenuId on a main entry',
       'port · recordUsage accepts paneOpen/paneReplace and fromMenuId on a board entry',
       'port · recordUsage: a pane via on a main entry and an old via on a board entry are rejected',
+      'port · recordUsage accepts a menu id with a colon as fromMenuId',
+      'port · recordUsage: a fromMenuId that is not a menu id (path, URL, key=value, control character, too long, empty) is rejected on both sources',
       'port · recordUsage: a via outside the closed set is rejected',
       'port · recordUsage: a stayId without board source is rejected',
       'port · recordUsage: an unknown key next to source is rejected',
@@ -995,8 +997,9 @@ describe('server conformance kit (#145)', () => {
     ['usage-allows-any-at', 'port · recordUsage: a non-numeric at is rejected'],
     ['usage-allows-any-entered-at', 'port · recordUsage: a non-numeric enteredAt is rejected'],
     ['usage-allows-negative-dwell', 'port · recordUsage: a negative dwellMs is rejected'],
-    ['usage-rejects-board', ['port · recordUsage accepts a board entry and dwell (source, stayId)', 'port · recordUsage accepts paneOpen/paneReplace and fromMenuId on a board entry']],
+    ['usage-rejects-board', ['port · recordUsage accepts a board entry and dwell (source, stayId)', 'port · recordUsage accepts paneOpen/paneReplace and fromMenuId on a board entry', 'port · recordUsage accepts a menu id with a colon as fromMenuId']],
     ['usage-accepts-bad-source', 'port · recordUsage: an unknown source is rejected'],
+    ['usage-accepts-path-from-menu', ['port · recordUsage: a fromMenuId that is not a menu id (path, URL, key=value, control character, too long, empty) is rejected on both sources']],
     ['usage-accepts-bad-via', ['port · recordUsage: a pane via on a main entry and an old via on a board entry are rejected', 'port · recordUsage: a via outside the closed set is rejected']],
     ['usage-accepts-orphan-stay', 'port · recordUsage: a stayId without board source is rejected'],
     ['usage-aggregates-by-client-at', 'port · usageSummary counts by receive time, not the client at'],

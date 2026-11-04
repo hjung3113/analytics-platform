@@ -1,7 +1,7 @@
 import { use, useContext, useMemo } from 'react';
 import type { PortCache } from '../scope/selection-port-cache';
 import type { QueryEngine } from '../query/query-engine';
-import type { EquipmentAxisDescriptor, UsageVia } from '@ap/contracts';
+import type { EquipmentAxisDescriptor, MainUsageVia } from '@ap/contracts';
 import type { HostPlatform, MenuPlatform, Recent, Toast } from './types';
 import { AppContext, MainBoundContext, OverlayContext, PaneScreenContext, RecentContext, ScreenContext, ToastsContext, type OverlayState } from './contexts';
 
@@ -58,7 +58,7 @@ export function useHostPlatformOptional(): HostPlatform | null {
 }
 
 /** Anchor that navigates through the kernel (keeps modifier-click/open-in-new-tab behavior). */
-export function PlatformLink({ href, children, className, onNavigate, via, ...rest }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string; onNavigate?: () => void; /** How this link is reported in the usage entry it leads to (default `link`). */ via?: UsageVia }) {
+export function PlatformLink({ href, children, className, onNavigate, via, ...rest }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string; onNavigate?: () => void; /** How this link is reported in the usage entry it leads to (default `link`). */ via?: MainUsageVia }) {
   const { navigate, location, pathname } = usePlatform();
   return <a href={location.href(href)} className={className} {...rest} onClick={e => {
     rest.onClick?.(e);

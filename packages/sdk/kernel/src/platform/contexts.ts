@@ -5,7 +5,7 @@ import type { PortCache } from '../scope/selection-port-cache';
 import type { MenuEntry } from '../registry/registry';
 import type { DraftStore } from '../query/draft-state';
 import type { QueryEngine } from '../query/query-engine';
-import type { Pair, SpaceDef, UsageVia } from '@ap/contracts';
+import { PANE_USAGE_VIAS, type MainUsageVia, type Pair, type SpaceDef } from '@ap/contracts';
 import type { SupportRegistry } from '../saved-view/useSavedViewSupport';
 import type { HostPlatform, Recent, Toast } from './types';
 
@@ -36,7 +36,7 @@ export type AppInternal = {
   /** Former space id → current id for the per-space resume store (`PlatformProvider.spaceIdMigrations`). */
   spaceIdMigrations: Readonly<Record<string, string>> | undefined;
 };
-export type UsageNavTrail = { user: string; via: UsageVia | null; seen: boolean; prev: string | null };
+export type UsageNavTrail = { user: string; via: MainUsageVia | null; seen: boolean; prev: string | null };
 export type AppValue = { pub: AppState; internal: AppInternal };
 
 export const AppContext = createContext<AppValue | null>(null);
@@ -83,10 +83,12 @@ export type ScreenSource = {
  * takes it) and moves the trail to this menu. Unmarked, the tab's first entry is `direct` with no previous menu; a new session
  * user starts the trail over so a previous user's menu never travels (docs/05, ADR-0020).
  */
-export function takeNavigation(trail: UsageNavTrail, userId: string, menuId: string): { via: UsageVia; fromMenuId: string | null } {
+export function takeNavigation(trail: UsageNavTrail, userId: string, menuId: string): { via: MainUsageVia; fromMenuId: string | null } {
   if (trail.user !== userId) Object.assign(trail, { user: userId, via: null, seen: false, prev: null });
   // A pending mark wins; with none, the tab's first entry is `direct` (opened, reloaded, typed) and a later one `link`.
-  const taken = { via: trail.via ?? (trail.seen ? 'link' : 'direct'), fromMenuId: trail.prev };
+  // A pane value that slipped past the types (a cast) is dropped: the server rejects a main entry carrying one.
+  const marked = trail.via && !(PANE_USAGE_VIAS as readonly string[]).includes(trail.via) ? trail.via : null;
+  const taken = { via: marked ?? (trail.seen ? 'link' : 'direct'), fromMenuId: trail.prev };
   Object.assign(trail, { via: null, seen: true, prev: menuId });
   return taken;
 }

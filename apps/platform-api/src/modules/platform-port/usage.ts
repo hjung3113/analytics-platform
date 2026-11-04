@@ -45,6 +45,13 @@ export function validIdentifier(value: unknown, maxLength: number): value is str
   );
 }
 
+/**
+ * A registry menu id: starts alphanumeric, then letters, digits, `.` `_` `:` `-`, at most 80 chars (never `/`,
+ * so no path, URL or `key=value`). Kept in step with `MENU_ID_PATTERN` in the reference server
+ * (`packages/adapters/mock-server/src/server.ts`); `apps/platform-web/src/server-conformance.test.ts` proves every registered menu id matches.
+ */
+export const MENU_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$/;
+
 /** A space id is null (a global menu) or an identifier like a menu id: this server does not know the app's spaces (ADR-0072), so it judges the shape only. */
 export function validSpaceId(value: unknown): value is string | null {
   return value === null || validIdentifier(value, 80);
@@ -108,7 +115,7 @@ function parseUsageEvent(raw: unknown): ParsedUsageEvent | null {
       via = raw.via as string;
     }
     if ('fromMenuId' in raw && raw.fromMenuId !== null) {
-      if (!validIdentifier(raw.fromMenuId, 80)) return null;
+      if (typeof raw.fromMenuId !== 'string' || !MENU_ID_PATTERN.test(raw.fromMenuId)) return null;
       fromMenuId = raw.fromMenuId;
     }
   }

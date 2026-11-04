@@ -89,6 +89,10 @@ export type UsageSource = 'main' | 'board';
  */
 export const USAGE_VIAS = ['sidebar', 'switcher', 'palette', 'board', 'return', 'crossLink', 'drill', 'history', 'direct', 'link', 'paneOpen', 'paneReplace'] as const;
 export type UsageVia = typeof USAGE_VIAS[number];
+/** The board-pane values of `UsageVia`; the rest are main-screen values. */
+export const PANE_USAGE_VIAS = ['paneOpen', 'paneReplace'] as const;
+/** What a main-screen navigation may be marked with: `UsageVia` without the pane values (the server rejects a main entry carrying one). */
+export type MainUsageVia = Exclude<UsageVia, typeof PANE_USAGE_VIAS[number]>;
 /**
  * A render failure the kernel's route error boundary contained (issue #101). Identity fields only, like UsageEvent:
  * no URL, Context value, stack, component stack or `Error.message` — a thrown message is free text that can carry

@@ -9,7 +9,7 @@ export {
 } from './actions/jobs';
 
 export {
-  aggregateUsage, getEntity, getRole, getScenario, resetUsage, resolveEquipment, setRole, storedUsage,
+  MENU_ID_PATTERN, aggregateUsage, getEntity, getRole, getScenario, resetUsage, resolveEquipment, setRole, storedUsage,
   setScenario, subscribeServer, type Scenario, type StoredUsageEvent,
 } from './server';
 

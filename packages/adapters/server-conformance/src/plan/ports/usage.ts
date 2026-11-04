@@ -81,6 +81,30 @@ export function planUsageChecks(harness: ServerConformanceHarness): ConformanceC
     },
   });
   checks.push({
+    id: 'port · recordUsage accepts a menu id with a colon as fromMenuId',
+    uses: ['recordUsage'],
+    mode: 'granted',
+    nonEnvelope: true,
+    run: expectAccepted([{ ...usageEntry, via: 'link', fromMenuId: 'mars:lot.view-2' }, { ...boardEntry, via: 'paneReplace', fromMenuId: 'mars:lot.view-2' }], 2, 'a fromMenuId shaped like a registry menu id with a colon'),
+  });
+  checks.push({
+    id: 'port · recordUsage: a fromMenuId that is not a menu id (path, URL, key=value, control character, too long, empty) is rejected on both sources',
+    uses: ['recordUsage'],
+    mode: 'granted',
+    nonEnvelope: true,
+    run: async () => {
+      const bad = ['/mars/item/SECRET', 'https://x/lot42', 'lotId=SECRET', 'a\u0000b', 'a'.repeat(81), ''];
+      const accepted: string[] = [];
+      for (const fromMenuId of bad) {
+        for (const base of [{ ...usageEntry, via: 'link' as const }, { ...boardEntry, via: 'paneReplace' as const }]) {
+          const r = await adapter.recordUsage([{ ...base, fromMenuId }]);
+          if (r.accepted !== 0) accepted.push(`${base.source ?? 'main'}:${JSON.stringify(fromMenuId.slice(0, 20))}`);
+        }
+      }
+      return accepted.length === 0 ? null : `expected every one rejected, accepted: ${accepted.join(', ')}`;
+    },
+  });
+  checks.push({
     id: 'port · recordUsage: a via outside the closed set is rejected',
     uses: ['recordUsage'],
     mode: 'granted',

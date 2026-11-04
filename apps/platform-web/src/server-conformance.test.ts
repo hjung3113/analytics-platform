@@ -5,7 +5,7 @@ import { EQUIPMENT_AXES } from './equipmentAxes';
  * (docs/integration/real-server-checklist.md). The endpoint list is the mock assembly's own MOCK_ENDPOINTS (#153) plus its MODULE_MOCK_ENDPOINTS (#801) — lint lets exactly this test import it.
  */
 import { describe, expect, it } from 'vitest';
-import { createMockAdapter, defineMockAction, EQUIPMENT, getRole, jobsForEquipmentDay, setRole, USERS, type RoleId } from '@ap/mock-server';
+import { createMockAdapter, defineMockAction, EQUIPMENT, MENU_ID_PATTERN, getRole, jobsForEquipmentDay, setRole, USERS, type RoleId } from '@ap/mock-server';
 import { describeServerConformance, type ConformanceCase } from '@ap/server-conformance';
 import { MOCK_ACTIONS, MOCK_AUDIT_EVENTS, MOCK_ENDPOINTS, MODULE_MOCK_ENDPOINTS } from './dev/mock-assembly';
 import { registry } from './menus';
@@ -281,5 +281,14 @@ describe('hidden Scope presentation (#1251)', () => {
       })
       .map(endpoint => endpoint.spec.id);
     expect(offenders).toEqual([]);
+  });
+});
+
+// #605: usage `fromMenuId` is judged by MENU_ID_PATTERN (mock-server; platform-api keeps the same literal). A registered menu id it
+// rejected would make every navigation out of that menu fail the whole usage batch.
+describe('usage menu-id pattern (#605)', () => {
+  it('every menu id the app registers matches it', () => {
+    expect(registry.menus.length).toBeGreaterThan(0);
+    expect(registry.menus.map(menu => menu.id).filter(id => !MENU_ID_PATTERN.test(id))).toEqual([]);
   });
 });

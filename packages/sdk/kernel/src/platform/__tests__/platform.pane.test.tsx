@@ -69,6 +69,14 @@ function Pane({ id, initial, spies, echo = true, children }: { id: string; initi
     <Probe id={id} />{children}
   </PaneScreenProvider>;
 }
+/** A pane whose pane id and screen the test sets directly (`drive`), for denied screens and pane id changes; `countUsage` as given. */
+const drivers = new Map<string, (next: { paneId?: string; screen: PaneScreen }) => void>();
+const drive = (id: string, next: { paneId?: string; screen: PaneScreen }) => drivers.get(id)!(next);
+function Driven({ id, paneId, initial, countUsage }: { id: string; paneId: string; initial: PaneScreen; countUsage?: boolean }) {
+  const [state, setState] = useState({ paneId, screen: initial });
+  drivers.set(id, next => setState(prev => ({ paneId: next.paneId ?? prev.paneId, screen: next.screen })));
+  return <PaneScreenProvider paneId={state.paneId} screen={state.screen} countUsage={countUsage} onLeave={() => {}} onChange={() => {}}><Probe id={id} /></PaneScreenProvider>;
+}
 const spies = (): Spies => ({ onChange: vi.fn(), onLeave: vi.fn() });
 
 function fixture(over: Partial<PlatformAdapter> = {}, permissions: Session['user']['permissions'] = ANALYST) {
@@ -333,7 +341,7 @@ describe('PaneScreenProvider — usage', () => {
     expect(entries.map(e => [e.menuId, e.via, e.fromMenuId])).toEqual([['board-a', 'paneOpen', null], ['board-b', 'paneReplace', 'board-a'], ['board-a', 'paneReplace', 'board-b']]);
   });
 
-  it('two panes keep separate trails; a countUsage={false} reader never touches the trail', async () => {
+  it('two panes keep separate trails', async () => {
     const { adapter, events } = fixture();
     mount(<><Pane id="p1" initial={screenA()} spies={spies()} /><Pane id="p2" initial={screenA()} spies={spies()} /></>, adapter, '/mars/plain');
     await flush();
@@ -341,6 +349,53 @@ describe('PaneScreenProvider — usage', () => {
     await flush();
     const entries = events.filter(e => e.source === 'board' && e.name === 'entry');
     expect(entries.map(e => [e.menuId, e.via, e.fromMenuId])).toEqual([['board-a', 'paneOpen', null], ['board-a', 'paneOpen', null], ['board-b', 'paneReplace', 'board-a']]);
+  });
+
+  it('a real countUsage={false} reader on the same pane never touches the counted trail', async () => {
+    const { adapter, events } = fixture();
+    mount(<>
+      <Pane id="p" initial={screenA()} spies={spies()} />
+      <Driven id="reader" paneId="p" initial={screenA()} countUsage={false} />
+    </>, adapter, '/mars/plain');
+    await flush();
+    act(() => { drive('reader', { screen: { menuId: 'board-b', params: {}, query: '?' } }); });
+    await flush();
+    act(() => { drive('reader', { screen: { menuId: 'plain', params: {}, query: '?' } }); });
+    await flush();
+    expect(events.filter(e => e.source === 'board')).toHaveLength(1);
+    act(() => { at('p').navigate('/b'); });
+    await flush();
+    const entries = events.filter(e => e.source === 'board' && e.name === 'entry');
+    expect(entries.map(e => [e.menuId, e.via, e.fromMenuId])).toEqual([['board-a', 'paneOpen', null], ['board-b', 'paneReplace', 'board-a']]);
+  });
+
+  it('admitted A, then a denied screen, then admitted B on one pane is paneReplace with a null fromMenuId', async () => {
+    const { adapter, events } = fixture();
+    mount(<Driven id="d" paneId="p1" initial={screenA()} />, adapter, '/mars/plain');
+    await flush();
+    act(() => { drive('d', { screen: { menuId: 'locked', params: {}, query: '?' } }); });
+    await flush();
+    act(() => { drive('d', { screen: { menuId: 'board-b', params: {}, query: '?' } }); });
+    await flush();
+    const entries = events.filter(e => e.source === 'board' && e.name === 'entry');
+    expect(entries.map(e => [e.menuId, e.via, e.fromMenuId])).toEqual([['board-a', 'paneOpen', null], ['board-b', 'paneReplace', null]]);
+  });
+
+  it('a pane id change always starts a new trail, even when the screens in between were not admitted', async () => {
+    const { adapter, events } = fixture();
+    mount(<Driven id="d" paneId="p1" initial={screenA()} />, adapter, '/mars/plain');
+    await flush();
+    for (const next of [
+      { screen: { menuId: 'locked', params: {}, query: '?' } },
+      { screen: { menuId: 'board-b', params: {}, query: '?' } },
+      { paneId: 'p2', screen: { menuId: 'locked', params: {}, query: '?' } },
+      { paneId: 'p1', screen: screenA() },
+    ] as const) {
+      act(() => { drive('d', next); });
+      await flush();
+    }
+    const entries = events.filter(e => e.source === 'board' && e.name === 'entry');
+    expect(entries.map(e => [e.menuId, e.via, e.fromMenuId])).toEqual([['board-a', 'paneOpen', null], ['board-b', 'paneReplace', null], ['board-a', 'paneOpen', null]]);
   });
 
   it('records nothing for a denied menu, a denied space or a contract error', async () => {

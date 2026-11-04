@@ -358,6 +358,9 @@ function invalidUsageId(value: string, max: number): boolean {
   return typeof value !== 'string' || !value || value.length > max || /[?#&\s]/.test(value);
 }
 
+/** A registry menu id (no `/`, so no path, URL or `key=value`). Kept in step with `MENU_ID_PATTERN` in `apps/platform-api/src/modules/platform-port/usage.ts`. */
+export const MENU_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$/;
+
 /** The server does not know the app's spaces (ADR-0072): a space id is null or an id of the same shape as a menu id. */
 function validSpaceId(spaceId: unknown): spaceId is SpaceId | null {
   return spaceId === null || (typeof spaceId === 'string' && !invalidUsageId(spaceId, 80));
@@ -392,7 +395,7 @@ function invalidUsageNavigation(e: UsageEvent): boolean {
   if (e.name !== 'entry') return true;
   const board = e.source === 'board';
   if ('via' in e && !(typeof e.via === 'string' && Object.hasOwn(USAGE_VIA_SET, e.via) && PANE_VIAS.includes(e.via) === board)) return true;
-  return 'fromMenuId' in e && e.fromMenuId !== null && (typeof e.fromMenuId !== 'string' || invalidUsageId(e.fromMenuId, 80));
+  return 'fromMenuId' in e && e.fromMenuId !== null && (typeof e.fromMenuId !== 'string' || !MENU_ID_PATTERN.test(e.fromMenuId));
 }
 
 /**

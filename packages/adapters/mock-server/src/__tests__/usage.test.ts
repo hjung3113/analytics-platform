@@ -236,6 +236,28 @@ describe('usage navigation path (#605)', () => {
     expect('via' in rows[2]).toBe(false);
   });
 
+  it('accepts a board entry that sends only via or only fromMenuId, and a colon menu id', async () => {
+    const board = { source: 'board' as const, stayId: 'stay-a' };
+    expect((await recordUsage([entry({ ...board, via: 'paneOpen' }), entry({ ...board, fromMenuId: 'mars:lot.view' })])).accepted).toBe(2);
+    const rows = storedUsage();
+    expect('fromMenuId' in rows[0]).toBe(false);
+    expect('via' in rows[1]).toBe(false);
+    expect(rows[1]).toMatchObject({ fromMenuId: 'mars:lot.view' });
+  });
+
+  it.each([
+    ['a path', '/mars/item/SECRET'],
+    ['a URL', 'https://x/lot42'],
+    ['key=value', 'lotId=SECRET'],
+    ['a control character', 'a\u0000b'],
+    ['81 characters', 'a'.repeat(81)],
+    ['an empty string', ''],
+  ])('rejects a fromMenuId that is %s on both sources', async (_why, fromMenuId) => {
+    expect((await recordUsage([entry({ via: 'link', fromMenuId })])).accepted).toBe(0);
+    expect((await recordUsage([entry({ source: 'board', stayId: 'stay-a', via: 'paneReplace', fromMenuId })])).accepted).toBe(0);
+    expect(storedUsage()).toHaveLength(0);
+  });
+
   it.each([
     ['a via outside the closed set', entry({ via: 'bookmark' as never })],
     ['a via that is an inherited property name', entry({ via: 'toString' as never })],
