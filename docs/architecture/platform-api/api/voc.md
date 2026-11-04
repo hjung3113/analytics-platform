@@ -152,8 +152,10 @@ nullable, indexed `(workspace_id, trace_id)`, and a lookup key only — knowing 
 
 **Trace id on reads (#606).** `VocListItem` and the detail envelope carry `trace_id: string | null` for every reader of the
 full VOC (the reporter's own view and the operational/triage view). The public projection (`/vocs/public`, `/vocs/public/:id`)
-is an allowlist and never carries `trace_id` or `error_report`. Mutation envelopes (create is the exception: it echoes
-`trace_id`) do not add it. `GET /vocs` accepts `filter.trace_id` (exact match, same format as the create field), applied
+is an allowlist and never carries `trace_id` or `error_report`. Mutations returning a refreshed full-detail `voc` (the
+public-update and the other conversation writes, and the no-follow-up writes) follow the same `trace_id`/`error_report`
+visibility as `GET /vocs/:id`; only the compact mutation envelopes omit both fields (create is the exception: it echoes
+`trace_id`). `GET /vocs` accepts `filter.trace_id` (exact match, same format as the create field), applied
 inside the list predicate after the read-scope clause and the workspace clause.
 
 **Error report link (#606).** The detail envelope of a reader who holds the operational VOC read (not the reporter arm)

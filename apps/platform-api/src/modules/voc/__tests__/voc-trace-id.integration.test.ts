@@ -8,7 +8,10 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { loadConfig } from '../../../config.js';
 import { type DbHandle, createDb } from '../../../db/client.js';
 import { buildServer } from '../../../server.js';
+import { insertActorRow } from '../../../test-support/actor-fixtures.js';
 import { SESSION_COOKIE_NAME, loginAs } from '../../../test-support/auth.js';
+import { grantCapability } from '../../../test-support/permissions-fixtures.js';
+import { deleteRecoveryFixtureParents } from '../../../test-support/recovery-fixtures.js';
 
 const APP_URL = process.env.DATABASE_URL ?? '';
 const MIGRATE_URL = process.env.DATABASE_URL_MIGRATE ?? '';
@@ -32,6 +35,9 @@ describe.skipIf(!runIntegration)('VOC trace id (#606a)', () => {
   let managedSystemId: string;
   let adminActorId: string;
   let otherWorkspaceId: string;
+  let publicReaderActorId: string;
+  let publicReaderCookie: string;
+  let publicReaderGranted = false;
 
   const hdr = (cookie: string, extra: Record<string, string> = {}) => ({
     cookie: `${SESSION_COOKIE_NAME}=${cookie}`,
@@ -94,11 +100,20 @@ describe.skipIf(!runIntegration)('VOC trace id (#606a)', () => {
       [WORKSPACE_ID],
     );
     adminActorId = a.rows[0]?.id ?? '';
-    const w = await migrate.pool.query<{ id: string }>(
-      `select id from core.workspaces where id <> $1 limit 1`,
-      [WORKSPACE_ID],
+    // C2: the isolation tests below must always run, so the foreign workspace
+    // is provisioned here instead of hoping a second workspace was seeded.
+    const foreign = await migrate.pool.query<{ id: string }>(
+      'insert into core.workspaces (id, name) values ($1, $2) returning id',
+      [randomUUID(), `${SLUG} foreign workspace`],
     );
-    otherWorkspaceId = w.rows[0]?.id ?? '';
+    otherWorkspaceId = foreign.rows[0]?.id ?? '';
+    const reader = await insertActorRow(migrate, {
+      workspaceId: WORKSPACE_ID,
+      externalId: `${SLUG}-public-reader`,
+      roleLevel: 'user',
+    });
+    publicReaderActorId = reader.id;
+    publicReaderCookie = await loginAs(app, `${SLUG}-public-reader`);
   });
 
   beforeEach(async () => {
@@ -118,10 +133,37 @@ describe.skipIf(!runIntegration)('VOC trace id (#606a)', () => {
       expect(res.statusCode).toBe(201);
       managedSystemId = res.json().id;
     }
+    if (!publicReaderGranted) {
+      await grantCapability(
+        migrate,
+        WORKSPACE_ID,
+        publicReaderActorId,
+        'voc.read_public',
+        managedSystemId,
+        adminActorId,
+      );
+      publicReaderGranted = true;
+    }
   });
 
   afterAll(async () => {
     await cleanup();
+    // The public-only reader owns grant/session/audit rows; children first.
+    if (publicReaderActorId) {
+      await migrate.pool.query('delete from permission.permission_grants where actor_id = $1', [
+        publicReaderActorId,
+      ]);
+      await migrate.pool.query('delete from core.sessions where actor_id = $1', [publicReaderActorId]);
+      await migrate.pool.query('delete from core.audit_log where actor_id = $1', [publicReaderActorId]);
+      await migrate.pool.query('delete from core.actors where id = $1', [publicReaderActorId]);
+    }
+    // C1: remove the suite-owned Managed System and its dependent rows, or the
+    // shared database keeps an active `it-voc-trace-id` past this file and the
+    // seed baseline suite sees a third system.
+    await deleteRecoveryFixtureParents(migrate, 'delete from core.managed_systems where slug = $1', [SLUG]);
+    if (otherWorkspaceId) {
+      await migrate.pool.query('delete from core.workspaces where id = $1', [otherWorkspaceId]);
+    }
     await app?.close();
     await dbHandle?.close();
     await migrate?.close();
@@ -199,7 +241,6 @@ describe.skipIf(!runIntegration)('VOC trace id (#606a)', () => {
   });
 
   it("another workspace's client error never matches", async () => {
-    if (!otherWorkspaceId) return;
     const id = (await postVoc({ trace_id: TRACE })).json().id;
     await insertClientError(otherWorkspaceId, TRACE, 'foreign-menu', '2026-01-01T00:00:00Z');
     const body = (await get(`/vocs/${id}`, adminCookie)).json();
@@ -241,21 +282,23 @@ describe.skipIf(!runIntegration)('VOC trace id (#606a)', () => {
     expect(body.error_report.reported).toBe(false);
   });
 
-  it('reporter and public views never contain error_report', async () => {
+  it('reporter keeps trace_id; a public-only reader never sees trace_id or error_report', async () => {
     const id = (await postVoc({ trace_id: TRACE })).json().id;
     await insertClientError(WORKSPACE_ID, TRACE, 'first-menu', '2026-01-01T00:00:00Z');
     const own = (await get(`/vocs/${id}`, reporterCookie)).json();
     expect(own.trace_id).toBe(TRACE);
     expect(own).not.toHaveProperty('error_report');
-    const publicDetail = await get(`/vocs/public/${id}`, reporterCookie);
-    if (publicDetail.statusCode === 200) {
-      const text = publicDetail.body;
-      expect(text).not.toContain(TRACE);
-      expect(text).not.toContain('error_report');
-      expect(text).not.toContain('trace_id');
-    }
-    const publicList = await get('/vocs/public?mine=true', reporterCookie);
+    const publicDetail = await get(`/vocs/public/${id}`, publicReaderCookie);
+    expect(publicDetail.statusCode, publicDetail.body).toBe(200);
+    expect(publicDetail.json().id).toBe(id);
+    expect(publicDetail.body).not.toContain(TRACE);
+    expect(publicDetail.body).not.toContain('error_report');
+    expect(publicDetail.body).not.toContain('trace_id');
+    const publicList = await get('/vocs/public', publicReaderCookie);
+    expect(publicList.statusCode, publicList.body).toBe(200);
+    expect(publicList.json().items.map((i: { id: string }) => i.id)).toContain(id);
     expect(publicList.body).not.toContain(TRACE);
+    expect(publicList.body).not.toContain('error_report');
     expect(publicList.body).not.toContain('trace_id');
   });
 });
