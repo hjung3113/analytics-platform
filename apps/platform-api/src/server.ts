@@ -59,7 +59,9 @@ import {
   reconcileFindingExecution,
 } from './modules/findings/index.js';
 import {
+  IMPORT_APPLY_BUDGET_MS,
   type ImportApplyHooks,
+  createApplyRunnerPool,
   LOG_KNOWLEDGE_ROUTE_PREFIX,
   importRoutes as logKnowledgeImportRoutes,
   logKnowledgeContribution,
@@ -194,7 +196,7 @@ export interface BuildServerOptions {
    */
   menuDispatch?: readonly MenuDispatchContribution[];
   /** Test seam of the catalog import apply (#1195 b): a shorter time budget and failure/barrier hooks. */
-  logKnowledgeImport?: { applyBudgetMs?: number; hooks?: ImportApplyHooks };
+  logKnowledgeImport?: { applyBudgetMs?: number; hooks?: ImportApplyHooks & { afterApply?(): Promise<void> } };
 }
 
 export async function buildServer(opts: BuildServerOptions): Promise<FastifyInstance> {
@@ -842,9 +844,26 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
   });
   // The business menu ports (#1106 menu-query, #1193 menu-action): one declaration registry that
   // modules contribute to. Registration problems throw here and stop the boot.
+  // `importApply` runs inside the action engine's transaction, which holds a command-pool connection: its runner
+  // takes connections from a separate pool sized to the apply slots (like the self-approval pool above), so same-key
+  // followers or a tiny DB_POOL_MAX cannot starve it. The apply route stays on the command pool (no outer connection).
+  const importApplyRunnerPool = createApplyRunnerPool(
+    dbHandle.pool.options,
+    opts.logKnowledgeImport?.applyBudgetMs ?? IMPORT_APPLY_BUDGET_MS,
+  );
+  attachPoolErrorListener(importApplyRunnerPool, (err) =>
+    app.log.error({ errName: err.name, code: (err as { code?: unknown }).code }, 'import apply runner pool error'),
+  );
+  app.addHook('onClose', async () => importApplyRunnerPool.end());
   const menuRegistry = createMenuDispatchRegistry([
     homeNoticesContribution({ db: dbHandle.db, checkService }),
-    logKnowledgeContribution({ db: dbHandle.db, checkService }),
+    logKnowledgeContribution({
+      db: dbHandle.db,
+      checkService,
+      runnerPool: importApplyRunnerPool,
+      ...(opts.logKnowledgeImport?.applyBudgetMs !== undefined ? { applyBudgetMs: opts.logKnowledgeImport.applyBudgetMs } : {}),
+      ...(opts.logKnowledgeImport?.hooks ? { applyHooks: opts.logKnowledgeImport.hooks } : {}),
+    }),
     ...(opts.menuDispatch ?? []),
   ]);
   // The catalog import upload (#1195 a) is a multipart route, which the menu-action port cannot carry: it is

@@ -12,6 +12,7 @@ import type pg from 'pg';
 
 import { type Db, dbOnClient } from '../../db/client.js';
 import type { Tx } from '../../db/tx.js';
+import { dbTimeoutKind } from '../../lib/db-timeout.js';
 import { HttpError } from '../../lib/errors.js';
 import type { PlatformActor } from '../platform-port/permissions.js';
 import { recordCatalogAudit, recordIdentityMapped } from './catalog-audit.js';
@@ -74,6 +75,8 @@ export interface ImportApplyConfig {
   budgetMs: number;
   hooks?: ImportApplyHooks;
   now?: () => number;
+  /** Answer `busy` instead of throwing when the runner pool gives no connection in time (the action's pool). */
+  busyOnNoConnection?: boolean;
 }
 
 export interface ApplyContext {
@@ -95,6 +98,7 @@ export interface Progress {
 export type ApplyResult =
   | { kind: 'ok'; progress: Progress }
   | { kind: 'not_found' }
+  | { kind: 'busy' }
   | { kind: 'conflict'; code: 'plan_version' | 'state' };
 
 const denied = () => new HttpError('permission.denied', 'No permission knowledge.catalog.import');
@@ -108,16 +112,25 @@ async function progressOf(db: Db, ws: string, jobId: string): Promise<Progress |
 
 /**
  * The session-scoped runner lock. `run` gets a `Db` pinned to the connection that holds the lock, so the whole pass
- * needs no second connection; a caller that does not get the lock releases its connection before `busy` reads.
+ * needs no second connection; a caller that does not get the lock reads the contention progress on that same
+ * connection (`busy`), so no path needs a connection beyond the one it acquired.
  */
 async function withRunnerLock<T>(
   pool: pg.Pool,
   ws: string,
   jobId: string,
   run: (pinned: Db) => Promise<T>,
-  busy: () => Promise<T>,
+  busy: (pinned: Db) => Promise<T>,
+  noConnection?: () => T,
 ): Promise<T> {
-  const client = await pool.connect();
+  let client: pg.PoolClient;
+  try {
+    client = await pool.connect();
+  } catch (error) {
+    // Only the pool's acquisition timeout means "no connection in time"; auth/network errors propagate.
+    if (noConnection && dbTimeoutKind(error) === 'pool_acquire') return noConnection();
+    throw error;
+  }
   let held: boolean;
   try {
     const got = await client.query<{ ok: boolean }>('select pg_try_advisory_lock(hashtext($1), hashtext($2)) as ok', [ws, jobId]);
@@ -127,8 +140,12 @@ async function withRunnerLock<T>(
     throw error;
   }
   if (!held) {
-    client.release();
-    return busy();
+    // The contention read uses the connection already held, never a second one.
+    try {
+      return await busy(dbOnClient(client));
+    } finally {
+      client.release();
+    }
   }
   let broken = false;
   try {
@@ -176,7 +193,8 @@ export async function runApply(
       if (drained) await ctx.db.transaction((tx) => finish(tx, ctx, jobId));
       return progressResult(ctx.db, ws, jobId);
     },
-    () => progressResult(outer.db, ws, jobId),
+    (pinned) => progressResult(pinned, ws, jobId),
+    outer.config.busyOnNoConnection ? () => ({ kind: 'busy' }) : undefined,
   );
 }
 

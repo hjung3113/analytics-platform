@@ -20,6 +20,7 @@ import { LOG_KNOWLEDGE_MENU_ID } from './catalog-menu.js';
 import { itemActions } from './item-actions.js';
 import { itemEndpoints } from './item-endpoints.js';
 import { importActions } from './import-actions.js';
+import { importIntakeActions } from './import-intake-actions.js';
 import { importEndpoints } from './import-endpoints.js';
 export { LOG_KNOWLEDGE_MENU_ID };
 import {
@@ -77,6 +78,7 @@ export function logKnowledgeContribution(deps: LogKnowledgeDeps): MenuDispatchCo
       ...catalogActions({ checkService: deps.checkService }),
       ...itemActions({ checkService: deps.checkService }),
       ...importActions({ checkService: deps.checkService }),
+      ...importIntakeActions(deps),
     ],
     endpoints: [
       declare(deps, 'vendors', VENDOR_SORT_IDS, (_a, q) => listVendors(deps.db, q)),
