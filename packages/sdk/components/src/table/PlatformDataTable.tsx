@@ -28,7 +28,7 @@ import { useTableTransfer } from './useTableTransfer';
 import { useTableSelection, type TableExportRequest, type TableSelection } from './useTableSelection';
 import { SelectAllBar } from './selectAllBar';
 import { buildGroupedItems, GroupHeaderCells, groupHeaderLayout, groupKeyOf } from './rowGroups';
-import { collapsedControls, GroupMenu, GroupSubmenu, MoreMenu, TableSizeMenu, TableSizeSubmenu, ToolbarTitle } from './tableToolbar';
+import { collapsedControls, GroupMenu, GroupSubmenu, MoreMenu, TableSizeMenu, TableSizeSubmenu, ToolbarDescription, ToolbarTitle } from './tableToolbar';
 import { BASE_ROW_HEIGHT, TABLE_SIZE_STEPS, useTableSize } from './tableSize';
 
 export type { GroupedPageResult, PageGroup, PageQuery, PageResult } from '@ap/contracts';
@@ -118,6 +118,8 @@ export type TableUrlState = {
 
 export type PlatformDataTableProps<T> = {
   title: ReactNode;
+  /** The page already shows the title: keep h2 screen-reader only; without quick search merge filters/results into the toolbar. Panels keep their existing layout. Default false. */
+  hideTitle?: boolean;
   subtitle?: ReactNode;
   ariaLabel: string;
   columns: PlatformColumn<T>[];
@@ -196,6 +198,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const widthScale = step.widthScale;
   const sizeVars = { '--ap-table-font': step.font, '--ap-table-mono-font': `calc(${step.font} - 1px)`, '--ap-table-head-font': step.head, '--ap-table-row-h': `${rowHeight}px` } as CSSProperties;
   const embedded = useEmbeddedChrome();
+  const mergeToolbar = !!p.hideTitle && !inPanel && !p.search;
   const { route } = usePlatform();
   const { screenMode } = useHostPlatform();
   // §15: a workspace panel or board pane body scrolls too, so the row area chains the wheel outward at its edge; flow pages and drawers contain it.
@@ -218,7 +221,8 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   // measured independently of what is shown, so the choice cannot feed back into its own input.
   const statusLine = useElementSize();
   const toolbar = useElementSize();
-  // Toolbar overflow (06 §15): below fixed widths the secondary controls move into `⋯` in COLLAPSE_ORDER (copy, group, columns, export).
+  const toolbarControls = useElementSize(mergeToolbar);
+  // P10 measures the whole toolbar content box, including the merged filter/result band; thresholds and order stay unchanged.
   const overflow = collapsedControls(toolbar.width);
   const openColumnsAfterMenu = useRef(false);
   // 「컬럼」 in `⋯`: the popover has only an anchor (no trigger), so `⋯` is the focus-return target and a pointer-outside close keeps the pointer's focus.
@@ -249,9 +253,15 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const filterFields = useMemo(() => resolveFilterFields(p.columns, p.filterFields, lang), [p.columns, p.filterFields, lang]);
   const columnFilters = useColumnFilters(p.urlState, filterFields);
   const droppedNote = useDroppedNote(filterFields, columnFilters.filters, columnFilters.apply);
-  // With filters the right-hand blocks get what the filter block (basis 320) leaves; when even the count does not fit beside it, the row wraps and they have the whole line.
+  // Merged fit must not depend on the shown summary's intrinsic width: measure the whole band and the controls separately.
+  // Reserve the existing 320px filter basis when count + description fit beside it; otherwise the right-hand group wraps.
+  const descriptionWidth = p.subtitle ? 24 + STATUS_GAP : 0;
+  const mergedWidth = toolbar.width === null || toolbarControls.width === null ? null : toolbar.width - toolbarControls.width - STATUS_GAP;
+  const mergedShared = mergedWidth === null ? null : mergedWidth - FILTER_BASIS - STATUS_GAP;
+  const mergedRoom = filterFields.length > 0 && mergedShared !== null && mergedShared >= (countSpan.width ?? 0) + descriptionWidth ? mergedShared : mergedWidth;
+  // With separate filters the right-hand blocks get what the filter block (basis 320) leaves; when even the count does not fit beside it, the row wraps and they have the whole line.
   const sharedWidth = statusLine.width === null ? null : statusLine.width - FILTER_BASIS - STATUS_GAP;
-  const trustRoom = statusLine.width === null || filterFields.length === 0 || sharedWidth === null || sharedWidth < (countSpan.width ?? 0) ? statusLine.width : sharedWidth;
+  const trustRoom = mergeToolbar ? (mergedRoom === null ? null : mergedRoom - descriptionWidth) : statusLine.width === null || filterFields.length === 0 || sharedWidth === null || sharedWidth < (countSpan.width ?? 0) ? statusLine.width : sharedWidth;
   const statusNarrow = trustRoom !== null && trustRoom > 0 && probe.width !== null && probe.width > 0
     && probe.width + TRUST_BUTTON_PADDING + (countSpan.width ? countSpan.width + STATUS_GAP : 0) + (refreshSpan.width ? refreshSpan.width + STATUS_GAP : 0) > trustRoom;
   // #556d: one group column (a groupable column of this table), collapse state keyed by group key. A group change returns to page 1 and
@@ -609,14 +619,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       <div className="mt-3"><Button type="button" variant="secondary" size="toolbar" onClick={resetPreferences}>{lang === 'ko' ? '기본값으로' : 'Reset to default'}</Button></div>
     </PopoverContent>
   </Popover>;
-  return <section ref={section} tabIndex={-1} aria-label={p.ariaLabel} aria-describedby={p.subtitle ? descriptionId : undefined} onKeyDown={onShortcut} style={sizeVars} data-table-size={tableSize} className={cn('flex flex-col rounded-lg border border-border-subtle bg-surface-card', embedded && 'rounded-none border-0 shadow-none')}>
-    {/* Toolbar line (06 §15, 1217c): one row of 32px controls. Left = title (ⓘ carries the description) + quick search slot; right = 그룹, [표 크기: 1217d], 컬럼, 복사, 내보내기, and `⋯` for what no longer fits. */}
-    <div ref={toolbar.ref} data-table-toolbar className={cn('flex items-center justify-between gap-2', embedded ? 'min-h-10 px-2 py-1.5' : densePage ? 'min-h-14 px-3 py-3' : 'min-h-14 p-4', analysisSection && 'pr-12')}>
-      <div className="flex min-w-0 flex-1 items-center gap-2">
-        <ToolbarTitle title={p.title} subtitle={p.subtitle} srOnly={inPanel} lang={lang} descriptionId={descriptionId} />
-        {p.search && <div data-table-search className="min-w-0 max-w-xs flex-1">{p.search}</div>}
-      </div>
-      <div className="flex shrink-0 items-center gap-2">
+  const toolbarActions = <>
         {groupColumns.length > 0 && !groupIn && <GroupMenu lang={lang} value={groupBy ?? ''} options={groupColumns} onChange={changeGroup} />}
         {!sizeIn && <TableSizeMenu lang={lang} value={tableSize} onChange={setTableSize} />}
         {!columnsIn && columnsPopover}
@@ -656,23 +659,39 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
         {/* Visually hidden (width-stable) so screen readers hear what the export is preparing (#173 UX P2-3). */}
         {/* Always mounted while export is available; only the text changes, so screen readers announce it (#173 review N-P3-2). */}
         {canExport && <span role="status" className="sr-only" data-testid="export-status">{[exportNote, copyNote].filter(Boolean).join(' · ')}</span>}
-      </div>
-    </div>
-
-    {/* Result line (06 §15, 1217c): always rendered. Left = the filter line when the table has filterable fields; right = 건수 · 쪽 · 신뢰 요약 (the former status row). */}
-    <div ref={statusLine.ref} data-table-status-line className="relative flex min-h-9 min-w-0 flex-wrap items-center gap-x-2 gap-y-1 border-t border-border-subtle px-3 py-1.5 text-xs text-text-muted" aria-live={groupedOutcome ? 'off' : 'polite'}>
-      {filterFields.length > 0 && <div className="min-w-0 flex-1 basis-80"><FilterLine fields={filterFields} filters={columnFilters.filters} lang={lang} dropped={droppedNote.dropped} onChange={droppedNote.change} onClear={() => { columnFilters.clear(); droppedNote.reset(); }} limit={columnFilters.limit} check={p.urlState?.validate} /></div>}
-      <span ref={countSpan.ref} className="ml-auto tabular whitespace-nowrap">{!shown || (loading && outOfRange) ? t('loading')
+  </>;
+  const filterLine = filterFields.length > 0 && <div className={cn('min-w-0 flex-1', !mergeToolbar && 'basis-80')}><FilterLine fields={filterFields} filters={columnFilters.filters} lang={lang} dropped={droppedNote.dropped} onChange={droppedNote.change} onClear={() => { columnFilters.clear(); droppedNote.reset(); }} limit={columnFilters.limit} check={p.urlState?.validate} /></div>;
+  const resultCount = <span ref={countSpan.ref} className={cn('tabular whitespace-nowrap', !mergeToolbar && 'ml-auto')}>{!shown || (loading && outOfRange) ? t('loading')
         : !success ? '—'
         : outOfRange
           ? (lang === 'ko' ? `${data.total.toLocaleString()}건 · ${pageCount}페이지` : `${data.total.toLocaleString()} results · ${pageCount} pages`)
-          : (lang === 'ko' ? `${data.total.toLocaleString()}건 · ${shownPage + 1}/${pageCount} 페이지` : `${data.total.toLocaleString()} results · page ${shownPage + 1}/${pageCount}`)}</span>
+          : (lang === 'ko' ? `${data.total.toLocaleString()}건 · ${shownPage + 1}/${pageCount} 페이지` : `${data.total.toLocaleString()} results · page ${shownPage + 1}/${pageCount}`)}</span>;
+  const resultLine = (
+    <div ref={statusLine.ref} data-table-status-line className={cn('relative flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-muted', !mergeToolbar && 'min-h-9 border-t border-border-subtle px-3 py-1.5')} aria-live={groupedOutcome ? 'off' : 'polite'}>
+      {!mergeToolbar && filterLine}
+      {mergeToolbar ? <span className="inline-flex items-center gap-2"><ToolbarDescription subtitle={p.subtitle} lang={lang} descriptionId={descriptionId} />{resultCount}</span> : resultCount}
       <span className="flex min-w-0 flex-wrap items-center gap-2">
         {loading && shown && <span ref={refreshSpan.ref} role={groupedOutcome ? undefined : 'status'} className="inline-flex items-center gap-1"><Loader2 className="size-3 animate-spin" aria-hidden />{t('refreshing')}</span>}
         {shown && <DataTrustIndicator trust={shown.trust} assessments={shown.assessments} className="min-h-6" wrap summary={statusNarrow} />}
         {shown && <DataTrustIndicator trust={shown.trust} assessments={shown.assessments} probe={probe.ref} />}
       </span>
     </div>
+  );
+  return <section ref={section} tabIndex={-1} aria-label={p.ariaLabel} aria-describedby={p.subtitle ? descriptionId : undefined} onKeyDown={onShortcut} style={sizeVars} data-table-size={tableSize} className={cn('flex flex-col rounded-lg border border-border-subtle bg-surface-card', embedded && 'rounded-none border-0 shadow-none')}>
+    {/* R2: hideTitle without search merges filters (left) and description/results + controls (right). Titled tables and workspace panels retain two bands. */}
+    <div ref={toolbar.ref} data-table-toolbar className={cn('flex items-center justify-between gap-2', embedded ? 'min-h-10 px-2 py-1.5' : densePage ? 'min-h-14 px-3 py-3' : 'min-h-14 p-4', analysisSection && 'pr-12', mergeToolbar && 'flex-wrap')}>
+      <div className={cn('flex min-w-0 flex-1 items-center gap-2', mergeToolbar && (filterFields.length > 0 ? 'basis-80' : 'sr-only'))}>
+        <ToolbarTitle title={p.title} subtitle={mergeToolbar ? undefined : p.subtitle} srOnly={inPanel || !!p.hideTitle} lang={lang} descriptionId={descriptionId} />
+        {mergeToolbar && filterLine}
+        {p.search && <div data-table-search className="min-w-0 max-w-xs flex-1">{p.search}</div>}
+      </div>
+      <div className={cn('flex items-center gap-2', mergeToolbar ? 'ml-auto min-w-0 max-w-full flex-wrap justify-end' : 'shrink-0')}>
+        {mergeToolbar && resultLine}
+        {mergeToolbar ? <div ref={toolbarControls.ref} data-table-controls className="flex shrink-0 items-center gap-2">{toolbarActions}</div> : toolbarActions}
+      </div>
+    </div>
+
+    {!mergeToolbar && resultLine}
 
     <SelectAllBar lang={lang} pageRows={data.rows.length} total={data.total} offer={selectionState.offerAll} all={selectionState.all} excluded={selectionState.excludedIds.length} onSelectAll={selectionState.selectAll} onClear={clearSelection} />
 

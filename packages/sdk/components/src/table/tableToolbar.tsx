@@ -24,11 +24,19 @@ export function collapsedControls(width: number | null): ReadonlySet<Collapsible
   return new Set(COLLAPSE_ORDER.filter(key => width < COLLAPSE_BELOW[key]));
 }
 
-/** Title (truncates, full text in `title`) and, when a description exists, the ⓘ button whose tooltip carries it. `srOnly` (a panel title, #1166) hides only the title text: the ⓘ stays visible in every mode, because the description (population, basis) has no other place on screen. */
+/** Title and description remain linked in every context. A hidden page title moves its description to the merged result summary. */
 export function ToolbarTitle({ title, subtitle, srOnly, lang, descriptionId }: { title: ReactNode; subtitle?: ReactNode; srOnly: boolean; lang: Lang; descriptionId?: string }) {
-  return <div className="flex min-w-0 items-center gap-1">
+  return <div className={cn('flex min-w-0 items-center gap-1', srOnly && !subtitle && 'sr-only')}>
     <h2 className={cn('t-card-title min-w-0 truncate', srOnly && 'sr-only')} title={typeof title === 'string' ? title : undefined}>{title}</h2>
-    {subtitle && <TooltipProvider delayDuration={200}>
+    <ToolbarDescription subtitle={subtitle} lang={lang} descriptionId={descriptionId} />
+  </div>;
+}
+
+/** The same tooltip and accessible description beside either the title or the merged result count. */
+export function ToolbarDescription({ subtitle, lang, descriptionId }: { subtitle?: ReactNode; lang: Lang; descriptionId?: string }) {
+  if (!subtitle) return null;
+  return <>
+    <TooltipProvider delayDuration={200}>
       <Tooltip>
         <TooltipTrigger asChild>
           <button type="button" data-table-description aria-describedby={descriptionId} aria-label={lang === 'ko' ? '설명' : 'Description'}
@@ -38,10 +46,10 @@ export function ToolbarTitle({ title, subtitle, srOnly, lang, descriptionId }: {
         </TooltipTrigger>
         <TooltipContent portal size="sm" className="max-w-72">{subtitle}</TooltipContent>
       </Tooltip>
-    </TooltipProvider>}
-    {/* The description stays in the DOM in every mode (visually hidden): the section's and the ⓘ's accessible description. The tooltip shows the same text. */}
-    {subtitle && <p id={descriptionId} className="sr-only">{subtitle}</p>}
-  </div>;
+    </TooltipProvider>
+    {/* One persistent description for both the section and the ⓘ; the portaled tooltip shows the same text. */}
+    <p id={descriptionId} className="sr-only">{subtitle}</p>
+  </>;
 }
 
 type GroupOption = { id: string; header: string };

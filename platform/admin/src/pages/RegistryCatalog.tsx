@@ -73,7 +73,8 @@ export default function RegistryCatalog() {
     {/* #1167 B-1: the page head already shows this title; keep it for the outline only, the table's name is ariaLabel. */}
     {tableInvalid ? <TableUrlWarning sentences={invalidTableSentences} />
       : <PlatformDataTable<RegistryRow>
-          title={<span className="sr-only">{ko ? '메뉴 레지스트리' : 'Menu registry'}</span>}
+          title={ko ? '메뉴 레지스트리' : 'Menu registry'}
+          hideTitle
           ariaLabel={ko ? '메뉴 레지스트리 목록' : 'Menu registry list'}
           subtitle={ko ? '모든 등록된 메뉴가 표시됩니다(예정·숨김 포함). 레지스트리는 지표 데이터가 아니므로 신뢰도 표시가 없습니다.' : 'Every registered menu is listed (planned and hidden included). Not mart data, so there is no trust indicator.'}
           columns={columns} getRowId={row => row.id}
