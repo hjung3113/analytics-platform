@@ -236,15 +236,15 @@ knowledge_item            1 ── 1 knowledge_search_document (latest approved 
 | 7 | `knowledge.catalog_import_job` | `job_id`, `file_attachment_id`, `file_sha256`, `entity_type`, `mapping_json`, `status`, `plan_version`, `sealed_plan_hash`, `applied_at` | 파일 staging과 apply 분리, file size/retention |
 | 8 | `knowledge.catalog_import_row` | `job_id`, `row_no`, `raw_json`, `normalized_json`, `validation_errors`, `plan_state`, `target_version`, `plan_hash`, `apply_status`, `result_target_id` | `(workspace_id,job_id,row_no)` unique; 행별 멱등 |
 | 9 | `knowledge.catalog_import_resolution` | `job_id`, `row_no`, `resolution`, `resolved_by`, `resolved_at`, `expected_target_version` | row FK + conflict review, planVersion CAS |
-| 10 | `knowledge.sw_spec_revision` | `spec_rev_id`, `software_id`, `revision_no`, `publication_state`, `source_doc_ref`, `content_sha256`, `published_by` | `(workspace_id,software_id,revision_no)` unique; 발행된 revision immutable |
-| 11 | `knowledge.sw_module_definition` | `module_def_id`, `spec_rev_id`, `module_key`, `name`, `parent_module_def_id`, `attributes_json` | `(workspace_id,spec_rev_id,module_key)` unique; parent same spec |
-| 12 | `knowledge.sw_event_definition` | `event_def_id`, `spec_rev_id`, `module_def_id`, `event_key`, `name`, `fields_json`, `trigger_rule`, `detail_doc_ref` | `(workspace_id,spec_rev_id,module_def_id,event_key)` unique; 같은 spec FK, fields_json은 버전된 정형 Zod 스키마로 검증 |
-| 13 | `knowledge.sw_spec_event_relation` | `relation_id`, `spec_rev_id`, `source_event_def_id`, `predicate`, `target_event_def_id`, `rule_ref` | 둘 다 같은 Spec Revision; `expected` 명세관계만 |
-| 14 | `knowledge.common_extraction_candidate` | `candidate_id`, `model_id`, `state`, `proposal_digest`, `candidate_json`, `model_version`, `created_by` | 승인 전 공통 명세 비노출; recompute는 새 후보 |
-| 15 | `knowledge.candidate_source_spec` | `candidate_id`, `spec_rev_id`, `source_content_sha256` | 정확한 출처 목록; SW가 해당 Model에 속해야 함 |
-| 16 | `knowledge.model_common_profile_revision` | `profile_rev_id`, `model_id`, `revision_no`, `source_candidate_id`, `published_json`, `approved_by`, `approved_at` | `(workspace_id,model_id,revision_no)` unique, 승인본 불변; 재검토 필요 여부는 읽기 Projection에서 계산 |
-| 17 | `knowledge.common_concept` | `concept_id`, `kind`, `canonical_label`, `description`, `state` | Module/Event 개념 분리, 원본 SW key 아님 |
-| 18 | `knowledge.sw_concept_mapping` | `mapping_id`, `concept_id`, `module_def_id?`, `event_def_id?`, `relation_kind`, `review_state`, `reviewed_by` | 정의 ID XOR; confirm 전 정확 매핑으로 사용 금지 |
+| 10 | ~~대체됨(§15, ADR-0111)~~ `knowledge.sw_spec_revision` | `spec_rev_id`, `software_id`, `revision_no`, `publication_state`, `source_doc_ref`, `content_sha256`, `published_by` | `(workspace_id,software_id,revision_no)` unique; 발행된 revision immutable |
+| 11 | ~~대체됨(§15, ADR-0111)~~ `knowledge.sw_module_definition` | `module_def_id`, `spec_rev_id`, `module_key`, `name`, `parent_module_def_id`, `attributes_json` | `(workspace_id,spec_rev_id,module_key)` unique; parent same spec |
+| 12 | ~~대체됨(§15, ADR-0111)~~ `knowledge.sw_event_definition` | `event_def_id`, `spec_rev_id`, `module_def_id`, `event_key`, `name`, `fields_json`, `trigger_rule`, `detail_doc_ref` | `(workspace_id,spec_rev_id,module_def_id,event_key)` unique; 같은 spec FK, fields_json은 버전된 정형 Zod 스키마로 검증 |
+| 13 | ~~대체됨(§15, ADR-0111)~~ `knowledge.sw_spec_event_relation` | `relation_id`, `spec_rev_id`, `source_event_def_id`, `predicate`, `target_event_def_id`, `rule_ref` | 둘 다 같은 Spec Revision; `expected` 명세관계만 |
+| 14 | ~~대체됨(§15, ADR-0111)~~ `knowledge.common_extraction_candidate` | `candidate_id`, `model_id`, `state`, `proposal_digest`, `candidate_json`, `model_version`, `created_by` | 승인 전 공통 명세 비노출; recompute는 새 후보 |
+| 15 | ~~대체됨(§15, ADR-0111)~~ `knowledge.candidate_source_spec` | `candidate_id`, `spec_rev_id`, `source_content_sha256` | 정확한 출처 목록; SW가 해당 Model에 속해야 함 |
+| 16 | ~~대체됨(§15, ADR-0111)~~ `knowledge.model_common_profile_revision` | `profile_rev_id`, `model_id`, `revision_no`, `source_candidate_id`, `published_json`, `approved_by`, `approved_at` | `(workspace_id,model_id,revision_no)` unique, 승인본 불변; 재검토 필요 여부는 읽기 Projection에서 계산 |
+| 17 | ~~대체됨(§15, ADR-0111)~~ `knowledge.common_concept` | `concept_id`, `kind`, `canonical_label`, `description`, `state` | Module/Event 개념 분리, 원본 SW key 아님 |
+| 18 | ~~대체됨(§15, ADR-0111)~~ `knowledge.sw_concept_mapping` | `mapping_id`, `concept_id`, `module_def_id?`, `event_def_id?`, `relation_kind`, `review_state`, `reviewed_by` | 정의 ID XOR; confirm 전 정확 매핑으로 사용 금지 |
 | 19 | `knowledge.knowledge_item` | `item_id`, `owner_model_id?`, `owner_software_id?`, `latest_revision`, `publication_state`, `visibility`, `created_by` | **정확히 하나의 owner FK**, 변환/이동 금지 |
 | 20 | `knowledge.knowledge_item_revision` | `item_id`, `revision_no`, `title`, `type_code`, `category_id`, `observation`, `expected`, `analysis_opinion`, `improvement`, `payload_digest`, `published_by`, `published_at` | `(workspace_id,item_id,revision_no)` PK, immutable |
 | 21 | `knowledge.item_revision_subject` | `item_id`, `revision_no`, `module_def_id?`, `event_def_id?`, `common_concept_id?`, `subject_relation`, `spec_rev_id?` | revision 기준 스냅샷; 동일 SW 또는 Model의 명시적 context-only |
@@ -399,6 +399,8 @@ SQL은 **핵심 제약의 예시**이고 전체 실행 migration은 아니다. �
 **원자성 후보:** 전체 파일을 하나의 거대한 트랜잭션으로 처리하지 않는다. Job 적용 승인을 하나의 고정된 Plan Snapshot으로 봉인한 뒤, `Vendor/Process → Model → SW` 위상순으로 **행/참조 묶음 단위 트랜잭션** 적용. 각 행 `(job_id,row_no,plan_hash)`로 정확히 한 번 적용; 실패 행만 재시도하되 `expected_target_version`이 바뀌면 `conflict`로 재검토. 미해결 충돌 자동 덮어쓰기/자동 신규 생성 금지. 일부 성공이면 `partial_failure`이며 집계는 성공·기존 유지·skip·실패를 구분. 내보내기 CSV 수식 주입 방어.
 
 ### 6.3 SW 독립 Spec 및 모델 공통 추출
+
+> **대체됨(2026-11-04, [ADR-0111](../../../adr/0111-log-knowledge-model-spec-is-the-source.md)).** 모델 명세가 원본이고 SW 버전별 차이는 보조 변경점이다. 아래 «SW 독립 Spec이 원본, 모델 공통은 승인된 파생본» 흐름은 §15가 대체한다. 이력으로 남긴다.
 
 > 소유자 입력(2026-11-04)으로 방향이 바뀌는 안은 [§15](#15-모델-명세가-원본-1196-설계-초안-candidate)다. 소유자 답 전까지 이 절은 그대로다.
 
@@ -638,6 +640,8 @@ P0 #1193 구현됨: 스키마 표 1–6(`knowledge` 스키마, migration 0080)�
 모델 명세 Revision이 원본이다. SW 버전은 기본으로 모델 명세를 그대로 따르고, 다른 버전만 「SW 버전 X부터 적용되는 변경점」을 한 줄씩 갖는다. 변경점이 없는 버전은 행이 없다.
 
 ### 15.2 데이터 모델 (물리화 후보, 노드 a·c에서 재검수)
+
+> **물리화 상태(#1196 노드 a):** 마이그레이션 0091이 `model_spec_revision`·`spec_module`·`spec_event`·`spec_event_relation`과 `software_version.release_order`를 만들었다(읽기 `modelSpec`·`modelSpecRevisions`만, 쓰기·감사 없음). `spec_sw_change`·`common_concept`·`spec_concept_mapping`은 아직 없다(노드 c·e). 컬럼 이름은 `id`(`spec_rev_id`는 자식 표의 FK 이름), `detail_doc_ref`는 문서 위치를 가리키는 자유 텍스트. 규칙은 `docs/architecture/platform-api/api/log-knowledge.md` §Model spec reads.
 
 | 표 | 핵심 컬럼 | 규칙 |
 | --- | --- | --- |

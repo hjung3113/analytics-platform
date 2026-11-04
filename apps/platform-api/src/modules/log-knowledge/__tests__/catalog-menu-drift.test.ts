@@ -27,6 +27,7 @@ import {
   itemFilterSpecs,
   modelEndpointSpecs,
   modelFilterSpecs,
+  modelSpecEndpointSpecs,
   processFilterSpecs,
   softwareFilterSpecs,
   vendorFilterSpecs,
@@ -127,10 +128,13 @@ describe('model reads (menu log-knowledge-models) vs the server', () => {
     expect(LOG_KNOWLEDGE_MODELS_MENU_ID).toBe(SERVER_MODELS_MENU_ID);
   });
 
-  it('declares the same two reads in the same order, with the same keys, right and workspace rule', () => {
-    expect(serverModelEndpoints).toHaveLength(2);
-    expect(modelEndpointSpecs.map((s) => s.id)).toEqual(serverModelEndpoints.map((e) => e.spec.id));
-    modelEndpointSpecs.forEach((menu, i) => {
+  // The two model reads of #1197 s1 followed by the two model spec reads of #1196 a.
+  const menuModelReads = [...modelEndpointSpecs, ...modelSpecEndpointSpecs];
+
+  it('declares the same four reads in the same order, with the same keys, right and workspace rule', () => {
+    expect(serverModelEndpoints).toHaveLength(4);
+    expect(menuModelReads.map((s) => s.id)).toEqual(serverModelEndpoints.map((e) => e.spec.id));
+    menuModelReads.forEach((menu, i) => {
       const spec = serverModelEndpoints[i]?.spec;
       expect(sorted(Object.keys(menu.paramKeys)), menu.id).toEqual(sorted(spec?.paramKeys ?? []));
       expect(

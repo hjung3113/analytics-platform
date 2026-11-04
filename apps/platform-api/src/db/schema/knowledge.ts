@@ -186,6 +186,10 @@ export const softwareVersions = knowledgeSchema.table(
     versionLabel: text('version_label').notNull(),
     versionKey: text('version_key').notNull(),
     name: text('name').notNull(),
+    // Release order inside the model (design v0.6 §15.2): "from SW X onward" is judged by it. Not unique (a later
+    // editing action swaps two orders). 0 = "not assigned": a BEFORE INSERT trigger (migration 0091) turns it into
+    // max + 1 of the model, so every insert path (create action, import, fixtures) gets the registration order.
+    releaseOrder: integer('release_order').notNull().default(0),
     active: boolean('active').notNull().default(true),
     rowVersion: integer('row_version').notNull().default(1),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -198,6 +202,7 @@ export const softwareVersions = knowledgeSchema.table(
       .references(() => actors.id),
   },
   (t) => ({
+    releaseOrderIdx: index('software_version_model_release_order_idx').on(t.workspaceId, t.modelId, t.releaseOrder),
     workspaceIdUq: unique('software_version_workspace_id_id_uq').on(t.workspaceId, t.id),
     modelFk: foreignKey({
       name: 'software_version_model_fk',
@@ -218,6 +223,7 @@ export const softwareVersions = knowledgeSchema.table(
       sql`char_length(${t.name}) between 0 and ${sql.raw(String(NAME_MAX))}`,
     ),
     versionCheck: check('software_version_row_version_check', sql`${t.rowVersion} >= 1`),
+    releaseOrderCheck: check('software_version_release_order_check', sql`${t.releaseOrder} >= 1`),
   }),
 );
 
@@ -659,5 +665,188 @@ export const catalogImportResolutions = knowledgeSchema.table(
       'catalog_import_resolution_resolution_check',
       sql`${t.resolution} in ${sql.raw(IMPORT_RESOLUTIONS)}`,
     ),
+  }),
+);
+
+// Model spec (design v0.6 §15, #1196 a): the model's spec revision is the source of truth. A published revision and
+// its modules/events/relations never change (the runtime role holds SELECT and INSERT only, see migration 0091).
+const SPEC_STATES = "('draft','published','rejected')";
+
+export const modelSpecRevisions = knowledgeSchema.table(
+  'model_spec_revision',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    modelId: uuid('model_id').notNull(),
+    revisionNo: integer('revision_no').notNull(),
+    state: text('state').notNull(),
+    // `{ docLabel, docVersion, link? }` (§15.5): where the content was read from, never a file.
+    sourceDocRef: jsonb('source_doc_ref').notNull(),
+    // SHA-256 of the normalised submitted content; null until published.
+    contentSha256: text('content_sha256'),
+    schemaVersion: integer('schema_version').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    createdBy: uuid('created_by')
+      .notNull()
+      .references(() => actors.id),
+    publishedBy: uuid('published_by').references(() => actors.id),
+    publishedAt: timestamp('published_at', { withTimezone: true }),
+  },
+  (t) => ({
+    workspaceIdUq: unique('model_spec_revision_workspace_id_id_uq').on(t.workspaceId, t.id),
+    revisionUq: uniqueIndex('model_spec_revision_workspace_model_revision_no_uq').on(
+      t.workspaceId,
+      t.modelId,
+      t.revisionNo,
+    ),
+    modelFk: foreignKey({
+      name: 'model_spec_revision_model_fk',
+      columns: [t.workspaceId, t.modelId],
+      foreignColumns: [equipmentModels.workspaceId, equipmentModels.id],
+    }).onDelete('restrict'),
+    stateIdx: index('model_spec_revision_model_state_idx').on(t.workspaceId, t.modelId, t.state, t.revisionNo),
+    revisionNoCheck: check('model_spec_revision_no_check', sql`${t.revisionNo} >= 1`),
+    stateCheck: check('model_spec_revision_state_check', sql`${t.state} in ${sql.raw(SPEC_STATES)}`),
+    schemaVersionCheck: check('model_spec_revision_schema_version_check', sql`${t.schemaVersion} >= 1`),
+    sourceDocCheck: check(
+      'model_spec_revision_source_doc_ref_check',
+      sql`jsonb_typeof(${t.sourceDocRef}) = 'object' and coalesce(jsonb_typeof(${t.sourceDocRef} -> 'docLabel'), '') = 'string' and coalesce(jsonb_typeof(${t.sourceDocRef} -> 'docVersion'), '') = 'string' and (${t.sourceDocRef} - 'docLabel' - 'docVersion' - 'link') = '{}'::jsonb and (not (${t.sourceDocRef} ? 'link') or jsonb_typeof(${t.sourceDocRef} -> 'link') = 'string')`,
+    ),
+    hashCheck: check(
+      'model_spec_revision_content_sha256_check',
+      sql`${t.contentSha256} is null or ${t.contentSha256} ~ '^[0-9a-f]{64}$'`,
+    ),
+    publishedCheck: check(
+      'model_spec_revision_published_check',
+      sql`(${t.state} = 'published') = (${t.publishedAt} is not null) and (${t.state} = 'published') = (${t.publishedBy} is not null) and (${t.state} <> 'published' or ${t.contentSha256} is not null)`,
+    ),
+  }),
+);
+
+export const specModules = knowledgeSchema.table(
+  'spec_module',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    specRevId: uuid('spec_rev_id').notNull(),
+    moduleKey: text('module_key').notNull(),
+    name: text('name').notNull(),
+    parentModuleId: uuid('parent_module_id'),
+  },
+  (t) => ({
+    workspaceIdUq: unique('spec_module_workspace_id_id_uq').on(t.workspaceId, t.id),
+    // Target of the same-revision composite FKs below (a parent, an event's module).
+    revisionIdUq: unique('spec_module_workspace_rev_id_uq').on(t.workspaceId, t.specRevId, t.id),
+    keyUq: uniqueIndex('spec_module_workspace_rev_module_key_uq').on(t.workspaceId, t.specRevId, t.moduleKey),
+    revisionFk: foreignKey({
+      name: 'spec_module_revision_fk',
+      columns: [t.workspaceId, t.specRevId],
+      foreignColumns: [modelSpecRevisions.workspaceId, modelSpecRevisions.id],
+    }).onDelete('restrict'),
+    parentFk: foreignKey({
+      name: 'spec_module_parent_fk',
+      columns: [t.workspaceId, t.specRevId, t.parentModuleId],
+      foreignColumns: [t.workspaceId, t.specRevId, t.id],
+    }).onDelete('restrict'),
+    keyCheck: check('spec_module_key_check', sql`char_length(${t.moduleKey}) between 1 and 200`),
+    nameCheck: check(
+      'spec_module_name_check',
+      sql`char_length(${t.name}) between 1 and ${sql.raw(String(NAME_MAX))}`,
+    ),
+    notSelfCheck: check('spec_module_not_self_parent_check', sql`${t.parentModuleId} is distinct from ${t.id}`),
+  }),
+);
+
+export const specEvents = knowledgeSchema.table(
+  'spec_event',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    specRevId: uuid('spec_rev_id').notNull(),
+    moduleId: uuid('module_id').notNull(),
+    eventKey: text('event_key').notNull(),
+    name: text('name').notNull(),
+    // `fields_json` v1: `{ name, type, unit?, allowedValues?, description }[]`, validated by the write node.
+    fieldsJson: jsonb('fields_json').notNull(),
+    triggerRule: text('trigger_rule'),
+    // A pointer to the detail section of the source document (free text, not a file).
+    detailDocRef: text('detail_doc_ref'),
+  },
+  (t) => ({
+    workspaceIdUq: unique('spec_event_workspace_id_id_uq').on(t.workspaceId, t.id),
+    revisionIdUq: unique('spec_event_workspace_rev_id_uq').on(t.workspaceId, t.specRevId, t.id),
+    keyUq: uniqueIndex('spec_event_workspace_rev_module_event_key_uq').on(
+      t.workspaceId,
+      t.specRevId,
+      t.moduleId,
+      t.eventKey,
+    ),
+    revisionFk: foreignKey({
+      name: 'spec_event_revision_fk',
+      columns: [t.workspaceId, t.specRevId],
+      foreignColumns: [modelSpecRevisions.workspaceId, modelSpecRevisions.id],
+    }).onDelete('restrict'),
+    moduleFk: foreignKey({
+      name: 'spec_event_module_fk',
+      columns: [t.workspaceId, t.specRevId, t.moduleId],
+      foreignColumns: [specModules.workspaceId, specModules.specRevId, specModules.id],
+    }).onDelete('restrict'),
+    keyCheck: check('spec_event_key_check', sql`char_length(${t.eventKey}) between 1 and 200`),
+    nameCheck: check(
+      'spec_event_name_check',
+      sql`char_length(${t.name}) between 1 and ${sql.raw(String(NAME_MAX))}`,
+    ),
+    fieldsCheck: check('spec_event_fields_json_check', sql`jsonb_typeof(${t.fieldsJson}) = 'array'`),
+  }),
+);
+
+export const specEventRelations = knowledgeSchema.table(
+  'spec_event_relation',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    specRevId: uuid('spec_rev_id').notNull(),
+    sourceEventId: uuid('source_event_id').notNull(),
+    predicate: text('predicate').notNull(),
+    targetEventId: uuid('target_event_id').notNull(),
+    ruleRef: text('rule_ref'),
+  },
+  (t) => ({
+    workspaceIdUq: unique('spec_event_relation_workspace_id_id_uq').on(t.workspaceId, t.id),
+    edgeUq: uniqueIndex('spec_event_relation_edge_uq').on(
+      t.workspaceId,
+      t.specRevId,
+      t.sourceEventId,
+      t.predicate,
+      t.targetEventId,
+    ),
+    revisionFk: foreignKey({
+      name: 'spec_event_relation_revision_fk',
+      columns: [t.workspaceId, t.specRevId],
+      foreignColumns: [modelSpecRevisions.workspaceId, modelSpecRevisions.id],
+    }).onDelete('restrict'),
+    sourceFk: foreignKey({
+      name: 'spec_event_relation_source_fk',
+      columns: [t.workspaceId, t.specRevId, t.sourceEventId],
+      foreignColumns: [specEvents.workspaceId, specEvents.specRevId, specEvents.id],
+    }).onDelete('restrict'),
+    targetFk: foreignKey({
+      name: 'spec_event_relation_target_fk',
+      columns: [t.workspaceId, t.specRevId, t.targetEventId],
+      foreignColumns: [specEvents.workspaceId, specEvents.specRevId, specEvents.id],
+    }).onDelete('restrict'),
+    predicateCheck: check(
+      'spec_event_relation_predicate_check',
+      sql`char_length(${t.predicate}) between 1 and 100 and btrim(${t.predicate}) <> ''`,
+    ),
+    notSelfCheck: check('spec_event_relation_not_self_check', sql`${t.sourceEventId} <> ${t.targetEventId}`),
   }),
 );

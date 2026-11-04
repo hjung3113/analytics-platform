@@ -21,7 +21,7 @@ import { modelReadsMock } from './models';
 import { itemActionsMock } from './itemActions';
 import { itemReadsMock } from './itemReads';
 import { importActionsMock, importReadsMock } from './imports';
-import { activeChildren, all, byId, latestSoftwareLabel, insert, keyTaken, processIdsOf, processesOf, setProcesses, toCodeKey, touch, type Kind, type Rec } from './store';
+import { activeChildren, all, byId, latestSoftwareLabel, insert, keyTaken, processIdsOf, processesOf, releaseOrderOf, setProcesses, toCodeKey, touch, type Kind, type Rec } from './store';
 
 const PAGE_SIZE_MAX = 200;
 const Q_MAX = 200;
@@ -51,7 +51,7 @@ const SHAPES: Record<Kind, Shape> = {
   },
   software: {
     specs: softwareFilterSpecs, sortIds: SOFTWARE_SORT_IDS, rows: () => all('software'),
-    sortValue: (r, id) => (id === 'versionLabel' ? r.key : common(r, id)!),
+    sortValue: (r, id) => (id === 'versionLabel' ? r.key : id === 'releaseOrder' ? releaseOrderOf(r) : common(r, id)!),
     cell: (r, id) => (id === 'active' ? String(r.active) : id === 'id' ? r.id : id === 'modelId' ? r.parentId : undefined),
   },
 };
@@ -121,7 +121,7 @@ const read = (kind: Kind, params: CatalogPageParams) => {
   return { total: result.total, rows: result.rows.map(r => {
     if (kind === 'vendor' || kind === 'process') return { ...stamps(r), modelCount: activeChildren(r) };
     if (kind === 'model') return { ...stamps(r), vendorId: r.parentId!, vendorName: byId(r.parentId)!.name, processes: processesOf(r.id), softwareCount: activeChildren(r), latestSoftwareLabel: latestSoftwareLabel(r.id) };
-    return { ...stamps(r), modelId: r.parentId!, versionLabel: r.code };
+    return { ...stamps(r), modelId: r.parentId!, versionLabel: r.code, releaseOrder: releaseOrderOf(r) };
   }) };
 };
 

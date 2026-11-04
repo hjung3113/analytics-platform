@@ -64,12 +64,14 @@ export interface ModelRow extends Stamps {
 export interface SoftwareRow extends Stamps {
   modelId: string;
   versionLabel: string;
+  /** Position in the model's release order (1 = first); not unique, a later action may swap two. */
+  releaseOrder: number;
 }
 
 export const VENDOR_SORT_IDS = ['code', 'name', 'active', 'modelCount', 'createdAt', 'updatedAt'] as const;
 export const PROCESS_SORT_IDS = VENDOR_SORT_IDS;
 export const MODEL_SORT_IDS = ['code', 'name', 'vendorName', 'active', 'softwareCount', 'createdAt', 'updatedAt'] as const;
-export const SOFTWARE_SORT_IDS = ['versionLabel', 'name', 'active', 'createdAt', 'updatedAt'] as const;
+export const SOFTWARE_SORT_IDS = ['versionLabel', 'name', 'releaseOrder', 'active', 'createdAt', 'updatedAt'] as const;
 
 /** LIKE metacharacters in user text are literals. */
 export const escapeLike = (text: string): string => text.replace(/[\\%_]/g, (c) => `\\${c}`);
@@ -288,6 +290,7 @@ export async function listSoftwareVersions(tx: Tx, q: ListQuery): Promise<Page<S
   const sortable: Record<string, SQL | AnyPgColumn> = {
     versionLabel: t.versionKey,
     name: t.name,
+    releaseOrder: t.releaseOrder,
     active: t.active,
     createdAt: t.createdAt,
     updatedAt: t.updatedAt,
@@ -310,6 +313,7 @@ export async function listSoftwareVersions(tx: Tx, q: ListQuery): Promise<Page<S
       active: row.active,
       version: String(row.rowVersion),
       modelId: row.modelId,
+      releaseOrder: row.releaseOrder,
       createdAt: iso(row.createdAt),
       updatedAt: iso(row.updatedAt),
     })),

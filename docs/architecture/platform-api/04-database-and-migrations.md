@@ -890,3 +890,7 @@ a request can hold a connection or wait for one. Operator pools (`seed`, migrati
 `vocs_trace_id_idx (workspace_id, trace_id)`. `platform.client_errors` gains `client_errors_workspace_correlation_idx
 (workspace_id, correlation_id)` for the operational lookup, and the app role gets the column-level `SELECT` above. Existing
 rows keep `trace_id = NULL`.
+
+## Model spec tables and software release order (#1196 a, migration 0091)
+
+Adds `knowledge.model_spec_revision`, `spec_module`, `spec_event`, `spec_event_relation` (design v0.6 §15.2; reads and grants in `api/log-knowledge.md` §Model spec reads) and `knowledge.software_version.release_order integer NOT NULL DEFAULT 0` with `CHECK (release_order >= 1)` and the index `(workspace_id, model_id, release_order)` (not unique). The migration backfills existing rows `1..n` per model by `created_at, id` before the CHECK is added; a `BEFORE INSERT` trigger turns a `0` (the default) into the model's max + 1 under a per-model advisory lock. `platform_app` gets `SELECT, INSERT` on the four spec tables only; a second trigger keeps children insert-only on `draft` revisions. No seed rows.

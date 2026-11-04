@@ -638,6 +638,13 @@
       "when": 1793814788760,
       "tag": "0090_voc_trace_id",
       "breakpoints": true
+    },
+    {
+      "idx": 91,
+      "version": "7",
+      "when": 1793816712665,
+      "tag": "0091_model_spec",
+      "breakpoints": true
     }
   ]
 }
