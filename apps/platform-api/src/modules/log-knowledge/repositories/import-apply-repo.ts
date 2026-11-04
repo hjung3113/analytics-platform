@@ -21,6 +21,7 @@ import {
   type ResolutionInput,
   emptyApplyCounts,
 } from '../domain/import-apply.js';
+import { toCodeKey } from '../domain/code-key.js';
 import type { PlanState } from '../domain/import-plan.js';
 import type { CatalogKind } from './catalog-write.js';
 import { type ImportJob, getJob } from './import-repo.js';
@@ -46,6 +47,8 @@ export interface PlanRow {
   planState: PlanState;
   targetId: string | null;
   targetVersion: number | null;
+  /** The row's validation errors (a conflict row carries its reason here); only `readPlanRows` fills it. */
+  errors?: { field: string; code: string }[];
 }
 
 export async function readPlanRows(tx: Tx, workspaceId: string, jobId: string, rowNos?: readonly number[]): Promise<PlanRow[]> {
@@ -56,6 +59,7 @@ export async function readPlanRows(tx: Tx, workspaceId: string, jobId: string, r
       planState: catalogImportRows.planState,
       targetId: catalogImportRows.targetId,
       targetVersion: catalogImportRows.targetVersion,
+      errors: catalogImportRows.validationErrors,
     })
     .from(catalogImportRows)
     .where(
@@ -336,6 +340,35 @@ export async function findModelByKey(
     )
     .for('share');
   return row ?? null;
+}
+
+export type ParentHit = { kind: 'none' } | { kind: 'many' } | { kind: 'one'; row: { id: string; active: boolean } };
+
+/**
+ * A maker or process by `code_key`, else (when `nameKey` is given) by `toCodeKey(name)` against the code keys and the
+ * names (ADR-0107 decision 2 supplement); the hit is locked `FOR SHARE`. The name scan compares in JS because
+ * `toCodeKey` is not expressible in SQL; it runs only when the key misses.
+ */
+export async function lookupParent(
+  tx: Tx,
+  kind: 'vendor' | 'process',
+  workspaceId: string,
+  key: string,
+  nameKey: string | null,
+): Promise<ParentHit> {
+  const t = (kind === 'vendor' ? vendors : processCategories) as typeof vendors;
+  const lockById = async (id: string): Promise<ParentHit> => {
+    const [row] = await tx.select({ id: t.id, active: t.active }).from(t).where(and(eq(t.workspaceId, workspaceId), eq(t.id, id))).for('share');
+    return row ? { kind: 'one', row } : { kind: 'none' };
+  };
+  const [byKey] = await tx.select({ id: t.id }).from(t).where(and(eq(t.workspaceId, workspaceId), eq(t.codeKey, key)));
+  if (byKey) return lockById(byKey.id);
+  if (nameKey === null || nameKey === '') return { kind: 'none' };
+  const all = await tx.select({ id: t.id, name: t.name, codeKey: t.codeKey }).from(t).where(eq(t.workspaceId, workspaceId));
+  const hits = all.filter((r) => r.codeKey === nameKey || toCodeKey(r.name) === nameKey);
+  if (hits.length === 0) return { kind: 'none' };
+  if (hits.length > 1) return { kind: 'many' };
+  return lockById((hits[0] as { id: string }).id);
 }
 
 /** Process rows by comparison key, locked `FOR SHARE`. */

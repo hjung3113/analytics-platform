@@ -18,7 +18,7 @@ import { type CheckService, applyAdminModuleBypass } from '../permissions/check-
 import type { PlatformActor } from '../platform-port/permissions.js';
 import { recordCatalogAudit } from './catalog-audit.js';
 import { LOG_KNOWLEDGE_MENU_ID } from './catalog-menu.js';
-import { type CatalogOp, validateCatalogInput } from './domain/catalog-input.js';
+import { type CatalogOp, createCodeOf, validateCatalogInput } from './domain/catalog-input.js';
 import { toCodeKey } from './domain/code-key.js';
 import {
   type CatalogKind,
@@ -162,10 +162,10 @@ export function catalogActions(deps: CatalogActionDeps): MenuActionDeclaration[]
         invalidates: INVALIDATES[kind],
       },
       authorize,
-      validate: (input) => validateCatalogInput(kind, 'create', input),
+      validate: (input) => validateCatalogInput(kind, 'create', input, { deriveCode: true }),
       async handle(tx, actor, input): Promise<ActionHandlerResult> {
         const ws = actor.workspace_id;
-        const code = input[codeField(kind)] as string;
+        const code = (kind === 'software' ? input.versionLabel : createCodeOf(input)) as string;
         const parentId = parent ? (input[parent.field] as string) : null;
         if (parent && parentId) await requireParent(tx, actor, parent.kind, parentId, [parent.field]);
         const processIds = kind === 'model' ? (input.processIds as string[]) : [];

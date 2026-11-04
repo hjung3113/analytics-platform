@@ -52,10 +52,26 @@ function processIdsErrors(input: Record<string, unknown>): FieldError[] {
 export type CatalogOp = 'create' | 'update' | 'setActive';
 type Kind = 'vendor' | 'process' | 'model' | 'software';
 
+export interface ValidateOptions {
+  /**
+   * Create of a vendor, process or model only (the catalog create action): a missing or blank `code` is taken from
+   * `name` (ADR-0107 decision 2 supplement). The derived code obeys `CODE_MAX`: an overlong one is `too_long` on
+   * `code`, never truncated. The import's own row checks leave this off and keep the strict rule.
+   */
+  deriveCode?: boolean;
+}
+
+const isBlank = (value: unknown): boolean =>
+  value === undefined || value === null || (typeof value === 'string' && value.trim() === '');
+
+/** The code a create stores: the given one, else (blank or missing) the name. */
+export const createCodeOf = (input: Record<string, unknown>): unknown => (isBlank(input.code) ? input.name : input.code);
+
 export function validateCatalogInput(
   kind: Kind,
   op: CatalogOp,
   input: Record<string, unknown>,
+  options?: ValidateOptions,
 ): FieldError[] {
   if (op === 'setActive') {
     return [
@@ -64,6 +80,16 @@ export function validateCatalogInput(
     ];
   }
   const label = kind === 'software' ? 'versionLabel' : 'code';
+  if (options?.deriveCode && op === 'create' && kind !== 'software' && isBlank(input.code)) {
+    // The name's own errors (required, malformed, name length) are reported on `name`; only the code limit is new.
+    const derivedTooLong = typeof input.name === 'string' && length(input.name) > CODE_MAX;
+    return [
+      ...(kind === 'model' ? idErrors(input, 'vendorId') : []),
+      ...textErrors(input, 'name', NAME_MAX),
+      ...(derivedTooLong && length(input.name as string) <= NAME_MAX ? [{ path: ['code'], code: 'too_long' }] : []),
+      ...(kind === 'model' ? processIdsErrors(input) : []),
+    ];
+  }
   return [
     ...(op === 'update' ? idErrors(input, 'id') : []),
     ...(op === 'create' && kind === 'model' ? idErrors(input, 'vendorId') : []),

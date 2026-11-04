@@ -35,6 +35,7 @@ import {
   parseImportFile,
 } from './domain/import-file.js';
 import { isImportEntity } from './domain/import-mapping.js';
+import { modelHeaderFailure, recognizeModelHeaders } from './domain/import-headers.js';
 import { getJob, insertJob, insertRows } from './repositories/import-repo.js';
 
 export const LOG_KNOWLEDGE_ROUTE_PREFIX = '/api/v1/log-knowledge';
@@ -56,8 +57,8 @@ export interface ImportRoutesOptions {
   applyHooks?: ImportApplyHooks;
 }
 
-const refuse = (reply: FastifyReply, status: 400 | 404 | 413 | 503, code: string, message: string) =>
-  reply.code(status).send({ code, message });
+const refuse = (reply: FastifyReply, status: 400 | 404 | 413 | 503, code: string, message: string, headers?: string[]) =>
+  reply.code(status).send({ code, message, ...(headers ? { detail: { headers } } : {}) });
 
 const isTooLarge = (err: unknown): boolean => {
   const code = (err as { code?: string } | null)?.code;
@@ -124,8 +125,13 @@ export const importRoutes: FastifyPluginAsync<ImportRoutesOptions> = async (app,
         .slice(0, FILE_NAME_MAX);
       if (fileName === '') return refuse(reply, 400, 'unsupported_type', 'file name missing');
 
-      const parsed = await parseImportFile(file.bytes, fileName);
-      if (!parsed.ok) return refuse(reply, parsed.status, parsed.code satisfies ImportFileRefusal, `import file refused: ${parsed.code}`);
+      const parsed = await parseImportFile(file.bytes, fileName, entityType === 'model' ? { recognizeHeaders: modelHeaderFailure } : undefined);
+      if (!parsed.ok) {
+        return refuse(reply, parsed.status, parsed.code satisfies ImportFileRefusal, `import file refused: ${parsed.code}`, parsed.detail);
+      }
+      // A model sheet is mapped by its header names (no mapping step); other entities and unrecognized headers wait for importMap.
+      const recognized = entityType === 'model' ? recognizeModelHeaders(parsed.headers) : null;
+      const mapping = recognized?.kind === 'mapped' ? recognized.mapping : undefined;
 
       const fileSha256 = createHash('sha256').update(file.bytes).digest('hex');
       const requestHash = hashRequestBody({
@@ -157,6 +163,7 @@ export const importRoutes: FastifyPluginAsync<ImportRoutesOptions> = async (app,
             fileType: parsed.fileType,
             fileSha256,
             headers: parsed.headers,
+            ...(mapping ? { mapping } : {}),
           });
           await insertRows(
             tx,
@@ -164,7 +171,7 @@ export const importRoutes: FastifyPluginAsync<ImportRoutesOptions> = async (app,
             jobId,
             parsed.rows.map((row, i) => ({ rowNo: i + 1, raw: row.cells, parseErrors: row.parseErrors })),
           );
-          return { jobId, rowCount: parsed.rows.length, status: 'uploaded' };
+          return { jobId, rowCount: parsed.rows.length, status: mapping ? 'mapped' : 'uploaded' };
         },
       });
       return reply.code(result.status).send(result.body);

@@ -17,8 +17,10 @@ import {
 import type { Tx } from '../../../db/tx.js';
 import type { ParseError } from '../domain/import-file.js';
 import type { ImportEntity } from '../domain/import-mapping.js';
+import { toCodeKey } from '../domain/code-key.js';
 import type {
   CatalogRef,
+  Creates,
   CatalogSnapshot,
   ModelRef,
   PlanResult,
@@ -88,6 +90,8 @@ export async function insertJob(
     fileType: 'csv' | 'xlsx';
     fileSha256: string;
     headers: string[];
+    /** The server's own recognition of the headers (model sheets): the job starts `mapped`, no `importMap` needed. */
+    mapping?: Record<string, string>;
   },
 ): Promise<string> {
   const [row] = await tx
@@ -100,6 +104,7 @@ export async function insertJob(
       fileType: input.fileType,
       fileSha256: input.fileSha256,
       headers: input.headers,
+      ...(input.mapping ? { mappingJson: input.mapping, status: 'mapped' } : {}),
       createdBy: input.actorId,
       updatedBy: input.actorId,
     })
@@ -301,6 +306,8 @@ export interface ImportRowView {
   applyStatus: string | null;
   applyError: string | null;
   resultTargetId: string | null;
+  /** Model rows: the parents the plan would create (`normalized.creates`); null when none. */
+  creates: Creates | null;
 }
 
 export interface ListRowsQuery {
@@ -367,6 +374,7 @@ export async function listRows(
       applyStatus: r.applyStatus,
       applyError: r.applyError,
       resultTargetId: r.resultTargetId,
+      creates: (r.normalizedJson as { creates?: Creates } | null)?.creates ?? null,
     })),
   };
 }
@@ -385,12 +393,26 @@ export async function loadCatalogSnapshot(tx: Tx, workspaceId: string, entity: I
   const modelMap = new Map<string, ModelRef>();
   const softwareMap = new Map<string, CatalogRef>();
 
+  const vendorNames = new Map<string, CatalogRef[]>();
+  const processNames = new Map<string, CatalogRef[]>();
+  const modelNames = new Map<string, ModelRef[]>();
+  const addName = <T extends CatalogRef>(index: Map<string, T[]>, scope: string, row: T, name: string) => {
+    const key = `${scope}${toCodeKey(name)}`;
+    index.set(key, [...(index.get(key) ?? []), row]);
+  };
+
   const vendorRows = await tx.select().from(vendors).where(eq(vendors.workspaceId, workspaceId));
-  for (const v of vendorRows) vendorMap.set(v.codeKey, ref(v));
+  for (const v of vendorRows) {
+    vendorMap.set(v.codeKey, ref(v));
+    addName(vendorNames, '', ref(v), v.name);
+  }
 
   if (entity === 'process' || entity === 'model') {
     const rows = await tx.select().from(processCategories).where(eq(processCategories.workspaceId, workspaceId));
-    for (const p of rows) processMap.set(p.codeKey, ref(p));
+    for (const p of rows) {
+      processMap.set(p.codeKey, ref(p));
+      addName(processNames, '', ref(p), p.name);
+    }
   }
   if (entity === 'model' || entity === 'software') {
     const models = await tx.select().from(equipmentModels).where(eq(equipmentModels.workspaceId, workspaceId));
@@ -405,12 +427,14 @@ export async function loadCatalogSnapshot(tx: Tx, workspaceId: string, entity: I
       byModel.set(m.modelId, set);
     }
     for (const m of models) {
-      modelMap.set(`${m.vendorId}|${m.codeKey}`, { ...ref(m), processIds: byModel.get(m.id) ?? new Set() });
+      const modelRef = { ...ref(m), processIds: byModel.get(m.id) ?? new Set<string>() };
+      modelMap.set(`${m.vendorId}|${m.codeKey}`, modelRef);
+      addName(modelNames, `${m.vendorId}|`, modelRef, m.name);
     }
   }
   if (entity === 'software') {
     const rows = await tx.select().from(softwareVersions).where(eq(softwareVersions.workspaceId, workspaceId));
     for (const s of rows) softwareMap.set(`${s.modelId}|${s.versionKey}`, ref(s));
   }
-  return { vendors: vendorMap, processes: processMap, models: modelMap, softwares: softwareMap };
+  return { vendors: vendorMap, processes: processMap, models: modelMap, softwares: softwareMap, vendorNames, processNames, modelNames };
 }

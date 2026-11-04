@@ -93,10 +93,12 @@ export const modelEndpointSpecs = [exploreModelsEndpoint, modelProfileEndpoint] 
 export type CatalogSummary = { id: string; code: string; name: string; active: boolean; version: string };
 
 type CodeName = { code: string; name: string };
+/** A create may leave `code` out or blank: the server takes the name as the code (ADR-0107 decision 2 supplement). */
+type NameWithOptionalCode = { code?: string; name: string };
 type SetActiveInput = { id: string; active: boolean };
-export type VendorCreateInput = CodeName;
+export type VendorCreateInput = NameWithOptionalCode;
 export type VendorUpdateInput = CodeName & { id: string };
-export type ModelCreateInput = CodeName & { vendorId: string; processIds: string[] };
+export type ModelCreateInput = NameWithOptionalCode & { vendorId: string; processIds: string[] };
 export type ModelUpdateInput = CodeName & { id: string; processIds: string[] };
 export type SoftwareCreateInput = { modelId: string; versionLabel: string; name: string };
 export type SoftwareUpdateInput = { id: string; versionLabel: string; name: string };
@@ -121,7 +123,7 @@ const softwareReads = [softwareVersionsEndpoint, modelsEndpoint];
 export const vendorCreate = create<VendorCreateInput>('vendorCreate', { code: true, name: true }, vendorReads);
 export const vendorUpdate = versioned<VendorUpdateInput>('vendorUpdate', { id: true, code: true, name: true }, vendorReads);
 export const vendorSetActive = versioned<SetActiveInput>('vendorSetActive', { id: true, active: true }, vendorReads);
-export const processCreate = create<CodeName>('processCreate', { code: true, name: true }, processReads);
+export const processCreate = create<NameWithOptionalCode>('processCreate', { code: true, name: true }, processReads);
 export const processUpdate = versioned<VendorUpdateInput>('processUpdate', { id: true, code: true, name: true }, processReads);
 export const processSetActive = versioned<SetActiveInput>('processSetActive', { id: true, active: true }, processReads);
 export const modelCreate = create<ModelCreateInput>('modelCreate', { vendorId: true, code: true, name: true, processIds: true }, modelReads);
@@ -304,6 +306,8 @@ export type ImportRowView = {
   /** The resolution written for the job's current validation (a stale one is not shown). */
   resolution: ImportResolution | null; mapTargetId: string | null;
   applyStatus: ImportApplyStatus | null; applyError: string | null; resultTargetId: string | null;
+  /** Model rows: the maker and processes this row creates when they do not exist yet (`null` when none). */
+  creates: { vendor?: string; processes: string[] } | null;
 };
 /** Rows per apply outcome; `remaining` = rows still to attempt in the current pass. */
 export type ImportApplyCounts = Record<ImportApplyStatus | 'remaining', number>;

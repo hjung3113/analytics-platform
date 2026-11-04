@@ -24,6 +24,8 @@ export type ImportFileRefusal =
   | 'too_many_rows'
   | 'too_many_columns'
   | 'invalid_headers'
+  | 'missing_header'
+  | 'duplicate_header'
   | 'unsupported_type'
   | 'encoding'
   | 'sheet_count'
@@ -43,13 +45,26 @@ export interface ParsedImportRow {
 
 export type ParsedImportFile =
   | { ok: true; fileType: ImportFileType; headers: string[]; rows: ParsedImportRow[] }
-  | { ok: false; code: ImportFileRefusal; status: 400 | 413 };
+  | { ok: false; code: ImportFileRefusal; status: 400 | 413; detail?: string[] };
+
+/** A header-level refusal decided by the caller (a model upload recognizes its headers; #1195 b2). */
+export interface HeaderFailure {
+  code: 'missing_header' | 'duplicate_header';
+  /** The header texts (or, for a missing header, the expected names) the answer names. */
+  headers: string[];
+}
+export interface ParseOptions {
+  /** Runs after the blank-header check and replaces the identical-header refusal (`invalid_headers`) when set. */
+  recognizeHeaders?: (headers: string[]) => HeaderFailure | null;
+}
 
 const REFUSAL_STATUS: Record<ImportFileRefusal, 400 | 413> = {
   file_too_large: 413,
   too_many_rows: 400,
   too_many_columns: 400,
   invalid_headers: 400,
+  missing_header: 400,
+  duplicate_header: 400,
   unsupported_type: 400,
   encoding: 400,
   sheet_count: 400,
@@ -57,7 +72,15 @@ const REFUSAL_STATUS: Record<ImportFileRefusal, 400 | 413> = {
   unreadable: 400,
 };
 
-const refuse = (code: ImportFileRefusal): ParsedImportFile => ({ ok: false, code, status: REFUSAL_STATUS[code] });
+const refuse = (code: ImportFileRefusal, detail?: string[]): ParsedImportFile => ({
+  ok: false,
+  code,
+  status: REFUSAL_STATUS[code],
+  ...(detail ? { detail } : {}),
+});
+
+type HeaderRefusal = { code: ImportFileRefusal; detail?: string[] };
+const refuseHeaders = (r: HeaderRefusal): ParsedImportFile => refuse(r.code, r.detail);
 
 const ZIP_SIGNATURE = [0x50, 0x4b, 0x03, 0x04];
 
@@ -70,18 +93,17 @@ export function detectFileType(bytes: Uint8Array, fileName: string): ImportFileT
 }
 
 /** Header names: counted first (columns), then blank/duplicate checked; neither refusal builds any row object. */
-function checkHeaders(headers: string[]): ImportFileRefusal | null {
-  if (headers.length > IMPORT_MAX_COLUMNS) return 'too_many_columns';
-  if (headers.length === 0) return 'empty';
-  const seen = new Set<string>();
-  for (const header of headers) {
-    if (header === '' || seen.has(header)) return 'invalid_headers';
-    seen.add(header);
-  }
+function checkHeaders(headers: string[], options?: ParseOptions): HeaderRefusal | null {
+  if (headers.length > IMPORT_MAX_COLUMNS) return { code: 'too_many_columns' };
+  if (headers.length === 0) return { code: 'empty' };
+  if (headers.some((header) => header === '')) return { code: 'invalid_headers' };
+  const failure = options?.recognizeHeaders?.(headers);
+  if (failure) return { code: failure.code, detail: failure.headers };
+  if (new Set(headers).size !== headers.length) return { code: 'invalid_headers' };
   return null;
 }
 
-function parseCsvBytes(bytes: Uint8Array): ParsedImportFile {
+function parseCsvBytes(bytes: Uint8Array, options?: ParseOptions): ParsedImportFile {
   let text: string;
   try {
     text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
@@ -105,8 +127,8 @@ function parseCsvBytes(bytes: Uint8Array): ParsedImportFile {
   const [headerRow, ...dataRows] = records;
   if (!headerRow) return refuse('empty');
   const headers = headerRow.map((h) => h.trim());
-  const headerRefusal = checkHeaders(headers);
-  if (headerRefusal) return refuse(headerRefusal);
+  const headerRefusal = checkHeaders(headers, options);
+  if (headerRefusal) return refuseHeaders(headerRefusal);
   if (dataRows.length === 0) return refuse('empty');
   if (dataRows.length > IMPORT_MAX_ROWS) return refuse('too_many_rows');
   const rows = dataRows.map((record) => ({
@@ -207,7 +229,7 @@ const hasContent = (cell: ExcelJS.Cell): boolean => {
   return typeof value !== 'string' || value.trim() !== '';
 };
 
-async function parseXlsxBytes(bytes: Uint8Array): Promise<ParsedImportFile> {
+async function parseXlsxBytes(bytes: Uint8Array, options?: ParseOptions): Promise<ParsedImportFile> {
   const budget = await checkZipBudgets(bytes);
   if (budget) return refuse(budget);
   const workbook = new ExcelJS.Workbook();
@@ -255,8 +277,8 @@ async function parseXlsxBytes(bytes: Uint8Array): Promise<ParsedImportFile> {
   }
   // A blank header inside the used width (so over a column that holds data) is refused by checkHeaders;
   // trailing columns that hold nothing but formatting never count toward the width.
-  const refusal = checkHeaders(headers);
-  if (refusal) return refuse(refusal);
+  const refusal = checkHeaders(headers, options);
+  if (refusal) return refuseHeaders(refusal);
   if (headerBad) return refuse('invalid_headers');
 
   const rows: ParsedImportRow[] = [];
@@ -280,12 +302,16 @@ async function parseXlsxBytes(bytes: Uint8Array): Promise<ParsedImportFile> {
   return { ok: true, fileType: 'xlsx', headers, rows };
 }
 
-export async function parseImportFile(bytes: Uint8Array, fileName: string): Promise<ParsedImportFile> {
+export async function parseImportFile(
+  bytes: Uint8Array,
+  fileName: string,
+  options?: ParseOptions,
+): Promise<ParsedImportFile> {
   if (bytes.byteLength > IMPORT_MAX_BYTES) return refuse('file_too_large');
   if (bytes.byteLength === 0) return refuse('empty');
   const fileType = detectFileType(bytes, fileName);
   if (!fileType) return refuse('unsupported_type');
-  return fileType === 'csv' ? parseCsvBytes(bytes) : parseXlsxBytes(bytes);
+  return fileType === 'csv' ? parseCsvBytes(bytes, options) : parseXlsxBytes(bytes, options);
 }
 
 export const refusalStatus = (code: ImportFileRefusal): 400 | 413 => REFUSAL_STATUS[code];
