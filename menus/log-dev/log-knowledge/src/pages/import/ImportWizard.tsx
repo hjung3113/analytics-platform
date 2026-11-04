@@ -174,9 +174,14 @@ function ImportWizardFor({ userId, onExit }: { userId: string; onExit: (changed:
       if (res.outcome === 'invalid') { setError(pasteRefusalText(res.fieldErrors)); return; }
       if (res.outcome !== 'ok' || !res.data) { setError({ text: actionFailureText(res.outcome) }); return; }
       // The job exists on the server from here on: keep its id at once, so a failed read leaves 이어서 하기 (retry) and 새로 시작 (cancel).
+      // Saved to the draft synchronously too: the passive effect would run only after a render, and an unmount mid-read must not lose the id.
+      writeDraft(userId, { text, sourceName, jobId: res.data.jobId });
       setResume({ jobId: res.data.jobId });
       const staged = await read(res.data.jobId);
       if (staged) { setResume(null); await check(staged); }
+    } catch {
+      // The SDK rejects with AbortError when the screen goes away or the session changes mid-check; the saved draft keeps the job id.
+      if (mounted.current) setError({ text: '검사를 끝내지 못했습니다. 이어서 하기로 다시 시도하세요.' });
     } finally { setWorking(null); }
   };
 
@@ -199,11 +204,16 @@ function ImportWizardFor({ userId, onExit }: { userId: string; onExit: (changed:
   const runApply = async () => {
     if (!plan || running.current) return;
     running.current = true;
+    const before = { phase, end };
     setError(null); setEnd(null); setPhase('running'); setProgress(null);
     try {
       const fresh = await read(plan.detail.job.id);
       if (!mounted.current) return;
-      if (!fresh) { setPhase('ready'); return; }
+      if (!fresh) {
+        // A resumed applying job may have rows applied already: keep its stopped recovery (다시 적용), never fall back to "nothing saved".
+        if (before.phase === 'stopped') { setEnd(before.end); setPhase('stopped'); } else setPhase('ready');
+        return;
+      }
       const outcome = await runApplyLoop({
         step: expectedPlanVersion => apply.run({ jobId: plan.detail.job.id, expectedPlanVersion }) as Promise<ActionResult<ImportApplyResult>>,
         planVersion: fresh.detail.job.planVersion, onProgress: next => { if (mounted.current) setProgress(next); }, shouldStop: () => !mounted.current,

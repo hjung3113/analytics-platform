@@ -37,10 +37,10 @@ const catalogHas = async (page: Page, name: string) => {
   await expect(nameCell(page, 'Alpha 100')).toHaveCount(0);
   await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
   // A failed query also removes the table and clears the busy flag, so absence only counts next to a successful outcome:
-  // no error alert, and either the searched row or the table's own empty state.
+  // no error alert, and either the searched row or the table's own 0건 count (the catalog table renders no empty-state sentence).
   await expect(page.getByRole('alert')).toHaveCount(0);
   const found = await nameCell(page, name).count();
-  if (found === 0) await expect(page.getByText('조건에 맞는 결과가 없습니다')).toBeVisible();
+  if (found === 0) await expect(page.getByText(/^0건/)).toBeVisible();
   return found;
 };
 

@@ -36,6 +36,7 @@ let applyAnswer: Partial<ActionResponse<unknown>> | null;
 let holdApply: Promise<void> | null;
 let detailFails: boolean;
 let failDetailAfterApply: boolean;
+let holdDetail: Promise<void> | null;
 let currentSession = session;
 const sessionListeners = new Set<() => void>();
 const row = (rowNo: number, over: Partial<ImportRowView>): ImportRowView => ({
@@ -51,6 +52,7 @@ const counts = () => ({ applied: applied > 0 ? 1 : 0, unchanged: 0, skipped: app
 const adapter = testAdapter({
   menuQuery: async (req: MenuQuery) => {
     if (req.endpoint === 'logKnowledge.importDetail') {
+      if (holdDetail) await holdDetail;
       if (detailFails) return { outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'fixture' } as unknown as ApiResponse<never>;
       const all = rows();
       return ok({
@@ -86,7 +88,7 @@ const adapter = testAdapter({
 const slow = { timeout: 8000 };
 vi.setConfig({ testTimeout: 30000 });
 let restoreGeometry: () => void;
-beforeEach(() => { conflicts = true; skipped = false; version = 1; applied = 0; calls = []; refuse = null; refuseCancel = false; applyAnswer = null; holdApply = null; detailFails = false; failDetailAfterApply = false; currentSession = session; clearDraft(); restoreGeometry = stubCompactTableGeometry(); });
+beforeEach(() => { conflicts = true; skipped = false; version = 1; applied = 0; calls = []; refuse = null; refuseCancel = false; applyAnswer = null; holdApply = null; detailFails = false; failDetailAfterApply = false; holdDetail = null; currentSession = session; clearDraft(); restoreGeometry = stubCompactTableGeometry(); });
 afterEach(() => { cleanup(); restoreGeometry(); });
 
 function open(tab = 'model') {
@@ -405,12 +407,46 @@ describe('catalog import wizard', () => {
       open();
       await paste();
       await screen.findByText(/가져오기 작업을 읽지 못했습니다/, {}, slow);
-      expect(readDraft('admin')?.jobId).toBe('job-1');
+      await waitFor(() => expect(readDraft('admin')?.jobId).toBe('job-1'), slow);
       detailFails = false;
-      fireEvent.click(await screen.findByRole('button', { name: '이어서 하기' }, slow));
+      const retry = await screen.findByRole('button', { name: '이어서 하기' }, slow);
+      await waitFor(() => expect((retry as HTMLButtonElement).disabled).toBe(false), slow);
+      fireEvent.click(retry);
       await screen.findByText('아직 아무것도 저장되지 않았습니다', {}, slow);
       expect(stepName()).toContain('검사 결과');
       expect(actions().filter(a => a === 'importPaste')).toHaveLength(1);
+    });
+
+    it('C2: the job id is in the draft while the detail read is still pending, and stays after an unmount mid-read', async () => {
+      let release!: () => void;
+      holdDetail = new Promise<void>(resolve => { release = resolve; });
+      open();
+      await paste();
+      await waitFor(() => expect(actions()).toContain('importPaste'), slow);
+      await waitFor(() => expect(readDraft('admin')?.jobId).toBe('job-1'), slow);
+      cleanup();
+      await act(async () => { release(); await Promise.resolve(); });
+      expect(readDraft('admin')?.jobId).toBe('job-1');
+      holdDetail = null;
+      open();
+      fireEvent.click(await screen.findByRole('button', { name: '가져오기' }, slow));
+      expect(await screen.findByRole('button', { name: '이어서 하기' }, slow)).toBeTruthy();
+    });
+
+    it('C1: a failed re-read before 다시 적용 keeps the stopped recovery and never says nothing was saved', async () => {
+      await reopenApplying();
+      const again = await screen.findByRole('button', { name: '다시 적용' }, slow);
+      detailFails = true;
+      fireEvent.click(again);
+      await screen.findByText(/가져오기 작업을 읽지 못했습니다/, {}, slow);
+      const retry = await screen.findByRole('button', { name: '다시 적용' }, slow);
+      await waitFor(() => expect((retry as HTMLButtonElement).disabled).toBe(false), slow);
+      expect(screen.queryByText('아직 아무것도 저장되지 않았습니다')).toBeNull();
+      expect(screen.queryByRole('button', { name: '적용' })).toBeNull();
+      expect(readDraft('admin')?.jobId).toBe('job-1');
+      detailFails = false;
+      fireEvent.click(retry);
+      await screen.findByText('적용했습니다', {}, slow);
     });
 
     it('C5: after the failed read, 새로 시작 cancels that job', async () => {
@@ -419,7 +455,9 @@ describe('catalog import wizard', () => {
       await paste();
       await screen.findByText(/가져오기 작업을 읽지 못했습니다/, {}, slow);
       detailFails = false;
-      fireEvent.click(await screen.findByRole('button', { name: '새로 시작' }, slow));
+      const fresh = await screen.findByRole('button', { name: '새로 시작' }, slow);
+      await waitFor(() => expect((fresh as HTMLButtonElement).disabled).toBe(false), slow);
+      fireEvent.click(fresh);
       await waitFor(() => expect(actions()).toContain('importCancel'), slow);
       await waitFor(() => expect(draftSaved()).toBe(false), slow);
     });
