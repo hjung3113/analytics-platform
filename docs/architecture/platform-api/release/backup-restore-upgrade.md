@@ -178,6 +178,11 @@ order by id desc limit 5` (inside the postgres container). Migrations are applie
 
 Do not start the backend by hand on a partially migrated database.
 
+**Version-specific step (#1323, the 개선 실행 space was retired).** On any database that ran an older version, the startup sync
+only marks the space undeclared; the registry-owned Managed System 「개선 실행」 (`space:improvement`) stays active and still
+appears in the feature pickers (system scope selector, survey and cluster creation). After the upgrade, archive it under 업무 흐름
+설정 › 시스템 (archiving an undeclared system is allowed). No migration does this. A database that never ran 「개선 실행」 needs nothing.
+
 ## Open items
 
 - Off-host copy, encryption of the copy and alerting on a failed cron run are the operator's. A cron run refused by the

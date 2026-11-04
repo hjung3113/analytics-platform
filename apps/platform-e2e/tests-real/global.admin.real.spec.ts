@@ -46,7 +46,7 @@ test.describe('플랫폼 홈과 전역 화면 실서버 (ADR-0070, 06 §9.1)', (
     await expect(mainHeading(page)).toHaveText('플랫폼 홈');
     const systems = page.getByRole('region', { name: '업무 시스템' });
     await expect(systems).toBeVisible();
-    for (const label of ['업무 흐름', '운영 콘솔', '표준 로그 개발', '개선 실행']) {
+    for (const label of ['업무 흐름', '운영 콘솔', '표준 로그 개발']) {
       await expect(systems.getByRole('link', { name: new RegExp(label) })).toBeVisible();
     }
     // ADR-0110: operator features live in the 업무 흐름 space (platform administration and access in the 운영 콘솔), not a separate FeedbackOps card.

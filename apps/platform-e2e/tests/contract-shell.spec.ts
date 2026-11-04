@@ -414,8 +414,8 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     await expect(systemSwitcher(page)).toBeVisible();
     const popover = await openSwitcher(page);
     await expect(popover.getByRole('button', { name: /^BRAVO/ })).toHaveAttribute('aria-current', 'true');
-    // #252 (ADR-0065): the two planned workspaces carry no entry permission, so every signed-in role sees them.
-    await expect(popover.getByRole('button', { name: /^(표준 로그 개발|개선 실행)/ })).toHaveCount(2);
+    // #252 (ADR-0065): the planned 표준 로그 개발 workspace carries no entry permission, so every signed-in role sees it.
+    await expect(popover.getByRole('button', { name: /^표준 로그 개발/ })).toHaveCount(1);
     // CLAS shares MARS's analytics:view gate (#590), so a viewer sees neither.
     await expect(popover.getByRole('button', { name: /^(MARS|CLAS|업무 흐름|운영 콘솔)/ })).toHaveCount(0);
     await page.keyboard.press('Escape');

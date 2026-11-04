@@ -472,7 +472,7 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
       usage: {
         name: 'entry',
         menuId: `${PREFIX}-menu`,
-        spaceId: spaceId('improvement'),
+        spaceId: spaceId('log-dev'),
         path: '/fo-conformance',
         at: 0,
         sessionId: `${PREFIX}-tab`,
@@ -480,7 +480,7 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
       clientError: {
         correlationId: 'client-conformance',
         menuId: `${PREFIX}-menu`,
-        spaceId: spaceId('improvement'),
+        spaceId: spaceId('log-dev'),
         path: '/fo-conformance',
         name: 'TypeError',
       },

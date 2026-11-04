@@ -10,10 +10,6 @@
       "name": "CLAS"
     },
     {
-      "space_id": "improvement",
-      "name": "개선 실행"
-    },
-    {
       "space_id": "log-dev",
       "name": "표준 로그 개발"
     },
