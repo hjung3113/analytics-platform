@@ -15,11 +15,27 @@ export interface EntityFields {
 export const ENTITY_FIELDS: Record<ImportEntity, EntityFields> = {
   vendor: { required: ['vendor_code', 'vendor_name'], optional: [] },
   process: { required: ['process_code', 'process_name'], optional: [] },
-  model: { required: ['vendor_code', 'model_code', 'model_name'], optional: ['process_codes'] },
+  // Code shape (`vendor_code`, `model_code`, `model_name` required). A mapping that names `vendor_name` is the names
+  // shape instead (see `fieldsOf`): `vendor_name` + `model_name` required, every code column optional (#1195 b2).
+  model: {
+    required: ['vendor_code', 'model_code', 'model_name'],
+    optional: ['process_codes', 'vendor_name', 'process_names'],
+  },
   software: { required: ['vendor_code', 'model_code', 'version_key'], optional: ['version_name'] },
 };
 
 export const MAPPING_VALUE_MAX = 500;
+
+/** The fields a mapping of `entity` is judged against; a model mapping with `vendor_name` is the names shape. */
+function fieldsOf(entity: ImportEntity, mapping: Record<string, string>): EntityFields {
+  if (entity === 'model' && 'vendor_name' in mapping) {
+    return {
+      required: ['vendor_name', 'model_name'],
+      optional: ['vendor_code', 'model_code', 'process_codes', 'process_names'],
+    };
+  }
+  return ENTITY_FIELDS[entity];
+}
 
 export const isImportEntity = (value: unknown): value is ImportEntity =>
   typeof value === 'string' && (IMPORT_ENTITIES as readonly string[]).includes(value);
@@ -48,8 +64,8 @@ export function validateMapping(
   headers: readonly string[],
   mapping: Record<string, string>,
 ): FieldError[] {
-  const { required, optional } = ENTITY_FIELDS[entity];
-  const known = new Set([...required, ...optional]);
+  const { required, optional } = fieldsOf(entity, mapping);
+  const known = new Set([...ENTITY_FIELDS[entity].required, ...ENTITY_FIELDS[entity].optional, ...required, ...optional]);
   const errors: FieldError[] = [];
   for (const field of Object.keys(mapping)) {
     if (!known.has(field)) errors.push({ path: ['mapping', field], code: 'unknown_field' });

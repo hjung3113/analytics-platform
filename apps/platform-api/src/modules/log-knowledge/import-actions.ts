@@ -19,8 +19,10 @@ import { RESOLUTIONS, type Resolution } from './domain/import-apply.js';
 import { mappingShapeErrors, validateMapping } from './domain/import-mapping.js';
 import {
   type NormalizedRow,
+  PARENT_CONFLICT_CODES,
   type PlanInput,
   normalizeRow,
+  resolveVendor,
   planRows,
   statusAfterValidate,
 } from './domain/import-plan.js';
@@ -170,7 +172,11 @@ export function importActions(deps: ImportActionDeps): MenuActionDeclaration[] {
         ws,
         job.id,
         actor.actor_id,
-        results.map((r) => ({ ...r, normalized: normalizedByRow.get(r.rowNo) ?? null })),
+        results.map((r) => {
+          const normalized = normalizedByRow.get(r.rowNo) ?? null;
+          // The parents a model row would create are part of its sealed plan (`normalized.creates`).
+          return { ...r, normalized: r.creates && normalized ? { ...normalized, creates: r.creates } : normalized };
+        }),
         status,
       );
       const counts = await countByPlanState(tx, ws, job.id);
@@ -217,6 +223,11 @@ export function importActions(deps: ImportActionDeps): MenuActionDeclaration[] {
           continue;
         }
         if (row.planState !== 'new' && (item.resolution === 'create' || row.planState !== 'conflict')) {
+          errors.push({ path: at('resolution'), code: 'not_allowed' });
+          continue;
+        }
+        if (item.resolution === 'map' && row.errors?.some((e) => PARENT_CONFLICT_CODES.includes(e.code))) {
+          // A wrong parent is fixed in the catalog and the file re-validated; a model target cannot stand in for it.
           errors.push({ path: at('resolution'), code: 'not_allowed' });
           continue;
         }
@@ -291,8 +302,12 @@ function expectedParent(
   catalog: Awaited<ReturnType<typeof loadCatalogSnapshot>> | null,
 ): string | null {
   if (!catalog) return null;
-  const n = normalized as { vendorKey?: string; modelKey?: string; codeKey?: string };
-  const vendor = n.vendorKey ? catalog.vendors.get(n.vendorKey) : undefined;
+  const n = normalized as { vendorKey?: string; vendorNameKey?: string; modelKey?: string; codeKey?: string };
+  const vendor = n.vendorKey
+    ? entity === 'model'
+      ? resolveVendor(catalog, { vendorKey: n.vendorKey, ...(n.vendorNameKey ? { vendorNameKey: n.vendorNameKey } : {}) })
+      : catalog.vendors.get(n.vendorKey)
+    : undefined;
   if (entity === 'model') return vendor?.id ?? '';
   if (entity === 'software') return (vendor && n.modelKey ? catalog.models.get(`${vendor.id}|${n.modelKey}`)?.id : undefined) ?? '';
   return null;

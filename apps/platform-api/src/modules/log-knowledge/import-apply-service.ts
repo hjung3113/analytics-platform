@@ -43,8 +43,8 @@ import {
   claimIdentity,
   findIdentity,
   findModelByKey,
-  findProcessesByKeys,
   findVendorByKey,
+  lookupParent,
   finishJob,
   lockApplyRow,
   lockJob,
@@ -255,7 +255,8 @@ async function applyOne(ctx: ApplyContext, job: ImportJob, rowNo: number): Promi
       if (!(await ctx.authorize(ctx.actor, tx))) throw denied(); // the row stays non-final; the pass stops with 403
       const row = await lockApplyRow(tx, ctx.actor.workspace_id, job.id, rowNo);
       if (!row || isFinalApplyStatus(row.applyStatus)) return;
-      await setRowResult(tx, ctx.actor.workspace_id, job.id, rowNo, job.applyPass, { status: 'failed', error: 'unexpected' });
+      const outcome: Outcome = error instanceof RowRefusal ? conflict(error.reason) : failed('unexpected');
+      await setRowResult(tx, ctx.actor.workspace_id, job.id, rowNo, job.applyPass, outcome);
     });
   }
 }
@@ -264,6 +265,12 @@ interface Outcome {
   status: ApplyStatus;
   error?: string;
   resultTargetId?: string | null;
+}
+/** Thrown after writes were made: the row's transaction rolls back whole, then the row is recorded as a conflict. */
+class RowRefusal extends Error {
+  constructor(readonly reason: string) {
+    super(`catalog import row refused: ${reason}`);
+  }
 }
 const failed = (error: string): Outcome => ({ status: 'failed', error });
 const conflict = (error: string): Outcome => ({ status: 'conflict', error });
@@ -299,11 +306,67 @@ async function applyRowTx(tx: Tx, ctx: ApplyContext, job: ImportJob, rowNo: numb
 
 const sourceOf = (job: ImportJob, rowNo: number) => ({ importJobId: job.id, rowNo });
 
+/** One maker or process a row needs: an existing row, or a name to create when none exists. */
+type ParentPlan =
+  | { kind: 'existing'; id: string; active: boolean }
+  | { kind: 'create'; code: string; name: string; key: string; nameKey: string | null }
+  | { kind: 'refused'; error: string };
+
+/** Looks a parent up (no write); `creatable` is the code/name to create it with when none exists. */
+async function planParent(
+  tx: Tx,
+  ws: string,
+  kind: 'vendor' | 'process',
+  key: string,
+  nameKey: string | null,
+  creatable: { code: string; name: string } | null,
+  missingError: string,
+  inactiveError: string,
+  allowInactive = false,
+): Promise<ParentPlan> {
+  const hit = await lookupParent(tx, kind, ws, key, nameKey);
+  if (hit.kind === 'many') return { kind: 'refused', error: 'ambiguous_parent' };
+  if (hit.kind === 'none') {
+    return creatable ? { kind: 'create', ...creatable, key, nameKey } : { kind: 'refused', error: missingError };
+  }
+  if (!hit.row.active && !allowInactive) return { kind: 'refused', error: inactiveError };
+  return { kind: 'existing', id: hit.row.id, active: hit.row.active };
+}
+
+/**
+ * Insert-if-absent on the unique key, then read: a replay or a concurrent runner that created the same maker or
+ * process meanwhile is found by the second lookup, so it is created and audited exactly once. Returns the row id.
+ */
+async function ensureParent(
+  tx: Tx,
+  ctx: ApplyContext,
+  job: ImportJob,
+  rowNo: number,
+  kind: 'vendor' | 'process',
+  plan: Extract<ParentPlan, { kind: 'create' }>,
+): Promise<string> {
+  const ws = ctx.actor.workspace_id;
+  try {
+    const created = await insertRow(tx, kind, { workspaceId: ws, actorId: ctx.actor.actor_id, code: plan.code, name: plan.name, parentId: null });
+    await recordCatalogAudit(tx, ctx.actor, kind, 'created', created, undefined, sourceOf(job, rowNo));
+    return created.id;
+  } catch (error) {
+    if (!(error instanceof DuplicateCatalogKeyError)) throw error;
+  }
+  const hit = await lookupParent(tx, kind, ws, plan.key, plan.nameKey);
+  if (hit.kind !== 'one') throw new Error(`catalog import: ${kind} key taken but not readable`);
+  // The race winner is judged like any parent found at planning: an inactive one refuses the row.
+  if (!hit.row.active) throw new RowRefusal(kind === 'vendor' ? 'parent_inactive' : 'process_inactive');
+  return hit.row.id;
+}
+
 async function create(tx: Tx, ctx: ApplyContext, job: ImportJob, rowNo: number, normalized: unknown): Promise<Outcome> {
   const ws = ctx.actor.workspace_id;
   const kind: CatalogKind = job.entityType;
   let parentId: string | null = null;
-  let processIds: string[] = [];
+  const processIds: string[] = [];
+  let modelVendor: ParentPlan | null = null;
+  const processPlans: ParentPlan[] = [];
   let code: string;
   let codeKey: string;
   let name: string;
@@ -314,18 +377,21 @@ async function create(tx: Tx, ctx: ApplyContext, job: ImportJob, rowNo: number, 
   } else if (kind === 'model') {
     const n = normalized as ModelNormalized;
     ({ code, codeKey, name } = n);
-    const vendor = await findVendorByKey(tx, ws, n.vendorKey);
-    if (!vendor) return failed('parent_missing');
-    if (!vendor.active) return failed('parent_inactive');
-    parentId = vendor.id;
-    const found = await findProcessesByKeys(tx, ws, n.processKeys);
-    for (const key of n.processKeys) {
-      const process = found.get(key);
-      if (!process) return failed('process_missing');
-      if (!process.active) return failed('process_inactive');
-      processIds.push(process.id);
+    const vendorPlan = await planParent(
+      tx, ws, 'vendor', n.vendorKey, n.vendorName !== '' ? n.vendorNameKey : null,
+      n.vendorName !== '' ? { code: n.vendorCode, name: n.vendorName } : null,
+      'parent_missing', 'parent_inactive',
+    );
+    if (vendorPlan.kind === 'refused') return failed(vendorPlan.error);
+    modelVendor = vendorPlan;
+    for (const [i, key] of n.processKeys.entries()) {
+      const label = n.processCodes[i] as string;
+      const p = await planParent(tx, ws, 'process', key, n.processCreatable ? key : null, n.processCreatable ? { code: label, name: label } : null, 'process_missing', 'process_inactive');
+      if (p.kind === 'refused') return failed(p.error);
+      processPlans.push(p);
     }
-    processIds = [...new Set(processIds)];
+    // Existing parents are judged above; nothing is written before the model's own key check below.
+    if (vendorPlan.kind === 'existing') parentId = vendorPlan.id;
   } else {
     const n = normalized as SoftwareNormalized;
     code = n.versionLabel;
@@ -339,8 +405,10 @@ async function create(tx: Tx, ctx: ApplyContext, job: ImportJob, rowNo: number, 
     parentId = model.id;
   }
 
-  if (await codeKeyTaken(tx, kind, ws, codeKey, parentId, null)) return conflict('taken');
+  // A model under a maker that is created now cannot exist yet, so the key check applies to an existing maker only.
+  if (modelVendor?.kind !== 'create' && (await codeKeyTaken(tx, kind, ws, codeKey, parentId, null))) return conflict('taken');
   await ctx.config.hooks?.afterCodeKeyCheck?.(rowNo, tx);
+  if (modelVendor?.kind === 'create') parentId = await ensureParent(tx, ctx, job, rowNo, 'vendor', modelVendor);
   let created: CatalogRow;
   try {
     created = await insertRow(tx, kind, { workspaceId: ws, actorId: ctx.actor.actor_id, code, name, parentId });
@@ -348,7 +416,12 @@ async function create(tx: Tx, ctx: ApplyContext, job: ImportJob, rowNo: number, 
     if (error instanceof DuplicateCatalogKeyError) return conflict('taken');
     throw error;
   }
-  if (processIds.length > 0) await changeModelProcesses(tx, ws, created.id, ctx.actor.actor_id, processIds, []);
+  for (const plan of processPlans) {
+    if (plan.kind === 'create') processIds.push(await ensureParent(tx, ctx, job, rowNo, 'process', plan));
+    else if (plan.kind === 'existing') processIds.push(plan.id);
+  }
+  const uniqueProcessIds = [...new Set(processIds)];
+  if (uniqueProcessIds.length > 0) await changeModelProcesses(tx, ws, created.id, ctx.actor.actor_id, uniqueProcessIds, []);
   await recordCatalogAudit(tx, ctx.actor, kind, 'created', created, undefined, sourceOf(job, rowNo));
   return { status: 'applied', resultTargetId: created.id };
 }
@@ -384,6 +457,10 @@ async function updateOrMap(
   let nextName: string;
   let add: string[] = [];
   let remove: string[] = [];
+  const newProcesses: Extract<ParentPlan, { kind: 'create' }>[] = [];
+  let wantedProcessIds = new Set<string>();
+  let currentIds: string[] = [];
+  let processesTouched = false;
   if (kind === 'software') {
     const n = normalized as SoftwareNormalized;
     nextName = n.nameMapped ? n.name : target.name;
@@ -391,24 +468,29 @@ async function updateOrMap(
     const n = normalized as SimpleNormalized;
     nextName = n.name;
     if (kind === 'model' && (normalized as ModelNormalized).processesMapped) {
-      const keys = (normalized as ModelNormalized).processKeys;
-      const found = await findProcessesByKeys(tx, ws, keys);
-      const wanted = new Set<string>();
-      for (const k of keys) {
-        const process = found.get(k);
-        if (!process) return failed('process_missing');
-        wanted.add(process.id);
-      }
+      const mn = normalized as ModelNormalized;
       const current = await modelProcessIds(tx, ws, target.id);
       const currentSet = new Set(current);
+      const wanted = new Set<string>();
+      for (const [i, k] of mn.processKeys.entries()) {
+        const label = mn.processCodes[i] as string;
+        // An existing inactive assignment may stay; a new one must be active (the plan's rule).
+        const p = await planParent(
+          tx, ws, 'process', k, mn.processCreatable ? k : null, mn.processCreatable ? { code: label, name: label } : null,
+          'process_missing', 'process_inactive', true,
+        );
+        if (p.kind === 'refused') return failed(p.error);
+        if (p.kind === 'create') newProcesses.push(p);
+        else {
+          wanted.add(p.id);
+          if (!p.active && !currentSet.has(p.id)) return failed('process_inactive');
+        }
+      }
+      wantedProcessIds = wanted;
+      currentIds = current;
       add = [...wanted].filter((id) => !currentSet.has(id));
       remove = current.filter((id) => !wanted.has(id));
-      // Existing inactive assignments may stay; a new one must be active.
-      for (const k of keys) {
-        const process = found.get(k);
-        if (process && !process.active && add.includes(process.id)) return failed('process_inactive');
-      }
-      if (add.length > 0 || remove.length > 0) changes.processIds = [current, [...wanted].sort()];
+      processesTouched = add.length > 0 || remove.length > 0 || newProcesses.length > 0;
     }
   }
   if (nextName !== target.name) changes.name = [target.name, nextName];
@@ -427,6 +509,16 @@ async function updateOrMap(
     }
   }
 
+  // Processes named but absent are created now: after every refusal and after the identity claim (a later failure
+  // rolls the whole row back), insert-if-absent so a replay or a competing runner never makes a second row.
+  if (newProcesses.length > 0) {
+    for (const plan of newProcesses) {
+      const id = await ensureParent(tx, ctx, job, rowNo, 'process', plan);
+      wantedProcessIds.add(id);
+      if (!currentIds.includes(id)) add.push(id);
+    }
+  }
+  if (processesTouched) changes.processIds = [currentIds, [...wantedProcessIds].sort()];
   let result = target;
   const changed = Object.keys(changes).length > 0;
   if (changed) {

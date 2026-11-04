@@ -392,6 +392,8 @@ SQL은 **핵심 제약의 예시**이고 전체 실행 migration은 아니다. �
 - 감사: 적용한 쓰기는 기존 `knowledge.catalog.created|updated`에 `source:{importJobId,rowNo}`를 담고, 별칭 쓰기는 `knowledge.catalog.identity_mapped`.
 - 보고서: `GET …/imports/:jobId/report.csv`(BOM, CRLF, 모든 셀 수식 방어).
 
+**구현 상태(#1195 node b2, 규범; 사용자 2026-11-04):** P0 Import는 **4단계**다 — 파일 올리기 → 검사 결과 → 확인 필요 행 정리(충돌이 있을 때만) → 적용 결과. 제품 기준 §15.4 «반드시 5단계»를 P0에서 대신한다. 이유: 파일은 이름만 담고(메이커명·모델명·공정명) 헤더를 서버가 알아보므로 «열 매핑» 단계가 없다(`importMap`은 API로만 남는다). 업로드가 모델 시트의 헤더를 인식해 매핑을 스스로 저장한다. 없는 메이커·공정은 같은 계획에서 새 행으로 만든다. 코드는 이름에서 정한다([ADR-0107](../../../adr/0107-log-knowledge-catalog-authority-keys-and-edit-rights.md) 결정 2 보충). 정본 `api/log-knowledge.md` §Catalog import by names.
+
 **원자성 후보:** 전체 파일을 하나의 거대한 트랜잭션으로 처리하지 않는다. Job 적용 승인을 하나의 고정된 Plan Snapshot으로 봉인한 뒤, `Vendor/Process → Model → SW` 위상순으로 **행/참조 묶음 단위 트랜잭션** 적용. 각 행 `(job_id,row_no,plan_hash)`로 정확히 한 번 적용; 실패 행만 재시도하되 `expected_target_version`이 바뀌면 `conflict`로 재검토. 미해결 충돌 자동 덮어쓰기/자동 신규 생성 금지. 일부 성공이면 `partial_failure`이며 집계는 성공·기존 유지·skip·실패를 구분. 내보내기 CSV 수식 주입 방어.
 
 ### 6.3 SW 독립 Spec 및 모델 공통 추출
