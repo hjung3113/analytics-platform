@@ -13,7 +13,7 @@ import {
   emptyTipTapDoc,
   isTipTapDocBlank,
 } from '@ap/feature-shared';
-import type { CreateVocRequest } from '@ap/feature-shared';
+import type { CreateVocRequest, TipTapDoc } from '@ap/feature-shared';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
 import * as React from 'react';
@@ -27,25 +27,46 @@ export interface VocComposeSubmitted {
   displayId: string;
 }
 
+/**
+ * A report filed from a screen's error view (#606). `title`/`body` are the initial field values (they do not make the draft dirty); `traceId`
+ * is read at submit, so it is null once the user removed the trace chip and the request then carries no `trace_id`.
+ */
+export interface VocComposeErrorReport {
+  title: string;
+  body: string;
+  hint: string;
+  traceId: string | null;
+}
+
+const paragraphDoc = (text: string): TipTapDoc => ({
+  type: 'doc',
+  content: [{ type: 'paragraph', content: [{ type: 'text', text }] }],
+});
+
 export function useVocComposeController({
   initialManagedSystemId,
   contextBlock,
+  errorReport,
   onSubmitted,
   onDirtyChange,
 }: {
   initialManagedSystemId: string | null;
   contextBlock: VocComposeContextBlock;
+  errorReport?: VocComposeErrorReport | undefined;
   onSubmitted: (result: VocComposeSubmitted) => void;
   onDirtyChange: (dirty: boolean) => void;
 }) {
   const { notifyError, notifySuccess } = useHostSeam();
 
+  // The prefill is the form's initial value, taken once when the draft starts; a later change of `errorReport` never rewrites typed text.
+  const [initialDoc] = React.useState<TipTapDoc>(() => (errorReport ? paragraphDoc(errorReport.body) : emptyTipTapDoc()));
+  const [initialTitle] = React.useState(() => errorReport?.title ?? '');
   const form = useForm<CreateVocRequest>({
     resolver: zodResolver(createVocRequestSchema),
     defaultValues: {
       primary_managed_system_id: '',
-      title: '',
-      description_rich_content: emptyTipTapDoc(),
+      title: initialTitle,
+      description_rich_content: initialDoc,
       analytics_area_id: undefined,
       source_context: 'direct_use',
       attachment_ids: [],
@@ -157,8 +178,8 @@ export function useVocComposeController({
 
   // Dirty = a field differs from its initial value or an attachment exists; the Context block never counts.
   const dirty =
-    title !== '' ||
-    !isTipTapDocBlank(description) ||
+    title !== initialTitle ||
+    (errorReport ? JSON.stringify(description) !== JSON.stringify(initialDoc) : !isTipTapDocBlank(description)) ||
     selectedMs !== defaultManagedSystemId ||
     areaId !== undefined ||
     sourceContext !== 'direct_use' ||
@@ -196,6 +217,7 @@ export function useVocComposeController({
       ...body,
       description_rich_content: appendContextBlock(doc, contextBlock),
       attachment_ids: mergedIds,
+      ...(errorReport?.traceId ? { trace_id: errorReport.traceId } : {}),
     });
   }
 

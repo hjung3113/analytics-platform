@@ -12,13 +12,17 @@ const TEXT = {
 type Session = { frozen: VocFreezeInput; removed: ReadonlySet<string>; dirty: boolean };
 /** `chip` carries the id of the chip whose remove button takes focus. */
 type FocusTarget = { to: 'rail' | 'heading' | 'continue'; n: number } | { to: 'chip'; id: string; n: number };
-/** `owner` is the Kernel session the draft belongs to; `activation` is the detail slot counter at the time the drawer was shown; `gen` counts the ended drafts, so callbacks of a gone Compose can be told apart. */
-type State = { owner: unknown; gen: number; activation: number; session: Session | null; visible: boolean; confirming: boolean; focus: FocusTarget | null };
+/** `owner` is the Kernel session the draft belongs to; `activation` is the detail slot counter at the time the drawer was shown; `gen` counts the ended drafts, so callbacks of a gone Compose can be told apart.
+ * `pending` is an error-report session waiting behind the discard question of a dirty draft (#606); `submittedTraces` holds the trace id of every error report that was filed and whose error screen is still alive: one receipt per error, so a later ordinary submission or another error's report keeps it. */
+type State = { owner: unknown; gen: number; activation: number; session: Session | null; visible: boolean; confirming: boolean; focus: FocusTarget | null; pending: VocFreezeInput | null; submittedTraces: ReadonlySet<string> };
 type Action =
   | { type: 'open'; frozen: VocFreezeInput; activation: number }
+  | { type: 'openError'; frozen: VocFreezeInput; activation: number }
   | { type: 'reset'; owner: unknown }
   | { type: 'requestClose' }
-  | { type: 'drop' }
+  | { type: 'drop'; openPending: boolean }
+  | { type: 'submitted' }
+  | { type: 'forget'; traceId: string }
   | { type: 'keepWriting' }
   | { type: 'hide' }
   | { type: 'removeChip'; id: string }
@@ -29,17 +33,34 @@ const focusOn = (state: State, to: 'rail' | 'heading' | 'continue'): FocusTarget
 function reducer(state: State, action: Action): State {
   switch (action.type) {
     // The Context freezes only when there is no kept session; reopening a kept one shows it unchanged (ADR-0070 decision 5).
-    case 'open': return { ...state, activation: action.activation, session: state.session ?? { frozen: action.frozen, removed: new Set(), dirty: false }, visible: true, confirming: false, focus: focusOn(state, 'heading') };
+    case 'open': return { ...state, pending: null, activation: action.activation, session: state.session ?? { frozen: action.frozen, removed: new Set(), dirty: false }, visible: true, confirming: false, focus: focusOn(state, 'heading') };
+    // The error view's report (#606): a clean or absent session is replaced by the error one; a dirty draft is never overwritten, so the discard question comes first and the error session waits behind it.
+    case 'openError':
+      if (state.session?.dirty) return { ...state, activation: action.activation, visible: true, confirming: true, pending: action.frozen, focus: focusOn(state, 'continue') };
+      return { ...state, gen: state.gen + 1, activation: action.activation, session: { frozen: action.frozen, removed: new Set(), dirty: false }, visible: true, confirming: false, pending: null, focus: focusOn(state, 'heading') };
     // A new session owner or a removed slot discards the frozen Context, the draft and the confirmation; focus is left where it is.
-    case 'reset': return { owner: action.owner, gen: state.gen + 1, activation: state.activation, session: null, visible: false, confirming: false, focus: state.focus };
+    case 'reset': return { owner: action.owner, gen: state.gen + 1, activation: state.activation, session: null, visible: false, confirming: false, focus: state.focus, pending: null, submittedTraces: new Set() };
     case 'requestClose':
       if (!state.visible) return state;
       if (state.confirming || state.session?.dirty) return { ...state, confirming: true, focus: focusOn(state, 'continue') };
       return { ...state, gen: state.gen + 1, session: null, visible: false, confirming: false, focus: focusOn(state, 'rail') };
-    case 'drop': return { ...state, gen: state.gen + 1, session: null, visible: false, confirming: false, focus: focusOn(state, 'rail') };
-    case 'keepWriting': return { ...state, confirming: false, focus: focusOn(state, 'heading') };
+    case 'drop':
+      if (action.openPending && state.pending !== null) return { ...state, gen: state.gen + 1, session: { frozen: state.pending, removed: new Set(), dirty: false }, visible: true, confirming: false, pending: null, focus: focusOn(state, 'heading') };
+      return { ...state, gen: state.gen + 1, session: null, visible: false, confirming: false, pending: null, focus: focusOn(state, 'rail') };
+    case 'submitted': {
+      const filed = state.session?.frozen.error?.traceId ?? null;
+      return { ...state, gen: state.gen + 1, session: null, visible: false, confirming: false, pending: null, submittedTraces: filed === null ? state.submittedTraces : new Set(state.submittedTraces).add(filed), focus: focusOn(state, 'rail') };
+    }
+    case 'forget': {
+      if (!state.submittedTraces.has(action.traceId)) return state;
+      const next = new Set(state.submittedTraces);
+      next.delete(action.traceId);
+      return { ...state, submittedTraces: next };
+    }
+    case 'keepWriting': return { ...state, confirming: false, pending: null, focus: focusOn(state, 'heading') };
     // Another right panel took the position: the draft and its Context stay mounted behind `hidden`.
-    case 'hide': return state.visible ? { ...state, visible: false, confirming: false } : state;
+    // The confirmation it was asking is abandoned, and so is the report waiting behind it.
+    case 'hide': return state.visible ? { ...state, visible: false, confirming: false, pending: null } : state;
     // The removed button leaves the DOM: focus goes to the next chip, else the previous one, else the heading (06 §26).
     case 'removeChip': {
       if (state.session === null) return state;
@@ -63,6 +84,14 @@ export type VocDrawerController = {
   heading: RefObject<HTMLHeadingElement | null>;
   keepButton: RefObject<HTMLButtonElement | null>;
   toggle: () => void;
+  /** Opens the drawer from a screen's error view with the trace and menu chips added (#606); `screen` is the snapshot of the failing screen itself (a board pane's own route and Context, not the main screen's); a dirty draft is kept until the user discards it. */
+  openError: (traceId: string, screen: VocFreezeInput) => void;
+  /** Counts the ended drafts: the Compose of a new draft is a new instance. */
+  generation: number;
+  /** The trace ids of the error reports that were filed, one per live error. */
+  submittedTraces: ReadonlySet<string>;
+  /** Drops the receipt of an error whose screen went away. */
+  forgetTrace: (traceId: string) => void;
   requestClose: () => void;
   drop: () => void;
   keepWriting: () => void;
@@ -84,12 +113,14 @@ export const VocDrawerContext = createContext<VocDrawerController | null>(null);
  * `owner` is the Kernel session: when it changes, or the slot disappears, the Context and the draft are dropped in that same render.
  */
 export function useVocDrawer(slot: VocComposeSlot | undefined, snapshot: () => VocFreezeInput, activation: number, owner: unknown): VocDrawerController | null {
-  const [state, dispatch] = useReducer(reducer, owner, (initial): State => ({ owner: initial, gen: 0, activation, session: null, visible: false, confirming: false, focus: null }));
+  const [state, dispatch] = useReducer(reducer, owner, (initial): State => ({ owner: initial, gen: 0, activation, session: null, visible: false, confirming: false, focus: null, pending: null, submittedTraces: new Set() }));
   if (state.owner !== owner || (slot === undefined && (state.session !== null || state.visible))) dispatch({ type: 'reset', owner });
   const panelId = useId();
   const railButton = useRef<HTMLButtonElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const keepButton = useRef<HTMLButtonElement>(null);
+  // The element that opened the drawer from an error view; closing returns focus there while it is still on the page, else to the rail button.
+  const opener = useRef<HTMLElement | null>(null);
   // The visible flag follows the activation in the same render, so a new detail's first focus lands in a visible aside; the effect only syncs the stored state.
   const visible = state.visible && state.activation === activation;
   const stale = state.visible && !visible;
@@ -101,6 +132,7 @@ export function useVocDrawer(slot: VocComposeSlot | undefined, snapshot: () => V
       Array.from(document.getElementById(panelId)?.querySelectorAll<HTMLElement>('[data-chip-id]') ?? []).find(button => button.dataset.chipId === id)?.focus();
       return;
     }
+    if (state.focus.to === 'rail' && opener.current?.isConnected) { opener.current.focus(); return; }
     const target = state.focus.to === 'rail' ? railButton : state.focus.to === 'heading' ? heading : keepButton;
     target.current?.focus();
   }, [state.focus, panelId]);
@@ -114,16 +146,22 @@ export function useVocDrawer(slot: VocComposeSlot | undefined, snapshot: () => V
   const currentGen = useRef(gen);
   useLayoutEffect(() => { currentGen.current = gen; }, [gen]);
   const requestClose = useCallback(() => dispatch({ type: 'requestClose' }), []);
-  const drop = useCallback(() => dispatch({ type: 'drop' }), []);
+  const drop = useCallback(() => dispatch({ type: 'drop', openPending: true }), []);
   const keepWriting = useCallback(() => dispatch({ type: 'keepWriting' }), []);
+  const forgetTrace = useCallback((traceId: string) => dispatch({ type: 'forget', traceId }), []);
   const removeChip = useCallback((id: string) => dispatch({ type: 'removeChip', id }), []);
   const onDirtyChange = useCallback((dirty: boolean) => { if (currentGen.current === gen) dispatch({ type: 'dirty', dirty }); }, [gen]);
-  const onSubmitted = useCallback(() => { if (currentGen.current === gen) dispatch({ type: 'drop' }); }, [gen]);
+  const onSubmitted = useCallback(() => { if (currentGen.current === gen) dispatch({ type: 'submitted' }); }, [gen]);
   const onCancel = useCallback(() => { if (currentGen.current === gen) dispatch({ type: 'requestClose' }); }, [gen]);
   if (slot === undefined) return null;
   return {
     slot, panelId, visible, confirming: state.confirming && visible, context, railButton, heading, keepButton,
-    toggle: () => dispatch(visible ? { type: 'requestClose' } : { type: 'open', frozen: snapshot(), activation }),
+    toggle: () => { opener.current = null; dispatch(visible ? { type: 'requestClose' } : { type: 'open', frozen: snapshot(), activation }); },
+    openError: (traceId: string, frozen: VocFreezeInput) => {
+      opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      dispatch({ type: 'openError', activation, frozen: { ...frozen, error: { traceId, menuId: frozen.route?.menu.id ?? null, menuLabel: frozen.route?.menu.label[frozen.lang] ?? null } } });
+    },
+    generation: state.gen, submittedTraces: state.submittedTraces, forgetTrace,
     requestClose, drop, keepWriting, removeChip, onDirtyChange, onSubmitted, onCancel,
     draftHidden: !visible && session !== null && session.dirty,
   };
@@ -167,7 +205,7 @@ export function VocDrawer({ voc, lang }: { voc: VocDrawerController; lang: Lang 
       </div>}
       <div className="min-h-0 flex-1">
         <TransientOverlayScope active={voc.visible}>
-          <slot.Compose context={context} onSubmitted={voc.onSubmitted} onCancel={voc.onCancel} onDirtyChange={voc.onDirtyChange} />
+          <slot.Compose key={voc.generation} context={context} onSubmitted={voc.onSubmitted} onCancel={voc.onCancel} onDirtyChange={voc.onDirtyChange} />
         </TransientOverlayScope>
       </div>
     </div>}

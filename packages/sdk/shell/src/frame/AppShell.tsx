@@ -47,9 +47,10 @@ function ShellLayout({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  return <div className="flex h-full overflow-hidden">
+  // The provider wraps the whole layout (not only the rail), so a screen's error view can open the drawer too (#606).
+  return <VocDrawerContext.Provider value={voc}><div className="flex h-full overflow-hidden">
     <a href="#platform-main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-sm focus:bg-surface-card focus:px-3 focus:py-2">{t('skipToContent')}</a>
-    <VocDrawerContext.Provider value={voc}><AppRail /></VocDrawerContext.Provider>
+    <AppRail />
     {showSidebar && <AppSidebar collapsed={collapsed} onToggle={toggle} />}
     {showPlatformSidebar && <PlatformSidebar collapsed={collapsed} onToggle={toggle} />}
     {/* The column stays unpositioned: a `relative` column would become the containing block of every `absolute` element inside main (sr-only text, popovers) and let them overflow it unclipped. */}
@@ -69,7 +70,7 @@ function ShellLayout({ children }: { children: ReactNode }) {
         detailShown ? 'w-[clamp(360px,var(--detail-panel-width,440px),520px)] min-w-[360px] border-l' : 'w-0 min-w-0 border-l-0')} />
     {voc && <VocDrawer voc={voc} lang={lang} />}
     <CommandPalette />
-  </div>;
+  </div></VocDrawerContext.Provider>;
 }
 
 /**

@@ -37,15 +37,15 @@ const listeners = new Set<() => void>();
 const settle = (next: DefaultStatus, system: string | null) => { status = next; defaultSystem = system; for (const listener of [...listeners]) listener(); };
 const useStatus = (): DefaultStatus => useSyncExternalStore(listener => { listeners.add(listener); return () => { listeners.delete(listener); }; }, () => status);
 
-const CONTEXT: VocComposeContext = { items: [], href: null, spaceId: null, menuId: 'home', carried: {} };
+const CONTEXT: VocComposeContext = { items: [], href: null, spaceId: null, menuId: 'home', carried: {}, traceId: null, errorMenuId: null };
 const { Compose } = vocComposeSlot(() => defaultSystem, useStatus);
 
 const session = testSession(['platform:view']);
 const adapter = testAdapter({ session: () => session });
 
-function mount() {
+function mount(context: VocComposeContext = CONTEXT) {
   return render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}>
-    <Compose context={CONTEXT} onSubmitted={vi.fn()} onCancel={vi.fn()} onDirtyChange={vi.fn()} />
+    <Compose context={context} onSubmitted={vi.fn()} onCancel={vi.fn()} onDirtyChange={vi.fn()} />
   </PlatformProvider></I18nProvider>);
 }
 
@@ -96,5 +96,95 @@ describe('VOC 등록 slot with an app lookup that answers late (#1289 node j)', 
     settle('failed', null);
     await waitFor(() => expect(screen.getByTestId('voc-default-blocked').textContent).toMatch(/다시 열면/));
     expect((screen.getByRole('button', { name: 'VOC 제출' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+});
+
+describe('VOC 등록 slot opened from a screen error view (#606)', () => {
+  const ERROR_CONTEXT: VocComposeContext = { ...CONTEXT, items: [{ id: 'trace', label: '추적 번호', value: 'client-abc-1' }, { id: 'error-menu', label: '메뉴', value: '생산성' }], traceId: 'client-abc-1', errorMenuId: 'prod' };
+  const posted: unknown[] = [];
+  const answerCreate = () => {
+    const base = vi.mocked(fetch).getMockImplementation()!;
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).startsWith('/api/features/vocs') && init?.method === 'POST') {
+        posted.push(JSON.parse(String(init.body)));
+        return json({ id: 'v1', display_id: 'VOC-1' }, 201);
+      }
+      return base(input, init);
+    }));
+  };
+  beforeEach(() => { posted.length = 0; answerCreate(); settle('ready', PLATFORM); });
+  const submit = async () => {
+    await waitFor(() => expect((screen.getByRole('button', { name: 'VOC 제출' }) as HTMLButtonElement).disabled).toBe(false), LAZY_MOUNT_WAIT);
+    fireEvent.click(screen.getByRole('button', { name: 'VOC 제출' }));
+    await waitFor(() => expect(posted).toHaveLength(1));
+    return posted[0] as Record<string, unknown>;
+  };
+
+  it('prefills the title with the menu name and the body, shows the hint, and starts the draft clean', async () => {
+    const onDirtyChange = vi.fn();
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><Compose context={ERROR_CONTEXT} onSubmitted={vi.fn()} onCancel={vi.fn()} onDirtyChange={onDirtyChange} /></PlatformProvider></I18nProvider>);
+    const title = await screen.findByRole('textbox', { name: /제목/ }, LAZY_MOUNT_WAIT) as HTMLInputElement;
+    expect(title.value).toBe('생산성 오류 신고');
+    expect(screen.getByTestId('voc-error-report-hint').textContent).toBe('오류 직전에 한 작업을 덧붙여 주세요. 화면 정보는 위에 첨부되어 있습니다.');
+    await waitFor(() => expect((screen.getByRole('button', { name: 'VOC 제출' }) as HTMLButtonElement).disabled).toBe(false));
+    expect(onDirtyChange).not.toHaveBeenCalledWith(true);
+  });
+
+  it('sends trace_id and the kept chips in the description block', async () => {
+    mount(ERROR_CONTEXT);
+    const body = await submit();
+    expect(body.trace_id).toBe('client-abc-1');
+    expect(body.title).toBe('생산성 오류 신고');
+    expect(JSON.stringify(body.description_rich_content)).toContain('화면을 사용하는 중 오류가 발생했습니다.');
+    expect(JSON.stringify(body.description_rich_content)).toContain('추적 번호: client-abc-1');
+  });
+
+  it('drops trace_id when the user removed the trace chip, and keeps the other chip in the block', async () => {
+    const { rerender } = mount(ERROR_CONTEXT);
+    await screen.findByRole('textbox', { name: /제목/ }, LAZY_MOUNT_WAIT);
+    rerender(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}>
+      <Compose context={{ ...ERROR_CONTEXT, items: [ERROR_CONTEXT.items[1]!], traceId: null }} onSubmitted={vi.fn()} onCancel={vi.fn()} onDirtyChange={vi.fn()} />
+    </PlatformProvider></I18nProvider>);
+    const body = await submit();
+    expect('trace_id' in body).toBe(false);
+    expect(JSON.stringify(body.description_rich_content)).toContain('메뉴: 생산성');
+    expect(JSON.stringify(body.description_rich_content)).not.toContain('추적 번호');
+  });
+
+  it('sends no trace_id and no prefill for the rail path', async () => {
+    mount();
+    const title = await screen.findByRole('textbox', { name: /제목/ }, LAZY_MOUNT_WAIT) as HTMLInputElement;
+    expect(title.value).toBe('');
+    expect(screen.queryByTestId('voc-error-report-hint')).toBeNull();
+  });
+
+  it('submits from the rail path without trace_id, prefill or hint', async () => {
+    mount();
+    const title = await screen.findByRole('textbox', { name: /제목/ }, LAZY_MOUNT_WAIT) as HTMLInputElement;
+    expect(screen.queryByTestId('voc-error-report-hint')).toBeNull();
+    fireEvent.change(title, { target: { value: '제목' } });
+    fireEvent.change(screen.getByRole('textbox', { name: '상세 설명' }), { target: { value: '내용' } });
+    const body = await submit();
+    expect('trace_id' in body).toBe(false);
+    expect(body.title).toBe('제목');
+    expect(JSON.stringify(body.description_rich_content)).not.toContain('화면을 사용하는 중 오류가 발생했습니다.');
+  });
+
+  it('prefills the title, body and hint in English when the draft opens in English', async () => {
+    const storage = memoryStorage();
+    storage.setItem('platform:lang', 'en');
+    vi.stubGlobal('localStorage', storage);
+    mount({ ...ERROR_CONTEXT, items: [{ id: 'trace', label: 'Trace ID', value: 'client-abc-1' }, { id: 'error-menu', label: 'Menu', value: 'Productivity' }] });
+    const title = await screen.findByRole('textbox', { name: /제목/ }, LAZY_MOUNT_WAIT) as HTMLInputElement;
+    expect(title.value).toBe('Productivity error report');
+    expect(screen.getByTestId('voc-error-report-hint').textContent).toBe('Add what you did just before the error. The screen details are attached above.');
+    const body = await submit();
+    expect(JSON.stringify(body.description_rich_content)).toContain('An error occurred while using this screen.');
+  });
+
+  it('gates on the feature API: off without one, available with one', () => {
+    expect(vocComposeSlot(() => null).availability?.({ spaceId: null, menuId: null })).toBe('available');
+    setFeatureApi(null);
+    expect(vocComposeSlot(() => null).availability?.({ spaceId: null, menuId: null })).toBe('off');
   });
 });

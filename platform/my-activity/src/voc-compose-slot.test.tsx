@@ -6,7 +6,7 @@ import { setFeatureApi } from '@ap/feature-bridge/feature-api';
 import { json, registry, stubFetch, switchableAdapter } from './feature/test-support';
 import { vocComposeSlot } from '@ap/feature-bridge/voc-compose-slot';
 
-const CONTEXT: VocComposeContext = { items: [], href: null, spaceId: null, menuId: null, carried: {} };
+const CONTEXT: VocComposeContext = { items: [], href: null, spaceId: null, menuId: null, carried: {}, traceId: null, errorMenuId: null };
 
 beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); });
 afterEach(() => { cleanup(); setFeatureApi(null); vi.unstubAllGlobals(); });

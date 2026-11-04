@@ -15,7 +15,7 @@ import { AttachmentDropzone } from '../create/AttachmentDropzone';
 import { SourceContextSegmented } from '../create/SourceContextSegmented';
 import { vocDescriptionToolbar } from '../create/VocDescriptionToolbar';
 import type { VocComposeContextBlock } from './context-block';
-import { type VocComposeSubmitted, useVocComposeController } from './useVocComposeController';
+import { type VocComposeErrorReport, type VocComposeSubmitted, useVocComposeController } from './useVocComposeController';
 
 const DEFAULT_BLOCKED_MESSAGE = {
   pending: '기본 시스템을 확인하는 중입니다. 확인이 끝나면 제출할 수 있습니다.',
@@ -32,6 +32,8 @@ export interface VocComposeScreenProps {
    * lose its default); the form itself stays usable. Absent = `ready`.
    */
   defaultStatus?: 'ready' | 'pending' | 'failed';
+  /** Set when the form was opened from a screen's error view: prefilled title and body, a hint under the body and the `trace_id` to send (#606). */
+  errorReport?: VocComposeErrorReport;
   onSubmitted: (result: VocComposeSubmitted) => void;
   onCancel: () => void;
   onDirtyChange: (dirty: boolean) => void;
@@ -41,6 +43,7 @@ export function VocComposeScreen({
   contextBlock,
   initialManagedSystemId,
   defaultStatus = 'ready',
+  errorReport,
   onSubmitted,
   onCancel,
   onDirtyChange,
@@ -62,7 +65,7 @@ export function VocComposeScreen({
     handleSubmit,
     handleAttachmentError,
     notifyError,
-  } = useVocComposeController({ initialManagedSystemId, contextBlock, onSubmitted, onDirtyChange });
+  } = useVocComposeController({ initialManagedSystemId, contextBlock, errorReport, onSubmitted, onDirtyChange });
 
   const [title, description, managedSystemId] = form.watch([
     'title',
@@ -126,6 +129,11 @@ export function VocComposeScreen({
               />
             )}
           />
+          {errorReport && (
+            <p className="text-xs text-text-muted" data-testid="voc-error-report-hint">
+              {errorReport.hint}
+            </p>
+          )}
           {form.formState.errors.description_rich_content?.message && (
             <p className="text-xs text-text-danger">
               {form.formState.errors.description_rich_content.message}

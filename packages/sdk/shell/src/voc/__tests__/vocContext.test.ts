@@ -61,7 +61,7 @@ describe('freezeVocContext (ADR-0070 decision 5)', () => {
     [{ route: null }],
     [{ platformScreen: 'board' as const }],
   ])('freezes only the analysis board on the board screen (%j)', over => {
-    expect(freezeVocContext(input(over))).toEqual({ items: [{ id: 'menu', label: '화면', value: '분석 보드' }], href: null, spaceId: null, menuId: null, carried: {} });
+    expect(freezeVocContext(input(over))).toEqual({ items: [{ id: 'menu', label: '화면', value: '분석 보드' }], href: null, spaceId: null, menuId: null, carried: {}, traceId: null, errorMenuId: null });
   });
 
   it('carries the frozen values of the carry set page keys, including a removed chip, and none when the menu has no set', () => {
@@ -130,5 +130,39 @@ describe('freezeVocContext repro link', () => {
     const shared = buildShareLink({ kind: 'conditions', route, global: GLOBAL, page, absoluteUrl });
     expect(shared.ok).toBe(true);
     expect(freezeVocContext(input({ page })).href).toBe((shared as { href: string }).href);
+  });
+});
+
+describe('freezeVocContext from an error view (#606)', () => {
+  const error = { traceId: 'client-abc-123', menuId: 'prod', menuLabel: '생산성' };
+
+  it('adds the trace and menu chips after the screen chips and attaches their ids', () => {
+    const context = freezeVocContext(input({ error }));
+    expect(context.items.slice(-2)).toEqual([{ id: 'trace', label: '추적 번호', value: 'client-abc-123' }, { id: 'error-menu', label: '메뉴', value: '생산성' }]);
+    expect([context.traceId, context.errorMenuId]).toEqual(['client-abc-123', 'prod']);
+  });
+
+  it('removes each chip on its own, and the trace chip drops traceId', () => {
+    const noTrace = freezeVocContext(input({ error }), new Set(['trace']));
+    expect([noTrace.traceId, noTrace.errorMenuId, noTrace.items.map(item => item.id).includes('trace')]).toEqual([null, 'prod', false]);
+    const noMenu = freezeVocContext(input({ error }), new Set(['error-menu']));
+    expect([noMenu.traceId, noMenu.errorMenuId, noMenu.items.map(item => item.id).includes('error-menu')]).toEqual(['client-abc-123', null, false]);
+  });
+
+  it('keeps the trace and menu when the screen chip is removed, and the address goes', () => {
+    const context = freezeVocContext(input({ error }), new Set(['menu']));
+    expect(context.href).toBeNull();
+    expect(context.items.map(item => item.id)).toEqual(expect.arrayContaining(['trace', 'error-menu']));
+    expect([context.traceId, context.errorMenuId]).toEqual(['client-abc-123', 'prod']);
+  });
+
+  it('leaves both ids null without an error (the rail path)', () => {
+    const context = freezeVocContext(input());
+    expect([context.traceId, context.errorMenuId]).toEqual([null, null]);
+    expect(context.items.map(item => item.id).filter(id => id === 'trace' || id === 'error-menu')).toEqual([]);
+  });
+
+  it('labels the chips in English', () => {
+    expect(freezeVocContext(input({ lang: 'en', error })).items.slice(-2).map(item => item.label)).toEqual(['Trace ID', 'Menu']);
   });
 });

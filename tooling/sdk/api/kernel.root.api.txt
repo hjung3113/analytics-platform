@@ -73,10 +73,11 @@ Toast | type | type Toast = { action?: @ap/kernel#ToastAction; detail?: string; 
 ToastAction | type | type ToastAction = { label: string; onAction: () => void; }
 ToastOptions | type | type ToastOptions = { action?: @ap/kernel#ToastAction; durationMs?: number; }
 UNDO_WINDOW_MS | const | const UNDO_WINDOW_MS: 8000
-VocComposeContext | type | type VocComposeContext = { carried: Readonly<Record<string, string>>; href: null | string; items: readonly @ap/kernel#VocComposeContextItem[]; menuId: null | string; spaceId: @ap/contracts#SpaceId | null; }
+VocAvailability | type | type VocAvailability = 'available' | 'denied' | 'off'
+VocComposeContext | type | type VocComposeContext = { carried: Readonly<Record<string, string>>; errorMenuId: null | string; href: null | string; items: readonly @ap/kernel#VocComposeContextItem[]; menuId: null | string; spaceId: @ap/contracts#SpaceId | null; traceId: null | string; }
 VocComposeContextItem | type | type VocComposeContextItem = { id: string; label: string; value: string; }
 VocComposeProps | type | type VocComposeProps = { context: @ap/kernel#VocComposeContext; onCancel: () => void; onDirtyChange: (dirty: boolean) => void; onSubmitted: (result: { displayId: string; vocId: string; }) => void; }
-VocComposeSlot | type | type VocComposeSlot = { Compose: ComponentType<@ap/kernel#VocComposeProps>; }
+VocComposeSlot | type | type VocComposeSlot = { Compose: ComponentType<@ap/kernel#VocComposeProps>; availability?: (target: { menuId: null | string; spaceId: @ap/contracts#SpaceId | null; }) => @ap/kernel#VocAvailability; }
 classifyMetricInit | function | function classifyMetricInit(published: readonly @ap/contracts#PublishedMetric[], initializesMetric: boolean, metricId: null | string, metricVersion: null | string): @ap/kernel#MetricInit
 contractErrorSentence | function | function contractErrorSentence(lang: @ap/kernel#Lang, error: { code: string; field?: string; raw?: string; }): string
 createBasePathLocation | function | function createBasePathLocation(basePath: string): @ap/kernel#PlatformLocation
