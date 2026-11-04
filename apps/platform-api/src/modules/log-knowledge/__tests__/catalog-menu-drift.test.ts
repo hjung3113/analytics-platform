@@ -175,7 +175,7 @@ describe('log knowledge item reads vs the server', () => {
   });
 
   it('items: same filter fields, operators, multiple, cell and enum values, and the same sort ids', () => {
-    const serverSpecs: Record<string, { ops: readonly string[]; multiple: boolean; cell: string; values: 'boolean' | 'uuid' | 'enum'; allowed?: readonly string[] }> = ITEM_FILTER_SPECS;
+    const serverSpecs: Record<string, { ops: readonly string[]; multiple: boolean; cell: string; values: 'boolean' | 'uuid' | 'enum' | 'text'; allowed?: readonly string[] }> = ITEM_FILTER_SPECS;
     expect(sorted(Object.keys(itemFilterSpecs))).toEqual(sorted(Object.keys(serverSpecs)));
     for (const [field, spec] of Object.entries(itemFilterSpecs)) {
       expect(spec.kind, `items.${field}`).toBe('enum');
