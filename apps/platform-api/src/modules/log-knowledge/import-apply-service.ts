@@ -12,6 +12,7 @@ import type pg from 'pg';
 
 import { type Db, dbOnClient } from '../../db/client.js';
 import type { Tx } from '../../db/tx.js';
+import { dbTimeoutKind } from '../../lib/db-timeout.js';
 import { HttpError } from '../../lib/errors.js';
 import type { PlatformActor } from '../platform-port/permissions.js';
 import { recordCatalogAudit, recordIdentityMapped } from './catalog-audit.js';
@@ -126,7 +127,8 @@ async function withRunnerLock<T>(
   try {
     client = await pool.connect();
   } catch (error) {
-    if (noConnection) return noConnection();
+    // Only the pool's acquisition timeout means "no connection in time"; auth/network errors propagate.
+    if (noConnection && dbTimeoutKind(error) === 'pool_acquire') return noConnection();
     throw error;
   }
   let held: boolean;

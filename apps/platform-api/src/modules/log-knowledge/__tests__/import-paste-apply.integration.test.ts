@@ -532,10 +532,23 @@ describe.skipIf(!runIntegration)('catalog import by menu actions: paste and appl
         await holder.query('select pg_advisory_lock(hashtext($1), hashtext($2))', [who.id, k]);
         calls = [0, 1, 2].map(() => send(followerApp, who, 'importApply', input, k));
         const deadline = Date.now() + 10_000;
-        while (followerHandle.pool.idleCount > 0 || followerHandle.pool.totalCount < 3) {
-          if (Date.now() > deadline) throw new Error('the calls never occupied the command pool');
+        // Barrier: all three backends have an ungranted request on that very advisory lock (pg_locks; pg_stat_activity hides
+        // other roles' wait events from this role).
+        for (;;) {
+          const waiting = await migrate.pool.query<{ n: string }>(
+            `select count(*)::text as n
+               from pg_locks l
+              where l.locktype = 'advisory' and not l.granted
+                and l.classid::bigint = (hashtext($1)::bigint & 4294967295)
+                and l.objid::bigint = (hashtext($2)::bigint & 4294967295)`,
+            [who.id, k],
+          );
+          if (Number(waiting.rows[0]?.n) === 3) break;
+          if (Date.now() > deadline) throw new Error(`only ${waiting.rows[0]?.n} callers waiting on the same-key lock`);
           await new Promise((r) => setTimeout(r, 20));
         }
+        expect(followerHandle.pool.totalCount).toBe(3);
+        expect(followerHandle.pool.idleCount).toBe(0);
       } finally {
         await holder.query('select pg_advisory_unlock(hashtext($1), hashtext($2))', [who.id, k]);
         holder.release();
