@@ -36,8 +36,11 @@ export function DirtyConfirmation({
   confirmLabel = DEFAULT_CONFIRM,
   cancelLabel = DEFAULT_CANCEL,
 }: DirtyConfirmationProps) {
+  // Buttons close the dialog through Radix since #1324; onOpenChange must not re-run the
+  // callback the button already ran, so only other closes (Escape) fall through to onCancel.
+  const buttonHandled = React.useRef(false);
   return (
-    <AlertDialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onCancel(); }}>
+    <AlertDialog open={open} onOpenChange={(isOpen) => { if (!isOpen) { if (buttonHandled.current) buttonHandled.current = false; else onCancel(); } }}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
@@ -46,13 +49,13 @@ export function DirtyConfirmation({
         <AlertDialogFooter>
           <AlertDialogCancel
             className={buttonVariants({ variant: 'secondary' })}
-            onClick={onCancel}
+            onClick={() => { buttonHandled.current = true; onCancel(); }}
           >
             {cancelLabel}
           </AlertDialogCancel>
           <AlertDialogAction
             className={cn(buttonVariants({ variant: 'destructive' }))}
-            onClick={onConfirm}
+            onClick={() => { buttonHandled.current = true; onConfirm(); }}
           >
             {confirmLabel}
           </AlertDialogAction>
