@@ -19,7 +19,7 @@ const SAMPLE_MENU_PERMISSIONS = [menuPermission('equipment:view'), menuPermissio
 export const WORLD_PERMISSIONS: readonly Permission[] = [...KERNEL_PERMISSIONS, ...SAMPLE_MENU_PERMISSIONS];
 
 /** `knowledge:catalog-manage` and `knowledge:item-publish`: the server grants them to Admin or a workspace grant; the mock has no grants, so only admin holds them (#1194 r, #1197 s3a). */
-const ENGINEER_EXCLUDED: readonly string[] = ['console:access', 'features:access', 'knowledge:catalog-manage', 'knowledge:item-publish', 'knowledge:spec-publish'];
+const ENGINEER_EXCLUDED: readonly string[] = ['console:access', 'features:access', 'knowledge:catalog-manage', 'knowledge:item-publish', 'knowledge:spec-publish', 'improvement:manage'];
 const VIEWER_GRANTS: readonly string[] = ['platform:view', 'metrics:view', 'notice:view', 'voc:view'];
 
 /**

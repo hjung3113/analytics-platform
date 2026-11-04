@@ -1,6 +1,6 @@
 # 개선 아이템 플랫폼 기능 — 설계 초안 (#1328)
 
-> **Status: 소유자 답 반영(2026-11-04) — §6 Q1–Q8을 추천대로 결정, 노드 a(스키마·읽기) 구현됨, b–f 남음.** 단 Q3의 「담당자가 User인 경우 본인 건 상태 변경 예외」는 지금 두지 않는다(팀장 결정, 되돌릴 수 있음; 실제 User 담당자 사례가 생기면 다시 연다). 근거: [ADR-0106 개정 2](../../adr/0106-improvement-task-is-quest.md)(개선 아이템은 플랫폼 DB, Quest는 BRAVO 소유, ID로만 가리킴). 지금 레포에는 노드 a의 DB·읽기 API([api/improvement-items.md](../../architecture/platform-api/api/improvement-items.md))만 있고, 쓰기·Quest 포트·화면은 없다. 용어는 [GLOSSARY](../../../GLOSSARY.md)의 `과제(Quest)`·`개선 아이템`·`효과 확인`. 답이 나오면 실제 대안 사이 결정은 ADR로 남긴다(다음 번호는 `next-adr.sh`로 확인).
+> **Status: 소유자 답 반영(2026-11-04) — §6 Q1–Q8을 추천대로 결정, 노드 a(스키마·읽기)·b(쓰기·이력·감사·`improvement.manage`) 구현됨, c–f 남음.** 단 Q3의 「담당자가 User인 경우 본인 건 상태 변경 예외」는 지금 두지 않는다(팀장 결정, 되돌릴 수 있음; 실제 User 담당자 사례가 생기면 다시 연다). 근거: [ADR-0106 개정 2](../../adr/0106-improvement-task-is-quest.md)(개선 아이템은 플랫폼 DB, Quest는 BRAVO 소유, ID로만 가리킴). 지금 레포에는 노드 a·b의 DB·읽기·쓰기 API([api/improvement-items.md](../../architecture/platform-api/api/improvement-items.md))가 있고, Quest 포트·화면은 없다. 용어는 [GLOSSARY](../../../GLOSSARY.md)의 `과제(Quest)`·`개선 아이템`·`효과 확인`. 답이 나오면 실제 대안 사이 결정은 ADR로 남긴다(다음 번호는 `next-adr.sh`로 확인).
 
 ## 1. 도메인
 
@@ -18,7 +18,9 @@
 | `origin` | 만든 분석 화면: 메뉴 id + 분석 Context(지표·기간·설비) 스냅샷. 교차 메뉴 링크 계약(`cross-menu-links.md`)대로 목적지 id와 Context를 분리해 저장하고, 상세에서 「분석 화면 열기」로 되돌아간다 |
 | `effect_check` | 효과 확인 결과(`effective`·`ineffective`·`inconclusive`) + 판단 메모 + 확인에 쓴 전후 비교 링크(#1243) |
 
-**상태 흐름(안):** `open`(문제 기록) → `in_progress`(조치 중) → `done`(조치 완료, `action_date` 필수) → `verified`(효과 확인 완료, `effect_check` 필수). 어느 단계에서든 `dropped`(취소, 사유 필수). `done`·`verified`·`dropped`에서 이전 단계로의 되돌림은 `reopen` 한 동작으로만 하고 이력에 남긴다. 상태 이름은 화면에서 한국어(`문제 기록`·`조치 중`·`조치 완료`·`효과 확인됨`·`취소`).
+**상태 흐름(안):** `open`(문제 기록) → `in_progress`(조치 중) → `done`(조치 완료, `action_date` 필수) → `verified`(효과 확인 완료, `effect_check` 필수). 어느 단계에서든 `dropped`(취소, 사유 필수). `done`·`verified`·`dropped`에서 이전 단계로의 되돌림은 `reopen` 한 동작으로만 하고 이력에 남긴다.
+
+**합법 상태 쌍(원본, DB 트리거 `improvement_item_guard`와 API가 같은 표를 쓴다):** 앞으로 가는 이동 `open→in_progress`·`in_progress→done`·`done→verified`와 `open|in_progress|done|verified→dropped`는 `itemSetStatus`만 받는다. 되돌림 `done→in_progress`·`verified→done`·`dropped→open`은 `itemReopen`(사유 필수)만 받고, `itemSetStatus`에 보내면 `status:illegal_transition`이다. 되돌려도 `effect_*`·`drop_reason` 열은 그대로 두고 이력은 `item_event`에 남는다. 그 밖의 쌍과 같은 상태로의 이동은 모두 거절한다. 상태 이름은 화면에서 한국어(`문제 기록`·`조치 중`·`조치 완료`·`효과 확인됨`·`취소`).
 
 **이력.** 필드 변경은 추가 전용 `improvement_item_event`(item, actor, 시각, 바뀐 필드 전·후 JSON, 사유)에 남긴다. 「설비별 적용 이력」은 `targets`로 이 표를 설비 기준으로 조회한 것이다(ADR-0106 개정 2). 별도 감사 기록은 기존 감사 패턴을 따른다.
 

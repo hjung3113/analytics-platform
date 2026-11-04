@@ -1,8 +1,8 @@
 # Improvement Items
 
-Index and global rules: [03-api-contracts.md](../03-api-contracts.md). This file is the normative contract for the improvement item reads and storage (#1328 node a). Domain and decisions: [design](../../../design/features/improvement-items.md) (§1 domain, §3 API/DB, §6 decisions), [ADR-0106](../../../adr/0106-improvement-task-is-quest.md) amendment 2, `IM-<n>` numbering as in [ADR-0109](../../../adr/0109-log-knowledge-item-ownership-revisions-assessments.md) decision 6, menu placement [ADR-0110](../../../adr/0110-platform-feature-roles-and-scope.md). Pattern: the log knowledge Item reads ([log-knowledge.md](log-knowledge.md) §Item reads).
+Index and global rules: [03-api-contracts.md](../03-api-contracts.md). This file is the normative contract for the improvement item reads, storage (#1328 node a) and writes (node b). Domain and decisions: [design](../../../design/features/improvement-items.md) (§1 domain, §3 API/DB, §6 decisions), [ADR-0106](../../../adr/0106-improvement-task-is-quest.md) amendment 2, `IM-<n>` numbering as in [ADR-0109](../../../adr/0109-log-knowledge-item-ownership-revisions-assessments.md) decision 6, menu placement [ADR-0110](../../../adr/0110-platform-feature-roles-and-scope.md). Pattern: the log knowledge Item reads ([log-knowledge.md](log-knowledge.md) §Item reads).
 
-**Not implemented here (later nodes):** item writes and `item_event` rows (b), capability `improvement.manage` (b), audit projection (b), the Quest port and `improvement.questSearch` (c), screens and the `platform/<pkg>` endpoint mirror (d), notifications (e), editable table and effect-check UI (f).
+**Not implemented here (later nodes):** the Quest port and `improvement.questSearch` (c), screens and the `platform/<pkg>` endpoint mirror (d), notifications (e), editable table and effect-check UI (f).
 
 ## Transport and permission
 
@@ -73,13 +73,16 @@ Foreign keys: every improvement-to-improvement reference (`item_target` and `ite
 - `effect_compare_link`: a same-origin relative path only, `~ '^/[^/\\]'` (one leading slash, then neither a second slash nor a backslash), ≤ 2000 characters. An absolute or protocol-relative URL is refused. The link stays optional (the before/after comparison piece, #1243, is node f).
 - `effect_*` and `drop_reason` MAY remain after a reopen; the history lives in `item_event`.
 
-### Origin-or-target rule: enforced in node b, not in SQL
+### Origin-or-target rule (Q2): a deferred constraint trigger, not a CHECK
 
-Q2 requires every item to carry `origin_*` **or** at least one `item_target`. That needs a second table, so it is **not** a CHECK and migration 0093 does not enforce it. Node b enforces it with a deferrable constraint trigger on `item`/`item_target` plus write-path validation. Until then a row without both can exist, and nothing in node a writes one.
+Q2 requires every item to carry `origin_*` **or** at least one `item_target`. That needs a second table, so it is **not** a CHECK. Migration 0094 enforces it with the `DEFERRABLE INITIALLY DEFERRED` constraint trigger `improvement_item_origin_or_target` (the same name on `item` for insert / update of `origin_menu_id`, and on `item_target` for delete). The trigger function re-reads the item's current origin and target count when it fires and skips an item row that no longer exists, so a transaction is judged on its final state. The write path checks first (`origin:required_or_target`); `itemCreate` and `itemUpdate` also end with `SET CONSTRAINTS improvement.improvement_item_origin_or_target IMMEDIATE` inside `handle` and map the 23514 (constraint name `improvement_item_origin_or_target`) to the same field error.
 
 ### Grants (`platform_app`)
 
-- `SELECT` on `item`, `item_target`, `item_event`; no INSERT, UPDATE or DELETE (node b adds column-limited writes with the guard triggers, the capability and the audit projection).
+- `item`: `SELECT, INSERT` and a column-limited `UPDATE (problem, action, action_date, status, assignee_id, quest_id, quest_title_snapshot, origin_menu_id, origin_context, effect_result, effect_note, effect_compare_link, drop_reason, row_version, updated_at, updated_by)` (0094); never `workspace_id`, `id`, `item_no`, `created_*`, never DELETE.
+- `item_target`: `SELECT, INSERT, DELETE` (a target set is replaced; its history is `item_event`); no UPDATE.
+- `item_event`: `SELECT, INSERT`; append-only, no UPDATE or DELETE.
+- Guard trigger `improvement_item_guard` (BEFORE UPDATE on `item`, the wall against the migrate role too): `row_version` must rise by exactly 1 on every update, the identity columns never change, and a changed status must be a legal pair. Its `23514` carries no constraint name and is never mapped to a field error: a guard firing is a handler bug and stays loud.
 - `SELECT, INSERT, UPDATE (last_item_no)` on `item_counter`: the allocator runs as the runtime role. No other column and no DELETE.
 - `platform_migrate` has all privileges on the four tables.
 
@@ -89,4 +92,23 @@ Q2 requires every item to carry `origin_*` **or** at least one `item_target`. Th
 
 ## Tests
 
-`modules/improvement-items/__tests__/`: `item-params.test.ts` (declaration table and param judgments), `improvement-items.integration.test.ts` (CHECKs, foreign keys, grants, counter, the three reads over `app.inject`). The `text` filter value kind and `literals` are pinned in `src/lib/list-params/__tests__/text-kind.test.ts`; `db/__tests__/role-grants-product-tables.integration.test.ts` pins the SELECT-only grants.
+`modules/improvement-items/__tests__/`: `item-params.test.ts` (declaration table and param judgments), `improvement-items.integration.test.ts` (CHECKs, foreign keys, grants, counter, the three reads over `app.inject`), `item-input.test.ts` (write input judgments), `improvement-items-writes.integration.test.ts` (the six actions, the 0094 grants, guard and Q2 triggers, audit projection). The `text` filter value kind and `literals` are pinned in `src/lib/list-params/__tests__/text-kind.test.ts`; `db/__tests__/role-grants-product-tables.integration.test.ts` pins the grants (`item: SELECT, INSERT`, `item_target: SELECT, INSERT, DELETE`, `item_event: SELECT, INSERT`) and the exact UPDATE column list of `item`.
+
+## Write actions (#1328 b)
+
+Menu id `improvement-items`; global ids `improvement.itemCreate`, `improvement.itemUpdate`, `improvement.itemSetStatus`, `improvement.itemReopen`, `improvement.itemAssign`, `improvement.itemLinkQuest` (`modules/improvement-items/item-actions.ts`, input judgments in `domain/item-input.ts`). `POST /api/v1/menu-action`; judgment order is the engine's. Every action: `permission: 'improvement:manage'` (menu permission, bootstrap lists it for Admin and for a workspace grant of capability `improvement.manage`), `requiresScope: false`, `invalidates` the three reads. Authorization is the capability `improvement.manage` plus `applyAdminModuleBypass`: workspace-scoped, non-sensitive, `adminModuleBypass: 'always'`, requestable with no Managed System, **refused for a User recipient** (request, approval, direct grant) and no User-assignee exception ([design](../../../design/features/improvement-items.md) Q3). Reads stay open to every session.
+
+| Action | Concurrency | Input | Effect |
+| --- | --- | --- | --- |
+| `itemCreate` | none | `problem`, `action?`, `actionDate?`, `assigneeId?`, `questId?`+`questTitle?`, `origin?{menuId,context}`, `targets?[{kind,externalKey,displayName}]` | status `open`; answer `{ itemId, itemNo, version }`; event `created` |
+| `itemUpdate` | version | `itemId`, `problem?`, `action?`, `actionDate?`, `origin?`, `targets?` (replaces the set) | never touches status, assignee, Quest or effect; event `updated` |
+| `itemSetStatus` | version | `itemId`, `status`, `action?`, `actionDate?`, `effect?{result,note?,compareLink?}`, `reason?` | forward moves only; event `status_changed` |
+| `itemReopen` | version | `itemId`, `reason` | the reopen pairs; event `reopened` |
+| `itemAssign` | version | `itemId`, `assigneeId` or null | event `assigned` |
+| `itemLinkQuest` | version | `itemId`, `questId`+`questTitle` (snapshot text from the caller) or both null | event `quest_linked` |
+
+- **Status pairs** are owned by [design §1](../../../design/features/improvement-items.md); `itemSetStatus` takes `open→in_progress` (needs `action`), `in_progress→done` (needs `action`, `actionDate`), `done→verified` (needs `effect`), `open|in_progress|done|verified→dropped` (needs `reason`); anything else, a reopen pair included, is `status:illegal_transition`. `itemReopen` takes `done→in_progress`, `verified→done`, `dropped→open` and keeps `effect_*` / `drop_reason`.
+- **Field errors** (`invalid`): `required`, `too_long`, `malformed`, `too_many`, `duplicate` (`targets.<i>:duplicate`, caught before the lock), `not_applicable` (a status-move field that does not belong to the target status), `status:illegal_transition`, `assigneeId:not_found` (assignee not an actor of the session workspace; judged after the number allocation on create, so the rolled-back create leaves no gap), `origin:required_or_target` (Q2; create judges it in `validate`, update when the last target of an origin-less item would go). The cumulative CHECK rules are reported by `handle` as `action:required`, `actionDate:required`, `effect:required`, `reason:required` before any SQL CHECK fires; a CHECK or unique violation that still slips through is mapped by constraint **name** only.
+- **Engine conflict-token rule:** no improvement status is sealed (each has a legal exit), so `currentVersion` is the plain `row_version` (locking the row `FOR UPDATE`) and there is no fresh/unholdable token. Every status-dependent refusal is a `MenuActionInvalidError` thrown from `handle` after the lock, so a conflict replayed with the returned version on an illegal pair ends as `invalid`, never as `conflict` forever.
+- **Atomicity:** the row change, the `item_event` rows and the audit row share the engine's transaction; every change bumps `row_version`; a save that changes nothing answers `ok` with the current version, no event and no bump. `item_event.changes` is `{ before, after }` of the changed fields; the audit `detail` is body-free (`improvement.item.*`, subject `improvement_item`, schemas in `packages/feature-shared/src/audit/improvement-items.ts`).
+- **Not here:** notifications (node e), the Quest port (c), screens and mock registration (d, backlog), bulk edit (f).

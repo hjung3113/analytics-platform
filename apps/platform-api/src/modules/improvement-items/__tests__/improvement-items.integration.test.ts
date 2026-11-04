@@ -51,6 +51,9 @@ describe.skipIf(!runIntegration)('improvement items schema and reads (#1328 a)',
       problem: `schema case ${TAG.toLowerCase()}`,
       created_by: actorId,
       updated_by: actorId,
+      // Migration 0094 enforces origin-or-target at commit, so the minimal valid row carries an origin.
+      origin_menu_id: 'schema-test',
+      origin_context: '{}',
       ...cols,
     };
     const keys = Object.keys(row);
@@ -197,8 +200,8 @@ describe.skipIf(!runIntegration)('improvement items schema and reads (#1328 a)',
       ['in_progress without action', { status: 'in_progress' }, 'improvement_item_action_required_check'],
       ['a quest id without a title', { quest_id: 'Q-9' }, 'improvement_item_quest_pair_check'],
       ['a quest title without an id', { quest_title_snapshot: 'T' }, 'improvement_item_quest_pair_check'],
-      ['an origin menu without a context', { origin_menu_id: 'm' }, 'improvement_item_origin_pair_check'],
-      ['an origin context without a menu', { origin_context: '{}' }, 'improvement_item_origin_pair_check'],
+      ['an origin menu without a context', { origin_menu_id: 'm', origin_context: null }, 'improvement_item_origin_pair_check'],
+      ['an origin context without a menu', { origin_menu_id: null, origin_context: '{}' }, 'improvement_item_origin_pair_check'],
       ['an origin context that is not an object', { origin_menu_id: 'm', origin_context: '[1]' }, 'improvement_item_origin_context_check'],
       ['an effect note without a result', { effect_note: 'n' }, 'improvement_item_effect_detail_check'],
       ['a compare link without a result', { effect_compare_link: '/a' }, 'improvement_item_effect_detail_check'],
@@ -308,14 +311,10 @@ describe.skipIf(!runIntegration)('improvement items schema and reads (#1328 a)',
       }
     });
 
+    // Node b (0094) grants INSERT and the column-limited writes; what stays refused is below (and in improvement-items-writes).
     it.each([
-      ['insert into improvement.item (workspace_id,item_no,problem,created_by,updated_by) values ($1,99999,$2,$3,$3)'],
-      ['update improvement.item set problem = $2 where workspace_id = $1'],
       ['delete from improvement.item where workspace_id = $1'],
-      ["insert into improvement.item_target (workspace_id,item_id,kind,external_key,display_name_snapshot) select $1, id, 'equipment', 'zz', $2 from improvement.item limit 1"],
       ['update improvement.item_target set external_key = $2 where workspace_id = $1'],
-      ['delete from improvement.item_target where workspace_id = $1'],
-      ["insert into improvement.item_event (workspace_id,item_id,actor_id,event_type,reason) select $1, id, $3::uuid, 'created', $2 from improvement.item limit 1"],
       ['update improvement.item_event set reason = $2 where workspace_id = $1'],
       ['delete from improvement.item_event where workspace_id = $1'],
       ['delete from improvement.item_counter where workspace_id = $1'],
@@ -414,7 +413,7 @@ describe.skipIf(!runIntegration)('improvement items schema and reads (#1328 a)',
       });
       expect(a1.assignee.displayName).not.toBe('');
       const a4 = (all.data.rows as any[]).find((r) => r.id === ids.a4); // eslint-disable-line @typescript-eslint/no-explicit-any -- wire JSON
-      expect(a4).toMatchObject({ actionDate: '2026-02-04', effectResult: 'effective', effectCompareLink: '/mars/compare?from=2026-02-04', assignee: null, quest: null, origin: null });
+      expect(a4).toMatchObject({ actionDate: '2026-02-04', effectResult: 'effective', effectCompareLink: '/mars/compare?from=2026-02-04', assignee: null, quest: null, origin: { menuId: 'schema-test', context: {} } });
     });
 
     it('filters by status (in and notIn)', async () => {

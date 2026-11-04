@@ -78,7 +78,7 @@ alone.
    Developer satisfies none and needs Managed System grants.
 2. Module bypass, declared per capability in CAPABILITY_META.adminModuleBypass
    (packages/feature-shared/src/enums/capabilities.ts):
-   - always: finding.read, finding.manage, task_request.self_approve, knowledge.catalog.manage, knowledge.catalog.import, knowledge.item.publish
+   - always: finding.read, finding.manage, task_request.self_approve, knowledge.catalog.manage, knowledge.catalog.import, knowledge.item.publish, knowledge.spec.publish, improvement.manage
    - unless_denied: survey.read, survey.manage (an explicit deny still wins, FO ADR-0033 section C)
    - none: every other capability, including survey.read_personal_responses and survey.export
 ```
@@ -173,6 +173,8 @@ Every other capability is non-sensitive and needs no reason beyond the route's `
 `voc.read_public` (ADR-0110 decision 3, #1288 g) lets a holder read the public part of VOCs in one Managed System. It is non-sensitive, `adminModuleBypass: 'none'`, Managed System scoped (ordinary policy branch: one candidate per live Managed System, no workspace-wide candidate) and requestable by every role including User. It is a separate read rule, **not** part of ADR-0031: `voc.read_public` is not in `actorEffectiveScope`, `similarVocVisibilityPredicate`, `isVocVisibleToActor` or `canReadVocAsSource`, so no operator, peer, recommendation, cluster, dashboard, nav-count or notification path changes. The public arm lives in `modules/voc/public-read/rule.ts` and admits a VOC when the actor reported it, or its Managed System is in `voc.read_public ∪ voc.read ∪ voc.triage` scope, or it is the 「플랫폼」 system (`platformManagedSystemId`: the one live Managed System with `external_key = 'platform'`; none or several → no platform arm). The attachment download gains one arm for body and `public_update` attachments of such VOCs (api/voc.md §VOC public read). The capability is in the platform audit projection list (migration 0085).
 
 `knowledge.item.publish` (ADR-0109 decision 7, #1197 w) follows the same pattern: workspace-scoped, non-sensitive, `adminModuleBypass: 'always'`, requestable with no Managed System, refused for a User recipient at request, approval and direct grant (`NOT_FOR_USER_ROLE`). It is enforced by the five `logKnowledge.item*` write actions (`modules/log-knowledge/item-actions.ts`, capability check plus `applyAdminModuleBypass`), whose menu permission `knowledge:item-publish` maps to it in `PLATFORM_PERMISSION_TABLE` (rule `item-publish`).
+
+`knowledge.spec.publish` (ADR-0111, #1196 b1) has the same shape for the model spec writes (menu permission `knowledge:spec-publish`, rule `spec-publish`). `improvement.manage` (#1328 b, [api/improvement-items.md](api/improvement-items.md) §Write actions) too: workspace-scoped, non-sensitive, `adminModuleBypass: 'always'`, requestable with no Managed System, refused for a User recipient (`NOT_FOR_USER_ROLE`); enforced by the six `improvement.item*` write actions (capability check plus `applyAdminModuleBypass`), whose menu permission `improvement:manage` maps to it in `PLATFORM_PERMISSION_TABLE` (rule `improvement-manage`). Both are in the platform audit projection list (0092, 0094).
 
 Requester expiration is optional, with no automatic default (FO ADR-0044, confirmed
 by FO ADR-0066). Any supplied/resolved non-null expiry must be future in create,

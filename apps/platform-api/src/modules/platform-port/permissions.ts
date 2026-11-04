@@ -21,7 +21,9 @@ export type PlatformPermissionRule =
   /** Admin role, or an active workspace grant of `knowledge.item.publish` (the write capability of the log knowledge items). */
   | 'item-publish'
   /** Admin role, or an active workspace grant of `knowledge.spec.publish` (the write capability of the log knowledge model specs). */
-  | 'spec-publish';
+  | 'spec-publish'
+  /** Admin role, or an active workspace grant of `improvement.manage` (the write capability of the improvement items). */
+  | 'improvement-manage';
 
 export const PLATFORM_PERMISSION_TABLE = [
   { permission: 'platform:view', rule: 'every-session' },
@@ -37,6 +39,8 @@ export const PLATFORM_PERMISSION_TABLE = [
   { permission: 'knowledge:item-publish', rule: 'item-publish' },
   // Menu permission of the model spec writes and the draft read (ADR-0111, #1196 b1).
   { permission: 'knowledge:spec-publish', rule: 'spec-publish' },
+  // Menu permission of the improvement item writes (#1328 b); the six write actions declare it.
+  { permission: 'improvement:manage', rule: 'improvement-manage' },
 ] as const satisfies ReadonlyArray<{ permission: string; rule: PlatformPermissionRule }>;
 
 /** Capabilities whose active grant (workspace or Managed-System scoped) opens `features:access`. */
@@ -124,6 +128,16 @@ async function holds(
         options,
       );
       return applyAdminModuleBypass(actor.role_level, 'knowledge.spec.publish', decision).allow;
+    }
+    case 'improvement-manage': {
+      // The same decision the improvement write actions take (`improvement-items/item-actions.ts`).
+      const decision = await checkService.checkCapability(
+        actor,
+        'improvement.manage',
+        { workspace_id: actor.workspace_id },
+        options,
+      );
+      return applyAdminModuleBypass(actor.role_level, 'improvement.manage', decision).allow;
     }
     case 'features-access': {
       if (actor.role_level === 'developer' || actor.role_level === 'admin') return true;

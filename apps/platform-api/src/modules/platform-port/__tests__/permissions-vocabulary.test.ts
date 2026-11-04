@@ -4,6 +4,7 @@ import { PLATFORM_PERMISSION_TABLE } from '../permissions.js';
 import { CATALOG_MENU_PERMISSION } from '../../log-knowledge/catalog-actions.js';
 import { ITEM_MENU_PERMISSION } from '../../log-knowledge/item-actions.js';
 import { SPEC_MENU_PERMISSION } from '../../log-knowledge/spec-actions.js';
+import { IMPROVEMENT_MENU_PERMISSION } from '../../improvement-items/item-actions.js';
 import { platformVocab } from './platform-vocab.js';
 
 // ADR-0068 "one vocabulary": the kernel's own permissions (@ap/contracts/vocab.json `kernelPermissions`)
@@ -18,7 +19,8 @@ describe('platform permission table vs @ap/contracts KERNEL_PERMISSIONS', () => 
     const tabled = PLATFORM_PERMISSION_TABLE.map((entry) => entry.permission as string).filter(
       (permission) => permission !== CATALOG_MENU_PERMISSION &&
         permission !== ITEM_MENU_PERMISSION &&
-        permission !== SPEC_MENU_PERMISSION,
+        permission !== SPEC_MENU_PERMISSION &&
+        permission !== IMPROVEMENT_MENU_PERMISSION,
     );
     expect([...tabled].sort()).toEqual([...vocabulary].sort());
     for (const permission of vocabulary) {
@@ -45,6 +47,12 @@ describe('platform permission table vs @ap/contracts KERNEL_PERMISSIONS', () => 
     const entries = PLATFORM_PERMISSION_TABLE.filter((entry) => entry.permission === SPEC_MENU_PERMISSION);
     expect(entries).toEqual([{ permission: 'knowledge:spec-publish', rule: 'spec-publish' }]);
     expect(kernelPermissions()).not.toContain(SPEC_MENU_PERMISSION);
+  });
+
+  it('lists the improvement menu permission once, with the rule the improvement write actions use', () => {
+    const entries = PLATFORM_PERMISSION_TABLE.filter((entry) => entry.permission === IMPROVEMENT_MENU_PERMISSION);
+    expect(entries).toEqual([{ permission: 'improvement:manage', rule: 'improvement-manage' }]);
+    expect(kernelPermissions()).not.toContain(IMPROVEMENT_MENU_PERMISSION);
   });
 
   it('names the feature permission features:access and keeps no feedbackops:access fallback', () => {

@@ -2,11 +2,12 @@
 // declarations: the item list, one item and an item's history. Same read right and workspace rule as the other
 // direct list menus (`platform:view`, `requiresScope: false`, the workspace is the session actor's, never a param).
 // The dispatch outcome set has no `not_found`, so an unknown or other-workspace id answers `ok` with `data: null`.
-// Nothing here writes: item writes, the capability and the Quest port are later nodes.
+// The reads write nothing; the item writes are item-actions.ts (#1328 b). The Quest port is a later node.
 
 import type { EndpointResult, MenuDispatchContribution, MenuEndpointDeclaration, ParamsJudgment } from '../menu-dispatch/types.js';
 import { holdsPlatformPermission } from '../platform-port/permissions.js';
 import type { ImprovementItemsDeps } from './deps.js';
+import { itemActions } from './item-actions.js';
 import { ASSIGNEE_ME } from './domain/item-filters.js';
 import {
   DETAIL_PARAM_KEYS,
@@ -96,5 +97,5 @@ export function itemEndpoints(deps: ImprovementItemsDeps): MenuEndpointDeclarati
 }
 
 export function improvementItemsContribution(deps: ImprovementItemsDeps): MenuDispatchContribution {
-  return { endpoints: itemEndpoints(deps) };
+  return { endpoints: itemEndpoints(deps), actions: itemActions(deps) };
 }
