@@ -3,16 +3,16 @@ import type { ColumnFilter } from '@ap/contracts';
 import { PlatformLink, useI18n, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
 import { equipmentExportEndpoint, equipmentMakersEndpoint, equipmentPageEndpoint, type Equipment } from '../endpoints';
 import { PanelRight } from 'lucide-react';
-import { DetailDrawer, RowAction, ManagementLayout, type PlatformColumn, PlatformDataTable, PlatformPage, TableQuickSearch, TableUrlWarning, useTableUrlState } from '@ap/components';
+import { useClearFiltersAction, useTableFilterDeclaration, type TableFilterDeclaration, DetailDrawer, RowAction, ManagementLayout, type PlatformColumn, PlatformDataTable, PlatformPage, TableQuickSearch, TableUrlWarning, useTableUrlState } from '@ap/components';
 import { Button } from '@ap/ui';
 import { EquipmentPanel, EquipmentStatus } from './EquipmentDetail';
-import { columnFilter, exportFilterSummary, exportParams, fields, filterSpecs, pinnedFilterKeys, sortFields, statusText } from './data';
+import { columnFilter, exportFilterSummary, exportParams, fields, pinnedFilterKeys, sortFields, statusText } from './data';
 
 const NO_PARAMS = {} as const;
 const NO_FILTERS: ColumnFilter[] = [];
 
 export default function EquipmentMaster() {
-  const { t, lang } = useI18n();
+  const { lang } = useI18n();
   const ko = lang === 'ko';
   const { pageParam, setPage, linkTo } = usePlatform();
   const q = pageParam('q') ?? '', focus = pageParam('focus');
@@ -23,10 +23,11 @@ export default function EquipmentMaster() {
   const detailPage = validTab && drawerTab !== 'attributes' ? { tab: drawerTab } : undefined;
   // ADR-0105: every condition (상태, Maker, the column filters) is one hidden repeated page key `filter`.
   // The URL codec does not check enum values against options, so the parse specs need no Maker options (they come from the makers endpoint below).
-  const urlFilters = useMemo(() => ({
-    key: 'filter', specs: filterSpecs([], lang),
-    labels: Object.fromEntries(fields.map(f => [f.key, f[lang]])),
+  const filterDeclarations = useMemo<TableFilterDeclaration[]>(() => fields.map(f => {
+    const spec = columnFilter(f.key, [], lang);
+    return { id: f.key, label: f, spec, pinned: pinnedFilterKeys.includes(f.key) ? pinnedFilterKeys.indexOf(f.key) + 1 : undefined };
   }), [lang]);
+  const { urlFilters, filterColumnProps } = useTableFilterDeclaration('filter', filterDeclarations, { lang });
   const { urlState: tableUrlState, invalid: tableInvalid, sentences: invalidTableSentences, recoverKeys, cause } = useTableUrlState(sortFields, { filters: urlFilters });
   const conditions = tableUrlState?.filters ?? NO_FILTERS;
   const filterKey = q;
@@ -38,26 +39,23 @@ export default function EquipmentMaster() {
     ...conditions.flatMap(c => c.id === 'maker' && (c.op === 'in' || c.op === 'notIn') ? c.value : []), // the chosen values stay selectable while the options (re)load
   ])].sort().join('\u0000');
   // Same options → same array, so the columns (and the table's filter state) do not rebuild on every render.
-  const makerOptions = useMemo(() => makerKey ? makerKey.split('\u0000') : [], [makerKey]);
+  const makerOptions = useMemo(() => (makerKey ? makerKey.split('\u0000') : []).map(value => ({ value, label: value })), [makerKey]);
   const pages = useMenuFetch(equipmentPageEndpoint);
   const exports = useMenuFetch(equipmentExportEndpoint);
 
   // A global-Context change clears `page` in the kernel (manifest contextResetKeys); pages write no reset effect.
   const columns = useMemo<PlatformColumn<Equipment>[]>(() => fields.map(f => ({
-    id: f.key, header: f[lang], size: ['validFrom', 'validTo', 'updatedAt'].includes(f.key) ? 188 : f.key === 'equipmentId' ? 184 : 128,
+    size: ['validFrom', 'validTo', 'updatedAt'].includes(f.key) ? 188 : f.key === 'equipmentId' ? 184 : 128,
     cell: row => f.key === 'status' ? <EquipmentStatus equipment={row} /> : <span className={f.key === 'equipmentId' ? 't-mono' : f.key.includes('At') || f.key.startsWith('valid') ? 'tabular' : ''}>{row[f.key] ?? '—'}</span>,
     // The status cell shows a label badge; the export shows the same text (06 §15).
     exportValue: f.key === 'status' ? (row: Equipment) => statusText[row.status][lang] : undefined,
     // ADR-0104/0105: filter fields — 상태 and Maker (pinned), the line enum, two text columns and the validity dates; the server applies them.
-    filter: columnFilter(f.key, makerOptions, lang),
-    filterPinned: pinnedFilterKeys.includes(f.key) ? pinnedFilterKeys.indexOf(f.key) + 1 : undefined, // the position in `pinnedFilterKeys` (상태, then Maker), not the column order
+    ...filterColumnProps(f.key, f.key === 'maker' ? makerOptions : undefined),
     // #556d: rows can be grouped by line (a column filter, not a page filter); the export stays flat rows.
     groupable: f.key === 'line',
-  })), [lang, makerOptions]);
+  })), [lang, makerOptions, filterColumnProps]);
   // One clear for the search and every condition: one `setPage`, back to page 1.
-  const clearButton = q || conditions.length > 0
-    ? <Button type="button" size="sm" variant="secondary" onClick={() => setPage({ q: null, filter: null, page: null })}>{t('clearFilters')}</Button>
-    : null;
+  const clearButton = useClearFiltersAction({ filterKey: urlFilters.key, hasFilters: !!q || conditions.length > 0, extraKeys: ['q'] });
   const search = <TableQuickSearch pageKey="q" label={ko ? '설비 ID 검색' : 'Search equipment ID'} />;
   return <PlatformPage description={ko ? '설비 속성 → 유효구간 → 변경 이력. 합성 데이터 · 조회 전용.' : 'Equipment attributes → validity → change history. Synthetic data · read-only.'}>
     <ManagementLayout

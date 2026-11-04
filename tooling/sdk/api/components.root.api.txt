@@ -16,6 +16,7 @@ ChartPoint | type | type ChartPoint = { seriesId: string; value: null | number; 
 ChartPointAction | type | type ChartPointAction = { disabled?: boolean; id: string; keepsFocus?: boolean; label: string; onSelect: (point: @ap/components#ChartPoint) => void; }
 ChartSeries | type | type ChartSeries = { color: @ap/ui/theme#ThemeColorToken; dashed?: boolean; id: string; kind?: 'bar' | 'line'; name: string; points: [ string, null | number ][]; }
 ChartSpec | type | type ChartSpec = @ap/components#BoxPlotSpec | @ap/components#DonutSpec | @ap/components#HeatmapSpec | @ap/components#ParetoSpec | @ap/components#ScatterSpec | @ap/components#TopNBarSpec
+ClearFiltersActionOptions | type | type ClearFiltersActionOptions = { extraKeys?: readonly string[]; filterKey: string; hasFilters: boolean; }
 DataTrustIndicator | function | function DataTrustIndicator({ trust, assessments, className, compact, hideProvisional, wrap, summary, probe }: { assessments: @ap/contracts#Assessment[]; className?: string; compact?: boolean; hideProvisional?: boolean; probe?: (node: HTMLElement | null) => void; summary?: boolean; trust: @ap/contracts#Trust | null; wrap?: boolean; }): import("react").JSX.Element | null
 Delta | type | type Delta = { direction: 'down' | 'up'; good: boolean; value: string; }
 DetailDrawer | function | function DetailDrawer({ title, subtitle, headerActions, context, tabs, onClose, tab, onTabChange }: { context?: ReactNode; headerActions?: ReactNode; onClose: () => void; onTabChange?: (tab: string) => void; subtitle?: ReactNode; tab?: string; tabs: { content: ReactNode; id: string; label: ReactNode; }[]; title: ReactNode; }): import("react").ReactPortal | null
@@ -119,6 +120,8 @@ StatCard | function | function StatCard({ icon: Icon, label, value, unit, delta,
 StateMessage | function | function StateMessage({ icon, title, body, action, tone, correlationId, compact, detail }: StateProps): import("react").JSX.Element
 SummaryPreset | type | type SummaryPreset = { id: string; key: string; presets: readonly @ap/contracts#ConditionPreset[]; }
 TableExportRequest | type | type TableExportRequest = { filters?: @ap/contracts#ColumnFilter[]; scope: { excludedIds: string[]; kind: 'all'; } | { ids: string[]; kind: 'selected'; } | { kind: 'filtered'; }; sorting: @ap/contracts#PageSort[]; }
+TableFilterColumnProps | type | type TableFilterColumnProps = Pick<@ap/components#PlatformColumn<unknown>, 'filter' | 'filterEntry' | 'filterLabel' | 'filterPinned' | 'header' | 'id'>
+TableFilterDeclaration | type | type TableFilterDeclaration = { column?: boolean; entry?: @ap/components#InstantEntry; id: string; label: @ap/contracts#Text | string; pinned?: boolean | number; spec?: @ap/contracts#ColumnFilterSpec; }
 TableFilterField | type | type TableFilterField = { entry?: @ap/components#InstantEntry; id: string; label: @ap/contracts#Text; pinned?: boolean | number; spec: @ap/contracts#ColumnFilterSpec; }
 TableFilterOption | type | type TableFilterOption = { key: string; labels?: Readonly<Record<string, string>>; legacy?: readonly @ap/components#LegacyFilterKey[]; specs: Readonly<Record<string, @ap/contracts#ColumnFilterSpec>>; validate?: @ap/components#FilterValueCheck; }
 TableFilterProblem | type | type TableFilterProblem = { detail?: @ap/contracts#Text; field: string; raw: string; reason: 'legacy-invalid' | 'value-invalid' | @ap/contracts#FilterParamRejection; }
@@ -182,6 +185,7 @@ summaryPreset | function | function summaryPreset(view: null | { activeId: strin
 toWorkbookXlsx | function | function toWorkbookXlsx(sheets: readonly @ap/components#WorkbookSheet[], signal?: AbortSignal): Promise<Blob>
 toggleMember | function | function toggleMember(list: readonly @ap/contracts#GroupMember[], member: @ap/contracts#GroupMember): @ap/contracts#GroupMember[]
 token | function | function token(name: @ap/ui/theme#ThemeColorToken): string
+useClearFiltersAction | function | function useClearFiltersAction({ filterKey, hasFilters, extraKeys }: @ap/components#ClearFiltersActionOptions): import("react").JSX.Element | null
 useCompactPageDensity | const | const useCompactPageDensity: () => boolean
 useCopyLink | function | function useCopyLink(successText: string, options?: CopyLinkOptions): (url: string) => Promise<boolean>
 useHeaderOverflowDialog | function | function useHeaderOverflowDialog(): ShowHeaderDialog | null
@@ -189,12 +193,14 @@ usePageKeyRules | function | function usePageKeyRules(rules: readonly @ap/compon
 usePeopleSearch | function | function usePeopleSearch(search: @ap/components#PeopleSearch, query: string): @ap/components#PeopleSearchState
 useQueryBarExtension | function | function useQueryBarExtension(): @ap/components#QueryBarExtension | undefined
 useReportQueryBarStatus | function | function useReportQueryBarStatus(status: @ap/components#QueryBarStatus): void
+useTableFilterDeclaration | function | function useTableFilterDeclaration(key: string, fields: readonly @ap/components#TableFilterDeclaration[], { lang, validate }: { lang: 'en' | 'ko'; validate?: @ap/components#FilterValueCheck; }): { filterColumnProps: (id: string, options?: EnumOptions) => @ap/components#TableFilterColumnProps; filterFields: @ap/components#TableFilterField[]; urlFilters: @ap/components#TableFilterOption; }
 useTableUrlState | function | function useTableUrlState(allowedSort: readonly string[], options?: { extraPatch?: (reason: @ap/components#TableUrlChangeReason) => Record<string, null | string> | undefined; filters?: @ap/components#TableFilterOption; }): { cause: @ap/components#TableUrlWarningCause; filterRead: @ap/components#TableFilterRead | null; invalid: boolean; parsedPage: { ok: false; } | { ok: true; page: number; }; parsedSort: { ok: false; } | { ok: true; sorting: @ap/contracts#PageSort[]; }; recoverKeys: string[]; sentences: string[]; urlState: @ap/components#TableUrlState | undefined; }
 useTableUrlWarning | function | function useTableUrlWarning(allowedSort: readonly string[], filters?: @ap/components#TableFilterOption): { cause: @ap/components#TableUrlWarningCause; filterRead: @ap/components#TableFilterRead | null; invalid: boolean; parsedPage: { ok: false; } | { ok: true; page: number; }; parsedSort: { ok: false; } | { ok: true; sorting: @ap/contracts#PageSort[]; }; recoverKeys: string[]; sentences: string[]; }
 useWorkbookExport | function | function useWorkbookExport(): @ap/components#WorkbookExport
 # reachable types
 ChartSize | type | type ChartSize = 'compact' | 'fill' | 'hero' | 'regular'
 CopyLinkOptions | type | type CopyLinkOptions = { absolute?: boolean; failureText?: string; onFailure?: (link: string) => void; }
+EnumOptions | type | type EnumOptions = Extract<@ap/contracts#ColumnFilterSpec, { kind: 'enum'; }>['options']
 Lang | type | type Lang = 'en' | 'ko'
 PageFilterBarShared | type | type PageFilterBarShared = { actions?: ReactNode; fields: readonly @ap/components#PageFilterField[]; label: string; mode?: 'draft'; onApply?: () => void; }
 PageFilterFieldBase | type | type PageFilterFieldBase = { key: string; label: string; testId?: string; }
