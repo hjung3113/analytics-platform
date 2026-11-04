@@ -27,6 +27,7 @@ const ALWAYS: Capability[] = [
   'knowledge.catalog.import',
   'knowledge.item.publish',
   'knowledge.spec.publish',
+  'improvement.manage',
 ];
 const UNLESS_DENIED: Capability[] = ['survey.read', 'survey.manage'];
 const NONE: Capability[] = [

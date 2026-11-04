@@ -98,6 +98,8 @@ The backend returns effective navigation and capability states for the current w
 | Manage log knowledge catalog (`knowledge.catalog.manage`) | no | permission required (workspace-wide) | yes |
 | Import log knowledge catalog (`knowledge.catalog.import`) | no | permission required (workspace-wide) | yes |
 | Write log knowledge items (`knowledge.item.publish`) | no | permission required (workspace-wide) | yes |
+| Publish log knowledge model specs (`knowledge.spec.publish`) | no | permission required (workspace-wide) | yes |
+| Write improvement items (`improvement.manage`) | no | permission required (workspace-wide) | yes |
 | Approve Permission Request | no | no | yes |
 
 Notes:

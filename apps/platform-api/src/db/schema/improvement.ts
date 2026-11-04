@@ -23,7 +23,8 @@ import { actors, workspaces } from './core.js';
 // write path (node b) checks that an assignee belongs to the session workspace.
 //
 // The origin-or-target rule (an item carries `origin_*` or at least one `item_target`) needs a second table, so it
-// is NOT a CHECK here; node b enforces it with a deferrable constraint trigger and write-path validation.
+// is NOT a CHECK here; migration 0094 enforces it with a deferrable constraint trigger (`improvement_item_origin_or_target`) and
+// the write path validates it first.
 export const improvementSchema = pgSchema('improvement');
 
 const PROBLEM_MAX = 500;
@@ -193,7 +194,7 @@ export const improvementItemTargets = improvementSchema.table(
   }),
 );
 
-/** Append-only history of an item: the runtime role holds no INSERT yet (node b adds it) and never UPDATE/DELETE. */
+/** Append-only history of an item: the runtime role holds INSERT (0094) and never UPDATE or DELETE. */
 export const improvementItemEvents = improvementSchema.table(
   'item_event',
   {

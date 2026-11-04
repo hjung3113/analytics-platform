@@ -85,11 +85,11 @@ describe('toAuditEvent field mapping', () => {
 describe('0074 permission allowlist vs the capability registry', () => {
   it('lists exactly the non-sensitive capabilities (DB-free twin of the integration it.each)', () => {
     const sql = readFileSync(
-      new URL('../../../../migrations/0092_model_spec_write.sql', import.meta.url),
+      new URL('../../../../migrations/0094_improvement_items_write.sql', import.meta.url),
       'utf8',
     );
     const list = /\(l\.detail ->> 'capability'\) = ANY \(ARRAY\[([^\]]+)\]/.exec(sql)?.[1];
-    if (list === undefined) throw new Error('capability allowlist not found in 0092 (latest definition)');
+    if (list === undefined) throw new Error('capability allowlist not found in 0094 (latest definition)');
     const listed = [...list.matchAll(/'([^']+)'/g)].map((m) => m[1] as string).sort();
     expect(listed).toEqual(CAPABILITIES.filter((c) => !isSensitiveCapability(c)).sort());
   });

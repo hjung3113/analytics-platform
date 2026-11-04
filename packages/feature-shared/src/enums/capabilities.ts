@@ -27,6 +27,7 @@ export const CAPABILITIES = [
   'knowledge.catalog.import',
   'knowledge.item.publish',
   'knowledge.spec.publish',
+  'improvement.manage',
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -104,6 +105,8 @@ export const CAPABILITY_META: Readonly<Record<Capability, CapabilityMeta>> = {
   'knowledge.item.publish': { sensitive: false, adminModuleBypass: 'always' },
   // Log knowledge model specs (ADR-0111): same shape; seals (publishes) a model spec revision.
   'knowledge.spec.publish': { sensitive: false, adminModuleBypass: 'always' },
+  // Improvement items (#1328 b): workspace-scoped, not sensitive; writes items. User role refused (supported-scope policy).
+  'improvement.manage': { sensitive: false, adminModuleBypass: 'always' },
 };
 
 export function isCapability(value: string): value is Capability {
