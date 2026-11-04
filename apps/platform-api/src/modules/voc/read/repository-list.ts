@@ -44,6 +44,8 @@ export interface ListVocsRepoArgs {
   filterReporterFacingStatus?: string[];
   filterOwner?: 'assigned' | 'unassigned';
   filterAnalyticsAreaUnset?: boolean;
+  /** #606 exact match on the client error id. */
+  filterTraceId?: string;
   /**
    * #821 text search: case-insensitive display_id prefix OR title contains.
    * List path only — count paths never set it, so navigation counts cannot
@@ -78,6 +80,7 @@ export function buildVocListPredicate(args: VocListPredicateArgs): ReturnType<ty
     filterReporterFacingStatus,
     filterOwner,
     filterAnalyticsAreaUnset,
+    filterTraceId,
     analyticsAreaId,
     q,
   } = args;
@@ -143,6 +146,7 @@ export function buildVocListPredicate(args: VocListPredicateArgs): ReturnType<ty
   if (filterAnalyticsAreaUnset) {
     wheres.push(sql`analytics_area_id IS NULL`);
   }
+  if (filterTraceId !== undefined) wheres.push(sql`trace_id = ${filterTraceId}`);
   if (analyticsAreaId !== undefined) {
     wheres.push(sql`analytics_area_id = ${analyticsAreaId}::uuid`);
   }
@@ -309,7 +313,7 @@ export async function listVocsForRead(
         id, display_id, title, workspace_id, primary_managed_system_id,
         analytics_area_id, reporter_id, owner_user_id, owner_team_id,
         severity, reporter_facing_status, triage_state,
-        triage_state_review_postponed_at, source_context,
+        triage_state_review_postponed_at, source_context, trace_id,
         NULL::jsonb as description_rich_content,
         created_at, updated_at,
         created_at::text AS _created_at_raw,
@@ -427,7 +431,7 @@ export async function listVocsForRead(
         id, display_id, title, workspace_id, primary_managed_system_id,
         analytics_area_id, reporter_id, owner_user_id, owner_team_id,
         severity, reporter_facing_status, triage_state,
-        triage_state_review_postponed_at, source_context,
+        triage_state_review_postponed_at, source_context, trace_id,
         NULL::jsonb as description_rich_content,
         created_at, updated_at,
         created_at::text AS _created_at_raw

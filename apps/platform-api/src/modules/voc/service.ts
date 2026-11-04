@@ -47,6 +47,7 @@ export interface VocEnvelope {
   owner_user_id?: string | null;
   owner_team_id?: string | null;
   source_context: string;
+  trace_id?: string | null;
   created_at: string;
   updated_at: string;
   next_actions: never[];

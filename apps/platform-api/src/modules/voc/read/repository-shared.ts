@@ -17,6 +17,7 @@ export interface VocReadRow {
   triageState: string;
   triageStateReviewPostponedAt: Date | null;
   sourceContext: string;
+  traceId: string | null;
   descriptionRichContent: unknown;
   createdAt: Date;
   updatedAt: Date;
@@ -48,6 +49,7 @@ export function mapVocRow(row: Record<string, unknown>): VocReadRow {
       row.triage_state_review_postponed_at as Date | string | null | undefined,
     ),
     sourceContext: row.source_context as string,
+    traceId: (row.trace_id as string | null | undefined) ?? null,
     // For list rows, descriptionRichContent is null (heavy column not fetched).
     descriptionRichContent: row.description_rich_content ?? null,
     createdAt: toDate(row.created_at as Date | string),

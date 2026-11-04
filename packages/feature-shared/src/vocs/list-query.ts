@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { vocTraceIdSchema } from './create-request.js';
 import { reporterFacingStatusEnumSchema, severityEnumSchema } from './list-item.js';
 
 // Filter keys use dot notation (e.g. `filter.severity`) because Fastify query
@@ -69,6 +70,8 @@ export const listVocsQuerySchema = z.object({
   'filter.reporter_facing_status': commaListOf(reporterFacingStatusEnumSchema).optional(),
   'filter.owner': z.enum(['assigned', 'unassigned']).optional(),
   'filter.analytics_area': z.union([z.string().uuid(), z.literal('unset')]).optional(),
+  // Exact match on the client error id (#606). Applied inside the list predicate after the read-scope clause.
+  'filter.trace_id': vocTraceIdSchema.optional(),
   // Sort whitelist is enforced here; mapped to drizzle column + direction in
   // repo layer via a fixed SORT_COLUMN_MAP dict (never string-interpolated).
   sort: z

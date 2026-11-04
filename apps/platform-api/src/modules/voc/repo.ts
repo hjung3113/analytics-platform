@@ -121,6 +121,7 @@ export interface InsertVocInput {
   title: string;
   descriptionRichContent: unknown;
   sourceContext: string;
+  traceId?: string | null;
 }
 
 // ── insertPublicUpdate ─────────────────────────────────────────────────────
@@ -349,6 +350,7 @@ export async function insertVoc(tx: Tx, input: InsertVocInput) {
       title: input.title,
       descriptionRichContent: input.descriptionRichContent as object,
       sourceContext: input.sourceContext,
+      traceId: input.traceId ?? null,
       ownerUserId: input.ownerUserId ?? null,
       ownerTeamId: input.ownerTeamId ?? null,
       // defaults handle: severity=null, reporterFacingStatus='received',

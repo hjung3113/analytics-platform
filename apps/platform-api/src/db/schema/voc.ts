@@ -76,6 +76,8 @@ export const vocs = vocSchema.table(
     ownerUserId: uuid('owner_user_id').references(() => actors.id),
     ownerTeamId: uuid('owner_team_id').references(() => teams.id),
     sourceContext: text('source_context').notNull(),
+    // Client error correlation id the reporter attached (#606); a lookup key only.
+    traceId: text('trace_id'),
     // cluster_id reserved per spec; no FK (cluster service out of scope).
     clusterId: uuid('cluster_id'),
     archivedAt: timestamp('archived_at', { withTimezone: true }),
@@ -102,6 +104,7 @@ export const vocs = vocSchema.table(
     triageQueueIdx: index('vocs_triage_queue_idx')
       .on(t.workspaceId, t.triageState)
       .where(sql`${t.triageState} = 'untriaged'`),
+    traceIdIdx: index('vocs_trace_id_idx').on(t.workspaceId, t.traceId),
     activeIdx: index('vocs_active_idx').on(t.workspaceId).where(sql`${t.archivedAt} IS NULL`),
     severityEnum: check(
       'vocs_severity_enum',

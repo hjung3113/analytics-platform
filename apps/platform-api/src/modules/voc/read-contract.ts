@@ -14,6 +14,7 @@ export type CountVocsQuery = Pick<
   | 'filter.reporter_facing_status'
   | 'filter.owner'
   | 'filter.analytics_area'
+  | 'filter.trace_id'
 > & { analyticsAreaId?: string };
 
 export type VocCountReader = Pick<VocReadService, 'countVocs'>;

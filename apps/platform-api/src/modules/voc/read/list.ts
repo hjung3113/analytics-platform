@@ -73,6 +73,7 @@ export function createVocListReaders(deps: VocReadServiceDeps) {
       ...(filterOwner !== undefined ? { filterOwner } : {}),
       ...(analyticsAreaId !== undefined ? { analyticsAreaId } : {}),
       ...(areaFilter === 'unset' ? { filterAnalyticsAreaUnset: true } : {}),
+      ...(query['filter.trace_id'] !== undefined ? { filterTraceId: query['filter.trace_id'] } : {}),
     });
   }
 
@@ -205,6 +206,7 @@ export function createVocListReaders(deps: VocReadServiceDeps) {
     if (filterReporterFacingStatus !== undefined)
       repoArgs.filterReporterFacingStatus = filterReporterFacingStatus;
     if (filterOwner !== undefined) repoArgs.filterOwner = filterOwner;
+    if (query['filter.trace_id'] !== undefined) repoArgs.filterTraceId = query['filter.trace_id'];
     if (filterAnalyticsAreaUnset) repoArgs.filterAnalyticsAreaUnset = true;
     else if (query['filter.analytics_area'] !== undefined)
       repoArgs.analyticsAreaId = query['filter.analytics_area'];

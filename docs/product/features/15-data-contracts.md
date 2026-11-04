@@ -155,6 +155,7 @@ vocs
 - title: text, required
 - description_rich_content: rich_content, required
 - source_context: enum(direct_use, proxy_report, operational_discovery, stakeholder_request), required default direct_use
+- trace_id: nullable text (#606), optional client correlation id (`client-…`, ≤80); wire name `trace_id`; not in the public projection
 - triage_state: enum(untriaged, triaged, needs_more_information, dismissed_not_actionable), required
 - reporter_facing_status: enum from Reporter-Facing VOC Status, required
 - severity: enum(low, medium, high, critical), nullable until triage

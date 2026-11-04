@@ -111,3 +111,24 @@ describe('createVocRequestSchema', () => {
     ]);
   });
 });
+
+describe('createVocRequestSchema trace_id (#606)', () => {
+  it('keeps trace_id absent when omitted', () => {
+    expect(createVocRequestSchema.parse(VALID)).not.toHaveProperty('trace_id');
+  });
+
+  it('accepts a client correlation id', () => {
+    const trace_id = 'client-0b9a7f0e-1111-4222-8333-444455556666';
+    expect(createVocRequestSchema.parse({ ...VALID, trace_id }).trace_id).toBe(trace_id);
+  });
+
+  it.each([
+    ['no client- prefix', 'abc'],
+    ['empty', ''],
+    ['81 characters', `client-${'a'.repeat(74)}`],
+    ['space', 'client-a b'],
+  ])('rejects %s', (_n, trace_id) => {
+    const r = createVocRequestSchema.safeParse({ ...VALID, trace_id });
+    expect(r.success).toBe(false);
+  });
+});

@@ -1,8 +1,10 @@
 // VOC detail read and post-write envelope assembly.
 import type { VocDetailEnvelope, VocSummaryEnvelope } from '@ap/feature-shared';
+import type { Db } from '../../../db/client.js';
 import type { Tx } from '../../../db/tx.js';
 import { HttpError } from '../../../lib/errors.js';
 import { isRequestableDenial } from '../../permissions/index.js';
+import { readClientErrorIdentity } from '../../platform-port/read-projections.js';
 import {
   actorEffectiveScope,
   actorReadScope,
@@ -12,6 +14,7 @@ import {
 import { readVocFollowUpState } from '../no-follow-up-repository.js';
 import type { ReadActorContext, VocReadServiceDeps } from '../read-service.js';
 import * as repoRead from '../repo-read.js';
+import type { VocReadRow } from './repository-shared.js';
 import { operatorOnlyVocFields } from '../reporter-projection.js';
 import { type ReporterFacingStatus, nextReporterStates } from '../transitions.js';
 import { encodeConversationCursor } from './cursor.js';
@@ -21,6 +24,27 @@ import {
   mapSimilarItems,
 } from './mappers.js';
 import { msInScope } from './scope.js';
+
+// #606: only the operational (non-reporter-arm) reader sees whether the trace id matches a client error
+// report; a reporter or public reader never does, so a typed id cannot probe another person's report.
+async function resolveErrorReport(
+  db: Db | Tx,
+  row: VocReadRow,
+  isReporterArm: boolean,
+): Promise<VocDetailEnvelope['error_report'] | undefined> {
+  if (isReporterArm) return undefined;
+  if (row.traceId === null) return null;
+  const hit = await readClientErrorIdentity(db, row.workspaceId, row.traceId);
+  return hit === null
+    ? { reported: false, menu_id: null, path: null, name: null, reported_at: null }
+    : {
+        reported: true,
+        menu_id: hit.menuId,
+        path: hit.path,
+        name: hit.name,
+        reported_at: hit.receivedAt.toISOString(),
+      };
+}
 
 export function createVocDetailReaders(deps: VocReadServiceDeps) {
   // ── resolveVocAccess ──────────────────────────────────────────────────────
@@ -245,6 +269,7 @@ export function createVocDetailReaders(deps: VocReadServiceDeps) {
     const followUp = !isReporterArm
       ? await readVocFollowUpState(deps.db, actor.workspace_id, vocId, canTriage)
       : undefined;
+    const errorReport = await resolveErrorReport(deps.db, row, isReporterArm);
     const envelope: VocDetailEnvelope = {
       id: row.id,
       display_id: row.displayId,
@@ -257,6 +282,8 @@ export function createVocDetailReaders(deps: VocReadServiceDeps) {
         row.reporterFacingStatus as VocDetailEnvelope['reporter_facing_status'],
       triage_state: row.triageState as VocDetailEnvelope['triage_state'],
       source_context: row.sourceContext as VocDetailEnvelope['source_context'],
+      trace_id: row.traceId,
+      ...(errorReport !== undefined ? { error_report: errorReport } : {}),
       created_at: row.createdAt.toISOString(),
       updated_at: row.updatedAt.toISOString(),
       ...(!isReporterArm
@@ -411,6 +438,7 @@ export function createVocDetailReaders(deps: VocReadServiceDeps) {
     const followUp = !isReporterArm
       ? await readVocFollowUpState(tx, actor.workspace_id, vocId, canTriage)
       : undefined;
+    const errorReport = await resolveErrorReport(tx, row, isReporterArm);
     return {
       id: row.id,
       display_id: row.displayId,
@@ -423,6 +451,8 @@ export function createVocDetailReaders(deps: VocReadServiceDeps) {
         row.reporterFacingStatus as VocDetailEnvelope['reporter_facing_status'],
       triage_state: row.triageState as VocDetailEnvelope['triage_state'],
       source_context: row.sourceContext as VocDetailEnvelope['source_context'],
+      trace_id: row.traceId,
+      ...(errorReport !== undefined ? { error_report: errorReport } : {}),
       created_at: row.createdAt.toISOString(),
       updated_at: row.updatedAt.toISOString(),
       ...(!isReporterArm

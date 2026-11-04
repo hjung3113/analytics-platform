@@ -142,7 +142,28 @@ description_rich_content required (TipTap doc)
 analytics_area_id optional
 source_context optional enum: direct_use | proxy_report | operational_discovery | stakeholder_request
 attachment_ids optional uuid[] (max 10, pre-uploaded via POST /attachments)
+trace_id optional string (#606): the client correlation id an error screen shows, `client-` prefix, [A-Za-z0-9._-], at most 80 characters
 ```
+
+`trace_id` absent stays absent (stored `null`). An invalid value returns `422 validation.failed` at path `trace_id`. It is
+part of the idempotency request hash: replaying the same key with the same `trace_id` replays the first response; a
+different `trace_id` under the same key is `409 conflict.idempotency_key_reuse`. The column `voc.vocs.trace_id` is
+nullable, indexed `(workspace_id, trace_id)`, and a lookup key only — knowing an id grants nothing.
+
+**Trace id on reads (#606).** `VocListItem` and the detail envelope carry `trace_id: string | null` for every reader of the
+full VOC (the reporter's own view and the operational/triage view). The public projection (`/vocs/public`, `/vocs/public/:id`)
+is an allowlist and never carries `trace_id` or `error_report`. Mutations returning a refreshed full-detail `voc` (the
+public-update and the other conversation writes, and the no-follow-up writes) follow the same `trace_id`/`error_report`
+visibility as `GET /vocs/:id`; only the compact mutation envelopes omit both fields (create is the exception: it echoes
+`trace_id`). `GET /vocs` accepts `filter.trace_id` (exact match, same format as the create field), applied
+inside the list predicate after the read-scope clause and the workspace clause.
+
+**Error report link (#606).** The detail envelope of a reader who holds the operational VOC read (not the reporter arm)
+carries `error_report`: `null` when `trace_id` is `null`; otherwise `{ reported, menu_id, path, name, reported_at }`, joined
+from `platform.client_errors` on `correlation_id = trace_id` in the same workspace (earliest `received_at` when several rows
+share the id; all fields `null` and `reported: false` when none matches). Only the identity columns are read — no message,
+stack or URL exists in that table, and `actor_id` / `request_id` are not readable by the app role. The key is absent for the
+reporter arm. There is no new write path into `client_errors`.
 
 `title` must contain at least one character after trimming; the trimmed value is
 stored. `description_rich_content` must contain non-whitespace content. Either
