@@ -207,6 +207,10 @@ export const importRoutes: FastifyPluginAsync<ImportRoutesOptions> = async (app,
       expected,
     ).finally(releaseApply);
     if (result.kind === 'not_found') return refuse(reply, 404, 'not_found', 'import job not found');
+    if (result.kind === 'busy') {
+      reply.header('Retry-After', '5');
+      return refuse(reply, 503, 'busy', 'too many imports in progress; retry shortly');
+    }
     if (result.kind === 'conflict') return reply.code(409).send({ code: 'conflict', reason: result.code, message: 'the job changed or is not applicable' });
     return reply.code(200).send(result.progress);
   });

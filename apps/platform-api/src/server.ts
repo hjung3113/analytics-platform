@@ -59,7 +59,9 @@ import {
   reconcileFindingExecution,
 } from './modules/findings/index.js';
 import {
+  IMPORT_APPLY_BUDGET_MS,
   type ImportApplyHooks,
+  createApplyRunnerPool,
   LOG_KNOWLEDGE_ROUTE_PREFIX,
   importRoutes as logKnowledgeImportRoutes,
   logKnowledgeContribution,
@@ -842,12 +844,23 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
   });
   // The business menu ports (#1106 menu-query, #1193 menu-action): one declaration registry that
   // modules contribute to. Registration problems throw here and stop the boot.
+  // `importApply` runs inside the action engine's transaction, which holds a command-pool connection: its runner
+  // takes connections from a separate pool sized to the apply slots (like the self-approval pool above), so same-key
+  // followers or a tiny DB_POOL_MAX cannot starve it. The apply route stays on the command pool (no outer connection).
+  const importApplyRunnerPool = createApplyRunnerPool(
+    dbHandle.pool.options,
+    opts.logKnowledgeImport?.applyBudgetMs ?? IMPORT_APPLY_BUDGET_MS,
+  );
+  attachPoolErrorListener(importApplyRunnerPool, (err) =>
+    app.log.error({ errName: err.name, code: (err as { code?: unknown }).code }, 'import apply runner pool error'),
+  );
+  app.addHook('onClose', async () => importApplyRunnerPool.end());
   const menuRegistry = createMenuDispatchRegistry([
     homeNoticesContribution({ db: dbHandle.db, checkService }),
     logKnowledgeContribution({
       db: dbHandle.db,
       checkService,
-      pool: dbHandle.pool,
+      runnerPool: importApplyRunnerPool,
       ...(opts.logKnowledgeImport?.applyBudgetMs !== undefined ? { applyBudgetMs: opts.logKnowledgeImport.applyBudgetMs } : {}),
       ...(opts.logKnowledgeImport?.hooks ? { applyHooks: opts.logKnowledgeImport.hooks } : {}),
     }),

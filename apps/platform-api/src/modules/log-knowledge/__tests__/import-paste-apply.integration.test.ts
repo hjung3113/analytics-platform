@@ -43,6 +43,10 @@ describe.skipIf(!runIntegration)('catalog import by menu actions: paste and appl
   let smallApp: FastifyInstance; // budget 0 on a pool of 5
   let dbHandle: DbHandle;
   let smallHandle: DbHandle;
+  let followerApp: FastifyInstance; // budget 0 on a command pool of 3
+  let followerHandle: DbHandle;
+  let singleApp: FastifyInstance; // budget 0 on a command pool of 1 (DB_POOL_MAX=1)
+  let singleHandle: DbHandle;
   let migrate: DbHandle;
   let granted: Person;
   let otherWorkspace = '';
@@ -140,7 +144,12 @@ describe.skipIf(!runIntegration)('catalog import by menu actions: paste and appl
     app = await buildServer({ config: loadConfig(), dbHandle });
     slowApp = await buildServer({ config: loadConfig(), dbHandle, logKnowledgeImport: { applyBudgetMs: 0, hooks: delegating } });
     smallApp = await buildServer({ config: loadConfig(), dbHandle: smallHandle, logKnowledgeImport: { applyBudgetMs: 0, hooks: delegating } });
-    await Promise.all([app.ready(), slowApp.ready(), smallApp.ready()]);
+    const poolOf = (poolMax: number) => createDb(APP_URL, { budgets: { poolMax, acquireTimeoutMs: 5000, statementTimeoutMs: 30_000, lockTimeoutMs: 10_000, idleInTransactionTimeoutMs: 30_000 } });
+    followerHandle = poolOf(3);
+    singleHandle = poolOf(1);
+    followerApp = await buildServer({ config: loadConfig(), dbHandle: followerHandle, logKnowledgeImport: { applyBudgetMs: 0, hooks: delegating } });
+    singleApp = await buildServer({ config: loadConfig(), dbHandle: singleHandle, logKnowledgeImport: { applyBudgetMs: 0, hooks: delegating } });
+    await Promise.all([app.ready(), slowApp.ready(), smallApp.ready(), followerApp.ready(), singleApp.ready()]);
     granted = await person('developer');
     const admin = await person('admin');
     await sql(
@@ -175,8 +184,8 @@ describe.skipIf(!runIntegration)('catalog import by menu actions: paste and appl
       await sql(`delete from ${table} where ${column} = any($1)`, [actorIds]);
     }
     await sql('delete from core.workspaces where id = any($1)', [workspaceIds]);
-    await Promise.all([app?.close(), slowApp?.close(), smallApp?.close()]);
-    await Promise.all([dbHandle?.close(), smallHandle?.close(), migrate?.close()]);
+    await Promise.all([app?.close(), slowApp?.close(), smallApp?.close(), followerApp?.close(), singleApp?.close()]);
+    await Promise.all([dbHandle?.close(), smallHandle?.close(), followerHandle?.close(), singleHandle?.close(), migrate?.close()]);
   });
 
   describe('importPaste', () => {
@@ -346,7 +355,48 @@ describe.skipIf(!runIntegration)('catalog import by menu actions: paste and appl
 
     it('survives a failure after rows commit and before the action record commits: the same key retries, nothing doubles', async () => {
       const admin = await person('admin');
-      const { jobId, planVersion } = await stage(admin, sheet(5, '\t', 40));
+      // Names unique to this fixture: new makers and processes (so parents are created) and one existing model to
+      // map onto (so an identity is written).
+      const seedStamp = { workspace_id: WORKSPACE_ID, created_by: admin.id, updated_by: admin.id };
+      const insertOne = async (table: string, columns: Record<string, unknown>) =>
+        (
+          await sql(
+            `insert into knowledge.${table} (${Object.keys(columns).join(',')}) values (${Object.keys(columns).map((_, i) => `$${i + 1}`).join(',')}) returning id`,
+            Object.values(columns),
+          )
+        ).rows[0].id as string;
+      const vendorId = await insertOne('vendor', { ...seedStamp, code: name('CRV'), code_key: key('CRV'), name: name('CRV') });
+      const targetId = await insertOne('equipment_model', {
+        ...seedStamp,
+        vendor_id: vendorId,
+        code: name('CROLD'),
+        code_key: key('CROLD'),
+        name: name('CROLD'),
+      });
+      const procs = `"${name('CRP0')}, ${name('CRPX')}"`;
+      const text = [
+        HEADER.join('\t'),
+        [name('CRV'), name('CRNEW'), procs].join('\t'), // row 1: mapped onto CROLD (renames it, writes the identity)
+        [name('CRK0'), name('CRN1'), procs].join('\t'),
+        [name('CRK1'), name('CRN2'), procs].join('\t'),
+        [name('CRK1'), name('CRN3'), procs].join('\t'),
+      ].join('\n');
+      const { jobId } = await stage(admin, text);
+      const resolved = await app.inject({
+        method: 'POST',
+        url: '/api/v1/menu-action',
+        headers: { 'content-type': 'application/json', ...cookieHeader(admin.cookie), 'x-csrf-token': admin.csrf },
+        payload: JSON.stringify({
+          action: 'logKnowledge.importResolve',
+          context: {},
+          input: { jobId, resolutions: [{ rowNo: 1, resolution: 'map', mapTargetId: targetId }] },
+          idempotencyKey: randomUUID(),
+          expectedVersion: String((await jobRow(jobId)).row_version),
+        }),
+      });
+      expect(resolved.json<Answer>().outcome, resolved.body).toBe('ok');
+      const planVersion = Number((await jobRow(jobId)).plan_version);
+
       let thrown = 0;
       hooks.afterApply = async () => {
         thrown += 1;
@@ -355,18 +405,38 @@ describe.skipIf(!runIntegration)('catalog import by menu actions: paste and appl
       const k = randomUUID();
       const crashed = await send(slowApp, admin, 'importApply', { jobId, expectedPlanVersion: planVersion }, k);
       expect(crashed.statusCode).toBeGreaterThanOrEqual(500);
-      // The row committed outside the action record; no record exists.
-      expect((await sql(`select count(*)::int as c from knowledge.catalog_import_row where job_id = $1 and apply_status is not null`, [jobId])).rows[0].c).toBeGreaterThan(0);
+      // Row 1 (map) committed outside the action record, identity included; no record exists.
+      expect((await sql(`select count(*)::int as c from knowledge.catalog_import_row where job_id = $1 and apply_status is not null`, [jobId])).rows[0].c).toBe(1);
+      const identitiesOf = async () =>
+        (await sql('select external_key, target_id from knowledge.external_identity_map where workspace_id = $1 and target_id = $2', [WORKSPACE_ID, targetId])).rows;
+      const afterCrash = await identitiesOf();
+      expect(afterCrash).toHaveLength(1);
       expect((await sql('select 1 from core.idempotency_keys where actor_id = $1 and key = $2', [admin.id, k])).rowCount).toBe(0);
 
       const retry = await act(admin, 'importApply', { jobId, expectedPlanVersion: planVersion }, k, slowApp);
       expect(retry.data).toMatchObject({ outcome: 'progress' });
       const done = await applyToEnd(jobId, planVersion);
-      expect(done.last).toMatchObject({ status: 'completed', counts: { applied: 5 } });
-      // Models MD40..MD44, makers MK0..MK3 (shared with earlier tests' names only by label: counted per job).
-      const audited = await createdAudit(jobId);
-      expect(new Set(audited).size).toBe(audited.length);
-      expect((await sql(`select count(*)::int as c from knowledge.equipment_model where created_by = any($1) and code_key = any($2)`, [actorIds, [40, 41, 42, 43, 44].map((i) => key(`MD${i}`))])).rows[0].c).toBe(5);
+      expect(done.last).toMatchObject({ status: 'completed', remaining: 0, counts: { applied: 4 } });
+
+      const rowsOf = (table: string, labels: string[]) =>
+        sql(`select id from knowledge.${table} where workspace_id = $1 and code_key = any($2)`, [WORKSPACE_ID, labels.map((l) => key(l))]);
+      expect((await rowsOf('vendor', ['CRV', 'CRK0', 'CRK1'])).rowCount).toBe(3);
+      expect((await rowsOf('process_category', ['CRP0', 'CRPX'])).rowCount).toBe(2);
+      expect((await rowsOf('equipment_model', ['CROLD', 'CRN1', 'CRN2', 'CRN3'])).rowCount).toBe(4);
+      expect((await rowsOf('equipment_model', ['CRNEW'])).rowCount).toBe(0); // the map renames the target, it never creates CRNEW
+      expect((await sql('select name from knowledge.equipment_model where id = $1', [targetId])).rows[0].name).toBe(name('CRNEW'));
+      expect(await identitiesOf()).toEqual(afterCrash); // one identity, same key and target as before the retry
+
+      const audit = (
+        await sql(`select event_type, subject_id from core.audit_log where actor_id = any($1) and detail->'source'->>'importJobId' = $2`, [actorIds, jobId])
+      ).rows as { event_type: string; subject_id: string }[];
+      const ofType = (type: string) => audit.filter((a) => a.event_type === type).map((a) => a.subject_id);
+      const created = ofType('knowledge.catalog.created');
+      expect(new Set(created).size).toBe(created.length);
+      expect(created).toHaveLength(7); // 2 makers + 3 models + 2 processes, each once
+      expect(ofType('knowledge.catalog.identity_mapped')).toEqual([targetId]);
+      expect(ofType('knowledge.catalog.updated')).toEqual([targetId]);
+      expect(audit).toHaveLength(9);
     });
 
     it('answers not_found for another workspace, conflict plan_version for a stale version, conflict state for an unvalidated job', async () => {
@@ -445,6 +515,50 @@ describe.skipIf(!runIntegration)('catalog import by menu actions: paste and appl
       hooks = {};
       expect((await bounded(applyToEnd(a.jobId, a.planVersion, smallApp))).last.status).toBe('completed');
       expect((await bounded(applyToEnd(b.jobId, b.planVersion, smallApp))).last.status).toBe('completed');
+    });
+
+    it('does not starve the runner when same-key callers hold every command connection (pool of 3)', async () => {
+      const who = await person('admin', followerApp);
+      const { jobId, planVersion } = await stage(who, sheet(2, '\t', 130), undefined, followerApp);
+      const bounded = <T>(p: Promise<T>, ms = 20_000) =>
+        Promise.race([p, new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timed out: runner starved by the command pool')), ms))]);
+      const k = randomUUID();
+      const input = { jobId, expectedPlanVersion: planVersion };
+      // Hold the (actor, key) lock from outside, so all three same-key calls park on it, each in its own command
+      // transaction; only then release it: the winner reaches the handler with no free command connection.
+      const holder = await migrate.pool.connect();
+      let calls: Promise<Awaited<ReturnType<typeof send>>>[] = [];
+      try {
+        await holder.query('select pg_advisory_lock(hashtext($1), hashtext($2))', [who.id, k]);
+        calls = [0, 1, 2].map(() => send(followerApp, who, 'importApply', input, k));
+        const deadline = Date.now() + 10_000;
+        while (followerHandle.pool.idleCount > 0 || followerHandle.pool.totalCount < 3) {
+          if (Date.now() > deadline) throw new Error('the calls never occupied the command pool');
+          await new Promise((r) => setTimeout(r, 20));
+        }
+      } finally {
+        await holder.query('select pg_advisory_unlock(hashtext($1), hashtext($2))', [who.id, k]);
+        holder.release();
+      }
+      const results = await bounded(Promise.all(calls));
+      const bodies = results.map((r) => {
+        expect(r.statusCode, r.body).toBe(200);
+        return r.json<Answer>();
+      });
+      const fresh = bodies.filter((b) => !b.replayed);
+      expect(fresh).toHaveLength(1);
+      expect(fresh[0]?.data).toMatchObject({ outcome: 'progress' });
+      for (const b of bodies.filter((x) => x.replayed)) expect(b).toMatchObject({ outcome: 'ok', data: fresh[0]?.data });
+      expect((await bounded(applyToEnd(jobId, planVersion, followerApp))).last.status).toBe('completed');
+    });
+
+    it('applies to the end on a command pool of one (DB_POOL_MAX=1): the runner never waits on its own action', async () => {
+      const who = await person('admin', singleApp);
+      const { jobId, planVersion } = await stage(who, sheet(3, '\t', 140), undefined, singleApp);
+      const bounded = <T>(p: Promise<T>, ms = 20_000) =>
+        Promise.race([p, new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timed out: runner waits on the single command connection')), ms))]);
+      const done = await bounded(applyToEnd(jobId, planVersion, singleApp));
+      expect(done.last).toMatchObject({ status: 'completed', remaining: 0, counts: { applied: 3 } });
     });
   });
 });

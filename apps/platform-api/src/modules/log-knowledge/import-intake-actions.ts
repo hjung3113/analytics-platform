@@ -5,11 +5,15 @@
 //
 // How `runApply` runs inside a handler (the transaction question): the engine's transaction holds the idempotency
 // record and the (actor, key) advisory xact lock, nothing of the job (`concurrency: 'none'`, no `currentVersion`).
-// `runApply` uses its own pool connections: one pinned connection holds the session advisory lock (workspace + job)
-// and runs the seal and every row transaction on it, so a run takes the engine's connection plus one. It never
-// touches the idempotency table, so it cannot wait on the record. Admission is by in-process slot (two runs per
-// process, shared with the apply route): no free slot answers `busy` at once and nothing waits while the outer
-// transaction is open. Rows commit outside the action record; if the record never commits, the same key re-runs
+// `runApply` runs on a separate small bounded runner pool (`createApplyRunnerPool`, sized to the two apply slots),
+// never on the command pool the engine's transaction was taken from: command connections can all be held by this
+// action and its same-key followers parked on the (actor, key) lock, and a runner waiting on that pool would then
+// wait on connections only the lock holder frees (or, with a command pool of one, on its own). One pinned runner
+// connection holds the session advisory lock (workspace + job) and runs the seal, every row transaction and the
+// contention progress read, so a run needs exactly one connection of its own pool, acquired within a bounded
+// time (a third of the apply budget); no connection in time answers `busy`. It never touches the idempotency
+// table, so it cannot wait on the record. Admission is by in-process slot (two runs per process, shared with the
+// apply route): no free slot answers `busy` at once and nothing waits while the outer transaction is open. Rows commit outside the action record; if the record never commits, the same key re-runs
 // the apply, and the seal plus per-row idempotency (node b) create nothing twice.
 
 import { createHash } from 'node:crypto';
@@ -120,23 +124,24 @@ export function importIntakeActions(deps: LogKnowledgeDeps): MenuActionDeclarati
     authorize,
     validate: applyShapeErrors,
     async handle(_tx: Tx, actor, input): Promise<ActionHandlerResult> {
-      if (!deps.pool) throw new Error('action importApply: the log-knowledge deps carry no pool');
+      if (!deps.runnerPool) throw new Error('action importApply: the log-knowledge deps carry no runner pool');
       const release = applySlots.tryTake();
       if (!release) return { data: { outcome: 'busy' }, version: null };
       try {
         const result = await runApply(
           {
             db: deps.db,
-            pool: deps.pool,
+            pool: deps.runnerPool,
             actor,
             authorize,
-            config: { budgetMs: deps.applyBudgetMs ?? IMPORT_APPLY_BUDGET_MS, ...(deps.applyHooks ? { hooks: deps.applyHooks } : {}) },
+            config: { budgetMs: deps.applyBudgetMs ?? IMPORT_APPLY_BUDGET_MS, busyOnNoConnection: true, ...(deps.applyHooks ? { hooks: deps.applyHooks } : {}) },
           },
           (input.jobId as string).toLowerCase(),
           input.expectedPlanVersion as number,
         );
         await deps.applyHooks?.afterApply?.();
         if (result.kind === 'not_found') return { data: { outcome: 'not_found' }, version: null };
+        if (result.kind === 'busy') return { data: { outcome: 'busy' }, version: null };
         if (result.kind === 'conflict') return { data: { outcome: 'conflict', reason: result.code }, version: null };
         return { data: { outcome: 'progress', ...result.progress }, version: null };
       } finally {
