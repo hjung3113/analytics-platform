@@ -348,7 +348,7 @@ describe.skipIf(!runIntegration)('model spec write actions (#1196 b1)', () => {
       expect((await revisionRow(draft.id)).row_version).toBe(2);
       const trail = await audit(draft.id);
       expect(trail.map((t) => t.detail.mode)).toEqual(['create', 'append']);
-      expect(trail[1]?.detail).toEqual({ modelId: model, revisionNo: 1, mode: 'append', added: { modules: 2, events: 3, relations: 2 } });
+      expect(trail[1]?.detail).toEqual({ modelId: model, revisionNo: 1, mode: 'append', input: 'rows', added: { modules: 2, events: 3, relations: 2 } });
     });
 
     it('a second append adds to the draft; the draft read returns content and version; the published read stays empty', async () => {
@@ -365,9 +365,9 @@ describe.skipIf(!runIntegration)('model spec write actions (#1196 b1)', () => {
       expect(headers[0]).toMatchObject({ id: draft.id, state: 'draft', version: 3 });
     });
 
-    it('may update the source ref', async () => {
+    it('may update the source ref alongside rows (a rows-less save is refused in the b2 suite)', async () => {
       const draft = await newDraft(await newModel('ref'));
-      await act('specDraftSave', { revisionId: draft.id, mode: 'append', sourceDocRef: DOC('v2') }, { expectedVersion: draft.version });
+      await act('specDraftSave', { revisionId: draft.id, mode: 'append', sourceDocRef: DOC('v2'), modules: CONTENT.modules }, { expectedVersion: draft.version });
       expect((await revisionRow(draft.id)).source_doc_ref).toEqual(DOC('v2'));
     });
 
@@ -475,7 +475,7 @@ describe.skipIf(!runIntegration)('model spec write actions (#1196 b1)', () => {
         [otherWorkspace, foreignModel, JSON.stringify(DOC()), admin.id],
       );
       const id = foreign.rows[0].id as string;
-      for (const [action, extra] of [['specDraftSave', { mode: 'append' }], ['specPublish', {}], ['specReject', { reason: 'x' }]] as const) {
+      for (const [action, extra] of [['specDraftSave', { mode: 'append', modules: [{ name: 'A' }] }], ['specPublish', {}], ['specReject', { reason: 'x' }]] as const) {
         expect((await act(action, { revisionId: id, ...extra }, { expectedVersion: '1' })).outcome, action).toBe('not_found');
       }
       expect((await read('specDraft', { revisionId: id })).data).toBeNull();

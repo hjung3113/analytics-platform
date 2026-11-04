@@ -2,7 +2,7 @@
 // DB-free. One zod schema per action, shared by the engine's `validate`, the handler (which parses again for the
 // typed, normalised value) and the tests. What only the database can judge (unknown model, an open draft, a state)
 // is the handler's. Codes: `required`, `too_long`, `malformed`, `too_large` (call caps), `duplicate`, `not_found`
-// (dangling reference), `cycle`.
+// (dangling reference), `cycle`, `rows_or_text` (a save carries exactly one of rows or text, #1196 b2).
 //
 // Names are normalised at SAVE: NFC, trimmed, inner whitespace collapsed. Keys are `toCodeKey` of the name; a
 // reference (parent module, relation end) is a name or key, resolved through `toCodeKey` too.
@@ -96,6 +96,10 @@ const relationRow = z
   })
   .strict({ message: 'malformed' });
 
+/** The one row schema per TSV `kind` (#1196 b2): the TSV parser validates each parsed row with these, so text and
+ *  structured calls converge on identical rows (design §15.5). */
+export const SPEC_ROW_SCHEMAS = { module: moduleRow, event: eventRow, relation: relationRow } as const;
+
 export const sourceDocRefSchema = z
   .object({
     docLabel: nameText(NAME_MAX),
@@ -123,6 +127,14 @@ export const SPEC_INPUT_SCHEMAS = {
     modules: rows(moduleRow),
     events: rows(eventRow),
     relations: rows(relationRow),
+    // #1196 b2: the text input (TSV of a .txt file or pasted text) — exactly one of rows or text per call.
+    format: z.enum(['tsv', 'paste'], { errorMap: (_i, ctx) => ({ message: ctx.data === undefined ? 'required' : 'malformed' }) }).optional(),
+    text: z
+      .string(REQUIRED)
+      .superRefine((value, ctx) => {
+        if (unsafeText(value)) ctx.addIssue({ code: 'custom', message: 'malformed' });
+      })
+      .optional(),
   }),
   publish: z.object({ revisionId: uuid }),
   reject: z.object({
@@ -137,7 +149,7 @@ export type SpecOp = keyof typeof SPEC_INPUT_SCHEMAS;
 export type SpecInput<Op extends SpecOp> = z.infer<(typeof SPEC_INPUT_SCHEMAS)[Op]>;
 
 const KNOWN = ['required', 'too_long', 'malformed', 'too_large'];
-function fieldErrors(error: z.ZodError): FieldError[] {
+export function fieldErrors(error: z.ZodError): FieldError[] {
   const seen = new Set<string>();
   const out: FieldError[] = [];
   for (const issue of error.issues) {
@@ -149,23 +161,37 @@ function fieldErrors(error: z.ZodError): FieldError[] {
   }
   return out;
 }
-
 export function parseSpecInput<Op extends SpecOp>(
   op: Op,
   input: Record<string, unknown>,
 ): { ok: true; value: SpecInput<Op> } | { ok: false; errors: FieldError[] } {
   if (op === 'draftSave') {
-    // The body cap is judged on the raw input first: a larger spec streams in several calls.
-    if (new TextEncoder().encode(JSON.stringify(input)).length > SPEC_BODY_MAX_BYTES) {
-      return { ok: false, errors: [{ path: ['input'], code: 'too_large' }] };
+    if (typeof input.text === 'string') {
+      // A text call is capped on the text itself: the JSON envelope would inflate every tab (#1196 b2).
+      if (new TextEncoder().encode(input.text).length > SPEC_BODY_MAX_BYTES) {
+        return { ok: false, errors: [{ path: ['input'], code: 'too_large' }] };
+      }
+    } else {
+      // The body cap is judged on the raw input first: a larger spec streams in several calls.
+      if (new TextEncoder().encode(JSON.stringify(input)).length > SPEC_BODY_MAX_BYTES) {
+        return { ok: false, errors: [{ path: ['input'], code: 'too_large' }] };
+      }
+      const count = ['modules', 'events', 'relations'].reduce((n, k) => n + (Array.isArray(input[k]) ? (input[k] as unknown[]).length : 0), 0);
+      if (count > SPEC_ROWS_MAX) return { ok: false, errors: [{ path: ['input'], code: 'too_large' }] };
     }
-    const count = ['modules', 'events', 'relations'].reduce((n, k) => n + (Array.isArray(input[k]) ? (input[k] as unknown[]).length : 0), 0);
-    if (count > SPEC_ROWS_MAX) return { ok: false, errors: [{ path: ['input'], code: 'too_large' }] };
   }
   const parsed = SPEC_INPUT_SCHEMAS[op].safeParse(input);
-  return parsed.success
-    ? { ok: true, value: parsed.data as SpecInput<Op> }
-    : { ok: false, errors: fieldErrors(parsed.error) };
+  if (!parsed.success) return { ok: false, errors: fieldErrors(parsed.error) };
+  if (op === 'draftSave') {
+    // #1196 b2: exactly one of structured rows (a non-empty array) or text; `format` names the text's provenance.
+    const data = parsed.data as SpecInput<'draftSave'>; // `op` names the schema that produced it
+    const hasRows = data.modules.length > 0 || data.events.length > 0 || data.relations.length > 0;
+    const hasText = data.text !== undefined;
+    if (hasRows === hasText) return { ok: false, errors: [{ path: ['input'], code: 'rows_or_text' }] };
+    if (hasText && data.format === undefined) return { ok: false, errors: [{ path: ['format'], code: 'required' }] };
+    if (!hasText && data.format !== undefined) return { ok: false, errors: [{ path: ['text'], code: 'required' }] };
+  }
+  return { ok: true, value: parsed.data as SpecInput<Op> };
 }
 
 export function validateSpecInput(op: SpecOp, input: Record<string, unknown>): FieldError[] {

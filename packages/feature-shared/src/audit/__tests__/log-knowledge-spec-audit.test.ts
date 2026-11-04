@@ -10,6 +10,9 @@ describe('log knowledge spec audit detail schemas (ADR-0111)', () => {
   it.each([
     ['knowledge.spec.draft_saved', { modelId: ID, revisionNo: 1, mode: 'append', added: counts }],
     ['knowledge.spec.draft_saved', { modelId: ID, revisionNo: 2, mode: 'replace', added: counts, replacedRevisionId: ID }],
+    // #1196 b2: the input provenance of a save, and an unknown provenance value
+    ['knowledge.spec.draft_saved', { modelId: ID, revisionNo: 1, mode: 'append', input: 'tsv', added: counts }],
+    ['knowledge.spec.draft_saved', { modelId: ID, revisionNo: 3, mode: 'append', input: 'paste', added: counts }],
     ['knowledge.spec.published', { modelId: ID, revisionNo: 1, outcome: 'published', contentSha256: HASH, counts }],
     ['knowledge.spec.published', { modelId: ID, revisionNo: 2, outcome: 'unchanged', contentSha256: HASH, counts, existingRevisionId: ID }],
     ['knowledge.spec.rejected', { modelId: ID, revisionNo: 1, reasonLength: 12 }],
@@ -20,7 +23,7 @@ describe('log knowledge spec audit detail schemas (ADR-0111)', () => {
   it.each([
     ['knowledge.spec.rejected', 'the reason text', { modelId: ID, revisionNo: 1, reasonLength: 1, reason: 'x' }],
     ['knowledge.spec.draft_saved', 'a module body', { modelId: ID, revisionNo: 1, mode: 'append', added: counts, modules: [] }],
-    ['knowledge.spec.published', 'a malformed hash', { modelId: ID, revisionNo: 1, outcome: 'published', contentSha256: 'x', counts }],
+    ['knowledge.spec.draft_saved', 'an unknown provenance', { modelId: ID, revisionNo: 1, mode: 'append', input: 'file', added: counts }],
   ] as const)('%s rejects %s', (type, _label, detail) => {
     expect(AUDIT_EVENT_DETAIL_SCHEMAS[type].safeParse(detail).success).toBe(false);
   });
