@@ -16,7 +16,9 @@
     "drill",
     "history",
     "direct",
-    "link"
+    "link",
+    "paneOpen",
+    "paneReplace"
   ],
   "auditActions": [
     "create",

@@ -62,6 +62,25 @@ export function planUsageChecks(harness: ServerConformanceHarness): ConformanceC
     run: expectAccepted([{ ...usageEntry, via: 'sidebar', fromMenuId: ports.usage.menuId }, { ...usageEntry, source: 'main', via: 'direct', fromMenuId: null }], 2, 'a main entry with via and fromMenuId (a menu id or null)'),
   });
   checks.push({
+    id: 'port · recordUsage accepts paneOpen/paneReplace and fromMenuId on a board entry',
+    uses: ['recordUsage'],
+    mode: 'granted',
+    nonEnvelope: true,
+    run: expectAccepted([{ ...boardEntry, via: 'paneOpen', fromMenuId: null }, { ...boardEntry, via: 'paneReplace', fromMenuId: ports.usage.menuId }, boardEntry], 3, 'a board entry with a pane via and fromMenuId (each key optional)'),
+  });
+  checks.push({
+    id: 'port · recordUsage: a pane via on a main entry and an old via on a board entry are rejected',
+    uses: ['recordUsage'],
+    mode: 'granted',
+    nonEnvelope: true,
+    run: async () => {
+      const a = await adapter.recordUsage([badUsageEvent({ via: 'paneOpen' })]);
+      const b = await adapter.recordUsage([{ ...boardEntry, via: 'link' }]);
+      const c = await adapter.recordUsage([{ ...boardDwell, via: 'paneOpen' } as unknown as UsageEvent]);
+      return a.accepted === 0 && b.accepted === 0 && c.accepted === 0 ? null : `expected all rejected, got ${a.accepted}/${b.accepted}/${c.accepted}`;
+    },
+  });
+  checks.push({
     id: 'port · recordUsage: a via outside the closed set is rejected',
     uses: ['recordUsage'],
     mode: 'granted',

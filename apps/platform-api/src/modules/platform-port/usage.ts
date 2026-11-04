@@ -22,7 +22,10 @@ export const PLATFORM_USAGE_VIA = [
   'history',
   'direct',
   'link',
+  'paneOpen',
+  'paneReplace',
 ] as const;
+const PANE_VIA: readonly string[] = ['paneOpen', 'paneReplace'];
 
 const MAX_BATCH = 20;
 const REQUIRED_KEYS = ['name', 'menuId', 'spaceId', 'path', 'at', 'sessionId'] as const;
@@ -93,14 +96,15 @@ function parseUsageEvent(raw: unknown): ParsedUsageEvent | null {
     stayId = raw.stayId;
   }
 
-  // Binding §1 rule: `via` / `fromMenuId` only on a main-screen entry; `via` in the closed set,
-  // `fromMenuId` a menu id or null.
+  // Binding §1 rule: `via` / `fromMenuId` only on an entry, each optional; `via` in the closed set and
+  // matching the source (main: an old value, board: paneOpen/paneReplace); `fromMenuId` a menu id or null.
   let via: string | null = null;
   let fromMenuId: string | null = null;
   if ('via' in raw || 'fromMenuId' in raw) {
-    if (name !== 'entry' || source !== 'main') return null;
+    if (name !== 'entry') return null;
     if ('via' in raw) {
       if (!(PLATFORM_USAGE_VIA as readonly unknown[]).includes(raw.via)) return null;
+      if (PANE_VIA.includes(raw.via as string) !== (source === 'board')) return null;
       via = raw.via as string;
     }
     if ('fromMenuId' in raw && raw.fromMenuId !== null) {

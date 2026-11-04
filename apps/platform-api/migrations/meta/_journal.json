@@ -624,6 +624,13 @@
       "when": 1793715133936,
       "tag": "0088_aberrant_the_twelve",
       "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "7",
+      "when": 1793806608881,
+      "tag": "0089_secret_paladin",
+      "breakpoints": true
     }
   ]
 }

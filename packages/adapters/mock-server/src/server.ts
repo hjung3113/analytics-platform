@@ -383,13 +383,15 @@ function invalidUsageProvenance(e: UsageEvent): boolean {
 }
 
 /** Closed `UsageVia` set; a Record keeps it complete (a new member fails typecheck until listed here, #605). */
-const USAGE_VIA_SET: Record<UsageVia, true> = { sidebar: true, switcher: true, palette: true, board: true, return: true, crossLink: true, drill: true, history: true, direct: true, link: true };
+const USAGE_VIA_SET: Record<UsageVia, true> = { sidebar: true, switcher: true, palette: true, board: true, return: true, crossLink: true, drill: true, history: true, direct: true, link: true, paneOpen: true, paneReplace: true };
+const PANE_VIAS: readonly string[] = ['paneOpen', 'paneReplace'];
 
-/** `via`/`fromMenuId` (#605): main-screen entry only, `via` in the closed set, `fromMenuId` a menu id or null. */
+/** `via`/`fromMenuId` (#605): entry only; main: an old `via`, board: `paneOpen`/`paneReplace` (each key optional); `fromMenuId` a menu id or null. */
 function invalidUsageNavigation(e: UsageEvent): boolean {
   if (!('via' in e) && !('fromMenuId' in e)) return false;
-  if (e.name !== 'entry' || (e.source !== undefined && e.source !== 'main')) return true;
-  if ('via' in e && !(typeof e.via === 'string' && Object.hasOwn(USAGE_VIA_SET, e.via))) return true;
+  if (e.name !== 'entry') return true;
+  const board = e.source === 'board';
+  if ('via' in e && !(typeof e.via === 'string' && Object.hasOwn(USAGE_VIA_SET, e.via) && PANE_VIAS.includes(e.via) === board)) return true;
   return 'fromMenuId' in e && e.fromMenuId !== null && (typeof e.fromMenuId !== 'string' || invalidUsageId(e.fromMenuId, 80));
 }
 

@@ -227,6 +227,15 @@ describe('usage navigation path (#605)', () => {
     expect('fromMenuId' in rows[2]).toBe(false);
   });
 
+  it('accepts paneOpen/paneReplace and fromMenuId on a board entry, each key optional, and stores them', async () => {
+    const board = { source: 'board' as const, stayId: 'stay-a' };
+    expect((await recordUsage([entry({ ...board, via: 'paneOpen', fromMenuId: null }), entry({ ...board, via: 'paneReplace', fromMenuId: 'home' }), entry({ ...board }), entry({ ...board, fromMenuId: 'home' })])).accepted).toBe(4);
+    const rows = storedUsage();
+    expect(rows[0]).toMatchObject({ via: 'paneOpen', fromMenuId: null });
+    expect(rows[1]).toMatchObject({ via: 'paneReplace', fromMenuId: 'home' });
+    expect('via' in rows[2]).toBe(false);
+  });
+
   it.each([
     ['a via outside the closed set', entry({ via: 'bookmark' as never })],
     ['a via that is an inherited property name', entry({ via: 'toString' as never })],
@@ -234,8 +243,10 @@ describe('usage navigation path (#605)', () => {
     ['a numeric fromMenuId', entry({ via: 'link', fromMenuId: 7 as never })],
     ['via on a dwell', entry({ name: 'dwell', dwellMs: 10, enteredAt: 1_000, via: 'link' })],
     ['fromMenuId on a dwell', entry({ name: 'dwell', dwellMs: 10, enteredAt: 1_000, fromMenuId: null })],
-    ['via on a board event', entry({ source: 'board', stayId: 'stay-a', via: 'link' })],
-    ['fromMenuId on a board event', entry({ source: 'board', stayId: 'stay-a', fromMenuId: 'home' })],
+    ['an old via on a board entry', entry({ source: 'board', stayId: 'stay-a', via: 'link' })],
+    ['a pane via on a main entry', entry({ via: 'paneOpen' })],
+    ['a pane via on an explicit main entry', entry({ source: 'main', via: 'paneReplace', fromMenuId: 'home' })],
+    ['via on a board dwell', entry({ name: 'dwell', dwellMs: 10, enteredAt: 1_000, source: 'board', stayId: 'stay-a', via: 'paneOpen' })],
   ])('rejects the whole batch for %s', async (_why, bad) => {
     expect((await recordUsage([entry({ via: 'link' }), bad])).accepted).toBe(0);
     expect(storedUsage()).toHaveLength(0);

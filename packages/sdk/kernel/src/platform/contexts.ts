@@ -27,7 +27,7 @@ export type AppInternal = {
   /** Saved View support the screens declare (`useSavedViewSupport`), read by the host hook `useSavedViews`. */
   savedViewSupports: SupportRegistry;
   userIdRef: { readonly current: string };
-  /** Main-screen navigation trail for usage `entry` (#605): the last navigation's `via` and the menu of the screen shown before. Never persisted. */
+  /** Main-screen navigation trail for usage `entry` (#605): the last navigation's `via` and the menu of the screen shown before. Never persisted. A board pane keeps its own trail in `useScreenState` (`PaneUsageTrail`). */
   usageNav: { current: UsageNavTrail };
   mainNavigation: ReturnType<typeof createPageNavigation>;
   initialUrl: string;
@@ -88,6 +88,18 @@ export function takeNavigation(trail: UsageNavTrail, userId: string, menuId: str
   // A pending mark wins; with none, the tab's first entry is `direct` (opened, reloaded, typed) and a later one `link`.
   const taken = { via: trail.via ?? (trail.seen ? 'link' : 'direct'), fromMenuId: trail.prev };
   Object.assign(trail, { via: null, seen: true, prev: menuId });
+  return taken;
+}
+
+/**
+ * Pane counterpart of `takeNavigation`: the first admitted screen of a pane is `paneOpen` (no previous menu), every later one
+ * `paneReplace` with the menu the same pane showed right before. A new session user starts the trail over. Never persisted or shared.
+ */
+export type PaneUsageTrail = { user: string; seen: boolean; prev: string | null };
+export function takePaneNavigation(trail: PaneUsageTrail, userId: string, menuId: string): { via: 'paneOpen' | 'paneReplace'; fromMenuId: string | null } {
+  if (trail.user !== userId) Object.assign(trail, { user: userId, seen: false, prev: null });
+  const taken = trail.seen ? { via: 'paneReplace' as const, fromMenuId: trail.prev } : { via: 'paneOpen' as const, fromMenuId: null };
+  Object.assign(trail, { seen: true, prev: menuId });
   return taken;
 }
 

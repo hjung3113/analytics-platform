@@ -12,8 +12,13 @@ import { dropDrillResetKeys } from '../context/drillReset';
 import { appliedQueryPolicy, useScreenDraft } from '../query/draft-state';
 import { buildQuery, carriesReturnTo, clientCorrelationId, ContractError, emptyGlobal, incompleteMetricPair, menuPermissions, type GlobalContext, type Pair, type ParsedQuery, parseQuery, RETURN_TO_KEY, sameGlobal, shift, type SpaceDef, type Text, type UsageEvent, type UsageVia } from '@ap/contracts';
 import type { HostPlatform, LinkOptions, LinkResolution, ReturnContextKey, ReturnOrigin, ScopeState } from './types';
-import { makeStayId, takeNavigation, type AppValue, type ScreenSource, type ScreenState } from './contexts';
+import { makeStayId, takeNavigation, takePaneNavigation, type PaneUsageTrail, type AppValue, type ScreenSource, type ScreenState } from './contexts';
 
+/** The pane's trail, replaced by a fresh one when the pane id changed. */
+function paneTrailFor(ref: { current: { paneId: string | null; trail: PaneUsageTrail } }, paneId: string | null): PaneUsageTrail {
+  if (ref.current.paneId !== paneId) ref.current = { paneId, trail: { user: '', seen: false, prev: null } };
+  return ref.current.trail;
+}
 function sameQueryPolicy(a: HostPlatform['queryPolicy'], b: HostPlatform['queryPolicy']): boolean {
   return a.ready === b.ready && a.idle === b.idle && JSON.stringify(a.missing) === JSON.stringify(b.missing);
 }
@@ -284,6 +289,8 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   // default-period replace) never re-admit. `path` is the manifest route pattern, never the concrete pathname,
   // search or Context values. A pane's events carry `source: 'board'` and one opaque `stayId` per stay (ADR-0049).
   const lastAdmitted = useRef<string | null>(null);
+  // A pane's own trail (#605): never shared with the main `usageNav` or another pane, never persisted, starts over when the pane id changes.
+  const paneTrail = useRef<{ paneId: string | null; trail: PaneUsageTrail }>({ paneId, trail: { user: userId, seen: false, prev: null } });
   const countsUsage = source.countsUsage !== false;
   useEffect(() => {
     // An alias entry in the main screen is replaced by its canonical address next: it is not a stay, and it keeps the trail.
@@ -291,6 +298,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     if (!countsUsage || !route || routeContractError || !menuPermissions(route.menu).every(can) || !enters(route.menu)) {
       // The main screen is not a menu now (board, contract error, no access): the next entry's `fromMenuId` is null.
       if (mode === 'main' && countsUsage) usageNav.current.prev = null;
+      if (mode === 'pane' && countsUsage) paneTrail.current.trail.prev = null;
       return;
     }
     const admitKey = `${userId}\0${paneId ?? ''}\0${route.menu.id}\0${pathname}`;
@@ -322,7 +330,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     const timer = setTimeout(() => {
       if (userIdRef.current !== admitUser) return;
       enteredAt = Date.now();
-      record({ name: 'entry', menuId: menu.id, spaceId, path: menu.path, at: enteredAt, sessionId: usageSessionId, ...provenance, ...(mode === 'main' ? takeNavigation(usageNav.current, admitUser, menu.id) : {}) });
+      record({ name: 'entry', menuId: menu.id, spaceId, path: menu.path, at: enteredAt, sessionId: usageSessionId, ...provenance, ...(mode === 'main' ? takeNavigation(usageNav.current, admitUser, menu.id) : takePaneNavigation(paneTrailFor(paneTrail, paneId), admitUser, menu.id)) });
       document.addEventListener('visibilitychange', onHidden);
     }, 0);
     return () => {

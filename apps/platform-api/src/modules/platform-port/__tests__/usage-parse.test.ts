@@ -26,10 +26,24 @@ describe('parseUsageBatch', () => {
     ]);
   });
 
+  it('parses pane via and fromMenuId on a board entry, each optional', () => {
+    const parsed = parseUsageBatch({
+      events: [
+        { ...entry, source: 'board', stayId: 'x', via: 'paneOpen', fromMenuId: null },
+        { ...entry, source: 'board', stayId: 'y', via: 'paneReplace', fromMenuId: 'a' },
+        { ...entry, source: 'board', stayId: 'z' },
+      ],
+    });
+    expect(parsed?.map((e) => [e.via, e.fromMenuId])).toEqual([['paneOpen', null], ['paneReplace', 'a'], [null, null]]);
+  });
+
   it.each([
     ['via outside the set', { ...entry, via: 'bookmark' }],
     ['via on a dwell', { ...entry, name: 'dwell', dwellMs: 1, enteredAt: 1, via: 'link' }],
-    ['fromMenuId on a board entry', { ...entry, source: 'board', fromMenuId: 'a' }],
+    ['an old via on a board entry', { ...entry, source: 'board', stayId: 'x', via: 'link' }],
+    ['a pane via on a main entry', { ...entry, via: 'paneOpen' }],
+    ['a pane via on an explicit main entry', { ...entry, source: 'main', via: 'paneReplace' }],
+    ['via on a board dwell', { ...entry, name: 'dwell', dwellMs: 1, enteredAt: 1, source: 'board', stayId: 'x', via: 'paneOpen' }],
     ['numeric fromMenuId', { ...entry, fromMenuId: 5 }],
     ['userId key', { ...entry, userId: 'u' }],
     ['dwell keys on an entry', { ...entry, dwellMs: 1, enteredAt: 1 }],

@@ -371,8 +371,9 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
         && (breaks.has('usage-allows-query') ? !/[#&\s]/.test(v) : !/[?#&\s]/.test(v));
       const invalid = (e: UsageEvent) => {
         const allowed = e.name === 'dwell' ? [...USAGE_KEYS, 'dwellMs', 'enteredAt', 'source', 'stayId'] : [...USAGE_KEYS, 'source', 'stayId', 'via', 'fromMenuId'];
-        // #605: via/fromMenuId belong to a main entry only and `via` is a closed set ('usage-accepts-bad-via' lets any string through).
-        const VIA = ['sidebar', 'switcher', 'palette', 'board', 'return', 'crossLink', 'drill', 'history', 'direct', 'link'];
+        // #605: via/fromMenuId belong to an entry only; `via` is a closed set split by source: a main entry takes the old values, a board entry paneOpen/paneReplace ('usage-accepts-bad-via' lets any string through).
+        const MAIN_VIA = ['sidebar', 'switcher', 'palette', 'board', 'return', 'crossLink', 'drill', 'history', 'direct', 'link'];
+        const VIA = e.source === 'board' ? ['paneOpen', 'paneReplace'] : MAIN_VIA;
         const badNavigation = (e.via !== undefined && !breaks.has('usage-accepts-bad-via') && !VIA.includes(e.via))
           || (e.via !== undefined && typeof e.via !== 'string')
           || (e.fromMenuId !== undefined && e.fromMenuId !== null && !token(e.fromMenuId, 80));
@@ -801,6 +802,8 @@ describe('server conformance kit (#145)', () => {
       'port · recordUsage accepts an explicit main source and a legacy event without one',
       'port · recordUsage: an unknown source is rejected',
       'port · recordUsage accepts via and fromMenuId on a main entry',
+      'port · recordUsage accepts paneOpen/paneReplace and fromMenuId on a board entry',
+      'port · recordUsage: a pane via on a main entry and an old via on a board entry are rejected',
       'port · recordUsage: a via outside the closed set is rejected',
       'port · recordUsage: a stayId without board source is rejected',
       'port · recordUsage: an unknown key next to source is rejected',
@@ -992,9 +995,9 @@ describe('server conformance kit (#145)', () => {
     ['usage-allows-any-at', 'port · recordUsage: a non-numeric at is rejected'],
     ['usage-allows-any-entered-at', 'port · recordUsage: a non-numeric enteredAt is rejected'],
     ['usage-allows-negative-dwell', 'port · recordUsage: a negative dwellMs is rejected'],
-    ['usage-rejects-board', 'port · recordUsage accepts a board entry and dwell (source, stayId)'],
+    ['usage-rejects-board', ['port · recordUsage accepts a board entry and dwell (source, stayId)', 'port · recordUsage accepts paneOpen/paneReplace and fromMenuId on a board entry']],
     ['usage-accepts-bad-source', 'port · recordUsage: an unknown source is rejected'],
-    ['usage-accepts-bad-via', 'port · recordUsage: a via outside the closed set is rejected'],
+    ['usage-accepts-bad-via', ['port · recordUsage: a pane via on a main entry and an old via on a board entry are rejected', 'port · recordUsage: a via outside the closed set is rejected']],
     ['usage-accepts-orphan-stay', 'port · recordUsage: a stayId without board source is rejected'],
     ['usage-aggregates-by-client-at', 'port · usageSummary counts by receive time, not the client at'],
     // client-error-rejects-all fails every positive report, including the global-menu sample — asserted below.
@@ -1018,7 +1021,7 @@ describe('server conformance kit (#145)', () => {
     ['unknown-endpoint-data', 'unknown endpoint → error'],
     ['permission-reject-data', 'fixture.list · without analytics:view → forbidden'],
   ])('fails exactly the matching check when the server drops the %s rule', async (broken, check) => {
-    expect(await failing([broken])).toEqual([check]);
+    expect(await failing([broken])).toEqual([check].flat());
   });
 
   // F1 (#399): the author check must not pass because the second actor was refused before authorship was tested.
