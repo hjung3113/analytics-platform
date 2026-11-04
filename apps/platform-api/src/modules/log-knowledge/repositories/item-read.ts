@@ -18,7 +18,7 @@ import {
   vendors,
 } from '../../../db/schema/knowledge.js';
 import type { Tx } from '../../../db/tx.js';
-import type { FilterCondition } from '../domain/catalog-filters.js';
+import type { FilterCondition } from '../../../lib/list-params/catalog-filters.js';
 import { escapeLike, type ListQuery, type Page } from './catalog-read.js';
 
 export const ITEM_SORT_IDS = ['itemNo', 'title', 'updatedAt'] as const;

@@ -1,6 +1,6 @@
 # 개선 아이템 플랫폼 기능 — 설계 초안 (#1328)
 
-> **Status: 소유자 답 반영(2026-11-04) — §6 Q1–Q8을 추천대로 결정, 구현 전.** 단 Q3의 「담당자가 User인 경우 본인 건 상태 변경 예외」는 지금 두지 않는다(팀장 결정, 되돌릴 수 있음; 실제 User 담당자 사례가 생기면 다시 연다). 근거: [ADR-0106 개정 2](../../adr/0106-improvement-task-is-quest.md)(개선 아이템은 플랫폼 DB, Quest는 BRAVO 소유, ID로만 가리킴). 지금 레포에 API·DB·화면은 없다. 용어는 [GLOSSARY](../../../GLOSSARY.md)의 `과제(Quest)`·`개선 아이템`·`효과 확인`. 답이 나오면 실제 대안 사이 결정은 ADR로 남긴다(다음 번호는 `next-adr.sh`로 확인).
+> **Status: 소유자 답 반영(2026-11-04) — §6 Q1–Q8을 추천대로 결정, 노드 a(스키마·읽기) 구현됨, b–f 남음.** 단 Q3의 「담당자가 User인 경우 본인 건 상태 변경 예외」는 지금 두지 않는다(팀장 결정, 되돌릴 수 있음; 실제 User 담당자 사례가 생기면 다시 연다). 근거: [ADR-0106 개정 2](../../adr/0106-improvement-task-is-quest.md)(개선 아이템은 플랫폼 DB, Quest는 BRAVO 소유, ID로만 가리킴). 지금 레포에는 노드 a의 DB·읽기 API([api/improvement-items.md](../../architecture/platform-api/api/improvement-items.md))만 있고, 쓰기·Quest 포트·화면은 없다. 용어는 [GLOSSARY](../../../GLOSSARY.md)의 `과제(Quest)`·`개선 아이템`·`효과 확인`. 답이 나오면 실제 대안 사이 결정은 ADR로 남긴다(다음 번호는 `next-adr.sh`로 확인).
 
 ## 1. 도메인
 

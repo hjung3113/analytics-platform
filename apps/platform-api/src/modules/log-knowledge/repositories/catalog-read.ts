@@ -14,27 +14,11 @@ import {
   vendors,
 } from '../../../db/schema/knowledge.js';
 import type { Tx } from '../../../db/tx.js';
-import type { FilterCondition, FilterConditions } from '../domain/catalog-filters.js';
+import type { FilterCondition, FilterConditions } from '../../../lib/list-params/catalog-filters.js';
+import type { ListQuery, Page, PageSort } from '../../../lib/list-params/types.js';
 import { toCodeKey } from '../domain/code-key.js';
 
-export interface PageSort {
-  id: string;
-  desc: boolean;
-}
-export interface ListQuery {
-  workspaceId: string;
-  q: string | null;
-  /** Parsed `filters` of the request (ADR-0105); no condition on a field = no constraint (an absent `active` means every row). */
-  conditions: FilterConditions;
-  page: number;
-  pageSize: number;
-  sorting: readonly PageSort[];
-}
-
-export interface Page<T> {
-  rows: T[];
-  total: number;
-}
+export type { ListQuery, Page, PageSort };
 
 interface Stamps {
   id: string;

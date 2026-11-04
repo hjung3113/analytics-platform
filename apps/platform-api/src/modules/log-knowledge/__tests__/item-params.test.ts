@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { ITEM_FILTER_SPECS } from '../domain/item-filters.js';
-import { parseListParams } from '../domain/list-params.js';
+import { parseListParams } from '../../../lib/list-params/list-params.js';
 import { itemEndpoints } from '../item-endpoints.js';
 import { ITEM_SORT_IDS } from '../repositories/item-read.js';
 

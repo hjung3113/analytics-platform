@@ -284,6 +284,13 @@ knowledge (log knowledge hub, migration 0080, #1193, ADR-0107)
 - model_process (model–process mapping; `platform_app` also has DELETE: a mapping is not a catalog object)
 - external_identity_map (source identity to catalog target; `proposed`/`accepted`/`rejected`; no DELETE)
 - migration 0082 (#1197, ADR-0109): knowledge_item, knowledge_item_revision, item_revision_evidence, item_assessment_event, item_link, item_counter. Owner XOR, append-only tables and the restricted UPDATE grant: see ADR-0109 and the storage description in [api/log-knowledge.md](api/log-knowledge.md). The audit projection continues in migrations 0081 and 0083.
+
+improvement (improvement items, migration 0093, #1328 a, ADR-0106 amendment 2)
+- item (`item_no` unique per workspace, `problem`, `action`, `action_date date`, `status`, one `assignee_id`, Quest id + title snapshot, `origin_menu_id` + `origin_context`, effect check columns, `drop_reason`, `row_version`)
+- item_target (equipment or process by external key + display name snapshot; unique per item/kind/key; index `(workspace_id, kind, external_key)` for the per-equipment history)
+- item_event (append-only history; `seq` identity; `changes` before/after object)
+- item_counter (`IM-<n>` allocator; the one table `platform_app` may write: `UPDATE (last_item_no)`)
+- `platform_app` holds SELECT only on item, item_target, item_event; storage and rules: [api/improvement-items.md](api/improvement-items.md)
 ```
 
 `core.attachments` does not exist as a shared attachment table as of Slice 6;
@@ -898,3 +905,7 @@ Adds `knowledge.model_spec_revision`, `spec_module`, `spec_event`, `spec_event_r
 ## Model spec writes (#1196 b1, migration 0092)
 
 Adds `model_spec_revision.row_version integer NOT NULL DEFAULT 1` (the draft's compare-and-set version) and `reject_reason text` (`CHECK` ≤ 500), and the partial unique index `model_spec_revision_open_draft_uq (workspace_id, model_id) WHERE state = 'draft'` (one open draft per model). `platform_app` gets a column-limited `UPDATE (state, content_sha256, published_by, published_at, row_version, reject_reason, source_doc_ref)` on `model_spec_revision`; no DELETE grant exists on any of the four spec tables. A `BEFORE UPDATE` trigger `model_spec_revision_guard` refuses (`23514`) any update unless `OLD.state = 'draft'`, any change of `id`, `workspace_id`, `model_id`, `revision_no`, `schema_version`, `created_by`, `created_at`, and a draft-to-draft update that does not raise `row_version`. `spec_child_requires_draft()` now reads the revision `FOR SHARE`, so a child insert and a publish serialise. `core.platform_audit_events` is redefined from the 0085 body plus the subject type `knowledge_model_spec` and the capability `knowledge.spec.publish` (temporary `CREATE` grant, `SET ROLE platform_core_audit_reader_owner`, revoked as in 0083/0085). Actions and rules: `api/log-knowledge.md` §Model spec write actions.
+
+## Improvement items (#1328 a, migration 0093)
+
+Adds the `improvement` schema (`platform_app` and `platform_migrate` get USAGE) with `item`, `item_target`, `item_event` and `item_counter`. Every improvement-to-improvement reference is a composite `(workspace_id, …)` foreign key `ON DELETE RESTRICT`; actor columns (`assignee_id`, `created_by`, `updated_by`, `item_event.actor_id`) are plain foreign keys to `core.actors(id)` as in 0082, because `core.actors` has no `(workspace_id, id)` key. Cumulative status CHECKs, the same-origin compare-link CHECK and the origin-or-target rule (node b, trigger) are described in [api/improvement-items.md](api/improvement-items.md) §Storage. `platform_app` gets `SELECT` on `item`, `item_target`, `item_event` and `SELECT, INSERT, UPDATE (last_item_no)` on `item_counter`; no INSERT/UPDATE/DELETE on the three data tables until node b. No seed rows.

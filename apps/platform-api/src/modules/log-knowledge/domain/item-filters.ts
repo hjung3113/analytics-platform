@@ -1,7 +1,7 @@
 // Closed vocabularies of the knowledge item (ADR-0109) and the filter fields of the item reads. The wire shape
 // and parser are the catalog's (`parseCatalogFilters`, ADR-0105); only the fields differ.
 
-import type { CatalogFilterFieldSpec } from './catalog-filters.js';
+import type { CatalogFilterFieldSpec } from '../../../lib/list-params/catalog-filters.js';
 
 export const ITEM_TYPE_CODES = ['anomaly', 'needs_check', 'behavior_note', 'guideline'] as const;
 export const VERIFICATION_STATES = ['not_checked', 'observed', 'verified', 'disputed'] as const;

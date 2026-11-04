@@ -44,6 +44,7 @@ const PRODUCT_SCHEMAS = [
   'core',
   'dashboard',
   'finding',
+  'improvement',
   'permission',
   'survey',
   'task',
@@ -165,6 +166,12 @@ const EXPECTED_GRANTS: Record<string, readonly DmlPrivilege[]> = {
   'survey.outcome_recovery_identities': ['SELECT', 'INSERT', 'UPDATE'],
   'survey.outcome_recovery_presentations': ['SELECT', 'INSERT', 'UPDATE'],
   'survey.outcome_recovery_history': ['SELECT', 'INSERT'],
+  // Migration 0093 (#1328 a): improvement items are read-only for the runtime role until node b adds the writes;
+  // the counter's UPDATE is column-scoped (last_item_no) and asserted by the improvement items integration test.
+  'improvement.item': ['SELECT'],
+  'improvement.item_target': ['SELECT'],
+  'improvement.item_event': ['SELECT'],
+  'improvement.item_counter': ['SELECT', 'INSERT'],
 };
 
 describe.skipIf(!runIntegration)('ADR-0008 role grants — product tables (Slice 3 #22)', () => {

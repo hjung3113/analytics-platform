@@ -31,6 +31,7 @@ export default defineConfig({
     'task_request',
     'survey',
     'knowledge',
+    'improvement',
     'dashboard',
     'platform',
   ],

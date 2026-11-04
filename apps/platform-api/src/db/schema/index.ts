@@ -20,4 +20,5 @@ export * from './platform-preferences.js';
 export * from './survey-recovery.js';
 export * from './platform-saved-views.js';
 export * from './knowledge.js';
+export * from './improvement.js';
 export * from './space-links.js';

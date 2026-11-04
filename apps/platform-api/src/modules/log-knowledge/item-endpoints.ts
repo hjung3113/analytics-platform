@@ -11,7 +11,7 @@ import {
 } from './catalog-menu.js';
 import { CATALOG_FILTER_SPECS } from './domain/catalog-filters.js';
 import { ITEM_FILTER_SPECS } from './domain/item-filters.js';
-import { parseListParams } from './domain/list-params.js';
+import { parseListParams } from '../../lib/list-params/list-params.js';
 import type { LogKnowledgeDeps } from './deps.js';
 import { MODEL_SORT_IDS, listModels } from './repositories/catalog-read.js';
 import { ITEM_SORT_IDS, getItemDetail, getModelProfile, listItems } from './repositories/item-read.js';

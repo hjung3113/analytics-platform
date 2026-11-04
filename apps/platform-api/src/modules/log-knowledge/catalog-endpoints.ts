@@ -15,7 +15,7 @@ import type { LogKnowledgeDeps } from './deps.js';
 import { holdsPlatformPermission } from '../platform-port/permissions.js';
 import { catalogActions } from './catalog-actions.js';
 import { CATALOG_FILTER_SPECS, type CatalogEndpointName } from './domain/catalog-filters.js';
-import { PAGE_SIZE_MAX, Q_MAX, parseListParams } from './domain/list-params.js';
+import { PAGE_SIZE_MAX, Q_MAX, parseListParams } from '../../lib/list-params/list-params.js';
 import { LOG_KNOWLEDGE_MENU_ID } from './catalog-menu.js';
 import { itemActions } from './item-actions.js';
 import { specActions } from './spec-actions.js';
