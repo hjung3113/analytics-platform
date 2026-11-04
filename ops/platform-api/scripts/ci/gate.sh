@@ -91,6 +91,19 @@ stage_integration() {
 
   step psql "$admin_url" -X -q -v ON_ERROR_STOP=1 -f "$FEATURE_OPS/scripts/db/init.sql"
 
+  # #1227: a Survey case once stalled 15 s with a silent server log. In GitHub Actions the Postgres is the
+  # job-local service container (.github/workflows/ci.yml), so a server-wide setting is safe there; the URL
+  # checks above cannot prove disposability anywhere else, so a local run never gets ALTER SYSTEM.
+  # The settings expose server-side evidence only: lock waits, statements over 1 s, and connection arrival
+  # times. A pause in the test client before it queries over a reused pooled connection stays invisible here.
+  if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
+    step psql "$admin_url" -X -q -v ON_ERROR_STOP=1 \
+      -c "alter system set log_lock_waits = on" \
+      -c "alter system set log_min_duration_statement = 1000" \
+      -c "alter system set log_connections = on" \
+      -c "select pg_reload_conf()"
+  fi
+
   local env_file
   env_file="$(mktemp)"
   # Expanded now: the EXIT trap runs after this function's locals are gone.
