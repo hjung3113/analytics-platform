@@ -62,6 +62,60 @@ export function planUsageChecks(harness: ServerConformanceHarness): ConformanceC
     run: expectAccepted([{ ...usageEntry, via: 'sidebar', fromMenuId: ports.usage.menuId }, { ...usageEntry, source: 'main', via: 'direct', fromMenuId: null }], 2, 'a main entry with via and fromMenuId (a menu id or null)'),
   });
   checks.push({
+    id: 'port · recordUsage accepts paneOpen/paneReplace and fromMenuId on a board entry',
+    uses: ['recordUsage'],
+    mode: 'granted',
+    nonEnvelope: true,
+    run: expectAccepted([{ ...boardEntry, via: 'paneOpen', fromMenuId: null }, { ...boardEntry, via: 'paneReplace', fromMenuId: ports.usage.menuId }, boardEntry], 3, 'a board entry with a pane via and fromMenuId (each key optional)'),
+  });
+  checks.push({
+    id: 'port · recordUsage: a pane via on a main entry and an old via on a board entry are rejected',
+    uses: ['recordUsage'],
+    mode: 'granted',
+    nonEnvelope: true,
+    run: async () => {
+      // The board-dwell case (a dwell with a pane via) is covered by the parser and mock unit tests; it is left
+      // out of here to keep the shared per-actor rate budget of the real-server conformance suite (#605).
+      const a = await adapter.recordUsage([badUsageEvent({ via: 'paneOpen' })]);
+      const b = await adapter.recordUsage([{ ...boardEntry, via: 'link' }]);
+      return a.accepted === 0 && b.accepted === 0 ? null : `expected all rejected, got ${a.accepted}/${b.accepted}`;
+    },
+  });
+  checks.push({
+    id: 'port · recordUsage accepts any registry menu id as fromMenuId (colon, non-ASCII, leading underscore or hyphen, at sign, 80 code points)',
+    uses: ['recordUsage'],
+    mode: 'granted',
+    nonEnvelope: true,
+    run: expectAccepted(
+      ['mars:lot.view-2', '설비목록', '_internal', '-menu', 'ops@daily', '가'.repeat(80)].flatMap(fromMenuId => [{ ...usageEntry, via: 'link' as const, fromMenuId }, { ...boardEntry, via: 'paneReplace' as const, fromMenuId }]),
+      12,
+      'fromMenuId values shaped like registry menu ids the Registry accepts',
+    ),
+  });
+  checks.push({
+    id: 'port · recordUsage: a fromMenuId that is not a menu id (path, URL, key=value, control character) is rejected on both sources',
+    uses: ['recordUsage'],
+    mode: 'granted',
+    nonEnvelope: true,
+    run: async () => {
+      // One request per value with the source alternating, so both provenance paths see a malformed id; the
+      // too-long (81 code points) and empty cases stay in the parser and mock unit tests only, to keep the
+      // shared per-actor rate budget of the real-server conformance suite (#605).
+      const bad: readonly [string, UsageEvent][] = [
+        ['/mars/item/SECRET', { ...usageEntry, via: 'link' }],
+        ['lotId=SECRET', { ...boardEntry, via: 'paneReplace' }],
+        ['a\u0000b', { ...usageEntry, via: 'link' }],
+        ['https://x/lot42', { ...boardEntry, via: 'paneReplace' }],
+      ];
+      const accepted: string[] = [];
+      for (const [fromMenuId, base] of bad) {
+        const r = await adapter.recordUsage([{ ...base, fromMenuId }]);
+        if (r.accepted !== 0) accepted.push(`${base.source ?? 'main'}:${JSON.stringify(fromMenuId.slice(0, 20))}`);
+      }
+      return accepted.length === 0 ? null : `expected every one rejected, accepted: ${accepted.join(', ')}`;
+    },
+  });
+  checks.push({
     id: 'port · recordUsage: a via outside the closed set is rejected',
     uses: ['recordUsage'],
     mode: 'granted',

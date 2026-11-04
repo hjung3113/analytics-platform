@@ -89,6 +89,7 @@ InstantOp | type | type InstantOp = (typeof @ap/contracts#INSTANT_OPS)[number]
 JsonValue | type | type JsonValue = @ap/contracts#JsonValue[] | boolean | null | number | string | { [key: string]: @ap/contracts#JsonValue; }
 KERNEL_PERMISSIONS | const | const KERNEL_PERMISSIONS: readonly [ "platform:view", "notice:view", "voc:view", "console:access", "features:access" ]
 KernelPermission | type | type KernelPermission = (typeof @ap/contracts#KERNEL_PERMISSIONS)[number]
+MainUsageVia | type | type MainUsageVia = Exclude<@ap/contracts#UsageVia, (typeof @ap/contracts#PANE_USAGE_VIAS)[number]>
 MeasureMeta | type | type MeasureMeta = { metricVersion?: string; reaggregation: @ap/contracts#Reaggregation; unit: string; }
 MembershipPeriod | type | type MembershipPeriod = { from: string; to: string; }
 MenuAction | type | type MenuAction<I = unknown> = { action: string; context: { scopeId?: null | string; }; expectedVersion?: string; idempotencyKey: string; input: I; }
@@ -115,6 +116,7 @@ NoticeListPage | type | type NoticeListPage = { items: readonly @ap/contracts#No
 NumberOp | type | type NumberOp = (typeof @ap/contracts#NUMBER_OPS)[number]
 OUTCOMES | const | const OUTCOMES: readonly [ "ok", "empty", "error", "forbidden", "too_large", "timeout" ]
 Outcome | type | type Outcome = (typeof @ap/contracts#OUTCOMES)[number]
+PANE_USAGE_VIAS | const | const PANE_USAGE_VIAS: readonly [ "paneOpen", "paneReplace" ]
 PEOPLE_LOOKUP_MAX | const | const PEOPLE_LOOKUP_MAX: 200
 PORT_ERROR_CODES | const | const PORT_ERROR_CODES: readonly [ "invalid_input", "unknown_axis", "invalid_cursor", "invalid_period", "membership_basis_unsupported", "unknown_scope", "scope_forbidden", "room_forbidden" ]
 PREFERENCE_KEYS_MAX | const | const PREFERENCE_KEYS_MAX: 200
@@ -173,7 +175,7 @@ TableQuery | type | type TableQuery = @ap/contracts#PageQuery & { filters?: @ap/
 Text | type | type Text = { en: string; ko: string; }
 TextOp | type | type TextOp = (typeof @ap/contracts#TEXT_OPS)[number]
 Trust | type | type Trust = { coverage: null | number; dataThrough: null | string; metricVersion?: string; provisional: boolean; source: string; sourceLogicVersions?: string[]; updatedAt: string; }
-USAGE_VIAS | const | const USAGE_VIAS: readonly [ "sidebar", "switcher", "palette", "board", "return", "crossLink", "drill", "history", "direct", "link" ]
+USAGE_VIAS | const | const USAGE_VIAS: readonly [ "sidebar", "switcher", "palette", "board", "return", "crossLink", "drill", "history", "direct", "link", "paneOpen", "paneReplace" ]
 UpdateNoticeInput | type | type UpdateNoticeInput = @ap/contracts#NoticeDraft & { expectedVersion: string; id: string; idempotencyKey: string; }
 UsageEvent | type | type UsageEvent = { at: number; dwellMs?: number; enteredAt?: number; fromMenuId?: null | string; menuId: string; name: @ap/contracts#UsageEventName; path: string; sessionId: string; source?: @ap/contracts#UsageSource; spaceId: @ap/contracts#SpaceId | null; stayId?: string; via?: @ap/contracts#UsageVia; }
 UsageEventName | type | type UsageEventName = 'dwell' | 'entry'

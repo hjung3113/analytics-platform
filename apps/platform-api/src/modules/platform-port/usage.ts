@@ -22,7 +22,10 @@ export const PLATFORM_USAGE_VIA = [
   'history',
   'direct',
   'link',
+  'paneOpen',
+  'paneReplace',
 ] as const;
+const PANE_VIA: readonly string[] = ['paneOpen', 'paneReplace'];
 
 const MAX_BATCH = 20;
 const REQUIRED_KEYS = ['name', 'menuId', 'spaceId', 'path', 'at', 'sessionId'] as const;
@@ -41,6 +44,14 @@ export function validIdentifier(value: unknown, maxLength: number): value is str
     !/[?#&\s]/.test(value)
   );
 }
+
+/**
+ * A `fromMenuId`: the Registry's own id rule (`createRegistry` accepts any non-empty id without whitespace and without `? # & /`) plus the leak
+ * shapes a usage field must not carry: `=` (so no `key=value`) and control characters, at most 80 code points. Trade-off: a Registry id that
+ * contains `=` is rejected here. Kept in step with `MENU_ID_PATTERN` in the reference server (`packages/adapters/mock-server/src/server.ts`);
+ * `apps/platform-web/src/server-conformance.test.ts` proves the app's menu ids, and ids the public Registry accepts, match.
+ */
+export const MENU_ID_PATTERN = /^[^\s?#&/=\p{C}]{1,80}$/u;
 
 /** A space id is null (a global menu) or an identifier like a menu id: this server does not know the app's spaces (ADR-0072), so it judges the shape only. */
 export function validSpaceId(value: unknown): value is string | null {
@@ -93,18 +104,19 @@ function parseUsageEvent(raw: unknown): ParsedUsageEvent | null {
     stayId = raw.stayId;
   }
 
-  // Binding §1 rule: `via` / `fromMenuId` only on a main-screen entry; `via` in the closed set,
-  // `fromMenuId` a menu id or null.
+  // Binding §1 rule: `via` / `fromMenuId` only on an entry, each optional; `via` in the closed set and
+  // matching the source (main: an old value, board: paneOpen/paneReplace); `fromMenuId` a menu id or null.
   let via: string | null = null;
   let fromMenuId: string | null = null;
   if ('via' in raw || 'fromMenuId' in raw) {
-    if (name !== 'entry' || source !== 'main') return null;
+    if (name !== 'entry') return null;
     if ('via' in raw) {
       if (!(PLATFORM_USAGE_VIA as readonly unknown[]).includes(raw.via)) return null;
+      if (PANE_VIA.includes(raw.via as string) !== (source === 'board')) return null;
       via = raw.via as string;
     }
     if ('fromMenuId' in raw && raw.fromMenuId !== null) {
-      if (!validIdentifier(raw.fromMenuId, 80)) return null;
+      if (typeof raw.fromMenuId !== 'string' || !MENU_ID_PATTERN.test(raw.fromMenuId)) return null;
       fromMenuId = raw.fromMenuId;
     }
   }

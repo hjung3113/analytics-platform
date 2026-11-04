@@ -358,6 +358,12 @@ function invalidUsageId(value: string, max: number): boolean {
   return typeof value !== 'string' || !value || value.length > max || /[?#&\s]/.test(value);
 }
 
+/**
+ * A `fromMenuId`: the Registry's own id rule (non-empty, no whitespace, none of `? # & /`) plus `=` (no `key=value`) and control characters, at most 80
+ * code points. Trade-off: a Registry id containing `=` is rejected. Kept in step with `MENU_ID_PATTERN` in `apps/platform-api/src/modules/platform-port/usage.ts`.
+ */
+export const MENU_ID_PATTERN = /^[^\s?#&/=\p{C}]{1,80}$/u;
+
 /** The server does not know the app's spaces (ADR-0072): a space id is null or an id of the same shape as a menu id. */
 function validSpaceId(spaceId: unknown): spaceId is SpaceId | null {
   return spaceId === null || (typeof spaceId === 'string' && !invalidUsageId(spaceId, 80));
@@ -383,14 +389,16 @@ function invalidUsageProvenance(e: UsageEvent): boolean {
 }
 
 /** Closed `UsageVia` set; a Record keeps it complete (a new member fails typecheck until listed here, #605). */
-const USAGE_VIA_SET: Record<UsageVia, true> = { sidebar: true, switcher: true, palette: true, board: true, return: true, crossLink: true, drill: true, history: true, direct: true, link: true };
+const USAGE_VIA_SET: Record<UsageVia, true> = { sidebar: true, switcher: true, palette: true, board: true, return: true, crossLink: true, drill: true, history: true, direct: true, link: true, paneOpen: true, paneReplace: true };
+const PANE_VIAS: readonly string[] = ['paneOpen', 'paneReplace'];
 
-/** `via`/`fromMenuId` (#605): main-screen entry only, `via` in the closed set, `fromMenuId` a menu id or null. */
+/** `via`/`fromMenuId` (#605): entry only; main: an old `via`, board: `paneOpen`/`paneReplace` (each key optional); `fromMenuId` a menu id or null. */
 function invalidUsageNavigation(e: UsageEvent): boolean {
   if (!('via' in e) && !('fromMenuId' in e)) return false;
-  if (e.name !== 'entry' || (e.source !== undefined && e.source !== 'main')) return true;
-  if ('via' in e && !(typeof e.via === 'string' && Object.hasOwn(USAGE_VIA_SET, e.via))) return true;
-  return 'fromMenuId' in e && e.fromMenuId !== null && (typeof e.fromMenuId !== 'string' || invalidUsageId(e.fromMenuId, 80));
+  if (e.name !== 'entry') return true;
+  const board = e.source === 'board';
+  if ('via' in e && !(typeof e.via === 'string' && Object.hasOwn(USAGE_VIA_SET, e.via) && PANE_VIAS.includes(e.via) === board)) return true;
+  return 'fromMenuId' in e && e.fromMenuId !== null && (typeof e.fromMenuId !== 'string' || !MENU_ID_PATTERN.test(e.fromMenuId));
 }
 
 /**

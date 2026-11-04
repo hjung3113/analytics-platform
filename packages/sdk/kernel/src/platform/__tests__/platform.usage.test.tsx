@@ -265,6 +265,8 @@ function NavProbe() {
     <button type="button" data-testid="same-path" onClick={() => navigate('/mars/equipment?page=9', { via: 'palette' })}>same</button>
     <button type="button" data-testid="page" onClick={() => setPage({ page: '2' })}>page</button>
     <PlatformLink data-testid="link" href="/mars/lots" via="switcher">link</PlatformLink>
+    <button type="button" data-testid="pane-open" onClick={() => navigate('/mars/lots', { via: 'paneOpen' as never })}>pane open</button>
+    <PlatformLink data-testid="pane-link" href="/mars/equipment" via={'paneReplace' as never}>pane link</PlatformLink>
   </div>;
 }
 
@@ -292,6 +294,14 @@ describe('usage entry navigation path (#605)', () => {
     await click('plain');
     await click('link');
     expect(entries(events)).toEqual(['equipment:direct:null', 'lots:sidebar:equipment', 'equipment:link:lots', 'lots:switcher:equipment']);
+  });
+
+  it('a pane via cast onto a main navigate or PlatformLink is dropped: the main entry stays link', async () => {
+    const { events } = mountNav('/mars/equipment');
+    await settle();
+    await click('pane-open');
+    await click('pane-link');
+    expect(entries(events)).toEqual(['equipment:direct:null', 'lots:link:equipment', 'equipment:link:lots']);
   });
 
   it('Back/Forward is history', async () => {

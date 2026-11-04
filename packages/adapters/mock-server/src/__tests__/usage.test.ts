@@ -227,6 +227,42 @@ describe('usage navigation path (#605)', () => {
     expect('fromMenuId' in rows[2]).toBe(false);
   });
 
+  it('accepts paneOpen/paneReplace and fromMenuId on a board entry, each key optional, and stores them', async () => {
+    const board = { source: 'board' as const, stayId: 'stay-a' };
+    expect((await recordUsage([entry({ ...board, via: 'paneOpen', fromMenuId: null }), entry({ ...board, via: 'paneReplace', fromMenuId: 'home' }), entry({ ...board }), entry({ ...board, fromMenuId: 'home' })])).accepted).toBe(4);
+    const rows = storedUsage();
+    expect(rows[0]).toMatchObject({ via: 'paneOpen', fromMenuId: null });
+    expect(rows[1]).toMatchObject({ via: 'paneReplace', fromMenuId: 'home' });
+    expect('via' in rows[2]).toBe(false);
+  });
+
+  it('accepts a board entry that sends only via or only fromMenuId, and a colon menu id', async () => {
+    const board = { source: 'board' as const, stayId: 'stay-a' };
+    expect((await recordUsage([entry({ ...board, via: 'paneOpen' }), entry({ ...board, fromMenuId: 'mars:lot.view' })])).accepted).toBe(2);
+    const rows = storedUsage();
+    expect('fromMenuId' in rows[0]).toBe(false);
+    expect('via' in rows[1]).toBe(false);
+    expect(rows[1]).toMatchObject({ fromMenuId: 'mars:lot.view' });
+  });
+
+  it.each([
+    ['a path', '/mars/item/SECRET'],
+    ['a URL', 'https://x/lot42'],
+    ['key=value', 'lotId=SECRET'],
+    ['a control character', 'a\u0000b'],
+    ['81 characters', 'a'.repeat(81)],
+    ['an empty string', ''],
+  ])('rejects a fromMenuId that is %s on both sources', async (_why, fromMenuId) => {
+    expect((await recordUsage([entry({ via: 'link', fromMenuId })])).accepted).toBe(0);
+    expect((await recordUsage([entry({ source: 'board', stayId: 'stay-a', via: 'paneReplace', fromMenuId })])).accepted).toBe(0);
+    expect(storedUsage()).toHaveLength(0);
+  });
+
+  it.each([['Korean', '설비목록'], ['leading underscore', '_internal'], ['leading hyphen', '-menu'], ['an at sign', 'ops@daily'], ['a colon', 'mars:lot.view-2'], ['exactly 80 code points', '가'.repeat(80)]])('accepts a fromMenuId the Registry accepts (%s) on both sources', async (_why, fromMenuId) => {
+    expect((await recordUsage([entry({ via: 'link', fromMenuId }), entry({ source: 'board', stayId: 'stay-a', via: 'paneReplace', fromMenuId })])).accepted).toBe(2);
+    expect(storedUsage().map(row => row.fromMenuId)).toEqual([fromMenuId, fromMenuId]);
+  });
+
   it.each([
     ['a via outside the closed set', entry({ via: 'bookmark' as never })],
     ['a via that is an inherited property name', entry({ via: 'toString' as never })],
@@ -234,8 +270,10 @@ describe('usage navigation path (#605)', () => {
     ['a numeric fromMenuId', entry({ via: 'link', fromMenuId: 7 as never })],
     ['via on a dwell', entry({ name: 'dwell', dwellMs: 10, enteredAt: 1_000, via: 'link' })],
     ['fromMenuId on a dwell', entry({ name: 'dwell', dwellMs: 10, enteredAt: 1_000, fromMenuId: null })],
-    ['via on a board event', entry({ source: 'board', stayId: 'stay-a', via: 'link' })],
-    ['fromMenuId on a board event', entry({ source: 'board', stayId: 'stay-a', fromMenuId: 'home' })],
+    ['an old via on a board entry', entry({ source: 'board', stayId: 'stay-a', via: 'link' })],
+    ['a pane via on a main entry', entry({ via: 'paneOpen' })],
+    ['a pane via on an explicit main entry', entry({ source: 'main', via: 'paneReplace', fromMenuId: 'home' })],
+    ['via on a board dwell', entry({ name: 'dwell', dwellMs: 10, enteredAt: 1_000, source: 'board', stayId: 'stay-a', via: 'paneOpen' })],
   ])('rejects the whole batch for %s', async (_why, bad) => {
     expect((await recordUsage([entry({ via: 'link' }), bad])).accepted).toBe(0);
     expect(storedUsage()).toHaveLength(0);

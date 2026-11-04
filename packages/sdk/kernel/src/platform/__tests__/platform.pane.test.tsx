@@ -69,6 +69,14 @@ function Pane({ id, initial, spies, echo = true, children }: { id: string; initi
     <Probe id={id} />{children}
   </PaneScreenProvider>;
 }
+/** A pane whose pane id and screen the test sets directly (`drive`), for denied screens and pane id changes; `countUsage` as given. */
+const drivers = new Map<string, (next: { paneId?: string; screen: PaneScreen }) => void>();
+const drive = (id: string, next: { paneId?: string; screen: PaneScreen }) => drivers.get(id)!(next);
+function Driven({ id, paneId, initial, countUsage }: { id: string; paneId: string; initial: PaneScreen; countUsage?: boolean }) {
+  const [state, setState] = useState({ paneId, screen: initial });
+  drivers.set(id, next => setState(prev => ({ paneId: next.paneId ?? prev.paneId, screen: next.screen })));
+  return <PaneScreenProvider paneId={state.paneId} screen={state.screen} countUsage={countUsage} onLeave={() => {}} onChange={() => {}}><Probe id={id} /></PaneScreenProvider>;
+}
 const spies = (): Spies => ({ onChange: vi.fn(), onLeave: vi.fn() });
 
 function fixture(over: Partial<PlatformAdapter> = {}, permissions: Session['user']['permissions'] = ANALYST) {
@@ -293,7 +301,7 @@ describe('PaneScreenProvider — usage', () => {
     expect(new Set(board.map(e => e.stayId)).size).toBe(2);
     const main = entries.find(e => e.menuId === 'plain')!;
     expect(Object.keys(main).sort()).toEqual(['at', 'fromMenuId', 'menuId', 'name', 'path', 'sessionId', 'spaceId', 'via']);
-    expect(board.every(e => !('via' in e) && !('fromMenuId' in e))).toBe(true);
+    expect(board.every(e => e.via === 'paneOpen' && e.fromMenuId === null)).toBe(true);
     view.rerender(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}>{ui(false)}</PlatformProvider></I18nProvider>);
     const dwells = events.filter(e => e.name === 'dwell' && e.source === 'board');
     expect(dwells).toHaveLength(2);
@@ -317,6 +325,96 @@ describe('PaneScreenProvider — usage', () => {
     expect(board[1]!.stayId).toBe(first);
     expect(board[2]!.stayId).not.toBe(first);
     expect(board[2]!.menuId).toBe('board-b');
+    expect(board.filter(e => e.name === 'entry').map(e => [e.via, e.fromMenuId])).toEqual([['paneOpen', null], ['paneReplace', 'board-a']]);
+    expect(board.filter(e => e.name === 'dwell').every(e => !('via' in e) && !('fromMenuId' in e))).toBe(true);
+  });
+
+  it('going back to the first menu is paneReplace from the second', async () => {
+    const { adapter, events } = fixture();
+    mount(<Pane id="a" initial={screenA()} spies={spies()} />, adapter, '/mars/plain');
+    await flush();
+    act(() => { at('a').navigate('/b'); });
+    await flush();
+    act(() => { at('a').navigate('/a'); });
+    await flush();
+    const entries = events.filter(e => e.source === 'board' && e.name === 'entry');
+    expect(entries.map(e => [e.menuId, e.via, e.fromMenuId])).toEqual([['board-a', 'paneOpen', null], ['board-b', 'paneReplace', 'board-a'], ['board-a', 'paneReplace', 'board-b']]);
+  });
+
+  it('two panes keep separate trails', async () => {
+    const { adapter, events } = fixture();
+    mount(<><Pane id="p1" initial={screenA()} spies={spies()} /><Pane id="p2" initial={screenA()} spies={spies()} /></>, adapter, '/mars/plain');
+    await flush();
+    act(() => { at('p1').navigate('/b'); });
+    await flush();
+    const entries = events.filter(e => e.source === 'board' && e.name === 'entry');
+    expect(entries.map(e => [e.menuId, e.via, e.fromMenuId])).toEqual([['board-a', 'paneOpen', null], ['board-a', 'paneOpen', null], ['board-b', 'paneReplace', 'board-a']]);
+  });
+
+  it('a real countUsage={false} reader on the same pane never touches the counted trail', async () => {
+    const { adapter, events } = fixture();
+    mount(<>
+      <Pane id="p" initial={screenA()} spies={spies()} />
+      <Driven id="reader" paneId="p" initial={screenA()} countUsage={false} />
+    </>, adapter, '/mars/plain');
+    await flush();
+    act(() => { drive('reader', { screen: { menuId: 'board-b', params: {}, query: '?' } }); });
+    await flush();
+    act(() => { drive('reader', { screen: { menuId: 'plain', params: {}, query: '?' } }); });
+    await flush();
+    expect(events.filter(e => e.source === 'board')).toHaveLength(1);
+    act(() => { at('p').navigate('/b'); });
+    await flush();
+    const entries = events.filter(e => e.source === 'board' && e.name === 'entry');
+    expect(entries.map(e => [e.menuId, e.via, e.fromMenuId])).toEqual([['board-a', 'paneOpen', null], ['board-b', 'paneReplace', 'board-a']]);
+  });
+
+  it('admitted A, then a denied screen, then admitted B on one pane is paneReplace with a null fromMenuId', async () => {
+    const { adapter, events } = fixture();
+    mount(<Driven id="d" paneId="p1" initial={screenA()} />, adapter, '/mars/plain');
+    await flush();
+    act(() => { drive('d', { screen: { menuId: 'locked', params: {}, query: '?' } }); });
+    await flush();
+    act(() => { drive('d', { screen: { menuId: 'board-b', params: {}, query: '?' } }); });
+    await flush();
+    const entries = events.filter(e => e.source === 'board' && e.name === 'entry');
+    expect(entries.map(e => [e.menuId, e.via, e.fromMenuId])).toEqual([['board-a', 'paneOpen', null], ['board-b', 'paneReplace', null]]);
+  });
+
+  it('a pane id change always starts a new trail, even when the screens in between were not admitted', async () => {
+    const { adapter, events } = fixture();
+    mount(<Driven id="d" paneId="p1" initial={screenA()} />, adapter, '/mars/plain');
+    await flush();
+    for (const next of [
+      { screen: { menuId: 'locked', params: {}, query: '?' } },
+      { screen: { menuId: 'board-b', params: {}, query: '?' } },
+      { paneId: 'p2', screen: { menuId: 'locked', params: {}, query: '?' } },
+      { paneId: 'p1', screen: screenA() },
+    ] as const) {
+      act(() => { drive('d', next); });
+      await flush();
+    }
+    const entries = events.filter(e => e.source === 'board' && e.name === 'entry');
+    expect(entries.map(e => [e.menuId, e.via, e.fromMenuId])).toEqual([['board-a', 'paneOpen', null], ['board-b', 'paneReplace', null], ['board-a', 'paneOpen', null]]);
+  });
+
+  it('a session user change starts a new trail even when the other user is not admitted (u1, u2 without access, u1 again)', async () => {
+    let user = 'u1';
+    const sessions: Record<string, Session> = { u1: testSession(ANALYST, { user: { id: 'u1' } }), u2: testSession([], { user: { id: 'u2' } }) };
+    const listeners = new Set<() => void>();
+    const { adapter, events } = fixture({ session: () => sessions[user]!, subscribe: l => { listeners.add(l); return () => { listeners.delete(l); }; } });
+    mount(<Driven id="d" paneId="p1" initial={screenA()} />, adapter, '/mars/plain');
+    await flush();
+    user = 'u2';
+    await act(async () => { listeners.forEach(l => l()); });
+    await flush();
+    act(() => { drive('d', { screen: { menuId: 'board-b', params: {}, query: '?' } }); });
+    await flush();
+    user = 'u1';
+    await act(async () => { listeners.forEach(l => l()); });
+    await flush();
+    const entries = events.filter(e => e.source === 'board' && e.name === 'entry');
+    expect(entries.map(e => [e.menuId, e.via, e.fromMenuId])).toEqual([['board-a', 'paneOpen', null], ['board-b', 'paneOpen', null]]);
   });
 
   it('records nothing for a denied menu, a denied space or a contract error', async () => {

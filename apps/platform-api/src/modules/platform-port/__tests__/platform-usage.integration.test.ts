@@ -241,6 +241,24 @@ describe.skipIf(!runIntegration)(
         ]);
       });
 
+      it('stores pane via and fromMenuId on board entries, each optional, and a Korean id on a main entry', async () => {
+        await clearMine();
+        const res = await record([
+          entry({ source: 'board', stayId: 'stay-1', via: 'paneReplace', fromMenuId: 'platform.home' }),
+          entry({ at: 1_700_000_000_001, source: 'board', stayId: 'stay-2', via: 'paneOpen', fromMenuId: null }),
+          entry({ at: 1_700_000_000_002, source: 'board', stayId: 'stay-3' }),
+          entry({ at: 1_700_000_000_003, via: 'sidebar', fromMenuId: '설비목록' }),
+        ]);
+        expect(res.json()).toEqual({ accepted: 4 });
+        const rows = await usageRows();
+        expect(rows.map((r) => [r.source, r.stay_id, r.via, r.from_menu_id]).sort()).toEqual([
+          ['board', 'stay-1', 'paneReplace', 'platform.home'],
+          ['board', 'stay-2', 'paneOpen', null],
+          ['board', 'stay-3', null, null],
+          ['main', null, 'sidebar', '설비목록'],
+        ]);
+      });
+
       it('accepts a null spaceId and a 20-event batch', async () => {
         await clearMine();
         const res = await record(
@@ -254,10 +272,15 @@ describe.skipIf(!runIntegration)(
         ['via outside the closed set', [entry({ via: 'bookmark' })]],
         ['via on a dwell', [dwell({ via: 'sidebar' })]],
         ['fromMenuId on a dwell', [dwell({ fromMenuId: null })]],
-        ['fromMenuId on a board entry', [entry({ source: 'board', fromMenuId: 'platform.home' })]],
-        ['via on a board entry', [entry({ source: 'board', via: 'sidebar' })]],
+        ['an old via on a board entry', [entry({ source: 'board', via: 'sidebar' })]],
+        ['a pane via on a main entry', [entry({ via: 'paneOpen' })]],
         ['fromMenuId that is a number', [entry({ fromMenuId: 5 })]],
         ['fromMenuId that is not a menu id', [entry({ fromMenuId: 'a b' })]],
+        [
+          'fromMenuId that is a path on a board entry',
+          [entry({ source: 'board', stayId: 'stay-1', via: 'paneReplace', fromMenuId: '/mars/item/SECRET' })],
+        ],
+        ['fromMenuId that is key=value on a main entry', [entry({ fromMenuId: 'lotId=SECRET' })]],
         ['stayId on a main event', [entry({ stayId: 'stay-1' })]],
         ['source outside main/board', [entry({ source: 'popup' })]],
         ['userId key', [entry({ userId: 'someone' })]],

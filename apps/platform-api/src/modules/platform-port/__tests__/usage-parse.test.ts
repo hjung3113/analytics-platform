@@ -26,10 +26,55 @@ describe('parseUsageBatch', () => {
     ]);
   });
 
+  it('parses pane via and fromMenuId on a board entry, each optional', () => {
+    const parsed = parseUsageBatch({
+      events: [
+        { ...entry, source: 'board', stayId: 'x', via: 'paneOpen', fromMenuId: null },
+        { ...entry, source: 'board', stayId: 'y', via: 'paneReplace', fromMenuId: 'a' },
+        { ...entry, source: 'board', stayId: 'z' },
+      ],
+    });
+    expect(parsed?.map((e) => [e.via, e.fromMenuId])).toEqual([['paneOpen', null], ['paneReplace', 'a'], [null, null]]);
+  });
+
+  it('parses a board entry that sends only via or only fromMenuId, and a colon menu id', () => {
+    const parsed = parseUsageBatch({
+      events: [
+        { ...entry, source: 'board', stayId: 'x', via: 'paneOpen' },
+        { ...entry, source: 'board', stayId: 'y', fromMenuId: 'mars:lot.view' },
+      ],
+    });
+    expect(parsed?.map((e) => [e.via, e.fromMenuId])).toEqual([['paneOpen', null], [null, 'mars:lot.view']]);
+  });
+
+  it.each([
+    ['a path', '/mars/item/SECRET'],
+    ['a URL', 'https://x/lot42'],
+    ['key=value', 'lotId=SECRET'],
+    ['a control character', 'a\u0000b'],
+    ['81 characters', 'a'.repeat(81)],
+    ['an empty string', ''],
+  ])('rejects a fromMenuId that is %s on both sources', (_label, fromMenuId) => {
+    expect(parseUsageBatch({ events: [{ ...entry, via: 'link', fromMenuId }] })).toBeNull();
+    expect(parseUsageBatch({ events: [{ ...entry, source: 'board', stayId: 'x', via: 'paneReplace', fromMenuId }] })).toBeNull();
+  });
+
+  it('accepts a fromMenuId of exactly 80 characters', () => {
+    expect(parseUsageBatch({ events: [{ ...entry, fromMenuId: 'a'.repeat(80) }] })).not.toBeNull();
+  });
+
+  it.each([['Korean', '설비목록'], ['leading underscore', '_internal'], ['leading hyphen', '-menu'], ['an at sign', 'ops@daily'], ['a colon', 'mars:lot.view-2'], ['exactly 80 code points', '가'.repeat(80)]])('accepts a fromMenuId the Registry accepts (%s) on both sources', (_label, fromMenuId) => {
+    expect(parseUsageBatch({ events: [{ ...entry, via: 'link', fromMenuId }] })?.[0]?.fromMenuId).toBe(fromMenuId);
+    expect(parseUsageBatch({ events: [{ ...entry, source: 'board', stayId: 'x', via: 'paneReplace', fromMenuId }] })?.[0]?.fromMenuId).toBe(fromMenuId);
+  });
+
   it.each([
     ['via outside the set', { ...entry, via: 'bookmark' }],
     ['via on a dwell', { ...entry, name: 'dwell', dwellMs: 1, enteredAt: 1, via: 'link' }],
-    ['fromMenuId on a board entry', { ...entry, source: 'board', fromMenuId: 'a' }],
+    ['an old via on a board entry', { ...entry, source: 'board', stayId: 'x', via: 'link' }],
+    ['a pane via on a main entry', { ...entry, via: 'paneOpen' }],
+    ['a pane via on an explicit main entry', { ...entry, source: 'main', via: 'paneReplace' }],
+    ['via on a board dwell', { ...entry, name: 'dwell', dwellMs: 1, enteredAt: 1, source: 'board', stayId: 'x', via: 'paneOpen' }],
     ['numeric fromMenuId', { ...entry, fromMenuId: 5 }],
     ['userId key', { ...entry, userId: 'u' }],
     ['dwell keys on an entry', { ...entry, dwellMs: 1, enteredAt: 1 }],

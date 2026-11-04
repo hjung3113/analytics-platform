@@ -74,20 +74,25 @@ export type UsageEvent = {
   source?: UsageSource;
   /** Board events only: opaque id of one admitted pane stay, equal on its entry and every dwell, fresh on re-entry. Dwell replacement for such events keys on it instead of `enteredAt`. */
   stayId?: string;
-  /** Main-screen `entry` only (absent on dwell and on `source: 'board'` events): how the person got here. Identity/provenance only — never a Context value (ADR-0020). */
+  /** `entry` only (absent on dwell): how the person got here. Main screen: an old value (`sidebar` … `link`); board pane: `paneOpen` or `paneReplace`. Optional on a board entry (older clients omit it). Identity/provenance only — never a Context value (ADR-0020). */
   via?: UsageVia;
-  /** Main-screen `entry` only: menu id of the screen shown right before in this tab's JS run, `null` for the tab's first entry or when that screen was not a menu (board, contract error). Never a path or a Context value; not persisted across reloads. */
+  /** `entry` only: menu id of the screen shown right before — in this tab's JS run on the main screen, in the same pane on a board entry (`null` on `paneOpen`). `null` when that screen was not a menu (board, contract error). Never a path or a Context value; not persisted across reloads. */
   fromMenuId?: string | null;
 };
 export type UsageSource = 'main' | 'board';
 /**
- * How a main-screen entry was reached. Closed set: `sidebar` (menu link, rail section/board button), `switcher` (space switcher),
+ * How an entry was reached. Closed set. Main screen: `sidebar` (menu link, rail section/board button), `switcher` (space switcher),
  * `palette` (command palette), `board` (leaving or opening from the analysis board), `return` (return-to-origin link),
  * `crossLink` (06 §22 cross-menu Context link), `drill` (a drill step landing on another path), `history` (Back/Forward),
  * `direct` (the tab's first entry when unmarked: new tab, reload, typed address; an explicit mark wins), `link` (any other in-app navigation).
+ * Board pane entry (#605): `paneOpen` (the pane's first admitted screen in this mount), `paneReplace` (the pane switched to another screen). A main entry never carries a pane value and a board entry never an old one.
  */
-export const USAGE_VIAS = ['sidebar', 'switcher', 'palette', 'board', 'return', 'crossLink', 'drill', 'history', 'direct', 'link'] as const;
+export const USAGE_VIAS = ['sidebar', 'switcher', 'palette', 'board', 'return', 'crossLink', 'drill', 'history', 'direct', 'link', 'paneOpen', 'paneReplace'] as const;
 export type UsageVia = typeof USAGE_VIAS[number];
+/** The board-pane values of `UsageVia`; the rest are main-screen values. */
+export const PANE_USAGE_VIAS = ['paneOpen', 'paneReplace'] as const;
+/** What a main-screen navigation may be marked with: `UsageVia` without the pane values (the server rejects a main entry carrying one). */
+export type MainUsageVia = Exclude<UsageVia, typeof PANE_USAGE_VIAS[number]>;
 /**
  * A render failure the kernel's route error boundary contained (issue #101). Identity fields only, like UsageEvent:
  * no URL, Context value, stack, component stack or `Error.message` — a thrown message is free text that can carry

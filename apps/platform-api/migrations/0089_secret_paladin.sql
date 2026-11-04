@@ -1,0 +1,2 @@
+ALTER TABLE "platform"."usage_events" DROP CONSTRAINT "usage_events_via_check";--> statement-breakpoint
+ALTER TABLE "platform"."usage_events" ADD CONSTRAINT "usage_events_via_check" CHECK ("platform"."usage_events"."via" is null or "platform"."usage_events"."via" in ('sidebar', 'switcher', 'palette', 'board', 'return', 'crossLink', 'drill', 'history', 'direct', 'link', 'paneOpen', 'paneReplace'));

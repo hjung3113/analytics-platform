@@ -55,7 +55,7 @@ export const usageEvents = platformSchema.table(
     sourceCheck: check('usage_events_source_check', sql`${t.source} in ('main', 'board')`),
     viaCheck: check(
       'usage_events_via_check',
-      sql`${t.via} is null or ${t.via} in ('sidebar', 'switcher', 'palette', 'board', 'return', 'crossLink', 'drill', 'history', 'direct', 'link')`,
+      sql`${t.via} is null or ${t.via} in ('sidebar', 'switcher', 'palette', 'board', 'return', 'crossLink', 'drill', 'history', 'direct', 'link', 'paneOpen', 'paneReplace')`,
     ),
     dwellMsCheck: check(
       'usage_events_dwell_ms_check',
