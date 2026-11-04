@@ -219,7 +219,7 @@ describe('workspace assembly (#260)', () => {
     // #252 (ADR-0065): work-queue first; every menu is planned and open to every signed-in user for now.
     expect(SPACE_DEFS[4]).toMatchObject({ label: { ko: '표준 로그 개발', en: 'Standard log development' }, homeMenuId: 'log-my-queue' });
     // #1323 (ADR-0106 amendment 2): the 개선 실행 space is retired; improvement items live in the platform DB.
-    expect(SPACE_DEFS.slice(4, 5).every(space => space.permission === undefined)).toBe(true);
+    expect(SPACE_DEFS[4].permission).toBeUndefined();
     const planned = registry.menus.filter(menu => registry.spaceOf(menu)?.id === 'log-dev');
     expect(planned.map(menu => menu.id)).toEqual([
       'log-my-queue', 'log-recent-models', 'log-models', 'log-defects', 'log-partner-reviews', 'log-rules', 'log-knowledge-models', 'log-knowledge-model', 'log-knowledge-items', 'log-knowledge-item', 'log-knowledge-catalog',
