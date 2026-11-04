@@ -43,12 +43,13 @@ export const applySlots = createSlots(IMPORT_APPLY_CONCURRENCY);
  * 5 s) and no statement runs longer than the budget (at least 1 s). The apply route keeps the command pool: it holds
  * no outer connection, so it has no cycle, and its single-connection regression pins that.
  */
-export function createApplyRunnerPool(base: pg.PoolConfig, budgetMs: number): pg.Pool {
+/** `base` may be undefined for a test double pool without options (the self-approval pool spreads it the same way). */
+export function createApplyRunnerPool(base: pg.PoolConfig | undefined, budgetMs: number): pg.Pool {
   const statementCap = Math.max(1_000, budgetMs);
   return new pg.Pool({
     ...base,
     max: IMPORT_APPLY_CONCURRENCY,
     connectionTimeoutMillis: Math.min(5_000, Math.max(500, Math.floor(budgetMs / 3))),
-    statement_timeout: Math.min(typeof base.statement_timeout === 'number' ? base.statement_timeout : statementCap, statementCap),
+    statement_timeout: Math.min(typeof base?.statement_timeout === 'number' ? base.statement_timeout : statementCap, statementCap),
   });
 }
