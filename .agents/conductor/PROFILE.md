@@ -49,6 +49,7 @@ Route to `impl-complex` (always full) if any of these hold:
   - A graph node whose dependencies are already committed on an in-flight branch starts stacked on that branch (`orca worktree create --base-branch <branch>`, then `launch-worker.py --reuse`); its brief names the base branch's in-flight files it must not edit, and it is rebased onto `main` after the base merges. Reason: waiting for the base's review rounds idles the slot.
   - Research and plans for the next issue (read-only) run while workers implement.
   - Only local root test/build/E2E runs are serial (memory); worker runs and reviews are not.
+- **Visual-judgment floor:** work that decides how a screen looks (layout, spacing, hierarchy, new component visuals, `?variant=` prototypes, screen-shape fix rounds, `site/` design) runs on role `impl-complex-sol` at effort `high`. Plain coding (logic, state, data wiring, tests, accessible-name strings) stays on the routing default. Split an issue so only its visual part goes to that worker. Reason: lower models code fine but make the UI ugly (owner, 2026-11-05).
 - Feature issues: `launch-worker.py <n> <slug> feature`.
   - `scripts/feature-prepare.sh` fills `.env` and creates the issue DB on 5439 (`verify-db.sh create <n>`).
   - Rules: `addenda/impl-rules-feature.md`.
