@@ -63,6 +63,11 @@ describe('parseUsageBatch', () => {
     expect(parseUsageBatch({ events: [{ ...entry, fromMenuId: 'a'.repeat(80) }] })).not.toBeNull();
   });
 
+  it.each([['Korean', '설비목록'], ['leading underscore', '_internal'], ['leading hyphen', '-menu'], ['an at sign', 'ops@daily'], ['a colon', 'mars:lot.view-2'], ['exactly 80 code points', '가'.repeat(80)]])('accepts a fromMenuId the Registry accepts (%s) on both sources', (_label, fromMenuId) => {
+    expect(parseUsageBatch({ events: [{ ...entry, via: 'link', fromMenuId }] })?.[0]?.fromMenuId).toBe(fromMenuId);
+    expect(parseUsageBatch({ events: [{ ...entry, source: 'board', stayId: 'x', via: 'paneReplace', fromMenuId }] })?.[0]?.fromMenuId).toBe(fromMenuId);
+  });
+
   it.each([
     ['via outside the set', { ...entry, via: 'bookmark' }],
     ['via on a dwell', { ...entry, name: 'dwell', dwellMs: 1, enteredAt: 1, via: 'link' }],

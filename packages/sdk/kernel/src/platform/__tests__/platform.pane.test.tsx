@@ -398,6 +398,25 @@ describe('PaneScreenProvider — usage', () => {
     expect(entries.map(e => [e.menuId, e.via, e.fromMenuId])).toEqual([['board-a', 'paneOpen', null], ['board-b', 'paneReplace', null], ['board-a', 'paneOpen', null]]);
   });
 
+  it('a session user change starts a new trail even when the other user is not admitted (u1, u2 without access, u1 again)', async () => {
+    let user = 'u1';
+    const sessions: Record<string, Session> = { u1: testSession(ANALYST, { user: { id: 'u1' } }), u2: testSession([], { user: { id: 'u2' } }) };
+    const listeners = new Set<() => void>();
+    const { adapter, events } = fixture({ session: () => sessions[user]!, subscribe: l => { listeners.add(l); return () => { listeners.delete(l); }; } });
+    mount(<Driven id="d" paneId="p1" initial={screenA()} />, adapter, '/mars/plain');
+    await flush();
+    user = 'u2';
+    await act(async () => { listeners.forEach(l => l()); });
+    await flush();
+    act(() => { drive('d', { screen: { menuId: 'board-b', params: {}, query: '?' } }); });
+    await flush();
+    user = 'u1';
+    await act(async () => { listeners.forEach(l => l()); });
+    await flush();
+    const entries = events.filter(e => e.source === 'board' && e.name === 'entry');
+    expect(entries.map(e => [e.menuId, e.via, e.fromMenuId])).toEqual([['board-a', 'paneOpen', null], ['board-b', 'paneOpen', null]]);
+  });
+
   it('records nothing for a denied menu, a denied space or a contract error', async () => {
     const { adapter, events } = fixture();
     mount(<><Pane id="m" initial={{ menuId: 'locked', params: {}, query: '?' }} spies={spies()} />

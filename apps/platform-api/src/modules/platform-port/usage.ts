@@ -46,11 +46,12 @@ export function validIdentifier(value: unknown, maxLength: number): value is str
 }
 
 /**
- * A registry menu id: starts alphanumeric, then letters, digits, `.` `_` `:` `-`, at most 80 chars (never `/`,
- * so no path, URL or `key=value`). Kept in step with `MENU_ID_PATTERN` in the reference server
- * (`packages/adapters/mock-server/src/server.ts`); `apps/platform-web/src/server-conformance.test.ts` proves every registered menu id matches.
+ * A `fromMenuId`: the Registry's own id rule (`createRegistry` accepts any non-empty id without whitespace and without `? # & /`) plus the leak
+ * shapes a usage field must not carry: `=` (so no `key=value`) and control characters, at most 80 code points. Trade-off: a Registry id that
+ * contains `=` is rejected here. Kept in step with `MENU_ID_PATTERN` in the reference server (`packages/adapters/mock-server/src/server.ts`);
+ * `apps/platform-web/src/server-conformance.test.ts` proves the app's menu ids, and ids the public Registry accepts, match.
  */
-export const MENU_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$/;
+export const MENU_ID_PATTERN = /^[^\s?#&/=\p{C}]{1,80}$/u;
 
 /** A space id is null (a global menu) or an identifier like a menu id: this server does not know the app's spaces (ADR-0072), so it judges the shape only. */
 export function validSpaceId(value: unknown): value is string | null {

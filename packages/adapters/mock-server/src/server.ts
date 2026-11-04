@@ -358,8 +358,11 @@ function invalidUsageId(value: string, max: number): boolean {
   return typeof value !== 'string' || !value || value.length > max || /[?#&\s]/.test(value);
 }
 
-/** A registry menu id (no `/`, so no path, URL or `key=value`). Kept in step with `MENU_ID_PATTERN` in `apps/platform-api/src/modules/platform-port/usage.ts`. */
-export const MENU_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$/;
+/**
+ * A `fromMenuId`: the Registry's own id rule (non-empty, no whitespace, none of `? # & /`) plus `=` (no `key=value`) and control characters, at most 80
+ * code points. Trade-off: a Registry id containing `=` is rejected. Kept in step with `MENU_ID_PATTERN` in `apps/platform-api/src/modules/platform-port/usage.ts`.
+ */
+export const MENU_ID_PATTERN = /^[^\s?#&/=\p{C}]{1,80}$/u;
 
 /** The server does not know the app's spaces (ADR-0072): a space id is null or an id of the same shape as a menu id. */
 function validSpaceId(spaceId: unknown): spaceId is SpaceId | null {

@@ -295,8 +295,11 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   useEffect(() => {
     // An alias entry in the main screen is replaced by its canonical address next: it is not a stay, and it keeps the trail.
     if (countsUsage && mode === 'main' && route?.viaAlias) return;
-    // A pane id change starts the trail over even when the screens in between are not admitted (reset only; consumption stays in the entry timer).
-    if (countsUsage && mode === 'pane') paneTrailFor(paneTrail, paneId);
+    // A pane id or session user change starts the trail over even when the screens in between are not admitted (reset only; consumption stays in the entry timer).
+    if (countsUsage && mode === 'pane') {
+      const trail = paneTrailFor(paneTrail, paneId);
+      if (trail.user !== userId) { trail.user = userId; trail.seen = false; trail.prev = null; }
+    }
     if (!countsUsage || !route || routeContractError || !menuPermissions(route.menu).every(can) || !enters(route.menu)) {
       // The main screen is not a menu now (board, contract error, no access): the next entry's `fromMenuId` is null.
       if (mode === 'main' && countsUsage) usageNav.current.prev = null;

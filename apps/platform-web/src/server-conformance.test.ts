@@ -8,7 +8,8 @@ import { describe, expect, it } from 'vitest';
 import { createMockAdapter, defineMockAction, EQUIPMENT, MENU_ID_PATTERN, getRole, jobsForEquipmentDay, setRole, USERS, type RoleId } from '@ap/mock-server';
 import { describeServerConformance, type ConformanceCase } from '@ap/server-conformance';
 import { MOCK_ACTIONS, MOCK_AUDIT_EVENTS, MOCK_ENDPOINTS, MODULE_MOCK_ENDPOINTS } from './dev/mock-assembly';
-import { registry } from './menus';
+import { createRegistry, type MenuEntry } from '@ap/kernel';
+import { GROUPS, MENUS, PERMISSIONS, registry } from './menus';
 import { modulePermissions } from './modules';
 import { defineAction, emptyGlobal, menuPermission, menuPermissions, spaceId, type Permission } from '@ap/contracts';
 import { ACTORS } from './saved-view-seed';
@@ -290,5 +291,14 @@ describe('usage menu-id pattern (#605)', () => {
   it('every menu id the app registers matches it', () => {
     expect(registry.menus.length).toBeGreaterThan(0);
     expect(registry.menus.map(menu => menu.id).filter(id => !MENU_ID_PATTERN.test(id))).toEqual([]);
+  });
+
+  // The rule is the Registry's own id shape plus the leak shapes a usage field must not carry, so a downstream id the public Registry accepts is never dropped (R1).
+  it.each(['설비목록', '_internal', '-menu', 'ops@daily', 'mars:lot.view', '가'.repeat(80)])('a real createRegistry accepts the menu id %s and the pattern matches it', id => {
+    const group = GROUPS.find(g => g.space === null)!;
+    const template = MENUS.find(m => m.group === group.id && m.module === undefined)!;
+    const menu: MenuEntry = { ...template, id, path: '/downstream-menu', aliases: undefined, primary: true };
+    expect(() => createRegistry({ spaces: [], groups: [group], menus: [menu], permissions: PERMISSIONS })).not.toThrow();
+    expect(MENU_ID_PATTERN.test(id)).toBe(true);
   });
 });

@@ -258,6 +258,11 @@ describe('usage navigation path (#605)', () => {
     expect(storedUsage()).toHaveLength(0);
   });
 
+  it.each([['Korean', '설비목록'], ['leading underscore', '_internal'], ['leading hyphen', '-menu'], ['an at sign', 'ops@daily'], ['a colon', 'mars:lot.view-2'], ['exactly 80 code points', '가'.repeat(80)]])('accepts a fromMenuId the Registry accepts (%s) on both sources', async (_why, fromMenuId) => {
+    expect((await recordUsage([entry({ via: 'link', fromMenuId }), entry({ source: 'board', stayId: 'stay-a', via: 'paneReplace', fromMenuId })])).accepted).toBe(2);
+    expect(storedUsage().map(row => row.fromMenuId)).toEqual([fromMenuId, fromMenuId]);
+  });
+
   it.each([
     ['a via outside the closed set', entry({ via: 'bookmark' as never })],
     ['a via that is an inherited property name', entry({ via: 'toString' as never })],

@@ -81,11 +81,15 @@ export function planUsageChecks(harness: ServerConformanceHarness): ConformanceC
     },
   });
   checks.push({
-    id: 'port · recordUsage accepts a menu id with a colon as fromMenuId',
+    id: 'port · recordUsage accepts any registry menu id as fromMenuId (colon, non-ASCII, leading underscore or hyphen, at sign, 80 code points)',
     uses: ['recordUsage'],
     mode: 'granted',
     nonEnvelope: true,
-    run: expectAccepted([{ ...usageEntry, via: 'link', fromMenuId: 'mars:lot.view-2' }, { ...boardEntry, via: 'paneReplace', fromMenuId: 'mars:lot.view-2' }], 2, 'a fromMenuId shaped like a registry menu id with a colon'),
+    run: expectAccepted(
+      ['mars:lot.view-2', '설비목록', '_internal', '-menu', 'ops@daily', '가'.repeat(80)].flatMap(fromMenuId => [{ ...usageEntry, via: 'link' as const, fromMenuId }, { ...boardEntry, via: 'paneReplace' as const, fromMenuId }]),
+      12,
+      'fromMenuId values shaped like registry menu ids the Registry accepts',
+    ),
   });
   checks.push({
     id: 'port · recordUsage: a fromMenuId that is not a menu id (path, URL, key=value, control character, too long, empty) is rejected on both sources',
