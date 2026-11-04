@@ -400,6 +400,8 @@ SQL은 **핵심 제약의 예시**이고 전체 실행 migration은 아니다. �
 
 ### 6.3 SW 독립 Spec 및 모델 공통 추출
 
+> 소유자 입력(2026-11-04)으로 방향이 바뀌는 안은 [§15](#15-모델-명세가-원본-1196-설계-초안-candidate)다. 소유자 답 전까지 이 절은 그대로다.
+
 - 특정 SW의 `sw_spec_revision`을 **독립 불변 Revision**으로 게시. 각 Module/Event 정의 ID는 그 SW Spec Revision의 namespace로 한정한다. 다른 SW와 이름·키가 같아도 동일 객체로 취급하지 않는다.
 - `CommonExtractionCandidate`는 승인된 SW Spec Revision 집합을 명시적 입력으로 받고 추출 결과와 해시/모델 버전을 저장. 후보가 들어온다고 `model_common_profile_revision`을 자동 갱신하지 않는다.
 - 사람이 후보 diff/근거를 검토하여 승인하면 `model_common_profile_revision` 생성. 현재 최신 승인본은 바꾸지 않고 새 Revision 추가. 출처 SW Spec이 추가/변경되면 **현재 profile은 유지**하고 기존 승인 출처와 현재 SW 발행 Revision의 차이로 `needs_revalidation`을 읽기 시점에 계산/다음 후보 생성.
@@ -626,3 +628,85 @@ P0 #1193 구현됨: 스키마 표 1–6(`knowledge` 스키마, migration 0080)�
 
 #1194 화면 구현: A안(탭 + 오른쪽 서랍, 소유자 확정). 제조사·공정·모델·SW 버전 4탭(`tab`, 기본 모델), 탭마다 서버 페이징 표와 열 필터(`filter`), 만들기·수정은 서랍(`focus` = 행 id 또는 `new`), 비활성화는 확인 대화상자, 모델 표에 B안의 SW 버전 열(최신 표기 + `외 n`). Import 단추는 #1195가 표 툴바에 더한다.
 
+
+## 15. 모델 명세가 원본 (#1196 설계 초안, Candidate)
+
+> **Status: 소유자 답 반영(2026-11-04) — 방향과 Q1–Q10 결정됨, 구현 전. ADR(0111 이상)과 §5.2·§6.3 정리는 노드 a의 PR에서 한다.** 소유자 입력(2026-11-04, #1196 댓글): 명세는 **모델 단위가 주**, SW 버전별 차이는 **보조**이고, 보조가 필요한 주된 경우는 특정 SW 버전부터 로그가 갑자기 이상해지거나 크게 바뀌는 때다. 이 절은 §5.2 표 10–18번과 §6.3(SW 독립 Spec이 원본, 모델 공통은 승인된 파생본)을 **대체하는 안**이다. §5.2·§6.3의 SW 독립 Spec 표 10–18번은 이 절이 대체한다(정리는 노드 a).
+
+### 15.1 방향 한 줄
+
+모델 명세 Revision이 원본이다. SW 버전은 기본으로 모델 명세를 그대로 따르고, 다른 버전만 「SW 버전 X부터 적용되는 변경점」을 한 줄씩 갖는다. 변경점이 없는 버전은 행이 없다.
+
+### 15.2 데이터 모델 (물리화 후보, 노드 a·c에서 재검수)
+
+| 표 | 핵심 컬럼 | 규칙 |
+| --- | --- | --- |
+| `knowledge.model_spec_revision` | `spec_rev_id`, `model_id`, `revision_no`, `state`(`draft`·`published`·`rejected`), `source_doc_ref`(15.5), `content_sha256`(제출 내용 해시), `schema_version`, `content_sha256`, `published_by/at` | `(workspace_id, model_id, revision_no)` 유일. `published`가 되면 내용·해시 불변(ADR-0109 방식: 런타임 역할에 UPDATE 없음). Model당 최신 `published` 하나가 현행 |
+| `knowledge.spec_module` | `module_id`, `spec_rev_id`, `module_key`, `name`, `parent_module_id` | `(spec_rev_id, module_key)` 유일, 부모는 같은 Revision |
+| `knowledge.spec_event` | `event_id`, `spec_rev_id`, `module_id`, `event_key`, `name`, `fields_json`, `trigger_rule`, `detail_doc_ref` | `(spec_rev_id, module_id, event_key)` 유일. `fields_json`은 `schema_version`별 Zod 닫힌 스키마 |
+| `knowledge.spec_event_relation` | `source_event_id`, `predicate`, `target_event_id`, `rule_ref` | 같은 Revision 안의 `expected` 명세 관계만 |
+| `knowledge.spec_sw_change` | `change_id`, `model_id`, `software_id`(= 적용 시작 SW), `ends_before_software_id?`, `target_kind`(module·event·field·relation), `target_key`, `change_kind`(`added`·`removed`·`changed`·`behavior`), `change_json`(전·후), `note`, `based_on_rev_no`, `evidence_ref?`, `needs_revalidation`, `retired_by_change_id?` | 추가 전용. 고치지 않고 `retired_by`로 닫고 새 줄을 쓴다. 대상은 `target_key`(Revision에 걸리지 않는 안정 키)로 가리킨다 |
+| `knowledge.common_concept` / `spec_concept_mapping` | §5.2의 17·18번을 가져오되 대상이 SW 정의가 아니라 **모델 명세의 Module/Event** | `proposed`·`confirmed`·`rejected` 분리, 같은 이름 자동 동치 금지, `confirmed`만 동치 검색에 사용 |
+
+- **`needs_revalidation`.** 새 모델 명세 Revision이 발행될 때, 그 Revision이 건드린 `target_key`를 가진 열린 변경점에 같은 트랜잭션에서 `needs_revalidation = true`를 쓴다(원인 Revision 번호도 남김). 사람이 변경점을 그대로 두거나(`confirm`) 새 줄로 고치면 꺼진다. 모델 공통 프로파일이라는 별도 승인본은 두지 않는다: 모델 명세 Revision이 곧 그것이다.
+- **후보(candidate).** 새 모델 명세는 `draft`로 쓰고 사람이 발행한다. 변경점이 여러 모델·버전에서 반복돼 모델 명세에 올리고 싶으면 새 Revision `draft`에 그 내용을 반영해 발행한다(자동 승격 없음). 자기 승인 여부는 §12 3번(#1198)이며 15.7 Q6.
+- **SW 순서.** 「X부터」가 말이 되려면 한 모델의 SW 버전에 순서가 있어야 한다. 지금 `software_version`에는 순서 열이 없고(`version_key`는 비교용 문자열일 뿐) `created_at`은 등록 순서다. 안: `release_order integer`를 카탈로그에 더한다(ADR-0107 보충, 기본은 등록 순, 카탈로그 서랍에서 고침). 15.7 Q2.
+
+### 15.3 실효 명세(읽기 투영)
+
+SW 버전 S의 명세 = 현행 모델 명세 Revision + `software_id`가 S 이하(순서 기준)이고 아직 닫히지 않은 변경점을 순서대로 적용한 것. 저장하지 않고 읽을 때 계산한다. 변경점이 없는 SW는 모델 명세와 같고 화면은 「모델 명세 그대로」라고 말한다. Item(ADR-0109)의 소유는 그대로 Model 또는 SW이고, Item 근거의 Module/Event 지목(`item_revision_subject`)은 모델 명세의 `target_key`를 가리킨다(노드 f).
+
+### 15.4 API (menu-query / menu-action, 기존 log-knowledge 패턴)
+
+- 읽기(`platform:view`, 소유 메뉴 `log-knowledge-models`): `logKnowledge.modelSpec`(`modelId`, 선택 `softwareId` → 실효 명세), `modelSpecRevisions`, `specChanges`(필터 `modelId`·`softwareId`·`needsRevalidation`), `specEventDetail`, `conceptMappings`.
+- 쓰기(새 capability `knowledge.spec.publish`, 워크스페이스 범위, Admin 항상, Developer 요청, User 거절, 메뉴 권한 `knowledge:spec-publish`): `specDraftSave`(version CAS), `specPublish`(해시 봉인), `specReject`, `specChangeAdd`, `specChangeRetire`, `specChangeConfirm`, `conceptPropose`·`conceptConfirm`·`conceptReject`. 모두 감사 기록. 에러는 `invalid` 필드 오류, 이미 발행된 Revision 쓰기는 `conflict`.
+
+### 15.5 문서 식별자와 검증 스키마 (안)
+
+- **입력 방식(소유자 결정):** 사내에서 파일 첨부가 어려우므로 첨부는 쓰지 않는다. 명세는 (1) **스트리밍** — 코드나 에이전트 스크립트가 API로 밀어 넣기, (2) **TSV 형식 `.txt`** — 화면에서 파일 내용을 읽어 제출(파일 자체는 저장하지 않음), (3) **붙여넣기** 세 길로 들어온다. 셋 모두 같은 `specDraftSave` 입력(구조화 행)으로 모이고 서버는 제출된 내용을 검증한다. TSV 열 정의는 `fields_json` v1과 함께 노드 b에서 닫는다.
+- `source_doc_ref`: `{ docLabel, docVersion, link? }`. 원본 문서의 출처 표시일 뿐이며 파일을 가리키지 않는다. 버전 증명은 **제출된 내용의 정규화 해시**(`content_sha256`: 행 순서·공백을 정규화한 직렬화의 SHA-256) + 선택 링크다. 해시가 같은 내용을 다시 제출하면 새 Revision을 만들지 않는다(`unchanged`).
+- 안정 키: `module_key`·`event_key`는 로그 명세 문서에 적힌 모듈명·이벤트명을 `toCodeKey`로 정규화한 값이다(ADR-0107 결정 2 방식, 별도 코드 부여 없음). 이름이 바뀌어도 키는 같다. 키가 바뀌면 새 Event로 올리고 변경점 `removed`·`added` 한 쌍으로 잇는다.
+- `fields_json` v1: `{ name, type(string·int·float·bool·enum·timestamp), unit?, allowedValues?, description }[]`. 닫힌 목록, 모르는 키는 거절.
+
+### 15.6 화면 (IA 수준, 시안은 소유자 답 뒤)
+
+새 화면 둘, 나머지는 서랍·섹션이다(새 메뉴 화면 3개 미만).
+
+1. **모델 프로파일의 「명세」 섹션**(기존 `ModelProfile` 섹션 추가) → 상세 화면 `log-knowledge-spec`(navHidden): Module 트리 + Event 표/서랍, 상단 SW 선택(「모델 기준」 기본 · 특정 SW를 고르면 실효 명세와 변경 표시), Revision 이력, `needs_revalidation` 배지.
+2. **변경점 보기**(같은 상세의 탭 또는 별도 목록 화면): SW 순서로 「X부터」 변경점 타임라인, 필터 `재검토 필요`. 작성은 서랍.
+- 서랍: 명세 Draft 편집·발행, 변경점 추가·닫기, 개념 매핑 검토. 상태 네 가지(없음·불러오는 중·오류·권한 없음)와 발행 확인 대화상자를 시안에서 확인한다.
+
+### 15.7 노드 분할
+
+a) 스키마(0089 이후) + 모델 명세 읽기 · b) 초안 저장·발행 쓰기(스트리밍 API, TSV 해석, 붙여넣기, 제출 내용 해시) · c) 변경점 + 실효 명세 + `needs_revalidation` · d) 화면(시안 컨펌 후) · e) 개념 매핑 · f) Item 지목 연결. a→b→c 순서, d는 b 뒤 시안, e·f는 뒤로 미룰 수 있다.
+
+### 15.8 이슈 수용 기준 중 바뀌어야 하는 줄
+
+| 이슈의 줄 | 충돌 | 고칠 안 |
+| --- | --- | --- |
+| 목적: 「각 SW Version의 … 독립 불변 Revision, Model 공통은 승인된 파생본」 | 방향이 반대 | 「모델 명세 Revision이 원본, SW는 X부터 적용되는 변경점으로만 다르다」 |
+| 범위: 같은 키·이름이어도 **다른 SW의 동일 객체로 취급 금지** | 한 모델 안에서는 같은 `event_key`가 같은 Event라는 전제가 이 설계의 핵심 | 「**다른 모델**의 같은 이름은 사람 확인 전 동치 금지」로 좁힘 |
+| 범위: SW Spec Revision 집합을 출처로 한 `common_extraction_candidate` → `model_common_profile_revision` | 파생 흐름이 사라짐 | 모델 명세 `draft` → 사람 발행. 후보 표·출처 SW 목록 표 삭제 |
+| 범위: 출처 SW 추가·변경 시 `needs_revalidation` | 대상이 달라짐 | 새 모델 명세 Revision이 건드린 `target_key`의 열린 변경점에 표시 |
+| 수용: 「SW 1.0 수정해도 SW 2.0 원본 변동 0」 | SW 원본이 없음 | 「발행된 모델 명세 Revision과 이미 쓴 변경점 행은 바뀌지 않고, 변경점 추가·닫기는 그 SW 이후 순서에만 효과를 낸다」 |
+| 수용: 「SW 1개 출처 후보를 곧바로 범용 검증/확정으로 표시하지 않음」 | 후보 개념 변경 | 「단일 SW에서만 본 변경점은 모델 명세로 자동 승격하지 않는다」 |
+| 수용: 「Source Spec hashes/revisions·승인자/시각·stale 원인 추적」 | 출처 단위 변경 | 「모델 명세 해시·발행자·시각, 변경점의 `based_on_rev_no`·`needs_revalidation` 원인 Revision을 추적」 |
+| 수용: 「같은 Event name이 다른 SW에 있어도 …동치 금지」 | 위와 같음 | 「다른 모델의 …」로 좁힘 |
+| 수용: 안정 키·문서 식별자·검증 schema는 착수 게이트 | 변동 없음 | 15.5 안으로 답을 받는다 |
+
+### 15.9 결정 (착수 게이트, `질문 #1196`, 소유자 2026-11-04)
+
+Q1·Q2·Q5–Q8·Q10은 추천대로 결정됐다. Q3은 추천대로(고정 번호 답 없음), Q4·Q9는 아래 수정대로다.
+
+| # | 질문 | 추천 | 이유 |
+| --- | --- | --- | --- |
+| Q1 | 15.1 방향(모델 명세 원본 + X부터 변경점)과 15.8의 수용 기준 고침을 확정? 한 모델 안에서 같은 `event_key`는 같은 Event로 본다 | 확정 | 소유자 입력과 같다. 대부분의 버전이 모델 명세 그대로라 기록이 적다 |
+| Q2 | 「X부터」의 SW 순서를 어떻게 정하나 | 카탈로그 SW에 `release_order`를 더함(기본 등록 순, 서랍에서 고침, ADR-0107 보충) | 문자열 버전 비교는 `1.10`/`1.9` 같은 형식에 깨지고 변경점마다 SW 목록을 고르게 하면 번거롭다 |
+| Q3 | Module/Event 안정 키 (**결정: 추천대로**, 고정 번호에 대한 답 없음) | 명세 문서의 모듈명·이벤트명을 `toCodeKey`로 정규화(별도 코드 부여 없음). 문서에 고정 번호가 있으면 그것을 우선 | 소유자는 코드를 따로 줄 수 없다고 했다(ADR-0107 결정 2 보충). 문서에 번호가 있는지는 소유자만 안다 |
+| Q4 | 원본 문서 식별자 (**결정: 수정** — 첨부 불가) | 스트리밍·TSV `.txt`·붙여넣기 입력, 버전 증명은 제출 내용 해시 + 선택 링크(15.5). 원안(첨부 업로드·해시 강제)은 폐기 | 해시가 있어야 「어느 문서 판을 읽고 썼나」를 증명할 수 있다 |
+| Q5 | `fields_json` v1 | 15.5의 닫힌 여섯 타입과 단위·허용값·설명 | 최소로 시작하고 `schema_version`으로 늘린다 |
+| Q6 | 발행 권한 | `knowledge.spec.publish` 하나, 자기 발행 허용(감사 기록), #1198에서 재검토 | 팀이 작고 `item.publish`와 같은 구조다. 막으면 혼자 쓰는 초기에 진행이 멈춘다 |
+| Q7 | 개념 매핑(모델 간) 시점 | 마지막 노드(e), 이번 슬라이스에 넣을지는 b·c 뒤 판단 | 모델 하나 안에서는 동치 문제가 사라져 급하지 않다 |
+| Q8 | 변경점의 끝 | 선택 `ends_before_software_id` 허용(예: 5.2에서 되돌아옴) | 「X부터」만 두면 되돌린 경우를 못 적는다 |
+| Q9 | 입력 방식 (**결정: 수정**) | 15.5의 세 길(스트리밍·TSV `.txt`·붙여넣기). 별도 Import 마법사는 두지 않는다 | 명세 문서 서식이 정해지지 않았다 |
+| Q10 | 화면 | 새 화면 둘(15.6) + 서랍. 새 화면 3개 이상 규칙에 걸리지 않음 | — |
