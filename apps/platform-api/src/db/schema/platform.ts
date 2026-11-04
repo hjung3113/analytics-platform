@@ -65,23 +65,34 @@ export const usageEvents = platformSchema.table(
   }),
 );
 
-export const clientErrors = platformSchema.table('client_errors', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  workspaceId: uuid('workspace_id')
-    .notNull()
-    .references(() => workspaces.id),
-  actorId: uuid('actor_id')
-    .notNull()
-    .references(() => actors.id),
-  correlationId: text('correlation_id').notNull(),
-  menuId: text('menu_id').notNull(),
-  spaceId: text('space_id'),
-  path: text('path').notNull(),
-  name: text('name').notNull(),
-  // The server's request id for the report call, not the client correlation id.
-  requestId: text('request_id').notNull(),
-  receivedAt: timestamp('received_at', { withTimezone: true }).notNull().defaultNow(),
-});
+export const clientErrors = platformSchema.table(
+  'client_errors',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    actorId: uuid('actor_id')
+      .notNull()
+      .references(() => actors.id),
+    correlationId: text('correlation_id').notNull(),
+    menuId: text('menu_id').notNull(),
+    spaceId: text('space_id'),
+    path: text('path').notNull(),
+    name: text('name').notNull(),
+    // The server's request id for the report call, not the client correlation id.
+    requestId: text('request_id').notNull(),
+    receivedAt: timestamp('received_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    // #606: the VOC operational read looks a report up by (workspace, correlation id).
+    workspaceCorrelationIdx: index('client_errors_workspace_correlation_idx').on(
+      t.workspaceId,
+      t.correlationId,
+    ),
+  }),
+);
+
 
 // Notices (ADR-0098 §4, #1106). `until` is a naive Asia/Seoul wall-clock instant like the Home
 // `until` (06 §6.3), so it is `timestamp without time zone`; `created_at`/`updated_at` are real

@@ -45,6 +45,15 @@ export const attachmentIdsSchema = z
   .array(z.string().uuid())
   .max(MAX_ATTACHMENT_IDS_PER_PARENT);
 
+// The client correlation id an error screen shows (`client-…`, #606): same acceptance as a client-error
+// report (`client-` prefix, at most 80 characters) and the `X-Correlation-Id` alphabet, so it is a safe
+// lookup key. It is a key, not a permission.
+export const VOC_TRACE_ID_MAX_LENGTH = 80;
+export const vocTraceIdSchema = z
+  .string()
+  .max(VOC_TRACE_ID_MAX_LENGTH)
+  .regex(/^client-[A-Za-z0-9._-]+$/);
+
 export const FORBIDDEN_CREATE_FIELDS = [
   'reporter_id',
   'severity',
@@ -66,6 +75,8 @@ export const createVocRequestSchema = z.object({
   analytics_area_id: z.string().uuid().optional(),
   source_context: sourceContextSchema.default('direct_use'),
   attachment_ids: attachmentIdsSchema.optional(),
+  // Optional client error id (#606); absent stays absent (stored null).
+  trace_id: vocTraceIdSchema.optional(),
   owner_user_id: z.string().uuid().nullable().optional(),
   owner_team_id: z.string().uuid().nullable().optional(),
 });

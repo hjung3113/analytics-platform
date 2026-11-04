@@ -119,6 +119,7 @@ export function createVocCreateCommands(deps: VocServiceDeps) {
       title: input.title,
       descriptionRichContent: sanitized,
       sourceContext: input.source_context,
+      traceId: input.trace_id ?? null,
       ownerUserId: owner.owner_user_id,
       ownerTeamId: owner.owner_team_id,
     });
@@ -211,6 +212,7 @@ export function createVocCreateCommands(deps: VocServiceDeps) {
       triage_state: 'untriaged',
       ...routing,
       source_context: row.sourceContext,
+      trace_id: row.traceId,
       created_at: row.createdAt.toISOString(),
       updated_at: row.updatedAt.toISOString(),
       next_actions: [],

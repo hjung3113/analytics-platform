@@ -34,6 +34,7 @@ export function mapRowToListItem(
     review_postponed_at:
       view === 'triage' ? (row.triageStateReviewPostponedAt?.toISOString() ?? null) : null,
     source_context: row.sourceContext as VocListItem['source_context'],
+    trace_id: row.traceId,
     created_at: row.createdAt.toISOString(),
     updated_at: row.updatedAt.toISOString(),
     ...(!isReporterArm ? { similar_count: similarCount } : {}),

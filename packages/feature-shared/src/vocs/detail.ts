@@ -10,6 +10,19 @@ import { reporterFacingStatusEnumSchema, vocListItemSchema } from './list-item.j
 const vocDetailBaseSchema = vocListItemSchema.omit({ review_postponed_at: true });
 export const vocDetailEnvelopeSchema = vocDetailBaseSchema.extend({
   follow_up: vocFollowUpStateSchema.optional(),
+  // Operational readers only (#606): identity of the client error report whose correlation id equals
+  // `trace_id`, from `platform.client_errors` in the same workspace. Absent for reporter-arm and public
+  // readers; null when the VOC has no trace id. Never carries message, stack or URL.
+  error_report: z
+    .object({
+      reported: z.boolean(),
+      menu_id: z.string().nullable(),
+      path: z.string().nullable(),
+      name: z.string().nullable(),
+      reported_at: z.string().datetime().nullable(),
+    })
+    .nullable()
+    .optional(),
   // The capped peer preview uses the same authorized peer set as similar_count.
   // similar_count remains the sole total; this array is intentionally not paginated.
   similar: z

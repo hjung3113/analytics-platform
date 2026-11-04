@@ -51,6 +51,8 @@ export const vocListItemSchema = z.object({
   triage_state: triageStateEnumSchema,
   review_postponed_at: z.string().datetime().nullable(),
   source_context: sourceContextEnumSchema,
+  // Client error id the reporter attached (#606); null = none. Not in the public projection.
+  trace_id: z.string().nullable().optional(),
   created_at: z.string().datetime(),
   updated_at: z.string().datetime(),
   // Authorized, active same-Managed-System peers; see ADR-0031.

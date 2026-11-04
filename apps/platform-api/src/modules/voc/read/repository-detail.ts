@@ -21,7 +21,7 @@ export async function selectVocByIdForRead(
       id, display_id, title, workspace_id, primary_managed_system_id,
       analytics_area_id, reporter_id, owner_user_id, owner_team_id,
       severity, reporter_facing_status, triage_state,
-      triage_state_review_postponed_at, source_context,
+      triage_state_review_postponed_at, source_context, trace_id,
       description_rich_content,
       created_at, updated_at
     FROM ${vocs}
@@ -98,7 +98,7 @@ export async function selectPinnedVocListRow(
       id, display_id, title, workspace_id, primary_managed_system_id,
       analytics_area_id, reporter_id, owner_user_id, owner_team_id,
       severity, reporter_facing_status, triage_state,
-      triage_state_review_postponed_at, source_context,
+      triage_state_review_postponed_at, source_context, trace_id,
       NULL::jsonb as description_rich_content,
       created_at, updated_at
     FROM ${vocs}
