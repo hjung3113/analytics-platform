@@ -6,6 +6,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { and, eq, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 
 import {
   equipmentModels,
@@ -15,7 +16,7 @@ import {
   specModules,
 } from '../../../db/schema/knowledge.js';
 import type { Tx } from '../../../db/tx.js';
-import { type DraftIndex, type PlannedEvent, type PlannedModule, type PlannedRelation, type SourceDocRef, SPEC_SCHEMA_VERSION, qualifiedKey } from '../domain/spec-input.js';
+import { type DraftIndex, type PlannedEvent, type PlannedModule, type PlannedRelation, type SourceDocRef, SPEC_SCHEMA_VERSION, qualifiedKey, relationEdgeKey } from '../domain/spec-input.js';
 import { type HashEvent, type HashModule, type HashRelation, specContentHash } from '../domain/spec-hash.js';
 
 export interface RevisionRow {
@@ -131,9 +132,44 @@ export async function loadDraftIndex(tx: Tx, workspaceId: string, revisionId: st
     .from(specEvents)
     .innerJoin(specModules, and(eq(specModules.workspaceId, specEvents.workspaceId), eq(specModules.id, specEvents.moduleId)))
     .where(and(eq(specEvents.workspaceId, workspaceId), eq(specEvents.specRevId, revisionId)));
+  const sourceEvent = alias(specEvents, 'index_source_event');
+  const targetEvent = alias(specEvents, 'index_target_event');
+  const sourceModule = alias(specModules, 'index_source_module');
+  const targetModule = alias(specModules, 'index_target_module');
+  const relations = await tx
+    .select({
+      sourceModule: sourceModule.moduleKey,
+      sourceEvent: sourceEvent.eventKey,
+      predicate: specEventRelations.predicate,
+      targetModule: targetModule.moduleKey,
+      targetEvent: targetEvent.eventKey,
+    })
+    .from(specEventRelations)
+    .innerJoin(
+      sourceEvent,
+      and(
+        eq(sourceEvent.workspaceId, specEventRelations.workspaceId),
+        eq(sourceEvent.specRevId, specEventRelations.specRevId),
+        eq(sourceEvent.id, specEventRelations.sourceEventId),
+      ),
+    )
+    .innerJoin(
+      targetEvent,
+      and(
+        eq(targetEvent.workspaceId, specEventRelations.workspaceId),
+        eq(targetEvent.specRevId, specEventRelations.specRevId),
+        eq(targetEvent.id, specEventRelations.targetEventId),
+      ),
+    )
+    .innerJoin(sourceModule, and(eq(sourceModule.workspaceId, sourceEvent.workspaceId), eq(sourceModule.id, sourceEvent.moduleId)))
+    .innerJoin(targetModule, and(eq(targetModule.workspaceId, targetEvent.workspaceId), eq(targetModule.id, targetEvent.moduleId)))
+    .where(and(eq(specEventRelations.workspaceId, workspaceId), eq(specEventRelations.specRevId, revisionId)));
   return {
     moduleKeys: new Set(modules.map((m) => m.key)),
     eventKeys: new Set(events.map((e) => qualifiedKey(e.moduleKey, e.key))),
+    relationEdges: new Set(
+      relations.map((r) => relationEdgeKey(qualifiedKey(r.sourceModule, r.sourceEvent), r.predicate, qualifiedKey(r.targetModule, r.targetEvent))),
+    ),
   };
 }
 

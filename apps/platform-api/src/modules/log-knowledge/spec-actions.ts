@@ -5,6 +5,8 @@
 // `currentVersion` locks the revision row; for a revision that is not a draft it answers a value no client can hold,
 // so the engine answers `conflict`. A refusal only the database can judge is a `MenuActionInvalidError`.
 
+import { randomUUID } from 'node:crypto';
+
 import { createAuditService } from '../core/audit/audit-service.js';
 import type { Tx } from '../../db/tx.js';
 import {
@@ -88,12 +90,19 @@ export function specActions(deps: SpecActionDeps): MenuActionDeclaration[] {
   const currentVersion = async (tx: Tx, actor: PlatformActor, input: Record<string, unknown>) => {
     const revision = await lockRevision(tx, actor.workspace_id, input.revisionId as string);
     if (!revision) return null;
-    return revision.state === 'draft' ? String(revision.rowVersion) : `${revision.state}:${revision.rowVersion}`;
+    // A sealed revision must conflict whatever the client sends — including the token an earlier conflict handed
+    // back. That token must therefore be fresh per call: anything derived only from state + row_version is
+    // returned in `conflict.version`, so a replay could send it as `expectedVersion` and pass this step.
+    return revision.state === 'draft' ? String(revision.rowVersion) : `${revision.state}:${randomUUID()}`;
   };
 
-  async function lockDraft(tx: Tx, actor: PlatformActor, revisionId: string, action: string): Promise<RevisionRow> {
+  async function lockDraft(tx: Tx, actor: PlatformActor, revisionId: string): Promise<RevisionRow> {
     const revision = await lockRevision(tx, actor.workspace_id, revisionId);
-    if (!revision || revision.state !== 'draft') throw new Error(`action ${action}: currentVersion judged the revision first`);
+    // Unreachable while `currentVersion` judged the same row first in this transaction; kept invalid-shaped so a
+    // caller that skips the version step cannot turn a sealed row into a server error.
+    if (!revision || revision.state !== 'draft') {
+      throw new MenuActionInvalidError([{ path: ['revisionId'], code: 'conflict' }]);
+    }
     return revision;
   }
 
@@ -139,11 +148,11 @@ export function specActions(deps: SpecActionDeps): MenuActionDeclaration[] {
     async handle(tx, actor, input): Promise<ActionHandlerResult> {
       const ws = actor.workspace_id;
       const value = parsed('draftSave', input);
-      const draft = await lockDraft(tx, actor, value.revisionId, 'specDraftSave');
+      const draft = await lockDraft(tx, actor, value.revisionId);
       // `replace` starts from an empty draft; `append` from what the draft holds.
       const index =
         value.mode === 'replace'
-          ? { moduleKeys: new Set<string>(), eventKeys: new Set<string>() }
+          ? { moduleKeys: new Set<string>(), eventKeys: new Set<string>(), relationEdges: new Set<string>() }
           : await loadDraftIndex(tx, ws, draft.id);
       const plan = planSpecRows(index, value);
       if (!plan.ok) throw new MenuActionInvalidError(plan.errors);
@@ -185,7 +194,7 @@ export function specActions(deps: SpecActionDeps): MenuActionDeclaration[] {
     async handle(tx, actor, input): Promise<ActionHandlerResult> {
       const ws = actor.workspace_id;
       const value = parsed('publish', input);
-      const draft = await lockDraft(tx, actor, value.revisionId, 'specPublish');
+      const draft = await lockDraft(tx, actor, value.revisionId);
       const { sha256, counts } = await hashRevision(tx, ws, draft);
       if (counts.modules + counts.events + counts.relations === 0) {
         throw new MenuActionInvalidError([{ path: ['revisionId'], code: 'empty' }]);
@@ -226,7 +235,7 @@ export function specActions(deps: SpecActionDeps): MenuActionDeclaration[] {
     currentVersion,
     async handle(tx, actor, input): Promise<ActionHandlerResult> {
       const value = parsed('reject', input);
-      const draft = await lockDraft(tx, actor, value.revisionId, 'specReject');
+      const draft = await lockDraft(tx, actor, value.revisionId);
       const version = await rejectDraft(tx, actor.workspace_id, draft, value.reason);
       await record(tx, actor, 'rejected', draft, {
         modelId: draft.modelId,

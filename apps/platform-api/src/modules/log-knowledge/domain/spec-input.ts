@@ -184,8 +184,12 @@ export interface DraftIndex {
   moduleKeys: ReadonlySet<string>;
   /** `qualifiedKey(moduleKey, eventKey)` */
   eventKeys: ReadonlySet<string>;
+  /** `relationEdgeKey(source, predicate, target)` of every relation the draft already stores. */
+  relationEdges: ReadonlySet<string>;
 }
 export const qualifiedKey = (moduleKey: string, eventKey: string): string => `${moduleKey}\u0000${eventKey}`;
+/** The stored identity of a relation edge: the columns of `spec_event_relation_edge_uq`, by key. */
+export const relationEdgeKey = (source: string, predicate: string, target: string): string => `${source}\u0001${predicate}\u0001${target}`;
 
 export interface PlannedModule {
   index: number;
@@ -324,8 +328,9 @@ export function planSpecRows(
       errors.push({ path: at('relations', index, 'targetEvent'), code: 'malformed' });
       return;
     }
-    const edge = `${source}\u0001${r.predicate}\u0001${target}`;
-    if (seenEdges.has(edge)) {
+    const edge = relationEdgeKey(source, r.predicate, target);
+    // An edge the draft stores would die on `spec_event_relation_edge_uq` at insert time; report it here instead.
+    if (seenEdges.has(edge) || draft.relationEdges.has(edge)) {
       errors.push({ path: at('relations', index, 'predicate'), code: 'duplicate' });
       return;
     }

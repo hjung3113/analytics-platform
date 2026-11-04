@@ -39,6 +39,12 @@ interface Answer {
   fieldErrors: { path: string[]; code: string }[];
 }
 type Row = Record<string, unknown>;
+/** The apply route's wire answer (`Progress` of the import suites). */
+interface ImportProgress {
+  jobId: string;
+  status: string;
+  counts: Record<string, number>;
+}
 
 const field = (name: string) => ({ name, type: 'float', unit: 'rpm', description: `${name} value` });
 /** Two modules (one child), three events, two relations. */
@@ -168,6 +174,50 @@ describe.skipIf(!runIntegration)('model spec write actions (#1196 b1)', () => {
     });
   }
 
+  /**
+   * Polls until `pid` is a backend currently blocked on a lock whose blocker set contains every pid in `blockers`
+   * (`pg_blocking_pids`; the pg_stat_activity state/wait columns are hidden cross-role, so the lock view is the
+   * observable seam). The observed wait, not a sleep, is the proof; a poll is the only way to see it because
+   * Postgres exposes no event a test could await.
+   */
+  async function waitForLockWait(what: string, pid: number, blockers: number[], timeoutMs = 15_000): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+      const { rows } = await appSql(`select pg_blocking_pids($1::int) @> $2::int[] as waiting`, [pid, blockers]);
+      if (rows[0]?.waiting === true) return;
+      if (Date.now() > deadline) throw new Error(`${what}: pid ${pid} never observed waiting on [${blockers.join(', ')}]`);
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+  }
+
+  /**
+   * Polls until at least `count` distinct backends wait in a lock queue rooted at one of `blockers`: blocked by a
+   * holder directly, or behind an earlier waiter of the same queue (the second comer's blockers name the first).
+   */
+  async function waitForLockWaiters(what: string, blockers: number[], count: number, timeoutMs = 15_000): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+      const rows: { pid: number; blockers: number[] }[] = (
+        await appSql('select pid, pg_blocking_pids(pid) as blockers from pg_locks where not granted group by pid')
+      ).rows;
+      const chained = new Set<number>(blockers);
+      let grew = true;
+      while (grew) {
+        grew = false;
+        for (const { pid, blockers: blocking } of rows) {
+          if (!chained.has(pid) && blocking.some((b) => chained.has(b))) {
+            chained.add(pid);
+            grew = true;
+          }
+        }
+      }
+      const waiting = chained.size - blockers.length;
+      if (waiting >= count) return;
+      if (Date.now() > deadline) throw new Error(`${what}: only ${waiting} of ${count} queued lock waiters observed`);
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+  }
+
   // The suite sends far more writes than one actor's rate window allows; a 429 would hide the real assertion.
   beforeEach(async () => { await sql('delete from core.rate_limits'); });
 
@@ -201,6 +251,9 @@ describe.skipIf(!runIntegration)('model spec write actions (#1196 b1)', () => {
     await sql(`delete from knowledge.spec_module where spec_rev_id in ${revs}`, [actorIds]);
     await sql('delete from knowledge.model_spec_revision where created_by = any($1)', [actorIds]);
     await sql('delete from knowledge.software_version where created_by = any($1)', [actorIds]);
+    // the import jobs a release-order test stages (rows first, the job FK)
+    await sql('delete from knowledge.catalog_import_row where job_id in (select id from knowledge.catalog_import_job where created_by = any($1))', [actorIds]);
+    await sql('delete from knowledge.catalog_import_job where created_by = any($1)', [actorIds]);
     await sql('delete from knowledge.equipment_model where created_by = any($1)', [actorIds]);
     await sql('delete from knowledge.vendor where created_by = any($1)', [actorIds]);
     for (const [table, column] of [
@@ -334,6 +387,29 @@ describe.skipIf(!runIntegration)('model spec write actions (#1196 b1)', () => {
       expect(fe(await act('specDraftSave', { revisionId: draft.id, mode: 'append', events: [{ module: 'A', name: 'e' }] }, { expectedVersion: '2' }))).toEqual(['events.0.name:duplicate']);
     });
 
+    it('a relation edge an earlier call stored is a row-numbered duplicate, not a server error', async () => {
+      const draft = await filled(await newModel('dupeedge'));
+      const before = await audit(draft.id);
+      const same = await act('specDraftSave', { revisionId: draft.id, mode: 'append', relations: CONTENT.relations }, { expectedVersion: '2' });
+      expect(same.outcome, JSON.stringify(same)).toBe('invalid');
+      expect(fe(same)).toEqual(['relations.0.predicate:duplicate', 'relations.1.predicate:duplicate']);
+      // a stored edge next to a new, otherwise insertable one: only the stored row is reported
+      const mixed = await act(
+        'specDraftSave',
+        {
+          revisionId: draft.id,
+          mode: 'append',
+          relations: [CONTENT.relations[0], { sourceModule: 'Spindle', sourceEvent: 'Start', predicate: 'follows', targetModule: 'Spindle Motor', targetEvent: 'Stop' }],
+        },
+        { expectedVersion: '2' },
+      );
+      expect(mixed.outcome).toBe('invalid');
+      expect(fe(mixed)).toEqual(['relations.0.predicate:duplicate']);
+      expect((await revisionRow(draft.id)).row_version).toBe(2);
+      expect(await counts(draft.id)).toEqual({ spec_module: 2, spec_event: 3, spec_event_relation: 2 });
+      expect(await audit(draft.id)).toEqual(before);
+    });
+
     it('the same event name under two modules is two events', async () => {
       const draft = await newDraft(await newModel('samename'));
       const a = await act('specDraftSave', { revisionId: draft.id, mode: 'append', modules: [{ name: 'A' }, { name: 'B' }], events: [{ module: 'A', name: 'E' }, { module: 'B', name: 'E' }] }, { expectedVersion: draft.version });
@@ -405,42 +481,84 @@ describe.skipIf(!runIntegration)('model spec write actions (#1196 b1)', () => {
       expect((await read('specDraft', { revisionId: id })).data).toBeNull();
     });
 
-    it('a write to a published or a rejected revision answers conflict with a value no client holds', async () => {
+    it('a write to a published or a rejected revision answers conflict, and the returned token cannot hold it either', async () => {
       const published = await filled(await newModel('pubwrite'));
       const done = await act('specPublish', { revisionId: published.id }, { expectedVersion: published.version });
       expect(done.data.outcome).toBe('published');
       const rejected = await newDraft(await newModel('rejwrite'));
       await act('specReject', { revisionId: rejected.id, reason: 'no' }, { expectedVersion: rejected.version });
+      const writes = [
+        ['specDraftSave', { mode: 'append', modules: [{ name: 'Late' }] }],
+        ['specPublish', {}],
+        ['specReject', { reason: 'again' }],
+      ] as const;
       for (const [id, version] of [[published.id, published.version], [published.id, done.version as string], [rejected.id, rejected.version]] as const) {
-        for (const [action, extra] of [['specDraftSave', { mode: 'append', modules: [{ name: 'Late' }] }], ['specPublish', {}], ['specReject', { reason: 'again' }]] as const) {
+        for (const [action, extra] of writes) {
           const a = await act(action, { revisionId: id, ...extra }, { expectedVersion: version });
           expect(a.outcome, `${action} on ${id}`).toBe('conflict');
-          expect(a.version).toMatch(/^(published|rejected):\d+$/);
+          expect(a.version).toMatch(/^(published|rejected):[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+          // replaying the returned conflict version with a fresh idempotency key still conflicts, on a fresh token
+          const b = await act(action, { revisionId: id, ...extra }, { expectedVersion: defined(a.version) });
+          expect(b.outcome, `${action} on ${id} replayed`).toBe('conflict');
+          expect(b.version).toMatch(/^(published|rejected):[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+          expect(b.version).not.toBe(a.version);
         }
       }
       expect(await counts(published.id)).toEqual({ spec_module: 2, spec_event: 3, spec_event_relation: 2 });
     });
 
-    it('concurrent append and publish on one draft: the published row set always hashes to content_sha256', async () => {
-      for (let round = 0; round < 4; round += 1) {
-        const draft = await filled(await newModel(`race${round}`));
-        const [append, publish] = await Promise.all([
-          act('specDraftSave', { revisionId: draft.id, mode: 'append', modules: [{ name: `Late ${round}` }] }, { expectedVersion: draft.version, who: await person('admin') }),
-          act('specPublish', { revisionId: draft.id }, { expectedVersion: draft.version, who: await person('admin') }),
-        ]);
-        const row = await revisionRow(draft.id);
-        // Exactly one of them wins the version; the loser answers conflict.
-        expect([append.outcome, publish.outcome].sort()).toEqual(['conflict', 'ok']);
-        if (row.state === 'published') {
-          expect(row.content_sha256).toBe(await recomputedHash(draft.id));
-          expect((await counts(draft.id)).spec_module).toBe(2);
-        } else {
-          expect((await counts(draft.id)).spec_module).toBe(3);
+    it('concurrent append and publish on one draft, both queued behind a held child insert: the sealed hash always matches the stored rows', async () => {
+      for (const [round, first] of [['append-first', 'specDraftSave'], ['publish-first', 'specPublish']] as const) {
+        const draft = await filled(await newModel(`race-${round}`));
+        // both actors exist before any request is launched: the race is the requests, not the logins
+        const [appendActor, publishActor] = await Promise.all([person('admin'), person('admin')]);
+        const holder = await dbHandle.pool.connect();
+        try {
+          await holder.query('begin');
+          // the held child insert reads the revision FOR SHARE (0092 guard); both actions queue in step 7,
+          // the second directly behind the first in the same FOR UPDATE queue
+          await holder.query(`insert into knowledge.spec_module (workspace_id, spec_rev_id, module_key, name) values ($1,$2,'HOLDER','holder')`, [WORKSPACE_ID, draft.id]);
+          const holderPid = Number((await holder.query('select pg_backend_pid() as pid')).rows[0].pid);
+          const launchAppend = () =>
+            act('specDraftSave', { revisionId: draft.id, mode: 'append', modules: [{ name: `Late ${round}` }] }, { expectedVersion: draft.version, who: appendActor });
+          const launchPublish = () => act('specPublish', { revisionId: draft.id }, { expectedVersion: draft.version, who: publishActor });
+          let appendRequest: Promise<Answer>;
+          let publishRequest: Promise<Answer>;
+          if (first === 'specDraftSave') {
+            appendRequest = launchAppend();
+            await waitForLockWaiters(`${round}: the append queues on the holder`, [holderPid], 1);
+            publishRequest = launchPublish();
+          } else {
+            publishRequest = launchPublish();
+            await waitForLockWaiters(`${round}: the publish queues on the holder`, [holderPid], 1);
+            appendRequest = launchAppend();
+          }
+          await waitForLockWaiters(`${round}: both requests are queued`, [holderPid], 2);
+          await holder.query('commit');
+          const [append, publish] = await Promise.all([appendRequest, publishRequest]);
+          // exactly one of them wins the version; the loser answers conflict
+          expect([append.outcome, publish.outcome].sort()).toEqual(['conflict', 'ok']);
+          const row = await revisionRow(draft.id);
+          if (publish.outcome === 'ok') {
+            expect((await counts(draft.id)).spec_module).toBe(3); // the filled rows plus the held insert; the loser wrote nothing
+            expect(row.state).toBe('published');
+            expect(row.content_sha256).toBe(publish.data.contentSha256);
+            expect(row.content_sha256).toBe(await recomputedHash(draft.id));
+          } else {
+            expect((await counts(draft.id)).spec_module).toBe(4); // as publish, plus the winning append's module
+            expect(row.state).toBe('draft');
+            const sealed = await act('specPublish', { revisionId: draft.id }, { expectedVersion: defined(append.version) });
+            expect(sealed.data.outcome).toBe('published');
+            expect((await revisionRow(draft.id)).content_sha256).toBe(await recomputedHash(draft.id));
+          }
+        } finally {
+          await holder.query('rollback').catch(() => undefined);
+          holder.release();
         }
       }
-    });
+    }, 30_000);
 
-    it('a child insert holds the revision FOR SHARE: a publish update waits for it, and a late insert is refused', async () => {
+    it('a child insert holds the revision FOR SHARE: the publish UPDATE is seen waiting on the inserter, and a late insert is refused', async () => {
       const model = await newModel('interlock');
       const draft = await filled(model);
       const inserter = await dbHandle.pool.connect();
@@ -448,13 +566,15 @@ describe.skipIf(!runIntegration)('model spec write actions (#1196 b1)', () => {
       try {
         await inserter.query('begin');
         await inserter.query(`insert into knowledge.spec_module (workspace_id, spec_rev_id, module_key, name) values ($1,$2,'RACE','race')`, [WORKSPACE_ID, draft.id]);
-        let sealed = false;
+        const inserterPid = Number((await inserter.query('select pg_backend_pid() as pid')).rows[0].pid);
         await sealer.query('begin');
-        const pending = sealer
-          .query(`update knowledge.model_spec_revision set state = 'published', content_sha256 = $2, published_by = $3, published_at = now() where id = $1`, [draft.id, 'a'.repeat(64), admin.id])
-          .then(() => { sealed = true; });
-        await new Promise((resolve) => setTimeout(resolve, 400));
-        expect(sealed, 'the seal waits for the open insert').toBe(false);
+        const sealerPid = Number((await sealer.query('select pg_backend_pid() as pid')).rows[0].pid);
+        const pending = sealer.query(
+          `update knowledge.model_spec_revision set state = 'published', content_sha256 = $2, published_by = $3, published_at = now() where id = $1`,
+          [draft.id, 'a'.repeat(64), admin.id],
+        );
+        // the proof is the observed wait itself, not a sleep: the UPDATE is queued on the inserter's FOR SHARE
+        await waitForLockWait('the seal waits for the open insert', sealerPid, [inserterPid]);
         await inserter.query('commit');
         await pending;
         await sealer.query('commit');
@@ -468,7 +588,7 @@ describe.skipIf(!runIntegration)('model spec write actions (#1196 b1)', () => {
       await expect(
         appSql(`insert into knowledge.spec_module (workspace_id, spec_rev_id, module_key, name) values ($1,$2,'LATE','late')`, [WORKSPACE_ID, draft.id]),
       ).rejects.toMatchObject({ code: '23514' });
-    });
+    }, 20_000);
   });
 
   describe('specPublish', () => {
@@ -627,16 +747,75 @@ describe.skipIf(!runIntegration)('model spec write actions (#1196 b1)', () => {
     const orders = async (model: string) =>
       (await sql('select release_order from knowledge.software_version where model_id = $1 order by release_order', [model])).rows.map((r) => r.release_order as number);
 
-    it('8 parallel direct inserts and softwareCreate calls for one model get distinct consecutive orders from max+1', async () => {
+    it('direct inserts, softwareCreate calls and two applied software import jobs on one model get distinct consecutive orders from max+1', async () => {
       const model = await newModel('ro');
       await insertSoftware(model, `${TAG}-ro-seed`);
+      const parent = (await sql('select v.code as vendor_code, m.code as model_code from knowledge.equipment_model m join knowledge.vendor v on v.id = m.vendor_id where m.id = $1', [model])).rows[0] as {
+        vendor_code: string;
+        model_code: string;
+      };
+      const uploadJob = async (versionKey: string): Promise<string> => {
+        const boundary = `----isw${randomUUID().replaceAll('-', '')}`;
+        const csv = ['v,m,k', [parent.vendor_code, parent.model_code, versionKey].join(',')].join('\n');
+        const payload = Buffer.concat([
+          Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="entityType"\r\n\r\nsoftware\r\n`),
+          Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${TAG}-ro.csv"\r\nContent-Type: application/octet-stream\r\n\r\n`),
+          Buffer.from(csv),
+          Buffer.from(`\r\n--${boundary}--\r\n`),
+        ]);
+        const res = await app.inject({
+          method: 'POST',
+          url: '/api/v1/log-knowledge/imports',
+          headers: {
+            'content-type': `multipart/form-data; boundary=${boundary}`,
+            ...cookieHeader(admin.cookie),
+            'x-csrf-token': admin.csrf,
+            'idempotency-key': randomUUID(),
+          },
+          payload,
+        });
+        expect(res.statusCode, res.body).toBe(201);
+        return res.json<{ jobId: string }>().jobId;
+      };
+      const applyJob = async (jobId: string) =>
+        app.inject({
+          method: 'POST',
+          url: `/api/v1/log-knowledge/imports/${jobId}/apply`,
+          headers: { 'content-type': 'application/json', ...cookieHeader(admin.cookie), 'x-csrf-token': admin.csrf },
+          payload: JSON.stringify({
+            expectedPlanVersion: Number((await sql('select plan_version from knowledge.catalog_import_job where id = $1', [jobId])).rows[0].plan_version),
+          }),
+        });
+      const applyUntilDone = async (jobId: string) => {
+        let res = await applyJob(jobId);
+        for (let calls = 1; res.statusCode === 200 && res.json<ImportProgress>().status === 'applying' && calls < 50; calls += 1) {
+          res = await applyJob(jobId);
+        }
+        return res;
+      };
+      const mapping = { vendor_code: 'v', model_code: 'm', version_key: 'k' };
+      const jobVersion = async (jobId: string) =>
+        String((await sql('select row_version from knowledge.catalog_import_job where id = $1', [jobId])).rows[0].row_version);
+      // staged before the race; two applies run concurrently, exactly the per-process admission cap
+      const jobs = [await uploadJob(`${TAG}-ro-sw-0`), await uploadJob(`${TAG}-ro-sw-1`)];
+      for (const jobId of jobs) {
+        expect((await act('importMap', { jobId, mapping }, { expectedVersion: await jobVersion(jobId) })).outcome).toBe('ok');
+        expect((await act('importValidate', { jobId }, { expectedVersion: await jobVersion(jobId) })).outcome).toBe('ok');
+      }
       const people = await Promise.all([person('admin'), person('admin')]);
-      await Promise.all([
-        ...Array.from({ length: 6 }, (_, i) => insertSoftware(model, `${TAG}-ro-direct-${i}`)),
-        ...people.map((who, i) => act('softwareCreate', { modelId: model, versionLabel: `${TAG}-ro-action-${i}`, name: '' }, { who })),
+      const [applies, , actions] = await Promise.all([
+        Promise.all(jobs.map((jobId) => applyUntilDone(jobId))),
+        Promise.all(Array.from({ length: 6 }, (_, i) => insertSoftware(model, `${TAG}-ro-direct-${i}`))),
+        Promise.all(people.map((who, i) => act('softwareCreate', { modelId: model, versionLabel: `${TAG}-ro-action-${i}`, name: '' }, { who }))),
       ]);
-      expect(await orders(model)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
-    });
+      for (const [i, res] of applies.entries()) {
+        expect(res.statusCode, res.body).toBe(200);
+        expect(res.json<ImportProgress>(), `import job ${i}`).toMatchObject({ status: 'completed', counts: { applied: 1 } });
+      }
+      expect(actions.every((a) => a.outcome === 'ok')).toBe(true);
+      // the seeded row plus 6 direct + 2 action + 2 import inserts, all distinct and consecutive from max+1
+      expect(await orders(model)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+    }, 30_000);
 
     it('a transaction holding the lock for model A does not block an insert for model B', async () => {
       const a = await newModel('roa');

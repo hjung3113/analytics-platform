@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { type DraftIndex, SPEC_BODY_MAX_BYTES, SPEC_ROWS_MAX, normalizeSpecName, parseSpecInput, planSpecRows, qualifiedKey, validateSpecInput } from '../domain/spec-input.js';
+import { type DraftIndex, SPEC_BODY_MAX_BYTES, SPEC_ROWS_MAX, normalizeSpecName, parseSpecInput, planSpecRows, qualifiedKey, relationEdgeKey, validateSpecInput } from '../domain/spec-input.js';
 
 const REV = '33333333-3333-4333-8333-333333333333';
-const empty: DraftIndex = { moduleKeys: new Set(), eventKeys: new Set() };
+const empty: DraftIndex = { moduleKeys: new Set(), eventKeys: new Set(), relationEdges: new Set() };
 const field = { name: 'Temp', type: 'float', description: 'chamber temperature' };
 const save = (extra: Record<string, unknown>) => ({ revisionId: REV, mode: 'append', ...extra });
 const plan = (draft: DraftIndex, input: Record<string, unknown>) => {
@@ -69,9 +69,22 @@ describe('spec dependency planning', () => {
   });
 
   it('a reference may point at a row already in the draft', () => {
-    const draft: DraftIndex = { moduleKeys: new Set(['A']), eventKeys: new Set([qualifiedKey('A', 'E1')]) };
+    const draft: DraftIndex = { moduleKeys: new Set(['A']), eventKeys: new Set([qualifiedKey('A', 'E1')]), relationEdges: new Set() };
     const r = plan(draft, { modules: [{ name: 'B', parentModule: 'A' }], events: [{ module: 'B', name: 'E2' }], relations: [{ sourceModule: 'A', sourceEvent: 'E1', predicate: 'p', targetModule: 'B', targetEvent: 'E2' }] });
     expect(r.ok).toBe(true);
+  });
+
+  it('an edge the draft already stores is a row-numbered duplicate, whatever the call holds', () => {
+    const draft: DraftIndex = {
+      moduleKeys: new Set(['A', 'B']),
+      eventKeys: new Set([qualifiedKey('A', 'E'), qualifiedKey('B', 'F')]),
+      relationEdges: new Set([relationEdgeKey(qualifiedKey('A', 'E'), 'p', qualifiedKey('B', 'F'))]),
+    };
+    const relations = [
+      { sourceModule: 'A', sourceEvent: 'E', predicate: 'p', targetModule: 'B', targetEvent: 'F' },
+      { sourceModule: 'B', sourceEvent: 'F', predicate: 'q', targetModule: 'A', targetEvent: 'E' },
+    ];
+    expect(codes(plan(draft, { relations }))).toEqual(['relations.0.predicate:duplicate']);
   });
 
   it.each([
