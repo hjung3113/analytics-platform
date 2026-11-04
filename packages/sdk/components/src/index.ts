@@ -14,6 +14,10 @@ export type { FilterValueCheck, LegacyFilterKey, TableFilterOption, TableFilterP
 export { FILTER_OP_LABELS } from './table/filterOps';
 export { instantToLocalField, localFieldToInstant, type LocalFieldFailure, type LocalFieldResult } from './table/zonedInstant';
 export type { InstantEntry } from './table/filterFields';
+export { useTableFilterDeclaration } from './table/useTableFilterDeclaration';
+export type { TableFilterDeclaration, TableFilterColumnProps } from './table/useTableFilterDeclaration';
+export { useClearFiltersAction } from './table/useClearFiltersAction';
+export type { ClearFiltersActionOptions } from './table/useClearFiltersAction';
 export { RecoverButton } from './state/RecoverButton';
 export { focusPageFallback } from './state/pageFocus';
 export { checkWorkbook, toWorkbookXlsx, WorkbookError, WORKBOOK_LIMITS, type WorkbookCell, type WorkbookErrorCode, type WorkbookSheet } from './table/workbook';

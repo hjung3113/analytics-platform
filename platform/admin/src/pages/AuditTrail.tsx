@@ -2,8 +2,8 @@ import { useMemo } from 'react';
 import { formatInstant, type AuditEvent, type ColumnFilter } from '@ap/contracts';
 import { PlatformLink, useI18n, usePlatform } from '@ap/kernel';
 import { Minus, ArrowRight } from 'lucide-react';
-import { ManagementLayout, RowAction, type PlatformColumn, PlatformDataTable, PlatformPage, TableUrlWarning, useTableUrlState } from '@ap/components';
-import { Button, StatusBadge } from '@ap/ui';
+import { useClearFiltersAction, useTableFilterDeclaration, type TableFilterDeclaration, ManagementLayout, RowAction, type PlatformColumn, PlatformDataTable, PlatformPage, TableUrlWarning, useTableUrlState } from '@ap/components';
+import { StatusBadge } from '@ap/ui';
 import { auditDestination } from '../audit-destination';
 import { ACTION_LABEL, SORT_FIELDS, SOURCE_LABEL, TYPE_LABEL } from '../audit-query';
 import { AUDIT_PINNED, auditFilterSpecs, auditTimeEntry, auditValueCheck, toAuditQuery } from '../audit-filters';
@@ -20,29 +20,37 @@ const mono = (value: unknown) => <span className="t-mono">{String(value)}</span>
  * never re-sorts a page; the default sort is the server's newest-first and no URL key is written for it.
  */
 export default function AuditTrail() {
-  const { t, lang } = useI18n();
+  const { lang } = useI18n();
   const ko = lang === 'ko';
   const timeZone = viewerTimeZone();
-  const { adapter, linkTo, setPage } = usePlatform();
+  const { adapter, linkTo } = usePlatform();
   // ADR-0105: every condition is one hidden repeated page key `filter`. A bad sort/page/condition is the table warning, which clears exactly the bad keys.
-  const specs = useMemo(() => auditFilterSpecs(lang), [lang]);
-  const urlFilters = useMemo(() => ({
-    key: 'filter', specs, validate: auditValueCheck,
-    labels: { at: ko ? '시각' : 'At', actor: ko ? '행위자' : 'Actor', action: ko ? '작업' : 'Action', source: ko ? '출처' : 'Source', targetType: ko ? '대상 유형' : 'Target type', targetId: ko ? '대상 ID' : 'Target ID' },
-  }), [specs, ko]);
+  const filterDeclarations = useMemo<TableFilterDeclaration[]>(() => {
+    const specs = auditFilterSpecs(lang);
+    return [
+      { id: 'at', label: { ko: '시각', en: 'At' }, spec: specs.at, entry: auditTimeEntry(timeZone) },
+      { id: 'actor', label: { ko: '행위자', en: 'Actor' }, spec: specs.actor, pinned: AUDIT_PINNED.actor },
+      { id: 'action', label: { ko: '작업', en: 'Action' }, spec: specs.action, pinned: AUDIT_PINNED.action },
+      { id: 'source', label: { ko: '출처', en: 'Source' }, spec: specs.source },
+      { id: 'targetType', label: { ko: '대상 유형', en: 'Target type' }, spec: specs.targetType },
+      { id: 'targetId', label: { ko: '대상 ID', en: 'Target ID' }, spec: specs.targetId },
+    ];
+  }, [lang, timeZone]);
+  const { urlFilters, filterColumnProps } = useTableFilterDeclaration('filter', filterDeclarations, { lang, validate: auditValueCheck });
   const { urlState, invalid, sentences, recoverKeys, cause } = useTableUrlState(SORT_FIELDS, { filters: urlFilters });
   const conditions = urlState?.filters ?? NO_FILTERS;
+  const clearButton = useClearFiltersAction({ filterKey: urlFilters.key, hasFilters: conditions.length > 0 });
   const columns = useMemo<PlatformColumn<AuditEvent>[]>(() => [
-    { id: 'at', header: ko ? '시각' : 'At', size: 150, filter: specs.at, filterEntry: auditTimeEntry(timeZone), cell: row => <span className="tabular">{formatInstant(row.at, lang, timeZone)}</span> },
-    { id: 'actor', header: ko ? '행위자' : 'Actor', size: 130, filter: specs.actor, filterPinned: AUDIT_PINNED.actor, cell: row => mono(row.actor) },
-    { id: 'action', header: ko ? '작업' : 'Action', size: 110, filter: specs.action, filterPinned: AUDIT_PINNED.action, cell: row => ACTION_LABEL[row.action][lang] },
-    { id: 'source', header: ko ? '출처' : 'Source', size: 100, filter: specs.source, cell: row => <StatusBadge tone={row.source === 'system' ? 'neutral' : 'info'}>{SOURCE_LABEL[row.source][lang]}</StatusBadge> },
-    { id: 'targetType', header: ko ? '대상 유형' : 'Target type', filter: specs.targetType, value: row => row.target.type, size: 110, cell: row => Object.hasOwn(TYPE_LABEL, row.target.type) ? TYPE_LABEL[row.target.type][lang] : mono(row.target.type) },
-    { id: 'targetId', header: ko ? '대상 ID' : 'Target ID', sortable: false, filter: specs.targetId, value: row => row.target.id, size: 170, cell: row => mono(row.target.id) },
+    { ...filterColumnProps('at'), size: 150, cell: row => <span className="tabular">{formatInstant(row.at, lang, timeZone)}</span> },
+    { ...filterColumnProps('actor'), size: 130, cell: row => mono(row.actor) },
+    { ...filterColumnProps('action'), size: 110, cell: row => ACTION_LABEL[row.action][lang] },
+    { ...filterColumnProps('source'), size: 100, cell: row => <StatusBadge tone={row.source === 'system' ? 'neutral' : 'info'}>{SOURCE_LABEL[row.source][lang]}</StatusBadge> },
+    { ...filterColumnProps('targetType'), value: row => row.target.type, size: 110, cell: row => Object.hasOwn(TYPE_LABEL, row.target.type) ? TYPE_LABEL[row.target.type][lang] : mono(row.target.type) },
+    { ...filterColumnProps('targetId'), sortable: false, value: row => row.target.id, size: 170, cell: row => mono(row.target.id) },
     { id: 'scopeId', header: ko ? '사이트' : 'Site', sortable: false, size: 90, cell: row => row.target.scopeId ?? '—' },
     { id: 'changes', header: ko ? '변경 필드' : 'Changed fields', sortable: false, size: 220, cell: row => row.changes ? Object.keys(row.changes).sort().join(', ') : '—' },
     { id: 'reason', header: ko ? '사유' : 'Reason', sortable: false, size: 200, cell: row => row.reason ? <span className="block truncate" title={row.reason}>{row.reason}</span> : '—' },
-  ], [ko, lang, timeZone, specs]);
+  ], [ko, lang, timeZone, filterColumnProps]);
   return <PlatformPage description={ko ? '모든 사이트의 마스터 변경 로그입니다. 행의 링크는 각 상세 화면의 변경 이력 탭으로 이동합니다.' : 'The master-change log across all sites. A row link opens the destination detail\'s change-history tab.'}>
     <ManagementLayout
       table={invalid ? <TableUrlWarning sentences={sentences} recoverKeys={recoverKeys} cause={cause} /> :
@@ -66,7 +74,7 @@ export default function AuditTrail() {
             ...(response.message !== undefined && { message: response.message }),
           };
         }}
-        emptyAction={conditions.length > 0 ? <Button type="button" size="sm" variant="secondary" onClick={() => setPage({ filter: null, page: null })}>{t('clearFilters')}</Button> : null}
+        emptyAction={clearButton}
         rowAction={(row, { compact }) => {
           const link = auditDestination(linkTo, row.target);
           const name = ko ? `${row.target.id} 상세` : `Detail ${row.target.id}`;

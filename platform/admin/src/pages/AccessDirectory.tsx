@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { type AccessPrincipal, type ColumnFilter } from '@ap/contracts';
 import { useI18n, usePlatform } from '@ap/kernel';
 import { PanelRight } from 'lucide-react';
-import { DetailDrawer, RowAction, ManagementLayout, type PlatformColumn, PlatformDataTable, PlatformPage, PageKeyWarning, TableUrlWarning, usePageKeyRules, useTableUrlState, type TableFilterField } from '@ap/components';
+import { useClearFiltersAction, useTableFilterDeclaration, type TableFilterDeclaration, DetailDrawer, RowAction, ManagementLayout, type PlatformColumn, PlatformDataTable, PlatformPage, PageKeyWarning, TableUrlWarning, usePageKeyRules, useTableUrlState } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import { grantTotals, menusForPermissions } from '../access-rows';
 import { SORT_FIELDS } from '../access-query';
@@ -21,7 +21,7 @@ const mono = (value: unknown) => <span className="t-mono">{String(value)}</span>
  * nothing: room/individual grants are meta-DB owned but the role-membership source stays open (issue #98). Not mart data, so there is no trust indicator.
  */
 export default function AccessDirectory() {
-  const { t, lang } = useI18n();
+  const { lang } = useI18n();
   const ko = lang === 'ko';
   const { adapter, registry, pageParam, setPage } = usePlatform();
   const focus = pageParam('focus');
@@ -30,21 +30,25 @@ export default function AccessDirectory() {
   const drawerTab = pageParam('tab') ?? 'permissions';
   const validTab = ['permissions', 'sites'].includes(drawerTab);
   // ADR-0105: 역할 and 권한 are conditions of one hidden repeated page key `filter`.
-  const specs = useMemo(() => accessFilterSpecs(registry.permissions), [registry.permissions]);
-  const urlFilters = useMemo(() => ({
-    key: 'filter', specs, validate: accessValueCheck(registry.permissions),
-    labels: { role: ko ? '역할' : 'Role', permission: ko ? '권한' : 'Permission' },
-  }), [specs, registry.permissions, ko]);
+  const filterDeclarations = useMemo<TableFilterDeclaration[]>(() => {
+    const specs = accessFilterSpecs(registry.permissions);
+    return [
+      { id: 'role', label: { ko: '역할', en: 'Role' }, spec: specs.role, pinned: true },
+      { id: 'permission', label: { ko: '권한', en: 'Permission' }, spec: specs.permission, pinned: true, column: false },
+    ];
+  }, [registry.permissions]);
+  const validate = useMemo(() => accessValueCheck(registry.permissions), [registry.permissions]);
+  const { urlFilters, filterColumnProps, filterFields } = useTableFilterDeclaration('filter', filterDeclarations, { lang, validate });
   // A user sort/page/filter change moves rows between pages, so the focused row leaves with them (bot review P2).
   const { urlState, invalid, sentences, recoverKeys, cause } = useTableUrlState(SORT_FIELDS, { extraPatch: reason => reason === 'user' ? { focus: null, tab: null } : undefined, filters: urlFilters });
   const conditions = urlState?.filters ?? NO_FILTERS;
+  const clearButton = useClearFiltersAction({ filterKey: urlFilters.key, hasFilters: conditions.length > 0, extraKeys: ['focus', 'tab'] });
   // `focus` selects the drawer row and is never sent to accessDirectory: a malformed one alerts (adapter not called), an unknown one is the drawer alert.
   const focusRule = usePageKeyRules([{ key: 'focus', label: { ko: '상세 대상', en: 'Detail target' }, valid: raw => !invalidText(raw) }]);
   const ready = !invalid && !focusRule.invalid;
-  const filterFields = useMemo<TableFilterField[]>(() => [{ id: 'permission', label: { ko: '권한', en: 'Permission' }, spec: specs.permission, pinned: true }], [specs]);
   const columns = useMemo<PlatformColumn<AccessPrincipal>[]>(() => [
     { id: 'name', header: ko ? '이름' : 'Name' },
-    { id: 'role', header: ko ? '역할' : 'Role', filter: specs.role, filterPinned: true, cell: row => mono(row.role) },
+    { ...filterColumnProps('role'), cell: row => mono(row.role) },
     { id: 'title', header: ko ? '직책' : 'Title', sortable: false, value: row => row.title[lang] },
     { id: 'permissionCount', header: ko ? '권한 수' : 'Permissions', value: row => row.permissions.length },
     {
@@ -57,7 +61,7 @@ export default function AccessDirectory() {
       },
     },
     { id: 'menus', header: ko ? '메뉴' : 'Menus', sortable: false, value: row => menusForPermissions(registry, row.permissions).length },
-  ], [ko, lang, registry, specs]);
+  ], [ko, lang, registry, filterColumnProps]);
   // The drawer reads the loaded page's rows (the last loadPage result) — no second adapter call for a row.
   // Null until the current page request answered ok or empty: before that, and after forbidden/error/timeout, the page cannot
   // say a focus is unknown (06 §17 — no access and not loaded are not "no such principal").
@@ -151,7 +155,7 @@ export default function AccessDirectory() {
             ...(response.message !== undefined && { message: response.message }),
           };
         }}
-        emptyAction={conditions.length > 0 ? <Button type="button" size="sm" variant="secondary" onClick={() => setPage({ filter: null, page: null, focus: null, tab: null })}>{t('clearFilters')}</Button> : null}
+        emptyAction={clearButton}
         rowAction={(row, { compact }) => <RowAction compact={compact} icon={PanelRight} label={ko ? `${row.id} 보기` : `View ${row.id}`} text={ko ? '보기' : 'View'} onClick={() => setPage({ focus: row.id, tab: null })} />}
       />} />
   </PlatformPage>;
