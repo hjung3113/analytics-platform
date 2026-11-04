@@ -255,7 +255,8 @@ async function applyOne(ctx: ApplyContext, job: ImportJob, rowNo: number): Promi
       if (!(await ctx.authorize(ctx.actor, tx))) throw denied(); // the row stays non-final; the pass stops with 403
       const row = await lockApplyRow(tx, ctx.actor.workspace_id, job.id, rowNo);
       if (!row || isFinalApplyStatus(row.applyStatus)) return;
-      await setRowResult(tx, ctx.actor.workspace_id, job.id, rowNo, job.applyPass, { status: 'failed', error: 'unexpected' });
+      const outcome: Outcome = error instanceof RowRefusal ? conflict(error.reason) : failed('unexpected');
+      await setRowResult(tx, ctx.actor.workspace_id, job.id, rowNo, job.applyPass, outcome);
     });
   }
 }
@@ -264,6 +265,12 @@ interface Outcome {
   status: ApplyStatus;
   error?: string;
   resultTargetId?: string | null;
+}
+/** Thrown after writes were made: the row's transaction rolls back whole, then the row is recorded as a conflict. */
+class RowRefusal extends Error {
+  constructor(readonly reason: string) {
+    super(`catalog import row refused: ${reason}`);
+  }
 }
 const failed = (error: string): Outcome => ({ status: 'failed', error });
 const conflict = (error: string): Outcome => ({ status: 'conflict', error });
@@ -348,6 +355,8 @@ async function ensureParent(
   }
   const hit = await lookupParent(tx, kind, ws, plan.key, plan.nameKey);
   if (hit.kind !== 'one') throw new Error(`catalog import: ${kind} key taken but not readable`);
+  // The race winner is judged like any parent found at planning: an inactive one refuses the row.
+  if (!hit.row.active) throw new RowRefusal(kind === 'vendor' ? 'parent_inactive' : 'process_inactive');
   return hit.row.id;
 }
 

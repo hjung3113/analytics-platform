@@ -62,7 +62,9 @@ describe('model upload: header failures are file-level and name the headers', ()
   it('keeps blank-header refusal, and other entities refuse identical headers as before', async () => {
     expect(await parseImportFile(enc('메이커명,,모델명\nA,B,X\n'), 'm.csv', opts)).toMatchObject({ ok: false, code: 'invalid_headers' });
     expect(await parseImportFile(enc('a,b,a\n1,2,3\n'), 'v.csv')).toMatchObject({ ok: false, code: 'invalid_headers' });
-    expect(await parseImportFile(enc('a,b,a\n1,2,3\n'), 'm.csv', opts)).toMatchObject({ ok: false, code: 'invalid_headers' });
+    expect(await parseImportFile(enc('a,b,a\n1,2,3\n'), 'm.csv', opts)).toMatchObject({ ok: false, code: 'duplicate_header', detail: ['a', 'a'] });
+    expect(await parseImportFile(enc('메이커명,모델명,memo,memo\nA,X,1,2\n'), 'm.csv', opts)).toMatchObject({ ok: false, code: 'duplicate_header', detail: ['memo', 'memo'] });
+    expect(await parseImportFile(enc('v,c,n,n\n1,2,3,4\n'), 'm.csv', opts)).toMatchObject({ ok: false, code: 'duplicate_header', detail: ['n', 'n'] });
   });
   it('refuses an xlsx the same way', async () => {
     const wb = new ExcelJS.Workbook();
@@ -103,8 +105,12 @@ describe('normalizeRow: names shape', () => {
     });
     expect(normalized).toMatchObject({ vendorKey: 'V-1', vendorName: 'Demo', codeKey: 'M-1', name: 'X', processKeys: ['P-1'], processCreatable: false });
   });
-  it('reports a repeated process and a blank name on the name columns', () => {
-    expect(normalizeRow('model', { maker: 'A', model: 'X', proc: 'cmp, CMP' }, NAMES).errors).toEqual([{ field: 'process_names', code: 'duplicate' }]);
+  it('deduplicates repeated process names by key, keeping the first spelling, without a row error', () => {
+    const { normalized, errors } = normalizeRow('model', { maker: 'A', model: 'X', proc: 'CMP, cmp, ＣＭＰ,  Etch ' }, NAMES);
+    expect(errors).toEqual([]);
+    expect(normalized).toMatchObject({ processCodes: ['CMP', 'Etch'], processKeys: ['CMP', 'ETCH'] });
+  });
+  it('reports a blank name on the name columns', () => {
     expect(normalizeRow('model', { maker: '', model: '', proc: '' }, NAMES).errors).toEqual([
       { field: 'vendor_name', code: 'required' },
       { field: 'model_name', code: 'required' },

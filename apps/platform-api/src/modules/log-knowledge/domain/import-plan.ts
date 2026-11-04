@@ -177,7 +177,9 @@ export function normalizeRow(
     const processesMapped = mapped('process_codes') || mapped('process_names');
     const codeList = splitList(get('process_codes'), PROCESS_SPLIT);
     const fromNames = codeList.length === 0;
-    const processCodes = processesMapped ? (fromNames ? splitList(get('process_names'), NAME_SPLIT) : codeList) : [];
+    const listed = processesMapped ? (fromNames ? splitList(get('process_names'), NAME_SPLIT) : codeList) : [];
+    // Repeated names (same key after normalization) are one process; the first spelling stays.
+    const processCodes = fromNames ? listed.filter((c, i) => listed.findIndex((o) => toCodeKey(o) === toCodeKey(c)) === i) : listed;
     const processKeys = processCodes.map(toCodeKey);
     const processCreatable = processesMapped && fromNames && processCodes.length > 0;
 

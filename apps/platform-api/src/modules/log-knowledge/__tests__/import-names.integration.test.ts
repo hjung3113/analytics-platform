@@ -258,6 +258,9 @@ describe.skipIf(!runIntegration)('catalog import by names (#1195 b2)', () => {
     expect(dup.json()).toMatchObject({ code: 'duplicate_header', detail: { headers: ['메이커명', '제조사'] } });
     const same = await uploadRaw(a, '메이커명,메이커명,모델명\nA,A,X\n');
     expect(same.json()).toMatchObject({ code: 'duplicate_header', detail: { headers: ['메이커명', '메이커명'] } });
+    const unknownDup = await uploadRaw(a, '메이커명,모델명,memo,memo\nA,X,1,2\n');
+    expect(unknownDup.statusCode).toBe(400);
+    expect(unknownDup.json()).toMatchObject({ code: 'duplicate_header', detail: { headers: ['memo', 'memo'] } });
     // Vendor uploads keep the old refusal and start unmapped.
     expect((await uploadRaw(a, 'a,b,a\n1,2,3\n', 'vendor')).json()).toMatchObject({ code: 'invalid_headers' });
     const vendorUp = await uploadRaw(a, 'code,name\nX,Y\n', 'vendor');
@@ -300,6 +303,72 @@ describe.skipIf(!runIntegration)('catalog import by names (#1195 b2)', () => {
     const vendorAudits = [...(await createdAudits(jobA)), ...(await createdAudits(jobB))].filter((r) => r.subject_type === 'knowledge_vendor');
     expect(vendorAudits).toEqual([{ subject_type: 'knowledge_vendor', c: 1 }]);
     expect(await count('equipment_model')).toBeGreaterThanOrEqual(2);
+  });
+
+  /** Runner A pauses after its key check; B creates the shared parent; `afterB` runs (deactivation); A then loses the insert race. */
+  async function raceLoser(jobA: string, jobB: string, a: Person, b: Person, afterB: () => Promise<void>): Promise<Progress> {
+    let calls = 0;
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    hooks = {
+      afterCodeKeyCheck: async () => {
+        calls += 1;
+        if (calls === 1) await gate;
+      },
+    };
+    try {
+      const first = apply(a, jobA);
+      const deadline = Date.now() + 15_000;
+      while (calls < 1) {
+        if (Date.now() > deadline) throw new Error('the first runner never reached the hook');
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+      expect(await apply(b, jobB)).toMatchObject({ status: 'completed', counts: { applied: 1 } });
+      await afterB();
+      release();
+      return await first;
+    } finally {
+      hooks = {};
+      release();
+    }
+  }
+  const rowOutcome = async (jobId: string) =>
+    (await sql('select apply_status, apply_error from knowledge.catalog_import_row where job_id = $1 order by row_no', [jobId])).rows as { apply_status: string; apply_error: string | null }[];
+
+  it.each([
+    ['maker', 'parent_inactive'],
+    ['process', 'process_inactive'],
+  ] as const)('an insert-race loser refuses an inactive winning %s: conflict %s, the row rolled back whole', async (which, reason) => {
+    const a = await admin();
+    const b = await admin();
+    const table = which === 'maker' ? 'vendor' : 'process_category';
+    const shared = name(`Raced ${which}`);
+    const modelA = name(`RM-A-${which}`);
+    const modelB = name(`RM-B-${which}`);
+    let sheetA: string;
+    let sheetB: string;
+    if (which === 'maker') {
+      sheetA = `메이커명,모델명\n${shared},${modelA}\n`;
+      sheetB = `메이커명,모델명\n${shared},${modelB}\n`;
+    } else {
+      const maker = await seedNamed('vendor', a, name('Raced host'), 'Raced host');
+      expect(maker).toBeTruthy();
+      sheetA = `메이커명,모델명,공정명\n${name('Raced host')},${modelA},${shared}\n`;
+      sheetB = `메이커명,모델명,공정명\n${name('Raced host')},${modelB},${shared}\n`;
+    }
+    const jobA = await stage(a, sheetA);
+    const jobB = await stage(b, sheetB);
+    const result = await raceLoser(jobA, jobB, a, b, async () => {
+      await sql(`update knowledge.${table} set active = false where workspace_id = $1 and name = $2`, [WORKSPACE_ID, shared]);
+    });
+    expect(result).toMatchObject({ status: 'partial_failure', counts: { conflict: 1 } });
+    expect(await rowOutcome(jobA)).toEqual([{ apply_status: 'conflict', apply_error: reason }]);
+    // Nothing of the refused row remains: no model, no link, no second parent, no audit.
+    expect((await sql('select count(*)::int as c from knowledge.equipment_model where workspace_id = $1 and name = $2', [WORKSPACE_ID, modelA])).rows[0].c).toBe(0);
+    expect((await sql(`select count(*)::int as c from knowledge.${table} where workspace_id = $1 and name = $2`, [WORKSPACE_ID, shared])).rows[0].c).toBe(1);
+    expect(await createdAudits(jobA)).toEqual([]);
   });
 
   it('plans conflicts: inactive/ambiguous parents resolve by skip only, an ambiguous model name by map or skip', async () => {

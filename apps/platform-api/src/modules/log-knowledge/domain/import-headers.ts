@@ -36,14 +36,18 @@ export type ModelHeaderRecognition =
  */
 export function recognizeModelHeaders(headers: readonly string[]): ModelHeaderRecognition {
   const byField = new Map<string, string[]>();
+  const unknown = new Map<string, string[]>();
   for (const header of headers) {
     const field = FIELD_OF_HEADER.get(headerKey(header));
-    if (field === undefined) continue;
+    if (field === undefined) {
+      unknown.set(headerKey(header), [...(unknown.get(headerKey(header)) ?? []), header]);
+      continue;
+    }
     byField.set(field, [...(byField.get(field) ?? []), header]);
   }
-  if (byField.size === 0) return { kind: 'none' };
-  const dup = [...byField.values()].find((list) => list.length > 1);
+  const dup = [...byField.values(), ...unknown.values()].find((list) => list.length > 1);
   if (dup) return { kind: 'failed', code: 'duplicate_header', headers: dup };
+  if (byField.size === 0) return { kind: 'none' };
   const missing: string[] = [];
   if (!byField.has('vendor_name') && !byField.has('vendor_code')) missing.push(REQUIRED_MODEL_HEADERS.vendor);
   if (!byField.has('model_name') && !byField.has('model_code')) missing.push(REQUIRED_MODEL_HEADERS.model);

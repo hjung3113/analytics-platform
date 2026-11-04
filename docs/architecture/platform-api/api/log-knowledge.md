@@ -205,7 +205,7 @@ The owner's import is a one-time bulk load of a **names-only model sheet** (ADR-
 
 **File-level failures** (HTTP 400, no job): `missing_header` (`detail.headers` = the expected names missing, `메이커명` and/or `모델명`) and `duplicate_header` (`detail.headers` = the header texts that resolve to one field: identical or alias-equivalent). A blank header is still `invalid_headers`; other entities still refuse identical headers as `invalid_headers`.
 
-**Process names** split on `,` only; each trimmed, empties dropped, deduplicated by key (a repeat is a row error `duplicate` on `process_names`). The codes of a process column (`process_codes`) split on `;` or `,` as before.
+**Process names** split on `,` only; each trimmed, empties dropped, deduplicated by key (a repeat of the same name after normalization is one process, not an error). The codes of a process column (`process_codes`) split on `;` or `,` as before.
 
 **Match rule** (maker, process, model): the row with this `code_key` (the code cell, else the name); else `toCodeKey(name)` against both the existing `code_key` and `toCodeKey(existing name)`. Two different rows → `conflict` with the reason in `errors[]`: `ambiguous_name` (the model itself; resolved by the existing model `map`/`skip`), `ambiguous_parent` (a maker or process) or `parent_inactive` (an existing inactive maker/process named by name, ADR-0107 never duplicates it); the latter two are cleared by `skip` only: `importResolve` refuses a `map` on them (`not_allowed`). A maker or process given only as a code that does not exist stays an error (`parent_missing`, `process_missing`, `process_inactive`, `parent_inactive`) as before.
 
