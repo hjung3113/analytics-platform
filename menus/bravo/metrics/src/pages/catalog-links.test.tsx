@@ -46,7 +46,7 @@ vi.mock('@ap/kernel', async importOriginal => ({
   ...await importOriginal<typeof import('@ap/kernel')>(),
   useI18n: () => ({ lang: 'ko', tx: (text: { ko: string }) => text.ko, t: (key: string) => key }),
   usePlatform: () => ({
-    global: { selection: null }, pageParam: () => null, setPage: vi.fn(),
+    global: { selection: null }, pageParam: () => null, pageParams: () => [], setPage: vi.fn(),
     location: { href: (href: string) => href }, pathname: '/metrics', navigate: vi.fn(),
     linkTo: (_id: string, options: LinkOptions = {}) => {
       const query = new URLSearchParams({ v: '1', ...options.page });

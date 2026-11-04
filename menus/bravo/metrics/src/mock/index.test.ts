@@ -14,7 +14,7 @@ const base = {
   group: groupId('metrics'), description: { ko: '', en: '' }, permission: menuPermission('metrics:view'), requiresScope: false, pageType: 'catalog' as const,
   context: { ...none, metric: 'apply' as const, selection: 'reference' as const }, features: { export: true, savedView: false, annotate: false, compare: false },
 };
-const catalogMenu: MenuMeta = { ...base, id: 'metric-catalog', label: { ko: '지표 카탈로그', en: 'Metric catalog' }, path: '/metrics', pageKeys: ['q', 'status', 'domain', 'sort', 'page'] };
+const catalogMenu: MenuMeta = { ...base, id: 'metric-catalog', label: { ko: '지표 카탈로그', en: 'Metric catalog' }, path: '/metrics', pageKeys: ['q', 'filter', 'sort', 'page'], repeatedPageKeys: ['filter'], hiddenPageKeys: ['filter'] };
 const detailMenu: MenuMeta = { ...base, id: 'metric-detail', label: { ko: '지표 상세', en: 'Metric detail' }, path: '/metrics/:metricId', pageKeys: ['tab', 'version', 'returnTo'] };
 
 const registry = { menus: [catalogMenu, detailMenu] };
@@ -39,16 +39,22 @@ describe('metric endpoints', () => {
     expect((await pair('cycle_time', '4')).trust?.metricVersion).toBe('4');
   });
 
-  it('pages and filters the catalog on the server; the export list carries the same filter verdict', async () => {
-    const filter = { q: null, status: 'published', domain: null, lang: 'ko' as const };
-    const list = (await adapter.menuQuery({ endpoint: catalogListEndpoint.id, context: {}, params: filter })).data as CatalogList;
+  it('pages the catalog on the server, applies the conditions, and refuses a malformed condition', async () => {
+    const statusIn = { id: 'status', op: 'in' as const, value: ['published'] };
+    // The count query is the full catalog: conditions never narrow it (UXA-4).
+    const all = (await adapter.menuQuery({ endpoint: catalogListEndpoint.id, context: {}, params: { lang: 'ko' } })).data as CatalogList;
+    expect(all.rows.map(r => r.metricId)).toEqual(METRICS.map(m => m.metricId));
+    const page = (await adapter.menuQuery({ endpoint: catalogPageEndpoint.id, context: {}, params: { q: null, lang: 'ko', page: 0, pageSize: 3, sorting: [{ id: 'metricId', desc: false }], filters: [statusIn] } })).data as PageResult<CatalogRow>;
     const expected = METRICS.filter(m => m.catalogStatus === 'published').map(m => m.metricId);
-    expect(list.rows.map(r => r.metricId)).toEqual(expected);
-    const page = (await adapter.menuQuery({ endpoint: catalogPageEndpoint.id, context: {}, params: { ...filter, page: 0, pageSize: 3, sorting: [{ id: 'metricId', desc: false }] } })).data as PageResult<CatalogRow>;
     expect(page.total).toBe(expected.length);
     expect(page.rows.map(r => r.metricId)).toEqual([...expected].sort().slice(0, 3));
-    const illegal = (await adapter.menuQuery({ endpoint: catalogListEndpoint.id, context: {}, params: { ...filter, status: 'bogus' } })).data as CatalogList;
-    expect(illegal).toEqual({ rows: [], filterProblem: 'status' });
+    // ADR-0105/P11: a malformed condition (undeclared field, bad operator) errors — never an empty answer.
+    const ghost = await adapter.menuQuery({ endpoint: catalogPageEndpoint.id, context: {}, params: { q: null, lang: 'ko', page: 0, pageSize: 3, sorting: [], filters: [{ id: 'maker', op: 'in', value: ['x'] }] } });
+    expect(ghost.outcome).toBe('error');
+    // An unknown enum TOKEN is well-formed: the URL layer's value check refuses it before any request, so the
+    // server applies it literally (zero matches) like every other wire value.
+    const bogus = await adapter.menuQuery({ endpoint: catalogPageEndpoint.id, context: {}, params: { q: null, lang: 'ko', page: 0, pageSize: 3, sorting: [], filters: [{ id: 'status', op: 'in', value: ['bogus'] }] } });
+    expect(bogus.outcome).toBe('empty');
   });
 
   it('answers a definition by metric and version, and flags a version that is not a member', async () => {
@@ -60,7 +66,7 @@ describe('metric endpoints', () => {
   });
 
   it('re-checks metrics:view per request, so the export list is forbidden without it', async () => {
-    const params = { q: null, status: null, domain: null, lang: 'en' as const };
+    const params = { lang: 'en' as const };
     expect((await adapter.menuQuery({ endpoint: catalogListEndpoint.id, context: {}, params })).outcome).toBe('ok');
     const permissions = [...USERS.viewer.permissions];
     USERS.viewer.permissions = permissions.filter(p => p !== 'metrics:view');
@@ -78,17 +84,18 @@ describe('metric catalog export endpoint (#173)', () => {
     expect(catalogExportEndpoint.limits).toEqual({ maxRows: 50_000 });
   });
 
-  it('answers the filtered rows for ids: null with the same filter verdict as the list', async () => {
-    const filter = { q: null, status: 'published', domain: null, lang: 'ko' as const };
-    const exported = await adapter.menuQuery({ endpoint: catalogExportEndpoint.id, context: {}, params: { ...filter, ids: null, sorting: [] } });
+  it('answers the filtered rows for ids: null with the same conditions as the page', async () => {
+    const filters = [{ id: 'status', op: 'in' as const, value: ['published'] }, { id: 'domain', op: 'in' as const, value: ['time'] }];
+    const exported = await adapter.menuQuery({ endpoint: catalogExportEndpoint.id, context: {}, params: { q: null, lang: 'ko', ids: null, sorting: [], filters } });
     expect(exported.outcome).toBe('ok');
-    const expected = METRICS.filter(m => m.catalogStatus === 'published').map(m => m.metricId);
+    const expected = METRICS.filter(m => m.catalogStatus === 'published' && m.domain === 'time').map(m => m.metricId);
+    expect(expected.length).toBeGreaterThan(0);
     expect((exported.data as CatalogRow[]).map(r => r.metricId)).toEqual(expected);
   });
 
   it('exports in the table’s sort, so a sorted set comes out in page order (#173 UX P2-6)', async () => {
     const sorting = [{ id: 'metricId', desc: true }];
-    const filter = { q: null, status: null, domain: null, lang: 'ko' as const };
+    const filter = { q: null, lang: 'ko' as const };
     const exported = await adapter.menuQuery({ endpoint: catalogExportEndpoint.id, context: {}, params: { ...filter, ids: null, sorting } });
     const page = await adapter.menuQuery({ endpoint: catalogPageEndpoint.id, context: {}, params: { ...filter, page: 0, pageSize: 500, sorting } });
     const exportIds = (exported.data as CatalogRow[]).map(r => r.metricId);
@@ -98,7 +105,7 @@ describe('metric catalog export endpoint (#173)', () => {
 
   it('filters by the selection metric ids server-side, so the cap is judged on the selection', async () => {
     const ids = METRICS.slice(0, 2).map(m => m.metricId);
-    const exported = await adapter.menuQuery({ endpoint: catalogExportEndpoint.id, context: {}, params: { q: null, status: null, domain: null, lang: 'ko' as const, ids, sorting: [] } });
+    const exported = await adapter.menuQuery({ endpoint: catalogExportEndpoint.id, context: {}, params: { q: null, lang: 'ko' as const, ids, sorting: [] } });
     expect((exported.data as CatalogRow[]).map(r => r.metricId).sort()).toEqual([...ids].sort());
   });
 });

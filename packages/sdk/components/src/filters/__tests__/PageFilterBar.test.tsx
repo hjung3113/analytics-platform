@@ -1,7 +1,7 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useState } from 'react';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '@ap/kernel';
 import { PageFilterBar, type PageFilterBarProps } from '../../index';
 
@@ -12,257 +12,6 @@ afterAll(() => {
   else delete (HTMLElement.prototype as Partial<HTMLElement>).scrollIntoView;
 });
 afterEach(cleanup);
-
-describe('PageFilterBar', () => {
-  it('renders labeled search, exact-text, categorical, and custom fields with consumer actions', async () => {
-    const onSearch = vi.fn();
-    const onExactId = vi.fn();
-    const onDomain = vi.fn();
-    render(<PageFilterBar
-      label="Page filters"
-      fields={[
-        { kind: 'search', key: 'q', label: 'Search metrics', value: '', onValueChange: onSearch },
-        { kind: 'text', key: 'id', label: 'Exact ID', value: '', onValueChange: onExactId },
-        {
-          kind: 'select', key: 'domain', label: 'Domain', value: 'unknown-domain',
-          emptyOptionLabel: 'All domains', options: [{ value: 'equipment', label: 'Equipment' }], onValueChange: onDomain,
-        },
-        { kind: 'custom', key: 'grain', label: 'Grain', content: <button type="button">Hour</button> },
-      ]}
-      actions={<><button type="button">Reset</button><button type="button">Apply</button></>}
-    />);
-
-    const bar = screen.getByTestId('page-filter-bar');
-    expect(screen.getByRole('group', { name: 'Page filters' })).toBe(bar);
-    expect(screen.getByRole('searchbox', { name: 'Search metrics' })).toBeInTheDocument();
-    expect(screen.getByRole('textbox', { name: 'Exact ID' })).toBeInTheDocument();
-    expect(screen.getByRole('group', { name: 'Grain' })).toBeInTheDocument();
-    const domain = screen.getByRole('combobox', { name: 'Domain' });
-    expect(domain).toHaveTextContent('unknown-domain');
-    expect(domain).toHaveClass('rounded-md', 'text-sm');
-    expect(domain).not.toHaveClass('text-xs');
-    expect(screen.getByRole('searchbox', { name: 'Search metrics' })).toHaveClass('rounded-md');
-    expect(screen.getByRole('searchbox', { name: 'Search metrics' })).not.toHaveClass('rounded-sm');
-    expect(screen.getByRole('button', { name: 'Hour' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Reset' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Apply' })).toBeInTheDocument();
-    expect(bar.querySelectorAll('[data-page-filter-search-icon]')).toHaveLength(1);
-
-    fireEvent.change(screen.getByRole('searchbox', { name: 'Search metrics' }), { target: { value: 'cycle' } });
-    fireEvent.change(screen.getByRole('textbox', { name: 'Exact ID' }), { target: { value: 'METRIC-01' } });
-    expect(onSearch).toHaveBeenCalledWith('cycle');
-    expect(onExactId).toHaveBeenCalledWith('METRIC-01');
-
-    fireEvent.keyDown(domain, { key: 'ArrowDown' });
-    expect(await screen.findByRole('option', { name: 'unknown-domain' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'All domains' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('option', { name: 'Equipment' }));
-    expect(onDomain).toHaveBeenCalledWith('equipment');
-
-    fireEvent.keyDown(domain, { key: 'ArrowDown' });
-    fireEvent.click(await screen.findByRole('option', { name: 'All domains' }));
-    expect(onDomain).toHaveBeenLastCalledWith('');
-  });
-
-  it('focuses text controls and Select triggers when their visible labels are clicked', async () => {
-    render(<PageFilterBar label="Page filters" fields={[
-      { kind: 'text', key: 'actor', label: 'Exact actor', value: '', onValueChange: vi.fn() },
-      { kind: 'select', key: 'status', label: 'Status', value: 'active', options: [{ value: 'active', label: 'Active' }], onValueChange: vi.fn() },
-    ]} />);
-
-    const actor = screen.getByRole('textbox', { name: 'Exact actor' });
-    const actorLabel = screen.getByText('Exact actor') as HTMLLabelElement;
-    expect(actorLabel.control).toBe(actor);
-    actorLabel.click();
-    expect(actor).toHaveFocus();
-
-    const status = screen.getByRole('combobox', { name: 'Status' });
-    const statusLabel = screen.getByText('Status') as HTMLLabelElement;
-    expect(statusLabel.control).toBe(status);
-    statusLabel.click();
-    expect(status).toHaveFocus();
-    fireEvent.keyDown(status, { key: 'ArrowDown' });
-    expect(await screen.findByRole('option', { name: 'Active' })).toBeInTheDocument();
-  });
-
-  it('a label click focuses the Select trigger without opening it (label activation is not forwarded)', () => {
-    render(<PageFilterBar label="Page filters" fields={[
-      { kind: 'select', key: 'status', label: 'Status', value: 'active', options: [{ value: 'active', label: 'Active' }], onValueChange: vi.fn() },
-    ]} />);
-    const status = screen.getByRole('combobox', { name: 'Status' });
-    const notPrevented = fireEvent.click(screen.getByText('Status'));
-    expect(notPrevented).toBe(false);
-    expect(status).toHaveFocus();
-    expect(status).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.queryByRole('listbox')).toBeNull();
-  });
-
-  it('keeps a Select controlled when an empty value has no empty option label', async () => {
-    function ControlledHarness() {
-      const [value, setValue] = useState('');
-      return <>
-        <PageFilterBar label="Page filters" fields={[{
-          kind: 'select', key: 'percentile', label: 'Percentile', value, placeholder: 'Choose percentile',
-          options: [{ value: 'p50', label: 'P50' }], onValueChange: setValue,
-        }]} />
-        <button type="button" onClick={() => setValue('')}>Reset selection</button>
-      </>;
-    }
-
-    render(<ControlledHarness />);
-    const percentile = screen.getByRole('combobox', { name: 'Percentile' });
-    fireEvent.click(percentile);
-    fireEvent.click(await screen.findByRole('option', { name: 'P50' }));
-    expect(percentile).toHaveTextContent('P50');
-
-    fireEvent.click(screen.getByRole('button', { name: 'Reset selection' }));
-    expect(percentile).toHaveTextContent('Choose percentile');
-  });
-});
-
-function ApplyHarness({ onApply, fail = false }: { onApply: () => void; fail?: boolean }) {
-  const [text, setText] = useState('');
-  const [applied, setApplied] = useState('');
-  return <PageFilterBar label="Filters"
-    onApply={() => { onApply(); if (!fail) setApplied(text); }}
-    fields={[
-      { kind: 'text', key: 'actor', label: 'Actor', value: text, onValueChange: setText },
-      { kind: 'select', key: 'status', label: 'Status', value: '', options: [{ value: 'a', label: 'Alpha' }], onValueChange: vi.fn() },
-    ]}
-    actions={<button type="submit" disabled={text === applied}>Apply</button>} />;
-}
-
-describe('PageFilterBar draft + apply form', () => {
-  it('has no fixed 32px height on its inputs and Select triggers, and centres the search icon for 40px', () => {
-    render(<PageFilterBar label="Filters" fields={[
-      { kind: 'search', key: 'q', label: 'Search', value: '', onValueChange: vi.fn() },
-      { kind: 'text', key: 'id', label: 'Id', value: '', onValueChange: vi.fn() },
-      { kind: 'select', key: 'status', label: 'Status', value: '', options: [], onValueChange: vi.fn() },
-    ]} />);
-    for (const control of [screen.getByRole('searchbox'), screen.getByRole('textbox', { name: 'Id' }), screen.getByRole('combobox')]) {
-      expect(control).not.toHaveClass('h-8');
-    }
-    expect(document.querySelector('[data-page-filter-search-icon]')).toHaveClass('top-3');
-  });
-
-  it('renders a form only when onApply is given', () => {
-    render(<ApplyHarness onApply={vi.fn()} />);
-    expect(document.querySelector('form')).not.toBeNull();
-    cleanup();
-    render(<PageFilterBar label="Filters" fields={[]} />);
-    expect(document.querySelector('form')).toBeNull();
-  });
-
-  it('applies on Enter in a text field and on a submit click, once each', async () => {
-    const user = userEvent.setup();
-    const onApply = vi.fn();
-    render(<ApplyHarness onApply={onApply} />);
-    await user.type(screen.getByRole('textbox', { name: 'Actor' }), 'kim{Enter}');
-    expect(onApply).toHaveBeenCalledTimes(1);
-    await user.type(screen.getByRole('textbox', { name: 'Actor' }), 'x');
-    await user.click(screen.getByRole('button', { name: 'Apply' }));
-    expect(onApply).toHaveBeenCalledTimes(2);
-  });
-
-  it.each([
-    ['isComposing', { isComposing: true }],
-    ['keyCode 229', { keyCode: 229 }],
-  ])('cancels the implicit submit of an Enter that belongs to an IME composition (%s)', (_name, init) => {
-    render(<ApplyHarness onApply={vi.fn()} />);
-    const actor = screen.getByRole('textbox', { name: 'Actor' });
-    expect(fireEvent.keyDown(actor, { key: 'Enter', ...init })).toBe(false);
-    expect(fireEvent.keyDown(actor, { key: 'Enter' })).toBe(true);
-  });
-
-  it('swallows the Enter right after compositionend once, then a later intentional Enter applies exactly once', async () => {
-    const user = userEvent.setup();
-    const onApply = vi.fn();
-    render(<ApplyHarness onApply={onApply} />);
-    const actor = screen.getByRole('textbox', { name: 'Actor' });
-    await user.type(actor, 'ㅎ');
-    fireEvent.compositionStart(actor);
-    fireEvent.compositionEnd(actor);
-    await user.keyboard('{Enter}');
-    expect(onApply).not.toHaveBeenCalled();
-    await user.keyboard('{Enter}');
-    expect(onApply).toHaveBeenCalledTimes(1);
-  });
-
-  it('releases the post-composition guard on the next non-Enter key', async () => {
-    const user = userEvent.setup();
-    const onApply = vi.fn();
-    render(<ApplyHarness onApply={onApply} />);
-    const actor = screen.getByRole('textbox', { name: 'Actor' });
-    await user.type(actor, 'a');
-    fireEvent.compositionEnd(actor);
-    await user.keyboard('b{Enter}');
-    expect(onApply).toHaveBeenCalledTimes(1);
-  });
-
-  it('honours an Enter another handler already prevented', () => {
-    render(<ApplyHarness onApply={vi.fn()} />);
-    const actor = screen.getByRole('textbox', { name: 'Actor' });
-    actor.addEventListener('keydown', event => event.preventDefault());
-    expect(fireEvent.keyDown(actor, { key: 'Enter' })).toBe(false);
-  });
-
-  it('Enter on an open Select option only selects the option', async () => {
-    const onApply = vi.fn();
-    const onStatus = vi.fn();
-    render(<PageFilterBar label="Filters" onApply={onApply}
-      fields={[{ kind: 'select', key: 'status', label: 'Status', value: '', options: [{ value: 'a', label: 'Alpha' }], onValueChange: onStatus }]}
-      actions={<button type="submit">Apply</button>} />);
-    fireEvent.keyDown(screen.getByRole('combobox', { name: 'Status' }), { key: 'ArrowDown' });
-    const option = await screen.findByRole('option', { name: 'Alpha' });
-    fireEvent.keyDown(option, { key: 'Enter' });
-    expect(onStatus).toHaveBeenCalledWith('a');
-    expect(onApply).not.toHaveBeenCalled();
-  });
-
-  it('moves focus to the first field when keyboard activation of Apply disables the button', async () => {
-    const user = userEvent.setup();
-    render(<ApplyHarness onApply={vi.fn()} />);
-    const actor = screen.getByRole('textbox', { name: 'Actor' });
-    await user.type(actor, 'kim');
-    const apply = screen.getByRole('button', { name: 'Apply' });
-    apply.focus();
-    await user.keyboard('{Enter}');
-    expect(apply).toBeDisabled();
-    expect(actor).toHaveFocus();
-  });
-
-  it('keeps focus in the field when Enter in it applied', async () => {
-    const user = userEvent.setup();
-    render(<ApplyHarness onApply={vi.fn()} />);
-    const actor = screen.getByRole('textbox', { name: 'Actor' });
-    await user.type(actor, 'kim{Enter}');
-    expect(screen.getByRole('button', { name: 'Apply' })).toBeDisabled();
-    expect(actor).toHaveFocus();
-  });
-
-  it('leaves focus alone when the apply did not go through (validation failure)', async () => {
-    const user = userEvent.setup();
-    render(<ApplyHarness onApply={vi.fn()} fail />);
-    await user.type(screen.getByRole('textbox', { name: 'Actor' }), 'kim');
-    const apply = screen.getByRole('button', { name: 'Apply' });
-    apply.focus();
-    await user.keyboard('{Enter}');
-    expect(apply).toBeEnabled();
-    expect(apply).toHaveFocus();
-  });
-
-  it('does not move focus on a later unrelated render', async () => {
-    const user = userEvent.setup();
-    const view = render(<ApplyHarness onApply={vi.fn()} />);
-    await user.type(screen.getByRole('textbox', { name: 'Actor' }), 'kim');
-    const apply = screen.getByRole('button', { name: 'Apply' });
-    apply.focus();
-    await user.keyboard('{Enter}');
-    screen.getByRole('combobox', { name: 'Status' }).focus();
-    view.rerender(<ApplyHarness onApply={vi.fn()} />);
-    expect(screen.getByRole('combobox', { name: 'Status' })).toHaveFocus();
-  });
-});
 
 const collapsibleProps = {
   label: '페이지 필터',
@@ -311,7 +60,7 @@ describe('PageFilterBar collapsible', () => {
     expect(screen.getByRole('button', { name: '페이지 필터 접기' })).toBeInTheDocument();
     expect(document.activeElement).toBe(document.body);
 
-    render(<PageFilterBar label="두 번째 필터" fields={[{ kind: 'text', key: 'actor', label: 'Actor', value: '', onValueChange: vi.fn() }]} />);
+    render(<I18nProvider><PageFilterBar {...collapsibleProps} label="두 번째 필터" preferenceKey="other-menu" /></I18nProvider>);
     expect(screen.getAllByTestId('page-filter-bar')).toHaveLength(2);
   });
 
@@ -449,18 +198,116 @@ describe('PageFilterBar collapsible', () => {
     fireEvent.click(screen.getByRole('button', { name: '페이지 필터 접기' }));
     expect(live().textContent).toBe('');
   });
-});
 
-describe('PageFilterBar query draft presentation', () => {
-  it('keeps controlled edits but omits its form and apply dispatch', () => {
-    const apply = vi.fn();
-    const change = vi.fn();
-    render(<PageFilterBar mode="draft" label="Draft page filters" onApply={apply} fields={[{ key: 'q', kind: 'text', label: 'Value', value: 'a', onValueChange: change }]} />);
-    const input = screen.getByRole('textbox', { name: 'Value' });
-    fireEvent.change(input, { target: { value: 'b' } });
-    fireEvent.keyDown(input, { key: 'Enter' });
-    expect(change).toHaveBeenCalledWith('b');
-    expect(input.closest('form')).toBeNull();
-    expect(apply).not.toHaveBeenCalled();
+  it('focuses text controls and Select triggers when their visible labels are clicked, without opening the Select', async () => {
+    mountBar();
+
+    const search = screen.getByRole('searchbox', { name: '검색' });
+    const searchLabel = screen.getByText('검색') as HTMLLabelElement;
+    expect(searchLabel.control).toBe(search);
+    searchLabel.click();
+    expect(search).toHaveFocus();
+
+    const percentile = screen.getByRole('combobox', { name: '느린 실행 기준' });
+    const percentileLabel = screen.getByText('느린 실행 기준') as HTMLLabelElement;
+    expect(percentileLabel.control).toBe(percentile);
+    const notPrevented = fireEvent.click(percentileLabel);
+    expect(notPrevented).toBe(false);
+    expect(percentile).toHaveFocus();
+    expect(percentile).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('listbox')).toBeNull();
+  });
+
+  it('the bar has no form of its own, so a draft Enter never dispatches an apply', () => {
+    mountBar();
+    const search = screen.getByRole('searchbox', { name: '검색' });
+    fireEvent.change(search, { target: { value: 'x' } });
+    fireEvent.keyDown(search, { key: 'Enter' });
+    expect(document.querySelector('form')).toBeNull();
+  });
+
+  it('keeps the original DOM when applied chips are absent or empty', () => {
+    const view = mountBar();
+    const bar = screen.getByTestId('page-filter-bar');
+    const before = bar.outerHTML;
+    expect([...bar.children].map(child => child.tagName)).toEqual(['LEGEND', 'DIV', 'DIV']);
+    view.rerender(<I18nProvider><PageFilterBar {...collapsibleProps} appliedChips={[]} /></I18nProvider>);
+    expect(bar.outerHTML).toBe(before);
+    expect(screen.queryByRole('group', { name: '적용된 조건' })).toBeNull();
+  });
+
+  it.each([false, true])('shows applied parameters and removable narrowing on one row (collapsed=%s)', collapsed => {
+    if (collapsed) storage.set('platform:page-filter-collapsed:cycle-time', 'true');
+    const onClear = vi.fn();
+    mountBar({ ...collapsibleProps, appliedChips: [
+      { key: 'grain', label: '집계', value: '시간' },
+      { key: 'bucket', label: '버킷', value: '2026-09-26 05:00 → 06:00', onClear, clearLabel: '버킷 필터 해제' },
+    ] });
+    const row = screen.getByRole('group', { name: '적용된 조건' });
+    expect(row).toBeVisible();
+    expect(within(row).getByText('적용됨')).toBeInTheDocument();
+    expect(within(row).getByRole('group', { name: '집계 시간' })).toHaveClass('h-6', 'rounded-md', 'border-border-subtle', 'bg-accent-primary-soft');
+    expect(within(row).getAllByRole('button')).toHaveLength(1);
+    fireEvent.click(within(row).getByRole('button', { name: '버킷 필터 해제' }));
+    expect(onClear).toHaveBeenCalledTimes(1);
+  });
+
+  it('caps only the value, with the complete text in the title and accessible name', () => {
+    const value = 'LONG-BUCKET-VALUE-'.repeat(8);
+    mountBar({ ...collapsibleProps, appliedChips: [{ key: 'bucket', label: '버킷', value }] });
+    const chip = screen.getByRole('group', { name: `버킷 ${value}` });
+    expect(chip).toHaveAttribute('title', `버킷 ${value}`);
+    expect(within(chip).getByText(value)).toHaveClass('max-w-[28ch]', 'truncate');
+    expect(within(chip).getByText('버킷')).toHaveClass('shrink-0');
+  });
+
+  it('accepts a title and supplies a localized clear name when none is provided', () => {
+    mountBar({ ...collapsibleProps, appliedChips: [{ key: 'bucket', label: '버킷', value: '전체 값', title: '전체 버킷 범위', onClear: vi.fn() }] });
+    expect(screen.getByRole('group', { name: '버킷 전체 값' })).toHaveAttribute('title', '전체 버킷 범위');
+    expect(screen.getByRole('button', { name: '버킷 필터 지우기' })).toBeInTheDocument();
+  });
+
+  it('localizes the applied row and default clear name in English', () => {
+    storage.set('platform:lang', 'en');
+    mountBar({ ...collapsibleProps, appliedChips: [{ key: 'bucket', label: 'Bucket', value: 'full value', onClear: vi.fn() }] });
+    expect(within(screen.getByRole('group', { name: 'Applied conditions' })).getByText('Applied')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Clear Bucket filter' })).toBeInTheDocument();
+  });
+
+  it.each([false, true])('keeps keyboard focus on the next clear action, then the bar toggle (collapsed=%s)', async collapsed => {
+    if (collapsed) storage.set('platform:page-filter-collapsed:cycle-time', 'true');
+    function ClearHarness() {
+      const [bucket, setBucket] = useState(true);
+      const [bin, setBin] = useState(true);
+      return <PageFilterBar {...collapsibleProps} appliedChips={[
+        { key: 'grain', label: '집계', value: '시간' },
+        ...(bucket ? [{ key: 'bucket', label: '버킷', value: '선택', onClear: () => setBucket(false), clearLabel: '버킷 필터 해제' }] : []),
+        ...(bin ? [{ key: 'bin', label: '분포 구간', value: '45-60', onClear: () => setBin(false), clearLabel: '분포 필터 해제' }] : []),
+      ]} />;
+    }
+    const user = userEvent.setup();
+    render(<I18nProvider><ClearHarness /></I18nProvider>);
+    screen.getByRole('button', { name: '버킷 필터 해제' }).focus();
+    await user.keyboard('{Enter}');
+    expect(screen.getByRole('button', { name: '분포 필터 해제' })).toHaveFocus();
+    await user.keyboard('{Enter}');
+    expect(screen.getByRole('button', { name: collapsed ? '페이지 필터 펼치기' : '페이지 필터 접기' })).toHaveFocus();
+  });
+
+  it.each([false, true])('tabs through the bar before the clear buttons, skipping fixed chips (collapsed=%s)', async collapsed => {
+    if (collapsed) storage.set('platform:page-filter-collapsed:cycle-time', 'true');
+    const user = userEvent.setup();
+    mountBar({ ...collapsibleProps, appliedChips: [
+      { key: 'grain', label: '집계', value: '시간' },
+      { key: 'bucket', label: '버킷', value: '선택', onClear: vi.fn(), clearLabel: '버킷 필터 해제' },
+      { key: 'bin', label: '분포 구간', value: '45-60', onClear: vi.fn(), clearLabel: '분포 필터 해제' },
+    ] });
+    const stops = collapsed
+      ? [screen.getByRole('button', { name: '페이지 필터 펼치기' }), screen.getByRole('button', { name: '페이지 조건 기본값' })]
+      : [screen.getByRole('combobox', { name: '느린 실행 기준' }), screen.getByRole('searchbox', { name: '검색' }), screen.getByRole('button', { name: '페이지 조건 기본값' }), screen.getByRole('button', { name: '페이지 필터 접기' })];
+    stops.push(screen.getByRole('button', { name: '버킷 필터 해제' }), screen.getByRole('button', { name: '분포 필터 해제' }));
+    for (const stop of stops) { await user.tab(); expect(stop).toHaveFocus(); }
+    await user.tab({ shift: true });
+    expect(screen.getByRole('button', { name: '버킷 필터 해제' })).toHaveFocus();
   });
 });

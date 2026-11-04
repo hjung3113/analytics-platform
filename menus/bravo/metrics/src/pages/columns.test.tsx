@@ -13,7 +13,11 @@ const row: CatalogRow = {
 };
 
 const columnById = (lang: Lang) => {
-  const columns = catalogColumns({ lang, linkTo: () => '/metrics/cycle_time', tx: (text: Text) => text[lang] });
+  // The declaration owns the 도메인·상태 header/label; the stub keeps the same ids the real one resolves.
+  const columns = catalogColumns({
+    lang, linkTo: () => '/metrics/cycle_time', tx: (text: Text) => text[lang],
+    filterColumnProps: id => ({ id, header: id === 'domain' ? (lang === 'ko' ? '도메인' : 'Domain') : lang === 'ko' ? '상태' : 'Status' }),
+  });
   return Object.fromEntries(columns.map(column => [column.id, column])) as Record<string, (typeof columns)[number]>;
 };
 

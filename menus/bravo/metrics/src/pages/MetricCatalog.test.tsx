@@ -108,12 +108,13 @@ describe('invalid URL value warnings keep field name and raw value (#304 FIX1)',
     expect(screen.getByText(/이 목록의 필터가 아닙니다/).textContent).toContain('기간·Lot·room_name·설비 그룹 조건·설비 선택은 이 목록의 필터가 아닙니다.');
   });
 
-  it('domain=bogus names the 도메인 field and the entered value, without key=value', async () => {
-    window.history.replaceState(null, '', '/metrics?v=1&scopeId=MEM&domain=bogus');
+  it('domain:in:bogus names the 도메인 field and the entered value, without key=value', async () => {
+    window.history.replaceState(null, '', '/metrics?v=1&scopeId=MEM&filter=domain:in:bogus');
     render(<I18nProvider><PlatformProvider adapter={fixture()} registry={registry}><MetricCatalogPage params={{}} /></PlatformProvider></I18nProvider>);
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toContain('도메인');
     expect(alert.textContent).toContain('bogus');
+    expect(alert.textContent).toContain('등록되지 않은 도메인입니다.');
     expect(alert.textContent).not.toContain('domain=');
     expect(alert.textContent).toContain('초기화');
   });
@@ -138,18 +139,21 @@ describe('metric catalog invalid URL values (ADR-0034 sentences)', () => {
   };
   const alertParagraphs = (alert: HTMLElement) => [...alert.querySelectorAll('p')].map(p => p.textContent);
 
-  it('an invalid status states the exact filter sentence and Reset clears only that key', async () => {
-    renderAt('/metrics?status=bogus&domain=quality');
+  it('an invalid status condition states the exact filter sentence and Reset clears the condition key, not the sort', async () => {
+    renderAt('/metrics?filter=status:in:bogus&sort=metricId:desc');
     const alert = await screen.findByRole('alert');
-    expect(alertParagraphs(alert)).toEqual(['상태 “bogus”는 이 화면에서 쓸 수 없는 값입니다. 조건을 초기화하세요.']);
+    // #304 FIX1: the field's user name and the raw condition as entered, then the page check's own reason.
+    expect(alertParagraphs(alert)).toEqual([
+      '상태 “status:in:bogus”는 이 화면에서 쓸 수 없는 필터입니다. 조건을 초기화하세요. 등록되지 않은 발행 상태입니다.',
+    ]);
     fireEvent.click(within(alert).getByRole('button', { name: '초기화' }));
     const params = new URLSearchParams(window.location.search);
-    expect(params.has('status')).toBe(false);
-    expect(params.get('domain')).toBe('quality');
+    expect(params.has('filter')).toBe(false);
+    expect(params.get('sort')).toBe('metricId:desc');
   });
 
   it('Reset of an invalid filter moves focus off the removed button (06 §26, #924)', async () => {
-    renderAt('/metrics?status=bogus');
+    renderAt('/metrics?filter=status:in:bogus');
     const alert = await screen.findByRole('alert');
     const reset = within(alert).getByRole('button', { name: '초기화' });
     reset.focus();
@@ -173,5 +177,64 @@ describe('metric catalog invalid URL values (ADR-0034 sentences)', () => {
     expect(params.has('sort')).toBe(false);
     expect(params.has('page')).toBe(false);
     expect(params.get('q')).toBe('abc');
+  });
+});
+
+// ADR-0105 (#1218): 상태·도메인 are conditions of the hidden repeated `filter` key; `q` stays the toolbar quick
+// search. The page query carries the conditions; the count query never does.
+describe('metric catalog table filter wiring (ADR-0105, #1218)', () => {
+  /** The catalog page answers empty; every `metrics.catalog.page`/`list` request is captured. */
+  function wireFixture(): { adapter: PlatformAdapter; pageQueries: MenuQuery[]; listQueries: MenuQuery[] } {
+    const pageQueries: MenuQuery[] = [];
+    const listQueries: MenuQuery[] = [];
+    const base = fixture();
+    return {
+      pageQueries, listQueries,
+      adapter: {
+        ...base,
+        menuQuery: async (request: MenuQuery) => {
+          if (request.endpoint === 'metrics.catalog.page') pageQueries.push(request);
+          if (request.endpoint === 'metrics.catalog.list') listQueries.push(request);
+          return base.menuQuery(request);
+        },
+      },
+    };
+  }
+
+  it('sends only the quick search when no condition is set, and the count query stays unfiltered', async () => {
+    window.history.replaceState(null, '', '/metrics?v=1&scopeId=MEM&q=yield');
+    const { adapter, pageQueries, listQueries } = wireFixture();
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><MetricCatalogPage params={{}} /></PlatformProvider></I18nProvider>);
+    await waitFor(() => expect(pageQueries.length).toBeGreaterThan(0));
+    expect(pageQueries.at(-1)!.params).toMatchObject({ q: 'yield', lang: 'ko', page: 0, pageSize: 8 });
+    expect(pageQueries.at(-1)!.params).not.toHaveProperty('filters');
+    await waitFor(() => expect(listQueries.length).toBeGreaterThan(0));
+    expect(listQueries.at(-1)!.params).toEqual({ lang: 'ko' });
+  });
+
+  it('sends the URL conditions to the page endpoint and draws them as labeled chips', async () => {
+    window.history.replaceState(null, '', '/metrics?v=1&scopeId=MEM&filter=status:in:published&filter=domain:in:time');
+    const { adapter, pageQueries } = wireFixture();
+    const view = render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><MetricCatalogPage params={{}} /></PlatformProvider></I18nProvider>);
+    await waitFor(() => expect(pageQueries.length).toBeGreaterThan(0));
+    expect(pageQueries.at(-1)!.params).toMatchObject({ q: null, lang: 'ko' });
+    expect(pageQueries.at(-1)!.params).toHaveProperty('filters', [
+      { id: 'status', op: 'in', value: ['published'] },
+      { id: 'domain', op: 'in', value: ['time'] },
+    ]);
+    // The chips read the editor's localized options, not the wire tokens.
+    await waitFor(() => expect(view.container.querySelector('[data-column-filter-chip="status"]')?.textContent).toContain('발행'));
+    expect(view.container.querySelector('[data-column-filter-chip="domain"]')?.textContent).toContain('시간');
+  });
+
+  it('an unknown condition value warns instead of querying (rejected, never corrected)', async () => {
+    window.history.replaceState(null, '', '/metrics?v=1&scopeId=MEM&filter=status:in:bogus');
+    const { adapter, pageQueries } = wireFixture();
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><MetricCatalogPage params={{}} /></PlatformProvider></I18nProvider>);
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('status:in:bogus');
+    expect(screen.queryByRole('table')).toBeNull();
+    await act(async () => { await Promise.resolve(); });
+    expect(pageQueries).toHaveLength(0);
   });
 });

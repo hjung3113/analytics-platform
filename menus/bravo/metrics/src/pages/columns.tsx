@@ -4,12 +4,13 @@
  * the same text (06 §15: export shows what the screen shows).
  */
 import type { LinkOptions } from '@ap/kernel';
-import type { PlatformColumn } from '@ap/components';
+import type { PlatformColumn, TableFilterColumnProps } from '@ap/components';
 import { PlatformLink } from '@ap/kernel';
 import type { CatalogRow, Lang, Text } from '../endpoints';
 import { DOMAIN_LABEL, STATUS_LABEL, STATUS_TONE } from './data';
 import { StatusBadge } from '@ap/ui';
 import { metricDetailHref } from './detail-link';
+import { catalogFilterOptions } from './filter-fields';
 
 type Deps = {
   lang: Lang;
@@ -17,9 +18,11 @@ type Deps = {
   linkTo: (menuId: string, options?: LinkOptions) => string;
   /** `useI18n().tx`. */
   tx: (text: Text) => string;
+  /** `useTableFilterDeclaration().filterColumnProps` — 도메인·상태 are filterable columns (ADR-0105); the declaration owns their header label. */
+  filterColumnProps: (id: string, options?: { value: string; label: string }[]) => TableFilterColumnProps;
 };
 
-export function catalogColumns({ lang, linkTo, tx }: Deps): PlatformColumn<CatalogRow>[] {
+export function catalogColumns({ lang, linkTo, tx, filterColumnProps }: Deps): PlatformColumn<CatalogRow>[] {
   return [
     {
       id: 'metricId', header: 'metricId', size: 200,
@@ -31,7 +34,8 @@ export function catalogColumns({ lang, linkTo, tx }: Deps): PlatformColumn<Catal
       exportValue: row => (lang === 'ko' ? row.nameKo : row.nameEn),
     },
     {
-      id: 'domain', header: lang === 'ko' ? '도메인' : 'Domain', size: 120,
+      ...filterColumnProps('domain', catalogFilterOptions('domain', lang)),
+      size: 120,
       cell: row => tx(DOMAIN_LABEL[row.domain]),
       exportValue: row => tx(DOMAIN_LABEL[row.domain]),
     },
@@ -51,7 +55,8 @@ export function catalogColumns({ lang, linkTo, tx }: Deps): PlatformColumn<Catal
       exportValue: row => (row.publishedPointer === null ? null : `v${row.publishedPointer}`),
     },
     {
-      id: 'status', header: lang === 'ko' ? '상태' : 'Status', size: 110,
+      ...filterColumnProps('status', catalogFilterOptions('status', lang)),
+      size: 110,
       cell: row => <StatusBadge tone={STATUS_TONE[row.status]} dot>{tx(STATUS_LABEL[row.status])}</StatusBadge>,
       exportValue: row => tx(STATUS_LABEL[row.status]),
     },

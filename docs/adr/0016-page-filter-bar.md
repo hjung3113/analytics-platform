@@ -26,3 +26,5 @@
 - `PageFilterBar`는 공통 배치와 `Input`/Select 표시를 소유하고, 메뉴는 필터 의미·URL 키·조회와 reset/apply callback을 소유한다.
 - 설비·지표·감사 화면과 추가 native-select 필터를 같은 컴포넌트로 옮긴다. 표의 컬럼·복사·내보내기 툴바는 범위에 포함하지 않는다.
 - 05의 Decided 상태, 06의 공통 컴포넌트·필터 경계, DESIGN의 필터 행 규칙을 함께 갱신한다.
+
+Amended by [ADR-0112](0112-catalog-joins-table-filter-model-analysis-bar-keeps-apply-once.md) (2026-11-05): the metric catalog left the `PageFilterBar` row for the one table filter model (ADR-0105), and the bar keeps only the collapsible draft shape — `onApply`, its submit form and the non-collapsible row are removed; apply semantics stay with the consumer.
