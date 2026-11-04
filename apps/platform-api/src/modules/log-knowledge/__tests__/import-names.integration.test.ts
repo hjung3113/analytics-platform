@@ -371,6 +371,94 @@ describe.skipIf(!runIntegration)('catalog import by names (#1195 b2)', () => {
     expect(await createdAudits(jobA)).toEqual([]);
   });
 
+  /**
+   * A process insert that loses to an INACTIVE winner, after the row already wrote other things in its transaction.
+   * No hook: an outside transaction holds the shared process uncommitted, the apply's insert blocks on its unique
+   * key, and the outside transaction commits it inactive — so the apply gets the duplicate-key recovery path.
+   */
+  async function loseProcessRaceToInactive(who: Person, jobId: string, shared: string): Promise<Progress> {
+    const holder = await migrate.pool.connect();
+    let held = true;
+    try {
+      await holder.query('begin');
+      await holder.query(
+        'insert into knowledge.process_category (workspace_id, code, code_key, name, active, created_by, updated_by) values ($1, $2, $3, $2, false, $4, $4)',
+        [WORKSPACE_ID, shared, toCodeKey(shared), who.id],
+      );
+      const pid = Number((await holder.query('select pg_backend_pid() as pid')).rows[0].pid);
+      const running = apply(who, jobId);
+      const deadline = Date.now() + 15_000;
+      for (;;) {
+        const blocked = Number((await sql('select count(*)::int as c from pg_stat_activity where $1 = any(pg_blocking_pids(pid))', [pid])).rows[0].c);
+        if (blocked > 0) break;
+        if (Date.now() > deadline) throw new Error('the apply never blocked on the held process');
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+      await holder.query('commit');
+      held = false;
+      return await running;
+    } finally {
+      if (held) await holder.query('rollback');
+      holder.release();
+    }
+  }
+  const jobAudits = async (jobId: string) =>
+    Number((await sql(`select count(*)::int as c from core.audit_log where actor_id = any($1) and detail->'source'->>'importJobId' = $2`, [actorIds, jobId])).rows[0].c);
+  const countNamed = async (table: string, label: string) =>
+    Number((await sql(`select count(*)::int as c from knowledge.${table} where workspace_id = $1 and name = $2`, [WORKSPACE_ID, label])).rows[0].c);
+
+  it('a process race lost to an inactive winner rolls back what the row created before it: new maker, model, earlier process, link, audits', async () => {
+    const a = await admin();
+    const shared = name('Late inactive process');
+    const model = name('LR-Model');
+    const jobId = await stage(a, `메이커명,모델명,공정명\n${name('LR-Maker')},${model},"${name('LR-Early')}, ${shared}"\n`);
+    const result = await loseProcessRaceToInactive(a, jobId, shared);
+    expect(await rowOutcome(jobId)).toEqual([{ apply_status: 'conflict', apply_error: 'process_inactive' }]);
+    expect(result).toMatchObject({ status: 'partial_failure', counts: { conflict: 1 } });
+    expect(await countNamed('vendor', name('LR-Maker'))).toBe(0);
+    expect(await countNamed('equipment_model', model)).toBe(0);
+    expect(await countNamed('process_category', name('LR-Early'))).toBe(0);
+    expect(await countNamed('process_category', shared)).toBe(1);
+    expect(await jobAudits(jobId)).toBe(0);
+    expect(
+      Number((await sql(`select count(*)::int as c from knowledge.model_process where assigned_by = $1`, [a.id])).rows[0].c),
+    ).toBe(0);
+  });
+
+  it('a process race lost to an inactive winner in a mapped row leaves no identity-map row, no early process, no change', async () => {
+    const a = await admin();
+    const keeper = await seedNamed('vendor', a, name('LR2-Keeper'), 'LR2-Keeper');
+    const dup = name('LR2-Dup');
+    const m1 = await seed('equipment_model', { ...stamp(a), vendor_id: keeper, code: `${TAG}-L1`, code_key: toCodeKey(`${TAG}-L1`), name: dup });
+    await seed('equipment_model', { ...stamp(a), vendor_id: keeper, code: `${TAG}-L2`, code_key: toCodeKey(`${TAG}-L2`), name: dup });
+    const shared = name('LR2-Late inactive');
+    const jobId = await stage(a, `메이커명,모델명,공정명\n${name('LR2-Keeper')},${dup},"${name('LR2-Early')}, ${shared}"\n`);
+    expect((await detail(a, jobId)).rows[0]).toMatchObject({ planState: 'conflict' });
+    expect((await act(a, 'importResolve', { jobId, resolutions: [{ rowNo: 1, resolution: 'map', mapTargetId: m1 }] })).outcome).toBe('ok');
+    const result = await loseProcessRaceToInactive(a, jobId, shared);
+    expect(await rowOutcome(jobId)).toEqual([{ apply_status: 'conflict', apply_error: 'process_inactive' }]);
+    expect(result).toMatchObject({ status: 'partial_failure', counts: { conflict: 1 } });
+    expect(Number((await sql('select count(*)::int as c from knowledge.external_identity_map where created_by = $1', [a.id])).rows[0].c)).toBe(0);
+    expect(await countNamed('process_category', name('LR2-Early'))).toBe(0);
+    expect(await countNamed('process_category', shared)).toBe(1);
+    expect(Number((await sql('select count(*)::int as c from knowledge.model_process where model_id = $1', [m1])).rows[0].c)).toBe(0);
+    expect(await jobAudits(jobId)).toBe(0);
+  });
+
+  it('a process named twice in one cell (case and spacing differ) is created once and linked once', async () => {
+    const a = await admin();
+    const model = name('Dd-Model');
+    const jobId = await stage(a, `메이커명,모델명,공정명\n${name('Dd-Maker')},${model},"${name('Dd-Proc')},  ${name('dd-proc')} "\n`);
+    expect((await detail(a, jobId)).rows[0]).toMatchObject({ planState: 'new', creates: { processes: [name('Dd-Proc')] } });
+    expect(await apply(a, jobId)).toMatchObject({ status: 'completed', counts: { applied: 1 } });
+    expect((await sql(`select name from knowledge.process_category where workspace_id = $1 and lower(name) = lower($2)`, [WORKSPACE_ID, name('Dd-Proc')])).rows).toEqual([{ name: name('Dd-Proc') }]);
+    expect(
+      Number(
+        (await sql(`select count(*)::int as c from knowledge.model_process mp join knowledge.equipment_model m on m.id = mp.model_id where m.workspace_id = $1 and m.name = $2`, [WORKSPACE_ID, model])).rows[0].c,
+      ),
+    ).toBe(1);
+  });
+
   it('plans conflicts: inactive/ambiguous parents resolve by skip only, an ambiguous model name by map or skip', async () => {
     const a = await admin();
     await seedNamed('vendor', a, name('Dormant'), 'Dormant', false);
