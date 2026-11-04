@@ -15,7 +15,7 @@ const CARD = 'flex w-full items-start gap-2 rounded-md border px-3 py-2.5 text-l
  * from `onCloseAutoFocus`, after the focus trap is gone, so the Kernel arrival focus (ADR-0032) lands on the new title.
  */
 export function SystemSwitcher() {
-  const { currentSpace, accessibleSpaces, spaceEntry, switchSpace, registry, resolveLink, navigate, pathname, route, slots, setSwitcherOpen } = useHostPlatform();
+  const { currentSpace: routeSpace, accessibleSpaces, spaceEntry, switchSpace, registry, resolveLink, navigate, pathname, route, slots, setSwitcherOpen } = useHostPlatform();
   const { switcherOpen: open, switcherSession } = useOverlayState();
   const { t, tx } = useI18n();
   const titleId = useId();
@@ -53,6 +53,8 @@ export function SystemSwitcher() {
   const platform = usePlatformMenu();
   const platformItems = platform.sections.flatMap(section => section.items);
   const planned = slots.plannedSpaces ?? [];
+  // A route space the user cannot enter is not "current": the sidebar falls back to an accessible space, so the rail names no system (06 §9.1, #1314).
+  const currentSpace = routeSpace !== null && accessibleSpaces.some(space => space.id === routeSpace.id) ? routeSpace : null;
   const label = currentSpace === null ? t('switcherTitle') : t('switcherCurrent', { space: tx(currentSpace.label) });
   const TriggerIcon = currentSpace === null ? LayoutGrid : spaceIcon(currentSpace.homeMenuId);
 

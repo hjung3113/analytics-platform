@@ -186,6 +186,20 @@ describe('fallback sidebar on an unmatched or denied route (B5)', () => {
   });
 });
 
+describe('switcher on a denied space URL (#1314, 06 §9.1)', () => {
+  it('names no current system when the route space is not enterable, so rail and sidebar never name different systems', () => {
+    mount('/ops?v=1', ['platform:view']);
+    const trigger = within(rail()).getByRole('button', { name: /시스템 및 플랫폼 메뉴/ });
+    expect(trigger.getAttribute('aria-label') ?? trigger.textContent).not.toContain('운영 콘솔');
+    expect(trigger.getAttribute('aria-label') ?? trigger.textContent).not.toContain('현재');
+  });
+
+  it('still names the current system on an enterable space route', () => {
+    mount('/cycle?v=1');
+    expect(within(rail()).getByRole('button', { name: /현재: MARS/ })).toBeTruthy();
+  });
+});
+
 describe('space scope control slot (ADR-0081 decision 4)', () => {
   function mountWith(slots: { scopeControl?: { For: (id: never) => ((props: { collapsed: boolean }) => React.ReactNode) | null } }, url: string) {
     window.history.replaceState(null, '', url);

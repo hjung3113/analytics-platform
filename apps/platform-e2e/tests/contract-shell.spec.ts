@@ -898,6 +898,13 @@ test.describe('메뉴 활용률 (06 §4, docs/05 — kernel이 recordUsage로 �
     await evidence(page, testInfo, 'usage-engineer-space-denied');
   });
 
+  test('거부된 공간 URL은 레일이 현재 시스템을 이름 짓지 않는다 — 레일과 사이드바가 다른 시스템을 가리키지 않는다 (#1314)', async ({ page }) => {
+    await signInAs(page, 'engineer');
+    await page.goto(DIRECT_URL);
+    await expect(page.getByRole('main')).toContainText('이 메뉴에 대한 권한이 없습니다');
+    await expect(systemSwitcher(page)).toHaveAccessibleName('시스템 및 플랫폼 메뉴');
+  });
+
   test('viewer도 메뉴가 비노출이고 직접 URL은 메뉴 거부다', async ({ page }, testInfo) => {
     await signInAs(page, 'viewer');
     await page.goto('/bravo/metric-catalog');
