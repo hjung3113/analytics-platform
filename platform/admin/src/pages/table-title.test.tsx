@@ -69,8 +69,20 @@ describe('table does not repeat the page title visibly (#1167 B-1)', () => {
     expect(section).not.toBeNull();
     const heading = within(section as HTMLElement).getByRole('heading', { level: 2 });
     expect(heading.textContent).toBe(title);
-    // The visible duplicate is gone: the heading's content is sr-only, the name lives on the table's aria-label.
-    expect(heading.firstElementChild?.classList.contains('sr-only')).toBe(true);
+    // hideTitle keeps the h2 itself outline-only; aria-label still names the table.
+    expect(heading.classList.contains('sr-only')).toBe(true);
+  });
+  it.each(cases)('%s: merges filters and results into the toolbar without a lone ⓘ (#1234)', async (path, name, _title, page) => {
+    mount(path, page);
+    const table = await screen.findByRole('table', { name });
+    const section = table.closest('section')!;
+    const bar = section.querySelector('[data-table-toolbar]');
+    const result = section.querySelector('[data-table-status-line]');
+    expect(bar?.contains(result)).toBe(true);
+    expect(result?.contains(within(section).getByRole('button', { name: '설명' }))).toBe(true);
+    const filters = section.querySelector('[data-filter-line]');
+    if (filters) expect(bar?.contains(filters)).toBe(true);
+    expect(section.querySelectorAll(':scope > [data-table-status-line]')).toHaveLength(0);
   });
 });
 

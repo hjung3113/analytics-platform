@@ -56,7 +56,8 @@ export default function AuditTrail() {
       table={invalid ? <TableUrlWarning sentences={sentences} recoverKeys={recoverKeys} cause={cause} /> :
     <PlatformDataTable<AuditEvent>
         // #1167 B-1: the page head already shows this title; keep it for the outline only, the table's name is ariaLabel.
-        title={<span className="sr-only">{ko ? '변경 감사' : 'Audit trail'}</span>}
+        title={ko ? '변경 감사' : 'Audit trail'}
+        hideTitle
         ariaLabel={ko ? '변경 감사 목록' : 'Audit trail list'}
         subtitle={ko ? '기본 정렬은 최신순이며 room 필터를 적용하지 않습니다.' : 'Default sort is newest first; no room filter is applied.'}
         columns={columns} getRowId={row => row.id}
