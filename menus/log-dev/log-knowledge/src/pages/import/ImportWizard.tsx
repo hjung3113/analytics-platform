@@ -66,7 +66,13 @@ const countRows = (rows: readonly ImportRowView[]) => {
  * import actions and `importDetail` only.
  */
 export function ImportWizard({ onExit }: { onExit: (changed: boolean) => void }) {
-  const { toast, user } = usePlatform();
+  // Keyed by user: a session change remounts the wizard, so no text, plan or job of one user is shown or saved under another.
+  const { user } = usePlatform();
+  return <ImportWizardFor key={user.id} userId={user.id} onExit={onExit} />;
+}
+
+function ImportWizardFor({ userId, onExit }: { userId: string; onExit: (changed: boolean) => void }) {
+  const { toast } = usePlatform();
   const paste = useMenuAction(importPaste as Spec<ImportPasteInput, ImportPasteResult>);
   const validate = useMenuAction(importValidate as Spec<ImportValidateInput, ImportStepResult>);
   const resolve = useMenuAction(importResolve as Spec<ImportResolveInput, ImportStepResult & { resolved: number }>);
@@ -77,7 +83,7 @@ export function ImportWizard({ onExit }: { onExit: (changed: boolean) => void })
   useEffect(() => { fetchRef.current = detailFetch.fetch; });
   const fetchDetail = useCallback((params: ImportDetailParams, signal?: AbortSignal): Promise<ApiResponse<ImportDetail>> => fetchRef.current(params, signal), []);
 
-  const [saved] = useState(() => readDraft(user.id));
+  const [saved] = useState(() => readDraft(userId));
   const [step, setStep] = useState<StepId>(1);
   const [text, setText] = useState(saved?.text ?? '');
   const [sourceName, setSourceName] = useState<string | null>(saved?.sourceName ?? null);
@@ -117,9 +123,9 @@ export function ImportWizard({ onExit }: { onExit: (changed: boolean) => void })
   const hasDraft = text.trim() !== '' || activeJobId !== null;
   // The draft (text, file name, staged job) survives leaving through the menu; it ends with the apply or an explicit 그만두기.
   useEffect(() => {
-    if (finished || !hasDraft) { clearDraft(); return; }
-    writeDraft(user.id, { text, sourceName, jobId: activeJobId });
-  }, [finished, hasDraft, text, sourceName, activeJobId, user.id]);
+    if (finished || !hasDraft) { clearDraft(userId); return; }
+    writeDraft(userId, { text, sourceName, jobId: activeJobId });
+  }, [finished, hasDraft, text, sourceName, activeJobId, userId]);
   useEffect(() => {
     if (finished || !hasDraft) return;
     const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ''; };
@@ -167,8 +173,10 @@ export function ImportWizard({ onExit }: { onExit: (changed: boolean) => void })
       const res = await paste.run({ text, ...(sourceName ? { sourceName } : {}) });
       if (res.outcome === 'invalid') { setError(pasteRefusalText(res.fieldErrors)); return; }
       if (res.outcome !== 'ok' || !res.data) { setError({ text: actionFailureText(res.outcome) }); return; }
+      // The job exists on the server from here on: keep its id at once, so a failed read leaves 이어서 하기 (retry) and 새로 시작 (cancel).
+      setResume({ jobId: res.data.jobId });
       const staged = await read(res.data.jobId);
-      if (staged) await check(staged);
+      if (staged) { setResume(null); await check(staged); }
     } finally { setWorking(null); }
   };
 
@@ -203,7 +211,7 @@ export function ImportWizard({ onExit }: { onExit: (changed: boolean) => void })
       if (!mounted.current) return;
       const after = await fetchDetail({ jobId: plan.detail.job.id, page: 0, pageSize: 1 });
       if (!mounted.current) return;
-      if (after.outcome === 'ok' && after.data) setResult(after.data);
+      if (after.outcome === 'ok' && after.data) setResult(after.data); else if (outcome.kind === 'done') setResult(null);
       // Only a job that cannot change any more ends the wizard; a loop that merely stopped keeps its recovery and its cancellation.
       const status = after.outcome === 'ok' && after.data ? after.data.job.status : null;
       const terminal = outcome.kind === 'done' || outcome.kind === 'not_found' || (status !== null && TERMINAL.includes(status));
@@ -234,7 +242,12 @@ export function ImportWizard({ onExit }: { onExit: (changed: boolean) => void })
       const loaded = await read(resume.jobId);
       if (!loaded) return;
       const status = loaded.detail.job.status;
-      if (!BEFORE_APPLY.includes(status)) { setResume(null); setPlan(null); setError({ text: '이전 가져오기 작업은 이미 적용을 시작했거나 끝나서 이어서 할 수 없습니다. 카탈로그에서 결과를 확인하세요.' }); return; }
+      if (status === 'applying') {
+        // Rows may be applied already and the server accepts further apply calls: keep the job and offer 다시 적용 (or an informed exit).
+        setResume(null); setEnd({ kind: 'failed' }); setPhase('stopped'); setStep(4); setRevision(n => n + 1);
+        return;
+      }
+      if (!BEFORE_APPLY.includes(status)) { setResume(null); setPlan(null); setText(''); setSourceName(null); setError({ text: '이전 가져오기 작업은 이미 적용을 시작했거나 끝나서 이어서 할 수 없습니다. 카탈로그에서 결과를 확인하세요.' }); return; }
       setResume(null);
       if (status === 'mapped') await check(loaded); else { setStep(2); setRevision(n => n + 1); }
     } finally { setWorking(null); }
@@ -260,7 +273,7 @@ export function ImportWizard({ onExit }: { onExit: (changed: boolean) => void })
   };
   const confirmExit = async (force = false) => {
     if (!force && !(await cancelJob())) { setLeaving({ error: '가져오기 작업을 취소하지 못했습니다. 그래도 나가면 검사한 내용은 저장되지 않은 채 남습니다.' }); return; }
-    clearDraft();
+    clearDraft(userId);
     onExit(false);
   };
 
@@ -339,10 +352,11 @@ export function ImportWizard({ onExit }: { onExit: (changed: boolean) => void })
       {unresolved.length > 0 && <p className="text-sm text-text-muted">건너뛰기를 누르지 않은 행이 {unresolved.length}개 있습니다. 모두 처리해야 다음으로 갈 수 있습니다.</p>}
     </div>;
   } else if (step === 4 && job && plan) {
-    const live: ImportApplyCounts | null = result?.applyCounts ?? progress?.counts ?? null;
+    const doneEnd = end?.kind === 'done' ? end : null;
+    const live: ImportApplyCounts | null = result?.applyCounts ?? doneEnd?.counts ?? progress?.counts ?? null;
     const total = rows.length;
     const doneRows = progress ? total - progress.remaining : 0;
-    const status = result?.job.status ?? job.status;
+    const status = result?.job.status ?? doneEnd?.status ?? job.status;
     const writes = counts.new + counts.update;
     body = <div className="grid gap-3">
       {phase === 'ready' && <>
@@ -368,7 +382,8 @@ export function ImportWizard({ onExit }: { onExit: (changed: boolean) => void })
     </div>;
   } else body = <p className="text-sm text-text-muted">불러오는 중…</p>;
 
-  const partial = finished && (result?.job.status ?? job?.status) === 'partial_failure';
+  // The loop's own terminal status stands in when re-reading the job failed, so the retry button is never lost.
+  const partial = finished && (result?.job.status ?? (end?.kind === 'done' ? end.status : job?.status)) === 'partial_failure';
   const footer = <footer className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border-subtle bg-surface-card px-4 py-2.5">
     <div className="flex gap-2">
       {step === 2 && <Button type="button" variant="secondary" disabled={busy} onClick={() => { setStep(1); }}>다시 붙여넣기</Button>}
@@ -404,8 +419,8 @@ export function ImportWizard({ onExit }: { onExit: (changed: boolean) => void })
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>가져오기를 그만둘까요?</AlertDialogTitle>
-          <AlertDialogDescription>{phase === 'stopped' && (progress?.counts.applied ?? 0) > 0
-            ? '일부 행은 이미 카탈로그에 반영됐습니다. 나가면 남은 행은 반영되지 않고 붙여넣은 내용은 사라집니다.'
+          <AlertDialogDescription>{phase === 'stopped' && ((progress?.counts.applied ?? plan?.detail.applyCounts.applied ?? 0) > 0 || job?.status === 'applying')
+            ? '일부 행은 이미 카탈로그에 반영됐을 수 있습니다. 나가면 남은 행은 반영되지 않고 붙여넣은 내용은 사라집니다.'
             : '아직 적용하지 않아서 카탈로그는 바뀌지 않았습니다. 붙여넣은 내용과 검사 결과는 사라집니다.'}</AlertDialogDescription>
           {leaving?.error && <p role="alert" className="text-sm text-text-danger-label">{leaving.error}</p>}
         </AlertDialogHeader>

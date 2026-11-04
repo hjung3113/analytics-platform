@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { BookOpen } from 'lucide-react';
 import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
 import { stubCompactTableGeometry } from '@ap/components/testing';
@@ -11,6 +11,7 @@ import { CATALOG_MANAGE_PERMISSION, type ImportRowView } from '../../endpoints';
 import { manifests } from '../../index';
 import CatalogManagement from '../CatalogManagement';
 import { clearDraft, readDraft } from './importDraft';
+import { JOB_STATUS_LABEL } from './importModel';
 
 const registry = createRegistry({
   permissions: [menuPermission('knowledge:catalog-manage')],
@@ -33,6 +34,10 @@ let refuse: Partial<ActionResponse<unknown>> | null;
 let refuseCancel: boolean;
 let applyAnswer: Partial<ActionResponse<unknown>> | null;
 let holdApply: Promise<void> | null;
+let detailFails: boolean;
+let failDetailAfterApply: boolean;
+let currentSession = session;
+const sessionListeners = new Set<() => void>();
 const row = (rowNo: number, over: Partial<ImportRowView>): ImportRowView => ({
   rowNo, raw: { 메이커명: `M${rowNo}`, 공정명: '', 모델명: `Model ${rowNo}` }, normalized: null, errors: [], planState: 'new', targetId: null, targetVersion: null, resolution: null, mapTargetId: null,
   applyStatus: null, applyError: null, resultTargetId: null, creates: null, ...over,
@@ -46,6 +51,7 @@ const counts = () => ({ applied: applied > 0 ? 1 : 0, unchanged: 0, skipped: app
 const adapter = testAdapter({
   menuQuery: async (req: MenuQuery) => {
     if (req.endpoint === 'logKnowledge.importDetail') {
+      if (detailFails) return { outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'fixture' } as unknown as ApiResponse<never>;
       const all = rows();
       return ok({
         job: { id: 'job-1', status: applied > 1 ? 'completed' : applied === 1 ? 'applying' : 'review_required', planVersion: 4, rowVersion: version, mapping: null, headers: [] },
@@ -58,6 +64,7 @@ const adapter = testAdapter({
     calls.push(req);
     if (refuse) return answer(refuse);
     if (refuseCancel && req.action === 'logKnowledge.importCancel') return answer({ outcome: 'forbidden' });
+    if (failDetailAfterApply && req.action === 'logKnowledge.importApply') detailFails = true;
     if (applyAnswer && req.action === 'logKnowledge.importApply') return answer(applyAnswer);
     if (holdApply && req.action === 'logKnowledge.importApply') await holdApply;
     switch (req.action) {
@@ -72,13 +79,14 @@ const adapter = testAdapter({
       default: return answer({});
     }
   },
-  session: () => session,
+  session: () => currentSession,
+  subscribe: listener => { sessionListeners.add(listener); return () => { sessionListeners.delete(listener); }; },
 });
 
 const slow = { timeout: 8000 };
 vi.setConfig({ testTimeout: 30000 });
 let restoreGeometry: () => void;
-beforeEach(() => { conflicts = true; skipped = false; version = 1; applied = 0; calls = []; refuse = null; refuseCancel = false; applyAnswer = null; holdApply = null; clearDraft(); restoreGeometry = stubCompactTableGeometry(); });
+beforeEach(() => { conflicts = true; skipped = false; version = 1; applied = 0; calls = []; refuse = null; refuseCancel = false; applyAnswer = null; holdApply = null; detailFails = false; failDetailAfterApply = false; currentSession = session; clearDraft(); restoreGeometry = stubCompactTableGeometry(); });
 afterEach(() => { cleanup(); restoreGeometry(); });
 
 function open(tab = 'model') {
@@ -312,6 +320,108 @@ describe('catalog import wizard', () => {
       const draft = new Event('beforeunload', { cancelable: true });
       window.dispatchEvent(draft);
       expect(draft.defaultPrevented).toBe(true);
+    });
+  });
+  describe('FIX2 review items', () => {
+    const userB = testSession(['knowledge:catalog-manage', 'platform:view'], { user: { id: 'other', name: 'other', title: { ko: '다른 사용자', en: 'Other' } } });
+    const signInAs = (next: typeof session) => act(() => { currentSession = next; sessionListeners.forEach(l => l()); });
+
+    it('C1: a user change shows nothing of the previous draft, saves nothing under the new user, and the first user gets theirs back', async () => {
+      open();
+      await paste('메이커명\t모델명\nA\tB');
+      await screen.findByText('아직 아무것도 저장되지 않았습니다', {}, slow);
+      expect(draftSaved()).toBe(true);
+      signInAs(userB);
+      await waitFor(() => expect((screen.getByLabelText('붙여넣을 목록') as HTMLTextAreaElement).value).toBe(''), slow);
+      expect(((await screen.findByLabelText('붙여넣을 목록')) as HTMLTextAreaElement).value).toBe('');
+      expect(screen.queryByRole('button', { name: '이어서 하기' })).toBeNull();
+      expect(readDraft('other')).toBeNull();
+      expect(readDraft('admin')?.jobId).toBe('job-1');
+      signInAs(session);
+      expect(((await screen.findByLabelText('붙여넣을 목록')) as HTMLTextAreaElement).value).toBe('메이커명\t모델명\nA\tB');
+      expect(await screen.findByRole('button', { name: '이어서 하기' }, slow)).toBeTruthy();
+    });
+
+    const reopenApplying = async () => {
+      open();
+      await paste();
+      await screen.findByText('아직 아무것도 저장되지 않았습니다', {}, slow);
+      cleanup();
+      applied = 1;
+      open();
+      fireEvent.click(await screen.findByRole('button', { name: '가져오기' }, slow));
+      fireEvent.click(await screen.findByRole('button', { name: '이어서 하기' }, slow));
+    };
+
+    it('C2: resuming an applying job keeps its id and offers 다시 적용, which continues the apply', async () => {
+      await reopenApplying();
+      const again = await screen.findByRole('button', { name: '다시 적용' }, slow);
+      expect(readDraft('admin')?.jobId).toBe('job-1');
+      expect(screen.queryByText(/이어서 할 수 없습니다/)).toBeNull();
+      fireEvent.click(again);
+      await screen.findByText('적용했습니다', {}, slow);
+      expect(actions()).toContain('importApply');
+      expect(draftSaved()).toBe(false);
+    });
+
+    it('C2: leaving an applying job asks, says rows may be applied already, and abandons without cancelling', async () => {
+      await reopenApplying();
+      await screen.findByRole('button', { name: '다시 적용' }, slow);
+      calls = [];
+      fireEvent.click(screen.getByRole('button', { name: '목록으로' }));
+      await screen.findByText(/이미 카탈로그에 반영됐을 수 있습니다/, {}, slow);
+      fireEvent.click(screen.getByText('그만두기'));
+      await screen.findByRole('button', { name: '모델 추가' }, slow);
+      expect(actions()).not.toContain('importCancel');
+      expect(draftSaved()).toBe(false);
+    });
+
+    it('C2: resuming a job that already ended says so and clears the saved draft', async () => {
+      open();
+      await paste();
+      await screen.findByText('아직 아무것도 저장되지 않았습니다', {}, slow);
+      cleanup();
+      applied = 2;
+      open();
+      fireEvent.click(await screen.findByRole('button', { name: '가져오기' }, slow));
+      fireEvent.click(await screen.findByRole('button', { name: '이어서 하기' }, slow));
+      await screen.findByText(/이어서 할 수 없습니다/, {}, slow);
+      await waitFor(() => expect(draftSaved()).toBe(false), slow);
+    });
+
+    it('C3: a partial failure whose status re-read fails still offers 실패 행 다시 적용', async () => {
+      open();
+      const apply = await toApplyStep();
+      failDetailAfterApply = true;
+      applyAnswer = { data: { outcome: 'progress', jobId: 'job-1', status: 'partial_failure', planVersion: 4, remaining: 0, counts: { applied: 1, unchanged: 0, skipped: 1, excluded: 1, unresolved: 0, conflict: 0, failed: 1, remaining: 0 } } };
+      fireEvent.click(apply);
+      await screen.findByText('일부 행을 반영하지 못했습니다', {}, slow);
+      expect(screen.getByRole('button', { name: '실패 행 다시 적용' })).toBeTruthy();
+      expect(screen.getByText('작업 상태: ' + JOB_STATUS_LABEL['partial_failure'])).toBeTruthy();
+    });
+
+    it('C5: a paste that succeeds but whose detail read fails keeps the job id and offers retry and cancel', async () => {
+      detailFails = true;
+      open();
+      await paste();
+      await screen.findByText(/가져오기 작업을 읽지 못했습니다/, {}, slow);
+      expect(readDraft('admin')?.jobId).toBe('job-1');
+      detailFails = false;
+      fireEvent.click(await screen.findByRole('button', { name: '이어서 하기' }, slow));
+      await screen.findByText('아직 아무것도 저장되지 않았습니다', {}, slow);
+      expect(stepName()).toContain('검사 결과');
+      expect(actions().filter(a => a === 'importPaste')).toHaveLength(1);
+    });
+
+    it('C5: after the failed read, 새로 시작 cancels that job', async () => {
+      detailFails = true;
+      open();
+      await paste();
+      await screen.findByText(/가져오기 작업을 읽지 못했습니다/, {}, slow);
+      detailFails = false;
+      fireEvent.click(await screen.findByRole('button', { name: '새로 시작' }, slow));
+      await waitFor(() => expect(actions()).toContain('importCancel'), slow);
+      await waitFor(() => expect(draftSaved()).toBe(false), slow);
     });
   });
 });
