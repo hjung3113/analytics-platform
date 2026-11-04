@@ -106,7 +106,7 @@ describe('RouteOutlet error boundary (06 §4)', () => {
     const { adapter } = fixture(async () => ({ accepted: true }));
     mountAt('/odd', adapter);
     expect(await screen.findByText('이 화면에서 오류가 발생했습니다')).toBeTruthy();
-    expect(screen.getByText(/Correlation ID: client-/)).toBeTruthy();
+    expect(screen.getByText(/^client-/)).toBeTruthy();
     fireEvent.click(screen.getByText('go home'));
     expect(await screen.findByText('home page')).toBeTruthy();
   });

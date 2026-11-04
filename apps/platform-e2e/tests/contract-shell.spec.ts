@@ -847,15 +847,15 @@ test.describe('화면 오류 격리 (06 §4 전역 Error Boundary)', () => {
     const main = page.getByRole('main');
     await setScenario(page, '응답 형식 오류 (malformed)');
     await expect(main.getByText('이 화면에서 오류가 발생했습니다')).toBeVisible();
-    await expect(main.getByText(/Correlation ID: client-/)).toBeVisible();
+    await expect(main.getByText(/추적 번호: client-/)).toBeVisible();
     await expect(page.getByRole('navigation').first()).toBeVisible();
     await expect(page.getByRole('button', { name: /^Scope:/ })).toBeVisible();
     await evidence(page, testInfo, 'route-error');
 
-    const firstId = await main.getByText(/Correlation ID: client-/).innerText();
+    const firstId = await main.getByText(/추적 번호: client-/).innerText();
     await main.getByRole('button', { name: '다시 시도' }).click();
     await expect(main.getByText('이 화면에서 오류가 발생했습니다')).toBeVisible();
-    await expect(main.getByText(/Correlation ID: client-/)).not.toHaveText(firstId);
+    await expect(main.getByText(/추적 번호: client-/)).not.toHaveText(firstId);
 
     await setScenario(page, '정상');
     await expect(main.getByText('이 화면에서 오류가 발생했습니다')).toHaveCount(0);
