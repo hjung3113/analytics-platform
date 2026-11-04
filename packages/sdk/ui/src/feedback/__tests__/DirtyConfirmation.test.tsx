@@ -117,4 +117,30 @@ describe('DirtyConfirmation', () => {
     expect(onCancel).toHaveBeenCalledOnce();
     expect(onConfirm).not.toHaveBeenCalled();
   });
+
+  it('does not swallow a later Escape after a default-prevented button click (#1324)', async () => {
+    const onCancel = vi.fn();
+    function Harness() {
+      const [open, setOpen] = React.useState(true);
+      return (
+        <div onClickCapture={(event) => event.preventDefault()}>
+          <button type="button" onClick={() => setOpen(true)}>reopen</button>
+          <DirtyConfirmation
+            open={open}
+            onConfirm={vi.fn()}
+            onCancel={() => { onCancel(); setOpen(false); }}
+          />
+        </div>
+      );
+    }
+    render(<Harness />);
+    fireEvent.click(screen.getByRole('button', { name: '계속 작성' }));
+    await waitFor(() => expect(screen.queryByText('변경사항이 저장되지 않았습니다')).not.toBeInTheDocument());
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: 'reopen' }));
+    await screen.findByText('변경사항이 저장되지 않았습니다');
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByText('변경사항이 저장되지 않았습니다')).not.toBeInTheDocument());
+    expect(onCancel).toHaveBeenCalledTimes(2);
+  });
 });
