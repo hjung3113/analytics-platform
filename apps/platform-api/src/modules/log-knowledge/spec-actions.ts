@@ -144,7 +144,11 @@ export function specActions(deps: SpecActionDeps): MenuActionDeclaration[] {
   const draftSave: MenuActionDeclaration = {
     spec: base('draftSave', 'version'),
     authorize,
-    validate: (input) => [...validateSpecInput('draftSave', input), ...specTsvFieldErrors(input)],
+    // The envelope/contract/cap checks gate the TSV parser: a refused input is not parsed (#1196 fix C1).
+    validate: (input) => {
+      const envelope = validateSpecInput('draftSave', input);
+      return envelope.length > 0 ? envelope : specTsvFieldErrors(input);
+    },
     currentVersion,
     async handle(tx, actor, input): Promise<ActionHandlerResult> {
       const ws = actor.workspace_id;

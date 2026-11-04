@@ -215,18 +215,18 @@ Rows: `modules[]` `{ name, parentModule? }`; `events[]` `{ module, name, fields?
   - `kind=event`: `module` (owning module), `event` (the event name), optional `trigger_rule`, `detail_doc_ref`, `fields_json` (a JSON array of the closed `fields_json` v1; anything else, including non-array JSON, is `malformed`).
   - `kind=relation`: `source_module`, `source_event`, `predicate`, `target_module`, `target_event`, optional `rule_ref`.
   - A non-empty cell of a column the row's `kind` does not use → error (silent ignoring would hide mistakes).
-- **Errors** are row-numbered by the line in the submitted text (the header is line 1) with the column name: path `['text', 'line N', 'column <name>']`, e.g. `text:line 7:column predicate:unknown_value`. Codes: `required` (missing/blank value, no `kind` column, empty text), `too_long`, `malformed` (bad `fields_json`, NUL/lone surrogate), `unknown_column`, `duplicate_column` (header, naming the header), `unknown_value` (a `kind` cell outside the three), `unexpected_value` (a cell of another kind's column), `too_many_cells` (path `['text', 'line N']`), and the structured codes of a bad cell (`not_found`, …). Planning errors of the text (duplicate keys, dangling references, cycles) come back on the same line/column paths. At most 20 line errors are reported; more are summarised by a trailing `text:more_errors`. Cell contents are never echoed (a FieldError carries no payload).
-- **Caps**: ≤ 512 KiB of text and ≤ 2,000 data rows per call → `invalid` `input:too_large` (the text is not echoed back). Streaming = several calls, each with its own header row; `mode` and the version CAS behave exactly as for rows.
+- **Errors** are row-numbered by the line in the submitted text (the header is line 1) with the column name: path `['text', 'line N', 'column <name>']`, e.g. `text:line 7:column predicate:unknown_value`. Codes: `required` (missing/blank value, no `kind` column, empty text), `too_long`, `malformed` (bad `fields_json`, NUL/lone surrogate), `unknown_column`, `duplicate_column` (header, naming the header — an unknown header cell is echoed only as its first 40 characters plus `…`, control characters stripped), `unknown_value` (a `kind` cell outside the three), `unexpected_value` (a cell of another kind's column), `too_many_cells` (path `['text', 'line N']`), and the structured codes of a bad cell (`not_found`, …). Planning errors of the text (duplicate keys, dangling references, cycles) come back on the same line/column paths. Parse errors and planning errors share one bounded summary (#1196): at most 20 line errors are reported; more are summarised by a trailing `text:more_errors:<total>` marker whose code is the numeric total (e.g. `text:more_errors:25`). Other cell contents are never echoed (a FieldError carries no payload).
+- **Caps**: ≤ 512 KiB of text and ≤ 2,000 data rows per call → `invalid` `input:too_large` (the text is not echoed back); both are judged before the text is parsed — an over-cap call never reaches cell, schema or JSON work, and envelope/contract refusals (rows/text, `format`) are answered without running the parser. Streaming = several calls, each with its own header row; `mode` and the version CAS behave exactly as for rows.
 
 Worked example:
 
 ```tsv
 kind	module	parent_module	event	trigger_rule	detail_doc_ref	fields_json	source_module	source_event	predicate	target_module	target_event	rule_ref
-module	Spindle										
-module	Spindle Motor	Spindle								
-event	Spindle			Start	on start		[{"name":"speed","type":"float","unit":"rpm","description":"RPM at start"}]						
-event	Spindle Motor			Stop									
-relation													Spindle	Start	precedes	Spindle Motor	Stop	§4.2
+module	Spindle
+module	Spindle Motor	Spindle
+event	Spindle		Start	on start		[{"name":"speed","type":"float","unit":"rpm","description":"RPM at start"}]
+event	Spindle Motor		Stop			
+relation							Spindle	Start	precedes	Spindle Motor	Stop	§4.2
 ```
 
 ## Catalog import staging (#1195 a, migration 0087)

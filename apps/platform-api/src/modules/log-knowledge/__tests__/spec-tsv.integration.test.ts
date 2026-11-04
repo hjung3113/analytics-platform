@@ -225,6 +225,16 @@ describe.skipIf(!runIntegration)('model spec TSV text input (#1196 b2)', () => {
     expect(await audit(draft.id)).toHaveLength(1); // the create only
   });
 
+  // #1196 fix C2: an inherited object key as the `kind` cell is an unknown_value (HTTP 200, `invalid`), never a 500.
+  it('a prototype-property kind cell is an unknown_value, not a server error', async () => {
+    const draft = await newDraft(await newModel('proto'));
+    const bad = [TSV_HEADER, T('constructor', 'X')].join('\n');
+    const a = await act('specDraftSave', { revisionId: draft.id, mode: 'append', text: bad, format: 'tsv' }, { expectedVersion: draft.version });
+    expect(a.outcome, JSON.stringify(a)).toBe('invalid');
+    expect(fe(a)).toEqual(['text:line 2:column kind:unknown_value']);
+    expect(await counts(draft.id)).toEqual({ spec_module: 0, spec_event: 0, spec_event_relation: 0 });
+  });
+
   it('a planning error of a text call is numbered by its line and column', async () => {
     const draft = await newDraft(await newModel('plan'));
     // line 4: an event whose module is nowhere in the call or the draft

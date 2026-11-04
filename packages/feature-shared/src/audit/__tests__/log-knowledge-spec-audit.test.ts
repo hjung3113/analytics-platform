@@ -23,6 +23,8 @@ describe('log knowledge spec audit detail schemas (ADR-0111)', () => {
   it.each([
     ['knowledge.spec.rejected', 'the reason text', { modelId: ID, revisionNo: 1, reasonLength: 1, reason: 'x' }],
     ['knowledge.spec.draft_saved', 'a module body', { modelId: ID, revisionNo: 1, mode: 'append', added: counts, modules: [] }],
+    // #1196 fix C5: the published hash stays exactly 64 lowercase hex characters, next to the provenance case
+    ['knowledge.spec.published', 'a malformed content hash', { modelId: ID, revisionNo: 1, outcome: 'published', contentSha256: 'x', counts }],
     ['knowledge.spec.draft_saved', 'an unknown provenance', { modelId: ID, revisionNo: 1, mode: 'append', input: 'file', added: counts }],
   ] as const)('%s rejects %s', (type, _label, detail) => {
     expect(AUDIT_EVENT_DETAIL_SCHEMAS[type].safeParse(detail).success).toBe(false);

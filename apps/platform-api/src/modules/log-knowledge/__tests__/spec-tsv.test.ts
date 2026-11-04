@@ -2,10 +2,12 @@
 // endings, BOM, blank lines, cell errors (row-numbered by the line in the submitted text), the call caps and the
 // error cap. Happy rows must equal the structured rows the b1 schemas produce (same normalisation).
 
-import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { type DraftIndex, planSpecRows } from '../domain/spec-input.js';
-import { SPEC_TSV_ERROR_CAP, type SpecTsvResult, parseSpecTsv, specTsvFieldErrors, tsvLineErrors } from '../domain/spec-tsv.js';
+import { type SpecTsvLines, SPEC_TSV_ERROR_CAP, type SpecTsvResult, parseSpecTsv, specTsvFieldErrors, tsvLineErrors } from '../domain/spec-tsv.js';
 import type { FieldError } from '../../menu-dispatch/types.js';
 
 
@@ -47,6 +49,21 @@ describe('spec TSV header', () => {
 
   it('numbers header errors by the header line, also when blank lines precede it', () => {
     expect(fe(failure(parseSpecTsv(`\n\n${row('module')}\n${row('module', 'A')}`)).errors)).toEqual(['text:line 3:column kind:required']);
+  });
+
+  // #1196 fix C3: header cells are echoed in error paths, so the excerpt is bounded and sanitised.
+  it('a 10 KiB unknown header cell is echoed as its first 40 characters plus an ellipsis, control characters stripped', () => {
+    const long = `${'x'.repeat(40)}y\u0007\u001b${'z'.repeat(10000)}`;
+    const parsed = failure(parseSpecTsv(row('kind', 'module', long)));
+    expect(fe(parsed.errors)).toEqual([`text:line 1:column ${'x'.repeat(40)}…:unknown_column`]);
+    const wire = JSON.stringify(parsed);
+    expect(wire).not.toContain('z'.repeat(100));
+    expect(wire).not.toContain('\\u0007');
+    expect(wire).not.toContain('y\\u');
+  });
+
+  it('a short unknown header cell keeps its exact name', () => {
+    expect(fe(failure(parseSpecTsv(row('kind', 'module', 'notes extra'))).errors)).toEqual(['text:line 1:column notes extra:unknown_column']);
   });
 
   it('accepts a free column order and a column subset (all optional except kind)', () => {
@@ -128,10 +145,30 @@ describe('spec TSV cell errors', () => {
     expect(fe(parsed.errors)).toEqual(['text:line 3:column kind:unknown_value', 'text:line 5:column module:required']);
     expect(parsed.total).toBe(2);
   });
+
+  // #1196 fix C2: the kind lookup is own-membership, so an inherited object key is just an unknown kind.
+  it.each([
+    ['constructor'],
+    ['toString'],
+    ['__proto__'],
+    ['hasOwnProperty'],
+    ['valueOf'],
+  ])('a kind cell of %s is an unknown_value, not a TypeError', (kindCell) => {
+    const parsed = parseSpecTsv([HEADER, row(kindCell, 'A')].join('\n'));
+    expect(parsed.ok, JSON.stringify(parsed)).toBe(false);
+    if (parsed.ok) return;
+    expect(fe(parsed.errors)).toEqual(['text:line 2:column kind:unknown_value']);
+  });
 });
 
 describe('spec TSV caps', () => {
   const many = (n: number) => [row('kind', 'module'), ...Array.from({ length: n }, (_, i) => row('module', `M${i}`))].join('\n');
+  // An event row whose `fields_json` is invalid JSON: if the parser ever reaches this row's cell work, it calls
+  // `JSON.parse` (and reports `fields_json:malformed`) — the spy below turns that into a visible failure.
+  const POISONED_HEADER = row('kind', 'module', 'event', 'trigger_rule', 'detail_doc_ref', 'fields_json');
+  const poisoned = row('event', 'Spindle', 'Start', '', '', '{"name":"speed"');
+
+  afterEach(() => vi.restoreAllMocks());
 
   it('accepts exactly 2,000 data rows and refuses 2,001', () => {
     const ok = parseSpecTsv(many(2000));
@@ -144,19 +181,67 @@ describe('spec TSV caps', () => {
     expect(fe(over.errors)).toEqual(['input:too_large']);
   });
 
-  it(`reports at most ${SPEC_TSV_ERROR_CAP} errors plus a total, and the wire list ends with more_errors`, () => {
+  // #1196 fix C1: the caps are judged before any per-row work — no cell splitting, no JSON.parse.
+  it('refuses over-cap text at the parser entry without touching a cell', () => {
+    const jsonParse = vi.spyOn(JSON, 'parse');
+    const text = [POISONED_HEADER, ...Array.from({ length: 5 }, () => poisoned), row('module', 'A'.repeat(512 * 1024))].join('\n');
+    const parsed = parseSpecTsv(text);
+    expect(jsonParse).not.toHaveBeenCalled();
+    expect(fe(failure(parsed).errors)).toEqual(['input:too_large']);
+  });
+
+  it('refuses 2,001 rows before any cell work', () => {
+    const jsonParse = vi.spyOn(JSON, 'parse');
+    const text = [POISONED_HEADER, ...Array.from({ length: 2001 }, () => poisoned)].join('\n');
+    const parsed = parseSpecTsv(text);
+    expect(jsonParse).not.toHaveBeenCalled();
+    expect(fe(failure(parsed).errors)).toEqual(['input:too_large']);
+  });
+
+  it(`reports at most ${SPEC_TSV_ERROR_CAP} errors plus a numeric total, and the wire list ends with the total marker`, () => {
     const bad = [row('kind', 'module'), ...Array.from({ length: 25 }, () => row('thing', 'X'))].join('\n');
     const parsed = failure(parseSpecTsv(bad));
     expect(parsed.errors).toHaveLength(SPEC_TSV_ERROR_CAP);
     expect(parsed.total).toBe(25);
     const wire = specTsvFieldErrors({ text: bad });
     expect(wire).toHaveLength(SPEC_TSV_ERROR_CAP + 1);
-    expect(wire.at(-1)).toEqual({ path: ['text'], code: 'more_errors' });
+    expect(wire.at(-1)).toEqual({ path: ['text', 'more_errors'], code: '25' }); // #1196 fix C4: the total travels
   });
 
   it('the wire errors are empty for rows input and for valid text', () => {
     expect(specTsvFieldErrors({ modules: [{ name: 'A' }] })).toEqual([]);
     expect(specTsvFieldErrors({ text: EXAMPLE, format: 'tsv' })).toEqual([]);
+  });
+});
+
+describe('the bounded error summary also caps planning errors (#1196 fix C4)', () => {
+  it('25 duplicate planning errors are capped at 20 with a trailing numeric total on their line paths', () => {
+    const parsed = parseSpecTsv([HEADER, ...Array.from({ length: 26 }, () => row('module', 'A'))].join('\n'));
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    const plan = planSpecRows(empty, parsed.rows);
+    expect(plan.ok).toBe(false);
+    if (plan.ok) return;
+    expect(plan.errors).toHaveLength(25); // planning itself is unbounded; the wire summary caps
+    const wire = tsvLineErrors(plan.errors, parsed.lines);
+    expect(wire).toHaveLength(SPEC_TSV_ERROR_CAP + 1);
+    expect(wire[0]).toEqual({ path: ['text', 'line 3', 'column module'], code: 'duplicate' });
+    expect(wire.at(-2)).toEqual({ path: ['text', 'line 22', 'column module'], code: 'duplicate' });
+    expect(wire.at(-1)).toEqual({ path: ['text', 'more_errors'], code: '25' });
+  });
+
+  it('a mix of renumbered line errors and passthrough errors shares the same bounded summary', () => {
+    const lines: SpecTsvLines = { modules: Array.from({ length: 22 }, (_, i) => i + 2), events: [], relations: [] };
+    const errors: FieldError[] = [
+      ...Array.from({ length: 10 }, (_, i) => ({ path: ['modules', String(i), 'name'], code: 'duplicate' }) as FieldError),
+      { path: ['input'], code: 'too_large' }, // no row index: passes through unchanged
+      ...Array.from({ length: 12 }, (_, i) => ({ path: ['modules', String(10 + i), 'name'], code: 'duplicate' }) as FieldError),
+    ];
+    const wire = tsvLineErrors(errors, lines);
+    expect(wire).toHaveLength(SPEC_TSV_ERROR_CAP + 1);
+    expect(wire[10]).toEqual({ path: ['input'], code: 'too_large' }); // the passthrough survives the cap
+    expect(wire[11]).toEqual({ path: ['text', 'line 12', 'column module'], code: 'duplicate' });
+    expect(wire.at(-1)).toEqual({ path: ['text', 'more_errors'], code: '23' });
   });
 });
 
@@ -174,5 +259,20 @@ describe('planning errors of parsed text keep their line numbers', () => {
     ]);
     // errors without a row index pass through unchanged
     expect(fe(tsvLineErrors([{ path: ['input'], code: 'too_large' }], parsed.lines))).toEqual(['input:too_large']);
+  });
+});
+
+// #1196 fix C6: the documented worked examples are the tested fixture itself, byte for byte.
+describe('the documented TSV examples match the parser', () => {
+  it.each([
+    ['the API contract', '../../../../../../docs/architecture/platform-api/api/log-knowledge.md'],
+    ['design §15.5', '../../../../../../docs/design/features/log-knowledge-hub/design-v0.6-candidate.md'],
+  ])('the worked example in %s is the tested fixture and parses ok', (_label, docPath) => {
+    const md = readFileSync(new URL(docPath, import.meta.url), 'utf8');
+    const blocks = [...md.matchAll(/^```tsv\n([\s\S]*?)^```$/gm)].map((m) => m[1]);
+    expect(blocks).toHaveLength(1);
+    const example = (blocks[0] as string).replace(/\n$/, '');
+    expect(example).toBe(EXAMPLE);
+    expect(parseSpecTsv(example)).toMatchObject({ ok: true });
   });
 });

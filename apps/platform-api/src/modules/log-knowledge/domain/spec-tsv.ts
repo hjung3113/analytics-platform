@@ -10,10 +10,17 @@
 import type { ZodError } from 'zod';
 
 import type { FieldError } from '../../menu-dispatch/types.js';
-import { type EventRowInput, type ModuleRowInput, type RelationRowInput, SPEC_ROW_SCHEMAS, SPEC_ROWS_MAX, fieldErrors } from './spec-input.js';
+import { type EventRowInput, type ModuleRowInput, type RelationRowInput, SPEC_BODY_MAX_BYTES, SPEC_ROW_SCHEMAS, SPEC_ROWS_MAX, fieldErrors } from './spec-input.js';
 
-/** How many line errors one answer reports; the rest are summarised by `text:more_errors`. */
+/** How many line errors one answer reports; the rest are summarised by a trailing `text:more_errors` marker. */
 export const SPEC_TSV_ERROR_CAP = 20;
+
+/** ONE bounded wire summary for line errors, shared by parse errors and planning errors (#1196 fix C4): the
+ *  first SPEC_TSV_ERROR_CAP errors and, when there were more, a trailing marker whose code is the numeric total. */
+const lineErrorSummary = (errors: readonly FieldError[], total: number): FieldError[] => {
+  const kept = errors.slice(0, SPEC_TSV_ERROR_CAP);
+  return total > kept.length ? [...kept, { path: ['text', 'more_errors'], code: String(total) }] : kept;
+};
 
 /** Every known header column; all optional in the header except `kind`. There is no `name` column: the
  *  `module`/`event` column carries the entity's display name (decided in #1196 b2 — one column per name). */
@@ -33,8 +40,10 @@ const KIND_COLUMNS: Record<SpecKind, readonly SpecTsvColumn[]> = {
   relation: ['kind', 'source_module', 'source_event', 'predicate', 'target_module', 'target_event', 'rule_ref'],
 };
 
-/** The columns of a kind, addressed by the `kind` cell as typed (an unknown kind is absent). */
-const COLUMNS_OF_KIND: Record<string, readonly SpecTsvColumn[]> = KIND_COLUMNS;
+/** The columns of a kind, addressed by the `kind` cell as typed (an unknown kind is absent). A Map, not a plain
+ *  object: an inherited key (`constructor`, `toString`, `__proto__`) must not pass the lookup and crash the
+ *  column loop — it is just an unknown kind (#1196 fix C2). */
+const COLUMNS_OF_KIND = new Map<string, readonly SpecTsvColumn[]>(Object.entries(KIND_COLUMNS));
 
 /** The b1 row field each column becomes, per kind: where a zod or planning error lands on the TSV grid. */
 const FIELD_COLUMNS: Record<SpecKind, Record<string, SpecTsvColumn>> = {
@@ -69,7 +78,22 @@ export type SpecTsvResult =
 
 const at = (line: number, column: string): string[] => ['text', `line ${line}`, `column ${column}`];
 
+/** A header cell is echoed in error paths, so the excerpt is sanitised and bounded: control characters stripped,
+ *  at most 40 characters plus an ellipsis. Known columns are short; only unknown cells can be long (#1196 fix C3). */
+const HEADER_ECHO_MAX = 40;
+const echoHeaderCell = (cell: string): string => {
+  // Stripped per character like the file-name sanitiser of `import-file.ts` (no control-character regex).
+  const clean = [...cell].map((ch) => (ch.charCodeAt(0) < 0x20 || ch.charCodeAt(0) === 0x7f ? '' : ch)).join('');
+  const chars = [...clean];
+  return chars.length > HEADER_ECHO_MAX ? `${chars.slice(0, HEADER_ECHO_MAX).join('')}…` : clean;
+};
+
 export function parseSpecTsv(text: string): SpecTsvResult {
+  // The text cap is judged here too, not only on the envelope in `parseSpecInput`: every entry into the parser
+  // refuses an over-cap text before any scanning (#1196 fix C1).
+  if (new TextEncoder().encode(text).length > SPEC_BODY_MAX_BYTES) {
+    return { ok: false, errors: [{ path: ['input'], code: 'too_large' }], total: 1 };
+  }
   const errors: FieldError[] = [];
   let total = 0;
   const seen = new Set<string>();
@@ -95,20 +119,25 @@ export function parseSpecTsv(text: string): SpecTsvResult {
   const position: Partial<Record<SpecTsvColumn, number>> = {};
   for (const [i, raw] of headerCells.entries()) {
     const column = raw.trim();
-    if (!KNOWN_COLUMNS.includes(column)) fail(at(headerLine, column), 'unknown_column');
-    else if (position[column as SpecTsvColumn] !== undefined) fail(at(headerLine, column), 'duplicate_column');
+    if (!KNOWN_COLUMNS.includes(column)) fail(at(headerLine, echoHeaderCell(column)), 'unknown_column');
+    else if (position[column as SpecTsvColumn] !== undefined) fail(at(headerLine, echoHeaderCell(column)), 'duplicate_column');
     else position[column as SpecTsvColumn] = i;
   }
   if (position.kind === undefined) fail(at(headerLine, 'kind'), 'required');
   if (total > 0) return { ok: false, errors, total };
 
+  // The row cap is judged before any per-row work: a call past SPEC_ROWS_MAX is refused without cell splitting,
+  // schema validation or JSON.parse (#1196 fix C1).
+  let rowCount = 0;
+  for (const [i, rawLine] of lines.entries()) {
+    if (i > headerNo && rawLine.trim() !== '') rowCount += 1;
+  }
+  if (rowCount > SPEC_ROWS_MAX) return { ok: false, errors: [{ path: ['input'], code: 'too_large' }], total: 1 };
+
   const rows: SpecTsvRows = { modules: [], events: [], relations: [] };
   const linesOf: SpecTsvLines = { modules: [], events: [], relations: [] };
-  let dataRows = 0;
   for (const [i, rawLine] of lines.entries()) {
     if (i <= headerNo || rawLine.trim() === '') continue;
-    dataRows += 1;
-    if (dataRows > SPEC_ROWS_MAX) return { ok: false, errors: [{ path: ['input'], code: 'too_large' }], total: 1 };
 
     const line = i + 1;
     const cells = rawLine.split('\t');
@@ -126,7 +155,7 @@ export function parseSpecTsv(text: string): SpecTsvResult {
     const present = (column: SpecTsvColumn): boolean => cell(column).trim() !== '';
 
     const kindCell = cell('kind').trim();
-    const kindColumns = COLUMNS_OF_KIND[kindCell];
+    const kindColumns = COLUMNS_OF_KIND.get(kindCell);
     if (kindCell === '') {
       cellFail(line, 'kind', 'required');
       continue;
@@ -205,16 +234,17 @@ export function parseSpecTsv(text: string): SpecTsvResult {
 }
 
 /** The parser as the engine's `validate` step uses it (#1196 b2): nothing to report for rows input or valid text,
- *  at most SPEC_TSV_ERROR_CAP line errors, and a trailing `text:more_errors` when more were found. */
+ *  otherwise the bounded summary (at most SPEC_TSV_ERROR_CAP line errors plus the numeric total, #1196 fix C4). */
 export function specTsvFieldErrors(input: Record<string, unknown>): FieldError[] {
   if (typeof input.text !== 'string') return [];
   const parsed = parseSpecTsv(input.text);
   if (parsed.ok) return [];
-  return parsed.total > parsed.errors.length ? [...parsed.errors, { path: ['text'], code: 'more_errors' }] : parsed.errors;
+  return lineErrorSummary(parsed.errors, parsed.total);
 }
 
 /** Planning errors of a text call, renumbered from row indices onto the source lines and columns; errors without
- *  a row index (the call caps) pass through unchanged. */
+ *  a row index (the call caps) pass through unchanged. The result goes through the same bounded summary as the
+ *  parse errors (#1196 fix C4), so the answer is capped whichever stage found the errors. */
 export function tsvLineErrors(errors: readonly FieldError[], lines: SpecTsvLines): FieldError[] {
   const lineOf = (list: string, index: number): number | undefined => {
     if (list === 'modules') return lines.modules[index];
@@ -222,7 +252,7 @@ export function tsvLineErrors(errors: readonly FieldError[], lines: SpecTsvLines
     if (list === 'relations') return lines.relations[index];
     return undefined;
   };
-  return errors.map((error) => {
+  const mapped = errors.map((error) => {
     const list = error.path[0];
     if (list !== 'modules' && list !== 'events' && list !== 'relations') return error;
     const kind: SpecKind = list === 'modules' ? 'module' : list === 'events' ? 'event' : 'relation';
@@ -230,4 +260,5 @@ export function tsvLineErrors(errors: readonly FieldError[], lines: SpecTsvLines
     const column = error.path[2] === undefined ? undefined : FIELD_COLUMNS[kind][error.path[2]];
     return line === undefined || column === undefined ? error : { path: at(line, column), code: error.code };
   });
+  return lineErrorSummary(mapped, mapped.length);
 }
