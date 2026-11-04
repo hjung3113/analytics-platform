@@ -3,11 +3,10 @@ import type { ColumnFilter } from '@ap/contracts';
 import { PlatformLink, useI18n, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
 import { equipmentExportEndpoint, equipmentMakersEndpoint, equipmentPageEndpoint, type Equipment } from '../endpoints';
 import { PanelRight } from 'lucide-react';
-import { DetailDrawer, RowAction, ManagementLayout, type PlatformColumn, PlatformDataTable, PlatformPage, TableUrlWarning, useTableUrlState } from '@ap/components';
+import { DetailDrawer, RowAction, ManagementLayout, type PlatformColumn, PlatformDataTable, PlatformPage, TableQuickSearch, TableUrlWarning, useTableUrlState } from '@ap/components';
 import { Button } from '@ap/ui';
 import { EquipmentPanel, EquipmentStatus } from './EquipmentDetail';
 import { columnFilter, exportFilterSummary, exportParams, fields, filterSpecs, pinnedFilterKeys, sortFields, statusText } from './data';
-import { QuickSearch } from './QuickSearch';
 
 const NO_PARAMS = {} as const;
 const NO_FILTERS: ColumnFilter[] = [];
@@ -59,7 +58,7 @@ export default function EquipmentMaster() {
   const clearButton = q || conditions.length > 0
     ? <Button type="button" size="sm" variant="secondary" onClick={() => setPage({ q: null, filter: null, page: null })}>{t('clearFilters')}</Button>
     : null;
-  const search = <QuickSearch applied={q} label={ko ? '설비 ID 검색' : 'Search equipment ID'} onApply={value => setPage({ q: value === '' ? null : value, page: null })} />;
+  const search = <TableQuickSearch pageKey="q" label={ko ? '설비 ID 검색' : 'Search equipment ID'} />;
   return <PlatformPage description={ko ? '설비 속성 → 유효구간 → 변경 이력. 합성 데이터 · 조회 전용.' : 'Equipment attributes → validity → change history. Synthetic data · read-only.'}>
     <ManagementLayout
       drawer={focus && <DetailDrawer key={focus} title={<span className="t-mono">{focus}</span>} subtitle={ko ? '설비 상세 · 합성 데이터' : 'Equipment details · synthetic data'}

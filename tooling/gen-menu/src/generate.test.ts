@@ -215,6 +215,7 @@ describe('page archetype skeletons (06 §12, #104)', () => {
   it('the management page has the R2 shape: toolbar search slot, no filter rail (node 1217f, ADR-0105)', () => {
     const page = pageOf('management');
     expect(page).toContain('table={<>');
+    expect(page).toContain('TableQuickSearch'); // the slot names the SDK piece with the menu's own page key (#1232)
     expect(page).not.toContain('search={');
     expect(page).not.toContain('table={search');
     expect(page).not.toMatch(/\sfilter=\{/);
