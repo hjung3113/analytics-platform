@@ -54,23 +54,23 @@ describe('TableQuickSearch (06 §15 quick search slot, #1232)', () => {
     fireEvent.change(applied.box, { target: { value: '' } }); // the native × or an emptied draft applies at once
     expect(applied.params().has('q')).toBe(false);
     cleanup();
-    const empty = mount('?v=1');
+    const empty = mount('?v=1&page=3');
     fireEvent.change(empty.box, { target: { value: 'ab' } });
-    fireEvent.change(empty.box, { target: { value: '' } }); // nothing was applied: no navigation
+    fireEvent.change(empty.box, { target: { value: '' } }); // nothing was applied: no navigation, the page stays
     expect(empty.params().has('q')).toBe(false);
-    expect(window.location.search).toBe('?v=1');
+    expect(window.location.search).toBe('?v=1&page=3');
   });
 
   it('an applied value changed from outside rebases the draft', () => {
     const view = mount('?v=1');
     fireEvent.change(view.box, { target: { value: 'draft' } }); // a pending draft…
-    externalHref = '/list?v=1&q=applied';
+    externalHref = '/list?v=1&q=applied&page=3';
     view.go(); // …is discarded when the URL changes from outside (Back/Forward, a clear)
     expect(view.box.value).toBe('applied');
-    fireEvent.keyDown(view.box, { key: 'Enter' }); // draft === applied: no new entry
     const entries = window.history.length;
-    fireEvent.keyDown(view.box, { key: 'Enter' });
+    fireEvent.keyDown(view.box, { key: 'Enter' }); // draft === applied: no new entry, the page stays
     expect(window.history.length).toBe(entries);
+    expect(view.params().get('page')).toBe('3');
   });
 
   it.each([
