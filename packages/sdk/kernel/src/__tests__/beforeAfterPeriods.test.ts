@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { beforeAfterPeriods } from '@ap/contracts';
+import { beforeAfterPeriods, ContractError } from '@ap/contracts';
+
+/** Asserts the call fails with the time parser's contract error and code, not just any throw. */
+function expectInvalidTime(run: () => unknown): void {
+  try {
+    run();
+  } catch (error) {
+    expect(error).toBeInstanceOf(ContractError);
+    expect((error as ContractError).code).toBe('invalid_time');
+    return;
+  }
+  throw new Error('expected the call to throw');
+}
 
 describe('beforeAfterPeriods (chart.md §16 Compare, wall-clock 06 §6.3, #1243)', () => {
   it('cuts one reference time into two adjacent half-open periods; the reference belongs to the after period', () => {
@@ -46,10 +58,33 @@ describe('beforeAfterPeriods (chart.md §16 Compare, wall-clock 06 §6.3, #1243)
     ['a length with both units', '2026-11-04T09:00:00', { before: { hours: 1, days: 1 }, after: { days: 1 } }],
     ['a length with neither unit', '2026-11-04T09:00:00', { before: {}, after: { days: 1 } }],
   ])('rejects %s', (_label, at, windows) => {
-    expect(() => beforeAfterPeriods(at, windows as never)).toThrow();
+    expectInvalidTime(() => beforeAfterPeriods(at, windows as never));
   });
 
   it('rejects an `until` that is not wall-clock', () => {
-    expect(() => beforeAfterPeriods('2026-11-04T09:00:00', { before: { days: 1 }, after: { days: 1 } }, { until: '2026-11-05' })).toThrow();
+    expectInvalidTime(() => beforeAfterPeriods('2026-11-04T09:00:00', { before: { days: 1 }, after: { days: 1 } }, { until: '2026-11-05' }));
+  });
+
+  it('rejects fractional days on either side — the chosen unit value is validated before the ×24 conversion', () => {
+    expectInvalidTime(() => beforeAfterPeriods('2026-11-04T09:00:00', { before: { days: 0.5 }, after: { days: 1 } }));
+    expectInvalidTime(() => beforeAfterPeriods('2026-11-04T09:00:00', { before: { days: 1 }, after: { days: 1 / 24 } }));
+  });
+
+  it('keeps a valid `until` cut working at the year-9999 upper bound, and errors on a shift beyond it', () => {
+    const windows = { before: { hours: 1 }, after: { days: 1 } };
+    expect(beforeAfterPeriods('9999-12-31T12:00:00', windows, { until: '9999-12-31T18:00:00' })).toEqual({
+      before: { from: '9999-12-31T11:00:00', to: '9999-12-31T12:00:00' },
+      after: { from: '9999-12-31T12:00:00', to: '9999-12-31T18:00:00' },
+    });
+    // Without `until` the after shift itself lands in year 10000: an error, never `after: null` or malformed text.
+    expectInvalidTime(() => beforeAfterPeriods('9999-12-31T12:00:00', windows));
+  });
+
+  it('errors when the before period crosses below year 0100, and keeps the boundary itself usable', () => {
+    expectInvalidTime(() => beforeAfterPeriods('0100-01-01T00:00:00', { before: { days: 1 }, after: { days: 1 } }));
+    expect(beforeAfterPeriods('0100-01-02T00:00:00', { before: { days: 1 }, after: { days: 1 } })).toEqual({
+      before: { from: '0100-01-01T00:00:00', to: '0100-01-02T00:00:00' },
+      after: { from: '0100-01-02T00:00:00', to: '0100-01-03T00:00:00' },
+    });
   });
 });

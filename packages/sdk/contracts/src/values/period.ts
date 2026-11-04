@@ -1,4 +1,4 @@
-import { formatDateTime, parseDateTime, shift } from '../links/url.js';
+import { ContractError, formatDateTime, parseDateTime, shift } from '../links/url.js';
 
 /** Wall-clock period helpers (06 §6.3) shared by pages and the server: naive datetimes, never time-zone shifted. */
 export type Grain = 'hour' | 'day' | 'week';
@@ -46,9 +46,21 @@ export interface BeforeAfterPeriods {
 
 function lengthHours(length: PeriodLength, field: string): number {
   const { hours, days } = length as { hours?: number; days?: number };
-  if ((hours === undefined) === (days === undefined)) throw new Error(`${field}: give exactly one of hours or days`);
-  const value = hours ?? (days as number) * 24;
-  if (!Number.isInteger(value) || value <= 0) throw new Error(`${field}: length must be a positive whole number of hours or days`);
+  if ((hours === undefined) === (days === undefined)) throw new ContractError('invalid_time', `${field}: give exactly one of hours or days`, field);
+  // Validate the chosen unit value before the ×24 conversion: `days: 0.5` is not a whole-day length even though its 12 h is.
+  const chosen = hours ?? (days as number);
+  if (!Number.isInteger(chosen) || chosen <= 0) throw new ContractError('invalid_time', `${field}: length must be a positive whole number of hours or days`, field);
+  return hours ?? (days as number) * 24;
+}
+
+/** True only for a contract wall-clock value the time parser accepts: 19-char `YYYY-MM-DDTHH:mm:ss`, years 0100–9999. */
+function isWallClock(value: string): boolean {
+  try { parseDateTime(value, 'time'); return true; } catch { return false; }
+}
+
+/** Returns a computed boundary only when it is still a contract wall-clock value; arithmetic outside 0100–9999 is an error, never null or malformed text. */
+function wallClock(value: string, field: string): string {
+  if (!isWallClock(value)) throw new ContractError('invalid_time', `${field}: shift landed outside the supported wall-clock range 0100–9999`, field, value);
   return value;
 }
 
@@ -68,10 +80,13 @@ export function beforeAfterPeriods(at: string, windows: { before: PeriodLength; 
   let to = afterTo;
   if (options.until !== undefined) {
     parseDateTime(options.until, 'until');
-    if (options.until < to) to = options.until;
+    // Wall-clock text only orders like time inside 0100–9999; an `afterTo` past the upper end prints `+10000…` and string-compares
+    // below `at`. It is later than every valid `until`, so cut it without the broken comparison.
+    if (!isWallClock(afterTo) || options.until < to) to = options.until;
   }
+  to = wallClock(to, 'after.to');
   return {
-    before: { from: shift(at, -before), to: at },
+    before: { from: wallClock(shift(at, -before), 'before.from'), to: at },
     after: to > at ? { from: at, to } : null,
   };
 }
