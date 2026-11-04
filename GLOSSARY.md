@@ -363,7 +363,8 @@ Workspace는 기능 데이터의 tenant 경계이며 분석 작업 영역과 다
 **Workspace**:
 The outermost tenant boundary for platform feature-domain records. Every domain record belongs to exactly one **Workspace**, and no cross-**Workspace** links exist in MVP.
 코어 서버 하나가 담는 회사 전체 데이터 경계다. 지금은 배포마다 하나다. 업무 시스템이나 시스템(Managed System)이 아니며, 사용자 화면에 나오지 않는다. 기능 권한(VOC 열람·처리·등록 등)이 갈리는 단위는 Workspace가 아니라 시스템(Managed System)이다. 시스템에는 업무 시스템마다 하나씩 자동 등록된 것, 「플랫폼」 시스템, 손으로 등록한 플랫폼 밖 시스템이 있다. 그래서 `requireWorkspace`는 "같은 회사 데이터인가"만 확인하고, 시스템 접근 권한은 확인하지 않는다.
-_Avoid_: Tenant, Organization, Account, Instance, 시스템·공간의 뜻으로 쓰는 「워크스페이스」
+값은 서버 설정 `WORKSPACE_ID` 하나이며, 코드 이름으로만 쓰고 한국어 「워크스페이스」로 옮기지 않는다. 2026-09~10월 문서의 「워크스페이스」·「멀티 워크스페이스」(ADR-0026, `docs/design/multi-workspace-ui.md`, kernel.md §9.1 앵커)는 지금의 **업무 시스템**을 뜻한다. 링크가 걸려 있어 그 제목과 앵커는 그대로 둔다.
+_Avoid_: Tenant, Organization, Account, Instance, 「워크스페이스」(한국어 문서·화면 어디에도 쓰지 않는다)
 
 **Actor**:
 An AD-authenticated internal person whose permissions are evaluated inside a workspace.
