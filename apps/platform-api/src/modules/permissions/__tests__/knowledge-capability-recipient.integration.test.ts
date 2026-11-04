@@ -23,6 +23,7 @@ const CAPABILITIES = [
   "knowledge.catalog.manage",
   "knowledge.catalog.import",
   "knowledge.item.publish",
+  "knowledge.spec.publish",
 ] as const;
 
 describe.skipIf(!runIntegration)(

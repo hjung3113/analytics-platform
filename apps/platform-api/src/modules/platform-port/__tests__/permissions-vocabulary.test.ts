@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { PLATFORM_PERMISSION_TABLE } from '../permissions.js';
 import { CATALOG_MENU_PERMISSION } from '../../log-knowledge/catalog-actions.js';
 import { ITEM_MENU_PERMISSION } from '../../log-knowledge/item-actions.js';
+import { SPEC_MENU_PERMISSION } from '../../log-knowledge/spec-actions.js';
 import { platformVocab } from './platform-vocab.js';
 
 // ADR-0068 "one vocabulary": the kernel's own permissions (@ap/contracts/vocab.json `kernelPermissions`)
@@ -15,7 +16,9 @@ describe('platform permission table vs @ap/contracts KERNEL_PERMISSIONS', () => 
     expect(vocabulary.length).toBeGreaterThan(0);
     // The table also lists the catalog and item menu permissions (#1194 r, #1197 w): a menu permission, not a kernel one.
     const tabled = PLATFORM_PERMISSION_TABLE.map((entry) => entry.permission as string).filter(
-      (permission) => permission !== CATALOG_MENU_PERMISSION && permission !== ITEM_MENU_PERMISSION,
+      (permission) => permission !== CATALOG_MENU_PERMISSION &&
+        permission !== ITEM_MENU_PERMISSION &&
+        permission !== SPEC_MENU_PERMISSION,
     );
     expect([...tabled].sort()).toEqual([...vocabulary].sort());
     for (const permission of vocabulary) {
@@ -36,6 +39,12 @@ describe('platform permission table vs @ap/contracts KERNEL_PERMISSIONS', () => 
     const entries = PLATFORM_PERMISSION_TABLE.filter((entry) => entry.permission === ITEM_MENU_PERMISSION);
     expect(entries).toEqual([{ permission: 'knowledge:item-publish', rule: 'item-publish' }]);
     expect(kernelPermissions()).not.toContain(ITEM_MENU_PERMISSION);
+  });
+
+  it('lists the spec menu permission once, with the rule the spec write actions use', () => {
+    const entries = PLATFORM_PERMISSION_TABLE.filter((entry) => entry.permission === SPEC_MENU_PERMISSION);
+    expect(entries).toEqual([{ permission: 'knowledge:spec-publish', rule: 'spec-publish' }]);
+    expect(kernelPermissions()).not.toContain(SPEC_MENU_PERMISSION);
   });
 
   it('names the feature permission features:access and keeps no feedbackops:access fallback', () => {

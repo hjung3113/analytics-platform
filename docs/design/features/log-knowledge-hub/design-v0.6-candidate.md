@@ -641,11 +641,11 @@ P0 #1193 구현됨: 스키마 표 1–6(`knowledge` 스키마, migration 0080)�
 
 ### 15.2 데이터 모델 (물리화 후보, 노드 a·c에서 재검수)
 
-> **물리화 상태(#1196 노드 a):** 마이그레이션 0091이 `model_spec_revision`·`spec_module`·`spec_event`·`spec_event_relation`과 `software_version.release_order`를 만들었다(읽기 `modelSpec`·`modelSpecRevisions`만, 쓰기·감사 없음). `spec_sw_change`·`common_concept`·`spec_concept_mapping`은 아직 없다(노드 c·e). 컬럼 이름은 `id`(`spec_rev_id`는 자식 표의 FK 이름), `detail_doc_ref`는 문서 위치를 가리키는 자유 텍스트. 규칙은 `docs/architecture/platform-api/api/log-knowledge.md` §Model spec reads.
+> **물리화 상태(#1196 노드 a, b1):** 마이그레이션 0092가 `row_version`·`reject_reason`·초안 하나 제한·UPDATE 트리거를 더했고(쓰기 `specDraftCreate`·`specDraftSave`·`specPublish`·`specReject`, 초안 읽기 `specDraft`), 마이그레이션 0091이 `model_spec_revision`·`spec_module`·`spec_event`·`spec_event_relation`과 `software_version.release_order`를 만들었다(읽기 `modelSpec`·`modelSpecRevisions`). `spec_sw_change`·`common_concept`·`spec_concept_mapping`은 아직 없다(노드 c·e). 컬럼 이름은 `id`(`spec_rev_id`는 자식 표의 FK 이름), `detail_doc_ref`는 문서 위치를 가리키는 자유 텍스트. 규칙은 `docs/architecture/platform-api/api/log-knowledge.md` §Model spec reads·§Model spec write actions.
 
 | 표 | 핵심 컬럼 | 규칙 |
 | --- | --- | --- |
-| `knowledge.model_spec_revision` | `spec_rev_id`, `model_id`, `revision_no`, `state`(`draft`·`published`·`rejected`), `source_doc_ref`(15.5), `content_sha256`(제출 내용 해시), `schema_version`, `content_sha256`, `published_by/at` | `(workspace_id, model_id, revision_no)` 유일. `published`가 되면 내용·해시 불변(ADR-0109 방식: 런타임 역할에 UPDATE 없음). Model당 최신 `published` 하나가 현행 |
+| `knowledge.model_spec_revision` | `spec_rev_id`, `model_id`, `revision_no`, `state`(`draft`·`published`·`rejected`), `source_doc_ref`(15.5), `content_sha256`(제출 내용 해시), `schema_version`, `content_sha256`, `published_by/at` | `(workspace_id, model_id, revision_no)` 유일. `published`·`rejected`가 되면 불변(트리거가 UPDATE를 막고, 런타임 역할은 전환 열만 UPDATE). Model당 최신 `published` 하나가 현행 |
 | `knowledge.spec_module` | `module_id`, `spec_rev_id`, `module_key`, `name`, `parent_module_id` | `(spec_rev_id, module_key)` 유일, 부모는 같은 Revision |
 | `knowledge.spec_event` | `event_id`, `spec_rev_id`, `module_id`, `event_key`, `name`, `fields_json`, `trigger_rule`, `detail_doc_ref` | `(spec_rev_id, module_id, event_key)` 유일. `fields_json`은 `schema_version`별 Zod 닫힌 스키마 |
 | `knowledge.spec_event_relation` | `source_event_id`, `predicate`, `target_event_id`, `rule_ref` | 같은 Revision 안의 `expected` 명세 관계만 |
@@ -667,10 +667,13 @@ SW 버전 S의 명세 = 현행 모델 명세 Revision + `software_id`가 S 이�
 
 ### 15.5 문서 식별자와 검증 스키마 (안)
 
-- **입력 방식(소유자 결정):** 사내에서 파일 첨부가 어려우므로 첨부는 쓰지 않는다. 명세는 (1) **스트리밍** — 코드나 에이전트 스크립트가 API로 밀어 넣기, (2) **TSV 형식 `.txt`** — 화면에서 파일 내용을 읽어 제출(파일 자체는 저장하지 않음), (3) **붙여넣기** 세 길로 들어온다. 셋 모두 같은 `specDraftSave` 입력(구조화 행)으로 모이고 서버는 제출된 내용을 검증한다. TSV 열 정의는 `fields_json` v1과 함께 노드 b에서 닫는다.
+- **입력 방식(소유자 결정):** 사내에서 파일 첨부가 어려우므로 첨부는 쓰지 않는다. 명세는 (1) **스트리밍** — 코드나 에이전트 스크립트가 API로 밀어 넣기, (2) **TSV 형식 `.txt`** — 화면에서 파일 내용을 읽어 제출(파일 자체는 저장하지 않음), (3) **붙여넣기** 세 길로 들어온다. 셋 모두 같은 `specDraftSave` 입력(구조화 행)으로 모이고 서버는 제출된 내용을 검증한다. 관계 TSV 열은 `source_module,source_event,predicate,target_module,target_event,rule_ref`다(노드 b2가 파싱, 아래 «정규화 해시»의 열 정의와 같다).
 - `source_doc_ref`: `{ docLabel, docVersion, link? }`. 원본 문서의 출처 표시일 뿐이며 파일을 가리키지 않는다. 버전 증명은 **제출된 내용의 정규화 해시**(`content_sha256`: 행 순서·공백을 정규화한 직렬화의 SHA-256) + 선택 링크다. 해시가 같은 내용을 다시 제출하면 새 Revision을 만들지 않는다(`unchanged`).
 - 안정 키: `module_key`·`event_key`는 로그 명세 문서에 적힌 모듈명·이벤트명을 `toCodeKey`로 정규화한 값이다(ADR-0107 결정 2 방식, 별도 코드 부여 없음). 이름이 바뀌어도 키는 같다. 키가 바뀌면 새 Event로 올리고 변경점 `removed`·`added` 한 쌍으로 잇는다.
 - `fields_json` v1: `{ name, type(string·int·float·bool·enum·timestamp), unit?, allowedValues?, description }[]`. 닫힌 목록, 모르는 키는 거절.
+- **키 유일성(구현됨, #1196 b1).** `module_key`는 Revision 안에서, `event_key`는 **모듈 안에서** 유일하다(0091 유일 인덱스가 `(workspace_id, spec_rev_id, module_id, event_key)`). 그래서 한정 쌍 `(module_key, event_key)`가 Revision 안에서 유일하다. 이름은 저장 때 NFC·앞뒤 공백 제거·안쪽 공백 하나로 정규화하고, 키는 `toCodeKey`다.
+- **정규화 해시(구현됨, #1196 b1).** 발행 때 저장된 행을 버전 있는 정규 JSON으로 직렬화해 SHA-256을 낸다: 객체 키는 정렬, 모듈은 `module_key`, 이벤트는 `(module_key, event_key)`, 관계는 `(source_module, source_event, predicate, target_module, target_event)` 순으로 정렬하고, `hashVersion`과 `schema_version`을 포함한다. 행 id·행 순서·`source_doc_ref`(원본 문서 표시)는 해시에 들어가지 않는다. 그래서 `docVersion`만 다른 같은 내용은 `unchanged`다. 스트리밍으로 나눠 보내도, 행 순서가 달라도 같은 해시가 나온다.
+- **호출 상한(구현됨, #1196 b1).** `specDraftSave` 한 번에 행 2,000개 이하, 직렬화 본문 512 KiB 이하(넘으면 `invalid` `input:too_large`); 더 큰 명세는 여러 번 나눠 보낸다. `replace`는 Draft를 반려하고 같은 트랜잭션에서 새 Draft를 만든다(네 표는 추가 전용).
 
 ### 15.6 화면 (IA 수준, 시안은 소유자 답 뒤)
 

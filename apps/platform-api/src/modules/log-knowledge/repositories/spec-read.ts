@@ -21,6 +21,22 @@ export interface SpecRevisionHeader {
   publishedBy: string | null;
   contentSha256: string | null;
   eventCount: number;
+  /** `row_version`: the `expectedVersion` of a draft write (a non-draft's value is never accepted). */
+  version: number;
+}
+export interface SpecContent {
+  /** Flat list; the tree is `parentModuleId` (null = a root module). */
+  modules: { id: string; moduleKey: string; name: string; parentModuleId: string | null }[];
+  events: {
+    id: string;
+    moduleId: string;
+    eventKey: string;
+    name: string;
+    fields: unknown;
+    triggerRule: string | null;
+    detailDocRef: string | null;
+  }[];
+  relations: { id: string; sourceEventId: string; predicate: string; targetEventId: string; ruleRef: string | null }[];
 }
 export interface ModelSpecData {
   revision: {
@@ -60,23 +76,7 @@ export async function getModelSpec(tx: Tx, workspaceId: string, modelId: string)
     .orderBy(desc(r.revisionNo))
     .limit(1);
   if (!rev) return null;
-  const [modules, events, relations] = await Promise.all([
-    tx
-      .select()
-      .from(specModules)
-      .where(and(eq(specModules.workspaceId, workspaceId), eq(specModules.specRevId, rev.id)))
-      .orderBy(asc(specModules.moduleKey), asc(specModules.id)),
-    tx
-      .select()
-      .from(specEvents)
-      .where(and(eq(specEvents.workspaceId, workspaceId), eq(specEvents.specRevId, rev.id)))
-      .orderBy(asc(specEvents.eventKey), asc(specEvents.id)),
-    tx
-      .select()
-      .from(specEventRelations)
-      .where(and(eq(specEventRelations.workspaceId, workspaceId), eq(specEventRelations.specRevId, rev.id)))
-      .orderBy(asc(specEventRelations.predicate), asc(specEventRelations.id)),
-  ]);
+  const content = await loadSpecContent(tx, workspaceId, rev.id);
   return {
     revision: {
       id: rev.id,
@@ -89,6 +89,30 @@ export async function getModelSpec(tx: Tx, workspaceId: string, modelId: string)
       publishedAt: iso(rev.publishedAt),
       publishedBy: rev.publishedBy,
     },
+    ...content,
+  };
+}
+
+/** The modules, events and relations of one revision (any state; the caller decides who may see a draft). */
+export async function loadSpecContent(tx: Tx, workspaceId: string, revisionId: string): Promise<SpecContent> {
+  const [modules, events, relations] = await Promise.all([
+    tx
+      .select()
+      .from(specModules)
+      .where(and(eq(specModules.workspaceId, workspaceId), eq(specModules.specRevId, revisionId)))
+      .orderBy(asc(specModules.moduleKey), asc(specModules.id)),
+    tx
+      .select()
+      .from(specEvents)
+      .where(and(eq(specEvents.workspaceId, workspaceId), eq(specEvents.specRevId, revisionId)))
+      .orderBy(asc(specEvents.eventKey), asc(specEvents.id)),
+    tx
+      .select()
+      .from(specEventRelations)
+      .where(and(eq(specEventRelations.workspaceId, workspaceId), eq(specEventRelations.specRevId, revisionId)))
+      .orderBy(asc(specEventRelations.predicate), asc(specEventRelations.id)),
+  ]);
+  return {
     modules: modules.map((m) => ({ id: m.id, moduleKey: m.moduleKey, name: m.name, parentModuleId: m.parentModuleId })),
     events: events.map((e) => ({
       id: e.id,
@@ -106,6 +130,48 @@ export async function getModelSpec(tx: Tx, workspaceId: string, modelId: string)
       targetEventId: x.targetEventId,
       ruleRef: x.ruleRef,
     })),
+  };
+}
+
+export interface SpecDraftData {
+  revision: {
+    id: string;
+    modelId: string;
+    revisionNo: number;
+    state: 'draft';
+    schemaVersion: number;
+    sourceDocRef: unknown;
+    version: number;
+    createdAt: string;
+    createdBy: string;
+  };
+  modules: SpecContent['modules'];
+  events: SpecContent['events'];
+  relations: SpecContent['relations'];
+}
+
+/** A draft revision with its rows; null when the id is not a draft of the workspace (published and rejected revisions are not served here). */
+export async function getSpecDraft(tx: Tx, workspaceId: string, revisionId: string): Promise<SpecDraftData | null> {
+  const r = modelSpecRevisions;
+  const [rev] = await tx
+    .select()
+    .from(r)
+    .where(and(eq(r.workspaceId, workspaceId), eq(r.id, revisionId), eq(r.state, 'draft')));
+  if (!rev) return null;
+  const content = await loadSpecContent(tx, workspaceId, rev.id);
+  return {
+    revision: {
+      id: rev.id,
+      modelId: rev.modelId,
+      revisionNo: rev.revisionNo,
+      state: 'draft',
+      schemaVersion: rev.schemaVersion,
+      sourceDocRef: rev.sourceDocRef,
+      version: rev.rowVersion,
+      createdAt: rev.createdAt.toISOString(),
+      createdBy: rev.createdBy,
+    },
+    ...content,
   };
 }
 
@@ -138,6 +204,7 @@ export async function listModelSpecRevisions(
       publishedBy: row.publishedBy,
       contentSha256: row.contentSha256,
       eventCount: count,
+      version: row.rowVersion,
     })),
   };
 }

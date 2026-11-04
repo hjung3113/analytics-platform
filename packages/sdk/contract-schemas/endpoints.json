@@ -697,6 +697,18 @@
     "mergeTimeDomain": false
   },
   {
+    "id": "logKnowledge.specDraft",
+    "menuId": "log-knowledge-models",
+    "paramKeys": [
+      "revisionId"
+    ],
+    "permission": "knowledge:spec-publish",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
     "id": "logKnowledge.vendors",
     "menuId": "log-knowledge-catalog",
     "paramKeys": [

@@ -6,6 +6,9 @@ import {
   EVIDENCE_SOURCE_KINDS as MENU_EVIDENCE_SOURCE_KINDS,
   ITEM_LIMITS,
   ITEM_PUBLISH_PERMISSION,
+  SPEC_FIELD_TYPES as MENU_SPEC_FIELD_TYPES,
+  SPEC_PUBLISH_PERMISSION,
+  SPEC_SAVE_LIMITS,
   LOG_KNOWLEDGE_MENU_ID,
   LOG_KNOWLEDGE_MODELS_MENU_ID,
   MODEL_SORT_IDS as MENU_MODEL_SORT_IDS,
@@ -28,6 +31,7 @@ import {
   modelEndpointSpecs,
   modelFilterSpecs,
   modelSpecEndpointSpecs,
+  specActionSpecs,
   processFilterSpecs,
   softwareFilterSpecs,
   vendorFilterSpecs,
@@ -35,6 +39,8 @@ import {
 import { LOG_KNOWLEDGE_MODELS_MENU_ID as SERVER_MODELS_MENU_ID } from '../catalog-menu.js';
 import { CATALOG_MENU_PERMISSION } from '../catalog-actions.js';
 import { ITEM_MENU_PERMISSION } from '../item-actions.js';
+import { SPEC_MENU_PERMISSION } from '../spec-actions.js';
+import { REJECT_REASON_MAX, SPEC_BODY_MAX_BYTES, SPEC_FIELD_TYPES, SPEC_ROWS_MAX } from '../domain/spec-input.js';
 import { logKnowledgeContribution } from '../catalog-endpoints.js';
 import { APPLY_STATUSES, RESOLUTIONS } from '../domain/import-apply.js';
 import { IMPORT_ROW_FILTER_SPECS, IMPORT_ROW_SORT_IDS } from '../import-endpoints.js';
@@ -74,7 +80,7 @@ describe('log knowledge menu declarations vs the server', () => {
     expect(CATALOG_MANAGE_PERMISSION).toBe(CATALOG_MENU_PERMISSION);
   });
 
-  it('declares the same four reads in the same order', () => {
+  it('declares the same five reads in the same order', () => {
     expect(catalogEndpointSpecs.map((s) => s.id)).toEqual(serverEndpoints.map((e) => e.spec.id));
     catalogEndpointSpecs.forEach((menu, i) => {
       const spec = serverEndpoints[i]?.spec;
@@ -128,11 +134,11 @@ describe('model reads (menu log-knowledge-models) vs the server', () => {
     expect(LOG_KNOWLEDGE_MODELS_MENU_ID).toBe(SERVER_MODELS_MENU_ID);
   });
 
-  // The two model reads of #1197 s1 followed by the two model spec reads of #1196 a.
+  // The two model reads of #1197 s1 followed by the model spec reads of #1196 a and b1 (the draft read).
   const menuModelReads = [...modelEndpointSpecs, ...modelSpecEndpointSpecs];
 
-  it('declares the same four reads in the same order, with the same keys, right and workspace rule', () => {
-    expect(serverModelEndpoints).toHaveLength(4);
+  it('declares the same five reads in the same order, with the same keys, right and workspace rule', () => {
+    expect(serverModelEndpoints).toHaveLength(5);
     expect(menuModelReads.map((s) => s.id)).toEqual(serverModelEndpoints.map((e) => e.spec.id));
     menuModelReads.forEach((menu, i) => {
       const spec = serverModelEndpoints[i]?.spec;
@@ -187,6 +193,39 @@ describe('log knowledge item reads vs the server', () => {
       if (mirror?.values === 'enum') expect(mirror.allowed, `items.${field} enum has a vocabulary`).toBeDefined();
     }
     expect([...MENU_ITEM_SORT_IDS]).toEqual([...ITEM_SORT_IDS]);
+  });
+});
+
+// The four model spec writes of the `log-knowledge-models` menu (#1196 b1): same comparison as the item writes.
+describe('log knowledge model spec writes vs the server', () => {
+  const serverSpecActions = (server.actions ?? []).filter((a) => a.spec.menuId === LOG_KNOWLEDGE_MODELS_MENU_ID);
+
+  it("uses the server's menu permission name for the writes and the draft read", () => {
+    expect(SPEC_PUBLISH_PERMISSION).toBe(SPEC_MENU_PERMISSION);
+  });
+
+  it('declares the same four writes on the same menu in the same order', () => {
+    expect(serverSpecActions).toHaveLength(4);
+    expect(specActionSpecs.map((s) => s.id)).toEqual(serverSpecActions.map((a) => a.spec.id));
+    specActionSpecs.forEach((menu, i) => {
+      const spec = serverSpecActions[i]?.spec;
+      expect(sorted(Object.keys(menu.inputKeys)), menu.id).toEqual(sorted(spec?.inputKeys ?? []));
+      expect(menu.invalidates.map((e) => e.id), menu.id).toEqual([...(spec?.invalidates ?? [])]);
+      expect(
+        { menuId: menu.menuId, permission: menu.permission, requiresScope: menu.requiresScope, concurrency: menu.concurrency },
+        menu.id,
+      ).toEqual({ menuId: spec?.menuId, permission: spec?.permission, requiresScope: spec?.requiresScope, concurrency: spec?.concurrency });
+    });
+  });
+
+  it('invalidates reads that are endpoints of the same menu', () => {
+    const modelReadIds = (server.endpoints ?? []).filter((e) => e.spec.menuId === LOG_KNOWLEDGE_MODELS_MENU_ID).map((e) => e.spec.id);
+    for (const menu of specActionSpecs) for (const read of menu.invalidates) expect(modelReadIds, menu.id).toContain(read.id);
+  });
+
+  it('shares the field vocabulary and the call caps', () => {
+    expect([...MENU_SPEC_FIELD_TYPES]).toEqual([...SPEC_FIELD_TYPES]);
+    expect(SPEC_SAVE_LIMITS).toEqual({ rows: SPEC_ROWS_MAX, bodyBytes: SPEC_BODY_MAX_BYTES, rejectReason: REJECT_REASON_MAX });
   });
 });
 

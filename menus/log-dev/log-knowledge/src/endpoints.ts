@@ -105,6 +105,8 @@ export type ModelSpecParams = { modelId: string };
 export type SpecRevisionHeader = {
   id: string; revisionNo: number; state: 'draft' | 'published' | 'rejected'; publishedAt: string | null; publishedBy: string | null;
   contentSha256: string | null; eventCount: number;
+  /** `row_version`: the `expectedVersion` of a draft write. */
+  version: number;
 };
 export type ModelSpecRevisionsParams = { modelId: string; page?: number; pageSize?: number };
 
@@ -116,8 +118,67 @@ export const modelSpecRevisionsEndpoint = defineEndpoint<ModelSpecRevisionsParam
   id: 'logKnowledge.modelSpecRevisions', menuId: LOG_KNOWLEDGE_MODELS_MENU_ID, paramKeys: { modelId: true, page: true, pageSize: true }, permission: 'platform:view',
   requiresScope: false, context: {}, kinds: [], mergeTimeDomain: false,
 });
-/** The model spec reads (#1196 a), after the model reads in the server's order. Types only for now: the mock server answers them with the screen node. */
-export const modelSpecEndpointSpecs = [modelSpecEndpoint, modelSpecRevisionsEndpoint] as const;
+
+// ---- model spec writes and the draft read (ADR-0111, #1196 b1) ---------------------------------------------------
+// Owned by the `log-knowledge-models` menu, judged with their own right (`knowledge:spec-publish`; Admin, or a Developer
+// with the workspace grant `knowledge.spec.publish`) although the menu is `platform:view`. The server mirror is
+// `apps/platform-api/src/modules/log-knowledge/spec-actions.ts` / `spec-endpoints.ts`; the drift test compares both.
+// Types only: the mock server answers them with the screen node.
+
+export const SPEC_PUBLISH_PERMISSION: Permission = menuPermission('knowledge:spec-publish');
+export const SPEC_FIELD_TYPES = ['string', 'int', 'float', 'bool', 'enum', 'timestamp'] as const;
+export type SpecFieldType = (typeof SPEC_FIELD_TYPES)[number];
+/** Call caps of `specDraftSave` (the server's `domain/spec-input.ts`): larger specs stream in several calls. */
+export const SPEC_SAVE_LIMITS = { rows: 2000, bodyBytes: 512 * 1024, rejectReason: 500 } as const;
+export type SpecSourceDocRef = { docLabel: string; docVersion: string; link?: string };
+export type SpecFieldInput = { name: string; type: SpecFieldType; unit?: string | null; allowedValues?: string[]; description: string };
+export type SpecModuleInput = { name: string; parentModule?: string | null };
+export type SpecEventInput = { module: string; name: string; fields?: SpecFieldInput[] | null; triggerRule?: string | null; detailDocRef?: string | null };
+export type SpecRelationInput = { sourceModule: string; sourceEvent: string; predicate: string; targetModule: string; targetEvent: string; ruleRef?: string | null };
+
+export type SpecDraftData = {
+  revision: {
+    id: string; modelId: string; revisionNo: number; state: 'draft'; schemaVersion: number; sourceDocRef: SpecSourceDocRef;
+    version: number; createdAt: string; createdBy: string;
+  };
+  modules: ModelSpecData['modules']; events: ModelSpecData['events']; relations: ModelSpecData['relations'];
+};
+export type SpecDraftParams = { revisionId: string };
+export const specDraftEndpoint = defineEndpoint<SpecDraftParams, SpecDraftData | null>({
+  id: 'logKnowledge.specDraft', menuId: LOG_KNOWLEDGE_MODELS_MENU_ID, paramKeys: { revisionId: true }, permission: SPEC_PUBLISH_PERMISSION,
+  requiresScope: false, context: {}, kinds: [], mergeTimeDomain: false,
+});
+/** The model spec reads (#1196 a, b1), after the model reads in the server's order. */
+export const modelSpecEndpointSpecs = [modelSpecEndpoint, modelSpecRevisionsEndpoint, specDraftEndpoint] as const;
+
+export type SpecDraftCreateInput = { modelId: string; sourceDocRef: SpecSourceDocRef };
+export type SpecDraftSaveInput = {
+  revisionId: string; mode: 'append' | 'replace'; sourceDocRef?: SpecSourceDocRef;
+  modules?: SpecModuleInput[]; events?: SpecEventInput[]; relations?: SpecRelationInput[];
+};
+export type SpecPublishInput = { revisionId: string };
+export type SpecRejectInput = { revisionId: string; reason: string };
+export type SpecCounts = { modules: number; events: number; relations: number };
+export type SpecDraftCreateResult = { revisionId: string; version: string };
+/** `revisionId` is the NEW draft's id after a `replace`. */
+export type SpecDraftSaveResult = { revisionId: string; version: string; counts: SpecCounts };
+export type SpecPublishResult =
+  | { outcome: 'published'; revisionId: string; contentSha256: string }
+  | { outcome: 'unchanged'; revisionId: string };
+export type SpecRejectResult = { revisionId: string };
+
+const specWrites = [modelSpecEndpoint, modelSpecRevisionsEndpoint, specDraftEndpoint];
+const specWrite = <I, O>(name: string, inputKeys: Record<keyof I & string, true>, concurrency: 'none' | 'version') =>
+  defineAction<I, O>({
+    id: `logKnowledge.${name}`, menuId: LOG_KNOWLEDGE_MODELS_MENU_ID, inputKeys, permission: SPEC_PUBLISH_PERMISSION,
+    requiresScope: false, concurrency, invalidates: specWrites,
+  });
+export const specDraftCreate = specWrite<SpecDraftCreateInput, SpecDraftCreateResult>('specDraftCreate', { modelId: true, sourceDocRef: true }, 'none');
+export const specDraftSave = specWrite<SpecDraftSaveInput, SpecDraftSaveResult>('specDraftSave', { revisionId: true, mode: true, sourceDocRef: true, modules: true, events: true, relations: true }, 'version');
+export const specPublish = specWrite<SpecPublishInput, SpecPublishResult>('specPublish', { revisionId: true }, 'version');
+export const specReject = specWrite<SpecRejectInput, SpecRejectResult>('specReject', { revisionId: true, reason: true }, 'version');
+/** The four spec writes in the server's order. */
+export const specActionSpecs = [specDraftCreate, specDraftSave, specPublish, specReject] as const;
 
 /** What every write answers: the row's identity and its new version. */
 export type CatalogSummary = { id: string; code: string; name: string; active: boolean; version: string };

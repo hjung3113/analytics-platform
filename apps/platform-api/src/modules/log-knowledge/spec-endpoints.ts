@@ -1,6 +1,8 @@
 // The model spec reads of the log knowledge hub (design v0.6 §15.4, #1196 a) as menu-dispatch declarations: the
 // latest published spec of a model and the model's revision list. Owning menu `log-knowledge-models`, same read
 // right and workspace rule as the item reads (`platform:view`, no scope, the workspace is the session actor's).
+// `logKnowledge.specDraft` (#1196 b1) serves one draft's content to the people who may write specs: it is declared
+// with `knowledge:spec-publish` and also needs `platform:view`; a revision that is not a draft answers `data: null`.
 // An unknown or other-workspace model answers `ok` with `data: null` (modelSpec) or an empty page (revisions).
 
 import type { EndpointResult, MenuEndpointDeclaration, ParamsJudgment } from '../menu-dispatch/types.js';
@@ -8,7 +10,8 @@ import { holdsPlatformPermission } from '../platform-port/permissions.js';
 import { LOG_KNOWLEDGE_MODELS_MENU_ID } from './catalog-menu.js';
 import type { LogKnowledgeDeps } from './deps.js';
 import { PAGE_SIZE_MAX } from './domain/list-params.js';
-import { getModelSpec, listModelSpecRevisions } from './repositories/spec-read.js';
+import { getModelSpec, getSpecDraft, listModelSpecRevisions } from './repositories/spec-read.js';
+import { SPEC_MENU_PERMISSION } from './spec-actions.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -59,6 +62,36 @@ function declareSpecRead(
   };
 }
 
+function declareSpecDraft(deps: LogKnowledgeDeps): MenuEndpointDeclaration {
+  const judge = (params: Record<string, unknown>) =>
+    typeof params.revisionId === 'string' && UUID.test(params.revisionId)
+      ? ({ ok: true, revisionId: params.revisionId } as const)
+      : ({ ok: false, message: 'revisionId must be a uuid string' } as const);
+  return {
+    spec: {
+      id: 'logKnowledge.specDraft',
+      menuId: LOG_KNOWLEDGE_MODELS_MENU_ID,
+      paramKeys: ['revisionId'],
+      permission: SPEC_MENU_PERMISSION,
+      requiresScope: false,
+      context: {},
+      mergeTimeDomain: false,
+    },
+    authorize: async (actor, tx) =>
+      (await holdsPlatformPermission(deps.checkService, actor, 'platform:view', tx ? { tx } : {})) &&
+      (await holdsPlatformPermission(deps.checkService, actor, SPEC_MENU_PERMISSION, tx ? { tx } : {})),
+    validate(params): ParamsJudgment {
+      const judged = judge(params);
+      return judged.ok ? { ok: true } : judged;
+    },
+    async handle(args) {
+      const judged = judge(args.params);
+      if (!judged.ok) return { outcome: 'error', data: null, message: judged.message };
+      return { outcome: 'ok', data: await getSpecDraft(deps.db, args.actor.workspace_id, judged.revisionId) };
+    },
+  };
+}
+
 export function specEndpoints(deps: LogKnowledgeDeps): MenuEndpointDeclaration[] {
   return [
     declareSpecRead(deps, 'logKnowledge.modelSpec', ['modelId'], false, async (workspaceId, { modelId }) => ({
@@ -75,5 +108,6 @@ export function specEndpoints(deps: LogKnowledgeDeps): MenuEndpointDeclaration[]
         data: await listModelSpecRevisions(deps.db, workspaceId, modelId, { page, pageSize }),
       }),
     ),
+    declareSpecDraft(deps),
   ];
 }

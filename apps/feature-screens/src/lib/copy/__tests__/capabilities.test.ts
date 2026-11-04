@@ -19,6 +19,7 @@ const EXPECTED_LABELS: Record<Capability, string> = {
   'knowledge.catalog.manage': '카탈로그 관리',
   'knowledge.catalog.import': '카탈로그 가져오기',
   'knowledge.item.publish': '지식 Item 게시',
+  'knowledge.spec.publish': '모델 명세 발행',
 };
 
 describe('capability display copy', () => {
