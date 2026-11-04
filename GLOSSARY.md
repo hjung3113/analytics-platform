@@ -243,11 +243,11 @@ FeedbackOps의 운영 화면(수신함·Triage·Finding·Task·설문 관리·�
 _Avoid_: 게시, Published — 같은 동작을 두 이름으로 부르지 않는다(사용자 2026-10-23, 2026-10-27 `발행`/`Released`로 통일).
 
 **과제** (Quest):
-BRAVO가 발행한 이상 현상 하나. MARS·CLAS에서 그 원인을 찾고, 그 아래 개선 아이템을 모은 뒤 효과를 확인하고 닫는다. 화면·문서 표기는 `과제(Quest)`이며 `과제`와 `Quest`는 같은 객체다([ADR-0106](docs/adr/0106-improvement-task-is-quest.md) 결정 5). 개선 실행 시스템의 `과제`와 같은 객체인지는 아직 정하지 않았다([ADR-0106 개정](docs/adr/0106-improvement-task-is-quest.md#개정-2026-11-04-1303-quest는-bravo가-발행한-이상-현상이다), 소유자 2026-11-04).
+BRAVO가 발행한 이상 현상 하나. MARS·CLAS에서 그 원인을 찾고, 그 아래 개선 아이템을 모은 뒤 효과를 확인하고 닫는다. 화면·문서 표기는 `과제(Quest)`이며 `과제`와 `Quest`는 같은 객체다([ADR-0106](docs/adr/0106-improvement-task-is-quest.md) 결정 5). BRAVO가 소유한다([ADR-0106 개정 2](docs/adr/0106-improvement-task-is-quest.md#개정-2-2026-11-04-1323-개선-아이템은-플랫폼-db-개선-실행-공간은-접는다), 소유자 2026-11-04).
 _Avoid_: Task, Finding — 각각 Managed System 내부 실행 작업, VOC·설문 근거로 다른 객체다. 개선 실행의 `과제`를 영어로 Task라 쓰지 않는다.
 
 **개선 아이템**:
-과제(Quest) 아래 기록하는 문제·조치 한 줄(예정). 분석으로 추론한 문제와 그 조치·조치일·상태를 담는다. 분석 화면에서 `과제에 개선 아이템 추가`로 만들면 과제·화면·기간·설비가 붙는다. 편집은 엑셀처럼 한다([ADR-0106](docs/adr/0106-improvement-task-is-quest.md) 결정 3). 저장 위치(개선 실행 서버 또는 새 플랫폼 DB)는 아직 정하지 않았다([ADR-0106 개정](docs/adr/0106-improvement-task-is-quest.md#개정-2026-11-04-1303-quest는-bravo가-발행한-이상-현상이다)).
+과제(Quest) 아래 기록하는 문제·조치 한 줄(예정). 분석으로 추론한 문제와 그 조치·조치일·상태를 담는다. 분석 화면에서 `과제에 개선 아이템 추가`로 만들면 과제·화면·기간·설비가 붙는다. 편집은 엑셀처럼 한다([ADR-0106](docs/adr/0106-improvement-task-is-quest.md) 결정 3). 플랫폼 DB에 두는 플랫폼 기능이고, 과제(Quest)는 ID로만 가리킨다([ADR-0106 개정 2](docs/adr/0106-improvement-task-is-quest.md#개정-2-2026-11-04-1323-개선-아이템은-플랫폼-db-개선-실행-공간은-접는다)).
 
 **효과 확인**:
 개선 아이템의 조치일을 기준으로 조치 전후 두 기간을 같은 화면에서 비교하는 것. SDK의 범용 기준일 전후 비교 조각을 쓴다([ADR-0106](docs/adr/0106-improvement-task-is-quest.md), 구현 #1243).
