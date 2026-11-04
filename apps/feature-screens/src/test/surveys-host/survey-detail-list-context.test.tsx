@@ -154,7 +154,8 @@ test('detail list keeps filter context through chips and selection, then close r
   );
   expect(router.state.location.search).not.toHaveProperty('status');
 
-  fireEvent.click(screen.getByTestId(`survey-row-${OTHER_ID}`));
+  // The chip removal refetches the list (skeleton in between); wait for the row instead of reading it synchronously.
+  fireEvent.click(await screen.findByTestId(`survey-row-${OTHER_ID}`));
   await waitFor(() => expect(router.state.location.pathname).toBe(`/surveys/${OTHER_ID}`));
   expect(router.state.location.search).toMatchObject({
     managedSystem: SYSTEM_ID,
