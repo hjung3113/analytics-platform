@@ -54,9 +54,9 @@ const PARAMS: Record<string, Record<string, unknown>> = {
   'equipment.master.export': { q: '', ids: null, sorting: [] },
   'home.notices': { targetScopeId: 'MEM' },
   'metrics.pair': { viewedId: null, pageVersion: null },
-  'metrics.catalog.list': { q: null, status: null, domain: null, lang: 'ko' },
-  'metrics.catalog.export': { q: null, status: null, domain: null, lang: 'ko', ids: null, sorting: [] },
-  'metrics.catalog.page': { q: null, status: null, domain: null, lang: 'ko', ...page },
+  'metrics.catalog.list': { lang: 'ko' },
+  'metrics.catalog.export': { q: null, lang: 'ko', ids: null, sorting: [] },
+  'metrics.catalog.page': { q: null, lang: 'ko', ...page },
   'metrics.definition': { metricId: 'cycle_time', version: '4' },
   'metrics.usage': { metricId: 'cycle_time', version: '4' },
   // Log knowledge catalog reads (#1194 r): the table's page + `filters` shape, no filter = every row.
