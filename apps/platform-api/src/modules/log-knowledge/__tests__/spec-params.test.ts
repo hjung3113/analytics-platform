@@ -7,12 +7,13 @@ const endpoints = specEndpoints({ db: {} as never, checkService: {} as never });
 const judge = (id: string, params: Record<string, unknown>) => endpoints.find((e) => e.spec.id === id)?.validate?.(params);
 
 describe('model spec read declarations', () => {
-  it('declares two reads on the models menu with the view right, no scope and no Context key', () => {
+  it('declares three reads on the models menu, no scope and no Context key; the draft read needs the spec right', () => {
     expect(endpoints.map((e) => [e.spec.id, e.spec.menuId, e.spec.permission, e.spec.requiresScope, e.spec.context])).toEqual([
       ['logKnowledge.modelSpec', 'log-knowledge-models', 'platform:view', false, {}],
       ['logKnowledge.modelSpecRevisions', 'log-knowledge-models', 'platform:view', false, {}],
+      ['logKnowledge.specDraft', 'log-knowledge-models', 'knowledge:spec-publish', false, {}],
     ]);
-    expect(endpoints.map((e) => [...e.spec.paramKeys].sort())).toEqual([['modelId'], ['modelId', 'page', 'pageSize']]);
+    expect(endpoints.map((e) => [...e.spec.paramKeys].sort())).toEqual([['modelId'], ['modelId', 'page', 'pageSize'], ['revisionId']]);
   });
 
   it.each([
@@ -27,6 +28,9 @@ describe('model spec read declarations', () => {
     ['logKnowledge.modelSpecRevisions', { modelId: UUID, page: -1 }, false],
     ['logKnowledge.modelSpecRevisions', { modelId: UUID, page: '1' }, false],
     ['logKnowledge.modelSpecRevisions', {}, false],
+    ['logKnowledge.specDraft', { revisionId: UUID }, true],
+    ['logKnowledge.specDraft', { revisionId: 'x' }, false],
+    ['logKnowledge.specDraft', { modelId: UUID }, false],
   ])('%s %j -> ok=%s', (id, params, ok) => {
     expect(judge(id, params)?.ok).toBe(ok);
   });

@@ -693,6 +693,10 @@ export const modelSpecRevisions = knowledgeSchema.table(
       .references(() => actors.id),
     publishedBy: uuid('published_by').references(() => actors.id),
     publishedAt: timestamp('published_at', { withTimezone: true }),
+    // Version of the draft for the write actions' compare-and-set (#1196 b1); only a draft's version moves.
+    rowVersion: integer('row_version').notNull().default(1),
+    // Why a draft was rejected (≤ 500); who and when are in the audit row only.
+    rejectReason: text('reject_reason'),
   },
   (t) => ({
     workspaceIdUq: unique('model_spec_revision_workspace_id_id_uq').on(t.workspaceId, t.id),
@@ -706,6 +710,14 @@ export const modelSpecRevisions = knowledgeSchema.table(
       columns: [t.workspaceId, t.modelId],
       foreignColumns: [equipmentModels.workspaceId, equipmentModels.id],
     }).onDelete('restrict'),
+    // One open draft per model (#1196 b1).
+    openDraftUq: uniqueIndex('model_spec_revision_open_draft_uq')
+      .on(t.workspaceId, t.modelId)
+      .where(sql`${t.state} = 'draft'`),
+    rejectReasonCheck: check(
+      'model_spec_revision_reject_reason_check',
+      sql`${t.rejectReason} is null or char_length(${t.rejectReason}) <= 500`,
+    ),
     stateIdx: index('model_spec_revision_model_state_idx').on(t.workspaceId, t.modelId, t.state, t.revisionNo),
     revisionNoCheck: check('model_spec_revision_no_check', sql`${t.revisionNo} >= 1`),
     stateCheck: check('model_spec_revision_state_check', sql`${t.state} in ${sql.raw(SPEC_STATES)}`),

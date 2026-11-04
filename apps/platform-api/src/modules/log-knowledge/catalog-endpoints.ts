@@ -18,6 +18,7 @@ import { CATALOG_FILTER_SPECS, type CatalogEndpointName } from './domain/catalog
 import { PAGE_SIZE_MAX, Q_MAX, parseListParams } from './domain/list-params.js';
 import { LOG_KNOWLEDGE_MENU_ID } from './catalog-menu.js';
 import { itemActions } from './item-actions.js';
+import { specActions } from './spec-actions.js';
 import { itemEndpoints } from './item-endpoints.js';
 import { specEndpoints } from './spec-endpoints.js';
 import { importActions } from './import-actions.js';
@@ -78,6 +79,7 @@ export function logKnowledgeContribution(deps: LogKnowledgeDeps): MenuDispatchCo
     actions: [
       ...catalogActions({ checkService: deps.checkService }),
       ...itemActions({ checkService: deps.checkService }),
+      ...specActions({ checkService: deps.checkService }),
       ...importActions({ checkService: deps.checkService }),
       ...importIntakeActions(deps),
     ],

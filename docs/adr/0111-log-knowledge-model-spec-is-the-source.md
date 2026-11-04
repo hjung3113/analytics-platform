@@ -9,7 +9,7 @@
 
 ## 결정
 
-1. **모델 명세 Revision이 원본이다**(`model_spec_revision`, 모듈·이벤트·관계). 발행된 Revision은 불변이다(런타임 역할에 UPDATE 없음, ADR-0109 방식).
+1. **모델 명세 Revision이 원본이다**(`model_spec_revision`, 모듈·이벤트·관계). 발행된 Revision은 불변이다(발행·반려된 Revision의 UPDATE는 트리거가 막고, 자식 행은 draft일 때만 넣을 수 있다. 런타임 역할은 전환 열만 UPDATE한다).
 2. **SW 버전 차이는 «X 버전부터 적용되는 변경점»만 추가 전용 행으로 남긴다**(`spec_sw_change`, 이후 노드). 변경점 없는 SW 버전은 기록 없이 모델 명세를 따른다.
 3. **SW 버전에 순서가 있어야 «X부터»가 성립한다.** `software_version.release_order`(모델별 1..n, 새 SW는 max+1, DB 기본값·트리거로 모든 삽입 경로에 적용)를 카탈로그에 더한다(ADR-0107 보충).
 4. **모델 공통 후보 → 승인 파생본 흐름은 버린다.** 모델 명세가 이미 원본이므로 후보·승인·출처 SW 집합이 필요 없다. 개념 매핑(`common_concept`·`spec_concept_mapping`)은 모델 명세의 모듈·이벤트를 대상으로 유지한다.

@@ -26,6 +26,7 @@ export const CAPABILITIES = [
   'knowledge.catalog.manage',
   'knowledge.catalog.import',
   'knowledge.item.publish',
+  'knowledge.spec.publish',
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -101,6 +102,8 @@ export const CAPABILITY_META: Readonly<Record<Capability, CapabilityMeta>> = {
   'knowledge.catalog.import': { sensitive: false, adminModuleBypass: 'always' },
   // Log knowledge items (ADR-0109): same shape as the catalog rights; writes a published item.
   'knowledge.item.publish': { sensitive: false, adminModuleBypass: 'always' },
+  // Log knowledge model specs (ADR-0111): same shape; seals (publishes) a model spec revision.
+  'knowledge.spec.publish': { sensitive: false, adminModuleBypass: 'always' },
 };
 
 export function isCapability(value: string): value is Capability {
