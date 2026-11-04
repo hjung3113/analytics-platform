@@ -19,6 +19,7 @@ import { PAGE_SIZE_MAX, Q_MAX, parseListParams } from './domain/list-params.js';
 import { LOG_KNOWLEDGE_MENU_ID } from './catalog-menu.js';
 import { itemActions } from './item-actions.js';
 import { itemEndpoints } from './item-endpoints.js';
+import { specEndpoints } from './spec-endpoints.js';
 import { importActions } from './import-actions.js';
 import { importIntakeActions } from './import-intake-actions.js';
 import { importEndpoints } from './import-endpoints.js';
@@ -86,6 +87,7 @@ export function logKnowledgeContribution(deps: LogKnowledgeDeps): MenuDispatchCo
       declare(deps, 'models', MODEL_SORT_IDS, (_a, q) => listModels(deps.db, q)),
       declare(deps, 'softwareVersions', SOFTWARE_SORT_IDS, (_a, q) => listSoftwareVersions(deps.db, q)),
       ...itemEndpoints(deps),
+      ...specEndpoints(deps),
       ...importEndpoints(deps),
     ],
   };

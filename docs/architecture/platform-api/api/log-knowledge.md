@@ -33,11 +33,12 @@ Data shape: `{ rows, total }` (`PageResult`), outcome `ok` also when `rows` is e
 | `logKnowledge.vendors` | `filters`: `active`, `id` | `code`, `name`, `active`, `modelCount`, `createdAt`, `updatedAt` | `id, code, name, active, version, modelCount, createdAt, updatedAt` |
 | `logKnowledge.processes` | `filters`: `active`, `id` | same as vendors | same as vendors |
 | `logKnowledge.models` | `filters`: `active`, `id`, `vendorId`, `processes` | `code`, `name`, `vendorName`, `active`, `softwareCount`, `createdAt`, `updatedAt` | `id, code, name, active, version, vendorId, vendorName, processes: {id, name}[], softwareCount, latestSoftwareLabel, createdAt, updatedAt` |
-| `logKnowledge.softwareVersions` | `filters`: `active`, `id`, `modelId` | `versionLabel`, `name`, `active`, `createdAt`, `updatedAt` | `id, code, versionLabel, name, active, version, modelId, createdAt, updatedAt` (`code` = `versionLabel`) |
+| `logKnowledge.softwareVersions` | `filters`: `active`, `id`, `modelId` | `versionLabel`, `name`, `releaseOrder`, `active`, `createdAt`, `updatedAt` | `id, code, versionLabel, name, active, version, modelId, releaseOrder, createdAt, updatedAt` (`code` = `versionLabel`) |
 
 - `code` is the typed original; sorting by `code` and `versionLabel` orders by the comparison key.
 - `latestSoftwareLabel` (model) is the `versionLabel` of the model's newest active software version (highest `createdAt`, ties by id); `null` when it has none.
 - `modelCount` (vendor, process) and `softwareCount` (model) count active models and active software versions.
+- `releaseOrder` (software, #1196 a, migration 0091) is the version's position in its model's release order, 1 = first: existing rows were numbered by `createdAt` then `id` per model, and a new row (create action, catalog import apply, any insert) takes the model's max + 1 — assigned by a `BEFORE INSERT` trigger when the inserted value is 0 (the column default), so no insert path can forget it. It is **not unique** (a later editing action will swap two orders) and is not part of the default sort, which stays `versionLabel`.
 - A model in several processes appears once under a `processes` filter (EXISTS, never a join). `processes` in the row lists every mapped process, by name.
 
 ## Filters
@@ -162,6 +163,23 @@ The dispatch outcome set has no `not_found`: an unknown or other-workspace id an
 `notIn` on `ownerModelId` / `ownerSoftwareId` excludes items without that owner column. Enum filters accept only the listed values (anything else is an `error` outcome).
 
 `ItemDetail`: `item` (an `ItemRow` plus `version`, `createdBy`, `createdAt`); `revision` (the requested revision, default latest: `revisionNo, title, typeCode, observation, expected, analysisOpinion, improvement, changeNote, publishedBy, publishedAt, evidence: { ordinal, sourceKind, sourceOwner, sourceRef, sourceVersion, contentHash, locator, note }[]`); `revisions` (all, newest first: `revisionNo, title, publishedBy, publishedAt, changeNote`); `assessments` (all, newest first: `id, dimension, priorState, newState, rationale, actorId, basedOnRevisionNo, observedAt`); `links: { kind, direction: 'outgoing' | 'incoming', itemId, itemNo, title, owner, sourceRevisionNo }[]`. For `derived_from`, `outgoing` means this item was derived from `itemId` at `sourceRevisionNo` of that original; `incoming` means `itemId` was derived from this item. `related` has no revision (`null`).
+
+## Model spec reads (#1196 a, migration 0091)
+
+Two more menu-query endpoints (`modules/log-knowledge/spec-endpoints.ts`) on menu `log-knowledge-models`; same transport, `platform:view`, `requiresScope: false`, no Context key, workspace = the session actor's. Design: `docs/design/features/log-knowledge-hub/design-v0.6-candidate.md` §15. The menu package declares both in `menus/log-dev/log-knowledge/src/endpoints.ts` (`modelSpecEndpointSpecs`, types only: no mock answers them yet) and `catalog-menu-drift.test.ts` compares them. **Reads only**: no write action, capability or audit exists yet (nodes b and c). `modelSpec` takes no `softwareId` yet (the effective view is node c).
+
+| Endpoint id | Params | Data |
+| --- | --- | --- |
+| `logKnowledge.modelSpec` | `modelId` (uuid) | the model's **latest published** revision, or `null` (also `null` for an unknown or other-workspace model, and when the model has only drafts or rejected revisions) |
+| `logKnowledge.modelSpecRevisions` | `modelId` (uuid), optional `page` (0-based), `pageSize` (1–200, default 50) | `{ rows: SpecRevisionHeader[], total }`, newest `revisionNo` first |
+
+`modelSpec` data: `revision: { id, modelId, revisionNo, state: 'published', schemaVersion, sourceDocRef: { docLabel, docVersion, link? }, contentSha256, publishedAt, publishedBy }`; `modules: { id, moduleKey, name, parentModuleId }[]` (flat, by `moduleKey`; the tree is `parentModuleId`, `null` = root); `events: { id, moduleId, eventKey, name, fields, triggerRule, detailDocRef }[]` (by `eventKey`; `fields` is the stored `fields_json`); `relations: { id, sourceEventId, predicate, targetEventId, ruleRef }[]`. A draft's content is never returned.
+
+`SpecRevisionHeader`: `{ id, revisionNo, state: 'draft' | 'published' | 'rejected', publishedAt, publishedBy, contentSha256, eventCount }`. Drafts appear here (with `publishedAt`/`publishedBy`/`contentSha256` `null`), but only as headers.
+
+Storage (`knowledge` schema, all keyed by `workspace_id`, composite same-workspace FKs, `ON DELETE RESTRICT`): `model_spec_revision` (`(workspace_id, model_id, revision_no)` unique; `state` in `draft|published|rejected`; `schema_version`; `content_sha256` null until published, 64 lowercase hex; `source_doc_ref` jsonb `{docLabel, docVersion, link?}`, closed keys; a published row must carry hash, `published_by` and `published_at`), `spec_module` (`(workspace_id, spec_rev_id, module_key)` unique; the parent must be a module of the same revision), `spec_event` (`(…, module_id, event_key)` unique; the module must be of the same revision; `fields_json` a jsonb array, its v1 shape is validated by the write node; `detail_doc_ref` is free text, a pointer into the source document), `spec_event_relation` (both events of the same revision; no self relation). The `spec_sw_change` table is not created yet (node c).
+
+**Grants (migration 0091, ADR-0109 style).** `platform_app` holds `SELECT` and `INSERT` on the four tables and nothing else: no `UPDATE`, no `DELETE`, so a published revision's content, hash and state cannot be rewritten by the runtime role. A `BEFORE INSERT` trigger on `spec_module`, `spec_event` and `spec_event_relation` refuses (`23514`) a row whose revision is not a `draft`, so a published revision never gains children either. The write node (b) will need the `draft → published` transition and will add one column-limited `UPDATE (state, content_sha256, published_by, published_at)` on `model_spec_revision`; `rejected` uses the same columns. Nothing wider is planned.
 
 ## Catalog import staging (#1195 a, migration 0087)
 

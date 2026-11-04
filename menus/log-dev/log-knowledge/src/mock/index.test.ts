@@ -64,6 +64,14 @@ describe('catalog reads speak the table filter model', () => {
     expect(codes('models', { filters: [flt('processes', 'isNotEmpty'), flt('active', 'in', ['true'])] })).toEqual(['A-100', 'A-200', 'B-10']);
   });
 
+  it('softwareVersions: releaseOrder is the registration order inside the model and a sort column', () => {
+    const a100 = idOf('models', 'A-100');
+    const byOrder = (desc: boolean) => read('softwareVersions', { filters: [flt('modelId', 'in', [a100])], sorting: [{ id: 'releaseOrder', desc }] }).rows.map(r => [r.code, r.releaseOrder]);
+    expect(byOrder(false)).toEqual([['v1.0', 1], ['v2.0', 2]]);
+    expect(byOrder(true)).toEqual([['v2.0', 2], ['v1.0', 1]]);
+    expect(read('softwareVersions').rows.map(r => r.releaseOrder)).toEqual([1, 1, 2, 1]);
+  });
+
   it('softwareVersions: modelId filter, the original label as code', () => {
     const a100 = idOf('models', 'A-100');
     expect(codes('softwareVersions', { filters: [flt('modelId', 'in', [a100])] })).toEqual(['v1.0', 'v2.0']);

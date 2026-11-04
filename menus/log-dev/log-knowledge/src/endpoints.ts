@@ -17,7 +17,7 @@ type Stamps = { id: string; code: string; name: string; active: boolean; version
 export type VendorRow = Stamps & { modelCount: number };
 export type ProcessRow = Stamps & { modelCount: number };
 export type ModelRow = Stamps & { vendorId: string; vendorName: string; processes: { id: string; name: string }[]; softwareCount: number; latestSoftwareLabel: string | null };
-export type SoftwareRow = Stamps & { modelId: string; versionLabel: string };
+export type SoftwareRow = Stamps & { modelId: string; versionLabel: string; releaseOrder: number };
 
 /** Quick search, paging, sorting and the table's filter conditions of one catalog read. */
 export type CatalogPageParams = { q: string | null; page: number; pageSize: number; sorting: PageSort[]; filters?: ColumnFilter[] };
@@ -25,7 +25,7 @@ export type CatalogPageParams = { q: string | null; page: number; pageSize: numb
 export const VENDOR_SORT_IDS = ['code', 'name', 'active', 'modelCount', 'createdAt', 'updatedAt'] as const;
 export const PROCESS_SORT_IDS = VENDOR_SORT_IDS;
 export const MODEL_SORT_IDS = ['code', 'name', 'vendorName', 'active', 'softwareCount', 'createdAt', 'updatedAt'] as const;
-export const SOFTWARE_SORT_IDS = ['versionLabel', 'name', 'active', 'createdAt', 'updatedAt'] as const;
+export const SOFTWARE_SORT_IDS = ['versionLabel', 'name', 'releaseOrder', 'active', 'createdAt', 'updatedAt'] as const;
 
 const activeSpec: ColumnFilterSpec = {
   kind: 'enum',
@@ -88,6 +88,36 @@ export const modelProfileEndpoint = defineEndpoint<ModelProfileParams, ModelProf
 });
 /** The model reads in the server's order (`item-endpoints.ts`). */
 export const modelEndpointSpecs = [exploreModelsEndpoint, modelProfileEndpoint] as const;
+
+/** `modelSpec` data (docs/architecture/platform-api/api/log-knowledge.md §Model spec reads); `null` when the model has no published revision. */
+export type ModelSpecData = {
+  revision: {
+    id: string; modelId: string; revisionNo: number; state: 'published'; schemaVersion: number;
+    sourceDocRef: { docLabel: string; docVersion: string; link?: string };
+    contentSha256: string | null; publishedAt: string | null; publishedBy: string | null;
+  };
+  /** Flat list; the tree is `parentModuleId` (null = a root module). */
+  modules: { id: string; moduleKey: string; name: string; parentModuleId: string | null }[];
+  events: { id: string; moduleId: string; eventKey: string; name: string; fields: unknown; triggerRule: string | null; detailDocRef: string | null }[];
+  relations: { id: string; sourceEventId: string; predicate: string; targetEventId: string; ruleRef: string | null }[];
+};
+export type ModelSpecParams = { modelId: string };
+export type SpecRevisionHeader = {
+  id: string; revisionNo: number; state: 'draft' | 'published' | 'rejected'; publishedAt: string | null; publishedBy: string | null;
+  contentSha256: string | null; eventCount: number;
+};
+export type ModelSpecRevisionsParams = { modelId: string; page?: number; pageSize?: number };
+
+export const modelSpecEndpoint = defineEndpoint<ModelSpecParams, ModelSpecData | null>({
+  id: 'logKnowledge.modelSpec', menuId: LOG_KNOWLEDGE_MODELS_MENU_ID, paramKeys: { modelId: true }, permission: 'platform:view',
+  requiresScope: false, context: {}, kinds: [], mergeTimeDomain: false,
+});
+export const modelSpecRevisionsEndpoint = defineEndpoint<ModelSpecRevisionsParams, PageResult<SpecRevisionHeader>>({
+  id: 'logKnowledge.modelSpecRevisions', menuId: LOG_KNOWLEDGE_MODELS_MENU_ID, paramKeys: { modelId: true, page: true, pageSize: true }, permission: 'platform:view',
+  requiresScope: false, context: {}, kinds: [], mergeTimeDomain: false,
+});
+/** The model spec reads (#1196 a), after the model reads in the server's order. Types only for now: the mock server answers them with the screen node. */
+export const modelSpecEndpointSpecs = [modelSpecEndpoint, modelSpecRevisionsEndpoint] as const;
 
 /** What every write answers: the row's identity and its new version. */
 export type CatalogSummary = { id: string; code: string; name: string; active: boolean; version: string };

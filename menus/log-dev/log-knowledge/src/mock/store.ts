@@ -81,6 +81,9 @@ export function setProcesses(modelId: string, processIds: readonly string[]): vo
   for (const id of new Set(processIds.map(p => p.toLowerCase()))) mappings.push({ modelId, processId: id });
 }
 
+/** Release order (1 = first) of a software version inside its model: registration order, like the server's default. */
+export const releaseOrderOf = (rec: Rec): number => all('software').filter(s => s.parentId === rec.parentId).indexOf(rec) + 1;
+
 /** Label of the newest active software version of a model (highest createdAt, then later insertion); null when none. */
 export const latestSoftwareLabel = (modelId: string): string | null => {
   const active = all('software').filter(s => s.parentId === modelId && s.active);
