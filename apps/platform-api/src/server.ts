@@ -58,6 +58,7 @@ import {
   findingsRoutes,
   reconcileFindingExecution,
 } from './modules/findings/index.js';
+import { improvementItemsContribution } from './modules/improvement-items/index.js';
 import {
   IMPORT_APPLY_BUDGET_MS,
   type ImportApplyHooks,
@@ -864,6 +865,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
       ...(opts.logKnowledgeImport?.applyBudgetMs !== undefined ? { applyBudgetMs: opts.logKnowledgeImport.applyBudgetMs } : {}),
       ...(opts.logKnowledgeImport?.hooks ? { applyHooks: opts.logKnowledgeImport.hooks } : {}),
     }),
+    improvementItemsContribution({ db: dbHandle.db, checkService }),
     ...(opts.menuDispatch ?? []),
   ]);
   // The catalog import upload (#1195 a) is a multipart route, which the menu-action port cannot carry: it is

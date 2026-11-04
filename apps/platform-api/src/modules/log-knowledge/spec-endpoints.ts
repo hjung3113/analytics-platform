@@ -9,7 +9,7 @@ import type { EndpointResult, MenuEndpointDeclaration, ParamsJudgment } from '..
 import { holdsPlatformPermission } from '../platform-port/permissions.js';
 import { LOG_KNOWLEDGE_MODELS_MENU_ID } from './catalog-menu.js';
 import type { LogKnowledgeDeps } from './deps.js';
-import { PAGE_SIZE_MAX } from './domain/list-params.js';
+import { PAGE_SIZE_MAX } from '../../lib/list-params/list-params.js';
 import { getModelSpec, getSpecDraft, listModelSpecRevisions } from './repositories/spec-read.js';
 import { SPEC_MENU_PERMISSION } from './spec-actions.js';
 

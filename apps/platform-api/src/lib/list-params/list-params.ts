@@ -1,9 +1,9 @@
-// Common list params of the log knowledge reads: `q`, `page`, `pageSize`, `sorting`, `filters` (ADR-0105). A value
+// Common list params of the paged menu reads (log knowledge, improvement items): `q`, `page`, `pageSize`, `sorting`, `filters` (ADR-0105). A value
 // the endpoint cannot honour is a refusal message for the engine's params judgment, never an empty page.
 
-import { unsafeText } from '../../platform-port/text-safety.js';
+import { unsafeText } from '../../modules/platform-port/text-safety.js';
 import { type CatalogFilterFieldSpec, parseCatalogFilters } from './catalog-filters.js';
-import type { ListQuery } from '../repositories/catalog-read.js';
+import type { ListQuery } from './types.js';
 
 export const PAGE_SIZE_MAX = 200;
 export const Q_MAX = 200;
