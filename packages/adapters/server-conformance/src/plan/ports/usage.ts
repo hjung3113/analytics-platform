@@ -74,10 +74,11 @@ export function planUsageChecks(harness: ServerConformanceHarness): ConformanceC
     mode: 'granted',
     nonEnvelope: true,
     run: async () => {
+      // The board-dwell case (a dwell with a pane via) is covered by the parser and mock unit tests; it is left
+      // out of here to keep the shared per-actor rate budget of the real-server conformance suite (#605).
       const a = await adapter.recordUsage([badUsageEvent({ via: 'paneOpen' })]);
       const b = await adapter.recordUsage([{ ...boardEntry, via: 'link' }]);
-      const c = await adapter.recordUsage([{ ...boardDwell, via: 'paneOpen' } as unknown as UsageEvent]);
-      return a.accepted === 0 && b.accepted === 0 && c.accepted === 0 ? null : `expected all rejected, got ${a.accepted}/${b.accepted}/${c.accepted}`;
+      return a.accepted === 0 && b.accepted === 0 ? null : `expected all rejected, got ${a.accepted}/${b.accepted}`;
     },
   });
   checks.push({
@@ -92,18 +93,24 @@ export function planUsageChecks(harness: ServerConformanceHarness): ConformanceC
     ),
   });
   checks.push({
-    id: 'port · recordUsage: a fromMenuId that is not a menu id (path, URL, key=value, control character, too long, empty) is rejected on both sources',
+    id: 'port · recordUsage: a fromMenuId that is not a menu id (path, URL, key=value, control character) is rejected on both sources',
     uses: ['recordUsage'],
     mode: 'granted',
     nonEnvelope: true,
     run: async () => {
-      const bad = ['/mars/item/SECRET', 'https://x/lot42', 'lotId=SECRET', 'a\u0000b', 'a'.repeat(81), ''];
+      // One request per value with the source alternating, so both provenance paths see a malformed id; the
+      // too-long (81 code points) and empty cases stay in the parser and mock unit tests only, to keep the
+      // shared per-actor rate budget of the real-server conformance suite (#605).
+      const bad: readonly [string, UsageEvent][] = [
+        ['/mars/item/SECRET', { ...usageEntry, via: 'link' }],
+        ['lotId=SECRET', { ...boardEntry, via: 'paneReplace' }],
+        ['a\u0000b', { ...usageEntry, via: 'link' }],
+        ['https://x/lot42', { ...boardEntry, via: 'paneReplace' }],
+      ];
       const accepted: string[] = [];
-      for (const fromMenuId of bad) {
-        for (const base of [{ ...usageEntry, via: 'link' as const }, { ...boardEntry, via: 'paneReplace' as const }]) {
-          const r = await adapter.recordUsage([{ ...base, fromMenuId }]);
-          if (r.accepted !== 0) accepted.push(`${base.source ?? 'main'}:${JSON.stringify(fromMenuId.slice(0, 20))}`);
-        }
+      for (const [fromMenuId, base] of bad) {
+        const r = await adapter.recordUsage([{ ...base, fromMenuId }]);
+        if (r.accepted !== 0) accepted.push(`${base.source ?? 'main'}:${JSON.stringify(fromMenuId.slice(0, 20))}`);
       }
       return accepted.length === 0 ? null : `expected every one rejected, accepted: ${accepted.join(', ')}`;
     },
