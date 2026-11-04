@@ -158,6 +158,30 @@ describe('VOC 등록 slot opened from a screen error view (#606)', () => {
     expect(screen.queryByTestId('voc-error-report-hint')).toBeNull();
   });
 
+  it('submits from the rail path without trace_id, prefill or hint', async () => {
+    mount();
+    const title = await screen.findByRole('textbox', { name: /제목/ }, LAZY_MOUNT_WAIT) as HTMLInputElement;
+    expect(screen.queryByTestId('voc-error-report-hint')).toBeNull();
+    fireEvent.change(title, { target: { value: '제목' } });
+    fireEvent.change(screen.getByRole('textbox', { name: '상세 설명' }), { target: { value: '내용' } });
+    const body = await submit();
+    expect('trace_id' in body).toBe(false);
+    expect(body.title).toBe('제목');
+    expect(JSON.stringify(body.description_rich_content)).not.toContain('화면을 사용하는 중 오류가 발생했습니다.');
+  });
+
+  it('prefills the title, body and hint in English when the draft opens in English', async () => {
+    const storage = memoryStorage();
+    storage.setItem('platform:lang', 'en');
+    vi.stubGlobal('localStorage', storage);
+    mount({ ...ERROR_CONTEXT, items: [{ id: 'trace', label: 'Trace ID', value: 'client-abc-1' }, { id: 'error-menu', label: 'Menu', value: 'Productivity' }] });
+    const title = await screen.findByRole('textbox', { name: /제목/ }, LAZY_MOUNT_WAIT) as HTMLInputElement;
+    expect(title.value).toBe('Productivity error report');
+    expect(screen.getByTestId('voc-error-report-hint').textContent).toBe('Add what you did just before the error. The screen details are attached above.');
+    const body = await submit();
+    expect(JSON.stringify(body.description_rich_content)).toContain('An error occurred while using this screen.');
+  });
+
   it('gates on the feature API: off without one, available with one', () => {
     expect(vocComposeSlot(() => null).availability?.({ spaceId: null, menuId: null })).toBe('available');
     setFeatureApi(null);

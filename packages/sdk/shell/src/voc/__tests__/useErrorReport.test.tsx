@@ -5,6 +5,8 @@ import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry, type PlatformSlots, type VocAvailability, type VocComposeProps } from '@ap/kernel';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { PaneScreenProvider } from '@ap/kernel/host';
+import { useDetailPanelContent } from '@ap/ui';
 import { groupId, spaceId } from '@ap/contracts';
 import { AppShell } from '../../frame/AppShell';
 import { useErrorReport } from '../useErrorReport';
@@ -51,6 +53,37 @@ function mount(slots: PlatformSlots) {
   </PlatformProvider></I18nProvider>);
 }
 const slotWith = (availability?: () => VocAvailability): PlatformSlots => ({ vocCompose: { Compose: FakeCompose, ...(availability ? { availability } : {}) } });
+
+const paneRegistry = createRegistry({
+  spaces: [testSpace({ id: spaceId('mars'), label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'home' })],
+  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
+  menus: [menu('home', '홈', '/'), menu('other', '다른 화면', '/other')],
+});
+/** One error view with its own trace id and report button; `submitted-<trace>` shows its receipt. */
+function Reporter({ trace, label }: { trace: string; label: string }) {
+  const report = useErrorReport(trace);
+  return <div><button type="button" onClick={() => report.open(trace)}>{label}</button><p data-testid={`submitted-${trace}`}>{String(report.submitted)}</p></div>;
+}
+/** An error view whose opener can be removed by a user action. */
+function VanishingReporter() {
+  const [gone, setGone] = useState(false);
+  const report = useErrorReport('client-van-1');
+  return <div>{!gone && <button type="button" onClick={() => report.open('client-van-1')}>사라질 신고</button>}<button type="button" onClick={() => setGone(true)}>신고 버튼 제거</button></div>;
+}
+function DetailRegistrar() {
+  const [on, setOn] = useState(false);
+  return <>{on && <Detail />}<button type="button" onClick={() => setOn(true)}>상세 등록</button></>;
+}
+function Detail() { useDetailPanelContent(<p>상세 본문</p>); return null; }
+function mountWith(children: React.ReactNode, reg = registry) {
+  window.history.replaceState(null, '', '/?v=1&q=x');
+  const session = testSession(['platform:view']);
+  return render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={reg} slots={slotWith()}>
+    <AppShell>{children}</AppShell>
+  </PlatformProvider></I18nProvider>);
+}
+const inPane = (node: React.ReactNode) => <PaneScreenProvider paneId="p1" screen={{ menuId: 'other', params: {}, query: '' }} onChange={() => {}} onLeave={() => {}}>{node}</PaneScreenProvider>;
+const railOpen = () => fireEvent.click(within(screen.getByRole('navigation', { name: '시스템 레일' })).getByRole('button', { name: /^VOC 등록/ }));
 const status = () => screen.getByTestId('status').textContent;
 const submitted = () => screen.getByTestId('submitted').textContent;
 const drawer = () => document.querySelector<HTMLElement>('aside[aria-label="VOC 등록"]')!;
@@ -155,6 +188,16 @@ describe('submitted and focus', () => {
     await user.click(within(drawer()).getByRole('button', { name: '닫기' }));
     expect(opener).toHaveFocus();
   });
+
+  it('falls back to the rail button when the opener left the page', async () => {
+    mountWith(<VanishingReporter />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: '사라질 신고' }));
+    await user.click(screen.getByRole('button', { name: '신고 버튼 제거' }));
+    expect(screen.queryByRole('button', { name: '사라질 신고' })).toBeNull();
+    await user.click(within(drawer()).getByRole('button', { name: '닫기' }));
+    expect(within(screen.getByRole('navigation', { name: '시스템 레일' })).getByRole('button', { name: /^VOC 등록/ })).toHaveFocus();
+  });
 });
 
 describe('a kept draft is never overwritten', () => {
@@ -180,5 +223,53 @@ describe('a kept draft is never overwritten', () => {
     fireEvent.click(within(screen.getByRole('navigation', { name: '시스템 레일' })).getByRole('button', { name: /^VOC 등록/ }));
     await userEvent.setup().click(screen.getByRole('button', { name: '이 오류 신고' }));
     expect(last().context.traceId).toBe('client-trace-1');
+  });
+});
+
+describe('regressions of the review round (#606 node b1)', () => {
+  it('C1: a report from a failing pane freezes that pane\'s screen, not the main screen', async () => {
+    mountWith(<>{inPane(<Reporter trace="client-pane-1" label="칸 오류 신고" />)}</>, paneRegistry);
+    await userEvent.setup().click(screen.getByRole('button', { name: '칸 오류 신고' }));
+    expect(chip(/^메뉴: 다른 화면/)).toBeInTheDocument();
+    expect(chip(/^화면: .*다른 화면 제거$/)).toBeInTheDocument();
+    expect([last().context.traceId, last().context.errorMenuId, last().context.menuId]).toEqual(['client-pane-1', 'other', 'other']);
+  });
+
+  it('C2: a pending error report does not outlive its confirmation (detail takeover, reopen, close, discard)', async () => {
+    mountWith(<><ErrorView /><DetailRegistrar /></>);
+    const user = userEvent.setup();
+    railOpen();
+    await user.type(within(drawer()).getByLabelText('내용'), 'a');
+    await user.click(screen.getByRole('button', { name: '이 오류 신고' }));
+    expect(within(drawer()).getByText(CONFIRM)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '상세 등록' }));
+    expect(drawer().hidden).toBe(true);
+    railOpen();
+    await user.click(within(drawer()).getByRole('button', { name: '닫기' }));
+    expect(within(drawer()).getByText(CONFIRM)).toBeInTheDocument();
+    await user.click(within(drawer()).getByRole('button', { name: '버리기' }));
+    expect(drawer().hidden).toBe(true);
+    expect(last().context.traceId).toBeNull();
+  });
+
+  it('C3: an ordinary rail submission keeps an earlier error\'s receipt', async () => {
+    mountWith(<Reporter trace="client-a-1" label="신고 A" />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: '신고 A' }));
+    await user.click(within(drawer()).getByRole('button', { name: '제출' }));
+    expect(screen.getByTestId('submitted-client-a-1').textContent).toBe('true');
+    railOpen();
+    await user.click(within(drawer()).getByRole('button', { name: '제출' }));
+    expect(screen.getByTestId('submitted-client-a-1').textContent).toBe('true');
+  });
+
+  it('C3: another pane\'s report keeps the first error\'s receipt', async () => {
+    mountWith(<><Reporter trace="client-a-1" label="신고 A" />{inPane(<Reporter trace="client-b-1" label="신고 B" />)}</>, paneRegistry);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: '신고 A' }));
+    await user.click(within(drawer()).getByRole('button', { name: '제출' }));
+    await user.click(screen.getByRole('button', { name: '신고 B' }));
+    await user.click(within(drawer()).getByRole('button', { name: '제출' }));
+    expect([screen.getByTestId('submitted-client-a-1').textContent, screen.getByTestId('submitted-client-b-1').textContent]).toEqual(['true', 'true']);
   });
 });

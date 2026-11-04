@@ -1,5 +1,5 @@
-import { useContext } from 'react';
-import type { VocAvailability } from '@ap/kernel';
+import { useContext, useEffect } from 'react';
+import { useEquipmentAxes, useI18n, type VocAvailability } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import { VocDrawerContext } from './VocDrawer';
 
@@ -10,7 +10,7 @@ const TRACE_ID_MAX = 80;
 export type ErrorReport = {
   /** `available` = the report link may show; `denied` = the actor cannot file a VOC; `off` = no VOC form here (no slot, no server, a Managed System without VOC, an id that cannot be sent, or a failed lookup). */
   status: VocAvailability;
-  /** Opens the real docked VOC drawer with the screen's frozen Context plus the trace and menu chips. Does nothing unless `status` is `available`. */
+  /** Opens the real docked VOC drawer with the Context frozen from the screen this view belongs to (a board pane's own, not the main screen's) plus the trace and menu chips. Does nothing unless `status` is `available`. */
   open: (traceId: string) => void;
   /** True once the report for this `traceId` was filed; a new error (a new id) starts false. */
   submitted: boolean;
@@ -22,7 +22,12 @@ export type ErrorReport = {
  */
 export function useErrorReport(traceId: string | null): ErrorReport {
   const voc = useContext(VocDrawerContext);
-  const { route, registry } = useHostPlatform();
+  const { route, registry, platformScreen, global, page, absoluteUrl } = useHostPlatform();
+  const { lang, t } = useI18n();
+  const axes = useEquipmentAxes();
+  // A receipt lives as long as its error screen: a new error or a gone screen forgets it.
+  const forget = voc?.forgetTrace;
+  useEffect(() => (traceId === null || forget === undefined ? undefined : () => forget(traceId)), [traceId, forget]);
   let status: VocAvailability = 'off';
   try {
     if (voc !== null && traceId !== null && traceId.length <= TRACE_ID_MAX && TRACE_ID.test(traceId)) {
@@ -33,7 +38,7 @@ export function useErrorReport(traceId: string | null): ErrorReport {
   }
   return {
     status,
-    open: id => { if (voc !== null && status === 'available') voc.openError(id); },
-    submitted: voc !== null && traceId !== null && voc.submittedTrace === traceId,
+    open: id => { if (voc !== null && status === 'available') voc.openError(id, { route, platformScreen, global, page, absoluteUrl, registry, lang, axes, asOf: t('membershipAsOf') }); },
+    submitted: voc !== null && traceId !== null && voc.submittedTraces.has(traceId),
   };
 }
