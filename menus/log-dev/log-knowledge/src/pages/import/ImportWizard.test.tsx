@@ -294,7 +294,8 @@ describe('catalog import wizard', () => {
       fireEvent.click(await screen.findByRole('button', { name: '새로 시작' }, slow));
       await waitFor(() => expect(((screen.getByLabelText('붙여넣을 목록')) as HTMLTextAreaElement).value).toBe(''), slow);
       expect(actions()).toContain('importCancel');
-      expect(draftSaved()).toBe(false);
+      // The draft is dropped by a passive effect after the commit that empties the textarea, so wait for it.
+      await waitFor(() => expect(draftSaved()).toBe(false), slow);
     });
 
     it('is cleared by 그만두기 and by a finished apply', async () => {
