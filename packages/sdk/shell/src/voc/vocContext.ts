@@ -4,11 +4,14 @@ import type { HostPlatform } from '@ap/kernel/host';
 import { buildShareLink } from '../context/shareLink';
 
 /** What the freeze reads from the host: the main screen's route, Context and page pairs at the moment the drawer opens; `axes` and `asOf` (the localized membership-as-of text) read the Condition like the board header. */
-export type VocFreezeInput = Pick<HostPlatform, 'route' | 'platformScreen' | 'global' | 'page' | 'absoluteUrl' | 'registry'> & { lang: Lang; axes: readonly EquipmentAxisDescriptor[]; asOf: string };
+export type VocFreezeInput = Pick<HostPlatform, 'route' | 'platformScreen' | 'global' | 'page' | 'absoluteUrl' | 'registry'> & { lang: Lang; axes: readonly EquipmentAxisDescriptor[]; asOf: string;
+  /** Set when the drawer opens from a screen's error view (#606): the client error id and the failed menu (`menuId` null when no menu matched). */
+  error?: { traceId: string; menuId: string | null; menuLabel: string | null };
+};
 
 const TEXT = {
-  ko: { screen: '화면', board: '분석 보드', granularity: '집계 단위', focus: '상세', none: '없음', more: (n: number) => `외 ${n}개` },
-  en: { screen: 'Screen', board: 'Analysis board', granularity: 'Granularity', focus: 'Detail', none: 'None', more: (n: number) => `+${n} more` },
+  ko: { trace: '추적 번호', errorMenu: '메뉴', screen: '화면', board: '분석 보드', granularity: '집계 단위', focus: '상세', none: '없음', more: (n: number) => `외 ${n}개` },
+  en: { trace: 'Trace ID', errorMenu: 'Menu', screen: 'Screen', board: 'Analysis board', granularity: 'Granularity', focus: 'Detail', none: 'None', more: (n: number) => `+${n} more` },
 } as const;
 const MAX_VALUES = 5;
 
@@ -30,11 +33,21 @@ type SetField = 'roomNames' | 'lineNames' | 'prcGroups' | 'selection' | 'lotIds'
 export function freezeVocContext(input: VocFreezeInput, removed: ReadonlySet<string> = new Set()): VocComposeContext {
   const text = TEXT[input.lang];
   const { route, global, registry } = input;
+  // The error chips are attached (unlike `spaceId`/`menuId`) and each is removed on its own; the trace chip also drops `traceId`.
+  const error = input.error;
+  const errorItems: VocComposeContextItem[] = error === undefined ? [] : [
+    ...removed.has('trace') ? [] : [{ id: 'trace', label: text.trace, value: error.traceId }],
+    ...removed.has('error-menu') || error.menuId === null || error.menuLabel === null ? [] : [{ id: 'error-menu', label: text.errorMenu, value: error.menuLabel }],
+  ];
+  const errorIds = {
+    traceId: error === undefined || removed.has('trace') ? null : error.traceId,
+    errorMenuId: error === undefined || removed.has('error-menu') ? null : error.menuId,
+  };
   // `returnTo` is navigation state (the way back), not screen Context: it is neither a chip nor part of the attached address (#760).
   const page = withoutReturnTo(input.page);
   const basis = global.membershipBasis === 'asOf' ? ` · ${input.asOf}` : '';
   if (input.platformScreen === 'board' || route === null) {
-    return { items: removed.has('menu') ? [] : [{ id: 'menu', label: text.screen, value: text.board }], href: null, spaceId: null, menuId: null, carried: {} };
+    return { items: [...removed.has('menu') ? [] : [{ id: 'menu', label: text.screen, value: text.board }], ...errorItems], href: null, spaceId: null, menuId: null, carried: {}, ...errorIds };
   }
   const space = registry.spaceOf(route.menu);
   const menuLabel = route.menu.label[input.lang];
@@ -76,6 +89,7 @@ export function freezeVocContext(input: VocFreezeInput, removed: ReadonlySet<str
   keep('global:metricId', ['metricId', 'metricVersion'], () => global.metricId === null ? null : { id: 'global:metricId', label: CONTEXT_LABELS.metric[input.lang], value: global.metricVersion === null ? global.metricId : `${global.metricId} ${formatMetricVersion(global.metricVersion)}` });
   keep('global:scopeId', ['scopeId'], () => global.scopeId === null ? null : { id: 'global:scopeId', label: RETURN_CONTEXT_LABELS.scope[input.lang], value: global.scopeId });
 
+  items.push(...errorItems);
   // The same serializer as the share control; a repro link has no length bound of its own.
   const shared = removed.has('menu') ? null : buildShareLink({ kind: 'conditions', route, global: kept, page: keptPage, absoluteUrl: input.absoluteUrl, maxLength: Number.POSITIVE_INFINITY });
   const href = shared?.ok ? shared.href : null;
@@ -85,5 +99,5 @@ export function freezeVocContext(input: VocFreezeInput, removed: ReadonlySet<str
     const pair = page.find(([pairKey]) => pairKey === key);
     if (pair) carried[key] = pair[1];
   }
-  return { items, href, spaceId: space?.id ?? null, menuId: route.menu.id, carried };
+  return { items, href, spaceId: space?.id ?? null, menuId: route.menu.id, carried, ...errorIds };
 }

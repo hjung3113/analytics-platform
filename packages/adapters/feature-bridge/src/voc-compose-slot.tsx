@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { useI18n, type VocComposeProps, type VocComposeSlot } from '@ap/kernel';
 import { Skeleton } from '@ap/ui';
 import type { DefaultStatus } from './default-status';
+import { featureApi } from './feature-api';
 
 const useAlwaysReady = (): DefaultStatus => 'ready';
 
@@ -26,6 +27,8 @@ function Loading() {
  * Suspense boundary, so it owns its fallback: a bare lazy component would suspend the whole shell on the first open.
  * `useDefaultStatus` (optional, a module-level hook so the slot keeps one stable `Compose`) reports whether the app's lookup behind `managedSystemFor` is
  * `ready`, still `pending` or `failed`; the form blocks its submit until `ready` so a VOC is never filed against a silently missing default (#1289 node j). Absent = always ready.
+ * `availability` (the error view's 「이 오류 신고」 gate, #606): `off` without a feature API (mock preview: the form would show `실서버 필요`), otherwise `available`. The client cannot know
+ * before submit whether the actor may create a VOC (the server answers per Managed System) or whether the screen's Managed System takes one, so `denied` is never returned here; a refusal at submit shows through the form's own error handling.
  * Only `apps/platform-web/src/main.tsx` imports this.
  */
 export function vocComposeSlot(managedSystemFor: (spaceId: string | null) => string | null, useDefaultStatus: () => DefaultStatus = useAlwaysReady): VocComposeSlot {
@@ -33,5 +36,5 @@ export function vocComposeSlot(managedSystemFor: (spaceId: string | null) => str
     const defaultStatus = useDefaultStatus();
     return <Suspense fallback={<Loading />}><VocCompose {...props} managedSystemFor={managedSystemFor} defaultStatus={defaultStatus} /></Suspense>;
   }
-  return { Compose };
+  return { Compose, availability: () => featureApi() === null ? 'off' : 'available' };
 }

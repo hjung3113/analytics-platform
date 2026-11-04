@@ -45,8 +45,10 @@ export type VocComposeContextItem = { id: string; label: string; value: string }
  * The Context frozen when the VOC drawer opened, minus the chips the user removed. `href` is the absolute URL of that screen rebuilt
  * from the kept items only (06 §8: a removed chip leaves the attached address too); null when there was no main screen (board) or the user removed the `menu` chip. `spaceId`/`menuId` describe the frozen screen for defaults only (e.g. the Managed System); they ignore chip removal and are never attached.
  * `carried` is the frozen screen's values of its carry set's page keys (empty when it has no set), including keys whose chips were removed; defaults only, never attached.
+ * `traceId`/`errorMenuId` are set only when the drawer was opened from a screen's error view (#606): the client error id (`client-…`) and the id of the menu that failed. Unlike `spaceId`/`menuId` they are attached
+ * (the `추적 번호` and `메뉴` chips), each is an independently removable chip, and removing the trace chip drops `traceId` (the report is then sent without it). Both are null on every other path (the rail button).
  */
-export type VocComposeContext = { items: readonly VocComposeContextItem[]; href: string | null; spaceId: SpaceId | null; menuId: string | null; carried: Readonly<Record<string, string>> };
+export type VocComposeContext = { items: readonly VocComposeContextItem[]; href: string | null; spaceId: SpaceId | null; menuId: string | null; carried: Readonly<Record<string, string>>; traceId: string | null; errorMenuId: string | null };
 export type VocComposeProps = {
   context: VocComposeContext;
   /** Called once after the VOC was created; the shell closes the drawer and drops the draft. */
@@ -55,8 +57,13 @@ export type VocComposeProps = {
   onCancel: () => void;
   onDirtyChange: (dirty: boolean) => void;
 };
-/** The rail `VOC 등록` drawer body (ADR-0070 decisions 4–5, 06 §8). Absent slot → no rail button. */
-export type VocComposeSlot = { Compose: ComponentType<VocComposeProps> };
+/** Whether a VOC can be filed from a screen error view: `denied` = the actor cannot create one, `off` = this screen's Managed System takes none (or there is no server). */
+export type VocAvailability = 'available' | 'denied' | 'off';
+/**
+ * The rail `VOC 등록` drawer body (ADR-0070 decisions 4–5, 06 §8). Absent slot → no rail button.
+ * `availability` (optional, a plain function the shell calls while rendering an error view, never a hook) says what the app can know before submit; absent = `available`. A throw is read as `off`.
+ */
+export type VocComposeSlot = { Compose: ComponentType<VocComposeProps>; availability?: (target: { spaceId: SpaceId | null; menuId: string | null }) => VocAvailability };
 /** The home `내 할 일` section (ADR-0070 decision 8, 15 §3.2): a component the app fills from another menu package, so one menu never imports another. It renders nothing when it has nothing to show. Absent slot → no section. The only slot a menu reads (`MenuPlatform.homeTodo`); the shell never reads it. */
 export type HomeTodoSlot = { Todo: ComponentType };
 /**

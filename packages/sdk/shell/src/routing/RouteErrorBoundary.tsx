@@ -5,6 +5,7 @@ import { StateMessage } from '@ap/components';
 import { Button } from '@ap/ui';
 import { HomeLink } from '../frame/HomeLink';
 import { reloadApp } from '../frame/reload';
+import { useErrorReport } from '../voc/useErrorReport';
 
 type Props = {
   /** Reports the contained error and returns the correlation id to show. */
@@ -43,6 +44,7 @@ export class RouteErrorBoundary extends Component<Props, State> {
 
 function RouteErrorView({ correlationId, onRetry }: { correlationId?: string; onRetry: () => void }) {
   const { t, lang } = useI18n();
+  const report = useErrorReport(correlationId ?? null);
   return <div className="p-6"><StateMessage tone="danger" icon={<ServerCrash className="size-4" aria-hidden />}
     title={lang === 'ko' ? '이 화면에서 오류가 발생했습니다' : 'Something went wrong on this screen'}
     body={lang === 'ko' ? '다른 메뉴는 그대로 사용할 수 있습니다. 다시 시도하거나 홈으로 이동하세요. 문의할 때 아래 Correlation ID를 알려 주세요.' : 'Other menus still work. Retry, or go home. Quote the Correlation ID below when you ask for help.'}
@@ -50,5 +52,8 @@ function RouteErrorView({ correlationId, onRetry }: { correlationId?: string; on
     action={<span className="flex items-center gap-2">
       <Button size="sm" variant="secondary" onClick={onRetry}>{t('retry')}</Button>
       <HomeLink />
+      {/* STAND-IN (#606 node b1): unstyled plumbing so the flow is testable; node b2 replaces this block with the designed link next to the trace number and drops the Correlation ID sentence from `body`. */}
+      {report.status === 'available' && !report.submitted && correlationId !== undefined && <button type="button" data-error-report onClick={() => report.open(correlationId)}>{lang === 'ko' ? '이 오류 신고' : 'Report this error'}</button>}
+      {report.submitted && <span data-error-report-sent role="status">{lang === 'ko' ? '신고했습니다' : 'Reported'}</span>}
     </span>} /></div>;
 }

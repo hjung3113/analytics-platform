@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import type { VocComposeProps } from '@ap/kernel';
 import { VocComposeScreen } from '@ap/feature-screens/global-screens';
 import { FeatureBridge } from '../feature/FeatureBridge';
@@ -16,6 +16,10 @@ export function initialManagedSystem(context: Pick<VocComposeProps['context'], '
   return managedSystemFor(context.spaceId);
 }
 
+/** The prefill of a report filed from a screen's error view (#606): the title names the failed menu; the user adds what they did just before. */
+const ERROR_REPORT_BODY = '화면을 사용하는 중 오류가 발생했습니다.';
+const ERROR_REPORT_HINT = '오류 직전에 한 작업을 덧붙여 주세요. 화면 정보는 위에 첨부되어 있습니다.';
+
 /**
  * The `VOC 등록` form from feature in the rail drawer (ADR-0070 decisions 4–5, ADR-0071). The frozen Context becomes the `화면 정보` block of the
  * description; the screen reads it when the form is submitted, so a chip removed after typing leaves the typed values alone. Without a feature API
@@ -27,9 +31,12 @@ export default function VocCompose({ context, onSubmitted, onCancel, onDirtyChan
     void featureQueryClient.invalidateQueries({ queryKey: ['vocs', 'my'] });
     onSubmitted(result);
   }, [onSubmitted]);
+  // Whether this draft is an error report is fixed when it starts (a draft is a Compose instance): removing the chips later changes what is sent, not what the form is.
+  const [report] = useState(() => context.traceId === null ? null : { title: `${context.items.find(item => item.id === 'error-menu')?.value ?? ''} 오류 신고`.trim() });
   return <div className="h-full min-h-0">
     <FeatureBridge>
       <VocComposeScreen contextBlock={{ items: context.items.map(({ label, value }) => ({ label, value })), href: context.href }} initialManagedSystemId={initialManagedSystem(context, managedSystemFor)} defaultStatus={defaultStatus}
+        {...(report === null ? {} : { errorReport: { title: report.title, body: ERROR_REPORT_BODY, hint: ERROR_REPORT_HINT, traceId: context.traceId } })}
         onSubmitted={submitted} onCancel={onCancel} onDirtyChange={onDirtyChange} />
     </FeatureBridge>
   </div>;
