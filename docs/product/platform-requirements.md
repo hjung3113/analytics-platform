@@ -94,7 +94,7 @@
 | R1.2 | 본 화면을 그대로 넘긴다 | 캡처를 붙이고 "기간은 이렇게, 필터는…"을 설명한다 | 주소가 곧 화면이다. 조건·정렬·쪽·탭·드릴 단계가 주소에 있어서 링크 복사·새로고침·뒤로/앞으로에 같은 화면이 나온다. 받는 사람의 권한으로 서버가 다시 확인한다(링크가 권한을 주지 않는다) | 동작 | [06 §6.1](../contract/kernel.md#61-식별자와-url-소유-상태-decided)·[§6.4](../contract/kernel.md#64-url-계약-decided-필드명enum-문자열은-candidate) |
 | R1.3 | 원인까지 내려갔다 돌아온다 | 지표 화면과 설비 화면이 따로 놀아 원인을 손으로 맞추고, 돌아오면 처음 조건이 없다 | 공정 → 설비 그룹 → 설비 드릴다운, 지표 → 느린 실행 → 설비 상세 이동. 지금 어디까지 내려왔는지 경로가 보이고, 돌아가기는 출발 화면과 조건을 되살리며 바뀐 조건을 알린다 | 동작 | [14](../design/drilldown-platform.md), [ADR-0025](../adr/0025-drilldown-level-page-keys-path-bar-layout.md), [06 §22](../contract/cross-menu-links.md#22-cross-menu-context-link) |
 | R1.4 | 다른 업무 화면으로 바로 잇는다 | 다른 화면에서 같은 설비를 다시 검색한다 | 화면 사이 링크가 "열 대상(설비 ID 등)"과 "분석 조건"을 따로 넘긴다. 열 수 없는 목적지는 다음으로 열 수 있는 곳으로 가고, 숨겨진 화면 이름을 드러내지 않는다 | 동작 | [06 §22](../contract/cross-menu-links.md#22-cross-menu-context-link) |
-| R1.5 | 원하는 화면에 바로 간다 | 메뉴 트리를 뒤진다 | 업무 시스템 전환기, Ctrl+K 검색(화면·최근·즐겨찾기), 시스템마다 마지막에 보던 화면 복원 | 동작(즐겨찾기·최근은 이 브라우저에만 저장) | [ADR-0042](../adr/0042-system-switcher-and-system-owned-rail.md), [06 §10](../contract/kernel.md#10-command-palette-as-platform-navigation), 저장 위치는 결정 대기([보드](../../.planning/README.md)) |
+| R1.5 | 원하는 화면에 바로 간다 | 메뉴 트리를 뒤진다 | 업무 시스템 전환기, Ctrl+K 검색(화면·최근·즐겨찾기), 시스템마다 마지막에 보던 화면 복원 | 동작(즐겨찾기·최근은 실서버 조립에서 사용자별 서버 저장, mock 조립은 이 브라우저) | [ADR-0042](../adr/0042-system-switcher-and-system-owned-rail.md), [06 §10](../contract/kernel.md#10-command-palette-as-platform-navigation), 저장 위치는 [06 §4](../contract/kernel.md#4-platform-kernel-responsibilities)·[ADR-0098](../adr/0098-adapter-preferences-people-notices-ports.md) |
 | R1.6 | 시간이 헷갈리지 않는다 | 설비 현지 시각과 보는 사람 시각이 섞여 같은 날짜가 다른 구간이 된다 | 기간 경계·날짜 단위·시간대 규칙이 플랫폼 하나다. 실제 시점은 보는 사람 시간대로, 설비 시각은 설비 시각으로 표시한다. 여러 설비를 합칠 때 시간 기준이 다르면 막는다 | 동작 | [06 §6.3](../contract/kernel.md#ctx-time) |
 
 ### 3.2 숫자를 믿을 수 있는지 안다
@@ -128,7 +128,7 @@
 | R4.2 | 자주 보는 조건을 저장한다 | 매번 같은 조건을 다시 만든다 | 저장된 뷰: 화면·조건·필터·표 열 상태를 이름 붙여 저장하고, 열 때 권한을 다시 확인한다 | 보류 — 사용자 조합 분석(R4.3)과 같이 정한다 | [06 §21](../contract/kernel.md#21-saved-view-contract), #294 |
 | R4.3 | 내가 직접 분석 화면을 조합한다 | 개발자에게 요청하고 기다리거나 엑셀로 내려받는다 | 개발자가 준 시각화·피벗을 사용자가 축·필터·차트 종류로 바꾸고, 저장·공유한다. 공식 지표와 탐색용 집계를 섞지 않는다 | 결정 대기 — 범위·저장·공유 질문이 열려 있다 | #294, #291 |
 | R4.4 | 자유 피벗·엑셀식 편집 | 큰 결과를 엑셀로 내려 피벗한다 | 브라우저 안에서만 도는 자유 피벗, 셀 범위 복사·채우기 | 보류 — 업무 필수로 확인될 때 | #163, #164, [ADR-0007](../adr/0007-perspective-browser-engine-only.md) |
-| R4.5 | 내 설정이 기기를 따라온다 | 다른 PC에서 즐겨찾기·열 설정이 없다 | 사용자 설정을 서버에 보존 | 결정 대기 — 지금은 브라우저 저장 | [06 §4](../contract/kernel.md#4-platform-kernel-responsibilities), [보드](../../.planning/README.md) |
+| R4.5 | 내 설정이 기기를 따라온다 | 다른 PC에서 즐겨찾기·열 설정이 없다 | 사용자 설정을 서버에 보존 | 동작(실서버 조립: 즐겨찾기·최근·마지막 Scope·언어·표 열을 사용자별 서버 저장, #1104b; 사이드바 접힘은 브라우저) | [06 §4](../contract/kernel.md#4-platform-kernel-responsibilities), [ADR-0098](../adr/0098-adapter-preferences-people-notices-ports.md) |
 
 ### 3.5 본 자리에서 알리고, 고쳐졌는지 확인한다
 
