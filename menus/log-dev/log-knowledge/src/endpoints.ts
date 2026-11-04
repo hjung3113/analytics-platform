@@ -155,6 +155,9 @@ export type SpecDraftCreateInput = { modelId: string; sourceDocRef: SpecSourceDo
 export type SpecDraftSaveInput = {
   revisionId: string; mode: 'append' | 'replace'; sourceDocRef?: SpecSourceDocRef;
   modules?: SpecModuleInput[]; events?: SpecEventInput[]; relations?: SpecRelationInput[];
+  /** #1196 b2 — TSV text instead of rows: `tsv` = a .txt file's content read by the screen, `paste` = pasted text.
+   *  Exactly one of rows or text per call; the parser and the caps are the server's (`domain/spec-tsv.ts`). */
+  text?: string; format?: 'tsv' | 'paste';
 };
 export type SpecPublishInput = { revisionId: string };
 export type SpecRejectInput = { revisionId: string; reason: string };
@@ -174,7 +177,7 @@ const specWrite = <I, O>(name: string, inputKeys: Record<keyof I & string, true>
     requiresScope: false, concurrency, invalidates: specWrites,
   });
 export const specDraftCreate = specWrite<SpecDraftCreateInput, SpecDraftCreateResult>('specDraftCreate', { modelId: true, sourceDocRef: true }, 'none');
-export const specDraftSave = specWrite<SpecDraftSaveInput, SpecDraftSaveResult>('specDraftSave', { revisionId: true, mode: true, sourceDocRef: true, modules: true, events: true, relations: true }, 'version');
+export const specDraftSave = specWrite<SpecDraftSaveInput, SpecDraftSaveResult>('specDraftSave', { revisionId: true, mode: true, sourceDocRef: true, modules: true, events: true, relations: true, text: true, format: true }, 'version');
 export const specPublish = specWrite<SpecPublishInput, SpecPublishResult>('specPublish', { revisionId: true }, 'version');
 export const specReject = specWrite<SpecRejectInput, SpecRejectResult>('specReject', { revisionId: true, reason: true }, 'version');
 /** The four spec writes in the server's order. */

@@ -30,6 +30,8 @@ export const logKnowledgeSpecDraftSavedDetailSchema = z
   .object({
     ...base,
     mode: z.enum(['create', 'append', 'replace']),
+    /** How the rows arrived (#1196 b2); a `create` carries no rows and omits it. Never the text itself. */
+    input: z.enum(['rows', 'tsv', 'paste']).optional(),
     /** Rows added by this call (a `replace` reports the new draft's rows). */
     added: countsSchema,
     /** `replace` only: the draft this call rejected in favour of the new one. */

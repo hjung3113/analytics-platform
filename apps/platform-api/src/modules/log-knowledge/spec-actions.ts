@@ -18,6 +18,7 @@ import { type CheckService, applyAdminModuleBypass } from '../permissions/check-
 import type { PlatformActor } from '../platform-port/permissions.js';
 import { LOG_KNOWLEDGE_MODELS_MENU_ID } from './catalog-menu.js';
 import { type SpecInput, parseSpecInput, planSpecRows, validateSpecInput } from './domain/spec-input.js';
+import { type SpecTsvLines, parseSpecTsv, specTsvFieldErrors, tsvLineErrors } from './domain/spec-tsv.js';
 import {
   type RevisionRow,
   bumpDraft,
@@ -41,7 +42,7 @@ const INVALIDATES = ['logKnowledge.modelSpec', 'logKnowledge.modelSpecRevisions'
 
 const INPUT_KEYS = {
   draftCreate: ['modelId', 'sourceDocRef'],
-  draftSave: ['revisionId', 'mode', 'sourceDocRef', 'modules', 'events', 'relations'],
+  draftSave: ['revisionId', 'mode', 'sourceDocRef', 'modules', 'events', 'relations', 'text', 'format'],
   publish: ['revisionId'],
   reject: ['revisionId', 'reason'],
 } as const;
@@ -143,19 +144,35 @@ export function specActions(deps: SpecActionDeps): MenuActionDeclaration[] {
   const draftSave: MenuActionDeclaration = {
     spec: base('draftSave', 'version'),
     authorize,
-    validate: (input) => validateSpecInput('draftSave', input),
+    // The envelope/contract/cap checks gate the TSV parser: a refused input is not parsed (#1196 fix C1).
+    validate: (input) => {
+      const envelope = validateSpecInput('draftSave', input);
+      return envelope.length > 0 ? envelope : specTsvFieldErrors(input);
+    },
     currentVersion,
     async handle(tx, actor, input): Promise<ActionHandlerResult> {
       const ws = actor.workspace_id;
       const value = parsed('draftSave', input);
       const draft = await lockDraft(tx, actor, value.revisionId);
+      // #1196 b2: a text call converges into the same structured rows here; `format` is provenance only.
+      let rows = value;
+      let source: 'rows' | 'tsv' | 'paste' = 'rows';
+      let lines: SpecTsvLines | null = null;
+      if (value.text !== undefined) {
+        const tsv = parseSpecTsv(value.text);
+        if (!tsv.ok) throw new Error('action spec draftSave: validate passed but tsv parse failed');
+        if (value.format === undefined) throw new Error('action spec draftSave: text without format passed validate');
+        source = value.format;
+        lines = tsv.lines;
+        rows = { ...value, modules: tsv.rows.modules, events: tsv.rows.events, relations: tsv.rows.relations };
+      }
       // `replace` starts from an empty draft; `append` from what the draft holds.
       const index =
         value.mode === 'replace'
           ? { moduleKeys: new Set<string>(), eventKeys: new Set<string>(), relationEdges: new Set<string>() }
           : await loadDraftIndex(tx, ws, draft.id);
-      const plan = planSpecRows(index, value);
-      if (!plan.ok) throw new MenuActionInvalidError(plan.errors);
+      const plan = planSpecRows(index, rows);
+      if (!plan.ok) throw new MenuActionInvalidError(lines ? tsvLineErrors(plan.errors, lines) : plan.errors);
       const added = { modules: plan.modules.length, events: plan.events.length, relations: plan.relations.length };
 
       let target: RevisionRow = draft;
@@ -179,6 +196,7 @@ export function specActions(deps: SpecActionDeps): MenuActionDeclaration[] {
         modelId: target.modelId,
         revisionNo: target.revisionNo,
         mode: value.mode,
+        input: source,
         added,
         ...(value.mode === 'replace' ? { replacedRevisionId: draft.id } : {}),
       });
