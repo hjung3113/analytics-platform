@@ -12,7 +12,7 @@ const CONTRACT_PLAN_CODES = [
   'duplicate_in_file', 'ambiguous_name', 'ambiguous_parent', 'formula', 'merged', 'unsupported_cell',
 ];
 const CONTRACT_APPLY_CODES = [
-  'plan_changed', 'parent_missing', 'parent_inactive', 'process_missing', 'process_inactive', 'ambiguous_parent', 'taken', 'stale_target', 'inactive_target', 'identity_conflict', 'unexpected',
+  'plan_changed', 'parent_missing', 'parent_inactive', 'process_missing', 'process_inactive', 'ambiguous_parent', 'taken', 'stale_target', 'target_missing', 'inactive_target', 'identity_conflict', 'unexpected',
 ];
 const CONTRACT_PASTE_CODES = [
   'missing_header', 'duplicate_header', 'invalid_headers', 'empty', 'too_many_columns', 'unreadable', 'too_many_rows', 'file_too_large', 'required', 'busy',

@@ -4,7 +4,7 @@ import type { AnyMockAction } from '@ap/mock-server';
 import { importDetailEndpoint, type ImportDetail } from '../endpoints';
 import { logKnowledgeActionsMock, logKnowledgeMock, resetCatalog, resetImports } from './index';
 import { MOCK_APPLY_BATCH } from './imports';
-import { all } from './store';
+import { all, processIdsOf } from './store';
 
 type Row = Record<string, unknown>;
 const action = (id: string): AnyMockAction => logKnowledgeActionsMock.find(a => a.spec.id === `logKnowledge.${id}`)!;
@@ -58,7 +58,7 @@ describe('importValidate', () => {
   it('plans every fixture row: new, update, unchanged, conflicts and an error', () => {
     const jobId = validated();
     const { rows, job } = detail({ jobId, page: 0, pageSize: 50 });
-    expect(rows.map(r => r.planState)).toEqual(['unchanged', 'update', 'new', 'new', 'conflict', 'conflict', 'conflict', 'error']);
+    expect(rows.map(r => r.planState)).toEqual(['update', 'update', 'new', 'new', 'conflict', 'conflict', 'conflict', 'error']);
     expect(rows[2]!.creates).toEqual({ vendor: 'Delta Corp', processes: ['Dry Clean'] });
     expect(rows[3]!.creates).toEqual({ vendor: 'Delta Corp', processes: [] });
     expect(rows[4]).toMatchObject({ targetId: expect.any(String), errors: [] });
@@ -104,6 +104,43 @@ describe('importResolve and importCancel', () => {
   });
 });
 
+describe('process column semantics (the server replaces the mapped set)', () => {
+  const processNames = (modelName: string): string[] => {
+    const model = all('model').find(m => m.name === modelName)!;
+    return processIdsOf(model.id).map(id => all('process').find(p => p.id === id)!.name).sort();
+  };
+  const planStates = (text: string) => detail({ jobId: validated(text), page: 0, pageSize: 50 }).rows.map(r => r.planState);
+  const applyAll = (text: string) => {
+    const jobId = validated(text);
+    const { planVersion } = detail({ jobId, page: 0, pageSize: 1 }).job;
+    run('importApply', { jobId, expectedPlanVersion: planVersion });
+  };
+
+  it('a subset removes the links the sheet does not name', () => {
+    const text = '메이커명\t공정명\t모델명\nAlpha Semicap\tEtch\tAlpha 100';
+    expect(planStates(text)).toEqual(['update']);
+    applyAll(text);
+    expect(processNames('Alpha 100')).toEqual(['Etch']);
+  });
+  it('a replacement adds the new link and drops the old one', () => {
+    applyAll('메이커명\t공정명\t모델명\nAlpha Semicap\tPlanarization\tAlpha 200');
+    expect(processNames('Alpha 200')).toEqual(['Planarization']);
+  });
+  it('an empty process cell clears every link', () => {
+    const text = '메이커명\t공정명\t모델명\nAlpha Semicap\t\tAlpha 100';
+    expect(planStates(text)).toEqual(['update']);
+    applyAll(text);
+    expect(processNames('Alpha 100')).toEqual([]);
+  });
+  it('the same set is unchanged, in any order', () => expect(planStates('메이커명\t공정명\t모델명\nAlpha Semicap\tDeposition, Etch\tAlpha 100')).toEqual(['unchanged']));
+  it('an omitted process column leaves the links alone', () => {
+    const text = '메이커명\t모델명\nAlpha Semicap\tAlpha 100';
+    expect(planStates(text)).toEqual(['unchanged']);
+    applyAll(text);
+    expect(processNames('Alpha 100')).toEqual(['Deposition', 'Etch']);
+  });
+});
+
 describe('importApply', () => {
   it('works in several calls: progress until completed, parents first, one maker once', () => {
     const rows = ['메이커명,공정명,모델명', ...Array.from({ length: MOCK_APPLY_BATCH * 2 + 5 }, (_, i) => `Big Co,"P${i % 3}",Big ${i}`)].join('\n');
@@ -126,7 +163,7 @@ describe('importApply', () => {
     expect(all('vendor').some(v => v.name === 'Delta Corp')).toBe(false);
     expect(run('importApply', { jobId, expectedPlanVersion: planVersion }).data).toMatchObject({ outcome: 'progress', status: 'completed', remaining: 0 });
     const counts = detail({ jobId, page: 0, pageSize: 1 }).applyCounts;
-    expect(counts).toMatchObject({ applied: 3, unchanged: 1, skipped: 3, excluded: 1, unresolved: 0, remaining: 0 });
+    expect(counts).toMatchObject({ applied: 4, unchanged: 0, skipped: 3, excluded: 1, unresolved: 0, remaining: 0 });
     expect(all('vendor').filter(v => v.name === 'Delta Corp')).toHaveLength(1);
     expect(all('model').filter(m => m.name.startsWith('Delta'))).toHaveLength(2);
   });

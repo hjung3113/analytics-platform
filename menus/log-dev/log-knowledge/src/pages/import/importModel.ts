@@ -72,6 +72,7 @@ export const APPLY_ERROR_SENTENCE: Record<string, string> = {
   ambiguous_parent: '같은 이름의 메이커·공정이 둘 이상이라 반영하지 못했습니다.',
   taken: '같은 이름이 그 사이 먼저 등록되었습니다.',
   stale_target: '카탈로그의 모델이 그 사이 바뀌었습니다.',
+  target_missing: '반영할 카탈로그 모델이 그 사이 없어졌습니다.',
   inactive_target: '카탈로그의 모델이 비활성입니다.',
   identity_conflict: '이미 다른 항목에 연결된 이름입니다.',
   unexpected: '예상하지 못한 오류로 반영하지 못했습니다.',

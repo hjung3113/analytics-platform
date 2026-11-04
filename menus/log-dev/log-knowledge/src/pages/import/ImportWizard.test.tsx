@@ -10,6 +10,7 @@ import { groupId, menuPermission, spaceId, type ActionResponse, type ApiResponse
 import { CATALOG_MANAGE_PERMISSION, type ImportRowView } from '../../endpoints';
 import { manifests } from '../../index';
 import CatalogManagement from '../CatalogManagement';
+import { clearDraft, readDraft } from './importDraft';
 
 const registry = createRegistry({
   permissions: [menuPermission('knowledge:catalog-manage')],
@@ -29,6 +30,9 @@ let version: number;
 let applied: number;
 let calls: MenuAction[];
 let refuse: Partial<ActionResponse<unknown>> | null;
+let refuseCancel: boolean;
+let applyAnswer: Partial<ActionResponse<unknown>> | null;
+let holdApply: Promise<void> | null;
 const row = (rowNo: number, over: Partial<ImportRowView>): ImportRowView => ({
   rowNo, raw: { 메이커명: `M${rowNo}`, 공정명: '', 모델명: `Model ${rowNo}` }, normalized: null, errors: [], planState: 'new', targetId: null, targetVersion: null, resolution: null, mapTargetId: null,
   applyStatus: null, applyError: null, resultTargetId: null, creates: null, ...over,
@@ -53,6 +57,9 @@ const adapter = testAdapter({
   menuAction: async (req: MenuAction) => {
     calls.push(req);
     if (refuse) return answer(refuse);
+    if (refuseCancel && req.action === 'logKnowledge.importCancel') return answer({ outcome: 'forbidden' });
+    if (applyAnswer && req.action === 'logKnowledge.importApply') return answer(applyAnswer);
+    if (holdApply && req.action === 'logKnowledge.importApply') await holdApply;
     switch (req.action) {
       case 'logKnowledge.importPaste': return answer({ data: { jobId: 'job-1', rowCount: 3, status: 'mapped' } });
       case 'logKnowledge.importValidate': version += 1; return answer({ data: { jobId: 'job-1', status: 'review_required', planVersion: 4 }, version: String(version) });
@@ -71,7 +78,7 @@ const adapter = testAdapter({
 const slow = { timeout: 8000 };
 vi.setConfig({ testTimeout: 30000 });
 let restoreGeometry: () => void;
-beforeEach(() => { conflicts = true; skipped = false; version = 1; applied = 0; calls = []; refuse = null; restoreGeometry = stubCompactTableGeometry(); });
+beforeEach(() => { conflicts = true; skipped = false; version = 1; applied = 0; calls = []; refuse = null; refuseCancel = false; applyAnswer = null; holdApply = null; clearDraft(); restoreGeometry = stubCompactTableGeometry(); });
 afterEach(() => { cleanup(); restoreGeometry(); });
 
 function open(tab = 'model') {
@@ -83,8 +90,19 @@ const paste = async (text = '메이커명\t모델명\nA\tB') => {
   fireEvent.change(await screen.findByLabelText('붙여넣을 목록'), { target: { value: text } });
   fireEvent.click(screen.getByRole('button', { name: '검사' }));
 };
+const draftSaved = () => readDraft('admin') !== null;
 const stepName = () => document.querySelector('[aria-current="step"]')?.textContent ?? '';
 const next = () => fireEvent.click(screen.getByRole('button', { name: '다음 단계' }));
+const toApplyStep = async () => {
+  await paste();
+  await screen.findByText('아직 아무것도 저장되지 않았습니다', {}, slow);
+  next();
+  await screen.findByText('확인이 필요한 행 1개', {}, slow);
+  fireEvent.click(screen.getByRole('button', { name: '모두 건너뛰기' }));
+  await waitFor(() => expect((screen.getByRole('button', { name: '다음 단계' }) as HTMLButtonElement).disabled).toBe(false), slow);
+  next();
+  return screen.findByRole('button', { name: '적용' }, slow);
+};
 const actions = () => calls.map(c => c.action.replace('logKnowledge.', ''));
 
 describe('catalog import wizard', () => {
@@ -166,5 +184,134 @@ describe('catalog import wizard', () => {
     fireEvent.click(await screen.findByRole('button', { name: '목록으로' }, slow));
     await screen.findByRole('button', { name: '모델 추가' }, slow);
     expect(calls).toEqual([]);
+  });
+
+  it('keeps keyboard focus after 건너뛰기: it moves to the step\'s next control, never to body', async () => {
+    open();
+    await paste();
+    await screen.findByText('아직 아무것도 저장되지 않았습니다', {}, slow);
+    next();
+    await screen.findByText('확인이 필요한 행 1개', {}, slow);
+    const skip = screen.getByRole('button', { name: '2행 건너뛰기' });
+    skip.focus();
+    fireEvent.click(skip);
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: '다음 단계' })), slow);
+    expect(document.activeElement).not.toBe(document.body);
+  });
+
+  it('계속하기 closes the leave dialog and stays on the step', async () => {
+    open();
+    await paste();
+    await screen.findByText('아직 아무것도 저장되지 않았습니다', {}, slow);
+    fireEvent.click(screen.getByRole('button', { name: '목록으로' }));
+    await screen.findByText('가져오기를 그만둘까요?', {}, slow);
+    fireEvent.click(screen.getByRole('button', { name: '계속하기' }));
+    await waitFor(() => expect(screen.queryByText('가져오기를 그만둘까요?')).toBeNull(), slow);
+    expect(stepName()).toContain('검사 결과');
+    expect(actions()).not.toContain('importCancel');
+  });
+
+  it('re-pasting keeps the old job and sends no new paste when cancelling it is refused', async () => {
+    open();
+    await paste();
+    await screen.findByText('아직 아무것도 저장되지 않았습니다', {}, slow);
+    refuseCancel = true;
+    fireEvent.click(screen.getByRole('button', { name: '다시 붙여넣기' }));
+    fireEvent.click(await screen.findByRole('button', { name: '검사' }, slow));
+    await screen.findByText(/취소하지 못해 새로 검사하지 않았습니다/, {}, slow);
+    expect(actions().filter(a => a === 'importPaste')).toHaveLength(1);
+  });
+
+  it('a conflict answer stops the apply but keeps the job: leaving still asks and cancels', async () => {
+    open();
+    fireEvent.click(await toApplyStep());
+    applyAnswer = { data: { outcome: 'conflict', reason: 'state' } };
+    await screen.findByText('적용을 끝내지 못했습니다', {}, slow);
+    fireEvent.click(screen.getByRole('button', { name: '목록으로' }));
+    await screen.findByText('가져오기를 그만둘까요?', {}, slow);
+    fireEvent.click(screen.getByText('그만두기'));
+    await screen.findByRole('button', { name: '모델 추가' }, slow);
+    expect(actions()).toContain('importCancel');
+  });
+
+  it('exhausted transport retries leave a 다시 적용 button and the exit confirmation', async () => {
+    open();
+    const apply = await toApplyStep();
+    applyAnswer = { outcome: 'error' };
+    fireEvent.click(apply);
+    await screen.findByText('적용을 끝내지 못했습니다', {}, slow);
+    expect(screen.getByRole('button', { name: '다시 적용' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: '카탈로그로 돌아가기' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: '목록으로' }));
+    await screen.findByText('가져오기를 그만둘까요?', {}, slow);
+  });
+
+  it('unmounting during an in-flight apply step rejects nothing', async () => {
+    open();
+    const apply = await toApplyStep();
+    let release!: () => void;
+    holdApply = new Promise<void>(resolve => { release = resolve; });
+    fireEvent.click(apply);
+    await waitFor(() => expect(actions()).toContain('importApply'), slow);
+    cleanup();
+    release();
+    await new Promise(resolve => { setTimeout(resolve, 50); });
+  });
+
+  describe('draft kept across leaving through the menu', () => {
+    it('restores the pasted text and offers 이어서 하기 for a staged job', async () => {
+      open();
+      await paste('메이커명\t모델명\nA\tB');
+      await screen.findByText('아직 아무것도 저장되지 않았습니다', {}, slow);
+      cleanup();
+      open();
+      fireEvent.click(await screen.findByRole('button', { name: '가져오기' }, slow));
+      expect(((await screen.findByLabelText('붙여넣을 목록')) as HTMLTextAreaElement).value).toBe('메이커명\t모델명\nA\tB');
+      expect((screen.getByRole('button', { name: '검사' }) as HTMLButtonElement).disabled).toBe(true);
+      fireEvent.click(screen.getByRole('button', { name: '이어서 하기' }));
+      await screen.findByText('아직 아무것도 저장되지 않았습니다', {}, slow);
+      expect(stepName()).toContain('검사 결과');
+    });
+
+    it('새로 시작 cancels the saved job and clears the text', async () => {
+      open();
+      await paste();
+      await screen.findByText('아직 아무것도 저장되지 않았습니다', {}, slow);
+      cleanup();
+      calls = [];
+      open();
+      fireEvent.click(await screen.findByRole('button', { name: '가져오기' }, slow));
+      fireEvent.click(await screen.findByRole('button', { name: '새로 시작' }, slow));
+      await waitFor(() => expect(((screen.getByLabelText('붙여넣을 목록')) as HTMLTextAreaElement).value).toBe(''), slow);
+      expect(actions()).toContain('importCancel');
+      expect(draftSaved()).toBe(false);
+    });
+
+    it('is cleared by 그만두기 and by a finished apply', async () => {
+      open();
+      await paste();
+      await screen.findByText('아직 아무것도 저장되지 않았습니다', {}, slow);
+      expect(draftSaved()).toBe(true);
+      fireEvent.click(screen.getByRole('button', { name: '목록으로' }));
+      await screen.findByText('가져오기를 그만둘까요?', {}, slow);
+      fireEvent.click(screen.getByText('그만두기'));
+      await screen.findByRole('button', { name: '모델 추가' }, slow);
+      expect(draftSaved()).toBe(false);
+      fireEvent.click(await toApplyStep());
+      await screen.findByText('적용했습니다', {}, slow);
+      expect(draftSaved()).toBe(false);
+    });
+
+    it('asks the browser before unloading while a draft exists, and not when blank', async () => {
+      open();
+      fireEvent.click(await screen.findByRole('button', { name: '가져오기' }, slow));
+      const blank = new Event('beforeunload', { cancelable: true });
+      window.dispatchEvent(blank);
+      expect(blank.defaultPrevented).toBe(false);
+      fireEvent.change(await screen.findByLabelText('붙여넣을 목록'), { target: { value: '메이커명\t모델명\nA\tB' } });
+      const draft = new Event('beforeunload', { cancelable: true });
+      window.dispatchEvent(draft);
+      expect(draft.defaultPrevented).toBe(true);
+    });
   });
 });

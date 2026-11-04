@@ -22,12 +22,21 @@ async function check(page: Page, text: string) {
   await page.getByLabel('붙여넣을 목록').fill(text);
   await page.getByRole('button', { name: '검사' }).click();
 }
+/** The model-name cell of a catalog row (code and name can read the same, so the name column is addressed on its own). */
+const nameCell = (page: Page, name: string) => page.locator('[role="cell"][data-column="name"]').filter({ hasText: new RegExp(`^${name}$`) });
+/** Leaves the wizard (the dialog's 그만두기), searches the catalog for `name` and counts its name cells once the filtered result has settled. */
 const catalogHas = async (page: Page, name: string) => {
   await page.getByRole('button', { name: '목록으로' }).click();
   await page.getByRole('button', { name: '그만두기' }).click();
-  await page.getByPlaceholder('모델 코드·이름 검색').fill(name);
-  await page.getByPlaceholder('모델 코드·이름 검색').press('Enter');
-  return page.getByRole('table').first().getByText(name, { exact: true }).count();
+  await expect(nameCell(page, 'Alpha 100')).toBeVisible();
+  const search = page.getByPlaceholder('모델 코드·이름 검색');
+  await search.fill(name);
+  await search.press('Enter');
+  // A bare count of zero would also pass while the query is still loading. The unfiltered list's first row has to be gone and no widget busy,
+  // so the count below reads the finished filtered result.
+  await expect(nameCell(page, 'Alpha 100')).toHaveCount(0);
+  await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
+  return nameCell(page, name).count();
 };
 
 test.describe('카탈로그 가져오기 마법사(#1195 c)', () => {
@@ -50,7 +59,7 @@ test.describe('카탈로그 가져오기 마법사(#1195 c)', () => {
     await page.getByRole('button', { name: '카탈로그로 돌아가기' }).click();
     await page.getByPlaceholder('모델 코드·이름 검색').fill('Delta');
     await page.getByPlaceholder('모델 코드·이름 검색').press('Enter');
-    await expect(page.getByRole('table').first().getByText('Delta 1', { exact: true })).toBeVisible();
+    await expect(nameCell(page, 'Delta 1')).toBeVisible();
   });
 
   test('머리글이 빠지면 어느 머리글인지 알려 주고 다시 검사할 수 있다', async ({ page }) => {
@@ -89,6 +98,7 @@ test.describe('카탈로그 가져오기 마법사(#1195 c)', () => {
     await page.getByRole('button', { name: '목록으로' }).click();
     await expect(page.getByText('가져오기를 그만둘까요?')).toBeVisible();
     await page.getByRole('button', { name: '계속하기' }).click();
+    await expect(page.getByText('가져오기를 그만둘까요?')).toBeHidden();
     await expect(step(page)).toContainText('검사 결과');
     expect(await catalogHas(page, 'Delta 1')).toBe(0);
   });

@@ -12,6 +12,7 @@ import {
   type ImportRowView, type ImportStepResult, type ImportValidateInput,
 } from '../../endpoints';
 import { ImportRowsTable } from './ImportTables';
+import { clearDraft, readDraft, writeDraft } from './importDraft';
 import {
   EXAMPLE, JOB_STATUS_LABEL, PASTE_ROW_LIMIT, STEP_LABEL, TEMPLATE_HEADER, actionFailureText, applyEndText, cellOf, conflictText, countNewParents, fetchAllRows, nextStep, pasteRefusalText,
   previousStep, resolveInBatches, runApplyLoop, stepSkipped, type AllRows, type ApplyEnd, type ApplyProgress, type StepId,
@@ -21,6 +22,10 @@ type Spec<I, T> = ActionSpec<I, T>;
 type Plan = Extract<AllRows, { ok: true }>;
 const STEPS: readonly StepId[] = [1, 2, 3, 4];
 const LEAVE_BLOCKED: readonly string[] = ['applying', 'completed', 'partial_failure', 'cancelled'];
+/** Job statuses where nothing has been applied yet: a saved job in one of these can be picked up again. */
+const BEFORE_APPLY: readonly string[] = ['mapped', 'validated', 'review_required'];
+/** Job statuses that end the wizard: nothing more can be done to the job from here. */
+const TERMINAL: readonly string[] = ['completed', 'partial_failure', 'failed', 'cancelled'];
 
 function Notice({ tone, title, children, action }: { tone: 'amber' | 'red' | 'blue' | 'emerald'; title: string; children: ReactNode; action?: ReactNode }) {
   return <Callout tone={tone} icon={tone === 'blue' ? <Info className="size-4" aria-hidden /> : undefined} title={title} action={action}>{children}</Callout>;
@@ -61,7 +66,7 @@ const countRows = (rows: readonly ImportRowView[]) => {
  * import actions and `importDetail` only.
  */
 export function ImportWizard({ onExit }: { onExit: (changed: boolean) => void }) {
-  const { toast } = usePlatform();
+  const { toast, user } = usePlatform();
   const paste = useMenuAction(importPaste as Spec<ImportPasteInput, ImportPasteResult>);
   const validate = useMenuAction(importValidate as Spec<ImportValidateInput, ImportStepResult>);
   const resolve = useMenuAction(importResolve as Spec<ImportResolveInput, ImportStepResult & { resolved: number }>);
@@ -72,14 +77,17 @@ export function ImportWizard({ onExit }: { onExit: (changed: boolean) => void })
   useEffect(() => { fetchRef.current = detailFetch.fetch; });
   const fetchDetail = useCallback((params: ImportDetailParams, signal?: AbortSignal): Promise<ApiResponse<ImportDetail>> => fetchRef.current(params, signal), []);
 
+  const [saved] = useState(() => readDraft(user.id));
   const [step, setStep] = useState<StepId>(1);
-  const [text, setText] = useState('');
-  const [sourceName, setSourceName] = useState<string | null>(null);
+  const [text, setText] = useState(saved?.text ?? '');
+  const [sourceName, setSourceName] = useState<string | null>(saved?.sourceName ?? null);
+  /** A staged job saved by an earlier visit and not loaded yet; `failed` once cancelling it was refused. */
+  const [resume, setResume] = useState<{ jobId: string; failed?: boolean } | null>(saved?.jobId ? { jobId: saved.jobId } : null);
   const [plan, setPlan] = useState<Plan | null>(null);
   const [error, setError] = useState<{ text: string; busy?: boolean } | null>(null);
   const [working, setWorking] = useState<string | null>(null);
   const [leaving, setLeaving] = useState<{ error?: string } | null>(null);
-  const [phase, setPhase] = useState<'ready' | 'running' | 'finished'>('ready');
+  const [phase, setPhase] = useState<'ready' | 'running' | 'stopped' | 'finished'>('ready');
   const [progress, setProgress] = useState<ApplyProgress | null>(null);
   const [end, setEnd] = useState<ApplyEnd | null>(null);
   const [result, setResult] = useState<ImportDetail | null>(null);
@@ -88,6 +96,10 @@ export function ImportWizard({ onExit }: { onExit: (changed: boolean) => void })
   const fileInput = useRef<HTMLInputElement>(null);
   const uid = useId();
   const running = useRef(false);
+  const mounted = useRef(true);
+  const rootRef = useRef<HTMLDivElement>(null);
+  /** Row number after which keyboard focus continues once a skip has settled (Infinity: no row). */
+  const refocus = useRef<number | null>(null);
 
   const job = plan?.detail.job ?? null;
   const rows = useMemo(() => plan?.rows ?? [], [plan]);
@@ -98,6 +110,31 @@ export function ImportWizard({ onExit }: { onExit: (changed: boolean) => void })
 
   // Focus moves to the step heading on every step change (and on the first render).
   useEffect(() => { heading.current?.focus(); }, [step]);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+
+  const activeJobId = job?.id ?? resume?.jobId ?? null;
+  const finished = phase === 'finished';
+  const hasDraft = text.trim() !== '' || activeJobId !== null;
+  // The draft (text, file name, staged job) survives leaving through the menu; it ends with the apply or an explicit 그만두기.
+  useEffect(() => {
+    if (finished || !hasDraft) { clearDraft(); return; }
+    writeDraft(user.id, { text, sourceName, jobId: activeJobId });
+  }, [finished, hasDraft, text, sourceName, activeJobId, user.id]);
+  useEffect(() => {
+    if (finished || !hasDraft) return;
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ''; };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [finished, hasDraft]);
+  // After a skip settles, keyboard focus goes to the next unresolved row's button, else the step's next control (never to body).
+  useEffect(() => {
+    if (refocus.current === null || working !== null) return;
+    const after = refocus.current;
+    const buttons = [...(rootRef.current?.querySelectorAll<HTMLButtonElement>('button[data-skip-row]') ?? [])];
+    const target = buttons.find(b => Number(b.dataset['skipRow']) > after) ?? buttons[0] ?? rootRef.current?.querySelector<HTMLButtonElement>('button[data-next-step]');
+    refocus.current = null;
+    target?.focus();
+  });
 
   const read = useCallback(async (jobId: string): Promise<Plan | null> => {
     const all = await fetchAllRows(page => fetchDetail({ jobId, ...page, sorting: [{ id: 'rowNo', desc: false }] }));
@@ -123,7 +160,10 @@ export function ImportWizard({ onExit }: { onExit: (changed: boolean) => void })
   const submit = async () => {
     setError(null); setWorking('검사하는 중…');
     try {
-      if (job) { await cancelJob(); setPlan(null); }
+      if (job) {
+        if (!(await cancelJob())) { setError({ text: '이전 검사 작업을 취소하지 못해 새로 검사하지 않았습니다. 잠시 후 다시 시도하세요.' }); return; }
+        setPlan(null);
+      }
       const res = await paste.run({ text, ...(sourceName ? { sourceName } : {}) });
       if (res.outcome === 'invalid') { setError(pasteRefusalText(res.fieldErrors)); return; }
       if (res.outcome !== 'ok' || !res.data) { setError({ text: actionFailureText(res.outcome) }); return; }
@@ -138,9 +178,9 @@ export function ImportWizard({ onExit }: { onExit: (changed: boolean) => void })
     try { await check(plan); } finally { setWorking(null); }
   };
 
-  const skipRows = async (rowNos: number[]) => {
+  const skipRows = async (rowNos: number[], focusAfter = Number.POSITIVE_INFINITY) => {
     if (!plan || rowNos.length === 0) return;
-    setError(null); setWorking('정리하는 중…');
+    setError(null); setWorking('정리하는 중…'); refocus.current = focusAfter;
     try {
       const out = await resolveInBatches(resolve.run, plan.detail.job.id, rowNos, String(plan.detail.job.rowVersion));
       await read(plan.detail.job.id);
@@ -154,38 +194,77 @@ export function ImportWizard({ onExit }: { onExit: (changed: boolean) => void })
     setError(null); setEnd(null); setPhase('running'); setProgress(null);
     try {
       const fresh = await read(plan.detail.job.id);
+      if (!mounted.current) return;
       if (!fresh) { setPhase('ready'); return; }
       const outcome = await runApplyLoop({
         step: expectedPlanVersion => apply.run({ jobId: plan.detail.job.id, expectedPlanVersion }) as Promise<ActionResult<ImportApplyResult>>,
-        planVersion: fresh.detail.job.planVersion, onProgress: setProgress,
+        planVersion: fresh.detail.job.planVersion, onProgress: next => { if (mounted.current) setProgress(next); }, shouldStop: () => !mounted.current,
       });
+      if (!mounted.current) return;
       const after = await fetchDetail({ jobId: plan.detail.job.id, page: 0, pageSize: 1 });
+      if (!mounted.current) return;
       if (after.outcome === 'ok' && after.data) setResult(after.data);
-      setEnd(outcome); setPhase('finished'); setRevision(n => n + 1);
+      // Only a job that cannot change any more ends the wizard; a loop that merely stopped keeps its recovery and its cancellation.
+      const status = after.outcome === 'ok' && after.data ? after.data.job.status : null;
+      const terminal = outcome.kind === 'done' || outcome.kind === 'not_found' || (status !== null && TERMINAL.includes(status));
+      setEnd(outcome); setPhase(terminal ? 'finished' : 'stopped'); setRevision(n => n + 1);
+    } catch {
+      // The SDK rejects with AbortError when the screen goes away or the session changes; only a still-mounted wizard needs an end state.
+      if (mounted.current) { setEnd({ kind: 'failed' }); setPhase('stopped'); }
     } finally { running.current = false; }
   };
 
   /** Cancels the staged job with the version read just now; false when the server refused. */
   async function cancelJob(): Promise<boolean> {
-    if (!job) return true;
-    const latest = await fetchDetail({ jobId: job.id, page: 0, pageSize: 1 });
+    return activeJobId === null ? true : cancelJobById(activeJobId);
+  }
+  async function cancelJobById(jobId: string): Promise<boolean> {
+    const latest = await fetchDetail({ jobId, page: 0, pageSize: 1 });
     if (latest.outcome !== 'ok' || !latest.data) return false;
     if (LEAVE_BLOCKED.includes(latest.data.job.status)) return true;
-    const res = await cancel.run({ jobId: job.id }, { expectedVersion: String(latest.data.job.rowVersion) });
+    const res = await cancel.run({ jobId }, { expectedVersion: String(latest.data.job.rowVersion) });
     return res.outcome === 'ok';
   }
 
+  /** 이어서 하기: reloads the saved job; only one that has not started applying can be picked up. */
+  const resumeJob = async () => {
+    if (!resume) return;
+    setError(null); setWorking('불러오는 중…');
+    try {
+      const loaded = await read(resume.jobId);
+      if (!loaded) return;
+      const status = loaded.detail.job.status;
+      if (!BEFORE_APPLY.includes(status)) { setResume(null); setPlan(null); setError({ text: '이전 가져오기 작업은 이미 적용을 시작했거나 끝나서 이어서 할 수 없습니다. 카탈로그에서 결과를 확인하세요.' }); return; }
+      setResume(null);
+      if (status === 'mapped') await check(loaded); else { setStep(2); setRevision(n => n + 1); }
+    } finally { setWorking(null); }
+  };
+  /** 새로 시작: cancels the saved job, then drops the saved text. `force` starts over even though the job could not be cancelled. */
+  const startFresh = async (force = false) => {
+    if (!resume) return;
+    setError(null); setWorking('취소하는 중…');
+    try {
+      if (!force && !(await cancelJobById(resume.jobId))) {
+        setResume({ jobId: resume.jobId, failed: true });
+        setError({ text: '이전 가져오기 작업을 취소하지 못했습니다. 다시 시도하거나, 그대로 새로 시작할 수 있습니다.' });
+        return;
+      }
+      setResume(null); setText(''); setSourceName(null);
+    } finally { setWorking(null); }
+  };
+
   const requestExit = () => {
     if (phase === 'finished') { onExit(true); return; }
-    if (!job && text.trim() === '') { onExit(false); return; }
+    if (!hasDraft) { onExit(false); return; }
     setLeaving({});
   };
   const confirmExit = async (force = false) => {
     if (!force && !(await cancelJob())) { setLeaving({ error: '가져오기 작업을 취소하지 못했습니다. 그래도 나가면 검사한 내용은 저장되지 않은 채 남습니다.' }); return; }
+    clearDraft();
     onExit(false);
   };
 
-  const finished = phase === 'finished';
+  const ended = finished || phase === 'stopped';
   const unresolved = conflicts.filter(r => r.resolution !== 'skip');
   const headingText = `${step}. ${STEP_LABEL[step]}`;
 
@@ -193,6 +272,13 @@ export function ImportWizard({ onExit }: { onExit: (changed: boolean) => void })
   if (step === 1) {
     const dataRows = Math.max(0, text.split(/\r\n|\n|\r/).filter(l => l.trim() !== '').length - 1);
     body = <div className="grid gap-4">
+      {resume && <Notice tone="blue" title="이어서 할 수 있는 가져오기 작업이 있습니다"
+        action={<div className="flex flex-wrap gap-2">
+          <Button type="button" size="sm" disabled={busy} onClick={() => { void resumeJob(); }}>이어서 하기</Button>
+          <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={() => { void startFresh(); }}>새로 시작</Button>
+          {resume.failed && <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={() => { void startFresh(true); }}>그래도 새로 시작</Button>}
+        </div>}>
+        이전에 검사한 작업이 남아 있습니다. 아직 적용하지 않았으므로 카탈로그는 바뀌지 않았습니다. 「새로 시작」은 그 작업을 취소하고 붙여넣은 내용을 지웁니다.</Notice>}
       <div className="grid gap-1.5">
         <FieldLabel htmlFor={`${uid}-paste`}>붙여넣을 목록</FieldLabel>
         <p id={`${uid}-help`} className="text-sm text-text-secondary">엑셀에서 메이커명 · 모델명 · 공정명 열을 머리글 행과 함께 복사해 붙여넣으세요. 공정이 여러 개면 쉼표로 구분합니다.</p>
@@ -245,7 +331,7 @@ export function ImportWizard({ onExit }: { onExit: (changed: boolean) => void })
               </dl></td>
               <td className="max-w-md px-3 py-2"><p>{guide.why}</p><p className="mt-1 text-text-secondary">{guide.fix}</p></td>
               <td className="px-3 py-2">{r.resolution === 'skip' ? <StatusBadge tone="neutral">건너뜀</StatusBadge>
-                : <Button type="button" size="sm" variant="secondary" disabled={busy} aria-label={`${r.rowNo}행 건너뛰기`} onClick={() => { void skipRows([r.rowNo]); }}>건너뛰기</Button>}</td>
+                : <Button type="button" size="sm" variant="secondary" disabled={busy} aria-label={`${r.rowNo}행 건너뛰기`} data-skip-row={r.rowNo} onClick={() => { void skipRows([r.rowNo], r.rowNo); }}>건너뛰기</Button>}</td>
             </tr>;
           })}</tbody>
         </table>
@@ -271,14 +357,14 @@ export function ImportWizard({ onExit }: { onExit: (changed: boolean) => void })
         <ProgressMeter value={doneRows} max={Math.max(total, 1)} semantics={{ role: 'progressbar', label: '적용 진행' }} />
         <p className="t-caption text-text-muted tabular">{progress ? `${doneRows}행 처리 · ${progress.remaining}행 남음` : '시작하는 중…'}</p>
       </div>}
-      {finished && end && end.kind !== 'done' && end.kind !== 'aborted' && <Notice tone={end.kind === 'conflict' ? 'amber' : 'red'} title="적용을 끝내지 못했습니다"
+      {ended && end && end.kind !== 'done' && end.kind !== 'aborted' && <Notice tone={end.kind === 'conflict' ? 'amber' : 'red'} title="적용을 끝내지 못했습니다"
         action={end.kind === 'conflict' ? <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={() => { setPhase('ready'); void recheck(); }}>다시 검사</Button> : undefined}>{applyEndText(end)}</Notice>}
       {finished && end?.kind === 'done' && <Notice tone={end.status === 'completed' ? 'emerald' : 'amber'} title={end.status === 'completed' ? '적용했습니다' : '일부 행을 반영하지 못했습니다'}>
         {end.status === 'completed' ? '카탈로그에 반영했습니다.' : '실패한 행만 다시 적용할 수 있습니다.'}</Notice>}
       {(phase !== 'ready') && live && <Counts items={[['반영', live.applied, 'success'], ['그대로', live.unchanged, 'neutral'], ['건너뜀', live.skipped, 'neutral'], ['제외', live.excluded, 'neutral'], ['실패', live.failed, live.failed > 0 ? 'danger' : 'neutral'],
         ...(live.unresolved > 0 ? [['정리 안 됨', live.unresolved, 'warning'] as const] : [])]} />}
-      {finished && <p className="t-caption text-text-muted">작업 상태: {JOB_STATUS_LABEL[status]}</p>}
-      {finished && <ImportRowsTable key={`result:${revision}`} mode="result" title="적용 결과 행" jobId={job.id} mapping={job.mapping} fetchDetail={fetchDetail} onDetail={() => undefined} />}
+      {ended && <p className="t-caption text-text-muted">작업 상태: {JOB_STATUS_LABEL[status]}</p>}
+      {ended && <ImportRowsTable key={`result:${revision}`} mode="result" title="적용 결과 행" jobId={job.id} mapping={job.mapping} fetchDetail={fetchDetail} onDetail={() => undefined} />}
     </div>;
   } else body = <p className="text-sm text-text-muted">불러오는 중…</p>;
 
@@ -290,17 +376,18 @@ export function ImportWizard({ onExit }: { onExit: (changed: boolean) => void })
     </div>
     <div className="flex items-center gap-2">
       {working && <span role="status" className="t-caption text-text-muted">{working}</span>}
-      {step === 1 && <Button type="button" disabled={busy || text.trim() === ''} onClick={() => { void submit(); }}>검사</Button>}
+      {step === 1 && <Button type="button" disabled={busy || text.trim() === '' || resume !== null} onClick={() => { void submit(); }}>검사</Button>}
       {step === 2 && <><Button type="button" variant="secondary" disabled={busy} onClick={() => { void recheck(); }}>다시 검사</Button>
         <Button type="button" disabled={busy} onClick={() => setStep(nextStep(2, counts.conflict))}>다음 단계</Button></>}
-      {step === 3 && <Button type="button" disabled={busy || unresolved.length > 0} onClick={() => setStep(nextStep(3, conflicts.length))}>다음 단계</Button>}
+      {step === 3 && <Button type="button" data-next-step disabled={busy || unresolved.length > 0} onClick={() => setStep(nextStep(3, conflicts.length))}>다음 단계</Button>}
       {step === 4 && phase === 'ready' && <Button type="button" disabled={busy} onClick={() => { void runApply(); }}>적용</Button>}
+      {step === 4 && phase === 'stopped' && end?.kind !== 'conflict' && <Button type="button" disabled={busy} onClick={() => { void runApply(); }}>다시 적용</Button>}
       {partial && <Button type="button" variant="secondary" disabled={busy} onClick={() => { void runApply(); }}>실패 행 다시 적용</Button>}
       {finished && <Button type="button" onClick={() => onExit(true)}>카탈로그로 돌아가기</Button>}
     </div>
   </footer>;
 
-  return <div className="grid min-w-0 gap-3">
+  return <div ref={rootRef} className="grid min-w-0 gap-3">
     <div className="flex items-center justify-between rounded-lg border border-border-subtle bg-surface-card px-4 py-3">
       <div><h2 className="text-base font-semibold text-text-primary">모델 가져오기</h2>
         <p className="t-caption text-text-muted">메이커명 · 공정명 · 모델명을 붙여넣어 검사한 뒤, 확인한 결과만 카탈로그에 반영합니다. 코드는 이름으로 자동 부여됩니다.</p></div>
@@ -317,11 +404,13 @@ export function ImportWizard({ onExit }: { onExit: (changed: boolean) => void })
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>가져오기를 그만둘까요?</AlertDialogTitle>
-          <AlertDialogDescription>아직 적용하지 않아서 카탈로그는 바뀌지 않았습니다. 붙여넣은 내용과 검사 결과는 사라집니다.</AlertDialogDescription>
+          <AlertDialogDescription>{phase === 'stopped' && (progress?.counts.applied ?? 0) > 0
+            ? '일부 행은 이미 카탈로그에 반영됐습니다. 나가면 남은 행은 반영되지 않고 붙여넣은 내용은 사라집니다.'
+            : '아직 적용하지 않아서 카탈로그는 바뀌지 않았습니다. 붙여넣은 내용과 검사 결과는 사라집니다.'}</AlertDialogDescription>
           {leaving?.error && <p role="alert" className="text-sm text-text-danger-label">{leaving.error}</p>}
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>계속하기</AlertDialogCancel>
+          <AlertDialogCancel onClick={() => setLeaving(null)}>계속하기</AlertDialogCancel>
           {leaving?.error && <Button type="button" variant="secondary" onClick={() => { void confirmExit(true); }}>그래도 나가기</Button>}
           <AlertDialogAction onClick={event => { event.preventDefault(); void confirmExit(); }}>그만두기</AlertDialogAction>
         </AlertDialogFooter>

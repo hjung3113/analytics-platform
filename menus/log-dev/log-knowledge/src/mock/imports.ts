@@ -28,7 +28,7 @@ const ALIASES = {
 } as const;
 const ambiguousFixtureName = 'alpha';
 
-type Cells = { vendor: string; model: string; processes: string[] };
+type Cells = { vendor: string; model: string; processes: string[]; processesMapped: boolean };
 type Plan = { state: ImportPlanState; errors: { field: string; code: string }[]; targetId: string | null; targetVersion: number | null; creates: { vendor?: string; processes: string[] } | null };
 type Row = {
   rowNo: number; raw: Record<string, string>; cells: Cells; plan: Plan; resolution: 'skip' | null;
@@ -139,14 +139,16 @@ function planRow(cells: Cells, seen: Set<string>): Plan {
   if (!existing) return { state: 'new', errors: [], targetId: null, targetVersion: null, creates: outCreates };
   // An inactive existing model keeps its key: it is a conflict with a target and no error code.
   if (!existing.active) return { state: 'conflict', errors: [], targetId: existing.id, targetVersion: existing.rowVersion, creates: null };
+  // Like the server: a mapped process column replaces the whole set (extra links go, an empty cell clears); an omitted column leaves it alone.
   const have = new Set(processIdsOf(existing.id));
-  const gains = [...linked].some(id => !have.has(id)) || creates.processes.length > 0;
+  const changesProcesses = cells.processesMapped && (creates.processes.length > 0 || linked.size !== have.size || [...linked].some(id => !have.has(id)));
   const renamed = existing.name !== name;
-  return { state: gains || renamed ? 'update' : 'unchanged', errors: [], targetId: existing.id, targetVersion: existing.rowVersion, creates: gains ? outCreates : null };
+  return { state: changesProcesses || renamed ? 'update' : 'unchanged', errors: [], targetId: existing.id, targetVersion: existing.rowVersion, creates: changesProcesses ? outCreates : null };
 }
 
 const cellsOf = (raw: Record<string, string>, mapping: Record<string, string>): Cells => ({
   vendor: raw[mapping['vendor_name']!] ?? '', model: raw[mapping['model_name']!] ?? '',
+  processesMapped: mapping['process_names'] !== undefined,
   processes: [...new Map((raw[mapping['process_names'] ?? ''] ?? '').split(',').map(p => p.trim()).filter(p => p !== '').map(p => [toCodeKey(p), p] as const)).values()],
 });
 
@@ -191,7 +193,7 @@ function applySome(job: Job): void {
     } else {
       const target = byId(plan.targetId)!;
       touch(target, { name: cells.model.trim() });
-      setProcesses(target.id, [...new Set([...processIdsOf(target.id), ...processIds])]);
+      if (cells.processesMapped) setProcesses(target.id, processIds);
       row.resultTargetId = target.id;
     }
     row.applyStatus = 'applied';
