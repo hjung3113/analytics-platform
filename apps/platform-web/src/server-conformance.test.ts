@@ -22,6 +22,17 @@ const OCCURRENCE_EQUIPMENT = 'MEM-PHOTO-0103';
 const OCCURRENCE_ANCHOR = jobsForEquipmentDay(EQUIPMENT.find(row => row.equipmentId === OCCURRENCE_EQUIPMENT)!, '2026-09-25')[0].anchor;
 
 const page = { page: 0, pageSize: 10, sorting: [] };
+// The import wizard's reads and writes need a staged job (#1195 c): the mock's own handlers stage one, so each sample is a fresh job.
+const importHandler = (id: string) => MOCK_ACTIONS.find(action => action.spec.id === `logKnowledge.${id}`)!;
+let importSeq = 0;
+const stagedImport = (validated: boolean): { jobId: string; planVersion: number } => {
+  const n = ++importSeq;
+  const text = ['메이커명\t공정명\t모델명', `CF Import Co ${n}\tEtch\tCF Import Model ${n}`, 'Alpha Semicap\t\tAlpha'].join('\n');
+  const { jobId } = importHandler('importPaste').handle({ input: { text }, actor: 'admin', scopeId: null }).data as { jobId: string };
+  const planVersion = validated ? (importHandler('importValidate').handle({ input: { jobId }, actor: 'admin', scopeId: null }).data as { planVersion: number }).planVersion : 1;
+  return { jobId, planVersion };
+};
+const IMPORT_READ_JOB = stagedImport(true).jobId;
 const slowFilter = { tail: 'p95', granularity: 'hour', bucket: null, bin: null };
 /** One request per endpoint that the granted actor (engineer at MEM) runs successfully. Endpoints with no params default to `{}`. */
 const PARAMS: Record<string, Record<string, unknown>> = {
@@ -58,6 +69,7 @@ const PARAMS: Record<string, Record<string, unknown>> = {
   // Knowledge item reads (#1197 s2): the mock seed's first item (uuid by sequence, `src/mock/items.ts`).
   'logKnowledge.items': { q: null, ...page },
   'logKnowledge.itemDetail': { itemId: '00000005-0000-4000-8000-000000000001' },
+  'logKnowledge.importDetail': { jobId: IMPORT_READ_JOB, ...page },
   // EV (#801): the synthetic fixture's equipment; `continuationToken` stays omitted (first page).
   'eqv.topview-context': { equipmentId: 'eq-synth-01' },
   'eqv.topview-events': { equipmentId: 'eq-synth-01' },
@@ -120,7 +132,15 @@ const itemSamples: Record<string, () => Record<string, unknown>> = {
   itemDerive: () => ({ sourceItemId: itemSeedId(1), sourceRevisionNo: 1, ownerModelId: A100, title: unique('D'), ...itemBody }),
   itemSetArchived: () => ({ id: ITEM_PUBLISHED, archived: false }),
 };
-const writeSamples = { ...catalogSamples, ...itemSamples };
+// The import writes (#1195 c): every sample stages its own job, so it succeeds again with a fresh key. Applies use new names each time.
+const importSamples: Record<string, () => Record<string, unknown>> = {
+  importPaste: () => ({ text: `메이커명\t모델명\nCF Paste Co\tCF Paste ${++importSeq}` }),
+  importValidate: () => ({ jobId: stagedImport(false).jobId }),
+  importResolve: () => ({ jobId: stagedImport(true).jobId, resolutions: [{ rowNo: 2, resolution: 'skip' }] }),
+  importCancel: () => ({ jobId: stagedImport(false).jobId }),
+  importApply: () => { const staged = stagedImport(true); return { jobId: staged.jobId, expectedPlanVersion: staged.planVersion }; },
+};
+const writeSamples = { ...catalogSamples, ...itemSamples, ...importSamples };
 const catalogActionCases = MOCK_ACTIONS.map(action => {
   const sample = writeSamples[action.spec.id.replace('logKnowledge.', '')]!;
   const currentVersion = async () => action.version!({ input: sample(), actor: 'admin', scopeId: null }) ?? '';

@@ -41,7 +41,7 @@ export const manifests: MenuEntry[] = [
     id: 'log-knowledge-catalog', group: groupId('logKnowledge'), label: { ko: '카탈로그 관리', en: 'Catalog' },
     description: { ko: '제조사·공정·모델·SW 버전 기준 목록을 조회하고 관리합니다', en: 'Reference lists of vendors, processes, equipment models and software versions' },
     path: '/log/knowledge/catalog', icon: BookOpen, permission: CATALOG_MANAGE_PERMISSION, requiresScope: false, pageType: 'management',
-    context: contextCapabilities(), features: NO_FEATURES, pageKeys: ['tab', 'q', 'filter', 'sort', 'page', 'focus'], repeatedPageKeys: ['filter'], hiddenPageKeys: ['filter'], contextResetKeys: ['page'],
+    context: contextCapabilities(), features: { ...NO_FEATURES, export: true }, pageKeys: ['tab', 'q', 'filter', 'sort', 'page', 'focus'], repeatedPageKeys: ['filter'], hiddenPageKeys: ['filter'], contextResetKeys: ['page'],
     component: lazy(() => import('./pages/CatalogManagement')),
   },
 ];

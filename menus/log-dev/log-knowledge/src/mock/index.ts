@@ -20,6 +20,7 @@ import {
 import { modelReadsMock } from './models';
 import { itemActionsMock } from './itemActions';
 import { itemReadsMock } from './itemReads';
+import { importActionsMock, importReadsMock } from './imports';
 import { activeChildren, all, byId, latestSoftwareLabel, insert, keyTaken, processIdsOf, processesOf, setProcesses, toCodeKey, touch, type Kind, type Rec } from './store';
 
 const PAGE_SIZE_MAX = 200;
@@ -135,6 +136,7 @@ export const logKnowledgeMock: readonly AnyMockEndpoint[] = [
   readMock(vendorsEndpoint, 'vendor'), readMock(processesEndpoint, 'process'), readMock(modelsEndpoint, 'model'), readMock(softwareVersionsEndpoint, 'software'),
   ...modelReadsMock({ message: params => paramsMessage(params, SHAPES.model), page: params => read('model', params) as unknown as PageResult<ModelRow> }),
   ...itemReadsMock,
+  ...importReadsMock,
 ];
 
 // ---- writes ----------------------------------------------------------------------------------------------------
@@ -254,7 +256,9 @@ export const logKnowledgeActionsMock: readonly AnyMockAction[] = [
   ...writes('model', { create: modelCreate, update: modelUpdate, setActive: modelSetActive }),
   ...writes('software', { create: softwareCreate, update: softwareUpdate, setActive: softwareSetActive }),
   ...itemActionsMock,
+  ...importActionsMock,
 ];
 
 export { resetCatalog } from './store';
 export { resetItems } from './items';
+export { resetImports } from './imports';
