@@ -81,7 +81,7 @@ describe('workspace assembly (#260)', () => {
     expect(registry.menus.filter(menu => menu.group === 'noticeVoc' && !menu.navHidden).map(menu => menu.id)).toEqual(['notices', 'faq', 'voc', 'surveys']);
   });
 
-  it.skipIf(probeRun)('registers eight spaces and the decided group order', () => {
+  it.skipIf(probeRun)('registers seven spaces and the decided group order', () => {
     expect(GROUPS.map(group => [group.id, group.space])).toEqual([
       ['overview', null],
       ['noticeVoc', null],
@@ -101,9 +101,6 @@ describe('workspace assembly (#260)', () => {
       ['logCross', 'log-dev'],
       ['logRules', 'log-dev'],
       ['logKnowledge', 'log-dev'],
-      ['impMyWork', 'improvement'],
-      ['impTasks', 'improvement'],
-      ['impReports', 'improvement'],
       ['dashboard', 'flow'],
       ['voc', 'flow'],
       ['findings', 'flow'],
@@ -115,7 +112,7 @@ describe('workspace assembly (#260)', () => {
       ['access', 'operations'],
       ['systems', 'operations'],
     ]);
-    expect(SPACES.map(space => space.id)).toEqual(['mars', 'bravo', 'clas', 'tools', 'log-dev', 'improvement', 'flow', 'operations']);
+    expect(SPACES.map(space => space.id)).toEqual(['mars', 'bravo', 'clas', 'tools', 'log-dev', 'flow', 'operations']);
     expect(SPACE_DEFS[0]).toMatchObject({
       label: { ko: 'MARS', en: 'MARS' },
       subtitle: { ko: '생산성 분석', en: 'Productivity analysis' },
@@ -140,16 +137,16 @@ describe('workspace assembly (#260)', () => {
     expect(SPACE_DEFS[3]).toMatchObject({ label: { ko: '도구', en: 'Tools' }, homeMenuId: 'eqv:topview' });
     expect(SPACE_DEFS[3].permission).toBeUndefined();
     // ADR-0110: the 업무 흐름 space (F menus; lands on the dashboard) and the reduced 운영 콘솔 (C menus: platform management and access; lands on 역할); neither has a space permission, each shows only when a member menu is permitted.
-    expect(SPACE_DEFS[6]).toMatchObject({ label: { ko: '업무 흐름', en: 'Workflow' }, description: { ko: '들어온 VOC를 판단하고 Task로 실행한 뒤 설문으로 효과를 확인합니다.', en: 'Judge incoming VOC, run it as Tasks and confirm the effect with surveys.' }, homeMenuId: 'dashboard' });
+    expect(SPACE_DEFS[5]).toMatchObject({ label: { ko: '업무 흐름', en: 'Workflow' }, description: { ko: '들어온 VOC를 판단하고 Task로 실행한 뒤 설문으로 효과를 확인합니다.', en: 'Judge incoming VOC, run it as Tasks and confirm the effect with surveys.' }, homeMenuId: 'dashboard' });
+    expect(SPACE_DEFS[5].permission).toBeUndefined();
+    expect(SPACE_DEFS[5].subtitle).toBeUndefined();
+    expect(SPACE_DEFS[6]).toMatchObject({ label: { ko: '운영 콘솔', en: 'Operations console' }, description: { ko: '플랫폼 관리와 권한을 다룹니다.', en: 'Platform administration and access.' }, homeMenuId: 'admin-roles' });
     expect(SPACE_DEFS[6].permission).toBeUndefined();
     expect(SPACE_DEFS[6].subtitle).toBeUndefined();
-    expect(SPACE_DEFS[7]).toMatchObject({ label: { ko: '운영 콘솔', en: 'Operations console' }, description: { ko: '플랫폼 관리와 권한을 다룹니다.', en: 'Platform administration and access.' }, homeMenuId: 'admin-roles' });
-    expect(SPACE_DEFS[7].permission).toBeUndefined();
-    expect(SPACE_DEFS[7].subtitle).toBeUndefined();
     // #1099b: the one production carry set; every 업무 흐름 menu is a member, no other menu is, and the space declares nothing.
     expect(registry.carrySets).toEqual([{ id: 'features', pageKeys: ['managedSystem', 'returnTo'] }]);
+    expect(SPACE_DEFS[5]).not.toHaveProperty('carriedPageKeys');
     expect(SPACE_DEFS[6]).not.toHaveProperty('carriedPageKeys');
-    expect(SPACE_DEFS[7]).not.toHaveProperty('carriedPageKeys');
     // Members: every 업무 흐름 menu and the two access menus (carry set `features`), plus global 내 Task; platform administration (group admin) is not a member.
     const flowMenus = registry.menus.filter(menu => registry.spaceOf(menu)?.id === 'flow');
     const operationsMenus = registry.menus.filter(menu => registry.spaceOf(menu)?.id === 'operations');
@@ -221,12 +218,11 @@ describe('workspace assembly (#260)', () => {
     }
     // #252 (ADR-0065): work-queue first; every menu is planned and open to every signed-in user for now.
     expect(SPACE_DEFS[4]).toMatchObject({ label: { ko: '표준 로그 개발', en: 'Standard log development' }, homeMenuId: 'log-my-queue' });
-    expect(SPACE_DEFS[5]).toMatchObject({ label: { ko: '개선 실행', en: 'Improvement execution' }, homeMenuId: 'imp-my-tasks' });
-    expect(SPACE_DEFS.slice(4, 6).every(space => space.permission === undefined)).toBe(true);
-    const planned = registry.menus.filter(menu => ['log-dev', 'improvement'].includes(registry.spaceOf(menu)?.id ?? ''));
+    // #1323 (ADR-0106 amendment 2): the 개선 실행 space is retired; improvement items live in the platform DB.
+    expect(SPACE_DEFS.slice(4, 5).every(space => space.permission === undefined)).toBe(true);
+    const planned = registry.menus.filter(menu => registry.spaceOf(menu)?.id === 'log-dev');
     expect(planned.map(menu => menu.id)).toEqual([
       'log-my-queue', 'log-recent-models', 'log-models', 'log-defects', 'log-partner-reviews', 'log-rules', 'log-knowledge-models', 'log-knowledge-model', 'log-knowledge-items', 'log-knowledge-item', 'log-knowledge-catalog',
-      'imp-my-tasks', 'imp-tasks', 'imp-effect-report', 'imp-equipment-history',
     ]);
     // #1194 r: the catalog management menu is the one admin-capability menu (design v0.6 §2.1); the rest stay open to every signed-in user.
     // #1194 b: it has its screen now, so only the others are component-less planned menus.
@@ -269,7 +265,7 @@ describe('workspace assembly (#260)', () => {
     expect(need('systems').additionalPermissions).toBeUndefined();
     expect(need('systems').carrySet).toBeUndefined();
     expect(registry.spaceOf(need('systems'))?.id).toBe('operations');
-    expect(SPACE_DEFS[7]!.homeMenuId).toBe('admin-roles');
+    expect(SPACE_DEFS[6]!.homeMenuId).toBe('admin-roles');
     expect(registry.menuById('voc').permission).toBe('voc:view');
     expect(registry.menuById('surveys').permission).toBe('platform:view');
   });
@@ -301,7 +297,7 @@ describe('workspace assembly (#260)', () => {
     expect(slots.navCounts).toBe(fakeNavCounts);
     expect(slots.spaceNavSection).toBe(fakeSection);
     // Planned systems are display-only rows for the switcher: no Registry space or menu carries their id.
-    // CLAS left the planned list for a real space (#590); log-dev and improvement left it in #252.
+    // CLAS left the planned list for a real space (#590); log-dev left it in #252.
     expect(slots.plannedSpaces).toEqual([]);
     for (const item of slots.plannedSpaces ?? []) expect(registry.spaces.some(space => space.id === item.id)).toBe(false);
     const session = testSession(['platform:view', 'metrics:view', 'notice:view', 'voc:view'], {
@@ -319,7 +315,7 @@ describe('workspace assembly (#260)', () => {
     vi.stubGlobal('sessionStorage', { getItem: () => null, setItem: () => {}, removeItem: () => {}, clear: () => {} });
     window.history.replaceState(null, '', '/');
     render(<I18nProvider><PlatformProvider equipmentAxes={EQUIPMENT_AXES} adapter={adapter} registry={registry} slots={slots}><Probe /></PlatformProvider></I18nProvider>);
-    expect(screen.getByTestId('spaces').textContent).toBe('bravo:BRAVO,log-dev:표준 로그 개발,improvement:개선 실행');
+    expect(screen.getByTestId('spaces').textContent).toBe('bravo:BRAVO,log-dev:표준 로그 개발');
     expect(screen.getByTestId('allowed').textContent).toBe('home:true,notices:true,voc:true');
     cleanup();
     vi.unstubAllGlobals();

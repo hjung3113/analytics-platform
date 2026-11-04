@@ -34,9 +34,9 @@ describe('app home launcher assembly (#1109)', () => {
     const section = await screen.findByRole('region', { name: systems }, { timeout: 10_000 });
     expect(within(section).getAllByRole('heading').map(heading => heading.textContent)).toEqual(headings);
     const categories = within(section).getAllByRole('heading').map(heading => within(heading.closest('section')!).getAllByRole('link'));
-    expect(categories.map(cards => cards.length)).toEqual([3, 3, 1, 1]);
+    expect(categories.map(cards => cards.length)).toEqual([3, 2, 1, 1]);
     expect(categories.flat().map(card => new URL(card.getAttribute('href')!, window.location.origin).pathname)).toEqual([
-      '/mars/productivity-overview', '/bravo/metric-catalog', '/clas/operation-time', '/log-dev/log-my-queue', '/improvement/imp-my-tasks', '/flow/dashboard', '/tools/eqv-topview', '/operations/admin-roles',
+      '/mars/productivity-overview', '/bravo/metric-catalog', '/clas/operation-time', '/log-dev/log-my-queue', '/flow/dashboard', '/tools/eqv-topview', '/operations/admin-roles',
     ]);
   }, 15_000);
 });

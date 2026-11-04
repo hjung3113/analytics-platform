@@ -24,9 +24,6 @@ import { manifests as logMyWork } from '@ap/menu-log-my-work';
 import { manifests as logModels } from '@ap/menu-log-models';
 import { manifests as logCross } from '@ap/menu-log-cross';
 import { manifests as logRules } from '@ap/menu-log-rules';
-import { manifests as impMyWork } from '@ap/menu-imp-my-work';
-import { manifests as impTasks } from '@ap/menu-imp-tasks';
-import { manifests as impReports } from '@ap/menu-imp-reports';
 import { manifests as hwTime } from '@ap/menu-hw-time';
 import { manifests as dashboard } from '@ap/menu-dashboard';
 import { manifests as voc } from '@ap/menu-voc';
@@ -66,9 +63,6 @@ export const GROUPS: GroupDef[] = [
   { id: groupId('logCross'), label: { ko: '전체 모아 보기', en: 'Across models' }, icon: FileSearch, space: spaceId('log-dev') },
   { id: groupId('logRules'), label: { ko: '기준', en: 'Rules' }, icon: Ruler, space: spaceId('log-dev') },
   { id: groupId('logKnowledge'), label: { ko: '로그 지식 허브', en: 'Log Knowledge' }, icon: BookOpen, space: spaceId('log-dev') },
-  { id: groupId('impMyWork'), label: { ko: '내 작업', en: 'My work' }, icon: Inbox, space: spaceId('improvement') },
-  { id: groupId('impTasks'), label: { ko: '과제', en: 'Tasks' }, icon: ClipboardList, space: spaceId('improvement') },
-  { id: groupId('impReports'), label: { ko: '보고', en: 'Reports' }, icon: BarChart3, space: spaceId('improvement') },
   { id: groupId('dashboard'), label: { ko: '대시보드', en: 'Dashboard' }, icon: ListTodo, space: spaceId('flow'), hideLabelWhenSingle: true },
   { id: groupId('voc'), label: { ko: 'VOC 처리', en: 'VOC handling' }, icon: Inbox, space: spaceId('flow') },
   { id: groupId('findings'), label: { ko: 'Finding', en: 'Finding' }, icon: ListChecks, space: spaceId('flow') },
@@ -92,7 +86,6 @@ export const SPACES = [
   { id: spaceId('clas'), label: { ko: 'CLAS', en: 'CLAS' }, subtitle: { ko: '생산성 분석', en: 'Productivity analysis' }, description: { ko: '설비별 동작시간과 동작 흐름을 분석합니다.', en: 'Analyze operation time and operation flow by equipment.' }, homeMenuId: 'operation-time', feedbackTracking: true },
   { id: spaceId('tools'), label: { ko: '도구', en: 'Tools' }, subtitle: { ko: '설비 Top View', en: 'Equipment Top View' }, description: { ko: '설비 레이아웃을 Top View로 보고 로그를 재생합니다.', en: 'View equipment layouts as a Top View and replay their logs.' }, homeMenuId: 'eqv:topview' },
   { id: spaceId('log-dev'), label: { ko: '표준 로그 개발', en: 'Standard log development' }, description: { ko: '설비 모델별 로그 개발 단계와 검증을 관리합니다.', en: 'Manage log development stages and validation per equipment model.' }, homeMenuId: 'log-my-queue', scopePresentation: 'hidden', feedbackTracking: true },
-  { id: spaceId('improvement'), label: { ko: '개선 실행', en: 'Improvement execution' }, description: { ko: '개선 과제의 현장 적용과 효과를 관리합니다.', en: 'Manage field application and effect of improvement tasks.' }, homeMenuId: 'imp-my-tasks', feedbackTracking: true },
   { id: spaceId('flow'), label: { ko: '업무 흐름', en: 'Workflow' }, description: { ko: '들어온 VOC를 판단하고 Task로 실행한 뒤 설문으로 효과를 확인합니다.', en: 'Judge incoming VOC, run it as Tasks and confirm the effect with surveys.' }, homeMenuId: 'dashboard' },
   { id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations console' }, description: { ko: '플랫폼 관리와 권한을 다룹니다.', en: 'Platform administration and access.' }, homeMenuId: 'admin-roles' },
 ] satisfies readonly SpaceDef[];
@@ -100,7 +93,7 @@ export const SPACES = [
 /** Home-only display order; registry access and per-space ordering remain authoritative. */
 export const HOME_LAUNCHER_GROUPS = [
   { id: 'analysis', label: { ko: '분석', en: 'Analysis' }, spaces: [spaceId('mars'), spaceId('bravo'), spaceId('clas')] },
-  { id: 'work', label: { ko: '업무 운영', en: 'Work operations' }, spaces: [spaceId('log-dev'), spaceId('improvement'), spaceId('flow')] },
+  { id: 'work', label: { ko: '업무 운영', en: 'Work operations' }, spaces: [spaceId('log-dev'), spaceId('flow')] },
   { id: 'tools', label: { ko: '도구', en: 'Tools' }, spaces: [spaceId('tools')] },
   { id: 'platform', label: { ko: '플랫폼 관리', en: 'Platform administration' }, spaces: [spaceId('operations')] },
 ] satisfies readonly HomeLauncherGroup[];
@@ -130,9 +123,6 @@ export const MENUS: MenuEntry[] = [
   ...logCross,
   ...logRules,
   ...logKnowledge,
-  ...impMyWork,
-  ...impTasks,
-  ...impReports,
   ...clas,
   ...hwTime,
   ...dashboard,

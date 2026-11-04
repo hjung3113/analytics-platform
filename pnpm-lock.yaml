@@ -320,15 +320,6 @@ importers:
       '@ap/menu-hw-time':
         specifier: workspace:*
         version: link:../../menus/mars/hw-time
-      '@ap/menu-imp-my-work':
-        specifier: workspace:*
-        version: link:../../menus/improvement/imp-my-work
-      '@ap/menu-imp-reports':
-        specifier: workspace:*
-        version: link:../../menus/improvement/imp-reports
-      '@ap/menu-imp-tasks':
-        specifier: workspace:*
-        version: link:../../menus/improvement/imp-tasks
       '@ap/menu-integration':
         specifier: workspace:*
         version: link:../../platform/integration
@@ -581,117 +572,6 @@ importers:
       vitest:
         specifier: ^3.2.7
         version: 3.2.7(@types/debug@4.1.13)(@types/node@26.6.3)(happy-dom@20.14.6)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)(yaml@2.9.1)
-
-  menus/improvement/imp-my-work:
-    dependencies:
-      '@ap/contracts':
-        specifier: workspace:*
-        version: link:../../../packages/sdk/contracts
-      '@ap/kernel':
-        specifier: workspace:*
-        version: link:../../../packages/sdk/kernel
-      lucide-react:
-        specifier: ^1.48.0
-        version: 1.48.0(react@19.3.0)
-    devDependencies:
-      '@ap/eslint-config':
-        specifier: workspace:*
-        version: link:../../../tooling/eslint
-      '@ap/tsconfig':
-        specifier: workspace:*
-        version: link:../../../tooling/tsconfig
-      '@types/react':
-        specifier: ^19.3.0
-        version: 19.3.0
-      '@types/react-dom':
-        specifier: ^19.3.0
-        version: 19.3.0(@types/react@19.3.0)
-      eslint:
-        specifier: ^10.11.0
-        version: 10.11.0(jiti@2.7.0)
-      react:
-        specifier: ^19.3.0
-        version: 19.3.0
-      react-dom:
-        specifier: ^19.3.0
-        version: 19.3.0(react@19.3.0)
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-
-  menus/improvement/imp-reports:
-    dependencies:
-      '@ap/contracts':
-        specifier: workspace:*
-        version: link:../../../packages/sdk/contracts
-      '@ap/kernel':
-        specifier: workspace:*
-        version: link:../../../packages/sdk/kernel
-      lucide-react:
-        specifier: ^1.48.0
-        version: 1.48.0(react@19.3.0)
-    devDependencies:
-      '@ap/eslint-config':
-        specifier: workspace:*
-        version: link:../../../tooling/eslint
-      '@ap/tsconfig':
-        specifier: workspace:*
-        version: link:../../../tooling/tsconfig
-      '@types/react':
-        specifier: ^19.3.0
-        version: 19.3.0
-      '@types/react-dom':
-        specifier: ^19.3.0
-        version: 19.3.0(@types/react@19.3.0)
-      eslint:
-        specifier: ^10.11.0
-        version: 10.11.0(jiti@2.7.0)
-      react:
-        specifier: ^19.3.0
-        version: 19.3.0
-      react-dom:
-        specifier: ^19.3.0
-        version: 19.3.0(react@19.3.0)
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-
-  menus/improvement/imp-tasks:
-    dependencies:
-      '@ap/contracts':
-        specifier: workspace:*
-        version: link:../../../packages/sdk/contracts
-      '@ap/kernel':
-        specifier: workspace:*
-        version: link:../../../packages/sdk/kernel
-      lucide-react:
-        specifier: ^1.48.0
-        version: 1.48.0(react@19.3.0)
-    devDependencies:
-      '@ap/eslint-config':
-        specifier: workspace:*
-        version: link:../../../tooling/eslint
-      '@ap/tsconfig':
-        specifier: workspace:*
-        version: link:../../../tooling/tsconfig
-      '@types/react':
-        specifier: ^19.3.0
-        version: 19.3.0
-      '@types/react-dom':
-        specifier: ^19.3.0
-        version: 19.3.0(@types/react@19.3.0)
-      eslint:
-        specifier: ^10.11.0
-        version: 10.11.0(jiti@2.7.0)
-      react:
-        specifier: ^19.3.0
-        version: 19.3.0
-      react-dom:
-        specifier: ^19.3.0
-        version: 19.3.0(react@19.3.0)
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
 
   menus/log-dev/log-cross:
     dependencies:

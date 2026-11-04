@@ -1,6 +1,6 @@
 # 15. 멀티 워크스페이스 v2 — UI·IA·화면 설계
 
-상태: **Decided — UX 구성 원칙(2026-10-08 사용자 승인). 공간 마지막 화면 복원은 사용자+공간별 탭 세션([ADR-0028](../adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md), [06 §9.1](../contract/kernel.md#91-업무-시스템-decided-2026-09-26))** / **구현됨 — 사용자 설정 포트와 실서버 저장(#1104b); 저장 항목·이전·로컬 fallback은 [Kernel §4](../contract/kernel.md)와 ADR-0098을 따른다** / **Decided — 표준 로그 개발·개선 실행 메뉴 구성([ADR-0065](../adr/0065-log-dev-and-improvement-spaces-work-queue-first.md), 2026-10-21, 화면은 예정)** / **Decided — Managed System 매핑(앱 정적 표, 공간당 하나, [ADR-0045](../adr/0045-feedbackops-entry-link-mapping-and-scope.md), 2026-10-19)** / **Open — 인증**. FeedbackOps는 플랫폼에 합류한다([ADR-0066](../adr/0066-feedbackops-merges-into-platform.md)). **Decided(방향, 2026-10-18) — 시스템 전환기 + 시스템별 레일([ADR-0042](../adr/0042-system-switcher-and-system-owned-rail.md)); 화면 사양 §3.2 Decided(2026-10-19, 전환기 A안).**
+상태: **Decided — UX 구성 원칙(2026-10-08 사용자 승인). 공간 마지막 화면 복원은 사용자+공간별 탭 세션([ADR-0028](../adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md), [06 §9.1](../contract/kernel.md#91-업무-시스템-decided-2026-09-26))** / **구현됨 — 사용자 설정 포트와 실서버 저장(#1104b); 저장 항목·이전·로컬 fallback은 [Kernel §4](../contract/kernel.md)와 ADR-0098을 따른다** / **Decided — 표준 로그 개발 메뉴 구성(개선 실행 공간은 2026-11-04 접음, [ADR-0065](../adr/0065-log-dev-and-improvement-spaces-work-queue-first.md), 2026-10-21, 화면은 예정)** / **Decided — Managed System 매핑(앱 정적 표, 공간당 하나, [ADR-0045](../adr/0045-feedbackops-entry-link-mapping-and-scope.md), 2026-10-19)** / **Open — 인증**. FeedbackOps는 플랫폼에 합류한다([ADR-0066](../adr/0066-feedbackops-merges-into-platform.md)). **Decided(방향, 2026-10-18) — 시스템 전환기 + 시스템별 레일([ADR-0042](../adr/0042-system-switcher-and-system-owned-rail.md)); 화면 사양 §3.2 Decided(2026-10-19, 전환기 A안).**
 
 > 이 문서는 **업무 시스템별 화면**의 화면 설계·도입 계획이다. 플랫폼 전체 Navigation/Context/Permission의 단일 계약은 [06 §9·9.1](../contract/kernel.md#9-information-architecture)이고, 이 문서는 이를 소비하는 상세 설계다. 기존 백엔드/DB의 소유권이나 구현 완료를 선언하지 않는다.
 
@@ -45,11 +45,6 @@ Equipment Platform
 │   │   ├── 전체 모아 보기: 결함 큐 · 협력사 검토 현황
 │   │   ├── 기준: 검증 규칙
 │   │   └── [이 시스템의 협업] VOC · Task · 설문
-│   └── 개선 실행 (ADR-0065, 메뉴는 모두 예정)
-│       ├── 내 작업: 내 과제
-│       ├── 과제: 과제 목록 (상세 안: 적용 → 전후 실적 → 효과 검증)
-│       ├── 보고: 효과 보고서 · 설비별 적용 이력
-│       └── [이 시스템의 협업] VOC · Task · 설문
 ├── 지원 워크스페이스: 개발·운영 콘솔 (권한자)
 │   ├── 서버 앱 / 적재·파서 파이프라인 / 배치·작업 이력
 │   ├── 시스템 설정 · 권한 · Audit / 메뉴 활용률
@@ -97,7 +92,7 @@ Equipment Platform
 
 [ADR-0028](../adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md)이 실제 앱 위 시안(#250)에서 고른 배치다. 위 원칙 7의 치수를 그대로 쓴다.
 
-**레일 (위 → 아래)**: 플랫폼 홈 링크(로고 자리, 툴팁 `플랫폼 홈`) → 공간 버튼(MARS · BRAVO · 표준 로그 개발 · 개선 실행 · 개발·운영 콘솔 순, 접근 가능 공간이 2개 이상일 때만, 최근 사용 순으로 바꾸지 않음) → 구분선 → 메뉴 검색(⌘/Ctrl K) → 여백 → (`기능 전체`는 #764 p2에서 없앴다, ADR-0081 결정 6) → 앱 주입 도구 → 도움말 → 언어 → 사용자 메뉴.
+**레일 (위 → 아래)**: 플랫폼 홈 링크(로고 자리, 툴팁 `플랫폼 홈`) → 공간 버튼(MARS · BRAVO · 표준 로그 개발 · 개발·운영 콘솔 순, 접근 가능 공간이 2개 이상일 때만, 최근 사용 순으로 바꾸지 않음) → 구분선 → 메뉴 검색(⌘/Ctrl K) → 여백 → (`기능 전체`는 #764 p2에서 없앴다, ADR-0081 결정 6) → 앱 주입 도구 → 도움말 → 언어 → 사용자 메뉴.
 
 **사이드바 (위 → 아래)**: 50px 머리(현재 공간 이름 + 접기, 이름은 전환 버튼이 아님) → Scope 선택기 → 독립 스크롤 구역(현재 공간 그룹·메뉴 → 즐겨찾기 → 최근 방문 5개) → 매핑된 공간에만 기능 바닥 고정 블록(스크롤 밖). 접힘 56px에서는 즐겨찾기·최근을 숨기고, 메뉴 아이콘과 기능 아이콘 셋(`VOC`·`Task`·`설문`)을 같은 순서로 남긴다. 키보드로 마지막 메뉴까지 가도 바닥 블록에 가리지 않는다.
 
@@ -150,7 +145,6 @@ Equipment Platform
 | 지표 카탈로그 | Catalog | 지표 검색·정의 비교·버전 확인 | 지표 상세, 분석 결과 |
 | 모델별 로그 개발 현황 | Management/Overview | 모델 상태·단계·최근 검증 이력 | 모델/검증 Round 상세 |
 | 로그 검증 워크벤치 | Workbench | 규칙 오류·원문 위치·재검증·결함 | 결함 상세, 협력사 검토 내보내기 |
-| 개선 실행 현황 | Workflow/Overview | 적용 대상·진척·개선 전후 실적 | 적용 상세·성과 검증 |
 | 운영 콘솔 | Management/Ops | 서버·배치·파서 실행·오류 상태 | 트레이스·상세 |
 | 워크스페이스별 기능 진입 | 외부 링크 | 현재 시스템으로 좁힌 기능 VOC·Task·설문을 셸 안에서 연다 | 기능 |
 | 전체 협업 허브 | 외부 링크 | 기능 자체 화면(시스템 범위 없음) | 기능 |
@@ -179,9 +173,6 @@ Equipment Platform
 지표관리 (Metric ID + Version)
   └─ 해당 지표가 사용된 생산성 분석 →
 
-개선 실행 (개선 과제/적용)
-  └─ 관련 분석 결과 보기 →
-
 각 시스템의 VOC/Task 상세
   └─ 원래 생성된 시스템의 업무 객체로 이동 →
 ~~~
@@ -208,7 +199,7 @@ SDK가 제공하는 외부 기능 링크의 생성·검증·`platformReturn` 계
 
 - **기능 Task**: 제품 개선/개발 요청 등의 공통 실행·협업 객체.
 - **로그 검증 Defect / Validation Round**: 표준 로그 개발 시스템이 소유.
-- **현장 적용 과제 / 개선 실적**: 개선 실행 시스템이 소유.
+- **과제(Quest) / 개선 아이템**: 과제(Quest)는 BRAVO가 소유하고, 개선 아이템은 플랫폼 DB에 둔다. 개선 실행 업무 시스템은 두지 않는다([ADR-0106 개정 2](../adr/0106-improvement-task-is-quest.md#개정-2-2026-11-04-1323-개선-아이템은-플랫폼-db-개선-실행-공간은-접는다)).
 - **지표 정의 / 지표 버전**: 지표관리 시스템이 소유.
 
 같은 이름의 'Task'나 '이슈'가 있더라도 백엔드 객체를 강제 병합하지 않는다. 필요한 관계만 링크한다.
@@ -279,7 +270,7 @@ SDK가 제공하는 외부 기능 링크의 생성·검증·`platformReturn` 계
 
 1. **설계 기준 고정:** UX·IA·예외·Open 문서/ADR/HTML 승인안 저장. 이 단계에서는 서비스 코드·서브모듈을 수정하지 않는다.
 2. **셸/Registry 확장:** 포털·워크스페이스 메뉴·전용 Sidebar·통합 검색/탐색·권한 기반 노출·기존 라우트 호환.
-3. **업무 워크스페이스 등록:** 분석/지표 분리, 로그 개발·개선 실행·운영 콘솔 추가; 기존 설비/기준정보 귀속 확정.
+3. **업무 워크스페이스 등록:** 분석/지표 분리, 로그 개발·운영 콘솔 추가; 기존 설비/기준정보 귀속 확정.
 4. **기능 진입:** 공간 → Managed System 매핑(#81, Decided — ADR-0045)과 링크 계약 확장 뒤 공간별 진입과 허브 링크를 단다(#251 완료). 화면의 플랫폼 합류는 ADR-0066과 #595를 따른다.
 5. **시스템 간 링크 UX/회귀:** 출발 화면 복귀, 무권한, 필터 미지원, 새로고침·Back/Forward·직접 URL, 시스템 0개/많음, 좁은 데스크톱 폭 검사.
 

@@ -149,7 +149,7 @@ _Avoid_: 플랫폼 — 플랫폼 전체와 섞인다.
 업무 시스템과 제품이 받아 쓰는 플랫폼 공개 패키지 묶음(`@ap/contracts`·`@ap/ui`·`@ap/kernel`·`@ap/components`·`@ap/shell`). 하나의 묶음 버전으로 릴리스한다([ADR-0043](docs/adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md), [ADR-0044](docs/adr/0044-sdk-source-in-platform-repo-released-separately.md)).
 
 **업무 시스템** (코드 이름 `Space`):
-플랫폼 위에 올라가는 독립된 업무 단위. 자기 메뉴 그룹·메뉴·업무 객체와 진입 권한을 소유하고, 다른 시스템의 객체를 흡수하지 않는다. 지금 등록된 것은 MARS·CLAS(생산성 분석), BRAVO(지표관리), 표준 로그 개발, 개선 실행, 업무 흐름, 운영 콘솔이다. VOC·설문·Task·Finding은 플랫폼 기능이고, 담당자 처리 화면은 `업무 흐름`, 플랫폼 관리는 `운영 콘솔`에 있다([ADR-0097](docs/adr/0097-platform-features-and-role-based-names.md), [ADR-0110](docs/adr/0110-platform-feature-roles-and-scope.md)).
+플랫폼 위에 올라가는 독립된 업무 단위. 자기 메뉴 그룹·메뉴·업무 객체와 진입 권한을 소유하고, 다른 시스템의 객체를 흡수하지 않는다. 지금 등록된 것은 MARS·CLAS(생산성 분석), BRAVO(지표관리), 표준 로그 개발, 업무 흐름, 운영 콘솔이다. 개선 실행 공간은 2026-11-04에 접었다(ADR-0106 개정 2). VOC·설문·Task·Finding은 플랫폼 기능이고, 담당자 처리 화면은 `업무 흐름`, 플랫폼 관리는 `운영 콘솔`에 있다([ADR-0097](docs/adr/0097-platform-features-and-role-based-names.md), [ADR-0110](docs/adr/0110-platform-feature-roles-and-scope.md)).
 CLAS는 약어 그대로 쓰고 영어 풀이 이름은 쓰지 않는다(어차피 바뀔 이름, 사용자 2026-10-27). 메뉴·설명에도 `Equipment operation`·`operation time` 같은 풀이를 두지 않는다. MARS와 CLAS는 메뉴가 달라 별도 시스템으로 둔다(이 플랫폼의 CLAS에는 견본 메뉴 하나가 있고, 기존 CLAS 화면 이전은 계획).
 _Avoid_: 워크스페이스, 공간, 앱, 모듈 — 워크스페이스는 코어 서버의 workspace(테넌트)·작업 영역과, 모듈은 호스트 모듈·설비 Module과 섞인다. 화면 문구는 `업무 시스템`(짧게 `시스템`)이고, `Space`는 코드 이름으로만 쓴다. 화면의 `시스템`은 Managed System도 함께 뜻한다(셀프 등록으로 업무 시스템마다 같은 이름의 Managed System이 생긴다, [ADR-0110](docs/adr/0110-platform-feature-roles-and-scope.md) 결정 6).
 
@@ -244,7 +244,7 @@ _Avoid_: 게시, Published — 같은 동작을 두 이름으로 부르지 않�
 
 **과제** (Quest):
 BRAVO가 발행한 이상 현상 하나. MARS·CLAS에서 그 원인을 찾고, 그 아래 개선 아이템을 모은 뒤 효과를 확인하고 닫는다. 화면·문서 표기는 `과제(Quest)`이며 `과제`와 `Quest`는 같은 객체다([ADR-0106](docs/adr/0106-improvement-task-is-quest.md) 결정 5). BRAVO가 소유한다([ADR-0106 개정 2](docs/adr/0106-improvement-task-is-quest.md#개정-2-2026-11-04-1323-개선-아이템은-플랫폼-db-개선-실행-공간은-접는다), 소유자 2026-11-04).
-_Avoid_: Task, Finding — 각각 Managed System 내부 실행 작업, VOC·설문 근거로 다른 객체다. 개선 실행의 `과제`를 영어로 Task라 쓰지 않는다.
+_Avoid_: Task, Finding — 각각 Managed System 내부 실행 작업, VOC·설문 근거로 다른 객체다.
 
 **개선 아이템**:
 과제(Quest) 아래 기록하는 문제·조치 한 줄(예정). 분석으로 추론한 문제와 그 조치·조치일·상태를 담는다. 분석 화면에서 `과제에 개선 아이템 추가`로 만들면 과제·화면·기간·설비가 붙는다. 편집은 엑셀처럼 한다([ADR-0106](docs/adr/0106-improvement-task-is-quest.md) 결정 3). 플랫폼 DB에 두는 플랫폼 기능이고, 과제(Quest)는 ID로만 가리킨다([ADR-0106 개정 2](docs/adr/0106-improvement-task-is-quest.md#개정-2-2026-11-04-1323-개선-아이템은-플랫폼-db-개선-실행-공간은-접는다)).
@@ -433,8 +433,8 @@ A permission whose grant or use requires a written reason and explicit audit met
 _Avoid_: Restricted action, locked feature
 
 **Task**:
-Internal execution work for one **Managed System**. 요청 단계는 Task Request다. 화면에서도 `Task`로 쓰고 상태 값만 한국어 문구로 보인다([ADR-0110](docs/adr/0110-platform-feature-roles-and-scope.md) 결정 6). `작업`은 `내 작업` 그룹과 겹쳐 쓰지 않는다. 로그 결함·검증 Round(표준 로그 개발), 개선 과제·실적(개선 실행), 지표 정의·버전(지표관리)과 다른 객체이며 관계만 링크한다.
-_Avoid_: Reporter-facing VOC status, 이슈 — 시스템마다 뜻이 달라 단독으로 쓰지 않는다. 개선 실행의 `과제`를 영어로 Task라 쓰지 않는다.
+Internal execution work for one **Managed System**. 요청 단계는 Task Request다. 화면에서도 `Task`로 쓰고 상태 값만 한국어 문구로 보인다([ADR-0110](docs/adr/0110-platform-feature-roles-and-scope.md) 결정 6). `작업`은 `내 작업` 그룹과 겹쳐 쓰지 않는다. 로그 결함·검증 Round(표준 로그 개발), 개선 아이템(플랫폼 DB), 지표 정의·버전(지표관리)과 다른 객체이며 관계만 링크한다.
+_Avoid_: Reporter-facing VOC status, 이슈 — 시스템마다 뜻이 달라 단독으로 쓰지 않는다.
 
 **Progress note**:
 An append-only internal comment on one **Finding** or one **Task**. A person writes a `note`; a successful status change writes a `status_change`. Finding reads and Task reads do not use the same permission gate.
@@ -571,7 +571,7 @@ _Avoid_: Task status, triage state
 
 **Task Status**:
 The internal execution state of a **Task**.
-_Avoid_: Reporter-facing VOC status, 이슈 — 시스템마다 뜻이 달라 단독으로 쓰지 않는다. 개선 실행의 `과제`를 영어로 Task라 쓰지 않는다.
+_Avoid_: Reporter-facing VOC status, 이슈 — 시스템마다 뜻이 달라 단독으로 쓰지 않는다.
 
 **Display ID**:
 The human-readable identifier of a record: a prefix plus a per-**Workspace** sequence number (`VOC-`, `FIN-`, `CLU-`, `REQ-`, `TASK-`, `SRV-`, `MLS-`), unique within the **Workspace** and assigned at creation. The UUID `id` stays the primary key; the Display ID is the label people and the command palette use (FO ADR-0029).

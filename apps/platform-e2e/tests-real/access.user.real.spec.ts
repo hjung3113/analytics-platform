@@ -16,7 +16,6 @@ test.describe('core 사용자 공간 접근 거부 (06 §9.1)', () => {
     const systems = page.getByRole('region', { name: '업무 시스템' });
     await expect(systems).toBeVisible();
     await expect(systems.getByRole('link', { name: /표준 로그 개발/ })).toBeVisible();
-    await expect(systems.getByRole('link', { name: /개선 실행/ })).toBeVisible();
     await expect(systems.getByRole('link', { name: /업무 흐름/ })).toHaveCount(0);
     await expect(systems.getByRole('link', { name: /운영 콘솔/ })).toHaveCount(0);
     await expect(systems.getByRole('link', { name: /FeedbackOps/ })).toHaveCount(0);
