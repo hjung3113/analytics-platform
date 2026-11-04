@@ -40,24 +40,14 @@
               {
                 "prefix": [
                   "docs/product/features/",
-                  "docs/architecture/platform-api/",
                   "docs/design/features/",
                   "docs/design/history/feedbackops-prototype/",
                   "docs/user-guide/features/",
-                  "docs/user-guide/history/feedbackops/",
-                  "docs/adr/history/feedbackops/",
-                  "docs/agents/feature-implementation.md",
-                  "docs/integration/feature-",
-                  "apps/platform-api/",
-                  "apps/feature-screens/",
-                  "packages/feature-shared/",
-                  "packages/feature-ui/",
-                  "packages/adapters/feature-bridge/",
-                  "ops/platform-api/"
+                  "docs/user-guide/history/feedbackops/"
                 ]
               },
               {
-                "regex": "^(packages/sdk/(ui|components|shell)/src|menus/[^/]+/[^/]+/src|platform/[^/]+/src|apps/platform-web/src)/",
+                "regex": "^(packages/sdk/(ui|components|shell)/src|menus/[^/]+/[^/]+/src|platform/[^/]+/src|apps/platform-web/src|apps/feature-screens/src|packages/feature-ui/src)/",
                 "suffix": [
                   ".tsx",
                   ".css"
