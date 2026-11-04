@@ -9,6 +9,7 @@ export { chartTheme, EChart, token, type EChartProps } from './chart/EChart';
 export * from './filters/PageFilterBar';
 export * from './table/PlatformDataTable';
 export * from './table/tableUrlWarning';
+export { TableQuickSearch, type TableQuickSearchProps } from './table/TableQuickSearch';
 export type { FilterValueCheck, LegacyFilterKey, TableFilterOption, TableFilterProblem, TableFilterRead } from './table/tableFilterUrl';
 export { FILTER_OP_LABELS } from './table/filterOps';
 export { instantToLocalField, localFieldToInstant, type LocalFieldFailure, type LocalFieldResult } from './table/zonedInstant';
