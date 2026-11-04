@@ -40,8 +40,10 @@ function Count({ n, label, text, onOpen }: { n: number; label: string; text?: st
   return <span className="tabular"><Button type="button" variant="link" size="sm" aria-label={label} onClick={onOpen}>{text ?? n}</Button></span>;
 }
 
-export function CatalogTable({ kind, q, focus, rowsRef, options, labels, remember, onTotal }: {
+export function CatalogTable({ kind, q, focus, rowsRef, options, labels, remember, onTotal, onImport }: {
   kind: CatalogKind; q: string; focus: string | null;
+  /** 「가져오기」 in the toolbar line (maker, process and model tabs only); absent = no button. */
+  onImport?: (() => void) | undefined;
   /** Rows of the pages this tab has read, by id: the drawer opens a row from here before it asks the server. */
   rowsRef: RefObject<Map<string, CatalogRow>>;
   options: { vendors: Option[]; processes: Option[]; models: Option[] };
@@ -60,7 +62,8 @@ export function CatalogTable({ kind, q, focus, rowsRef, options, labels, remembe
   const [draft, setDraft] = useState<{ applied: string; text: string }>({ applied: q, text: q });
   if (draft.applied !== q) setDraft({ applied: q, text: q });
   const commit = () => { if (draft.text.trim() !== q) setPage({ q: draft.text.trim() === '' ? null : draft.text.trim(), page: null }); };
-  const search = <SearchInput placeholder={`${NOUN[kind]} 코드·이름 검색`} value={draft.text} onValueChange={text => setDraft({ applied: q, text })} onCommit={commit} />;
+  const searchInput = <SearchInput placeholder={`${NOUN[kind]} 코드·이름 검색`} value={draft.text} onValueChange={text => setDraft({ applied: q, text })} onCommit={commit} />;
+  const search = onImport ? <div className="flex min-w-0 items-center gap-2"><div className="min-w-0 flex-1">{searchInput}</div><Button type="button" size="sm" variant="secondary" onClick={onImport}>가져오기</Button></div> : searchInput;
 
   const columns = useMemo<PlatformColumn<CatalogRow>[]>(() => {
     const open = (row: CatalogRow) => { remember(row.id, row.name || row.code); setPage(tabPatch(childLink(row, kind))); };
