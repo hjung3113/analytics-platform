@@ -829,7 +829,7 @@ merges into the earlier one of the same stay through two partial unique indexes 
 when present, else by `(workspace, actor, session, menu, entered_at)` — and the route picks the
 matching `ON CONFLICT … WHERE` per row. `platform.client_errors` holds the five report fields plus
 actor and the server request id. Grants: `platform_app` has `INSERT, SELECT, UPDATE` on `usage_events` and
-`INSERT` only on `client_errors` (plus, from 0089, column-level `SELECT` on `workspace_id, correlation_id, menu_id, path,
+`INSERT` only on `client_errors` (plus, from 0090, column-level `SELECT` on `workspace_id, correlation_id, menu_id, path,
 name, received_at` for the VOC trace-id lookup, #606; never `actor_id` / `request_id`); `USAGE` on the schema for `platform_app` and `platform_migrate`. There is no
 retention job (usage is unlimited with a manual delete path, docs/05; client-error retention is in
 `.planning/backlog.md`) and no annotation table.
@@ -884,7 +884,7 @@ a request can hold a connection or wait for one. Operator pools (`seed`, migrati
 - **Item history.** The knowledge item detail read selects only `revisionNo, title, publishedBy, publishedAt,
   changeNote` for its revision list; the response shape is unchanged.
 
-## VOC trace id (#606, migration 0089)
+## VOC trace id (#606, migration 0090)
 
 `voc.vocs.trace_id text NULL` holds the client correlation id a reporter attached to a VOC, with index
 `vocs_trace_id_idx (workspace_id, trace_id)`. `platform.client_errors` gains `client_errors_workspace_correlation_idx
