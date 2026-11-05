@@ -92,11 +92,15 @@ describe.skipIf(!runIntegration)(
       return { id, cookie, csrf: boot.json<{ csrfToken: string }>().csrfToken };
     }
 
-    /** Fresh people for tests that need several: the per-actor rate budget of `admin` and `user` is shared by the whole file. */
+    /**
+     * Distinct developers for the tests that need several. Every test clears its own rows first, so the
+     * first `count` members of one lazily grown pool are reused across tests: each mock-login spends the
+     * shared 50/min per-IP budget of the whole directory run, and a fresh crew per test exhausted it.
+     */
+    const crewPool: Person[] = [];
     const crew = async (count: number) => {
-      const people: Person[] = [];
-      for (let i = 0; i < count; i++) people.push(await newPerson('developer'));
-      return people;
+      while (crewPool.length < count) crewPool.push(await newPerson('developer'));
+      return crewPool.slice(0, count);
     };
 
     /** A POST with the person's cookie and CSRF token unless overridden. */
