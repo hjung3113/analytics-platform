@@ -35,8 +35,8 @@ function Query({ keepPrevious, page, onMount }: { keepPrevious?: boolean; page: 
   </>;
 }
 
-describe('real useMenuQuery + QueryView option toggles (#1365 FIX5V)', () => {
-  it.each([false, undefined, true])('preserves an edited, focused child with initial keepPrevious=%s', async initial => {
+describe('real useMenuQuery + QueryView option toggles (#1365 FIX6V)', () => {
+  it.each([false, undefined, true])('remounts only when opt-in changes, keeping live/previous transitions stable (initial=%s)', async initial => {
     const pending: ((response: ApiResponse<string>) => void)[] = [];
     const session = testSession(['platform:view']);
     const adapter = testAdapter({
@@ -55,22 +55,41 @@ describe('real useMenuQuery + QueryView option toggles (#1365 FIX5V)', () => {
     };
     await settle(0, 'page one');
     expect(screen.getByTestId('query-state')).toHaveTextContent(`done:${initial ? 'false' : 'undefined'}`);
+    const initialInput = screen.getByRole('textbox', { name: 'Draft' });
+    fireEvent.change(initialInput, { target: { value: 'before opt-in' } });
+    act(() => initialInput.focus());
+    expect(mounts).toHaveBeenCalledTimes(1);
+    expect(!!result.container.querySelector('[data-query-result-content]')).toBe(initial === true);
+
+    // Kernel F7 still keeps the accepted result on late opt-in. QueryView adds its
+    // result box once, so consumers must opt in from the first render to keep local state.
+    result.rerender(view(true));
+    expect(screen.getByTestId('query-state')).toHaveTextContent('done:false');
+    expect(screen.getByText('page one')).toBeInTheDocument();
     const input = screen.getByRole('textbox', { name: 'Draft' });
     const content = result.container.querySelector('[data-query-result-content]');
+    const optedInMounts = initial === true ? 1 : 2;
+    expect(mounts).toHaveBeenCalledTimes(optedInMounts);
+    if (initial === true) {
+      expect(input).toBe(initialInput);
+      expect(input).toHaveValue('before opt-in');
+      expect(input).toHaveFocus();
+    } else {
+      expect(input).not.toBe(initialInput);
+      expect(input).toHaveValue('initial');
+      expect(initialInput).not.toBeInTheDocument();
+      expect(input).not.toHaveFocus();
+    }
     fireEvent.change(input, { target: { value: 'edited' } });
     act(() => input.focus());
     const assertPreserved = () => {
-      expect(mounts).toHaveBeenCalledTimes(1);
+      expect(mounts).toHaveBeenCalledTimes(optedInMounts);
       expect(screen.getByRole('textbox', { name: 'Draft' })).toBe(input);
       expect(input).toHaveValue('edited');
       expect(input).toHaveFocus();
       expect(result.container.querySelector('[data-query-result-content]')).toBe(content);
     };
 
-    // Explicit false and omitted options both become defined live metadata on late opt-in.
-    result.rerender(view(true));
-    expect(screen.getByTestId('query-state')).toHaveTextContent('done:false');
-    assertPreserved();
     result.rerender(view(true, 2));
     expect(screen.getByTestId('query-state')).toHaveTextContent('refreshing:true');
     expect(screen.getByText('page one')).toBeInTheDocument();
@@ -84,10 +103,15 @@ describe('real useMenuQuery + QueryView option toggles (#1365 FIX5V)', () => {
 
     result.rerender(view(false, 2));
     expect(screen.getByTestId('query-state')).toHaveTextContent('done:undefined');
-    expect(result.container.querySelector('[data-query-result-content]')).toBe(content);
-    assertPreserved();
+    expect(screen.getByText('page two')).toBeInTheDocument();
+    expect(result.container.querySelector('[data-query-result-content]')).toBeNull();
+    expect(mounts).toHaveBeenCalledTimes(optedInMounts + 1);
+    const nonOptInInput = screen.getByRole('textbox', { name: 'Draft' });
+    expect(nonOptInInput).not.toBe(input);
+    expect(nonOptInInput).toHaveValue('initial');
     result.rerender(view(undefined, 2));
     expect(screen.getByTestId('query-state')).toHaveTextContent('done:undefined');
-    assertPreserved();
+    expect(screen.getByRole('textbox', { name: 'Draft' })).toBe(nonOptInInput);
+    expect(mounts).toHaveBeenCalledTimes(optedInMounts + 1);
   });
 });

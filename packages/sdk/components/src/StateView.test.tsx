@@ -80,11 +80,51 @@ describe('QueryView inside a workspace panel', () => {
 
   it('takes the panel height so a fill chart inside has a bounded parent; elsewhere it is unchanged', () => {
     const { container, unmount } = render(<I18nProvider><InWorkspacePanelProvider value><QueryView query={ok()}>{data => <p>{data}</p>}</QueryView></InWorkspacePanelProvider></I18nProvider>);
-    expect(container.querySelector('p')!.parentElement).toHaveClass('contents');
+    expect(container.querySelector('p')!.parentElement).toBe(container.firstElementChild);
     expect(container.querySelector('p')!.closest('[aria-busy]')).toHaveClass('h-full', 'min-h-0');
     unmount();
     const plain = render(<I18nProvider><QueryView query={ok()}>{data => <p>{data}</p>}</QueryView></I18nProvider>);
     expect(plain.container.querySelector('p')!.closest('[aria-busy]')).not.toHaveClass('h-full');
+  });
+});
+
+describe('QueryView non-opt-in DOM compatibility (#1365 FIX6V)', () => {
+  const response: ApiResponse<string> = { outcome: 'ok', data: 'result', assessments: [], trust: null, correlationId: 'current' };
+
+  it('keeps the pre-branch DOM with the consumer layout directly inside the query boundary', () => {
+    const { container } = render(<I18nProvider><QueryView query={{ response, refetch: vi.fn(), missing: [], completedAt: null, status: 'done' }}>
+      {data => <div className="space-y-3"><section>First</section><section>{data}</section></div>}
+    </QueryView></I18nProvider>);
+    expect(container.innerHTML).toBe('<div aria-busy="false" class="relative"><div class="space-y-3"><section>First</section><section>result</section></div></div>');
+    expect(container.querySelector('[data-query-result-content]')).toBeNull();
+  });
+
+  it.each([undefined, false, true])('keeps sibling space-y margins on layout boxes (showingPrevious=%s)', showingPrevious => {
+    // jsdom has no layout engine. Use the sibling-margin rule itself and check that its
+    // targets generate boxes, rather than claiming to measure a rendered pixel gap.
+    const style = document.createElement('style');
+    style.textContent = '.contents { display: contents; } .space-y-3 > :not([hidden]) ~ :not([hidden]) { margin-top: 12px; }';
+    document.head.append(style);
+    try {
+      const { container } = render(<I18nProvider><div className="space-y-3">
+        <section>Before</section>
+        <QueryView query={{ response, refetch: vi.fn(), missing: [], completedAt: null, status: 'done', showingPrevious }}>
+          {data => <div className="space-y-3"><section>First</section><section>{data}</section></div>}
+        </QueryView>
+        <section>After</section>
+      </div></I18nProvider>);
+      const stack = container.firstElementChild!;
+      const boundary = stack.children[1] as HTMLElement;
+      const layout = screen.getByText('First').parentElement!;
+      if (showingPrevious === undefined) expect(layout.parentElement).toBe(boundary);
+      else expect(layout.parentElement).toBe(boundary.querySelector('[data-query-result-content]'));
+      expect(getComputedStyle(boundary).marginTop).toBe('12px');
+      expect(getComputedStyle(stack.lastElementChild!).marginTop).toBe('12px');
+      expect(getComputedStyle(screen.getByText('result')).marginTop).toBe('12px');
+      expect(getComputedStyle(layout.parentElement!).display).not.toBe('contents');
+    } finally {
+      style.remove();
+    }
   });
 });
 
