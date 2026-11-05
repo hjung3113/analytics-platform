@@ -4,13 +4,13 @@
 // `findEquivalents` reads `confirmed` + `equivalent` rows and nothing else — a proposal, a rejected row, a `related`
 // row or a same name never joins.
 
-import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, or, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 import { commonConcepts, equipmentModels, specConceptMappings } from '../../../db/schema/knowledge.js';
 import type { Tx } from '../../../db/tx.js';
 import type { SimilarityBasis } from '../domain/concept-similarity.js';
-import { loadCurrentTargets } from './spec-targets.js';
+import { resolveTargets } from './spec-targets.js';
 
 const m = specConceptMappings;
 const k = commonConcepts;
@@ -256,11 +256,12 @@ export async function listConceptMappings(
     .limit(paging.pageSize)
     .offset(paging.page * paging.pageSize);
   const [totalRow] = await tx.select({ n: sql<number>`count(*)::int` }).from(m).where(where);
-  const targets = await loadCurrentTargets(tx, workspaceId, [...new Set(rows.map((r) => r.row.modelId))]);
+  // EXACT lookup of the listed rows' keys: a spec of any size answers `target_gone` only when the key is really not there.
+  const targets = await resolveTargets(tx, workspaceId, rows.map((r) => ({ modelId: r.row.modelId, targetKind: r.row.targetKind, targetKey: r.row.targetKey })));
   return {
     total: totalRow?.n ?? 0,
     rows: rows.map(({ row, conceptLabel, modelName }) => {
-      const target = targets.get(row.modelId)?.targets.get(row.targetKey);
+      const target = targets.get(row.modelId, row.targetKind, row.targetKey);
       return {
         id: row.id,
         conceptId: row.conceptId,
@@ -288,11 +289,30 @@ export async function listConceptMappings(
   };
 }
 
-/** Confirmed `equivalent` (concept, model, key) triples among the given models: pairs already known to be the same are not suggested again. */
-export async function confirmedMembers(tx: Tx, workspaceId: string, modelIds: readonly string[]): Promise<{ conceptId: string; modelId: string; targetKey: string }[]> {
+export interface DecidedMember {
+  conceptId: string;
+  modelId: string;
+  targetKey: string;
+  reviewState: string;
+  relationKind: string;
+}
+
+/**
+ * The stored decisions the suggestion scan must respect, for the given models: every `confirmed` + `equivalent` row, and
+ * every row (any state) of a concept that holds a `rejected` row — so a rejection also hides the pair it was judged
+ * with. A pair a human has decided is not proposed again; a genuinely different association still is.
+ */
+export async function decidedMembers(tx: Tx, workspaceId: string, modelIds: readonly string[]): Promise<DecidedMember[]> {
   if (modelIds.length === 0) return [];
+  const rejectedConcepts = tx.select({ id: m.conceptId }).from(m).where(and(eq(m.workspaceId, workspaceId), eq(m.reviewState, 'rejected')));
   return tx
-    .select({ conceptId: m.conceptId, modelId: m.modelId, targetKey: m.targetKey })
+    .select({ conceptId: m.conceptId, modelId: m.modelId, targetKey: m.targetKey, reviewState: m.reviewState, relationKind: m.relationKind })
     .from(m)
-    .where(and(eq(m.workspaceId, workspaceId), eq(m.reviewState, 'confirmed'), eq(m.relationKind, 'equivalent'), inArray(m.modelId, [...modelIds])));
+    .where(
+      and(
+        eq(m.workspaceId, workspaceId),
+        inArray(m.modelId, [...modelIds]),
+        or(and(eq(m.reviewState, 'confirmed'), eq(m.relationKind, 'equivalent')), inArray(m.conceptId, rejectedConcepts)),
+      ),
+    );
 }

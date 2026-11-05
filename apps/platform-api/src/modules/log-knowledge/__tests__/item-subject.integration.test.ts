@@ -291,6 +291,18 @@ describe.skipIf(!runIntegration)('Item subject link (#1196 f)', () => {
       const own = await newItem('perm-ok', { ownerModelId: model }, { subjects: [subject(model)] });
       expect((await read('itemDetail', { itemId: own.id }, user)).data.subjects).toHaveLength(1);
     });
+    it('an upper-case owner model id and subject model id name the same model: the item is created, the subject is stored lower-case and resolves', async () => {
+      const model = await newModel('up');
+      await publishRevision(model, spec());
+      expect(model.toLowerCase()).not.toBe(model.toUpperCase());
+      const created = await newItem('up', { ownerModelId: model.toUpperCase() }, { subjects: [subject(model.toUpperCase())] });
+      expect((await subjectRows(created.id)).map((r) => [r.model_id, r.target_key, r.spec_rev_no_at_link])).toEqual([[model, startKey, 1]]);
+      expect((await detail(created.id)).subjects).toMatchObject([{ modelId: model, state: 'resolved', targetName: 'Start' }]);
+      const missing = await act('itemCreate', { ownerModelId: model.toUpperCase(), ...itemBody('up-miss'), subjects: [subject(model.toUpperCase(), { module: 'Spindle', event: 'Ghost' })] });
+      expect(fe(missing)).toEqual(['subjects.0.targetKey:not_found']);
+      const items = await read('specSubjectItems', { modelId: model.toUpperCase(), targetKey: startKey });
+      expect((items.data.rows as { id: string }[]).map((r) => r.id)).toEqual([created.id]);
+    });
   });
 
   describe('itemRevise', () => {

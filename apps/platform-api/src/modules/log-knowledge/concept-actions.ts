@@ -30,7 +30,7 @@ import {
   reviewMapping,
 } from './repositories/concept.js';
 import { modelExists } from './repositories/spec-change.js';
-import { type SpecTarget, currentTargetsOf } from './repositories/spec-targets.js';
+import { type SpecTarget, resolveTargets } from './repositories/spec-targets.js';
 import { SPEC_MENU_PERMISSION, SPEC_PERMISSION } from './spec-actions.js';
 
 export const CONCEPT_INVALIDATES = ['logKnowledge.conceptMappings', 'logKnowledge.conceptSuggestions'] as const;
@@ -84,10 +84,10 @@ export function conceptActions(deps: ConceptActionDeps): MenuActionDeclaration[]
   /** The target in the model's current published revision; `none_published` / `not_found` otherwise. */
   async function requireTarget(tx: Tx, ws: string, modelId: string, t: { targetKind: string; targetKey: string }, prefix: readonly string[]): Promise<SpecTarget> {
     if (!(await modelExists(tx, ws, modelId))) return refuse([...prefix, 'modelId'], 'not_found');
-    const current = await currentTargetsOf(tx, ws, modelId);
-    if (!current) return refuse([...prefix, 'revision'], 'none_published');
-    const found = current.targets.get(t.targetKey);
-    if (!found || found.kind !== t.targetKind) return refuse([...prefix, 'targetKey'], 'not_found');
+    const resolved = await resolveTargets(tx, ws, [{ modelId, targetKind: t.targetKind, targetKey: t.targetKey }]);
+    if (!resolved.revisions.has(modelId.toLowerCase())) return refuse([...prefix, 'revision'], 'none_published');
+    const found = resolved.get(modelId, t.targetKind, t.targetKey);
+    if (!found) return refuse([...prefix, 'targetKey'], 'not_found');
     return found;
   }
 

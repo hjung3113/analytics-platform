@@ -30,7 +30,7 @@ function judge(params: Record<string, unknown>): Judged {
   if (typeof pageSize !== 'number' || !Number.isInteger(pageSize) || pageSize < 1 || pageSize > PAGE_SIZE_MAX) {
     return { ok: false, message: `pageSize must be an integer from 1 to ${PAGE_SIZE_MAX}` };
   }
-  return { ok: true, modelId, targetKey, page, pageSize };
+  return { ok: true, modelId: modelId.toLowerCase(), targetKey, page, pageSize };
 }
 
 export function subjectEndpoints(deps: LogKnowledgeDeps): MenuEndpointDeclaration[] {

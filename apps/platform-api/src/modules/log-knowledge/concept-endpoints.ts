@@ -12,10 +12,10 @@ import type { EndpointResult, MenuEndpointDeclaration, ParamsJudgment } from '..
 import { holdsPlatformPermission } from '../platform-port/permissions.js';
 import { LOG_KNOWLEDGE_MODELS_MENU_ID } from './catalog-menu.js';
 import { CONCEPT_KINDS, CONCEPT_REVIEW_STATES } from './domain/concept-input.js';
-import { type ScanTarget, scanSuggestions } from './domain/concept-suggest.js';
+import { SUGGESTION_CAP, type ScanTarget, scanSuggestions } from './domain/concept-suggest.js';
 import type { LogKnowledgeDeps } from './deps.js';
-import { confirmedMembers, listConceptMappings } from './repositories/concept.js';
-import { loadCurrentTargets } from './repositories/spec-targets.js';
+import { decidedMembers, listConceptMappings } from './repositories/concept.js';
+import { scanCurrentTargets } from './repositories/spec-targets.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -84,8 +84,9 @@ function judgeMappings(params: Record<string, unknown>): Judged<MappingsQuery> {
   return {
     ok: true,
     value: {
-      ...(params.modelId === undefined ? {} : { modelId: params.modelId as string }),
-      ...(params.conceptId === undefined ? {} : { conceptId: params.conceptId as string }),
+      // Canonical (lower-case) ids: the stored and the looked-up spelling must be one.
+      ...(params.modelId === undefined ? {} : { modelId: (params.modelId as string).toLowerCase() }),
+      ...(params.conceptId === undefined ? {} : { conceptId: (params.conceptId as string).toLowerCase() }),
       ...(state.value === undefined ? {} : { reviewState: state.value }),
       ...(kind.value === undefined ? {} : { kind: kind.value }),
       ...paging.value,
@@ -106,7 +107,7 @@ function judgeSuggestions(params: Record<string, unknown>): Judged<SuggestionsQu
   if (!kind.ok) return kind;
   const paging = judgePaging(params);
   if (!paging.ok) return paging;
-  return { ok: true, value: { modelId: params.modelId, ...(kind.value === undefined ? {} : { kind: kind.value as 'module' | 'event' }), ...paging.value } };
+  return { ok: true, value: { modelId: params.modelId.toLowerCase(), ...(kind.value === undefined ? {} : { kind: kind.value as 'module' | 'event' }), ...paging.value } };
 }
 
 export function conceptEndpoints(deps: LogKnowledgeDeps): MenuEndpointDeclaration[] {
@@ -116,9 +117,10 @@ export function conceptEndpoints(deps: LogKnowledgeDeps): MenuEndpointDeclaratio
       return { outcome: 'ok', data: await listConceptMappings(deps.db, workspaceId, filters, { page, pageSize }) };
     }),
     declare(deps, 'logKnowledge.conceptSuggestions', ['modelId', 'kind', 'page', 'pageSize'], judgeSuggestions, async (workspaceId, q) => {
-      const all = await loadCurrentTargets(deps.db, workspaceId);
+      // The BOUNDED scan: `truncated` tells the caller when a cap made the list a partial view.
+      const { models: all, truncated: scanTruncated } = await scanCurrentTargets(deps.db, workspaceId);
       const mine = all.get(q.modelId);
-      if (!mine) return { outcome: 'ok', data: { total: 0, rows: [] } };
+      if (!mine) return { outcome: 'ok', data: { total: 0, rows: [], ...(scanTruncated ? { truncated: true } : {}) } };
       const scan = (modelId: string, kinds: readonly string[]): ScanTarget[] =>
         [...(all.get(modelId)?.targets ?? [])]
           .filter(([, t]) => kinds.includes(t.kind))
@@ -126,17 +128,23 @@ export function conceptEndpoints(deps: LogKnowledgeDeps): MenuEndpointDeclaratio
       const kinds = q.kind ? [q.kind] : [...CONCEPT_KINDS];
       const sources = scan(q.modelId, kinds);
       const candidates = [...all.keys()].filter((id) => id !== q.modelId).flatMap((id) => scan(id, kinds));
-      // A pair both confirmed members of one concept is already decided by a human: not proposed again.
-      const members = await confirmedMembers(deps.db, workspaceId, [...all.keys()]);
-      const conceptsOf = new Map<string, Set<string>>();
+      // A pair a human already decided is not proposed again: both confirmed members of one concept, or one side
+      // rejected from a concept the other side holds (a row in any state). A different association is still proposed.
+      const members = await decidedMembers(deps.db, workspaceId, [...all.keys()]);
+      const conceptsOf = new Map<string, { confirmed: Set<string>; rejected: Set<string>; any: Set<string> }>();
       for (const m of members) {
         const key = `${m.modelId}|${m.targetKey}`;
-        conceptsOf.set(key, (conceptsOf.get(key) ?? new Set()).add(m.conceptId));
+        const entry = conceptsOf.get(key) ?? { confirmed: new Set<string>(), rejected: new Set<string>(), any: new Set<string>() };
+        entry.any.add(m.conceptId);
+        if (m.reviewState === 'rejected') entry.rejected.add(m.conceptId);
+        if (m.reviewState === 'confirmed' && m.relationKind === 'equivalent') entry.confirmed.add(m.conceptId);
+        conceptsOf.set(key, entry);
       }
+      const shares = (x: Set<string> | undefined, y: Set<string> | undefined): boolean => x !== undefined && y !== undefined && [...x].some((c) => y.has(c));
       const same = (a: ScanTarget, b: ScanTarget): boolean => {
         const mineSet = conceptsOf.get(`${a.modelId}|${a.targetKey}`);
         const theirs = conceptsOf.get(`${b.modelId}|${b.targetKey}`);
-        return mineSet !== undefined && theirs !== undefined && [...mineSet].some((c) => theirs.has(c));
+        return shares(mineSet?.confirmed, theirs?.confirmed) || shares(mineSet?.rejected, theirs?.any) || shares(theirs?.rejected, mineSet?.any);
       };
       const found = scanSuggestions(sources, candidates, same);
       const slice = found.slice(q.page * q.pageSize, (q.page + 1) * q.pageSize);
@@ -153,6 +161,7 @@ export function conceptEndpoints(deps: LogKnowledgeDeps): MenuEndpointDeclaratio
         outcome: 'ok',
         data: {
           total: found.length,
+          truncated: scanTruncated || found.length >= SUGGESTION_CAP,
           rows: slice.map((s) => ({ ...s, candidate: { ...s.candidate, modelName: names.get(s.candidate.modelId) ?? '' } })),
         },
       };

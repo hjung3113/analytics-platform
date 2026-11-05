@@ -1062,7 +1062,7 @@ export const specConceptMappings = knowledgeSchema.table(
     ),
     reviewCheck: check(
       'spec_concept_mapping_review_check',
-      sql`((${t.reviewState} = 'proposed') = (${t.reviewedBy} is null and ${t.reviewedAt} is null)) and ((${t.reviewState} = 'rejected') = (${t.rejectReason} is not null)) and (${t.rejectReason} is null or char_length(${t.rejectReason}) between 1 and 500)`,
+      sql`((${t.reviewState} = 'proposed' and ${t.reviewedBy} is null and ${t.reviewedAt} is null) or (${t.reviewState} <> 'proposed' and ${t.reviewedBy} is not null and ${t.reviewedAt} is not null)) and ((${t.reviewState} = 'rejected') = (${t.rejectReason} is not null)) and (${t.rejectReason} is null or char_length(${t.rejectReason}) between 1 and 500)`,
     ),
     versionCheck: check('spec_concept_mapping_row_version_check', sql`${t.rowVersion} >= 1`),
   }),

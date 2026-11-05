@@ -10529,7 +10529,7 @@
         },
         "spec_concept_mapping_review_check": {
           "name": "spec_concept_mapping_review_check",
-          "value": "((\"knowledge\".\"spec_concept_mapping\".\"review_state\" = 'proposed') = (\"knowledge\".\"spec_concept_mapping\".\"reviewed_by\" is null and \"knowledge\".\"spec_concept_mapping\".\"reviewed_at\" is null)) and ((\"knowledge\".\"spec_concept_mapping\".\"review_state\" = 'rejected') = (\"knowledge\".\"spec_concept_mapping\".\"reject_reason\" is not null)) and (\"knowledge\".\"spec_concept_mapping\".\"reject_reason\" is null or char_length(\"knowledge\".\"spec_concept_mapping\".\"reject_reason\") between 1 and 500)"
+          "value": "((\"knowledge\".\"spec_concept_mapping\".\"review_state\" = 'proposed' and \"knowledge\".\"spec_concept_mapping\".\"reviewed_by\" is null and \"knowledge\".\"spec_concept_mapping\".\"reviewed_at\" is null) or (\"knowledge\".\"spec_concept_mapping\".\"review_state\" <> 'proposed' and \"knowledge\".\"spec_concept_mapping\".\"reviewed_by\" is not null and \"knowledge\".\"spec_concept_mapping\".\"reviewed_at\" is not null)) and ((\"knowledge\".\"spec_concept_mapping\".\"review_state\" = 'rejected') = (\"knowledge\".\"spec_concept_mapping\".\"reject_reason\" is not null)) and (\"knowledge\".\"spec_concept_mapping\".\"reject_reason\" is null or char_length(\"knowledge\".\"spec_concept_mapping\".\"reject_reason\") between 1 and 500)"
         },
         "spec_concept_mapping_row_version_check": {
           "name": "spec_concept_mapping_row_version_check",

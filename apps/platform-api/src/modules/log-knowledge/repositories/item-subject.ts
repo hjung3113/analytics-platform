@@ -10,7 +10,7 @@ import { equipmentModels, itemRevisionSubjects, knowledgeItems, softwareVersions
 import type { Tx } from '../../../db/tx.js';
 import type { FieldError } from '../../menu-dispatch/types.js';
 import type { ItemSubjectValue } from '../domain/item-subject-input.js';
-import { currentTargetsOf, loadCurrentTargets } from './spec-targets.js';
+import { resolveTargets } from './spec-targets.js';
 
 const s = itemRevisionSubjects;
 
@@ -60,21 +60,22 @@ export async function judgeSubjects(
   ownerModelId: string,
   subjects: readonly ItemSubjectValue[],
 ): Promise<{ errors: FieldError[]; rows: (ItemSubjectValue & { specRevNoAtLink: number | null })[] }> {
-  const current = subjects.length > 0 ? await currentTargetsOf(tx, workspaceId, ownerModelId) : null;
+  const owner = ownerModelId.toLowerCase();
+  const resolved = subjects.length > 0 ? await resolveTargets(tx, workspaceId, subjects.filter((x) => x.modelId === owner)) : null;
+  const revision = resolved?.revisions.get(owner) ?? null;
   const errors: FieldError[] = [];
   const rows: (ItemSubjectValue & { specRevNoAtLink: number | null })[] = [];
   subjects.forEach((subject, i) => {
     const at = ['subjects', String(i)];
-    if (subject.modelId !== ownerModelId) {
+    if (subject.modelId !== owner) {
       errors.push({ path: [...at, 'modelId'], code: 'model_mismatch' });
       return;
     }
-    const found = current?.targets.get(subject.targetKey);
-    if (current && (!found || found.kind !== subject.targetKind)) {
+    if (revision && !resolved?.get(owner, subject.targetKind, subject.targetKey)) {
       errors.push({ path: [...at, 'targetKey'], code: 'not_found' });
       return;
     }
-    rows.push({ ...subject, specRevNoAtLink: current?.revisionNo ?? null });
+    rows.push({ ...subject, specRevNoAtLink: revision?.revisionNo ?? null });
   });
   return { errors, rows };
 }
@@ -119,11 +120,11 @@ export async function resolvedSubjects(tx: Tx, workspaceId: string, itemId: stri
     .innerJoin(equipmentModels, and(eq(equipmentModels.workspaceId, s.workspaceId), eq(equipmentModels.id, s.modelId)))
     .where(and(eq(s.workspaceId, workspaceId), eq(s.itemId, itemId), eq(s.revisionNo, revisionNo)))
     .orderBy(asc(s.modelId), asc(s.targetKind), asc(s.targetKey));
-  const current = await loadCurrentTargets(tx, workspaceId, [...new Set(rows.map((r) => r.row.modelId))]);
+  // EXACT lookup of the item's own keys: `gone` only when the current revision really does not hold the key.
+  const current = await resolveTargets(tx, workspaceId, rows.map((r) => ({ modelId: r.row.modelId, targetKind: r.row.targetKind, targetKey: r.row.targetKey })));
   return rows.map(({ row, modelName }) => {
-    const model = current.get(row.modelId);
-    const target = model?.targets.get(row.targetKey);
-    const state: SubjectState = !model ? 'no_spec' : target && target.kind === row.targetKind ? 'resolved' : 'gone';
+    const target = current.get(row.modelId, row.targetKind, row.targetKey);
+    const state: SubjectState = !current.revisions.has(row.modelId) ? 'no_spec' : target ? 'resolved' : 'gone';
     return {
       modelId: row.modelId,
       modelName,

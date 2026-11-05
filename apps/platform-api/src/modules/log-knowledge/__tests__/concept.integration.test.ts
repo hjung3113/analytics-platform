@@ -17,6 +17,7 @@ import { AUDIT_ACTION_BY_EVENT_TYPE } from '../../platform-port/audit-actions.js
 import { toCodeKey } from '../domain/code-key.js';
 import { buildTargetKey } from '../domain/spec-target-key.js';
 import { findEquivalents } from '../repositories/concept.js';
+import { resolveTargets, scanCurrentTargets } from '../repositories/spec-targets.js';
 
 const APP_URL = process.env.DATABASE_URL ?? '';
 const MIGRATE_URL = process.env.DATABASE_URL_MIGRATE ?? '';
@@ -432,6 +433,10 @@ describe.skipIf(!runIntegration)('concept mapping (#1196 e)', () => {
       await expect(review(`review_state = 'confirmed', reviewed_by = '${admin.id}', reviewed_at = now(), row_version = row_version + 2`)).rejects.toMatchObject({ code: '23514' });
       await expect(review(`review_state = 'rejected', reviewed_by = '${admin.id}', reviewed_at = now(), row_version = row_version + 1`), 'reject without reason').rejects.toMatchObject({ code: '23514' });
       await expect(review(`review_state = 'confirmed', row_version = row_version + 1`), 'confirm without reviewer').rejects.toMatchObject({ code: '23514' });
+      await expect(review(`review_state = 'confirmed', reviewed_at = now(), row_version = row_version + 1`), 'confirm with a time but no reviewer').rejects.toMatchObject({ code: '23514' });
+      await expect(review(`review_state = 'confirmed', reviewed_by = '${admin.id}', row_version = row_version + 1`), 'confirm with a reviewer but no time').rejects.toMatchObject({ code: '23514' });
+      await expect(review(`review_state = 'rejected', reject_reason = 'r', reviewed_at = now(), row_version = row_version + 1`), 'reject with a time but no reviewer').rejects.toMatchObject({ code: '23514' });
+      await expect(review(`review_state = 'rejected', reject_reason = 'r', reviewed_by = '${admin.id}', row_version = row_version + 1`), 'reject with a reviewer but no time').rejects.toMatchObject({ code: '23514' });
       await review(`review_state = 'confirmed', reviewed_by = '${admin.id}', reviewed_at = now(), row_version = row_version + 1`);
       await expect(review(`review_state = 'proposed', reviewed_by = null, reviewed_at = null, row_version = row_version + 1`), 'confirmed → proposed').rejects.toMatchObject({ code: '23514' });
       await review(`review_state = 'rejected', reject_reason = 'r', row_version = row_version + 1`);
@@ -526,6 +531,65 @@ describe.skipIf(!runIntegration)('concept mapping (#1196 e)', () => {
       // a module suggestion is still offered (that pair is undecided)
       const modules = (await read('conceptSuggestions', { modelId: a, kind: 'module', pageSize: 200 })).data.rows as { source: Row; candidate: Row }[];
       expect(modules.some((r) => r.source.targetKey === moduleKey('sug') && r.candidate.modelId === b)).toBe(true);
+    });
+    it.each(['mappingId', 'pairMappingId'] as const)(
+      'a pair with a rejected decision (%s) is not suggested again from either model; a different undecided association still is',
+      async (rejectedSide) => {
+        const prefix = `rjs-${rejectedSide === 'mappingId' ? 'a' : 'b'}`;
+        const { a, b } = await pair(prefix);
+        const out = await proposeOk(a, prefix, { canonicalLabel: `${prefix} start`, pairWith: { modelId: b, targetKind: 'event', target: eventBody(prefix) } });
+        const offered = async (from: string, to: string, kind: 'event' | 'module', key: string) =>
+          ((await read('conceptSuggestions', { modelId: from, kind, pageSize: 200 })).data.rows as { source: Row; candidate: Row }[]).some(
+            (r) => r.source.targetKey === key && r.candidate.targetKey === key && r.candidate.modelId === to,
+          );
+        expect(await offered(a, b, 'event', eventKey(prefix)), 'before the decision').toBe(true);
+        const rejected = await act('conceptReject', { mappingId: out[rejectedSide], reason: 'not the same' }, { expectedVersion: '1' });
+        expect(rejected.outcome, JSON.stringify(rejected)).toBe('ok');
+        expect(await offered(a, b, 'event', eventKey(prefix)), 'a to b').toBe(false);
+        expect(await offered(b, a, 'event', eventKey(prefix)), 'b to a').toBe(false);
+        expect(await offered(a, b, 'event', eventKey(prefix, 'Stop')), 'other event pair').toBe(true);
+        expect(await offered(a, b, 'module', moduleKey(prefix)), 'module pair').toBe(true);
+      },
+    );
+
+    it('suggestions say when the bounded scan stopped early; the exact lookup does not use the cap', async () => {
+      const { a } = await pair('cap');
+      expect((await read('conceptSuggestions', { modelId: a, pageSize: 5 })).data.truncated).toBe(false);
+      const all = await scanCurrentTargets(migrate.db, WORKSPACE_ID);
+      const full = all.models.get(a)?.targets.size ?? 0;
+      expect(full).toBeGreaterThanOrEqual(3);
+      const capped = await scanCurrentTargets(migrate.db, WORKSPACE_ID, 1);
+      expect(capped.truncated).toBe(true);
+      expect(capped.models.get(a)?.targets.size ?? 0).toBeLessThan(full);
+      // exact: every key of the spec resolves however the scan was cut; a ghost key and a wrong kind do not; a model without a spec has no revision
+      const refs = [
+        { modelId: a.toUpperCase(), targetKind: 'module', targetKey: moduleKey('cap') },
+        { modelId: a, targetKind: 'event', targetKey: eventKey('cap') },
+        { modelId: a, targetKind: 'event', targetKey: eventKey('cap', 'Stop') },
+        { modelId: a, targetKind: 'event', targetKey: eventKey('cap', 'Ghost') },
+        { modelId: a, targetKind: 'module', targetKey: eventKey('cap') },
+      ];
+      const bare = await newModel('cap-bare');
+      const exact = await resolveTargets(migrate.db, WORKSPACE_ID, [...refs, { modelId: bare, targetKind: 'module', targetKey: moduleKey('cap') }]);
+      expect(refs.map((x) => exact.get(x.modelId, x.targetKind, x.targetKey)?.kind ?? null)).toEqual(['module', 'event', 'event', null, null]);
+      expect(exact.revisions.has(a)).toBe(true);
+      expect(exact.revisions.has(bare)).toBe(false);
+    });
+
+    it('accepts an upper-case model and concept id everywhere: reads answer as for the lower-case spelling, a write names the same target', async () => {
+      const { a, b } = await pair('upc');
+      expect(a.toLowerCase()).not.toBe(a.toUpperCase());
+      const lower = (await read('conceptSuggestions', { modelId: a, kind: 'event', pageSize: 200 })).data;
+      const upper = (await read('conceptSuggestions', { modelId: a.toUpperCase(), kind: 'event', pageSize: 200 })).data;
+      expect(lower.rows.length).toBeGreaterThan(0);
+      expect(upper).toEqual(lower);
+      const out = await proposeOk(a.toUpperCase(), 'upc', { pairWith: { modelId: b.toUpperCase(), targetKind: 'event', target: eventBody('upc') } });
+      for (const params of [{ modelId: a.toUpperCase() }, { conceptId: out.conceptId.toUpperCase() }, { modelId: b.toUpperCase(), conceptId: out.conceptId.toUpperCase() }]) {
+        const rows = (await read('conceptMappings', params)).data.rows as { modelId: string; conceptId: string; targetState: string }[];
+        expect(rows.filter((x) => x.conceptId === out.conceptId).map((x) => [x.modelId, x.targetState]).sort()).toEqual(
+          [[a, 'present'], [b, 'present']].filter(([m]) => !('modelId' in params) || m === (params.modelId as string).toLowerCase()).sort(),
+        );
+      }
     });
   });
 
