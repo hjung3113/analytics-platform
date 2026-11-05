@@ -17,7 +17,7 @@
 | 역할 | 먼저 볼 문서 | 같이 볼 문서 |
 | --- | --- | --- |
 | 신규 합류자 | [00 개요](overview/overview.md) → [17 플랫폼 요구사항](product/platform-requirements.md) → [06 플랫폼 계약](contract/platform-ui-contract.md) | 자기 역할 행 |
-| 기획(PM) — 도메인 | [02 도메인 catalog](product/domain-menus.md) | [GLOSSARY](../GLOSSARY.md), [05](overview/roadmap-and-open-questions.md) |
+| 기획(PM) — 도메인 | [02 도메인 catalog](product/domain-menus.md) | [GLOSSARY](../GLOSSARY.md), [05](overview/roadmap-and-open-questions.md), [기존 업무 시스템 배경](product/existing-systems.md) |
 | 백엔드·인프라 | [01 아키텍처·데이터 계약](architecture/architecture-and-data-contract.md) | [03 백엔드](architecture/backend-stack.md), [실서버 연결 체크리스트](integration/real-server-checklist.md) |
 | 플랫폼·프론트엔드 | [06 플랫폼 계약](contract/platform-ui-contract.md) | [04 프론트 기술 스택](architecture/frontend-ui-ux.md), [07 셸](wireframes/app-shell.md) |
 | 사내 적용(백엔드·인프라·사내 메뉴 개발자) | [사내 적용 가이드](integration/in-house-rollout.md) | [실서버 연결 체크리스트](integration/real-server-checklist.md), [전송 형식](integration/http-adapter-contract.md) |
@@ -76,6 +76,7 @@
 - [00 개요](overview/overview.md) — 목적·범위, YAGNI 제외 목록.
 - [01 아키텍처·데이터 계약](architecture/architecture-and-data-contract.md) — view/mart 구조, 파서-플랫폼 데이터 계약, mart 재계산·집계 가능성·마스터 소유권, 폴링·파서 DB 접근·지연 완료 R/H 원본.
 - [02 도메인 catalog](product/domain-menus.md) — 플랫폼 코어 기능과 도메인 메뉴 그룹.
+- [기존 업무 시스템 배경](product/existing-systems.md) — MARS·CLAS·BRAVO의 형태, 소유(DB·서버·화면), 지표 체계, 생겨난 흐름과 플랫폼 작업에 주는 의미.
 - [03 백엔드](architecture/backend-stack.md) — 백엔드·DB·인증 기술 스택, 재현성·시간 계약.
 - [04 프론트 기술 스택](architecture/frontend-ui-ux.md) — 라이브러리 결정과 코드 현황, 그리드·차트·데이터 도구 검토, 페이지별 UI 패턴.
 - [05 결정 상태](overview/roadmap-and-open-questions.md) — ADR 없는 계약 결정 목록, MVP 지원 환경, 메뉴 활용률 계측 정책.
