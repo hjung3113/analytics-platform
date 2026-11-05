@@ -80,10 +80,11 @@ describe('QueryView inside a workspace panel', () => {
 
   it('takes the panel height so a fill chart inside has a bounded parent; elsewhere it is unchanged', () => {
     const { container, unmount } = render(<I18nProvider><InWorkspacePanelProvider value><QueryView query={ok()}>{data => <p>{data}</p>}</QueryView></InWorkspacePanelProvider></I18nProvider>);
-    expect(container.querySelector('p')!.parentElement).toHaveClass('h-full', 'min-h-0');
+    expect(container.querySelector('p')!.parentElement).toHaveClass('contents');
+    expect(container.querySelector('p')!.closest('[aria-busy]')).toHaveClass('h-full', 'min-h-0');
     unmount();
     const plain = render(<I18nProvider><QueryView query={ok()}>{data => <p>{data}</p>}</QueryView></I18nProvider>);
-    expect(plain.container.querySelector('p')!.parentElement).not.toHaveClass('h-full');
+    expect(plain.container.querySelector('p')!.closest('[aria-busy]')).not.toHaveClass('h-full');
   });
 });
 

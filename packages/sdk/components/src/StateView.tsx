@@ -146,11 +146,11 @@ export function QueryView<T>({ query, children, skeletonRows, skeletonHeight, em
       : <span role="status" aria-label={refreshingLabel} className={analysisSection ? 'absolute right-9 -top-7 inline-flex items-center gap-1 text-tiny text-text-muted' : compactPage ? 'absolute right-3 top-2 z-[1] inline-flex items-center gap-1 text-tiny text-text-muted' : 'absolute right-0 -top-7 inline-flex items-center gap-1 text-tiny text-text-muted'}>
         <Loader2 className="size-3 animate-spin motion-reduce:animate-none" aria-hidden />{refreshingLabel}
       </span>)}
-    {/* Keep this container mounted for opt-in queries, including live results. Fill cards resolve
-        their full-height floor against the space left below the notice, not the whole query. */}
-    {query.showingPrevious !== undefined ? <div data-query-result-content className={cn('relative min-w-0', (inPanel || fill) && 'flex min-h-0 flex-1 flex-col', chart && response.outcome === 'ok' && 'row-span-2 grid grid-rows-subgrid gap-y-0')}>
+    {/* Always keep the same result element, even when keepPrevious is toggled later. Contents
+        preserves live flex/grid children; only retained results need a box for tint and remaining height. */}
+    <div data-query-result-content className={showingPrevious ? cn('relative min-w-0', (inPanel || fill) && 'flex min-h-0 flex-1 flex-col', chart && response.outcome === 'ok' && 'row-span-2 grid grid-rows-subgrid gap-y-0') : 'contents'}>
       {showingPrevious && <div data-query-stale-tint aria-hidden className="pointer-events-none absolute inset-0 z-[1] bg-surface-sunken/20 mix-blend-multiply" />}
       {content}
-    </div> : content}
+    </div>
   </div>;
 }

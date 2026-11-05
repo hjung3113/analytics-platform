@@ -69,13 +69,15 @@ describe('previous-selection in-flow notice (#1365 FIX4V)', () => {
     const result = render(bounded(false));
     const body = screen.getByText('previous');
     const content = result.container.querySelector('[data-query-result-content]');
-    expect(content).toHaveClass('flex', 'flex-col', 'flex-1', 'min-h-0');
+    expect(content).toHaveClass('contents');
     expect(content?.parentElement).toHaveClass('flex', 'flex-col', 'min-h-0');
     result.rerender(bounded(true));
+    expect(content).toHaveClass('flex', 'flex-col', 'flex-1', 'min-h-0');
     expect(screen.getByText('previous')).toBe(body);
     expect(result.container.querySelector('[data-query-result-content]')).toBe(content);
     expect(screen.getByRole('status', { name: label }).nextElementSibling).toBe(content);
     result.rerender(bounded(false));
+    expect(content).toHaveClass('contents');
     expect(screen.queryByRole('status')).toBeNull();
     expect(screen.getByText('previous')).toBe(body);
   });
@@ -88,13 +90,39 @@ describe('previous-selection in-flow notice (#1365 FIX4V)', () => {
     const content = result.container.querySelector('[data-query-result-content]');
     const wrapper = content?.parentElement;
     expect(wrapper).toHaveClass('grid-rows-subgrid', 'row-span-2');
-    expect(content).toHaveClass('row-span-2', 'grid', 'grid-rows-subgrid');
+    expect(content).toHaveClass('contents');
     result.rerender(chartView(true));
     expect(wrapper).toHaveClass('grid-rows-[auto_auto_minmax(0,1fr)]');
     expect(wrapper).not.toHaveClass('grid-rows-subgrid');
     expect(content).toHaveClass('row-span-2', 'grid', 'grid-rows-subgrid');
     result.rerender(chartView(false));
+    expect(content).toHaveClass('contents');
     expect(wrapper).toHaveClass('grid-rows-subgrid');
     expect(wrapper).not.toHaveClass('grid-rows-[auto_auto_minmax(0,1fr)]');
+  });
+});
+
+describe('layout-neutral live result container (#1365 FIX5V)', () => {
+  it.each(['plain', 'fill', 'panel', 'chart'] as const)('keeps %s children in the original layout for every metadata value', kind => {
+    const live = (previous: boolean | undefined) => <I18nProvider>
+      <AnalysisSectionContext.Provider value={kind === 'chart' ? { title: 'Chart', kind: 'chart', collapse: vi.fn() } : null}>
+        <InWorkspacePanelProvider value={kind === 'panel'}>
+          <QueryView query={{ ...query, status: 'done', showingPrevious: previous }} fill={kind === 'fill'}>{data => <p>{data}</p>}</QueryView>
+        </InWorkspacePanelProvider>
+      </AnalysisSectionContext.Provider>
+    </I18nProvider>;
+    const result = render(live(undefined));
+    const body = screen.getByText('previous');
+    const content = result.container.querySelector('[data-query-result-content]');
+    for (const previous of [undefined, false, true]) {
+      result.rerender(live(previous));
+      expect(result.container.querySelector('[data-query-result-content]')).toBe(content);
+      expect(content).toHaveClass('contents');
+      expect(content).not.toHaveClass('flex', 'grid', 'relative', 'row-span-2');
+      expect(screen.getByText('previous')).toBe(body);
+      expect(content?.parentElement).not.toHaveClass('grid-rows-[auto_auto_minmax(0,1fr)]');
+      expect(result.container.querySelector('[data-query-stale-tint]')).toBeNull();
+      expect(screen.queryByRole('status')).toBeNull();
+    }
   });
 });
