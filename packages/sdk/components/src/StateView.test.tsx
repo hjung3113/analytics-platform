@@ -120,4 +120,15 @@ describe('QueryView same-context refresh label (#1166 UX-2)', () => {
     expect(label()).toHaveClass('absolute', 'top-2', 'right-3');
     expect(label().className).not.toContain('-top-7');
   });
+  it('keeps the previous content visible with a named status and aria-busy (kept result of a params change, #1365)', () => {
+    const { container } = render(<I18nProvider><QueryView query={refreshing()}>{() => <p>body</p>}</QueryView></I18nProvider>);
+    expect(screen.getByText('body')).toBeVisible();
+    expect(screen.getByRole('status')).toHaveTextContent('같은 조건으로 갱신 중');
+    expect(container.firstElementChild).toHaveAttribute('aria-busy', 'true');
+  });
+  it('is not busy and draws no status once the status is done', () => {
+    const { container } = render(<I18nProvider><QueryView query={{ ...refreshing(), status: 'done' }}>{() => <p>body</p>}</QueryView></I18nProvider>);
+    expect(screen.queryByRole('status')).toBeNull();
+    expect(container.firstElementChild).toHaveAttribute('aria-busy', 'false');
+  });
 });

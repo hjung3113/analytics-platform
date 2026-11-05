@@ -311,6 +311,167 @@ describe('useMenuQuery identity and request shape', () => {
   });
 });
 
+describe('useMenuQuery keepPrevious (#1365)', () => {
+  const otherEndpoint: EndpointSpec<Params, QueryData> = { ...endpoint, id: 'fixture.other' };
+  const scopedEndpoint: EndpointSpec<Params, QueryData> = { ...endpoint, requiresScope: true };
+
+  type KeepProps = { keepPrevious?: boolean; enabled?: boolean; scoped?: boolean };
+  function KeepProbe({ keepPrevious, enabled = true, scoped = false }: KeepProps) {
+    const { setGlobal } = useHostPlatform();
+    const [page, setPage] = useState(1);
+    const [spec, setSpec] = useState(scoped ? scopedEndpoint : endpoint);
+    const query = useMenuQuery(spec, { page }, enabled, keepPrevious === undefined ? undefined : { keepPrevious });
+    return (
+      <>
+        <p data-testid="query">{query.status}:{query.response?.data?.params.page ?? query.response?.outcome ?? '-'}</p>
+        <p data-testid="at">{query.completedAt ?? 'no-at'}</p>
+        {[2, 3].map(n => <button key={n} type="button" data-testid={`page-${n}`} onClick={() => setPage(n)}>page</button>)}
+        <button type="button" data-testid="period" onClick={() => setGlobal({ from: '2026-09-25T00:00:00', to: '2026-09-26T00:00:00' })}>period</button>
+        <button type="button" data-testid="scope" onClick={() => setGlobal({ scopeId: 'XIA' })}>scope</button>
+        <button type="button" data-testid="endpoint" onClick={() => setSpec(otherEndpoint)}>endpoint</button>
+      </>
+    );
+  }
+
+  /** Every request waits for its own gate: `answer(n)` settles request n (1-based) with the fixture's answer, `fail(n, outcome)` with another outcome. */
+  function held(f: ReturnType<typeof fixture>) {
+    const gates: Array<(override?: ApiResponse<QueryData>['outcome']) => void> = [];
+    const signals: Array<AbortSignal | undefined> = [];
+    const original = vi.mocked(f.adapter.menuQuery).getMockImplementation()!;
+    vi.mocked(f.adapter.menuQuery).mockImplementation(async (request, signal) => {
+      signals.push(signal);
+      const outcome = await new Promise<ApiResponse<QueryData>['outcome'] | undefined>(resolve => { gates.push(resolve); });
+      const reply = await original(request, signal);
+      return outcome ? { ...reply, outcome, data: null, assessments: [] } : reply;
+    });
+    const settle = async (n: number, outcome?: ApiResponse<QueryData>['outcome']) => {
+      await waitFor(() => expect(gates.length).toBeGreaterThanOrEqual(n));
+      await act(async () => { gates[n - 1](outcome); await Promise.resolve(); });
+    };
+    return { settle, signals, requested: () => gates.length };
+  }
+
+  function mountKeep(f: ReturnType<typeof fixture>, props: KeepProps = {}, selectedRegistry = periodRegistry) {
+    return render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={f.adapter} registry={selectedRegistry}><KeepProbe {...props} /></PlatformProvider></I18nProvider>);
+  }
+
+  /** Mounts, lets request 1 land and returns the gate helper for the requests after it. */
+  async function landed(props: KeepProps = { keepPrevious: true }) {
+    const f = fixture();
+    const view = mountKeep(f, props);
+    expect(await screen.findByText('done:1')).toBeTruthy();
+    const gate = held(f);
+    return { f, view, gate, at: screen.getByTestId('at').textContent };
+  }
+  const text = (id: string) => screen.getByTestId(id).textContent;
+
+  it.each([
+    { label: 'no options', props: {} },
+    { label: 'keepPrevious: false', props: { keepPrevious: false } },
+  ])('$label: a params change hides the previous result', async ({ props }) => {
+    const { gate } = await landed(props);
+    act(() => screen.getByTestId('page-2').click());
+    expect(text('query')).toBe('loading:-');
+    expect(text('at')).toBe('no-at');
+    await gate.settle(1);
+    expect(await screen.findByText('done:2')).toBeTruthy();
+  });
+
+  it('keeps the previous result as refreshing while only params change, then shows the new one', async () => {
+    const { gate } = await landed();
+    act(() => screen.getByTestId('page-2').click());
+    expect(text('query')).toBe('refreshing:1');
+    await gate.settle(1);
+    expect(await screen.findByText('done:2')).toBeTruthy();
+  });
+
+  it('keeps the previous accepted time while refreshing, then takes the new time', async () => {
+    const { gate, at } = await landed();
+    expect(at).not.toBe('no-at');
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 5)); });
+    act(() => screen.getByTestId('page-2').click());
+    expect(text('at')).toBe(at);
+    await gate.settle(1);
+    await screen.findByText('done:2');
+    expect(Number(text('at'))).toBeGreaterThan(Number(at));
+  });
+
+  it.each([
+    { label: 'period (applied Context)', button: 'period', props: { keepPrevious: true } },
+    { label: 'Scope', button: 'scope', props: { keepPrevious: true, scoped: true } },
+    { label: 'endpoint', button: 'endpoint', props: { keepPrevious: true } },
+  ])('a $label change still hides the previous result', async ({ button, props }) => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
+    const { gate } = await landed(props);
+    act(() => screen.getByTestId(button).click());
+    expect(text('query')).toBe('loading:-');
+    expect(text('at')).toBe('no-at');
+    await gate.settle(1);
+    expect(await screen.findByText('done:1')).toBeTruthy(); // same page, new Context: the fixture answers with its params
+    expect(text('at')).not.toBe('no-at');
+  });
+
+  it('a params change after a Context change keeps nothing from before the Context change', async () => {
+    const { gate } = await landed();
+    act(() => screen.getByTestId('period').click());
+    act(() => screen.getByTestId('page-2').click());
+    expect(text('query')).toBe('loading:-');
+    await gate.settle(2);
+    expect(await screen.findByText('done:2')).toBeTruthy();
+  });
+
+  it('a session change hides the previous result', async () => {
+    const { f, gate } = await landed();
+    act(() => f.switchTo('b'));
+    expect(text('query')).toBe('loading:-');
+    expect(text('at')).toBe('no-at');
+    await gate.settle(1);
+    expect(await screen.findByText('done:1')).toBeTruthy();
+  });
+
+  it('a closed gate keeps nothing across a params change', async () => {
+    const { f, view } = await landed();
+    view.rerender(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={f.adapter} registry={periodRegistry}><KeepProbe keepPrevious enabled={false} /></PlatformProvider></I18nProvider>);
+    act(() => screen.getByTestId('page-2').click());
+    expect(text('query')).toBe('loading:-');
+  });
+
+  it.each(['error', 'forbidden', 'timeout', 'too_large'] as const)('a %s reply replaces the kept result', async outcome => {
+    const { gate } = await landed();
+    act(() => screen.getByTestId('page-2').click());
+    expect(text('query')).toBe('refreshing:1');
+    await gate.settle(1, outcome);
+    expect(await screen.findByText(`done:${outcome}`)).toBeTruthy();
+    expect(text('at')).not.toBe('no-at');
+  });
+
+  it('page 1 → 2 → 3: only 3 is accepted and 2 never shows once 3 is requested', async () => {
+    const { gate } = await landed();
+    const seen: string[] = [];
+    const watch = new MutationObserver(() => seen.push(text('query') ?? ''));
+    watch.observe(screen.getByTestId('query'), { childList: true, characterData: true, subtree: true });
+    act(() => screen.getByTestId('page-2').click());
+    await waitFor(() => expect(gate.requested()).toBe(1));
+    act(() => screen.getByTestId('page-3').click());
+    await waitFor(() => expect(gate.requested()).toBe(2));
+    expect(text('query')).toBe('refreshing:1');
+    await gate.settle(1); // the late reply of page 2 (already superseded)
+    expect(text('query')).toBe('refreshing:1');
+    await gate.settle(2);
+    expect(await screen.findByText('done:3')).toBeTruthy();
+    watch.disconnect();
+    expect(seen.some(line => line.endsWith(':2'))).toBe(false);
+  });
+
+  it('aborts the pending request on unmount', async () => {
+    const { gate, view } = await landed();
+    act(() => screen.getByTestId('page-2').click());
+    await waitFor(() => expect(gate.requested()).toBe(1));
+    view.unmount();
+    await waitFor(() => expect(gate.signals[0]?.aborted).toBe(true));
+  });
+});
+
 describe('useMenuQuery assessment contract', () => {
   it.each([
     { label: 'missing', kinds: ['collection'] as AssessmentKind[] },
