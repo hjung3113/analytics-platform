@@ -5,7 +5,7 @@ import {
   walkAnalyticsAreaPages,
 } from '@/lib/api/registry-reads';
 import type { ApiError, ApiErrorEnvelope } from '@/lib/api/types';
-import { VOC_CREATE_TARGETS_QUERY_KEY, fetchVocCreateTargets } from '@/lib/api/voc-create-targets';
+import { VOC_CREATE_TARGETS_QUERY_KEY, VOC_CREATE_TARGETS_STALE_MS, fetchVocCreateTargets } from '@/lib/api/voc-create-targets';
 import { VOC_CREATE_COPY } from '@/lib/copy/voc';
 import { useIdempotencyKey } from '@/lib/api/useIdempotencyKey';
 import { useHostSeam } from '@/lib/host/host-seam';
@@ -92,7 +92,7 @@ export function useVocComposeController({
   const targetsQuery = useQuery({
     queryKey: VOC_CREATE_TARGETS_QUERY_KEY,
     queryFn: ({ signal }) => fetchVocCreateTargets(signal),
-    staleTime: 15 * 1000,
+    staleTime: VOC_CREATE_TARGETS_STALE_MS,
     refetchOnMount: 'always',
     retry: false,
   });

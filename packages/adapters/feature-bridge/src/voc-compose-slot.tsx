@@ -1,13 +1,10 @@
 import { lazy, Suspense } from 'react';
 import { useI18n, type VocComposeProps, type VocComposeSlot } from '@ap/kernel';
 import { Skeleton } from '@ap/ui';
-import { VOC_CREATE_TARGETS_QUERY_KEY } from '@ap/feature-screens/global-screens/core';
+import { VOC_CREATE_TARGETS_QUERY_KEY, VOC_CREATE_TARGETS_STALE_MS } from '@ap/feature-screens/global-screens/core';
 import { featureQueryClient } from './feature/session';
 import type { DefaultStatus } from './default-status';
 import { featureApi } from './feature-api';
-
-/** How long a cached create-targets answer counts as current; equals the compose screen's `staleTime` for the same query. */
-const TARGETS_FRESH_MS = 15 * 1000;
 
 const useAlwaysReady = (): DefaultStatus => 'ready';
 
@@ -48,7 +45,7 @@ export function vocComposeSlot(managedSystemFor: (spaceId: string | null) => str
     // The create-targets the drawer loaded (#1358); not cached yet = unknown = available, and the drawer then shows the reason.
     // A denied answer that was invalidated or has aged past the drawer's own freshness window is not trusted: it must not keep the report button shut.
     const state = featureQueryClient.getQueryState<readonly { managed_system_id: string; allowed: boolean }[]>(VOC_CREATE_TARGETS_QUERY_KEY);
-    if (state === undefined || state.isInvalidated || Date.now() - state.dataUpdatedAt > TARGETS_FRESH_MS) return 'available';
+    if (state === undefined || state.isInvalidated || Date.now() - state.dataUpdatedAt > VOC_CREATE_TARGETS_STALE_MS) return 'available';
     return state.data?.some(entry => entry.managed_system_id === systemId && !entry.allowed) ? 'denied' : 'available';
   } };
 }
