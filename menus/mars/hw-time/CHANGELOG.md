@@ -2,6 +2,10 @@
 
 내부 버전이며 발행하지 않는다. SDK 범위는 package.json의 ap.sdk를 따른다.
 
+## 0.2.0 — 2026-11-05
+
+- 단계별·비교·개요·표의 드릴/레벨 선택과 추세 행 선택을 바꾸면 이전 결과가 새 결과가 올 때까지 남는다(공유 조회 훅 `useHwTimeLevel`·`useHwTimeTrend`, #1365, [ADR-0114](../../../docs/adr/0114-opt-in-keep-previous-for-page-input-params.md)). 기간·Scope를 바꾸면 이전처럼 가려진다.
+
 ## 0.1.4 — 2026-11-01
 
 - 4개 화면(단계별·비교·개요·표)에서 `density="compact"` 선언을 걷는다 — SDK 기본 밀도가 compact로 바뀌었다(#1217, 06 §12).

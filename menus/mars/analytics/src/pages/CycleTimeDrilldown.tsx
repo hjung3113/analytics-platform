@@ -117,7 +117,8 @@ export default function CycleTimeDrilldown(_: PageProps) {
   const bucketRange = bucket ? { from: bucket, to: bucketEnd(bucket, granularity) } : null;
   // The server resolves the computation version from the applied metric pair; the page only gates the unconfirmed pair.
   const kpi = useMenuQuery(cycleKpiEndpoint, NO_PARAMS, enabled);
-  const trend = useMenuQuery(cycleTrendEndpoint, { granularity }, enabled);
+  // keepPrevious ON (#1365, ADR-0114): another grain re-buckets the same period and Scope, so the old chart stays (refreshing) until the new buckets arrive.
+  const trend = useMenuQuery(cycleTrendEndpoint, { granularity }, enabled, { keepPrevious: true });
   const dist = useMenuQuery(cycleDistEndpoint, NO_PARAMS, enabled);
   const slowPages = useMenuFetch(cycleSlowPageEndpoint);
   const exports = useMenuFetch(cycleExportEndpoint);

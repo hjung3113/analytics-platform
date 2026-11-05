@@ -18,6 +18,8 @@ const SECTIONS = [
   { id: 'history', ko: '변경 이력', en: 'Change history' },
 ] as const;
 
+const KEEP_PREVIOUS = { keepPrevious: true } as const;
+
 function sectionId(id: string) { return `metric-section-${id}`; }
 
 export default function MetricDetailPage({ params }: PageProps) {
@@ -30,9 +32,11 @@ export default function MetricDetailPage({ params }: PageProps) {
   const returnTo = pageParam('returnTo');
   const tabKnown = SECTIONS.some(s => s.id === tab);
 
-  const pair = useMenuQuery(metricPairEndpoint, { viewedId: metricId, pageVersion: versionParam });
-  const definition = useMenuQuery(definitionEndpoint, { metricId, version: versionParam });
-  const usage = useMenuQuery(usageEndpoint, { metricId, version: versionParam ?? '' }, versionParam !== null);
+  // keepPrevious ON (#1365, ADR-0114): the version buttons re-read the same metric, so the page keeps its frame and the old sections (refreshing) instead of three skeletons.
+  // The old result is another version's definition: the version list marks the chosen version from the URL and the apply action waits (below).
+  const pair = useMenuQuery(metricPairEndpoint, { viewedId: metricId, pageVersion: versionParam }, true, KEEP_PREVIOUS);
+  const definition = useMenuQuery(definitionEndpoint, { metricId, version: versionParam }, true, KEEP_PREVIOUS);
+  const usage = useMenuQuery(usageEndpoint, { metricId, version: versionParam ?? '' }, versionParam !== null, KEEP_PREVIOUS);
   // ADR-0048: the shared audit store, same port read as the equipment Audit tab. A metric has no site, and the
   // record does not change with the global Context, so session identity: a period or scope change does not refetch.
   const history = useEntityAudit({ type: 'metric', id: metricId, scopeId: null });
@@ -86,7 +90,8 @@ export default function MetricDetailPage({ params }: PageProps) {
     description={metric
       ? <span><span className="t-mono">{metric.metricId}</span> · {tx(metric.description)}</span>
       : <span className="t-mono">{metricId}</span>}
-    primaryAction={selected && (selected.state === 'draft'
+    // While the definition is refreshing, `selected` is still the previous version: offering it as the analysis Context would apply the wrong version.
+    primaryAction={selected && definition.status !== 'refreshing' && (selected.state === 'draft'
       // B-13: aria-disabled, not native disabled — the primary stays focusable and the reason is text,
       // not a tooltip (DESIGN Shared interaction: 실제 비활성과 이유를 opacity로 숨기지 않는다).
       ? <span className="flex items-center gap-2">
@@ -150,7 +155,7 @@ export default function MetricDetailPage({ params }: PageProps) {
                 : (lang === 'ko' ? '발행된 버전이 없습니다. 초안·폐기 버전을 직접 고르세요. 초안은 분석 기본값이 아닙니다.' : 'There is no released version. Choose a draft or deprecated version explicitly. Drafts are not analysis defaults.')} />}
             <div className="grid items-start gap-3 lg:grid-cols-[18rem_minmax(0,1fr)]">
               <div className="space-y-3">
-                <VersionSection metric={data.metric} selected={data.version} onSelect={version => setPage({ version })} />
+                <VersionSection metric={data.metric} selected={data.version} chosen={versionParam} onSelect={version => setPage({ version })} />
                 <OwnershipSection metric={data.metric} />
               </div>
               <div className="space-y-3">
@@ -211,14 +216,14 @@ export default function MetricDetailPage({ params }: PageProps) {
   </PlatformPage>;
 }
 
-function VersionSection({ metric, selected, onSelect }: { metric: MetricDef; selected: MetricVersion | null; onSelect: (version: string) => void }) {
+function VersionSection({ metric, selected, chosen, onSelect }: { metric: MetricDef; selected: MetricVersion | null; /** The version in the URL: it leads the shown result while a kept previous result refreshes. */ chosen: string | null; onSelect: (version: string) => void }) {
   const { lang, tx } = useI18n();
   const previous = selected ? metric.versions[metric.versions.findIndex(v => v.version === selected.version) - 1] ?? null : null;
   const diff = selected ? versionDiff(selected, previous, lang) : [];
   return <Panel id={sectionId('version')} title={lang === 'ko' ? '버전' : 'Version'} subtitle={metric.publishedPointer ? (lang === 'ko' ? `발행 포인터 v${metric.publishedPointer}` : `Released pointer v${metric.publishedPointer}`) : (lang === 'ko' ? '발행 포인터 없음' : 'No released pointer')}>
     <ul className="space-y-1">
       {metric.versions.map(v => {
-        const on = selected?.version === v.version;
+        const on = (chosen ?? selected?.version) === v.version;
         return <li key={v.version}>
           <button type="button" aria-pressed={on} onClick={() => onSelect(v.version)}
             className={cn('flex min-h-8 w-full items-center justify-between gap-2 rounded-sm border px-2 py-1 text-left text-xs', on ? 'border-accent-primary bg-accent-primary-soft' : 'border-border-subtle hover:border-border-strong')}>

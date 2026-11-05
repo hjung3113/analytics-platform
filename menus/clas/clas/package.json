@@ -1,7 +1,7 @@
 {
   "name": "@ap/menu-clas",
   "private": true,
-  "version": "0.1.2",
+  "version": "0.2.0",
   "ap": {
     "sdk": ">=0.29.0 <0.30.0"
   },

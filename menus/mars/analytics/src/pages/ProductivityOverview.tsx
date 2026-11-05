@@ -23,6 +23,8 @@ const GRANS: readonly Granularity[] = ['hour', 'day', 'week'];
 const KPI_KEYS = ['occupancy', 'dwell', 'cycleTime', 'throughput'] as const;
 const AXES = ['room', 'stgroup'] as const;
 const SORT_KEYS = ['key', 'occ', 'obs', 'pct', 'jobs'] as const;
+/** Page-input changes on the same period and Scope keep the old result as refreshing (#1365, ADR-0114). */
+const KEEP_PREVIOUS = { keepPrevious: true } as const;
 
 function resolveChoice<T extends string>(raw: string | null, allowed: readonly T[], fallback: T): { ok: true; value: T } | { ok: false } {
   if (raw === null || raw === '') return { ok: true, value: fallback };
@@ -72,8 +74,10 @@ export default function ProductivityOverview(_: PageProps) {
   const granLabel = gran === 'hour' ? (ko ? '시간' : 'hourly') : gran === 'day' ? (ko ? '일별' : 'daily') : (ko ? '주별' : 'weekly');
 
   const kpiQ = useMenuQuery(kpisEndpoint, {}, summary);
-  const trendQ = useMenuQuery(trendEndpoint, { kpi: selectedKpi, granularity: gran }, summary);
-  const breakdownQ = useMenuQuery(breakdownEndpoint, { axis }, canQuery && (drill.depth === 0 || axis === 'room'));
+  // keepPrevious ON (#1365, ADR-0114): a KPI card or grain change reads the same period/Scope again, so the old chart stays (refreshing) until the new series arrives.
+  const trendQ = useMenuQuery(trendEndpoint, { kpi: selectedKpi, granularity: gran }, summary, KEEP_PREVIOUS);
+  // keepPrevious ON: the group-axis tab only regroups the same period; the tab itself already shows the new axis while the old rows refresh.
+  const breakdownQ = useMenuQuery(breakdownEndpoint, { axis }, canQuery && (drill.depth === 0 || axis === 'room'), KEEP_PREVIOUS);
   const attentionQ = useMenuQuery(attentionEndpoint, {}, summary);
   const roomsQ = useMenuQuery(breakdownEndpoint, { axis: 'room' }, canQuery && drill.depth > 0 && axis !== 'room');
   const stgroupQ = useMenuQuery(drillEndpoint, { level: 'stgroup', room: room ?? '', stgroup: '' }, canQuery && room !== null);

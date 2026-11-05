@@ -71,6 +71,7 @@
 | --- | --- |
 | [#1218](https://github.com/hjung3113/analytics-platform/issues/1218) 지표 카탈로그 표 필터 전환·분석 조건 칩 | 구현 + [ADR-0112](../docs/adr/0112-catalog-joins-table-filter-model-analysis-bar-keeps-apply-once.md): 카탈로그 `status`·`domain` → 숨은 반복 `filter` 키(ADR-0105 모델), `PageFilterBar` 행 모드(`onApply`·비접이식) 삭제와 opt-in `appliedChips` 추가. 계약 문서·SDK API 스냅샷 갱신까지 끝. #1362 병합 완료. |
 | [#1233](https://github.com/hjung3113/analytics-platform/issues/1233) 표 필터 단일 선언·공유 초기화 | 구현: `useTableFilterDeclaration`·`useClearFiltersAction`, 감사·권한·설비 세 소비자 전환. #1347 병합 완료. |
+| [#1365](https://github.com/hjung3113/analytics-platform/issues/1365) 탭·카드·드릴 재로딩 | 진행 중: 노드 a(Kernel `useMenuQuery(…, { keepPrevious })`, [ADR-0114](../docs/adr/0114-opt-in-keep-previous-for-page-input-params.md)) 구현, 노드 b(생산성 개요·사이클타임·HW 시간 4화면·지표 상세·로그 지식 Item 상세·CLAS 운영시간에 켬, E2E `contract-no-reload.spec.ts`) 구현. 차트 카탈로그 종류 선택·로그 지식 카탈로그 탭은 끔([backlog](backlog.md)). |
 
 작업 규칙은 루트 `AGENTS.md`, 작업자 함정은 [`docs/agents/operations.md`](../docs/agents/operations.md). 작업자 배정은 전역 `routing.tsv`가 원본이다.
 

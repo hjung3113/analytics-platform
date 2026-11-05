@@ -97,13 +97,19 @@ function DrawerHost({ kind, detail, viewedRevisionNo, onReload }: { kind: Drawer
  * 기술 Item 상세 (#1197 s2, owner-confirmed variant A), read-only: the four body blocks (opinion set apart from fact) on the left,
  * evidence, links and revisions on the right, the assessment history below. `rev` re-reads an older revision; `null` data is not-found.
  */
-export default function ItemDetail({ params }: PageProps) {
+export default function ItemDetail(props: PageProps) {
+  // Keyed by the Item: the kept previous result below is for revision picks only, another Item always starts fresh (#1365).
+  return <ItemDetailScreen key={props.params.itemId} {...props} />;
+}
+
+function ItemDetailScreen({ params }: PageProps) {
   const { pageParam, setPage, can } = usePlatform();
   const keys = usePageKeyRules(RULES);
   const itemId = params.itemId ?? '';
   const revisionNo = revisionOf(pageParam('rev'));
   const known = UUID.test(itemId);
-  const query = useMenuQuery(itemDetailEndpoint, { itemId, ...(revisionNo === null ? {} : { revisionNo }) } satisfies ItemDetailParams, known && !keys.invalid);
+  // keepPrevious ON (#1365, ADR-0114): `rev` re-reads the same Item, so the shown revision stays (refreshing) until the picked one arrives; the banner and revision list follow when it does.
+  const query = useMenuQuery(itemDetailEndpoint, { itemId, ...(revisionNo === null ? {} : { revisionNo }) } satisfies ItemDetailParams, known && !keys.invalid, { keepPrevious: true });
   const detail = query.response?.outcome === 'ok' ? query.response.data : undefined;
   // Only holders of the publish right see write controls; the server stays the authority.
   const canWrite = can(ITEM_PUBLISH_PERMISSION) && !!detail;
