@@ -2,7 +2,7 @@ import { FeatureScreenPage, entityLinksRoute, useEntityLinksHere, useEntityLinks
 import { LinksScreen } from '@ap/feature-screens/operator-screens/entity-links';
 import { isIntegrationLinksSearchValueValid } from '@ap/feature-screens/operator-screens/integration-search';
 
-/** 연결 관계 (ADR-0081, #762): the feature screens' entity-link inventory through the bridge; no detail. Its search box and row checkboxes are the feature screens' own unwired controls, moved unchanged (D8). Links accepts any string for `managedSystem`. */
+/** 연결 관계 (ADR-0081, #762): the feature screens' entity-link inventory through the bridge; no detail. Its search box writes the `q` page key (#1374); the row checkbox was dropped (#1368, D8). Links accepts any string for `managedSystem`. */
 export default function FeatureEntityLinks() {
   return <FeatureScreenPage route={entityLinksRoute} isValid={isIntegrationLinksSearchValueValid} useSearch={useEntityLinksSearch} useHere={useEntityLinksHere}><LinksScreen /></FeatureScreenPage>;
 }

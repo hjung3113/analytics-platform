@@ -191,6 +191,16 @@ describe('LinksScreen search box (#1374)', () => {
     });
   });
 
+  it('stops a paste at 200 characters so the URL never carries an invalid q', async () => {
+    await mount({});
+    const box = screen.getByPlaceholderText(SEARCH_LABEL);
+    await userEvent.click(box);
+    await userEvent.paste('x'.repeat(201));
+    expect(box).toHaveValue('x'.repeat(200));
+    await userEvent.keyboard('{Enter}');
+    expect(written().search).toEqual({ q: 'x'.repeat(200) });
+  });
+
   it('clearing the box removes q and keeps the other keys', async () => {
     await mount({ q: 'VOC-12', type: 'related_to' });
     const box = screen.getByPlaceholderText(SEARCH_LABEL);

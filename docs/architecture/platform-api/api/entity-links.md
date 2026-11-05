@@ -87,10 +87,18 @@ hidden, denied and summary-only rows never match, are never returned and never
 count, so a search cannot reveal a link or an endpoint title the actor may not
 read. `q` combines with `status`, `relation_type`, `managed_system_id` and
 `cursor`, and is rejected in endpoint mode. With `q` the first page's
-`status_counts` count the matching rows (before the status filter). The search
-looks through the newest 1000 list-visible rows that match the relation type and
-Managed System filters; older rows are not searched, and the cursor continues the
-same `created_at DESC, id DESC` order over the matches.
+`status_counts` count the matching rows (before the status filter).
+
+The search is complete: the server scans the workspace's stored links (relation
+type and Managed System filters applied) in keyset batches of 500 in the same
+`created_at DESC, id DESC` order, starting after the request's cursor, runs each
+batch through the visibility pipeline, and keeps the allowed rows that match
+until it has `limit + 1` matches or the rows run out. Hidden and denied rows
+therefore never change results, counts or cursors. The cursor of a page is the
+usual cursor built from the last returned row's raw timestamp text and id. The
+first page without `status` also scans to the end to count matches per status.
+The cost is linear in the workspace's link count per request, which is fine for
+the target scale.
 
 ## FO ADR-0064 canonical-link access (accepted; #740 cutover)
 

@@ -56,6 +56,9 @@ export function validateIntegrationCoverageSearch(raw: unknown) {
   return parseRouteSearch(integrationCoverageSearchSchema, raw);
 }
 
+/** Longest `q` the 연결 관계 URL accepts; the search box stops typing and pasting at this length. */
+export const INTEGRATION_LINKS_SEARCH_MAX = 200;
+
 export const integrationLinksSearchSchema = z
   .object({
     status: z.enum(['active', 'stale', 'detached', 'revoked']).optional(),
@@ -63,7 +66,7 @@ export const integrationLinksSearchSchema = z
     q: z
       .string()
       .trim()
-      .max(200)
+      .max(INTEGRATION_LINKS_SEARCH_MAX)
       .transform((value) => value || undefined)
       .optional(),
     managedSystem: z.string().optional(),

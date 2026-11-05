@@ -21,6 +21,7 @@ import { readVocClusterMemberships } from '../voc-clusters/read-projections.js';
 import type { Db } from '../../db/client.js';
 import type { Tx } from '../../db/tx.js';
 import { HttpError } from '../../lib/errors.js';
+import { normalizePgTimestampToIso } from '../../lib/pg-timestamp.js';
 import type { AuditService } from '../core/audit/audit-service.js';
 import type { CheckService } from '../permissions/check-service.js';
 import { decodeEntityLinksInventoryCursor, encodeEntityLinksInventoryCursor } from './cursor.js';
@@ -39,6 +40,7 @@ import {
   selectActiveLinksForEndpoint,
   selectActiveLinksForEndpointPage,
   selectEntityLinkById,
+  selectLinkScanBatch,
   selectLinksByWorkspace,
   selectVocFollowUpRoots,
 } from './repo.js';
@@ -116,8 +118,8 @@ function toSummaryVisibleDto(row: EntityLinkRow, summary: TaskReporterSummary): 
   };
 }
 
-/** Newest list-visible links a `q` search looks through (#1374). */
-const INVENTORY_SEARCH_WINDOW = 1000;
+/** Stored rows per keyset batch of the `q` search scan (#1374). */
+const INVENTORY_SCAN_BATCH = 500;
 
 /** The row's identity text: display id by prefix, title by substring, like the sibling list searches. */
 function endpointSummaryMatches(
@@ -1064,9 +1066,12 @@ export function createEntityLinksService(deps: EntityLinksServiceDeps) {
   /**
    * `q` search (#1374). Endpoint titles live in the endpoint modules' tables and a SQL match would
    * also match endpoints the actor cannot read, so the match runs on the internal summaries of rows
-   * that already passed the visibility decision: a hidden, denied or summary-only row never matches
-   * and never counts. The newest SEARCH_WINDOW list-visible rows are searched; paging and
-   * `status_counts` are computed over the matches.
+   * that already passed the visibility decision: a hidden, denied or summary-only row never matches,
+   * never counts and never moves a cursor. The stored rows are scanned in keyset batches (same
+   * filters and `created_at DESC, id DESC` order as the page query) starting after the request's
+   * cursor until `limit + 1` matches are found or the rows run out, so a result is complete. The
+   * first page without a status also scans on to the end to count matches per status. The cost is
+   * linear in the workspace's link count per request. Cursors carry the raw timestamp text.
    */
   async function listInventoryLinksMatching(
     args: {
@@ -1079,43 +1084,53 @@ export function createEntityLinksService(deps: EntityLinksServiceDeps) {
     },
     decodedCursor: { createdAt: string; id: string } | undefined,
   ) {
-    const { actor } = args;
-    const window = await selectLinksByWorkspace(deps.db, {
-      workspaceId: actor.workspace_id,
-      limit: INVENTORY_SEARCH_WINDOW,
-      ...(args.relationType !== undefined ? { relationType: args.relationType } : {}),
-      ...(args.managedSystemId !== undefined ? { managedSystemId: args.managedSystemId } : {}),
-    });
+    const { actor, statuses } = args;
     const needle = args.q.toLocaleLowerCase();
-    const matches = (await buildInventoryItems(actor, window.items)).filter(
-      (entry) =>
-        entry.decision === 'allowed' &&
-        entry.dto.visibility_state === 'allowed' &&
-        [entry.dto.source_summary, entry.dto.target_summary].some((summary) =>
-          endpointSummaryMatches(summary, needle),
-        ),
-    );
+    const wantCounts = decodedCursor === undefined && statuses === undefined;
     const statusCounts: EntityLinkStatusCounts = { active: 0, stale: 0, detached: 0, revoked: 0 };
-    for (const entry of matches) statusCounts[entry.row.status] += 1;
-    const statuses = args.statuses;
-    const filtered =
-      statuses !== undefined && statuses.length > 0
-        ? matches.filter((entry) => statuses.includes(entry.row.status))
-        : matches;
-    const afterIndex =
-      decodedCursor === undefined
-        ? 0
-        : filtered.findIndex(
-            (entry) =>
-              entry.row.id !== decodedCursor.id &&
-              (entry.row.created_at.getTime() < Date.parse(decodedCursor.createdAt) ||
-                (entry.row.created_at.getTime() === Date.parse(decodedCursor.createdAt) &&
-                  entry.row.id < decodedCursor.id)),
-          );
-    const rest = afterIndex === -1 ? [] : filtered.slice(afterIndex);
-    const pageEntries = rest.slice(0, args.limit);
+    const collected: { dto: EntityLinkDto; id: string; createdAtRaw: string }[] = [];
+    let cursor = decodedCursor;
+    for (;;) {
+      const batch = await selectLinkScanBatch(deps.db, {
+        workspaceId: actor.workspace_id,
+        limit: INVENTORY_SCAN_BATCH,
+        ...(cursor !== undefined ? { cursor } : {}),
+        ...(statuses !== undefined ? { statuses } : {}),
+        ...(args.relationType !== undefined ? { relationType: args.relationType } : {}),
+        ...(args.managedSystemId !== undefined ? { managedSystemId: args.managedSystemId } : {}),
+      });
+      const rawById = new Map(batch.rows.map((entry) => [entry.row.id, entry.createdAtRaw]));
+      const items = await buildInventoryItems(
+        actor,
+        batch.rows.map((entry) => entry.row),
+      );
+      for (const entry of items) {
+        if (
+          entry.decision !== 'allowed' ||
+          entry.dto.visibility_state !== 'allowed' ||
+          ![entry.dto.source_summary, entry.dto.target_summary].some((summary) =>
+            endpointSummaryMatches(summary, needle),
+          )
+        ) {
+          continue;
+        }
+        if (wantCounts) statusCounts[entry.row.status] += 1;
+        if (collected.length <= args.limit) {
+          collected.push({
+            dto: entry.dto,
+            id: entry.row.id,
+            createdAtRaw: rawById.get(entry.row.id) as string,
+          });
+        }
+      }
+      const lastRow = batch.rows.at(-1);
+      if (batch.exhausted || lastRow === undefined) break;
+      if (!wantCounts && collected.length > args.limit) break;
+      cursor = { createdAt: normalizePgTimestampToIso(lastRow.createdAtRaw), id: lastRow.row.id };
+    }
+    const pageEntries = collected.slice(0, args.limit);
     const last = pageEntries.at(-1);
-    const hasMore = rest.length > args.limit;
+    const hasMore = collected.length > args.limit;
     return {
       items: pageEntries.map((entry) => entry.dto),
       page: {
@@ -1123,14 +1138,12 @@ export function createEntityLinksService(deps: EntityLinksServiceDeps) {
         ...(hasMore && last
           ? {
               cursor: encodeEntityLinksInventoryCursor({
-                createdAtRaw: last.row.created_at.toISOString(),
-                id: last.row.id,
+                createdAtRaw: last.createdAtRaw,
+                id: last.id,
               }),
             }
           : {}),
-        ...(decodedCursor === undefined && statuses === undefined
-          ? { status_counts: statusCounts }
-          : {}),
+        ...(wantCounts ? { status_counts: statusCounts } : {}),
       },
     };
   }

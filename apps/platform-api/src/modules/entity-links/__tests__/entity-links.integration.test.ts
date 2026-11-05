@@ -235,13 +235,18 @@ describe.skipIf(!runIntegration)('POST/GET /entity-links (#112)', () => {
     relationType?: string;
     managedSystemId: string;
     visibility: 'internal_only' | 'summary_visible' | 'visible_to_reporter' | 'admin_only';
+    /** Explicit timestamp text and id, for ordering tests; default is now() and a generated uuid. */
+    createdAt?: string;
+    id?: string;
   }): Promise<string> {
     const res = await migrateHandle.pool.query<{ id: string }>(
       `insert into core.entity_links (
           workspace_id, source_type, source_id, target_type, target_id,
-          relation_type, visibility, status, managed_system_id, created_by
+          relation_type, visibility, status, managed_system_id, created_by,
+          created_at, id
         )
-       values ($1, $2, $3, $4, $5, $6, $7, 'active', $8, $9)
+       values ($1, $2, $3, $4, $5, $6, $7, 'active', $8, $9,
+         coalesce($10::timestamptz, now()), coalesce($11::uuid, gen_random_uuid()))
        returning id`,
       [
         WORKSPACE_ID,
@@ -253,6 +258,8 @@ describe.skipIf(!runIntegration)('POST/GET /entity-links (#112)', () => {
         input.visibility,
         input.managedSystemId,
         adminActorId,
+        input.createdAt ?? null,
+        input.id ?? null,
       ],
     );
     const id = res.rows[0]?.id;
@@ -2396,6 +2403,225 @@ describe.skipIf(!runIntegration)('POST/GET /entity-links (#112)', () => {
     // Over-long q is a validation error, not a silent truncation.
     const tooLong = await getEntityLinks(cookie, `?scope=workspace&q=${'x'.repeat(201)}`);
     expect(tooLong.statusCode).toBe(422);
+  });
+
+  /** A developer who reads findings and VOCs in `msA` only, plus `msA`/`msB` and a cluster in `msA`. */
+  async function prepareQSearch(token: string) {
+    const msA = await insertMsDirectly(
+      migrateHandle,
+      WORKSPACE_ID,
+      `${uid(SLUG_PREFIX)}-q-a`,
+      'Q MS-A',
+    );
+    const msB = await insertMsDirectly(
+      migrateHandle,
+      WORKSPACE_ID,
+      `${uid(SLUG_PREFIX)}-q-b`,
+      'Q MS-B',
+    );
+    const sourceVoc = await insertVocDirectly(
+      migrateHandle,
+      WORKSPACE_ID,
+      msA,
+      reporterId,
+      'Q seed VOC',
+    );
+    const cluster = await insertVocClusterRow(migrateHandle, {
+      workspaceId: WORKSPACE_ID,
+      primaryManagedSystemId: msA,
+      title: `Cluster ${token}`,
+      status: 'confirmed',
+      createdBy: adminActorId,
+    });
+    const { id: developerId, externalId } = await insertDevActor(
+      dbHandle,
+      WORKSPACE_ID,
+      uid('qsrch'),
+    );
+    await grantCapability(dbHandle, WORKSPACE_ID, developerId, 'voc.read', msA, adminActorId);
+    await grantCapability(dbHandle, WORKSPACE_ID, developerId, 'finding.read', msA, adminActorId);
+    const cookie = await loginAs(app, externalId);
+    type Body = {
+      items: Array<{ id: string }>;
+      page: {
+        has_more: boolean;
+        cursor?: string;
+        status_counts?: {
+          active: number;
+          stale: number;
+          detached: number;
+          revoked: number;
+        };
+      };
+    };
+    const search = async (query: string) => {
+      const res = await getEntityLinks(cookie, `?scope=workspace&${query}`);
+      expect(res.statusCode).toBe(200);
+      return res.json<Body>();
+    };
+    const seedReadable = async (title: string, createdAt: string, id?: string) => {
+      const finding = await seedFindingDirectly({
+        managedSystemId: msA,
+        sourceVocId: sourceVoc.id,
+        title,
+      });
+      return seedEntityLinkDirectly({
+        sourceType: 'voc_cluster',
+        sourceId: cluster.id,
+        targetType: 'finding',
+        targetId: finding.id,
+        relationType: 'created_finding',
+        managedSystemId: msA,
+        visibility: 'internal_only',
+        createdAt,
+        ...(id !== undefined ? { id } : {}),
+      });
+    };
+    return { msA, msB, cluster, cookie, search, seedReadable };
+  }
+
+  it('GET workspace inventory q is not changed by newer hidden or denied links (#1374 M1)', async () => {
+    const token = uid('qhid').replace(/[^a-z0-9]/gi, '');
+    const { msB, cluster, search, seedReadable } = await prepareQSearch(token);
+    const oldMatch = await seedReadable(`Old match ${token}`, '2026-01-01T00:00:00.000000Z');
+    const olderMatch = await seedReadable(`Older match ${token}`, '2025-12-01T00:00:00.000000Z');
+    const baseline = await search(`q=${token}&limit=1`);
+    expect(baseline.items.map((item) => item.id)).toEqual([oldMatch]);
+    expect(baseline.page.has_more).toBe(true);
+    expect(baseline.page.status_counts).toEqual({
+      active: 2,
+      stale: 0,
+      detached: 0,
+      revoked: 0,
+    });
+
+    // More than one scan batch of newer links whose target is not readable: they never match,
+    // count or move a cursor, and they must not push the readable matches out of the search.
+    await migrateHandle.pool.query(
+      `insert into core.entity_links (
+         workspace_id, source_type, source_id, target_type, target_id,
+         relation_type, visibility, status, managed_system_id, created_by, created_at
+       )
+       select $1, 'voc_cluster', $2, 'finding', gen_random_uuid(),
+         'created_finding', 'internal_only', 'active', $3, $4,
+         '2026-06-01T00:00:00Z'::timestamptz + (n || ' seconds')::interval
+       from generate_series(1, 1100) as n`,
+      [WORKSPACE_ID, cluster.id, msB, adminActorId],
+    );
+    const after = await search(`q=${token}&limit=1`);
+    expect(after).toEqual(baseline);
+    const next = await search(
+      `q=${token}&limit=1&cursor=${encodeURIComponent(after.page.cursor ?? '')}`,
+    );
+    expect(next.items.map((item) => item.id)).toEqual([olderMatch]);
+    expect(next.page.has_more).toBe(false);
+  });
+
+  it('GET workspace inventory q finds a match older than 1000 newer non-matching links (#1374)', async () => {
+    const token = uid('qold').replace(/[^a-z0-9]/gi, '');
+    const { msA, cluster, search, seedReadable } = await prepareQSearch(token);
+    const oldMatch = await seedReadable(`Old match ${token}`, '2020-01-01T00:00:00.000000Z');
+    // 1100 newer links to readable findings whose titles do not match the search.
+    const sourceVoc = await insertVocDirectly(
+      migrateHandle,
+      WORKSPACE_ID,
+      msA,
+      reporterId,
+      'Q bulk VOC',
+    );
+    const bulkTitle = `Bulk ${uid('b').replace(/[^a-z0-9]/gi, '')}`;
+    const bulk = await seedFindingDirectly({
+      managedSystemId: msA,
+      sourceVocId: sourceVoc.id,
+      title: bulkTitle,
+    });
+    const bulkCluster = await insertVocClusterRow(migrateHandle, {
+      workspaceId: WORKSPACE_ID,
+      primaryManagedSystemId: msA,
+      title: bulkTitle,
+      status: 'confirmed',
+      createdBy: adminActorId,
+    });
+    await migrateHandle.pool.query(
+      `insert into core.entity_links (
+         workspace_id, source_type, source_id, target_type, target_id,
+         relation_type, visibility, status, managed_system_id, created_by, created_at
+       )
+       select $1, 'voc_cluster', $2, 'finding', gen_random_uuid(),
+         'created_finding', 'internal_only', 'active', $3, $4,
+         '2026-06-01T00:00:00Z'::timestamptz + (n || ' seconds')::interval
+       from generate_series(1, 1100) as n`,
+      [WORKSPACE_ID, bulkCluster.id, msA, adminActorId],
+    );
+    expect(bulk.id).toBeDefined();
+    const result = await search(`q=${token}`);
+    expect(result.items.map((item) => item.id)).toEqual([oldMatch]);
+    expect(result.page.has_more).toBe(false);
+    expect(result.page.status_counts).toEqual({
+      active: 1,
+      stale: 0,
+      detached: 0,
+      revoked: 0,
+    });
+    expect(cluster.id).toBeDefined();
+  });
+
+  it.each([1, 2])(
+    'GET workspace inventory q pages are complete and never repeat for same-millisecond links, limit=%i (#1374 M2)',
+    async (limit) => {
+      const token = uid('qms').replace(/[^a-z0-9]/gi, '');
+      const { search, seedReadable } = await prepareQSearch(token);
+      // Same millisecond, different microseconds; the uuid order is the reverse of the time order.
+      const a = await seedReadable(
+        `A ${token}`,
+        '2026-09-01T00:00:00.123900Z',
+        'aaaaaaaa-0000-4000-8000-000000000001',
+      );
+      const b = await seedReadable(
+        `B ${token}`,
+        '2026-09-01T00:00:00.123800Z',
+        'aaaaaaaa-0000-4000-8000-000000000003',
+      );
+      const c = await seedReadable(
+        `C ${token}`,
+        '2026-09-01T00:00:00.123700Z',
+        'aaaaaaaa-0000-4000-8000-000000000002',
+      );
+      const seen: string[] = [];
+      let cursor: string | undefined;
+      for (let page = 0; page < 5; page += 1) {
+        const body = await search(
+          `q=${token}&limit=${limit}${cursor !== undefined ? `&cursor=${encodeURIComponent(cursor)}` : ''}`,
+        );
+        seen.push(...body.items.map((item) => item.id));
+        cursor = body.page.cursor;
+        if (!body.page.has_more) break;
+      }
+      expect(seen).toEqual([a, b, c]);
+    },
+  );
+
+  it('GET workspace inventory q rejects endpoint mode and treats a blank q as no search (#1374)', async () => {
+    const token = uid('qval').replace(/[^a-z0-9]/gi, '');
+    const { cluster, cookie, search, seedReadable } = await prepareQSearch(token);
+    const match = await seedReadable(`Match ${token}`, '2026-01-01T00:00:00.000000Z');
+    const endpoint = await getEntityLinks(
+      cookie,
+      `?source_type=voc_cluster&source_id=${cluster.id}&q=${token}`,
+    );
+    expect(endpoint.statusCode).toBe(422);
+    // Surrounding whitespace is trimmed.
+    expect(
+      (await search(`q=${encodeURIComponent(`  ${token}  `)}`)).items.map((i) => i.id),
+    ).toEqual([match]);
+    // An empty or whitespace-only q is the plain list, not a search for nothing.
+    const plain = await search('');
+    for (const blank of ['q=', 'q=%20%20']) {
+      const body = await search(blank);
+      expect(body.items.map((i) => i.id)).toEqual(plain.items.map((i) => i.id));
+      expect(body.page.has_more).toBe(plain.page.has_more);
+      expect(body.page.status_counts).toEqual(plain.page.status_counts);
+    }
   });
 
   it('GET a VOC Task link projects only the reporter-safe Task summary', async () => {

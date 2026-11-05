@@ -21,7 +21,7 @@ import {
   entityLinkInventoryQueryKey,
   useEntityLinkInventory,
 } from '../hooks/useEntityLinkInventory';
-import { validateIntegrationLinksSearch } from './integration-search';
+import { INTEGRATION_LINKS_SEARCH_MAX, validateIntegrationLinksSearch } from './integration-search';
 
 type StatusFilter = EntityLinkStatus;
 
@@ -303,7 +303,7 @@ export function LinksScreen() {
             <SearchInput
               placeholder={`${GLOSSARY.entityLinks} 검색…`}
               value={searchDraft}
-              onValueChange={setSearchDraft}
+              onValueChange={(value) => setSearchDraft(value.slice(0, INTEGRATION_LINKS_SEARCH_MAX))}
               onCommit={commitSearch}
             />
             <ListFilterButton
