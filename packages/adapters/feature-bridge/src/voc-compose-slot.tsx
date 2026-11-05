@@ -1,8 +1,13 @@
 import { lazy, Suspense } from 'react';
 import { useI18n, type VocComposeProps, type VocComposeSlot } from '@ap/kernel';
 import { Skeleton } from '@ap/ui';
+import { VOC_CREATE_TARGETS_QUERY_KEY } from '@ap/feature-screens/global-screens/core';
+import { featureQueryClient } from './feature/session';
 import type { DefaultStatus } from './default-status';
 import { featureApi } from './feature-api';
+
+/** How long a cached create-targets answer counts as current; equals the compose screen's `staleTime` for the same query. */
+const TARGETS_FRESH_MS = 15 * 1000;
 
 const useAlwaysReady = (): DefaultStatus => 'ready';
 
@@ -28,7 +33,7 @@ function Loading() {
  * `useDefaultStatus` (optional, a module-level hook so the slot keeps one stable `Compose`) reports whether the app's lookup behind `managedSystemFor` is
  * `ready`, still `pending` or `failed`; the form blocks its submit until `ready` so a VOC is never filed against a silently missing default (#1289 node j). Absent = always ready.
  * `availability` (the error view's 「이 오류 신고」 gate, #606): `off` without a feature API (mock preview: the form would show `실서버 필요`), otherwise `available`. The client cannot know
- * before submit whether the actor may create a VOC (the server answers per Managed System) or whether the screen's Managed System takes one, so `denied` is never returned here; a refusal at submit shows through the form's own error handling.
+ * before submit whether the actor may create a VOC (the server answers per Managed System) or whether the screen's Managed System takes one, so `denied` is returned only when the drawer already cached `GET /vocs/create-targets` and it closes the screen's system (#1358); before that it is `available` and the drawer shows the reason.
  * Only `apps/platform-web/src/main.tsx` imports this.
  */
 export function vocComposeSlot(managedSystemFor: (spaceId: string | null) => string | null, useDefaultStatus: () => DefaultStatus = useAlwaysReady): VocComposeSlot {
@@ -36,5 +41,14 @@ export function vocComposeSlot(managedSystemFor: (spaceId: string | null) => str
     const defaultStatus = useDefaultStatus();
     return <Suspense fallback={<Loading />}><VocCompose {...props} managedSystemFor={managedSystemFor} defaultStatus={defaultStatus} /></Suspense>;
   }
-  return { Compose, availability: () => featureApi() === null ? 'off' : 'available' };
+  return { Compose, availability: target => {
+    if (featureApi() === null) return 'off';
+    const systemId = managedSystemFor(target.spaceId);
+    if (systemId === null) return 'available';
+    // The create-targets the drawer loaded (#1358); not cached yet = unknown = available, and the drawer then shows the reason.
+    // A denied answer that was invalidated or has aged past the drawer's own freshness window is not trusted: it must not keep the report button shut.
+    const state = featureQueryClient.getQueryState<readonly { managed_system_id: string; allowed: boolean }[]>(VOC_CREATE_TARGETS_QUERY_KEY);
+    if (state === undefined || state.isInvalidated || Date.now() - state.dataUpdatedAt > TARGETS_FRESH_MS) return 'available';
+    return state.data?.some(entry => entry.managed_system_id === systemId && !entry.allowed) ? 'denied' : 'available';
+  } };
 }

@@ -5,6 +5,7 @@ import { I18nProvider, PlatformProvider, createRegistry, type VocComposeContext 
 import { memoryStorage, testAdapter, testSession } from '@ap/kernel/testing';
 import { groupId, spaceId } from '@ap/contracts';
 import { UserRound } from 'lucide-react';
+import { VOC_CREATE_TARGETS_QUERY_KEY } from '@ap/feature-screens/global-screens/core';
 import { setFeatureApi } from './feature-api';
 import { featureQueryClient } from './feature/session';
 import { LAZY_MOUNT_WAIT } from './testing';
@@ -186,5 +187,32 @@ describe('VOC 등록 slot opened from a screen error view (#606)', () => {
     expect(vocComposeSlot(() => null).availability?.({ spaceId: null, menuId: null })).toBe('available');
     setFeatureApi(null);
     expect(vocComposeSlot(() => null).availability?.({ spaceId: null, menuId: null })).toBe('off');
+  });
+
+  it('says denied for a known system the cached create-targets close, and available otherwise (#1358)', () => {
+    const slot = vocComposeSlot(() => OTHER);
+    const target = { spaceId: null, menuId: null };
+    // Not loaded yet: the drawer shows the reason later.
+    expect(slot.availability?.(target)).toBe('available');
+    featureQueryClient.setQueryData(VOC_CREATE_TARGETS_QUERY_KEY, [{ managed_system_id: PLATFORM, allowed: false, reason: 'restricted' }, { managed_system_id: OTHER, allowed: true }]);
+    expect(slot.availability?.(target)).toBe('available');
+    featureQueryClient.setQueryData(VOC_CREATE_TARGETS_QUERY_KEY, [{ managed_system_id: OTHER, allowed: false, reason: 'restricted' }]);
+    expect(slot.availability?.(target)).toBe('denied');
+    // An unknown system (no lookup answer) is never denied.
+    expect(vocComposeSlot(() => null).availability?.(target)).toBe('available');
+  });
+
+  it('does not let an invalidated or aged-out denied block the report, and follows a fresh allowed (#1358 F4)', () => {
+    const slot = vocComposeSlot(() => OTHER);
+    const target = { spaceId: null, menuId: null };
+    const denied = [{ managed_system_id: OTHER, allowed: false, reason: 'restricted' }];
+    featureQueryClient.setQueryData(VOC_CREATE_TARGETS_QUERY_KEY, denied);
+    expect(slot.availability?.(target)).toBe('denied');
+    void featureQueryClient.invalidateQueries({ queryKey: VOC_CREATE_TARGETS_QUERY_KEY, refetchType: 'none' });
+    expect(slot.availability?.(target)).toBe('available');
+    featureQueryClient.setQueryData(VOC_CREATE_TARGETS_QUERY_KEY, denied, { updatedAt: 1 });
+    expect(slot.availability?.(target)).toBe('available');
+    featureQueryClient.setQueryData(VOC_CREATE_TARGETS_QUERY_KEY, [{ managed_system_id: OTHER, allowed: true }]);
+    expect(slot.availability?.(target)).toBe('available');
   });
 });

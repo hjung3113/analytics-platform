@@ -29,7 +29,7 @@ const ALWAYS: Capability[] = [
   'knowledge.spec.publish',
   'improvement.manage',
 ];
-const UNLESS_DENIED: Capability[] = ['survey.read', 'survey.manage'];
+const UNLESS_DENIED: Capability[] = ['survey.read', 'survey.manage', 'voc.create'];
 const NONE: Capability[] = [
   'workspace.read',
   'workspace.admin',

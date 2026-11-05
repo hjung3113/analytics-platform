@@ -15,6 +15,7 @@ describe('isOrdinarilyRequestable', () => {
     ['knowledge.spec.publish', true],
     ['improvement.manage', true],
     ['voc.read_public', true],
+    ['voc.create', true],
   ] as const)('%s → %s', (capability: Capability, expected) => {
     expect(isOrdinarilyRequestable(capability)).toBe(expected);
   });

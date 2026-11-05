@@ -90,6 +90,7 @@ export function createVocService(deps: VocServiceDeps) {
     ...createVocNoFollowUpCommands(deps),
     createVoc: createCommands.createVoc,
     assertCreateOwnerOverride: createCommands.assertCreateOwnerOverride,
+    listCreateTargets: createCommands.listCreateTargets,
     updateVoc: updateCommands.updateVoc,
     editVocDescription: editDescriptionCommands.editVocDescription,
     createVocCommand: createCommands.createVocCommand,

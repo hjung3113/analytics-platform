@@ -16,6 +16,7 @@ export interface RegisterManagedSystemBody {
 
 export interface UpdateManagedSystemBody {
   name?: string;
+  voc_create_mode?: 'open' | 'restricted';
   external_key?: string | null;
   default_owner_actor_id?: string | null;
   default_owner_team_id?: string | null;

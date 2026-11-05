@@ -6,6 +6,7 @@ export const CAPABILITY_LABELS: Readonly<Record<Capability, string>> = {
   'voc.triage': 'VOC 분류',
   'voc.read': 'VOC 조회',
   'voc.read_public': '공개 VOC 열람',
+  'voc.create': 'VOC 등록',
   'finding.read': 'Finding 조회',
   'finding.manage': 'Finding 관리',
   'task_request.self_approve': '본인 Task 요청 직접 승인',

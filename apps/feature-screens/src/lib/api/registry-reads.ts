@@ -15,6 +15,8 @@ export interface ManagedSystemDto {
   default_owner_team_id: string | null;
   default_reviewer_actor_id: string | null;
   default_reviewer_team_id: string | null;
+  /** #1358: who may file a VOC here (`restricted` = Admin and `voc.create` holders). Optional: fixtures and older servers omit it, read it as `open`. */
+  voc_create_mode?: 'open' | 'restricted';
   archived_at: string | null;
   archived_by_actor_id: string | null;
   created_at: string;

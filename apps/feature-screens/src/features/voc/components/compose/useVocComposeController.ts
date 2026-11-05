@@ -5,6 +5,8 @@ import {
   walkAnalyticsAreaPages,
 } from '@/lib/api/registry-reads';
 import type { ApiError, ApiErrorEnvelope } from '@/lib/api/types';
+import { VOC_CREATE_TARGETS_QUERY_KEY, fetchVocCreateTargets } from '@/lib/api/voc-create-targets';
+import { VOC_CREATE_COPY } from '@/lib/copy/voc';
 import { useIdempotencyKey } from '@/lib/api/useIdempotencyKey';
 import { useHostSeam } from '@/lib/host/host-seam';
 import {
@@ -83,6 +85,21 @@ export function useVocComposeController({
   // Set when a submit attempt finds the merged attachment set over the per-parent cap; reflects the latest attempt.
   const [attachmentLimitExceeded, setAttachmentLimitExceeded] = React.useState(false);
 
+  // A submit-time 403 belongs to the system that was submitted. `settledAt` is the targets answer that followed it; only a newer answer can end the failure early.
+  const [deniedSubmit, setDeniedSubmit] = React.useState<{ systemId: string; settledAt: number | null } | null>(null);
+  const submittedMs = React.useRef('');
+  // The targets are a pre-check only: while loading or failed nothing is blocked (the server decides at submit).
+  const targetsQuery = useQuery({
+    queryKey: VOC_CREATE_TARGETS_QUERY_KEY,
+    queryFn: ({ signal }) => fetchVocCreateTargets(signal),
+    staleTime: 15 * 1000,
+    refetchOnMount: 'always',
+    retry: false,
+  });
+  const deniedIds = new Set(
+    (targetsQuery.data ?? []).filter((target) => !target.allowed).map((target) => target.managed_system_id),
+  );
+
   const mutation = useVocCreateMutation({
     idempotencyKey,
     onSuccess: (data) => {
@@ -94,6 +111,15 @@ export function useVocComposeController({
     onError: (err: ApiError) => {
       // A 401 already retired the bridge session (`onSessionLost`); the host shows the expiry state, not a toast.
       if (err.status === 401) return;
+      if (err.status === 403 && err.code === 'permission.denied') {
+        // #1358: shown inline under the picker, not as a generic failure toast; the refreshed targets mark the system closed.
+        const systemId = submittedMs.current;
+        setDeniedSubmit({ systemId, settledAt: null });
+        void targetsQuery.refetch().then((result) => {
+          setDeniedSubmit((current) => (current?.systemId === systemId && current.settledAt === null ? { systemId, settledAt: result.dataUpdatedAt } : current));
+        });
+        return;
+      }
       if (err.code === 'validation.failed') {
         // Server field errors land on their fields.
         const fields = (err.detail as { fields?: unknown } | undefined)?.fields;
@@ -195,7 +221,17 @@ export function useVocComposeController({
     label: ms.name,
     slug: ms.slug,
     archived: ms.archived_at !== null,
+    ...(deniedIds.has(ms.id) ? { disabled: true, title: VOC_CREATE_COPY.createDenied } : {}),
   }));
+  const selectedDenied = deniedIds.has(selectedMs);
+  // Another selection ends that failure; so does a targets answer newer than the one after the 403 that lists the system as allowed.
+  const recovered =
+    deniedSubmit?.settledAt != null && targetsQuery.dataUpdatedAt > deniedSubmit.settledAt && targetsQuery.data !== undefined && !deniedIds.has(deniedSubmit.systemId);
+  React.useEffect(() => {
+    if (deniedSubmit !== null && (selectedMs !== deniedSubmit.systemId || recovered)) setDeniedSubmit(null);
+  }, [deniedSubmit, selectedMs, recovered]);
+  const showCreateDenied = selectedDenied || (selectedMs !== '' && deniedSubmit?.systemId === selectedMs && !recovered);
+  const hasDeniedOption = deniedIds.size > 0;
   const aaOptions = (aaQuery.data?.items ?? []).map((aa) => ({
     id: aa.id,
     label: aa.name,
@@ -213,6 +249,7 @@ export function useVocComposeController({
       return;
     }
     setAttachmentLimitExceeded(false);
+    submittedMs.current = body.primary_managed_system_id;
     mutation.mutate({
       ...body,
       description_rich_content: appendContextBlock(doc, contextBlock),
@@ -233,6 +270,9 @@ export function useVocComposeController({
     aaQuery,
     msOptions,
     aaOptions,
+    selectedDenied,
+    showCreateDenied,
+    hasDeniedOption,
     isSubmitting: mutation.isPending,
     attachmentsUploading,
     hasAttachmentErrors,

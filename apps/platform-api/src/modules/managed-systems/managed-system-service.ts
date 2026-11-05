@@ -86,6 +86,8 @@ export interface UpdateManagedSystemBody {
   default_owner_team_id?: string | null | undefined;
   default_reviewer_actor_id?: string | null | undefined;
   default_reviewer_team_id?: string | null | undefined;
+  /** #1358 (ADR-0113): who may file a VOC here. The 「플랫폼」 system accepts only `open`. */
+  voc_create_mode?: 'open' | 'restricted' | undefined;
 }
 
 export interface ManagedSystemDto {
@@ -98,6 +100,7 @@ export interface ManagedSystemDto {
   default_owner_team_id: string | null;
   default_reviewer_actor_id: string | null;
   default_reviewer_team_id: string | null;
+  voc_create_mode: string;
   archived_at: string | null;
   archived_by_actor_id: string | null;
   created_at: string;
@@ -145,6 +148,7 @@ function toDto(row: Row): ManagedSystemDto {
     default_owner_team_id: row.defaultOwnerTeamId,
     default_reviewer_actor_id: row.defaultReviewerActorId,
     default_reviewer_team_id: row.defaultReviewerTeamId,
+    voc_create_mode: row.vocCreateMode,
     archived_at: row.archivedAt ? row.archivedAt.toISOString() : null,
     archived_by_actor_id: row.archivedByActorId,
     created_at: row.createdAt.toISOString(),
@@ -330,6 +334,7 @@ export function createManagedSystemService(deps: ManagedSystemServiceDeps) {
           defaultOwnerTeamId: string | null;
           defaultReviewerActorId: string | null;
           defaultReviewerTeamId: string | null;
+          vocCreateMode: string;
         }> = {};
 
         if (body.name !== undefined && body.name !== existing.name) {
@@ -385,6 +390,19 @@ export function createManagedSystemService(deps: ManagedSystemServiceDeps) {
             to: body.default_reviewer_team_id ?? null,
           };
           patch.defaultReviewerTeamId = body.default_reviewer_team_id ?? null;
+        }
+        if (body.voc_create_mode !== undefined && body.voc_create_mode !== existing.vocCreateMode) {
+          // The 「플랫폼」 system is the report target of every screen; it stays open (ADR-0113), whatever the stored mode.
+          if (
+            existing.externalKey === PLATFORM_MANAGED_SYSTEM_EXTERNAL_KEY &&
+            body.voc_create_mode !== 'open'
+          ) {
+            throw new HttpError('validation.failed', 'the platform system always accepts VOCs', {
+              fields: [{ path: ['voc_create_mode'], code: 'platform_always_open' }],
+            });
+          }
+          changes.voc_create_mode = { from: existing.vocCreateMode, to: body.voc_create_mode };
+          patch.vocCreateMode = body.voc_create_mode;
         }
         if (body.default_owner_actor_id !== undefined || body.default_owner_team_id !== undefined) {
           await validateResponsibilityDefault(

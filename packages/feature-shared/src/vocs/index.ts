@@ -3,6 +3,7 @@ export * from './attachment.js';
 export * from './conversation-query.js';
 export * from './conversation.js';
 export * from './create-request.js';
+export * from './create-targets.js';
 export * from './detail.js';
 export * from './edit-description-request.js';
 export * from './internal-comment-request.js';

@@ -201,8 +201,8 @@ Acceptance Criteria:
 
 ```text
 - Reporter can create VOC without Task access.
-- Any AD-authenticated Actor can create their own VOC without a Permission Request.
-- Admin, Developer, and User can all create VOC.
+- Any AD-authenticated Actor can create their own VOC without a Permission Request in a Managed System that is `open` (the default, ADR-0113). A system set to `restricted` admits only Admin and holders of a `voc.create` grant for it; the 「플랫폼」 system is always open. An explicit `voc.create` deny blocks creation in either mode. VOCs filed earlier stay readable and editable.
+- Admin, Developer, and User can all create VOC in an open system.
 - VOC requires one Primary Managed System.
 - Reporter may optionally select Analytics Area only under the chosen Primary Managed System.
 - Created VOC starts as "접수됨".

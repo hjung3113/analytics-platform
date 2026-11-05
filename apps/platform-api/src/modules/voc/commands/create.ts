@@ -13,6 +13,7 @@ import {
   linkRejectedFields,
 } from '../../attachments/index.js';
 import { lockManagedSystem } from '../../managed-systems/index.js';
+import { canCreateVoc, listVocCreateTargets } from '../../permissions/voc-create-policy.js';
 import { insertVoc } from '../repo.js';
 import { operatorOnlyVocFields } from '../reporter-projection.js';
 import { resolveOwner } from '../responsibility.js';
@@ -79,6 +80,19 @@ export function createVocCreateCommands(deps: VocServiceDeps) {
       throw new HttpError('conflict.parent_archived', 'managed system archived', {
         fields: [{ path: ['primary_managed_system_id'], code: 'parent_archived' }],
       });
+    }
+
+    // 1b. #1358 (ADR-0113): per-system creation permission, decided under the system lock so a concurrent
+    // `voc_create_mode` change cannot slip between the check and the INSERT. After the 404/409 checks above.
+    if (
+      !(await canCreateVoc(
+        deps.checkService,
+        { ...actor, role_level: actor.role_level ?? 'user' },
+        ms,
+        { tx },
+      ))
+    ) {
+      throw new HttpError('permission.denied', 'you cannot file a VOC in this managed system');
     }
 
     // 2. FOR UPDATE on AA (if supplied) — verify MS match + not archived.
@@ -248,5 +262,9 @@ export function createVocCreateCommands(deps: VocServiceDeps) {
       );
     });
   }
-  return { createVoc, createVocCommand, assertCreateOwnerOverride };
+  // GET /vocs/create-targets — the same rule as step 1b for every live system, for the submit form to pre-check.
+  async function listCreateTargets(actor: CreateVocActor) {
+    return listVocCreateTargets(deps.db, { ...actor, role_level: actor.role_level ?? 'user' });
+  }
+  return { createVoc, createVocCommand, assertCreateOwnerOverride, listCreateTargets };
 }

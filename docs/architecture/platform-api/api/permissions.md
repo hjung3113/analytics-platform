@@ -547,6 +547,8 @@ The strict response is `permissionGrantOptionsSchema` in
 }
 ```
 
+`voc.create` (ADR-0113, #1358) is Managed System scoped like `voc.read_public`: a direct grant is system-scoped only (the API rejects a workspace-wide grant with 422), to a User as well, although the decision function still honors an existing workspace-wide grant; a deny with `managed_system_id` blocks creation in that system only. A grant matters only in a system whose `voc_create_mode` is `restricted`; a deny applies in open mode and on the platform system too (`api/core.md`, `api/voc.md`).
+
 Only a `voc.triage` candidate includes `prerequisites`, and the key is omitted
 otherwise. An empty array is invalid. The prerequisite is `voc.read` on the same
 Managed System; a workspace-wide triage candidate would use workspace `voc.read`

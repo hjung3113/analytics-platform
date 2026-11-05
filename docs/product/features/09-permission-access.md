@@ -78,7 +78,7 @@ The backend returns effective navigation and capability states for the current w
 
 | Capability | User | Developer | Admin |
 | --- | --- | --- | --- |
-| Create own VOC | yes, no permission request | yes, no permission request | yes, no permission request |
+| Create own VOC (ADR-0113: a system set to `restricted` admits only Admin and `voc.create` holders; default `open`, an explicit deny still blocks) | yes in an open system, otherwise permission required (system scope) | yes in an open system, otherwise permission required (system scope) | yes, unless an explicit deny applies |
 | Read own VOC public status | yes | yes | yes |
 | Add Reporter Reply on own VOC | yes | yes | yes |
 | Write Public Update | no | same Managed System scope | yes |

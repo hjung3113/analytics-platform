@@ -375,12 +375,18 @@ export const managedSystems = coreSchema.table(
     defaultSurveyOperatorActorId: uuid('default_survey_operator_actor_id').references(
       () => actors.id,
     ),
+    // #1358 (ADR-0113): who may file a VOC here. `open` = anyone not denied, `restricted` = Admin and `voc.create` holders.
+    vocCreateMode: text('voc_create_mode').notNull().default('open'),
     archivedAt: timestamp('archived_at', { withTimezone: true }),
     archivedByActorId: uuid('archived_by_actor_id').references(() => actors.id),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
+    vocCreateModeCheck: check(
+      'managed_systems_voc_create_mode_check',
+      sql`${t.vocCreateMode} in ('open','restricted')`,
+    ),
     workspaceIdx: index('managed_systems_workspace_idx').on(t.workspaceId),
     workspaceSlugActiveUq: uniqueIndex('managed_systems_workspace_slug_active_uq')
       .on(t.workspaceId, t.slug)

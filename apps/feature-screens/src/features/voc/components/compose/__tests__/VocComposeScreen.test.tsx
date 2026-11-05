@@ -428,7 +428,11 @@ describe('<VocComposeScreen> network (F6)', () => {
     const paths = calls.map((c) => new URL(c.url, 'http://x').pathname);
     expect(paths.filter((p) => /recommendations|similarity|\/me(\/|$)/.test(p))).toEqual([]);
     expect(new Set(paths)).toEqual(
-      new Set(['/api/features/managed-systems', '/api/features/analytics-areas']),
+      new Set([
+        '/api/features/managed-systems',
+        '/api/features/analytics-areas',
+        '/api/features/vocs/create-targets',
+      ]),
     );
   });
 });

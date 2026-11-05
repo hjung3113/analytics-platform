@@ -1,8 +1,9 @@
 import { RotateCw } from 'lucide-react';
-import { PlatformPage, LoadingBlock, StateMessage } from '@ap/components';
+import { PlatformPage, LoadingBlock, StateMessage, DetailDrawer } from '@ap/components';
 import { useI18n, usePlatform } from '@ap/kernel';
 import { FeatureBridge, useSystemsOverview } from '@ap/feature-bridge';
 import { Button, StatusBadge } from '@ap/ui';
+import { SystemVocPermissions, type SystemPermissionRow } from '@ap/feature-screens/operator-screens/managed-systems';
 import { systemRows, type SystemRow } from '../system-rows';
 
 type Copy = { ko: string; en: string };
@@ -40,7 +41,7 @@ function SystemsTable() {
     return <StateMessage icon={<RotateCw className="size-4" aria-hidden />} title={ko ? '등록된 시스템이 없습니다' : 'No systems are registered'}
       body={ko ? '업무 시스템이 서버 시작 때 등록되면 여기에 보입니다.' : 'Business systems appear here once the server registers them at startup.'} />;
   }
-  return <table className="w-full text-sm">
+  const baseline = <table className="w-full text-sm">
     <caption className="sr-only">{ko ? '업무 시스템과 추적 시스템의 연결' : 'Business systems and their tracked systems'}</caption>
     <thead><tr className="t-table-header text-left text-text-muted">{HEADERS.map(header => <th key={header.en} scope="col" className="py-1 pr-3 font-semibold">{tx(header)}</th>)}</tr></thead>
     <tbody>{rows.map(row => <tr key={row.key} data-kind={row.kind} className="border-t border-border-subtle">
@@ -53,9 +54,20 @@ function SystemsTable() {
       <td className="py-2"><LinkState row={row} lang={lang} /></td>
     </tr>)}</tbody>
   </table>;
+  const permissionRows: SystemPermissionRow[] = rows.map(row => {
+    const id = row.kind === 'platform' ? data.platformManagedSystemId
+      : row.kind === 'space' ? data.links.find(link => link.spaceId === row.spaceId)?.managedSystemId
+      : row.key.slice('manual:'.length);
+    return {
+      key: row.key, id: id ?? row.key, name: row.systemName ?? (ko ? '(목록에 없음)' : '(not in the list)'),
+      kind: row.kind, platform: row.kind === 'platform', archived: row.archived,
+      business: <SpaceCell row={row} lang={lang} tx={tx} />, link: <LinkState row={row} lang={lang} />,
+    };
+  });
+  return <SystemVocPermissions rows={permissionRows} fallback={baseline} renderDetail={parts => <DetailDrawer title={parts.title} subtitle={parts.subtitle} onClose={parts.requestClose} tabs={[{ id: 'voc', label: 'VOC 등록 권한', content: parts.body }]} />} />;
 }
 
-/** 시스템 (#1289 node j): read-only list of the business systems' tracked systems and link state, through the feature bridge. */
+/** 시스템 (#1289 node j): business systems, tracked systems and link state, with admin VOC creation settings through the feature bridge. */
 export default function SystemsScreen() {
   return <PlatformPage>
     <FeatureBridge><SystemsTable /></FeatureBridge>

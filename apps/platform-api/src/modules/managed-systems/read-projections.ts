@@ -1,4 +1,4 @@
-import { type SQL, type SQLWrapper, sql } from 'drizzle-orm';
+import { type SQL, type SQLWrapper, and, eq, isNull, sql } from 'drizzle-orm';
 
 import type { Db } from '../../db/client.js';
 import { managedSystems } from '../../db/schema/core.js';
@@ -14,6 +14,22 @@ export async function allManagedSystemIds(db: Db | Tx, workspaceId: string): Pro
       sql`${managedSystems.workspaceId} = ${workspaceId} AND ${managedSystems.archivedAt} IS NULL`,
     );
   return rows.map((r) => r.id);
+}
+
+/** Live (non-archived) systems of a workspace with the fields VOC create policy reads, ordered by name then id. */
+export async function listLiveManagedSystemsForVocCreate(
+  db: Db | Tx,
+  workspaceId: string,
+): Promise<Array<{ id: string; external_key: string | null; voc_create_mode: string }>> {
+  return (db as Db)
+    .select({
+      id: managedSystems.id,
+      external_key: managedSystems.externalKey,
+      voc_create_mode: managedSystems.vocCreateMode,
+    })
+    .from(managedSystems)
+    .where(and(eq(managedSystems.workspaceId, workspaceId), isNull(managedSystems.archivedAt)))
+    .orderBy(managedSystems.name, managedSystems.id);
 }
 
 /** Whether a Managed System exists in a workspace, including archived systems. */

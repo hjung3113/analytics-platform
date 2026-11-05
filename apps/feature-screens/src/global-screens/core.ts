@@ -8,6 +8,7 @@ export { useUnreadNotificationCount } from '@/lib/cross-system/useUnreadNotifica
 export type { DetailParts } from '@/lib/host/detail-parts';
 export type { HostLinkProps, HostNavigate, HostNotice, HostSeam } from '@/lib/host/host-seam';
 export type { HostSearch } from '@/lib/host/search';
+export { VOC_CREATE_TARGETS_QUERY_KEY } from '@/lib/api/voc-create-targets';
 export { createFeatureQueryClient } from '@/lib/query/query-client';
 export { FeatureScreenRoot } from './FeatureScreenRoot';
 export { scopeSwitchClears } from '@/lib/host/scope-switch';
