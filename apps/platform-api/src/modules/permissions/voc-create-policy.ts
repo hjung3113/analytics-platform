@@ -6,10 +6,8 @@
 //   platform    -> the registry-owned 「플랫폼」 system is always open, whatever its stored mode.
 // An explicit deny wins over everyone including Admin, like every other capability (05-permission-policy §Check Order).
 
-import { and, eq, isNull } from 'drizzle-orm';
-
-import { managedSystems } from '../../db/schema/core.js';
 import type { Tx } from '../../db/tx.js';
+import { listLiveManagedSystemsForVocCreate } from '../managed-systems/read-projections.js';
 import { PLATFORM_MANAGED_SYSTEM_EXTERNAL_KEY } from '../managed-systems/registry-keys.js';
 import {
   type ActorContext,
@@ -75,15 +73,7 @@ export async function listVocCreateTargets(
   now: () => Date = () => new Date(),
 ): Promise<VocCreateTarget[]> {
   const [systems, { denyRows, grantRows }] = await Promise.all([
-    db
-      .select({
-        id: managedSystems.id,
-        external_key: managedSystems.externalKey,
-        voc_create_mode: managedSystems.vocCreateMode,
-      })
-      .from(managedSystems)
-      .where(and(eq(managedSystems.workspaceId, actor.workspace_id), isNull(managedSystems.archivedAt)))
-      .orderBy(managedSystems.name, managedSystems.id),
+    listLiveManagedSystemsForVocCreate(db, actor.workspace_id),
     loadDenyAndGrantRows(db, actor, 'voc.create'),
   ]);
   const rightNow = now().getTime();
