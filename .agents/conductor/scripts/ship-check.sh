@@ -5,6 +5,9 @@
 #                  $WAVE_BRIEFS/<issue>/) with a `review-plan:` line, and a review-final record:
 #                  W-<issue>-FINAL.json or a W-<issue>-FINAL*.md report with a filled `Verdict:` line
 #                  (PENDING/TBD skeletons do not count).
+#   over cap       tier=full with more than 2 review-final runs (state JSONs W-<issue>-*.json with
+#                  role review-final in $WAVE_STATE) requires an `over-cap: <reason>` line in VERIFY
+#                  (PROFILE §Size and path: the cap is one review plus one fix-diff re-review).
 #   ux=required    requires a UX record (W-<issue>-UX.json) or a `ux-skip: <evidence path>` line in
 #                  VERIFY whose path exists (relative paths resolve against the worktree).
 # Exit 0 all records present; 1 anything missing (each missing item printed); 2 usage / tier unreadable /
@@ -164,8 +167,25 @@ self_test() {
     bash "$0" 1142 "$T/wt" >/dev/null; rc=$?
   expect 0 "false plan JSON passes"
 
+  # over cap: three review-final state JSONs need an over-cap: line in VERIFY
+  for n in RF RF2 RF3; do printf '{"role": "review-final"}\n' >"$T/state/W-1142-$n.json"; done
+  printf '{"role": "review-ux"}\n' >"$T/state/W-1142-UX9.json"
+  printf 'review-plan: reviewers=review-final\n' >"$T/state/W-1142-VERIFY.md"
+  SHIP_CHECK_TIER='tier=full verify=full merge=locked why=x' bash "$0" 1142 "$T/wt" >"$T/out"; rc=$?
+  expect 1 "over cap without reason"
+  grep -q "over-cap" "$T/out" || fail "over cap: no message"
+  pass=$((pass + 1))
+  printf 'review-plan: reviewers=review-final\nover-cap: R3 found a real major after R2 passed\n' >"$T/state/W-1142-VERIFY.md"
+  SHIP_CHECK_TIER='tier=full verify=full merge=locked why=x' bash "$0" 1142 "$T/wt" >/dev/null; rc=$?
+  expect 0 "over cap with reason"
+  rm "$T/state/W-1142-RF3.json"
+  printf 'review-plan: reviewers=review-final\n' >"$T/state/W-1142-VERIFY.md"
+  SHIP_CHECK_TIER='tier=full verify=full merge=locked why=x' bash "$0" 1142 "$T/wt" >/dev/null; rc=$?
+  expect 0 "two review-final runs within cap"
+  rm -f "$T/state/W-1142-RF.json" "$T/state/W-1142-RF2.json" "$T/state/W-1142-UX9.json"
+
   cleanup
-  echo "ship-check.sh self-test passed: $pass checks (usage, light, missing VERIFY, review-plan line, FINAL.json, Verdict report, PENDING rejected, ux missing, ux-skip pass/fail, UX.json, plan failure/error JSON/empty/non-JSON/unsupported ux block, optional/false plan passes)"
+  echo "ship-check.sh self-test passed: $pass checks (usage, light, missing VERIFY, review-plan line, FINAL.json, Verdict report, PENDING rejected, ux missing, ux-skip pass/fail, UX.json, plan failure/error JSON/empty/non-JSON/unsupported ux block, optional/false plan passes, over-cap reason)"
 }
 
 for a in "${1:-}" "${2:-}"; do
@@ -285,6 +305,18 @@ if [ "$ux" = required ]; then
     fi
   fi
   [ "$ux_found" -eq 0 ] && missing "no UX record (W-$issue-UX.json) and no ux-skip: line in ${verify:-VERIFY (not found)}"
+fi
+
+# over cap: more than 2 review-final runs for this issue need a recorded reason (not a block on the count).
+if [ "$tier" = full ] && [ -n "${WAVE_STATE:-}" ] && [ -d "$WAVE_STATE" ]; then
+  rf_runs=0
+  for f in "$WAVE_STATE"/W-"$issue"-*.json; do
+    [ -f "$f" ] || continue
+    grep -Eq '"role"[[:space:]]*:[[:space:]]*"review-final"' "$f" && rf_runs=$((rf_runs + 1))
+  done
+  if [ "$rf_runs" -gt 2 ] && ! { [ -n "$verify" ] && grep -Eq '^[[:space:]]*over-cap:[[:space:]]*[^[:space:]]' "$verify"; }; then
+    missing "$rf_runs review-final runs exceed the cap of 2; add an over-cap: <reason> line to ${verify:-VERIFY}"
+  fi
 fi
 
 if [ -n "${MISSING:-}" ]; then

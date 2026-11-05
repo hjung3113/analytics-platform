@@ -6,6 +6,7 @@
 # Output (one line; exit code is always 0):
 #   <green|yellow|red> workers=<1-7> lanes=<2-4> start=<yes|no> free=<%> swap_used_mb=<n> swap_total_mb=<n> swap_delta_mb=<n|?> load1=<x> ncpu=<n> why=<reason>
 #   start=no means do not start a new worker or heavy step. Do not take an occupied slot or lock.
+#   Load guard: start=no also when load1 > 2×ncpu (owner, 2026-11-06), whatever the memory stage; why= then names the load.
 # Optional environment variables: CAPACITY_STATE (previous swap record file, default $AP_MAIN/.review/capacity.last, or $TMPDIR/capacity.last if AP_MAIN is unset),
 #   CAPACITY_GREEN_FREE(25) CAPACITY_RED_FREE(20) CAPACITY_SWAP_GROW_MB(256) CAPACITY_SWAP_FULL_MB(8192) CAPACITY_SWAP_WINDOW_S(1800) CAPACITY_SWAP_MIN_AGE_S(120)
 set -u
@@ -62,8 +63,8 @@ growing=0
 [ "$delta" != '?' ] && [ "$delta" -ge "$grow_mb" ] && growing=1
 
 why=
-# Determine the stage only from free memory % (owner decision).
-# Keep swap, load, and kernel pressure as reference values in the output only; accumulated swap alone does not indicate a current shortage.
+# Determine the stage only from free memory % (owner decision). Load overrides only start= (the load guard below).
+# Keep swap and kernel pressure as reference values in the output only; accumulated swap alone does not indicate a current shortage.
 if [ "$free" -lt "$red_free" ]; then
   level=red
   why="free ${free}% < ${red_free}%"
@@ -80,4 +81,9 @@ case $level in
   yellow) w=3; l=3; s=yes ;;
   red) w=1; l=2; s=no ;;
 esac
+# Load guard: a machine this busy slows every running worker, so new starts wait even with free memory.
+if [ "$load_hi" -eq 1 ]; then
+  s=no
+  why="$why; load1 ${load1} > 2x${ncpu}"
+fi
 echo "$level workers=$w lanes=$l start=$s free=$free swap_used_mb=$swap_used swap_total_mb=$swap_total swap_delta_mb=$delta load1=$load1 ncpu=$ncpu why=$why"
