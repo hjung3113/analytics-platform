@@ -13,6 +13,13 @@ export type QueryState<T> = {
   completedAt: number | null;
   response: ApiResponse<T> | null;
   refetch: () => void;
+  /**
+   * `useMenuQuery` only (ADR-0114): the `params` the displayed result was loaded with; undefined while no result is shown.
+   * With `keepPrevious` it differs from the caller's current params while a kept result shows.
+   */
+  resultParams?: unknown;
+  /** `useMenuQuery` only: true while a kept result is shown whose params differ (same structural comparison as the query key) from the current ones. */
+  showingPrevious?: boolean;
 };
 
 /**
@@ -34,7 +41,7 @@ function errorEnvelope(error: unknown): ApiResponse<never> {
   return { outcome: 'error', data: null, assessments: [], trust: null, correlationId: clientCorrelationId(), message: String(error) };
 }
 
-type Accepted = { key: string; scope: string; data: unknown; at: number };
+type Accepted = { key: string; scope: string; data: unknown; at: number; params: unknown };
 
 /** Opt-in of {@link useMenuQuery} (ADR-0114). */
 export type MenuQueryOptions = {
@@ -74,7 +81,7 @@ function useRefreshEpoch(refreshEpoch: number, refetch: () => void): void {
  * lets an enabled hook keep its last accepted `ok`/`empty` result as `refreshing` while a key that differs only in page inputs
  * loads; the kept result keeps its own `completedAt`, and any reply of the new key (also an error) replaces it.
  */
-function useQueryLifecycle<T>(parts: readonly [string, ...unknown[]], run: (signal: AbortSignal) => Promise<ApiResponse<T>>, enabled: boolean, refreshEpoch: number, idle: readonly QueryMissing[] | null, keepScope?: readonly unknown[]): QueryState<T> {
+function useQueryLifecycle<T>(parts: readonly [string, ...unknown[]], run: (signal: AbortSignal) => Promise<ApiResponse<T>>, enabled: boolean, refreshEpoch: number, idle: readonly QueryMissing[] | null, keepScope?: readonly unknown[], paramsInfo?: { value: unknown }): QueryState<T> {
   const { client, gen } = useQueryEngine();
   const isIdle = idle !== null;
   const [kind, ...rest] = parts;
@@ -100,8 +107,8 @@ function useQueryLifecycle<T>(parts: readonly [string, ...unknown[]], run: (sign
   useDropOnIdle(client, openKey, hashKey(openKey), isIdle);
 
   const [accepted, setAccepted] = useState<Accepted | null>(null);
-  const live: Accepted | null = active && query.data !== undefined ? { key: hash, scope: scopeHash, data: query.data, at: query.dataUpdatedAt } : null;
-  if (live && (accepted?.key !== hash || accepted.data !== live.data || accepted.at !== live.at)) setAccepted(live);
+  const live: Accepted | null = active && query.data !== undefined ? { key: hash, scope: scopeHash, data: query.data, at: query.dataUpdatedAt, params: paramsInfo?.value } : null;
+  if (live && (accepted?.key !== hash || accepted.scope !== live.scope || accepted.data !== live.data || accepted.at !== live.at)) setAccepted(live);
   else if (isIdle && accepted !== null) setAccepted(null);
   const same = !isIdle && accepted?.key === hash ? accepted : null;
   const kept = !live && !same && keepScope && active && accepted && accepted.scope === scopeHash && ['ok', 'empty'].includes((accepted.data as ApiResponse<unknown>).outcome) ? accepted : null;
@@ -114,9 +121,13 @@ function useQueryLifecycle<T>(parts: readonly [string, ...unknown[]], run: (sign
   const refetch = useCallback(() => { if (guard.current.active) void engineRefetch({ cancelRefetch: false }); }, [engineRefetch]);
   useRefreshEpoch(refreshEpoch, refetch);
 
-  if (idle !== null) return { status: 'idle', response: null, missing: idle, completedAt: null, refetch };
-  if (!shown) return { status: 'loading', response: null, missing: [], completedAt: null, refetch };
-  return { status: active && (query.isFetching || kept) ? 'refreshing' : 'done', response: shown.data as ApiResponse<T>, missing: [], completedAt: shown.at, refetch };
+  const extra = (result: Accepted | null) => !paramsInfo ? {} : {
+    resultParams: result?.params,
+    showingPrevious: result !== null && hashKey([result.params]) !== hashKey([paramsInfo.value]),
+  };
+  if (idle !== null) return { status: 'idle', response: null, missing: idle, completedAt: null, refetch, ...extra(null) };
+  if (!shown) return { status: 'loading', response: null, missing: [], completedAt: null, refetch, ...extra(null) };
+  return { status: active && (query.isFetching || kept) ? 'refreshing' : 'done', response: shown.data as ApiResponse<T>, missing: [], completedAt: shown.at, refetch, ...extra(shown) };
 }
 
 /**
@@ -253,11 +264,13 @@ export function menuRequest<P, T>(spec: EndpointSpec<P, T>, inputs: MenuRequestI
  * `options.keepPrevious` (opt-in, ADR-0114): when only `params` change, the last `ok`/`empty` result this hook accepted stays as
  * `refreshing` (with its own `completedAt`) until the new reply arrives, and any reply of the new params replaces it. A change of
  * session generation, projected Context (Scope, period, …) or endpoint, or a closed or idle gate, still hides the result at once.
+ * `resultParams` is the params the shown result was loaded with and `showingPrevious` is true while a kept result with other params
+ * shows: build titles, drill/click handlers, exports and writes from `resultParams` (not the current selection) while it is true.
  */
 export function useMenuQuery<P, T>(spec: EndpointSpec<P, T>, params: NoInfer<P>, enabled = true, options?: MenuQueryOptions): QueryState<T> {
   const platform = useHostPlatform();
   const { projected, ready, send } = menuRequest(spec, platform);
-  return useQueryLifecycle<T>(['menu', spec.id, projected, params], signal => send(params, signal), enabled && ready, 0, platform.queryPolicy.idle ? platform.queryPolicy.missing : null, options?.keepPrevious ? [spec.id, projected] : undefined);
+  return useQueryLifecycle<T>(['menu', spec.id, projected, params], signal => send(params, signal), enabled && ready, 0, platform.queryPolicy.idle ? platform.queryPolicy.missing : null, options?.keepPrevious ? [spec.id, projected] : undefined, { value: params });
 }
 
 export type MenuFetch<P, T> = {

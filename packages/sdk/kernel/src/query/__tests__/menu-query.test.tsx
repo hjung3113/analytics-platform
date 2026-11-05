@@ -325,6 +325,7 @@ describe('useMenuQuery keepPrevious (#1365)', () => {
       <>
         <p data-testid="query">{query.status}:{query.response?.data?.params.page ?? query.response?.outcome ?? '-'}</p>
         <p data-testid="at">{query.completedAt ?? 'no-at'}</p>
+        <p data-testid="meta">{String(query.showingPrevious)}:{JSON.stringify(query.resultParams) ?? 'none'}</p>
         {[2, 3].map(n => <button key={n} type="button" data-testid={`page-${n}`} onClick={() => setPage(n)}>page</button>)}
         <button type="button" data-testid="period" onClick={() => setGlobal({ from: '2026-09-25T00:00:00', to: '2026-09-26T00:00:00' })}>period</button>
         <button type="button" data-testid="scope" onClick={() => setGlobal({ scopeId: 'XIA' })}>scope</button>
@@ -443,6 +444,60 @@ describe('useMenuQuery keepPrevious (#1365)', () => {
     await gate.settle(1, outcome);
     expect(await screen.findByText(`done:${outcome}`)).toBeTruthy();
     expect(text('at')).not.toBe('no-at');
+  });
+
+  it('resultParams and showingPrevious describe the shown result: previous while kept, live afterwards', async () => {
+    const { gate } = await landed();
+    expect(text('meta')).toBe('false:{"page":1}');
+    act(() => screen.getByTestId('page-2').click());
+    expect(text('query')).toBe('refreshing:1');
+    expect(text('meta')).toBe('true:{"page":1}');
+    await gate.settle(1);
+    await screen.findByText('done:2');
+    expect(text('meta')).toBe('false:{"page":2}');
+  });
+
+  it('reports no result params while nothing is shown, and not showingPrevious for a same-params refetch', async () => {
+    const f = fixture();
+    mountKeep(f, { keepPrevious: true });
+    expect(text('meta')).toBe('false:none');
+    await screen.findByText('done:1');
+    expect(text('meta')).toBe('false:{"page":1}');
+  });
+
+  it('the option off shows the live params and never showingPrevious', async () => {
+    const { gate } = await landed({ keepPrevious: false });
+    act(() => screen.getByTestId('page-2').click());
+    expect(text('meta')).toBe('false:none');
+    await gate.settle(1);
+    await screen.findByText('done:2');
+    expect(text('meta')).toBe('false:{"page":2}');
+  });
+
+  it('a result whose params come back (same structure) is not showingPrevious', async () => {
+    const { gate } = await landed();
+    act(() => screen.getByTestId('page-2').click());
+    await gate.settle(1);
+    await screen.findByText('done:2');
+    act(() => screen.getByTestId('page-3').click());
+    expect(text('meta')).toBe('true:{"page":2}');
+    await gate.settle(2);
+    await screen.findByText('done:3');
+    expect(text('meta')).toBe('false:{"page":3}');
+  });
+
+  it('turning the option on after a result was accepted keeps that result on the first params change (F7)', async () => {
+    const f = fixture();
+    const view = mountKeep(f, { keepPrevious: false });
+    expect(await screen.findByText('done:1')).toBeTruthy();
+    const gate = held(f);
+    view.rerender(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={f.adapter} registry={periodRegistry}><KeepProbe keepPrevious /></PlatformProvider></I18nProvider>);
+    expect(text('query')).toBe('done:1');
+    act(() => screen.getByTestId('page-2').click());
+    expect(text('query')).toBe('refreshing:1');
+    expect(text('meta')).toBe('true:{"page":1}');
+    await gate.settle(1);
+    expect(await screen.findByText('done:2')).toBeTruthy();
   });
 
   it('page 1 → 2 → 3: only 3 is accepted and 2 never shows once 3 is requested', async () => {

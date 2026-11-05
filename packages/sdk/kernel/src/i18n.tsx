@@ -89,6 +89,7 @@ const dict = {
   retry: { ko: '다시 시도', en: 'Retry' },
   loading: { ko: '불러오는 중…', en: 'Loading…' },
   refreshing: { ko: '같은 조건으로 갱신 중', en: 'Refreshing same context' },
+  refreshingPrevious: { ko: '이전 선택의 결과 · 갱신 중', en: 'Previous selection · updating' },
   correlationId: { ko: 'Correlation ID', en: 'Correlation ID' },
   serverDetail: { ko: '서버 세부', en: 'Server detail' },
   askAccessOwner: { ko: '관리자에게 요청하세요.', en: 'Ask the person who grants access.' },

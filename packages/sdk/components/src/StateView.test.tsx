@@ -126,6 +126,15 @@ describe('QueryView same-context refresh label (#1166 UX-2)', () => {
     expect(screen.getByRole('status')).toHaveTextContent('같은 조건으로 갱신 중');
     expect(container.firstElementChild).toHaveAttribute('aria-busy', 'true');
   });
+  it('says the result is of the previous selection when a kept result of other params shows (#1365)', () => {
+    render(<I18nProvider><QueryView query={{ ...refreshing(), showingPrevious: true }}>{() => <p>body</p>}</QueryView></I18nProvider>);
+    expect(screen.getByRole('status', { name: '이전 선택의 결과 · 갱신 중' })).toBeVisible();
+    expect(screen.queryByText('같은 조건으로 갱신 중')).toBeNull();
+  });
+  it('names the plain refresh status by its label', () => {
+    render(<I18nProvider><QueryView query={refreshing()}>{() => <p>body</p>}</QueryView></I18nProvider>);
+    expect(screen.getByRole('status', { name: '같은 조건으로 갱신 중' })).toBeVisible();
+  });
   it('is not busy and draws no status once the status is done', () => {
     const { container } = render(<I18nProvider><QueryView query={{ ...refreshing(), status: 'done' }}>{() => <p>body</p>}</QueryView></I18nProvider>);
     expect(screen.queryByRole('status')).toBeNull();
