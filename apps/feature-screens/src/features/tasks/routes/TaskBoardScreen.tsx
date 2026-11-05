@@ -41,6 +41,7 @@ import {
 } from '@dnd-kit/core';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
+import { createPortal } from 'react-dom';
 import {
   resolveTaskAssignee,
   taskTeamLabel,
@@ -752,24 +753,28 @@ export function TaskBoardScreen({ renderDetail }: TaskBoardScreenProps) {
                     );
                   })}
                 </div>
-                <DragOverlay dropAnimation={dropAnimation} transition={overlayTransition}>
-                  {activeTask && (
-                    <TaskBoardCardPreview
-                      task={activeTask}
-                      selected={activeTask.id === selectedId}
-                      managedSystemName={
-                        systemNames.get(activeTask.primary_managed_system_id) ?? '시스템'
-                      }
-                      assigneeName={
-                        activeTask.assignee_team_id
-                          ? taskTeamLabel(activeTask.assignee_team_id, teamNames)
-                          : activeAssignee?.kind === 'resolved'
-                            ? activeAssignee.displayName
-                            : undefined
-                      }
-                    />
-                  )}
-                </DragOverlay>
+                {/* Fixed overlay: render at the body, since the shell's board-window area (`contain: paint`) is the containing block of fixed descendants and would offset the preview from the pointer (#1366). */}
+                {createPortal(
+                  <DragOverlay dropAnimation={dropAnimation} transition={overlayTransition}>
+                    {activeTask && (
+                      <TaskBoardCardPreview
+                        task={activeTask}
+                        selected={activeTask.id === selectedId}
+                        managedSystemName={
+                          systemNames.get(activeTask.primary_managed_system_id) ?? '시스템'
+                        }
+                        assigneeName={
+                          activeTask.assignee_team_id
+                            ? taskTeamLabel(activeTask.assignee_team_id, teamNames)
+                            : activeAssignee?.kind === 'resolved'
+                              ? activeAssignee.displayName
+                              : undefined
+                        }
+                      />
+                    )}
+                  </DragOverlay>,
+                  document.body,
+                )}
               </TaskBoardDndContext>
             )}
           </>
