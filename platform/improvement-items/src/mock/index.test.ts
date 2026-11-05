@@ -129,3 +129,30 @@ describe('improvement mock dispatch', () => {
     expect(await query(a, 'improvement.itemDetail', { itemId: created })).toMatchObject({ outcome: 'ok', data: { targets: [{ kind: 'process', externalKey: 'PR-1', displayName: 'x' }] } });
   });
 });
+
+describe('effect comparison persistence', () => {
+  const doneId = '13280000-0000-4000-8000-000000000003';
+  it.each(['effective', 'ineffective', 'inconclusive'])('stores %s, normalized memo and comparison, and keeps them on reopen', async result => {
+    const a = adapter(), compareLink = '/mars/cycle-time?v=1&scopeId=MEM&from=2026-11-04T00%3A00%3A00&to=2026-11-11T00%3A00%3A00';
+    expect(await write(a, 'itemSetStatus', { itemId: doneId, status: 'verified', effect: { result, note: '  reviewed  ', compareLink: `  ${compareLink}  ` } }, '1')).toMatchObject({ outcome: 'ok' });
+    expect(await query(a, 'improvement.itemDetail', { itemId: doneId })).toMatchObject({ data: { status: 'verified', effectResult: result, effectNote: 'reviewed', effectCompareLink: compareLink } });
+    expect(await query(a, 'improvement.itemEvents', { itemId: doneId })).toMatchObject({ data: { rows: [{ changes: { after: { effectResult: result, effectCompareLink: compareLink } } }] } });
+    expect(await write(a, 'itemReopen', { itemId: doneId, reason: 'review again' }, '2')).toMatchObject({ outcome: 'ok' });
+    expect(await query(a, 'improvement.itemDetail', { itemId: doneId })).toMatchObject({ data: { status: 'done', effectResult: result, effectNote: 'reviewed', effectCompareLink: compareLink } });
+  });
+  it('clears blank memo and comparison and requires a fresh result after reopening', async () => {
+    const a = adapter();
+    expect(await write(a, 'itemSetStatus', { itemId: doneId, status: 'verified', effect: { result: 'inconclusive', note: '  ', compareLink: '  ' } }, '1')).toMatchObject({ outcome: 'ok' });
+    expect(await query(a, 'improvement.itemDetail', { itemId: doneId })).toMatchObject({ data: { effectNote: null, effectCompareLink: null } });
+    expect(await write(a, 'itemReopen', { itemId: doneId, reason: 'review' }, '2')).toMatchObject({ outcome: 'ok' });
+    expect(await write(a, 'itemSetStatus', { itemId: doneId, status: 'verified' }, '3')).toMatchObject({ outcome: 'invalid', fieldErrors: [{ path: ['effect'], code: 'required' }] });
+  });
+  it.each<[Record<string, string>, readonly string[], string]>([
+    [{ result: 'other' }, ['effect', 'result'], 'malformed'],
+    [{ result: 'effective', note: 'x'.repeat(2001) }, ['effect', 'note'], 'too_long'],
+    [{ result: 'effective', compareLink: '/x?q=' + 'x'.repeat(2000) }, ['effect', 'compareLink'], 'too_long'],
+    ...['//evil.test/x', '/%09/evil.test/x', '/x#fragment', '/x\\evil'].map(compareLink => [{ result: 'effective', compareLink }, ['effect', 'compareLink'], 'malformed'] as [Record<string, string>, string[], string]),
+  ])('rejects invalid effect data %j', async (effect, path, code) => {
+    expect(await write(adapter(), 'itemSetStatus', { itemId: doneId, status: 'verified', effect }, '1')).toMatchObject({ outcome: 'invalid', fieldErrors: [{ path, code }] });
+  });
+});

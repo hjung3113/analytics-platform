@@ -52,13 +52,13 @@ describe('improvement screens', () => {
     expect(screen.getByRole('link', { name: '목록' })).toBeTruthy();
     await waitFor(() => expect(document.body.textContent).toContain(state === 'loading' ? '불러오는 중' : state === 'error' ? '데이터를 불러오지 못했습니다' : state === 'forbidden' ? '권한' : '조건에 맞는 결과가 없습니다'));
   });
-  it('shows both KST analysis endpoints, the Quest snapshot on failure, and the explicit unbuilt effect region', async () => {
+  it('shows both KST analysis endpoints, the Quest snapshot on failure, and the missing action date reason', async () => {
     mount({ detail: true, overrides: { getQuest: async () => ({ outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'q' }) } });
     await screen.findByText('test problem');
     await screen.findByText('지금 확인할 수 없음');
     expect(screen.getByText('saved Quest title')).toBeTruthy();
     expect(screen.getByText('2026-11-01 00:00 – 2026-11-05 00:00 KST')).toBeTruthy();
-    expect(screen.getByText(/전후 비교 미구현/)).toBeTruthy();
+    expect(screen.getByText('조치일을 기록하면 전후 비교를 열 수 있습니다.')).toBeTruthy();
   });
   it('requires confirmation, retains draft on conflict, and never retries with an unseen version', async () => {
     const action = vi.fn(async () => ({ outcome: 'conflict' as const, data: null, version: '2', fieldErrors: [], replayed: false, correlationId: 'c' }));

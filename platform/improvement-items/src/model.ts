@@ -14,9 +14,9 @@ export function moveErrors(move: string, draft: MoveDraft): string[] {
 export function createErrors(input: { problem: string; origin: Origin | null; targets: Target[] }): string[] {
   return [...(!input.problem.trim() || [...input.problem.trim()].length > 500 ? ['problem'] : []), ...(!input.origin && input.targets.length === 0 ? ['origin'] : [])];
 }
-export type QuestState = 'ok' | 'not_found' | 'unavailable' | 'forbidden' | 'unsupported';
+export type QuestState = 'ok' | 'not_found' | 'unavailable' | 'forbidden';
 export function questPresentation(state: QuestState, snapshot: string, quest: Quest | null) {
-  return { title: state === 'ok' && quest ? quest.title : snapshot, status: state === 'ok' ? quest?.status : undefined, linked: false, directEntry: state === 'unsupported', state };
+  return { title: state === 'ok' && quest ? quest.title : snapshot, status: state === 'ok' ? quest?.status : undefined, state };
 }
 /** Analysis Context is wall-clock time in KST; actionDate is a separate calendar day. */
 export function originPeriod(context: Record<string, unknown>, lang: 'ko' | 'en'): string {

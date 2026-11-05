@@ -9,6 +9,7 @@ import { originPeriod } from '../model';
 import { ItemStatus, Section } from './parts';
 import { QuestReference } from './QuestReference';
 import { StatusMoves } from './StatusMove';
+import { EffectCheck, useEffectComparison } from './EffectCheck';
 function ChangeHistory({ itemId }: { itemId: string }) {
   const c = useCopy();
   const [page, setPage] = useState(0);
@@ -35,6 +36,9 @@ function DetailBody({ item }: { item: ItemRow }) {
   const c = useCopy(), { can, resolveLink } = usePlatform();
   const [selectedTarget, setTarget] = useState(0);
   const target = item.targets[selectedTarget];
+  const [days, setDays] = useState(7), [selectedComparison, setComparison] = useState<string | null>(null);
+  const comparison = useEffectComparison(item, days);
+  const compareLink = selectedComparison === comparison.href ? selectedComparison : null;
   let source: string | null = null;
   if (item.origin) {
     try { const result = resolveLink(item.origin.menuId, { global: item.origin.context as Partial<GlobalContext> }); if (result.allowed) source = result.href; } catch { /* Stored Context remains readable when a destination is retired or incompatible. */ }
@@ -43,10 +47,10 @@ function DetailBody({ item }: { item: ItemRow }) {
     <div className="min-w-0"><Section title={c.summary}><p className="break-words text-sm font-semibold">{item.problem}</p><dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-3 text-sm"><dt className="text-text-secondary">{c.action}</dt><dd className="whitespace-pre-wrap break-words">{item.action ?? c.unset}</dd><dt className="text-text-secondary">{c.actionDate}</dt><dd>{item.actionDate ?? c.unset}</dd><dt className="text-text-secondary">{c.assignee}</dt><dd>{item.assignee?.displayName ?? c.unset}</dd></dl></Section>
       <Section title={c.quest}>{item.quest ? <QuestReference id={item.quest.id} snapshot={item.quest.titleSnapshot} /> : <p className="text-sm text-text-secondary">{c.questNone}</p>}</Section>
       <Section title={c.origin}>{item.origin ? <div className="space-y-3 text-sm"><p>{c.sourceMenu}: {item.origin.menuId}</p><p>{c.metric}: {typeof item.origin.context.metricId === 'string' ? item.origin.context.metricId : c.unset}</p><p>{c.period}: <span>{originPeriod(item.origin.context, c.lang)}</span></p>{source ? <PlatformLink className="text-accent-primary hover:underline" href={source}>{c.openAnalysis}</PlatformLink> : <p className="text-text-secondary">{c.sourceUnavailable}</p>}</div> : <p className="text-sm text-text-secondary">{c.unset}</p>}</Section>
-      <Section title={c.effect}><div className="space-y-2 rounded-md border border-dashed border-border-control bg-surface-sunken p-4 text-sm text-text-secondary"><p className="font-semibold">{c.effectSlot}</p><p>{c.actionDate}: {item.actionDate ?? c.unset}</p><p>{c.effectSlotBody}</p></div>{item.effectResult && <p className="text-sm">{c.effects[item.effectResult]}{item.effectNote ? ` · ${item.effectNote}` : ''}</p>}</Section>
+      <EffectCheck item={item} days={days} onDaysChange={value => { setDays(value); setComparison(null); }} comparison={comparison} selected={!!compareLink} onSelect={() => setComparison(comparison.href)} />
       <Section title={c.targetHistory}>{item.targets.length ? <><div className="flex flex-wrap gap-2">{item.targets.map((t, i) => <Button key={`${t.kind}:${t.externalKey}`} size="sm" variant={i === selectedTarget ? 'secondary' : 'ghost'} aria-pressed={i === selectedTarget} onClick={() => setTarget(i)}>{t.displayName}</Button>)}</div>{target && <TargetHistory key={`${target.kind}:${target.externalKey}`} target={target} />}</> : <p className="text-sm text-text-secondary">{c.noTarget}</p>}</Section>
     </div>
-    <aside className="min-w-0 border-l border-border-subtle pl-5"><Section title={c.status}><ItemStatus status={item.status} />{can(MANAGE_PERMISSION) ? <StatusMoves item={item} /> : <p className="text-sm text-text-secondary">{c.denied}</p>}{item.dropReason && <p className="break-words text-sm">{item.dropReason}</p>}</Section><ChangeHistory key={item.id} itemId={item.id} /></aside>
+    <aside className="min-w-0 border-l border-border-subtle pl-5"><Section title={c.status}><ItemStatus status={item.status} />{can(MANAGE_PERMISSION) ? <StatusMoves item={item} compareLink={compareLink} /> : <p className="text-sm text-text-secondary">{c.denied}</p>}{item.dropReason && <p className="break-words text-sm">{item.dropReason}</p>}</Section><ChangeHistory key={item.id} itemId={item.id} /></aside>
   </div>;
 }
 export default function ImprovementDetail() {
