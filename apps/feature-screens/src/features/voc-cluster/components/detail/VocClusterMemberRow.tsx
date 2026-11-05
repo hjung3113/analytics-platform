@@ -29,12 +29,14 @@ export function VocClusterMemberRow({
   canRemove,
   onRemove,
   isRemoving,
+  embedded = false,
 }: {
   member: VocClusterMemberPresentation;
   last: boolean;
   canRemove: boolean;
   onRemove: () => void;
   isRemoving: boolean;
+  embedded?: boolean;
 }): React.ReactElement {
   const display = memberDisplay(member);
   const reporterStatus = member.reporter_facing_status as
@@ -44,13 +46,14 @@ export function VocClusterMemberRow({
   return (
     <div
       className={cn(
-        'flex items-center justify-between gap-3 px-4 py-2.5',
+        'flex items-center justify-between gap-3 py-2.5',
+        !embedded && 'px-4',
         !last && 'border-b border-border-subtle',
       )}
       data-testid={`cluster-member-row-${member.voc_id}`}
     >
       <div className="min-w-0 flex-1">
-        <div className="truncate text-sm text-text-primary">
+        <div className={cn('text-sm text-text-primary', embedded ? 'break-words' : 'truncate')}>
           <HostLink
             to={`/vocs?view=inbox&selected=${member.voc_id}`}
             className="text-accent-primary underline underline-offset-2 hover:text-accent-primary/80"

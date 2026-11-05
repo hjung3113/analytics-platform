@@ -32,7 +32,7 @@ import { ReporterReplyComposer } from '../detail/ReporterReplyComposer';
 
 export interface ReporterVocDetailProps {
   vocId: string;
-  /** `embedded` leaves the outer padding to the host's detail slot; `page` is the full-page frame. */
+  /** `embedded` owns one pane inset and uses a flat description; `page` keeps its full-page frame. */
   variant?: 'page' | 'embedded';
 }
 
@@ -115,7 +115,9 @@ export function ReporterVocDetail({
       </div>
       <div className="mt-4">
         <PanelSectionTitle>본문</PanelSectionTitle>
-        <div className="rounded-md bg-surface-card-elevated p-4 text-sm text-text-secondary leading-relaxed">
+        <div className={embedded
+          ? 'text-sm text-text-secondary leading-relaxed'
+          : 'rounded-md bg-surface-card-elevated p-4 text-sm text-text-secondary leading-relaxed'}>
           {isTipTapDocStructurallyEmpty(voc.description_rich_content) ? (
             <p className="text-text-muted">설명 없음</p>
           ) : (

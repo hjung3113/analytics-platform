@@ -287,7 +287,7 @@ export function TaskListScreen({ view, autoSelect, renderDetail }: TaskListScree
       }}
       tabs={
         view === 'my' && !listPermissionDenied ? (
-          <div className="mx-5 my-2">
+          <div className="my-2">
             <Select
               value={filters.status ?? filters.status_group ?? 'all'}
               onValueChange={(value) => {

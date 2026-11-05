@@ -347,6 +347,10 @@ describe('favorites removal focus (#398)', () => {
     fireEvent.click(remove);
     const empty = await within(favorites).findByText('즐겨찾기가 없습니다. 화면 제목 옆 ☆로 추가하세요.');
     expect(empty.getAttribute('tabindex')).toBe('-1');
+    expect(empty.classList.contains('bg-surface-sunken')).toBe(false);
+    expect(empty.classList.contains('p-3')).toBe(false);
+    expect(empty.classList.contains('focus-visible:ring-2')).toBe(true);
+    expect(empty.classList.contains('focus-visible:ring-focus-ring')).toBe(true);
     await waitFor(() => expect(document.activeElement).toBe(empty));
   });
 

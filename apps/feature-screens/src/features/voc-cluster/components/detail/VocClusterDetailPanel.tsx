@@ -10,6 +10,7 @@ import {
   type PanelSection,
   PanelSectionTitle,
   SkeletonBlocks,
+  cn,
 } from '@ap/ui';
 import { Plus } from 'lucide-react';
 import * as React from 'react';
@@ -72,7 +73,15 @@ export function buildVocClusterDetailSections(): PanelSection[] {
 export type ClusterDetailParts = DetailParts & { state: 'loading' | 'error' | 'ready' };
 
 /** The cluster detail as the parts a host places in its own frame (standalone side panel, platform drawer). */
-export function useClusterDetailParts({ clusterId }: { clusterId: string }): ClusterDetailParts {
+export function useClusterDetailParts({
+  clusterId,
+  variant = 'embedded',
+}: {
+  clusterId: string;
+  variant?: 'embedded' | 'standalone';
+}): ClusterDetailParts {
+  // Parts are embedded by the platform drawer; the standalone panel owns its own insets.
+  const embedded = variant === 'embedded';
   const { data, isLoading, isError, isSuccess, isFetching, error } = useVocClusterDetail(clusterId);
   useHostTitle(
     isSuccess && !isFetching && data?.id === clusterId
@@ -114,7 +123,7 @@ export function useClusterDetailParts({ clusterId }: { clusterId: string }): Clu
       title: null,
       body: (
         <div
-          className="flex flex-col gap-4 p-6"
+          className={cn('flex flex-col gap-4 py-6', !embedded && 'px-6')}
           aria-label="반복 VOC 상세 불러오는 중"
           data-testid="cluster-detail-skeleton"
         >
@@ -138,7 +147,10 @@ export function useClusterDetailParts({ clusterId }: { clusterId: string }): Clu
       title: null,
       body: (
         <div
-          className="flex flex-col items-center justify-center py-16 px-6 text-center"
+          className={cn(
+            'flex flex-col items-center justify-center py-16 text-center',
+            !embedded && 'px-6',
+          )}
           data-testid="cluster-detail-error"
         >
           <p className="text-sm text-text-danger">
@@ -199,8 +211,15 @@ export function useClusterDetailParts({ clusterId }: { clusterId: string }): Clu
         <DetailPanelSectionNav
           scrollRef={sectionScrollRef}
           sections={buildVocClusterDetailSections()}
+          className={
+            // eslint-disable-next-line shadcn/no-restyle -- the frozen SDK nav has no inset variant; embedded drawer owns the horizontal padding
+            embedded ? 'px-0' : ''
+          }
         />
-        <div ref={sectionScrollRef} className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+        <div
+          ref={sectionScrollRef}
+          className={cn('min-h-0 flex-1 overflow-y-auto py-6', !embedded && 'px-6')}
+        >
           <div className="flex flex-col gap-6">
             <section data-anchor="overview" className="flex flex-col gap-3">
               <div>
@@ -248,7 +267,10 @@ export function useClusterDetailParts({ clusterId }: { clusterId: string }): Clu
               <PanelSectionTitle>{VOC_CLUSTER_GROUPING_REASON_LABEL}</PanelSectionTitle>
               {data.rationale ? (
                 <p
-                  className="rounded-md border border-border-subtle bg-surface-card p-3 text-sm text-text-primary whitespace-pre-wrap"
+                  className={cn(
+                    'text-sm text-text-primary whitespace-pre-wrap',
+                    !embedded && 'rounded-md border border-border-subtle bg-surface-card p-3',
+                  )}
                   data-testid="cluster-detail-rationale"
                 >
                   {data.rationale}
@@ -358,7 +380,10 @@ export function useClusterDetailParts({ clusterId }: { clusterId: string }): Clu
 
               {members.length === 0 ? (
                 <div
-                  className="rounded-md border border-dashed border-border-subtle bg-surface-card p-6 flex items-center justify-center text-sm text-text-muted"
+                  className={cn(
+                    'text-sm text-text-muted',
+                    !embedded && 'rounded-md border border-dashed border-border-subtle bg-surface-card p-6 flex items-center justify-center',
+                  )}
                   data-testid="cluster-members-empty"
                 >
                   아직 VOC가 없습니다.
@@ -366,12 +391,15 @@ export function useClusterDetailParts({ clusterId }: { clusterId: string }): Clu
               ) : (
                 <div
                   data-testid="cluster-members-list"
-                  className="overflow-hidden rounded-md border border-border-subtle bg-surface-card"
+                  className={embedded
+                    ? undefined
+                    : 'overflow-hidden rounded-md border border-border-subtle bg-surface-card'}
                 >
                   {members.slice(0, 4).map((member, i) => (
                     <VocClusterMemberRow
                       key={member.voc_id}
                       member={member}
+                      embedded={embedded}
                       last={i === Math.min(members.length, 4) - 1}
                       canRemove={canMutate && data.status === 'draft'}
                       onRemove={() => handleRemoveMember(member.voc_id)}
@@ -383,7 +411,10 @@ export function useClusterDetailParts({ clusterId }: { clusterId: string }): Clu
                   ))}
                   {members.length > 4 && (
                     <div
-                      className="border-t border-border-subtle px-4 py-2 text-xs text-text-muted"
+                      className={cn(
+                        'border-t border-border-subtle py-2 text-xs text-text-muted',
+                        !embedded && 'px-4',
+                      )}
                       data-testid="cluster-members-more"
                     >
                       +{members.length - 4} 더보기
@@ -451,7 +482,10 @@ export function useClusterDetailParts({ clusterId }: { clusterId: string }): Clu
 
         {/* CTA footer */}
         <div
-          className="sticky bottom-0 bg-surface-canvas border-t border-border-subtle px-6 py-3 flex flex-wrap items-center gap-2"
+          className={cn(
+            'sticky bottom-0 bg-surface-canvas border-t border-border-subtle py-3 flex flex-wrap items-center gap-2',
+            !embedded && 'px-6',
+          )}
           data-testid="cluster-cta-footer"
         >
           {canMutate || linkedFindings.length > 0 ? (
@@ -539,7 +573,7 @@ export function VocClusterDetailPanel({
   clusterId: string;
   onClose?: () => void;
 }): React.ReactElement {
-  const parts = useClusterDetailParts({ clusterId });
+  const parts = useClusterDetailParts({ clusterId, variant: 'standalone' });
   const navigate = useHostNavigate();
   // eslint-disable-next-line react/jsx-no-useless-fragment -- the fragment turns the ReactNode body into the declared ReactElement return type
   if (parts.state !== 'ready') return <>{parts.body}</>;

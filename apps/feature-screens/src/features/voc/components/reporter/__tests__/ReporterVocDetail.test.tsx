@@ -262,14 +262,28 @@ describe('<ReporterVocDetail> fed an operator envelope', () => {
     expect(screen.queryByRole('button')).toBeNull();
   });
 
-  it('draws no outer padding when embedded in the host detail slot, and the page frame otherwise', async () => {
-    stubFetch(() => json(OPERATOR_ENVELOPE));
+  it.each([false, true])('uses one pane inset and a flat embedded description (empty: %s), retaining the page frame', async (empty) => {
+    stubFetch(() =>
+      json({
+        ...OPERATOR_ENVELOPE,
+        ...(empty ? { description_rich_content: { type: 'doc', content: [] } } : {}),
+      }),
+    );
     mount('embedded');
     const embedded = await screen.findByTestId('reporter-voc-detail');
+    expect(embedded).toHaveClass('p-4');
     expect(embedded.className).not.toMatch(/\bp[xtb]-/);
+    const description = screen.getByRole('heading', { name: '본문' }).nextElementSibling;
+    for (const className of ['p-4', 'rounded-md', 'bg-surface-card-elevated']) {
+      expect(description).not.toHaveClass(className);
+    }
+    expect(description).toHaveTextContent(empty ? '설명 없음' : '아침마다 로그인이 실패합니다.');
     cleanup();
     mount();
     expect((await screen.findByTestId('reporter-voc-detail')).className).toMatch(/px-6/);
+    expect(screen.getByRole('heading', { name: '본문' }).nextElementSibling).toHaveClass(
+      'p-4', 'rounded-md', 'bg-surface-card-elevated',
+    );
   });
 
   it('shows the not-found state for a 404', async () => {
