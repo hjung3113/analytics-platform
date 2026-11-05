@@ -10,6 +10,7 @@ import {
   itemAssessmentEvents,
   itemLinks,
   itemRevisionEvidence,
+  itemRevisionSubjects,
   knowledgeItemRevisions,
   knowledgeItems,
   modelProcesses,
@@ -20,6 +21,7 @@ import {
 import type { Tx } from '../../../db/tx.js';
 import type { FilterCondition } from '../../../lib/list-params/catalog-filters.js';
 import { escapeLike, type ListQuery, type Page } from './catalog-read.js';
+import { type ResolvedSubject, resolvedSubjects } from './item-subject.js';
 
 export const ITEM_SORT_IDS = ['itemNo', 'title', 'updatedAt'] as const;
 export const SOFTWARE_LIST_CAP = 500;
@@ -112,6 +114,13 @@ function ownerKindFilter(condition: FilterCondition | undefined): SQL | undefine
   return parts.length === 0 ? sql`false` : or(...parts);
 }
 
+/** `subject` (#1196 f): the latest revision has a subject with this target key. */
+function subjectFilter(condition: FilterCondition | undefined): SQL | undefined {
+  const key = condition?.values[0];
+  if (key === undefined) return undefined;
+  return sql`exists (select 1 from knowledge.item_revision_subject sub where sub.workspace_id = ${i.workspaceId} and sub.item_id = ${i.id} and sub.revision_no = ${i.latestRevisionNo} and sub.target_key = ${key})`;
+}
+
 /** `q`: `KI-<n>` / `<n>` matches the number, any text matches the latest title. */
 function textFilter(q: string | null): SQL | undefined {
   if (q === null || q.trim() === '') return undefined;
@@ -135,6 +144,7 @@ export async function listItems(tx: Tx, q: ListQuery): Promise<Page<ItemRow>> {
     inOrNot(r.typeCode, c.typeCode),
     inOrNot(i.verificationState, c.verificationState),
     inOrNot(i.processingState, c.processingState),
+    subjectFilter(c.subject),
     textFilter(q.q),
   );
   const sortable: Record<string, AnyPgColumn> = { itemNo: i.itemNo, title: r.title, updatedAt: i.updatedAt };
@@ -200,6 +210,8 @@ export interface ItemDetail {
     owner: ItemOwner;
     sourceRevisionNo: number | null;
   }[];
+  /** The targets the shown revision is about (#1196 f), resolved against each model's current published spec. */
+  subjects: ResolvedSubject[];
 }
 
 /** One item with one revision (`revisionNo`, default the latest); null when the item or the revision does not exist in the workspace. */
@@ -258,6 +270,8 @@ export async function getItemDetail(
     const rows = await itemSelect(tx).where(and(eq(i.workspaceId, workspaceId), inArray(i.id, otherIds)));
     for (const row of rows) others.set(row.item.id, toRow(row));
   }
+
+  const subjects = await resolvedSubjects(tx, workspaceId, itemId, wanted);
 
   return {
     item: {
@@ -321,7 +335,54 @@ export async function getItemDetail(
         },
       ];
     }),
+    subjects,
   };
+}
+
+export interface SubjectItemRow extends ItemRow {
+  subjectRelation: string;
+}
+
+/**
+ * `specSubjectItems` (#1196 f): the published items whose LATEST revision is about this model target. Same visibility as
+ * the item list (published only; an archived item is not listed). The key is the escaped target key of the model.
+ */
+export async function listSubjectItems(
+  tx: Tx,
+  workspaceId: string,
+  modelId: string,
+  targetKey: string,
+  paging: { page: number; pageSize: number },
+): Promise<Page<SubjectItemRow>> {
+  const match = sql`exists (select 1 from knowledge.item_revision_subject sub where sub.workspace_id = ${i.workspaceId} and sub.item_id = ${i.id} and sub.revision_no = ${i.latestRevisionNo} and sub.model_id = ${modelId} and sub.target_key = ${targetKey})`;
+  const where = and(eq(i.workspaceId, workspaceId), eq(i.publicationState, 'published'), match);
+  const rows = await itemSelect(tx)
+    .where(where)
+    .orderBy(desc(i.updatedAt), asc(i.id))
+    .limit(paging.pageSize)
+    .offset(paging.page * paging.pageSize);
+  const [totalRow] = await tx
+    .select({ n: count() })
+    .from(i)
+    .innerJoin(r, and(eq(r.workspaceId, i.workspaceId), eq(r.itemId, i.id), eq(r.revisionNo, i.latestRevisionNo)))
+    .where(where);
+  const relations = new Map<string, string>();
+  if (rows.length > 0) {
+    const found = await tx
+      .select({ itemId: itemRevisionSubjects.itemId, relation: itemRevisionSubjects.subjectRelation, revisionNo: itemRevisionSubjects.revisionNo })
+      .from(itemRevisionSubjects)
+      .where(
+        and(
+          eq(itemRevisionSubjects.workspaceId, workspaceId),
+          eq(itemRevisionSubjects.modelId, modelId),
+          eq(itemRevisionSubjects.targetKey, targetKey),
+          inArray(itemRevisionSubjects.itemId, rows.map((x) => x.item.id)),
+        ),
+      );
+    const latest = new Map(rows.map((x) => [x.item.id, x.item.latestRevisionNo]));
+    for (const f of found) if (latest.get(f.itemId) === f.revisionNo) relations.set(f.itemId, f.relation);
+  }
+  return { total: Number(totalRow?.n ?? 0), rows: rows.map((x) => ({ ...toRow(x), subjectRelation: relations.get(x.item.id) ?? 'about' })) };
 }
 
 export interface ModelProfile {

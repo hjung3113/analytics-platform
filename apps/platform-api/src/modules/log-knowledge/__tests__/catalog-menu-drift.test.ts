@@ -134,11 +134,11 @@ describe('model reads (menu log-knowledge-models) vs the server', () => {
     expect(LOG_KNOWLEDGE_MODELS_MENU_ID).toBe(SERVER_MODELS_MENU_ID);
   });
 
-  // The two model reads of #1197 s1 followed by the model spec reads of #1196 a and b1 (the draft read).
+  // The two model reads of #1197 s1 followed by the model spec reads of #1196 a, b1, c, e (mappings, suggestions) and f (subject items).
   const menuModelReads = [...modelEndpointSpecs, ...modelSpecEndpointSpecs];
 
-  it('declares the same six reads in the same order, with the same keys, right and workspace rule', () => {
-    expect(serverModelEndpoints).toHaveLength(6);
+  it('declares the same nine reads in the same order, with the same keys, right and workspace rule', () => {
+    expect(serverModelEndpoints).toHaveLength(9);
     expect(menuModelReads.map((s) => s.id)).toEqual(serverModelEndpoints.map((e) => e.spec.id));
     menuModelReads.forEach((menu, i) => {
       const spec = serverModelEndpoints[i]?.spec;
@@ -204,8 +204,8 @@ describe('log knowledge model spec writes vs the server', () => {
     expect(SPEC_PUBLISH_PERMISSION).toBe(SPEC_MENU_PERMISSION);
   });
 
-  it('declares the same seven writes on the same menu in the same order', () => {
-    expect(serverSpecActions).toHaveLength(7);
+  it('declares the same ten writes on the same menu in the same order', () => {
+    expect(serverSpecActions).toHaveLength(10);
     expect(specActionSpecs.map((s) => s.id)).toEqual(serverSpecActions.map((a) => a.spec.id));
     specActionSpecs.forEach((menu, i) => {
       const spec = serverSpecActions[i]?.spec;

@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import {
   boolean,
   check,
+  doublePrecision,
   foreignKey,
   index,
   integer,
@@ -953,5 +954,157 @@ export const specSwChanges = knowledgeSchema.table(
       sql`((${t.retiredAt} is null) = (${t.retiredBy} is null)) and (${t.retiredByChangeId} is null or ${t.retiredAt} is not null) and (${t.retiredAt} is null or not ${t.needsRevalidation})`,
     ),
     versionCheck: check('spec_sw_change_row_version_check', sql`${t.rowVersion} >= 1`),
+  }),
+);
+
+// ---- concept mapping (#1196 e, design v0.6 §15.2/15.4) ---------------------------------------------------------------
+// A concept row alone asserts nothing; equivalence exists only as a HUMAN-CONFIRMED `equivalent` mapping row. Targets are
+// pointed to by stable key (`domain/spec-target-key.ts`), never by a spec row id, so a mapping survives new revisions.
+
+const CONCEPT_KINDS = "('module','event')";
+const CONCEPT_RELATIONS = "('equivalent','related')";
+const CONCEPT_REVIEW_STATES = "('proposed','confirmed','rejected')";
+
+export const commonConcepts = knowledgeSchema.table(
+  'common_concept',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    kind: text('kind').notNull(),
+    canonicalLabel: text('canonical_label').notNull(),
+    // `toCodeKey(canonicalLabel)`: the concept's identity inside (workspace, kind).
+    labelKey: text('label_key').notNull(),
+    description: text('description'),
+    createdBy: uuid('created_by')
+      .notNull()
+      .references(() => actors.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    rowVersion: integer('row_version').notNull().default(1),
+  },
+  (t) => ({
+    workspaceIdUq: unique('common_concept_workspace_id_id_uq').on(t.workspaceId, t.id),
+    // Target of the mapping's composite FK: a mapping's target kind must be its concept's kind.
+    workspaceKindUq: unique('common_concept_workspace_id_kind_uq').on(t.workspaceId, t.id, t.kind),
+    labelUq: unique('common_concept_workspace_kind_label_key_uq').on(t.workspaceId, t.kind, t.labelKey),
+    kindCheck: check('common_concept_kind_check', sql`${t.kind} in ${sql.raw(CONCEPT_KINDS)}`),
+    labelCheck: check(
+      'common_concept_label_check',
+      sql`char_length(${t.canonicalLabel}) between 1 and 200 and char_length(${t.labelKey}) between 1 and 200`,
+    ),
+    descriptionCheck: check('common_concept_description_check', sql`${t.description} is null or char_length(${t.description}) <= 1000`),
+    versionCheck: check('common_concept_row_version_check', sql`${t.rowVersion} >= 1`),
+  }),
+);
+
+export const specConceptMappings = knowledgeSchema.table(
+  'spec_concept_mapping',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    conceptId: uuid('concept_id').notNull(),
+    modelId: uuid('model_id').notNull(),
+    targetKind: text('target_kind').notNull(),
+    // Escaped stable key (`module_key` or `module_key/event_key`), grammar in `domain/spec-target-key.ts`.
+    targetKey: text('target_key').notNull(),
+    relationKind: text('relation_kind').notNull(),
+    reviewState: text('review_state').notNull().default('proposed'),
+    origin: text('origin').notNull(),
+    // Only a `similarity` origin carries a score / basis (a proposal's evidence, never a verdict).
+    similarityScore: doublePrecision('similarity_score'),
+    // closed v1: { name_trgm?: number, field_overlap?: number }.
+    similarityBasis: jsonb('similarity_basis'),
+    rejectReason: text('reject_reason'),
+    proposedBy: uuid('proposed_by')
+      .notNull()
+      .references(() => actors.id),
+    proposedAt: timestamp('proposed_at', { withTimezone: true }).notNull().defaultNow(),
+    reviewedBy: uuid('reviewed_by').references(() => actors.id),
+    reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+    rowVersion: integer('row_version').notNull().default(1),
+  },
+  (t) => ({
+    workspaceIdUq: unique('spec_concept_mapping_workspace_id_id_uq').on(t.workspaceId, t.id),
+    conceptFk: foreignKey({
+      name: 'spec_concept_mapping_concept_fk',
+      columns: [t.workspaceId, t.conceptId, t.targetKind],
+      foreignColumns: [commonConcepts.workspaceId, commonConcepts.id, commonConcepts.kind],
+    }).onDelete('restrict'),
+    modelFk: foreignKey({
+      name: 'spec_concept_mapping_model_fk',
+      columns: [t.workspaceId, t.modelId],
+      foreignColumns: [equipmentModels.workspaceId, equipmentModels.id],
+    }).onDelete('restrict'),
+    // One OPEN (proposed or confirmed) row per pair; a REJECTED pair stays as one memory row and is never re-proposed.
+    openUq: uniqueIndex('spec_concept_mapping_open_uq')
+      .on(t.workspaceId, t.conceptId, t.modelId, t.targetKey)
+      .where(sql`${t.reviewState} in ('proposed','confirmed')`),
+    rejectedUq: uniqueIndex('spec_concept_mapping_rejected_uq')
+      .on(t.workspaceId, t.conceptId, t.modelId, t.targetKey)
+      .where(sql`${t.reviewState} = 'rejected'`),
+    // A target is the same thing as at most one concept: one confirmed `equivalent` per (model, target).
+    equivalentUq: uniqueIndex('spec_concept_mapping_confirmed_equivalent_uq')
+      .on(t.workspaceId, t.modelId, t.targetKey)
+      .where(sql`${t.reviewState} = 'confirmed' and ${t.relationKind} = 'equivalent'`),
+    modelIdx: index('spec_concept_mapping_model_idx').on(t.workspaceId, t.modelId, t.targetKey),
+    conceptIdx: index('spec_concept_mapping_concept_idx').on(t.workspaceId, t.conceptId, t.reviewState),
+    targetKindCheck: check('spec_concept_mapping_target_kind_check', sql`${t.targetKind} in ${sql.raw(CONCEPT_KINDS)}`),
+    targetKeyCheck: check('spec_concept_mapping_target_key_check', sql`char_length(${t.targetKey}) between 1 and 1200`),
+    relationCheck: check('spec_concept_mapping_relation_kind_check', sql`${t.relationKind} in ${sql.raw(CONCEPT_RELATIONS)}`),
+    stateCheck: check('spec_concept_mapping_review_state_check', sql`${t.reviewState} in ${sql.raw(CONCEPT_REVIEW_STATES)}`),
+    originCheck: check('spec_concept_mapping_origin_check', sql`${t.origin} in ('human','similarity')`),
+    similarityCheck: check(
+      'spec_concept_mapping_similarity_check',
+      sql`((${t.origin} = 'similarity' and ${t.similarityScore} is not null and ${t.similarityBasis} is not null) or (${t.origin} = 'human' and ${t.similarityScore} is null and ${t.similarityBasis} is null)) and (${t.similarityScore} is null or ${t.similarityScore} between 0 and 1) and (${t.similarityBasis} is null or jsonb_typeof(${t.similarityBasis}) = 'object')`,
+    ),
+    reviewCheck: check(
+      'spec_concept_mapping_review_check',
+      sql`((${t.reviewState} = 'proposed') = (${t.reviewedBy} is null and ${t.reviewedAt} is null)) and ((${t.reviewState} = 'rejected') = (${t.rejectReason} is not null)) and (${t.rejectReason} is null or char_length(${t.rejectReason}) between 1 and 500)`,
+    ),
+    versionCheck: check('spec_concept_mapping_row_version_check', sql`${t.rowVersion} >= 1`),
+  }),
+);
+
+// ---- Item subject link (#1196 f, design v0.6 §15.2) -------------------------------------------------------------------
+// The target a knowledge item revision is about, by stable key (no FK to spec rows: a new spec revision keeps the link).
+export const itemRevisionSubjects = knowledgeSchema.table(
+  'item_revision_subject',
+  {
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    itemId: uuid('item_id').notNull(),
+    revisionNo: integer('revision_no').notNull(),
+    modelId: uuid('model_id').notNull(),
+    targetKind: text('target_kind').notNull(),
+    targetKey: text('target_key').notNull(),
+    subjectRelation: text('subject_relation').notNull(),
+    // The published spec revision the key was checked against at link time; null when the model had none yet.
+    specRevNoAtLink: integer('spec_rev_no_at_link'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    pk: primaryKey({
+      name: 'item_revision_subject_pk',
+      columns: [t.workspaceId, t.itemId, t.revisionNo, t.modelId, t.targetKind, t.targetKey],
+    }),
+    revisionFk: foreignKey({
+      name: 'item_revision_subject_revision_fk',
+      columns: [t.workspaceId, t.itemId, t.revisionNo],
+      foreignColumns: [knowledgeItemRevisions.workspaceId, knowledgeItemRevisions.itemId, knowledgeItemRevisions.revisionNo],
+    }).onDelete('restrict'),
+    modelFk: foreignKey({
+      name: 'item_revision_subject_model_fk',
+      columns: [t.workspaceId, t.modelId],
+      foreignColumns: [equipmentModels.workspaceId, equipmentModels.id],
+    }).onDelete('restrict'),
+    keyIdx: index('item_revision_subject_key_idx').on(t.workspaceId, t.modelId, t.targetKey),
+    targetKindCheck: check('item_revision_subject_target_kind_check', sql`${t.targetKind} in ('module','event')`),
+    targetKeyCheck: check('item_revision_subject_target_key_check', sql`char_length(${t.targetKey}) between 1 and 1200`),
+    relationCheck: check('item_revision_subject_relation_check', sql`${t.subjectRelation} in ('about','context')`),
+    specRevCheck: check('item_revision_subject_spec_rev_check', sql`${t.specRevNoAtLink} is null or ${t.specRevNoAtLink} >= 1`),
   }),
 );

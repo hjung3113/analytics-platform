@@ -11,9 +11,12 @@ export const LOG_KNOWLEDGE_SPEC_AUDIT_EVENT_TYPES = [
   'knowledge.spec.change_added',
   'knowledge.spec.change_retired',
   'knowledge.spec.change_confirmed',
+  'knowledge.spec.concept_proposed',
+  'knowledge.spec.concept_confirmed',
+  'knowledge.spec.concept_rejected',
 ] as const;
 
-/** Subject id of the draft / publish / reject events is the revision id; of the `change_*` events (#1196 c) the SW change row id. */
+/** Subject id of the draft / publish / reject events is the revision id; of the `change_*` events (#1196 c) the SW change row id; of the `concept_*` events (#1196 e) the concept mapping row id. */
 export const LOG_KNOWLEDGE_SPEC_SUBJECT_TYPES = ['knowledge_model_spec'] as const;
 
 const countsSchema = z
@@ -94,6 +97,37 @@ export const logKnowledgeSpecChangeConfirmedDetailSchema = z
   })
   .strict();
 
+// Concept mapping events (#1196 e): ids and closed vocabularies only — never the target key, a label or the reject reason.
+export const logKnowledgeSpecConceptProposedDetailSchema = z
+  .object({
+    modelId: z.string().uuid(),
+    mappingId: z.string().uuid(),
+    conceptId: z.string().uuid(),
+    targetKind: z.enum(['module', 'event']),
+    relationKind: z.enum(['equivalent', 'related']),
+    /** `similarity`: the proposal came from an accepted suggestion (still only a proposal until a human confirms it). */
+    origin: z.enum(['human', 'similarity']),
+  })
+  .strict();
+
+export const logKnowledgeSpecConceptConfirmedDetailSchema = z
+  .object({
+    modelId: z.string().uuid(),
+    mappingId: z.string().uuid(),
+    conceptId: z.string().uuid(),
+    relationKind: z.enum(['equivalent', 'related']),
+  })
+  .strict();
+
+export const logKnowledgeSpecConceptRejectedDetailSchema = z
+  .object({
+    modelId: z.string().uuid(),
+    mappingId: z.string().uuid(),
+    conceptId: z.string().uuid(),
+    priorState: z.enum(['proposed', 'confirmed']),
+  })
+  .strict();
+
 export const LOG_KNOWLEDGE_SPEC_AUDIT_EVENT_DETAIL_SCHEMAS = {
   'knowledge.spec.draft_saved': logKnowledgeSpecDraftSavedDetailSchema,
   'knowledge.spec.published': logKnowledgeSpecPublishedDetailSchema,
@@ -101,4 +135,7 @@ export const LOG_KNOWLEDGE_SPEC_AUDIT_EVENT_DETAIL_SCHEMAS = {
   'knowledge.spec.change_added': logKnowledgeSpecChangeAddedDetailSchema,
   'knowledge.spec.change_retired': logKnowledgeSpecChangeRetiredDetailSchema,
   'knowledge.spec.change_confirmed': logKnowledgeSpecChangeConfirmedDetailSchema,
+  'knowledge.spec.concept_proposed': logKnowledgeSpecConceptProposedDetailSchema,
+  'knowledge.spec.concept_confirmed': logKnowledgeSpecConceptConfirmedDetailSchema,
+  'knowledge.spec.concept_rejected': logKnowledgeSpecConceptRejectedDetailSchema,
 } as const satisfies Record<(typeof LOG_KNOWLEDGE_SPEC_AUDIT_EVENT_TYPES)[number], z.ZodTypeAny>;

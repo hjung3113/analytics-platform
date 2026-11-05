@@ -10,6 +10,7 @@ import { z } from 'zod';
 
 import type { FieldError } from '../../menu-dispatch/types.js';
 import { unsafeText } from '../../platform-port/text-safety.js';
+import { parseSubjects } from './item-subject-input.js';
 
 export const ITEM_TYPE_CODES = ['anomaly', 'needs_check', 'behavior_note', 'guideline'] as const;
 export const VERIFICATION_STATES = ['not_checked', 'observed', 'verified', 'disputed'] as const;
@@ -79,6 +80,14 @@ const evidenceList = z
   .nullish()
   .transform((v) => v ?? []);
 
+/** `subjects` (#1196 f; zod prefixes the field name to the issue paths): omitted = a revise carries the previous revision's subjects; a list (even empty) replaces them. */
+const subjectsField = z.unknown().transform((raw, ctx) => {
+  const parsed = parseSubjects(raw);
+  if (parsed.ok) return parsed.value;
+  for (const e of parsed.errors) ctx.addIssue({ code: 'custom', path: e.path.slice(1), message: e.code });
+  return z.NEVER;
+});
+
 const contentFields = {
   typeCode: oneOf(ITEM_TYPE_CODES),
   title: requiredText(TITLE_MAX),
@@ -108,6 +117,7 @@ export const ITEM_INPUT_SCHEMAS = {
       ownerSoftwareId: optionalUuid,
       ...contentFields,
       evidence: evidenceList,
+      subjects: subjectsField,
     })
     .superRefine(requireOneOwner)
     .superRefine(requireContent),
@@ -116,6 +126,7 @@ export const ITEM_INPUT_SCHEMAS = {
       id: uuid,
       ...contentFields,
       evidence: evidenceList,
+      subjects: subjectsField,
       changeNote: requiredText(CHANGE_NOTE_MAX),
     })
     .superRefine(requireContent),
@@ -161,7 +172,7 @@ function fieldErrors(error: z.ZodError): FieldError[] {
     if (seen.has(key)) continue;
     seen.add(key);
     // Type errors without our message (e.g. a wrong object shape) are `required`.
-    const known = ['required', 'too_long', 'malformed', 'required_one', 'invalid_state'];
+    const known = ['required', 'too_long', 'malformed', 'required_one', 'invalid_state', 'duplicate'];
     out.push({ path, code: known.includes(issue.message) ? issue.message : 'required' });
   }
   return out;

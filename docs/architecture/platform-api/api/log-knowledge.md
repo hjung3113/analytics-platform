@@ -225,6 +225,44 @@ Refusals are `invalid` field errors thrown from `handle` after the locks: `revis
 - **Audit.** Subject type `knowledge_model_spec` (no projection change), subject id = the change id; `knowledge.spec.change_added` (`modelId, changeId, softwareId, endsBeforeSoftwareId, targetKind, changeKind, basedOnRevNo, replacesChangeId?`), `change_retired` (`modelId, changeId, replacementChangeId?`), `change_confirmed` (`modelId, changeId, revalidationRevNo?`). Never `note`, `change_json` or `target_key`.
 - **Table walls.** The runtime role holds `SELECT, INSERT` and `UPDATE (needs_revalidation, revalidation_rev_no, retired_at, retired_by, retired_by_change_id, row_version)`; no `DELETE`. `knowledge.spec_sw_change_guard` (BEFORE UPDATE) rejects any other column change, any `row_version` step other than +1, a `retired_by_change_id` that is the row itself or a row of another target, and any change of a retired row.
 
+## Concept mapping and Item subjects (#1196 e, f, migration 0098)
+
+Design: `design-v0.6-candidate.md` §15.2/15.4. Migration 0098 adds `knowledge.common_concept`, `knowledge.spec_concept_mapping` (node e) and `knowledge.item_revision_subject` (node f); every PK/FK carries `workspace_id`. No new capability or menu permission: concept writes use `knowledge.spec.publish` / `knowledge:spec-publish`, Item subject writes ride `knowledge.item.publish`. Targets are pointed to by stable key (`domain/spec-target-key.ts`: `module_key` or `module_key/event_key`, `toCodeKey` spelling), never by a spec row id, so links survive new spec revisions.
+
+**Equivalence is human-confirmed only.** Same name never implies same concept. A concept row asserts nothing; only a `confirmed` mapping with `relation_kind = 'equivalent'` is equivalence, and `repositories/concept.ts` `findEquivalents(tx, workspaceId, modelId, targetKey)` reads exactly those rows (never a proposal, rejected, `related` or similarity score).
+
+### Concept mapping (node e)
+
+Menu `log-knowledge-models`. Writes (`concept-actions.ts`, input `domain/concept-input.ts`, SQL `repositories/concept.ts`; audit subject type `knowledge_model_spec`, subject id = the mapping id; `knowledge.spec.concept_proposed|concept_confirmed|concept_rejected`, ids and vocabularies only, never a label, key or reject reason). `invalidates` = `conceptMappings` + `conceptSuggestions`.
+
+| Action | Concurrency | Input | Answer `data` |
+| --- | --- | --- | --- |
+| `conceptPropose` | `none` | `modelId`, `targetKind` (`module\|event`), `target` (`{module}` / `{module,event}`), exactly one of `conceptId` / `canonicalLabel` (+ optional `description` ≤ 1000), optional `relationKind` (`equivalent` default, `related`), optional `pairWith` `{modelId, targetKind, target}` (accept a suggestion) | `{ conceptId, mappingId, pairMappingId? }` |
+| `conceptConfirm` | `version` (`mappingId`) | `mappingId` | `{ mappingId }` |
+| `conceptReject` | `version` (`mappingId`) | `mappingId`, `reason` (required, ≤ 500) | `{ mappingId }` |
+
+- **Propose** always stores `review_state = 'proposed'`. A `canonicalLabel` picks the concept of the same `(kind, toCodeKey(label))` or creates it. `pairWith` writes both targets as `proposed` on ONE concept with `origin = 'similarity'` and a score/basis the server recomputes from the two current specs (never taken from the client); without it `origin = 'human'`. The target must exist in the model's CURRENT published revision at write time (`targetKey:not_found`, `revision:none_published`; a pair reports `pairWith.…`).
+- **Pairs and memory.** One open (`proposed`/`confirmed`) row per `(concept, model, target_key)` (`target:already_mapped`); a rejected row is kept and that pair is never proposed again (`target:already_rejected`). One `confirmed` `equivalent` per `(model, target_key)` (`target:already_confirmed` on confirm; DB partial unique too).
+- **Confirm** needs `proposed` (`mapping:already_confirmed|already_rejected`) and the target still in the current revision. **Reject** takes `proposed` or `confirmed` (`mapping:already_rejected` otherwise) and stores the reason. A rejected row is final.
+- **Other codes.** `modelId:not_found`, `conceptId:not_found|kind_mismatch`, `concept:required_one`, `pairWith:same_target`, `mappingId:not_found`, `reason:required`. Stale `expectedVersion` is `conflict`.
+- **Locking.** Propose and confirm take `pg_advisory_xact_lock(hashtextextended('spec-concept:<ws>:<model>', 0))` for each model (sorted by id); confirm/reject read the row's model unlocked, lock, then `SELECT … FOR UPDATE`.
+- **Table walls.** `common_concept` and `item_revision_subject`: `SELECT, INSERT` only. `spec_concept_mapping`: `SELECT, INSERT` and `UPDATE (review_state, reject_reason, reviewed_by, reviewed_at, row_version)`; trigger `spec_concept_mapping_guard` blocks identity/evidence changes, a `row_version` step other than +1 and any state move except proposed→confirmed, proposed→rejected, confirmed→rejected. The mapping's FK `(workspace_id, concept_id, target_kind)` forces the concept's kind.
+
+Reads (`concept-endpoints.ts`, `platform:view`, 0-based `page`, `pageSize` 1–200):
+
+- `logKnowledge.conceptMappings` — optional `modelId`, `conceptId`, `reviewState`, `kind`; `{ rows, total }`, newest proposal first. Each row carries the concept label, model name, `targetName` and `targetState` (`present`, or `target_gone` when the current published revision no longer holds the key; the row is kept), evidence (`origin`, `similarityScore`, `similarityBasis`), review columns and `version`.
+- `logKnowledge.conceptSuggestions` — `modelId`, optional `kind`; computed on every read from current published specs (name trigram, event field-name overlap; inverted-index candidates; ≥ 0.5; at most 500). Rows are flagged `proposal: true`, nothing is stored, a pair both confirmed on one concept is skipped. Scale of this scan is unmeasured.
+
+### Item subjects (node f)
+
+`itemCreate` and `itemRevise` accept optional `subjects[]` (≤ 20): `{ modelId, targetKind (module|event), target, relation? (about default | context) }`. `modelId` must be the item's owner model (SW-owned: its SW version's model) — `subjects.N.modelId:model_mismatch`; when that model has a published spec the key must exist in its current revision (`subjects.N.targetKey:not_found`), otherwise a well-formed key is accepted with `spec_rev_no_at_link` null. Other codes: `subjects:too_long`, `subjects.N:duplicate`, `subjects.N.targetKind:malformed`. `itemRevise` without `subjects` copies the previous revision's rows to the new revision; a list (even empty) replaces them. Rows are insert-only (PK incl. `workspace_id`, FK to the item revision, no FK to spec rows). `derive` takes no subjects (backlog).
+
+- `logKnowledge.itemDetail` adds `subjects` for the shown revision: `{ modelId, modelName, targetKind, targetKey, subjectRelation, specRevNoAtLink, state, targetName }`, `state` = `resolved` (key in the model's current published revision), `gone`, `no_spec`.
+- `logKnowledge.items` accepts filter `subject` (`in`, one value): the target key on the item's LATEST revision; pair it with `ownerModelId` to scope the key to a model.
+- `logKnowledge.specSubjectItems` (menu `log-knowledge-models`) — `modelId`, `targetKey`, paging; published items whose latest revision names the target, rows are item rows plus `subjectRelation`.
+
+Menu mirror: `menus/log-dev/log-knowledge/src/endpoints.ts` (types and declarations only; mock server and screens later, backlog), compared by `catalog-menu-drift.test.ts`.
+
 ## TSV text input (#1196 b2)
 
 `specDraftSave` with `text` (a string) and `format: 'tsv' | 'paste'` — `tsv` is the content of a TSV-formatted `.txt` the screen read (the file itself is never stored), `paste` is pasted text. Both run the same pure parser (`domain/spec-tsv.ts`, `parseSpecTsv`); `format` is provenance only, recorded in the audit detail. Everything after parsing is the structured path of [Model spec write actions](#model-spec-write-actions): same normalisation, same planning, same `content_sha256` (an acceptance test asserts text and rows parity), same caps wall, same capability.

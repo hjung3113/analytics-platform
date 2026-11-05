@@ -360,6 +360,18 @@ _Avoid_: 드릴다운 메뉴 — 별도 메뉴가 아니라 한 메뉴 안의 �
 Workspace는 기능 데이터의 tenant 경계이며 분석 작업 영역과 다르다. Managed System Permission Scope는 Scope(room_name)와 별개의 권한 개념이다.
 
 
+**Concept Mapping (개념 매핑)**:
+A human-reviewed statement that one module or event of a model's spec is the same thing as, or related to, a named common concept. Equivalence exists only as a **confirmed** `equivalent` mapping; a similar or identical name never implies it, and a mapping points at the target by stable key so it survives new spec revisions. A concept row on its own asserts nothing.
+_Avoid_: Auto-match, same-name join, alias table
+
+**Proposal (제안)**:
+A mapping or suggestion that no person has confirmed yet: a `proposed` mapping row, or a similarity suggestion computed on read (never stored as confirmed). Its score is evidence for the reviewer, not a verdict, and equivalence reads ignore it.
+_Avoid_: Suggestion as decision, pending equivalence, auto-confirmed
+
+**Subject (대상)**:
+The module or event of a model's spec that a knowledge item revision is about, pointed to by stable key (`module_key` or `module_key/event_key`) with a relation of `about` or `context`. It resolves against the model's current published spec as resolved, gone or no spec.
+_Avoid_: Target row id, spec link, item owner (the owner is the model or SW version the item belongs to)
+
 **Workspace**:
 The outermost tenant boundary for platform feature-domain records. Every domain record belongs to exactly one **Workspace**, and no cross-**Workspace** links exist in MVP.
 코어 서버 하나가 담는 회사 전체 데이터 경계다. 지금은 배포마다 하나다. 업무 시스템이나 시스템(Managed System)이 아니며, 사용자 화면에 나오지 않는다. 기능 권한(VOC 열람·처리·등록 등)이 갈리는 단위는 Workspace가 아니라 시스템(Managed System)이다. 시스템에는 업무 시스템마다 하나씩 자동 등록된 것, 「플랫폼」 시스템, 손으로 등록한 플랫폼 밖 시스템이 있다. 그래서 `requireWorkspace`는 "같은 회사 데이터인가"만 확인하고, 시스템 접근 권한은 확인하지 않는다.

@@ -191,8 +191,77 @@ export const specChangesEndpoint = defineEndpoint<SpecChangesParams, PageResult<
   paramKeys: { modelId: true, softwareId: true, needsRevalidation: true, status: true, page: true, pageSize: true }, permission: 'platform:view',
   requiresScope: false, context: {}, kinds: [], mergeTimeDomain: false,
 });
-/** The model spec reads (#1196 a, b1, c), after the model reads in the server's order. */
-export const modelSpecEndpointSpecs = [modelSpecEndpoint, modelSpecRevisionsEndpoint, specDraftEndpoint, specChangesEndpoint] as const;
+
+// ---- concept mapping (#1196 e, design v0.6 §15.4) ---------------------------------------------------------------
+// Equivalence is HUMAN-CONFIRMED only: a mapping is `proposed` until a person confirms it; a similarity suggestion is a
+// proposal computed on read, never stored as confirmed. Targets are stable keys (`module_key` or `module_key/event_key`).
+// Types only: the mock server and the screens come with a later node.
+export const CONCEPT_KINDS = ['module', 'event'] as const;
+export type ConceptKind = (typeof CONCEPT_KINDS)[number];
+export const CONCEPT_RELATIONS = ['equivalent', 'related'] as const;
+export type ConceptRelation = (typeof CONCEPT_RELATIONS)[number];
+export const CONCEPT_REVIEW_STATES = ['proposed', 'confirmed', 'rejected'] as const;
+export type ConceptReviewState = (typeof CONCEPT_REVIEW_STATES)[number];
+export const CONCEPT_LIMITS = { description: 1000, rejectReason: 500 } as const;
+export type ConceptMappingsParams = { modelId?: string; conceptId?: string; reviewState?: ConceptReviewState; kind?: ConceptKind; page?: number; pageSize?: number };
+export type ConceptMappingRow = {
+  id: string; conceptId: string; conceptLabel: string; kind: ConceptKind; modelId: string; modelName: string;
+  targetKind: ConceptKind; targetKey: string;
+  /** The target's name in the model's current published spec; null when it is gone. */
+  targetName: string | null;
+  /** `target_gone`: a later revision removed the key; the row is kept, never deleted. */
+  targetState: 'present' | 'target_gone';
+  relationKind: ConceptRelation; reviewState: ConceptReviewState; origin: 'human' | 'similarity';
+  similarityScore: number | null; similarityBasis: { name_trgm?: number; field_overlap?: number } | null; rejectReason: string | null;
+  proposedBy: string; proposedAt: string; reviewedBy: string | null; reviewedAt: string | null;
+  /** `row_version`: the `expectedVersion` of confirm / reject. */
+  version: number;
+};
+export const conceptMappingsEndpoint = defineEndpoint<ConceptMappingsParams, PageResult<ConceptMappingRow>>({
+  id: 'logKnowledge.conceptMappings', menuId: LOG_KNOWLEDGE_MODELS_MENU_ID,
+  paramKeys: { modelId: true, conceptId: true, reviewState: true, kind: true, page: true, pageSize: true }, permission: 'platform:view',
+  requiresScope: false, context: {}, kinds: [], mergeTimeDomain: false,
+});
+export type ConceptSuggestionsParams = { modelId: string; kind?: ConceptKind; page?: number; pageSize?: number };
+/** A proposal for a human to review: never stored, never an equivalence (`proposal` is always true). */
+export type ConceptSuggestion = {
+  kind: ConceptKind;
+  source: { modelId: string; targetKey: string; name: string };
+  candidate: { modelId: string; modelName: string; targetKey: string; name: string };
+  score: number; basis: { name_trgm: number; field_overlap?: number }; proposal: true;
+};
+export const conceptSuggestionsEndpoint = defineEndpoint<ConceptSuggestionsParams, PageResult<ConceptSuggestion>>({
+  id: 'logKnowledge.conceptSuggestions', menuId: LOG_KNOWLEDGE_MODELS_MENU_ID,
+  paramKeys: { modelId: true, kind: true, page: true, pageSize: true }, permission: 'platform:view',
+  requiresScope: false, context: {}, kinds: [], mergeTimeDomain: false,
+});
+
+// ---- Item subject link (#1196 f, design v0.6 §15.2) ---------------------------------------------------------------
+export const ITEM_SUBJECT_LIMITS = { subjects: 20 } as const;
+export type SubjectRelation = 'about' | 'context';
+export type SubjectState = 'resolved' | 'gone' | 'no_spec';
+export type ItemSubject = {
+  modelId: string; modelName: string; targetKind: ConceptKind; targetKey: string; subjectRelation: SubjectRelation;
+  /** The spec revision the key was checked against at link time; null when the model had no published spec yet. */
+  specRevNoAtLink: number | null;
+  /** `gone`: the current published revision no longer holds the key; `no_spec`: the model has no published revision. */
+  state: SubjectState;
+  /** The target's name in the current published spec; null unless `resolved`. */
+  targetName: string | null;
+};
+export type SpecSubjectItemsParams = { modelId: string; targetKey: string; page?: number; pageSize?: number };
+export type SpecSubjectItemRow = ItemRow & { subjectRelation: SubjectRelation };
+export const specSubjectItemsEndpoint = defineEndpoint<SpecSubjectItemsParams, PageResult<SpecSubjectItemRow>>({
+  id: 'logKnowledge.specSubjectItems', menuId: LOG_KNOWLEDGE_MODELS_MENU_ID,
+  paramKeys: { modelId: true, targetKey: true, page: true, pageSize: true }, permission: 'platform:view',
+  requiresScope: false, context: {}, kinds: [], mergeTimeDomain: false,
+});
+
+/** The model spec reads (#1196 a, b1, c, e, f), after the model reads in the server's order. */
+export const modelSpecEndpointSpecs = [
+  modelSpecEndpoint, modelSpecRevisionsEndpoint, specDraftEndpoint, specChangesEndpoint,
+  conceptMappingsEndpoint, conceptSuggestionsEndpoint, specSubjectItemsEndpoint,
+] as const;
 
 export type SpecDraftCreateInput = { modelId: string; sourceDocRef: SpecSourceDocRef };
 export type SpecDraftSaveInput = {
@@ -249,8 +318,31 @@ const specChangeWrite = <I, O>(name: string, inputKeys: Record<keyof I & string,
 export const specChangeAdd = specChangeWrite<SpecChangeAddInput, SpecChangeAddResult>('specChangeAdd', { modelId: true, softwareId: true, endsBeforeSoftwareId: true, targetKind: true, target: true, changeKind: true, change: true, note: true, evidenceRef: true }, 'none');
 export const specChangeRetire = specChangeWrite<SpecChangeRetireInput, SpecChangeRetireResult>('specChangeRetire', { changeId: true, replacement: true }, 'version');
 export const specChangeConfirm = specChangeWrite<SpecChangeConfirmInput, SpecChangeConfirmResult>('specChangeConfirm', { changeId: true }, 'version');
-/** The four spec writes and the three SW change writes in the server's order. */
-export const specActionSpecs = [specDraftCreate, specDraftSave, specPublish, specReject, specChangeAdd, specChangeRetire, specChangeConfirm] as const;
+
+// Concept mapping writes (#1196 e): same right (`knowledge:spec-publish`); `invalidates` = the mapping list and the suggestions.
+export type ConceptTargetBody = { module: string } | { module: string; event: string };
+export type ConceptPairWith = { modelId: string; targetKind: ConceptKind; target: ConceptTargetBody };
+/** Exactly one of `conceptId` / `canonicalLabel` (`required_one` on `concept`). `pairWith` accepts a suggestion: both targets are proposed on one concept, scored server-side. */
+export type ConceptProposeInput = {
+  modelId: string; targetKind: ConceptKind; target: ConceptTargetBody; conceptId?: string | null; canonicalLabel?: string | null;
+  description?: string | null; relationKind?: ConceptRelation; pairWith?: ConceptPairWith | null;
+};
+export type ConceptConfirmInput = { mappingId: string };
+export type ConceptRejectInput = { mappingId: string; reason: string };
+export type ConceptProposeResult = { conceptId: string; mappingId: string; pairMappingId?: string };
+export type ConceptReviewResult = { mappingId: string };
+const conceptReads = [conceptMappingsEndpoint, conceptSuggestionsEndpoint];
+const conceptWrite = <I, O>(name: string, inputKeys: Record<keyof I & string, true>, concurrency: 'none' | 'version') =>
+  defineAction<I, O>({
+    id: `logKnowledge.${name}`, menuId: LOG_KNOWLEDGE_MODELS_MENU_ID, inputKeys, permission: SPEC_PUBLISH_PERMISSION,
+    requiresScope: false, concurrency, invalidates: conceptReads,
+  });
+export const conceptPropose = conceptWrite<ConceptProposeInput, ConceptProposeResult>('conceptPropose', { modelId: true, targetKind: true, target: true, conceptId: true, canonicalLabel: true, description: true, relationKind: true, pairWith: true }, 'none');
+export const conceptConfirm = conceptWrite<ConceptConfirmInput, ConceptReviewResult>('conceptConfirm', { mappingId: true }, 'version');
+export const conceptReject = conceptWrite<ConceptRejectInput, ConceptReviewResult>('conceptReject', { mappingId: true, reason: true }, 'version');
+
+/** The four spec writes, the three SW change writes and the three concept mapping writes in the server's order. */
+export const specActionSpecs = [specDraftCreate, specDraftSave, specPublish, specReject, specChangeAdd, specChangeRetire, specChangeConfirm, conceptPropose, conceptConfirm, conceptReject] as const;
 
 /** What every write answers: the row's identity and its new version. */
 export type CatalogSummary = { id: string; code: string; name: string; active: boolean; version: string };
@@ -348,6 +440,8 @@ export type ItemDetail = {
   revisions: { revisionNo: number; title: string; publishedBy: string; publishedAt: string; changeNote: string | null }[];
   assessments: ItemAssessment[];
   links: ItemLinkRow[];
+  /** The targets the shown revision is about (#1196 f), resolved against each model's current published spec. The real server always answers it; optional here only until the mock server and the screens carry it (a later node). */
+  subjects?: ItemSubject[];
 };
 
 export const ITEM_SORT_IDS = ['itemNo', 'title', 'updatedAt'] as const;
@@ -369,6 +463,8 @@ export const itemFilterSpecs: Readonly<Record<string, ColumnFilterSpec>> = {
   verificationState: itemEnum(VERIFICATION_STATES, VERIFICATION_LABEL),
   processingState: itemEnum(PROCESSING_STATES, PROCESSING_LABEL),
   publicationState: itemEnum(PUBLICATION_STATES, PUBLICATION_LABEL),
+  /** #1196 f: items whose latest revision has this subject target key (escaped stable key; one value, no closed vocabulary). Pair it with `ownerModelId` to scope the key to a model. */
+  subject: { kind: 'enum', options: [], ops: ['in'], multiple: false },
 };
 
 export const itemsEndpoint = defineEndpoint<CatalogPageParams, PageResult<ItemRow>>({
@@ -409,8 +505,11 @@ export type ItemContentInput = {
 };
 /** Exactly one owner (`required_one` on `owner`); never changed afterwards. */
 export type ItemOwnerInput = { ownerModelId?: string | null; ownerSoftwareId?: string | null };
-export type ItemCreateInput = ItemOwnerInput & ItemContentInput & { evidence?: EvidenceInput[] | null };
-export type ItemReviseInput = ItemContentInput & { id: string; evidence?: EvidenceInput[] | null; changeNote: string };
+/** A target the revision is about (#1196 f): the item's owner model and a module / event key of its spec. `relation` defaults to `about`. */
+export type ItemSubjectInput = { modelId: string; targetKind: ConceptKind; target: ConceptTargetBody; relation?: SubjectRelation };
+export type ItemCreateInput = ItemOwnerInput & ItemContentInput & { evidence?: EvidenceInput[] | null; subjects?: ItemSubjectInput[] | null };
+/** `subjects` omitted keeps the previous revision's subjects; a list (even empty) replaces them. */
+export type ItemReviseInput = ItemContentInput & { id: string; evidence?: EvidenceInput[] | null; subjects?: ItemSubjectInput[] | null; changeNote: string };
 export type ItemAssessInput = { id: string; dimension: AssessmentDimension; newState: string; rationale: string };
 export type ItemDeriveInput = ItemOwnerInput & ItemContentInput & { sourceItemId: string; sourceRevisionNo: number };
 export type ItemSetArchivedInput = { id: string; archived: boolean };
@@ -426,8 +525,8 @@ const itemWrite = <I, O>(name: string, inputKeys: Record<keyof I & string, true>
   });
 const contentKeys = { typeCode: true, title: true, observation: true, expected: true, analysisOpinion: true, improvement: true } as const;
 
-export const itemCreate = itemWrite<ItemCreateInput, ItemWriteResult>('itemCreate', { ownerModelId: true, ownerSoftwareId: true, ...contentKeys, evidence: true }, 'none');
-export const itemRevise = itemWrite<ItemReviseInput, ItemReviseResult>('itemRevise', { id: true, ...contentKeys, evidence: true, changeNote: true }, 'version');
+export const itemCreate = itemWrite<ItemCreateInput, ItemWriteResult>('itemCreate', { ownerModelId: true, ownerSoftwareId: true, ...contentKeys, evidence: true, subjects: true }, 'none');
+export const itemRevise = itemWrite<ItemReviseInput, ItemReviseResult>('itemRevise', { id: true, ...contentKeys, evidence: true, subjects: true, changeNote: true }, 'version');
 export const itemAssess = itemWrite<ItemAssessInput, ItemWriteResult>('itemAssess', { id: true, dimension: true, newState: true, rationale: true }, 'version');
 export const itemDerive = itemWrite<ItemDeriveInput, ItemWriteResult>('itemDerive', { sourceItemId: true, sourceRevisionNo: true, ownerModelId: true, ownerSoftwareId: true, ...contentKeys }, 'none');
 export const itemSetArchived = itemWrite<ItemSetArchivedInput, ItemWriteResult>('itemSetArchived', { id: true, archived: true }, 'version');
