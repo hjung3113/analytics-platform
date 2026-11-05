@@ -77,6 +77,29 @@ status filter includes `status_counts` for all list-visible rows matching the
 relation type and Managed System filters. Status, relation type, and Managed
 System filters apply to every page.
 
+Inventory mode also accepts `q` (trimmed, at most 200 characters; longer returns
+`422 validation.failed`; an empty value means no search). It matches what the
+inventory row shows for each endpoint, case-insensitively, like the VOC and Task
+list searches: the endpoint `display_id` by prefix, or its `title` as a substring
+(`%`, `_` and `\` are literal). Only rows with `visibility_state=allowed` can
+match, and the match reads the same internal endpoint summaries the DTO carries:
+hidden, denied and summary-only rows never match, are never returned and never
+count, so a search cannot reveal a link or an endpoint title the actor may not
+read. `q` combines with `status`, `relation_type`, `managed_system_id` and
+`cursor`, and is rejected in endpoint mode. With `q` the first page's
+`status_counts` count the matching rows (before the status filter).
+
+The search is complete: the server scans the workspace's stored links (relation
+type and Managed System filters applied) in keyset batches of 500 in the same
+`created_at DESC, id DESC` order, starting after the request's cursor, runs each
+batch through the visibility pipeline, and keeps the allowed rows that match
+until it has `limit + 1` matches or the rows run out. Hidden and denied rows
+therefore never change results, counts or cursors. The cursor of a page is the
+usual cursor built from the last returned row's raw timestamp text and id. The
+first page without `status` also scans to the end to count matches per status.
+The cost is linear in the workspace's link count per request, which is fine for
+the target scale.
+
 ## FO ADR-0064 canonical-link access (accepted; #740 cutover)
 
 Generic POST/GET/PATCH, all status filters, counts and cursors categorically

@@ -29,8 +29,8 @@ describe('연동 tables', () => {
     ['coverage every key', coverageRoute, 'coverage', `/integration/coverage?view=areas&filter.analytics_area=${AREA}&cursor=c&managedSystem=${SYSTEM}`,
       { view: 'areas', area: AREA, cursor: 'c', managedSystem: SYSTEM }],
     ['links scoped', entityLinksRoute, 'entity-links', `/integration/links?managedSystem=${SYSTEM}`, { managedSystem: SYSTEM }],
-    ['links every key', entityLinksRoute, 'entity-links', `/integration/links?status=stale&type=related_to&managedSystem=${SYSTEM}`,
-      { status: 'stale', type: 'related_to', managedSystem: SYSTEM }],
+    ['links every key', entityLinksRoute, 'entity-links', `/integration/links?status=stale&type=related_to&q=a&managedSystem=${SYSTEM}`,
+      { status: 'stale', type: 'related_to', q: 'a', managedSystem: SYSTEM }],
   ])('maps the %s link to its menu and back to the same screen search', (_name, route, menuId, to, page) => {
     const target = route.target(to);
     expect(target).toEqual({ menuId, page });
@@ -80,7 +80,7 @@ describe('연동 tables', () => {
     expect(sorted(integrationDashboardRoute.pageKeys)).toEqual(['category', 'cursor', 'focus', 'history', 'managedSystem', 'presentation']);
     expect(sorted(evidenceRoute.pageKeys)).toEqual(['cursor', 'focus', 'managedSystem', 'q', 'source']);
     expect(sorted(coverageRoute.pageKeys)).toEqual(['area', 'cursor', 'managedSystem', 'view']);
-    expect(sorted(entityLinksRoute.pageKeys)).toEqual(['managedSystem', 'status', 'type']);
+    expect(sorted(entityLinksRoute.pageKeys)).toEqual(['managedSystem', 'q', 'status', 'type']);
   });
 
   it('exposes the four targets, all wired into operatorHostLinks', () => {

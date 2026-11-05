@@ -36,7 +36,7 @@ Reusable component contracts live in `docs/design/features/ui-design-system.md`.
 /findings?selected=:findingId (semantic selected-record intent)
 /integration/evidence?managedSystem=:managedSystemId|all&source=voc|survey_response|note&q=:query&selected=:highlightId&cursor=:opaqueCursor
 /integration/coverage?managedSystem=:managedSystemId|all
-/integration/links?managedSystem=:managedSystemId|all&status=active|stale|detached|revoked&type=related_to
+/integration/links?managedSystem=:managedSystemId|all&status=active|stale|detached|revoked&type=related_to&q=:query
 /admin/managed-systems
 /admin/analytics-areas?managedSystem=:managedSystemId&includeArchived=true&selected=:analyticsAreaId
 /admin/permissions/requests?tab=:tab&selected=:requestId
@@ -60,7 +60,7 @@ Reusable component contracts live in `docs/design/features/ui-design-system.md`.
 | `/home` | `managedSystem`, `tab`, `category`, `selected`, `presentation`, `history`, `returnTo`, `cursor` | Dashboard tab, visible presentation, history=false and absent filters/selection/return/cursor; Home scope is a UUID when explicit |
 | `/integration` | `managedSystem`, `category`, `selected`, `presentation`, `history`, `returnTo`, `cursor` | `managedSystem` for the caller's effective scope union (`all` is also accepted); visible presentation, history=false and absent filters/selection/return/cursor |
 | `/integration/evidence` | `managedSystem`, `source`, `q`, `selected`, `cursor` | omit unfiltered defaults; selection uses a local highlight UUID; cursor is opaque |
-| `/integration/links` | `managedSystem`, `status`, `type` | `managedSystem` for the caller's effective scope union; `status` and `type` when unfiltered |
+| `/integration/links` | `managedSystem`, `status`, `type`, `q` | `managedSystem` for the caller's effective scope union; `status` and `type` when unfiltered; `q` (trimmed, at most 200 characters, omitted when empty) searches endpoint display IDs and titles the caller can read |
 | `/admin/analytics-areas` | `managedSystem`, `includeArchived`, `selected` | `managedSystem` for all Managed Systems; `includeArchived` when archived records are hidden; `selected` when none is selected |
 | `/admin/permissions/requests` | `tab`, `selected`, `returnTo` | `tab` for the pending tab; `selected` when none is selected; `returnTo` unless opened from a recovery queue |
 | `/admin/permissions/grants` | `tab`, `selected` | `tab` for grants; `selected` when none is selected |

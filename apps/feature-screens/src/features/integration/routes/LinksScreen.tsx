@@ -3,6 +3,7 @@ import { ENTITY_LINK_RELATION_LABELS } from '@/lib/copy/enum-labels';
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { managedSystemsCatalogQuery } from '@/lib/cross-system/useManagedSystemNames';
 import { useHostSearchWriter } from '@/lib/host/useHostSearchWriter';
+import { useCommittedSearchDraft } from '@/lib/useCommittedSearchDraft';
 import type { EntityLinkRelationType, EntityLinkStatus } from '@ap/feature-shared';
 import {
   Button,
@@ -20,7 +21,7 @@ import {
   entityLinkInventoryQueryKey,
   useEntityLinkInventory,
 } from '../hooks/useEntityLinkInventory';
-import { validateIntegrationLinksSearch } from './integration-search';
+import { INTEGRATION_LINKS_SEARCH_MAX, validateIntegrationLinksSearch } from './integration-search';
 
 type StatusFilter = EntityLinkStatus;
 
@@ -74,8 +75,9 @@ export function LinksScreen() {
       ...(search.status !== undefined ? { status: search.status } : {}),
       ...(search.type !== undefined ? { relationType: search.type } : {}),
       ...(search.managedSystem !== undefined ? { managedSystemId: search.managedSystem } : {}),
+      ...(search.q !== undefined ? { q: search.q } : {}),
     }),
-    [search.managedSystem, search.status, search.type],
+    [search.managedSystem, search.q, search.status, search.type],
   );
   const previousInventoryParams = React.useRef(inventoryParams);
   React.useEffect(() => {
@@ -84,7 +86,8 @@ export function LinksScreen() {
     if (
       previous.status === inventoryParams.status &&
       previous.relationType === inventoryParams.relationType &&
-      previous.managedSystemId === inventoryParams.managedSystemId
+      previous.managedSystemId === inventoryParams.managedSystemId &&
+      previous.q === inventoryParams.q
     ) {
       return;
     }
@@ -111,8 +114,9 @@ export function LinksScreen() {
     if (search.type !== undefined) {
       conditions.push(`관계 유형: ${ENTITY_LINK_RELATION_LABELS[search.type]}`);
     }
+    if (search.q !== undefined) conditions.push(`검색: ${search.q}`);
     return conditions.length > 0 ? conditions.join(' · ') : undefined;
-  }, [search.status, search.type]);
+  }, [search.q, search.status, search.type]);
   const needsUnfilteredCheck =
     activeFilterDescription !== undefined &&
     inventory.isSuccess &&
@@ -149,6 +153,7 @@ export function LinksScreen() {
   const countInventory = useEntityLinkInventory({
     ...(search.type !== undefined ? { relationType: search.type } : {}),
     ...(search.managedSystem !== undefined ? { managedSystemId: search.managedSystem } : {}),
+    ...(search.q !== undefined ? { q: search.q } : {}),
   });
 
   const managedSystemsQuery = useQuery(managedSystemsCatalogQuery());
@@ -224,16 +229,18 @@ export function LinksScreen() {
 
   function handleStatusChange(next: string): void {
     write((prev) => {
-      const { type, managedSystem } = prev;
+      const { type, managedSystem, q } = prev;
       if (next === 'all') {
         return {
           ...(type !== undefined ? { type } : {}),
+          ...(q !== undefined ? { q } : {}),
           ...(managedSystem !== undefined ? { managedSystem } : {}),
         };
       }
       return {
         status: next as StatusFilter,
         ...(type !== undefined ? { type } : {}),
+        ...(q !== undefined ? { q } : {}),
         ...(managedSystem !== undefined ? { managedSystem } : {}),
       };
     });
@@ -242,16 +249,18 @@ export function LinksScreen() {
   function handleFiltersChange(next: Record<string, string[]>): void {
     const type = toSearchableRelationType(next.type?.[0]);
     write((prev): LinksSearch => {
-      const { status, managedSystem } = prev;
+      const { status, managedSystem, q } = prev;
       if (type === undefined) {
         return {
           ...(status !== undefined ? { status } : {}),
+          ...(q !== undefined ? { q } : {}),
           ...(managedSystem !== undefined ? { managedSystem } : {}),
         };
       }
       return {
         ...(status !== undefined ? { status } : {}),
         type,
+        ...(q !== undefined ? { q } : {}),
         ...(managedSystem !== undefined ? { managedSystem } : {}),
       };
     });
@@ -265,6 +274,24 @@ export function LinksScreen() {
     );
   }
 
+  const writeSearch = React.useCallback(
+    (draft: string) => {
+      const next = draft.trim();
+      if (next === (search.q ?? '')) return false;
+      write((previous) => {
+        const { q: _previousQ, ...rest } = previous;
+        return next === '' ? rest : { ...rest, q: next };
+      }, { replace: true });
+      return true;
+    },
+    [search.q, write],
+  );
+  const {
+    draft: searchDraft,
+    setDraft: setSearchDraft,
+    commit: commitSearch,
+  } = useCommittedSearchDraft({ committed: search.q ?? '', write: writeSearch });
+
   const list = (
     <>
       <ListToolbar
@@ -273,7 +300,12 @@ export function LinksScreen() {
         onTabChange={handleStatusChange}
         action={
           <div className="flex items-center gap-2">
-            <SearchInput placeholder={`${GLOSSARY.entityLinks} 검색…`} />
+            <SearchInput
+              placeholder={`${GLOSSARY.entityLinks} 검색…`}
+              value={searchDraft}
+              onValueChange={(value) => setSearchDraft(value.slice(0, INTEGRATION_LINKS_SEARCH_MAX))}
+              onCommit={commitSearch}
+            />
             <ListFilterButton
               categories={FILTER_CATEGORIES}
               values={currentFilters}

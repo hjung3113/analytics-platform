@@ -431,6 +431,68 @@ export async function selectLinksByWorkspace(
   };
 }
 
+/**
+ * One keyset batch of the inventory scan behind the `q` search: the same filters and ordering as
+ * `selectLinksByWorkspace`, starting after `cursor`, and each row keeps the raw timestamp text so a
+ * page cursor built from it never loses sub-millisecond precision. No status counts.
+ */
+export async function selectLinkScanBatch(
+  db: Db | Tx,
+  input: {
+    workspaceId: string;
+    limit: number;
+    cursor?: { createdAt: string; id: string };
+    statuses?: EntityLinkRow['status'][];
+    relationType?: EntityLinkRow['relation_type'];
+    managedSystemId?: string;
+  },
+): Promise<{
+  rows: { row: EntityLinkRow; createdAtRaw: string }[];
+  exhausted: boolean;
+}> {
+  const predicates = [
+    sql`workspace_id = ${input.workspaceId}`,
+    sql`source_type <> 'survey_response'`,
+    sql`NOT (
+      source_type = 'voc_cluster'
+      AND target_type = 'finding'
+      AND relation_type = 'evidence_of'
+    )`,
+  ];
+  if (input.relationType !== undefined) {
+    predicates.push(sql`relation_type = ${input.relationType}`);
+  }
+  if (input.managedSystemId !== undefined) {
+    predicates.push(sql`managed_system_id = ${input.managedSystemId}`);
+  }
+  if (input.statuses !== undefined && input.statuses.length > 0) {
+    predicates.push(sql`status::text = ANY(${sqlTextArray(input.statuses)})`);
+  }
+  if (input.cursor !== undefined) {
+    predicates.push(sql`(created_at, id) < (
+      ${input.cursor.createdAt}::timestamptz, ${input.cursor.id}::uuid
+    )`);
+  }
+  const result = await (db as Db).execute<Record<string, unknown>>(sql`
+    SELECT
+      id, workspace_id, source_type, source_id, target_type, target_id,
+      relation_type, visibility, status, managed_system_id, created_by,
+      created_at, created_at::text AS cursor_created_at,
+      updated_at, detached_by, detach_reason, detached_at
+    FROM core.entity_links_app
+    WHERE ${sql.join(predicates, sql` AND `)}
+    ORDER BY created_at DESC, id DESC
+    LIMIT ${input.limit}
+  `);
+  return {
+    rows: result.rows.map((row) => ({
+      row: mapEntityLinkRow(row),
+      createdAtRaw: row.cursor_created_at as string,
+    })),
+    exhausted: result.rows.length < input.limit,
+  };
+}
+
 export async function selectEntityLinkById(
   db: Db | Tx,
   input: { workspaceId: string; linkId: string },

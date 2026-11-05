@@ -27,7 +27,7 @@ export const manifests: MenuEntry[] = [
     description: { ko: 'VOC·Finding·Task 사이의 연결을 상태와 유형별로 봅니다', en: 'See links between entities by status and type' },
     path: '/flow/entity-links', icon: Link2, permission: 'features:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
-    pageKeys: ['status', 'type', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
+    pageKeys: ['status', 'type', 'q', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
     component: lazy(() => import('./pages/FeatureEntityLinks')),
   },
   {

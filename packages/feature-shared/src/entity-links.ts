@@ -216,6 +216,12 @@ export const listEntityLinksQuerySchema = z
     status: csvEntityLinkStatusSchema,
     relation_type: entityLinkRelationTypeSchema.optional(),
     managed_system_id: z.string().uuid().optional(),
+    q: z
+      .string()
+      .trim()
+      .max(200)
+      .transform((value) => value || undefined)
+      .optional(),
     limit: listLimitSchema,
     cursor: z.string().min(1).optional(),
   })
@@ -227,7 +233,8 @@ export const listEntityLinksQuerySchema = z
     const hasInventoryFilter =
       value.status !== undefined ||
       value.relation_type !== undefined ||
-      value.managed_system_id !== undefined;
+      value.managed_system_id !== undefined ||
+      value.q !== undefined;
 
     if (value.scope === 'workspace' && hasEndpoint) {
       ctx.addIssue({

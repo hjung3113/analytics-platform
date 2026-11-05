@@ -13,6 +13,7 @@ export interface EntityLinkInventoryParams {
   status?: EntityLinkStatus;
   relationType?: EntityLinkRelationType;
   managedSystemId?: string;
+  q?: string;
 }
 
 export interface EntityLinkInventoryPage {
@@ -21,12 +22,12 @@ export interface EntityLinkInventoryPage {
 }
 
 export function entityLinkInventoryQueryKey(params: EntityLinkInventoryParams) {
-  const { status, relationType, managedSystemId } = params;
-  return ['entity-links', 'inventory', status, relationType, managedSystemId] as const;
+  const { status, relationType, managedSystemId, q } = params;
+  return ['entity-links', 'inventory', status, relationType, managedSystemId, q] as const;
 }
 
 export function useEntityLinkInventory(params: EntityLinkInventoryParams, enabled = true) {
-  const { status, relationType, managedSystemId } = params;
+  const { status, relationType, managedSystemId, q } = params;
 
   return useInfiniteQuery({
     queryKey: entityLinkInventoryQueryKey(params),
@@ -38,6 +39,7 @@ export function useEntityLinkInventory(params: EntityLinkInventoryParams, enable
       if (pageParam !== undefined) qs.set('cursor', pageParam);
       if (status !== undefined) qs.set('status', status);
       if (relationType !== undefined) qs.set('relation_type', relationType);
+      if (q !== undefined) qs.set('q', q);
       if (managedSystemId !== undefined && managedSystemId !== 'all') {
         qs.set('managed_system_id', managedSystemId);
       }

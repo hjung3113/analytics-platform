@@ -47,7 +47,7 @@ export const entityLinksRoute = operatorRoute({
   screenPath: '/integration/links',
   screenFixed: {},
   menuId: 'entity-links',
-  keys: { status: 'status', type: 'type', managedSystem: 'managedSystem' },
+  keys: { status: 'status', type: 'type', q: 'q', managedSystem: 'managedSystem' },
   screenAbsent: SCOPE_ALL,
 });
 

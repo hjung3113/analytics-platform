@@ -98,6 +98,9 @@ describe('isIntegrationLinksSearchValueValid', () => {
     ['type', 'other', false],
     ['managedSystem', ID, true],
     ['managedSystem', 'anything', true],
+    ['q', 'VOC-12', true],
+    ['q', 'x'.repeat(200), true],
+    ['q', 'x'.repeat(201), false],
     ['unknown', 'x', false],
   ])('%s=%s → %s', (key, value, expected) => {
     expect(isIntegrationLinksSearchValueValid(key, value)).toBe(expected);
