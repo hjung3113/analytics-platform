@@ -175,13 +175,13 @@ export function ClusterSectionReadOnly({
                 <li
                   key={item.voc_id}
                   data-testid={`cluster-recommendation-row-${item.voc_id}`}
-                  className="rounded-md bg-surface-card-elevated p-2.5 flex items-start justify-between gap-3"
+                  className="rounded-md bg-surface-card-elevated p-2.5 flex flex-wrap items-start justify-between gap-3"
                 >
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 text-xs text-text-muted">
-                      <span className="font-mono tabular-nums">{item.display_id}</span>
+                  <div className="min-w-0 flex-1 basis-48">
+                    <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs text-text-muted">
+                      <span className="font-mono tabular-nums whitespace-nowrap shrink-0 max-w-full truncate" title={item.display_id}>{item.display_id}</span>
                       <span aria-hidden="true">·</span>
-                      <span data-testid={`cluster-recommendation-score-${item.voc_id}`}>
+                      <span className="whitespace-nowrap" data-testid={`cluster-recommendation-score-${item.voc_id}`}>
                         유사도 {formatScore(item.score)}
                       </span>
                       <ReporterStatusBadge status={item.reporter_facing_status} />

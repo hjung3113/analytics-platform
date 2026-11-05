@@ -4,6 +4,24 @@ import { ManagedSystemPill } from '../ManagedSystemPill.js';
 import { managedSystemMarkColor, managedSystemMarkToken } from '../managed-system-mark.js';
 
 describe('ManagedSystemPill', () => {
+  it.each([undefined, '#5e6ad2'])('keeps active names full opacity with mark=%s', (mark) => {
+    render(<ManagedSystemPill name="Active system" {...(mark === undefined ? {} : { mark })} />);
+    const pill = screen.getByText('Active system');
+    expect(pill).toHaveClass('text-text-secondary');
+    expect(pill).not.toHaveClass('text-text-muted');
+    expect(pill).not.toHaveClass('opacity-60');
+    expect(pill).not.toHaveClass('border-dashed');
+  });
+
+  it('distinguishes an archived system without a mark by border shape without fading its name', () => {
+    render(<ManagedSystemPill name="Archived system" archived />);
+    const pill = screen.getByText('Archived system');
+    expect(pill).toHaveClass('text-text-secondary', 'border-dashed');
+    expect(pill).not.toHaveClass('text-text-muted');
+    expect(pill).not.toHaveClass('opacity-60');
+    expect(pill).toHaveAttribute('data-archived', 'true');
+  });
+
   it('renders the name', () => {
     render(<ManagedSystemPill name="Tableau" mark="#5e6ad2" />);
     expect(screen.getByText('Tableau')).toBeInTheDocument();
@@ -53,7 +71,7 @@ describe('ManagedSystemPill', () => {
     expect(container.querySelector('[data-mark]')).toBeNull();
   });
 
-  it('renders a dot and muted style when archived=true', () => {
+  it('renders an archived dot with a legible label and dashed border', () => {
     const { container } = render(
       <ManagedSystemPill name="Old System" mark="#aaa" archived={true} />,
     );
@@ -63,7 +81,9 @@ describe('ManagedSystemPill', () => {
     expect(pill).not.toBeNull();
     expect(mark?.parentElement).toBe(pill);
     expect(mark).toHaveClass('rounded-pill');
-    expect(pill).toHaveClass('opacity-60');
+    expect(pill).toHaveClass('text-text-secondary', 'border-dashed');
+    expect(pill).not.toHaveClass('opacity-60');
+    expect(pill).not.toHaveClass('text-text-muted');
   });
 
   it('sets data-archived="false" when archived=false', () => {
@@ -73,13 +93,16 @@ describe('ManagedSystemPill', () => {
     expect(container.querySelector('[data-archived="false"]')).not.toBeNull();
   });
 
-  it('renders muted when no mark is provided (unknown ms pattern)', () => {
+  it('keeps an unmarked system label legible without implying it is archived', () => {
     const { container } = render(<ManagedSystemPill name="Unknown MS" />);
     expect(container.querySelector('[data-archived="false"]')).toHaveClass(
       'border-border-subtle',
-      'text-text-muted',
-      'opacity-60',
+      'text-text-secondary',
     );
+    const pill = container.querySelector('[data-archived="false"]');
+    expect(pill).not.toHaveClass('opacity-60');
+    expect(pill).not.toHaveClass('text-text-muted');
+    expect(pill).not.toHaveClass('border-dashed');
     expect(container.querySelector('[data-mark]')).toBeNull();
   });
 });

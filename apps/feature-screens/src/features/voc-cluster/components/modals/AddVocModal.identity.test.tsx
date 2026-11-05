@@ -48,6 +48,29 @@ describe('AddVocModal candidate identity', () => {
     modalState.data = { pages: [{ candidates: modalState.candidates, page: { has_more: false } }] };
   });
 
+  it('keeps a candidate VOC number unbroken without preventing title wrapping', () => {
+    const candidate = modalState.candidates[0];
+    if (!candidate) throw new Error('fixture missing');
+    candidate.display_id = 'VOC-1021';
+    render(<AddVocModal open clusterId="cluster-1" onClose={() => undefined} />);
+    expect(screen.getByText('VOC-1021')).toHaveClass('whitespace-nowrap', 'shrink-0');
+    expect(screen.getByRole('button', { name: 'VOC-1021 추가' })).toBeInTheDocument();
+  });
+
+  it('bounds a long candidate ID and allows the add action to wrap', () => {
+    const candidate = modalState.candidates[0];
+    if (!candidate) throw new Error('fixture missing');
+    const displayId = 'VOC-1234567890123456789';
+    candidate.display_id = displayId;
+    render(<AddVocModal open clusterId="cluster-1" onClose={() => undefined} />);
+    const id = screen.getByText(displayId);
+    expect(id).toHaveClass('inline-block', 'max-w-full', 'truncate', 'whitespace-nowrap');
+    expect(id).toHaveAttribute('title', displayId);
+    expect(id.parentElement).toHaveClass('min-w-0', 'max-w-full');
+    expect(id.parentElement?.parentElement).toHaveClass('min-w-0', 'flex-1', 'basis-48');
+    expect(screen.getByRole('button', { name: `${displayId} 추가` }).parentElement).toHaveClass('flex-wrap', 'gap-2');
+  });
+
   it('shows the VOC label with translated severity/status and a muted id fragment', () => {
     render(<AddVocModal open clusterId="cluster-1" onClose={() => undefined} />);
 

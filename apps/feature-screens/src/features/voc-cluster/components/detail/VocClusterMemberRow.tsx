@@ -49,18 +49,20 @@ export function VocClusterMemberRow({
       )}
       data-testid={`cluster-member-row-${member.voc_id}`}
     >
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <div className="truncate text-sm text-text-primary">
           <HostLink
             to={`/vocs?view=inbox&selected=${member.voc_id}`}
             className="text-accent-primary underline underline-offset-2 hover:text-accent-primary/80"
             data-testid={`cluster-member-link-${member.voc_id}`}
           >
-            {display.primary}
+            {display.primary === member.display_id
+              ? <span className="whitespace-nowrap shrink-0" title={display.primary}>{display.primary}</span>
+              : display.primary}
           </HostLink>
         </div>
-        <p className="text-xs text-text-muted">
-          {display.secondary ?? shortId(member.voc_id)}
+        <p className="flex min-w-0 flex-wrap items-center gap-x-1 text-xs text-text-muted">
+          <span className="whitespace-nowrap shrink-0 max-w-full truncate" title={display.secondary ?? shortId(member.voc_id)}>{display.secondary ?? shortId(member.voc_id)}</span>
           {member.severity ? ` · ${FINDING_SEVERITY_LABELS[member.severity]}` : ''}
         </p>
       </div>

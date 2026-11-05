@@ -191,10 +191,10 @@ function AddVocPicker({
                   data-testid={`add-voc-candidate-${candidate.voc_id}`}
                   className="flex flex-col gap-1 rounded-md border border-border-subtle px-2 py-1"
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="flex min-w-0 flex-col items-start text-sm">
-                      <span>
-                        {label} · {candidate.title} ·{' '}
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="flex min-w-0 flex-1 basis-48 flex-col items-start text-sm">
+                      <span className="min-w-0 max-w-full">
+                        {candidate.display_id ? <span className="inline-block max-w-full truncate align-bottom whitespace-nowrap shrink-0" title={label}>{label}</span> : label} · {candidate.title} ·{' '}
                         {candidate.severity !== undefined &&
                           `${severityLabel(candidate.severity)} · `}
                         {statusLabel(candidate.reporter_facing_status)}

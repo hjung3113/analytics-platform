@@ -33,6 +33,95 @@ afterEach(() => {
 });
 
 describe('PublicVocListScreen', () => {
+  it('groups the range and bounded system filter before a pane-responsive full-row search', async () => {
+    stubFetch([]);
+    const { container } = render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <PublicVocListScreen query={{ q: '', mine: false, systemId: null }} onQueryChange={vi.fn()} selectedId={null} onSelect={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    await screen.findByText('볼 수 있는 VOC가 없습니다');
+    const toolbar = container.querySelector('[data-list-toolbar]');
+    const filters = container.querySelector('[data-public-voc-filters]');
+    const search = container.querySelector<HTMLElement>('[data-public-voc-control="q"]');
+    expect(toolbar).toHaveClass('@container', '[&>[data-list-toolbar-actions]]:w-full', '[&>[data-list-toolbar-actions]]:py-0');
+    expect(filters).toHaveClass('flex', 'min-h-toolbar', 'items-center', 'shrink-0');
+    expect(filters).toContainElement(container.querySelector('[data-public-voc-control="mine"]'));
+    expect(filters).toContainElement(container.querySelector('[data-public-voc-control="system"]'));
+    expect(filters).not.toContainElement(search);
+    expect(search?.previousElementSibling).toBe(filters);
+    expect(search).toHaveClass('flex', 'min-h-toolbar', 'items-center', 'w-full', 'min-w-0', '@xl:w-auto', '@xl:flex-1');
+    expect(screen.getByRole('combobox', { name: '시스템' })).toHaveClass('w-28', 'shrink-0', 'h-10');
+    expect(screen.getByRole('combobox', { name: '시스템' })).not.toHaveClass('w-full');
+    expect(screen.getByRole('searchbox').parentElement).toHaveClass('w-full');
+    expect(screen.getByRole('searchbox')).toHaveClass('h-10');
+  });
+
+  it('reserves the chevron width when a long system name is selected', async () => {
+    const name = '아주 긴 시스템 이름을 선택했을 때도 화살표 유지';
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => new Response(
+      JSON.stringify(String(input).startsWith('/managed-systems')
+        ? { items: [{ id: MS, workspace_id: MS, slug: 'p', name, external_key: null, default_owner_actor_id: null, default_owner_team_id: null, default_reviewer_actor_id: null, default_reviewer_team_id: null, archived_at: null, archived_by_actor_id: null, created_at: '2026-07-01T00:00:00.000Z', updated_at: '2026-07-01T00:00:00.000Z' }], total: 1 }
+        : { items: [], page: { has_more: false } }),
+      { status: 200, headers: { 'content-type': 'application/json' } },
+    )));
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <PublicVocListScreen query={{ q: '', mine: false, systemId: MS }} onQueryChange={vi.fn()} selectedId={null} onSelect={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    const trigger = screen.getByRole('combobox', { name: '시스템' });
+    await waitFor(() => expect(trigger).toHaveTextContent(name));
+    expect(trigger).toHaveClass('w-28', 'shrink-0', '[&>svg]:shrink-0');
+    expect(trigger.firstElementChild).toHaveClass('min-w-0', 'flex-1', 'truncate');
+    expect(trigger.lastElementChild?.tagName.toLowerCase()).toBe('svg');
+    expect(trigger.lastElementChild).toHaveClass('h-4', 'w-4');
+  });
+
+  it('bounds a long public VOC number and allows the title to wrap to another line', async () => {
+    const displayId = 'VOC-1234567890123456789';
+    stubFetch([{ ...item(ID_1, '긴 제목'), display_id: displayId }]);
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <PublicVocListScreen query={{ q: '', mine: false, systemId: null }} onQueryChange={vi.fn()} selectedId={null} onSelect={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    const id = await screen.findByText(displayId);
+    expect(id).toHaveClass('max-w-full', 'truncate', 'whitespace-nowrap', 'shrink-0');
+    expect(id).toHaveAttribute('title', displayId);
+    expect(id.parentElement).toHaveClass('w-full', 'min-w-0', 'flex-wrap');
+  });
+
+  it('keeps each public VOC number unbroken while its title can truncate', async () => {
+    stubFetch([item(ID_1, '긴 제목')]);
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <PublicVocListScreen query={{ q: '', mine: false, systemId: null }} onQueryChange={vi.fn()} selectedId={null} onSelect={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByText('VOC-11')).toHaveClass('whitespace-nowrap', 'shrink-0');
+    expect(screen.getByText('긴 제목')).toHaveClass('truncate');
+  });
+
+  it('puts the system-load alert on its own wrapping row after the controls', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => new Response(
+      JSON.stringify(String(input).startsWith('/managed-systems')
+        ? { code: 'internal.unexpected', message: 'boom' }
+        : { items: [], page: { has_more: false } }),
+      { status: String(input).startsWith('/managed-systems') ? 500 : 200, headers: { 'content-type': 'application/json' } },
+    )));
+    const { container } = render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <PublicVocListScreen query={{ q: '', mine: false, systemId: null }} onQueryChange={vi.fn()} selectedId={null} onSelect={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveClass('w-full', 'flex-wrap', 'min-h-toolbar');
+    expect(alert.previousElementSibling).toBe(container.querySelector<HTMLElement>('[data-public-voc-control="q"]'));
+    expect(screen.getByRole('combobox', { name: '시스템' })).toBeDisabled();
+    expect(within(alert).getByRole('button', { name: '다시 시도' })).toBeEnabled();
+  });
+
   it('draws each public row with its system chip and marks only the own VOC; selecting reports the id', async () => {
     stubFetch([item(ID_1, '로그인이 안 됩니다', true), item(ID_2, '차트가 안 열립니다')]);
     const onSelect = vi.fn();

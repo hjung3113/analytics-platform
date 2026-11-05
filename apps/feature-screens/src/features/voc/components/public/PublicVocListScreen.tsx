@@ -105,9 +105,9 @@ export function PublicVocListScreen({
             <button type="button" aria-current={selectedId === voc.id ? 'true' : undefined} onClick={() => { onSelect(voc.id); }}
               className={cn('flex w-full flex-col gap-1 border-b border-border-subtle px-4 py-3 text-left hover:bg-surface-card',
                 selectedId === voc.id && 'bg-surface-row-selected')}>
-              <span className="flex items-baseline gap-2">
-                <span className="font-mono text-xs text-text-muted">{voc.display_id}</span>
-                <span className="truncate text-sm font-medium text-text-primary">{voc.title}</span>
+              <span className="flex w-full min-w-0 flex-wrap items-baseline gap-2">
+                <span className="font-mono text-xs text-text-muted whitespace-nowrap shrink-0 max-w-full truncate" title={voc.display_id}>{voc.display_id}</span>
+                <span className="min-w-0 flex-1 truncate text-sm font-medium text-text-primary">{voc.title}</span>
               </span>
               <span className="flex flex-wrap items-center gap-2 text-xs text-text-muted">
                 <ManagedSystemPill name={voc.managed_system.name} />
@@ -124,35 +124,39 @@ export function PublicVocListScreen({
 
   return (
     <section ref={sectionRef} aria-label="VOC 목록" tabIndex={-1} className="flex h-full min-h-0 flex-col">
+      {/* At 36rem of toolbar content width, the filter pair leaves room for search beside it. */}
       <ListToolbar
+        className="@container [&>[data-list-toolbar-actions]]:w-full [&>[data-list-toolbar-actions]]:py-0"
         action={
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="contents" data-public-voc-control="mine">
-              <ToggleGroup type="single" appearance="filter" size="sm" aria-label="범위" value={mine ? 'mine' : 'all'}
-                onValueChange={(value) => { if (value !== '') onQueryChange({ mine: value === 'mine' }); }}>
-                <ToggleGroupItem value="all" appearance="selected-filter">전체</ToggleGroupItem>
-                <ToggleGroupItem value="mine" appearance="selected-filter">내가 등록한</ToggleGroupItem>
-              </ToggleGroup>
+          <div className="flex w-full flex-wrap items-center gap-x-2">
+            <div className="flex min-h-toolbar shrink-0 items-center gap-2" data-public-voc-filters>
+              <div className="contents" data-public-voc-control="mine">
+                <ToggleGroup type="single" appearance="filter" size="sm" aria-label="범위" value={mine ? 'mine' : 'all'}
+                  onValueChange={(value) => { if (value !== '') onQueryChange({ mine: value === 'mine' }); }}>
+                  <ToggleGroupItem value="all" appearance="selected-filter">전체</ToggleGroupItem>
+                  <ToggleGroupItem value="mine" appearance="selected-filter">내가 등록한</ToggleGroupItem>
+                </ToggleGroup>
+              </div>
+              <div className="contents" data-public-voc-control="system">
+                <Select value={systemId ?? ALL_SYSTEMS} onValueChange={(value) => { onQueryChange({ systemId: value === ALL_SYSTEMS ? null : value }); }}>
+                  <SelectTrigger className="w-28 shrink-0 [&>svg]:shrink-0" aria-label="시스템" disabled={systems.isError} aria-busy={systems.isPending || undefined}><span className="min-w-0 flex-1 truncate text-left"><SelectValue /></span></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ALL_SYSTEMS}>모든 시스템</SelectItem>
+                    {!knownSystem && systemId !== null && <SelectItem value={systemId}>선택한 시스템</SelectItem>}
+                    {systemItems.map((system) => <SelectItem key={system.id} value={system.id}>{system.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="contents" data-public-voc-control="system">
-              <Select value={systemId ?? ALL_SYSTEMS} onValueChange={(value) => { onQueryChange({ systemId: value === ALL_SYSTEMS ? null : value }); }}>
-                <SelectTrigger aria-label="시스템" disabled={systems.isError} aria-busy={systems.isPending || undefined}><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ALL_SYSTEMS}>모든 시스템</SelectItem>
-                  {!knownSystem && systemId !== null && <SelectItem value={systemId}>선택한 시스템</SelectItem>}
-                  {systemItems.map((system) => <SelectItem key={system.id} value={system.id}>{system.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+            <div className="flex min-h-toolbar w-full min-w-0 items-center @xl:w-auto @xl:flex-1" data-public-voc-control="q">
+              <SearchInput className="w-full" placeholder={LIST_SEARCH_PLACEHOLDER} value={draft} onValueChange={setDraft} onCommit={commit} />
             </div>
             {systems.isError && (
-              <span role="alert" className="flex items-center gap-1 text-xs text-text-danger">
+              <span role="alert" className="flex min-h-toolbar w-full flex-wrap items-center gap-1 text-xs text-text-danger">
                 시스템 목록을 불러오지 못했습니다
                 <Button type="button" size="sm" variant="secondary" onClick={() => { void systems.refetch(); }}>다시 시도</Button>
               </span>
             )}
-            <div className="contents" data-public-voc-control="q">
-              <SearchInput placeholder={LIST_SEARCH_PLACEHOLDER} value={draft} onValueChange={setDraft} onCommit={commit} />
-            </div>
           </div>
         }
       />

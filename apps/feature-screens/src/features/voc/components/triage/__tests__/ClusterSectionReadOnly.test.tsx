@@ -82,6 +82,34 @@ function renderSection(similarCount = 2) {
 }
 
 describe('ClusterSectionReadOnly — recommendation surface', () => {
+  it('keeps recommended VOC numbers unbroken beside score and status', async () => {
+    globalThis.fetch = mockApi({
+      gets: [{ available: true, embedding_version: 1, items: [ITEM_A], total: 1 }],
+    });
+    renderSection();
+    expect(await screen.findByText('VOC-101')).toHaveClass('whitespace-nowrap', 'shrink-0');
+  });
+
+  it('bounds a long recommendation ID and wraps metadata and actions in a narrow panel', async () => {
+    const displayId = 'VOC-1234567890123456789';
+    globalThis.fetch = mockApi({
+      gets: [{ available: true, embedding_version: 1, items: [{ ...ITEM_A, display_id: displayId }], total: 1 }],
+    });
+    renderSection();
+    const id = await screen.findByText(displayId);
+    const row = screen.getByTestId(`cluster-recommendation-row-${CANDIDATE_A}`);
+    expect(row).toHaveClass('flex-wrap', 'gap-3');
+    expect(id).toHaveClass('whitespace-nowrap', 'shrink-0', 'max-w-full', 'truncate');
+    expect(id).toHaveAttribute('title', displayId);
+    expect(id.parentElement).toHaveClass('flex-wrap', 'min-w-0', 'gap-2');
+    expect(id.parentElement?.parentElement).toHaveClass('min-w-0', 'flex-1', 'basis-48');
+    expect(screen.getByTestId(`cluster-recommendation-score-${CANDIDATE_A}`)).toHaveClass('whitespace-nowrap');
+    const confirm = screen.getByTestId(`cluster-recommendation-confirm-${CANDIDATE_A}`);
+    expect(confirm.parentElement).toHaveClass('shrink-0');
+    expect(confirm).toBeEnabled();
+    expect(screen.getByTestId(`cluster-recommendation-dismiss-${CANDIDATE_A}`)).toBeEnabled();
+  });
+
   const originalFetch = globalThis.fetch;
 
   afterEach(() => {

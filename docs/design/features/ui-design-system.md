@@ -202,6 +202,8 @@ Anatomy:
 - BulkActionBar when rows selected
 ```
 
+The `ListToolbar` main block (`data-list-toolbar-main`, `basis-[22rem]`) renders only when `tabs` or `title` is given; with `action` only, the actions sit on the single 50px row, and a fully empty toolbar keeps its 50px bar frame (#1364).
+
 ObjectRow anatomy:
 
 ```text
