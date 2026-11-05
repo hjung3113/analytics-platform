@@ -44,6 +44,9 @@ export const usageEvents = platformSchema.table(
   (t) => ({
     summaryTimeIdx: index('usage_events_summary_time_idx').on(t.workspaceId, t.name, t.receivedAt),
     summaryMenuIdx: index('usage_events_summary_menu_idx').on(t.workspaceId, t.name, t.menuId),
+    // usageNextScreens drawer: narrows the kind/destination/via reads to the from menu
+    // (`from_menu_id = M` equality on main-screen entries; W-605 perf review).
+    nextFromIdx: index('usage_events_next_from_idx').on(t.workspaceId, t.name, t.source, t.fromMenuId),
     // Dwell merge (real-server-checklist l.130): the last dwell for one stay wins.
     dwellEnteredUq: uniqueIndex('usage_events_dwell_entered_uq')
       .on(t.workspaceId, t.actorId, t.sessionId, t.menuId, t.enteredAt)

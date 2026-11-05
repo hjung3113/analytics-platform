@@ -1,0 +1,1 @@
+CREATE INDEX "usage_events_next_from_idx" ON "platform"."usage_events" USING btree ("workspace_id","name","source","from_menu_id");
