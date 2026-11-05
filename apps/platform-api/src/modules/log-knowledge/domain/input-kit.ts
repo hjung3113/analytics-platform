@@ -9,10 +9,10 @@ import { unsafeText } from '../../platform-port/text-safety.js';
 import { NAME_MAX, toCodeKey } from './code-key.js';
 import { normalizeSpecName } from './spec-input.js';
 
-export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** Ids are accepted in any spelling and always handled in the DB's lower-case. */
 export const canonical = (v: string): string => v.toLowerCase();
-export const REQUIRED = { required_error: 'required', invalid_type_error: 'required' };
+const REQUIRED = { required_error: 'required', invalid_type_error: 'required' };
 const length = (value: string): number => [...value].length;
 export const uuidText = z.string(REQUIRED).refine((v) => UUID.test(v), { message: 'malformed' });
 export const bounded = (max: number) =>
