@@ -23,7 +23,7 @@ export default function OperationTimeScreen() {
 }
 
 // The accepted params carry an empty eqp for the default equipment (no `eqp` page key), so an empty value falls back to the equipment the data names.
-export function acceptedEquipment(eqp: string | undefined, dataEquipmentId: string | undefined): string { return eqp || dataEquipmentId || ''; }
+export function acceptedEquipment(eqp: string | undefined, dataEquipmentId: string | null | undefined): string { return eqp || dataEquipmentId || ''; }
 
 // A long result scrolls the Kernel notice off screen, so the section that reads the accepted equipment says it again locally (no role: the Kernel notice announces).
 export function PreviousEquipmentLine({ equipment }: { equipment: string | null }) {
