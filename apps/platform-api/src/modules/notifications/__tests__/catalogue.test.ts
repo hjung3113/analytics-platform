@@ -30,6 +30,7 @@ describe('notification catalogue', () => {
       'task_request.needs_more_evidence',
       'task.assigned_to_me',
       'task.released',
+      'improvement.assigned_to_me',
       'permission_request.submitted',
       'permission_request.decided',
       'permission_grant.revoked',
@@ -48,6 +49,7 @@ describe('notification catalogue', () => {
       'task_request.needs_more_evidence': false,
       'task.assigned_to_me': false,
       'task.released': false,
+      'improvement.assigned_to_me': false,
       'permission_request.submitted': true,
       'permission_request.decided': true,
       'permission_grant.revoked': true,
@@ -86,6 +88,9 @@ describe('notification catalogue', () => {
     );
     expect(notificationCatalogue['task.assigned_to_me'].summary()).toBe(
       '작업 담당자로 지정되었습니다.',
+    );
+    expect(notificationCatalogue['improvement.assigned_to_me'].summary({ item_no: 7 })).toBe(
+      '개선 아이템 IM-7이 지정되었습니다.',
     );
     expect(notificationCatalogue['task.released'].summary()).toBe(
       '연결된 VOC에 공개 업데이트 검토 요청이 등록되었습니다.',

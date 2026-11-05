@@ -865,7 +865,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
       ...(opts.logKnowledgeImport?.applyBudgetMs !== undefined ? { applyBudgetMs: opts.logKnowledgeImport.applyBudgetMs } : {}),
       ...(opts.logKnowledgeImport?.hooks ? { applyHooks: opts.logKnowledgeImport.hooks } : {}),
     }),
-    improvementItemsContribution({ db: dbHandle.db, checkService }),
+    improvementItemsContribution({ db: dbHandle.db, checkService, notify }),
     ...(opts.menuDispatch ?? []),
   ]);
   // The catalog import upload (#1195 a) is a multipart route, which the menu-action port cannot carry: it is

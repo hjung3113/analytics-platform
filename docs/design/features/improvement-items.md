@@ -37,7 +37,7 @@
 - 새 모듈 `apps/platform-api/src/modules/improvement-items`, 소유 스키마 `improvement`(마이그레이션 노드 a). 표: `item`, `item_target`, `item_event`, `item_counter`. 모든 PK/FK에 `workspace_id`. 낙관적 동시성은 `row_version`.
 - 읽기(`platform:view`, menu-query): `improvement.items`(필터 `status`·`assignee`·`questId`·`questLinked`·`target`·`origin`), `improvement.itemDetail`, `improvement.itemEvents`. Quest 읽기는 메뉴 조회가 아니라 어댑터 포트(§2, 노드 c)다 — platform-api는 Quest 엔드포인트를 서비스하지 않는다(platform-api 읽기는 BRAVO에 닿을 수 없다).
 - 쓰기(menu-action, capability **`improvement.manage`** 워크스페이스 범위, Admin 항상, Developer 요청, User 거절 — 안, Q3): `itemCreate`, `itemUpdate`(version CAS), `itemSetStatus`, `itemAssign`, `itemLinkQuest`, `itemReopen`. 편집형 표(#540)의 여러 칸 편집은 `itemBulkUpdate`(행마다 version, 부분 실패 보고)로 받는다. 모든 쓰기는 감사 기록 + `item_event`.
-- 알림: 담당자 지정 때 기존 알림 모듈로 한 건(노드 e).
+- 알림: 담당자 지정 때 기존 알림 모듈로 한 건(노드 e1 구현됨: `improvement.assigned_to_me`, 받은 알림은 `/improvement-items/<id>` 상세로 연결, 홈 담당 건수 카드는 e2).
 - 엔티티 링크: VOC·Finding·Task와 이을 수 있게 `improvement_item` 종류를 06 계약에 더하는 일은 후속(Q8 아님, 기본 미포함).
 
 ## 4. 화면 (Decided, 소유자 2026-11-05 A안 + 효과 확인 대기 힌트)

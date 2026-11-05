@@ -5,7 +5,10 @@
 // every change bumps `row_version`; a save that changes nothing answers `ok` with the current version and writes no
 // event. No improvement status is sealed (each has a legal exit), so `currentVersion` is the plain row version and
 // every status-dependent refusal is a `MenuActionInvalidError` thrown from `handle` after the lock.
-// Not here: notifications (node e), the Quest port (node c), bulk edit (node f).
+// Notification (node e1): `improvement.assigned_to_me` to a new assignee, in the same transaction. Not here: the home
+// count card (e2), the Quest port (node c), bulk edit (node f).
+
+import { randomUUID } from 'node:crypto';
 
 import { createAuditService } from '../core/audit/audit-service.js';
 import type { Tx } from '../../db/tx.js';
@@ -15,6 +18,7 @@ import {
   type MenuActionDeclaration,
   MenuActionInvalidError,
 } from '../menu-dispatch/types.js';
+import type { NotificationNotifier } from '../notifications/index.js';
 import { type CheckService, applyAdminModuleBypass } from '../permissions/check-service.js';
 import type { PlatformActor } from '../platform-port/permissions.js';
 import {
@@ -53,6 +57,7 @@ const INVALIDATES = ['improvement.items', 'improvement.itemDetail', 'improvement
 
 export interface ItemActionDeps {
   checkService: CheckService;
+  notify: NotificationNotifier;
 }
 
 type AuditType = 'created' | 'updated' | 'status_changed' | 'assigned' | 'quest_linked' | 'reopened';
@@ -145,6 +150,20 @@ export function itemActions(deps: ItemActionDeps): MenuActionDeclaration[] {
       summary: `IM-${item.itemNo} ${type}`,
       detail: { itemNo: item.itemNo, ...detail },
     });
+
+  /** `improvement.assigned_to_me` to the new assignee, in the write transaction. None for self-assignment; the
+   * dispatcher drops a recipient outside the workspace. Ids and the item number only: no problem/action text. */
+  const notifyAssigned = async (tx: Tx, actor: PlatformActor, item: { id: string; itemNo: number }, assigneeId: string | null) => {
+    if (assigneeId === null || assigneeId === actor.actor_id) return;
+    await deps.notify(tx, 'improvement.assigned_to_me', {
+      workspace_id: actor.workspace_id,
+      actor_ids: [assigneeId],
+      subject_id: item.id,
+      correlation_id: randomUUID(),
+      detail: { item_id: item.id, item_no: item.itemNo },
+      params: { item_no: item.itemNo },
+    });
+  };
 
   /** The parsed, normalised input; `validate` ran before the handler, so a failure here is a bug. */
   function parsed<Op extends ItemOp>(op: Op, input: Record<string, unknown>): ItemInput<Op> {
@@ -241,6 +260,7 @@ export function itemActions(deps: ItemActionDeps): MenuActionDeclaration[] {
         assigned: item.assigneeId !== null,
         questLinked: item.questId !== null,
       });
+      await notifyAssigned(tx, actor, item, item.assigneeId);
       return {
         data: { itemId: item.id, itemNo: item.itemNo, version: String(item.rowVersion) },
         version: null,
@@ -461,6 +481,7 @@ export function itemActions(deps: ItemActionDeps): MenuActionDeclaration[] {
         changes: { before: { assigneeId: row.assigneeId }, after: { assigneeId: value.assigneeId } },
       });
       await record(tx, actor, 'assigned', row, { assigneeId: value.assigneeId, previousAssigneeId: row.assigneeId });
+      await notifyAssigned(tx, actor, row, value.assigneeId);
       return done(version);
     },
   };

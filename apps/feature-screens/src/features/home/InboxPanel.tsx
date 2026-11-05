@@ -47,6 +47,8 @@ export function notificationTarget(notification: NotificationDto): string | null
       return vocTarget(notification, 'my');
     case 'task.assigned_to_me':
       return `/tasks?view=board&param=${subjectId}`;
+    case 'improvement.assigned_to_me':
+      return `/improvement-items/${subjectId}`;
     case 'task_request.approved':
     case 'task_request.rejected':
     case 'task_request.needs_more_evidence':
