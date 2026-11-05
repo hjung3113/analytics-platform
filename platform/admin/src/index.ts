@@ -27,7 +27,7 @@ export const manifests: MenuEntry[] = [
   {
     id: 'admin-usage', group: GROUP, label: { ko: '메뉴 활용률', en: 'Menu usage' },
     description: { ko: 'Menu Registry 활용 계측 (Kernel 관측 기능)', en: 'Menu registry usage instrumentation (kernel observability)' },
-    path: '/admin/usage', icon: ClipboardList, permission: 'console:access', requiresScope: false, pageType: 'management', context: contextCapabilities(), features: NO_FEATURES, pageKeys: ['sort', 'page'],
+    path: '/admin/usage', icon: ClipboardList, permission: 'console:access', requiresScope: false, pageType: 'management', context: contextCapabilities(), features: NO_FEATURES, pageKeys: ['sort', 'page', 'focus'],
     component: lazy(() => import('./pages/UsageOverview')),
   },
   {

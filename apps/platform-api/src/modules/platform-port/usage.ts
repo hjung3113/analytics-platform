@@ -3,7 +3,7 @@
 // (`packages/adapters/mock-server/src/server.ts` recordUsage) and the binding UsageEvent rule of
 // http-adapter-contract §1: identity fields only, the whole batch or nothing.
 
-import { and, count, countDistinct, eq, gte, lt, max, sql } from 'drizzle-orm';
+import { and, count, countDistinct, eq, gte, inArray, isNotNull, lt, max, sql } from 'drizzle-orm';
 import type { Db } from '../../db/client.js';
 import { usageEvents } from '../../db/schema/platform.js';
 import type { CheckService } from '../permissions/check-service.js';
@@ -197,6 +197,42 @@ export interface UsageMenuSummary {
   visits: number;
   distinctUsers: number;
   lastUsedAt: number;
+  /** Main-screen entries (`source = 'main'`); #605. */
+  entries: number;
+  /** Share of `entries` whose next main entry came via history/return; null under the mask or with 0 entries. */
+  backRate: number | null;
+  /** Share of `entries` with via palette; null under the mask or with 0 entries. */
+  searchEntryRate: number | null;
+}
+
+/** Mask k: a number built from fewer distinct people never leaves the server (ADR-0020 supplement, #605). */
+export const USAGE_MASK_K = 3;
+const BACK_VIAS = ['history', 'return'];
+const USAGE_NEXT_LIMIT = 20;
+
+export interface UsageNextScreensData {
+  menuId: string;
+  entries: number;
+  masked: boolean;
+  summary: { moved: number; sameMenu: number; backOrReturn: number; noMove: number };
+  next: {
+    menuId: string;
+    count: number;
+    distinctUsers: number;
+    vias: Record<string, number>;
+  }[];
+  hiddenDestinations: number;
+}
+
+/** Exactly `{ menuId }` or `{ menuId, includeBack }`; `menuId` matches `MENU_ID_PATTERN`, `includeBack` a boolean. */
+export function parseUsageNextQuery(body: unknown): { menuId: string; includeBack: boolean } | null {
+  if (!isPlainObject(body)) return null;
+  const keys = Object.keys(body);
+  if (keys.some((k) => k !== 'menuId' && k !== 'includeBack')) return null;
+  const { menuId, includeBack } = body;
+  if (typeof menuId !== 'string' || !MENU_ID_PATTERN.test(menuId)) return null;
+  if ('includeBack' in body && typeof includeBack !== 'boolean') return null;
+  return { menuId, includeBack: includeBack === true };
 }
 
 export interface UsageSummaryData {
@@ -298,6 +334,15 @@ export function createPlatformUsageService(deps: PlatformUsageServiceDeps) {
         visits: count(),
         distinctUsers: countDistinct(usageEvents.actorId),
         lastUsedAt: max(usageEvents.receivedAt),
+        entries: sql<number>`count(*) filter (where ${usageEvents.source} = 'main')`.mapWith(Number),
+        mainUsers:
+          sql<number>`count(distinct ${usageEvents.actorId}) filter (where ${usageEvents.source} = 'main')`.mapWith(
+            Number,
+          ),
+        palette:
+          sql<number>`count(*) filter (where ${usageEvents.source} = 'main' and ${usageEvents.via} = 'palette')`.mapWith(
+            Number,
+          ),
       })
       .from(usageEvents)
       .where(
@@ -309,19 +354,144 @@ export function createPlatformUsageService(deps: PlatformUsageServiceDeps) {
       )
       .groupBy(usageEvents.menuId)
       .orderBy(usageEvents.menuId);
+    // Numerator of 「뒤로 나감」: main entries elsewhere that name menu M in `from_menu_id` and carry history/return (same range).
+    const backRows = await deps.db
+      .select({ menuId: usageEvents.fromMenuId, back: count() })
+      .from(usageEvents)
+      .where(
+        and(
+          eq(usageEvents.workspaceId, actor.workspace_id),
+          eq(usageEvents.name, 'entry'),
+          eq(usageEvents.source, 'main'),
+          isNotNull(usageEvents.fromMenuId),
+          inArray(usageEvents.via, BACK_VIAS),
+          inRange,
+        ),
+      )
+      .groupBy(usageEvents.fromMenuId);
+    const backFrom = new Map(backRows.map((r) => [r.menuId, r.back]));
     return {
       outcome: 'ok',
       data: {
         preset: 'preset' in range ? 'all' : 'range',
-        menus: rows.map((row) => ({
-          menuId: row.menuId,
-          visits: row.visits,
-          distinctUsers: row.distinctUsers,
-          lastUsedAt: (row.lastUsedAt as Date).getTime(),
-        })),
+        menus: rows.map((row) => {
+          const shown = row.entries > 0 && row.mainUsers >= USAGE_MASK_K;
+          return {
+            menuId: row.menuId,
+            visits: row.visits,
+            distinctUsers: row.distinctUsers,
+            lastUsedAt: (row.lastUsedAt as Date).getTime(),
+            entries: row.entries,
+            backRate: shown ? Math.min(1, (backFrom.get(row.menuId) ?? 0) / row.entries) : null,
+            searchEntryRate: shown ? row.palette / row.entries : null,
+          };
+        }),
       },
     };
   }
 
-  return { recordUsage, usageSummary };
+  /**
+   * Where people went right after `menuId` (#605; reference semantics: mock `aggregateUsageNext`). Same permission as `usageSummary`,
+   * read-only, no range (all stored time). Main source only; a "next" entry is a main entry whose `from_menu_id` is M, split into
+   * disjoint kinds: back/return (via history/return, any destination), else same menu, else moved. The < 3 mask is applied here: a menu
+   * with < 3 distinct main-entry users is `masked` with empty lists; destinations with < 3 distinct users are only counted.
+   */
+  async function usageNextScreens(
+    actor: PlatformActor,
+    query: unknown,
+  ): Promise<AuditJudgement<UsageNextScreensData>> {
+    if (!(await holdsPlatformPermission(deps.checkService, actor, 'console:access'))) {
+      return { outcome: 'forbidden', message: 'No permission console:access' };
+    }
+    const parsed = parseUsageNextQuery(query);
+    if (!parsed) return { outcome: 'error', message: 'Invalid usage next-screens query' };
+    const { menuId, includeBack } = parsed;
+    const mainEntry = and(
+      eq(usageEvents.workspaceId, actor.workspace_id),
+      eq(usageEvents.name, 'entry'),
+      eq(usageEvents.source, 'main'),
+    );
+    const [own] = await deps.db
+      .select({ entries: count(), users: countDistinct(usageEvents.actorId) })
+      .from(usageEvents)
+      .where(and(mainEntry, eq(usageEvents.menuId, menuId)));
+    const masked: UsageNextScreensData = {
+      menuId,
+      entries: 0,
+      masked: true,
+      summary: { moved: 0, sameMenu: 0, backOrReturn: 0, noMove: 0 },
+      next: [],
+      hiddenDestinations: 0,
+    };
+    if (!own || own.entries === 0 || own.users < USAGE_MASK_K) return { outcome: 'ok', data: masked };
+
+    // One pass over the next entries: per destination and kind, the count, the distinct people and the via split (a via-less row is `link`).
+    const kind = sql<string>`case when ${usageEvents.via} in ('history', 'return') then 'back' when ${usageEvents.menuId} = ${menuId} then 'same' else 'moved' end`;
+    const via = sql<string>`coalesce(${usageEvents.via}, 'link')`;
+    const nextWhere = and(mainEntry, eq(usageEvents.fromMenuId, menuId));
+    const kindRows = await deps.db
+      .select({ kind, n: count() })
+      .from(usageEvents)
+      .where(nextWhere)
+      .groupBy(kind);
+    const summary = { moved: 0, sameMenu: 0, backOrReturn: 0, noMove: 0 };
+    for (const r of kindRows) {
+      if (r.kind === 'back') summary.backOrReturn = r.n;
+      else if (r.kind === 'same') summary.sameMenu = r.n;
+      else summary.moved = r.n;
+    }
+    summary.noMove = Math.max(0, own.entries - summary.moved - summary.sameMenu - summary.backOrReturn);
+
+    // The ranked set: moved only, or with includeBack everything that left the screen (also back/return and same menu).
+    const ranked = includeBack ? nextWhere : and(nextWhere, sql`${kind} = 'moved'`);
+    const destRows = await deps.db
+      .select({
+        menuId: usageEvents.menuId,
+        n: count(),
+        users: countDistinct(usageEvents.actorId),
+      })
+      .from(usageEvents)
+      .where(ranked)
+      .groupBy(usageEvents.menuId);
+    const shown = destRows
+      .filter((d) => d.users >= USAGE_MASK_K)
+      .sort((a, b) => b.n - a.n || (a.menuId < b.menuId ? -1 : a.menuId > b.menuId ? 1 : 0))
+      .slice(0, USAGE_NEXT_LIMIT);
+    const viaRows =
+      shown.length === 0
+        ? []
+        : await deps.db
+            .select({ menuId: usageEvents.menuId, via, n: count() })
+            .from(usageEvents)
+            .where(
+              and(
+                ranked,
+                inArray(
+                  usageEvents.menuId,
+                  shown.map((d) => d.menuId),
+                ),
+              ),
+            )
+            .groupBy(usageEvents.menuId, via);
+    const viasOf = new Map<string, Record<string, number>>();
+    for (const r of viaRows) viasOf.set(r.menuId, { ...viasOf.get(r.menuId), [r.via]: r.n });
+    return {
+      outcome: 'ok',
+      data: {
+        menuId,
+        entries: own.entries,
+        masked: false,
+        summary,
+        next: shown.map((d) => ({
+          menuId: d.menuId,
+          count: d.n,
+          distinctUsers: d.users,
+          vias: viasOf.get(d.menuId) ?? {},
+        })),
+        hiddenDestinations: destRows.length - destRows.filter((d) => d.users >= USAGE_MASK_K).length,
+      },
+    };
+  }
+
+  return { recordUsage, usageSummary, usageNextScreens };
 }

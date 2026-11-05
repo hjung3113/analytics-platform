@@ -96,6 +96,7 @@ const IMPLEMENTED: readonly PortMethod[] = [
   'auditTrail',
   'accessDirectory',
   'usageSummary',
+  'usageNextScreens',
   'recordUsage',
   'reportClientError',
   'readPreferences',

@@ -618,13 +618,15 @@ export async function usageNextScreens(query: UsageNextQuery, signal?: AbortSign
  * all), `seed-tail` (long tail: 4 destinations of >= 3 users, 2 of < 3), `seed-back` (back/return heavy), `seed-loop` (self-loop),
  * `seed-dominant` (one dominant next). Appends to the store; call `resetUsage()` first for a clean set.
  */
-export function seedUsageNext(receivedAt = Date.UTC(2026, 10, 1)): void {
+export function seedUsageNext(receivedAt = Date.UTC(2026, 10, 1), menuIds: Readonly<Record<string, string>> = {}): void {
   const users = ['seed-u1', 'seed-u2', 'seed-u3', 'seed-u4', 'seed-u5', 'seed-u6'];
   const spaceId = null;
   let n = 0;
   const add = (userId: string, menuId: string, via: UsageVia, fromMenuId: string | null) => {
     n += 1;
-    usageEvents.push({ name: 'entry', menuId, spaceId, path: `/${menuId}`, at: receivedAt + n, sessionId: `${userId}-tab`, source: 'main', via, fromMenuId, userId, receivedAt: receivedAt + n });
+    const destination = menuIds[menuId] ?? menuId;
+    const from = fromMenuId === null ? null : menuIds[fromMenuId] ?? fromMenuId;
+    usageEvents.push({ name: 'entry', menuId: destination, spaceId, path: `/${destination}`, at: receivedAt + n, sessionId: `${userId}-tab`, source: 'main', via, fromMenuId: from, userId, receivedAt: receivedAt + n });
   };
   // `from` stays the menu id of the screen before; each helper writes the menu's own entry (N) and, per move, the destination entry.
   const visit = (menuId: string, who: readonly string[], palette = 0) => who.forEach((u, i) => add(u, menuId, i < palette ? 'palette' : 'sidebar', null));
@@ -632,8 +634,8 @@ export function seedUsageNext(receivedAt = Date.UTC(2026, 10, 1)): void {
   // seed-solo: two people only → masked.
   visit('seed-solo', users.slice(0, 2));
   next('seed-solo', 'seed-tail', users.slice(0, 2));
-  // seed-tail: 12 entries by 6 people (4 of them via palette), 4 visible destinations with >= 3 users (6/5/4/3), two hidden with 1–2 users.
-  visit('seed-tail', [...users, ...users], 4);
+  // seed-tail: 24 entries by 6 people (4 of them via palette), 4 visible destinations with >= 3 users (6/5/4/3), two hidden with 1–2 users.
+  visit('seed-tail', [...users, ...users, ...users, ...users], 4);
   next('seed-tail', 'seed-d1', users, 'sidebar');
   next('seed-tail', 'seed-d2', users.slice(0, 5), 'crossLink');
   next('seed-tail', 'seed-d3', users.slice(0, 4), 'palette');
@@ -641,7 +643,7 @@ export function seedUsageNext(receivedAt = Date.UTC(2026, 10, 1)): void {
   next('seed-tail', 'seed-d5', users.slice(0, 2));
   next('seed-tail', 'seed-d6', users.slice(0, 1));
   // seed-back: most next entries are back/return.
-  visit('seed-back', users);
+  visit('seed-back', [...users, ...users, ...users]);
   next('seed-back', 'seed-d1', users, 'history');
   next('seed-back', 'seed-d2', users.slice(0, 4), 'return');
   next('seed-back', 'seed-d3', users.slice(0, 3), 'sidebar');
@@ -650,7 +652,7 @@ export function seedUsageNext(receivedAt = Date.UTC(2026, 10, 1)): void {
   next('seed-loop', 'seed-loop', users.slice(0, 4), 'link');
   next('seed-loop', 'seed-d1', users.slice(0, 3), 'sidebar');
   // seed-dominant: one dominant next.
-  visit('seed-dominant', users);
+  visit('seed-dominant', [...users, ...users, ...users]);
   next('seed-dominant', 'seed-d1', users, 'crossLink');
   next('seed-dominant', 'seed-d1', users, 'crossLink');
   next('seed-dominant', 'seed-d2', users.slice(0, 3), 'drill');

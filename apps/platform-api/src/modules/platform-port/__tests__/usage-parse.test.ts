@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { parseClientError } from '../client-errors.js';
-import { parseUsageBatch, parseUsageRange, validSpaceId } from '../usage.js';
+import { parseUsageBatch, parseUsageNextQuery, parseUsageRange, validSpaceId } from '../usage.js';
 
 const entry = {
   name: 'entry',
@@ -165,5 +165,32 @@ describe('validSpaceId (the server does not know the app’s spaces, ADR-0072)',
     ['an object', {}],
   ])('rejects %s', (_label, value) => {
     expect(validSpaceId(value)).toBe(false);
+  });
+});
+
+describe('parseUsageNextQuery', () => {
+  it.each([
+    [{ menuId: 'ops.usage' }, { menuId: 'ops.usage', includeBack: false }],
+    [{ menuId: 'ops.usage', includeBack: true }, { menuId: 'ops.usage', includeBack: true }],
+    [{ menuId: 'a:b', includeBack: false }, { menuId: 'a:b', includeBack: false }],
+  ])('parses %j', (body, expected) => {
+    expect(parseUsageNextQuery(body)).toEqual(expected);
+  });
+
+  it.each([
+    ['null', null],
+    ['an array', []],
+    ['no menuId', { includeBack: true }],
+    ['a numeric menuId', { menuId: 1 }],
+    ['an empty menuId', { menuId: '' }],
+    ['a menuId with a slash', { menuId: 'a/b' }],
+    ['a menuId with =', { menuId: 'a=b' }],
+    ['a menuId with whitespace', { menuId: 'a b' }],
+    ['a menuId over 80 code points', { menuId: 'a'.repeat(81) }],
+    ['a string includeBack', { menuId: 'a', includeBack: 'true' }],
+    ['a null includeBack', { menuId: 'a', includeBack: null }],
+    ['an extra key', { menuId: 'a', range: 'all' }],
+  ])('rejects %s', (_label, body) => {
+    expect(parseUsageNextQuery(body)).toBeNull();
   });
 });

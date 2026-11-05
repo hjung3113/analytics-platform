@@ -455,8 +455,24 @@ describe.skipIf(!runIntegration)(
             )
           ).rows[0]?.t.getTime();
         expect(mineOf(body)).toEqual([
-          { menuId: MENU, visits: 3, distinctUsers: 2, lastUsedAt: await last(MENU) },
-          { menuId: other, visits: 1, distinctUsers: 1, lastUsedAt: await last(other) },
+          {
+            menuId: MENU,
+            visits: 3,
+            distinctUsers: 2,
+            lastUsedAt: await last(MENU),
+            entries: 3,
+            backRate: null,
+            searchEntryRate: null,
+          },
+          {
+            menuId: other,
+            visits: 1,
+            distinctUsers: 1,
+            lastUsedAt: await last(other),
+            entries: 1,
+            backRate: null,
+            searchEntryRate: null,
+          },
         ]);
       });
 
@@ -469,7 +485,15 @@ describe.skipIf(!runIntegration)(
         expect(insideBody.outcome).toBe('ok');
         expect(insideBody.data?.preset).toBe('range');
         expect(mineOf(insideBody)).toEqual([
-          { menuId: MENU, visits: 1, distinctUsers: 1, lastUsedAt: t },
+          {
+            menuId: MENU,
+            visits: 1,
+            distinctUsers: 1,
+            lastUsedAt: t,
+            entries: 1,
+            backRate: null,
+            searchEntryRate: null,
+          },
         ]);
         // `to` is exclusive.
         expect(mineOf((await summary(`?from=${t - 5}&to=${t}`)).json<Envelope>())).toEqual([]);
@@ -510,6 +534,256 @@ describe.skipIf(!runIntegration)(
           outcome: 'error',
           data: null,
           message: 'Invalid usage range',
+        });
+      });
+    });
+
+    describe('GET /usage-summary rates (#605)', () => {
+      it('entries count main only; rates need 3 distinct main users and are null below it', async () => {
+        await clearMine();
+        const [a, b, c] = [admin, user, await newPerson('developer')];
+        const viaEntry = (via: string, from: string | null) =>
+          entry({ via, fromMenuId: from, source: 'main' });
+        // MENU: 4 main entries by 3 people (1 palette), 1 board entry that must not count.
+        await record([viaEntry('palette', null)], a);
+        await record([viaEntry('sidebar', null)], b);
+        await record([viaEntry('sidebar', null), viaEntry('sidebar', null)], c);
+        await record(
+          [entry({ source: 'board', stayId: 's1', via: 'paneOpen', fromMenuId: null })],
+          a,
+        );
+        // Next entries elsewhere naming MENU as the previous screen: 1 of 2 went back (history), 1 moved on.
+        const away = `${MENU}-away`;
+        await record([entry({ menuId: away, via: 'history', fromMenuId: MENU })], a);
+        await record([entry({ menuId: away, via: 'sidebar', fromMenuId: MENU })], b);
+        const body = (await summary('?preset=all')).json<Envelope>();
+        const row = mineOf(body).find((m) => m.menuId === MENU);
+        expect(row).toMatchObject({ visits: 5, entries: 4, backRate: 0.25, searchEntryRate: 0.25 });
+        const awayRow = mineOf(body).find((m) => m.menuId === away);
+        // 2 entries by 2 people: under the mask.
+        expect(awayRow).toMatchObject({ entries: 2, backRate: null, searchEntryRate: null });
+      });
+
+      it('a menu with only board entries has entries 0 and null rates', async () => {
+        await clearMine();
+        await record([entry({ source: 'board', stayId: 's1', via: 'paneOpen' })], user);
+        const row = mineOf((await summary('?preset=all')).json<Envelope>())[0];
+        expect(row).toMatchObject({ entries: 0, backRate: null, searchEntryRate: null });
+      });
+
+      it('backRate is capped at 1', async () => {
+        await clearMine();
+        const people = [admin, user, await newPerson('developer')];
+        for (const p of people) await record([entry({ via: 'sidebar' })], p);
+        const away = `${MENU}-away`;
+        for (let i = 0; i < 2; i++) {
+          for (const p of people)
+            await record([entry({ menuId: away, via: 'return', fromMenuId: MENU })], p);
+        }
+        const row = mineOf((await summary('?preset=all')).json<Envelope>()).find(
+          (m) => m.menuId === MENU,
+        );
+        expect(row).toMatchObject({ entries: 3, backRate: 1 });
+      });
+    });
+
+    describe('POST /usage-next-screens (#605)', () => {
+      type NextData = {
+        menuId: string;
+        entries: number;
+        masked: boolean;
+        summary: Record<string, number>;
+        next: { menuId: string; count: number; distinctUsers: number; vias: Record<string, number> }[];
+        hiddenDestinations: number;
+      };
+      const next = (body: unknown, who: Person = admin) =>
+        post('/usage-next-screens', body, who, { csrf: null });
+      const nextData = async (body: unknown) => {
+        const res = await next(body);
+        expect(res.statusCode).toBe(200);
+        const env = res.json<{ outcome: string; data: NextData | null }>();
+        expect(env.outcome).toBe('ok');
+        return env.data as NextData;
+      };
+
+      /** 6 people each enter MENU twice; destinations d1 (6 users), d2 (4), d3 (3), tiny (2 users), solo (1). */
+      async function seedTail() {
+        await clearMine();
+        const people = [admin, user];
+        for (let i = 0; i < 4; i++) people.push(await newPerson('developer'));
+        for (const p of people) await record([entry({ via: 'sidebar' }), entry({ via: 'palette' })], p);
+        const go = (to: string, who: Person[], via?: string) =>
+          Promise.all(
+            who.map((p) =>
+              record([entry({ menuId: `${MENU}-${to}`, fromMenuId: MENU, ...(via ? { via } : {}) })], p),
+            ),
+          );
+        await go('d1', people, 'sidebar');
+        await go('d2', people.slice(0, 4), 'crossLink');
+        await go('d3', people.slice(0, 3));
+        await go('tiny', people.slice(0, 2), 'link');
+        await go('solo', people.slice(0, 1), 'link');
+        return people;
+      }
+
+      it('forbidden for a non-admin, also with a bad body; no CSRF is required', async () => {
+        for (const body of [{ menuId: MENU }, { menuId: '' }, null]) {
+          const res = await next(body, user);
+          expect(res.statusCode).toBe(200);
+          expect(res.json()).toMatchObject({ outcome: 'forbidden', data: null });
+        }
+      });
+
+      it('a menu with fewer than 3 distinct users is masked with empty lists, a well-formed unknown menu too', async () => {
+        await clearMine();
+        await record([entry({ via: 'sidebar' })], admin);
+        await record([entry({ via: 'sidebar' })], user);
+        await record([entry({ menuId: `${MENU}-x`, via: 'link', fromMenuId: MENU })], user);
+        const masked = {
+          entries: 0,
+          masked: true,
+          summary: { moved: 0, sameMenu: 0, backOrReturn: 0, noMove: 0 },
+          next: [],
+          hiddenDestinations: 0,
+        };
+        expect(await nextData({ menuId: MENU })).toEqual({ menuId: MENU, ...masked });
+        expect(await nextData({ menuId: `${MENU}-nothing` })).toEqual({
+          menuId: `${MENU}-nothing`,
+          ...masked,
+        });
+      });
+
+      it('names destinations with >= 3 users, counts the rest, one consistent set per row', async () => {
+        await seedTail();
+        const data = await nextData({ menuId: MENU });
+        expect(data.masked).toBe(false);
+        expect(data.entries).toBe(12);
+        expect(data.next).toEqual([
+          { menuId: `${MENU}-d1`, count: 6, distinctUsers: 6, vias: { sidebar: 6 } },
+          { menuId: `${MENU}-d2`, count: 4, distinctUsers: 4, vias: { crossLink: 4 } },
+          // A via-less next entry counts as `link`.
+          { menuId: `${MENU}-d3`, count: 3, distinctUsers: 3, vias: { link: 3 } },
+        ]);
+        expect(data.hiddenDestinations).toBe(2);
+        // Hidden names never leave the server.
+        expect(JSON.stringify(data)).not.toContain('tiny');
+        expect(JSON.stringify(data)).not.toContain('solo');
+        expect(data.summary).toEqual({ moved: 16, sameMenu: 0, backOrReturn: 0, noMove: 0 });
+        for (const row of data.next)
+          expect(Object.values(row.vias).reduce((x, y) => x + y, 0)).toBe(row.count);
+      });
+
+      it('count and users come from the same set when one person enters a destination twice', async () => {
+        await clearMine();
+        const people = [admin, user, await newPerson('developer')];
+        for (const p of people) await record([entry({ via: 'sidebar' })], p);
+        const to = `${MENU}-twice`;
+        for (const p of people)
+          await record(
+            [
+              entry({ menuId: to, via: 'link', fromMenuId: MENU }),
+              entry({ menuId: to, via: 'drill', fromMenuId: MENU }),
+            ],
+            p,
+          );
+        const data = await nextData({ menuId: MENU });
+        expect(data.next).toEqual([
+          { menuId: to, count: 6, distinctUsers: 3, vias: { link: 3, drill: 3 } },
+        ]);
+        expect(data.summary.noMove).toBe(0);
+      });
+
+      it('back/return and same-menu entries are summarised, and only ranked with includeBack', async () => {
+        await clearMine();
+        const people = [admin, user, await newPerson('developer')];
+        for (const p of people) await record([entry({ via: 'sidebar' })], p);
+        const d1 = `${MENU}-d1`;
+        const d2 = `${MENU}-d2`;
+        for (const p of people) {
+          await record(
+            [
+              entry({ menuId: d1, via: 'history', fromMenuId: MENU }),
+              entry({ menuId: MENU, via: 'link', fromMenuId: MENU }),
+              entry({ menuId: d2, via: 'sidebar', fromMenuId: MENU }),
+            ],
+            p,
+          );
+        }
+        // MENU now has 6 main entries (3 + 3 self-loops).
+        const plain = await nextData({ menuId: MENU });
+        expect(plain.entries).toBe(6);
+        expect(plain.summary).toEqual({ moved: 3, sameMenu: 3, backOrReturn: 3, noMove: 0 });
+        expect(plain.next.map((r) => r.menuId)).toEqual([d2]);
+        expect(plain.hiddenDestinations).toBe(0);
+        const withBack = await nextData({ menuId: MENU, includeBack: true });
+        expect(withBack.summary).toEqual(plain.summary);
+        // Equal counts order by menu id (the menu itself sorts before its own prefixed ids).
+        expect(withBack.next.map((r) => [r.menuId, r.count, r.vias])).toEqual([
+          [MENU, 3, { link: 3 }],
+          [d1, 3, { history: 3 }],
+          [d2, 3, { sidebar: 3 }],
+        ]);
+      });
+
+      it('noMove floors at 0 when next entries outnumber the menu entries', async () => {
+        await clearMine();
+        const people = [admin, user, await newPerson('developer')];
+        for (const p of people) await record([entry({ via: 'sidebar' })], p);
+        for (const p of people)
+          await record(
+            [
+              entry({ menuId: `${MENU}-a`, via: 'link', fromMenuId: MENU }),
+              entry({ menuId: `${MENU}-a`, via: 'link', fromMenuId: MENU }),
+            ],
+            p,
+          );
+        const data = await nextData({ menuId: MENU });
+        expect(data.summary).toEqual({ moved: 6, sameMenu: 0, backOrReturn: 0, noMove: 0 });
+      });
+
+      it('board entries never count, neither as entries nor as next', async () => {
+        await clearMine();
+        const people = [admin, user, await newPerson('developer')];
+        for (const p of people) {
+          await record([entry({ via: 'sidebar' })], p);
+          await record(
+            [entry({ source: 'board', stayId: 'b1', via: 'paneOpen', menuId: `${MENU}-pane`, fromMenuId: MENU })],
+            p,
+          );
+          await record([entry({ source: 'board', stayId: 'b2', via: 'paneOpen' })], p);
+        }
+        const data = await nextData({ menuId: MENU });
+        expect(data.entries).toBe(3);
+        expect(data.next).toEqual([]);
+        expect(data.summary.noMove).toBe(3);
+      });
+
+      it('is capped at 20 rows, ties ordered by menu id', async () => {
+        await clearMine();
+        const people = [admin, user, await newPerson('developer')];
+        for (const p of people) await record([entry({ via: 'sidebar' })], p);
+        for (let i = 0; i < 22; i++)
+          for (const p of people)
+            await record([entry({ menuId: `${MENU}-n${String(i).padStart(2, '0')}`, via: 'link', fromMenuId: MENU })], p);
+        const data = await nextData({ menuId: MENU });
+        expect(data.next).toHaveLength(20);
+        expect(data.hiddenDestinations).toBe(0);
+        // Ties on count order by menu id.
+        expect(data.next[0]?.menuId).toBe(`${MENU}-n00`);
+      });
+
+      it.each([
+        ['an empty menuId', { menuId: '' }],
+        ['a menuId with a slash', { menuId: 'a/b' }],
+        ['a non-boolean includeBack', { menuId: 'a', includeBack: 'yes' }],
+        ['an extra key', { menuId: 'a', preset: 'all' }],
+      ])('error "Invalid usage next-screens query" for %s', async (_label, body) => {
+        const res = await next(body);
+        expect(res.statusCode).toBe(200);
+        expect(res.json()).toMatchObject({
+          outcome: 'error',
+          data: null,
+          message: 'Invalid usage next-screens query',
         });
       });
     });

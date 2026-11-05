@@ -15,7 +15,7 @@ import { metricsAuditEvents } from '@ap/menu-metrics/mock';
 import { logKnowledgeActionsMock } from '@ap/menu-log-knowledge/mock';
 import type { CreateAssembly } from '#platform-assembly';
 import { menuPermissions, type AuditEvent } from '@ap/contracts';
-import { createMockAdapter, storedUsage, type AnyMockAction, type AnyMockEndpoint } from '@ap/mock-server';
+import { createMockAdapter, seedUsageNext, storedUsage, type AnyMockAction, type AnyMockEndpoint } from '@ap/mock-server';
 import { DevTools } from './DevTools';
 import { eqvMock } from './eqv-mock';
 import { MOCK_SPACE_SYSTEMS } from './mock-space-systems';
@@ -61,6 +61,14 @@ export const MOCK_AUDIT_EVENTS: readonly AuditEvent[] = [...metricsAuditEvents];
  * Menu mocks are registered in MOCK_ENDPOINTS by `pnpm gen:menu`, module mocks in MODULE_MOCK_ENDPOINTS by hand; a production build never reaches this file.
  */
 export const createAssembly: CreateAssembly = ({ registry }) => {
+  // #605: map the opt-in synthetic navigation cases onto real registry rows, only once per empty store.
+  const usageMenus = {
+    'seed-solo': 'admin-roles', 'seed-tail': 'admin-audit', 'seed-back': 'admin-usage',
+    'seed-loop': 'admin-registry', 'seed-dominant': 'metric-catalog',
+    'seed-d1': 'equipment-detail', 'seed-d2': 'equipment-master', 'seed-d3': 'cycle-time',
+    'seed-d4': 'productivity-overview', 'seed-d5': 'execution-detail', 'seed-d6': 'metric-detail',
+  };
+  if (storedUsage().length === 0 && Object.values(usageMenus).every(id => registry.menus.some(menu => menu.id === id))) seedUsageNext(Date.now(), usageMenus);
   const adapter = createMockAdapter({ equipmentAxes: EQUIPMENT_AXES, endpoints: [...MOCK_ENDPOINTS, ...MODULE_MOCK_ENDPOINTS], registry, permissions: [...registry.permissions, ...modulePermissions(registry)], auditEvents: MOCK_AUDIT_EVENTS, actions: MOCK_ACTIONS });
   const savedViews = createLocalSavedViewStore({
     menuPermissionsOf: menuId => { try { return menuPermissions(registry.menuById(menuId)); } catch { return undefined; } },
