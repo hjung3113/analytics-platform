@@ -105,9 +105,9 @@ export function PublicVocListScreen({
             <button type="button" aria-current={selectedId === voc.id ? 'true' : undefined} onClick={() => { onSelect(voc.id); }}
               className={cn('flex w-full flex-col gap-1 border-b border-border-subtle px-4 py-3 text-left hover:bg-surface-card',
                 selectedId === voc.id && 'bg-surface-row-selected')}>
-              <span className="flex items-baseline gap-2">
-                <span className="font-mono text-xs text-text-muted whitespace-nowrap shrink-0">{voc.display_id}</span>
-                <span className="truncate text-sm font-medium text-text-primary">{voc.title}</span>
+              <span className="flex w-full min-w-0 flex-wrap items-baseline gap-2">
+                <span className="font-mono text-xs text-text-muted whitespace-nowrap shrink-0 max-w-full truncate" title={voc.display_id}>{voc.display_id}</span>
+                <span className="min-w-0 flex-1 truncate text-sm font-medium text-text-primary">{voc.title}</span>
               </span>
               <span className="flex flex-wrap items-center gap-2 text-xs text-text-muted">
                 <ManagedSystemPill name={voc.managed_system.name} />
@@ -139,7 +139,7 @@ export function PublicVocListScreen({
               </div>
               <div className="contents" data-public-voc-control="system">
                 <Select value={systemId ?? ALL_SYSTEMS} onValueChange={(value) => { onQueryChange({ systemId: value === ALL_SYSTEMS ? null : value }); }}>
-                  <SelectTrigger className="w-28 shrink-0" aria-label="시스템" disabled={systems.isError} aria-busy={systems.isPending || undefined}><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="w-28 shrink-0 [&>svg]:shrink-0" aria-label="시스템" disabled={systems.isError} aria-busy={systems.isPending || undefined}><span className="min-w-0 flex-1 truncate text-left"><SelectValue /></span></SelectTrigger>
                   <SelectContent>
                     <SelectItem value={ALL_SYSTEMS}>모든 시스템</SelectItem>
                     {!knownSystem && systemId !== null && <SelectItem value={systemId}>선택한 시스템</SelectItem>}

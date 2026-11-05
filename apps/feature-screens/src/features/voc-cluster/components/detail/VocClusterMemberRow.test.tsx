@@ -15,6 +15,22 @@ describe('VocClusterMemberRow', () => {
     expect(screen.getByText('VOC-1021')).toHaveClass('whitespace-nowrap', 'shrink-0');
   });
 
+  it.each(['긴 VOC 제목', ''])('bounds a long member ID and preserves its full value (title=%s)', (title) => {
+    const displayId = 'VOC-1234567890123456789';
+    render(<VocClusterMemberRow member={{ voc_id: 'v1', added_by: 'a1', added_at: '2026-07-10T00:00:00.000Z', display_id: displayId, title, severity: 'high', reporter_facing_status: 'received' }} last canRemove onRemove={vi.fn()} isRemoving={false} />);
+    const id = screen.getByText(displayId);
+    expect(id).toHaveAttribute('title', displayId);
+    const row = screen.getByTestId('cluster-member-row-v1');
+    expect(row.firstElementChild).toHaveClass('min-w-0', 'flex-1');
+    if (title !== '') {
+      expect(id).toHaveClass('max-w-full', 'truncate', 'whitespace-nowrap');
+      expect(id.parentElement).toHaveClass('flex', 'flex-wrap', 'min-w-0');
+    } else {
+      expect(id.closest('div')).toHaveClass('truncate');
+    }
+    expect(screen.getByRole('button', { name: 'VOC 제거' })).toBeEnabled();
+  });
+
   it.each(findingSeveritySchema.options)(
     'renders a display label for member severity %s',
     (severity) => {

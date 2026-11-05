@@ -43,6 +43,16 @@ describe('<VocRow>', () => {
     expect(screen.getByText('VOC-001')).toHaveClass('whitespace-nowrap', 'shrink-0');
   });
 
+  it.each([false, true])('bounds a long ID while adjacent content wraps (permissionLimited=%s)', (permissionLimited) => {
+    const displayId = 'VOC-1234567890123456789';
+    render(<VocRow voc={{ ...BASE_VOC, display_id: displayId, attachment_count: 2 }} selected={false} onSelect={vi.fn()} managedSystem={null} permissionLimited={permissionLimited} />);
+    const id = screen.getByText(displayId);
+    expect(id).toHaveClass('max-w-full', 'truncate', 'whitespace-nowrap', 'shrink-0');
+    expect(id).toHaveAttribute('title', displayId);
+    expect(id.parentElement).toHaveClass('min-w-0', 'flex-wrap');
+    expect(id.parentElement?.parentElement).toHaveClass('flex-1', 'min-w-0');
+  });
+
   let onSelect: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {

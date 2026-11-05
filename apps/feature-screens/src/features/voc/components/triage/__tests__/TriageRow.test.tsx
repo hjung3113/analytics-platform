@@ -29,6 +29,17 @@ describe('TriageRow', () => {
     expect(screen.getByText('VOC-001')).toHaveClass('whitespace-nowrap', 'shrink-0');
   });
 
+  it('bounds a long ID while leaving the title and trailing time their own space', () => {
+    const displayId = 'VOC-1234567890123456789';
+    render(<TriageRow voc={{ ...BASE_VOC, display_id: displayId }} selected={false} onSelect={vi.fn()} />);
+    const id = screen.getByText(displayId);
+    expect(id).toHaveClass('max-w-full', 'truncate', 'whitespace-nowrap', 'shrink-0');
+    expect(id).toHaveAttribute('title', displayId);
+    expect(id.parentElement).toHaveClass('min-w-0', 'flex-wrap');
+    expect(id.parentElement?.parentElement).toHaveClass('flex-1', 'min-w-0');
+    expect(screen.getByRole('button')).toHaveAccessibleName(`${displayId} ${BASE_VOC.title}`);
+  });
+
   it('mirrors prototype expanded row padding and min height', () => {
     render(<TriageRow voc={BASE_VOC} selected={false} onSelect={vi.fn()} />);
     const row = screen.getByRole('button');

@@ -133,17 +133,17 @@ export function VocRow({
       <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
         {permissionLimited === true ? (
           // Permission-limited peek: display_id + status only
-          <div className="flex items-center gap-2 text-sm">
-            <span className="font-mono text-text-muted text-xs whitespace-nowrap shrink-0">{voc.display_id}</span>
+          <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm">
+            <span className="font-mono text-text-muted text-xs whitespace-nowrap shrink-0 max-w-full truncate" title={voc.display_id}>{voc.display_id}</span>
             <ReporterStatusBadge status={voc.reporter_facing_status} />
           </div>
         ) : (
           <>
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="font-mono text-xs text-text-disabled whitespace-nowrap shrink-0">
+            <div className="flex flex-wrap items-center gap-2 min-w-0">
+              <span className="font-mono text-xs text-text-disabled whitespace-nowrap shrink-0 max-w-full truncate" title={voc.display_id}>
                 {voc.display_id}
               </span>
-              <span className="font-medium text-text-primary truncate">{voc.title}</span>
+              <span className="min-w-0 flex-1 font-medium text-text-primary truncate">{voc.title}</span>
               {voc.attachment_count > 0 && (
                 <span
                   className="inline-flex items-center gap-1 rounded-full bg-text-muted/10 px-1.5 py-0.5 text-xs font-medium text-text-muted shrink-0"

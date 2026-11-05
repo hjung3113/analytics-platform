@@ -57,6 +57,41 @@ describe('PublicVocListScreen', () => {
     expect(screen.getByRole('searchbox')).toHaveClass('h-10');
   });
 
+  it('reserves the chevron width when a long system name is selected', async () => {
+    const name = '아주 긴 시스템 이름을 선택했을 때도 화살표 유지';
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => new Response(
+      JSON.stringify(String(input).startsWith('/managed-systems')
+        ? { items: [{ id: MS, workspace_id: MS, slug: 'p', name, external_key: null, default_owner_actor_id: null, default_owner_team_id: null, default_reviewer_actor_id: null, default_reviewer_team_id: null, archived_at: null, archived_by_actor_id: null, created_at: '2026-07-01T00:00:00.000Z', updated_at: '2026-07-01T00:00:00.000Z' }], total: 1 }
+        : { items: [], page: { has_more: false } }),
+      { status: 200, headers: { 'content-type': 'application/json' } },
+    )));
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <PublicVocListScreen query={{ q: '', mine: false, systemId: MS }} onQueryChange={vi.fn()} selectedId={null} onSelect={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    const trigger = screen.getByRole('combobox', { name: '시스템' });
+    await waitFor(() => expect(trigger).toHaveTextContent(name));
+    expect(trigger).toHaveClass('w-28', 'shrink-0', '[&>svg]:shrink-0');
+    expect(trigger.firstElementChild).toHaveClass('min-w-0', 'flex-1', 'truncate');
+    expect(trigger.lastElementChild?.tagName.toLowerCase()).toBe('svg');
+    expect(trigger.lastElementChild).toHaveClass('h-4', 'w-4');
+  });
+
+  it('bounds a long public VOC number and allows the title to wrap to another line', async () => {
+    const displayId = 'VOC-1234567890123456789';
+    stubFetch([{ ...item(ID_1, '긴 제목'), display_id: displayId }]);
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <PublicVocListScreen query={{ q: '', mine: false, systemId: null }} onQueryChange={vi.fn()} selectedId={null} onSelect={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    const id = await screen.findByText(displayId);
+    expect(id).toHaveClass('max-w-full', 'truncate', 'whitespace-nowrap', 'shrink-0');
+    expect(id).toHaveAttribute('title', displayId);
+    expect(id.parentElement).toHaveClass('w-full', 'min-w-0', 'flex-wrap');
+  });
+
   it('keeps each public VOC number unbroken while its title can truncate', async () => {
     stubFetch([item(ID_1, '긴 제목')]);
     render(

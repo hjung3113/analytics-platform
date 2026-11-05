@@ -8,7 +8,7 @@ import { cn } from '@ap/ui';
  * This keeps `@ap/feature-ui` free of domain data-fetching per AGENTS.md.
  *
  * A known record with an unsupported slug gets the neutral default token.
- * A missing record can omit `mark` and renders in the muted version.
+ * A missing record can omit `mark`; its name retains the same readable contrast.
  */
 import type * as React from 'react';
 
@@ -16,7 +16,7 @@ export interface ManagedSystemPillProps {
   name: string;
   /** CSS color string for the 6 px round "mark" dot, resolved by slug in the caller. */
   mark?: string;
-  /** When true, renders in a muted style (e.g. archived or unknown system). */
+  /** When true, distinguishes the archived system with a dashed outline. */
   archived?: boolean;
   className?: string;
 }
@@ -27,16 +27,11 @@ export interface ManagedSystemPillProps {
  * Passes `archived` as a data attribute for testability.
  */
 export function ManagedSystemPill({ name, mark, archived, className }: ManagedSystemPillProps) {
-  const isMuted = archived === true || mark === undefined;
-
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium',
-        isMuted
-          ? 'border-border-subtle text-text-muted'
-          : 'border-border-subtle text-text-secondary',
-        isMuted && 'opacity-60',
+        'inline-flex items-center gap-1.5 rounded-full border border-border-subtle px-2.5 py-0.5 text-xs font-medium text-text-secondary',
+        archived === true && 'border-dashed',
         className,
       )}
       data-archived={archived === true ? 'true' : 'false'}
