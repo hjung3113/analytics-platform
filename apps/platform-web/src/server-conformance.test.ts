@@ -33,6 +33,19 @@ const stagedImport = (validated: boolean): { jobId: string; planVersion: number 
   const planVersion = validated ? (importHandler('importValidate').handle({ input: { jobId }, actor: 'admin', scopeId: null }).data as { planVersion: number }).planVersion : 1;
   return { jobId, planVersion };
 };
+// Each spec sample owns a fresh model, so sealed drafts and append-only changes can be exercised repeatedly.
+let specSequence = 0;
+const specFixture = (publish = false) => {
+  const n = ++specSequence;
+  const send = (id: string, input: Record<string, unknown>) => importHandler(id).handle({ input, actor: 'admin', scopeId: null }).data as Record<string, unknown>;
+  const modelId = send('modelCreate', { vendorId: '00000001-0000-4000-8000-000000000001', code: `CF-SPEC-${n}`, name: `CF spec ${n}`, processIds: [] }).id as string;
+  const softwareId = send('softwareCreate', { modelId, versionLabel: '1', name: '' }).id as string;
+  const revisionId = send('specDraftCreate', { modelId, sourceDocRef: { docLabel: 'Conformance', docVersion: '1' } }).revisionId as string;
+  send('specDraftSave', { revisionId, mode: 'append', modules: [{ name: 'Module' }], events: [{ module: 'Module', name: 'Event', triggerRule: 'first' }] });
+  if (publish) send('specPublish', { revisionId });
+  return { modelId, softwareId, revisionId, send };
+};
+const SPEC_READ_DRAFT = specFixture().revisionId;
 const IMPORT_READ_JOB = stagedImport(true).jobId;
 const slowFilter = { tail: 'p95', granularity: 'hour', bucket: null, bin: null };
 /** One request per endpoint that the granted actor (engineer at MEM) runs successfully. Endpoints with no params default to `{}`. */
@@ -70,6 +83,10 @@ const PARAMS: Record<string, Record<string, unknown>> = {
   // Knowledge item reads (#1197 s2): the mock seed's first item (uuid by sequence, `src/mock/items.ts`).
   'logKnowledge.items': { q: null, ...page },
   'logKnowledge.itemDetail': { itemId: '00000005-0000-4000-8000-000000000001' },
+  'logKnowledge.modelSpec': { modelId: '00000003-0000-4000-8000-000000000008' },
+  'logKnowledge.modelSpecRevisions': { modelId: '00000003-0000-4000-8000-000000000008', page: 0, pageSize: 10 },
+  'logKnowledge.specDraft': { revisionId: SPEC_READ_DRAFT },
+  'logKnowledge.specChanges': { modelId: '00000003-0000-4000-8000-000000000008', status: 'all', page: 0, pageSize: 10 },
   'logKnowledge.importDetail': { jobId: IMPORT_READ_JOB, ...page },
   // Improvement reads (#1328 d): the table's page shape; detail and events take a seed item id (`mock/index.ts` `itemId`, sequence 1-5). Events declare no `sorting` paramKey.
   'improvement.items': { q: null, ...page },
@@ -145,6 +162,25 @@ const importSamples: Record<string, () => Record<string, unknown>> = {
   importCancel: () => ({ jobId: stagedImport(false).jobId }),
   importApply: () => { const staged = stagedImport(true); return { jobId: staged.jobId, expectedPlanVersion: staged.planVersion }; },
 };
+const changeFixture = (flag = false) => {
+  const f = specFixture(true);
+  const { changeId } = f.send('specChangeAdd', { modelId: f.modelId, softwareId: f.softwareId, targetKind: 'event', target: { module: 'Module', event: 'Event' }, changeKind: 'behavior', note: 'Conformance note' });
+  if (flag) {
+    const { revisionId } = f.send('specDraftCreate', { modelId: f.modelId, sourceDocRef: { docLabel: 'Conformance', docVersion: '2' } });
+    f.send('specDraftSave', { revisionId, mode: 'append', modules: [{ name: 'Module' }], events: [{ module: 'Module', name: 'Event', triggerRule: 'second' }] });
+    f.send('specPublish', { revisionId });
+  }
+  return { changeId };
+};
+const specSamples: Record<string, () => Record<string, unknown>> = {
+  specDraftCreate: () => ({ modelId: specFixture(true).modelId, sourceDocRef: { docLabel: 'Conformance', docVersion: '2' } }),
+  specDraftSave: () => ({ revisionId: specFixture().revisionId, mode: 'append', modules: [{ name: 'Extra' }] }),
+  specPublish: () => ({ revisionId: specFixture().revisionId }),
+  specReject: () => ({ revisionId: specFixture().revisionId, reason: 'Conformance rejection' }),
+  specChangeAdd: () => { const f = specFixture(true); return { modelId: f.modelId, softwareId: f.softwareId, targetKind: 'event', target: { module: 'Module', event: 'Event' }, changeKind: 'behavior', note: 'Conformance note' }; },
+  specChangeRetire: () => changeFixture(),
+  specChangeConfirm: () => changeFixture(true),
+};
 // The improvement writes (#1328 d) run on seed items (`platform/improvement-items/src/mock/index.ts`, ids `13280000-…-<n>`):
 // 1 is open with no quest, 2 is in_progress with quest Q-1. Re-sending values the row already has changes nothing, so
 // itemUpdate/itemAssign/itemLinkQuest succeed again on every call (the mock bumps the version only when the row really
@@ -173,7 +209,7 @@ const improvementSamples: Record<string, () => Record<string, unknown>> = {
   itemLinkQuest: () => ({ itemId: IMPROVEMENT_QUESTED, questId: 'Q-1', questTitle: '대기 시간 줄이기' }),
 };
 const writeSamples: Record<string, Record<string, () => Record<string, unknown>>> = {
-  logKnowledge: { ...catalogSamples, ...itemSamples, ...importSamples },
+  logKnowledge: { ...catalogSamples, ...itemSamples, ...importSamples, ...specSamples },
   improvement: improvementSamples,
 };
 const actionCases = MOCK_ACTIONS.map(action => {
@@ -189,6 +225,7 @@ const GRANTED: RoleId = 'engineer';
 const CATALOG_PERMISSION = menuPermission('knowledge:catalog-manage');
 const ITEM_PUBLISH = menuPermission('knowledge:item-publish');
 const IMPROVEMENT_MANAGE = menuPermission('improvement:manage');
+const SPEC_PUBLISH = menuPermission('knowledge:spec-publish');
 const asRole = async <T,>(role: RoleId, fn: () => Promise<T>): Promise<T> => {
   const previous = getRole();
   setRole(role);
@@ -233,6 +270,13 @@ const savedViewStoreOf = (role: 'engineer' | 'admin') => createLocalSavedViewSto
 });
 
 const conformanceAdapter = Object.assign(Object.create(adapter), {
+  menuQuery: (req: Parameters<typeof adapter.menuQuery>[0]) => {
+    if (req.endpoint !== 'logKnowledge.specDraft') return adapter.menuQuery(req);
+    // serveEndpoint pins the actor synchronously before its first await. Restore immediately: granted
+    // conformance reads run concurrently, so an awaited global role switch would leak admin to other ports.
+    const previous = getRole(); setRole('admin');
+    try { return adapter.menuQuery(req); } finally { setRole(previous); }
+  },
   menuAction: (req: Parameters<typeof adapter.menuAction>[0]) =>
     req.action.startsWith('logKnowledge.') || req.action.startsWith('improvement.') ? asRole('admin', () => adapter.menuAction(req)) : adapter.menuAction(req),
 }) as typeof adapter;
@@ -285,7 +329,7 @@ describeServerConformance('server boundary conformance — mock adapter', {
   },
   withoutPermission: async (permission: Permission, fn) => {
     const previous = getRole();
-    setRole(permission === CATALOG_PERMISSION || permission === ITEM_PUBLISH || permission === IMPROVEMENT_MANAGE ? 'admin' : GRANTED);
+    setRole(permission === CATALOG_PERMISSION || permission === ITEM_PUBLISH || permission === IMPROVEMENT_MANAGE || permission === SPEC_PUBLISH ? 'admin' : GRANTED);
     // The adapter's world is built from the vocabulary above, not the default USERS, so the granted role's list is the session's own array.
     const permissions = adapter.session().user.permissions as Permission[];
     const kept = [...permissions];

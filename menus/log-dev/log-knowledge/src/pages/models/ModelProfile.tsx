@@ -1,5 +1,5 @@
 import { AlertTriangle, Plus } from 'lucide-react';
-import { PlatformLink, useMenuQuery, usePlatform, type PageProps } from '@ap/kernel';
+import { PlatformLink, useMenuQuery, useI18n, usePlatform, type PageProps } from '@ap/kernel';
 import { PlatformPage, QueryView, ReturnLink, StateMessage } from '@ap/components';
 import { Button } from '@ap/ui';
 import { CATALOG_MANAGE_PERMISSION, modelProfileEndpoint, type ModelProfileData } from '../../endpoints';
@@ -18,6 +18,7 @@ function SectionNav() {
 
 function Sections({ profile, modelId, canEdit }: { profile: ModelProfileData; modelId: string; canEdit: boolean }) {
   const { linkTo } = usePlatform();
+  const { tx } = useI18n();
   const addSoftware = canEdit ? <Button asChild size="sm" variant="secondary"><PlatformLink href={linkTo('log-knowledge-catalog', { page: softwareTabPage(modelId) })}><Plus className="size-3.5" aria-hidden />SW 버전 추가</PlatformLink></Button> : null;
   const { softwareVersions, truncated } = profile;
   return <div className="grid gap-3">
@@ -28,6 +29,9 @@ function Sections({ profile, modelId, canEdit }: { profile: ModelProfileData; mo
         <SoftwareTable versions={softwareVersions} />
         {truncated && <p className="text-xs text-text-muted">{SOFTWARE_LIST_NOTE}</p>}
       </div>}
+    </Section>
+    <Section id={anchor('spec')} title={tx({ ko: '명세', en: 'Specification' })}>
+      <Button asChild size="sm" variant="secondary"><PlatformLink href={linkTo('log-knowledge-spec', { params: { modelId }, returnTo: true })}>{tx({ ko: '모델 명세 보기', en: 'View model specification' })}</PlatformLink></Button>
     </Section>
     <Section id={anchor('items')} title="모델 공통 Item"><ModelItems modelId={modelId} active={profile.model.active} /></Section>
     <Section id={anchor('topview')} title="Top View"><p className="text-sm text-text-muted">연결된 Top View가 없습니다</p></Section>

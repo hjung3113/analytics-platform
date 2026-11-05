@@ -61,3 +61,17 @@ describe('a write or read permission that no menu declares as its entry (opt-in 
     expect(held('viewer')).not.toContain(publish);
   });
 });
+
+// Model-spec publication uses a separate action/read right on the viewable models menu (#1196 d).
+describe('model-spec publish vocabulary', () => {
+  const specPublish = menuPermission('knowledge:spec-publish');
+  it('registers spec actions and draft reads with the explicit vocabulary', () => {
+    expect(() => createMockAdapter({ endpoints: [endpoint(specPublish)], actions: [action(specPublish)], registry, permissions: [...vocabulary, specPublish] })).not.toThrow();
+  });
+  it('keeps spec publication and draft reads admin-only in the mock', () => {
+    const adapter = createMockAdapter({ endpoints: [], registry, permissions: [...vocabulary, specPublish] });
+    setRole('admin'); expect(adapter.session().user.permissions).toContain(specPublish);
+    setRole('engineer'); expect(adapter.session().user.permissions).not.toContain(specPublish);
+    setRole('viewer'); expect(adapter.session().user.permissions).not.toContain(specPublish);
+  });
+});

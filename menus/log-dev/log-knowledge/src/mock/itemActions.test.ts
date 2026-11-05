@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { KERNEL_PERMISSIONS, groupId, type FieldError, type MenuMeta } from '@ap/contracts';
 import { createMockAdapter, setRole, type AnyMockAction } from '@ap/mock-server';
-import { CATALOG_MANAGE_PERMISSION, EVIDENCE_SOURCE_KINDS, ITEM_PUBLISH_PERMISSION, itemActionSpecs, itemDetailEndpoint, itemsEndpoint } from '../endpoints';
+import { SPEC_PUBLISH_PERMISSION, CATALOG_MANAGE_PERMISSION, EVIDENCE_SOURCE_KINDS, ITEM_PUBLISH_PERMISSION, itemActionSpecs, itemDetailEndpoint, itemsEndpoint } from '../endpoints';
 import { logKnowledgeActionsMock, logKnowledgeMock, resetCatalog, resetItems } from './index';
 import { allItems, allLinks, itemById, latestRevision } from './items';
 import { all } from './store';
@@ -227,7 +227,7 @@ describe('registration with the mock adapter', () => {
   const adapter = () => createMockAdapter({
     endpoints: logKnowledgeMock, actions: logKnowledgeActionsMock,
     registry: { menus: [menu('log-knowledge-catalog', CATALOG_MANAGE_PERMISSION), menu('log-knowledge-models', 'platform:view'), menu('log-knowledge-items', 'platform:view'), menu('home', 'platform:view')] },
-    permissions: [...KERNEL_PERMISSIONS, CATALOG_MANAGE_PERMISSION, ITEM_PUBLISH_PERMISSION],
+    permissions: [...KERNEL_PERMISSIONS, CATALOG_MANAGE_PERMISSION, ITEM_PUBLISH_PERMISSION, SPEC_PUBLISH_PERMISSION],
   });
   let keySeq = 0;
   const key = () => `3f2b8a40-6c1e-4d5a-9b7e-${(++keySeq).toString(16).padStart(12, '0')}`;

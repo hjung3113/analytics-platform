@@ -24,6 +24,13 @@ export const manifests: MenuEntry[] = [
     component: lazy(() => import('./pages/models/ModelProfile')),
   },
   {
+    id: 'log-knowledge-spec', parent: 'log-knowledge-models', navHidden: true, group: groupId('logKnowledge'), label: { ko: '모델 명세', en: 'Model specification' },
+    description: { ko: '모델 Revision과 SW 실효 명세·변경점·Revision 이력을 확인합니다', en: 'Read model revisions, effective software specifications and changes' },
+    path: '/log/knowledge/models/:modelId/spec', icon: FileText, permission: 'platform:view', requiresScope: false, pageType: 'management',
+    context: contextCapabilities(), features: NO_FEATURES, pageKeys: ['software', 'tab', 'drawer', 'change', 'module', 'review', 'revision', 'returnTo'],
+    component: lazy(() => import('./pages/spec/SpecScreen')),
+  },
+  {
     id: 'log-knowledge-items', group: groupId('logKnowledge'), label: { ko: '전체 기술 Item', en: 'Technical items' },
     description: { ko: '모든 모델·SW 버전의 기술 Item을 유형·검증·처리·게시 상태로 찾습니다', en: 'Find technical items of every model and software version by type, verification, processing and publication state' },
     path: '/log/knowledge/items', icon: ListChecks, permission: 'platform:view', requiresScope: false, pageType: 'management',
