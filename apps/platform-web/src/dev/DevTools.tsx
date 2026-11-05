@@ -4,6 +4,7 @@ import { useI18n, usePlatform } from '@ap/kernel';
 import { getRole, getScenario, setRole, setScenario, subscribeServer, type Scenario } from '@ap/mock-server';
 import { USERS, type RoleId } from '@ap/mock-server';
 import { SegmentedRadio } from '@ap/components';
+import { EditSimulationSection, useEditSimulation } from './EditSimulation';
 import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
 
 /**
@@ -30,6 +31,7 @@ export function DevTools() {
   const { t, tx, lang } = useI18n();
   const scenario = useSyncExternalStore(subscribeServer, getScenario);
   const role = useSyncExternalStore(subscribeServer, getRole);
+  const editSim = useEditSimulation();
   const switchRole = (next: RoleId) => {
     setRole(next);
     toast(lang === 'ko' ? `역할 전환: ${USERS[next].title.ko} — 권한·Scope를 다시 검증합니다.` : `Role switched: ${USERS[next].title.en} — permissions and scope re-validated.`, 'info');
@@ -66,6 +68,7 @@ export function DevTools() {
             { ko: '7일 복수 설비 (time_domain_unverified)', en: '7-day multi-equipment (time_domain_unverified)', url: '/analytics/productivity?v=1&scopeId=MEM&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00' },
           ].map(l => <li key={l.url}><button type="button" className="w-full rounded-sm px-2 py-1 text-left text-accent-primary hover:bg-surface-sunken hover:underline" onClick={() => navigate(l.url)}>{lang === 'ko' ? l.ko : l.en}</button></li>)}
         </ul>
+        <EditSimulationSection sim={editSim} />
       </PopoverContent>
     </Popover>
     <DropdownMenu>

@@ -4,8 +4,11 @@
 
 ## 작은 후속 (확인된 것)
 
+<<<<<<< HEAD
 - **구현 안 함 — `useMenuQuery`의 `resultParams` 타입(v0.28.0 최종 품질 리뷰 Q6):** `QueryState.resultParams?: unknown`이라 소비자 7곳(메뉴 5개 패키지)이 같은 `as {…} | undefined` 캐스트 뒤 `?? current`를 반복하고, 키 오타를 타입 검사가 못 잡는다. `useMenuQuery<P,T>` 반환을 `QueryState<T> & { resultParams?: P }`로 좁히는 additive 변경(+선택 `shownParams` 조각, ADR-0052). 이유: 릴리스 마감 뒤 SDK 추가라 다음 sdk 릴리스로. 다시 여는 조건: 다음 SDK 슬라이스 시작 때, 또는 `keepPrevious`를 켜는 새 소비자가 생길 때.
 - **구현 안 함 — log-knowledge 화면 테스트 하네스 공용화(v0.28.0 최종 품질 리뷰 Q7):** #1391·#1393 테스트 8개 이상이 registry·`testAdapter`·`DetailPanelSlotProvider`·`Slot`·mount 하네스를 파일마다 복사한다. `src/pages/test-support.tsx`의 `mountWith`로 옮기면 각 파일은 응답 표만 갖는다(삭제 없음, 이동만). 이유: 동작 차이가 없고 파일이 많다. 다시 여는 조건: log-knowledge 화면에 새 테스트 파일을 더할 때.
+=======
+>>>>>>> a6cd54c52 (feat(#1388): mock-app demo fixture 「편집 중 시뮬레이션」 registering the guard + guarded E2E (node c))
 
 - **구현 안 함 — 개선 아이템 Quest 참조를 Kernel 질의로(v0.28.0 품질 리뷰 Q8):** `platform/improvement-items/src/pages/QuestReference.tsx`의 `getQuest`·`searchQuests`·직접 조회 세 곳이 revision·사용자 키, `AbortController`, 오류 envelope를 손으로 다시 만든다. `usePlatformQuery(signal => adapter.getQuest(id, signal), id, true, 'session')`로 바꾸면 세션 전환 숨김 규칙이 Kernel과 같아진다. 이유: 화면 테스트를 다시 확인해야 해 릴리스 마감에 넣지 않는다. 다시 여는 조건: 다음에 `QuestReference`를 고칠 때, 또는 세션 전환 뒤 이전 사용자의 Quest가 보인다는 신고가 나올 때.
 - **구현 안 함 — log-knowledge 입력 키트(v0.28.0 품질 리뷰 Q9):** `UUID` 정규식·`bounded` 류 zod 헬퍼가 `apps/platform-api/src/modules/log-knowledge/` 안 여러 파일(테스트 포함 15곳)에 따로 있다. 이번 릴리스는 Q1(`concept-input.ts`·`spec-change-input.ts` 중복)만 합친다. 이유: 나머지는 동작 차이가 없고 파일이 많다. 다시 여는 조건: log-knowledge에 새 입력 스키마를 더할 때 — 그 PR에서 모듈 입력 키트 하나로 모은다. 메뉴 미러도 같다(v0.28.0 최종 품질 리뷰 Q8): `menus/log-dev/log-knowledge/src`의 pages 5곳·mock 7곳이 UUID 정규식을 따로 두고, #1393 Q5의 대소문자 버그가 이 분산에서 나왔다 — 같은 때 `endpoints.ts`에 `isUuid` 하나로 모은다.
