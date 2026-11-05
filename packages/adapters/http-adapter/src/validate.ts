@@ -1,4 +1,4 @@
-import { isRecord, type ActionOutcome, type ActionResponse, type ApiResponse, type Outcome, type PublishedMetric, type Session } from '@ap/contracts';
+import { QUEST_SEARCH_PAGE_SIZE_MAX, isRecord, type ActionOutcome, type ActionResponse, type ApiResponse, type Outcome, type PublishedMetric, type Session } from '@ap/contracts';
 
 const OUTCOMES: readonly string[] = ['ok', 'empty', 'error', 'forbidden', 'too_large', 'timeout'];
 const ACTION_OUTCOMES: readonly string[] = ['ok', 'invalid', 'conflict', 'forbidden', 'not_found', 'error', 'unknown'];
@@ -131,4 +131,21 @@ export function toBootstrap(value: unknown): BootstrapPayload | null {
 
 export function toSessionVersion(value: unknown): string | null {
   return isRecord(value) && typeof value['sessionVersion'] === 'string' ? value['sessionVersion'] : null;
+}
+
+const hasOnly = (record: Record<string, unknown>, keys: readonly string[]) => Object.keys(record).every((key) => keys.includes(key));
+const isCount = (value: unknown): boolean => typeof value === 'number' && Number.isInteger(value) && value >= 0;
+
+/** A Quest is exactly `{ id, title, status }` (a non-empty id, two strings). An extra key is a broken response, not ignored (#1328). */
+export function isQuest(value: unknown): boolean {
+  return isRecord(value) && hasOnly(value, ['id', 'title', 'status']) && isNonEmpty(value['id']) && isString(value['title']) && isString(value['status']);
+}
+
+/** A search page is exactly `{ supported, items, page, hasMore }`; an unsupported search has no items and no next page. */
+export function isQuestSearchPage(value: unknown): boolean {
+  if (!isRecord(value) || !hasOnly(value, ['supported', 'items', 'page', 'hasMore'])) return false;
+  const { supported, items, page, hasMore } = value;
+  if (typeof supported !== 'boolean' || typeof hasMore !== 'boolean' || !isCount(page)) return false;
+  if (!Array.isArray(items) || items.length > QUEST_SEARCH_PAGE_SIZE_MAX || !items.every(isQuest)) return false;
+  return supported || (items.length === 0 && !hasMore);
 }

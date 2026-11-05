@@ -20,6 +20,8 @@ import type {
   PreferencesSnapshot,
   PlatformAdapter,
   NoticeListPage,
+  Quest,
+  QuestSearchPage,
   ScopeCheck,
   SelectionEvaluation,
   SelectionInput,
@@ -32,6 +34,7 @@ import type {
 } from '@ap/contracts';
 import { isRecord, type MenuAction } from '@ap/contracts';
 import { envelopeCall, actionCall, plainCall, portCall, TransportError, type CallContext, type PlainReply } from './calls/calls.js';
+import { isQuest, isQuestSearchPage } from './validate.js';
 import type { SessionStore } from './session/session.js';
 import type { Transport } from './calls/transport.js';
 
@@ -130,6 +133,15 @@ export function createHttpAdapter(config: AdapterConfig): PlatformAdapter {
     deleteNotice: (input, signal) =>
       actionCall(context, { method: 'POST', path: `${PLATFORM}/notices/delete`, body: input }, noticeAction('notice.delete', input), signal) as Promise<ActionResponse<{ id: string }>>,
 
+    // Quests (#1328, read-only): envelope reads. A reply whose `ok` data is not exactly the documented shape is a broken response, never passed on.
+    async getQuest(id, signal) {
+      if (id === '') return invalidInput<Quest>(); // a non-string placeholder (drift probe) still sends
+      return guarded(await envelope<Quest>({ method: 'GET', path: `${PLATFORM}/quests/${encodeURIComponent(id)}` }, signal), isQuest);
+    },
+    async searchQuests(input, signal) {
+      return guarded(await envelope<QuestSearchPage>({ method: 'POST', path: `${PLATFORM}/quests/search`, body: input }, signal), isQuestSearchPage);
+    },
+
     async recordUsage(events: readonly UsageEvent[]) {
       try {
         const value = await plainCall(
@@ -157,6 +169,15 @@ export function createHttpAdapter(config: AdapterConfig): PlatformAdapter {
       }
     },
   };
+}
+
+/** A read that cannot be sent (an empty id) never reaches the server; it answers the same `error` the server would. */
+const invalidInput = <T>(): ApiResponse<T> => ({ outcome: 'error', data: null, assessments: [], trust: null, correlationId: '', message: 'invalid_input' });
+
+/** `ok` data must pass `valid`, else the reply is an `error` that keeps its correlation id. Any other outcome carries no data (a Quest port answers `empty` or `error` with `data: null`). */
+function guarded<T>(reply: ApiResponse<T>, valid: (data: unknown) => boolean): ApiResponse<T> {
+  if (reply.outcome === 'ok') return valid(reply.data) ? reply : { outcome: 'error', data: null, assessments: [], trust: null, correlationId: reply.correlationId, message: 'invalid_response' };
+  return reply.data === null ? reply : { ...reply, data: null };
 }
 
 /** The write headers of a notice request come from its own fields; the body is sent as given (no client-side pre-validation). */

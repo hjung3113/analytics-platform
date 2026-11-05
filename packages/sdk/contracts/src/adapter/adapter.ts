@@ -8,7 +8,7 @@ import type { Condition, IdSet } from '../links/url.js';
 import type { MenuQuery } from '../menu/menu-query.js';
 import type { ActionResponse, MenuAction } from './action.js';
 import type { GroupMember } from '../links/saved-view.js';
-import type { DeleteNoticeInput, NoticeListPage, Notice, PreferencesImport, PreferencesPatch, PreferencesSnapshot, SaveNoticeInput } from './service-ports.js';
+import type { DeleteNoticeInput, NoticeListPage, Notice, PreferencesImport, PreferencesPatch, PreferencesSnapshot, Quest, QuestSearchInput, QuestSearchPage, SaveNoticeInput } from './service-ports.js';
 
 /**
  * Kernel port to the platform server (docs/integration/platform-packages.md §4). The kernel consumes it;
@@ -361,6 +361,18 @@ export type PlatformAdapter = {
   saveNotice(input: SaveNoticeInput, signal?: AbortSignal): Promise<ActionResponse<Notice>>;
   /** Deletes one notice; console:access, optimistic `expectedVersion`, replay-safe `idempotencyKey`. */
   deleteNotice(input: DeleteNoticeInput, signal?: AbortSignal): Promise<ActionResponse<{ id: string }>>;
+  /**
+   * Reads one BRAVO Quest by id (#1328, ADR-0106). Read-only; nothing is thrown for the three show cases of the improvement-item
+   * contract: `ok` with data = shown; outcome `empty` with `data: null` = BRAVO has no such Quest (`not_found`); outcome `error` =
+   * BRAVO cannot answer now (`unavailable`). `forbidden` passes through. Not mart data: trust null, assessments empty.
+   */
+  getQuest(id: string, signal?: AbortSignal): Promise<ApiResponse<Quest>>;
+  /**
+   * Searches BRAVO Quests (#1328). `query` at most QUEST_QUERY_MAX characters, `page` 0-based, `pageSize` 1..QUEST_SEARCH_PAGE_SIZE_MAX; anything
+   * else is outcome `error`. A BRAVO that cannot search answers `ok` with `supported: false` (not an error); "no match" is `supported: true`
+   * with no items; `error` only means unavailable. Read-only. Not mart data: trust null, assessments empty.
+   */
+  searchQuests(input: QuestSearchInput, signal?: AbortSignal): Promise<ApiResponse<QuestSearchPage>>;
   /**
    * Announces that the session or server-side state changed. The kernel then re-reads the session,
    * re-validates the scope when the session changed, and hides every earlier query result.

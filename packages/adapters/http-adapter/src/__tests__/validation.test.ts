@@ -171,3 +171,77 @@ describe('bootstrap structure (C2)', () => {
     expect(bootstraps()).toBe(2); // inside the 5 s failure backoff
   });
 });
+
+describe('Quest reads (#1328): ok data is validated against the contract, every other outcome carries no data', () => {
+  const QUEST = { id: 'Q-1', title: '설비 점검', status: 'Open' };
+  const PAGE = { supported: true, items: [QUEST], page: 0, hasMore: false };
+  const SEARCH = { page: 0, pageSize: 10 };
+  const get = (reply: unknown) => ready(() => json(reply)).then(({ adapter }) => adapter.getQuest('Q-1'));
+  const search = (reply: unknown) => ready(() => json(reply)).then(({ adapter }) => adapter.searchQuests(SEARCH));
+  const invalid = { outcome: 'error', data: null, message: 'invalid_response' };
+
+  it('getQuest: ok with exactly { id, title, status } is the quest', async () => {
+    expect(await get({ ...ENVELOPE, data: QUEST })).toEqual({ ...ENVELOPE, data: QUEST });
+  });
+
+  it('getQuest not_found: outcome empty with data null passes through', async () => {
+    expect(await get({ ...ENVELOPE, outcome: 'empty', data: null })).toEqual({ ...ENVELOPE, outcome: 'empty', data: null });
+  });
+
+  it('getQuest unavailable: an error envelope passes through (it does not throw), and a 503 becomes an error envelope', async () => {
+    expect(await get({ ...ENVELOPE, outcome: 'error', data: null, message: 'bravo_down' })).toEqual({ ...ENVELOPE, outcome: 'error', data: null, message: 'bravo_down' });
+    const { adapter } = await ready(() => json({}, { status: 503 }));
+    expect(await adapter.getQuest('Q-1')).toMatchObject({ outcome: 'error', data: null });
+  });
+
+  it('getQuest forbidden passes through', async () => {
+    expect(await get({ ...ENVELOPE, outcome: 'forbidden', data: null })).toMatchObject({ outcome: 'forbidden', data: null });
+  });
+
+  it.each([
+    ['an unknown field (a forged url)', { ...QUEST, url: 'https://internal.example/q' }],
+    ['a missing status', { id: 'Q-1', title: 't' }],
+    ['an empty id', { ...QUEST, id: '' }],
+    ['a numeric title', { ...QUEST, title: 1 }],
+    ['null', null],
+    ['an array', [QUEST]],
+  ])('getQuest refuses ok data with %s as an invalid_response error with the server correlation id', async (_name, data) => {
+    expect(await get({ ...ENVELOPE, data })).toMatchObject({ ...invalid, correlationId: 'srv-1' });
+  });
+
+  it('getQuest never passes data on a non-ok outcome', async () => {
+    expect(await get({ ...ENVELOPE, outcome: 'empty', data: QUEST })).toMatchObject({ outcome: 'empty', data: null });
+  });
+
+  it('getQuest with an empty id sends nothing and answers error', async () => {
+    const { adapter, sent } = await ready(() => json(ENVELOPE));
+    expect(await adapter.getQuest('')).toMatchObject({ outcome: 'error', data: null });
+    expect(sent()).toEqual([]);
+  });
+
+  it.each([
+    ['items', PAGE],
+    ['no match (supported, empty)', { supported: true, items: [], page: 2, hasMore: false }],
+    ['unsupported', { supported: false, items: [], page: 0, hasMore: false }],
+  ])('searchQuests: ok with a valid page (%s) passes through', async (_name, data) => {
+    expect(await search({ ...ENVELOPE, data })).toEqual({ ...ENVELOPE, data });
+  });
+
+  it('searchQuests: an error envelope (unavailable or invalid query) passes through with no data', async () => {
+    expect(await search({ ...ENVELOPE, outcome: 'error', data: null, message: 'invalid_input' })).toMatchObject({ outcome: 'error', data: null, message: 'invalid_input' });
+  });
+
+  it.each([
+    ['an unknown field', { ...PAGE, total: 3 }],
+    ['a missing hasMore', { supported: true, items: [], page: 0 }],
+    ['a negative page', { ...PAGE, page: -1 }],
+    ['a fractional page', { ...PAGE, page: 0.5 }],
+    ['an item with an unknown field', { ...PAGE, items: [{ ...QUEST, url: 'x' }] }],
+    ['items on an unsupported search', { supported: false, items: [QUEST], page: 0, hasMore: false }],
+    ['hasMore on an unsupported search', { supported: false, items: [], page: 0, hasMore: true }],
+    ['items that are not an array', { ...PAGE, items: {} }],
+    ['more items than the page-size limit', { ...PAGE, items: Array.from({ length: 51 }, (_, i) => ({ ...QUEST, id: `Q-${i}` })) }],
+  ])('searchQuests refuses ok data with %s as an invalid_response error', async (_name, data) => {
+    expect(await search({ ...ENVELOPE, data })).toMatchObject({ ...invalid, correlationId: 'srv-1' });
+  });
+});

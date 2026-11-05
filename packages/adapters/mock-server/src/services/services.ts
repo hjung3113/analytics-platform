@@ -4,8 +4,8 @@
  * so a switch while a call is in flight cannot make it write into the later user's data. No input carries an identity: an unknown
  * key (a forged `userId`, `author`, `at`) rejects the call.
  */
-import { PEOPLE_LOOKUP_MAX, PREFERENCE_KEYS_MAX, PREFERENCE_KEY_PATTERN, PREFERENCE_REQUEST_MAX_BYTES, PREFERENCE_VALUE_MAX_BYTES, PortError } from '@ap/contracts';
-import type { ActionResponse, ApiResponse, DeleteNoticeInput, FieldError, GroupMember, JsonValue, Notice, NoticeListPage, PreferencesImport, PreferencesPatch, PreferencesSnapshot, SaveNoticeInput } from '@ap/contracts';
+import { PEOPLE_LOOKUP_MAX, PREFERENCE_KEYS_MAX, PREFERENCE_KEY_PATTERN, PREFERENCE_REQUEST_MAX_BYTES, PREFERENCE_VALUE_MAX_BYTES, PortError, QUEST_QUERY_MAX, QUEST_SEARCH_PAGE_SIZE_MAX } from '@ap/contracts';
+import type { ActionResponse, ApiResponse, DeleteNoticeInput, FieldError, GroupMember, JsonValue, Notice, NoticeListPage, PreferencesImport, PreferencesPatch, PreferencesSnapshot, Quest, QuestSearchInput, QuestSearchPage, SaveNoticeInput } from '@ap/contracts';
 import { checkScope, getRole, getScenario, nextCorrelation, sleep } from '../server';
 import { activeWorld, type RoleId } from '../world';
 
@@ -254,3 +254,63 @@ export const deleteNotice = (input: DeleteNoticeInput, signal?: AbortSignal, opt
     notices = notices.filter(row => row !== current);
     return answer('ok', { data: { id: current.id }, version: current.version });
   });
+
+// ───────────────────────────── quests (read-only, #1328) ─────────────────────────────
+
+/** Deterministic triggers: asking for this id (or searching this text) answers `unavailable`, as a BRAVO that is down would. */
+export const QUEST_DOWN_ID = 'Q-DOWN';
+/** Searching this text answers `supported: false`, as a BRAVO that cannot search would (the picker then takes an id by hand). */
+export const QUEST_UNSUPPORTED_QUERY = 'Q-NOSEARCH';
+/** Mixed statuses, one Korean title, one very long title. Ids `Q-1`, `Q-2` and `Q-9` are the ones improvement-item fixtures link to. Nine rows: three pages of three. */
+export const MOCK_QUESTS: readonly Quest[] = [
+  { id: 'Q-1', title: 'Chamber pressure drift review', status: 'Open' },
+  { id: 'Q-2', title: 'Transfer robot teaching cycle', status: 'In progress' },
+  { id: 'Q-3', title: '설비 점검 주기 개선', status: '완료' },
+  { id: 'Q-4', title: 'Recipe change approval flow', status: 'Closed' },
+  { id: 'Q-5', title: `Reduce unplanned stops across every module of the coating line and the downstream inspection stage ${'(long title) '.repeat(24)}`.trim(), status: 'Pending review' },
+  { id: 'Q-6', title: 'Particle count alarm threshold', status: 'In progress' },
+  { id: 'Q-7', title: 'PM checklist consolidation', status: 'Open' },
+  { id: 'Q-8', title: 'Vacuum pump life tracking', status: 'Closed' },
+  { id: 'Q-9', title: 'Nine', status: 'Open' },
+];
+
+type QuestJudge = { outcome: 'error'; message: string } | null;
+function checkQuestSearch(input: unknown): QuestJudge {
+  if (!isPlain(input) || !onlyKeys(input, ['query', 'status', 'page', 'pageSize'])) return { outcome: 'error', message: 'search has unknown keys' };
+  const { query, status, page, pageSize } = input;
+  if (query !== undefined && (typeof query !== 'string' || query.length > QUEST_QUERY_MAX)) return { outcome: 'error', message: `query must be at most ${QUEST_QUERY_MAX} characters` };
+  if (status !== undefined && typeof status !== 'string') return { outcome: 'error', message: 'status must be a string' };
+  if (!Number.isInteger(page) || (page as number) < 0) return { outcome: 'error', message: 'page must be an integer from 0' };
+  if (!Number.isInteger(pageSize) || (pageSize as number) < 1 || (pageSize as number) > QUEST_SEARCH_PAGE_SIZE_MAX) return { outcome: 'error', message: `pageSize must be 1..${QUEST_SEARCH_PAGE_SIZE_MAX}` };
+  return null;
+}
+
+export async function getQuest(id: string, signal?: AbortSignal, opts?: ServiceOptions): Promise<ApiResponse<Quest>> {
+  const pinned = pin(opts);
+  await wait(pinned, signal, opts);
+  const base = baseOf();
+  const failed = scenarioFail(pinned.scenario);
+  if (failed) return { ...base, ...failed };
+  if (typeof id !== 'string' || id === '') return { ...base, outcome: 'error', message: 'id must be a non-empty string' };
+  if (id === QUEST_DOWN_ID) return { ...base, outcome: 'error', message: 'BRAVO is not answering' };
+  const quest = MOCK_QUESTS.find(row => row.id === id);
+  return quest ? { ...base, outcome: 'ok', data: { ...quest } } : { ...base, outcome: 'empty' };
+}
+
+export async function searchQuests(input: QuestSearchInput, signal?: AbortSignal, opts?: ServiceOptions): Promise<ApiResponse<QuestSearchPage>> {
+  const pinned = pin(opts);
+  await wait(pinned, signal, opts);
+  const base = baseOf();
+  const failed = scenarioFail(pinned.scenario);
+  if (failed) return { ...base, ...failed };
+  const bad = checkQuestSearch(input);
+  if (bad) return { ...base, ...bad };
+  const { page, pageSize } = input;
+  const query = (input.query ?? '').trim();
+  if (query === QUEST_DOWN_ID) return { ...base, outcome: 'error', message: 'BRAVO is not answering' };
+  if (query === QUEST_UNSUPPORTED_QUERY) return { ...base, outcome: 'ok', data: { supported: false, items: [], page, hasMore: false } };
+  const needle = query.toLowerCase();
+  const matches = MOCK_QUESTS.filter(row => (needle === '' || row.id.toLowerCase().includes(needle) || row.title.toLowerCase().includes(needle)) && (input.status === undefined || input.status === '' || row.status === input.status));
+  const start = page * pageSize;
+  return { ...base, outcome: 'ok', data: { supported: true, items: matches.slice(start, start + pageSize).map(row => ({ ...row })), page, hasMore: start + pageSize < matches.length } };
+}

@@ -63,6 +63,10 @@
 - `GroupMember`를 재사용하지 않고 `{id,name}`을 새로 두는 안은 저장된 뷰 어휘와 이중이 된다 → 재사용.
 - 공지를 `menuQuery`/`menuAction`으로만 두는 안은 메뉴 어휘 규칙에는 맞지만 관리 목록이 Home 메뉴의 권한(`notice:view`)과 한 선언에 묶인다. 사용자가 명시 포트를 승인했다.
 
+## 개정 (2026-11-05, #1328 노드 c)
+
+- 읽기 전용 Quest 포트 `getQuest`·`searchQuests`도 같은 필수 어댑터 멤버다(ADR-0106 개정 2). 검색을 못 하는 BRAVO는 새 `PortError` 코드가 아니라 outcome `ok`·`supported: false`로 답한다(코드 어휘·`PORT_ERROR_CODES`·공개 API를 바꾸지 않고, 「못 함」은 오류가 아니라 선택기가 ID 입력으로 낮추는 정상 답이라서). 서버 모듈은 없다: platform-api는 적합성 `implemented`에 넣지 않아 건너뜀으로 보인다.
+
 ## 소유 문서
 
 [kernel.md §6.3·사용자 설정](../contract/kernel.md), [전송 형식](../integration/http-adapter-contract.md) §1, [체크리스트](../integration/real-server-checklist.md) §2, [패키지 경계 §4](../integration/platform-packages.md).
