@@ -48,15 +48,15 @@ test.describe('기능 실서버 브리지 화면 (06 §9.1·§22)', () => {
     await evidence(page, testInfo, 'real-feedbackops-evidence');
   });
 
-  test('엔티티 링크 화면은 실제 목록 API의 유효한 빈 결과를 표시한다', async ({ page }, testInfo) => {
+  test('연결 관계 화면은 실제 목록 API의 유효한 빈 결과를 표시한다', async ({ page }, testInfo) => {
     const inventory = waitForFoRead(page, '/entity-links', {
       scope: 'workspace',
       limit: '50',
     });
     await page.goto('/flow/entity-links');
     await expectSuccessfulFoReads([inventory]);
-    await expect(mainHeading(page)).toHaveText('엔티티 링크');
-    await expect(page.getByRole('main').getByText('엔티티 링크가 없습니다.')).toBeVisible();
+    await expect(mainHeading(page)).toHaveText('연결 관계');
+    await expect(page.getByRole('main').getByText('연결 관계가 없습니다.')).toBeVisible();
     await evidence(page, testInfo, 'real-feedbackops-entity-links');
   });
 

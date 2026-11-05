@@ -590,6 +590,7 @@ _Avoid_: MVP workflow, ad hoc status
 **Entity Link**:
 A typed loose-coupling relation between two domain records (source and target) within one **Workspace**, used for cross-system context without forcing direct ownership. Carries `relation_type` and `visibility`.
 _Avoid_: Foreign key, parent-child relation, hard reference, related record
+Screen name: `연결 관계` (the menu under 업무 흐름 › 연동, owner decision 2026-11-05; the code id `entity-links` and the path `/flow/entity-links` stay). 「엔티티 링크」 is no longer shown to users.
 
 **Relation Type**:
 The named kind of an **Entity Link**, drawn from a controlled vocabulary (e.g. `related_to`, `created_finding`, `evidence_of`, `requested_task`, `converted_to`).

@@ -164,7 +164,7 @@ describe('LinksScreen reads', () => {
 
   it('keeps the inert search box and shows no row checkbox (#1368)', async () => {
     await mount({});
-    expect(screen.getByPlaceholderText('엔티티 링크 검색…')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('연결 관계 검색…')).toBeInTheDocument();
     await screen.findByRole('listitem');
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
   });

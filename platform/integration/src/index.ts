@@ -1,5 +1,5 @@
 /**
- * @ap/menu-integration — integration group manifests (업무 흐름 space 연동: 연동 대시보드, 엔티티 링크, 커버리지; ADR-0081, #762).
+ * @ap/menu-integration — integration group manifests (업무 흐름 space 연동: 연동 대시보드, 연결 관계, 커버리지; ADR-0081, #762).
  * The feature operator 연동 screens through the bridge; the page keys equal the route tables in `@ap/feature-bridge` (`integrationDashboardRoute`, `entityLinksRoute`, `coverageRoute`; pinned by the page tests),
  * and the app-declared carry set carries `managedSystem` (#1099b, replacing ADR-0081 decision 4). `focus` is the selected recovery item (06 §13); the screens draw their own detail drawer. the feature screens' Findings row in 연동 is dropped (ADR-0081 decision 3).
  */
@@ -23,8 +23,8 @@ export const manifests: MenuEntry[] = [
     component: lazy(() => import('./pages/FeatureIntegration')),
   },
   {
-    id: 'entity-links', group: GROUP, label: { ko: '엔티티 링크', en: 'Entity links' },
-    description: { ko: '엔티티 사이의 연결을 상태와 유형별로 봅니다', en: 'See links between entities by status and type' },
+    id: 'entity-links', group: GROUP, label: { ko: '연결 관계', en: 'Entity links' },
+    description: { ko: 'VOC·Finding·Task 사이의 연결을 상태와 유형별로 봅니다', en: 'See links between entities by status and type' },
     path: '/flow/entity-links', icon: Link2, permission: 'features:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['status', 'type', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
