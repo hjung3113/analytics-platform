@@ -33,6 +33,60 @@ afterEach(() => {
 });
 
 describe('PublicVocListScreen', () => {
+  it('groups the range and bounded system filter before a pane-responsive full-row search', async () => {
+    stubFetch([]);
+    const { container } = render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <PublicVocListScreen query={{ q: '', mine: false, systemId: null }} onQueryChange={vi.fn()} selectedId={null} onSelect={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    await screen.findByText('볼 수 있는 VOC가 없습니다');
+    const toolbar = container.querySelector('[data-list-toolbar]');
+    const filters = container.querySelector('[data-public-voc-filters]');
+    const search = container.querySelector<HTMLElement>('[data-public-voc-control="q"]');
+    expect(toolbar).toHaveClass('@container', '[&>[data-list-toolbar-actions]]:w-full', '[&>[data-list-toolbar-actions]]:py-0');
+    expect(filters).toHaveClass('flex', 'min-h-toolbar', 'items-center', 'shrink-0');
+    expect(filters).toContainElement(container.querySelector('[data-public-voc-control="mine"]'));
+    expect(filters).toContainElement(container.querySelector('[data-public-voc-control="system"]'));
+    expect(filters).not.toContainElement(search);
+    expect(search?.previousElementSibling).toBe(filters);
+    expect(search).toHaveClass('flex', 'min-h-toolbar', 'items-center', 'w-full', 'min-w-0', '@xl:w-auto', '@xl:flex-1');
+    expect(screen.getByRole('combobox', { name: '시스템' })).toHaveClass('w-28', 'shrink-0', 'h-10');
+    expect(screen.getByRole('combobox', { name: '시스템' })).not.toHaveClass('w-full');
+    expect(screen.getByRole('searchbox').parentElement).toHaveClass('w-full');
+    expect(screen.getByRole('searchbox')).toHaveClass('h-10');
+  });
+
+  it('keeps each public VOC number unbroken while its title can truncate', async () => {
+    stubFetch([item(ID_1, '긴 제목')]);
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <PublicVocListScreen query={{ q: '', mine: false, systemId: null }} onQueryChange={vi.fn()} selectedId={null} onSelect={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByText('VOC-11')).toHaveClass('whitespace-nowrap', 'shrink-0');
+    expect(screen.getByText('긴 제목')).toHaveClass('truncate');
+  });
+
+  it('puts the system-load alert on its own wrapping row after the controls', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => new Response(
+      JSON.stringify(String(input).startsWith('/managed-systems')
+        ? { code: 'internal.unexpected', message: 'boom' }
+        : { items: [], page: { has_more: false } }),
+      { status: String(input).startsWith('/managed-systems') ? 500 : 200, headers: { 'content-type': 'application/json' } },
+    )));
+    const { container } = render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <PublicVocListScreen query={{ q: '', mine: false, systemId: null }} onQueryChange={vi.fn()} selectedId={null} onSelect={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveClass('w-full', 'flex-wrap', 'min-h-toolbar');
+    expect(alert.previousElementSibling).toBe(container.querySelector<HTMLElement>('[data-public-voc-control="q"]'));
+    expect(screen.getByRole('combobox', { name: '시스템' })).toBeDisabled();
+    expect(within(alert).getByRole('button', { name: '다시 시도' })).toBeEnabled();
+  });
+
   it('draws each public row with its system chip and marks only the own VOC; selecting reports the id', async () => {
     stubFetch([item(ID_1, '로그인이 안 됩니다', true), item(ID_2, '차트가 안 열립니다')]);
     const onSelect = vi.fn();

@@ -24,6 +24,11 @@ const BASE_VOC: VocListItem = {
 };
 
 describe('TriageRow', () => {
+  it('keeps the VOC number unbroken beside the title', () => {
+    render(<TriageRow voc={BASE_VOC} selected={false} onSelect={vi.fn()} />);
+    expect(screen.getByText('VOC-001')).toHaveClass('whitespace-nowrap', 'shrink-0');
+  });
+
   it('mirrors prototype expanded row padding and min height', () => {
     render(<TriageRow voc={BASE_VOC} selected={false} onSelect={vi.fn()} />);
     const row = screen.getByRole('button');

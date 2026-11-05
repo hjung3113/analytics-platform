@@ -82,6 +82,14 @@ function renderSection(similarCount = 2) {
 }
 
 describe('ClusterSectionReadOnly — recommendation surface', () => {
+  it('keeps recommended VOC numbers unbroken beside score and status', async () => {
+    globalThis.fetch = mockApi({
+      gets: [{ available: true, embedding_version: 1, items: [ITEM_A], total: 1 }],
+    });
+    renderSection();
+    expect(await screen.findByText('VOC-101')).toHaveClass('whitespace-nowrap', 'shrink-0');
+  });
+
   const originalFetch = globalThis.fetch;
 
   afterEach(() => {

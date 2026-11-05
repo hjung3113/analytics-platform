@@ -535,6 +535,42 @@ describe('ListToolbar — title-only mode', () => {
     render(<ListToolbar title="My List" action={<span data-testid="action-slot">CTA</span>} />);
     expect(screen.getByTestId('action-slot')).toBeInTheDocument();
   });
+
+  it('keeps the 22rem main block behind the title', () => {
+    const { container } = render(
+      <ListToolbar title="내 VOC 목록" action={<button type="button">Action</button>} />,
+    );
+    const main = container.querySelector('[data-list-toolbar-main]');
+    expect(main).not.toBeNull();
+    expect(main).toHaveClass('flex', 'h-toolbar', 'min-w-0', 'flex-1', 'basis-[22rem]', 'items-center');
+    expect(within(main as HTMLElement).getByRole('heading', { name: '내 VOC 목록' })).toBeInTheDocument();
+    expect(within(container.querySelector('[data-list-toolbar-actions]') as HTMLElement).getByRole('button', { name: 'Action' })).toBeInTheDocument();
+  });
+});
+
+describe('ListToolbar — bare mode (no tabs, no title)', () => {
+  it('renders no main block and keeps the actions on the single row', () => {
+    const { container } = render(<ListToolbar action={<button type="button">Action</button>} />);
+    const toolbar = container.firstElementChild as HTMLElement;
+    expect(toolbar).toHaveAttribute('data-list-toolbar');
+    // #1364: the empty main block owned a whole 50px row and pushed the actions to a second row in a narrow pane.
+    expect(container.querySelector('[data-list-toolbar-main]')).toBeNull();
+    expect(toolbar).not.toHaveClass('min-h-toolbar');
+    const actions = container.querySelector('[data-list-toolbar-actions]') as HTMLElement;
+    expect(within(actions).getByRole('button', { name: 'Action' })).toBeInTheDocument();
+    expect(actions).toHaveClass('ml-auto', 'min-h-toolbar', 'py-1', 'min-w-0', 'max-w-full');
+  });
+
+  it('keeps the empty bar frame at one 50px row without tabs, title, or action', () => {
+    const { container } = render(<ListToolbar />);
+    const toolbar = container.firstElementChild as HTMLElement;
+    expect(toolbar).toHaveAttribute('data-list-toolbar');
+    // The height the empty main block used to provide comes from the frame itself.
+    expect(toolbar).toHaveClass('min-h-toolbar');
+    expect(toolbar).toBeEmptyDOMElement();
+    expect(container.querySelector('[data-list-toolbar-main]')).toBeNull();
+    expect(container.querySelector('[data-list-toolbar-actions]')).toBeNull();
+  });
 });
 
 describe('ListTabs — edge fade', () => {

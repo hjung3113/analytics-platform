@@ -179,7 +179,7 @@ export function ClusterSectionReadOnly({
                 >
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 text-xs text-text-muted">
-                      <span className="font-mono tabular-nums">{item.display_id}</span>
+                      <span className="font-mono tabular-nums whitespace-nowrap shrink-0">{item.display_id}</span>
                       <span aria-hidden="true">·</span>
                       <span data-testid={`cluster-recommendation-score-${item.voc_id}`}>
                         유사도 {formatScore(item.score)}

@@ -104,7 +104,7 @@ export function TriageRow({
       <div className="flex flex-col min-w-0 gap-0.5 flex-1">
         {/* Title row — .row-title */}
         <div className="flex items-center gap-2 text-sm font-medium text-text-primary">
-          <span className="font-mono text-xs text-text-disabled tabular-nums">
+          <span className="font-mono text-xs text-text-disabled tabular-nums whitespace-nowrap shrink-0">
             {voc.display_id}
           </span>
           <span className="truncate">{voc.title}</span>

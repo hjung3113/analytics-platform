@@ -194,7 +194,7 @@ function AddVocPicker({
                   <div className="flex items-center justify-between gap-2">
                     <span className="flex min-w-0 flex-col items-start text-sm">
                       <span>
-                        {label} · {candidate.title} ·{' '}
+                        {candidate.display_id ? <span className="whitespace-nowrap shrink-0">{label}</span> : label} · {candidate.title} ·{' '}
                         {candidate.severity !== undefined &&
                           `${severityLabel(candidate.severity)} · `}
                         {statusLabel(candidate.reporter_facing_status)}

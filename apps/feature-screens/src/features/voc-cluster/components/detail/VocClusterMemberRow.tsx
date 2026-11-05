@@ -56,11 +56,13 @@ export function VocClusterMemberRow({
             className="text-accent-primary underline underline-offset-2 hover:text-accent-primary/80"
             data-testid={`cluster-member-link-${member.voc_id}`}
           >
-            {display.primary}
+            {display.primary === member.display_id
+              ? <span className="whitespace-nowrap shrink-0">{display.primary}</span>
+              : display.primary}
           </HostLink>
         </div>
         <p className="text-xs text-text-muted">
-          {display.secondary ?? shortId(member.voc_id)}
+          <span className="whitespace-nowrap shrink-0">{display.secondary ?? shortId(member.voc_id)}</span>
           {member.severity ? ` · ${FINDING_SEVERITY_LABELS[member.severity]}` : ''}
         </p>
       </div>

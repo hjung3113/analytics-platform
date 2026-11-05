@@ -38,6 +38,11 @@ const MANAGED_SYSTEM = {
 // ---------------------------------------------------------------------------
 
 describe('<VocRow>', () => {
+  it.each([false, true])('keeps the VOC number unbroken (permissionLimited=%s)', (permissionLimited) => {
+    render(<VocRow voc={BASE_VOC} selected={false} onSelect={vi.fn()} managedSystem={null} permissionLimited={permissionLimited} />);
+    expect(screen.getByText('VOC-001')).toHaveClass('whitespace-nowrap', 'shrink-0');
+  });
+
   let onSelect: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {

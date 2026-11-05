@@ -48,6 +48,15 @@ describe('AddVocModal candidate identity', () => {
     modalState.data = { pages: [{ candidates: modalState.candidates, page: { has_more: false } }] };
   });
 
+  it('keeps a candidate VOC number unbroken without preventing title wrapping', () => {
+    const candidate = modalState.candidates[0];
+    if (!candidate) throw new Error('fixture missing');
+    candidate.display_id = 'VOC-1021';
+    render(<AddVocModal open clusterId="cluster-1" onClose={() => undefined} />);
+    expect(screen.getByText('VOC-1021')).toHaveClass('whitespace-nowrap', 'shrink-0');
+    expect(screen.getByRole('button', { name: 'VOC-1021 추가' })).toBeInTheDocument();
+  });
+
   it('shows the VOC label with translated severity/status and a muted id fragment', () => {
     render(<AddVocModal open clusterId="cluster-1" onClose={() => undefined} />);
 

@@ -10,6 +10,11 @@ vi.mock('@tanstack/react-router', () => ({
 }));
 
 describe('VocClusterMemberRow', () => {
+  it.each(['긴 VOC 제목', ''])('keeps a member number unbroken (title=%s)', (title) => {
+    render(<VocClusterMemberRow member={{ voc_id: 'v1', added_by: 'a1', added_at: '2026-07-10T00:00:00.000Z', display_id: 'VOC-1021', title }} last canRemove={false} onRemove={vi.fn()} isRemoving={false} />);
+    expect(screen.getByText('VOC-1021')).toHaveClass('whitespace-nowrap', 'shrink-0');
+  });
+
   it.each(findingSeveritySchema.options)(
     'renders a display label for member severity %s',
     (severity) => {

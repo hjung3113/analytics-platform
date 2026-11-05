@@ -134,13 +134,13 @@ export function VocRow({
         {permissionLimited === true ? (
           // Permission-limited peek: display_id + status only
           <div className="flex items-center gap-2 text-sm">
-            <span className="font-mono text-text-muted text-xs">{voc.display_id}</span>
+            <span className="font-mono text-text-muted text-xs whitespace-nowrap shrink-0">{voc.display_id}</span>
             <ReporterStatusBadge status={voc.reporter_facing_status} />
           </div>
         ) : (
           <>
             <div className="flex items-center gap-2 min-w-0">
-              <span className="font-mono text-xs text-text-disabled shrink-0">
+              <span className="font-mono text-xs text-text-disabled whitespace-nowrap shrink-0">
                 {voc.display_id}
               </span>
               <span className="font-medium text-text-primary truncate">{voc.title}</span>
