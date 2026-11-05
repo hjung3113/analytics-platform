@@ -21,6 +21,7 @@ import {
   insertVocDirectly,
 } from '../../../test-support/voc-fixtures.js';
 import { allocateImprovementItemNo } from '../../improvement-items/repositories/item-number.js';
+import { getItemReference } from '../../improvement-items/repositories/item-read.js';
 
 const APP_URL = process.env.DATABASE_URL ?? '';
 const MIGRATE_URL = process.env.DATABASE_URL_MIGRATE ?? '';
@@ -212,6 +213,8 @@ describe.skipIf(!runIntegration)('notification inbox routes', () => {
       await migrateDb.pool.query('delete from core.actors where id = any($1::uuid[])', [actorIds]);
     }
     if (workspaceIds.length > 0) {
+      // The item-number allocator keeps one counter row per workspace; it references the workspace.
+      await migrateDb?.pool.query('delete from improvement.item_counter where workspace_id = any($1::uuid[])', [workspaceIds]);
       if (migrateDb)
         await deleteRecoveryFixtureParents(
           migrateDb,
@@ -792,14 +795,10 @@ describe.skipIf(!runIntegration)('notification inbox routes', () => {
 
     const foreignWorkspace = await createWorkspace();
     const foreignReader = await createActorSession(foreignWorkspace, 'f', 'developer');
+    // Each workspace counts from IM-1: burn a few numbers so the foreign display id differs from the reader's own item.
+    for (let skipped = 0; skipped < 7; skipped += 1) await allocateImprovementItemNo(migrateDb.db, foreignWorkspace);
     const foreignItem = await seedItem(foreignWorkspace, foreignReader);
     const foreignNotification = await insertNotification(actorD, {
-      createdAt: new Date().toISOString(),
-      eventType: 'improvement.assigned_to_me',
-      subjectType: 'improvement_item',
-      subjectId: foreignItem.id,
-    });
-    const controlNotification = await insertNotification(foreignReader, {
       createdAt: new Date().toISOString(),
       eventType: 'improvement.assigned_to_me',
       subjectType: 'improvement_item',
@@ -817,20 +816,10 @@ describe.skipIf(!runIntegration)('notification inbox routes', () => {
     const foreignRow = foreignItems.find((row) => row.id === foreignNotification.id);
     expect(foreignRow?.subject_ref).toEqual({ visibility_state: 'unavailable' });
     expect(JSON.stringify(foreignItems)).not.toContain(`IM-${foreignItem.itemNo}`);
-    // Control: a reader of the item's own workspace still resolves it, so the boundary is the workspace, not the resolver.
-    const controlResponse = await app.inject({
-      method: 'GET',
-      url: '/notifications',
-      headers: cookieHeader(foreignReader),
-    });
-    const controlItem = controlResponse
-      .json<{ items: Array<{ id: string; subject_ref?: unknown }> }>()
-      .items.find((row) => row.id === controlNotification.id);
-    expect(controlItem?.subject_ref).toEqual({
-      visibility_state: 'allowed',
-      display_id: `IM-${foreignItem.itemNo}`,
-      title: '문제 기록',
-    });
+    // Control: the resolver finds the item in its own workspace and not in the reader's, so the boundary is the
+    // workspace. (A foreign-workspace session cannot call this app: the session is bound to another workspace.)
+    expect(await getItemReference(migrateDb.db, foreignWorkspace, foreignItem.id)).toEqual({ itemNo: foreignItem.itemNo, status: 'open' });
+    expect(await getItemReference(migrateDb.db, WORKSPACE_ID, foreignItem.id)).toBeNull();
   });
 
   function cookieHeader(actor: ActorSession): { cookie: string } {
