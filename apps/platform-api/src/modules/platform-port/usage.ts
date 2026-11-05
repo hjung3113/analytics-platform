@@ -249,6 +249,11 @@ export interface PlatformUsageServiceDeps {
   checkService: CheckService;
 }
 
+/** `uncovered(M)` = entries(M) - events of open inflow cells into M; 1 or 2 would be recovered by subtracting the visible inflow, so M is masked then. */
+const uncoveredOpen = (uncovered: number): boolean => uncovered === 0 || uncovered >= USAGE_MASK_K;
+/** Kind of an inflow cell, relative to the origin menu: same definition as the outflow `kind` of `usageNextScreens`. */
+const INFLOW_KIND = sql<string>`case when ${usageEvents.via} in ('history', 'return') then 'back' when ${usageEvents.menuId} = ${usageEvents.fromMenuId} then 'same' else 'moved' end`;
+
 export function createPlatformUsageService(deps: PlatformUsageServiceDeps) {
   /**
    * Whole batch in one transaction. The server stamps actor and `received_at`; the client's
@@ -333,7 +338,7 @@ export function createPlatformUsageService(deps: PlatformUsageServiceDeps) {
             lt(usageEvents.receivedAt, new Date(range.to)),
           );
     // One read-only REPEATABLE READ snapshot for both SELECTs: the numerators (back, palette) and the denominators (entries) come from one set of rows.
-    const { rows, backRows } = await deps.db.transaction(
+    const { rows, backRows, inflowRows } = await deps.db.transaction(
       async (tx) => {
         const rows = await tx
           .select({
@@ -389,7 +394,23 @@ export function createPlatformUsageService(deps: PlatformUsageServiceDeps) {
             ),
           )
           .groupBy(usageEvents.fromMenuId, usageEvents.menuId);
-        return { rows, backRows };
+        // Open inflow cells (cross-menu subtraction): per destination M, (from menu X, kind) groups with their events and distinct people, same range.
+        // `uncovered(M) = entries(M) - events of open inflow cells into M` must be 0 or >= 3, else M is masked. Reads every main entry that carries a
+        // `from_menu_id` (workspace + range, grouped by destination and origin); unmeasured cost.
+        const inflowRows = await tx
+          .select({ kind: INFLOW_KIND, menuId: usageEvents.menuId, n: count(), users: countDistinct(usageEvents.actorId) })
+          .from(usageEvents)
+          .where(
+            and(
+              eq(usageEvents.workspaceId, actor.workspace_id),
+              eq(usageEvents.name, 'entry'),
+              eq(usageEvents.source, 'main'),
+              isNotNull(usageEvents.fromMenuId),
+              inRange,
+            ),
+          )
+          .groupBy(sql`1`, usageEvents.menuId, usageEvents.fromMenuId);
+        return { rows, backRows, inflowRows };
       },
       { isolationLevel: 'repeatable read', accessMode: 'read only' },
     );
@@ -397,13 +418,16 @@ export function createPlatformUsageService(deps: PlatformUsageServiceDeps) {
     for (const r of backRows) {
       if (r.menuId !== null && r.users >= USAGE_MASK_K) backFrom.set(r.menuId, (backFrom.get(r.menuId) ?? 0) + r.back);
     }
+    const coveredBy = new Map<string, number>();
+    for (const r of inflowRows) if (r.users >= USAGE_MASK_K) coveredBy.set(r.menuId, (coveredBy.get(r.menuId) ?? 0) + r.n);
     return {
       outcome: 'ok',
       data: {
         preset: 'preset' in range ? 'all' : 'range',
         menus: rows.map((row) => {
           // The mask is the menu's main-entry users (1–2, or none, answer null); a numerator of < 3 people counts as 0.
-          const shown = row.mainUsers >= USAGE_MASK_K;
+          // Also masked when 1–2 entries are covered by no open inflow cell (`uncoveredOpen`).
+          const shown = row.mainUsers >= USAGE_MASK_K && uncoveredOpen(row.entries - (coveredBy.get(row.menuId) ?? 0));
           return {
             menuId: row.menuId,
             visits: row.visits,
@@ -425,7 +449,7 @@ export function createPlatformUsageService(deps: PlatformUsageServiceDeps) {
    * read-only, no range (all stored time). Main source only; a "next" entry is a main entry whose `from_menu_id` is M, split into
    * disjoint kinds: back/return (via history/return, any destination), else same menu, else moved. The < 3 mask works on cells (one kind at one
    * destination): every number is a sum of cells with >= 3 distinct people, so no difference of two numbers (summary vs rows, includeBack on vs
-   * off) isolates a smaller group. `masked` = the menu has 1–2 distinct main-entry users; no main entry at all is an empty, unmasked answer.
+   * off) isolates a smaller group. `masked` = the menu has 1–2 distinct main-entry users, or 1–2 entries covered by no open inflow cell (`uncoveredOpen`); no main entry at all is an empty, unmasked answer.
    * All SELECTs run in one read-only REPEATABLE READ transaction, so count, users and vias come from one snapshot.
    */
   async function usageNextScreens(
@@ -460,6 +484,15 @@ export function createPlatformUsageService(deps: PlatformUsageServiceDeps) {
           .where(and(mainEntry, eq(usageEvents.menuId, menuId)));
         if (!own || own.entries === 0) return answer(false);
         if (own.users < USAGE_MASK_K) return answer(true);
+        // Cross-menu subtraction: entries(M) minus the events of the open inflow cells into M (one cell per origin menu and kind, >= 3 people)
+        // must be 0 or >= 3; else M is masked as for 1–2 people. Reads the main entries of M that carry a `from_menu_id` (menu index).
+        const inflow = await tx
+          .select({ kind: INFLOW_KIND, n: count(), users: countDistinct(usageEvents.actorId) })
+          .from(usageEvents)
+          .where(and(mainEntry, eq(usageEvents.menuId, menuId), isNotNull(usageEvents.fromMenuId)))
+          .groupBy(sql`1`, usageEvents.fromMenuId);
+        const covered = inflow.reduce((sum, c) => sum + (c.users >= USAGE_MASK_K ? c.n : 0), 0);
+        if (!uncoveredOpen(own.entries - covered)) return answer(true);
 
         // Cells: per kind and destination, the count and the distinct people. Everything below is built from the cells with >= 3 people.
         const cellRows = await tx

@@ -193,7 +193,7 @@ describe('UsageOverview next screens (#605)', () => {
     expect(within(drawer).getByText(/8명/)).toBeTruthy();
   });
   it.each([
-    ['masked', nextData({ masked: true, next: [], entries: 0, hiddenDestinations: 0, summary: { moved: 0, sameMenu: 0, backOrReturn: 0, noMove: 0 } }), '3명 미만이 쓴 메뉴라 이동 경로를 공개하지 않습니다'],
+    ['masked', nextData({ masked: true, next: [], entries: 0, hiddenDestinations: 0, summary: { moved: 0, sameMenu: 0, backOrReturn: 0, noMove: 0 } }), '이 메뉴는 이동 경로를 공개하지 않습니다(사용자가 3명 미만이거나 일부 경로가 3명 미만으로 가려져 건수를 안전하게 낼 수 없습니다)'],
     ['empty', nextData({ entries: 0, next: [], hiddenDestinations: 0, summary: { moved: 0, sameMenu: 0, backOrReturn: 0, noMove: 0 } }), '기록된 진입이 없습니다'],
     ['no moves', nextData({ next: [], hiddenDestinations: 0 }), '다음 화면 이동이 없습니다'],
   ])('handles %s without a named ranking', async (_name, data, title) => {

@@ -42,20 +42,21 @@ const actor = { id: 'a1', workspace_id: 'w1' } as unknown as PlatformActor;
 const SNAPSHOT = { isolationLevel: 'repeatable read', accessMode: 'read only' };
 
 describe('usage reads share one snapshot (#605 F3)', () => {
-  it('usageSummary: both SELECTs run in one REPEATABLE READ read-only transaction', async () => {
-    const { root, tx } = fakeDb([[], []]);
+  it('usageSummary: all three SELECTs run in one REPEATABLE READ read-only transaction', async () => {
+    const { root, tx } = fakeDb([[], [], []]);
     const service = createPlatformUsageService({ db: root as unknown as Db, checkService: {} as CheckService });
     const res = await service.usageSummary(actor, { preset: 'all' });
     expect(res.outcome).toBe('ok');
     expect(root.transaction).toHaveBeenCalledTimes(1);
     expect(root.transaction.mock.calls[0]?.[1]).toEqual(SNAPSHOT);
-    expect(tx.select).toHaveBeenCalledTimes(2);
+    expect(tx.select).toHaveBeenCalledTimes(3);
     expect(root.select).not.toHaveBeenCalled();
   });
 
-  it('usageNextScreens: own, cells, vias and the union read run in one REPEATABLE READ read-only transaction', async () => {
+  it('usageNextScreens: own, inflow, cells, people and vias run in one REPEATABLE READ read-only transaction', async () => {
     const { root, tx } = fakeDb([
       [{ entries: 6, users: 4 }],
+      [{ kind: 'moved', n: 6, users: 4 }],
       [
         { kind: 'moved', menuId: 'A', n: 3, users: 3 },
         { kind: 'back', menuId: 'A', n: 3, users: 3 },
@@ -68,7 +69,7 @@ describe('usage reads share one snapshot (#605 F3)', () => {
     expect(res.outcome).toBe('ok');
     expect(root.transaction).toHaveBeenCalledTimes(1);
     expect(root.transaction.mock.calls[0]?.[1]).toEqual(SNAPSHOT);
-    expect(tx.select).toHaveBeenCalledTimes(4);
+    expect(tx.select).toHaveBeenCalledTimes(5);
     expect(root.select).not.toHaveBeenCalled();
   });
 });

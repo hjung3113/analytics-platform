@@ -475,11 +475,12 @@ export function aggregateUsage(events: readonly StoredUsageEvent[], range: Usage
     }
     byMenu.set(e.menuId, agg);
   }
+  const covered = openInflowEvents(inRange.filter(isMainUsageEntry));
   return {
     preset: 'preset' in range ? 'all' : 'range',
     menus: [...byMenu.entries()].map(([menuId, agg]) => {
-      // The mask is the menu's main-entry users (1–2 users, or none, answer null). A numerator built from < 3 people counts as 0 (never differenced back out).
-      const shown = agg.mainUsers.size >= USAGE_MASK_K;
+      // The mask is the menu's main-entry users (1–2 users, or none, answer null), or 1–2 entries that no open inflow cell covers (`uncoveredEntries`). A numerator built from < 3 people counts as 0 (never differenced back out).
+      const shown = agg.mainUsers.size >= USAGE_MASK_K && uncoveredOpen(agg.mainEntries - (covered.get(menuId) ?? 0));
       const back = [...(backCells.get(menuId)?.values() ?? [])].reduce((sum, c) => sum + (c.users.size >= USAGE_MASK_K ? c.n : 0), 0);
       return {
         menuId, visits: agg.visits, distinctUsers: agg.users.size, lastUsedAt: agg.last,
@@ -497,6 +498,27 @@ export const USAGE_MASK_K = 3;
 /** One side of a split is safe to show when nobody is on it or at least k distinct people are. */
 const splitOpen = (users: number): boolean => users === 0 || users >= USAGE_MASK_K;
 const BACK_VIAS: readonly UsageVia[] = ['history', 'return'];
+/** `uncovered(M)` = entries(M) − events of open inflow cells into M; 1 or 2 would be recovered by a client subtracting the visible inflow (cross-menu subtraction), so M is masked then. */
+const uncoveredOpen = (uncovered: number): boolean => uncovered === 0 || uncovered >= USAGE_MASK_K;
+/**
+ * Events of the open inflow cells per destination. An inflow cell is (from menu X, kind) at destination M with the same definition as the outflow
+ * cells of X (back/return, else same menu, else moved): open when >= 3 distinct actors. Main entries with a `fromMenuId` only.
+ */
+function openInflowEvents(main: readonly StoredUsageEvent[]): Map<string, number> {
+  const cells = new Map<string, { dest: string; n: number; users: Set<string> }>();
+  for (const e of main) {
+    if (!e.fromMenuId) continue;
+    const kind = e.via !== undefined && BACK_VIAS.includes(e.via) ? 'b' : e.menuId === e.fromMenuId ? 's' : 'm';
+    const key = `${e.menuId}\u0000${e.fromMenuId}\u0000${kind}`;
+    const cell = cells.get(key) ?? { dest: e.menuId, n: 0, users: new Set<string>() };
+    cell.n += 1;
+    cell.users.add(e.userId);
+    cells.set(key, cell);
+  }
+  const covered = new Map<string, number>();
+  for (const c of cells.values()) if (c.users.size >= USAGE_MASK_K) covered.set(c.dest, (covered.get(c.dest) ?? 0) + c.n);
+  return covered;
+}
 /** The main screen's entry (`source` absent or `main`); board pane entries are another provenance and never count here. */
 const isMainUsageEntry = (e: StoredUsageEvent): boolean => e.name === 'entry' && e.source !== 'board';
 const USAGE_NEXT_LIMIT = 20;
@@ -506,7 +528,7 @@ const USAGE_NEXT_LIMIT = 20;
  * disjoint kinds: back/return (`via` history/return, any destination), else same menu (destination M), else moved. `noMove` is the rest of M's entries.
  * Mask k = 3 works on cells: a cell is one kind at one destination. Every number in the answer is a sum of cells with >= 3 distinct users, so no
  * difference of two numbers (summary vs rows, rows vs rows, includeBack on vs off) can isolate a group of fewer than 3 people. Cells under 3 users
- * are only counted (`hiddenDestinations`) and fall into `noMove`. `masked` means the menu has 1–2 distinct main-entry users; no main entry at all is an
+ * are only counted (`hiddenDestinations`) and fall into `noMove`. `masked` means the menu has 1–2 distinct main-entry users, or 1–2 main entries that no open inflow cell covers (cross-menu subtraction, see `uncoveredOpen`); no main entry at all is an
  * honest empty answer (`masked: false`, `entries: 0`).
  */
 export function aggregateUsageNext(events: readonly StoredUsageEvent[], menuId: string, includeBack = false): UsageNextScreens {
@@ -514,7 +536,9 @@ export function aggregateUsageNext(events: readonly StoredUsageEvent[], menuId: 
   const main = events.filter(isMainUsageEntry);
   const own = main.filter(e => e.menuId === menuId);
   if (own.length === 0) return { menuId, entries: 0, masked: false, summary: empty, next: [], hiddenDestinations: 0 };
-  if (new Set(own.map(e => e.userId)).size < USAGE_MASK_K) return { menuId, entries: 0, masked: true, summary: empty, next: [], hiddenDestinations: 0 };
+  if (new Set(own.map(e => e.userId)).size < USAGE_MASK_K || !uncoveredOpen(own.length - (openInflowEvents(main).get(menuId) ?? 0))) {
+    return { menuId, entries: 0, masked: true, summary: empty, next: [], hiddenDestinations: 0 };
+  }
   type Kind = 'moved' | 'sameMenu' | 'backOrReturn';
   type Cell = { kind: Kind; dest: string; events: StoredUsageEvent[]; users: Set<string> };
   const cells = new Map<string, Cell>();

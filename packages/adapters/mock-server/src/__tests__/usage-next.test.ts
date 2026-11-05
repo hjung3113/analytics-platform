@@ -336,3 +336,84 @@ describe('seedUsageNext (#605)', () => {
     expect(storedUsage()).toHaveLength(0);
   });
 });
+
+describe('cross-menu subtraction: uncovered entries (#605 R1)', () => {
+  // uncovered(M) = entries(M) − events of open inflow cells into M (a cell = from menu X, kind; open = >= 3 distinct people).
+  // 1 or 2 → M is masked in both reads; 0 or >= 3 → unchanged.
+  const both = (events: StoredUsageEvent[], menu: string, includeBack = false) => ({
+    summary: aggregateUsage(events, { preset: 'all' }).menus.find(m => m.menuId === menu)!,
+    next: aggregateUsageNext(events, menu, includeBack),
+  });
+  const maskedNext = { entries: 0, masked: true, summary: { moved: 0, sameMenu: 0, backOrReturn: 0, noMove: 0 }, next: [], hiddenDestinations: 0 };
+  const direct = (menu: string, who: readonly string[]) => who.map(u => row(u, menu, 'sidebar', null));
+
+  it("the reviewer's example: u1–u3 M→A and u4 direct to A leaves 1 uncovered, so A is masked in both reads", () => {
+    const events = [...enter('M'), ...go('M', 'A', ['u1', 'u2', 'u3']), ...direct('A', ['u4'])];
+    const { summary, next } = both(events, 'A');
+    expect(summary).toMatchObject({ entries: null, backRate: null, searchEntryRate: null });
+    expect(next).toMatchObject(maskedNext);
+  });
+
+  it('with 3 direct entries (uncovered 3) A is not masked', () => {
+    const events = [...enter('M'), ...go('M', 'A', ['u1', 'u2', 'u3']), ...direct('A', ['u4', 'u5', 'u6'])];
+    const { summary, next } = both(events, 'A');
+    expect(summary.entries).toBe(6);
+    expect(next).toMatchObject({ masked: false, entries: 6 });
+  });
+
+  it('the variant: u4 reaching A from B (a closed cell) leaves 1 uncovered, so A is masked', () => {
+    const events = [...enter('M'), ...enter('B'), ...go('M', 'A', ['u1', 'u2', 'u3']), ...go('B', 'A', ['u4'])];
+    const { summary, next } = both(events, 'A');
+    expect(summary.entries).toBeNull();
+    expect(next).toMatchObject(maskedNext);
+    // Nothing of the closed B→A cell leaks through B either: B's outflow names no destination.
+    expect(aggregateUsageNext(events, 'B').hiddenDestinations).toBe(1);
+  });
+
+  it.each([[0, false], [1, true], [2, true], [3, false], [4, false]])('%i uncovered entries (direct): masked = %s', (uncovered, masked) => {
+    const direct3 = direct('A', Array.from({ length: uncovered }, (_, i) => `d${i}`));
+    const events = [...enter('M'), ...go('M', 'A', ['u1', 'u2', 'u3']), ...direct3];
+    const { summary, next } = both(events, 'A');
+    expect(summary.entries === null).toBe(masked);
+    expect(next.masked).toBe(masked);
+    if (!masked) expect(next.entries).toBe(3 + uncovered);
+  });
+
+  it('an uncovered count of 1–2 from a closed cell of 2 people also masks (2 events, 2 people)', () => {
+    const events = [...enter('M'), ...go('M', 'A', ['u1', 'u2', 'u3']), ...go('B', 'A', ['u1', 'u2'])];
+    expect(both(events, 'A').next.masked).toBe(true);
+  });
+
+  it('includeBack on and off give the same masking (inflow cells are the same three kinds)', () => {
+    const events = [...enter('M'), ...go('M', 'A', ['u1', 'u2', 'u3']), ...go('M', 'A', ['u1', 'u2', 'u3'], 'history'), ...direct('A', ['u4'])];
+    expect(both(events, 'A', false).next.masked).toBe(true);
+    expect(both(events, 'A', true).next.masked).toBe(true);
+    const ok = [...enter('M'), ...go('M', 'A', ['u1', 'u2', 'u3']), ...go('M', 'A', ['u1', 'u2', 'u3'], 'history'), ...direct('A', ['u4', 'u5', 'u6'])];
+    expect(both(ok, 'A', false).next).toMatchObject({ masked: false, entries: 9 });
+    expect(both(ok, 'A', true).next).toMatchObject({ masked: false, entries: 9 });
+  });
+
+  it('a same-menu inflow cell of >= 3 people covers (the self loop counts as an open inflow cell)', () => {
+    const events = [...direct('A', ['u1', 'u2', 'u3']), ...go('A', 'A', ['u1', 'u2', 'u3'])];
+    expect(both(events, 'A').next).toMatchObject({ masked: false, entries: 6 });
+  });
+
+  it('a menu with only direct entries (>= 3 people) stays unmasked', () => {
+    const events = direct('A', ['u1', 'u2', 'u3', 'u4']);
+    const { summary, next } = both(events, 'A');
+    expect(summary.entries).toBe(4);
+    expect(next).toMatchObject({ masked: false, entries: 4 });
+  });
+
+  it('what a client can compute is 0 or >= 3: entries minus the visible inflow, over a grid of direct and closed-cell sizes', () => {
+    for (let direct_ = 0; direct_ <= 5; direct_ += 1) {
+      for (let closed = 0; closed <= 4; closed += 1) {
+        const events = [...enter('M'), ...go('M', 'A', ['u1', 'u2', 'u3']), ...direct('A', Array.from({ length: direct_ }, (_, i) => `d${i}`)), ...go('B', 'A', Array.from({ length: closed }, (_, i) => `c${i}`).slice(0, Math.min(closed, 2)))];
+        const entries = aggregateUsage(events, { preset: 'all' }).menus.find(m => m.menuId === 'A')!.entries;
+        if (entries === null || entries === undefined) continue;
+        // Visible inflow = the open cell M→A only (3 events); the rest is uncovered.
+        expect(entries - 3 === 0 || entries - 3 >= 3).toBe(true);
+      }
+    }
+  });
+});

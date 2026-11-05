@@ -44,7 +44,7 @@ describe('admin usage in the real AppRoot assembly (#605 FIXB)', () => {
   ])('records the shared initial-focus limitation at %s (Escape outside the drawer does not close)', async (url, title) => {
     await mountAt(url);
     const drawer = await screen.findByRole('dialog', { name: title }, { timeout: 10_000 });
-    if (url.includes('admin-usage')) await within(drawer).findByText(/기록된 진입이 없습니다|3명 미만이 쓴 메뉴라 이동 경로를 공개하지 않습니다/);
+    if (url.includes('admin-usage')) await within(drawer).findByText(/기록된 진입이 없습니다|이 메뉴는 이동 경로를 공개하지 않습니다/);
     expect(document.activeElement).toBe(document.body);
     fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
     expect(new URLSearchParams(window.location.search).get('focus')).toBe(new URL(url, 'http://test').searchParams.get('focus'));

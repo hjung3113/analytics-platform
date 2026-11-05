@@ -129,7 +129,7 @@ export type UsageMenuSummary = {
   visits: number;
   distinctUsers: number;
   lastUsedAt: number;
-  /** Main-screen entry count N (`source=main` only, `name='entry'`). `null` when the menu's main entries come from < 3 distinct users (mask k = 3; includes no main entry at all), same mask as the rates. Absent from a server that predates #605 part 2. */
+  /** Main-screen entry count N (`source=main` only, `name='entry'`). `null` when the menu's main entries come from < 3 distinct users (mask k = 3; includes no main entry at all) or when 1–2 of its entries are covered by no open inflow cell (`usageNextScreens` `masked`), same mask as the rates. Absent from a server that predates #605 part 2. */
   entries?: number | null;
   /** Share 0..1 of those entries whose NEXT main entry carried via `history`/`return` (「뒤로 나감」). `null` under the `entries` mask. The numerator counts only transitions to a destination used by >= 3 distinct people (smaller groups count as 0). Computed on the server, never in the browser. */
   backRate?: number | null;
@@ -147,7 +147,7 @@ export type UsageNextDestination = { menuId: string; count: number; distinctUser
 /**
  * Where people went right after one menu (main source only, #605). The < 3 distinct-user mask works on cells (one kind of next entry at one
  * destination): every number is a sum of cells with >= 3 distinct users, so no subtraction of two numbers, and no `includeBack` toggle, isolates a smaller group.
- * `masked` means exactly: the menu has 1 or 2 distinct main-entry users (all numbers hidden, `entries: 0`). A menu with no main entry at all answers `masked: false`, `entries: 0`, empty lists.
+ * `masked` means exactly: the menu has 1 or 2 distinct main-entry users, OR `uncovered` is 1 or 2 (all numbers hidden, `entries: 0`). `uncovered(M) = entries(M) − events of the open inflow cells into M`, where an open inflow cell is a group of main entries into M from one other-or-same menu X (`fromMenuId`) of one kind (moved / sameMenu / backOrReturn) by >= 3 distinct people; a client that subtracts the visible inflow from `entries` would otherwise recover 1–2 entries that came from outside open cells. `uncovered` 0 or >= 3 changes nothing. `usageSummary` masks `entries`, `backRate` and `searchEntryRate` of such a menu the same way. A menu with no main entry at all answers `masked: false`, `entries: 0`, empty lists.
  */
 export type UsageNextScreens = {
   menuId: string;
@@ -271,7 +271,7 @@ export type PlatformAdapter = {
   /**
    * Console aggregate read (#605): where people went right after one menu. Same permission, errors and per-actor rate
    * budget as `usageSummary` (console:access; scenarios and errors answer like there); a read appends no audit row.
-   * `menuId` is validated like a `fromMenuId` (malformed = outcome `error`); a well-formed menu with no data is `ok` and `masked: true`. All time, no range.
+   * `menuId` is validated like a `fromMenuId` (malformed = outcome `error`); a well-formed menu with no data is `ok`, `masked: false`, `entries: 0`. All time, no range.
    */
   usageNextScreens(query: UsageNextQuery, signal?: AbortSignal): Promise<ApiResponse<UsageNextScreens>>;
   /**

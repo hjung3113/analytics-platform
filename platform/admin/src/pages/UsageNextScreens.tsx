@@ -70,7 +70,7 @@ function NextScreenResult({ data, expanded, onExpand, listId }: { data: NextScre
   const { lang } = useI18n();
   const ko = lang === 'ko';
   const { registry } = usePlatform();
-  if (data.masked) return <StateMessage icon={<Shield aria-hidden />} title={ko ? '3명 미만이 쓴 메뉴라 이동 경로를 공개하지 않습니다' : 'Movement paths are withheld because fewer than 3 users used this menu'} />;
+  if (data.masked) return <StateMessage icon={<Shield aria-hidden />} title={ko ? '이 메뉴는 이동 경로를 공개하지 않습니다(사용자가 3명 미만이거나 일부 경로가 3명 미만으로 가려져 건수를 안전하게 낼 수 없습니다)' : 'Movement paths are withheld for this menu (fewer than 3 users, or some paths are masked below 3 users so counts cannot be shown safely)'} />;
   if (data.entries === 0) return <StateMessage icon={<Inbox aria-hidden />} title={ko ? '기록된 진입이 없습니다' : 'No entries recorded'} />;
   const summary = [data.summary.moved, data.summary.sameMenu, data.summary.backOrReturn, data.summary.noMove];
   const summaryTotal = summary.reduce((sum, count) => sum + count, 0);

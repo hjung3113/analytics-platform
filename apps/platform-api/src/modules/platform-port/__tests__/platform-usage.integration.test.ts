@@ -901,6 +901,87 @@ describe.skipIf(!runIntegration)(
         expect(data.next[0]?.menuId).toBe(`${MENU}-n00`);
       });
 
+      describe('cross-menu subtraction: uncovered entries (R1)', () => {
+        // uncovered(M) = entries(M) − events of open inflow cells into M (cell = origin menu + kind, >= 3 distinct people).
+        // 1 or 2 → M masked in both reads; 0 or >= 3 → unchanged.
+        const aId = `${MENU}-a`;
+        const bId = `${MENU}-b`;
+        const maskedAnswer = {
+          menuId: aId,
+          masked: true,
+          entries: 0,
+          summary: { moved: 0, sameMenu: 0, backOrReturn: 0, noMove: 0 },
+          next: [],
+          hiddenDestinations: 0,
+        };
+        const summaryRow = async (id: string) => {
+          const body = (await summary('?preset=all')).json<Envelope>();
+          return mineOf(body).find((m) => m.menuId === id);
+        };
+        /** M entered directly by 4 people; people[0..2] go M → A; then `extra` records more events. */
+        async function seedLink(extra: (people: Person[]) => Promise<unknown>) {
+          await clearMine();
+          const people = await crew(6);
+          for (const p of people.slice(0, 4)) await record([entry({ via: 'sidebar' })], p);
+          for (const p of people.slice(0, 3)) await record([entry({ menuId: aId, via: 'link', fromMenuId: MENU })], p);
+          await extra(people);
+        }
+        const direct = (people: Person[], from: number, to: number, menuId = aId) =>
+          Promise.all(people.slice(from, to).map((p) => record([entry({ menuId, via: 'sidebar' })], p)));
+
+        it("the reviewer's example: 3 linked and 1 direct entry leave 1 uncovered, so A is masked in both reads", async () => {
+          await seedLink((people) => direct(people, 3, 4));
+          expect(await summaryRow(aId)).toMatchObject({ entries: null, backRate: null, searchEntryRate: null });
+          expect(await nextData({ menuId: aId })).toEqual(maskedAnswer);
+          expect(await nextData({ menuId: aId, includeBack: true })).toEqual(maskedAnswer);
+        });
+
+        it('the variant: 1 entry from B (a closed cell) leaves 1 uncovered, so A is masked and B names no destination', async () => {
+          await seedLink(async (people) => {
+            for (const p of people.slice(1, 4)) await record([entry({ menuId: bId, via: 'sidebar' })], p);
+            await record([entry({ menuId: bId, via: 'sidebar' })], people[0] as Person);
+            await record([entry({ menuId: aId, via: 'link', fromMenuId: bId })], people[3] as Person);
+          });
+          expect(await summaryRow(aId)).toMatchObject({ entries: null });
+          expect(await nextData({ menuId: aId })).toEqual(maskedAnswer);
+          expect(await nextData({ menuId: bId })).toMatchObject({ masked: false, next: [], hiddenDestinations: 1 });
+        });
+
+        it.each([
+          [0, false],
+          [1, true],
+          [2, true],
+          [3, false],
+        ])('%i uncovered direct entries: masked = %s (both reads agree)', async (uncovered, masked) => {
+          await seedLink((people) => direct(people, 3, 3 + uncovered));
+          expect((await summaryRow(aId))?.entries === null).toBe(masked);
+          for (const includeBack of [false, true]) {
+            const data = await nextData({ menuId: aId, includeBack });
+            expect(data.masked).toBe(masked);
+            if (!masked) expect(data.entries).toBe(3 + uncovered);
+          }
+        });
+
+        it('a same-menu inflow cell of 3 people covers its events; includeBack does not change that', async () => {
+          await clearMine();
+          const people = await crew(4);
+          for (const p of people.slice(0, 3)) await record([entry({ via: 'sidebar' })], p);
+          for (const p of people.slice(0, 3)) await record([entry({ via: 'link', fromMenuId: MENU })], p);
+          for (const includeBack of [false, true]) {
+            expect(await nextData({ menuId: MENU, includeBack })).toMatchObject({ masked: false, entries: 6 });
+          }
+          expect(await summaryRow(MENU)).toMatchObject({ entries: 6 });
+        });
+
+        it('a menu with only direct entries from >= 3 people stays unmasked', async () => {
+          await clearMine();
+          const people = await crew(4);
+          for (const p of people) await record([entry({ via: 'sidebar' })], p);
+          expect(await summaryRow(MENU)).toMatchObject({ entries: 4 });
+          expect(await nextData({ menuId: MENU })).toMatchObject({ masked: false, entries: 4 });
+        });
+      });
+
       it.each([
         ['an empty menuId', { menuId: '' }],
         ['a menuId with a slash', { menuId: 'a/b' }],
