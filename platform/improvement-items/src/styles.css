@@ -1,1 +1,8 @@
 @source "./";
+
+/* The owner prescribed 과제(Quest) for the column title; the shared t-table-header uppercases it (UX2, #1328).
+   Scoped to this consumer's table so no other table header loses its case. */
+.improvement-items-table [data-column="quest"],
+.improvement-items-table [data-column="quest"] span {
+  text-transform: none;
+}

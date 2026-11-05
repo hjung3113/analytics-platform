@@ -56,6 +56,16 @@ describe('improvement mock dispatch', () => {
     expect(await write(a, 'itemSetStatus', { itemId: id, status: 'dropped' }, '5')).toMatchObject({ outcome: 'invalid' });
     expect(await write(a, 'itemSetStatus', { itemId: id, status: 'dropped', reason: 'duplicate' }, '5')).toMatchObject({ outcome: 'ok' });
   });
+  it('answers conflict before row-state judgments, like the server (C2)', async () => {
+    const a = adapter();
+    expect(await write(a, 'itemSetStatus', { itemId: id, status: 'in_progress', action: 'repair' }, '1')).toMatchObject({ outcome: 'ok', version: '2' });
+    // a stale in_progress move against the already moved row carries the current version, not illegal_transition
+    expect(await write(a, 'itemSetStatus', { itemId: id, status: 'in_progress', action: 'late' }, '1')).toMatchObject({ outcome: 'conflict', version: '2' });
+    // replaying with the current version is judged on the row: a repeat of the status is illegal
+    expect(await write(a, 'itemSetStatus', { itemId: id, status: 'in_progress', action: 'late' }, '2')).toMatchObject({ outcome: 'invalid', fieldErrors: [{ path: ['status'], code: 'illegal_transition' }] });
+    // a stale reopen against an open row conflicts first as well
+    expect(await write(a, 'itemReopen', { itemId: id, reason: 'r' }, '1')).toMatchObject({ outcome: 'conflict', version: '2' });
+  });
   it('registers assignment and Quest linking, keeps reads open to viewers, and refuses writes', async () => {
     const a = adapter();
     expect(await write(a, 'itemAssign', { itemId: id, assigneeId: null }, '1')).toMatchObject({ outcome: 'ok' });
@@ -63,5 +73,30 @@ describe('improvement mock dispatch', () => {
     setRole('viewer');
     expect(await query(a, 'improvement.items', params)).toMatchObject({ outcome: 'ok' });
     expect(await write(a, 'itemUpdate', { itemId: id, problem: 'no' }, '3')).toMatchObject({ outcome: 'forbidden' });
+  });
+  it('mirrors the server input schemas: required keys, bounds, codes and nested shapes (C3)', async () => {
+    const a = adapter();
+    const id2 = '13280000-0000-4000-8000-000000000002';
+    // itemAssign without the key is a required error and never clears the stored assignee
+    expect(await write(a, 'itemAssign', { itemId: id }, '1')).toMatchObject({ outcome: 'invalid', fieldErrors: [{ path: ['assigneeId'], code: 'required' }] });
+    expect(await query(a, 'improvement.itemDetail', { itemId: id })).toMatchObject({ data: { assignee: { id: 'admin' } } });
+    // itemLinkQuest without the key pair is required and never unlinks the stored Quest
+    expect(await write(a, 'itemLinkQuest', { itemId: id2 }, '1')).toMatchObject({ outcome: 'invalid', fieldErrors: [{ path: ['questId'], code: 'required' }, { path: ['questTitle'], code: 'required' }] });
+    expect(await query(a, 'improvement.itemDetail', { itemId: id2 })).toMatchObject({ data: { quest: { id: 'Q-1' } } });
+    // an oversized problem is too_long, not malformed
+    expect(await write(a, 'itemCreate', { problem: '가'.repeat(501), targets: [{ kind: 'equipment', externalKey: 'EQ-01', displayName: 'x' }] }))
+      .toMatchObject({ outcome: 'invalid', fieldErrors: [{ path: ['problem'], code: 'too_long' }] });
+    // a nested effect compareLink must be an app-relative path, like the server schema
+    expect(await write(a, 'itemSetStatus', { itemId: '13280000-0000-4000-8000-000000000003', status: 'verified', effect: { result: 'effective', compareLink: 'https://evil.example/x' } }, '1'))
+      .toMatchObject({ outcome: 'invalid', fieldErrors: [{ path: ['effect', 'compareLink'], code: 'malformed' }] });
+    // a repeated (kind, externalKey) target is a duplicate at the second index
+    const dup = { kind: 'equipment', externalKey: 'EQ-01', displayName: 'x' };
+    expect(await write(a, 'itemCreate', { problem: 'p', targets: [dup, dup] }))
+      .toMatchObject({ outcome: 'invalid', fieldErrors: [{ path: ['targets', '1'], code: 'duplicate' }] });
+    // an unknown status value is malformed, not illegal_transition
+    expect(await write(a, 'itemSetStatus', { itemId: id, status: 'bogus' }, '1')).toMatchObject({ outcome: 'invalid', fieldErrors: [{ path: ['status'], code: 'malformed' }] });
+    // explicit nulls stay the clearing operation on a quested row
+    expect(await write(a, 'itemLinkQuest', { itemId: id2, questId: null, questTitle: null }, '1')).toMatchObject({ outcome: 'ok' });
+    expect(await query(a, 'improvement.itemDetail', { itemId: id2 })).toMatchObject({ data: { quest: null } });
   });
 });

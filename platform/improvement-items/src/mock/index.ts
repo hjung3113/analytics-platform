@@ -1,7 +1,7 @@
 /** Deterministic menu-owned fixtures; production screens never import this module. */
 import { filterRows, validateFilters, type ActionSpec, type FieldError, type PageResult } from '@ap/contracts';
-import { defineMockAction, defineMockEndpoint, type AnyMockAction, type AnyMockEndpoint } from '@ap/mock-server';
-import { FORWARD, REOPEN, SORT_IDS, actionSpecs, detailEndpoint, eventsEndpoint, filterSpecs, itemCreate, itemsEndpoint, type CreateInput, type ItemEvent, type ItemRow, type ListParams, type Status, type StatusInput } from '../endpoints';
+import { MockActionInvalid, defineMockAction, defineMockEndpoint, type AnyMockAction, type AnyMockEndpoint } from '@ap/mock-server';
+import { FORWARD, REOPEN, SORT_IDS, actionSpecs, detailEndpoint, eventsEndpoint, filterSpecs, itemCreate, itemsEndpoint, type CreateInput, type ItemEvent, type ItemRow, type ListParams, type Status, type StatusInput, type UpdateInput } from '../endpoints';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const at = '2026-11-05T01:00:00.000Z';
 const itemId = (n: number) => `13280000-0000-4000-8000-${String(n).padStart(12, '0')}`;
@@ -21,8 +21,226 @@ export function resetItems() {
   }));
 }
 resetItems();
-const blank = (x: unknown) => typeof x !== 'string' || x.trim() === '';
+const blank = (x: string | null | undefined): boolean => x === null || x === undefined || x.trim() === '';
 const field = (name: string, code = 'required'): FieldError => ({ path: [name], code });
+const fieldAt = (path: string[], code = 'required'): FieldError => ({ path, code });
+type Check = FieldError | null;
+/** Text safety mirrored from the server (`platform-port/text-safety.ts`): NUL and lone UTF-16 surrogates. */
+const LONE_SURROGATE = /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/;
+const unsafe = (v: string): boolean => v.includes('\u0000') || LONE_SURROGATE.test(v);
+const len = (v: string): number => [...v].length;
+const PROBLEM_MAX = 500, LONG_MAX = 2000, SHORT_MAX = 200, TARGETS_MAX = 50, CONTEXT_MAX_BYTES = 8 * 1024, CONTEXT_MAX_DEPTH = 8;
+const EFFECT_RESULTS = ['effective', 'ineffective', 'inconclusive'];
+const TARGET_KINDS = ['equipment', 'process'];
+const STATUSES = Object.keys(FORWARD) as Status[];
+const DAY = /^(\d{4})-(\d{2})-(\d{2})$/;
+/** Backend mirror of the server's `appRelativePath`: an app-relative, same-origin path. */
+const appRelative = (value: string): boolean => {
+  if (!value.startsWith('/') || value.startsWith('//')) return false;
+  if (value.includes('#') || value.includes('\\') || value.includes('//')) return false;
+  if (/[\u0000-\u001F\u007F]/.test(value)) return false;
+  let decoded: string;
+  try { decoded = decodeURIComponent(value); } catch { return false; }
+  if (!decoded.startsWith('/') || decoded.startsWith('//')) return false;
+  if (decoded.includes('#') || decoded.includes('\\') || decoded.includes('//')) return false;
+  if (/[\u0000-\u001F\u007F]/.test(decoded)) return false;
+  return !(decoded.split('?')[0] ?? '').includes(':');
+};
+const isDay = (v: unknown): boolean => {
+  if (typeof v !== 'string') return false;
+  const m = DAY.exec(v);
+  if (!m) return false;
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const date = new Date(Date.UTC(y, mo - 1, d));
+  return date.getUTCFullYear() === y && date.getUTCMonth() === mo - 1 && date.getUTCDate() === d;
+};
+/** A required, non-blank text key: absent → required; null/non-string/unsafe → malformed; over the bound → too_long; blank → required. */
+const requiredText = (v: unknown, max: number, path: string[]): Check => {
+  if (v === undefined) return fieldAt(path);
+  if (v === null || typeof v !== 'string' || unsafe(v)) return fieldAt(path, 'malformed');
+  if (len(v) > max) return fieldAt(path, 'too_long');
+  return v.trim() === '' ? fieldAt(path) : null;
+};
+/** Optional key of a non-nullable text: absent → fine, then `requiredText` rules. */
+const optionalText = (v: unknown, max: number, path: string[]): Check => (v === undefined ? null : requiredText(v, max, path));
+/** `clearableText`: absent → untouched; null or a blank text clears; unsafe/non-string → malformed; over the bound → too_long. */
+const clearableText = (v: unknown, max: number, path: string[]): Check => {
+  if (v === undefined || v === null) return null;
+  if (typeof v !== 'string' || unsafe(v)) return fieldAt(path, 'malformed');
+  return len(v) > max ? fieldAt(path, 'too_long') : null;
+};
+/** Nullable UUID value: absent → required unless optional; null clears; otherwise a UUID string. */
+const nullableUuid = (v: unknown, path: string[], optional: boolean): Check => {
+  if (v === undefined) return optional ? null : fieldAt(path);
+  if (v === null) return null;
+  return typeof v !== 'string' || !UUID.test(v) ? fieldAt(path, 'malformed') : null;
+};
+const itemIdCheck = (v: unknown): Check => (v === undefined ? field('itemId') : typeof v !== 'string' || !UUID.test(v) ? field('itemId', 'malformed') : null);
+const clearableDay = (v: unknown, name: string): Check => (v === undefined || v === null ? null : isDay(v) ? null : field(name, 'malformed'));
+const safeJson = (node: unknown, depth: number): boolean => {
+  if (depth > CONTEXT_MAX_DEPTH) return false;
+  if (node === null || typeof node === 'number' || typeof node === 'boolean') return true;
+  if (typeof node === 'string') return !unsafe(node);
+  if (Array.isArray(node)) return node.every(child => safeJson(child, depth + 1));
+  if (typeof node === 'object') return Object.entries(node).every(([key, child]) => !unsafe(key) && safeJson(child, depth + 1));
+  return false;
+};
+const contextCheck = (v: unknown, path: string[]): Check => {
+  if (v === undefined) return fieldAt(path);
+  if (v === null || typeof v !== 'object' || Array.isArray(v)) return fieldAt(path, 'malformed');
+  if (new TextEncoder().encode(JSON.stringify(v)).length > CONTEXT_MAX_BYTES) return fieldAt(path, 'too_long');
+  return safeJson(v, 1) ? null : fieldAt(path, 'malformed');
+};
+const originCheck = (v: unknown, name: string): Check => {
+  if (v === undefined || v === null) return null;
+  if (typeof v !== 'object' || Array.isArray(v)) return field(name, 'malformed');
+  const o: Record<string, unknown> = v as Record<string, unknown>; // narrowed to a plain object above
+  if (Object.keys(o).some(key => key !== 'menuId' && key !== 'context')) return field(name, 'malformed');
+  return requiredText(o.menuId, SHORT_MAX, [name, 'menuId']) ?? contextCheck(o.context, [name, 'context']);
+};
+const targetCheck = (t: unknown, path: string[]): Check => {
+  if (typeof t !== 'object' || t === null || Array.isArray(t)) return fieldAt(path, 'malformed');
+  const o: Record<string, unknown> = t as Record<string, unknown>; // narrowed to a plain object above
+  if (Object.keys(o).some(key => key !== 'kind' && key !== 'externalKey' && key !== 'displayName')) return fieldAt(path, 'malformed');
+  if (o.kind === undefined) return fieldAt([...path, 'kind']);
+  if (typeof o.kind !== 'string' || !TARGET_KINDS.includes(o.kind)) return fieldAt([...path, 'kind'], 'malformed');
+  const displayName: Check = o.displayName === undefined ? fieldAt([...path, 'displayName'])
+    : typeof o.displayName !== 'string' || unsafe(o.displayName) ? fieldAt([...path, 'displayName'], 'malformed')
+    : len(o.displayName) > SHORT_MAX ? fieldAt([...path, 'displayName'], 'too_long') : null;
+  return requiredText(o.externalKey, SHORT_MAX, [...path, 'externalKey']) ?? displayName;
+};
+const targetsCheck = (v: unknown, name: string): Check => {
+  if (v === undefined) return null;
+  if (!Array.isArray(v)) return field(name, 'malformed');
+  if (v.length > TARGETS_MAX) return field(name, 'too_many');
+  const singles = v.map((t, i) => targetCheck(t, [name, String(i)]));
+  const bad = singles.find(single => single !== null);
+  if (bad) return bad;
+  const seen = new Set<string>();
+  for (const [i, t] of (v as { kind: string; externalKey: string }[]).entries()) {
+    const key = `${t.kind}\u0000${t.externalKey}`;
+    if (seen.has(key)) return fieldAt([name, String(i)], 'duplicate');
+    seen.add(key);
+  }
+  return null;
+};
+const compareLinkCheck = (v: unknown, path: string[]): Check => {
+  if (v === undefined || v === null) return null;
+  if (typeof v !== 'string' || unsafe(v)) return fieldAt(path, 'malformed');
+  if (len(v) > LONG_MAX) return fieldAt(path, 'too_long');
+  const text = v.trim();
+  return text === '' || appRelative(text) ? null : fieldAt(path, 'malformed');
+};
+const effectCheck = (v: unknown, name: string): Check => {
+  if (v === undefined) return null;
+  if (typeof v !== 'object' || v === null || Array.isArray(v)) return field(name, 'malformed');
+  const o: Record<string, unknown> = v as Record<string, unknown>; // narrowed to a plain object above
+  if (Object.keys(o).some(key => key !== 'result' && key !== 'note' && key !== 'compareLink')) return field(name, 'malformed');
+  if (o.result === undefined) return fieldAt([name, 'result']);
+  if (typeof o.result !== 'string' || !EFFECT_RESULTS.includes(o.result)) return fieldAt([name, 'result'], 'malformed');
+  return clearableText(o.note, LONG_MAX, [name, 'note']) ?? compareLinkCheck(o.compareLink, [name, 'compareLink']);
+};
+/** `questPair`: exactly one of the two keys present → required on the missing one. */
+const questPair = (input: { questId?: unknown; questTitle?: unknown }): Check => {
+  const hasId = input.questId !== undefined && input.questId !== null;
+  const hasTitle = input.questTitle !== undefined && input.questTitle !== null;
+  return hasId === hasTitle ? null : fieldAt([hasId ? 'questTitle' : 'questId']);
+};
+/** Nullable required-text key: absent → required when the key is required; null clears; then `requiredText` rules. */
+const nullableRequiredText = (v: unknown, max: number, path: string[], keyRequired: boolean): Check => {
+  if (v === undefined) return keyRequired ? fieldAt(path) : null;
+  if (v === null) return null;
+  return requiredText(v, max, path);
+};
+/** The input-only mirror of the server's `validateItemInput` (zod schemas of `domain/item-input.ts`): everything that needs
+ * no row, so a stale version is answered `conflict` and not this. Codes and paths follow the server's `fieldErrors`. */
+function inputErrors(op: string, input: Record<string, unknown>): FieldError[] {
+  const out: Check[] = [];
+  if (op === 'itemCreate') {
+    out.push(input.problem === undefined ? field('problem') : optionalText(input.problem, PROBLEM_MAX, ['problem']));
+    out.push(clearableText(input.action, LONG_MAX, ['action']));
+    out.push(clearableDay(input.actionDate, 'actionDate'));
+    out.push(nullableUuid(input.assigneeId, ['assigneeId'], true));
+    out.push(questPair(input));
+    out.push(nullableRequiredText(input.questId, SHORT_MAX, ['questId'], false));
+    out.push(nullableRequiredText(input.questTitle, SHORT_MAX, ['questTitle'], false));
+    out.push(originCheck(input.origin, 'origin'));
+    out.push(targetsCheck(input.targets, 'targets'));
+    // Q2: an item names where it came from or what it concerns (DB-free, judged in validate like the server).
+    if (!input.origin && !(Array.isArray(input.targets) && input.targets.length)) out.push(field('origin', 'required_or_target'));
+  }
+  if (op === 'itemUpdate') {
+    const value = input as unknown as UpdateInput; // wire input narrowed by the op's inputKeys
+    out.push(itemIdCheck(value.itemId));
+    out.push(optionalText(value.problem, PROBLEM_MAX, ['problem']));
+    out.push(clearableText(value.action, LONG_MAX, ['action']));
+    out.push(clearableDay(value.actionDate, 'actionDate'));
+    out.push(originCheck(value.origin, 'origin'));
+    out.push(targetsCheck(value.targets, 'targets'));
+  }
+  if (op === 'itemSetStatus') {
+    const value = input as unknown as StatusInput; // wire input narrowed by the op's inputKeys
+    out.push(itemIdCheck(value.itemId));
+    out.push(value.status === undefined ? field('status') : typeof value.status !== 'string' || !STATUSES.includes(value.status) ? field('status', 'malformed') : null);
+    out.push(clearableText(value.action, LONG_MAX, ['action']));
+    out.push(clearableDay(value.actionDate, 'actionDate'));
+    out.push(effectCheck(value.effect, 'effect'));
+    out.push(optionalText(value.reason, LONG_MAX, ['reason']));
+  }
+  if (op === 'itemReopen') {
+    out.push(itemIdCheck(input.itemId));
+    out.push(requiredText(input.reason, LONG_MAX, ['reason']));
+  }
+  if (op === 'itemAssign') out.push(itemIdCheck(input.itemId), nullableUuid(input.assigneeId, ['assigneeId'], false));
+  if (op === 'itemLinkQuest') {
+    out.push(itemIdCheck(input.itemId));
+    out.push(questPair(input));
+    out.push(nullableRequiredText(input.questId, SHORT_MAX, ['questId'], true));
+    out.push(nullableRequiredText(input.questTitle, SHORT_MAX, ['questTitle'], true));
+  }
+  const seen = new Set<string>();
+  const result: FieldError[] = [];
+  for (const error of out) {
+    if (error === null) continue;
+    const key = error.path.join('.');
+    if (!seen.has(key)) { seen.add(key); result.push(error); }
+  }
+  return result;
+}
+/** The row-dependent judgments of the server's `handle` phase, after the lock. The mock engine throws them as
+ * `MockActionInvalid`, so a stale expectedVersion is answered `conflict` first — never row-state `invalid`. */
+function rowErrors(op: string, row: ItemRow, value: UpdateInput | StatusInput | { itemId: string; reason: string } | { itemId: string; assigneeId: string | null } | { itemId: string; questId: string | null; questTitle: string | null }): FieldError[] {
+  const input = value as Record<string, unknown>;
+  if (op === 'itemSetStatus') {
+    const s = value as StatusInput;
+    if (!FORWARD[row.status].includes(s.status)) return [field('status', 'illegal_transition')];
+    const applicable: Record<string, boolean> = { action: s.status === 'in_progress' || s.status === 'done', actionDate: s.status === 'done', effect: s.status === 'verified', reason: s.status === 'dropped' };
+    const stray = Object.entries(applicable).filter(([key]) => input[key] !== undefined && !applicable[key]).map(([key]) => field(key, 'not_applicable'));
+    if (stray.length > 0) return stray;
+    const errors: FieldError[] = [];
+    const action = s.action === undefined ? row.action : s.action;
+    const actionDate = s.actionDate === undefined ? row.actionDate : s.actionDate;
+    const effect = s.status === 'verified' ? (s.effect ?? null) : null;
+    const dropReason = s.status === 'dropped' ? (s.reason ?? null) : row.dropReason;
+    if (['in_progress', 'done', 'verified'].includes(s.status) && blank(action)) errors.push(field('action'));
+    if (['done', 'verified'].includes(s.status) && actionDate === null) errors.push(field('actionDate'));
+    // `verified` always carries a fresh effect: a stale one from before a reopen does not count.
+    if (s.status === 'verified' && effect === null) errors.push(field('effect'));
+    if (s.status === 'dropped' && blank(dropReason)) errors.push(field('reason'));
+    return errors;
+  }
+  if (op === 'itemReopen') return REOPEN[row.status] ? [] : [field('status', 'illegal_transition')];
+  if (op === 'itemUpdate') {
+    const errors: FieldError[] = [];
+    if (['in_progress', 'done', 'verified'].includes(row.status) && blank((value as UpdateInput).action === undefined ? row.action : (value as UpdateInput).action)) errors.push(field('action'));
+    if (['done', 'verified'].includes(row.status) && ((value as UpdateInput).actionDate === undefined ? row.actionDate : (value as UpdateInput).actionDate) === null) errors.push(field('actionDate'));
+    const origin = input.origin === undefined ? row.origin : (input.origin as UpdateInput['origin']);
+    const targets = input.targets === undefined ? row.targets : (input.targets as UpdateInput['targets']);
+    if (!((origin)) && !(targets && targets.length)) errors.push(field('origin', 'required_or_target'));
+    return errors;
+  }
+  return [];
+}
 function listMessage(p: ListParams): string | null {
   if (p.q != null && (typeof p.q !== 'string' || p.q.length > 200)) return 'q must be text <= 200';
   if (!Number.isInteger(p.page ?? 0) || (p.page ?? 0) < 0 || !Number.isInteger(p.pageSize ?? 50) || (p.pageSize ?? 50) < 1 || (p.pageSize ?? 50) > 200) return 'invalid page';
@@ -61,40 +279,7 @@ function record(row: ItemRow, actor: string, eventType: string, before: object, 
   events.set(row.id, [...(events.get(row.id) ?? []), event]);
 }
 const find = (input: { itemId: string }) => rows.find(r => r.id === input.itemId.toLowerCase());
-function errors(op: string, input: Record<string, unknown>): FieldError[] {
-  const out: FieldError[] = [];
-  for (const key of ['problem', 'action', 'reason', 'questId', 'questTitle']) {
-    const v = input[key];
-    if (v !== undefined && v !== null && (typeof v !== 'string' || v.includes('\u0000') || [...v].length > (key === 'problem' ? 500 : key.startsWith('quest') ? 200 : 2000))) out.push(field(key, 'malformed'));
-  }
-  if (op === 'itemCreate' || input.problem !== undefined) { if (blank(input.problem)) out.push(field('problem')); }
-  if (input.actionDate !== undefined && input.actionDate !== null && (typeof input.actionDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(input.actionDate) || Number.isNaN(Date.parse(input.actionDate)) || new Date(input.actionDate).toISOString().slice(0, 10) !== input.actionDate)) out.push(field('actionDate', 'malformed'));
-  if (input.assigneeId != null && (typeof input.assigneeId !== 'string' || !UUID.test(input.assigneeId))) out.push(field('assigneeId', 'malformed'));
-  if (input.origin != null && (typeof input.origin !== 'object' || Array.isArray(input.origin) || blank((input.origin as { menuId?: unknown }).menuId) || typeof (input.origin as { context?: unknown }).context !== 'object' || (input.origin as { context?: unknown }).context === null)) out.push(field('origin', 'malformed'));
-  if (input.targets !== undefined && (!Array.isArray(input.targets) || input.targets.length > 50 || input.targets.some(t => typeof t !== 'object' || t === null || !['equipment', 'process'].includes(t.kind) || blank(t.externalKey) || blank(t.displayName)))) out.push(field('targets', 'malformed'));
-  if ((input.questId == null) !== (input.questTitle == null) || (input.questId != null && (blank(input.questId) || blank(input.questTitle)))) out.push(field('questId', 'required'));
-  if (op === 'itemCreate' && !input.origin && !(Array.isArray(input.targets) && input.targets.length)) out.push(field('origin', 'required_or_target'));
-  if (op !== 'itemCreate' && (typeof input.itemId !== 'string' || !UUID.test(input.itemId))) return [...out, field('itemId', 'malformed')];
-  const row = typeof input.itemId === 'string' ? find(input as { itemId: string }) : undefined;
-  if (!row) return out;
-  if (op === 'itemSetStatus') {
-    const s = input as StatusInput;
-    if (!FORWARD[row.status].includes(s.status)) out.push(field('status', 'illegal_transition'));
-    if (['in_progress', 'done'].includes(s.status) && blank(s.action === undefined ? row.action : s.action)) out.push(field('action'));
-    if (s.status === 'done' && !(s.actionDate === undefined ? row.actionDate : s.actionDate)) out.push(field('actionDate'));
-    if (s.status === 'verified' && (!s.effect || !['effective', 'ineffective', 'inconclusive'].includes(s.effect.result))) out.push(field('effect'));
-    if (s.status === 'dropped' && blank(s.reason)) out.push(field('reason'));
-    for (const [key, applicable] of Object.entries({ action: ['in_progress', 'done'].includes(s.status), actionDate: s.status === 'done', effect: s.status === 'verified', reason: s.status === 'dropped' })) if (input[key] !== undefined && !applicable) out.push(field(key, 'not_applicable'));
-  }
-  if (op === 'itemReopen' && (!REOPEN[row.status] || blank(input.reason))) out.push(field(!REOPEN[row.status] ? 'status' : 'reason', !REOPEN[row.status] ? 'illegal_transition' : 'required'));
-  if (op === 'itemUpdate') {
-    if (!((input.origin === undefined ? row.origin : input.origin)) && !(input.targets === undefined ? row.targets.length : (input.targets as unknown[])?.length)) out.push(field('origin', 'required_or_target'));
-    if (['in_progress', 'done', 'verified'].includes(row.status) && blank(input.action === undefined ? row.action : input.action)) out.push(field('action'));
-    if (['done', 'verified'].includes(row.status) && !(input.actionDate === undefined ? row.actionDate : input.actionDate)) out.push(field('actionDate'));
-  }
-  return out;
-}
-const create = defineMockAction(itemCreate, { validate: input => errors('itemCreate', input), handle: ({ input, actor }) => {
+const create = defineMockAction(itemCreate, { validate: input => inputErrors('itemCreate', input), handle: ({ input, actor }) => {
   const n = rows.length + 1;
   const row: ItemRow = { id: itemId(n), itemNo: n, problem: input.problem.trim(), action: input.action ?? null, actionDate: input.actionDate ?? null, status: 'open', assignee: input.assigneeId ? { id: input.assigneeId, displayName: input.assigneeId } : null, quest: input.questId ? { id: input.questId, titleSnapshot: input.questTitle! } : null, origin: input.origin ?? null, targets: input.targets ?? [], effectResult: null, effectNote: null, effectCompareLink: null, dropReason: null, version: '1', createdBy: actor, updatedBy: actor, createdAt: at, updatedAt: at };
   rows.push(row); record(row, actor, 'created', {});
@@ -102,9 +287,11 @@ const create = defineMockAction(itemCreate, { validate: input => errors('itemCre
 } });
 const writes = actionSpecs.slice(1).map(spec => defineMockAction(spec as ActionSpec<Record<string, unknown> & { itemId: string }, unknown>, {
   version: ({ input }) => find(input)?.version ?? null,
-  validate: input => errors(spec.id.split('.')[1]!, input),
+  validate: input => inputErrors(spec.id.split('.')[1]!, input),
   handle: ({ input, actor }) => {
     const row = find(input)!; const before = structuredClone(row); const op = spec.id.split('.')[1]!;
+    const refuses = rowErrors(op, row, input);
+    if (refuses.length > 0) throw new MockActionInvalid(refuses);
     if (op === 'itemUpdate') for (const key of ['problem', 'action', 'actionDate', 'origin', 'targets'] as const) if (input[key] !== undefined) Object.assign(row, { [key]: input[key] });
     if (op === 'itemSetStatus') {
       const s = input as StatusInput; row.status = s.status;

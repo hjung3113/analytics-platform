@@ -29,7 +29,7 @@ function MoveDialog({ item, move, onClose }: { item: ItemRow; move: Status | 're
     void promise.then(settle).catch(() => setMessage(c.failed));
   }
   const labels: Record<string, string> = { action: c.action, actionDate: c.actionDate, effect: c.effect, reason: c.reason };
-  return <Dialog open onOpenChange={open => { if (!open && !busy) onClose(); }}><DialogContent><DialogHeader><DialogTitle>{c.moveTitle}</DialogTitle><DialogDescription>IM-{item.itemNo} · {move === 'reopen' ? c.reopen : c.statuses[move]}</DialogDescription></DialogHeader>
+  return <Dialog open onOpenChange={open => { if (!open && !busy) onClose(); }}><DialogContent closeLabel={c.cancel}><DialogHeader><DialogTitle>{c.moveTitle}</DialogTitle><DialogDescription>IM-{item.itemNo} · {move === 'reopen' ? c.reopen : c.statuses[move]}</DialogDescription></DialogHeader>
     <form className="space-y-4" noValidate onSubmit={e => { e.preventDefault(); if (!busy) confirm(); }}>
       <div className="flex flex-wrap items-center gap-2"><ItemStatus status={base.status} /><span>→ {move === 'reopen' ? c.statuses[REOPEN[base.status] ?? base.status] : c.statuses[move]}</span></div>
       {message && <Callout tone="amber" title={conflict ? c.moveTitle : c.failed}><p role="alert">{message}</p>{conflict && <Button type="button" variant="secondary" disabled={busy} onClick={() => {

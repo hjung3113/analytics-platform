@@ -41,6 +41,7 @@ export function QuestPicker({ selected, onSelect }: { selected: PickedQuest | nu
   const useIdEntry = direct || unsupported || !!failed;
   const [lookupRequest, setLookupRequest] = useState<{ id: string; seq: number } | null>(null);
   const selectQuest = useEffectEvent((quest: PickedQuest) => onSelect(quest));
+  const startLookup = () => { setLookup('loading'); setLookupRequest(previous => ({ id: id.trim(), seq: (previous?.seq ?? 0) + 1 })); };
   useEffect(() => {
     if (!lookupRequest) return;
     const controller = new AbortController();
@@ -55,11 +56,14 @@ export function QuestPicker({ selected, onSelect }: { selected: PickedQuest | nu
     <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-sm font-semibold">{c.quest}</h3><Button type="button" variant="ghost" size="sm" onClick={() => { if (useIdEntry) { setDirect(false); setQuery(''); setText(''); setPage(0); } else setDirect(true); setLookupRequest(null); setLookup('idle'); }}>{useIdEntry ? c.questSearch : c.directId}</Button></div>
     {unsupported && <p className="text-sm text-text-secondary">{c.questUnsupported}</p>}
     {failed && <p role="status" className="text-sm text-text-secondary">{response.outcome === 'forbidden' ? c.questDenied : c.questDown}</p>}
-    {useIdEntry ? <div className="space-y-2"><Field id={`${uid}-id`} label={c.directId}><Input id={`${uid}-id`} maxLength={200} value={id} onChange={e => { setId(e.target.value); setLookupRequest(null); setLookup('idle'); }} /></Field>
-      <Button type="button" variant="secondary" disabled={!id.trim() || lookup === 'loading'} onClick={() => { setLookup('loading'); setLookupRequest(previous => ({ id: id.trim(), seq: (previous?.seq ?? 0) + 1 })); }}>{lookup === 'loading' ? c.loading : c.lookup}</Button>
+    {useIdEntry ? <div className="space-y-2"><Field id={`${uid}-id`} label={c.directId}><Input id={`${uid}-id`} maxLength={200} value={id} onChange={e => { setId(e.target.value); setLookupRequest(null); setLookup('idle'); }}
+      onKeyDown={event => { if (event.key !== 'Enter' || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return; event.preventDefault(); if (id.trim() && lookup !== 'loading') startLookup(); }} /></Field>
+      <Button type="button" variant="secondary" disabled={!id.trim() || lookup === 'loading'} onClick={startLookup}>{lookup === 'loading' ? c.loading : c.lookup}</Button>
       {lookup !== 'idle' && lookup !== 'loading' && <p role="status">{lookup === 'not_found' ? c.questGone : lookup === 'forbidden' ? c.questDenied : c.questDown}</p>}
     </div> : <>
-      <SearchInput aria-label={c.questSearch} placeholder={c.questSearch} value={text} onValueChange={setText} onCommit={() => { setQuery(text.trim()); setPage(0); }} />
+      <div onKeyDown={event => { if (event.key !== 'Enter' || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return; event.preventDefault(); }}>
+        <SearchInput aria-label={c.questSearch} placeholder={c.questSearch} value={text} onValueChange={setText} onCommit={() => { setQuery(text.trim()); setPage(0); }} />
+      </div>
       {!response ? <p role="status">{c.loading}</p> : response.data?.items.length ? <ul className="space-y-2">{response.data.items.map(q => <li key={q.id}><Button type="button" variant="ghost" size="sm" wrapText onClick={() => onSelect({ id: q.id, title: q.title })}>{q.id} · {q.title} · {q.status}</Button></li>)}</ul> : <p className="text-sm text-text-secondary">{c.questNoMatch}</p>}
       <div className="flex gap-2"><Button type="button" variant="secondary" size="sm" disabled={page === 0} onClick={() => setPage(p => p - 1)}>{c.previous}</Button><Button type="button" variant="secondary" size="sm" disabled={!response?.data?.hasMore} onClick={() => setPage(p => p + 1)}>{c.next}</Button></div>
     </>}

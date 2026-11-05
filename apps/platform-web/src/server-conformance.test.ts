@@ -164,6 +164,8 @@ const improvementSamples: Record<string, () => Record<string, unknown>> = {
   itemSetStatus: () => ({ itemId: stagedOpenItem(), status: 'in_progress', action: '적합성 표본 조치' }),
   itemReopen: () => {
     const itemId = stagedOpenItem();
+    // FORWARD is one-way (open → done is not a legal move, the server refuses it), so staging follows the legal path.
+    improvementHandler('itemSetStatus').handle({ input: { itemId, status: 'in_progress', action: '적합성 표본 조치' }, actor: 'admin', scopeId: null });
     improvementHandler('itemSetStatus').handle({ input: { itemId, status: 'done', action: '적합성 표본 조치', actionDate: '2026-11-04' }, actor: 'admin', scopeId: null });
     return { itemId, reason: '적합성 표본 재열기' };
   },

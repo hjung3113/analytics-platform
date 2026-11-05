@@ -11,14 +11,27 @@ export type MockAction<I, T> = {
   version?: (input: ActionInput<I>) => string | null;
   /** Value check the allow-list cannot express; returns field errors (empty = valid). Runs after the replay check. */
   validate?: (input: I) => readonly FieldError[];
-  /**
-   * Applies the write and returns the new data and version. The handler owns its domain audit, like the real server:
+  /** Applies the write and returns the new data and version. The handler owns its domain audit, like the real server:
    * the engine writes no audit row itself, and the actor is never input (`unexpected_field` rejects an actor or time key).
-   */
+   * A row-dependent refusal (illegal after the version check) throws `MockActionInvalid` with field errors. */
   handle: (input: ActionInput<I>) => { data: T; version: string | null };
 };
 
 export const defineMockAction = <I, T>(spec: ActionSpec<I, T>, impl: Omit<MockAction<I, T>, 'spec'>): MockAction<I, T> => ({ spec, ...impl });
+
+/**
+ * A handler's refusal that mirrors the real server's `MenuActionInvalidError`-from-`handle` path: the request passed
+ * `validate` and the version check (a stale request conflicts first), but the row state the handler found refuses the
+ * write. The engine answers `invalid` with these field errors and records nothing.
+ */
+export class MockActionInvalid extends Error {
+  readonly fieldErrors: readonly FieldError[];
+  constructor(fieldErrors: readonly FieldError[]) {
+    super('invalid');
+    this.name = 'MockActionInvalid';
+    this.fieldErrors = fieldErrors;
+  }
+}
 
 /** Heterogeneous list (I invariant, see AnyActionSpec). */
 export type AnyMockAction = MockAction<any, any>;
@@ -131,6 +144,7 @@ export async function serveAction(
     return structuredClone(response);
   } catch (error) {
     if (typeof error === 'object' && error !== null && 'name' in error && error.name === 'AbortError') throw error;
+    if (error instanceof MockActionInvalid) return answer('invalid', { fieldErrors: [...error.fieldErrors] });
     return shape('action handler failed');
   }
 }
