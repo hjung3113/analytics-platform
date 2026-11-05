@@ -67,8 +67,11 @@ titles, and other free text stay in their domain records and audit events.
   Task and Task Request references use their Entity Link provider read gate;
   Permission Request references are available only to the requester or a
   workspace Admin. Permission Grant references are available only to the
-  grantee or a workspace Admin. Missing, archived, hidden, denied, summary-only,
-  or unknown subjects return only `{ visibility_state: 'unavailable' }`.
+  grantee or a workspace Admin. Improvement item references (`improvement_item`,
+  #1328 e1) are available to any session holding `platform:view` for an item of
+  the Actor's own workspace and carry only `IM-<n>` plus the current Korean
+  status label, never the problem or action text. Missing, archived, hidden, denied, summary-only,
+  foreign-workspace, non-UUID or unknown subjects return only `{ visibility_state: 'unavailable' }`.
 - Notification rows continue to store subject ids and event summaries only.
   They do not store a historical subject title or display id, so later reads
   reflect current authorization and current subject text.
