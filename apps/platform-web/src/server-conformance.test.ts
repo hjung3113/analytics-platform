@@ -71,6 +71,10 @@ const PARAMS: Record<string, Record<string, unknown>> = {
   'logKnowledge.items': { q: null, ...page },
   'logKnowledge.itemDetail': { itemId: '00000005-0000-4000-8000-000000000001' },
   'logKnowledge.importDetail': { jobId: IMPORT_READ_JOB, ...page },
+  // Improvement reads (#1328 d): the table's page shape; detail and events take a seed item id (`mock/index.ts` `itemId`, sequence 1-5). Events declare no `sorting` paramKey.
+  'improvement.items': { q: null, ...page },
+  'improvement.itemDetail': { itemId: '13280000-0000-4000-8000-000000000001' },
+  'improvement.itemEvents': { itemId: '13280000-0000-4000-8000-000000000001', page: 0, pageSize: 10 },
   // EV (#801): the synthetic fixture's equipment; `continuationToken` stays omitted (first page).
   'eqv.topview-context': { equipmentId: 'eq-synth-01' },
   'eqv.topview-events': { equipmentId: 'eq-synth-01' },
@@ -141,18 +145,48 @@ const importSamples: Record<string, () => Record<string, unknown>> = {
   importCancel: () => ({ jobId: stagedImport(false).jobId }),
   importApply: () => { const staged = stagedImport(true); return { jobId: staged.jobId, expectedPlanVersion: staged.planVersion }; },
 };
-const writeSamples = { ...catalogSamples, ...itemSamples, ...importSamples };
-const catalogActionCases = MOCK_ACTIONS.map(action => {
-  const sample = writeSamples[action.spec.id.replace('logKnowledge.', '')]!;
+// The improvement writes (#1328 d) run on seed items (`platform/improvement-items/src/mock/index.ts`, ids `13280000-…-<n>`):
+// 1 is open with no quest, 2 is in_progress with quest Q-1. Re-sending values the row already has changes nothing, so
+// itemUpdate/itemAssign/itemLinkQuest succeed again on every call (the mock bumps the version only when the row really
+// changed); a status move and a reopen can never re-send a state (FORWARD is one-way, REOPEN always flips), so those
+// samples stage their own fresh item, like the import samples stage their job.
+const improvementSeedId = (n: number) => `13280000-0000-4000-8000-${n.toString(16).padStart(12, '0')}`;
+const IMPROVEMENT_OPEN = improvementSeedId(1);
+const IMPROVEMENT_QUESTED = improvementSeedId(2);
+const improvementHandler = (id: string) => MOCK_ACTIONS.find(action => action.spec.id === `improvement.${id}`)!;
+const stagedOpenItem = (): string => {
+  const { itemId } = improvementHandler('itemCreate').handle({ input: { problem: unique('IS'), targets: [{ kind: 'equipment', externalKey: 'EQ-01', displayName: '설비 EQ-01' }] }, actor: 'admin', scopeId: null }).data as { itemId: string };
+  return itemId;
+};
+const improvementSamples: Record<string, () => Record<string, unknown>> = {
+  itemCreate: () => ({ problem: unique('IC'), targets: [{ kind: 'equipment', externalKey: 'EQ-01', displayName: '설비 EQ-01' }] }),
+  itemUpdate: () => ({ itemId: IMPROVEMENT_OPEN, problem: '이송 대기 시간 증가' }),
+  itemSetStatus: () => ({ itemId: stagedOpenItem(), status: 'in_progress', action: '적합성 표본 조치' }),
+  itemReopen: () => {
+    const itemId = stagedOpenItem();
+    improvementHandler('itemSetStatus').handle({ input: { itemId, status: 'done', action: '적합성 표본 조치', actionDate: '2026-11-04' }, actor: 'admin', scopeId: null });
+    return { itemId, reason: '적합성 표본 재열기' };
+  },
+  itemAssign: () => ({ itemId: IMPROVEMENT_OPEN, assigneeId: null }),
+  itemLinkQuest: () => ({ itemId: IMPROVEMENT_QUESTED, questId: 'Q-1', questTitle: '대기 시간 줄이기' }),
+};
+const writeSamples: Record<string, Record<string, () => Record<string, unknown>>> = {
+  logKnowledge: { ...catalogSamples, ...itemSamples, ...importSamples },
+  improvement: improvementSamples,
+};
+const actionCases = MOCK_ACTIONS.map(action => {
+  const dot = action.spec.id.indexOf('.');
+  const sample = writeSamples[action.spec.id.slice(0, dot)]![action.spec.id.slice(dot + 1)]!;
   const currentVersion = async () => action.version!({ input: sample(), actor: 'admin', scopeId: null }) ?? '';
   return { spec: action.spec, get input() { return sample(); }, ...(action.spec.concurrency === 'version' ? { currentVersion } : {}) };
 });
 const GRANTED: RoleId = 'engineer';
-// Only admin holds `knowledge:catalog-manage` and `knowledge:item-publish` in the mock (the server: Admin or a workspace
-// grant), so these writes run as admin; the removed-permission check removes the permission from admin's list too
-// (`withoutPermission` below), so it really takes the action actor's right away.
+// Only admin holds `knowledge:catalog-manage`, `knowledge:item-publish` and `improvement:manage` in the mock (the
+// server: Admin or a workspace grant), so these writes run as admin; the removed-permission check removes the
+// permission from admin's list too (`withoutPermission` below), so it really takes the action actor's right away.
 const CATALOG_PERMISSION = menuPermission('knowledge:catalog-manage');
 const ITEM_PUBLISH = menuPermission('knowledge:item-publish');
+const IMPROVEMENT_MANAGE = menuPermission('improvement:manage');
 const asRole = async <T,>(role: RoleId, fn: () => Promise<T>): Promise<T> => {
   const previous = getRole();
   setRole(role);
@@ -198,13 +232,13 @@ const savedViewStoreOf = (role: 'engineer' | 'admin') => createLocalSavedViewSto
 
 const conformanceAdapter = Object.assign(Object.create(adapter), {
   menuAction: (req: Parameters<typeof adapter.menuAction>[0]) =>
-    req.action.startsWith('logKnowledge.') ? asRole('admin', () => adapter.menuAction(req)) : adapter.menuAction(req),
+    req.action.startsWith('logKnowledge.') || req.action.startsWith('improvement.') ? asRole('admin', () => adapter.menuAction(req)) : adapter.menuAction(req),
 }) as typeof adapter;
 
 describeServerConformance('server boundary conformance — mock adapter', {
   adapter: conformanceAdapter,
   cases,
-  actions: [{ spec: fixtureSave, input: { text: 'sample' }, currentVersion: async () => String(fixtureVersion) }, ...catalogActionCases],
+  actions: [{ spec: fixtureSave, input: { text: 'sample' }, currentVersion: async () => String(fixtureVersion) }, ...actionCases],
   context: { scopeId: 'MEM', from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' },
   foreignScopeId: 'XIA',
   // Real mock data: the equipment sample sits in MEM/PHOTO (an engineer room), the engineer holds MEM + FDRY and
@@ -249,7 +283,7 @@ describeServerConformance('server boundary conformance — mock adapter', {
   },
   withoutPermission: async (permission: Permission, fn) => {
     const previous = getRole();
-    setRole(permission === CATALOG_PERMISSION || permission === ITEM_PUBLISH ? 'admin' : GRANTED);
+    setRole(permission === CATALOG_PERMISSION || permission === ITEM_PUBLISH || permission === IMPROVEMENT_MANAGE ? 'admin' : GRANTED);
     // The adapter's world is built from the vocabulary above, not the default USERS, so the granted role's list is the session's own array.
     const permissions = adapter.session().user.permissions as Permission[];
     const kept = [...permissions];

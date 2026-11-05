@@ -1,0 +1,45 @@
+{
+  "name": "@ap/menu-improvement-items",
+  "private": true,
+  "version": "0.1.0",
+  "ap": {
+    "sdk": ">=0.29.0 <0.30.0"
+  },
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./mock": "./src/mock/index.ts",
+    "./styles.css": "./src/styles.css"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@ap/components": "workspace:*",
+    "@ap/contracts": "workspace:*",
+    "@ap/kernel": "workspace:*",
+    "@ap/mock-server": "workspace:*",
+    "lucide-react": "^1.48.0",
+    "@ap/ui": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@ap/eslint-config": "workspace:*",
+    "@ap/tsconfig": "workspace:*",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "eslint": "^10.11.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
+    "jsdom": "^26.1.0"
+  }
+}

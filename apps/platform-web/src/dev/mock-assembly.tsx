@@ -8,11 +8,13 @@ import { clasMock } from '@ap/menu-clas/mock';
 import { hwTimeMock } from '@ap/menu-hw-time/mock';
 import { logKnowledgeMock } from '@ap/menu-log-knowledge/mock';
 import { systemsMock } from '@ap/menu-systems/mock';
+import { improvementItemsMock } from '@ap/menu-improvement-items/mock';
 // </gen:menu-mock-imports>
 // Audit seeds of menu-owned destinations (ADR-0048) — hand-wired, outside the generator's import region.
 import { metricsAuditEvents } from '@ap/menu-metrics/mock';
 // Menu mock actions (ADR-0054) — hand-wired: the generator writes endpoint markers only (backlog: generator support once a second menu has mock actions).
 import { logKnowledgeActionsMock } from '@ap/menu-log-knowledge/mock';
+import { improvementItemsActionsMock } from '@ap/menu-improvement-items/mock';
 import type { CreateAssembly } from '#platform-assembly';
 import { menuPermissions, type AuditEvent } from '@ap/contracts';
 import { createMockAdapter, seedUsageNext, storedUsage, type AnyMockAction, type AnyMockEndpoint } from '@ap/mock-server';
@@ -36,6 +38,7 @@ export const MOCK_ENDPOINTS: readonly AnyMockEndpoint[] = [
   ...hwTimeMock,
   ...logKnowledgeMock,
   ...systemsMock,
+  ...improvementItemsMock,
   // </gen:menu-mock-spreads>
 ];
 
@@ -48,7 +51,7 @@ export const MODULE_MOCK_ENDPOINTS: readonly AnyMockEndpoint[] = [...eqvMock];
 /**
  * Every menu mock action the app registers (hand-wired, ADR-0054). The mock adapter below and the conformance test read it.
  */
-export const MOCK_ACTIONS: readonly AnyMockAction[] = [...logKnowledgeActionsMock];
+export const MOCK_ACTIONS: readonly AnyMockAction[] = [...logKnowledgeActionsMock, ...improvementItemsActionsMock];
 
 /**
  * Audit events of menu-owned destinations (ADR-0048). The mock server joins them with its own equipment events,
