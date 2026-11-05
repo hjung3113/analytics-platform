@@ -84,7 +84,8 @@ export function createNavigationGuard() {
           if (request?.view !== view) return;
           request = null;
           notify();
-          for (const b of [...blockers].reverse()) b.read().onDiscard?.();
+          // Only registrations still alive are asked to discard; one that unmounted while the dialog was open has nothing left to drop.
+          for (const b of [...blockers].reverse()) if (entries.has(b)) b.read().onDiscard?.();
           info.proceed();
         },
         cancel: () => { if (request?.view === view) dropRequest(); },

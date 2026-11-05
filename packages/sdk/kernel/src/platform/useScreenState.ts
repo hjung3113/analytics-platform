@@ -126,8 +126,8 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
 
   // Writers commit this screen's own address; they are not cross-menu navigation (a pane keeps writing to itself
   // even after its menu lost permission or board support).
-  const write = useCallback((next: string, options?: { replace?: boolean; focus?: PageFocus }) => {
-    commit(next, options?.replace ? 'replace' : 'push', { focus: options?.focus });
+  const write = useCallback((next: string, options?: { replace?: boolean; focus?: PageFocus; bypassGuard?: boolean }) => {
+    commit(next, options?.replace ? 'replace' : 'push', { focus: options?.focus, bypassGuard: options?.bypassGuard });
   }, [commit]);
 
   const setGlobal = useCallback((patch: Partial<GlobalContext>, options?: { replace?: boolean; silent?: boolean }) => {
@@ -138,7 +138,8 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
       next = { ...next, roomNames: null, lineNames: null, prcGroups: null, condition: null, membershipBasis: null, selection: null, lotIds: null, recipeIds: null, ppid: null };
       if (had && !options?.silent) toast(lang === 'ko' ? 'Scope 변경: room_name·Line·PRC 그룹·설비 조건·선택·Lot·Recipe를 초기화했습니다 (Site 경계).' : 'Scope changed: room_name, Line, PRC groups, condition, selection, Lot and Recipe were cleared (site boundary).', 'warning');
     }
-    write(pathname + buildQuery(next, dropContextResetKeys(page, next), extras), options);
+    // A Scope change is never held by the unsaved-edit guard, even for a guard that leaves on address change (ADR-0115 decision 4).
+    write(pathname + buildQuery(next, dropContextResetKeys(page, next), extras), 'scopeId' in patch && patch.scopeId !== global.scopeId ? { ...options, bypassGuard: true } : options);
   }, [global, page, extras, pathname, write, toast, lang, dropContextResetKeys]);
 
   // A patch that changes a drill level value also drops the menu's `drill.resetKeys` in the same write (one history entry, 06 §6.4).

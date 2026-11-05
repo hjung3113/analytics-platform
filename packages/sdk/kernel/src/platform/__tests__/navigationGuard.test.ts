@@ -45,6 +45,19 @@ describe('navigation guard store (ADR-0115)', () => {
     expect(g.getRequest()).toBeNull();
   });
 
+  it('confirm skips a blocker that unmounted while the request was pending', () => {
+    const g = createNavigationGuard();
+    const order: string[] = [];
+    reg(g, { onDiscard: () => order.push('live') });
+    const off = reg(g, { onDiscard: () => order.push('gone') });
+    const { view, proceed } = ask(g);
+    off();
+    expect(g.getRequest()).toBe(view);
+    view!.confirm();
+    expect(order).toEqual(['live']);
+    expect(proceed).toHaveBeenCalledTimes(1);
+  });
+
   it('a registrant that is not left keeps its draft: its onDiscard does not run', () => {
     const g = createNavigationGuard();
     const kept = vi.fn(); const left = vi.fn();

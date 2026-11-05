@@ -145,6 +145,15 @@ describe('menu leave guard: links and navigate (ADR-0115)', () => {
     expect(here()).toContain('scopeId=S2');
   });
 
+  it("a Scope change is not held even by a guard that leaves on 'address'", () => {
+    guardOptions = { leaves: 'address' };
+    mount('/mars/editor');
+    act(() => setDirty(true));
+    act(() => platform.setGlobal({ scopeId: 'S2' }));
+    expect(request).toBeNull();
+    expect(here()).toContain('scopeId=S2');
+  });
+
   it('unmounting the guard while a request is pending drops it without leaving', () => {
     mount('/mars/editor');
     act(() => setDirty(true));
