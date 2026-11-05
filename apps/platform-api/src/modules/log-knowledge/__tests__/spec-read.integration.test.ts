@@ -379,7 +379,7 @@ describe.skipIf(!runIntegration)('model spec schema and reads (#1196 a)', () => 
       ['no modelId', {}],
       ['modelId not a uuid', { modelId: 'x' }],
       ['modelId null', { modelId: null }],
-      ['unknown param', { modelId: randomUUID(), softwareId: randomUUID() }],
+      ['unknown param', { modelId: randomUUID(), bogus: randomUUID() }],
     ])('refuses %s with an error outcome', async (_name, params) => {
       const res = await query('logKnowledge.modelSpec', params);
       expect(res.statusCode === 200 ? res.json<Answer>().outcome : 'http-error').not.toBe('ok');

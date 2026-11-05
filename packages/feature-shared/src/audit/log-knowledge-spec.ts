@@ -8,9 +8,12 @@ export const LOG_KNOWLEDGE_SPEC_AUDIT_EVENT_TYPES = [
   'knowledge.spec.draft_saved',
   'knowledge.spec.published',
   'knowledge.spec.rejected',
+  'knowledge.spec.change_added',
+  'knowledge.spec.change_retired',
+  'knowledge.spec.change_confirmed',
 ] as const;
 
-/** Subject id of these events is the revision id. */
+/** Subject id of the draft / publish / reject events is the revision id; of the `change_*` events (#1196 c) the SW change row id. */
 export const LOG_KNOWLEDGE_SPEC_SUBJECT_TYPES = ['knowledge_model_spec'] as const;
 
 const countsSchema = z
@@ -47,6 +50,8 @@ export const logKnowledgeSpecPublishedDetailSchema = z
     counts: countsSchema,
     /** `unchanged` only: the already published revision with the same hash. */
     existingRevisionId: z.string().uuid().optional(),
+    /** `published` only (#1196 c): how many open SW changes the publish flagged for re-validation; absent on rows written before. */
+    flagged: z.number().int().min(0).optional(),
   })
   .strict();
 
@@ -58,8 +63,42 @@ export const logKnowledgeSpecRejectedDetailSchema = z
   })
   .strict();
 
+// SW change events (#1196 c): ids, kinds and numbers only — never the target key, the note or the change body.
+export const logKnowledgeSpecChangeAddedDetailSchema = z
+  .object({
+    modelId: z.string().uuid(),
+    changeId: z.string().uuid(),
+    softwareId: z.string().uuid(),
+    endsBeforeSoftwareId: z.string().uuid().nullable(),
+    targetKind: z.enum(['module', 'event', 'field', 'relation']),
+    changeKind: z.enum(['added', 'removed', 'changed', 'behavior']),
+    basedOnRevNo: z.number().int().min(1),
+    /** A replacement written by `specChangeRetire`: the change it replaces. */
+    replacesChangeId: z.string().uuid().optional(),
+  })
+  .strict();
+
+export const logKnowledgeSpecChangeRetiredDetailSchema = z
+  .object({
+    modelId: z.string().uuid(),
+    changeId: z.string().uuid(),
+    replacementChangeId: z.string().uuid().optional(),
+  })
+  .strict();
+
+export const logKnowledgeSpecChangeConfirmedDetailSchema = z
+  .object({
+    modelId: z.string().uuid(),
+    changeId: z.string().uuid(),
+    revalidationRevNo: z.number().int().min(1).optional(),
+  })
+  .strict();
+
 export const LOG_KNOWLEDGE_SPEC_AUDIT_EVENT_DETAIL_SCHEMAS = {
   'knowledge.spec.draft_saved': logKnowledgeSpecDraftSavedDetailSchema,
   'knowledge.spec.published': logKnowledgeSpecPublishedDetailSchema,
   'knowledge.spec.rejected': logKnowledgeSpecRejectedDetailSchema,
+  'knowledge.spec.change_added': logKnowledgeSpecChangeAddedDetailSchema,
+  'knowledge.spec.change_retired': logKnowledgeSpecChangeRetiredDetailSchema,
+  'knowledge.spec.change_confirmed': logKnowledgeSpecChangeConfirmedDetailSchema,
 } as const satisfies Record<(typeof LOG_KNOWLEDGE_SPEC_AUDIT_EVENT_TYPES)[number], z.ZodTypeAny>;

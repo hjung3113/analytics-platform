@@ -929,3 +929,7 @@ apply is part of the normal migration run; see the 0084 note on maintenance wind
 `source = 'main'`, which no existing index covers beyond the `workspace_id, name` prefix; the new key lets them read
 one from menu directly. `usageSummary` and the drawer's own-entry count keep the 0075 summary/menu indexes. No grant,
 trigger, constraint or backfill.
+
+## SW change rows (#1196 c, migration 0096)
+
+Adds `knowledge.spec_sw_change` (design v0.6 §15.2) and the unique `software_version_workspace_model_id_uq (workspace_id, model_id, id)` that the composite FKs `(workspace_id, model_id, software_id | ends_before_software_id)` point at; `retired_by_change_id` points at the table's own `(workspace_id, model_id, id)`. Append-only for `platform_app`: `GRANT SELECT, INSERT` and `UPDATE (needs_revalidation, revalidation_rev_no, retired_at, retired_by, retired_by_change_id, row_version)`, no `DELETE`; `spec_sw_change_guard` (BEFORE UPDATE) rejects other column changes, a `row_version` step other than +1 and any change of a retired row. CHECKs: kinds, key length, `change_json` object ≤ 16 KiB, note ≤ 1000, flag needs `revalidation_rev_no`, retire columns move together and a retired row carries no flag. Rules and actions: [api/log-knowledge.md](api/log-knowledge.md) §SW changes. No audit projection change (existing subject type and capability).

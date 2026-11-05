@@ -204,6 +204,8 @@ export const softwareVersions = knowledgeSchema.table(
   (t) => ({
     releaseOrderIdx: index('software_version_model_release_order_idx').on(t.workspaceId, t.modelId, t.releaseOrder),
     workspaceIdUq: unique('software_version_workspace_id_id_uq').on(t.workspaceId, t.id),
+    // Target of the same-model composite FKs of `spec_sw_change` (#1196 c).
+    workspaceModelIdUq: unique('software_version_workspace_model_id_uq').on(t.workspaceId, t.modelId, t.id),
     modelFk: foreignKey({
       name: 'software_version_model_fk',
       columns: [t.workspaceId, t.modelId],
@@ -860,5 +862,94 @@ export const specEventRelations = knowledgeSchema.table(
       sql`char_length(${t.predicate}) between 1 and 100 and btrim(${t.predicate}) <> ''`,
     ),
     notSelfCheck: check('spec_event_relation_not_self_check', sql`${t.sourceEventId} <> ${t.targetEventId}`),
+  }),
+);
+
+// SW change rows (design v0.6 §15.2, #1196 c): what differs for a software version from the published model spec.
+// Append-only for the runtime role: INSERT, and UPDATE of the flag / retire / version columns only (migration 0096
+// grant + `spec_sw_change_guard`); no DELETE. `release_order` is mutable, so the range is judged when read.
+const SPEC_CHANGE_TARGET_KINDS = "('module','event','field','relation')";
+const SPEC_CHANGE_KINDS = "('added','removed','changed','behavior')";
+
+export const specSwChanges = knowledgeSchema.table(
+  'spec_sw_change',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    modelId: uuid('model_id').notNull(),
+    // The change applies FROM this software version (by release_order) up to, not including, `endsBeforeSoftwareId`.
+    softwareId: uuid('software_id').notNull(),
+    endsBeforeSoftwareId: uuid('ends_before_software_id'),
+    targetKind: text('target_kind').notNull(),
+    // Escaped stable key, grammar in `domain/spec-target-key.ts` (design §15.2).
+    targetKey: text('target_key').notNull(),
+    changeKind: text('change_kind').notNull(),
+    // closed v1: added {after}, removed {before}, changed {before, after}, behavior {}.
+    changeJson: jsonb('change_json').notNull(),
+    note: text('note'),
+    // The published revision number the change was written against (server-set).
+    basedOnRevNo: integer('based_on_rev_no').notNull(),
+    evidenceRef: text('evidence_ref'),
+    needsRevalidation: boolean('needs_revalidation').notNull().default(false),
+    // The revision number that last touched the key (the cause of the flag).
+    revalidationRevNo: integer('revalidation_rev_no'),
+    retiredAt: timestamp('retired_at', { withTimezone: true }),
+    retiredBy: uuid('retired_by').references(() => actors.id),
+    // Set only when the retire carried a replacement.
+    retiredByChangeId: uuid('retired_by_change_id'),
+    createdBy: uuid('created_by')
+      .notNull()
+      .references(() => actors.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    rowVersion: integer('row_version').notNull().default(1),
+  },
+  (t) => ({
+    workspaceIdUq: unique('spec_sw_change_workspace_id_id_uq').on(t.workspaceId, t.id),
+    workspaceModelIdUq: unique('spec_sw_change_workspace_model_id_uq').on(t.workspaceId, t.modelId, t.id),
+    modelFk: foreignKey({
+      name: 'spec_sw_change_model_fk',
+      columns: [t.workspaceId, t.modelId],
+      foreignColumns: [equipmentModels.workspaceId, equipmentModels.id],
+    }).onDelete('restrict'),
+    softwareFk: foreignKey({
+      name: 'spec_sw_change_software_fk',
+      columns: [t.workspaceId, t.modelId, t.softwareId],
+      foreignColumns: [softwareVersions.workspaceId, softwareVersions.modelId, softwareVersions.id],
+    }).onDelete('restrict'),
+    endsBeforeFk: foreignKey({
+      name: 'spec_sw_change_ends_before_fk',
+      columns: [t.workspaceId, t.modelId, t.endsBeforeSoftwareId],
+      foreignColumns: [softwareVersions.workspaceId, softwareVersions.modelId, softwareVersions.id],
+    }).onDelete('restrict'),
+    retiredByChangeFk: foreignKey({
+      name: 'spec_sw_change_retired_by_change_fk',
+      columns: [t.workspaceId, t.modelId, t.retiredByChangeId],
+      foreignColumns: [t.workspaceId, t.modelId, t.id],
+    }).onDelete('restrict'),
+    openKeyIdx: index('spec_sw_change_open_key_idx')
+      .on(t.workspaceId, t.modelId, t.targetKey)
+      .where(sql`${t.retiredAt} is null`),
+    listIdx: index('spec_sw_change_model_created_idx').on(t.workspaceId, t.modelId, t.createdAt, t.id),
+    targetKindCheck: check('spec_sw_change_target_kind_check', sql`${t.targetKind} in ${sql.raw(SPEC_CHANGE_TARGET_KINDS)}`),
+    changeKindCheck: check('spec_sw_change_change_kind_check', sql`${t.changeKind} in ${sql.raw(SPEC_CHANGE_KINDS)}`),
+    targetKeyCheck: check('spec_sw_change_target_key_check', sql`char_length(${t.targetKey}) between 1 and 1200`),
+    changeJsonCheck: check(
+      'spec_sw_change_change_json_check',
+      sql`jsonb_typeof(${t.changeJson}) = 'object' and octet_length(${t.changeJson}::text) <= 16384`,
+    ),
+    noteCheck: check('spec_sw_change_note_check', sql`${t.note} is null or char_length(${t.note}) <= 1000`),
+    evidenceCheck: check('spec_sw_change_evidence_ref_check', sql`${t.evidenceRef} is null or char_length(${t.evidenceRef}) <= 500`),
+    basedOnCheck: check('spec_sw_change_based_on_check', sql`${t.basedOnRevNo} >= 1`),
+    revalidationCheck: check(
+      'spec_sw_change_revalidation_check',
+      sql`(${t.revalidationRevNo} is null or ${t.revalidationRevNo} >= 1) and (not ${t.needsRevalidation} or ${t.revalidationRevNo} is not null)`,
+    ),
+    retiredCheck: check(
+      'spec_sw_change_retired_check',
+      sql`((${t.retiredAt} is null) = (${t.retiredBy} is null)) and (${t.retiredByChangeId} is null or ${t.retiredAt} is not null) and (${t.retiredAt} is null or not ${t.needsRevalidation})`,
+    ),
+    versionCheck: check('spec_sw_change_row_version_check', sql`${t.rowVersion} >= 1`),
   }),
 );

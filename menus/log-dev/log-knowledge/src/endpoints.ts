@@ -101,7 +101,8 @@ export type ModelSpecData = {
   events: { id: string; moduleId: string; eventKey: string; name: string; fields: unknown; triggerRule: string | null; detailDocRef: string | null }[];
   relations: { id: string; sourceEventId: string; predicate: string; targetEventId: string; ruleRef: string | null }[];
 };
-export type ModelSpecParams = { modelId: string };
+/** `softwareId` (#1196 c): the version whose effective spec is read; the answer is then `ModelSpecEffective`. */
+export type ModelSpecParams = { modelId: string; softwareId?: string };
 export type SpecRevisionHeader = {
   id: string; revisionNo: number; state: 'draft' | 'published' | 'rejected'; publishedAt: string | null; publishedBy: string | null;
   contentSha256: string | null; eventCount: number;
@@ -110,8 +111,30 @@ export type SpecRevisionHeader = {
 };
 export type ModelSpecRevisionsParams = { modelId: string; page?: number; pageSize?: number };
 
-export const modelSpecEndpoint = defineEndpoint<ModelSpecParams, ModelSpecData | null>({
-  id: 'logKnowledge.modelSpec', menuId: LOG_KNOWLEDGE_MODELS_MENU_ID, paramKeys: { modelId: true }, permission: 'platform:view',
+export type SpecTargetKind = 'module' | 'event' | 'field' | 'relation';
+export type SpecChangeKind = 'added' | 'removed' | 'changed' | 'behavior';
+/** What touched an entry of the effective spec. */
+export type SpecChangeMark = { changeId: string; changeKind: SpecChangeKind; targetKind: SpecTargetKind; targetKey: string };
+type SpecMarked = { origin: 'revision' | 'change'; changed: SpecChangeMark[]; needsRevalidation: boolean };
+/** `modelSpec` with a `softwareId` and no applicable change: exactly the model spec, flagged `effective: false`. */
+export type ModelSpecUnchanged = ModelSpecData & { effective: false };
+/** `modelSpec` with a `softwareId` and at least one applicable change (`id`s are null for change-added entries). */
+export type ModelSpecEffective = {
+  revision: ModelSpecData['revision']; effective: true; softwareId: string;
+  modules: (SpecMarked & { id: string | null; moduleKey: string; name: string; parentModuleId: string | null; parentModuleKey: string | null })[];
+  events: (SpecMarked & { id: string | null; moduleId: string | null; moduleKey: string; eventKey: string; name: string; fields: unknown; triggerRule: string | null; detailDocRef: string | null })[];
+  relations: (SpecMarked & {
+    id: string | null; sourceEventId: string | null; targetEventId: string | null; sourceModuleKey: string; sourceEventKey: string;
+    predicate: string; targetModuleKey: string; targetEventKey: string; ruleRef: string | null;
+  })[];
+  /** Changes that could not be applied (the revision moved on); not applied, listed for review. */
+  stale: (SpecChangeMark & { reason: 'exists' | 'gone' | 'before_mismatch' | 'parent_missing' | 'malformed'; needsRevalidation: boolean })[];
+  /** Targets a `removed` change took out. */
+  removed: (SpecChangeMark & { needsRevalidation: boolean })[];
+};
+
+export const modelSpecEndpoint = defineEndpoint<ModelSpecParams, ModelSpecData | ModelSpecUnchanged | ModelSpecEffective | null>({
+  id: 'logKnowledge.modelSpec', menuId: LOG_KNOWLEDGE_MODELS_MENU_ID, paramKeys: { modelId: true, softwareId: true }, permission: 'platform:view',
   requiresScope: false, context: {}, kinds: [], mergeTimeDomain: false,
 });
 export const modelSpecRevisionsEndpoint = defineEndpoint<ModelSpecRevisionsParams, PageResult<SpecRevisionHeader>>({
@@ -148,8 +171,28 @@ export const specDraftEndpoint = defineEndpoint<SpecDraftParams, SpecDraftData |
   id: 'logKnowledge.specDraft', menuId: LOG_KNOWLEDGE_MODELS_MENU_ID, paramKeys: { revisionId: true }, permission: SPEC_PUBLISH_PERMISSION,
   requiresScope: false, context: {}, kinds: [], mergeTimeDomain: false,
 });
-/** The model spec reads (#1196 a, b1), after the model reads in the server's order. */
-export const modelSpecEndpointSpecs = [modelSpecEndpoint, modelSpecRevisionsEndpoint, specDraftEndpoint] as const;
+
+// ---- SW changes (#1196 c) ----------------------------------------------------------------------------------------
+export const SPEC_CHANGE_LIMITS = { changeJsonBytes: 16 * 1024, note: 1000, evidenceRef: 500, openPerModel: 500 } as const;
+export type SpecChangeStatus = 'open' | 'retired' | 'all';
+export type SpecChangesParams = { modelId: string; softwareId?: string; needsRevalidation?: boolean; status?: SpecChangeStatus; page?: number; pageSize?: number };
+export type SpecChangeRow = {
+  id: string; softwareId: string; softwareLabel: string; endsBeforeSoftwareId: string | null; endsBeforeLabel: string | null;
+  targetKind: SpecTargetKind; targetKey: string; changeKind: SpecChangeKind;
+  /** closed v1: added {after}, removed {before}, changed {before, after}, behavior {}. */
+  change: { before?: Record<string, unknown>; after?: Record<string, unknown> };
+  note: string | null; basedOnRevNo: number; evidenceRef: string | null; needsRevalidation: boolean; revalidationRevNo: number | null;
+  retiredAt: string | null; retiredBy: string | null; retiredByChangeId: string | null; createdAt: string; createdBy: string;
+  /** `row_version`: the `expectedVersion` of retire / confirm. */
+  version: number;
+};
+export const specChangesEndpoint = defineEndpoint<SpecChangesParams, PageResult<SpecChangeRow>>({
+  id: 'logKnowledge.specChanges', menuId: LOG_KNOWLEDGE_MODELS_MENU_ID,
+  paramKeys: { modelId: true, softwareId: true, needsRevalidation: true, status: true, page: true, pageSize: true }, permission: 'platform:view',
+  requiresScope: false, context: {}, kinds: [], mergeTimeDomain: false,
+});
+/** The model spec reads (#1196 a, b1, c), after the model reads in the server's order. */
+export const modelSpecEndpointSpecs = [modelSpecEndpoint, modelSpecRevisionsEndpoint, specDraftEndpoint, specChangesEndpoint] as const;
 
 export type SpecDraftCreateInput = { modelId: string; sourceDocRef: SpecSourceDocRef };
 export type SpecDraftSaveInput = {
@@ -170,7 +213,7 @@ export type SpecPublishResult =
   | { outcome: 'unchanged'; revisionId: string };
 export type SpecRejectResult = { revisionId: string };
 
-const specWrites = [modelSpecEndpoint, modelSpecRevisionsEndpoint, specDraftEndpoint];
+const specWrites = [modelSpecEndpoint, modelSpecRevisionsEndpoint, specDraftEndpoint, specChangesEndpoint];
 const specWrite = <I, O>(name: string, inputKeys: Record<keyof I & string, true>, concurrency: 'none' | 'version') =>
   defineAction<I, O>({
     id: `logKnowledge.${name}`, menuId: LOG_KNOWLEDGE_MODELS_MENU_ID, inputKeys, permission: SPEC_PUBLISH_PERMISSION,
@@ -180,8 +223,34 @@ export const specDraftCreate = specWrite<SpecDraftCreateInput, SpecDraftCreateRe
 export const specDraftSave = specWrite<SpecDraftSaveInput, SpecDraftSaveResult>('specDraftSave', { revisionId: true, mode: true, sourceDocRef: true, modules: true, events: true, relations: true, text: true, format: true }, 'version');
 export const specPublish = specWrite<SpecPublishInput, SpecPublishResult>('specPublish', { revisionId: true }, 'version');
 export const specReject = specWrite<SpecRejectInput, SpecRejectResult>('specReject', { revisionId: true, reason: true }, 'version');
-/** The four spec writes in the server's order. */
-export const specActionSpecs = [specDraftCreate, specDraftSave, specPublish, specReject] as const;
+
+// SW change writes (#1196 c): same right, `invalidates` = the change list and the model spec (the draft and revision reads do not move).
+export type SpecChangeTarget =
+  | { module: string }
+  | { module: string; event: string }
+  | { module: string; event: string; field: string }
+  | { sourceModule: string; sourceEvent: string; predicate: string; targetModule: string; targetEvent: string };
+type SpecChangeBody = {
+  softwareId: string; endsBeforeSoftwareId?: string | null; targetKind: SpecTargetKind; target: SpecChangeTarget; changeKind: SpecChangeKind;
+  change?: { before?: Record<string, unknown>; after?: Record<string, unknown> }; note?: string | null; evidenceRef?: string | null;
+};
+export type SpecChangeAddInput = SpecChangeBody & { modelId: string };
+export type SpecChangeRetireInput = { changeId: string; replacement?: SpecChangeBody | null };
+export type SpecChangeConfirmInput = { changeId: string };
+export type SpecChangeAddResult = { changeId: string };
+export type SpecChangeRetireResult = { changeId: string; replacementChangeId?: string };
+export type SpecChangeConfirmResult = { changeId: string };
+const specChangeReads = [specChangesEndpoint, modelSpecEndpoint];
+const specChangeWrite = <I, O>(name: string, inputKeys: Record<keyof I & string, true>, concurrency: 'none' | 'version') =>
+  defineAction<I, O>({
+    id: `logKnowledge.${name}`, menuId: LOG_KNOWLEDGE_MODELS_MENU_ID, inputKeys, permission: SPEC_PUBLISH_PERMISSION,
+    requiresScope: false, concurrency, invalidates: specChangeReads,
+  });
+export const specChangeAdd = specChangeWrite<SpecChangeAddInput, SpecChangeAddResult>('specChangeAdd', { modelId: true, softwareId: true, endsBeforeSoftwareId: true, targetKind: true, target: true, changeKind: true, change: true, note: true, evidenceRef: true }, 'none');
+export const specChangeRetire = specChangeWrite<SpecChangeRetireInput, SpecChangeRetireResult>('specChangeRetire', { changeId: true, replacement: true }, 'version');
+export const specChangeConfirm = specChangeWrite<SpecChangeConfirmInput, SpecChangeConfirmResult>('specChangeConfirm', { changeId: true }, 'version');
+/** The four spec writes and the three SW change writes in the server's order. */
+export const specActionSpecs = [specDraftCreate, specDraftSave, specPublish, specReject, specChangeAdd, specChangeRetire, specChangeConfirm] as const;
 
 /** What every write answers: the row's identity and its new version. */
 export type CatalogSummary = { id: string; code: string; name: string; active: boolean; version: string };

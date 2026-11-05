@@ -673,6 +673,13 @@
       "when": 1793844390354,
       "tag": "0095_usage_events_next_from_idx",
       "breakpoints": true
+    },
+    {
+      "idx": 96,
+      "version": "7",
+      "when": 1793850951757,
+      "tag": "0096_spec_sw_change",
+      "breakpoints": true
     }
   ]
 }

@@ -2,14 +2,21 @@
 // session's workspace. `modelSpec` returns the latest published revision and nothing of a draft or rejected one;
 // `modelSpecRevisions` lists every revision's header (a draft shows up as a row, its content never does).
 
-import { and, asc, desc, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, isNotNull, isNull, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 
 import {
   modelSpecRevisions,
+  softwareVersions,
   specEventRelations,
   specEvents,
   specModules,
+  specSwChanges,
 } from '../../../db/schema/knowledge.js';
+import { type EffectiveChange, type EffectiveSpec, applySpecChanges } from '../domain/spec-effective.js';
+import { appliesAt, compareApplication } from '../domain/spec-range.js';
+import type { SpecChangeKind } from '../domain/spec-effective.js';
+import type { SpecTargetKind } from '../domain/spec-target-key.js';
 import type { Tx } from '../../../db/tx.js';
 import type { Page } from './catalog-read.js';
 
@@ -204,6 +211,151 @@ export async function listModelSpecRevisions(
       publishedBy: row.publishedBy,
       contentSha256: row.contentSha256,
       eventCount: count,
+      version: row.rowVersion,
+    })),
+  };
+}
+
+// ---- effective spec (#1196 c) ------------------------------------------------------------------------------------
+
+/** `modelSpec` with a `softwareId`: the published revision with the changes that apply to that version (no change = the model spec as is). */
+export type EffectiveModelSpecData =
+  | (ModelSpecData & { effective: false })
+  | ({ revision: ModelSpecData['revision']; effective: true; softwareId: string } & EffectiveSpec);
+
+/** Null when the model has no published revision, or the software version is not a version of this model. */
+export async function getEffectiveModelSpec(
+  tx: Tx,
+  workspaceId: string,
+  modelId: string,
+  softwareId: string,
+): Promise<EffectiveModelSpecData | null> {
+  const [software] = await tx
+    .select({ order: softwareVersions.releaseOrder })
+    .from(softwareVersions)
+    .where(and(eq(softwareVersions.workspaceId, workspaceId), eq(softwareVersions.modelId, modelId), eq(softwareVersions.id, softwareId)));
+  if (!software) return null;
+  const spec = await getModelSpec(tx, workspaceId, modelId);
+  if (!spec) return null;
+  const c = specSwChanges;
+  const end = alias(softwareVersions, 'end_sw');
+  // Every open change of the model (bounded by the per-model cap); the range is judged here against the CURRENT order.
+  const rows = await tx
+    .select({
+      id: c.id, targetKind: c.targetKind, targetKey: c.targetKey, changeKind: c.changeKind, change: c.changeJson,
+      needsRevalidation: c.needsRevalidation, createdAt: c.createdAt, start: softwareVersions.releaseOrder, endBefore: end.releaseOrder,
+    })
+    .from(c)
+    .innerJoin(softwareVersions, and(eq(softwareVersions.workspaceId, c.workspaceId), eq(softwareVersions.id, c.softwareId)))
+    .leftJoin(end, and(eq(end.workspaceId, c.workspaceId), eq(end.id, c.endsBeforeSoftwareId)))
+    .where(and(eq(c.workspaceId, workspaceId), eq(c.modelId, modelId), isNull(c.retiredAt)));
+  const applicable = rows
+    .filter((r) => appliesAt({ start: r.start, endBefore: r.endBefore }, software.order))
+    .map((r) => ({ ...r, createdAtIso: r.createdAt.toISOString() }))
+    .sort((a, b) => compareApplication({ start: a.start, createdAt: a.createdAtIso, id: a.id }, { start: b.start, createdAt: b.createdAtIso, id: b.id }));
+  if (applicable.length === 0) return { ...spec, effective: false };
+  const changes: EffectiveChange[] = applicable.map((r) => ({
+    id: r.id,
+    targetKind: r.targetKind as SpecTargetKind,
+    targetKey: r.targetKey,
+    changeKind: r.changeKind as SpecChangeKind,
+    change: (r.change ?? {}) as Record<string, unknown>,
+    needsRevalidation: r.needsRevalidation,
+  }));
+  return { revision: spec.revision, effective: true, softwareId, ...applySpecChanges(spec, changes) };
+}
+
+// ---- change list (#1196 c) ---------------------------------------------------------------------------------------
+
+export interface SpecChangeRow {
+  id: string;
+  softwareId: string;
+  softwareLabel: string;
+  endsBeforeSoftwareId: string | null;
+  endsBeforeLabel: string | null;
+  targetKind: string;
+  targetKey: string;
+  changeKind: string;
+  change: unknown;
+  note: string | null;
+  basedOnRevNo: number;
+  evidenceRef: string | null;
+  needsRevalidation: boolean;
+  revalidationRevNo: number | null;
+  retiredAt: string | null;
+  retiredBy: string | null;
+  retiredByChangeId: string | null;
+  createdAt: string;
+  createdBy: string;
+  /** `row_version`: the `expectedVersion` of retire / confirm. */
+  version: number;
+}
+
+export interface SpecChangeFilters {
+  softwareId?: string;
+  needsRevalidation?: boolean;
+  status: 'open' | 'retired' | 'all';
+}
+
+/** Changes of one model, newest first. `softwareId` keeps the changes whose range contains that version (open-ended or before its end). */
+export async function listSpecChanges(
+  tx: Tx,
+  workspaceId: string,
+  modelId: string,
+  filters: SpecChangeFilters,
+  paging: { page: number; pageSize: number },
+): Promise<Page<SpecChangeRow>> {
+  const c = specSwChanges;
+  const end = alias(softwareVersions, 'end_sw');
+  const at = sql`(select s.release_order from knowledge.software_version s where s.workspace_id = ${workspaceId} and s.model_id = ${modelId} and s.id = ${filters.softwareId ?? null}::uuid)`;
+  const where = and(
+    eq(c.workspaceId, workspaceId),
+    eq(c.modelId, modelId),
+    filters.status === 'open' ? isNull(c.retiredAt) : filters.status === 'retired' ? isNotNull(c.retiredAt) : undefined,
+    filters.needsRevalidation === undefined ? undefined : eq(c.needsRevalidation, filters.needsRevalidation),
+    filters.softwareId === undefined
+      ? undefined
+      : sql`${softwareVersions.releaseOrder} <= ${at} and (${end.releaseOrder} is null or ${at} < ${end.releaseOrder})`,
+  );
+  const from = () =>
+    tx
+      .select({ row: c, softwareLabel: softwareVersions.versionLabel, endsBeforeLabel: end.versionLabel })
+      .from(c)
+      .innerJoin(softwareVersions, and(eq(softwareVersions.workspaceId, c.workspaceId), eq(softwareVersions.id, c.softwareId)))
+      .leftJoin(end, and(eq(end.workspaceId, c.workspaceId), eq(end.id, c.endsBeforeSoftwareId)))
+      .where(where);
+  const rows = await from()
+    .orderBy(desc(c.createdAt), asc(c.id))
+    .limit(paging.pageSize)
+    .offset(paging.page * paging.pageSize);
+  const [totalRow] = await tx
+    .select({ n: sql<number>`count(*)::int` })
+    .from(c)
+    .innerJoin(softwareVersions, and(eq(softwareVersions.workspaceId, c.workspaceId), eq(softwareVersions.id, c.softwareId)))
+    .leftJoin(end, and(eq(end.workspaceId, c.workspaceId), eq(end.id, c.endsBeforeSoftwareId)))
+    .where(where);
+  return {
+    total: totalRow?.n ?? 0,
+    rows: rows.map(({ row, softwareLabel, endsBeforeLabel }) => ({
+      id: row.id,
+      softwareId: row.softwareId,
+      softwareLabel,
+      endsBeforeSoftwareId: row.endsBeforeSoftwareId,
+      endsBeforeLabel,
+      targetKind: row.targetKind,
+      targetKey: row.targetKey,
+      changeKind: row.changeKind,
+      change: row.changeJson,
+      note: row.note,
+      basedOnRevNo: row.basedOnRevNo,
+      evidenceRef: row.evidenceRef,
+      needsRevalidation: row.needsRevalidation,
+      revalidationRevNo: row.revalidationRevNo,
+      retiredAt: iso(row.retiredAt),
+      retiredBy: row.retiredBy,
+      retiredByChangeId: row.retiredByChangeId,
+      createdAt: row.createdAt.toISOString(),
+      createdBy: row.createdBy,
       version: row.rowVersion,
     })),
   };

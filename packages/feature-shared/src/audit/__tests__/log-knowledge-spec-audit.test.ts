@@ -16,6 +16,13 @@ describe('log knowledge spec audit detail schemas (ADR-0111)', () => {
     ['knowledge.spec.published', { modelId: ID, revisionNo: 1, outcome: 'published', contentSha256: HASH, counts }],
     ['knowledge.spec.published', { modelId: ID, revisionNo: 2, outcome: 'unchanged', contentSha256: HASH, counts, existingRevisionId: ID }],
     ['knowledge.spec.rejected', { modelId: ID, revisionNo: 1, reasonLength: 12 }],
+    // #1196 c: the flag count of a publish and the three SW change events
+    ['knowledge.spec.published', { modelId: ID, revisionNo: 2, outcome: 'published', contentSha256: HASH, counts, flagged: 3 }],
+    ['knowledge.spec.change_added', { modelId: ID, changeId: ID, softwareId: ID, endsBeforeSoftwareId: null, targetKind: 'event', changeKind: 'changed', basedOnRevNo: 1 }],
+    ['knowledge.spec.change_added', { modelId: ID, changeId: ID, softwareId: ID, endsBeforeSoftwareId: ID, targetKind: 'field', changeKind: 'added', basedOnRevNo: 2, replacesChangeId: ID }],
+    ['knowledge.spec.change_retired', { modelId: ID, changeId: ID }],
+    ['knowledge.spec.change_retired', { modelId: ID, changeId: ID, replacementChangeId: ID }],
+    ['knowledge.spec.change_confirmed', { modelId: ID, changeId: ID, revalidationRevNo: 2 }],
   ] as const)('%s accepts its detail', (type, detail) => {
     expect(AUDIT_EVENT_DETAIL_SCHEMAS[type].safeParse(detail).success).toBe(true);
   });
@@ -25,6 +32,11 @@ describe('log knowledge spec audit detail schemas (ADR-0111)', () => {
     ['knowledge.spec.draft_saved', 'a module body', { modelId: ID, revisionNo: 1, mode: 'append', added: counts, modules: [] }],
     // #1196 fix C5: the published hash stays exactly 64 lowercase hex characters, next to the provenance case
     ['knowledge.spec.published', 'a malformed content hash', { modelId: ID, revisionNo: 1, outcome: 'published', contentSha256: 'x', counts }],
+    // #1196 c: the target key, the note and the change body stay out of the audit detail
+    ['knowledge.spec.change_added', 'the target key', { modelId: ID, changeId: ID, softwareId: ID, endsBeforeSoftwareId: null, targetKind: 'event', changeKind: 'changed', basedOnRevNo: 1, targetKey: 'a/b' }],
+    ['knowledge.spec.change_added', 'a note', { modelId: ID, changeId: ID, softwareId: ID, endsBeforeSoftwareId: null, targetKind: 'event', changeKind: 'behavior', basedOnRevNo: 1, note: 'x' }],
+    ['knowledge.spec.change_confirmed', 'a change body', { modelId: ID, changeId: ID, change: {} }],
+    ['knowledge.spec.published', 'a negative flag count', { modelId: ID, revisionNo: 1, outcome: 'published', contentSha256: HASH, counts, flagged: -1 }],
     ['knowledge.spec.draft_saved', 'an unknown provenance', { modelId: ID, revisionNo: 1, mode: 'append', input: 'file', added: counts }],
   ] as const)('%s rejects %s', (type, _label, detail) => {
     expect(AUDIT_EVENT_DETAIL_SCHEMAS[type].safeParse(detail).success).toBe(false);
