@@ -84,12 +84,18 @@ describe('toAuditEvent field mapping', () => {
 
 describe('0074 permission allowlist vs the capability registry', () => {
   it('lists exactly the non-sensitive capabilities (DB-free twin of the integration it.each)', () => {
-    const sql = readFileSync(
-      new URL('../../../../migrations/0096_voc_create_mode.sql', import.meta.url),
-      'utf8',
-    );
-    const list = /\(l\.detail ->> 'capability'\) = ANY \(ARRAY\[([^\]]+)\]/.exec(sql)?.[1];
-    if (list === undefined) throw new Error('capability allowlist not found in 0096 (latest definition)');
+    // Latest migration (by drizzle journal order) that defines the allowlist; a renumber needs no edit here.
+    const journal = JSON.parse(
+      readFileSync(new URL('../../../../migrations/meta/_journal.json', import.meta.url), 'utf8'),
+    ) as { entries: { tag: string }[] };
+    const pattern = /\(l\.detail ->> 'capability'\) = ANY \(ARRAY\[([^\]]+)\]/;
+    let list: string | undefined;
+    for (const { tag } of [...journal.entries].reverse()) {
+      const sql = readFileSync(new URL(`../../../../migrations/${tag}.sql`, import.meta.url), 'utf8');
+      list = pattern.exec(sql)?.[1];
+      if (list !== undefined) break;
+    }
+    if (list === undefined) throw new Error('capability allowlist not found in any journaled migration');
     const listed = [...list.matchAll(/'([^']+)'/g)].map((m) => m[1] as string).sort();
     expect(listed).toEqual(CAPABILITIES.filter((c) => !isSensitiveCapability(c)).sort());
   });

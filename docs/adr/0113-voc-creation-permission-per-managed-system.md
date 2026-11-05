@@ -9,9 +9,9 @@
 
 ## 결정
 
-1. **시스템마다 `core.managed_systems.voc_create_mode`(`open` | `restricted`, 기본 `open`)를 둔다.** `open`은 `voc.create` 거부(deny)가 없으면 누구나, `restricted`는 Admin과 `voc.create` 부여(그 시스템 범위 또는 워크스페이스 전체)를 가진 사람만 등록한다. 거부는 두 모드 모두 Admin을 포함해 이긴다(05-permission-policy 확인 순서).
+1. **시스템마다 `core.managed_systems.voc_create_mode`(`open` | `restricted`, 기본 `open`)를 둔다.** `open`은 `voc.create` 거부(deny)가 없으면 누구나, `restricted`는 Admin(명시적 거부가 없을 때 부여 없이 통과)과 `voc.create` 부여(그 시스템 범위 또는 워크스페이스 전체)를 가진 사람만 등록한다. 거부는 두 모드 모두 Admin을 포함해 이긴다(05-permission-policy 확인 순서).
 2. **업무 시스템 연결(`space:<id>`) 시스템도 기본은 `open`이다.** 관리자가 시스템별로 좁힌다. 「그 업무 시스템에 들어갈 수 있는 사람」을 기본으로 바꾸는 일은 업무 시스템 진입 권한이 서버로 들어온 뒤(사내 SSO #150·#603 이후)로 미룬다. [backlog](../../.planning/backlog.md)에 «구현 안 함»으로 적었다.
-3. **좁히는 단위는 사람이다.** 기존 직접 부여(`voc.create`, 시스템 범위)를 쓰고 Admin은 항상 통과한다. 시스템별 역할 단계는 두지 않는다.
+3. **좁히는 단위는 사람이다.** 기존 직접 부여(`voc.create`, 시스템 범위)를 쓰고 Admin은 명시적 거부가 없으면 부여 없이 통과한다. 시스템별 역할 단계는 두지 않는다.
 4. **「플랫폼」 시스템(`external_key='platform'`)은 항상 열려 있다.** 서버가 `restricted`로의 변경을 `validation.failed`(`platform_always_open`)로 거절하고, 저장된 값과 무관하게 열린 것으로 판정한다.
 5. **이미 등록된 VOC는 건드리지 않는다.** 모드는 새 등록만 막는다. 읽기·수정·Reporter Reply는 지금 규칙 그대로다.
 6. **판정은 한 함수 `canCreateVoc`(permissions 모듈)가 한다.** `POST /vocs`는 시스템 잠금 트랜잭션 안에서 404(없음)·409(보관) 확인 뒤에 부르고, 불가면 403 `permission.denied`다. `GET /vocs/create-targets`는 같은 규칙을 거부·부여 조회 한 쌍으로 모든 살아 있는 시스템에 적용한다. 서버가 최종이고 조회는 제출 전 안내용이다.
