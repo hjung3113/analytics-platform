@@ -18,9 +18,12 @@ export default function OperationTimeScreen() {
   // keepPrevious ON (#1365, ADR-0114): picking another equipment re-reads the same period and Scope; the ranking and the flow title (from the data) stay until the new flow arrives.
   const query = useMenuQuery(operationTimeEndpoint, { eqp: pageParam('eqp') ?? '' }, true, { keepPrevious: true });
   return <PlatformPage dataTrustSummary={query.response ? <DataTrustIndicator trust={query.response.trust} assessments={query.response.assessments} /> : undefined}>
-    <QueryView query={query}>{data => <OperationTimeBody data={data} previousEquipment={query.showingPrevious ? (query.resultParams as { eqp?: string } | undefined)?.eqp ?? data.equipmentId ?? '' : null} />}</QueryView>
+    <QueryView query={query}>{data => <OperationTimeBody data={data} previousEquipment={query.showingPrevious ? acceptedEquipment((query.resultParams as { eqp?: string } | undefined)?.eqp, data.equipmentId) : null} />}</QueryView>
   </PlatformPage>;
 }
+
+// The accepted params carry an empty eqp for the default equipment (no `eqp` page key), so an empty value falls back to the equipment the data names.
+export function acceptedEquipment(eqp: string | undefined, dataEquipmentId: string | undefined): string { return eqp || dataEquipmentId || ''; }
 
 // A long result scrolls the Kernel notice off screen, so the section that reads the accepted equipment says it again locally (no role: the Kernel notice announces).
 export function PreviousEquipmentLine({ equipment }: { equipment: string | null }) {
