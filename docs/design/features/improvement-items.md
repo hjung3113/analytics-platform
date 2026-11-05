@@ -1,6 +1,6 @@
 # 개선 아이템 플랫폼 기능 — 설계 초안 (#1328)
 
-> **Status: 소유자 답 반영(2026-11-04) — §6 Q1–Q8을 추천대로 결정, 노드 a(스키마·읽기)·b(쓰기·이력·감사·`improvement.manage`) 구현됨, c–f 남음.** 단 Q3의 「담당자가 User인 경우 본인 건 상태 변경 예외」는 지금 두지 않는다(팀장 결정, 되돌릴 수 있음; 실제 User 담당자 사례가 생기면 다시 연다). 근거: [ADR-0106 개정 2](../../adr/0106-improvement-task-is-quest.md)(개선 아이템은 플랫폼 DB, Quest는 BRAVO 소유, ID로만 가리킴). 지금 레포에는 노드 a·b의 DB·읽기·쓰기 API([api/improvement-items.md](../../architecture/platform-api/api/improvement-items.md))가 있고, Quest 포트·화면은 없다. 용어는 [GLOSSARY](../../../GLOSSARY.md)의 `과제(Quest)`·`개선 아이템`·`효과 확인`. 답이 나오면 실제 대안 사이 결정은 ADR로 남긴다(다음 번호는 `next-adr.sh`로 확인).
+> **Status: 소유자 답 반영(2026-11-04) — §6 Q1–Q8을 추천대로 결정, 노드 a(스키마·읽기)·b(쓰기·이력·감사·`improvement.manage`)·c(Quest 읽기 포트·mock·HTTP 어댑터·적합성) 구현됨, d–f 남음.** 단 Q3의 「담당자가 User인 경우 본인 건 상태 변경 예외」는 지금 두지 않는다(팀장 결정, 되돌릴 수 있음; 실제 User 담당자 사례가 생기면 다시 연다). 근거: [ADR-0106 개정 2](../../adr/0106-improvement-task-is-quest.md)(개선 아이템은 플랫폼 DB, Quest는 BRAVO 소유, ID로만 가리킴). 지금 레포에는 노드 a·b의 DB·읽기·쓰기 API([api/improvement-items.md](../../architecture/platform-api/api/improvement-items.md))와 노드 c의 Quest 읽기 포트(어댑터 `getQuest`·`searchQuests`, 서버 모듈 없음)가 있고, 화면은 없다. 용어는 [GLOSSARY](../../../GLOSSARY.md)의 `과제(Quest)`·`개선 아이템`·`효과 확인`. 답이 나오면 실제 대안 사이 결정은 ADR로 남긴다(다음 번호는 `next-adr.sh`로 확인).
 
 ## 1. 도메인
 
@@ -29,12 +29,13 @@
 - 플랫폼은 Quest를 **ID로만** 저장하고, BRAVO 쪽 읽기는 `PlatformAdapter`의 읽기 전용 포트로 한다: `getQuest(id)`, `searchQuests({ query, status, page })`. 쓰기 없음. 구현은 사내 BRAVO 어댑터, 이 레포는 mock 어댑터와 계약 테스트만 갖는다.
 - 보이기: 포트 응답 `ok`면 현재 제목·상태를 보이고 스냅샷을 갱신하지 않는다(읽기는 읽기). `not_found`(사라짐)면 스냅샷 제목에 「BRAVO에서 확인되지 않음」을 붙이고 링크를 끈다. `unavailable`(BRAVO 오류)이면 스냅샷으로 보이고 「지금 확인할 수 없음」을 붙인다. 두 경우 모두 개선 아이템은 그대로 열리고 수정할 수 있다.
 - Quest 선택기: `searchQuests`를 쓴다. BRAVO가 검색을 못 주면 ID 직접 입력으로 낮춘다(Q7).
+- **결과 매핑(노드 c, 구현됨):** 포트는 던지지 않고 `ApiResponse`로 답한다. `getQuest(id)`: `ok`+데이터 = 보임, outcome `empty`+`data: null` = `not_found`, outcome `error` = `unavailable`, `forbidden`은 그대로. `searchQuests({ query?, status?, page, pageSize })`(`page` 0부터, `pageSize` 1–50, `query` ≤ 200자) → `QuestSearchPage = { supported, items, page, hasMore }`: 검색을 못 하는 BRAVO는 outcome `ok`·`supported: false`·`items: []`(선택기가 ID 직접 입력으로 낮춘다), 「일치 없음」은 `supported: true`·`items: []`, `error`는 BRAVO를 쓸 수 없을 때뿐이다. `Quest = { id, title, status }`이고 `status`는 BRAVO의 표시 문자열이라 값을 나열하지 않는다. 링크(`url`)는 안전한 URL 도우미를 재사용할 수 있을 때까지 계약에 없다. 새 `PortError` 코드는 만들지 않았다(코드 어휘·공개 API가 바뀐다).
 - Quest 화면은 BRAVO가 만든다. 개선 아이템 목록을 거기서 보이려면 플랫폼이 `questId`로 거른 목록 주소를 준다(교차 메뉴 링크).
 
 ## 3. API·DB (기존 log-knowledge·Task 패턴)
 
 - 새 모듈 `apps/platform-api/src/modules/improvement-items`, 소유 스키마 `improvement`(마이그레이션 노드 a). 표: `item`, `item_target`, `item_event`, `item_counter`. 모든 PK/FK에 `workspace_id`. 낙관적 동시성은 `row_version`.
-- 읽기(`platform:view`, menu-query): `improvement.items`(필터 `status`·`assignee`·`questId`·`questLinked`·`target`·`origin`), `improvement.itemDetail`, `improvement.itemEvents`, `improvement.questSearch`.
+- 읽기(`platform:view`, menu-query): `improvement.items`(필터 `status`·`assignee`·`questId`·`questLinked`·`target`·`origin`), `improvement.itemDetail`, `improvement.itemEvents`. Quest 읽기는 메뉴 조회가 아니라 어댑터 포트(§2, 노드 c)다 — platform-api는 Quest 엔드포인트를 서비스하지 않는다(platform-api 읽기는 BRAVO에 닿을 수 없다).
 - 쓰기(menu-action, capability **`improvement.manage`** 워크스페이스 범위, Admin 항상, Developer 요청, User 거절 — 안, Q3): `itemCreate`, `itemUpdate`(version CAS), `itemSetStatus`, `itemAssign`, `itemLinkQuest`, `itemReopen`. 편집형 표(#540)의 여러 칸 편집은 `itemBulkUpdate`(행마다 version, 부분 실패 보고)로 받는다. 모든 쓰기는 감사 기록 + `item_event`.
 - 알림: 담당자 지정 때 기존 알림 모듈로 한 건(노드 e).
 - 엔티티 링크: VOC·Finding·Task와 이을 수 있게 `improvement_item` 종류를 06 계약에 더하는 일은 후속(Q8 아님, 기본 미포함).
@@ -50,7 +51,7 @@
 
 ## 5. 노드 분할
 
-a) 도메인·스키마·읽기 · b) 쓰기·이력·감사 · c) Quest 포트 + mock 어댑터 + 선택기 계약 · d) 화면(시안 컨펌 후): 서랍·목록·상세 · e) 알림·담당 첫 화면 · f) 편집형 표(#540 뒤)·효과 확인(#1243 뒤). a→b→c→d. f는 선행 조각이 없으면 열지 않는다. GLOSSARY는 답이 확정된 노드 d 전에 상태 용어를 올린다(이 PR은 문서 범위 밖이라 고치지 않음).
+a) 도메인·스키마·읽기 · b) 쓰기·이력·감사 · c) Quest 포트(어댑터, 구현됨 — platform-api는 Quest 엔드포인트 없음) + mock 어댑터 + 선택기 계약 · d) 화면(시안 컨펌 후): 서랍·목록·상세 · e) 알림·담당 첫 화면 · f) 편집형 표(#540 뒤)·효과 확인(#1243 뒤). a→b→c→d. f는 선행 조각이 없으면 열지 않는다. GLOSSARY는 답이 확정된 노드 d 전에 상태 용어를 올린다(이 PR은 문서 범위 밖이라 고치지 않음).
 
 ## 6. 결정 (`질문 #1328`, 소유자 2026-11-04: 추천대로)
 

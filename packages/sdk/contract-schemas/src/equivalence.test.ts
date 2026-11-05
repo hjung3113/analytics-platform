@@ -1,6 +1,6 @@
 // Type equivalence between the Zod sources and the hand-written @ap/contracts types (ADR-0096). `tsc --noEmit` (the package's
 // `typecheck`) proves it; `vitest run` only loads the file, because `expectTypeOf` is a no-op at runtime.
-import type { CreateNoticeInput, DeleteNoticeInput, GroupMember, JsonValue, Notice, NoticeListPage, PreferencesImport, PreferencesPatch, PreferencesSnapshot, SaveNoticeInput, UpdateNoticeInput, ApiResponse, Capability, Assessment, AssessmentKind, AnyEndpointSpec, ColumnFilter, ColumnFilterSpec, MenuQuery, MenuQueryContext, Outcome, Trust } from '@ap/contracts';
+import type { CreateNoticeInput, DeleteNoticeInput, GroupMember, JsonValue, Notice, NoticeListPage, PreferencesImport, PreferencesPatch, PreferencesSnapshot, Quest, QuestSearchInput, QuestSearchPage, SaveNoticeInput, UpdateNoticeInput, ApiResponse, Capability, Assessment, AssessmentKind, AnyEndpointSpec, ColumnFilter, ColumnFilterSpec, MenuQuery, MenuQueryContext, Outcome, Trust } from '@ap/contracts';
 import { describe, expectTypeOf, it } from 'vitest';
 import { z } from 'zod/v4';
 import {
@@ -15,6 +15,9 @@ import {
   outcomeSchema,
   trustSchema,
   createNoticeInputSchema,
+  questSchema,
+  questSearchInputSchema,
+  questSearchPageSchema,
   deleteNoticeInputSchema,
   groupMemberSchema,
   jsonValueSchema,
@@ -80,6 +83,9 @@ describe('schemas and @ap/contracts types are the same type', () => {
     expectTypeOf<Wire<z.infer<typeof updateNoticeInputSchema>>>().toEqualTypeOf<Wire<UpdateNoticeInput>>();
     expectTypeOf<Wire<z.infer<typeof saveNoticeInputSchema>>>().toEqualTypeOf<Wire<SaveNoticeInput>>();
     expectTypeOf<Wire<z.infer<typeof deleteNoticeInputSchema>>>().toEqualTypeOf<Wire<DeleteNoticeInput>>();
+    expectTypeOf<Wire<z.infer<typeof questSchema>>>().toEqualTypeOf<Wire<Quest>>();
+    expectTypeOf<Wire<z.infer<typeof questSearchInputSchema>>>().toEqualTypeOf<Wire<QuestSearchInput>>();
+    expectTypeOf<Wire<z.infer<typeof questSearchPageSchema>>>().toEqualTypeOf<Wire<QuestSearchPage>>();
   });
 
   it('column filter and its field spec (ADR-0105)', () => {

@@ -10,6 +10,8 @@ const REPORT = { correlationId: 'client-abc', menuId: 'home', spaceId: null, pat
 const TEXT = { ko: '제목', en: 'Title' };
 const NOTICE_CREATE = { title: TEXT, content: TEXT, scopeId: null, until: '2026-10-30T00:00:00', idempotencyKey: 'k-1' };
 const NOTICE_DELETE = { id: 'N-1', expectedVersion: 'v1', idempotencyKey: 'k-2' };
+const QUEST = { id: 'Q 1/2', title: '설비 점검', status: 'Open' };
+const QUEST_SEARCH = { query: '점검', status: 'Open', page: 1, pageSize: 20 };
 
 type Http = { method: 'GET' | 'POST'; path: string; search?: string; body?: unknown; csrf?: boolean; keepalive?: boolean; correlationId?: string };
 type Row = { http: Http | null; reply?: unknown; call: (a: PlatformAdapter) => unknown };
@@ -138,6 +140,16 @@ const TABLE = {
     reply: ACTION_OK,
     call: (a) => a.deleteNotice(NOTICE_DELETE),
   },
+  getQuest: {
+    http: { method: 'GET', path: '/api/v1/platform/quests/Q%201%2F2' },
+    reply: { ...ENVELOPE, data: QUEST },
+    call: (a) => a.getQuest(QUEST.id),
+  },
+  searchQuests: {
+    http: { method: 'POST', path: '/api/v1/platform/quests/search', body: QUEST_SEARCH },
+    reply: { ...ENVELOPE, data: { supported: true, items: [QUEST], page: 1, hasMore: false } },
+    call: (a) => a.searchQuests(QUEST_SEARCH),
+  },
 } satisfies Record<keyof PlatformAdapter, Row>;
 
 const entries = Object.entries(TABLE as Record<string, Row>);
@@ -258,7 +270,7 @@ describe('method table', () => {
     const { adapter, sent } = await ready(() => json({ items: [] }));
     const calls = [
       () => adapter.readPreferences(placeholder), () => adapter.listNotices(placeholder), () => adapter.patchPreferences(placeholder), () => adapter.importPreferences(placeholder), () => adapter.lookupPeople(placeholder),
-      () => adapter.saveNotice(placeholder), () => adapter.deleteNotice(placeholder),
+      () => adapter.saveNotice(placeholder), () => adapter.deleteNotice(placeholder), () => adapter.getQuest(placeholder), () => adapter.searchQuests(placeholder),
     ];
     for (const call of calls) expect(() => { void Promise.resolve(call()).catch(() => undefined); }).not.toThrow();
     await new Promise((resolve) => setTimeout(resolve, 0));

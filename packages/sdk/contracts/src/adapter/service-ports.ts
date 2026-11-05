@@ -33,3 +33,23 @@ export type CreateNoticeInput = NoticeDraft & { idempotencyKey: string };
 export type UpdateNoticeInput = NoticeDraft & { id: string; expectedVersion: string; idempotencyKey: string };
 export type SaveNoticeInput = CreateNoticeInput | UpdateNoticeInput;
 export type DeleteNoticeInput = { id: string; expectedVersion: string; idempotencyKey: string };
+
+/**
+ * Quest read-only port (#1328 node c, ADR-0106 amendment 2, ADR-0098 amendment). BRAVO owns Quests; the platform only reads them by id.
+ * No write exists. Wire shapes only: the runtime schemas live in `@ap/contract-schemas`.
+ */
+
+/** Longest `searchQuests` query (characters). */
+export const QUEST_QUERY_MAX = 200;
+/** Largest `searchQuests` page size; `pageSize` is an integer 1..this. */
+export const QUEST_SEARCH_PAGE_SIZE_MAX = 50;
+
+/** A BRAVO Quest as the platform shows it. `status` is BRAVO's own display string: the platform enumerates no BRAVO statuses. */
+export type Quest = { id: string; title: string; status: string };
+/** `page` is 0-based (paging.ts). `query` absent or empty lists everything; `status` is matched against `Quest.status` as given. */
+export type QuestSearchInput = { query?: string; status?: string; page: number; pageSize: number };
+/**
+ * One page of a Quest search. `supported: false` = this BRAVO cannot search (the picker falls back to entering an id): `items` is `[]` and
+ * `hasMore` false. `supported: true` with `items: []` = the search ran and nothing matched.
+ */
+export type QuestSearchPage = { supported: boolean; items: readonly Quest[]; page: number; hasMore: boolean };

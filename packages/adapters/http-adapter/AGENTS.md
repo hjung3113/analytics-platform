@@ -10,7 +10,7 @@
 - `src/calls/calls.ts` — 호출 묶음별 변환: envelope(reject 없음), 쓰기(`unknown`), 비 envelope(`TransportError`), 선택 포트(`PortError`).
 - `src/adapter.ts` — `PlatformAdapter` 멤버마다 한 줄(경로·메서드·본문·CSRF).
 - `src/session/session.ts` — 세션 스냅샷 identity, `csrfToken`(메모리만), `subscribe` 폴링, single-flight 재확인과 백오프, `onSessionLost`.
-- `src/validate.ts` — 응답 모양 검사. 모르는 키는 무시한다.
+- `src/validate.ts` — 응답 모양 검사. 모르는 키는 무시한다. 예외: Quest 읽기(`isQuest`·`isQuestSearchPage`)는 `ok` 데이터를 엄격하게 검사하고 모르는 키는 `invalid_response` `error`로 거부한다(#1328).
 - `src/saved-views/` — HTTP saved-view store and `importLocal` (ADR-0099). `guards.ts` matches command/response wire schemas recursively and rejects unknown keys. `store.ts` sends each of the 16 commands once with CSRF.
 
 ## 규칙
