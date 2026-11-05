@@ -951,8 +951,12 @@ test.describe('메뉴 활용률 (06 §4, docs/05 — kernel이 recordUsage로 �
     const nav = page.getByRole('navigation', { name: '주 메뉴' });
     await nav.getByRole('link', { name: '변경 감사' }).click();
     await expect(page).toHaveURL(/\/operations\/admin-audit/);
-    await expect.poll(async () => (await storedUsageEvents(page)).filter(e => e.name === 'entry' && e.via === 'sidebar').length, { timeout: 10_000 }).toBeGreaterThan(0);
-    const rows = (await storedUsageEvents(page)).filter(e => e.name === 'entry');
+    // The dev assembly seeds demo usage rows before this tab records anything (`seedUsageNext` wired
+    // in apps/platform-web/src/dev/mock-assembly.tsx, session ids `seed-uN-tab`), so the raw store is
+    // non-empty and starts with seeded rows. Drop them by session id to read only what this tab recorded.
+    const ownEvents = async () => (await storedUsageEvents(page)).filter(e => !String(e.sessionId).startsWith('seed-'));
+    await expect.poll(async () => (await ownEvents()).filter(e => e.name === 'entry' && e.via === 'sidebar').length, { timeout: 10_000 }).toBeGreaterThan(0);
+    const rows = (await ownEvents()).filter(e => e.name === 'entry');
     expect(rows[0]).toMatchObject({ menuId: 'admin-roles', via: 'direct', fromMenuId: null });
     expect(rows[1]).toMatchObject({ menuId: 'admin-audit', via: 'sidebar', fromMenuId: 'admin-roles' });
   });
