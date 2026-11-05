@@ -92,6 +92,13 @@ describe.skipIf(!runIntegration)(
       return { id, cookie, csrf: boot.json<{ csrfToken: string }>().csrfToken };
     }
 
+    /** Fresh people for tests that need several: the per-actor rate budget of `admin` and `user` is shared by the whole file. */
+    const crew = async (count: number) => {
+      const people: Person[] = [];
+      for (let i = 0; i < count; i++) people.push(await newPerson('developer'));
+      return people;
+    };
+
     /** A POST with the person's cookie and CSRF token unless overridden. */
     const post = (
       path: string,
@@ -541,7 +548,7 @@ describe.skipIf(!runIntegration)(
     describe('GET /usage-summary rates (#605)', () => {
       it('entries count main only; rates need 3 distinct main users and are null below it', async () => {
         await clearMine();
-        const [a, b, c] = [admin, user, await newPerson('developer')];
+        const [a, b, c] = await crew(3);
         const viaEntry = (via: string, from: string | null) =>
           entry({ via, fromMenuId: from, source: 'main' });
         // MENU: 4 main entries by 3 people (1 palette), 1 board entry that must not count.
@@ -573,7 +580,7 @@ describe.skipIf(!runIntegration)(
 
       it('backRate is capped at 1', async () => {
         await clearMine();
-        const people = [admin, user, await newPerson('developer')];
+        const people = await crew(3);
         for (const p of people) await record([entry({ via: 'sidebar' })], p);
         const away = `${MENU}-away`;
         for (let i = 0; i < 2; i++) {
@@ -609,8 +616,8 @@ describe.skipIf(!runIntegration)(
       /** 6 people each enter MENU twice; destinations d1 (6 users), d2 (4), d3 (3), tiny (2 users), solo (1). */
       async function seedTail() {
         await clearMine();
-        const people = [admin, user];
-        for (let i = 0; i < 4; i++) people.push(await newPerson('developer'));
+        const people: Person[] = [];
+        for (let i = 0; i < 6; i++) people.push(await newPerson('developer'));
         for (const p of people) await record([entry({ via: 'sidebar' }), entry({ via: 'palette' })], p);
         const go = (to: string, who: Person[], via?: string) =>
           Promise.all(
@@ -675,7 +682,7 @@ describe.skipIf(!runIntegration)(
 
       it('count and users come from the same set when one person enters a destination twice', async () => {
         await clearMine();
-        const people = [admin, user, await newPerson('developer')];
+        const people = await crew(3);
         for (const p of people) await record([entry({ via: 'sidebar' })], p);
         const to = `${MENU}-twice`;
         for (const p of people)
@@ -695,7 +702,7 @@ describe.skipIf(!runIntegration)(
 
       it('back/return and same-menu entries are summarised, and only ranked with includeBack', async () => {
         await clearMine();
-        const people = [admin, user, await newPerson('developer')];
+        const people = await crew(3);
         for (const p of people) await record([entry({ via: 'sidebar' })], p);
         const d1 = `${MENU}-d1`;
         const d2 = `${MENU}-d2`;
@@ -727,7 +734,7 @@ describe.skipIf(!runIntegration)(
 
       it('noMove floors at 0 when next entries outnumber the menu entries', async () => {
         await clearMine();
-        const people = [admin, user, await newPerson('developer')];
+        const people = await crew(3);
         for (const p of people) await record([entry({ via: 'sidebar' })], p);
         for (const p of people)
           await record(
@@ -743,7 +750,7 @@ describe.skipIf(!runIntegration)(
 
       it('board entries never count, neither as entries nor as next', async () => {
         await clearMine();
-        const people = [admin, user, await newPerson('developer')];
+        const people = await crew(3);
         for (const p of people) {
           await record([entry({ via: 'sidebar' })], p);
           await record(
@@ -760,11 +767,15 @@ describe.skipIf(!runIntegration)(
 
       it('is capped at 20 rows, ties ordered by menu id', async () => {
         await clearMine();
-        const people = [admin, user, await newPerson('developer')];
+        const people = await crew(3);
         for (const p of people) await record([entry({ via: 'sidebar' })], p);
-        for (let i = 0; i < 22; i++)
-          for (const p of people)
-            await record([entry({ menuId: `${MENU}-n${String(i).padStart(2, '0')}`, via: 'link', fromMenuId: MENU })], p);
+        // One batch per person (the batch limit is 20, so 22 destinations take two requests): the per-actor rate budget is shared with the other tests.
+        const toAll = Array.from({ length: 22 }, (_, i) =>
+          entry({ menuId: `${MENU}-n${String(i).padStart(2, '0')}`, via: 'link', fromMenuId: MENU }),
+        );
+        for (const p of people)
+          for (const part of [toAll.slice(0, 20), toAll.slice(20)])
+            expect((await record(part, p)).statusCode).toBe(200);
         const data = await nextData({ menuId: MENU });
         expect(data.next).toHaveLength(20);
         expect(data.hiddenDestinations).toBe(0);

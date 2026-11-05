@@ -507,11 +507,12 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
       },
     },
     asGranted: (fn) => as('granted', fn),
-    // The kit removes the entity permission and console:access; the granted developer holds no
-    // console:access, so that one is the granted account itself (checklist §4).
+    // The kit removes the entity permission and console:access. The plain user holds no console:access either, and it
+    // carries few requests, so the console reads without it do not spend the granted account's per-actor rate budget
+    // (the production run and the menuAction run share one budget of 100 a minute; checklist §4).
     withoutPermission: (permission, fn) => {
       if (permission === 'features:access') return as('plain', fn);
-      if (permission === 'console:access') return as('granted', fn);
+      if (permission === 'console:access') return as('plain', fn);
       if (permission === ACTION_PERMISSION) return as('plain', fn);
       throw new Error(`no account without ${permission}`);
     },

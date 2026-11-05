@@ -433,7 +433,8 @@ export function createPlatformUsageService(deps: PlatformUsageServiceDeps) {
       .select({ kind, n: count() })
       .from(usageEvents)
       .where(nextWhere)
-      .groupBy(kind);
+      // By position: the case expression carries bound parameters, so a second copy in GROUP BY is a different expression to Postgres.
+      .groupBy(sql`1`);
     const summary = { moved: 0, sameMenu: 0, backOrReturn: 0, noMove: 0 };
     for (const r of kindRows) {
       if (r.kind === 'back') summary.backOrReturn = r.n;
@@ -472,7 +473,7 @@ export function createPlatformUsageService(deps: PlatformUsageServiceDeps) {
                 ),
               ),
             )
-            .groupBy(usageEvents.menuId, via);
+            .groupBy(usageEvents.menuId, sql`2`);
     const viasOf = new Map<string, Record<string, number>>();
     for (const r of viaRows) viasOf.set(r.menuId, { ...viasOf.get(r.menuId), [r.via]: r.n });
     return {
