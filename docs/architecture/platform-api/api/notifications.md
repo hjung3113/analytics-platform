@@ -19,6 +19,7 @@ workspace before enqueueing jobs.
 | `task_request.approved`, `task_request.rejected`, `task_request.needs_more_evidence` | `task-requests/service.ts` `decideTaskRequest` | The Task Request creator (`requester_actor_id`), including self-approval. |
 | `task.assigned_to_me` | `tasks/service.ts` `convertTaskRequest` | The new assignee, only when `assignee_actor_id` is set. |
 | `task.released` | `voc/public-update-review-candidates/service.ts` `createForReleasedTask` | The linked VOC's current user owner, once per newly inserted review candidate, unless that owner is the releasing actor, Task assignee, or Reporter. |
+| `improvement.assigned_to_me` (#1328 e1) | `improvement-items/item-actions.ts` `itemCreate`, `itemAssign` | The new assignee, in the write transaction; none for self-assignment, an unchanged assignee, a cleared assignee or an assignee outside the workspace. Subject `improvement_item`, in-app only, summary `개선 아이템 IM-<n>이 지정되었습니다.`; detail carries `item_id` and `item_no`, never problem or action text. |
 | `permission_request.submitted` | `permissions/request-service.ts` `createRequest` | Every workspace Actor whose `role_level` is `admin`. `core.actors` has no active/deactivated flag. |
 | `permission_request.decided` | `permissions/decision-service.ts` `decide` | The requester, for `approve` (`approved`), and `reject` or the explicit `deny` (both `rejected`); `need_more_info` does not notify. |
 | `permission_grant.revoked` (FO ADR-0061) | `permissions/grant-admin-service.ts` `revokeGrant` | The grant's Actor; in-app and email, summary `권한이 취소되었습니다.` |
@@ -66,15 +67,18 @@ titles, and other free text stay in their domain records and audit events.
   Task and Task Request references use their Entity Link provider read gate;
   Permission Request references are available only to the requester or a
   workspace Admin. Permission Grant references are available only to the
-  grantee or a workspace Admin. Missing, archived, hidden, denied, summary-only,
-  or unknown subjects return only `{ visibility_state: 'unavailable' }`.
+  grantee or a workspace Admin. Improvement item references (`improvement_item`,
+  #1328 e1) are available to any session holding `platform:view` for an item of
+  the Actor's own workspace and carry only `IM-<n>` plus the current Korean
+  status label, never the problem or action text. Missing, archived, hidden, denied, summary-only,
+  foreign-workspace, non-UUID or unknown subjects return only `{ visibility_state: 'unavailable' }`.
 - Notification rows continue to store subject ids and event summaries only.
   They do not store a historical subject title or display id, so later reads
   reflect current authorization and current subject text.
 - `event_type` is one of `voc.assigned_to_me`, `voc.reporter_replied`,
   `voc.public_update_posted`, `voc.severity_set_high_or_critical`, `task_request.approved`,
   `task_request.rejected`, `task_request.needs_more_evidence`,
-  `task.assigned_to_me`, `task.released`, `permission_request.submitted`,
+  `task.assigned_to_me`, `task.released`, `improvement.assigned_to_me`, `permission_request.submitted`,
   `permission_request.decided`, or `permission_grant.revoked`.
 - The closed event set is `notificationEventTypeSchema` in
   `packages/feature-shared/src/notifications.ts`.

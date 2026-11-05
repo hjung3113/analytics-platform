@@ -20,6 +20,7 @@ import {
   insertPublicUpdateReviewCandidateDirectly,
   insertVocDirectly,
 } from '../../../test-support/voc-fixtures.js';
+import { allocateImprovementItemNo, getItemReference } from '../../improvement-items/index.js';
 
 const APP_URL = process.env.DATABASE_URL ?? '';
 const MIGRATE_URL = process.env.DATABASE_URL_MIGRATE ?? '';
@@ -79,6 +80,7 @@ describe.skipIf(!runIntegration)('notification inbox routes', () => {
   const entityLinkIds: string[] = [];
   const permissionGrantIds: string[] = [];
   const permissionDenyIds: string[] = [];
+  const improvementItemIds: string[] = [];
 
   beforeAll(async () => {
     process.env.NODE_ENV = 'test';
@@ -102,6 +104,12 @@ describe.skipIf(!runIntegration)('notification inbox routes', () => {
   }
 
   async function cleanupNotificationSubjects(): Promise<void> {
+    if (improvementItemIds.length > 0) {
+      await migrateDb.pool.query('delete from improvement.item where id = any($1::uuid[])', [
+        improvementItemIds,
+      ]);
+      improvementItemIds.length = 0;
+    }
     if (reviewCandidateIds.length > 0) {
       await migrateDb.pool.query(
         'delete from voc.public_update_review_candidates where id = any($1::uuid[])',
@@ -204,6 +212,8 @@ describe.skipIf(!runIntegration)('notification inbox routes', () => {
       await migrateDb.pool.query('delete from core.actors where id = any($1::uuid[])', [actorIds]);
     }
     if (workspaceIds.length > 0) {
+      // The item-number allocator keeps one counter row per workspace; it references the workspace.
+      await migrateDb?.pool.query('delete from improvement.item_counter where workspace_id = any($1::uuid[])', [workspaceIds]);
       if (migrateDb)
         await deleteRecoveryFixtureParents(
           migrateDb,
@@ -721,6 +731,94 @@ describe.skipIf(!runIntegration)('notification inbox routes', () => {
     expect(unrelatedItem?.subject_ref).toEqual({ visibility_state: 'unavailable' });
     expect(JSON.stringify(unrelatedItem?.subject_ref)).not.toContain(request.id);
     expect(JSON.stringify(unrelatedItem?.subject_ref)).not.toContain('workspace.admin');
+  });
+
+  it('resolves an improvement item subject for a same-workspace reader and hides a missing or foreign item', async () => {
+    actorD = await createActorSession(WORKSPACE_ID, 'd', 'developer');
+    const problem = `${TEST_PREFIX} improvement subject problem`;
+
+    // Minimal valid row (origin-or-target is enforced at commit): the display number comes from the real allocator.
+    const seedItem = async (
+      workspaceId: string,
+      creator: ActorSession,
+      status = 'open',
+    ): Promise<{ id: string; itemNo: number }> => {
+      const itemNo = await allocateImprovementItemNo(migrateDb.db, workspaceId);
+      const inserted = await migrateDb.pool.query<{ id: string }>(
+        `insert into improvement.item
+           (workspace_id, item_no, problem, status, created_by, updated_by, origin_menu_id, origin_context)
+         values ($1, $2, $3, $4, $5, $5, 'notification-routes-test', '{}')
+         returning id`,
+        [workspaceId, itemNo, `${problem} ${itemNo}`, status, creator.id],
+      );
+      const id = inserted.rows[0]?.id;
+      if (!id) throw new Error('improvement item fixture insert returned no id');
+      improvementItemIds.push(id);
+      return { id, itemNo };
+    };
+
+    const item = await seedItem(WORKSPACE_ID, actorD);
+    const notification = await insertNotification(actorD, {
+      createdAt: new Date().toISOString(),
+      eventType: 'improvement.assigned_to_me',
+      subjectType: 'improvement_item',
+      subjectId: item.id,
+    });
+    const missingNotification = await insertNotification(actorD, {
+      createdAt: new Date().toISOString(),
+      eventType: 'improvement.assigned_to_me',
+      subjectType: 'improvement_item',
+      subjectId: randomUUID(),
+    });
+
+    const allowedResponse = await app.inject({
+      method: 'GET',
+      url: '/notifications',
+      headers: cookieHeader(actorD),
+    });
+    expect(allowedResponse.statusCode).toBe(200);
+    const allowedItems = allowedResponse.json<{
+      items: Array<{ id: string; subject_ref?: unknown }>;
+    }>().items;
+    const allowedItem = allowedItems.find((row) => row.id === notification.id);
+    expect(allowedItem?.subject_ref).toEqual({
+      visibility_state: 'allowed',
+      display_id: `IM-${item.itemNo}`,
+      title: '문제 기록',
+    });
+    // Body-free: the row never carries the problem (or action) text of the item.
+    expect(JSON.stringify(allowedItems)).not.toContain(problem);
+    const missingItem = allowedItems.find((row) => row.id === missingNotification.id);
+    expect(missingItem?.subject_ref).toEqual({ visibility_state: 'unavailable' });
+    expect(JSON.stringify(missingItem?.subject_ref)).not.toContain(`IM-${item.itemNo}`);
+
+    const foreignWorkspace = await createWorkspace();
+    const foreignReader = await createActorSession(foreignWorkspace, 'f', 'developer');
+    // Each workspace counts from IM-1: burn a few numbers so the foreign display id differs from the reader's own item.
+    for (let skipped = 0; skipped < 7; skipped += 1) await allocateImprovementItemNo(migrateDb.db, foreignWorkspace);
+    const foreignItem = await seedItem(foreignWorkspace, foreignReader);
+    const foreignNotification = await insertNotification(actorD, {
+      createdAt: new Date().toISOString(),
+      eventType: 'improvement.assigned_to_me',
+      subjectType: 'improvement_item',
+      subjectId: foreignItem.id,
+    });
+
+    const foreignResponse = await app.inject({
+      method: 'GET',
+      url: '/notifications',
+      headers: cookieHeader(actorD),
+    });
+    const foreignItems = foreignResponse.json<{
+      items: Array<{ id: string; subject_ref?: unknown }>;
+    }>().items;
+    const foreignRow = foreignItems.find((row) => row.id === foreignNotification.id);
+    expect(foreignRow?.subject_ref).toEqual({ visibility_state: 'unavailable' });
+    expect(JSON.stringify(foreignItems)).not.toContain(`IM-${foreignItem.itemNo}`);
+    // Control: the resolver finds the item in its own workspace and not in the reader's, so the boundary is the
+    // workspace. (A foreign-workspace session cannot call this app: the session is bound to another workspace.)
+    expect(await getItemReference(migrateDb.db, foreignWorkspace, foreignItem.id)).toEqual({ itemNo: foreignItem.itemNo, status: 'open' });
+    expect(await getItemReference(migrateDb.db, WORKSPACE_ID, foreignItem.id)).toBeNull();
   });
 
   function cookieHeader(actor: ActorSession): { cookie: string } {

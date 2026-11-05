@@ -5,7 +5,7 @@ import { IMPROVEMENT_ITEMS_MENU_ID } from '../menu.js';
 import { itemEndpoints } from '../item-endpoints.js';
 
 const UUID = '33333333-3333-4333-8333-333333333333';
-const endpoints = itemEndpoints({ db: {} as never, checkService: {} as never });
+const endpoints = itemEndpoints({ db: {} as never, checkService: {} as never, notify: {} as never });
 const judge = (id: string, params: Record<string, unknown>) => endpoints.find((e) => e.spec.id === id)?.validate(params);
 
 describe('improvement read declarations', () => {

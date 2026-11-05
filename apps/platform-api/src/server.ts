@@ -58,7 +58,7 @@ import {
   findingsRoutes,
   reconcileFindingExecution,
 } from './modules/findings/index.js';
-import { improvementItemsContribution } from './modules/improvement-items/index.js';
+import { getItemReference, IMPROVEMENT_STATUS_LABELS, improvementItemsContribution } from './modules/improvement-items/index.js';
 import {
   IMPORT_APPLY_BUDGET_MS,
   type ImportApplyHooks,
@@ -108,6 +108,7 @@ import {
   permissionsRoutes,
 } from './modules/permissions/index.js';
 import { PLATFORM_PORT_PREFIX, platformPortRoutes } from './modules/platform-port/index.js';
+import { holdsPlatformPermission } from './modules/platform-port/permissions.js';
 import { platformSavedViewRoutes } from './modules/platform-saved-views/index.js';
 import { createSavedViewsService, savedViewsRoutes } from './modules/saved-views/index.js';
 import {
@@ -783,6 +784,17 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
             ? subjectReferenceForAllowedRecord(reference.display_id, reference.title)
             : { visibility_state: 'unavailable' };
         }
+        case 'improvement_item': {
+          // The same read right and workspace rule as `improvement.itemDetail` (`platform:view`, the actor's workspace).
+          // The reference is the `IM-<n>` identity and the status display name only: never the problem/action text.
+          if (!(await holdsPlatformPermission(checkService, actor, 'platform:view'))) {
+            return { visibility_state: 'unavailable' };
+          }
+          const item = await getItemReference(dbHandle.db, actor.workspace_id, subjectId);
+          return item
+            ? subjectReferenceForAllowedRecord(`IM-${item.itemNo}`, IMPROVEMENT_STATUS_LABELS[item.status] ?? '')
+            : { visibility_state: 'unavailable' };
+        }
         default:
           return { visibility_state: 'unavailable' };
       }
@@ -865,7 +877,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
       ...(opts.logKnowledgeImport?.applyBudgetMs !== undefined ? { applyBudgetMs: opts.logKnowledgeImport.applyBudgetMs } : {}),
       ...(opts.logKnowledgeImport?.hooks ? { applyHooks: opts.logKnowledgeImport.hooks } : {}),
     }),
-    improvementItemsContribution({ db: dbHandle.db, checkService }),
+    improvementItemsContribution({ db: dbHandle.db, checkService, notify }),
     ...(opts.menuDispatch ?? []),
   ]);
   // The catalog import upload (#1195 a) is a multipart route, which the menu-action port cannot carry: it is

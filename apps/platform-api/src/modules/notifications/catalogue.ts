@@ -10,6 +10,7 @@ export interface NotificationSummaryParamsByEvent {
   'task_request.needs_more_evidence': NoSummaryParams;
   'task.assigned_to_me': NoSummaryParams;
   'task.released': NoSummaryParams;
+  'improvement.assigned_to_me': { item_no: number };
   'permission_request.submitted': NoSummaryParams;
   'permission_request.decided': { outcome: 'approved' | 'rejected' };
   'permission_grant.revoked': NoSummaryParams;
@@ -19,6 +20,7 @@ export type NotificationSubjectType =
   | 'voc'
   | 'task_request'
   | 'task'
+  | 'improvement_item'
   | 'permission_request'
   | 'permission_grant'
   | 'public_update_review_candidate';
@@ -101,6 +103,13 @@ export const notificationCatalogue = {
     in_app: true,
     email: false,
     summary: () => '연결된 VOC에 공개 업데이트 검토 요청이 등록되었습니다.',
+  },
+  'improvement.assigned_to_me': {
+    recipients: 'New improvement item assignee, unless the assigner assigns themselves.',
+    subject_type: 'improvement_item',
+    in_app: true,
+    email: false,
+    summary: ({ item_no }) => `개선 아이템 IM-${item_no}이 지정되었습니다.`,
   },
   'permission_request.submitted': {
     recipients: 'Every workspace actor with role_level=admin.',

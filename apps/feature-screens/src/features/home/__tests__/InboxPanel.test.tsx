@@ -86,6 +86,12 @@ const TARGET_CASES: Array<{
     target: `/tasks?view=board&param=${NOTIFICATION_ID}`,
   },
   {
+    eventType: 'improvement.assigned_to_me',
+    subjectType: 'improvement_item',
+    detail: {},
+    target: `/improvement-items/${NOTIFICATION_ID}`,
+  },
+  {
     eventType: 'task_request.approved',
     subjectType: 'task_request',
     detail: {},
