@@ -5,6 +5,14 @@
 import type { CatalogFilterFieldSpec } from '../../../lib/list-params/catalog-filters.js';
 
 export const ITEM_STATUSES = ['open', 'in_progress', 'done', 'verified', 'dropped'] as const;
+/** The Korean display names of `ITEM_STATUSES` (GLOSSARY; the screen shows the same words, `platform/improvement-items/src/copy.ts`). */
+export const IMPROVEMENT_STATUS_LABELS: Readonly<Record<string, string>> = {
+  open: '문제 기록',
+  in_progress: '조치 중',
+  done: '조치 완료',
+  verified: '효과 확인됨',
+  dropped: '취소',
+};
 export const TARGET_KINDS = ['equipment', 'process'] as const;
 export const EVENT_TYPES = ['created', 'updated', 'status_changed', 'assigned', 'quest_linked', 'reopened'] as const;
 /** The literal an `assignee` filter accepts for the signed-in actor; resolved before the query. */

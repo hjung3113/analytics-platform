@@ -196,8 +196,19 @@ describe.skipIf(!runIntegration)('improvement item assignee notification (#1328 
     const res = await act('itemCreate', { problem, origin: ORIGIN, assigneeId: assignee.id }, { who: rollbackAdmin, server: rollbackApp });
     expect(res.body.outcome).not.toBe('ok');
     expect(failAfterEnqueue.attemptedPayloads).toHaveLength(1);
+    const [payload] = failAfterEnqueue.attemptedPayloads;
+    if (!payload) throw new Error('notification enqueue payload missing');
+    expect(payload).toMatchObject({
+      workspace_id: WORKSPACE_ID,
+      actor_id: assignee.id,
+      event_type: 'improvement.assigned_to_me',
+      subject_type: 'improvement_item',
+    });
     expect((await sql('select 1 from improvement.item where problem = $1', [problem])).rowCount).toBe(0);
     expect((await sql(`select 1 from core.audit_log where actor_id = $1 and event_type = 'improvement.item.created'`, [rollbackAdmin.id])).rowCount).toBe(0);
+    // The enqueue joined the rolled-back transaction: no notification job survives for the attempted correlation id.
+    const jobs = await sql(`select 1 from pgboss.job where name = $1 and data ->> 'correlation_id' = $2`, [NOTIFICATION_DISPATCH_QUEUE, payload.correlation_id]);
+    expect(jobs.rowCount).toBe(0);
   });
 
   it('a failed notification enqueue rolls the assignment back: assignee, event and audit row unchanged', async () => {
@@ -207,8 +218,20 @@ describe.skipIf(!runIntegration)('improvement item assignee notification (#1328 
     const res = await act('itemAssign', { itemId: id, assigneeId: assignee.id }, { who: rollbackAdmin, server: rollbackApp, expectedVersion: created.body.data.version });
     expect(res.body.outcome).not.toBe('ok');
     expect(failAfterEnqueue.attemptedPayloads).toHaveLength(1);
+    const [payload] = failAfterEnqueue.attemptedPayloads;
+    if (!payload) throw new Error('notification enqueue payload missing');
+    expect(payload).toMatchObject({
+      workspace_id: WORKSPACE_ID,
+      actor_id: assignee.id,
+      event_type: 'improvement.assigned_to_me',
+      subject_type: 'improvement_item',
+      subject_id: id,
+    });
     expect((await sql('select assignee_id from improvement.item where id = $1', [id])).rows[0].assignee_id).toBeNull();
     expect((await sql(`select 1 from improvement.item_event where item_id = $1 and event_type = 'assigned'`, [id])).rowCount).toBe(0);
     expect((await sql(`select 1 from core.audit_log where subject_id = $1 and event_type = 'improvement.item.assigned'`, [id])).rowCount).toBe(0);
+    // The enqueue joined the rolled-back transaction: no notification job survives for the attempted correlation id.
+    const jobs = await sql(`select 1 from pgboss.job where name = $1 and data ->> 'correlation_id' = $2`, [NOTIFICATION_DISPATCH_QUEUE, payload.correlation_id]);
+    expect(jobs.rowCount).toBe(0);
   });
 });

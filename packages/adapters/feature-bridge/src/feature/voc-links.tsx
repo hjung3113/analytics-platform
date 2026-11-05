@@ -1,4 +1,3 @@
-import { hostLinks } from './links';
 import { UUID_PATTERN } from './uuid';
 
 export const VOC_ID = UUID_PATTERN;
@@ -25,6 +24,3 @@ export function vocListTarget(to: string): { menuId: string } | null {
   const search = new URLSearchParams(query);
   return path === '/vocs' && [...search.keys()].join() === 'view' && search.get('view') === 'my' ? { menuId: 'voc' } : null;
 }
-
-/** `returnTo` lands only where the destination declares it (`voc-detail`, `survey-respond`, `equipment-detail`, `execution-detail`, `metric-detail`), and never inside a space that carries it (the screen space only carries). */
-export const { canLink: canVocLink, Link: VocLink } = hostLinks(vocTarget);

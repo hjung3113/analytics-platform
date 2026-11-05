@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
 import { setFeatureApi } from '@ap/feature-bridge/feature-api';
 import { featureQueryClient } from '@ap/feature-bridge';
-import { ID_A, ID_B, listOf, mount, notification, stubFetch, switchableAdapter, json } from '../feature/test-support';
+import { ID_A, ID_B, improvementRegistry, listOf, mount, notification, stubFetch, switchableAdapter, json } from '../feature/test-support';
 
 beforeEach(() => {
   vi.stubGlobal('localStorage', memoryStorage());
@@ -51,6 +51,20 @@ describe('Notifications through the feature bridge', () => {
     const link = within(linked).getByRole('link');
     const href = new URL(link.getAttribute('href')!, window.location.origin);
     expect(href.pathname).toBe(`/voc/${ID_B}`);
+    expect(new URL(href.searchParams.get('returnTo')!, window.location.origin).pathname).toBe('/notifications');
+    expect(within(screen.getByTestId(`home-inbox-row-${ID_B}`)).queryByRole('link')).toBeNull();
+  });
+
+  it('improvement.assigned_to_me links to the 개선 아이템 상세 with a returnTo to 알림; an operator event stays unlinked', async () => {
+    stubFetch(() => listOf(
+      notification(ID_A, { event_type: 'improvement.assigned_to_me', subject_type: 'improvement_item', subject_id: ID_B, summary: '개선 아이템 IM-7이 지정되었습니다.', detail: { item_id: ID_B, item_no: 7 } }),
+      notification(ID_B, { event_type: 'voc.assigned_to_me', detail: { voc_id: ID_B } }),
+    ));
+    mount(switchableAdapter().adapter, improvementRegistry);
+    const linked = await screen.findByTestId(`home-inbox-row-${ID_A}`);
+    const link = within(linked).getByRole('link');
+    const href = new URL(link.getAttribute('href')!, window.location.origin);
+    expect(href.pathname).toBe(`/improvement-items/${ID_B}`);
     expect(new URL(href.searchParams.get('returnTo')!, window.location.origin).pathname).toBe('/notifications');
     expect(within(screen.getByTestId(`home-inbox-row-${ID_B}`)).queryByRole('link')).toBeNull();
   });

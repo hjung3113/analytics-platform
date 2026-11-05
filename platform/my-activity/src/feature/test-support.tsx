@@ -3,7 +3,7 @@ import { Suspense, useState } from 'react';
 import { vi } from 'vitest';
 import { render } from '@testing-library/react';
 import { UserRound } from 'lucide-react';
-import { I18nProvider, PlatformProvider, createRegistry, usePlatform, type MenuEntry } from '@ap/kernel';
+import { I18nProvider, PlatformProvider, createRegistry, usePlatform, type MenuEntry, type Registry } from '@ap/kernel';
 import { testAdapter, testSession, ToastProbe } from '@ap/kernel/testing';
 import { manifests } from '../index';
 import Notifications from '../pages/Notifications';
@@ -16,14 +16,26 @@ const filler = { ...manifests.find(m => m.id === 'surveys')!, primary: true, id:
 const notices = { ...filler, id: 'notices', group: 'noticeVoc', path: '/notices', component: undefined } as MenuEntry;
 // The operator inbox, the destination of 소통 › VOC's 「업무 흐름에서 처리」 link: gated like the real `inbox` (`features:access`) and declaring `focus` and `returnTo`.
 const inbox = { ...filler, primary: false, id: 'inbox', path: '/flow/inbox', permission: 'features:access', pageKeys: ['focus', 'returnTo'] } as MenuEntry;
-export const registry = createRegistry({
-  spaces: [{ id: spaceId('mars'), label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'filler' }],
-  groups: [
-    { id: groupId('myActivity'), label: { ko: '내 활동', en: 'My activity' }, icon: UserRound, space: null },
-    { id: groupId('noticeVoc'), label: { ko: '소통', en: 'Communication' }, icon: UserRound, space: null },
-    { id: groupId('filler'), label: { ko: '채움', en: 'Filler' }, icon: UserRound, space: spaceId('mars') },
-  ],
-  menus: [...manifests, filler, notices, inbox],
+// The 개선 아이템 detail (`@ap/menu-improvement-items` manifest shape; that package is not a dependency here), the destination of an `improvement.assigned_to_me` deep link.
+const improvementGroup = { id: groupId('improvementItems'), label: { ko: '개선 아이템', en: 'Improvement items' }, icon: UserRound, space: null };
+const improvementItems = { ...filler, primary: true, id: 'improvement-items', group: groupId('improvementItems'), path: '/improvement-items' } as MenuEntry;
+const improvementItem = { ...filler, primary: false, id: 'improvement-item', parent: 'improvement-items', navHidden: true, group: groupId('improvementItems'), path: '/improvement-items/:itemId', pageKeys: ['returnTo'] } as MenuEntry;
+
+const SPACES = [{ id: spaceId('mars'), label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'filler' }];
+const GROUPS = [
+  { id: groupId('myActivity'), label: { ko: '내 활동', en: 'My activity' }, icon: UserRound, space: null },
+  { id: groupId('noticeVoc'), label: { ko: '소통', en: 'Communication' }, icon: UserRound, space: null },
+  { id: groupId('filler'), label: { ko: '채움', en: 'Filler' }, icon: UserRound, space: spaceId('mars') },
+];
+const MENUS = [...manifests, filler, notices, inbox];
+
+export const registry = createRegistry({ spaces: SPACES, groups: GROUPS, menus: MENUS });
+
+/** `registry` plus the 개선 아이템 menus, for tests that link into the improvement detail. */
+export const improvementRegistry = createRegistry({
+  spaces: SPACES,
+  groups: [...GROUPS, improvementGroup],
+  menus: [...MENUS, improvementItems, improvementItem],
 });
 
 export const ID_A = '11111111-1111-4111-8111-111111111111';
@@ -73,8 +85,8 @@ export function Harness() {
   </>;
 }
 
-export function mount(adapter: ReturnType<typeof testAdapter>) {
-  return render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><Harness /></PlatformProvider></I18nProvider>);
+export function mount(adapter: ReturnType<typeof testAdapter>, withRegistry: Registry = registry) {
+  return render(<I18nProvider><PlatformProvider adapter={adapter} registry={withRegistry}><Harness /></PlatformProvider></I18nProvider>);
 }
 
 /** Renders the matched route's page component like the shell does (params included). */

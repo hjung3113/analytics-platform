@@ -7,6 +7,7 @@ import { type AnyPgColumn, alias } from 'drizzle-orm/pg-core';
 import { actors } from '../../../db/schema/core.js';
 import { improvementItemEvents, improvementItemTargets, improvementItems } from '../../../db/schema/improvement.js';
 import type { Tx } from '../../../db/tx.js';
+import { UUID_REGEX } from '../../../lib/http-headers.js';
 import type { FilterCondition } from '../../../lib/list-params/catalog-filters.js';
 import type { Page } from '../../../lib/list-params/types.js';
 import { escapeLikePattern } from '../../../lib/sql-like.js';
@@ -177,6 +178,22 @@ export async function getItemDetail(tx: Tx, workspaceId: string, key: DetailKey)
   if (!found) return null;
   const targets = await targetsOf(tx, workspaceId, [found.item.id]);
   return toRow(found, targets.get(found.item.id) ?? []);
+}
+
+/** The body-free identity of one item for a notification subject reference (#1328 e1): number and status only,
+ * never the problem/action text. Null when the id is not a uuid or the item is not in the workspace. */
+export async function getItemReference(
+  tx: Tx,
+  workspaceId: string,
+  itemId: string,
+): Promise<{ itemNo: number; status: string } | null> {
+  if (!UUID_REGEX.test(itemId)) return null;
+  const [row] = await tx
+    .select({ itemNo: i.itemNo, status: i.status })
+    .from(i)
+    .where(and(eq(i.workspaceId, workspaceId), eq(i.id, itemId)))
+    .limit(1);
+  return row ?? null;
 }
 
 /** The history of one item, `occurred_at` then `seq` in the asked direction. */

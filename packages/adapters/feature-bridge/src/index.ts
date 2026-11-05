@@ -11,7 +11,8 @@ export { operatorRoute, routeHere, routeSearch, type OperatorRoute, type Operato
 export { hostLinks, permissionRequestsTarget, type PlatformTarget, type TargetOf } from './feature/links';
 export { featureQueryClient, useFeatureSession } from './feature/session';
 export { canSurveyLink, SURVEY_ID, SurveyLink, surveyTarget } from './feature/survey-links';
-export { canVocLink, VOC_ID, VocLink, vocListTarget, vocTarget } from './feature/voc-links';
+export { VOC_ID, vocListTarget, vocTarget } from './feature/voc-links';
+export { improvementItemTarget } from './feature/improvement-links';
 export type { DefaultStatus } from './default-status';
 export { ListScope } from './feature/ListScope';
 export { fetchAllManagedSystems, fetchSpaceLinks, FeatureReadError, parseSpaceLinks, type ManagedSystemRow, type SpaceLink, type SpaceLinks } from './feature/space-links';
