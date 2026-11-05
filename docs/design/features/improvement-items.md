@@ -1,6 +1,6 @@
 # 개선 아이템 플랫폼 기능 (#1328)
 
-> **Status: 소유자 답 반영(2026-11-04) — §6 Q1–Q8을 추천대로 결정, 노드 a(스키마·읽기)·b(쓰기·이력·감사·`improvement.manage`)·c(Quest 읽기 포트·mock·HTTP 어댑터·적합성)·d(소유자 A안 목록·상세·만들기 서랍) 구현됨, e·f 남음.** 단 Q3의 「담당자가 User인 경우 본인 건 상태 변경 예외」는 지금 두지 않는다(팀장 결정, 되돌릴 수 있음; 실제 User 담당자 사례가 생기면 다시 연다). 근거: [ADR-0106 개정 2](../../adr/0106-improvement-task-is-quest.md)(개선 아이템은 플랫폼 DB, Quest는 BRAVO 소유, ID로만 가리킴). 지금 레포에는 노드 a·b의 DB·읽기·쓰기 API([api/improvement-items.md](../../architecture/platform-api/api/improvement-items.md))와 노드 c의 Quest 읽기 포트(어댑터 `getQuest`·`searchQuests`, 서버 모듈 없음)가 있고, `platform/improvement-items`의 직속 목록·상세·만들기 서랍이 있다. 노드 d의 호스트 빌드·엔드포인트 스냅샷 생성·E2E·데스크톱 시각 검증은 별도 게이트다. 용어는 [GLOSSARY](../../../GLOSSARY.md)의 `과제(Quest)`·`개선 아이템`·`효과 확인`. 화면 선택은 아래 §4와 [ADR-0106 개정 3](../../adr/0106-improvement-task-is-quest.md)을 따른다.
+> **Status: 소유자 답 반영(2026-11-04) — §6 Q1–Q8을 추천대로 결정, 노드 a(스키마·읽기)·b(쓰기·이력·감사·`improvement.manage`)·c(Quest 읽기 포트·mock·HTTP 어댑터·적합성)·d(소유자 A안 목록·상세·만들기 서랍) 구현됨, e의 홈 담당 건수 카드(e2) 구현됨(호스트 시각 검증 대기), e의 담당 지정 알림·분석 진입점과 f 남음.** 단 Q3의 「담당자가 User인 경우 본인 건 상태 변경 예외」는 지금 두지 않는다(팀장 결정, 되돌릴 수 있음; 실제 User 담당자 사례가 생기면 다시 연다). 근거: [ADR-0106 개정 2](../../adr/0106-improvement-task-is-quest.md)(개선 아이템은 플랫폼 DB, Quest는 BRAVO 소유, ID로만 가리킴). 지금 레포에는 노드 a·b의 DB·읽기·쓰기 API([api/improvement-items.md](../../architecture/platform-api/api/improvement-items.md))와 노드 c의 Quest 읽기 포트(어댑터 `getQuest`·`searchQuests`, 서버 모듈 없음)가 있고, `platform/improvement-items`의 직속 목록·상세·만들기 서랍이 있다. 노드 d의 호스트 빌드·엔드포인트 스냅샷 생성·E2E·데스크톱 시각 검증은 별도 게이트다. 용어는 [GLOSSARY](../../../GLOSSARY.md)의 `과제(Quest)`·`개선 아이템`·`효과 확인`. 화면 선택은 아래 §4와 [ADR-0106 개정 3](../../adr/0106-improvement-task-is-quest.md)을 따른다.
 
 ## 1. 도메인
 
@@ -54,6 +54,12 @@
 ## 5. 노드 분할
 
 a) 도메인·스키마·읽기 · b) 쓰기·이력·감사 · c) Quest 포트(어댑터, 구현됨 — platform-api는 Quest 엔드포인트 없음) + mock 어댑터 + 선택기 계약 · d) 화면(구현됨, 소유자 A안): 서랍·목록·상세 · e) 알림·담당 첫 화면 · f) 편집형 표(#540 뒤)·효과 확인(#1243 뒤). a→b→c→d. f는 선행 조각이 없으면 열지 않는다. GLOSSARY에 상태·되돌림·효과 판단 용어를 등록했다.
+
+### 홈 담당 건수 카드 (노드 e2, 구현됨)
+
+`platform/improvement-items`가 Kernel `homeTodo` 슬롯에 카드를 제공하고 앱이 기능 다리의 기존 내 할 일과 함께 조립한다. 홈 패키지는 다른 메뉴를 import하지 않는다. `improvement.items`를 `pageSize=1`로 두 번 읽어 `total`을 표시한다: `내 담당`과 같은 본인·효과 확인됨/취소 제외, 그중 `done`인 효과 확인 대기 건수. `platform:view`로 읽으며 만들기·상태 변경 권한은 필요 없다.
+
+0건도 `담당 건수 없음`과 `내 담당` 링크를 유지한다. 담당 배정 전에도 진입 위치가 일정하고, 조회 실패·권한 제한을 0건과 구분하기 위해서다. 높이가 고정된 카드 안에서 로딩·다시 시도 가능한 오류·권한 제한·0건·건수를 한국어/영어로 표시한다. 링크는 메뉴 ID와 페이지 키 코덱으로 저장된 보기를 만들며 예전 검색·페이지·서랍 조건을 지운다. 호스트의 1440/1280 캡처·review-ux·impeccable critique/audit는 별도 검증이다.
 
 ## 6. 결정 (`질문 #1328`, 소유자 2026-11-04: 추천대로)
 

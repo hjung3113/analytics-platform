@@ -697,6 +697,17 @@ rows.push(
   { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/feature-bridge/src/voc-compose-slot';`, rule: 'no-restricted-imports' },
 );
 
+// Improvement assignments enter home only through the app composition root (#1328 e2).
+rows.push(
+  { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/menu-improvement-items/home-todo-slot';`, rule: '' },
+  { file: 'apps/platform-web/src/main.tsx', code: `await import('@ap/menu-improvement-items/home-todo-slot');`, rule: '' },
+  { file: 'apps/platform-web/src/slots.ts', code: `import { x } from '@ap/menu-improvement-items/home-todo-slot';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/slots.ts', code: `await import('@ap/menu-improvement-items/home-todo-slot');`, rule: 'ap/restricted-import-source' },
+  { file: 'platform/home/src/pages/Home.tsx', code: `import { x } from '@ap/menu-improvement-items/home-todo-slot';`, rule: 'no-restricted-imports' },
+  { file: 'platform/home/src/pages/Home.tsx', code: `await import('@ap/menu-improvement-items/home-todo-slot');`, rule: 'ap/restricted-import-source' },
+  { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/menu-improvement-items/home-todo-slot/x';`, rule: 'no-restricted-imports' },
+);
+
 // The home 내 할 일 slot is main.tsx-only too (#657); `src/slots.ts` receives the value as a parameter.
 rows.push(
   { file: 'apps/platform-web/src/main.tsx', code: `import { homeTodoSlot } from '@ap/feature-bridge/home-todo-slot';`, rule: '' },

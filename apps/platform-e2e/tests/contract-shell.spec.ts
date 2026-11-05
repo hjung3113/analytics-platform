@@ -641,7 +641,7 @@ test.describe('플랫폼 홈 · 전역 화면 (ADR-0028, ADR-0070)', () => {
     await evidence(page, testInfo, 'viewer-home-global');
   });
 
-  test('mock에서는 홈에 내 할 일 구역도 실서버 필요 안내도 없고, 업무 시스템 다음에 즐겨찾기가 이어진다 (#657)', async ({ page }) => {
+  test('mock 홈은 업무 시스템 → 내 담당 개선 아이템 → 즐겨찾기 순서이며 기능 내 할 일 안내는 없다 (#657, #1328)', async ({ page }) => {
     await signInAs(page, 'viewer');
     await page.goto('/home');
     await expect(page.getByRole('heading', { name: '플랫폼 홈' })).toBeVisible();
@@ -649,8 +649,14 @@ test.describe('플랫폼 홈 · 전역 화면 (ADR-0028, ADR-0070)', () => {
     await expect(page.getByRole('region', { name: '내 할 일' })).toHaveCount(0);
     await expect(page.getByText('실서버 필요')).toHaveCount(0);
     const systems = await page.getByRole('region', { name: '업무 시스템' }).boundingBox();
+    // #1328 e2 adds an independent menu-query contribution; the feature bridge stays hidden in mock.
+    const assignments = page.getByRole('region', { name: '내 담당 개선 아이템' });
+    await expect(assignments.getByText('담당 건수 없음')).toBeVisible();
+    await expect(assignments.getByRole('link', { name: '내 담당 목록 열기 · 내 담당 개선 아이템 0건' })).toHaveAttribute('href', /view=mine/);
+    const assigned = await assignments.boundingBox();
     const favorites = await page.getByRole('heading', { name: '즐겨찾기' }).boundingBox();
-    expect(systems!.y).toBeLessThan(favorites!.y);
+    expect(systems!.y).toBeLessThan(assigned!.y);
+    expect(assigned!.y).toBeLessThan(favorites!.y);
   });
 
   test('여러 공간이 있는 역할도 전역 화면에서는 현재 시스템·섹션 표식이 없고, 공간 화면에서만 표시한다', async ({ page }, testInfo) => {
