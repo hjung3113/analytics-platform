@@ -100,6 +100,7 @@ export const entityLinksRoutes: FastifyPluginAsync<EntityLinksRoutesOptions> = a
           ...(data.managed_system_id !== undefined
             ? { managedSystemId: data.managed_system_id }
             : {}),
+          ...(data.q !== undefined ? { q: data.q } : {}),
         });
         return reply.code(200).send(result);
       }

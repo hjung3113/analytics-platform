@@ -77,6 +77,21 @@ status filter includes `status_counts` for all list-visible rows matching the
 relation type and Managed System filters. Status, relation type, and Managed
 System filters apply to every page.
 
+Inventory mode also accepts `q` (trimmed, at most 200 characters; longer returns
+`422 validation.failed`; an empty value means no search). It matches what the
+inventory row shows for each endpoint, case-insensitively, like the VOC and Task
+list searches: the endpoint `display_id` by prefix, or its `title` as a substring
+(`%`, `_` and `\` are literal). Only rows with `visibility_state=allowed` can
+match, and the match reads the same internal endpoint summaries the DTO carries:
+hidden, denied and summary-only rows never match, are never returned and never
+count, so a search cannot reveal a link or an endpoint title the actor may not
+read. `q` combines with `status`, `relation_type`, `managed_system_id` and
+`cursor`, and is rejected in endpoint mode. With `q` the first page's
+`status_counts` count the matching rows (before the status filter). The search
+looks through the newest 1000 list-visible rows that match the relation type and
+Managed System filters; older rows are not searched, and the cursor continues the
+same `created_at DESC, id DESC` order over the matches.
+
 ## FO ADR-0064 canonical-link access (accepted; #740 cutover)
 
 Generic POST/GET/PATCH, all status filters, counts and cursors categorically

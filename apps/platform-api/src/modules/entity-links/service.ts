@@ -116,6 +116,19 @@ function toSummaryVisibleDto(row: EntityLinkRow, summary: TaskReporterSummary): 
   };
 }
 
+/** Newest list-visible links a `q` search looks through (#1374). */
+const INVENTORY_SEARCH_WINDOW = 1000;
+
+/** The row's identity text: display id by prefix, title by substring, like the sibling list searches. */
+function endpointSummaryMatches(
+  summary: EntityLinkTargetSummary | undefined,
+  needle: string,
+): boolean {
+  if (summary === undefined) return false;
+  if (summary.display_id.toLocaleLowerCase().startsWith(needle)) return true;
+  return 'title' in summary && summary.title.toLocaleLowerCase().includes(needle);
+}
+
 function toDtoForDecision(
   row: EntityLinkRow,
   decision: LinkVisibilityDecision,
@@ -956,33 +969,11 @@ export function createEntityLinksService(deps: EntityLinksServiceDeps) {
     };
   }
 
-  async function listInventoryLinks(args: {
-    actor: EntityLinksActor;
-    limit: number;
-    cursor?: string;
-    statuses?: EntityLinkRow['status'][];
-    relationType?: EntityLinkRelationType;
-    managedSystemId?: string;
-  }): Promise<{
-    items: EntityLinkDto[];
-    page: {
-      has_more: boolean;
-      cursor?: string;
-      status_counts?: EntityLinkStatusCounts;
-    };
-  }> {
-    const { actor } = args;
-    const decodedCursor =
-      args.cursor !== undefined ? decodeEntityLinksInventoryCursor(args.cursor) : undefined;
-    const result = await selectLinksByWorkspace(deps.db, {
-      workspaceId: actor.workspace_id,
-      limit: args.limit,
-      ...(decodedCursor !== undefined ? { cursor: decodedCursor } : {}),
-      ...(args.statuses !== undefined ? { statuses: args.statuses } : {}),
-      ...(args.relationType !== undefined ? { relationType: args.relationType } : {}),
-      ...(args.managedSystemId !== undefined ? { managedSystemId: args.managedSystemId } : {}),
-    });
-    const rows = result.items.filter((row) =>
+  async function buildInventoryItems(
+    actor: EntityLinksActor,
+    storedRows: readonly EntityLinkRow[],
+  ): Promise<{ row: EntityLinkRow; decision: LinkVisibilityDecision; dto: EntityLinkDto }[]> {
+    const rows = storedRows.filter((row) =>
       isListVisibleTuple({
         sourceType: row.source_type,
         targetType: row.target_type,
@@ -1014,14 +1005,49 @@ export function createEntityLinksService(deps: EntityLinksServiceDeps) {
       .filter((item) => item.decision === 'allowed')
       .map((item) => item.row);
     const summariesByEndpoint = await preloadInventoryInternalSummaries(deps, actor, allowedRows);
-    const items = decisions.map(({ row, decision, summary }) =>
-      toDtoForDecision(
+    return decisions.map(({ row, decision, summary }) => ({
+      row,
+      decision,
+      dto: toDtoForDecision(
         row,
         decision,
         summary,
         decision === 'allowed' ? inventorySummariesForRow(row, summariesByEndpoint) : undefined,
       ),
-    );
+    }));
+  }
+
+  async function listInventoryLinks(args: {
+    actor: EntityLinksActor;
+    limit: number;
+    cursor?: string;
+    statuses?: EntityLinkRow['status'][];
+    relationType?: EntityLinkRelationType;
+    managedSystemId?: string;
+    q?: string;
+  }): Promise<{
+    items: EntityLinkDto[];
+    page: {
+      has_more: boolean;
+      cursor?: string;
+      status_counts?: EntityLinkStatusCounts;
+    };
+  }> {
+    const { actor } = args;
+    const decodedCursor =
+      args.cursor !== undefined ? decodeEntityLinksInventoryCursor(args.cursor) : undefined;
+    if (args.q !== undefined) {
+      return listInventoryLinksMatching({ ...args, q: args.q }, decodedCursor);
+    }
+    const result = await selectLinksByWorkspace(deps.db, {
+      workspaceId: actor.workspace_id,
+      limit: args.limit,
+      ...(decodedCursor !== undefined ? { cursor: decodedCursor } : {}),
+      ...(args.statuses !== undefined ? { statuses: args.statuses } : {}),
+      ...(args.relationType !== undefined ? { relationType: args.relationType } : {}),
+      ...(args.managedSystemId !== undefined ? { managedSystemId: args.managedSystemId } : {}),
+    });
+    const items = (await buildInventoryItems(actor, result.items)).map((entry) => entry.dto);
     const cursor = result.nextCursor
       ? encodeEntityLinksInventoryCursor(result.nextCursor)
       : undefined;
@@ -1031,6 +1057,80 @@ export function createEntityLinksService(deps: EntityLinksServiceDeps) {
         has_more: result.hasMore,
         ...(cursor !== undefined ? { cursor } : {}),
         ...(result.statusCounts !== undefined ? { status_counts: result.statusCounts } : {}),
+      },
+    };
+  }
+
+  /**
+   * `q` search (#1374). Endpoint titles live in the endpoint modules' tables and a SQL match would
+   * also match endpoints the actor cannot read, so the match runs on the internal summaries of rows
+   * that already passed the visibility decision: a hidden, denied or summary-only row never matches
+   * and never counts. The newest SEARCH_WINDOW list-visible rows are searched; paging and
+   * `status_counts` are computed over the matches.
+   */
+  async function listInventoryLinksMatching(
+    args: {
+      actor: EntityLinksActor;
+      limit: number;
+      statuses?: EntityLinkRow['status'][];
+      relationType?: EntityLinkRelationType;
+      managedSystemId?: string;
+      q: string;
+    },
+    decodedCursor: { createdAt: string; id: string } | undefined,
+  ) {
+    const { actor } = args;
+    const window = await selectLinksByWorkspace(deps.db, {
+      workspaceId: actor.workspace_id,
+      limit: INVENTORY_SEARCH_WINDOW,
+      ...(args.relationType !== undefined ? { relationType: args.relationType } : {}),
+      ...(args.managedSystemId !== undefined ? { managedSystemId: args.managedSystemId } : {}),
+    });
+    const needle = args.q.toLocaleLowerCase();
+    const matches = (await buildInventoryItems(actor, window.items)).filter(
+      (entry) =>
+        entry.decision === 'allowed' &&
+        entry.dto.visibility_state === 'allowed' &&
+        [entry.dto.source_summary, entry.dto.target_summary].some((summary) =>
+          endpointSummaryMatches(summary, needle),
+        ),
+    );
+    const statusCounts: EntityLinkStatusCounts = { active: 0, stale: 0, detached: 0, revoked: 0 };
+    for (const entry of matches) statusCounts[entry.row.status] += 1;
+    const statuses = args.statuses;
+    const filtered =
+      statuses !== undefined && statuses.length > 0
+        ? matches.filter((entry) => statuses.includes(entry.row.status))
+        : matches;
+    const afterIndex =
+      decodedCursor === undefined
+        ? 0
+        : filtered.findIndex(
+            (entry) =>
+              entry.row.id !== decodedCursor.id &&
+              (entry.row.created_at.getTime() < Date.parse(decodedCursor.createdAt) ||
+                (entry.row.created_at.getTime() === Date.parse(decodedCursor.createdAt) &&
+                  entry.row.id < decodedCursor.id)),
+          );
+    const rest = afterIndex === -1 ? [] : filtered.slice(afterIndex);
+    const pageEntries = rest.slice(0, args.limit);
+    const last = pageEntries.at(-1);
+    const hasMore = rest.length > args.limit;
+    return {
+      items: pageEntries.map((entry) => entry.dto),
+      page: {
+        has_more: hasMore,
+        ...(hasMore && last
+          ? {
+              cursor: encodeEntityLinksInventoryCursor({
+                createdAtRaw: last.row.created_at.toISOString(),
+                id: last.row.id,
+              }),
+            }
+          : {}),
+        ...(decodedCursor === undefined && statuses === undefined
+          ? { status_counts: statusCounts }
+          : {}),
       },
     };
   }

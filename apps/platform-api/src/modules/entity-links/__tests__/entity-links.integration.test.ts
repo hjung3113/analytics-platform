@@ -2276,6 +2276,128 @@ describe.skipIf(!runIntegration)('POST/GET /entity-links (#112)', () => {
     expect(JSON.stringify(hiddenRow)).not.toContain(sourceTitle);
   });
 
+  it('GET workspace inventory q matches readable endpoint titles and ids without disclosing hidden links (#1374)', async () => {
+    const token = uid('qsearch').replace(/[^a-z0-9]/gi, '');
+    const msA = await insertMsDirectly(
+      migrateHandle,
+      WORKSPACE_ID,
+      `${uid(SLUG_PREFIX)}-q-a`,
+      'Q Search MS-A',
+    );
+    const msB = await insertMsDirectly(
+      migrateHandle,
+      WORKSPACE_ID,
+      `${uid(SLUG_PREFIX)}-q-b`,
+      'Q Search MS-B',
+    );
+    const sourceVoc = await insertVocDirectly(
+      migrateHandle,
+      WORKSPACE_ID,
+      msA,
+      reporterId,
+      'Q search seed VOC',
+    );
+    const cluster = await insertVocClusterRow(migrateHandle, {
+      workspaceId: WORKSPACE_ID,
+      primaryManagedSystemId: msA,
+      title: `Cluster ${token}`,
+      status: 'confirmed',
+      createdBy: adminActorId,
+    });
+    const readableOne = await seedFindingDirectly({
+      managedSystemId: msA,
+      sourceVocId: sourceVoc.id,
+      title: `Readable one ${token}`,
+    });
+    const readableTwo = await seedFindingDirectly({
+      managedSystemId: msA,
+      sourceVocId: sourceVoc.id,
+      title: `Readable two ${token}`,
+    });
+    const unreadable = await seedFindingDirectly({
+      managedSystemId: msB,
+      sourceVocId: sourceVoc.id,
+      title: `Secret ${token}`,
+    });
+    const seed = (targetId: string, managedSystemId: string) =>
+      seedEntityLinkDirectly({
+        sourceType: 'voc_cluster',
+        sourceId: cluster.id,
+        targetType: 'finding',
+        targetId,
+        relationType: 'created_finding',
+        managedSystemId,
+        visibility: 'internal_only',
+      });
+    const oneId = await seed(readableOne.id, msA);
+    const twoId = await seed(readableTwo.id, msA);
+    const hiddenId = await seed(unreadable.id, msA);
+
+    const { id: developerId, externalId } = await insertDevActor(
+      dbHandle,
+      WORKSPACE_ID,
+      uid('qsrch'),
+    );
+    await grantCapability(dbHandle, WORKSPACE_ID, developerId, 'voc.read', msA, adminActorId);
+    await grantCapability(dbHandle, WORKSPACE_ID, developerId, 'finding.read', msA, adminActorId);
+    const cookie = await loginAs(app, externalId);
+    type Body = {
+      items: Array<{ id: string }>;
+      page: {
+        has_more: boolean;
+        cursor?: string;
+        status_counts?: { active: number; stale: number; detached: number; revoked: number };
+      };
+    };
+    const search = async (query: string) => {
+      const res = await getEntityLinks(cookie, `?scope=workspace&${query}`);
+      expect(res.statusCode).toBe(200);
+      return res.json<Body>();
+    };
+    const ids = (body: Body) => body.items.map((item) => item.id).sort();
+
+    // The cluster title matches both readable links; the unreadable link never shows or counts.
+    const byCluster = await search(`q=${encodeURIComponent(`cluster ${token}`)}`);
+    expect(ids(byCluster)).toEqual([oneId, twoId].sort());
+    expect(byCluster.page.status_counts).toEqual({ active: 2, stale: 0, detached: 0, revoked: 0 });
+    // An endpoint title (case-insensitive substring) and a display id (prefix) match.
+    expect(ids(await search(`q=${encodeURIComponent(`READABLE ONE ${token}`)}`))).toEqual([oneId]);
+    expect(ids(await search(`q=${encodeURIComponent(readableTwo.display_id.toLowerCase())}`))).toEqual(
+      [twoId],
+    );
+    // A title only the hidden endpoint has matches nothing and counts nothing.
+    const secret = await search(`q=${encodeURIComponent(`secret ${token}`)}`);
+    expect(secret.items).toEqual([]);
+    expect(secret.page.status_counts).toEqual({ active: 0, stale: 0, detached: 0, revoked: 0 });
+    expect(JSON.stringify(secret)).not.toContain(hiddenId);
+    // LIKE wildcards are literal.
+    expect((await search('q=%25')).items).toEqual([]);
+    expect((await search('q=_')).items).toEqual([]);
+    // Combines with the status, relation type and Managed System filters.
+    expect(ids(await search(`q=${token}&status=active`))).toEqual([oneId, twoId].sort());
+    expect((await search(`q=${token}&status=detached`)).items).toEqual([]);
+    expect(ids(await search(`q=${token}&relation_type=created_finding`))).toEqual(
+      [oneId, twoId].sort(),
+    );
+    expect((await search(`q=${token}&managed_system_id=${msB}`)).items).toEqual([]);
+    expect(ids(await search(`q=${token}&managed_system_id=${msA}`))).toEqual([oneId, twoId].sort());
+    // Keyset paging walks the matches once each.
+    const first = await search(`q=${token}&limit=1`);
+    expect(first.items).toHaveLength(1);
+    expect(first.page.has_more).toBe(true);
+    const cursor = first.page.cursor;
+    expect(cursor).toBeDefined();
+    const second = await search(`q=${token}&limit=1&cursor=${encodeURIComponent(cursor ?? '')}`);
+    expect(second.items).toHaveLength(1);
+    expect(second.page.has_more).toBe(false);
+    expect(second.page.cursor).toBeUndefined();
+    expect(second.page.status_counts).toBeUndefined();
+    expect([first.items[0]?.id, second.items[0]?.id].sort()).toEqual([oneId, twoId].sort());
+    // Over-long q is a validation error, not a silent truncation.
+    const tooLong = await getEntityLinks(cookie, `?scope=workspace&q=${'x'.repeat(201)}`);
+    expect(tooLong.statusCode).toBe(422);
+  });
+
   it('GET a VOC Task link projects only the reporter-safe Task summary', async () => {
     const ms = await insertMsDirectly(
       dbHandle,

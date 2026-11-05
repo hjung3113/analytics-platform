@@ -162,11 +162,61 @@ describe('LinksScreen reads', () => {
     else expect(scoped.every((value) => value === 'x')).toBe(true);
   });
 
-  it('keeps the inert search box and shows no row checkbox (#1368)', async () => {
+  it('shows no row checkbox (#1368; row selection is still not wired)', async () => {
     await mount({});
-    expect(screen.getByPlaceholderText('연결 관계 검색…')).toBeInTheDocument();
     await screen.findByRole('listitem');
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+  });
+});
+
+const SEARCH_LABEL = '연결 관계 검색…';
+const inventoryReads = () => requests.filter((url) => url.pathname.endsWith('/entity-links'));
+
+describe('LinksScreen search box (#1374)', () => {
+  it('typing and Enter write q as a page key and the list and count reads carry it', async () => {
+    await mount({ status: 'active', managedSystem: 'x' });
+    const box = screen.getByPlaceholderText(SEARCH_LABEL);
+    expect(box).toBeEnabled();
+    await userEvent.type(box, 'VOC-12{Enter}');
+    expect(written()).toEqual({
+      path: '/integration/links',
+      search: { status: 'active', managedSystem: 'x', q: 'VOC-12' },
+      replace: true,
+    });
+    await waitFor(() => {
+      const withQ = inventoryReads().filter((url) => url.searchParams.get('q') === 'VOC-12');
+      // the table read (status=active) and the status-tab count read (no status)
+      expect(withQ.some((url) => url.searchParams.get('status') === 'active')).toBe(true);
+      expect(withQ.some((url) => url.searchParams.get('status') === null)).toBe(true);
+    });
+  });
+
+  it('clearing the box removes q and keeps the other keys', async () => {
+    await mount({ q: 'VOC-12', type: 'related_to' });
+    const box = screen.getByPlaceholderText(SEARCH_LABEL);
+    await userEvent.clear(box);
+    await userEvent.keyboard('{Enter}');
+    expect(written().search).toEqual({ type: 'related_to' });
+  });
+
+  it('reloading from the URL restores the box and sends q', async () => {
+    await mount({ q: '결제' });
+    expect(screen.getByPlaceholderText(SEARCH_LABEL)).toHaveValue('결제');
+    await waitFor(() =>
+      expect(inventoryReads().every((url) => url.searchParams.get('q') === '결제')).toBe(true),
+    );
+  });
+
+  it('a status tab keeps q', async () => {
+    await mount({ q: 'VOC-12' });
+    await userEvent.click(screen.getByRole('tab', { name: /^활성/ }));
+    expect(written().search).toEqual({ status: 'active', q: 'VOC-12' });
+  });
+
+  it('a request without q sends no q', async () => {
+    await mount({});
+    await screen.findByRole('listitem');
+    expect(inventoryReads().every((url) => !url.searchParams.has('q'))).toBe(true);
   });
 });
 

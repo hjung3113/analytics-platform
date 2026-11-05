@@ -60,6 +60,12 @@ export const integrationLinksSearchSchema = z
   .object({
     status: z.enum(['active', 'stale', 'detached', 'revoked']).optional(),
     type: z.enum(['related_to']).optional(),
+    q: z
+      .string()
+      .trim()
+      .max(200)
+      .transform((value) => value || undefined)
+      .optional(),
     managedSystem: z.string().optional(),
   })
   .strict();
