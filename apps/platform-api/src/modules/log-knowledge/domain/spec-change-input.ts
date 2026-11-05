@@ -9,9 +9,9 @@
 import { z } from 'zod';
 
 import type { FieldError } from '../../menu-dispatch/types.js';
-import { unsafeText } from '../../platform-port/text-safety.js';
 import { NAME_MAX, toCodeKey } from './code-key.js';
-import { fieldErrors, normalizeSpecName, specFieldSchema, storedField } from './spec-input.js';
+import { MODULE_EVENT_TARGET_SCHEMAS, canonical, isRecord, kindEnum, nameText, optionalText, refText, under, uuidText as uuid } from './input-kit.js';
+import { fieldErrors, specFieldSchema, storedField } from './spec-input.js';
 import { SPEC_TARGET_KINDS, TARGET_KEY_MAX, type SpecTargetKind, type SpecTargetRef, buildTargetKey } from './spec-target-key.js';
 
 export const SPEC_CHANGE_KINDS = ['added', 'removed', 'changed', 'behavior'] as const;
@@ -22,33 +22,8 @@ export const SPEC_CHANGE_EVIDENCE_MAX = 500;
 /** Open (not retired) changes per model, judged under the model lock. */
 export const SPEC_CHANGES_OPEN_MAX = 500;
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const canonical = (v: string): string => v.toLowerCase();
-const REQUIRED = { required_error: 'required', invalid_type_error: 'required' };
-const length = (value: string): number => [...value].length;
-// Accepted in any spelling, always answered in the DB's lower-case: the advisory lock key hashes the text, and
-// `softwareOrders` keys are DB ids — a mixed-case id must not take another lock or miss its own order lookup.
-const uuid = z.string(REQUIRED).refine((v) => UUID.test(v), { message: 'malformed' });
-const bounded = (max: number) =>
-  z.string(REQUIRED).superRefine((value, ctx) => {
-    if (unsafeText(value)) ctx.addIssue({ code: 'custom', message: 'malformed' });
-    else if (length(value) > max) ctx.addIssue({ code: 'custom', message: 'too_long' });
-  });
-const nameText = (max: number) =>
-  bounded(max)
-    .refine((v) => normalizeSpecName(v) !== '', { message: 'required' })
-    .transform(normalizeSpecName);
-const optionalText = (max: number) =>
-  bounded(max)
-    .nullish()
-    .transform((v) => (v === undefined || v === null || v.trim() === '' ? null : v.trim()));
-const refText = nameText(NAME_MAX).transform(toCodeKey);
-const kindEnum = <T extends readonly [string, ...string[]]>(values: T) =>
-  z.enum(values, { errorMap: (_i, ctx) => ({ message: ctx.data === undefined ? 'required' : 'malformed' }) });
-
 const TARGET_SCHEMAS = {
-  module: z.object({ module: refText }).strict({ message: 'malformed' }),
-  event: z.object({ module: refText, event: refText }).strict({ message: 'malformed' }),
+  ...MODULE_EVENT_TARGET_SCHEMAS,
   field: z.object({ module: refText, event: refText, field: nameText(NAME_MAX) }).strict({ message: 'malformed' }),
   relation: z
     .object({ sourceModule: refText, sourceEvent: refText, predicate: nameText(100), targetModule: refText, targetEvent: refText })
@@ -76,9 +51,6 @@ export interface ChangeFields {
   note: string | null;
   evidenceRef: string | null;
 }
-
-const isRecord = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === 'object' && !Array.isArray(v);
-const under = (prefix: readonly string[], errors: FieldError[]): FieldError[] => errors.map((e) => ({ path: [...prefix, ...e.path], code: e.code }));
 
 /** The name a value spells must be the target's key (a rename changes the display name, never the key). */
 function nameMatches(ref: SpecTargetRef, value: Record<string, unknown>): boolean {

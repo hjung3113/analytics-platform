@@ -6,7 +6,8 @@
 // Codes: `required`, `malformed`, `too_long` (more than `ITEM_SUBJECTS_MAX`), `duplicate` (the same model, kind and key twice).
 
 import type { FieldError } from '../../menu-dispatch/types.js';
-import { parseModuleEventTarget, uuidText } from './concept-input.js';
+import { uuidText } from './input-kit.js';
+import { parseModuleEventTarget } from './concept-input.js';
 
 export const ITEM_SUBJECTS_MAX = 20;
 export const SUBJECT_RELATIONS = ['about', 'context'] as const;
