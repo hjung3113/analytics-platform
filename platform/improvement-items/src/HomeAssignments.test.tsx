@@ -1,5 +1,5 @@
 import { Suspense } from 'react';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { filterRows, groupId, validateFilters, type ApiResponse, type PlatformAdapter, type Session } from '@ap/contracts';
 import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
@@ -24,6 +24,48 @@ beforeEach(() => { persisted.clear(); vi.stubGlobal('localStorage', persisted); 
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe('home improvement assignments (#1328 e2)', () => {
+  it.each([
+    ['ko', 3, '내 담당 목록 열기', '내 담당 개선 아이템 3건'],
+    ['ko', 0, '내 담당 목록 열기', '내 담당 개선 아이템 0건'],
+    ['en', 3, 'Open assigned items', '3 open improvement items assigned to me'],
+    ['en', 0, 'Open assigned items', '0 open improvement items assigned to me'],
+  ] as const)('keeps the visible link label at the start of its count-aware name (%s, %s)', async (lang, total, label, context) => {
+    mount(async () => reply(total), lang);
+    const link = await screen.findByRole('link', { name: `${label} · ${context}` });
+    expect(link.textContent).toBe(label);
+  });
+  it('provides one full-width footer link target with a visible keyboard focus treatment', async () => {
+    mount(async () => reply(3));
+    await screen.findByText('3건');
+    const link = screen.getByRole('link');
+    for (const token of ['flex', 'min-h-11', 'shrink-0', 'items-center', 'focus-visible:ring-2', 'focus-visible:ring-focus-ring']) expect(link.classList.contains(token)).toBe(true);
+    expect(link.classList.contains('self-start')).toBe(false);
+    expect(screen.getAllByRole('link')).toHaveLength(1);
+    expect(link.querySelector('a, button, input, [tabindex]')).toBeNull();
+    expect(link.tabIndex).toBe(0);
+    link.focus();
+    expect(document.activeElement).toBe(link);
+  });
+  it.each(['ko', 'en'])('keeps compact reserved geometry through loading, count, error and zero (%s)', async lang => {
+    const reads: ((response: ApiResponse<unknown>) => void)[] = [];
+    mount(() => new Promise(resolve => { reads.push(resolve); }), lang);
+    const card = await screen.findByRole('region', { name: lang === 'ko' ? '내 담당 개선 아이템' : 'My improvement items' });
+    const geometry = card.className;
+    expect(card.classList.contains('h-36')).toBe(true);
+    expect(card.getAttribute('aria-busy')).toBe('true');
+    await act(async () => { reads.splice(0).forEach(resolve => resolve({ ...reply(0), outcome: 'error', data: null })); });
+    await screen.findByText(lang === 'ko' ? '담당 건수를 불러오지 못했습니다.' : 'Could not load assignment counts.');
+    expect(card.className).toBe(geometry);
+    fireEvent.click(screen.getByRole('button', { name: lang === 'ko' ? '다시 시도' : 'Retry' }));
+    expect(card.className).toBe(geometry);
+    await act(async () => { reads.splice(0).forEach(resolve => resolve(reply(3))); });
+    await screen.findByText(lang === 'ko' ? '3건' : '3 items');
+    expect(card.className).toBe(geometry);
+    cleanup();
+    mount(async () => reply(0), lang);
+    await screen.findByText(lang === 'ko' ? '담당 건수 없음' : 'No assigned items');
+    expect(screen.getByRole('region').className).toBe(geometry);
+  });
   it('reserves the card while both counts load', async () => {
     mount(() => new Promise(() => {}));
     const card = await screen.findByRole('region', { name: '내 담당 개선 아이템' });
@@ -34,7 +76,7 @@ describe('home improvement assignments (#1328 e2)', () => {
   it.each(['ko', 'en'])('shows an explicit quiet zero and keeps the saved-view link (%s)', async lang => {
     mount(async () => reply(0), lang);
     expect(await screen.findByText(lang === 'ko' ? '담당 건수 없음' : 'No assigned items')).toBeTruthy();
-    expect(screen.getByRole('link', { name: lang === 'ko' ? '내 담당 개선 아이템 0건 · 목록 열기' : '0 open improvement items assigned to me · Open list' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: lang === 'ko' ? '내 담당 목록 열기 · 내 담당 개선 아이템 0건' : 'Open assigned items · 0 open improvement items assigned to me' })).toBeTruthy();
     expect(screen.queryByText(/조치 완료 · 효과 확인 대기/)).toBeNull();
   });
   it.each(['ko', 'en'])('counts the same open assignments as the saved view, including done, from total (%s)', async lang => {
@@ -51,7 +93,7 @@ describe('home improvement assignments (#1328 e2)', () => {
       const matching = filterRows(rows, params.filters, (row, id) => row[id as keyof typeof row], { specs: filterSpecs });
       return { ...reply(matching.length), data: { rows: matching.slice(0, params.pageSize), total: matching.length } };
     }, lang);
-    const link = await screen.findByRole('link', { name: lang === 'ko' ? '내 담당 개선 아이템 3건 · 목록 열기' : '3 open improvement items assigned to me · Open list' });
+    const link = await screen.findByRole('link', { name: lang === 'ko' ? '내 담당 목록 열기 · 내 담당 개선 아이템 3건' : 'Open assigned items · 3 open improvement items assigned to me' });
     expect(screen.getByText(lang === 'ko' ? '조치 완료 · 효과 확인 대기 1건' : 'Done · Awaiting effect check: 1')).toBeTruthy();
     expect(requests).toHaveLength(2);
     expect(requests.every(p => p.page === 0 && p.pageSize === 1)).toBe(true);
@@ -70,7 +112,7 @@ describe('home improvement assignments (#1328 e2)', () => {
     expect(document.body.textContent).not.toContain('private backend exception');
     failed = false;
     fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
-    expect(await screen.findByRole('link', { name: '내 담당 개선 아이템 2건 · 목록 열기' })).toBeTruthy();
+    expect(await screen.findByRole('link', { name: '내 담당 목록 열기 · 내 담당 개선 아이템 2건' })).toBeTruthy();
   });
   it('does not claim zero when the secondary count is refused', async () => {
     mount(async request => (request.params as ListParams).filters?.some(f => f.id === 'status' && f.op === 'in') ? { ...reply(0), outcome: 'forbidden', data: null } : reply(3));

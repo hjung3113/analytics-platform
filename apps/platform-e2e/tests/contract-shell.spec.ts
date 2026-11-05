@@ -652,7 +652,7 @@ test.describe('플랫폼 홈 · 전역 화면 (ADR-0028, ADR-0070)', () => {
     // #1328 e2 adds an independent menu-query contribution; the feature bridge stays hidden in mock.
     const assignments = page.getByRole('region', { name: '내 담당 개선 아이템' });
     await expect(assignments.getByText('담당 건수 없음')).toBeVisible();
-    await expect(assignments.getByRole('link', { name: '내 담당 개선 아이템 0건 · 목록 열기' })).toHaveAttribute('href', /view=mine/);
+    await expect(assignments.getByRole('link', { name: '내 담당 목록 열기 · 내 담당 개선 아이템 0건' })).toHaveAttribute('href', /view=mine/);
     const assigned = await assignments.boundingBox();
     const favorites = await page.getByRole('heading', { name: '즐겨찾기' }).boundingBox();
     expect(systems!.y).toBeLessThan(assigned!.y);
