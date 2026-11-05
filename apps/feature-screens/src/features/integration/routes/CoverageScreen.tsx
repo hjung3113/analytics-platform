@@ -54,9 +54,6 @@ type CoverageSearch = ReturnType<typeof validateIntegrationCoverageSearch>;
 
 const SETTINGS_HREF = '/admin/settings#coverage';
 
-// The prototype subtitle pitches editable thresholds (direction C, deferred);
-// the integration guide requires the partial-integration-coverage label.
-
 // Coverage columns are the five rollup ratios; the queue columns are the five
 // per-system queues. permission-requests-pending is workspace review, never a
 // system row key (docs/architecture/platform-api/api/dashboard.md), so it has no column.
