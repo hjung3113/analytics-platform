@@ -1,4 +1,4 @@
-import { sql } from 'drizzle-orm';
+import { sql, type SQL } from 'drizzle-orm';
 
 import type {
   EntityLinkEntityType,
@@ -353,31 +353,7 @@ export async function selectLinksByWorkspace(
   nextCursor?: { createdAtRaw: string; id: string };
   statusCounts?: EntityLinkStatusCounts;
 }> {
-  const summaryPredicates = [sql`workspace_id = ${input.workspaceId}`];
-  if (input.relationType !== undefined) {
-    summaryPredicates.push(sql`relation_type = ${input.relationType}`);
-  }
-  if (input.managedSystemId !== undefined) {
-    summaryPredicates.push(sql`managed_system_id = ${input.managedSystemId}`);
-  }
-
-  const listVisiblePredicates = [
-    sql`source_type <> 'survey_response'`,
-    sql`NOT (
-      source_type = 'voc_cluster'
-      AND target_type = 'finding'
-      AND relation_type = 'evidence_of'
-    )`,
-  ];
-  const predicates = [...summaryPredicates, ...listVisiblePredicates];
-  if (input.statuses !== undefined && input.statuses.length > 0) {
-    predicates.push(sql`status::text = ANY(${sqlTextArray(input.statuses)})`);
-  }
-  if (input.cursor !== undefined) {
-    predicates.push(sql`(created_at, id) < (
-      ${input.cursor.createdAt}::timestamptz, ${input.cursor.id}::uuid
-    )`);
-  }
+  const { summary: statusCountPredicates, page: predicates } = inventoryPredicates(input);
 
   const pageQuery = (db as Db).execute<Record<string, unknown>>(sql`
     SELECT
@@ -390,7 +366,6 @@ export async function selectLinksByWorkspace(
     ORDER BY created_at DESC, id DESC
     LIMIT ${input.limit + 1}
   `);
-  const statusCountPredicates = [...summaryPredicates, ...listVisiblePredicates];
   const statusCountsQuery =
     input.cursor === undefined && input.statuses === undefined
       ? (db as Db).execute<Record<string, unknown>>(sql`
@@ -431,6 +406,48 @@ export async function selectLinksByWorkspace(
   };
 }
 
+type InventoryPredicateInput = {
+  workspaceId: string;
+  cursor?: { createdAt: string; id: string };
+  statuses?: EntityLinkRow['status'][];
+  relationType?: EntityLinkRow['relation_type'];
+  managedSystemId?: string;
+};
+
+/**
+ * The one definition of which links the inventory may show (ADR-0064 Survey read boundary: no Survey-response source in
+ * any status; cluster evidence for a finding is hidden) and how the filters narrow them. The list page, its status
+ * counts and the `q` scan batches all use it, so a change here moves them together. `summary` ignores status and cursor
+ * (the counts), `page` adds both.
+ */
+function inventoryPredicates(input: InventoryPredicateInput): { summary: SQL[]; page: SQL[] } {
+  const summary = [sql`workspace_id = ${input.workspaceId}`];
+  if (input.relationType !== undefined) {
+    summary.push(sql`relation_type = ${input.relationType}`);
+  }
+  if (input.managedSystemId !== undefined) {
+    summary.push(sql`managed_system_id = ${input.managedSystemId}`);
+  }
+  summary.push(
+    sql`source_type <> 'survey_response'`,
+    sql`NOT (
+      source_type = 'voc_cluster'
+      AND target_type = 'finding'
+      AND relation_type = 'evidence_of'
+    )`,
+  );
+  const page = [...summary];
+  if (input.statuses !== undefined && input.statuses.length > 0) {
+    page.push(sql`status::text = ANY(${sqlTextArray(input.statuses)})`);
+  }
+  if (input.cursor !== undefined) {
+    page.push(sql`(created_at, id) < (
+      ${input.cursor.createdAt}::timestamptz, ${input.cursor.id}::uuid
+    )`);
+  }
+  return { summary, page };
+}
+
 /**
  * One keyset batch of the inventory scan behind the `q` search: the same filters and ordering as
  * `selectLinksByWorkspace`, starting after `cursor`, and each row keeps the raw timestamp text so a
@@ -450,29 +467,7 @@ export async function selectLinkScanBatch(
   rows: { row: EntityLinkRow; createdAtRaw: string }[];
   exhausted: boolean;
 }> {
-  const predicates = [
-    sql`workspace_id = ${input.workspaceId}`,
-    sql`source_type <> 'survey_response'`,
-    sql`NOT (
-      source_type = 'voc_cluster'
-      AND target_type = 'finding'
-      AND relation_type = 'evidence_of'
-    )`,
-  ];
-  if (input.relationType !== undefined) {
-    predicates.push(sql`relation_type = ${input.relationType}`);
-  }
-  if (input.managedSystemId !== undefined) {
-    predicates.push(sql`managed_system_id = ${input.managedSystemId}`);
-  }
-  if (input.statuses !== undefined && input.statuses.length > 0) {
-    predicates.push(sql`status::text = ANY(${sqlTextArray(input.statuses)})`);
-  }
-  if (input.cursor !== undefined) {
-    predicates.push(sql`(created_at, id) < (
-      ${input.cursor.createdAt}::timestamptz, ${input.cursor.id}::uuid
-    )`);
-  }
+  const { page: predicates } = inventoryPredicates(input);
   const result = await (db as Db).execute<Record<string, unknown>>(sql`
     SELECT
       id, workspace_id, source_type, source_id, target_type, target_id,
