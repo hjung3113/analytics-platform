@@ -50,7 +50,7 @@ On a rebase, keep both sides of a conflicting table or list row.
 
 | Rule | How |
 | --- | --- |
-| Before starting a worker, a lane session or a heavy step | Run `bash .agents/conductor/scripts/capacity.sh`. Start only if `start=yes`. `workers=` and `lanes=` are machine-wide limits. |
+| Before starting a worker, a lane session or a heavy step | Run `bash .agents/conductor/scripts/capacity.sh`. Start only if `start=yes`. `workers=` and `lanes=` are machine-wide limits. The load guard sets `start=no` while `load1 > 2×ncpu`, whatever the memory stage (owner, 2026-11-06): a machine that busy slows every running worker. |
 | Take any lock or slot | Use `bash .agents/conductor/scripts/with-lock.sh <heavy.lock\|browser.lock\|merge.lock\|worker-slot-N> "<purpose>" -- <command>` in the background. Never `mkdir` a lock by hand: `with-lock.sh` writes the owner, PID and token, and releases on exit. |
 | Worker slot | Wrap both the launch and the wait: `with-lock.sh worker-slot-N "<W name> <role>" -- bash -c '<launch> && bash ~/.agents/skills/orca-dispatch-recipes/scripts/worker-wait.sh … --kill-on-timeout'`. `bash -c '…'` sees only exported variables, so `export` `WAVE_STATE` and the names first. The slot frees when the worker ends. On exit 13, send `continue` and wrap again. Wait only through `worker-wait.sh`: a hand-written sentinel wait never ends if the worker dies. |
 | `heavy.lock` (one machine-wide) | Root `pnpm test` and `build`, `probe.ts`, screen integration, and a full local `pnpm e2e` (only to reproduce a CI failure — send `<lane>: E2E` at start and end). Narrowed E2E (`-g`) and package checks take no lock. |
@@ -67,6 +67,10 @@ On a rebase, keep both sides of a conflicting table or list row.
 4. **Blocked** on a lock or slot for more than 5 minutes: send `<lane>: 막힘 #n <lock>, owner <owner>, since <t>, purpose <p>`.
 5. **Prerequisite PR:** wait on it yourself in the background with `timeout <cap> bash -c 'until s=$(gh pr view <n> --json state -q .state); [ "$s" != OPEN ]; do sleep 60; done; echo "$s"'`. On `MERGED`, start. On `CLOSED` or a timeout, ask the lead.
 6. **Between assignments:** start the next issue in the assignment comment's order. Run non-overlapping issues in parallel if capacity allows. When nothing is left, send `대기` and launch nothing.
+   - After every wait result, in the same turn, launch the next work or send `대기 #n <blocker|none>` (blocker: capacity, file overlap, dependency or owner gate). A dependency wait is a `대기`, not silence. Reason: an idle lane is invisible to the lead until the 2 h check.
+   - A re-review covers only the fix diff and the findings still open; never re-ask earlier rounds' checklists. Reason: re-asking every round makes each round as long as the first.
+   - A placement or shape question found in review goes to a `?variant=` prototype (PROFILE §Review) before more fix rounds. Reason: fix rounds that explore placement repeat a review cycle per guess.
+   - A minor or nit never starts another review round: fix it inline and merge (PROFILE §Size and path). A major or blocker that needs a round past the tier cap goes to the lead as `질문 #n 한도 <rounds>`; the merge then needs an `over-cap: <reason>` line in VERIFY (`ship-check.sh`).
 7. **Rotation:** after each assignment run `bash .agents/conductor/scripts/lane-rotate.sh`. On `rotate=after-issue`, finish the current issue, then rotate. On `rotate=now`, rotate now. To rotate, write `HANDOFF.md` (work in progress, held locks and slots, preview labels, worker names) and send `교대`.
 8. **Merge:** per [addenda/merge.md](addenda/merge.md). If main CI goes red after your merge, send `main 깨짐` and fix it. The lead pauses other lanes' merges until then.
 9. **Another lane's paths:** before editing a path another lane owns, send `착수` the same way. The lead sets the order.
@@ -82,11 +86,17 @@ On a rebase, keep both sides of a conflicting table or list row.
   3. Send with `orca terminal send --text "[팀장 …] …" --enter`.
   4. A "no turn start was observed" warning is not a failure. Confirm on screen and resend only if the text is missing.
 - **Lane → lead:** the single Run. Only the lead runs `run-use` and `check --wait`. Keep `orca orchestration check --run <run> --terminal <lead> --wait --timeout-ms 7000000 --json` running in the background. After each wake, `--ack` the delivery and arm it again, so that `질문`, `막힘` and `main 깨짐` are handled at once, not at the 2 h check. Strip `{"_keepalive"` lines before parsing. On `consumer_fenced` or `waiter_exists`, run `run-use` again (and kill an orphan `orchestration check` process).
-- **On messages:**
-  - `막힘`: run `lock-audit.sh` in the same wake.
-  - `main 깨짐`: pause other lanes' merges until the fix is merged.
-  - `교대`: run `/clear` in that terminal, then send "Read <brief> and follow it; resume from HANDOFF.md".
-  - `병합`: check `state-<lane>/W-<n>*.json` for the tier's records (full: `impl*` and `review-final`; light: VERIFY has `tier=light` and numstat). If one is missing, send `[팀장] 규칙 #n: <missing>`. Before merge, the lane runs the missing step. After merge, it runs a `review-final` on the merged diff.
+- **Event triggers.** The lead re-allocates on events, not on a timer; the 2 h check is only a safety net. Every handler ends with the re-allocation step (RA):
+  - **RA:** for the lane the event touches, and for every lane with no live worker (a live pid or Orca terminal — a `running` state JSON alone does not count), name the next work and send it, or name the blocker (capacity, file overlap, dependency, owner gate). Ready work comes from `board.py show`, the plan graph (ready and stackable nodes) and the assignment order. Start nothing new while `capacity.sh` says `start=no`; record `capacity` as the blocker. Close a lane only when the board has no planned line in its area.
+  - **T1 `병합`:** check `state-<lane>/W-<n>*.json` for the tier's records (full: `impl*` and `review-final`; light: VERIFY has `tier=light` and numstat). If one is missing, send `[팀장] 규칙 #n: <missing>`; before merge the lane runs the missing step, after merge it runs a `review-final` on the merged diff. Arm a main-CI watch, then RA. A red main CI pauses merges, not starts.
+  - **T2 main CI green:** RA for lanes whose board line waits on that PR or node. A stacked branch rebases only after its own worker or reviewer has finished — never under a running review.
+  - **T3 `대기 #n <blocker|none>`:** RA for that lane in the same wake. A dependency on an in-flight branch → tell the lane to stack on it (PROFILE §Launch).
+  - **T4 a lane's last live worker ends** (seen on a screen or in `lead-check.sh`): same as T3.
+  - **T5 `질문 #n 한도 <rounds>`:** decide in the same wake — one more round with the reason recorded as `over-cap:`, a split, or the owner.
+  - **T6 `질문` with an Artifact:** before forwarding, check that capture pixel sizes match their labels (`sips -g pixelWidth -g pixelHeight`); forward in the same wake.
+  - **T7 owner answer:** record it on the issue and send it to the lane in the same wake.
+  - **T8 the last planned PR of the slice opens:** start the slice-close `review-quality` once, on `<last tag>..main` plus the open PRs, under the load guard (§Machine resources). Reason: a half-way run plus a delta run costs two runs and loses the cross-PR view.
+  - **T9 `막힘`:** run `lock-audit.sh` in the same wake. **`main 깨짐`:** pause other lanes' merges until the fix is merged. **`교대`:** run `/clear` in that terminal, then send "Read <brief> and follow it; resume from HANDOFF.md".
 - **Lanes:**
   - Spawn: `orca worktree create --name lane-<lane> --base-branch origin/main --agent claude --surface terminal --prompt "Read <brief> and follow it."`. The brief is `$AP_MAIN/.review/lanes/<lane>.md` and holds the label, Run id, merge grant, `AP_MAIN`, `WAVE_STATE=$AP_MAIN/.review/wave/state-<lane>`, and the port.
   - Close a lane after `대기` when it has no workers or previews left.
@@ -96,7 +106,7 @@ On a rebase, keep both sides of a conflicting table or list row.
   - `lead-check.sh` is the 2-hour check command, armed with CronCreate;
   - the resume steps `run-use --id <run>` and `check --peek` run only when a Run exists.
 - **Board:** `$AP_MAIN/.review/lanes/board.json`, managed with `python3 .agents/conductor/scripts/board.py` — schema `{release, goal, merge_grant, decisions[{text, by, date}], lines[{id, issue, title, state(planned|running|review|blocked|done|dropped), worker, worktree, pr, next, updated}]}`, commands `init|add|set|show|check`. `LEAD.md` keeps only free-form notes. Nothing migrates automatically; the lead seeds the board. On every wake (`board.py show`), assign each ready line if capacity allows: first to the lane that last touched the area, then to an idle lane, then to a clone lane (port +50).
-- **Periodic check (every 2 h, armed with CronCreate):**
+- **Periodic check (every 2 h, armed with CronCreate; a safety net for missed events):**
   - Run `bash .agents/conductor/scripts/lead-check.sh` — capacity, `lock-audit.sh`, `wave-status.py`, the board, and findings: several running write workers on one cwd, a reserved-port listener no running worker or preview owns, an Orca terminal left by a done/stopped worker. On exit 10, act on every printed finding.
   - Read `gh pr list` and new issues (check for duplicates).
   - Read each lane screen for dialogs and `ctx:`.
@@ -116,4 +126,4 @@ On a rebase, keep both sides of a conflicting table or list row.
   4. `run-use --id <run>`
   5. `check --peek`
   6. `orca terminal list`
-  7. re-arm the periodic check
+  7. `CronList`: delete any earlier lead's periodic check, then re-arm one. Treat a `running` worker state with no live pid or terminal as stale.
