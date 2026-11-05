@@ -84,6 +84,7 @@ describe('workspace assembly (#260)', () => {
   it.skipIf(probeRun)('registers seven spaces and the decided group order', () => {
     expect(GROUPS.map(group => [group.id, group.space])).toEqual([
       ['overview', null],
+      ['improvementItems', null],
       ['noticeVoc', null],
       ['myActivity', null],
       ['analytics', 'mars'],
@@ -252,7 +253,7 @@ describe('workspace assembly (#260)', () => {
     expect(registry.groups.find(group => group.id === 'noticeVoc')?.label).toEqual({ ko: '소통', en: 'Communication' });
     expect(registry.menus.filter(menu => menu.group === 'noticeVoc' && !menu.navHidden).map(menu => menu.label.ko)).toEqual(['공지', 'FAQ', 'VOC', '설문']);
     expect(registry.menus.filter(menu => menu.group === 'noticeVoc').map(menu => menu.id)).toEqual(['notices', 'faq', 'voc', 'voc-detail', 'surveys', 'survey-respond']);
-    expect(registry.groups.filter(group => group.space === null).map(group => group.id)).toEqual(['overview', 'noticeVoc', 'myActivity']);
+    expect(registry.groups.filter(group => group.space === null).map(group => group.id)).toEqual(['overview', 'improvementItems', 'noticeVoc', 'myActivity']);
     // F and C stay independent: operator sections need F, feature management F and C, platform management C, and 내 Task F without C.
     const need = (id: string) => registry.menuById(id);
     expect([need('inbox'), need('findings'), need('evidence'), need('tasks'), need('survey-management'), need('dashboard'), need('integration'), need('my-tasks')].every(menu => menu.permission === 'features:access' && menu.additionalPermissions === undefined)).toBe(true);

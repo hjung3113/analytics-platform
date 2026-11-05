@@ -1,5 +1,5 @@
 export { createMockAdapter } from './adapter';
-export { defineMockAction, type AnyMockAction, type MockAction } from './actions/actions';
+export { MockActionInvalid, defineMockAction, type AnyMockAction, type MockAction } from './actions/actions';
 export { defineMockEndpoint, MockRegistrationError, MockRequestError, type AnyMockEndpoint, type MockEndpoint } from './query/endpoints';
 
 export { bucketStart, periodHours, type Grain } from '@ap/contracts';

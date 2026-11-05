@@ -34,6 +34,7 @@
     "@ap/menu-findings": "workspace:*",
     "@ap/menu-home": "workspace:*",
     "@ap/menu-hw-time": "workspace:*",
+    "@ap/menu-improvement-items": "workspace:*",
     "@ap/menu-integration": "workspace:*",
     "@ap/menu-log-cross": "workspace:*",
     "@ap/menu-log-knowledge": "workspace:*",

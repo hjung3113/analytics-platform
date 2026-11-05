@@ -1,0 +1,13 @@
+{
+  "group": "improvementItems",
+  "folder": "improvement-items",
+  "space": null,
+  "placement": "platform",
+  "menuId": "improvement-items",
+  "page": "ImprovementItems",
+  "path": "/improvement-items",
+  "pageType": "management",
+  "labelKo": "개선 아이템",
+  "labelEn": "Improvement items",
+  "binding": "improvementItems"
+}

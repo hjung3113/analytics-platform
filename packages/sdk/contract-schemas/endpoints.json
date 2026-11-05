@@ -550,6 +550,52 @@
     "mergeTimeDomain": true
   },
   {
+    "id": "improvement.itemDetail",
+    "menuId": "improvement-items",
+    "paramKeys": [
+      "itemId",
+      "itemNo"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "improvement.itemEvents",
+    "menuId": "improvement-items",
+    "paramKeys": [
+      "itemId",
+      "page",
+      "pageSize",
+      "order"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "improvement.items",
+    "menuId": "improvement-items",
+    "paramKeys": [
+      "q",
+      "page",
+      "pageSize",
+      "sorting",
+      "filters",
+      "targetKind",
+      "targetKey"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
     "id": "logKnowledge.conceptMappings",
     "menuId": "log-knowledge-models",
     "paramKeys": [

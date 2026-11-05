@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { defineAction, defineEndpoint, type FieldError, type MenuMeta, groupId, menuPermission } from '@ap/contracts';
 import { createMockAdapter } from '../../adapter';
-import { defineMockAction, serveAction, type AnyMockAction } from '../actions';
+import { MockActionInvalid, defineMockAction, serveAction, type AnyMockAction } from '../actions';
 import { defineMockEndpoint, MockRegistrationError } from '../../query/endpoints';
 import { getRole, setRole } from '../../server';
 import { USERS, type RoleId } from '../../world';
@@ -263,6 +263,19 @@ describe('serveAction judgment order (ADR-0054)', () => {
     actions.set('analytics.append', defineMockAction(plainSpec, { handle: () => { throw new Error('boom'); } }));
     const r = await call(req({ action: 'analytics.append', expectedVersion: undefined }));
     expect(r.outcome).toBe('error');
+  });
+
+  it('answers invalid with the handler refusal after the version check; a stale request conflicts first', async () => {
+    const refusing = defineMockAction(spec, {
+      version: () => (stored ? String(stored.version) : null),
+      validate: () => [],
+      handle: () => { throw new MockActionInvalid([{ path: ['status'], code: 'illegal_transition' }]); },
+    });
+    actions.set('analytics.save', refusing);
+    expect(await call(req({ expectedVersion: '9' }))).toMatchObject({ outcome: 'conflict', version: '1' });
+    const r = await call(req());
+    expect(r).toMatchObject({ outcome: 'invalid', fieldErrors: [{ path: ['status'], code: 'illegal_transition' }], version: null });
+    expect(stored).toEqual({ text: 'seed', version: 1 });
   });
 
   it('rejects with AbortError when the signal aborts during the wait', async () => {

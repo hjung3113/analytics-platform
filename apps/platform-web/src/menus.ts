@@ -39,6 +39,7 @@ import { manifests as configuration } from '@ap/menu-configuration';
 import { manifests as logKnowledge } from '@ap/menu-log-knowledge';
 import { manifests as access } from '@ap/menu-access';
 import { manifests as systems } from '@ap/menu-systems';
+import { manifests as improvementItems } from '@ap/menu-improvement-items';
 // </gen:menu-imports>
 
 /** The menu permissions this app's menus use, on top of the kernel's (ADR-0072). Each menu package spells its own with `menuPermission`; `createRegistry` fails on one missing here. */
@@ -46,6 +47,7 @@ export const PERMISSIONS = [menuPermission('equipment:view'), menuPermission('ma
 
 export const GROUPS: GroupDef[] = [
   { id: groupId('overview'), label: { ko: '운영 개요', en: 'Overview' }, icon: LayoutDashboard, space: null, hideLabelWhenSingle: true },
+  { id: groupId('improvementItems'), label: { ko: '개선 아이템', en: 'Improvement items' }, icon: ClipboardCheck, space: null, hideLabelWhenSingle: true },
   { id: groupId('noticeVoc'), label: { ko: '소통', en: 'Communication' }, icon: Megaphone, space: null },
   { id: groupId('myActivity'), label: { ko: '내 활동', en: 'My activity' }, icon: UserRound, space: null },
   { id: groupId('analytics'), label: { ko: '생산성 분석', en: 'Analytics' }, icon: BarChart3, space: spaceId('mars') },
@@ -138,6 +140,7 @@ export const MENUS: MenuEntry[] = [
   ...configuration,
   ...access,
   ...systems,
+  ...improvementItems,
   // </gen:menu-spreads>
 ];
 
