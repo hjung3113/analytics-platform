@@ -125,6 +125,7 @@
 | [0112](0112-catalog-joins-table-filter-model-analysis-bar-keeps-apply-once.md) | 지표 카탈로그는 표 필터 모델로 완전히 합치고(`status`·`domain` → 숨은 `filter` 키), 분석 조건 줄은 초안 + 적용 한 번을 지키며 적용된 조건·차트 좁히기만 같은 칩 줄 어휘로 보인다(`PageFilterBar` 추가형 opt-in); 버킷 값 표기 통일. 0105 보충 | Decided (2026-11-05, 사용자, #1218) |
 | [0113](0113-voc-creation-permission-per-managed-system.md) | VOC 등록 권한은 시스템 단위(`voc_create_mode` `open`/`restricted`, 기본 열림, 연결 시스템도 열림 시작), 좁히는 단위는 사람(직접 부여 `voc.create`)+Admin 통과, 「플랫폼」 시스템은 항상 열림, 기존 VOC는 그대로. 0110·0069 보충 | Decided (2026-11-05, 소유자, #1358) |
 | [0114](0114-opt-in-keep-previous-for-page-input-params.md) | `useMenuQuery(..., { keepPrevious })` opt-in: 페이지 입력 `params`만 바뀌면 받아들인 마지막 `ok`·`empty` 결과를 `refreshing`으로 남김(`completedAt`은 그 결과의 시각). Context·Scope·세션·엔드포인트 변경은 그대로 가림, 새 응답은 오류도 대체, 기본 꺼짐. 켠 화면 6곳(#1382) | Decided (2026-11-05, 소유자, #1365) |
+| [0115](0115-kernel-navigation-guard-for-unsaved-edits.md) | Kernel 이동 가드: 메뉴가 `useUnsavedGuard(dirty, …)`로 선언하면 `commit`·popstate 한 곳에서 이동을 보류하고 셸 대화상자로 확인(`머무르기`/`이동`). 같은 경로 쓰기·재작성·Scope·세션 변경은 보류 안 함, popstate는 `apIdx` 보정, 새로고침은 `beforeunload`만 | Proposed (2026-11-06, 소유자 결정 대기, #1388) |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 
