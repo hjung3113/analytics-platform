@@ -2,6 +2,8 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '@ap/kernel';
 import { QueryView } from '../../StateView';
+import { InWorkspacePanelProvider } from '../../workspace/panelContext';
+import { AnalysisSectionContext } from '../../archetypes/AnalysisSectionContext';
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
@@ -11,62 +13,88 @@ const query = {
   refetch: vi.fn(), missing: [], completedAt: null, status: 'refreshing' as const, showingPrevious: true,
 };
 
-function view(placement?: 'bottom-end' | 'top-end') {
+function view({ previous = true, status = 'refreshing', notice = 'visible', fill = false }: {
+  previous?: boolean; status?: 'refreshing' | 'done'; notice?: 'visible' | 'hidden'; fill?: boolean;
+} = {}) {
   return <I18nProvider><div data-testid="clip" style={{ overflow: 'hidden' }}>
     <header><button>Maximize panel</button></header>
-    <QueryView query={query} refreshNoticePlacement={placement}>{data => <section>
+    <QueryView query={{ ...query, showingPrevious: previous, status }} refreshNotice={notice} fill={fill}>{data => <section>
       <p>{data}</p><footer><button>Next page</button></footer>
     </section>}</QueryView>
   </div></I18nProvider>;
 }
 
-function geometry() {
-  return vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
-    const status = this.getAttribute('role') === 'status';
-    const footer = this.tagName === 'FOOTER' || this.textContent === 'Next page';
-    const header = this.tagName === 'HEADER' || this.textContent === 'Maximize panel';
-    const top = header ? 0 : footer ? 204 : 40;
-    const height = status ? 22 : header ? 40 : footer ? 28 : 200;
-    const width = status ? 160 : 300;
-    return { top, bottom: top + height, left: 20, right: 20 + width, width, height, x: 20, y: top, toJSON: () => ({}) };
-  });
-}
-
-describe('previous-selection notice placement (#1365 FIX3V)', () => {
-  it('defaults inside the bottom edge with no top offset or native popover dependency', () => {
-    geometry();
-    render(view());
+describe('previous-selection in-flow notice (#1365 FIX4V)', () => {
+  it('puts a full-width constant-height row above the result, outside its tint', () => {
+    const { container } = render(view());
     const status = screen.getByRole('status', { name: label });
-    expect(status).toHaveClass('absolute', 'bottom-0', 'right-3', 'pointer-events-none');
-    expect(status.className).not.toMatch(/(?:^|\s)-?top-/);
-    expect(status.style.top).toBe('');
+    const content = container.querySelector('[data-query-result-content]');
+    expect(status).toHaveClass('flex', 'h-6', 'w-full', 'shrink-0', 'pr-12', 'text-xs', 'bg-surface-sunken', 'text-text-secondary');
+    expect(status.nextElementSibling).toBe(content);
+    expect(content).toContainElement(screen.getByText('previous'));
+    expect(content).toContainElement(container.querySelector('[data-query-stale-tint]') as HTMLElement);
+    expect(status.querySelector('[data-query-stale-tint]')).toBeNull();
+    expect(status).not.toHaveClass('absolute', 'fixed', 'sticky');
+    expect(status.style.cssText).toBe('');
     expect(status).not.toHaveAttribute('popover');
-    expect(status.style.position).not.toBe('fixed');
-    expect(status.parentElement).toHaveAttribute('aria-busy', 'true');
-    expect(status.querySelector('svg')).toHaveClass('motion-reduce:animate-none');
-  });
-
-  it('clears bottom pagination controls while remaining below the panel header', () => {
-    geometry();
-    render(view());
-    const status = screen.getByRole('status', { name: label });
-    const top = 240 - Number.parseFloat(status.style.bottom) - 22;
-    expect(top + 22).toBeLessThanOrEqual(200);
-    expect(top).toBeGreaterThanOrEqual(40);
     expect(screen.getByRole('button', { name: 'Next page' })).toBeEnabled();
   });
 
-  it('accepts an explicit top-end placement within the query section', () => {
-    geometry();
-    const result = render(view('top-end'));
-    const body = screen.getByText('previous');
+  it('keeps named status, busy semantics, non-interactive tint and reduced motion', () => {
+    const { container } = render(view());
     const status = screen.getByRole('status', { name: label });
-    expect(status).toHaveClass('top-0');
-    expect(status).not.toHaveClass('bottom-0');
-    expect(status.style.top).toBe('0px');
-    result.rerender(view('bottom-end'));
-    expect(status).toHaveClass('bottom-0');
-    expect(status.style.top).toBe('');
+    expect(status).toHaveTextContent(label);
+    expect(status).toHaveClass('pointer-events-none');
+    expect(status.parentElement).toHaveAttribute('aria-busy', 'true');
+    expect(status.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+    expect(status.querySelector('svg')).toHaveClass('animate-spin', 'motion-reduce:animate-none');
+    expect(container.querySelector('[data-query-stale-tint]')).toHaveClass('pointer-events-none', 'bg-surface-sunken/20');
+  });
+
+  it.each([
+    { previous: false, status: 'done' as const },
+    { previous: true, status: 'done' as const },
+    { previous: false, status: 'refreshing' as const },
+    { notice: 'hidden' as const },
+  ])('reserves no notice row for %o', options => {
+    const { container } = render(view(options));
+    expect(screen.queryByRole('status', { name: label })).toBeNull();
+    expect(container.querySelector('.h-6')).toBeNull();
+  });
+
+  it.each(['fill', 'panel'] as const)('gives %s results a stable remaining-height container', kind => {
+    const bounded = (previous: boolean) => kind === 'panel'
+      ? <InWorkspacePanelProvider value>{view({ previous, status: previous ? 'refreshing' : 'done' })}</InWorkspacePanelProvider>
+      : view({ previous, status: previous ? 'refreshing' : 'done', fill: true });
+    const result = render(bounded(false));
+    const body = screen.getByText('previous');
+    const content = result.container.querySelector('[data-query-result-content]');
+    expect(content).toHaveClass('flex', 'flex-col', 'flex-1', 'min-h-0');
+    expect(content?.parentElement).toHaveClass('flex', 'flex-col', 'min-h-0');
+    result.rerender(bounded(true));
     expect(screen.getByText('previous')).toBe(body);
+    expect(result.container.querySelector('[data-query-result-content]')).toBe(content);
+    expect(screen.getByRole('status', { name: label }).nextElementSibling).toBe(content);
+    result.rerender(bounded(false));
+    expect(screen.queryByRole('status')).toBeNull();
+    expect(screen.getByText('previous')).toBe(body);
+  });
+
+  it('keeps two result subgrid rows below a separate notice track only while previous', () => {
+    const chartView = (previous: boolean) => <AnalysisSectionContext.Provider value={{ title: 'Chart', kind: 'chart', collapse: vi.fn() }}>
+      {view({ previous, status: previous ? 'refreshing' : 'done' })}
+    </AnalysisSectionContext.Provider>;
+    const result = render(chartView(false));
+    const content = result.container.querySelector('[data-query-result-content]');
+    const wrapper = content?.parentElement;
+    expect(wrapper).toHaveClass('grid-rows-subgrid', 'row-span-2');
+    expect(content).toHaveClass('row-span-2', 'grid', 'grid-rows-subgrid');
+    result.rerender(chartView(true));
+    expect(wrapper).toHaveClass('grid-rows-[auto_auto_minmax(0,1fr)]');
+    expect(wrapper).not.toHaveClass('grid-rows-subgrid');
+    expect(content).toHaveClass('row-span-2', 'grid', 'grid-rows-subgrid');
+    result.rerender(chartView(false));
+    expect(wrapper).toHaveClass('grid-rows-subgrid');
+    expect(wrapper).not.toHaveClass('grid-rows-[auto_auto_minmax(0,1fr)]');
   });
 });

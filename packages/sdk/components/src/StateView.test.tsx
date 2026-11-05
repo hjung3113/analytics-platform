@@ -151,7 +151,7 @@ describe('previous-selection refresh presentation (#1365 FIXV)', () => {
     </QueryView>
   </I18nProvider>;
 
-  it.each(['standalone', 'compact', 'panel', 'kpi', 'chart', 'breakdown'] as const)('shows readable previous-selection text at the section edge in %s', kind => {
+  it.each(['standalone', 'compact', 'panel', 'kpi', 'chart', 'breakdown'] as const)('shows readable previous-selection text in a compact content row in %s', kind => {
     const content = view(true);
     const { container } = render(kind === 'compact' ? <PageDensityProvider value="compact">{content}</PageDensityProvider>
       : kind === 'panel' ? <InWorkspacePanelProvider value>{content}</InWorkspacePanelProvider>
@@ -161,7 +161,8 @@ describe('previous-selection refresh presentation (#1365 FIXV)', () => {
     expect(status).not.toHaveClass('sr-only');
     expect(status.querySelector('.sr-only')).toBeNull();
     expect(status).toHaveClass('text-xs', 'text-text-secondary', 'bg-surface-sunken');
-    expect(status).toHaveClass('absolute', 'right-3', 'bottom-0', 'border', 'border-border-subtle');
+    expect(status).toHaveClass('flex', 'h-6', 'w-full', 'shrink-0');
+    expect(status).not.toHaveClass('absolute');
     expect(status.parentElement).toBe(container.querySelector('[aria-busy="true"]'));
     expect(status.parentElement).not.toHaveClass('pt-8');
     expect(status.parentElement?.querySelector('.h-8')).toBeNull();
@@ -223,7 +224,7 @@ describe('previous-selection refresh presentation (#1365 FIXV)', () => {
     expect(screen.getByText('42')).toBe(body);
   });
 
-  it('stays inline inside a clipping ancestor without moving or remounting the result', () => {
+  it('adds an in-flow row inside a clipping ancestor without remounting the result', () => {
     const result = render(<div data-testid="clip">{view(false, 'done')}</div>);
     const clip = screen.getByTestId('clip');
     clip.style.overflow = 'hidden';
@@ -232,14 +233,15 @@ describe('previous-selection refresh presentation (#1365 FIXV)', () => {
     const status = screen.getByRole('status', { name: '이전 선택의 결과 · 갱신 중' });
     expect(status.parentElement).toBe(clip.firstElementChild);
     expect(status).not.toHaveAttribute('popover');
-    expect(status).toHaveClass('absolute', 'bottom-0');
+    expect(status).toHaveClass('flex', 'h-6');
+    expect(status).not.toHaveClass('absolute');
     expect(status.style.position).not.toBe('fixed');
     expect(status.style.top).toBe('');
     expect(screen.getByRole('table')).toBe(body);
-    expect(body.parentElement).toHaveAttribute('aria-busy', 'true');
+    expect(body.closest('[aria-busy]')).toHaveAttribute('aria-busy', 'true');
     clip.dispatchEvent(new Event('scroll'));
     window.dispatchEvent(new Event('resize'));
-    expect(status.style.bottom).toBe('0px');
+    expect(status.style.bottom).toBe('');
     result.rerender(<div data-testid="clip">{view(false, 'done')}</div>);
     expect(screen.queryByRole('status')).toBeNull();
     expect(screen.getByRole('table')).toBe(body);

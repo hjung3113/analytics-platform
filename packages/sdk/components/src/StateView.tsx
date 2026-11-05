@@ -109,14 +109,12 @@ export function OutcomeView<T>({ response, onRetry, emptyAction, compact, childr
 }
 
 /** Query boundary: first load → skeleton; same-Context refresh → keep data + label; otherwise outcome taxonomy. */
-export function QueryView<T>({ query, children, skeletonRows, skeletonHeight, emptyAction, compact, widgetName, hideWidgetName, fill, refreshNotice = 'visible', refreshNoticePlacement = 'bottom-end' }: {
+export function QueryView<T>({ query, children, skeletonRows, skeletonHeight, emptyAction, compact, widgetName, hideWidgetName, fill, refreshNotice = 'visible' }: {
   query: QueryState<T>; children: (data: T, response: ApiResponse<T>) => ReactNode; skeletonRows?: number; skeletonHeight?: number; emptyAction?: ReactNode; compact?: boolean; widgetName?: string; hideWidgetName?: boolean;
   /** The wrapper takes the parent's height (`flex min-h-0 flex-1 flex-col`) so a `size="fill"` chart inside has a bounded parent, as it does in a workspace panel. */
   fill?: boolean;
   /** Hide a duplicate refresh notice while retaining the result's aria-busy state and stale tint. */
   refreshNotice?: 'visible' | 'hidden';
-  /** Previous-selection notice corner, inside the result boundary; nearby controls are kept clear. */
-  refreshNoticePlacement?: 'bottom-end' | 'top-end';
 }) {
   const { t, lang } = useI18n();
   const analysisSection = useContext(AnalysisSectionContext);
@@ -135,10 +133,10 @@ export function QueryView<T>({ query, children, skeletonRows, skeletonHeight, em
   // A kept result of other params is not "the same context": say so (ADR-0114).
   const refreshingLabel = t(query.showingPrevious ? 'refreshingPrevious' : 'refreshing');
   const showingPrevious = query.status === 'refreshing' && query.showingPrevious === true;
-  return <div aria-busy={query.status === 'refreshing'} className={cn('relative', query.showingPrevious !== undefined && 'isolate', inPanel && 'h-full min-h-0', fill && 'flex min-h-0 flex-1 flex-col', chart && 'row-span-2', chart && response.outcome === 'ok' && 'grid grid-rows-subgrid gap-y-0', analysisSection && response.outcome !== 'ok' && 'pr-12')}>
-    {/* The notice is a sibling of the result card: the card's own overflow and toolbar do not contain it. */}
-    {showingPrevious && !grouped && refreshNotice === 'visible' && <QueryRefreshNotice label={refreshingLabel} placement={refreshNoticePlacement} />}
-    {showingPrevious && <div data-query-stale-tint aria-hidden className="pointer-events-none absolute inset-0 z-[1] bg-surface-sunken/20 mix-blend-multiply" />}
+  const noticeVisible = showingPrevious && !grouped && refreshNotice === 'visible';
+  const content = <OutcomeContent grouped={grouped} widgetName={widgetName} hideWidgetName={hideWidgetName} response={response} onRetry={query.refetch} emptyAction={emptyAction} compact={compact}>{data => children(data, response)}</OutcomeContent>;
+  return <div aria-busy={query.status === 'refreshing'} className={cn('relative', query.showingPrevious !== undefined && 'isolate', inPanel && 'h-full min-h-0', (fill || (inPanel && query.showingPrevious !== undefined)) && 'flex min-h-0 flex-1 flex-col', chart && 'row-span-2', chart && response.outcome === 'ok' && ['grid gap-y-0', noticeVisible ? 'grid-rows-[auto_auto_minmax(0,1fr)]' : 'grid-rows-subgrid'], analysisSection && response.outcome !== 'ok' && 'pr-12')}>
+    {noticeVisible && <QueryRefreshNotice label={refreshingLabel} />}
     {query.status === 'refreshing' && !showingPrevious && !grouped && refreshNotice === 'visible' && (analysisSection && analysisSection.kind !== 'kpi'
       // Icon only, in the header's reserved right column under the corner collapse button: never over the toolbar.
       ? <span role="status" aria-label={refreshingLabel} title={refreshingLabel} className="absolute right-5 top-11 z-[1] inline-flex text-text-muted">
@@ -148,6 +146,11 @@ export function QueryView<T>({ query, children, skeletonRows, skeletonHeight, em
       : <span role="status" aria-label={refreshingLabel} className={analysisSection ? 'absolute right-9 -top-7 inline-flex items-center gap-1 text-tiny text-text-muted' : compactPage ? 'absolute right-3 top-2 z-[1] inline-flex items-center gap-1 text-tiny text-text-muted' : 'absolute right-0 -top-7 inline-flex items-center gap-1 text-tiny text-text-muted'}>
         <Loader2 className="size-3 animate-spin motion-reduce:animate-none" aria-hidden />{refreshingLabel}
       </span>)}
-    <OutcomeContent grouped={grouped} widgetName={widgetName} hideWidgetName={hideWidgetName} response={response} onRetry={query.refetch} emptyAction={emptyAction} compact={compact}>{data => children(data, response)}</OutcomeContent>
+    {/* Keep this container mounted for opt-in queries, including live results. Fill cards resolve
+        their full-height floor against the space left below the notice, not the whole query. */}
+    {query.showingPrevious !== undefined ? <div data-query-result-content className={cn('relative min-w-0', (inPanel || fill) && 'flex min-h-0 flex-1 flex-col', chart && response.outcome === 'ok' && 'row-span-2 grid grid-rows-subgrid gap-y-0')}>
+      {showingPrevious && <div data-query-stale-tint aria-hidden className="pointer-events-none absolute inset-0 z-[1] bg-surface-sunken/20 mix-blend-multiply" />}
+      {content}
+    </div> : content}
   </div>;
 }
