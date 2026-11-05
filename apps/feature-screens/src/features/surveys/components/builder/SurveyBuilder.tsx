@@ -3,7 +3,7 @@ import { SURVEY_BUILDER_COPY } from '@/lib/copy/survey-builder';
 import { formatTime } from '@/lib/format/datetime';
 import { surveyQuestionKindSchema } from '@ap/feature-shared';
 import { Button, DirtyConfirmation, Input, Textarea, WorkbenchShell } from '@ap/ui';
-import { Check, Megaphone } from 'lucide-react';
+import { ArrowLeft, Check, Megaphone } from 'lucide-react';
 import { useState } from 'react';
 import type { QuestionKind, Survey } from '../../types';
 import { SurveyManagedSystemPill } from '../SurveyManagedSystemPill';
@@ -119,9 +119,11 @@ export function SurveyBuilder({
         data-testid="survey-builder-toolbar"
         data-toolbar-height="50"
       >
-        <Button variant="ghost" size="sm" onClick={onBack}>
+        <Button variant="secondary" size="sm" onClick={onBack}>
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           뒤로
         </Button>
+        <span aria-hidden="true" className="h-5 w-px shrink-0 bg-border-subtle" />
         <div className="flex min-w-0 flex-1 items-center gap-2">
           {editable ? (
             <>
@@ -151,7 +153,9 @@ export function SurveyBuilder({
           )}
           <div className="flex shrink-0 items-center gap-2 whitespace-nowrap text-xs text-text-muted">
             <SurveyStatusBadge status={survey.status} />
-            <span className="shrink-0">{SURVEY_TYPE_LABELS[survey.type]}</span>
+            <span className="inline-flex shrink-0 items-center rounded border border-border-default bg-surface-card px-1.5 py-0.5 text-text-secondary">
+              {SURVEY_TYPE_LABELS[survey.type]}
+            </span>
             <SurveyManagedSystemPill
               name={managedSystemNamesById?.get(survey.primary_managed_system_id)}
               resolved={managedSystemNamesById !== undefined}

@@ -6,8 +6,8 @@ import { formatShortDateTime } from '@/lib/format/datetime';
 import { shortId } from '@/lib/identity';
 import type { EntityLinkDto } from '@ap/feature-shared';
 import { ManagedSystemPill } from '@ap/feature-ui';
-import { Button, Checkbox, PermissionBlockedPanel, cn } from '@ap/ui';
-import { EntityRelationRow, entityLinkEndpointPrimaryLabels } from './EntityRelationRow';
+import { Button, PermissionBlockedPanel, cn } from '@ap/ui';
+import { EntityRelationRow } from './EntityRelationRow';
 import { LinkStatusBadge } from './LinkStatusBadge';
 
 export interface ManagedSystemPresentation {
@@ -135,19 +135,14 @@ export function EntityLinksInventoryTable({
         {items.map((link) => {
           const managedSystem = managedSystemsById[link.managed_system_id];
           const actor = actorsById[link.created_by];
-          const [sourceLabel, targetLabel] = entityLinkEndpointPrimaryLabels(link);
           return (
             <li
               key={link.id}
               className={cn(
-                'grid grid-cols-(--entity-link-row-columns) min-h-row-default items-center gap-3 border-b border-border-subtle px-5 py-2.5 text-sm hover:bg-surface-row-hover',
+                'grid min-h-row-default items-center gap-3 border-b border-border-subtle px-5 py-2.5 text-sm hover:bg-surface-row-hover',
                 link.visibility_state === 'hidden' && 'bg-surface-blocked/60',
               )}
-              style={{ '--entity-link-row-columns': 'auto minmax(0, 1fr)' } as React.CSSProperties}
             >
-              <div className="flex items-center">
-                <Checkbox aria-label={`${sourceLabel} → ${targetLabel} 선택`} />
-              </div>
               <div className="flex min-w-0 flex-col justify-center gap-1">
                 <div className="flex min-w-0 flex-wrap items-center gap-2">
                   {/* #589: endpoint identities lead this row; the link id stays secondary metadata. */}
