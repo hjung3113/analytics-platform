@@ -25,19 +25,23 @@ AlertDialogOverlay.displayName = AlertDialogPrimitive.Overlay.displayName;
 
 export const AlertDialogContent = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Content>
->(({ className, onInteractOutside, ...props }, ref) => {
+  React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Content> & {
+    // Stack over the command palette (z-60); only the Kernel leave confirmation needs this.
+    above?: boolean;
+  }
+>(({ className, onInteractOutside, above = false, ...props }, ref) => {
   const visible = useOverlayVisible();
   const returnFocus = useDialogReturnFocus(props);
   return visible ? (
   <AlertDialogPortal>
-    <AlertDialogOverlay />
+    <AlertDialogOverlay className={above ? 'z-70' : undefined} />
     <AlertDialogPrimitive.Content
       ref={ref}
       className={cn(
         'fixed left-1/2 top-1/2 z-50 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 border border-border-subtle bg-surface-card p-6 shadow-lg',
         DIALOG_CONTENT_MOTION,
         'sm:rounded-lg',
+        above && 'z-70',
         className,
       )}
       {...props}

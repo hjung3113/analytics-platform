@@ -40,7 +40,7 @@ function PendingLeave({ request }: { request: LeaveRequest }) {
     request.confirm();
   };
   return <AlertDialog open onOpenChange={open => { if (!open) request.cancel(); }}>
-    <AlertDialogContent role="alertdialog"
+    <AlertDialogContent role="alertdialog" above
       onOpenAutoFocus={event => {
         event.preventDefault();
         const active = document.activeElement;

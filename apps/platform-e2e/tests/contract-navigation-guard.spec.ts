@@ -78,12 +78,12 @@ test.describe('메뉴 이동 가드 — 편집 중 시뮬레이션 (06 §6.4, §
   test('사이드바 링크: 기본 문구의 alertdialog, 머무르기·Escape는 URL과 입력을 지키고 버리고 이동은 이동하며 초안을 비운다', async ({ page }, testInfo) => {
     await makeDirty(page);
     const before = page.url();
-    const link = sidebar(page).getByRole('link', { name: '지표 카탈로그', exact: true });
+    const link = sidebar(page).getByRole('link', { name: '생산성 개요', exact: true });
 
     await link.click();
     await expect(dialog(page)).toBeVisible();
     await expect(dialog(page)).toContainText('이동하면 변경이 사라집니다.');
-    await expect(dialog(page)).toContainText('지표 카탈로그');
+    await expect(dialog(page)).toContainText('생산성 개요');
     await evidence(page, testInfo, '이동 확인 대화상자');
     await stay(page).click();
     await expect(dialog(page)).toHaveCount(0);
@@ -99,9 +99,9 @@ test.describe('메뉴 이동 가드 — 편집 중 시뮬레이션 (06 §6.4, §
 
     await link.click();
     await leave(page).click();
-    await expect(mainHeading(page)).toHaveText('지표 카탈로그');
+    await expect(mainHeading(page)).toHaveText('생산성 개요');
     await expect(dialog(page)).toHaveCount(0);
-    expect(pathname(page)).toBe('/mars/metric-catalog');
+    expect(pathname(page)).toBe('/mars/productivity-overview');
     await expectDraft(page, '');
   });
 
@@ -140,8 +140,8 @@ test.describe('메뉴 이동 가드 — 편집 중 시뮬레이션 (06 §6.4, §
   });
 
   test('앱 안 이동 한 번 뒤 브라우저 Back: 머무르면 URL을 지키고 버리면 되돌아간다', async ({ page }) => {
-    await sidebar(page).getByRole('link', { name: '지표 카탈로그', exact: true }).click();
-    await expect(mainHeading(page)).toHaveText('지표 카탈로그');
+    await sidebar(page).getByRole('link', { name: '생산성 개요', exact: true }).click();
+    await expect(mainHeading(page)).toHaveText('생산성 개요');
     await makeDirty(page);
     const here = page.url();
 
@@ -150,7 +150,7 @@ test.describe('메뉴 이동 가드 — 편집 중 시뮬레이션 (06 §6.4, §
     await stay(page).click();
     await expect(dialog(page)).toHaveCount(0);
     expect(page.url()).toBe(here);
-    await expect(mainHeading(page)).toHaveText('지표 카탈로그');
+    await expect(mainHeading(page)).toHaveText('생산성 개요');
 
     await page.goBack();
     await expect(dialog(page)).toBeVisible();
@@ -161,7 +161,7 @@ test.describe('메뉴 이동 가드 — 편집 중 시뮬레이션 (06 §6.4, §
 
   test('사용자 지정 메시지는 고정 결과 문장 위에 함께 보인다', async ({ page }) => {
     await makeDirty(page, { customMessage: true });
-    await sidebar(page).getByRole('link', { name: '지표 카탈로그', exact: true }).click();
+    await sidebar(page).getByRole('link', { name: '생산성 개요', exact: true }).click();
     await expect(dialog(page)).toBeVisible();
     const lines = dialog(page).locator('p');
     await expect(lines.nth(0)).toHaveText(CUSTOM_MESSAGE);
@@ -175,8 +175,8 @@ test.describe('메뉴 이동 가드 — 편집 중 시뮬레이션 (06 §6.4, §
     await simulation(page).getByRole('button', { name: '초기화', exact: true }).click();
     await expect(draftField(page)).toHaveValue('');
     await page.keyboard.press('Escape');
-    await sidebar(page).getByRole('link', { name: '지표 카탈로그', exact: true }).click();
-    await expect(mainHeading(page)).toHaveText('지표 카탈로그');
+    await sidebar(page).getByRole('link', { name: '생산성 개요', exact: true }).click();
+    await expect(mainHeading(page)).toHaveText('생산성 개요');
     await expect(dialog(page)).toHaveCount(0);
   });
 });
