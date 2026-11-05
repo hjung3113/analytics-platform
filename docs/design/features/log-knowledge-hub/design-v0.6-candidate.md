@@ -636,7 +636,9 @@ P0 #1193 구현됨: 스키마 표 1–6(`knowledge` 스키마, migration 0080)�
 
 ### 15.2 데이터 모델 (물리화 후보, 노드 a·c에서 재검수)
 
-> **물리화 상태(#1196 노드 a, b1):** 마이그레이션 0092가 `row_version`·`reject_reason`·초안 하나 제한·UPDATE 트리거를 더했고(쓰기 `specDraftCreate`·`specDraftSave`·`specPublish`·`specReject`, 초안 읽기 `specDraft`), 마이그레이션 0091이 `model_spec_revision`·`spec_module`·`spec_event`·`spec_event_relation`과 `software_version.release_order`를 만들었다(읽기 `modelSpec`·`modelSpecRevisions`). `spec_sw_change`·`common_concept`·`spec_concept_mapping`은 아직 없다(노드 c·e). 컬럼 이름은 `id`(`spec_rev_id`는 자식 표의 FK 이름), `detail_doc_ref`는 문서 위치를 가리키는 자유 텍스트. 규칙은 `docs/architecture/platform-api/api/log-knowledge.md` §Model spec reads·§Model spec write actions.
+> **물리화 상태(#1196 노드 a, b1, c):** 마이그레이션 0096이 `spec_sw_change`를 만들었다(쓰기 `specChangeAdd`·`specChangeRetire`·`specChangeConfirm`, 읽기 `specChanges`와 `modelSpec`의 `softwareId`, 발행 시 `needs_revalidation`; 규칙은 아래와 `api/log-knowledge.md` §SW changes).
+>
+> (노드 a, b1) 마이그레이션 0092가 `row_version`·`reject_reason`·초안 하나 제한·UPDATE 트리거를 더했고(쓰기 `specDraftCreate`·`specDraftSave`·`specPublish`·`specReject`, 초안 읽기 `specDraft`), 마이그레이션 0091이 `model_spec_revision`·`spec_module`·`spec_event`·`spec_event_relation`과 `software_version.release_order`를 만들었다(읽기 `modelSpec`·`modelSpecRevisions`). `common_concept`·`spec_concept_mapping`은 아직 없다(노드 e). 컬럼 이름은 `id`(`spec_rev_id`는 자식 표의 FK 이름), `detail_doc_ref`는 문서 위치를 가리키는 자유 텍스트. 규칙은 `docs/architecture/platform-api/api/log-knowledge.md` §Model spec reads·§Model spec write actions.
 
 | 표 | 핵심 컬럼 | 규칙 |
 | --- | --- | --- |
@@ -644,20 +646,25 @@ P0 #1193 구현됨: 스키마 표 1–6(`knowledge` 스키마, migration 0080)�
 | `knowledge.spec_module` | `module_id`, `spec_rev_id`, `module_key`, `name`, `parent_module_id` | `(spec_rev_id, module_key)` 유일, 부모는 같은 Revision |
 | `knowledge.spec_event` | `event_id`, `spec_rev_id`, `module_id`, `event_key`, `name`, `fields_json`, `trigger_rule`, `detail_doc_ref` | `(spec_rev_id, module_id, event_key)` 유일. `fields_json`은 `schema_version`별 Zod 닫힌 스키마 |
 | `knowledge.spec_event_relation` | `source_event_id`, `predicate`, `target_event_id`, `rule_ref` | 같은 Revision 안의 `expected` 명세 관계만 |
-| `knowledge.spec_sw_change` | `change_id`, `model_id`, `software_id`(= 적용 시작 SW), `ends_before_software_id?`, `target_kind`(module·event·field·relation), `target_key`, `change_kind`(`added`·`removed`·`changed`·`behavior`), `change_json`(전·후), `note`, `based_on_rev_no`, `evidence_ref?`, `needs_revalidation`, `retired_by_change_id?` | 추가 전용. 고치지 않고 `retired_by`로 닫고 새 줄을 쓴다. 대상은 `target_key`(Revision에 걸리지 않는 안정 키)로 가리킨다 |
+| `knowledge.spec_sw_change` | `id`(= 문서의 `change_id`), `model_id`, `software_id`(= 적용 시작 SW), `ends_before_software_id?`, `target_kind`(module·event·field·relation), `target_key`, `change_kind`(`added`·`removed`·`changed`·`behavior`), `change_json`(전·후), `note`, `based_on_rev_no`, `evidence_ref?`, `needs_revalidation`, `revalidation_rev_no?`, `retired_at?`, `retired_by?`, `retired_by_change_id?`, `created_by/at`, `row_version` | 추가 전용(런타임 역할: INSERT, 그리고 `needs_revalidation`·`revalidation_rev_no`·`retired_*`·`row_version` 열만 UPDATE, DELETE 없음; 트리거가 그 밖의 열 변경·`row_version` +1 아님·닫힌 줄의 변경을 막는다). 열린 줄 = `retired_at is null`. `software_id`·`ends_before_software_id`·`retired_by_change_id`는 같은 모델 안(복합 FK). 대상은 `target_key`로 가리킨다 |
 | `knowledge.common_concept` / `spec_concept_mapping` | §5.2의 17·18번을 가져오되 대상이 SW 정의가 아니라 **모델 명세의 Module/Event** | `proposed`·`confirmed`·`rejected` 분리, 같은 이름 자동 동치 금지, `confirmed`만 동치 검색에 사용 |
 
-- **`needs_revalidation`.** 새 모델 명세 Revision이 발행될 때, 그 Revision이 건드린 `target_key`를 가진 열린 변경점에 같은 트랜잭션에서 `needs_revalidation = true`를 쓴다(원인 Revision 번호도 남김). 사람이 변경점을 그대로 두거나(`confirm`) 새 줄로 고치면 꺼진다. 모델 공통 프로파일이라는 별도 승인본은 두지 않는다: 모델 명세 Revision이 곧 그것이다.
+- **`target_key` 문법(구현됨, `domain/spec-target-key.ts`).** 각 조각(모듈 키·이벤트 키·필드 이름·predicate)에서 `%`·`/`·`#`을 `%25`·`%2F`·`%23`으로 바꾼 뒤 잇는다: 모듈 = `모듈`, 이벤트 = `모듈/이벤트`, 필드 = `모듈/이벤트#필드`, 관계 = `원천모듈/원천이벤트#predicate#대상모듈/대상이벤트`. 키는 `toCodeKey` 결과(자유 텍스트 200자까지)라서 이스케이프가 모호함을 막는다. 내부 `qualifiedKey`(`\u0000`·`\u0001`)는 저장 키가 아니다.
+- **`change_json` v1(닫힘).** `added {after}`, `removed {before}`, `changed {before, after}`, `behavior {}`(메모만). `before/after`: 모듈 `{name, parentModule}`, 이벤트 `{name, triggerRule, detailDocRef}`, 필드 = 저장된 필드 모양, 관계 `{ruleRef}`. 직렬화 16 KiB 이하, `note` 1000자 이하, 모델당 열린 줄 500개 이하.
+- **쓰기 규칙.** `based_on_rev_no`는 서버가 쓴 시점의 현행 발행 Revision(없으면 `revision:none_published`). `changed`·`removed`·`behavior`의 `target_key`는 그 Revision에 있어야 하고(`targetKey:not_found`), `added`는 없어야 하며(`already_exists`) 부모(모듈·이벤트·관계 양끝)가 있어야 한다. 같은 `(모델, target_key)` 열린 줄끼리 SW 범위가 겹치면 `range:overlap`. 끝은 시작보다 뒤여야 한다(`endsBeforeSoftwareId:not_after_start`).
+- **`retire`.** 새 줄을 쓰는 것이 아니라 열린 줄을 닫는다(`retired_at`·`retired_by`, 깃발도 끔). 대체(`replacement`)를 주면 같은 `(target_kind, target_key)`의 새 줄을 먼저 넣고(겹침 검사는 닫히는 줄을 뺀다) 옛 줄의 `retired_by_change_id`가 새 줄을 가리킨다(다르면 `replacement:target_mismatch`). 이미 닫힌 줄은 `change:already_retired`.
+- **`confirm`.** 내용은 그대로 두고 `needs_revalidation`만 끈다(`row_version` +1). 켜져 있지 않으면 `needsRevalidation:not_set`.
+- **`needs_revalidation`.** 새 모델 명세 Revision이 발행될 때, 그 Revision이 건드린 `target_key`를 가진 열린 변경점에 같은 트랜잭션에서 `needs_revalidation = true`와 원인 `revalidation_rev_no`(그 Revision 번호)를 쓴다. 「건드림」은 직전 발행 Revision과 정규 행 내용 비교(모듈 이름·부모, 이벤트 이름·`triggerRule`·`detailDocRef`·필드 목록, 필드별 `모듈/이벤트#필드`, 관계 추가·삭제·`ruleRef`)이고, 추가·삭제된 모듈/이벤트는 그 아래 이벤트·필드·관계도 건드린 것으로 센다. 직전 Revision이 없거나 `unchanged`면 깃발이 없다. 모델 단위 advisory 잠금(`spec-change:`)이 발행·추가·대체를 직렬화해, 발행과 겹친 추가가 깃발 없이 남지 않는다. 사람이 변경점을 그대로 두거나(`confirm`) 새 줄로 고치면 꺼진다. 모델 공통 프로파일이라는 별도 승인본은 두지 않는다: 모델 명세 Revision이 곧 그것이다.
 - **후보(candidate).** 새 모델 명세는 `draft`로 쓰고 사람이 발행한다. 변경점이 여러 모델·버전에서 반복돼 모델 명세에 올리고 싶으면 새 Revision `draft`에 그 내용을 반영해 발행한다(자동 승격 없음). 자기 승인 여부는 §12 3번(#1198)이며 15.7 Q6.
 - **SW 순서.** 「X부터」가 말이 되려면 한 모델의 SW 버전에 순서가 있어야 한다. `software_version.release_order`(모델별 1..n)는 마이그레이션 0091에 구현됐다: 기존 행은 모델별 등록 순으로 백필됐고 새 SW 행은 트리거로 max+1을 받는다(`release_order` 0은 미배정). 규칙 원본은 `04-database-and-migrations.md` §Model spec tables and software release order다. 15.7 Q2.
 
 ### 15.3 실효 명세(읽기 투영)
 
-SW 버전 S의 명세 = 현행 모델 명세 Revision + `software_id`가 S 이하(순서 기준)이고 아직 닫히지 않은 변경점을 순서대로 적용한 것. 저장하지 않고 읽을 때 계산한다. 변경점이 없는 SW는 모델 명세와 같고 화면은 「모델 명세 그대로」라고 말한다. Item(ADR-0109)의 소유는 그대로 Model 또는 SW이고, Item 근거의 Module/Event 지목(`item_revision_subject`)은 모델 명세의 `target_key`를 가리킨다(노드 f).
+SW 버전 S의 명세 = 현행 모델 명세 Revision + 적용 범위 `[software_id, ends_before_software_id)`(`release_order` 기준, 끝이 없으면 열린 끝)에 S가 들어가고 아직 닫히지 않은 변경점을 `(시작 순서, created_at, id)` 순으로 적용한 것. `release_order`는 바뀔 수 있고 유일하지 않으므로 범위는 읽을 때의 현재 순서로 판단한다(끝이 시작 이하가 되면 빈 범위, 겹침은 쓸 때만 검사). 적용 규칙은 `domain/spec-effective.ts`: 키가 사라졌거나(`gone`)·`added`인데 이미 있거나(`exists`)·`changed`의 `before`가 Revision과 다르면(`before_mismatch`) 적용하지 않고 `stale`로 알린다. 저장하지 않고 읽을 때 계산한다. 변경점이 없는 SW는 모델 명세와 같고 화면은 「모델 명세 그대로」라고 말한다. Item(ADR-0109)의 소유는 그대로 Model 또는 SW이고, Item 근거의 Module/Event 지목(`item_revision_subject`)은 모델 명세의 `target_key`를 가리킨다(노드 f).
 
 ### 15.4 API (menu-query / menu-action, 기존 log-knowledge 패턴)
 
-- 읽기(`platform:view`, 소유 메뉴 `log-knowledge-models`): `logKnowledge.modelSpec`(`modelId`, 선택 `softwareId` → 실효 명세), `modelSpecRevisions`, `specChanges`(필터 `modelId`·`softwareId`·`needsRevalidation`), `specEventDetail`, `conceptMappings`.
+- 읽기(`platform:view`, 소유 메뉴 `log-knowledge-models`): `logKnowledge.modelSpec`(`modelId`, 선택 `softwareId` → 실효 명세), `modelSpecRevisions`, `specChanges`(필터 `modelId`·`softwareId`·`needsRevalidation`·`status: open|retired|all`, 0 기준 `page/pageSize`, `(created_at desc, id)`), `specEventDetail`, `conceptMappings`.
 - 쓰기(새 capability `knowledge.spec.publish`, 워크스페이스 범위, Admin 항상, Developer 요청, User 거절, 메뉴 권한 `knowledge:spec-publish`): `specDraftSave`(version CAS), `specPublish`(해시 봉인), `specReject`, `specChangeAdd`, `specChangeRetire`, `specChangeConfirm`, `conceptPropose`·`conceptConfirm`·`conceptReject`. 모두 감사 기록. 에러는 `invalid` 필드 오류, 이미 발행된 Revision 쓰기는 `conflict`.
 
 ### 15.5 문서 식별자와 검증 스키마 (안)

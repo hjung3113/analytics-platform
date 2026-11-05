@@ -254,54 +254,65 @@ export interface SpecCounts {
   relations: number;
 }
 
+/** The stored rows of one revision in their hashed (canonical-input) form. */
+export async function loadHashRows(
+  tx: Tx,
+  workspaceId: string,
+  revisionId: string,
+): Promise<{ modules: HashModule[]; events: HashEvent[]; relations: HashRelation[] }> {
+  const modules = await tx
+    .select()
+    .from(specModules)
+    .where(and(eq(specModules.workspaceId, workspaceId), eq(specModules.specRevId, revisionId)));
+  const events = await tx
+    .select()
+    .from(specEvents)
+    .where(and(eq(specEvents.workspaceId, workspaceId), eq(specEvents.specRevId, revisionId)));
+  const relations = await tx
+    .select()
+    .from(specEventRelations)
+    .where(and(eq(specEventRelations.workspaceId, workspaceId), eq(specEventRelations.specRevId, revisionId)));
+  const moduleKey = new Map(modules.map((m) => [m.id, m.moduleKey]));
+  const eventRef = new Map(events.map((e) => [e.id, { moduleKey: moduleKey.get(e.moduleId) as string, key: e.eventKey }]));
+  return {
+    modules: modules.map((m) => ({
+      key: m.moduleKey,
+      name: m.name,
+      parentKey: m.parentModuleId === null ? null : (moduleKey.get(m.parentModuleId) as string),
+    })),
+    events: events.map((e) => ({
+      moduleKey: moduleKey.get(e.moduleId) as string,
+      key: e.eventKey,
+      name: e.name,
+      fields: e.fieldsJson,
+      triggerRule: e.triggerRule,
+      detailDocRef: e.detailDocRef,
+    })),
+    relations: relations.map((x) => {
+      const s = eventRef.get(x.sourceEventId) as { moduleKey: string; key: string };
+      const t = eventRef.get(x.targetEventId) as { moduleKey: string; key: string };
+      return {
+        sourceModule: s.moduleKey,
+        sourceEvent: s.key,
+        predicate: x.predicate,
+        targetModule: t.moduleKey,
+        targetEvent: t.key,
+        ruleRef: x.ruleRef,
+      };
+    }),
+  };
+}
+
 /** Reads the revision's stored rows and hashes them (the revision is locked by the caller). */
 export async function hashRevision(
   tx: Tx,
   workspaceId: string,
   revision: RevisionRow,
 ): Promise<{ sha256: string; counts: SpecCounts }> {
-  const modules = await tx
-    .select()
-    .from(specModules)
-    .where(and(eq(specModules.workspaceId, workspaceId), eq(specModules.specRevId, revision.id)));
-  const events = await tx
-    .select()
-    .from(specEvents)
-    .where(and(eq(specEvents.workspaceId, workspaceId), eq(specEvents.specRevId, revision.id)));
-  const relations = await tx
-    .select()
-    .from(specEventRelations)
-    .where(and(eq(specEventRelations.workspaceId, workspaceId), eq(specEventRelations.specRevId, revision.id)));
-  const moduleKey = new Map(modules.map((m) => [m.id, m.moduleKey]));
-  const eventRef = new Map(events.map((e) => [e.id, { moduleKey: moduleKey.get(e.moduleId) as string, key: e.eventKey }]));
-  const hashModules: HashModule[] = modules.map((m) => ({
-    key: m.moduleKey,
-    name: m.name,
-    parentKey: m.parentModuleId === null ? null : (moduleKey.get(m.parentModuleId) as string),
-  }));
-  const hashEvents: HashEvent[] = events.map((e) => ({
-    moduleKey: moduleKey.get(e.moduleId) as string,
-    key: e.eventKey,
-    name: e.name,
-    fields: e.fieldsJson,
-    triggerRule: e.triggerRule,
-    detailDocRef: e.detailDocRef,
-  }));
-  const hashRelations: HashRelation[] = relations.map((x) => {
-    const s = eventRef.get(x.sourceEventId) as { moduleKey: string; key: string };
-    const t = eventRef.get(x.targetEventId) as { moduleKey: string; key: string };
-    return {
-      sourceModule: s.moduleKey,
-      sourceEvent: s.key,
-      predicate: x.predicate,
-      targetModule: t.moduleKey,
-      targetEvent: t.key,
-      ruleRef: x.ruleRef,
-    };
-  });
+  const rows = await loadHashRows(tx, workspaceId, revision.id);
   return {
-    sha256: specContentHash(revision.schemaVersion, { modules: hashModules, events: hashEvents, relations: hashRelations }),
-    counts: { modules: modules.length, events: events.length, relations: relations.length },
+    sha256: specContentHash(revision.schemaVersion, rows),
+    counts: { modules: rows.modules.length, events: rows.events.length, relations: rows.relations.length },
   };
 }
 
@@ -372,4 +383,21 @@ export async function sealDraft(
     .returning({ rowVersion: r.rowVersion });
   if (!row) throw new Error('spec draft seal returned no row');
   return row.rowVersion;
+}
+
+/** The highest published revision of the model below `revisionNo` (the one a publish is compared with). */
+export async function previousPublished(
+  tx: Tx,
+  workspaceId: string,
+  modelId: string,
+  revisionNo: number,
+): Promise<{ id: string; revisionNo: number } | null> {
+  const r = modelSpecRevisions;
+  const [row] = await tx
+    .select({ id: r.id, revisionNo: r.revisionNo })
+    .from(r)
+    .where(and(eq(r.workspaceId, workspaceId), eq(r.modelId, modelId), eq(r.state, 'published'), sql`${r.revisionNo} < ${revisionNo}`))
+    .orderBy(sql`${r.revisionNo} desc`)
+    .limit(1);
+  return row ?? null;
 }

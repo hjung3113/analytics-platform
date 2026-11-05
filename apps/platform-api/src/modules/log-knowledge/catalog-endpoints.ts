@@ -19,6 +19,7 @@ import { PAGE_SIZE_MAX, Q_MAX, parseListParams } from '../../lib/list-params/lis
 import { LOG_KNOWLEDGE_MENU_ID } from './catalog-menu.js';
 import { itemActions } from './item-actions.js';
 import { specActions } from './spec-actions.js';
+import { specChangeActions } from './spec-change-actions.js';
 import { itemEndpoints } from './item-endpoints.js';
 import { specEndpoints } from './spec-endpoints.js';
 import { importActions } from './import-actions.js';
@@ -80,6 +81,7 @@ export function logKnowledgeContribution(deps: LogKnowledgeDeps): MenuDispatchCo
       ...catalogActions({ checkService: deps.checkService }),
       ...itemActions({ checkService: deps.checkService }),
       ...specActions({ checkService: deps.checkService }),
+      ...specChangeActions({ checkService: deps.checkService }),
       ...importActions({ checkService: deps.checkService }),
       ...importIntakeActions(deps),
     ],

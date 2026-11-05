@@ -17,6 +17,8 @@ import {
 import { type CheckService, applyAdminModuleBypass } from '../permissions/check-service.js';
 import type { PlatformActor } from '../platform-port/permissions.js';
 import { LOG_KNOWLEDGE_MODELS_MENU_ID } from './catalog-menu.js';
+import { touchedTargetKeys } from './domain/spec-diff.js';
+import { flagTouched, lockModelChanges } from './repositories/spec-change.js';
 import { type SpecInput, parseSpecInput, planSpecRows, validateSpecInput } from './domain/spec-input.js';
 import { type SpecTsvLines, parseSpecTsv, specTsvFieldErrors, tsvLineErrors } from './domain/spec-tsv.js';
 import {
@@ -28,7 +30,9 @@ import {
   insertPlannedRows,
   latestPublished,
   loadDraftIndex,
+  loadHashRows,
   lockRevision,
+  previousPublished,
   rejectDraft,
   sealDraft,
 } from './repositories/spec-write.js';
@@ -38,7 +42,12 @@ export const SPEC_PERMISSION = 'knowledge.spec.publish';
 export const SPEC_MENU_PERMISSION = 'knowledge:spec-publish';
 
 /** Reads (same menu) that show what a spec write changes. */
-const INVALIDATES = ['logKnowledge.modelSpec', 'logKnowledge.modelSpecRevisions', 'logKnowledge.specDraft'] as const;
+const INVALIDATES = [
+  'logKnowledge.modelSpec',
+  'logKnowledge.modelSpecRevisions',
+  'logKnowledge.specDraft',
+  'logKnowledge.specChanges',
+] as const;
 
 const INPUT_KEYS = {
   draftCreate: ['modelId', 'sourceDocRef'],
@@ -213,6 +222,9 @@ export function specActions(deps: SpecActionDeps): MenuActionDeclaration[] {
       const ws = actor.workspace_id;
       const value = parsed('publish', input);
       const draft = await lockDraft(tx, actor, value.revisionId);
+      // Lock order: revision row (above), then the model's change lock, then change rows. A concurrent `specChangeAdd`
+      // either committed before this point (the flag step sees it) or reads the new revision as its basis afterwards.
+      await lockModelChanges(tx, ws, draft.modelId);
       const { sha256, counts } = await hashRevision(tx, ws, draft);
       if (counts.modules + counts.events + counts.relations === 0) {
         throw new MenuActionInvalidError([{ path: ['revisionId'], code: 'empty' }]);
@@ -232,12 +244,20 @@ export function specActions(deps: SpecActionDeps): MenuActionDeclaration[] {
         return { data: { outcome: 'unchanged', revisionId: latest.id }, version: String(version) };
       }
       const version = await sealDraft(tx, ws, actor.actor_id, draft, sha256);
+      // #1196 c: every open SW change on a key this revision adds, removes or changes is flagged for re-validation.
+      const previous = await previousPublished(tx, ws, draft.modelId, draft.revisionNo);
+      let flagged = 0;
+      if (previous) {
+        const touched = touchedTargetKeys(await loadHashRows(tx, ws, previous.id), await loadHashRows(tx, ws, draft.id));
+        if (touched.size > 0) flagged = await flagTouched(tx, ws, draft.modelId, [...touched], draft.revisionNo);
+      }
       await record(tx, actor, 'published', draft, {
         modelId: draft.modelId,
         revisionNo: draft.revisionNo,
         outcome: 'published',
         contentSha256: sha256,
         counts,
+        flagged,
       });
       return {
         data: { outcome: 'published', revisionId: draft.id, contentSha256: sha256 },
