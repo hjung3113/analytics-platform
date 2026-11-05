@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Activity, Gauge, Timer } from 'lucide-react';
 import { createRegistry, I18nProvider, PlatformProvider, type MenuEntry } from '@ap/kernel';
 import { memoryStorage, settleQueries, testAdapter, testSession } from '@ap/kernel/testing';
@@ -233,6 +233,115 @@ describe('MetricDetail change history reads the shared audit store (#90, ADR-004
   });
 });
 
+
+describe('MetricDetail keeps the previous version while another version loads (#1365)', () => {
+  const releases: Array<() => void> = [];
+  function heldAdapter() {
+    const base = fixtureAdapter();
+    let held = false;
+    const adapter: PlatformAdapter = {
+      ...base,
+      menuQuery: async (req, signal) => {
+        if (held && req.endpoint === 'metrics.definition') await new Promise<void>(resolve => { releases.push(resolve); });
+        return base.menuQuery(req, signal);
+      },
+    };
+    return { adapter, hold: () => { held = true; } };
+  }
+
+  it('shows the old definition as refreshing without a skeleton, marks the new version as chosen and offers no apply action until it arrives', async () => {
+    const { adapter, hold } = heldAdapter();
+    renderDetail('/metrics/cycle_time?version=4', 'cycle_time', adapter);
+    expect((await screen.findAllByText('분포 재계산. PRC 구간만. averageOfQuantilesAllowed=false.')).length).toBeGreaterThan(0);
+    await settleQueries();
+    hold();
+    fireEvent.click(screen.getByRole('button', { name: /^v5/ }));
+    // The v4 definition is still drawn, the refreshing label shows, no loading skeleton replaced it.
+    expect(screen.getAllByText('분포 재계산. PRC 구간만. averageOfQuantilesAllowed=false.').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('이전 선택의 결과 · 갱신 중').length).toBeTruthy();
+    expect(document.querySelectorAll('[role="status"][aria-busy]').length).toBe(0);
+    // The chosen version is v5 right away, not the version of the old result; applying it as Context is not offered for the stale v4.
+    expect(screen.getByRole('button', { name: /^v5/ }).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('button', { name: /^v4/ }).getAttribute('aria-pressed')).toBe('false');
+    expect(screen.queryByTestId('metric-apply-context')).toBeNull();
+    await act(async () => { releases.forEach(release => release()); });
+    expect((await screen.findAllByText('v4 복사. 필터 문구만 초안. 분석 기본 버전이 아닙니다.')).length).toBeGreaterThan(0);
+  });
+});
+
+describe('MetricDetail shows one refreshing notice per version transition (#1365 IMP-02)', () => {
+  const releases: Array<() => void> = [];
+  it('the pair verdict and the definition do not both label the same transition; the usage keeps its own', async () => {
+    const base = fixtureAdapter();
+    let held = false;
+    const adapter: PlatformAdapter = {
+      ...base,
+      menuQuery: async (req, signal) => {
+        if (held && ['metrics.definition', 'metrics.pair', 'metrics.usage'].some(name => req.endpoint === name)) await new Promise<void>(resolve => { releases.push(resolve); });
+        return base.menuQuery(req, signal);
+      },
+    };
+    renderDetail('/metrics/cycle_time?version=4', 'cycle_time', adapter);
+    expect((await screen.findAllByText('분포 재계산. PRC 구간만. averageOfQuantilesAllowed=false.')).length).toBeGreaterThan(0);
+    await settleQueries();
+    held = true;
+    fireEvent.click(screen.getByRole('button', { name: /^v5/ }));
+    await waitFor(() => expect(screen.getAllByText('이전 선택의 결과 · 갱신 중').length).toBeGreaterThan(0));
+    // definition + usage; the pair verdict (busy, but no label of its own) makes no third.
+    expect(screen.getAllByText('이전 선택의 결과 · 갱신 중')).toHaveLength(2);
+    await act(async () => { releases.forEach(release => release()); });
+  });
+
+  it.each([
+    // The pair resolves first: only the definition and usage are still previous, so the pair shows no notice (2).
+    { name: 'pair first', held: ['metrics.definition', 'metrics.usage'], notices: 2 },
+    // The definition and usage resolve first: the pair alone is still previous and must label itself (1).
+    { name: 'pair last', held: ['metrics.pair'], notices: 1 },
+  ])('$name: the pair verdict shows its own notice exactly when the definition does not explain the transition', async ({ held: heldEndpoints, notices }) => {
+    const base = fixtureAdapter();
+    let held = false;
+    const adapter: PlatformAdapter = {
+      ...base,
+      menuQuery: async (req, signal) => {
+        if (held && heldEndpoints.includes(req.endpoint)) await new Promise<void>(resolve => { releases.push(resolve); });
+        return base.menuQuery(req, signal);
+      },
+    };
+    renderDetail('/metrics/cycle_time?version=4', 'cycle_time', adapter);
+    expect((await screen.findAllByText('분포 재계산. PRC 구간만. averageOfQuantilesAllowed=false.')).length).toBeGreaterThan(0);
+    await settleQueries();
+    held = true;
+    fireEvent.click(screen.getByRole('button', { name: /^v5/ }));
+    await waitFor(() => expect(screen.getAllByText('이전 선택의 결과 · 갱신 중')).toHaveLength(notices));
+    await act(async () => { releases.forEach(release => release()); });
+  });
+});
+
+describe('MetricDetail describes the kept usage and pair result by the version it was loaded with (#1365 F6)', () => {
+  const releases: Array<() => void> = [];
+  it('while v4 usage is kept under a v5 pick the subtitle names v4, the rows are not openable, and v5 usage opens again once it arrives', async () => {
+    const base = fixtureAdapter();
+    let held = false;
+    const adapter: PlatformAdapter = {
+      ...base,
+      menuQuery: async (req, signal) => {
+        if (held && (req.endpoint === 'metrics.usage' || req.endpoint === 'metrics.pair')) await new Promise<void>(resolve => { releases.push(resolve); });
+        return base.menuQuery(req, signal);
+      },
+    };
+    renderDetail('/metrics/cycle_time?version=4', 'cycle_time', adapter);
+    await screen.findByText(/cycle_time @ 4 만 조회합니다/);
+    await settleQueries();
+    held = true;
+    fireEvent.click(screen.getByRole('button', { name: /^v5/ }));
+    expect(screen.getByText(/v4 사용처 \(v5 불러오는 중\)/)).toBeTruthy();
+    expect(screen.queryByText(/만 조회합니다/)).toBeNull();
+    expect(screen.getAllByText(/v5 불러오는 중 — 열기는 그 뒤에/).length).toBeGreaterThan(0);
+    await act(async () => { releases.forEach(release => release()); });
+    expect(await screen.findByText(/cycle_time @ 5 만 조회합니다/)).toBeTruthy();
+    expect(screen.queryByText(/불러오는 중 — 열기는 그 뒤에/)).toBeNull();
+  });
+});
 
 describe('MetricDetail change history pages (ADR-0085)', () => {
   const recorded = (id: string, minute: number, reason: string): AuditEvent => ({

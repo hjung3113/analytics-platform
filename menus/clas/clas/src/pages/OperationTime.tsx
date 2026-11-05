@@ -15,13 +15,24 @@ const displayTime = (value: string | null) => (value ?? '').replace('T', ' ');
 
 export default function OperationTimeScreen() {
   const { pageParam } = usePlatform();
-  const query = useMenuQuery(operationTimeEndpoint, { eqp: pageParam('eqp') ?? '' });
+  // keepPrevious ON (#1365, ADR-0114): picking another equipment re-reads the same period and Scope; the ranking and the flow title (from the data) stay until the new flow arrives.
+  const query = useMenuQuery(operationTimeEndpoint, { eqp: pageParam('eqp') ?? '' }, true, { keepPrevious: true });
   return <PlatformPage dataTrustSummary={query.response ? <DataTrustIndicator trust={query.response.trust} assessments={query.response.assessments} /> : undefined}>
-    <QueryView query={query}>{data => <OperationTimeBody data={data} />}</QueryView>
+    <QueryView query={query}>{data => <OperationTimeBody data={data} previousEquipment={query.showingPrevious ? acceptedEquipment((query.resultParams as { eqp?: string } | undefined)?.eqp, data.equipmentId) : null} />}</QueryView>
   </PlatformPage>;
 }
 
-function OperationTimeBody({ data }: { data: OperationTimeData }) {
+// The data names the equipment it shows (a request outside the Scope or with no `eqp` falls back to another equipment), so the response's id wins and the accepted request only fills in when the response has none.
+export function acceptedEquipment(eqp: string | undefined, dataEquipmentId: string | null | undefined): string { return dataEquipmentId || eqp || ''; }
+
+// A long result scrolls the Kernel notice off screen, so the section that reads the accepted equipment says it again locally (no role: the Kernel notice announces).
+export function PreviousEquipmentLine({ equipment }: { equipment: string | null }) {
+  const { tx } = useI18n();
+  if (equipment === null) return null;
+  return <p className="px-1 text-xs text-text-secondary">{tx({ ko: `이전 설비(${equipment})의 결과 · 갱신 중`, en: `Result of the previous equipment (${equipment}) · refreshing` })}</p>;
+}
+
+function OperationTimeBody({ data, previousEquipment }: { data: OperationTimeData; previousEquipment: string | null }) {
   const { tx, lang } = useI18n();
   const { global, setPage } = usePlatform();
   const ko = lang === 'ko';
@@ -51,6 +62,7 @@ function OperationTimeBody({ data }: { data: OperationTimeData }) {
           legend: rooms.map(room => ({ label: room, colorToken: roomColor(room) })) }} /> },
     ]}
     breakdown={{ id: 'flow', title: flowTitle, node: <div className="space-y-2">
+        <PreviousEquipmentLine equipment={previousEquipment} />
         <LaneTimeline key={data.equipmentId} lanes={lanes} ariaLabel={flowTitle} description={period} trust={trust} height={320}
           formatTooltip={(segment, lane) => `${lane.label} · ${tx(KIND_LABEL[segment.rank as OperationKind])}`} />
         <ul aria-label={tx({ ko: '동작 종류', en: 'Operation kinds' })} className="flex flex-wrap gap-3 px-1 text-xs text-text-secondary">

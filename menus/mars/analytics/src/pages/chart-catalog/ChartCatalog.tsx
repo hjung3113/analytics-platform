@@ -22,6 +22,7 @@ export default function ChartCatalog() {
   const kind = isCatalogKind(rawKind) ? rawKind : 'line';
   // An invalid breakdown node is rejected before, and without, the catalogue query (06 §6.4).
   const rejectedNode = kind === 'breakdown' ? invalidBreakdownNode(pageParam('node')) : null;
+  // keepPrevious OFF (#1365, ADR-0114): `kind` selects a different chart, so the previous result would be another subject under the new label.
   const query = useMenuQuery(chartCatalogEndpoint, { kind }, rejectedNode === null);
   return <PlatformPage dataTrustSummary={query.response ? <DataTrustIndicator trust={query.response.trust} assessments={query.response.assessments} /> : undefined}>
     <CatalogWorkspace query={query} rejectedNode={rejectedNode} />

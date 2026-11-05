@@ -380,3 +380,34 @@ it('declares compact page spacing from the real consumer (#1141)', async () => {
   expect(content.classList.contains('pt-3')).toBe(true);
   expect(content.classList.contains('pb-4')).toBe(true);
 });
+
+describe('HW Time steps page keeps the previous level honest (#1365 F4)', () => {
+  /** The URL says Module PM2 / Motion level, but the displayed rows are PM1's Motions: the query still shows them as previous. */
+  const keptPm1 = () => data.level.mockImplementation(() => ({
+    ...done(level2('PM1')), resultParams: { drillModule: 'PM1' }, showingPrevious: true,
+  }));
+
+  it('titles and the summary follow the Module the kept rows were loaded with, not the current path', async () => {
+    keptPm1();
+    await renderPage('&drillModule=PM2');
+    expect(screen.getByTitle(/^Module PM1 · [\d,]+\.\d{2} 초$/)).toBeTruthy();
+    expect(screen.getByRole('region', { name: 'Motion별 동작시간 — Module PM1' })).toBeTruthy();
+    expect(screen.queryByRole('region', { name: /Module PM2/ })).toBeNull();
+  });
+
+  it('a chart segment click and a legend Enter do not drill while the previous level is shown', async () => {
+    keptPm1();
+    await renderPage('&drillModule=PM2');
+    fireEvent.click(screen.getAllByRole('button', { name: /^segment Pump / })[0]!);
+    expect(searchParams().get('drillMotion')).toBeNull();
+    fireEvent.keyDown(within(await screen.findByRole('tree', { name: '계층 범례' })).getByRole('treeitem', { name: /Pump/ }), { key: 'Enter' });
+    expect(searchParams().get('drillMotion')).toBeNull();
+  });
+
+  it('drills again once the result is live', async () => {
+    data.level.mockImplementation((drill: HwTimeDrill) => ({ ...done(fixtureFor(drill)), resultParams: drill, showingPrevious: false }));
+    await renderPage('&drillModule=PM2');
+    fireEvent.click(screen.getAllByRole('button', { name: /^segment Pump / })[0]!);
+    expect(searchParams().get('drillMotion')).toBe('Pump');
+  });
+});

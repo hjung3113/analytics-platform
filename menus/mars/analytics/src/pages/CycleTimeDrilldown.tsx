@@ -117,10 +117,12 @@ export default function CycleTimeDrilldown(_: PageProps) {
   const bucketRange = bucket ? { from: bucket, to: bucketEnd(bucket, granularity) } : null;
   // The server resolves the computation version from the applied metric pair; the page only gates the unconfirmed pair.
   const kpi = useMenuQuery(cycleKpiEndpoint, NO_PARAMS, enabled);
-  const trend = useMenuQuery(cycleTrendEndpoint, { granularity }, enabled);
+  // keepPrevious ON (#1365, ADR-0114): another grain re-buckets the same period and Scope, so the old chart stays (refreshing) until the new buckets arrive.
+  const trend = useMenuQuery(cycleTrendEndpoint, { granularity }, enabled, { keepPrevious: true });
   const dist = useMenuQuery(cycleDistEndpoint, NO_PARAMS, enabled);
   const slowPages = useMenuFetch(cycleSlowPageEndpoint);
   const exports = useMenuFetch(cycleExportEndpoint);
+  const shownGrain = (trend.resultParams as { granularity: Granularity } | undefined)?.granularity ?? granularity;
   const listFilter = { tail: tailMode, granularity, bucket, bin };
 
   const columns = useMemo<PlatformColumn<SlowRow>[]>(() => [
@@ -267,7 +269,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
                 chartId="cycle-time-trend"
                 size="fill"
                 title={ko ? '사이클타임 추세' : 'Cycle time trend'}
-                description={ko ? `버킷별 P50/P95 · ${granularity === 'hour' ? '시간' : granularity === 'day' ? '일' : '주'} · 단위 분` : `P50/P95 by bucket · ${granularity === 'hour' ? 'hour' : granularity === 'day' ? 'day' : 'week'} · minutes`}
+                description={ko ? `버킷별 P50/P95 · ${shownGrain === 'hour' ? '시간' : shownGrain === 'day' ? '일' : '주'} · 단위 분` : `P50/P95 by bucket · ${shownGrain === 'hour' ? 'hour' : shownGrain === 'day' ? 'day' : 'week'} · minutes`}
                 metricVersion={metricLabel(metric, ko)}
                 unit={ko ? '분' : 'min'}
                 valueFormat={value => formatMin(value, lang)}
@@ -287,9 +289,14 @@ export default function CycleTimeDrilldown(_: PageProps) {
                     toast(ko ? '이전 기간 점은 비교용입니다. 목록은 현재 전역 기간의 버킷만 필터합니다.' : 'Previous-period points are for comparison. The list only filters buckets in the current global period.');
                     return;
                   }
-                  const start = bucketContaining(x, granularity);
+                  // The kept series are in the previous grain; a bucket of that unit cannot be written under the new one (#1365).
+                  if (trend.showingPrevious) {
+                    toast(ko ? '집계 단위를 바꾸는 중입니다. 새 추세가 나타난 뒤 점을 클릭하세요.' : 'The grain is changing. Click a point once the new trend is shown.');
+                    return;
+                  }
+                  const start = bucketContaining(x, shownGrain);
                   if (!start || !global.from || !global.to) return;
-                  const end = bucketEnd(start, granularity);
+                  const end = bucketEnd(start, shownGrain);
                   if (end <= global.from || start >= global.to) return;
                   setPage({ bucket: start, page: null });
                 }}

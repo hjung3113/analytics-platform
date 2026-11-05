@@ -17,6 +17,7 @@ const toOptions = (rows: readonly Named[] | undefined): Option[] => (rows ?? [])
  * `filterSpecsFor` adds the values the address already chose, and `labels` remembers every name seen so those chips read as names.
  */
 export function useCatalogOptions(need: { vendors: boolean; processes: boolean; models: boolean }) {
+  // keepPrevious not used (#1365, ADR-0114): these reads never change their params (`OPTION_PARAMS`), a tab only opens or closes their gate, and a closed gate keeps nothing.
   const vendors = useMenuQuery(vendorsEndpoint, OPTION_PARAMS, need.vendors);
   const processes = useMenuQuery(processesEndpoint, OPTION_PARAMS, need.processes);
   const models = useMenuQuery(modelsEndpoint, OPTION_PARAMS, need.models);

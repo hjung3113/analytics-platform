@@ -6,7 +6,7 @@ export { RETURN_CONTEXT_LABELS, PlatformLink, PlatformProvider, usePlatform, use
 export { useSavedViewSupport, diagnoseSavedView } from './saved-view';
 export type { DiagnoseCode, DiagnoseContext, DiagnoseReason, Migration, SavedViewDiagnosis } from './saved-view';
 export { useMenuAction, type MenuActionState } from './query/action';
-export { useEntityAudit, useEntityQuery, useMenuFetch, useMenuQuery, usePlatformQuery, type AuditMore, type AuditMoreError, type AuditMoreLast, type AuditMoreStatus, type MenuFetch, type QueryState, type RequestState } from './query/query';
+export { useEntityAudit, useEntityQuery, useMenuFetch, useMenuQuery, usePlatformQuery, type AuditMore, type AuditMoreError, type AuditMoreLast, type AuditMoreStatus, type MenuFetch, type MenuQueryOptions, type QueryState, type RequestState } from './query/query';
 export {
   CONTEXT_LABELS, createRegistry, isBoardPath, PAGE_TYPE_LABELS, pathFor, routeParamNames, RegistryError,
   type AnyGroupId, type GroupDef, type MenuEntry, type ModuleGroupDef, type ModuleMenuEntry, type PageProps, type PlatformGroupDef, type PlatformMenuEntry, type Registry, type RouteMatch,

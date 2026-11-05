@@ -19,12 +19,12 @@ beforeEach(() => { vi.mocked(useMenuQuery).mockClear(); });
 describe('HW Time query hooks', () => {
   it('queries the level endpoint with the drill as params', () => {
     render(() => useHwTimeLevel({ drillModule: 'PM1' }));
-    expect(useMenuQuery).toHaveBeenCalledWith(hwTime.levelRows, { drillModule: 'PM1' }, true);
+    expect(useMenuQuery).toHaveBeenCalledWith(hwTime.levelRows, { drillModule: 'PM1' }, true, { keepPrevious: true });
   });
 
   it('queries the trend endpoint with the row ids as params', () => {
     render(() => useHwTimeTrend(['EQ-001.H1']));
-    expect(useMenuQuery).toHaveBeenCalledWith(hwTime.trend, { rowIds: ['EQ-001.H1'] }, true);
+    expect(useMenuQuery).toHaveBeenCalledWith(hwTime.trend, { rowIds: ['EQ-001.H1'] }, true, { keepPrevious: true });
   });
 
   it.each([

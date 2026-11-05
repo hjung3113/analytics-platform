@@ -416,7 +416,7 @@ Apply 모드의 Line·PRC 그룹은 독립 전역 키 옵션 포트로 편집하
 - 사용자가 명시적으로 바꾼 값만 전역 상태를 변경한다.
 - 단순 Chart Zoom은 Global Context를 변경하지 않는다.
 - Brush 후 `Analyze selected range` 같은 명시적 Action이 있어야 Global Context로 승격한다.
-- Scope·설비·기간 등 Context가 바뀌면 이전 결과를 새 조건의 결과처럼 표시하지 않는다. 이전 요청이 늦게 완료돼도 새 Context 결과로 채택하지 않는다. 동일 Context 재조회에서만 이전 결과와 갱신 중 표시를 함께 유지할 수 있다. 권한 변경/Scope 전환에서는 이전 결과를 숨기고 현재 권한을 재검증한다.
+- Scope·설비·기간 등 Context가 바뀌면 이전 결과를 새 조건의 결과처럼 표시하지 않는다. 이전 요청이 늦게 완료돼도 새 Context 결과로 채택하지 않는다. 동일 Context 재조회에서만 이전 결과와 갱신 중 표시를 함께 유지할 수 있다. 같은 Context에서 그 엔드포인트의 페이지 입력(`params`)만 바뀌는 조회는 `useMenuQuery(..., { keepPrevious: true })`를 고른 화면에서만 이전 결과를 갱신 중 표시와 함께 남긴다([components.md §19](components.md), ADR-0114). 위 규칙은 그대로이고, 기간·Scope·설비 등 Context나 세션·엔드포인트가 바뀌면 옵션과 관계없이 가린다. 권한 변경/Scope 전환에서는 이전 결과를 숨기고 현재 권한을 재검증한다.
 - 지원하지 않는 Context는 명시적으로 표시한다.
 - 초기화는 분석 Context만 지우고 요청 Scope는 유지한다(같은 내비게이션에서 `contextResetKeys`도 지운다, §6.4). 링크 복사는 현재 URL을 그대로 복사하며 받는 사람의 권한으로 서버가 다시 검증한다(§6.2).
 

@@ -35,10 +35,10 @@ function ArchiveDialog({ item, archive, onClose, onCloseAutoFocus, onChanged }: 
 }
 
 /** `보관` / `보관 해제` in the page header's `⋯` menu (ADR-0035); the confirm dialog is handed to the header, which keeps it mounted after the menu closes. */
-export function ArchiveAction({ item, onChanged }: { item: Item; onChanged: () => void }) {
+export function ArchiveAction({ item, onChanged, disabledReason }: { item: Item; onChanged: () => void; disabledReason?: string }) {
   const show = useHeaderOverflowDialog();
   const archive = item.publicationState !== 'archived';
-  return <Button type="button" variant="ghost" size="sm" className="w-full justify-start"
+  return <Button type="button" variant="ghost" size="sm" className="w-full justify-start" disabled={disabledReason !== undefined} title={disabledReason}
     onClick={() => show?.(control => <ArchiveDialog item={item} archive={archive} onClose={control.close} onCloseAutoFocus={control.onCloseAutoFocus} onChanged={onChanged} />)}>
     {archive ? '보관' : '보관 해제'}
   </Button>;

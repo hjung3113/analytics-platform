@@ -23,6 +23,8 @@ const GRANS: readonly Granularity[] = ['hour', 'day', 'week'];
 const KPI_KEYS = ['occupancy', 'dwell', 'cycleTime', 'throughput'] as const;
 const AXES = ['room', 'stgroup'] as const;
 const SORT_KEYS = ['key', 'occ', 'obs', 'pct', 'jobs'] as const;
+/** Page-input changes on the same period and Scope keep the old result as refreshing (#1365, ADR-0114). */
+const KEEP_PREVIOUS = { keepPrevious: true } as const;
 
 function resolveChoice<T extends string>(raw: string | null, allowed: readonly T[], fallback: T): { ok: true; value: T } | { ok: false } {
   if (raw === null || raw === '') return { ok: true, value: fallback };
@@ -72,12 +74,20 @@ export default function ProductivityOverview(_: PageProps) {
   const granLabel = gran === 'hour' ? (ko ? '시간' : 'hourly') : gran === 'day' ? (ko ? '일별' : 'daily') : (ko ? '주별' : 'weekly');
 
   const kpiQ = useMenuQuery(kpisEndpoint, {}, summary);
-  const trendQ = useMenuQuery(trendEndpoint, { kpi: selectedKpi, granularity: gran }, summary);
-  const breakdownQ = useMenuQuery(breakdownEndpoint, { axis }, canQuery && (drill.depth === 0 || axis === 'room'));
+  // keepPrevious ON (#1365, ADR-0114): a KPI card or grain change reads the same period/Scope again, so the old chart stays (refreshing) until the new series arrives.
+  const trendQ = useMenuQuery(trendEndpoint, { kpi: selectedKpi, granularity: gran }, summary, KEEP_PREVIOUS);
+  // keepPrevious ON: the group-axis tab only regroups the same period; the tab itself already shows the new axis while the old rows refresh.
+  const breakdownQ = useMenuQuery(breakdownEndpoint, { axis }, canQuery && (drill.depth === 0 || axis === 'room'), KEEP_PREVIOUS);
   const attentionQ = useMenuQuery(attentionEndpoint, {}, summary);
   const roomsQ = useMenuQuery(breakdownEndpoint, { axis: 'room' }, canQuery && drill.depth > 0 && axis !== 'room');
   const stgroupQ = useMenuQuery(drillEndpoint, { level: 'stgroup', room: room ?? '', stgroup: '' }, canQuery && room !== null);
   const equipmentQ = useMenuQuery(drillEndpoint, { level: 'equipment', room: room ?? '', stgroup: stgroup ?? '' }, canQuery && room !== null && stgroup !== null);
+
+  // While a kept result is shown (#1365), everything that describes or acts on the DATA follows the params it was loaded with, not the current selection.
+  const trendShown = (trendQ.resultParams as { kpi: KpiKey; granularity: Granularity } | undefined) ?? { kpi: selectedKpi, granularity: gran };
+  const shownKpi = trendShown.kpi;
+  const shownGranLabel = trendShown.granularity === 'hour' ? (ko ? '시간' : 'hourly') : trendShown.granularity === 'day' ? (ko ? '일별' : 'daily') : (ko ? '주별' : 'weekly');
+  const shownAxis = (breakdownQ.resultParams as { axis: 'room' | 'stgroup' } | undefined)?.axis ?? axis;
 
   const locale = ko ? 'ko-KR' : 'en-US';
   const n1 = (v: number) => v.toLocaleString(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -166,14 +176,14 @@ export default function ProductivityOverview(_: PageProps) {
       description: ko ? '완료 Job 수 · 0축 시작 막대' : 'completed jobs · zero-based bars',
     },
   };
-  const meta = trendMeta[selectedKpi];
+  const meta = trendMeta[shownKpi];
   const trendValue = (b: TrendBucket, i: number): number | null =>
-    selectedKpi === 'occupancy' ? b.occupancyPct : selectedKpi === 'dwell' ? b.dwellPerJobH : selectedKpi === 'throughput' ? b.jobs : i === 0 ? b.p50 : b.p95;
+    shownKpi === 'occupancy' ? b.occupancyPct : shownKpi === 'dwell' ? b.dwellPerJobH : shownKpi === 'throughput' ? b.jobs : i === 0 ? b.p50 : b.p95;
   const fmtTrend = (v: number) => v.toLocaleString(locale, { minimumFractionDigits: meta.decimals, maximumFractionDigits: meta.decimals });
 
   function trendSeriesFor(data: TrendData): { series: ChartSeries[]; compareSeries: ChartSeries[]; total: number | null } {
     const build = (source: TrendBucket[], previous: boolean): ChartSeries[] => meta.names.map((name, i) => ({
-      id: `${selectedKpi}-${previous ? 'prev' : 'cur'}-${i}`,
+      id: `${shownKpi}-${previous ? 'prev' : 'cur'}-${i}`,
       name: previous ? `${name} (${ko ? '이전 동일 기간' : 'previous period'})` : name,
       color: previous ? 'cat-amber' : meta.colors[i],
       kind: meta.kind,
@@ -185,7 +195,7 @@ export default function ProductivityOverview(_: PageProps) {
     return {
       series: build(data.current, false),
       compareSeries: build(data.previous, true),
-      total: selectedKpi === 'throughput' ? data.current.reduce((s, b) => s + (b.jobs ?? 0), 0) : null,
+      total: shownKpi === 'throughput' ? data.current.reduce((s, b) => s + (b.jobs ?? 0), 0) : null,
     };
   }
 
@@ -207,7 +217,7 @@ export default function ProductivityOverview(_: PageProps) {
           ? { key: 'drillEquipment', value: equipment }
           : undefined;
   const roomSource = axis === 'room' ? breakdownQ : roomsQ;
-  const roomRows = roomSource.response?.outcome === 'ok' ? roomSource.response.data ?? [] : [];
+  const roomRows = roomSource.response?.outcome === 'ok' && (roomSource !== breakdownQ || shownAxis === 'room') ? roomSource.response.data ?? [] : [];
   const drillSiblings = drill.depth === 0 ? undefined : {
     ...(roomRows.length > 0 ? { drillRoom: roomRows.map(row => ({
       value: row.key,
@@ -278,10 +288,10 @@ export default function ProductivityOverview(_: PageProps) {
             const { series, compareSeries, total } = trendSeriesFor(data);
             const t = trendQ.response?.trust;
             return <AnalysisChartFrame
-              chartId={`productivity-trend-${selectedKpi}`}
+              chartId={`productivity-trend-${shownKpi}`}
               title={meta.title}
-              description={`${meta.description} · ${granLabel}${total !== null ? ` · ${ko ? '합계' : 'total'} ${ni(total)} Job (${ko ? 'KPI 카드와 동일 합산' : 'same sum as the KPI card'})` : ''}`}
-              metricVersion={METRIC_VERSIONS[selectedKpi]}
+              description={`${meta.description} · ${shownGranLabel}${total !== null ? ` · ${ko ? '합계' : 'total'} ${ni(total)} Job (${ko ? 'KPI 카드와 동일 합산' : 'same sum as the KPI card'})` : ''}`}
+              metricVersion={METRIC_VERSIONS[shownKpi]}
               series={series}
               compareSeries={compareSeries}
               unit={meta.unit}
@@ -307,7 +317,7 @@ export default function ProductivityOverview(_: PageProps) {
                 return (typeof va === 'string' || typeof vb === 'string' ? String(va).localeCompare(String(vb)) : va - vb) * sort.dir;
               });
               const columns: { key: typeof sort.key; label: string; align: 'left' | 'right' }[] = [
-                { key: 'key', label: axis === 'room' ? 'room_name' : 'StGroup', align: 'left' },
+                { key: 'key', label: shownAxis === 'room' ? 'room_name' : 'StGroup', align: 'left' },
                 { key: 'occ', label: ko ? '점유 시간 (분자)' : 'Occupied h (numerator)', align: 'right' },
                 { key: 'obs', label: ko ? '관측 가능 시간 (분모)' : 'Observable h (denominator)', align: 'right' },
                 { key: 'pct', label: ko ? '점유율' : 'Occupancy', align: 'right' },
@@ -316,7 +326,7 @@ export default function ProductivityOverview(_: PageProps) {
               return <>
                 <AnalysisChartFrame
                   chartId="productivity-occupancy-breakdown"
-                  title={ko ? `점유 구성 — ${axis === 'room' ? 'room_name' : 'StGroup'}` : `Occupancy composition — ${axis === 'room' ? 'room_name' : 'StGroup'}`}
+                  title={ko ? `점유 구성 — ${shownAxis === 'room' ? 'room_name' : 'StGroup'}` : `Occupancy composition — ${shownAxis === 'room' ? 'room_name' : 'StGroup'}`}
                   description={ko ? '기간 내 관측 가능 시간 대비 물리 점유 시간. 회색은 명명된 잔여 범주 “미점유(관측 가능 시간)”입니다.' : 'Occupied vs observable hours over the period; gray is the named remainder category “not occupied (observable)”.'}
                   metricVersion={METRIC_VERSIONS.occupancy}
                   xType="category" stacked unit="h" height={240} canApplyRange={false}
@@ -347,7 +357,7 @@ export default function ProductivityOverview(_: PageProps) {
                         }}
                           className="inline-flex items-center gap-1 hover:text-text-primary">{col.label}{sort.key === col.key ? (sort.dir === 1 ? ' ▲' : ' ▼') : ''}</button>
                       </th>)}
-                      {axis === 'room' && <th scope="col" className="t-table-header px-2 py-1.5"><span className="sr-only">{ko ? '들어가기' : 'Enter'}</span></th>}
+                      {shownAxis === 'room' && <th scope="col" className="t-table-header px-2 py-1.5"><span className="sr-only">{ko ? '들어가기' : 'Enter'}</span></th>}
                     </tr></thead>
                     <tbody className="tabular">
                       {sorted.map(r => <tr key={r.key} className="border-t border-border-subtle">
@@ -356,7 +366,7 @@ export default function ProductivityOverview(_: PageProps) {
                         <td className="px-3 py-1.5 text-right">{n1(r.observableHours)} h</td>
                         <td className="px-3 py-1.5 text-right">{pct(r) !== null ? `${n1(pct(r)!)}%` : (ko ? '미확인' : 'Not confirmed')}</td>
                         <td className="px-3 py-1.5 text-right">{ni(r.jobs)}</td>
-                        {axis === 'room' && <td className="px-2 py-1.5 text-right">
+                        {shownAxis === 'room' && <td className="px-2 py-1.5 text-right">
                           <button type="button" aria-label={ko ? `${r.key} 들어가기` : `Enter ${r.key}`} onClick={() => drill.enter('drillRoom', r.key)}
                             className="inline-flex size-6 items-center justify-center rounded-sm text-text-secondary hover:bg-surface-sunken hover:text-text-primary">
                             <ChevronRight className="size-3.5" aria-hidden />

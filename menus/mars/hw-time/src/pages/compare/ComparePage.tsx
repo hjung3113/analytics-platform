@@ -12,6 +12,7 @@ import { Checkbox } from '@ap/ui';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import { HW_TIME_UNIT, type HwTimeBlock, type HwTimeLevelData } from '../../endpoints';
 import { useHwTimeLevel, useHwTimeTrend } from '../../shared/data';
+import { shownDrill } from '../../shared/shownDrill';
 import { formatSeconds, missingText } from '../../shared/format';
 import { targetStateText } from '../../shared/targetState';
 import { StackPanel } from '../../shared/panels/StackPanel';
@@ -50,7 +51,7 @@ export default function ComparePage(_props: PageProps) {
   const module = drill.levels[0]?.value ?? null;
   const motion = drill.levels[1]?.value ?? null;
   // Tree drill does what the chart segment click does at this depth: Module without one, Motion once a Module is chosen.
-  const drillTo = (id: string) => drill.enter(drill.depth === 0 ? 'drillModule' : 'drillMotion', id);
+  const drillTo = (id: string) => { if (!moduleKept.previous) drill.enter(drill.depth === 0 ? 'drillModule' : 'drillMotion', id); };
   // Only a chosen Motion is a drilled node among the legend series; the Module is not one of the Motion nodes.
   const currentId = drill.depth === 2 ? motion : null;
   // Hidden series are per panel input, never per drill depth (#912 C1): the summary's Modules are independent of any drill; the composition's Motions
@@ -68,6 +69,9 @@ export default function ComparePage(_props: PageProps) {
   const moduleQ = useHwTimeLevel({ drillModule: module ?? '' }, enabled && module !== null);
   const detailQ = useHwTimeLevel({ drillModule: module ?? '', drillMotion: motion ?? '' }, enabled && module !== null && motion !== null);
   const trendQ = useHwTimeTrend(trendRows, trendRows.length > 0 && invalid === null);
+  // Each panel's query changes params with the drill (#1365): while a previous result is kept, its title, summary and drill actions use the Module/Motion it was loaded with.
+  const moduleKept = shownDrill(moduleQ, { drillModule: module ?? '' });
+  const detailKept = shownDrill(detailQ, { drillModule: module ?? '', drillMotion: motion ?? '' });
 
   // Page keys, not reset keys. `scroll` is on unless `scroll=0`; `align` and `minmax` are off unless `1`.
   const scroll = pageParam('scroll') !== '0';
@@ -115,7 +119,7 @@ export default function ComparePage(_props: PageProps) {
         nodes={legendSeries.map(item => ({ id: item.id, label: item.name, color: item.color as ThemeColorToken }))}
         visible={new Set(visibleIds)}
         onVisibleChange={next => setHidden(legendSeries.map(item => item.id).filter(id => !next.has(id)))}
-        onDrill={drillTo} canDrill={() => true} currentId={currentId}
+        onDrill={drillTo} canDrill={() => !moduleKept.previous} currentId={currentId}
           emptyText={legendState ?? summaryState ?? (ko ? '표시할 범례가 없습니다.' : 'No legend to show.')} />,
     },
     {
@@ -153,8 +157,8 @@ export default function ComparePage(_props: PageProps) {
     return measured.length < values.length ? `${sum} · ${ko ? '일부 미측정' : 'partly not measured'}` : sum;
   };
   const summary = !module ? undefined
-    : motion ? (detailBlock ? `Module ${module} · Motion ${motion} · ${totalText(detailBlock)}` : undefined)
-      : (moduleData ? `Module ${module} · ${totalText(moduleData)}` : undefined);
+    : motion ? (detailBlock ? `Module ${detailKept.module} · Motion ${detailKept.motion} · ${totalText(detailBlock)}` : undefined)
+      : (moduleData ? `Module ${moduleKept.module} · ${totalText(moduleData)}` : undefined);
 
   const stackProps = {
     sort, startAlign: align, minMax: minmax, rowPitch: scroll ? 26 : null,
@@ -189,24 +193,24 @@ export default function ComparePage(_props: PageProps) {
       </QueryView></PanelFill> },
     { id: 'module', title: module
       ? motion
-        ? { ko: `Module ${module} 구성 · ${motion} 선택`, en: `Module ${module} · ${motion} selected` }
-        : { ko: `Module ${module} 구성`, en: `Module ${module} composition` }
+        ? { ko: `Module ${moduleKept.module} 구성 · ${motion} 선택`, en: `Module ${moduleKept.module} · ${motion} selected` }
+        : { ko: `Module ${moduleKept.module} 구성`, en: `Module ${moduleKept.module} composition` }
       : { ko: 'Module 구성', en: 'Module composition' }, render: () => !module
       ? waiting(ko ? 'Module을 고르세요' : 'Choose a Module')
-      : <PanelFill><QueryView fill query={moduleQ} widgetName={ko ? `Module ${module} 구성` : `Module ${module} composition`} hideWidgetName skeletonRows={6}>
-        {data => <StackPanel chartId="hw-compare-module" title={ko ? `Motion별 동작시간 — Module ${module}` : `Operation time by Motion — Module ${module}`} block={data}
+      : <PanelFill><QueryView fill query={moduleQ} widgetName={ko ? `Module ${moduleKept.module} 구성` : `Module ${moduleKept.module} composition`} hideWidgetName skeletonRows={6}>
+        {data => <StackPanel chartId="hw-compare-module" title={ko ? `Motion별 동작시간 — Module ${moduleKept.module}` : `Operation time by Motion — Module ${moduleKept.module}`} block={data}
           visibleSeriesIds={visibleOf(data, moduleHidden)} onVisibleSeriesChange={setVisible(data, setModuleHidden)} {...stackProps} {...rowFocus}
-          onActivate={({ seriesId }) => drill.enter('drillMotion', seriesId)} rowActions={state.rowActionsOf} />}
+          onActivate={moduleKept.previous ? undefined : ({ seriesId }) => drill.enter('drillMotion', seriesId)} rowActions={state.rowActionsOf} />}
       </QueryView></PanelFill> },
-    { id: 'detail', title: motion ? { ko: `Motion ${motion} 상세`, en: `Motion ${motion} detail` } : { ko: 'Motion 상세', en: 'Motion detail' }, render: () => !module || !motion
+    { id: 'detail', title: motion ? { ko: `Motion ${detailKept.motion} 상세`, en: `Motion ${detailKept.motion} detail` } : { ko: 'Motion 상세', en: 'Motion detail' }, render: () => !module || !motion
       ? waiting(!module ? (ko ? 'Module을 고르세요' : 'Choose a Module') : (ko ? 'Motion을 고르세요' : 'Choose a Motion'))
-      : <PanelFill><QueryView fill query={detailQ} widgetName={ko ? `Motion ${motion} 상세` : `Motion ${motion} detail`} hideWidgetName skeletonRows={6}>
+      : <PanelFill><QueryView fill query={detailQ} widgetName={ko ? `Motion ${detailKept.motion} 상세` : `Motion ${detailKept.motion} detail`} hideWidgetName skeletonRows={6}>
         {data => {
           const det = data.level === 2 ? data.detail ?? EMPTY_BLOCK : EMPTY_BLOCK;
           return det.rows.length === 0
-            ? <StateMessage icon={<Inbox className="size-4" aria-hidden />} title={ko ? `${module} Module에는 ${motion} 동작 기록이 없습니다` : `No ${motion} records for Module ${module}`}
+            ? <StateMessage icon={<Inbox className="size-4" aria-hidden />} title={ko ? `${detailKept.module} Module에는 ${detailKept.motion} 동작 기록이 없습니다` : `No ${detailKept.motion} records for Module ${detailKept.module}`}
               body={ko ? 'Module의 다른 Motion은 한 단계 위에서 볼 수 있습니다.' : 'Other Motions of this Module are one level up.'} />
-            : <StackPanel chartId="hw-compare-detail" title={ko ? `Motion ${motion} 상세 — Module ${module}` : `Motion ${motion} detail — Module ${module}`} block={det}
+            : <StackPanel chartId="hw-compare-detail" title={ko ? `Motion ${detailKept.motion} 상세 — Module ${detailKept.module}` : `Motion ${detailKept.motion} detail — Module ${detailKept.module}`} block={det}
               visibleSeriesIds={visibleOf(det, moduleHidden)} onVisibleSeriesChange={setVisible(moduleBlock, setModuleHidden)} {...stackProps} {...rowFocus} rowActions={state.rowActionsOf} />;
         }}
       </QueryView></PanelFill> },

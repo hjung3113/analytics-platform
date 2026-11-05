@@ -6,6 +6,7 @@ import { QueryView } from './StateView';
 import { InWorkspacePanelProvider } from './workspace/panelContext';
 import { QueryBarStatusContext } from './filters/QueryBarStatus';
 import { PageDensityProvider } from './pageDensity';
+import { AnalysisSectionContext } from './archetypes/AnalysisSectionContext';
 
 afterEach(cleanup);
 
@@ -79,10 +80,51 @@ describe('QueryView inside a workspace panel', () => {
 
   it('takes the panel height so a fill chart inside has a bounded parent; elsewhere it is unchanged', () => {
     const { container, unmount } = render(<I18nProvider><InWorkspacePanelProvider value><QueryView query={ok()}>{data => <p>{data}</p>}</QueryView></InWorkspacePanelProvider></I18nProvider>);
-    expect(container.querySelector('p')!.parentElement).toHaveClass('h-full', 'min-h-0');
+    expect(container.querySelector('p')!.parentElement).toBe(container.firstElementChild);
+    expect(container.querySelector('p')!.closest('[aria-busy]')).toHaveClass('h-full', 'min-h-0');
     unmount();
     const plain = render(<I18nProvider><QueryView query={ok()}>{data => <p>{data}</p>}</QueryView></I18nProvider>);
-    expect(plain.container.querySelector('p')!.parentElement).not.toHaveClass('h-full');
+    expect(plain.container.querySelector('p')!.closest('[aria-busy]')).not.toHaveClass('h-full');
+  });
+});
+
+describe('QueryView non-opt-in DOM compatibility (#1365 FIX6V)', () => {
+  const response: ApiResponse<string> = { outcome: 'ok', data: 'result', assessments: [], trust: null, correlationId: 'current' };
+
+  it('keeps the pre-branch DOM with the consumer layout directly inside the query boundary', () => {
+    const { container } = render(<I18nProvider><QueryView query={{ response, refetch: vi.fn(), missing: [], completedAt: null, status: 'done' }}>
+      {data => <div className="space-y-3"><section>First</section><section>{data}</section></div>}
+    </QueryView></I18nProvider>);
+    expect(container.innerHTML).toBe('<div aria-busy="false" class="relative"><div class="space-y-3"><section>First</section><section>result</section></div></div>');
+    expect(container.querySelector('[data-query-result-content]')).toBeNull();
+  });
+
+  it.each([undefined, false, true])('keeps sibling space-y margins on layout boxes (showingPrevious=%s)', showingPrevious => {
+    // jsdom has no layout engine. Use the sibling-margin rule itself and check that its
+    // targets generate boxes, rather than claiming to measure a rendered pixel gap.
+    const style = document.createElement('style');
+    style.textContent = '.contents { display: contents; } .space-y-3 > :not([hidden]) ~ :not([hidden]) { margin-top: 12px; }';
+    document.head.append(style);
+    try {
+      const { container } = render(<I18nProvider><div className="space-y-3">
+        <section>Before</section>
+        <QueryView query={{ response, refetch: vi.fn(), missing: [], completedAt: null, status: 'done', showingPrevious }}>
+          {data => <div className="space-y-3"><section>First</section><section>{data}</section></div>}
+        </QueryView>
+        <section>After</section>
+      </div></I18nProvider>);
+      const stack = container.firstElementChild!;
+      const boundary = stack.children[1] as HTMLElement;
+      const layout = screen.getByText('First').parentElement!;
+      if (showingPrevious === undefined) expect(layout.parentElement).toBe(boundary);
+      else expect(layout.parentElement).toBe(boundary.querySelector('[data-query-result-content]'));
+      expect(getComputedStyle(boundary).marginTop).toBe('12px');
+      expect(getComputedStyle(stack.lastElementChild!).marginTop).toBe('12px');
+      expect(getComputedStyle(screen.getByText('result')).marginTop).toBe('12px');
+      expect(getComputedStyle(layout.parentElement!).display).not.toBe('contents');
+    } finally {
+      style.remove();
+    }
   });
 });
 
@@ -119,5 +161,142 @@ describe('QueryView same-context refresh label (#1166 UX-2)', () => {
     render(<I18nProvider><PageDensityProvider value="compact"><QueryView query={refreshing()}>{() => <p>body</p>}</QueryView></PageDensityProvider></I18nProvider>);
     expect(label()).toHaveClass('absolute', 'top-2', 'right-3');
     expect(label().className).not.toContain('-top-7');
+  });
+  it('keeps the previous content visible with a named status and aria-busy (kept result of a params change, #1365)', () => {
+    const { container } = render(<I18nProvider><QueryView query={refreshing()}>{() => <p>body</p>}</QueryView></I18nProvider>);
+    expect(screen.getByText('body')).toBeVisible();
+    expect(screen.getByRole('status')).toHaveTextContent('같은 조건으로 갱신 중');
+    expect(container.firstElementChild).toHaveAttribute('aria-busy', 'true');
+  });
+  it('says the result is of the previous selection when a kept result of other params shows (#1365)', () => {
+    render(<I18nProvider><QueryView query={{ ...refreshing(), showingPrevious: true }}>{() => <p>body</p>}</QueryView></I18nProvider>);
+    expect(screen.getByRole('status', { name: '이전 선택의 결과 · 갱신 중' })).toBeVisible();
+    expect(screen.queryByText('같은 조건으로 갱신 중')).toBeNull();
+  });
+  it('names the plain refresh status by its label', () => {
+    render(<I18nProvider><QueryView query={refreshing()}>{() => <p>body</p>}</QueryView></I18nProvider>);
+    expect(screen.getByRole('status', { name: '같은 조건으로 갱신 중' })).toBeVisible();
+  });
+  it('is not busy and draws no status once the status is done', () => {
+    const { container } = render(<I18nProvider><QueryView query={{ ...refreshing(), status: 'done' }}>{() => <p>body</p>}</QueryView></I18nProvider>);
+    expect(screen.queryByRole('status')).toBeNull();
+    expect(container.firstElementChild).toHaveAttribute('aria-busy', 'false');
+  });
+});
+
+describe('previous-selection refresh presentation (#1365 FIXV)', () => {
+  const response: ApiResponse<string> = { outcome: 'ok', data: '42', assessments: [], trust: null, correlationId: 'previous' };
+  const view = (showingPrevious: boolean, status: 'refreshing' | 'done' = 'refreshing') => <I18nProvider>
+    <QueryView query={{ response, refetch: vi.fn(), missing: [], completedAt: null, status, showingPrevious }}>
+      {data => <table><thead><tr><th>Value</th><th><button>Open</button></th></tr></thead><tbody><tr><td>{data}</td></tr></tbody></table>}
+    </QueryView>
+  </I18nProvider>;
+
+  it.each(['standalone', 'compact', 'panel', 'kpi', 'chart', 'breakdown'] as const)('shows readable previous-selection text in a compact content row in %s', kind => {
+    const content = view(true);
+    const { container } = render(kind === 'compact' ? <PageDensityProvider value="compact">{content}</PageDensityProvider>
+      : kind === 'panel' ? <InWorkspacePanelProvider value>{content}</InWorkspacePanelProvider>
+      : kind === 'standalone' ? content : <AnalysisSectionContext.Provider value={{ title: 'Results', kind, collapse: vi.fn() }}>{content}</AnalysisSectionContext.Provider>);
+    const status = screen.getByRole('status', { name: '이전 선택의 결과 · 갱신 중' });
+    expect(status).toHaveTextContent('이전 선택의 결과 · 갱신 중');
+    expect(status).not.toHaveClass('sr-only');
+    expect(status.querySelector('.sr-only')).toBeNull();
+    expect(status).toHaveClass('text-xs', 'text-text-secondary', 'bg-surface-sunken');
+    expect(status).toHaveClass('flex', 'h-6', 'w-full', 'shrink-0');
+    expect(status).not.toHaveClass('absolute');
+    expect(status.parentElement).toBe(container.querySelector('[aria-busy="true"]'));
+    expect(status.parentElement).not.toHaveClass('pt-8');
+    expect(status.parentElement?.querySelector('.h-8')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Open' }).closest('[role="status"]')).toBeNull();
+  });
+
+  it('dims only the stale body with a non-interactive tint, leaving text opacity intact', () => {
+    const { container } = render(view(true));
+    const tint = container.querySelector('[data-query-stale-tint]');
+    expect(tint).toHaveClass('pointer-events-none', 'absolute', 'inset-0', 'bg-surface-sunken/20', 'mix-blend-multiply');
+    expect(tint).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.getByText('42')).toBeVisible();
+    expect(container.querySelector('[aria-busy]')).not.toHaveClass('opacity-90');
+  });
+
+  it('keeps the same unpadded wrapper and mounted body across live, previous and settled states', () => {
+    const result = render(view(false, 'done'));
+    const wrapper = result.container.firstElementChild;
+    const body = screen.getByRole('table');
+    const classes = wrapper?.className;
+    expect(wrapper).not.toHaveClass('pt-8');
+    expect(screen.queryByRole('status')).toBeNull();
+    result.rerender(view(true));
+    expect(result.container.firstElementChild?.className).toBe(classes);
+    expect(screen.getByRole('table')).toBe(body);
+    result.rerender(view(false, 'done'));
+    expect(result.container.firstElementChild?.className).toBe(classes);
+    expect(screen.getByRole('table')).toBe(body);
+    expect(result.container.querySelector('[data-query-stale-tint]')).toBeNull();
+    expect(screen.queryByRole('status')).toBeNull();
+  });
+
+  it.each([undefined, false, true])('reserves no row or padding at rest (showingPrevious=%s)', showingPrevious => {
+    const { container } = render(<I18nProvider><QueryView query={{ response, refetch: vi.fn(), missing: [], completedAt: null, status: 'done', showingPrevious }}>{data => <p>{data}</p>}</QueryView></I18nProvider>);
+    expect(container.firstElementChild).not.toHaveClass('pt-8');
+    expect(container.querySelector('.h-8')).toBeNull();
+    expect(screen.queryByRole('status')).toBeNull();
+    expect(container.querySelector('[data-query-stale-tint]')).toBeNull();
+    expect(container.firstElementChild).toHaveAttribute('aria-busy', 'false');
+  });
+
+  it.each([undefined, false])('reserves no row or padding for a same-params refresh (showingPrevious=%s)', showingPrevious => {
+    const { container } = render(<I18nProvider><QueryView query={{ response, refetch: vi.fn(), missing: [], completedAt: null, status: 'refreshing', showingPrevious }}>{data => <p>{data}</p>}</QueryView></I18nProvider>);
+    expect(container.firstElementChild).not.toHaveClass('pt-8');
+    expect(container.querySelector('.h-8')).toBeNull();
+    expect(screen.getByRole('status', { name: '같은 조건으로 갱신 중' })).toHaveClass('text-text-muted');
+    expect(screen.getByRole('status')).not.toHaveClass('border');
+  });
+
+  it.each([true, false])('can suppress a duplicate notice without suppressing busy or stale semantics (previous=%s)', showingPrevious => {
+    const renderView = (refreshNotice: 'visible' | 'hidden') => <I18nProvider><QueryView refreshNotice={refreshNotice} query={{ response, refetch: vi.fn(), missing: [], completedAt: null, status: 'refreshing', showingPrevious }}>{data => <p>{data}</p>}</QueryView></I18nProvider>;
+    const result = render(renderView('hidden'));
+    const body = screen.getByText('42');
+    expect(screen.queryByRole('status')).toBeNull();
+    expect(result.container.firstElementChild).toHaveAttribute('aria-busy', 'true');
+    expect(!!result.container.querySelector('[data-query-stale-tint]')).toBe(showingPrevious);
+    result.rerender(renderView('visible'));
+    expect(screen.getByRole('status', { name: showingPrevious ? '이전 선택의 결과 · 갱신 중' : '같은 조건으로 갱신 중' })).toBeVisible();
+    expect(screen.getByText('42')).toBe(body);
+  });
+
+  it('adds an in-flow row inside a clipping ancestor without remounting the result', () => {
+    const result = render(<div data-testid="clip">{view(false, 'done')}</div>);
+    const clip = screen.getByTestId('clip');
+    clip.style.overflow = 'hidden';
+    const body = screen.getByRole('table');
+    result.rerender(<div data-testid="clip">{view(true)}</div>);
+    const status = screen.getByRole('status', { name: '이전 선택의 결과 · 갱신 중' });
+    expect(status.parentElement).toBe(clip.firstElementChild);
+    expect(status).not.toHaveAttribute('popover');
+    expect(status).toHaveClass('flex', 'h-6');
+    expect(status).not.toHaveClass('absolute');
+    expect(status.style.position).not.toBe('fixed');
+    expect(status.style.top).toBe('');
+    expect(screen.getByRole('table')).toBe(body);
+    expect(body.closest('[aria-busy]')).toHaveAttribute('aria-busy', 'true');
+    clip.dispatchEvent(new Event('scroll'));
+    window.dispatchEvent(new Event('resize'));
+    expect(status.style.bottom).toBe('');
+    result.rerender(<div data-testid="clip">{view(false, 'done')}</div>);
+    expect(screen.queryByRole('status')).toBeNull();
+    expect(screen.getByRole('table')).toBe(body);
+  });
+
+  it('keeps the light label without a stale tint for same-params refetches', () => {
+    const { container } = render(view(false));
+    expect(screen.getByRole('status', { name: '같은 조건으로 갱신 중' })).toHaveClass('text-text-muted');
+    expect(screen.queryByText('이전 선택의 결과 · 갱신 중')).toBeNull();
+    expect(container.querySelector('[data-query-stale-tint]')).toBeNull();
+  });
+
+  it.each([true, false])('disables spinner motion for reduced motion (previous=%s)', showingPrevious => {
+    render(view(showingPrevious));
+    expect(screen.getByRole('status').querySelector('svg')).toHaveClass('animate-spin', 'motion-reduce:animate-none');
   });
 });

@@ -77,11 +77,14 @@ function listOf(params: { q?: string | null; filters?: ColumnFilter[] }) {
 }
 
 let queries: MenuQuery[] = [];
+/** While set, every itemDetail read waits for it (#1365: inspect the window between a revision pick and the reply). */
+let holdDetail: Promise<void> | null = null;
 const adapter = testAdapter({
   menuQuery: async (req: MenuQuery) => {
     queries.push(req);
     const p = req.params as { itemId?: string; revisionNo?: number; q?: string | null; filters?: ColumnFilter[] };
     if (req.endpoint === 'logKnowledge.itemDetail') {
+      if (holdDetail) await holdDetail;
       const found = ROWS.find(r => r.id === p.itemId);
       return ok(found ? detailOf(found.itemNo, p.revisionNo) : null);
     }
@@ -91,7 +94,7 @@ const adapter = testAdapter({
 });
 
 let restoreGeometry: () => void;
-beforeEach(() => { queries = []; restoreGeometry = stubCompactTableGeometry(); });
+beforeEach(() => { queries = []; holdDetail = null; restoreGeometry = stubCompactTableGeometry(); });
 afterEach(() => { cleanup(); restoreGeometry(); vi.restoreAllMocks(); });
 
 const idOf = (itemNo: number) => uuid(itemNo);
@@ -307,5 +310,32 @@ describe('기술 Item instants follow the viewer zone', () => {
       expect(screen.getByText(/10\. 3\./)).toBeTruthy();
       expect(screen.queryByText('2026-10-02')).toBeNull();
     } finally { ROWS.splice(0, ROWS.length, ...saved); }
+  });
+});
+
+describe('기술 Item 상세 keeps the previous revision while another loads (#1365)', () => {
+  it('picking an older revision keeps the shown revision with the refreshing label and no skeleton, then shows the picked one', async () => {
+    mountDetail(idOf(1));
+    const list = await screen.findByRole('region', { name: '리비전' }, slow);
+    expect(await screen.findByRole('heading', { name: '챔버 압력 로그 지연' }, slow)).toBeTruthy();
+    let release = () => {};
+    holdDetail = new Promise<void>(resolve => { release = resolve; });
+    fireEvent.click(within(list).getByRole('button', { name: /r2/ }));
+    await waitFor(() => expect(url().get('rev')).toBe('2'));
+    expect(screen.getByRole('heading', { name: '챔버 압력 로그 지연' })).toBeTruthy();
+    expect(screen.getAllByRole('status').some(node => node.textContent?.includes('갱신 중'))).toBe(true);
+    expect(document.querySelectorAll('[role="status"][aria-busy]').length).toBe(0);
+    expect(screen.queryByText(/이전 리비전 r2/)).toBeNull();
+    await act(async () => { release(); });
+    expect(await screen.findByText(/이전 리비전 r2을 보고 있습니다/, {}, slow)).toBeTruthy();
+  });
+
+  it('another Item opens fresh, never behind the previous Item', async () => {
+    mountDetail(idOf(1));
+    expect(await screen.findByRole('heading', { name: '챔버 압력 로그 지연' }, slow)).toBeTruthy();
+    holdDetail = new Promise<void>(() => {});
+    cleanup();
+    mountDetail(idOf(4));
+    expect(screen.queryByRole('heading', { name: '챔버 압력 로그 지연' })).toBeNull();
   });
 });
