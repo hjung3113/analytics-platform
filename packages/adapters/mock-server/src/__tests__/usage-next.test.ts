@@ -28,20 +28,22 @@ describe('aggregateUsageNext (#605)', () => {
     const events = [
       ...enter('M', [...U, 'u5', 'u6', 'u7', 'u8', 'u9', 'u10']),
       ...go('M', 'A', U), // moved 4
-      ...go('M', 'M', ['u1', 'u2']), // sameMenu 2
-      ...go('M', 'B', ['u1'], 'history'), ...go('M', 'M', ['u2'], 'return'), // back 2 (a back self-loop is back, not same-menu)
+      ...go('M', 'M', ['u1', 'u2', 'u3']), // sameMenu 3
+      ...go('M', 'B', ['u1', 'u2', 'u3'], 'history'), ...go('M', 'M', ['u1', 'u2', 'u3'], 'return'), // back 6 (a back self-loop is back, not same-menu)
     ];
     const r = aggregateUsageNext(events, 'M');
-    // N counts every main entry of M, the three self-loop entries (two link, one return) included: 10 + 2 + 1.
-    expect(r.entries).toBe(13);
+    // N counts every main entry of M, the self-loop entries (three link, three return) included: 10 + 3 + 3.
+    expect(r.entries).toBe(16);
     expect(r.masked).toBe(false);
-    expect(r.summary).toEqual({ moved: 4, sameMenu: 2, backOrReturn: 2, noMove: 5 });
+    expect(r.summary).toEqual({ moved: 4, sameMenu: 3, backOrReturn: 6, noMove: 3 });
     expect(Object.values(r.summary).reduce((a, b) => a + b, 0)).toBe(r.entries);
   });
 
   it('noMove never goes below 0 when next entries outnumber entries', () => {
     const r = aggregateUsageNext([...enter('M', U.slice(0, 3)), ...go('M', 'A', U), ...go('M', 'A', U)], 'M');
-    expect(r.summary.noMove).toBe(0);
+    // The floor is the approved definition: one entry can be followed by several, so the sum of the four may exceed N (never below it).
+    expect(r.summary).toEqual({ moved: 8, sameMenu: 0, backOrReturn: 0, noMove: 0 });
+    expect(Object.values(r.summary).reduce((a, b) => a + b, 0)).toBeGreaterThanOrEqual(r.entries);
   });
 
   it('ranks moved entries only by default; includeBack also ranks history/return and same-menu with one consistent set per row', () => {
@@ -99,7 +101,17 @@ describe('aggregateUsageNext (#605)', () => {
   it('masks a menu with fewer than 3 distinct users: masked, nothing else', () => {
     const events = [...enter('M', ['u1', 'u2']), ...go('M', 'A', U)];
     expect(aggregateUsageNext(events, 'M')).toEqual({ menuId: 'M', entries: 0, masked: true, summary: { moved: 0, sameMenu: 0, backOrReturn: 0, noMove: 0 }, next: [], hiddenDestinations: 0 });
-    expect(aggregateUsageNext(events, 'nobody').masked).toBe(true); // a menu with no data at all
+  });
+
+  it('a menu with no main entry at all is honestly empty, not masked (masked means exactly 1–2 main-entry users)', () => {
+    const r = aggregateUsageNext([...enter('M'), ...go('M', 'A', U)], 'nobody');
+    expect(r).toEqual({ menuId: 'nobody', entries: 0, masked: false, summary: { moved: 0, sameMenu: 0, backOrReturn: 0, noMove: 0 }, next: [], hiddenDestinations: 0 });
+    // Board entries alone are not a main entry either.
+    const board = { source: 'board' as const, stayId: 's' };
+    expect(aggregateUsageNext(U.map(u => row(u, 'P', 'paneOpen', null, board)), 'P').masked).toBe(false);
+    expect(aggregateUsageNext(enter('M', ['u1']), 'M').masked).toBe(true);
+    expect(aggregateUsageNext(enter('M', ['u1', 'u2']), 'M').masked).toBe(true);
+    expect(aggregateUsageNext(enter('M', ['u1', 'u2', 'u3']), 'M').masked).toBe(false);
   });
 
   it('limits the list to 20 destinations', () => {
@@ -115,23 +127,86 @@ describe('aggregateUsageNext (#605)', () => {
   });
 });
 
+describe('small cells never leave through a difference (#605, F1)', () => {
+  const total = (r: ReturnType<typeof aggregateUsageNext>) => r.next.reduce((a, n) => a + n.count, 0);
+
+  it('the summary does not let moved minus the visible rows reveal a hidden destination', () => {
+    // M has 6 entries; A is used by 3 people, S by one person once.
+    const events = [...enter('M', ['u1', 'u2', 'u3', 'u4', 'u5', 'u6']), ...go('M', 'A', ['u1', 'u2', 'u3']), ...go('M', 'S', ['u4'])];
+    const r = aggregateUsageNext(events, 'M');
+    expect(r.summary.moved).toBe(3);
+    expect(r.summary.moved - total(r)).toBe(0);
+    expect(r.hiddenDestinations).toBe(1);
+    expect(r.summary.noMove).toBe(3); // S falls into noMove with the entries nobody followed
+  });
+
+  it('includeBack does not reveal a destination hidden by default: link:1 + history:2 stays hidden both ways', () => {
+    const events = [...enter('M'), ...go('M', 'A', U), ...go('M', 'S', ['u1'], 'link'), ...go('M', 'S', ['u2', 'u3'], 'history')];
+    for (const includeBack of [false, true]) {
+      const r = aggregateUsageNext(events, 'M', includeBack);
+      expect(r.next.map(n => n.menuId)).toEqual(['A']);
+      expect(r.hiddenDestinations).toBe(1);
+      expect(JSON.stringify(r)).not.toContain('"S"');
+    }
+  });
+
+  it('a back group of 3 people shows up with includeBack as exactly that group, and the toggle difference is a cell of >= 3 people', () => {
+    const events = [...enter('M'), ...go('M', 'A', ['u1', 'u2', 'u3']), ...go('M', 'A', ['u1', 'u2'], 'history'), ...go('M', 'A', ['u3'], 'history')];
+    const plain = aggregateUsageNext(events, 'M');
+    const withBack = aggregateUsageNext(events, 'M', true);
+    expect(plain.next).toEqual([{ menuId: 'A', count: 3, distinctUsers: 3, vias: { link: 3 } }]);
+    expect(withBack.next).toEqual([{ menuId: 'A', count: 6, distinctUsers: 3, vias: { link: 3, history: 3 } }]);
+  });
+
+  it('vias are all-or-nothing: one via kind under 3 people empties the split, count and users stay', () => {
+    const events = [...enter('M'), ...go('M', 'A', ['u1', 'u2', 'u3'], 'sidebar'), ...go('M', 'A', ['u4'], 'palette')];
+    const r = aggregateUsageNext(events, 'M');
+    expect(r.next).toEqual([{ menuId: 'A', count: 4, distinctUsers: 4, vias: {} }]);
+  });
+
+  it('a destination with a small cell next to an open cell counts only the open cell', () => {
+    // includeBack: A has moved by 3 people and history by 1 person → the history entry is not in A's count.
+    const events = [...enter('M'), ...go('M', 'A', ['u1', 'u2', 'u3']), ...go('M', 'A', ['u4'], 'history')];
+    const withBack = aggregateUsageNext(events, 'M', true);
+    expect(withBack.next).toEqual([{ menuId: 'A', count: 3, distinctUsers: 3, vias: { link: 3 } }]);
+    expect(withBack.summary.backOrReturn).toBe(0);
+  });
+
+  it('a mask-free sum: every summary part equals the sum of the rows it could be drawn from when all cells are open', () => {
+    const events = [...enter('M'), ...go('M', 'A', U), ...go('M', 'B', U.slice(0, 3))];
+    const r = aggregateUsageNext(events, 'M');
+    expect(r.summary.moved).toBe(total(r));
+  });
+});
+
 describe('usageSummary rates (#605)', () => {
   it('gives entries, backRate and searchEntryRate from main entries; both null under 3 users', () => {
     const many = ['u1', 'u2', 'u3', 'u4'];
     const events = [
-      ...many.map((u, i) => row(u, 'M', i < 2 ? 'palette' : 'sidebar', null)), // N=4, 2 palette
-      ...go('M', 'A', ['u1'], 'history'), // back 1 of 4
+      ...many.map((u, i) => row(u, 'M', i < 3 ? 'palette' : 'sidebar', null)), // N=4, 3 palette (3 people)
+      ...go('M', 'A', ['u1', 'u2', 'u3'], 'history'), // back 3 of 4 (one cell of 3 people)
       ...enter('SMALL', ['u1', 'u2']), // 2 users
     ];
     const menus = aggregateUsage(events, { preset: 'all' }).menus;
-    expect(menus.find(m => m.menuId === 'M')).toMatchObject({ entries: 4, backRate: 0.25, searchEntryRate: 0.5 });
-    expect(menus.find(m => m.menuId === 'SMALL')).toMatchObject({ entries: 2, backRate: null, searchEntryRate: null });
+    expect(menus.find(m => m.menuId === 'M')).toMatchObject({ entries: 4, backRate: 0.75, searchEntryRate: 0.75 });
+    // F2: the entry count is masked like the rates.
+    expect(menus.find(m => m.menuId === 'SMALL')).toMatchObject({ entries: null, backRate: null, searchEntryRate: null });
   });
 
-  it('a menu with only board entries has entries 0 and null rates; visits still count them', () => {
+  it('a numerator built from fewer than 3 people counts as 0, so entries × rate never isolates them', () => {
+    const events = [
+      ...U.map(u => row(u, 'M', u === 'u1' ? 'palette' : 'sidebar', null)), // 1 palette entry
+      ...go('M', 'A', ['u1'], 'history'), // 1 back entry
+      ...go('M', 'B', ['u1', 'u2'], 'history'), ...go('M', 'C', ['u3'], 'return'), // 2 + 1: two cells under 3
+    ];
+    const m = aggregateUsage(events, { preset: 'all' }).menus.find(x => x.menuId === 'M');
+    expect(m).toMatchObject({ entries: 4, backRate: 0, searchEntryRate: 0 });
+  });
+
+  it('a menu with only board entries has null entries and rates (no main-entry people); visits still count them', () => {
     const board = { source: 'board' as const, stayId: 's' };
     const events = U.map(u => row(u, 'P', 'paneOpen', null, board));
-    expect(aggregateUsage(events, { preset: 'all' }).menus[0]).toMatchObject({ menuId: 'P', visits: 4, entries: 0, backRate: null, searchEntryRate: null });
+    expect(aggregateUsage(events, { preset: 'all' }).menus[0]).toMatchObject({ menuId: 'P', visits: 4, entries: null, backRate: null, searchEntryRate: null });
   });
 });
 
@@ -166,10 +241,10 @@ describe('usageNextScreens port (#605)', () => {
     expect(res.data).toBeNull();
   });
 
-  it('answers ok with masked:true for a well-formed menu without data, never empty', async () => {
+  it('answers ok with masked:false and zero entries for a well-formed menu without data, never an error', async () => {
     const res = await read({ menuId: 'mars:nothing' });
     expect(res.outcome).toBe('ok');
-    expect(res.data).toMatchObject({ menuId: 'mars:nothing', masked: true, entries: 0, next: [] });
+    expect(res.data).toMatchObject({ menuId: 'mars:nothing', masked: false, entries: 0, next: [] });
   });
 
   it('writes no audit row and no usage row', async () => {
@@ -185,7 +260,7 @@ describe('seedUsageNext (#605)', () => {
     seedUsageNext();
     const all = storedUsage();
     expect(aggregateUsageNext(all, 'seed-solo').masked).toBe(true);
-    expect(aggregateUsageNext(all, 'seed-empty').masked).toBe(true);
+    expect(aggregateUsageNext(all, 'seed-empty')).toMatchObject({ masked: false, entries: 0, next: [] });
     const tail = aggregateUsageNext(all, 'seed-tail');
     expect(tail.next.map(n => n.menuId)).toEqual(['seed-d1', 'seed-d2', 'seed-d3', 'seed-d4']);
     expect(tail.hiddenDestinations).toBe(2);

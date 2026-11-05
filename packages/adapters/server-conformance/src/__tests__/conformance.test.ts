@@ -360,12 +360,16 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
         : answered;
     },
     usageNextScreens: async ({ menuId }: UsageNextQuery) => {
-      // The reference holds no navigation data: a well-formed menu is masked (under 3 users), a malformed id is an error.
+      // The reference holds no navigation data: a well-formed menu has no main entry: an unmasked empty answer, a malformed id is an error.
       // 'console-usageNextScreens-names-hidden' names a destination of 2 users — the mask check must catch it (k = 3, #605).
       if (state.console && !/^[^\s?#&/=\p{C}]{1,80}$/u.test(menuId)) return err('Invalid menu id');
-      const masked: UsageNextScreens = { menuId, entries: 0, masked: true, summary: { moved: 0, sameMenu: 0, backOrReturn: 0, noMove: 0 }, next: [], hiddenDestinations: 0 };
+      const masked: UsageNextScreens = { menuId, entries: 0, masked: false, summary: { moved: 0, sameMenu: 0, backOrReturn: 0, noMove: 0 }, next: [], hiddenDestinations: 0 };
       const leaking: UsageNextScreens = { menuId, entries: 2, masked: false, summary: { moved: 2, sameMenu: 0, backOrReturn: 0, noMove: 0 }, next: [{ menuId: 'secret', count: 2, distinctUsers: 2, vias: { link: 2 } }], hiddenDestinations: 0 };
-      return consoleGate<UsageNextScreens>('usageNextScreens', breaks.has('console-usageNextScreens-names-hidden') ? leaking : masked);
+      // 'console-usageNextScreens-sum-below-entries' sums to less than N (the floor makes the sum >= N).
+      const short: UsageNextScreens = { menuId, entries: 5, masked: false, summary: { moved: 0, sameMenu: 0, backOrReturn: 0, noMove: 4 }, next: [], hiddenDestinations: 0 };
+      // 'console-usageNextScreens-via-small' lists a via used by one person.
+      const smallVia: UsageNextScreens = { menuId, entries: 3, masked: false, summary: { moved: 3, sameMenu: 0, backOrReturn: 0, noMove: 0 }, next: [{ menuId: 'a', count: 3, distinctUsers: 3, vias: { link: 2, palette: 1 } }], hiddenDestinations: 0 };
+      return consoleGate<UsageNextScreens>('usageNextScreens', breaks.has('console-usageNextScreens-names-hidden') ? leaking : breaks.has('console-usageNextScreens-sum-below-entries') ? short : breaks.has('console-usageNextScreens-via-small') ? smallVia : masked);
     },
     recordUsage: async (events) => {
       // 'usage-epoch-throws' rejects only the epoch-0 event — the receive-time check must report recordUsage
@@ -975,6 +979,8 @@ describe('server conformance kit (#145)', () => {
     ['console-usageSummary-permission', 'port · usageSummary without console:access → forbidden'],
     ['console-usageNextScreens-ok', 'port · usageNextScreens as a console actor → ok, masked or internally consistent'],
     ['console-usageNextScreens-names-hidden', 'port · usageNextScreens as a console actor → ok, masked or internally consistent'],
+    ['console-usageNextScreens-sum-below-entries', 'port · usageNextScreens as a console actor → ok, masked or internally consistent'],
+    ['console-usageNextScreens-via-small', 'port · usageNextScreens as a console actor → ok, masked or internally consistent'],
     ['console-usageNextScreens-permission', 'port · usageNextScreens without console:access → forbidden'],
     ['console-accessDirectory-mart', 'port · accessDirectory is not mart data: no assessments, null trust'],
     // #152 step 2: one break per new port rule — each must fail exactly its own check.

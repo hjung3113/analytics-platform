@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { House } from 'lucide-react';
 import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
 import { testAdapter, testSession } from '@ap/kernel/testing';
-import { DetailPanelSlotProvider, TooltipProvider, useDetailPanelSlotHost } from '@ap/ui';
+import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { groupId, spaceId, type ApiResponse, type UsageNextQuery, type UsageNextScreens, type UsageSummary } from '@ap/contracts';
 import { manifests } from '../index';
 import UsageOverview from './UsageOverview';
@@ -40,7 +40,7 @@ function setup(path = '/admin/usage', response: (query: UsageNextQuery) => Promi
   const usageNextScreens = vi.fn(response);
   const session = testSession(['console:access', 'platform:view']);
   const adapter = testAdapter({ session: () => session, usageSummary: async () => ok(summary), usageNextScreens });
-  render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry} equipmentAxes={[]}><TooltipProvider><DetailPanelSlotProvider><UsageOverview /><Host /></DetailPanelSlotProvider></TooltipProvider></PlatformProvider></I18nProvider>);
+  render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry} equipmentAxes={[]}><DetailPanelSlotProvider><UsageOverview /><Host /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
   return usageNextScreens;
 }
 const rows = () => [...document.querySelectorAll('[data-row-id]')].map(row => row.getAttribute('data-row-id'));
@@ -77,6 +77,51 @@ describe('UsageOverview next screens (#605)', () => {
     expect(within(drawer).getByRole('list', { name: '다음으로 간 화면 순위' })).toBeTruthy();
     expect(within(drawer).getByText('3명 미만 목적지 2개')).toBeTruthy();
   });
+  it('normalizes summary percentages and bar segments to their sum when moves exceed entries', async () => {
+    setup('/admin/usage?focus=admin-audit', async () => ok(nextData({ entries: 3, summary: { moved: 6, sameMenu: 3, backOrReturn: 3, noMove: 0 }, next: [{ menuId: 'admin-roles', count: 6, distinctUsers: 3, vias: { link: 6 } }], hiddenDestinations: 0 })));
+    const section = await screen.findByRole('region', { name: '진입 후 이동 요약' });
+    expect(within(section).getByText('본 화면 진입 3건')).toBeTruthy();
+    expect(within(section).getAllByRole('listitem').map(row => row.textContent)).toEqual([
+      '다른 메뉴로 이동6건 · 50.0%', '같은 메뉴 안3건 · 25.0%', '뒤로·복귀3건 · 25.0%', '이후 메뉴 이동 없음0건 · 0.0%',
+    ]);
+    const segments = section.querySelectorAll('svg > svg > rect');
+    expect([...segments].map(rect => rect.getAttribute('width'))).toEqual(['50%', '25%', '25%', '0%']);
+    expect([...segments].reduce((sum, rect) => sum + Number.parseFloat(rect.getAttribute('width')!), 0)).toBe(100);
+  });
+  it('omits hidden via bars, retains destination counts/users and explains suppression once', async () => {
+    setup('/admin/usage?focus=admin-audit', async () => ok(nextData({ next: [
+      { menuId: 'admin-roles', count: 30, distinctUsers: 4, vias: {} },
+      { menuId: 'admin-registry', count: 20, distinctUsers: 3, vias: {} },
+    ] })));
+    const list = await screen.findByRole('list', { name: '다음으로 간 화면 순위' });
+    const destinations = within(list).getAllByRole('listitem');
+    expect(destinations.map(row => within(row).getByText(/건$/).textContent)).toEqual(['30건', '20건']);
+    expect(destinations.map(row => within(row).getByText(/방문 사용자/).textContent)).toEqual(['방문 사용자 4명', '방문 사용자 3명']);
+    expect(list.querySelectorAll('svg')).toHaveLength(0);
+    expect(screen.getAllByText('방식별 분포는 3명 미만 구간이 있어 숨겼습니다')).toHaveLength(1);
+    expect(screen.queryByRole('list', { name: '이동 방식 범례' })).toBeNull();
+    expect(screen.queryByRole('list', { name: '전체 이동 방식' })).toBeNull();
+  });
+  it('keeps public via bars alongside a hidden breakdown without inventing zero totals', async () => {
+    setup('/admin/usage?focus=admin-audit', async () => ok(nextData({ next: [
+      { menuId: 'admin-roles', count: 30, distinctUsers: 4, vias: {} },
+      { menuId: 'admin-registry', count: 20, distinctUsers: 3, vias: { link: 20 } },
+    ] })));
+    const list = await screen.findByRole('list', { name: '다음으로 간 화면 순위' });
+    const destinations = within(list).getAllByRole('listitem');
+    expect(destinations[0]!.querySelector('svg')).toBeNull();
+    expect(destinations[1]!.querySelector('[data-destination-bar]')?.getAttribute('width')).toBe('66.66666666666666%');
+    expect(within(screen.getByRole('list', { name: '전체 이동 방식' })).getAllByRole('listitem').map(row => row.textContent)).toEqual(['링크20건']);
+    expect(screen.getAllByText('방식별 분포는 3명 미만 구간이 있어 숨겼습니다')).toHaveLength(1);
+  });
+  it('explains that the no-move summary also includes suppressed small movements', async () => {
+    setup('/admin/usage?focus=admin-audit');
+    const trigger = await screen.findByRole('button', { name: '이후 메뉴 이동 없음' });
+    trigger.focus();
+    const tooltip = await screen.findByRole('tooltip');
+    expect(tooltip.textContent).toContain('새로고침, 새 탭, 분석 보드 진입 때도 이동 기록이 끊깁니다.');
+    expect(tooltip.textContent).toContain('3명 미만의 이동도 여기에 포함됩니다');
+  });
   it('opens by RowAction and closes with Escape, restores row action focus and clears URL focus', async () => {
     setup();
     const opener = await screen.findByRole('button', { name: 'admin-audit 보기' });
@@ -88,6 +133,18 @@ describe('UsageOverview next screens (#605)', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(new URLSearchParams(window.location.search).get('focus')).toBeNull();
     expect(document.activeElement).toBe(opener);
+  });
+  it('keeps the Button switch accessible and controlled in both states', async () => {
+    setup('/admin/usage?focus=admin-audit');
+    const toggle = await screen.findByRole('switch', { name: '뒤로 가기·복귀 포함' });
+    expect(toggle.tagName).toBe('BUTTON');
+    expect(toggle.getAttribute('aria-checked')).toBe('false');
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-checked')).toBe('true');
+    expect(toggle.textContent).toBe('켜짐');
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-checked')).toBe('false');
+    expect(toggle.textContent).toBe('꺼짐');
   });
   it('refetches on includeBack and hides old counts/bars while awaiting the new matching set', async () => {
     let resolve!: (value: ApiResponse<UsageNextScreens>) => void;
@@ -103,14 +160,18 @@ describe('UsageOverview next screens (#605)', () => {
     expect(within(drawer).getByText(/8명/)).toBeTruthy();
   });
   it.each([
-    ['masked', nextData({ masked: true, next: [], entries: 2, hiddenDestinations: 0 }), '3명 미만으로 비공개'],
+    ['masked', nextData({ masked: true, next: [], entries: 0, hiddenDestinations: 0, summary: { moved: 0, sameMenu: 0, backOrReturn: 0, noMove: 0 } }), '3명 미만이 쓴 메뉴라 이동 경로를 공개하지 않습니다'],
     ['empty', nextData({ entries: 0, next: [], hiddenDestinations: 0, summary: { moved: 0, sameMenu: 0, backOrReturn: 0, noMove: 0 } }), '기록된 진입이 없습니다'],
     ['no moves', nextData({ next: [], hiddenDestinations: 0 }), '다음 화면 이동이 없습니다'],
   ])('handles %s without a named ranking', async (_name, data, title) => {
     setup('/admin/usage?focus=admin-audit', async () => ok(data));
     await screen.findByText(title);
     expect(screen.queryByRole('list', { name: '다음으로 간 화면 순위' })).toBeNull();
-    if (data.masked) expect(screen.queryByText(/본 화면 진입/)).toBeNull();
+    if (data.masked) {
+      expect(screen.queryByText(/본 화면 진입/)).toBeNull();
+      expect(screen.queryByText('기록된 진입이 없습니다')).toBeNull();
+      expect(screen.queryByText(/0건/)).toBeNull();
+    }
   });
   it('keeps masked destination counts visible with no eligible rows and hides a zero hidden-count line', async () => {
     setup('/admin/usage?focus=admin-audit', async () => ok(nextData({ next: [] })));

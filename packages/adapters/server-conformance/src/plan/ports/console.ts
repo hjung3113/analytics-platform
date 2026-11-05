@@ -77,9 +77,16 @@ export function planConsoleChecks(harness: ServerConformanceHarness): Conformanc
       if (d.masked) {
         return d.entries === 0 && moved + sameMenu + backOrReturn + noMove === 0 && d.next.length === 0 && d.hiddenDestinations === 0
           ? null
-          : 'a masked answer (menu under 3 distinct users) must carry no numbers: entries 0, summary all 0, next [], hiddenDestinations 0';
+          : 'a masked answer (menu with 1–2 distinct main-entry users) must carry no numbers: entries 0, summary all 0, next [], hiddenDestinations 0';
       }
-      if (moved + sameMenu + backOrReturn + noMove !== d.entries) return `summary must sum to entries (${moved}+${sameMenu}+${backOrReturn}+${noMove} vs ${d.entries})`;
+      if (d.entries === 0) {
+        return moved + sameMenu + backOrReturn + noMove === 0 && d.next.length === 0 && d.hiddenDestinations === 0
+          ? null
+          : 'an unmasked answer without any main entry (masked: false, entries: 0) must carry no numbers: summary all 0, next [], hiddenDestinations 0';
+      }
+      // noMove is max(0, entries − the other three): one entry can be followed by several, so the sum is >= entries (equal unless the floor applied).
+      if (moved + sameMenu + backOrReturn + noMove < d.entries) return `summary must sum to at least entries (${moved}+${sameMenu}+${backOrReturn}+${noMove} vs ${d.entries})`;
+      if (noMove !== Math.max(0, d.entries - moved - sameMenu - backOrReturn)) return `noMove must be max(0, entries − moved − sameMenu − backOrReturn), got ${noMove}`;
       if (d.next.length > 20) return `next holds ${d.next.length} rows, at most 20`;
       if (!Number.isInteger(d.hiddenDestinations) || d.hiddenDestinations < 0) return 'hiddenDestinations must be a non-negative integer';
       let previous = Number.POSITIVE_INFINITY;
@@ -88,7 +95,9 @@ export function planConsoleChecks(harness: ServerConformanceHarness): Conformanc
         if (n.count > previous) return 'next must be ordered by count, descending';
         previous = n.count;
         const viaSum = Object.values(n.vias).reduce((a, b) => a + (b ?? 0), 0);
-        if (viaSum !== n.count) return `a row's vias must come from the same set as its count (vias sum ${viaSum}, count ${n.count})`;
+        // vias is all-or-nothing: {} (a via kind under 3 people was present) or the full split of count.
+        if (viaSum !== 0 && viaSum !== n.count) return `a row's vias must be {} or come from the same set as its count (vias sum ${viaSum}, count ${n.count})`;
+        if (Object.values(n.vias).some((v) => (v ?? 0) < 3)) return 'a via kind used by fewer than 3 distinct people can never be listed: a row\'s vias is {} unless every via has at least 3 people';
         if (n.distinctUsers > n.count) return `a row cannot have more distinct users (${n.distinctUsers}) than events (${n.count})`;
       }
       return null;

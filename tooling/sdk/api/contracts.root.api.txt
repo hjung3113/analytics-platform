@@ -179,7 +179,7 @@ USAGE_VIAS | const | const USAGE_VIAS: readonly [ "sidebar", "switcher", "palett
 UpdateNoticeInput | type | type UpdateNoticeInput = @ap/contracts#NoticeDraft & { expectedVersion: string; id: string; idempotencyKey: string; }
 UsageEvent | type | type UsageEvent = { at: number; dwellMs?: number; enteredAt?: number; fromMenuId?: null | string; menuId: string; name: @ap/contracts#UsageEventName; path: string; sessionId: string; source?: @ap/contracts#UsageSource; spaceId: @ap/contracts#SpaceId | null; stayId?: string; via?: @ap/contracts#UsageVia; }
 UsageEventName | type | type UsageEventName = 'dwell' | 'entry'
-UsageMenuSummary | type | type UsageMenuSummary = { backRate?: null | number; distinctUsers: number; entries?: number; lastUsedAt: number; menuId: string; searchEntryRate?: null | number; visits: number; }
+UsageMenuSummary | type | type UsageMenuSummary = { backRate?: null | number; distinctUsers: number; entries?: null | number; lastUsedAt: number; menuId: string; searchEntryRate?: null | number; visits: number; }
 UsageNextDestination | type | type UsageNextDestination = { count: number; distinctUsers: number; menuId: string; vias: Partial<Record<@ap/contracts#UsageVia, number>>; }
 UsageNextQuery | type | type UsageNextQuery = { includeBack?: boolean; menuId: string; }
 UsageNextScreens | type | type UsageNextScreens = { entries: number; hiddenDestinations: number; masked: boolean; menuId: string; next: @ap/contracts#UsageNextDestination[]; summary: { backOrReturn: number; moved: number; noMove: number; sameMenu: number; }; }

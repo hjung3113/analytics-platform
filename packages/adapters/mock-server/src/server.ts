@@ -2,7 +2,7 @@
  * Mock request validation + response envelope (docs/06 §19): exclusive `outcome` plus declared `assessments[]`.
  * Every page query goes through `serve()` so Scope/room grants are re-validated per request (§6.2).
  */
-import { parseDateTime, periodHours, type ApiResponse, type ClientErrorReport, type Assessment, type AssessmentKind, type Condition, type EntityRef, type GlobalContext, type Permission, type ScopeCheck, type SpaceId, type Trust, type UsageEvent, type UsageNextQuery, type UsageNextScreens, type UsageRange, type UsageSummary, type UsageVia, menuPermission } from '@ap/contracts';
+import { parseDateTime, periodHours, type ApiResponse, type ClientErrorReport, type Assessment, type AssessmentKind, type Condition, type EntityRef, type GlobalContext, type Permission, type ScopeCheck, type SpaceId, type Trust, type UsageEvent, type UsageNextDestination, type UsageNextQuery, type UsageNextScreens, type UsageRange, type UsageSummary, type UsageVia, menuPermission } from '@ap/contracts';
 import { EQUIPMENT, SITES, TIME_DOMAIN_ASSERTIONS, activeWorld, type Equipment, type RoleId, type TimeDomainAssertion } from './world';
 
 /**
@@ -452,31 +452,40 @@ export function aggregateUsage(events: readonly StoredUsageEvent[], range: Usage
   const inRange = events.filter(e =>
     e.name === 'entry'
     && ('preset' in range || (e.receivedAt >= range.from && e.receivedAt < range.to)));
-  const byMenu = new Map<string, { visits: number; users: Set<string>; last: number; mainEntries: number; mainUsers: Set<string>; palette: number }>();
-  // Main entries per `fromMenuId` that carried history/return: the numerator of 「뒤로 나감」 (the NEXT entry after the menu).
-  const backFrom = new Map<string, number>();
+  const byMenu = new Map<string, { visits: number; users: Set<string>; last: number; mainEntries: number; mainUsers: Set<string>; palette: number; paletteUsers: Set<string> }>();
+  // Main entries per `fromMenuId` that carried history/return, split by destination (a cell): the numerator of 「뒤로 나감」 is the sum of the cells with >= 3 distinct users.
+  const backCells = new Map<string, Map<string, { n: number; users: Set<string> }>>();
   for (const e of inRange) {
-    const agg = byMenu.get(e.menuId) ?? { visits: 0, users: new Set<string>(), last: 0, mainEntries: 0, mainUsers: new Set<string>(), palette: 0 };
+    const agg = byMenu.get(e.menuId) ?? { visits: 0, users: new Set<string>(), last: 0, mainEntries: 0, mainUsers: new Set<string>(), palette: 0, paletteUsers: new Set<string>() };
     agg.visits += 1;
     agg.users.add(e.userId);
     if (e.receivedAt > agg.last) agg.last = e.receivedAt;
     if (isMainUsageEntry(e)) {
       agg.mainEntries += 1;
       agg.mainUsers.add(e.userId);
-      if (e.via === 'palette') agg.palette += 1;
-      if (e.fromMenuId && e.via !== undefined && BACK_VIAS.includes(e.via)) backFrom.set(e.fromMenuId, (backFrom.get(e.fromMenuId) ?? 0) + 1);
+      if (e.via === 'palette') { agg.palette += 1; agg.paletteUsers.add(e.userId); }
+      if (e.fromMenuId && e.via !== undefined && BACK_VIAS.includes(e.via)) {
+        const cells = backCells.get(e.fromMenuId) ?? new Map<string, { n: number; users: Set<string> }>();
+        const cell = cells.get(e.menuId) ?? { n: 0, users: new Set<string>() };
+        cell.n += 1;
+        cell.users.add(e.userId);
+        cells.set(e.menuId, cell);
+        backCells.set(e.fromMenuId, cells);
+      }
     }
     byMenu.set(e.menuId, agg);
   }
   return {
     preset: 'preset' in range ? 'all' : 'range',
     menus: [...byMenu.entries()].map(([menuId, agg]) => {
-      const shown = agg.mainEntries > 0 && agg.mainUsers.size >= USAGE_MASK_K;
+      // The mask is the menu's main-entry users (1–2 users, or none, answer null). A numerator built from < 3 people counts as 0 (never differenced back out).
+      const shown = agg.mainUsers.size >= USAGE_MASK_K;
+      const back = [...(backCells.get(menuId)?.values() ?? [])].reduce((sum, c) => sum + (c.users.size >= USAGE_MASK_K ? c.n : 0), 0);
       return {
         menuId, visits: agg.visits, distinctUsers: agg.users.size, lastUsedAt: agg.last,
-        entries: agg.mainEntries,
-        backRate: shown ? Math.min(1, (backFrom.get(menuId) ?? 0) / agg.mainEntries) : null,
-        searchEntryRate: shown ? agg.palette / agg.mainEntries : null,
+        entries: shown ? agg.mainEntries : null,
+        backRate: shown ? Math.min(1, back / agg.mainEntries) : null,
+        searchEntryRate: shown ? (agg.paletteUsers.size >= USAGE_MASK_K ? agg.palette : 0) / agg.mainEntries : null,
       };
     }),
   };
@@ -492,42 +501,64 @@ const USAGE_NEXT_LIMIT = 20;
 /**
  * Where people went right after `menuId` (#605). Main source only. A "next" entry of M is a main entry whose `fromMenuId` is M, split into
  * disjoint kinds: back/return (`via` history/return, any destination), else same menu (destination M), else moved. `noMove` is the rest of M's entries.
- * Ranking counts `moved` only; `includeBack` also counts back/return and same-menu entries. A row's count, users and vias come from that one set.
- * Mask k = 3: a menu under 3 distinct users is `masked` with nothing in it; a destination under 3 distinct users is only counted in `hiddenDestinations`.
+ * Mask k = 3 works on cells: a cell is one kind at one destination. Every number in the answer is a sum of cells with >= 3 distinct users, so no
+ * difference of two numbers (summary vs rows, rows vs rows, includeBack on vs off) can isolate a group of fewer than 3 people. Cells under 3 users
+ * are only counted (`hiddenDestinations`) and fall into `noMove`. `masked` means the menu has 1–2 distinct main-entry users; no main entry at all is an
+ * honest empty answer (`masked: false`, `entries: 0`).
  */
 export function aggregateUsageNext(events: readonly StoredUsageEvent[], menuId: string, includeBack = false): UsageNextScreens {
+  const empty = { moved: 0, sameMenu: 0, backOrReturn: 0, noMove: 0 };
   const main = events.filter(isMainUsageEntry);
   const own = main.filter(e => e.menuId === menuId);
-  if (own.length === 0 || new Set(own.map(e => e.userId)).size < USAGE_MASK_K) {
-    return { menuId, entries: 0, masked: true, summary: { moved: 0, sameMenu: 0, backOrReturn: 0, noMove: 0 }, next: [], hiddenDestinations: 0 };
-  }
-  const summary = { moved: 0, sameMenu: 0, backOrReturn: 0, noMove: 0 };
-  const ranked = new Map<string, { count: number; users: Set<string>; vias: Partial<Record<UsageVia, number>> }>();
+  if (own.length === 0) return { menuId, entries: 0, masked: false, summary: empty, next: [], hiddenDestinations: 0 };
+  if (new Set(own.map(e => e.userId)).size < USAGE_MASK_K) return { menuId, entries: 0, masked: true, summary: empty, next: [], hiddenDestinations: 0 };
+  type Kind = 'moved' | 'sameMenu' | 'backOrReturn';
+  type Cell = { kind: Kind; dest: string; events: StoredUsageEvent[]; users: Set<string> };
+  const cells = new Map<string, Cell>();
   for (const e of main) {
     if (e.fromMenuId !== menuId) continue;
     const back = e.via !== undefined && BACK_VIAS.includes(e.via);
-    const kind = back ? 'backOrReturn' : e.menuId === menuId ? 'sameMenu' : 'moved';
-    summary[kind] += 1;
-    if (kind !== 'moved' && !includeBack) continue;
-    const row = ranked.get(e.menuId) ?? { count: 0, users: new Set<string>(), vias: {} };
-    row.count += 1;
-    row.users.add(e.userId);
-    const via: UsageVia = e.via ?? 'link';
-    row.vias[via] = (row.vias[via] ?? 0) + 1;
-    ranked.set(e.menuId, row);
+    const kind: Kind = back ? 'backOrReturn' : e.menuId === menuId ? 'sameMenu' : 'moved';
+    const key = `${kind}\u0000${e.menuId}`;
+    const cell = cells.get(key) ?? { kind, dest: e.menuId, events: [], users: new Set<string>() };
+    cell.events.push(e);
+    cell.users.add(e.userId);
+    cells.set(key, cell);
   }
+  const summary = { ...empty };
+  for (const c of cells.values()) if (c.users.size >= USAGE_MASK_K) summary[c.kind] += c.events.length;
   summary.noMove = Math.max(0, own.length - summary.moved - summary.sameMenu - summary.backOrReturn);
-  const shown = [...ranked.entries()].filter(([, r]) => r.users.size >= USAGE_MASK_K);
+  // The ranked set: moved cells only, or with includeBack every cell. A destination is named only through an open cell.
+  const inSet = [...cells.values()].filter(c => includeBack || c.kind === 'moved');
+  const byDest = new Map<string, Cell[]>();
+  for (const c of inSet) byDest.set(c.dest, [...(byDest.get(c.dest) ?? []), c]);
+  const rows: UsageNextDestination[] = [];
+  let hidden = 0;
+  for (const [dest, all] of byDest) {
+    const open = all.filter(c => c.users.size >= USAGE_MASK_K);
+    if (open.length === 0) { hidden += 1; continue; }
+    const events = open.flatMap(c => c.events);
+    // Vias are all-or-nothing: one via kind under 3 users would be differenced out of the others and the count.
+    const byVia = new Map<UsageVia, { n: number; users: Set<string> }>();
+    for (const e of events) {
+      const via: UsageVia = e.via ?? 'link';
+      const v = byVia.get(via) ?? { n: 0, users: new Set<string>() };
+      v.n += 1;
+      v.users.add(e.userId);
+      byVia.set(via, v);
+    }
+    const vias: Partial<Record<UsageVia, number>> = [...byVia.values()].every(v => v.users.size >= USAGE_MASK_K)
+      ? Object.fromEntries([...byVia.entries()].map(([via, v]) => [via, v.n]))
+      : {};
+    rows.push({ menuId: dest, count: events.length, distinctUsers: new Set(events.map(e => e.userId)).size, vias });
+  }
   return {
     menuId,
     entries: own.length,
     masked: false,
     summary,
-    next: shown
-      .map(([dest, r]) => ({ menuId: dest, count: r.count, distinctUsers: r.users.size, vias: r.vias }))
-      .sort((a, b) => b.count - a.count || (a.menuId < b.menuId ? -1 : a.menuId > b.menuId ? 1 : 0))
-      .slice(0, USAGE_NEXT_LIMIT),
-    hiddenDestinations: ranked.size - shown.length,
+    next: rows.sort((a, b) => b.count - a.count || (a.menuId < b.menuId ? -1 : a.menuId > b.menuId ? 1 : 0)).slice(0, USAGE_NEXT_LIMIT),
+    hiddenDestinations: hidden,
   };
 }
 

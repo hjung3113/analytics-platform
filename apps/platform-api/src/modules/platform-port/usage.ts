@@ -3,7 +3,7 @@
 // (`packages/adapters/mock-server/src/server.ts` recordUsage) and the binding UsageEvent rule of
 // http-adapter-contract §1: identity fields only, the whole batch or nothing.
 
-import { and, count, countDistinct, eq, gte, inArray, isNotNull, lt, max, sql } from 'drizzle-orm';
+import { and, count, countDistinct, eq, gte, inArray, isNotNull, lt, max, or, sql } from 'drizzle-orm';
 import type { Db } from '../../db/client.js';
 import { usageEvents } from '../../db/schema/platform.js';
 import type { CheckService } from '../permissions/check-service.js';
@@ -197,11 +197,11 @@ export interface UsageMenuSummary {
   visits: number;
   distinctUsers: number;
   lastUsedAt: number;
-  /** Main-screen entries (`source = 'main'`); #605. */
-  entries: number;
-  /** Share of `entries` whose next main entry came via history/return; null under the mask or with 0 entries. */
+  /** Main-screen entries (`source = 'main'`); #605. null under the mask (main-entry users < 3, including none). */
+  entries: number | null;
+  /** Share of `entries` whose next main entry came via history/return (cells of < 3 people count 0); null under the mask. */
   backRate: number | null;
-  /** Share of `entries` with via palette; null under the mask or with 0 entries. */
+  /** Share of `entries` with via palette (0 when < 3 people); null under the mask. */
   searchEntryRate: number | null;
 }
 
@@ -328,62 +328,82 @@ export function createPlatformUsageService(deps: PlatformUsageServiceDeps) {
             gte(usageEvents.receivedAt, new Date(range.from)),
             lt(usageEvents.receivedAt, new Date(range.to)),
           );
-    const rows = await deps.db
-      .select({
-        menuId: usageEvents.menuId,
-        visits: count(),
-        distinctUsers: countDistinct(usageEvents.actorId),
-        lastUsedAt: max(usageEvents.receivedAt),
-        entries: sql<number>`count(*) filter (where ${usageEvents.source} = 'main')`.mapWith(Number),
-        mainUsers:
-          sql<number>`count(distinct ${usageEvents.actorId}) filter (where ${usageEvents.source} = 'main')`.mapWith(
-            Number,
-          ),
-        palette:
-          sql<number>`count(*) filter (where ${usageEvents.source} = 'main' and ${usageEvents.via} = 'palette')`.mapWith(
-            Number,
-          ),
-      })
-      .from(usageEvents)
-      .where(
-        and(
-          eq(usageEvents.workspaceId, actor.workspace_id),
-          eq(usageEvents.name, 'entry'),
-          inRange,
-        ),
-      )
-      .groupBy(usageEvents.menuId)
-      .orderBy(usageEvents.menuId);
-    // Numerator of 「뒤로 나감」: main entries elsewhere that name menu M in `from_menu_id` and carry history/return (same range).
-    const backRows = await deps.db
-      .select({ menuId: usageEvents.fromMenuId, back: count() })
-      .from(usageEvents)
-      .where(
-        and(
-          eq(usageEvents.workspaceId, actor.workspace_id),
-          eq(usageEvents.name, 'entry'),
-          eq(usageEvents.source, 'main'),
-          isNotNull(usageEvents.fromMenuId),
-          inArray(usageEvents.via, BACK_VIAS),
-          inRange,
-        ),
-      )
-      .groupBy(usageEvents.fromMenuId);
-    const backFrom = new Map(backRows.map((r) => [r.menuId, r.back]));
+    // One read-only REPEATABLE READ snapshot for both SELECTs: the numerators (back, palette) and the denominators (entries) come from one set of rows.
+    const { rows, backRows } = await deps.db.transaction(
+      async (tx) => {
+        const rows = await tx
+          .select({
+            menuId: usageEvents.menuId,
+            visits: count(),
+            distinctUsers: countDistinct(usageEvents.actorId),
+            lastUsedAt: max(usageEvents.receivedAt),
+            entries: sql<number>`count(*) filter (where ${usageEvents.source} = 'main')`.mapWith(Number),
+            mainUsers:
+              sql<number>`count(distinct ${usageEvents.actorId}) filter (where ${usageEvents.source} = 'main')`.mapWith(
+                Number,
+              ),
+            palette:
+              sql<number>`count(*) filter (where ${usageEvents.source} = 'main' and ${usageEvents.via} = 'palette')`.mapWith(
+                Number,
+              ),
+            paletteUsers:
+              sql<number>`count(distinct ${usageEvents.actorId}) filter (where ${usageEvents.source} = 'main' and ${usageEvents.via} = 'palette')`.mapWith(
+                Number,
+              ),
+          })
+          .from(usageEvents)
+          .where(
+            and(
+              eq(usageEvents.workspaceId, actor.workspace_id),
+              eq(usageEvents.name, 'entry'),
+              inRange,
+            ),
+          )
+          .groupBy(usageEvents.menuId)
+          .orderBy(usageEvents.menuId);
+        // Numerator of 「뒤로 나감」: main entries elsewhere that name menu M in `from_menu_id` and carry history/return (same range),
+        // one cell per destination; only cells of >= 3 distinct people are summed (a smaller group counts as 0, never differenced back out).
+        const backRows = await tx
+          .select({
+            menuId: usageEvents.fromMenuId,
+            back: count(),
+            users: countDistinct(usageEvents.actorId),
+          })
+          .from(usageEvents)
+          .where(
+            and(
+              eq(usageEvents.workspaceId, actor.workspace_id),
+              eq(usageEvents.name, 'entry'),
+              eq(usageEvents.source, 'main'),
+              isNotNull(usageEvents.fromMenuId),
+              inArray(usageEvents.via, BACK_VIAS),
+              inRange,
+            ),
+          )
+          .groupBy(usageEvents.fromMenuId, usageEvents.menuId);
+        return { rows, backRows };
+      },
+      { isolationLevel: 'repeatable read', accessMode: 'read only' },
+    );
+    const backFrom = new Map<string, number>();
+    for (const r of backRows) {
+      if (r.menuId !== null && r.users >= USAGE_MASK_K) backFrom.set(r.menuId, (backFrom.get(r.menuId) ?? 0) + r.back);
+    }
     return {
       outcome: 'ok',
       data: {
         preset: 'preset' in range ? 'all' : 'range',
         menus: rows.map((row) => {
-          const shown = row.entries > 0 && row.mainUsers >= USAGE_MASK_K;
+          // The mask is the menu's main-entry users (1–2, or none, answer null); a numerator of < 3 people counts as 0.
+          const shown = row.mainUsers >= USAGE_MASK_K;
           return {
             menuId: row.menuId,
             visits: row.visits,
             distinctUsers: row.distinctUsers,
             lastUsedAt: (row.lastUsedAt as Date).getTime(),
-            entries: row.entries,
+            entries: shown ? row.entries : null,
             backRate: shown ? Math.min(1, (backFrom.get(row.menuId) ?? 0) / row.entries) : null,
-            searchEntryRate: shown ? row.palette / row.entries : null,
+            searchEntryRate: shown ? (row.paletteUsers >= USAGE_MASK_K ? row.palette : 0) / row.entries : null,
           };
         }),
       },
@@ -393,8 +413,10 @@ export function createPlatformUsageService(deps: PlatformUsageServiceDeps) {
   /**
    * Where people went right after `menuId` (#605; reference semantics: mock `aggregateUsageNext`). Same permission as `usageSummary`,
    * read-only, no range (all stored time). Main source only; a "next" entry is a main entry whose `from_menu_id` is M, split into
-   * disjoint kinds: back/return (via history/return, any destination), else same menu, else moved. The < 3 mask is applied here: a menu
-   * with < 3 distinct main-entry users is `masked` with empty lists; destinations with < 3 distinct users are only counted.
+   * disjoint kinds: back/return (via history/return, any destination), else same menu, else moved. The < 3 mask works on cells (one kind at one
+   * destination): every number is a sum of cells with >= 3 distinct people, so no difference of two numbers (summary vs rows, includeBack on vs
+   * off) isolates a smaller group. `masked` = the menu has 1–2 distinct main-entry users; no main entry at all is an empty, unmasked answer.
+   * All SELECTs run in one read-only REPEATABLE READ transaction, so count, users and vias come from one snapshot.
    */
   async function usageNextScreens(
     actor: PlatformActor,
@@ -411,87 +433,111 @@ export function createPlatformUsageService(deps: PlatformUsageServiceDeps) {
       eq(usageEvents.name, 'entry'),
       eq(usageEvents.source, 'main'),
     );
-    const [own] = await deps.db
-      .select({ entries: count(), users: countDistinct(usageEvents.actorId) })
-      .from(usageEvents)
-      .where(and(mainEntry, eq(usageEvents.menuId, menuId)));
-    const masked: UsageNextScreensData = {
-      menuId,
-      entries: 0,
-      masked: true,
-      summary: { moved: 0, sameMenu: 0, backOrReturn: 0, noMove: 0 },
-      next: [],
-      hiddenDestinations: 0,
-    };
-    if (!own || own.entries === 0 || own.users < USAGE_MASK_K) return { outcome: 'ok', data: masked };
-
-    // One pass over the next entries: per destination and kind, the count, the distinct people and the via split (a via-less row is `link`).
+    const empty = { moved: 0, sameMenu: 0, backOrReturn: 0, noMove: 0 };
+    const answer = (masked: boolean): AuditJudgement<UsageNextScreensData> => ({
+      outcome: 'ok',
+      data: { menuId, entries: 0, masked, summary: { ...empty }, next: [], hiddenDestinations: 0 },
+    });
     const kind = sql<string>`case when ${usageEvents.via} in ('history', 'return') then 'back' when ${usageEvents.menuId} = ${menuId} then 'same' else 'moved' end`;
     const via = sql<string>`coalesce(${usageEvents.via}, 'link')`;
     const nextWhere = and(mainEntry, eq(usageEvents.fromMenuId, menuId));
-    const kindRows = await deps.db
-      .select({ kind, n: count() })
-      .from(usageEvents)
-      .where(nextWhere)
-      // By position: the case expression carries bound parameters, so a second copy in GROUP BY is a different expression to Postgres.
-      .groupBy(sql`1`);
-    const summary = { moved: 0, sameMenu: 0, backOrReturn: 0, noMove: 0 };
-    for (const r of kindRows) {
-      if (r.kind === 'back') summary.backOrReturn = r.n;
-      else if (r.kind === 'same') summary.sameMenu = r.n;
-      else summary.moved = r.n;
-    }
-    summary.noMove = Math.max(0, own.entries - summary.moved - summary.sameMenu - summary.backOrReturn);
+    const rankedKinds = includeBack ? ['moved', 'back', 'same'] : ['moved'];
+    return deps.db.transaction(
+      async (tx) => {
+        const [own] = await tx
+          .select({ entries: count(), users: countDistinct(usageEvents.actorId) })
+          .from(usageEvents)
+          .where(and(mainEntry, eq(usageEvents.menuId, menuId)));
+        if (!own || own.entries === 0) return answer(false);
+        if (own.users < USAGE_MASK_K) return answer(true);
 
-    // The ranked set: moved only, or with includeBack everything that left the screen (also back/return and same menu).
-    const ranked = includeBack ? nextWhere : and(nextWhere, sql`${kind} = 'moved'`);
-    const destRows = await deps.db
-      .select({
-        menuId: usageEvents.menuId,
-        n: count(),
-        users: countDistinct(usageEvents.actorId),
-      })
-      .from(usageEvents)
-      .where(ranked)
-      .groupBy(usageEvents.menuId);
-    const shown = destRows
-      .filter((d) => d.users >= USAGE_MASK_K)
-      .sort((a, b) => b.n - a.n || (a.menuId < b.menuId ? -1 : a.menuId > b.menuId ? 1 : 0))
-      .slice(0, USAGE_NEXT_LIMIT);
-    const viaRows =
-      shown.length === 0
-        ? []
-        : await deps.db
-            .select({ menuId: usageEvents.menuId, via, n: count() })
-            .from(usageEvents)
-            .where(
-              and(
-                ranked,
-                inArray(
-                  usageEvents.menuId,
-                  shown.map((d) => d.menuId),
-                ),
-              ),
-            )
-            .groupBy(usageEvents.menuId, sql`2`);
-    const viasOf = new Map<string, Record<string, number>>();
-    for (const r of viaRows) viasOf.set(r.menuId, { ...viasOf.get(r.menuId), [r.via]: r.n });
-    return {
-      outcome: 'ok',
-      data: {
-        menuId,
-        entries: own.entries,
-        masked: false,
-        summary,
-        next: shown.map((d) => ({
-          menuId: d.menuId,
-          count: d.n,
-          distinctUsers: d.users,
-          vias: viasOf.get(d.menuId) ?? {},
-        })),
-        hiddenDestinations: destRows.length - destRows.filter((d) => d.users >= USAGE_MASK_K).length,
+        // Cells: per kind and destination, the count and the distinct people. Everything below is built from the cells with >= 3 people.
+        const cellRows = await tx
+          .select({ kind, menuId: usageEvents.menuId, n: count(), users: countDistinct(usageEvents.actorId) })
+          .from(usageEvents)
+          .where(nextWhere)
+          // By position: the case expression carries bound parameters, so a second copy in GROUP BY is a different expression to Postgres.
+          .groupBy(sql`1`, usageEvents.menuId);
+        const summary = { ...empty };
+        const destinations = new Map<string, { n: number; open: string[] }>();
+        for (const c of cellRows) {
+          const open = c.users >= USAGE_MASK_K;
+          if (open) {
+            if (c.kind === 'back') summary.backOrReturn += c.n;
+            else if (c.kind === 'same') summary.sameMenu += c.n;
+            else summary.moved += c.n;
+          }
+          if (!rankedKinds.includes(c.kind)) continue;
+          const d = destinations.get(c.menuId) ?? { n: 0, open: [] };
+          if (open) {
+            d.n += c.n;
+            d.open.push(c.kind);
+          }
+          destinations.set(c.menuId, d);
+        }
+        summary.noMove = Math.max(0, own.entries - summary.moved - summary.sameMenu - summary.backOrReturn);
+
+        const named = [...destinations.entries()]
+          .filter(([, d]) => d.open.length > 0)
+          .sort((a, b) => b[1].n - a[1].n || (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
+          .slice(0, USAGE_NEXT_LIMIT);
+        const hiddenDestinations = [...destinations.values()].filter((d) => d.open.length === 0).length;
+        const shownIds = named.map(([id]) => id);
+
+        // Vias of the shown rows, per (kind, destination, via): kept only from open cells, and only when every via present has >= 3 people.
+        const viaRows =
+          shownIds.length === 0
+            ? []
+            : await tx
+                .select({ kind, menuId: usageEvents.menuId, via, n: count(), users: countDistinct(usageEvents.actorId) })
+                .from(usageEvents)
+                .where(and(nextWhere, inArray(usageEvents.menuId, shownIds)))
+                .groupBy(sql`1`, usageEvents.menuId, sql`3`);
+        // A row whose open cells span two kinds needs the people of the union (the cells can share people).
+        const multi = named.filter(([, d]) => d.open.length > 1);
+        const unionRows =
+          multi.length === 0
+            ? []
+            : await tx
+                .select({ menuId: usageEvents.menuId, users: countDistinct(usageEvents.actorId) })
+                .from(usageEvents)
+                .where(
+                  and(
+                    nextWhere,
+                    or(...multi.map(([id, d]) => and(eq(usageEvents.menuId, id), inArray(kind, d.open)))),
+                  ),
+                )
+                .groupBy(usageEvents.menuId);
+        const unionUsers = new Map(unionRows.map((r) => [r.menuId, r.users]));
+        const cellUsers = new Map(cellRows.map((c) => [`${c.kind}\u0000${c.menuId}`, c.users]));
+        const viaOf = new Map<string, { vias: Record<string, number>; allOpen: boolean }>();
+        for (const r of viaRows) {
+          const d = destinations.get(r.menuId);
+          if (!d || !d.open.includes(r.kind)) continue;
+          const acc = viaOf.get(r.menuId) ?? { vias: {}, allOpen: true };
+          acc.vias[r.via] = (acc.vias[r.via] ?? 0) + r.n;
+          if (r.users < USAGE_MASK_K) acc.allOpen = false;
+          viaOf.set(r.menuId, acc);
+        }
+        return {
+          outcome: 'ok',
+          data: {
+            menuId,
+            entries: own.entries,
+            masked: false,
+            summary,
+            next: named.map(([id, d]) => ({
+              menuId: id,
+              count: d.n,
+              distinctUsers: d.open.length > 1 ? (unionUsers.get(id) ?? 0) : (cellUsers.get(`${d.open[0]}\u0000${id}`) ?? 0),
+              vias: viaOf.get(id)?.allOpen ? (viaOf.get(id)?.vias ?? {}) : {},
+            })),
+            hiddenDestinations,
+          },
+        };
       },
-    };
+      { isolationLevel: 'repeatable read', accessMode: 'read only' },
+    );
   }
 
   return { recordUsage, usageSummary, usageNextScreens };
