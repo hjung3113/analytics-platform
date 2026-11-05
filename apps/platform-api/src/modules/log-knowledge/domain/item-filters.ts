@@ -30,4 +30,7 @@ export const ITEM_FILTER_SPECS = {
   verificationState: enumField(VERIFICATION_STATES),
   processingState: enumField(PROCESSING_STATES),
   publicationState: enumField(PUBLICATION_STATES),
+  // #1196 f: items whose LATEST revision has this subject target key (`module_key` or `module_key/event_key`); pair it
+  // with `ownerModelId` (+ `includeSoftware`) to scope the key to one model. The key is the escaped form, up to 1200.
+  subject: { ops: ['in'], multiple: false, cell: 'scalar', values: 'text', maxLength: 1200 },
 } as const satisfies Record<string, CatalogFilterFieldSpec>;

@@ -550,6 +550,38 @@
     "mergeTimeDomain": true
   },
   {
+    "id": "logKnowledge.conceptMappings",
+    "menuId": "log-knowledge-models",
+    "paramKeys": [
+      "modelId",
+      "conceptId",
+      "reviewState",
+      "kind",
+      "page",
+      "pageSize"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logKnowledge.conceptSuggestions",
+    "menuId": "log-knowledge-models",
+    "paramKeys": [
+      "modelId",
+      "kind",
+      "page",
+      "pageSize"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
     "id": "logKnowledge.exploreModels",
     "menuId": "log-knowledge-models",
     "paramKeys": [
@@ -721,6 +753,21 @@
       "revisionId"
     ],
     "permission": "knowledge:spec-publish",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logKnowledge.specSubjectItems",
+    "menuId": "log-knowledge-models",
+    "paramKeys": [
+      "modelId",
+      "targetKey",
+      "page",
+      "pageSize"
+    ],
+    "permission": "platform:view",
     "requiresScope": false,
     "context": {},
     "kinds": [],

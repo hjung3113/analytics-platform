@@ -636,9 +636,11 @@ P0 #1193 구현됨: 스키마 표 1–6(`knowledge` 스키마, migration 0080)�
 
 ### 15.2 데이터 모델 (물리화 후보, 노드 a·c에서 재검수)
 
+> **물리화 상태(#1196 노드 e·f, 서버만):** 마이그레이션 0098이 `common_concept`·`spec_concept_mapping`(노드 e)과 `item_revision_subject`(노드 f)를 만들었다(구현 상태와 규칙은 `api/log-knowledge.md` §Concept mapping and Item subjects). 화면·mock은 아직 없다(§15.6 개념 매핑 검토 서랍, Item 편집기 대상 고르기, Item 상세 «대상» 칩, 명세 상세 «관련 Item»).
+>
 > **물리화 상태(#1196 노드 a, b1, c):** 마이그레이션 0096이 `spec_sw_change`를 만들었다(쓰기 `specChangeAdd`·`specChangeRetire`·`specChangeConfirm`, 읽기 `specChanges`와 `modelSpec`의 `softwareId`, 발행 시 `needs_revalidation`; 규칙은 아래와 `api/log-knowledge.md` §SW changes).
 >
-> (노드 a, b1) 마이그레이션 0092가 `row_version`·`reject_reason`·초안 하나 제한·UPDATE 트리거를 더했고(쓰기 `specDraftCreate`·`specDraftSave`·`specPublish`·`specReject`, 초안 읽기 `specDraft`), 마이그레이션 0091이 `model_spec_revision`·`spec_module`·`spec_event`·`spec_event_relation`과 `software_version.release_order`를 만들었다(읽기 `modelSpec`·`modelSpecRevisions`). `common_concept`·`spec_concept_mapping`은 아직 없다(노드 e). 컬럼 이름은 `id`(`spec_rev_id`는 자식 표의 FK 이름), `detail_doc_ref`는 문서 위치를 가리키는 자유 텍스트. 규칙은 `docs/architecture/platform-api/api/log-knowledge.md` §Model spec reads·§Model spec write actions.
+> (노드 a, b1) 마이그레이션 0092가 `row_version`·`reject_reason`·초안 하나 제한·UPDATE 트리거를 더했고(쓰기 `specDraftCreate`·`specDraftSave`·`specPublish`·`specReject`, 초안 읽기 `specDraft`), 마이그레이션 0091이 `model_spec_revision`·`spec_module`·`spec_event`·`spec_event_relation`과 `software_version.release_order`를 만들었다(읽기 `modelSpec`·`modelSpecRevisions`). `common_concept`·`spec_concept_mapping`은 노드 e(0098)에서 생겼다. 컬럼 이름은 `id`(`spec_rev_id`는 자식 표의 FK 이름), `detail_doc_ref`는 문서 위치를 가리키는 자유 텍스트. 규칙은 `docs/architecture/platform-api/api/log-knowledge.md` §Model spec reads·§Model spec write actions.
 
 | 표 | 핵심 컬럼 | 규칙 |
 | --- | --- | --- |
@@ -647,7 +649,8 @@ P0 #1193 구현됨: 스키마 표 1–6(`knowledge` 스키마, migration 0080)�
 | `knowledge.spec_event` | `event_id`, `spec_rev_id`, `module_id`, `event_key`, `name`, `fields_json`, `trigger_rule`, `detail_doc_ref` | `(spec_rev_id, module_id, event_key)` 유일. `fields_json`은 `schema_version`별 Zod 닫힌 스키마 |
 | `knowledge.spec_event_relation` | `source_event_id`, `predicate`, `target_event_id`, `rule_ref` | 같은 Revision 안의 `expected` 명세 관계만 |
 | `knowledge.spec_sw_change` | `id`(= 문서의 `change_id`), `model_id`, `software_id`(= 적용 시작 SW), `ends_before_software_id?`, `target_kind`(module·event·field·relation), `target_key`, `change_kind`(`added`·`removed`·`changed`·`behavior`), `change_json`(전·후), `note`, `based_on_rev_no`, `evidence_ref?`, `needs_revalidation`, `revalidation_rev_no?`, `retired_at?`, `retired_by?`, `retired_by_change_id?`, `created_by/at`, `row_version` | 추가 전용(런타임 역할: INSERT, 그리고 `needs_revalidation`·`revalidation_rev_no`·`retired_*`·`row_version` 열만 UPDATE, DELETE 없음; 트리거가 그 밖의 열 변경·`row_version` +1 아님·닫힌 줄의 변경을 막는다). 열린 줄 = `retired_at is null`. `software_id`·`ends_before_software_id`·`retired_by_change_id`는 같은 모델 안(복합 FK). 대상은 `target_key`로 가리킨다 |
-| `knowledge.common_concept` / `spec_concept_mapping` | §5.2의 17·18번을 가져오되 대상이 SW 정의가 아니라 **모델 명세의 Module/Event** | `proposed`·`confirmed`·`rejected` 분리, 같은 이름 자동 동치 금지, `confirmed`만 동치 검색에 사용 |
+| `knowledge.common_concept` / `spec_concept_mapping` **(구현됨, 노드 e, 0098)** | §5.2의 17·18번을 가져오되 대상이 SW 정의가 아니라 **모델 명세의 Module/Event**. `common_concept`는 이름표일 뿐 아무것도 주장하지 않고, `spec_concept_mapping(concept_id, model_id, target_kind, target_key, relation_kind, review_state, origin, similarity_score?, similarity_basis?, reject_reason?)`이 «이 대상이 이 개념과 같다/관련 있다»를 주장한다 | `proposed`·`confirmed`·`rejected` 분리, 같은 이름 자동 동치 금지, `confirmed` + `equivalent`만 동치 검색에 사용. 대상은 안정 키로 가리켜 새 Revision에도 이어진다. 열린 줄은 쌍당 하나, 거절된 쌍은 기억돼 다시 제안되지 않고(`already_rejected`), 대상당 확정된 `equivalent`는 하나. 유사도는 제안의 근거일 뿐 결과가 아니다 |
+| `knowledge.item_revision_subject` **(구현됨, 노드 f, 0098)** | `item_id`, `revision_no`, `model_id`, `target_kind`(module·event), `target_key`, `subject_relation`(`about`·`context`), `spec_rev_no_at_link?` | Item Revision이 «무엇에 관한가»를 안정 키로 가리킨다(명세 행 FK 없음). 추가 전용, Revision당 20개 이하, `model_id`는 Item의 소유 모델(소유가 SW면 그 SW의 모델). 읽을 때 현행 발행 Revision에 키로 이어 `resolved`·`gone`·`no_spec` |
 
 - **`target_key` 문법(구현됨, `domain/spec-target-key.ts`).** 각 조각(모듈 키·이벤트 키·필드 이름·predicate)에서 `%`·`/`·`#`을 `%25`·`%2F`·`%23`으로 바꾼 뒤 잇는다: 모듈 = `모듈`, 이벤트 = `모듈/이벤트`, 필드 = `모듈/이벤트#필드`, 관계 = `원천모듈/원천이벤트#predicate#대상모듈/대상이벤트`. 키는 `toCodeKey` 결과(자유 텍스트 200자까지)라서 이스케이프가 모호함을 막는다. 내부 `qualifiedKey`(`\u0000`·`\u0001`)는 저장 키가 아니다.
 - **`change_json` v1(닫힘).** `added {after}`, `removed {before}`, `changed {before, after}`, `behavior {}`(메모만). `before/after`: 모듈 `{name, parentModule}`, 이벤트 `{name, triggerRule, detailDocRef}`, 필드 = 저장된 필드 모양, 관계 `{ruleRef}`. 직렬화 16 KiB 이하, `note` 1000자 이하, 모델당 열린 줄 500개 이하.
@@ -664,8 +667,8 @@ SW 버전 S의 명세 = 현행 모델 명세 Revision + 적용 범위 `[software
 
 ### 15.4 API (menu-query / menu-action, 기존 log-knowledge 패턴)
 
-- 읽기(`platform:view`, 소유 메뉴 `log-knowledge-models`): `logKnowledge.modelSpec`(`modelId`, 선택 `softwareId` → 실효 명세), `modelSpecRevisions`, `specChanges`(필터 `modelId`·`softwareId`·`needsRevalidation`·`status: open|retired|all`, 0 기준 `page/pageSize`, `(created_at desc, id)`), `specEventDetail`, `conceptMappings`.
-- 쓰기(새 capability `knowledge.spec.publish`, 워크스페이스 범위, Admin 항상, Developer 요청, User 거절, 메뉴 권한 `knowledge:spec-publish`): `specDraftSave`(version CAS), `specPublish`(해시 봉인), `specReject`, `specChangeAdd`, `specChangeRetire`, `specChangeConfirm`, `conceptPropose`·`conceptConfirm`·`conceptReject`. 모두 감사 기록. 에러는 `invalid` 필드 오류, 이미 발행된 Revision 쓰기는 `conflict`.
+- 읽기(`platform:view`, 소유 메뉴 `log-knowledge-models`): `logKnowledge.modelSpec`(`modelId`, 선택 `softwareId` → 실효 명세), `modelSpecRevisions`, `specChanges`(필터 `modelId`·`softwareId`·`needsRevalidation`·`status: open|retired|all`, 0 기준 `page/pageSize`, `(created_at desc, id)`), `specEventDetail`, `conceptMappings`(구현됨 e, 대상이 사라지면 `targetState: 'target_gone'`), `conceptSuggestions`(구현됨 e: 읽을 때 계산한 **제안**, 저장 없음, 모든 줄 `proposal: true`), `specSubjectItems`(구현됨 f).
+- 쓰기(새 capability `knowledge.spec.publish`, 워크스페이스 범위, Admin 항상, Developer 요청, User 거절, 메뉴 권한 `knowledge:spec-publish`): `specDraftSave`(version CAS), `specPublish`(해시 봉인), `specReject`, `specChangeAdd`, `specChangeRetire`, `specChangeConfirm`, `conceptPropose`·`conceptConfirm`·`conceptReject`(구현됨 e, 새 capability 없음, 거절은 사유 필수). Item 쓰기 `itemCreate`·`itemRevise`는 선택 `subjects[]`를 받는다(구현됨 f, 기존 `knowledge.item.publish`). 모두 감사 기록. 에러는 `invalid` 필드 오류, 이미 발행된 Revision 쓰기는 `conflict`.
 
 ### 15.5 문서 식별자와 검증 스키마 (안)
 

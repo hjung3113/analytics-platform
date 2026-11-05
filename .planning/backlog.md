@@ -4,6 +4,10 @@
 
 ## 작은 후속 (확인된 것)
 
+- **구현 안 함 — #1196 e·f 화면과 mock 서버:** 개념 매핑 검토 서랍(§15.6), Item 편집기 대상 고르기, Item 상세 «대상» 칩, 명세 상세 «관련 Item» 목록과 그 mock 응답(`itemDetail.subjects`는 메뉴 미러 타입에서 선택 속성으로 둔 상태). 이유: 보이는 모양이 바뀌는 일이라 프로토타입 시안과 소유자 컨펌이 먼저다. 다시 여는 조건: 소유자가 #1196 질문의 시안을 컨펌할 때.
+- **구현 안 함 — `itemDerive`의 `subjects[]`와 Item 감사 상세의 대상 수:** 파생 Item은 첫 Revision에 대상을 줄 수 없고, `knowledge.item.created`·`revised` 감사에 대상 개수가 없다. 이유: e·f 범위는 `itemCreate`·`itemRevise`이고 감사 상세 스키마는 닫혀 있다. 다시 여는 조건: 파생 Item 편집기에서 대상을 고르는 요구나 대상 변경 추적 요구가 나올 때.
+- **구현 안 함 — `conceptSuggestions` 규모 측정:** 현행 명세 전체를 한 번에 읽어 메모리에서 짝을 찾는다(대상 5만 개·제안 500개 상한, trigram·필드 이름 색인으로 후보를 줄임). 측정한 수치는 없다. 다시 여는 조건: 이 읽기가 느리다는 신고가 나올 때(그때 후보 쌍을 DB에서 먼저 좁힌다).
+
 - **구현 안 함 — #605 FIXB 공유 초기 URL 도착 포커스:** `/operations/admin-usage?focus=<menuId>`를 첫 로드하면 상세가 열려도 포커스는 `body`에 남고 패널 밖 Escape는 닫지 않는다. `AccessDirectory`의 `/operations/admin-roles?focus=admin`도 같다(AppRoot 조립 테스트로 확인). 이유: [ADR-0032](../docs/adr/0032-arrival-focus-wins-over-restored-detail-panel.md)가 첫 로드·새로고침에는 제목 포커스를 요청하지 않고 복원된 상세도 포커스를 가져가지 않도록 정한다. Kernel `createPageNavigation`의 초기 pending=null·claimsDetailFocus=false, `PlatformPage`의 요청 소비, `DetailDrawer`의 패널 안 Escape 정책이 원인이며 `ManagementLayout`에는 초기 포커스 옵션이 없다. 메뉴에서 강제로 옮기면 공유 계약을 우회하므로 이번 화면 수정에는 넣지 않는다. 다시 여는 조건: 소유자가 첫 로드·새로고침의 제목 또는 상세 컨트롤 포커스와 패널 밖 Escape 정책을 바꾸기로 결정할 때 — Kernel·공통 부품 범위에서 ADR·계약과 조립 회귀 검사를 함께 고친다.
 
 - **구현 안 함 — 부여 범위 종류 `scope_kind`(space·site·site_room)와 VOC Site 속성(ADR-0110 결정 3):** 이번 릴리스의 VOC 공개 열람은 기존 Managed System 범위 부여만 쓴다. 이유: 지금 권한 판정은 시스템 지정 없는 부여를 workspace 전체로 읽어, 새 종류는 그 해석을 모두 바꾸는 변경(부여·거부·요청 표 포함)과 함께 들어와야 하고, 실서버 bootstrap Site 범위와 부여 쓰기 원천이 아직 없다. 다시 여는 조건: [#98](https://github.com/hjung3113/analytics-platform/issues/98) 답 + 실서버 Site 범위 제공 — 소유자의 세부 권한 규칙 정리와 함께.

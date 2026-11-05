@@ -20,6 +20,9 @@ import { LOG_KNOWLEDGE_MENU_ID } from './catalog-menu.js';
 import { itemActions } from './item-actions.js';
 import { specActions } from './spec-actions.js';
 import { specChangeActions } from './spec-change-actions.js';
+import { conceptActions } from './concept-actions.js';
+import { conceptEndpoints } from './concept-endpoints.js';
+import { subjectEndpoints } from './subject-endpoints.js';
 import { itemEndpoints } from './item-endpoints.js';
 import { specEndpoints } from './spec-endpoints.js';
 import { importActions } from './import-actions.js';
@@ -82,6 +85,7 @@ export function logKnowledgeContribution(deps: LogKnowledgeDeps): MenuDispatchCo
       ...itemActions({ checkService: deps.checkService }),
       ...specActions({ checkService: deps.checkService }),
       ...specChangeActions({ checkService: deps.checkService }),
+      ...conceptActions({ checkService: deps.checkService }),
       ...importActions({ checkService: deps.checkService }),
       ...importIntakeActions(deps),
     ],
@@ -92,6 +96,8 @@ export function logKnowledgeContribution(deps: LogKnowledgeDeps): MenuDispatchCo
       declare(deps, 'softwareVersions', SOFTWARE_SORT_IDS, (_a, q) => listSoftwareVersions(deps.db, q)),
       ...itemEndpoints(deps),
       ...specEndpoints(deps),
+      ...conceptEndpoints(deps),
+      ...subjectEndpoints(deps),
       ...importEndpoints(deps),
     ],
   };

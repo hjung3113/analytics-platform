@@ -23,6 +23,11 @@ describe('log knowledge spec audit detail schemas (ADR-0111)', () => {
     ['knowledge.spec.change_retired', { modelId: ID, changeId: ID }],
     ['knowledge.spec.change_retired', { modelId: ID, changeId: ID, replacementChangeId: ID }],
     ['knowledge.spec.change_confirmed', { modelId: ID, changeId: ID, revalidationRevNo: 2 }],
+    // #1196 e: the three concept mapping events
+    ['knowledge.spec.concept_proposed', { modelId: ID, mappingId: ID, conceptId: ID, targetKind: 'event', relationKind: 'equivalent', origin: 'human' }],
+    ['knowledge.spec.concept_proposed', { modelId: ID, mappingId: ID, conceptId: ID, targetKind: 'module', relationKind: 'related', origin: 'similarity' }],
+    ['knowledge.spec.concept_confirmed', { modelId: ID, mappingId: ID, conceptId: ID, relationKind: 'equivalent' }],
+    ['knowledge.spec.concept_rejected', { modelId: ID, mappingId: ID, conceptId: ID, priorState: 'confirmed' }],
   ] as const)('%s accepts its detail', (type, detail) => {
     expect(AUDIT_EVENT_DETAIL_SCHEMAS[type].safeParse(detail).success).toBe(true);
   });
@@ -36,6 +41,11 @@ describe('log knowledge spec audit detail schemas (ADR-0111)', () => {
     ['knowledge.spec.change_added', 'the target key', { modelId: ID, changeId: ID, softwareId: ID, endsBeforeSoftwareId: null, targetKind: 'event', changeKind: 'changed', basedOnRevNo: 1, targetKey: 'a/b' }],
     ['knowledge.spec.change_added', 'a note', { modelId: ID, changeId: ID, softwareId: ID, endsBeforeSoftwareId: null, targetKind: 'event', changeKind: 'behavior', basedOnRevNo: 1, note: 'x' }],
     ['knowledge.spec.change_confirmed', 'a change body', { modelId: ID, changeId: ID, change: {} }],
+    // #1196 e: the target key, a label and the reject reason stay out of the audit detail
+    ['knowledge.spec.concept_proposed', 'the target key', { modelId: ID, mappingId: ID, conceptId: ID, targetKind: 'event', relationKind: 'equivalent', origin: 'human', targetKey: 'a/b' }],
+    ['knowledge.spec.concept_proposed', 'an unknown origin', { modelId: ID, mappingId: ID, conceptId: ID, targetKind: 'event', relationKind: 'equivalent', origin: 'confirmed' }],
+    ['knowledge.spec.concept_rejected', 'the reason text', { modelId: ID, mappingId: ID, conceptId: ID, priorState: 'proposed', reason: 'x' }],
+    ['knowledge.spec.concept_rejected', 'a rejected prior state', { modelId: ID, mappingId: ID, conceptId: ID, priorState: 'rejected' }],
     ['knowledge.spec.published', 'a negative flag count', { modelId: ID, revisionNo: 1, outcome: 'published', contentSha256: HASH, counts, flagged: -1 }],
     ['knowledge.spec.draft_saved', 'an unknown provenance', { modelId: ID, revisionNo: 1, mode: 'append', input: 'file', added: counts }],
   ] as const)('%s rejects %s', (type, _label, detail) => {

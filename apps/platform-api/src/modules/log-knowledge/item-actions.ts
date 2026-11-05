@@ -20,6 +20,13 @@ import type { PlatformActor } from '../platform-port/permissions.js';
 import { LOG_KNOWLEDGE_ITEMS_MENU_ID } from './catalog-menu.js';
 import { type ItemInput, parseItemInput, validateItemInput } from './domain/item-input.js';
 import {
+  carrySubjects,
+  insertSubjects,
+  judgeSubjects,
+  ownerModelOf,
+  softwareModelId,
+} from './repositories/item-subject.js';
+import {
   type ItemRow,
   appendAssessment,
   appendRevision,
@@ -48,8 +55,8 @@ const ownerFields = ['ownerModelId', 'ownerSoftwareId'] as const;
 const contentKeys = ['typeCode', 'title', 'observation', 'expected', 'analysisOpinion', 'improvement'] as const;
 
 const INPUT_KEYS = {
-  create: [...ownerFields, ...contentKeys, 'evidence'],
-  revise: ['id', ...contentKeys, 'evidence', 'changeNote'],
+  create: [...ownerFields, ...contentKeys, 'evidence', 'subjects'],
+  revise: ['id', ...contentKeys, 'evidence', 'subjects', 'changeNote'],
   assess: ['id', 'dimension', 'newState', 'rationale'],
   derive: ['sourceItemId', 'sourceRevisionNo', ...ownerFields, ...contentKeys],
   setArchived: ['id', 'archived'],
@@ -145,7 +152,11 @@ export function itemActions(deps: ItemActionDeps): MenuActionDeclaration[] {
       const value = parsed('create', input);
       const errors = await ownerErrors(tx, ws, value);
       if (errors.length > 0) throw new MenuActionInvalidError(errors);
-      const { evidence, ownerModelId, ownerSoftwareId, ...content } = value;
+      const { evidence, subjects, ownerModelId, ownerSoftwareId, ...content } = value;
+      // #1196 f: the subjects name the owner's model (a SW-owned item: its SW version's model) and a target of its spec.
+      const subjectModelId = ownerModelId ?? (await softwareModelId(tx, ws, ownerSoftwareId ?? ''));
+      const judged = await judgeSubjects(tx, ws, subjectModelId ?? '', subjects ?? []);
+      if (judged.errors.length > 0) throw new MenuActionInvalidError(judged.errors);
       const item = await insertItem(tx, {
         workspaceId: ws,
         actorId: actor.actor_id,
@@ -154,6 +165,7 @@ export function itemActions(deps: ItemActionDeps): MenuActionDeclaration[] {
         content,
         evidence,
       });
+      await insertSubjects(tx, ws, item.id, 1, judged.rows);
       await record(tx, actor, 'created', item, content.title, { revisionNo: 1 });
       return { data: { id: item.id, itemNo: item.itemNo }, version: String(item.rowVersion) };
     },
@@ -168,8 +180,16 @@ export function itemActions(deps: ItemActionDeps): MenuActionDeclaration[] {
       const value = parsed('revise', input);
       const before = await lockExisting(tx, actor, value.id, 'itemRevise');
       if (before.publicationState === 'archived') throw invalid('id', 'archived');
-      const { id: _id, evidence, changeNote, ...content } = value;
+      const { id: _id, evidence, subjects, changeNote, ...content } = value;
+      // #1196 f: `subjects` omitted keeps the previous revision's links; a list (even empty) replaces them.
+      const judged =
+        subjects === undefined
+          ? null
+          : await judgeSubjects(tx, actor.workspace_id, (await ownerModelOf(tx, actor.workspace_id, before.id)) ?? '', subjects);
+      if (judged && judged.errors.length > 0) throw new MenuActionInvalidError(judged.errors);
       const item = await appendRevision(tx, actor.workspace_id, actor.actor_id, before, content, changeNote, evidence);
+      if (judged) await insertSubjects(tx, actor.workspace_id, item.id, item.latestRevisionNo, judged.rows);
+      else await carrySubjects(tx, actor.workspace_id, item.id, before.latestRevisionNo, item.latestRevisionNo);
       await record(tx, actor, 'revised', item, content.title, { revisionNo: item.latestRevisionNo });
       return {
         data: { id: item.id, itemNo: item.itemNo, revisionNo: item.latestRevisionNo },
