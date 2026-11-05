@@ -28,6 +28,17 @@ describe('improvement mock dispatch', () => {
     expect(await query(a, 'improvement.itemDetail', { itemId: '13280000-0000-4000-8000-000000000099' })).toMatchObject({ data: null });
     expect(await query(a, 'improvement.items', { ...params, filters: [{ id: 'status', op: 'in', value: ['bad'] }] })).toMatchObject({ outcome: 'error' });
   });
+  it.each(['admin', 'viewer'] as const)('serves one-row home count reads for %s using the existing saved-view rule', async role => {
+    setRole(role);
+    const a = adapter();
+    const mine = [{ id: 'assignee', op: 'in', value: ['me'] }, { id: 'status', op: 'notIn', value: ['verified', 'dropped'] }];
+    const pending = [{ id: 'assignee', op: 'in', value: ['me'] }, { id: 'status', op: 'in', value: ['done'] }];
+    const assigned = await query(a, 'improvement.items', { ...params, pageSize: 1, filters: mine });
+    const done = await query(a, 'improvement.items', { ...params, pageSize: 1, filters: pending });
+    expect(assigned).toMatchObject({ outcome: role === 'admin' ? 'ok' : 'empty', data: { total: role === 'admin' ? 3 : 0 } });
+    expect(done).toMatchObject({ outcome: role === 'admin' ? 'ok' : 'empty', data: { total: role === 'admin' ? 1 : 0 } });
+    expect((assigned.data as { rows: unknown[] }).rows).toHaveLength(role === 'admin' ? 1 : 0);
+  });
   it('creates, reads detail/events and rejects blank and origin-less items', async () => {
     const a = adapter();
     expect(await write(a, 'itemCreate', { problem: ' ' })).toMatchObject({ outcome: 'invalid' });

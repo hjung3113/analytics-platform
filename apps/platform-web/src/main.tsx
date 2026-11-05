@@ -7,6 +7,7 @@ import { createRoot } from 'react-dom/client';
 import { createBasePathLocation, I18nProvider } from '@ap/kernel';
 import { setFeatureApi } from '@ap/feature-bridge/feature-api';
 import { homeTodoSlot } from '@ap/feature-bridge/home-todo-slot';
+import { improvementHomeTodoSlot } from '@ap/menu-improvement-items/home-todo-slot';
 import { navCountsSlot } from '@ap/feature-bridge/nav-counts';
 import { notificationsSlot } from '@ap/feature-bridge/notifications-slot';
 import { savedViewsSlot } from '@ap/feature-bridge/saved-views';
@@ -25,6 +26,8 @@ import { startOrFail } from './startup-failure';
 // It may be asynchronous (the real assembly awaits the bootstrap, #154), so the tree mounts after it answers; it can
 // also ask for a redirect (login) or a replacement screen (server unavailable) instead of the app.
 const queryHistory = createLocalQueryHistoryStore();
+// Consumer contributions share the existing Kernel slot; the home menu knows neither package.
+const homeTodo = { Todo: () => <><improvementHomeTodoSlot.Todo /><homeTodoSlot.Todo /></> };
 // One slot object for the page's lifetime: its `Compose` component must keep its identity so a held draft does not remount.
 const vocCompose = vocComposeSlot(managedSystemFor, useComposeDefaultStatus);
 const location = import.meta.env.BASE_URL === '/' ? undefined : createBasePathLocation(import.meta.env.BASE_URL);
@@ -42,7 +45,7 @@ void startOrFail(root, async () => {
   }
   // The bridge screens' feature API comes from the assembly (ADR-0071); mock builds have none → "실서버 필요".
   setFeatureApi(assembly.featureApi ?? null);
-  const makeSlots = () => appSlots(assembly, notificationsSlot, vocCompose, homeTodoSlot, scopeControlSlot, navCountsSlot, savedViewsSlot);
+  const makeSlots = () => appSlots(assembly, notificationsSlot, vocCompose, homeTodo, scopeControlSlot, navCountsSlot, savedViewsSlot);
   root.render(
     <StrictMode>
       <I18nProvider>

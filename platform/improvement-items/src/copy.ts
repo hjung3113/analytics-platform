@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useI18n } from '@ap/kernel';
 export const COPY = {
   ko: {
+    homeTitle: '내 담당 개선 아이템', homeZero: '담당 건수 없음', homeOpen: '내 담당 목록 열기', homeDenied: '담당 건수를 볼 권한이 없습니다.', homeFailed: '담당 건수를 불러오지 못했습니다.',
     title: '개선 아이템', description: '분석에서 발견한 문제와 조치, 효과 확인의 기록', create: '개선 아이템 남기기', mine: '내 담당', all: '전체', unlinked: '과제(Quest) 미연결',
     mineHint: '담당: 나 · 효과 확인됨·취소 제외 · 조치 완료는 효과 확인까지 유지', clear: '조건 지우기', search: '문제·조치 검색', questIdEntry: '과제(Quest) ID로 찾기', apply: '적용', number: '번호', problem: '문제', action: '조치', status: '상태', assignee: '담당', quest: '과제(Quest)', questLinked: '과제(Quest) 연결', target: '대상', actionDate: '조치일', unset: '미지정', open: '열기', list: '목록',
     denied: '개선 아이템을 만들거나 상태를 바꾸려면 improvement.manage 권한이 필요합니다.', summary: '문제와 조치', origin: '분석 출처', period: '분석 기간', metric: '지표', sourceMenu: '분석 메뉴', sourceMissing: '전달된 분석 Context가 없습니다. 대상 설비나 공정을 추가하세요.', openAnalysis: '분석 화면 열기', sourceUnavailable: '분석 화면을 열 수 없습니다. 저장된 출처를 확인하세요.',
@@ -12,6 +13,7 @@ export const COPY = {
     questSearch: '과제(Quest) 제목 또는 ID 검색', directId: '과제(Quest) ID 직접 입력', lookup: '과제(Quest) 확인', choose: '과제(Quest) 선택', questNone: '과제(Quest) 미연결', questGone: 'BRAVO에서 확인되지 않음', questDown: '지금 확인할 수 없음', questDenied: '과제(Quest)를 볼 권한이 없습니다.', questUnsupported: '과제(Quest) 검색을 지원하지 않아 ID를 직접 입력합니다.', questNoMatch: '일치하는 과제(Quest)가 없습니다.', loading: '불러오는 중…', unsupportedView: '등록되지 않은 보기입니다. 조건을 지우거나 다른 보기를 선택하세요.', invalidOrigin: '분석 출처를 확인할 수 없습니다. 출처를 지우고 대상을 입력하세요.', clearOrigin: '출처 지우기', discard: '작성 중인 내용을 버릴까요?', discardConfirm: '버리고 닫기', continueEditing: '계속 작성',
   },
   en: {
+    homeTitle: 'My improvement items', homeZero: 'No assigned items', homeOpen: 'Open assigned items', homeDenied: 'You do not have permission to view assignment counts.', homeFailed: 'Could not load assignment counts.',
     title: 'Improvement items', description: 'Problems inferred from analysis, actions and effect checks', create: 'Record improvement item', mine: 'Assigned to me', all: 'All', unlinked: 'No Quest linked',
     mineHint: 'Assigned to me · Excludes verified and dropped · Done stays until effect checking', clear: 'Clear conditions', search: 'Search problems and actions', questIdEntry: 'Find by Quest ID', apply: 'Apply', number: 'Number', problem: 'Problem', action: 'Action', status: 'Status', assignee: 'Assignee', quest: 'Quest', questLinked: 'Quest link', target: 'Target', actionDate: 'Action date', unset: 'Not set', open: 'Open', list: 'List',
     denied: 'Creating items and changing status requires improvement.manage permission.', summary: 'Problem and action', origin: 'Analysis source', period: 'Analysis period', metric: 'Metric', sourceMenu: 'Analysis menu', sourceMissing: 'No analysis Context was supplied. Add an equipment or process target.', openAnalysis: 'Open analysis', sourceUnavailable: 'Cannot open the analysis. Review the stored source.',
