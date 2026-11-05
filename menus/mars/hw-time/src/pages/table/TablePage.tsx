@@ -11,6 +11,7 @@ import {
 } from '@ap/components';
 import { isThemeColorToken, readColorToken } from '@ap/ui/theme';
 import { hwTime, isHwTimeTrendId, type HwTimeBlock, type HwTimeLevelData, type HwTimeRow, type HwTimeSeries, type HwTimeTableRow } from '../../endpoints';
+import { shownDrill } from '../../shared/shownDrill';
 import { useHwTimeLevel, useHwTimeTrend } from '../../shared/data';
 import { formatSeconds, missingText, rowIdLabel } from '../../shared/format';
 import { StackPanel } from '../../shared/panels/StackPanel';
@@ -63,6 +64,8 @@ export default function TablePage(_props: PageProps) {
 
   // The level response gives the empty/partial states and the drawer's row at every level; the table pages through its own fetch.
   const levelQ = useHwTimeLevel(drillParams(module, motion), drill.invalid === null);
+  // The row counts below describe the kept level result (#1365): they name the Module/Motion it was loaded with.
+  const kept = shownDrill(levelQ, drillParams(module, motion));
   const response: HwTimeLevelData | null = levelQ.response?.outcome === 'ok' ? levelQ.response.data : null;
   const listed = response ? levelRowsOf(response) : NO_ROWS;
   const dataRows = listed.filter(row => !row.auxiliary);
@@ -109,8 +112,8 @@ export default function TablePage(_props: PageProps) {
   const megRows = listed.length - dataRows.length;
   const rowCount = megRows > 0 ? (ko ? `설비 하위 항목 ${dataRows.length}행 · MEG ${megRows}행` : `${dataRows.length} sub-item rows · MEG ${megRows} rows`)
     : (ko ? `${dataRows.length}행` : `${dataRows.length} rows`);
-  const summary = module === null ? undefined
-    : `Module ${module}${motion ? ` · Motion ${motion}` : ''}${response ? ` · ${rowCount}${partial > 0 ? ` · ${ko ? `일부 미측정 ${partial}행` : `${partial} partly not measured`}` : ''}` : ''}`;
+  const summary = kept.module === null ? undefined
+    : `Module ${kept.module}${kept.motion ? ` · Motion ${kept.motion}` : ''}${response ? ` · ${rowCount}${partial > 0 ? ` · ${ko ? `일부 미측정 ${partial}행` : `${partial} partly not measured`}` : ''}` : ''}`;
 
   const drawerBlock: HwTimeBlock | null = focusRow && response ? {
     series: (response.level === 2 ? response.detail?.series : response.series) ?? [],
@@ -119,7 +122,7 @@ export default function TablePage(_props: PageProps) {
   const closeDrawer = () => setPage({ focus: null });
 
   const table = tableInvalid ? <TableUrlWarning sentences={sentences} />
-    : emptyDetail ? <StateMessage icon={<Inbox className="size-4" aria-hidden />} title={ko ? `${module} Module에는 ${motion} 동작 기록이 없습니다` : `No ${motion} records for Module ${module}`}
+    : emptyDetail ? <StateMessage icon={<Inbox className="size-4" aria-hidden />} title={ko ? `${kept.module} Module에는 ${kept.motion} 동작 기록이 없습니다` : `No ${kept.motion} records for Module ${kept.module}`}
       body={ko ? 'Module의 다른 Motion은 한 단계 위에서 볼 수 있습니다.' : 'Other Motions of this Module are one level up.'} />
       : <PlatformDataTable<HwTimeTableRow>
         title={ko ? 'HW Time 표' : 'HW Time table'} ariaLabel={ko ? 'HW Time 동작시간 표' : 'HW Time operation time table'}

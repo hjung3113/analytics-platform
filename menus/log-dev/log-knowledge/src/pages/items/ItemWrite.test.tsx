@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act as rtlAct, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { BookOpen } from 'lucide-react';
 import { createRegistry, I18nProvider, PlatformProvider, usePlatform } from '@ap/kernel';
 import { stubCompactTableGeometry } from '@ap/components/testing';
@@ -129,11 +129,13 @@ function act(req: MenuAction): ActionResponse<never> {
     default: { rec!.publication = i.archived ? 'archived' : 'published'; rec!.version += 1; rec!.updatedAt = tick(); return done({ id: rec!.id, itemNo: rec!.itemNo }, String(rec!.version)); }
   }
 }
+/** While set, every itemDetail read waits for it (#1365: the window between a revision pick and its reply). */
+let holdDetail: Promise<void> | null = null;
 const adapter = testAdapter({
   menuQuery: async (req: MenuQuery) => {
     queries.push(req);
     const p = req.params as { itemId?: string; revisionNo?: number; q?: string | null; page?: number; pageSize?: number; filters?: ColumnFilter[] };
-    if (req.endpoint === 'logKnowledge.itemDetail') { if (failLatest && p.revisionNo === undefined) return { outcome: 'error', message: 'boom' } as unknown as ApiResponse<never>; const r = recOf(p.itemId); return ok(r ? detailOf(r, p.revisionNo) : null); }
+    if (req.endpoint === 'logKnowledge.itemDetail') { if (holdDetail) await holdDetail; if (failLatest && p.revisionNo === undefined) return { outcome: 'error', message: 'boom' } as unknown as ApiResponse<never>; const r = recOf(p.itemId); return ok(r ? detailOf(r, p.revisionNo) : null); }
     if (req.endpoint === 'logKnowledge.items') return ok(listOf(p));
     if (req.endpoint === 'logKnowledge.models' || req.endpoint === 'logKnowledge.softwareVersions') {
       const pool: Record<string, unknown>[] = req.endpoint === 'logKnowledge.models' ? MODELS : SOFTWARE;
@@ -155,7 +157,7 @@ const adapter = testAdapter({
 });
 
 let restoreGeometry: () => void;
-beforeEach(() => { seed(); failLatest = false; profileActive = true; MODELS.length = 3; writes = []; queries = []; nextError = null; session = publisher; restoreGeometry = stubCompactTableGeometry(); });
+beforeEach(() => { holdDetail = null; seed(); failLatest = false; profileActive = true; MODELS.length = 3; writes = []; queries = []; nextError = null; session = publisher; restoreGeometry = stubCompactTableGeometry(); });
 afterEach(() => { cleanup(); restoreGeometry(); vi.restoreAllMocks(); });
 
 function Slot() {
@@ -685,5 +687,45 @@ describe('an inactive model\'s profile', () => {
     const section = within(await screen.findByRole('region', { name: '모델 공통 Item' }, slow));
     expect(await section.findByText('이 모델이 소유한 Item이 없습니다', {}, slow)).toBeTruthy();
     expect(section.queryByRole('link', { name: /새 기술 Item/ })).toBeNull();
+  });
+});
+
+describe('쓰기는 불러온 리비전 기준으로만 (#1365 F5)', () => {
+  const hold = () => { let release = () => {}; holdDetail = new Promise<void>(resolve => { release = resolve; }); return () => release(); };
+
+  it('while another revision loads the previous one is shown: every write control is disabled with a reason, and they work again once it arrives', async () => {
+    mountDetail(ITEM(1));
+    const list = await screen.findByRole('region', { name: '리비전' }, slow);
+    const release = hold();
+    fireEvent.click(within(list).getByRole('button', { name: /r1/ }));
+    await waitFor(() => expect(new URLSearchParams(window.location.search).get('rev')).toBe('1'));
+    fireEvent.click(screen.getByRole('button', { name: '더보기' }));
+    for (const name of ['판단 변경', '관련 Item으로 신규 작성', '수정']) {
+      const button = screen.getByRole('button', { name }) as HTMLButtonElement;
+      expect(button.disabled).toBe(true);
+      expect(button.title).toContain('불러오는 중');
+    }
+    await rtlAct(async () => { release(); });
+    await waitFor(() => expect((screen.getByRole('button', { name: '관련 Item으로 신규 작성' }) as HTMLButtonElement).disabled).toBe(false), slow);
+  });
+
+  it('a derive form already open keeps its source revision and its typed input when another revision arrives', async () => {
+    mountDetail(ITEM(1), '&drawer=derive');
+    await screen.findByRole('heading', { name: '관련 Item으로 신규 작성' }, slow);
+    expect(within(drawer()).getByText(/원본 KI-1 r2에서 파생합니다/)).toBeTruthy();
+    type(/^관찰 사실/, '입력 중');
+    const release = hold();
+    rtlAct(() => {
+      window.history.pushState(null, '', `${window.location.pathname}?v=1&drawer=derive&rev=1`);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+    await rtlAct(async () => { release(); });
+    await waitFor(() => expect(screen.getByRole('heading', { name: /이전 리비전 r1|챔버 압력 로그 지연/ })).toBeTruthy(), slow).catch(() => undefined);
+    expect((field(/^관찰 사실/) as HTMLTextAreaElement).value).toBe('입력 중');
+    expect(within(drawer()).getByText(/원본 KI-1 r2에서 파생합니다/)).toBeTruthy();
+    await pick(0, /Beta 10/);
+    submit('관련 Item 작성');
+    await waitFor(() => expect(writes).toHaveLength(1), slow);
+    expect(input()).toMatchObject({ sourceItemId: ITEM(1), sourceRevisionNo: 2 });
   });
 });

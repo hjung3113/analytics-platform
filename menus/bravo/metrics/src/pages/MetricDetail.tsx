@@ -74,6 +74,11 @@ export default function MetricDetailPage({ params }: PageProps) {
     document.getElementById(sectionId(tab))?.scrollIntoView({ block: 'start' });
   }, [arrival, tab, scrollGate]);
 
+  // While a kept result is shown (#1365) the usage rows and the pair verdict belong to the version they were loaded with, not to the URL's.
+  const usageShown = (usage.resultParams as { version: string } | undefined)?.version ?? versionParam;
+  const usageStale = usage.showingPrevious === true;
+  const pairShown = pair.resultParams === undefined ? versionParam : (pair.resultParams as { pageVersion: string | null }).pageVersion;
+
   const ready = definition.response?.outcome === 'ok' ? definition.response.data : null;
   const selected = ready?.version ?? null;
   const metric = ready?.metric ?? null;
@@ -129,7 +134,7 @@ export default function MetricDetailPage({ params }: PageProps) {
     </nav>}
   >
     <div className="space-y-3">
-      <MetricPairBanner query={pair} pageVersion={versionParam} />
+      <MetricPairBanner query={pair} pageVersion={pairShown} />
       {global.selection !== null && <p className="text-xs text-text-secondary">
         {lang === 'ko' ? '설비 선택은 이 화면에서 참조만입니다.' : 'Equipment selection is reference only on this page.'}
       </p>}
@@ -170,7 +175,9 @@ export default function MetricDetailPage({ params }: PageProps) {
 
       <Panel id={sectionId('usage')} title={lang === 'ko' ? '사용처 / 의존성' : 'Usage / dependency'}
         subtitle={versionParam
-          ? (lang === 'ko' ? `${metricId} @ ${versionParam} 만 조회합니다. 확인 범위는 선언된 productivity-overview · cycle-time 입니다. 0건은 그 범위의 성공이며 전 플랫폼 미사용이 아닙니다.` : `Queries only ${metricId} @ ${versionParam}. The checked scope is the declared productivity-overview and cycle-time menus. Zero rows means that scope, not the whole platform.`)
+          ? usageStale
+            ? (lang === 'ko' ? `v${usageShown} 사용처 (v${versionParam} 불러오는 중) — 아래 행은 ${metricId} @ ${usageShown} 의 결과입니다.` : `Usage of v${usageShown} (loading v${versionParam}) — the rows below are for ${metricId} @ ${usageShown}.`)
+            : (lang === 'ko' ? `${metricId} @ ${versionParam} 만 조회합니다. 확인 범위는 선언된 productivity-overview · cycle-time 입니다. 0건은 그 범위의 성공이며 전 플랫폼 미사용이 아닙니다.` : `Queries only ${metricId} @ ${versionParam}. The checked scope is the declared productivity-overview and cycle-time menus. Zero rows means that scope, not the whole platform.`)
           : (lang === 'ko' ? '버전을 고르면 그 쌍의 사용처만 조회합니다.' : 'Choose a version to query usage for that pair only.')}>
         {versionParam ? <QueryView widgetName={lang === 'ko' ? '사용처 / 의존성' : 'Usage / dependency'} hideWidgetName query={usage} compact skeletonRows={3}>
           {data => data.problem ? (
@@ -192,6 +199,8 @@ export default function MetricDetailPage({ params }: PageProps) {
                 <td className="py-2 pr-3 text-xs text-text-secondary">{row.evidenceSource}<span className="mt-0.5 block text-text-muted">{lang === 'ko' ? '확인 시각 미확인' : 'Observed time not confirmed'}</span></td>
                 <td className="py-2">{(() => {
                   const link = resolveLink(row.menuId, { global: { metricId, metricVersion: row.version } });
+                  // Rows of the previous version stay readable, but opening them waits for the picked version (#1365).
+                  if (usageStale) return <span className="text-xs text-text-muted">{lang === 'ko' ? `v${versionParam} 불러오는 중 — 열기는 그 뒤에` : `Loading v${versionParam} — open after`}</span>;
                   return link.allowed
                     ? <PlatformLink className="font-medium text-accent-primary hover:underline" href={link.href}>{lang === 'ko' ? '사용처 열기' : 'Open consumer'}</PlatformLink>
                     : <span className="text-xs text-text-muted">{lang === 'ko' ? '열 권한이 없습니다' : 'No access to open'}</span>;

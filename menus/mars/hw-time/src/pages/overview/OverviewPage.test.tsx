@@ -441,3 +441,14 @@ it('declares compact page spacing from the real consumer (#1141)', async () => {
   expect(content.classList.contains('pt-3')).toBe(true);
   expect(content.classList.contains('pb-4')).toBe(true);
 });
+
+describe('HW Time overview keeps the previous level honest (#1365 F4)', () => {
+  it('titles name the Module of the kept rows and a segment click does not drill until the result is live', async () => {
+    data.level.mockImplementation(() => ({ ...done(level2('PM1')), resultParams: { drillModule: 'PM1' }, showingPrevious: true }));
+    await renderPage('&drillModule=PM2');
+    expect(await screen.findByRole('region', { name: 'Motion별 동작시간 — Module PM1' })).toBeTruthy();
+    expect(screen.queryByRole('region', { name: /Module PM2/ })).toBeNull();
+    fireEvent.click(screen.getAllByRole('button', { name: /^segment Pump / })[0]!);
+    expect(new URLSearchParams(window.location.search).get('drillMotion')).toBeNull();
+  });
+});

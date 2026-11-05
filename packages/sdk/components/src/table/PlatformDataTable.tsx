@@ -671,7 +671,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       {!mergeToolbar && filterLine}
       {mergeToolbar ? <span className="inline-flex items-center gap-2"><ToolbarDescription subtitle={p.subtitle} lang={lang} descriptionId={descriptionId} />{resultCount}</span> : resultCount}
       <span className="flex min-w-0 flex-wrap items-center gap-2">
-        {loading && shown && <span ref={refreshSpan.ref} role={groupedOutcome ? undefined : 'status'} className="inline-flex items-center gap-1"><Loader2 className="size-3 animate-spin" aria-hidden />{t('refreshing')}</span>}
+        {loading && shown && <span ref={refreshSpan.ref} role={groupedOutcome ? undefined : 'status'} className="inline-flex items-center gap-1"><Loader2 className="size-3 animate-spin motion-reduce:animate-none" aria-hidden />{t('refreshing')}</span>}
         {shown && <DataTrustIndicator trust={shown.trust} assessments={shown.assessments} className="min-h-6" wrap summary={statusNarrow} />}
         {shown && <DataTrustIndicator trust={shown.trust} assessments={shown.assessments} probe={probe.ref} />}
       </span>

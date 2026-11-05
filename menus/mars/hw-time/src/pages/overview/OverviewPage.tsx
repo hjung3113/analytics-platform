@@ -12,6 +12,7 @@ import { Checkbox } from '@ap/ui';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import { HW_TIME_UNIT, type HwTimeBlock, type HwTimeDrill, type HwTimeLevelData } from '../../endpoints';
 import { useHwTimeLevel, useHwTimeTrend } from '../../shared/data';
+import { shownDrill } from '../../shared/shownDrill';
 import { formatSeconds, missingText } from '../../shared/format';
 import { targetStateText } from '../../shared/targetState';
 import { RankingPanel } from '../../shared/panels/RankingPanel';
@@ -73,7 +74,7 @@ export default function OverviewPage(_props: PageProps) {
   const module = drill.levels[0]?.value ?? null;
   const motion = drill.levels[1]?.value ?? null;
   // Tree drill does what the chart segment click does at this level: Module at L1, Motion at L2, and at L3 a switch to another Motion.
-  const drillTo = (id: string) => drill.enter(drill.depth === 0 ? 'drillModule' : 'drillMotion', id);
+  const drillTo = (id: string) => { if (!kept.previous) drill.enter(drill.depth === 0 ? 'drillModule' : 'drillMotion', id); };
   // Only L3 has a drilled node among the series; at L2 the Module is not one of the Motion nodes.
   const currentId = drill.depth === 2 ? motion : null;
   const params: HwTimeDrill = { ...(module ? { drillModule: module } : {}), ...(module && motion ? { drillMotion: motion } : {}) };
@@ -84,6 +85,8 @@ export default function OverviewPage(_props: PageProps) {
   const { invalid, sort, sortText, row, trendRows, hidden, setHidden, notice, reveal } = state;
   const levelQ = useHwTimeLevel(params, drill.invalid === null && invalid === null);
   const trendQ = useHwTimeTrend(trendRows, trendRows.length > 0 && invalid === null);
+  // While the previous level is kept (#1365), titles and drill actions follow the Module/Motion the rows were loaded with; drilling from old rows is off.
+  const kept = shownDrill(levelQ, params);
 
   // Page keys, not reset keys: `align` and `minmax` are off unless `1`.
   const align = pageParam('align') === '1';
@@ -139,9 +142,9 @@ export default function OverviewPage(_props: PageProps) {
     const sum = `${formatSeconds(measured.reduce((a, b) => a + b, 0))} ${unit}`;
     return measured.length < values.length ? `${sum} · ${ko ? '일부 미측정' : 'partly not measured'}` : sum;
   };
-  const summary = !response || !module ? undefined
-    : motion ? `Module ${module} · Motion ${motion} · ${totalText(detail ?? EMPTY_BLOCK)}`
-      : `Module ${module} · ${totalText(response)}`;
+  const summary = !response || !kept.module ? undefined
+    : kept.motion ? `Module ${kept.module} · Motion ${kept.motion} · ${totalText(detail ?? EMPTY_BLOCK)}`
+      : `Module ${kept.module} · ${totalText(response)}`;
 
   const stackProps = { sort, startAlign: align, minMax: minmax, rowPitch: ROW_PITCH } as const;
   const visibleOf = (block: HwTimeBlock) => block.series.map(item => item.id).filter(id => !hidden.includes(id));
@@ -167,7 +170,7 @@ export default function OverviewPage(_props: PageProps) {
         nodes={legendSeries.map(item => ({ id: item.id, label: item.name, color: item.color as ThemeColorToken }))}
         visible={new Set(visibleIds)}
         onVisibleChange={next => setHidden(legendSeries.map(item => item.id).filter(id => !next.has(id)))}
-        onDrill={drillTo} canDrill={() => true} currentId={currentId}
+        onDrill={drillTo} canDrill={() => !kept.previous} currentId={currentId}
           emptyText={ko ? '표시할 범례가 없습니다.' : 'No legend to show.'} />
     </div>,
   };
@@ -188,13 +191,13 @@ export default function OverviewPage(_props: PageProps) {
       const shared = { ...stackProps, activeRowId: row, revealActive: true, onActiveRowChange: (rowId: string | null) => setPage({ row: rowId }), rowActions: state.rowActionsOf };
       panels = [
         rankingPanel(ctx),
-        { id: 'context', title: { ko: `Module ${module} 전체 Motion`, en: `All Motions of Module ${module}` }, badge: partialBadge(ctx), render: () =>
-          <PanelFill><StackPanel chartId="hw-overview-L3-context" title={ko ? `Module ${module} 전체 Motion` : `All Motions of Module ${module}`} block={ctx}
+        { id: 'context', title: { ko: `Module ${kept.module} 전체 Motion`, en: `All Motions of Module ${kept.module}` }, badge: partialBadge(ctx), render: () =>
+          <PanelFill><StackPanel chartId="hw-overview-L3-context" title={ko ? `Module ${kept.module} 전체 Motion` : `All Motions of Module ${kept.module}`} block={ctx}
             visibleSeriesIds={visibleOf(ctx)} onVisibleSeriesChange={setVisible(ctx)} {...shared} /></PanelFill> },
-        { id: 'detail', primary: true, title: { ko: `Motion ${motion} 상세`, en: `Motion ${motion} detail` }, badge: partialBadge(det), render: () => det.rows.length === 0
-          ? <StateMessage icon={<Inbox className="size-4" aria-hidden />} title={ko ? `${module} Module에는 ${motion} 동작 기록이 없습니다` : `No ${motion} records for Module ${module}`}
+        { id: 'detail', primary: true, title: { ko: `Motion ${kept.motion} 상세`, en: `Motion ${kept.motion} detail` }, badge: partialBadge(det), render: () => det.rows.length === 0
+          ? <StateMessage icon={<Inbox className="size-4" aria-hidden />} title={ko ? `${kept.module} Module에는 ${kept.motion} 동작 기록이 없습니다` : `No ${kept.motion} records for Module ${kept.module}`}
             body={ko ? 'Module의 다른 Motion은 한 단계 위에서 볼 수 있습니다.' : 'Other Motions of this Module are one level up.'} />
-          : <PanelFill><StackPanel chartId="hw-overview-L3-detail" title={ko ? `Motion ${motion} 상세 — Module ${module}` : `Motion ${motion} detail — Module ${module}`} block={det}
+          : <PanelFill><StackPanel chartId="hw-overview-L3-detail" title={ko ? `Motion ${kept.motion} 상세 — Module ${kept.module}` : `Motion ${kept.motion} detail — Module ${kept.module}`} block={det}
             visibleSeriesIds={visibleOf(det).filter(id => visibleIds.includes(id))} onVisibleSeriesChange={setVisible(ctx)} {...shared} /></PanelFill> },
         trendPanel,
         legendPanel,
@@ -202,12 +205,12 @@ export default function OverviewPage(_props: PageProps) {
     } else {
       const first = data.level === 0;
       persistKey = first ? 'hw-overview-l1' : 'hw-overview-l2'; layout = first ? PRESETS.l1 : PRESETS.l2; compact = COMPACT(first ? 'l1' : 'l2');
-      const stackTitle = first ? (ko ? 'Module별 동작시간' : 'Operation time by Module') : (ko ? `Motion별 동작시간 — Module ${module}` : `Operation time by Motion — Module ${module}`);
+      const stackTitle = first ? (ko ? 'Module별 동작시간' : 'Operation time by Module') : (ko ? `Motion별 동작시간 — Module ${kept.module}` : `Operation time by Motion — Module ${kept.module}`);
       panels = [
         rankingPanel(data),
         { id: 'level', primary: true, title: first ? { ko: 'Module별', en: 'By Module' } : { ko: 'Motion별', en: 'By Motion' }, badge: partialBadge(data), render: () =>
           <PanelFill><StackPanel chartId={first ? 'hw-overview-L1' : 'hw-overview-L2'} title={stackTitle} block={data} visibleSeriesIds={visibleOf(data)} onVisibleSeriesChange={setVisible(data)} {...stackProps}
-            onActivate={first ? ({ seriesId }) => drill.enter('drillModule', seriesId)
+            onActivate={kept.previous ? undefined : first ? ({ seriesId }) => drill.enter('drillModule', seriesId)
               : ({ seriesId }) => drill.enter('drillMotion', seriesId)}
             rowActions={first ? undefined : state.rowActionsOf} /></PanelFill> },
         trendPanel,

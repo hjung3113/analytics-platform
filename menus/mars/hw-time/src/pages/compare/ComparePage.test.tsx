@@ -461,3 +461,27 @@ it('declares compact page spacing from the real consumer (#1141)', async () => {
   expect(content.classList.contains('pt-3')).toBe(true);
   expect(content.classList.contains('pb-4')).toBe(true);
 });
+
+describe('HW Time compare page keeps the previous Module composition honest (#1365 F4)', () => {
+  /** The URL says Module PM2, but the composition panel still shows PM1's Motions (its query changed params and is kept). */
+  const keptPm1 = () => data.level.mockImplementation((drill: HwTimeDrill) => drill.drillModule && !drill.drillMotion
+    ? { ...done(level2('PM1')), resultParams: { drillModule: 'PM1' }, showingPrevious: true }
+    : done(fixtureFor(drill)));
+
+  it('the composition title names the Module of the kept rows and a Motion segment click does not drill', async () => {
+    keptPm1();
+    await renderPage('&drillModule=PM2');
+    expect(await screen.findByRole('region', { name: 'Motion별 동작시간 — Module PM1' })).toBeTruthy();
+    expect(screen.queryByRole('region', { name: 'Motion별 동작시간 — Module PM2' })).toBeNull();
+    fireEvent.click(screen.getAllByRole('button', { name: /^segment Pump / })[0]!);
+    expect(searchParams().get('drillMotion')).toBeNull();
+  });
+
+  it('the composition drills again once its result is live', async () => {
+    data.level.mockImplementation((drill: HwTimeDrill) => ({ ...done(fixtureFor(drill)), resultParams: drill, showingPrevious: false }));
+    await renderPage('&drillModule=PM2');
+    expect(await screen.findByRole('region', { name: 'Motion별 동작시간 — Module PM2' })).toBeTruthy();
+    fireEvent.click(screen.getAllByRole('button', { name: /^segment Pump / })[0]!);
+    expect(searchParams().get('drillMotion')).toBe('Pump');
+  });
+});

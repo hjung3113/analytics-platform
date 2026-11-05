@@ -114,7 +114,7 @@ function OutcomeBanner({ group, onRetry, compact = false }: { group: Group; onRe
   const Icon = outcome === 'error' ? ServerCrash : outcome === 'timeout' ? Clock : Inbox;
   const summary = t('sharedOutcomeSummary', { count: group.widgets.length, outcome: label });
   const retry = <Button type="button" size="sm" variant="secondary" aria-busy={group.busy} aria-disabled={group.busy} onClick={onRetry}>
-    {group.busy ? <Loader2 aria-hidden className="size-3.5 animate-spin" /> : <RotateCw aria-hidden className="size-3.5" />}{t('retry')}
+    {group.busy ? <Loader2 aria-hidden className="size-3.5 animate-spin motion-reduce:animate-none" /> : <RotateCw aria-hidden className="size-3.5" />}{t('retry')}
   </Button>;
   if (compact) {
     return <section ref={banner} data-outcome-banner data-outcome-compact role="group" aria-label={t('sharedOutcomeRegion')}

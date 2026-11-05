@@ -129,15 +129,25 @@ export function QueryView<T>({ query, children, skeletonRows, skeletonHeight, em
   const response = query.response;
   // A kept result of other params is not "the same context": say so (ADR-0114).
   const refreshingLabel = t(query.showingPrevious ? 'refreshingPrevious' : 'refreshing');
-  return <div aria-busy={query.status === 'refreshing'} className={cn('relative', inPanel && 'h-full min-h-0', fill && 'flex min-h-0 flex-1 flex-col', chart && 'row-span-2', chart && response.outcome === 'ok' && 'grid grid-rows-subgrid gap-y-0', analysisSection && response.outcome !== 'ok' && 'pr-12')}>
-    {query.status === 'refreshing' && !grouped && (analysisSection && analysisSection.kind !== 'kpi'
+  // Keep this header row even after settlement: showing/hiding the previous-result notice must not move data or actions.
+  // Older QueryState producers omit the metadata and retain their established layout.
+  const reserveRefreshRow = query.showingPrevious !== undefined;
+  const showingPrevious = query.status === 'refreshing' && query.showingPrevious === true;
+  return <div aria-busy={query.status === 'refreshing'} className={cn('relative', reserveRefreshRow && 'isolate pt-8', inPanel && 'h-full min-h-0', fill && 'flex min-h-0 flex-1 flex-col', chart && 'row-span-2', chart && response.outcome === 'ok' && 'grid grid-rows-subgrid gap-y-0', analysisSection && response.outcome !== 'ok' && 'pr-12')}>
+    {reserveRefreshRow && <div className="absolute inset-x-0 top-0 flex h-8 items-center pr-12">
+      {query.status === 'refreshing' && !grouped && <span role="status" aria-label={refreshingLabel} className={cn('inline-flex items-center gap-1.5', showingPrevious ? 'rounded-sm bg-surface-sunken px-2 py-1 text-xs font-medium text-text-secondary' : 'text-tiny text-text-muted')}>
+        <Loader2 className="size-3.5 shrink-0 animate-spin motion-reduce:animate-none" aria-hidden />{refreshingLabel}
+      </span>}
+    </div>}
+    {showingPrevious && <div data-query-stale-tint aria-hidden className="pointer-events-none absolute inset-x-0 top-8 bottom-0 z-[1] bg-surface-sunken/20 mix-blend-multiply" />}
+    {query.status === 'refreshing' && !grouped && !reserveRefreshRow && (analysisSection && analysisSection.kind !== 'kpi'
       // Icon only, in the header's reserved right column under the corner collapse button: never over the toolbar.
       ? <span role="status" aria-label={refreshingLabel} title={refreshingLabel} className="absolute right-5 top-11 z-[1] inline-flex text-text-muted">
-        <Loader2 className="size-3 animate-spin" aria-hidden /><span className="sr-only">{refreshingLabel}</span>
+        <Loader2 className="size-3 animate-spin motion-reduce:animate-none" aria-hidden /><span className="sr-only">{refreshingLabel}</span>
       </span>
       // Compact pages stack panels 12px apart, so the label above the view would sit inside the previous panel: it goes inside the view's own top-right corner instead.
       : <span role="status" aria-label={refreshingLabel} className={analysisSection ? 'absolute right-9 -top-7 inline-flex items-center gap-1 text-tiny text-text-muted' : compactPage ? 'absolute right-3 top-2 z-[1] inline-flex items-center gap-1 text-tiny text-text-muted' : 'absolute right-0 -top-7 inline-flex items-center gap-1 text-tiny text-text-muted'}>
-        <Loader2 className="size-3 animate-spin" aria-hidden />{refreshingLabel}
+        <Loader2 className="size-3 animate-spin motion-reduce:animate-none" aria-hidden />{refreshingLabel}
       </span>)}
     <OutcomeContent grouped={grouped} widgetName={widgetName} hideWidgetName={hideWidgetName} response={response} onRetry={query.refetch} emptyAction={emptyAction} compact={compact}>{data => children(data, response)}</OutcomeContent>
   </div>;

@@ -11,6 +11,7 @@ import { Button, Checkbox, cn } from '@ap/ui';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import { HW_TIME_UNIT, type HwTimeBlock, type HwTimeDrill, type HwTimeLevelData } from '../../endpoints';
 import { useHwTimeLevel, useHwTimeTrend } from '../../shared/data';
+import { shownDrill } from '../../shared/shownDrill';
 import { formatSeconds, missingText } from '../../shared/format';
 import { targetStateText } from '../../shared/targetState';
 import { StackPanel } from '../../shared/panels/StackPanel';
@@ -30,7 +31,7 @@ export default function StepsPage(_props: PageProps) {
   const module = drill.levels[0]?.value ?? null;
   const motion = drill.levels[1]?.value ?? null;
   // Tree drill does what the chart segment click does at this level: Module at L1, Motion at L2, and at L3 a switch to another Motion.
-  const drillTo = (id: string) => drill.enter(drill.depth === 0 ? 'drillModule' : 'drillMotion', id);
+  const drillTo = (id: string) => { if (!kept.previous) drill.enter(drill.depth === 0 ? 'drillModule' : 'drillMotion', id); };
   // Only L3 has a drilled node among the series; at L2 the Module is not one of the Motion nodes.
   const currentId = drill.depth === 2 ? motion : null;
   const params: HwTimeDrill = { ...(module ? { drillModule: module } : {}), ...(module && motion ? { drillMotion: motion } : {}) };
@@ -39,6 +40,8 @@ export default function StepsPage(_props: PageProps) {
   const { invalid, sort, sortText, trendRows, hidden, setHidden, notice } = state;
   const levelQ = useHwTimeLevel(params, drill.invalid === null && invalid === null);
   const trendQ = useHwTimeTrend(trendRows, trendRows.length > 0 && invalid === null);
+  // While the previous level is kept (#1365), titles and drill actions follow the Module/Motion the rows were loaded with; drilling from old rows is off.
+  const kept = shownDrill(levelQ, params);
 
   // Page keys, not reset keys: `align=1` is on, absent is off.
   const align = pageParam('align') === '1';
@@ -83,7 +86,7 @@ export default function StepsPage(_props: PageProps) {
           nodes={series.map(item => ({ id: item.id, label: item.name, color: item.color as ThemeColorToken }))}
           visible={visible}
           onVisibleChange={next => setHidden(series.map(item => item.id).filter(id => !next.has(id)))}
-          onDrill={drillTo} canDrill={() => true} currentId={currentId}
+          onDrill={drillTo} canDrill={() => !kept.previous} currentId={currentId}
           emptyText={ko ? '표시할 범례가 없습니다.' : 'No legend to show.'} />;
       },
     },
@@ -117,22 +120,22 @@ export default function StepsPage(_props: PageProps) {
     const sum = `${formatSeconds(measured.reduce((a, b) => a + b, 0))} ${unit}`;
     return measured.length < values.length ? `${sum} · ${ko ? '일부 미측정' : 'partly not measured'}` : sum;
   };
-  const summary = !response || !module ? undefined
-    : motion ? `Module ${module} · Motion ${motion} · ${totalText(bodyBlock(response))}`
-      : `Module ${module} · ${totalText(response)}`;
+  const summary = !response || !kept.module ? undefined
+    : kept.motion ? `Module ${kept.module} · Motion ${kept.motion} · ${totalText(bodyBlock(response))}`
+      : `Module ${kept.module} · ${totalText(response)}`;
 
   const renderBody = (data: HwTimeLevelData) => {
     const shown = bodyBlock(data);
-    if (data.level === 2 && shown.rows.length === 0) return <StateMessage icon={<Inbox className="size-4" aria-hidden />} title={ko ? `${module} Module에는 ${motion} 동작 기록이 없습니다` : `No ${motion} records for Module ${module}`}
+    if (data.level === 2 && shown.rows.length === 0) return <StateMessage icon={<Inbox className="size-4" aria-hidden />} title={ko ? `${kept.module} Module에는 ${kept.motion} 동작 기록이 없습니다` : `No ${kept.motion} records for Module ${kept.module}`}
       body={ko ? 'Module의 다른 Motion은 한 단계 위에서 볼 수 있습니다.' : 'Other Motions of this Module are one level up.'} />;
     const chartTitle = data.level === 0 ? (ko ? 'Module별 동작시간' : 'Operation time by Module')
-      : data.level === 1 ? (ko ? `Motion별 동작시간 — Module ${module}` : `Operation time by Motion — Module ${module}`)
-        : (ko ? `Motion ${motion} 상세 — Module ${module}` : `Motion ${motion} detail — Module ${module}`);
+      : data.level === 1 ? (ko ? `Motion별 동작시간 — Module ${kept.module}` : `Operation time by Motion — Module ${kept.module}`)
+        : (ko ? `Motion ${kept.motion} 상세 — Module ${kept.module}` : `Motion ${kept.motion} detail — Module ${kept.module}`);
     return <StackPanel chartId={`hw-time-steps-L${data.level + 1}`} title={chartTitle} block={shown}
       visibleSeriesIds={shown.series.map(item => item.id).filter(id => !hidden.includes(id))}
       onVisibleSeriesChange={ids => setHidden(shown.series.map(item => item.id).filter(id => !ids.includes(id)))}
       sort={sort} startAlign={align} minMax={minmax}
-      onActivate={data.level === 0 ? ({ seriesId }) => drill.enter('drillModule', seriesId)
+      onActivate={kept.previous ? undefined : data.level === 0 ? ({ seriesId }) => drill.enter('drillModule', seriesId)
         : data.level === 1 ? ({ seriesId }) => drill.enter('drillMotion', seriesId) : undefined}
       rowActions={data.level === 0 ? undefined : state.rowActionsOf} />;
   };

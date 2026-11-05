@@ -151,6 +151,30 @@ describe('AnalysisLayout', () => {
       .toHaveAttribute('class', 'absolute right-0 -top-7 inline-flex items-center gap-1 text-tiny text-text-muted');
   });
 
+  it('keeps the previous-selection row outside chart headers and actions without changing subgrid or remounting the frame', () => {
+    const view = (previous: boolean) => <I18nProvider><PlatformProvider adapter={adapter} registry={registry}>
+      <AnalysisLayout charts={[{ id: 'previous', title: '추세', node: <QueryView query={{ missing: [], completedAt: null, status: previous ? 'refreshing' : 'done', showingPrevious: previous,
+        response: { outcome: 'ok', data: 'value', assessments: [], trust: null, correlationId: 'previous' }, refetch: vi.fn() }}>{() => chart('추세')}</QueryView> }]} />
+    </PlatformProvider></I18nProvider>;
+    const result = render(view(false));
+    const frame = screen.getByRole('region', { name: '추세' });
+    const wrapper = result.container.querySelector('[aria-busy]');
+    const classes = wrapper?.className;
+    expect(wrapper).toHaveClass('pt-8', 'grid', 'row-span-2', 'grid-rows-subgrid');
+    result.rerender(view(true));
+    expect(screen.getByRole('region', { name: '추세' })).toBe(frame);
+    expect(wrapper?.className).toBe(classes);
+    const status = screen.getByRole('status', { name: '이전 선택의 결과 · 갱신 중' });
+    expect(status.querySelector('.sr-only')).toBeNull();
+    expect(status.parentElement?.parentElement).toBe(wrapper);
+    expect(frame.contains(status)).toBe(false);
+    expect(frame.querySelector('header')).toHaveClass('pr-12');
+    expect(result.container.querySelector('[data-query-stale-tint]')).toBeInTheDocument();
+    result.rerender(view(false));
+    expect(wrapper?.className).toBe(classes);
+    expect(result.container.querySelector('[data-query-stale-tint]')).toBeNull();
+  });
+
   it('measures its own width and gives paired charts shared header/body rows', () => {
     const { container } = mount();
     expect(observed.has(container.firstElementChild!)).toBe(true);

@@ -6,6 +6,7 @@ import { QueryView } from './StateView';
 import { InWorkspacePanelProvider } from './workspace/panelContext';
 import { QueryBarStatusContext } from './filters/QueryBarStatus';
 import { PageDensityProvider } from './pageDensity';
+import { AnalysisSectionContext } from './archetypes/AnalysisSectionContext';
 
 afterEach(cleanup);
 
@@ -139,5 +140,67 @@ describe('QueryView same-context refresh label (#1166 UX-2)', () => {
     const { container } = render(<I18nProvider><QueryView query={{ ...refreshing(), status: 'done' }}>{() => <p>body</p>}</QueryView></I18nProvider>);
     expect(screen.queryByRole('status')).toBeNull();
     expect(container.firstElementChild).toHaveAttribute('aria-busy', 'false');
+  });
+});
+
+describe('previous-selection refresh presentation (#1365 FIXV)', () => {
+  const response: ApiResponse<string> = { outcome: 'ok', data: '42', assessments: [], trust: null, correlationId: 'previous' };
+  const view = (showingPrevious: boolean, status: 'refreshing' | 'done' = 'refreshing') => <I18nProvider>
+    <QueryView query={{ response, refetch: vi.fn(), missing: [], completedAt: null, status, showingPrevious }}>
+      {data => <table><thead><tr><th>Value</th><th><button>Open</button></th></tr></thead><tbody><tr><td>{data}</td></tr></tbody></table>}
+    </QueryView>
+  </I18nProvider>;
+
+  it.each(['standalone', 'compact', 'panel', 'kpi', 'chart', 'breakdown'] as const)('shows readable previous-selection text in a reserved header row in %s', kind => {
+    const content = view(true);
+    const { container } = render(kind === 'compact' ? <PageDensityProvider value="compact">{content}</PageDensityProvider>
+      : kind === 'panel' ? <InWorkspacePanelProvider value>{content}</InWorkspacePanelProvider>
+      : kind === 'standalone' ? content : <AnalysisSectionContext.Provider value={{ title: 'Results', kind, collapse: vi.fn() }}>{content}</AnalysisSectionContext.Provider>);
+    const status = screen.getByRole('status', { name: '이전 선택의 결과 · 갱신 중' });
+    expect(status).toHaveTextContent('이전 선택의 결과 · 갱신 중');
+    expect(status).not.toHaveClass('sr-only');
+    expect(status.querySelector('.sr-only')).toBeNull();
+    expect(status).toHaveClass('text-xs', 'text-text-secondary', 'bg-surface-sunken');
+    expect(status.parentElement).toHaveClass('absolute', 'top-0', 'h-8');
+    expect(container.querySelector('[aria-busy="true"]')).toHaveClass('pt-8');
+    expect(screen.getByRole('button', { name: 'Open' }).closest('[role="status"]')).toBeNull();
+  });
+
+  it('dims only the stale body with a non-interactive tint, leaving text opacity intact', () => {
+    const { container } = render(view(true));
+    const tint = container.querySelector('[data-query-stale-tint]');
+    expect(tint).toHaveClass('pointer-events-none', 'absolute', 'top-8', 'bottom-0', 'bg-surface-sunken/20', 'mix-blend-multiply');
+    expect(tint).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.getByText('42')).toBeVisible();
+    expect(container.querySelector('[aria-busy]')).not.toHaveClass('opacity-90');
+  });
+
+  it('keeps the same reserved space and mounted body across live, previous and settled states', () => {
+    const result = render(view(false, 'done'));
+    const wrapper = result.container.firstElementChild;
+    const body = screen.getByRole('table');
+    const classes = wrapper?.className;
+    expect(wrapper).toHaveClass('pt-8');
+    expect(screen.queryByRole('status')).toBeNull();
+    result.rerender(view(true));
+    expect(result.container.firstElementChild?.className).toBe(classes);
+    expect(screen.getByRole('table')).toBe(body);
+    result.rerender(view(false, 'done'));
+    expect(result.container.firstElementChild?.className).toBe(classes);
+    expect(screen.getByRole('table')).toBe(body);
+    expect(result.container.querySelector('[data-query-stale-tint]')).toBeNull();
+    expect(screen.queryByRole('status')).toBeNull();
+  });
+
+  it('keeps the light label without a stale tint for same-params refetches', () => {
+    const { container } = render(view(false));
+    expect(screen.getByRole('status', { name: '같은 조건으로 갱신 중' })).toHaveClass('text-text-muted');
+    expect(screen.queryByText('이전 선택의 결과 · 갱신 중')).toBeNull();
+    expect(container.querySelector('[data-query-stale-tint]')).toBeNull();
+  });
+
+  it.each([true, false])('disables spinner motion for reduced motion (previous=%s)', showingPrevious => {
+    render(view(showingPrevious));
+    expect(screen.getByRole('status').querySelector('svg')).toHaveClass('animate-spin', 'motion-reduce:animate-none');
   });
 });
