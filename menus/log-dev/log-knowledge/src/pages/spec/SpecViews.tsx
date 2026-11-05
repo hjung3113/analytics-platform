@@ -1,18 +1,20 @@
-import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
 import { PanelRight, ChevronRight, ChevronDown } from 'lucide-react';
 import { sortAndPage, type TableQuery } from '@ap/contracts';
 import { usePlatform } from '@ap/kernel';
 import { DetailDrawer, PlatformDataTable, RowAction, type PlatformColumn } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
-import type { SpecChangeKind, SpecChangeRow } from '../../endpoints';
+import { SPEC_PUBLISH_PERMISSION, type ConceptMappingRow, type SpecChangeKind, type SpecChangeRow } from '../../endpoints';
 import { eventIdentity, eventsOf, modulePath, modulesOf, targetOf, type Spec } from './specModel';
+import type { ConceptCounts } from './conceptModel';
+import { EventConceptProposer, EventRelatedItems } from './EventConcepts';
 import { useSpecWords } from './SpecControls';
 import { ChangeComparison } from './ChangeComparison';
 export function ChangeMark({ kind }: { kind: SpecChangeKind }) {
   const w = useSpecWords();
   return <StatusBadge tone={kind === 'added' ? 'info' : kind === 'removed' ? 'danger' : 'warning'}>{({ added: w('추가', 'Added'), removed: w('제거', 'Removed'), changed: w('변경', 'Changed'), behavior: w('동작 메모', 'Behavior note') })[kind]}</StatusBadge>;
 }
-export function SpecBody({ spec, modelId, freshness, onOpenEvent }: { spec: Spec; modelId: string; freshness: number; onOpenEvent: (identity: string) => void }) {
+export function SpecBody({ spec, modelId, freshness, onOpenEvent, conceptCounts }: { spec: Spec; modelId: string; freshness: number; onOpenEvent: (identity: string) => void; conceptCounts?: Map<string, ConceptCounts> | undefined }) {
   const w = useSpecWords(), { pageParam, setPage } = usePlatform();
   const selected = pageParam('module') ?? '', [collapsed, setCollapsed] = useState(false), [closed, setClosed] = useState<Set<string>>(new Set());
   const modules = modulesOf(spec), path = modulePath(spec, selected);
@@ -28,6 +30,7 @@ export function SpecBody({ spec, modelId, freshness, onOpenEvent }: { spec: Spec
     { id: 'moduleKey', header: 'Module', size: 120, cell: e => <span className="t-mono">{e.moduleKey}</span> },
     { id: 'name', header: 'Event', size: 150, cell: e => <Button size="sm" variant="link" onClick={() => open(eventIdentity(e))}>{e.name}</Button> },
     { id: 'triggerRule', header: w('발생 조건', 'Trigger'), size: 180, cell: e => e.triggerRule ?? '—' },
+    { id: 'concept', header: w('개념', 'Concepts'), size: 190, sortable: false, cell: e => <Button size="sm" variant="link" onClick={() => setPage({ tab: 'concept', event: eventIdentity(e), drawer: null, change: null })}>{conceptCounts ? w(`이 Event의 개념 제안 ${conceptCounts.get(eventIdentity(e))?.proposed ?? 0}건`, `Concept proposals for this Event: ${conceptCounts.get(eventIdentity(e))?.proposed ?? 0}`) : w('이 Event의 개념 제안 보기', 'View concept proposals for this Event')}</Button> },
     { id: 'changed', header: w('SW 차이', 'SW changes'), size: 150, sortable: false, cell: e => <div className="flex flex-wrap gap-1">{e.changed.length ? [...new Set(e.changed.map(m => m.changeKind))].map(kind => <ChangeMark key={kind} kind={kind} />) : w('모델 기준', 'Model basis')}{e.needsRevalidation && <StatusBadge tone="warning">{w('재검토 필요', 'Needs revalidation')}</StatusBadge>}</div> },
   ];
   function branch(parent: string | null, ancestors = new Set<string>()): React.ReactNode {
@@ -70,12 +73,18 @@ export function ConnectedChanges({ rows, spec, identity, onChange }: { rows: Spe
     <Button size="sm" variant="link" onClick={() => onChange(row.id)}>{w('변경점 보기', 'View change')}: {row.id}</Button>
   </article>)}</div> : <p className="text-text-secondary">{w('연결된 변경점이 없습니다.', 'No connected changes.')}</p>;
 }
-export function EventDrawer({ spec, identity, onClose, connectedChanges }: { spec: Spec; identity: string; onClose: () => void; connectedChanges: ReactNode }) {
-  const w = useSpecWords(), e = eventsOf(spec).find(e => eventIdentity(e) === identity);
+export function EventDrawer({ spec, identity, modelId, rows, count, reload, onClose, connectedChanges }: { spec: Spec; identity: string; modelId: string; rows: ConceptMappingRow[]; count: number | null; reload: () => void; onClose: () => void; connectedChanges: ReactNode }) {
+  const w = useSpecWords(), { setPage, can } = usePlatform(), e = eventsOf(spec).find(e => eventIdentity(e) === identity);
+  const [proposing, setProposing] = useState(false), toggle = useRef<HTMLButtonElement>(null);
+  const closeProposer = () => { setProposing(false); toggle.current?.focus(); };
   const fields = e && Array.isArray(e.fields) ? e.fields as { name: string; type: string; unit?: string | null; description: string; allowedValues?: string[] }[] : [];
   const relations = e ? spec.relations.filter(r => 'sourceModuleKey' in r ? r.sourceModuleKey === e.moduleKey && r.sourceEventKey === e.eventKey || r.targetModuleKey === e.moduleKey && r.targetEventKey === e.eventKey : r.sourceEventId === e.id || r.targetEventId === e.id) : [];
-  return <DetailDrawer title={e?.name ?? w('Event를 찾을 수 없습니다', 'Event not found')} subtitle={identity} onClose={onClose} tabs={[{ id: 'event', label: 'Event', content: e ? <div className="grid min-w-0 gap-4 text-sm">
+  return <DetailDrawer title={e?.name ?? w('Event를 찾을 수 없습니다', 'Event not found')} subtitle={identity} onClose={onClose} footer={e && can(SPEC_PUBLISH_PERMISSION) ? <Button ref={toggle} size="sm" variant={proposing ? 'secondary' : 'primary'} aria-expanded={proposing} onClick={() => proposing ? closeProposer() : setProposing(true)}>{w('개념 제안', 'Propose a concept')}</Button> : undefined} tabs={[{ id: 'event', label: 'Event', content: e ? <div className="grid min-w-0 gap-4 text-sm">
     <div className="flex flex-wrap items-center gap-2"><span>{'origin' in e && e.origin === 'change' ? w('SW 변경점에서 추가됨', 'Added by an SW change') : w('모델 기준', 'Model basis')} · r{spec.revision.revisionNo}</span>{[...new Set(e.changed.map(mark => mark.changeKind))].map(kind => <ChangeMark key={kind} kind={kind} />)}{e.needsRevalidation && <StatusBadge tone="warning">{w('재검토 필요', 'Needs revalidation')}</StatusBadge>}</div>
+    <section className="grid justify-items-start gap-2"><h3 className="font-semibold">{w('개념', 'Concepts')}</h3>{count === 0 ? <p>{w('이 Event의 제안 없음', 'No proposals for this Event')}</p> : <Button size="sm" variant="link" onClick={() => setPage({ tab: 'concept', event: identity, drawer: null, change: null })}>{count === null ? w('이 Event의 개념 제안 보기', 'View concept proposals for this Event') : w(`이 Event의 개념 제안 ${count}건`, `Concept proposals for this Event: ${count}`)}</Button>}</section>
+    <EventConceptProposer key={`concept:${identity}`} modelId={modelId} identity={identity} rows={rows} reload={reload} open={proposing} onClose={closeProposer} />
+    <EventRelatedItems key={`items:${identity}`} modelId={modelId} identity={identity} />
+    <h3 className="font-semibold">{w('대상 키', 'Target key')}</h3>
     <p className="t-mono break-all">{e.moduleKey} / {e.eventKey}</p><p className="break-words">{w('발생 조건', 'Trigger')}: {e.triggerRule ?? w('등록된 발생 조건이 없습니다.', 'No trigger is recorded.')}</p><p className="break-words">{w('문서 참조', 'Document reference')}: {e.detailDocRef ?? w('등록된 문서 참조가 없습니다.', 'No document reference is recorded.')}</p>
     <section aria-label={w('필드', 'Fields')} className="grid gap-2"><h3 className="font-semibold">{w('필드', 'Fields')}</h3>
       {fields.length ? fields.map(field => <dl key={field.name} className="grid gap-1 border-b border-border-subtle pb-2"><dt className="t-mono break-all">{field.name}</dt><dd className="break-words">{field.type} · {field.unit ?? w('단위 없음', 'No unit')}</dd><dd className="break-words text-text-secondary">{field.description}</dd>{field.allowedValues && field.allowedValues.length > 0 && <dd className="break-words">{w('허용값', 'Allowed values')}: {field.allowedValues.join(', ')}</dd>}</dl>) : <p className="text-text-secondary">{w('정의된 필드가 없습니다.', 'No fields are defined.')}</p>}

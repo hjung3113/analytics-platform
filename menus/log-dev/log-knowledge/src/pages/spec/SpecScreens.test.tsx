@@ -74,7 +74,7 @@ describe('production model spec screen', () => {
     expect(await screen.findByText('추가', { exact: true })).toBeTruthy();
   });
   it('offers a read-only reason without the publish capability', async () => {
-    allowed = false; mount(); expect(await screen.findByText(/knowledge.spec.publish/)).toBeTruthy();
+    allowed = false; mount(); expect(await screen.findByText(/명세 관리 권한을 관리자에게 요청하세요/)).toBeTruthy();
     expect(screen.queryByRole('button', { name: '초안 편집' })).toBeNull();
   });
   it('explains the hash seal and revalidation before publication, with an external footer', async () => {

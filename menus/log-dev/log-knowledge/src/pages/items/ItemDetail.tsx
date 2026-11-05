@@ -4,6 +4,7 @@ import { PlatformLink, useMenuQuery, usePlatform, type PageProps } from '@ap/ker
 import { DetailDrawer, PageKeyWarning, PlatformPage, QueryView, ReturnLink, StateMessage, usePageKeyRules } from '@ap/components';
 import { Button } from '@ap/ui';
 import { ITEM_PUBLISH_PERMISSION, itemDetailEndpoint, type ItemDetail as ItemDetailData, type ItemDetailParams } from '../../endpoints';
+import { SubjectChips } from './ItemSubjects';
 import { ArchiveAction } from './ArchiveAction';
 import { AssessDrawer } from './AssessDrawer';
 import { ItemWriteDrawer } from './ItemWriteDrawer';
@@ -56,6 +57,7 @@ function Body({ detail }: { detail: ItemDetailData }) {
     <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)] items-start gap-4">
       <ItemBodyBlocks revision={revision} />
       <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3">
+        <SubjectChips subjects={detail.subjects} />
         <Section title="근거" count={revision.evidence.length}><EvidenceList evidence={revision.evidence} /></Section>
         <Section title="연결 Item" count={detail.links.length}><LinkList links={detail.links} /></Section>
         <Section title="리비전" count={detail.revisions.length}>
@@ -83,8 +85,9 @@ function DrawerHost({ kind, detail, viewedRevisionNo, onReload }: { kind: Drawer
   // One source per render (the shown detail when it is the latest, else the re-read), so the two can never alternate in an update loop.
   const source = shownIsLatest ? detail : fresh;
   const [kept, setKept] = useState(source);
+  const [retain, setRetain] = useState(false);
   if (source && source !== kept) setKept(source);
-  const latest = shownIsLatest ? detail : fresh ?? kept;
+  const latest = shownIsLatest ? detail : fresh ?? (retain ? kept : null);
   const close = () => setPage({ drawer: null });
   if (kind === 'derive') return <ItemWriteDrawer target={{ mode: 'derive', detail: pinnedSource }} onClose={close} />;
   if (kind === 'assess') return detail.item.publicationState === 'archived' ? null : <AssessDrawer detail={detail} onReload={onReload} onClose={close} />;
@@ -94,16 +97,23 @@ function DrawerHost({ kind, detail, viewedRevisionNo, onReload }: { kind: Drawer
       ? <p role="status" className="text-sm text-text-muted">최신 리비전을 불러오는 중…</p>
       : <div className="grid gap-3"><p role="alert" className="text-sm text-text-danger-label">최신 리비전을 불러오지 못했습니다. 수정은 항상 최신 리비전을 바탕으로 합니다.</p>
         <div className="flex gap-2"><Button type="button" size="sm" variant="secondary" onClick={() => latestQuery.refetch()}>다시 시도</Button><Button type="button" size="sm" variant="ghost" onClick={close}>닫기</Button></div></div> }]} />;
-  return <ItemWriteDrawer target={{ mode: 'revise', detail: latest, viewedRevisionNo, onReload: () => { onReload(); latestQuery.refetch(); } }} onClose={close} />;
+  return <ItemWriteDrawer target={{ mode: 'revise', detail: latest, viewedRevisionNo, onReload: () => { setRetain(true); onReload(); latestQuery.refetch(); } }} onClose={close} />;
 }
 
 /**
  * 기술 Item 상세 (#1197 s2, owner-confirmed variant A), read-only: the four body blocks (opinion set apart from fact) on the left,
  * evidence, links and revisions on the right, the assessment history below. `rev` re-reads an older revision; `null` data is not-found.
  */
-export default function ItemDetail(props: PageProps) {
-  // Keyed by the Item: the kept previous result below is for revision picks only, another Item always starts fresh (#1365).
-  return <ItemDetailScreen key={props.params.itemId} {...props} />;
+export default function ItemDetail({ params }: PageProps) {
+  const { adapter, revision, user } = usePlatform();
+  // These are the public inputs of the Kernel query generation. Remount every retained value and draft together.
+  const [identity, setIdentity] = useState({ adapter, revision, userId: user?.id, epoch: 0 });
+  const changed = identity.adapter !== adapter || identity.revision !== revision || identity.userId !== user?.id;
+  const epoch = identity.epoch + Number(changed);
+  if (changed) setIdentity({ adapter, revision, userId: user?.id, epoch });
+  // Keyed by generation and Item, not by `rev`: the Kernel's kept previous result (#1365, ADR-0114) is for revision picks only; another Item
+  // or another identity generation always starts fresh.
+  return <ItemDetailScreen key={`${epoch}:${params.itemId}`} params={params} />;
 }
 
 function ItemDetailScreen({ params }: PageProps) {
@@ -114,7 +124,13 @@ function ItemDetailScreen({ params }: PageProps) {
   const known = UUID.test(itemId);
   // keepPrevious ON (#1365, ADR-0114): `rev` re-reads the same Item, so the shown revision stays (refreshing) until the picked one arrives; the banner and revision list follow when it does.
   const query = useMenuQuery(itemDetailEndpoint, { itemId, ...(revisionNo === null ? {} : { revisionNo }) } satisfies ItemDetailParams, known && !keys.invalid, { keepPrevious: true });
-  const detail = query.response?.outcome === 'ok' ? query.response.data : undefined;
+  const live = query.response?.outcome === 'ok' ? query.response.data : undefined;
+  const [kept, setKept] = useState(live);
+  const [retain, setRetain] = useState(false);
+  if (live && live !== kept) setKept(live);
+  // A failed conflict reload must keep the active editor and its draft, but never cross an Item/revision boundary.
+  const keepEditor = retain && pageParam('drawer') === 'revise' && kept?.item.id === itemId && (revisionNo === null || kept.revision.revisionNo === revisionNo) && (!query.response || ['error', 'timeout', 'too_large'].includes(query.response.outcome));
+  const detail = live ?? (keepEditor ? kept : undefined);
   // Only holders of the publish right see write controls; the server stays the authority.
   const canWrite = can(ITEM_PUBLISH_PERMISSION) && !!detail;
   // While another revision is loading the shown one is the previous pick (#1365): no write may start from it, an open form keeps the revision it was opened on.
@@ -132,7 +148,8 @@ function ItemDetailScreen({ params }: PageProps) {
   return <PlatformPage title={detail?.revision.title ?? '기술 Item'} crumbs={[{ label: <span className="t-mono">{detail ? itemNoLabel(detail.item.itemNo) : '…'}</span> }]}
     primaryAction={canWrite && !archived ? <Button type="button" disabled={previous} title={waitingReason} onClick={() => setPage({ drawer: 'revise' })}>수정</Button> : undefined}
     secondaryActions={secondary}>
-    {drawer && detail && <DrawerHost key={drawer} kind={drawer} detail={detail} viewedRevisionNo={revisionNo} onReload={query.refetch} />}
+    {!canWrite && detail && <p role="status" className="text-sm text-text-secondary">수정하려면 Item 작성 권한을 관리자에게 요청하세요.</p>}
+    {drawer && detail && <DrawerHost key={drawer} kind={drawer} detail={detail} viewedRevisionNo={revisionNo} onReload={() => { setRetain(true); query.refetch(); }} />}
     {keys.invalid ? <PageKeyWarning sentences={keys.sentences} onRecover={keys.recover} />
       : !known ? <NotFound revision={null} />
       : <QueryView widgetName="기술 Item 상세" query={query}>{data => data ? <Body detail={data} /> : <NotFound revision={revisionNo} />}</QueryView>}

@@ -7,13 +7,15 @@
  */
 import { validateFilters, type ColumnFilter, type PageResult } from '@ap/contracts';
 import { defineMockEndpoint, type AnyMockEndpoint } from '@ap/mock-server';
-import { ITEM_SORT_IDS, itemDetailEndpoint, itemFilterSpecs, itemsEndpoint, type CatalogPageParams, type ItemDetail, type ItemDetailParams, type ItemRow } from '../endpoints';
+import { ITEM_SORT_IDS, itemDetailEndpoint, itemFilterSpecs, itemsEndpoint, specSubjectItemsEndpoint, type CatalogPageParams, type ItemDetail, type ItemDetailParams, type ItemRow, type SpecSubjectItemRow } from '../endpoints';
 import { allItems, allLinks, itemById, latestRevision, ownerOf, type ItemRec } from './items';
+import { resolvedSubjects } from './subjectLinks';
 
 const PAGE_SIZE_MAX = 200, Q_MAX = 200, SORT_KEYS_MAX = 3, FILTER_VALUES_MAX = 200, REVISION_NO_MAX = 1_000_000;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const LIST_KEYS = ['q', 'page', 'pageSize', 'sorting', 'filters'];
 const UUID_FIELDS = ['ownerModelId', 'ownerSoftwareId'];
+const TARGET_KEY_MAX = 1200;
 
 /** Mirrors the server's `unsafeText` (platform-port/text-safety.ts): NUL and lone UTF-16 surrogates are refused. */
 const LONE_SURROGATE = /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/;
@@ -46,7 +48,9 @@ export function itemListMessage(params: CatalogPageParams): string | null {
     if (f.value.length > FILTER_VALUES_MAX) return `filter ${f.id} takes at most ${FILTER_VALUES_MAX} values`;
     if (UUID_FIELDS.includes(f.id) && !f.value.every(v => UUID.test(v))) return `filter ${f.id} values are uuid strings`;
     const spec = itemFilterSpecs[f.id];
-    if (!UUID_FIELDS.includes(f.id) && spec?.kind === 'enum' && !f.value.every(v => spec.options.some(o => o.value === v))) return `filter ${f.id} accepts only its listed values`;
+    // `subject` (#1196 f) is one escaped target key: free text, no closed vocabulary.
+    if (f.id === 'subject' && !f.value.every(v => v.trim() !== '' && v.length <= TARGET_KEY_MAX && !unsafeText(v))) return `filter subject takes a non-blank target key of at most ${TARGET_KEY_MAX} characters`;
+    if (!UUID_FIELDS.includes(f.id) && f.id !== 'subject' && spec?.kind === 'enum' && !f.value.every(v => spec.options.some(o => o.value === v))) return `filter ${f.id} accepts only its listed values`;
   }
   return null;
 }
@@ -66,7 +70,7 @@ const conditionsOf = (filters: readonly ColumnFilter[] = []): Record<string, Con
 const pass = (c: Condition | undefined, value: string | null): boolean =>
   c === undefined || (c.op === 'in' ? value !== null && c.values.includes(value) : value !== null && !c.values.includes(value));
 
-function toRow(rec: ItemRec): ItemRow {
+export function toRow(rec: ItemRec): ItemRow {
   const rev = latestRevision(rec);
   return {
     id: rec.id, itemNo: rec.itemNo, title: rev.title, typeCode: rev.typeCode as ItemRow['typeCode'], owner: ownerOf(rec),
@@ -88,6 +92,8 @@ function list(params: CatalogPageParams): PageResult<ItemRow> {
     if (c.ownerKind && !pass(c.ownerKind, row.owner.kind)) return false;
     if (c.ownerModelId && !pass(c.ownerModelId, includeSoftware ? row.owner.modelId : rec.ownerModelId)) return false;
     if (c.ownerSoftwareId && !pass(c.ownerSoftwareId, rec.ownerSoftwareId)) return false;
+    // `subject`: the LATEST revision has a subject with this target key (the model is scoped by `ownerModelId`).
+    if (c.subject && !pass(c.subject, (rec.subjects[row.latestRevisionNo] ?? []).some(s => s.targetKey === c.subject!.values[0]) ? c.subject.values[0]! : null)) return false;
     if (!pass(c.typeCode, row.typeCode) || !pass(c.verificationState, row.verificationState) || !pass(c.processingState, row.processingState)) return false;
     return text === '' || row.title.toLowerCase().includes(text.toLowerCase()) || (no !== null && row.itemNo === Number(no[1]));
   });
@@ -120,10 +126,33 @@ function detail(params: ItemDetailParams): ItemDetail | null {
     revisions: [...rec.revisions].reverse().map(r => ({ revisionNo: r.revisionNo, title: r.title, publishedBy: r.publishedBy, publishedAt: r.publishedAt, changeNote: r.changeNote })),
     assessments: [...rec.assessments].sort((a, b) => (a.observedAt === b.observedAt ? (a.id < b.id ? 1 : -1) : a.observedAt < b.observedAt ? 1 : -1)),
     links: linkRows,
+    subjects: resolvedSubjects(rec, rev.revisionNo),
   };
 }
+
+const subjectItemsMessage = (p: { modelId?: unknown; targetKey?: unknown; page?: unknown; pageSize?: unknown }): string | null => {
+  if (typeof p.modelId !== 'string' || !UUID.test(p.modelId)) return 'modelId must be a uuid string';
+  if (typeof p.targetKey !== 'string' || p.targetKey.trim() === '' || p.targetKey.length > TARGET_KEY_MAX || unsafeText(p.targetKey)) return `targetKey must be non-blank text of at most ${TARGET_KEY_MAX} characters`;
+  if (p.page !== undefined && (typeof p.page !== 'number' || !Number.isInteger(p.page) || p.page < 0 || p.page > 1_000_000)) return 'page must be a non-negative integer (0-based)';
+  if (p.pageSize !== undefined && (typeof p.pageSize !== 'number' || !Number.isInteger(p.pageSize) || p.pageSize < 1 || p.pageSize > PAGE_SIZE_MAX)) return `pageSize must be an integer from 1 to ${PAGE_SIZE_MAX}`;
+  return null;
+};
 
 export const itemReadsMock: readonly AnyMockEndpoint[] = [
   defineMockEndpoint(itemsEndpoint, { mart: false, validate: ({ params }) => itemListMessage(params), handle: ({ params }) => list(params) }),
   defineMockEndpoint(itemDetailEndpoint, { mart: false, validate: ({ params }) => detailMessage(params), handle: ({ params }) => detail(params) }),
+];
+
+/** The spec detail's «이 이벤트를 다룬 Item» read; registered with the spec reads (the server's order). */
+export const subjectItemsMock: readonly AnyMockEndpoint[] = [
+  // Published items whose LATEST revision is about this model target, newest update first.
+  defineMockEndpoint(specSubjectItemsEndpoint, { mart: false, validate: ({ params }) => subjectItemsMessage(params), handle: ({ params: p }) => {
+    const modelId = p.modelId.toLowerCase();
+    const found = allItems().filter(rec => rec.publicationState === 'published').flatMap(rec => {
+      const hit = (rec.subjects[latestRevision(rec).revisionNo] ?? []).find(s => s.modelId === modelId && s.targetKey === p.targetKey);
+      return hit ? [{ ...toRow(rec), subjectRelation: hit.subjectRelation } satisfies SpecSubjectItemRow] : [];
+    }).sort((a, b) => (a.updatedAt === b.updatedAt ? (a.id < b.id ? -1 : 1) : a.updatedAt < b.updatedAt ? 1 : -1));
+    const size = p.pageSize ?? 50, page = p.page ?? 0;
+    return { rows: found.slice(page * size, (page + 1) * size), total: found.length };
+  } }),
 ];

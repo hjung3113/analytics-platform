@@ -60,6 +60,7 @@ function detailOf(n: number, revisionNo?: number): ItemDetailData | null {
   if (wanted > base.latestRevisionNo) return null;
   const revs = Array.from({ length: base.latestRevisionNo }, (_, i) => i + 1);
   return {
+    subjects: [],
     item: { ...base, version: '1', createdBy: 'actor-aaaa-1111', createdAt: '2026-10-01T09:00:00.000Z' },
     revision: revision(wanted, { title: wanted === base.latestRevisionNo ? base.title : `${base.title} 초안 ${wanted}`, ...(n === 4 ? { evidence: [], analysisOpinion: null } : {}) }),
     revisions: [...revs].reverse().map(r => ({ revisionNo: r, title: `제목 r${r}`, publishedBy: 'actor-aaaa-1111', publishedAt: `2026-10-0${r + 1}T09:00:00.000Z`, changeNote: r === 1 ? null : `${r}차 보완` })),

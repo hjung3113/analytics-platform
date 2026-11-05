@@ -628,7 +628,7 @@ P0 #1193 구현됨: 스키마 표 1–6(`knowledge` 스키마, migration 0080)�
 
 ## 15. 모델 명세가 원본 (#1196 설계 초안, Candidate)
 
-> **Status: 소유자 답 반영(2026-11-04) — 방향과 Q1–Q10 결정됨, [ADR-0111](../../../adr/0111-log-knowledge-model-spec-is-the-source.md)로 결정.** 소유자 입력(2026-11-04, #1196 댓글): 명세는 **모델 단위가 주**, SW 버전별 차이는 **보조**이고, 보조가 필요한 주된 경우는 특정 SW 버전부터 로그가 갑자기 이상해지거나 크게 바뀌는 때다. 이 절은 §5.2 표 10–18번과 §6.3(SW 독립 Spec이 원본, 모델 공통은 승인된 파생본)을 대체한다. #1196 a–b2의 모델 명세 읽기·쓰기·TSV 파서와 마이그레이션 0091–0092는 구현됐다(§15.2 물리화 상태); 노드 c(SW 변경점 `spec_sw_change`)와 d(소유자 확정 A안: 숨김 모델 명세 화면·Module 트리·명세/변경점/Revision 탭·고정 footer 서랍·mock 등록)는 구현됐다. d의 브라우저·E2E·시각 검증은 호스트 검증 대상으로 남고, e(개념 연결)·f(Item 대상 연결)는 미구현이다. 후속 범위는 해당 노드를 따르고, 현행 원본·동작은 `api/log-knowledge.md`를 참조한다.
+> **Status: 소유자 답 반영(2026-11-04) — 방향과 Q1–Q10 결정됨, [ADR-0111](../../../adr/0111-log-knowledge-model-spec-is-the-source.md)로 결정.** 소유자 입력(2026-11-04, #1196 댓글): 명세는 **모델 단위가 주**, SW 버전별 차이는 **보조**이고, 보조가 필요한 주된 경우는 특정 SW 버전부터 로그가 갑자기 이상해지거나 크게 바뀌는 때다. 이 절은 §5.2 표 10–18번과 §6.3(SW 독립 Spec이 원본, 모델 공통은 승인된 파생본)을 대체한다. #1196 a–b2의 모델 명세 읽기·쓰기·TSV 파서와 마이그레이션 0091–0092는 구현됐다(§15.2 물리화 상태); 노드 c(SW 변경점 `spec_sw_change`)와 d(소유자 확정 A안: 숨김 모델 명세 화면·Module 트리·명세/변경점/Revision 탭·고정 footer 서랍·mock 등록)는 구현됐다. e(개념 연결)·f(Item 대상 연결)의 서버·mock·화면도 구현됐다(§15.2·§15.6). d·e·f의 브라우저·E2E·시각 검증은 호스트 검증 대상으로 남는다. 후속 범위는 해당 노드를 따르고, 현행 원본·동작은 `api/log-knowledge.md`를 참조한다.
 
 ### 15.1 방향 한 줄
 
@@ -636,7 +636,7 @@ P0 #1193 구현됨: 스키마 표 1–6(`knowledge` 스키마, migration 0080)�
 
 ### 15.2 데이터 모델 (물리화 후보, 노드 a·c에서 재검수)
 
-> **물리화 상태(#1196 노드 e·f, 서버만):** 마이그레이션 0098이 `common_concept`·`spec_concept_mapping`(노드 e)과 `item_revision_subject`(노드 f)를 만들었다(구현 상태와 규칙은 `api/log-knowledge.md` §Concept mapping and Item subjects). 화면·mock은 아직 없다(§15.6 개념 매핑 검토 서랍, Item 편집기 대상 고르기, Item 상세 «대상» 칩, 명세 상세 «관련 Item»).
+> **물리화 상태(#1196 노드 e·f):** 마이그레이션 0098이 `common_concept`·`spec_concept_mapping`(노드 e)과 `item_revision_subject`(노드 f)를 만들었다(구현 상태와 규칙은 `api/log-knowledge.md` §Concept mapping and Item subjects). mock·데이터 훅·순수 뷰 모델과 화면도 구현됐다(§15.6). 실제 호스트 캡처·시각 검증은 아직 안 했다.
 >
 > **물리화 상태(#1196 노드 a, b1, c):** 마이그레이션 0096이 `spec_sw_change`를 만들었다(쓰기 `specChangeAdd`·`specChangeRetire`·`specChangeConfirm`, 읽기 `specChanges`와 `modelSpec`의 `softwareId`, 발행 시 `needs_revalidation`; 규칙은 아래와 `api/log-knowledge.md` §SW changes).
 >
@@ -690,13 +690,15 @@ relation							Spindle	Start	precedes	Spindle Motor	Stop	§4.2
 - **정규화 해시(구현됨, #1196 b1).** 발행 때 저장된 행을 버전 있는 정규 JSON으로 직렬화해 SHA-256을 낸다: 객체 키는 정렬, 모듈은 `module_key`, 이벤트는 `(module_key, event_key)`, 관계는 `(source_module, source_event, predicate, target_module, target_event)` 순으로 정렬하고, `hashVersion`과 `schema_version`을 포함한다. 행 id·행 순서·`source_doc_ref`(원본 문서 표시)는 해시에 들어가지 않는다. 그래서 `docVersion`만 다른 같은 내용은 `unchanged`다. 스트리밍으로 나눠 보내도, 행 순서가 달라도 같은 해시가 나온다.
 - **호출 상한(구현됨, #1196 b1·b2).** `specDraftSave` 한 번에 행 2,000개 이하, 직렬화 본문 512 KiB 이하(넘으면 `invalid` `input:too_large`); 더 큰 명세는 여러 번 나눠 보낸다. 텍스트 호출(b2)은 텍스트 자체가 512 KiB 이하·데이터 행 2,000개 이하로 같은 판정을 쓰며(텍스트는 오류에 되돌려 주지 않는다), 두 상한 모두 파싱에 들어가기 전에 판정한다. `replace`는 Draft를 반려하고 같은 트랜잭션에서 새 Draft를 만든다(네 표는 추가 전용).
 
-### 15.6 화면 (IA 수준, 시안은 소유자 답 뒤)
+### 15.6 화면 (소유자 확정 A안)
 
 새 화면 둘, 나머지는 서랍·섹션이다(새 메뉴 화면 3개 미만).
 
 1. **모델 프로파일의 「명세」 섹션**(기존 `ModelProfile` 섹션 추가) → 상세 화면 `log-knowledge-spec`(navHidden): Module 트리 + Event 표/서랍, 상단 SW 선택(「모델 기준」 기본 · 특정 SW를 고르면 실효 명세와 변경 표시), Revision 이력, `needs_revalidation` 배지.
 2. **변경점 보기**(같은 상세의 탭 또는 별도 목록 화면): SW 순서로 「X부터」 변경점 타임라인, 필터 `재검토 필요`. 작성은 서랍.
-- 서랍: 명세 Draft 편집·발행, 변경점 추가·닫기, 개념 매핑 검토. 상태 네 가지(없음·불러오는 중·오류·권한 없음)와 발행 확인 대화상자를 시안에서 확인한다.
+- 서랍: 명세 Draft 편집·발행, 변경점 추가·닫기.
+- **개념 매핑 검토(소유자 확정 A안):** 기존 명세 상세의 전체 너비 「개념」 탭. 검토 대기 건수와 두 모델의 정의·발생 조건을 나란히 표시하고, 점수·근거는 보조로 둔다. 확정·거절의 무게는 같고 거절 사유는 거절을 누른 뒤에만 받는다. 확정·거절·대상 사라짐 이력을 보존한다. Event 행·서랍의 「이 Event의 개념 제안 N건」은 `tab=concept&event=<targetKey>`로 들어가며 해제 가능한 Event 필터를 표시한다. 서랍의 관련 Item은 왼쪽에 링크로 나열하고, 개념 제안은 고정 footer에서 기존 개념 또는 새 이름과 관계를 받는다.
+- **Item 대상:** 편집기는 소유 모델의 발행 명세 Module/Event 트리·검색·관계·20개 상한·제거 목록을 제공한다. 명세 없는 모델은 안내를 표시하고 대상 없이 저장할 수 있다. 상세는 연결됨·대상 사라짐·명세 없음 상태를 보이며 연결된 대상만 명세로 이동한다. 충돌의 최신 불러오기는 입력을 유지한다.
 
 ### 15.7 노드 분할
 

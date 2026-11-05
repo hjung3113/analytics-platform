@@ -10,7 +10,10 @@ export type ItemRec = {
   id: string; itemNo: number; ownerModelId: string | null; ownerSoftwareId: string | null;
   verificationState: string; processingState: string; publicationState: string; rowVersion: number;
   createdBy: string; createdAt: string; updatedAt: string; revisions: RevisionRec[]; assessments: AssessmentRec[];
+  /** The module / event targets each revision is about (#1196 f), by revision number; a revise that sends none carries the previous revision's. */
+  subjects: Record<number, SubjectRec[]>;
 };
+export type SubjectRec = { modelId: string; targetKind: 'module' | 'event'; targetKey: string; subjectRelation: 'about' | 'context'; specRevNoAtLink: number | null };
 export type RevisionRec = {
   revisionNo: number; title: string; typeCode: string; observation: string | null; expected: string | null;
   analysisOpinion: string | null; improvement: string | null; changeNote: string | null; publishedBy: string; publishedAt: string;
@@ -89,13 +92,30 @@ export function resetItems(): void {
     items.push({
       id: itemUuid(n), itemNo: n, ownerModelId: owner.model, ownerSoftwareId: owner.software,
       verificationState: verification, processingState: processing, publicationState: n === 3 ? 'archived' : 'published',
-      rowVersion: 1, createdBy: ACTORS[0]!, createdAt: day(1), updatedAt, revisions, assessments,
+      rowVersion: 1, createdBy: ACTORS[0]!, createdAt: day(1), updatedAt, revisions, assessments, subjects: {},
     });
   }
+  seedSubjects(modelId);
   // KI-5 (SW-owned) was derived from KI-1 at its revision 2; KI-2 and KI-6 are related.
   links.push({ kind: 'derived_from', sourceItemId: itemUuid(5), targetItemId: itemUuid(1), sourceRevisionNo: 2 });
   links.push({ kind: 'related', sourceItemId: itemUuid(2), targetItemId: itemUuid(6), sourceRevisionNo: null });
   nextItemNo = items.length + 1; nextAssessmentNo = assessmentSeq + 1;
+}
+
+/** Subject fixtures over the spec'd models (A-100, B-10): resolved, `gone` (B-10's second revision removed ROBOT/CALIBRATE; ROBOT/GHOST never existed) and `no_spec` (A-200 has no published spec). */
+function seedSubjects(modelId: (code: string) => string): void {
+  const a = modelId('A-100'), b = modelId('B-10'), none = modelId('A-200');
+  const link = (n: number, revisionNo: number, rows: [string, 'module' | 'event', string, 'about' | 'context', number | null][]) => {
+    items.find(i => i.itemNo === n)!.subjects[revisionNo] = rows.map(([model, targetKind, targetKey, subjectRelation, specRevNoAtLink]) => ({ modelId: model, targetKind, targetKey, subjectRelation, specRevNoAtLink }));
+  };
+  link(1, 1, [[a, 'event', 'CHAMBER/START', 'about', 1]]);
+  link(1, 2, [[a, 'event', 'CHAMBER/START', 'about', 1]]);
+  link(1, 3, [[a, 'event', 'CHAMBER/START', 'about', 1], [a, 'module', 'ROBOT', 'context', 1], [a, 'event', 'ROBOT/GHOST', 'about', 1]]);
+  link(2, 1, [[none, 'event', 'CHAMBER/START', 'about', null]]);
+  link(3, 1, [[b, 'event', 'CHAMBER/START', 'about', 2]]);
+  link(5, 1, [[a, 'module', 'ROBOT', 'about', 1]]);
+  link(9, 1, [[a, 'event', 'CHAMBER/START', 'context', 1]]);
+  link(11, 1, [[b, 'event', 'CHAMBER/START', 'about', 2], [b, 'event', 'ROBOT/CALIBRATE', 'about', 1]]);
 }
 resetItems();
 
@@ -132,20 +152,22 @@ const revisionOf = (revisionNo: number, content: RevisionContent, changeNote: st
 });
 
 /** A new published item (`not_checked`, `open`) with revision 1; the number is the next of the workspace counter. */
-export function insertItem(owner: { modelId: string | null; softwareId: string | null }, content: RevisionContent, evidence: readonly Omit<EvidenceRec, 'ordinal'>[]): ItemRec {
+export function insertItem(owner: { modelId: string | null; softwareId: string | null }, content: RevisionContent, evidence: readonly Omit<EvidenceRec, 'ordinal'>[], subjects: readonly SubjectRec[] = []): ItemRec {
   const itemNo = nextItemNo++;
   const at = now();
   const rec: ItemRec = {
     id: itemUuid(itemNo), itemNo, ownerModelId: owner.modelId, ownerSoftwareId: owner.softwareId,
     verificationState: 'not_checked', processingState: 'open', publicationState: 'published', rowVersion: 1,
-    createdBy: MOCK_ACTOR_ID, createdAt: at, updatedAt: at, revisions: [revisionOf(1, content, null, evidence)], assessments: [],
+    createdBy: MOCK_ACTOR_ID, createdAt: at, updatedAt: at, revisions: [revisionOf(1, content, null, evidence)], assessments: [], subjects: { 1: subjects.map(s => ({ ...s })) },
   };
   items.push(rec);
   return rec;
 }
-/** Appends revision `latest + 1`; the evidence belongs to it, the earlier revisions stay as they are. */
-export function appendRevision(rec: ItemRec, content: RevisionContent, changeNote: string, evidence: readonly Omit<EvidenceRec, 'ordinal'>[]): ItemRec {
-  rec.revisions.push(revisionOf(latestRevision(rec).revisionNo + 1, content, changeNote, evidence));
+/** Appends revision `latest + 1`; the evidence belongs to it, the earlier revisions stay as they are. `subjects` omitted carries the previous revision's links (link-time spec revision included); a list, even empty, replaces them. */
+export function appendRevision(rec: ItemRec, content: RevisionContent, changeNote: string, evidence: readonly Omit<EvidenceRec, 'ordinal'>[], subjects?: readonly SubjectRec[]): ItemRec {
+  const previous = latestRevision(rec).revisionNo;
+  rec.revisions.push(revisionOf(previous + 1, content, changeNote, evidence));
+  rec.subjects[previous + 1] = (subjects ?? rec.subjects[previous] ?? []).map(s => ({ ...s }));
   return bump(rec);
 }
 /** One assessment event (prior = the current projection, based on the latest revision) and the dimension's new projection. */

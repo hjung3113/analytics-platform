@@ -27,7 +27,7 @@ export const manifests: MenuEntry[] = [
     id: 'log-knowledge-spec', parent: 'log-knowledge-models', navHidden: true, group: groupId('logKnowledge'), label: { ko: '모델 명세', en: 'Model specification' },
     description: { ko: '모델 Revision과 SW 실효 명세·변경점·Revision 이력을 확인합니다', en: 'Read model revisions, effective software specifications and changes' },
     path: '/log/knowledge/models/:modelId/spec', icon: FileText, permission: 'platform:view', requiresScope: false, pageType: 'management',
-    context: contextCapabilities(), features: NO_FEATURES, pageKeys: ['software', 'tab', 'drawer', 'change', 'module', 'review', 'revision', 'returnTo'],
+    context: contextCapabilities(), features: NO_FEATURES, pageKeys: ['software', 'tab', 'drawer', 'change', 'module', 'event', 'review', 'revision', 'returnTo'],
     component: lazy(() => import('./pages/spec/SpecScreen')),
   },
   {
