@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { equipmentFilterSpecs } from '../endpoints';
-import { columnFilter, fields, filterSpecs, pinnedFilterKeys } from './data';
+import { columnFilter, fields, pinnedFilterKeys } from './data';
 
 // ADR-0104/0105: every filterable field is declared once (endpoints.ts carries the wire meaning, data.ts the words); 상태 and Maker are fields too.
 describe('equipment filter fields (#1217)', () => {
@@ -21,7 +21,7 @@ describe('equipment filter fields (#1217)', () => {
 
   it('takes the Maker options from the makers endpoint', () => {
     expect(columnFilter('maker', ['TEL', 'AMAT'])).toMatchObject({ kind: 'enum', options: [{ value: 'TEL', label: 'TEL' }, { value: 'AMAT', label: 'AMAT' }] });
-    expect(filterSpecs([], 'ko').maker).toMatchObject({ options: [] });
+    expect(columnFilter('maker', [], 'ko')).toMatchObject({ options: [] });
   });
 
   it('pins 상태 and Maker only', () => {
