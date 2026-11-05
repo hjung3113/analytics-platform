@@ -220,8 +220,8 @@ describe.skipIf(!runIntegration)('Item subject link (#1196 f)', () => {
         subjects: [subject(model), subject(model, { module: 'Spindle' }, { targetKind: 'module', relation: 'context' })],
       });
       expect(await subjectRows(created.id)).toMatchObject([
-        { workspace_id: WORKSPACE_ID, revision_no: 1, model_id: model, target_kind: 'event', target_key: startKey, subject_relation: 'about', spec_rev_no_at_link: 1 },
         { revision_no: 1, model_id: model, target_kind: 'module', target_key: spindleKey, subject_relation: 'context', spec_rev_no_at_link: 1 },
+        { workspace_id: WORKSPACE_ID, revision_no: 1, model_id: model, target_kind: 'event', target_key: startKey, subject_relation: 'about', spec_rev_no_at_link: 1 },
       ]);
       const d = await detail(created.id);
       expect(d.subjects).toEqual([

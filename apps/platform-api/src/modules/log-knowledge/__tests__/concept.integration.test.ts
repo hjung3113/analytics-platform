@@ -141,7 +141,7 @@ describe.skipIf(!runIntegration)('concept mapping (#1196 e)', () => {
   const propose = (modelId: string, prefix: string, over: Record<string, unknown> = {}, who: Person = admin) =>
     act('conceptPropose', { modelId, targetKind: 'event', target: eventBody(prefix), canonicalLabel: `${prefix} start`, ...over }, { who });
   async function proposeOk(modelId: string, prefix: string, over: Record<string, unknown> = {}) {
-    const a = await propose(modelId, prefix, over);
+    const a = await propose(modelId, prefix, 'conceptId' in over ? { canonicalLabel: undefined, ...over } : over);
     expect(a.outcome, JSON.stringify(a)).toBe('ok');
     return a.data as { conceptId: string; mappingId: string; pairMappingId?: string };
   }
