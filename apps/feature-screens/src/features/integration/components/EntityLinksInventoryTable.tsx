@@ -6,8 +6,8 @@ import { formatShortDateTime } from '@/lib/format/datetime';
 import { shortId } from '@/lib/identity';
 import type { EntityLinkDto } from '@ap/feature-shared';
 import { ManagedSystemPill } from '@ap/feature-ui';
-import { Button, Checkbox, PermissionBlockedPanel, cn } from '@ap/ui';
-import { EntityRelationRow, entityLinkEndpointPrimaryLabels } from './EntityRelationRow';
+import { Button, PermissionBlockedPanel, cn } from '@ap/ui';
+import { EntityRelationRow } from './EntityRelationRow';
 import { LinkStatusBadge } from './LinkStatusBadge';
 
 export interface ManagedSystemPresentation {
@@ -57,7 +57,7 @@ export function EntityLinksInventoryTable({
   onLoadMore,
 }: EntityLinksInventoryTableProps) {
   if (loading === true) {
-    return <div className="p-6 text-sm text-text-muted">엔티티 링크를 불러오는 중…</div>;
+    return <div className="p-6 text-sm text-text-muted">연결 관계를 불러오는 중…</div>;
   }
 
   if (error != null) {
@@ -65,7 +65,7 @@ export function EntityLinksInventoryTable({
       return (
         <PermissionBlockedPanel
           state="denied"
-          category="엔티티 링크"
+          category="연결 관계"
           reason={PERMISSION_BLOCKED_REASONS.entityLinks}
           className="m-4"
           {...(onRetry !== undefined
@@ -85,7 +85,7 @@ export function EntityLinksInventoryTable({
       <div className="p-4">
         <ListStateMessage
           variant="error"
-          title="엔티티 링크 목록을 불러오지 못했습니다"
+          title="연결 관계 목록을 불러오지 못했습니다"
           body="잠시 후 다시 시도하세요."
           {...(onRetry !== undefined ? { action: { label: '다시 시도', onClick: onRetry } } : {})}
         />
@@ -108,7 +108,7 @@ export function EntityLinksInventoryTable({
         <div className="p-4">
           <ListStateMessage
             variant="filtered"
-            title="현재 조건에 맞는 엔티티 링크가 없습니다"
+            title="현재 조건에 맞는 연결 관계가 없습니다"
             body={filterDescription}
             {...(onResetFilters !== undefined
               ? { action: { label: '필터 초기화', onClick: onResetFilters } }
@@ -122,7 +122,7 @@ export function EntityLinksInventoryTable({
       <div className="p-4">
         <ListStateMessage
           variant="empty"
-          title="엔티티 링크가 없습니다."
+          title="연결 관계가 없습니다."
           body="시스템 간 연결이 생성되면 이 목록에 표시됩니다."
         />
       </div>
@@ -131,23 +131,18 @@ export function EntityLinksInventoryTable({
 
   return (
     <>
-      <ul aria-label="엔티티 링크 목록" className="m-0 min-w-full list-none p-0">
+      <ul aria-label="연결 관계 목록" className="m-0 min-w-full list-none p-0">
         {items.map((link) => {
           const managedSystem = managedSystemsById[link.managed_system_id];
           const actor = actorsById[link.created_by];
-          const [sourceLabel, targetLabel] = entityLinkEndpointPrimaryLabels(link);
           return (
             <li
               key={link.id}
               className={cn(
-                'grid grid-cols-(--entity-link-row-columns) min-h-row-default items-center gap-3 border-b border-border-subtle px-5 py-2.5 text-sm hover:bg-surface-row-hover',
+                'grid min-h-row-default items-center gap-3 border-b border-border-subtle px-5 py-2.5 text-sm hover:bg-surface-row-hover',
                 link.visibility_state === 'hidden' && 'bg-surface-blocked/60',
               )}
-              style={{ '--entity-link-row-columns': 'auto minmax(0, 1fr)' } as React.CSSProperties}
             >
-              <div className="flex items-center">
-                <Checkbox aria-label={`${sourceLabel} → ${targetLabel} 선택`} />
-              </div>
               <div className="flex min-w-0 flex-col justify-center gap-1">
                 <div className="flex min-w-0 flex-wrap items-center gap-2">
                   {/* #589: endpoint identities lead this row; the link id stays secondary metadata. */}

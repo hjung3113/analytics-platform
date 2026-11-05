@@ -347,7 +347,7 @@ function FindingsListShell({
       }}
       tabs={
         !isReadDenied ? (
-          <div className="mx-5 my-2 flex items-center gap-3">
+          <div className="my-2 flex items-center gap-3">
             <Select
               value={assignment ?? 'all'}
               onValueChange={(value) => {

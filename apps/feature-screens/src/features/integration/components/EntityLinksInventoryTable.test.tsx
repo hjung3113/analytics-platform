@@ -48,7 +48,7 @@ describe('EntityLinksInventoryTable identity', () => {
   it('uses user-facing language while loading entity links', () => {
     render(<EntityLinksInventoryTable items={[]} loading />);
 
-    expect(screen.getByText('엔티티 링크를 불러오는 중…')).toBeInTheDocument();
+    expect(screen.getByText('연결 관계를 불러오는 중…')).toBeInTheDocument();
     expect(screen.queryByText(/entity_links/)).not.toBeInTheDocument();
   });
 
@@ -59,9 +59,8 @@ describe('EntityLinksInventoryTable identity', () => {
     expect(row.textContent?.indexOf('FIN-12')).toBeLessThan(
       row.textContent?.indexOf('TASK-1000') ?? -1,
     );
-    expect(screen.getByRole('checkbox', { name: 'FIN-12 → TASK-1000 선택' })).toBeInTheDocument();
     expect(screen.getByText('10000000', { exact: true })).toHaveClass('text-text-muted');
-    expect(screen.queryByText('엔티티 링크 10000000')).not.toBeInTheDocument();
+    expect(screen.queryByText('연결 관계 10000000')).not.toBeInTheDocument();
     expect(screen.getByText('활성')).toHaveClass('text-text-muted');
     expect(screen.getByText('활성')).not.toHaveClass('text-text-success-label');
     expect(row.querySelectorAll('[data-entity-type]')).toHaveLength(2);
@@ -73,6 +72,12 @@ describe('EntityLinksInventoryTable identity', () => {
     expect(
       screen.queryByText('50000000', { selector: '.text-text-primary' }),
     ).not.toBeInTheDocument();
+  });
+
+  it('has no row checkbox: the list offers no selection or bulk action (#1368)', () => {
+    render(<EntityLinksInventoryTable items={[ALLOWED_LINK]} />);
+
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
   });
 
   it('shows no endpoint identity for a hidden link', () => {

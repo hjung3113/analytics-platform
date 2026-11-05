@@ -2,7 +2,7 @@ import { SURVEY_STATUS_LABELS } from '@/lib/copy/enum-labels';
 import type { SurveyStatus } from '../types';
 
 const TONE_CLASSES: Record<SurveyStatus, string> = {
-  draft: 'border-border-subtle bg-surface-canvas text-text-muted',
+  draft: 'border-border-default bg-surface-card text-text-secondary',
   open: 'border-accent-primary/30 bg-accent-primary/10 text-accent-primary',
   closed: 'border-border-strong bg-surface-card text-text-secondary',
 };

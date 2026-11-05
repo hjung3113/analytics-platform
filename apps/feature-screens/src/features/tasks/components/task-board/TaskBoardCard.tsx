@@ -105,14 +105,14 @@ function TaskBoardCardContent({
         />
       </div>
       {/* TaskDto does not project finding linkage or linked VOC counts; only TaskDetailDto.source does. */}
-      <div className="mt-2 break-words text-sm font-medium text-text-primary">{task.title}</div>
+      <div className="mt-2 wrap-anywhere text-sm font-medium text-text-primary">{task.title}</div>
       <div className="mt-3 flex items-center justify-between gap-2 text-xs text-text-muted">
         <span className="flex min-w-0 items-center gap-1.5 truncate">
           <span className="h-1.5 w-1.5 rounded-full bg-accent-info" />
           {managedSystemName}
         </span>
         {task.assignee_team_id ? (
-          <span>
+          <span className="min-w-0 truncate">
             {RESPONSIBILITY_COPY.teamMark} · {assigneeName}
           </span>
         ) : assigneeName ? (

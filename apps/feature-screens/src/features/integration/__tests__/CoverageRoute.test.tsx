@@ -356,9 +356,9 @@ describe('integration coverage route', () => {
     );
   });
 
-  test('uses the canonical Coverage metric labels and the locked subtitle', async () => {
+  test('keeps canonical Coverage metrics and an accessible title without duplicate visible identity', async () => {
     await renderCoverage('/integration/coverage');
-    expect(screen.getByRole('heading', { level: 1, name: '커버리지' })).toBeVisible();
+    expect(screen.getByRole('heading', { level: 1, name: '커버리지' })).toHaveClass('sr-only');
     const signals = within(screen.getByTestId('coverage-signals'));
     expect(signals.getByText('담당자 답변이 있는 배포된 Task')).toBeVisible();
     expect(signals.getByText('분석 영역이 지정된 VOC')).toBeVisible();
@@ -366,7 +366,8 @@ describe('integration coverage route', () => {
     const table = within(screen.getByTestId('coverage-table'));
     expect(table.getByText('담당자 답변이 있는 배포된 Task')).toBeVisible();
     expect(table.getByText('분석 영역이 지정된 VOC')).toBeVisible();
-    expect(screen.getByText('부분 커버리지. 정책이 요구하는 연결만 표시합니다.')).toBeVisible();
+    expect(screen.queryByText('부분 커버리지. 정책이 요구하는 연결만 표시합니다.')).toBeNull();
+    expect(screen.getByTestId('coverage-filter-button')).toBeVisible();
   });
 
   test('keeps metric keys out of visible Coverage rows', async () => {

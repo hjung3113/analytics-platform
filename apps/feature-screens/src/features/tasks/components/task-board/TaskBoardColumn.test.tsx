@@ -41,6 +41,7 @@ describe('TaskBoardColumn', () => {
     const board = screen.getByTestId('board');
     const column = screen.getByLabelText('Backlog 열');
     const columnScroller = column.querySelector('.overflow-y-auto') as HTMLElement;
+    expect(columnScroller).toHaveClass('overflow-x-hidden');
     // jsdom applies no Tailwind CSS; mirror the scroll styles the classes give in the browser.
     columnScroller.style.overflowY = 'auto';
     board.style.overflowX = 'auto';
@@ -50,7 +51,7 @@ describe('TaskBoardColumn', () => {
     ]);
   });
 
-  it('shares the board width instead of a fixed 288px column', () => {
+  it('shares the board width with a readable 288px minimum', () => {
     render(
       <TaskBoardColumn
         id="backlog"
@@ -65,7 +66,7 @@ describe('TaskBoardColumn', () => {
     );
     const column = screen.getByLabelText('Backlog 열');
     expect(column).toHaveAttribute('data-task-board-column');
-    expect(column).toHaveClass('flex-1', 'basis-0', 'min-w-40');
+    expect(column).toHaveClass('flex-1', 'basis-0', 'min-w-72');
     expect(column).not.toHaveClass('w-72');
     expect(column).not.toHaveClass('shrink-0');
   });
@@ -105,6 +106,7 @@ describe('TaskBoardColumn', () => {
     const badge = screen.getByLabelText(/^우선순위 /);
     expect(badge).toHaveClass('shrink-0', 'whitespace-nowrap');
     const title = screen.getByText(task.title);
+    expect(title).toHaveClass('wrap-anywhere');
     expect(title).not.toHaveClass('whitespace-nowrap');
     expect(title).not.toHaveClass('truncate');
   });

@@ -301,6 +301,17 @@ describe('TaskBoardRoute', () => {
     },
   );
 
+  it('renders the drag overlay at the document body, outside the shell board-window area (#1366)', async () => {
+    // The overlay is `position: fixed`. The shell's board-window area uses `contain: paint`, which
+    // becomes the containing block of every fixed descendant and shifts the preview away from the pointer.
+    api.listTasks.mockImplementation(boardList([task]));
+    const { container } = renderBoard();
+    await screen.findByText('TASK-1000');
+    const overlay = screen.getByTestId('drag-overlay');
+    expect(overlay.parentElement).toBe(document.body);
+    expect(container.contains(overlay)).toBe(false);
+  });
+
   it('clears the presentation copy on drag cancel without a PATCH', async () => {
     api.listTasks.mockImplementation(boardList([task]));
     renderBoard();

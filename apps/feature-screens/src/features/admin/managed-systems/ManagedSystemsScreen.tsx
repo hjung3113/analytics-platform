@@ -53,36 +53,29 @@ export function ManagedSystemsAdminPage() {
   const { hostOwnsTitle } = useHostSeam();
   const [registerOpen, setRegisterOpen] = useState(false);
   const [includeArchived, setIncludeArchived] = useState(false);
+  const registerAction = (
+    <PermissionGate capability="workspace.admin" fallback={null} loading={null}>
+      <HostPrimaryAction>
+        <Button variant="primary" size="sm" onClick={() => setRegisterOpen(true)} data-testid="ms-register-button">
+          <Plus className="h-4 w-4" />
+          시스템 등록
+        </Button>
+      </HostPrimaryAction>
+    </PermissionGate>
+  );
   return (
     <PageShell
-      header={{
-        ...(hostOwnsTitle ? {} : { title: '시스템', subtitle: SUBTITLE }),
-        actions: (
-          <PermissionGate capability="workspace.admin" fallback={null} loading={null}>
-            <ManagedSystemsFilter
-              includeArchived={includeArchived}
-              onIncludeArchivedChange={setIncludeArchived}
-            />
-            <HostPrimaryAction>
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => setRegisterOpen(true)}
-                data-testid="ms-register-button"
-              >
-                <Plus className="h-4 w-4" />
-                시스템 등록
-              </Button>
-            </HostPrimaryAction>
-          </PermissionGate>
-        ),
-      }}
+      {...(hostOwnsTitle ? {} : { header: { title: '시스템', subtitle: SUBTITLE, actions: registerAction } })}
     >
       <PermissionGate capability="workspace.admin">
         <ManagedSystemsBody
           includeArchived={includeArchived}
           registerOpen={registerOpen}
           setRegisterOpen={setRegisterOpen}
+          actions={<>
+            <ManagedSystemsFilter includeArchived={includeArchived} onIncludeArchivedChange={setIncludeArchived} />
+            {hostOwnsTitle ? registerAction : null}
+          </>}
         />
       </PermissionGate>
     </PageShell>
@@ -93,10 +86,12 @@ function ManagedSystemsBody({
   includeArchived,
   registerOpen,
   setRegisterOpen,
+  actions,
 }: {
   includeArchived: boolean;
   registerOpen: boolean;
   setRegisterOpen: (v: boolean) => void;
+  actions: React.ReactNode;
 }) {
   const { canLink } = useHostSeam();
   const [editTarget, setEditTarget] = useState<ManagedSystemDto | null>(null);
@@ -129,7 +124,7 @@ function ManagedSystemsBody({
     <section className="space-y-8">
       {/* ── Registry ──────────────────────────────────────────────── */}
       <div>
-        <div className="mb-3.5 flex items-center justify-between">
+        <div className="mb-3.5 flex flex-wrap items-center justify-between gap-2">
           <h3
             id={ADMIN_LIST_FOCUS_FALLBACK_ID}
             tabIndex={-1}
@@ -137,9 +132,12 @@ function ManagedSystemsBody({
           >
             레지스트리
           </h3>
-          <span className="text-xs text-text-muted">
-            시스템 {systems.length}개 · 분석 영역 {renderedAreaCount}개
-          </span>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <span className="text-xs text-text-muted">
+              시스템 {systems.length}개 · 분석 영역 {renderedAreaCount}개
+            </span>
+            {actions}
+          </div>
         </div>
 
         {listQuery.isPending ? (

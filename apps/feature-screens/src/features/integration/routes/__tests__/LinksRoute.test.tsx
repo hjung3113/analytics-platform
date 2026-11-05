@@ -213,11 +213,11 @@ describe('integration links route', () => {
       expect(screen.getAllByText('운영자')).toHaveLength(2);
       expect(screen.getAllByText(/업데이트/)).toHaveLength(2);
       expect(screen.getByText('필터')).toBeInTheDocument();
-      expect(screen.getByPlaceholderText('엔티티 링크 검색…')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('연결 관계 검색…')).toBeInTheDocument();
     });
-    expect(screen.getByRole('list', { name: '엔티티 링크 목록' })).toBeInTheDocument();
+    expect(screen.getByRole('list', { name: '연결 관계 목록' })).toBeInTheDocument();
     expect(screen.getAllByRole('listitem')).toHaveLength(2);
-    expect(screen.queryByRole('table', { name: '엔티티 링크 목록' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('table', { name: '연결 관계 목록' })).not.toBeInTheDocument();
     expect(screen.queryByRole('columnheader', { name: 'Relation' })).not.toBeInTheDocument();
     expect(screen.queryByRole('columnheader', { name: 'Managed System' })).not.toBeInTheDocument();
     expect(document.querySelector('[data-shell="list"]')).not.toBeNull();
@@ -236,7 +236,7 @@ describe('integration links route', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('현재 조건에 맞는 엔티티 링크가 없습니다')).toBeInTheDocument();
+      expect(screen.getByText('현재 조건에 맞는 연결 관계가 없습니다')).toBeInTheDocument();
     });
     expect(screen.getByText('상태: 취소됨')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: '필터 초기화' }));
@@ -257,7 +257,7 @@ describe('integration links route', () => {
       </QueryClientProvider>,
     );
 
-    expect(await screen.findByText('엔티티 링크가 없습니다.')).toBeInTheDocument();
+    expect(await screen.findByText('연결 관계가 없습니다.')).toBeInTheDocument();
     expect(screen.getByText('시스템 간 연결이 생성되면 이 목록에 표시됩니다.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '필터 초기화' })).not.toBeInTheDocument();
   });
@@ -278,7 +278,7 @@ describe('integration links route', () => {
     );
 
     await waitFor(
-      () => expect(screen.getByText('엔티티 링크 목록을 불러오지 못했습니다')).toBeInTheDocument(),
+      () => expect(screen.getByText('연결 관계 목록을 불러오지 못했습니다')).toBeInTheDocument(),
       { timeout: 4000 },
     );
     const attemptsBeforeRetry = urls.filter((url) => url.includes('/entity-links')).length;
@@ -304,14 +304,14 @@ describe('integration links route', () => {
       </QueryClientProvider>,
     );
 
-    await waitFor(() => expect(screen.getByText('엔티티 링크')).toBeInTheDocument(), {
+    await waitFor(() => expect(screen.getByText('연결 관계')).toBeInTheDocument(), {
       timeout: 4000,
     });
-    const panel = screen.getByText('엔티티 링크');
+    const panel = screen.getByText('연결 관계');
     expect(panel.closest('[data-state]')).toHaveAttribute('data-state', 'denied');
-    expect(screen.getByText('엔티티 링크 목록을 볼 권한이 없습니다.')).toBeInTheDocument();
+    expect(screen.getByText('연결 관계 목록을 볼 권한이 없습니다.')).toBeInTheDocument();
     expect(screen.queryByText('entity_link.read capability required')).not.toBeInTheDocument();
-    expect(screen.queryByText('엔티티 링크 목록을 불러오지 못했습니다')).not.toBeInTheDocument();
+    expect(screen.queryByText('연결 관계 목록을 불러오지 못했습니다')).not.toBeInTheDocument();
   });
 
   test('changing status tab updates the request status param and rendered subset', async () => {
@@ -519,7 +519,7 @@ describe('integration links route', () => {
       if (state === 'failed') {
         await waitFor(
           () =>
-            expect(screen.getByText('엔티티 링크 목록을 불러오지 못했습니다')).toBeInTheDocument(),
+            expect(screen.getByText('연결 관계 목록을 불러오지 못했습니다')).toBeInTheDocument(),
           { timeout: 4000 },
         );
         expect(screen.getByRole('tab', { name: '전체' })).toBeInTheDocument();
@@ -609,7 +609,7 @@ describe('integration links route', () => {
     );
 
     await waitFor(
-      () => expect(screen.getByText('엔티티 링크 목록을 불러오지 못했습니다')).toBeInTheDocument(),
+      () => expect(screen.getByText('연결 관계 목록을 불러오지 못했습니다')).toBeInTheDocument(),
       { timeout: 4000 },
     );
     expect(screen.getByRole('tab', { name: '전체' })).toBeInTheDocument();
@@ -626,7 +626,7 @@ describe('integration links route', () => {
       ),
     );
     await waitFor(() =>
-      expect(screen.queryByText('엔티티 링크 목록을 불러오지 못했습니다')).not.toBeInTheDocument(),
+      expect(screen.queryByText('연결 관계 목록을 불러오지 못했습니다')).not.toBeInTheDocument(),
     );
     expect(screen.getByRole('tab', { name: '전체' })).toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: /^전체\s*,\s*\d+$/ })).not.toBeInTheDocument();

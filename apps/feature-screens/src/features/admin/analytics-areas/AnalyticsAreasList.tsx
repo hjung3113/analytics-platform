@@ -103,6 +103,7 @@ export function AnalyticsAreasCatalog({
   onRowClick,
   onAddArea,
   onClearFilters,
+  actions,
 }: {
   guardrailTitle: string;
   guardrailBody: string;
@@ -117,6 +118,7 @@ export function AnalyticsAreasCatalog({
   onRowClick: (area: AnalyticsAreaDto, trigger: HTMLElement) => void;
   onAddArea: (msId: string) => void;
   onClearFilters: () => void;
+  actions: React.ReactNode;
 }) {
   return (
     <section className="space-y-6" data-testid="analytics-areas-catalog">
@@ -127,13 +129,16 @@ export function AnalyticsAreasCatalog({
       </div>
 
       <div>
-        <div className="mb-3.5 flex items-center justify-between">
+        <div className="mb-3.5 flex flex-wrap items-center justify-between gap-2">
           <PanelSectionTitle id={ADMIN_LIST_FOCUS_FALLBACK_ID} tabIndex={-1} className="mb-0">
             카탈로그
           </PanelSectionTitle>
-          <span className="text-xs text-text-muted">
-            분석 영역 {renderedAreaCount}개 · 시스템 {renderedSystems.length}개
-          </span>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <span className="text-xs text-text-muted">
+              분석 영역 {renderedAreaCount}개 · 시스템 {renderedSystems.length}개
+            </span>
+            {actions}
+          </div>
         </div>
 
         {pending ? (

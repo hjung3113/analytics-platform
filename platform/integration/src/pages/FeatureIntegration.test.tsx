@@ -50,7 +50,7 @@ afterEach(() => { cleanup(); setFeatureApi(null); vi.unstubAllGlobals(); window.
 describe.each([
   ['/flow/integration', '연동 대시보드', 'dashboard'],
   ['/flow/coverage', '커버리지', 'coverage'],
-  ['/flow/entity-links', '엔티티 링크', 'links'],
+  ['/flow/entity-links', '연결 관계', 'links'],
 ])('%s without a feature API (mock preview)', (path, title, testId) => {
   it('shows 실서버 필요 and mounts no screen', async () => {
     mountAt(path);
@@ -84,7 +84,7 @@ describe('연동 액션 대시보드 through the feature bridge', () => {
   });
 });
 
-describe('커버리지 and 엔티티 링크 through the feature bridge', () => {
+describe('커버리지 and 연결 관계 through the feature bridge', () => {
   beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() }); });
 
   it('mounts Coverage reading view and area as the screen /integration/coverage path, with no drawer', async () => {

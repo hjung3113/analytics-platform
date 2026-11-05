@@ -16,7 +16,7 @@ export const GLOSSARY = {
   allFindings: '전체 Finding',
   allSurveys: '전체 설문',
   actionDashboard: '액션 대시보드',
-  entityLinks: '엔티티 링크',
+  entityLinks: '연결 관계',
   permissionRequests: '권한 요청',
   coverage: '커버리지',
   untriaged: '미분류',

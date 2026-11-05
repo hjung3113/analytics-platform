@@ -22,7 +22,7 @@ export const SOURCE_LABEL: Record<AuditSource, { ko: string; en: string }> = {
 export const TYPE_LABEL: Record<string, { ko: string; en: string }> = {
   equipment: { ko: '설비', en: 'Equipment' }, metric: { ko: '지표', en: 'Metric' }, annotation: { ko: '차트 주석', en: 'Chart annotation' },
   voc: { ko: 'VOC', en: 'VOC' }, finding: { ko: 'Finding', en: 'Finding' }, task: { ko: 'Task', en: 'Task' },
-  task_request: { ko: 'Task 요청', en: 'Task request' }, entity_link: { ko: '엔티티 링크', en: 'Entity link' },
+  task_request: { ko: 'Task 요청', en: 'Task request' }, entity_link: { ko: '연결 관계', en: 'Entity link' },
   voc_cluster: { ko: 'VOC 클러스터', en: 'VOC cluster' }, permission_request: { ko: '권한 요청', en: 'Permission request' },
   permission_grant: { ko: '권한 부여', en: 'Permission grant' }, permission_deny: { ko: '권한 거절', en: 'Permission denial' },
   survey: { ko: '설문', en: 'Survey' }, survey_question: { ko: '설문 문항', en: 'Survey question' },

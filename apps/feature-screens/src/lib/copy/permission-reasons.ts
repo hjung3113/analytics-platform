@@ -8,7 +8,7 @@ export const PERMISSION_BLOCKED_REASONS = {
   milestoneTasks: '이 Milestone의 Task를 볼 권한이 없습니다.',
   taskRequestQueue:
     'Task 요청 목록을 볼 권한이 없습니다. 워크스페이스 관리자에게 권한을 요청하세요.',
-  entityLinks: '엔티티 링크 목록을 볼 권한이 없습니다.',
+  entityLinks: '연결 관계 목록을 볼 권한이 없습니다.',
   findingsList: 'Finding 목록을 볼 권한이 없습니다. 워크스페이스 관리자에게 권한을 요청하세요.',
   vocTriage: 'VOC 분류 권한이 없습니다. 워크스페이스 관리자에게 권한을 요청하세요.',
   vocTriageManagedSystem: '선택한 시스템의 VOC 분류 권한이 없습니다.',

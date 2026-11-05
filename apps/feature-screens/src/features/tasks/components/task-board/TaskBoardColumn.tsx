@@ -46,7 +46,7 @@ export function TaskBoardColumn({
   return (
     <section
       data-task-board-column
-      className={`flex min-h-0 min-w-40 flex-1 basis-0 flex-col rounded-sm border border-border-subtle bg-surface-raised ${droppable.isOver ? 'ring-1 ring-accent-primary' : ''}`}
+      className={`flex min-h-0 min-w-72 flex-1 basis-0 flex-col rounded-sm border border-border-subtle bg-surface-raised ${droppable.isOver ? 'ring-1 ring-accent-primary' : ''}`}
       aria-label={`${label} 열`}
     >
       <header className="flex items-center gap-2 border-b border-border-subtle px-3 py-2">
@@ -61,8 +61,8 @@ export function TaskBoardColumn({
           {total === null ? '—' : (total ?? tasks.length)}
         </span>
       </header>
-      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2">
-        <div ref={droppable.setNodeRef} className="flex min-h-full shrink-0 flex-col gap-2">
+      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-x-hidden overflow-y-auto p-2">
+        <div ref={droppable.setNodeRef} className="flex min-h-full min-w-0 shrink-0 flex-col gap-2">
           {tasks.map((task) => {
             const assignee = resolveTaskAssignee(task.assignee_actor_id, names.actors);
             return (

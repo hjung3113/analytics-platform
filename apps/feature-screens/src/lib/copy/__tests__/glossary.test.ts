@@ -12,7 +12,7 @@ describe('lib/copy/glossary', () => {
     expect(GLOSSARY.save).toBe('저장');
     expect(GLOSSARY.inbox).toBe('VOC 처리함');
     expect(GLOSSARY.myVocs).toBe('내 VOC');
-    expect(GLOSSARY.entityLinks).toBe('엔티티 링크');
+    expect(GLOSSARY.entityLinks).toBe('연결 관계');
     expect(GLOSSARY.permissionRequests).toBe('권한 요청');
     expect(GLOSSARY.coverage).toBe('커버리지');
     expect(GLOSSARY.untriaged).toBe('미분류');

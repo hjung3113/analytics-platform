@@ -2,11 +2,11 @@ import { expect, test, type Page } from '@playwright/test';
 import { mainHeading, query, signInAs } from './support';
 
 /**
- * 기능 › 연동 (#762 p2, ADR-0110): 연동 대시보드, 엔티티 링크 and 커버리지 (연동 섹션) plus 근거 (Finding 섹션) as bridge menus. The e2e run uses the mock adapter, where `FeatureBridge` renders only `실서버 필요`,
+ * 기능 › 연동 (#762 p2, ADR-0110): 연동 대시보드, 연결 관계 and 커버리지 (연동 섹션) plus 근거 (Finding 섹션) as bridge menus. The e2e run uses the mock adapter, where `FeatureBridge` renders only `실서버 필요`,
  * so no screen or drawer mounts here; the in-place drawers are covered by the page tests and the conductor's real-server check.
  */
 const EVIDENCE = '99999999-9999-4999-8999-999999999999';
-const MENUS = ['연동 대시보드', '엔티티 링크', '커버리지'];
+const MENUS = ['연동 대시보드', '연결 관계', '커버리지'];
 
 const sidebar = (page: Page) => page.getByRole('navigation', { name: '주 메뉴' });
 const sections = (page: Page) => page.getByRole('navigation', { name: '시스템 레일' }).getByRole('group', { name: '시스템 섹션' });
@@ -21,7 +21,7 @@ test.describe('기능 연동 그룹(#762 p2)', () => {
   });
 
   test.describe('각 메뉴 본문은 실서버 필요다', () => {
-    for (const [name, path, section] of [['연동 대시보드', '/flow/integration', '연동'], ['근거', '/flow/evidence', 'Finding'], ['엔티티 링크', '/flow/entity-links', '연동'], ['커버리지', '/flow/coverage', '연동']] as const) {
+    for (const [name, path, section] of [['연동 대시보드', '/flow/integration', '연동'], ['근거', '/flow/evidence', 'Finding'], ['연결 관계', '/flow/entity-links', '연동'], ['커버리지', '/flow/coverage', '연동']] as const) {
       test(name, async ({ page }) => {
         await page.goto('/flow/dashboard');
         await sections(page).getByRole('button', { name: section, exact: true }).click();
