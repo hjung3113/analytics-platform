@@ -17,6 +17,9 @@ import {
   softwareFilterSpecs, softwareSetActive, softwareUpdate, softwareVersionsEndpoint, vendorCreate, vendorFilterSpecs, vendorSetActive,
   vendorUpdate, vendorsEndpoint, type CatalogPageParams, type CatalogSummary, type ModelRow,
 } from '../endpoints';
+import { specReadsMock } from './specReads';
+import { specWritesMock } from './specWrites';
+export { resetSpecs } from './specStore';
 import { modelReadsMock } from './models';
 import { itemActionsMock } from './itemActions';
 import { itemReadsMock } from './itemReads';
@@ -135,6 +138,7 @@ const readMock = <T>(spec: Parameters<typeof defineMockEndpoint<CatalogPageParam
 export const logKnowledgeMock: readonly AnyMockEndpoint[] = [
   readMock(vendorsEndpoint, 'vendor'), readMock(processesEndpoint, 'process'), readMock(modelsEndpoint, 'model'), readMock(softwareVersionsEndpoint, 'software'),
   ...modelReadsMock({ message: params => paramsMessage(params, SHAPES.model), page: params => read('model', params) as unknown as PageResult<ModelRow> }),
+  ...specReadsMock,
   ...itemReadsMock,
   ...importReadsMock,
 ];
@@ -255,6 +259,7 @@ export const logKnowledgeActionsMock: readonly AnyMockAction[] = [
   ...writes('process', { create: processCreate, update: processUpdate, setActive: processSetActive }),
   ...writes('model', { create: modelCreate, update: modelUpdate, setActive: modelSetActive }),
   ...writes('software', { create: softwareCreate, update: softwareUpdate, setActive: softwareSetActive }),
+  ...specWritesMock,
   ...itemActionsMock,
   ...importActionsMock,
 ];

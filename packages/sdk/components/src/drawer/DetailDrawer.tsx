@@ -9,8 +9,8 @@ import { useHostPlatformOptional } from '@ap/kernel/host';
 import { Tabs, TabsContent, TabsList, TabsTrigger, TransientOverlayScope, useDetailPanelSlot, useSurfacePaused } from '@ap/ui';
 
 /** §13: URL-controlled detail content rendered into the shell-owned docked slot. */
-export function DetailDrawer({ title, subtitle, headerActions, context, tabs, onClose, tab, onTabChange }: {
-  title: ReactNode; subtitle?: ReactNode; headerActions?: ReactNode; context?: ReactNode;
+export function DetailDrawer({ title, subtitle, headerActions, context, footer, tabs, onClose, tab, onTabChange }: {
+  title: ReactNode; subtitle?: ReactNode; headerActions?: ReactNode; context?: ReactNode; footer?: ReactNode;
   tabs: { id: string; label: ReactNode; content: ReactNode }[];
   onClose: () => void; tab?: string; onTabChange?: (tab: string) => void;
 }) {
@@ -26,7 +26,7 @@ export function DetailDrawer({ title, subtitle, headerActions, context, tabs, on
   useCloseOnPaneChange(onClose);
   // A drawer whose owning surface is covered stays mounted in the hidden host; its own transient UI is dismissed, as a docked detail owns its visibility.
   const paused = useSurfacePaused();
-  return host ? createPortal(<TransientOverlayScope active={!paused} detached><OutcomeScope><DetailContent superseded={superseded} title={title} subtitle={subtitle} headerActions={headerActions} context={context} tabs={tabs} onClose={onClose} tab={tab} onTabChange={onTabChange} /></OutcomeScope></TransientOverlayScope>, host) : null;
+  return host ? createPortal(<TransientOverlayScope active={!paused} detached><OutcomeScope><DetailContent superseded={superseded} title={title} subtitle={subtitle} headerActions={headerActions} context={context} footer={footer} tabs={tabs} onClose={onClose} tab={tab} onTabChange={onTabChange} /></OutcomeScope></TransientOverlayScope>, host) : null;
 }
 
 /**
@@ -48,7 +48,7 @@ function useCloseOnPaneChange(onClose: () => void) {
   }, [identity]);
 }
 
-function DetailContent({ superseded, title, subtitle, headerActions, context, tabs, onClose, tab, onTabChange }: Parameters<typeof DetailDrawer>[0] & { superseded: MutableRefObject<boolean> }) {
+function DetailContent({ superseded, title, subtitle, headerActions, context, footer, tabs, onClose, tab, onTabChange }: Parameters<typeof DetailDrawer>[0] & { superseded: MutableRefObject<boolean> }) {
   const { lang } = useI18n();
   const close = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
@@ -145,5 +145,6 @@ function DetailContent({ superseded, title, subtitle, headerActions, context, ta
           <TabsContent key={tb.id} value={tb.id} className="min-h-0 flex-1 overflow-auto px-5 py-3 focus-visible:ring-inset focus-visible:ring-offset-0">{tb.content}</TabsContent>
         ))}
       </Tabs>}
+    {footer !== undefined && <div className="shrink-0 border-t border-border-subtle px-5 py-3">{footer}</div>}
     </div>;
 }

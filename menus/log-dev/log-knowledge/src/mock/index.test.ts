@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { KERNEL_PERMISSIONS, emptyGlobal, groupId, type ColumnFilter, type FieldError, type MenuMeta } from '@ap/contracts';
 import { createMockAdapter, setRole, type AnyMockAction } from '@ap/mock-server';
-import { CATALOG_MANAGE_PERMISSION, ITEM_PUBLISH_PERMISSION, LOG_KNOWLEDGE_MODELS_MENU_ID, catalogActionSpecs, catalogEndpointSpecs, itemActionSpecs, importApply, importCancel, importDetailEndpoint, importPaste, importResolve, importValidate, itemEndpointSpecs, modelEndpointSpecs } from '../endpoints';
+import { SPEC_PUBLISH_PERMISSION, modelSpecEndpointSpecs, specActionSpecs, CATALOG_MANAGE_PERMISSION, ITEM_PUBLISH_PERMISSION, LOG_KNOWLEDGE_MODELS_MENU_ID, catalogActionSpecs, catalogEndpointSpecs, itemActionSpecs, importApply, importCancel, importDetailEndpoint, importPaste, importResolve, importValidate, itemEndpointSpecs, modelEndpointSpecs } from '../endpoints';
+// #1196 e/f reads are declared (server mirror) but not mocked here yet: backlog «#1196 e·f 화면과 mock 서버».
+const E_F_WRITES = new Set(['logKnowledge.conceptPropose', 'logKnowledge.conceptConfirm', 'logKnowledge.conceptReject']);
+const E_F_READS = new Set(['logKnowledge.conceptMappings', 'logKnowledge.conceptSuggestions', 'logKnowledge.specSubjectItems']);
 import { logKnowledgeActionsMock, logKnowledgeMock, resetCatalog } from './index';
 
 type Row = Record<string, unknown>;
@@ -212,13 +215,13 @@ describe('registration with the mock adapter', () => {
   const adapter = () => createMockAdapter({
     endpoints: logKnowledgeMock, actions: logKnowledgeActionsMock,
     registry: { menus: [menu('log-knowledge-catalog', CATALOG_MANAGE_PERMISSION), menu(LOG_KNOWLEDGE_MODELS_MENU_ID, 'platform:view'), menu('log-knowledge-items', 'platform:view'), menu('home', 'platform:view')] },
-    permissions: [...KERNEL_PERMISSIONS, CATALOG_MANAGE_PERMISSION, ITEM_PUBLISH_PERMISSION],
+    permissions: [...KERNEL_PERMISSIONS, CATALOG_MANAGE_PERMISSION, ITEM_PUBLISH_PERMISSION, SPEC_PUBLISH_PERMISSION],
   });
 
-  it('registers the reads, the twelve catalog writes, the five item writes and the five import wizard actions and read (importMap stays API-only) (menu, permission and invalidates are valid)', () => {
+  it('registers the reads, the twelve catalog writes, the five item writes and the five import wizard actions and read, and the spec reads and writes (importMap stays API-only) (menu, permission and invalidates are valid)', () => {
     expect(() => adapter()).not.toThrow();
-    expect(logKnowledgeMock.map(e => e.spec)).toEqual([...catalogEndpointSpecs, ...modelEndpointSpecs, ...itemEndpointSpecs, importDetailEndpoint]);
-    expect(logKnowledgeActionsMock.map(a => a.spec)).toEqual([...catalogActionSpecs, ...itemActionSpecs, importPaste, importValidate, importResolve, importCancel, importApply]);
+    expect(logKnowledgeMock.map(e => e.spec)).toEqual([...catalogEndpointSpecs, ...modelEndpointSpecs, ...modelSpecEndpointSpecs.filter(spec => !E_F_READS.has(spec.id)), ...itemEndpointSpecs, importDetailEndpoint]);
+    expect(logKnowledgeActionsMock.map(a => a.spec)).toEqual([...catalogActionSpecs, ...specActionSpecs.filter(spec => !E_F_WRITES.has(spec.id)), ...itemActionSpecs, importPaste, importValidate, importResolve, importCancel, importApply]);
   });
 
   it.each([['vendors'], ['processes'], ['models'], ['softwareVersions']])('%s: a query with no match answers ok with an empty page, like the server', async id => {
