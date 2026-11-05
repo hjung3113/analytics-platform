@@ -7,9 +7,9 @@
 import { z } from 'zod';
 
 import type { FieldError } from '../../menu-dispatch/types.js';
-import { unsafeText } from '../../platform-port/text-safety.js';
-import { NAME_MAX, toCodeKey } from './code-key.js';
-import { fieldErrors, normalizeSpecName } from './spec-input.js';
+import { NAME_MAX } from './code-key.js';
+import { MODULE_EVENT_TARGET_SCHEMAS as TARGET_SCHEMAS, bounded, canonical, isRecord, kindEnum, nameText, optionalText, under, uuidText } from './input-kit.js';
+import { fieldErrors } from './spec-input.js';
 import { type SpecTargetKind, type SpecTargetRef, TARGET_KEY_MAX, buildTargetKey } from './spec-target-key.js';
 
 export const CONCEPT_KINDS = ['module', 'event'] as const;
@@ -19,42 +19,11 @@ export const CONCEPT_REVIEW_STATES = ['proposed', 'confirmed', 'rejected'] as co
 export const CONCEPT_DESCRIPTION_MAX = 1000;
 export const CONCEPT_REJECT_REASON_MAX = 500;
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const canonical = (v: string): string => v.toLowerCase();
-const REQUIRED = { required_error: 'required', invalid_type_error: 'required' };
-const length = (value: string): number => [...value].length;
-export const uuidText = z.string(REQUIRED).refine((v) => UUID.test(v), { message: 'malformed' });
-const bounded = (max: number) =>
-  z.string(REQUIRED).superRefine((value, ctx) => {
-    if (unsafeText(value)) ctx.addIssue({ code: 'custom', message: 'malformed' });
-    else if (length(value) > max) ctx.addIssue({ code: 'custom', message: 'too_long' });
-  });
-const nameText = (max: number) =>
-  bounded(max)
-    .refine((v) => normalizeSpecName(v) !== '', { message: 'required' })
-    .transform(normalizeSpecName);
-const optionalText = (max: number) =>
-  bounded(max)
-    .nullish()
-    .transform((v) => (v === undefined || v === null || v.trim() === '' ? null : v.trim()));
-const kindEnum = <T extends readonly [string, ...string[]]>(values: T) =>
-  z.enum(values, { errorMap: (_i, ctx) => ({ message: ctx.data === undefined ? 'required' : 'malformed' }) });
-/** A module / event key spelling, normalised exactly like the SW change targets (`toCodeKey`). */
-const refText = nameText(NAME_MAX).transform(toCodeKey);
-
-const TARGET_SCHEMAS = {
-  module: z.object({ module: refText }).strict({ message: 'malformed' }),
-  event: z.object({ module: refText, event: refText }).strict({ message: 'malformed' }),
-} as const;
-
 export interface ConceptTarget {
   targetKind: ConceptKind;
   target: SpecTargetRef;
   targetKey: string;
 }
-
-const isRecord = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === 'object' && !Array.isArray(v);
-const under = (prefix: readonly string[], errors: FieldError[]): FieldError[] => errors.map((e) => ({ path: [...prefix, ...e.path], code: e.code }));
 
 /** `targetKind` + `target` of a module or event, with the stable key they spell. Shared with the Item subject link. */
 export function parseModuleEventTarget(
