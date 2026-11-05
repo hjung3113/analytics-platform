@@ -935,9 +935,11 @@ export const specSwChanges = knowledgeSchema.table(
     targetKindCheck: check('spec_sw_change_target_kind_check', sql`${t.targetKind} in ${sql.raw(SPEC_CHANGE_TARGET_KINDS)}`),
     changeKindCheck: check('spec_sw_change_change_kind_check', sql`${t.changeKind} in ${sql.raw(SPEC_CHANGE_KINDS)}`),
     targetKeyCheck: check('spec_sw_change_target_key_check', sql`char_length(${t.targetKey}) between 1 and 1200`),
+    // 17408 = the app's 16 KiB compact cap (SPEC_CHANGE_JSON_MAX_BYTES) plus headroom for jsonb ::text separator
+    // spaces (≤ ~420 bytes over the closed v1 shapes); see migration 0096 for the bound.
     changeJsonCheck: check(
       'spec_sw_change_change_json_check',
-      sql`jsonb_typeof(${t.changeJson}) = 'object' and octet_length(${t.changeJson}::text) <= 16384`,
+      sql`jsonb_typeof(${t.changeJson}) = 'object' and octet_length(${t.changeJson}::text) <= 17408`,
     ),
     noteCheck: check('spec_sw_change_note_check', sql`${t.note} is null or char_length(${t.note}) <= 1000`),
     evidenceCheck: check('spec_sw_change_evidence_ref_check', sql`${t.evidenceRef} is null or char_length(${t.evidenceRef}) <= 500`),

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { CheckService } from '../../permissions/check-service.js';
-import { parseSpecChangeAdd, parseSpecChangeRetire, validateSpecChange } from '../domain/spec-change-input.js';
+import { parseSpecChangeAdd, parseSpecChangeConfirm, parseSpecChangeRetire, validateSpecChange } from '../domain/spec-change-input.js';
 import { specChangeActions } from '../spec-change-actions.js';
 
 const ID = '0f2c1c0e-8a53-4c43-9d0b-6a7f3a1d2e10';
@@ -20,6 +20,17 @@ describe('spec change input validation (#1196 c)', () => {
       targetKey: 'SPINDLE/START', targetKind: 'event', endsBeforeSoftwareId: null, note: null,
       change: { before: { name: 'Start', triggerRule: null, detailDocRef: null }, after: { name: 'Start', triggerRule: 'on press', detailDocRef: null } },
     });
+  });
+
+  it('answers supplied UUIDs in canonical lower-case (the lock key hashes the text, orders are keyed by DB ids)', () => {
+    const upper = ID.toUpperCase();
+    const upper2 = ID2.toUpperCase();
+    const r = parseSpecChangeAdd(add({ modelId: upper, softwareId: upper2, endsBeforeSoftwareId: upper }));
+    expect(r.ok && r.value).toMatchObject({ modelId: ID, softwareId: ID2, endsBeforeSoftwareId: ID });
+    const retire = parseSpecChangeRetire({ changeId: upper, replacement: { softwareId: upper2, targetKind: 'event', target: { module: 'a', event: 'b' }, changeKind: 'behavior', change: {}, note: 'n' } });
+    expect(retire.ok && retire.value).toMatchObject({ changeId: ID, replacement: { softwareId: ID2 } });
+    const confirm = parseSpecChangeConfirm({ changeId: upper });
+    expect(confirm.ok && confirm.value).toMatchObject({ changeId: ID });
   });
 
   it.each([
@@ -55,6 +66,17 @@ describe('spec change input validation (#1196 c)', () => {
     const after = { name: 'speed', type: 'enum', description: 'd', allowedValues: Array.from({ length: 200 }, (_x, i) => `${i}-${'v'.repeat(150)}`) };
     const errors = validateSpecChange('specChangeAdd', add({ targetKind: 'field', target: { module: 'a', event: 'b', field: 'speed' }, changeKind: 'added', change: { after } }));
     expect(fe(errors)).toEqual(['change:too_large']);
+  });
+
+  it('accepts a change of exactly 16384 serialized bytes and refuses one byte more (a field error, never a server error)', () => {
+    // 78 allowedValues of 200 chars carry the bulk; the description trims the total onto the exact byte target.
+    const at = (total: number) => {
+      const structural = JSON.stringify({ after: { name: 'temp', type: 'enum', description: '', allowedValues: Array.from({ length: 78 }, () => 'v'.repeat(200)) } }).length;
+      return { targetKind: 'field', target: { module: 'a', event: 'b', field: 'temp' }, changeKind: 'added', change: { after: { name: 'temp', type: 'enum', description: 'v'.repeat(total - structural), allowedValues: Array.from({ length: 78 }, () => 'v'.repeat(200)) } } };
+    };
+    expect(JSON.stringify(at(16384).change)).toHaveLength(16384);
+    expect(validateSpecChange('specChangeAdd', add(at(16384)))).toEqual([]);
+    expect(fe(validateSpecChange('specChangeAdd', add(at(16385))))).toEqual(['change:too_large']);
   });
 
   it('retire: a plain retire needs the change id; a replacement is validated under its own path', () => {

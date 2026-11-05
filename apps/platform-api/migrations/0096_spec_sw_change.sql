@@ -24,7 +24,11 @@ CREATE TABLE "knowledge"."spec_sw_change" (
 	CONSTRAINT "spec_sw_change_target_kind_check" CHECK ("knowledge"."spec_sw_change"."target_kind" in ('module','event','field','relation')),
 	CONSTRAINT "spec_sw_change_change_kind_check" CHECK ("knowledge"."spec_sw_change"."change_kind" in ('added','removed','changed','behavior')),
 	CONSTRAINT "spec_sw_change_target_key_check" CHECK (char_length("knowledge"."spec_sw_change"."target_key") between 1 and 1200),
-	CONSTRAINT "spec_sw_change_change_json_check" CHECK (jsonb_typeof("knowledge"."spec_sw_change"."change_json") = 'object' and octet_length("knowledge"."spec_sw_change"."change_json"::text) <= 16384),
+	-- The app cap is 16 KiB of compact serialized JSON (spec-change-input.ts). jsonb ::text adds a space after every
+	-- ':' and ','; over the closed v1 shapes that is at most ~420 bytes (12 keys + 407 array/object separators), so
+	-- 17408 admits every payload the validator accepts. Measuring jsonb ::text exactly in JS would re-implement the
+	-- jsonb serializer (key re-sorting, control-char output); the DB wall therefore sits at a documented 17 KiB.
+	CONSTRAINT "spec_sw_change_change_json_check" CHECK (jsonb_typeof("knowledge"."spec_sw_change"."change_json") = 'object' and octet_length("knowledge"."spec_sw_change"."change_json"::text) <= 17408),
 	CONSTRAINT "spec_sw_change_note_check" CHECK ("knowledge"."spec_sw_change"."note" is null or char_length("knowledge"."spec_sw_change"."note") <= 1000),
 	CONSTRAINT "spec_sw_change_evidence_ref_check" CHECK ("knowledge"."spec_sw_change"."evidence_ref" is null or char_length("knowledge"."spec_sw_change"."evidence_ref") <= 500),
 	CONSTRAINT "spec_sw_change_based_on_check" CHECK ("knowledge"."spec_sw_change"."based_on_rev_no" >= 1),
@@ -68,6 +72,13 @@ BEGIN
 	END IF;
 	IF NEW.row_version IS DISTINCT FROM OLD.row_version + 1 THEN
 		RAISE EXCEPTION 'spec change % update must raise row_version by exactly 1', OLD.id USING ERRCODE = '23514';
+	END IF;
+	-- A replacement is another row of the SAME target (the composite FK alone would allow any row of the model).
+	IF NEW.retired_by_change_id IS NOT NULL AND (NEW.retired_by_change_id = OLD.id OR NOT EXISTS (
+		SELECT 1 FROM knowledge.spec_sw_change r
+		WHERE r.workspace_id = OLD.workspace_id AND r.id = NEW.retired_by_change_id
+			AND r.model_id = OLD.model_id AND r.target_kind = OLD.target_kind AND r.target_key = OLD.target_key)) THEN
+		RAISE EXCEPTION 'spec change % replacement must be a different row of the same target', OLD.id USING ERRCODE = '23514';
 	END IF;
 	IF OLD.retired_at IS NOT NULL AND (NEW.retired_at IS DISTINCT FROM OLD.retired_at OR NEW.retired_by IS DISTINCT FROM OLD.retired_by
 		OR NEW.retired_by_change_id IS DISTINCT FROM OLD.retired_by_change_id OR NEW.needs_revalidation IS DISTINCT FROM OLD.needs_revalidation

@@ -23,8 +23,11 @@ export const SPEC_CHANGE_EVIDENCE_MAX = 500;
 export const SPEC_CHANGES_OPEN_MAX = 500;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const canonical = (v: string): string => v.toLowerCase();
 const REQUIRED = { required_error: 'required', invalid_type_error: 'required' };
 const length = (value: string): number => [...value].length;
+// Accepted in any spelling, always answered in the DB's lower-case: the advisory lock key hashes the text, and
+// `softwareOrders` keys are DB ids — a mixed-case id must not take another lock or miss its own order lookup.
 const uuid = z.string(REQUIRED).refine((v) => UUID.test(v), { message: 'malformed' });
 const bounded = (max: number) =>
   z.string(REQUIRED).superRefine((value, ctx) => {
@@ -140,8 +143,8 @@ export function parseChangeFields(raw: Record<string, unknown>, prefix: readonly
 }
 
 const range = {
-  softwareId: uuid,
-  endsBeforeSoftwareId: uuid.nullish().transform((v) => v ?? null),
+  softwareId: uuid.transform(canonical),
+  endsBeforeSoftwareId: uuid.nullish().transform((v) => (v === null || v === undefined ? null : canonical(v))),
 };
 
 export type SpecChangeOp = 'specChangeAdd' | 'specChangeRetire' | 'specChangeConfirm';
@@ -168,7 +171,7 @@ export function parseSpecChangeAdd(raw: Record<string, unknown>, prefix: readonl
   const fields = parseChangeFields(raw, prefix);
   if (!fields.ok) errors.push(...fields.errors);
   if (errors.length > 0 || !r.success || !fields.ok) return { ok: false, errors };
-  return { ok: true, value: { ...fields.value, modelId: withModel ? String(raw.modelId) : '', softwareId: r.data.softwareId, endsBeforeSoftwareId: r.data.endsBeforeSoftwareId } };
+  return { ok: true, value: { ...fields.value, modelId: withModel ? canonical(String(raw.modelId)) : '', softwareId: r.data.softwareId, endsBeforeSoftwareId: r.data.endsBeforeSoftwareId } };
 }
 
 export function parseSpecChangeRetire(raw: Record<string, unknown>): { ok: true; value: SpecChangeRetireValue } | { ok: false; errors: FieldError[] } {
@@ -184,12 +187,12 @@ export function parseSpecChangeRetire(raw: Record<string, unknown>): { ok: true;
     }
   }
   if (errors.length > 0 || !id.success) return { ok: false, errors };
-  return { ok: true, value: { changeId: id.data.changeId, replacement } };
+  return { ok: true, value: { changeId: canonical(id.data.changeId), replacement } };
 }
 
 export function parseSpecChangeConfirm(raw: Record<string, unknown>): { ok: true; value: { changeId: string } } | { ok: false; errors: FieldError[] } {
   const id = z.object({ changeId: uuid }).safeParse(raw);
-  return id.success ? { ok: true, value: id.data } : { ok: false, errors: fieldErrors(id.error) };
+  return id.success ? { ok: true, value: { changeId: canonical(id.data.changeId) } } : { ok: false, errors: fieldErrors(id.error) };
 }
 
 export function validateSpecChange(op: SpecChangeOp, input: Record<string, unknown>): FieldError[] {

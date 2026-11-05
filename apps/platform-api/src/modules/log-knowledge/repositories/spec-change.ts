@@ -57,9 +57,9 @@ export const changeColumns = {
   rowVersion: c.rowVersion,
 };
 
-/** The model-scoped lock of the SW change flow (a key of its own, not the draft lock). Held to the end of the transaction. */
+/** The model-scoped lock of the SW change flow (a key of its own, not the draft lock). Held to the end of the transaction. The key hashes the text, so the ids go in canonical (lower-case) spelling — a mixed-case input must take the same lock as the DB's lower-case ids. */
 export async function lockModelChanges(tx: Tx, workspaceId: string, modelId: string): Promise<void> {
-  await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`spec-change:${workspaceId}:${modelId}`}, 0))`);
+  await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`spec-change:${workspaceId.toLowerCase()}:${modelId.toLowerCase()}`}, 0))`);
 }
 
 /** `model_id` of a change, read without a lock (the caller takes the model lock next, then `lockChange`). */

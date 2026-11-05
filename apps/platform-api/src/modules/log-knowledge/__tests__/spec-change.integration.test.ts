@@ -379,6 +379,19 @@ describe.skipIf(!runIntegration)('SW change rows (#1196 c)', () => {
       await sql(`update knowledge.spec_sw_change set retired_at = now(), retired_by = $2, row_version = row_version + 1 where model_id = $1 and target_key = 'FILLER/1'`, [f.model, admin.id]);
       expect((await act('specChangeAdd', addInput(f.model, f.sw1))).outcome).toBe('ok');
     });
+
+    it('inserts a change of exactly 16 KiB serialized (jsonb text spacing sits inside the 17 KiB wall); one byte more is change:too_large, never a server error', async () => {
+      const f = await fixture('capj');
+      const at = (total: number) => {
+        const structural = JSON.stringify({ after: { name: 'temp', type: 'enum', description: '', allowedValues: Array.from({ length: 78 }, () => 'v'.repeat(200)) } }).length;
+        return { targetKind: 'field', target: { ...START, field: 'temp' }, changeKind: 'added', change: { after: { name: 'temp', type: 'enum', description: 'v'.repeat(total - structural), allowedValues: Array.from({ length: 78 }, () => 'v'.repeat(200)) } } };
+      };
+      expect(JSON.stringify(at(16384).change)).toHaveLength(16384);
+      const ok = await act('specChangeAdd', addInput(f.model, f.sw1, at(16384)));
+      expect(ok.outcome, JSON.stringify(ok)).toBe('ok');
+      expect(fe(await act('specChangeAdd', addInput(f.model, f.sw1, at(16385))))).toEqual(['change:too_large']);
+      expect((await sql('select count(*)::int as n from knowledge.spec_sw_change where model_id = $1', [f.model])).rows[0].n).toBe(1);
+    });
   });
 
   describe('append-only table', () => {
@@ -405,6 +418,19 @@ describe.skipIf(!runIntegration)('SW change rows (#1196 c)', () => {
       await appSql('update knowledge.spec_sw_change set needs_revalidation = false, retired_at = now(), retired_by = $2, row_version = row_version + 1 where id = $1', [id, admin.id]);
       await expect(appSql('update knowledge.spec_sw_change set retired_at = null, retired_by = null, row_version = row_version + 1 where id = $1', [id])).rejects.toMatchObject({ code: '23514' });
       await expect(appSql('update knowledge.spec_sw_change set needs_revalidation = true, revalidation_rev_no = 2, row_version = row_version + 1 where id = $1', [id])).rejects.toBeDefined();
+    });
+
+    it('the guard rejects a retired_by_change_id at the row itself or another target (direct role); a same-key row passes', async () => {
+      const f = await fixture('guard3');
+      const a = await add(f.model, f.sw1, { endsBeforeSoftwareId: f.sw2 }); // SPINDLE/START [1,2)
+      const sameKey = await add(f.model, f.sw2, { endsBeforeSoftwareId: f.sw3 }); // SPINDLE/START [2,3)
+      const otherKey = await add(f.model, f.sw1, { target: STOP, changeKind: 'behavior', change: {}, note: 'n' }); // SPINDLE MOTOR/STOP [1,∞)
+      const retire = (target: string) =>
+        sql(`update knowledge.spec_sw_change set retired_at = now(), retired_by = $2, retired_by_change_id = $3, row_version = row_version + 1 where id = $1`, [a, admin.id, target]);
+      await expect(retire(otherKey), 'another target').rejects.toMatchObject({ code: '23514' });
+      await expect(retire(a), 'self reference').rejects.toMatchObject({ code: '23514' });
+      await expect(retire(sameKey), 'same target').resolves.toBeDefined();
+      expect(await changeRow(a)).toMatchObject({ retired_by_change_id: sameKey, row_version: 2, needs_revalidation: false });
     });
   });
 
@@ -447,6 +473,26 @@ describe.skipIf(!runIntegration)('SW change rows (#1196 c)', () => {
       expect(fe(await act('specChangeRetire', { changeId: id, replacement: badSoftware }, { expectedVersion: '1' }))).toEqual(['replacement.softwareId:not_found']);
       expect(await changeRow(id)).toMatchObject({ retired_at: null, row_version: 1 });
       expect((await sql('select count(*)::int as n from knowledge.spec_sw_change where model_id = $1', [f.model])).rows[0].n).toBe(1);
+    });
+
+    it('a replacement of exactly 16 KiB serialized inserts; one byte more is replacement.change:too_large and retires nothing', async () => {
+      const f = await fixture('caprep');
+      const speedField = { name: 'speed', type: 'float', unit: 'rpm', description: 'speed value' };
+      const at = (total: number) => {
+        const allowedValues = Array.from({ length: 76 }, () => 'v'.repeat(200));
+        const structural = JSON.stringify({ before: speedField, after: { ...speedField, description: '', allowedValues } }).length;
+        return { targetKind: 'field', target: { ...START, field: 'speed' }, changeKind: 'changed', change: { before: speedField, after: { ...speedField, description: 'v'.repeat(total - structural), allowedValues } } };
+      };
+      expect(JSON.stringify(at(16384).change)).toHaveLength(16384);
+      const a = await add(f.model, f.sw1, { endsBeforeSoftwareId: f.sw2, targetKind: 'field', target: { ...START, field: 'speed' }, changeKind: 'behavior', change: {}, note: 'a' }); // [1,2)
+      const c = await add(f.model, f.sw2, { endsBeforeSoftwareId: f.sw3, targetKind: 'field', target: { ...START, field: 'speed' }, changeKind: 'behavior', change: {}, note: 'c' }); // [2,3)
+      const ok = await act('specChangeRetire', { changeId: a, replacement: { ...at(16384), softwareId: f.sw1, endsBeforeSoftwareId: f.sw2 } }, { expectedVersion: '1' });
+      expect(ok.outcome, JSON.stringify(ok)).toBe('ok');
+      const over = await act('specChangeRetire', { changeId: c, replacement: { ...at(16385), softwareId: f.sw2, endsBeforeSoftwareId: f.sw3 } }, { expectedVersion: '1' });
+      expect(over.outcome).toBe('invalid');
+      expect(fe(over)).toEqual(['replacement.change:too_large']);
+      expect(await changeRow(c)).toMatchObject({ retired_at: null, row_version: 1 });
+      expect((await sql('select count(*)::int as n from knowledge.spec_sw_change where model_id = $1', [f.model])).rows[0].n).toBe(3); // a retired + its replacement + c open
     });
 
     it('confirm clears the flag, keeps the content, bumps the version and audits; unflagged is needsRevalidation:not_set', async () => {
@@ -607,6 +653,40 @@ describe.skipIf(!runIntegration)('SW change rows (#1196 c)', () => {
       );
       expect(stale.rows[0].n).toBe(0);
     });
+
+    it('a mixed-case add queues on the same lock: the lowercase add serialises first, the uppercase second is range:overlap', async () => {
+      const f = await fixture('raceC');
+      let first: Promise<Answer> | undefined;
+      let second: Promise<Answer> | undefined;
+      await holdLock(f.model, async (pid) => {
+        first = act('specChangeAdd', addInput(f.model, f.sw1));
+        await waitForLockWaiters('first add queued', [pid], 1);
+        second = act('specChangeAdd', addInput(f.model, f.sw1, { modelId: f.model.toUpperCase(), softwareId: f.sw1.toUpperCase() }));
+        await waitForLockWaiters('uppercase add queued', [pid], 2);
+      });
+      expect((await defined(first)).outcome, JSON.stringify(await defined(first))).toBe('ok');
+      const secondAnswer = await defined(second);
+      expect(secondAnswer.outcome, JSON.stringify(secondAnswer)).toBe('invalid');
+      expect(fe(secondAnswer)).toEqual(['range:overlap']);
+      expect((await sql('select count(*)::int as n from knowledge.spec_sw_change where model_id = $1', [f.model])).rows[0].n).toBe(1);
+    });
+
+    it('a mixed-case add waits for the publish behind one lock and is flagged like a lowercase one', async () => {
+      const f = await fixture('raceD');
+      const draft = await draftFor(f.model);
+      let addition: Promise<Answer> | undefined;
+      let publish: Promise<Answer> | undefined;
+      await holdLock(f.model, async (pid) => {
+        addition = act('specChangeAdd', addInput(f.model, f.sw1, { modelId: f.model.toUpperCase(), softwareId: f.sw1.toUpperCase() }));
+        await waitForLockWaiters('uppercase add queued', [pid], 1);
+        publish = act('specPublish', { revisionId: draft.id }, { expectedVersion: draft.version });
+        await waitForLockWaiters('publish queued', [pid], 2);
+      });
+      const added = await defined(addition);
+      expect(added.outcome, JSON.stringify(added)).toBe('ok');
+      expect((await defined(publish)).data.outcome).toBe('published');
+      expect(await changeRow(added.data.changeId)).toMatchObject({ based_on_rev_no: 1, needs_revalidation: true, revalidation_rev_no: 2 });
+    });
   });
 
   describe('effective spec (modelSpec with softwareId)', () => {
@@ -673,6 +753,37 @@ describe.skipIf(!runIntegration)('SW change rows (#1196 c)', () => {
       await sql('update knowledge.software_version set release_order = 1 where id = $1', [f.sw3]); // end now before the start
       expect((await read('modelSpec', { modelId: f.model, softwareId: f.sw2 })).data).toMatchObject({ effective: false });
       expect((await read('modelSpec', { modelId: f.model, softwareId: f.sw3 })).data).toMatchObject({ effective: false });
+    });
+
+    it('two added ranges of one field that overlap only after a reorder compose to one keyed field, marks preserved', async () => {
+      const f = await fixture('eff7');
+      const first = await add(f.model, f.sw1, { endsBeforeSoftwareId: f.sw2, targetKind: 'field', target: { ...START, field: 'temp' }, changeKind: 'added', change: { after: { name: 'temp', type: 'float', description: 'a' } } }); // [1,2)
+      const second = await add(f.model, f.sw3, { targetKind: 'field', target: { ...START, field: 'temp' }, changeKind: 'added', change: { after: { name: 'temp', type: 'float', description: 'b' } } }); // [3,∞)
+      await sql('update knowledge.software_version set release_order = 3 where id = $1', [f.sw2]); // the ranges become [1,3) and [2,∞)
+      await sql('update knowledge.software_version set release_order = 2 where id = $1', [f.sw3]); // both apply at sw3 (order 2)
+      const out = (await read('modelSpec', { modelId: f.model, softwareId: f.sw3 })).data;
+      const start = out.events.find((e: { eventKey: string }) => e.eventKey === 'START');
+      expect((start.fields as { name: string; description: string }[]).filter((x) => x.name === 'temp')).toEqual([{ name: 'temp', type: 'float', description: 'b' }]);
+      expect(start.changed.map((m: { changeId: string }) => m.changeId)).toEqual([first, second]);
+      expect(out.stale).toEqual([]);
+      const at1 = (await read('modelSpec', { modelId: f.model, softwareId: f.sw1 })).data; // only [1,3) applies here
+      expect((at1.events.find((e: { eventKey: string }) => e.eventKey === 'START').fields as { name: string; description: string }[]).filter((x) => x.name === 'temp')).toEqual([{ name: 'temp', type: 'float', description: 'a' }]);
+    });
+
+    it('the apply order sorts by the full created_at precision: a submillisecond tie is not collapsed onto the id order', async () => {
+      const f = await fixture('eff8');
+      const idA = 'fffffff0-1111-4111-8111-111111111111'; // created first, but sorts after idB
+      const idB = '00000000-1111-4111-8111-111111111111';
+      const side = (trigger: string) => JSON.stringify({ before: startBefore, after: { name: 'Start', triggerRule: trigger, detailDocRef: null } });
+      await sql(
+        `insert into knowledge.spec_sw_change (id, workspace_id, model_id, software_id, target_kind, target_key, change_kind, change_json, based_on_rev_no, created_by, created_at)
+         values ($1,$2,$3,$4,'event','SPINDLE/START','changed',$5::jsonb,1,$6,$7), ($8,$2,$3,$4,'event','SPINDLE/START','changed',$9::jsonb,1,$6,$10)`,
+        [idA, WORKSPACE_ID, f.model, f.sw1, side('from A'), admin.id, '2026-01-01 00:00:00.1231+00', idB, side('from B'), '2026-01-01 00:00:00.1239+00'],
+      );
+      const out = (await read('modelSpec', { modelId: f.model, softwareId: f.sw1 })).data;
+      const start = out.events.find((e: { eventKey: string }) => e.eventKey === 'START');
+      // created_at decides (.1231 then .1239), so the later change wins even though its id sorts after
+      expect(start).toMatchObject({ triggerRule: 'from B', changed: [{ changeId: idA, changeKind: 'changed' }, { changeId: idB, changeKind: 'changed' }] });
     });
 
     it('an unknown, other-model or other-workspace softwareId answers data:null', async () => {

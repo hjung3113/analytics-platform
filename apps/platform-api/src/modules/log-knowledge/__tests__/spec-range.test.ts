@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { appliesAt, compareApplication, rangesOverlap } from '../domain/spec-range.js';
+import { appliesAt, rangesOverlap } from '../domain/spec-range.js';
 
 describe('spec change ranges (#1196 c)', () => {
   it.each([
@@ -25,15 +25,5 @@ describe('spec change ranges (#1196 c)', () => {
   ])('%j and %j overlap: %s', (a, b, expected) => {
     expect(rangesOverlap(a, b)).toBe(expected);
     expect(rangesOverlap(b, a)).toBe(expected);
-  });
-
-  it('orders by start, then created_at, then id', () => {
-    const rows = [
-      { start: 2, createdAt: '2026-01-02', id: 'b' },
-      { start: 1, createdAt: '2026-01-03', id: 'z' },
-      { start: 2, createdAt: '2026-01-01', id: 'c' },
-      { start: 2, createdAt: '2026-01-02', id: 'a' },
-    ];
-    expect([...rows].sort(compareApplication).map((r) => r.id)).toEqual(['z', 'c', 'a', 'b']);
   });
 });

@@ -14,7 +14,7 @@ import {
   specSwChanges,
 } from '../../../db/schema/knowledge.js';
 import { type EffectiveChange, type EffectiveSpec, applySpecChanges } from '../domain/spec-effective.js';
-import { appliesAt, compareApplication } from '../domain/spec-range.js';
+import { appliesAt } from '../domain/spec-range.js';
 import type { SpecChangeKind } from '../domain/spec-effective.js';
 import type { SpecTargetKind } from '../domain/spec-target-key.js';
 import type { Tx } from '../../../db/tx.js';
@@ -240,19 +240,19 @@ export async function getEffectiveModelSpec(
   const c = specSwChanges;
   const end = alias(softwareVersions, 'end_sw');
   // Every open change of the model (bounded by the per-model cap); the range is judged here against the CURRENT order.
+  // The apply order `(start order, created_at, id)` is sorted in SQL: `created_at` is a full-precision timestamptz and
+  // a JS Date/ISO round trip keeps only milliseconds, which would collapse a submillisecond tie onto the id order.
   const rows = await tx
     .select({
       id: c.id, targetKind: c.targetKind, targetKey: c.targetKey, changeKind: c.changeKind, change: c.changeJson,
-      needsRevalidation: c.needsRevalidation, createdAt: c.createdAt, start: softwareVersions.releaseOrder, endBefore: end.releaseOrder,
+      needsRevalidation: c.needsRevalidation, start: softwareVersions.releaseOrder, endBefore: end.releaseOrder,
     })
     .from(c)
     .innerJoin(softwareVersions, and(eq(softwareVersions.workspaceId, c.workspaceId), eq(softwareVersions.id, c.softwareId)))
     .leftJoin(end, and(eq(end.workspaceId, c.workspaceId), eq(end.id, c.endsBeforeSoftwareId)))
-    .where(and(eq(c.workspaceId, workspaceId), eq(c.modelId, modelId), isNull(c.retiredAt)));
-  const applicable = rows
-    .filter((r) => appliesAt({ start: r.start, endBefore: r.endBefore }, software.order))
-    .map((r) => ({ ...r, createdAtIso: r.createdAt.toISOString() }))
-    .sort((a, b) => compareApplication({ start: a.start, createdAt: a.createdAtIso, id: a.id }, { start: b.start, createdAt: b.createdAtIso, id: b.id }));
+    .where(and(eq(c.workspaceId, workspaceId), eq(c.modelId, modelId), isNull(c.retiredAt)))
+    .orderBy(asc(softwareVersions.releaseOrder), asc(c.createdAt), asc(c.id));
+  const applicable = rows.filter((r) => appliesAt({ start: r.start, endBefore: r.endBefore }, software.order));
   if (applicable.length === 0) return { ...spec, effective: false };
   const changes: EffectiveChange[] = applicable.map((r) => ({
     id: r.id,

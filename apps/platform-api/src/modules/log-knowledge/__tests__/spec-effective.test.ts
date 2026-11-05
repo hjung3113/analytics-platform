@@ -42,6 +42,17 @@ describe('applySpecChanges (#1196 c)', () => {
     expect(out.stale).toEqual([]);
   });
 
+  it('composes two added changes of one field key by field identity, marks preserved', () => {
+    // Two `added` ranges for an absent field can overlap after a reorder; both apply, one keyed field wins.
+    const first = ch('field', 'spindle/start#temp', 'added', { after: fld('temp', { unit: 'a' }) });
+    const second = ch('field', 'spindle/start#temp', 'added', { after: fld('temp', { unit: 'b' }) });
+    const out = applySpecChanges(BASE, [first, second]);
+    const start = out.events.find((e) => e.eventKey === 'start');
+    expect(start?.fields).toEqual([fld('speed'), fld('torque'), fld('temp', { unit: 'b' })]);
+    expect(start?.changed.map((m) => m.changeId)).toEqual([first.id, second.id]);
+    expect(out.stale).toEqual([]);
+  });
+
   it('removed entries disappear and are listed; a removed field leaves its event marked', () => {
     const out = applySpecChanges(BASE, [
       ch('relation', 'spindle/start#precedes#motor/run', 'removed', { before: { ruleRef: null } }),

@@ -229,7 +229,14 @@ export function applySpecChanges(base: SpecBaseContent, changes: readonly Effect
       if (c.changeKind === 'added') {
         if (revField) fail('exists');
         else if (!after || after.name !== ref.field) fail('malformed');
-        else { cur.fields = [...fieldsOf(cur), after]; mark(cur, c); }
+        else {
+          // Composition is by field key: ranges that were disjoint at write time can overlap after a reorder, so an
+          // added field may arrive for a name the overlay already carries — one keyed field, the later change wins.
+          const fields = fieldsOf(cur);
+          const carried = fields.findIndex((f) => f.name === ref.field);
+          cur.fields = carried === -1 ? [...fields, after] : fields.map((f, i) => (i === carried ? after : f));
+          mark(cur, c);
+        }
         continue;
       }
       if (!revField || !rev) { fail('gone'); continue; }

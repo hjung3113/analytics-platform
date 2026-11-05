@@ -10684,7 +10684,7 @@
         },
         "spec_sw_change_change_json_check": {
           "name": "spec_sw_change_change_json_check",
-          "value": "jsonb_typeof(\"knowledge\".\"spec_sw_change\".\"change_json\") = 'object' and octet_length(\"knowledge\".\"spec_sw_change\".\"change_json\"::text) <= 16384"
+          "value": "jsonb_typeof(\"knowledge\".\"spec_sw_change\".\"change_json\") = 'object' and octet_length(\"knowledge\".\"spec_sw_change\".\"change_json\"::text) <= 17408"
         },
         "spec_sw_change_note_check": {
           "name": "spec_sw_change_note_check",

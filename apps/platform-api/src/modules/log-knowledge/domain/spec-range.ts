@@ -22,11 +22,3 @@ export function rangesOverlap(a: OrderRange, b: OrderRange): boolean {
   const bEnd = b.endBefore ?? Number.POSITIVE_INFINITY;
   return a.start < bEnd && b.start < aEnd;
 }
-
-/** Application order of the changes that apply to one version: `(start order, created_at, id)`. */
-export function compareApplication(
-  a: { start: number; createdAt: string; id: string },
-  b: { start: number; createdAt: string; id: string },
-): number {
-  return a.start - b.start || (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
-}
