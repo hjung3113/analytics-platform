@@ -289,8 +289,8 @@ improvement (improvement items, migration 0093, #1328 a, ADR-0106 amendment 2)
 - item (`item_no` unique per workspace, `problem`, `action`, `action_date date`, `status`, one `assignee_id`, Quest id + title snapshot, `origin_menu_id` + `origin_context`, effect check columns, `drop_reason`, `row_version`)
 - item_target (equipment or process by external key + display name snapshot; unique per item/kind/key; index `(workspace_id, kind, external_key)` for the per-equipment history)
 - item_event (append-only history; `seq` identity; `changes` before/after object)
-- item_counter (`IM-<n>` allocator; the one table `platform_app` may write: `UPDATE (last_item_no)`)
-- `platform_app` holds SELECT only on item, item_target, item_event; storage and rules: [api/improvement-items.md](api/improvement-items.md)
+- item_counter (`IM-<n>` allocator; `platform_app` updates `last_item_no` through it)
+- the data-table grants include the migration 0094 writes (`INSERT` on item, item_target, item_event, `DELETE` on item_target only, column-limited `UPDATE` on item); the authoritative grant restrictions: §Improvement item writes below and [api/improvement-items.md](api/improvement-items.md)
 ```
 
 `core.attachments` does not exist as a shared attachment table as of Slice 6;

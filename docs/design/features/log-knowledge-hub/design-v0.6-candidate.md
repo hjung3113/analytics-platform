@@ -391,18 +391,13 @@ SQL은 **핵심 제약의 예시**이고 전체 실행 migration은 아니다. �
 - `map`은 `external_identity_map`에 `catalog_import` 별칭을 `accepted`로 쓴다. 키는 JSON 배열(vendor/process `[code]`, model `[vendor, code]`, software `[vendor, model, version]`). 같은 키가 다른 대상이면 `conflict identity_conflict`.
 - 감사: 적용한 쓰기는 기존 `knowledge.catalog.created|updated`에 `source:{importJobId,rowNo}`를 담고, 별칭 쓰기는 `knowledge.catalog.identity_mapped`.
 
-**구현 상태(#1195 node b3, 규범):** 메뉴는 서버에 메뉴 조회·메뉴 액션으로만 닿고 파일 업로드·원시 POST·파일 내려받기가 없다. 그래서 위저드의 ①단계는 **엑셀에서 복사한 행을 붙여넣거나 브라우저가 연 CSV 텍스트**(`logKnowledge.importPaste`, 모델 시트 전용, 256 KiB·1,000행)이고, ⑤단계 적용은 `logKnowledge.importApply`(진행 상황을 돌려주며 `remaining = 0`까지 새 멱등 키로 다시 부른다)다. 결과는 화면 안에서 보여 주고 표에서 내보낸다. 멀티파트 업로드, `POST …/apply`, `GET …/report.csv`는 API 전용으로 남는다(계획 결정 11). XLSX 파일 선택은 구현하지 않았다(`.planning/backlog.md`).
-- 보고서: `GET …/imports/:jobId/report.csv`(BOM, CRLF, 모든 셀 수식 방어).
-
-**구현 상태(#1195 node b2, 규범; 사용자 2026-11-04):** P0 Import는 **4단계**다 — 파일 올리기 → 검사 결과 → 확인 필요 행 정리(충돌이 있을 때만) → 적용 결과. 제품 기준 §15.4 «반드시 5단계»를 P0에서 대신한다. 이유: 파일은 이름만 담고(메이커명·모델명·공정명) 헤더를 서버가 알아보므로 «열 매핑» 단계가 없다(`importMap`은 API로만 남는다). 업로드가 모델 시트의 헤더를 인식해 매핑을 스스로 저장한다. 없는 메이커·공정은 같은 계획에서 새 행으로 만든다. 코드는 이름에서 정한다([ADR-0107](../../../adr/0107-log-knowledge-catalog-authority-keys-and-edit-rights.md) 결정 2 보충). 정본 `api/log-knowledge.md` §Catalog import by names.
+**구현 상태(#1195 node b2·b3, 규범):** P0 메뉴 Import는 **4단계**다 — 붙여넣기/CSV 텍스트 → 검사 결과 → 확인 필요 행 정리(충돌이 있을 때만) → 적용 결과. 메뉴는 서버에 메뉴 조회·메뉴 액션으로만 닿으므로 첫 단계 입력은 **엑셀에서 복사한 행을 붙여넣거나 브라우저가 연 CSV 텍스트**(`logKnowledge.importPaste`, 모델 시트 전용)이고 적용은 `logKnowledge.importApply`(진행 상황을 돌려주며 `remaining = 0`까지 새 멱등 키로 다시 부른다)다. 결과는 화면 안에서 보여 주고 표에서 내보낸다. 파일은 이름만 담고(메이커명·모델명·공정명) 헤더를 서버가 알아보므로 «열 매핑» 단계가 없고, 없는 메이커·공정은 같은 계획에서 새 행으로 만든다. 제품 기준 §15.4 «반드시 5단계»를 P0에서 대신한다. XLSX 파일 선택은 구현하지 않았다. 업로드·raw API와 한도·멱등/적용 규칙은 `api/log-knowledge.md` §Catalog import by names 및 관련 Import 절을 따르고, 코드는 이름에서 정한다([ADR-0107](../../../adr/0107-log-knowledge-catalog-authority-keys-and-edit-rights.md) 결정 2 보충).
 
 **원자성 후보:** 전체 파일을 하나의 거대한 트랜잭션으로 처리하지 않는다. Job 적용 승인을 하나의 고정된 Plan Snapshot으로 봉인한 뒤, `Vendor/Process → Model → SW` 위상순으로 **행/참조 묶음 단위 트랜잭션** 적용. 각 행 `(job_id,row_no,plan_hash)`로 정확히 한 번 적용; 실패 행만 재시도하되 `expected_target_version`이 바뀌면 `conflict`로 재검토. 미해결 충돌 자동 덮어쓰기/자동 신규 생성 금지. 일부 성공이면 `partial_failure`이며 집계는 성공·기존 유지·skip·실패를 구분. 내보내기 CSV 수식 주입 방어.
 
 ### 6.3 SW 독립 Spec 및 모델 공통 추출
 
-> **대체됨(2026-11-04, [ADR-0111](../../../adr/0111-log-knowledge-model-spec-is-the-source.md)).** 모델 명세가 원본이고 SW 버전별 차이는 보조 변경점이다. 아래 «SW 독립 Spec이 원본, 모델 공통은 승인된 파생본» 흐름은 §15가 대체한다. 이력으로 남긴다.
-
-> 소유자 입력(2026-11-04)으로 방향이 바뀌는 안은 [§15](#15-모델-명세가-원본-1196-설계-초안-candidate)다. 소유자 답 전까지 이 절은 그대로다.
+> **대체됨(2026-11-04, [ADR-0111](../../../adr/0111-log-knowledge-model-spec-is-the-source.md)).** 모델 명세가 원본이고 SW 버전별 차이는 보조 변경점이다. 아래 «SW 독립 Spec이 원본, 모델 공통은 승인된 파생본» 흐름은 §15가 대체한다. 모델 명세가 원본인 설계는 ADR-0111과 [§15](#15-모델-명세가-원본-1196-설계-초안-candidate)를 따른다.
 
 - 특정 SW의 `sw_spec_revision`을 **독립 불변 Revision**으로 게시. 각 Module/Event 정의 ID는 그 SW Spec Revision의 namespace로 한정한다. 다른 SW와 이름·키가 같아도 동일 객체로 취급하지 않는다.
 - `CommonExtractionCandidate`는 승인된 SW Spec Revision 집합을 명시적 입력으로 받고 추출 결과와 해시/모델 버전을 저장. 후보가 들어온다고 `model_common_profile_revision`을 자동 갱신하지 않는다.
@@ -633,7 +628,7 @@ P0 #1193 구현됨: 스키마 표 1–6(`knowledge` 스키마, migration 0080)�
 
 ## 15. 모델 명세가 원본 (#1196 설계 초안, Candidate)
 
-> **Status: 소유자 답 반영(2026-11-04) — 방향과 Q1–Q10 결정됨, 구현 전. ADR(0111 이상)과 §5.2·§6.3 정리는 노드 a의 PR에서 한다.** 소유자 입력(2026-11-04, #1196 댓글): 명세는 **모델 단위가 주**, SW 버전별 차이는 **보조**이고, 보조가 필요한 주된 경우는 특정 SW 버전부터 로그가 갑자기 이상해지거나 크게 바뀌는 때다. 이 절은 §5.2 표 10–18번과 §6.3(SW 독립 Spec이 원본, 모델 공통은 승인된 파생본)을 **대체하는 안**이다. §5.2·§6.3의 SW 독립 Spec 표 10–18번은 이 절이 대체한다(정리는 노드 a).
+> **Status: 소유자 답 반영(2026-11-04) — 방향과 Q1–Q10 결정됨, [ADR-0111](../../../adr/0111-log-knowledge-model-spec-is-the-source.md)로 결정.** 소유자 입력(2026-11-04, #1196 댓글): 명세는 **모델 단위가 주**, SW 버전별 차이는 **보조**이고, 보조가 필요한 주된 경우는 특정 SW 버전부터 로그가 갑자기 이상해지거나 크게 바뀌는 때다. 이 절은 §5.2 표 10–18번과 §6.3(SW 독립 Spec이 원본, 모델 공통은 승인된 파생본)을 대체한다. #1196 a–b2의 모델 명세 읽기·쓰기·TSV 파서와 마이그레이션 0091–0092는 구현됐다(§15.2 물리화 상태); SW 변경점(`spec_sw_change`)·개념 연결·화면 등 후속 범위는 해당 미구현 노드를 따르고, 현행 원본·동작은 `api/log-knowledge.md`를 참조한다.
 
 ### 15.1 방향 한 줄
 
@@ -654,7 +649,7 @@ P0 #1193 구현됨: 스키마 표 1–6(`knowledge` 스키마, migration 0080)�
 
 - **`needs_revalidation`.** 새 모델 명세 Revision이 발행될 때, 그 Revision이 건드린 `target_key`를 가진 열린 변경점에 같은 트랜잭션에서 `needs_revalidation = true`를 쓴다(원인 Revision 번호도 남김). 사람이 변경점을 그대로 두거나(`confirm`) 새 줄로 고치면 꺼진다. 모델 공통 프로파일이라는 별도 승인본은 두지 않는다: 모델 명세 Revision이 곧 그것이다.
 - **후보(candidate).** 새 모델 명세는 `draft`로 쓰고 사람이 발행한다. 변경점이 여러 모델·버전에서 반복돼 모델 명세에 올리고 싶으면 새 Revision `draft`에 그 내용을 반영해 발행한다(자동 승격 없음). 자기 승인 여부는 §12 3번(#1198)이며 15.7 Q6.
-- **SW 순서.** 「X부터」가 말이 되려면 한 모델의 SW 버전에 순서가 있어야 한다. 지금 `software_version`에는 순서 열이 없고(`version_key`는 비교용 문자열일 뿐) `created_at`은 등록 순서다. 안: `release_order integer`를 카탈로그에 더한다(ADR-0107 보충, 기본은 등록 순, 카탈로그 서랍에서 고침). 15.7 Q2.
+- **SW 순서.** 「X부터」가 말이 되려면 한 모델의 SW 버전에 순서가 있어야 한다. `software_version.release_order`(모델별 1..n)는 마이그레이션 0091에 구현됐다: 기존 행은 모델별 등록 순으로 백필됐고 새 SW 행은 트리거로 max+1을 받는다(`release_order` 0은 미배정). 규칙 원본은 `04-database-and-migrations.md` §Model spec tables and software release order다. 15.7 Q2.
 
 ### 15.3 실효 명세(읽기 투영)
 
