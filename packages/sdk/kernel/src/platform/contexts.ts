@@ -8,6 +8,7 @@ import type { QueryEngine } from '../query/query-engine';
 import { PANE_USAGE_VIAS, type MainUsageVia, type Pair, type SpaceDef } from '@ap/contracts';
 import type { SupportRegistry } from '../saved-view/useSavedViewSupport';
 import type { HostPlatform, Recent, Toast } from './types';
+import type { NavigationGuard } from './navigationGuard';
 
 /** Fields of the screen state: what a menu page reads about the screen it is shown on (the main screen or one board pane). */
 export type ScreenFields = 'queryHistory' | 'queryDraft' | 'queryPolicy' | 'url' | 'appliedUrl' | 'pathname' | 'route' | 'platformScreen' | 'contractError' | 'metricInit' | 'global' | 'page' | 'extras' | 'pageParam' | 'pageParams' | 'pageNavigation' | 'navigate' | 'setGlobal' | 'setPage' | 'resetContext' | 'linkTo' | 'resolveLink' | 'reportError' | 'returnTarget' | 'returnOrigin' | 'scope' | 'retryScope' | 'currentSpace';
@@ -30,6 +31,8 @@ export type AppInternal = {
   /** Main-screen navigation trail for usage `entry` (#605): the last navigation's `via` and the menu of the screen shown before. Never persisted. A board pane keeps its own trail in `useScreenState` (`PaneUsageTrail`). */
   usageNav: { current: UsageNavTrail };
   mainNavigation: ReturnType<typeof createPageNavigation>;
+  /** Unsaved-edit guards and the pending leave request (ADR-0115). */
+  guard: NavigationGuard;
   initialUrl: string;
   recordVisit: (menuId: string, url: string) => void;
   rememberScope: (scopeId: string) => void;
@@ -54,7 +57,7 @@ export const OverlayContext = createContext<OverlayState | null>(null);
 export const RecentContext = createContext<readonly Recent[] | null>(null);
 
 /** `redirect`: replace an alias address by its canonical one (ADR-0093) — the same arrival, so a pending focus request and the address-bar hash survive. */
-export type CommitOptions = { focus?: PageFocus; materialize?: boolean; redirect?: boolean; /** Hidden pairs restored for the destination (a return trip, F1): validated against the destination's declared hidden keys. */ restoreHidden?: readonly Pair[] };
+export type CommitOptions = { focus?: PageFocus; materialize?: boolean; redirect?: boolean; /** Hidden pairs restored for the destination (a return trip, F1): validated against the destination's declared hidden keys. */ restoreHidden?: readonly Pair[]; /** Internal: replay of a move the person confirmed leaving; skips the unsaved-edit guard (ADR-0115). */ bypassGuard?: boolean };
 /** What the screen state hook needs from its owner: where the URL lives and how a write or a navigation lands. */
 export type ScreenSource = {
   draftStore?: DraftStore;

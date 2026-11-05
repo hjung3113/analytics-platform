@@ -197,12 +197,10 @@ export function useSavedViews(): SavedViews {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- `differs` is rebuilt every render from `applied`/`anchor`, both listed
   }, [enabled, support, blocked, loaded, gen, entryGen, rearmed, selected, selectedId, applied, anchor, apply, clearSelection]);
   // Back/Forward is an address arrival too: the arrived address wins over the selected view.
+  // Fed by the Kernel's accepted-traversal signal, not the raw popstate: a Back the unsaved-edit guard cancelled (ADR-0115) is no arrival.
   const traversed = useRef(false);
-  useEffect(() => {
-    const onPop = () => { traversed.current = true; };
-    window.addEventListener('popstate', onPop);
-    return () => window.removeEventListener('popstate', onPop);
-  }, []);
+  const guard = useContext(AppContext)?.internal.guard;
+  useEffect(() => guard?.onTraversal(() => { traversed.current = true; }), [guard]);
   useEffect(() => {
     if (!traversed.current) return;
     traversed.current = false;

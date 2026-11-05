@@ -164,7 +164,7 @@ describe('hidden page keys (main screen)', () => {
   it('navigating to another menu does not carry the hidden pairs; a link with hidden keys opens with them', () => {
     mount('/mars/items?v=1&filter=a');
     act(() => { platform.navigate('/mars/plain?v=1'); });
-    expect(window.history.state).toBeNull();
+    expect(window.history.state).toEqual({ apIdx: 1 });
     expect(platform.pageParams('filter')).toEqual([]);
     act(() => { platform.navigate('/mars/items?v=1&filter=b&filter=c'); });
     expect(address()).toBe('/mars/items?v=1');
@@ -188,9 +188,9 @@ describe('hidden page keys (main screen)', () => {
   it('a menu that declares no hidden key writes no history state', () => {
     mount('/mars/plain?v=1');
     act(() => platform.setPage({ q: 'x' }));
-    expect(window.history.state).toBeNull();
+    expect(window.history.state).toEqual({ apIdx: 1 });
     act(() => platform.setPage({ q: 'y' }, { replace: true }));
-    expect(window.history.state).toBeNull();
+    expect(window.history.state).toEqual({ apIdx: 1 });
   });
 
   it('declared hidden keys never appear in the address even when written beside visible ones', () => {

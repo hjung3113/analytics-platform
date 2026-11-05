@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { hasDotSegment } from '../context/location';
 import { readHiddenState, sameHidden, splitHidden, validateHidden, withHiddenState } from '../context/hiddenState';
 import type { PageFocus } from '../context/pageNavigation';
@@ -7,11 +7,12 @@ import { incompleteMetricPair, menuPermissions, isAppRelativePath, type Pair, ty
 import { readSpaceLast, sameParams, writeSpaceLast } from './preferences';
 import { MainBoundContext, ScreenContext, type AppValue, type CommitOptions, type MainBound, type ScreenSource } from './contexts';
 import { useScreenState } from './useScreenState';
+import { readHistoryIdx, withHistoryIdx } from './navigationGuard';
 
 /** The main screen: the browser URL, history, and the shell navigation that follows it. */
 export const MainScreenProvider = memo(function MainScreenProvider({ app, children }: { app: AppValue; children: ReactNode }) {
   const { location, registry, can, canOpen, accessibleSpaces, menusInSpace, user } = app.pub;
-  const { enters, mainNavigation: pageNavigation, initialUrl, recordVisit, rememberScope, spaceIdMigrations } = app.internal;
+  const { enters, mainNavigation: pageNavigation, guard, usageNav, initialUrl, recordVisit, rememberScope, spaceIdMigrations } = app.internal;
   const { matchRoute } = registry;
   const userId = user.id;
   // Hidden page keys (ADR-0105): `url` is the visible address; the hidden pairs ride in the history entry's state and are mirrored here.
@@ -33,6 +34,13 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
   hiddenRef.current = hidden;
   // The newest arrival record: a commit or a traversal that lands before the rewrite below runs replaces it, which cancels that rewrite.
   const latestArrival = useRef(arrival);
+  // Unsaved-edit guard (ADR-0115). `shownRef`: the visible address on screen. `idxRef`: this entry's position in the Kernel's own writes (`apIdx`), null where the boundary keeps no state.
+  const shownRef = useRef(url);
+  const [bootIdx] = useState(() => readHistoryIdx(location.readState?.()));
+  const idxRef = useRef<number | null>(bootIdx);
+  const stamping = location.readState !== undefined;
+  const commitRef = useRef<((next: string, how: 'push' | 'replace', options?: CommitOptions) => boolean) | null>(null);
+  const reportRef = useRef<(error: unknown) => string>(() => '');
   // The one rewrite of the arrival address: same history entry, no new entry (replace), the fragment stays.
   useEffect(() => {
     if (!arrival.rewrite || latestArrival.current !== arrival) return;
@@ -55,29 +63,60 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
     // A return trip restores the hidden pairs the origin held, checked against what the destination declares (F1).
     const nextHidden = options.redirect ? hiddenRef.current : split.hidden.length > 0 || !options.restoreHidden ? split.hidden : validateHidden(options.restoreHidden, menuFor(next));
     if (!allowed || (split.url === (location.read() ?? '') && sameHidden(nextHidden, hiddenRef.current))) { if (!options.materialize) pageNavigation.cancel(); return false; }
+    // Leaving with unsaved edits asks first (ADR-0115). Redirects, arrival materialization, `replace` and the confirmed replay are never held.
+    if (how === 'push' && !options.redirect && !options.materialize && !options.bypassGuard) {
+      const change = { from: location.read() ?? '', to: split.url };
+      if (guard.shouldBlock(change)) {
+        if (!guard.pending()) {
+          const via = usageNav.current.via;
+          guard.request({ change, destination: menuFor(next)?.label ?? null, via, proceed: () => { usageNav.current.via = via; commitRef.current?.(next, how, { ...options, bypassGuard: true }); } });
+        }
+        pageNavigation.cancel();
+        return false;
+      }
+    }
     if (options.redirect) pageNavigation.redirect(split.url);
     else if (options.materialize) pageNavigation.materialize(split.url);
     else pageNavigation.advance(split.url, options.focus);
     // The URL state carries pathname + search only; a kernel rewrite of the same arrival keeps the fragment in the same history write.
     // A menu that declares no hidden keys writes no state, exactly as before.
     const declares = keys.length > 0;
-    if (how === 'replace') location.replace(split.url, { keepFragment: options.redirect || options.materialize, ...(declares ? { state: withHiddenState(location.readState?.(), nextHidden) } : {}) });
-    else if (declares) location.push(split.url, withHiddenState(null, nextHidden)); else location.push(split.url);
+    // Entries are stamped with their position (`apIdx`) so a Back/Forward can be undone exactly. A replace keeps the stamp it has; the first push from an entry
+    // the Kernel did not write stamps that entry as 0 first (one extra same-entry write). No unsaved-edit guard in the app: nothing else changes.
+    const here = stamping ? readHistoryIdx(location.readState?.()) : null;
+    const replaceState = declares ? withHiddenState(location.readState?.(), nextHidden) : undefined;
+    if (how === 'replace') location.replace(split.url, { keepFragment: options.redirect || options.materialize, ...(here !== null ? { state: withHistoryIdx(replaceState, here) } : declares ? { state: replaceState } : {}) });
+    else if (stamping) {
+      const base = here ?? idxRef.current ?? 0;
+      const at = location.read();
+      if (here === null && at !== null) location.replace(at, { keepFragment: true, state: withHistoryIdx(location.readState?.(), base) });
+      idxRef.current = base + 1;
+      location.push(split.url, withHistoryIdx(declares ? withHiddenState(null, nextHidden) : null, base + 1));
+    } else if (declares) location.push(split.url, withHiddenState(null, nextHidden)); else location.push(split.url);
+    shownRef.current = split.url;
     hiddenRef.current = nextHidden;
     const committed = { url: split.url, hidden: nextHidden, rewrite: false };
     latestArrival.current = committed;
     setView({ arrival: committed, url: location.read() ?? '', hidden: nextHidden });
     if (how === 'push') document.getElementById('platform-main')?.scrollTo({ top: 0 });
     return true;
-  }, [pageNavigation, location, hiddenKeysFor, menuFor]);
+  }, [pageNavigation, location, hiddenKeysFor, menuFor, guard, usageNav, stamping]);
+  useLayoutEffect(() => { commitRef.current = commit; }, [commit]);
   const go = useCallback((next: string, options?: { replace?: boolean; focus?: PageFocus; restoreHidden?: readonly Pair[] }) => commit(next, options?.replace ? 'replace' : 'push', { focus: options?.focus, restoreHidden: options?.restoreHidden }), [commit]);
 
   const source: ScreenSource = { mode: 'main', paneId: null, paneLabel: null, url, hidden, navigation: pageNavigation, commit, go, onScopeValid: rememberScope };
   const { screen, sidebarSpace, resolveEntryLink } = useScreenState(app, source);
   const { pathname, route, contractError, navigate, currentSpace } = screen;
 
+  useLayoutEffect(() => { reportRef.current = screen.reportError; });
+
+  // One stable listener (it reads refs, so a pathname change never re-registers it). `compensating`: Back/Forward pops the guard undid itself and must ignore;
+  // `replayIdx`: the position a confirmed leave is travelling to (ADR-0115).
+  const compensating = useRef(0);
+  const replayIdx = useRef<number | null>(null);
   useEffect(() => {
-    const onPop = () => {
+    const failOpen = (name: string) => { const error = new Error(name); error.name = name; reportRef.current(error); };
+    const arrivePop = (newIdx: number | null) => {
       const raw = location.read() ?? '';
       const arrived = arrive(raw, readHiddenState(location.readState?.()));
       const next = arrived.url;
@@ -85,16 +124,44 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
       if (arrived.rewrite) location.replace(next, { keepFragment: true, state: withHiddenState(location.readState?.(), arrived.hidden) });
       // Back/Forward across menus arrives like a link (06 §26): the title takes focus and a carried
       // `focus=` does not claim the detail panel (ADR-0032). Same-screen history keeps the close-button claim.
-      pageNavigation.advance(next, next.split('?')[0] !== pathname ? 'page' : undefined);
-      app.internal.usageNav.current.via = 'history';
+      pageNavigation.advance(next, next.split('?')[0] !== shownRef.current.split('?')[0] ? 'page' : undefined);
+      usageNav.current.via = 'history';
       hiddenRef.current = arrived.hidden;
+      if (newIdx !== null) idxRef.current = newIdx;
+      shownRef.current = next;
       const traversed = { url: next, hidden: arrived.hidden, rewrite: false };
       latestArrival.current = traversed;
+      guard.traversed();
       setView({ arrival: traversed, url: next, hidden: arrived.hidden });
+    };
+    const onPop = () => {
+      const newIdx = readHistoryIdx(location.readState?.());
+      const cur = idxRef.current;
+      // The pop the guard caused by putting the person back where they were.
+      if (compensating.current > 0 && newIdx !== null && newIdx === cur) { compensating.current--; return; }
+      // The pop of a leave the person confirmed.
+      if (replayIdx.current !== null && newIdx === replayIdx.current) { replayIdx.current = null; arrivePop(newIdx); return; }
+      const raw = location.read() ?? '';
+      const change = { from: shownRef.current, to: raw };
+      if (guard.shouldBlock(change)) {
+        if (newIdx !== null && cur !== null && newIdx !== cur && location.go !== undefined) {
+          const delta = newIdx - cur;
+          compensating.current++;
+          try { location.go(-delta); } catch { compensating.current--; failOpen('NavGuardHistoryError'); arrivePop(newIdx); return; }
+          guard.request({ change, destination: menuFor(raw)?.label ?? null, via: 'history', proceed: () => {
+            replayIdx.current = newIdx;
+            try { location.go?.(delta); } catch { replayIdx.current = null; failOpen('NavGuardHistoryError'); }
+          } });
+          return;
+        }
+        // Cannot put the person back exactly (an entry the Kernel did not stamp, no `go`): the move goes through, never a stuck history.
+        failOpen('NavGuardUncompensable');
+      }
+      arrivePop(newIdx);
     };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
-  }, [pageNavigation, location, pathname, app.internal.usageNav, arrive]);
+  }, [pageNavigation, location, usageNav, arrive, guard, menuFor]);
 
   // Recent visits (the main screen's own history; a pane never writes them).
   useEffect(() => {
