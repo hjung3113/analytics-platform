@@ -135,11 +135,13 @@ export function createHttpAdapter(config: AdapterConfig): PlatformAdapter {
 
     // Quests (#1328, read-only): envelope reads. A reply whose `ok` data is not exactly the documented shape is a broken response, never passed on.
     async getQuest(id, signal) {
-      if (id === '') return invalidInput<Quest>(); // a non-string placeholder (drift probe) still sends
+      // `''`, `.` and `..` and a lone surrogate never reach the server: a dot segment re-aims the path (URL parsers also fold `%2e`), a lone surrogate cannot be encoded; each answers the same `error` envelope as the server would. A non-string drift-probe argument still sends.
+      if (id === '' || id === '.' || id === '..' || /[\uD800-\uDFFF]/u.test(id)) return invalidInput<Quest>();
       return guarded(await envelope<Quest>({ method: 'GET', path: `${PLATFORM}/quests/${encodeURIComponent(id)}` }, signal), isQuest);
     },
     async searchQuests(input, signal) {
-      return guarded(await envelope<QuestSearchPage>({ method: 'POST', path: `${PLATFORM}/quests/search`, body: input }, signal), isQuestSearchPage);
+      // The page a search answers must be the page that was asked: the same `page`, at most the requested `pageSize` items — a rule against the request, so the caller checks it (the wire schema cannot tie data to its request).
+      return guarded(await envelope<QuestSearchPage>({ method: 'POST', path: `${PLATFORM}/quests/search`, body: input }, signal), (page) => isQuestSearchPage(page) && page.page === input.page && page.items.length <= input.pageSize);
     },
 
     async recordUsage(events: readonly UsageEvent[]) {
@@ -171,12 +173,12 @@ export function createHttpAdapter(config: AdapterConfig): PlatformAdapter {
   };
 }
 
-/** A read that cannot be sent (an empty id) never reaches the server; it answers the same `error` the server would. */
+/** A read that cannot be sent (an unsendable id) never reaches the server; it answers the same `error` the server would. */
 const invalidInput = <T>(): ApiResponse<T> => ({ outcome: 'error', data: null, assessments: [], trust: null, correlationId: '', message: 'invalid_input' });
 
 /** `ok` data must pass `valid`, else the reply is an `error` that keeps its correlation id. Any other outcome carries no data (a Quest port answers `empty` or `error` with `data: null`). */
-function guarded<T>(reply: ApiResponse<T>, valid: (data: unknown) => boolean): ApiResponse<T> {
-  if (reply.outcome === 'ok') return valid(reply.data) ? reply : { outcome: 'error', data: null, assessments: [], trust: null, correlationId: reply.correlationId, message: 'invalid_response' };
+function guarded<T>(reply: ApiResponse<T>, valid: (data: T) => boolean): ApiResponse<T> {
+  if (reply.outcome === 'ok') return reply.data !== null && valid(reply.data) ? reply : { outcome: 'error', data: null, assessments: [], trust: null, correlationId: reply.correlationId, message: 'invalid_response' };
   return reply.data === null ? reply : { ...reply, data: null };
 }
 

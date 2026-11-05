@@ -209,6 +209,7 @@ describe('quest port (#1328)', () => {
     ['query and status', { query: '점검', status: 'Open', page: 2, pageSize: QUEST_SEARCH_PAGE_SIZE_MAX }],
     ['the longest query', { query: 'x'.repeat(QUEST_QUERY_MAX), page: 0, pageSize: 1 }],
     ['an empty query', { query: '', page: 0, pageSize: 1 }],
+    ['the largest safe page', { page: Number.MAX_SAFE_INTEGER, pageSize: 1 }],
   ])('search input accepts %s', (_name, input) => {
     expect(questSearchInputSchema.safeParse(input).success).toBe(true);
   });
@@ -217,6 +218,7 @@ describe('quest port (#1328)', () => {
     ['a query over the limit', { query: 'x'.repeat(QUEST_QUERY_MAX + 1), page: 0, pageSize: 10 }],
     ['a negative page', { page: -1, pageSize: 10 }],
     ['a fractional page', { page: 0.5, pageSize: 10 }],
+    ['an unsafe page', { page: Number.MAX_SAFE_INTEGER + 1, pageSize: 10 }],
     ['page size 0', { page: 0, pageSize: 0 }],
     ['a page size over the limit', { page: 0, pageSize: QUEST_SEARCH_PAGE_SIZE_MAX + 1 }],
     ['a missing page', { pageSize: 10 }],
@@ -233,5 +235,7 @@ describe('quest port (#1328)', () => {
     expect(questSearchPageSchema.safeParse({ supported: false, items: [], page: 0, hasMore: true }).success).toBe(false);
     expect(questSearchPageSchema.safeParse({ supported: true, items: [], page: 0 }).success).toBe(false);
     expect(questSearchPageSchema.safeParse({ supported: true, items: [], page: 0, hasMore: false, total: 3 }).success).toBe(false);
+    expect(questSearchPageSchema.safeParse({ supported: true, items: [], page: Number.MAX_SAFE_INTEGER, hasMore: false }).success).toBe(true);
+    expect(questSearchPageSchema.safeParse({ supported: true, items: [], page: Number.MAX_SAFE_INTEGER + 1, hasMore: false }).success).toBe(false);
   });
 });

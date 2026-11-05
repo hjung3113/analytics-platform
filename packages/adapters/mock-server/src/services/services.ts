@@ -280,8 +280,8 @@ function checkQuestSearch(input: unknown): QuestJudge {
   const { query, status, page, pageSize } = input;
   if (query !== undefined && (typeof query !== 'string' || query.length > QUEST_QUERY_MAX)) return { outcome: 'error', message: `query must be at most ${QUEST_QUERY_MAX} characters` };
   if (status !== undefined && typeof status !== 'string') return { outcome: 'error', message: 'status must be a string' };
-  if (!Number.isInteger(page) || (page as number) < 0) return { outcome: 'error', message: 'page must be an integer from 0' };
-  if (!Number.isInteger(pageSize) || (pageSize as number) < 1 || (pageSize as number) > QUEST_SEARCH_PAGE_SIZE_MAX) return { outcome: 'error', message: `pageSize must be 1..${QUEST_SEARCH_PAGE_SIZE_MAX}` };
+  if (!Number.isSafeInteger(page) || (page as number) < 0) return { outcome: 'error', message: 'page must be an integer from 0' };
+  if (!Number.isSafeInteger(pageSize) || (pageSize as number) < 1 || (pageSize as number) > QUEST_SEARCH_PAGE_SIZE_MAX) return { outcome: 'error', message: `pageSize must be 1..${QUEST_SEARCH_PAGE_SIZE_MAX}` };
   return null;
 }
 

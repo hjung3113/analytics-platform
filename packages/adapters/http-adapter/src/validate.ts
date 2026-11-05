@@ -134,7 +134,7 @@ export function toSessionVersion(value: unknown): string | null {
 }
 
 const hasOnly = (record: Record<string, unknown>, keys: readonly string[]) => Object.keys(record).every((key) => keys.includes(key));
-const isCount = (value: unknown): boolean => typeof value === 'number' && Number.isInteger(value) && value >= 0;
+const isCount = (value: unknown): boolean => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
 
 /** A Quest is exactly `{ id, title, status }` (a non-empty id, two strings). An extra key is a broken response, not ignored (#1328). */
 export function isQuest(value: unknown): boolean {

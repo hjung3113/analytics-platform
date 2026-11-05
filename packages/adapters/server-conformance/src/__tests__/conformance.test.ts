@@ -657,13 +657,16 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
     },
     searchQuests: async input => {
       const body = input as Record<string, unknown>;
-      const badInput = Object.keys(body).some(k => !['query', 'status', 'page', 'pageSize'].includes(k)) || input.page < 0 || input.pageSize < 1 || input.pageSize > QUEST_SEARCH_PAGE_SIZE_MAX || (input.query ?? '').length > QUEST_QUERY_MAX;
+      const badInput = Object.keys(body).some(k => !['query', 'status', 'page', 'pageSize'].includes(k)) || !Number.isSafeInteger(input.page) || input.page < 0 || !Number.isSafeInteger(input.pageSize) || input.pageSize < 1 || input.pageSize > QUEST_SEARCH_PAGE_SIZE_MAX || (input.query ?? '').length > QUEST_QUERY_MAX;
       if (badInput && !breaks.has('quest-search-accepts-invalid')) return err('invalid input');
       if (input.query === 'Q-NOSEARCH') return { ...envelope, outcome: 'ok', data: { supported: false, items: breaks.has('quest-unsupported-items') ? [QUESTS[0]!] : [], page: input.page, hasMore: false } };
       const matches = QUESTS.filter(q => (input.query ?? '') === '' || q.title.includes(input.query!) || q.id.includes(input.query!));
       if (matches.length === 0 && breaks.has('quest-nomatch-error')) return err('nothing');
+      if (matches.length === 0) return { ...envelope, outcome: 'ok', data: { supported: !breaks.has('quest-nomatch-unsupported'), items: [], page: input.page, hasMore: false } };
       const start = (breaks.has('quest-page-stuck') ? 0 : input.page) * input.pageSize;
-      return { ...envelope, outcome: 'ok', data: { supported: true, items: matches.slice(start, start + input.pageSize), page: input.page, hasMore: start + input.pageSize < matches.length } };
+      const size = breaks.has('quest-page-later-oversized') && input.page > 0 ? input.pageSize + 1 : input.pageSize;
+      const page = breaks.has('quest-page-wrong-number') && input.page > 0 ? 0 : breaks.has('quest-page-unsafe-number') && input.page > 0 ? Number.MAX_SAFE_INTEGER + 1 : input.page;
+      return { ...envelope, outcome: 'ok', data: { supported: true, items: matches.slice(start, start + size), page, hasMore: start + size < matches.length } };
     },
     // The ports round D exercises (#152): contract-shaped answers, one break each.
     publishedMetrics: () => breaks.has('published-metrics')
@@ -876,8 +879,8 @@ describe('server conformance kit (#145)', () => {
       'port · getQuest answers a known Quest as ok with exactly id, title and status',
       'port · getQuest of an unknown id is not_found: outcome empty with data null, nothing thrown',
       'port · getQuest while BRAVO is unavailable is outcome error with data null, nothing thrown',
-      'port · searchQuests pages: an exact page shape, at most pageSize items, a later page differs from the first',
-      'port · searchQuests with a query that matches nothing is ok with no items and no next page',
+      'port · searchQuests pages: the asked page, at most pageSize items, a later page differs from the first',
+      'port · searchQuests with a query that matches nothing is ok with supported true, no items and no next page',
       'port · searchQuests on a BRAVO that cannot search answers ok with supported false, not an error',
       'port · searchQuests rejects an invalid query, page or page size as outcome error with data null',
       'savedViews: no sample',
@@ -1748,13 +1751,30 @@ describe('declared gaps: implemented ports, site grants, siteless destinations (
   it.each([
     ['quest-notfound-error', ['port · getQuest of an unknown id is not_found: outcome empty with data null, nothing thrown']],
     ['quest-extra-key', ['port · getQuest answers a known Quest as ok with exactly id, title and status']],
-    ['quest-page-stuck', ['port · searchQuests pages: an exact page shape, at most pageSize items, a later page differs from the first']],
-    ['quest-nomatch-error', ['port · searchQuests with a query that matches nothing is ok with no items and no next page']],
+    ['quest-page-stuck', ['port · searchQuests pages: the asked page, at most pageSize items, a later page differs from the first']],
+    ['quest-page-wrong-number', ['port · searchQuests pages: the asked page, at most pageSize items, a later page differs from the first']],
+    ['quest-page-later-oversized', ['port · searchQuests pages: the asked page, at most pageSize items, a later page differs from the first']],
+    ['quest-page-unsafe-number', ['port · searchQuests pages: the asked page, at most pageSize items, a later page differs from the first']],
+    ['quest-nomatch-error', ['port · searchQuests with a query that matches nothing is ok with supported true, no items and no next page']],
+    ['quest-nomatch-unsupported', ['port · searchQuests with a query that matches nothing is ok with supported true, no items and no next page']],
     ['quest-unsupported-items', ['port · searchQuests on a BRAVO that cannot search answers ok with supported false, not an error']],
     ['quest-search-accepts-invalid', ['port · searchQuests rejects an invalid query, page or page size as outcome error with data null']],
   ])('catches a server that breaks %s', async (broken, expected) => {
     const results = await runServerConformance({ ...harness(new Set([broken])), ports: { ...PORTS, condition: undefined } });
     expect(results.filter(r => r.failure !== null).map(r => r.id)).toEqual(expected);
+  });
+
+  it('a server whose search is always unsupported gets the no-match check skipped, never passed', async () => {
+    const h = fresh();
+    const plain = h.adapter.searchQuests.bind(h.adapter);
+    h.adapter.searchQuests = async input => {
+      const r = await plain(input);
+      return r.outcome === 'ok' && r.data !== null ? { ...r, data: { supported: false, items: [], page: r.data.page, hasMore: false } } : r;
+    };
+    const results = await runServerConformance(h);
+    const noMatch = results.find(r => r.id.includes('matches nothing'));
+    expect(noMatch?.status).toBe('skipped');
+    expect(results.filter(r => r.failure !== null).map(r => r.id)).toEqual([]);
   });
 
   it('the Quest checks pass on a conforming server, and without fixtures the fixture-bound ones are run-time skips with a reason', async () => {

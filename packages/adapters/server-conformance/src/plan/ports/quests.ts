@@ -19,14 +19,16 @@ function questProblem(quest: unknown, name: string): string | null {
   if (![quest['id'], quest['title'], quest['status']].every(v => typeof v === 'string') || quest['id'] === '') return `${name}: a Quest has a non-empty id and string title and status`;
   return null;
 }
-function pageProblem(r: ApiResponse<QuestSearchPage>, name: string): string | null {
+function pageProblem(r: ApiResponse<QuestSearchPage>, name: string, asked: { page: number; pageSize: number }): string | null {
   if (r.outcome !== 'ok') return `${name}: expected ok, got ${describeResponse(r)}`;
   const envelope = envelopeProblem(r, name);
   if (envelope) return envelope;
   const page = r.data;
   if (!isPlain(page) || JSON.stringify(Object.keys(page).sort()) !== JSON.stringify(PAGE_KEYS)) return `${name}: data is exactly supported, items, page, hasMore`;
-  if (typeof page.supported !== 'boolean' || typeof page.hasMore !== 'boolean' || !Number.isInteger(page.page) || page.page < 0 || !Array.isArray(page.items)) return `${name}: supported and hasMore are booleans, page an integer from 0, items an array`;
+  if (typeof page.supported !== 'boolean' || typeof page.hasMore !== 'boolean' || !Number.isSafeInteger(page.page) || page.page < 0 || !Array.isArray(page.items)) return `${name}: supported and hasMore are booleans, page a safe integer from 0, items an array`;
   for (const item of page.items) { const bad = questProblem(item, name); if (bad) return bad; }
+  if (page.page !== asked.page) return `${name}: the request asked for page ${asked.page}, the answer says page ${page.page}`;
+  if (page.items.length > asked.pageSize) return `${name}: ${page.items.length} items exceed the requested pageSize ${asked.pageSize}`;
   if (!page.supported && (page.items.length > 0 || page.hasMore)) return `${name}: an unsupported search has no items and no next page`;
   return null;
 }
@@ -83,33 +85,36 @@ export function planQuestChecks(harness: ServerConformanceHarness): ConformanceC
       },
     },
     {
-      id: 'port · searchQuests pages: an exact page shape, at most pageSize items, a later page differs from the first',
+      id: 'port · searchQuests pages: the asked page, at most pageSize items, a later page differs from the first',
       uses: ['searchQuests'],
       mode: 'granted',
       run: async () => {
         const first = await adapter.searchQuests({ page: 0, pageSize: 1 });
-        const bad = pageProblem(first, 'searchQuests(page 0)');
+        const bad = pageProblem(first, 'searchQuests(page 0)', { page: 0, pageSize: 1 });
         if (bad) return bad;
-        if (first.data!.page !== 0) return `searchQuests(page 0) answered page ${first.data!.page}`;
-        if (first.data!.items.length > 1) return 'searchQuests(pageSize 1) answered more than one item';
         if (!first.data!.supported) return null;
         if (!first.data!.hasMore) return null;
         const second = await adapter.searchQuests({ page: 1, pageSize: 1 });
-        const secondBad = pageProblem(second, 'searchQuests(page 1)');
+        const secondBad = pageProblem(second, 'searchQuests(page 1)', { page: 1, pageSize: 1 });
         if (secondBad) return secondBad;
-        if (second.data!.page !== 1) return `searchQuests(page 1) answered page ${second.data!.page}`;
         if (second.data!.items[0]?.id === first.data!.items[0]?.id) return 'page 1 repeats page 0 — page is 0-based and moves forward';
         return null;
       },
     },
     {
-      id: 'port · searchQuests with a query that matches nothing is ok with no items and no next page',
+      id: 'port · searchQuests with a query that matches nothing is ok with supported true, no items and no next page',
       uses: ['searchQuests'],
       mode: 'granted',
       run: async () => {
+        // Search support is established with a plain request first: an always-unsupported search would otherwise pass as "no match".
+        const probe = await adapter.searchQuests({ page: 0, pageSize: 1 });
+        const probeBad = pageProblem(probe, 'searchQuests(searchable)', { page: 0, pageSize: 1 });
+        if (probeBad) return probeBad;
+        if (!probe.data!.supported) return { skipped: 'this server answers supported false for a plain search, so a no-match answer cannot be told apart from cannot-search (the supported-false answer has its own check)' };
         const r = await adapter.searchQuests({ query: `__conformance_no_match_${crypto.randomUUID()}`, page: 0, pageSize: 5 });
-        const bad = pageProblem(r, 'searchQuests(no match)');
+        const bad = pageProblem(r, 'searchQuests(no match)', { page: 0, pageSize: 5 });
         if (bad) return bad;
+        if (!r.data!.supported) return 'a query that matched nothing answered supported false — that means cannot-search, not no match';
         if (r.data!.items.length > 0 || r.data!.hasMore) return 'a query that matches nothing returned items';
         return null;
       },
@@ -122,7 +127,7 @@ export function planQuestChecks(harness: ServerConformanceHarness): ConformanceC
         const query = harness.ports.quests?.unsupportedQuery;
         if (query === undefined) return { skipped: 'ports.quests.unsupportedQuery is not provided: no query that makes the search unsupported, so the supported:false answer cannot be exercised' };
         const r = await adapter.searchQuests({ query, page: 0, pageSize: 5 });
-        const bad = pageProblem(r, 'searchQuests(unsupported)');
+        const bad = pageProblem(r, 'searchQuests(unsupported)', { page: 0, pageSize: 5 });
         if (bad) return bad;
         if (r.data!.supported) return 'expected supported false for the unsupported fixture';
         return null;
@@ -136,6 +141,7 @@ export function planQuestChecks(harness: ServerConformanceHarness): ConformanceC
         const attempts: [string, unknown][] = [
           ['a query over the limit', { query: 'x'.repeat(QUEST_QUERY_MAX + 1), page: 0, pageSize: 5 }],
           ['a negative page', { page: -1, pageSize: 5 }],
+          ['a page beyond the safe integers', { page: Number.MAX_SAFE_INTEGER + 1, pageSize: 5 }],
           ['page size 0', { page: 0, pageSize: 0 }],
           ['a page size over the limit', { page: 0, pageSize: QUEST_SEARCH_PAGE_SIZE_MAX + 1 }],
           ['an identity field', { page: 0, pageSize: 5, userId: 'someone-else' }],

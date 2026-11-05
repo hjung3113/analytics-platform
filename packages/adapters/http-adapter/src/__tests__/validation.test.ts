@@ -220,11 +220,37 @@ describe('Quest reads (#1328): ok data is validated against the contract, every 
   });
 
   it.each([
+    ['a dot segment', '.'],
+    ['a double-dot segment', '..'],
+    ['a lone surrogate', 'Q-\uD800'],
+  ])('getQuest with %s sends nothing and answers error (the path would re-aim the route or cannot be encoded)', async (_name, id) => {
+    const { adapter, sent } = await ready(() => json(ENVELOPE));
+    expect(await adapter.getQuest(id)).toMatchObject({ outcome: 'error', data: null });
+    expect(sent()).toEqual([]);
+  });
+
+  it('a valid opaque id is still sent encoded as before; dots inside an id are not dot segments', async () => {
+    const { adapter, sent } = await ready(() => json({ ...ENVELOPE, data: QUEST }));
+    expect(await adapter.getQuest('Q..1/.x')).toMatchObject({ outcome: 'ok', data: QUEST });
+    expect(sent()[0]!.path).toBe('/api/v1/platform/quests/Q..1%2F.x');
+  });
+
+  it.each([
     ['items', PAGE],
-    ['no match (supported, empty)', { supported: true, items: [], page: 2, hasMore: false }],
+    ['no match (supported, empty)', { supported: true, items: [], page: 0, hasMore: false }],
     ['unsupported', { supported: false, items: [], page: 0, hasMore: false }],
   ])('searchQuests: ok with a valid page (%s) passes through', async (_name, data) => {
     expect(await search({ ...ENVELOPE, data })).toEqual({ ...ENVELOPE, data });
+  });
+
+  it.each([
+    ['a later page', 1],
+    ['the largest safe page', Number.MAX_SAFE_INTEGER],
+  ])('searchQuests: ok with a page the request asked for (%s) passes through', async (_name, page) => {
+    const request = { page, pageSize: 10 };
+    const data = { supported: true, items: [QUEST], page, hasMore: false };
+    const result = await ready(() => json({ ...ENVELOPE, data })).then(({ adapter }) => adapter.searchQuests(request));
+    expect(result).toEqual({ ...ENVELOPE, data });
   });
 
   it('searchQuests: an error envelope (unavailable or invalid query) passes through with no data', async () => {
@@ -241,6 +267,9 @@ describe('Quest reads (#1328): ok data is validated against the contract, every 
     ['hasMore on an unsupported search', { supported: false, items: [], page: 0, hasMore: true }],
     ['items that are not an array', { ...PAGE, items: {} }],
     ['more items than the page-size limit', { ...PAGE, items: Array.from({ length: 51 }, (_, i) => ({ ...QUEST, id: `Q-${i}` })) }],
+    ['a page the request did not ask for', { ...PAGE, page: 1 }],
+    ['more items than the requested page size', { ...PAGE, items: Array.from({ length: 11 }, (_, i) => ({ ...QUEST, id: `Q-${i}` })) }],
+    ['an unsafe page number', { ...PAGE, page: Number.MAX_SAFE_INTEGER + 1 }],
   ])('searchQuests refuses ok data with %s as an invalid_response error', async (_name, data) => {
     expect(await search({ ...ENVELOPE, data })).toMatchObject({ ...invalid, correlationId: 'srv-1' });
   });

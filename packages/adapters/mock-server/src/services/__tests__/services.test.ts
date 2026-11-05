@@ -297,11 +297,18 @@ describe('quests (read-only port, #1328)', () => {
     ['a query over the limit', { query: 'x'.repeat(QUEST_QUERY_MAX + 1), page: 0, pageSize: 5 }],
     ['a negative page', { page: -1, pageSize: 5 }],
     ['a fractional page', { page: 0.5, pageSize: 5 }],
+    ['an unsafe page', { page: Number.MAX_SAFE_INTEGER + 1, pageSize: 5 }],
     ['page size 0', { page: 0, pageSize: 0 }],
     ['a page size over the limit', { page: 0, pageSize: QUEST_SEARCH_PAGE_SIZE_MAX + 1 }],
     ['an unknown key', { page: 0, pageSize: 5, userId: 'admin' }],
   ])('rejects %s as outcome error with no data', async (_name, input) => {
     expect(await searchQuests(input as never, undefined, fast)).toMatchObject({ outcome: 'error', data: null });
+  });
+
+  it('accepts the largest safe page (the wire schemas allow it) and refuses its first successor', async () => {
+    const big = Number.MAX_SAFE_INTEGER;
+    expect(await searchQuests({ page: big, pageSize: 3 }, undefined, fast)).toMatchObject({ outcome: 'ok', data: { supported: true, items: [], page: big, hasMore: false } });
+    expect(await searchQuests({ page: big + 1, pageSize: 3 }, undefined, fast)).toMatchObject({ outcome: 'error', data: null });
   });
 
   it('answers are copies: changing a returned quest does not change the mock', async () => {
