@@ -5,6 +5,7 @@ import { useHostPlatform, useToastList } from '@ap/kernel/host';
 import { LoadingBlock } from '@ap/components';
 import { cn, DetailPanelSlotProvider, readLocalStorage, useDetailPanelSlotHost, writeLocalStorage } from '@ap/ui';
 import { CommandPalette } from '../routing/CommandPalette';
+import { LeaveConfirmDialog } from '../routing/LeaveConfirmDialog';
 import { AppSidebar } from './AppSidebar';
 import { PlatformSidebar } from './PlatformSidebar';
 import { AppRail } from './AppRail';
@@ -70,6 +71,7 @@ function ShellLayout({ children }: { children: ReactNode }) {
         detailShown ? 'w-[clamp(360px,var(--detail-panel-width,440px),520px)] min-w-[360px] border-l' : 'w-0 min-w-0 border-l-0')} />
     {voc && <VocDrawer voc={voc} lang={lang} />}
     <CommandPalette />
+    <LeaveConfirmDialog />
   </div></VocDrawerContext.Provider>;
 }
 

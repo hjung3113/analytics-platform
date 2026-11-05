@@ -1,7 +1,7 @@
 import { CornerDownLeft, Search } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { type MenuEntry, useI18n, useRecentVisits } from '@ap/kernel';
-import { useHostPlatform, useOverlayState } from '@ap/kernel/host';
+import { useHostPlatform, useLeaveRequest, useOverlayState } from '@ap/kernel/host';
 import type { Text } from '@ap/contracts';
 import { usePlatformMenu } from '../frame/platformMenu';
 import { cn, Dialog, DialogContent, DialogTitle } from '@ap/ui';
@@ -10,10 +10,12 @@ import { cn, Dialog, DialogContent, DialogTitle } from '@ap/ui';
 export function CommandPalette() {
   const { setPaletteOpen, menusInSpace, accessibleSpaces, navigate, linkTo, registry, pathname } = useHostPlatform();
   const { paletteOpen, paletteSession } = useOverlayState();
+  const leaveRequest = useLeaveRequest();
   const recent = useRecentVisits();
   const { t, tx, text, lang } = useI18n();
   const [q, setQ] = useState('');
   const [active, setActive] = useState(0);
+  const [failedSelection, setFailedSelection] = useState(false);
   const platformLabel = text('palettePlatform');
   const platformMenus = usePlatformMenu().sections.flatMap(section => section.items);
   const paletteOwner = useRef(Symbol('CommandPalette'));
@@ -31,12 +33,19 @@ export function CommandPalette() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setPaletteOpen(!paletteOpen); }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); if (!leaveRequest) setPaletteOpen(!paletteOpen); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [paletteOpen, setPaletteOpen]);
+  }, [paletteOpen, setPaletteOpen, leaveRequest]);
   useEffect(() => { if (paletteOpen) { setQ(''); setActive(0); } }, [paletteOpen]);
+
+  // A false navigate can also mean the current URL (no request); retain the old close behavior there.
+  useEffect(() => {
+    if (!failedSelection) return;
+    setFailedSelection(false);
+    if (!leaveRequest) setPaletteOpen(false);
+  }, [failedSelection, leaveRequest, setPaletteOpen]);
 
   const sections = useMemo(() => {
     const rank = (id: string) => { const i = recent.findIndex(r => r.menuId === id); return i < 0 ? 99 : i; };
@@ -69,7 +78,10 @@ export function CommandPalette() {
     if (!m) return;
     const href = linkTo(m.id);
     const changesPage = href.split('?')[0] !== pathname;
-    if (navigate(href, changesPage ? { focus: 'page', via: 'palette' } : { via: 'palette' }) && changesPage) paletteSession?.select();
+    const moved = navigate(href, changesPage ? { focus: 'page', via: 'palette' } : { via: 'palette' });
+    // A held move keeps the search and active option mounted beneath the confirmation.
+    if (!moved) { setFailedSelection(true); return; }
+    if (changesPage) paletteSession?.select();
     setPaletteOpen(false);
   };
 
