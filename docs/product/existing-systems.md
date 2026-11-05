@@ -19,6 +19,7 @@
 - EES라는 설치형 프로그램 안에 메뉴로 들어 있다. EES 지원은 2027년 말 끝나고, 웹 전환 요구가 있다(L153).
 - 메뉴와 서버·DB는 우리 팀이 만든다. 화면 층은 외주다. 화면을 바꾸려면 외주를 거친다.
 - EES 앱이 기존 MSSQL 저장 프로시저를 직접 호출한다(L157).
+- 대표 메뉴: [MCC·RCC·동작시간분석(HW Time)](../../GLOSSARY.md#설비-내부-단위와-설정). 셋 모두 기본 단위는 설비 하나다.
 - 지표: 웨이퍼마다 process 시간과 그 앞뒤 유휴시간(swap)을 묶어 지표로 내고, 설비 단위로 모은다. 세 시스템 중 가장 오래 운영·보정되어 왔다.
 
 ## CLAS
@@ -56,4 +57,4 @@
 - MARS는 서버·DB가 우리 팀 것이므로, 업무 시스템 쪽 서버 어댑터가 기존 저장 프로시저를 그대로 호출하는 구성으로 화면부터 옮긴다(L157, [실서버 점검표](../integration/real-server-checklist.md)).
 - CLAS의 PCL·UCL·WCL처럼 단계가 있는 지표는 메뉴가 선언한 단계대로 드릴하는 조각으로 담을 수 있다([ADR-0063](../adr/0063-consumer-owned-chart-pieces-and-unbounded-drill.md)). 실제 메뉴 설계는 Candidate.
 - BRAVO는 코드와 데이터를 다른 부서가 가지므로, 데이터 접근 방식과 담당을 먼저 정해야 한다. Open.
-- WCL·UCL·PCL·wait·swap은 아직 GLOSSARY에 없다. 등록은 [용어 변경 절차](../agents/domain.md#changing-the-glossary)를 따른다.
+- 지표 용어 swap·wait·WCL·UCL·PCL의 정의는 [GLOSSARY](../../GLOSSARY.md#설비-내부-단위와-설정)가 갖는다.
