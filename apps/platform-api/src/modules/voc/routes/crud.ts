@@ -107,6 +107,24 @@ export const vocCrudRoutes: FastifyPluginAsync<VocRoutesOptions> = async (app, o
     },
   });
 
+  // GET /vocs/create-targets (#1358) — any signed-in session; one row per live system. Registered as a static
+  // path, so it wins over GET /vocs/:id.
+  app.route({
+    method: 'GET',
+    url: '/vocs/create-targets',
+    preHandler: [requireSession(sessionService), requireWorkspace(workspaceId)],
+    handler: async (req) => {
+      const sess = req.session;
+      if (!sess) throw new HttpError('internal.unexpected', 'session missing after middleware');
+      const items = await vocService.listCreateTargets({
+        actor_id: sess.actor_id,
+        workspace_id: sess.workspace_id,
+        role_level: sess.role_level,
+      });
+      return { items };
+    },
+  });
+
   // PATCH /vocs/:id — Slice 3 #14 triage-commit route.
   // 60/min per actor in its own bucket so the triage console can sustain operator commits.
   app.route({

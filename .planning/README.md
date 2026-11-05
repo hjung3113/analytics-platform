@@ -19,6 +19,7 @@
 ## 다음 할 일
 
 - [#1234](https://github.com/hjung3113/analytics-platform/issues/1234) 제목을 페이지 머리에만 두는 표의 R2 단일 띠 구현: `hideTitle` + 검색 없음에서 필터·결과·도구를 한 띠로, ⓘ는 결과 건수 옆으로 이동. 변경 감사·메뉴 활용률·메뉴 레지스트리에 적용. 작업 영역 패널·보이는 표 제목은 기존 배치 유지. #1351 병합 완료.
+- [#1358](https://github.com/hjung3113/analytics-platform/issues/1358) 시스템 단위 VOC 등록 권한([ADR-0113](../docs/adr/0113-voc-creation-permission-per-managed-system.md)): **노드 a(서버·계약·문서) 완료** — `voc.create`, `managed_systems.voc_create_mode`(`open`/`restricted`, 기본 열림), `POST /vocs` 403, `GET /vocs/create-targets`(마이그레이션 번호는 병합 때 정한다). 다음 **노드 b 화면**: 작성 폼의 시스템 선택 비활성+이유, 운영 콘솔의 시스템별 모드·허용할 사람 설정(시안으로 위치 선택), #606 신고 버튼의 `denied` 연결. 연결 시스템 기본값 변경은 [backlog](backlog.md)에 «구현 안 함».
 
 다음 세션은 여기서 시작한다. 갈래마다 지금 열린 일만 적는다. 이슈별 흐름은 `lane:*` 라벨이고, 세션 분담·팀장·릴리스 담당은 [`LANES.md`](../.agents/conductor/LANES.md)다(2026-10-26). 끝난 일의 기록은 닫힌 이슈·ADR·[릴리스](https://github.com/hjung3113/analytics-platform/releases)(앱 [`v0.27.0`](https://github.com/hjung3113/analytics-platform/releases/tag/v0.27.0), SDK [`sdk-v0.29.0`](https://github.com/hjung3113/analytics-platform/releases/tag/sdk-v0.29.0))에 있다.
 

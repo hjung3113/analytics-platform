@@ -12,6 +12,8 @@ export interface LockedManagedSystem {
   default_owner_team_id: string | null;
   default_reviewer_actor_id: string | null;
   default_reviewer_team_id: string | null;
+  external_key: string | null;
+  voc_create_mode: string;
 }
 
 export async function lockManagedSystem(
@@ -28,9 +30,12 @@ export async function lockManagedSystem(
     default_owner_team_id: string | null;
     default_reviewer_actor_id: string | null;
     default_reviewer_team_id: string | null;
+    external_key: string | null;
+    voc_create_mode: string;
   }>(sql`
     select id, workspace_id, archived_at, default_survey_operator_actor_id,
-      default_owner_actor_id, default_owner_team_id, default_reviewer_actor_id, default_reviewer_team_id
+      default_owner_actor_id, default_owner_team_id, default_reviewer_actor_id, default_reviewer_team_id,
+      external_key, voc_create_mode
     from ${managedSystems}
     where id = ${managedSystemId}
       and workspace_id = ${workspaceId}
@@ -47,6 +52,8 @@ export async function lockManagedSystem(
         default_owner_team_id: row.default_owner_team_id,
         default_reviewer_actor_id: row.default_reviewer_actor_id,
         default_reviewer_team_id: row.default_reviewer_team_id,
+        external_key: row.external_key,
+        voc_create_mode: row.voc_create_mode,
       }
     : null;
 }

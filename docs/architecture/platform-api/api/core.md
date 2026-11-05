@@ -104,6 +104,15 @@ including explicit-deny rejection. Effective no-op writes no audit; create snaps
 include both reviewer keys and updates include only effective changes. Older audit
 snapshots without reviewer fields remain readable. `GET /managed-systems` stays session-only.
 
+Managed System read/PATCH also carries `voc_create_mode` (`open` | `restricted`, ADR-0113, #1358;
+default and every existing row `open`). `PATCH /managed-systems/:id` accepts it like any other field
+(`workspace.admin`, no-op writes nothing); the change is recorded in the existing
+`managed_system_updated` audit as `changes.voc_create_mode = { from, to }`. The registry-owned
+「플랫폼」 system (`external_key='platform'`) rejects any value other than `open` with 422
+`validation.failed` (`fields[0] = { path: ['voc_create_mode'], code: 'platform_always_open' }`).
+`POST /managed-systems` does not take the field (a new system is `open`). The rule it drives is in
+`api/voc.md` §VOC create permission per Managed System.
+
 `GET /managed-systems/space-links` (#1289 node j) is session-only too and workspace-scoped:
 `{ items: [{ space_id, managed_system_id, declared }], platform_managed_system_id: uuid | null }`,
 every `core.space_links` row of the workspace (`declared=false` rows stay, the app shows them as

@@ -208,10 +208,12 @@ Reply, not by mutating the original description.
 MVP has no affected_user field; proxy-report context is captured in the VOC
 description.
 Any AD-authenticated Actor may call `POST /vocs` to create their own VOC
-without a Permission Request. Permission checks still validate workspace
-membership and that the selected Managed System is available for VOC submission,
-but Task, Finding, Developer, or Admin permissions are not required to submit
-VOC.
+without a Permission Request in a Managed System whose `voc_create_mode` is
+`open` (the default). Task, Finding, Developer, or Admin permissions are not
+required. A `restricted` system admits only Admin and holders of an active
+`voc.create` grant (that system or workspace-wide); an explicit `voc.create` deny
+blocks both modes, Admin included. The 「플랫폼」 system (`external_key='platform'`)
+is always open. See "VOC create permission per Managed System" below.
 
 VOC conversation endpoints:
 
@@ -311,6 +313,12 @@ VOC Cluster endpoint catalog: [voc-clusters.md](voc-clusters.md) §VOC Cluster.
 | Idempotency hash | Includes `vocId`, `ifMatch`, route, and request body — a retry with a refreshed `If-Match` (post-409 refetch) produces a new hash; client must mint a fresh `Idempotency-Key` for each distinct `If-Match` value (same caveat as `PATCH /vocs/:id`). |
 | Rate limit | 30/min per actor — dedicated `reporterEdit` bucket, separate from the 10/min `mutation` tier. |
 | Error codes | `validation.failed` · `validation.unexpected_field` · `permission.denied` · `not_found.record` · `conflict.triage_already_committed` (new in #17) · `conflict.stale_write` · `conflict.record_archived` · `conflict.parent_archived` · `conflict.idempotency_key_reuse` · `rich_content.disallowed_node` · `rich_content.disallowed_attr` · `rich_content.invalid_attr_value` · `rich_content.missing_required_attr` · `rich_content.external_image_forbidden` · `rate_limited.actor` |
+
+## VOC create permission per Managed System (ADR-0113, #1358)
+
+`POST /vocs` decides `canCreateVoc(actor, system)` (`modules/permissions/voc-create-policy.ts`) inside the Managed System lock transaction, **after** the existing checks: unknown system → 404 `not_found.record`, archived → 409 `conflict.parent_archived`, then not allowed → **403 `permission.denied`** (message `you cannot file a VOC in this managed system`; no mode, grant or deny detail, no `requestable` hint). Only new creation is checked: VOCs filed before a system became `restricted` keep every read and write rule. The owner-override and `analytics_area_id` checks follow the permission check.
+
+`GET /vocs/create-targets` — any signed-in session, no query. Response `{ items: VocCreateTarget[] }` (`vocCreateTargetsSchema`, `packages/feature-shared/src/vocs/create-targets.ts`), one item per live (non-archived) Managed System of the workspace ordered by name then id: `{ managed_system_id, allowed: boolean, reason?: 'restricted' }`. `reason` is present exactly when `allowed` is false and is `restricted` for an explicit deny too, so the wire does not say which row applied. The rule is the one `POST /vocs` uses; the list costs one deny query, one grant query and one system query, whatever the number of systems. It is a pre-submit hint; the `POST` answer is final. Client: `fetchVocCreateTargets` (`apps/feature-screens/src/lib/api/voc-create-targets.ts`).
 
 ## VOC public read (ADR-0110 decision 3, #1288 g)
 

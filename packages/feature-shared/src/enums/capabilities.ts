@@ -16,6 +16,7 @@ export const CAPABILITIES = [
   'voc.triage',
   'voc.read',
   'voc.read_public',
+  'voc.create',
   'finding.read',
   'finding.manage',
   'task_request.self_approve',
@@ -78,6 +79,9 @@ export const CAPABILITY_META: Readonly<Record<Capability, CapabilityMeta>> = {
   // voc.read_public (ADR-0110 decision 3): the public part of a VOC (`/vocs/public`). Requestable by every
   // role for one Managed System; it never widens voc.read, the operator surfaces or the ADR-0031 rule.
   'voc.read_public': { sensitive: false, adminModuleBypass: 'none' },
+  // voc.create (#1358, ADR-0113): files a VOC in one Managed System whose `voc_create_mode` is `restricted`. Not sensitive.
+  // `canCreateVoc` lets Admin through unless an explicit deny applies, so the advisory check mirrors `unless_denied`.
+  'voc.create': { sensitive: false, adminModuleBypass: 'unless_denied' },
   // Finding point authorization short-circuits on the admin role before
   // consulting Permission (`modules/findings/authorization.ts`).
   'finding.read': { sensitive: false, adminModuleBypass: 'always' },

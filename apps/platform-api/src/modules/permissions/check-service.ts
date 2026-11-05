@@ -262,16 +262,8 @@ export function createCheckService(deps: CheckServiceDeps) {
   return { checkCapability, capabilityScope };
 }
 
-/** Single capability scope rule, shared by HTTP hints and db/tx read-model filters. */
-export async function resolveCapabilityScope(
-  db: Tx,
-  actor: ActorContext,
-  capability: Capability,
-  now: () => Date = () => new Date(),
-): Promise<CapabilityScope> {
-  const bypass = actor.role_level === 'admin' ? adminModuleBypassFor(capability) : 'none';
-  if (bypass === 'always') return { kind: 'all' };
-
+/** The actor's active denies and unsuperseded grants for one capability: one pair of queries, whatever the scope. */
+export async function loadDenyAndGrantRows(db: Tx, actor: ActorContext, capability: Capability) {
   const [denyRows, grantRows] = await Promise.all([
     db
       .select({ managedSystemId: permissionDenies.managedSystemId })
@@ -300,6 +292,20 @@ export async function resolveCapabilityScope(
         ),
       ),
   ]);
+  return { denyRows, grantRows };
+}
+
+/** Single capability scope rule, shared by HTTP hints and db/tx read-model filters. */
+export async function resolveCapabilityScope(
+  db: Tx,
+  actor: ActorContext,
+  capability: Capability,
+  now: () => Date = () => new Date(),
+): Promise<CapabilityScope> {
+  const bypass = actor.role_level === 'admin' ? adminModuleBypassFor(capability) : 'none';
+  if (bypass === 'always') return { kind: 'all' };
+
+  const { denyRows, grantRows } = await loadDenyAndGrantRows(db, actor, capability);
   if (denyRows.some((row) => row.managedSystemId === null)) {
     return { kind: 'scoped', managed_system_ids: [] };
   }

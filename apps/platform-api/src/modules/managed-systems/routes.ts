@@ -34,6 +34,7 @@ const updateBodySchema = z.object({
   default_owner_team_id: z.string().uuid().nullable().optional(),
   default_reviewer_actor_id: z.string().uuid().nullable().optional(),
   default_reviewer_team_id: z.string().uuid().nullable().optional(),
+  voc_create_mode: z.enum(['open', 'restricted']).optional(),
 });
 
 const listQuerySchema = z.object({
