@@ -20,8 +20,7 @@ import {
   insertPublicUpdateReviewCandidateDirectly,
   insertVocDirectly,
 } from '../../../test-support/voc-fixtures.js';
-import { allocateImprovementItemNo } from '../../improvement-items/repositories/item-number.js';
-import { getItemReference } from '../../improvement-items/repositories/item-read.js';
+import { allocateImprovementItemNo, getItemReference } from '../../improvement-items/index.js';
 
 const APP_URL = process.env.DATABASE_URL ?? '';
 const MIGRATE_URL = process.env.DATABASE_URL_MIGRATE ?? '';

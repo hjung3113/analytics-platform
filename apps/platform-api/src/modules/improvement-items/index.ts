@@ -1,5 +1,6 @@
 export { improvementItemsContribution } from './item-endpoints.js';
 export { getItemReference } from './repositories/item-read.js';
+export { allocateImprovementItemNo } from './repositories/item-number.js';
 export { IMPROVEMENT_STATUS_LABELS } from './domain/item-filters.js';
 export type { ImprovementItemsDeps } from './deps.js';
 export { IMPROVEMENT_ITEMS_MENU_ID } from './menu.js';
