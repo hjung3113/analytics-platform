@@ -22,8 +22,8 @@ export default function OperationTimeScreen() {
   </PlatformPage>;
 }
 
-// The accepted params carry an empty eqp for the default equipment (no `eqp` page key), so an empty value falls back to the equipment the data names.
-export function acceptedEquipment(eqp: string | undefined, dataEquipmentId: string | null | undefined): string { return eqp || dataEquipmentId || ''; }
+// The data names the equipment it shows (a request outside the Scope or with no `eqp` falls back to another equipment), so the response's id wins and the accepted request only fills in when the response has none.
+export function acceptedEquipment(eqp: string | undefined, dataEquipmentId: string | null | undefined): string { return dataEquipmentId || eqp || ''; }
 
 // A long result scrolls the Kernel notice off screen, so the section that reads the accepted equipment says it again locally (no role: the Kernel notice announces).
 export function PreviousEquipmentLine({ equipment }: { equipment: string | null }) {
