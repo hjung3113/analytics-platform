@@ -25,6 +25,6 @@
 
 ## 결과
 
-- 마이그레이션 한 개: 열 + CHECK + 감사 allowlist 갱신(번호는 병합 때 정한다).
+- 마이그레이션 한 개(`0097_voc_create_mode`): 열 + CHECK + 감사 allowlist 갱신.
 - `GET /managed-systems`의 행과 `PATCH /managed-systems/:id`가 `voc_create_mode`를 싣는다. `POST /vocs`에 403이 새로 생기고 `GET /vocs/create-targets`가 추가된다.
-- 화면(제출 전 비활성, 운영 콘솔 설정, #606 신고 버튼의 `denied`)은 다음 노드가 맡는다. 서버는 화면 없이 먼저 쓸 수 있다.
+- 화면(제출 전 비활성, 운영 콘솔 설정, #606 신고 버튼의 `denied`)은 서버와 같은 PR(#1377)에 들어갔다.
