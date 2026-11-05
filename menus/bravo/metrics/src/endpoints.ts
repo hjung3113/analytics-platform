@@ -3,7 +3,7 @@
  * Client-safe: declarations, the catalog record types, and pure helpers the page and the server share
  * (`versionDiff`). The synthetic catalog itself and every lookup live in `src/mock/` (the server half).
  */
-import { defineEndpoint, type AuditEvent, type PageQuery, type PageResult, type PageSort, type Reaggregation } from '@ap/contracts';
+import { defineEndpoint, type AuditEvent, type ColumnFilter, type ColumnFilterSpec, type PageResult, type PageSort, type Reaggregation, type TableQuery } from '@ap/contracts';
 import { PERMISSION } from './permission';
 
 export type Text = { ko: string; en: string };
@@ -18,6 +18,16 @@ export const DOMAINS: Domain[] = ['productivity', 'time', 'movement', 'quality',
 export const STATUSES: PublicationState[] = ['draft', 'published', 'deprecated'];
 /** §6.1: sortable catalog columns, in table order; the synthetic _select column never joins the allow-list. */
 export const sortColumns = ['metricId', 'nameSort', 'domain', 'grain', 'numerator', 'denominator', 'publishedPointer', 'status', 'owner', 'updatedAt'] as const;
+
+/**
+ * The catalog's filter fields (ADR-0105, #1218): 발행 상태 and 도메인, one `in` value each. The URL codec checks the
+ * shape, not enum membership — the page's value check (`catalogValueCheck`) refuses unknown tokens, and the mock
+ * re-validates every wire condition against these same specs (a malformed request errors, never narrows to zero).
+ */
+export const catalogFilterSpecs: Record<'status' | 'domain', ColumnFilterSpec> = {
+  status: { kind: 'enum', options: STATUSES.map(value => ({ value, label: value })), ops: ['in'], multiple: false },
+  domain: { kind: 'enum', options: DOMAINS.map(value => ({ value, label: value })), ops: ['in'], multiple: false },
+};
 
 export type MetricVersion = {
   version: string;
@@ -128,9 +138,9 @@ export type PairVerdict =
   | { kind: 'other-metric'; metricId: string; metricVersion: string | null; viewedId: string }
   | { kind: 'conflict'; metricId: string; globalVersion: string; pageVersion: string };
 
-/** Page list filters (URL page keys q/status/domain); localized columns follow `lang`. */
-export type CatalogFilter = { q: string | null; status: string | null; domain: string | null; lang: Lang };
-export type CatalogList = { rows: CatalogRow[]; filterProblem: 'status' | 'domain' | null };
+/** Page-owned list filter: the URL page key `q` (the toolbar quick search) and the display language. The table's conditions travel in `filters` (ADR-0105), not in page keys. */
+export type CatalogFilter = { q: string | null; lang: Lang };
+export type CatalogList = { rows: CatalogRow[] };
 
 /** Metric catalog and detail apply no site Context: metrics are not site data (no Scope). */
 const base = { permission: PERMISSION, requiresScope: false, kinds: ['processing_delay'], mergeTimeDomain: false } as const;
@@ -143,19 +153,19 @@ export const metricPairEndpoint = defineEndpoint<{ viewedId: string | null; page
   ...base, id: 'metrics.pair', menuId: 'metric-catalog', context: { metric: 'apply' }, paramKeys: { viewedId: true, pageVersion: true },
 });
 
-/** Filtered catalog for export, plus the filter verdict. */
-export const catalogListEndpoint = defineEndpoint<CatalogFilter, CatalogList>({
-  ...base, id: 'metrics.catalog.list', menuId: 'metric-catalog', context: {}, paramKeys: { q: true, status: true, domain: true, lang: true },
+/** The full catalog for the metric count (UXA-4): never filtered — conditions do not narrow it. */
+export const catalogListEndpoint = defineEndpoint<{ lang: Lang }, CatalogList>({
+  ...base, id: 'metrics.catalog.list', menuId: 'metric-catalog', context: {}, paramKeys: { lang: true },
 });
 
-/** One catalog table page (06 §15). */
-export const catalogPageEndpoint = defineEndpoint<CatalogFilter & PageQuery, PageResult<CatalogRow>>({
+/** One catalog table page (06 §15): the quick search plus the table's conditions (`TableQuery.filters`, ADR-0105). */
+export const catalogPageEndpoint = defineEndpoint<CatalogFilter & TableQuery, PageResult<CatalogRow>>({
   ...base, id: 'metrics.catalog.page', menuId: 'metric-catalog', context: {},
-  paramKeys: { q: true, status: true, domain: true, lang: true, page: true, pageSize: true, sorting: true },
+  paramKeys: { q: true, lang: true, page: true, pageSize: true, sorting: true, filters: true, groupBy: true },
 });
 
-/** Catalog filters plus an explicit row selection (`null` = every filtered row) and the table's active sort for export. */
-export type CatalogExportFilter = CatalogFilter & { ids: string[] | null; sorting: PageSort[] };
+/** Catalog page filters plus an explicit row selection (`null` = every filtered row), the table's active sort and its conditions for export. */
+export type CatalogExportFilter = CatalogFilter & { ids: string[] | null; sorting: PageSort[]; filters?: ColumnFilter[] };
 
 /**
  * The export set for table-owned export (#173): a row array, so the server declares `limits.maxRows` on it.
@@ -163,7 +173,7 @@ export type CatalogExportFilter = CatalogFilter & { ids: string[] | null; sortin
  * table's active sort, so export order = page order (#173 UX P2-6).
  */
 export const catalogExportEndpoint = defineEndpoint<CatalogExportFilter, CatalogRow[]>({
-  ...base, id: 'metrics.catalog.export', menuId: 'metric-catalog', context: {}, paramKeys: { q: true, status: true, domain: true, lang: true, ids: true, sorting: true },
+  ...base, id: 'metrics.catalog.export', menuId: 'metric-catalog', context: {}, paramKeys: { q: true, lang: true, ids: true, sorting: true, filters: true },
   limits: { maxRows: 50_000 },
 });
 

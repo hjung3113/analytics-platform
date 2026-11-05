@@ -1,8 +1,7 @@
-import { useId, useLayoutEffect, useRef, type FormEvent, type ReactNode } from 'react';
-import { ChevronDown, ChevronUp, Search } from 'lucide-react';
+import { useId, useLayoutEffect, useRef, type ReactNode } from 'react';
+import { ChevronDown, ChevronUp, Search, X } from 'lucide-react';
 import { useI18n } from '@ap/kernel';
 import { useCollapsePreference } from './useCollapsePreference';
-import { useImeEnterGuard } from './useImeEnterGuard';
 import { Button, cn, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ap/ui';
 
 export type PageFilterOption = { value: string; label: string };
@@ -35,33 +34,35 @@ export type PageFilterField =
 
 export type PageFilterSummaryItem = { key: string; label: string; value: string };
 
+/** Applied values only; the consumer owns their state and optional immediate clear action. */
+export type PageFilterAppliedChip = PageFilterSummaryItem & {
+  title?: string;
+  onClear?: () => void;
+  clearLabel?: string;
+};
+
 type PageFilterBarShared = {
-  /** A query bar owns the sole Apply; fields remain consumer controlled. */
+  /** Marks the query-draft (ADR-0037) controlled presentation; the bar has no apply dispatch of its own. */
   mode?: 'draft';
   label: string;
   fields: readonly PageFilterField[];
   actions?: ReactNode;
-  /**
-   * Wraps the bar in a form whose submit calls this (draft + apply model, ADR-0037). Enter in a text/search input submits
-   * through the form unless it commits an IME composition; render the submit button in `actions`.
-   */
-  onApply?: () => void;
 };
 
-export type PageFilterBarProps =
-  | (PageFilterBarShared & { collapsible?: false })
-  | (PageFilterBarShared & {
-      /** Row orientation only: the collapsed summary line replaces the always-visible field row. */
-      collapsible: true;
-      /** Stable per-menu preference id; the collapse preference is stored per key. */
-      preferenceKey: string;
-      /** Consumer-provided label/value summary of every field; conditions are never dropped. */
-      summaryItems: readonly PageFilterSummaryItem[];
-      /** Reset/apply actions that stay visible while collapsed. */
-      collapsedActions?: ReactNode;
-      /** Marks unapplied changes at the end of the collapsed summary. */
-      hasPendingChanges?: boolean;
-    });
+export type PageFilterBarProps = PageFilterBarShared & {
+  /** The collapsed summary line replaces the always-visible field row (the row-only form was retired with #1218). */
+  collapsible: true;
+  /** Stable per-menu preference id; the collapse preference is stored per key. */
+  preferenceKey: string;
+  /** Consumer-provided label/value summary of every field; conditions are never dropped. */
+  summaryItems: readonly PageFilterSummaryItem[];
+  /** Reset/apply actions that stay visible while collapsed. */
+  collapsedActions?: ReactNode;
+  /** Marks unapplied changes beside expanded actions and at the end of the collapsed summary. */
+  hasPendingChanges?: boolean;
+  /** Optional applied-state row, also visible while collapsed. Omit to preserve the existing DOM. */
+  appliedChips?: readonly PageFilterAppliedChip[];
+};
 
 const EMPTY_OPTION_VALUE = '__page_filter_empty__';
 
@@ -69,49 +70,6 @@ function emptyOptionValue(options: readonly PageFilterOption[]) {
   let value = EMPTY_OPTION_VALUE;
   while (options.some(option => option.value === value)) value += '_';
   return value;
-}
-
-const FIRST_FIELD = 'input:not(:disabled), [role="combobox"]:not(:disabled)';
-
-/**
- * The form around a draft + apply bar. Submit is the only apply dispatch; this only cancels the implicit submission of an
- * Enter that belongs to an IME composition (isComposing, keyCode 229, or the Safari Enter that follows compositionend).
- */
-function ApplyForm({ onApply, children }: { onApply: () => void; children: ReactNode }) {
-  const form = useRef<HTMLFormElement>(null);
-  const ime = useImeEnterGuard();
-  const submitter = useRef<HTMLElement | null>(null);
-
-  // Apply can disable its button and clear can remove its button; focus the first field of this same container.
-  // A field that submitted with Enter keeps its focus, and an unchanged (enabled) button keeps its own.
-  useLayoutEffect(() => {
-    const from = submitter.current;
-    submitter.current = null;
-    if (!(from instanceof HTMLButtonElement) || (!from.disabled && from.isConnected)) return;
-    const active = document.activeElement;
-    if (active !== from && active !== document.body) return;
-    form.current?.querySelector<HTMLElement>(FIRST_FIELD)?.focus();
-  });
-
-  const onSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const from = (event.nativeEvent as Partial<SubmitEvent>).submitter ?? document.activeElement;
-    submitter.current = from instanceof HTMLElement && form.current?.contains(from) ? from : null;
-    onApply();
-  };
-
-  return <form ref={form} className="min-w-0" onSubmit={onSubmit} onKeyDown={ime.onKeyDown}
-    onClickCapture={event => {
-      const button = event.target instanceof Element ? event.target.closest('button') : null;
-      submitter.current = button && event.currentTarget.contains(button) ? button : null;
-    }}
-    onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd}>
-    {children}
-  </form>;
-}
-
-function withApplyForm(onApply: (() => void) | undefined, bar: ReactNode) {
-  return onApply ? <ApplyForm onApply={onApply}>{bar}</ApplyForm> : bar;
 }
 
 function PageFilterFieldControl({ field, id }: { field: PageFilterField; id: string }) {
@@ -169,38 +127,58 @@ function PageFilterFieldControl({ field, id }: { field: PageFilterField; id: str
 
 /** A visible, wrapping row for page-owned filters. Values, URL keys, and actions stay with the consumer. */
 export function PageFilterBar(props: PageFilterBarProps) {
-  if (!props.collapsible) return <StaticPageFilterBar {...props} />;
   const storageKey = `platform:page-filter-collapsed:${props.preferenceKey}`;
   // Remount (and re-read the stored preference) when the preference key changes.
   return <CollapsiblePageFilterBar key={storageKey} {...props} storageKey={storageKey} />;
 }
 
-function StaticPageFilterBar({ label, fields, actions, onApply, mode }: PageFilterBarShared & { collapsible?: false }) {
-  const id = useId();
-
-  return withApplyForm(mode === 'draft' ? undefined : onApply, <fieldset data-testid="page-filter-bar" className="mb-3 rounded-md border border-border-subtle bg-surface-card p-3">
-    <legend className="px-1 text-xs text-text-secondary">{label}</legend>
-    <div className="flex flex-wrap items-end gap-3">
-      {fields.map((field, index) => <PageFilterFieldControl key={field.key} field={field} id={`${id}-field-${index}`} />)}
-      {actions != null && <div className="flex flex-wrap items-end gap-2">{actions}</div>}
-    </div>
-  </fieldset>);
+function AppliedConditionChip({ chip, lang, onClear }: { chip: PageFilterAppliedChip; lang: 'ko' | 'en'; onClear: (chip: PageFilterAppliedChip, button: HTMLButtonElement) => void }) {
+  const text = `${chip.label} ${chip.value}`;
+  // Same chip and clear-button vocabulary as table/filterLine.tsx; keep table output untouched.
+  return <span role="group" aria-label={text} title={chip.title ?? text}
+    className="inline-flex h-6 min-w-0 max-w-full items-center rounded-md border border-border-subtle bg-accent-primary-soft text-xs">
+    <span className="inline-flex min-w-0 items-center gap-1 px-2">
+      <span className="shrink-0 text-text-secondary">{chip.label}</span>{' '}
+      <span className="max-w-[28ch] truncate font-medium text-text-primary">{chip.value}</span>
+    </span>
+    {chip.onClear && <button type="button" data-page-filter-chip-clear aria-label={chip.clearLabel ?? (lang === 'ko' ? `${chip.label} 필터 지우기` : `Clear ${chip.label} filter`)}
+      className="inline-flex size-6 shrink-0 items-center justify-center rounded-r-md text-text-secondary hover:text-text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
+      onClick={event => onClear(chip, event.currentTarget)}><X className="size-3" aria-hidden /></button>}
+  </span>;
 }
 
-function CollapsiblePageFilterBar({ label, fields, actions, onApply, mode, summaryItems, collapsedActions, hasPendingChanges, storageKey }: PageFilterBarShared & {
+function CollapsiblePageFilterBar({ label, fields, actions, summaryItems, collapsedActions, hasPendingChanges, appliedChips, storageKey }: PageFilterBarShared & {
   summaryItems: readonly PageFilterSummaryItem[];
   collapsedActions?: ReactNode;
   hasPendingChanges?: boolean;
+  appliedChips?: readonly PageFilterAppliedChip[];
   storageKey: string;
 }) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const id = useId();
   const panelId = `${id}-panel`;
   const summaryId = `${id}-summary`;
   const summaryText = `${summaryItems.map(item => `${item.label} ${item.value}`).join(' · ')}${hasPendingChanges ? ` · ${t('pageFilterPendingChanges')}` : ''}`;
   const { collapsed, toggle, expandRef, collapseRef, liveText } = useCollapsePreference(storageKey, summaryText);
+  const barRef = useRef<HTMLFieldSetElement>(null);
+  const clearedFocus = useRef<{ key: string; index: number } | null>(null);
+  const clearChip = (chip: PageFilterAppliedChip, button: HTMLButtonElement) => {
+    if (document.activeElement === button) {
+      const buttons = Array.from(barRef.current?.querySelectorAll('[data-page-filter-chip-clear]') ?? []);
+      clearedFocus.current = { key: chip.key, index: buttons.indexOf(button) };
+    }
+    chip.onClear?.();
+  };
+  useLayoutEffect(() => {
+    const cleared = clearedFocus.current;
+    clearedFocus.current = null;
+    if (!cleared || appliedChips?.some(chip => chip.key === cleared.key) || document.activeElement !== document.body) return;
+    // A removed clear button must not strand keyboard focus on the document body.
+    const buttons = barRef.current?.querySelectorAll<HTMLButtonElement>('[data-page-filter-chip-clear]');
+    (buttons?.[cleared.index] ?? buttons?.[cleared.index - 1] ?? (collapsed ? expandRef.current : collapseRef.current))?.focus();
+  });
 
-  return withApplyForm(mode === 'draft' ? undefined : onApply, <fieldset data-testid="page-filter-bar" className="mb-3 rounded-md border border-border-subtle bg-surface-card p-3">
+  return <fieldset ref={barRef} data-testid="page-filter-bar" className="mb-3 rounded-md border border-border-subtle bg-surface-card p-3">
     <legend className={collapsed ? 'sr-only' : 'px-1 text-xs text-text-secondary'}>{label}</legend>
     {collapsed && <div className="flex flex-wrap items-center gap-2">
       <Button ref={expandRef} type="button" variant="secondary" size="toolbar" wrapText onClick={() => toggle(false)}
@@ -224,6 +202,7 @@ function CollapsiblePageFilterBar({ label, fields, actions, onApply, mode, summa
         {fields.map((field, index) => <PageFilterFieldControl key={field.key} field={field} id={`${id}-field-${index}`} />)}
         <div className="flex flex-wrap items-end gap-2">
           {actions}
+          {hasPendingChanges && <span className="t-caption self-center text-text-secondary">{t('pageFilterPendingApplyHint')}</span>}
           <Button ref={collapseRef} type="button" variant="ghost" size="toolbar" onClick={() => toggle(true)}
             aria-expanded="true" aria-controls={panelId} aria-label={t('collapsePageFilter', { label })}>
             <ChevronUp className="size-3.5" aria-hidden />{t('collapseShort')}
@@ -231,7 +210,12 @@ function CollapsiblePageFilterBar({ label, fields, actions, onApply, mode, summa
         </div>
       </>}
     </div>
+    {appliedChips && appliedChips.length > 0 && <div role="group" aria-label={lang === 'ko' ? '적용된 조건' : 'Applied conditions'}
+      className="mt-3 flex min-w-0 flex-wrap items-center gap-2 border-t border-border-subtle pt-2 text-xs">
+      <span className="text-text-secondary">{lang === 'ko' ? '적용됨' : 'Applied'}</span>
+      {appliedChips.map(chip => <AppliedConditionChip key={chip.key} chip={chip} lang={lang} onClear={clearChip} />)}
+    </div>}
     {/* Always mounted; carries only real summary changes that happened while collapsed (see the baseline effect above). */}
     <div aria-live="polite" className="sr-only">{liveText}</div>
-  </fieldset>);
+  </fieldset>;
 }

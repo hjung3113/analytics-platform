@@ -4,7 +4,8 @@
  */
 import { bucketStart, parseDateTime } from '@ap/contracts';
 import { encodeTableSort, exportScopeIds, parseTableSort, type TableExportRequest } from '@ap/components';
-import { BINS, bucketEnd, binIndex, isInstant, type Granularity, type SlowExportFilter, type SlowFilter, type SlowRow, type TailMode } from '../endpoints';
+import { binText, bucketText } from '../bucket-format';
+import { BINS, binIndex, isInstant, type Granularity, type SlowExportFilter, type SlowFilter, type SlowRow, type TailMode } from '../endpoints';
 
 export const SORT_COLUMNS = ['cycleMin', 'delta', 'startedAt', 'equipmentId', 'room', 'recipe', 'lotId', 'quality'] as const;
 export type SortColumn = (typeof SORT_COLUMNS)[number];
@@ -96,8 +97,8 @@ export function exportFilterSummary({ tail, granularity, bucket, bin }: SlowFilt
   const rows: [string, string][] = [];
   rows.push([cycleTailFilterLabel(ko ? 'ko' : 'en'), tail === 'p95' ? '≥ P95' : tail === 'p50' ? '≥ P50' : (ko ? '전체 실행' : 'All executions')]);
   rows.push([ko ? '집계' : 'Grain', granularity === 'hour' ? (ko ? '시간' : 'Hour') : granularity === 'day' ? (ko ? '일' : 'Day') : (ko ? '주' : 'Week')]);
-  if (bucket !== null) rows.push([ko ? '버킷' : 'Bucket', `${bucket.replace('T', ' ')} → ${bucketEnd(bucket, granularity).replace('T', ' ')}`]);
-  if (bin !== null) rows.push([ko ? '분포 구간' : 'Histogram', bin.from === bin.to ? bin.from : `${bin.from} – ${bin.to}`]);
+  if (bucket !== null) rows.push([ko ? '버킷' : 'Bucket', bucketText(bucket, granularity, ko ? 'ko' : 'en')]);
+  if (bin !== null) rows.push([ko ? '분포 구간' : 'Histogram', binText(bin, ko ? 'ko' : 'en')]);
   return rows;
 }
 

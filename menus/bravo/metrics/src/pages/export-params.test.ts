@@ -1,39 +1,44 @@
 import { describe, expect, it } from 'vitest';
-import type { CatalogFilter, Text } from '../endpoints';
-import { DOMAIN_LABEL, STATUS_LABEL, exportFilterSummary, exportParams } from './data';
+import type { CatalogFilter } from '../endpoints';
+import { exportFilterSummary, exportParams } from './data';
 
-// Table-owned export (#173): the page builds only the endpoint params — catalog filters, the selection ids
-// and the table's active sort (export order = page order, UX P2-6).
+// Table-owned export (#173): the page builds only the endpoint params — the quick search, the selection ids,
+// the table's active sort and its conditions (export order = page order, UX P2-6). The file, outcome handling
+// and toasts belong to PlatformDataTable.
 
 const sorting = [{ id: 'metricId', desc: false }];
-const tx = (text: Text) => text.ko;
+const filters = [{ id: 'status', op: 'in' as const, value: ['published'] }];
 
 describe('metric-catalog export params', () => {
-  const filter: CatalogFilter = { q: 'cycle', status: 'published', domain: 'time', lang: 'ko' };
+  const filter: CatalogFilter = { q: 'cycle', lang: 'ko' };
 
-  it('carries the catalog filters, ids and the table sort for a selection export', () => {
+  it('carries the quick search, ids and the table sort for a selection export', () => {
     expect(exportParams(filter, { scope: { kind: 'selected', ids: ['cycle_time', 'throughput'] }, sorting }))
-      .toEqual({ q: 'cycle', status: 'published', domain: 'time', lang: 'ko', ids: ['cycle_time', 'throughput'], sorting });
+      .toEqual({ q: 'cycle', lang: 'ko', ids: ['cycle_time', 'throughput'], sorting });
   });
 
   it('uses ids: null for the all-filtered export', () => {
     expect(exportParams(filter, { scope: { kind: 'filtered' }, sorting }))
-      .toEqual({ q: 'cycle', status: 'published', domain: 'time', lang: 'ko', ids: null, sorting });
+      .toEqual({ q: 'cycle', lang: 'ko', ids: null, sorting });
+  });
+
+  it('passes the table conditions through only when the request has them (ADR-0105)', () => {
+    expect(exportParams(filter, { scope: { kind: 'filtered' }, sorting, filters }))
+      .toEqual({ q: 'cycle', lang: 'ko', ids: null, sorting, filters });
+    expect(exportParams(filter, { scope: { kind: 'filtered' }, sorting })).not.toHaveProperty('filters');
   });
 });
 
 describe('metric-catalog export params with a select-all scope (#556c)', () => {
   it('refuses the all scope: this table does not enable selectAllResults, and ids: null would export the excluded rows', () => {
-    expect(() => exportParams({ q: '', status: null, domain: null, lang: 'ko' } as CatalogFilter, { scope: { kind: 'all', excludedIds: ['cycle_time'] }, sorting })).toThrow(/select-all/);
+    expect(() => exportParams({ q: '', lang: 'ko' } as CatalogFilter, { scope: { kind: 'all', excludedIds: ['cycle_time'] }, sorting })).toThrow(/select-all/);
   });
 });
 
 describe('metric-catalog export filter summary (#173 review P2-3)', () => {
-  it('renders the set filters as the screen labels them and omits unset ones', () => {
-    expect(exportFilterSummary({ q: 'cycle', status: 'published', domain: 'time', lang: 'ko' }, 'ko', tx))
-      .toEqual([['검색어', 'cycle'], ['상태', STATUS_LABEL.published.ko], ['도메인', DOMAIN_LABEL.time.ko]]);
-    expect(exportFilterSummary({ q: 'cycle', status: 'published', domain: 'time', lang: 'ko' }, 'en', text => text.en))
-      .toEqual([['Search', 'cycle'], ['Status', STATUS_LABEL.published.en], ['Domain', DOMAIN_LABEL.time.en]]);
-    expect(exportFilterSummary({ q: null, status: null, domain: null, lang: 'ko' }, 'ko', tx)).toEqual([]);
+  it('carries the quick search and omits an unset one; the conditions are listed by the table itself (필터 · 상태 …)', () => {
+    expect(exportFilterSummary({ q: 'cycle', lang: 'ko' }, 'ko')).toEqual([['검색어', 'cycle']]);
+    expect(exportFilterSummary({ q: 'cycle', lang: 'en' }, 'en')).toEqual([['Search', 'cycle']]);
+    expect(exportFilterSummary({ q: null, lang: 'ko' }, 'ko')).toEqual([]);
   });
 });

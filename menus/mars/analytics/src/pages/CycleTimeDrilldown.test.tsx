@@ -3,7 +3,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { CycleKpi } from '../endpoints';
 import { Timer } from 'lucide-react';
-import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
+import { createRegistry, I18nProvider, PlatformProvider, useQueryDraft } from '@ap/kernel';
 import { memoryStorage, testAdapter, testSession } from '@ap/kernel/testing';
 import { manifests } from '../index';
 import CycleTimeDrilldown from './CycleTimeDrilldown';
@@ -44,6 +44,135 @@ function renderPage(path: string) {
   render(<I18nProvider><PlatformProvider equipmentAxes={TEST_AXES} adapter={adapter} registry={registry}><CycleTimeDrilldown params={{}} /></PlatformProvider></I18nProvider>);
 }
 
+function DraftActions() {
+  const draft = useQueryDraft();
+  return <>
+    <button onClick={() => draft.setDraftPage({ percentile: 'all', sort: 'delta:desc' })}>Draft parameters</button>
+    <button onClick={() => draft.setDraftGlobal({ from: '2026-09-20T00:00:00', to: '2026-09-26T09:00:00' })}>Draft longer period</button>
+    <button onClick={() => draft.apply()}>Apply query</button>
+  </>;
+}
+
+describe('CycleTimeDrilldown applied condition line (#1218 LINE)', () => {
+  const base = '/analytics/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&from=2026-09-26T00:00:00&to=2026-09-26T09:00:00';
+  beforeEach(() => {
+    const storage = memoryStorage();
+    storage.setItem('platform:page-head-collapsed:cycle-time', 'false');
+    vi.stubGlobal('localStorage', storage);
+  });
+  afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+
+  function mountWithApply() {
+    window.history.replaceState(null, '', base);
+    render(<I18nProvider><PlatformProvider equipmentAxes={TEST_AXES} adapter={adapter} registry={registry}>
+      <DraftActions /><CycleTimeDrilldown params={{}} />
+    </PlatformProvider></I18nProvider>);
+  }
+
+  it('puts applied parameters and both chart narrowings in the bar row, without page or extra clear actions', async () => {
+    renderPage(`${base}&percentile=p50&sort=delta:desc&page=2&bucket=2026-09-26T05:00:00&bin=45-60..60-75`);
+    const row = await screen.findByRole('group', { name: '적용된 조건' });
+    expect(screen.getByTestId('page-filter-bar').contains(row)).toBe(true);
+    expect(within(row).getByRole('group', { name: '집계 시간' })).toBeTruthy();
+    expect(within(row).getByRole('group', { name: '느린 실행 기준 ≥ P50' })).toBeTruthy();
+    expect(within(row).getByRole('group', { name: '정렬 P95 대비 내림차순' })).toBeTruthy();
+    expect(within(row).getByRole('group', { name: '버킷 2026-09-26 05:00 → 06:00' })).toBeTruthy();
+    expect(within(row).getByRole('group', { name: '분포 구간 45-60 – 60-75' })).toBeTruthy();
+    expect(within(row).queryByText('페이지')).toBeNull();
+    expect(within(row).getAllByRole('button')).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: '버킷 필터 해제' })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: '분포 필터 해제' })).toHaveLength(1);
+  });
+
+  it('keeps chips on applied values while controls have a pending draft, then updates on the single query apply', async () => {
+    mountWithApply();
+    const row = await screen.findByRole('group', { name: '적용된 조건' });
+    fireEvent.click(screen.getByRole('button', { name: '일' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Draft parameters' }));
+    expect(within(row).getByRole('group', { name: '집계 시간' })).toBeTruthy();
+    expect(within(row).getByRole('group', { name: '느린 실행 기준 ≥ P95' })).toBeTruthy();
+    expect(within(row).getByRole('group', { name: '정렬 사이클타임 내림차순' })).toBeTruthy();
+    expect(new URLSearchParams(window.location.search).has('granularity')).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: '페이지 필터 접기' }));
+    const expand = screen.getByRole('button', { name: '페이지 필터 펼치기' });
+    expect(expand.textContent).toContain('집계 일');
+    expect(expand.textContent).toContain('미적용 변경 있음');
+    expect(row.closest('[hidden]')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Apply query' }));
+    await waitFor(() => expect(within(row).getByRole('group', { name: '집계 일' })).toBeTruthy());
+    expect(within(row).getByRole('group', { name: '느린 실행 기준 전체 실행' })).toBeTruthy();
+    expect(within(row).getByRole('group', { name: '정렬 P95 대비 내림차순' })).toBeTruthy();
+    expect(expand.textContent).not.toContain('미적용 변경 있음');
+    expect(new URLSearchParams(window.location.search).get('granularity')).toBe('day');
+  });
+
+  it('derives an implicit grain from the applied global period rather than the pending period', async () => {
+    mountWithApply();
+    const row = await screen.findByRole('group', { name: '적용된 조건' });
+    fireEvent.click(screen.getByRole('button', { name: 'Draft longer period' }));
+    expect(within(row).getByRole('group', { name: '집계 시간' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '일' }).getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(screen.getByRole('button', { name: 'Apply query' }));
+    await waitFor(() => expect(within(row).getByRole('group', { name: '집계 일' })).toBeTruthy());
+  });
+
+  it.each([
+    { key: 'bucket', other: 'bin', clearLabel: '버킷 필터 해제' },
+    { key: 'bin', other: 'bucket', clearLabel: '분포 필터 해제' },
+  ])('clears only $key immediately, restoring that narrowing while keeping the other applied conditions', async ({ key, other, clearLabel }) => {
+    renderPage(`${base}&percentile=p50&sort=delta:desc&bucket=2026-09-26T05:00:00&bin=45-60..60-75`);
+    fireEvent.click(await screen.findByRole('button', { name: clearLabel }));
+    await waitFor(() => expect(screen.queryByRole('button', { name: clearLabel })).toBeNull());
+    const params = new URLSearchParams(window.location.search);
+    expect(params.has(key)).toBe(false);
+    expect(params.has(other)).toBe(true);
+    expect(params.get('percentile')).toBe('p50');
+    expect(params.get('sort')).toBe('delta:desc');
+    const row = screen.getByRole('group', { name: '적용된 조건' });
+    expect(within(row).getAllByRole('button')).toHaveLength(1);
+    expect(within(row).getByRole('group', { name: '느린 실행 기준 ≥ P50' })).toBeTruthy();
+  });
+
+  // #1218 UX: clearing one narrowing chip is an applied-state write on that key only; every other
+  // pending draft value and the 미적용 marker must survive it (ADR-0112: chips never touch the draft).
+  it.each([
+    { key: 'bucket', clearLabel: '버킷 필터 해제' },
+    { key: 'bin', clearLabel: '분포 필터 해제' },
+  ])('keeps the pending draft and the 미적용 marker when the $key chip clears', async ({ key, clearLabel }) => {
+    renderPage(`${base}&bucket=2026-09-26T05:00:00&bin=45-60..60-75`);
+    const row = await screen.findByRole('group', { name: '적용된 조건' });
+    fireEvent.click(screen.getByRole('button', { name: '일' }));
+    fireEvent.click(screen.getByRole('button', { name: '페이지 필터 접기' }));
+    const expand = screen.getByRole('button', { name: '페이지 필터 펼치기' });
+    expect(expand.textContent).toContain('미적용 변경 있음');
+    fireEvent.click(screen.getByRole('button', { name: clearLabel }));
+    await waitFor(() => expect(screen.queryByRole('button', { name: clearLabel })).toBeNull());
+    expect(new URLSearchParams(window.location.search).has(key)).toBe(false);
+    expect(expand.textContent).toContain('미적용 변경 있음');
+    fireEvent.click(expand);
+    expect(screen.getByRole('button', { name: '일' }).getAttribute('aria-pressed')).toBe('true');
+    expect(within(row).getAllByRole('button')).toHaveLength(1);
+  });
+
+  it('keeps the pending period draft when the bin chip clears', async () => {
+    window.history.replaceState(null, '', `${base}&bin=45-60..60-75`);
+    render(<I18nProvider><PlatformProvider equipmentAxes={TEST_AXES} adapter={adapter} registry={registry}>
+      <DraftActions /><CycleTimeDrilldown params={{}} />
+    </PlatformProvider></I18nProvider>);
+    const row = await screen.findByRole('group', { name: '적용된 조건' });
+    fireEvent.click(screen.getByRole('button', { name: 'Draft longer period' }));
+    fireEvent.click(screen.getByRole('button', { name: '페이지 필터 접기' }));
+    const expand = screen.getByRole('button', { name: '페이지 필터 펼치기' });
+    expect(expand.textContent).toContain('집계 일');
+    expect(within(row).getByRole('group', { name: '집계 시간' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '분포 필터 해제' }));
+    await waitFor(() => expect(screen.queryByRole('button', { name: '분포 필터 해제' })).toBeNull());
+    expect(new URLSearchParams(window.location.search).has('bin')).toBe(false);
+    expect(expand.textContent).toContain('집계 일');
+    expect(expand.textContent).toContain('미적용 변경 있음');
+  });
+});
+
 describe('CycleTimeDrilldown page filter summary', () => {
   beforeEach(() => {
     vi.stubGlobal('localStorage', memoryStorage());
@@ -78,6 +207,37 @@ describe('CycleTimeDrilldown page filter summary', () => {
     expect(screen.getByRole('button', { name: '페이지 필터 펼치기' })).toBeTruthy();
     const live = screen.getByTestId('page-filter-bar').querySelector('[aria-live="polite"]');
     expect(live!.textContent).toContain('느린 실행 기준 ≥ P95');
+  });
+});
+
+// #1218 FORMAT: the chip row, the query-bar summary and the export sheet print one bucket/bin text.
+describe('CycleTimeDrilldown bucket and histogram text (#1218)', () => {
+  beforeEach(() => {
+    // The fill-page head starts collapsed (#680); the chip row and the filter bar live in its extension.
+    const storage = memoryStorage();
+    storage.setItem('platform:page-head-collapsed:cycle-time', 'false');
+    vi.stubGlobal('localStorage', storage);
+  });
+  afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+
+  it('shows the same-day hour bucket end as time only, on the chip and in the collapsed summary', async () => {
+    renderPage('/analytics/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&from=2026-09-26T00:00:00&to=2026-09-26T09:00:00&bucket=2026-09-26T05:00:00&bin=45-60..60-75');
+    expect((await screen.findAllByText('2026-09-26 05:00 → 06:00')).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('45-60 – 60-75').length).toBeGreaterThanOrEqual(1);
+    fireEvent.click(await screen.findByRole('button', { name: '페이지 필터 접기' }));
+    const expand = screen.getByRole('button', { name: '페이지 필터 펼치기' });
+    expect(expand.textContent).toContain('버킷 2026-09-26 05:00 → 06:00');
+    expect(expand.textContent).toContain('분포 구간 45-60 – 60-75');
+  });
+
+  it('keeps the date once the hour bucket crosses a day', async () => {
+    renderPage('/analytics/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&from=2026-09-26T00:00:00&to=2026-09-26T09:00:00&bucket=2026-09-26T23:00:00');
+    expect((await screen.findAllByText('2026-09-26 23:00 → 2026-09-27 00:00')).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('shows a day-grain bucket as dates only', async () => {
+    renderPage('/analytics/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&from=2026-09-26T00:00:00&to=2026-09-26T09:00:00&granularity=day&bucket=2026-09-26T00:00:00');
+    expect((await screen.findAllByText('2026-09-26 → 2026-09-27')).length).toBeGreaterThanOrEqual(1);
   });
 });
 

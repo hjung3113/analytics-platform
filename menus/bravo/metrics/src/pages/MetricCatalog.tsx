@@ -1,19 +1,21 @@
 import { useMemo } from 'react';
 import { AlertTriangle, BookOpen, FilePen } from 'lucide-react';
+import type { ColumnFilter } from '@ap/contracts';
 import { CONTEXT_LABELS, type PageProps, PlatformLink, type QueryState, topicParticle, useI18n, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
-import { PageFilterBar, RowAction, type PlatformColumn, PlatformDataTable, PageKeyWarning, type PageKeyRule, PlatformPage, QueryView, StateMessage, TableUrlWarning, usePageKeyRules, useTableUrlState } from '@ap/components';
+import { RowAction, type PlatformColumn, PlatformDataTable, PlatformPage, QueryView, StateMessage, TableQuickSearch, TableUrlWarning, useClearFiltersAction, useTableFilterDeclaration, useTableUrlState } from '@ap/components';
 import { Button } from '@ap/ui';
 import {
-  DOMAINS, STATUSES, catalogExportEndpoint, catalogListEndpoint, catalogPageEndpoint, metricPairEndpoint, sortColumns,
-  type CatalogRow, type Lang, type PairVerdict, type PublicationState,
+  catalogExportEndpoint, catalogListEndpoint, catalogPageEndpoint, metricPairEndpoint, sortColumns,
+  type CatalogFilter, type CatalogRow, type Lang, type PairVerdict,
 } from '../endpoints';
 import { exportFilterSummary, exportParams } from './data';
 import { catalogColumns } from './columns';
 import { metricDetailHref } from './detail-link';
-import { metricCatalogHasActiveFilters, metricCatalogPageFilterFields, resetMetricCatalogPageFilters } from './filter-fields';
+import { catalogFilterDeclarations, catalogValueCheck } from './filter-fields';
 
 const NO_DESTINATION = { viewedId: null, pageVersion: null };
 const NOT_FILTER_KEYS = ['time', 'lot', 'roomNames', 'condition', 'selection'] as const;
+const NO_FILTERS: ColumnFilter[] = [];
 
 function pairText(verdict: PairVerdict, lang: 'ko' | 'en', pageVersion: string | null): { title: string; body: string; tone: 'neutral' | 'danger' | 'warning' } {
   const ko = lang === 'ko';
@@ -69,28 +71,25 @@ export function MetricPairBanner({ query, pageVersion = null }: { query: QuerySt
   </QueryView>;
 }
 
-const FILTER_RULES: readonly PageKeyRule[] = [
-  { key: 'status', label: { ko: '상태', en: 'Status' }, valid: raw => STATUSES.includes(raw as PublicationState) },
-  { key: 'domain', label: { ko: '도메인', en: 'Domain' }, valid: raw => DOMAINS.includes(raw as typeof DOMAINS[number]) },
-];
-
 export default function MetricCatalogPage(_: PageProps) {
-  const { pageParam, setPage, linkTo, global } = usePlatform();
-  const { lang, tx, t } = useI18n();
+  const { pageParam, linkTo, global } = usePlatform();
+  const { lang, tx } = useI18n();
   const notFilters = NOT_FILTER_KEYS.map(key => tx(CONTEXT_LABELS[key])).join(lang === 'ko' ? '·' : ', ');
   const q = pageParam('q');
-  const status = pageParam('status');
-  const domain = pageParam('domain');
-  // Rejected, never corrected (06 §6): one sentence per bad key with its user name and the raw value as entered, and a Reset that clears exactly those keys.
-  const keys = usePageKeyRules(FILTER_RULES);
-  // §6.1 page keys: sort/page are URL-owned; invalid wire values alert instead of substituting (never "empty rows").
-  const { urlState: tableUrlState, invalid: tableInvalid, sentences: invalidTableSentences } = useTableUrlState(sortColumns);
+  // ADR-0105: 상태·도메인 are conditions of one hidden repeated page key `filter`; `q` stays the toolbar quick search.
+  const { urlFilters, filterColumnProps } = useTableFilterDeclaration('filter', catalogFilterDeclarations, { lang, validate: catalogValueCheck });
+  // §6.1 page keys: sort/page and the conditions are URL-owned; invalid wire values alert instead of substituting (never "empty rows").
+  const { urlState, invalid, sentences, recoverKeys, cause } = useTableUrlState(sortColumns, { filters: urlFilters });
+  const conditions = urlState?.filters ?? NO_FILTERS;
+  // One clear for the search and every condition: one `setPage`, back to page 1.
+  const clearButton = useClearFiltersAction({ filterKey: urlFilters.key, hasFilters: !!q || conditions.length > 0, extraKeys: ['q'] });
   // A global-Context change clears `page` in the kernel (manifest contextResetKeys); pages write no reset effect.
   const pair = useMenuQuery(metricPairEndpoint, NO_DESTINATION);
   const verdict = pair.response?.outcome === 'ok' ? pair.response.data : null;
   const activeRowId = verdict?.kind === 'valid' || verdict?.kind === 'id-only' ? verdict.metricId : null;
-  const filter = { q, status, domain, lang: lang as Lang };
-  const all = useMenuQuery(catalogListEndpoint, { q: null, status: null, domain: null, lang: lang as Lang });
+  const filter: CatalogFilter = { q, lang: lang as Lang };
+  // The metric count is the full catalog: the count query never carries the conditions (UXA-4).
+  const all = useMenuQuery(catalogListEndpoint, { lang: lang as Lang });
   const metricCount = all.response?.outcome === 'ok' ? all.response.data!.rows.length : null;
   // UXA-4: `…` only while the count is pending; a failed count query says nothing numeric.
   const metricCountText = metricCount !== null
@@ -100,17 +99,17 @@ export default function MetricCatalogPage(_: PageProps) {
       : (lang === 'ko' ? '합성 지표입니다' : 'Synthetic metrics');
   const pages = useMenuFetch(catalogPageEndpoint);
   const exports = useMenuFetch(catalogExportEndpoint);
+  const search = <TableQuickSearch pageKey="q" label={lang === 'ko' ? '이름 또는 지표 ID' : 'Name or metricId'} />;
 
   const columns = useMemo<PlatformColumn<CatalogRow>[]>(
-    () => catalogColumns({ lang: lang as Lang, linkTo, tx }),
-    [lang, linkTo, tx],
+    () => catalogColumns({ lang: lang as Lang, linkTo, tx, filterColumnProps }),
+    [lang, linkTo, tx, filterColumnProps],
   );
 
   return <PlatformPage
     description={lang === 'ko'
       ? '정의·grain·분자/분모·발행 포인터를 탐색합니다. 초안은 분석 기본 버전이 아닙니다.'
       : 'Browse definitions, grain, numerator/denominator and the released pointer. Drafts are not analysis defaults.'}
-    contextExtension={<PageFilterBar label={t('pageFilter')} fields={metricCatalogPageFilterFields({ q, status, domain, lang, tx, setPage })} actions={metricCatalogHasActiveFilters(q, status, domain) ? <Button type="button" variant="secondary" size="sm" onClick={() => resetMetricCatalogPageFilters(setPage)}>{t('clearFilters')}</Button> : undefined} />}
   >
     <div className="space-y-3">
       <MetricPairBanner query={pair} />
@@ -119,8 +118,7 @@ export default function MetricCatalogPage(_: PageProps) {
           ? `설비 선택 ${global.selection.length}건은 이 화면에서 참조만입니다.`
           : `Equipment selection (${global.selection.length}) is reference only on this page.`}
       </p>}
-      {keys.invalid && <PageKeyWarning sentences={keys.sentences} onRecover={keys.recover} />}
-      {tableInvalid ? <TableUrlWarning sentences={invalidTableSentences} /> : <PlatformDataTable
+      {invalid ? <TableUrlWarning search={search} sentences={sentences} recoverKeys={recoverKeys} cause={cause} /> : <PlatformDataTable
         title={lang === 'ko' ? '지표 카탈로그' : 'Metric catalog'}
         subtitle={lang === 'ko'
           ? `${metricCountText}. 발행 포인터는 레코드에 저장된 값이며 최대 버전 번호가 아닙니다. 초안 열기는 동작 열.`
@@ -129,11 +127,14 @@ export default function MetricCatalogPage(_: PageProps) {
         preferenceKey="platform:table:metric-catalog"
         columns={columns}
         getRowId={row => row.metricId}
-        filterKey={JSON.stringify([q, status, domain, lang])}
+        // The rows are localized server-side, so a language change re-queries like a search change.
+        filterKey={JSON.stringify([q, lang])}
         pageSize={8}
-        urlState={tableUrlState}
+        urlState={urlState}
         activeRowId={activeRowId}
+        search={search}
         loadPage={(query, signal) => pages.fetch({ ...filter, ...query }, signal)}
+        emptyAction={clearButton}
         rowAction={(row, { compact }) => {
           const definition = lang === 'ko' ? '정의' : 'Definition';
           const draft = lang === 'ko' ? `초안 v${row.draftVersion}` : `Draft v${row.draftVersion}`;
@@ -144,7 +145,7 @@ export default function MetricCatalogPage(_: PageProps) {
         }}
         // Table-owned export (#173): the page only says how to read the rows; the table builds the file.
         exportRows={(request, signal) => exports.fetch(exportParams(filter, request), signal)}
-        exportFilterSummary={exportFilterSummary(filter, lang, tx)} exportContext={catalogExportEndpoint.context}
+        exportFilterSummary={exportFilterSummary(filter, lang)} exportContext={catalogExportEndpoint.context}
       />}
       <p className="t-caption text-text-muted">
         {lang === 'ko'

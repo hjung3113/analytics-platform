@@ -122,6 +122,7 @@
 | [0109](0109-log-knowledge-item-ownership-revisions-assessments.md) | 로그 지식 Item은 Model 또는 SW 하나가 소유하고 소유는 바뀌지 않는다; Revision·판단 이벤트(확인/처리 두 축)·근거 포인터·링크는 추가 전용; 파생은 새 Item + 고정 Revision의 `derived_from`; 번호는 워크스페이스 카운터 원자 upsert; 쓰기 권한은 `knowledge.item.publish` | Decided (2026-11-02, owner 승인·코디네이터 세부, #1197) |
 | [0110](0110-platform-feature-roles-and-scope.md) | 플랫폼 기능은 역할로 세 자리(직속·업무 흐름 `flow`·운영 콘솔)에 나눈다; VOC 공개 열람은 `voc.read_public` 시스템 단위 부여, 「플랫폼」 시스템 VOC는 로그인 전원 공개, Site·room은 #98 뒤; 업무 시스템은 `SpaceDef.feedbackTracking`과 빌드 산출물로 시스템을 스스로 등록하고 「플랫폼」 시스템을 늘 둔다; 화면 용어 `시스템`·`Task` | Decided (2026-11-03, 소유자, #1287–#1291) |
 | [0111](0111-log-knowledge-model-spec-is-the-source.md) | 로그 지식 허브: 모델 명세 Revision이 원본이고 SW 버전 차이는 «X부터» 추가 전용 변경점만, SW 순서 `release_order`, 명세 입력은 스트리밍·TSV txt·붙여넣기(첨부 아님), 모델 공통 후보→승인 흐름은 대체 | Decided (2026-11-04, 소유자, #1196) |
+| [0112](0112-catalog-joins-table-filter-model-analysis-bar-keeps-apply-once.md) | 지표 카탈로그는 표 필터 모델로 완전히 합치고(`status`·`domain` → 숨은 `filter` 키), 분석 조건 줄은 초안 + 적용 한 번을 지키며 적용된 조건·차트 좁히기만 같은 칩 줄 어휘로 보인다(`PageFilterBar` 추가형 opt-in); 버킷 값 표기 통일. 0105 보충 | Decided (2026-11-05, 사용자, #1218) |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 

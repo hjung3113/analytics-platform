@@ -729,11 +729,10 @@
     "menuId": "metric-catalog",
     "paramKeys": [
       "q",
-      "status",
-      "domain",
       "lang",
       "ids",
-      "sorting"
+      "sorting",
+      "filters"
     ],
     "permission": "metrics:view",
     "requiresScope": false,
@@ -750,9 +749,6 @@
     "id": "metrics.catalog.list",
     "menuId": "metric-catalog",
     "paramKeys": [
-      "q",
-      "status",
-      "domain",
       "lang"
     ],
     "permission": "metrics:view",
@@ -768,12 +764,12 @@
     "menuId": "metric-catalog",
     "paramKeys": [
       "q",
-      "status",
-      "domain",
       "lang",
       "page",
       "pageSize",
-      "sorting"
+      "sorting",
+      "filters",
+      "groupBy"
     ],
     "permission": "metrics:view",
     "requiresScope": false,

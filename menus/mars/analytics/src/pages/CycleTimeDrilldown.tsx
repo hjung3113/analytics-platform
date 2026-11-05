@@ -1,14 +1,16 @@
-import { useCallback, useMemo, useState } from 'react';
-import { AlertTriangle, ArrowRight, Gauge, Hash, RotateCw, Timer, X } from 'lucide-react';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
+import { AlertTriangle, ArrowRight, Gauge, Hash, RotateCw, Timer } from 'lucide-react';
 import { periodHours, type GlobalContext, type Pair, type Trust } from '@ap/contracts';
 import { type PageProps, PlatformLink, useI18n, useMenuFetch, useMenuQuery, useQueryDraft, usePlatform, useSavedViewSupport } from '@ap/kernel';
-import { PanelWorkspace, RowAction, AnalysisChartFrame, DataTrustIndicator, PageFilterBar, type Delta, type PlatformColumn, parsePageIndex, PageKeyWarning, PlatformDataTable, PlatformPage, QueryView, StatCard, StateMessage, usePageKeyRules } from '@ap/components';
+import { PanelWorkspace, RowAction, AnalysisChartFrame, DataTrustIndicator, PageFilterBar, type PageFilterAppliedChip, type Delta, type PlatformColumn, parsePageIndex, PageKeyWarning, PlatformDataTable, PlatformPage, QueryView, StatCard, StateMessage, usePageKeyRules } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import {
   CYCLE_VERSION_NOTE, PAGE_METRIC_ID, bucketEnd, cycleDistEndpoint, cycleExportEndpoint, cycleKpiEndpoint, cycleSlowPageEndpoint,
   cycleTrendEndpoint, cycleVersionOf, resolveMetric,
   type Granularity, type ResolvedMetric, type SlowRow, type TailMode,
 } from '../endpoints';
+import { binText, bucketText } from '../bucket-format';
 import {
   DEFAULT_SORT, bucketContaining, encodeSort, exportFilterSummary, exportParams, parseBucket, parseBin, parseSortParam, qualityLabel, resolveGranularity, resolveTail,
   cycleTailFilterLabel, executionKey, equipmentIdFromKey, exportRowsWhenConfirmed,
@@ -43,12 +45,21 @@ function summaryFor(global: GlobalContext, page: readonly Pair[], lang: 'ko' | '
   const grain = resolveGranularity(raw('granularity'), periodHours(global));
   const tail = resolveTail(raw('percentile'));
   const sort = parseSortParam(raw('sort'));
+  const bin = parseBin(raw('bin'));
   const { grainFieldLabel, grainLabel, tailFieldLabel, tailOptions, sortFieldLabel, sortOptions, unknownRaw } = filterVocabulary(lang);
   return [
     { key: 'granularity', label: grainFieldLabel, value: grain.ok ? grainLabel[grain.value] : unknownRaw(raw('granularity')) },
     { key: 'percentile', label: tailFieldLabel, value: tail.ok ? tailOptions.find(option => option.value === tail.value)?.label ?? tail.value : unknownRaw(raw('percentile')) },
     { key: 'sort', label: sortFieldLabel, value: sort.ok ? sortOptions.find(option => option.value === encodeSort(sort.id, sort.desc))?.label ?? encodeSort(sort.id, sort.desc) : unknownRaw(raw('sort')) },
-    ...(['bucket', 'bin', 'page'] as const).filter(key => raw(key) !== null).map(key => ({ key, label: key === 'bucket' ? (ko ? '버킷' : 'Bucket') : key === 'bin' ? (ko ? '분포 구간' : 'Histogram') : (ko ? '페이지' : 'Page'), value: raw(key)! })),
+    // One bucket/bin text with the chips (#1218 FORMAT); a value the page refuses stays the raw token, never corrected.
+    ...(['bucket', 'bin', 'page'] as const).filter(key => raw(key) !== null).map(key => ({
+      key,
+      label: key === 'bucket' ? (ko ? '버킷' : 'Bucket') : key === 'bin' ? (ko ? '분포 구간' : 'Histogram') : (ko ? '페이지' : 'Page'),
+      value: key === 'bucket'
+        ? bucketText(raw('bucket')!, grain.ok ? grain.value : 'hour', lang)
+        : key === 'bin' && bin.ok && bin.value !== null ? binText(bin.value, lang)
+        : raw(key)!,
+    })),
   ];
 }
 
@@ -150,6 +161,31 @@ export default function CycleTimeDrilldown(_: PageProps) {
   const { grainFieldLabel, grainLabel, tailFieldLabel, tailOptions, sortFieldLabel, sortOptions, unknownRaw } = filterVocabulary(lang);
   const pageSummary = summaryFor(queryDraft.draft.global, queryDraft.draft.page, lang);
   const appliedPageSummary = summaryFor(global, page, lang);
+  // ADR-0112: a chip never touches the draft; the two narrowings still clear immediately as applied-state
+  // writes. The kernel rebases the whole draft to the applied state on every address change (kernel
+  // query/draft-state reconcile), so the page re-asserts the other pending values right after the write;
+  // flushSync lands the rebase and the restore inside one paint, so the pending marker never flashes off.
+  const queryDraftRef = useRef(queryDraft);
+  useLayoutEffect(() => { queryDraftRef.current = queryDraft; });
+  const clearNarrowing = useCallback((key: 'bucket' | 'bin') => {
+    const { global: globalDraft, page: pageDraft } = queryDraft.draft;
+    const pending = queryDraft.dirty.length > 0;
+    flushSync(() => setPage({ [key]: null }));
+    if (!pending) return;
+    const restored: Partial<GlobalContext> = { ...globalDraft };
+    delete restored.scopeId;
+    queryDraftRef.current.setDraftGlobal(restored);
+    const keys = new Set([...pageDraft, ...page].map(([name]) => name));
+    keys.delete(key);
+    if (keys.size > 0) queryDraftRef.current.setDraftPage(Object.fromEntries([...keys].map(name => [name, pageDraft.find(([k]) => k === name)?.[1] ?? null])));
+  }, [queryDraft, page, setPage]);
+
+  const appliedChips: PageFilterAppliedChip[] = appliedPageSummary.filter(item => item.key !== 'page').map(item => ({
+    ...item,
+    ...(item.key === 'bucket' ? { onClear: () => clearNarrowing('bucket'), clearLabel: ko ? '버킷 필터 해제' : 'Clear bucket filter' }
+      : item.key === 'bin' ? { onClear: () => clearNarrowing('bin'), clearLabel: ko ? '분포 필터 해제' : 'Clear histogram filter' }
+      : {}),
+  }));
   const historyPageSummary = useCallback((candidate: GlobalContext, page: readonly Pair[]) => summaryFor(candidate, page, lang), [lang]);
   const issues = [
     ['granularity', grainFieldLabel, draftGrain.ok], ['percentile', tailFieldLabel, draftTail.ok], ['sort', sortFieldLabel, draftSort.ok],
@@ -174,7 +210,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
       </p>,
     ]}
     contextExtension={<div className="space-y-2">
-      <PageFilterBar mode="draft" hasPendingChanges={queryDraft.dirty.length > 0} label={t('pageFilter')} collapsible preferenceKey={route?.menu.id ?? ''} summaryItems={pageSummary} collapsedActions={resetFilters} fields={[
+      <PageFilterBar mode="draft" hasPendingChanges={queryDraft.dirty.length > 0} label={t('pageFilter')} collapsible preferenceKey={route?.menu.id ?? ''} summaryItems={pageSummary} appliedChips={appliedChips} collapsedActions={resetFilters} fields={[
         { kind: 'custom', key: 'granularity', label: grainFieldLabel, content: <div className="flex flex-wrap items-center gap-1">
           {(['hour', 'day', 'week'] as const).map(value => {
             const pressed = !granularityPending && draftGrain.ok && draftGrain.value === value;
@@ -185,10 +221,6 @@ export default function CycleTimeDrilldown(_: PageProps) {
         { kind: 'select', key: 'percentile', label: tailFieldLabel, value: draftTail.ok ? draftTail.value : draftParam('percentile') ?? '', options: tailOptions, onValueChange: value => queryDraft.setDraftPage({ percentile: value, page: null }) },
         { kind: 'select', key: 'sort', label: sortFieldLabel, value: draftSort.ok ? encodeSort(draftSort.id, draftSort.desc) : draftParam('sort') ?? '', options: sortOptions, onValueChange: value => queryDraft.setDraftPage({ sort: value === DEFAULT_SORT ? null : value, page: null }) },
       ]} actions={resetFilters} />
-      {(bucketRange || bin) && <div className="flex flex-wrap items-center gap-2">
-        {bucketRange && <FilterChip label={ko ? '버킷' : 'Bucket'} value={`${bucketRange.from.replace('T', ' ')} → ${bucketRange.to.replace('T', ' ')}`} onClear={() => setPage({ bucket: null })} clearLabel={ko ? '버킷 필터 해제' : 'Clear bucket filter'} />}
-        {bin && <FilterChip label={ko ? '분포 구간' : 'Histogram'} value={bin.from === bin.to ? bin.from : `${bin.from} – ${bin.to}`} onClear={() => setPage({ bin: null })} clearLabel={ko ? '분포 필터 해제' : 'Clear histogram filter'} />}
-      </div>}
     </div>}
   >
     {invalidPage ? <PageKeyWarning sentences={keys.sentences} onRecover={keys.recover} />
@@ -371,14 +403,6 @@ function MetricBanner({ metric }: { metric: ResolvedMetric }) {
       : (ko ? '요청한 버전 라벨을 표시합니다. 합성 데이터는 v3 시계열만 있습니다.' : 'The requested version label is shown. Synthetic data has only the v3 series.')}</span>
     <span>{versionNote}</span>
   </p>;
-}
-
-function FilterChip({ label, value, onClear, clearLabel }: { label: string; value: string; onClear: () => void; clearLabel: string }) {
-  return <span className="inline-flex items-center gap-1 rounded-sm border border-border-strong bg-surface-card px-2 py-1 text-xs">
-    <span className="text-text-muted">{label}</span>
-    <span className="tabular">{value}</span>
-    <button type="button" aria-label={clearLabel} className="grid size-5 place-items-center rounded-xs text-text-muted hover:bg-surface-sunken" onClick={onClear}><X className="size-3" aria-hidden /></button>
-  </span>;
 }
 
 function qualityBadge(quality: SlowRow['quality'], ko: boolean) {

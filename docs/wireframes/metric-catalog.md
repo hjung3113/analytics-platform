@@ -44,7 +44,7 @@ roomNames·Condition·PPID·Recipe는 `unsupported`다. 둘 다 `pageType: catal
 
 전달된 Time/Lot/PPID/Recipe/room_name과 Equipment 선택은 URL에 보존하고 "이 페이지 미적용"으로 표시한다. Equipment는 참조만 가능하며 명시적 공집합도 카탈로그 결과를 0건으로 바꾸지 않는다. Equipment Group의 Condition과 고정 Selection을 사용한 축(StGroup / 분임조 / Maker+Model) 그대로 보존하며, 이 화면은 둘 다 정의 목록 필터로 적용하지 않는다([06 §6.1/§6.4](../contract/platform-ui-contract.md), [ADR-0002](../adr/0002-stgroup-materializes-to-equipment-ids.md)).
 
-page-owned 키(등록: [06 §6.1](../contract/platform-ui-contract.md)): 목록은 `q`(이름 또는 metricId 검색)·`status`·`domain`·`sort`·`page`(Global Context가 바뀌면 `page`를 지운다), 상세는 `tab`(영역 이동)·`version`(목적지 버전)·`returnTo`다. 등록 값 밖의 값은 다른 값으로 바꾸지 않고 오류로 보인다. 목록 조건은 전역 Context 칩으로 위장하지 않는다.
+page-owned 키(등록: [06 §6.1](../contract/platform-ui-contract.md)): 목록은 `q`(이름 또는 metricId 검색)·`filter`(발행 상태·도메인 조건의 숨은 반복 키 — [ADR-0105](../adr/0105-one-table-filter-model.md))·`sort`·`page`(Global Context가 바뀌면 `page`를 지운다), 상세는 `tab`(영역 이동)·`version`(목적지 버전)·`returnTo`다. 등록 값 밖의 값은 다른 값으로 바꾸지 않고 오류로 보인다. 목록 조건은 전역 Context 칩으로 위장하지 않는다.
 
 ### 3.2 목적지 객체와 전역 쌍
 

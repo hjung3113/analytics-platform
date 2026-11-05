@@ -24,3 +24,5 @@
 - 요약은 조건 편집 UI가 아니며, 누르면 기존 라벨과 입력을 인라인으로 다시 펼친다. ADR-0016이 기각한 popover+선택 칩 편집안과 필터 값·URL·초기화·draft 적용의 소비자 소유권은 유지한다.
 - 접힘 기억·포커스·접근성 동작은 PageFilterBar가 제공한다. 구체 계약은 06 §13·§15, 시각 규칙은 DESIGN의 Filter bar 절이 소유한다. ADR-0016의 “항상 보이는 필터”는 조건값이 항상 보인다는 뜻까지 포함하며([ADR-0016](0016-page-filter-bar.md) 보강 줄), ManagementLayout 레일 접기(ADR-0022)와는 별개다.
 - ProductivityOverview·EquipmentMaster의 이관은 별도 이슈로 한다.
+
+Amended by [ADR-0112](0112-catalog-joins-table-filter-model-analysis-bar-keeps-apply-once.md) (2026-11-05): the collapse is no longer opt-in — the non-collapsible row/apply-form mode is retired and the collapsed summary is the only shape (`mode="draft"` stays as a marker); the ManagementLayout column rail is gone (ADR-0105); an opt-in `appliedChips` row adds consumer-derived applied-condition chips that stay visible while collapsed.

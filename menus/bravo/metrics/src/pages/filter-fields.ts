@@ -1,30 +1,31 @@
-import type { PageFilterField } from '@ap/components';
-import { DOMAINS, STATUSES, type Text } from '../endpoints';
+/**
+ * Metric catalog filter declarations (ADR-0105, #1218): 상태 and 도메인 are pinned enum conditions of the hidden
+ * repeated page key `filter`, both table columns, applied per condition and instantly. `q` stays the toolbar
+ * quick search (`TableQuickSearch`). The URL codec checks the condition shape but not enum membership, so the
+ * page value check below refuses unknown tokens (rejected, never corrected — 06 §6).
+ */
+import type { FilterValueCheck, TableFilterDeclaration } from '@ap/components';
+import { catalogFilterSpecs, DOMAINS, STATUSES, type Domain, type Lang, type PublicationState } from '../endpoints';
 import { DOMAIN_LABEL, STATUS_LABEL } from './data';
 
-type SetPage = (patch: Record<string, string | null>, options?: { replace?: boolean }) => void;
+/** Both fields are catalog columns: the funnel, chip line and editor come from `filterColumnProps(id, options)`; `filterFields` stays empty. */
+export const catalogFilterDeclarations: readonly TableFilterDeclaration[] = [
+  { id: 'status', label: { ko: '상태', en: 'Status' }, spec: catalogFilterSpecs.status, pinned: true },
+  { id: 'domain', label: { ko: '도메인', en: 'Domain' }, spec: catalogFilterSpecs.domain, pinned: true },
+];
 
-export function metricCatalogPageFilterFields({
-  q, status, domain, lang, tx, setPage,
-}: {
-  q: string | null;
-  status: string | null;
-  domain: string | null;
-  lang: 'ko' | 'en';
-  tx: (text: Text) => string;
-  setPage: SetPage;
-}): PageFilterField[] {
-  return [
-    { kind: 'search', key: 'q', testId: 'metric-search', label: lang === 'ko' ? '이름 또는 지표 ID' : 'Name or metricId', value: q ?? '', placeholder: lang === 'ko' ? '검색' : 'Search', onValueChange: value => setPage({ q: value === '' ? null : value, page: null }, { replace: true }) },
-    { kind: 'select', key: 'status', testId: 'metric-status-filter', label: lang === 'ko' ? '상태' : 'Status', value: status ?? '', emptyOptionLabel: lang === 'ko' ? '전체' : 'All', options: STATUSES.map(value => ({ value, label: tx(STATUS_LABEL[value]) })), onValueChange: value => setPage({ status: value === '' ? null : value, page: null }) },
-    { kind: 'select', key: 'domain', testId: 'metric-domain-filter', label: lang === 'ko' ? '도메인' : 'domain', value: domain ?? '', emptyOptionLabel: lang === 'ko' ? '전체' : 'All', options: DOMAINS.map(value => ({ value, label: tx(DOMAIN_LABEL[value]) })), onValueChange: value => setPage({ domain: value === '' ? null : value, page: null }) },
-  ];
-}
+const BAD_STATUS = { ko: '등록되지 않은 발행 상태입니다.', en: 'This publication state is not registered.' };
+const BAD_DOMAIN = { ko: '등록되지 않은 도메인입니다.', en: 'This domain is not registered.' };
 
-export function metricCatalogHasActiveFilters(q: string | null, status: string | null, domain: string | null) {
-  return Boolean(q || status || domain);
-}
+/** The enum token rules the codec's shape check cannot express: membership in STATUSES/DOMAINS (#304; same check in the editor draft and every condition read from the address). */
+export const catalogValueCheck: FilterValueCheck = filter => {
+  if (filter.id === 'status' && filter.op === 'in' && !filter.value.every(v => STATUSES.includes(v as PublicationState))) return BAD_STATUS;
+  if (filter.id === 'domain' && filter.op === 'in' && !filter.value.every(v => DOMAINS.includes(v as Domain))) return BAD_DOMAIN;
+  return null;
+};
 
-export function resetMetricCatalogPageFilters(setPage: SetPage) {
-  setPage({ q: null, status: null, domain: null, page: null });
+/** Localized editor/chip options for the column funnel. The URL spec keeps the raw tokens; late options change only the editor, never the wire rules. */
+export function catalogFilterOptions(id: 'status' | 'domain', lang: Lang): { value: string; label: string }[] {
+  if (id === 'status') return STATUSES.map(value => ({ value, label: STATUS_LABEL[value][lang] }));
+  return DOMAINS.map(value => ({ value, label: DOMAIN_LABEL[value][lang] }));
 }

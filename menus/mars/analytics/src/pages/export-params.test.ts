@@ -35,8 +35,8 @@ describe('cycle-time export params with a select-all scope (#556c)', () => {
 
 describe('cycle-time export filter summary (#173 review P2-3)', () => {
   it('labels tail, grain, bucket and histogram exactly as the screen chips do, in the screen order', () => {
-    expect(exportFilterSummary({ tail: 'p95', granularity: 'day', bucket: '2026-09-25T10:00:00', bin: { from: '45-60', to: '60-75' } }, true))
-      .toEqual([['느린 실행 기준', '≥ P95'], ['집계', '일'], ['버킷', '2026-09-25 10:00:00 → 2026-09-26 10:00:00'], ['분포 구간', '45-60 – 60-75']]);
+    expect(exportFilterSummary({ tail: 'p95', granularity: 'day', bucket: '2026-09-25T00:00:00', bin: { from: '45-60', to: '60-75' } }, true))
+      .toEqual([['느린 실행 기준', '≥ P95'], ['집계', '일'], ['버킷', '2026-09-25 → 2026-09-26'], ['분포 구간', '45-60 – 60-75']]);
     expect(exportFilterSummary({ tail: 'all', granularity: 'hour', bucket: null, bin: { from: '90+', to: '90+' } }, false))
       .toEqual([['Slow-execution predicate', 'All executions'], ['Grain', 'Hour'], ['Histogram', '90+']]);
   });

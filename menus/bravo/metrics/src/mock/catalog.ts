@@ -6,9 +6,9 @@
  */
 import type { AuditEvent } from '@ap/contracts';
 import {
-  DOMAINS, PERIOD_BASIS as WALL, STATUSES, versionDiff,
-  type CatalogRow, type DefinitionPayload, type Domain, type Lang, type MetricDef, type MetricVersion,
-  type PairVerdict, type PopulationRule, type PublicationState, type Text, type UsagePayload,
+  PERIOD_BASIS as WALL, versionDiff,
+  type CatalogRow, type DefinitionPayload, type Lang, type MetricDef, type MetricVersion,
+  type PairVerdict, type PopulationRule, type Text, type UsagePayload,
 } from '../endpoints';
 
 function coverage(populationRef: Text, included: Text, excluded: Text, denominator: Text, sourceRef: string | null): MetricVersion['coverage'] {
@@ -391,17 +391,11 @@ export function catalogRows(lang: Lang): CatalogRow[] {
   });
 }
 
-export function filterCatalog(rows: CatalogRow[], q: string | null, status: string | null, domain: string | null): { rows: CatalogRow[]; filterProblem: 'status' | 'domain' | null } {
-  if (status && !STATUSES.includes(status as PublicationState)) return { rows: [], filterProblem: 'status' };
-  if (domain && !DOMAINS.includes(domain as Domain)) return { rows: [], filterProblem: 'domain' };
+/** The quick search (URL page key `q`) narrows the rows; the wire conditions are applied by `mock/index.ts` through the shared `filterRows`. */
+export function filterCatalog(rows: CatalogRow[], q: string | null): CatalogRow[] {
   const needle = q?.trim().toLowerCase() ?? '';
-  const next = rows.filter(r => {
-    if (status && r.status !== status) return false;
-    if (domain && r.domain !== domain) return false;
-    if (!needle) return true;
-    return r.metricId.toLowerCase().includes(needle) || r.nameKo.toLowerCase().includes(needle) || r.nameEn.toLowerCase().includes(needle);
-  });
-  return { rows: next, filterProblem: null };
+  if (!needle) return rows;
+  return rows.filter(r => r.metricId.toLowerCase().includes(needle) || r.nameKo.toLowerCase().includes(needle) || r.nameEn.toLowerCase().includes(needle));
 }
 
 function matchesPopulation(status: string, chamberType: string, rule: PopulationRule): boolean {

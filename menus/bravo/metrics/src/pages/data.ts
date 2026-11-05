@@ -35,7 +35,7 @@ export const CONSUMER_LABEL: Record<ConsumerMenuId, Text> = {
   'cycle-time': { ko: '사이클타임 상세', en: 'Cycle time detail' },
 };
 
-/** Table-owned export params (#173): the catalog filters, the selection ids (`null` = every filtered row) and the table's active sort. */
+/** Table-owned export params (#173): the catalog page filters, the selection ids (`null` = every filtered row) and the table's active sort; the request's conditions ride through (`TableExportRequest.filters`). */
 export function exportParams(
   filter: CatalogFilter,
   request: TableExportRequest,
@@ -43,15 +43,11 @@ export function exportParams(
   const scope = exportScopeIds(request.scope);
   // This table does not enable selectAllResults: an `all` scope would export the excluded rows, so it is refused.
   if (scope.mode === 'all-except') throw new Error('select-all export scope is not supported by this table');
-  return { ...filter, ids: scope.ids, sorting: request.sorting };
+  return { ...filter, ids: scope.ids, sorting: request.sorting, ...(request.filters?.length ? { filters: request.filters } : {}) };
 }
 
-/** Readable page filters for the XLSX 조회 정보 sheet (#173 review P2-3); unset filters are omitted. */
-export function exportFilterSummary({ q, status, domain }: CatalogFilter, lang: 'ko' | 'en', tx: (text: Text) => string): [string, string][] {
-  const rows: [string, string][] = [];
-  if (q) rows.push([lang === 'ko' ? '검색어' : 'Search', q]);
-  if (status != null && status in STATUS_LABEL) rows.push([lang === 'ko' ? '상태' : 'Status', tx(STATUS_LABEL[status as PublicationState])]);
-  if (domain != null && domain in DOMAIN_LABEL) rows.push([lang === 'ko' ? '도메인' : 'Domain', tx(DOMAIN_LABEL[domain as Domain])]);
-  return rows;
+/** Readable page filter for the XLSX 조회 정보 sheet (#173 review P2-3); an unset search is omitted. The conditions are listed by the table itself (`필터 · 상태` …). */
+export function exportFilterSummary({ q }: CatalogFilter, lang: 'ko' | 'en'): [string, string][] {
+  return q ? [[lang === 'ko' ? '검색어' : 'Search', q]] : [];
 }
 

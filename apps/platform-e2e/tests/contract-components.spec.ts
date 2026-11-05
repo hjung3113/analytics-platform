@@ -6,25 +6,18 @@ import { contextBar, evidence, expandPageHead, query, setScenario, signInAs, tab
  * Platform contract checks (#44). Each `describe` is one contract area of docs/06; each test is one reported check.
  * Menu screens are only the consumers the contract is observed through — assertions target kernel/shell behavior.
  */
-async function chooseFilterOption(page: Page, field: string, option: string) {
-  await page.getByRole('combobox', { name: field }).click();
-  await page.getByRole('option', { name: option, exact: true }).click();
-}
 
 test.describe('토큰 소비 계약 (06 §23, ADR-0011/ADR-0058)', () => {
   test('기능 화면 base 값이 theme보다 우선하고 플랫폼 control 경계는 label 대비를 유지한다', async ({ page }, testInfo) => {
     await page.goto('/bravo/metric-catalog?v=1&scopeId=MEM');
-    await expect(page.getByTestId('page-filter-bar')).toBeVisible();
-    const search = page.getByTestId('metric-search');
+    // #1218: the page filter row is gone — the toolbar quick search is the screen's platform control (components.md §15).
+    const search = page.getByRole('searchbox', { name: '이름 또는 지표 ID' });
     await expect(search).toBeVisible();
     await expect(page.locator('body')).toHaveCSS('font-size', '14px');
     await expect(page.locator('body')).toHaveCSS('font-family', /Pretendard Variable/);
     await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(243, 247, 254)');
-    // Confirmed B uses the shared Input/Select primitive radius and Select typography.
-    await expect(search).toHaveCSS('border-radius', '6px');
-    // Shared Select primitive default (feature SelectTrigger) is 13px.
-    await expect(page.getByTestId('metric-status-filter')).toHaveCSS('font-size', '13px');
-    await expect(search).toHaveCSS('border-top-color', 'rgb(102, 112, 131)');
+    // Shared toolbar Input primitive (inputSize="toolbar"): 32px surface with 13px text.
+    await expect(search).toHaveCSS('font-size', '13px');
     await evidence(page, testInfo, 'feedbackops-token-cascade');
   });
 });
@@ -133,45 +126,50 @@ test.describe('PageFilterBar page-key 계약 (#54)', () => {
     await evidence(page, testInfo, 'equipment-filter-page-keys');
   });
 
-  test('지표 q/status/domain은 동일한 page key를 쓰고 unknown domain을 표시하며 전체 필터를 초기화한다', async ({ page }, testInfo) => {
+  // #1218 (node CAT): q is the toolbar quick search (draft + Enter, ADR-0037); 상태·도메인 are conditions of the
+  // hidden `filter` key (ADR-0105), applied per condition from the pinned chips. An unknown condition value is
+  // rejected by the table URL warning, never corrected (06 §6).
+  test('지표 q는 빠른 검색이고 상태·도메인 조건은 숨은 filter 키에 담기며, 잘못된 조건 값은 경고로 거절한다', async ({ page }, testInfo) => {
     await page.goto('/bravo/metric-catalog?v=1&scopeId=MEM&page=2');
     const search = page.getByRole('searchbox', { name: '이름 또는 지표 ID' });
-    await page.locator('label').filter({ hasText: '이름 또는 지표 ID' }).click();
-    await expect(search).toBeFocused();
-    const status = page.getByRole('combobox', { name: '상태' });
-    await page.locator('label').filter({ hasText: '상태' }).click();
-    await expect(status).toBeFocused();
-    await page.keyboard.press('ArrowDown');
-    await expect(page.getByRole('option', { name: '발행', exact: true })).toBeVisible();
-    await page.keyboard.press('Escape');
     await search.fill('yield');
+    expect(query(page).has('q')).toBe(false); // a draft until Enter
+    expect(query(page).get('page')).toBe('2');
+    await search.press('Enter');
     await expect.poll(() => query(page).get('q')).toBe('yield');
     await expect.poll(() => query(page).has('page')).toBe(false);
 
+    // 상태: a pinned chip editor applies one condition at once; the hidden key never shows in the address.
     await page.goto('/bravo/metric-catalog?v=1&scopeId=MEM&page=2');
-    await chooseFilterOption(page, '상태', '발행');
-    await expect.poll(() => query(page).get('status')).toBe('published');
+    await page.locator('[data-filter-body="status"]').click();
+    await page.getByRole('dialog').getByRole('radio', { name: '발행', exact: true }).click();
+    await page.getByRole('dialog').getByRole('button', { name: '적용' }).click();
+    await expect(page.locator('[data-column-filter-chip="status"]')).toContainText('발행');
     await expect.poll(() => query(page).has('page')).toBe(false);
-
-    await page.goto('/bravo/metric-catalog?v=1&scopeId=MEM&page=2');
-    await chooseFilterOption(page, '도메인', '품질');
-    await expect.poll(() => query(page).get('domain')).toBe('quality');
-    await expect.poll(() => query(page).has('page')).toBe(false);
-
-    await page.goto('/bravo/metric-catalog?v=1&scopeId=MEM&domain=bogus');
-    // #304 FIX1: the alert keeps the field's user name and the raw value as entered — never `key=value`.
-    await expect(page.getByRole('alert')).toContainText('도메인');
-    await expect(page.getByRole('alert')).toContainText('bogus');
-    await expect(page.getByRole('alert')).not.toContainText('domain=');
-    await expect(page.getByRole('combobox', { name: '도메인' })).toHaveText('bogus');
-
-    await page.goto('/bravo/metric-catalog?v=1&scopeId=MEM&q=yield&status=draft&domain=quality&page=2');
-    await page.getByRole('button', { name: '필터 초기화' }).click();
-    await expect.poll(() => query(page).has('q')).toBe(false);
     expect(query(page).has('status')).toBe(false);
-    expect(query(page).has('domain')).toBe(false);
-    expect(query(page).has('page')).toBe(false);
-    await evidence(page, testInfo, 'metrics-filter-page-keys');
+    expect(query(page).has('filter')).toBe(false);
+
+    // 도메인: a second condition joins the same key (AND across fields).
+    await page.locator('[data-filter-body="domain"]').click();
+    await page.getByRole('dialog').getByRole('radio', { name: '품질', exact: true }).click();
+    await page.getByRole('dialog').getByRole('button', { name: '적용' }).click();
+    await expect(page.locator('[data-column-filter-chip="domain"]')).toContainText('품질');
+    await page.reload();
+    await expect(page.locator('[data-column-filter-chip="status"]')).toContainText('발행');
+    await expect(page.locator('[data-column-filter-chip="domain"]')).toContainText('품질');
+
+    // Removing one chip leaves the other: the conditions are per-condition, not a form.
+    await page.locator('[data-filter-remove="status"]').click();
+    await expect(page.locator('[data-column-filter-chip="status"]')).toHaveCount(0);
+    await expect(page.locator('[data-column-filter-chip="domain"]')).toContainText('품질');
+
+    // An unknown enum token is a table URL warning with the field's user name and the raw condition (no key=value).
+    await page.goto('/bravo/metric-catalog?v=1&scopeId=MEM&filter=status:in:bogus');
+    await expect(page.getByRole('alert')).toContainText('상태');
+    await expect(page.getByRole('alert')).toContainText('status:in:bogus');
+    await expect(page.getByRole('alert')).toContainText('등록되지 않은 발행 상태입니다');
+    await expect(page.getByRole('alert')).not.toContainText('status=');
+    await evidence(page, testInfo, 'metrics-filter-table-model');
   });
 });
 

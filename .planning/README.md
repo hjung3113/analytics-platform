@@ -1,6 +1,6 @@
 # 남은 일 한눈에 보기
 
-> 마지막 갱신 2026-11-04(v0.26.3 발행). 원본은 GitHub 이슈·마일스톤이고 이 보드는 그 요약이다. 이슈가 닫히거나 상태가 바뀌면 같은 PR에서 해당 줄을 고친다. 물어 와야 할 질문과 미결 범위는 [inputs.md](inputs.md), 이슈로 올리지 않은 아이디어는 [backlog.md](backlog.md).
+> 마지막 갱신 2026-11-05(#1218 구현·문서·스냅샷). 원본은 GitHub 이슈·마일스톤이고 이 보드는 그 요약이다. 이슈가 닫히거나 상태가 바뀌면 같은 PR에서 해당 줄을 고친다. 물어 와야 할 질문과 미결 범위는 [inputs.md](inputs.md), 이슈로 올리지 않은 아이디어는 [backlog.md](backlog.md).
 
 ## 지금 어디까지
 
@@ -66,6 +66,7 @@
 
 | SDK 후속 | 상태 |
 | --- | --- |
+| [#1218](https://github.com/hjung3113/analytics-platform/issues/1218) 지표 카탈로그 표 필터 전환·분석 조건 칩 | 구현 + [ADR-0112](../docs/adr/0112-catalog-joins-table-filter-model-analysis-bar-keeps-apply-once.md): 카탈로그 `status`·`domain` → 숨은 반복 `filter` 키(ADR-0105 모델), `PageFilterBar` 행 모드(`onApply`·비접이식) 삭제와 opt-in `appliedChips` 추가. 계약 문서·SDK API 스냅샷 갱신까지 끝. E2E·호스트 검증·병합 대기. |
 | [#1233](https://github.com/hjung3113/analytics-platform/issues/1233) 표 필터 단일 선언·공유 초기화 | 구현: `useTableFilterDeclaration`·`useClearFiltersAction`, 감사·권한·설비 세 소비자 전환. 호스트 build·SDK API 갱신·E2E 및 병합 대기. |
 
 작업 규칙은 루트 `AGENTS.md`, 작업자 함정은 [`docs/agents/operations.md`](../docs/agents/operations.md). 작업자 배정은 전역 `routing.tsv`가 원본이다.

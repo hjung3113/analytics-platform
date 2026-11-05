@@ -69,8 +69,9 @@ LocalFieldResult | type | type LocalFieldResult = { instant: string; ok: true; }
 ManagementLayout | function | function ManagementLayout({ table, drawer }: @ap/components#ManagementLayoutProps): import("react").JSX.Element
 ManagementLayoutProps | type | type ManagementLayoutProps = { drawer?: ReactNode; table: ReactNode; }
 OutcomeView | function | function OutcomeView<T>({ response, onRetry, emptyAction, compact, children }: { children: (data: T) => ReactNode; compact?: boolean; emptyAction?: ReactNode; onRetry: () => void; response: @ap/contracts#ApiResponse<T>; }): import("react").JSX.Element
+PageFilterAppliedChip | type | type PageFilterAppliedChip = @ap/components#PageFilterSummaryItem & { clearLabel?: string; onClear?: () => void; title?: string; }
 PageFilterBar | function | function PageFilterBar(props: @ap/components#PageFilterBarProps): import("react").JSX.Element
-PageFilterBarProps | type | type PageFilterBarProps = (PageFilterBarShared & { collapsedActions?: ReactNode; collapsible: true; hasPendingChanges?: boolean; preferenceKey: string; summaryItems: readonly @ap/components#PageFilterSummaryItem[]; }) | (PageFilterBarShared & { collapsible?: false; })
+PageFilterBarProps | type | type PageFilterBarProps = PageFilterBarShared & { appliedChips?: readonly @ap/components#PageFilterAppliedChip[]; collapsedActions?: ReactNode; collapsible: true; hasPendingChanges?: boolean; preferenceKey: string; summaryItems: readonly @ap/components#PageFilterSummaryItem[]; }
 PageFilterField | type | type PageFilterField = (PageFilterFieldBase & { content: ReactNode; kind: 'custom'; }) | (PageFilterFieldBase & { emptyOptionLabel?: string; kind: 'select'; onValueChange: (value: string) => void; options: readonly @ap/components#PageFilterOption[]; placeholder?: string; value: string; }) | (PageFilterFieldBase & { kind: 'search' | 'text'; onValueChange: (value: string) => void; placeholder?: string; value: string; })
 PageFilterOption | type | type PageFilterOption = { label: string; value: string; }
 PageFilterSummaryItem | type | type PageFilterSummaryItem = { key: string; label: string; value: string; }
@@ -202,7 +203,7 @@ ChartSize | type | type ChartSize = 'compact' | 'fill' | 'hero' | 'regular'
 CopyLinkOptions | type | type CopyLinkOptions = { absolute?: boolean; failureText?: string; onFailure?: (link: string) => void; }
 EnumOptions | type | type EnumOptions = Extract<@ap/contracts#ColumnFilterSpec, { kind: 'enum'; }>['options']
 Lang | type | type Lang = 'en' | 'ko'
-PageFilterBarShared | type | type PageFilterBarShared = { actions?: ReactNode; fields: readonly @ap/components#PageFilterField[]; label: string; mode?: 'draft'; onApply?: () => void; }
+PageFilterBarShared | type | type PageFilterBarShared = { actions?: ReactNode; fields: readonly @ap/components#PageFilterField[]; label: string; mode?: 'draft'; }
 PageFilterFieldBase | type | type PageFilterFieldBase = { key: string; label: string; testId?: string; }
 Selection | type | type Selection = { from: string; to: string; }
 ShowHeaderDialog | type | type ShowHeaderDialog = (render: (control: @ap/components#HeaderOverflowDialogControl) => ReactNode) => void

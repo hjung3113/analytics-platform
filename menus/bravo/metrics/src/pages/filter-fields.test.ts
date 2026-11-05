@@ -1,36 +1,43 @@
-import { describe, expect, it, vi } from 'vitest';
-import { metricCatalogHasActiveFilters, metricCatalogPageFilterFields, resetMetricCatalogPageFilters } from './filter-fields';
+import { describe, expect, it } from 'vitest';
+import type { ColumnFilter } from '@ap/contracts';
+import { catalogFilterDeclarations, catalogFilterOptions, catalogValueCheck } from './filter-fields';
 
-describe('metric catalog PageFilterBar URL fields (#54)', () => {
-  it('writes q/status/domain keys, resets page on changes, and clears all filter keys', () => {
-    const setPage = vi.fn();
-    const fields = metricCatalogPageFilterFields({
-      q: null, status: null, domain: 'bogus', lang: 'en', tx: text => text.en, setPage,
-    });
-    const q = fields.find(field => field.key === 'q');
-    const status = fields.find(field => field.key === 'status');
-    const domain = fields.find(field => field.key === 'domain');
-    expect(q?.kind).toBe('search');
-    expect(status?.kind).toBe('select');
-    expect(domain?.kind).toBe('select');
-    if (q?.kind !== 'search' || status?.kind !== 'select' || domain?.kind !== 'select') throw new Error('Expected metric filter field kinds');
-
-    expect(domain.value).toBe('bogus');
-    q.onValueChange('yield');
-    status.onValueChange('published');
-    domain.onValueChange('quality');
-    expect(setPage.mock.calls).toEqual([
-      [{ q: 'yield', page: null }, { replace: true }],
-      [{ status: 'published', page: null }],
-      [{ domain: 'quality', page: null }],
-    ]);
-
-    resetMetricCatalogPageFilters(setPage);
-    expect(setPage).toHaveBeenLastCalledWith({ q: null, status: null, domain: null, page: null });
+// ADR-0105 (#1218): 상태·도메인 are pinned enum conditions of the hidden repeated `filter` key.
+describe('metric catalog filter declarations (#1218)', () => {
+  it('declares 상태 and 도메인 as pinned enum fields with one in-value', () => {
+    expect(catalogFilterDeclarations.map(field => field.id)).toEqual(['status', 'domain']);
+    for (const field of catalogFilterDeclarations) {
+      expect(field.pinned).toBe(true);
+      expect(field.spec).toMatchObject({ kind: 'enum', ops: ['in'], multiple: false });
+      expect(field.spec && field.spec.kind === 'enum' && field.spec.options.map(option => option.value)).toEqual(
+        field.id === 'status' ? ['draft', 'published', 'deprecated'] : ['productivity', 'time', 'movement', 'quality', 'maintenance'],
+      );
+    }
   });
 
-  it('does not create an empty reset action for an empty q URL value', () => {
-    expect(metricCatalogHasActiveFilters('', null, null)).toBe(false);
-    expect(metricCatalogHasActiveFilters(null, 'published', null)).toBe(true);
+  it('keeps the raw enum tokens off the URL spec and localizes the editor options', () => {
+    expect(catalogFilterOptions('status', 'ko')).toEqual([
+      { value: 'draft', label: '초안' }, { value: 'published', label: '발행' }, { value: 'deprecated', label: '폐기' },
+    ]);
+    expect(catalogFilterOptions('domain', 'en')).toEqual([
+      { value: 'productivity', label: 'Productivity' }, { value: 'time', label: 'Time' }, { value: 'movement', label: 'Movement' },
+      { value: 'quality', label: 'Quality' }, { value: 'maintenance', label: 'Maintenance' },
+    ]);
+  });
+
+  it.each([
+    ['status', ['draft', 'published'], null],
+    ['domain', ['time'], null],
+    ['status', ['bogus'], '등록되지 않은 발행 상태입니다.'],
+    ['domain', ['quality', 'nope'], '등록되지 않은 도메인입니다.'],
+  ] as const)('value check for %s %j → %s', (id, value, expected) => {
+    const filter: ColumnFilter = { id, op: 'in', value: [...value] };
+    const verdict = catalogValueCheck(filter);
+    expect(verdict?.ko ?? null).toBe(expected);
+  });
+
+  it('ignores other field ids and operators (the codec owns them)', () => {
+    expect(catalogValueCheck({ id: 'ghost', op: 'in', value: ['x'] })).toBeNull();
+    expect(catalogValueCheck({ id: 'status', op: 'isEmpty' })).toBeNull();
   });
 });
