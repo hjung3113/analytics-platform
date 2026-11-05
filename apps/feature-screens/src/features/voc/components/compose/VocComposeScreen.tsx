@@ -55,6 +55,9 @@ export function VocComposeScreen({
     aaQuery,
     msOptions,
     aaOptions,
+    selectedDenied,
+    showCreateDenied,
+    hasDeniedOption,
     isSubmitting,
     attachmentsUploading,
     hasAttachmentErrors,
@@ -198,6 +201,15 @@ export function VocComposeScreen({
               )}
             />
           )}
+          {(showCreateDenied || hasDeniedOption) && (
+            <p
+              data-testid="voc-create-denied-reason"
+              {...(showCreateDenied ? { role: 'alert' } : {})}
+              className={showCreateDenied ? 'text-xs text-text-danger' : 'text-xs text-text-muted'}
+            >
+              {VOC_CREATE_COPY.createDenied}
+            </p>
+          )}
           {form.formState.errors.primary_managed_system_id?.message && (
             <p className="text-xs text-text-danger">
               {form.formState.errors.primary_managed_system_id.message}
@@ -305,7 +317,7 @@ export function VocComposeScreen({
               : missingRequired.length > 0
                 ? { 'aria-describedby': 'voc-compose-missing' }
                 : {})}
-            disabled={!valid || isSubmitting || attachmentsUploading || hasAttachmentErrors || defaultStatus !== 'ready'}
+            disabled={!valid || isSubmitting || attachmentsUploading || hasAttachmentErrors || defaultStatus !== 'ready' || selectedDenied}
           >
             VOC 제출
           </Button>

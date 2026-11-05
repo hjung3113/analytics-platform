@@ -7,6 +7,10 @@ export interface PickerOption {
   label: string;
   slug?: string;
   archived?: boolean;
+  /** Listed but not selectable (e.g. a Managed System the actor may not file a VOC in). */
+  disabled?: boolean;
+  /** Native tooltip for the chip; the consumer shows the visible reason itself. */
+  title?: string;
 }
 
 interface ChipPickerProps {
@@ -57,6 +61,8 @@ export function ChipPicker({
             key={option.id}
             value={option.id}
             aria-label={label}
+            {...(option.disabled ? { disabled: true } : {})}
+            {...(option.title ? { title: option.title } : {})}
             className={
               isManagedSystem
                 ? 'gap-2 rounded-md border border-border-subtle bg-surface-canvas px-2.5 text-text-secondary shadow-subtle hover:bg-surface-row-hover data-[state=on]:border-border-selected data-[state=on]:bg-surface-row-selected data-[state=on]:text-text-primary'
