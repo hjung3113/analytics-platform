@@ -891,6 +891,12 @@ a request can hold a connection or wait for one. Operator pools (`seed`, migrati
 - **Item history.** The knowledge item detail read selects only `revisionNo, title, publishedBy, publishedAt,
   changeNote` for its revision list; the response shape is unchanged.
 
+## Usage via pane values (#605, migration 0089)
+
+`usage_events_via_check` on `platform.usage_events` adds `paneOpen` and `paneReplace` to the allowed `via` values (the closed set
+`UsageVia`); no column, index or row changes. A server older than 0089 rejects a board `entry` that carries one of them and answers
+`accepted: 0` for the whole batch, so the server is upgraded before clients that send pane values.
+
 ## VOC trace id (#606, migration 0090)
 
 `voc.vocs.trace_id text NULL` holds the client correlation id a reporter attached to a VOC, with index

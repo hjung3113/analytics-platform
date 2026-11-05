@@ -125,7 +125,7 @@ function PageFilterFieldControl({ field, id }: { field: PageFilterField; id: str
   </div>;
 }
 
-/** A visible, wrapping row for page-owned filters. Values, URL keys, and actions stay with the consumer. */
+/** Collapsible page filter bar: the page owns the draft values and their apply (`mode="draft"` is an inert marker), with an optional applied-chips row. */
 export function PageFilterBar(props: PageFilterBarProps) {
   const storageKey = `platform:page-filter-collapsed:${props.preferenceKey}`;
   // Remount (and re-read the stored preference) when the preference key changes.
