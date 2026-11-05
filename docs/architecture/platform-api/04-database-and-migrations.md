@@ -913,3 +913,13 @@ Adds the `improvement` schema (`platform_app` and `platform_migrate` get USAGE) 
 ## Improvement item writes (#1328 b, migration 0094)
 
 `platform_app` gets `INSERT` on `item`, `item_target`, `item_event`, `DELETE` on `item_target` only, and a column-limited `UPDATE` on `item` (`problem, action, action_date, status, assignee_id, quest_id, quest_title_snapshot, origin_menu_id, origin_context, effect_result, effect_note, effect_compare_link, drop_reason, row_version, updated_at, updated_by`); no DELETE on `item`/`item_event`, no UPDATE on `item_event`/`item_target`. `BEFORE UPDATE` trigger `improvement_item_guard` refuses (`23514`) a changed identity column, a `row_version` that does not rise by exactly 1, and an illegal status pair. The origin-or-target rule (Q2) is the `DEFERRABLE INITIALLY DEFERRED` constraint trigger `improvement_item_origin_or_target` on `item` (insert, update of `origin_menu_id`) and `item_target` (delete); its function re-reads the current state and skips a vanished item. `core.platform_audit_events` is redefined from the 0092 body plus the subject type `improvement_item` and the capability `improvement.manage` (temporary `CREATE` grant, `SET ROLE platform_core_audit_reader_owner`, revoked as in 0092). Actions: [api/improvement-items.md](api/improvement-items.md) §Write actions.
+
+## usageNextScreens from-menu index (#605, migration 0095)
+
+`platform.usage_events` gains `usage_events_next_from_idx (workspace_id, name, source, from_menu_id)` — a plain
+`CREATE INDEX`, not `CONCURRENTLY`, so it takes a write lock while building (usage tables are append-mostly and the
+apply is part of the normal migration run; see the 0084 note on maintenance windows). The `usageNextScreens`
+`kind`/`destination`/`via` aggregates (real-server-checklist §`usageNextScreens`) filter `from_menu_id = M` and
+`source = 'main'`, which no existing index covers beyond the `workspace_id, name` prefix; the new key lets them read
+one from menu directly. `usageSummary` and the drawer's own-entry count keep the 0075 summary/menu indexes. No grant,
+trigger, constraint or backfill.

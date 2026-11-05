@@ -92,6 +92,17 @@ describe.skipIf(!runIntegration)(
       return { id, cookie, csrf: boot.json<{ csrfToken: string }>().csrfToken };
     }
 
+    /**
+     * Distinct developers for the tests that need several. Every test clears its own rows first, so the
+     * first `count` members of one lazily grown pool are reused across tests: each mock-login spends the
+     * shared 50/min per-IP budget of the whole directory run, and a fresh crew per test exhausted it.
+     */
+    const crewPool: Person[] = [];
+    const crew = async (count: number) => {
+      while (crewPool.length < count) crewPool.push(await newPerson('developer'));
+      return crewPool.slice(0, count);
+    };
+
     /** A POST with the person's cookie and CSRF token unless overridden. */
     const post = (
       path: string,
@@ -455,8 +466,24 @@ describe.skipIf(!runIntegration)(
             )
           ).rows[0]?.t.getTime();
         expect(mineOf(body)).toEqual([
-          { menuId: MENU, visits: 3, distinctUsers: 2, lastUsedAt: await last(MENU) },
-          { menuId: other, visits: 1, distinctUsers: 1, lastUsedAt: await last(other) },
+          {
+            menuId: MENU,
+            visits: 3,
+            distinctUsers: 2,
+            lastUsedAt: await last(MENU),
+            entries: null,
+            backRate: null,
+            searchEntryRate: null,
+          },
+          {
+            menuId: other,
+            visits: 1,
+            distinctUsers: 1,
+            lastUsedAt: await last(other),
+            entries: null,
+            backRate: null,
+            searchEntryRate: null,
+          },
         ]);
       });
 
@@ -469,7 +496,15 @@ describe.skipIf(!runIntegration)(
         expect(insideBody.outcome).toBe('ok');
         expect(insideBody.data?.preset).toBe('range');
         expect(mineOf(insideBody)).toEqual([
-          { menuId: MENU, visits: 1, distinctUsers: 1, lastUsedAt: t },
+          {
+            menuId: MENU,
+            visits: 1,
+            distinctUsers: 1,
+            lastUsedAt: t,
+            entries: null,
+            backRate: null,
+            searchEntryRate: null,
+          },
         ]);
         // `to` is exclusive.
         expect(mineOf((await summary(`?from=${t - 5}&to=${t}`)).json<Envelope>())).toEqual([]);
@@ -510,6 +545,455 @@ describe.skipIf(!runIntegration)(
           outcome: 'error',
           data: null,
           message: 'Invalid usage range',
+        });
+      });
+    });
+
+    describe('GET /usage-summary rates (#605)', () => {
+      it('entries count main only; rates need 3 distinct main users and are null below it', async () => {
+        await clearMine();
+        const [a, b, c, d, e, f] = await crew(6);
+        const viaEntry = (via: string, from: string | null) =>
+          entry({ via, fromMenuId: from, source: 'main' });
+        // MENU: 6 main entries by 6 people (a–c palette, d–f sidebar: both sides of the split have 3 people), 1 board entry that must not count.
+        for (const p of [a, b, c]) await record([viaEntry('palette', null)], p);
+        for (const p of [d, e, f]) await record([viaEntry('sidebar', null)], p);
+        await record(
+          [entry({ source: 'board', stayId: 's1', via: 'paneOpen', fromMenuId: null })],
+          a,
+        );
+        // Next entries elsewhere naming MENU as the previous screen: 3 went back (history, 3 people, one cell), 1 moved on.
+        const away = `${MENU}-away`;
+        const gone = `${MENU}-gone`;
+        for (const p of [a, b, c]) await record([entry({ menuId: away, via: 'history', fromMenuId: MENU })], p);
+        await record([entry({ menuId: gone, via: 'sidebar', fromMenuId: MENU })], b);
+        const body = (await summary('?preset=all')).json<Envelope>();
+        const row = mineOf(body).find((m) => m.menuId === MENU);
+        expect(row).toMatchObject({ visits: 7, entries: 6, backRate: 0.5, searchEntryRate: 0.5 });
+        // F2: one person's entries (1 main-entry user): entries is masked like the rates.
+        const goneRow = mineOf(body).find((m) => m.menuId === gone);
+        expect(goneRow).toMatchObject({ entries: null, backRate: null, searchEntryRate: null });
+      });
+
+      it('a numerator built from fewer than 3 people counts as 0, so entries × rate never isolates them', async () => {
+        await clearMine();
+        const [a, b, c] = await crew(3);
+        const viaEntry = (via: string, from: string | null) =>
+          entry({ via, fromMenuId: from, source: 'main' });
+        await record([viaEntry('palette', null)], a); // 1 palette person
+        await record([viaEntry('sidebar', null)], b);
+        await record([viaEntry('sidebar', null)], c);
+        await record([entry({ menuId: `${MENU}-x`, via: 'history', fromMenuId: MENU })], a);
+        await record([entry({ menuId: `${MENU}-y`, via: 'history', fromMenuId: MENU })], b);
+        await record([entry({ menuId: `${MENU}-y`, via: 'return', fromMenuId: MENU })], c);
+        const row = mineOf((await summary('?preset=all')).json<Envelope>()).find((m) => m.menuId === MENU);
+        // Cells x (1 person) and y (2 people) are both under 3. One palette person: the split has a 1-person side, so the palette rate is withheld.
+        expect(row).toMatchObject({ entries: 3, backRate: 0, searchEntryRate: null });
+      });
+
+      it.each([
+        [3, 1, null],
+        [3, 2, null],
+        [3, 3, 0.5],
+        [1, 3, null],
+        [2, 3, null],
+        [0, 3, 0],
+        [3, 0, 1],
+      ])('searchEntryRate with %i palette and %i other people → %s (null when either non-empty side has 1–2 people)', async (palette, other, expected) => {
+        await clearMine();
+        const people = await crew(6);
+        for (const p of people.slice(0, palette)) await record([entry({ via: 'palette' })], p);
+        for (const p of people.slice(palette, palette + other)) await record([entry({ via: 'sidebar' })], p);
+        const row = mineOf((await summary('?preset=all')).json<Envelope>()).find((m) => m.menuId === MENU);
+        expect(row?.searchEntryRate).toBe(expected);
+      });
+
+      it('a menu with only board entries has null entries and null rates', async () => {
+        await clearMine();
+        await record([entry({ source: 'board', stayId: 's1', via: 'paneOpen' })], user);
+        const row = mineOf((await summary('?preset=all')).json<Envelope>())[0];
+        expect(row).toMatchObject({ entries: null, backRate: null, searchEntryRate: null });
+      });
+
+      it('backRate is capped at 1', async () => {
+        await clearMine();
+        const people = await crew(3);
+        for (const p of people) await record([entry({ via: 'sidebar' })], p);
+        const away = `${MENU}-away`;
+        for (let i = 0; i < 2; i++) {
+          for (const p of people)
+            await record([entry({ menuId: away, via: 'return', fromMenuId: MENU })], p);
+        }
+        const row = mineOf((await summary('?preset=all')).json<Envelope>()).find(
+          (m) => m.menuId === MENU,
+        );
+        expect(row).toMatchObject({ entries: 3, backRate: 1 });
+      });
+    });
+
+    describe('POST /usage-next-screens (#605)', () => {
+      type NextData = {
+        menuId: string;
+        entries: number;
+        masked: boolean;
+        summary: Record<string, number>;
+        next: { menuId: string; count: number; distinctUsers: number; vias: Record<string, number> }[];
+        hiddenDestinations: number;
+      };
+      const next = (body: unknown, who: Person = admin) =>
+        post('/usage-next-screens', body, who, { csrf: null });
+      const nextData = async (body: unknown) => {
+        const res = await next(body);
+        expect(res.statusCode).toBe(200);
+        const env = res.json<{ outcome: string; data: NextData | null }>();
+        expect(env.outcome).toBe('ok');
+        return env.data as NextData;
+      };
+
+      /** 6 people each enter MENU twice; destinations d1 (6 users), d2 (4), d3 (3), tiny (2 users), solo (1). */
+      async function seedTail() {
+        await clearMine();
+        const people: Person[] = [];
+        for (let i = 0; i < 6; i++) people.push(await newPerson('developer'));
+        for (const p of people) await record([entry({ via: 'sidebar' }), entry({ via: 'palette' })], p);
+        const go = (to: string, who: Person[], via?: string) =>
+          Promise.all(
+            who.map((p) =>
+              record([entry({ menuId: `${MENU}-${to}`, fromMenuId: MENU, ...(via ? { via } : {}) })], p),
+            ),
+          );
+        await go('d1', people, 'sidebar');
+        await go('d2', people.slice(0, 4), 'crossLink');
+        await go('d3', people.slice(0, 3));
+        await go('tiny', people.slice(0, 2), 'link');
+        await go('solo', people.slice(0, 1), 'link');
+        return people;
+      }
+
+      it('forbidden for a non-admin, also with a bad body; no CSRF is required', async () => {
+        for (const body of [{ menuId: MENU }, { menuId: '' }, null]) {
+          const res = await next(body, user);
+          expect(res.statusCode).toBe(200);
+          expect(res.json()).toMatchObject({ outcome: 'forbidden', data: null });
+        }
+      });
+
+      it('masked means exactly 1–2 main-entry users: a menu with 2 users is masked, a well-formed unknown menu is an empty unmasked answer', async () => {
+        await clearMine();
+        await record([entry({ via: 'sidebar' })], admin);
+        await record([entry({ via: 'sidebar' })], user);
+        await record([entry({ menuId: `${MENU}-x`, via: 'link', fromMenuId: MENU })], user);
+        const empty = {
+          entries: 0,
+          summary: { moved: 0, sameMenu: 0, backOrReturn: 0, noMove: 0 },
+          next: [],
+          hiddenDestinations: 0,
+        };
+        expect(await nextData({ menuId: MENU })).toEqual({ menuId: MENU, masked: true, ...empty });
+        expect(await nextData({ menuId: `${MENU}-nothing` })).toEqual({
+          menuId: `${MENU}-nothing`,
+          masked: false,
+          ...empty,
+        });
+      });
+
+      it('names destinations with >= 3 users, counts the rest, one consistent set per row', async () => {
+        await seedTail();
+        const data = await nextData({ menuId: MENU });
+        expect(data.masked).toBe(false);
+        expect(data.entries).toBe(12);
+        expect(data.next).toEqual([
+          { menuId: `${MENU}-d1`, count: 6, distinctUsers: 6, vias: { sidebar: 6 } },
+          { menuId: `${MENU}-d2`, count: 4, distinctUsers: 4, vias: { crossLink: 4 } },
+          // A via-less next entry counts as `link`.
+          { menuId: `${MENU}-d3`, count: 3, distinctUsers: 3, vias: { link: 3 } },
+        ]);
+        expect(data.hiddenDestinations).toBe(2);
+        // Hidden names never leave the server.
+        expect(JSON.stringify(data)).not.toContain('tiny');
+        expect(JSON.stringify(data)).not.toContain('solo');
+        // Only cells of >= 3 people: d1 6 + d2 4 + d3 3; the 3 entries to tiny and solo are not in moved (they stay inside the entries nobody followed).
+        expect(data.summary).toEqual({ moved: 13, sameMenu: 0, backOrReturn: 0, noMove: 0 });
+        for (const row of data.next)
+          expect(Object.values(row.vias).reduce((x, y) => x + y, 0)).toBe(row.count);
+      });
+
+      it('count and users come from the same set when one person enters a destination twice', async () => {
+        await clearMine();
+        const people = await crew(3);
+        for (const p of people) await record([entry({ via: 'sidebar' })], p);
+        const to = `${MENU}-twice`;
+        for (const p of people)
+          await record(
+            [
+              entry({ menuId: to, via: 'link', fromMenuId: MENU }),
+              entry({ menuId: to, via: 'drill', fromMenuId: MENU }),
+            ],
+            p,
+          );
+        const data = await nextData({ menuId: MENU });
+        expect(data.next).toEqual([
+          { menuId: to, count: 6, distinctUsers: 3, vias: { link: 3, drill: 3 } },
+        ]);
+        expect(data.summary.noMove).toBe(0);
+      });
+
+      it('back/return and same-menu entries are summarised, and only ranked with includeBack', async () => {
+        await clearMine();
+        const people = await crew(3);
+        for (const p of people) await record([entry({ via: 'sidebar' })], p);
+        const d1 = `${MENU}-d1`;
+        const d2 = `${MENU}-d2`;
+        for (const p of people) {
+          await record(
+            [
+              entry({ menuId: d1, via: 'history', fromMenuId: MENU }),
+              entry({ menuId: MENU, via: 'link', fromMenuId: MENU }),
+              entry({ menuId: d2, via: 'sidebar', fromMenuId: MENU }),
+            ],
+            p,
+          );
+        }
+        // MENU now has 6 main entries (3 + 3 self-loops).
+        const plain = await nextData({ menuId: MENU });
+        expect(plain.entries).toBe(6);
+        expect(plain.summary).toEqual({ moved: 3, sameMenu: 3, backOrReturn: 3, noMove: 0 });
+        expect(plain.next.map((r) => r.menuId)).toEqual([d2]);
+        expect(plain.hiddenDestinations).toBe(0);
+        const withBack = await nextData({ menuId: MENU, includeBack: true });
+        expect(withBack.summary).toEqual(plain.summary);
+        // Equal counts order by menu id (the menu itself sorts before its own prefixed ids).
+        expect(withBack.next.map((r) => [r.menuId, r.count, r.vias])).toEqual([
+          [MENU, 3, { link: 3 }],
+          [d1, 3, { history: 3 }],
+          [d2, 3, { sidebar: 3 }],
+        ]);
+      });
+
+      it('noMove floors at 0 when next entries outnumber the menu entries', async () => {
+        await clearMine();
+        const people = await crew(3);
+        for (const p of people) await record([entry({ via: 'sidebar' })], p);
+        for (const p of people)
+          await record(
+            [
+              entry({ menuId: `${MENU}-a`, via: 'link', fromMenuId: MENU }),
+              entry({ menuId: `${MENU}-a`, via: 'link', fromMenuId: MENU }),
+            ],
+            p,
+          );
+        const data = await nextData({ menuId: MENU });
+        // The floor is the approved definition: the four values sum to >= entries (here 6 > 3).
+        expect(data.summary).toEqual({ moved: 6, sameMenu: 0, backOrReturn: 0, noMove: 0 });
+        expect(Object.values(data.summary).reduce((x, y) => x + y, 0)).toBeGreaterThanOrEqual(data.entries);
+      });
+
+      it('small cells never leave through a difference: summary vs rows, and the includeBack toggle (F1)', async () => {
+        await clearMine();
+        const people = await crew(6);
+        for (const p of people) await record([entry({ via: 'sidebar' })], p);
+        const a = `${MENU}-a`;
+        const s = `${MENU}-s`;
+        for (const p of people.slice(0, 3)) await record([entry({ menuId: a, via: 'link', fromMenuId: MENU })], p);
+        // S: link by 1 person, history by 2 others — hidden by default, and it must stay hidden with the toggle.
+        for (const p of people.slice(3, 4)) await record([entry({ menuId: s, via: 'link', fromMenuId: MENU })], p);
+        for (const p of people.slice(4)) await record([entry({ menuId: s, via: 'history', fromMenuId: MENU })], p);
+        for (const includeBack of [false, true]) {
+          const data = await nextData({ menuId: MENU, includeBack });
+          expect(data.next).toEqual([{ menuId: a, count: 3, distinctUsers: 3, vias: { link: 3 } }]);
+          expect(data.hiddenDestinations).toBe(1);
+          expect(JSON.stringify(data)).not.toContain(s);
+          // moved − the visible rows is 0: the single hidden entry is not derivable.
+          expect(data.summary).toEqual({ moved: 3, sameMenu: 0, backOrReturn: 0, noMove: 3 });
+        }
+      });
+
+      it('G2: a back cell joins a destination row only if it adds >= 3 new people (toggle difference never 1 or 2)', async () => {
+        await clearMine();
+        const people = await crew(6);
+        for (const p of people) await record([entry({ via: 'sidebar' })], p);
+        const a = `${MENU}-a`;
+        const b = `${MENU}-b`;
+        const move = (to: string, who: Person[], via: string) =>
+          Promise.all(who.map((p) => record([entry({ menuId: to, via, fromMenuId: MENU })], p)));
+        // A: moved u1–u3, back u2–u4 → the back cell adds only u4: not merged.
+        await move(a, people.slice(0, 3), 'link');
+        await move(a, people.slice(1, 4), 'history');
+        // B: moved u1–u3, back u3–u6 → the back cell adds u4–u6 (3 new people): merged.
+        await move(b, people.slice(0, 3), 'link');
+        await move(b, people.slice(2, 6), 'history');
+        const plain = await nextData({ menuId: MENU });
+        const withBack = await nextData({ menuId: MENU, includeBack: true });
+        const row = (d: NextData, id: string) => d.next.find((r) => r.menuId === id);
+        expect(row(plain, a)).toMatchObject({ count: 3, distinctUsers: 3, vias: { link: 3 } });
+        expect(row(withBack, a)).toEqual(row(plain, a));
+        expect(row(withBack, b)).toEqual({ menuId: b, count: 7, distinctUsers: 6, vias: { link: 3, history: 4 } });
+        expect(withBack.summary).toEqual(plain.summary);
+        expect(plain.summary.backOrReturn).toBe(7);
+      });
+
+      it('G2: a destination hidden by default (moved cell of 2) appears with includeBack from its open back cell only', async () => {
+        await clearMine();
+        const people = await crew(4);
+        for (const p of people) await record([entry({ via: 'sidebar' })], p);
+        const a = `${MENU}-a`;
+        for (const p of people.slice(0, 2)) await record([entry({ menuId: a, via: 'link', fromMenuId: MENU })], p);
+        for (const p of people.slice(1, 4)) await record([entry({ menuId: a, via: 'history', fromMenuId: MENU })], p);
+        expect((await nextData({ menuId: MENU })).next).toEqual([]);
+        expect((await nextData({ menuId: MENU, includeBack: true })).next).toEqual([
+          { menuId: a, count: 3, distinctUsers: 3, vias: { history: 3 } },
+        ]);
+      });
+
+      it('G2: the same-menu cell obeys the new-people rule against a back self-loop', async () => {
+        await clearMine();
+        const people = await crew(6);
+        for (const p of people) await record([entry({ via: 'sidebar' })], p);
+        for (const p of people.slice(0, 3)) await record([entry({ menuId: MENU, via: 'link', fromMenuId: MENU })], p);
+        for (const p of people.slice(1, 4)) await record([entry({ menuId: MENU, via: 'history', fromMenuId: MENU })], p);
+        const data = await nextData({ menuId: MENU, includeBack: true });
+        expect(data.next).toEqual([{ menuId: MENU, count: 3, distinctUsers: 3, vias: { link: 3 } }]);
+      });
+
+      it('vias are all-or-nothing: one via under 3 people empties the split (F1b)', async () => {
+        await clearMine();
+        const people = await crew(4);
+        for (const p of people) await record([entry({ via: 'sidebar' })], p);
+        const to = `${MENU}-mixed`;
+        for (const p of people.slice(0, 3)) await record([entry({ menuId: to, via: 'sidebar', fromMenuId: MENU })], p);
+        for (const p of people.slice(3)) await record([entry({ menuId: to, via: 'palette', fromMenuId: MENU })], p);
+        const data = await nextData({ menuId: MENU });
+        expect(data.next).toEqual([{ menuId: to, count: 4, distinctUsers: 4, vias: {} }]);
+      });
+
+      it('board entries never count, neither as entries nor as next', async () => {
+        await clearMine();
+        const people = await crew(3);
+        for (const p of people) {
+          await record([entry({ via: 'sidebar' })], p);
+          await record(
+            [entry({ source: 'board', stayId: 'b1', via: 'paneOpen', menuId: `${MENU}-pane`, fromMenuId: MENU })],
+            p,
+          );
+          await record([entry({ source: 'board', stayId: 'b2', via: 'paneOpen' })], p);
+        }
+        const data = await nextData({ menuId: MENU });
+        expect(data.entries).toBe(3);
+        expect(data.next).toEqual([]);
+        expect(data.summary.noMove).toBe(3);
+      });
+
+      it('is capped at 20 rows, ties ordered by menu id', async () => {
+        await clearMine();
+        const people = await crew(3);
+        for (const p of people) await record([entry({ via: 'sidebar' })], p);
+        // One batch per person (the batch limit is 20, so 22 destinations take two requests): the per-actor rate budget is shared with the other tests.
+        const toAll = Array.from({ length: 22 }, (_, i) =>
+          entry({ menuId: `${MENU}-n${String(i).padStart(2, '0')}`, via: 'link', fromMenuId: MENU }),
+        );
+        for (const p of people)
+          for (const part of [toAll.slice(0, 20), toAll.slice(20)])
+            expect((await record(part, p)).statusCode).toBe(200);
+        const data = await nextData({ menuId: MENU });
+        expect(data.next).toHaveLength(20);
+        expect(data.hiddenDestinations).toBe(0);
+        // Ties on count order by menu id.
+        expect(data.next[0]?.menuId).toBe(`${MENU}-n00`);
+      });
+
+      describe('cross-menu subtraction: uncovered entries (R1)', () => {
+        // uncovered(M) = entries(M) − events of open inflow cells into M (cell = origin menu + kind, >= 3 distinct people).
+        // 1 or 2 → M masked in both reads; 0 or >= 3 → unchanged.
+        const aId = `${MENU}-a`;
+        const bId = `${MENU}-b`;
+        const maskedAnswer = {
+          menuId: aId,
+          masked: true,
+          entries: 0,
+          summary: { moved: 0, sameMenu: 0, backOrReturn: 0, noMove: 0 },
+          next: [],
+          hiddenDestinations: 0,
+        };
+        const summaryRow = async (id: string) => {
+          const body = (await summary('?preset=all')).json<Envelope>();
+          return mineOf(body).find((m) => m.menuId === id);
+        };
+        /** M entered directly by 4 people; people[0..2] go M → A; then `extra` records more events. */
+        async function seedLink(extra: (people: Person[]) => Promise<unknown>) {
+          await clearMine();
+          const people = await crew(6);
+          for (const p of people.slice(0, 4)) await record([entry({ via: 'sidebar' })], p);
+          for (const p of people.slice(0, 3)) await record([entry({ menuId: aId, via: 'link', fromMenuId: MENU })], p);
+          await extra(people);
+        }
+        const direct = (people: Person[], from: number, to: number, menuId = aId) =>
+          Promise.all(people.slice(from, to).map((p) => record([entry({ menuId, via: 'sidebar' })], p)));
+
+        it("the reviewer's example: 3 linked and 1 direct entry leave 1 uncovered, so A is masked in both reads", async () => {
+          await seedLink((people) => direct(people, 3, 4));
+          expect(await summaryRow(aId)).toMatchObject({ entries: null, backRate: null, searchEntryRate: null });
+          expect(await nextData({ menuId: aId })).toEqual(maskedAnswer);
+          expect(await nextData({ menuId: aId, includeBack: true })).toEqual(maskedAnswer);
+        });
+
+        it('the variant: 1 entry from B (a closed cell) leaves 1 uncovered, so A is masked and B names no destination', async () => {
+          await seedLink(async (people) => {
+            for (const p of people.slice(1, 4)) await record([entry({ menuId: bId, via: 'sidebar' })], p);
+            await record([entry({ menuId: bId, via: 'sidebar' })], people[0] as Person);
+            await record([entry({ menuId: aId, via: 'link', fromMenuId: bId })], people[3] as Person);
+          });
+          expect(await summaryRow(aId)).toMatchObject({ entries: null });
+          expect(await nextData({ menuId: aId })).toEqual(maskedAnswer);
+          expect(await nextData({ menuId: bId })).toMatchObject({ masked: false, next: [], hiddenDestinations: 1 });
+        });
+
+        it.each([
+          [0, false],
+          [1, true],
+          [2, true],
+          [3, false],
+        ])('%i uncovered direct entries: masked = %s (both reads agree)', async (uncovered, masked) => {
+          await seedLink((people) => direct(people, 3, 3 + uncovered));
+          expect((await summaryRow(aId))?.entries === null).toBe(masked);
+          for (const includeBack of [false, true]) {
+            const data = await nextData({ menuId: aId, includeBack });
+            expect(data.masked).toBe(masked);
+            if (!masked) expect(data.entries).toBe(3 + uncovered);
+          }
+        });
+
+        it('a same-menu inflow cell of 3 people covers its events; includeBack does not change that', async () => {
+          await clearMine();
+          const people = await crew(4);
+          for (const p of people.slice(0, 3)) await record([entry({ via: 'sidebar' })], p);
+          for (const p of people.slice(0, 3)) await record([entry({ via: 'link', fromMenuId: MENU })], p);
+          for (const includeBack of [false, true]) {
+            expect(await nextData({ menuId: MENU, includeBack })).toMatchObject({ masked: false, entries: 6 });
+          }
+          expect(await summaryRow(MENU)).toMatchObject({ entries: 6 });
+        });
+
+        it('a menu with only direct entries from >= 3 people stays unmasked', async () => {
+          await clearMine();
+          const people = await crew(4);
+          for (const p of people) await record([entry({ via: 'sidebar' })], p);
+          expect(await summaryRow(MENU)).toMatchObject({ entries: 4 });
+          expect(await nextData({ menuId: MENU })).toMatchObject({ masked: false, entries: 4 });
+        });
+      });
+
+      it.each([
+        ['an empty menuId', { menuId: '' }],
+        ['a menuId with a slash', { menuId: 'a/b' }],
+        ['a non-boolean includeBack', { menuId: 'a', includeBack: 'yes' }],
+        ['an extra key', { menuId: 'a', preset: 'all' }],
+      ])('error "Invalid usage next-screens query" for %s', async (_label, body) => {
+        const res = await next(body);
+        expect(res.statusCode).toBe(200);
+        expect(res.json()).toMatchObject({
+          outcome: 'error',
+          data: null,
+          message: 'Invalid usage next-screens query',
         });
       });
     });

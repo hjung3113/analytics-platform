@@ -82,7 +82,7 @@ const actionDeclaration = (spec: AnyActionSpec): MenuActionDeclaration => ({
 });
 const testActionPair = { actions: [actionDeclaration(noneSpec), actionDeclaration(versionSpec)] };
 
-type Account = 'granted' | 'plain' | 'console' | 'otherAnnotator' | 'svUser' | 'svAdmin';
+type Account = 'granted' | 'grantedNoConsole' | 'plain' | 'console' | 'otherAnnotator' | 'svUser' | 'svAdmin';
 type Role = 'admin' | 'developer' | 'user';
 
 /** The `PlatformAdapter` members this backend serves under `/api/v1/platform` (routes.ts). */
@@ -96,6 +96,7 @@ const IMPLEMENTED: readonly PortMethod[] = [
   'auditTrail',
   'accessDirectory',
   'usageSummary',
+  'usageNextScreens',
   'recordUsage',
   'reportClientError',
   'readPreferences',
@@ -329,6 +330,10 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
     grantedPersonId = grantedId;
     mayWriteActions.add(grantedId);
     await signIn('plain', 'user');
+    // The granted actor minus console:access (the granted developer holds none, so this is its twin): the console reads without the
+    // permission keep the harness contract and spend a fresh account's rate budget, not the granted one's.
+    const twinId = await signIn('grantedNoConsole', 'developer');
+    mayWriteActions.add(twinId);
     const adminId = await signIn('console', 'admin');
     await signIn('otherAnnotator', 'developer');
     // The saved-view conformance actors (#1131): a dedicated pair keeps the suite's command volume off the other
@@ -353,6 +358,7 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
     });
     findingRef.id = finding.id;
     await grantCapability(migrateHandle, WORKSPACE_ID, grantedId, 'finding.read', msId, adminId);
+    await grantCapability(migrateHandle, WORKSPACE_ID, twinId, 'finding.read', msId, adminId);
     // More than one entityAudit page, so the kit's cursor checks run instead of skipping (#857).
     // Distinct instants plus a block of equal ones, to exercise the id tie-break.
     await migrateHandle.pool.query(
@@ -506,11 +512,12 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
       },
     },
     asGranted: (fn) => as('granted', fn),
-    // The kit removes the entity permission and console:access; the granted developer holds no
-    // console:access, so that one is the granted account itself (checklist §4).
+    // The kit removes the entity permission and console:access. `console:access` is the granted actor minus that permission, as the
+    // harness contract says: a twin of the granted developer (same grants), so the console reads without it do not spend the granted
+    // account's per-actor rate budget (the production run and the menuAction run share one budget of 100 a minute; checklist §4).
     withoutPermission: (permission, fn) => {
       if (permission === 'features:access') return as('plain', fn);
-      if (permission === 'console:access') return as('granted', fn);
+      if (permission === 'console:access') return as('grantedNoConsole', fn);
       if (permission === ACTION_PERMISSION) return as('plain', fn);
       throw new Error(`no account without ${permission}`);
     },

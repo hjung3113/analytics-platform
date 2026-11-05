@@ -76,6 +76,11 @@ const TABLE = {
     reply: ENVELOPE,
     call: (a) => a.usageSummary({ preset: 'all' }),
   },
+  usageNextScreens: {
+    http: { method: 'POST', path: '/api/v1/platform/usage-next-screens', body: { menuId: 'mars:lot.view', includeBack: true } },
+    reply: ENVELOPE,
+    call: (a) => a.usageNextScreens({ menuId: 'mars:lot.view', includeBack: true }),
+  },
   auditTrail: {
     http: { method: 'POST', path: '/api/v1/platform/audit-trail/search', body: { page: 2 } },
     reply: ENVELOPE,
@@ -183,6 +188,13 @@ describe('method table', () => {
     const { adapter, sent } = await ready(() => json(ENVELOPE));
     await adapter.usageSummary({ from: 1000, to: 2000 });
     expect(sent()[0]!.search).toBe('?from=1000&to=2000');
+  });
+
+  it('usageNextScreens leaves includeBack out of the body when it is not given', async () => {
+    const { adapter, sent } = await ready(() => json(ENVELOPE));
+    await adapter.usageNextScreens({ menuId: 'home' });
+    expect(sent()[0]!.body).toEqual({ menuId: 'home' });
+    expect('includeBack' in (sent()[0]!.body as object)).toBe(false);
   });
 
   it('entityAudit carries the cursor in the body only when one is given', async () => {

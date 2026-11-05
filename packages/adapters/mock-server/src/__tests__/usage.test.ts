@@ -28,7 +28,7 @@ describe('menu usage (docs/05 메뉴 활용률 계측)', () => {
     const summary = aggregateUsage(storedUsage(), { preset: 'all' });
     expect(summary.preset).toBe('all');
     expect(summary.menus).toEqual([
-      { menuId: 'equipment-master', visits: 2, distinctUsers: 2, lastUsedAt: storedUsage()[1].receivedAt },
+      { menuId: 'equipment-master', visits: 2, distinctUsers: 2, lastUsedAt: storedUsage()[1].receivedAt, entries: null, backRate: null, searchEntryRate: null },
     ]);
   });
 
@@ -37,7 +37,7 @@ describe('menu usage (docs/05 메뉴 활용률 계측)', () => {
     await recordUsage([entry({ name: 'dwell', dwellMs: 120, enteredAt: 1_000 })]);
     const summary = aggregateUsage(storedUsage(), { preset: 'all' });
     expect(summary.menus).toEqual([
-      { menuId: 'equipment-master', visits: 1, distinctUsers: 1, lastUsedAt: storedUsage()[0].receivedAt },
+      { menuId: 'equipment-master', visits: 1, distinctUsers: 1, lastUsedAt: storedUsage()[0].receivedAt, entries: null, backRate: null, searchEntryRate: null },
     ]);
   });
 
@@ -64,7 +64,7 @@ describe('menu usage (docs/05 메뉴 활용률 계측)', () => {
     const res = await usageSummary({ preset: 'all' }, undefined, { role: 'admin', latency: 0 });
     expect(res.outcome).toBe('ok');
     expect(res.data?.menus).toEqual([
-      { menuId: 'equipment-master', visits: 1, distinctUsers: 1, lastUsedAt: storedUsage()[0].receivedAt },
+      { menuId: 'equipment-master', visits: 1, distinctUsers: 1, lastUsedAt: storedUsage()[0].receivedAt, entries: null, backRate: null, searchEntryRate: null },
     ]);
     resetUsage();
     const zero = await usageSummary({ preset: 'all' }, undefined, { role: 'admin', latency: 0 });
@@ -93,11 +93,11 @@ describe('menu usage (docs/05 메뉴 활용률 계측)', () => {
     expect(both.data?.menus.map(m => m.visits)).toEqual([1, 1]);
     const onlyA = await usageSummary({ from: a.receivedAt, to: b.receivedAt }, undefined, { role: 'admin', latency: 0 });
     expect(onlyA.data?.menus).toEqual([
-      { menuId: 'equipment-master', visits: 1, distinctUsers: 1, lastUsedAt: a.receivedAt },
+      { menuId: 'equipment-master', visits: 1, distinctUsers: 1, lastUsedAt: a.receivedAt, entries: null, backRate: null, searchEntryRate: null },
     ]);
     const onlyB = await usageSummary({ from: a.receivedAt + 1, to: b.receivedAt + 1 }, undefined, { role: 'admin', latency: 0 });
     expect(onlyB.data?.menus).toEqual([
-      { menuId: 'admin-usage', visits: 1, distinctUsers: 1, lastUsedAt: b.receivedAt },
+      { menuId: 'admin-usage', visits: 1, distinctUsers: 1, lastUsedAt: b.receivedAt, entries: null, backRate: null, searchEntryRate: null },
     ]);
   });
 

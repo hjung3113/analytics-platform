@@ -185,6 +185,15 @@ export const platformPortRoutes: FastifyPluginAsync<PlatformPortOptions> = async
     return envelope(req, result.outcome, result.data ?? null, result.message);
   });
 
+  // Read over POST (the body carries the query); same permission as usage-summary, no audit row, so no CSRF like the other reads.
+  app.post('/usage-next-screens', async (req, reply) => {
+    const loaded = await authenticate(req, reply, true);
+    if (!loaded) return reply;
+    const body = req.body === MALFORMED_BODY ? null : req.body;
+    const result = await usage.usageNextScreens(actorOf(loaded), body);
+    return envelope(req, result.outcome, result.data ?? null, result.message);
+  });
+
   app.post('/client-errors', { preHandler: csrf }, async (req, reply) => {
     const loaded = await authenticate(req, reply, true);
     if (!loaded) return reply;

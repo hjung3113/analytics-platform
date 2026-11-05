@@ -25,6 +25,8 @@ import type {
   SelectionInput,
   SelectionResolveResult,
   UsageEvent,
+  UsageNextQuery,
+  UsageNextScreens,
   UsageRange,
   UsageSummary,
 } from '@ap/contracts';
@@ -93,6 +95,8 @@ export function createHttpAdapter(config: AdapterConfig): PlatformAdapter {
       const query = 'preset' in range ? { preset: range.preset } : { from: String(range.from), to: String(range.to) };
       return envelope({ method: 'GET', path: `${PLATFORM}/usage-summary`, query }, signal);
     },
+    usageNextScreens: (query: UsageNextQuery, signal): Promise<ApiResponse<UsageNextScreens>> =>
+      envelope({ method: 'POST', path: `${PLATFORM}/usage-next-screens`, body: query.includeBack === undefined ? { menuId: query.menuId } : { menuId: query.menuId, includeBack: query.includeBack } }, signal),
     auditTrail: (query: AuditTrailQuery, signal): Promise<ApiResponse<AuditTrailPage>> =>
       envelope({ method: 'POST', path: `${PLATFORM}/audit-trail/search`, body: query }, signal),
     // The cursor is on the wire only when there is one: the first page sends the bare ref.

@@ -1,6 +1,6 @@
 import { optionSamples, referenceSelectionPorts } from './selection-ports.test-support';
 import { describe, expect, it } from 'vitest';
-import { defineAction, defineEndpoint, emptyGlobal, projectContext, type ActionResponse, type ApiResponse, type Assessment, type AuditEvent, type ChartAnnotation, type EntityAuditPage, type GroupMember, type JsonValue, type Notice, type PreferencesSnapshot, type ClientErrorReport, type GlobalContext, type MenuAction, type MenuQuery, type Permission, type PlatformAdapter, type SavedView, type SavedViewListItem, type SavedViewStore, type Session, type Trust, type UsageEvent, type UsageRange, type UsageSummary, type ViewCapabilities, menuPermission, spaceId } from '@ap/contracts';
+import { defineAction, defineEndpoint, emptyGlobal, projectContext, type ActionResponse, type ApiResponse, type Assessment, type AuditEvent, type ChartAnnotation, type EntityAuditPage, type GroupMember, type JsonValue, type Notice, type PreferencesSnapshot, type ClientErrorReport, type GlobalContext, type MenuAction, type MenuQuery, type Permission, type PlatformAdapter, type SavedView, type SavedViewListItem, type SavedViewStore, type Session, type Trust, type UsageEvent, type UsageNextQuery, type UsageNextScreens, type UsageRange, type UsageSummary, type ViewCapabilities, menuPermission, spaceId } from '@ap/contracts';
 import { planServerConformance, runServerConformance, type ActionCase, type ConformanceResult, type ConformanceCase, type PortSamples, type ServerConformanceHarness } from '../index';
 import { SAVED_VIEW_PORT_METHODS } from '../plan/ports/saved-views';
 
@@ -358,6 +358,18 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
       return breaks.has('console-usageSummary-clear-no-source') && answered.outcome === 'ok'
         ? { ...answered, assessments: [{ kind: 'coverage' as const, state: 'clear' as const }] }
         : answered;
+    },
+    usageNextScreens: async ({ menuId }: UsageNextQuery) => {
+      // The reference holds no navigation data: a well-formed menu has no main entry: an unmasked empty answer, a malformed id is an error.
+      // 'console-usageNextScreens-names-hidden' names a destination of 2 users — the mask check must catch it (k = 3, #605).
+      if (state.console && !/^[^\s?#&/=\p{C}]{1,80}$/u.test(menuId)) return err('Invalid menu id');
+      const masked: UsageNextScreens = { menuId, entries: 0, masked: false, summary: { moved: 0, sameMenu: 0, backOrReturn: 0, noMove: 0 }, next: [], hiddenDestinations: 0 };
+      const leaking: UsageNextScreens = { menuId, entries: 2, masked: false, summary: { moved: 2, sameMenu: 0, backOrReturn: 0, noMove: 0 }, next: [{ menuId: 'secret', count: 2, distinctUsers: 2, vias: { link: 2 } }], hiddenDestinations: 0 };
+      // 'console-usageNextScreens-sum-below-entries' sums to less than N (the floor makes the sum >= N).
+      const short: UsageNextScreens = { menuId, entries: 5, masked: false, summary: { moved: 0, sameMenu: 0, backOrReturn: 0, noMove: 4 }, next: [], hiddenDestinations: 0 };
+      // 'console-usageNextScreens-via-small' lists a via used by one person.
+      const smallVia: UsageNextScreens = { menuId, entries: 3, masked: false, summary: { moved: 3, sameMenu: 0, backOrReturn: 0, noMove: 0 }, next: [{ menuId: 'a', count: 3, distinctUsers: 3, vias: { link: 2, palette: 1 } }], hiddenDestinations: 0 };
+      return consoleGate<UsageNextScreens>('usageNextScreens', breaks.has('console-usageNextScreens-names-hidden') ? leaking : breaks.has('console-usageNextScreens-sum-below-entries') ? short : breaks.has('console-usageNextScreens-via-small') ? smallVia : masked);
     },
     recordUsage: async (events) => {
       // 'usage-epoch-throws' rejects only the epoch-0 event — the receive-time check must report recordUsage
@@ -778,6 +790,9 @@ describe('server conformance kit (#145)', () => {
       'port · accessDirectory without console:access → forbidden',
       'port · usageSummary as a console actor → ok',
       'port · usageSummary without console:access → forbidden',
+      'port · usageNextScreens as a console actor → ok, masked or internally consistent',
+      'port · usageNextScreens without console:access → forbidden',
+      'port · usageNextScreens with a malformed menu id → error, never widened',
       'port · auditTrail type filter: well-formed unknown → empty, malformed → error',
       'port · accessDirectory is not mart data: no assessments, null trust',
       'port · saveAnnotation then listAnnotations at the same site returns the note',
@@ -962,6 +977,11 @@ describe('server conformance kit (#145)', () => {
     ['console-auditTrail-permission', 'port · auditTrail without console:access → forbidden'],
     ['console-accessDirectory-permission', 'port · accessDirectory without console:access → forbidden'],
     ['console-usageSummary-permission', 'port · usageSummary without console:access → forbidden'],
+    ['console-usageNextScreens-ok', 'port · usageNextScreens as a console actor → ok, masked or internally consistent'],
+    ['console-usageNextScreens-names-hidden', 'port · usageNextScreens as a console actor → ok, masked or internally consistent'],
+    ['console-usageNextScreens-sum-below-entries', 'port · usageNextScreens as a console actor → ok, masked or internally consistent'],
+    ['console-usageNextScreens-via-small', 'port · usageNextScreens as a console actor → ok, masked or internally consistent'],
+    ['console-usageNextScreens-permission', 'port · usageNextScreens without console:access → forbidden'],
     ['console-accessDirectory-mart', 'port · accessDirectory is not mart data: no assessments, null trust'],
     // #152 step 2: one break per new port rule — each must fail exactly its own check.
     // Two more ways the save shape check fails: the row does not echo the input, or leaks the stamped author.

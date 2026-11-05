@@ -124,8 +124,43 @@ export type AnnotationRef = { chartId: string; scopeId: string | null };
 export type AnnotationInput = AnnotationRef & { from: string; to: string; text: string };
 /** from inclusive, to exclusive. */
 export type UsageRange = { preset: 'all' } | { from: number; to: number };
-export type UsageMenuSummary = { menuId: string; visits: number; distinctUsers: number; lastUsedAt: number };
+export type UsageMenuSummary = {
+  menuId: string;
+  visits: number;
+  distinctUsers: number;
+  lastUsedAt: number;
+  /** Main-screen entry count N (`source=main` only, `name='entry'`). `null` when the menu's main entries come from < 3 distinct users (mask k = 3; includes no main entry at all) or when 1–2 of its entries are covered by no open inflow cell (`usageNextScreens` `masked`), same mask as the rates. Absent from a server that predates #605 part 2. */
+  entries?: number | null;
+  /** Share 0..1 of those entries whose NEXT main entry carried via `history`/`return` (「뒤로 나감」). `null` under the `entries` mask. The numerator counts only transitions to a destination used by >= 3 distinct people (smaller groups count as 0). Computed on the server, never in the browser. */
+  backRate?: number | null;
+  /** Share 0..1 of the menu's main entries with via `palette` (「검색 진입」). `null` under the `entries` mask, and `null` when either side of the split (palette entries / the other main entries) has 1–2 distinct people, so `entries × (1 − rate)` never gives the size of a small group. */
+  searchEntryRate?: number | null;
+};
 export type UsageSummary = { preset: 'all' | 'range'; menus: UsageMenuSummary[] };
+/** `usageNextScreens` request. `menuId` is validated like a `fromMenuId`; `includeBack` (default false) also ranks history/return and same-menu entries. */
+export type UsageNextQuery = { menuId: string; includeBack?: boolean };
+/**
+ * One ranked destination. `count`, `distinctUsers` and `vias` come from the SAME set of next entries (never mixed sets); `distinctUsers >= 3` always. With `includeBack`, a later cell (back, same menu) joins a row only if it adds >= 3 people the row does not yet have (otherwise its entries stay in `summary` only), so `distinctUsers` with and without `includeBack` never differs by 1 or 2.
+ * `vias` is all-or-nothing: the split of `count` by `via` when every via kind present was used by >= 3 distinct people, else `{}` (show count and users only).
+ */
+export type UsageNextDestination = { menuId: string; count: number; distinctUsers: number; vias: Partial<Record<UsageVia, number>> };
+/**
+ * Where people went right after one menu (main source only, #605). The < 3 distinct-user mask works on cells (one kind of next entry at one
+ * destination): every number is a sum of cells with >= 3 distinct users, so no subtraction of two numbers, and no `includeBack` toggle, isolates a smaller group.
+ * `masked` means exactly: the menu has 1 or 2 distinct main-entry users, OR `uncovered` is 1 or 2 (all numbers hidden, `entries: 0`). `uncovered(M) = entries(M) − events of the open inflow cells into M`, where an open inflow cell is a group of main entries into M from one other-or-same menu X (`fromMenuId`) of one kind (moved / sameMenu / backOrReturn) by >= 3 distinct people; a client that subtracts the visible inflow from `entries` would otherwise recover 1–2 entries that came from outside open cells. `uncovered` 0 or >= 3 changes nothing. `usageSummary` masks `entries`, `backRate` and `searchEntryRate` of such a menu the same way. A menu with no main entry at all answers `masked: false`, `entries: 0`, empty lists.
+ */
+export type UsageNextScreens = {
+  menuId: string;
+  /** Main-screen entries of the menu (N). 0 when masked or when there is none. */
+  entries: number;
+  masked: boolean;
+  /** Next entries (fromMenuId = menuId) split four ways. The first three count only cells with >= 3 distinct people; `noMove` is `max(0, entries − the other three)` and so also holds transitions of fewer than 3 people. The four values sum to >= `entries` (equal unless the floor applied; one entry can be followed by several, so the three can exceed N): the screen uses their sum as the 100 % base. All 0 when masked or empty. */
+  summary: { moved: number; sameMenu: number; backOrReturn: number; noMove: number };
+  /** Count desc (menuId asc tie-break), at most 20. A destination is named only through a cell of >= 3 distinct people; `count` sums only such cells. */
+  next: UsageNextDestination[];
+  /** Destinations in the ranked set that have no cell of >= 3 people: how many, never which (can differ with `includeBack`). */
+  hiddenDestinations: number;
+};
 
 /** Sort keys of the global audit index (issue #50). `targetType` sorts `target.type`. */
 export type AuditSortField = 'at' | 'actor' | 'action' | 'source' | 'targetType';
@@ -233,6 +268,12 @@ export type PlatformAdapter = {
    * left-joins zero-visit menus; `empty` would hide them).
    */
   usageSummary(range: UsageRange, signal?: AbortSignal): Promise<ApiResponse<UsageSummary>>;
+  /**
+   * Console aggregate read (#605): where people went right after one menu. Same permission, errors and per-actor rate
+   * budget as `usageSummary` (console:access; scenarios and errors answer like there); a read appends no audit row.
+   * `menuId` is validated like a `fromMenuId` (malformed = outcome `error`); a well-formed menu with no data is `ok`, `masked: false`, `entries: 0`. All time, no range.
+   */
+  usageNextScreens(query: UsageNextQuery, signal?: AbortSignal): Promise<ApiResponse<UsageNextScreens>>;
   /**
    * The console audit log (issue #50): console:access, every site, no room gate — an audit screen that hid
    * a room's change would hide the change. Offset-paged, server-sorted; the client never re-sorts a page.
