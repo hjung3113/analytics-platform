@@ -124,6 +124,15 @@ describe('<VocComposeScreen> create-targets (#1358)', () => {
     expect(screen.getByTestId('voc-create-denied-reason')).toHaveTextContent(VOC_CREATE_COPY.createDenied);
   });
 
+  it('ties the denied reason to each disabled option and names it beneath the picker', async () => {
+    installFetch(); mount();
+    const closed = await screen.findByRole('radio', { name: 'Closed MS' });
+    await waitFor(() => expect(closed).toBeDisabled());
+    expect(closed).toHaveAccessibleDescription(VOC_CREATE_COPY.createDenied);
+    expect(closed.querySelector('.lucide-lock-keyhole')).toBeInTheDocument();
+    expect(screen.getByTestId('voc-create-denied-reason')).toHaveTextContent(`Closed MS : ${VOC_CREATE_COPY.createDenied}`);
+  });
+
   it('keeps a denied default selected, shows the reason, disables submit, and lets the user pick an allowed system', async () => {
     installFetch();
     mount({ initialManagedSystemId: CLOSED_ID });

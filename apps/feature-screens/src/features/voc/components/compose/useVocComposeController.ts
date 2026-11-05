@@ -85,7 +85,9 @@ export function useVocComposeController({
   // Set when a submit attempt finds the merged attachment set over the per-parent cap; reflects the latest attempt.
   const [attachmentLimitExceeded, setAttachmentLimitExceeded] = React.useState(false);
 
-  const [deniedSubmitMs, setDeniedSubmitMs] = React.useState('');
+  // A submit-time 403 belongs to the system that was submitted. `settledAt` is the targets answer that followed it; only a newer answer can end the failure early.
+  const [deniedSubmit, setDeniedSubmit] = React.useState<{ systemId: string; settledAt: number | null } | null>(null);
+  const submittedMs = React.useRef('');
   // The targets are a pre-check only: while loading or failed nothing is blocked (the server decides at submit).
   const targetsQuery = useQuery({
     queryKey: VOC_CREATE_TARGETS_QUERY_KEY,
@@ -111,8 +113,11 @@ export function useVocComposeController({
       if (err.status === 401) return;
       if (err.status === 403 && err.code === 'permission.denied') {
         // #1358: shown inline under the picker, not as a generic failure toast; the refreshed targets mark the system closed.
-        setDeniedSubmitMs(form.getValues('primary_managed_system_id'));
-        void targetsQuery.refetch();
+        const systemId = submittedMs.current;
+        setDeniedSubmit({ systemId, settledAt: null });
+        void targetsQuery.refetch().then((result) => {
+          setDeniedSubmit((current) => (current?.systemId === systemId && current.settledAt === null ? { systemId, settledAt: result.dataUpdatedAt } : current));
+        });
         return;
       }
       if (err.code === 'validation.failed') {
@@ -219,7 +224,13 @@ export function useVocComposeController({
     ...(deniedIds.has(ms.id) ? { disabled: true, title: VOC_CREATE_COPY.createDenied } : {}),
   }));
   const selectedDenied = deniedIds.has(selectedMs);
-  const showCreateDenied = selectedDenied || (selectedMs !== '' && deniedSubmitMs === selectedMs);
+  // Another selection ends that failure; so does a targets answer newer than the one after the 403 that lists the system as allowed.
+  const recovered =
+    deniedSubmit?.settledAt != null && targetsQuery.dataUpdatedAt > deniedSubmit.settledAt && targetsQuery.data !== undefined && !deniedIds.has(deniedSubmit.systemId);
+  React.useEffect(() => {
+    if (deniedSubmit !== null && (selectedMs !== deniedSubmit.systemId || recovered)) setDeniedSubmit(null);
+  }, [deniedSubmit, selectedMs, recovered]);
+  const showCreateDenied = selectedDenied || (selectedMs !== '' && deniedSubmit?.systemId === selectedMs && !recovered);
   const hasDeniedOption = deniedIds.size > 0;
   const aaOptions = (aaQuery.data?.items ?? []).map((aa) => ({
     id: aa.id,
@@ -238,6 +249,7 @@ export function useVocComposeController({
       return;
     }
     setAttachmentLimitExceeded(false);
+    submittedMs.current = body.primary_managed_system_id;
     mutation.mutate({
       ...body,
       description_rich_content: appendContextBlock(doc, contextBlock),

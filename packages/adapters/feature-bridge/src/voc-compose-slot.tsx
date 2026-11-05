@@ -6,6 +6,9 @@ import { featureQueryClient } from './feature/session';
 import type { DefaultStatus } from './default-status';
 import { featureApi } from './feature-api';
 
+/** How long a cached create-targets answer counts as current; equals the compose screen's `staleTime` for the same query. */
+const TARGETS_FRESH_MS = 15 * 1000;
+
 const useAlwaysReady = (): DefaultStatus => 'ready';
 
 // The page (and with it the feature compose screen) loads on the first open, so none of it is in the main chunk.
@@ -43,7 +46,9 @@ export function vocComposeSlot(managedSystemFor: (spaceId: string | null) => str
     const systemId = managedSystemFor(target.spaceId);
     if (systemId === null) return 'available';
     // The create-targets the drawer loaded (#1358); not cached yet = unknown = available, and the drawer then shows the reason.
-    const targets = featureQueryClient.getQueryData<readonly { managed_system_id: string; allowed: boolean }[]>(VOC_CREATE_TARGETS_QUERY_KEY);
-    return targets?.some(entry => entry.managed_system_id === systemId && !entry.allowed) ? 'denied' : 'available';
+    // A denied answer that was invalidated or has aged past the drawer's own freshness window is not trusted: it must not keep the report button shut.
+    const state = featureQueryClient.getQueryState<readonly { managed_system_id: string; allowed: boolean }[]>(VOC_CREATE_TARGETS_QUERY_KEY);
+    if (state === undefined || state.isInvalidated || Date.now() - state.dataUpdatedAt > TARGETS_FRESH_MS) return 'available';
+    return state.data?.some(entry => entry.managed_system_id === systemId && !entry.allowed) ? 'denied' : 'available';
   } };
 }

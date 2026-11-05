@@ -53,7 +53,7 @@ function mount() {
   render(<QueryClientProvider client={qc}><HostSeamProvider value={{ canLink: () => false, Link: ({ children }) => <span>{children}</span>, notifyError: () => {}, notifySuccess: () => {}, notify: () => 'notice', dismiss: () => {}, useHere: () => '/admin/managed-systems' }}><SystemVocPermissions rows={rows} fallback={<p>read only</p>} renderDetail={parts => <section role="dialog" aria-label={String(parts.title)}><button type="button" onClick={parts.requestClose}>닫기</button>{parts.body}</section>} /></HostSeamProvider></QueryClientProvider>);
   return qc;
 }
-async function open(name = '생산 분석') { fireEvent.click(await screen.findByRole('button', { name: `${name} VOC 등록 설정` })); return screen.getByRole('dialog'); }
+async function open(name = '생산 분석') { fireEvent.click(await screen.findByRole('button', { name: new RegExp(`^${name} VOC 등록 설정, 현재 `) })); return screen.getByRole('dialog'); }
 
 describe('production system VOC permissions', () => {
   it('lists saved counts, warns for zero, locks platform and sorts/filters the column', async () => {

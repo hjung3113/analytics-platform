@@ -1,4 +1,6 @@
 import { ToggleGroup, ToggleGroupItem, cn } from '@ap/ui';
+import { LockKeyhole } from 'lucide-react';
+import { useId } from 'react';
 import { ManagedSystemMark } from '../badges/ManagedSystemMark.js';
 import { managedSystemMarkColor, managedSystemMarkToken } from '../badges/managed-system-mark.js';
 
@@ -9,7 +11,7 @@ export interface PickerOption {
   archived?: boolean;
   /** Listed but not selectable (e.g. a Managed System the actor may not file a VOC in). */
   disabled?: boolean;
-  /** Native tooltip for the chip; the consumer shows the visible reason itself. */
+  /** Tooltip; disabled options also display it as their accessible secondary text. */
   title?: string;
 }
 
@@ -38,6 +40,7 @@ export function ChipPicker({
   variant = 'analytics-area',
 }: ChipPickerProps) {
   const isManagedSystem = variant === 'managed-system';
+  const id = useId();
 
   return (
     <ToggleGroup
@@ -52,7 +55,7 @@ export function ChipPicker({
       data-testid={testId}
       className={cn('flex flex-wrap justify-start gap-2', className)}
     >
-      {options.map((option) => {
+      {options.map((option, index) => {
         const label =
           includeArchivedInLabel && option.archived ? `${option.label} (archived)` : option.label;
 
@@ -61,15 +64,18 @@ export function ChipPicker({
             key={option.id}
             value={option.id}
             aria-label={label}
+            aria-describedby={option.disabled && option.title ? `${id}-reason-${index}` : undefined}
             {...(option.disabled ? { disabled: true } : {})}
             {...(option.title ? { title: option.title } : {})}
             className={
-              isManagedSystem
+              option.disabled
+                ? 'h-auto min-h-9 gap-2 rounded-md border border-dashed border-border-subtle bg-surface-canvas px-2.5 py-1.5 text-text-muted hover:bg-surface-canvas hover:text-text-muted data-[state=on]:bg-surface-canvas data-[state=on]:text-text-muted'
+                : isManagedSystem
                 ? 'gap-2 rounded-md border border-border-subtle bg-surface-canvas px-2.5 text-text-secondary shadow-subtle hover:bg-surface-row-hover data-[state=on]:border-border-selected data-[state=on]:bg-surface-row-selected data-[state=on]:text-text-primary'
                 : 'rounded-pill border border-border-subtle px-3 data-[state=on]:bg-accent-primary data-[state=on]:text-text-inverse data-[state=on]:border-accent-primary'
             }
           >
-            {isManagedSystem && (
+            {option.disabled ? <LockKeyhole className="size-4 shrink-0" aria-hidden /> : isManagedSystem && (
               <ManagedSystemMark
                 label={managedSystemMark(option.label)}
                 color={managedSystemMarkColor(option.slug)}
@@ -79,7 +85,10 @@ export function ChipPicker({
                 className="font-bold leading-none text-text-on-accent"
               />
             )}
-            {label}
+            {option.disabled && option.title ? <span className="min-w-0 text-left">
+              <span className="block break-words">{label}</span>
+              <span id={`${id}-reason-${index}`} className="block break-words text-xs font-normal">{option.title}</span>
+            </span> : label}
           </ToggleGroupItem>
         );
       })}

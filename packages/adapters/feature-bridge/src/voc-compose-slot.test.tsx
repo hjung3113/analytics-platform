@@ -201,4 +201,18 @@ describe('VOC 등록 slot opened from a screen error view (#606)', () => {
     // An unknown system (no lookup answer) is never denied.
     expect(vocComposeSlot(() => null).availability?.(target)).toBe('available');
   });
+
+  it('does not let an invalidated or aged-out denied block the report, and follows a fresh allowed (#1358 F4)', () => {
+    const slot = vocComposeSlot(() => OTHER);
+    const target = { spaceId: null, menuId: null };
+    const denied = [{ managed_system_id: OTHER, allowed: false, reason: 'restricted' }];
+    featureQueryClient.setQueryData(VOC_CREATE_TARGETS_QUERY_KEY, denied);
+    expect(slot.availability?.(target)).toBe('denied');
+    void featureQueryClient.invalidateQueries({ queryKey: VOC_CREATE_TARGETS_QUERY_KEY, refetchType: 'none' });
+    expect(slot.availability?.(target)).toBe('available');
+    featureQueryClient.setQueryData(VOC_CREATE_TARGETS_QUERY_KEY, denied, { updatedAt: 1 });
+    expect(slot.availability?.(target)).toBe('available');
+    featureQueryClient.setQueryData(VOC_CREATE_TARGETS_QUERY_KEY, [{ managed_system_id: OTHER, allowed: true }]);
+    expect(slot.availability?.(target)).toBe('available');
+  });
 });

@@ -84,6 +84,7 @@ export function VocComposeScreen({
   // Read from the values, not `formState.isValid`: the Managed System default arrives after the user may have typed, and
   // react-hook-form leaves `isValid` stale for a value set that way.
   const valid = createVocRequestSchema.safeParse(form.getValues()).success;
+  const deniedNames = msOptions.filter(option => option.disabled || showCreateDenied && option.id === selectedMs).map(option => option.label);
 
   return (
     <div className="flex h-full flex-col">
@@ -207,7 +208,7 @@ export function VocComposeScreen({
               {...(showCreateDenied ? { role: 'alert' } : {})}
               className={showCreateDenied ? 'text-xs text-text-danger' : 'text-xs text-text-muted'}
             >
-              {VOC_CREATE_COPY.createDenied}
+              {deniedNames.length > 0 ? `${deniedNames.join(', ')} : ${VOC_CREATE_COPY.createDenied}` : VOC_CREATE_COPY.createDenied}
             </p>
           )}
           {form.formState.errors.primary_managed_system_id?.message && (
