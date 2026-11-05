@@ -1,7 +1,7 @@
 /** Deterministic menu-owned fixtures; production screens never import this module. */
 import { filterRows, validateFilters, type ActionSpec, type FieldError, type PageResult } from '@ap/contracts';
 import { MockActionInvalid, defineMockAction, defineMockEndpoint, type AnyMockAction, type AnyMockEndpoint } from '@ap/mock-server';
-import { FORWARD, REOPEN, SORT_IDS, actionSpecs, detailEndpoint, eventsEndpoint, filterSpecs, itemCreate, itemsEndpoint, type CreateInput, type ItemEvent, type ItemRow, type ListParams, type Status, type StatusInput, type UpdateInput } from '../endpoints';
+import { FORWARD, REOPEN, SORT_IDS, actionSpecs, detailEndpoint, eventsEndpoint, filterSpecs, itemCreate, itemsEndpoint, type CreateInput, type ItemEvent, type ItemRow, type ListParams, type Status, type StatusInput, type Target, type UpdateInput } from '../endpoints';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const at = '2026-11-05T01:00:00.000Z';
 const itemId = (n: number) => `13280000-0000-4000-8000-${String(n).padStart(12, '0')}`;
@@ -109,6 +109,8 @@ const targetCheck = (t: unknown, path: string[]): Check => {
     : len(o.displayName) > SHORT_MAX ? fieldAt([...path, 'displayName'], 'too_long') : null;
   return requiredText(o.externalKey, SHORT_MAX, [...path, 'externalKey']) ?? displayName;
 };
+/** The server's `requiredText`/`bounded` transforms trim target texts before its duplicate check and storage (C3). */
+const trimTargets = (targets: readonly Target[]): Target[] => targets.map(t => ({ kind: t.kind, externalKey: t.externalKey.trim(), displayName: t.displayName.trim() }));
 const targetsCheck = (v: unknown, name: string): Check => {
   if (v === undefined) return null;
   if (!Array.isArray(v)) return field(name, 'malformed');
@@ -117,7 +119,7 @@ const targetsCheck = (v: unknown, name: string): Check => {
   const bad = singles.find(single => single !== null);
   if (bad) return bad;
   const seen = new Set<string>();
-  for (const [i, t] of (v as { kind: string; externalKey: string }[]).entries()) {
+  for (const [i, t] of trimTargets(v as Target[]).entries()) {
     const key = `${t.kind}\u0000${t.externalKey}`;
     if (seen.has(key)) return fieldAt([name, String(i)], 'duplicate');
     seen.add(key);
@@ -281,7 +283,7 @@ function record(row: ItemRow, actor: string, eventType: string, before: object, 
 const find = (input: { itemId: string }) => rows.find(r => r.id === input.itemId.toLowerCase());
 const create = defineMockAction(itemCreate, { validate: input => inputErrors('itemCreate', input), handle: ({ input, actor }) => {
   const n = rows.length + 1;
-  const row: ItemRow = { id: itemId(n), itemNo: n, problem: input.problem.trim(), action: input.action ?? null, actionDate: input.actionDate ?? null, status: 'open', assignee: input.assigneeId ? { id: input.assigneeId, displayName: input.assigneeId } : null, quest: input.questId ? { id: input.questId, titleSnapshot: input.questTitle! } : null, origin: input.origin ?? null, targets: input.targets ?? [], effectResult: null, effectNote: null, effectCompareLink: null, dropReason: null, version: '1', createdBy: actor, updatedBy: actor, createdAt: at, updatedAt: at };
+  const row: ItemRow = { id: itemId(n), itemNo: n, problem: input.problem.trim(), action: input.action ?? null, actionDate: input.actionDate ?? null, status: 'open', assignee: input.assigneeId ? { id: input.assigneeId, displayName: input.assigneeId } : null, quest: input.questId ? { id: input.questId, titleSnapshot: input.questTitle! } : null, origin: input.origin ?? null, targets: input.targets ? trimTargets(input.targets) : [], effectResult: null, effectNote: null, effectCompareLink: null, dropReason: null, version: '1', createdBy: actor, updatedBy: actor, createdAt: at, updatedAt: at };
   rows.push(row); record(row, actor, 'created', {});
   return { data: { itemId: row.id, itemNo: n, version: row.version }, version: null };
 } });
@@ -292,7 +294,7 @@ const writes = actionSpecs.slice(1).map(spec => defineMockAction(spec as ActionS
     const row = find(input)!; const before = structuredClone(row); const op = spec.id.split('.')[1]!;
     const refuses = rowErrors(op, row, input);
     if (refuses.length > 0) throw new MockActionInvalid(refuses);
-    if (op === 'itemUpdate') for (const key of ['problem', 'action', 'actionDate', 'origin', 'targets'] as const) if (input[key] !== undefined) Object.assign(row, { [key]: input[key] });
+    if (op === 'itemUpdate') for (const key of ['problem', 'action', 'actionDate', 'origin', 'targets'] as const) if (input[key] !== undefined) Object.assign(row, { [key]: key === 'targets' ? trimTargets(input.targets as Target[]) : input[key] });
     if (op === 'itemSetStatus') {
       const s = input as StatusInput; row.status = s.status;
       if (s.action !== undefined) row.action = s.action; if (s.actionDate !== undefined) row.actionDate = s.actionDate;

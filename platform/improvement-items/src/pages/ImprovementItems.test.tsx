@@ -187,6 +187,15 @@ describe('fix round (1328 d)', () => {
     fireEvent.click(screen.getByRole('button', { name: '적용' }));
     await waitFor(() => expect(lastItemsParams(api).filters).toBeUndefined());
   });
+  it('re-applies a restored Quest exclusion keeping its operator and IDs (C1)', async () => {
+    const api = mount({ url: '/improvement-items?v=1&scopeId=MEM&view=all&filter=questId:notIn:Q-1' });
+    const input = await screen.findByLabelText('과제(Quest) ID로 찾기') as HTMLInputElement;
+    await waitFor(() => expect(lastItemsParams(api).filters).toEqual(expect.arrayContaining([{ id: 'questId', op: 'notIn', value: ['Q-1'] }])));
+    expect(input.value).toBe('Q-1');
+    fireEvent.change(input, { target: { value: 'Q-1, Q-2' } });
+    fireEvent.click(screen.getByRole('button', { name: '적용' }));
+    await waitFor(() => expect(lastItemsParams(api).filters).toEqual(expect.arrayContaining([{ id: 'questId', op: 'notIn', value: ['Q-1', 'Q-2'] }])));
+  });
   it('keeps a cleared preset cleared across a refresh (C4)', async () => {
     const api = mount({ url: '/improvement-items?v=1&scopeId=MEM' });
     await waitFor(() => expect(lastItemsParams(api).filters).toEqual([{ id: 'assignee', op: 'in', value: ['me'] }, { id: 'status', op: 'notIn', value: ['verified', 'dropped'] }]));

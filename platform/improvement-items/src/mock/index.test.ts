@@ -99,4 +99,22 @@ describe('improvement mock dispatch', () => {
     expect(await write(a, 'itemLinkQuest', { itemId: id2, questId: null, questTitle: null }, '1')).toMatchObject({ outcome: 'ok' });
     expect(await query(a, 'improvement.itemDetail', { itemId: id2 })).toMatchObject({ data: { quest: null } });
   });
+  it('trims targets before the duplicate check and storage, like the server (C3)', async () => {
+    const a = adapter();
+    const origin = { menuId: 'cycle-time', context: { from: '2026-11-01T00:00', to: '2026-11-05T00:00' } };
+    // leading/trailing space and tab collapse before the duplicate check: the second occurrence is the duplicate
+    expect(await write(a, 'itemCreate', { problem: 'p', origin, targets: [
+      { kind: 'equipment', externalKey: ' EQ-9 ', displayName: 'x' },
+      { kind: 'equipment', externalKey: '\tEQ-9', displayName: 'y' },
+    ] })).toMatchObject({ outcome: 'invalid', fieldErrors: [{ path: ['targets', '1'], code: 'duplicate' }] });
+    // a single padded target is stored trimmed, so its history answers the trimmed key
+    const res = await write(a, 'itemCreate', { problem: 'p2', origin, targets: [{ kind: 'equipment', externalKey: ' EQ-10 ', displayName: ' 설비 EQ-10 ' }] });
+    expect(res).toMatchObject({ outcome: 'ok' });
+    const created = (res.data as { itemId: string }).itemId;
+    expect(await query(a, 'improvement.items', { ...params, targetKind: 'equipment', targetKey: 'EQ-10' })).toMatchObject({ outcome: 'ok', data: { total: 1 } });
+    expect(await query(a, 'improvement.itemDetail', { itemId: created })).toMatchObject({ outcome: 'ok', data: { targets: [{ kind: 'equipment', externalKey: 'EQ-10', displayName: '설비 EQ-10' }] } });
+    // itemUpdate stores the trimmed copy too
+    await write(a, 'itemUpdate', { itemId: created, targets: [{ kind: 'process', externalKey: ' PR-1\t', displayName: 'x' }] }, '1');
+    expect(await query(a, 'improvement.itemDetail', { itemId: created })).toMatchObject({ outcome: 'ok', data: { targets: [{ kind: 'process', externalKey: 'PR-1', displayName: 'x' }] } });
+  });
 });

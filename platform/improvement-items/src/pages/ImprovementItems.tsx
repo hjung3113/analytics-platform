@@ -31,7 +31,8 @@ function ItemTable({ q, view, onClear }: { q: string; view: View; onClear: () =>
   } };
   const search = <SearchInput aria-label={c.search} placeholder={c.search} value={draft.value} onValueChange={value => setDraft({ applied: q, value })} onCommit={() => setPage({ q: draft.value.trim() || null, page: null })} />;
   // The shared editor is enum-only, so the Quest ID filter gets the consumer's own ID entry (C1):
-  // it writes the same server wire shape (`questId:in:<ids>`) into the shared filter key.
+  // it writes the same server wire shape (`questId:<op>:<ids>`) into the shared filter key,
+  // keeping the active condition's operator (an applied exclusion stays an exclusion).
   const activeQuest = urlState?.filters?.find(f => f.id === 'questId' && (f.op === 'in' || f.op === 'notIn'));
   const activeQuestText = activeQuest && 'value' in activeQuest && Array.isArray(activeQuest.value) ? activeQuest.value.map(v => String(v)).join(', ') : '';
   const [questDraft, setQuestDraft] = useState({ applied: '', value: '' });
@@ -40,8 +41,9 @@ function ItemTable({ q, view, onClear }: { q: string; view: View; onClear: () =>
     if (!urlState) return;
     const values = [...new Set(questDraft.value.split(',').map(s => s.trim()).filter(Boolean))];
     const rest = (urlState.filters ?? []).filter(f => f.id !== 'questId');
-    const next = values.length > 0 ? [...rest, { id: 'questId', op: 'in' as const, value: values }] : rest;
-    urlState.onChange({ sorting: urlState.sorting, page: null, filters: next }, 'user');
+    if (values.length === 0) { urlState.onChange({ sorting: urlState.sorting, page: null, filters: rest }, 'user'); return; }
+    const op = activeQuest?.op === 'in' || activeQuest?.op === 'notIn' ? activeQuest.op : 'in';
+    urlState.onChange({ sorting: urlState.sorting, page: null, filters: [...rest, { id: 'questId', op, value: values }] }, 'user');
   };
   const columns = useMemo<PlatformColumn<ItemRow>[]>(() => [
     { id: 'itemNo', header: c.number, size: 92, minSize: 84, cell: row => <PlatformLink className="font-mono text-accent-primary hover:underline" href={linkTo('improvement-item', { params: { itemId: row.id }, returnTo: true })}>IM-{row.itemNo}</PlatformLink> },
