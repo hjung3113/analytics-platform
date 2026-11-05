@@ -658,6 +658,24 @@ describe('revising from an older rev reads the latest', () => {
   });
 });
 
+describe('수정 폼을 이전 리비전에서 연 채 최신 보기로 돌아오기 (#1365 R2)', () => {
+  it('does not loop: the form and its draft stay while the latest response arrives', async () => {
+    mountDetail(ITEM(1), '&rev=1&drawer=revise');
+    await screen.findByRole('heading', { name: '기술 Item 수정' }, slow);
+    await waitFor(() => expect((field(/^제목/) as HTMLInputElement).value).toBe('챔버 압력 로그 지연 (보완)'), slow);
+    type(/^변경 사유/, '입력 중');
+    let release = () => {};
+    holdDetail = new Promise<void>(resolve => { release = resolve; });
+    fireEvent.click(await screen.findByRole('button', { name: '최신 보기' }, slow));
+    await waitFor(() => expect(url().get('rev')).toBeNull(), slow);
+    await rtlAct(async () => { release(); });
+    await waitFor(() => expect(screen.queryByText(/이전 리비전 r1을 보고 있습니다/)).toBeNull(), slow);
+    expect(screen.queryByText(/Too many re-renders/)).toBeNull();
+    expect((field(/^변경 사유/) as HTMLTextAreaElement | HTMLInputElement).value).toBe('입력 중');
+    expect((field(/^제목/) as HTMLInputElement).value).toBe('챔버 압력 로그 지연 (보완)');
+  });
+});
+
 describe('an evidence kind outside the declared list', () => {
   it('is named on its row before any write, and choosing a declared kind clears it', async () => {
     // jsdom has no scrollIntoView, which Radix Select calls when it opens.
@@ -720,7 +738,7 @@ describe('쓰기는 불러온 리비전 기준으로만 (#1365 F5)', () => {
       window.dispatchEvent(new PopStateEvent('popstate'));
     });
     await rtlAct(async () => { release(); });
-    await waitFor(() => expect(screen.getByRole('heading', { name: /이전 리비전 r1|챔버 압력 로그 지연/ })).toBeTruthy(), slow).catch(() => undefined);
+    expect(await screen.findByText(/이전 리비전 r1을 보고 있습니다/, {}, slow)).toBeTruthy();
     expect((field(/^관찰 사실/) as HTMLTextAreaElement).value).toBe('입력 중');
     expect(within(drawer()).getByText(/원본 KI-1 r2에서 파생합니다/)).toBeTruthy();
     await pick(0, /Beta 10/);

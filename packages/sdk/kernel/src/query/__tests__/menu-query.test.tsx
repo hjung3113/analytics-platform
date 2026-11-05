@@ -465,13 +465,22 @@ describe('useMenuQuery keepPrevious (#1365)', () => {
     expect(text('meta')).toBe('false:{"page":1}');
   });
 
-  it('the option off shows the live params and never showingPrevious', async () => {
+  it('the option off shows the live params and leaves resultParams and showingPrevious undefined', async () => {
     const { gate } = await landed({ keepPrevious: false });
     act(() => screen.getByTestId('page-2').click());
-    expect(text('meta')).toBe('false:none');
+    expect(text('meta')).toBe('undefined:none');
     await gate.settle(1);
     await screen.findByText('done:2');
-    expect(text('meta')).toBe('false:{"page":2}');
+    expect(text('meta')).toBe('undefined:none');
+  });
+
+  it('without the option at all both fields stay undefined too', async () => {
+    const { gate } = await landed({});
+    act(() => screen.getByTestId('page-2').click());
+    expect(text('meta')).toBe('undefined:none');
+    await gate.settle(1);
+    await screen.findByText('done:2');
+    expect(text('meta')).toBe('undefined:none');
   });
 
   it('a result whose params come back (same structure) is not showingPrevious', async () => {

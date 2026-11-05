@@ -1,7 +1,7 @@
 {
   "name": "@ap/menu-metrics",
   "private": true,
-  "version": "0.3.1",
+  "version": "0.3.2",
   "ap": { "sdk": ">=0.29.0 <0.30.0" },
   "type": "module",
   "exports": {

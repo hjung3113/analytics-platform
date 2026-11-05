@@ -134,7 +134,8 @@ export default function MetricDetailPage({ params }: PageProps) {
     </nav>}
   >
     <div className="space-y-3">
-      <MetricPairBanner query={pair} pageVersion={pairShown} />
+      {/* The definition below shows the same notice for this version transition; the pair verdict keeps its busy state but not a second label (usage resolves on its own and keeps its notice). */}
+      <MetricPairBanner query={pair} pageVersion={pairShown} refreshNotice="hidden" />
       {global.selection !== null && <p className="text-xs text-text-secondary">
         {lang === 'ko' ? '설비 선택은 이 화면에서 참조만입니다.' : 'Equipment selection is reference only on this page.'}
       </p>}

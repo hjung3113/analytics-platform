@@ -151,7 +151,7 @@ describe('previous-selection refresh presentation (#1365 FIXV)', () => {
     </QueryView>
   </I18nProvider>;
 
-  it.each(['standalone', 'compact', 'panel', 'kpi', 'chart', 'breakdown'] as const)('shows readable previous-selection text in a reserved header row in %s', kind => {
+  it.each(['standalone', 'compact', 'panel', 'kpi', 'chart', 'breakdown'] as const)('shows readable previous-selection text at the section edge in %s', kind => {
     const content = view(true);
     const { container } = render(kind === 'compact' ? <PageDensityProvider value="compact">{content}</PageDensityProvider>
       : kind === 'panel' ? <InWorkspacePanelProvider value>{content}</InWorkspacePanelProvider>
@@ -161,26 +161,28 @@ describe('previous-selection refresh presentation (#1365 FIXV)', () => {
     expect(status).not.toHaveClass('sr-only');
     expect(status.querySelector('.sr-only')).toBeNull();
     expect(status).toHaveClass('text-xs', 'text-text-secondary', 'bg-surface-sunken');
-    expect(status.parentElement).toHaveClass('absolute', 'top-0', 'h-8');
-    expect(container.querySelector('[aria-busy="true"]')).toHaveClass('pt-8');
+    expect(status).toHaveClass('absolute', 'right-3', '-top-2.5', 'border', 'border-border-subtle');
+    expect(status.parentElement).toBe(container.querySelector('[aria-busy="true"]'));
+    expect(status.parentElement).not.toHaveClass('pt-8');
+    expect(status.parentElement?.querySelector('.h-8')).toBeNull();
     expect(screen.getByRole('button', { name: 'Open' }).closest('[role="status"]')).toBeNull();
   });
 
   it('dims only the stale body with a non-interactive tint, leaving text opacity intact', () => {
     const { container } = render(view(true));
     const tint = container.querySelector('[data-query-stale-tint]');
-    expect(tint).toHaveClass('pointer-events-none', 'absolute', 'top-8', 'bottom-0', 'bg-surface-sunken/20', 'mix-blend-multiply');
+    expect(tint).toHaveClass('pointer-events-none', 'absolute', 'inset-0', 'bg-surface-sunken/20', 'mix-blend-multiply');
     expect(tint).toHaveAttribute('aria-hidden', 'true');
     expect(screen.getByText('42')).toBeVisible();
     expect(container.querySelector('[aria-busy]')).not.toHaveClass('opacity-90');
   });
 
-  it('keeps the same reserved space and mounted body across live, previous and settled states', () => {
+  it('keeps the same unpadded wrapper and mounted body across live, previous and settled states', () => {
     const result = render(view(false, 'done'));
     const wrapper = result.container.firstElementChild;
     const body = screen.getByRole('table');
     const classes = wrapper?.className;
-    expect(wrapper).toHaveClass('pt-8');
+    expect(wrapper).not.toHaveClass('pt-8');
     expect(screen.queryByRole('status')).toBeNull();
     result.rerender(view(true));
     expect(result.container.firstElementChild?.className).toBe(classes);
@@ -190,6 +192,84 @@ describe('previous-selection refresh presentation (#1365 FIXV)', () => {
     expect(screen.getByRole('table')).toBe(body);
     expect(result.container.querySelector('[data-query-stale-tint]')).toBeNull();
     expect(screen.queryByRole('status')).toBeNull();
+  });
+
+  it.each([undefined, false, true])('reserves no row or padding at rest (showingPrevious=%s)', showingPrevious => {
+    const { container } = render(<I18nProvider><QueryView query={{ response, refetch: vi.fn(), missing: [], completedAt: null, status: 'done', showingPrevious }}>{data => <p>{data}</p>}</QueryView></I18nProvider>);
+    expect(container.firstElementChild).not.toHaveClass('pt-8');
+    expect(container.querySelector('.h-8')).toBeNull();
+    expect(screen.queryByRole('status')).toBeNull();
+    expect(container.querySelector('[data-query-stale-tint]')).toBeNull();
+    expect(container.firstElementChild).toHaveAttribute('aria-busy', 'false');
+  });
+
+  it.each([undefined, false])('reserves no row or padding for a same-params refresh (showingPrevious=%s)', showingPrevious => {
+    const { container } = render(<I18nProvider><QueryView query={{ response, refetch: vi.fn(), missing: [], completedAt: null, status: 'refreshing', showingPrevious }}>{data => <p>{data}</p>}</QueryView></I18nProvider>);
+    expect(container.firstElementChild).not.toHaveClass('pt-8');
+    expect(container.querySelector('.h-8')).toBeNull();
+    expect(screen.getByRole('status', { name: '같은 조건으로 갱신 중' })).toHaveClass('text-text-muted');
+    expect(screen.getByRole('status')).not.toHaveClass('border');
+  });
+
+  it.each([true, false])('can suppress a duplicate notice without suppressing busy or stale semantics (previous=%s)', showingPrevious => {
+    const renderView = (refreshNotice: 'visible' | 'hidden') => <I18nProvider><QueryView refreshNotice={refreshNotice} query={{ response, refetch: vi.fn(), missing: [], completedAt: null, status: 'refreshing', showingPrevious }}>{data => <p>{data}</p>}</QueryView></I18nProvider>;
+    const result = render(renderView('hidden'));
+    const body = screen.getByText('42');
+    expect(screen.queryByRole('status')).toBeNull();
+    expect(result.container.firstElementChild).toHaveAttribute('aria-busy', 'true');
+    expect(!!result.container.querySelector('[data-query-stale-tint]')).toBe(showingPrevious);
+    result.rerender(renderView('visible'));
+    expect(screen.getByRole('status', { name: showingPrevious ? '이전 선택의 결과 · 갱신 중' : '같은 조건으로 갱신 중' })).toBeVisible();
+    expect(screen.getByText('42')).toBe(body);
+  });
+
+  it('escapes a clipping ancestor without a portal, moving or remounting the result', () => {
+    const result = render(<div data-testid="clip">{view(false, 'done')}</div>);
+    const clip = screen.getByTestId('clip');
+    clip.style.overflow = 'hidden';
+    const body = screen.getByRole('table');
+    let anchorTop = 40;
+    const rect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      const top = this === clip ? 40 : this.getAttribute('role') === 'status' ? anchorTop - 21 : anchorTop;
+      return { top, bottom: top + 200, left: 20, right: 320, width: 300, height: this.getAttribute('role') === 'status' ? 22 : 200, x: 20, y: top, toJSON: () => ({}) };
+    });
+    const show = vi.fn();
+    const hide = vi.fn();
+    const oldShow = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'showPopover');
+    const oldHide = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'hidePopover');
+    Object.defineProperty(HTMLElement.prototype, 'showPopover', { configurable: true, value: show });
+    Object.defineProperty(HTMLElement.prototype, 'hidePopover', { configurable: true, value: hide });
+    try {
+      result.rerender(<div data-testid="clip">{view(true)}</div>);
+      const status = screen.getByRole('status', { name: '이전 선택의 결과 · 갱신 중' });
+      expect(status.parentElement).toBe(clip.firstElementChild);
+      expect(status).toHaveAttribute('popover', 'manual');
+      expect(status.style.position).toBe('fixed');
+      expect(status.style.top).toBe('19px');
+      expect(status).toHaveClass('backdrop:pointer-events-none', 'backdrop:bg-transparent');
+      expect(show).toHaveBeenCalledTimes(1);
+      expect(screen.getByRole('table')).toBe(body);
+      expect(body.parentElement).toHaveAttribute('aria-busy', 'true');
+      anchorTop = 30;
+      clip.dispatchEvent(new Event('scroll'));
+      expect(status.style.top).toBe('9px');
+      expect(status.style.visibility).toBe('hidden');
+      anchorTop = 41;
+      window.dispatchEvent(new Event('resize'));
+      expect(status.style.top).toBe('20px');
+      expect(status.style.visibility).toBe('visible');
+      expect(show).toHaveBeenCalledTimes(1);
+      result.rerender(<div data-testid="clip">{view(false, 'done')}</div>);
+      expect(hide).toHaveBeenCalledTimes(1);
+      expect(screen.queryByRole('status')).toBeNull();
+      expect(screen.getByRole('table')).toBe(body);
+    } finally {
+      rect.mockRestore();
+      if (oldShow) Object.defineProperty(HTMLElement.prototype, 'showPopover', oldShow);
+      else Reflect.deleteProperty(HTMLElement.prototype, 'showPopover');
+      if (oldHide) Object.defineProperty(HTMLElement.prototype, 'hidePopover', oldHide);
+      else Reflect.deleteProperty(HTMLElement.prototype, 'hidePopover');
+    }
   });
 
   it('keeps the light label without a stale tint for same-params refetches', () => {

@@ -80,9 +80,10 @@ function DrawerHost({ kind, detail, viewedRevisionNo, onReload }: { kind: Drawer
   const latestQuery = useMenuQuery(itemDetailEndpoint, { itemId: detail.item.id } satisfies ItemDetailParams, kind === 'revise' && !shownIsLatest);
   const fresh = latestQuery.response?.outcome === 'ok' ? latestQuery.response.data : null;
   // A failed re-read after a conflict keeps the form (and its draft) on the last good latest instead of unmounting it.
-  const [kept, setKept] = useState(shownIsLatest ? detail : fresh);
-  if (shownIsLatest && kept !== detail) setKept(detail);
-  else if (fresh && fresh !== kept) setKept(fresh);
+  // One source per render (the shown detail when it is the latest, else the re-read), so the two can never alternate in an update loop.
+  const source = shownIsLatest ? detail : fresh;
+  const [kept, setKept] = useState(source);
+  if (source && source !== kept) setKept(source);
   const latest = shownIsLatest ? detail : fresh ?? kept;
   const close = () => setPage({ drawer: null });
   if (kind === 'derive') return <ItemWriteDrawer target={{ mode: 'derive', detail: pinnedSource }} onClose={close} />;

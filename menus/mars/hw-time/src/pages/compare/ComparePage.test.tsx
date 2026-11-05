@@ -44,7 +44,9 @@ vi.mock('@ap/components', async importOriginal => {
   }
   function PanelWorkspace(props: import('@ap/components').PanelWorkspaceProps) {
     return <div data-testid="workspace" data-persist={props.persistKey} data-reveal={JSON.stringify(props.revealRequest ?? null)} data-layout={JSON.stringify(props.presets.map(p => p.layout))}>
-      {props.panels.map(panel => <section key={panel.id} aria-label={`panel ${panel.id}`} data-badge={panel.badge ? panel.badge.count : ''}>{panel.render()}</section>)}
+      {props.panels.map(panel => <section key={panel.id} aria-label={`panel ${panel.id}`} data-badge={panel.badge ? panel.badge.count : ''}>
+        {/* The visible tab title: inside a real workspace the chart's own heading is sr-only, so this is what the user reads. */}
+        <p data-testid={`panel-title-${panel.id}`}>{typeof panel.title === 'string' ? panel.title : panel.title.ko}</p>{panel.render()}</section>)}
     </div>;
   }
   return { ...actual, AnalysisChartFrame, PanelWorkspace };
@@ -475,6 +477,22 @@ describe('HW Time compare page keeps the previous Module composition honest (#13
     expect(screen.queryByRole('region', { name: 'Motion별 동작시간 — Module PM2' })).toBeNull();
     fireEvent.click(screen.getAllByRole('button', { name: /^segment Pump / })[0]!);
     expect(searchParams().get('drillMotion')).toBeNull();
+  });
+
+  it('the visible panel titles follow the accepted Module while the previous result shows', async () => {
+    keptPm1();
+    await renderPage('&drillModule=PM2');
+    await screen.findByRole('region', { name: 'Motion별 동작시간 — Module PM1' });
+    expect(screen.getByTestId('panel-title-module').textContent).toBe('Module PM1 구성');
+  });
+
+  it('the visible detail title follows the accepted Module and Motion while the previous detail shows', async () => {
+    data.level.mockImplementation((drill: HwTimeDrill) => drill.drillMotion
+      ? { ...done(level3('PM1', 'Pump')), resultParams: { drillModule: 'PM1', drillMotion: 'Pump' }, showingPrevious: true }
+      : done(fixtureFor(drill)));
+    await renderPage('&drillModule=PM2&drillMotion=Vent');
+    await screen.findByRole('region', { name: 'Motion Pump 상세 — Module PM1' });
+    expect(screen.getByTestId('panel-title-detail').textContent).toBe('Motion Pump 상세');
   });
 
   it('the composition drills again once its result is live', async () => {

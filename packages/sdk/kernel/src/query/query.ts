@@ -14,11 +14,15 @@ export type QueryState<T> = {
   response: ApiResponse<T> | null;
   refetch: () => void;
   /**
-   * `useMenuQuery` only (ADR-0114): the `params` the displayed result was loaded with; undefined while no result is shown.
-   * With `keepPrevious` it differs from the caller's current params while a kept result shows.
+   * `useMenuQuery` with `keepPrevious` on only (ADR-0114): the `params` the displayed result was loaded with; undefined while no
+   * result is shown, and always undefined when the option is off or for any other hook.
+   * It differs from the caller's current params while a kept result shows.
    */
   resultParams?: unknown;
-  /** `useMenuQuery` only: true while a kept result is shown whose params differ (same structural comparison as the query key) from the current ones. */
+  /**
+   * `useMenuQuery` with `keepPrevious` on only: true while a kept result is shown whose params differ (same structural comparison as the query key)
+   * from the current ones, false for a live result; undefined (not false) when the option is off, so a screen can tell opted-in queries apart.
+   */
   showingPrevious?: boolean;
 };
 
@@ -121,7 +125,7 @@ function useQueryLifecycle<T>(parts: readonly [string, ...unknown[]], run: (sign
   const refetch = useCallback(() => { if (guard.current.active) void engineRefetch({ cancelRefetch: false }); }, [engineRefetch]);
   useRefreshEpoch(refreshEpoch, refetch);
 
-  const extra = (result: Accepted | null) => !paramsInfo ? {} : {
+  const extra = (result: Accepted | null) => !paramsInfo || !keepScope ? {} : {
     resultParams: result?.params,
     showingPrevious: result !== null && hashKey([result.params]) !== hashKey([paramsInfo.value]),
   };
@@ -265,7 +269,7 @@ export function menuRequest<P, T>(spec: EndpointSpec<P, T>, inputs: MenuRequestI
  * `refreshing` (with its own `completedAt`) until the new reply arrives, and any reply of the new params replaces it. A change of
  * session generation, projected Context (Scope, period, …) or endpoint, or a closed or idle gate, still hides the result at once.
  * `resultParams` is the params the shown result was loaded with and `showingPrevious` is true while a kept result with other params
- * shows: build titles, drill/click handlers, exports and writes from `resultParams` (not the current selection) while it is true.
+ * shows (both are `undefined` unless `keepPrevious` is on): build titles, drill/click handlers, exports and writes from `resultParams` (not the current selection) while it is true.
  */
 export function useMenuQuery<P, T>(spec: EndpointSpec<P, T>, params: NoInfer<P>, enabled = true, options?: MenuQueryOptions): QueryState<T> {
   const platform = useHostPlatform();

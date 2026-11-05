@@ -50,11 +50,11 @@ function pairText(verdict: PairVerdict, lang: 'ko' | 'en', pageVersion: string |
  *  The page owns the `metrics.pair` query and passes it in (#325-2): the banner is the first section of both
  *  pages, so the same single request also gates the detail page's anchor scroll — and the catalog, which reads
  *  the verdict for its active row, no longer sends the request twice. */
-export function MetricPairBanner({ query, pageVersion = null }: { query: QueryState<PairVerdict>; pageVersion?: string | null }) {
+export function MetricPairBanner({ query, pageVersion = null, refreshNotice }: { query: QueryState<PairVerdict>; pageVersion?: string | null; refreshNotice?: 'hidden' }) {
   const { setPage } = usePlatform();
   const { lang } = useI18n();
 
-  return <QueryView widgetName={lang === 'ko' ? '지표 쌍 검증' : 'Metric pair validation'} query={query} compact skeletonRows={2}>
+  return <QueryView widgetName={lang === 'ko' ? '지표 쌍 검증' : 'Metric pair validation'} query={query} compact skeletonRows={2} refreshNotice={refreshNotice}>
     {verdict => {
       const copy = pairText(verdict, lang, pageVersion);
       const box = copy.tone === 'danger' ? 'border-border-strong bg-accent-danger-soft text-text-danger-label' : copy.tone === 'warning' ? 'border-border-strong bg-accent-warn-soft text-text-warning-label' : 'border-border-subtle bg-surface-card text-text-secondary';

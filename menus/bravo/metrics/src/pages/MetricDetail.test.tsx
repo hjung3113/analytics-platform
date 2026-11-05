@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Activity, Gauge, Timer } from 'lucide-react';
 import { createRegistry, I18nProvider, PlatformProvider, type MenuEntry } from '@ap/kernel';
 import { memoryStorage, settleQueries, testAdapter, testSession } from '@ap/kernel/testing';
@@ -266,6 +266,30 @@ describe('MetricDetail keeps the previous version while another version loads (#
     expect(screen.queryByTestId('metric-apply-context')).toBeNull();
     await act(async () => { releases.forEach(release => release()); });
     expect((await screen.findAllByText('v4 복사. 필터 문구만 초안. 분석 기본 버전이 아닙니다.')).length).toBeGreaterThan(0);
+  });
+});
+
+describe('MetricDetail shows one refreshing notice per version transition (#1365 IMP-02)', () => {
+  const releases: Array<() => void> = [];
+  it('the pair verdict and the definition do not both label the same transition; the usage keeps its own', async () => {
+    const base = fixtureAdapter();
+    let held = false;
+    const adapter: PlatformAdapter = {
+      ...base,
+      menuQuery: async (req, signal) => {
+        if (held && ['metrics.definition', 'metrics.pair', 'metrics.usage'].some(name => req.endpoint === name)) await new Promise<void>(resolve => { releases.push(resolve); });
+        return base.menuQuery(req, signal);
+      },
+    };
+    renderDetail('/metrics/cycle_time?version=4', 'cycle_time', adapter);
+    expect((await screen.findAllByText('분포 재계산. PRC 구간만. averageOfQuantilesAllowed=false.')).length).toBeGreaterThan(0);
+    await settleQueries();
+    held = true;
+    fireEvent.click(screen.getByRole('button', { name: /^v5/ }));
+    await waitFor(() => expect(screen.getAllByText('이전 선택의 결과 · 갱신 중').length).toBeGreaterThan(0));
+    // definition + usage; the pair verdict (busy, but no label of its own) makes no third.
+    expect(screen.getAllByText('이전 선택의 결과 · 갱신 중')).toHaveLength(2);
+    await act(async () => { releases.forEach(release => release()); });
   });
 });
 

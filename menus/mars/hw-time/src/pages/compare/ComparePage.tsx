@@ -193,18 +193,18 @@ export default function ComparePage(_props: PageProps) {
       </QueryView></PanelFill> },
     { id: 'module', title: module
       ? motion
-        ? { ko: `Module ${module} 구성 · ${motion} 선택`, en: `Module ${module} · ${motion} selected` }
-        : { ko: `Module ${module} 구성`, en: `Module ${module} composition` }
+        ? { ko: `Module ${moduleKept.module} 구성 · ${motion} 선택`, en: `Module ${moduleKept.module} · ${motion} selected` }
+        : { ko: `Module ${moduleKept.module} 구성`, en: `Module ${moduleKept.module} composition` }
       : { ko: 'Module 구성', en: 'Module composition' }, render: () => !module
       ? waiting(ko ? 'Module을 고르세요' : 'Choose a Module')
-      : <PanelFill><QueryView fill query={moduleQ} widgetName={ko ? `Module ${module} 구성` : `Module ${module} composition`} hideWidgetName skeletonRows={6}>
+      : <PanelFill><QueryView fill query={moduleQ} widgetName={ko ? `Module ${moduleKept.module} 구성` : `Module ${moduleKept.module} composition`} hideWidgetName skeletonRows={6}>
         {data => <StackPanel chartId="hw-compare-module" title={ko ? `Motion별 동작시간 — Module ${moduleKept.module}` : `Operation time by Motion — Module ${moduleKept.module}`} block={data}
           visibleSeriesIds={visibleOf(data, moduleHidden)} onVisibleSeriesChange={setVisible(data, setModuleHidden)} {...stackProps} {...rowFocus}
           onActivate={moduleKept.previous ? undefined : ({ seriesId }) => drill.enter('drillMotion', seriesId)} rowActions={state.rowActionsOf} />}
       </QueryView></PanelFill> },
-    { id: 'detail', title: motion ? { ko: `Motion ${motion} 상세`, en: `Motion ${motion} detail` } : { ko: 'Motion 상세', en: 'Motion detail' }, render: () => !module || !motion
+    { id: 'detail', title: motion ? { ko: `Motion ${detailKept.motion} 상세`, en: `Motion ${detailKept.motion} detail` } : { ko: 'Motion 상세', en: 'Motion detail' }, render: () => !module || !motion
       ? waiting(!module ? (ko ? 'Module을 고르세요' : 'Choose a Module') : (ko ? 'Motion을 고르세요' : 'Choose a Motion'))
-      : <PanelFill><QueryView fill query={detailQ} widgetName={ko ? `Motion ${motion} 상세` : `Motion ${motion} detail`} hideWidgetName skeletonRows={6}>
+      : <PanelFill><QueryView fill query={detailQ} widgetName={ko ? `Motion ${detailKept.motion} 상세` : `Motion ${detailKept.motion} detail`} hideWidgetName skeletonRows={6}>
         {data => {
           const det = data.level === 2 ? data.detail ?? EMPTY_BLOCK : EMPTY_BLOCK;
           return det.rows.length === 0

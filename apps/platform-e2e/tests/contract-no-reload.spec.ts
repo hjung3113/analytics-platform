@@ -36,6 +36,12 @@ async function survivors(page: Page, name: string) {
   }, name);
 }
 const skeletonsSeen = (page: Page) => page.evaluate(() => (window as unknown as { __skeletons: number }).__skeletons);
+/** The request is really in flight: a refreshing wrapper (`aria-busy=true`) or the previous-selection notice is on screen. The slow scenario holds the reply for 2.2 s. */
+const PENDING = 'main [aria-busy="true"], main [role="status"][aria-label="이전 선택의 결과 · 갱신 중"]';
+const pendingSeen = (page: Page) => expect(page.locator(PENDING).first(), 'the new request entered its pending state').toBeAttached({ timeout: 5_000 });
+const textOf = (page: Page, selector: string) => page.evaluate((css) => document.querySelector(css)?.textContent ?? '', selector);
+/** The new response is drawn: the region's text differs from what it said before the action (the old result stays until then). */
+const textChangedFrom = (page: Page, selector: string, before: string) => expect.poll(() => textOf(page, selector), { message: `${selector} shows the new content`, timeout: 15_000 }).not.toBe(before);
 const noBusy = (page: Page) => expect(page.locator('main [role="status"][aria-busy], main [aria-busy="true"]')).toHaveCount(0, { timeout: 15_000 });
 
 /** Loads the page, switches to the slow scenario (a scenario change reloads the page once under it: wait it out) and tags the regions. */
@@ -66,9 +72,10 @@ test.describe('탭·카드·버전 전환은 바뀐 부분만 다시 그린다 (
     });
 
     test('위쪽 카드를 누르면 주요 추세만 새로 읽고, 이전 차트는 새 결과가 올 때까지 남는다', async ({ page }) => {
+      const before = await textOf(page, 'main section[aria-label="주요 추세"]');
       await page.getByRole('button', { name: /비Process 체류/ }).first().click();
       await expect(page).toHaveURL(/kpi=dwell/);
-      await page.waitForTimeout(600); // mid-request: the slow scenario holds the reply for 2.2 s
+      await pendingSeen(page);
       expect(await skeletonsSeen(page)).toBe(0);
       expect((await survivors(page, '주요 추세')).share, 'trend frame kept while it reloads').toBeGreaterThanOrEqual(0.85);
       for (const name of ['점유 구성', '확인할 항목', '머리']) {
@@ -76,20 +83,23 @@ test.describe('탭·카드·버전 전환은 바뀐 부분만 다시 그린다 (
         expect(r.total, `${name} rendered`).toBeGreaterThan(0);
         expect(r.share, `${name} elements kept while the trend reloads`).toBeGreaterThanOrEqual(0.95);
       }
+      await textChangedFrom(page, 'main section[aria-label="주요 추세"]', before);
       await noBusy(page);
       expect(await skeletonsSeen(page)).toBe(0);
       expect((await survivors(page, '주요 추세')).share).toBeGreaterThanOrEqual(0.85);
     });
 
     test('점유 구성의 그룹 기준 탭을 바꾸면 그 섹션만 새로 읽고 나머지는 다시 그리지 않는다', async ({ page }) => {
+      const before = await textOf(page, 'main section[aria-label="점유 구성"]');
       await page.getByRole('radio', { name: 'StGroup' }).click();
       await expect(page).toHaveURL(/axis=stgroup/);
-      await page.waitForTimeout(600);
+      await pendingSeen(page);
       expect(await skeletonsSeen(page)).toBe(0);
       expect((await survivors(page, '점유 구성')).share, 'breakdown frame kept while it reloads').toBeGreaterThanOrEqual(0.85);
       for (const name of ['주요 추세', '확인할 항목', '머리']) {
         expect((await survivors(page, name)).share, `${name} elements kept`).toBeGreaterThanOrEqual(0.95);
       }
+      await textChangedFrom(page, 'main section[aria-label="점유 구성"]', before);
       await noBusy(page);
       expect(await skeletonsSeen(page)).toBe(0);
     });
@@ -104,9 +114,11 @@ test.describe('탭·카드·버전 전환은 바뀐 부분만 다시 그린다 (
     await openSlow(page, '/bravo/metric-detail/cycle_time?v=1&version=4', async () => {
       await expect(page.getByRole('button', { name: /^v3/ })).toBeVisible({ timeout: 15_000 });
     }, regions);
+    const definitionArea = 'main :has(> #metric-section-definition)';
+    const before = await textOf(page, definitionArea);
     await page.getByRole('button', { name: /^v3/ }).click();
     await expect(page).toHaveURL(/version=3/);
-    await page.waitForTimeout(600);
+    await pendingSeen(page);
     expect(await skeletonsSeen(page)).toBe(0);
     // The chosen version is marked at once, before the reply for it arrives.
     await expect(page.getByRole('button', { name: /^v3/ })).toHaveAttribute('aria-pressed', 'true');
@@ -115,6 +127,7 @@ test.describe('탭·카드·버전 전환은 바뀐 부분만 다시 그린다 (
       expect(r.total, `${name} rendered`).toBeGreaterThan(0);
       expect(r.share, `${name} elements kept`).toBeGreaterThanOrEqual(0.85);
     }
+    await textChangedFrom(page, definitionArea, before);
     await noBusy(page);
     expect(await skeletonsSeen(page)).toBe(0);
   });
@@ -132,7 +145,7 @@ test.describe('탭·카드·버전 전환은 바뀐 부분만 다시 그린다 (
     await tagNodes(page, [{ name: '리비전', selector: 'main [aria-label="리비전"]' }, { name: '머리', selector: 'main header' }]);
     await page.getByRole('region', { name: '리비전' }).getByRole('button', { name: /r2/ }).click();
     await expect(page).toHaveURL(/rev=2/);
-    await page.waitForTimeout(600);
+    await pendingSeen(page);
     expect(await skeletonsSeen(page)).toBe(0);
     for (const name of ['리비전', '머리']) {
       const r = await survivors(page, name);
