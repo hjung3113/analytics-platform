@@ -11,11 +11,11 @@ const SYSTEM = '33333333-3333-4333-8333-333333333333';
 const sections = (page: Page) => page.getByRole('navigation', { name: '시스템 레일' }).getByRole('group', { name: '시스템 섹션' });
 
 test.describe('#1099 B 업무 흐름·운영 콘솔과 내 활동·소통', () => {
-  test('admin의 전환기 플랫폼 메뉴는 홈·공지·FAQ·VOC·설문·알림·내 Task·권한 요청 순이다', async ({ page }, testInfo) => {
+  test('admin의 전환기 플랫폼 메뉴는 홈·개선 아이템·공지·FAQ·VOC·설문·알림·내 Task·권한 요청 순이다', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
     await page.goto('/bravo/metric-catalog');
     const popover = await openSwitcher(page);
-    await expect(popover.getByRole('navigation', { name: '플랫폼 메뉴' }).getByRole('link')).toHaveText(['홈', '공지', 'FAQ', 'VOC', '설문', '알림', '내 Task', '권한 요청']);
+    await expect(popover.getByRole('navigation', { name: '플랫폼 메뉴' }).getByRole('link')).toHaveText(['홈', '개선 아이템', '공지', 'FAQ', 'VOC', '설문', '알림', '내 Task', '권한 요청']);
     await evidence(page, testInfo, 'navigation-my-activity-order');
   });
 
