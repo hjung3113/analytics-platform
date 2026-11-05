@@ -133,14 +133,14 @@ export type UsageMenuSummary = {
   entries?: number | null;
   /** Share 0..1 of those entries whose NEXT main entry carried via `history`/`return` (「뒤로 나감」). `null` under the `entries` mask. The numerator counts only transitions to a destination used by >= 3 distinct people (smaller groups count as 0). Computed on the server, never in the browser. */
   backRate?: number | null;
-  /** Share 0..1 of the menu's main entries with via `palette` (「검색 진입」). `null` under the `entries` mask; the numerator is 0 when fewer than 3 distinct people entered by palette. */
+  /** Share 0..1 of the menu's main entries with via `palette` (「검색 진입」). `null` under the `entries` mask, and `null` when either side of the split (palette entries / the other main entries) has 1–2 distinct people, so `entries × (1 − rate)` never gives the size of a small group. */
   searchEntryRate?: number | null;
 };
 export type UsageSummary = { preset: 'all' | 'range'; menus: UsageMenuSummary[] };
 /** `usageNextScreens` request. `menuId` is validated like a `fromMenuId`; `includeBack` (default false) also ranks history/return and same-menu entries. */
 export type UsageNextQuery = { menuId: string; includeBack?: boolean };
 /**
- * One ranked destination. `count`, `distinctUsers` and `vias` come from the SAME set of next entries (never mixed sets); `distinctUsers >= 3` always.
+ * One ranked destination. `count`, `distinctUsers` and `vias` come from the SAME set of next entries (never mixed sets); `distinctUsers >= 3` always. With `includeBack`, a later cell (back, same menu) joins a row only if it adds >= 3 people the row does not yet have (otherwise its entries stay in `summary` only), so `distinctUsers` with and without `includeBack` never differs by 1 or 2.
  * `vias` is all-or-nothing: the split of `count` by `via` when every via kind present was used by >= 3 distinct people, else `{}` (show count and users only).
  */
 export type UsageNextDestination = { menuId: string; count: number; distinctUsers: number; vias: Partial<Record<UsageVia, number>> };

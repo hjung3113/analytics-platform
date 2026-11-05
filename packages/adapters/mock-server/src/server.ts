@@ -452,18 +452,18 @@ export function aggregateUsage(events: readonly StoredUsageEvent[], range: Usage
   const inRange = events.filter(e =>
     e.name === 'entry'
     && ('preset' in range || (e.receivedAt >= range.from && e.receivedAt < range.to)));
-  const byMenu = new Map<string, { visits: number; users: Set<string>; last: number; mainEntries: number; mainUsers: Set<string>; palette: number; paletteUsers: Set<string> }>();
+  const byMenu = new Map<string, { visits: number; users: Set<string>; last: number; mainEntries: number; mainUsers: Set<string>; palette: number; paletteUsers: Set<string>; otherUsers: Set<string> }>();
   // Main entries per `fromMenuId` that carried history/return, split by destination (a cell): the numerator of 「뒤로 나감」 is the sum of the cells with >= 3 distinct users.
   const backCells = new Map<string, Map<string, { n: number; users: Set<string> }>>();
   for (const e of inRange) {
-    const agg = byMenu.get(e.menuId) ?? { visits: 0, users: new Set<string>(), last: 0, mainEntries: 0, mainUsers: new Set<string>(), palette: 0, paletteUsers: new Set<string>() };
+    const agg = byMenu.get(e.menuId) ?? { visits: 0, users: new Set<string>(), last: 0, mainEntries: 0, mainUsers: new Set<string>(), palette: 0, paletteUsers: new Set<string>(), otherUsers: new Set<string>() };
     agg.visits += 1;
     agg.users.add(e.userId);
     if (e.receivedAt > agg.last) agg.last = e.receivedAt;
     if (isMainUsageEntry(e)) {
       agg.mainEntries += 1;
       agg.mainUsers.add(e.userId);
-      if (e.via === 'palette') { agg.palette += 1; agg.paletteUsers.add(e.userId); }
+      if (e.via === 'palette') { agg.palette += 1; agg.paletteUsers.add(e.userId); } else agg.otherUsers.add(e.userId);
       if (e.fromMenuId && e.via !== undefined && BACK_VIAS.includes(e.via)) {
         const cells = backCells.get(e.fromMenuId) ?? new Map<string, { n: number; users: Set<string> }>();
         const cell = cells.get(e.menuId) ?? { n: 0, users: new Set<string>() };
@@ -485,7 +485,8 @@ export function aggregateUsage(events: readonly StoredUsageEvent[], range: Usage
         menuId, visits: agg.visits, distinctUsers: agg.users.size, lastUsedAt: agg.last,
         entries: shown ? agg.mainEntries : null,
         backRate: shown ? Math.min(1, back / agg.mainEntries) : null,
-        searchEntryRate: shown ? (agg.paletteUsers.size >= USAGE_MASK_K ? agg.palette : 0) / agg.mainEntries : null,
+        // Both sides of the split (palette / not palette) are empty or >= 3 people; else `entries x (1 - rate)` would give a small group's size.
+        searchEntryRate: shown && splitOpen(agg.paletteUsers.size) && splitOpen(agg.otherUsers.size) ? agg.palette / agg.mainEntries : null,
       };
     }),
   };
@@ -493,6 +494,8 @@ export function aggregateUsage(events: readonly StoredUsageEvent[], range: Usage
 
 /** Mask k: a number built from fewer distinct people than this never leaves the server aggregate (ADR-0020 supplement, #605). */
 export const USAGE_MASK_K = 3;
+/** One side of a split is safe to show when nobody is on it or at least k distinct people are. */
+const splitOpen = (users: number): boolean => users === 0 || users >= USAGE_MASK_K;
 const BACK_VIAS: readonly UsageVia[] = ['history', 'return'];
 /** The main screen's entry (`source` absent or `main`); board pane entries are another provenance and never count here. */
 const isMainUsageEntry = (e: StoredUsageEvent): boolean => e.name === 'entry' && e.source !== 'board';
@@ -534,10 +537,21 @@ export function aggregateUsageNext(events: readonly StoredUsageEvent[], menuId: 
   for (const c of inSet) byDest.set(c.dest, [...(byDest.get(c.dest) ?? []), c]);
   const rows: UsageNextDestination[] = [];
   let hidden = 0;
+  const KIND_ORDER: readonly Kind[] = ['moved', 'sameMenu', 'backOrReturn'];
   for (const [dest, all] of byDest) {
-    const open = all.filter(c => c.users.size >= USAGE_MASK_K);
+    const open = KIND_ORDER.flatMap(k => all.filter(c => c.kind === k && c.users.size >= USAGE_MASK_K));
     if (open.length === 0) { hidden += 1; continue; }
-    const events = open.flatMap(c => c.events);
+    // Merge the open cells in kind order; a later cell joins only if it adds >= 3 people the row does not have yet ("new people" test),
+    // so the user-count difference between includeBack on and off is never 1 or 2.
+    const users = new Set<string>();
+    const merged: Cell[] = [];
+    for (const c of open) {
+      const fresh = [...c.users].filter(u => !users.has(u)).length;
+      if (merged.length > 0 && fresh < USAGE_MASK_K) continue;
+      c.users.forEach(u => users.add(u));
+      merged.push(c);
+    }
+    const events = merged.flatMap(c => c.events);
     // Vias are all-or-nothing: one via kind under 3 users would be differenced out of the others and the count.
     const byVia = new Map<UsageVia, { n: number; users: Set<string> }>();
     for (const e of events) {
@@ -550,7 +564,7 @@ export function aggregateUsageNext(events: readonly StoredUsageEvent[], menuId: 
     const vias: Partial<Record<UsageVia, number>> = [...byVia.values()].every(v => v.users.size >= USAGE_MASK_K)
       ? Object.fromEntries([...byVia.entries()].map(([via, v]) => [via, v.n]))
       : {};
-    rows.push({ menuId: dest, count: events.length, distinctUsers: new Set(events.map(e => e.userId)).size, vias });
+    rows.push({ menuId: dest, count: events.length, distinctUsers: users.size, vias });
   }
   return {
     menuId,
@@ -622,7 +636,7 @@ export async function usageSummary(range: UsageRange, signal?: AbortSignal, opts
 /**
  * Next-screens aggregate (#605). Same gates and order as `usageSummary` (console:access first, then dev scenarios), then the request shape:
  * `menuId` must match `MENU_ID_PATTERN`, `includeBack` absent or boolean (anything else is outcome `error`). A well-formed menu with no
- * data is `ok` with `masked: true`, never `empty`. No audit row is written.
+ * data is `ok` with `masked: false` with `entries: 0` (`masked: true` only for 1–2 distinct main-entry users), never `empty`. No audit row is written.
  */
 export async function usageNextScreens(query: UsageNextQuery, signal?: AbortSignal, opts?: UsageSummaryOptions): Promise<ApiResponse<UsageNextScreens>> {
   const s = scenario;

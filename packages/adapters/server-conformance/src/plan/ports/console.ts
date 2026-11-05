@@ -65,7 +65,7 @@ export function planConsoleChecks(harness: ServerConformanceHarness): Conformanc
     run: async () => {
       const r = await adapter.usageNextScreens({ menuId: nextMenuId });
       if (r.outcome !== 'ok' || r.data === null) {
-        return `a console actor reading usageNextScreens for a well-formed menu: expected ok, got ${describeResponse(r)} — a menu without data is ok with masked: true, never empty`;
+        return `a console actor reading usageNextScreens for a well-formed menu: expected ok, got ${describeResponse(r)} — a menu without data is ok with masked: false and entries 0 (masked is only for 1–2 main-entry users), never empty`;
       }
       const missing = missingEnvelopeKey(r, 'assessments') ?? missingEnvelopeKey(r, 'trust');
       if (missing) return missing;

@@ -88,6 +88,39 @@ describe('UsageOverview next screens (#605)', () => {
     expect([...segments].map(rect => rect.getAttribute('width'))).toEqual(['50%', '25%', '25%', '0%']);
     expect([...segments].reduce((sum, rect) => sum + Number.parseFloat(rect.getAttribute('width')!), 0)).toBe(100);
   });
+  it('separates the summary and movement legend with visible headings and a distinct token palette', async () => {
+    setup('/admin/usage?focus=admin-audit');
+    const summary = await screen.findByRole('region', { name: '진입 후 이동 요약' });
+    expect(within(summary).getByRole('heading', { name: '진입 후 이동 요약' })).toBeTruthy();
+    const methods = screen.getByRole('region', { name: '이동 방식' });
+    expect(within(methods).getByRole('heading', { name: '이동 방식' })).toBeTruthy();
+    expect(methods.classList.contains('pt-4')).toBe(true);
+    const legend = within(methods).getByRole('list', { name: '이동 방식 범례' });
+    const viaColors = new Set([...document.querySelectorAll('[data-destination-bar] > rect')].map(rect => rect.getAttribute('fill')));
+    const summaryColors = [...summary.querySelectorAll('svg > svg > rect')].map(rect => rect.getAttribute('fill'));
+    expect(new Set(summaryColors).size).toBe(4);
+    expect(summaryColors.every(color => color?.includes('var(--') && !viaColors.has(color))).toBe(true);
+    const swatches = within(summary).getAllByRole('listitem').map(row => row.querySelector('span[aria-hidden]') as HTMLElement);
+    expect(summaryColors).toEqual(['var(--color-text-primary)', 'rgb(var(--text-primary) / 0.8)', 'rgb(var(--text-primary) / 0.65)', 'rgb(var(--text-primary) / 0.5)']);
+    expect(swatches.map(swatch => [...swatch.classList].find(token => token.startsWith('bg-')))).toEqual(['bg-text-primary', 'bg-text-primary/80', 'bg-text-primary/65', 'bg-text-primary/50']);
+    expect(within(legend).getAllByRole('listitem')).toHaveLength(5);
+  });
+  it('uses compact minimum-height ranking rows while allowing long labels and user lines to wrap', async () => {
+    const label = '긴 목적지 이름과 보조 설명을 모두 표시하는 다음 화면 '.repeat(6);
+    setup('/admin/usage?focus=admin-audit', async () => ok(nextData({ next: [
+      { menuId: label, count: 30, distinctUsers: 4, vias: { sidebar: 12, palette: 5, link: 8, board: 3, history: 2 } },
+    ] })));
+    const list = await screen.findByRole('list', { name: '다음으로 간 화면 순위' });
+    const row = within(list).getByRole('listitem');
+    for (const token of ['min-h-14', 'py-1', 'gap-0.5']) expect(row.classList.contains(token)).toBe(true);
+    const destination = row.querySelector('[title]')!;
+    expect(destination.textContent).toContain(label);
+    expect(destination.classList.contains('truncate')).toBe(false);
+    expect(destination.classList.contains('break-words')).toBe(true);
+    expect(within(row).getByText(/방문 사용자 4명/).textContent).toBe('방문 사용자 4명 · 메뉴 탐색 12 · 메뉴 검색 5 · 화면 안 연결 8 · 분석 보드 3 · 기타 2');
+    expect(row.classList.contains('h-14')).toBe(false);
+    expect(row.classList.contains('overflow-hidden')).toBe(false);
+  });
   it('omits hidden via bars, retains destination counts/users and explains suppression once', async () => {
     setup('/admin/usage?focus=admin-audit', async () => ok(nextData({ next: [
       { menuId: 'admin-roles', count: 30, distinctUsers: 4, vias: {} },

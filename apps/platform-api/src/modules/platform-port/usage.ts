@@ -201,7 +201,7 @@ export interface UsageMenuSummary {
   entries: number | null;
   /** Share of `entries` whose next main entry came via history/return (cells of < 3 people count 0); null under the mask. */
   backRate: number | null;
-  /** Share of `entries` with via palette (0 when < 3 people); null under the mask. */
+  /** Share of `entries` with via palette ; null under the mask or when either side of the palette split has 1–2 people. */
   searchEntryRate: number | null;
 }
 
@@ -209,6 +209,10 @@ export interface UsageMenuSummary {
 export const USAGE_MASK_K = 3;
 const BACK_VIAS = ['history', 'return'];
 const USAGE_NEXT_LIMIT = 20;
+/** One side of a split is safe to show when nobody is on it or at least k distinct people are. */
+const splitOpen = (users: number): boolean => users === 0 || users >= USAGE_MASK_K;
+/** Merge order of a destination's cells in a next-screens row (the first open cell is the base). */
+const USAGE_KIND_ORDER = ['moved', 'same', 'back'];
 
 export interface UsageNextScreensData {
   menuId: string;
@@ -350,6 +354,10 @@ export function createPlatformUsageService(deps: PlatformUsageServiceDeps) {
               sql<number>`count(distinct ${usageEvents.actorId}) filter (where ${usageEvents.source} = 'main' and ${usageEvents.via} = 'palette')`.mapWith(
                 Number,
               ),
+            otherUsers:
+              sql<number>`count(distinct ${usageEvents.actorId}) filter (where ${usageEvents.source} = 'main' and ${usageEvents.via} is distinct from 'palette')`.mapWith(
+                Number,
+              ),
           })
           .from(usageEvents)
           .where(
@@ -403,7 +411,9 @@ export function createPlatformUsageService(deps: PlatformUsageServiceDeps) {
             lastUsedAt: (row.lastUsedAt as Date).getTime(),
             entries: shown ? row.entries : null,
             backRate: shown ? Math.min(1, (backFrom.get(row.menuId) ?? 0) / row.entries) : null,
-            searchEntryRate: shown ? (row.paletteUsers >= USAGE_MASK_K ? row.palette : 0) / row.entries : null,
+            // Both sides of the split (palette / not palette) must be empty or >= 3 people, else `entries x (1 - rate)` would give a small group's size.
+            searchEntryRate:
+              shown && splitOpen(row.paletteUsers) && splitOpen(row.otherUsers) ? row.palette / row.entries : null,
           };
         }),
       },
@@ -459,7 +469,7 @@ export function createPlatformUsageService(deps: PlatformUsageServiceDeps) {
           // By position: the case expression carries bound parameters, so a second copy in GROUP BY is a different expression to Postgres.
           .groupBy(sql`1`, usageEvents.menuId);
         const summary = { ...empty };
-        const destinations = new Map<string, { n: number; open: string[] }>();
+        const destinations = new Map<string, { open: Map<string, { n: number; users: number }> }>();
         for (const c of cellRows) {
           const open = c.users >= USAGE_MASK_K;
           if (open) {
@@ -468,23 +478,68 @@ export function createPlatformUsageService(deps: PlatformUsageServiceDeps) {
             else summary.moved += c.n;
           }
           if (!rankedKinds.includes(c.kind)) continue;
-          const d = destinations.get(c.menuId) ?? { n: 0, open: [] };
-          if (open) {
-            d.n += c.n;
-            d.open.push(c.kind);
-          }
+          const d = destinations.get(c.menuId) ?? { open: new Map() };
+          if (open) d.open.set(c.kind, { n: c.n, users: c.users });
           destinations.set(c.menuId, d);
         }
         summary.noMove = Math.max(0, own.entries - summary.moved - summary.sameMenu - summary.backOrReturn);
 
-        const named = [...destinations.entries()]
-          .filter(([, d]) => d.open.length > 0)
+        // A row merges its open cells in the order moved, same, back; a later cell joins only if it adds >= 3 people the row does not yet have
+        // (the "new people" test), so the user-count difference between includeBack on and off is never 1 or 2. Rows with one open cell need no people.
+        const multi = [...destinations.entries()].filter(([, d]) => d.open.size > 1);
+        const peopleRows =
+          multi.length === 0
+            ? []
+            : await tx
+                .select({ kind, menuId: usageEvents.menuId, actorId: usageEvents.actorId })
+                .from(usageEvents)
+                .where(
+                  and(
+                    nextWhere,
+                    or(...multi.map(([id, d]) => and(eq(usageEvents.menuId, id), inArray(kind, [...d.open.keys()])))),
+                  ),
+                )
+                .groupBy(sql`1`, usageEvents.menuId, usageEvents.actorId);
+        const people = new Map<string, Set<string>>();
+        for (const r of peopleRows) {
+          const key = `${r.kind}\u0000${r.menuId}`;
+          const set = people.get(key) ?? new Set<string>();
+          set.add(r.actorId);
+          people.set(key, set);
+        }
+        const merged = new Map<string, { n: number; users: number; kinds: string[] }>();
+        for (const [id, d] of destinations) {
+          if (d.open.size === 0) continue;
+          const ordered = USAGE_KIND_ORDER.flatMap((k) => {
+            const cell = d.open.get(k);
+            return cell ? [{ k, cell }] : [];
+          });
+          const only = ordered.length === 1 ? ordered[0] : undefined;
+          if (only) {
+            merged.set(id, { n: only.cell.n, users: only.cell.users, kinds: [only.k] });
+            continue;
+          }
+          const users = new Set<string>();
+          const row = { n: 0, users: 0, kinds: [] as string[] };
+          for (const { k, cell } of ordered) {
+            const cellPeople = people.get(`${k}\u0000${id}`) ?? new Set<string>();
+            const fresh = [...cellPeople].filter((u) => !users.has(u)).length;
+            if (row.kinds.length > 0 && fresh < USAGE_MASK_K) continue;
+            for (const u of cellPeople) users.add(u);
+            row.n += cell.n;
+            row.kinds.push(k);
+          }
+          row.users = users.size;
+          merged.set(id, row);
+        }
+
+        const named = [...merged.entries()]
           .sort((a, b) => b[1].n - a[1].n || (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
           .slice(0, USAGE_NEXT_LIMIT);
-        const hiddenDestinations = [...destinations.values()].filter((d) => d.open.length === 0).length;
+        const hiddenDestinations = [...destinations.values()].filter((d) => d.open.size === 0).length;
         const shownIds = named.map(([id]) => id);
 
-        // Vias of the shown rows, per (kind, destination, via): kept only from open cells, and only when every via present has >= 3 people.
+        // Vias of the shown rows, per (kind, destination, via): kept only from merged cells, and only when every via present has >= 3 people.
         const viaRows =
           shownIds.length === 0
             ? []
@@ -493,27 +548,10 @@ export function createPlatformUsageService(deps: PlatformUsageServiceDeps) {
                 .from(usageEvents)
                 .where(and(nextWhere, inArray(usageEvents.menuId, shownIds)))
                 .groupBy(sql`1`, usageEvents.menuId, sql`3`);
-        // A row whose open cells span two kinds needs the people of the union (the cells can share people).
-        const multi = named.filter(([, d]) => d.open.length > 1);
-        const unionRows =
-          multi.length === 0
-            ? []
-            : await tx
-                .select({ menuId: usageEvents.menuId, users: countDistinct(usageEvents.actorId) })
-                .from(usageEvents)
-                .where(
-                  and(
-                    nextWhere,
-                    or(...multi.map(([id, d]) => and(eq(usageEvents.menuId, id), inArray(kind, d.open)))),
-                  ),
-                )
-                .groupBy(usageEvents.menuId);
-        const unionUsers = new Map(unionRows.map((r) => [r.menuId, r.users]));
-        const cellUsers = new Map(cellRows.map((c) => [`${c.kind}\u0000${c.menuId}`, c.users]));
         const viaOf = new Map<string, { vias: Record<string, number>; allOpen: boolean }>();
         for (const r of viaRows) {
-          const d = destinations.get(r.menuId);
-          if (!d || !d.open.includes(r.kind)) continue;
+          const d = merged.get(r.menuId);
+          if (!d || !d.kinds.includes(r.kind)) continue;
           const acc = viaOf.get(r.menuId) ?? { vias: {}, allOpen: true };
           acc.vias[r.via] = (acc.vias[r.via] ?? 0) + r.n;
           if (r.users < USAGE_MASK_K) acc.allOpen = false;
@@ -529,7 +567,7 @@ export function createPlatformUsageService(deps: PlatformUsageServiceDeps) {
             next: named.map(([id, d]) => ({
               menuId: id,
               count: d.n,
-              distinctUsers: d.open.length > 1 ? (unionUsers.get(id) ?? 0) : (cellUsers.get(`${d.open[0]}\u0000${id}`) ?? 0),
+              distinctUsers: d.users,
               vias: viaOf.get(id)?.allOpen ? (viaOf.get(id)?.vias ?? {}) : {},
             })),
             hiddenDestinations,

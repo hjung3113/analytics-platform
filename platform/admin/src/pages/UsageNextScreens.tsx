@@ -75,7 +75,9 @@ function NextScreenResult({ data, expanded, onExpand, listId }: { data: NextScre
   const summary = [data.summary.moved, data.summary.sameMenu, data.summary.backOrReturn, data.summary.noMove];
   const summaryTotal = summary.reduce((sum, count) => sum + count, 0);
   const summaryLabels = ko ? ['다른 메뉴로 이동', '같은 메뉴 안', '뒤로·복귀', '이후 메뉴 이동 없음'] : ['Another menu', 'Same menu', 'Back / return', 'No subsequent menu move'];
-  const summaryColors = [GROUPS[0].color, GROUPS[2].color, GROUPS[1].color, GROUPS[4].color];
+  // Neutral ink ramp distinguishes movement outcomes from the categorical via colors below.
+  const summaryColors = ['var(--color-text-primary)', 'rgb(var(--text-primary) / 0.8)', 'rgb(var(--text-primary) / 0.65)', 'rgb(var(--text-primary) / 0.5)'];
+  const summarySwatches = ['bg-text-primary', 'bg-text-primary/80', 'bg-text-primary/65', 'bg-text-primary/50'];
   const returned = data.next.slice(0, 20);
   const visible = returned.slice(0, expanded ? 20 : 5);
   const max = Math.max(1, ...visible.map(row => row.count));
@@ -85,25 +87,29 @@ function NextScreenResult({ data, expanded, onExpand, listId }: { data: NextScre
   returned.forEach(row => groupCounts(row.vias).forEach((count, i) => { totals[i] += count; }));
   return <div className="flex min-w-0 flex-col gap-4">
     <section aria-label={ko ? '진입 후 이동 요약' : 'Entry movement summary'} className="flex flex-col gap-2">
+      <h4 className="t-card-title">{ko ? '진입 후 이동 요약' : 'Entry movement summary'}</h4>
       <p className="text-xs text-text-secondary">{ko ? `본 화면 진입 ${data.entries.toLocaleString(lang)}건` : `${data.entries.toLocaleString(lang)} entries into this screen`}</p>
       <StackedBar values={summary} colors={summaryColors} />
       <ul className="grid grid-cols-2 gap-2 text-xs">
         {summary.map((count, i) => <li key={i} className="flex flex-col gap-1">
-          <div className="flex items-start gap-1"><span aria-hidden className={`mt-0.5 size-2.5 shrink-0 ${GROUPS[[0, 2, 1, 4][i]].swatch}`} />{i === 3 ? <TooltipProvider><Tooltip><TooltipTrigger asChild><button type="button" className="w-fit text-left underline decoration-dotted underline-offset-2">{summaryLabels[i]}</button></TooltipTrigger><TooltipContent portal size="sm">{ko ? '새로고침, 새 탭, 분석 보드 진입 때도 이동 기록이 끊깁니다. 3명 미만의 이동도 여기에 포함됩니다.' : 'Refresh, a new tab, or entering a board also breaks the movement record. Movements by fewer than 3 users are also included here.'}</TooltipContent></Tooltip></TooltipProvider> : <span>{summaryLabels[i]}</span>}</div>
+          <div className="flex items-start gap-1"><span aria-hidden className={`mt-0.5 size-2.5 shrink-0 ${summarySwatches[i]}`} />{i === 3 ? <TooltipProvider><Tooltip><TooltipTrigger asChild><button type="button" className="w-fit text-left underline decoration-dotted underline-offset-2">{summaryLabels[i]}</button></TooltipTrigger><TooltipContent portal size="sm">{ko ? '새로고침, 새 탭, 분석 보드 진입 때도 이동 기록이 끊깁니다. 3명 미만의 이동도 여기에 포함됩니다.' : 'Refresh, a new tab, or entering a board also breaks the movement record. Movements by fewer than 3 users are also included here.'}</TooltipContent></Tooltip></TooltipProvider> : <span>{summaryLabels[i]}</span>}</div>
           <span className="tabular text-text-secondary">{ko ? `${count}건` : `${count} moves`} · {percent(count, summaryTotal)}</span>
         </li>)}
       </ul>
     </section>
-    {viaTotals.size > 0 && <ul aria-label={ko ? '이동 방식 범례' : 'Movement legend'} className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-text-secondary">
+    {viaTotals.size > 0 && <section aria-label={ko ? '이동 방식' : 'Movement methods'} className="flex flex-col gap-2 border-t border-border-subtle pt-4">
+      <h4 className="t-card-title">{ko ? '이동 방식' : 'Movement methods'}</h4>
+      <ul aria-label={ko ? '이동 방식 범례' : 'Movement legend'} className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-text-secondary">
       {GROUPS.map((group, i) => <li key={group.en} className="flex items-center gap-1"><span aria-hidden className={`size-2.5 shrink-0 ${group.swatch}`} />{group[lang]}<span className="tabular">{ko ? `${totals[i]}건` : `${totals[i]} moves`}</span></li>)}
-    </ul>}
+      </ul>
+    </section>}
     {visible.length > 0 ? <ol id={listId} aria-label={ko ? '다음으로 간 화면 순위' : 'Next screen ranking'} className="flex flex-col">
       {visible.map((row, i) => {
         const label = registry.menus.find(menu => menu.id === row.menuId)?.label[lang] ?? row.menuId;
         const counts = groupCounts(row.vias);
         const hasBreakdown = Object.keys(row.vias).length > 0;
-        return <li key={row.menuId} className="flex min-h-14 flex-col justify-center gap-1 border-b border-border-subtle py-2">
-          <div className="flex min-w-0 items-baseline justify-between gap-2 text-xs"><span className="min-w-0 truncate" title={label}><span className="mr-2 tabular text-text-muted">{i + 1}</span>{label}</span><span className="shrink-0 tabular">{ko ? `${row.count}건` : `${row.count} moves`}{hasBreakdown && ` · ${percent(row.count, data.entries)}`}</span></div>
+        return <li key={row.menuId} className="flex min-h-14 flex-col justify-center gap-0.5 border-b border-border-subtle py-1">
+          <div className="flex min-w-0 items-baseline justify-between gap-2 text-xs"><span className="min-w-0 break-words" title={label}><span className="mr-2 tabular text-text-muted">{i + 1}</span>{label}</span><span className="shrink-0 tabular">{ko ? `${row.count}건` : `${row.count} moves`}{hasBreakdown && ` · ${percent(row.count, data.entries)}`}</span></div>
           {hasBreakdown && <StackedBar values={counts} colors={GROUPS.map(group => group.color)} scale={row.count / max * 100} destination />}
           <p className="text-xs text-text-secondary">{ko ? `방문 사용자 ${row.distinctUsers}명` : `${row.distinctUsers} users`}{counts.map((count, j) => count > 0 ? ` · ${GROUPS[j][lang]} ${count}` : '').join('')}</p>
         </li>;

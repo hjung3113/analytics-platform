@@ -57,7 +57,7 @@ describe('aggregateUsageNext (#605)', () => {
     expect(plain.next).toEqual([{ menuId: 'A', count: 4, distinctUsers: 4, vias: { sidebar: 4 } }]);
     const withBack = aggregateUsageNext(events, 'M', true);
     expect(withBack.next).toEqual([
-      { menuId: 'A', count: 7, distinctUsers: 4, vias: { sidebar: 4, history: 3 } },
+      { menuId: 'A', count: 4, distinctUsers: 4, vias: { sidebar: 4 } }, // the back cell adds no new person: not merged, its entries stay in the summary
       { menuId: 'M', count: 4, distinctUsers: 4, vias: { link: 4 } },
     ]);
     for (const n of withBack.next) expect(Object.values(n.vias).reduce((a, b) => a + (b ?? 0), 0)).toBe(n.count);
@@ -150,12 +150,51 @@ describe('small cells never leave through a difference (#605, F1)', () => {
     }
   });
 
-  it('a back group of 3 people shows up with includeBack as exactly that group, and the toggle difference is a cell of >= 3 people', () => {
+  it('a back cell of the same 3 people adds no new person: the row is identical with and without includeBack', () => {
     const events = [...enter('M'), ...go('M', 'A', ['u1', 'u2', 'u3']), ...go('M', 'A', ['u1', 'u2'], 'history'), ...go('M', 'A', ['u3'], 'history')];
     const plain = aggregateUsageNext(events, 'M');
     const withBack = aggregateUsageNext(events, 'M', true);
     expect(plain.next).toEqual([{ menuId: 'A', count: 3, distinctUsers: 3, vias: { link: 3 } }]);
-    expect(withBack.next).toEqual([{ menuId: 'A', count: 6, distinctUsers: 3, vias: { link: 3, history: 3 } }]);
+    expect(withBack.next).toEqual(plain.next);
+    expect(withBack.summary.backOrReturn).toBe(3);
+  });
+
+  const users = (r: ReturnType<typeof aggregateUsageNext>, id: string) => r.next.find(n => n.menuId === id)?.distinctUsers ?? 0;
+
+  it('G2 counter-example: moved u1–u3 + back u2–u4 → the back cell adds only u4, so it is not merged (toggle difference never 1)', () => {
+    const events = [...enter('M', [...U, 'u5']), ...go('M', 'A', ['u1', 'u2', 'u3']), ...go('M', 'A', ['u2', 'u3', 'u4'], 'history')];
+    const plain = aggregateUsageNext(events, 'M');
+    const withBack = aggregateUsageNext(events, 'M', true);
+    expect(withBack.next).toEqual([{ menuId: 'A', count: 3, distinctUsers: 3, vias: { link: 3 } }]);
+    expect(users(withBack, 'A') - users(plain, 'A')).toBe(0);
+    expect(withBack.summary.backOrReturn).toBe(3); // the summary still reports the open back cell
+  });
+
+  it('G2: moved u1–u3 + back u3–u5 → adds u4,u5 only (2), not merged; the difference is never 2', () => {
+    const five = ['u1', 'u2', 'u3', 'u4', 'u5'];
+    const events = [...enter('M', five), ...go('M', 'A', ['u1', 'u2', 'u3']), ...go('M', 'A', ['u3', 'u4', 'u5'], 'history')];
+    expect(users(aggregateUsageNext(events, 'M', true), 'A')).toBe(3);
+  });
+
+  it('G2: a back cell adding exactly 3 new people is merged; count, users and vias come from both cells', () => {
+    const six = ['u1', 'u2', 'u3', 'u4', 'u5', 'u6'];
+    const events = [...enter('M', six), ...go('M', 'A', ['u1', 'u2', 'u3']), ...go('M', 'A', ['u3', 'u4', 'u5', 'u6'], 'history')];
+    const withBack = aggregateUsageNext(events, 'M', true);
+    expect(withBack.next).toEqual([{ menuId: 'A', count: 7, distinctUsers: 6, vias: { link: 3, history: 4 } }]);
+    expect(users(withBack, 'A') - users(aggregateUsageNext(events, 'M'), 'A')).toBe(3);
+  });
+
+  it('G2: a destination hidden by default (moved cell of 2) appears with includeBack from its open back cell only', () => {
+    const events = [...enter('M'), ...go('M', 'A', ['u1', 'u2']), ...go('M', 'A', ['u2', 'u3', 'u4'], 'history')];
+    expect(aggregateUsageNext(events, 'M').next).toEqual([]);
+    expect(aggregateUsageNext(events, 'M', true).next).toEqual([{ menuId: 'A', count: 3, distinctUsers: 3, vias: { history: 3 } }]);
+  });
+
+  it('G2: the same-menu cell obeys the new-people rule against a back self-loop (same first, back only if it adds >= 3)', () => {
+    const six = ['u1', 'u2', 'u3', 'u4', 'u5', 'u6'];
+    const loop = (backWho: string[]) => aggregateUsageNext([...enter('M', six), ...go('M', 'M', ['u1', 'u2', 'u3']), ...go('M', 'M', backWho, 'history')], 'M', true);
+    expect(loop(['u2', 'u3', 'u4']).next).toEqual([{ menuId: 'M', count: 3, distinctUsers: 3, vias: { link: 3 } }]);
+    expect(loop(['u3', 'u4', 'u5', 'u6']).next[0]).toMatchObject({ count: 7, distinctUsers: 6 });
   });
 
   it('vias are all-or-nothing: one via kind under 3 people empties the split, count and users stay', () => {
@@ -181,14 +220,14 @@ describe('small cells never leave through a difference (#605, F1)', () => {
 
 describe('usageSummary rates (#605)', () => {
   it('gives entries, backRate and searchEntryRate from main entries; both null under 3 users', () => {
-    const many = ['u1', 'u2', 'u3', 'u4'];
+    const many = ['u1', 'u2', 'u3', 'u4', 'u5', 'u6'];
     const events = [
-      ...many.map((u, i) => row(u, 'M', i < 3 ? 'palette' : 'sidebar', null)), // N=4, 3 palette (3 people)
-      ...go('M', 'A', ['u1', 'u2', 'u3'], 'history'), // back 3 of 4 (one cell of 3 people)
+      ...many.map((u, i) => row(u, 'M', i < 3 ? 'palette' : 'sidebar', null)), // N=6, 3 palette (3 people), 3 other (3 people)
+      ...go('M', 'A', ['u1', 'u2', 'u3'], 'history'), // back 3 of 6 (one cell of 3 people)
       ...enter('SMALL', ['u1', 'u2']), // 2 users
     ];
     const menus = aggregateUsage(events, { preset: 'all' }).menus;
-    expect(menus.find(m => m.menuId === 'M')).toMatchObject({ entries: 4, backRate: 0.75, searchEntryRate: 0.75 });
+    expect(menus.find(m => m.menuId === 'M')).toMatchObject({ entries: 6, backRate: 0.5, searchEntryRate: 0.5 });
     // F2: the entry count is masked like the rates.
     expect(menus.find(m => m.menuId === 'SMALL')).toMatchObject({ entries: null, backRate: null, searchEntryRate: null });
   });
@@ -200,7 +239,25 @@ describe('usageSummary rates (#605)', () => {
       ...go('M', 'B', ['u1', 'u2'], 'history'), ...go('M', 'C', ['u3'], 'return'), // 2 + 1: two cells under 3
     ];
     const m = aggregateUsage(events, { preset: 'all' }).menus.find(x => x.menuId === 'M');
-    expect(m).toMatchObject({ entries: 4, backRate: 0, searchEntryRate: 0 });
+    // 1 palette person: the palette side is 1–2 people, so the rate is withheld (a 0 would still pair with entries to leave the group exposed).
+    expect(m).toMatchObject({ entries: 4, backRate: 0, searchEntryRate: null });
+  });
+
+  // G1: `entries × (1 − rate)` must never be the size of a group of 1–2 people, from either side of the split.
+  const search = (palette: number, other: number) => {
+    const ids = Array.from({ length: palette + other }, (_, i) => `p${i}`);
+    const events = ids.map((u, i) => row(u, 'M', i < palette ? 'palette' : 'sidebar', null));
+    return aggregateUsage(events, { preset: 'all' }).menus[0]!.searchEntryRate;
+  };
+  it.each([
+    [3, 1, null], [3, 2, null], [3, 3, 0.5], [1, 3, null], [2, 3, null], [3, 4, 3 / 7], [0, 3, 0], [3, 0, 1],
+  ])('searchEntryRate with %i palette and %i other people → %s (null when either non-empty side has 1–2 people)', (palette, other, expected) => {
+    expect(search(palette, other)).toBe(expected);
+  });
+
+  it('one person entering twice by two vias counts on both sides of the split', () => {
+    const events = [...['a', 'b', 'c'].map(u => row(u, 'M', 'palette', null)), ...['a', 'b', 'c'].map(u => row(u, 'M', 'sidebar', null)), row('a', 'M', 'sidebar', null)];
+    expect(aggregateUsage(events, { preset: 'all' }).menus[0]!.searchEntryRate).toBe(3 / 7);
   });
 
   it('a menu with only board entries has null entries and rates (no main-entry people); visits still count them', () => {
