@@ -97,7 +97,8 @@ test.describe('탭·카드·버전 전환은 바뀐 부분만 다시 그린다 (
 
   test('지표 상세: 버전 버튼을 누르면 화면 틀과 이전 정의가 남고 로딩 뼈대가 뜨지 않는다', async ({ page }) => {
     const regions: Region[] = [
-      { name: '버전', selector: 'main #metric-section-version' },
+      { name: '버전', selector: 'main :has(> #metric-section-version)' },
+      { name: '정의', selector: 'main :has(> #metric-section-definition)' },
       { name: '머리', selector: 'main header' },
     ];
     await openSlow(page, '/bravo/metric-detail/cycle_time?v=1&version=4', async () => {
@@ -109,7 +110,7 @@ test.describe('탭·카드·버전 전환은 바뀐 부분만 다시 그린다 (
     expect(await skeletonsSeen(page)).toBe(0);
     // The chosen version is marked at once, before the reply for it arrives.
     await expect(page.getByRole('button', { name: /^v3/ })).toHaveAttribute('aria-pressed', 'true');
-    for (const name of ['버전', '머리']) {
+    for (const name of ['버전', '정의', '머리']) {
       const r = await survivors(page, name);
       expect(r.total, `${name} rendered`).toBeGreaterThan(0);
       expect(r.share, `${name} elements kept`).toBeGreaterThanOrEqual(0.85);
