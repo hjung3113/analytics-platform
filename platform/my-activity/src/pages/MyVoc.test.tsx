@@ -142,6 +142,34 @@ describe('VOC through the feature bridge', () => {
     await waitFor(() => expect(document.activeElement).toBe(list));
   });
 
+  it('narrow container: choosing a row hands focus to the detail pane when the list is hidden under it (review R1)', async () => {
+    vocFetch();
+    const css = document.createElement('style');
+    // jsdom evaluates no Tailwind: stand in for the narrow container, where a selection hides the list.
+    css.textContent = '[data-voc-list].hidden { display: none; }';
+    document.head.append(css);
+    try {
+      mountAt(session(['features:access']).adapter, '/voc?v=1');
+      const user = userEvent.setup();
+      await user.click(await screen.findByText('차트가 안 열립니다'));
+      const pane = await screen.findByRole('region', { name: 'VOC 상세' });
+      await waitFor(() => expect(document.activeElement).toBe(pane));
+    } finally { css.remove(); }
+  });
+
+  it('narrow container: clearing a bad value while a VOC stays selected focuses the detail pane, not a hidden control (review R1)', async () => {
+    vocFetch();
+    const css = document.createElement('style');
+    css.textContent = '[data-voc-list].hidden { display: none; }';
+    document.head.append(css);
+    try {
+      mountAt(session(['features:access']).adapter, `/voc?v=1&mine=false&focus=${ID_B}`);
+      await userEvent.setup().click(await screen.findByRole('button', { name: '값 지우기' }));
+      const pane = await screen.findByRole('region', { name: 'VOC 상세' });
+      await waitFor(() => expect(document.activeElement).toBe(pane));
+    } finally { css.remove(); }
+  });
+
   it('V2: lists GET /vocs/public with the session cookie, reads the system list, and sends no operator request', async () => {
     const calls = vocFetch();
     mountAt(session().adapter, '/voc?v=1');
