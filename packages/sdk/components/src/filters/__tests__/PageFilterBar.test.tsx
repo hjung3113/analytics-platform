@@ -179,6 +179,46 @@ describe('PageFilterBar collapsible', () => {
     expect(summary).toHaveTextContent('미적용 변경 있음');
   });
 
+  it('shows the expanded pending hint next to the existing actions without adding Apply', () => {
+    mountBar({ ...collapsibleProps, hasPendingChanges: true });
+    const hint = screen.getByText('미적용 변경 · 상단 적용으로 한 번에 조회');
+    expect(hint).toBeVisible();
+    expect(hint.parentElement).toBe(screen.getByRole('button', { name: '페이지 조건 기본값' }).parentElement);
+    expect(screen.getAllByRole('button')).toHaveLength(2);
+    expect(screen.queryByRole('button', { name: '적용' })).toBeNull();
+  });
+
+  it('removes the expanded hint after the consumer applies or clears pending changes', () => {
+    const view = mountBar({ ...collapsibleProps, hasPendingChanges: true });
+    expect(screen.getByText('미적용 변경 · 상단 적용으로 한 번에 조회')).toBeVisible();
+    view.rerender(<I18nProvider><PageFilterBar {...collapsibleProps} hasPendingChanges={false} /></I18nProvider>);
+    expect(screen.queryByText('미적용 변경 · 상단 적용으로 한 번에 조회')).toBeNull();
+  });
+
+  it('keeps identical expanded DOM when pending changes are false or absent', () => {
+    const view = mountBar();
+    const bar = screen.getByTestId('page-filter-bar');
+    const before = bar.outerHTML;
+    expect(screen.queryByText('미적용 변경 · 상단 적용으로 한 번에 조회')).toBeNull();
+    view.rerender(<I18nProvider><PageFilterBar {...collapsibleProps} hasPendingChanges={false} /></I18nProvider>);
+    expect(bar.outerHTML).toBe(before);
+  });
+
+  it('keeps the expanded hint out of the collapsed DOM and restores it on expansion', () => {
+    mountBar({ ...collapsibleProps, hasPendingChanges: true });
+    fireEvent.click(screen.getByRole('button', { name: '페이지 필터 접기' }));
+    expect(screen.queryByText('미적용 변경 · 상단 적용으로 한 번에 조회')).toBeNull();
+    expect(screen.getByText('미적용 변경 있음')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: '페이지 필터 펼치기' }));
+    expect(screen.getByText('미적용 변경 · 상단 적용으로 한 번에 조회')).toBeVisible();
+  });
+
+  it('localizes the expanded pending hint in English', () => {
+    storage.set('platform:lang', 'en');
+    mountBar({ ...collapsibleProps, hasPendingChanges: true });
+    expect(screen.getByText('Unapplied changes · Apply above to query once')).toBeVisible();
+  });
+
   it('keeps the live region silent on toggles and announces only real summary changes while collapsed', () => {
     const view = mountBar();
     const live = () => screen.getByTestId('page-filter-bar').querySelector('[aria-live="polite"]')!;

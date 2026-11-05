@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform, type MenuEntry } from '@ap/kernel';
-import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { groupId, spaceId } from '@ap/contracts';
 import { TableQuickSearch } from '../TableQuickSearch';
 
@@ -34,6 +34,77 @@ function mount(search: string, element = <TableQuickSearch pageKey="q" label="�
 }
 
 describe('TableQuickSearch (06 §15 quick search slot, #1232)', () => {
+  it('describes a nonempty dirty draft with the Enter hint, removing it after apply', () => {
+    const view = mount('?v=1');
+    expect(screen.queryByText('Enter로 검색')).toBeNull();
+    expect(view.box).not.toHaveAttribute('aria-describedby');
+    fireEvent.change(view.box, { target: { value: 'etch' } });
+    const hint = screen.getByText('Enter로 검색');
+    expect(hint).toBeVisible();
+    expect(view.box).toHaveAttribute('aria-describedby', hint.id);
+    expect(view.box).toHaveAccessibleDescription('Enter로 검색');
+    fireEvent.keyDown(view.box, { key: 'Enter' });
+    expect(screen.queryByText('Enter로 검색')).toBeNull();
+    expect(view.box).not.toHaveAttribute('aria-describedby');
+  });
+
+  it.each(['', 'etch'])('removes the draft hint when cleared (applied=%s)', applied => {
+    const view = mount(applied ? `?v=1&q=${applied}` : '?v=1');
+    expect(screen.queryByText('Enter로 검색')).toBeNull();
+    fireEvent.change(view.box, { target: { value: 'new draft' } });
+    expect(screen.getByText('Enter로 검색')).toBeVisible();
+    fireEvent.change(view.box, { target: { value: '' } });
+    expect(screen.queryByText('Enter로 검색')).toBeNull();
+    expect(view.box).not.toHaveAttribute('aria-describedby');
+    expect(view.params().has('q')).toBe(false);
+  });
+
+  it('removes the hint when the draft matches the applied value again', () => {
+    const view = mount('?v=1&q=etch');
+    fireEvent.change(view.box, { target: { value: 'new draft' } });
+    expect(screen.getByText('Enter로 검색')).toBeVisible();
+    fireEvent.change(view.box, { target: { value: 'etch' } });
+    expect(screen.queryByText('Enter로 검색')).toBeNull();
+    expect(view.box).not.toHaveAttribute('aria-describedby');
+  });
+
+  it('hides the hint during IME composition and restores it when composition ends', () => {
+    const view = mount('?v=1');
+    fireEvent.change(view.box, { target: { value: 'draft' } });
+    expect(screen.getByText('Enter로 검색')).toBeVisible();
+    fireEvent.compositionStart(view.box);
+    fireEvent.change(view.box, { target: { value: '설비' } });
+    expect(screen.queryByText('Enter로 검색')).toBeNull();
+    expect(view.box).not.toHaveAttribute('aria-describedby');
+    fireEvent.compositionEnd(view.box);
+    expect(screen.getByText('Enter로 검색')).toBeVisible();
+    expect(view.params().has('q')).toBe(false);
+  });
+
+  it('removes the hint when external navigation rebases the draft', () => {
+    const view = mount('?v=1');
+    fireEvent.change(view.box, { target: { value: 'draft' } });
+    expect(screen.getByText('Enter로 검색')).toBeVisible();
+    externalHref = '/list?v=1&q=applied';
+    view.go();
+    expect(screen.queryByText('Enter로 검색')).toBeNull();
+    expect(view.box).not.toHaveAttribute('aria-describedby');
+  });
+
+  it('localizes the draft hint and its accessible description in English', () => {
+    const storage = memoryStorage();
+    storage.setItem('platform:lang', 'en');
+    vi.stubGlobal('localStorage', storage);
+    try {
+      const view = mount('?v=1');
+      fireEvent.change(view.box, { target: { value: 'etch' } });
+      expect(screen.getByText('Press Enter to search')).toBeVisible();
+      expect(view.box).toHaveAccessibleDescription('Press Enter to search');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('Enter applies the draft to the declared page key and resets the page', () => {
     const view = mount('?v=1&page=3');
     fireEvent.change(view.box, { target: { value: 'etch' } });

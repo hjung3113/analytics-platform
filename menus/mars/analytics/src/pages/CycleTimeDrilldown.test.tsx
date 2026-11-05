@@ -132,6 +132,45 @@ describe('CycleTimeDrilldown applied condition line (#1218 LINE)', () => {
     expect(within(row).getAllByRole('button')).toHaveLength(1);
     expect(within(row).getByRole('group', { name: '느린 실행 기준 ≥ P50' })).toBeTruthy();
   });
+
+  // #1218 UX: clearing one narrowing chip is an applied-state write on that key only; every other
+  // pending draft value and the 미적용 marker must survive it (ADR-0112: chips never touch the draft).
+  it.each([
+    { key: 'bucket', clearLabel: '버킷 필터 해제' },
+    { key: 'bin', clearLabel: '분포 필터 해제' },
+  ])('keeps the pending draft and the 미적용 marker when the $key chip clears', async ({ key, clearLabel }) => {
+    renderPage(`${base}&bucket=2026-09-26T05:00:00&bin=45-60..60-75`);
+    const row = await screen.findByRole('group', { name: '적용된 조건' });
+    fireEvent.click(screen.getByRole('button', { name: '일' }));
+    fireEvent.click(screen.getByRole('button', { name: '페이지 필터 접기' }));
+    const expand = screen.getByRole('button', { name: '페이지 필터 펼치기' });
+    expect(expand.textContent).toContain('미적용 변경 있음');
+    fireEvent.click(screen.getByRole('button', { name: clearLabel }));
+    await waitFor(() => expect(screen.queryByRole('button', { name: clearLabel })).toBeNull());
+    expect(new URLSearchParams(window.location.search).has(key)).toBe(false);
+    expect(expand.textContent).toContain('미적용 변경 있음');
+    fireEvent.click(expand);
+    expect(screen.getByRole('button', { name: '일' }).getAttribute('aria-pressed')).toBe('true');
+    expect(within(row).getAllByRole('button')).toHaveLength(1);
+  });
+
+  it('keeps the pending period draft when the bin chip clears', async () => {
+    window.history.replaceState(null, '', `${base}&bin=45-60..60-75`);
+    render(<I18nProvider><PlatformProvider equipmentAxes={TEST_AXES} adapter={adapter} registry={registry}>
+      <DraftActions /><CycleTimeDrilldown params={{}} />
+    </PlatformProvider></I18nProvider>);
+    const row = await screen.findByRole('group', { name: '적용된 조건' });
+    fireEvent.click(screen.getByRole('button', { name: 'Draft longer period' }));
+    fireEvent.click(screen.getByRole('button', { name: '페이지 필터 접기' }));
+    const expand = screen.getByRole('button', { name: '페이지 필터 펼치기' });
+    expect(expand.textContent).toContain('집계 일');
+    expect(within(row).getByRole('group', { name: '집계 시간' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '분포 필터 해제' }));
+    await waitFor(() => expect(screen.queryByRole('button', { name: '분포 필터 해제' })).toBeNull());
+    expect(new URLSearchParams(window.location.search).has('bin')).toBe(false);
+    expect(expand.textContent).toContain('집계 일');
+    expect(expand.textContent).toContain('미적용 변경 있음');
+  });
 });
 
 describe('CycleTimeDrilldown page filter summary', () => {

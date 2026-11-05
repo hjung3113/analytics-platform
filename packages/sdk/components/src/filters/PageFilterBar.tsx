@@ -58,7 +58,7 @@ export type PageFilterBarProps = PageFilterBarShared & {
   summaryItems: readonly PageFilterSummaryItem[];
   /** Reset/apply actions that stay visible while collapsed. */
   collapsedActions?: ReactNode;
-  /** Marks unapplied changes at the end of the collapsed summary. */
+  /** Marks unapplied changes beside expanded actions and at the end of the collapsed summary. */
   hasPendingChanges?: boolean;
   /** Optional applied-state row, also visible while collapsed. Omit to preserve the existing DOM. */
   appliedChips?: readonly PageFilterAppliedChip[];
@@ -202,6 +202,7 @@ function CollapsiblePageFilterBar({ label, fields, actions, summaryItems, collap
         {fields.map((field, index) => <PageFilterFieldControl key={field.key} field={field} id={`${id}-field-${index}`} />)}
         <div className="flex flex-wrap items-end gap-2">
           {actions}
+          {hasPendingChanges && <span className="t-caption self-center text-text-secondary">{t('pageFilterPendingApplyHint')}</span>}
           <Button ref={collapseRef} type="button" variant="ghost" size="toolbar" onClick={() => toggle(true)}
             aria-expanded="true" aria-controls={panelId} aria-label={t('collapsePageFilter', { label })}>
             <ChevronUp className="size-3.5" aria-hidden />{t('collapseShort')}

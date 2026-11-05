@@ -28,6 +28,8 @@ const dict = {
   pageIssuesCount: { ko: '확인 필요 {count}', en: 'Needs attention {count}' },
   outcomeDetails: { ko: '자세히', en: 'Details' },
   pageFilterPendingChanges: { ko: '미적용 변경 있음', en: 'Unapplied changes' },
+  pageFilterPendingApplyHint: { ko: '미적용 변경 · 상단 적용으로 한 번에 조회', en: 'Unapplied changes · Apply above to query once' },
+  tableQuickSearchEnterHint: { ko: 'Enter로 검색', en: 'Press Enter to search' },
   favorites: { ko: '즐겨찾기', en: 'Favorites' },
   recent: { ko: '최근 방문', en: 'Recent' },
   noFavorites: { ko: '즐겨찾기가 없습니다. 화면 제목 옆 ☆로 추가하세요.', en: 'No favorites yet. Use ☆ next to a page title.' },

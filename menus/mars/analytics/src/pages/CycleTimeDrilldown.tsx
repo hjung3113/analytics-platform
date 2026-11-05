@@ -1,4 +1,5 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { AlertTriangle, ArrowRight, Gauge, Hash, RotateCw, Timer } from 'lucide-react';
 import { periodHours, type GlobalContext, type Pair, type Trust } from '@ap/contracts';
 import { type PageProps, PlatformLink, useI18n, useMenuFetch, useMenuQuery, useQueryDraft, usePlatform, useSavedViewSupport } from '@ap/kernel';
@@ -160,10 +161,29 @@ export default function CycleTimeDrilldown(_: PageProps) {
   const { grainFieldLabel, grainLabel, tailFieldLabel, tailOptions, sortFieldLabel, sortOptions, unknownRaw } = filterVocabulary(lang);
   const pageSummary = summaryFor(queryDraft.draft.global, queryDraft.draft.page, lang);
   const appliedPageSummary = summaryFor(global, page, lang);
+  // ADR-0112: a chip never touches the draft; the two narrowings still clear immediately as applied-state
+  // writes. The kernel rebases the whole draft to the applied state on every address change (kernel
+  // query/draft-state reconcile), so the page re-asserts the other pending values right after the write;
+  // flushSync lands the rebase and the restore inside one paint, so the pending marker never flashes off.
+  const queryDraftRef = useRef(queryDraft);
+  useLayoutEffect(() => { queryDraftRef.current = queryDraft; });
+  const clearNarrowing = useCallback((key: 'bucket' | 'bin') => {
+    const { global: globalDraft, page: pageDraft } = queryDraft.draft;
+    const pending = queryDraft.dirty.length > 0;
+    flushSync(() => setPage({ [key]: null }));
+    if (!pending) return;
+    const restored: Partial<GlobalContext> = { ...globalDraft };
+    delete restored.scopeId;
+    queryDraftRef.current.setDraftGlobal(restored);
+    const keys = new Set([...pageDraft, ...page].map(([name]) => name));
+    keys.delete(key);
+    if (keys.size > 0) queryDraftRef.current.setDraftPage(Object.fromEntries([...keys].map(name => [name, pageDraft.find(([k]) => k === name)?.[1] ?? null])));
+  }, [queryDraft, page, setPage]);
+
   const appliedChips: PageFilterAppliedChip[] = appliedPageSummary.filter(item => item.key !== 'page').map(item => ({
     ...item,
-    ...(item.key === 'bucket' ? { onClear: () => setPage({ bucket: null }), clearLabel: ko ? '버킷 필터 해제' : 'Clear bucket filter' }
-      : item.key === 'bin' ? { onClear: () => setPage({ bin: null }), clearLabel: ko ? '분포 필터 해제' : 'Clear histogram filter' }
+    ...(item.key === 'bucket' ? { onClear: () => clearNarrowing('bucket'), clearLabel: ko ? '버킷 필터 해제' : 'Clear bucket filter' }
+      : item.key === 'bin' ? { onClear: () => clearNarrowing('bin'), clearLabel: ko ? '분포 필터 해제' : 'Clear histogram filter' }
       : {}),
   }));
   const historyPageSummary = useCallback((candidate: GlobalContext, page: readonly Pair[]) => summaryFor(candidate, page, lang), [lang]);

@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { usePlatform } from '@ap/kernel';
+import { useId, useState } from 'react';
+import { useI18n, usePlatform } from '@ap/kernel';
 import { Input } from '@ap/ui';
 import { useImeComposition } from '../filters/useImeEnterGuard';
 
@@ -21,28 +21,36 @@ export type TableQuickSearchProps = {
  */
 export function TableQuickSearch({ pageKey, label, placeholder, resetKeys = ['page'] }: TableQuickSearchProps) {
   const { pageParam, setPage } = usePlatform();
+  const { t } = useI18n();
+  const hintId = useId();
   const applied = pageParam(pageKey) ?? '';
   const [draft, setDraft] = useState(applied);
   const [synced, setSynced] = useState(applied);
   if (synced !== applied) { setSynced(applied); setDraft(applied); }
   const ime = useImeComposition();
+  const [composing, setComposing] = useState(false);
+  const showHint = draft !== '' && draft !== applied && !composing;
   const apply = (value: string) => {
     const patch: Record<string, string | null> = { [pageKey]: value === '' ? null : value };
     for (const key of resetKeys) patch[key] = null;
     setPage(patch);
   };
-  return <Input
+  return <span className="flex min-w-0 items-center gap-2">
+    <Input
     type="search" inputSize="toolbar" aria-label={label} placeholder={placeholder ?? label} value={draft}
+    className="min-w-0" aria-describedby={showHint ? hintId : undefined}
     onChange={event => {
       setDraft(event.target.value);
       if (event.target.value === '' && applied !== '') apply('');
     }}
-    onCompositionStart={ime.onCompositionStart}
-    onCompositionEnd={ime.onCompositionEnd}
+    onCompositionStart={() => { setComposing(true); ime.onCompositionStart(); }}
+    onCompositionEnd={event => { setComposing(false); ime.onCompositionEnd(event); }}
     onKeyDown={event => {
       if (event.key !== 'Enter') { ime.release(); return; }
       if (ime.composingEnter(event)) { event.preventDefault(); return; }
       if (draft !== applied) apply(draft);
     }}
-  />;
+    />
+    {showHint && <span id={hintId} className="t-caption shrink-0 whitespace-nowrap text-text-secondary">{t('tableQuickSearchEnterHint')}</span>}
+  </span>;
 }
