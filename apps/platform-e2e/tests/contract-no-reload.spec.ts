@@ -39,8 +39,15 @@ const skeletonsSeen = (page: Page) => page.evaluate(() => (window as unknown as 
 /** The request is really in flight: a refreshing wrapper (`aria-busy=true`) or the previous-selection notice is on screen. The slow scenario holds the reply for 2.2 s. */
 const PENDING = 'main [aria-busy="true"], main [role="status"][aria-label="이전 선택의 결과 · 갱신 중"]';
 const pendingSeen = (page: Page) => expect(page.locator(PENDING).first(), 'the new request entered its pending state').toBeAttached({ timeout: 5_000 });
-const textOf = (page: Page, selector: string) => page.evaluate((css) => document.querySelector(css)?.textContent ?? '', selector);
-/** The new response is drawn: the region's text differs from what it said before the action (the old result stays until then). */
+/** The region's text without any `role=status` node (the previous-selection notice, a skeleton): only the drawn result counts. */
+const textOf = (page: Page, selector: string) => page.evaluate((css) => {
+  const root = document.querySelector(css);
+  if (!root) return '';
+  const copy = root.cloneNode(true) as Element;
+  copy.querySelectorAll('[role="status"]').forEach(node => node.remove());
+  return copy.textContent ?? '';
+}, selector);
+/** The new response is drawn: the region's result content (the notice and every `role=status` node excluded, so its appearing or going cannot satisfy this) differs from what it said before the action; the old result stays until then. */
 const textChangedFrom = (page: Page, selector: string, before: string) => expect.poll(() => textOf(page, selector), { message: `${selector} shows the new content`, timeout: 15_000 }).not.toBe(before);
 const noBusy = (page: Page) => expect(page.locator('main [role="status"][aria-busy], main [aria-busy="true"]')).toHaveCount(0, { timeout: 15_000 });
 

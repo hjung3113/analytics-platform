@@ -291,6 +291,30 @@ describe('MetricDetail shows one refreshing notice per version transition (#1365
     expect(screen.getAllByText('이전 선택의 결과 · 갱신 중')).toHaveLength(2);
     await act(async () => { releases.forEach(release => release()); });
   });
+
+  it.each([
+    // The pair resolves first: only the definition and usage are still previous, so the pair shows no notice (2).
+    { name: 'pair first', held: ['metrics.definition', 'metrics.usage'], notices: 2 },
+    // The definition and usage resolve first: the pair alone is still previous and must label itself (1).
+    { name: 'pair last', held: ['metrics.pair'], notices: 1 },
+  ])('$name: the pair verdict shows its own notice exactly when the definition does not explain the transition', async ({ held: heldEndpoints, notices }) => {
+    const base = fixtureAdapter();
+    let held = false;
+    const adapter: PlatformAdapter = {
+      ...base,
+      menuQuery: async (req, signal) => {
+        if (held && heldEndpoints.includes(req.endpoint)) await new Promise<void>(resolve => { releases.push(resolve); });
+        return base.menuQuery(req, signal);
+      },
+    };
+    renderDetail('/metrics/cycle_time?version=4', 'cycle_time', adapter);
+    expect((await screen.findAllByText('분포 재계산. PRC 구간만. averageOfQuantilesAllowed=false.')).length).toBeGreaterThan(0);
+    await settleQueries();
+    held = true;
+    fireEvent.click(screen.getByRole('button', { name: /^v5/ }));
+    await waitFor(() => expect(screen.getAllByText('이전 선택의 결과 · 갱신 중')).toHaveLength(notices));
+    await act(async () => { releases.forEach(release => release()); });
+  });
 });
 
 describe('MetricDetail describes the kept usage and pair result by the version it was loaded with (#1365 F6)', () => {

@@ -50,7 +50,7 @@ function pairText(verdict: PairVerdict, lang: 'ko' | 'en', pageVersion: string |
  *  The page owns the `metrics.pair` query and passes it in (#325-2): the banner is the first section of both
  *  pages, so the same single request also gates the detail page's anchor scroll — and the catalog, which reads
  *  the verdict for its active row, no longer sends the request twice. */
-export function MetricPairBanner({ query, pageVersion = null, refreshNotice }: { query: QueryState<PairVerdict>; pageVersion?: string | null; refreshNotice?: 'hidden' }) {
+export function MetricPairBanner({ query, pageVersion = null, refreshNotice }: { query: QueryState<PairVerdict>; pageVersion?: string | null; refreshNotice?: 'visible' | 'hidden' }) {
   const { setPage } = usePlatform();
   const { lang } = useI18n();
 

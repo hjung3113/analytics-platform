@@ -168,7 +168,7 @@ describe('AnalysisLayout', () => {
     const status = screen.getByRole('status', { name: '이전 선택의 결과 · 갱신 중' });
     expect(status.querySelector('.sr-only')).toBeNull();
     expect(status.parentElement).toBe(wrapper);
-    expect(status).toHaveClass('absolute', '-top-2.5');
+    expect(status).toHaveClass('absolute', 'bottom-0');
     expect(frame.contains(status)).toBe(false);
     expect(frame.querySelector('header')).toHaveClass('pr-12');
     expect(result.container.querySelector('[data-query-stale-tint]')).toBeInTheDocument();

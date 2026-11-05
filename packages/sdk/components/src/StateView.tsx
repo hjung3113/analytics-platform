@@ -109,12 +109,14 @@ export function OutcomeView<T>({ response, onRetry, emptyAction, compact, childr
 }
 
 /** Query boundary: first load → skeleton; same-Context refresh → keep data + label; otherwise outcome taxonomy. */
-export function QueryView<T>({ query, children, skeletonRows, skeletonHeight, emptyAction, compact, widgetName, hideWidgetName, fill, refreshNotice = 'visible' }: {
+export function QueryView<T>({ query, children, skeletonRows, skeletonHeight, emptyAction, compact, widgetName, hideWidgetName, fill, refreshNotice = 'visible', refreshNoticePlacement = 'bottom-end' }: {
   query: QueryState<T>; children: (data: T, response: ApiResponse<T>) => ReactNode; skeletonRows?: number; skeletonHeight?: number; emptyAction?: ReactNode; compact?: boolean; widgetName?: string; hideWidgetName?: boolean;
   /** The wrapper takes the parent's height (`flex min-h-0 flex-1 flex-col`) so a `size="fill"` chart inside has a bounded parent, as it does in a workspace panel. */
   fill?: boolean;
   /** Hide a duplicate refresh notice while retaining the result's aria-busy state and stale tint. */
   refreshNotice?: 'visible' | 'hidden';
+  /** Previous-selection notice corner, inside the result boundary; nearby controls are kept clear. */
+  refreshNoticePlacement?: 'bottom-end' | 'top-end';
 }) {
   const { t, lang } = useI18n();
   const analysisSection = useContext(AnalysisSectionContext);
@@ -135,7 +137,7 @@ export function QueryView<T>({ query, children, skeletonRows, skeletonHeight, em
   const showingPrevious = query.status === 'refreshing' && query.showingPrevious === true;
   return <div aria-busy={query.status === 'refreshing'} className={cn('relative', query.showingPrevious !== undefined && 'isolate', inPanel && 'h-full min-h-0', fill && 'flex min-h-0 flex-1 flex-col', chart && 'row-span-2', chart && response.outcome === 'ok' && 'grid grid-rows-subgrid gap-y-0', analysisSection && response.outcome !== 'ok' && 'pr-12')}>
     {/* The notice is a sibling of the result card: the card's own overflow and toolbar do not contain it. */}
-    {showingPrevious && !grouped && refreshNotice === 'visible' && <QueryRefreshNotice label={refreshingLabel} />}
+    {showingPrevious && !grouped && refreshNotice === 'visible' && <QueryRefreshNotice label={refreshingLabel} placement={refreshNoticePlacement} />}
     {showingPrevious && <div data-query-stale-tint aria-hidden className="pointer-events-none absolute inset-0 z-[1] bg-surface-sunken/20 mix-blend-multiply" />}
     {query.status === 'refreshing' && !showingPrevious && !grouped && refreshNotice === 'visible' && (analysisSection && analysisSection.kind !== 'kpi'
       // Icon only, in the header's reserved right column under the corner collapse button: never over the toolbar.

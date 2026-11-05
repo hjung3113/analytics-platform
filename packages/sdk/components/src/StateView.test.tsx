@@ -161,7 +161,7 @@ describe('previous-selection refresh presentation (#1365 FIXV)', () => {
     expect(status).not.toHaveClass('sr-only');
     expect(status.querySelector('.sr-only')).toBeNull();
     expect(status).toHaveClass('text-xs', 'text-text-secondary', 'bg-surface-sunken');
-    expect(status).toHaveClass('absolute', 'right-3', '-top-2.5', 'border', 'border-border-subtle');
+    expect(status).toHaveClass('absolute', 'right-3', 'bottom-0', 'border', 'border-border-subtle');
     expect(status.parentElement).toBe(container.querySelector('[aria-busy="true"]'));
     expect(status.parentElement).not.toHaveClass('pt-8');
     expect(status.parentElement?.querySelector('.h-8')).toBeNull();
@@ -223,53 +223,26 @@ describe('previous-selection refresh presentation (#1365 FIXV)', () => {
     expect(screen.getByText('42')).toBe(body);
   });
 
-  it('escapes a clipping ancestor without a portal, moving or remounting the result', () => {
+  it('stays inline inside a clipping ancestor without moving or remounting the result', () => {
     const result = render(<div data-testid="clip">{view(false, 'done')}</div>);
     const clip = screen.getByTestId('clip');
     clip.style.overflow = 'hidden';
     const body = screen.getByRole('table');
-    let anchorTop = 40;
-    const rect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
-      const top = this === clip ? 40 : this.getAttribute('role') === 'status' ? anchorTop - 21 : anchorTop;
-      return { top, bottom: top + 200, left: 20, right: 320, width: 300, height: this.getAttribute('role') === 'status' ? 22 : 200, x: 20, y: top, toJSON: () => ({}) };
-    });
-    const show = vi.fn();
-    const hide = vi.fn();
-    const oldShow = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'showPopover');
-    const oldHide = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'hidePopover');
-    Object.defineProperty(HTMLElement.prototype, 'showPopover', { configurable: true, value: show });
-    Object.defineProperty(HTMLElement.prototype, 'hidePopover', { configurable: true, value: hide });
-    try {
-      result.rerender(<div data-testid="clip">{view(true)}</div>);
-      const status = screen.getByRole('status', { name: '이전 선택의 결과 · 갱신 중' });
-      expect(status.parentElement).toBe(clip.firstElementChild);
-      expect(status).toHaveAttribute('popover', 'manual');
-      expect(status.style.position).toBe('fixed');
-      expect(status.style.top).toBe('19px');
-      expect(status).toHaveClass('backdrop:pointer-events-none', 'backdrop:bg-transparent');
-      expect(show).toHaveBeenCalledTimes(1);
-      expect(screen.getByRole('table')).toBe(body);
-      expect(body.parentElement).toHaveAttribute('aria-busy', 'true');
-      anchorTop = 30;
-      clip.dispatchEvent(new Event('scroll'));
-      expect(status.style.top).toBe('9px');
-      expect(status.style.visibility).toBe('hidden');
-      anchorTop = 41;
-      window.dispatchEvent(new Event('resize'));
-      expect(status.style.top).toBe('20px');
-      expect(status.style.visibility).toBe('visible');
-      expect(show).toHaveBeenCalledTimes(1);
-      result.rerender(<div data-testid="clip">{view(false, 'done')}</div>);
-      expect(hide).toHaveBeenCalledTimes(1);
-      expect(screen.queryByRole('status')).toBeNull();
-      expect(screen.getByRole('table')).toBe(body);
-    } finally {
-      rect.mockRestore();
-      if (oldShow) Object.defineProperty(HTMLElement.prototype, 'showPopover', oldShow);
-      else Reflect.deleteProperty(HTMLElement.prototype, 'showPopover');
-      if (oldHide) Object.defineProperty(HTMLElement.prototype, 'hidePopover', oldHide);
-      else Reflect.deleteProperty(HTMLElement.prototype, 'hidePopover');
-    }
+    result.rerender(<div data-testid="clip">{view(true)}</div>);
+    const status = screen.getByRole('status', { name: '이전 선택의 결과 · 갱신 중' });
+    expect(status.parentElement).toBe(clip.firstElementChild);
+    expect(status).not.toHaveAttribute('popover');
+    expect(status).toHaveClass('absolute', 'bottom-0');
+    expect(status.style.position).not.toBe('fixed');
+    expect(status.style.top).toBe('');
+    expect(screen.getByRole('table')).toBe(body);
+    expect(body.parentElement).toHaveAttribute('aria-busy', 'true');
+    clip.dispatchEvent(new Event('scroll'));
+    window.dispatchEvent(new Event('resize'));
+    expect(status.style.bottom).toBe('0px');
+    result.rerender(<div data-testid="clip">{view(false, 'done')}</div>);
+    expect(screen.queryByRole('status')).toBeNull();
+    expect(screen.getByRole('table')).toBe(body);
   });
 
   it('keeps the light label without a stale tint for same-params refetches', () => {
