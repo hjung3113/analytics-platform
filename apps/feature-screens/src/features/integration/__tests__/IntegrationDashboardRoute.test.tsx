@@ -583,7 +583,9 @@ describe('integration action dashboard route', () => {
   test('keeps the dashboard mounted at /integration', async () => {
     const { router } = await renderDashboard('/integration');
     expect(router.state.location.pathname).toBe('/integration');
-    expect(screen.getByRole('heading', { level: 1, name: '연동 액션 대시보드' })).toBeVisible();
+    expect(screen.getByRole('heading', { level: 1, name: '연동 액션 대시보드' })).toHaveClass('sr-only');
+    expect(screen.queryByText(/VOC · Finding · Task · 설문 사이의 흐름이 끊긴 지점을 추적합니다/)).toBeNull();
+    expect(screen.getByTestId('integration-dashboard-refresh')).toBeVisible();
   });
 
   test('strictly accepts the documented 시스템 scope search values', () => {

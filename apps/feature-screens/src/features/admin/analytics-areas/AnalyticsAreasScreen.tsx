@@ -93,32 +93,19 @@ export function AnalyticsAreasAdminPage({ renderDetail, titleInHeader }: Analyti
     });
   }
 
+  const registerAction = (
+    <PermissionGate capability="workspace.admin" fallback={null} loading={null}>
+      <HostPrimaryAction>
+        <Button variant="primary" size="sm" onClick={() => setRegisterCtx({ open: true, msId: null })} data-testid="aa-new-area-button">
+          <Plus className="h-4 w-4" />
+          {createLabel('분석 영역')}
+        </Button>
+      </HostPrimaryAction>
+    </PermissionGate>
+  );
   return (
     <PageShell
-      header={{
-        ...(hostOwnsTitle ? {} : { title: '분석 영역', subtitle: SUBTITLE }),
-        actions: (
-          <PermissionGate capability="workspace.admin" fallback={null} loading={null}>
-            <AnalyticsAreasFilter
-              includeArchived={includeArchived}
-              managedSystemId={managedSystemId}
-              onIncludeArchivedChange={handleIncludeArchivedChange}
-              onManagedSystemIdChange={handleManagedSystemChange}
-            />
-            <HostPrimaryAction>
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => setRegisterCtx({ open: true, msId: null })}
-                data-testid="aa-new-area-button"
-              >
-                <Plus className="h-4 w-4" />
-                {createLabel('분석 영역')}
-              </Button>
-            </HostPrimaryAction>
-          </PermissionGate>
-        ),
-      }}
+      {...(hostOwnsTitle ? {} : { header: { title: '분석 영역', subtitle: SUBTITLE, actions: registerAction } })}
     >
       <PermissionGate capability="workspace.admin">
         <AnalyticsAreasBody
@@ -132,6 +119,15 @@ export function AnalyticsAreasAdminPage({ renderDetail, titleInHeader }: Analyti
           setRegisterCtx={setRegisterCtx}
           guardrailTitle={GUARDRAIL_TITLE}
           guardrailBody={GUARDRAIL_BODY}
+          actions={<>
+            <AnalyticsAreasFilter
+              includeArchived={includeArchived}
+              managedSystemId={managedSystemId}
+              onIncludeArchivedChange={handleIncludeArchivedChange}
+              onManagedSystemIdChange={handleManagedSystemChange}
+            />
+            {hostOwnsTitle ? registerAction : null}
+          </>}
         />
       </PermissionGate>
     </PageShell>

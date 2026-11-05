@@ -70,9 +70,14 @@ describe('admin registry screens — primary action placement (#1291 B2)', () =>
     const button = await screen.findByTestId(testId);
     expect(within(screen.getByTestId('host-head')).getByTestId(testId)).toBe(button);
     expect(screen.getAllByTestId(testId)).toHaveLength(1);
+    const filter = await screen.findByTestId(`${page}-filter-button`);
+    const heading = screen.getByRole('heading', { name: page === 'ms' ? '레지스트리' : '카탈로그' });
+    expect(heading.parentElement).toContainElement(filter);
+    expect(filter.closest('[data-shell="page"]')?.querySelector('header')).toBeNull();
+    expect(filter.closest('.px-8')).not.toBeNull();
   });
 
-  it.each(CASES)('%s stays in the screen header without a host target', async (_label, page, testId) => {
+  it.each(CASES)('%s stays reachable once without a host target', async (_label, page, testId) => {
     installFetch('approved');
     mount(page, false);
     expect(await screen.findByTestId(testId)).toBeInTheDocument();

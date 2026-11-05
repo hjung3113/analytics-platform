@@ -29,6 +29,7 @@ export function AnalyticsAreasBody({
   setRegisterCtx,
   guardrailTitle,
   guardrailBody,
+  actions,
 }: {
   includeArchived: boolean;
   managedSystemId: string | undefined;
@@ -41,6 +42,7 @@ export function AnalyticsAreasBody({
   setRegisterCtx: (v: { open: boolean; msId: string | null }) => void;
   guardrailTitle: string;
   guardrailBody: string;
+  actions: ReactNode;
 }) {
   const qc = useQueryClient();
   const { write } = useHostSearchWriter('/admin/analytics-areas', validateAnalyticsAreasSearch);
@@ -121,6 +123,7 @@ export function AnalyticsAreasBody({
       <AnalyticsAreasCatalog
         guardrailTitle={guardrailTitle}
         guardrailBody={guardrailBody}
+        actions={actions}
         pending={aaQuery.isPending || msQuery.isPending}
         areasIsError={aaQuery.isError}
         areasError={aaQuery.error}

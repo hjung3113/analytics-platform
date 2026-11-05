@@ -121,6 +121,27 @@ describe('VOC through the feature bridge', () => {
   const onSessionLost = vi.fn();
   beforeEach(() => { onSessionLost.mockReset(); setFeatureApi({ basePath: '/api/features', onSessionLost }); });
 
+  it('adapts to its own container and returns to the mounted list with the keyboard while keeping filters', async () => {
+    vocFetch();
+    mountAt(session(['features:access']).adapter, `/voc?v=1&focus=${ID_B}&q=chart`);
+    const pane = await screen.findByRole('region', { name: 'VOC 상세' });
+    expect(pane.parentElement?.parentElement?.classList.contains('@container/voc')).toBe(true);
+    expect(pane.parentElement?.classList.contains('@3xl/voc:grid-cols-[minmax(320px,2fr)_3fr]')).toBe(true);
+    const list = screen.getByRole('searchbox').closest('[data-voc-list]');
+    expect(list?.classList.contains('hidden')).toBe(true);
+    expect(list?.classList.contains('@3xl/voc:block')).toBe(true);
+    const back = within(pane).getByRole('button', { name: '목록 보기' });
+    expect(back.parentElement?.classList.contains('flex-wrap')).toBe(true);
+    expect(back.classList.contains('@3xl/voc:hidden')).toBe(true);
+    back.focus();
+    await userEvent.setup().keyboard('{Enter}');
+    await waitFor(() => expect(search().has('focus')).toBe(false));
+    expect(search().get('q')).toBe('chart');
+    expect(screen.getByRole('searchbox').closest('[data-voc-list]')).toBe(list);
+    expect(list?.classList.contains('hidden')).toBe(false);
+    await waitFor(() => expect(document.activeElement).toBe(list));
+  });
+
   it('V2: lists GET /vocs/public with the session cookie, reads the system list, and sends no operator request', async () => {
     const calls = vocFetch();
     mountAt(session().adapter, '/voc?v=1');

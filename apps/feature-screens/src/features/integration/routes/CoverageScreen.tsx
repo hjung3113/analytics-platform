@@ -56,7 +56,6 @@ const SETTINGS_HREF = '/admin/settings#coverage';
 
 // The prototype subtitle pitches editable thresholds (direction C, deferred);
 // the integration guide requires the partial-integration-coverage label.
-const PARTIAL_COVERAGE_SUBTITLE = '부분 커버리지. 정책이 요구하는 연결만 표시합니다.';
 
 // Coverage columns are the five rollup ratios; the queue columns are the five
 // per-system queues. permission-requests-pending is workspace review, never a
@@ -280,13 +279,8 @@ export function CoverageScreen(): React.ReactElement {
   return (
     <PageShell contentClassName="max-w-none">
       <section data-testid="integration-coverage">
-        <header className="mb-6 flex items-center justify-between gap-4">
-          <div className="min-w-0">
-            <h1 className="text-xl font-semibold tracking-tight text-text-primary">
-              {GLOSSARY.coverage}
-            </h1>
-            <p className="mt-3 text-sm text-text-muted">{PARTIAL_COVERAGE_SUBTITLE}</p>
-          </div>
+        <h1 className="sr-only">{GLOSSARY.coverage}</h1>
+        <div className="mb-3 flex flex-wrap justify-end gap-2">
           <div className="flex shrink-0 gap-2">
             {canLink(SETTINGS_HREF) && <CoverageSettingsLink isAdmin={isAdmin} />}
             <Popover>
@@ -345,7 +339,7 @@ export function CoverageScreen(): React.ReactElement {
               {GLOSSARY.refresh}
             </Button>
           </div>
-        </header>
+        </div>
         <Tabs value={isAreas ? 'areas' : 'overview'} onValueChange={handleTab}>
           <TabsList>
             <TabsTrigger value="overview">{AREA_COPY.overview}</TabsTrigger>
