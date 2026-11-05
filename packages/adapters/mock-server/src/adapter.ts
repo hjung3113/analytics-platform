@@ -7,7 +7,7 @@ import type { AuditEvent, EquipmentAxisDescriptor, ContextKey, MenuMeta, Permiss
 import { instantEpochMs, requiredContextError } from '@ap/contracts';
 import { createSelectionPorts } from './query/selection-ports';
 import { contextShapeError } from './access/context-validation';
-import { checkScope, getEntity, getRole, matchesCondition, recordUsage, reportClientError, subscribeServer, usageSummary, validateScope } from './server';
+import { checkScope, getEntity, getRole, matchesCondition, recordUsage, reportClientError, subscribeServer, usageNextScreens, usageSummary, validateScope } from './server';
 import { AUDIT_TYPES, auditTrail, entityAudit } from './audit/audit';
 import { AUDIT_EVENTS } from './audit/audit-fixtures';
 import { accessDirectory } from './access/access';
@@ -211,6 +211,7 @@ export function createMockAdapter(o: {
     recordUsage: events => recordUsage(events),
     reportClientError: report => reportClientError(report),
     usageSummary: (range, signal) => usageSummary(range, signal),
+    usageNextScreens: (query, signal) => usageNextScreens(query, signal),
     // opts (test role pin, latency) stay server-side: the adapter passes the port arguments only.
   };
 }

@@ -54,6 +54,67 @@ export function planConsoleChecks(harness: ServerConformanceHarness): Conformanc
       ),
     });
   }
+  // usageNextScreens (#605): three requests in all, to stay inside the shared per-actor rate budget. The answer's numbers depend on
+  // the server's data, so the checks assert invariants that hold for any data: the mask (k = 3, ADR-0020 supplement) and the
+  // internal consistency of every row — no seeded counts. Cases that need a seeded long tail live in the mock and server tests.
+  const nextMenuId = harness.ports.usage.menuId;
+  checks.push({
+    id: 'port · usageNextScreens as a console actor → ok, masked or internally consistent',
+    uses: ['usageNextScreens'],
+    mode: 'console',
+    run: async () => {
+      const r = await adapter.usageNextScreens({ menuId: nextMenuId });
+      if (r.outcome !== 'ok' || r.data === null) {
+        return `a console actor reading usageNextScreens for a well-formed menu: expected ok, got ${describeResponse(r)} — a menu without data is ok with masked: true, never empty`;
+      }
+      const missing = missingEnvelopeKey(r, 'assessments') ?? missingEnvelopeKey(r, 'trust');
+      if (missing) return missing;
+      const problem = assessmentProblem(r.assessments, r.outcome) ?? trustProblem(r.trust);
+      if (problem) return problem;
+      const d = r.data;
+      if (d.menuId !== nextMenuId) return `the answer names menu ${JSON.stringify(d.menuId)}, not the requested one`;
+      const { moved, sameMenu, backOrReturn, noMove } = d.summary;
+      if (d.masked) {
+        return d.entries === 0 && moved + sameMenu + backOrReturn + noMove === 0 && d.next.length === 0 && d.hiddenDestinations === 0
+          ? null
+          : 'a masked answer (menu under 3 distinct users) must carry no numbers: entries 0, summary all 0, next [], hiddenDestinations 0';
+      }
+      if (moved + sameMenu + backOrReturn + noMove !== d.entries) return `summary must sum to entries (${moved}+${sameMenu}+${backOrReturn}+${noMove} vs ${d.entries})`;
+      if (d.next.length > 20) return `next holds ${d.next.length} rows, at most 20`;
+      if (!Number.isInteger(d.hiddenDestinations) || d.hiddenDestinations < 0) return 'hiddenDestinations must be a non-negative integer';
+      let previous = Number.POSITIVE_INFINITY;
+      for (const n of d.next) {
+        if (n.distinctUsers < 3) return `a destination with ${n.distinctUsers} distinct users must be folded into hiddenDestinations, never named (mask k = 3)`;
+        if (n.count > previous) return 'next must be ordered by count, descending';
+        previous = n.count;
+        const viaSum = Object.values(n.vias).reduce((a, b) => a + (b ?? 0), 0);
+        if (viaSum !== n.count) return `a row's vias must come from the same set as its count (vias sum ${viaSum}, count ${n.count})`;
+        if (n.distinctUsers > n.count) return `a row cannot have more distinct users (${n.distinctUsers}) than events (${n.count})`;
+      }
+      return null;
+    },
+  });
+  checks.push({
+    id: 'port · usageNextScreens without console:access → forbidden',
+    uses: ['usageNextScreens'],
+    mode: 'permission',
+    run: () => harness.withoutPermission(
+      CONSOLE_ACCESS,
+      expectOutcome(() => adapter.usageNextScreens({ menuId: nextMenuId }), 'forbidden', 'the console read usageNextScreens requires console:access'),
+    ),
+  });
+  checks.push({
+    id: 'port · usageNextScreens with a malformed menu id → error, never widened',
+    uses: ['usageNextScreens'],
+    mode: 'console',
+    run: async () => {
+      // One request: a path-shaped id fails the menu id rule (no `/`, `?`, `#`, `&`, `=`, whitespace or control characters).
+      const bad = await adapter.usageNextScreens({ menuId: '/mars/item/SECRET' });
+      return bad.outcome === 'error' && bad.data === null
+        ? null
+        : `a menu id that is not a menu id: expected error with null data, got ${describeResponse(bad)} — never answered as a menu or as all menus`;
+    },
+  });
   // ADR-0101: the auditTrail `type` filter is an opaque token. A well-formed type nobody has written is a zero
   // (`empty`, null data); a malformed one is `error`. Generic on purpose: the check names no domain type.
   checks.push({

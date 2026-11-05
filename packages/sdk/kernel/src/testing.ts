@@ -49,6 +49,7 @@ export function testAdapter(over: Partial<PlatformAdapter> = {}): PlatformAdapte
     recordUsage: async () => ({ accepted: 0 }),
     reportClientError: async () => ({ accepted: true }),
     usageSummary: async () => refused,
+    usageNextScreens: async () => refused,
     auditTrail: async () => refused,
     entityAudit: async () => refused,
     accessDirectory: async () => refused,

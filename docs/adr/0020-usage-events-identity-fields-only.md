@@ -22,4 +22,5 @@
 
 - 05 "메뉴 활용률 계측"의 수집 필드 문구를 이 결정으로 좁힌다. #75는 닫는다.
 - 보충(#605): 화면 이동 경로 `via`(닫힌 집합)·`fromMenuId`(메뉴 id 또는 null; 메뉴 id 모양은 Registry의 id 규칙(`createRegistry`가 받는 비어 있지 않고 공백·`? # & /`가 없는 문자열)에 `=`·제어 문자 금지와 80 code point 상한을 더한 `/^[^\s?#&/=\p{C}]{1,80}$/u`이며 경로·URL·`key=value`·제어 문자·빈 문자열은 거부한다. 트레이드오프: `=`를 포함한 Registry id는 `fromMenuId`로 쓸 수 없다)는 `entry`에만 붙는 식별·출처 필드다. 보드 칸 `entry`는 `via`로 `paneOpen`(칸의 첫 화면)·`paneReplace`(같은 칸의 다음 화면)와 `fromMenuId`(같은 칸이 바로 앞에 보인 메뉴 id, 열릴 때는 null)를 싣는다 — 여전히 식별 필드뿐이다. 조회 조건·page 값·경로는 여전히 보내지 않으므로 이 결정은 그대로다.
+- 보충(#605 2부, 집계 읽기): `usageNextScreens`와 `usageSummary`의 비율 필드(`backRate`·`searchEntryRate`)는 저장된 이벤트(`via`·`fromMenuId`·`userId`)에서만 계산한다 — 새 저장 필드도, 새 이벤트도 없다. 서버 집계에 마스크 k = 3을 건다: 진입자가 3명 미만인 메뉴는 수를 내지 않고(`masked`), 3명 미만이 간 목적지는 이름 없이 개수(`hiddenDestinations`)로만 나간다. 마스크는 서버에서 적용하며 브라우저가 숨기는 방식이 아니다. 이유: 소수 인원 메뉴·목적지의 수는 개인 동선을 가리킬 수 있고, 원본 이벤트는 콘솔도 읽지 않는다는 이 ADR의 선을 집계에서도 지키기 위해서다. 정의와 와이어는 [전송 형식](../integration/http-adapter-contract.md).
 - 키 이름 확장이 필요해지면 새 이슈로 다루고, 이벤트 스키마에 필드를 더하는 추가형 변경으로 한다.

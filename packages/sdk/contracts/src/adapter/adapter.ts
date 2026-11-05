@@ -124,8 +124,39 @@ export type AnnotationRef = { chartId: string; scopeId: string | null };
 export type AnnotationInput = AnnotationRef & { from: string; to: string; text: string };
 /** from inclusive, to exclusive. */
 export type UsageRange = { preset: 'all' } | { from: number; to: number };
-export type UsageMenuSummary = { menuId: string; visits: number; distinctUsers: number; lastUsedAt: number };
+export type UsageMenuSummary = {
+  menuId: string;
+  visits: number;
+  distinctUsers: number;
+  lastUsedAt: number;
+  /** Main-screen entry count N (`source=main` only, `name='entry'`). Absent from a server that predates #605 part 2. */
+  entries?: number;
+  /** Share 0..1 of those entries whose NEXT main entry carried via `history`/`return` (「뒤로 나감」). `null` when the menu has < 3 distinct users (mask k = 3) or N = 0. Computed on the server, never in the browser. */
+  backRate?: number | null;
+  /** Share 0..1 of the menu's main entries with via `palette` (「검색 진입」). `null` under the same mask as `backRate`. */
+  searchEntryRate?: number | null;
+};
 export type UsageSummary = { preset: 'all' | 'range'; menus: UsageMenuSummary[] };
+/** `usageNextScreens` request. `menuId` is validated like a `fromMenuId`; `includeBack` (default false) also ranks history/return and same-menu entries. */
+export type UsageNextQuery = { menuId: string; includeBack?: boolean };
+/** One ranked destination. `count`, `distinctUsers` and `vias` come from the SAME set of next entries (never mixed sets). `distinctUsers >= 3` always. */
+export type UsageNextDestination = { menuId: string; count: number; distinctUsers: number; vias: Partial<Record<UsageVia, number>> };
+/**
+ * Where people went right after one menu (main source only, #605). The < 3 distinct-user mask is applied on the server aggregate:
+ * a menu under 3 users answers `masked: true` with empty numbers; a destination under 3 users is folded into `hiddenDestinations` (a count, never a name).
+ */
+export type UsageNextScreens = {
+  menuId: string;
+  /** Main-screen entries of the menu (N). 0 when masked. */
+  entries: number;
+  masked: boolean;
+  /** Next entries (fromMenuId = menuId) split four ways; sums to `entries`. All 0 when masked. */
+  summary: { moved: number; sameMenu: number; backOrReturn: number; noMove: number };
+  /** Count desc (menuId asc tie-break), at most 20, only destinations with >= 3 distinct users. */
+  next: UsageNextDestination[];
+  /** Destinations with < 3 distinct users: how many, never which. */
+  hiddenDestinations: number;
+};
 
 /** Sort keys of the global audit index (issue #50). `targetType` sorts `target.type`. */
 export type AuditSortField = 'at' | 'actor' | 'action' | 'source' | 'targetType';
@@ -233,6 +264,12 @@ export type PlatformAdapter = {
    * left-joins zero-visit menus; `empty` would hide them).
    */
   usageSummary(range: UsageRange, signal?: AbortSignal): Promise<ApiResponse<UsageSummary>>;
+  /**
+   * Console aggregate read (#605): where people went right after one menu. Same permission, errors and per-actor rate
+   * budget as `usageSummary` (console:access; scenarios and errors answer like there); a read appends no audit row.
+   * `menuId` is validated like a `fromMenuId` (malformed = outcome `error`); a well-formed menu with no data is `ok` and `masked: true`. All time, no range.
+   */
+  usageNextScreens(query: UsageNextQuery, signal?: AbortSignal): Promise<ApiResponse<UsageNextScreens>>;
   /**
    * The console audit log (issue #50): console:access, every site, no room gate — an audit screen that hid
    * a room's change would hide the change. Offset-paged, server-sorted; the client never re-sorts a page.

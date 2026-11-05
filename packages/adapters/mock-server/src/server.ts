@@ -2,7 +2,7 @@
  * Mock request validation + response envelope (docs/06 §19): exclusive `outcome` plus declared `assessments[]`.
  * Every page query goes through `serve()` so Scope/room grants are re-validated per request (§6.2).
  */
-import { parseDateTime, periodHours, type ApiResponse, type ClientErrorReport, type Assessment, type AssessmentKind, type Condition, type EntityRef, type GlobalContext, type Permission, type ScopeCheck, type SpaceId, type Trust, type UsageEvent, type UsageRange, type UsageSummary, type UsageVia, menuPermission } from '@ap/contracts';
+import { parseDateTime, periodHours, type ApiResponse, type ClientErrorReport, type Assessment, type AssessmentKind, type Condition, type EntityRef, type GlobalContext, type Permission, type ScopeCheck, type SpaceId, type Trust, type UsageEvent, type UsageNextQuery, type UsageNextScreens, type UsageRange, type UsageSummary, type UsageVia, menuPermission } from '@ap/contracts';
 import { EQUIPMENT, SITES, TIME_DOMAIN_ASSERTIONS, activeWorld, type Equipment, type RoleId, type TimeDomainAssertion } from './world';
 
 /**
@@ -452,17 +452,82 @@ export function aggregateUsage(events: readonly StoredUsageEvent[], range: Usage
   const inRange = events.filter(e =>
     e.name === 'entry'
     && ('preset' in range || (e.receivedAt >= range.from && e.receivedAt < range.to)));
-  const byMenu = new Map<string, { visits: number; users: Set<string>; last: number }>();
+  const byMenu = new Map<string, { visits: number; users: Set<string>; last: number; mainEntries: number; mainUsers: Set<string>; palette: number }>();
+  // Main entries per `fromMenuId` that carried history/return: the numerator of 「뒤로 나감」 (the NEXT entry after the menu).
+  const backFrom = new Map<string, number>();
   for (const e of inRange) {
-    const agg = byMenu.get(e.menuId) ?? { visits: 0, users: new Set<string>(), last: 0 };
+    const agg = byMenu.get(e.menuId) ?? { visits: 0, users: new Set<string>(), last: 0, mainEntries: 0, mainUsers: new Set<string>(), palette: 0 };
     agg.visits += 1;
     agg.users.add(e.userId);
     if (e.receivedAt > agg.last) agg.last = e.receivedAt;
+    if (isMainUsageEntry(e)) {
+      agg.mainEntries += 1;
+      agg.mainUsers.add(e.userId);
+      if (e.via === 'palette') agg.palette += 1;
+      if (e.fromMenuId && e.via !== undefined && BACK_VIAS.includes(e.via)) backFrom.set(e.fromMenuId, (backFrom.get(e.fromMenuId) ?? 0) + 1);
+    }
     byMenu.set(e.menuId, agg);
   }
   return {
     preset: 'preset' in range ? 'all' : 'range',
-    menus: [...byMenu.entries()].map(([menuId, agg]) => ({ menuId, visits: agg.visits, distinctUsers: agg.users.size, lastUsedAt: agg.last })),
+    menus: [...byMenu.entries()].map(([menuId, agg]) => {
+      const shown = agg.mainEntries > 0 && agg.mainUsers.size >= USAGE_MASK_K;
+      return {
+        menuId, visits: agg.visits, distinctUsers: agg.users.size, lastUsedAt: agg.last,
+        entries: agg.mainEntries,
+        backRate: shown ? Math.min(1, (backFrom.get(menuId) ?? 0) / agg.mainEntries) : null,
+        searchEntryRate: shown ? agg.palette / agg.mainEntries : null,
+      };
+    }),
+  };
+}
+
+/** Mask k: a number built from fewer distinct people than this never leaves the server aggregate (ADR-0020 supplement, #605). */
+export const USAGE_MASK_K = 3;
+const BACK_VIAS: readonly UsageVia[] = ['history', 'return'];
+/** The main screen's entry (`source` absent or `main`); board pane entries are another provenance and never count here. */
+const isMainUsageEntry = (e: StoredUsageEvent): boolean => e.name === 'entry' && e.source !== 'board';
+const USAGE_NEXT_LIMIT = 20;
+
+/**
+ * Where people went right after `menuId` (#605). Main source only. A "next" entry of M is a main entry whose `fromMenuId` is M, split into
+ * disjoint kinds: back/return (`via` history/return, any destination), else same menu (destination M), else moved. `noMove` is the rest of M's entries.
+ * Ranking counts `moved` only; `includeBack` also counts back/return and same-menu entries. A row's count, users and vias come from that one set.
+ * Mask k = 3: a menu under 3 distinct users is `masked` with nothing in it; a destination under 3 distinct users is only counted in `hiddenDestinations`.
+ */
+export function aggregateUsageNext(events: readonly StoredUsageEvent[], menuId: string, includeBack = false): UsageNextScreens {
+  const main = events.filter(isMainUsageEntry);
+  const own = main.filter(e => e.menuId === menuId);
+  if (own.length === 0 || new Set(own.map(e => e.userId)).size < USAGE_MASK_K) {
+    return { menuId, entries: 0, masked: true, summary: { moved: 0, sameMenu: 0, backOrReturn: 0, noMove: 0 }, next: [], hiddenDestinations: 0 };
+  }
+  const summary = { moved: 0, sameMenu: 0, backOrReturn: 0, noMove: 0 };
+  const ranked = new Map<string, { count: number; users: Set<string>; vias: Partial<Record<UsageVia, number>> }>();
+  for (const e of main) {
+    if (e.fromMenuId !== menuId) continue;
+    const back = e.via !== undefined && BACK_VIAS.includes(e.via);
+    const kind = back ? 'backOrReturn' : e.menuId === menuId ? 'sameMenu' : 'moved';
+    summary[kind] += 1;
+    if (kind !== 'moved' && !includeBack) continue;
+    const row = ranked.get(e.menuId) ?? { count: 0, users: new Set<string>(), vias: {} };
+    row.count += 1;
+    row.users.add(e.userId);
+    const via: UsageVia = e.via ?? 'link';
+    row.vias[via] = (row.vias[via] ?? 0) + 1;
+    ranked.set(e.menuId, row);
+  }
+  summary.noMove = Math.max(0, own.length - summary.moved - summary.sameMenu - summary.backOrReturn);
+  const shown = [...ranked.entries()].filter(([, r]) => r.users.size >= USAGE_MASK_K);
+  return {
+    menuId,
+    entries: own.length,
+    masked: false,
+    summary,
+    next: shown
+      .map(([dest, r]) => ({ menuId: dest, count: r.count, distinctUsers: r.users.size, vias: r.vias }))
+      .sort((a, b) => b.count - a.count || (a.menuId < b.menuId ? -1 : a.menuId > b.menuId ? 1 : 0))
+      .slice(0, USAGE_NEXT_LIMIT),
+    hiddenDestinations: ranked.size - shown.length,
   };
 }
 
@@ -521,4 +586,72 @@ export async function usageSummary(range: UsageRange, signal?: AbortSignal, opts
   if (s === 'forbidden') return { ...base, outcome: 'forbidden', message: '권한이 회수되었습니다(시나리오)' };
   if ('from' in range && range.from >= range.to) return { ...base, outcome: 'error', message: 'Invalid usage range' };
   return { ...base, outcome: 'ok', data: aggregateUsage(usageEvents, range) };
+}
+
+/**
+ * Next-screens aggregate (#605). Same gates and order as `usageSummary` (console:access first, then dev scenarios), then the request shape:
+ * `menuId` must match `MENU_ID_PATTERN`, `includeBack` absent or boolean (anything else is outcome `error`). A well-formed menu with no
+ * data is `ok` with `masked: true`, never `empty`. No audit row is written.
+ */
+export async function usageNextScreens(query: UsageNextQuery, signal?: AbortSignal, opts?: UsageSummaryOptions): Promise<ApiResponse<UsageNextScreens>> {
+  const s = scenario;
+  const requestRole = opts?.role ?? role;
+  const correlationId = nextCorrelation();
+  await sleep(opts?.latency ?? 80, signal);
+  const base = { correlationId, data: null, trust: null, assessments: [] as Assessment[] };
+  if (!activeWorld().users[requestRole].permissions.includes('console:access')) return { ...base, outcome: 'forbidden', message: 'No permission console:access' };
+  if (s === 'timeout') return { ...base, outcome: 'timeout', message: '조회가 30초 제한을 넘었습니다' };
+  if (s === 'error') return { ...base, outcome: 'error', message: '상류 mart 쿼리가 실패했습니다' };
+  if (s === 'forbidden') return { ...base, outcome: 'forbidden', message: '권한이 회수되었습니다(시나리오)' };
+  const q: unknown = query;
+  const menuId = typeof q === 'object' && q !== null ? (q as { menuId?: unknown }).menuId : undefined;
+  const includeBack = typeof q === 'object' && q !== null ? (q as { includeBack?: unknown }).includeBack : undefined;
+  if (typeof menuId !== 'string' || !MENU_ID_PATTERN.test(menuId) || (includeBack !== undefined && typeof includeBack !== 'boolean')) {
+    return { ...base, outcome: 'error', message: 'Invalid usage next-screens query' };
+  }
+  return { ...base, outcome: 'ok', data: aggregateUsageNext(usageEvents, menuId, includeBack === true) };
+}
+
+/**
+ * Deterministic demo events for the usage console (#605): one user pool, `receivedAt` fixed. Opt-in — nothing calls it on import, so
+ * every other test and the E2E keep an empty store. Hard cases by menu: `seed-solo` (< 3 users, masked), `seed-empty` (no data at
+ * all), `seed-tail` (long tail: 4 destinations of >= 3 users, 2 of < 3), `seed-back` (back/return heavy), `seed-loop` (self-loop),
+ * `seed-dominant` (one dominant next). Appends to the store; call `resetUsage()` first for a clean set.
+ */
+export function seedUsageNext(receivedAt = Date.UTC(2026, 10, 1)): void {
+  const users = ['seed-u1', 'seed-u2', 'seed-u3', 'seed-u4', 'seed-u5', 'seed-u6'];
+  const spaceId = null;
+  let n = 0;
+  const add = (userId: string, menuId: string, via: UsageVia, fromMenuId: string | null) => {
+    n += 1;
+    usageEvents.push({ name: 'entry', menuId, spaceId, path: `/${menuId}`, at: receivedAt + n, sessionId: `${userId}-tab`, source: 'main', via, fromMenuId, userId, receivedAt: receivedAt + n });
+  };
+  // `from` stays the menu id of the screen before; each helper writes the menu's own entry (N) and, per move, the destination entry.
+  const visit = (menuId: string, who: readonly string[], palette = 0) => who.forEach((u, i) => add(u, menuId, i < palette ? 'palette' : 'sidebar', null));
+  const next = (from: string, to: string, who: readonly string[], via: UsageVia = 'link') => who.forEach(u => add(u, to, via, from));
+  // seed-solo: two people only → masked.
+  visit('seed-solo', users.slice(0, 2));
+  next('seed-solo', 'seed-tail', users.slice(0, 2));
+  // seed-tail: 12 entries by 6 people (4 of them via palette), 4 visible destinations with >= 3 users (6/5/4/3), two hidden with 1–2 users.
+  visit('seed-tail', [...users, ...users], 4);
+  next('seed-tail', 'seed-d1', users, 'sidebar');
+  next('seed-tail', 'seed-d2', users.slice(0, 5), 'crossLink');
+  next('seed-tail', 'seed-d3', users.slice(0, 4), 'palette');
+  next('seed-tail', 'seed-d4', users.slice(0, 3));
+  next('seed-tail', 'seed-d5', users.slice(0, 2));
+  next('seed-tail', 'seed-d6', users.slice(0, 1));
+  // seed-back: most next entries are back/return.
+  visit('seed-back', users);
+  next('seed-back', 'seed-d1', users, 'history');
+  next('seed-back', 'seed-d2', users.slice(0, 4), 'return');
+  next('seed-back', 'seed-d3', users.slice(0, 3), 'sidebar');
+  // seed-loop: same-menu self-loop next to a moved destination.
+  visit('seed-loop', users);
+  next('seed-loop', 'seed-loop', users.slice(0, 4), 'link');
+  next('seed-loop', 'seed-d1', users.slice(0, 3), 'sidebar');
+  // seed-dominant: one dominant next.
+  visit('seed-dominant', users);
+  next('seed-dominant', 'seed-d1', users, 'crossLink');
+  next('seed-dominant', 'seed-d1', users, 'crossLink');
+  next('seed-dominant', 'seed-d2', users.slice(0, 3), 'drill');
 }
