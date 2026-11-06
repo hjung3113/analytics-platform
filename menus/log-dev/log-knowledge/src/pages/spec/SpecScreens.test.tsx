@@ -163,12 +163,14 @@ describe('production model spec screen', () => {
     result = effective('added');
     mount(`&software=${sw}&drawer=confirm&change=${change.id}`);
     await screen.findByRole('dialog', { name: '변경점 재검토 확인' });
-    console.log('DEBUG C6 badge-in-dom', document.body.textContent?.includes('추가'), 'move?', document.body.textContent?.includes('Move'));
     expect(await screen.findByText('추가', { exact: true })).toBeTruthy();
     result = effective('changed');
     fireEvent.click(within(screen.getByRole('dialog', { name: '변경점 재검토 확인' })).getByRole('button', { name: '확인' }));
-    await waitFor(() => expect(screen.queryByText('추가', { exact: true })).toBeNull());
-    expect(screen.getAllByText('변경', { exact: true }).length).toBeGreaterThan(0);
+    // The reload replaces the badge; '추가' can be gone a render before '변경' paints, so wait for both.
+    await waitFor(() => {
+      expect(screen.queryByText('추가', { exact: true })).toBeNull();
+      expect(screen.getAllByText('변경', { exact: true }).length).toBeGreaterThan(0);
+    });
   });
 
   // C8: a viewer must not get a button whose drawer never renders for them.
