@@ -29,8 +29,8 @@ const memoryLang = (lang: 'ko' | 'en') => {
   Object.defineProperty(window, 'localStorage', { configurable: true, value: { getItem: () => value, setItem: (_key: string, next: string) => { value = next; }, removeItem: () => { value = 'ko'; } } });
 };
 function Slot() { const slot = useDetailPanelSlotHost(); return <aside ref={slot.ref} />; }
-function mount(search = '', draft: Record<string, unknown> | null = null) {
-  window.history.replaceState(null, '', `/logDev/log-knowledge-spec/${modelId}?v=1${search}`);
+function mount(search = '', draft: Record<string, unknown> | null = null, id = modelId) {
+  window.history.replaceState(null, '', `/logDev/log-knowledge-spec/${id}?v=1${search}`);
   const session = testSession(allowed ? ['platform:view', 'knowledge:spec-publish'] : ['platform:view']);
   const adapter = testAdapter({ session: () => session, menuQuery: async req => {
     queries.push(req);
@@ -41,9 +41,15 @@ function mount(search = '', draft: Record<string, unknown> | null = null) {
     if (req.endpoint === 'logKnowledge.specDraft') return ok(draft ?? { ...spec, revision: { ...spec.revision, state: 'draft', version: 1 } });
     return ok(null);
   }, menuAction: async req => { writes.push(req); return saveInvalid ? { outcome: 'invalid', fieldErrors: [{ path: ['text'], code: 'malformed' }] } as unknown as ActionResponse<never> : (conflict ? { outcome: 'conflict', currentVersion: '2' } : { outcome: 'ok', data: { revisionId: rev, version: '2' }, version: '2' }) as unknown as ActionResponse<never>; } });
-  return render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider><SpecScreen params={{ modelId }} /><Slot /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
+  return render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider><SpecScreen params={{ modelId: id }} /><Slot /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
 }
 describe('production model spec screen', () => {
+  it('accepts ids in any spelling: an upper-case model id and software id deep link opens the spec', async () => {
+    mount(`&software=${sw.toUpperCase()}`, null, modelId.toUpperCase());
+    expect(await screen.findByRole('button', { name: 'Move' })).toBeTruthy();
+    expect(screen.queryByText(/지원하지 않는|올바르지 않/)).toBeNull();
+    await waitFor(() => expect(queries.some(q => q.endpoint === 'logKnowledge.modelSpec')).toBe(true));
+  });
   it('collapses the tree and keeps the selected path visible', async () => {
     mount('&module=ARM'); await screen.findByRole('button', { name: 'Move' });
     fireEvent.click(screen.getByRole('button', { name: 'Module 트리 접기' }));

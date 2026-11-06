@@ -17,7 +17,7 @@
 | `@ap/menu-metrics` | `menus/bravo/metrics` | `metrics` | MetricCatalog(상태·도메인은 표 필터 선언의 숨은 반복 키 `filter`, 틀린 값은 고치지 않고 `TableUrlWarning`으로 거부, #1218), MetricDetail |
 | `@ap/menu-clas` | `menus/clas/clas` | `clas` | OperationTime |
 | `@ap/menu-log-my-work`·`-log-models`·`-log-cross`·`-log-rules` | `menus/log-dev/*` | `logMyWork`·`logModels`·`logCross`·`logRules` | 없음(계획 메뉴 manifest만, ADR-0065) |
-| `@ap/menu-log-knowledge` | `menus/log-dev/log-knowledge` | `logKnowledge` | `logKnowledge.*` 조회 8종·쓰기 17종 선언, mock `./mock`(조회 + `logKnowledgeActionsMock`). 카탈로그 관리(제조사·공정·모델 탭의 가져오기 마법사 포함)와 모델 탐색·모델 프로파일·전체 기술 Item·Item 상세 화면. 읽기 `platform:view`, 카탈로그 관리 `knowledge:catalog-manage`, Item 쓰기 `knowledge:item-publish`. API 원본은 [`docs/architecture/platform-api/api/log-knowledge.md`](../docs/architecture/platform-api/api/log-knowledge.md) |
+| `@ap/menu-log-knowledge` | `menus/log-dev/log-knowledge` | `logKnowledge` | `logKnowledge.*` 조회·쓰기 선언(원본 `src/endpoints.ts`), mock `./mock`(조회 + `logKnowledgeActionsMock`). 카탈로그 관리(제조사·공정·모델 탭의 가져오기 마법사 포함)와 모델 탐색·모델 프로파일·전체 기술 Item·Item 상세(Item 편집의 모델 명세 대상 선택·상세의 «대상» 칩) 화면, 모델 명세(Module 트리·명세/변경점/개념/Revision 이력 탭, 고정 footer 서랍, 개념 매핑 검토). 읽기 `platform:view`, 카탈로그 관리 `knowledge:catalog-manage`, Item 쓰기 `knowledge:item-publish`, 명세·개념 쓰기 `knowledge:spec-publish`. API 원본은 [`docs/architecture/platform-api/api/log-knowledge.md`](../docs/architecture/platform-api/api/log-knowledge.md) |
 
 ## 규칙
 

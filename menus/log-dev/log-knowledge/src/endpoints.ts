@@ -195,7 +195,7 @@ export const specChangesEndpoint = defineEndpoint<SpecChangesParams, PageResult<
 // ---- concept mapping (#1196 e, design v0.6 §15.4) ---------------------------------------------------------------
 // Equivalence is HUMAN-CONFIRMED only: a mapping is `proposed` until a person confirms it; a similarity suggestion is a
 // proposal computed on read, never stored as confirmed. Targets are stable keys (`module_key` or `module_key/event_key`).
-// The mock server answers them (`src/mock/concept*.ts`); the screens come with a later node.
+// The mock server answers them (`src/mock/concept*.ts`); the spec screen's concept tab and the Item subject picker use them.
 export const CONCEPT_KINDS = ['module', 'event'] as const;
 export type ConceptKind = (typeof CONCEPT_KINDS)[number];
 export const CONCEPT_RELATIONS = ['equivalent', 'related'] as const;
