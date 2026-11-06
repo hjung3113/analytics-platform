@@ -38,9 +38,8 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
   const shownRef = useRef(url);
   const [bootIdx] = useState(() => readHistoryIdx(location.readState?.()));
   const idxRef = useRef<number | null>(bootIdx);
-  // The numbering segment of the entry on screen (null = the first, unnamed one) and whether any stamp was ever seen in this tab: only then must a rebase name a new segment.
+  // The numbering segment of the entry on screen (null = unnamed). A rebase always names a NEW segment, so no write ever continues an older one (R2-1).
   const segRef = useRef<string | null>(bootIdx === null ? null : readHistorySeg(location.readState?.()));
-  const sawStamp = useRef(bootIdx !== null);
   const stamping = location.readState !== undefined;
   const commitRef = useRef<((next: string, how: 'push' | 'replace', options?: CommitOptions) => boolean) | null>(null);
   const reportRef = useRef<(error: unknown) => string>(() => '');
@@ -97,12 +96,11 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
     if (how === 'replace') location.replace(split.url, { keepFragment: options.redirect || options.materialize, ...(here !== null ? { state: withHistoryIdx(replaceState, here, hereSeg) } : declares ? { state: replaceState } : {}) });
     else if (stamping) {
       const base = here ?? 0;
-      const seg = here === null ? (sawStamp.current ? `s${Math.random().toString(36).slice(2, 10)}` : null) : hereSeg;
+      const seg = here === null ? `s${Math.random().toString(36).slice(2, 10)}` : hereSeg;
       const at = location.read();
       if (here === null && at !== null) location.replace(at, { keepFragment: true, state: withHistoryIdx(location.readState?.(), base, seg) });
       idxRef.current = base + 1;
       segRef.current = seg;
-      sawStamp.current = true;
       location.push(split.url, withHistoryIdx(declares ? withHiddenState(null, nextHidden) : null, base + 1, seg));
     } else if (declares) location.push(split.url, withHiddenState(null, nextHidden)); else location.push(split.url);
     shownRef.current = split.url;
@@ -142,7 +140,6 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
       // An entry without a stamp breaks the numbering: nothing is trusted from before it (F1). A stamped one brings its own segment.
       idxRef.current = newIdx;
       segRef.current = newIdx === null ? null : readHistorySeg(location.readState?.());
-      if (newIdx !== null) sawStamp.current = true;
       guard.dropRequest(); // an accepted arrival ends any request made from the entry we left (F3)
       shownRef.current = next;
       const traversed = { url: next, hidden: arrived.hidden, rewrite: false };
@@ -164,6 +161,9 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
       if (guard.shouldBlock(change)) {
         if (newIdx !== null && cur !== null && sameSegment && newIdx !== cur && location.go !== undefined) {
           const delta = newIdx - cur;
+          // The destination's hidden pairs live in ITS entry state: read them before the compensation moves away (R2-2).
+          const destHidden = arrive(raw, readHiddenState(location.readState?.())).hidden;
+          const crossMenu = raw.split('?')[0] !== shownRef.current.split('?')[0];
           compensating.current++;
           try { location.go(-delta); } catch { compensating.current--; failOpen('NavGuardHistoryError'); arrivePop(newIdx); return; }
           guard.request({ change, destination: menuFor(raw)?.label ?? null, via: 'history', proceed: () => {
@@ -173,7 +173,8 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
               // must still land or the person would lose edits without arriving; the destination address is pushed instead of travelled to.
               replayIdx.current = null; failOpen('NavGuardHistoryError');
               usageNav.current.via = 'history';
-              commitRef.current?.(raw, 'push', { bypassGuard: true });
+              // Same accepted-arrival as a normal Back: hidden pairs, page focus across menus, and the traversal signal (R2-2..R2-4).
+              if (commitRef.current?.(raw, 'push', { bypassGuard: true, restoreHidden: destHidden, focus: crossMenu ? 'page' : undefined })) guard.traversed();
             }
           } });
           return;

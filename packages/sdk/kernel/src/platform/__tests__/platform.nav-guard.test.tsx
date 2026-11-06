@@ -360,4 +360,53 @@ describe('menu leave guard: browser Back and Forward (ADR-0115)', () => {
     expect(onDiscard).toHaveBeenCalledTimes(1);
     expect(reportClientError.mock.calls).toEqual(expect.arrayContaining([[expect.objectContaining({ name: 'NavGuardHistoryError' })]]));
   });
+
+  it('reloading at a foreign entry never continues an older numbering segment (R2-1)', async () => {
+    stack(); // other(0) editor(1) third(2), the first segment
+    window.history.pushState(null, '', '/mars/other'); // an entry the Kernel did not write
+    cleanup(); // a reload: new Provider, same session history, current entry unstamped
+    const tree = <I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}><Probe /><Gate /></PlatformProvider></I18nProvider>;
+    render(tree);
+    act(() => { platform.navigate('/mars/third'); });
+    act(() => setDirty(true));
+    window.history.go(-4); // the very first entry
+    await settle();
+    expect(here()).toBe('/mars/other');
+    expect(platform.pathname).toBe('/mars/other');
+    expect(request).toBeNull();
+  });
+
+  describe('a confirmed leave whose replay cannot travel arrives like a Back (R2-2..R2-4)', () => {
+    const failReplay = () => {
+      const real = window.history.go.bind(window.history);
+      vi.spyOn(window.history, 'go').mockImplementation((d?: number) => { if (d !== undefined && d < 0) throw new DOMException('rate', 'SecurityError'); real(d); });
+    };
+    it('keeps the destination hidden pairs, sends the traversal signal and the page focus', async () => {
+      mount('/mars/other');
+      act(() => { platform.navigate('/mars/hid?hk=1'); });
+      act(() => { platform.navigate('/mars/third'); });
+      act(() => setDirty(true));
+      window.history.back();
+      await settle();
+      expect(here()).toBe('/mars/third');
+      expect(request).not.toBeNull();
+      expect(traversals).toBe(0); // the compensation sent no signal
+      failReplay();
+      act(() => request!.confirm());
+      await settle();
+      expect(here()).toBe('/mars/hid');
+      expect(platform.pageParam('hk')).toBe('1');
+      expect(traversals).toBe(1);
+      expect(platform.pageNavigation.consume('/mars/hid')).toBe('page');
+    });
+    it('a cancelled Back sends no traversal signal', async () => {
+      stack();
+      act(() => setDirty(true));
+      window.history.back();
+      await settle();
+      act(() => request!.cancel());
+      await settle();
+      expect(traversals).toBe(0);
+    });
+  });
 });
