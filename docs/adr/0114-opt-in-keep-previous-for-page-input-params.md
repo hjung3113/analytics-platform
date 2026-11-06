@@ -29,7 +29,7 @@
 
 - 공개 추가: 타입 `MenuQueryOptions`(루트 export)와 `useMenuQuery`의 선택 4번째 인자, `QueryView`의 선택 prop `refreshNotice`. 옵션이 꺼진 조회의 동작·모양은 그대로다.
 - 계약 문서: [components.md §19](../contract/components.md)(예외 문장·`completedAt`), [kernel.md](../contract/kernel.md) Context 변경 규칙 옆 메모.
-- 켜는 화면(생산성 개요 카드·축, 사이클타임 단위, HW 시간 드릴 등)은 노드 b가 정한다.
+- 켠 화면(#1382): 생산성 개요, 사이클타임, HW 시간, 지표 상세, 로그 지식 Item 상세, CLAS 운영시간. 끈 화면: 차트 카탈로그 종류 선택, 로그 지식 카탈로그 탭(버전·종류 전환이라 다른 내용, 결정의 «기본을 켜기» 항목).
 
 ## 부록 (2026-11-05, #1365 리뷰 반영)
 
