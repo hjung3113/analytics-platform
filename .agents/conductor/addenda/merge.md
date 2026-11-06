@@ -13,12 +13,19 @@ Read this only when you merge a PR. Merges run one at a time machine-wide. CI ru
 
 | PR touches | Merge |
 | --- | --- |
-| A shared path (list: `scripts/shared-paths.sh`) | **Locked ship:** `with-lock.sh merge.lock "<n> ship" -- <ship-pr.sh … --ci --merge …>` in the background. The lock is held through CI. `ship-pr.sh` does not call the precheck, so run `merge-precheck.sh` yourself right before starting the ship (main CI gate); `--main-fix` for the fix PR. |
+| A shared path (list: `scripts/shared-paths.sh`) | **Locked ship:** hold `merge.lock` through CI, and run the precheck in the lock right before the merge (see below). `ship-pr.sh` neither calls the precheck nor accepts `--main-fix`, so do not give it `--merge`. |
 | Anything else | **Short lock:** `ship-pr.sh --branch … --base main --title … --body-file …` without `--ci`/`--merge`; wait for the head's CI outside the lock (every check in `gh pr checks <n> --json name,bucket` passes, feature checks included, an empty list is not a pass); then |
 
 ```bash
 export PRN=<n> BR=<branch> SHA=<head sha>
 bash .agents/conductor/scripts/with-lock.sh merge.lock "$PRN merge" -- bash -c 'bash .agents/conductor/scripts/merge-precheck.sh "$PRN" "$BR" "$SHA" && gh pr merge "$PRN" --squash --match-head-commit "$SHA"'
+```
+
+Locked ship, in the background (`PRN`/`BR` are the PR number and branch; add `--main-fix` to the precheck for the fix PR). Main can turn red while the lock waits on CI, so the gate runs after CI, on the final head:
+
+```bash
+export PRN=<n> BR=<branch>
+bash .agents/conductor/scripts/with-lock.sh merge.lock "$PRN ship" -- bash -c 'ship-pr.sh … --ci && SHA=$(gh pr view "$PRN" --json headRefOid --jq .headRefOid) && bash .agents/conductor/scripts/merge-precheck.sh "$PRN" "$BR" "$SHA" && gh pr merge "$PRN" --squash --match-head-commit "$SHA"'
 ```
 
 - exit 75 (lock held) → retry. Merge refused for a conflict → rebase and ship again.

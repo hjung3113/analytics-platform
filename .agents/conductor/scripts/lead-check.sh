@@ -272,8 +272,35 @@ def processes():
         keep.append((comm, cwd))
     return keep
 
+def live_terminals():
+    """Handles of listed Orca terminals, or None when the list is unavailable (then no terminal counts as alive)."""
+    fixture = os.environ.get('LEAD_CHECK_TERMINALS')
+    try:
+        if fixture is not None:
+            data = json.loads(fixture)
+        else:
+            r = subprocess.run(['orca', 'terminal', 'list', '--json'], capture_output=True, text=True, timeout=20)
+            if r.returncode != 0:
+                return None
+            data = json.loads(r.stdout)
+        return {t.get('handle') for t in data.get('result', {}).get('terminals', []) if t.get('handle')}
+    except (OSError, subprocess.TimeoutExpired, ValueError, AttributeError):
+        return None
+
+def report_done(s, p):
+    rep, sentinel = Path(s.get('report', '')), s.get('sentinel')
+    if not (sentinel and rep.is_file() and rep.stat().st_mtime >= (s.get('started_at') or int(p.stat().st_mtime))):
+        return False
+    lines = [l for l in rep.read_text(errors='replace').splitlines() if l.strip()]
+    return bool(lines) and lines[-1] == sentinel
+
+def under(path, root):
+    root = root.rstrip('/')
+    return bool(root) and (path == root or path.startswith(root + '/'))
+
 wts = worktrees()
 procs = processes()
+terms = live_terminals()
 findings = []
 for d in sorted(dirs):
     if not d.name.startswith('state-') or d.name == 'state-lead':
@@ -283,6 +310,7 @@ for d in sorted(dirs):
     if wt is None:
         continue
     why = None
+    roots = [wt]  # the lane worktree plus every worktree its workers run in (state cwd / worktree)
     newest = d.stat().st_mtime
     for p in d.glob('*.json'):
         newest = max(newest, p.stat().st_mtime)
@@ -297,9 +325,14 @@ for d in sorted(dirs):
             newest = max(newest, rep.stat().st_mtime)
         if why is None and isinstance(s.get('pid'), int) and alive(s['pid']):
             why = f'worker pid {s["pid"]}'
+        # A TUI worker (codex-orca, omp) has no pid: its listed, unfinished terminal is the liveness record.
+        if why is None and terms is not None and s.get('terminal') in terms and not report_done(s, p):
+            why = f'worker {p.stem} terminal {s["terminal"]}'
+        if not report_done(s, p):
+            roots += [r for r in (s.get('cwd'), s.get('worktree')) if isinstance(r, str) and r]
     if why is None:
         for comm, cwd in procs:
-            if cwd == wt or cwd.startswith(wt.rstrip('/') + '/'):
+            if any(under(cwd, r) for r in roots):
                 why = f'{comm} in {cwd}'
                 break
     if why:
@@ -450,9 +483,11 @@ $out"
   # #1401: per-lane liveness. a: live worker pid. b: idle, only the lane's interactive claude session in its cwd.
   # c: a node process in the worktree. d: done worker with an open terminal (does not count). e: no worktree.
   # g: a non-interactive codex run in the worktree. lead: skipped.
+  # h (C3): a pid-less codex-orca worker whose terminal is listed. i: its terminal is listed but the report is done.
+  # j: a node verify in the worker's own issue worktree (state cwd), outside the lane worktree.
   (trap - EXIT; exec sleep 60) & live=$!
   W="$T/main/.review/wave"; rm -rf "$T/main"; mkdir -p "$W"
-  for l in a b c d e g lead; do mkdir -p "$W/state-$l"; done
+  for l in a b c d e g h i j lead; do mkdir -p "$W/state-$l"; done
   printf '{"name":"W-21","role":"impl","cwd":"%s","pid":%s,"report":"%s","started_at":1}\n' "$T/wt1" "$live" "$T/none.md" >"$W/state-a/W-21.json"
   printf '{"name":"W-22","role":"impl","cwd":"%s","pid":99999999,"report":"%s","started_at":1}\n' "$T/wt1" "$T/none.md" >"$W/state-b/W-22.json"
   printf '{"name":"W-23","role":"impl","cwd":"%s","report":"%s","started_at":1}\n' "$T/wt1" "$T/none.md" >"$W/state-c/W-23.json"
@@ -460,23 +495,31 @@ $out"
   printf '## Summary\n<!-- W-24-DONE -->\n' >"$W/state-d/W-24-REPORT.md"
   printf '{"name":"W-25","role":"impl","cwd":"%s","report":"%s","started_at":1}\n' "$T/wt1" "$T/none.md" >"$W/state-e/W-25.json"
   printf '{"name":"W-26","role":"impl","cwd":"%s","report":"%s","started_at":1}\n' "$T/wt1" "$T/none.md" >"$W/state-g/W-26.json"
-  for l in b c d e g; do touch -t 202601010000 "$W/state-$l"/* "$W/state-$l"; done
-  WT=$(printf '%s\n' "$T/wt/lane-a" "$T/wt/lane-b-2" "$T/wt/lane-c" "$T/wt/lane-d" "$T/wt/lane-g" "$T/wt/lane-lead")
-  PR=$(printf 'claude\t%s\tclaude --dangerously-skip-permissions\nnode\t%s/apps/x\tnode vitest\ncodex\t%s\tcodex exec --task t\n' \
-    "$T/wt/lane-b-2" "$T/wt/lane-c" "$T/wt/lane-g")
+  printf '{"name":"W-27","role":"impl","cwd":"%s/issue-h","terminal":"term_open","report":"%s/none.md","started_at":1}\n' "$T" "$T" >"$W/state-h/W-27.json"
+  printf '{"name":"W-28","role":"impl","cwd":"%s/issue-i","terminal":"term_open","report":"%s/W-28-REPORT.md","sentinel":"<!-- W-28-DONE -->","started_at":1}\n' "$T" "$W/state-i" >"$W/state-i/W-28.json"
+  printf '## Summary\n<!-- W-28-DONE -->\n' >"$W/state-i/W-28-REPORT.md"
+  printf '{"name":"W-29","role":"impl","cwd":"%s/issue-j","report":"%s/none.md","started_at":1}\n' "$T" "$T" >"$W/state-j/W-29.json"
+  for l in b c d e g h i j; do touch -t 202601010000 "$W/state-$l"/* "$W/state-$l"; done
+  WT=$(printf '%s\n' "$T/wt/lane-a" "$T/wt/lane-b-2" "$T/wt/lane-c" "$T/wt/lane-d" "$T/wt/lane-g" "$T/wt/lane-h" "$T/wt/lane-i" "$T/wt/lane-j" "$T/wt/lane-lead")
+  PR=$(printf 'claude\t%s\tclaude --dangerously-skip-permissions\nnode\t%s/apps/x\tnode vitest\ncodex\t%s\tcodex exec --task t\nnode\t%s/issue-j/apps\tnode verify\n' \
+    "$T/wt/lane-b-2" "$T/wt/lane-c" "$T/wt/lane-g" "$T")
   dirs=$(collect_state_dirs "$T/main")
-  [ "$(printf '%s' "$dirs" | tr ':' '\n' | grep -c .)" -eq 7 ] || fail "collect_state_dirs: $dirs"
-  [ "$(WAVE_STATE="$W/state-a" collect_state_dirs "$T/main" | tr ':' '\n' | grep -c .)" -eq 7 ] \
+  [ "$(printf '%s' "$dirs" | tr ':' '\n' | grep -c .)" -eq 10 ] || fail "collect_state_dirs: $dirs"
+  [ "$(WAVE_STATE="$W/state-a" collect_state_dirs "$T/main" | tr ':' '\n' | grep -c .)" -eq 10 ] \
     || fail "collect_state_dirs does not dedupe WAVE_STATE"
   pass=$((pass + 1))
   # shellcheck disable=SC2086
-  LEAD_CHECK_WORKTREES="$WT" LEAD_CHECK_PROCS="$PR" lane_liveness "$T/main" 1 $(printf '%s' "$dirs" | tr ':' ' ') >"$T/out8" 2>&1; rc=$?
+  LEAD_CHECK_TERMINALS='{"result":{"terminals":[{"handle":"term_open"}]}}' \
+    LEAD_CHECK_WORKTREES="$WT" LEAD_CHECK_PROCS="$PR" lane_liveness "$T/main" 1 $(printf '%s' "$dirs" | tr ':' ' ') >"$T/out8" 2>&1; rc=$?
   out=$(cat "$T/out8")
   [ "$rc" -eq 10 ] || fail "idle lanes with a ready line not flagged (exit $rc):
 $out"
   check_has "lane a alive (worker pid" "$out"
   check_has "lane c alive (node in" "$out"
   check_has "lane g alive (codex in" "$out"
+  check_has "lane h alive (worker W-27 terminal term_open" "$out"
+  check_has "lane j alive (node in $T/issue-j/apps" "$out"
+  check_has "idle-lane: lane i has no live worker or process" "$out"
   check_has "lane b idle_since=" "$out"
   check_has "idle-lane: lane b has no live worker or process" "$out"
   check_has "idle-lane: lane d has no live worker or process" "$out"
@@ -488,7 +531,7 @@ $(cat "$T/out9")"
   check_has "lane d idle_since=" "$(cat "$T/out9")"
 
   cleanup
-  echo "lead-check.sh self-test passed: $pass assertion groups (duplicate write cwd, idle terminal, unowned listener, owned listener, clean pass, closed old TUI same cwd, two live TUIs, terminals unavailable, several state dirs, per-lane liveness: pid, process cwd, interactive session and open terminal do not count, no ready line = no finding)"
+  echo "lead-check.sh self-test passed: $pass assertion groups (duplicate write cwd, idle terminal, unowned listener, owned listener, clean pass, closed old TUI same cwd, two live TUIs, terminals unavailable, several state dirs, per-lane liveness: pid, process cwd, interactive session and open terminal do not count, no ready line = no finding, pid-less TUI worker with a listed terminal, verify in a worker worktree)"
 }
 
 [ $# -le 1 ] || { echo "usage: lead-check.sh [--help|--self-test]" >&2; exit 64; }

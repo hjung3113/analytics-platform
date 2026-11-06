@@ -197,7 +197,9 @@ def cmd_ready(path):
         return 1
     board = load(path)
     current = board.get('release') or ''
-    ready = [l for l in board['lines'] if l.get('state') == 'planned' and line_release(board, l) == current]
+    # legacy decisions written as lines (issue=decision) are not work to assign
+    ready = [l for l in board['lines'] if l.get('state') == 'planned' and str(l.get('issue')) != 'decision'
+             and line_release(board, l) == current]
     for l in ready:
         print(f'ready {l.get("id")} #{l.get("issue")} {l.get("title")} (release {current or "-"})')
     if not ready:
@@ -489,6 +491,12 @@ def self_test():
     board.write_text(json.dumps(data))
     r = run('ready')
     assert '#3' in r.stdout, r.stdout
+    # legacy decision lines (issue=decision) are never ready work
+    data = json.loads(board.read_text())
+    data['lines'].append({'id': 98, 'issue': 'decision', 'title': 'old decision line', 'state': 'planned'})
+    board.write_text(json.dumps(data))
+    r = run('ready')
+    assert 'old decision line' not in r.stdout and '#3' in r.stdout, r.stdout
     # add decision touches decisions[] only
     before = len(json.loads(board.read_text())['lines'])
     expect(0, run('add', 'decision', 'v2 waits for the owner', 'by=owner'), 'add decision')
