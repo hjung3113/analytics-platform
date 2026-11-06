@@ -9,12 +9,21 @@ automatically. Schema, documented here and in LANES.md §Lead:
       "decisions": [ {"text": str, "by": str, "date": str} ],
       "lines": [ {"id": int, "issue": int|str, "title": str,
                   "state": "planned|running|review|blocked|done|dropped",
+                  "release": str,          # optional; missing = the board's current release
                   "worker": str|null,      # worker state JSON name in $WAVE_STATE, e.g. "W-1142"
                   "worktree": str, "pr": int|str|null, "next": str, "updated": ISO-8601 str } ] }
 
-Commands: init | add <issue> <title> [key=value...] | set <id|board> key=value... | show | check.
+Commands: init | add <issue> <title> [key=value...] | add decision <text> [by=<who>] [date=<YYYY-MM-DD>]
+| set <id|board> key=value... [--owner-ok "<quote>"] | show | ready | check.
 `set` refreshes the line's `updated`; `worker=null` / `pr=null` clears a field. Atomic writes
 (temp file + rename in the same directory).
+
+Release scope (the owner sets it; keeping a lane busy never outranks it): `add` stores `release=<v>` on the
+line (default: the board's release). `ready` lists the planned lines whose release equals the board's release
+(`ready <id> #<issue> <title>` per line, `board ready: none` when empty); assign work only from that list. A line
+that carries no `release` counts as the current one, so old boards stay readable. Setting `state=running` on a
+line of another release (via `set` or `add`) is refused unless `--owner-ok "<the owner's words>"` is given; the
+quote is stored on the line as `owner_ok`. `add decision` writes only to `decisions[]` — never a line.
 
 `check` prints one line per finding and exits 10 when: a line is running/review but its worker's
 state JSON in $WAVE_STATE is done/stopped/closed/missing (a dead pid counts as stopped); a running
@@ -23,8 +32,8 @@ worktree; a line still in planned/running/review/blocked was not updated for 4 h
 or missing WAVE_STATE is a note, not a finding.
 
 Env: AP_MAIN (default: the git common dir of the checkout holding this script), BOARD (board path
-override), WAVE_STATE (worker state dir; checked only for `check`). --self-test runs fixtures in a
-temp folder and needs neither.
+override), WAVE_STATE (worker state dir, or several joined with ':' — one per lane; checked only for
+`check`). --self-test runs fixtures in a temp folder and needs neither.
 """
 import json
 import os
@@ -36,7 +45,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 STATES = ('planned', 'running', 'review', 'blocked', 'done', 'dropped')
-LINE_KEYS = ('issue', 'title', 'state', 'worker', 'worktree', 'pr', 'next')
+LINE_KEYS = ('issue', 'title', 'state', 'release', 'worker', 'worktree', 'pr', 'next')
 BOARD_KEYS = ('release', 'goal', 'merge_grant', 'decisions')
 STALE_H = 4
 
@@ -121,24 +130,86 @@ def cmd_init(path):
     print(f'board: initialised {path}')
 
 
-def cmd_add(path, args):
+def line_release(board, line):
+    """A line without a release belongs to the board's current release."""
+    return line.get('release') or board.get('release') or ''
+
+
+def pop_owner_ok(args):
+    """Split `--owner-ok "<quote>"` out of args: (remaining args, quote or None)."""
+    if '--owner-ok' not in args:
+        return args, None
+    i = args.index('--owner-ok')
+    if i + 1 >= len(args) or not args[i + 1].strip():
+        die('--owner-ok needs the owner\'s words as one quoted argument')
+    return args[:i] + args[i + 2:], args[i + 1].strip()
+
+
+def guard_release(board, line, kv, owner_ok):
+    """Starting a line of another release needs the owner's words (scope beats keeping lanes busy)."""
+    if 'state=running' not in kv:
+        return
+    rel, current = line_release(board, line), board.get('release') or ''
+    if rel == current:
+        return
+    if not owner_ok:
+        die(f'line {line.get("id")} (#{line.get("issue")}) is release "{rel}" but the board release is '
+            f'"{current}": starting it needs --owner-ok "<the owner\'s words>"', 3)
+    line['owner_ok'] = owner_ok
+
+
+def cmd_add_decision(path, args):
     board = load(path)
+    if not args:
+        die('usage: board.py add decision <text> [by=<who>] [date=<YYYY-MM-DD>]')
+    entry = {'text': args[0], 'by': 'lead', 'date': datetime.now().date().isoformat()}
+    for pair in args[1:]:
+        key, _, raw = pair.partition('=')
+        if key not in ('by', 'date') or not raw:
+            die(f'add decision accepts only by=<who> and date=<YYYY-MM-DD>, got "{pair}"')
+        entry[key] = raw
+    board.setdefault('decisions', []).append(entry)
+    save(path, board)
+    print(f'board: decision recorded ({entry["by"]}, {entry["date"]}); no line added')
+
+
+def cmd_add(path, args):
+    if args[:1] == ['decision']:
+        return cmd_add_decision(path, args[1:])
+    board = load(path)
+    args, owner_ok = pop_owner_ok(args)
     if len(args) < 2:
-        die('usage: board.py add <issue> <title> [key=value...]')
+        die('usage: board.py add <issue> <title> [key=value...] | add decision <text> [by=..] [date=..]')
     line = {'id': max((l.get('id', 0) for l in board['lines']), default=0) + 1,
             'issue': parse_value('issue', args[0]), 'title': args[1],
-            'state': 'planned', 'worker': None, 'worktree': '', 'pr': None, 'next': '',
-            'updated': now_iso()}
+            'state': 'planned', 'release': board.get('release') or '', 'worker': None, 'worktree': '',
+            'pr': None, 'next': '', 'updated': now_iso()}
     apply_kv(line, args[2:], LINE_KEYS)
+    guard_release(board, line, args[2:], owner_ok)
     board['lines'].append(line)
     save(path, board)
-    print(f'board: added line {line["id"]} #{line["issue"]} {line["title"]}')
+    print(f'board: added line {line["id"]} #{line["issue"]} {line["title"]} (release {line_release(board, line) or "-"})')
+
+
+def cmd_ready(path):
+    if not path.exists():
+        print(f'board ready: no board at {path}')
+        return 1
+    board = load(path)
+    current = board.get('release') or ''
+    ready = [l for l in board['lines'] if l.get('state') == 'planned' and line_release(board, l) == current]
+    for l in ready:
+        print(f'ready {l.get("id")} #{l.get("issue")} {l.get("title")} (release {current or "-"})')
+    if not ready:
+        print(f'board ready: none (release {current or "-"})')
+    return 0
 
 
 def cmd_set(path, args):
     board = load(path)
+    args, owner_ok = pop_owner_ok(args)
     if not args:
-        die('usage: board.py set <id|board> key=value...')
+        die('usage: board.py set <id|board> key=value... [--owner-ok "<quote>"]')
     target = args[0]
     if target == 'board':
         apply_kv(board, args[1:], BOARD_KEYS)
@@ -151,6 +222,7 @@ def cmd_set(path, args):
     if line is None:
         die(f'no line {target}')
     apply_kv(line, args[1:], LINE_KEYS)
+    guard_release(board, line, args[1:], owner_ok)
     line['updated'] = now_iso()
     save(path, board)
     print(f'board: line {target} updated')
@@ -168,10 +240,11 @@ def cmd_show(path):
     if not board['lines']:
         print('lines: none')
         return 0
-    print(f'{"id":>3} {"issue":>6} {"state":<8} {"worker":<14} {"pr":>5}  {"worktree":<22} {"upd":<16} next')
+    print(f'{"id":>3} {"issue":>6} {"state":<8} {"rel":<8} {"worker":<14} {"pr":>5}  {"worktree":<22} {"upd":<16} next')
     for l in board['lines']:
         upd = str(l.get('updated', '-'))[:16]
         print(f'{l.get("id", "-"):>3} {str(l.get("issue", "-")):>6} {l.get("state", "-"):<8} '
+              f'{line_release(board, l) or "-":<8} '
               f'{str(l.get("worker") or "-"):<14} {str(l.get("pr") or "-"):>5}  '
               f'{str(l.get("worktree") or "-"):<22} {upd:<16} {l.get("next") or "-"}')
     return 0
@@ -224,17 +297,19 @@ def read_workers():
     state_dir = os.environ.get('WAVE_STATE')
     if not state_dir:
         return None, 'WAVE_STATE is not set'
-    root = Path(state_dir)
-    if not root.is_dir():
-        return None, f'WAVE_STATE {state_dir} is not a directory'
+    roots = [Path(p) for p in state_dir.split(':') if p]  # one dir per lane, joined with ':'
+    for root in roots:
+        if not root.is_dir():
+            return None, f'WAVE_STATE {root} is not a directory'
     workers = {}
-    for path in sorted(root.glob('*.json')):
-        if path.name.startswith('preview-'):
-            continue
-        try:
-            workers[path.stem] = (json.loads(path.read_text()), path)
-        except (ValueError, OSError):
-            continue
+    for root in roots:
+        for path in sorted(root.glob('*.json')):
+            if path.name.startswith('preview-'):
+                continue
+            try:
+                workers[path.stem] = (json.loads(path.read_text()), path)
+            except (ValueError, OSError):
+                continue
     return workers, None
 
 
@@ -370,12 +445,60 @@ def self_test():
     r = run('check')
     expect(10, r, 'stale line')
     assert 'not updated' in r.stdout, r.stdout
+    # check across two state dirs joined with ':' (one per lane)
+    other = root / 'state-b'
+    other.mkdir()
+    (other / 'W-1143.json').write_text((state / 'W-1143.json').read_text())
+    (state / 'W-1143.json').unlink()
+    env2 = {**env, 'WAVE_STATE': f'{state}:{other}'}
+    r = subprocess.run([sys.executable, str(Path(__file__).resolve()), 'check'], capture_output=True, text=True, env=env2)
+    assert 'W-1143' not in r.stdout, r.stdout  # found in the second dir, not reported missing/off-board
+    r = run('check')
+    assert 'W-1143' in r.stdout, r.stdout  # one dir alone cannot see it
     # check: missing board is a note, not a failure
     board.unlink()
     r = run('check')
     expect(0, r, 'missing board notes only')
+
+    # release scope (#1401): ready, release default, running on another release needs --owner-ok, decisions only in decisions[]
+    expect(0, run('init'), 'init again')
+    expect(0, run('set', 'board', 'release=v1'), 'board release v1')
+    expect(0, run('add', '1', 'current default release'), 'add default release')
+    expect(0, run('add', '2', 'next release line', 'release=v2'), 'add other release')
+    expect(0, run('add', '3', 'done line', 'state=done'), 'add done line')
+    data = json.loads(board.read_text())
+    assert data['lines'][0]['release'] == 'v1', data
+    r = run('ready')
+    expect(0, r, 'ready')
+    assert 'ready 1 #1' in r.stdout and '#2' not in r.stdout and '#3' not in r.stdout, r.stdout
+    r = run('set', '2', 'state=running')
+    expect(3, r, 'running on another release refused')
+    assert '--owner-ok' in r.stderr, r.stderr
+    assert json.loads(board.read_text())['lines'][1]['state'] == 'planned'
+    expect(2, run('set', '2', 'state=running', '--owner-ok'), '--owner-ok without a quote')
+    expect(0, run('set', '2', 'next=prep'), 'other fields of another release need no quote')
+    expect(0, run('set', '2', 'state=running', '--owner-ok', 'owner 2026-11-06: start v2 now'), 'owner-ok accepted')
+    line2 = json.loads(board.read_text())['lines'][1]
+    assert line2['state'] == 'running' and line2['owner_ok'] == 'owner 2026-11-06: start v2 now', line2
+    expect(3, run('add', '9', 'sneaky', 'release=v3', 'state=running'), 'add running on another release refused')
+    expect(0, run('set', '1', 'state=running'), 'current release starts without a quote')
+    # a line without a release field (old board) counts as the current release
+    data = json.loads(board.read_text())
+    del data['lines'][2]['release']
+    data['lines'][2]['state'] = 'planned'
+    board.write_text(json.dumps(data))
+    r = run('ready')
+    assert '#3' in r.stdout, r.stdout
+    # add decision touches decisions[] only
+    before = len(json.loads(board.read_text())['lines'])
+    expect(0, run('add', 'decision', 'v2 waits for the owner', 'by=owner'), 'add decision')
+    data = json.loads(board.read_text())
+    assert len(data['lines']) == before and data['decisions'][-1]['text'] == 'v2 waits for the owner' \
+        and data['decisions'][-1]['by'] == 'owner', data
+    expect(2, run('add', 'decision', 'x', 'worker=W-1'), 'add decision rejects line keys')
     print('board.py self-test passed: init/add/set/show, enum guard, clean check, worker missing/done/stopped, '
-          'off-board worker, shared worktree, stale line, missing board')
+          'off-board worker, shared worktree, stale line, two state dirs, missing board, release scope '
+          '(ready, default release, owner-ok, old lines, decision only in decisions[])')
 
 
 def main():
@@ -387,7 +510,8 @@ def main():
         print(__doc__)
         return
     if not args:
-        die('usage: board.py {init|add <issue> <title> [key=value...]|set <id|board> key=value...|show|check}')
+        die('usage: board.py {init|add <issue> <title> [key=value...]|add decision <text>|'
+            'set <id|board> key=value... [--owner-ok "<quote>"]|show|ready|check}')
     path = default_board_path()
     cmd, rest = args[0], args[1:]
     if cmd == 'init':
@@ -398,6 +522,8 @@ def main():
         cmd_set(path, rest)
     elif cmd == 'show':
         sys.exit(cmd_show(path))
+    elif cmd == 'ready':
+        sys.exit(cmd_ready(path))
     elif cmd == 'check':
         sys.exit(cmd_check(path))
     else:

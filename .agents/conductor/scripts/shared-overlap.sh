@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# List open PRs that touch the same files as this branch, so the lead can set the merge order (LANES §Shared paths).
+# List open PRs that touch the same files as this branch, so the lead can set the merge order (LANES §Start coordination paths).
 # usage: shared-overlap.sh [<base> [<head>]]   committed diff, default origin/main HEAD
 #        shared-overlap.sh --paths <path>[,<path>…]   planned paths before a commit (a trailing / matches a prefix)
 # output: one line per overlapping PR — `overlap pr=#<n> branch=<b> files=<a,b,…>` — then

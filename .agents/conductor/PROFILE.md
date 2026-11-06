@@ -17,14 +17,13 @@ The lead writes the planned tier in the assignment comment (`tier=full|light`). 
 
 | tier | When (any of) | Workers | Review | Fix rounds |
 | --- | --- | --- | --- | --- |
-| **full** | non-test, non-`.md` source under `packages/sdk/{kernel,components,shell,ui,contracts}`, `packages/adapters/*`, `apps/platform-web`, `apps/platform-api`, `apps/feature-screens`, `packages/feature-shared` (either side of a rename); `review-plan.py` `flags.permission`; `ux=required`; the issue is `impl-complex` | ≤ 3 per PR: implementer + `review-final` (+ `review-ux` when screens change) + one fix | 1 | 1. If a blocker or major is still open after it, a second round goes to `impl-complex` and gets a fix-diff check. Re-review only after a permission or data-leak fix. |
+| **full** | non-test, non-`.md` source under `packages/sdk/{kernel,components,shell,ui,contracts}`, `packages/adapters/*`, `apps/platform-web`, `apps/platform-api`, `apps/feature-screens`, `packages/feature-shared` (either side of a rename); `review-plan.py` `flags.permission`; `ux=required`; the issue is `impl-complex` | ≤ 3 per PR: implementer + `review-final` (+ `review-ux` when screens change) + one fix | 1 | 1 (round cap: see below). Re-review only after a permission or data-leak fix. |
 | **light** | everything else: pure renames (R100), moves, docs, copy, generator output, sample-menu changes without permission or URL/Context logic | none — the lane edits directly | none — the host reads the diff and records `tier=light` plus `git diff --numstat` in VERIFY | — |
 
 - **Measured (heuristic, PR #1041 review):** the paths-only first draft was replayed on the last 250 merges with archived reviews. 19 of 50 "light" merges had a blocker or major. Most were in `apps/feature-screens` or hit `flags.permission`, and both are now full. The current rule has not been re-measured, so do not widen light without new data.
 - **PR count:** at most 3 PRs per issue. Bundle mechanical work into one PR. Split only where a full-tier review needs isolation.
 - **Copy-only edits under full paths:** the lead may mark the PR light with a numstat line ("copy only"), unless `flags.permission` fires.
-- **Over cap:** more than 2 `review-final` runs on one issue need an `over-cap: <reason>` line in VERIFY (`ship-check.sh` blocks without it). The cap is a recorded decision, not a refusal: a late round can still catch a real major. A minor or nit never starts a round past the cap.
-- The fix-diff rule in the full row (one fix round; a still-open blocker or major sends the second round to `impl-complex` with a fix-diff check) replaces global skill step 7f — this profile owns that rule.
+- **Round cap (the only place; this profile's rule replaces global skill step 7f):** the full row allows one fix round; a blocker or major still open after it sends the second round to `impl-complex` with a fix-diff check. More than 2 `review-final` runs on one issue need an `over-cap: <reason>` line in VERIFY (`ship-check.sh` blocks without it); the lane asks `질문 #n 한도 <rounds>`. The cap is a recorded decision, not a refusal: a late round can still catch a real major. A minor or nit never starts a round past the cap.
 - Before merge, run `bash .agents/conductor/scripts/ship-check.sh <issue> <worktree>` on both merge paths ([addenda/merge.md](addenda/merge.md)): it fails when a full-tier diff has no `review-plan:` line or review-final record in VERIFY, or a `ux=required` diff has no UX record and no existing `ux-skip:` evidence path.
 - **Brief check:** only for `impl-complex` briefs, plus a `review-quality` plan review when a brief changes 06 contracts, package boundaries or `sdk:api`. No other intermediate checks and no separate doc-sync workers. The implementer updates the owning docs in the same PR ([`docs/AGENTS.md`](../../docs/AGENTS.md)).
 - **Review findings:**
@@ -45,7 +44,7 @@ Route to `impl-complex` (always full) if any of these hold:
   - Environment: `WAVE_STATE`, `WAVE_BRIEFS`, `AP_MAIN`.
   - Role: `WORKER_ROLE`. Overrides: `WORKER_MODEL`, `WORKER_EFFORT`.
 - Capacity and slots: see [`LANES.md`](LANES.md) §Machine resources. Run issues in parallel only when their files do not overlap.
-- **Parallelism checkpoint.** At every wake (a worker finished, a wait was armed, a node is blocked, before a local root verify) the progress message names the independent work that could start now and starts it, or says what blocks it (memory slot, file overlap, dependency). Candidates:
+- **Parallel work.** Independent work starts at once; if it cannot, the blocker is memory slot, file overlap or dependency. Candidates:
   - review-final, review-ux (when the review plan says `ux=required`) and the host root verify start together on the first implementation commit; their findings go into one fix round, and review-ux re-checks only the fixed items. Reason: a review-ux run after the fix round adds a second fix round.
   - A graph node whose dependencies are already committed on an in-flight branch starts stacked on that branch (`orca worktree create --base-branch <branch>`, then `launch-worker.py --reuse`); its brief names the base branch's in-flight files it must not edit, and it is rebased onto `main` after the base merges. Reason: waiting for the base's review rounds idles the slot.
   - Research and plans for the next issue (read-only) run while workers implement.
@@ -66,7 +65,6 @@ Every step must exit 0 before commit.
 2. Root checks:
    - `verify=full`: run `bash .agents/conductor/scripts/verify-root.sh <log-dir>` (lint → typecheck → test+build under `heavy.lock`; exits 3 if capacity says `start=no`).
    - `verify=light`: run `verify-root.sh --light <log-dir>` (lint + typecheck). Test and build are left to PR CI. `tier.sh` gives `verify=full` for any change under the full paths, tests included (root `AGENTS.md` §검증).
-   - Never use `--force` or diff filters. The turbo cache decides what reruns.
 3. E2E, only when Kernel, shell, shared components or the mock server change. Run the new describe first, then the brief's "Impact" describes with `-g "A|B"`. Never run full `pnpm e2e` locally, except to reproduce a CI failure. PR and main-push CI run only the affected specs (`.github/scripts/select-e2e.mjs`: all for `menus/**`, `platform/**`, `packages/**` and anything it cannot narrow; none for docs-only; just that spec for a spec-only change). A green PR is therefore not a full E2E record; the release `full=true` run is.
 4. If menu manifests, `menus.ts`, contract menu types or `tooling/gen-menu` change: run `node tooling/gen-menu/scripts/probe.ts`, never in a worktree with a live preview.
 5. Feature gates, when feature package or folded CI inputs change (`.github/workflows/ci.yml`):
@@ -77,8 +75,6 @@ Every step must exit 0 before commit.
    - Public SDK types change → `pnpm build`, then `pnpm sdk:api` (on intended changes, `--update` plus one line in `docs/integration/sdk-git-tag-consumption.md`).
    - SDK files move or are renamed → `pnpm sdk:pack --out <d> && pnpm sdk:consumer-check <d>`.
    - A CSS rule is removed → add the `css-removal-ok` label and wait for the rerun before ship.
-
-Fix design-lint errors with the token, variant or component the message names.
 
 - **Fix round:** run changed packages, root lint/typecheck/test (cached), affected `-g` E2E, affected screen gates, hygiene, and step 7 if its inputs changed. No build, full E2E or probe unless a build input changed.
 - **Final head:** run only hygiene. Run the fix-round checks again only after a rebase conflict.
@@ -126,7 +122,7 @@ Reports are in Korean.
   - Keyboard: 06 §26.
   - Copy: Korean, existing i18n wording, `GLOSSARY.md` terms.
   - Visuals: 50px page header, tokens, `@ap/ui`/`@ap/components`.
-  - UI/UX heuristics (after the checks above): read `.agents/skills/ui-ux-pro-max/SKILL.md` and walk its priority table (accessibility, interaction, layout, typography and color, forms and feedback, data and charts) against the changed screens; query `--domain` only for a category you flag. Skip mobile- and touch-only rules (desktop scope). Repo docs win on any conflict; cite the rule for each finding. Reason: the repo lens covers contracts, not general interaction quality.
+  - UI/UX heuristics (optional): when a reviewer flags a category (accessibility, interaction, layout, typography and color, forms and feedback, data and charts), look it up in `.agents/skills/ui-ux-pro-max/SKILL.md` (`--domain` query) and cite the rule. Skip mobile- and touch-only rules (desktop scope). Repo docs win on any conflict. Not a full table walk until it is measured to find something the repo lens and `impeccable` miss.
 - **Severity:** blocker = data from another Scope is visible. major = 06 violation.
 
 ## Review lens: quality
@@ -177,7 +173,9 @@ Shared assets come from conductor-engine `install.sh`. Run `install.sh --check` 
 | `scripts/lock-audit.sh` | Find locks left by finished work |
 | `scripts/lead-check.sh` | Lead resume and 2-hour check (LANES §Lead) |
 | `scripts/ship-check.sh <issue> <worktree>` | Pre-merge record gate |
-| `python3 scripts/board.py {init\|add\|set\|show\|check}` | Lane board at `$AP_MAIN/.review/lanes/board.json` |
+| `scripts/merge-precheck.sh [--main-fix] <pr> <branch> <sha>` | Pre-merge main-CI and shared-path gate |
+| `scripts/main-ci-watch.sh <sha>` | Watch the main push CI after a merge; writes or clears the `main-red` marker |
+| `python3 scripts/board.py {init\|add\|set\|show\|ready\|check}` | Lane board at `$AP_MAIN/.review/lanes/board.json` (`--help` has the schema) |
 
 ## Traps
 

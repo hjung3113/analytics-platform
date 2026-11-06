@@ -2,26 +2,24 @@
 
 Read this only when you merge a PR. Merges run one at a time machine-wide. CI runs in parallel.
 
-## Which path
+## Every path
 
-| PR touches | Path |
+1. **Ship check:** `bash .agents/conductor/scripts/ship-check.sh <issue> <worktree>` (`WAVE_STATE` exported). Chain the merge on it with `&&`. On exit 1, run the missing record step first ([PROFILE §Size and path](../PROFILE.md)).
+2. **Precheck:** `bash .agents/conductor/scripts/merge-precheck.sh <pr> <branch> <head-sha>` immediately before the merge (inside `merge.lock` on the short-lock path). Exit 4: main CI is red or `main-red` exists; merge only the fix, with `--main-fix`. Exit 3: rebase, then CI again.
+3. **Merge**, then **watch main:** `bash .agents/conductor/scripts/main-ci-watch.sh <merge sha>` in the background, with `LANE_NAME` set. It sends `main 깨짐` and writes the marker on a red run, and clears the marker on green. You fix a red main.
+4. **After:** confirm the issue is closed, archive `.review/` to `$WAVE_BRIEFS/<n>/`, clean up the worktree and terminal, delete the remote branch, and for a planned graph run `plan-graph.py mark`.
+
+## Which merge
+
+| PR touches | Merge |
 | --- | --- |
-| A shared path: the list in `scripts/shared-paths.sh` | **Locked ship:** run `bash .agents/conductor/scripts/ship-check.sh <issue> <worktree>` (below) first, then `bash .agents/conductor/scripts/with-lock.sh merge.lock "<n> ship" -- <ship-pr.sh … --ci --merge …>` (run in background). The lock is held through CI. |
-| Anything else | **Short lock:** steps 1–5 below. CI runs outside the lock. |
+| A shared path (list: `scripts/shared-paths.sh`) | **Locked ship:** `with-lock.sh merge.lock "<n> ship" -- <ship-pr.sh … --ci --merge …>` in the background. The lock is held through CI. `ship-pr.sh` does not call the precheck, so run `merge-precheck.sh` yourself right before starting the ship (main CI gate); `--main-fix` for the fix PR. |
+| Anything else | **Short lock:** `ship-pr.sh --branch … --base main --title … --body-file …` without `--ci`/`--merge`; wait for the head's CI outside the lock (every check in `gh pr checks <n> --json name,bucket` passes, feature checks included, an empty list is not a pass); then |
 
-## Short lock (until conductor-engine#150 adds `--merge-lock`)
+```bash
+export PRN=<n> BR=<branch> SHA=<head sha>
+bash .agents/conductor/scripts/with-lock.sh merge.lock "$PRN merge" -- bash -c 'bash .agents/conductor/scripts/merge-precheck.sh "$PRN" "$BR" "$SHA" && gh pr merge "$PRN" --squash --match-head-commit "$SHA"'
+```
 
-1. **Create:** run `ship-pr.sh --branch … --base main --title … --body-file …` without `--ci`, `--merge`, `--issue`, `--worktree`, `--archive-review`.
-2. **Wait:** run `gh pr checks <n> --watch --fail-fast` in the background with a time cap. If it returns before any check is registered, run it again. Then confirm that every check in `gh pr checks <n> --json name,bucket` passes, feature checks included (they are outside the ruleset, so count them yourself). An empty list is not a pass.
-3. **Ship check:** run `bash .agents/conductor/scripts/ship-check.sh <issue> <worktree>` (`WAVE_STATE` exported). On exit 1, run the missing record step before merging ([PROFILE §Size and path](../PROFILE.md)).
-4. **Merge:** first check outside the lock that the latest main push CI is not failing. Then:
-   ```bash
-   export PRN=<n> BR=<branch> SHA=<head sha>
-   bash .agents/conductor/scripts/with-lock.sh merge.lock "$PRN merge" -- bash -c 'bash .agents/conductor/scripts/merge-precheck.sh "$PRN" "$BR" "$SHA" && gh pr merge "$PRN" --squash --match-head-commit "$SHA"'
-   ```
-   - exit 3 → rebase, then restart at step 2.
-   - exit 75 (lock held) → retry step 4 from the main-CI check.
-   - merge refused for a conflict → restart at step 1.
-5. **After:** watch the main push run. If it is red, send `<lane>: main 깨짐` and fix it. Then confirm the issue is closed, archive `.review/` to `$WAVE_BRIEFS/<n>/`, clean up the worktree and terminal, delete the remote branch, and for a planned graph run `plan-graph.py mark`.
-
-If a locked ship ends with exit 20/21/22, the lock is released when `with-lock.sh` exits. Fix the problem, then ship again.
+- exit 75 (lock held) → retry. Merge refused for a conflict → rebase and ship again.
+- A locked ship that ends with exit 20/21/22 releases the lock; fix the problem, then ship again.
