@@ -1,6 +1,6 @@
 # Lane brief template
 
-The lead writes one brief per lane at `$AP_MAIN/.review/lanes/<lane>.md`. A lane session reads its brief, plus only the sections it points to in [`LANES.md`](../LANES.md) §Lane session and [`PROFILE.md`](../PROFILE.md). It does not read either file in full: the lead owns grouping, briefs, tiers and assignment, so a lane that re-derives them gets different answers than the lead.
+The lead writes one brief per lane at `$AP_MAIN/.review/lanes/<lane>.md`. A lane session reads its brief, plus [`LANES.md`](../LANES.md) §Lane session and the [`PROFILE.md`](../PROFILE.md) sections named in its first line. Reason: the lead owns grouping, briefs, tiers and assignment; a lane that re-derives them gets different answers.
 
 Keep it to one page. Copy the block below and fill every field; a field the lane cannot act on is a defect in the brief.
 
