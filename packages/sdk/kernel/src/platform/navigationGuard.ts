@@ -113,5 +113,20 @@ export function readHistoryIdx(state: unknown): number | null {
   const idx = state[HISTORY_INDEX_KEY];
   return typeof idx === 'number' && Number.isInteger(idx) && idx >= 0 ? idx : null;
 }
-/** `state` with the position stamped; foreign fields stay. */
-export const withHistoryIdx = (state: unknown, idx: number): Record<string, unknown> => ({ ...(isRecord(state) ? state : {}), [HISTORY_INDEX_KEY]: idx });
+/**
+ * The history-state field naming the numbering segment an `apIdx` belongs to. Positions are comparable only inside one segment: a push from an entry the
+ * Kernel did not stamp starts a new segment (once any stamp was seen), so a distance is never computed across it (it fails open instead).
+ */
+export const HISTORY_SEGMENT_KEY = 'apSeg';
+/** The entry's segment, or null for the first (unnamed) one. */
+export function readHistorySeg(state: unknown): string | null {
+  if (!isRecord(state)) return null;
+  const seg = state[HISTORY_SEGMENT_KEY];
+  return typeof seg === 'string' && seg !== '' ? seg : null;
+}
+/** `state` with the position (and, past the first segment, the segment) stamped; foreign fields stay. */
+export const withHistoryIdx = (state: unknown, idx: number, seg: string | null = null): Record<string, unknown> => {
+  const next: Record<string, unknown> = { ...(isRecord(state) ? state : {}), [HISTORY_INDEX_KEY]: idx };
+  if (seg !== null) next[HISTORY_SEGMENT_KEY] = seg; else delete next[HISTORY_SEGMENT_KEY];
+  return next;
+};

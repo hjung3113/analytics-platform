@@ -7,7 +7,7 @@ import { incompleteMetricPair, menuPermissions, isAppRelativePath, type Pair, ty
 import { readSpaceLast, sameParams, writeSpaceLast } from './preferences';
 import { MainBoundContext, ScreenContext, type AppValue, type CommitOptions, type MainBound, type ScreenSource } from './contexts';
 import { useScreenState } from './useScreenState';
-import { readHistoryIdx, withHistoryIdx } from './navigationGuard';
+import { readHistoryIdx, readHistorySeg, withHistoryIdx } from './navigationGuard';
 
 /** The main screen: the browser URL, history, and the shell navigation that follows it. */
 export const MainScreenProvider = memo(function MainScreenProvider({ app, children }: { app: AppValue; children: ReactNode }) {
@@ -38,6 +38,9 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
   const shownRef = useRef(url);
   const [bootIdx] = useState(() => readHistoryIdx(location.readState?.()));
   const idxRef = useRef<number | null>(bootIdx);
+  // The numbering segment of the entry on screen (null = the first, unnamed one) and whether any stamp was ever seen in this tab: only then must a rebase name a new segment.
+  const segRef = useRef<string | null>(bootIdx === null ? null : readHistorySeg(location.readState?.()));
+  const sawStamp = useRef(bootIdx !== null);
   const stamping = location.readState !== undefined;
   const commitRef = useRef<((next: string, how: 'push' | 'replace', options?: CommitOptions) => boolean) | null>(null);
   const reportRef = useRef<(error: unknown) => string>(() => '');
@@ -63,8 +66,9 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
     // A return trip restores the hidden pairs the origin held, checked against what the destination declares (F1).
     const nextHidden = options.redirect ? hiddenRef.current : split.hidden.length > 0 || !options.restoreHidden ? split.hidden : validateHidden(options.restoreHidden, menuFor(next));
     if (!allowed || (split.url === (location.read() ?? '') && sameHidden(nextHidden, hiddenRef.current))) { if (!options.materialize) pageNavigation.cancel(); return false; }
+    const moveBlocked = how === 'push' && !options.redirect && !options.materialize && !options.bypassGuard;
     // Leaving with unsaved edits asks first (ADR-0115). Redirects, arrival materialization, `replace` and the confirmed replay are never held.
-    if (how === 'push' && !options.redirect && !options.materialize && !options.bypassGuard) {
+    if (moveBlocked) {
       const change = { from: location.read() ?? '', to: split.url };
       if (guard.shouldBlock(change)) {
         if (!guard.pending()) {
@@ -75,23 +79,31 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
         return false;
       }
     }
+    // An accepted write changes the origin the pending request was made from (a replace, a Scope change, a confirmed replay): that request is stale (F3).
+    guard.dropRequest();
     if (options.redirect) pageNavigation.redirect(split.url);
     else if (options.materialize) pageNavigation.materialize(split.url);
     else pageNavigation.advance(split.url, options.focus);
     // The URL state carries pathname + search only; a kernel rewrite of the same arrival keeps the fragment in the same history write.
     // A menu that declares no hidden keys writes no state, exactly as before.
     const declares = keys.length > 0;
-    // Entries are stamped with their position (`apIdx`) so a Back/Forward can be undone exactly. A replace keeps the stamp it has; the first push from an entry
-    // the Kernel did not write stamps that entry as 0 first (one extra same-entry write). No unsaved-edit guard in the app: nothing else changes.
-    const here = stamping ? readHistoryIdx(location.readState?.()) : null;
+    // Entries are stamped with their position (`apIdx`) so a Back/Forward can be undone exactly. A replace keeps the stamp it has; a push from an entry the
+    // Kernel did not write re-bases: that entry is stamped 0 in a NEW numbering segment (`apSeg`, once any stamp was seen) and the push is 1, so positions
+    // before it are never mixed with later ones (F1). No unsaved-edit guard in the app: nothing else changes.
+    const hereState = stamping ? location.readState?.() : null;
+    const here = stamping ? readHistoryIdx(hereState) : null;
+    const hereSeg = here === null ? null : readHistorySeg(hereState);
     const replaceState = declares ? withHiddenState(location.readState?.(), nextHidden) : undefined;
-    if (how === 'replace') location.replace(split.url, { keepFragment: options.redirect || options.materialize, ...(here !== null ? { state: withHistoryIdx(replaceState, here) } : declares ? { state: replaceState } : {}) });
+    if (how === 'replace') location.replace(split.url, { keepFragment: options.redirect || options.materialize, ...(here !== null ? { state: withHistoryIdx(replaceState, here, hereSeg) } : declares ? { state: replaceState } : {}) });
     else if (stamping) {
-      const base = here ?? idxRef.current ?? 0;
+      const base = here ?? 0;
+      const seg = here === null ? (sawStamp.current ? `s${Math.random().toString(36).slice(2, 10)}` : null) : hereSeg;
       const at = location.read();
-      if (here === null && at !== null) location.replace(at, { keepFragment: true, state: withHistoryIdx(location.readState?.(), base) });
+      if (here === null && at !== null) location.replace(at, { keepFragment: true, state: withHistoryIdx(location.readState?.(), base, seg) });
       idxRef.current = base + 1;
-      location.push(split.url, withHistoryIdx(declares ? withHiddenState(null, nextHidden) : null, base + 1));
+      segRef.current = seg;
+      sawStamp.current = true;
+      location.push(split.url, withHistoryIdx(declares ? withHiddenState(null, nextHidden) : null, base + 1, seg));
     } else if (declares) location.push(split.url, withHiddenState(null, nextHidden)); else location.push(split.url);
     shownRef.current = split.url;
     hiddenRef.current = nextHidden;
@@ -127,7 +139,11 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
       pageNavigation.advance(next, next.split('?')[0] !== shownRef.current.split('?')[0] ? 'page' : undefined);
       usageNav.current.via = 'history';
       hiddenRef.current = arrived.hidden;
-      if (newIdx !== null) idxRef.current = newIdx;
+      // An entry without a stamp breaks the numbering: nothing is trusted from before it (F1). A stamped one brings its own segment.
+      idxRef.current = newIdx;
+      segRef.current = newIdx === null ? null : readHistorySeg(location.readState?.());
+      if (newIdx !== null) sawStamp.current = true;
+      guard.dropRequest(); // an accepted arrival ends any request made from the entry we left (F3)
       shownRef.current = next;
       const traversed = { url: next, hidden: arrived.hidden, rewrite: false };
       latestArrival.current = traversed;
@@ -137,20 +153,28 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
     const onPop = () => {
       const newIdx = readHistoryIdx(location.readState?.());
       const cur = idxRef.current;
+      // Positions of different segments are not comparable: such a pop is neither a compensation nor a measurable distance.
+      const sameSegment = newIdx !== null && readHistorySeg(location.readState?.()) === segRef.current;
       // The pop the guard caused by putting the person back where they were.
-      if (compensating.current > 0 && newIdx !== null && newIdx === cur) { compensating.current--; return; }
+      if (compensating.current > 0 && newIdx !== null && sameSegment && newIdx === cur) { compensating.current--; return; }
       // The pop of a leave the person confirmed.
       if (replayIdx.current !== null && newIdx === replayIdx.current) { replayIdx.current = null; arrivePop(newIdx); return; }
       const raw = location.read() ?? '';
       const change = { from: shownRef.current, to: raw };
       if (guard.shouldBlock(change)) {
-        if (newIdx !== null && cur !== null && newIdx !== cur && location.go !== undefined) {
+        if (newIdx !== null && cur !== null && sameSegment && newIdx !== cur && location.go !== undefined) {
           const delta = newIdx - cur;
           compensating.current++;
           try { location.go(-delta); } catch { compensating.current--; failOpen('NavGuardHistoryError'); arrivePop(newIdx); return; }
           guard.request({ change, destination: menuFor(raw)?.label ?? null, via: 'history', proceed: () => {
             replayIdx.current = newIdx;
-            try { location.go?.(delta); } catch { replayIdx.current = null; failOpen('NavGuardHistoryError'); }
+            try { location.go?.(delta); } catch {
+              // The replay cannot travel: fail open to the destination (ADR-0115 decision 4). `onDiscard` already ran in `confirm` (before this), so the move
+              // must still land or the person would lose edits without arriving; the destination address is pushed instead of travelled to.
+              replayIdx.current = null; failOpen('NavGuardHistoryError');
+              usageNav.current.via = 'history';
+              commitRef.current?.(raw, 'push', { bypassGuard: true });
+            }
           } });
           return;
         }

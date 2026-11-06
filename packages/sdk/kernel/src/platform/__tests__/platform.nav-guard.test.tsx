@@ -154,6 +154,33 @@ describe('menu leave guard: links and navigate (ADR-0115)', () => {
     expect(here()).toContain('scopeId=S2');
   });
 
+  it('a replace that is accepted while a request is pending retires the request (F3)', () => {
+    mount('/mars/editor');
+    act(() => setDirty(true));
+    act(() => { platform.navigate('/mars/other'); });
+    expect(request).not.toBeNull();
+    const stale = request!;
+    act(() => { platform.navigate('/mars/third', { replace: true }); });
+    expect(here()).toBe('/mars/third');
+    expect(request).toBeNull();
+    act(() => stale.confirm());
+    expect(here()).toBe('/mars/third');
+  });
+
+  it('a Scope switch while a request is pending retires the request (F3)', () => {
+    mount('/mars/editor?v=1&scopeId=S1');
+    act(() => setDirty(true));
+    act(() => { platform.navigate('/mars/other?v=1&scopeId=S1'); });
+    expect(request).not.toBeNull();
+    const stale = request!;
+    act(() => platform.setGlobal({ scopeId: 'S2' }));
+    expect(here()).toContain('scopeId=S2');
+    expect(request).toBeNull();
+    act(() => stale.confirm());
+    expect(here()).toContain('/mars/editor');
+    expect(here()).toContain('scopeId=S2');
+  });
+
   it('unmounting the guard while a request is pending drops it without leaving', () => {
     mount('/mars/editor');
     act(() => setDirty(true));
@@ -290,5 +317,47 @@ describe('menu leave guard: browser Back and Forward (ADR-0115)', () => {
     await settle();
     expect(platform.pathname).toBe('/mars/editor');
     expect(request).toBeNull();
+  });
+
+  it('after a foreign entry the old numbering is not trusted: a multi-step Back never retargets (F1)', async () => {
+    mount('/mars/other');
+    act(() => { platform.navigate('/mars/editor'); });
+    window.history.pushState(null, '', '/mars/third'); // an entry the Kernel did not write
+    window.history.back();
+    await settle();
+    window.history.forward();
+    await settle();
+    expect(here()).toBe('/mars/third');
+    act(() => { platform.navigate('/mars/other'); });
+    expect(here()).toBe('/mars/other');
+    act(() => setDirty(true));
+    window.history.go(-2);
+    await settle();
+    // Either the person is asked about the real destination (editor) or the move passes through; it is never silently retargeted to the foreign entry.
+    if (request !== null) expect(request.destination).toEqual({ ko: 'editor', en: 'editor' });
+    else expect(here()).toBe('/mars/editor');
+    expect(request === null ? platform.pathname : here()).not.toBe('/mars/third');
+  });
+
+  it('a history error while replaying a confirmed leave still lands on the destination (F2)', async () => {
+    const onDiscard = vi.fn();
+    guardOptions = { onDiscard };
+    const reportClientError = vi.fn(async () => ({ accepted: true as const }));
+    mount('/mars/other', { reportClientError });
+    act(() => { platform.navigate('/mars/editor'); });
+    act(() => { platform.navigate('/mars/third'); });
+    act(() => setDirty(true));
+    window.history.back();
+    await settle();
+    expect(here()).toBe('/mars/third');
+    expect(request).not.toBeNull();
+    const real = window.history.go.bind(window.history);
+    vi.spyOn(window.history, 'go').mockImplementation((d?: number) => { if (d !== undefined && d < 0) throw new DOMException('rate', 'SecurityError'); real(d); });
+    act(() => request!.confirm());
+    await settle();
+    expect(here()).toBe('/mars/editor');
+    expect(platform.pathname).toBe('/mars/editor');
+    expect(onDiscard).toHaveBeenCalledTimes(1);
+    expect(reportClientError.mock.calls).toEqual(expect.arrayContaining([[expect.objectContaining({ name: 'NavGuardHistoryError' })]]));
   });
 });

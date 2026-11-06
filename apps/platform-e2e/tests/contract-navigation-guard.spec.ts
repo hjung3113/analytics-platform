@@ -147,6 +147,7 @@ test.describe('메뉴 이동 가드 — 편집 중 시뮬레이션 (06 §6.4, §
 
     await page.goBack();
     await expect(dialog(page)).toBeVisible();
+    await expect(page).toHaveURL(here); // the Kernel's history compensation is asynchronous: wait until the person is back before deciding
     await stay(page).click();
     await expect(dialog(page)).toHaveCount(0);
     expect(page.url()).toBe(here);
@@ -154,6 +155,7 @@ test.describe('메뉴 이동 가드 — 편집 중 시뮬레이션 (06 §6.4, §
 
     await page.goBack();
     await expect(dialog(page)).toBeVisible();
+    await expect(page).toHaveURL(here);
     await leave(page).click();
     await expect(mainHeading(page)).toHaveText('차트 카탈로그');
     expect(pathname(page)).toBe('/mars/chart-catalog');
