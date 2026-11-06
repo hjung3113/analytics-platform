@@ -103,9 +103,11 @@ for state_dir in state_dirs:
         if path.name.startswith('preview-'):
             continue
         try:
-            workers.append((path.stem, json.loads(path.read_text()), path))
+            state = json.loads(path.read_text())
         except (ValueError, OSError):
             continue
+        if isinstance(state, dict):  # CI snapshots (JSON lists) share the dir; only objects are worker states
+            workers.append((path.stem, state, path))
 
 # The Orca terminal list, queried once (Q2): worker status and the idle-terminal finding share it.
 terminals = None
@@ -150,7 +152,7 @@ for state_dir in state_dirs:
             p = json.loads(path.read_text())
         except (ValueError, OSError):
             continue
-        if isinstance(p.get('pid'), int) and alive(p['pid']):
+        if isinstance(p, dict) and isinstance(p.get('pid'), int) and alive(p['pid']):
             preview_pids[p['pid']] = path.stem
         if isinstance(p.get('pgid'), int):
             preview_pgids[p['pgid']] = path.stem
@@ -320,7 +322,7 @@ for d in sorted(dirs):
             s = json.loads(p.read_text())
         except (ValueError, OSError):
             continue
-        if p.name.startswith('preview-'):
+        if p.name.startswith('preview-') or not isinstance(s, dict):
             continue
         rep = Path(s.get('report', ''))
         if rep.is_file():
@@ -506,6 +508,7 @@ $out"
   printf '{"name":"W-28","role":"impl","cwd":"%s/issue-i","terminal":"term_open","report":"%s/W-28-REPORT.md","sentinel":"<!-- W-28-DONE -->","started_at":1}\n' "$T" "$W/state-i" >"$W/state-i/W-28.json"
   printf '## Summary\n<!-- W-28-DONE -->\n' >"$W/state-i/W-28-REPORT.md"
   printf '{"name":"W-29","role":"impl","cwd":"%s/issue-j","report":"%s/none.md","started_at":1}\n' "$T" "$T" >"$W/state-j/W-29.json"
+  for l in a b; do printf '[{"name":"ci","bucket":"pass"}]\n' >"$W/state-$l/ci-snapshot.json"; done  # CI snapshots are JSON lists, not worker states
   for l in b c d e g h i j; do touch -t 202601010000 "$W/state-$l"/* "$W/state-$l"; done
   WT=$(printf '%s\n' "$T/wt/lane-a" "$T/wt/lane-b-2" "$T/wt/lane-c" "$T/wt/lane-d" "$T/wt/lane-g" "$T/wt/lane-h" "$T/wt/lane-i" "$T/wt/lane-j" "$T/wt/lane-lead")
   PR=$(printf 'claude\t%s\tclaude --dangerously-skip-permissions\nnode\t%s/apps/x\tnode vitest\ncodex\t%s\tcodex exec --task t\nnode\t%s/issue-j/apps\tnode verify\n' \

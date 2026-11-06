@@ -309,9 +309,11 @@ def read_workers():
             if path.name.startswith('preview-'):
                 continue
             try:
-                workers[path.stem] = (json.loads(path.read_text()), path)
+                state = json.loads(path.read_text())
             except (ValueError, OSError):
                 continue
+            if isinstance(state, dict):  # state dirs also hold CI snapshots (JSON lists); only objects are worker states
+                workers[path.stem] = (state, path)
     return workers, None
 
 
@@ -455,6 +457,9 @@ def self_test():
     env2 = {**env, 'WAVE_STATE': f'{state}:{other}'}
     r = subprocess.run([sys.executable, str(Path(__file__).resolve()), 'check'], capture_output=True, text=True, env=env2)
     assert 'W-1143' not in r.stdout, r.stdout  # found in the second dir, not reported missing/off-board
+    (other / 'ci-snapshot.json').write_text('[{"name": "ci", "bucket": "pass"}]')  # CI snapshots are JSON lists
+    r = subprocess.run([sys.executable, str(Path(__file__).resolve()), 'check'], capture_output=True, text=True, env=env2)
+    assert 'Traceback' not in r.stderr and 'ci-snapshot' not in r.stdout, r.stderr  # a list is skipped, not a worker
     r = run('check')
     assert 'W-1143' in r.stdout, r.stdout  # one dir alone cannot see it
     # check: missing board is a note, not a failure
