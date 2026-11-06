@@ -8,6 +8,8 @@ export type PlatformLocation = {
   replace: (url: string, options?: { keepFragment?: boolean; state?: unknown }) => void;
   /** The current entry's `history.state`. A boundary without it carries no hidden page keys. */
   readState?: () => unknown;
+  /** Moves through the session history by `delta` entries (`history.go`). A boundary without it cannot compensate a blocked Back/Forward, so the navigation guard lets that traversal through (ADR-0115). */
+  go?: (delta: number) => void;
   href: (url: string) => string;
   absoluteUrl: (url: string) => string;
 };
@@ -19,6 +21,7 @@ export function createBrowserLocation(): PlatformLocation {
     push: (url, state) => window.history.pushState(state ?? null, '', url),
     replace: (url, options) => window.history.replaceState(options?.state ?? null, '', options?.keepFragment ? url + window.location.hash : url),
     readState: () => window.history.state,
+    go: delta => window.history.go(delta),
     href: url => url,
     absoluteUrl: url => window.location.origin + url,
   };
@@ -46,6 +49,7 @@ export function createBasePathLocation(basePath: string): PlatformLocation {
     push: (url, state) => window.history.pushState(state ?? null, '', href(url)),
     replace: (url, options) => window.history.replaceState(options?.state ?? null, '', href(url) + (options?.keepFragment ? window.location.hash : '')),
     readState: () => window.history.state,
+    go: delta => window.history.go(delta),
     href,
     absoluteUrl: url => window.location.origin + href(url),
   };

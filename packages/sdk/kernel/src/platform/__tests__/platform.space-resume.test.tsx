@@ -262,7 +262,7 @@ describe('spaceEntry and canOpen (#264)', () => {
     mountEntry(ANALYST);
     const push = vi.spyOn(window.history, 'pushState');
     act(() => entryPlatform.switchSpace(spaceId('mars')));
-    expect(push).toHaveBeenCalledWith(null, '', '/mars/first?v=1&scopeId=MEM');
+    expect(push).toHaveBeenCalledWith({ apIdx: 1, apSeg: expect.any(String) }, '', '/mars/first?v=1&scopeId=MEM');
     act(() => entryPlatform.switchSpace(spaceId('mars')));
     act(() => entryPlatform.switchSpace(spaceId('operations')));
     expect(push).toHaveBeenCalledTimes(1);

@@ -152,7 +152,8 @@ describe('usePageKeyRules + PageKeyWarning (rejected page keys, #852)', () => {
     expect(params.has('mode')).toBe(false);
     expect(params.has('n')).toBe(false);
     expect(params.get('q')).toBe('keep');
-    expect(push.mock.calls.length + replace.mock.calls.length).toBe(1);
+    // One navigation: one push (or one replace). The Kernel's first push from an entry it did not write also stamps that entry once (ADR-0115), which is not a navigation.
+    expect(push.mock.calls.length > 0 ? push.mock.calls.length : replace.mock.calls.length).toBe(1);
     push.mockRestore();
     replace.mockRestore();
     expect(screen.getByText('body')).toBeTruthy();

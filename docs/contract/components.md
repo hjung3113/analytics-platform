@@ -48,6 +48,8 @@ shadcn/ui + Radix 조합은 [04 프론트엔드 기술 스택](../architecture/f
 
 **Dialog 닫은 뒤 포커스 (#1169):** `DialogContent`·`DialogContentBare`·`AlertDialogContent`는 열릴 때 `document.activeElement`를 기억하고, 닫을 때 Radix 기본 처리 뒤에도 포커스가 `body`에 있으면(`DialogTrigger`가 없어 Radix가 null 트리거에 포커스를 보낸 경우) 그 요소가 연결돼 있을 때 되돌린다. Escape·닫기 버튼 모두 같다. 트리거가 있는 대화상자는 Radix가 트리거로 보내므로 달라지지 않는다. 소비자의 `onCloseAutoFocus`가 `preventDefault`하면 소비자가 이긴다(다른 요소로 보내거나 되돌리지 않을 때). 오버레이 scope가 숨겨져 `useScopedAutofocus`가 이벤트를 막은 경로는 소비자 호출도 복원도 하지 않는다. 화면은 이 동작을 손으로 되풀이하지 않고, 열기 요소와 다른 대상(행 트리거·목록 제목 등)으로 보낼 때만 `onCloseAutoFocus`를 쓴다.
 
+**미저장 변경 이동 확인 (ADR-0115):** 셸의 `LeaveConfirmDialog`가 Kernel `useLeaveRequest()`의 대기 요청 하나를 표준 `AlertDialog`(`alertdialog`)로 그린다. 메뉴가 주는 상세는 「이동하면 변경이 사라집니다.」 위에 더하고, 알려진 목적지 이름은 별도 줄에 둔다. `머무르기`는 기본 포커스·primary, `변경 버리고 이동`은 destructive다. Escape·바깥 클릭도 머무르기이며, 취소·확인의 포커스는 [§26](platform-ui-contract.md#26-accessibility-baseline)을 따른다. 팔레트에서 취소하면 검색어·선택 결과·검색 칸 포커스를 유지한다.
+
 ### Platform Component
 
 여러 도메인에서 동일한 플랫폼 의미를 갖는 컴포넌트다.

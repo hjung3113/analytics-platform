@@ -1,8 +1,9 @@
-import { use, useContext, useMemo } from 'react';
+import { use, useContext, useEffect, useLayoutEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import type { PortCache } from '../scope/selection-port-cache';
 import type { QueryEngine } from '../query/query-engine';
 import type { EquipmentAxisDescriptor, MainUsageVia } from '@ap/contracts';
 import type { HostPlatform, MenuPlatform, Recent, Toast } from './types';
+import type { LeaveRequest, UnsavedGuardOptions } from './navigationGuard';
 import { AppContext, MainBoundContext, OverlayContext, PaneScreenContext, RecentContext, ScreenContext, ToastsContext, type OverlayState } from './contexts';
 
 function useMerged(): HostPlatform | null {
@@ -88,4 +89,26 @@ export function useSelectionPortCache(): PortCache {
   const app = useContext(AppContext);
   if (!app) throw new Error('Selection ports outside PlatformProvider');
   return app.internal.selectionPortCache;
+}
+
+/**
+ * Declares unsaved edits (ADR-0115). While `dirty` is true, leaving the menu (or the whole address with `leaves: 'address'`) by a link, `navigate`,
+ * the browser Back/Forward or a reload asks first; the shell shows the dialog. Same-pathname writes, `replace`, Scope or session changes never ask.
+ * Unregisters when `dirty` turns false or the component unmounts. A no-op outside a provider.
+ */
+export function useUnsavedGuard(dirty: boolean, options?: UnsavedGuardOptions): void {
+  const guard = useContext(AppContext)?.internal.guard;
+  const latest = useRef<UnsavedGuardOptions>(options ?? {});
+  useLayoutEffect(() => { latest.current = options ?? {}; });
+  useEffect(() => {
+    if (!dirty || !guard) return;
+    return guard.register(() => latest.current);
+  }, [dirty, guard]);
+}
+
+/** The navigation waiting for the person's answer, or null (`@ap/kernel/host`). The shell renders the confirmation and calls `confirm()` or `cancel()`. Throws outside a provider. */
+export function useLeaveRequest(): LeaveRequest | null {
+  const guard = useContext(AppContext)?.internal.guard;
+  if (!guard) throw new Error('useLeaveRequest outside PlatformProvider');
+  return useSyncExternalStore(guard.subscribe, guard.getRequest);
 }

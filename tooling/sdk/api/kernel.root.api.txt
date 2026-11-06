@@ -41,7 +41,7 @@ PageProps | type | type PageProps = { params: Record<string, string>; }
 PlannedSpace | type | type PlannedSpace = { icon: LucideIcon; id: string; label: @ap/contracts#Text; subtitle?: @ap/contracts#Text; }
 PlatformGroupDef | type | type PlatformGroupDef = GroupBase & { id: @ap/contracts#GroupId; module?: undefined; }
 PlatformLink | function | function PlatformLink({ href, children, className, onNavigate, via, ...rest }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string; onNavigate?: () => void; via?: @ap/contracts#MainUsageVia; }): import("react").JSX.Element
-PlatformLocation | type | type PlatformLocation = { absoluteUrl: (url: string) => string; href: (url: string) => string; push: (url: string, state?: unknown) => void; read: () => null | string; readState?: () => unknown; replace: (url: string, options?: { keepFragment?: boolean; state?: unknown; }) => void; }
+PlatformLocation | type | type PlatformLocation = { absoluteUrl: (url: string) => string; go?: (delta: number) => void; href: (url: string) => string; push: (url: string, state?: unknown) => void; read: () => null | string; readState?: () => unknown; replace: (url: string, options?: { keepFragment?: boolean; state?: unknown; }) => void; }
 PlatformMenuEntry | type | type PlatformMenuEntry = @ap/contracts#MenuMeta & { component?: LazyExoticComponent<ComponentType<@ap/kernel#PageProps>>; icon: LucideIcon; module?: undefined; moduleScreen?: undefined; }
 PlatformProvider | function | function PlatformProvider({ adapter, registry, location, slots, equipmentAxes, queryHistory, savedViews, spaceIdMigrations, serverPreferences, children }: { adapter: @ap/contracts#PlatformAdapter; children: ReactNode; equipmentAxes?: readonly @ap/contracts#EquipmentAxisDescriptor[]; location?: @ap/kernel#PlatformLocation; queryHistory?: @ap/contracts#QueryHistoryStore; registry: @ap/kernel#Registry; savedViews?: @ap/contracts#SavedViewStore; serverPreferences?: boolean; slots?: @ap/kernel#PlatformSlots; spaceIdMigrations?: Readonly<Record<string, string>>; }): import("react").JSX.Element
 PlatformSlots | type | type PlatformSlots = { boardEntry?: ReactNode; contextBar?: ReactNode; features?: @ap/kernel#FeatureSlot; homeTodo?: @ap/kernel#HomeTodoSlot; navCounts?: @ap/kernel#NavCountsSlot; notifications?: @ap/kernel#NotificationsSlot; plannedSpaces?: readonly @ap/kernel#PlannedSpace[]; scopeControl?: @ap/kernel#ScopeControlSlot; spaceNavSection?: @ap/kernel#SpaceNavSectionSlot; topBarTools?: ReactNode; vocCompose?: @ap/kernel#VocComposeSlot; }
@@ -74,6 +74,7 @@ Toast | type | type Toast = { action?: @ap/kernel#ToastAction; detail?: string; 
 ToastAction | type | type ToastAction = { label: string; onAction: () => void; }
 ToastOptions | type | type ToastOptions = { action?: @ap/kernel#ToastAction; durationMs?: number; }
 UNDO_WINDOW_MS | const | const UNDO_WINDOW_MS: 8000
+UnsavedGuardOptions | type | type UnsavedGuardOptions = { leaves?: 'address' | 'path'; message?: @ap/contracts#Text | string; onDiscard?: () => void; }
 VocAvailability | type | type VocAvailability = 'available' | 'denied' | 'off'
 VocComposeContext | type | type VocComposeContext = { carried: Readonly<Record<string, string>>; errorMenuId: null | string; href: null | string; items: readonly @ap/kernel#VocComposeContextItem[]; menuId: null | string; spaceId: @ap/contracts#SpaceId | null; traceId: null | string; }
 VocComposeContextItem | type | type VocComposeContextItem = { id: string; label: string; value: string; }
@@ -116,6 +117,7 @@ useQueryDraft | function | function useQueryDraft(): @ap/kernel#QueryDraft
 useRecentVisits | function | function useRecentVisits(): readonly @ap/kernel#Recent[]
 useResolvedSelection | function | function useResolvedSelection(ids: readonly string[], params?: @ap/kernel#ResolvedSelectionParams): @ap/kernel#ResolvedSelectionResult
 useSavedViewSupport | function | function useSavedViewSupport(support: @ap/contracts#SavedViewSupport): void
+useUnsavedGuard | function | function useUnsavedGuard(dirty: boolean, options?: @ap/kernel#UnsavedGuardOptions): void
 # reachable types
 CursorMore | type | type CursorMore = { error: CursorMoreError | null; last: CursorMoreLast | null; load: () => void; status: CursorMoreStatus; }
 CursorMoreError | type | type CursorMoreError = { correlationId: string; message: string; outcome: Exclude<@ap/contracts#Outcome, 'empty' | 'ok'>; }

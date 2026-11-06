@@ -5,7 +5,7 @@ AlertDescription | const | const AlertDescription: React.ForwardRefExoticCompone
 AlertDialog | const | const AlertDialog: React.FC<AlertDialogPrimitive.DialogProps>
 AlertDialogAction | const | const AlertDialogAction: React.ForwardRefExoticComponent<React.ButtonHTMLAttributes<HTMLButtonElement> & React.RefAttributes<HTMLButtonElement>>
 AlertDialogCancel | const | const AlertDialogCancel: React.ForwardRefExoticComponent<React.ButtonHTMLAttributes<HTMLButtonElement> & React.RefAttributes<HTMLButtonElement>>
-AlertDialogContent | const | const AlertDialogContent: React.ForwardRefExoticComponent<Omit<AlertDialogPrimitive.DialogContentProps & React.RefAttributes<HTMLDivElement>, "ref"> & React.RefAttributes<HTMLDivElement>>
+AlertDialogContent | const | const AlertDialogContent: React.ForwardRefExoticComponent<Omit<AlertDialogPrimitive.DialogContentProps & React.RefAttributes<HTMLDivElement>, "ref"> & { above?: boolean; } & React.RefAttributes<HTMLDivElement>>
 AlertDialogDescription | const | const AlertDialogDescription: React.ForwardRefExoticComponent<Omit<AlertDialogPrimitive.DialogDescriptionProps & React.RefAttributes<HTMLParagraphElement>, "ref"> & React.RefAttributes<HTMLParagraphElement>>
 AlertDialogFooter | function | function AlertDialogFooter({ className, ...props }: React.HTMLAttributes<HTMLDivElement>): React.JSX.Element
 AlertDialogHeader | function | function AlertDialogHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>): React.JSX.Element
