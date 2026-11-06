@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act as rtlAct, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act as rtlAct, act as reactAct, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { BookOpen } from 'lucide-react';
 import { createRegistry, I18nProvider, PlatformProvider, usePlatform } from '@ap/kernel';
 import { stubCompactTableGeometry } from '@ap/components/testing';
@@ -70,6 +70,7 @@ function detailOf(r: Rec, revisionNo?: number): ItemDetailData | null {
   const rev = r.revisions.find(x => x.revisionNo === (revisionNo ?? r.revisions.length));
   if (!rev) return null;
   return {
+    subjects: [],
     item: { ...rowOf(r), version: String(r.version), createdBy: 'actor-aaaa-1111', createdAt: r.createdAt }, revision: rev,
     revisions: [...r.revisions].reverse().map(x => ({ revisionNo: x.revisionNo, title: x.title, publishedBy: x.publishedBy, publishedAt: x.publishedAt, changeNote: x.changeNote })),
     assessments: [...r.assessments].reverse(), links: r.links,
@@ -319,6 +320,27 @@ describe('새 기술 Item (create)', () => {
 });
 
 describe('Item 상세 수정 (revise)', () => {
+  it.each(['adapter', 'session', 'revision'] as const)('drops retained title and draft across a %s generation while the replacement read is pending then denied', async change => {
+    window.history.replaceState(null, '', `/log/knowledge/items/${ITEM(1)}?v=1&drawer=revise`);
+    let blocked = false, notify = () => {}, deny = (_: ApiResponse<never>) => {};
+    let currentSession = publisher;
+    const port = testAdapter({ session: () => currentSession, subscribe: listener => { notify = listener; return () => {}; }, menuQuery: req => {
+      if (req.endpoint !== 'logKnowledge.itemDetail') return Promise.resolve(ok({ rows: [], total: 0 }));
+      return blocked ? new Promise(resolve => { deny = resolve; }) : Promise.resolve(ok(detailOf(store[0]!)));
+    } });
+    const view = (selected = port) => <I18nProvider><PlatformProvider adapter={selected} registry={registry}><DetailPanelSlotProvider><ItemDetail params={{ itemId: ITEM(1) }} /><Slot /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>;
+    const mounted = render(view());
+    await screen.findByRole('heading', { name: '기술 Item 수정' });
+    type(/^제목/, 'private draft');
+    blocked = true;
+    if (change === 'adapter') mounted.rerender(view({ ...port }));
+    else { if (change === 'session') currentSession = testSession(['knowledge:item-publish', 'platform:view'], { user: { id: 'new-user' } }); reactAct(() => notify()); }
+    await waitFor(() => expect(screen.queryByDisplayValue('private draft')).toBeNull());
+    expect(screen.queryByRole('heading', { name: '챔버 압력 로그 지연 (보완)' })).toBeNull();
+    await reactAct(async () => deny({ ...ok(null), outcome: 'forbidden' }));
+    expect(screen.queryByDisplayValue('private draft')).toBeNull();
+    expect(screen.queryByRole('heading', { name: '챔버 압력 로그 지연 (보완)' })).toBeNull();
+  });
   it('revises the latest revision with a required 변경 사유, then shows the new revision and keeps the old one selectable', async () => {
     mountDetail(ITEM(1), '&drawer=revise');
     await screen.findByRole('heading', { name: '기술 Item 수정' }, slow);
@@ -355,7 +377,7 @@ describe('Item 상세 수정 (revise)', () => {
     expect(list.getByRole('button', { name: /r3/ })).toBeTruthy();
   });
 
-  it('a stale version shows the conflict banner with a reload that brings the server\'s text', async () => {
+  it('a stale version reload preserves the draft and uses the latest version', async () => {
     mountDetail(ITEM(1), '&drawer=revise');
     await screen.findByRole('heading', { name: '기술 Item 수정' }, slow);
     // Someone else revises first.
@@ -364,8 +386,12 @@ describe('Item 상세 수정 (revise)', () => {
     type(/^변경 사유/, '내 수정');
     submit('새 리비전 저장');
     expect(await within(drawer()).findByText('다른 사람이 먼저 고쳤습니다', {}, slow)).toBeTruthy();
-    fireEvent.click(within(drawer()).getByRole('button', { name: '새로 불러오기' }));
-    await waitFor(() => expect((field(/^제목/) as HTMLInputElement).value).toBe('다른 사람의 3차'), slow);
+    fireEvent.click(within(drawer()).getByRole('button', { name: '최신 불러오기' }));
+    await waitFor(() => expect(within(drawer()).queryByText('다른 사람이 먼저 고쳤습니다')).toBeNull(), slow);
+    expect((field(/^변경 사유/) as HTMLInputElement).value).toBe('내 수정');
+    expect((field(/^제목/) as HTMLInputElement).value).toBe('챔버 압력 로그 지연 (보완)');
+    submit('새 리비전 저장');
+    await waitFor(() => expect(lastWrite()?.expectedVersion).toBe('2'), slow);
   });
 });
 

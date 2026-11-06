@@ -64,7 +64,7 @@ describe('model spec mock registrations', () => {
     expect(original.needsRevalidation).toBe(false);
     const result = await run('specChangeRetire', { changeId: original.id, replacement: { softwareId: original.softwareId, targetKind: 'event', target: { module: 'Chamber', event: 'Start' }, changeKind: 'behavior', note: 'replacement' } });
     expect(original.retiredByChangeId).toBe((result.data as { replacementChangeId: string }).replacementChangeId);
-    expect(specRevisions().filter(r => r.revision.state === 'published')).toHaveLength(1);
+    expect(specRevisions().filter(r => r.revision.state === 'published' && r.revision.modelId === SPEC_MODEL)).toHaveLength(1);
   });
   it('refuses publication of an empty draft from the handler', async () => {
     const result = await run('specDraftCreate', { modelId: SPEC_MODEL, sourceDocRef: { docLabel: 'Spec', docVersion: '2' } });

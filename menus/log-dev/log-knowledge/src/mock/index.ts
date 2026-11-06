@@ -20,9 +20,12 @@ import {
 import { specReadsMock } from './specReads';
 import { specWritesMock } from './specWrites';
 export { resetSpecs } from './specStore';
+export { resetConcepts } from './conceptStore';
 import { modelReadsMock } from './models';
 import { itemActionsMock } from './itemActions';
-import { itemReadsMock } from './itemReads';
+import { itemReadsMock, subjectItemsMock } from './itemReads';
+import { conceptReadsMock } from './conceptReads';
+import { conceptActionsMock } from './conceptWrites';
 import { importActionsMock, importReadsMock } from './imports';
 import { activeChildren, all, byId, latestSoftwareLabel, insert, keyTaken, processIdsOf, processesOf, releaseOrderOf, setProcesses, toCodeKey, touch, type Kind, type Rec } from './store';
 
@@ -139,6 +142,8 @@ export const logKnowledgeMock: readonly AnyMockEndpoint[] = [
   readMock(vendorsEndpoint, 'vendor'), readMock(processesEndpoint, 'process'), readMock(modelsEndpoint, 'model'), readMock(softwareVersionsEndpoint, 'software'),
   ...modelReadsMock({ message: params => paramsMessage(params, SHAPES.model), page: params => read('model', params) as unknown as PageResult<ModelRow> }),
   ...specReadsMock,
+  ...conceptReadsMock,
+  ...subjectItemsMock,
   ...itemReadsMock,
   ...importReadsMock,
 ];
@@ -260,6 +265,7 @@ export const logKnowledgeActionsMock: readonly AnyMockAction[] = [
   ...writes('model', { create: modelCreate, update: modelUpdate, setActive: modelSetActive }),
   ...writes('software', { create: softwareCreate, update: softwareUpdate, setActive: softwareSetActive }),
   ...specWritesMock,
+  ...conceptActionsMock,
   ...itemActionsMock,
   ...importActionsMock,
 ];

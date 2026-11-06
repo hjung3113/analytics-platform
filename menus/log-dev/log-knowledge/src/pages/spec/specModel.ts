@@ -1,6 +1,6 @@
 import type { ModelSpecData, ModelSpecEffective, ModelSpecUnchanged, SpecChangeRow, SpecDraftData, SpecDraftSaveInput, SpecFieldInput, SpecChangeTarget } from '../../endpoints';
 export type Spec = ModelSpecData | ModelSpecEffective | ModelSpecUnchanged;
-export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const encodeKey = (s: string) => s.replace(/%/g, '%25').replace(/\//g, '%2F').replace(/#/g, '%23');
 export const decodeKey = (s: string) => s.replace(/%23/g, '#').replace(/%2F/g, '/').replace(/%25/g, '%');
 export function modulesOf(spec: Spec) {

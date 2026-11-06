@@ -234,6 +234,8 @@ describe('workspace assembly (#260)', () => {
     expect(registry.menus.filter(menu => menu.group === 'logKnowledge' && menu.primary).map(menu => menu.id)).toEqual(['log-knowledge-models']);
     // #1197 s2: the item list and its navHidden detail screen have components too.
     expect(registry.menuById('log-knowledge-item')).toMatchObject({ parent: 'log-knowledge-items', navHidden: true, pageKeys: ['rev', 'returnTo', 'drawer'] });
+    // #1196 e/f: the spec detail takes `tab=concept` and the Event filter `event=<targetKey>` (the Item chip links with `tab=spec&event=`).
+    expect(registry.menuById('log-knowledge-spec').pageKeys).toEqual(['software', 'tab', 'drawer', 'change', 'module', 'event', 'review', 'revision', 'returnTo']);
     expect(registry.menuById('home').label).toEqual({ ko: '플랫폼 홈', en: 'Platform home' });
     expect(registry.menuById('equipment-master').path).toBe('/mars/equipment-master');
     expect(registry.menuById('equipment-master').aliases).toEqual(['/equipment']);

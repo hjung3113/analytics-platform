@@ -39,5 +39,20 @@ export function resetSpecs() {
   seed('CHAMBER/GHOST', 'behavior', {}, { note: 'Target removed by a later revision', needsRevalidation: true, revalidationRevNo: 1 });
   const old = seed('ROBOT/MOVE', 'behavior', {}, { retiredAt: SPEC_AT, retiredBy: 'admin', note: 'Replaced' });
   old.retiredByChangeId = seed('ROBOT/MOVE', 'behavior', {}, { note: 'Timing documented' }).id;
+  seedPairModel();
+}
+/** The second spec'd model of the concept fixtures (#1196 e/f): B-10 has two published revisions, the second without `ROBOT/CALIBRATE`. */
+export const pairModelId = (): string => all('model').find(m => m.code === 'B-10')!.id;
+function seedPairModel() {
+  const modelId = pairModelId();
+  const publish = (revisionNo: number, withCalibrate: boolean) => {
+    const revision: Revision['revision'] = { id: specId(), modelId, revisionNo, state: 'published', schemaVersion: 1, sourceDocRef: { docLabel: 'Beta log specification', docVersion: String(revisionNo) }, version: 1, createdAt: SPEC_AT, createdBy: 'admin', contentSha256: null, publishedAt: SPEC_AT, publishedBy: 'admin' };
+    const chamber = specId(), robot = specId(), arm = specId();
+    const rev: Revision = { revision, modules: [{ id: chamber, moduleKey: 'CHAMBER', name: 'Chamber', parentModuleId: null }, { id: robot, moduleKey: 'ROBOT', name: 'Robot', parentModuleId: null }, { id: arm, moduleKey: 'ARM', name: 'Arm', parentModuleId: robot }],
+      events: [{ id: specId(), moduleId: chamber, eventKey: 'START', name: 'Start', fields: [{ name: 'temperature', type: 'float', unit: 'C', description: 'Temperature' }, { name: 'pressure', type: 'float', unit: 'Pa', description: 'Pressure' }], triggerRule: 'on start', detailDocRef: null }, { id: specId(), moduleId: robot, eventKey: 'MOVE', name: 'Move', fields: [], triggerRule: 'on move', detailDocRef: null }, { id: specId(), moduleId: arm, eventKey: 'STOP', name: 'Stop', fields: [], triggerRule: null, detailDocRef: null }, ...(withCalibrate ? [{ id: specId(), moduleId: robot, eventKey: 'CALIBRATE', name: 'Calibrate', fields: [], triggerRule: 'on calibrate', detailDocRef: null }] : [])], relations: [] };
+    revision.contentSha256 = specHash(specCanonical(rev));
+    revisions.push(rev);
+  };
+  publish(1, true); publish(2, false);
 }
 resetSpecs();

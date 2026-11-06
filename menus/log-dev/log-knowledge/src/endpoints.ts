@@ -195,7 +195,7 @@ export const specChangesEndpoint = defineEndpoint<SpecChangesParams, PageResult<
 // ---- concept mapping (#1196 e, design v0.6 §15.4) ---------------------------------------------------------------
 // Equivalence is HUMAN-CONFIRMED only: a mapping is `proposed` until a person confirms it; a similarity suggestion is a
 // proposal computed on read, never stored as confirmed. Targets are stable keys (`module_key` or `module_key/event_key`).
-// Types only: the mock server and the screens come with a later node.
+// The mock server answers them (`src/mock/concept*.ts`); the spec screen's concept tab and the Item subject picker use them.
 export const CONCEPT_KINDS = ['module', 'event'] as const;
 export type ConceptKind = (typeof CONCEPT_KINDS)[number];
 export const CONCEPT_RELATIONS = ['equivalent', 'related'] as const;
@@ -230,7 +230,17 @@ export type ConceptSuggestion = {
   candidate: { modelId: string; modelName: string; targetKey: string; name: string };
   score: number; basis: { name_trgm: number; field_overlap?: number }; proposal: true;
 };
-export const conceptSuggestionsEndpoint = defineEndpoint<ConceptSuggestionsParams, PageResult<ConceptSuggestion>>({
+/** The exact compared memberships to reuse, and the targets that still need a proposal. */
+export function conceptPairPlan(suggestion: ConceptSuggestion, rows: readonly ConceptMappingRow[]): { conceptId: string | null; existing: ConceptMappingRow[]; missing: ConceptSuggestion['source'][] } {
+  const targets = [suggestion.source, suggestion.candidate];
+  const compared = rows.filter(r => r.kind === suggestion.kind && r.relationKind === 'equivalent' && r.reviewState !== 'rejected' && targets.some(t => t.modelId === r.modelId && t.targetKey === r.targetKey));
+  const anchor = compared.find(r => r.reviewState === 'confirmed') ?? compared.find(r => r.modelId === suggestion.source.modelId) ?? compared[0];
+  const existing = anchor ? compared.filter(r => r.conceptId === anchor.conceptId) : [];
+  return { conceptId: anchor?.conceptId ?? null, existing, missing: targets.filter(t => !existing.some(r => r.modelId === t.modelId && r.targetKey === t.targetKey)) };
+}
+/** `truncated`: a scan or suggestion cap cut the list short, so it is incomplete (the server always answers it). */
+export type ConceptSuggestionsResult = PageResult<ConceptSuggestion> & { truncated?: boolean };
+export const conceptSuggestionsEndpoint = defineEndpoint<ConceptSuggestionsParams, ConceptSuggestionsResult>({
   id: 'logKnowledge.conceptSuggestions', menuId: LOG_KNOWLEDGE_MODELS_MENU_ID,
   paramKeys: { modelId: true, kind: true, page: true, pageSize: true }, permission: 'platform:view',
   requiresScope: false, context: {}, kinds: [], mergeTimeDomain: false,
@@ -440,8 +450,8 @@ export type ItemDetail = {
   revisions: { revisionNo: number; title: string; publishedBy: string; publishedAt: string; changeNote: string | null }[];
   assessments: ItemAssessment[];
   links: ItemLinkRow[];
-  /** The targets the shown revision is about (#1196 f), resolved against each model's current published spec. The real server always answers it; optional here only until the mock server and the screens carry it (a later node). */
-  subjects?: ItemSubject[];
+  /** The targets of the shown revision, resolved against each model's current published specification. */
+  subjects: ItemSubject[];
 };
 
 export const ITEM_SORT_IDS = ['itemNo', 'title', 'updatedAt'] as const;

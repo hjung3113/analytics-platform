@@ -88,6 +88,10 @@ const PARAMS: Record<string, Record<string, unknown>> = {
   'logKnowledge.specDraft': { revisionId: SPEC_READ_DRAFT },
   'logKnowledge.specChanges': { modelId: '00000003-0000-4000-8000-000000000008', status: 'all', page: 0, pageSize: 10 },
   'logKnowledge.importDetail': { jobId: IMPORT_READ_JOB, ...page },
+  // #1196 e/f: concept mappings and suggestions of the seed model pair (A-100 / B-10), and the items about one Event of A-100.
+  'logKnowledge.conceptMappings': { modelId: '00000003-0000-4000-8000-000000000008', page: 0, pageSize: 10 },
+  'logKnowledge.conceptSuggestions': { modelId: '00000003-0000-4000-8000-000000000008', page: 0, pageSize: 10 },
+  'logKnowledge.specSubjectItems': { modelId: '00000003-0000-4000-8000-000000000008', targetKey: 'CHAMBER/START', page: 0, pageSize: 10 },
   // Improvement reads (#1328 d): the table's page shape; detail and events take a seed item id (`mock/index.ts` `itemId`, sequence 1-5). Events declare no `sorting` paramKey.
   'improvement.items': { q: null, ...page },
   'improvement.itemDetail': { itemId: '13280000-0000-4000-8000-000000000001' },
@@ -181,6 +185,17 @@ const specSamples: Record<string, () => Record<string, unknown>> = {
   specChangeRetire: () => changeFixture(),
   specChangeConfirm: () => changeFixture(true),
 };
+// The concept writes (#1196 e): every sample stages its own `related` proposal on the seed model's Chamber module (a
+// `related` row is exempt from the one-confirmed-equivalent rule), so confirm and reject succeed again on every call.
+const stagedConcept = (): string => {
+  const out = importHandler('conceptPropose').handle({ input: { modelId: A100, targetKind: 'module', target: { module: 'Chamber' }, canonicalLabel: unique('CONCEPT'), relationKind: 'related' }, actor: 'admin', scopeId: null }).data as { mappingId: string };
+  return out.mappingId;
+};
+const conceptSamples: Record<string, () => Record<string, unknown>> = {
+  conceptPropose: () => ({ modelId: A100, targetKind: 'module', target: { module: 'Chamber' }, canonicalLabel: unique('CONCEPT') }),
+  conceptConfirm: () => ({ mappingId: stagedConcept() }),
+  conceptReject: () => ({ mappingId: stagedConcept(), reason: '적합성 표본 기각' }),
+};
 // The improvement writes (#1328 d) run on seed items (`platform/improvement-items/src/mock/index.ts`, ids `13280000-…-<n>`):
 // 1 is open with no quest, 2 is in_progress with quest Q-1. Re-sending values the row already has changes nothing, so
 // itemUpdate/itemAssign/itemLinkQuest succeed again on every call (the mock bumps the version only when the row really
@@ -209,7 +224,7 @@ const improvementSamples: Record<string, () => Record<string, unknown>> = {
   itemLinkQuest: () => ({ itemId: IMPROVEMENT_QUESTED, questId: 'Q-1', questTitle: '대기 시간 줄이기' }),
 };
 const writeSamples: Record<string, Record<string, () => Record<string, unknown>>> = {
-  logKnowledge: { ...catalogSamples, ...itemSamples, ...importSamples, ...specSamples },
+  logKnowledge: { ...catalogSamples, ...itemSamples, ...importSamples, ...specSamples, ...conceptSamples },
   improvement: improvementSamples,
 };
 const actionCases = MOCK_ACTIONS.map(action => {

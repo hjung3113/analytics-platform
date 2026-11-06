@@ -41,7 +41,7 @@ export function ChangeDrawer({ modelId, software, row, mode, selectedSoftware, o
     setFieldErrors(feedback.fields);
     setProblem(result.outcome === 'invalid' ? [Object.keys(feedback.fields).length ? w('입력 값을 확인해 주세요.', 'Check the highlighted fields.') : w('입력 값을 확인해 주세요.', 'Check your input.'), ...feedback.rest].join('\n')
       : result.outcome === 'conflict' ? w('발행이나 다른 변경이 먼저 완료됐습니다. 입력은 유지됩니다.', 'A publication or another change completed first. Your input is preserved.')
-      : result.outcome === 'forbidden' ? w('knowledge.spec.publish 권한이 필요합니다.', 'knowledge.spec.publish permission is required.') : w('결과를 확인하지 못했습니다. 최신 상태를 확인해 주세요.', 'The result could not be confirmed. Check the latest state.'));
+      : result.outcome === 'forbidden' ? w('명세 관리 권한을 관리자에게 요청하세요.', 'Ask an administrator for specification management permission.') : w('결과를 확인하지 못했습니다. 최신 상태를 확인해 주세요.', 'The result could not be confirmed. Check the latest state.'));
   }
   /** Client-side mirror of the server's envelope checks: per-field messages on the field that failed. */
   function payload(): SpecChangeAddInput | null {

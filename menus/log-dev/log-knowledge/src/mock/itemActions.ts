@@ -20,6 +20,8 @@ import {
 } from '../endpoints';
 import { appendAssessment, appendRevision, insertDerivedLink, insertItem, itemById, latestRevision, setPublicationState, type EvidenceRec, type ItemRec, type RevisionContent } from './items';
 import { byId } from './store';
+import { parseSubjects } from './conceptInput';
+import { itemModelId, judgeSubjects } from './subjectLinks';
 
 type Input = Record<string, unknown>;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -99,9 +101,14 @@ const ownerChecks = (i: Input): [string[], string | null][] => {
   return checks;
 };
 
+/** #1196 f: the optional `subjects[]` value checks (cap 20, closed entries, no duplicate); what only the spec can judge is the handler's. */
+const subjectShape = (i: Input): FieldError[] => { const parsed = parseSubjects(i.subjects); return parsed.ok ? [] : parsed.errors; };
+/** The judged subjects of a write; `undefined` = none sent (a revise then carries the previous revision's links). */
+const subjectsOf = (ownerModelId: string, i: Input) => { const parsed = parseSubjects(i.subjects); return parsed.ok && parsed.value ? judgeSubjects(ownerModelId, parsed.value) : undefined; };
+
 const SHAPE: Record<'create' | 'revise' | 'assess' | 'derive' | 'setArchived', (i: Input) => FieldError[]> = {
-  create: i => collect([...ownerChecks(i), ...contentChecks(i), ...evidenceChecks(i.evidence), ...contentRule(i)]),
-  revise: i => collect([[['id'], uuidError(i.id)], ...contentChecks(i), ...evidenceChecks(i.evidence), [['changeNote'], requiredTextError(i.changeNote, ITEM_LIMITS.changeNote)], ...contentRule(i)]),
+  create: i => [...collect([...ownerChecks(i), ...contentChecks(i), ...evidenceChecks(i.evidence), ...contentRule(i)]), ...subjectShape(i)],
+  revise: i => [...collect([[['id'], uuidError(i.id)], ...contentChecks(i), ...evidenceChecks(i.evidence), [['changeNote'], requiredTextError(i.changeNote, ITEM_LIMITS.changeNote)], ...contentRule(i)]), ...subjectShape(i)],
   assess: i => {
     const dimensionError = enumError(i.dimension, ASSESSMENT_DIMENSIONS);
     const allowed: readonly string[] = i.dimension === 'verification' ? VERIFICATION_STATES : PROCESSING_STATES;
@@ -168,12 +175,16 @@ const done = (rec: ItemRec, extra: Input = {}) => ({ data: { id: rec.id, itemNo:
 export const itemActionsMock: readonly AnyMockAction[] = [
   defineMockAction(itemCreate, {
     validate: validate('create', ownerStateErrors),
-    handle: ({ input }: { input: Input }) => done(insertItem(ownerOfInput(input), contentOf(input), evidenceOf(input.evidence))),
+    handle: ({ input }: { input: Input }) => {
+      const owner = ownerOfInput(input);
+      return done(insertItem(owner, contentOf(input), evidenceOf(input.evidence), subjectsOf(itemModelId({ ownerModelId: owner.modelId, ownerSoftwareId: owner.softwareId }), input) ?? []));
+    },
   }),
   defineMockAction(itemRevise, {
     version: currentVersion, validate: validate('revise', archivedState),
     handle: ({ input }: { input: Input }) => {
-      const rec = appendRevision(itemById(input.id)!, contentOf(input), (input.changeNote as string).trim(), evidenceOf(input.evidence));
+      const before = itemById(input.id)!;
+      const rec = appendRevision(before, contentOf(input), (input.changeNote as string).trim(), evidenceOf(input.evidence), subjectsOf(itemModelId(before), input));
       return done(rec, { revisionNo: latestRevision(rec).revisionNo });
     },
   }),
