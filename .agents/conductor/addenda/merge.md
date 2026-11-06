@@ -6,7 +6,7 @@ Read this only when you merge a PR. Merges run one at a time machine-wide. CI ru
 
 1. **Ship check:** `bash .agents/conductor/scripts/ship-check.sh <issue> <worktree>` (`WAVE_STATE` exported). Chain the merge on it with `&&`. On exit 1, run the missing record step first ([PROFILE §Size and path](../PROFILE.md)).
 2. **Precheck:** `bash .agents/conductor/scripts/merge-precheck.sh <pr> <branch> <head-sha>` immediately before the merge (inside `merge.lock` on the short-lock path). Exit 4: main CI is red or `main-red` exists; merge only the fix, with `--main-fix`. Exit 3: rebase, then CI again.
-3. **Merge**, then **watch main:** `bash .agents/conductor/scripts/main-ci-watch.sh <merge sha>` in the background, with `LANE_NAME` set. It sends `main 깨짐` when that run is red, and sets the marker from the newest completed main run (red writes, green clears). It changes into `AP_MAIN` itself, so any cwd works, even a worktree you remove right after. You fix a red main.
+3. **Merge**, then **watch main:** `bash .agents/conductor/scripts/main-ci-watch.sh <merge sha>` in the background, with `LANE_NAME` set. It sends `main 깨짐` when that run is red, and sets the marker from the newest main run (red writes, green clears; a run still going keeps a red). After re-running a red run, start the watch again. It changes into `AP_MAIN` itself, so any cwd works, even a worktree you remove right after. You fix a red main.
 4. **After:** confirm the issue is closed, archive `.review/` to `$WAVE_BRIEFS/<n>/`, clean up the worktree and terminal, delete the remote branch, and for a planned graph run `plan-graph.py mark`.
 
 ## Which merge

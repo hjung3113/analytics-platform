@@ -4,9 +4,11 @@
 #   1. Find the ci.yml push run on main for <merge-sha> (looked up on the server by commit), retrying up to
 #      MAIN_CI_FIND_TIMEOUT (default 300 s); wait for it to complete, at most MAIN_CI_TIMEOUT (default 5400 s = 90 min).
 #   2. Marker = the truth now. Once the run has completed, under a mkdir lock beside the marker, ask the server for the newest
-#      completed ci.yml push run on main (cancelled/skipped/neutral ignored, window of 10): red (failure/timed_out/
+#      ci.yml push run on main (completed cancelled/skipped/neutral skipped, window of 50): red (failure/timed_out/
 #      startup_failure) writes $AP_MAIN/.review/lanes/main-red with that run's sha, id and url; success removes it.
-#      Reason: every watcher writes the current state, so the order in which watchers finish cannot leave a stale marker.
+#      If that newest run is still queued or running (a re-run included) or none is found, an existing marker stays and a
+#      red watched run records itself. Reason: every watcher writes the current state, so finish order cannot leave a stale
+#      marker, and an unfinished run never clears a known red. A re-run has no watcher of its own: run this script again.
 #   3. Notify only for the watched run: if THAT run failed, print the line and, when LANE_NAME is set, send
 #      `lane-send.sh "main 깨짐" - "<run url>"` to the lead (LANE_RUN is read by lane-send.sh). Without LANE_NAME only the
 #      marker is written and the line is printed.
@@ -54,8 +56,9 @@ print("none")
 ' "$1"
 }
 
-# stdin: JSON of completed runs, newest first. Prints "none" or "<conclusion> <headSha> <databaseId> <url>" of the newest run
-# that is not cancelled/skipped/neutral (those say nothing about the state of main).
+# stdin: JSON of runs (any status), newest first. Skips completed cancelled/skipped/neutral runs (they say nothing about
+# main). Prints "<conclusion> <headSha> <databaseId> <url>" for the first other run, "pending ..." when that run is still
+# queued or running (a re-run of a red run included: its red is not resolved yet), or "none".
 pick_latest() {
   python3 -c '
 import json, sys
@@ -65,9 +68,12 @@ except ValueError:
     print("unreadable"); sys.exit(0)
 for r in runs if isinstance(runs, list) else []:
     c = r.get("conclusion") or ""
-    if r.get("status") == "completed" and c and c not in ("cancelled", "skipped", "neutral"):
-        print("%s %s %s %s" % (c, r.get("headSha") or "-", r.get("databaseId") or "-", r.get("url") or "-"))
-        sys.exit(0)
+    if r.get("status") == "completed" and c in ("cancelled", "skipped", "neutral"):
+        continue
+    if r.get("status") != "completed" or not c:
+        c = "pending"
+    print("%s %s %s %s" % (c, r.get("headSha") or "-", r.get("databaseId") or "-", r.get("url") or "-"))
+    sys.exit(0)
 print("none")
 '
 }
@@ -75,7 +81,7 @@ print("none")
 latest_rec() { # prints the pick_latest record; rc 2 when gh fails
   local json
   if [ -n "${MAIN_CI_LATEST_CMD:-}" ]; then json=$(eval "$MAIN_CI_LATEST_CMD")
-  else json=$(gh run list --branch main --workflow ci.yml --event push --status completed --limit 10 \
+  else json=$(gh run list --branch main --workflow ci.yml --event push --limit 50 \
     --json status,conclusion,headSha,databaseId,url,createdAt)
   fi || { echo "main-ci-watch: gh run list (latest) failed" >&2; return 2; }
   printf '%s' "$json" | pick_latest
@@ -99,14 +105,19 @@ write_atomic() { # <file> <content>
   printf '%s' "$2" >"$1.tmp.$$" && mv -f "$1.tmp.$$" "$1"
 }
 
-# Under the lock: set the marker from the newest completed run on main. rc 2 = lookup failed.
-sync_marker() { # <marker>
-  local marker=$1 rec concl sha id url
+# Under the lock: set the marker from the newest run on main (see step 2). rc 2 = lookup failed.
+sync_marker() { # <marker> <watched conclusion> <watched sha> <watched id> <watched url>
+  local marker=$1 wconcl=$2 wsha=$3 wid=$4 wurl=$5 rec concl sha id url
   rec=$(latest_rec) || return 2
-  case "$rec" in
-    unreadable) echo "main-ci-watch: latest run list unreadable" >&2; return 2 ;;
-    none) echo "main-ci-watch: no completed run to judge main by; marker unchanged"; return 0 ;;
-  esac
+  [ "$rec" = unreadable ] && { echo "main-ci-watch: latest run list unreadable" >&2; return 2; }
+  if [ "$rec" = none ] || [ "${rec%% *}" = pending ]; then
+    # The newest run cannot judge main yet: keep any marker; a red watched run still records itself if none exists.
+    case "$wconcl" in
+      success|cancelled|skipped|neutral) echo "main-ci-watch: newest run not finished or none; marker unchanged"; return 0 ;;
+    esac
+    [ -e "$marker" ] && { echo "main-ci-watch: newest run not finished; keeping $marker"; return 0; }
+    rec="$wconcl $wsha $wid $wurl"
+  fi
   set -- $rec; concl=$1 sha=$2 id=$3 url=$4
   case "$concl" in
     success)
@@ -150,8 +161,8 @@ watch() { # <sha> ; sets the exit code
     [ "$rec" = unreadable ] && { echo "main-ci-watch: run list unreadable" >&2; return 2; }
     [ "$rec" = none ] && rec="in_progress - $id $url"
   done
-  take_lock "$marker" || return 2  # 2. the marker follows the newest completed run, whichever watcher gets here
-  sync_marker "$marker"; rc=$?
+  take_lock "$marker" || return 2  # 2. the marker follows the newest run on main, whichever watcher gets here
+  sync_marker "$marker" "$concl" "$sha" "$id" "$url"; rc=$?
   drop_lock
   [ $rc -eq 0 ] || return $rc
   case "$concl" in  # 3. notify for the watched run only
@@ -161,7 +172,7 @@ watch() { # <sha> ; sets the exit code
       echo "main-ci-watch: MAIN-RED ${sha:0:10} $concl $url (marker $marker)"
       if [ -n "${LANE_NAME:-}" ]; then
         if [ -n "${MAIN_CI_SEND_CMD:-}" ]; then eval "$MAIN_CI_SEND_CMD" "'main 깨짐'" "-" "'$url'"
-        else bash "$main/.agents/conductor/scripts/lane-send.sh" "main 깨짐" - "$url"; fi  # from AP_MAIN: this script's own worktree may be gone || echo "main-ci-watch: lane-send failed" >&2
+        else bash "$main/.agents/conductor/scripts/lane-send.sh" "main 깨짐" - "$url"; fi || echo "main-ci-watch: lane-send failed" >&2  # lane-send from AP_MAIN: this script's worktree may be gone
       else
         echo "main-ci-watch: LANE_NAME is not set; marker written, nothing sent — tell the lead"
       fi
@@ -249,6 +260,26 @@ EOF
   pass=$((pass + 1))
   rm -f "$marker"
 
+  # N2: a red marker for B; B is re-running (newest, in_progress) and an older A success arrives late: marker kept.
+  printf 'sha=%s\nrun=77\n' "$other" >"$marker"
+  watched success "$sha"
+  printf '[{"status":"in_progress","conclusion":null,"headSha":"%s","databaseId":77,"url":"u77"},{"status":"completed","conclusion":"success","headSha":"%s","databaseId":10,"url":"u10"}]' "$other" "$sha" >"$T/latest.json"
+  bash "$SELF" "$sha" >"$T/out" 2>&1; rc=$?; expect 0 "(N2) late green during a re-run"
+  grep -q "sha=$other" "$marker" || fail "(N2) a late older green removed the marker of a re-running red"
+  pass=$((pass + 1))
+  # Newest run still running, watched run red, no marker: the watched red is recorded.
+  rm -f "$marker"; watched failure "$sha"
+  env -u LANE_NAME bash "$SELF" "$sha" >"$T/out" 2>&1; rc=$?; expect 1 "red while a newer run is pending"
+  grep -q "sha=$sha" "$marker" || fail "watched red not recorded while the newest run is pending"
+  pass=$((pass + 1))
+  # N3: every listed run is cancelled; the watched red is still recorded.
+  rm -f "$marker"; watched failure "$sha"
+  python3 -c 'import json; print(json.dumps([{"status":"completed","conclusion":"cancelled","headSha":"%040d" % i,"databaseId":i,"url":"u"} for i in range(50)]))' >"$T/latest.json"
+  env -u LANE_NAME bash "$SELF" "$sha" >"$T/out" 2>&1; rc=$?; expect 1 "(N3) only cancelled runs listed"
+  grep -q "sha=$sha" "$marker" || fail "(N3) watched red lost behind cancelled runs"
+  pass=$((pass + 1))
+  rm -f "$marker"
+
   # Results are applied under a lock; a held lock delays the write until it is released.
   mkdir "$marker.lock.d"; ( sleep 1; rmdir "$marker.lock.d" ) &
   watched failure "$sha"; latest failure "$sha"
@@ -314,7 +345,7 @@ print(json.dumps(runs))' "$sha" >"$SEQ_DIR/last.json"
   [ ! -d "$marker.lock.d" ] || fail "lock left behind after a failed lookup"
 
   cleanup
-  echo "main-ci-watch.sh self-test passed: $pass checks (usage; late run; red watched + green latest; green watched + red latest; same-sha re-run; cancelled ignored; empty latest; lock wait and timeout; no run; timeout; deleted cwd; missing AP_MAIN; 40-run overflow; gh failures)"
+  echo "main-ci-watch.sh self-test passed: $pass checks (usage; late run; red watched + green latest; green watched + red latest; same-sha re-run; cancelled ignored; empty latest; re-run pending (N2); pending + red; all cancelled (N3); lock wait and timeout; no run; timeout; deleted cwd; missing AP_MAIN; 40-run overflow; gh failures)"
 }
 
 case "${1:-}" in
