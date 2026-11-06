@@ -9,9 +9,11 @@
 # Per-lane liveness (#1401): for each $AP_MAIN/.review/wave/state-<lane> (state-lead excluded) that has a lane worktree
 #   (`git worktree list`, directory lane-<lane>[-<n>]), print `lane <name> alive` or `lane <name> idle_since=<min>`.
 #   A lane is alive when a worker pid in its state JSONs is alive, or a node/vitest/turbo/playwright process, or a
-#   non-interactive codex/claude run (args exec|-p|--print), has its cwd under the lane worktree. An open Orca terminal,
-#   and the lane's own interactive claude/codex session (its cwd is always the worktree), do not count. idle_since is the
-#   age of the newest state JSON or worker report of the lane.
+#   non-interactive codex/claude run (args exec|-p|--print), has its cwd under the lane worktree or under the cwd/worktree
+#   of any worker of the lane, finished or not (the lead verifies there after the worker ends). A listed Orca terminal of an
+#   unfinished worker counts; the lane's own interactive claude/codex session (its cwd is always the worktree) does not.
+#   When the Orca terminal list cannot be read and nothing else shows life, print `lane <name> unknown`: never an
+#   idle-lane finding. idle_since is the age of the newest state JSON or worker report of the lane.
 # State dirs: WAVE_STATE plus every $AP_MAIN/.review/wave/state-*; board.py check and the findings above read all of them.
 # Worker status matches board.py (#1149 Q2): a pid-less TUI worker whose Orca terminal is no longer
 #   listed is closed; when the terminal list is unavailable it stays running. The list is queried once.
@@ -328,8 +330,8 @@ for d in sorted(dirs):
         # A TUI worker (codex-orca, omp) has no pid: its listed, unfinished terminal is the liveness record.
         if why is None and terms is not None and s.get('terminal') in terms and not report_done(s, p):
             why = f'worker {p.stem} terminal {s["terminal"]}'
-        if not report_done(s, p):
-            roots += [r for r in (s.get('cwd'), s.get('worktree')) if isinstance(r, str) and r]
+        # Every worker's issue worktree counts, finished or not: the lead verifies there after the worker ends.
+        roots += [r for r in (s.get('cwd'), s.get('worktree')) if isinstance(r, str) and r]
     if why is None:
         for comm, cwd in procs:
             if any(under(cwd, r) for r in roots):
@@ -337,6 +339,9 @@ for d in sorted(dirs):
                 break
     if why:
         print(f'lane {lane} alive ({why})')
+        continue
+    if terms is None:  # without the terminal list a pid-less TUI worker cannot be told from a closed one
+        print(f'lane {lane} unknown (orca terminal list unavailable)')
         continue
     idle = int((time.time() - newest) / 60)
     print(f'lane {lane} idle_since={idle}')
@@ -485,6 +490,8 @@ $out"
   # g: a non-interactive codex run in the worktree. lead: skipped.
   # h (C3): a pid-less codex-orca worker whose terminal is listed. i: its terminal is listed but the report is done.
   # j: a node verify in the worker's own issue worktree (state cwd), outside the lane worktree.
+  # k: unreadable terminal list + the worker's interactive TUI -> unknown, no finding.
+  # l: report done, node verify in the issue cwd -> alive.
   (trap - EXIT; exec sleep 60) & live=$!
   W="$T/main/.review/wave"; rm -rf "$T/main"; mkdir -p "$W"
   for l in a b c d e g h i j lead; do mkdir -p "$W/state-$l"; done
@@ -530,8 +537,30 @@ $out" ;; esac; done
 $(cat "$T/out9")"
   check_has "lane d idle_since=" "$(cat "$T/out9")"
 
+  # C3: a finished worker whose issue cwd still runs a node verify keeps the lane alive; an unreadable terminal list is
+  # `unknown` (never idle, never exit 10).
+  for l in k l; do mkdir -p "$W/state-$l"; done
+  printf '{"name":"W-31","role":"impl","cwd":"%s/issue-k","terminal":"term_x","report":"%s/none.md","started_at":1}\n' "$T" "$T" >"$W/state-k/W-31.json"
+  printf '{"name":"W-32","role":"impl","cwd":"%s/issue-l","report":"%s/W-32-REPORT.md","sentinel":"<!-- W-32-DONE -->","started_at":1}\n' "$T" "$W/state-l" >"$W/state-l/W-32.json"
+  printf '## Summary\n<!-- W-32-DONE -->\n' >"$W/state-l/W-32-REPORT.md"
+  touch -t 202601010000 "$W/state-k"/* "$W/state-k" "$W/state-l"/* "$W/state-l"
+  WT2=$(printf '%s\n' "$T/wt/lane-k" "$T/wt/lane-l")
+  PR2=$(printf 'codex\t%s/issue-k\tcodex --dangerously-bypass\nnode\t%s/issue-l/apps\tnode verify\n' "$T" "$T")
+  LEAD_CHECK_TERMINALS='{"result":{"terminals":[]}}' LEAD_CHECK_WORKTREES="$WT2" LEAD_CHECK_PROCS="$PR2" \
+    lane_liveness "$T/main" 1 "$W/state-l" >"$T/out10" 2>&1; rc=$?
+  [ "$rc" -eq 0 ] || fail "finished worker with a verify in its cwd flagged (exit $rc):
+$(cat "$T/out10")"
+  check_has "lane l alive (node in $T/issue-l/apps" "$(cat "$T/out10")"
+  LEAD_CHECK_TERMINALS='not-json' LEAD_CHECK_WORKTREES="$WT2" LEAD_CHECK_PROCS="$PR2" \
+    lane_liveness "$T/main" 1 "$W/state-k" >"$T/out11" 2>&1; rc=$?
+  [ "$rc" -eq 0 ] || fail "unreadable terminal list changed the exit code (exit $rc):
+$(cat "$T/out11")"
+  check_has "lane k unknown" "$(cat "$T/out11")"
+  case "$(cat "$T/out11")" in *idle*) fail "unknown lane reported idle:
+$(cat "$T/out11")" ;; *) pass=$((pass + 1)) ;; esac
+
   cleanup
-  echo "lead-check.sh self-test passed: $pass assertion groups (duplicate write cwd, idle terminal, unowned listener, owned listener, clean pass, closed old TUI same cwd, two live TUIs, terminals unavailable, several state dirs, per-lane liveness: pid, process cwd, interactive session and open terminal do not count, no ready line = no finding, pid-less TUI worker with a listed terminal, verify in a worker worktree)"
+  echo "lead-check.sh self-test passed: $pass assertion groups (duplicate write cwd, idle terminal, unowned listener, owned listener, clean pass, closed old TUI same cwd, two live TUIs, terminals unavailable, several state dirs, per-lane liveness: pid, process cwd, interactive session and open terminal do not count, no ready line = no finding, pid-less TUI worker with a listed terminal, verify in a worker worktree, verify after the worker report is done, unreadable terminal list = unknown)"
 }
 
 [ $# -le 1 ] || { echo "usage: lead-check.sh [--help|--self-test]" >&2; exit 64; }
