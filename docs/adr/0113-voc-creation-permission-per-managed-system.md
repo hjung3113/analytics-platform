@@ -1,6 +1,6 @@
 # VOC 등록 권한은 시스템 단위로 정하고, 기본은 열림이며 좁히는 단위는 사람이다
 
-상태: **Decided (2026-11-05)**. ADR-0110(플랫폼 기능 역할·범위)과 ADR-0069(Managed System 범위 권한)를 보충한다. 둘은 그대로다.
+상태: **Decided (2026-11-05)**. [ADR-0110](0110-platform-feature-roles-and-scope.md)(플랫폼 기능 역할·범위)과 [ADR-0069](0069-platform-port-in-feedbackops-backend.md)(Managed System 범위 권한)를 보충한다. 둘은 그대로다.
 - 결정자: 소유자 — 2026-11-05, [#1358](https://github.com/hjung3113/analytics-platform/issues/1358) 계획에 대한 답(Q1·Q2·Q4).
 
 ## 배경

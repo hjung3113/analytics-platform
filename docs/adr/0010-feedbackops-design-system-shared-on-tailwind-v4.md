@@ -1,6 +1,6 @@
 # FeedbackOps 디자인 시스템을 그대로 공유한다 — FeedbackOps를 Tailwind v4로 올리고 `@fops/ui`를 직접 참조
 
-상태: **Decided (2026-10-03)**. 디자인 시스템의 원본 소유는 [ADR-0043](0043-platform-sdk-is-the-app-contract-and-unified-framework.md)·[ADR-0046](0046-design-system-source-moves-to-platform-whole-package.md)(2026-10-19)으로 플랫폼이다. 토큰·유틸·primitive 코드는 #441에서 `@ap/ui`로 옮겨졌다(FeedbackOps `a8d768b8`) — 이 ADR의 `@fops/ui` 직접 참조·재수출 서술은 그 이전 방식의 기록이고, 본문은 나머지 묶음(#442·#443) 뒤에 고친다.
+상태: **Decided (2026-10-03)**. 디자인 시스템의 원본 소유는 [ADR-0043](0043-platform-sdk-is-the-app-contract-and-unified-framework.md)·[ADR-0046](0046-design-system-source-moves-to-platform-whole-package.md)(2026-10-19)으로 플랫폼이다. 토큰·유틸·primitive 코드는 #441에서 `@ap/ui`로 옮겨졌다(FeedbackOps `a8d768b8`) — 이 ADR의 `@fops/ui` 직접 참조·재수출 서술은 그 이전 방식의 기록이고, #442·#443까지 끝났고 본문은 당시 기록 그대로 둔다.
 - 결정자: 사용자 — 방식은 C안을 직접 골랐고("c로하자"), 참조 방식과 범위는 에이전트 추천을 따랐다("나머지는 니추천대로").
 
 세부(가져오는 순서·버전 차이·검증 방법)는 [#52](https://github.com/hjung3113/analytics-platform/issues/52) 코멘트가 소유한다. 이 ADR은 결정과 이유만 둔다.

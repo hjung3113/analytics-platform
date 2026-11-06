@@ -1,7 +1,7 @@
 # 서버 계약 원본은 TS의 Zod 스키마이고, SDK는 계약에 더해 선택해서 쓰는 참조 구현을 낸다
 
-- Status: Decided (2026-10-28)
-- Decider: 사용자(소유자, [#531](https://github.com/hjung3113/analytics-platform/issues/531)·[#148](https://github.com/hjung3113/analytics-platform/issues/148), 2026-10-20 "기술적인 건 추천대로"). 되돌릴 수 있다.
+상태: **Decided (2026-10-28)**
+- 결정자: 사용자(소유자, [#531](https://github.com/hjung3113/analytics-platform/issues/531)·[#148](https://github.com/hjung3113/analytics-platform/issues/148), 2026-10-20 "기술적인 건 추천대로"). 되돌릴 수 있다.
 - Scope: 메뉴 조회 포트 엔드포인트 선언(`EndpointSpec`)과 응답·파라미터 모양의 원본, 언어 중립 산출물, SDK가 서버에 대해 내는 것의 범위. 관련: [ADR-0019](0019-menu-query-endpoint-declaration.md) Q2, 06 §6.1([kernel.md](../contract/kernel.md#61-식별자와-url-소유-상태-decided)), [HTTP 어댑터 계약](../integration/http-adapter-contract.md) §8, [실서버 체크리스트](../integration/real-server-checklist.md) §3.
 
 ## 맥락

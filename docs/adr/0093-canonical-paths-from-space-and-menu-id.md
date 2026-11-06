@@ -1,7 +1,8 @@
 # 메뉴의 정규 경로는 공간 id와 메뉴 id에서 유도하고, manifest 경로는 옛 별칭으로 남긴다
 
-- Status: Decided (2026-10-27)
-- Decider: 레인 소유자([#961](https://github.com/hjung3113/analytics-platform/issues/961) 코멘트, 2026-10-27). 되돌릴 수 있다 — 유도 규칙은 `createRegistry` 한 곳이다.
+상태: **Decided (2026-10-27)**
+- 상태 보충: 부분 대체 — [ADR-0097](0097-platform-features-and-role-based-names.md)이 제거한 `feedbackops` 공간의 옛 주소를 유지한다는 전제를 대체한다. 다른 업무 시스템의 정규 경로·기존 별칭 계약은 유지한다.
+- 결정자: 레인 소유자([#961](https://github.com/hjung3113/analytics-platform/issues/961) 코멘트, 2026-10-27). 되돌릴 수 있다 — 유도 규칙은 `createRegistry` 한 곳이다.
 - Scope: [#961](https://github.com/hjung3113/analytics-platform/issues/961) 노드 961a–d(Registry, 리다이렉트, 소비자 이전, 테스트·경로 표). 노드 961e 공유 UX와 961f는 남았다. 관련: [ADR-0090](0090-repo-structure-by-branch.md)(공간 id), 계약 본문은 `docs/contract/kernel.md` §6.4·§9.1.
 
 ## 맥락

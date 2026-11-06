@@ -1,7 +1,7 @@
-# ADR-0077 — 작업 영역 "아래로 쌓기" 모드 (C안)
+# 작업 영역 "아래로 쌓기" 모드 (C안)
 
-- Status: Decided (2026-10-23)
-- Decider: 사용자(2026-10-23) — Opus xhigh UX 리뷰 뒤 "C를 기본 베이스로 — 패널 크기가 계속 바뀌면 불편" 이라며 실제 앱 시안 A/B/C 중 C를 컨펌했다.
+상태: **Decided (2026-10-23)**
+- 결정자: 사용자(2026-10-23) — Opus xhigh UX 리뷰 뒤 "C를 기본 베이스로 — 패널 크기가 계속 바뀌면 불편" 이라며 실제 앱 시안 A/B/C 중 C를 컨펌했다.
 - Scope: [#686](https://github.com/hjung3113/analytics-platform/issues/686) 2단계(선택 모드로 병합). 관련: [ADR-0067](0067-dockview-layout-engine-board-v2.md)(작업 영역), [ADR-0075](0075-page-head-one-line-fold-thin-outcome-strip.md)(fill 페이지 머리). **ADR-0067 결정 4(스키마 필드), 8(separator 방향키 5%), 21(작업 영역은 남은 높이를 채운다)을 아래 범위에서 고친다.**
 
 ## 맥락

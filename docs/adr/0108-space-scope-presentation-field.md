@@ -18,13 +18,16 @@
 ## 결정
 
 1. 선택 `scopePresentation?: 'default' | 'hidden'`. 없으면 `'default'`(오늘의 동작, 기존 소비자 변화 없음). `'site'`가 아닌 이유: 기본 표면은 Site가 아니라 분석 Scope 또는 공간의 `scopeControl` 컴포넌트다.
-2. `'hidden'`은 `ScopeSelector` 대체만 없앤다. `scopeControl.For`가 돌려준 컴포넌트는 공간의 명시적 표면이라 그대로 그린다(ADR-0081 결정 4). `null`이거나 슬롯이 없으면 접힘·펼침 모두 아무것도 그리지 않는다.
-3. Registry는 `'hidden'` 공간에 `requiresScope: true` 메뉴(모듈 메뉴 포함)가 있으면 거부한다. 숨김이 Scope 우회가 되면 안 된다. 표시만 바꾸며 ACL·조회는 그대로다.
-4. 엔드포인트·동작은 자기 `requiresScope`를 가지며 Registry가 보지 못한다. 규칙(숨긴 공간의 메뉴는 Scope가 필요한 엔드포인트·동작을 쓰지 않는다)은 필드 JSDoc과 Kernel §9.1에 적고, 앱 통합 테스트가 mock 엔드포인트 목록으로 엔드포인트만 확인한다(동작은 자동 검사 없음 — mock 동작 목록이 생기면 같은 테스트에 넣는다).
-5. 첫 소비자는 `log-dev`. `operations`(모든 메뉴 `requiresScope: false`)도 나중에 같은 플래그를 의미 변화 없이 쓸 수 있다.
+2. `'hidden'`은 `ScopeSelector` 대체만 없앤다. `scopeControl.For`가 돌려준 컴포넌트는 공간의 명시적 표면이라 그대로 그린다(ADR-0081 결정 4). 표시만 바꾸며 ACL·조회는 그대로다.
+3. Registry는 `'hidden'` 공간에 `requiresScope: true` 메뉴가 있으면 거부한다. 숨김이 Scope 우회가 되면 안 된다. 엔드포인트·동작의 `requiresScope`는 Registry가 보지 못하므로 규칙은 계약 문서에 적고 앱 통합 테스트가 엔드포인트만 확인한다(동작은 자동 검사 없음 — mock 동작 목록이 생기면 같은 테스트에 넣는다). 세부 규칙은 [kernel.md §9.1](../contract/kernel.md)이 소유한다.
+4. 첫 소비자는 `log-dev`. `operations`도 나중에 같은 플래그를 의미 변화 없이 쓸 수 있다.
 
 ## 결과
 
 - 메뉴 단위 재정의는 구현하지 않았다. 다시 여는 조건: 한 공간에 사이트 종속 메뉴와 사이트 무관 메뉴가 섞일 때(`.planning/backlog.md`).
 - `BoardContextBar`는 늘 `ScopeSelector layout="bar"`를 그리지만 `log-dev` 메뉴는 `features.board`가 없어 닿지 않는다. 바꾸지 않았다.
 - 선택 필드 추가라 SDK minor 변경이다.
+
+## 참고
+
+- 계약 원본: [kernel.md §9.1](../contract/kernel.md), [layout.md §8](../contract/layout.md).

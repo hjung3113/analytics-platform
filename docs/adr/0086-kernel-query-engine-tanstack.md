@@ -1,7 +1,7 @@
 # Kernel 조회 수명주기는 내부 엔진으로 TanStack Query를 쓴다
 
-- Status: Decided (2026-10-26)
-- Decider: 사용자 방향(2026-10-26, "유지보수·성능·확장성 측면에서 가장 좋은 방향으로. TanStack이 그런 면에서 좋으면 도입") + 코디네이터. 되돌릴 수 있다(공개 API가 바뀌지 않는다).
+상태: **Decided (2026-10-26)**
+- 결정자: 사용자 방향(2026-10-26, "유지보수·성능·확장성 측면에서 가장 좋은 방향으로. TanStack이 그런 면에서 좋으면 도입") + 코디네이터. 되돌릴 수 있다(공개 API가 바뀌지 않는다).
 - Scope: [#825](https://github.com/hjung3113/analytics-platform/issues/825). 관련: [docs/06 §19](../contract/platform-ui-contract.md), [ADR-0054](0054-write-port-declared-actions-idempotency-version.md), [ADR-0071](0071-feedbackops-screen-bridge-and-api-fo-edge-prefix.md), [ADR-0085](0085-entity-audit-cursor-pages.md).
 
 ## 맥락
@@ -46,3 +46,7 @@ B. 조회 수명주기 계약의 원본은 [06 §19](../contract/components.md#1
 ## 미룬 것 (구현 안 함, [백로그](../../.planning/backlog.md))
 
 `selection-port-cache` 이전, FO와 한 QueryClient 공유, `staleTime > 0`·폴링(#165), `useMenuFetch` 표 쪽의 `useInfiniteQuery`, devtools, 모듈 호스트 `menuRequest` 경로(더 엄격한 호출별 `valid()`라 두 유효성 규칙이 섞인다), `usePlatformQuery`/`useAdapterRequest`의 명시적 키 인자를 통한 공유.
+
+## 참고
+
+- 보충: [ADR-0114](0114-opt-in-keep-previous-for-page-input-params.md) — 페이지 입력만 바뀌는 조회에 선택형 이전 결과 유지.

@@ -1,7 +1,7 @@
-# ADR-0074 — 포트 실패는 세 갈래를 유지하고, 규칙 원본·코드 목록 원본을 하나씩 두며, `PortError`는 구조로 판별한다
+# 포트 실패는 세 갈래를 유지하고, 규칙 원본·코드 목록 원본을 하나씩 두며, `PortError`는 구조로 판별한다
 
-- Status: Decided (2026-10-23)
-- Decider: 코디네이터 — 사용자가 [#670](https://github.com/hjung3113/analytics-platform/issues/670) D5에서 위임했다(2026-10-23).
+상태: **Decided (2026-10-23)**
+- 결정자: 코디네이터 — 사용자가 [#670](https://github.com/hjung3113/analytics-platform/issues/670) D5에서 위임했다(2026-10-23).
 - Scope: [#671](https://github.com/hjung3113/analytics-platform/issues/671) B8. 관련: [ADR-0054](0054-write-port-declared-actions-idempotency-version.md)(쓰기), [ADR-0059](0059-app-injected-equipment-axes-and-condition.md)(비 envelope 조회 포트).
 
 ## 맥락

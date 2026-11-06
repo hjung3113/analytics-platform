@@ -9,11 +9,11 @@
 
 ## 결정
 
-1. `auditTrail`의 `type` **필터**는 불투명하고 대소문자를 구분하는 ASCII 토큰이다: `[A-Za-z][A-Za-z0-9_.:-]{0,79}`. 자르기·정규화 없음. 콘솔·mock·실서버 세 파서가 같은 문법을 각자 갖고(`keep in lockstep` 주석), SDK는 문자열 그대로이며 도우미·합집합·엔드포인트를 더하지 않는다.
-2. 형식이 맞는 알 수 없는 `type`은 정상 `empty`(data null)다. 형식이 틀리면 기존 `Invalid audit filter` `error`다. `targetId`는 여전히 `type`을 요구한다. 다른 키·쪽 나누기·시간·정렬·출처·작업·상한은 그대로다.
-3. 필터를 받는 것은 공개가 아니다. 공개 경계는 기존 SQL 투영 하나다([ADR-0069](0069-platform-port-in-feedbackops-backend.md) 결정 6·7, 0074): 워크스페이스, 공개하는 18개 subject 유형, 민감 event·detail·capability 제외. `console:access`는 검증보다 먼저 판정한다. 투영에 없는 유형(`survey_response` 포함)은 한 번도 쓰지 않은 유형과 같은 `empty`로 답해 존재 여부를 알려 주지 않는다. `entityAudit`·`getEntity`의 유형 집합은 바뀌지 않는다.
-4. 콘솔(Consumer)이 실제 18종과 기존 견본 3종의 표시 이름·선택지를 자기 모듈에 선언하고, URL·초안의 형식 유효 미지 유형은 원문 텍스트 선택지로 남긴다(전체로 바꾸지 않는다). mock의 `AUDIT_TYPES`는 시드 등록 검증([ADR-0048](0048-menu-audit-seeds-join-shared-mock-audit-store.md))용으로 남고 필터 검증과 분리된다.
-5. 적합성 묶음에 포트 일반 검사 하나를 더한다(형식 맞는 미지 유형 → `empty`·null, 틀린 형식 → `error`).
+1. `auditTrail`의 `type` **필터**는 불투명하고 대소문자를 구분하는 ASCII 토큰이다(문법·자르기 없음은 [real-server-checklist §2](../integration/real-server-checklist.md) `auditTrail` 행이 소유). 콘솔·mock·실서버 세 파서가 같은 문법을 각자 갖고(`keep in lockstep` 주석), SDK는 문자열 그대로이며 도우미·합집합·엔드포인트를 더하지 않는다.
+2. 형식이 맞는 알 수 없는 `type`은 정상 `empty`, 틀린 형식은 기존 `Invalid audit filter` `error`다.
+3. 필터를 받는 것은 공개가 아니다. 공개 경계는 기존 SQL 투영 하나다([ADR-0069](0069-platform-port-in-feedbackops-backend.md) 결정 6·7, 0074). 투영에 없는 유형(`survey_response` 포함)은 한 번도 쓰지 않은 유형과 같은 `empty`로 답해 존재 여부를 알려 주지 않는다. `console:access`는 검증보다 먼저 판정한다.
+4. 콘솔(Consumer)이 실제 18종과 기존 견본 3종의 표시 이름·선택지를 자기 모듈에 선언하고, URL·초안의 형식 유효 미지 유형은 원문 텍스트 선택지로 남긴다. mock의 `AUDIT_TYPES`는 시드 등록 검증([ADR-0048](0048-menu-audit-seeds-join-shared-mock-audit-store.md))용으로 남고 필터 검증과 분리된다.
+5. 적합성 묶음에 포트 일반 검사 하나를 더한다.
 
 ## 검토한 대안
 

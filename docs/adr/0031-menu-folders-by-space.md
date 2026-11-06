@@ -1,6 +1,7 @@
 # 메뉴 폴더는 시스템(공간) 아래 그룹으로 나누고 전역 그룹은 `_global`에 둔다
 
 상태: **Decided (2026-10-14)**.
+상태 보충: 부분 대체 — [ADR-0097](0097-platform-features-and-role-based-names.md)이 「모든 메뉴가 두 단계·전역은 `_global`, 폴더가 모든 소속의 원본」 규칙(폴더 소유권)을 대체한다. 공간 소속은 앱 `GROUPS` 선언에서만 읽는다. 업무 시스템 메뉴의 두 단계·공간 일치 검사는 유지한다.
 - 결정자: 사용자 — [이슈 #331](https://github.com/hjung3113/analytics-platform/issues/331)에서 선택지 1(코디네이터 추천안)을 선택했다.
 
 IA는 시스템(공간) → 그룹 → 메뉴인데 메뉴 폴더에는 그룹 단계만 드러나면 사내 팀이 자기 시스템의 메뉴를 어디에 얹고 소유하는지 알기 어렵다. 공간을 업무 시스템으로 나누는 [ADR-0026](0026-multi-workspace-app-boundaries-and-feedbackops-scoping.md)과 전역 유틸리티를 공간 밖에 두는 [ADR-0028](0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md)을 폴더 구조에도 반영한다. 패키지 경계의 원본은 [플랫폼 패키지](../integration/platform-packages.md)이며, 메뉴 작성 규칙은 [menus/AGENTS.md](../../menus/AGENTS.md)다.

@@ -1,7 +1,7 @@
-# ADR-0080 — Inspector: 섹션을 한 번 선언하고 두 형태(`stack`·`rail`)로 보인다
+# Inspector: 섹션을 한 번 선언하고 두 형태(`stack`·`rail`)로 보인다
 
-- Status: Decided (2026-10-24)
-- Decider: 코디네이터(2026-10-24), 되돌릴 수 있다. [ADR-0078](0078-hw-time-layout-recipes.md)의 SDK 조각 S3을 구현하는 결정이다.
+상태: **Decided (2026-10-24)**
+- 결정자: 코디네이터(2026-10-24), 되돌릴 수 있다. [ADR-0078](0078-hw-time-layout-recipes.md)의 SDK 조각 S3을 구현하는 결정이다.
 - Scope: [#690](https://github.com/hjung3113/analytics-platform/issues/690) 노드 690e. 관련: [06 §13](../contract/components.md#13-shared-component-layers)(`Inspector`), [ADR-0029](0029-page-filter-bar-collapse-summary.md)(접힘 요약)는 건드리지 않는다.
 
 ## 맥락

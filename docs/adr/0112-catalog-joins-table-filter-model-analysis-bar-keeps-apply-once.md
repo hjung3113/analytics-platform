@@ -1,6 +1,6 @@
 # 지표 카탈로그는 표 필터 모델로 합치고, 분석 조건 줄은 적용 한 번을 지키며 칩 줄만 맞춘다
 
-상태: **Decided (2026-11-05)**. ADR-0105를 보충한다(0016·0037·0105는 그대로).
+상태: **Decided (2026-11-05)**. [ADR-0105](0105-one-table-filter-model.md)를 보충한다(0016·0037·0105는 그대로).
 - 결정자: 사용자 — 2026-11-05, [#1218](https://github.com/hjung3113/analytics-platform/issues/1218) 이슈 댓글. 실제 앱 위 시안([아티팩트](https://claude.ai/artifact/DfN3eqFjmevnfEwRaWx5ev))을 보고 추천안 그대로(카탈로그 B, 분석 B, 버킷 표기 통일)를 골랐다.
 
 ## 배경

@@ -9,13 +9,12 @@
 
 ## 결정
 
-1. **`useMenuQuery(spec, params, enabled?, { keepPrevious })`를 더한다. 기본은 꺼짐이다.** 켠 화면에서, 그 엔드포인트의 페이지 입력 `params`만 바뀌고 세션 세대·투영 Context·엔드포인트가 같고 게이트가 열려 있으면(idle 아님), 그 훅이 받아들인 마지막 `ok`·`empty` 결과를 새 응답이 올 때까지 상태 `refreshing`으로 남긴다.
-2. **Context·Scope·기간·세션·엔드포인트가 바뀌면 옵션과 관계없이 이전 결과를 가린다.** kernel.md의 규칙이 그대로 참이고, 각 경우를 단위 시험이 고정한다.
-3. **새 `params`의 응답이 오면 어떤 결과든 남긴 결과를 바로 대체한다.** 오류·금지·시간 초과·너무 큼 아래에 옛 숫자를 두지 않는다. 오류 결과는 남기지 않는다(남길 값이 아니다).
-4. **`params`가 A→B→C로 바뀌면 C의 응답만 받아들인다.** B의 응답은 늦게 와도 보이지 않는다(키가 달라서 기존 규칙 그대로). 남은 결과는 A의 것이다.
-5. **`completedAt`은 남긴 동안 남긴 결과를 받아들인 시각이다.** 신선도 라벨이 「새 숫자」인 척하지 않게 한다. 새 응답이 오면 새 시각이다.
-6. **남긴 결과의 표시 모양과 위치도 바꾼다.** `QueryView`는 `showingPrevious`일 때 읽을 수 있는 「이전 선택의 결과 · 갱신 중」 문구와 spinner를 조회 구역 내용 맨 위, 결과 본문 앞의 일반 흐름 안내 행으로 그리고 본문에 옅은 tint를 겹친다. 행은 전체 폭·고정 24px이며 절대 배치나 컨트롤 회피 계산 없이 본문·표·헤더와 겹치지 않는다. 남긴 결과가 보일 때만 본문이 행 높이만큼 내려갔다가 새 결과 도착 시 돌아오는 이동을 허용한다. 평상시·라이브 결과·같은 `params` 재조회에는 공간을 예약하지 않는다. fill/panel의 본문은 나머지 높이를 채우고 차트의 head/body subgrid를 유지한다. `role=status`·접근 가능한 이름·`aria-busy`와 reduced-motion을 유지한다. 같은 `params` 재조회와 옵션이 꺼진 기존 소비자의 표시는 바꾸지 않는다. 세부 배치·선택 prop은 [components.md §19](../contract/components.md)가 소유한다.
-7. **어느 화면이 켜는지는 이 ADR이 정하지 않는다.** 노드 b(#1365)가 화면별로 고른다.
+1. **`useMenuQuery(spec, params, enabled?, { keepPrevious })`를 더한다. 기본은 꺼짐이다.** 켠 화면에서, 그 엔드포인트의 페이지 입력 `params`만 바뀌고 세션 세대·투영 Context·엔드포인트가 같고 게이트가 열려 있으면, 마지막 `ok`·`empty` 결과를 새 응답이 올 때까지 `refreshing`으로 남긴다.
+2. **Context·Scope·기간·세션·엔드포인트가 바뀌면 옵션과 관계없이 이전 결과를 가린다.** 각 경우를 단위 시험이 고정한다.
+3. **새 `params`의 응답이 오면 어떤 결과든 남긴 결과를 바로 대체한다.** 오류 결과는 남기지 않는다. `params`가 A→B→C로 바뀌면 C의 응답만 받아들인다.
+4. **남긴 동안 `completedAt`은 남긴 결과를 받아들인 시각이다.** 신선도 라벨이 「새 숫자」인 척하지 않게 한다.
+5. **남긴 결과는 「이전 선택의 결과 · 갱신 중」 안내 행과 함께만 보인다.** 안내는 일반 흐름의 24px 행이고 본문 이동을 허용한다. 결과 필드(`resultParams`·`showingPrevious`)와 옵션 시작 시점(첫 렌더부터 켠다) 등 세부 규칙은 [components.md §19](../contract/components.md)와 [kernel.md](../contract/kernel.md) Context 변경 규칙이 소유한다.
+6. **어느 화면이 켜는지는 이 ADR이 정하지 않는다.** 노드 b(#1365)가 화면별로 고른다.
 
 ## 대안과 버리는 이유
 
@@ -28,11 +27,9 @@
 ## 결과
 
 - 공개 추가: 타입 `MenuQueryOptions`(루트 export)와 `useMenuQuery`의 선택 4번째 인자, `QueryView`의 선택 prop `refreshNotice`. 옵션이 꺼진 조회의 동작·모양은 그대로다.
-- 계약 문서: [components.md §19](../contract/components.md)(예외 문장·`completedAt`), [kernel.md](../contract/kernel.md) Context 변경 규칙 옆 메모.
-- 켠 화면(#1382): 생산성 개요, 사이클타임, HW 시간, 지표 상세, 로그 지식 Item 상세, CLAS 운영시간. 끈 화면: 차트 카탈로그 종류 선택, 로그 지식 카탈로그 탭(버전·종류 전환이라 다른 내용, 결정의 «기본을 켜기» 항목).
+- 켠 화면(#1382): 생산성 개요, 사이클타임, HW 시간, 지표 상세, 로그 지식 Item 상세, CLAS 운영시간. 끈 화면: 차트 카탈로그 종류 선택, 로그 지식 카탈로그 탭(버전·종류 전환이라 다른 내용).
 
-## 부록 (2026-11-05, #1365)
+## 참고
 
-- **이전 결과의 라벨:** 남긴 결과는 *이전 `params`의 데이터*다. 「같은 조건으로 갱신 중」은 같은 `params` 재조회에만 맞고, 남긴 결과에는 틀린 말이다. `QueryView`는 `query.showingPrevious`일 때 「이전 선택의 결과 · 갱신 중」을 보이는 안내 행으로 그린다. 라벨뿐 아니라 표시 모양·위치·본문 tint도 6항의 변경에 포함된다.
-- **결과 필드(추가·선택, `useMenuQuery`만):** `resultParams`(보이는 결과를 불러온 `params`, 없으면 `undefined`), `showingPrevious`(남긴 결과의 `params` ≠ 지금 `params`, 조회 키와 같은 구조 비교; 라이브 결과면 `false`). 두 필드는 `keepPrevious`를 켠 조회에만 정의되고 옵션이 꺼진 조회에서는 `undefined`다(`false`가 아니다): 화면이 옵션을 켠 조회와 아닌 조회를 구분해 옵션이 꺼진 기존 소비자의 모양을 그대로 두게 하기 위함이다. 화면은 남긴 동안 제목·설명·드릴·내보내기·쓰기를 `resultParams` 기준으로 만들거나 막는다. 옵션이 꺼진 기존 소비자의 동작은 그대로다.
-- **옵션의 시작 시점:** 옵션은 첫 렌더부터 켠다(turn the option on from the first render). 옵션이 꺼진 조회는 본문 앞에 결과 감싸개를 더하지 않아 기존 DOM과 부모의 형제 간격을 유지한다. 옵션이 켜진 조회만 실제 레이아웃 상자인 결과 컨테이너를 유지하며 라이브↔이전 결과 전환에 본문을 재마운트하지 않는다. 나중에 켜거나 끄면(`showingPrevious`가 `undefined`↔정의된 값) 본문이 한 번 재마운트되어 로컬 상태·포커스가 초기화될 수 있다. 기존 소비자 전체의 간격을 바꾸지 않기 위한 허용된 제약이다. 옵션이 꺼진 채 받아들인 결과도 옵션이 켜지면 남길 범위가 갱신되어 첫 `params` 전환부터 남는다(회귀 시험). 세부 DOM·배치 계약은 [components.md §19](../contract/components.md)가 소유한다.
+- 계약 원본: [components.md §19](../contract/components.md), [kernel.md](../contract/kernel.md) Context 변경 규칙.
+- 상위 결정: [ADR-0086](0086-kernel-query-engine-tanstack.md).

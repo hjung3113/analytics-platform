@@ -1,9 +1,10 @@
-# ADR-0070 — 전역 기능은 플랫폼 메뉴로 모으고(전역 화면은 사이드바, 업무 시스템 안은 전환기 팝오버), VOC 등록은 오른쪽 도킹 드로어, 설문은 전체 페이지로 둔다
+# 전역 기능은 플랫폼 메뉴로 모으고(전역 화면은 사이드바, 업무 시스템 안은 전환기 팝오버), VOC 등록은 오른쪽 도킹 드로어, 설문은 전체 페이지로 둔다
 
-- Status: Decided (2026-10-22) — 사용자. 화면 사양은 소유 문서에 있다.
+상태: **Decided (2026-10-22)** — 사용자. 화면 사양은 소유 문서에 있다.
+- 상태 보충: 부분 대체 — FeedbackOps 항목·「내 VOC」 배치는 [ADR-0100](0100-feature-navigation-and-independent-access.md)이 개정한다.
 - 부분 대체 (2026-10-24): [ADR-0081](0081-feedbackops-operator-screens-platform-frame.md) — 결정 4의 사용자 메뉴 `FeedbackOps 전체`는 없앴다(2026-10-28, #764 p2; 전환기 카드가 대신함).
 - Amended (2026-10-23, #653): 결정 6의 제출 뒤 동작을 완료 안내와 출발 화면 복귀 링크로 적는다(자동 이동 없음). 복귀 링크는 Kernel `ReturnLink`(`← <출발 메뉴>`, 페이지 머리 `더보기`)를 그대로 쓴다. 시안 m-8b의 `원래 화면으로 돌아가기` 문구와 머리 노출은 백로그다.
-- Decider: 사용자 — 시안 세 차례(A/B/C → P1/P2/P3 → 수정 P1)를 본 뒤 "수정 P1"로 확정했다([#594 코멘트](https://github.com/hjung3113/analytics-platform/issues/594), 2026-10-22). 최종 화면은 owner 확인 시안(2026-10-22, owner 비공개 링크 https://claude.ai/artifact/WXwBny8wJEs1RXx9uCyFD4)이다. 리뷰는 Opus xhigh(IA)와 GPT-6-Astra high(결정)가 했다. 시안 코드는 버린다.
+- 결정자: 사용자 — 시안 세 차례(A/B/C → P1/P2/P3 → 수정 P1)를 본 뒤 "수정 P1"로 확정했다([#594 코멘트](https://github.com/hjung3113/analytics-platform/issues/594), 2026-10-22). 최종 화면은 owner 확인 시안(2026-10-22, owner 비공개 링크 https://claude.ai/artifact/WXwBny8wJEs1RXx9uCyFD4)이다. 리뷰는 Opus xhigh(IA)와 GPT-6-Astra high(결정)가 했다. 시안 코드는 버린다.
 - Scope: [#594](https://github.com/hjung3113/analytics-platform/issues/594), 지도 [#598](https://github.com/hjung3113/analytics-platform/issues/598), [ADR-0066](0066-feedbackops-merges-into-platform.md) 결정 2.
 - 부분 대체: [ADR-0028](0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md)(홈 사이드바 없음·홈 순서·FeedbackOps 블록의 VOC 등록·전역 화면 사이드바 없음), [ADR-0042](0042-system-switcher-and-system-owned-rail.md)(전환기 이름·팝오버 구성·레일 아래 도구 목록). 나머지는 그대로다.
 

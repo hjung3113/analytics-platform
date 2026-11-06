@@ -1,7 +1,7 @@
-# ADR-0078 — HW Time 레이아웃 레시피 4종: 한 데이터, 네 가지 레이아웃 선언
+# HW Time 레이아웃 레시피 4종: 한 데이터, 네 가지 레이아웃 선언
 
-- Status: Decided (2026-10-24)
-- Decider: 사용자(2026-10-24) — #690 0단계 시안 캡처를 비교한 뒤 "메뉴 4개, 레이아웃만 다르게"를 골랐다.
+상태: **Decided (2026-10-24)**
+- 결정자: 사용자(2026-10-24) — #690 0단계 시안 캡처를 비교한 뒤 "메뉴 4개, 레이아웃만 다르게"를 골랐다.
 - Scope: [#690](https://github.com/hjung3113/analytics-platform/issues/690) 1단계(관련 [#586](https://github.com/hjung3113/analytics-platform/issues/586)·[#580](https://github.com/hjung3113/analytics-platform/issues/580)). 관련: [ADR-0025](0025-drilldown-level-page-keys-path-bar-layout.md)(드릴 레이아웃), [ADR-0067](0067-dockview-layout-engine-board-v2.md)(작업 영역), [ADR-0077](0077-workspace-stack-mode-rows-keep-own-height.md)(쌓기 모드). **06 §12.7을 아래 범위에서 고친다.**
 
 ## 맥락

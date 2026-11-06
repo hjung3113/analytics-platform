@@ -1,7 +1,7 @@
 # 소유 표면이 가려지면 상세 슬롯 등록자는 자리를 지키되 표시권을 멈춘다
 
-- Status: Decided (2026-10-27)
-- Decider: 코디네이터(이슈 #893 §4.4 상세 우선권 표와 설계 보강 승인), 되돌릴 수 있다.
+상태: **Decided (2026-10-27)**
+- 결정자: 코디네이터(이슈 #893 §4.4 상세 우선권 표와 설계 보강 승인), 되돌릴 수 있다.
 - Scope: [#893](https://github.com/hjung3113/analytics-platform/issues/893) 노드 893c2. 개정: [ADR-0047](0047-detail-panel-slot-single-registrant-model.md)(상세 슬롯 단일 등록자 모델)에 "중지" 상태를 더한다. 관련: [ADR-0087](0087-board-minimize-restore-history.md), [docs/06 §13](../contract/platform-ui-contract.md), [docs/16 §4](../design/analysis-board.md).
 
 ## 맥락

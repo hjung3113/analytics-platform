@@ -1,7 +1,7 @@
-# ADR-0076 — 메뉴는 좁은 `MenuPlatform`을 보고, 셸·공통 컴포넌트·앱은 `@ap/kernel/host`를 쓴다
+# 메뉴는 좁은 `MenuPlatform`을 보고, 셸·공통 컴포넌트·앱은 `@ap/kernel/host`를 쓴다
 
-- Status: Decided (2026-10-23)
-- Decider: 코디네이터 — 사용자가 2026-10-23 [#671](https://github.com/hjung3113/analytics-platform/issues/671) 진행을 승인하며 SDK 구조 판단을 맡겼다.
+상태: **Decided (2026-10-23)**
+- 결정자: 코디네이터 — 사용자가 2026-10-23 [#671](https://github.com/hjung3113/analytics-platform/issues/671) 진행을 승인하며 SDK 구조 판단을 맡겼다.
 - Scope: [#671](https://github.com/hjung3113/analytics-platform/issues/671) B8. 관련: [ADR-0053](0053-host-module-contract-v1.md)(견본 메뉴는 `usePlatform()`을 계속 쓴다), [ADR-0067](0067-dockview-layout-engine-board-v2.md)(host-only 진입점의 선례).
 
 ## 맥락

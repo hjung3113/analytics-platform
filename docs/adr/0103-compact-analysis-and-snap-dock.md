@@ -1,6 +1,6 @@
-# ADR-0103: Compact analysis and native snap Dock previews
+# Compact analysis and native snap Dock previews
 
-- Status: **Decided** (2026-10-30)
+상태: **Decided (2026-10-30)**
 - Decision maker: owner, approved actual-app variant B (#1141)
 
 ## Decision

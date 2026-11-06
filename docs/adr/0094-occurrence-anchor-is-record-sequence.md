@@ -1,7 +1,7 @@
 # Occurrence anchor는 파서의 RecordSequence(불투명 숫자 문자열)이고 시작 시각은 별도 표시 필드다
 
-- Status: Decided (2026-10-27)
-- Decider: 사용자(소유자, [#1007](https://github.com/hjung3113/analytics-platform/issues/1007), 2026-10-27). 되돌릴 수 있다.
+상태: **Decided (2026-10-27)**
+- 결정자: 사용자(소유자, [#1007](https://github.com/hjung3113/analytics-platform/issues/1007), 2026-10-27). 되돌릴 수 있다.
 - Scope: occurrence 식별키 `(equipmentId, entityType, anchor)`의 `anchor` 값. 관련: 06 §6.1([kernel.md](../contract/kernel.md#61-식별자와-url-소유-상태-decided)), 파서 `docs/11` §14·`docs/18`, 파서 이슈 hjung3113/context_recognized_parser#159·#157.
 
 ## 맥락

@@ -1,6 +1,7 @@
-# ADR-0068 — 권한은 FeedbackOps 부여 체계 하나로 업무 시스템까지 넓히고, Managed System은 공간에 연결만 한다
+# 권한은 FeedbackOps 부여 체계 하나로 업무 시스템까지 넓히고, Managed System은 공간에 연결만 한다
 
-- Status: Decided (2026-10-22) — 코디네이터 결정, 사용자가 위임("opus high에게 한번 리뷰받고 결정해", 2026-10-21). 되돌릴 수 있다.
+상태: **Decided (2026-10-22)** — 코디네이터 결정, 사용자가 위임("opus high에게 한번 리뷰받고 결정해", 2026-10-21). 되돌릴 수 있다.
+- 부분 대체: [ADR-0110](0110-platform-feature-roles-and-scope.md) — 결정 3의 배치(설정은 업무 흐름 `설정`, 권한 승인은 운영 콘솔).
 - Scope: [#596](https://github.com/hjung3113/analytics-platform/issues/596), 지도 [#598](https://github.com/hjung3113/analytics-platform/issues/598), [ADR-0066](0066-feedbackops-merges-into-platform.md) 결정 7. 선택지 정리와 근거: [#596 코멘트](https://github.com/hjung3113/analytics-platform/issues/596)와 그 [아티팩트](https://claude.ai/artifact/VX761Mk5ogrCDfPjZbGFgZ). 독립 검토(Opus high, 2026-10-22): 세 질문 모두 "조건부 동의". 아래 조건은 그 검토에서 나왔다.
 - Amends: [ADR-0045](0045-feedbackops-entry-link-mapping-and-scope.md) 결정 1(매핑 원천을 앱 정적 표에서 서버 연결 표로 바꾼다. 서버가 생기기 전까지는 정적 표 그대로).
 

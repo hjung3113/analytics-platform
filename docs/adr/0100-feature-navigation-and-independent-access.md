@@ -1,6 +1,7 @@
 # 기능 내비게이션: 운영 콘솔 하나와 내 활동, 독립 접근 권한
 
 상태: **Decided (2026-10-29)** — 구현은 #1099 노드 c([#1099](https://github.com/hjung3113/analytics-platform/issues/1099))가 이행한다. [ADR-0097](0097-platform-features-and-role-based-names.md)을 보충한다(식별자·권한 이름·별칭 없음 원칙은 그대로).
+상태 보충: 부분 대체 — [ADR-0110](0110-platform-feature-roles-and-scope.md)이 결정 2·4(운영 콘솔 단일 모델·섹션 순서)와 옮기는 메뉴의 정규 경로를 개정한다.
 - 결정자: 사용자 — 실제 앱 프로토타입 [Artifact](https://claude.ai/artifact/EsmZqGJNyhWq1UiL3LYJVf)에서 **B안**을 골랐고([#1099 결정 댓글](https://github.com/hjung3113/analytics-platform/issues/1099#issuecomment-6472960513)), F/C 분리 유지와 Astra 검토의 필수 변경(B-01·02·03·04·07·08)·채택 항목(이름·순서 B-05/06, 카드 설명 B-09, 복귀 수명 Q4)을 받아들였다.
 - 코디네이터(사용자 위임, 되돌릴 수 있음): 아래 「세부 선택」 — 메뉴 id 충돌 처리, 슬롯이 현재 메뉴로 고르는 방식, 내 Task 범위 선택의 자리. 이유는 새 grant·새 저장소·새 provider 없이 이미 병합된 carry set·AND 권한을 그대로 쓰기 위해서다.
 
@@ -25,7 +26,7 @@ ADR-0097이 FeedbackOps 제품 이름을 걷어낸 뒤에도 사이드바에는 
 
 F만, C만, 둘 다, 둘 다 아님, 개인 메뉴만 가진 경우가 모두 성립한다. C만 가진 사람의 진입은 첫 열 수 있는 `플랫폼 관리` 메뉴다.
 
-4. **이름과 순서.** 운영 콘솔 섹션은 `VOC → Finding → Task 관리 → 설문 관리 → 대시보드 → 연동 → 기능 관리 → 플랫폼 관리`다(그룹 id `voc`·`findings`·`tasks`·`surveys`·`dashboard`·`integration`·`featureAdmin`·`admin`). `내 활동`은 정확히 `알림 → 내 VOC → 내 Task → 응답 설문 → 권한 요청` 다섯이고 홈·사이드바·전환기가 같은 이름과 순서를 쓴다. 여섯째 개인 항목도, 새 그룹도 두지 않는다.
+4. **이름과 순서.** 운영 콘솔 섹션은 `VOC → Finding → Task 관리 → 설문 관리 → 대시보드 → 연동 → 기능 관리 → 플랫폼 관리`다(그룹 id `voc`·`findings`·`tasks`·`surveys`·`dashboard`·`integration`·`featureAdmin`·`admin`). `내 활동`은 정확히 `알림 → 내 VOC → 내 Task → 응답 설문 → 권한 요청` 다섯이고 홈·사이드바·전환기가 같은 이름과 순서를 쓴다. 여섯째 개인 항목도, 새 그룹도 두지 않는다. (ADR-0110이 배치를 개정 — 현재 섹션·`내 활동` 구성은 [kernel.md §9](../contract/kernel.md)가 소유한다.)
 5. **내 Task는 전역 `/my-tasks`로 옮긴다.** 화면 구현은 Task Consumer(`@ap/menu-tasks`)에 두고, 앱 조립이 전역 그룹 배치와 순서를 정한다(Consumer끼리 import하지 않는다). `my-tasks`는 앱 예약 루트다. 기능 메뉴 id는 ADR-0097대로 `fo-`를 뗀 값이고 정규 경로는 `/operations/<메뉴 id>`다. 옛 경로·별칭은 없다.
 6. **목록 범위(managedSystem)는 기능이 선언한 자리에서만 보인다.** 사이드바 `목록 범위`·카운트·저장된 보기 슬롯은 공간이 아니라 **현재 메뉴**(공간 id + 현재 route의 메뉴)로 소비자가 고른다. 플랫폼 관리(C만)는 운영 기능 세션·provider·질의를 마운트하지 않는다. 기능 관리는 비활성 설명과 자기 필터(Analytics Area의 `system`)를 유지한다. 내 Task는 사이드바 없이 **자기 페이지 필터 영역**에 기존 Managed System 선택기를 `목록 범위`로 두고 현재 값과 `전체` 해제를 보인다(새 상태·저장소 없음, 같은 `managedSystem` 페이지 키).
 
