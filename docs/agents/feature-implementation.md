@@ -4,18 +4,8 @@ DB/role identity: `platform` database and `platform_*` roles. Fresh or uncut clu
 
 ## Operating Rules
 
-- State assumptions when the request can be read in more than one way.
-- Prefer the smallest change that satisfies the request. Do not add speculative flexibility.
-- Match existing docs and implementation patterns before inventing new structure.
-- Every changed line must trace to a user request, a documented invariant, or a failing verification.
-- If domain rules conflict with generic framework habits, follow the domain rules.
-- The standalone runtime is retired (#597, platform ADR-0097). Preserve the 36 `@ap/feature-screens` public entries, backend and bridge seams; the platform owns navigation/session/layout. ADR-0097 and ADR-0100 own current names, identity and navigation.
-- Paths are repository-root relative. Root `AGENTS.md` owns repository conduct; this on-demand guide covers feature domains only.
-
-## Finish Line And Stops
-
-- **Finish line for an issue:** the touched behavior has passing tests, the [gate](#verification) is green, docs affected by the change are updated in the same PR, and a PR to `main` is open. Merge and close the issue only when auto-merge was granted in this session; otherwise the user merges. For other multi-step work, state the success criteria up front and verify them before claiming completion.
-- **Keep going** through steps that don't need the user. **Stop and report** on a documentation conflict that no tiebreak covers ([Source Of Truth](#source-of-truth)), and before any merge, push, or release the user has not authorized in this session.
+- The standalone runtime is retired (platform ADR-0097). Preserve the 36 `@ap/feature-screens` public entries, backend and bridge seams; the platform owns navigation/session/layout. ADR-0097 and ADR-0100 own current names, identity and navigation.
+- Paths are repository-root relative. Root `AGENTS.md` owns repository conduct; this guide covers feature domains only. Workflow, tier, review and merge rules: [`PROFILE.md`](../../.agents/conductor/PROFILE.md).
 
 ## UI Authority
 
@@ -23,7 +13,7 @@ The shipped UI is the reference for existing surfaces (FO ADR-0060): the compone
 
 - **Changing an existing screen:** reuse its shared components and current pattern, subject to the root prototype approval rule.
 - **Building a new surface:** start from the current platform contracts and owner-confirmed prototype. Historical standalone captures do not define current navigation or permissions.
-- **Copy:** UI chrome (labels, buttons, headers, microcopy) is Korean; domain nouns (`VOC`, `Finding`, `Task`, `Task Request`, `Survey`, `Cluster`, `Managed System`, `Analytics Area`, `Milestone`, `Evidence`, `Triage`) and Task workflow statuses stay English (FO ADR-0057 A2, amended by #675). Reuse existing strings in `lib/copy` before writing new ones.
+- **Copy:** UI chrome (labels, buttons, headers, microcopy) is Korean; domain nouns (`VOC`, `Finding`, `Task`, `Task Request`, `Survey`, `Cluster`, `Managed System`, `Analytics Area`, `Milestone`, `Evidence`, `Triage`) and Task workflow statuses stay English (FO ADR-0057 A2). Reuse existing strings in `lib/copy` before writing new ones.
 - **Three-shell taxonomy (FO ADR-0020).** Every screen is `PageShell`, `ListShell`, or `WorkbenchShell`. Special pages extend the three — never a new shell.
 - **Do NOT port from the prototype:** hash routing, `window` globals, `document.execCommand`, synthetic local data, draft-only API intent panels. The platform owns routing and feature screens use the host seam; rich text is TipTap (FO ADR-0002 / FO ADR-0011).
 - Visual changes follow root `AGENTS.md`: current-app prototypes and an Artifact checkpoint before implementation, except bug fixes or an already confirmed appearance.
@@ -32,8 +22,7 @@ Frontend specifics (visual baselines): `apps/feature-screens/AGENTS.md`.
 
 ## Git Workflow
 
-- **Branches and PRs follow the root analytics-platform `AGENTS.md`:** `feat/<n>-<slug>` from `main`, PR to `main`, issues on `hjung3113/analytics-platform`. The feature suite repository is frozen at `c73c55c5` and retires (#597).
-- **Hooks.** The standalone repository's `.githooks/` was removed in 713p1; the platform repo sets no `core.hooksPath`.
+Branches and PRs follow the root `AGENTS.md` (`feat/<n>-<slug>` from `main`, issues on `hjung3113/analytics-platform`). The old `hjung3113/FeedbackOps` repository is archived.
 
 ## Monorepo Boundaries
 
@@ -100,10 +89,10 @@ Shipped user-facing strings are implemented in `apps/feature-screens/src/lib/cop
 
 ## Verification
 
-- **For feature behavior changes, the subject gates are `pnpm --filter @ap/platform-api test:integration` + `pnpm --filter @ap/platform-api-ops feature:typecheck` + `pnpm --filter @ap/platform-api-ops check:boundaries` + `pnpm --filter @ap/platform-api-ops gate:db-migration-drift` + `pnpm --filter @ap/platform-api-ops gate:fe-typecheck` + `pnpm --filter @ap/platform-api-ops gate:fe-lint` + `pnpm --filter @ap/feature-screens lint`**. For changed screens, use the retained platform host for the repository browser/E2E and capture workflow; the standalone visual harness is retired (#597). `pnpm test` / `pnpm --filter @ap/platform-api test` alone is **not** the gate: the backend integration suites are env-gated and all skip without a database, so a green there covers only the unit path (#204). The integration command loads `.env` and **truncates + re-seeds the target database** before the run — point it at a throwaway database, never the dev database on 5434 (recipe: `apps/platform-api/AGENTS.md` → Verification, provisioning a throwaway database). See `apps/platform-api/AGENTS.md` → Verification for the env, the reset contract, and the `ALLOW_SKIPPED_INTEGRATION=1` opt-out.
+- **Gates for feature behavior changes:** [`PROFILE.md`](../../.agents/conductor/PROFILE.md) §Verify step 5 (`gate.sh static-extra` + `test:integration` on a throwaway DB), plus `pnpm --filter @ap/feature-screens lint` and the `@ap/platform-api-ops` `feature:typecheck`, `check:boundaries`, `gate:db-migration-drift`, `gate:fe-typecheck`, `gate:fe-lint` scripts. `pnpm --filter @ap/platform-api test` alone is not the gate: the integration suites skip without a database. `test:integration` truncates and re-seeds its target database, so never point it at the dev database on 5434 (`apps/platform-api/AGENTS.md` → Verification: env, reset contract, throwaway-database recipe, `ALLOW_SKIPPED_INTEGRATION=1`). Changed screens use the platform host for browser/E2E and captures.
 - **Where to run.** Run the gate commands from the repository root (the feature suite is part of the root pnpm workspace: root Node 26.7, pnpm 11 and `pnpm-lock.yaml`; install once at the repository root). The feature operating scripts (`feature:typecheck`, `check:boundaries`, `gate:*`, …) belong to the workspace package `@ap/platform-api-ops` in `ops/platform-api/`: run them as `pnpm --filter @ap/platform-api-ops <script>`.
 - **CI.** `.github/workflows/ci.yml` owns unified root lint/typecheck/test/build, additional feature static gates, and disposable Postgres integration/conformance. Its required workspace status includes every gate. `ops/platform-api/scripts/ci/gate.sh static --base <ref>`, `unit`, and `integration` remain explicit operating commands; CI reuses root suites and runs only `static-extra` plus integration separately. The root backend test is DB-free: it removes the three reset inputs and opts out of skipped integration; `test:integration` clears that opt-out. `platform-api`, `feature-shared`, `feature-ui` and `feature-screens` lint with ESLint over their full source (package `lint`, #1102 a·b); root ops lint keeps the boundary check and changed-file Biome (docs and ops only) without caching; provide committed history and `FEATURE_LINT_BASE`. Platform visual reinforcement #954 remains not implemented in `.planning/backlog.md`.
-- **Lint scope (#1102 a and b done).** ESLint over the whole package, tests and config files included (`dist`, `coverage` and similar output excluded), with `--max-warnings 0`: `pnpm --filter @ap/platform-api lint` (`featureServerPreset`), `@ap/feature-shared` (`featureSharedPreset`), `@ap/feature-ui` (`featureUiPreset`, plus React, Hooks, accessibility and the `@shadcn/lint` design rules) and `@ap/feature-screens` (`featureScreensPreset`: `featureUiPreset`'s rules plus `no-restyle` and `require-static-classes`, which the former Oxlint pass checked; the preset of the package that defines the components turns those two off); presets in `tooling/eslint/src`. These packages are not passed to Biome or Oxlint (Oxlint is gone). The residual Biome scope (`FEATURE_BIOME_SCOPE` in `ops/platform-api/paths.mjs`) is `ops/platform-api` and the documentation roots in `FEATURE_DOCS`. Screens CSS (`src/styles.css`) and JSON configs are covered by neither ESLint nor Biome (the old gate never read CSS; JSON coverage ended with the Biome scope): not implemented, no equivalent invented. Focused tests (`describe`/`it`/`test`.only) fail lint. Old-rule correspondence, compiler-covered rules and the deliberate gaps (`noExportsInTest`, `noImplicitAnyLet`, others): `docs/integration/platform-packages.md` §6.
+- **Lint scope.** ESLint over each whole package (tests and config included, `--max-warnings 0`): `pnpm --filter <@ap/platform-api|@ap/feature-shared|@ap/feature-ui|@ap/feature-screens> lint`, presets in `tooling/eslint/src`; focused tests (`.only`) fail lint. These packages never go to Biome. The residual Biome scope (`FEATURE_BIOME_SCOPE` in `ops/platform-api/paths.mjs`) is `ops/platform-api` and `FEATURE_DOCS`. Screens CSS and JSON configs are covered by neither (not implemented). Old-rule correspondence and deliberate gaps: `docs/integration/platform-packages.md` §6.
 - The FE lint gate diffs committed history against a base ref — pass `--base origin/main`. The standalone route-tree generator is retired and is not a prerequisite. Read `ops/platform-api/scripts/gates/AGENTS.md` before running them or touching their baselines/allowlists.
 - For behavior changes and bug fixes, write or update the failing test first, then make the smallest change that passes it. If TDD is not practical, state why and still add verification for the touched behavior.
 - Add or update tests for product invariants touched by the change.
@@ -124,7 +113,7 @@ Test code is a liability. Fewer, sharper tests beat more tests.
 
 ## Workflow Operations
 
-The root `AGENTS.md`, global `issue-wave-conductor` skill and `.agents/conductor/PROFILE.md` own workflow, verification size, review tier, merge authorization and cleanup. The former feature-only conductor assets in `ops/platform-api/conductor/` are operating helpers, not a second repository policy. Any integration test uses a throwaway database, never development port 5434.
+Workflow, verification size, review tier and merge authorization: root `AGENTS.md` and [`PROFILE.md`](../../.agents/conductor/PROFILE.md). Helpers in `ops/platform-api/conductor/scripts/` are operating scripts, not a second policy. Any integration test uses a throwaway database, never port 5434.
 
 ## PR Review Priorities
 
@@ -132,10 +121,7 @@ When reviewing a PR, prioritize product invariant violations, ownership boundary
 
 ## Agent Skills
 
-- **Issue tracker.** GitHub issues on `hjung3113/analytics-platform` with the successor label `area:platform-features` (lead-managed rename from `area:feedbackops`), via the `gh` CLI (the old `hjung3113/FeedbackOps` tracker is frozen, #592); external PRs are not a request surface. See `docs/agents/issue-tracker.md`.
-- **Triage labels.** Canonical defaults: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
-- **Domain docs.** Root `GLOSSARY.md` owns the domain glossary and stable invariants; platform ADRs and the separate FO ADR history own architectural decisions; per-directory `AGENTS.md` owns technical-layer rules. See `docs/agents/domain.md`.
-- **Skills.** Workflow and general-purpose skills (the `mattpocock/skills` set, `session-handoff`, `issue-wave-conductor`, `orca-dispatch-recipes`, …) are user-level in `~/.agents/skills/`, one copy for every repo; this repo keeps only its stack skills. `/code-review` resolves to the Claude Code built-in. `shadcn` is vendored from `shadcn-ui/ui` (`skills/shadcn`, MIT). `impeccable` (external, `pbakaus/impeccable`) is installed once at user level, shared with other repos: `~/.agents/skills/impeccable` plus the agents `~/.agents/agents/impeccable-*` (#1280); its engine binary downloads on first run. Its edit/stop hooks stay disabled: after an update, check that it added no hook to `~/.claude/settings.json` or `.claude/settings.local.json`.
+Issue tracker, triage labels and domain docs: [issue-tracker](issue-tracker.md), [triage-labels](triage-labels.md), [domain](domain.md). Skills are user-level (`~/.agents/skills/`) except the repo's stack skills ([`.agents/README.md`](../../.agents/README.md)); `impeccable` hooks stay disabled — after an update check that it added none to `~/.claude/settings.json` or `.claude/settings.local.json`.
 
 ## Unified workspace integration
 

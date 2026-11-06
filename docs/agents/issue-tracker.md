@@ -18,7 +18,7 @@ This repository tracks work, decisions, and PRDs in GitHub issues at `hjung3113/
 | `area:kernel` | Kernel features (Registry, Context, URL, permissions and Scope, Audit), workspace layer |
 | `area:ops-console` | Operations console (platform administration tools) |
 | `area:design` | Design system, shared UI components, DESIGN.md |
-| `area:platform-features` | Platform feature domains (successor to `area:feedbackops`; lead manages the rename) |
+| `area:platform-features` | Platform feature domains |
 | `area:tooling` | lint, generators, CI, validation tools |
 
 ## Flow Labels
@@ -41,12 +41,6 @@ Run `gh issue view <number> --comments`.
 
 ## Milestones
 
-Milestones are the progress authority for each track.
+Milestones are the progress authority for each track; list them with `gh api repos/hjung3113/analytics-platform/milestones?state=all`. The at-a-glance board is [`.planning/README.md`](../../.planning/README.md).
 
-- **Open:** `M4 사내 적용`, `M6 기능 합류` (map: #598), `M7 MARS 이관` (#552, #555, #556, #557), `M8 SDK 계약·품질` (#669, #670, #671).
-- **Closed:** `M1 플랫폼 기능 기반`, `M2 디자인 시스템`, `M3 기능 1단계`, `M5 기능 2단계` (map: #213; superseded by ADR-0066).
-
-The at-a-glance board is [`.planning/README.md`](../../.planning/README.md).
-
-
-Feature work uses this same tracker and targets `main`; `hjung3113/FeedbackOps` is frozen (#597). The lead owns the external `area:feedbackops → area:platform-features` and `lane:fo → lane:features` label/filter rename. A documented successor does not assert that GitHub labels have already changed. GitHub shares issue/PR numbers: resolve an ambiguous number with `gh pr view`, then `gh issue view`.
+Feature work uses this same tracker and targets `main`; `hjung3113/FeedbackOps` is archived. GitHub shares issue and PR numbers: resolve an ambiguous number with `gh pr view`, then `gh issue view`.
