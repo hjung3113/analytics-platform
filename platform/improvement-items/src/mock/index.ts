@@ -298,7 +298,7 @@ const writes = actionSpecs.slice(1).map(spec => defineMockAction(spec as ActionS
     if (op === 'itemSetStatus') {
       const s = input as StatusInput; row.status = s.status;
       if (s.action !== undefined) row.action = s.action; if (s.actionDate !== undefined) row.actionDate = s.actionDate;
-      if (s.effect) { row.effectResult = s.effect.result; row.effectNote = s.effect.note ?? null; row.effectCompareLink = s.effect.compareLink ?? null; }
+      if (s.effect) { row.effectResult = s.effect.result; row.effectNote = s.effect.note?.trim() || null; row.effectCompareLink = s.effect.compareLink?.trim() || null; }
       if (s.status === 'dropped') row.dropReason = s.reason!;
     }
     if (op === 'itemReopen') row.status = REOPEN[row.status] as Status;

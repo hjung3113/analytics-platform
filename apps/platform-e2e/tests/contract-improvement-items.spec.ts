@@ -49,4 +49,40 @@ test.describe('개선 아이템 (§5 권한 · §13 표/확인 · §22 Context �
     await expect(page.getByText('개선 아이템을 만들거나 상태를 바꾸려면 improvement.manage 권한이 필요합니다.', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: '개선 아이템 남기기', exact: true })).toHaveCount(0);
   });
+
+  test('조치일 Context 비교 링크를 효과 확인과 함께 저장하고 다시 연다', async ({ page }, testInfo) => {
+    await signInAs(page, 'admin');
+    await page.goto('/improvement-items/13280000-0000-4000-8000-000000000003?v=1&scopeId=MEM');
+    await expect(page.getByText('2026-10-28 00:00:00 – 2026-11-04 00:00:00 KST', { exact: true })).toBeVisible();
+    await expect(page.getByText('2026-11-04 00:00:00 – 2026-11-11 00:00:00 KST', { exact: true })).toBeVisible();
+    const comparison = page.getByRole('link', { name: '분석 화면에서 전후 비교 열기', exact: true });
+    const href = await comparison.getAttribute('href');
+    expect(href).toMatch(/^\/mars\/cycle-time\?/);
+    const url = new URL(href!, page.url());
+    expect(url.searchParams.get('from')).toBe('2026-11-04T00:00:00');
+    expect(url.searchParams.get('to')).toBe('2026-11-11T00:00:00');
+    await page.getByRole('button', { name: '효과 확인에 이 비교 사용', exact: true }).click();
+    await page.getByRole('button', { name: '효과 확인됨', exact: true }).click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByRole('checkbox', { name: '선택한 비교 링크 함께 저장' })).toBeChecked();
+    await dialog.getByRole('combobox', { name: '효과 확인 결과 · 필수' }).click();
+    await page.getByRole('option', { name: '효과 있음', exact: true }).click();
+    await dialog.getByLabel('판단 메모', { exact: true }).fill('분석 화면에서 전후 기간 확인');
+    await evidence(page, testInfo, 'improvement-effect-confirmation');
+    await dialog.getByRole('button', { name: '상태 변경 확인', exact: true }).click();
+    await expect(dialog).toBeHidden();
+    await expect(page.getByText('분석 화면에서 전후 기간 확인', { exact: true })).toBeVisible();
+    const saved = page.getByRole('link', { name: '저장한 비교 열기', exact: true });
+    await expect(saved).toHaveAttribute('href', href!);
+    await expect(page.getByRole('combobox', { name: '앞뒤 구간 길이' })).toHaveCount(0);
+    await evidence(page, testInfo, 'improvement-effect-verified');
+    const popupPromise = page.waitForEvent('popup');
+    await saved.click();
+    const analysis = await popupPromise;
+    await expect(analysis).toHaveURL(url.href);
+    // The analysis screen lands on the after window (equal windows, so its Compare interaction reaches the before window
+    // once a query runs); this screen only carries the Context, it never queries.
+    await expect(analysis.getByText('11-04 00:00 → 11-11 00:00 (7일)', { exact: true }).first()).toBeVisible();
+    await analysis.close();
+  });
 });

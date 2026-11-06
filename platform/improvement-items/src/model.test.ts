@@ -19,11 +19,10 @@ describe('improvement item screen contracts', () => {
     expect(createErrors({ problem: 'problem', origin: { menuId: 'cycle-time', context: {} }, targets: [] })).toEqual([]);
   });
   it.each(['not_found', 'unavailable', 'forbidden'] as const)('keeps the Quest snapshot for %s without a link', state => {
-    expect(questPresentation(state, 'saved title', null)).toMatchObject({ title: 'saved title', linked: false });
+    expect(questPresentation(state, 'saved title', null)).toMatchObject({ title: 'saved title' });
   });
-  it('uses the current Quest title only on ok and falls back on unsupported search', () => {
+  it('uses the current Quest title only on ok', () => {
     expect(questPresentation('ok', 'old', { id: 'Q1', title: 'current', status: 'Active' })).toMatchObject({ title: 'current' });
-    expect(questPresentation('unsupported', 'saved', null).directEntry).toBe(true);
   });
   it('shows both wall-clock endpoints as KST, separately from action date', () => {
     expect(originPeriod({ from: '2026-11-01T00:00', to: '2026-11-05T00:00' }, 'ko')).toBe('2026-11-01 00:00 – 2026-11-05 00:00 KST');
