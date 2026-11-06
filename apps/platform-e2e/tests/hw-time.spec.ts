@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { evidence, expectScopeValid, query, signInAs } from './support';
+import { evidence, expectScopeValid, query, setScenario, signInAs } from './support';
 
 /**
  * HW Time (#690, node 690m): the four menus share one drill contract (06 §12.7) and one workspace/board contract (§12.8).
@@ -144,7 +144,9 @@ test.describe('approved analysis B (#1141)', () => {
   test.beforeEach(async ({ page }) => { await signInAs(page, 'engineer'); });
 
   for (const viewport of [{ width: 1440, height: 900 }, { width: 1280, height: 800 }]) {
-    test(`compact geometry and undimmed bar drill/back at ${viewport.width}`, async ({ page }, testInfo) => {
+    // The slow variant holds every reply for 2.2 s, so the drill → Back refresh really is in flight (#1365 keepPrevious): it reproduces the race the normal run only hits under CI load.
+    for (const slow of viewport.width === 1440 ? [false, true] : [false]) test(`compact geometry and undimmed bar drill/back at ${viewport.width}${slow ? ' (느린 응답)' : ''}`, async ({ page }, testInfo) => {
+      if (slow) test.slow();
       await page.setViewportSize(viewport);
       for (const menu of MENUS) {
         await page.goto(`${menu.path}?v=1&scopeId=MEM`);
@@ -163,6 +165,7 @@ test.describe('approved analysis B (#1141)', () => {
         }
       }
       await page.goto('/mars/hw-time-steps?v=1&scopeId=MEM');
+      if (slow) await setScenario(page, '느린 응답 (+2.2s)');
       const chart = page.getByRole('region', { name: 'Module별 동작시간', exact: true });
       const canvas = chart.locator('canvas').first();
       await expect(canvas).toBeVisible();
@@ -216,6 +219,10 @@ test.describe('approved analysis B (#1141)', () => {
       await page.goBack();
       await expect.poll(() => query(page).has('drillModule')).toBe(false);
       await expect(chart.locator('canvas').first()).toBeVisible();
+      // Back re-requests the undrilled result while the drilled one stays drawn under the 「이전 선택의 결과 · 갱신 중」 line (#1365 keepPrevious).
+      // Measure only after the new result is drawn: the line is gone and nothing is busy, otherwise the chart repaints (and moves 24 px) between the sample and the hover.
+      await expect(page.locator('main [role="status"][aria-label="이전 선택의 결과 · 갱신 중"]')).toHaveCount(0, { timeout: 15_000 });
+      await expect(page.locator('main [aria-busy="true"]')).toHaveCount(0, { timeout: 15_000 });
       // Re-check the restored chart's actual paint under hover, rather than relying on its original option.
       await expect.poll(async () => (await samples()).length).toBe(2);
       const [restoredHover, restoredOther] = await samples();
