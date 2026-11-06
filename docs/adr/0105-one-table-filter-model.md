@@ -8,17 +8,13 @@
 ## 결정
 
 1. **필터 모델 하나.** 필터 가능한 필드 = `filter`를 선언한 열 + 열이 아닌 `filterFields`. 상태는 `TableQuery.filters: ColumnFilter[]` 하나이고 필드당 조건 하나, 필드 사이는 AND, 열거형 `in`/`notIn`만 OR다. 빠른 검색(`q`)과 전역 Context(QueryBar)는 따로 둔다.
-2. **연산자(닫힌 합집합, 추가만).** text `contains notContains startsWith endsWith equals notEquals isEmpty isNotEmpty`; number `eq neq gt gte lt lte between isEmpty isNotEmpty`; date `between before after isEmpty isNotEmpty`(wall-clock `YYYY-MM-DD`, `before` = `<` 그날, `after` = `>=` 다음 날, `between`은 `to` 제외 그대로); enum `in notIn isEmpty isNotEmpty`. 기존 연산자의 뜻은 바뀌지 않는다.
-3. **와이어 스펙 조각(범용).** 필드마다 `ops?`(서버가 지원하는 부분집합, 없으면 종류의 전부), text `caseSensitive: true`, enum `multiple: false`(`in`은 값 정확히 하나), 새 종류 `instant`(ISO 순간 반열림 범위 `{ from?, to? }`, 감사 시간처럼 wall-clock이 아닌 값), `requires: string[]`(나열한 필드에 조건이 있을 때만 유효). 필드 id에는 `:`를 쓰지 않는다. `pinned`·`label` 같은 표시 관심사는 contracts가 아니라 components가 소유한다.
-4. **빈 값·부정 의미.** 빈 값은 text `null | undefined | ''`, 그 밖은 `null | undefined`. 부정 연산자(`notContains notEquals neq notIn`)는 빈 값도 **제외**한다(SQL `NOT x`가 NULL에서 참이 아닌 것과 같다). 빈 값은 `isEmpty`/`isNotEmpty`로 명시한다.
-5. **서버가 거른다.** `validateFilters(filters, specs)`가 선언 밖 필드·연산자, 값 모양, `:` 든 id, `requires`, `multiple: false` 위반을 `{ ok:false, reason, filter }`로 돌려주고 mock·서버는 `invalid`로 거부한다(무시하지 않는다). `filterRows`는 옛 호출자를 위해 관대하게 둔다. `@ap/contract-schemas`에 `columnFilter`·`columnFilterSpec` Zod 스키마와 동치 테스트를 둔다.
-6. **적용·URL.** 적용은 조건 하나씩(적용/Enter 한 번 = 조회 한 번, 칩 ×·모두 지우기는 바로). URL 키는 하나(`filter`, 조건마다 반복, `<id>:<op>:<값>`)이며, 옛 키(`status`·`maker`·감사·권한 키)는 한 릴리스(v0.22.0) 동안 별칭으로 읽고 `filter`로 바꿔 쓴 뒤 그다음 릴리스에서 지웠다(#1217 후속). 코덱은 `@ap/contracts`(`encodeFilterParam`·`parseFilterParams`)가 소유한다: 형식은 `<id>:<op>[:<값>]`을 앞의 `:` 둘로만 나누고, 목록(`in`/`notIn`)·범위(`between`)의 하위 구분자는 `~`이고, 값 안의 `%`·`~`·`\`·`#`·`/`·제어 문자는 `%XX`(대문자 16진 두 자리)로 쓴다 — Kernel의 같은 출처 경로 검사가 주소 안의 `\`·`#`·`//`·제어 문자를 거부하므로, 코덱이 그 글자를 직접 피해서 Kernel은 범용으로 둔다. 콤마 결합은 쓰지 않는다. 상한(`FILTER_PARAM_LIMITS`): 조건 20개, `in`/`notIn` 값 50개, 조건들이 주소·공유 링크와 같은 직렬화(`URLSearchParams`, 키 `<key>=`와 `&` 포함) 뒤 차지하는 길이 합 2400자 — 한글 한 글자가 9자가 되므로 개수가 아니라 이 길이 합이 복사 링크 4000자(`SHARE_LINK_MAX_LENGTH`) 안에 경로·전역 Context·짧은 키를 남기는 장치다. 다른 Context가 크면 링크 전체 상한이 최종 판정이다. 상한을 넘는 링크는 고치거나 줄이지 않고 거부한다.
-7. **숨은 페이지 상태.** 표 필터 조건은 주소창에 보이지 않는다. 같은 탭의 새로고침·뒤로/앞으로는 history state로, 저장된 메뉴 뷰와 `현재 조건 공유` 링크는 `filter` 키로 복원한다. 링크를 열면 조건을 읽고 검증해 history state로 옮긴 뒤 주소를 바꿔 쓴다. 전역 Context와 짧은 키(`page`·`sort`·`focus`)는 그대로 URL에 둔다. Kernel이 반복 page key와 이 「숨은 키」를 선언으로 받는다.
-8. **페이지 필터를 밀어낸 자리.** 관리 화면 왼쪽 필터 레일(ADR-0022)과 form 전체 `적용 (n)`(ADR-0037)은 없앤다.
-9. **화면(R2).** 표 위는 한 줄 툴바 하나와 「필터·결과 줄」이다. 결과 줄은 필터가 없어도 항상 있고 활성 조건 칩을 싣는다. 조건 편집기는 하나이고 필터 추가와 열 머리글 필터가 같은 편집기를 연다.
-10. **표 크기.** 표 크기는 세 상대 단계이고 머리글·본문·가상 스크롤러가 같은 행 높이를 쓴다. 체크박스는 고정 14×14, 열 너비 배율은 기본(저장 전) 너비에만 적용하며, 선택은 사용자 선호 하나로 모든 표에 같다. 밀도 기본값은 화면 맥락(분석·관리)에 상대적이다.
-11. **코덱과 소유 경계.** URL/공유 링크 코덱(`<id>:<op>:<값>`, escape, 상한)은 `@ap/contracts`가 소유하고, 표 상태 `TableUrlState.filters`는 `@ap/components`가 소유한다. Kernel은 반복 page key와 숨은 키 선언만 받고 필터의 뜻을 모른다.
-12. **관리 포트는 그대로.** 관리 화면의 서버 포트(공지·감사·권한 등) 시그니처는 바꾸지 않는다. 각 페이지가 `ColumnFilter[]` ⇄ 포트 입력 사이를 옮긴다(페이지 쪽 매핑).
+2. **연산자·와이어 스펙은 닫힌 합집합이고 추가만 한다.** 연산자 어휘, 필드별 `ops`·`caseSensitive`·`multiple`·`requires`, 새 종류 `instant`, 빈 값·부정 연산자 의미(부정 연산자는 빈 값도 제외, 빈 값은 `isEmpty`/`isNotEmpty`로 명시)는 [components.md §15](../contract/components.md)가 소유한다. 기존 연산자의 뜻은 바뀌지 않는다.
+3. **서버가 거른다.** `validateFilters`가 선언 밖 필드·연산자·값 모양 위반을 `invalid`로 거부한다(무시하지 않는다). `@ap/contract-schemas`에 Zod 스키마와 동치 테스트를 둔다.
+4. **적용은 조건 하나씩**(적용/Enter 한 번 = 조회 한 번). URL 키는 `filter` 하나이고, 옛 키는 한 릴리스(v0.22.0) 동안 별칭으로 읽고 그다음 릴리스에서 지웠다. 코덱과 상한은 `@ap/contracts`가 소유하고(components.md §15), Kernel은 반복 page key와 숨은 키 선언만 받는다.
+5. **표 필터 조건은 주소창에 보이지 않는다.** 새로고침·뒤로/앞으로는 history state로, 저장된 메뉴 뷰와 `현재 조건 공유` 링크는 `filter` 키로 복원한다([kernel.md §6](../contract/kernel.md) page 키의 카디널리티와 숨김).
+6. **페이지 필터를 밀어낸 자리.** 관리 화면 왼쪽 필터 레일(ADR-0022)과 form 전체 `적용 (n)`(ADR-0037)은 없앤다. 표 위는 한 줄 툴바와 「필터·결과 줄」이고, 조건 편집기는 필터 추가와 열 머리글 필터가 함께 연다. 레이아웃은 [layout.md §12](../contract/layout.md)가 소유한다.
+7. **표 크기**는 세 상대 단계이고 밀도 기본값은 화면 맥락(분석·관리)에 상대적이다(세부는 components.md).
+8. **관리 포트는 그대로.** 서버 포트(공지·감사·권한 등) 시그니처는 바꾸지 않고, 각 페이지가 `ColumnFilter[]` ⇄ 포트 입력 사이를 옮긴다.
 
 ## 다른 ADR과의 관계
 - [ADR-0022](0022-management-filter-rail-analysis-two-column.md) — 관리 화면 필터 레일을 보충한다(표 위 필터 줄과 편집기 하나로).
@@ -30,3 +26,8 @@
 - 연산자 어휘의 확장은 추가형이다. 필드가 `ops`로 선언한 연산자만 쓰인다.
 - 되돌리기: 확장은 모두 추가형이라 어휘를 쓰지 않으면 이전 동작과 같다.
 - 개정(#1194 노드 s, 같은 모델의 필드 하나): enum 스펙에 선택 `cell?: 'scalar' | 'many'`(없으면 `'scalar'`)를 더한다. `'many'`는 행 값이 옵션 값 배열인 열(태그 목록)이며 `in` = 어느 요소든 포함, `notIn` = 요소가 있고 하나도 포함 안 함, `[]`/`null`은 빈 값이다. 와이어 `ColumnFilter`·URL 코덱·`validateFilters`는 그대로다.
+
+## 참고
+
+- 계약 원본: [components.md §15](../contract/components.md), [kernel.md §6](../contract/kernel.md), [layout.md §12](../contract/layout.md).
+- 보충: [ADR-0112](0112-catalog-joins-table-filter-model-analysis-bar-keeps-apply-once.md) — 지표 카탈로그를 표 필터 모델로 합쳤다.

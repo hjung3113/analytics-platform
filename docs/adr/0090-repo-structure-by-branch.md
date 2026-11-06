@@ -1,7 +1,8 @@
 # 저장소 구조는 갈래별로 정리한다: FeedbackOps 펼치기, `packages/` 묶음, 공간 id 이름 변경, 문서 종류별 폴더
 
-- Status: Decided (2026-10-27)
-- Decider: 사용자(2026-10-27 KST, 팀장 추천 승인). 최종 트리 표는 코디네이터 결정이며 되돌릴 수 있다.
+상태: **Decided (2026-10-27)**
+- 상태 보충: 부분 대체 — [ADR-0097](0097-platform-features-and-role-based-names.md)이 `fo-*`·`ops/feedbackops`·`docs/feedbackops` 배치와 「모든 메뉴가 `menus/`에 있다」는 전제(폴더 배치)를 대체한다. SDK/adapters 분리·업무 시스템 폴더·문서 종류별 소유는 유지한다.
+- 결정자: 사용자(2026-10-27 KST, 팀장 추천 승인). 최종 트리 표는 코디네이터 결정이며 되돌릴 수 있다.
 - Scope: [#713](https://github.com/hjung3113/analytics-platform/issues/713) 노드 713a, [#712](https://github.com/hjung3113/analytics-platform/issues/712) D1–D5(D6은 이 결정에 포함되지 않는다). 관련: [ADR-0043](0043-platform-sdk-is-the-app-contract-and-unified-framework.md), [ADR-0052](0052-rich-content-stays-in-the-sdk.md), [ADR-0066](0066-feedbackops-merges-into-platform.md).
 
 ## 맥락

@@ -1,7 +1,7 @@
 # 목적지 감사 이력은 서버 상한과 keyset 커서로 쪽을 나누고 목록 끝 버튼으로 이어 붙인다
 
-- Status: Decided (2026-10-26)
-- Decider: 코디네이터(사용자 지시: "시안은 opus xhigh 리뷰받고 결정"), 되돌릴 수 있다.
+상태: **Decided (2026-10-26)**
+- 결정자: 코디네이터(사용자 지시: "시안은 opus xhigh 리뷰받고 결정"), 되돌릴 수 있다.
 - Scope: [#826](https://github.com/hjung3113/analytics-platform/issues/826). 관련: [docs/06 §13·§26](../contract/platform-ui-contract.md), [ADR-0048](0048-menu-audit-seeds-join-shared-mock-audit-store.md), [ADR-0074](0074-port-failures-three-surfaces-structural-port-error.md).
 
 ## 맥락

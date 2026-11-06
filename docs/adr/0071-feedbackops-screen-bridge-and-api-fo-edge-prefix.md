@@ -1,6 +1,7 @@
-# ADR-0071 — FeedbackOps 화면은 `@fops/frontend/global-screens` 다리로 올리고, 그 화면의 API는 `/api/fo`로 부르며 플랫폼 앞단이 접두사를 뗀다
+# FeedbackOps 화면은 `@fops/frontend/global-screens` 다리로 올리고, 그 화면의 API는 `/api/fo`로 부르며 플랫폼 앞단이 접두사를 뗀다
 
-- Status: Decided (2026-10-22) — 코디네이터 결정, 사용자 위임, 되돌릴 수 있음
+상태: **Decided (2026-10-22)** — 코디네이터 결정, 사용자 위임, 되돌릴 수 있음
+- 상태 보충: 부분 대체 — 역할 이름 통합·별칭 없음 원칙은 [ADR-0097](0097-platform-features-and-role-based-names.md)이 개정한다(옛 FeedbackOps 이름·진입 링크 부분).
 - Amended (2026-10-23, #652): 결정 1(진입점에 `useUnreadNotificationCount`), 결정 6(알림 종·배지는 Kernel 선택 슬롯), 결정 7(종은 mock에서도 보인다).
 - Amended (2026-10-23, #653): 결정 1(설문 화면 내보내기, 호스트 이음매 훅은 아직 불필요), 결정 10(설문 경로 둘만 링크).
 - Amended (2026-10-23, #654): 결정 1(내 VOC 화면 내보내기, 운영 화면을 옮기지 않는다), 결정 10(알림 페이지는 `voc.public_update_posted`만 링크).

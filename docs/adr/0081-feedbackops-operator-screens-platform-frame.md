@@ -1,8 +1,10 @@
-# ADR-0081 — FeedbackOps 운영 화면은 플랫폼 틀(사이드바 `목록 범위`, 한 줄 머리)로 업무 시스템 `FeedbackOps` 하나에 옮긴다
+# FeedbackOps 운영 화면은 플랫폼 틀(사이드바 `목록 범위`, 한 줄 머리)로 업무 시스템 `FeedbackOps` 하나에 옮긴다
 
-- Status: Decided (2026-10-24) — 사용자. 화면 사양은 소유 문서에 있다.
+상태: **Decided (2026-10-24)** — 사용자. 화면 사양은 소유 문서에 있다.
+- 상태 보충: 부분 대체 — 역할 이름 통합·별칭 없음 원칙은 [ADR-0097](0097-platform-features-and-role-based-names.md)이 개정한다(옛 FeedbackOps 이름·진입 링크 부분).
+- 상태 보충: 부분 대체 — FeedbackOps 항목·「내 VOC」 배치는 [ADR-0100](0100-feature-navigation-and-independent-access.md)이 개정한다.
 - Amended (2026-10-24, #759): 결정 4의 방법: `SpaceDef.carriedPageKeys` + `resolveLink`, 06 §6.4 예외; 사이드바 선택기는 `PlatformSlots.scopeControl`.
-- Decider: 사용자 — 실제 앱 위 시안 A(플랫폼 틀)·B(FeedbackOps 틀)를 본 뒤 "플랫폼 틀에 맞추되 개선사항을 뽑는 쪽으로"(2026-10-24, [#595](https://github.com/hjung3113/analytics-platform/issues/595)). 개선사항은 Opus xhigh UX 리뷰(UX-1–UX-15, 보고서는 저장소 밖 `.review/595-ux-review.md`)에서 뽑았고, 구현 전 필수 항목(선택기 의미 UX-1, URL 범위 UX-2, 관리자 화면에서 끔 UX-3, 이름 충돌 UX-4, VOC 사이드바 중복 UX-5, 원본에 없는 버튼 UX-6)은 시안에 반영했다. 아래 UX 번호는 그 보고서의 항목이다. 최종 화면은 owner 확인 시안(owner 비공개 링크 https://claude.ai/artifact/HKPUoygVuZEpUWoVn5oRvU)이다. 시안 코드(브랜치 `hjung3113/proto-595-fo-system`)는 버린다.
+- 결정자: 사용자 — 실제 앱 위 시안 A(플랫폼 틀)·B(FeedbackOps 틀)를 본 뒤 "플랫폼 틀에 맞추되 개선사항을 뽑는 쪽으로"(2026-10-24, [#595](https://github.com/hjung3113/analytics-platform/issues/595)). 개선사항은 Opus xhigh UX 리뷰(UX-1–UX-15, 보고서는 저장소 밖 `.review/595-ux-review.md`)에서 뽑았고, 구현 전 필수 항목(선택기 의미 UX-1, URL 범위 UX-2, 관리자 화면에서 끔 UX-3, 이름 충돌 UX-4, VOC 사이드바 중복 UX-5, 원본에 없는 버튼 UX-6)은 시안에 반영했다. 아래 UX 번호는 그 보고서의 항목이다. 최종 화면은 owner 확인 시안(owner 비공개 링크 https://claude.ai/artifact/HKPUoygVuZEpUWoVn5oRvU)이다. 시안 코드(브랜치 `hjung3113/proto-595-fo-system`)는 버린다.
 - Scope: #595, 지도 [#598](https://github.com/hjung3113/analytics-platform/issues/598), [ADR-0066](0066-feedbackops-merges-into-platform.md) 결정 3, [합류 설계](../integration/feedbackops-merge-design.md) §3.2–3.3.
 - 부분 대체: [ADR-0042](0042-system-switcher-and-system-owned-rail.md)(FeedbackOps 섹션 목록), [ADR-0045](0045-feedbackops-entry-link-mapping-and-scope.md)(바닥 블록의 새 탭·전체 진입 링크), [ADR-0070](0070-global-features-platform-menu-and-voc-drawer.md) 결정 4(사용자 메뉴 `FeedbackOps 전체`). 나머지는 그대로다.
 

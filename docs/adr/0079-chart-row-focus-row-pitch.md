@@ -1,7 +1,7 @@
-# ADR-0079 — 차트 행 포커스(제어형)와 `rowPitch` viewport
+# 차트 행 포커스(제어형)와 `rowPitch` viewport
 
-- Status: Decided (2026-10-24)
-- Decider: 코디네이터(사용자 위임, #690 계획), 되돌릴 수 있음.
+상태: **Decided (2026-10-24)**
+- 결정자: 코디네이터(사용자 위임, #690 계획), 되돌릴 수 있음.
 - Scope: [#690](https://github.com/hjung3113/analytics-platform/issues/690) 1단계 SDK 조각 S1([ADR-0078](0078-hw-time-layout-recipes.md)). [#541](https://github.com/hjung3113/analytics-platform/issues/541) 항목 F 가운데 viewport 선택(`dataZoom` 창 대 안쪽 스크롤)을 결정한다. 관련: [ADR-0063](0063-consumer-owned-chart-pieces-and-unbounded-drill.md)(`visibleSeriesIds` 제어형 패턴, `pointActivation`).
 
 ## 맥락
@@ -10,12 +10,10 @@ HW Time 같은 메뉴는 가로 누적 막대 Frame 둘이 같은 행을 보여 
 
 ## 결정
 
-- 행 강조의 소유자는 메뉴 하나다. `AnalysisChartFrame`은 `activeCategory`(제어형, `null` = 행 없음)를 받아 그 행의 막대 테두리와 굵은 범주 라벨로 그리고, 클릭·지점 선택기 이동은 `onActiveCategoryChange(category, 'pointer' | 'keyboard')`로만 알린다. prop이 있으면 프레임은 자기 강조 상태를 갖지 않는다. prop이 없으면 기존 동작 그대로다.
-- 행 포커스와 `pointActivation`(드릴 진입·키보드 `선택 지점 실행`)은 별개다. 한 번의 클릭은 행 콜백을 먼저, `on: 'click'`이면 `onActivate`를 그 뒤에 부른다.
-- `rowPitch`(≥24px, WCAG 2.2 2.5.8)는 차트 높이를 `행 수 × pitch + 축 여백`으로 만들고, 플롯 상자를 주어진 `height`/`size`의 창으로 삼아 안에서 스크롤한다. **이 모드에서 범주 `dataZoom`(Shift+휠·`확대`)은 끄고 Brush는 둔다.**
-- `revealActive`는 밖에서 바뀐 `activeCategory`의 행을 창 안으로 스크롤한다(`격자 위 여백 + 인덱스 × pitch`, 순수 `revealScrollTop`). 포커스는 옮기지 않고, 프레임 자신의 포인터 클릭에서 온 변경은 스크롤하지 않는다.
-- 프레임에 새 행 수 상한은 없다. 메뉴가 엔드포인트의 `limits.maxRows`(06 §15·§19 `too_large`)로 자르고 §27대로 전체 데이터를 프런트로 보내지 않는다.
-- 가로가 아닌 차트에서 이 prop들은 무시되고 개발 중 `console.warn`이 알린다.
+- 행 강조의 소유자는 메뉴 하나다. `AnalysisChartFrame`은 제어형 `activeCategory`와 `onActiveCategoryChange(category, 'pointer' | 'keyboard')`로 행을 강조·보고하고, prop이 없으면 기존 동작 그대로다. 행 포커스와 `pointActivation`(드릴 진입)은 별개다.
+- `rowPitch`(≥24px, WCAG 2.2 2.5.8)는 차트 높이를 `행 수 × pitch + 축 여백`으로 만들고 플롯 상자를 창으로 삼아 안에서 스크롤한다. **이 모드에서 범주 `dataZoom`은 끄고 Brush는 둔다.** `revealActive`는 밖에서 바뀐 행을 창 안으로 스크롤한다.
+- 프레임에 새 행 수 상한은 없다. 메뉴가 엔드포인트의 `limits.maxRows`로 자른다.
+- 세부 규칙(콜백 순서, 스크롤 계산, 라벨 솎기, 가로가 아닌 차트의 경고)은 [chart.md §16](../contract/chart.md) 「가로 막대의 행 포커스와 `rowPitch`」가 소유한다.
 
 ## Considered Options
 

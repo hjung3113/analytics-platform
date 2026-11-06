@@ -1,7 +1,7 @@
 # 분석 보드는 일반 화면 위에 뜨는 자유 창으로도 볼 수 있다
 
-- Status: Decided (2026-10-27)
-- Decider: 사용자(#893 코멘트, 2026-10-27, 시안 A 선택), 되돌릴 수 있다.
+상태: **Decided (2026-10-27)**
+- 결정자: 사용자(#893 코멘트, 2026-10-27, 시안 A 선택), 되돌릴 수 있다.
 - Scope: [#893](https://github.com/hjung3113/analytics-platform/issues/893) 노드 893d. 관련: [ADR-0087](0087-board-minimize-restore-history.md)(최소화·복원·history), [ADR-0088](0088-surface-pause-detail-slot.md)(표면 중지), [docs/design/analysis-board.md §4](../design/analysis-board.md).
 
 ## 맥락

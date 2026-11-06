@@ -1,6 +1,7 @@
 # SDK 원본은 이 저장소에 두고, 플랫폼 앱과 따로 묶음 버전으로 릴리스하며, 모노레포 밖 소비자 검사를 게이트로 둔다
 
 상태: **Decided (2026-10-19)** — 구현은 이슈로 이어진다([#396](https://github.com/hjung3113/analytics-platform/issues/396)). registry 공급자와 접두사 치환 시점만 Open이다.
+상태 보충: 부분 대체 — 배포(registry) 부분은 [ADR-0056](0056-sdk-release-github-release-tarballs.md)이 결정한다.
 - 결정자: 사용자 — 2026-10-19. 권고안("니추천대로")을 그대로 골랐다. 권고는 플랫폼(에이전트)이 §4.4와 [포괄 목록](../integration/sdk-coverage-inventory.md)에서 끌어냈다.
 
 [ADR-0043](0043-platform-sdk-is-the-app-contract-and-unified-framework.md)이 SDK를 플랫폼 소유의 단일 프레임워크로 정했다. 이 ADR은 그것을 어디에 두고 어떻게 내보낼지를 다룬다. 지금 모든 `@ap/*` 패키지는 `private: true`·`0.0.0`·TS 소스 export·`workspace:*`라 저장소 밖에서 설치할 수 없다. 첫 외부 소비자는 equipment-visualization(`platform-adapter`)이고, 같은 저장소에 FeedbackOps가 `@fops/ui`를 서브모듈로 내주던 방향(ADR-0043이 뒤집음)을 SDK 배포로 바꾸려면 배포 구조가 먼저 정해져야 한다.

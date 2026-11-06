@@ -1,7 +1,7 @@
-# ADR-0062 — 차트 카탈로그 집중형 레이아웃
+# 차트 카탈로그 집중형 레이아웃
 
-- Status: Decided (2026-10-21)
-- Decider: conductor on owner delegation “아스트라 리뷰받고 결정”
+상태: **Decided (2026-10-21)**
+- 결정자: conductor on owner delegation “아스트라 리뷰받고 결정”
 - Scope: #530, 차트 카탈로그 견본 메뉴
 
 ## 맥락

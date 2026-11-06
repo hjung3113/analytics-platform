@@ -1,6 +1,7 @@
 # 디자인 시스템 코드는 FeedbackOps `@fops/ui` 전체를 `@ap/ui`로 옮겨 플랫폼이 원본을 갖는다
 
 상태: **Decided (2026-10-19)**, 코드 이전 완료(#441–#443) — 구현은 [#431](https://github.com/hjung3113/analytics-platform/issues/431) 아래 세 이슈([#441](https://github.com/hjung3113/analytics-platform/issues/441)·[#442](https://github.com/hjung3113/analytics-platform/issues/442)·[#443](https://github.com/hjung3113/analytics-platform/issues/443)).
+상태 보충: 부분 대체 — [ADR-0097](0097-platform-features-and-role-based-names.md)이 `@fops/*` 접두어로만 역방향 import를 막는 경계(패키지 경계)를 대체한다. primitive 원본 `@ap/ui`와 SDK ← Consumer 단방향은 유지한다.
 - 결정자: 사용자 — 2026-10-19. 선택지 "FeedbackOps `@fops/ui` 전체 이전"(플랫폼이 쓰는 부분집합만 먼저 옮기고 FeedbackOps 동결 규칙을 두는 권고안, 이전 보류안 대신). 이어서 "FeedbackOps#1231 코멘트와 본문 갱신까지 제가 한다"를 허락했다.
 
 [ADR-0043](0043-platform-sdk-is-the-app-contract-and-unified-framework.md)이 디자인 시스템 원본을 플랫폼(SDK)으로 정하고, 이전 순서를 첫 슬라이스에서 정하라고 했다. 지금 `@ap/ui`는 `@fops/ui`를 재수출하고(`@ap/ui → @fops/ui` 간선), 플랫폼이 실제로 쓰는 것은 `cn`·`prefersReducedMotion`·`Button`·shadcn 래퍼 약 14종·토큰 CSS 4개뿐이다. FeedbackOps `packages/ui`(`origin/develop` `a8d768b8`)는 156개 파일이고, 그중 플랫폼이 쓰지 않는 것에 FeedbackOps 도메인에 결합된 조각(VOC 상태 배지, 권한 상태, 리치 콘텐츠 allowlist 등)이 있다.

@@ -1,7 +1,8 @@
-# ADR-0073 — FeedbackOps 백엔드 테스트는 `@ap/server-conformance`·`@ap/http-adapter`를 devDependencies로 import할 수 있다(테스트 코드만). 런타임 코드는 `@ap/ui` 밖의 `@ap/*`를 계속 import하지 않는다
+# FeedbackOps 백엔드 테스트는 `@ap/server-conformance`·`@ap/http-adapter`를 devDependencies로 import할 수 있다(테스트 코드만). 런타임 코드는 `@ap/ui` 밖의 `@ap/*`를 계속 import하지 않는다
 
-- Status: Decided (2026-10-23), 구현됨 — [#674](https://github.com/hjung3113/analytics-platform/issues/674)(PR [#677](https://github.com/hjung3113/analytics-platform/pull/677), [#671](https://github.com/hjung3113/analytics-platform/issues/671) B7).
-- Decider: 사용자 — [#670](https://github.com/hjung3113/analytics-platform/issues/670) D4의 추천(devDependencies·테스트 코드에만 허용, 런타임 import는 금지 검사)을 그대로 채택했다(2026-10-23).
+상태: **Decided (2026-10-23)**, 구현됨 — [#674](https://github.com/hjung3113/analytics-platform/issues/674)(PR [#677](https://github.com/hjung3113/analytics-platform/pull/677), [#671](https://github.com/hjung3113/analytics-platform/issues/671) B7).
+- 상태 보충: 부분 대체 — [ADR-0097](0097-platform-features-and-role-based-names.md)이 규칙 11의 새 코어 서버 `@ap/contract-schemas` 런타임 import 금지(서버 런타임 import 예외)를 대체해 코어 서버의 직접 import를 허용한다. 서버의 브라우저 층 금지와 적합성 패키지의 테스트 전용 허용은 유지한다.
+- 결정자: 사용자 — [#670](https://github.com/hjung3113/analytics-platform/issues/670) D4의 추천(devDependencies·테스트 코드에만 허용, 런타임 import는 금지 검사)을 그대로 채택했다(2026-10-23).
 - 보충(2026-10-23, 코디네이터 — 사용자 위임 범위, 되돌릴 수 있음): 구현(#674)에서 어휘 drift 테스트가 TS 소스 파싱 대신 `@ap/contracts/vocab.json`을 읽도록 `@ap/contracts`도 같은 조건(devDependencies, 테스트 코드만)으로 추가했다. 런타임 금지 검사는 `products/feedbackops/scripts/check-boundaries.mjs` 규칙 11.
 - Scope: 2026-10-22 전체 리뷰(아키텍처 H2·테스트 H1) 후속. [ADR-0066](0066-feedbackops-merges-into-platform.md) 합류 경계의 예외다. 바탕: [ADR-0069](0069-platform-port-in-feedbackops-backend.md)(플랫폼 포트는 FeedbackOps 백엔드의 `/api/v1/platform` 모듈).
 

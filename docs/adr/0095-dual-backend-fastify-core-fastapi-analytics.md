@@ -1,7 +1,7 @@
 # 서버는 둘이다 — Fastify 코어가 유일한 입구이고 FastAPI는 분석 데이터만 내부에서 맡는다
 
-- Status: **Decided (2026-10-28)** — D1·D2·D6·D7은 사용자 결정이다. 권한 부분(아래 「설계 남음」)은 이 ADR이 정하지 않는다.
-- Decider: 사용자 — 2026-10-26 "백엔드 두 개(Fastify + FastAPI)를 함께 쓰는 것은 OK. 각 스택의 강점이 살도록 역할을 나눠 설계". 2026-10-28 "추천대로": 분담(D1)·입구 하나(D2)·Python CI 필수 검사(D6)·데이터 자산 허브 FastAPI 소유(D7)를 추천안대로 결정했다. D3 DB 인스턴스, 작업 큐, 신원 토큰 서명, 시간 예산은 코디네이터 추천(되돌릴 수 있음)으로 둔다.
+상태: **Decided (2026-10-28)** — D1·D2·D6·D7은 사용자 결정이다. 권한 부분(아래 「설계 남음」)은 이 ADR이 정하지 않는다.
+- 결정자: 사용자 — 2026-10-26 "백엔드 두 개(Fastify + FastAPI)를 함께 쓰는 것은 OK. 각 스택의 강점이 살도록 역할을 나눠 설계". 2026-10-28 "추천대로": 분담(D1)·입구 하나(D2)·Python CI 필수 검사(D6)·데이터 자산 허브 FastAPI 소유(D7)를 추천안대로 결정했다. D3 DB 인스턴스, 작업 큐, 신원 토큰 서명, 시간 예산은 코디네이터 추천(되돌릴 수 있음)으로 둔다.
 - Scope: [#940](https://github.com/hjung3113/analytics-platform/issues/940)(설계 초안 §0–§6). 관련: [#155](https://github.com/hjung3113/analytics-platform/issues/155), [#531](https://github.com/hjung3113/analytics-platform/issues/531), [#148](https://github.com/hjung3113/analytics-platform/issues/148), [#593](https://github.com/hjung3113/analytics-platform/issues/593), [#151](https://github.com/hjung3113/analytics-platform/issues/151), [#540](https://github.com/hjung3113/analytics-platform/issues/540), [#552](https://github.com/hjung3113/analytics-platform/issues/552), [#555](https://github.com/hjung3113/analytics-platform/issues/555).
 - Amends: [ADR-0066](0066-feedbackops-merges-into-platform.md) 결정 6, [ADR-0069](0069-platform-port-in-feedbackops-backend.md) 결정 8의 다시 볼 조건, [ADR-0043](0043-platform-sdk-is-the-app-contract-and-unified-framework.md) 서버 문장.
 - 구현 없음. 이 ADR은 결정만 남기고, 구현은 아래 「단계」의 이슈가 이어받는다.

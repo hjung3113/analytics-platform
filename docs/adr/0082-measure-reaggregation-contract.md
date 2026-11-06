@@ -1,7 +1,7 @@
 # 재집계 규칙은 `@ap/contracts`의 한 어휘다
 
-- Status: Decided (2026-10-25)
-- Decider: 코디네이터(사용자 위임), 되돌릴 수 있다.
+상태: **Decided (2026-10-25)**
+- 결정자: 코디네이터(사용자 위임), 되돌릴 수 있다.
 - Scope: [#580](https://github.com/hjung3113/analytics-platform/issues/580) 노드 580a. 관련: [docs/01 §집계 가능성 계약](../architecture/architecture-and-data-contract.md#집계-가능성-계약).
 
 ## 맥락

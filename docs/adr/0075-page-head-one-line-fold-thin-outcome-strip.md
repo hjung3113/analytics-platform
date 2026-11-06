@@ -1,7 +1,7 @@
-# ADR-0075 — 페이지 머리 한 줄 접기 + 얇은 응답 띠 (B안)
+# 페이지 머리 한 줄 접기 + 얇은 응답 띠 (B안)
 
-- Status: Decided (2026-10-23)
-- Decider: 사용자(2026-10-23) — "이 부분이 너무 큰데 접게 못하나?" 요청 뒤 실제 앱 시안 A/B/C 중 B를 컨펌했다.
+상태: **Decided (2026-10-23)**
+- 결정자: 사용자(2026-10-23) — "이 부분이 너무 큰데 접게 못하나?" 요청 뒤 실제 앱 시안 A/B/C 중 B를 컨펌했다.
 - Scope: [#680](https://github.com/hjung3113/analytics-platform/issues/680). 관련: [ADR-0067](0067-dockview-layout-engine-board-v2.md)(작업 영역·fill 페이지), [ADR-0017](0017-shared-outcome-banner.md)(공유 응답 배너), [ADR-0029](0029-page-filter-bar-collapse-summary.md)(접힘 요약).
 
 ## 맥락
