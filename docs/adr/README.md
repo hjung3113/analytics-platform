@@ -124,7 +124,7 @@
 | [0111](0111-log-knowledge-model-spec-is-the-source.md) | 로그 지식 허브: 모델 명세 Revision이 원본이고 SW 버전 차이는 «X부터» 추가 전용 변경점만, SW 순서 `release_order`, 명세 입력은 스트리밍·TSV txt·붙여넣기(첨부 아님), 모델 공통 후보→승인 흐름은 대체 | Decided (2026-11-04, 소유자, #1196) |
 | [0112](0112-catalog-joins-table-filter-model-analysis-bar-keeps-apply-once.md) | 지표 카탈로그는 표 필터 모델로 완전히 합치고(`status`·`domain` → 숨은 `filter` 키), 분석 조건 줄은 초안 + 적용 한 번을 지키며 적용된 조건·차트 좁히기만 같은 칩 줄 어휘로 보인다(`PageFilterBar` 추가형 opt-in); 버킷 값 표기 통일. 0105 보충 | Decided (2026-11-05, 사용자, #1218) |
 | [0113](0113-voc-creation-permission-per-managed-system.md) | VOC 등록 권한은 시스템 단위(`voc_create_mode` `open`/`restricted`, 기본 열림, 연결 시스템도 열림 시작), 좁히는 단위는 사람(직접 부여 `voc.create`)+Admin 통과, 「플랫폼」 시스템은 항상 열림, 기존 VOC는 그대로. 0110·0069 보충 | Decided (2026-11-05, 소유자, #1358) |
-| [0114](0114-opt-in-keep-previous-for-page-input-params.md) | `useMenuQuery(..., { keepPrevious })` opt-in: 페이지 입력 `params`만 바뀌면 받아들인 마지막 `ok`·`empty` 결과를 `refreshing`으로 남김(`completedAt`은 그 결과의 시각). Context·Scope·세션·엔드포인트 변경은 그대로 가림, 새 응답은 오류도 대체, 기본 꺼짐. 켜는 화면은 노드 b | Decided (2026-11-05, 소유자, #1365) |
+| [0114](0114-opt-in-keep-previous-for-page-input-params.md) | `useMenuQuery(..., { keepPrevious })` opt-in: 페이지 입력 `params`만 바뀌면 받아들인 마지막 `ok`·`empty` 결과를 `refreshing`으로 남김(`completedAt`은 그 결과의 시각). Context·Scope·세션·엔드포인트 변경은 그대로 가림, 새 응답은 오류도 대체, 기본 꺼짐. 켠 화면 6곳(#1382) | Decided (2026-11-05, 소유자, #1365) |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 

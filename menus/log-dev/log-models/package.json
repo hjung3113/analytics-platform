@@ -2,7 +2,7 @@
   "name": "@ap/menu-log-models",
   "private": true,
   "version": "0.1.0",
-  "ap": { "sdk": ">=0.29.0 <0.30.0" },
+  "ap": { "sdk": ">=0.30.0 <0.31.0" },
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
