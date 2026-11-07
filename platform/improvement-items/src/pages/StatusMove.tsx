@@ -1,5 +1,5 @@
 import { useId, useState } from 'react';
-import { useMenuAction, useMenuFetch, usePlatform } from '@ap/kernel';
+import { useMenuAction, useMenuFetch, usePlatform, useUnsavedGuard } from '@ap/kernel';
 import { Button, Callout, Checkbox, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea } from '@ap/ui';
 import { FORWARD, REOPEN, detailEndpoint, itemReopen, itemSetStatus, type Effect, type ItemRow, type Status } from '../endpoints';
 import { moveErrors } from '../model';
@@ -13,6 +13,8 @@ function MoveDialog({ item, move, compareLink, onClose }: { item: ItemRow; compa
   const [base, setBase] = useState(item), [conflict, setConflict] = useState(false), [reviewing, setReviewing] = useState(false), [reviewed, setReviewed] = useState(false), [message, setMessage] = useState('');
   const [missing, setMissing] = useState<string[]>([]), [retry, setRetry] = useState<(() => void) | null>(null);
   const [saveComparison, setSaveComparison] = useState(!!compareLink);
+  // Unsaved-edit guard (#1388): any field changed from what the dialog opened with.
+  useUnsavedGuard(action !== (item.action ?? '') || actionDate !== (item.actionDate ?? '') || effect !== '' || note !== '' || reason !== '');
   const currentComparison = base.actionDate === item.actionDate && JSON.stringify(base.origin) === JSON.stringify(item.origin) ? compareLink : null;
   const busy = statusAction.pending || reopenAction.pending || reviewing;
   const legal = move === 'reopen' ? !!REOPEN[base.status] : FORWARD[base.status].includes(move);

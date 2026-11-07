@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
+import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import { memoryStorage, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { groupId, type ApiResponse, type PlatformAdapter, type Quest } from '@ap/contracts';
 import { manifests } from '../index';
@@ -290,5 +290,23 @@ describe('fix round (1328 d)', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'In progress' }));
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getAllByRole('button', { name: 'Close' }).length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('unsaved-edit guard (#1388)', () => {
+  function Probe({ result }: { result: { leave: () => boolean } }) {
+    const { navigate, linkTo } = usePlatform();
+    result.leave = () => navigate(linkTo('test-home'));
+    return null;
+  }
+  it('holds a leave while the create drawer has typed input and releases it once the input is cleared', async () => {
+    const result = {} as { leave: () => boolean };
+    mount({ outcome: 'empty', children: <><ImprovementItems /><Probe result={result} /></> });
+    fireEvent.click(await screen.findByRole('button', { name: '개선 아이템 남기기' }));
+    const problem = await screen.findByRole('textbox', { name: /문제/ });
+    fireEvent.change(problem, { target: { value: 'typed problem' } });
+    await waitFor(() => expect(result.leave()).toBe(false));
+    fireEvent.change(problem, { target: { value: '' } });
+    await waitFor(() => expect(result.leave()).toBe(true));
   });
 });
