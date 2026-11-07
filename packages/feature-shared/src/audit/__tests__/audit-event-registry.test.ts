@@ -147,6 +147,9 @@ const EXPECTED_AUDIT_EVENT_TYPES = [
   'knowledge.draft.updated',
   'knowledge.draft.submitted',
   'knowledge.draft.withdrawn',
+  'knowledge.draft.approved',
+  'knowledge.draft.rejected',
+  'knowledge.draft.changes_requested',
   'actor_role_changed',
   'platform_notice_created',
   'platform_notice_updated',
@@ -160,7 +163,7 @@ const EXPECTED_AUDIT_EVENT_TYPES = [
 describe('audit event registry', () => {
   it('locks event-type order, uniqueness, and detail-map key coverage', () => {
     expect([...AUDIT_EVENT_TYPES]).toEqual([...EXPECTED_AUDIT_EVENT_TYPES]);
-    expect(new Set(AUDIT_EVENT_TYPES).size).toBe(140);
+    expect(new Set(AUDIT_EVENT_TYPES).size).toBe(143);
     expect(Object.keys(AUDIT_EVENT_DETAIL_SCHEMAS)).toEqual([...EXPECTED_AUDIT_EVENT_TYPES]);
   });
 });

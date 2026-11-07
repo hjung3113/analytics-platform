@@ -1215,3 +1215,69 @@ export const knowledgeDraftRevisions = knowledgeSchema.table(
     authorAuthCheck: check('draft_revision_author_auth_check', sql`${t.authorAuth} in ('session','token')`),
   }),
 );
+
+// A review decision on a draft (#1198 b, design v0.6 §5 row 36): append-only (trigger + no UPDATE / DELETE grant). At most
+// one final decision (`approved` / `rejected`) per draft — the database backstop of approve replay and the approve race.
+// An approval carries the digest the reviewer approved and the item revision it posted; `self_approval` is set by the
+// server when the reviewer authored a revision of the draft through a session.
+export const knowledgeDraftReviews = knowledgeSchema.table(
+  'draft_review',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    draftId: uuid('draft_id').notNull(),
+    reviewedDraftRevNo: integer('reviewed_draft_rev_no').notNull(),
+    approvedDigest: text('approved_digest'),
+    decision: text('decision').notNull(),
+    selfApproval: boolean('self_approval').notNull().default(false),
+    rationale: text('rationale'),
+    postedItemId: uuid('posted_item_id'),
+    postedRevisionNo: integer('posted_revision_no'),
+    reviewerActorId: uuid('reviewer_actor_id')
+      .notNull()
+      .references(() => actors.id),
+    reviewedAt: timestamp('reviewed_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    draftFk: foreignKey({
+      name: 'draft_review_draft_fk',
+      columns: [t.workspaceId, t.draftId],
+      foreignColumns: [knowledgeDrafts.workspaceId, knowledgeDrafts.id],
+    }).onDelete('restrict'),
+    postedItemFk: foreignKey({
+      name: 'draft_review_posted_item_fk',
+      columns: [t.workspaceId, t.postedItemId],
+      foreignColumns: [knowledgeItems.workspaceId, knowledgeItems.id],
+    }).onDelete('restrict'),
+    postedRevisionFk: foreignKey({
+      name: 'draft_review_posted_revision_fk',
+      columns: [t.workspaceId, t.postedItemId, t.postedRevisionNo],
+      foreignColumns: [
+        knowledgeItemRevisions.workspaceId,
+        knowledgeItemRevisions.itemId,
+        knowledgeItemRevisions.revisionNo,
+      ],
+    }).onDelete('restrict'),
+    draftIdx: index('draft_review_draft_idx').on(t.workspaceId, t.draftId, t.reviewedAt),
+    finalUq: uniqueIndex('draft_review_final_uq')
+      .on(t.workspaceId, t.draftId)
+      .where(sql`${t.decision} in ('approved','rejected')`),
+    decisionCheck: check('draft_review_decision_check', sql`${t.decision} in ('approved','rejected','changes_requested')`),
+    revNoCheck: check('draft_review_rev_no_check', sql`${t.reviewedDraftRevNo} >= 1`),
+    digestCheck: check(
+      'draft_review_digest_check',
+      sql`(${t.decision} = 'approved') = (${t.approvedDigest} is not null) and (${t.approvedDigest} is null or ${t.approvedDigest} ~ '^[0-9a-f]{64}$')`,
+    ),
+    selfApprovalCheck: check('draft_review_self_approval_check', sql`${t.selfApproval} = false or ${t.decision} = 'approved'`),
+    rationaleCheck: check(
+      'draft_review_rationale_check',
+      sql`coalesce(char_length(${t.rationale}), 0) <= 2000 and (${t.decision} = 'approved' or char_length(btrim(coalesce(${t.rationale}, ''))) > 0)`,
+    ),
+    postedCheck: check(
+      'draft_review_posted_check',
+      sql`(${t.decision} = 'approved') = (${t.postedItemId} is not null and ${t.postedRevisionNo} is not null) and (${t.postedItemId} is null) = (${t.postedRevisionNo} is null)`,
+    ),
+  }),
+);

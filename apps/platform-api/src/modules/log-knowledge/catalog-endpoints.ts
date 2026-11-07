@@ -25,6 +25,7 @@ import { conceptEndpoints } from './concept-endpoints.js';
 import { subjectEndpoints } from './subject-endpoints.js';
 import { itemEndpoints } from './item-endpoints.js';
 import { draftActions } from './draft-actions.js';
+import { reviewActions } from './review-actions.js';
 import { draftEndpoints } from './draft-endpoints.js';
 import { specEndpoints } from './spec-endpoints.js';
 import { importActions } from './import-actions.js';
@@ -86,6 +87,7 @@ export function logKnowledgeContribution(deps: LogKnowledgeDeps): MenuDispatchCo
       ...catalogActions({ checkService: deps.checkService }),
       ...itemActions({ checkService: deps.checkService }),
       ...draftActions({ checkService: deps.checkService }),
+      ...reviewActions({ checkService: deps.checkService }),
       ...specActions({ checkService: deps.checkService }),
       ...specChangeActions({ checkService: deps.checkService }),
       ...conceptActions({ checkService: deps.checkService }),
