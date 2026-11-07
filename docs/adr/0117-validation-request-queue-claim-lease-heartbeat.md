@@ -1,6 +1,6 @@
 # 검증 요청 큐: 등록하면 외부 작업자가 유휴 시간에 가져가 결과를 저장한다
 
-상태: **Proposed (2026-11-07, 소유자 답 반영 — 최종 Decided 전환은 구현 착수 때).** 결정자: 소유자(2026-11-07). 초안: 설계 레인, 근거 [#1420](https://github.com/hjung3113/analytics-platform/issues/1420), [#1330](https://github.com/hjung3113/analytics-platform/issues/1330), [#1346](https://github.com/hjung3113/analytics-platform/issues/1346) P0-3. 데이터 모델과 화면은 [log-lifecycle 설계](../design/features/log-lifecycle/README.md)가 소유하고 이 ADR은 큐 계약만 정한다.
+상태: **Decided (2026-11-07, v0.30.0 구현 착수 — 소유자 답 반영, 서비스 토큰 발급 주체는 관리자만).** 결정자: 소유자(2026-11-07). 초안: 설계 레인, 근거 [#1420](https://github.com/hjung3113/analytics-platform/issues/1420), [#1330](https://github.com/hjung3113/analytics-platform/issues/1330), [#1346](https://github.com/hjung3113/analytics-platform/issues/1346) P0-3. 데이터 모델과 화면은 [log-lifecycle 설계](../design/features/log-lifecycle/README.md)가 소유하고 이 ADR은 큐 계약만 정한다.
 
 ## 배경
 
