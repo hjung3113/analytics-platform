@@ -4,7 +4,7 @@ import { type ApiResponse, type ColumnFilterSpec, type PageResult, type TableQue
 import { PlatformLink, useMenuFetch, usePlatform } from '@ap/kernel';
 import { ManagementLayout, PageKeyWarning, PlatformDataTable, PlatformPage, RowAction, TableUrlWarning, useTableUrlState, type PlatformColumn, type TableFilterField } from '@ap/components';
 import { Button, SearchInput } from '@ap/ui';
-import { ITEM_PUBLISH_PERMISSION, ITEM_SORT_IDS, itemFilterSpecs, itemsEndpoint, modelsEndpoint, type CatalogPageParams, type ItemRow, type ModelRow } from '../../endpoints';
+import { isUuid, ITEM_PUBLISH_PERMISSION, ITEM_SORT_IDS, itemFilterSpecs, itemsEndpoint, modelsEndpoint, type CatalogPageParams, type ItemRow, type ModelRow } from '../../endpoints';
 import { OwnerChip, StateBadge, TypeBadge } from './ItemBadges';
 import { ItemWriteDrawer } from './ItemWriteDrawer';
 import { chosenOwnerModelIds, defaultFilterParams, instantText, isRowMuted, itemNoLabel, ownerText, stateLabel, typeLabel } from './itemModel';
@@ -34,7 +34,6 @@ function useModelNames(ids: readonly string[]): ReadonlyMap<string, string> {
   return names;
 }
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 type OwnerPreset = { state: 'none' } | { state: 'pending' } | { state: 'ok'; id: string } | { state: 'refused' };
 /**
  * The `owner` address value is accepted as the create form's owner only after it resolves to an active model (the picker offers active
@@ -46,7 +45,7 @@ function useOwnerPreset(raw: string | null): OwnerPreset {
   useEffect(() => { fetchRef.current = fetch; });
   const [done, setDone] = useState<{ raw: string; ok: boolean } | null>(null);
   useEffect(() => {
-    if (raw === null || !UUID.test(raw)) return;
+    if (raw === null || !isUuid(raw)) return;
     const controller = new AbortController();
     void fetchRef.current({ q: null, page: 0, pageSize: 1, sorting: [{ id: 'createdAt', desc: false }], filters: [{ id: 'id', op: 'in', value: [raw] }] }, controller.signal).then(res => {
       if (controller.signal.aborted) return;
@@ -56,7 +55,7 @@ function useOwnerPreset(raw: string | null): OwnerPreset {
     return () => controller.abort();
   }, [raw]);
   if (raw === null) return { state: 'none' };
-  if (!UUID.test(raw)) return { state: 'refused' };
+  if (!isUuid(raw)) return { state: 'refused' };
   if (done?.raw !== raw) return { state: 'pending' };
   return done.ok ? { state: 'ok', id: raw } : { state: 'refused' };
 }

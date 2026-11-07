@@ -14,7 +14,7 @@
  */
 import { defineMockAction, type AnyMockAction } from '@ap/mock-server';
 import type { FieldError } from '@ap/contracts';
-import {
+import { isUuid,
   ASSESSMENT_DIMENSIONS, EVIDENCE_SOURCE_KINDS, ITEM_LIMITS, ITEM_TYPE_CODES, PROCESSING_STATES, VERIFICATION_STATES,
   itemAssess, itemCreate, itemDerive, itemRevise, itemSetArchived,
 } from '../endpoints';
@@ -24,7 +24,6 @@ import { parseSubjects } from './conceptInput';
 import { itemModelId, judgeSubjects } from './subjectLinks';
 
 type Input = Record<string, unknown>;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const REVISION_NO_MAX = 1_000_000;
 /** Mirrors the server's `unsafeText`: NUL and lone UTF-16 surrogates. */
 const LONE_SURROGATE = /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/;
@@ -42,7 +41,7 @@ function boundedError(value: unknown, max: number): string | null {
 }
 const requiredTextError = (value: unknown, max: number): string | null => boundedError(value, max) ?? ((value as string).trim() === '' ? 'required' : null);
 const optionalTextError = (value: unknown, max: number): string | null => (value === undefined || value === null ? null : boundedError(value, max));
-const uuidError = (value: unknown): string | null => (typeof value !== 'string' ? 'required' : UUID.test(value) ? null : 'malformed');
+const uuidError = (value: unknown): string | null => (typeof value !== 'string' ? 'required' : isUuid(value) ? null : 'malformed');
 const optionalUuidError = (value: unknown): string | null => (value === undefined || value === null ? null : uuidError(value));
 const enumError = (value: unknown, values: readonly string[]): string | null => (value === undefined ? 'required' : typeof value === 'string' && values.includes(value) ? null : 'malformed');
 const hasText = (value: unknown): boolean => typeof value === 'string' && value.trim() !== '';

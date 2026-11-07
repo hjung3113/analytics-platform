@@ -55,7 +55,7 @@ export function DraftDrawer({ modelId, modelLabel, revisionId, onClose, onDirtyC
   const doc = () => ({ docLabel: source.docLabel, docVersion: source.docVersion, ...(source.link ? { link: source.link } : {}) });
   async function createNew() {
     const result = await create.run({ modelId, sourceDocRef: doc() });
-    if (!failure(result) && result.outcome === 'ok' && result.data) { setVersion(String(result.data.version)); setLoaded(null); setPage({ revision: result.data.revisionId }); }
+    if (!failure(result) && result.outcome === 'ok' && result.data) { setVersion(String(result.data.version)); setLoaded(null); setPage({ revision: result.data.revisionId }, { replace: true }); }
   }
   async function saveDraft() {
     if (!revisionId || !editable) return;
@@ -69,7 +69,7 @@ export function DraftDrawer({ modelId, modelLabel, revisionId, onClose, onDirtyC
     if (!failure(result) && result.outcome === 'ok' && result.data) { setLoaded(result.data.revisionId); setVersion(String(result.data.version)); setSavedText(text); setSavedSource(source); setTextDirty(false);
       // The snapshot follows the content that was just saved: a text save leaves no structured copy of it, so the next save sends the saved text, never the draft that was loaded first.
       if ('text' in body) setRows(null);
-      setPage({ revision: result.data.revisionId }); }
+      setPage({ revision: result.data.revisionId }, { replace: true }); }
   }
   async function recover() {
     setRecovering(true);
@@ -79,7 +79,7 @@ export function DraftDrawer({ modelId, modelLabel, revisionId, onClose, onDirtyC
       const existing = revisions.data.rows.find(r => r.state === 'draft');
       if (existing) { setProblem(w('열린 초안이 있습니다. Revision 이력에서 확인한 뒤 반려하거나 사용해 주세요. 현재 입력은 유지됩니다.', 'An open draft exists. Review it in Revision history before rejecting or using it. Your current input is preserved.')); return; }
       const result = await create.run({ modelId, sourceDocRef: doc() });
-      if (!failure(result) && result.outcome === 'ok' && result.data) { setLoaded(result.data.revisionId); setVersion(String(result.data.version)); setSavedText(''); setRows(null); setConflict(false); setPage({ revision: result.data.revisionId }); }
+      if (!failure(result) && result.outcome === 'ok' && result.data) { setLoaded(result.data.revisionId); setVersion(String(result.data.version)); setSavedText(''); setRows(null); setConflict(false); setPage({ revision: result.data.revisionId }, { replace: true }); }
     } finally { setRecovering(false); }
   }
   const textError = fieldErrors['text'] ?? fieldErrors['input'] ?? fieldErrors['format'];

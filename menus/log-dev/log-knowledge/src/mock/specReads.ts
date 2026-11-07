@@ -1,10 +1,9 @@
 import { defineMockEndpoint, type AnyMockEndpoint } from '@ap/mock-server';
-import { modelSpecEndpoint, modelSpecRevisionsEndpoint, specChangesEndpoint, specDraftEndpoint, type ModelSpecData, type SpecChangesParams, type SpecDraftData } from '../endpoints';
+import { isUuid, modelSpecEndpoint, modelSpecRevisionsEndpoint, specChangesEndpoint, specDraftEndpoint, type ModelSpecData, type SpecChangesParams, type SpecDraftData } from '../endpoints';
 import { all, byId, releaseOrderOf } from './store';
 import { latestSpec, revisionById, specChanges, specRevisions, type Change } from './specStore';
 import { project } from './specProjection';
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const uuid = (value: unknown) => typeof value === 'string' && UUID.test(value);
+const uuid = (value: unknown) => typeof value === 'string' && isUuid(value);
 export const applies = (c: Change, softwareId: string): boolean => {
   const sw = byId(softwareId), start = byId(c.softwareId), end = c.endsBeforeSoftwareId ? byId(c.endsBeforeSoftwareId) : null;
   return !!sw && !!start && sw.parentId === c.modelId && releaseOrderOf(start) <= releaseOrderOf(sw) && (!end || releaseOrderOf(sw) < releaseOrderOf(end));

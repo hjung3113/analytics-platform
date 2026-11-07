@@ -2,6 +2,10 @@
 
 내부 버전이며 발행하지 않는다. SDK 범위는 package.json의 ap.sdk를 따른다.
 
+## 0.9.1 — 2026-11-07
+
+- 모델 명세 편집(#1410): Draft·변경점 입력이 dirty이면 Back/Forward·메뉴 이동·딥링크를 셸 이동 확인(#1388, `leaves: 'address'`)으로 막는다. 저장 뒤 Revision 키는 `replace`로 쓴다. UUID 검사는 `endpoints.ts`의 `isUuid` 하나로 모으고, 화면 테스트 하네스는 `src/pages/test-support.tsx`로 옮겼다.
+
 ## 0.9.0 — 2026-11-06
 
 - #1196 e·f: 모델 명세의 개념 검토 탭·Event별 진입·제안 고정 footer·관련 Item, Item 편집기의 모델 명세 대상 선택과 상세 상태 칩을 연결했다. 확정·거절은 같은 무게로 표시하고 충돌 때 입력을 보존한다. 시안·개발 fixture 전환기는 포함하지 않는다.

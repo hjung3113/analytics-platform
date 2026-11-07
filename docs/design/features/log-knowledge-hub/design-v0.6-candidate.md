@@ -697,6 +697,7 @@ relation							Spindle	Start	precedes	Spindle Motor	Stop	§4.2
 1. **모델 프로파일의 「명세」 섹션**(기존 `ModelProfile` 섹션 추가) → 상세 화면 `log-knowledge-spec`(navHidden): Module 트리 + Event 표/서랍, 상단 SW 선택(「모델 기준」 기본 · 특정 SW를 고르면 실효 명세와 변경 표시), Revision 이력, `needs_revalidation` 배지.
 2. **변경점 보기**(같은 상세의 탭 또는 별도 목록 화면): SW 순서로 「X부터」 변경점 타임라인, 필터 `재검토 필요`. 작성은 서랍.
 - 서랍: 명세 Draft 편집·발행, 변경점 추가·닫기.
+- **미저장 편집 이동 가드(#1410, [ADR-0115](../../../adr/0115-kernel-navigation-guard-for-unsaved-edits.md)).** 서랍의 Draft·변경점 입력이 dirty이면 `useUnsavedGuard(dirty, { leaves: 'address' })`로 메뉴 이동·딥링크·브라우저 Back/Forward·새로고침을 셸 확인으로 막는다. 서랍 키(`drawer`·`revision`)는 같은 pathname 안에서 바뀌므로 기본값 `'path'`로는 Back이 가드를 비켜 간다. 화면 안 이동(탭·Event·SW)은 기존 화면 자체 확인이 한 번 묻고, 버린 뒤에 주소를 쓴다(커널이 다시 묻지 않는다). 저장 뒤 Revision 키 갱신은 `replace`로 쓴다.
 - **개념 매핑 검토(소유자 확정 A안):** 기존 명세 상세의 전체 너비 「개념」 탭. 검토 대기 건수와 두 모델의 정의·발생 조건을 나란히 표시하고, 점수·근거는 보조로 둔다. 확정·거절의 무게는 같고 거절 사유는 거절을 누른 뒤에만 받는다. 확정·거절·대상 사라짐 이력을 보존한다. Event 행·서랍의 「이 Event의 개념 제안 N건」은 `tab=concept&event=<targetKey>`로 들어가며 해제 가능한 Event 필터를 표시한다. 서랍의 관련 Item은 왼쪽에 링크로 나열하고, 개념 제안은 고정 footer에서 기존 개념 또는 새 이름과 관계를 받는다.
 - **Item 대상:** 편집기는 소유 모델의 발행 명세 Module/Event 트리·검색·관계·20개 상한·제거 목록을 제공한다. 명세 없는 모델은 안내를 표시하고 대상 없이 저장할 수 있다. 상세는 연결됨·대상 사라짐·명세 없음 상태를 보이며 연결된 대상만 명세로 이동한다. 충돌의 최신 불러오기는 입력을 유지한다.
 

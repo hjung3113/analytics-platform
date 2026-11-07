@@ -5,19 +5,18 @@
  * `malformed`, `required_one`, `same_target`, `duplicate`; state codes (`not_found`, `none_published`, ...) are the handlers'.
  */
 import type { FieldError } from '@ap/contracts';
-import { CONCEPT_KINDS, CONCEPT_LIMITS, CONCEPT_RELATIONS, ITEM_SUBJECT_LIMITS, type ConceptKind, type ConceptRelation, type ConceptSuggestion, type SubjectRelation } from '../endpoints';
+import { isUuid, CONCEPT_KINDS, CONCEPT_LIMITS, CONCEPT_RELATIONS, ITEM_SUBJECT_LIMITS, type ConceptKind, type ConceptRelation, type ConceptSuggestion, type SubjectRelation } from '../endpoints';
 import { nameError, specUnsafe } from './specInput';
 import { escapeKey, eventKey, latestSpec } from './specStore';
 import { toCodeKey } from './store';
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const NAME_MAX = 200;
 export const TARGET_KEY_MAX = 1200;
 type Raw = Record<string, unknown>;
 const isRecord = (v: unknown): v is Raw => v !== null && typeof v === 'object' && !Array.isArray(v);
 const err = (path: readonly string[], code: string): FieldError => ({ path, code });
 const code = (v: unknown, max: number): string | null => (typeof v !== 'string' ? 'required' : specUnsafe(v) ? 'malformed' : [...v].length > max ? 'too_long' : null);
-export const uuidCode = (v: unknown): string | null => (typeof v !== 'string' ? 'required' : UUID.test(v) ? null : 'malformed');
+export const uuidCode = (v: unknown): string | null => (typeof v !== 'string' ? 'required' : isUuid(v) ? null : 'malformed');
 const oneOf = (v: unknown, values: readonly string[]): string | null => (v === undefined ? 'required' : typeof v === 'string' && values.includes(v) ? null : 'malformed');
 
 export type TargetValue = { targetKind: ConceptKind; targetKey: string };

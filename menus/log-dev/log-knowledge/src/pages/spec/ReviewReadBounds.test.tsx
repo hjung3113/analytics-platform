@@ -1,25 +1,22 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { BookOpen } from 'lucide-react';
-import { groupId, menuPermission, spaceId, type ActionResponse, type ApiResponse, type MenuAction, type MenuQuery } from '@ap/contracts';
-import { createBasePathLocation, createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { type ActionResponse, type ApiResponse, type MenuAction, type MenuQuery } from '@ap/contracts';
+import { createBasePathLocation } from '@ap/kernel';
 import { testAdapter, testSession } from '@ap/kernel/testing';
-import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { stubCompactTableGeometry } from '@ap/components/testing';
-import { manifests } from '../../index';
 import type { ConceptMappingRow, ConceptSuggestion, ModelSpecData } from '../../endpoints';
 import SpecScreen from './SpecScreen';
 import { SubjectChips } from '../items/ItemSubjects';
+import { knowledgeRegistry, mountWith } from '../test-support';
 const modelId = '00000003-0000-4000-8000-000000000008', partner = '00000003-0000-4000-8000-000000000009';
-const registry = createRegistry({ permissions: [menuPermission('knowledge:spec-publish'), menuPermission('knowledge:catalog-manage'), menuPermission('knowledge:item-publish')], spaces: [{ id: spaceId('logDev'), label: { ko: '로그', en: 'Log' }, description: { ko: '로그', en: 'Log' }, homeMenuId: 'log-knowledge-models' }], groups: [{ id: groupId('logKnowledge'), label: { ko: '지식', en: 'Knowledge' }, icon: BookOpen, space: spaceId('logDev') }], menus: manifests });
+const registry = knowledgeRegistry(['knowledge:spec-publish', 'knowledge:catalog-manage', 'knowledge:item-publish'], { description: { ko: '로그', en: 'Log' }, homeMenuId: 'log-knowledge-models' });
 const ok = (data: unknown) => ({ outcome: 'ok', data, assessments: [], trust: null, correlationId: 'bounds' }) as ApiResponse<never>;
 const spec: ModelSpecData = { revision: { id: 'r', modelId, revisionNo: 1, state: 'published', schemaVersion: 1, sourceDocRef: { docLabel: 'Spec', docVersion: '1' }, contentSha256: null, publishedAt: null, publishedBy: null }, modules: [{ id: 'm', moduleKey: 'ROBOT', name: 'Robot', parentModuleId: null }], events: [{ id: 'e', moduleId: 'm', eventKey: 'MOVE', name: 'Move', fields: [], triggerRule: 'On move', detailDocRef: null }], relations: [] };
 const row = (id: string, patch: Partial<ConceptMappingRow> = {}): ConceptMappingRow => ({ id, conceptId: `c-${id}`, conceptLabel: `Concept ${id}`, kind: 'event', modelId, modelName: 'A', targetKind: 'event', targetKey: 'ROBOT/MOVE', targetName: 'Move', targetState: 'present', relationKind: 'equivalent', reviewState: 'proposed', origin: 'human', similarityScore: null, similarityBasis: null, rejectReason: null, proposedBy: 'admin', proposedAt: '2026-11-01T00:00:00Z', reviewedBy: null, reviewedAt: null, version: 1, ...patch });
 const suggestion: ConceptSuggestion = { kind: 'event', source: { modelId, targetKey: 'ROBOT/MOVE', name: 'Move' }, candidate: { modelId: partner, modelName: 'B', targetKey: 'ROBOT/MOVE', name: 'Move' }, score: 1, basis: { name_trgm: 1 }, proposal: true };
 let restore = () => {};
 afterEach(() => { cleanup(); restore(); });
-function Slot() { const slot = useDetailPanelSlotHost(); return <aside ref={slot.ref} />; }
 type Setup = { rows?: ConceptMappingRow[]; suggestions?: ConceptSuggestion[]; fail?: (p: Record<string, unknown>) => string | null; child?: React.ReactNode; basePath?: string };
 function mount(search: string, setup: Setup = {}) {
   restore = stubCompactTableGeometry();
@@ -45,7 +42,7 @@ function mount(search: string, setup: Setup = {}) {
   } });
   const base = setup.basePath ?? '';
   window.history.replaceState(null, '', `${base}/logDev/log-knowledge-spec/${modelId}?v=1&scopeId=MEM${search}`);
-  render(<I18nProvider><PlatformProvider registry={registry} adapter={adapter} {...(base ? { location: createBasePathLocation(base) } : {})}><DetailPanelSlotProvider>{setup.child ?? <SpecScreen params={{ modelId }} />}<Slot /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
+  mountWith({ registry, adapter, ui: setup.child ?? <SpecScreen params={{ modelId }} />, slot: true, ...(base ? { location: createBasePathLocation(base) } : {}) });
   return { reads, writes };
 }
 const targetReads = (reads: MenuQuery[]) => reads.filter(r => r.endpoint === 'logKnowledge.conceptMappings' && (r.params as { kind?: string }).kind === 'event' && (r.params as { modelId?: string }).modelId && (r.params as { reviewState?: string }).reviewState && (r.params as { pageSize: number }).pageSize === 50);

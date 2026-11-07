@@ -3,21 +3,18 @@
 // replacement revision ids, and reads can be held, so sequences (not single calls) are what is under test.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
 import { testAdapter, testSession } from '@ap/kernel/testing';
 import { stubCompactTableGeometry } from '@ap/components/testing';
-import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
-import { BookOpen } from 'lucide-react';
-import { groupId, menuPermission, spaceId, type ActionResponse, type ApiResponse, type FieldError } from '@ap/contracts';
-import { manifests } from '../../index';
+import { type ActionResponse, type ApiResponse, type FieldError } from '@ap/contracts';
 import { type ModelSpecData, type SpecChangeRow } from '../../endpoints';
 import SpecScreen from './SpecScreen';
+import { knowledgeRegistry, mountWith } from '../test-support';
 
 const modelId = '00000003-0000-4000-8000-000000000008', sw = '00000004-0000-4000-8000-00000000000e', rev = '00000007-0000-4000-8000-000000000001';
 const ok = (data: unknown) => ({ outcome: 'ok', data, assessments: [], trust: null, correlationId: 'spec-test' }) as ApiResponse<never>;
 const published: ModelSpecData = { revision: { id: rev, modelId, revisionNo: 1, state: 'published', schemaVersion: 1, sourceDocRef: { docLabel: 'Spec', docVersion: '1' }, contentSha256: 'a'.repeat(64), publishedAt: '2026-11-01T00:00:00Z', publishedBy: 'admin' }, modules: [{ id: 'm1', moduleKey: 'ROBOT', name: 'Robot', parentModuleId: null }, { id: 'm2', moduleKey: 'ARM', name: 'Arm', parentModuleId: 'm1' }], events: [{ id: 'e1', moduleId: 'm2', eventKey: 'MOVE', name: 'Move', fields: [], triggerRule: 'on move', detailDocRef: null }], relations: [] };
 const change: SpecChangeRow = { id: '00000007-0000-4000-8000-000000000002', softwareId: sw, softwareLabel: 'v1.0', endsBeforeSoftwareId: null, endsBeforeLabel: null, targetKind: 'event', targetKey: 'ARM/MOVE', changeKind: 'behavior', change: {}, note: 'timing', evidenceRef: null, basedOnRevNo: 1, needsRevalidation: true, revalidationRevNo: 2, retiredAt: null, retiredBy: null, retiredByChangeId: null, createdAt: '2026-11-01T00:00:00Z', createdBy: 'admin', version: 1 };
-const registry = createRegistry({ permissions: [menuPermission('knowledge:spec-publish'), menuPermission('knowledge:catalog-manage')], spaces: [{ id: spaceId('logDev'), label: { ko: '로그', en: 'Log' }, description: { ko: '로그 개발', en: 'Log development' }, homeMenuId: 'log-knowledge-models' }], groups: [{ id: groupId('logKnowledge'), label: { ko: '지식', en: 'Knowledge' }, icon: BookOpen, space: spaceId('logDev') }], menus: manifests });
+const registry = knowledgeRegistry(['knowledge:spec-publish', 'knowledge:catalog-manage'], { description: { ko: '로그 개발', en: 'Log development' }, homeMenuId: 'log-knowledge-models' });
 
 type Row = { module: string; name: string; triggerRule: string | null };
 type Stored = { id: string; version: number; modules: { name: string; parentModule: string | null }[]; events: Row[] };
@@ -60,7 +57,6 @@ beforeEach(() => { memoryLang('ko'); restoreGeometry = stubCompactTableGeometry(
 afterEach(() => { cleanup(); restoreGeometry(); vi.restoreAllMocks(); });
 /** This jsdom has no localStorage; the language preference seam needs a stand-in for `initialLang`. */
 const memoryLang = (lang: 'ko' | 'en') => Object.defineProperty(window, 'localStorage', { configurable: true, value: { getItem: () => lang, setItem: () => undefined, removeItem: () => undefined } });
-function Slot() { const slot = useDetailPanelSlotHost(); return <aside ref={slot.ref} />; }
 type Handlers = { spec?: () => Promise<ApiResponse<never>> | ApiResponse<never>; draft?: (id: string) => unknown; action?: (name: string, input: Record<string, unknown>) => unknown };
 function mount(search: string, h: Handlers) {
   window.history.replaceState(null, '', `/logDev/log-knowledge-spec/${modelId}?v=1${search}`);
@@ -73,7 +69,7 @@ function mount(search: string, h: Handlers) {
     if (req.endpoint === 'logKnowledge.specDraft') return ok(h.draft?.(String((req.params as Record<string, unknown>)['revisionId'])) ?? null);
     return ok(null);
   }, menuAction: async req => (h.action?.(req.action.replace('logKnowledge.', ''), req.input as Record<string, unknown>) ?? { outcome: 'ok', data: { changeId: change.id }, version: '2' }) as unknown as ActionResponse<never> });
-  return render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider><SpecScreen params={{ modelId }} /><Slot /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
+  return mountWith({ registry, adapter, ui: <SpecScreen params={{ modelId }} />, slot: true });
 }
 const textarea = () => screen.getByLabelText('명세 TSV') as HTMLTextAreaElement;
 const B = 'kind\tmodule\tevent\ttrigger_rule\nmodule\tArm\nevent\tArm\tMove\tsecond rule';

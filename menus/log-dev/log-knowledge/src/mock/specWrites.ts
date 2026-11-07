@@ -1,6 +1,6 @@
 import { defineMockAction, MockActionInvalid, type AnyMockAction } from '@ap/mock-server';
 import type { FieldError } from '@ap/contracts';
-import { specDraftCreate, specDraftSave, specPublish, specReject, specChangeAdd, specChangeRetire, specChangeConfirm, SPEC_CHANGE_LIMITS, SPEC_FIELD_TYPES, type SpecChangeAddInput, type SpecDraftSaveInput, type SpecSourceDocRef } from '../endpoints';
+import { isUuid, specDraftCreate, specDraftSave, specPublish, specReject, specChangeAdd, specChangeRetire, specChangeConfirm, SPEC_CHANGE_LIMITS, SPEC_FIELD_TYPES, type SpecChangeAddInput, type SpecDraftSaveInput, type SpecSourceDocRef } from '../endpoints';
 import { byId, releaseOrderOf, toCodeKey } from './store';
 import { changeById, escapeKey, eventKey, key, latestSpec, revisionById, specChanges, specId, specRevisions, type Change, type Revision } from './specStore';
 import { entries } from './specProjection';
@@ -8,8 +8,7 @@ import { specCanonical, specJson, specHash } from './specHash';
 import { cleanName, draftRows, fieldError, nameError, optionalStoredText, savePlan, specUnsafe, SPEC_NAME_MAX, SPEC_TEXT_MAX } from './specInput';
 
 type Input = Record<string, unknown>;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const uuidError = (input: Input, name: string): FieldError[] => typeof input[name] === 'string' && UUID.test(input[name]) ? [] : [fieldError(name, 'malformed')];
+const uuidError = (input: Input, name: string): FieldError[] => typeof input[name] === 'string' && isUuid(input[name]) ? [] : [fieldError(name, 'malformed')];
 const under = (prefix: string, errors: FieldError[]): FieldError[] => errors.map(e => ({ path: [prefix, ...e.path], code: e.code }));
 /** The server's closed `sourceDocRef` schema (`sourceDocRefSchema`): names bounded and normalised, optional link. */
 const sourceRefErrors = (ref: unknown): FieldError[] => {

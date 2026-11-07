@@ -5,12 +5,11 @@
  */
 import { defineMockEndpoint, type AnyMockEndpoint } from '@ap/mock-server';
 import type { PageResult } from '@ap/contracts';
-import {
+import { isUuid,
   exploreModelsEndpoint, modelProfileEndpoint, type CatalogPageParams, type ExploreModelRow, type ModelProfileData, type ModelProfileParams, type ModelRow,
 } from '../endpoints';
 import { all, byId, processIdsOf } from './store';
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const SOFTWARE_LIST_MAX = 500;
 const NO_ITEMS = 0;
 
@@ -49,7 +48,7 @@ export function modelReadsMock(catalog: { message: (params: CatalogPageParams) =
     }),
     defineMockEndpoint(modelProfileEndpoint, {
       mart: false,
-      validate: ({ params }) => (typeof (params as Partial<ModelProfileParams>).modelId === 'string' && UUID.test(params.modelId) ? null : 'modelId must be a uuid string'),
+      validate: ({ params }) => (typeof (params as Partial<ModelProfileParams>).modelId === 'string' && isUuid(params.modelId) ? null : 'modelId must be a uuid string'),
       handle: ({ params }) => modelProfile(params.modelId),
     }),
   ];

@@ -1,23 +1,15 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { BookOpen } from 'lucide-react';
-import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
+import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { stubCompactTableGeometry } from '@ap/components/testing';
 import { testAdapter, testSession } from '@ap/kernel/testing';
-import { DetailPanelSlotProvider } from '@ap/ui';
-import { encodeFilterParams, groupId, menuPermission, spaceId, type ApiResponse, type ColumnFilter, type MenuQuery } from '@ap/contracts';
+import { encodeFilterParams, type ApiResponse, type ColumnFilter, type MenuQuery } from '@ap/contracts';
 import { CATALOG_MANAGE_PERMISSION, type ItemAssessment, type ItemDetail as ItemDetailData, type ItemRevision, type ItemRow } from '../../endpoints';
-import { manifests } from '../../index';
 import ItemDetail from './ItemDetail';
 import ItemList from './ItemList';
+import { knowledgeRegistry, mountWith } from '../test-support';
 
-const registry = createRegistry({
-  permissions: [menuPermission('knowledge:catalog-manage')],
-  spaces: [{ id: spaceId('logDev'), label: { ko: '로그', en: 'Log' }, description: { ko: '목적', en: 'Purpose' }, permission: CATALOG_MANAGE_PERMISSION, homeMenuId: 'log-knowledge-catalog' }],
-  groups: [{ id: groupId('logKnowledge'), label: { ko: '지식', en: 'Knowledge' }, icon: BookOpen, space: spaceId('logDev') }],
-  menus: manifests,
-});
+const registry = knowledgeRegistry(['knowledge:catalog-manage'], { description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'log-knowledge-catalog', permission: CATALOG_MANAGE_PERMISSION });
 const session = testSession(['knowledge:catalog-manage', 'platform:view'], { user: { id: 'admin', name: 'admin', title: { ko: '관리자', en: 'Admin' } } });
 const ok = (data: unknown): ApiResponse<never> => ({ outcome: 'ok', data, assessments: [], trust: null, correlationId: 'fixture' }) as ApiResponse<never>;
 
@@ -101,11 +93,11 @@ afterEach(() => { cleanup(); restoreGeometry(); vi.restoreAllMocks(); });
 const idOf = (itemNo: number) => uuid(itemNo);
 function mountList(search = '') {
   window.history.replaceState(null, '', `/log/knowledge/items?v=1${search}`);
-  render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider><ItemList /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
+  mountWith({ registry, adapter, ui: <ItemList /> });
 }
 function mountDetail(itemId: string, search = '') {
   window.history.replaceState(null, '', `/log/knowledge/items/${itemId}?v=1${search}`);
-  render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider><ItemDetail params={{ itemId }} /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
+  mountWith({ registry, adapter, ui: <ItemDetail params={{ itemId }} /> });
 }
 const url = () => new URLSearchParams(window.location.search);
 const hiddenFilters = () => ((window.history.state as { apHidden?: { pairs: [string, string][] } } | null)?.apHidden?.pairs ?? []).filter(([k]) => k === 'filter').map(([, v]) => v);

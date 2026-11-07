@@ -11,7 +11,7 @@
  */
 import { filterRows, validateFilters, type ColumnFilter, type ColumnFilterSpec, type FieldError, type PageResult } from '@ap/contracts';
 import { defineMockAction, defineMockEndpoint, type AnyMockAction, type AnyMockEndpoint } from '@ap/mock-server';
-import {
+import { isUuid,
   MODEL_SORT_IDS, PROCESS_SORT_IDS, SOFTWARE_SORT_IDS, VENDOR_SORT_IDS, modelCreate, modelFilterSpecs, modelSetActive, modelUpdate,
   modelsEndpoint, processCreate, processFilterSpecs, processSetActive, processUpdate, processesEndpoint, softwareCreate,
   softwareFilterSpecs, softwareSetActive, softwareUpdate, softwareVersionsEndpoint, vendorCreate, vendorFilterSpecs, vendorSetActive,
@@ -36,7 +36,6 @@ const FILTER_VALUES_MAX = 200;
 const CODE_MAX = 64;
 const NAME_MAX = 200;
 const PROCESS_IDS_MAX = 200;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
 const unsafeText = (value: string): boolean => value.includes('\u0000') || LONE_SURROGATE.test(value);
 const length = (value: string): number => [...value].length;
@@ -73,7 +72,7 @@ function filterMessage(filters: readonly ColumnFilter[], shape: Shape): string |
   for (const f of filters) {
     if (f.op !== 'in' && f.op !== 'notIn') continue;
     if (f.value.length > FILTER_VALUES_MAX) return `filter ${f.id} takes at most ${FILTER_VALUES_MAX} values`;
-    if (!f.value.every(v => (f.id === 'active' ? v === 'true' || v === 'false' : UUID.test(v)))) return `filter ${f.id} values are ${f.id === 'active' ? "'true' or 'false'" : 'uuid strings'}`;
+    if (!f.value.every(v => (f.id === 'active' ? v === 'true' || v === 'false' : isUuid(v)))) return `filter ${f.id} values are ${f.id === 'active' ? "'true' or 'false'" : 'uuid strings'}`;
   }
   return null;
 }
@@ -162,7 +161,7 @@ function textErrors(input: Record<string, unknown>, field: string, max: number, 
 const idErrors = (input: Record<string, unknown>, field: string): FieldError[] => {
   const value = input[field];
   if (typeof value !== 'string' || value === '') return [err([field], 'required')];
-  return UUID.test(value) ? [] : [err([field], 'malformed')];
+  return isUuid(value) ? [] : [err([field], 'malformed')];
 };
 function processIdsErrors(input: Record<string, unknown>): FieldError[] {
   const value = input.processIds;
@@ -170,7 +169,7 @@ function processIdsErrors(input: Record<string, unknown>): FieldError[] {
   if (value.length > PROCESS_IDS_MAX) return [err(['processIds'], 'too_long')];
   const seen = new Set<string>();
   return value.flatMap((entry: unknown, i): FieldError[] => {
-    if (typeof entry !== 'string' || !UUID.test(entry)) return [err(['processIds', String(i)], 'malformed')];
+    if (typeof entry !== 'string' || !isUuid(entry)) return [err(['processIds', String(i)], 'malformed')];
     if (seen.has(entry.toLowerCase())) return [err(['processIds', String(i)], 'duplicate')];
     seen.add(entry.toLowerCase());
     return [];

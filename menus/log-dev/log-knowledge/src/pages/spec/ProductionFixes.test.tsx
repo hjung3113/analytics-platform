@@ -1,28 +1,26 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { useEffect, useState } from 'react';
-import { BookOpen } from 'lucide-react';
-import { groupId, menuPermission, spaceId, type ApiResponse, type ActionResponse, type MenuQuery, type MenuAction } from '@ap/contracts';
-import { createRegistry, I18nProvider, PlatformProvider, useI18n, usePlatform } from '@ap/kernel';
+import { type ApiResponse, type ActionResponse, type MenuQuery, type MenuAction } from '@ap/contracts';
+import { useI18n, usePlatform } from '@ap/kernel';
 import { testAdapter, testSession } from '@ap/kernel/testing';
-import { Button, buttonVariants, DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
+import { Button, buttonVariants } from '@ap/ui';
 import { stubCompactTableGeometry } from '@ap/components/testing';
-import { manifests } from '../../index';
 import type { ConceptMappingRow, ConceptSuggestion, ItemDetail, ItemSubject, ModelSpecData } from '../../endpoints';
 import SpecScreen from './SpecScreen';
 import { SubjectPicker } from '../items/ItemSubjects';
 import { ItemWriteDrawer } from '../items/ItemWriteDrawer';
 import type { SubjectPick } from '../items/subjectModel';
+import { knowledgeRegistry, mountWith } from '../test-support';
 const modelId = '00000003-0000-4000-8000-000000000008', other = '00000003-0000-4000-8000-000000000009';
-const registry = createRegistry({ permissions: [menuPermission('knowledge:catalog-manage'), menuPermission('knowledge:spec-publish'), menuPermission('knowledge:item-publish')], spaces: [{ id: spaceId('logDev'), label: { ko: '로그', en: 'Log' }, description: { ko: '로그', en: 'Log' }, homeMenuId: 'log-knowledge-models' }], groups: [{ id: groupId('logKnowledge'), label: { ko: '지식', en: 'Knowledge' }, icon: BookOpen, space: spaceId('logDev') }], menus: manifests });
+const registry = knowledgeRegistry(['knowledge:catalog-manage', 'knowledge:spec-publish', 'knowledge:item-publish'], { description: { ko: '로그', en: 'Log' }, homeMenuId: 'log-knowledge-models' });
 const spec: ModelSpecData = { revision: { id: 'r', modelId, revisionNo: 1, state: 'published', schemaVersion: 1, sourceDocRef: { docLabel: 'Spec', docVersion: '1' }, contentSha256: null, publishedAt: null, publishedBy: null }, modules: [{ id: 'm', moduleKey: 'ROBOT', name: 'Robot', parentModuleId: null }], events: [{ id: 'e', moduleId: 'm', eventKey: 'MOVE', name: 'Move', fields: [], triggerRule: 'On move', detailDocRef: null }], relations: [] };
 const mapping = (id: string, patch: Partial<ConceptMappingRow> = {}): ConceptMappingRow => ({ id, conceptId: 'c', conceptLabel: '로봇 이동', kind: 'event', modelId, modelName: 'A-100', targetKind: 'event', targetKey: 'ROBOT/MOVE', targetName: 'Move', targetState: 'present', relationKind: 'equivalent', reviewState: 'proposed', origin: 'similarity', similarityScore: 1, similarityBasis: { name_trgm: 1 }, rejectReason: null, proposedBy: 'admin', proposedAt: '2026-11-01T00:00:00Z', reviewedBy: null, reviewedAt: null, version: 1, ...patch });
 const ok = (data: unknown) => ({ outcome: 'ok', data, assessments: [], trust: null, correlationId: 'fix-test' }) as ApiResponse<never>;
 let rows: ConceptMappingRow[], suggestions: ConceptSuggestion[], reads: MenuQuery[], writes: MenuAction[], allowed: boolean, failure: string | null, writeOutcome: string, restore: () => void;
 beforeEach(() => { rows = [mapping('a'), mapping('b', { modelId: other, modelName: 'B-10' }), mapping('z', { conceptId: 'd', conceptLabel: '다른 개념' })]; suggestions = []; reads = []; writes = []; allowed = true; failure = null; writeOutcome = 'ok'; restore = stubCompactTableGeometry(); HTMLElement.prototype.scrollIntoView = vi.fn(); });
 afterEach(() => { cleanup(); restore(); vi.restoreAllMocks(); });
-function Slot() { const slot = useDetailPanelSlotHost(); return <aside ref={slot.ref} />; }
 function Language({ lang }: { lang: 'ko' | 'en' }) { const { setLang } = useI18n(); useEffect(() => setLang(lang), [lang, setLang]); return null; }
 function mount(search = '&tab=concept', child?: React.ReactNode, lang: 'ko' | 'en' = 'ko') {
   window.history.replaceState(null, '', `/logDev/log-knowledge-spec/${modelId}?v=1&scopeId=MEM${search}`);
@@ -46,7 +44,7 @@ function mount(search = '&tab=concept', child?: React.ReactNode, lang: 'ko' | 'e
     rows = rows.map(r => r.id === input.mappingId ? { ...r, reviewState: req.action.endsWith('Reject') ? 'rejected' : 'confirmed', rejectReason: input.reason ?? null } : r);
     return { outcome: 'ok', data: { conceptId: 'c', mappingId: 'a' }, fieldErrors: [] } as unknown as ActionResponse<never>;
   } });
-  return render(<I18nProvider><Language lang={lang} /><PlatformProvider registry={registry} adapter={adapter}><DetailPanelSlotProvider>{child ?? <SpecScreen params={{ modelId }} />}<Slot /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
+  return mountWith({ registry, adapter, ui: child ?? <SpecScreen params={{ modelId }} />, slot: true, head: <Language lang={lang} /> });
 }
 function OpenEvent() { const { setPage } = usePlatform(); return <Button onClick={() => setPage({ tab: 'spec', event: 'ROBOT/MOVE', drawer: 'event' })}>Open Event</Button>; }
 function Picker() { const [picks, setPicks] = useState<SubjectPick[]>([{ kind: 'event', key: 'ROBOT/MOVE', relation: 'about' }]); return <SubjectPicker modelId={modelId} picks={picks} onChange={setPicks} />; }

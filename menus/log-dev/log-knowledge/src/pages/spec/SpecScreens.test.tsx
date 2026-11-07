@@ -1,20 +1,17 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
 import { testAdapter, testSession } from '@ap/kernel/testing';
 import { stubCompactTableGeometry } from '@ap/components/testing';
-import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
-import { BookOpen } from 'lucide-react';
-import { groupId, menuPermission, spaceId, type ActionResponse, type ApiResponse, type MenuAction, type MenuQuery } from '@ap/contracts';
-import { manifests } from '../../index';
+import { type ActionResponse, type ApiResponse, type MenuAction, type MenuQuery } from '@ap/contracts';
 import { type ModelSpecData, type SpecChangeRow } from '../../endpoints';
 import SpecScreen from './SpecScreen';
+import { knowledgeRegistry, mountWith } from '../test-support';
 const modelId = '00000003-0000-4000-8000-000000000008', sw = '00000004-0000-4000-8000-00000000000e', rev = '00000007-0000-4000-8000-000000000001';
 const ok = (data: unknown) => ({ outcome: 'ok', data, assessments: [], trust: null, correlationId: 'spec-test' }) as ApiResponse<never>;
 const spec: ModelSpecData = { revision: { id: rev, modelId, revisionNo: 1, state: 'published', schemaVersion: 1, sourceDocRef: { docLabel: 'Spec', docVersion: '1' }, contentSha256: 'a'.repeat(64), publishedAt: '2026-11-01T00:00:00Z', publishedBy: 'admin' }, modules: [{ id: 'm1', moduleKey: 'ROBOT', name: 'Robot', parentModuleId: null }, { id: 'm2', moduleKey: 'ARM', name: 'Arm', parentModuleId: 'm1' }], events: [{ id: 'e1', moduleId: 'm2', eventKey: 'MOVE', name: 'Move', fields: [], triggerRule: 'on move', detailDocRef: null }], relations: [] };
 const change: SpecChangeRow = { id: '00000007-0000-4000-8000-000000000002', softwareId: sw, softwareLabel: 'v1.0', endsBeforeSoftwareId: null, endsBeforeLabel: null, targetKind: 'event', targetKey: 'ARM/MOVE', changeKind: 'behavior', change: {}, note: 'timing', evidenceRef: null, basedOnRevNo: 1, needsRevalidation: true, revalidationRevNo: 2, retiredAt: null, retiredBy: null, retiredByChangeId: null, createdAt: '2026-11-01T00:00:00Z', createdBy: 'admin', version: 1 };
-const registry = createRegistry({ permissions: [menuPermission('knowledge:spec-publish'), menuPermission('knowledge:catalog-manage')], spaces: [{ id: spaceId('logDev'), label: { ko: '로그', en: 'Log' }, description: { ko: '로그 개발', en: 'Log development' }, homeMenuId: 'log-knowledge-models' }], groups: [{ id: groupId('logKnowledge'), label: { ko: '지식', en: 'Knowledge' }, icon: BookOpen, space: spaceId('logDev') }], menus: manifests });
+const registry = knowledgeRegistry(['knowledge:spec-publish', 'knowledge:catalog-manage'], { description: { ko: '로그 개발', en: 'Log development' }, homeMenuId: 'log-knowledge-models' });
 let queries: MenuQuery[], writes: MenuAction[], result: ApiResponse<unknown> | null, allowed: boolean, conflict: boolean, saveInvalid: boolean;
 let extraChanges: SpecChangeRow[];
 let restoreGeometry: () => void;
@@ -28,7 +25,6 @@ const memoryLang = (lang: 'ko' | 'en') => {
   let value: string = lang;
   Object.defineProperty(window, 'localStorage', { configurable: true, value: { getItem: () => value, setItem: (_key: string, next: string) => { value = next; }, removeItem: () => { value = 'ko'; } } });
 };
-function Slot() { const slot = useDetailPanelSlotHost(); return <aside ref={slot.ref} />; }
 function mount(search = '', draft: Record<string, unknown> | null = null, id = modelId) {
   window.history.replaceState(null, '', `/logDev/log-knowledge-spec/${id}?v=1${search}`);
   const session = testSession(allowed ? ['platform:view', 'knowledge:spec-publish'] : ['platform:view']);
@@ -41,7 +37,7 @@ function mount(search = '', draft: Record<string, unknown> | null = null, id = m
     if (req.endpoint === 'logKnowledge.specDraft') return ok(draft ?? { ...spec, revision: { ...spec.revision, state: 'draft', version: 1 } });
     return ok(null);
   }, menuAction: async req => { writes.push(req); return saveInvalid ? { outcome: 'invalid', fieldErrors: [{ path: ['text'], code: 'malformed' }] } as unknown as ActionResponse<never> : (conflict ? { outcome: 'conflict', currentVersion: '2' } : { outcome: 'ok', data: { revisionId: rev, version: '2' }, version: '2' }) as unknown as ActionResponse<never>; } });
-  return render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider><SpecScreen params={{ modelId: id }} /><Slot /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
+  return mountWith({ registry, adapter, ui: <SpecScreen params={{ modelId: id }} />, slot: true });
 }
 describe('production model spec screen', () => {
   it('accepts ids in any spelling: an upper-case model id and software id deep link opens the spec', async () => {
