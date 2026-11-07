@@ -11,6 +11,7 @@ alone never implies assignment eligibility.
 | Path | `GET /actors?workspace=current` |
 | Auth | Required (any session). Intra-workspace read; no capability gate. |
 | Workspace param | Pinned sentinel `current`. Other values → 422 `validation.failed`. |
+| Type filter | Optional `actorType=internal_member` or `actorType=system`; omitted returns both. Unknown values → 422 `validation.failed` under `detail.fields`. |
 | Order | `display_name ASC, id ASC` for stable iteration. |
 | Status | 200 on success. 401 `auth.session_invalid` without session. 422 `validation.failed` on bad query. |
 
@@ -19,7 +20,7 @@ alone never implies assignment eligibility.
 ```json
 {
   "actors": [
-    { "id": "uuid", "display_name": "Mock Admin", "email": "admin@platform.local", "role_level": "admin" }
+    { "id": "uuid", "display_name": "Mock Admin", "email": "admin@platform.local", "role_level": "admin", "actor_type": "internal_member" }
   ]
 }
 ```
@@ -28,6 +29,8 @@ alone never implies assignment eligibility.
 FO ADR-0006). The `kind: 'user' | 'team'` taxonomy used by `<OwnerPicker>` is a
 FE-only mapping in the Triage controller. Its VOC-scoped candidate API returns
 Actors only; teams retain their existing source (FO ADR-0018 teams stub).
+
+The normative query and response contract is [Workspace actors](../../../architecture/platform-api/api/auth.md#workspace-actors). Actor activity status is not represented in the current schema.
 
 ## Schema
 

@@ -30,9 +30,9 @@ it('preserves input/editor node identity, values, scroll and toggle focus; popup
   expect(screen.getByRole('button', { name: '크게 보기' })).toBe(toggle); expect(toggle).toHaveFocus();
   expect(input).toHaveValue('저장 전'); expect(editor.textContent).toBe('긴 편집 내용'); expect(scroll.scrollTop).toBe(120);
   expect(screen.getByRole('button', { name: '저장' })).toBeTruthy();
-  fireEvent.keyDown(input, { key: 'Escape' }); expect(await screen.findByRole('dialog', { name: '변경사항이 저장되지 않았습니다' })).toBeTruthy();
+  fireEvent.keyDown(input, { key: 'Escape' }); expect(await screen.findByRole('alertdialog', { name: '변경사항이 저장되지 않았습니다' })).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: '계속 작성' }));
   expect(input).toHaveValue('저장 전');
   fireEvent.click(screen.getByRole('button', { name: '크게 보기' }));
-  fireEvent.click(screen.getByRole('button', { name: '상세 닫기' })); expect(await screen.findByRole('dialog', { name: '변경사항이 저장되지 않았습니다' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: '상세 닫기' })); expect(await screen.findByRole('alertdialog', { name: '변경사항이 저장되지 않았습니다' })).toBeTruthy();
 });

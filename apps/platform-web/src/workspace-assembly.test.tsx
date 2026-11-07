@@ -77,7 +77,7 @@ describe('workspace assembly (#260)', () => {
     expect(detail.component).toBeDefined();
     expect(registry.matchRoute('/voc/11111111-1111-4111-8111-111111111111')?.menu.id).toBe('voc-detail');
     expect(registry.matchRoute('/voc')?.menu.id).toBe('voc');
-    expect(registry.menus.filter(menu => menu.group === 'myActivity' && !menu.navHidden).map(menu => menu.id)).toEqual(['notifications', 'my-tasks', 'permission-requests']);
+    expect(registry.menus.filter(menu => menu.group === 'myActivity' && !menu.navHidden).map(menu => menu.id)).toEqual(['notifications', 'my-tasks', 'permission-requests', 'api-tokens']);
     expect(registry.menus.filter(menu => menu.group === 'noticeVoc' && !menu.navHidden).map(menu => menu.id)).toEqual(['notices', 'faq', 'voc', 'surveys']);
   });
 
@@ -154,10 +154,12 @@ describe('workspace assembly (#260)', () => {
     const accessMenus = operationsMenus.filter(menu => menu.group === 'access');
     expect(flowMenus.length).toBeGreaterThan(0);
     expect(flowMenus.every(menu => menu.carrySet === 'features')).toBe(true);
-    expect(accessMenus.map(menu => menu.id)).toEqual(['permission-request-review', 'permission-grants']);
-    expect(accessMenus.every(menu => menu.carrySet === 'features')).toBe(true);
+    expect(accessMenus.map(menu => menu.id)).toEqual(['permission-request-review', 'permission-grants', 'service-tokens']);
+    const accessCarryMenus = accessMenus.filter(menu => menu.id !== 'service-tokens');
+    expect(registry.menuById('service-tokens').carrySet).toBeUndefined();
+    expect(accessCarryMenus.every(menu => menu.carrySet === 'features')).toBe(true);
     expect(operationsMenus.filter(menu => menu.group === 'admin').every(menu => menu.carrySet === undefined)).toBe(true);
-    expect(registry.menus.filter(menu => menu.carrySet !== undefined).map(menu => menu.id).sort()).toEqual([...flowMenus.map(menu => menu.id), ...accessMenus.map(menu => menu.id), 'my-tasks'].sort());
+    expect(registry.menus.filter(menu => menu.carrySet !== undefined).map(menu => menu.id).sort()).toEqual([...flowMenus.map(menu => menu.id), ...accessCarryMenus.map(menu => menu.id), 'my-tasks'].sort());
     // Every group has exactly one primary menu (the Kernel enforces it; pinned here so a moved menu cannot leave a group without one).
     for (const group of registry.groups) expect(registry.menus.filter(menu => menu.group === group.id && menu.primary === true)).toHaveLength(1);
     expect(registry.menuById('dashboard')).toMatchObject({ group: 'dashboard', path: '/flow/dashboard', permission: 'features:access', requiresScope: false, pageKeys: ['managedSystem', 'returnTo'] });
@@ -208,7 +210,8 @@ describe('workspace assembly (#260)', () => {
     expect(registry.menus.filter(menu => menu.group === 'flowSettings').map(menu => menu.id)).toEqual(settingsIds);
     expect(registry.menuById('managed-systems')).toMatchObject({ path: '/flow/managed-systems', primary: true });
     const accessIds = ['permission-request-review', 'permission-grants'];
-    expect(registry.menus.filter(menu => menu.group === 'access').map(menu => menu.id)).toEqual(accessIds);
+    expect(registry.menus.filter(menu => menu.group === 'access').map(menu => menu.id)).toEqual([...accessIds, 'service-tokens']);
+    expect(registry.menuById('service-tokens')).toMatchObject({ path: '/operations/service-tokens', permission: 'console:access', additionalPermissions: ['features:access'], pageKeys: ['noExpiry', 'kind'] });
     expect(registry.menuById('permission-request-review')).toMatchObject({ path: '/operations/permission-request-review', primary: true });
     expect(registry.menuById('permission-grants')).toMatchObject({ path: '/operations/permission-grants' });
     expect(registry.menuById('permission-grants').primary).toBeUndefined();
@@ -259,7 +262,7 @@ describe('workspace assembly (#260)', () => {
     expect(registry.groups.find(group => group.id === 'dashboard')?.hideLabelWhenSingle).toBe(true);
     expect(registry.groups.filter(group => group.space === 'operations').map(group => group.label.ko)).toEqual(['플랫폼 관리', '권한', '시스템']);
     expect(registry.groups.filter(group => group.space === 'operations').map(group => group.id)).toEqual(['admin', 'access', 'systems']);
-    expect(registry.menus.filter(menu => menu.group === 'myActivity' && !menu.navHidden).map(menu => menu.label.ko)).toEqual(['알림', '내 Task', '권한 요청']);
+    expect(registry.menus.filter(menu => menu.group === 'myActivity' && !menu.navHidden).map(menu => menu.label.ko)).toEqual(['알림', '내 Task', '권한 요청', 'API 토큰']);
     expect(registry.groups.find(group => group.id === 'noticeVoc')?.label).toEqual({ ko: '소통', en: 'Communication' });
     expect(registry.menus.filter(menu => menu.group === 'noticeVoc' && !menu.navHidden).map(menu => menu.label.ko)).toEqual(['공지', 'FAQ', 'VOC', '설문']);
     expect(registry.menus.filter(menu => menu.group === 'noticeVoc').map(menu => menu.id)).toEqual(['notices', 'faq', 'voc', 'voc-detail', 'surveys', 'survey-respond']);

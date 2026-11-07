@@ -175,6 +175,9 @@ export type PlatformDataTableProps<T> = {
   isRowMuted?: (row: T) => boolean;
   preferenceKey: string;
   pageSize?: number;
+  /** Optional keyset/externally paged surface: summary and previous/next controls are owned by the caller.
+   * `loadPage` returns the current chunk; no result-wide total is claimed. Default keeps offset pagination. */
+  externalPagination?: { summary: ReactNode; controls: ReactNode };
   /** Maximum row-area height; default fits the page (content height, up to the room left on the page, never under 240px). */
   height?: number;
   emptyAction?: ReactNode;
@@ -663,6 +666,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const filterLine = filterFields.length > 0 && <div className={cn('min-w-0 flex-1', !mergeToolbar && 'basis-80')}><FilterLine fields={filterFields} filters={columnFilters.filters} lang={lang} dropped={droppedNote.dropped} onChange={droppedNote.change} onClear={() => { columnFilters.clear(); droppedNote.reset(); }} limit={columnFilters.limit} check={p.urlState?.validate} /></div>;
   const resultCount = <span ref={countSpan.ref} className={cn('tabular whitespace-nowrap', !mergeToolbar && 'ml-auto')}>{!shown || (loading && outOfRange) ? t('loading')
         : !success ? '—'
+        : p.externalPagination ? p.externalPagination.summary
         : outOfRange
           ? (lang === 'ko' ? `${data.total.toLocaleString()}건 · ${pageCount}페이지` : `${data.total.toLocaleString()} results · ${pageCount} pages`)
           : (lang === 'ko' ? `${data.total.toLocaleString()}건 · ${shownPage + 1}/${pageCount} 페이지` : `${data.total.toLocaleString()} results · page ${shownPage + 1}/${pageCount}`)}</span>;
@@ -714,7 +718,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       // eslint-disable-next-line shadcn/no-inline-styles -- viewport max height comes from the height prop or the measured page fit at runtime
       <div ref={viewportRef} data-table-auto-fit={p.height === undefined ? '' : undefined} tabIndex={0} aria-label={SCROLLPORT_LABEL[lang]} className={cn('overflow-auto border-t border-border-subtle [overflow-anchor:none]', chainWheel ? 'overscroll-auto' : 'overscroll-contain')} onScroll={updateFade} style={{ maxHeight: p.height ?? fit.cap ?? ROW_AREA_FALLBACK }}>
         {/* eslint-disable-next-line shadcn/no-inline-styles -- table width is the total column size computed at runtime */}
-        <div role="table" aria-label={p.ariaLabel} aria-rowcount={groupedItems ? -1 : data.total + 1} aria-busy={loading} className="min-w-full" style={{ width: tableWidth }}>
+        <div role="table" aria-label={p.ariaLabel} aria-rowcount={groupedItems || p.externalPagination ? -1 : data.total + 1} aria-busy={loading} className="min-w-full" style={{ width: tableWidth }}>
           <div role="rowgroup" className="sticky top-0 z-[5]">
             <div role="row" className="flex">{table.getHeaderGroups()[0].headers.map(h => {
               const sorted = h.column.getIsSorted();
@@ -785,7 +789,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
     </div>
 
     <div className="flex items-center justify-end gap-2 border-t border-border-subtle p-2">
-      <Button ref={previousButton} variant="secondary" size="toolbar" disabled={previousDisabled}
+      {p.externalPagination ? p.externalPagination.controls : <><Button ref={previousButton} variant="secondary" size="toolbar" disabled={previousDisabled}
         aria-disabled={loading || undefined} className="aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
         onFocus={() => { focusedPager.current = 'previous'; }} onBlur={() => { focusedPager.current = null; }}
         onClick={() => {
@@ -803,7 +807,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
           if (p.urlState) p.urlState.onChange({ sorting: p.urlState.sorting, page: effectivePage + 2 }, 'user');
           else setPage(effectivePage + 1);
           if (viewport.current) viewport.current.scrollTop = 0;
-        }}>{lang === 'ko' ? '다음' : 'Next'}</Button>
+        }}>{lang === 'ko' ? '다음' : 'Next'}</Button></>}
     </div>
   </section>;
 }

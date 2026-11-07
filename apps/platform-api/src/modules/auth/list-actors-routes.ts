@@ -12,8 +12,9 @@
 // Contract:
 //   - Auth: any session (intra-workspace read, low sensitivity).
 //   - Workspace: resolved from session; `workspace` query param is a pinned
-//     sentinel and must equal `current`. Other values → 400 validation.failed.
-//   - Response: { actors: Array<{ id, display_name, email, role_level }> }
+//     sentinel and must equal `current`. Other values → 422 validation.failed.
+//   - Optional actorType=internal_member|system restricts the workspace list.
+//   - Response: { actors: Array<{ id, display_name, email, role_level, actor_type }> }
 //     ordered by display_name ASC, id ASC for stable iteration.
 
 import { and, eq, inArray } from 'drizzle-orm';
@@ -31,6 +32,7 @@ import type { SessionService } from './session-service.js';
 // today the only legal value is `current` (== caller's session workspace).
 const listActorsQuerySchema = z.object({
   workspace: z.literal('current'),
+  actorType: z.enum(['internal_member', 'system']).optional(),
 });
 
 // GET /actors/resolve — bulk id→display-name lookup for owner chips (issue #87).
@@ -67,6 +69,7 @@ export const listActorsRoutes: FastifyPluginAsync<ListActorsRoutesOptions> = asy
       const sess = req.session;
       if (!sess) throw new HttpError('internal.unexpected', 'session missing after middleware');
 
+      const query = req.query as z.infer<typeof listActorsQuerySchema>;
       // ORDER BY display_name ASC, id ASC. Drizzle's relational query API
       // would also work but we already have the table object imported and
       // the result set is tiny — keep the SELECT direct.
@@ -79,7 +82,7 @@ export const listActorsRoutes: FastifyPluginAsync<ListActorsRoutesOptions> = asy
           actorType: actors.actorType,
         })
         .from(actors)
-        .where(eq(actors.workspaceId, sess.workspace_id))
+        .where(and(eq(actors.workspaceId, sess.workspace_id), query.actorType ? eq(actors.actorType, query.actorType) : undefined))
         .orderBy(actors.displayName, actors.id);
 
       return {

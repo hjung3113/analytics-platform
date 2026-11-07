@@ -54,4 +54,11 @@ export const manifests: MenuEntry[] = [
     context: contextCapabilities(), features: NO_FEATURES, pageKeys: [],
     component: lazy(() => import('./pages/PermissionRequests')),
   },
+  {
+    id: 'api-tokens', group: GROUP, label: { ko: 'API 토큰', en: 'API tokens' },
+    description: { ko: '개인 API 토큰 목록·발급·폐기', en: 'List, issue and revoke personal API tokens' },
+    path: '/tokens', icon: KeyRound, permission: 'platform:view', requiresScope: false, pageType: 'management',
+    context: contextCapabilities(), features: NO_FEATURES, pageKeys: [],
+    component: lazy(() => import('./pages/ApiTokens')),
+  },
 ];

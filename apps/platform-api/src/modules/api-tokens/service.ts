@@ -242,10 +242,10 @@ export function createApiTokenService(deps: ApiTokenServiceDeps) {
     );
   }
 
-  async function listWorkspace(actor: TokenActor, filter: PageOptions & { noExpiry?: boolean }): Promise<TokenPage> {
+  async function listWorkspace(actor: TokenActor, filter: PageOptions & { noExpiry?: boolean; kind?: TokenKind | undefined }): Promise<TokenPage> {
     if (actor.role_level !== 'admin') throw new HttpError('permission.denied', 'admin only');
     return page(
-      and(eq(apiTokens.workspaceId, actor.workspace_id), filter.noExpiry ? isNull(apiTokens.expiresAt) : undefined),
+      and(eq(apiTokens.workspaceId, actor.workspace_id), filter.noExpiry ? isNull(apiTokens.expiresAt) : undefined, filter.kind ? eq(apiTokens.kind, filter.kind) : undefined),
       filter,
     );
   }

@@ -472,7 +472,7 @@ describe('보관 / 보관 해제', () => {
     expect(screen.getByRole('button', { name: '수정' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: '더보기' }));
     fireEvent.click(await screen.findByRole('button', { name: '보관' }, slow));
-    const dialog = await screen.findByRole('dialog', {}, slow);
+    const dialog = await screen.findByRole('alertdialog', {}, slow);
     expect(dialog.textContent).toContain('읽을 수 있고');
     expect(dialog.textContent).toContain('이력은 그대로');
     fireEvent.click(within(dialog).getByRole('button', { name: '보관' }));
@@ -484,7 +484,7 @@ describe('보관 / 보관 해제', () => {
     fireEvent.click(screen.getByRole('button', { name: '더보기' }));
     expect(screen.queryByRole('button', { name: '판단 변경' })).toBeNull();
     fireEvent.click(await screen.findByRole('button', { name: '보관 해제' }, slow));
-    fireEvent.click(within(await screen.findByRole('dialog', {}, slow)).getByRole('button', { name: '보관 해제' }));
+    fireEvent.click(within(await screen.findByRole('alertdialog', {}, slow)).getByRole('button', { name: '보관 해제' }));
     await waitFor(() => expect(screen.queryByText(/보관된 Item입니다/)).toBeNull(), slow);
     expect(screen.getByRole('button', { name: '수정' })).toBeTruthy();
     expect(input()).toMatchObject({ archived: false });

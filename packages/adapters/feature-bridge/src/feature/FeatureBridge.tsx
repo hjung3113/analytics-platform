@@ -1,6 +1,6 @@
 import { useMemo, type ComponentType, type ReactNode } from 'react';
 import { ServerOff } from 'lucide-react';
-import { UNDO_WINDOW_MS, useI18n, usePlatform } from '@ap/kernel';
+import { UNDO_WINDOW_MS, useI18n, usePlatform, useUnsavedGuard } from '@ap/kernel';
 import { StateMessage } from '@ap/components';
 import { FeatureScreenRoot, type HostLinkProps, type HostNavigate, type HostNotice, type HostSearch, type HostSeam } from '@ap/feature-screens/global-screens/core';
 import type { TargetOf } from './links';
@@ -68,6 +68,7 @@ export function FeatureBridge({ children, canLink = noLink, Link = UnlinkedLink,
     useHere,
     // The head element `FeatureScreenPage` offers for a screen's one primary action (null outside it); a module-level hook, so the seam stays stable.
     usePrimaryActionTarget,
+    useUnsavedGuard,
   }), [canLink, targetOf, hrefLinkTo, hrefAbsoluteUrl, registry, Link, toast, dismissToast, useNavigate, useSearch, useTitle, useHere]);
 
   if (session.status === 'no-api') {
