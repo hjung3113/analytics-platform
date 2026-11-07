@@ -6,6 +6,8 @@
 #   body: at most 3 sentences
 # Lane name: $LANE_NAME, else the worktree directory `lane-<lane>[-<n>]`.
 # Run id:    $LANE_RUN, else the first run_… id in $AP_MAIN/.review/lanes/<lane>.md.
+# Lead host: $LANE_ORCA_ENV (a saved `orca environment` name, e.g. `mac`) when the lane runs on another machine than the
+#   lead's Run; the message then goes to that Orca server. Unset = this machine's Orca (the default).
 # Sends only; never run-use, check --wait or --ack (those belong to the lead).
 # Exit: 0 sent / 64 bad arguments / 2 lane, run or terminal handle unknown / the orca exit code.
 set -u
@@ -47,8 +49,10 @@ from=${ORCA_TERMINAL_HANDLE:-}
 [ -n "$from" ] || [ "$dry" = 1 ] || { echo "lane-send: ORCA_TERMINAL_HANDLE is not set" >&2; exit 2; }
 
 subject="$lane: $kind$ref"
+envargs=()
+[ -n "${LANE_ORCA_ENV:-}" ] && envargs=(--environment "$LANE_ORCA_ENV")
 if [ "$dry" = 1 ]; then
-  printf "orca orchestration send --run %s --to run:%s --from %s --type status --subject '%s' --body '%s'\n" "$run" "$run" "${from:-\$ORCA_TERMINAL_HANDLE}" "$subject" "$body"
+  printf "orca orchestration send%s --run %s --to run:%s --from %s --type status --subject '%s' --body '%s'\n" "${LANE_ORCA_ENV:+ --environment $LANE_ORCA_ENV}" "$run" "$run" "${from:-\$ORCA_TERMINAL_HANDLE}" "$subject" "$body"
   exit 0
 fi
-exec orca orchestration send --run "$run" --to "run:$run" --from "$from" --type status --subject "$subject" --body "$body"
+exec orca orchestration send ${envargs[@]+"${envargs[@]}"} --run "$run" --to "run:$run" --from "$from" --type status --subject "$subject" --body "$body"
