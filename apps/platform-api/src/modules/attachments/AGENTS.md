@@ -2,7 +2,7 @@
 
 ## Ownership
 
-Attachments owns the upload (`POST /attachments`) and download (`GET /attachments/:id/download`) commands, the storage seam, the filename and MIME rules, and the link step that attaches an uploaded file to a VOC or VOC comment (`linkAttachments`). It writes only `voc.voc_attachments`.
+Attachments owns the upload (`POST /attachments`) and download (`GET /attachments/:id/download`) commands, the storage seam, the filename and MIME rules, and the link step that attaches an uploaded file to a parent (`linkAttachments`): a VOC, a VOC comment, or a log-lifecycle validation round (parent kinds, below). It writes only `voc.voc_attachments`.
 
 It is the implementation of Core's attachment governance (`docs/architecture/platform-api/02-domain-module-boundaries.md`), not a second owner. Storage shape and server-proxied transfer are ADR-0011. VOC owns the read projections of its own attachment links (`voc/repo-read.ts`).
 
@@ -14,6 +14,9 @@ It is the implementation of Core's attachment governance (`docs/architecture/pla
 - The MIME allowlist (`mime-allowlist.ts`) is a closed set checked against the declared Content-Type; anything else is `attachment.unsupported_type`. The size cap is `MAX_ATTACHMENT_BYTES` (25 MB).
 - Every filename passes `sanitizeFilename` (strips `/`, `\`, and control characters; clamps to 255 UTF-8 bytes; an empty result is rejected) before it enters the storage key `{workspace_id}/{uuid}/{filename}`.
 - `voc_attachments` has no `workspace_id` column. The storage-key prefix is the workspace gate on download, and a cross-workspace id returns 404, not 403.
+- **Parent kinds (#1451).** A linked row has a `parent_kind` from the closed set `ATTACHMENT_PARENT_KINDS` (`voc`, `validation_round`; the DB check `voc_attachments_parent_kind_check` carries the same set) and, for non-VOC kinds, a `parent_id` with `voc_id` / `comment_id` NULL. `voc` rows keep `voc_id` / `comment_id`; a row with `parent_kind` NULL and `voc_id` / `comment_id` set (written before migration 0105) is read as `voc`. Download asks only the `AttachmentParentReader` registered for the row's kind (`parent-kinds.ts`); **default-deny**: a linked row whose kind has no reader answers 403 `permission.denied`, and a reader of one kind is never consulted for another, so a new kind cannot widen VOC access and VOC rights never grant another kind. `voc` is built inside `service.ts` (unchanged rules); other kinds arrive through `AttachmentsServiceDeps.parents` (wired in `server.ts`; `validation_round` from log-lifecycle). A new kind needs: the constant, the DB check, a reader, a link caller in the owning module and a test of allowed, other-workspace and unregistered cases.
+- `linkAttachments` and the purge job treat a row as unlinked only when `voc_id`, `comment_id` and `parent_id` are all NULL; leaving `parent_id` out of the purge predicate deletes linked non-VOC Evidence.
+- `listAttachmentsByParent` (`repo-read.ts`, barrel) lists a non-VOC parent's active attachments for the workspace; the caller has already judged read access to the parent.
 - VOC-level download entitlement requires `getVocDetail` to return `kind: 'full'`. Comment attachments use VOC's `canReadConversationEntry` seam, which resolves the parent and enforces the exact conversation entry's visibility, including deny-aware triage and Reporter Reply authorship. Attachments must not query conversation tables for authorization. An unlinked upload is readable only by its uploader.
 - `linkAttachments` runs in the parent's transaction and links only rows that are unlinked, not archived, and uploaded by the caller; any miss throws `LinkAttachmentsRejected` and rolls the parent back.
 - `Content-Disposition` carries an ASCII fallback plus RFC 5987 `filename*` (`rfc5987.ts`) so non-ASCII names survive.
@@ -26,4 +29,5 @@ It is the implementation of Core's attachment governance (`docs/architecture/pla
 
 ## Verification
 
+- Test the parent-kind seam (`__tests__/parent-kinds.test.ts`: kind derivation, default-deny, no cross-kind reader) and link by kind (`link-parent-kind.integration.test.ts`) when touched.
 - Test a failing INSERT after a successful put, a replay deleting its extra object, slot release after success, error and client abort, the audit detail rejecting `filename`, MIME and filename rejection, cross-workspace 404, download entitlement for linked and unlinked rows, and the link guard predicates when touched.

@@ -152,6 +152,7 @@ export const AUDIT_ACTION_BY_EVENT_TYPE: Record<AuditEventType, PlatformAuditAct
   'knowledge.draft.approved': 'retire',
   'knowledge.draft.rejected': 'retire',
   'knowledge.draft.changes_requested': 'update',
+  'lifecycle.round.evidence_attached': 'update',
   actor_role_changed: 'update',
   platform_notice_created: 'create',
   platform_notice_updated: 'update',

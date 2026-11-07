@@ -92,12 +92,14 @@ describe.skipIf(!runIntegration)('core.attachments_purge handler', () => {
     vocId?: string | null;
     commentId?: string | null;
     commentKind?: string | null;
+    parentKind?: string | null;
+    parentId?: string | null;
   }) {
     await appHandle.pool.query(
       `insert into voc.voc_attachments
          (voc_id, comment_id, comment_kind, name, size_bytes, mime_type,
-          storage_key, uploaded_by_actor_id, created_at)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, now() - interval '${opts.ageInterval}')`,
+          storage_key, uploaded_by_actor_id, created_at, parent_kind, parent_id)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, now() - interval '${opts.ageInterval}', $9, $10)`,
       [
         opts.vocId ?? null,
         opts.commentId ?? null,
@@ -107,6 +109,8 @@ describe.skipIf(!runIntegration)('core.attachments_purge handler', () => {
         'text/plain',
         opts.storageKey,
         actorId,
+        opts.parentKind ?? null,
+        opts.parentId ?? null,
       ],
     );
   }
@@ -153,6 +157,27 @@ describe.skipIf(!runIntegration)('core.attachments_purge handler', () => {
 
     const key = `${testKeyPrefix}linked`;
     await insertAttachment({ storageKey: key, sizeBytes: 200, ageInterval: '25 hours', vocId });
+
+    const storage = makeStubStorage();
+    await purgeUnlinkedAttachments({ pool: appHandle.pool, storage });
+
+    const after = await appHandle.pool.query(
+      'select 1 from voc.voc_attachments where storage_key = $1',
+      [key],
+    );
+    expect(after.rowCount).toBe(1);
+    expect(storage.deleted).not.toContain(key);
+  });
+
+  it('leaves a row linked to a non-VOC parent untouched (parent_id set, voc_id and comment_id NULL; #1451)', async () => {
+    const key = `${testKeyPrefix}round-linked`;
+    await insertAttachment({
+      storageKey: key,
+      sizeBytes: 300,
+      ageInterval: '25 hours',
+      parentKind: 'validation_round',
+      parentId: randomUUID(),
+    });
 
     const storage = makeStubStorage();
     await purgeUnlinkedAttachments({ pool: appHandle.pool, storage });

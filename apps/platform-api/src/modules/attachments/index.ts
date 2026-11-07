@@ -14,3 +14,11 @@ export {
   linkRejectedFields,
   toAttachmentRefForAudit,
 } from './repo.js';
+export {
+  ATTACHMENT_PARENT_KINDS,
+  type AttachmentActor,
+  type AttachmentLinkRow,
+  type AttachmentParentKind,
+  type AttachmentParentReader,
+} from './parent-kinds.js';
+export { listAttachmentsByParent, type ParentAttachmentRow } from './repo-read.js';

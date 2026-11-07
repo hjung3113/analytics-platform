@@ -12,6 +12,8 @@ import { STAGES } from './stage-transitions.js';
 
 export const REASON_MAX = 2000;
 export const NOTE_MAX = 2000;
+/** Attachments one `roundEvidenceAttach` call links (start value, like the other limits of the design's D7). */
+export const EVIDENCE_ATTACH_MAX = 20;
 export const PROJECT_KINDS = ['new', 'redevelopment'] as const;
 
 const DAY = /^(\d{4})-(\d{2})-(\d{2})$/;
@@ -51,6 +53,14 @@ export const LIFECYCLE_INPUT_SCHEMAS = {
   }),
   roundOpen: z.object({ projectId: uuid, sampleSet: z.unknown(), note: clearableText(NOTE_MAX) }),
   roundClose: z.object({ id: uuid }),
+  roundEvidenceAttach: z.object({
+    roundId: uuid,
+    attachmentIds: z
+      .array(uuid, NON_TEXT)
+      .min(1, { message: 'required' })
+      .max(EVIDENCE_ATTACH_MAX, { message: 'too_many' })
+      .refine((ids) => new Set(ids.map((id) => id.toLowerCase())).size === ids.length, { message: 'duplicate' }),
+  }),
 } as const;
 
 export type LifecycleOp = keyof typeof LIFECYCLE_INPUT_SCHEMAS;
@@ -63,6 +73,7 @@ export const LIFECYCLE_INPUT_KEYS = {
   projectUpdate: ['id', 'ownerActorId', 'targetDate', 'softwareId'],
   roundOpen: ['projectId', 'sampleSet', 'note'],
   roundClose: ['id'],
+  roundEvidenceAttach: ['roundId', 'attachmentIds'],
 } as const satisfies Record<LifecycleOp, readonly string[]>;
 
 const KNOWN = ['required', 'too_long', 'malformed', 'too_many', 'duplicate'];

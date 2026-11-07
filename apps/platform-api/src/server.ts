@@ -76,7 +76,7 @@ import {
   knowledgeLookup,
   logKnowledgeContribution,
 } from './modules/log-knowledge/index.js';
-import { logLifecycleContribution } from './modules/log-lifecycle/index.js';
+import { logLifecycleContribution, roundAttachmentParent } from './modules/log-lifecycle/index.js';
 import {
   createManagedSystemService,
   managedSystemsRoutes,
@@ -1115,6 +1115,8 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     idempotencyService,
     vocReadService,
     vocPublicAttachmentReader: vocPublicReadService,
+    // Parent kinds other than `voc` (#1451); a linked row whose kind is not listed here is denied.
+    parents: [roundAttachmentParent({ db: dbHandle.db, checkService })],
     log: { warn: (msg, meta) => app.log.warn(meta ?? {}, msg) },
   });
   await app.register(attachmentsRoutes, {

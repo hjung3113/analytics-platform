@@ -13,6 +13,7 @@ export const LOG_LIFECYCLE_AUDIT_EVENT_TYPES = [
   'lifecycle.project.reopened',
   'lifecycle.round.opened',
   'lifecycle.round.closed',
+  'lifecycle.round.evidence_attached',
 ] as const;
 
 /** Subject id of the project events is the project id; of the round events the round id. */
@@ -56,6 +57,11 @@ export const lifecycleRoundClosedDetailSchema = z
   .object({ projectId: z.string().uuid(), seq: z.number().int().min(1) })
   .strict();
 
+/** Manual validation attachment linked to a round (#1451): ids and a count — never a filename or a storage key. */
+export const lifecycleRoundEvidenceAttachedDetailSchema = z
+  .object({ projectId: z.string().uuid(), seq: z.number().int().min(1), count: z.number().int().min(1) })
+  .strict();
+
 export const LOG_LIFECYCLE_AUDIT_EVENT_DETAIL_SCHEMAS = {
   'lifecycle.project.created': lifecycleProjectCreatedDetailSchema,
   'lifecycle.project.updated': lifecycleProjectUpdatedDetailSchema,
@@ -64,4 +70,5 @@ export const LOG_LIFECYCLE_AUDIT_EVENT_DETAIL_SCHEMAS = {
   'lifecycle.project.reopened': lifecycleProjectReopenedDetailSchema,
   'lifecycle.round.opened': lifecycleRoundOpenedDetailSchema,
   'lifecycle.round.closed': lifecycleRoundClosedDetailSchema,
+  'lifecycle.round.evidence_attached': lifecycleRoundEvidenceAttachedDetailSchema,
 } as const satisfies Record<(typeof LOG_LIFECYCLE_AUDIT_EVENT_TYPES)[number], z.ZodTypeAny>;

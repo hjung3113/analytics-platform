@@ -936,6 +936,10 @@ Adds `knowledge.draft` and `knowledge.draft_revision` (no new schema; `platform_
 
 Adds `knowledge.draft_review` (migration 0103; no new schema). Composite same-workspace FKs to `draft` and, for `posted_item_id` / `posted_revision_no`, to `knowledge_item` and `knowledge_item_revision` (all `ON DELETE RESTRICT`); CHECKs: decision set, digest set exactly for `approved` (64 hex), `self_approval` only for `approved`, rationale ≤ 2000 and required unless `approved`, posted item and revision set together exactly for `approved`; partial unique `draft_review_final_uq (workspace_id, draft_id) WHERE decision IN ('approved','rejected')`. `platform_app` gets SELECT and INSERT only. Wall behind the grant: trigger `draft_review_append_only` (BEFORE UPDATE OR DELETE raises `23514`, migrate role included). The audit view needs no change (subject type `knowledge_draft`). Contract: [api/log-knowledge.md](api/log-knowledge.md#review-decisions-1198-b).
 
+## Attachment parent kind (#1451, migration 0105)
+
+Adds `parent_kind text` and `parent_id uuid` to `voc.voc_attachments` (nullable, no FK: the parent lives in another module's schema), the partial index `voc_attachments_parent_idx (parent_kind, parent_id) WHERE parent_id IS NOT NULL` and the check `voc_attachments_parent_kind_check` (both NULL; or `voc` with `parent_id` NULL; or `validation_round` with `parent_id` set and `voc_id` / `comment_id` NULL). Backfill: every row with `voc_id` or `comment_id` gets `parent_kind = 'voc'`; unlinked rows stay NULL. Additive: no grant change (`platform_app` keeps its table-level UPDATE), the read path also treats NULL `parent_kind` with `voc_id` / `comment_id` as `voc`, and the existing VOC columns and checks are untouched. The purge job's "unlinked" predicate gains `parent_id IS NULL`. Contract: [api/attachments.md](api/attachments.md).
+
 ## usageNextScreens from-menu index (#605, migration 0095)
 
 `platform.usage_events` gains `usage_events_next_from_idx (workspace_id, name, source, from_menu_id)` — a plain

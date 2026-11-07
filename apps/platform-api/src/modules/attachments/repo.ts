@@ -19,6 +19,7 @@
 import { sql } from 'drizzle-orm';
 
 import type { Tx } from '../../db/tx.js';
+import type { AttachmentParentKind } from './parent-kinds.js';
 
 export interface InsertAttachmentInput {
   id: string;
@@ -84,7 +85,10 @@ export type LinkAttachmentsParent =
   | { kind: 'voc'; vocId: string }
   | { kind: 'public_update'; commentId: string }
   | { kind: 'reporter_reply'; commentId: string }
-  | { kind: 'internal_comment'; commentId: string };
+  | { kind: 'internal_comment'; commentId: string }
+  // #1451: a non-VOC parent. `parentKind` is one of the closed `ATTACHMENT_PARENT_KINDS` other than 'voc'; the id is the
+  // parent's, and the owning module has already authorised the caller for it (its write right, workspace-scoped).
+  | { kind: 'validation_round'; roundId: string };
 
 export interface LinkAttachmentsInput {
   attachmentIds: string[];
@@ -110,7 +114,7 @@ export interface LinkedAttachmentRow {
  *
  * Guard predicate per row (all must hold; otherwise → 422):
  *   - row exists
- *   - voc_id IS NULL AND comment_id IS NULL (unlinked)
+ *   - voc_id, comment_id and parent_id all NULL (unlinked)
  *   - uploaded_by_actor_id === uploaderActorId (owned by caller)
  *   - archived_at IS NULL (active row)
  *
@@ -143,8 +147,13 @@ export async function linkAttachments(
     | 'reporter_reply'
     | 'internal_comment'
     | null = null;
+  let parentKindSet: AttachmentParentKind = 'voc';
+  let parentIdSet: string | null = null;
   if (input.parent.kind === 'voc') {
     vocIdSet = input.parent.vocId;
+  } else if (input.parent.kind === 'validation_round') {
+    parentKindSet = 'validation_round';
+    parentIdSet = input.parent.roundId;
   } else {
     commentIdSet = input.parent.commentId;
     commentKindSet = input.parent.kind;
@@ -168,10 +177,13 @@ export async function linkAttachments(
          set voc_id = ${vocIdSet},
              comment_id = ${commentIdSet},
              comment_kind = ${commentKindSet},
+             parent_kind = ${parentKindSet},
+             parent_id = ${parentIdSet},
              linked_at = now()
        where id = ${id}
          and voc_id is null
          and comment_id is null
+         and parent_id is null
          and uploaded_by_actor_id = ${input.uploaderActorId}
          and archived_at is null
        returning id, name, size_bytes, mime_type, uploaded_by_actor_id,
@@ -183,10 +195,11 @@ export async function linkAttachments(
       const reasonRows = await tx.execute<{
         voc_id: string | null;
         comment_id: string | null;
+        parent_id: string | null;
         uploaded_by_actor_id: string;
         archived_at: Date | null;
       }>(sql`
-        select voc_id, comment_id, uploaded_by_actor_id, archived_at
+        select voc_id, comment_id, parent_id, uploaded_by_actor_id, archived_at
           from voc.voc_attachments
          where id = ${id}
          limit 1
@@ -198,7 +211,7 @@ export async function linkAttachments(
       if (r.archived_at !== null) {
         throw new LinkAttachmentsRejected(i, id, 'archived');
       }
-      if (r.voc_id !== null || r.comment_id !== null) {
+      if (r.voc_id !== null || r.comment_id !== null || r.parent_id !== null) {
         throw new LinkAttachmentsRejected(i, id, 'already_linked');
       }
       if (r.uploaded_by_actor_id !== input.uploaderActorId) {

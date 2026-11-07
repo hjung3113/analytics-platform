@@ -456,6 +456,11 @@ export const vocAttachments = vocSchema.table(
     // Migration 0012 (#22 / C2): populated by C3 link step; purge job (C4)
     // reclaims rows where linked_at IS NULL AND created_at < now() - 24h.
     linkedAt: timestamp('linked_at', { withTimezone: true }),
+    // Migration 0105 (#1451): attachment parent kind. `voc` rows keep voc_id / comment_id (kind 'voc');
+    // `validation_round` rows carry the round id in parent_id with voc_id / comment_id null. No FK: the parent
+    // lives in another module's schema and its registered resolver judges it. NULL = unlinked.
+    parentKind: text('parent_kind'),
+    parentId: uuid('parent_id'),
   },
   (t) => ({
     vocIdx: index('voc_attachments_voc_idx').on(t.vocId).where(sql`${t.vocId} IS NOT NULL`),
@@ -479,6 +484,16 @@ export const vocAttachments = vocSchema.table(
       sql`(${t.commentId} is null and ${t.commentKind} is null)
         or (${t.commentId} is not null and ${t.commentKind} in ('public_update','reporter_reply','internal_comment'))`,
     ),
+    parentKindCheck: check(
+      'voc_attachments_parent_kind_check',
+      sql`((${t.parentKind} is null and ${t.parentId} is null)
+        or (${t.parentKind} = 'voc' and ${t.parentId} is null)
+        or (${t.parentKind} = 'validation_round' and ${t.parentId} is not null
+            and ${t.vocId} is null and ${t.commentId} is null)) is true`,
+    ),
+    parentIdx: index('voc_attachments_parent_idx')
+      .on(t.parentKind, t.parentId)
+      .where(sql`${t.parentId} IS NOT NULL`),
   }),
 );
 

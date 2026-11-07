@@ -13,6 +13,7 @@ describe('log lifecycle audit detail schemas (#1444 c)', () => {
     ['lifecycle.project.reopened', { from: 'cancelled', to: 'alpha' }],
     ['lifecycle.round.opened', { projectId: ID, seq: 1, stage: 'alpha', fileCount: 3, pinned: true }],
     ['lifecycle.round.closed', { projectId: ID, seq: 1 }],
+    ['lifecycle.round.evidence_attached', { projectId: ID, seq: 1, count: 2 }],
   ] as const)('%s accepts its detail', (type, detail) => {
     expect(AUDIT_EVENT_DETAIL_SCHEMAS[type].safeParse(detail).success).toBe(true);
   });
@@ -25,6 +26,8 @@ describe('log lifecycle audit detail schemas (#1444 c)', () => {
     ['lifecycle.round.opened', 'a file location', { projectId: ID, seq: 1, stage: 'alpha', fileCount: 1, pinned: false, fileRef: 's3://x' }],
     ['lifecycle.round.opened', 'a closed stage', { projectId: ID, seq: 1, stage: 'completed', fileCount: 1, pinned: false }],
     ['lifecycle.round.closed', 'a digest', { projectId: ID, seq: 1, digest: 'x' }],
+    ['lifecycle.round.evidence_attached', 'a filename', { projectId: ID, seq: 1, count: 1, name: 'a.png' }],
+    ['lifecycle.round.evidence_attached', 'a zero count', { projectId: ID, seq: 1, count: 0 }],
   ] as const)('%s rejects %s', (type, _label, detail) => {
     expect(AUDIT_EVENT_DETAIL_SCHEMAS[type].safeParse(detail).success).toBe(false);
   });

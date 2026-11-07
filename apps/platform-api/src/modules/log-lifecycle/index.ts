@@ -11,6 +11,7 @@ export function logLifecycleContribution(deps: LogLifecycleDeps): MenuDispatchCo
   };
 }
 
+export { roundAttachmentParent } from './attachment-parent.js';
 export type { LogLifecycleDeps } from './deps.js';
 export { sampleManifestDigest, parseSampleSet } from './domain/sample-set.js';
 export type { SampleSet } from './domain/sample-set.js';

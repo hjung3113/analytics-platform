@@ -37,6 +37,7 @@ export const PROJECT_PARAM_KEYS = ['projectId'] as const;
 export const EVENT_PARAM_KEYS = ['projectId', 'page', 'pageSize'] as const;
 export const ROUNDS_PARAM_KEYS = ['projectId'] as const;
 export const ROUND_PARAM_KEYS = ['roundId'] as const;
+export const EVIDENCE_PARAM_KEYS = ['roundId'] as const;
 
 export type ModelParse = { ok: true; value: ListQuery } | Fail;
 export function parseModelParams(params: Record<string, unknown>): ModelParse {
@@ -50,6 +51,7 @@ function parseId(key: string, params: Record<string, unknown>): { ok: true; valu
 export const parseProjectParams = (p: Record<string, unknown>) => parseId('projectId', p);
 export const parseRoundsParams = (p: Record<string, unknown>) => parseId('projectId', p);
 export const parseRoundParams = (p: Record<string, unknown>) => parseId('roundId', p);
+export const parseEvidenceParams = parseRoundParams;
 
 export interface EventQuery {
   projectId: string;

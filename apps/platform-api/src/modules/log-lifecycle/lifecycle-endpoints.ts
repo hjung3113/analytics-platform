@@ -7,20 +7,23 @@
 import type { EndpointResult, MenuEndpointDeclaration, ParamsJudgment } from '../menu-dispatch/types.js';
 import { holdsPlatformPermission } from '../platform-port/permissions.js';
 import type { LogLifecycleDeps } from './deps.js';
+import { listAttachmentsByParent } from '../attachments/index.js';
 import {
   EVENT_PARAM_KEYS,
+  EVIDENCE_PARAM_KEYS,
   MODEL_PARAM_KEYS,
   PROJECT_PARAM_KEYS,
   ROUNDS_PARAM_KEYS,
   ROUND_PARAM_KEYS,
   parseEventParams,
+  parseEvidenceParams,
   parseModelParams,
   parseProjectParams,
   parseRoundParams,
   parseRoundsParams,
 } from './domain/lifecycle-params.js';
 import { LOG_MODELS_MENU_ID } from './menu.js';
-import { getProjectDetail, getRoundDetail, listModels, listProjectEvents, listRounds } from './repositories/lifecycle-read.js';
+import { getProjectDetail, getRoundDetail, listModels, listProjectEvents, listRounds, roundInWorkspace } from './repositories/lifecycle-read.js';
 
 type Judge = (params: Record<string, unknown>) => ParamsJudgment;
 type Actor = { actor_id: string; workspace_id: string };
@@ -80,6 +83,20 @@ export function lifecycleEndpoints(deps: LogLifecycleDeps): MenuEndpointDeclarat
       const parsed = parseRoundParams(params);
       if (!parsed.ok) return { outcome: 'error', data: null, message: parsed.message };
       return { outcome: 'ok', data: await getRoundDetail(deps.db, actor.workspace_id, parsed.value) };
+    }),
+    // Manual validation attachment of a round (#1451): the attachments linked to it. Same read right and visibility as the round
+    // itself; an unknown or other-workspace round answers `ok` with `data: null`. The bytes go through
+    // `GET /attachments/:id/download`, judged by the `validation_round` parent reader.
+    declareRead(deps, 'roundEvidence', EVIDENCE_PARAM_KEYS, judgeOf(parseEvidenceParams), async (actor, params) => {
+      const parsed = parseEvidenceParams(params);
+      if (!parsed.ok) return { outcome: 'error', data: null, message: parsed.message };
+      if (!(await roundInWorkspace(deps.db, actor.workspace_id, parsed.value))) return { outcome: 'ok', data: null };
+      const rows = await listAttachmentsByParent(deps.db, {
+        workspaceId: actor.workspace_id,
+        parentKind: 'validation_round',
+        parentId: parsed.value,
+      });
+      return { outcome: 'ok', data: { rows } };
     }),
   ];
 }

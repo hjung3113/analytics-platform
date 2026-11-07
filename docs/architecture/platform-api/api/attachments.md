@@ -23,6 +23,14 @@ headers) returns 422 `validation.malformed_request`.
 workspace and streams the authorized attachment with its MIME type, size, and
 filename headers.
 
+Every linked attachment has a parent kind (`voc`, `validation_round`; #1451). The download rule below for
+VOC-level and comment attachments is the `voc` kind and is unchanged. A `validation_round` attachment (manual
+Evidence of a log-lifecycle Round) is readable by an Actor who holds `platform:view` when its Round exists in the
+Actor's workspace, and by nobody else; VOC rights never grant it and it never grants VOC access. A linked attachment
+whose kind has no registered reader is denied (403 `permission.denied`). Linking a round attachment is the
+`logLifecycle.roundEvidenceAttach` action ([log-lifecycle.md](log-lifecycle.md)), not an attachments endpoint; only
+unlinked, non-archived uploads of the caller can be linked, and a linked row never moves to another parent.
+
 VOC-level attachments require full parent VOC detail access. Comment attachments
 are authorized by VOC's `canReadConversationEntry` read seam, using the exact
 conversation visibility rule: Public Updates for conversation readers, Internal
@@ -32,7 +40,7 @@ for authorization. Unlinked uploads are downloadable only by their uploader.
 Unknown or cross-workspace attachments return 404; an attachment in the workspace
 whose parent entry is inaccessible or missing returns 403 `permission.denied`.
 
-The hourly `core.attachments_purge` job reclaims unlinked uploads older than 24
+The hourly `core.attachments_purge` job reclaims unlinked uploads (no VOC, comment or other parent link) older than 24
 hours. Candidate selection alone does not authorize deletion: each candidate is
 locked and re-checked in a short transaction, then claimed using `archived_at`.
 That transaction commits before storage deletion; `linkAttachments` rejects the
