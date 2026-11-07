@@ -10,6 +10,8 @@
 #   Load guard: start=no also when load1 > 2×ncpu (owner, 2026-11-06), whatever the memory stage; why= then names the load.
 # Optional environment variables: CAPACITY_STATE (previous swap record file, default $AP_MAIN/.review/capacity.last, or $TMPDIR/capacity.last if AP_MAIN is unset),
 #   CAPACITY_GREEN_FREE(25) CAPACITY_RED_FREE(20) CAPACITY_SWAP_GROW_MB(256) CAPACITY_SWAP_FULL_MB(8192) CAPACITY_SWAP_WINDOW_S(1800) CAPACITY_SWAP_MIN_AGE_S(120)
+#   Per-host ceilings (LANES «Lane hosts»; set in that host's shell env, never in the repo): CAPACITY_GREEN_WORKERS(7) CAPACITY_GREEN_LANES(4)
+#   CAPACITY_YELLOW_WORKERS(3) CAPACITY_YELLOW_LANES(3). Red stays 1/2 and the load guard still applies.
 set -u
 
 green_free=${CAPACITY_GREEN_FREE:-25}
@@ -87,8 +89,8 @@ else
 fi
 
 case $level in
-  green) w=7; l=4; s=yes ;;
-  yellow) w=3; l=3; s=yes ;;
+  green) w=${CAPACITY_GREEN_WORKERS:-7}; l=${CAPACITY_GREEN_LANES:-4}; s=yes ;;
+  yellow) w=${CAPACITY_YELLOW_WORKERS:-3}; l=${CAPACITY_YELLOW_LANES:-3}; s=yes ;;
   red) w=1; l=2; s=no ;;
 esac
 # Load guard: a machine this busy slows every running worker, so new starts wait even with free memory.
