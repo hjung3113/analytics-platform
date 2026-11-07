@@ -1,4 +1,4 @@
-/** Host presentation state; never a menu page key or part of an analysis address (ADR-0122). */
+/** Host presentation state; never a menu page key or part of an analysis address (ADR-0126). */
 export const DETAIL_EXPAND_KEY = 'expand';
 
 /** Remove only the platform key, preserving the encoding/order of every other pair. */

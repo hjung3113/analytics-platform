@@ -41,7 +41,7 @@ function warnOnOverlap(registrants: number) {
  * Shell-scoped DOM slot. Portal registrants (`useDetailPanelSlot`) preserve the registering page's React context;
  * content registrants (`useDetailPanelContent`) are rendered here, so they see the provider's context (ADR-0047).
  * A `null` content registrant is closed: it wins the slot but nothing renders. Provider-rendered content and portal
- * registrants through the children tree get `DetailPanelFullscreenContext`. An open replacement inherits expansion; closing, pausing or clearing ends it (ADR-0122).
+ * registrants through the children tree get `DetailPanelFullscreenContext`. An open replacement inherits expansion; closing, pausing or clearing ends it (ADR-0126).
  * A paused registrant (its owning surface is covered, `SurfacePauseScope`) keeps its place in the list but the slot reports `open` false, so the
  * shell hides the host; it gets no `onSuperseded` and no `activation`. Provider-rendered content is not rendered while paused; a portal registrant
  * stays mounted in the hidden host and scopes its own transient UI. A newer registrant still supersedes it, and a resume shows it again only if

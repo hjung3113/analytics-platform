@@ -48,7 +48,7 @@
   `SeverityBadge` uses it.
 - The detail slot is `@ap/ui`'s: `AppFrame` wraps its frame in `DetailPanelSlotProvider` and renders
   the host through `useDetailPanelSlotHost()`, and the provider owns the expanded state (toggle, Esc,
-  inheritance on open replacement; reset on close, clear or pause) and `DetailPanelFullscreenContext` (ADR-0122). Both portal and content registrants receive it. The provider also accepts controlled `expanded`/`onExpandedChange`; feature shells keep the uncontrolled path. The shared toggle uses ghost/icon-sm Button with translated label props (Korean defaults remain compatible), and the reading width is 48rem. Do not introduce feature-owned expansion state. Tests that render a shell with
+  inheritance on open replacement; reset on close, clear or pause) and `DetailPanelFullscreenContext` (ADR-0126). Both portal and content registrants receive it. The provider also accepts controlled `expanded`/`onExpandedChange`; feature shells keep the uncontrolled path. The shared toggle uses ghost/icon-sm Button with translated label props (Korean defaults remain compatible), and the reading width is 48rem. Do not introduce feature-owned expansion state. Tests that render a shell with
   `detailPanel` mount `DetailPanelSlotProvider` plus a host div. Overlapping registrants log the
   SDK's `[DetailPanelSlot] Multiple registrants; the last registrant wins.`
 - Rich-content uses TipTap per ADR-0011. The allowlist original stays in `packages/feature-shared`;

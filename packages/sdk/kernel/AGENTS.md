@@ -52,6 +52,6 @@ Platform Kernel 런타임(06 §4). 메뉴 목록도, 서버 구현도 모른다.
 `pnpm --filter @ap/kernel test`로 좁혀 본 뒤 루트 검사(루트 `AGENTS.md`)(앱 통합 테스트가 Registry·URL을 실제 메뉴로 검증).
 
 
-## Detail expansion URL boundary (ADR-0122, #1459)
+## Detail expansion URL boundary (ADR-0126, #1459)
 
 `links/detail-expansion.ts` owns internal reserved-key stripping and writing. `useScreenState` exposes `detailExpanded`/`setDetailExpanded` on HostPlatform only. `expand=1` is removed before query parsing, draft identity and saved-view comparison; `setPage` and Registry declarations reject it. Same-screen writes and materialization retain it; host toggles always replace, without changing guard semantics. Cross-menu navigation, return origins, links/carry sets, favorites, recents and space-last/resume do not carry it. Old preference addresses are stripped on read too. Board and pane host setters are no-ops: their presentation is in memory in the slot owner. Keep `expand` off MenuPlatform and page/query/share data. Regression coverage: `platform.detail-expansion.test.tsx`.

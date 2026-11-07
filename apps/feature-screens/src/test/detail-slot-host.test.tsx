@@ -444,7 +444,7 @@ describe('AppFrame', () => {
     },
   );
 
-  it('keeps the expansion when a different shell registrant replaces the open one, from its first slot render (ADR-0122)', async () => {
+  it('keeps the expansion when a different shell registrant replaces the open one, from its first slot render (ADR-0126)', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
