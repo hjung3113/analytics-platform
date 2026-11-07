@@ -78,6 +78,8 @@ const envSchema = z
     DB_LOCK_TIMEOUT_MS: z.coerce.number().int().positive().default(5_000),
     DB_IDLE_IN_TRANSACTION_TIMEOUT_MS: z.coerce.number().int().positive().default(30_000),
     HTTP_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(30_000),
+    // ADR-0116 decision 3a: days without use (or since issue) after which a token list row carries `unusedWarning`.
+    API_TOKEN_UNUSED_WARNING_DAYS: z.coerce.number().int().positive().optional(),
     // #1266 b10: operator maintenance only. true starts pg-boss (readiness and enqueueing still work) without the
     // supervisor or cron scheduler and registers no job worker, so copied pending jobs are neither run nor stamped.
     // Used by restore verification; never set it on a serving stack.

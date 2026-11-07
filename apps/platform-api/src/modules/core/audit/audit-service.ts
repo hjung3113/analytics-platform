@@ -20,6 +20,7 @@ import {
 } from '@ap/feature-shared';
 
 import { auditLog } from '../../../db/schema/core.js';
+import { currentAuthContext } from '../../../lib/auth-context.js';
 import type { Tx } from '../../../db/tx.js';
 
 export type { Tx };
@@ -40,7 +41,14 @@ export function createAuditService() {
     const eventType = auditEventTypeSchema.parse(input.event_type);
     // Validate detail against the per-event schema. Throws on shape error.
     const schema = AUDIT_EVENT_DETAIL_SCHEMAS[eventType];
-    const detail = schema.parse(input.detail);
+    const parsed = schema.parse(input.detail);
+    // ADR-0116: every write made by a token call carries the token id. Added here, once, from the request's
+    // auth context, after the per-event schema has validated the module's own detail.
+    const auth = currentAuthContext();
+    const detail =
+      auth.kind === 'token' && typeof parsed === 'object' && parsed !== null
+        ? { ...(parsed as Record<string, unknown>), api_token_id: auth.tokenId }
+        : parsed;
 
     await tx.insert(auditLog).values({
       workspaceId: input.workspace_id,

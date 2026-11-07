@@ -20,10 +20,12 @@ export const CATALOG: Partial<Record<ErrorCode, CatalogEntry>> = {
   'auth.session_invalid':  { tone: 'error', message: '세션이 유효하지 않습니다. 다시 로그인해 주세요.' },
   'auth.session_required': { tone: 'error', message: '로그인이 필요합니다.' },
   'auth.session_expired':  { tone: 'warning', message: '세션이 만료되었습니다. 다시 로그인해 주세요.' },
+  'auth.token_invalid':    { tone: 'error', message: 'API 토큰이 유효하지 않습니다.' },
   'auth.workspace_mismatch': { tone: 'error', message: '워크스페이스 접근 권한이 없습니다.' },
 
   // permission.*
   'permission.denied':         { tone: 'error', message: '권한이 없습니다.' },
+  'permission.session_required': { tone: 'error', message: '이 동작은 로그인 세션으로만 할 수 있습니다.' },
   'permission.scope_required': { tone: 'error', message: '해당 시스템에 대한 권한이 없습니다.' },
 
   // rate_limited.*

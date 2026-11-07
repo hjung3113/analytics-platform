@@ -1,0 +1,5 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "string",
+  "pattern": "^ap_[0-9a-f]{8}_[A-Za-z0-9_-]{43,}$"
+}

@@ -51,6 +51,10 @@ export function toFrontendState(
         return 'pending_request';
       }
       return hasRequestable ? 'revoked' : 'blocked_non_requestable';
+    case 'session_required':
+    case 'token_scope':
+      // ADR-0116: a token-only refusal; no request can lift it.
+      return 'blocked_non_requestable';
     case 'sensitive_reason_missing':
       // Slice 1 has no sensitive caps, so this branch is unreachable from
       // checkCapability today. Pin the mapping so S1.4 inherits it.

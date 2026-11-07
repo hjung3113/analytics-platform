@@ -35,6 +35,14 @@ import { getStorage } from './lib/storage/factory.js';
 import type { StorageBackend } from './lib/storage/index.js';
 import { SESSION_COOKIE_NAME } from './middleware/require-session.js';
 import {
+  apiTokenRoutes,
+  authResultOf,
+  bearerValue,
+  createApiTokenService,
+  installAuthStore,
+  installTokenGate,
+} from './modules/api-tokens/index.js';
+import {
   analyticsAreasRoutes,
   createAnalyticsAreaService,
 } from './modules/analytics-areas/index.js';
@@ -270,6 +278,8 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
   app.addHook('onSend', async (req, reply) => {
     reply.header('X-Correlation-Id', req.id);
   });
+  // ADR-0116: the request's auth-context holder must exist before any other hook runs.
+  installAuthStore(app as unknown as FastifyInstance);
 
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
@@ -331,8 +341,35 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
   // inline before bucket selection so the per-actor bucket is the
   // workspace+actor identity when a valid session cookie is present, and
   // `req.ip` only for unauthenticated traffic.
+  const auditService = createAuditService();
+  const apiTokenService = createApiTokenService({
+    db: dbHandle.db,
+    auditService,
+    workspaceId,
+    unusedWarningDays: config.API_TOKEN_UNUSED_WARNING_DAYS ?? 30,
+  });
   const rateLimitActorCache = createRateLimitActorCache();
+  // Token mutations (`config.tokenMutation`) use the size of the mutation tier (lib/rate-limit-tiers.ts) on their own key.
+  const TOKEN_MUTATION_SUFFIX = ':mutation';
+  const TOKEN_MUTATION_MAX = buildRateLimitTiers(async () => '').mutation.max as number;
   const resolveRateLimitActorKey = async (req: FastifyRequest): Promise<string> => {
+    // ADR-0116 decision 8: a Bearer call that authenticates has its own bucket `<workspace>:token:<id>`; a route that
+    // declares `config.tokenMutation` gets a separate mutation-sized bucket (`…:mutation`). Every rejected
+    // authentication (unknown, malformed, revoked, expired, wrong owner) and an empty Bearer credential is counted in
+    // the unauthenticated per-IP bucket. The cookie is ignored. The outcome is resolved once and reused by the gate.
+    const bearer = bearerValue(req.headers.authorization);
+    if (bearer !== null) {
+      try {
+        const result = await authResultOf(req, () => apiTokenService.authenticate(bearer, req.ip));
+        if (result.ok) {
+          const base = `${result.workspaceId}:token:${result.tokenId}`;
+          return req.routeOptions?.config?.tokenMutation === true ? `${base}${TOKEN_MUTATION_SUFFIX}` : base;
+        }
+      } catch (err) {
+        req.log?.warn?.({ err }, 'rate-limit token lookup failed; falling back to ip');
+      }
+      return req.ip;
+    }
     const raw = req.cookies?.[SESSION_COOKIE_NAME];
     const token = typeof raw === 'string' ? raw : undefined;
     if (token) {
@@ -360,7 +397,8 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
 
   await app.register(rateLimit, {
     global: true,
-    max: (req, key) => (key === req.ip ? 50 : 100),
+    max: (req, key) =>
+      key === req.ip ? 50 : key.endsWith(TOKEN_MUTATION_SUFFIX) ? TOKEN_MUTATION_MAX : 100,
     timeWindow: '1 minute',
     allowList: (req) =>
       req.url === '/health' || req.url === '/health/live' || req.url === '/health/ready',
@@ -388,6 +426,9 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
   // key generator stays here: it closes over sessionService and the
   // rate-limit actor cache, both wired above.
   app.decorate('rateLimitConfig', buildRateLimitTiers(actorAwareKeyGenerator));
+
+  // ADR-0116 token gate: after the rate limiter (a failed Bearer call counts in the IP bucket), before any route.
+  installTokenGate(app as unknown as FastifyInstance, { tokens: apiTokenService });
 
   // ── Error handler ─ ADR-0012 envelope (lib/http-error-handler.ts) ────
   // Registered on the ROOT instance: a plugin-scoped setErrorHandler would
@@ -461,7 +502,6 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
   // Registered AFTER auth so requireSession is available on its routes.
   const recoveryRecorder = createOwnerRecoveryRecorder();
   const checkService = createCheckService({ db: dbHandle.db });
-  const auditService = createAuditService();
   const idempotencyService = createIdempotencyService();
   const notificationDispatcher =
     opts.notificationDispatcher ??
@@ -503,6 +543,13 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
       mutation: app.rateLimitConfig.mutation,
       sensitive: app.rateLimitConfig.sensitive,
     },
+  });
+
+  await app.register(apiTokenRoutes, {
+    sessionService,
+    tokens: apiTokenService,
+    workspaceId,
+    rateLimitConfig: { mutation: app.rateLimitConfig.mutation },
   });
 
   // ── Managed Systems module — Slice 2 issue #10 ──────────────────────────

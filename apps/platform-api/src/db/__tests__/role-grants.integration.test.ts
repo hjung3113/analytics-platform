@@ -313,6 +313,9 @@ describe.skipIf(!runIntegration)('Index conventions (ADR-0015:55-61)', () => {
       // Skip the `sessions` PK as well — its PK is the opaque session id
       // text column (ADR-0006).
       if (r.indexname === 'sessions_pkey') continue;
+      // `core.api_tokens` is looked up by the hash of the presented token before the workspace is known
+      // (ADR-0116): the unique hash index is the lookup key, not a tenant read path.
+      if (r.indexname === 'api_tokens_secret_hash_uq') continue;
 
       const cols = r.indexdef.match(/\((.*)\)/)?.[1] ?? '';
       const firstCol = cols.split(',')[0]?.trim().replace(/"/g, '');

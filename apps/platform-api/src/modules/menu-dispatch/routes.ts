@@ -12,6 +12,7 @@ import type { FastifyPluginAsync, FastifyRequest, preHandlerHookHandler } from '
 
 import type { Db } from '../../db/client.js';
 import type { SessionService } from '../auth/session-service.js';
+import { refuseLostTokenContext } from '../api-tokens/gate.js';
 import { requireCsrf } from '../platform-port/csrf.js';
 import {
   type LoadedSession,
@@ -47,9 +48,12 @@ export const menuQueryDispatchRoutes: FastifyPluginAsync<MenuDispatchRoutesOptio
     workspaceId: opts.workspaceId,
   });
 
-  app.post('/', async (req, reply) => {
+  // tokenCallable (ADR-0116): every judgment of a menu-query goes through `declaration.authorize` →
+  // `holdsPlatformPermission` → `checkCapability`, which applies the token scopes.
+  app.post('/', { config: { tokenCallable: true } }, async (req, reply) => {
     const loaded = await authenticate(req, reply, true);
     if (!loaded) return reply;
+    if (refuseLostTokenContext(req, reply)) return reply; // fail closed again right before dispatch authorizes
     const shape = judgeQueryShape(req.body === MALFORMED_BODY ? null : req.body, opts.registry);
     if (!shape.ok) return answerOf(req, { outcome: 'error', message: shape.message });
     return answerOf(req, await runQuery(shape, platformActorOf(loaded), req.id));
@@ -95,9 +99,10 @@ export const menuActionRoutes: FastifyPluginAsync<MenuActionRoutesOptions> = asy
     return undefined;
   };
 
-  app.post('/', { preHandler: [authenticateFirst, csrf] }, async (req, reply) => {
+  app.post('/', { config: { tokenCallable: true, tokenMutation: true }, preHandler: [authenticateFirst, csrf] }, async (req, reply) => {
     const loaded = authenticated.get(req);
     if (!loaded) return reply.code(401).send({ code: 'auth.session_invalid' });
+    if (refuseLostTokenContext(req, reply)) return reply; // fail closed again right before dispatch authorizes
     return engine.run(platformActorOf(loaded), req.body === MALFORMED_BODY ? null : req.body, req.id);
   });
 };
