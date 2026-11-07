@@ -3,7 +3,7 @@ import { useMenuAction, usePlatform, useUnsavedGuard } from '@ap/kernel';
 import { Button, Callout, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, Textarea } from '@ap/ui';
 import { itemCreate, type Origin, type Target } from '../endpoints';
 import { createErrors } from '../model';
-import { suggestedTargets } from '../origin';
+import { originContextTooLarge, suggestedTargets } from '../origin';
 import { OriginSummary } from './OriginSummary';
 import { useCopy } from '../copy';
 import { Field } from './parts';
@@ -12,7 +12,7 @@ export function CreateDrawer({ origin: initialOrigin, onClose }: { origin: Origi
   const c = useCopy(), uid = useId();
   const { navigate, linkTo, toast } = usePlatform();
   const create = useMenuAction(itemCreate);
-  const [origin] = useState(() => initialOrigin ? structuredClone(initialOrigin) : null);
+  const [origin, setOrigin] = useState(() => initialOrigin ? structuredClone(initialOrigin) : null);
   const [suggestions] = useState(() => suggestedTargets(origin));
   // Match the existing API/editor limit; keep the full Selection in the origin snapshot.
   const [initialTargets] = useState(() => suggestions.slice(0, 50));
@@ -20,6 +20,8 @@ export function CreateDrawer({ origin: initialOrigin, onClose }: { origin: Origi
   const [problem, setProblem] = useState(''), [action, setAction] = useState('');
   const [targets, setTargets] = useState<Target[]>(initialTargets), [kind, setKind] = useState<Target['kind']>('equipment'), [key, setKey] = useState(''), [name, setName] = useState('');
   const [quest, setQuest] = useState<PickedQuest | null>(null), [error, setError] = useState(''), [targetError, setTargetError] = useState(false), [discard, setDiscard] = useState(false);
+  const [serverOriginTooLarge, setServerOriginTooLarge] = useState(false);
+  const originTooLarge = originContextTooLarge(origin) || serverOriginTooLarge;
   const [fields, setFields] = useState<string[]>([]);
   useEffect(() => {
     if (fields.length === 0) return;
@@ -30,7 +32,7 @@ export function CreateDrawer({ origin: initialOrigin, onClose }: { origin: Origi
   }, [fields, uid]);
   const [retry, setRetry] = useState<(() => void) | null>(null);
   const [createdId, setCreatedId] = useState<string | null>(null);
-  const dirty = !!problem || !!action || !!quest || JSON.stringify(targets) !== JSON.stringify(initialTargets) || !!key || !!name;
+  const dirty = (initialOrigin !== null && origin === null) || !!problem || !!action || !!quest || JSON.stringify(targets) !== JSON.stringify(initialTargets) || !!key || !!name;
   // Unsaved-edit guard (#1388): off once the item is saved, so the post-save move to the detail is not held.
   useUnsavedGuard(dirty && createdId === null);
   const openCreated = useEffectEvent((itemId: string) => navigate(linkTo('improvement-item', { params: { itemId } })));
@@ -38,11 +40,13 @@ export function CreateDrawer({ origin: initialOrigin, onClose }: { origin: Origi
   const requestClose = () => { if (!create.pending) { if (dirty) setDiscard(true); else onClose(); } };
   function settle(result: Awaited<ReturnType<typeof create.run>>) {
     if (result.outcome === 'ok' && result.data) { toast(c.created, 'info'); setCreatedId(result.data.itemId); return; }
+    if (result.fieldErrors.some(field => field.code === 'too_long' && field.path.length === 2 && field.path[0] === 'origin' && field.path[1] === 'context')) { setServerOriginTooLarge(true); setError(''); setRetry(null); return; }
     setError(result.outcome === 'unknown' ? c.unknown : result.outcome === 'forbidden' ? c.denied : c.failed);
     setRetry(result.retry ? () => () => { void result.retry!().then(settle).catch(() => setError(c.failed)); } : null);
   }
   function save() {
     setRetry(null);
+    if (originTooLarge) return;
     const missing = createErrors({ problem, origin, targets });
     setFields(missing);
     if (missing.includes('origin')) setTargetOpen(true);
@@ -58,9 +62,15 @@ export function CreateDrawer({ origin: initialOrigin, onClose }: { origin: Origi
     <form className="flex min-h-0 flex-1 flex-col" noValidate onSubmit={e => { e.preventDefault(); if (!create.pending) save(); }}>
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-1 py-3">
         <section aria-label={c.inherited} className="space-y-2 rounded-md border border-border-subtle bg-surface-sunken p-3"><h3 className="text-sm font-semibold">{c.inherited}</h3>{origin ? <OriginSummary origin={origin} /> : <p className="text-sm text-text-secondary">{c.sourceMissing}</p>}</section>
+        {originTooLarge && <Callout tone="red" title={c.origin}><p role="alert">{c.originTooLarge}</p><Button type="button" variant="secondary" disabled={create.pending} onClick={() => { setOrigin(null); setServerOriginTooLarge(false); setTargetOpen(true); setError(''); setRetry(null); }}>{c.excludeOrigin}</Button></Callout>}
         {error && <Callout tone="red" title={c.failed}><p role="alert">{error}</p>{retry && <Button type="button" variant="secondary" disabled={create.pending} onClick={retry}>{c.retry}</Button>}</Callout>}
         <Field id={`${uid}-problem`} label={c.requiredProblem} error={fields.includes('problem') ? c.problemInvalid : undefined}><Textarea autoFocus rows={2} id={`${uid}-problem`} maxLength={500} placeholder={c.problemHint} value={problem} aria-invalid={fields.includes('problem') || undefined} aria-describedby={fields.includes('problem') ? `${uid}-problem-error` : undefined} onChange={e => setProblem(e.target.value)} /><p className="text-xs text-text-secondary">{[...problem].length}/500</p></Field>
         <Field id={`${uid}-action`} label={c.action}><Textarea rows={2} id={`${uid}-action`} maxLength={2000} value={action} onChange={e => setAction(e.target.value)} /></Field>
+        <section aria-label={c.savedTargets} className="space-y-2"><h3 className="text-sm font-semibold">{c.savedTargets}</h3>
+          {suggestions.length > 50 && <p className="text-xs text-text-secondary">{c.targetSuggestionLimit}</p>}
+          <ul className="max-h-40 overflow-y-auto">{targets.map((t, i) => <li key={`${t.kind}:${t.externalKey}`} className="flex items-center justify-between gap-2 text-sm"><span>{t.displayName} · {t.externalKey}</span><Button type="button" variant="ghost" size="sm" aria-label={`${t.displayName} ${c.remove}`} onClick={() => setTargets(ts => ts.filter((_, n) => n !== i))}>{c.remove}</Button></li>)}</ul>
+          {targets.length === 0 && <p className="text-sm text-text-secondary">{c.noTarget}</p>}
+        </section>
         <QuestPicker selected={quest} onSelect={setQuest} />
         <section aria-label={c.target} className="space-y-3 border-t border-border-subtle pt-3">
           <Button type="button" variant="ghost" size="sm" aria-expanded={targetOpen} aria-controls={`${uid}-targets`} onClick={() => setTargetOpen(!targetOpen)}>{c.target} · {targets.length || c.noTarget}</Button>
@@ -70,8 +80,7 @@ export function CreateDrawer({ origin: initialOrigin, onClose }: { origin: Origi
           <Button type="button" variant="secondary" disabled={targets.length >= 50} onClick={() => { if (!key.trim() || !name.trim()) { setTargetError(true); return; } setTargets(ts => [...ts.filter(t => t.kind !== kind || t.externalKey !== key.trim()), { kind, externalKey: key.trim(), displayName: name.trim() }]); setKey(''); setName(''); setTargetError(false); }}>{c.addTarget}</Button>
           {targetError && <p role="alert">{c.invalidTarget}</p>}
           </div>
-          {suggestions.length > 50 && <p className="text-xs text-text-secondary">{c.targetSuggestionLimit}</p>}
-          <ul>{targets.map((t, i) => <li key={`${t.kind}:${t.externalKey}`} className="flex items-center justify-between gap-2 text-sm"><span>{t.displayName} · {t.externalKey}</span><Button type="button" variant="ghost" size="sm" aria-label={`${t.displayName} ${c.remove}`} onClick={() => setTargets(ts => ts.filter((_, n) => n !== i))}>{c.remove}</Button></li>)}</ul>
+
         </section>
       </div>
       <div className="flex shrink-0 justify-end gap-2 border-t border-border-subtle pt-3"><Button type="button" variant="secondary" disabled={create.pending} onClick={requestClose}>{c.cancel}</Button><Button type="submit" disabled={create.pending || !create.ready}>{create.pending ? c.saving : c.save}</Button></div>

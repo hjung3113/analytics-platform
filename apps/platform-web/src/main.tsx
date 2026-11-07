@@ -7,6 +7,7 @@ import { createRoot } from 'react-dom/client';
 import { createBasePathLocation, I18nProvider } from '@ap/kernel';
 import { setFeatureApi } from '@ap/feature-bridge/feature-api';
 import { homeTodoSlot } from '@ap/feature-bridge/home-todo-slot';
+import { improvementAnalysisActions } from '@ap/menu-improvement-items/analysis-actions';
 import { improvementHomeTodoSlot } from '@ap/menu-improvement-items/home-todo-slot';
 import { navCountsSlot } from '@ap/feature-bridge/nav-counts';
 import { notificationsSlot } from '@ap/feature-bridge/notifications-slot';
@@ -45,7 +46,7 @@ void startOrFail(root, async () => {
   }
   // The bridge screens' feature API comes from the assembly (ADR-0071); mock builds have none → "실서버 필요".
   setFeatureApi(assembly.featureApi ?? null);
-  const makeSlots = () => appSlots(assembly, notificationsSlot, vocCompose, homeTodo, scopeControlSlot, navCountsSlot, savedViewsSlot);
+  const makeSlots = () => appSlots(assembly, notificationsSlot, vocCompose, homeTodo, scopeControlSlot, navCountsSlot, savedViewsSlot, improvementAnalysisActions);
   root.render(
     <StrictMode>
       <I18nProvider>

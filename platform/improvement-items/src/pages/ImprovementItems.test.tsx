@@ -420,7 +420,78 @@ it('uses neutral names when the menu is retired and the metric catalog fails (#1
 it('keeps automatic target suggestions within the existing 50-target input limit (#1408)', async () => {
   const selection = Array.from({ length: 51 }, (_, i) => `EQ-${i + 1}`);
   mount({ children: <CreateDrawer origin={{ menuId: 'improvement-items', context: { selection } }} onClose={() => {}} /> });
-  const targets = await screen.findByRole('region', { name: '대상' });
+  const targets = await screen.findByRole('region', { name: '저장할 대상' });
   expect(within(targets).getAllByRole('button', { name: /EQ-.* 제거/ })).toHaveLength(50);
   expect(within(targets).getByText('설비 선택 중 처음 50개를 대상으로 제안했습니다. 필요 없는 대상은 제거하세요.')).toBeTruthy();
+});
+
+
+describe('review fixes (#1408 round 2)', () => {
+  it('separates the source focus/tab from the create focus between different menus', async () => {
+    const source = { ...manifests[0]!, id: 'equipment-master', path: '/equipment-master', label: { ko: '설비 마스터', en: 'Equipment master' }, pageKeys: ['focus', 'tab'], contextResetKeys: [], primary: false, hiddenPageKeys: [], repeatedPageKeys: [] };
+    const localRegistry = createRegistry({ spaces: registry.spaces, menus: [...registry.menus, source], groups: registry.groups, permissions: [MANAGE_PERMISSION] });
+    const sourcePage = JSON.stringify({ focus: 'EQ-1', tab: 'validity' });
+    window.history.replaceState(null, '', `/improvement-items?v=1&view=all&focus=new&origin=equipment-master&originPage=${encodeURIComponent(sourcePage)}`);
+    const action = vi.fn(async () => ({ outcome: 'error' as const, data: null, version: null, fieldErrors: [], replayed: false, correlationId: 'c' }));
+    const session = testSession(['platform:view', MANAGE_PERMISSION]);
+    const api = testAdapter({ session: () => session, menuAction: action });
+    render(<I18nProvider><PlatformProvider adapter={api} registry={localRegistry}><ImprovementItems /></PlatformProvider></I18nProvider>);
+    const drawer = await screen.findByRole('dialog');
+    const href = within(drawer).getByRole('link', { name: '분석 화면 열기' }).getAttribute('href')!;
+    expect(new URL(href, window.location.origin).searchParams.get('focus')).toBe('EQ-1');
+    expect(new URL(href, window.location.origin).searchParams.get('tab')).toBe('validity');
+    fireEvent.change(within(drawer).getByLabelText('문제 · 필수'), { target: { value: 'problem' } });
+    fireEvent.click(within(drawer).getByRole('button', { name: '저장' }));
+    await waitFor(() => expect(action).toHaveBeenCalledWith(expect.objectContaining({ input: expect.objectContaining({ origin: expect.objectContaining({ menuId: 'equipment-master', context: expect.objectContaining({ page: { focus: 'EQ-1', tab: 'validity' } }) }) }) })));
+    expect(new URLSearchParams(window.location.search).get('focus')).toBe('new');
+  });
+  it('blocks an oversized origin and preserves problem, action, Quest and targets after removing it', async () => {
+    const action = vi.fn(async () => ({ outcome: 'error' as const, data: null, version: null, fieldErrors: [], replayed: false, correlationId: 'c' }));
+    const origin = { menuId: 'improvement-items', context: { selection: ['EQ-1'], page: { q: '한'.repeat(3000) } } };
+    mount({ overrides: { menuAction: action, searchQuests: async () => response({ supported: true, items: [{ id: 'Q-1', title: 'Chosen Quest', status: 'Open' }], page: 0, hasMore: false }) }, children: <CreateDrawer origin={origin} onClose={() => {}} /> });
+    fireEvent.change(await screen.findByLabelText('문제 · 필수'), { target: { value: 'draft problem' } });
+    fireEvent.change(screen.getByLabelText('조치'), { target: { value: 'draft action' } });
+    fireEvent.click(await screen.findByRole('button', { name: 'Q-1 · Chosen Quest · Open' }));
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+    expect(action).not.toHaveBeenCalled();
+    expect(screen.getByText('분석 출처가 8KiB를 초과했습니다. 출처를 제외하고 저장할 수 있습니다. 입력한 내용은 유지됩니다.')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '분석 출처 제외' }));
+    expect((screen.getByLabelText('문제 · 필수') as HTMLTextAreaElement).value).toBe('draft problem');
+    expect((screen.getByLabelText('조치') as HTMLTextAreaElement).value).toBe('draft action');
+    expect(screen.getByRole('button', { name: 'EQ-1 제거' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+    await waitFor(() => expect(action).toHaveBeenCalledWith(expect.objectContaining({ input: expect.objectContaining({ problem: 'draft problem', action: 'draft action', questId: 'Q-1', targets: [{ kind: 'equipment', externalKey: 'EQ-1', displayName: 'EQ-1' }], origin: null }) })));
+  });
+  it('displays server origin.context:too_long and offers recovery while retaining the draft', async () => {
+    const action = vi.fn(async () => ({ outcome: 'invalid' as const, data: null, version: null, fieldErrors: [{ path: ['origin', 'context'], code: 'too_long' }], replayed: false, correlationId: 'c' }));
+    mount({ overrides: { menuAction: action }, children: <CreateDrawer origin={{ menuId: 'improvement-items', context: {} }} onClose={() => {}} /> });
+    fireEvent.change(await screen.findByLabelText('문제 · 필수'), { target: { value: 'draft' } });
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+    await screen.findByText('분석 출처가 8KiB를 초과했습니다. 출처를 제외하고 저장할 수 있습니다. 입력한 내용은 유지됩니다.');
+    fireEvent.click(screen.getByRole('button', { name: '분석 출처 제외' }));
+    expect((screen.getByLabelText('문제 · 필수') as HTMLTextAreaElement).value).toBe('draft');
+    expect(screen.getByRole('textbox', { name: '외부 키' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+    expect(screen.getAllByRole('alert').some(node => node.textContent!.includes('입력한 대상을 추가하세요'))).toBe(true);
+  });
+  it('keeps target removal before the result list when Quest has many long titles', async () => {
+    mount({ overrides: { searchQuests: async () => response({ supported: true, items: Array.from({ length: 10 }, (_, i) => ({ id: `Q-${i}`, title: '긴 과제 제목 '.repeat(50), status: 'Open' })), page: 0, hasMore: false }) }, children: <CreateDrawer origin={{ menuId: 'improvement-items', context: { selection: ['EQ-1'] } }} onClose={() => {}} /> });
+    const result = await screen.findByRole('button', { name: /^Q-0 ·/ });
+    const remove = screen.getByRole('button', { name: 'EQ-1 제거' });
+    expect(remove.compareDocumentPosition(result) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    fireEvent.click(remove);
+    expect(screen.queryByRole('button', { name: 'EQ-1 제거' })).toBeNull();
+  });
+});
+
+it('rejects a malformed separate source page and recovers by explicitly clearing the source', async () => {
+  mount({ url: '/improvement-items?v=1&view=all&focus=new&origin=improvement-items&originPage=%7B' });
+  await screen.findByText('분석 출처를 확인할 수 없습니다. 출처를 지우고 대상을 입력하세요.');
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(new URLSearchParams(window.location.search).get('originPage')).toBe('{');
+  fireEvent.click(screen.getByRole('button', { name: '초기화' }));
+  await screen.findByRole('dialog');
+  expect(new URLSearchParams(window.location.search).has('originPage')).toBe(false);
+  expect(new URLSearchParams(window.location.search).has('origin')).toBe(false);
+  expect(screen.getByRole('textbox', { name: '외부 키' })).toBeTruthy();
 });

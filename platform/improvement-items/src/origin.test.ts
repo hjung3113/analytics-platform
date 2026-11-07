@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { emptyGlobal } from '@ap/contracts';
-import { snapshotOrigin, originLinkOptions, suggestedTargets } from './origin';
+import { snapshotOrigin, originLinkOptions, suggestedTargets, originContextTooLarge, parseOriginPage } from './origin';
 
 describe('saved analysis origin', () => {
   it('freezes only declared page keys, preserving repeated values and excluding returnTo', () => {
@@ -18,5 +18,28 @@ describe('saved analysis origin', () => {
   });
   it('restores a legacy origin without page keys and clears ambient Context', () => {
     expect(originLinkOptions({ menuId: 'analysis', context: { from: '2026-11-01T00:00:00' } })).toMatchObject({ page: {}, global: { from: '2026-11-01T00:00:00', selection: null, metricId: null } });
+  });
+});
+
+
+describe('origin snapshot byte boundary (#1408 round 2)', () => {
+  it.each(['x', '한'])('measures UTF-8 JSON bytes at 8192 and 8193, using %s', token => {
+    const overhead = new TextEncoder().encode(JSON.stringify({ q: '' })).length;
+    const bytes = new TextEncoder().encode(token).length;
+    const count = Math.floor((8192 - overhead) / bytes);
+    const padding = 'x'.repeat(8192 - overhead - count * bytes);
+    const context = { q: token.repeat(count) + padding };
+    expect(new TextEncoder().encode(JSON.stringify(context))).toHaveLength(8192);
+    expect(originContextTooLarge({ menuId: 'source', context })).toBe(false);
+    expect(originContextTooLarge({ menuId: 'source', context: { q: context.q + 'x' } })).toBe(true);
+  });
+});
+
+describe('separate origin page input', () => {
+  it('decodes repeated page values and preserves the source focus independently', () => {
+    expect(parseOriginPage(JSON.stringify({ focus: 'EQ-1', tab: 'validity', filter: ['a', 'b'] }))).toEqual([['focus', 'EQ-1'], ['tab', 'validity'], ['filter', 'a'], ['filter', 'b']]);
+  });
+  it.each(['{', '[]', 'null', '{"focus":42}', '{"filter":["a",42]}'])('rejects malformed input %s without truncating it', value => {
+    expect(parseOriginPage(value)).toBeNull();
   });
 });

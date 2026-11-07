@@ -8,7 +8,7 @@ describe('improvement menu and endpoint mirror', () => {
     const registry = createRegistry({ spaces: [], menus: manifests, groups: [{ id: menu.group, label: menu.label, icon: menu.icon, space: null }], permissions: [MANAGE_PERMISSION] });
     expect(registry.spaceOf(menu)).toBeNull();
     expect(menu.permission).toBe('platform:view');
-    expect(menu.pageKeys).toEqual(['view', 'q', 'filter', 'page', 'sort', 'focus', 'origin']);
+    expect(menu.pageKeys).toEqual(['view', 'q', 'filter', 'page', 'sort', 'focus', 'origin', 'originPage']);
     expect(menu.hiddenPageKeys).toEqual(['filter']);
     expect(manifests[1]).toMatchObject({ path: '/improvement-items/:itemId', parent: 'improvement-items', navHidden: true });
   });

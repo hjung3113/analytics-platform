@@ -34,3 +34,22 @@ export function suggestedTargets(origin: Origin | null): Target[] {
   const ids = typeof drilled === 'string' && drilled.trim() ? [drilled] : Array.isArray(origin.context.selection) ? origin.context.selection.filter((id): id is string => typeof id === 'string' && !!id.trim()) : [];
   return [...new Set(ids)].map(id => ({ kind: 'equipment', externalKey: id, displayName: id }));
 }
+
+/** The API limits the UTF-8 JSON encoding of context, not its character count. */
+export function originContextTooLarge(origin: Origin | null): boolean {
+  return !!origin && new TextEncoder().encode(JSON.stringify(origin.context)).byteLength > 8192;
+}
+/** Separate source page input; malformed input is rejected rather than silently lost. */
+export function parseOriginPage(value: string): Pair[] | null {
+  try {
+    const saved: unknown = JSON.parse(value);
+    if (!saved || typeof saved !== 'object' || Array.isArray(saved)) return null;
+    const pairs: Pair[] = [];
+    for (const [key, entry] of Object.entries(saved)) {
+      if (typeof entry === 'string') pairs.push([key, entry]);
+      else if (Array.isArray(entry) && entry.every(v => typeof v === 'string')) pairs.push(...entry.map((v): Pair => [key, v]));
+      else return null;
+    }
+    return pairs;
+  } catch { return null; }
+}
