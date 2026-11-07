@@ -1,7 +1,10 @@
 import type { EntityLinkTargetSummary } from '@ap/feature-shared';
 
 import type { Db } from '../../db/client.js';
-import type { EntityLinkProvider } from '../entity-links/provider-types.js';
+import {
+  type EntityLinkProvider,
+  requireEndpointManagedSystemId,
+} from '../entity-links/provider-types.js';
 import { checkFindingManage, checkFindingRead } from '../findings/authorization.js';
 import { type TaskRequestRow, findTaskRequestById } from './repo.js';
 
@@ -35,13 +38,13 @@ export const taskRequestEntityLinkProvider: EntityLinkProvider = {
   assertExists: resolveTaskRequest,
   getPermissionSubject: resolveTaskRequest,
   canRead: async (deps, actor, subject) => {
-    const decision = await checkFindingRead(deps.checkService, actor, subject.managed_system_id, {
+    const decision = await checkFindingRead(deps.checkService, actor, requireEndpointManagedSystemId(subject), {
       requireElevatedRole: false,
     });
     return decision.allow;
   },
   canCreateTarget: async (deps, actor, subject) => {
-    const decision = await checkFindingManage(deps.checkService, actor, subject.managed_system_id, {
+    const decision = await checkFindingManage(deps.checkService, actor, requireEndpointManagedSystemId(subject), {
       requireElevatedRole: false,
     });
     return decision.allow;

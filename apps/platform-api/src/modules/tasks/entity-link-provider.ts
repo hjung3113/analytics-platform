@@ -3,7 +3,11 @@ import type { EntityLinkTargetSummary, TaskStatus } from '@ap/feature-shared';
 import { sql } from 'drizzle-orm';
 
 import type { Db } from '../../db/client.js';
-import type { EntityLinkProvider, ReporterSummaryResult } from '../entity-links/provider-types.js';
+import {
+  type EntityLinkProvider,
+  type ReporterSummaryResult,
+  requireEndpointManagedSystemId,
+} from '../entity-links/provider-types.js';
 import { checkFindingManage, checkFindingRead } from '../findings/authorization.js';
 import { type TaskRow, findTaskById } from './repo.js';
 
@@ -116,13 +120,13 @@ export const taskEntityLinkProvider: EntityLinkProvider = {
   assertExists: resolveTask,
   getPermissionSubject: resolveTask,
   canRead: async (deps, actor, subject) => {
-    const decision = await checkFindingRead(deps.checkService, actor, subject.managed_system_id, {
+    const decision = await checkFindingRead(deps.checkService, actor, requireEndpointManagedSystemId(subject), {
       requireElevatedRole: false,
     });
     return decision.allow;
   },
   canCreateTarget: async (deps, actor, subject) => {
-    const decision = await checkFindingManage(deps.checkService, actor, subject.managed_system_id, {
+    const decision = await checkFindingManage(deps.checkService, actor, requireEndpointManagedSystemId(subject), {
       requireElevatedRole: false,
     });
     return decision.allow;

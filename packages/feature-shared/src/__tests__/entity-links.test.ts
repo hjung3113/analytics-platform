@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import {
   entityLinkRelationTypeSchema,
+  isNoManagedSystemEntityLinkPair,
+  isRegisteredEntityLinkPair,
+  registeredEntityLinkPairs,
   listEntityLinksQuerySchema,
   listEntityLinksResponseSchema,
   registeredEntityLinkPairSchema,
@@ -101,5 +104,29 @@ describe('Survey response Entity Link registry', () => {
     // @ts-expect-error generated_voc must never become an Entity Link relation.
     const forbiddenRelation: import('../entity-links.js').EntityLinkRelationType = 'generated_voc';
     expect(forbiddenRelation).toBe('generated_voc');
+  });
+});
+
+describe('no-Managed-System tuples (ADR-0123)', () => {
+  it('registers the 수동 검증 첨부 → Round pair exactly once and lists it as no-Managed-System', () => {
+    const pair = { source_type: 'manual_validation_attachment', target_type: 'validation_round', relation_type: 'evidence_of' };
+    expect(registeredEntityLinkPairs.filter((p) => isNoManagedSystemEntityLinkPair(p))).toEqual([pair]);
+    expect(isRegisteredEntityLinkPair(pair)).toBe(true);
+    expect(registeredEntityLinkPairSchema.safeParse(pair).success).toBe(true);
+    expect(registeredEntityLinkPairs).toHaveLength(14);
+  });
+
+  it.each([
+    ['the reverse direction', { source_type: 'validation_round', target_type: 'manual_validation_attachment', relation_type: 'evidence_of' }],
+    ['another relation', { source_type: 'manual_validation_attachment', target_type: 'validation_round', relation_type: 'related_to' }],
+    ['a Managed-System end paired with a Round', { source_type: 'voc', target_type: 'validation_round', relation_type: 'evidence_of' }],
+  ])('does not register %s', (_label, pair) => {
+    expect(isRegisteredEntityLinkPair(pair)).toBe(false);
+    expect(isNoManagedSystemEntityLinkPair(pair as never)).toBe(false);
+  });
+
+  it('keeps every pre-existing pair out of the no-Managed-System list', () => {
+    const existing = registeredEntityLinkPairs.filter((p) => !isNoManagedSystemEntityLinkPair(p));
+    expect(existing).toHaveLength(13);
   });
 });

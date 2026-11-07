@@ -9,6 +9,12 @@ import type { Db } from '../../db/client.js';
 import type { CheckService } from '../permissions/check-service.js';
 import type { LinkEndpointRow } from './repo.js';
 
+/** The Managed System of an endpoint that must carry one; a provider of a Managed System type returning NULL is a bug and fails closed. */
+export function requireEndpointManagedSystemId(subject: Pick<LinkEndpointRow, 'managed_system_id'>): string {
+  if (subject.managed_system_id === null) throw new Error('entity link endpoint has no managed system');
+  return subject.managed_system_id;
+}
+
 export interface EntityLinksActor {
   actor_id: string;
   workspace_id: string;

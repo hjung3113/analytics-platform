@@ -9,6 +9,8 @@ export const entityLinkEntityTypeSchema = z.enum([
   'voc_cluster',
   'task_request',
   'task',
+  'validation_round',
+  'manual_validation_attachment',
 ]);
 export type EntityLinkEntityType = z.infer<typeof entityLinkEntityTypeSchema>;
 
@@ -143,9 +145,45 @@ export const registeredEntityLinkPairs = [
     target_type: 'task_request',
     relation_type: 'requested_task',
   },
+  // ADR-0123: ends with no Managed System (수동 검증 첨부 under a Round). Command-only; see `noManagedSystemEntityLinkPairs`.
+  {
+    source_type: 'manual_validation_attachment',
+    target_type: 'validation_round',
+    relation_type: 'evidence_of',
+  },
 ] as const satisfies readonly EntityLinkPair[];
 
 export type RegisteredEntityLinkPair = (typeof registeredEntityLinkPairs)[number];
+
+/**
+ * ADR-0123: the registered tuples whose BOTH ends carry no Managed System. Their `managed_system_id` is NULL (the DB check
+ * `entity_links_managed_system_check` carries the same list); every other registered tuple requires it and keeps the
+ * same-Managed-System rule. A tuple with exactly one such end is never registered. These tuples are written only by the
+ * owning module's command and never by the generic create/list/summary surfaces.
+ */
+export const noManagedSystemEntityLinkPairs = [
+  {
+    source_type: 'manual_validation_attachment',
+    target_type: 'validation_round',
+    relation_type: 'evidence_of',
+  },
+] as const satisfies readonly RegisteredEntityLinkPair[];
+
+/** The entity types that carry no Managed System (the ends of the pairs above). */
+export type NoManagedSystemEntityType =
+  | (typeof noManagedSystemEntityLinkPairs)[number]['source_type']
+  | (typeof noManagedSystemEntityLinkPairs)[number]['target_type'];
+
+export function isNoManagedSystemEntityLinkPair(
+  input: EntityLinkPair,
+): input is (typeof noManagedSystemEntityLinkPairs)[number] {
+  return noManagedSystemEntityLinkPairs.some(
+    (pair) =>
+      pair.source_type === input.source_type &&
+      pair.target_type === input.target_type &&
+      pair.relation_type === input.relation_type,
+  );
+}
 
 const entityLinkPairKey = (pair: EntityLinkPair) =>
   `${pair.source_type}:${pair.target_type}:${pair.relation_type}`;

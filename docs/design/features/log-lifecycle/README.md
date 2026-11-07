@@ -62,7 +62,7 @@ v0.30.0 묶음(소유자 2026-11-07): **#1108**([ADR-0118](../../../adr/0118-dyn
 
 - `sample_set` = `{ files: [{ fileRef, order, sha256 }], sourceOwner }`. `fileRef`는 외부 위치 문자열(불투명 값; 경로 정규화·길이 상한·허용 스킴은 [ADR-0117](../../../adr/0117-validation-request-queue-claim-lease-heartbeat.md)). 순서는 사용자가 확정하고 시간순 재정렬이나 합치기를 하지 않는다. `sample_manifest_digest`는 순서·해시를 포함한 정규 직렬화의 SHA-256이다.
 - **Round를 연 순간부터 샘플·`spec_pin`은 불변**이다(As-built: 삽입 뒤 불변, 샘플 편집 동작 없음). 바꾸려면 새 Round를 연다(과거 시도는 불변 보존). 이 규칙은 DB 트리거와 서비스가 같이 지킨다.
-- 수동 검증 기록(#1330 P0 «수동 검증 첨부»)은 Core 첨부(Attachments)와 등록 entity link로 Round에 붙이고 새 테이블을 두지 않는다. **As-built(#1451 c2)**: 첨부에 부모 종류(`parent_kind`, 닫힌 집합 `voc`·`validation_round`)와 종류별 읽기 판정 seam(`AttachmentParentReader`, 등록 없는 종류는 거부)을 두었다. 쓰기 = `roundEvidenceAttach`(`lifecycle.round.manage`, 열린 Round만), 읽기 = Round와 같은 가시성(`platform:view`, 같은 워크스페이스). 계약: [api/log-lifecycle.md](../../../architecture/platform-api/api/log-lifecycle.md) §Manual validation attachment. 등록 entity link(`core.entity_links`)는 아직 없다: 노드 c3 [#1466](https://github.com/hjung3113/analytics-platform/issues/1466)이 맡는다(구현 안 함).
+- 수동 검증 기록(#1330 P0 «수동 검증 첨부»)은 Core 첨부(Attachments)와 등록 entity link로 Round에 붙이고 새 테이블을 두지 않는다. **As-built(#1451 c2)**: 첨부에 부모 종류(`parent_kind`, 닫힌 집합 `voc`·`validation_round`)와 종류별 읽기 판정 seam(`AttachmentParentReader`, 등록 없는 종류는 거부)을 두었다. 쓰기 = `roundEvidenceAttach`(`lifecycle.round.manage`, 열린 Round만), 읽기 = Round와 같은 가시성(`platform:view`, 같은 워크스페이스). 계약: [api/log-lifecycle.md](../../../architecture/platform-api/api/log-lifecycle.md) §Manual validation attachment. **Entity Link As-built(c3 [#1466](https://github.com/hjung3113/analytics-platform/issues/1466), [ADR-0123](../../../adr/0123-entity-links-extend-to-targets-without-managed-system.md))**: 첨부마다 `manual_validation_attachment → validation_round (evidence_of)` 링크 한 건을 `roundEvidenceAttach`와 같은 트랜잭션에 쓴다(링크 쓰기 실패 = 첨부도 롤백). Managed System이 없는 끝이라 `managed_system_id`는 NULL이고, 두 끝의 소유 모듈 읽기 권한(Round = `platform:view` + 같은 워크스페이스, 첨부 = 부모 종류 reader)으로 판단한다. 일반 `POST /entity-links`·목록·인벤토리에는 나오지 않는다(명령 전용). Gate(#1446)는 log-lifecycle 배럴의 `readRoundEvidenceLinks`로 Round와 같은 가시성의 링크를 읽는다. 개발 건 끝(`log_project`)은 같은 규칙이 허용하나 쓰는 쌍이 없어 등록하지 않았다.
 
 ### execution_request
 
@@ -281,5 +281,5 @@ log-dev (기존 Space)
 | D3 | 자기 승인 | **결정됨**: 막지 않고 이력에 표시(소유자 2026-11-07) | |
 | D4 | 우선순위 단계 수(비소유자 결정 아님, 시작값) | 3단계(0–2) | #1420 «우선순위» 요구만 충족 |
 | D5 | 단계 스테퍼 컴포넌트 | 기존 후보 조사 후 없으면 메뉴 로컬로 시작 | 소비자 2–3곳 확인 전 공통화하지 않음(§24) |
-| D6 | 수동 검증 첨부 = 첨부 + entity link | **결정됨**(소유자 2026-11-07); 첨부 부모 종류 등록은 **구현됨**(#1451 c2). 확인 결과: 첨부는 `voc.voc_attachments`(voc_id/comment_id)만 쓰고 권한이 VOC 읽기에 묶여 있어 종류 레지스트리가 없었다 → 종류 열 + 종류별 reader를 추가 | Entity Link 등록은 c3 #1466(구현 안 함). |
+| D6 | 수동 검증 첨부 = 첨부 + entity link | **결정됨**(소유자 2026-11-07); 첨부 부모 종류 등록은 **구현됨**(#1451 c2). 확인 결과: 첨부는 `voc.voc_attachments`(voc_id/comment_id)만 쓰고 권한이 VOC 읽기에 묶여 있어 종류 레지스트리가 없었다 → 종류 열 + 종류별 reader를 추가 | Entity Link 등록은 **구현됨**(c3 #1466, ADR-0123 — 소유자 2026-11-08 option B: 공통 Entity Link를 Managed System 없는 대상까지 넓힘). |
 | D7 | `observed` 500자·근거 20개·발췌 2,000자·시도당 256KB·보관 90일·「즉시」 동시 5건 | 이 값으로 시작 | 측정 전 시작값, 실제 Validator 출력 확인 후 조정 |

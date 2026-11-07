@@ -22,6 +22,14 @@ projection seam inside the detach transaction; it clears `linked_task_id` when
 no active `requested_task` link to a Task remains. Entity Links never writes
 Finding tables directly. Link history, recovery capture and detach audit stay atomic.
 
+The command-only `(manual_validation_attachment, validation_round, evidence_of)` tuple
+([ADR-0123](../../../adr/0123-entity-links-extend-to-targets-without-managed-system.md)) has no
+Managed System (`managed_system_id` NULL) and is written only by log-lifecycle's `roundEvidenceAttach`.
+It is unavailable on every generic surface: POST answers `422 validation.failed`
+(`unsupported_tuple`), both GET/list modes and the workspace inventory omit it, and PATCH/detach
+answers the same non-disclosing `404 not_found.record` as an absent link. Its DTO never exists, so
+the `managed_system_id` of every wire DTO stays a UUID.
+
 The command-only `(voc_cluster, finding, evidence_of)` tuple is unavailable on
 every generic entity-link surface: POST, both GET/list modes, and PATCH/detach.
 Generic PATCH treats that tuple exactly as an absent link, returning the same

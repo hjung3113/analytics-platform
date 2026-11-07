@@ -62,6 +62,11 @@ directly (`POST /vocs/:id/create-finding`, `POST /voc-clusters/:id/create-findin
 row. Task Request/Task conversion paths already constrain both endpoints to
 one Managed System by construction or explicit equality guards.
 
+Ends with no Managed System are the ADR-0123 exception (see
+[Links without a Managed System](#links-without-a-managed-system-adr-0123)); the rule above is
+unchanged for every Managed-System tuple, and `assertLinkManagedSystemCompatibility` now also
+refuses a NULL end (a Managed-System end paired with a no-Managed-System end never matches).
+
 Survey-response tuples are exempt: `survey_response` endpoints are
 command-only and opaque in the provider registry (no resolvable Managed
 System scope), and `POST /survey-responses/:id/create-finding` intentionally
@@ -75,6 +80,35 @@ A CHECK constraint cannot contain subqueries and a composite FK has no single
 column to reference; per-type triggers would re-implement endpoint resolution
 and authorization rules in SQL, duplicating the application seam. Application
 enforcement is therefore authoritative (#388, D-388-3).
+
+## Links without a Managed System (ADR-0123)
+
+[ADR-0123](../../adr/0123-entity-links-extend-to-targets-without-managed-system.md) (owner decision, #1466)
+extends Entity Linking to ends that have no Managed System (log-lifecycle 개발 건, Round, and the 수동 검증 첨부 under a Round).
+
+```text
+- core.entity_links.managed_system_id is NULL only for the registered no-Managed-System tuples
+  (noManagedSystemEntityLinkPairs in packages/feature-shared/src/entity-links.ts; today only
+   manual_validation_attachment -> validation_round, evidence_of).
+- DB: entity_links_managed_system_check = (tuple is a no-Managed-System tuple) = (managed_system_id is null),
+  so every other tuple still requires it; entity_links_tuple_check lists the new pair (14 tuples).
+- A tuple with exactly one such end is never registered; "VOC <-> Round" is refused as an unsupported tuple.
+- Write: only the owning module's command, through EntityLinksService.createNoManagedSystemLink inside its own
+  transaction (roundEvidenceAttach: attach + link + both audits commit or roll back together; attaching the same
+  attachment twice stays refused by the attachments link guard).
+- Authorization: BOTH ends' provider canRead must allow (Round: platform:view and the Round in the actor's
+  workspace; attachment: the AttachmentParentReader of its parent kind, the same judge as download). An end
+  that does not resolve, is in another workspace, is unreadable, or has no provider is answered with the same
+  404 not_found.record, so a link never reveals an end the caller cannot read. An end that carries a Managed
+  System is refused (managed_system_mismatch).
+- Generic surfaces: command-only like the Survey-response tuples. POST /entity-links answers unsupported_tuple,
+  GET lists and the workspace inventory omit it, PATCH/detach answers 404. The app role reaches the rows only
+  through core.entity_links_app (unchanged definition; the view keeps NULL managed_system_id).
+- Audit: entity_link.created (no new event type), detail { link_id, source, target, relation_type, visibility }.
+- Gate read port: readRoundEvidenceLinks (log-lifecycle barrel) returns a Round's links with the Round's own visibility.
+```
+
+Not done: the 개발 건 entity type and provider (no registered pair uses it yet), a detach path for these links.
 
 ## Provider Interface
 

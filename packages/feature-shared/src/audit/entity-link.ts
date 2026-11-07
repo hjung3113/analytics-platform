@@ -45,6 +45,17 @@ const taskRefDetailSchema = z.object({
   id: z.string().uuid(),
 });
 
+// ADR-0123: ends with no Managed System (a 수동 검증 첨부 under a Round); ids only.
+const manualValidationAttachmentRefDetailSchema = z.object({
+  type: z.literal('manual_validation_attachment'),
+  id: z.string().uuid(),
+});
+
+const validationRoundRefDetailSchema = z.object({
+  type: z.literal('validation_round'),
+  id: z.string().uuid(),
+});
+
 export const entityLinkCreatedDetailSchema = z.union([
   z.object({
     link_id: z.string().uuid(),
@@ -137,6 +148,15 @@ export const entityLinkCreatedDetailSchema = z.union([
       link_id: z.string().uuid(),
       source: surveyResponseRefDetailSchema,
       target: findingRefDetailSchema,
+      relation_type: z.literal('evidence_of'),
+      visibility: z.literal('internal_only'),
+    })
+    .strict(),
+  z
+    .object({
+      link_id: z.string().uuid(),
+      source: manualValidationAttachmentRefDetailSchema,
+      target: validationRoundRefDetailSchema,
       relation_type: z.literal('evidence_of'),
       visibility: z.literal('internal_only'),
     })
