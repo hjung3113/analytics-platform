@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "anyOf": [
+    {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "ok"
+        },
+        "available": {
+          "type": "boolean"
+        },
+        "capabilities": {
+          "uniqueItems": true,
+          "maxItems": 5,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "searchRecords",
+              "getWindow",
+              "getParsed",
+              "getPeriods",
+              "getTopViewLink"
+            ]
+          }
+        },
+        "limits": {
+          "type": "object",
+          "properties": {
+            "maxRows": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            },
+            "maxRowChars": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 8000
+            },
+            "maxWindow": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "timeBudgetMs": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10000
+            }
+          },
+          "required": [
+            "maxRows",
+            "maxRowChars",
+            "maxWindow",
+            "timeBudgetMs"
+          ],
+          "additionalProperties": false
+        },
+        "synthetic": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "status",
+        "available",
+        "capabilities",
+        "limits",
+        "synthetic"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "permission_denied"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "source_absent"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "additionalProperties": false
+    }
+  ]
+}

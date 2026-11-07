@@ -1,6 +1,6 @@
-# Log Explorer — 범용 로그 탐색 워크벤치 설계 (v0.31.0, 소유자 답 반영, 구현 전)
+# Log Explorer — 범용 로그 탐색 워크벤치 설계 (v0.31.0, 소유자 답 반영, 노드 a 구현됨)
 
-> **Status: Candidate → 소유자 답 7개 반영(2026-11-07), ADR 0119·0121 Decided.** 설계만 있고 구현·DB·API·화면은 없다. 근거는 [#1344](https://github.com/hjung3113/analytics-platform/issues/1344)이고, [#1330](https://github.com/hjung3113/analytics-platform/issues/1330) Epic과 v0.30.0 설계 [`log-lifecycle`](../log-lifecycle/README.md)을 **재사용**한다(중복 설계 금지). 릴리스는 v0.31.0(= #1198 + #1344, 소유자 2026-11-07). 결정은 [ADR-0119](../../../adr/0119-log-explorer-source-read-port-and-evidence-refs.md)(읽기 포트·토큰·내보내기)와 [ADR-0121](../../../adr/0121-ordered-interval-track-sdk-piece.md)(시퀀스 SDK 조각)이 소유하고, 실제 코드와 Decided ADR이 이 문서보다 우선한다. 결정마다 «소유자 2026-11-07»로 표시한다.
+> **Status: Candidate → 소유자 답 7개 반영(2026-11-07), ADR 0119·0121 Decided.** 노드 a(읽기 포트·`@ap/contract-schemas v0`·계약 테스트 하니스·합성 어댑터·모듈 골격)는 구현됐고(#1467), DB·API·화면·실제 Source 연동은 아직 구현되지 않았다. 근거는 [#1344](https://github.com/hjung3113/analytics-platform/issues/1344)이고, [#1330](https://github.com/hjung3113/analytics-platform/issues/1330) Epic과 v0.30.0 설계 [`log-lifecycle`](../log-lifecycle/README.md)을 **재사용**한다(중복 설계 금지). 릴리스는 v0.31.0(= #1198 + #1344, 소유자 2026-11-07). 결정은 [ADR-0119](../../../adr/0119-log-explorer-source-read-port-and-evidence-refs.md)(읽기 포트·토큰·내보내기)와 [ADR-0121](../../../adr/0121-ordered-interval-track-sdk-piece.md)(시퀀스 SDK 조각)이 소유하고, 실제 코드와 Decided ADR이 이 문서보다 우선한다. 결정마다 «소유자 2026-11-07»로 표시한다.
 >
 > 원본 로그의 소유자(Source API)·Parser·Top View(#1200)는 사내 쪽에서 개발 중이거나 실사 전이다. 이 슬라이스는 **읽기 포트와 합성 어댑터까지만** 만들고 «연동됨» 표시를 두지 않는다.
 
@@ -53,7 +53,7 @@ SourceReadPort (capability discovery 후 지원하는 것만 노출)
 ```
 
 - 모든 호출은 서버가 `sourceOwner` 범위 ACL을 **그 요청에서** 판정하고, 요청 취소(`AbortSignal`)와 시간 예산을 강제한다.
-- 상한(시작값, 측정 후 조정): 한 응답 행 200, 행당 본문 8,000자(넘으면 `truncated=true`로 표시하고 자르지 않은 척하지 않음), 창 `before/after` 각 100, 요청 시간 예산 10초. 브라우저에 전체 파일을 내려 한 번에 파싱하지 않는다.
+- 상한(시작값, 측정 후 조정): 한 응답 행 200, 행당 본문 8,000자(넘으면 `truncated=true`로 표시하고 자르지 않은 척하지 않음), 창 `before/after` 각 100(대상 줄 포함 한 응답 200행 상한이 우선하므로 `before + after + 1 > 200` 요청은 `invalid_request`로 거부하고 조용히 자르지 않음), 요청 시간 예산 10초. 브라우저에 전체 파일을 내려 한 번에 파싱하지 않는다.
 - `unsupported`는 오류가 아니라 **명시된 상태**다(«Parser 추적 미연결», «기간 행 미지원», «Top View 미연결»). 가짜 trace·가짜 Top View·가짜 판정을 만들지 않는다.
 - 사내 Source API가 확정되기 전에는 **합성 어댑터**(synthetic fixture)만 있고 화면·PR에 «합성»을 표시한다. 운영 연동 완료로 쓰지 않는다.
 
@@ -110,7 +110,7 @@ log-explorer/
 | --- | --- |
 | scope | 토큰은 `explorer.source.read`·`explorer.export`·`explorer.investigate`를 각각 고른다. 묶음 별칭 «로그 탐색(조회)» = `source.read`만. 내보내기는 별칭에 넣지 않는다 |
 | 서비스 토큰 | `sourceOwner` 범위 grant를 서비스 Actor에 **명시적으로** 줘야 한다. 발급 주체는 관리자만(ADR-0116) |
-| 읽기 상한 | 세션과 같다: 응답 행 200, 행당 본문 8,000자, 창 100, 시간 10초 |
+| 읽기 상한 | 세션과 같다: 응답 행 200(창은 대상 줄 포함), 행당 본문 8,000자, 창 한쪽 100, 시간 10초 |
 | 토큰별 일일 본문 예산 | 응답 본문 합계 50MB/일(토큰·Actor 각각). 넘으면 `explorer.budget_exceeded`로 거절하고 잘라 주지 않는다 |
 | 내보내기 범위 | 샘플 목록 + 조건 + 줄 범위를 **명시한 요청 하나**가 한 번의 내보내기. 최대 10,000행·5MB, 텍스트 형식 두 가지(CSV, JSONL). 넘으면 거절(자르지 않음) |
 | 내보내기 생성 | 요청 때 서버가 Source에서 읽어 스트리밍으로 내려 준다. 파일을 플랫폼에 저장·캐시하지 않는다. 매 요청 ACL 재판정, 취소 가능 |
@@ -237,7 +237,7 @@ log-dev
 | 노드 | 내용 | 기대 티어 | 선행 |
 | --- | --- | --- | --- |
 | 0 | ADR 0119·0121 Decided 반영 + GLOSSARY 용어 확인 | light | 소유자 답(완료) |
-| a | `SourceReadPort` 계약·`@ap/contract-schemas v0`·계약 테스트 하니스·합성 어댑터·모듈 골격 | full, `impl-complex`(데이터 유출 경계) | 0 |
+| a | `SourceReadPort` 계약·`@ap/contract-schemas v0`·계약 테스트 하니스·합성 어댑터·모듈 골격 (**구현됨, #1467**: 엔드포인트·테이블·마이그레이션 없음) | full, `impl-complex`(데이터 유출 경계) | 0 |
 | b | `investigation` 스키마·액션·읽기, 권한 철회·낙관적 동시성 | full | 0, v0.30.0 c |
 | c | 읽기 엔드포인트: records·window·parsed·periods (상한·취소·부분 결과) | full, `impl-complex` | a |
 | d | `rule_result_evidence` 사이드 테이블 + `evidenceLinks` | full | v0.30.0 d |
