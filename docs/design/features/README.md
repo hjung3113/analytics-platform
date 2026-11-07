@@ -8,6 +8,7 @@ Surface specs live under `docs/design/features/specs/`:
 - `docs/design/features/specs/actors.md`: the general `GET /actors` workspace identity list contract. Triage owner candidates follow `docs/architecture/platform-api/api/voc.md`.
 
 - `docs/design/features/improvement-items.md`: Design for the improvement item platform feature (implemented except the node f editable table) (#1328, ADR-0106 amendment 2).
+- `docs/design/features/log-rules/README.md`: Design for read-only validation rule catalog and spec-requirement coverage links (`logRules`) — v0.31.0, not implemented (#1486, ADR-0122).
 - `docs/design/features/log-explorer/README.md`: Design for the general log explorer workbench (source read port, sequence piece, token/export, evidence handoff) — v0.31.0, not implemented (#1344, ADR-0119, ADR-0121).
 - `docs/design/features/log-test-datasets/README.md`: Design for reusable log test datasets and expected baselines with regression comparison — v0.31.0, not implemented (#1345, ADR-0120).
 
