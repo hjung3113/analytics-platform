@@ -59,3 +59,7 @@ export { personLabel, toggleMember, usePeopleSearch, type PeopleSearch, type Peo
 export { ViewManagement, type ViewManagementFilter, type ViewManagementProps } from './saved-view/ViewManagement';
 export { ApprovalQueue, type ApprovalQueueProps, type ApprovalQueueStatus } from './saved-view/ApprovalQueue';
 export type { ApprovalRequestInfo, ViewActionOutcome, ViewDecideHandler, ViewDiagnosis, ViewRevokeHandler } from './saved-view/viewInfo';
+
+export { HierarchyNav, type HierarchyNavProps } from './hierarchy/HierarchyNav';
+export { useHierarchyNavState } from './hierarchy/useHierarchyNavState';
+export { type HierarchyNavState } from './hierarchy/hierarchyState';

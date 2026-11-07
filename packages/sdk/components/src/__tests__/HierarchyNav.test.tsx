@@ -1,0 +1,159 @@
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { House } from 'lucide-react';
+import { groupId, spaceId, HierarchyFailure, isHierarchyFailure, type HierarchyNode, type HierarchySource } from '@ap/contracts';
+import { createRegistry, I18nProvider, PlatformProvider, type PlatformMenuEntry } from '@ap/kernel';
+import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { TooltipProvider } from '@ap/ui';
+import { HierarchyNav } from '../hierarchy/HierarchyNav';
+import { createSyntheticHierarchySource, stubHierarchyGeometry } from '../testing';
+const node = (id: string, hasChildren = false): HierarchyNode => ({ id, label: id, kind: 'item', hasChildren, target: { menuId: 'fixture-home', page: { object: id } } });
+const fixtureMenu: PlatformMenuEntry = { id: 'fixture-home', path: '/fixture', primary: true, group: groupId('fixture-group'), label: { ko: '메뉴', en: 'Menu' }, description: { ko: '', en: '' }, icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'catalog', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['object'] };
+const registry = createRegistry({ spaces: [testSpace({ homeMenuId: 'fixture-home' })], groups: [{ id: groupId('fixture-group'), space: spaceId('mars'), label: { ko: '그룹', en: 'Group' }, icon: House }], menus: [fixtureMenu, { ...fixtureMenu, id: 'fixture-denied', path: '/denied', primary: false, permission: 'features:access' }, { ...fixtureMenu, id: 'fixture-detail', path: '/fixture/:detailId', primary: false, parent: 'fixture-home', navHidden: true }] });
+const session = testSession(['platform:view']);
+const adapter = testAdapter({ session: () => session });
+function mount(source: HierarchySource, props: Partial<React.ComponentProps<typeof HierarchyNav>> = {}) {
+  return render(<I18nProvider><PlatformProvider registry={registry} adapter={adapter}><TooltipProvider><HierarchyNav menuId="fixture-home" label="Items" source={source} {...props} /></TooltipProvider></PlatformProvider></I18nProvider>);
+}
+let restore: () => void;
+beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); window.history.replaceState(null, '', '/fixture?v=1'); restore = stubHierarchyGeometry(); });
+afterEach(() => { cleanup(); restore(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+describe('HierarchyNav (#1448)', () => {
+  it('checks failures structurally across package copies', () => {
+    expect(isHierarchyFailure({ name: 'HierarchyFailure', kind: 'forbidden' })).toBe(true);
+    expect(isHierarchyFailure({ name: 'AbortError', kind: 'error' })).toBe(false);
+  });
+  it('loads just one 50-node page from 5000 nodes and mounts a nonzero bounded virtual window', async () => {
+    const source = createSyntheticHierarchySource({ nodes: 5000, depth: 6 });
+    const list = vi.spyOn(source, 'listChildren');
+    const { container } = mount(source);
+    await waitFor(() => expect(container.querySelectorAll('[data-hierarchy-node]').length).toBeGreaterThan(0));
+    expect(container.querySelectorAll('[data-hierarchy-node]').length).toBeLessThan(25);
+    expect(list).toHaveBeenCalledTimes(1);
+    expect(list.mock.calls[0][0]).toMatchObject({ parentId: null, limit: 50 });
+    expect(screen.queryByRole('button', { name: '뒤로' })).toBeNull();
+  });
+  it('drops late superseded drill results, aborts its own signal and deduplicates pages', async () => {
+    let oldResolve!: (page: { nodes: HierarchyNode[] }) => void;
+    const source: HierarchySource = { resolveAncestors: async () => [], listChildren: vi.fn(({ parentId }) => parentId === 'a' ? new Promise<{ nodes: HierarchyNode[] }>(resolve => { oldResolve = resolve; }) : Promise.resolve({ nodes: parentId === null ? [node('a', true), node('b', true)] : [node('new')] })) };
+    mount(source);
+    fireEvent.click(await screen.findByRole('button', { name: 'a 펼치기' }));
+    await waitFor(() => expect(oldResolve).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: '뒤로' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'b 펼치기' }));
+    await screen.findByRole('link', { name: 'new' });
+    await act(async () => oldResolve({ nodes: [node('old')] }));
+    expect(screen.queryByRole('link', { name: 'old' })).toBeNull();
+    const calls = vi.mocked(source.listChildren).mock.calls;
+    expect(calls.find(([args]) => args.parentId === 'a')?.[0].signal?.aborted).toBe(true);
+  });
+  it.each(['forbidden', 'deleted', 'error'] as const)('renders explicit %s deep-link failure with retry', async kind => {
+    mount({ listChildren: async () => ({ nodes: [node('gone')] }), resolveAncestors: vi.fn().mockRejectedValueOnce(new HierarchyFailure(kind)).mockResolvedValue([]) }, { currentNodeId: 'gone' });
+    await screen.findByText(kind === 'forbidden' ? '표시할 수 있는 항목이 없습니다. 접근 권한을 확인하세요.' : kind === 'deleted' ? '삭제되었거나 이동된 항목입니다.' : '항목을 불러오지 못했습니다.');
+    fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+    await screen.findByRole('link', { name: 'gone' });
+  });
+  it('restores ancestors, marks location and scrolls without autofocus or tooltips', async () => {
+    const source: HierarchySource = { resolveAncestors: async () => [node('parent', true)], listChildren: async () => ({ nodes: [node('selected')] }) };
+    const { container } = mount(source, { currentNodeId: 'selected' });
+    const selected = await screen.findByRole('link', { name: 'selected' });
+    expect(selected.getAttribute('aria-current')).toBe('location');
+    expect(container.contains(document.activeElement)).toBe(false);
+    expect(screen.queryByRole('tooltip')).toBeNull();
+    expect(HTMLElement.prototype.scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' });
+  });
+  it('supports tree keyboard navigation, expansion, parent, Home/End and activation', async () => {
+    const source: HierarchySource = { resolveAncestors: async () => [], listChildren: async ({ parentId }) => ({ nodes: parentId === null ? [node('parent', true), node('last')] : [node('child')] }) };
+    mount(source, { mode: 'tree' });
+    const parent = await screen.findByRole('treeitem', { name: 'parent' });
+    parent.focus(); fireEvent.keyDown(parent, { key: 'ArrowRight' });
+    const child = await screen.findByRole('treeitem', { name: 'child' });
+    expect(parent.getAttribute('aria-expanded')).toBe('true');
+    fireEvent.keyDown(parent, { key: 'ArrowDown' }); expect(document.activeElement).toBe(child);
+    fireEvent.keyDown(child, { key: 'ArrowLeft' }); expect(document.activeElement).toBe(parent);
+    fireEvent.keyDown(parent, { key: 'End' }); expect(document.activeElement).toBe(screen.getByRole('treeitem', { name: 'last' }));
+    fireEvent.keyDown(document.activeElement!, { key: 'Home' }); expect(document.activeElement).toBe(parent);
+    fireEvent.keyDown(parent, { key: ' ' });
+    expect(window.location.search).toContain('object=parent');
+  });
+  it('treats unrelated AbortError as an error and recovers on retry', async () => {
+    const source: HierarchySource = { resolveAncestors: async () => [], listChildren: vi.fn().mockRejectedValueOnce(new DOMException('adapter timeout', 'AbortError')).mockResolvedValue({ nodes: [node('recovered')] }) };
+    mount(source);
+    fireEvent.click(await screen.findByRole('button', { name: '다시 시도' }));
+    await screen.findByRole('link', { name: 'recovered' });
+  });
+  it.each(['drill', 'tree'] as const)('finds a deep target beyond the first cursor page in %s mode', async mode => {
+    const source: HierarchySource = { resolveAncestors: async () => [node('parent', true)], listChildren: async ({ parentId, cursor }) => ({ nodes: parentId === null ? [node('parent', true)] : cursor ? [node('selected')] : [node('first')], nextCursor: parentId === 'parent' && !cursor ? 'next' : undefined }) };
+    mount(source, { currentNodeId: 'selected', mode });
+    await screen.findByRole('link', { name: 'selected' });
+    expect(HTMLElement.prototype.scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' });
+  });
+  it('shows deleted when a restored path no longer contains the requested node', async () => {
+    mount({ resolveAncestors: async () => [], listChildren: async () => ({ nodes: [] }) }, { currentNodeId: 'missing' });
+    await screen.findByText('삭제되었거나 이동된 항목입니다.');
+  });
+  it('debounces search, aborts superseded queries and drops late results', async () => {
+    let late!: (page: { nodes: HierarchyNode[] }) => void;
+    const source: HierarchySource = { resolveAncestors: async () => [], listChildren: async () => ({ nodes: [node('root')] }), searchNodes: vi.fn(({ query }) => query === 'old' ? new Promise<{ nodes: HierarchyNode[] }>(resolve => { late = resolve; }) : Promise.resolve({ nodes: [node('latest')] })) };
+    mount(source);
+    const input = await screen.findByRole('searchbox');
+    fireEvent.change(input, { target: { value: 'old' } });
+    expect(source.searchNodes).not.toHaveBeenCalled();
+    await waitFor(() => expect(late).toBeTruthy());
+    fireEvent.change(input, { target: { value: 'new' } });
+    await screen.findByRole('link', { name: 'latest' });
+    await act(async () => late({ nodes: [node('stale')] }));
+    expect(screen.queryByRole('link', { name: 'stale' })).toBeNull();
+    expect(vi.mocked(source.searchNodes!).mock.calls[0][0].signal?.aborted).toBe(true);
+    fireEvent.keyDown(input, { key: 'Escape' });
+    await screen.findByRole('link', { name: 'root' });
+  });
+  it('caps calls at 200, deduplicates cursor pages and keeps unknown count unknown', async () => {
+    const source: HierarchySource = { resolveAncestors: async () => [], listChildren: vi.fn(async ({ cursor }) => ({ nodes: cursor ? [node('one'), node('two')] : [node('one')], nextCursor: cursor ? undefined : 'next' })) };
+    mount(source, { pageSize: 900, mode: 'tree' });
+    expect((await screen.findByRole('treeitem', { name: 'one' })).getAttribute('aria-setsize')).toBe('-1');
+    fireEvent.click(await screen.findByRole('button', { name: '더 불러오기' }));
+    await screen.findByRole('link', { name: 'two' });
+    expect(screen.getAllByRole('link', { name: 'one' })).toHaveLength(1);
+    expect(vi.mocked(source.listChildren).mock.calls.every(([args]) => args.limit === 200)).toBe(true);
+  });
+  it.each(['unknown-menu', 'fixture-denied', 'fixture-detail'])('renders invalid or denied target %s as a plain row without href', async menuId => {
+    const invalid = { ...node('unknown'), target: { menuId } };
+    mount({ resolveAncestors: async () => [], listChildren: async () => ({ nodes: [invalid] }) });
+    await screen.findByText('unknown');
+    expect(screen.queryByRole('link', { name: 'unknown' })).toBeNull();
+  });
+
+  it('opens a tooltip only for a measured clipped label on keyboard focus', async () => {
+    vi.spyOn(Element.prototype, 'scrollWidth', 'get').mockReturnValue(600);
+    mount({ resolveAncestors: async () => [], listChildren: async () => ({ nodes: [node('long-label')] }) });
+    const link = await screen.findByRole('link', { name: 'long-label' });
+    expect(screen.queryByRole('tooltip')).toBeNull();
+    act(() => link.focus());
+    await screen.findByRole('tooltip');
+    expect(link.querySelector('[title]')).toBeNull();
+  });
+
+  it('reveals a deep target outside the initial virtual window without focus', async () => {
+    const source = createSyntheticHierarchySource();
+    mount(source, { currentNodeId: 'node-0125' });
+    await screen.findByText('Item 125');
+    await waitFor(() => expect(HTMLElement.prototype.scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' }));
+    expect(document.activeElement).toBe(document.body);
+  });
+
+  it('aborts hidden descendant requests when a tree branch is collapsed', async () => {
+    let signal: AbortSignal | undefined;
+    const source: HierarchySource = { resolveAncestors: async () => [], listChildren: async args => {
+      if (args.parentId === 'child') { signal = args.signal; return new Promise(() => {}); }
+      return { nodes: [args.parentId === null ? node('parent', true) : node('child', true)] };
+    } };
+    mount(source, { mode: 'tree' });
+    fireEvent.click(await screen.findByRole('button', { name: 'parent 펼치기' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'child 펼치기' }));
+    await waitFor(() => expect(signal).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'parent 접기' }));
+    await waitFor(() => expect(signal?.aborted).toBe(true));
+  });
+
+});

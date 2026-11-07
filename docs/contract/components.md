@@ -30,6 +30,20 @@ PageActionButton
 EquipmentDeactivateButton
 ```
 
+### HierarchyNav
+
+Decided (#1448, [ADR-0118](../adr/0118-dynamic-hierarchy-navigation-sdk-piece.md)). `@ap/components`의 `HierarchyNav`는 메뉴가 준 `HierarchySource`를 지연 로딩·가상화하는 동적 사이드바 조각이다. `menuId`, `label`, `source`, 선택 `mode`(기본 `drill`), `currentNodeId`, `levelIcon`, `pageSize`, `state`, `onNavigate`를 받는다. `useHierarchyNavState(menuId)`가 만든 `HierarchyNavState`를 셸이 보유해 펼친 구역과 접힌 팝오버가 같은 페이지·조상·검색·확장 상태를 읽는다. 키는 메뉴 ID + 사용자 ID + Kernel revision이며 세대가 바뀐 렌더에서 이전 노드는 숨긴다. 저장소·URL에 이 탐색 상태를 쓰지 않는다.
+
+- 순수 계약은 `@ap/contracts`의 `HierarchyNode`(`id`, `parentId?`, `kind`, `label`, `hasChildren`, 선택 `target: { menuId, params?, page? }`), `HierarchyPage`(`nodes`, `nextCursor?`, `totalCount?`), `HierarchySource`다. `listChildren({ parentId, cursor?, limit?, signal? })`, `resolveAncestors(nodeId, signal?)`, 선택 `searchNodes({ query, cursor?, limit?, signal? })`를 받는다. 조상은 루트부터 바로 위 부모까지이며 요청 노드는 제외한다. 개수 생략은 알 수 없음이고 0이 아니다.
+- 한 호출은 기본 50개·최대 200개(성능)다. 첫 렌더에 전체 트리를 받지 않는다. 페이지는 ID로 중복 제거하고 긴 목록은 가상화한다. 검색은 200ms 지연 후 요청하고 이전 요청은 취소한다. 자신의 취소된 signal만 결과를 버리는 근거다(정합성); 다른 `AbortError`는 재시도 가능한 오류다. 논리 깊이·선택 수 제한은 없다.
+- `drill`은 한 단계 목록과 루트에서 숨기는 뒤로 행을 쓴다. `tree`는 평탄화된 `tree/treeitem`, `aria-level`, `aria-posinset`, 알려진 `aria-setsize`(미상은 -1), `aria-expanded`와 ↑↓←→·Home·End·Enter·Space를 지원한다(접근성). 시각 들여쓰기는 60px에서 멈추지만 논리 깊이는 계속된다. target 열기와 하위 탐색은 별도 조작이다.
+- 목적지는 Kernel `resolveLink(menuId, { params, page })`로 검증하고 허용된 것만 `PlatformLink via="sidebar"`로 연다. 미등록 메뉴·불완전 경로·거부된 대상은 href 없는 행이다. 현재 노드는 `aria-current="location"`, 고정 메뉴의 유일한 `aria-current="page"`는 유지한다.
+- 깊은 링크는 조상을 복원하고 필요한 경로의 커서 페이지를 찾아 현재 행에 `scrollIntoView({ block: 'nearest' })`만 한다. 최초 로드에 focus를 옮기지 않는다. 키보드 조작 뒤에만 행 포커스를 옮긴다. 경로를 끝까지 읽어도 대상이 없으면 삭제 상태를 보인다.
+- `HierarchyFailure`는 `forbidden | deleted | error`로 거부하고 `isHierarchyFailure`가 구조로 확인한다(패키지 사본 간 `instanceof` 금지). 로딩·빈·오류+재시도·권한 없음·삭제 상태를 구분한다. 서버는 권한이 있는 노드만 돌려주며 SDK는 경로로 권한을 추론하지 않는다. 모든 안내는 Kernel ko/en i18n이다.
+- 행은 `@ap/ui`의 CVA 기반 `navRowVariants`(`active`, `collapsed`, `inset`, 기존 기능 행용 `feature`), `NavCurrentMarker`, `navDrillAffordance`를 공유한다. `Button variant="navigation"`은 선택 옵션이다. `SearchInput size="toolbar"`는 `aria-label`·`clearLabel`을 받고, native cancel을 숨기고 입력 안 지우기 하나와 Esc만 쓴다. 기존 기본 모양은 유지한다. 잘린 라벨만 ResizeObserver로 확인해 tooltip을 열고, 별도의 행별 TooltipProvider나 native title은 없다. 목록은 남은 공간을 행 피치 배수·최대 10행으로 쓰며 목록 안 스크롤 하나만 둔다.
+
+합성 소비자는 제품 메뉴가 아닌 테스트 Registry다. `@ap/components/testing`의 `createSyntheticHierarchySource({ nodes, depth, delayMs?, failures? })`는 기본 5,000개·6단계, 커서·검색·취소를 제공한다. `failures` 키는 `children:root`, `children:<id>`, `ancestors:<id>`, `search:<query>`이며 값은 실패 kind다. `stubHierarchyGeometry()`는 jsdom 가상화가 0행으로 통과하지 않도록 실제 치수·스크롤을 모사한다. 본문 `HierarchyExplorer`·`HierarchyBreadcrumb`은 미구현·보류다([백로그](../../.planning/backlog.md)).
+
 ### UI Primitive
 
 shadcn/ui + Radix 조합은 [04 프론트엔드 기술 스택](../architecture/frontend-ui-ux.md#프론트엔드-기술-스택-decided-2026-09-25)에서 Decided(2026-09-25)다. primitive 구현과 공개 export는 SDK `@ap/ui`가 소유하며, 소비자는 `@ap/ui`에서 직접 import한다([ADR-0043](../adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)·[ADR-0046](../adr/0046-design-system-source-moves-to-platform-whole-package.md)). `TabsList`·`TabsTrigger`는 같은 패키지의 shadcn 탭을 감싼 플랫폼 선택 표식 구현이다([ADR-0023 개정](../adr/0023-feedbackops-primitive-shapes-and-sizes.md#개정--탭-선택-표식-2026-10-15)). `TabsList`는 선택 prop `overflow`(`'scroll'` 기본 = 넘치면 가로 스크롤, `'menu'`)와 `moreLabel`(기본 `더보기`, `@ap/ui`는 i18n을 모르므로 메뉴가 자기 문구를 넘긴다)을 받는다. `overflow="menu"`는 들어가지 않는 탭을 마지막 보이는 탭 바로 뒤의 `더보기 ⌄` 메뉴로 옮기고(선택 탭이 숨으면 버튼이 그 탭 이름과 선택 막대를 보인다), 목록 자신의 상자 너비를 재므로 컨테이너가 확정된 너비를 줘야 한다(flex 행이면 `min-w-0 flex-1`). 숨은 탭은 DOM에 `hidden`으로 남아 `TabsContent`의 `aria-labelledby`가 계속 풀린다. 키보드는 ←/→/Home/End가 [보이는 탭…, 더보기 버튼] 순서를 돌고, 버튼에서 Enter/Space/↓로 메뉴(`menuitemradio`)를 열며, Tab 정거장은 목록 하나(선택 탭이 숨었으면 더보기 버튼)다. `@ap/feature-ui`는 표식 없는 `TabsListBase`·`TabsTriggerBase`를 각각 `TabsList`·`TabsTrigger`라는 기능 이름으로 재수출한다. 아래 primitive 역할 예시는 그 구체 컴포넌트 매핑까지 확정하는 것은 아니다.

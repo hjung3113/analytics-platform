@@ -1,4 +1,5 @@
-import { Search } from 'lucide-react';
+import { Search, X } from 'lucide-react';
+import { Button } from '../components/Button.js';
 import { Input } from '../components/shadcn/input.js';
 import {
   Tooltip,
@@ -10,6 +11,9 @@ import { cn } from '../utils/cn.js';
 
 export interface SearchInputProps {
   placeholder?: string;
+  size?: 'default' | 'toolbar';
+  'aria-label'?: string;
+  clearLabel?: string;
   className?: string;
   /**
    * Controlled value. Only read when `onValueChange` is provided (#821).
@@ -40,6 +44,9 @@ export function SearchInput({
   value,
   onValueChange,
   onCommit,
+  size = 'default',
+  'aria-label': ariaLabel,
+  clearLabel = 'Clear',
 }: SearchInputProps) {
   if (onValueChange === undefined) {
     return (
@@ -58,13 +65,14 @@ export function SearchInput({
                 'relative inline-flex items-center cursor-not-allowed opacity-50',
                 className,
               )}
-              aria-label={placeholder}
+              aria-label={ariaLabel ?? placeholder}
             >
               <Search
                 className="pointer-events-none absolute left-3 h-4 w-4 text-text-muted"
                 aria-hidden="true"
               />
               <Input
+                inputSize={size}
                 placeholder={placeholder}
                 disabled
                 aria-disabled="true"
@@ -85,11 +93,12 @@ export function SearchInput({
         aria-hidden="true"
       />
       <Input
+        inputSize={size}
         type="search"
         value={value}
         placeholder={placeholder}
-        aria-label={placeholder}
-        className="pl-9"
+        aria-label={ariaLabel ?? placeholder}
+        className={cn('pl-9', size === 'toolbar' && 'pr-9 [&::-webkit-search-cancel-button]:appearance-none')}
         onChange={(event) => onValueChange(event.target.value)}
         onKeyDown={(event) => {
           // A dialog (e.g. Radix) may have already handled this Escape on
@@ -107,6 +116,7 @@ export function SearchInput({
         }}
         {...(onCommit !== undefined ? { onBlur: () => onCommit() } : {})}
       />
+      {size === 'toolbar' && value && <Button type="button" variant="navigation" size="icon-xs" className="absolute right-0.5" aria-label={clearLabel} onClick={() => onValueChange('')}><X className="size-4" aria-hidden /></Button>}
     </div>
   );
 }

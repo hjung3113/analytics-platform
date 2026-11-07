@@ -620,3 +620,22 @@ describe('menu additionalPermissions (AND with the primary permission)', () => {
     expect(() => createRegistry({ spaces: [{ ...analyticsSpace, permission: 'feedbackops:access' as never }], groups, menus: [catalog] })).toThrow(/not a platform permission/);
   });
 });
+
+describe('navTree declaration (#1448)', () => {
+  const treeMenu = catalog as PlatformMenuEntry;
+  const navTree: NonNullable<PlatformMenuEntry['navTree']> = { label: { ko: '항목', en: 'Items' }, Source: () => null };
+  it('accepts a stable Source declaration without changing JSON metadata', () => {
+    expect(createRegistry({ spaces, groups, menus: [{ ...treeMenu, navTree }] }).menuById('catalog').navTree).toBe(navTree);
+  });
+  it.each([
+    { navHidden: true },
+    { navViews: [] },
+    { navTree: { ...navTree, label: { ko: ' ', en: 'Items' } } },
+    { navTree: { ...navTree, label: { ko: '항목', en: '' } } },
+  ])('rejects incompatible or blank navTree declarations: %j', extra => {
+    expect(() => createRegistry({ spaces, groups, menus: [{ ...treeMenu, navTree, ...extra }] })).toThrow(/navTree/);
+  });
+  it('rejects more than one tree per group', () => {
+    expect(() => createRegistry({ spaces, groups, menus: [{ ...treeMenu, navTree }, menu('second', '/second', { navTree })] })).toThrow(/navTree/);
+  });
+});

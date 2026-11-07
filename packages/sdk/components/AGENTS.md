@@ -1,5 +1,7 @@
 # @ap/components
 
+- `hierarchy/` (#1448): `HierarchyNav` owns cursor paging, cancellation, dedupe, virtualization, drill/tree keyboard, deep-path restoration and explicit failures. `useHierarchyNavState(menuId)` returns shared per-user/revision state for expanded/popover hosts; never cache globally or serialize expansion/search into URLs. Data contracts live in @ap/contracts; source/endpoints belong to the menu. Testing-only exports: `createSyntheticHierarchySource` and `stubHierarchyGeometry` (nonzero virtual DOM assertions).
+
 Platform Component 층(06 §13) + 차트 계약(§16) + 페이지 archetype 골격(§12). 메뉴가 조립하는 부품이다.
 
 ## 파일

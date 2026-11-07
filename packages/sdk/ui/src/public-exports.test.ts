@@ -10,6 +10,7 @@ const PUBLIC_EXPORTS = [
   'Alert', 'AlertDescription', 'AlertTitle',
   'Badge', 'badgeVariants',
   'Button', 'buttonVariants',
+  'navRowVariants', 'NavCurrentMarker', 'navDrillAffordance',
   'Checkbox',
   'DetailPanelSlotProvider',
   'Dialog', 'DialogClose', 'DialogContent', 'DialogDescription', 'DialogFooter', 'DialogHeader', 'DialogOverlay', 'DialogPortal', 'DialogTitle', 'DialogTrigger',

@@ -1,7 +1,7 @@
 import { DETAIL_EXPAND_KEY } from '../links/detail-expansion';
-import type { ComponentType, LazyExoticComponent } from 'react';
+import type { ComponentType, LazyExoticComponent, ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { GLOBAL_KEYS, KERNEL_PERMISSIONS, isAppRelativePath, parseQuery, requiredContextError, RETURN_TO_KEY, menuPermissions, type CarrySetDef, type CarrySetId, type ContextKey, type GroupId, type HostFeature, type MenuMeta, type MenuPermission, type ModuleScopedId, type ModuleScreenProps, type PageType, type Permission, type SpaceDef, type SpaceId, type Text } from '@ap/contracts';
+import { GLOBAL_KEYS, KERNEL_PERMISSIONS, isAppRelativePath, parseQuery, requiredContextError, RETURN_TO_KEY, menuPermissions, type CarrySetDef, type CarrySetId, type ContextKey, type GroupId, type HostFeature, type HierarchySource, type MenuMeta, type MenuPermission, type ModuleScopedId, type ModuleScreenProps, type PageType, type Permission, type SpaceDef, type SpaceId, type Text } from '@ap/contracts';
 
 /** docs/06 §5: menus declare, the shell consumes. Metadata lives in @ap/contracts; this adds the React bindings. */
 export type PageProps = { params: Record<string, string> };
@@ -9,6 +9,14 @@ export type PageProps = { params: Record<string, string> };
 export type PlatformMenuEntry = MenuMeta & {
   icon: LucideIcon;
   component?: LazyExoticComponent<ComponentType<PageProps>>;
+  /** A stable module-level Source builds the menu-owned, Context-independent hierarchy source. */
+  navTree?: {
+    label: Text;
+    Source: ComponentType<{ children: (source: HierarchySource) => ReactNode }>;
+    mode?: 'drill' | 'tree';
+    levelIcon?: (kind: string) => ComponentType<{ className?: string }> | undefined;
+    currentNodeId?: (location: { menuId: string; params: Record<string, string>; page: (key: string) => string | null }) => string | null;
+  };
   module?: undefined;
   moduleScreen?: undefined;
 };
@@ -18,6 +26,7 @@ export type PlatformMenuEntry = MenuMeta & {
  * `{ params, host }` (the shell's ModuleScreen); it has no `component` but still counts as implemented.
  */
 export type ModuleMenuEntry = Omit<MenuMeta, 'group' | 'permission'> & {
+  navTree?: undefined;
   module: string;
   group: ModuleScopedId;
   permission: ModuleScopedId;
@@ -191,6 +200,7 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
   });
   byId.clear();
   for (const m of menus) byId.set(m.id, m);
+  const treeGroups = new Set<AnyGroupId>();
   const shapes = new Map<string, string>();
   for (const m of menus) {
     if (!groupIds.has(m.group)) fail(`Menu "${m.id}" uses undeclared group "${m.group}"`);
@@ -256,6 +266,12 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
     const menuCarrySet = m.carrySet === undefined ? undefined : carrySetByIdMap.get(m.carrySet) ?? fail(`Menu "${m.id}" uses undeclared carry set "${String(m.carrySet)}"`);
     const missingCarried = (menuCarrySet?.pageKeys ?? []).find(k => !m.pageKeys.includes(k));
     if (missingCarried) fail(`Menu "${m.id}" does not declare carry set "${menuCarrySet?.id}" page key "${missingCarried}" in pageKeys`);
+    if (m.navTree !== undefined) {
+      if (m.module !== undefined || m.navHidden || m.navViews !== undefined) fail(`Menu "${m.id}" navTree cannot coexist with module, navHidden or navViews`);
+      if (typeof m.navTree.label?.ko !== 'string' || !m.navTree.label.ko.trim() || typeof m.navTree.label?.en !== 'string' || !m.navTree.label.en.trim()) fail(`Menu "${m.id}" navTree needs nonempty ko and en labels`);
+      if (treeGroups.has(m.group)) fail(`Group "${m.group}" may declare only one navTree`);
+      treeGroups.add(m.group);
+    }
     // Sidebar sub-items: preset keys are the menu's own page keys, never carried or `focus`; ids unique (06 §8).
     if (m.navViews !== undefined) {
       if (m.navHidden && m.navViews.length > 0) fail(`Menu "${m.id}" is navHidden and cannot declare navViews`);
