@@ -4,6 +4,7 @@ import { columnFilterSchema, columnFilterSpecSchema } from './column-filter.ts';
 import * as ports from './service-ports.ts';
 import * as views from './saved-view-commands.ts';
 import * as tokens from './api-token.ts';
+import * as source from './source-read.ts';
 import { z } from 'zod/v4';
 
 export { apiResponseSchema, assessmentKindSchema, assessmentSchema, outcomeSchema, trustSchema } from './response.ts';
@@ -65,6 +66,56 @@ export {
   issueServiceApiTokenInputSchema,
   issuedApiTokenSchema,
 } from './api-token.ts';
+export {
+  SOURCE_READ_CAPABILITIES,
+  SOURCE_READ_CURSOR_MAX,
+  SOURCE_READ_ROWS_MAX,
+  SOURCE_READ_ROW_CHARS_MAX,
+  SOURCE_READ_SAMPLE_FILES_MAX,
+  SOURCE_READ_TIME_BUDGET_MS,
+  SOURCE_READ_VERSION,
+  SOURCE_READ_WINDOW_MAX,
+  SOURCE_UNSUPPORTED_REASONS,
+  sourceDescribeRequestSchema,
+  sourceDescribeResponseSchema,
+  sourceLimitsSchema,
+  sourceParsedRequestSchema,
+  sourceParsedResponseSchema,
+  sourcePeriodRowSchema,
+  sourcePeriodsRequestSchema,
+  sourcePeriodsResponseSchema,
+  sourceReadCapabilitySchema,
+  sourceRecordQuerySchema,
+  sourceRowSchema,
+  sourceSampleSetSchema,
+  sourceSearchRequestSchema,
+  sourceSearchResponseSchema,
+  sourceTopViewRequestSchema,
+  sourceTopViewResponseSchema,
+  sourceUnsupportedReasonSchema,
+  sourceWindowRequestSchema,
+  sourceWindowResponseSchema,
+} from './source-read.ts';
+export type {
+  SourceSampleSet,
+  SourceRecordQuery,
+  SourceRow,
+  SourceLimits,
+  SourceReadCapability,
+  SourceUnsupportedReason,
+  SourceDescribeRequest,
+  SourceDescribeResponse,
+  SourceSearchRequest,
+  SourceSearchResponse,
+  SourceWindowRequest,
+  SourceWindowResponse,
+  SourceParsedRequest,
+  SourceParsedResponse,
+  SourcePeriodsRequest,
+  SourcePeriodsResponse,
+  SourceTopViewRequest,
+  SourceTopViewResponse,
+} from './source-read.ts';
 export { schemaFileText, toJsonSchema } from './export.ts';
 
 /**
@@ -114,4 +165,23 @@ export const SCHEMA_FILES: Readonly<Record<string, z.ZodType>> = {
   issuePersonalApiTokenInput: tokens.issuePersonalApiTokenInputSchema,
   issueServiceApiTokenInput: tokens.issueServiceApiTokenInputSchema,
   issuedApiToken: tokens.issuedApiTokenSchema,
+  sourceReadCapability: source.sourceReadCapabilitySchema,
+  sourceUnsupportedReason: source.sourceUnsupportedReasonSchema,
+  sourcePeriodRow: source.sourcePeriodRowSchema,
+  sourceSampleSet: source.sourceSampleSetSchema,
+  sourceRecordQuery: source.sourceRecordQuerySchema,
+  sourceRow: source.sourceRowSchema,
+  sourceLimits: source.sourceLimitsSchema,
+  sourceDescribeRequest: source.sourceDescribeRequestSchema,
+  sourceDescribeResponse: source.sourceDescribeResponseSchema,
+  sourceSearchRequest: source.sourceSearchRequestSchema,
+  sourceSearchResponse: source.sourceSearchResponseSchema,
+  sourceWindowRequest: source.sourceWindowRequestSchema,
+  sourceWindowResponse: source.sourceWindowResponseSchema,
+  sourceParsedRequest: source.sourceParsedRequestSchema,
+  sourceParsedResponse: source.sourceParsedResponseSchema,
+  sourcePeriodsRequest: source.sourcePeriodsRequestSchema,
+  sourcePeriodsResponse: source.sourcePeriodsResponseSchema,
+  sourceTopViewRequest: source.sourceTopViewRequestSchema,
+  sourceTopViewResponse: source.sourceTopViewResponseSchema,
 };

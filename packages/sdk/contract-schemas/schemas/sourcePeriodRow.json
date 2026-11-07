@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "fileRef": {
+      "maxLength": 1024,
+      "type": "string",
+      "minLength": 1
+    },
+    "startLine": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "endLine": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "state": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "incomplete": {
+      "type": "boolean"
+    },
+    "synthetic": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "fileRef",
+    "startLine",
+    "endLine",
+    "state",
+    "incomplete",
+    "synthetic"
+  ],
+  "additionalProperties": false
+}

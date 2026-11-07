@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "sampleSet": {
+      "type": "object",
+      "properties": {
+        "sourceOwner": {
+          "maxLength": 200,
+          "type": "string",
+          "minLength": 1
+        },
+        "files": {
+          "minItems": 1,
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "fileRef": {
+                "maxLength": 1024,
+                "type": "string",
+                "minLength": 1
+              },
+              "order": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1000
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            },
+            "required": [
+              "fileRef",
+              "order",
+              "sha256"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "sourceOwner",
+        "files"
+      ],
+      "additionalProperties": false
+    },
+    "query": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "logType": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "module": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "event": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "context": {
+          "maxProperties": 20,
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "additionalProperties": {
+            "type": "string",
+            "maxLength": 200
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "cursor": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200
+    }
+  },
+  "required": [
+    "sampleSet",
+    "query",
+    "cursor",
+    "limit"
+  ],
+  "additionalProperties": false
+}
