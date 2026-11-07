@@ -13,7 +13,7 @@ export { ITEM_TYPE_LABEL, PROCESSING_LABEL, PUBLICATION_LABEL, VERIFICATION_LABE
 
 /** The three state axes of an item. They are never merged (ADR-0109, design §7.2): each has its own label and badge. */
 export type Axis = 'publication' | 'verification' | 'processing';
-export const AXIS_LABEL: Record<Axis, string> = { publication: '게시', verification: '기술 검증', processing: '처리' };
+export const AXIS_LABEL: Record<Axis, string> = { publication: '발행', verification: '기술 검증', processing: '처리' };
 /** `dimension` of an assessment event → axis (publication changes are not assessments, but an unknown dimension reads as its raw id). */
 export const AXIS_OF_DIMENSION: Record<string, Axis> = { verification: 'verification', processing: 'processing', publication: 'publication' };
 
@@ -30,10 +30,10 @@ export const itemNoLabel = (itemNo: number): string => `KI-${itemNo}`;
 export const ownerText = (owner: ItemOwner): string => (owner.kind === 'software' ? `${owner.modelName} / ${owner.versionLabel}` : owner.modelName);
 export const ownerKindText = (owner: Pick<ItemOwner, 'kind'>): string => (owner.kind === 'software' ? 'SW' : '모델');
 
-/** An item the default list hides: only an explicit 게시 상태 condition shows it, so the row stays visible but muted. */
+/** An item the default list hides: only an explicit 발행 상태 condition shows it, so the row stays visible but muted. */
 export const isRowMuted = (row: Pick<ItemRow, 'publicationState'>): boolean => row.publicationState !== 'published';
 
-/** The pinned 게시 상태 filter the list opens with. */
+/** The pinned 발행 상태 filter the list opens with. */
 export const PUBLISHED_ONLY: ColumnFilter = { id: 'publicationState', op: 'in', value: ['published'] };
 export const defaultFilterParams = (): string[] => encodeFilterParams([PUBLISHED_ONLY]);
 

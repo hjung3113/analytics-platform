@@ -3,7 +3,7 @@
 // guard accepts and its SQL twin sits between the `LEGAL_DRAFT_STATUS_PAIRS begin/end` comments of the migration;
 // `draft-transitions.test.ts` pins them together. Node a's service moves a draft only through `canSubmit` and
 // `canWithdraw`; the moves out of `submitted` to `approved` / `rejected` / `changes_requested` are the review decisions
-// of node b (the guard allows them now, no caller exists yet). `approved`, `rejected` and `withdrawn` are final.
+// of `review-actions.ts` (#1198 b). `approved`, `rejected` and `withdrawn` are final.
 
 export const DRAFT_STATUSES = ['draft', 'submitted', 'changes_requested', 'approved', 'rejected', 'withdrawn'] as const;
 export type DraftStatus = (typeof DRAFT_STATUSES)[number];
@@ -16,7 +16,7 @@ export const isFinalDraftStatus = (status: string): boolean => (FINAL_DRAFT_STAT
 /** Every move the guard trigger accepts, `from -> allowed tos` (SQL order). */
 export const LEGAL_DRAFT_STATUS_PAIRS: Readonly<Record<DraftStatus, readonly DraftStatus[]>> = {
   draft: ['submitted', 'withdrawn'],
-  // node b: approved / rejected / changes_requested are the review decisions.
+  // approved / rejected / changes_requested are the review decisions (review-actions.ts).
   submitted: ['approved', 'rejected', 'changes_requested', 'withdrawn'],
   changes_requested: ['submitted', 'withdrawn'],
   approved: [],

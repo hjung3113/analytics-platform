@@ -109,7 +109,7 @@ const slow = { timeout: 8000 };
 vi.setConfig({ testTimeout: 20000 });
 
 describe('전체 기술 Item list', () => {
-  it('a bare address opens with 게시 상태 = 게시됨 in the address and on the wire', async () => {
+  it('a bare address opens with 발행 상태 = 발행됨 in the address and on the wire', async () => {
     mountList();
     await screen.findByText('KI-1', {}, slow);
     expect(hiddenFilters()).toEqual(['publicationState:in:published']);
@@ -180,7 +180,7 @@ describe('기술 Item detail', () => {
     expect(await screen.findByRole('heading', { name: '챔버 압력 로그 지연' }, slow)).toBeTruthy();
     expect(screen.getAllByText('KI-1').length).toBeGreaterThan(0);
     const badge = (axis: string, state: string) => screen.getAllByText(axis).some(el => el.parentElement!.textContent === `${axis}\u00a0${state}`);
-    expect(badge('게시', '게시됨')).toBe(true);
+    expect(badge('발행', '발행됨')).toBe(true);
     expect(badge('기술 검증', '이견 있음')).toBe(true);
     expect(badge('처리', '조사 중')).toBe(true);
     expect(screen.getByTitle('Alpha 100')).toBeTruthy();

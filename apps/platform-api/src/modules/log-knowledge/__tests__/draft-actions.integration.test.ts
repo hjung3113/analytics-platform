@@ -727,6 +727,7 @@ describe.skipIf(!runIntegration)('log knowledge draft actions and reads (#1198 a
         status: 'draft',
         latestDraftRev: 1,
         submitterActorId: author.id,
+        postedItemId: null,
         submittedAt: null,
         updatedAt: expect.any(String),
         createdAt: expect.any(String),

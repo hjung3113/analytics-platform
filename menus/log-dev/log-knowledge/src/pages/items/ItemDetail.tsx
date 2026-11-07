@@ -34,7 +34,7 @@ function Header({ detail, viewing }: { detail: ItemDetailData; viewing: number }
     </div>
     <p className="text-xs text-text-muted">
       <span className="t-mono">{itemNoLabel(item.itemNo)}</span> · r{viewing} · 작성 <span title={item.createdBy}>{shortActor(item.createdBy)}</span> {stamp(item.createdAt)} · 갱신 {stamp(item.updatedAt)}
-      {viewing !== item.latestRevisionNo && <> · r{viewing} 게시 {stamp(revision.publishedAt)}</>}
+      {viewing !== item.latestRevisionNo && <> · r{viewing} 발행 {stamp(revision.publishedAt)}</>}
     </p>
   </header>;
 }

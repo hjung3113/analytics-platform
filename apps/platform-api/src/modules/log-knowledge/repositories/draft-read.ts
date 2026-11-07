@@ -7,10 +7,11 @@
 import { type SQL, and, asc, count, desc, eq, ilike, inArray, notInArray, or, sql } from 'drizzle-orm';
 import { type AnyPgColumn, alias } from 'drizzle-orm/pg-core';
 
-import { knowledgeDraftRevisions, knowledgeDrafts, softwareVersions } from '../../../db/schema/knowledge.js';
+import { knowledgeDraftReviews, knowledgeDraftRevisions, knowledgeDrafts, knowledgeItems, softwareVersions } from '../../../db/schema/knowledge.js';
 import type { Tx } from '../../../db/tx.js';
 import type { FilterCondition } from '../../../lib/list-params/catalog-filters.js';
 import { escapeLike, type ListQuery, type Page } from './catalog-read.js';
+import { listReviews } from './draft-review.js';
 
 export const DRAFT_SORT_IDS = ['updatedAt', 'submittedAt', 'createdAt'] as const;
 
@@ -32,6 +33,8 @@ export interface DraftListRow {
   status: string;
   latestDraftRev: number;
   submitterActorId: string;
+  /** The item an approval posted (null unless the draft is approved). */
+  postedItemId: string | null;
   submittedAt: string | null;
   updatedAt: string;
   createdAt: string;
@@ -42,6 +45,9 @@ const iso = (value: Date | string): string => (value instanceof Date ? value : n
 const d = knowledgeDrafts;
 const r = knowledgeDraftRevisions;
 const sw = alias(softwareVersions, 'draft_owner_sw');
+const rv = knowledgeDraftReviews;
+/** The approval's item, if any (a draft has at most one `approved` review: `draft_review_final_uq`). */
+const postedItem = sql<string | null>`(select ${rv.postedItemId} from ${rv} where ${rv.workspaceId} = ${d.workspaceId} and ${rv.draftId} = ${d.id} and ${rv.decision} = 'approved')`;
 
 /** The visibility rule as a WHERE fragment. */
 export function visibleTo(viewer: DraftViewer): SQL {
@@ -82,7 +88,7 @@ export async function listDrafts(tx: Tx, q: ListQuery, viewer: DraftViewer): Pro
   });
   const base = () =>
     tx
-      .select({ draft: d, title })
+      .select({ draft: d, title, postedItemId: postedItem })
       .from(d)
       .innerJoin(r, joinLatest)
       .leftJoin(sw, and(eq(sw.workspaceId, d.workspaceId), eq(sw.id, d.ownerSoftwareId)));
@@ -99,7 +105,7 @@ export async function listDrafts(tx: Tx, q: ListQuery, viewer: DraftViewer): Pro
     .where(where);
   return {
     total: Number(totalRow?.n ?? 0),
-    rows: rows.map(({ draft, title: t }) => ({
+    rows: rows.map(({ draft, title: t, postedItemId }) => ({
       id: draft.id,
       origin: draft.origin,
       proposalType: draft.proposalType,
@@ -111,6 +117,7 @@ export async function listDrafts(tx: Tx, q: ListQuery, viewer: DraftViewer): Pro
       status: draft.status,
       latestDraftRev: draft.latestDraftRev,
       submitterActorId: draft.submitterActorId,
+      postedItemId,
       submittedAt: draft.submittedAt ? iso(draft.submittedAt) : null,
       updatedAt: iso(draft.updatedAt),
       createdAt: iso(draft.createdAt),
@@ -127,6 +134,21 @@ export interface DraftDetail {
     createdBy: string;
   };
   revisions: { revNo: number; payloadDigest: string; authorActorId: string; createdAt: string }[];
+  /** Review decisions, newest first. */
+  reviews: {
+    id: string;
+    decision: string;
+    reviewedDraftRevNo: number;
+    approvedDigest: string | null;
+    selfApproval: boolean;
+    rationale: string | null;
+    postedItemId: string | null;
+    postedRevisionNo: number | null;
+    reviewerActorId: string;
+    reviewedAt: string;
+  }[];
+  /** A revise draft under review, for a publish holder: the target's current `row_version` (the `expectedItemVersion` to send); else null. */
+  targetItemVersion: number | null;
   /** The latest revision's stored proposal (normalized, see `draft-input.ts`). */
   proposal: unknown;
 }
@@ -134,7 +156,7 @@ export interface DraftDetail {
 /** One draft the viewer may see (same rule as the list); null when it is missing, another workspace's or hidden from them. */
 export async function getDraftDetail(tx: Tx, workspaceId: string, draftId: string, viewer: DraftViewer): Promise<DraftDetail | null> {
   const [row] = await tx
-    .select({ draft: d, proposal: r.proposalJson, title })
+    .select({ draft: d, proposal: r.proposalJson, title, postedItemId: postedItem })
     .from(d)
     .innerJoin(r, joinLatest)
     .where(and(eq(d.workspaceId, workspaceId), eq(d.id, draftId), visibleTo(viewer)));
@@ -145,6 +167,15 @@ export async function getDraftDetail(tx: Tx, workspaceId: string, draftId: strin
     .where(and(eq(r.workspaceId, workspaceId), eq(r.draftId, draftId)))
     .orderBy(desc(r.draftRevNo));
   const { draft } = row;
+  const reviews = await listReviews(tx, workspaceId, draftId);
+  let targetItemVersion: number | null = null;
+  if (viewer.holdsPublish && draft.status === 'submitted' && draft.proposalType === 'revise' && draft.targetItemId) {
+    const [target] = await tx
+      .select({ rowVersion: knowledgeItems.rowVersion })
+      .from(knowledgeItems)
+      .where(and(eq(knowledgeItems.workspaceId, workspaceId), eq(knowledgeItems.id, draft.targetItemId)));
+    targetItemVersion = target?.rowVersion ?? null;
+  }
   return {
     draft: {
       id: draft.id,
@@ -157,6 +188,7 @@ export async function getDraftDetail(tx: Tx, workspaceId: string, draftId: strin
       status: draft.status,
       latestDraftRev: draft.latestDraftRev,
       submitterActorId: draft.submitterActorId,
+      postedItemId: row.postedItemId,
       submittedAt: draft.submittedAt ? iso(draft.submittedAt) : null,
       updatedAt: iso(draft.updatedAt),
       createdAt: iso(draft.createdAt),
@@ -167,6 +199,8 @@ export async function getDraftDetail(tx: Tx, workspaceId: string, draftId: strin
       closedBy: draft.closedBy,
     },
     revisions: revisions.map((x) => ({ ...x, createdAt: iso(x.createdAt) })),
+    reviews: reviews.map((x) => ({ ...x, reviewedAt: iso(x.reviewedAt) })),
+    targetItemVersion,
     proposal: row.proposal,
   };
 }

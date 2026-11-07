@@ -15,6 +15,28 @@ const base = {
   statusAfter: 'draft',
 };
 
+const review = { draftId: ID, reviewId: ID, draftRevNo: 2, payloadDigest: DIGEST, origin: 'human' };
+const approved = { draftId: ID, reviewId: ID, draftRevNo: 2, approvedDigest: DIGEST, itemId: ID, revisionNo: 1, selfApproval: false, origin: 'human' };
+
+describe('log knowledge draft review audit detail schemas (#1198 b)', () => {
+  it.each([
+    ['knowledge.draft.approved', approved],
+    ['knowledge.draft.rejected', review],
+    ['knowledge.draft.changes_requested', review],
+  ] as const)('%s accepts its detail', (type, detail) => {
+    expect(AUDIT_EVENT_DETAIL_SCHEMAS[type].safeParse(detail).success).toBe(true);
+  });
+
+  it.each([
+    ['knowledge.draft.approved', { ...approved, rationale: 'x' }],
+    ['knowledge.draft.approved', { ...approved, selfApproval: 'yes' }],
+    ['knowledge.draft.rejected', { ...review, rationale: 'x' }],
+    ['knowledge.draft.changes_requested', { ...review, payloadDigest: 'abc' }],
+  ] as const)('%s rejects %j', (type, detail) => {
+    expect(AUDIT_EVENT_DETAIL_SCHEMAS[type].safeParse(detail).success).toBe(false);
+  });
+});
+
 describe('log knowledge draft audit detail schemas (#1198 a)', () => {
   it.each([
     ['knowledge.draft.created', base],

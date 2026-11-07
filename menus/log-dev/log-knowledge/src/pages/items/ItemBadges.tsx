@@ -8,7 +8,7 @@ const TONE: Record<Axis, Record<string, Tone>> = {
   publication: { published: 'info', archived: 'neutral' },
 };
 
-/** One state axis as a badge that names the axis in text, so the meaning never rests on colour alone (design §7.2: 게시 ≠ 검증). */
+/** One state axis as a badge that names the axis in text, so the meaning never rests on colour alone (design §7.2: 발행 ≠ 검증). */
 export function StateBadge({ axis, value }: { axis: Axis; value: string }) {
   return <StatusBadge tone={TONE[axis][value] ?? 'neutral'}><span className="font-normal opacity-80">{AXIS_LABEL[axis]}</span>&nbsp;{stateLabel(axis, value)}</StatusBadge>;
 }

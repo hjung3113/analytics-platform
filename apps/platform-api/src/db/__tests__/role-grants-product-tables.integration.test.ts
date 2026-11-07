@@ -429,10 +429,11 @@ describe.skipIf(!runIntegration)('ADR-0008 role grants — product tables (Slice
     expect(rows.map((row) => row.column_name)).toEqual([...columns].sort());
   });
 
-  // #1198 a: the `knowledge` schema is not in PRODUCT_SCHEMAS, so the two draft tables are pinned explicitly.
+  // #1198 a: the `knowledge` schema is not in PRODUCT_SCHEMAS, so the three draft tables are pinned explicitly.
   it.each([
     ['draft', ['SELECT', 'INSERT']],
     ['draft_revision', ['SELECT', 'INSERT']],
+    ['draft_review', ['SELECT', 'INSERT']],
   ] as const)('platform_app holds exactly %s privileges on knowledge.%s (no DELETE, no TRUNCATE, no table-wide UPDATE)', async (table, expected) => {
     const { rows } = await migrateHandle.pool.query<{ privilege_type: string }>(
       `select privilege_type from information_schema.role_table_grants
@@ -445,6 +446,7 @@ describe.skipIf(!runIntegration)('ADR-0008 role grants — product tables (Slice
   it.each([
     ['draft', ['status', 'latest_draft_rev', 'submitted_at', 'closed_at', 'closed_by', 'close_reason', 'row_version', 'updated_at', 'updated_by']],
     ['draft_revision', []],
+    ['draft_review', []],
   ] as const)('platform_app UPDATE on knowledge.%s is limited to the mutable columns', async (table, columns) => {
     const { rows } = await migrateHandle.pool.query<{ column_name: string }>(
       `select column_name
