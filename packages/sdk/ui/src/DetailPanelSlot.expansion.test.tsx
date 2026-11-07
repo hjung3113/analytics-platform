@@ -1,5 +1,5 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { useContext, useState } from 'react';
+import { useContext, useLayoutEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { afterEach, expect, it, vi } from 'vitest';
 import { DetailPanelSlotProvider, useDetailPanelSlot, useDetailPanelSlotHost } from './DetailPanelSlot';
@@ -52,4 +52,18 @@ it('does not invoke the previous screen controller when navigation already remov
   const view = render(<DetailPanelSlotProvider expanded onExpandedChange={previous}><Portal /><Host /></DetailPanelSlotProvider>);
   view.rerender(<DetailPanelSlotProvider expanded={false} onExpandedChange={current}><Host /></DetailPanelSlotProvider>);
   expect(previous).not.toHaveBeenCalled(); expect(current).not.toHaveBeenCalled();
+});
+
+it('in-memory expansion serves a reported visible surface without any detail registrant and ends with it', () => {
+  function SurfaceHost({ visible }: { visible: boolean }) {
+    const slot = useDetailPanelSlotHost();
+    const { setSurfaceVisible } = slot;
+    useLayoutEffect(() => { setSurfaceVisible(visible); }, [setSurfaceVisible, visible]);
+    return <><aside aria-label="slot" ref={slot.ref} data-expanded={slot.expanded} /><button onClick={slot.toggle}>toggle</button></>;
+  }
+  const tree = (visible: boolean) => <DetailPanelSlotProvider expanded={undefined}><SurfaceHost visible={visible} /></DetailPanelSlotProvider>;
+  const view = render(tree(true));
+  fireEvent.click(screen.getByRole('button', { name: 'toggle' })); expect(screen.getByRole('complementary').getAttribute('data-expanded')).toBe('true');
+  view.rerender(tree(false)); expect(screen.getByRole('complementary').getAttribute('data-expanded')).toBe('false');
+  view.rerender(tree(true)); expect(screen.getByRole('complementary').getAttribute('data-expanded')).toBe('false');
 });

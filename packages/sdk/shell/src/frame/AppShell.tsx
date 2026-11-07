@@ -43,7 +43,10 @@ function ShellLayout({ children }: { children: ReactNode }) {
   const surfaceOpen = detailShown || voc?.visible === true;
   const expanded = surfaceOpen && detail.expanded;
   const fullscreen = useMemo(() => ({ expanded, toggle: detail.toggle }), [expanded, detail.toggle]);
-  const { expanded: slotExpanded, toggle: toggleExpanded } = detail;
+  const { expanded: slotExpanded, toggle: toggleExpanded, setSurfaceVisible } = detail;
+  // The VOC drawer registers no detail, so the slot learns its visibility here (in-memory expansion on the board).
+  const vocVisible = voc?.visible === true;
+  useLayoutEffect(() => { setSurfaceVisible(vocVisible); }, [setSurfaceVisible, vocVisible]);
   const wasOpen = useRef(false);
   useLayoutEffect(() => {
     if (wasOpen.current && !surfaceOpen && slotExpanded) toggleExpanded();

@@ -93,3 +93,38 @@ it('measures the real sticky header and updates the content-region geometry afte
   expect(detail.style.getPropertyValue('--detail-top')).toBe('80px');
   expect(detail.style.getPropertyValue('--detail-height')).toBe('820px');
 });
+
+function BodyOpener() {
+  const [open, setOpen] = useState(false);
+  return <PlatformPage><button onClick={() => setOpen(true)}>본문 열기</button>{open && <DetailDrawer title="본문 상세" onClose={() => setOpen(false)} tabs={[{ id: 'one', label: '상세', content: <p>내용</p> }]} />}</PlatformPage>;
+}
+it('on the board the VOC drawer alone expands and collapses in memory, and closing it leaves no latent expansion for the next surface', () => {
+  history.replaceState(null, '', '/board?sheet=s'); const before = location.href;
+  render(<I18nProvider><PlatformProvider registry={registry} adapter={testAdapter({ session: () => session })} slots={slots}><AppShell><p>board</p></AppShell></PlatformProvider></I18nProvider>);
+  fireEvent.click(screen.getByRole('button', { name: /^VOC 등록/ }));
+  const ui = within(screen.getByRole('complementary', { name: 'VOC 등록' }));
+  const input = ui.getByLabelText('VOC 입력');
+  fireEvent.click(ui.getByRole('button', { name: '크게 보기' }));
+  expect(ui.getByRole('button', { name: '원래 크기로' })).toBeTruthy(); expect(ui.getByLabelText('VOC 입력')).toBe(input);
+  fireEvent.click(ui.getByRole('button', { name: '원래 크기로' })); expect(ui.getByRole('button', { name: '크게 보기' })).toBeTruthy();
+  fireEvent.click(ui.getByRole('button', { name: '크게 보기' })); fireEvent.click(ui.getByRole('button', { name: '작성 취소' }));
+  fireEvent.click(screen.getByRole('button', { name: /^VOC 등록/ }));
+  expect(within(screen.getByRole('complementary', { name: 'VOC 등록' })).getByRole('button', { name: '크게 보기' })).toBeTruthy();
+  expect(location.href).toBe(before);
+});
+it('closing an expanded detail directly returns focus to its body opener once the body is usable again', async () => {
+  // Let the previous test's dialog focus-return timers (they look up #platform-main in the live document) run before this mount.
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)); });
+  vi.useFakeTimers();
+  try {
+    history.replaceState(null, '', '/mars/home?v=1');
+    render(<I18nProvider><PlatformProvider registry={registry} adapter={testAdapter({ session: () => session })} slots={slots}><AppShell><BodyOpener /></AppShell></PlatformProvider></I18nProvider>);
+    const opener = screen.getByRole('button', { name: '본문 열기' }); act(() => opener.focus());
+    fireEvent.click(opener); fireEvent.click(screen.getByRole('button', { name: '크게 보기' }));
+    expect(document.querySelector('[data-platform-page-body]')!.hasAttribute('inert')).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: '상세 닫기' }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(10); });
+    expect(document.querySelector('[data-platform-page-body]')!.hasAttribute('inert')).toBe(false);
+    expect(opener).toHaveFocus();
+  } finally { vi.useRealTimers(); }
+});

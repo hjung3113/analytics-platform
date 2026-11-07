@@ -1,12 +1,12 @@
 import { detailFocusFallback, paneRootById } from '../state/pageFocus';
 import { OutcomeBanners, OutcomeScope } from '../filters/OutcomeScope';
 import { X } from 'lucide-react';
-import { useEffect, useId, useInsertionEffect, useLayoutEffect, useRef, type MutableRefObject, type ReactNode } from 'react';
+import { useContext, useEffect, useId, useInsertionEffect, useLayoutEffect, useRef, type MutableRefObject, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { buildQuery } from '@ap/contracts';
 import { useI18n } from '@ap/kernel';
 import { useHostPlatformOptional } from '@ap/kernel/host';
-import { DetailPanelFullscreenToggle, DetailPanelReadingColumn, useDetailPanelEscape, Tabs, TabsContent, TabsList, TabsTrigger, TransientOverlayScope, useDetailPanelSlot, useSurfacePaused } from '@ap/ui';
+import { DetailPanelFullscreenContext, DetailPanelFullscreenToggle, DetailPanelReadingColumn, useDetailPanelEscape, Tabs, TabsContent, TabsList, TabsTrigger, TransientOverlayScope, useDetailPanelSlot, useSurfacePaused } from '@ap/ui';
 
 /** §13: URL-controlled detail content rendered into the shell-owned docked slot. */
 export function DetailDrawer({ title, subtitle, headerActions, context, footer, tabs, onClose, tab, onTabChange }: {
@@ -63,6 +63,10 @@ function DetailContent({ superseded, title, subtitle, headerActions, context, fo
   const pausedNow = useSurfacePaused();
   const paused = useRef(pausedNow);
   useInsertionEffect(() => { paused.current = pausedNow; });
+  // Read live by the close cleanup: an expanded panel's covered body (its opener) is inert until the slot collapses right after the close.
+  const expandedValue = useContext(DetailPanelFullscreenContext)?.expanded === true;
+  const expandedNow = useRef(expandedValue);
+  useInsertionEffect(() => { expandedNow.current = expandedValue; });
   const paneId = platform?.paneId ?? null;
   const paneLabel = platform?.paneLabel ?? null;
   useLayoutEffect(() => {
@@ -88,7 +92,8 @@ function DetailContent({ superseded, title, subtitle, headerActions, context, fo
       const restoreFocus = () => detailFocusFallback(opener, paneRoot, available)?.focus({ preventScroll: true });
       // A modal dialog the panel opened (a discard confirm) hides everything else with aria-hidden until it unmounts, which is after this cleanup;
       // the opener is unavailable only because of it (not hidden or inert), so wait one task and restore only if focus has landed nowhere.
-      if (opener?.isConnected && !opener.closest('[hidden], [inert]') && opener.closest('[aria-hidden="true"]')) {
+      // Closing an expanded panel: the opener is inert only until the slot collapses in this same commit, so restore one task later, once the body is usable again.
+      if (opener?.isConnected && !opener.closest('[hidden]') && ((!opener.closest('[inert]') && opener.closest('[aria-hidden="true"]')) || (expandedNow.current && opener.closest('[inert]')))) {
         setTimeout(() => { if (document.activeElement === document.body || document.activeElement === null) restoreFocus(); }, 0);
         return;
       }

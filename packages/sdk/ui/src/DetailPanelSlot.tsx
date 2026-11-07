@@ -14,6 +14,8 @@ interface DetailPanelSlot {
   expanded: boolean;
   toggle: () => void;
   setHost: (host: HTMLElement | null) => void;
+  /** The shell reports another visible right-hand surface (the VOC drawer) so in-memory expansion can serve it too. */
+  setSurfaceVisible: (visible: boolean) => void;
   register: (key: string, onSuperseded: (winner: string) => void, paused?: boolean, localExpansion?: boolean) => () => void;
 }
 
@@ -133,22 +135,24 @@ export function DetailPanelSlotProvider({ children, expanded: controlledExpanded
   // A closed registrant is a content registrant whose node is `null`: it wins the slot but renders nothing.
   const open = activeKey !== undefined && contents.get(activeKey) !== null && !pausedKeys.has(activeKey);
   const [localExpanded, setLocalExpanded] = useState(false);
+  // In-memory expansion serves any visible surface the shell reports (the VOC drawer registers no detail), not only an open detail.
+  const [surfaceVisible, setSurfaceVisible] = useState(false);
+  const visible = open || surfaceVisible;
   const controlled = controlledExpanded !== undefined && !localKeys.has(activeKey ?? '');
-  const expanded = controlled ? controlledExpanded : open && localExpanded;
+  const expanded = controlled ? controlledExpanded : visible && localExpanded;
   const changeExpanded = useCallback((next: boolean) => {
     if (controlled) onExpandedChange?.(next);
     else setLocalExpanded(next);
   }, [controlled, onExpandedChange]);
   // An open replacement inherits the presentation. Close/clear/pause ends it; an empty initial slot never clears a restored URL.
-  const previous = useRef({ open: false, local: false });
+  const previous = useRef({ open: false, visible: false, local: false });
   useLayoutEffect(() => {
-    if (previous.current.open && !open) {
-      if (previous.current.local) setLocalExpanded(false);
-      // Use the CURRENT screen's controller; navigation may already have removed the key.
-      else if (controlledExpanded) onExpandedChange?.(false);
-    }
-    previous.current = { open, local: !controlled };
-  }, [open, controlled, controlledExpanded, onExpandedChange]);
+    if (previous.current.local) {
+      if (previous.current.visible && !visible) setLocalExpanded(false);
+    // Use the CURRENT screen's controller; navigation may already have removed the key.
+    } else if (previous.current.open && !open && controlledExpanded) onExpandedChange?.(false);
+    previous.current = { open, visible, local: !controlled };
+  }, [open, visible, controlled, controlledExpanded, onExpandedChange]);
   const toggle = useCallback(() => changeExpanded(!expanded), [changeExpanded, expanded]);
   useEffect(() => {
     // Capture the popup's claim before Radix dismisses/unmounts it. Its Escape must not also collapse the panel at window bubble.
@@ -164,7 +168,7 @@ export function DetailPanelSlotProvider({ children, expanded: controlledExpanded
     return () => { document.removeEventListener('keydown', rememberPopupEscape, true); window.removeEventListener('keydown', onKeyDown); };
   }, [open, expanded, changeExpanded, host]);
   const fullscreen = useMemo(() => ({ expanded, toggle }), [expanded, toggle]);
-  const value = useMemo(() => ({ host, activeKey, open, activation, expanded, toggle, setHost, register }), [host, activeKey, open, activation, expanded, toggle, register]);
+  const value = useMemo(() => ({ host, activeKey, open, activation, expanded, toggle, setHost, setSurfaceVisible, register }), [host, activeKey, open, activation, expanded, toggle, register]);
   const activeContent = activeKey !== undefined && host && !pausedKeys.has(activeKey) ? contents.get(activeKey) : undefined;
   return <DetailPanelSlotActionsContext.Provider value={actions}>
     <DetailPanelSlotContext.Provider value={value}>
@@ -210,5 +214,5 @@ export function useDetailPanelSlot(options?: { onSuperseded?: () => void; /** A 
 export function useDetailPanelSlotHost() {
   const slot = useContext(DetailPanelSlotContext);
   if (!slot) throw new Error('Detail panel host requires DetailPanelSlotProvider.');
-  return { ref: slot.setHost, open: slot.open, activation: slot.activation, expanded: slot.expanded, toggle: slot.toggle };
+  return { ref: slot.setHost, open: slot.open, activation: slot.activation, expanded: slot.expanded, toggle: slot.toggle, setSurfaceVisible: slot.setSurfaceVisible };
 }

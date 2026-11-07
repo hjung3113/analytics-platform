@@ -5,6 +5,7 @@ import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { PlatformPage } from '@ap/components';
+import { DetailPanelFullscreenContext } from '@ap/ui';
 import { groupId, spaceId } from '@ap/contracts';
 import { BoardSurface } from '../BoardSurface';
 import { addSheet, freshBoard } from '../boardModel';
@@ -55,6 +56,23 @@ describe('BoardSurface (893b)', () => {
     fireEvent.click(screen.getByRole('tab', { name: '시트 1' }));
     expect(onSheetChange).toHaveBeenCalledWith(two.sheets[0].id);
     expect(window.location.pathname).toBe('/nowhere');
+  });
+});
+
+describe('BoardSurface under an expanded detail (#1459)', () => {
+  it('makes the board-owned body (Context bar, panes, sheet tabs) inert but not its header', async () => {
+    const view = (expanded: boolean) => provide(<DetailPanelFullscreenContext.Provider value={{ expanded, toggle: () => {} }}><BoardSurface sheetId="" onSheetChange={() => {}} arrivalKey="x" Outlet={Outlet} /></DetailPanelFullscreenContext.Provider>);
+    const mounted = render(view(false));
+    await settle();
+    const tab = screen.getAllByRole('tab')[0];
+    const heading = document.querySelector('[data-board-heading]')!;
+    expect(tab.closest('[inert]')).toBeNull();
+    mounted.rerender(view(true));
+    await settle();
+    expect(tab.closest('[inert]')).not.toBeNull();
+    expect(document.querySelector('[role="tabpanel"]')!.closest('[inert]')).not.toBeNull();
+    expect(document.querySelector('[data-board-body]')!.querySelector('[data-board-context-bar], [role="toolbar"], button')).not.toBeNull();
+    expect(heading.closest('[inert]')).toBeNull();
   });
 });
 
