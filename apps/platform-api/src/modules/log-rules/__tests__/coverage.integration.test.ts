@@ -33,7 +33,7 @@ interface SeedRule {
 }
 interface SeedSet {
   ruleSetKey: string;
-  revisions: { revision: string; status?: 'active' | 'retired'; supersedes?: string | null; digest?: string; rules?: SeedRule[] }[];
+  revisions: { revision: string; status?: 'active' | 'retired'; supersedes?: string | null; digest?: string; resultRef?: string; rules?: SeedRule[] }[];
 }
 interface Answer {
   outcome: string;
@@ -112,8 +112,8 @@ describe.skipIf(!runIntegration)('spec coverage (#1494)', () => {
         for (const rev of set.revisions) {
           const revisionId = randomUUID();
           await q(
-            `insert into log_rules.rule_set_revision (id, workspace_id, report_id, rule_set_key, revision, result_ref, revision_digest, status, supersedes) values ($1,$2,$3,$4,$5,$5,$6,$7,$8)`,
-            [revisionId, workspace, reportId, set.ruleSetKey, rev.revision, rev.digest ?? digest(), rev.status ?? 'active', rev.supersedes ?? null],
+            `insert into log_rules.rule_set_revision (id, workspace_id, report_id, rule_set_key, revision, result_ref, revision_digest, status, supersedes) values ($1,$2,$3,$4,$5,$9,$6,$7,$8)`,
+            [revisionId, workspace, reportId, set.ruleSetKey, rev.revision, rev.digest ?? digest(), rev.status ?? 'active', rev.supersedes ?? null, rev.resultRef ?? rev.revision],
           );
           for (const rule of rev.rules ?? []) {
             const ruleId = randomUUID();
@@ -336,6 +336,12 @@ describe.skipIf(!runIntegration)('spec coverage (#1494)', () => {
       expect(await resolve(`${TAG}-rv`, '3')).toBeNull();
       expect(await resolve(`${TAG}-RV`, '2')).toBeNull();
       expect(await resolve(`${TAG}-rv`, '2 ')).toBeNull();
+      // "10" is revision "10" and also the resultRef of revision "9" (each unique on its own): ambiguous, so null.
+      await seed(privateWs, 'src2', [
+        { ruleSetKey: `${TAG}-amb`, revisions: [{ revision: '9', status: 'active', resultRef: '10' }, { revision: '10', status: 'active', resultRef: 'ext-10' }, { revision: '11', status: 'active', resultRef: 'ext-11' }] },
+      ]);
+      expect(await resolve(`${TAG}-amb`, '10')).toBeNull();
+      expect(await resolve(`${TAG}-amb`, 'ext-11')).toMatchObject({ revision: '11' });
       await seed(privateWs, 'src', [], { replaces: first });
       expect(await resolve(`${TAG}-rv`, '2')).toBeNull();
     });
@@ -371,8 +377,7 @@ describe.skipIf(!runIntegration)('spec coverage (#1494)', () => {
       const m = await model(WORKSPACE_ID, vendorShared, 'sw');
       expect(await read('coverage', { modelId: m, softwareId: randomUUID() })).toMatchObject({ outcome: 'ok', data: null });
       for (const params of [{}, { modelId: 'x' }, { modelId: m, pageSize: 0 }, { modelId: m, page: -1 }, { modelId: m, extra: 1 }]) {
-        const r = await read('coverage', params).catch(() => null);
-        expect(r?.outcome === 'error' || r === null || r.outcome !== 'ok').toBe(true);
+        expect(await read('coverage', params)).toMatchObject({ outcome: 'error', data: null });
       }
     });
 
@@ -396,8 +401,7 @@ describe.skipIf(!runIntegration)('spec coverage (#1494)', () => {
       expect(r.data.rows[0]).toMatchObject({ modelId: m, computable: true, counts: { covered: 1, total: 1 } });
       expect(r.data.rows[1]).toMatchObject({ modelId: nospec, computable: false, reason: 'no_spec' });
       expect(r.data.rows[2]).toMatchObject({ modelId: ghost, computable: false, reason: 'model_unknown' });
-      const tooMany = await read('coverageSummary', { modelIds: Array.from({ length: 51 }, () => randomUUID()) }).catch(() => null);
-      expect(tooMany?.outcome).not.toBe('ok');
+      expect(await read('coverageSummary', { modelIds: Array.from({ length: 51 }, () => randomUUID()) })).toMatchObject({ outcome: 'error', data: null });
     });
   });
 

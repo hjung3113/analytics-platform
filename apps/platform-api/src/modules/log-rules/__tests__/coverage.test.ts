@@ -132,9 +132,19 @@ describe('coverageDigest', () => {
   });
 
   it('a "/" inside a rule or set key cannot blur two different rules into one digest', () => {
-    const one = computeCoverage(spec('a'), catalog([rule('c', 'supported', ['a'], 'x/y')], [rev('x/y')]));
-    const two = computeCoverage(spec('a'), catalog([rule('y/c', 'supported', ['a'], 'x')], [rev('x')]));
+    // Both flatten to "x/y/1/c"; the Revision list is identical, so only the declaring-rule encoding can differ.
+    const revs = [rev('x'), rev('x/y')];
+    const one = computeCoverage(spec('a'), catalog([rule('c', 'supported', ['a'], 'x/y')], revs));
+    const two = computeCoverage(spec('a'), catalog([{ ...rule('1/c', 'supported', ['a'], 'x'), revision: 'y' }], revs));
     expect(digestOf(one)).not.toBe(digestOf(two));
+  });
+
+  it('does not depend on the order of several declaring rules or several revisions', () => {
+    const rules = [rule('r1', 'supported', ['a'], 'RS'), rule('r2', 'partial', ['a'], 'RS'), rule('r3', 'unknown', ['a'], 'OTHER', '2')];
+    const revs = [rev('RS'), rev('OTHER', '2'), rev('THIRD')];
+    const fwd = computeCoverage(spec('a'), catalog(rules, revs));
+    const rev_ = computeCoverage(spec('a'), catalog([...rules].reverse(), [...revs].reverse()));
+    expect(digestOf(fwd)).toBe(digestOf(rev_));
   });
 });
 
