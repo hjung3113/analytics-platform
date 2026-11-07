@@ -1,0 +1,2 @@
+ALTER TABLE "improvement"."item" DROP CONSTRAINT "improvement_item_effect_compare_link_check";--> statement-breakpoint
+ALTER TABLE "improvement"."item" ADD CONSTRAINT "improvement_item_effect_compare_link_check" CHECK ("improvement"."item"."effect_compare_link" is null or (char_length("improvement"."item"."effect_compare_link") <= 2000 and "improvement"."item"."effect_compare_link" ~ '^/[^/\\]' and "improvement"."item"."effect_compare_link" !~ '[\u0001-\u001f\u007f]'));

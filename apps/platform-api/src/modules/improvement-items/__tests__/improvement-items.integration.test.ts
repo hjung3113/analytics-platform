@@ -187,7 +187,7 @@ describe.skipIf(!runIntegration)('improvement items schema and reads (#1328 a)',
     await migrate?.close();
   });
 
-  describe('schema invariants (migration 0093)', () => {
+  describe('schema invariants (migrations 0093, 0099)', () => {
     const FULL = { action: 'did it', action_date: '2026-02-03' };
     it.each([
       ['done without action_date', { status: 'done', action: 'x' }, 'improvement_item_action_date_required_check'],
@@ -208,6 +208,9 @@ describe.skipIf(!runIntegration)('improvement items schema and reads (#1328 a)',
       ['an absolute compare link', { effect_result: 'effective', effect_compare_link: 'https://evil.example/x' }, 'improvement_item_effect_compare_link_check'],
       ['a protocol-relative compare link', { effect_result: 'effective', effect_compare_link: '//evil.example/x' }, 'improvement_item_effect_compare_link_check'],
       ['a compare link with a backslash', { effect_result: 'effective', effect_compare_link: '/\\evil.example' }, 'improvement_item_effect_compare_link_check'],
+      ['a compare link with a tab that would fold into //', { effect_result: 'effective', effect_compare_link: '/\t/evil.example' }, 'improvement_item_effect_compare_link_check'],
+      ['a compare link with a newline', { effect_result: 'effective', effect_compare_link: '/a\nb' }, 'improvement_item_effect_compare_link_check'],
+      ['a compare link with DEL', { effect_result: 'effective', effect_compare_link: '/a\u007fb' }, 'improvement_item_effect_compare_link_check'],
       ['a compare link over 2000', { effect_result: 'effective', effect_compare_link: `/${'a'.repeat(2000)}` }, 'improvement_item_effect_compare_link_check'],
       ['an unknown status', { status: 'closed' }, 'improvement_item_status_check'],
       ['an unknown effect result', { effect_result: 'great' }, 'improvement_item_effect_result_check'],
