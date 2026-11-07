@@ -11,7 +11,7 @@ v0.30.0 묶음(소유자 2026-11-07): **#1108**([ADR-0118](../../../adr/0118-dyn
 사용자가 얻는 것:
 
 1. 모델별 개발 단계와 현재 검증 상태를 한 표에서 본다(`logModels`).
-2. 개발 건를 만들고 단계를 옮기면 추가 전용 이력이 남는다.
+2. 개발 건을 만들고 단계를 옮기면 추가 전용 이력이 남는다.
 3. 개발 건에 Round를 열고 순서 있는 샘플 목록(위치·해시)을 고정한 뒤 검증 요청을 등록한다.
 4. 외부 작업자가 유휴 시간에 요청을 가져가 규칙별 결과를 올리면 Round 화면에서 본다.
 5. 사람이 결과를 보고 단계 진입을 승인·거절하거나 예외로 통과시킨다(근거 스냅샷과 함께).
@@ -24,7 +24,7 @@ v0.30.0 묶음(소유자 2026-11-07): **#1108**([ADR-0118](../../../adr/0118-dyn
 
 - 플랫폼(`log-lifecycle`)은 **개발 건·이력·Round·요청·결과 참조·사람 결정**을 소유한다. 원본 로그, Validator 실행 로직·규칙 판정 알고리즘, Knowledge 정식 Item은 소유하지 않는다.
 - 원본은 **위치(locator)와 해시만** 보관하고, 실패 지점 확인용 **짧은 로그 발췌**는 상한·열람 권한·보관 기한 아래 별도 저장한다(소유자 2026-11-07). 원본 전체 열람은 그쪽 권한을 다시 따른다. 원본이 없으면 `unresolved`로 보이고 가짜 근거로 대체하지 않는다.
-- **판정 축 분리.** 스크립트 판정(`rule_result`)·AI 의견·사람 검토·Gate 결정·Knowledge 게시는 서로 다른 상태 축이다. 이 슬라이스에는 AI 의견 저장이 없지만, 어떤 쓰기 경로도 AI 의견으로 스크립트 판정을 바꿀 수 없다는 불변식은 지금 정한다([ADR-0117](../../../adr/0117-validation-request-queue-claim-lease-heartbeat.md) 결정 6).
+- **판정 축 분리.** 스크립트 판정(`rule_result`)·AI 의견·사람 검토·Gate 결정·Knowledge 발행은 서로 다른 상태 축이다. 이 슬라이스에는 AI 의견 저장이 없지만, 어떤 쓰기 경로도 AI 의견으로 스크립트 판정을 바꿀 수 없다는 불변식은 지금 정한다([ADR-0117](../../../adr/0117-validation-request-queue-claim-lease-heartbeat.md) 결정 6).
 - **모델 명세 원본(stale 문구 정리, #1346 P0-4).** #1330의 «SW별 독립 Spec 원본» 문구는 폐기된 것으로 본다. 현행 결정은 [GLOSSARY](../../../../GLOSSARY.md)의 **모델 명세 Revision**(원본) + SW별 **변경점**(SW X부터 적용, 변경 없으면 행 없음)이고, 그 결과가 **실효 명세**다. Round는 검증 시점의 실효 명세를 `spec_pin`(모델 명세 Revision ID + 적용된 변경점 집합의 digest)으로 고정해 재현성을 얻는다. `spec_pin`은 #1196 구현이 제공하는 값을 읽어 저장할 뿐 이 모듈이 계산하지 않는다.
 - **모델 식별.** `model_id`·`software_id`는 `log-knowledge`의 안정 ID를 쓴다. Log Format 버전은 SW 버전이 아니다(자동 동일시 금지; 레거시 이관 때 명시 매핑). 스키마 사이 FK는 두지 않고(모듈 경계: [02 §](../../../architecture/platform-api/02-domain-module-boundaries.md)) 쓰기 때 `log-knowledge`가 내놓는 읽기 포트로 존재·활성을 확인한다.
 
@@ -37,7 +37,7 @@ v0.30.0 묶음(소유자 2026-11-07): **#1108**([ADR-0118](../../../adr/0118-dyn
 | DevelopmentProject | `development_project` | |
 | DevelopmentEvent | `development_event` | 추가 전용 |
 | ValidationRound | `validation_round` | 계획 revision·RuleSet은 보고만 받음 |
-| SampleSetRef | `validation_round.sample_set`(jsonb) | 별도 테이블 아님. 요청이 생기면 불변 |
+| SampleSetRef | `validation_round.sample_set`(jsonb) | 별도 테이블 아님. Round를 열 때부터 불변 |
 | ExecutionRequest | `execution_request` | #1420의 큐 항목 |
 | ValidationRunRef | `execution_attempt` | 시도(attempt)마다 한 행 |
 | FindingLink | `rule_result`(근거 위치 포함) | Defect 연결은 **미구현** |
@@ -61,7 +61,7 @@ v0.30.0 묶음(소유자 2026-11-07): **#1108**([ADR-0118](../../../adr/0118-dyn
 `id`, `project_id`, `seq`(개발 건 안 번호), `stage`(열린 시점 단계), `status`(`open`·`closed`), `sample_set`(jsonb), `sample_manifest_digest`, `spec_pin?`, `note?`, 생성자·시각.
 
 - `sample_set` = `{ files: [{ fileRef, order, sha256 }], sourceOwner }`. `fileRef`는 외부 위치 문자열(불투명 값; 경로 정규화·길이 상한·허용 스킴은 [ADR-0117](../../../adr/0117-validation-request-queue-claim-lease-heartbeat.md)). 순서는 사용자가 확정하고 시간순 재정렬이나 합치기를 하지 않는다. `sample_manifest_digest`는 순서·해시를 포함한 정규 직렬화의 SHA-256이다.
-- **첫 요청이 생기면 샘플·`spec_pin`은 불변**이다. 바꾸려면 새 Round를 연다(과거 Run은 불변 보존). 이 규칙은 DB 트리거와 서비스가 같이 지킨다.
+- **Round를 연 순간부터 샘플·`spec_pin`은 불변**이다(As-built: 삽입 뒤 불변, 샘플 편집 동작 없음). 바꾸려면 새 Round를 연다(과거 시도는 불변 보존). 이 규칙은 DB 트리거와 서비스가 같이 지킨다.
 - 수동 검증 기록(#1330 P0 «수동 검증 첨부»)은 Core 첨부(Attachments)와 등록 entity link로 Round에 붙이고 새 테이블을 두지 않는다. 첨부 entity type 등록이 가능한지는 구현 노드 첫 단계에서 확인한다(Open Decision D6).
 
 ### execution_request
@@ -81,7 +81,7 @@ v0.30.0 묶음(소유자 2026-11-07): **#1108**([ADR-0118](../../../adr/0118-dyn
 
 ### rule_result
 
-`attempt_id`, `rule_id`(외부 규칙 식별자), `result`(`PASS`·`FAIL`·`WARN`·`NOT_CHECKED`·`SKIPPED`·`NOT_APPLICABLE`·`ERROR`), `required`, `expected?`, `observed?`(짧은 요약 문자열, 상한 500자), `evidence`(jsonb 배열 `{ fileRef, line, fileSha256, hasExcerpt }`, 최대 20개). 로그 발췌 본문은 별도 테이블 `rule_result_excerpt`(`rule_result_id`, `evidence_index`, `excerpt`, `deleted_at?`)에 둔다.
+`attempt_id`, `rule_id`(외부 규칙 식별자), `result`(`PASS`·`FAIL`·`WARN`·`NOT_CHECKED`·`SKIPPED`·`NOT_APPLICABLE`·`ERROR`), `required`, `expected?`, `observed?`(짧은 요약 문자열, 상한 500자), `evidence`(jsonb 배열, 최대 20개; 항목 = 공통 근거 위치 `EvidenceRef`(`fileRef`, `line`, `fileSha256`)에 `hasExcerpt`를 더한 것. `EvidenceRef`는 이 문서의 이 자리가 한 곳에서 정의하고, 로그 탐색 등 다른 설계는 링크한다). 로그 발췌 본문은 별도 테이블 `rule_result_excerpt`(`rule_result_id`, `evidence_index`, `excerpt`, `deleted_at?`)에 둔다.
 
 - **짧은 로그 발췌는 저장을 허용한다**(소유자 2026-11-07; 추천 «위치·해시만»과 다름). 상한·열람(`lifecycle.excerpt.read`, `sourceOwner` 범위 = 원본 Source ACL)·보관(Round 종료 후 90일, 관리자 즉시 삭제)·입력 검사는 [ADR-0117](../../../adr/0117-validation-request-queue-claim-lease-heartbeat.md) 결정 7이 소유한다. `observed`·`expected` 필드와 감사 로그·알림에는 발췌 본문을 쓰지 않는다.
 - `evidence.fileRef`는 해당 Round `sample_set`에 있는 것만 받는다(없으면 `validation.failed`).
@@ -256,7 +256,7 @@ log-dev (기존 Space)
 | 발췌로 비밀·개인정보 유출 | 상한, 비밀 패턴 거절, 분리 저장·기본 숨김, `sourceOwner` 범위 열람 권한·열람 감사, 90일 삭제, 감사·알림·검색에 본문 금지 |
 | 「즉시」 남용으로 낮 시간 부하 | 요청자 권한 안에서만, 사용자당 동시 5건, 감사, 관리자 집계 |
 | 토큰으로 Gate 승인 | 고위험 동작은 세션 전용(ADR-0116); 서버 거절 테스트 필수 |
-| 샘플 변경 후 이전 PASS 재사용 | 요청이 생긴 Round는 샘플 불변; 변경은 새 Round |
+| 샘플 변경 후 이전 PASS 재사용 | Round는 열린 순간부터 샘플 불변; 변경은 새 Round |
 | 원본 Validator가 없는데 «연동됨» 표시 | 연동 표시 자체가 없다. 참조 작업자는 «합성 fixture»로만 표기 |
 
 ## 9. 미구현 목록 (다시 여는 조건)

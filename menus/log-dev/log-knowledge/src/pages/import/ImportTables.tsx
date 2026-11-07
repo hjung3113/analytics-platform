@@ -17,7 +17,7 @@ const applySpec: ColumnFilterSpec = { kind: 'enum', options: IMPORT_APPLY_STATUS
 export function planNote(row: ImportRowView): string {
   if (row.errors.length > 0) return row.errors.map(rowErrorText).join(' ');
   const parts: string[] = [];
-  if (row.creates?.vendor !== undefined) parts.push(`새 메이커 ‘${row.creates.vendor}’`);
+  if (row.creates?.vendor !== undefined) parts.push(`새 설비사 ‘${row.creates.vendor}’`);
   if (row.creates && row.creates.processes.length > 0) parts.push(`새 공정 ${row.creates.processes.map(p => `‘${p}’`).join(', ')}`);
   if (parts.length > 0) return `${parts.join(' · ')}도 함께 추가합니다.`;
   if (row.planState === 'conflict') return '아래 「확인 필요 행 정리」에서 처리합니다.';

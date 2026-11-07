@@ -124,7 +124,7 @@ describe('catalog import wizard', () => {
     expect(counts.textContent).toMatch(/새로 추가1/);
     expect(counts.textContent).toMatch(/확인 필요1/);
     expect(counts.textContent).toMatch(/오류1/);
-    expect(screen.getByText(/새로 만들 메이커/).textContent).toMatch(/메이커 1 · 공정 1/);
+    expect(screen.getByText(/새로 만들 설비사/).textContent).toMatch(/설비사 1 · 공정 1/);
     expect(calls.find(c => c.action.endsWith('importValidate'))?.expectedVersion).toBe('1');
     next();
     await screen.findByText('확인이 필요한 행 1개', {}, slow);

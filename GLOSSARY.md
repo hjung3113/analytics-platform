@@ -51,7 +51,7 @@ _Avoid_: 과제 — «과제» 단독은 Quest 전용이다. 모델 카탈로그
 개발 건이 놓인 닫힌 단계 집합 `registered → kickoff → alpha → beta → completed`와 어느 단계에서든 `cancelled`. 되돌림은 reopen 한 동작만, 이력에 남긴다.
 
 **Round** (검증 Round, 코드 `validation_round`):
-한 개발 건 안에서 샘플 목록과 명세 고정값(`spec_pin`)을 고정하고 검증 요청을 거는 한 회차. 첫 검증 요청이 생기면 샘플 목록은 바뀌지 않고, 바꾸려면 새 Round를 연다.
+한 개발 건 안에서 샘플 목록과 명세 고정값(`spec_pin`)을 고정하고 검증 요청을 거는 한 회차. Round를 열 때 샘플 목록과 명세 고정값이 고정되고(삽입 뒤 불변), 바꾸려면 새 Round를 연다.
 
 **샘플 목록** (코드 `sample_set`):
 순서 있는 파일 참조(`fileRef`)·순서·해시와 Source 소유자. 사용자가 확정한 순서를 시간순으로 다시 정렬하지 않는다. 모양 정의는 log-lifecycle 설계 §3 한 곳이고 다른 설계는 링크한다.
@@ -88,7 +88,7 @@ _Avoid_: 증거(화면 문구), 근거 위치를 첨부와 같은 이름으로 �
 개발 건이 다음 단계로 들어가기 전 사람이 하는 결정(`approved`·`rejected`·`exception`)과 그 근거 스냅샷. 검증 판정(verdict)과 업무 승인은 다른 행이며, 승인이 판정을 바꾸지 않는다. 근거 digest가 달라져 다시 돌려야 하면 Gate는 `재검증 필요`로 표시한다.
 
 **API 토큰** · **scope**:
-사람이 아닌 호출자가 기존 업무 API를 부르는 불투명 토큰. 개인 토큰(발급자의 Actor)과 서비스 토큰(관리자 발급). 유효 권한은 발급자의 현재 권한과 scope(capability 이름 목록)의 교집합이다. 고위험 동작은 토큰으로 못 하고 사람 세션 전용이다.
+사람이 아닌 호출자가 기존 업무 API를 부르는 불투명 토큰. 개인 토큰은 발급자의 Actor로, 관리자가 발급한 서비스 토큰은 귀속된 system Actor로 동작한다. 유효 권한은 해당 Actor의 현재 권한과 scope(capability 이름 목록)의 교집합이다. 고위험 동작은 토큰으로 못 하고 사람 세션 전용이다.
 
 **Carryover**:
 시간 순서로 나뉜 로그 파일의 경계에서 앞 파일에서 시작해 다음 파일에서 끝나는 이벤트. 열린 시작을 오류로 확정하지 않고 불완전(`incomplete`/미검증)으로 표시한다.
@@ -496,7 +496,7 @@ The outermost tenant boundary for platform feature-domain records. Every domain 
 _Avoid_: Tenant, Organization, Account, Instance, 「워크스페이스」(한국어 문서·화면 어디에도 쓰지 않는다)
 
 **Actor**:
-An AD-authenticated internal person whose permissions are evaluated inside a workspace.
+A human or system identity whose permissions are evaluated inside one Workspace. Human Actors authenticate through the internal sign-in flow; system Actors act through service API tokens and do not receive interactive sessions.
 _Avoid_: External user, anonymous user
 
 **Role Level**:
