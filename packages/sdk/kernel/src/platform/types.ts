@@ -71,6 +71,7 @@ export type HomeTodoSlot = { Todo: ComponentType };
  * contextBar: rendered by PlatformPage above page content. topBarTools: extra controls at the bottom of the app rail (today the mock dev tools).
  * features: space-scoped in-shell entries (ADR-0028, ADR-0045).
  * plannedSpaces: the system switcher's not-yet-available rows (ADR-0042, 15 §3.2).
+ * analysisActions: items the app adds to the `⋯` menu of every `pageType: 'analysis'` menu's main screen (#1424); see `AnalysisActionsSlot`.
  * boardEntry: the `분석 보드에 열기…` item `PlatformPage` appends to a board menu's `⋯` menu (docs/16 §6); components never import the shell.
  * scopeControl: a space's own sidebar list-scope control in place of the analytics `ScopeSelector` (ADR-0081 decision 4, 06 §8); `For` returns null for spaces and current menus that keep the default. A space with `SpaceDef.scopePresentation: 'hidden'` never falls back to the `ScopeSelector`: a component `For` returns still renders, null draws nothing (#1251).
  * The three sidebar slots (`scopeControl`, `navCounts`, `spaceNavSection`) resolve by the space and the current route's menu (`null` off a route), so a consumer can decline a menu by its own declaration before any of its subtree mounts (#1099c).
@@ -94,7 +95,19 @@ export type NavCountsSlot = { For: (spaceId: SpaceId, menu: MenuEntry | null) =>
  * `Body` must be module-level (stable identity), like `scopeControl`'s component.
  */
 export type SpaceNavSectionSlot = { For: (spaceId: SpaceId, menu: MenuEntry | null) => { label: Text; Body: ComponentType } | null };
-export type PlatformSlots = { scopeControl?: ScopeControlSlot; contextBar?: ReactNode; topBarTools?: ReactNode; features?: FeatureSlot; plannedSpaces?: readonly PlannedSpace[]; boardEntry?: ReactNode; notifications?: NotificationsSlot; vocCompose?: VocComposeSlot; homeTodo?: HomeTodoSlot; navCounts?: NavCountsSlot; spaceNavSection?: SpaceNavSectionSlot };
+/**
+ * What `AnalysisActionsSlot.Actions` is told about the screen whose `⋯` menu it fills: the menu id, the global Context and a snapshot of the
+ * page keys the menu declares (`pageKeys`; a key absent from the address is absent here, a repeated key is a list). A snapshot, not the address.
+ */
+export type AnalysisActionsProps = { menuId: string; global: GlobalContext; page: Readonly<Record<string, string | readonly string[]>> };
+/**
+ * Items the app adds to the `⋯` page menu of an analysis screen (`pageType: 'analysis'`, main screen only, not a board pane), after the page's own
+ * `secondaryActions` and the board entry (#1424, same idea as `boardEntry`). `Actions` is rendered inside the menu, so it may use hooks and
+ * `useHeaderOverflowDialog`; it must be module-level (stable identity). Draw each item with `HeaderOverflowItem` (`@ap/components`) so the row looks
+ * like the other items and a user who may not use it sees it disabled with a reason, not hidden (06 §22 `allowed`). Absent slot → nothing added.
+ */
+export type AnalysisActionsSlot = { Actions: ComponentType<AnalysisActionsProps> };
+export type PlatformSlots = { analysisActions?: AnalysisActionsSlot; scopeControl?: ScopeControlSlot; contextBar?: ReactNode; topBarTools?: ReactNode; features?: FeatureSlot; plannedSpaces?: readonly PlannedSpace[]; boardEntry?: ReactNode; notifications?: NotificationsSlot; vocCompose?: VocComposeSlot; homeTodo?: HomeTodoSlot; navCounts?: NavCountsSlot; spaceNavSection?: SpaceNavSectionSlot };
 export type LinkOptions = { params?: Record<string, string>; /** A value may be a list for a repeated page key of the destination: one pair per item, in order. */ page?: Record<string, string | readonly string[] | null>; global?: Partial<GlobalContext>; returnTo?: boolean };
 export type LinkResolution = {
   href: string;
