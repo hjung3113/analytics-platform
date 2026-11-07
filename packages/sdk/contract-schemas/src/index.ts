@@ -6,6 +6,7 @@ import * as views from './saved-view-commands.ts';
 import * as tokens from './api-token.ts';
 import * as source from './source-read.ts';
 import * as catalog from './validation-catalog-report.ts';
+import * as exportContract from './log-explorer-export.ts';
 import { z } from 'zod/v4';
 
 export { apiResponseSchema, assessmentKindSchema, assessmentSchema, outcomeSchema, trustSchema } from './response.ts';
@@ -127,6 +128,23 @@ export {
   validationCatalogReportResponseSchema,
   validationCatalogReportSchema,
 } from './validation-catalog-report.ts';
+export {
+  EXPORT_BYTES_MAX,
+  EXPORT_COLUMNS,
+  EXPORT_CONCURRENT_MAX,
+  EXPORT_CONTENT_TYPES,
+  EXPORT_DAILY_MAX,
+  EXPORT_ERROR_CODES,
+  EXPORT_ERROR_STATUS,
+  EXPORT_FORMATS,
+  EXPORT_ROWS_MAX,
+  LOG_EXPLORER_EXPORT_VERSION,
+  TOKEN_DAILY_BODY_BUDGET_BYTES,
+  exportErrorSchema,
+  exportRequestSchema,
+  usageResponseSchema,
+  usageRowSchema,
+} from './log-explorer-export.ts';
 export { schemaFileText, toJsonSchema } from './export.ts';
 
 /**
@@ -198,4 +216,8 @@ export const SCHEMA_FILES: Readonly<Record<string, z.ZodType>> = {
   validationCatalogReport: catalog.validationCatalogReportSchema,
   catalogIdentifier: catalog.catalogIdentifierSchema,
   validationCatalogReportResponse: catalog.validationCatalogReportResponseSchema,
+  exportRequest: exportContract.exportRequestSchema,
+  exportError: exportContract.exportErrorSchema,
+  usageRow: exportContract.usageRowSchema,
+  usageResponse: exportContract.usageResponseSchema,
 };

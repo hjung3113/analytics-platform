@@ -357,6 +357,21 @@ export function createApiTokenService(deps: ApiTokenServiceDeps) {
     };
   }
 
+  /**
+   * Whether a token that authenticated earlier may still be used: not revoked, not expired, same workspace. A long call (a streamed
+   * export, #1472) asks this at its chunk boundaries so a revocation takes effect before the next chunk; the lookup is by id, no secret.
+   */
+  async function isActive(tokenId: string): Promise<boolean> {
+    const found = await deps.db
+      .select({ revokedAt: apiTokens.revokedAt, expiresAt: apiTokens.expiresAt, workspaceId: apiTokens.workspaceId })
+      .from(apiTokens)
+      .where(eq(apiTokens.id, tokenId))
+      .limit(1);
+    const t = found[0];
+    if (!t || t.workspaceId !== deps.workspaceId || t.revokedAt) return false;
+    return !t.expiresAt || t.expiresAt.getTime() > now().getTime();
+  }
+
   /** Audit one rejected attempt in its own transaction. The secret is never written; the prefix only when parseable. */
   async function recordAuthFailure(result: Extract<TokenAuthResult, { ok: false }>): Promise<void> {
     let workspaceId = result.workspaceId ?? deps.workspaceId;
@@ -410,5 +425,5 @@ export function createApiTokenService(deps: ApiTokenServiceDeps) {
     );
   }
 
-  return { issue, listPersonal, listWorkspace, revoke, authenticate, recordAuthFailure, recordSessionRequiredDenied, bearerValue };
+  return { issue, listPersonal, listWorkspace, revoke, authenticate, isActive, recordAuthFailure, recordSessionRequiredDenied, bearerValue };
 }

@@ -3,6 +3,7 @@ import type { createAuditService } from '../core/audit/audit-service.js';
 import type { SourceSampleSet } from '@ap/contract-schemas';
 import type { CheckService } from '../permissions/check-service.js';
 import type { SourceReadPort } from './ports/source-read.js';
+import type { UsageStore } from './usage-store.js';
 
 /**
  * The log-lifecycle read port this module will use (Round `sample_set`, `rule_result` reverse lookup). Provisional: node a only fixes the
@@ -46,4 +47,18 @@ export interface LogExplorerReadDeps {
   sourceOwnerAccess: SourceOwnerAccess;
   /** HMAC key of the page cursors; absent = a random key per process. */
   cursorKey?: Buffer;
+  /** Counters of the token budget and export count (#1472); absent = the `core.rate_limits` store over `db`. A test injects the in-memory one. */
+  usage?: UsageStore;
+}
+
+/** What the export REST (`POST /api/v1/log-explorer/export`, #1472) needs on top of the read deps. */
+export interface LogExplorerExportDeps extends LogExplorerReadDeps {
+  /** False once the token is revoked or expired: re-asked at every chunk boundary of a stream. The assembly injects the token service's check. */
+  tokenActive(tokenId: string): Promise<boolean>;
+  /** Size of one chunk written to the client; the right is judged again between chunks. Default 64 KiB. */
+  exportChunkBytes?: number;
+  /** Test seam: called before chunk `index` (>= 0) is judged and written. */
+  beforeExportChunk?(index: number): Promise<void> | void;
+  /** Wall-clock cap of the WHOLE response (Source reads and the stream), then the stream is cut. Default 120 s (less than the 150 s lease). */
+  exportTotalMs?: number;
 }

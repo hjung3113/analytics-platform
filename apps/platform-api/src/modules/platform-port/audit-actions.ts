@@ -154,6 +154,7 @@ export const AUDIT_ACTION_BY_EVENT_TYPE: Record<AuditEventType, PlatformAuditAct
   'knowledge.draft.changes_requested': 'update',
   'lifecycle.round.evidence_attached': 'update',
   'explorer.source.read': 'update',
+  'explorer.export': 'update',
   actor_role_changed: 'update',
   platform_notice_created: 'create',
   platform_notice_updated: 'update',

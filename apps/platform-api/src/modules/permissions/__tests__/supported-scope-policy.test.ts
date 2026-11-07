@@ -18,6 +18,8 @@ describe('isOrdinarilyRequestable', () => {
     ['lifecycle.round.manage', true],
     ['knowledge.draft.create', true],
     ['explorer.source.read', true],
+    ['explorer.export', true],
+    ['explorer.investigate', true],
     ['voc.read_public', true],
     ['voc.create', true],
   ] as const)('%s → %s', (capability: Capability, expected) => {

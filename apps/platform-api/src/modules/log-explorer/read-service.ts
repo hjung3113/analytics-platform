@@ -16,13 +16,16 @@ import {
 } from '@ap/contract-schemas';
 import type { LOG_EXPLORER_READ_ENDPOINTS, LOG_EXPLORER_READ_RESULTS } from '@ap/feature-shared';
 
+import { currentAuthContext } from '../../lib/auth-context.js';
 import type { EndpointHandlerArgs, EndpointResult } from '../menu-dispatch/types.js';
+import { budgetSpent, reserveBody, subjectsOf } from './domain/budget.js';
 import { type CursorBinding, newCursorKey, signCursor, verifyCursor } from './domain/cursor.js';
 import { sampleSetDigest } from './domain/sample-digest.js';
 import { filterKeysOf } from './domain/read-params.js';
 import type { LogExplorerReadDeps } from './deps.js';
 import { toSourceReadError } from './errors.js';
 import type { SourceReadContext, SourceReadPort } from './ports/source-read.js';
+import { createUsageStore } from './usage-store.js';
 
 export type ReadKind = (typeof LOG_EXPLORER_READ_ENDPOINTS)[number];
 type AuditResult = (typeof LOG_EXPLORER_READ_RESULTS)[number];
@@ -49,7 +52,22 @@ interface Settled {
   bytes: number;
 }
 
-const bytesOf = (...texts: string[]) => texts.reduce((n, t) => n + Buffer.byteLength(t, 'utf8'), 0);
+/**
+ * The byte length of the body the menu-query route sends for this answer, JSON as sent (escaping, row metadata, cursor, envelope, correlation id):
+ * the daily budget charges what goes on the wire, the same measure as an export file. Mirrors `answerOf` in `menu-dispatch/routes.ts`.
+ */
+const wireBytes = (args: EndpointHandlerArgs, response: EndpointResult): number =>
+  Buffer.byteLength(
+    JSON.stringify({
+      outcome: response.outcome,
+      data: response.data ?? null,
+      assessments: response.assessments ?? [],
+      trust: response.trust ?? null,
+      correlationId: args.correlationId,
+      ...(response.message !== undefined ? { message: response.message } : {}),
+    }),
+    'utf8',
+  );
 
 function emptyData(kind: ReadKind, state: State, reason: StateReason | null): Record<string, unknown> {
   const base = { state, reason, synthetic: false, label: null };
@@ -73,16 +91,29 @@ const stateOnly = (kind: ReadKind, state: Exclude<State, 'ok' | 'partial' | 'tru
 });
 
 /** The uuid-shaped subject id of the audit row: derived from workspace and Source owner, so it carries neither. */
-function subjectIdOf(workspaceId: string, sourceOwner: string): string {
+export function subjectIdOf(workspaceId: string, sourceOwner: string): string {
   const h = createHash('sha256').update(`${workspaceId}\u0000${sourceOwner}`, 'utf8').digest('hex');
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`;
 }
 
+/** A token's daily body budget would be passed: the read is refused whole (no rows, nothing cut). */
+const BUDGET_EXCEEDED_MESSAGE = 'explorer.budget_exceeded';
+const budgetRefusal = (): Settled => ({
+  response: { outcome: 'error', data: null, message: BUDGET_EXCEEDED_MESSAGE },
+  result: 'budget_exceeded',
+  rowCount: 0,
+  bytes: 0,
+});
+
 export function createReadService(deps: LogExplorerReadDeps, port: SourceReadPort | null) {
   const cursorKey = deps.cursorKey ?? newCursorKey();
+  const usage = deps.usage ?? createUsageStore(deps.db, deps.clock);
 
   /** 'ok' or the reason the read is refused. Called before the read and again before the text leaves. */
   async function holdsCapability(args: EndpointHandlerArgs): Promise<boolean> {
+    // A token without the read scope holds nothing here (the entry gate lets every authenticated token in so this refusal is audited).
+    const auth = currentAuthContext();
+    if (auth.kind === 'token' && !auth.scopes.includes('explorer.source.read')) return false;
     const decision = await deps.checkService.checkCapability(args.actor, 'explorer.source.read', { workspace_id: args.actor.workspace_id });
     return decision.allow;
   }
@@ -109,9 +140,18 @@ export function createReadService(deps: LogExplorerReadDeps, port: SourceReadPor
           rowCount: settled.rowCount,
           bytes: settled.bytes,
           result: settled.result,
+          viaToken: currentAuthContext().kind === 'token',
         },
       });
     });
+    // Counted for the admin usage read: a token call under its token and Actor, a session call under its Actor (bytes of a token call were
+    // already taken from the budget before the text left).
+    const { counted, budgeted } = subjectsOf(args.actor.actor_id, currentAuthContext());
+    const day = usage.today();
+    for (const subject of counted) {
+      await usage.add(args.actor.workspace_id, subject, 'reads', 1, undefined, day);
+      if (budgeted.length === 0 && settled.bytes > 0) await usage.add(args.actor.workspace_id, subject, 'bytes', settled.bytes, undefined, day);
+    }
   }
 
   /**
@@ -138,6 +178,9 @@ export function createReadService(deps: LogExplorerReadDeps, port: SourceReadPor
     if (denied !== 'ok') return finish(stateOnly(subject.kind, 'permission_denied', denied));
     const early = pre();
     if (early) return finish(early);
+    // A token that has used its day's body budget (or whose Actor has) is refused before the Source is asked.
+    const { budgeted } = subjectsOf(args.actor.actor_id, currentAuthContext());
+    if (budgeted.length > 0 && (await budgetSpent(usage, args.actor.workspace_id, budgeted))) return finish(budgetRefusal());
 
     let answer: R;
     try {
@@ -160,7 +203,13 @@ export function createReadService(deps: LogExplorerReadDeps, port: SourceReadPor
     }
     if (answer.status === 'permission_denied') return finish(stateOnly(subject.kind, 'permission_denied', 'source_denied'));
     if (answer.status === 'source_absent') return finish(stateOnly(subject.kind, 'source_absent', 'source_missing'));
-    return finish(settle(answer as Extract<R, { status: 'ok' }>));
+    const settled = settle(answer as Extract<R, { status: 'ok' }>);
+    // What counts is the serialized body as sent. It counts against the token's and the Actor's budget before it leaves; over budget it is
+    // refused whole, never cut.
+    settled.bytes = wireBytes(args, settled.response);
+    const reservation = budgeted.length > 0 ? await reserveBody(usage, args.actor.workspace_id, budgeted, settled.bytes) : null;
+    if (budgeted.length > 0 && reservation === null) return finish(budgetRefusal());
+    return finish(settled);
   }
 
   function pagedBinding(kind: 'records' | 'periods', args: EndpointHandlerArgs, sampleSet: SourceSampleSet, query: SourceRecordQuery, limit: number): CursorBinding {
@@ -217,7 +266,7 @@ export function createReadService(deps: LogExplorerReadDeps, port: SourceReadPor
             },
             result: state,
             rowCount: answer.rows.length,
-            bytes: answer.rows.reduce((n, row) => n + bytesOf(row.text), 0),
+            bytes: 0,
           };
         },
       );
@@ -236,7 +285,7 @@ export function createReadService(deps: LogExplorerReadDeps, port: SourceReadPor
           },
           result: 'ok',
           rowCount: answer.rows.length,
-          bytes: bytesOf(JSON.stringify(answer.rows)),
+          bytes: 0,
         };
       },
     );
@@ -261,7 +310,7 @@ export function createReadService(deps: LogExplorerReadDeps, port: SourceReadPor
             response: { outcome: 'ok', data: { state, reason: null, rows: answer.rows, truncated, synthetic, label: synthetic ? SYNTHETIC_MARK : null } },
             result: state,
             rowCount: answer.rows.length,
-            bytes: answer.rows.reduce((n, row) => n + bytesOf(row.text), 0),
+            bytes: 0,
           };
         },
       );
@@ -292,7 +341,7 @@ export function createReadService(deps: LogExplorerReadDeps, port: SourceReadPor
             },
             result: state,
             rowCount: 1,
-            bytes: bytesOf(answer.parserIn, answer.parserOut, ...Object.values(answer.extractedFields)),
+            bytes: 0,
           };
         },
       );

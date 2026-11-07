@@ -43,6 +43,8 @@ const NONE: Capability[] = [
   'survey.export',
   'explorer.source.read',
   'validation.catalog.report',
+  'explorer.export',
+  'explorer.investigate',
 ];
 
 describe('applyAdminModuleBypass', () => {

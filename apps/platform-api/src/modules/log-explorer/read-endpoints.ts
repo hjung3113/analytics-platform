@@ -3,6 +3,7 @@
 // the read (read-service.ts), because it depends on the Source owner named in the params and must answer as a state, not a refusal.
 
 import type { EndpointResult, MenuDispatchContribution, MenuEndpointDeclaration, EndpointHandlerArgs, ParamsJudgment } from '../menu-dispatch/types.js';
+import { currentAuthContext } from '../../lib/auth-context.js';
 import { holdsPlatformPermission } from '../platform-port/permissions.js';
 import type { LogExplorerReadDeps } from './deps.js';
 import {
@@ -19,6 +20,7 @@ import {
 } from './domain/read-params.js';
 import { guardSourceReadPort } from './ports/guarded.js';
 import { createReadService } from './read-service.js';
+import { logExplorerUsageEndpoint } from './usage-endpoint.js';
 
 /** The menu that owns the log explorer reads. */
 export const LOG_EXPLORER_MENU_ID = 'log-explorer';
@@ -40,7 +42,13 @@ function declare<T>(
       context: {},
       mergeTimeDomain: false,
     },
-    authorize: (actor, tx) => holdsPlatformPermission(deps.checkService, actor, 'platform:view', tx ? { tx } : {}),
+    // Any authenticated token enters; a session needs `platform:view`. The entry gate cannot judge the token's scope here, because a refusal
+    // at the gate would leave no attempt audit. The scope and the data right are judged inside the read (read-service.ts: a token without
+    // `explorer.source.read` holds no capability and is answered `permission_denied`, audited, with no Source access), so nothing widens.
+    authorize: (actor, tx) => {
+      if (currentAuthContext().kind === 'token') return Promise.resolve(true);
+      return holdsPlatformPermission(deps.checkService, actor, 'platform:view', tx ? { tx } : {});
+    },
     validate: (params): ParamsJudgment => judgmentOf(parse(params)),
     async handle(args) {
       const parsed = parse(args.params);
@@ -58,6 +66,7 @@ export function logExplorerReadEndpoints(deps: LogExplorerReadDeps): MenuEndpoin
     declare(deps, 'window', WINDOW_PARAM_KEYS, parseWindowParams, (args, input) => service.window(args, input)),
     declare(deps, 'parsed', PARSED_PARAM_KEYS, parseParsedParams, (args, input) => service.parsed(args, input)),
     declare(deps, 'periods', PERIODS_PARAM_KEYS, parsePeriodsParams, (args, input) => service.periods(args, input)),
+    logExplorerUsageEndpoint(deps, LOG_EXPLORER_MENU_ID),
   ];
 }
 
