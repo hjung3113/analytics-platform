@@ -446,7 +446,7 @@ describe.skipIf(!runIntegration)('log test datasets (#1477 D-a)', () => {
       const rev = await act('revisionCreate', { datasetId: ds.id, sampleSet: sampleSet('aud1.log', 'aud2.log'), note: 'NOTE-TEXT-SECRET' }, admin);
       const [event] = await audit(rev.data.revisionId);
       expect(event).toMatchObject({ event_type: 'dataset.revision_created', subject_type: 'dataset_revision' });
-      expect(Object.keys(event?.detail).sort()).toEqual(['availability', 'datasetId', 'digest', 'fileCount', 'seq']);
+      expect(Object.keys(event?.detail ?? {}).sort()).toEqual(['availability', 'datasetId', 'digest', 'fileCount', 'seq']);
       expect(event?.detail.fileCount).toBe(2);
       const text = JSON.stringify(event);
       expect(text).not.toContain(TAG);

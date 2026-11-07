@@ -24,7 +24,7 @@ describe('platform permission table vs @ap/contracts KERNEL_PERMISSIONS', () => 
         permission !== 'lifecycle:project-manage' &&
         permission !== 'lifecycle:round-manage' &&
         permission !== 'knowledge:draft-create' &&
-        permission !== 'explorer:investigate',
+        permission !== 'explorer:investigate' &&
         permission !== 'dataset:manage',
     );
     expect([...tabled].sort()).toEqual([...vocabulary].sort());

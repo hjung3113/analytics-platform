@@ -463,6 +463,20 @@ describe.skipIf(!runIntegration)('ADR-0008 role grants — product tables (Slice
     ['rule', []],
     ['rule_target', []],
   ] as const)('platform_app UPDATE on log_rules.%s is limited to the supersede marker', async (table, columns) => {
+    const { rows } = await migrateHandle.pool.query<{ column_name: string }>(
+      `select column_name
+           from information_schema.column_privileges
+          where grantee = 'platform_app'
+            and table_schema = 'log_rules'
+            and table_name = $1
+            and privilege_type = 'UPDATE'
+          order by column_name`,
+      [table],
+    );
+    expect(rows.map((row) => row.column_name)).toEqual([...columns].sort());
+  });
+
+  it.each([
     ['dataset', ['name', 'purpose', 'share_scope', 'model_ids', 'scenario_tags', 'status', 'row_version', 'updated_at', 'updated_by']],
     ['dataset_candidate', ['status', 'reviewer_actor_id', 'reason', 'dataset_id', 'decided_at', 'row_version']],
     ['dataset_revision', []],
@@ -471,7 +485,6 @@ describe.skipIf(!runIntegration)('ADR-0008 role grants — product tables (Slice
       `select column_name
            from information_schema.column_privileges
           where grantee = 'platform_app'
-            and table_schema = 'log_rules'
             and table_schema = 'log_datasets'
             and table_name = $1
             and privilege_type = 'UPDATE'

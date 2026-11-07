@@ -32,7 +32,7 @@ export type PlatformPermissionRule =
   /** Admin role, or an active workspace grant of `knowledge.draft.create` (the write capability of the knowledge drafts; Developer and User may hold it). */
   | 'draft-create'
   /** An active workspace grant of `explorer.investigate` (the write capability of the log explorer investigations); no Admin role bypass (sensitive, #1472). */
-  | 'explorer-investigate';
+  | 'explorer-investigate'
   /** Admin role, or an active workspace grant of `dataset.manage` (the write capability of the log test datasets). */
   | 'dataset-manage';
 
@@ -209,6 +209,7 @@ async function holds(
         options,
       );
       return applyAdminModuleBypass(actor.role_level, 'explorer.investigate', decision).allow;
+    }
     case 'dataset-manage': {
       // The same decision the dataset write actions take (`log-datasets/dataset-actions.ts`).
       const decision = await checkService.checkCapability(
