@@ -7,6 +7,7 @@ import * as tokens from './api-token.ts';
 import * as source from './source-read.ts';
 import * as catalog from './validation-catalog-report.ts';
 import * as exportContract from './log-explorer-export.ts';
+import * as queue from './validation-queue.ts';
 import { z } from 'zod/v4';
 
 export { apiResponseSchema, assessmentKindSchema, assessmentSchema, outcomeSchema, trustSchema } from './response.ts';
@@ -145,6 +146,21 @@ export {
   usageResponseSchema,
   usageRowSchema,
 } from './log-explorer-export.ts';
+export {
+  VALIDATION_QUEUE_ERROR_CODES,
+  VALIDATION_QUEUE_VERSION,
+  evidenceInputSchema,
+  ruleResultInputSchema,
+  ruleResultValueSchema,
+  validationClaimResponseSchema,
+  validationFailInputSchema,
+  validationFailResponseSchema,
+  validationHeartbeatInputSchema,
+  validationHeartbeatResponseSchema,
+  validationResultInputSchema,
+  validationResultResponseSchema,
+  verdictSchema,
+} from './validation-queue.ts';
 export { schemaFileText, toJsonSchema } from './export.ts';
 
 /**
@@ -220,4 +236,15 @@ export const SCHEMA_FILES: Readonly<Record<string, z.ZodType>> = {
   exportError: exportContract.exportErrorSchema,
   usageRow: exportContract.usageRowSchema,
   usageResponse: exportContract.usageResponseSchema,
+  ruleResultValue: queue.ruleResultValueSchema,
+  validationVerdict: queue.verdictSchema,
+  validationEvidenceInput: queue.evidenceInputSchema,
+  validationRuleResultInput: queue.ruleResultInputSchema,
+  validationClaimResponse: queue.validationClaimResponseSchema,
+  validationHeartbeatInput: queue.validationHeartbeatInputSchema,
+  validationHeartbeatResponse: queue.validationHeartbeatResponseSchema,
+  validationResultInput: queue.validationResultInputSchema,
+  validationResultResponse: queue.validationResultResponseSchema,
+  validationFailInput: queue.validationFailInputSchema,
+  validationFailResponse: queue.validationFailResponseSchema,
 };

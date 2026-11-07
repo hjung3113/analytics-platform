@@ -1,7 +1,7 @@
 // API token application service (ADR-0116, #1442): issue, list, revoke, authenticate.
 // The token value exists only in the issue response; storage, audit, logs, errors and lists carry the prefix at most.
 
-import { type Capability, isCapability, isSessionOnlyCapability } from '@ap/feature-shared';
+import { type Capability, isCapability, isSessionOnlyCapability, isTokenOnlyScope } from '@ap/feature-shared';
 import { and, desc, eq, isNull, lt, or, sql } from 'drizzle-orm';
 
 import type { Db } from '../../db/client.js';
@@ -100,10 +100,13 @@ export function createApiTokenService(deps: ApiTokenServiceDeps) {
     };
   }
 
-  function validateScopes(scopes: readonly string[]): Field[] {
+  function validateScopes(scopes: readonly string[], kind: TokenKind): Field[] {
     const fields: Field[] = [];
     scopes.forEach((scope, i) => {
-      if (!isCapability(scope)) fields.push({ path: ['scopes', i], code: 'unknown_capability' });
+      // A token-only scope (ADR-0117 decision 9) is not a capability; a personal token never carries one.
+      if (isTokenOnlyScope(scope)) {
+        if (kind !== 'service') fields.push({ path: ['scopes', i], code: 'service_only' });
+      } else if (!isCapability(scope)) fields.push({ path: ['scopes', i], code: 'unknown_capability' });
       else if (isSessionOnlyCapability(scope as Capability)) fields.push({ path: ['scopes', i], code: 'session_only' });
     });
     return fields;
@@ -113,7 +116,7 @@ export function createApiTokenService(deps: ApiTokenServiceDeps) {
     issuer: TokenActor,
     input: { kind: TokenKind; name: string; scopes: string[]; expiresAt: Date | null; actorId?: string },
   ): Promise<{ token: string; row: TokenRow }> {
-    const fields = validateScopes(input.scopes);
+    const fields = validateScopes(input.scopes, input.kind);
     if (input.expiresAt && input.expiresAt.getTime() <= now().getTime()) {
       fields.push({ path: ['expiresAt'], code: 'in_the_past' });
     }

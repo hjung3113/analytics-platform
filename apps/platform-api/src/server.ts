@@ -77,7 +77,13 @@ import {
   knowledgeLookup,
   logKnowledgeContribution,
 } from './modules/log-knowledge/index.js';
-import { logLifecycleContribution, roundAttachmentParent } from './modules/log-lifecycle/index.js';
+import {
+  VALIDATION_QUEUE_ROUTE_PREFIX,
+  createQueueService,
+  logLifecycleContribution,
+  roundAttachmentParent,
+  workerRoutes,
+} from './modules/log-lifecycle/index.js';
 import {
   type SourceOwnerAccess,
   type SourceReadPort,
@@ -177,6 +183,8 @@ export interface BuildServerOptions {
   suggestionReadScanCeiling?: number;
   similarityPreviewClock?: () => Date;
   recoveryClock?: () => Date;
+  /** Clock of the validation queue's run-window judgment (#1445 d); leases use the database clock. Tests inject it. */
+  validationQueueClock?: () => Date;
   config: AppConfig;
   dbHandle: DbHandle;
   /**
@@ -1028,6 +1036,13 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     workspaceId,
     db: dbHandle.db,
     registry: menuRegistry,
+  });
+  // The validation request queue worker REST (#1445 d, ADR-0117): token-only, `validation.worker` scope.
+  await app.register(workerRoutes, {
+    prefix: VALIDATION_QUEUE_ROUTE_PREFIX,
+    sessionService,
+    workspaceId,
+    queue: createQueueService({ db: dbHandle.db, ...(opts.validationQueueClock ? { now: opts.validationQueueClock } : {}) }),
   });
   await app.register(navRoutes, {
     sessionService,

@@ -3,6 +3,7 @@ import {
   check,
   date,
   foreignKey,
+  boolean,
   index,
   integer,
   jsonb,
@@ -170,5 +171,248 @@ export const validationRounds = logLifecycleSchema.table(
       'validation_round_closed_check',
       sql`(${t.status} = 'closed') = (${t.closedAt} is not null and ${t.closedBy} is not null)`,
     ),
+  }),
+);
+
+// Validation request queue (#1445 node d, design §3, ADR-0117). A request belongs to one round (round_id required); the
+// round's sample_set is immutable from insert (round_guard), so a request always reads the samples it was made for.
+// The runtime role holds INSERT + a column-limited UPDATE on request and attempt, INSERT only on rule results and
+// excerpts (no UPDATE, no DELETE anywhere).
+const REQUEST_STATES = "('queued','claimed','succeeded','failed','cancelled','expired')";
+const ATTEMPT_OUTCOMES = "('running','succeeded','failed','lease_expired')";
+const VERDICT_VALUES = "('pass','fail','incomplete')";
+const RULE_RESULT_VALUES = "('PASS','FAIL','WARN','NOT_CHECKED','SKIPPED','NOT_APPLICABLE','ERROR')";
+
+export const executionRequests = logLifecycleSchema.table(
+  'execution_request',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    roundId: uuid('round_id').notNull(),
+    /** 0..2, a higher number is claimed first. */
+    priority: integer('priority').notNull(),
+    immediate: boolean('immediate').notNull().default(false),
+    state: text('state').notNull().default('queued'),
+    /** sha256 of the canonical {roundId, sampleManifestDigest, engineProfileRef}. */
+    requestDigest: text('request_digest').notNull(),
+    engineProfileRef: text('engine_profile_ref'),
+    requestedByActorId: uuid('requested_by_actor_id')
+      .notNull()
+      .references(() => actors.id),
+    idempotencyKey: text('idempotency_key').notNull(),
+    attemptCount: integer('attempt_count').notNull().default(0),
+    maxAttempts: integer('max_attempts').notNull().default(3),
+    notBefore: timestamp('not_before', { withTimezone: true }),
+    claimedByActorId: uuid('claimed_by_actor_id').references(() => actors.id),
+    leaseExpiresAt: timestamp('lease_expires_at', { withTimezone: true }),
+    lastHeartbeatAt: timestamp('last_heartbeat_at', { withTimezone: true }),
+    cancelReason: text('cancel_reason'),
+    rowVersion: integer('row_version').notNull().default(1),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    endedAt: timestamp('ended_at', { withTimezone: true }),
+  },
+  (t) => ({
+    workspaceIdUq: unique('execution_request_workspace_id_id_uq').on(t.workspaceId, t.id),
+    roundFk: foreignKey({
+      name: 'execution_request_round_fk',
+      columns: [t.workspaceId, t.roundId],
+      foreignColumns: [validationRounds.workspaceId, validationRounds.id],
+    }).onDelete('restrict'),
+    idempotencyUq: unique('execution_request_idempotency_uq').on(t.workspaceId, t.requestedByActorId, t.idempotencyKey),
+    claimIdx: index('execution_request_claim_idx').on(t.workspaceId, t.state, t.priority, t.createdAt),
+    roundIdx: index('execution_request_round_idx').on(t.workspaceId, t.roundId),
+    stateCheck: check('execution_request_state_check', sql`${t.state} in ${sql.raw(REQUEST_STATES)}`),
+    priorityCheck: check('execution_request_priority_check', sql`${t.priority} between 0 and 2`),
+    attemptsCheck: check(
+      'execution_request_attempts_check',
+      sql`${t.maxAttempts} between 1 and 10 and ${t.attemptCount} between 0 and ${t.maxAttempts}`,
+    ),
+    digestCheck: check('execution_request_digest_check', sql`${t.requestDigest} ~ '^[0-9a-f]{64}$'`),
+    profileCheck: check(
+      'execution_request_profile_check',
+      sql`coalesce(char_length(${t.engineProfileRef}), 0) <= 200 and coalesce(char_length(${t.cancelReason}), 0) <= ${sql.raw(String(REASON_MAX))}`,
+    ),
+    versionCheck: check('execution_request_row_version_check', sql`${t.rowVersion} >= 1`),
+    // A claimed request carries its lease; every other state carries none.
+    leaseCheck: check(
+      'execution_request_lease_check',
+      sql`(${t.state} = 'claimed') = (${t.claimedByActorId} is not null and ${t.leaseExpiresAt} is not null)`,
+    ),
+  }),
+);
+
+export const executionAttempts = logLifecycleSchema.table(
+  'execution_attempt',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    requestId: uuid('request_id').notNull(),
+    attemptNo: integer('attempt_no').notNull(),
+    workerActorId: uuid('worker_actor_id')
+      .notNull()
+      .references(() => actors.id),
+    /** The API token the claim came in with (core.api_tokens, plain uuid: no cross-schema FK). */
+    tokenId: uuid('token_id'),
+    startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
+    endedAt: timestamp('ended_at', { withTimezone: true }),
+    outcome: text('outcome').notNull().default('running'),
+    executorVersion: text('executor_version'),
+    executorDigest: text('executor_digest'),
+    ruleSetRevision: text('rule_set_revision'),
+    inputManifestDigest: text('input_manifest_digest').notNull(),
+    resultDigest: text('result_digest'),
+    verdict: text('verdict'),
+    /** The worker's own summary, kept for reference; the verdict never reads it. */
+    workerSummary: jsonb('worker_summary'),
+  },
+  (t) => ({
+    workspaceIdUq: unique('execution_attempt_workspace_id_id_uq').on(t.workspaceId, t.id),
+    requestFk: foreignKey({
+      name: 'execution_attempt_request_fk',
+      columns: [t.workspaceId, t.requestId],
+      foreignColumns: [executionRequests.workspaceId, executionRequests.id],
+    }).onDelete('restrict'),
+    attemptNoUq: unique('execution_attempt_request_no_uq').on(t.requestId, t.attemptNo),
+    outcomeCheck: check('execution_attempt_outcome_check', sql`${t.outcome} in ${sql.raw(ATTEMPT_OUTCOMES)}`),
+    verdictCheck: check('execution_attempt_verdict_check', sql`${t.verdict} is null or ${t.verdict} in ${sql.raw(VERDICT_VALUES)}`),
+    noCheck: check('execution_attempt_no_check', sql`${t.attemptNo} >= 1`),
+    digestCheck: check(
+      'execution_attempt_digest_check',
+      sql`${t.inputManifestDigest} ~ '^[0-9a-f]{64}$' and (${t.resultDigest} is null or ${t.resultDigest} ~ '^[0-9a-f]{64}$')`,
+    ),
+    summaryCheck: check(
+      'execution_attempt_summary_check',
+      sql`${t.workerSummary} is null or jsonb_typeof(${t.workerSummary}) = 'object'`,
+    ),
+    // Verdict and result digest exist exactly when the attempt succeeded.
+    resultCheck: check(
+      'execution_attempt_result_check',
+      sql`(${t.outcome} = 'succeeded') = (${t.verdict} is not null and ${t.resultDigest} is not null)`,
+    ),
+    requestIdx: index('execution_attempt_request_idx').on(t.workspaceId, t.requestId, t.attemptNo),
+  }),
+);
+
+export const ruleResults = logLifecycleSchema.table(
+  'rule_result',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    attemptId: uuid('attempt_id').notNull(),
+    ruleId: text('rule_id').notNull(),
+    result: text('result').notNull(),
+    required: boolean('required').notNull(),
+    expected: text('expected'),
+    observed: text('observed'),
+    /** `[{ fileRef, line, fileSha256, hasExcerpt }]`, at most 20; the excerpt bodies live in rule_result_excerpt. */
+    evidence: jsonb('evidence').notNull().default(sql`'[]'::jsonb`),
+  },
+  (t) => ({
+    workspaceIdUq: unique('rule_result_workspace_id_id_uq').on(t.workspaceId, t.id),
+    attemptFk: foreignKey({
+      name: 'rule_result_attempt_fk',
+      columns: [t.workspaceId, t.attemptId],
+      foreignColumns: [executionAttempts.workspaceId, executionAttempts.id],
+    }).onDelete('restrict'),
+    ruleUq: unique('rule_result_attempt_rule_uq').on(t.attemptId, t.ruleId),
+    resultCheck: check('rule_result_result_check', sql`${t.result} in ${sql.raw(RULE_RESULT_VALUES)}`),
+    textCheck: check(
+      'rule_result_text_check',
+      sql`char_length(${t.ruleId}) between 1 and 200 and coalesce(char_length(${t.expected}), 0) <= 500 and coalesce(char_length(${t.observed}), 0) <= 500`,
+    ),
+    evidenceCheck: check(
+      'rule_result_evidence_check',
+      sql`jsonb_typeof(${t.evidence}) = 'array' and jsonb_array_length(${t.evidence}) <= 20`,
+    ),
+  }),
+);
+
+/** The log excerpt bodies, apart from rule_result: never in a list response, audit row, notification or export. */
+export const ruleResultExcerpts = logLifecycleSchema.table(
+  'rule_result_excerpt',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    ruleResultId: uuid('rule_result_id').notNull(),
+    evidenceIndex: integer('evidence_index').notNull(),
+    excerpt: text('excerpt').notNull(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    /** Why the body was erased: `retention` (the purge job) or the administrator's reason. Set with `deleted_at`, never text of the log. */
+    deletedReason: text('deleted_reason'),
+  },
+  (t) => ({
+    ruleResultFk: foreignKey({
+      name: 'rule_result_excerpt_rule_result_fk',
+      columns: [t.workspaceId, t.ruleResultId],
+      foreignColumns: [ruleResults.workspaceId, ruleResults.id],
+    }).onDelete('restrict'),
+    indexUq: unique('rule_result_excerpt_index_uq').on(t.ruleResultId, t.evidenceIndex),
+    indexCheck: check('rule_result_excerpt_index_check', sql`${t.evidenceIndex} between 0 and 19`),
+    // A live row holds 1..2000 characters; an erased row (deleted_at set) holds an empty body (ADR-0117 decision 7).
+    lengthCheck: check(
+      'rule_result_excerpt_length_check',
+      sql`(${t.deletedAt} is null and char_length(${t.excerpt}) between 1 and 2000) or (${t.deletedAt} is not null and ${t.excerpt} = '')`,
+    ),
+    reasonCheck: check(
+      'rule_result_excerpt_reason_check',
+      sql`coalesce(char_length(${t.deletedReason}), 0) <= 2000 and (${t.deletedReason} is null or ${t.deletedAt} is not null)`,
+    ),
+  }),
+);
+
+/** Workspace queue settings (one row per workspace; a missing row resolves to the documented defaults). */
+export const queueSettings = logLifecycleSchema.table(
+  'queue_settings',
+  {
+    workspaceId: uuid('workspace_id')
+      .primaryKey()
+      .references(() => workspaces.id),
+    runWindow: jsonb('run_window').notNull(),
+    leaseSeconds: integer('lease_seconds').notNull().default(300),
+    immediateLimit: integer('immediate_limit').notNull().default(5),
+    excerptRetentionDays: integer('excerpt_retention_days').notNull().default(90),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedBy: uuid('updated_by')
+      .notNull()
+      .references(() => actors.id),
+  },
+  (t) => ({
+    windowCheck: check('queue_settings_run_window_check', sql`jsonb_typeof(${t.runWindow}) = 'object'`),
+    leaseCheck: check('queue_settings_lease_check', sql`${t.leaseSeconds} between 30 and 3600`),
+    limitCheck: check('queue_settings_immediate_limit_check', sql`${t.immediateLimit} between 0 and 50`),
+    retentionCheck: check('queue_settings_retention_check', sql`${t.excerptRetentionDays} between 1 and 3650`),
+  }),
+);
+
+/** Who may read the excerpt bodies of a source (`sample_set.sourceOwner`): the right `lifecycle.excerpt.read`, per source owner. */
+export const excerptReaders = logLifecycleSchema.table(
+  'excerpt_reader',
+  {
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    sourceOwner: text('source_owner').notNull(),
+    actorId: uuid('actor_id')
+      .notNull()
+      .references(() => actors.id),
+    grantedBy: uuid('granted_by')
+      .notNull()
+      .references(() => actors.id),
+    grantedAt: timestamp('granted_at', { withTimezone: true }).notNull().defaultNow(),
+    /** Set when the access is withdrawn; a later grant clears it. The row is never deleted. */
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+  },
+  (t) => ({
+    pk: unique('excerpt_reader_uq').on(t.workspaceId, t.sourceOwner, t.actorId),
+    ownerCheck: check('excerpt_reader_owner_check', sql`char_length(${t.sourceOwner}) between 1 and 200`),
   }),
 );

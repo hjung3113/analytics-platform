@@ -50,6 +50,8 @@ caller receives `permission.denied` → `403`. The resolved response is always:
 }
 ```
 
+Queue settings (validation run window, lease length, «즉시» limit, excerpt retention days) are **not** in this table: they live in `log_lifecycle.queue_settings` and are changed by the admin action `logLifecycle.queueSettingsUpdate` ([log-lifecycle.md](log-lifecycle.md) §Validation request queue).
+
 When no `core.workspace_settings` row exists, GET returns the baseline defaults
 `permission_self_approval=allowed`, `survey_anonymity_threshold=5`, and all five
 Coverage pairs at 75/40, with `voc_cluster_suggestions_enabled=false`.

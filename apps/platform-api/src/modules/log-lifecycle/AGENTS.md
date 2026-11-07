@@ -1,6 +1,6 @@
 # log-lifecycle module
 
-Owns the development project of a model, its append-only history and its validation rounds (#1444 node c; design `docs/design/features/log-lifecycle/README.md`, API `docs/architecture/platform-api/api/log-lifecycle.md`). Not here yet: requests, attempts, rule results, Gate (nodes d/e).
+Owns the development project of a model, its append-only history and its validation rounds (#1444 node c; design `docs/design/features/log-lifecycle/README.md`, API `docs/architecture/platform-api/api/log-lifecycle.md`). Node d (#1445) adds the validation request queue (ADR-0117). Not here yet: Gate (node e), manual-evidence attachments (c2).
 
 ## Invariants
 
@@ -13,3 +13,13 @@ Owns the development project of a model, its append-only history and its validat
 - Manual validation attachment (#1451, D6) is an attachment with parent kind `validation_round`, not a table: `roundEvidenceAttach` (right `lifecycle.round.manage`, open rounds only, links through the Attachments barrel `linkAttachments`, audit `lifecycle.round.evidence_attached`) writes it and `roundEvidence` lists it. Download is judged by `roundAttachmentParent` (`attachment-parent.ts`, registered in `server.ts`): `platform:view` and the round in the actor's workspace; it never consults VOC rights.
 - Each manual validation attachment is also an Entity Link `manual_validation_attachment → validation_round` (`evidence_of`, no Managed System; ADR-0123, #1466): `roundEvidenceAttach` writes it through the injected `deps.entityLinks.createNoManagedSystemLink` in the same transaction as `linkAttachments` and the audit, so a failed link write rolls the attach back. `entity-link-provider.ts` is the `validation_round` end (`platform:view`, Round in the workspace). `readRoundEvidenceLinks` (barrel) is the Gate's read port: the Round's links with the Round's visibility, `null` otherwise, no Gate logic. The 개발 건 end has no provider yet (no pair uses it).
 - Reads filter by the session workspace; a foreign id answers `ok` with `data: null` (empty page for lists). No read or action accepts an unknown param/input key.
+
+## Validation request queue (#1445 d)
+
+- `queue-service.ts` is the worker side (claim, heartbeat, result, fail), `worker-routes.ts` its token-only REST (`validation.worker`, a token-only scope for service tokens), `request-actions.ts` / `request-endpoints.ts` the human side. Time is the database's `now()`; only the run-window judgment takes the injected clock.
+- Claim = `select … for update skip locked` in one transaction that first requeues expired leases (no periodic job). The state table is `domain/request-states.ts` (SQL guard `request_guard`, drift test); the verdict is `domain/verdict.ts` and is the only source of `verdict` — no input carries a verdict or an AI opinion.
+- Late result/fail is accepted only for the latest lease-expired attempt of a `queued` request; a heartbeat there re-claims the lease for the same attempt (`reclaimLease`, under the request lock); any other worker's attempt, a cancelled/expired request is `queue.lease_lost` (answered by the route, not in the shared error registry). Same result digest = same 200, another digest = `conflict.stale_write`.
+- Excerpt text lives only in `rule_result_excerpt`; list reads, audit rows, summaries and notifications never carry it. The excerpt read is gated by `excerpt_reader` (per `sourceOwner`, admin-set), audited per read without text, refused to tokens.
+- Settings are `queue_settings` (defaults when no row). Excerpt bodies are erased only by `log_lifecycle.erase_excerpts` (definer function; the runtime role has no UPDATE): the daily job `excerpt-purge-job.ts` (`lifecycle.excerpt_purge`, Round closed + `excerptRetentionDays`) and the admin action `excerptDelete` (Round / attempt scope, required reason). Settings are changed under a per-workspace advisory lock (`lockQueueSettings`).
+- Tests: `__tests__/request-queue-domain.test.ts` (DB-free), `__tests__/request-queue.integration.test.ts`; the reference worker is the 합성 fixture `tooling/scripts/validation-worker-mock.mjs`.
+

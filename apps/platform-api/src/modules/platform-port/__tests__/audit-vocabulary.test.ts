@@ -58,6 +58,17 @@ describe('audit action map vs @ap/contracts AuditAction', () => {
     ['lifecycle.round.opened', 'create'],
     ['lifecycle.round.closed', 'retire'],
     ['lifecycle.round.evidence_attached', 'update'],
+    ['lifecycle.request.created', 'create'],
+    ['lifecycle.request.cancelled', 'retire'],
+    ['lifecycle.request.claimed', 'update'],
+    ['lifecycle.request.result_submitted', 'update'],
+    ['lifecycle.request.failed', 'update'],
+    ['lifecycle.request.lease_expired', 'update'],
+    ['lifecycle.excerpt.read', 'update'],
+    ['lifecycle.queue_settings.updated', 'update'],
+    ['lifecycle.excerpt_access.set', 'update'],
+    ['lifecycle.excerpt.deleted', 'retire'],
+    ['lifecycle.excerpt.purged', 'retire'],
   ] as const)('%s → %s', (type, action) => {
     expect(AUDIT_ACTION_BY_EVENT_TYPE[type]).toBe(action);
   });

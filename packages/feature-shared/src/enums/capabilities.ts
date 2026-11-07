@@ -171,3 +171,15 @@ export function isTokenOnlyCapability(cap: Capability): boolean {
 export const TOKEN_SCOPE_CAPABILITIES: readonly Capability[] = CAPABILITIES.filter(
   (cap) => !isSessionOnlyCapability(cap),
 );
+
+/**
+ * Scopes an API token may carry that are NOT capabilities (ADR-0117 decision 9): they exist only on a token, are never
+ * a grant, request or role right, and no human session holds them. `validation.worker` lets a token call the
+ * validation queue's worker REST (claim, heartbeat, result, fail); only a service token may carry it.
+ */
+export const TOKEN_ONLY_SCOPES = ['validation.worker'] as const;
+export type TokenOnlyScope = (typeof TOKEN_ONLY_SCOPES)[number];
+
+export function isTokenOnlyScope(value: string): value is TokenOnlyScope {
+  return (TOKEN_ONLY_SCOPES as readonly string[]).includes(value);
+}
