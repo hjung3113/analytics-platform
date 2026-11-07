@@ -5,6 +5,7 @@
  */
 import { encodeFilterParams, type ColumnFilter, type FieldError } from '@ap/contracts';
 import type { ModelRow, ProcessRow, SoftwareRow, VendorRow } from '../endpoints';
+import { isUuid } from '../endpoints';
 
 export const CATALOG_TABS = ['vendor', 'process', 'model', 'software'] as const;
 export type CatalogKind = (typeof CATALOG_TABS)[number];
@@ -16,9 +17,8 @@ export const TAB_LABEL: Record<CatalogKind, string> = { vendor: '제조사', pro
 export const isCatalogTab = (raw: string): raw is CatalogKind => (CATALOG_TABS as readonly string[]).includes(raw);
 export const tabOf = (raw: string | null): CatalogKind | 'invalid' => (raw === null ? DEFAULT_TAB : isCatalogTab(raw) ? raw : 'invalid');
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** Page key `focus`: a row id or `new`. */
-export const isFocusValue = (raw: string): boolean => raw === 'new' || UUID.test(raw);
+export const isFocusValue = (raw: string): boolean => raw === 'new' || isUuid(raw);
 
 /** The pinned 상태 filter every tab opens with: active rows only. */
 export const ACTIVE_ONLY: ColumnFilter = { id: 'active', op: 'in', value: ['true'] };
@@ -30,7 +30,7 @@ export function chosenIds(rawFilters: readonly string[]): Record<string, string[
   for (const raw of rawFilters) {
     const [id, op, value] = raw.split(':', 3) as [string, string | undefined, string | undefined];
     if (!['vendorId', 'processes', 'modelId'].includes(id) || (op !== 'in' && op !== 'notIn') || !value) continue;
-    out[id] = [...(out[id] ?? []), ...value.split('~').filter(v => UUID.test(v))];
+    out[id] = [...(out[id] ?? []), ...value.split('~').filter(v => isUuid(v))];
   }
   return out;
 }

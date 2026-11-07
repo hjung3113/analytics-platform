@@ -1,10 +1,9 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Inbox, Loader2, LockKeyhole, ServerCrash } from 'lucide-react';
-import { PlatformLink, useMenuFetch, useMenuQuery, usePlatform, usePlatformQuery, type PageProps } from '@ap/kernel';
+import { PlatformLink, useMenuFetch, useMenuQuery, usePlatform, usePlatformQuery, useUnsavedGuard, type PageProps } from '@ap/kernel';
 import { PageKeyWarning, PlatformPage, QueryView, ReturnLink, StateMessage, usePageKeyRules } from '@ap/components';
 import { Button, Checkbox, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, StatusBadge, Tabs, TabsContent, TabsList, TabsTrigger } from '@ap/ui';
-import { conceptMappingsEndpoint, conceptSuggestionsEndpoint, modelProfileEndpoint, modelSpecEndpoint, modelSpecRevisionsEndpoint, softwareVersionsEndpoint, specChangesEndpoint, SPEC_PUBLISH_PERMISSION, type SoftwareRow, type SpecChangeRow } from '../../endpoints';
-import { UUID } from './specModel';
+import { isUuid, conceptMappingsEndpoint, conceptSuggestionsEndpoint, modelProfileEndpoint, modelSpecEndpoint, modelSpecRevisionsEndpoint, softwareVersionsEndpoint, specChangesEndpoint, SPEC_PUBLISH_PERMISSION, type SoftwareRow, type SpecChangeRow } from '../../endpoints';
 import { Pager, SpecSelect, useSpecInstant, useSpecWords } from './SpecControls';
 import { ChangeMark, ConnectedChanges, EventDrawer, SpecBody } from './SpecViews';
 import { ConceptReview } from './ConceptReview';
@@ -16,10 +15,10 @@ import { ChangeComparison } from './ChangeComparison';
 const TABS = ['spec', 'changes', 'history', 'concept'], DRAWERS = ['event', 'draft', 'add', 'retire', 'confirm'];
 const RULES = [
   { key: 'event', label: { ko: 'Event', en: 'Event' }, valid: (v: string) => v.length > 0 && v.length <= 4096 && !/[\u0000-\u001f]/u.test(v) },
-  { key: 'software', label: { ko: 'SW 버전', en: 'Software' }, valid: (v: string) => UUID.test(v) },
+  { key: 'software', label: { ko: 'SW 버전', en: 'Software' }, valid: (v: string) => isUuid(v) },
   { key: 'tab', label: { ko: '탭', en: 'Tab' }, valid: (v: string) => TABS.includes(v) },
   { key: 'drawer', label: { ko: '서랍', en: 'Drawer' }, valid: (v: string) => DRAWERS.includes(v) },
-  { key: 'revision', label: { ko: 'Revision', en: 'Revision' }, valid: (v: string) => UUID.test(v) },
+  { key: 'revision', label: { ko: 'Revision', en: 'Revision' }, valid: (v: string) => isUuid(v) },
   { key: 'review', label: { ko: '재검토 필터', en: 'Review filter' }, valid: (v: string) => v === 'needed' },
   { key: 'change', label: { ko: '대상', en: 'Target' }, valid: (v: string) => v.length > 0 && v.length <= 4096 && !/[\u0000-\u001f]/u.test(v) },
 ];
@@ -57,15 +56,26 @@ function ChangeList({ rows, software, canWrite, navigate }: { rows: SpecChangeRo
 export default function SpecScreen({ params }: PageProps) {
   const w = useSpecWords(), instant = useSpecInstant(), { can, pageParam, setPage, linkTo } = usePlatform();
   const modelId = params.modelId ?? '', softwareId = pageParam('software'), tab = pageParam('tab') ?? 'spec', drawer = pageParam('drawer'), change = pageParam('change'), revision = pageParam('revision');
-  const keys = usePageKeyRules(RULES), enabled = UUID.test(modelId) && !keys.invalid;
+  const keys = usePageKeyRules(RULES), enabled = isUuid(modelId) && !keys.invalid;
   const [epoch, setEpoch] = useState(0), [conceptEpoch, setConceptEpoch] = useState(0), [revisionPage, setRevisionPage] = useState(0);
   const [conceptPage, setConceptPage] = useState(0), [conceptHistoryPage, setConceptHistoryPage] = useState(0);
-  // Drawer-replacing navigation goes through the dirty guard (fix C5): the editor reports its dirtiness and the
-  // requested patch only applies after an explicit discard.
-  const [dirty, setDirty] = useState(false), [leavePatch, setLeavePatch] = useState<Record<string, string | string[] | null> | null>(null);
+  // Dirty editing is guarded twice, once each: the kernel guard (#1388, `leaves: 'address'`) asks for Back/Forward, shell menu moves and deep links, which
+  // also change only the drawer/tab keys of this address; the in-menu dialog below asks for the screen's own drawer-replacing moves (fix C5). An in-menu
+  // move is written only after the editor is clean (queued patch + effect), so the kernel never asks a second time for a move already confirmed here.
+  const [dirty, setDirty] = useState(false), [leavePatch, setLeavePatch] = useState<Record<string, string | string[] | null> | null>(null), [queued, setQueued] = useState<Record<string, string | string[] | null> | null>(null);
+  // A confirmed discard remounts the drawers (their keys carry this) so a retained editor shows the saved state, not the discarded input, and reports clean.
+  const [discardEpoch, setDiscardEpoch] = useState(0);
+  const discard = () => { setDirty(false); setDiscardEpoch(n => n + 1); };
   const onDirtyChange = useCallback((value: boolean) => setDirty(value), []);
-  const navigate = (patch: Record<string, string | string[] | null>) => { if (dirty) setLeavePatch(patch); else setPage(patch); };
-  const discardAndLeave = () => { const patch = leavePatch; setLeavePatch(null); setDirty(false); if (patch) setPage(patch); };
+  useUnsavedGuard(dirty, { leaves: 'address', message: w('명세 편집 중인 내용이 저장되지 않았습니다.', 'Your specification edits are not saved.'), onDiscard: discard });
+  useEffect(() => { if (queued && !dirty) { setQueued(null); setPage(queued); } }, [queued, dirty, setPage]);
+  const writePage = (patch: Record<string, string | string[] | null>) => { setDirty(false); setQueued(patch); };
+  // A move that rewrites the address to what it already is (re-selecting the open draft) leaves nothing, so it neither asks nor discards.
+  const navigate = (patch: Record<string, string | string[] | null>) => {
+    if (Object.entries(patch).every(([key, value]) => (typeof value === 'string' ? pageParam(key) === value : value === null && pageParam(key) == null))) return;
+    if (dirty) setLeavePatch(patch); else setPage(patch);
+  };
+  const discardAndLeave = () => { const patch = leavePatch; setLeavePatch(null); discard(); if (patch) writePage(patch); };
   const profile = useMenuQuery(modelProfileEndpoint, { modelId }, enabled);
   const model = profile.response?.outcome === 'ok' ? profile.response.data?.model : null;
   const modelLabel = model ? `${model.name} · ${model.code} · ${model.vendor.name}` : modelId;
@@ -127,7 +137,7 @@ export default function SpecScreen({ params }: PageProps) {
   if (spec.response !== projection) { setProjection(spec.response); setFreshness(value => value + 1); }
   const revisionData = history.response?.outcome === 'ok' ? history.response.data : null;
   const openDraft = () => navigate({ drawer: 'draft', change: null, revision: revisionData?.rows.find(r => r.state === 'draft')?.id ?? null });
-  const close = () => { setPage({ event: null, drawer: null, change: null, revision: null }); setEpoch(v => v + 1); spec.refetch(); history.refetch(); };
+  const close = () => { writePage({ event: null, drawer: null, change: null, revision: null }); setEpoch(v => v + 1); spec.refetch(); history.refetch(); };
   let content;
   if (!enabled) content = <StateMessage icon={<AlertTriangle aria-hidden />} title={w('모델 주소를 확인해 주세요.', 'Check the model URL.')} />;
   else if (!spec.response) content = <StateMessage icon={<Loader2 aria-hidden />} title={w('명세를 불러오는 중…', 'Loading specification…')} />;
@@ -148,9 +158,9 @@ export default function SpecScreen({ params }: PageProps) {
       {current && <p className="flex flex-wrap items-center gap-2 text-xs text-text-secondary">r{current.revision.revisionNo} · {current.revision.sourceDocRef.docLabel} · {current.revision.sourceDocRef.docVersion} · {current.revision.publishedAt ? instant(current.revision.publishedAt) : '—'} · {current.revision.publishedBy ?? '—'} {softwareId && <span>{'effective' in current && current.effective ? w('실효 명세', 'Effective specification') : w('모델 명세 그대로', 'Same as model specification')}</span>}{changes.response?.outcome === 'ok' && changes.response.data?.rows.some(c => c.needsRevalidation && !c.retiredAt) && <StatusBadge tone="warning">{w('재검토 필요', 'Needs revalidation')}</StatusBadge>}</p>}
       {keys.invalid ? <PageKeyWarning sentences={keys.sentences} onRecover={keys.recover} /> : content}
       {enabled && eventOpen && current && <EventDrawer spec={current} modelId={modelId} identity={eventKey} rows={mappingRows} count={conceptReady ? conceptCounts.get(eventKey)?.proposed ?? 0 : boundedCount === 0 ? 0 : null} reload={reloadConcepts} onClose={close} connectedChanges={<QueryView widgetName={w('연결된 변경점', 'Connected changes')} query={eventChanges}>{data => <ConnectedChanges rows={data.rows} spec={current} identity={eventKey} onChange={id => navigate({ tab: 'changes', event: null, review: null, drawer: canWrite ? 'retire' : null, change: id })} />}</QueryView>} />}
-      {enabled && drawer === 'draft' && canWrite && <DraftDrawer modelLabel={modelLabel} modelId={modelId} revisionId={revision} onClose={close} onDirtyChange={onDirtyChange} />}
-      {enabled && drawer === 'add' && canWrite && current && <ChangeDrawer key="add" modelId={modelId} software={software} selectedSoftware={softwareId} mode="add" onClose={close} onDirtyChange={onDirtyChange} />}
-      {enabled && (drawer === 'retire' || drawer === 'confirm') && canWrite && <QueryView widgetName={w('변경점 상세', 'Change detail')} query={allChanges}>{() => changeRow ? <ChangeDrawer key={`${drawer}:${change}`} modelId={modelId} software={software} selectedSoftware={softwareId} row={changeRow} mode={drawer} onClose={close} onDirtyChange={onDirtyChange} /> : <p role="status">{w('변경점을 찾을 수 없습니다.', 'Change not found.')}</p>}</QueryView>}
+      {enabled && drawer === 'draft' && canWrite && <DraftDrawer key={`draft:${discardEpoch}`} modelLabel={modelLabel} modelId={modelId} revisionId={revision} onClose={close} onDirtyChange={onDirtyChange} />}
+      {enabled && drawer === 'add' && canWrite && current && <ChangeDrawer key={`add:${discardEpoch}`} modelId={modelId} software={software} selectedSoftware={softwareId} mode="add" onClose={close} onDirtyChange={onDirtyChange} />}
+      {enabled && (drawer === 'retire' || drawer === 'confirm') && canWrite && <QueryView widgetName={w('변경점 상세', 'Change detail')} query={allChanges}>{() => changeRow ? <ChangeDrawer key={`${drawer}:${change}:${discardEpoch}`} modelId={modelId} software={software} selectedSoftware={softwareId} row={changeRow} mode={drawer} onClose={close} onDirtyChange={onDirtyChange} /> : <p role="status">{w('변경점을 찾을 수 없습니다.', 'Change not found.')}</p>}</QueryView>}
       {leavePatch && <Dialog open onOpenChange={value => { if (!value) setLeavePatch(null); }}><DialogContent closeLabel={w('닫기', 'Close')}>
         <DialogHeader><DialogTitle>{w('저장하지 않은 입력을 버릴까요?', 'Discard unsaved input?')}</DialogTitle><DialogDescription>{w('이동하면 편집 중인 내용이 사라집니다.', 'Navigating away discards your edits.')}</DialogDescription></DialogHeader>
         <DialogFooter><Button variant="secondary" onClick={() => setLeavePatch(null)}>{w('계속 편집', 'Keep editing')}</Button><Button onClick={discardAndLeave}>{w('버리고 이동', 'Discard and leave')}</Button></DialogFooter>

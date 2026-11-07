@@ -1,24 +1,16 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { BookOpen } from 'lucide-react';
-import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
+import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { stubCompactTableGeometry } from '@ap/components/testing';
 import { testAdapter, testSession } from '@ap/kernel/testing';
-import { DetailPanelSlotProvider } from '@ap/ui';
-import { groupId, menuPermission, spaceId, type ActionResponse, type ApiResponse, type MenuAction, type MenuQuery } from '@ap/contracts';
+import { type ActionResponse, type ApiResponse, type MenuAction, type MenuQuery } from '@ap/contracts';
 import { CATALOG_MANAGE_PERMISSION, type ImportRowView } from '../../endpoints';
-import { manifests } from '../../index';
 import CatalogManagement from '../CatalogManagement';
 import { clearDraft, readDraft } from './importDraft';
 import { JOB_STATUS_LABEL } from './importModel';
+import { knowledgeRegistry, mountWith } from '../test-support';
 
-const registry = createRegistry({
-  permissions: [menuPermission('knowledge:catalog-manage')],
-  spaces: [{ id: spaceId('logDev'), label: { ko: '로그', en: 'Log' }, description: { ko: '목적', en: 'Purpose' }, permission: CATALOG_MANAGE_PERMISSION, homeMenuId: 'log-knowledge-catalog' }],
-  groups: [{ id: groupId('logKnowledge'), label: { ko: '지식', en: 'Knowledge' }, icon: BookOpen, space: spaceId('logDev') }],
-  menus: manifests,
-});
+const registry = knowledgeRegistry(['knowledge:catalog-manage'], { description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'log-knowledge-catalog', permission: CATALOG_MANAGE_PERMISSION });
 const session = testSession(['knowledge:catalog-manage', 'platform:view'], { user: { id: 'admin', name: 'admin', title: { ko: '관리자', en: 'Admin' } } });
 const ok = (data: unknown): ApiResponse<never> => ({ outcome: 'ok', data, assessments: [], trust: null, correlationId: 'fixture' }) as ApiResponse<never>;
 const answer = (over: Partial<ActionResponse<unknown>>): ActionResponse<never> =>
@@ -93,7 +85,7 @@ afterEach(() => { cleanup(); restoreGeometry(); });
 
 function open(tab = 'model') {
   window.history.replaceState(null, '', `/log/knowledge/catalog?v=1&tab=${tab}`);
-  render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider><CatalogManagement /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
+  mountWith({ registry, adapter, ui: <CatalogManagement /> });
 }
 const paste = async (text = '메이커명\t모델명\nA\tB') => {
   fireEvent.click(await screen.findByRole('button', { name: '가져오기' }, slow));

@@ -7,12 +7,11 @@
  */
 import { validateFilters, type ColumnFilter, type PageResult } from '@ap/contracts';
 import { defineMockEndpoint, type AnyMockEndpoint } from '@ap/mock-server';
-import { ITEM_SORT_IDS, itemDetailEndpoint, itemFilterSpecs, itemsEndpoint, specSubjectItemsEndpoint, type CatalogPageParams, type ItemDetail, type ItemDetailParams, type ItemRow, type SpecSubjectItemRow } from '../endpoints';
+import { isUuid, ITEM_SORT_IDS, itemDetailEndpoint, itemFilterSpecs, itemsEndpoint, specSubjectItemsEndpoint, type CatalogPageParams, type ItemDetail, type ItemDetailParams, type ItemRow, type SpecSubjectItemRow } from '../endpoints';
 import { allItems, allLinks, itemById, latestRevision, ownerOf, type ItemRec } from './items';
 import { resolvedSubjects } from './subjectLinks';
 
 const PAGE_SIZE_MAX = 200, Q_MAX = 200, SORT_KEYS_MAX = 3, FILTER_VALUES_MAX = 200, REVISION_NO_MAX = 1_000_000;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const LIST_KEYS = ['q', 'page', 'pageSize', 'sorting', 'filters'];
 const UUID_FIELDS = ['ownerModelId', 'ownerSoftwareId'];
 const TARGET_KEY_MAX = 1200;
@@ -46,7 +45,7 @@ export function itemListMessage(params: CatalogPageParams): string | null {
   for (const f of filters) {
     if (f.op !== 'in' && f.op !== 'notIn') continue;
     if (f.value.length > FILTER_VALUES_MAX) return `filter ${f.id} takes at most ${FILTER_VALUES_MAX} values`;
-    if (UUID_FIELDS.includes(f.id) && !f.value.every(v => UUID.test(v))) return `filter ${f.id} values are uuid strings`;
+    if (UUID_FIELDS.includes(f.id) && !f.value.every(v => isUuid(v))) return `filter ${f.id} values are uuid strings`;
     const spec = itemFilterSpecs[f.id];
     // `subject` (#1196 f) is one escaped target key: free text, no closed vocabulary.
     if (f.id === 'subject' && !f.value.every(v => v.trim() !== '' && v.length <= TARGET_KEY_MAX && !unsafeText(v))) return `filter subject takes a non-blank target key of at most ${TARGET_KEY_MAX} characters`;
@@ -57,7 +56,7 @@ export function itemListMessage(params: CatalogPageParams): string | null {
 
 function detailMessage(params: ItemDetailParams): string | null {
   if (!exactKeys(params, ['itemId', 'revisionNo'])) return 'unknown param';
-  if (typeof params.itemId !== 'string' || !UUID.test(params.itemId)) return 'itemId must be a uuid string';
+  if (typeof params.itemId !== 'string' || !isUuid(params.itemId)) return 'itemId must be a uuid string';
   const n = params.revisionNo;
   if (n !== undefined && !(typeof n === 'number' && Number.isInteger(n) && n >= 1 && n <= REVISION_NO_MAX)) return 'revisionNo must be a positive integer';
   return null;
@@ -131,7 +130,7 @@ function detail(params: ItemDetailParams): ItemDetail | null {
 }
 
 const subjectItemsMessage = (p: { modelId?: unknown; targetKey?: unknown; page?: unknown; pageSize?: unknown }): string | null => {
-  if (typeof p.modelId !== 'string' || !UUID.test(p.modelId)) return 'modelId must be a uuid string';
+  if (typeof p.modelId !== 'string' || !isUuid(p.modelId)) return 'modelId must be a uuid string';
   if (typeof p.targetKey !== 'string' || p.targetKey.trim() === '' || p.targetKey.length > TARGET_KEY_MAX || unsafeText(p.targetKey)) return `targetKey must be non-blank text of at most ${TARGET_KEY_MAX} characters`;
   if (p.page !== undefined && (typeof p.page !== 'number' || !Number.isInteger(p.page) || p.page < 0 || p.page > 1_000_000)) return 'page must be a non-negative integer (0-based)';
   if (p.pageSize !== undefined && (typeof p.pageSize !== 'number' || !Number.isInteger(p.pageSize) || p.pageSize < 1 || p.pageSize > PAGE_SIZE_MAX)) return `pageSize must be an integer from 1 to ${PAGE_SIZE_MAX}`;

@@ -2,17 +2,14 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
+import { I18nProvider, PlatformProvider } from '@ap/kernel';
 import { testAdapter, testSession } from '@ap/kernel/testing';
-import { BookOpen } from 'lucide-react';
-import { groupId, menuPermission, spaceId, type ActionResponse, type ApiResponse, type MenuAction, type MenuQuery } from '@ap/contracts';
-import { manifests } from '../../index';
+import { type ActionResponse, type ApiResponse, type MenuAction, type MenuQuery } from '@ap/contracts';
 import { useConceptActions, useConceptMappings, useConceptSuggestions, useSpecSubjectItems } from './useConceptData';
 import { useSubjectPickerSpec } from '../items/useSubjectData';
+import { knowledgeRegistry } from '../test-support';
 
-const registry = createRegistry({ permissions: [menuPermission('knowledge:spec-publish'), menuPermission('knowledge:catalog-manage')],
-  spaces: [{ id: spaceId('logDev'), label: { ko: '로그', en: 'Log' }, description: { ko: '로그 개발', en: 'Log development' }, homeMenuId: 'log-knowledge-models' }],
-  groups: [{ id: groupId('logKnowledge'), label: { ko: '지식', en: 'Knowledge' }, icon: BookOpen, space: spaceId('logDev') }], menus: manifests });
+const registry = knowledgeRegistry(['knowledge:spec-publish', 'knowledge:catalog-manage'], { description: { ko: '로그 개발', en: 'Log development' }, homeMenuId: 'log-knowledge-models' });
 const ok = (data: unknown) => ({ outcome: 'ok', data, assessments: [], trust: null, correlationId: 'hook' }) as ApiResponse<never>;
 const row = (n: number) => ({ id: `m${n}` });
 let queries: MenuQuery[], writes: MenuAction[];

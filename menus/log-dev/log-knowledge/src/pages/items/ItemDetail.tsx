@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { PlatformLink, useMenuQuery, usePlatform, type PageProps } from '@ap/kernel';
 import { DetailDrawer, PageKeyWarning, PlatformPage, QueryView, ReturnLink, StateMessage, usePageKeyRules } from '@ap/components';
 import { Button } from '@ap/ui';
-import { ITEM_PUBLISH_PERMISSION, itemDetailEndpoint, type ItemDetail as ItemDetailData, type ItemDetailParams } from '../../endpoints';
+import { isUuid, ITEM_PUBLISH_PERMISSION, itemDetailEndpoint, type ItemDetail as ItemDetailData, type ItemDetailParams } from '../../endpoints';
 import { SubjectChips } from './ItemSubjects';
 import { ArchiveAction } from './ArchiveAction';
 import { AssessDrawer } from './AssessDrawer';
@@ -12,7 +12,6 @@ import { OwnerChip, StateBadges, TypeBadge } from './ItemBadges';
 import { AssessmentTimeline, EvidenceList, ItemBodyBlocks, LinkList, RevisionList, Section, stamp } from './ItemDetailParts';
 import { isRevisionParam, itemNoLabel, revisionOf, shortActor } from './itemModel';
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DRAWERS = ['revise', 'assess', 'derive'] as const;
 type DrawerKind = (typeof DRAWERS)[number];
 const RULES = [
@@ -121,7 +120,7 @@ function ItemDetailScreen({ params }: PageProps) {
   const keys = usePageKeyRules(RULES);
   const itemId = params.itemId ?? '';
   const revisionNo = revisionOf(pageParam('rev'));
-  const known = UUID.test(itemId);
+  const known = isUuid(itemId);
   // keepPrevious ON (#1365, ADR-0114): `rev` re-reads the same Item, so the shown revision stays (refreshing) until the picked one arrives; the banner and revision list follow when it does.
   const query = useMenuQuery(itemDetailEndpoint, { itemId, ...(revisionNo === null ? {} : { revisionNo }) } satisfies ItemDetailParams, known && !keys.invalid, { keepPrevious: true });
   const live = query.response?.outcome === 'ok' ? query.response.data : undefined;

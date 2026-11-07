@@ -1,4 +1,4 @@
-import type { EvidenceSourceKind } from '../../endpoints';
+import { isUuid, type EvidenceSourceKind } from '../../endpoints';
 /**
  * Pure model of the item screens (#1197 s2): vocabulary labels (ADR-0109), the item number and owner wording, the
  * default list filter and the `rev` page-key rule. No React, so it is unit-tested without a DOM and node s3 reuses it.
@@ -43,7 +43,7 @@ export function chosenOwnerModelIds(rawFilters: readonly string[]): string[] {
   for (const raw of rawFilters) {
     const [id, op, value] = raw.split(':', 3) as [string, string | undefined, string | undefined];
     if (id !== 'ownerModelId' || op !== 'in' || !value) continue;
-    for (const v of value.split('~')) if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v) && !out.includes(v)) out.push(v);
+    for (const v of value.split('~')) if (isUuid(v) && !out.includes(v)) out.push(v);
   }
   return out;
 }

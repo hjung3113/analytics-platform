@@ -1,24 +1,17 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act as rtlAct, act as reactAct, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { BookOpen } from 'lucide-react';
-import { createRegistry, I18nProvider, PlatformProvider, usePlatform } from '@ap/kernel';
+import { usePlatform } from '@ap/kernel';
 import { stubCompactTableGeometry } from '@ap/components/testing';
 import { testAdapter, testSession } from '@ap/kernel/testing';
-import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
-import { encodeFilterParams, groupId, menuPermission, spaceId, type ActionResponse, type ApiResponse, type ColumnFilter, type FieldError, type MenuAction, type MenuQuery } from '@ap/contracts';
+import { encodeFilterParams, type ActionResponse, type ApiResponse, type ColumnFilter, type FieldError, type MenuAction, type MenuQuery } from '@ap/contracts';
 import { CATALOG_MANAGE_PERMISSION, type ItemAssessment, type ItemDetail as ItemDetailData, type ItemLinkRow, type ItemOwner, type ItemRevision, type ItemRow } from '../../endpoints';
-import { manifests } from '../../index';
 import ModelProfile from '../models/ModelProfile';
 import ItemDetail from './ItemDetail';
 import ItemList from './ItemList';
+import { knowledgeRegistry, treeWith } from '../test-support';
 
-const registry = createRegistry({
-  permissions: [menuPermission('knowledge:catalog-manage'), menuPermission('knowledge:item-publish')],
-  spaces: [{ id: spaceId('logDev'), label: { ko: '로그', en: 'Log' }, description: { ko: '목적', en: 'Purpose' }, permission: CATALOG_MANAGE_PERMISSION, homeMenuId: 'log-knowledge-catalog' }],
-  groups: [{ id: groupId('logKnowledge'), label: { ko: '지식', en: 'Knowledge' }, icon: BookOpen, space: spaceId('logDev') }],
-  menus: manifests,
-});
+const registry = knowledgeRegistry(['knowledge:catalog-manage', 'knowledge:item-publish'], { description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'log-knowledge-catalog', permission: CATALOG_MANAGE_PERMISSION });
 const user = { id: 'admin', name: 'admin', title: { ko: '관리자', en: 'Admin' } };
 const publisher = testSession(['knowledge:catalog-manage', 'knowledge:item-publish', 'platform:view'], { user });
 const reader = testSession(['knowledge:catalog-manage', 'platform:view'], { user });
@@ -161,11 +154,7 @@ let restoreGeometry: () => void;
 beforeEach(() => { holdDetail = null; seed(); failLatest = false; profileActive = true; MODELS.length = 3; writes = []; queries = []; nextError = null; session = publisher; restoreGeometry = stubCompactTableGeometry(); });
 afterEach(() => { cleanup(); restoreGeometry(); vi.restoreAllMocks(); });
 
-function Slot() {
-  const slot = useDetailPanelSlotHost();
-  return <aside ref={slot.ref} aria-label="상세 패널" />;
-}
-const tree = (page: React.ReactNode) => <I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider>{page}<Slot /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>;
+const tree = (ui: React.ReactNode, selected = adapter) => treeWith({ registry, adapter: selected, ui, slot: true, slotLabel: '상세 패널' });
 /** The two item routes, switched by the address like the app's router: a write that navigates (create, derive) lands on the new item's detail. */
 function Routes() {
   const { pathname } = usePlatform();
@@ -328,7 +317,7 @@ describe('Item 상세 수정 (revise)', () => {
       if (req.endpoint !== 'logKnowledge.itemDetail') return Promise.resolve(ok({ rows: [], total: 0 }));
       return blocked ? new Promise(resolve => { deny = resolve; }) : Promise.resolve(ok(detailOf(store[0]!)));
     } });
-    const view = (selected = port) => <I18nProvider><PlatformProvider adapter={selected} registry={registry}><DetailPanelSlotProvider><ItemDetail params={{ itemId: ITEM(1) }} /><Slot /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>;
+    const view = (selected = port) => tree(<ItemDetail params={{ itemId: ITEM(1) }} />, selected);
     const mounted = render(view());
     await screen.findByRole('heading', { name: '기술 Item 수정' });
     type(/^제목/, 'private draft');

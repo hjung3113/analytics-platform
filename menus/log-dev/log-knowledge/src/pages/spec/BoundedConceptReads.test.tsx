@@ -1,24 +1,20 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { BookOpen } from 'lucide-react';
-import { groupId, menuPermission, spaceId, type ApiResponse, type MenuQuery } from '@ap/contracts';
-import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { type ApiResponse, type MenuQuery } from '@ap/contracts';
 import { testAdapter, testSession } from '@ap/kernel/testing';
-import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { stubCompactTableGeometry } from '@ap/components/testing';
-import { manifests } from '../../index';
 import type { ConceptMappingRow, ModelSpecData } from '../../endpoints';
 import SpecScreen from './SpecScreen';
 import { SubjectChips } from '../items/ItemSubjects';
+import { knowledgeRegistry, mountWith } from '../test-support';
 const modelId = '00000003-0000-4000-8000-000000000008';
-const registry = createRegistry({ permissions: [menuPermission('knowledge:spec-publish'), menuPermission('knowledge:catalog-manage'), menuPermission('knowledge:item-publish')], spaces: [{ id: spaceId('logDev'), label: { ko: '로그', en: 'Log' }, description: { ko: '로그', en: 'Log' }, homeMenuId: 'log-knowledge-models' }], groups: [{ id: groupId('logKnowledge'), label: { ko: '지식', en: 'Knowledge' }, icon: BookOpen, space: spaceId('logDev') }], menus: manifests });
+const registry = knowledgeRegistry(['knowledge:spec-publish', 'knowledge:catalog-manage', 'knowledge:item-publish'], { description: { ko: '로그', en: 'Log' }, homeMenuId: 'log-knowledge-models' });
 const ok = (data: unknown) => ({ outcome: 'ok', data, assessments: [], trust: null, correlationId: 'bounded' }) as ApiResponse<never>;
 const spec: ModelSpecData = { revision: { id: 'r', modelId, revisionNo: 1, state: 'published', schemaVersion: 1, sourceDocRef: { docLabel: 'Spec', docVersion: '1' }, contentSha256: null, publishedAt: null, publishedBy: null }, modules: [{ id: 'm', moduleKey: 'ROBOT', name: 'Robot', parentModuleId: null }], events: [{ id: 'e', moduleId: 'm', eventKey: 'MOVE', name: 'Move', fields: [], triggerRule: 'On move', detailDocRef: null }], relations: [] };
 const member = (id: number, patch: Partial<ConceptMappingRow> = {}): ConceptMappingRow => ({ id: `row-${id}`, conceptId: `concept-${id}`, conceptLabel: `Concept ${id}`, kind: 'event', modelId, modelName: 'A', targetKind: 'event', targetKey: 'ROBOT/MOVE', targetName: 'Move', targetState: 'present', relationKind: 'equivalent', reviewState: 'proposed', origin: 'human', similarityScore: null, similarityBasis: null, rejectReason: null, proposedBy: 'admin', proposedAt: '2026-11-01T00:00:00Z', reviewedBy: null, reviewedAt: null, version: 1, ...patch });
 let restore = () => {};
 afterEach(() => { cleanup(); restore(); });
-function Slot() { const slot = useDetailPanelSlotHost(); return <aside ref={slot.ref} />; }
 function mount(search = '&tab=concept', child?: React.ReactNode, specification = spec) {
   restore = stubCompactTableGeometry();
   const reads: MenuQuery[] = [];
@@ -34,7 +30,7 @@ function mount(search = '&tab=concept', child?: React.ReactNode, specification =
     return ok({ rows: [], total: 0 });
   } });
   window.history.replaceState(null, '', `/logDev/log-knowledge-spec/${modelId}?v=1&scopeId=MEM${search}`);
-  render(<I18nProvider><PlatformProvider registry={registry} adapter={adapter}><DetailPanelSlotProvider>{child ?? <SpecScreen params={{ modelId }} />}<Slot /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
+  mountWith({ registry, adapter, ui: child ?? <SpecScreen params={{ modelId }} />, slot: true });
   return reads;
 }
 it('pages only the current model queue/history and reads membership and definitions only for visible cards', async () => {

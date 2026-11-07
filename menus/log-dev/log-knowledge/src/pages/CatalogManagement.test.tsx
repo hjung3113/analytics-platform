@@ -1,25 +1,18 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react';
-import { BookOpen } from 'lucide-react';
-import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
+import { act, cleanup, fireEvent, renderHook, screen, waitFor, within } from '@testing-library/react';
+import { I18nProvider, PlatformProvider } from '@ap/kernel';
 import { stubCompactTableGeometry } from '@ap/components/testing';
 import { testAdapter, testSession } from '@ap/kernel/testing';
-import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
-import { encodeFilterParams, groupId, menuPermission, spaceId, type ActionResponse, type ApiResponse, type MenuAction, type MenuQuery } from '@ap/contracts';
+import { encodeFilterParams, type ActionResponse, type ApiResponse, type MenuAction, type MenuQuery } from '@ap/contracts';
 import { CATALOG_MANAGE_PERMISSION, vendorsEndpoint } from '../endpoints';
 import { chosenIds } from './catalogModel';
 import { filterSpecsFor } from './CatalogTable';
 import { useOptionPicker } from './useCatalogOptions';
-import { manifests } from '../index';
 import CatalogManagement from './CatalogManagement';
+import { knowledgeRegistry, mountWith } from './test-support';
 
-const registry = createRegistry({
-  permissions: [menuPermission('knowledge:catalog-manage')],
-  spaces: [{ id: spaceId('logDev'), label: { ko: '로그', en: 'Log' }, description: { ko: '목적', en: 'Purpose' }, permission: CATALOG_MANAGE_PERMISSION, homeMenuId: 'log-knowledge-catalog' }],
-  groups: [{ id: groupId('logKnowledge'), label: { ko: '지식', en: 'Knowledge' }, icon: BookOpen, space: spaceId('logDev') }],
-  menus: manifests,
-});
+const registry = knowledgeRegistry(['knowledge:catalog-manage'], { description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'log-knowledge-catalog', permission: CATALOG_MANAGE_PERMISSION });
 const session = testSession(['knowledge:catalog-manage', 'platform:view'], { user: { id: 'admin', name: 'admin', title: { ko: '관리자', en: 'Admin' } } });
 const at = '2026-10-01T00:00:00.000Z';
 const stamps = { version: '3', createdAt: at, updatedAt: at };
@@ -67,13 +60,9 @@ let restoreGeometry: () => void;
 beforeEach(() => { queries = []; writes = []; held.clear(); gates.clear(); for (const r of [vendorRow, modelRow, retiredRow, zeta]) held.set(r.id, r); answer = () => ({ outcome: 'ok' }); restoreGeometry = stubCompactTableGeometry(); });
 afterEach(() => { cleanup(); restoreGeometry(); vi.restoreAllMocks(); });
 
-function Slot() {
-  const slot = useDetailPanelSlotHost();
-  return <aside ref={slot.ref} aria-label="상세 패널" />;
-}
 function mount(search: string) {
   window.history.replaceState(null, '', `/log/knowledge/catalog?v=1${search}`);
-  render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider><CatalogManagement /><Slot /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
+  mountWith({ registry, adapter, ui: <CatalogManagement />, slot: true, slotLabel: '상세 패널' });
 }
 const url = () => new URLSearchParams(window.location.search);
 /** The table's last read of an endpoint (a 25-row page; the drawer's by-id lookups and the pickers read other sizes). */
@@ -176,7 +165,7 @@ describe('catalog drawer writes', () => {
 const hiddenFilters = () => ((window.history.state as { apHidden?: { pairs: [string, string][] } } | null)?.apHidden?.pairs ?? []).filter(([k]) => k === 'filter').map(([, v]) => v);
 function remount() {
   cleanup();
-  render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider><CatalogManagement /><Slot /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
+  mountWith({ registry, adapter, ui: <CatalogManagement />, slot: true, slotLabel: '상세 패널' });
 }
 
 describe('the default filter and the shared state (F1, U3)', () => {

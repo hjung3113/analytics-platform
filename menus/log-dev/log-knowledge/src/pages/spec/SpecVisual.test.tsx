@@ -1,24 +1,20 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
+import { cleanup, fireEvent, screen, within } from '@testing-library/react';
 import { testAdapter, testSession } from '@ap/kernel/testing';
 import { stubCompactTableGeometry } from '@ap/components/testing';
-import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
-import { BookOpen } from 'lucide-react';
-import { groupId, menuPermission, spaceId, type ApiResponse } from '@ap/contracts';
-import { manifests } from '../../index';
+import { type ApiResponse } from '@ap/contracts';
 import { type ModelSpecData, type SpecChangeRow, type SpecTargetKind } from '../../endpoints';
 import SpecScreen from './SpecScreen';
+import { knowledgeRegistry, mountWith } from '../test-support';
 const modelId = '00000003-0000-4000-8000-000000000008', sw = '00000004-0000-4000-8000-00000000000e', rev = '00000007-0000-4000-8000-000000000001';
 const ok = (data: unknown) => ({ outcome: 'ok', data, assessments: [], trust: null, correlationId: 'visual-test' }) as ApiResponse<never>;
 const basis: ModelSpecData = { revision: { id: rev, modelId, revisionNo: 4, state: 'published', schemaVersion: 1, sourceDocRef: { docLabel: 'Alpha log specification', docVersion: '2.1' }, contentSha256: null, publishedAt: null, publishedBy: null }, modules: [{ id: 'm1', moduleKey: 'ARM', name: 'Arm', parentModuleId: null }], events: [{ id: 'e1', moduleId: 'm1', eventKey: 'MOVE', name: 'Move', fields: [], triggerRule: 'on move', detailDocRef: null }], relations: [] };
 const change: SpecChangeRow = { id: '00000007-0000-4000-8000-000000000002', softwareId: sw, softwareLabel: 'v1.0', endsBeforeSoftwareId: null, endsBeforeLabel: null, targetKind: 'event', targetKey: 'ARM/MOVE', changeKind: 'changed', change: { before: { name: 'Move', triggerRule: 'on move', detailDocRef: null }, after: { name: 'Move', triggerRule: 'after ready', detailDocRef: null } }, note: null, evidenceRef: 'Release notes §2', basedOnRevNo: 3, needsRevalidation: true, revalidationRevNo: 4, retiredAt: null, retiredBy: null, retiredByChangeId: null, createdAt: '2026-11-01T00:00:00Z', createdBy: 'admin', version: 1 };
-const registry = createRegistry({ permissions: [menuPermission('knowledge:spec-publish'), menuPermission('knowledge:catalog-manage')], spaces: [{ id: spaceId('logDev'), label: { ko: '로그', en: 'Log' }, description: { ko: '로그 개발', en: 'Log development' }, homeMenuId: 'log-knowledge-models' }], groups: [{ id: groupId('logKnowledge'), label: { ko: '지식', en: 'Knowledge' }, icon: BookOpen, space: spaceId('logDev') }], menus: manifests });
+const registry = knowledgeRegistry(['knowledge:spec-publish', 'knowledge:catalog-manage'], { description: { ko: '로그 개발', en: 'Log development' }, homeMenuId: 'log-knowledge-models' });
 let restoreGeometry: () => void;
 beforeEach(() => { restoreGeometry = stubCompactTableGeometry(); HTMLElement.prototype.scrollIntoView = vi.fn(); });
 afterEach(() => { cleanup(); restoreGeometry(); vi.restoreAllMocks(); });
-function Slot() { const slot = useDetailPanelSlotHost(); return <aside ref={slot.ref} />; }
 function mount(search = '', lang: 'ko' | 'en' = 'ko', spec: unknown = basis, rows = [change]) {
   let language = lang;
   Object.defineProperty(window, 'localStorage', { configurable: true, value: { getItem: () => language, setItem: (_key: string, next: 'ko' | 'en') => { language = next; }, removeItem: () => { language = 'ko'; } } });
@@ -33,7 +29,7 @@ function mount(search = '', lang: 'ko' | 'en' = 'ko', spec: unknown = basis, row
     if (req.endpoint === 'logKnowledge.specDraft') return ok({ ...basis, revision: { ...basis.revision, state: 'draft', revisionNo: 5, version: 1 } });
     return ok(null);
   } });
-  return render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider><SpecScreen params={{ modelId }} /><Slot /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
+  return mountWith({ registry, adapter, ui: <SpecScreen params={{ modelId }} />, slot: true });
 }
 describe('confirmed A visual content', () => {
   it.each(['ko', 'en'] as const)('names the model, code and vendor even without a published spec (%s)', async lang => {

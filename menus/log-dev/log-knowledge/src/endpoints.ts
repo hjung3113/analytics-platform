@@ -9,6 +9,10 @@
  */
 import { defineAction, defineEndpoint, menuPermission, type AnyEndpointSpec, type ColumnFilter, type Permission, type ColumnFilterSpec, type PageResult, type PageSort } from '@ap/contracts';
 
+/** The one UUID check of this menu's pages and mock: case-insensitive and anchored, so an upper-case id from a pasted link is accepted like the lower-case one (#1393 Q5). */
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const isUuid = (value: string): boolean => UUID_PATTERN.test(value);
+
 export const LOG_KNOWLEDGE_MENU_ID = 'log-knowledge-catalog';
 /** Menu permission of the catalog management menu and of its write actions (design v0.6 §2.1, admin-capability menu). */
 export const CATALOG_MANAGE_PERMISSION: Permission = menuPermission('knowledge:catalog-manage');
