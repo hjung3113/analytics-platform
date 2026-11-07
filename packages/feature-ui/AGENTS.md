@@ -10,7 +10,7 @@
 ## Forbidden Content
 
 - API calls.
-- Imports from `@ap/feature-shared` or `apps/{platform-api,feature-screens}` (ADR-0016, enforced by `pnpm --filter @ap/platform-api-ops check:boundaries`); mirror the constant locally, as `src/rich-content/allowlist-local.ts` does.
+- Imports from `@ap/feature-shared` or `apps/{platform-api,feature-screens}` (ADR-0016, enforced by `pnpm --filter @ap/platform-api-ops check:boundaries`); the rich-content allowlist mirror lives in `@ap/ui` (`packages/sdk/ui/src/rich-content/allowlist-local.ts`).
 - Backend permission decisions as truth.
 - Domain mutation orchestration.
 - Feature-specific route state.
@@ -45,17 +45,16 @@
   registrant), `TabsList`/`TabsTrigger` are `@ap/ui`'s unwrapped `TabsListBase`/`TabsTriggerBase`,
   and `TipTapEditor` is the TipTap `Editor` type. `SEVERITY_LABELS` stays in the local
   `SeverityIndicator` module because `@ap/ui` does not expose that value and the local
-  `SeverityBadge` uses it. `src/panel/useJumpGuard.ts` stays local because the SDK does not export
-  that private helper.
+  `SeverityBadge` uses it.
 - The detail slot is `@ap/ui`'s: `AppFrame` wraps its frame in `DetailPanelSlotProvider` and renders
   the host through `useDetailPanelSlotHost()`, and the provider owns the expanded state (toggle, Esc,
   reset on key change) and `DetailPanelFullscreenContext`. Tests that render a shell with
   `detailPanel` mount `DetailPanelSlotProvider` plus a host div. Overlapping registrants log the
   SDK's `[DetailPanelSlot] Multiple registrants; the last registrant wins.`
-- `src/internal/useHorizontalOverflow.ts` and the rich-content drift anchors stay local. Rich-content
-  uses TipTap per ADR-0011. The allowlist original stays in `packages/feature-shared`; the local
-  `allowlist-local.ts`, `sanitizeClient.ts`, and `fixtures-local.ts` stay as the drift anchor. The
-  ADR-0016 package boundary still keeps `@ap/feature-ui` from importing `@ap/feature-shared`.
+- Rich-content uses TipTap per ADR-0011. The allowlist original stays in `packages/feature-shared`;
+  its local mirror and drift anchors (`allowlist-local.ts`, `sanitizeClient.ts`, `fixtures-local.ts`)
+  live in `packages/sdk/ui/src/rich-content/`. The ADR-0016 package boundary still keeps
+  `@ap/feature-ui` from importing `@ap/feature-shared`.
 - The frontend declares `@ap/ui` (`workspace:*`) directly so its stylesheet
   resolver can reach bundle-1 CSS. It imports
   `@ap/ui/styles/{tokens,semantic,theme,compat}.css` in that order, then
