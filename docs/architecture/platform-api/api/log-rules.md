@@ -1,6 +1,6 @@
 # Log Rules
 
-Index and global rules: [03-api-contracts.md](../03-api-contracts.md). This file is the normative contract for **nodes R-a and R-b** (#1491, #1492): the token-submitted validation catalog report, the `log_rules` storage behind it and the catalog reads. Design and decisions: `docs/design/features/log-rules/README.md` §2–§5.2, §8 and ADR-0122. Not here (later nodes): the spec-requirement read port (R-c), coverage (`logRules.coverage*`, `RuleCoveragePort`, R-d), any screen (R-e), any call from the platform to the Validator, any rule editing. The wire contract is `@ap/contract-schemas` `validation-catalog-report` `v0` (provisional until the Validator is surveyed).
+Index and global rules: [03-api-contracts.md](../03-api-contracts.md). This file is the normative contract for **nodes R-a, R-b and R-d** (#1491, #1492, #1494): the token-submitted validation catalog report, the `log_rules` storage behind it, the catalog reads and the spec coverage reads. Design and decisions: `docs/design/features/log-rules/README.md` §2–§5.2, §8 and ADR-0122. Not here (later nodes): any screen (R-e), the consumers of `RuleCoveragePort` (Gate, Round, Datasets; R-f), any call from the platform to the Validator, any rule editing. The wire contract is `@ap/contract-schemas` `validation-catalog-report` `v0` (provisional until the Validator is surveyed).
 
 The platform receives the Validator's report as a **read-only snapshot**. It stores identifiers, short display text, the support level and the declared targets, and nothing else: there is no column for a rule body, condition, threshold, parameter, script or sample log.
 
@@ -50,6 +50,43 @@ Five reads over `POST /api/v1/menu-query`, declared by `log-rules/catalog-endpoi
 | `logRules.catalogStatus` | none | `{ received, lastReportedAt, sourceSystem, validatorVersion, sources[{ sourceSystem, validatorVersion, reportedAt }], ruleSetCount, ruleCount, requirementIdsDeclared }`. `received: false` = no accepted report: «카탈로그 미수신» (all fields empty/null, `requirementIdsDeclared: null`; not an error, and a rejected report does not change it). `sourceSystem`/`validatorVersion`/`lastReportedAt` are those of the most recently reported current report. `requirementIdsDeclared: false` = received, but no Rule of any Revision of the current catalog (retired ones included) declares a requirement id: «요구사항 ID 미선언» (`ruleCount` still counts current Revisions only) |
 
 Filters follow the table filter model (one condition per field, AND across fields; `isEmpty`/`isNotEmpty` take no value). Sort and filter keys are allow-lists; no param value reaches SQL as an identifier. The `rules` page is three indexed queries per page (current-Revision lookup, the page, the total; workspace-first indexes; no migration): measured on a 5,000-Rule catalog with two targets per Rule, the first page took 12 ms, a deep sorted page 42 ms, a `requirementIds` filter 19 ms, a target substring search 24 ms and a text search 11 ms (local throwaway database, integration test «a large catalog»).
+
+## Coverage (R-d, #1494)
+
+Computed on read from the effective requirement keys of `log-knowledge` (`knowledgeLookup.listEffectiveRequirements`, R-c; keys `moduleKey` / `moduleKey/eventKey` as stored) and the Rules of the **current active** catalog (R-b «current»: accepted, not superseded reports; the active head Revision of each RuleSet; retired Revisions and older Revisions never count). Nothing is stored; no migration; no outbound call.
+
+**Matching.** A requirement id a target declares equals a key only when the strings are identical (no case folding, trimming, prefix or module-vs-event match, no ID mapping). Ids with no matching key are not counted. A Rule naming an id on several targets counts once for it.
+
+**State per requirement** (support of every declaring Rule):
+
+| State | When (first match wins) |
+| --- | --- |
+| `no_rule` | no declaring Rule |
+| `covered` | any declaring Rule is `supported` |
+| `partial` | else any declaring Rule is `partial` |
+| `unsupported` | else all declaring Rules are `unsupported` |
+| `unknown` | else (all `unknown`, or `unsupported` mixed with `unknown`: «Validator did not say» is never turned into `unsupported`) |
+
+The mixed-support precedence is the platform's documented choice; the design table is silent on mixes. **Open point:** design §3.3 also lists «`scope` covers the model/SW only partly» as `partial`. The v0 `scope` is a free label whose keys are not fixed (design §3.2, D2), so it is **not interpreted**: `partial` comes from `support` alone. Reopen when the Validator survey fixes the `scope` keys and the owner asks for it.
+
+**Not computable** (`computable: false`, a distinct `reason`; never 0%, never all-`no_rule`), judged in this order: `model_unknown` (model or software version not in the workspace) → `ambiguous_key` (an effective module or event key is empty or contains `/`; `ambiguousKeys` lists them) → `no_spec` (no published model spec) → `no_catalog` (no accepted, not superseded report) → `no_requirement_ids` (no Rule of the current active Revisions declares a requirement id). `no_requirement_ids` looks at current active Revisions only; `catalogStatus.requirementIdsDeclared` looks at every Revision, so the two may differ.
+
+**`coverageDigest`** = SHA-256 of `log_rules.coverage.v0\n` + canonical JSON (sorted keys) of `{ specPin, requirements[{ key, state, rules[[ruleSetKey, revision, ruleKey]]}], ruleSetRevisions[[ruleSetKey, revision, resultRef, revisionDigest]] }`, with requirements, rules and Revisions sorted. Same inputs → same digest regardless of input order; any change of a key, a state, a declaring Rule, the spec pin (revision id or change-set digest) or a current Revision (including a new report that changes a Revision digest) changes it. `ruleSetRevisions` is every current active Revision, not only the ones that matched. A coverage figure is configuration information, never a pass: Gate decides from rule results.
+
+| Endpoint | Params | Result |
+| --- | --- | --- |
+| `logRules.coverage` | `modelId` (UUID), `softwareId?` (UUID of a version of that model), `page` (0-based), `pageSize` (1–200, default 50) | `null` for an unknown model/software or one of another workspace (`ok`, `data: null`). `{ computable:false, reason, specPin, ambiguousKeys? }` or `{ computable:true, specPin, coverageDigest, counts{ no_rule, unsupported, unknown, partial, covered, total }, ruleSetRevisions[{ ruleSetKey, revision, resultRef, revisionDigest }], rows[{ key, state, declaredCount, declaredBy[{ ruleSetKey, revision, ruleKey, support }] }], total, page, pageSize }`. `counts` and `coverageDigest` cover all requirements, `rows` is one page. Fixed order: `no_rule`, `unsupported`, `unknown`, `partial`, `covered`, ties by key (code-unit order); `declaredBy` lists at most 50 Rules (sorted), `declaredCount` is complete |
+| `logRules.coverageSummary` | `modelIds` (1–50 UUIDs; duplicates folded, order kept) | `{ rows[{ modelId, computable:true, counts, coverageDigest } \| { modelId, computable:false, reason }] }`; an unknown id is a `model_unknown` row. Model-level only (no software). The catalog is read once; each model is one effective-spec read in its own transaction |
+
+Both are `platform:view`, `requiresScope: false`, workspace = the session Actor's. **Visibility:** `log-knowledge` has no model-level ACL (reads use the menu permission only), so coverage of every model of the workspace is visible to every `platform:view` holder, as the `log-knowledge` reads are. If a restricted-model concept is added, the port variant that applies it must be used here in the same change.
+
+**Transactions.** `coverage` reads the catalog and the spec in one transaction; the only lock is the model advisory lock inside the port, taken after the lock-free catalog reads, so concurrent coverage reads cannot deadlock. `coverageSummary` deliberately uses the pool handle per model so no model lock is held while waiting for the next. Nothing writes.
+
+**Cost** (local throwaway database, integration test «cost»): a model of 600 requirement keys against a 5,000-Rule current catalog (10 RuleSets, two ids per Rule) computed in about 70 ms (catalog read, spec read, computation). `coverageSummary` costs one such computation per model after a single catalog read, bounded by 50 models.
+
+**`RuleCoveragePort`** (`coverage-port.ts`, barrel `createRuleCoveragePort({ knowledgeLookup })`): `getCoverage(tx, workspaceId, modelId, softwareId?)` → `{ computable:false, reason, specPin, ambiguousKeys? }` or `{ computable:true, requirements[{ key, state }], coverageDigest, specPin, ruleSetRevisions[] }`; `resolveRuleSetRevision(tx, workspaceId, ruleSetKey, revision)` → `{ ruleSetKey, revision, resultRef, status, isCurrent, revisionDigest }` for a Revision of the current catalog whose `revision` or `resultRef` equals the string exactly, or `null` (unknown key, no match, or more than one match: never guessed). The caller verified the workspace and decides the permission; no consumer is wired in R-d (R-f).
+
+Not implemented: a workspace-wide model page for `coverageSummary` (it would need a model-list method on the `knowledgeLookup` port; reopen with the model-list screen integration, R-f), custom sort/filter of `coverage` rows.
 
 ## Audit
 
