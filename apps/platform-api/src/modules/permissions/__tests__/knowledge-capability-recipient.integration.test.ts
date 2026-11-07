@@ -31,7 +31,7 @@ const CAPABILITIES = [
   "dataset.manage",
 ] as const;
 // The sensitive tier is 5/min per actor: split the grant calls over several admins.
-const ADMINS = ["admin", "admin2", "admin3", "admin4"] as const;
+const ADMINS = ["admin", "admin2", "admin3", "admin4", "admin5"] as const;
 const adminFor = (capability: (typeof CAPABILITIES)[number]) =>
   ADMINS[Math.floor(CAPABILITIES.indexOf(capability) / 2)] ?? "admin4";
 
@@ -51,8 +51,8 @@ describe.skipIf(!runIntegration)(
       migrate = createDb(MIGRATE_URL);
       app = await buildServer({ config: loadConfig(), dbHandle });
       await app.ready();
-      // `admin2`..`admin4` share (two capabilities each: one refused and one granted call) the grants: the sensitive rate-limit tier is per actor and one admin cannot make them all.
-      for (const role of ["admin", "admin2", "admin3", "admin4", "developer", "user"] as const) {
+      // `admin2`..`admin5` share (two capabilities each: one refused and one granted call) the grants: the sensitive rate-limit tier is per actor and one admin cannot make them all.
+      for (const role of ["admin", "admin2", "admin3", "admin4", "admin5", "developer", "user"] as const) {
         const externalId = `${TAG}-${role}`;
         const { id } = await insertActorRow(dbHandle, {
           workspaceId: WORKSPACE_ID,
@@ -147,7 +147,7 @@ describe.skipIf(!runIntegration)(
     );
 
     // #1198 a (owner answer Q2): knowledge.draft.create is NOT for Admin and Developer only; a User may hold it.
-    // The grants route allows 5 calls/min per actor and each admin already made 4 above (8 capabilities x 2 calls over 4 admins),
+    // The grants route allows 5 calls/min per actor and each admin already made 4 above (9 capabilities x 2 calls over 5 admins),
     // so the two calls below go to different admins (5 each).
     it.each(["user", "developer"] as const)(
       "a direct grant of knowledge.draft.create to a %s succeeds",
