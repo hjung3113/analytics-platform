@@ -42,6 +42,7 @@ const NONE: Capability[] = [
   'survey.read_personal_responses',
   'survey.export',
   'explorer.source.read',
+  'validation.catalog.report',
 ];
 
 describe('applyAdminModuleBypass', () => {

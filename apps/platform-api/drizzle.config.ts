@@ -33,6 +33,7 @@ export default defineConfig({
     'knowledge',
     'improvement',
     'log_lifecycle',
+    'log_rules',
     'dashboard',
     'platform',
   ],

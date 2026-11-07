@@ -743,6 +743,13 @@
       "when": 1794068097422,
       "tag": "0105_attachment_parent_kind",
       "breakpoints": true
+    },
+    {
+      "idx": 106,
+      "version": "7",
+      "when": 1794072066520,
+      "tag": "0106_log_rules",
+      "breakpoints": true
     }
   ]
 }

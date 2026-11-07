@@ -295,6 +295,11 @@ log_lifecycle (log lifecycle, #1444 c, design docs/design/features/log-lifecycle
 - development_project (`model_id`/`software_id` plain uuids, `kind`, `stage`, `owner_actor_id`, `target_date date`, `row_version`; partial unique index one open project per model)
 - development_event (append-only history; `seq` per project 1..n, `kind`, `before`/`after` objects, `reason`)
 - validation_round (`seq` per project, `stage`, `status`, `sample_set`, `sample_manifest_digest`, `spec_pin`, `note`, `row_version`; partial unique index one open round per project)
+log_rules (validation catalog report, #1491 R-a, migration 0106, design docs/design/features/log-rules/README.md §3)
+- catalog_report (`source_system`, `reported_by_actor_id`, `validator_version`, `report_digest` unique per workspace, `outcome` accepted|rejected, `reject_reason`, `superseded_at` + `superseded_by_report_id`; partial unique index: one current accepted report per source)
+- rule_set_revision (`rule_set_key`, `revision`, `result_ref` = reported value or `revision`, `revision_digest`, `status`, `supersedes`; unique per report on `(rule_set_key, revision)` and on `(rule_set_key, result_ref)`)
+- rule (`rule_key`, `title`, `summary`, `support`, `scope` jsonb, `required_default`, `rule_digest`; unique per revision on `rule_key`)
+- rule_target (`position`, `format`, `target` verbatim, `requirement_ids text[]`)
 ```
 
 `core.attachments` does not exist as a shared attachment table as of Slice 6;
@@ -973,3 +978,7 @@ Replaces CHECK `improvement_item_effect_compare_link_check` on `improvement.item
 ## Knowledge draft validator reference (#1198 c)
 
 Migration 0104 adds `knowledge.draft.validator_source_system`, `validator_run_id`, `validator_finding_id` (nullable `text`), `CHECK draft_validator_ref_check (num_nonnulls(…) IN (0, 3))` (all null or all set) and the partial unique index `draft_validator_ref_uq (workspace_id, validator_source_system, validator_run_id, validator_finding_id) WHERE validator_source_system IS NOT NULL`. No grant change (0102 grants table-wide INSERT on `draft`; the column-limited UPDATE does not list the new columns). `knowledge.draft_guard()` is replaced (`CREATE OR REPLACE`, the 0102 body) so the three columns join the identity columns that cannot change on UPDATE. Contract: [api/log-knowledge.md](api/log-knowledge.md#agent-and-validator-submission-over-api-tokens-1198-c).
+
+## Log rules (#1491 R-a)
+
+Migration 0106 adds the `log_rules` schema (`platform_app` and `platform_migrate` get USAGE) with `catalog_report`, `rule_set_revision`, `rule` and `rule_target`. Composite same-workspace FKs (`ON DELETE RESTRICT`), workspace-first indexes, actor column FK `core.actors`; `catalog_report_superseded_by_fk` is `DEFERRABLE INITIALLY DEFERRED` (hand-edited in the SQL: drizzle cannot express it) because the accept transaction marks the previous report before the new row exists. `platform_app` gets SELECT and INSERT on all four tables and a column-limited UPDATE on `catalog_report (superseded_at, superseded_by_report_id)`; no DELETE and no other UPDATE. Triggers, valid for the migrate role too: `rule_set_revision`, `rule` and `rule_target` refuse UPDATE and DELETE; `catalog_report` refuses DELETE and allows exactly one UPDATE, from current-accepted to superseded (`log_rules.report_guard`). The migration also re-creates `core.platform_audit_events` (0102 body) with the subject type `catalog_report` and the capability `validation.catalog.report` in the allowlists. Details: [api/log-rules.md](api/log-rules.md).

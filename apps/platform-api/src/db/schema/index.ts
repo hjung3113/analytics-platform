@@ -23,3 +23,4 @@ export * from './knowledge.js';
 export * from './improvement.js';
 export * from './log-lifecycle.js';
 export * from './space-links.js';
+export * from './log-rules.js';

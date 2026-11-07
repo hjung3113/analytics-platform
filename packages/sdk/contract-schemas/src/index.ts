@@ -5,6 +5,7 @@ import * as ports from './service-ports.ts';
 import * as views from './saved-view-commands.ts';
 import * as tokens from './api-token.ts';
 import * as source from './source-read.ts';
+import * as catalog from './validation-catalog-report.ts';
 import { z } from 'zod/v4';
 
 export { apiResponseSchema, assessmentKindSchema, assessmentSchema, outcomeSchema, trustSchema } from './response.ts';
@@ -116,6 +117,16 @@ export type {
   SourceTopViewRequest,
   SourceTopViewResponse,
 } from './source-read.ts';
+export {
+  VALIDATION_CATALOG_REPORT_ERROR_CODES,
+  VALIDATION_CATALOG_REPORT_FIELD_CODES,
+  VALIDATION_CATALOG_REPORT_LIMITS,
+  VALIDATION_CATALOG_REPORT_PATH,
+  VALIDATION_CATALOG_REPORT_VERSION,
+  catalogIdentifierSchema,
+  validationCatalogReportResponseSchema,
+  validationCatalogReportSchema,
+} from './validation-catalog-report.ts';
 export { schemaFileText, toJsonSchema } from './export.ts';
 
 /**
@@ -184,4 +195,7 @@ export const SCHEMA_FILES: Readonly<Record<string, z.ZodType>> = {
   sourcePeriodsResponse: source.sourcePeriodsResponseSchema,
   sourceTopViewRequest: source.sourceTopViewRequestSchema,
   sourceTopViewResponse: source.sourceTopViewResponseSchema,
+  validationCatalogReport: catalog.validationCatalogReportSchema,
+  catalogIdentifier: catalog.catalogIdentifierSchema,
+  validationCatalogReportResponse: catalog.validationCatalogReportResponseSchema,
 };

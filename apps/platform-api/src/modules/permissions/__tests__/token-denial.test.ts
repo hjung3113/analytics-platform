@@ -1,6 +1,6 @@
 // ADR-0116 token rule inside the capability check; DB-free (the denial precedes every query).
 
-import { CAPABILITIES, CAPABILITY_META, TOKEN_SCOPE_CAPABILITIES, isSessionOnlyCapability } from '@ap/feature-shared';
+import { CAPABILITIES, CAPABILITY_META, TOKEN_SCOPE_CAPABILITIES, isSessionOnlyCapability, isTokenOnlyCapability } from '@ap/feature-shared';
 import { describe, expect, it } from 'vitest';
 
 import { runAsToken } from '../../../lib/auth-context.js';
@@ -55,5 +55,30 @@ describe('tokenDenial', () => {
     for (const cap of ['finding.manage', 'knowledge.catalog.import', 'survey.manage'] as const) {
       expect(applyAdminModuleBypass('admin', cap, { allow: false, reason, requestable: null })).toMatchObject({ allow: false, reason });
     }
+  });
+});
+
+describe('token-only capability (#1491)', () => {
+  it('is marked exactly on validation.catalog.report, and stays a valid token scope', () => {
+    expect(CAPABILITIES.filter(isTokenOnlyCapability)).toEqual(['validation.catalog.report']);
+    expect(TOKEN_SCOPE_CAPABILITIES).toContain('validation.catalog.report');
+    expect(isSessionOnlyCapability('validation.catalog.report')).toBe(false);
+  });
+
+  it('refuses a session (and non-request code) before any grant or role is read; a token with the scope falls through', async () => {
+    expect(tokenDenial('validation.catalog.report')).toEqual({ allow: false, reason: 'token_required', requestable: null });
+    const svc = createCheckService({ db: noDb });
+    expect(await svc.checkCapability(actor, 'validation.catalog.report', scope)).toMatchObject({ allow: false, reason: 'token_required' });
+    expect(await resolveCapabilityScope(noDb, actor, 'validation.catalog.report')).toEqual({ kind: 'scoped', managed_system_ids: [] });
+    runAsToken('t', ['validation.catalog.report'], () => {
+      expect(tokenDenial('validation.catalog.report')).toBeNull();
+    });
+    await runAsToken('t', ['voc.read'], async () => {
+      expect(await svc.checkCapability(actor, 'validation.catalog.report', scope)).toMatchObject({ allow: false, reason: 'token_scope' });
+    });
+  });
+
+  it('the Admin role never lifts token_required', () => {
+    expect(applyAdminModuleBypass('admin', 'validation.catalog.report', { allow: false, reason: 'token_required', requestable: null })).toMatchObject({ allow: false, reason: 'token_required' });
   });
 });

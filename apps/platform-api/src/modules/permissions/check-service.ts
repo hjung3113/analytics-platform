@@ -28,7 +28,12 @@
 
 import { and, eq, isNull } from 'drizzle-orm';
 
-import { type Capability, adminModuleBypassFor, isSessionOnlyCapability } from '@ap/feature-shared';
+import {
+  type Capability,
+  adminModuleBypassFor,
+  isSessionOnlyCapability,
+  isTokenOnlyCapability,
+} from '@ap/feature-shared';
 import type { Db } from '../../db/client.js';
 import { permissionDenies, permissionGrants } from '../../db/schema/permission.js';
 import type { Tx } from '../../db/tx.js';
@@ -51,7 +56,9 @@ export type DenyReason =
   | 'sensitive_reason_missing'
   // ADR-0116: token calls. Never requestable, never lifted by the Admin bypass.
   | 'session_required'
-  | 'token_scope';
+  | 'token_scope'
+  // #1491: a human session reached a token-only capability.
+  | 'token_required';
 
 /**
  * ADR-0116 token rule, applied before any grant or role is read: a token call to a session-only capability is
@@ -61,7 +68,11 @@ export type DenyReason =
  */
 export function tokenDenial(capability: Capability): Decision | null {
   const auth = currentAuthContext();
-  if (auth.kind !== 'token') return null;
+  if (auth.kind !== 'token') {
+    return isTokenOnlyCapability(capability)
+      ? { allow: false, reason: 'token_required', requestable: null }
+      : null;
+  }
   if (isSessionOnlyCapability(capability)) {
     noteSessionOnlyDenial(capability);
     return { allow: false, reason: 'session_required', requestable: null };
@@ -395,7 +406,12 @@ export function applyAdminModuleBypass(
   if (decision.allow || roleLevel !== 'admin') return decision;
   if (decision.reason === 'workspace_mismatch') return decision;
   // A token's scope / session-only refusal is not a missing grant: the Admin role never lifts it.
-  if (decision.reason === 'session_required' || decision.reason === 'token_scope') return decision;
+  if (
+    decision.reason === 'session_required' ||
+    decision.reason === 'token_scope' ||
+    decision.reason === 'token_required'
+  )
+    return decision;
   switch (adminModuleBypassFor(capability)) {
     case 'always':
       return { allow: true, via: 'role' };
