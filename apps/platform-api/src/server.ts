@@ -34,7 +34,7 @@ import type { DrainState } from './lib/shutdown.js';
 import { getStorage } from './lib/storage/factory.js';
 import type { StorageBackend } from './lib/storage/index.js';
 import { SESSION_COOKIE_NAME } from './middleware/require-session.js';
-import { catalogReportRoutes } from './modules/log-rules/index.js';
+import { catalogReportRoutes, logRulesContribution } from './modules/log-rules/index.js';
 import {
   apiTokenRoutes,
   authResultOf,
@@ -991,6 +991,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     improvementItemsContribution({ db: dbHandle.db, checkService, notify }),
     logLifecycleContribution({ db: dbHandle.db, checkService, knowledgeLookup, entityLinks: entityLinksService }),
     logExplorerContribution(logExplorerDeps),
+    logRulesContribution({ db: dbHandle.db, checkService }),
     ...(opts.menuDispatch ?? []),
   ]);
   // The catalog import upload (#1195 a) is a multipart route, which the menu-action port cannot carry: it is

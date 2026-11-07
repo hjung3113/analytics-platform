@@ -7,3 +7,6 @@ export interface LogRulesDeps {
   checkService: CheckService;
   auditService: AuditService;
 }
+
+/** What the catalog reads need: no audit (reads write nothing). */
+export type LogRulesReadDeps = Pick<LogRulesDeps, 'db' | 'checkService'>;
