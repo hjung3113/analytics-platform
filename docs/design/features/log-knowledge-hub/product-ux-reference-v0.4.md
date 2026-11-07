@@ -21,7 +21,7 @@
 **확정된 핵심 설계 규칙 (결정 1–17)**
 
 1. `Vendor → Process ↔ Model → SW`는 **탐색 뷰**다. 공정–모델은 M:N. Model/SW는 안정 ID를 가지며 카탈로그는 수동 입력·Excel/CSV Import·외부 시스템 연동을 병행한다. **관리자용 카탈로그 관리 화면(설비사·공정·모델·SW CRUD/비활성화/충돌 검토)은 Phase 0 필수**로 상세화했다(§15).
-2. **SW 버전별 모듈·이벤트 명세를 독립 원본**으로 저장한다. 모델 공통정보는 SW 명세들로부터 자동 **후보 추출 → 사람 확정**한 파생 데이터이며, 원본 명세를 덮어쓰거나 역전파하지 않는다. Build 관리는 초기 제외/후속 확장 후보.
+2. **모델 명세 Revision(모듈·이벤트·관계)을 원본**으로 저장하고, SW 버전 차이는 «X 버전부터 적용되는 변경점»만 추가 전용으로 남긴다. 변경점 없는 SW 버전은 모델 명세를 따르며 «후보 추출 → 승인 파생본» 흐름은 없다([ADR-0111](../../../adr/0111-log-knowledge-model-spec-is-the-source.md)). Build 관리는 초기 제외/후속 확장 후보.
 3. **기술 Item은 하나의 소유 범위(Model 또는 특정 SW)에만 귀속**한다. 다른 Model/SW의 유사 기술 문제는 새 Item으로 만들고 `similar/related/derived_from` 등 명시적 관계로 잇는다. 하나의 Item을 여러 Model/SW에 공유 소유시키지 않는다.
 4. 같은 SW의 여러 모듈·이벤트는 Item에 N:M **참조**할 수 있다. **소유 범위(owner scope)**와 **참조(subject/evidence link)**는 서로 다른 개념이다. Model 공통 Item은 특정 SW의 검증 사실로 자동 전파하지 않는다.
 5. Event/Module의 SW별 ID는 독립적이다. 의미상 `동일/유사/대체/명칭만 동일` 등 공통 개념 관계는 별도로 관리하고, AI 매핑은 **사람 확정 전 후보**다.
@@ -96,7 +96,7 @@ Log Knowledge Hub (독립 웹)
 │           ├─ 공통 개요(검토된 파생정보)/Model 공통 Item/Top View 참조
 │           └─ Software Release
 │              ├─ SW 개요       # 독립 SW 명세 기준 + 모델 공통 파생정보 비교
-│              ├─ 모듈·이벤트 명세  # 해당 SW의 독립 원본
+│              ├─ 모듈·이벤트 명세  # 모델 명세 Revision 기준 + 이 SW의 변경점
 │              ├─ 기술·검증 현황  # 수동 기술 판단과 Validator 출처를 분리
 │              └─ 기술 항목
 │                 ├─ 전체 항목
@@ -207,7 +207,7 @@ Log Knowledge Hub (독립 웹)
 
 - **Vendor / ProcessCategory / EquipmentModel**: 설비사·공정·모델. `EquipmentModel ↔ ProcessCategory`는 **M:N**; 분류 변경과 모델 안정 ID를 분리.
 - **SoftwareVersion (`software_release`는 기존 후보 명칭)**: 한 모델에 소속된 SW **버전**. 초기엔 Build 하위 체계를 구현하지 않으며 추후 확장 여지만 둔다. 표시 문자열과 시스템 안정 ID 구분.
-- **SWSpecRevision / SWModuleDefinition / SWEventDefinition**: **SW 버전별 독립 원본 명세**. 핵심 구조(모듈·Event ID·필드·발생 조건·관계)를 정형화하고 상세 규칙·예외는 Spec 문서/설명으로 보존. SW 변경이 다른 SW 명세를 갱신하지 않음.
+- **모델 명세 Revision(모듈·이벤트·관계)과 SW 변경점(`spec_sw_change`)**: 모델 명세가 원본이고 SW 변경점은 X 버전부터 적용되는 추가 전용 차이. 핵심 구조(모듈·Event ID·필드·발생 조건·관계)를 정형화하고 상세 규칙·예외는 Spec 문서/설명으로 보존. SW 변경이 다른 SW 명세를 갱신하지 않음.
 - **ModelCommonProfile / CommonExtractionCandidate**: 여러 SW 독립 명세로부터 계산한 **파생된 모델 공통 후보**와 사람이 확정한 리비전. 어떤 SW 스냅샷의 어떤 정의를 사용했는지 출처·검토 시각·판단자를 보존. 신규/수정 SW로 영향이 생기면 `needs_revalidation` 표시, 기존 승인 결과를 자동 변경하지 않음. SW가 1개뿐이면 `1개 SW 기반`이라고 표시하고 타 SW 보편성을 확정하지 않음.
 - **CommonConcept / ConceptMapping**: SW별 Module/Event 식별자는 독립. 동일/유사/대체/명칭만 동일 등의 관계·확신/검토 상태를 가진 매핑만 교차 검색에 사용. 표기 유사성은 동일 의미의 증거가 아님.
 - **KnowledgeItem**: **소유 대상 1개 = 특정 Model 또는 특정 SW 버전**. 별개의 Model/SW 현상은 독립 Item 생성. 다른 시스템이나 모델의 관련 사항은 `ItemLink`로 참조한다.
@@ -227,7 +227,7 @@ Log Knowledge Hub (독립 웹)
 Vendor 1 ─ N EquipmentModel
 EquipmentModel N ─ M ProcessCategory          # 탐색 분류, 복사 금지
 EquipmentModel 1 ─ N SoftwareVersion         # Build 하위 객체 없음(초기)
-SoftwareVersion 1 ─ N SWSpecRevision         # SW별 독립 원본
+SoftwareVersion 1 ─ N SpecSwChange           # X 버전부터 적용되는 변경점
 SWSpecRevision 1 ─ N SWModuleDefinition / SWEventDefinition
 SW 정의 N ─ M CommonConcept (검토된 개념 매핑)
 SWSpecRevision 여러 개 ─► CommonExtractionCandidate ─사람 승인─► ModelCommonProfileRevision
@@ -765,7 +765,7 @@ log-knowledge-hub/
 ### 13.2 설계에서 교정된 v0.2의 전제/충돌
 
 1. **v0.2:** Item 하나를 여러 Model/SW의 소유로 공유 → **v0.3:** Model 또는 SW 1개만 Owner. 같은 현상은 독립 Item과 관계 링크로 표현.
-2. **v0.2:** Model 공통 명세 + SW Override가 원본 → **v0.3:** SW별 Spec이 독립 원본. Model 공통정보는 자동 추출 후 사람 확정하는 파생 리비전.
+2. **v0.2:** Model 공통 명세 + SW Override가 원본 → **v0.3:** SW별 Spec이 독립 원본. Model 공통정보는 자동 추출 후 사람 확정하는 파생 리비전. → **v0.6:** 모델 명세 Revision이 원본, SW는 변경점만([ADR-0111](../../../adr/0111-log-knowledge-model-spec-is-the-source.md)).
 3. **v0.2:** `software_release`의 Build 정체성까지 필수 고려 → **v0.3:** 초기 `SW 버전`만 필수, Build 후속 설계.
 4. **v0.2:** 로그 현황/검증 수치를 Parser 책임처럼 혼재할 여지 → **v0.3:** Parser=변환, Validator=규칙 검증, Hub=휴리스틱 지식. Validator Finding을 Review Candidate로 연결.
 5. **v0.2:** AI 검토에 무게를 둔 초안 UI → **v0.3:** 일반 작성자·AI·Validator를 통합 검토하되, 발행권자의 직접 발행는 허용.

@@ -17,7 +17,7 @@
 2. **UI:** `apps/platform-web`이 조립하는 `menus/log-dev/log-knowledge` 메뉴 패키지. 기존 `@ap/ui`, `@ap/components`, `@ap/kernel`·`@ap/shell`, `menuQuery`·`menuAction`을 소비. 제품 고유 페이지와 업무 컴포넌트만 추가한다.
 3. **API/서버:** 단일 브라우저 입구 `apps/platform-api`(Fastify), 내부 도메인 모듈 `modules/log-knowledge`. 분석 전용 FastAPI는 지식 콘텐츠 CRUD·검색의 소유자가 아니다. 대량 Parser/Validator/자산 분석 데이터는 외부 소유자 포트/API/승인된 읽기 투영으로 소비한다.
 4. **DB:** 기존 PostgreSQL `platform` 인스턴스에 **`knowledge` 스키마(후보)**. Fastify 도메인이 Drizzle 마이그레이션 및 데이터 정합성 소유. 감사는 기존 Core `core.audit_log`, 첨부 바이너리는 플랫폼 Attachments, 공통 Idempotency/Permission/Notification 서비스 사용. 기존 원본 로그/설비 마스터/Validator 결과를 중복 소유하지 않는다.
-5. **분리 경계:** 정식 기술 Item/Revision, SW별 Spec, 승인된 모델 공통 파생정보는 Knowledge Hub 소유. 원본 로그·Parser Raw·Validator Run·Top View Layout은 **각 원천 시스템 소유**, 허브는 버전 고정 참조/증거를 저장.
+5. **분리 경계:** 정식 기술 Item/Revision, 모델 명세 Revision(원본)과 SW 버전부터 적용되는 변경점은 Knowledge Hub 소유. 원본 로그·Parser Raw·Validator Run·Top View Layout은 **각 원천 시스템 소유**, 허브는 버전 고정 참조/증거를 저장.
 6. **AI:** 사내 Agent/Skill은 **초안 제출 전용**. 승인·직접 발행·기술적 검증 자동 확정 불가. 일반 Contributor는 검토 경유, 인간 Publisher는 권한에 따라 직접 발행 가능.
 7. **기능 우선순위:** 초기 카탈로그 등록/관리 및 Import **필수**, 이후 독립 SW Spec·Item·검토/검색. Top View Viewer 통합은 최종 요구, Studio 편집은 별도.
 
@@ -26,7 +26,7 @@
 | 번호 | 보존할 불변조건 | 핵심 구현 영향 |
 |---|---|---|
 | 1 | **Item은 단일 Model 또는 단일 SW의 소유** | 다른 모델/SW의 유사 사건은 독립 Item+링크; 공동 소유 M:N 금지 |
-| 2 | **각 SW 버전의 명세가 독립 원본** | Model 공통 명세는 원본이 아닌 승인된 파생정보; Model common+SW override 기각 |
+| 2 | **모델 명세 Revision이 원본, SW 버전 차이는 «X 버전부터» 변경점만** | 변경점 없는 SW는 모델 명세를 따름; 모델 공통 «승인 파생본» 흐름 없음([ADR-0111](../../../adr/0111-log-knowledge-model-spec-is-the-source.md)) |
 | 3 | 사람 Contributor=Draft, 사람 Publisher=직접 발행 가능, AI=항상 사람 승인 | 별도 Actor/Workflow/권한 게이트 |
 | 4 | Parser·Validator·Knowledge Hub 책임 분리 | 자동 Finding은 정식 Item이 아닌 후보 |
 | 5 | Evidence 외부 참조+선택적 첨부 | 원본 포인터와 플랫폼 Attachment 결합 |
@@ -112,7 +112,7 @@ Space: log-dev  (기존)
 | 밝은/중립 톤·차분한 강조·밀도 있는 테이블 | `@ap/ui` 실제 semantic token, 32px 이상 테이블 계약 및 화면별 40px 후보, 불필요한 카드 제거 |
 | 카탈로그 관리 4탭+등록/수정 패널 | 플랫폼 Page Header·Detail/Drawer 슬롯 안에서 구현; 기존 Shell/Sidebar **중첩 금지** |
 | Import 5단계 | 파일→열 매핑→검증→충돌 해결→적용 결과, 명시적 적용 전 원본 무변경 |
-| 모델 상세 | Model 공통정보 **승인된 파생본**/재검토 후보 분리; SW 목록·Model 단일 Owner Item |
+| 모델 상세 | 모델 명세(원본)와 SW 변경점 분리, 열린 변경점의 `재검토 필요` 표시; SW 목록·Model 단일 Owner Item |
 | SW 상세 | 독립 Spec Revision·Module/Event·Top View Viewer·SW 전용 Item; Build 필드 없음 |
 | Item 상세/검색 | 관찰/기대/해석/개선/Evidence/판단 이력 분리; 교차 SW 유사 Item 별개 결과 |
 | 검토 | 사람/AI/Validator 출처 구분, Evidence–제안 Diff 비교, digest/expectedVersion 확인 |
