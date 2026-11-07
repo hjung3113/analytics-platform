@@ -32,6 +32,7 @@ export const CAPABILITIES = [
   'lifecycle.project.manage',
   'lifecycle.round.manage',
   'knowledge.draft.create',
+  'explorer.source.read',
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -125,6 +126,8 @@ export const CAPABILITY_META: Readonly<Record<Capability, CapabilityMeta>> = {
   'lifecycle.round.manage': { sensitive: false, adminModuleBypass: 'always' },
   // Log knowledge drafts (#1198 a): workspace-scoped, not sensitive; a human submits a draft of a new or revised item. Admin always; Developer and User by grant (owner answer #1198 Q2).
   'knowledge.draft.create': { sensitive: false, adminModuleBypass: 'always' },
+  // Log explorer source read (#1469, design log-explorer §4): reads original log text through the Source adapter. Workspace-wide grant; the Source owner (`sourceOwner`) is judged per request on top (`SourceOwnerAccess`). No Admin role bypass: the text belongs to its Source owner. Session-only until node X-f (#1472) provides the token controls (daily token/Actor body budget): X-f removes `sessionOnly` when it adds them. Sensitive: a request states a reason, and the permission rows stay out of the platform audit projection allow-list (adding it there is a migration, not part of this node).
+  'explorer.source.read': { sensitive: true, adminModuleBypass: 'none', sessionOnly: true },
 };
 
 export function isCapability(value: string): value is Capability {

@@ -51,12 +51,20 @@ export const menuQueryDispatchRoutes: FastifyPluginAsync<MenuDispatchRoutesOptio
   // tokenCallable (ADR-0116): every judgment of a menu-query goes through `declaration.authorize` →
   // `holdsPlatformPermission` → `checkCapability`, which applies the token scopes.
   app.post('/', { config: { tokenCallable: true } }, async (req, reply) => {
+    // The client going away cancels the read: handlers that call a slow Source take this signal into the port. Tracked before the
+    // authentication await, so a disconnect while the session loads is not missed.
+    const abandoned = new AbortController();
+    const abandon = () => {
+      if (!reply.raw.writableFinished) abandoned.abort();
+    };
+    reply.raw.once('close', abandon);
+    if (reply.raw.destroyed) abandon();
     const loaded = await authenticate(req, reply, true);
     if (!loaded) return reply;
     if (refuseLostTokenContext(req, reply)) return reply; // fail closed again right before dispatch authorizes
     const shape = judgeQueryShape(req.body === MALFORMED_BODY ? null : req.body, opts.registry);
     if (!shape.ok) return answerOf(req, { outcome: 'error', message: shape.message });
-    return answerOf(req, await runQuery(shape, platformActorOf(loaded), req.id));
+    return answerOf(req, await runQuery(shape, platformActorOf(loaded), req.id, abandoned.signal));
   });
 };
 

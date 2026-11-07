@@ -59,6 +59,7 @@ const NO_MANAGED_SYSTEM: ReadonlySet<string> = new Set<Capability>([
   'lifecycle.project.manage',
   'lifecycle.round.manage',
   'knowledge.draft.create',
+  'explorer.source.read',
 ]);
 const OPTIONAL_MANAGED_SYSTEM: ReadonlySet<string> = new Set<Capability>(['survey.export']);
 const WORKSPACE_WIDE = '__workspace__';

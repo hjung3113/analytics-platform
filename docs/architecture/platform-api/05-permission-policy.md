@@ -80,7 +80,7 @@ alone.
    (packages/feature-shared/src/enums/capabilities.ts):
    - always: finding.read, finding.manage, task_request.self_approve, knowledge.catalog.manage, knowledge.catalog.import, knowledge.item.publish, knowledge.spec.publish, improvement.manage, lifecycle.project.manage, lifecycle.round.manage, knowledge.draft.create
    - unless_denied: survey.read, survey.manage, voc.create (an explicit deny still wins, FO ADR-0033 section C; ADR-0113 for voc.create)
-   - none: every other capability, including survey.read_personal_responses and survey.export
+   - none: every other capability, including survey.read_personal_responses and survey.export, and explorer.source.read (no Admin bypass)
 ```
 
 Layer 2 is enforced by `findings/authorization.ts`, `surveys/authorization.ts`,
@@ -164,6 +164,7 @@ task_request.self_approve
 survey.manage
 survey.read_personal_responses
 survey.export
+explorer.source.read
 ```
 
 Every other capability is non-sensitive and needs no reason beyond the route's `min(1)`.
@@ -181,6 +182,8 @@ Every other capability is non-sensitive and needs no reason beyond the route's `
 `lifecycle.project.manage` and `lifecycle.round.manage` (#1444 c, [api/log-lifecycle.md](api/log-lifecycle.md)) have the same shape for the log lifecycle writes: workspace-scoped, non-sensitive, `adminModuleBypass: 'always'`, requestable with no Managed System, refused for a User recipient. Menu permissions `lifecycle:project-manage` (rule `lifecycle-project-manage`; the four project actions) and `lifecycle:round-manage` (rule `lifecycle-round-manage`; `roundOpen`, `roundClose`). Reads need only `platform:view`.
 
 `knowledge.draft.create` (#1198 a, [api/log-knowledge.md](api/log-knowledge.md#knowledge-drafts-1198-a-migration-0101)) is workspace-scoped, non-sensitive, `adminModuleBypass: 'always'`, requestable with no Managed System, and — unlike the log knowledge capabilities above — **not refused for a User recipient** (owner answer on #1198: Contributors include field users). It lets a human author, update, submit and withdraw their own draft; it never publishes. Menu permission `knowledge:draft-create` (rule `draft-create`; the four draft actions). Reviewing (approve / reject / request changes) and publishing stay on `knowledge.item.publish` (#1198 b, [api/log-knowledge.md](api/log-knowledge.md#review-decisions-1198-b)); the token core marks that capability session-only, so no token or service actor can decide (token subjects cannot review or publish; AI and Validator drafts arrive through `knowledge.draft.create` tokens only, [api/log-knowledge.md](api/log-knowledge.md#agent-and-validator-submission-over-api-tokens-1198-c)). Self-approval: a human may approve a draft they authored through their session (the review row and audit mark `selfApproval`); a reviewer who wrote a revision through a token may not (`self_approval_via_token`).
+
+`explorer.source.read` (#1469, [api/log-explorer.md](api/log-explorer.md)) lets a holder read original log text through the Source adapter. It is workspace-scoped (no Managed System), **sensitive** (a request states a reason; its permission rows are therefore not in the platform audit projection allow-list, which would need a migration), `adminModuleBypass: 'none'` (an Admin needs a grant like anyone else) and **session-only** until node X-f (#1472) provides the token controls (a daily token/Actor body budget): a token cannot be issued with it and a token call is refused `session_required`; X-f removes `sessionOnly` when it adds them. It is judged on every read, never cached across requests, and once more before the text leaves. The design scopes it to a `sourceOwner` (design log-explorer §4), but no permission table carries a Source owner yet: the owner half is the injected `SourceOwnerAccess` rule (`denyAllSourceOwners` in production, so nothing is readable until the owner-scoped grant model is decided). The platform entry right stays `platform:view`. `explorer.investigate|export|handoff` are later nodes and are not registered.
 
 Requester expiration is optional, with no automatic default (FO ADR-0044, confirmed
 by FO ADR-0066). Any supplied/resolved non-null expiry must be future in create,

@@ -17,6 +17,7 @@ describe('isOrdinarilyRequestable', () => {
     ['lifecycle.project.manage', true],
     ['lifecycle.round.manage', true],
     ['knowledge.draft.create', true],
+    ['explorer.source.read', true],
     ['voc.read_public', true],
     ['voc.create', true],
   ] as const)('%s → %s', (capability: Capability, expected) => {

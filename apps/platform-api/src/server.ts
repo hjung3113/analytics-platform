@@ -78,6 +78,12 @@ import {
 } from './modules/log-knowledge/index.js';
 import { logLifecycleContribution, roundAttachmentParent } from './modules/log-lifecycle/index.js';
 import {
+  type SourceOwnerAccess,
+  type SourceReadPort,
+  denyAllSourceOwners,
+  logExplorerContribution,
+} from './modules/log-explorer/index.js';
+import {
   createManagedSystemService,
   managedSystemsRoutes,
 } from './modules/managed-systems/index.js';
@@ -207,6 +213,12 @@ export interface BuildServerOptions {
    * registration validation stops the boot. Tests pass their own pair here.
    */
   menuDispatch?: readonly MenuDispatchContribution[];
+  /**
+   * Log explorer Source seams (#1469). Production passes neither: no Source adapter is connected yet, so every read answers
+   * `source_absent` (`source_not_connected`) and no Source owner is granted. The dev/test assembly injects the synthetic adapter
+   * (`test-support/log-explorer-dev-assembly.ts`); the production graph check keeps it out of the production entry.
+   */
+  logExplorer?: { sourceReadPort?: SourceReadPort; sourceOwnerAccess?: SourceOwnerAccess; cursorKey?: Buffer; clock?: () => Date };
   /** Test seam of the catalog import apply (#1195 b): a shorter time budget and failure/barrier hooks. */
   logKnowledgeImport?: { applyBudgetMs?: number; hooks?: ImportApplyHooks & { afterApply?(): Promise<void> } };
 }
@@ -928,6 +940,15 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     }),
     improvementItemsContribution({ db: dbHandle.db, checkService, notify }),
     logLifecycleContribution({ db: dbHandle.db, checkService, knowledgeLookup }),
+    logExplorerContribution({
+      db: dbHandle.db,
+      checkService,
+      audit: auditService,
+      clock: opts.logExplorer?.clock ?? (() => new Date()),
+      sourceReadPort: opts.logExplorer?.sourceReadPort ?? null,
+      sourceOwnerAccess: opts.logExplorer?.sourceOwnerAccess ?? denyAllSourceOwners,
+      ...(opts.logExplorer?.cursorKey ? { cursorKey: opts.logExplorer.cursorKey } : {}),
+    }),
     ...(opts.menuDispatch ?? []),
   ]);
   // The catalog import upload (#1195 a) is a multipart route, which the menu-action port cannot carry: it is
