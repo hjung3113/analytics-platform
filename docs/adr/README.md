@@ -128,7 +128,7 @@
 | [0116](0116-platform-api-tokens-personal-and-service.md) | 개인·서비스 API 토큰으로 기존 업무 API 호출, 고위험 동작은 세션 전용 | Decided(2026-11-07) |
 | [0117](0117-validation-request-queue-claim-lease-heartbeat.md) | 검증 요청 큐: pull 모델 claim·lease·heartbeat·멱등 결과, 서버가 실행 시간대 판단 | Decided(2026-11-07) |
 | [0118](0118-dynamic-hierarchy-navigation-sdk-piece.md) | 동적 계층 탐색을 SDK 범용 조각으로 제공, 메뉴가 단계 선언 | Decided(2026-11-07) |
-| [0120](0120-regression-runs-reuse-validation-queue-dataset-identity-separate-from-round.md) | 테스트 Dataset·Baseline은 Round와 별도 ID, 회귀 실행은 검증 요청 큐를 요청 주체 확장으로 재사용(ADR-0117 개정 포함), Baseline 자동 갱신 금지 | Proposed(2026-11-07) |
+| [0120](0120-regression-runs-reuse-validation-queue-dataset-identity-separate-from-round.md) | 테스트 Dataset·Baseline은 Round와 별도 ID, 회귀 실행은 검증 요청 큐를 요청 주체 확장으로 재사용(ADR-0117 개정 포함), Baseline 자동 갱신 금지 | Decided(2026-11-07) |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 

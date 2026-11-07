@@ -1,6 +1,6 @@
-# Log Test Datasets & Golden Baseline — 검증 테스트 데이터셋·기대 결과 설계 (v0.31.0, Candidate, 구현 전)
+# Log Test Datasets & Golden Baseline — 검증 테스트 데이터셋·기대 결과 설계 (v0.31.0, 소유자 답 반영, 구현 전)
 
-> **Status: Candidate.** 설계만 있고 구현·DB·API·화면은 없다. 근거는 [#1345](https://github.com/hjung3113/analytics-platform/issues/1345)이고, [#1330](https://github.com/hjung3113/analytics-platform/issues/1330) Epic과 v0.30.0 [`log-lifecycle`](../log-lifecycle/README.md)(Round·샘플 목록·`rule_result`·검증 요청 큐)을 **재사용**한다(중복 설계 금지). 같은 릴리스의 `log-explorer`([PR #1457](https://github.com/hjung3113/analytics-platform/pull/1457), 병합 전)의 `SourceReadPort`를 원본 존재·해시 확인에 쓴다. [ADR-0120](../../../adr/0120-regression-runs-reuse-validation-queue-dataset-identity-separate-from-round.md)은 Proposed이고, 실제 코드와 Decided ADR이 이 문서보다 우선한다.
+> **Status: Candidate → 소유자 답 반영(2026-11-07), ADR-0120 Decided.** 설계만 있고 구현·DB·API·화면은 없다. 근거는 [#1345](https://github.com/hjung3113/analytics-platform/issues/1345)이고, [#1330](https://github.com/hjung3113/analytics-platform/issues/1330) Epic과 v0.30.0 [`log-lifecycle`](../log-lifecycle/README.md)(Round·샘플 목록·`rule_result`·검증 요청 큐)을 **재사용**한다(중복 설계 금지). 같은 릴리스의 `log-explorer`([PR #1457](https://github.com/hjung3113/analytics-platform/pull/1457), 병합 전)의 `SourceReadPort`를 원본 존재·해시 확인에 쓴다. [ADR-0120](../../../adr/0120-regression-runs-reuse-validation-queue-dataset-identity-separate-from-round.md)은 Decided이고, 실제 코드와 Decided ADR이 이 문서보다 우선한다. 결정마다 «소유자 2026-11-07»로 표시한다.
 >
 > 검증 스크립트·사내 LLM은 별도 개발 중이고 플랫폼에서 다시 쓰지 않는다. 실제 API가 확정되기 전에는 **합성 Dataset과 어댑터 stub만** 쓰고 운영 연동 완료로 표시하지 않는다.
 
@@ -103,7 +103,7 @@ stale은 판정·승인을 바꾸지 않고, 비교 화면에 경고로만 나�
 [log-lifecycle](../log-lifecycle/README.md) `execution_request.round_id`는 **필수**이고 Round는 `development_project`에 속한다. 회귀 실행은 개발 과제도 Round도 없다. 대안(상세는 ADR-0120):
 
 - **A. 합성 Round**: 데이터셋 실행마다 «회귀» 종류 Round를 만든다 → 개발 과제 모델과 어긋나고 Round 목록이 오염된다.
-- **B. 요청 주체(subject) 확장 (추천)**: `execution_request`에 `round_id` XOR `suite_run_item_id`(CHECK 제약). 작업자 REST는 그대로이고 `claim` 응답이 둘 중 하나의 샘플 목록을 준다. `execution_attempt`·`rule_result`는 변경 없음.
+- **B. 요청 주체(subject) 확장 (소유자 2026-11-07 결정)**: `execution_request`에 `round_id` XOR `suite_run_item_id`(CHECK 제약). 작업자 REST는 그대로이고 `claim` 응답이 둘 중 하나의 샘플 목록을 준다. `execution_attempt`·`rule_result`는 변경 없음.
 - **C. 별도 큐**: 같은 claim/lease 로직을 둘로 만든다. 중복 구현이라 기각.
 
 B는 v0.30.0에서 구현 중인 스키마(#1444·#1445)를 건드리므로 **ADR-0117 개정이 필요**하다. 구현 순서: v0.30.0 노드 d 병합 → 개정 → 이 노드.
@@ -185,7 +185,7 @@ log-dev > 기준 (logRules)
    └─ (navHidden)   log-dataset               /log/datasets/:datasetId[/runs/:suiteRunId]   [Management 상세]
 ```
 
-- 새 화면은 **2개**(목록, 상세[탭: 개요·Revision·Baseline·실행·비교]). log-explorer(1개)와 합쳐 이번 릴리스 신규 3개라 «3개 이상 연속 신규» 규칙에 해당하므로 **범위를 소유자가 확정**해야 한다(질문 2).
+- 새 화면은 **2개**(목록, 상세[탭: 개요·Revision·Baseline·실행·비교]). log-explorer(1개)와 합쳐 이번 릴리스 신규 3화면이고 **소유자가 범위를 승인했다**(2026-11-07, 독립 메뉴 진행).
 - 소규모 MVP로 #1330 Round 화면 안의 «데이터셋» 진입으로 시작하는 안이 있으나, **식별자와 데이터 모델은 처음부터 분리**하므로 화면 배치는 나중에 옮길 수 있다. 추천은 독립 메뉴(질문 2).
 - 시각이 바뀌므로 구현 전 `?variant=` 시안을 아티팩트로 컨펌한다. 이 PR에는 시안이 없다.
 
@@ -253,13 +253,13 @@ log-dev > 기준 (logRules)
 
 ## 11. Open Decisions
 
-| ID | 결정 | 추천 | 이유 |
-| --- | --- | --- | --- |
-| D1 | 회귀 실행이 큐를 쓰는 방식 | B: 요청 subject 확장 (ADR-0120) | 합성 Round 오염·큐 중복 없이 재사용 |
-| D2 | 독립 메뉴 vs #1330 안 진입 | 독립 메뉴 `log-datasets`(`logRules` 그룹) | 식별자는 이미 분리, 재사용 수요가 설계 전제 |
-| D3 | Baseline 승인 권한 | 별도 capability, 세션 전용, 자기 승인 표시 | Gate와 같은 위험 수준 |
-| D4 | `EXPECTED_UNSUPPORTED` 도입 | 도입 | 미지원을 PASS/미기재와 구분하는 유일한 기대 표현 |
-| D5 | stale `unknown` 처리 | 단정하지 않고 «확인 불가» | 엔진 인터페이스 실사 전 |
-| D6 | Suite 항목 revision 고정 시점 | 실행 시점에 `suite_run`에 고정 | 비교의 재현성 |
-| D7 | 사용자당 동시 Suite 실행 | 3 | 측정 전 시작값 |
-| D8 | triage 라벨 집합 | `false_positive`·`false_negative`·`accepted_change`·`needs_review` | 이슈 요구(오탐/미탐 검토) + 의도된 변경 구분 |
+| ID | 결정 | 상태 |
+| --- | --- | --- |
+| D1 | 회귀 실행이 큐를 쓰는 방식 | **결정됨**: 요청 주체를 Round 또는 suite 실행 항목으로 확장, ADR-0117 개정은 v0.30.0 큐 병합 뒤(소유자 2026-11-07) |
+| D2 | 독립 메뉴 vs #1330 안 진입 | **결정됨**: 독립 메뉴 `log-datasets`(`logRules` «기준» 그룹), 신규 3화면 승인(소유자 2026-11-07) |
+| D3 | Baseline 승인 권한 | **결정됨**: 별도 capability, 세션 전용, 사람 자기 승인 허용 + 표시, AI·토큰 불가, 자동 갱신 없음(소유자 2026-11-07) |
+| D4 | `EXPECTED_UNSUPPORTED` 도입 | **결정됨**: 도입(소유자 2026-11-07) |
+| D5 | stale 판정 시 현재 엔진 값을 모를 때 | **결정됨**: 「확인 불가」 표시, stale로 단정하지 않음(소유자 2026-11-07) |
+| D6 | Suite 항목 revision 고정 시점 | 추천: 실행 시점에 `suite_run`에 고정(비교의 재현성). 비소유자 결정 |
+| D7 | 사용자당 동시 Suite 실행 | 시작값 3, 측정 후 조정 |
+| D8 | triage 라벨 집합 | 시작값 `false_positive`·`false_negative`·`accepted_change`·`needs_review` |

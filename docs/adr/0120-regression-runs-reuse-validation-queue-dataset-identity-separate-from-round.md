@@ -1,6 +1,6 @@
 # 회귀 실행은 검증 요청 큐를 요청 주체 확장으로 재사용하고, Dataset 식별자는 Round와 분리한다
 
-상태: **Proposed (2026-11-07, 설계 PR 대기).** 결정자: 소유자(미결). 초안: 설계 레인, 근거 [#1345](https://github.com/hjung3113/analytics-platform/issues/1345), 설계 [`log-test-datasets`](../design/features/log-test-datasets/README.md). [ADR-0117](0117-validation-request-queue-claim-lease-heartbeat.md) 개정을 포함한다. 번호 0119는 같은 릴리스의 로그 탐색 설계 ADR이 예약했다(병합 순서에 따라 push 전 `docs/adr`를 다시 확인한다).
+상태: **Decided (2026-11-07, 소유자 답 반영 — ADR-0117 개정은 v0.30.0 큐 병합 뒤 적용).** 결정자: 소유자(2026-11-07). 초안: 설계 레인, 근거 [#1345](https://github.com/hjung3113/analytics-platform/issues/1345), 설계 [`log-test-datasets`](../design/features/log-test-datasets/README.md). [ADR-0117](0117-validation-request-queue-claim-lease-heartbeat.md) 개정을 포함한다. 번호 0119는 같은 릴리스의 로그 탐색 설계 ADR이 예약했다(병합 순서에 따라 push 전 `docs/adr`를 다시 확인한다).
 
 ## 배경
 
