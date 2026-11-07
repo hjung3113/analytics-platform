@@ -8,6 +8,7 @@ import type { EndpointHandlerArgs, EndpointResult, MenuEndpointDeclaration } fro
 import type { LogExplorerReadDeps, SourceOwnerAccess } from '../deps.js';
 import { createSyntheticScenario, SYNTHETIC_LEAK_MARKER, type SyntheticScenario } from '../adapters/synthetic/index.js';
 import type { SourceReadPort } from '../ports/source-read.js';
+import { createMemoryUsageStore } from '../testing/memory-usage-store.js';
 import { logExplorerReadEndpoints } from '../read-endpoints.js';
 
 const WS = '00000000-0000-4000-8000-000000000001';
@@ -33,6 +34,7 @@ function harness(scenario: SyntheticScenario | null, over: { port?: SourceReadPo
     }),
   };
   const counter = { checks: 0 };
+  const usage = createMemoryUsageStore(() => new Date(state.now));
   const deps: LogExplorerReadDeps = {
     db: { transaction: async (fn: (t: unknown) => Promise<void>) => fn(tx) } as never,
     checkService: {
@@ -46,6 +48,7 @@ function harness(scenario: SyntheticScenario | null, over: { port?: SourceReadPo
     sourceReadPort: over.port !== undefined ? over.port : scenario === null ? null : synthetic.port,
     sourceOwnerAccess: over.ownerAccess ?? { allows: async (_a, owner) => state.owners === 'all' || state.owners.has(owner) },
     cursorKey: KEY,
+    usage,
   };
   const endpoints = new Map<string, MenuEndpointDeclaration>(logExplorerReadEndpoints(deps).map((d) => [d.spec.id, d]));
   const call: Harness['call'] = (endpoint, params, extra = {}) => {
@@ -53,18 +56,18 @@ function harness(scenario: SyntheticScenario | null, over: { port?: SourceReadPo
     if (!declaration) throw new Error(`no endpoint ${endpoint}`);
     return declaration.handle({ actor: ACTOR, context: {}, params, correlationId: 'cid', ...extra });
   };
-  return { call, audits, state, counter, sampleSet: synthetic.sampleSet, owner: synthetic.sampleSet.sourceOwner, endpoints };
+  return { call, audits, state, counter, usage, sampleSet: synthetic.sampleSet, owner: synthetic.sampleSet.sourceOwner, endpoints };
 }
 
 const data = (r: EndpointResult) => r.data as Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any -- wire data of a test assertion
 const records = (h: ReturnType<typeof harness>, extra: Record<string, unknown> = {}) => h.call('records', { sampleSet: h.sampleSet, query: {}, limit: 10, ...extra });
 
 describe('registration', () => {
-  it('declares the four reads on the log-explorer menu with the entry right only', () => {
+  it('declares the four reads on the log-explorer menu with the entry right only, and the admin usage read beside them', () => {
     const h = harness('typical');
-    expect([...h.endpoints.keys()].sort()).toEqual(['logExplorer.records', 'logExplorer.window', 'logExplorer.parsed', 'logExplorer.periods'].sort());
+    expect([...h.endpoints.keys()].sort()).toEqual(['logExplorer.records', 'logExplorer.window', 'logExplorer.parsed', 'logExplorer.periods', 'logExplorer.usage'].sort());
     for (const d of h.endpoints.values()) {
-      expect(d.spec.permission).toBe('platform:view');
+      expect(d.spec.permission).toBe(d.spec.id === 'logExplorer.usage' ? 'console:access' : 'platform:view');
       expect(d.spec.menuId).toBe('log-explorer');
       expect(d.spec.requiresScope).toBe(false);
     }

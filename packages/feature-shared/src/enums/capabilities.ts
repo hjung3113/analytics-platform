@@ -34,6 +34,8 @@ export const CAPABILITIES = [
   'knowledge.draft.create',
   'explorer.source.read',
   'validation.catalog.report',
+  'explorer.export',
+  'explorer.investigate',
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -134,8 +136,12 @@ export const CAPABILITY_META: Readonly<Record<Capability, CapabilityMeta>> = {
   'lifecycle.round.manage': { sensitive: false, adminModuleBypass: 'always' },
   // Log knowledge drafts (#1198 a): workspace-scoped, not sensitive; a human submits a draft of a new or revised item. Admin always; Developer and User by grant (owner answer #1198 Q2).
   'knowledge.draft.create': { sensitive: false, adminModuleBypass: 'always' },
-  // Log explorer source read (#1469, design log-explorer §4): reads original log text through the Source adapter. Workspace-wide grant; the Source owner (`sourceOwner`) is judged per request on top (`SourceOwnerAccess`). No Admin role bypass: the text belongs to its Source owner. Session-only until node X-f (#1472) provides the token controls (daily token/Actor body budget): X-f removes `sessionOnly` when it adds them. Sensitive: a request states a reason, and the permission rows stay out of the platform audit projection allow-list (adding it there is a migration, not part of this node).
-  'explorer.source.read': { sensitive: true, adminModuleBypass: 'none', sessionOnly: true },
+  // Log explorer source read (#1469, design log-explorer §4): reads original log text through the Source adapter. Workspace-wide grant; the Source owner (`sourceOwner`) is judged per request on top (`SourceOwnerAccess`). No Admin role bypass: the text belongs to its Source owner. A token may carry it, with the daily body budget (#1472). Sensitive: a request states a reason, and the permission rows stay out of the platform audit projection allow-list (adding it there is a migration, not part of this node).
+  'explorer.source.read': { sensitive: true, adminModuleBypass: 'none' },
+  // Log explorer export (#1472, design log-explorer §4.1): hands original log text out of the platform as a CSV/JSONL download. Its own right, never implied by `explorer.source.read` (a read-only token cannot export). Same shape as the read: workspace-wide grant plus the Source owner rule, no Admin bypass, sensitive, may be a token scope.
+  'explorer.export': { sensitive: true, adminModuleBypass: 'none' },
+  // Log explorer investigation (#1472 registers the token scope; the investigation actions are node b): workspace-scoped, no Admin bypass. Sensitive for the same reason as the read: it is granted with a stated reason and stays out of the audit projection allow-list (no migration).
+  'explorer.investigate': { sensitive: true, adminModuleBypass: 'none' },
   // Validation catalog report (#1491, ADR-0122): the Validator posts its rule catalog snapshot over a service token.
   // Token-only (never a human session) and no Admin bypass: the token owner needs the grant itself.
   'validation.catalog.report': { sensitive: false, adminModuleBypass: 'none', tokenOnly: true },

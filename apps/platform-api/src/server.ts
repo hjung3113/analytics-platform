@@ -81,8 +81,14 @@ import { logLifecycleContribution, roundAttachmentParent } from './modules/log-l
 import {
   type SourceOwnerAccess,
   type SourceReadPort,
+  type LogExplorerExportDeps,
+  type LogExplorerReadDeps,
+  type UsageStore,
+  LOG_EXPLORER_ROUTE_PREFIX,
   denyAllSourceOwners,
+  guardSourceReadPort,
   logExplorerContribution,
+  logExplorerExportRoutes,
 } from './modules/log-explorer/index.js';
 import {
   createManagedSystemService,
@@ -219,7 +225,17 @@ export interface BuildServerOptions {
    * `source_absent` (`source_not_connected`) and no Source owner is granted. The dev/test assembly injects the synthetic adapter
    * (`test-support/log-explorer-dev-assembly.ts`); the production graph check keeps it out of the production entry.
    */
-  logExplorer?: { sourceReadPort?: SourceReadPort; sourceOwnerAccess?: SourceOwnerAccess; cursorKey?: Buffer; clock?: () => Date };
+  logExplorer?: {
+    sourceReadPort?: SourceReadPort;
+    sourceOwnerAccess?: SourceOwnerAccess;
+    cursorKey?: Buffer;
+    clock?: () => Date;
+    /** Test seams of the token budget and the export stream (#1472): counters, chunk size, a hook before each chunk, the export time cap. */
+    usage?: UsageStore;
+    exportChunkBytes?: number;
+    beforeExportChunk?: LogExplorerExportDeps['beforeExportChunk'];
+    exportTotalMs?: number;
+  };
   /** Test seam of the catalog import apply (#1195 b): a shorter time budget and failure/barrier hooks. */
   logKnowledgeImport?: { applyBudgetMs?: number; hooks?: ImportApplyHooks & { afterApply?(): Promise<void> } };
 }
@@ -945,6 +961,16 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     app.log.error({ errName: err.name, code: (err as { code?: unknown }).code }, 'import apply runner pool error'),
   );
   app.addHook('onClose', async () => importApplyRunnerPool.end());
+  const logExplorerDeps: LogExplorerReadDeps = {
+    db: dbHandle.db,
+    checkService,
+    audit: auditService,
+    clock: opts.logExplorer?.clock ?? (() => new Date()),
+    sourceReadPort: opts.logExplorer?.sourceReadPort ?? null,
+    sourceOwnerAccess: opts.logExplorer?.sourceOwnerAccess ?? denyAllSourceOwners,
+    ...(opts.logExplorer?.cursorKey ? { cursorKey: opts.logExplorer.cursorKey } : {}),
+    ...(opts.logExplorer?.usage ? { usage: opts.logExplorer.usage } : {}),
+  };
   const menuRegistry = createMenuDispatchRegistry([
     homeNoticesContribution({ db: dbHandle.db, checkService }),
     logKnowledgeContribution({
@@ -956,19 +982,25 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     }),
     improvementItemsContribution({ db: dbHandle.db, checkService, notify }),
     logLifecycleContribution({ db: dbHandle.db, checkService, knowledgeLookup, entityLinks: entityLinksService }),
-    logExplorerContribution({
-      db: dbHandle.db,
-      checkService,
-      audit: auditService,
-      clock: opts.logExplorer?.clock ?? (() => new Date()),
-      sourceReadPort: opts.logExplorer?.sourceReadPort ?? null,
-      sourceOwnerAccess: opts.logExplorer?.sourceOwnerAccess ?? denyAllSourceOwners,
-      ...(opts.logExplorer?.cursorKey ? { cursorKey: opts.logExplorer.cursorKey } : {}),
-    }),
+    logExplorerContribution(logExplorerDeps),
     ...(opts.menuDispatch ?? []),
   ]);
   // The catalog import upload (#1195 a) is a multipart route, which the menu-action port cannot carry: it is
   // registered here beside the module's contribution (the contribution type has no route hook).
+  // The log explorer export (#1472) is a streamed download, which the JSON menu envelope cannot carry: its own REST route, session or token.
+  await app.register(logExplorerExportRoutes, {
+    prefix: LOG_EXPLORER_ROUTE_PREFIX,
+    deps: {
+      ...logExplorerDeps,
+      tokenActive: (tokenId) => apiTokenService.isActive(tokenId),
+      ...(opts.logExplorer?.exportChunkBytes !== undefined ? { exportChunkBytes: opts.logExplorer.exportChunkBytes } : {}),
+      ...(opts.logExplorer?.beforeExportChunk ? { beforeExportChunk: opts.logExplorer.beforeExportChunk } : {}),
+      ...(opts.logExplorer?.exportTotalMs !== undefined ? { exportTotalMs: opts.logExplorer.exportTotalMs } : {}),
+    },
+    port: logExplorerDeps.sourceReadPort ? guardSourceReadPort(logExplorerDeps.sourceReadPort) : null,
+    sessionService,
+    workspaceId,
+  });
   await app.register(logKnowledgeImportRoutes, {
     prefix: LOG_KNOWLEDGE_ROUTE_PREFIX,
     sessionService,

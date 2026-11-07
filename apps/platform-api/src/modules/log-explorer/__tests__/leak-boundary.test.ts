@@ -57,14 +57,26 @@ describe('leak boundary', () => {
     expect(toSourceReadError(throwing).code).toBe('adapter_failed');
   });
   // `read-service.ts` is the one audit writer (#1469): it records counts, the Source owner, a digest, filter KEYS and a result code only;
-  // `read-endpoints.test.ts` pins that the written row holds no body, no filter value and no file reference.
-  it('module source has no console/logger use, and no audit write outside read-service.ts', () => {
+  // `read-endpoints.test.ts` pins that the written row holds no body, no filter value and no file reference. `export-service.ts` (#1472) is the
+  // second writer, for `explorer.export`; `export.test.ts` pins its rows the same way.
+  it('module source has no console/logger use, and no audit write outside read-service.ts and export-service.ts', () => {
     const offenders: string[] = [];
     for (const file of sources(ROOT)) {
       const text = readFileSync(file, 'utf8').replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
       const rel = relative(ROOT, file);
       if (/\bconsole\s*\./.test(text) || /\b(?:logger|log|request\.log|app\.log)\s*\.(?:info|warn|error|debug|trace)\b/.test(text)) offenders.push(`${rel}: logging`);
-      if (rel !== 'read-service.ts' && /\baudit\.record\b|\bauditLog\b/.test(text)) offenders.push(`${rel}: audit write`);
+      if (rel !== 'read-service.ts' && rel !== 'export-service.ts' && /\baudit\.record\b|\bauditLog\b/.test(text)) offenders.push(`${rel}: audit write`);
+    }
+    expect(offenders).toEqual([]);
+  });
+  // design §4.1 «LLM·검색 색인»: this slice never sends Source text to an LLM, a search index or a notification. The module imports none of them.
+  it('has no import path to an LLM, an embedding, a search index or a notification', () => {
+    const offenders: string[] = [];
+    for (const file of sources(ROOT)) {
+      const text = readFileSync(file, 'utf8').replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+      for (const match of text.matchAll(/(?:from\s+|import\s*\(\s*|require\s*\(\s*)['"]([^'"]+)['"]/g)) {
+        if (/llm|embedding|openai|anthropic|voyage|notif|search-index|opensearch|elastic|pgvector|similarity/i.test(match[1] ?? '')) offenders.push(`${relative(ROOT, file)}: ${match[1]}`);
+      }
     }
     expect(offenders).toEqual([]);
   });

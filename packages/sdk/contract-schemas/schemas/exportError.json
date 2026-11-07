@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "code": {
+      "type": "string",
+      "enum": [
+        "explorer.budget_exceeded",
+        "explorer.range_too_large",
+        "explorer.forbidden",
+        "explorer.source_unavailable",
+        "explorer.export_busy",
+        "explorer.export_daily_limit",
+        "explorer.investigation_unsupported"
+      ]
+    },
+    "message": {
+      "type": "string",
+      "maxLength": 200
+    }
+  },
+  "required": [
+    "code",
+    "message"
+  ],
+  "additionalProperties": false
+}
