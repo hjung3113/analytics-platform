@@ -97,6 +97,8 @@ describe('improvement mock dispatch', () => {
     // a wrong-typed text is required like the server (#1411); a wrong-typed itemId too
     expect(await write(a, 'itemCreate', { problem: 5, targets: [{ kind: 'equipment', externalKey: 'EQ-01', displayName: 'x' }] }))
       .toMatchObject({ outcome: 'invalid', fieldErrors: [{ path: ['problem'], code: 'required' }] });
+    expect(await write(a, 'itemCreate', { problem: 'p', targets: [{ kind: 'equipment', externalKey: 'EQ-01', displayName: 5 }] }))
+      .toMatchObject({ outcome: 'invalid', fieldErrors: [{ path: ['targets', '0', 'displayName'], code: 'required' }] });
     // an oversized problem is too_long, not malformed
     expect(await write(a, 'itemCreate', { problem: '가'.repeat(501), targets: [{ kind: 'equipment', externalKey: 'EQ-01', displayName: 'x' }] }))
       .toMatchObject({ outcome: 'invalid', fieldErrors: [{ path: ['problem'], code: 'too_long' }] });

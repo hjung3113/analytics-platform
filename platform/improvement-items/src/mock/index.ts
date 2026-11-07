@@ -107,7 +107,8 @@ const targetCheck = (t: unknown, path: string[]): Check => {
   if (o.kind === undefined) return fieldAt([...path, 'kind']);
   if (typeof o.kind !== 'string' || !TARGET_KINDS.includes(o.kind)) return fieldAt([...path, 'kind'], 'malformed');
   const displayName: Check = o.displayName === undefined ? fieldAt([...path, 'displayName'])
-    : typeof o.displayName !== 'string' || unsafe(o.displayName) ? fieldAt([...path, 'displayName'], 'malformed')
+    : typeof o.displayName !== 'string' ? fieldAt([...path, 'displayName'], 'required')
+    : unsafe(o.displayName) ? fieldAt([...path, 'displayName'], 'malformed')
     : len(o.displayName) > SHORT_MAX ? fieldAt([...path, 'displayName'], 'too_long') : null;
   return requiredText(o.externalKey, SHORT_MAX, [...path, 'externalKey']) ?? displayName;
 };
@@ -130,7 +131,8 @@ const targetsCheck = (v: unknown, name: string): Check => {
 };
 const compareLinkCheck = (v: unknown, path: string[]): Check => {
   if (v === undefined || v === null) return null;
-  if (typeof v !== 'string' || unsafe(v)) return fieldAt(path, 'malformed');
+  if (typeof v !== 'string') return fieldAt(path, 'required');
+  if (unsafe(v)) return fieldAt(path, 'malformed');
   if (len(v) > LONG_MAX) return fieldAt(path, 'too_long');
   const text = v.trim();
   return text === '' || appRelative(text) ? null : fieldAt(path, 'malformed');

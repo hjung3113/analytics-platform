@@ -326,9 +326,12 @@ describe('unsaved-edit guard (#1388)', () => {
     fireEvent.click(await screen.findByRole('button', { name: '개선 아이템 남기기' }));
     fireEvent.change(await screen.findByRole('textbox', { name: /문제/ }), { target: { value: 'back test' } });
     expect(new URLSearchParams(window.location.search).get('focus')).toBe('new');
+    const popped = new Promise<void>(resolve => window.addEventListener('popstate', () => resolve(), { once: true }));
     window.history.back();
-    // The guard restores the address it held; without it the drawer would close and the draft vanish.
-    await waitFor(() => expect(new URLSearchParams(window.location.search).get('focus')).toBe('new'));
+    await popped;
+    // Let the guard's compensation run; without it the drawer would close and the draft vanish.
+    await new Promise(resolve => setTimeout(resolve, 100));
+    expect(new URLSearchParams(window.location.search).get('focus')).toBe('new');
     expect((screen.getByRole('textbox', { name: /문제/ }) as HTMLTextAreaElement).value).toBe('back test');
   });
 });
