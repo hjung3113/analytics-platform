@@ -1,17 +1,17 @@
 # 동적 계층 탐색은 SDK 범용 조각으로 제공하고 메뉴가 단계를 선언한다
 
-상태: **Proposed (2026-11-07, 초안 — 소유자 답 전).** 결정자: 소유자(대기). 초안: 설계 레인, 근거 [#1108](https://github.com/hjung3113/analytics-platform/issues/1108) §2–5·§8. 계층의 정적 Registry 경계는 #1108 §2의 채택 권고(안 B)를 그대로 쓴다.
+상태: **Proposed (2026-11-07, 소유자 답 반영 — 최종 Decided 전환은 구현 착수 때).** 결정자: 소유자(2026-11-07). 초안: 설계 레인, 근거 [#1108](https://github.com/hjung3113/analytics-platform/issues/1108) §2–5·§8. 계층의 정적 Registry 경계는 #1108 §2의 채택 권고(안 B)를 그대로 쓴다.
 
 ## 배경
 
 업무 시스템 → 그룹 → 메뉴는 정적 Registry가 소유하고, 메뉴 안의 도메인 객체(설비사 → 공정 → 모델 → SW, 지표 분류, 문서 계층)는 임의 깊이의 동적 계층이다. #1108은 둘을 섞지 않는 «정적 메뉴 + 동적 데이터 탐색»을 권고했다. 이미 정리된 것:
 
 - Site 비의존 시스템의 Scope 숨김은 분리되어 구현됐다([ADR-0108](0108-space-scope-presentation-field.md)). 이 ADR의 범위가 아니다.
-- 2026-11-02 로그 지식 허브 모델 탐색 시안에서 소유자가 필터 표(A)를 골랐고 `HierarchyExplorer`는 «트리 탐색을 쓰는 실제 소비자 화면이 정해질 때»까지 보류했다. 소유자 답(2026-11-07): 모델을 계층으로 보여 주려는 것이 원래 의도였다 → **보류 조건 충족, 다음 릴리스에 포함.** 소비자는 log-dev 「모델」 메뉴(`log-models`)의 설비사→공정→모델→SW 계층 보기다. 지식 허브 모델 탐색 표(A)는 그대로 둔다. 최종 화면 배치는 다음 세션에서 확인한다.
+- 2026-11-02 로그 지식 허브 모델 탐색 시안에서 소유자가 필터 표(A)를 골랐고 `HierarchyExplorer`는 «트리 탐색을 쓰는 실제 소비자 화면이 정해질 때»까지 보류했다. 소유자 답(2026-11-07): 모델을 계층으로 보여 주려는 것이 원래 의도였다 → **보류 조건 충족, 다음 릴리스에 포함.** 소비자는 log-dev 「모델」 메뉴(`log-models`)의 설비사→공정→모델→SW 계층 보기다(소유자 2026-11-07). 지식 허브 모델 탐색 표(A)는 그대로 둔다. 최종 화면 배치는 다음 세션에서 확인한다.
 
-## 결정 (추천)
+## 결정
 
-1. **범용 조각을 SDK(`@ap/components`)가 통째로 제공한다**([ADR-0052](0052-rich-content-stays-in-the-sdk.md), [ADR-0063](0063-consumer-owned-chart-pieces-and-unbounded-drill.md)와 같은 원칙). 도메인을 모르는 조각이고, 단계 수·노드 종류·라벨·열리는 목적지는 **메뉴가 선언**한다. SDK는 선언을 받아 동작한다.
+1. **범용 조각을 SDK(`@ap/components`)가 통째로 제공한다**(소유자 2026-11-07: #1108 포함)([ADR-0052](0052-rich-content-stays-in-the-sdk.md), [ADR-0063](0063-consumer-owned-chart-pieces-and-unbounded-drill.md)와 같은 원칙). 도메인을 모르는 조각이고, 단계 수·노드 종류·라벨·열리는 목적지는 **메뉴가 선언**한다. SDK는 선언을 받아 동작한다.
 2. **조각 구성.** `HierarchyExplorer`(지연 로딩 트리, 선택·확장, 노드 검색 입력, 가상화, 로딩·빈·오류·권한 없음·삭제됨 상태, `role=tree` 키보드·스크린리더)와 `HierarchyBreadcrumb`(source가 돌려준 조상 경로를 표시). Kernel·Shell·Registry는 바꾸지 않는다.
 3. **데이터 계약은 #1108 §4의 `HierarchyNode`·`HierarchySource`**(`listChildren`, `resolveAncestors`, 선택 `searchNodes`)를 따른다: 안정 ID, 커서 페이지, 요청 취소, `hasChildren`, 알 수 없는 개수와 0건 구분. SDK는 Fetch·SQL을 소유하지 않고 메뉴가 기존 `menuQuery` 선언으로 구현한 source를 받는다.
 4. **ID와 URL.** 노드는 안정 ID로 식별하고 열리는 대상은 `target.menuId + params`(Registry에 이미 있는 메뉴)다. 주소에는 대상 객체 ID만 두고 조상 라벨·펼침 상태·검색어를 직렬화하지 않는다. 깊은 링크를 새 탭에서 열면 `resolveAncestors`로 경로를 복원한다. 권한 변경·삭제·이동된 객체는 서버가 다시 검증하고, 조용히 다른 객체로 보내지 않는다.

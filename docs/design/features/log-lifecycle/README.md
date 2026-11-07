@@ -1,12 +1,12 @@
 # Log Lifecycle — v0.30.0 최소 슬라이스 설계 (Candidate)
 
-> **Status: Candidate (2026-11-07).** 설계만 있고 구현·DB·API는 없다. 근거는 [#1330](https://github.com/hjung3113/analytics-platform/issues/1330)(Epic)·[#1346](https://github.com/hjung3113/analytics-platform/issues/1346)(우선순위)·[#1420](https://github.com/hjung3113/analytics-platform/issues/1420)(검증 요청 큐)·[#1419](https://github.com/hjung3113/analytics-platform/issues/1419)(API 토큰)이고, 실제 코드와 Decided ADR이 이 문서보다 우선한다. 이 문서의 릴리스 구분(v0.30.0)은 **팀장 제안(소유자 미답변)을 작업 가정으로 쓴 것**이다 — 질문은 소유자 질문 목록(저장소 밖 작업 폴더)에 있고, 답이 오면 이 문서와 ADR 초안에 반영한다.
+> **Status: Candidate (2026-11-07, 소유자 13개 질문 답 반영).** 설계만 있고 구현·DB·API는 없다. 릴리스 묶음(v0.30.0 = #1108 + #1330 P0 + #1419 + #1420, 이후 v0.31.0 = #1198 + #1344)은 소유자 2026-11-07 확정이다. 근거는 [#1330](https://github.com/hjung3113/analytics-platform/issues/1330)(Epic)·[#1346](https://github.com/hjung3113/analytics-platform/issues/1346)(우선순위)·[#1420](https://github.com/hjung3113/analytics-platform/issues/1420)(검증 요청 큐)·[#1419](https://github.com/hjung3113/analytics-platform/issues/1419)(API 토큰)이고, 실제 코드와 Decided ADR이 이 문서보다 우선한다. 결정마다 «소유자 2026-11-07»로 표시한다.
 >
 > 사내 스크립트 Validator·사내 LLM은 별도 개발 중이다. 인터페이스·출력·권한은 실사 전이므로 **연동 완료로 쓰지 않는다.** 이 슬라이스는 플랫폼 쪽 틀(요청 등록·가져가기·결과 저장·사람 기록)만 만든다.
 
 ## 1. 이 슬라이스가 하는 것
 
-가정한 v0.30.0 묶음: **#1108**([ADR-0118](../../../adr/0118-dynamic-hierarchy-navigation-sdk-piece.md)) + **#1330 P0 최소** + **#1419 API 토큰**([ADR-0116](../../../adr/0116-platform-api-tokens-personal-and-service.md)) + **#1420 검증 요청 큐**([ADR-0117](../../../adr/0117-validation-request-queue-claim-lease-heartbeat.md)). 이 문서는 이 중 #1330 P0 + #1420을 담는 `log-lifecycle` 모듈을 정한다.
+v0.30.0 묶음(소유자 2026-11-07): **#1108**([ADR-0118](../../../adr/0118-dynamic-hierarchy-navigation-sdk-piece.md)) + **#1330 P0 최소** + **#1419 API 토큰**([ADR-0116](../../../adr/0116-platform-api-tokens-personal-and-service.md)) + **#1420 검증 요청 큐**([ADR-0117](../../../adr/0117-validation-request-queue-claim-lease-heartbeat.md)). 이 문서는 이 중 #1330 P0 + #1420을 담는 `log-lifecycle` 모듈을 정한다.
 
 사용자가 얻는 것:
 
@@ -23,7 +23,7 @@
 #1330 §2의 권위 표를 그대로 따른다. 여기서 요약하면:
 
 - 플랫폼(`log-lifecycle`)은 **개발 과제·이력·Round·요청·결과 참조·사람 결정**을 소유한다. 원본 로그, Validator 실행 로직·규칙 판정 알고리즘, Knowledge 정식 Item은 소유하지 않는다.
-- 결과는 **위치(locator)와 해시만** 보관한다. 원본이 외부에 있어 원문 열람은 그쪽 권한을 다시 따른다. 원본이 없으면 `unresolved`로 보이고 가짜 근거로 대체하지 않는다.
+- 원본은 **위치(locator)와 해시만** 보관하고, 실패 지점 확인용 **짧은 로그 발췌**는 상한·열람 권한·보관 기한 아래 별도 저장한다(소유자 2026-11-07). 원본 전체 열람은 그쪽 권한을 다시 따른다. 원본이 없으면 `unresolved`로 보이고 가짜 근거로 대체하지 않는다.
 - **판정 축 분리.** 스크립트 판정(`rule_result`)·AI 의견·사람 검토·Gate 결정·Knowledge 게시는 서로 다른 상태 축이다. 이 슬라이스에는 AI 의견 저장이 없지만, 어떤 쓰기 경로도 AI 의견으로 스크립트 판정을 바꿀 수 없다는 불변식은 지금 정한다([ADR-0117](../../../adr/0117-validation-request-queue-claim-lease-heartbeat.md) 결정 6).
 - **모델 명세 원본(stale 문구 정리, #1346 P0-4).** #1330의 «SW별 독립 Spec 원본» 문구는 폐기된 것으로 본다. 현행 결정은 [GLOSSARY](../../../../GLOSSARY.md)의 **모델 명세 Revision**(원본) + SW별 **변경점**(SW X부터 적용, 변경 없으면 행 없음)이고, 그 결과가 **실효 명세**다. Round는 검증 시점의 실효 명세를 `spec_pin`(모델 명세 Revision ID + 적용된 변경점 집합의 digest)으로 고정해 재현성을 얻는다. `spec_pin`은 #1196 구현이 제공하는 값을 읽어 저장할 뿐 이 모듈이 계산하지 않는다.
 - **모델 식별.** `model_id`·`software_id`는 `log-knowledge`의 안정 ID를 쓴다. Log Format 버전은 SW 버전이 아니다(자동 동일시 금지; 레거시 이관 때 명시 매핑). 스키마 사이 FK는 두지 않고(모듈 경계: [02 §](../../../architecture/platform-api/02-domain-module-boundaries.md)) 쓰기 때 `log-knowledge`가 내놓는 읽기 포트로 존재·활성을 확인한다.
@@ -66,10 +66,11 @@
 
 ### execution_request
 
-`id`, `workspace_id`, `round_id`, `priority`(0–2), `state`, `request_digest`, `engine_profile_ref?`, `requested_by_actor_id`, `idempotency_key`, `attempt_count`, `max_attempts`, `not_before?`, 현재 lease(`claimed_by_actor_id?`, `lease_expires_at?`, `last_heartbeat_at?`), 생성·종료 시각.
+`id`, `workspace_id`, `round_id`, `priority`(0–2), `immediate`(bool, 소유자 2026-11-07), `state`, `request_digest`, `engine_profile_ref?`, `requested_by_actor_id`, `idempotency_key`, `attempt_count`, `max_attempts`, `not_before?`, 현재 lease(`claimed_by_actor_id?`, `lease_expires_at?`, `last_heartbeat_at?`), 생성·종료 시각.
 
+- `immediate=true`는 실행 시간대 밖에서도 claim에 내준다([ADR-0117](../../../adr/0117-validation-request-queue-claim-lease-heartbeat.md) 결정 8: 요청자 권한 안에서, 감사, 사용자당 동시 5건).
 - `state`: `queued → claimed → succeeded | failed | cancelled`, 그리고 lease 만료·시도 소진 시 `expired`. 상태 전이 표와 lease 규칙은 [ADR-0117](../../../adr/0117-validation-request-queue-claim-lease-heartbeat.md)이 소유한다.
-- `round_id`는 **필수**다. #1420 본문은 «처음엔 요청·결과만, Round는 #1330 때»라 했지만 둘이 같은 릴리스에 들어가고, 샘플 위치·해시·모델·SW는 이미 Round가 불변으로 들고 있어 요청에 따로 두면 모양이 둘이 된다. 소유자 확인이 필요한 이탈이다(질문 Q7).
+- `round_id`는 **필수**다. #1420 본문은 «처음엔 요청·결과만, Round는 #1330 때»라 했지만 둘이 같은 릴리스에 들어가고, 샘플 위치·해시·모델·SW는 이미 Round가 불변으로 들고 있어 요청에 따로 두면 모양이 둘이 된다. 소유자 2026-11-07이 Round 필수를 확정했다.
 
 ### execution_attempt
 
@@ -80,9 +81,9 @@
 
 ### rule_result
 
-`attempt_id`, `rule_id`(외부 규칙 식별자), `result`(`PASS`·`FAIL`·`WARN`·`NOT_CHECKED`·`SKIPPED`·`NOT_APPLICABLE`·`ERROR`), `required`, `expected?`, `observed?`(짧은 요약 문자열, 상한 500자), `evidence`(jsonb 배열 `{ fileRef, line, fileSha256 }`, 최대 20개).
+`attempt_id`, `rule_id`(외부 규칙 식별자), `result`(`PASS`·`FAIL`·`WARN`·`NOT_CHECKED`·`SKIPPED`·`NOT_APPLICABLE`·`ERROR`), `required`, `expected?`, `observed?`(짧은 요약 문자열, 상한 500자), `evidence`(jsonb 배열 `{ fileRef, line, fileSha256, hasExcerpt }`, 최대 20개). 로그 발췌 본문은 별도 테이블 `rule_result_excerpt`(`rule_result_id`, `evidence_index`, `excerpt`, `deleted_at?`)에 둔다.
 
-- 로그 본문·자격증명·서비스 주소를 이 필드에 넣지 않는다. 길이 상한과 검사(제어 문자 제거)는 서버가 한다. 이유: 공개 저장소·감사 로그로 새는 경로를 줄이기 위해서다.
+- **짧은 로그 발췌는 저장을 허용한다**(소유자 2026-11-07; 추천 «위치·해시만»과 다름). 상한·열람(`lifecycle.excerpt.read`, `sourceOwner` 범위 = 원본 Source ACL)·보관(Round 종료 후 90일, 관리자 즉시 삭제)·입력 검사는 [ADR-0117](../../../adr/0117-validation-request-queue-claim-lease-heartbeat.md) 결정 7이 소유한다. `observed`·`expected` 필드와 감사 로그·알림에는 발췌 본문을 쓰지 않는다.
 - `evidence.fileRef`는 해당 Round `sample_set`에 있는 것만 받는다(없으면 `validation.failed`).
 - 결함(Defect)·재검증 연결은 만들지 않는다. 같은 `rule_id`·`fileRef`·`line`을 Round 사이에 비교하는 보기는 이 테이블로 나중에 가능하다.
 
@@ -128,8 +129,9 @@ log-lifecycle/
 | `lifecycle.round.manage` | Round 열기·닫기·샘플 지정·요청 등록·취소 | 워크스페이스 범위 |
 | `lifecycle.gate.decide` | Gate 결정(승인·거절·예외) | 워크스페이스 범위, **sensitive, 세션 전용**(토큰 불가) |
 | `validation.worker` | claim·heartbeat·결과 제출 | **토큰 범위로만** 존재; 사람 세션에는 부여하지 않음 |
+| `lifecycle.excerpt.read` | 로그 발췌 본문 열람 | `sourceOwner` 범위로 부여, 열람마다 감사 |
 
-`log-dev`는 Managed System이 아니므로 `managed_system_id` 없이 워크스페이스 범위로 부여한다([ADR-0107](../../../adr/0107-log-knowledge-catalog-authority-keys-and-edit-rights.md) 결정 3 보충과 같은 이유). 자기 승인 금지(요청자=결정자)는 Open Decision D3.
+`log-dev`는 Managed System이 아니므로 `managed_system_id` 없이 워크스페이스 범위로 부여한다([ADR-0107](../../../adr/0107-log-knowledge-catalog-authority-keys-and-edit-rights.md) 결정 3 보충과 같은 이유). 자기 승인(요청자=결정자)은 막지 않고 이력에 표시한다(소유자 2026-11-07, 질문 9).
 
 ## 5. API 목록 (v0.30.0)
 
@@ -142,7 +144,8 @@ log-lifecycle/
 | `logLifecycle.projectEvents` | 이력(커서 페이지) | `AuditTimeline` 소비 |
 | `logLifecycle.rounds` | 과제의 Round 목록 | |
 | `logLifecycle.roundDetail` | Round + 샘플 목록 + 요청·시도 요약 + Gate 결정 이력 | `roundId` |
-| `logLifecycle.ruleResults` | 시도의 규칙 결과(서버 페이지·정렬·필터) | `PlatformDataTable` |
+| `logLifecycle.ruleResults` | 시도의 규칙 결과(서버 페이지·정렬·필터), 발췌는 `hasExcerpt`만 | `PlatformDataTable` |
+| `logLifecycle.excerpt` | 발췌 본문 한 건 | `lifecycle.excerpt.read` 필요, 열람 감사 |
 | `logLifecycle.requests` | 검증 요청 목록 | 필터: `state`·`priority`·`modelId`·기간 |
 
 공통 규칙(page·pageSize·sorting·filters·`{ rows, total }`·알 수 없는 파라미터 거절)은 `log-knowledge` 계약과 같다. 소유 메뉴 id는 `log-models`(과제·Round)와 `log-validation-requests`(요청 큐). 둘 다 `requiresScope: false`.
@@ -157,7 +160,7 @@ log-lifecycle/
 | `logLifecycle.projectUpdate` | `id`, `ownerActorId?`, `targetDate?`, `softwareId?` | version |
 | `logLifecycle.roundOpen` | `projectId`, `sampleSet`, `specPin?`, `note?` | none |
 | `logLifecycle.roundClose` | `id` | version |
-| `logLifecycle.requestCreate` | `roundId`, `priority`, `engineProfileRef?` | none (idempotencyKey) |
+| `logLifecycle.requestCreate` | `roundId`, `priority`, `immediate?`, `engineProfileRef?` | none (idempotencyKey) |
 | `logLifecycle.requestCancel` | `id`, `reason` | version |
 | `logLifecycle.gateDecide` | `roundId`, `targetStage`, `decision`, `reason`, `exception?` | version(프로젝트) |
 
@@ -188,7 +191,7 @@ log-dev (기존 Space)
    └─ 검증 요청            log-validation-requests /log/validation-requests            [Management, 신규]
 ```
 
-화면 수: 모델 목록(기존 planned 메뉴의 첫 실구현) + 과제·Round 상세 + 검증 요청 = **새 화면 3개** → CLAUDE.md의 «3개 이상 연속 신규 화면은 범위 확인» 규칙에 걸린다(질문 Q6). 토큰 발급 화면([ADR-0116](../../../adr/0116-platform-api-tokens-personal-and-service.md))은 플랫폼 기능 쪽(`platform/`)이라 위 집계와 별도이고 같은 질문에서 묻는다.
+화면 수: 모델 목록(계층 보기 포함, 기존 planned 메뉴의 첫 실구현) + 과제·Round 상세 + 검증 요청(+등록·결과 서랍) = **새 화면 3개**이고 범위는 소유자가 확정했다(2026-11-07). 토큰 관리 화면([ADR-0116](../../../adr/0116-platform-api-tokens-personal-and-service.md))은 서비스 토큰 1개 화면이며 개인 토큰은 같은 화면의 탭이다(`platform/` 쪽, 소유자 2026-11-07). 각 화면은 실제 앱 시안(`?variant=`) 컨펌 뒤 구현한다.
 
 ### 6.3 Conceptual Contract (화면별 최소)
 
@@ -204,12 +207,13 @@ log-dev (기존 Space)
 
 **Round 상세**
 - 구역: 샘플 목록(순서·파일 참조·해시, 요청 후 읽기 전용), 고정된 명세(`spec_pin`, 없으면 `미고정`), 요청·시도 표(상태·lease 만료 시각·시도 번호), 규칙 결과 표(결과·필수·기대/관측·근거 위치), Gate 결정 이력 + 「Gate 결정」 패널(세션 전용, 서버가 결정 가능 여부와 이유를 `DataTrustIndicator` 문구로 보여줌).
+- 로그 발췌: 규칙 결과 행에 발췌 있음 표시만 보이고, 「발췌 보기」를 눌러야 본문이 열린다(권한 없으면 숨김 대신 «권한 없음» 사유 표시, 삭제됐으면 «보관 기간 지남으로 삭제됨»).
 - 근거 위치 링크: 외부 도구가 있으면 그쪽으로, 없으면 `원본 확인 불가(unresolved)`. 해시 불일치는 경고 배지.
 - 모든 빈 상태는 이유를 말한다(`요청 없음`, `작업자가 아직 가져가지 않음(실행 시간대: 평일 22:00–06:00)`).
 
 **검증 요청 목록**
-- 열: 요청, 모델·SW, Round, 우선순위, 상태, 대기 시간, 마지막 하트비트, 시도 횟수, 요청자.
-- 「요청 등록」 서랍: Round 선택(또는 Round 상세에서 진입 시 고정), 우선순위. 샘플은 Round가 가진 것이라 여기서 다시 입력하지 않는다.
+- 열: 요청, 모델·SW, Round, 우선순위·「즉시」 표시, 상태, 대기 시간, 마지막 하트비트, 시도 횟수, 요청자.
+- 「요청 등록」 서랍: Round 선택(또는 Round 상세에서 진입 시 고정), 우선순위, 「즉시 실행」 체크(실행 시간대 밖에서도 가져가게 함; 한도 안내 문구와 현재 시간대 표시). 샘플은 Round가 가진 것이라 여기서 다시 입력하지 않는다.
 - 행 서랍(`DetailDrawer`): 시도 이력, 결과 요약, 취소.
 
 ### 6.4 Wireframe 수준
@@ -249,9 +253,10 @@ log-dev (기존 Space)
 | 작업자 사망·네트워크 단절 | lease 만료 → `queued` 복귀(시도 소진 시 `expired`); 늦게 온 결과는 `lease_lost` |
 | 유휴 시간 밖 claim | 서버가 `204`(내줄 요청 없음)로 응답; 우회 불가 |
 | 사람이 거짓 통과 | `fail`·`incomplete`·시도 없음의 통과는 `exception`(사유·수용자 필수)으로만, 기록은 일반 승인과 구분 |
+| 발췌로 비밀·개인정보 유출 | 상한, 비밀 패턴 거절, 분리 저장·기본 숨김, `sourceOwner` 범위 열람 권한·열람 감사, 90일 삭제, 감사·알림·검색에 본문 금지 |
+| 「즉시」 남용으로 낮 시간 부하 | 요청자 권한 안에서만, 사용자당 동시 5건, 감사, 관리자 집계 |
 | 토큰으로 Gate 승인 | 고위험 동작은 세션 전용(ADR-0116); 서버 거절 테스트 필수 |
 | 샘플 변경 후 이전 PASS 재사용 | 요청이 생긴 Round는 샘플 불변; 변경은 새 Round |
-| 결과 필드로 로그 본문·비밀 유출 | 길이 상한·형식 검사, 위치·해시만 허용 |
 | 원본 Validator가 없는데 «연동됨» 표시 | 연동 표시 자체가 없다. 참조 작업자는 «합성 fixture»로만 표기 |
 
 ## 9. 미구현 목록 (다시 여는 조건)
@@ -269,10 +274,10 @@ log-dev (기존 Space)
 
 | ID | 결정 | 추천 | 이유 |
 | --- | --- | --- | --- |
-| D1 | `stage` 닫힌 집합 이름과 레거시 7단계 매핑 시점 | 새 이름 5개 + 취소, 매핑은 이관 슬라이스 | 레거시 원문을 모르는 채 이름을 정하면 이관 때 어긋남 |
-| D2 | Gate 결정이 v0.30.0에 들어가는가 | 들어간다(사람 기록만) | #1330 P0에 «Gate 초안»이 명시, 정책 계산은 제외하면 비용이 작음 |
-| D3 | 자기 승인(요청자=결정자) 허용 | 막지 않되 이력에 표시 | 소규모 팀에서 막으면 진행 불능, 예외는 기록 |
-| D4 | 우선순위 단계 수 | 3단계(0–2) | #1420 «우선순위» 요구만 충족 |
+| D1 | `stage` 닫힌 집합 이름과 레거시 7단계 매핑 시점 | 새 이름 5개 + 취소, 매핑은 이관 슬라이스(레거시 이관 제외: 소유자 2026-11-07) | 레거시 원문을 모르는 채 이름을 정하면 이관 때 어긋남 |
+| D2 | Gate 결정이 v0.30.0에 들어가는가 | **결정됨**: 들어간다(소유자 2026-11-07) | |
+| D3 | 자기 승인 | **결정됨**: 막지 않고 이력에 표시(소유자 2026-11-07) | |
+| D4 | 우선순위 단계 수(비소유자 결정 아님, 시작값) | 3단계(0–2) | #1420 «우선순위» 요구만 충족 |
 | D5 | 단계 스테퍼 컴포넌트 | 기존 후보 조사 후 없으면 메뉴 로컬로 시작 | 소비자 2–3곳 확인 전 공통화하지 않음(§24) |
-| D6 | 수동 Evidence = 첨부 + entity link | 가능하면 이것 | 새 테이블·새 저장소 회피; 첨부 type 등록 가능 여부는 노드 c의 첫 확인 |
-| D7 | `rule_result.observed` 상한(500자)과 근거 최대 20개 | 이 값으로 시작 | 측정 전 임의값, 실제 Validator 출력 확인 후 조정 |
+| D6 | 수동 Evidence = 첨부 + entity link | **결정됨**(소유자 2026-11-07); 첨부 type 등록 가능 여부는 노드 c의 첫 확인 | |
+| D7 | `observed` 500자·근거 20개·발췌 2,000자·시도당 256KB·보관 90일·「즉시」 동시 5건 | 이 값으로 시작 | 측정 전 시작값, 실제 Validator 출력 확인 후 조정 |
