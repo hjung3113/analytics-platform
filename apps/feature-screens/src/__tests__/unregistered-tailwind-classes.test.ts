@@ -18,6 +18,11 @@ const TEST_DIRECTORIES = new Set(['test', 'tests', '__tests__']);
 const CODE_FILE_PATTERN = /\.(?:[cm]?[jt]sx?)$/;
 const TEST_FILE_PATTERN = /(?:^|[.-])(?:test|spec)(?:[.-]|$)/i;
 
+// An untracked temp file (the lint-dispatch probe in tooling/eslint) can vanish between listing and reading when packages test in parallel: skip it (#1437).
+function readIfPresent(file: string): string {
+  try { return fs.readFileSync(file, 'utf-8'); } catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return ''; throw error; }
+}
+
 function sourceFiles(directory: string, files: string[] = []): string[] {
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
     const fullPath = path.join(directory, entry.name);
@@ -40,7 +45,7 @@ describe('unregistered Tailwind class guard', () => {
 
     for (const directory of SOURCE_DIRECTORIES) {
       for (const filePath of sourceFiles(directory)) {
-        const source = fs.readFileSync(filePath, 'utf-8');
+        const source = readIfPresent(filePath);
         UNREGISTERED_CLASS_PATTERN.lastIndex = 0;
 
         for (const match of source.matchAll(UNREGISTERED_CLASS_PATTERN)) {

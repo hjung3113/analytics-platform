@@ -77,6 +77,11 @@ function countUnparsedCalls(source: string): number {
   return [...stripped.matchAll(UNPARSED_CALL)].length;
 }
 
+// An untracked temp file (the lint-dispatch probe in tooling/eslint) can vanish between listing and reading when packages test in parallel: skip it (#1437).
+function readIfPresent(file: string): string {
+  try { return fs.readFileSync(file, 'utf8'); } catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return ''; throw error; }
+}
+
 function collectSourceFiles(dir: string, out: string[] = []): string[] {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const p = path.join(dir, entry.name);
@@ -110,7 +115,7 @@ describe('unparsed apiClient endpoints allowlist', () => {
     const actual = new Map<string, number>();
     for (const file of collectSourceFiles(SRC)) {
       const rel = toSrcRelative(file);
-      const count = countUnparsedCalls(fs.readFileSync(file, 'utf8'));
+      const count = countUnparsedCalls(readIfPresent(file));
       if (count > 0) actual.set(rel, count);
     }
 
