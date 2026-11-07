@@ -1122,6 +1122,9 @@ export const knowledgeDrafts = knowledgeSchema.table(
       .notNull()
       .references(() => workspaces.id),
     origin: text('origin').notNull(),
+    validatorSourceSystem: text('validator_source_system'),
+    validatorRunId: text('validator_run_id'),
+    validatorFindingId: text('validator_finding_id'),
     proposalType: text('proposal_type').notNull(),
     targetItemId: uuid('target_item_id'),
     baseRevisionNo: integer('base_revision_no'),
@@ -1167,6 +1170,13 @@ export const knowledgeDrafts = knowledgeSchema.table(
     statusIdx: index('draft_status_idx').on(t.workspaceId, t.status, t.updatedAt),
     targetIdx: index('draft_target_item_idx').on(t.workspaceId, t.targetItemId),
     originCheck: check('draft_origin_check', sql`${t.origin} in ('human','ai','validator')`),
+    validatorRefCheck: check(
+      'draft_validator_ref_check',
+      sql`num_nonnulls(${t.validatorSourceSystem}, ${t.validatorRunId}, ${t.validatorFindingId}) in (0, 3)`,
+    ),
+    validatorRefUq: uniqueIndex('draft_validator_ref_uq')
+      .on(t.workspaceId, t.validatorSourceSystem, t.validatorRunId, t.validatorFindingId)
+      .where(sql`${t.validatorSourceSystem} is not null`),
     proposalTypeCheck: check('draft_proposal_type_check', sql`${t.proposalType} in ('create','revise')`),
     pairingCheck: check(
       'draft_proposal_pairing_check',

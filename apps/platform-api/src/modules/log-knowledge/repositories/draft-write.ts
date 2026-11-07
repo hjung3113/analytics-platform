@@ -8,7 +8,7 @@ import { type SQL, and, eq, sql } from 'drizzle-orm';
 
 import { knowledgeDraftRevisions, knowledgeDrafts, knowledgeItems } from '../../../db/schema/knowledge.js';
 import type { Tx } from '../../../db/tx.js';
-import { DRAFT_SCHEMA_VERSION, type NormalizedProposal, proposalDigest } from '../domain/draft-input.js';
+import { DRAFT_SCHEMA_VERSION, type NormalizedProposal, type ValidatorRef, proposalDigest } from '../domain/draft-input.js';
 
 export type DraftRow = typeof knowledgeDrafts.$inferSelect;
 
@@ -56,15 +56,24 @@ export interface NewDraft {
   baseRevisionNo: number | null;
   ownerModelId: string | null;
   ownerSoftwareId: string | null;
+  origin: 'human' | 'ai' | 'validator';
+  validatorRef?: ValidatorRef | undefined;
 }
 
-/** A new `human` draft in status `draft` at revision 1 (the revision row follows via `insertDraftRevision`). */
-export async function insertDraft(tx: Tx, v: NewDraft): Promise<DraftRow> {
-  const [row] = await tx
+/**
+ * A new draft in status `draft` at revision 1 (the revision row follows via `insertDraftRevision`). With a validator ref the
+ * insert is `ON CONFLICT DO NOTHING` on the ref's partial unique index and answers null when the finding already has a draft
+ * (no raw 23505 is raised, so the caller's transaction is not aborted).
+ */
+export async function insertDraft(tx: Tx, v: NewDraft): Promise<DraftRow | null> {
+  const query = tx
     .insert(d)
     .values({
       workspaceId: v.workspaceId,
-      origin: 'human',
+      origin: v.origin,
+      validatorSourceSystem: v.validatorRef?.sourceSystem ?? null,
+      validatorRunId: v.validatorRef?.runId ?? null,
+      validatorFindingId: v.validatorRef?.findingId ?? null,
       proposalType: v.proposalType,
       targetItemId: v.targetItemId,
       baseRevisionNo: v.baseRevisionNo,
@@ -75,10 +84,35 @@ export async function insertDraft(tx: Tx, v: NewDraft): Promise<DraftRow> {
       submitterActorId: v.actorId,
       createdBy: v.actorId,
       updatedBy: v.actorId,
+    });
+  if (!v.validatorRef) {
+    const [row] = await query.returning();
+    if (!row) throw new Error('draft insert returned no row');
+    return row;
+  }
+  const [row] = await query
+    .onConflictDoNothing({
+      target: [d.workspaceId, d.validatorSourceSystem, d.validatorRunId, d.validatorFindingId],
+      where: sql`${d.validatorSourceSystem} is not null`,
     })
     .returning();
-  if (!row) throw new Error('draft insert returned no row');
-  return row;
+  return row ?? null;
+}
+
+/** The draft already stored for a validator finding in the workspace (workspace-scoped), or null. */
+export async function findDraftByValidatorRef(tx: Tx, workspaceId: string, ref: ValidatorRef): Promise<DraftRow | null> {
+  const [row] = await tx
+    .select()
+    .from(d)
+    .where(
+      and(
+        eq(d.workspaceId, workspaceId),
+        eq(d.validatorSourceSystem, ref.sourceSystem),
+        eq(d.validatorRunId, ref.runId),
+        eq(d.validatorFindingId, ref.findingId),
+      ),
+    );
+  return row ?? null;
 }
 
 /** Appends revision `draftRevNo` (the caller computed it from the locked draft); returns the payload digest. */
@@ -89,6 +123,7 @@ export async function insertDraftRevision(
   draftRevNo: number,
   actorId: string,
   proposal: NormalizedProposal,
+  authorAuth: 'session' | 'token',
 ): Promise<string> {
   const payloadDigest = proposalDigest(proposal);
   await tx.insert(dr).values({
@@ -99,8 +134,7 @@ export async function insertDraftRevision(
     payloadDigest,
     schemaVersion: DRAFT_SCHEMA_VERSION,
     authorActorId: actorId,
-    // Node a writes session-authenticated humans only; node c writes `token`.
-    authorAuth: 'session',
+    authorAuth,
   });
   return payloadDigest;
 }

@@ -1,7 +1,8 @@
 // The knowledge draft write actions of the log knowledge hub (#1198 a, design v0.6 §6.4–6.6): create, update, submit and
 // withdraw by the human author. Right: `knowledge.draft.create` (workspace-scoped; Admin passes through the module
-// bypass; Developer and User by grant, owner answer #1198 Q2). Rules: the workspace is the actor's; `origin` is `human`
-// and every identity field comes from the session, never from the input; only the draft's submitter may update, submit
+// bypass; Developer and User by grant, owner answer #1198 Q2). Rules: the workspace is the actor's; `origin` and
+// `author_auth` are derived from the request's auth context (node c: a service token's draft is `ai`, or `validator` with a
+// `validatorRef`) and every identity field comes from the server, never from the input; only the draft's submitter may update, submit
 // or withdraw it (a draft the caller cannot see is `not_found`, one they can see but did not author is `['id']
 // forbidden_not_author`; both are judged BEFORE the engine compares `expectedVersion`); every proposal is the item input
 // with the same server checks an item create / revise runs (owner, target, subjects); a revision is appended (never
@@ -12,6 +13,8 @@
 import { createAuditService } from '../core/audit/audit-service.js';
 import { sql } from 'drizzle-orm';
 import type { Tx } from '../../db/tx.js';
+import { currentAuthContext } from '../../lib/auth-context.js';
+import { findWorkspaceActor } from '../auth/index.js';
 import {
   type ActionHandlerResult,
   type FieldError,
@@ -26,6 +29,7 @@ import {
   type DraftInput,
   type DraftOp,
   type NormalizedProposal,
+  deriveOrigin,
   ownerImmutableErrors,
   parseDraftHead,
   parseProposal,
@@ -36,6 +40,7 @@ import { canSubmit, canWithdraw, isFinalDraftStatus } from './domain/draft-trans
 import {
   type DraftRow,
   insertDraft,
+  findDraftByValidatorRef,
   insertDraftRevision,
   latestDigest,
   lockDraft,
@@ -61,6 +66,9 @@ export interface DraftActionDeps {
 type AuditType = 'created' | 'updated' | 'submitted' | 'withdrawn';
 
 const invalid = (...errors: FieldError[]) => new MenuActionInvalidError(errors);
+
+/** How the caller authenticated, from the server's request context only (never from input): stored on every revision. */
+const authorAuthNow = (): 'session' | 'token' => (currentAuthContext().kind === 'token' ? 'token' : 'session');
 
 export function draftActions(deps: DraftActionDeps): MenuActionDeclaration[] {
   const audit = createAuditService();
@@ -166,6 +174,15 @@ export function draftActions(deps: DraftActionDeps): MenuActionDeclaration[] {
     return owner.ownerModelId ?? (owner.ownerSoftwareId ? await softwareModelId(tx, ws, owner.ownerSoftwareId) : null);
   }
 
+  /**
+   * A resend of a validator ref answers its draft only to that draft's author (review C3): another actor's draft is
+   * private, so another caller learns only that the ref is taken — never its id, status, digest or version.
+   */
+  async function replayOwn(tx: Tx, ws: string, actorId: string, existing: DraftRow): Promise<ActionHandlerResult> {
+    if (existing.submitterActorId !== actorId) throw invalid({ path: ['validatorRef'], code: 'taken' });
+    return answer(existing, await latestDigest(tx, ws, existing));
+  }
+
   // ---- create -------------------------------------------------------------------------------------------------
   const draftCreate: MenuActionDeclaration = {
     spec: base('draftCreate', 'none'),
@@ -174,6 +191,17 @@ export function draftActions(deps: DraftActionDeps): MenuActionDeclaration[] {
     async handle(tx, actor, input): Promise<ActionHandlerResult> {
       const ws = actor.workspace_id;
       const value = head('draftCreate', input);
+      const authKind = authorAuthNow();
+      const found = await findWorkspaceActor(tx, { workspaceId: ws, actorId: actor.actor_id });
+      const actorType = found?.actor_type ?? '';
+      const ref = value.validatorRef;
+      // A validator ref belongs to a service token (system actor) only; a session or a personal token may not send one.
+      if (ref && !(authKind === 'token' && actorType === 'system')) throw invalid({ path: ['validatorRef'], code: 'not_allowed' });
+      // Same finding again (any idempotency key): the existing draft, no new row, revision or audit.
+      if (ref) {
+        const existing = await findDraftByValidatorRef(tx, ws, ref);
+        if (existing) return replayOwn(tx, ws, actor.actor_id, existing);
+      }
       const parsed = parseProposal(value.proposalType, value.proposal);
       if (!parsed.ok) throw new Error('action draftCreate: validate passed but parse failed');
       const proposal = parsed.value;
@@ -196,12 +224,20 @@ export function draftActions(deps: DraftActionDeps): MenuActionDeclaration[] {
       const draft = await insertDraft(tx, {
         workspaceId: ws,
         actorId: actor.actor_id,
+        origin: deriveOrigin(authKind, actorType, ref !== undefined),
+        validatorRef: ref,
         proposalType: value.proposalType,
         targetItemId: target?.id ?? null,
         baseRevisionNo: target?.baseRevisionNo ?? null,
         ...owner,
       });
-      const digest = await insertDraftRevision(tx, ws, draft.id, 1, actor.actor_id, proposal);
+      if (!draft) {
+        // A racing create won the ref's unique index between the lookup and the insert: answer as the replay does.
+        const winner = ref ? await findDraftByValidatorRef(tx, ws, ref) : null;
+        if (!winner) throw new Error('action draftCreate: validator ref conflict but no draft found');
+        return replayOwn(tx, ws, actor.actor_id, winner);
+      }
+      const digest = await insertDraftRevision(tx, ws, draft.id, 1, actor.actor_id, proposal, authKind);
       await record(tx, actor, 'created', draft, digest, null);
       return answer(draft, digest);
     },
@@ -240,7 +276,7 @@ export function draftActions(deps: DraftActionDeps): MenuActionDeclaration[] {
       if (errors.length > 0) throw new MenuActionInvalidError(errors);
 
       const revNo = before.latestDraftRev + 1;
-      await insertDraftRevision(tx, ws, before.id, revNo, actor.actor_id, proposal);
+      await insertDraftRevision(tx, ws, before.id, revNo, actor.actor_id, proposal, authorAuthNow());
       const after = await patchDraft(tx, ws, before.id, actor.actor_id, { latestDraftRev: revNo });
       await record(tx, actor, 'updated', after, digest, before.status);
       return answer(after, digest);
