@@ -230,6 +230,12 @@ describe('workspace assembly (#260)', () => {
     expect(planned.every(menu => menu.permission === (menu.id === 'log-knowledge-catalog' ? 'knowledge:catalog-manage' : 'platform:view'))).toBe(true);
     // #1495 replaces the planned validation menu and adds one hidden Rule detail using the same lazy screen.
     expect(registry.menuById('log-rule')).toMatchObject({ parent: 'log-rules', navHidden: true, pageType: 'catalog' });
+    for (const id of ['log-rules', 'log-rule']) {
+      expect(registry.menuById(id).pageKeys).toEqual(expect.arrayContaining(['q', 'filter', 'sort', 'page']));
+      expect(registry.menuById(id).pageKeys).not.toContain('targetQ');
+      expect(registry.menuById(id).repeatedPageKeys).toEqual(['filter']);
+      expect(registry.menuById(id).hiddenPageKeys).toEqual(['filter']);
+    }
     // #1197 s1: 모델 탐색 (the group's primary) and its hidden 모델 프로파일 child have screens too.
     expect(planned.filter(menu => menu.component).map(menu => menu.id)).toEqual(['log-rules', 'log-rule', 'log-knowledge-models', 'log-knowledge-model', 'log-knowledge-spec', 'log-knowledge-items', 'log-knowledge-item', 'log-knowledge-catalog']);
     expect(registry.menuById('log-knowledge-model')).toMatchObject({ parent: 'log-knowledge-models', navHidden: true });

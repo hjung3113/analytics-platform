@@ -9,7 +9,9 @@ import { useHostPlatformOptional } from '@ap/kernel/host';
 import { DetailPanelFullscreenContext, DetailPanelFullscreenToggle, DetailPanelReadingColumn, useDetailPanelEscape, Tabs, TabsContent, TabsList, TabsTrigger, TransientOverlayScope, useDetailPanelSlot, useSurfacePaused } from '@ap/ui';
 
 /** §13: URL-controlled detail content rendered into the shell-owned docked slot. */
-export function DetailDrawer({ title, subtitle, headerActions, context, footer, tabs, onClose, tab, onTabChange }: {
+export function DetailDrawer({ title, subtitle, headerActions, context, footer, tabs, onClose, tab, onTabChange, focusOnOpen }: {
+  /** For consumers with a detail identity other than focus=: false preserves arrival focus; true claims a user-opened detail. Default follows Kernel navigation. */
+  focusOnOpen?: boolean;
   title: ReactNode; subtitle?: ReactNode; headerActions?: ReactNode; context?: ReactNode; footer?: ReactNode;
   tabs: { id: string; label: ReactNode; content: ReactNode }[];
   onClose: () => void; tab?: string; onTabChange?: (tab: string) => void;
@@ -26,7 +28,7 @@ export function DetailDrawer({ title, subtitle, headerActions, context, footer, 
   useCloseOnPaneChange(onClose);
   // A drawer whose owning surface is covered stays mounted in the hidden host; its own transient UI is dismissed, as a docked detail owns its visibility.
   const paused = useSurfacePaused();
-  return host ? createPortal(<TransientOverlayScope active={!paused} detached><OutcomeScope><DetailContent superseded={superseded} title={title} subtitle={subtitle} headerActions={headerActions} context={context} footer={footer} tabs={tabs} onClose={onClose} tab={tab} onTabChange={onTabChange} /></OutcomeScope></TransientOverlayScope>, host) : null;
+  return host ? createPortal(<TransientOverlayScope active={!paused} detached><OutcomeScope><DetailContent focusOnOpen={focusOnOpen} superseded={superseded} title={title} subtitle={subtitle} headerActions={headerActions} context={context} footer={footer} tabs={tabs} onClose={onClose} tab={tab} onTabChange={onTabChange} /></OutcomeScope></TransientOverlayScope>, host) : null;
 }
 
 /**
@@ -48,7 +50,7 @@ function useCloseOnPaneChange(onClose: () => void) {
   }, [identity]);
 }
 
-function DetailContent({ superseded, title, subtitle, headerActions, context, footer, tabs, onClose, tab, onTabChange }: Parameters<typeof DetailDrawer>[0] & { superseded: MutableRefObject<boolean> }) {
+function DetailContent({ focusOnOpen, superseded, title, subtitle, headerActions, context, footer, tabs, onClose, tab, onTabChange }: Parameters<typeof DetailDrawer>[0] & { superseded: MutableRefObject<boolean> }) {
   const { lang, t } = useI18n();
   const onKeyDown = useDetailPanelEscape(onClose);
   const close = useRef<HTMLButtonElement>(null);
@@ -73,7 +75,7 @@ function DetailContent({ superseded, title, subtitle, headerActions, context, fo
     const opener = document.activeElement as HTMLElement | null;
     // Arrival with focus= leaves the title focused (§26). Same-screen open still moves here.
     // No provider means a locally mounted drawer, which still claims the close button.
-    const claim = (pageNavigation?.claimsDetailFocus() ?? true) && !paused.current;
+    const claim = (focusOnOpen ?? pageNavigation?.claimsDetailFocus() ?? true) && !paused.current;
     if (claim) close.current?.focus({ preventScroll: true });
     return () => {
       // eslint-disable-next-line react-hooks/exhaustive-deps -- the cleanup must read the latest flag; a copy taken at mount would never see the supersession
@@ -99,7 +101,7 @@ function DetailContent({ superseded, title, subtitle, headerActions, context, fo
       }
       restoreFocus();
     };
-  }, [pageNavigation, paneId, superseded, paused]);
+  }, [pageNavigation, paneId, superseded, paused, focusOnOpen]);
   useLayoutEffect(() => {
     // A pointerdown outside the panel is the user choosing a focus destination (often body).
     const onPointerDown = (e: PointerEvent) => { if (!panel.current?.contains(e.target as Node)) focusInside.current = false; };

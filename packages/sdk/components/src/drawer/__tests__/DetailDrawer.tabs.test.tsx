@@ -30,6 +30,15 @@ function SlotHost() {
 const tree = (ui: ReactNode) => <I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider>{ui}<SlotHost /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>;
 
 describe('DetailDrawer tab row (06 §13, #886 UX-8)', () => {
+  it('keeps arrival focus when an alternate detail identity opts out of claiming focus', async () => {
+    const arrival = document.createElement('button'); document.body.append(arrival); arrival.focus();
+    const view = render(tree(<DetailDrawer focusOnOpen={false} title="상세" onClose={() => {}} tabs={[{ id: 'a', label: '속성', content: <p>속성 내용</p> }]} />));
+    await screen.findByRole('dialog');
+    expect(document.activeElement).toBe(arrival);
+    view.unmount();
+    expect(document.activeElement).toBe(arrival);
+    arrival.remove();
+  });
   it('draws no tab row for a single tab and shows its content', async () => {
     render(tree(<DetailDrawer title="상세" onClose={() => {}} tabs={[{ id: 'a', label: '속성', content: <p>속성 내용</p> }]} />));
     expect(await screen.findByText('속성 내용')).toBeTruthy();

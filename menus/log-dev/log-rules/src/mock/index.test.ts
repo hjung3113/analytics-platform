@@ -23,6 +23,13 @@ describe('synthetic validation catalog', () => {
     expect(endpoint('rules').validate?.({ params: { filters: [{ id, op: 'bogus' }] } } as never)).toBeTruthy();
     expect(endpoint('rules').validate?.({ params: { sorting: [{ id: 'bogus', desc: false }] } } as never)).toBeTruthy();
   });
+  it('accepts translated target search plus wire filters and rejects the UI-only field on the wire', () => {
+    expect(endpoint('rules').validate?.({ params: { targetQ: 'robot', filters: [{ id: 'support', op: 'in', value: ['partial'] }] } } as never)).toBeNull();
+    expect(endpoint('rules').validate?.({ params: { filters: [{ id: 'targetCount', op: 'contains', value: 'robot' }] } } as never)).toBeTruthy();
+  });
+  it.each([['support', 'bogus'], ['ruleSetKey', ''], ['ruleSetKey', ' '.repeat(2)], ['ruleSetKey', 'a'.repeat(201)]])('rejects invalid %s values', (id, value) => {
+    expect(endpoint('rules').validate?.({ params: { filters: [{ id, op: 'in', value: [value] }] } } as never)).toBeTruthy();
+  });
   it('provides coverage reasons and 100% fixtures without turning unknown models into empty coverage', () => {
     expect(run('coverage', { modelId: FIXTURE_MODELS.noSpec })).toMatchObject({ computable: false, reason: 'no_spec' });
     expect(run('coverage', { modelId: FIXTURE_MODELS.noIds })).toMatchObject({ computable: false, reason: 'no_requirement_ids' });

@@ -47,6 +47,68 @@ beforeEach(() => { received = true; empty = false; missing = false; noIds = fals
 afterEach(() => { cleanup(); restore(); });
 
 describe('validation rules screen', () => {
+  it.each(['support:in:bogus', 'ruleSetKey:in:', `ruleSetKey:in:${'a'.repeat(201)}`])('refuses malformed filter %s before requesting rules', async filter => {
+    mount(`&filter=${encodeURIComponent(filter)}`);
+    expect(await screen.findByRole('alert')).toBeTruthy();
+    expect(queries.some(q => q.endpoint === 'logRules.rules')).toBe(false);
+  });
+  it('preserves a valid unknown RuleSet filter', async () => {
+    mount('&filter=ruleSetKey:in:unknown');
+    await screen.findByText('R-001');
+    expect(queries.find(q => q.endpoint === 'logRules.rules')?.params).toMatchObject({ filters: [{ id: 'ruleSetKey', op: 'in', value: ['unknown'] }] });
+  });
+  it.each([false, true])('does not take arrival focus after an asynchronous Rule read (direct route: %s)', async direct => {
+    let release!: () => void; hold = new Promise<void>(resolve => { release = resolve; });
+    mount(direct ? '' : '&ruleSetKey=core&ruleKey=R-001', direct ? { ruleSetKey: 'core', ruleKey: 'R-001' } : {});
+    const arrival = document.createElement('button'); document.body.append(arrival); arrival.focus();
+    await act(async () => { release(); });
+    await screen.findByRole('dialog');
+    await act(async () => {});
+    expect(document.activeElement).toBe(arrival);
+    arrival.remove();
+  });
+  it('connects both tabs to named panels, including loading and unavailable states', async () => {
+    let release!: () => void; hold = new Promise<void>(resolve => { release = resolve; });
+    mount();
+    const rulesTab = screen.getByRole('tab', { name: '규칙' });
+    const panel = screen.getByRole('tabpanel', { name: '규칙' });
+    expect(rulesTab.getAttribute('aria-controls')).toBe(panel.id);
+    expect(panel.querySelector('[aria-busy]')).toBeTruthy();
+    await act(async () => { release(); });
+    fireEvent.mouseDown(screen.getByRole('tab', { name: '명세 커버리지' }), { button: 0, ctrlKey: false });
+    const coveragePanel = await screen.findByRole('tabpanel', { name: '명세 커버리지' });
+    expect(within(coveragePanel).getByText('모델을 선택해 주세요')).toBeTruthy();
+    expect(screen.getByRole('tab', { name: '명세 커버리지' }).getAttribute('aria-controls')).toBe(coveragePanel.id);
+  });
+  it('clears search and filters from the empty result recovery', async () => {
+    empty = true; mount('&q=absent&filter=support:in:partial&filter=targetCount:contains:csv');
+    fireEvent.click(await screen.findByRole('button', { name: '필터 지우기' }));
+    await waitFor(() => expect(new URLSearchParams(window.location.search).has('q')).toBe(false));
+    expect(screen.getByLabelText('공유 주소').textContent).not.toContain('filter=');
+    await waitFor(() => expect(queries.filter(q => q.endpoint === 'logRules.rules').at(-1)?.params).toMatchObject({ q: null, targetQ: null, filters: [] }));
+  });
+  it('opens current RuleSet rules from history and preserves other filters', async () => {
+    mount('&ruleSetKey=core&filter=support:in:partial');
+    fireEvent.click(await screen.findByRole('button', { name: '이 RuleSet의 규칙 보기' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await waitFor(() => expect(queries.filter(q => q.endpoint === 'logRules.rules').at(-1)?.params).toMatchObject({ filters: expect.arrayContaining([{ id: 'ruleSetKey', op: 'in', value: ['core'] }, { id: 'support', op: 'in', value: ['partial'] }]) }));
+  });
+  it('keeps one toolbar search with IME, Enter, blur and Escape semantics', async () => {
+    mount(); const search = await screen.findByRole('searchbox');
+    expect(screen.getAllByRole('searchbox')).toHaveLength(1);
+    fireEvent.change(search, { target: { value: 'robot' } });
+    fireEvent.keyDown(search, { key: 'Enter', isComposing: true });
+    expect(new URLSearchParams(window.location.search).has('q')).toBe(false);
+    fireEvent.keyDown(search, { key: 'Enter', keyCode: 229 });
+    expect(new URLSearchParams(window.location.search).has('q')).toBe(false);
+    fireEvent.keyDown(search, { key: 'Enter' });
+    await waitFor(() => expect(new URLSearchParams(window.location.search).get('q')).toBe('robot'));
+    fireEvent.keyDown(search, { key: 'Escape' });
+    expect((search as HTMLInputElement).value).toBe('');
+    expect(new URLSearchParams(window.location.search).get('q')).toBe('robot');
+    fireEvent.blur(search);
+    await waitFor(() => expect(new URLSearchParams(window.location.search).has('q')).toBe(false));
+  });
   it('waits for the catalog without briefly showing an empty table', async () => {
     let release!: () => void; hold = new Promise<void>(r => { release = r; }); mount();
     expect(screen.queryByText('규칙 카탈로그')).toBeNull();
@@ -59,8 +121,8 @@ describe('validation rules screen', () => {
     expect(screen.queryByRole('table')).toBeNull();
     expect(queries.some(q => q.endpoint === 'logRules.rules')).toBe(false);
   });
-  it('keeps both searches, filter, sorting and page in table requests and shared URLs', async () => {
-    mount('&tab=rules&q=robot&targetQ=csv&sort=ruleKey:desc&page=2&filter=support:in:partial');
+  it('maps the target text filter to the server parameter and keeps sorting and page in table requests and shared URLs', async () => {
+    mount('&tab=rules&q=robot&filter=targetCount:contains:csv&sort=ruleKey:desc&page=2&filter=support:in:partial');
     await screen.findByText('R-001');
     expect(queries.find(q => q.endpoint === 'logRules.rules')?.params).toMatchObject({ q: 'robot', targetQ: 'csv', sorting: [{ id: 'ruleKey', desc: true }], filters: [{ id: 'support', op: 'in', value: ['partial'] }] });
     expect(screen.getByLabelText('공유 주소').textContent).toContain('filter=');
@@ -72,19 +134,20 @@ describe('validation rules screen', () => {
   it('opens a read-only drawer, wraps verbatim values, and restores keyboard focus after Escape', async () => {
     mount(); await screen.findByRole('button', { name: 'R-001 상세 보기' }); await act(async () => {}); const opener = screen.getByRole('button', { name: 'R-001 상세 보기' }); opener.focus(); fireEvent.click(screen.getByRole('button', { name: 'R-001 상세 보기' }));
     const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByText(long).className).toContain('break-all');
+    expect(within(dialog).getByText(long).className).toContain('break-words');
     expect(within(dialog).getAllByText('지원')).toHaveLength(2); // once for the summary, once for its Revision
     expect(within(dialog).queryByText('저장')).toBeNull();
     await waitFor(() => expect(document.activeElement).toBe(within(dialog).getByRole('button', { name: '상세 닫기' })));
     fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'R-001 상세 보기' })));
-    expect(screen.getByText(`original · ${long}`).className).toContain('break-all');
+    expect(screen.getByText(`original · ${long}`).className).toContain('truncate');
   });
   it('restores direct Rule links and gracefully closes unknown Rule drawers', async () => {
     missing = true; mount('', { ruleSetKey: 'core', ruleKey: 'gone' });
     expect(await screen.findByText('규칙을 찾을 수 없습니다')).toBeTruthy();
-    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByRole('dialog').textContent).toContain('규칙을 찾을 수 없습니다');
+    expect(document.activeElement).not.toBe(screen.getByRole('button', { name: '상세 닫기' }));
   });
   it('can select a different row or RuleSet history after a direct Rule arrival', async () => {
     mount('', { ruleSetKey: 'core', ruleKey: 'R-OLD' });
@@ -92,7 +155,7 @@ describe('validation rules screen', () => {
     fireEvent.click(screen.getByRole('button', { name: 'R-001 상세 보기' }));
     await waitFor(() => expect(queries.filter(q => q.endpoint === 'logRules.ruleDetail').at(-1)?.params).toEqual({ ruleSetKey: 'core', ruleKey: 'R-001' }));
     fireEvent.click(screen.getByRole('button', { name: 'core RuleSet 이력' }));
-    expect(await screen.findByText('core · RuleSet 이력')).toBeTruthy();
+    expect(await screen.findByRole('dialog', { name: 'core · RuleSet 이력' })).toBeTruthy();
   });
   it('does not call declared IDs unmatched until a complete selected spec is read', async () => {
     mount('&ruleSetKey=core&ruleKey=R-001');
@@ -128,9 +191,9 @@ describe('validation rules screen', () => {
   });
   it('reads RuleSet Revision diffs including a retired revision', async () => {
     mount('&ruleSetKey=core');
-    expect(await screen.findByText('core · RuleSet 이력')).toBeTruthy();
+    expect(await screen.findByRole('dialog', { name: 'core · RuleSet 이력' })).toBeTruthy();
     expect(await screen.findByText('R-002')).toBeTruthy();
-    expect(screen.getByText('R-003')).toBeTruthy(); expect(screen.getByText('퇴역')).toBeTruthy();
+    expect(screen.getByText('R-003')).toBeTruthy(); expect(screen.getAllByText(/r1 · 퇴역/)).toHaveLength(1);
   });
   it('keeps drawer state on refresh and browser history navigation', async () => {
     mount('&ruleSetKey=core&ruleKey=R-001'); await screen.findByRole('dialog'); cleanup();
@@ -143,6 +206,29 @@ describe('validation rules screen', () => {
 });
 
 describe('spec coverage', () => {
+  it('rejects D2 rows against D1 metadata and refreshes the parent snapshot on recovery', async () => {
+    let reads = 0;
+    const newer = { ...coverage, coverageDigest: 'D2', specPin: { revisionId: 'rev-2', changeSetDigest: 'digest-2' }, counts: { ...coverage.counts, covered: 0, no_rule: 1 }, rows: [{ key: 'NEW/KEY', state: 'no_rule', declaredCount: 0, declaredBy: [] }] };
+    coverageAnswer = async () => ok(++reads === 1 ? { ...coverage, coverageDigest: 'D1' } : newer);
+    mount(`&tab=coverage&modelId=${modelId}&focus=NEW%2FKEY`);
+    const refresh = await screen.findByRole('button', { name: '명세 커버리지 새로고침' });
+    expect(screen.queryByRole('table')).toBeNull();
+    expect(screen.queryByText(/명세 커버리지 100%/)).toBeNull();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.queryByText(/rev-1/)).toBeNull();
+    fireEvent.click(refresh);
+    expect(await screen.findByText(/명세 커버리지 0%/)).toBeTruthy();
+    expect(await screen.findByRole('button', { name: 'NEW/KEY 상세 보기' })).toBeTruthy();
+    expect(screen.getByRole('dialog').textContent).toContain('이 명세 요구사항을 선언한 규칙이 없습니다.');
+    expect(screen.queryByText(/rev-1/)).toBeNull();
+  });
+  it('renders a stale requirement selection inside a drawer without arrival focus', async () => {
+    mount(`&tab=coverage&modelId=${modelId}&focus=MISSING`);
+    const note = await screen.findByRole('alert');
+    expect(screen.getByRole('dialog').contains(note)).toBe(true);
+    expect(note.textContent).toContain('명세 요구사항을 찾을 수 없습니다');
+    expect(document.activeElement).not.toBe(screen.getByRole('button', { name: '상세 닫기' }));
+  });
   it.each(['model_unknown', 'ambiguous_key', 'no_spec', 'no_catalog', 'no_requirement_ids'] as CoverageReason[])('%s is one reason, with no table or percentage', async reason => {
     data = reason === 'model_unknown' ? null : { computable: false, reason, specPin: null };
     mount(`&tab=coverage&modelId=${modelId}`);

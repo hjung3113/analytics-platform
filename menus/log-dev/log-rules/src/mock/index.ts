@@ -2,7 +2,7 @@ import { filterRows, validateFilters, type ColumnFilterSpec } from '@ap/contract
 import { defineMockEndpoint, type AnyMockEndpoint } from '@ap/mock-server';
 import {
   RULE_SET_SORT_IDS, RULE_SORT_IDS, SUPPORTS, catalogStatusEndpoint, coverageEndpoint, coverageSummaryEndpoint,
-  isCatalogKey, isUuid, ruleDetailEndpoint, ruleFilterSpecs, ruleSetDetailEndpoint, ruleSetFilterSpecs, ruleSetsEndpoint, rulesEndpoint,
+  isCatalogKey, isUuid, ruleDetailEndpoint, ruleWireFilterSpecs, ruleSetDetailEndpoint, ruleSetFilterSpecs, ruleSetsEndpoint, rulesEndpoint,
   type CatalogParams, type RuleParams,
 } from '../endpoints';
 import { fixtureCoverage, fixtureHistories, fixtureRows, fixtureRules, fixtureRuleSets, fixtureSoftware, fixtureStatus } from './fixtures';
@@ -25,7 +25,7 @@ function listMessage(p: RuleParams, sorts: readonly string[], specs: Readonly<Re
   if (!validateFilters(p.filters ?? [], specs).ok) return 'invalid filter';
   for (const f of p.filters ?? []) {
     if (f.op !== 'in' && f.op !== 'notIn') continue;
-    if (f.value.length > 200 || !f.value.every(v => typeof v === 'string' && v.length > 0 && v.length <= 200 && !unsafe(v))) return 'invalid filter values';
+    if (f.value.length > 200 || !f.value.every(v => typeof v === 'string' && v.trim().length > 0 && v.length <= 200 && !unsafe(v))) return 'invalid filter values';
     if (f.id === 'support' && !f.value.every(v => (SUPPORTS as readonly string[]).includes(v))) return 'invalid support';
   }
   return null;
@@ -52,11 +52,11 @@ const history = defineMockEndpoint(ruleSetDetailEndpoint, { mart: false,
   handle: ({ params }) => fixtureHistories.find(r => r.ruleSetKey === params.ruleSetKey) ?? null,
 });
 const rules = defineMockEndpoint(rulesEndpoint, { mart: false,
-  validate: ({ params }) => listMessage(params, RULE_SORT_IDS, ruleFilterSpecs),
+  validate: ({ params }) => listMessage(params, RULE_SORT_IDS, ruleWireFilterSpecs),
   handle: ({ params }) => {
     const rows = fixtureRows.filter(r => (!params.q || [r.ruleKey, r.title, r.summary].some(v => v.toLowerCase().includes(params.q!.toLowerCase())))
       && (!params.targetQ || fixtureRules.find(d => d.ruleSetKey === r.ruleSetKey && d.ruleKey === r.ruleKey)!.targets.some(t => t.target.toLowerCase().includes(params.targetQ!.toLowerCase()))));
-    const filtered = filterRows(rows, params.filters ?? [], (r, id) => id === 'scope' ? r.scope === null ? null : 'declared' : id === 'requirementIds' ? r.requirementIdCount ? 'declared' : null : r[id as 'support'], { specs: ruleFilterSpecs });
+    const filtered = filterRows(rows, params.filters ?? [], (r, id) => id === 'scope' ? r.scope === null ? null : 'declared' : id === 'requirementIds' ? r.requirementIdCount ? 'declared' : null : r[id as 'support'], { specs: ruleWireFilterSpecs });
     return page(filtered, params, (r, id) => id === 'support' ? SUPPORTS.indexOf(r.support) : r[id as 'ruleKey'] ?? '');
   },
 });

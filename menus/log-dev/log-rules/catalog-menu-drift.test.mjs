@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { endpointSpecs, ruleFilterSpecs, ruleSetFilterSpecs, RULE_SORT_IDS, RULE_SET_SORT_IDS } from './src/endpoints';
+import { endpointSpecs, ruleFilterSpecs, ruleWireFilterSpecs, ruleSetFilterSpecs, RULE_SORT_IDS, RULE_SET_SORT_IDS } from './src/endpoints';
 
 const root = new URL('../../../', import.meta.url);
 const source = path => readFileSync(new URL(path, root), 'utf8');
@@ -26,7 +26,7 @@ describe('logRules client/server declarations', () => {
   it('mirrors sort allow-lists and the filter wire fields/operators/presence semantics', () => {
     expect(RULE_SORT_IDS).toEqual(array(catalog, 'RULE_SORT_IDS'));
     expect(RULE_SET_SORT_IDS).toEqual(array(catalog, 'RULE_SET_SORT_IDS'));
-    for (const [name, specs] of [['RULE_FILTER_SPECS', ruleFilterSpecs], ['RULE_SET_FILTER_SPECS', ruleSetFilterSpecs]]) {
+    for (const [name, specs] of [['RULE_FILTER_SPECS', ruleWireFilterSpecs], ['RULE_SET_FILTER_SPECS', ruleSetFilterSpecs]]) {
       const block = catalog.split(`export const ${name} = {`)[1].split('} as const')[0];
       const serverFields = [...block.matchAll(/^  (\w+): \{ ops: (SCALAR_OPS|PRESENCE_OPS), multiple: (true|false), cell: '([^']+)'/gm)];
       expect(Object.keys(specs).sort()).toEqual(serverFields.map(m => m[1]).sort());
@@ -36,7 +36,11 @@ describe('logRules client/server declarations', () => {
         expect(specs[field].cell ?? 'scalar').toBe(cell);
       }
     }
-    expect(ruleFilterSpecs.support.options.map(o => o.value)).toEqual(array(catalog, 'SUPPORTS'));
+    expect(ruleWireFilterSpecs.support.options.map(o => o.value)).toEqual(array(catalog, 'SUPPORTS'));
+  });
+  it('keeps the UI-only target filter separate from the server wire filters', () => {
+    expect(ruleFilterSpecs).toEqual({ ...ruleWireFilterSpecs, targetCount: { kind: 'text', ops: ['contains'] } });
+    expect(array(catalog, 'RULE_PARAM_KEYS')).toContain('targetQ');
   });
   it('matches the report-only server menu id without introducing a cross-menu model-list alias', () => {
     const menu = source('apps/platform-api/src/modules/log-rules/menu.ts');

@@ -4,7 +4,7 @@ import { Ruler } from 'lucide-react';
 import { NO_FEATURES, contextCapabilities, groupId } from '@ap/contracts';
 import type { MenuEntry } from '@ap/kernel';
 
-const pageKeys = ['ruleSetKey', 'ruleKey', 'modelId', 'softwareId', 'tab', 'q', 'targetQ', 'filter', 'sort', 'page', 'focus'];
+const pageKeys = ['ruleSetKey', 'ruleKey', 'modelId', 'softwareId', 'tab', 'q', 'filter', 'sort', 'page', 'focus'];
 export const manifests: MenuEntry[] = [
   {
     id: 'log-rules', primary: true, group: groupId('logRules'), label: { ko: '검증 규칙', en: 'Validation rules' },
