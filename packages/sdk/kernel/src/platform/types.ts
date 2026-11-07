@@ -101,7 +101,7 @@ export type SpaceNavSectionSlot = { For: (spaceId: SpaceId, menu: MenuEntry | nu
  */
 export type AnalysisActionsProps = { menuId: string; global: GlobalContext; page: Readonly<Record<string, string | readonly string[]>>; /** Current values of the page keys the menu declares in `MenuMeta.subjectPageKeys` (#1429); a kind with no declared key or no value is absent. */ subject?: Readonly<Partial<Record<'equipment' | 'process', string>>> };
 /**
- * Items the app adds to the `⋯` page menu of an analysis screen (`pageType: 'analysis'`, main screen only, not a board pane), after the page's own
+ * Items the app adds to the `⋯` page menu of a main screen whose `pageType` is in `pageTypes` (default `['analysis']`; main screen only, not a board pane), after the page's own
  * `secondaryActions` and the board entry (#1424, same idea as `boardEntry`). `Actions` is rendered inside the menu, so it may use hooks and
  * `useHeaderOverflowDialog`; it must be module-level (stable identity). Draw each item with `HeaderOverflowItem` (`@ap/components`) so the row looks
  * like the other items and a user who may not use it sees it disabled with a reason, not hidden (06 §22 `allowed`). Absent slot → nothing added.

@@ -132,4 +132,13 @@ describe('PlatformPage ⋯ for the analysisActions slot (#1424)', () => {
     await settle();
     expect(screen.getByRole('button', { name: '더보기' })).toBeInTheDocument();
   });
+
+  it.each([
+    ['pageTypes [overview] excludes an analysis page', ['overview'], '/trend'],
+    ['pageTypes [] adds no slot', [], '/'],
+  ])('%s (#1429)', async (_n, pageTypes, url) => {
+    mount(url, { analysisActions: { Actions, pageTypes: pageTypes as never } });
+    await settle();
+    expect(screen.queryByRole('button', { name: '더보기' })).toBeNull();
+  });
 });
