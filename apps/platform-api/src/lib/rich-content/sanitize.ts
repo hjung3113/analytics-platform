@@ -110,6 +110,16 @@ function validateAttrValue(
     }
     return null;
   }
+  if (schema.kind === 'int') {
+    return typeof value === 'number' && Number.isInteger(value) && value >= schema.min && value <= schema.max ? null : `must be an integer between ${schema.min} and ${schema.max}`;
+  }
+  if (schema.kind === 'boolean') return typeof value === 'boolean' ? null : 'must be a boolean';
+  if (schema.kind === 'enum') {
+    return value === null && schema.nullable || typeof value === 'string' && schema.values.includes(value) ? null : 'must be an allowed palette key or language';
+  }
+  if (schema.kind === 'intArray') {
+    return Array.isArray(value) && value.length <= schema.maxLen && value.every(v => typeof v === 'number' && Number.isInteger(v) && v >= schema.min && v <= schema.max) ? null : 'must be a bounded integer array';
+  }
   return 'unknown schema kind';
 }
 
@@ -159,7 +169,7 @@ function validateAttrs(
   // Schema entry exists — check required keys, unknown keys, value shape.
   // Check required first so missing-required surfaces before unknown-key.
   for (const [key, schema] of Object.entries(attrSchemas)) {
-    if (schema.required && !(key in attrsObj)) {
+    if (schema.required && !Object.hasOwn(attrsObj, key)) {
       return {
         error: {
           code: 'rich_content.missing_required_attr',
@@ -173,7 +183,7 @@ function validateAttrs(
 
   // Reject unknown keys.
   for (const key of Object.keys(attrsObj)) {
-    if (!(key in attrSchemas)) {
+    if (!Object.hasOwn(attrSchemas, key)) {
       return {
         error: {
           code: 'rich_content.disallowed_attr',
@@ -188,7 +198,7 @@ function validateAttrs(
   // Validate present values.
   const cleanAttrs: Record<string, unknown> = {};
   for (const [key, schema] of Object.entries(attrSchemas)) {
-    if (!(key in attrsObj)) {
+    if (!Object.hasOwn(attrsObj, key)) {
       // Optional key absent — omit from clean output.
       continue;
     }
@@ -304,7 +314,7 @@ export function sanitizeTipTap(args: {
     const node = raw as RawNode;
 
     // 1. Image check (specific code).
-    if (node.type === 'image') {
+    if (node.type === 'image' && (!allow.nodes.has('image') || isPlainObject(node.attrs) && Object.hasOwn(node.attrs, 'src'))) {
       return {
         error: {
           code: 'rich_content.external_image_forbidden',

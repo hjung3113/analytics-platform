@@ -10,7 +10,7 @@
 // Required behavior: an explicit clear from the parent (value === null /
 // undefined / empty-doc) must reset the editor to an empty doc.
 
-import { render } from '@testing-library/react';
+import { render, waitFor } from '@testing-library/react';
 import * as React from 'react';
 import { describe, expect, it } from 'vitest';
 import { RichEditor, type TipTapDoc } from '../index';
@@ -46,8 +46,7 @@ describe('RichEditor — controlled clear (REV-3 Cluster Z)', () => {
     const { rerender } = render(<Host value={NON_EMPTY_DOC} />);
 
     // Wait one tick for TipTap to commit initial content.
-    await new Promise((r) => setTimeout(r, 20));
-    expect(readEditorText()).toContain('stale body text');
+    await waitFor(() => expect(readEditorText()).toContain('stale body text'));
 
     // Parent flips draft to null → expect editor visible content to clear.
     rerender(<Host value={null} />);
@@ -64,8 +63,7 @@ describe('RichEditor — controlled clear (REV-3 Cluster Z)', () => {
     }
 
     const { rerender } = render(<Host value={NON_EMPTY_DOC} />);
-    await new Promise((r) => setTimeout(r, 20));
-    expect(readEditorText()).toContain('stale body text');
+    await waitFor(() => expect(readEditorText()).toContain('stale body text'));
 
     rerender(<Host value={EMPTY_DOC} />);
     await new Promise((r) => setTimeout(r, 20));

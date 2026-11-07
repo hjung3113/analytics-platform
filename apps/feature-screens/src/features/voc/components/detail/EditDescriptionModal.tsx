@@ -1,3 +1,4 @@
+import { apiHref } from '@/lib/api/client';
 // EditDescriptionModal — reporter pre-triage description edit flow.
 // Dialog (size lg) + Title input + RichEditor + disabled AttachmentDropzone + footer.
 // Consumes useVocEditDescriptionMutation (C6.1).
@@ -330,6 +331,7 @@ export function EditDescriptionModal({
                 render={({ field }) => (
                   <RichEditor
                     surface="voc-description"
+                    resolveAttachmentUrl={id => apiHref(`/attachments/${id}/download`)}
                     ariaLabel="상세 설명"
                     value={field.value as TipTapDoc}
                     onChange={(doc) => field.onChange(doc)}

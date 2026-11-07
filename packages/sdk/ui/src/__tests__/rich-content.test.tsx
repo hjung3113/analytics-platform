@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { RichContentRenderer, RichEditor, type TipTapDoc } from '../index';
 
@@ -29,14 +29,13 @@ describe('RichEditor', () => {
     expect(root).toBeInTheDocument();
   });
 
-  it('respects disabled prop', () => {
+  it('respects disabled prop', async () => {
     render(<RichEditor surface="internal-comment" value={sampleDoc} disabled />);
     // Editor instance is editable=false; assertion via attribute
     const root = document.querySelector('[data-surface="internal-comment"]');
     expect(root).toBeInTheDocument();
     // The ProseMirror div should have contenteditable=false when disabled
-    const editorDiv = root?.querySelector('[contenteditable]');
-    expect(editorDiv?.getAttribute('contenteditable')).toBe('false');
+    await waitFor(() => expect(root?.querySelector('[contenteditable]')?.getAttribute('contenteditable')).toBe('false'));
   });
 
   it('calls onChange with a doc-shaped object when content changes', () => {

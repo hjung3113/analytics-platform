@@ -170,3 +170,27 @@ export const invalidDocs: Record<SharedSurface, InvalidRichContentFixture[]> = {
     },
   ],
 };
+
+// ADR-0123 bounded attribute fixtures (also consumed directly by the server suites).
+validDocs['voc-description'].push(doc(
+  { type: 'heading', attrs: { level: 3 }, content: [{ type: 'text', text: '개요' }] },
+  { type: 'image', attrs: { id: ATTACHMENT_ID, width: 320 } },
+  { type: 'horizontalRule' }, { type: 'tableOfContents' },
+  { type: 'taskList', content: [{ type: 'taskItem', attrs: { checked: false }, content: [paragraph('확인')] }] },
+  { type: 'details', attrs: { open: true }, content: [{ type: 'detailsSummary', content: [{ type: 'text', text: '설명' }] }, { type: 'detailsContent', content: [paragraph('내용')] }] },
+  { type: 'table', content: [{ type: 'tableRow', content: [{ type: 'tableHeader', attrs: { colspan: 1, rowspan: 1, colwidth: [120] }, content: [paragraph('머리')] }] }] },
+  { type: 'codeBlock', attrs: { language: 'sql' }, content: [{ type: 'text', text: 'select 1' }] },
+  paragraph('팔레트', [{ type: 'strike' }, { type: 'highlight', attrs: { color: 'warning' } }, { type: 'textStyle', attrs: { color: 'info' } }]),
+));
+for (const node of [
+  { type: 'heading', attrs: { level: 4 } },
+  { type: 'image', attrs: { id: ATTACHMENT_ID, width: 4097 } },
+  { type: 'taskItem', attrs: { checked: 'false' } },
+  { type: 'details', attrs: { open: 1 } },
+  { type: 'tableCell', attrs: { colwidth: [0] } },
+  { type: 'tableCell', attrs: { colspan: 21 } },
+  { type: 'tableCell', attrs: { colwidth: Array.from({ length: 21 }, () => 120) } },
+  { type: 'codeBlock', attrs: { language: 'unbundled' } },
+  paragraph('색', [{ type: 'highlight', attrs: { color: '#ffffff' } }]),
+  paragraph('색', [{ type: 'textStyle', attrs: { color: 'red' } }]),
+]) invalidDocs['voc-description'].push({ doc: doc(node), expectedCode: 'rich_content.invalid_attr_value' });

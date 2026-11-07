@@ -412,16 +412,31 @@ function getPermissionDecision(
 
 | Surface | Allowed toolbar actions | Footer hint | Surface warning |
 |---|---|---|---|
-| `voc-description` | Bold, Italic, Underline, Code, List, Link, Attach | "본인이 직접 겪은 일을 기준으로 적어주세요. 첨부 파일은 25 MB 이하." | none |
+| `voc-description` | H1–H3, Bold, Italic, Underline, Strike, Code, List, Link, Highlight, Color, Blockquote, HorizontalRule, CodeBlock, TaskList, Table, Details, TableOfContents, Attach/Image; slash menu, bubble formatting, block drag handle | "본인이 직접 겪은 일을 기준으로 적어주세요. 첨부 파일은 25 MB 이하." | none |
 | `reporter-reply` | Bold, Italic, Link, Attach | "공개 타임라인에 기록되며 리포터에게 알림이 발송됩니다." | "리포터에게 보이는 메시지입니다. 내부 도구/티켓 ID는 노출하지 않는 게 안전합니다." |
 | `public-update` | Bold, Italic, List | "Reporter-facing status가 변경됩니다. 공개 안전한 표현인지 한 번 더 확인하세요." | "리포터에게 노출됩니다. 첨부 · 외부 링크 · @멘션은 사용할 수 없습니다." |
 | `internal-comment` | Bold, Italic, Code, List, Link, @Mention, Attach | "팀원에게만 보입니다. 코드 블록 · @멘션을 자유롭게 사용하세요." | none |
 
-Backend sanitization is authoritative (FO ADR-0011): the editor enforces the toolbar allowlist client-side as UX guidance only. The server rejects nodes/marks outside the surface allowlist with `code: 'rich_content.disallowed_node'` (added to FO ADR-0012 in Slice 3 #13). Attribute failures use first-class codes: `rich_content.disallowed_attr` for unknown attr keys, `rich_content.invalid_attr_value` for schema failures, and `rich_content.missing_required_attr` for absent required attrs. The shared allowlist contract also declares atomic `leafNodes`; `attachmentRef` and `mention` must be rejected with `rich_content.disallowed_node` when they carry non-empty `content[]`. FE/BE parity is pinned by the canonical corpus in `packages/feature-shared/src/rich-content/fixtures.ts`; backend tests consume it directly, while `@ap/ui` keeps a local mirror (`packages/sdk/ui/src/rich-content/`; the SDK must not import `@ap/feature-shared`) plus drift/sanitize-on-render tests.
+Backend sanitization is authoritative (FO ADR-0011): the editor enforces the toolbar allowlist client-side as UX guidance only. The server rejects nodes/marks outside the surface allowlist with `code: 'rich_content.disallowed_node'` (added to FO ADR-0012 in Slice 3 #13). Attribute failures use first-class codes: `rich_content.disallowed_attr` for unknown attr keys, `rich_content.invalid_attr_value` for schema failures, and `rich_content.missing_required_attr` for absent required attrs. The shared allowlist contract also declares atomic `leafNodes`; `attachmentRef`, `mention`, `image`, `horizontalRule`, and `tableOfContents` must be rejected with `rich_content.disallowed_node` when they carry non-empty `content[]`. FE/BE parity is pinned by the canonical corpus in `packages/feature-shared/src/rich-content/fixtures.ts`; backend tests consume it directly, while `@ap/ui` keeps a local mirror (`packages/sdk/ui/src/rich-content/`; the SDK must not import `@ap/feature-shared`) plus drift/sanitize-on-render tests.
 
 The canonical surface → rich-editor extension capability map lives in `packages/feature-shared/src/rich-content/allowlist.ts`. `apps/platform-api/src/lib/rich-content/surface-allowlists.ts` may re-export it, while `packages/sdk/ui/src/rich-content/allowlist-local.ts` mirrors it locally because the SDK must not import `@ap/feature-shared`.
 
-Attachment uploads from inside the editor and from the Create form dropzone share the same backend interface (per FO ADR-0011 §Inline Attachments). The frontend abstraction: `useAttachmentUpload({ vocId?: string, scope: 'voc' | 'comment' })`.
+[ADR-0123](../../../adr/0123-sdk-rich-editor-extensions-and-inline-attachment-images.md) supersedes FO ADR-0011's image ban only for opted-in surfaces. `voc-description` adds capabilities `heading`, `strike`, `highlight`, `color`, `blockquote`, `horizontalRule`, `codeBlock`, `taskList`, `table`, `details`, `tableOfContents`, and `image`; mention remains off. Other surfaces retain their node/mark/toolbar contracts.
+
+| Added nodes / marks | Stored attrs (all other attrs rejected) |
+|---|---|
+| `heading` | optional integer `level`, 1–3 |
+| `blockquote`, `horizontalRule`, `taskList`, `table`, `tableRow`, `detailsSummary`, `detailsContent`, `tableOfContents` | none |
+| `codeBlock` | optional `language`: null or `javascript`, `typescript`, `json`, `sql`, `python`, `bash`, `java` |
+| `taskItem`, `details` | optional boolean `checked`, `open` respectively |
+| `tableCell`, `tableHeader` | optional integer `colspan` / `rowspan`, 1–20; `colwidth` integer array, each 25–4096, at most 20 items |
+| `image` (leaf) | required UUID `id`; optional integer `width`, 80–4096 |
+| `strike` mark | none |
+| `highlight`, `textStyle` (Color) marks | optional `color`: `default`, `info`, `success`, `warning`, `danger` token palette key |
+
+Server attr kinds `int`, `boolean`, `enum` and `intArray` use the bounds above. Invalid optional client attrs are dropped; unsupported client `codeBlock.language` becomes null. An image with an invalid/missing UUID is dropped on the client. The server rejects `image` with any `src` or on another surface as `rich_content.external_image_forbidden`; other unknown attrs, absent required attrs and invalid values keep the codes above. Neither pasted HTML/markdown images nor URL input rules create images. `resolveAttachmentUrl(id)` resolves at view time; absent/null renders a chip and stores no URL/display attrs. The same seven language grammars serve static read highlighting; headings feed a pure outline in both modes.
+
+VOC creation shares one `useAttachmentUploadQueue` between editor `onAttach` and the Create attachment list. Paste/drop uploads each file once: images appear in both the body and list, non-images in the list only; failed uploads create no inline node. Toolbar non-image attachmentRef compatibility remains. `normalizeAttachmentRefs` removes transient attrs and uses shared `collectRichContentAttachmentIds` to collect both `attachmentRef.id` and `image.id` for `attachment_ids`. Create and edit-description reject body references absent from the VOC's linked attachments with 422 `validation.failed`, `detail.fields[].path = ['description_rich_content']`, `code = 'attachment_not_linked'`; linking and validation share the write transaction. Already-linked IDs need not be resent on edit. Editing keeps its attachment dropzone and does not enable editor uploads.
 
 ### 5.8 Dirty-save patterns
 
@@ -432,7 +447,7 @@ Attachment uploads from inside the editor and from the Create form dropzone shar
 
 ### 5.9 Drag / drop
 
-**None in VOC scope.** Tasks board owns DnD. The Create form attachment dropzone is HTML5 drag/drop for file ingest only — not list reordering.
+VOC description editing supports capability-gated block dragging and file ingest by paste/drop (§5.7). Tasks board owns task-card reordering. The Create attachment list does not reorder files.
 
 ### 5.10 Reporter-facing status change (Public Update tab)
 

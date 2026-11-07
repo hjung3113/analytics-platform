@@ -136,6 +136,18 @@ function coerceAttrValue(schema: AttrSchema, value: unknown, key: string): unkno
     if (value.length > schema.maxLen) return DROP;
     return value;
   }
+  if (schema.kind === 'int') {
+    return typeof value === 'number' && Number.isInteger(value) && value >= schema.min && value <= schema.max ? value : DROP;
+  }
+  if (schema.kind === 'boolean') return typeof value === 'boolean' ? value : DROP;
+  if (schema.kind === 'enum') {
+    if (value === null && schema.nullable) return null;
+    if (typeof value === 'string' && schema.values.includes(value)) return value;
+    return schema.nullable ? null : DROP;
+  }
+  if (schema.kind === 'intArray') {
+    return Array.isArray(value) && value.length <= schema.maxLen && value.every(v => typeof v === 'number' && Number.isInteger(v) && v >= schema.min && v <= schema.max) ? [...value] : DROP;
+  }
   return DROP;
 }
 
@@ -179,8 +191,6 @@ function cleanNode(raw: unknown, depth: number, ctx: WalkCtx): CleanNode | null 
   const node = raw as RawNode;
   if (typeof node.type !== 'string') return null;
 
-  // image is always dropped — there is no allowed image node on any surface.
-  if (node.type === 'image') return null;
   if (!allow.nodes.has(node.type)) return null;
   if (allow.leafNodes.has(node.type) && Array.isArray(node.content) && node.content.length > 0) return null;
 

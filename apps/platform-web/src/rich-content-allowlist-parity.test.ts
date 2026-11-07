@@ -22,6 +22,9 @@ interface AttributeSchema {
   required: boolean;
   nullable?: boolean;
   maxLen?: number;
+  min?: number;
+  max?: number;
+  values?: readonly string[];
   schemes?: ReadonlySet<string>;
 }
 
@@ -115,10 +118,7 @@ function normalizeAttributes(attributes: AttributeGroups): Record<string, unknow
           Object.entries(schemas)
             .sort(([left], [right]) => left.localeCompare(right))
             .map(([name, schema]) => [name, {
-              kind: schema.kind,
-              required: schema.required,
-              ...(schema.nullable === undefined ? {} : { nullable: schema.nullable }),
-              ...(schema.maxLen === undefined ? {} : { maxLen: schema.maxLen }),
+              ...schema,
               ...(schema.kind === 'url' ? { schemes: [...(schema.schemes ?? [])].sort() } : {}),
             }]),
         ),

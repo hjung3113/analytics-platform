@@ -54,7 +54,7 @@ describe('backend ↔ shared allowlist drift', () => {
           if (sAttr === undefined || bAttr === undefined) {
             throw new Error(`Missing node attr: ${surface}/${nodeType}/${k}`);
           }
-          expect(bAttr.kind).toBe(sAttr.kind);
+          expect(bAttr).toEqual(sAttr);
         }
       }
       for (const markType of Object.keys(sh.markAttrs)) {
@@ -70,7 +70,7 @@ describe('backend ↔ shared allowlist drift', () => {
           if (sAttr === undefined || bAttr === undefined) {
             throw new Error(`Missing mark attr: ${surface}/${markType}/${k}`);
           }
-          expect(bAttr.kind).toBe(sAttr.kind);
+          expect(bAttr).toEqual(sAttr);
         }
       }
 

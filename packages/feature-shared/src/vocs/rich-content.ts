@@ -35,6 +35,8 @@ const STRUCTURAL_NODE_TYPES = new Set([
   'bulletList',
   'orderedList',
   'listItem',
+  'table', 'tableRow', 'tableHeader', 'tableCell', 'taskList', 'taskItem',
+  'details', 'detailsSummary', 'detailsContent', 'tableOfContents', 'horizontalRule',
 ]);
 
 export function isTipTapDocBlank(doc: unknown): boolean {

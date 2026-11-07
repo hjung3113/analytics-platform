@@ -1,13 +1,13 @@
-import { mergeAttributes, type JSONContent } from '@tiptap/core';
-import Link from '@tiptap/extension-link';
-import Underline from '@tiptap/extension-underline';
+import { Mark, type JSONContent } from '@tiptap/core';
 import { generateHTML } from '@tiptap/html';
-import StarterKit from '@tiptap/starter-kit';
 import * as React from 'react';
 import { cn } from '../utils/cn';
 import type { TipTapDoc } from './RichEditor';
 import { AttachmentRef, type AttachmentRefAttrs } from './extensions/attachmentRef';
 import { Mention } from './extensions/mention';
+import { AttachmentImage, readerBaseSchemas, readerBlockSchemas } from './content-schema';
+import { getExtensionsForSurface } from './allowlist-local';
+import { withOutlineAnchors } from './outline';
 import { sanitizeClient, type ClientSanitizeSurface } from './sanitizeClient';
 
 // PLAN-22 C10 (closes #42) — only cross-origin http(s) URLs are "external".
@@ -30,20 +30,15 @@ function isExternalHref(href: unknown): boolean {
   }
 }
 
-// Disable Link's default target/rel injection (which fires on *every* link)
-// and substitute a renderHTML that only decorates external anchors.
-const ExternalAwareLink = Link.extend({
+// Schema-only link rendering preserves the existing external anchor contract.
+const ExternalAwareLink = Mark.create({
+  name: 'link',
+  addAttributes() { return { href: { default: null } }; },
   renderHTML({ HTMLAttributes }) {
-    const isExternal = isExternalHref(HTMLAttributes.href);
-    const extra = isExternal
-      ? { rel: 'noopener noreferrer', target: '_blank' }
-      : { rel: null, target: null };
-    return ['a', mergeAttributes(this.options.HTMLAttributes, HTMLAttributes, extra), 0];
+    const extra = isExternalHref(HTMLAttributes.href)
+      ? { rel: 'noopener noreferrer', target: '_blank' } : {};
+    return ['a', { ...HTMLAttributes, ...extra }, 0];
   },
-}).configure({
-  openOnClick: false,
-  // Wipe the upstream defaults so internal links inherit neither target nor rel.
-  HTMLAttributes: { target: null, rel: null, class: null },
 });
 
 export type RichContentMode = 'reporter_visible' | 'internal';
@@ -67,6 +62,7 @@ export interface RichContentRendererProps {
   attachments?: ReadonlyArray<{ readonly id: string; readonly name: string }>;
   /** Label for a reference whose id is not in `attachments`. Defaults to 'attachment'. */
   attachmentFallbackLabel?: string;
+  resolveAttachmentUrl?: (id: string) => string | null;
   size?: 'default' | 'sm';
   className?: string;
 }
@@ -89,6 +85,7 @@ export function RichContentRenderer({
   surface,
   attachments,
   attachmentFallbackLabel,
+  resolveAttachmentUrl,
   size = 'default',
   className,
 }: RichContentRendererProps) {
@@ -99,30 +96,29 @@ export function RichContentRenderer({
     // each mode so legacy call sites stay safe without code changes.
     const effectiveSurface: ClientSanitizeSurface =
       surface ?? (mode === 'reporter_visible' ? 'public-update' : 'internal-comment');
+    const extended = getExtensionsForSurface(effectiveSurface).includes('heading');
     const sanitized = sanitizeClient(doc, effectiveSurface);
     // stripMentions is moved inside useMemo so generateHTML is only re-invoked
     // when doc or mode actually change — not on every parent render.
     const safe = mode === 'reporter_visible' ? stripMentions(sanitized) : sanitized;
     const names = new Map((attachments ?? []).map((a) => [a.id, a.name]));
-    return generateHTML(safe as JSONContent, [
-      StarterKit.configure({
-        // Disable built-ins that we configure separately below to avoid duplicate extension warnings.
-        link: false,
-        underline: false,
-      }),
+    return generateHTML(withOutlineAnchors(safe) as JSONContent, [
+      ...readerBaseSchemas(extended),
+      ...(extended ? readerBlockSchemas(safe) : []),
+      ...(extended ? [AttachmentImage.configure({ resolveAttachmentUrl, label: id => names.get(id) ?? attachmentFallbackLabel ?? 'attachment' })] : []),
       ExternalAwareLink,
-      Underline,
       AttachmentRef.configure({
         label: ({ id }: AttachmentRefAttrs) => names.get(id) ?? attachmentFallbackLabel ?? 'attachment',
       }),
       Mention,
     ]);
-  }, [doc, mode, surface, attachments, attachmentFallbackLabel]);
+  }, [doc, mode, surface, attachments, attachmentFallbackLabel, resolveAttachmentUrl]);
 
   return (
     <div
-      className={cn('max-w-none [&_a]:text-accent-primary [&_a]:underline-offset-4 [&_a]:hover:underline', size === 'sm' && 'text-sm', className)}
+      className={cn('rich-content max-w-none [&_a]:text-accent-primary [&_a]:underline-offset-4 [&_a]:hover:underline', size === 'sm' && 'text-sm', className)}
       data-mode={mode}
+      data-rich-extended={surface && getExtensionsForSurface(surface).includes('heading') || undefined}
       // biome-ignore lint/security/noDangerouslySetInnerHtml: BE sanitizer is authoritative per ADR-0011
       dangerouslySetInnerHTML={{ __html: html }}
     />
