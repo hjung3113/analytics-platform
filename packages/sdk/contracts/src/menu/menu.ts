@@ -127,6 +127,12 @@ export type MenuMeta = {
    * A pane has no address bar, so there they are ordinary page state.
    */
   hiddenPageKeys?: readonly string[];
+  /**
+   * Which declared page key holds the menu's equipment or process subject (#1429): `{ equipment: 'drillEquipment' }`. Each value is a `pageKeys` entry that is
+   * single-valued (not in `repeatedPageKeys`). The shell passes the key's current value to `AnalysisActionsProps.subject`, so a platform feature never
+   * hard-codes a menu's key name. Absent = the menu names no subject.
+   */
+  subjectPageKeys?: Readonly<Partial<Record<'equipment' | 'process', string>>>;
   /** Id-only metricId is completed from PUBLISHED_METRICS. Every other menu rejects it as metric_pair_incomplete. */
   initializesMetric?: boolean;
   /** Detail/destination routes are reachable through Context Links, not the sidebar. */

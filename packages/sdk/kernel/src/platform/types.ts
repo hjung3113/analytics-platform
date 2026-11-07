@@ -7,7 +7,7 @@ import { CONTEXT_LABELS, type MenuEntry, type Registry, type RouteMatch } from '
 import type { QueryHistory } from '../query/query-history';
 import type { QueryDraft, QueryMissing } from '../query/query-draft';
 import type { RefreshEpochs } from '../query/refresh-epochs';
-import type { ContextKey, ContractError, EquipmentAxisDescriptor, GlobalContext, ModuleScopedId, Pair, Permission, PlatformAdapter, QueryHistoryStore, SavedViewStore, Session, SessionUser, SpaceDef, SpaceId, Text, MainUsageVia } from '@ap/contracts';
+import type { ContextKey, PageType, ContractError, EquipmentAxisDescriptor, GlobalContext, ModuleScopedId, Pair, Permission, PlatformAdapter, QueryHistoryStore, SavedViewStore, Session, SessionUser, SpaceDef, SpaceId, Text, MainUsageVia } from '@ap/contracts';
 
 export type ScopeState = { scopeId: string | null; status: 'none' | 'validating' | 'valid' | 'forbidden' | 'unknown_scope' | 'error'; validatedFor: Session | null; grantedRooms: string[] };
 export type Recent = { menuId: string; url: string; at: number };
@@ -99,7 +99,7 @@ export type SpaceNavSectionSlot = { For: (spaceId: SpaceId, menu: MenuEntry | nu
  * What `AnalysisActionsSlot.Actions` is told about the screen whose `⋯` menu it fills: the menu id, the global Context and a snapshot of the
  * page state of the keys the menu declares (`pageKeys`, hidden keys included; a key with no value is absent, a repeated key is a list). A snapshot of the state, not of the address.
  */
-export type AnalysisActionsProps = { menuId: string; global: GlobalContext; page: Readonly<Record<string, string | readonly string[]>> };
+export type AnalysisActionsProps = { menuId: string; global: GlobalContext; page: Readonly<Record<string, string | readonly string[]>>; /** Current values of the page keys the menu declares in `MenuMeta.subjectPageKeys` (#1429); a kind with no declared key or no value is absent. */ subject?: Readonly<Partial<Record<'equipment' | 'process', string>>> };
 /**
  * Items the app adds to the `⋯` page menu of an analysis screen (`pageType: 'analysis'`, main screen only, not a board pane), after the page's own
  * `secondaryActions` and the board entry (#1424, same idea as `boardEntry`). `Actions` is rendered inside the menu, so it may use hooks and
@@ -108,7 +108,12 @@ export type AnalysisActionsProps = { menuId: string; global: GlobalContext; page
  * `appliesTo` (optional, a plain function called while rendering, never a hook) lets the app decline a menu: false → no item and no `⋯` of the slot's making.
  * Once it says true (or is absent), `Actions` must render at least one row (a not-allowed one is disabled, not omitted); a component that renders nothing leaves an empty menu.
  */
-export type AnalysisActionsSlot = { Actions: ComponentType<AnalysisActionsProps>; appliesTo?: (menuId: string) => boolean };
+export type AnalysisActionsSlot = {
+  Actions: ComponentType<AnalysisActionsProps>;
+  appliesTo?: (menuId: string) => boolean;
+  /** Page types whose main screen gets the slot (#1429). Absent = `['analysis']`, the original behaviour. */
+  pageTypes?: readonly PageType[];
+};
 export type PlatformSlots = { analysisActions?: AnalysisActionsSlot; scopeControl?: ScopeControlSlot; contextBar?: ReactNode; topBarTools?: ReactNode; features?: FeatureSlot; plannedSpaces?: readonly PlannedSpace[]; boardEntry?: ReactNode; notifications?: NotificationsSlot; vocCompose?: VocComposeSlot; homeTodo?: HomeTodoSlot; navCounts?: NavCountsSlot; spaceNavSection?: SpaceNavSectionSlot };
 export type LinkOptions = { params?: Record<string, string>; /** A value may be a list for a repeated page key of the destination: one pair per item, in order. */ page?: Record<string, string | readonly string[] | null>; global?: Partial<GlobalContext>; returnTo?: boolean };
 export type LinkResolution = {

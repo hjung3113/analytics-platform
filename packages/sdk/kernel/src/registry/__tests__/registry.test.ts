@@ -78,6 +78,14 @@ describe('createRegistry validation (platform-packages.md §5)', () => {
     expect(() => createRegistry({ spaces: homeA, groups, carrySets: [{ id: carrySetId('c'), pageKeys: ['filter'] }], menus: [menu('a', '/a', { primary: true, pageKeys: ['filter'], carrySet: carrySetId('c'), repeatedPageKeys: ['filter'], hiddenPageKeys: ['filter'] })] })).not.toThrow();
   });
 
+  it('subjectPageKeys names declared single-valued page keys of the equipment or process kind (#1429)', () => {
+    const make = (over: Record<string, unknown>) => () => createRegistry({ spaces: homeA, groups, menus: [menu('a', '/a', { primary: true, pageKeys: ['eqp', 'tag'], repeatedPageKeys: ['tag'], ...over })] });
+    expect(make({ subjectPageKeys: { equipment: 'eqp' } })).not.toThrow();
+    expect(make({ subjectPageKeys: { equipment: 'nope' } })).toThrow(/subjectPageKeys equipment key "nope" is not a declared page key/);
+    expect(make({ subjectPageKeys: { process: 'tag' } })).toThrow(/cannot be a repeated page key/);
+    expect(make({ subjectPageKeys: { lot: 'eqp' } })).toThrow(/kind "lot" must be equipment or process/);
+  });
+
   it('a repeated key cannot be a drill level, the conditionPreset key or a navView preset key (error names the key and the role)', () => {
     const preset = (id: string) => ({ id, label: { ko: id, en: id }, axes: ['team'] });
     const one = (over: Record<string, unknown>) => () => createRegistry({ spaces: homeA, groups, menus: [menu('a', '/a', { primary: true, ...over })] });
