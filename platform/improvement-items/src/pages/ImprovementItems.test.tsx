@@ -11,7 +11,7 @@ import ImprovementDetail from './ImprovementDetail';
 import { QuestPicker, QuestReference } from './QuestReference';
 import { CreateDrawer } from './CreateDrawer';
 const row: ItemRow = { id: '13280000-0000-4000-8000-000000000001', itemNo: 1, problem: 'test problem', action: null, actionDate: null, status: 'open', assignee: null, quest: { id: 'Q1', titleSnapshot: 'saved Quest title' }, origin: { menuId: 'improvement-items', context: { from: '2026-11-01T00:00', to: '2026-11-05T00:00' } }, targets: [], effectResult: null, effectNote: null, effectCompareLink: null, dropReason: null, version: '1', createdAt: '2026-11-05T00:00:00Z', updatedAt: '2026-11-05T00:00:00Z', createdBy: 'admin', updatedBy: 'admin' };
-const registry = createRegistry({ spaces: [testSpace({ homeMenuId: 'test-home' })], menus: [...manifests, { ...manifests[0]!, id: 'test-home', path: '/test-home', group: groupId('test'), primary: true }], groups: [{ id: groupId('test'), label: { ko: '테스트', en: 'Test' }, icon: manifests[0]!.icon, space: testSpace().id }, { id: groupId('improvementItems'), label: { ko: '개선 아이템', en: 'Improvement items' }, icon: manifests[0]!.icon, space: null }], permissions: [MANAGE_PERMISSION] });
+const registry = createRegistry({ spaces: [testSpace({ homeMenuId: 'test-home' })], menus: [...manifests, { ...manifests[0]!, id: 'drill-source', path: '/drill-source', primary: false, pageKeys: ['drillEquipment'], contextResetKeys: [], hiddenPageKeys: [], repeatedPageKeys: [], subjectPageKeys: { equipment: 'drillEquipment' } }, { ...manifests[0]!, id: 'test-home', path: '/test-home', group: groupId('test'), primary: true }], groups: [{ id: groupId('test'), label: { ko: '테스트', en: 'Test' }, icon: manifests[0]!.icon, space: testSpace().id }, { id: groupId('improvementItems'), label: { ko: '개선 아이템', en: 'Improvement items' }, icon: manifests[0]!.icon, space: null }], permissions: [MANAGE_PERMISSION] });
 function response<T>(data: T | null, outcome: ApiResponse<T>['outcome'] = 'ok'): ApiResponse<T> { return { outcome, data, assessments: [], trust: null, correlationId: 'fixture' }; }
 function mount({ detail = false, outcome = 'ok', loading = false, allowed = true, overrides = {}, children, url }: { children?: ReactNode; url?: string; detail?: boolean; outcome?: ApiResponse<unknown>['outcome']; loading?: boolean; allowed?: boolean; overrides?: Partial<PlatformAdapter> } = {}) {
   window.history.replaceState(null, '', url ?? (detail ? '/improvement-items/13280000-0000-4000-8000-000000000001?v=1&scopeId=MEM' : '/improvement-items?v=1&scopeId=MEM&view=all&q=retained'));
@@ -424,9 +424,9 @@ it('opens a collapsed required target editor before focusing its invalid key (#1
 });
 
 
-it('saves a drilled-equipment suggestion while retaining the original Selection (#1408)', async () => {
+it('saves a declared-subject suggestion while retaining the original Selection (#1408, #1430)', async () => {
   const action = vi.fn(async () => ({ outcome: 'error' as const, data: null, version: null, fieldErrors: [], replayed: false, correlationId: 'c' }));
-  const origin = { menuId: 'improvement-items', context: { selection: ['EQ-1'], page: { drillEquipment: 'EQ-2' } } };
+  const origin = { menuId: 'drill-source', context: { selection: ['EQ-1'], page: { drillEquipment: 'EQ-2' } } };
   mount({ overrides: { menuAction: action }, children: <CreateDrawer origin={origin} onClose={() => {}} /> });
   expect(await screen.findByRole('button', { name: '설비 · EQ-2 제거' })).toBeTruthy();
   expect(within(screen.getByRole('region', { name: '분석에서 가져온 Context' })).getByText('EQ-1')).toBeTruthy();

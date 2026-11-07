@@ -9,9 +9,12 @@ describe('saved analysis origin', () => {
     expect(origin.context.selection).toEqual(['EQ-1']);
     expect(originLinkOptions(origin)).toMatchObject({ page: { drillEquipment: 'EQ-2', filter: ['a', 'b'] }, global: { selection: ['EQ-1'], recipeIds: null } });
   });
-  it('suggests the drilled equipment without changing Selection, otherwise suggests selected equipment', () => {
-    const origin = { menuId: 'analysis', context: { selection: ['EQ-1'], page: { drillEquipment: 'EQ-2' } } };
-    expect(suggestedTargets(origin)).toEqual([{ kind: 'equipment', externalKey: 'EQ-2', displayName: 'EQ-2' }]);
+  it('suggests the equipment or process the menu declared without changing Selection, otherwise the selected equipment', () => {
+    const origin = { menuId: 'analysis', context: { selection: ['EQ-1'], page: { drillEquipment: 'EQ-2', room: 'PHOTO' } } };
+    expect(suggestedTargets(origin, { equipment: 'drillEquipment' })).toEqual([{ kind: 'equipment', externalKey: 'EQ-2', displayName: 'EQ-2' }]);
+    expect(suggestedTargets({ menuId: 'analysis', context: { page: { room: 'PHOTO' } } }, { process: 'room' })).toEqual([{ kind: 'process', externalKey: 'PHOTO', displayName: 'PHOTO' }]);
+    // The feature knows no menu key names: an undeclared drillEquipment is not read.
+    expect(suggestedTargets(origin)).toEqual([{ kind: 'equipment', externalKey: 'EQ-1', displayName: 'EQ-1' }]);
     expect(origin.context.selection).toEqual(['EQ-1']);
     expect(suggestedTargets({ menuId: 'analysis', context: { selection: ['EQ-1', 'EQ-3'] } })).toEqual([{ kind: 'equipment', externalKey: 'EQ-1', displayName: 'EQ-1' }, { kind: 'equipment', externalKey: 'EQ-3', displayName: 'EQ-3' }]);
     expect(suggestedTargets(null)).toEqual([]);

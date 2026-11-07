@@ -27,11 +27,21 @@ export function originLinkOptions(origin: Origin): NonNullable<Parameters<MenuPl
   }
   return { global, page };
 }
-/** A drill destination suggests a target only; it never replaces the saved Selection (§22). */
-export function suggestedTargets(origin: Origin | null): Target[] {
+/**
+ * A subject the origin menu names (`MenuMeta.subjectPageKeys`, #1429) suggests a target only; it never replaces the saved Selection (§22).
+ * The feature knows no menu's key names: without a declared equipment/process value it falls back to the Selection.
+ */
+export function suggestedTargets(origin: Origin | null, subjectKeys?: Readonly<Partial<Record<Target['kind'], string>>>): Target[] {
   if (!origin) return [];
-  const drilled = originLinkOptions(origin).page?.drillEquipment;
-  const ids = typeof drilled === 'string' && drilled.trim() ? [drilled] : Array.isArray(origin.context.selection) ? origin.context.selection.filter((id): id is string => typeof id === 'string' && !!id.trim()) : [];
+  const page = originLinkOptions(origin).page;
+  const declared = (kind: Target['kind']): string | null => {
+    const key = subjectKeys?.[kind];
+    const value = key ? page?.[key] : undefined;
+    return typeof value === 'string' && value.trim() ? value : null;
+  };
+  const equipment = declared('equipment'), process = declared('process');
+  if (equipment || process) return [equipment ? { kind: 'equipment', externalKey: equipment, displayName: equipment } : { kind: 'process', externalKey: process!, displayName: process! }];
+  const ids = Array.isArray(origin.context.selection) ? origin.context.selection.filter((id): id is string => typeof id === 'string' && !!id.trim()) : [];
   return [...new Set(ids)].map(id => ({ kind: 'equipment', externalKey: id, displayName: id }));
 }
 
@@ -52,4 +62,9 @@ export function parseOriginPage(value: string): Pair[] | null {
     }
     return pairs;
   } catch { return null; }
+}
+/** The subject page keys the origin menu declared, or none when the menu is gone from the Registry. */
+export function originSubjectKeys(registry: { menuById: (id: string) => { subjectPageKeys?: Readonly<Partial<Record<Target['kind'], string>>> } }, origin: Origin | null) {
+  if (!origin) return undefined;
+  try { return registry.menuById(origin.menuId).subjectPageKeys; } catch { return undefined; }
 }

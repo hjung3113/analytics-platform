@@ -1,12 +1,12 @@
 // PLAN-22 C9 fix — UI-local copy of the shared rich-content allowlist.
 //
-// ADR-0016 forbids `@ap/feature-ui` from importing `@ap/feature-shared`. The shared
-// allowlist (`packages/shared/src/rich-content/allowlist.ts`) is therefore
+// ADR-0016 forbids `@ap/ui` from importing `@ap/feature-shared`. The shared
+// allowlist (`packages/feature-shared/src/rich-content/allowlist.ts`) is therefore
 // duplicated here verbatim so the FE render-time defence-in-depth sanitizer
 // can run without crossing the boundary.
 //
 // Parity with `@ap/feature-shared` is enforced by:
-//   - `apps/backend/src/lib/rich-content/__tests__/drift-vs-shared.test.ts`
+//   - `apps/platform-api/src/lib/rich-content/__tests__/drift-vs-shared.test.ts`
 //     (backend ↔ shared)
 //   - `packages/sdk/ui/src/rich-content/__tests__/allowlist-drift.test.ts`
 //     (UI ↔ inline fixture mirroring shared)
