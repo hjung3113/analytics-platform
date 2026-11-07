@@ -12,9 +12,21 @@ export function extractSessionCookie(setCookie: string | string[] | undefined): 
   return null;
 }
 
+/**
+ * A stable client address per external id (10.x.y.z). The global rate limiter keys unauthenticated requests by client IP (50/min), and
+ * every test file of a run shares one DB-backed bucket: logging in from one address made the run's total number of mock-logins decide
+ * whether an unrelated file's first requests get a 429. Each test identity logs in from its own address instead.
+ */
+export function testClientAddress(externalId: string): string {
+  let h = 2166136261;
+  for (const ch of externalId) h = Math.imul(h ^ (ch.codePointAt(0) ?? 0), 16777619) >>> 0;
+  return `10.${(h >>> 16) & 255}.${(h >>> 8) & 255}.${(h & 255) || 1}`;
+}
+
 export async function loginAs(app: FastifyInstance, externalId: string): Promise<string> {
   const res = await app.inject({
     method: 'POST',
+    remoteAddress: testClientAddress(externalId),
     url: '/auth/mock-login',
     headers: { 'user-agent': 'integration-test' },
     payload: { external_id: externalId },
