@@ -46,6 +46,7 @@ const PRODUCT_SCHEMAS = [
   'finding',
   'improvement',
   'log_explorer',
+  'log_datasets',
   'log_lifecycle',
   'log_rules',
   'permission',
@@ -196,6 +197,10 @@ const EXPECTED_GRANTS: Record<string, readonly DmlPrivilege[]> = {
   'log_lifecycle.excerpt_reader': ['SELECT', 'INSERT'],
   // Log explorer (#1468 b): investigations are inserted and updated by column (asserted below); nothing is deleted.
   'log_explorer.investigation': ['SELECT', 'INSERT'],
+  // Log test datasets (#1477 D-a): dataset and candidate are updated by column (asserted below), a revision is immutable; nothing is deleted.
+  'log_datasets.dataset': ['SELECT', 'INSERT'],
+  'log_datasets.dataset_revision': ['SELECT', 'INSERT'],
+  'log_datasets.dataset_candidate': ['SELECT', 'INSERT'],
   // Migration 0101 (ADR-0116): tokens are issued and revoked, never edited or deleted. UPDATE is column-scoped to
   // the usage and revocation columns (asserted below); no table-wide UPDATE and no DELETE.
   'core.api_tokens': ['SELECT', 'INSERT'],
@@ -458,11 +463,16 @@ describe.skipIf(!runIntegration)('ADR-0008 role grants — product tables (Slice
     ['rule', []],
     ['rule_target', []],
   ] as const)('platform_app UPDATE on log_rules.%s is limited to the supersede marker', async (table, columns) => {
+    ['dataset', ['name', 'purpose', 'share_scope', 'model_ids', 'scenario_tags', 'status', 'row_version', 'updated_at', 'updated_by']],
+    ['dataset_candidate', ['status', 'reviewer_actor_id', 'reason', 'dataset_id', 'decided_at', 'row_version']],
+    ['dataset_revision', []],
+  ] as const)('platform_app UPDATE on log_datasets.%s is limited to the mutable columns', async (table, columns) => {
     const { rows } = await migrateHandle.pool.query<{ column_name: string }>(
       `select column_name
            from information_schema.column_privileges
           where grantee = 'platform_app'
             and table_schema = 'log_rules'
+            and table_schema = 'log_datasets'
             and table_name = $1
             and privilege_type = 'UPDATE'
           order by column_name`,

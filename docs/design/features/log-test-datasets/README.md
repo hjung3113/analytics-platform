@@ -4,6 +4,8 @@
 >
 > 검증 스크립트·사내 LLM은 별도 개발 중이고 플랫폼에서 다시 쓰지 않는다. 실제 API가 확정되기 전에는 **합성 Dataset과 어댑터 stub만** 쓰고 운영 연동 완료로 표시하지 않는다.
 
+> **구현 현황.** 노드 **a**([#1477](https://github.com/hjung3113/analytics-platform/issues/1477))는 구현됨: `log_datasets` 스키마(`dataset`·불변 `dataset_revision`·`dataset_candidate`), `logDataset.datasets`·`datasetDetail` 읽기, `datasetCreate`·`datasetUpdate`·`datasetArchive`·`revisionCreate`·`candidateCreate`·`candidateDecide` 쓰기, capability `dataset.manage`. 계약 원본은 [api/log-datasets.md](../../../architecture/platform-api/api/log-datasets.md)이고 이 문서와 다르면 그쪽과 코드가 우선한다. 운영 `SourceReadPort` 어댑터가 없어 가용성은 운영에서 `unverified`이고, v0 포트에는 파일 해시 읽기가 없어 존재 확인만 한다(해시 일치 확인은 포트가 `describeFile`을 내놓을 때). 노드 b–f(Baseline·Suite·비교·화면·통합)는 구현 전이다.
+
 ## 1. 이 설계가 하는 것
 
 Round에 묶이지 않고 여러 모델·Round·Validator 버전에서 되풀이해 쓰는 **테스트 자산과 기대 결과**를 별도 도메인으로 둔다.

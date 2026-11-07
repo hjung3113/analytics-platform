@@ -36,6 +36,7 @@ export const CAPABILITIES = [
   'validation.catalog.report',
   'explorer.export',
   'explorer.investigate',
+  'dataset.manage',
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -145,6 +146,8 @@ export const CAPABILITY_META: Readonly<Record<Capability, CapabilityMeta>> = {
   // Validation catalog report (#1491, ADR-0122): the Validator posts its rule catalog snapshot over a service token.
   // Token-only (never a human session) and no Admin bypass: the token owner needs the grant itself.
   'validation.catalog.report': { sensitive: false, adminModuleBypass: 'none', tokenOnly: true },
+  // Log test datasets (#1477 D-a): workspace-scoped, not sensitive; datasets, their revisions and candidates. User role refused (supported-scope policy).
+  'dataset.manage': { sensitive: false, adminModuleBypass: 'always' },
 };
 
 export function isCapability(value: string): value is Capability {
