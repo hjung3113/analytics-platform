@@ -349,22 +349,27 @@ describe('owner-decided create drawer (#1408)', () => {
     expect(within(context).queryByText('catalog-id')).toBeNull();
     expect(query).toHaveBeenCalledWith({ endpoint: 'metrics.definition', context: {}, params: { metricId: 'catalog-id', version: '3' } }, expect.anything());
   });
-  it('keeps problem, action and Quest in approved order, before the expandable target editor', async () => {
+  it('keeps problem, action, unified targets and Quest in order (UX-6)', async () => {
     mount({ children: <CreateDrawer origin={source} onClose={() => {}} /> });
     const problem = await screen.findByLabelText('문제 · 필수');
     const action = screen.getByLabelText('조치');
     const quest = screen.getByRole('region', { name: '과제(Quest)' });
-    const targets = screen.getByRole('region', { name: '대상' });
+    const targets = screen.getByRole('region', { name: '저장할 대상' });
     expect(problem.compareDocumentPosition(action) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(action.compareDocumentPosition(quest) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(quest.compareDocumentPosition(targets) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(action.compareDocumentPosition(targets) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(targets.compareDocumentPosition(quest) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const toggle = within(targets).getByRole('button', { name: /대상 ·/ });
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(toggle);
+    expect(within(targets).getByRole('textbox', { name: '외부 키' })).toBeTruthy();
+    fireEvent.click(toggle);
     expect(screen.queryByRole('textbox', { name: '외부 키' })).toBeNull();
   });
   it('prefills removable target suggestions and saves their removal without changing Selection', async () => {
     const action = vi.fn(async () => ({ outcome: 'error' as const, data: null, version: null, fieldErrors: [], replayed: false, correlationId: 'c' }));
     mount({ overrides: { menuAction: action }, children: <CreateDrawer origin={source} onClose={() => {}} /> });
-    fireEvent.click(await screen.findByRole('button', { name: 'EQ-1 제거' }));
-    expect(screen.queryByRole('button', { name: 'EQ-1 제거' })).toBeNull();
+    fireEvent.click(await screen.findByRole('button', { name: '설비 · EQ-1 제거' }));
+    expect(screen.queryByRole('button', { name: '설비 · EQ-1 제거' })).toBeNull();
     fireEvent.change(screen.getByLabelText('문제 · 필수'), { target: { value: 'problem' } });
     fireEvent.click(screen.getByRole('button', { name: '저장' }));
     await waitFor(() => expect(action).toHaveBeenCalledWith(expect.objectContaining({ input: expect.objectContaining({ targets: [], origin: expect.objectContaining({ context: expect.objectContaining({ selection: ['EQ-1'] }) }) }) })));
@@ -420,7 +425,7 @@ it('saves a drilled-equipment suggestion while retaining the original Selection 
   const action = vi.fn(async () => ({ outcome: 'error' as const, data: null, version: null, fieldErrors: [], replayed: false, correlationId: 'c' }));
   const origin = { menuId: 'improvement-items', context: { selection: ['EQ-1'], page: { drillEquipment: 'EQ-2' } } };
   mount({ overrides: { menuAction: action }, children: <CreateDrawer origin={origin} onClose={() => {}} /> });
-  expect(await screen.findByRole('button', { name: 'EQ-2 제거' })).toBeTruthy();
+  expect(await screen.findByRole('button', { name: '설비 · EQ-2 제거' })).toBeTruthy();
   expect(within(screen.getByRole('region', { name: '분석에서 가져온 Context' })).getByText('EQ-1')).toBeTruthy();
   fireEvent.change(screen.getByLabelText('문제 · 필수'), { target: { value: 'problem' } });
   fireEvent.click(screen.getByRole('button', { name: '저장' }));
@@ -479,7 +484,7 @@ describe('review fixes (#1408 round 2)', () => {
     fireEvent.click(screen.getByRole('button', { name: '분석 출처 제외' }));
     expect((screen.getByLabelText('문제 · 필수') as HTMLTextAreaElement).value).toBe('draft problem');
     expect((screen.getByLabelText('조치') as HTMLTextAreaElement).value).toBe('draft action');
-    expect(screen.getByRole('button', { name: 'EQ-1 제거' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '설비 · EQ-1 제거' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: '저장' }));
     await waitFor(() => expect(action).toHaveBeenCalledWith(expect.objectContaining({ input: expect.objectContaining({ problem: 'draft problem', action: 'draft action', questId: 'Q-1', targets: [{ kind: 'equipment', externalKey: 'EQ-1', displayName: 'EQ-1' }], origin: null }) })));
   });
@@ -498,10 +503,10 @@ describe('review fixes (#1408 round 2)', () => {
   it('keeps target removal before the result list when Quest has many long titles', async () => {
     mount({ overrides: { searchQuests: async () => response({ supported: true, items: Array.from({ length: 10 }, (_, i) => ({ id: `Q-${i}`, title: '긴 과제 제목 '.repeat(50), status: 'Open' })), page: 0, hasMore: false }) }, children: <CreateDrawer origin={{ menuId: 'improvement-items', context: { selection: ['EQ-1'] } }} onClose={() => {}} /> });
     const result = await screen.findByRole('button', { name: /^Q-0 ·/ });
-    const remove = screen.getByRole('button', { name: 'EQ-1 제거' });
+    const remove = screen.getByRole('button', { name: '설비 · EQ-1 제거' });
     expect(remove.compareDocumentPosition(result) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     fireEvent.click(remove);
-    expect(screen.queryByRole('button', { name: 'EQ-1 제거' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '설비 · EQ-1 제거' })).toBeNull();
   });
 });
 
@@ -514,4 +519,67 @@ it('rejects a malformed separate source page and recovers by explicitly clearing
   expect(new URLSearchParams(window.location.search).has('originPage')).toBe(false);
   expect(new URLSearchParams(window.location.search).has('origin')).toBe(false);
   expect(screen.getByRole('textbox', { name: '외부 키' })).toBeTruthy();
+});
+
+
+describe('target presentation and unified editor (#1430)', () => {
+  it.each(['ko', 'en'] as const)('shows a suggested equipment key once with its %s kind and removal label (UX-5)', async lang => {
+    const storage = memoryStorage();
+    storage.setItem('platform:lang', lang);
+    vi.stubGlobal('localStorage', storage);
+    mount({ children: <CreateDrawer origin={{ menuId: 'improvement-items', context: { selection: ['MEM-PHOTO-0103'] } }} onClose={() => {}} /> });
+    const targets = await screen.findByRole('region', { name: lang === 'ko' ? '저장할 대상' : 'Targets to save' });
+    const label = `${lang === 'ko' ? '설비' : 'Equipment'} · MEM-PHOTO-0103`;
+    expect(within(targets).getByText(label)).toBeTruthy();
+    expect(within(targets).queryByText(/MEM-PHOTO-0103 · MEM-PHOTO-0103/)).toBeNull();
+    fireEvent.click(within(targets).getByRole('button', { name: `${label} ${lang === 'ko' ? '제거' : 'Remove'}` }));
+    expect(within(targets).queryByText(label)).toBeNull();
+  });
+  it('opens the no-origin target controls inside the saved-target section before Quest (UX-6)', async () => {
+    mount({ children: <CreateDrawer origin={null} onClose={() => {}} /> });
+    const targets = await screen.findByRole('region', { name: '저장할 대상' });
+    expect(screen.getAllByRole('region', { name: '저장할 대상' })).toHaveLength(1);
+    expect(within(targets).getByRole('button', { name: /대상 ·/ }).getAttribute('aria-expanded')).toBe('true');
+    expect(within(targets).getByLabelText('대상 종류')).toBeTruthy();
+    expect(within(targets).getByLabelText('외부 키')).toBeTruthy();
+    expect(within(targets).getByLabelText('표시 이름')).toBeTruthy();
+    expect(within(targets).getByRole('button', { name: '대상 추가' })).toBeTruthy();
+    expect(screen.getByLabelText('조치').compareDocumentPosition(targets) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(targets.compareDocumentPosition(screen.getByRole('region', { name: '과제(Quest)' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+  it('formats an added process with a distinct display name and key in the same section (UX-5/6)', async () => {
+    mount({ children: <CreateDrawer origin={null} onClose={() => {}} /> });
+    const targets = await screen.findByRole('region', { name: '저장할 대상' });
+    fireEvent.click(within(targets).getByRole('combobox'));
+    fireEvent.click(await screen.findByRole('option', { name: '공정' }));
+    fireEvent.change(within(targets).getByLabelText('외부 키'), { target: { value: 'PHOTO' } });
+    fireEvent.change(within(targets).getByLabelText('표시 이름'), { target: { value: 'Photo process' } });
+    fireEvent.click(within(targets).getByRole('button', { name: '대상 추가' }));
+    expect(within(targets).getByText('공정 · Photo process · PHOTO')).toBeTruthy();
+    expect(within(targets).getByRole('button', { name: '공정 · Photo process · PHOTO 제거' })).toBeTruthy();
+  });
+  it.each(['ko', 'en'] as const)('uses %s kinds and deduplicated keys in detail selection and history (UX-5)', async lang => {
+    const storage = memoryStorage();
+    storage.setItem('platform:lang', lang);
+    vi.stubGlobal('localStorage', storage);
+    const saved: ItemRow = { ...row, targets: [{ kind: 'equipment', externalKey: 'EQ-01', displayName: 'EQ-01' }, { kind: 'process', externalKey: 'PHOTO', displayName: 'Photo process' }] };
+    mount({ detail: true, overrides: { menuQuery: async r => response(r.endpoint === 'improvement.itemDetail' ? saved : { rows: [], total: 0 }) } });
+    const equipment = `${lang === 'ko' ? '설비' : 'Equipment'} · EQ-01`;
+    const process = `${lang === 'ko' ? '공정' : 'Process'} · Photo process · PHOTO`;
+    await screen.findByRole('button', { name: equipment });
+    expect(screen.getByText(equipment, { selector: 'p' })).toBeTruthy();
+    expect(screen.queryByText('EQ-01 · EQ-01')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: process }));
+    expect(screen.getByText(process, { selector: 'p' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: process }).getAttribute('aria-pressed')).toBe('true');
+  });
+  it('shows the shared target format in the list column (UX-5)', async () => {
+    // JSDOM has no layout; give the real table virtualizer a viewport in this test only.
+    const height = vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) { return this.getAttribute('role') === 'row' ? 32 : 420; });
+    const saved: ItemRow = { ...row, targets: [{ kind: 'equipment', externalKey: 'EQ-01', displayName: 'EQ-01' }, { kind: 'process', externalKey: 'PHOTO', displayName: 'Photo process' }] };
+    try {
+      mount({ overrides: { menuQuery: async () => response({ rows: [saved], total: 1 }) } });
+      expect(await screen.findByRole('cell', { name: '설비 · EQ-01 · 공정 · Photo process · PHOTO' })).toBeTruthy();
+    } finally { height.mockRestore(); }
+  });
 });

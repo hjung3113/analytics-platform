@@ -5,7 +5,7 @@ import { PlatformLink, useMenuFetch, usePlatform } from '@ap/kernel';
 import { ManagementLayout, PageKeyWarning, PlatformDataTable, PlatformPage, TableUrlWarning, useTableUrlState, type PlatformColumn, type TableFilterField, type TableUrlState } from '@ap/components';
 import { Button, Input, SearchInput, Tabs, TabsContent, TabsList, TabsTrigger } from '@ap/ui';
 import { MANAGE_PERMISSION, SORT_IDS, filterSpecs, itemsEndpoint, type ItemRow, type Origin } from '../endpoints';
-import { filtersForView, type View } from '../model';
+import { filtersForView, formatTarget, type View } from '../model';
 import { parseOriginPage, snapshotOrigin } from '../origin';
 import { useCopy } from '../copy';
 import { CreateDrawer } from './CreateDrawer';
@@ -52,7 +52,7 @@ function ItemTable({ q, view, onClear }: { q: string; view: View; onClear: () =>
     { id: 'status', header: c.status, size: 132, minSize: 118, filter: specs.status, filterPinned: 1, cell: row => <ItemStatus status={row.status} /> },
     { id: 'assignee', header: c.assignee, size: 120, minSize: 112, sortable: false, filter: specs.assignee, filterPinned: 2, exportValue: row => row.assignee?.displayName ?? c.unset, cell: row => row.assignee?.displayName ?? c.unset },
     { id: 'quest', header: c.quest, size: 200, minSize: 160, sortable: false, exportValue: row => row.quest?.titleSnapshot ?? c.questNone, cell: row => row.quest ? <QuestReference id={row.quest.id} snapshot={row.quest.titleSnapshot} /> : <span className="text-text-secondary">{c.questNone}</span> },
-    { id: 'targets', header: c.target, size: 150, sortable: false, exportValue: row => row.targets.map(t => t.displayName).join(' · '), cell: row => <span className="whitespace-normal break-words">{row.targets.map(t => t.displayName).join(' · ') || c.unset}</span> },
+    { id: 'targets', header: c.target, size: 150, sortable: false, exportValue: row => row.targets.map(t => formatTarget(t, c)).join(' · '), cell: row => <span className="whitespace-normal break-words">{row.targets.map(t => formatTarget(t, c)).join(' · ') || c.unset}</span> },
     { id: 'actionDate', header: c.actionDate, size: 120, sortable: false, cell: row => row.actionDate ?? c.unset },
   ], [c, linkTo, specs]);
   const fields = useMemo<TableFilterField[]>(() => [{ id: 'questLinked', label: { ko: '과제(Quest) 연결', en: 'Quest link' }, spec: specs.questLinked!, pinned: 3 }, { id: 'origin', label: { ko: '분석 출처', en: 'Analysis source' }, spec: specs.origin! }], [specs]);
