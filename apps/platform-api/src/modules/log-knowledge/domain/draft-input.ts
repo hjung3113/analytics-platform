@@ -148,7 +148,7 @@ export function ownerImmutableErrors(
 // ---- action inputs --------------------------------------------------------------------------------------------
 
 export const DRAFT_INPUT_KEYS = {
-  draftCreate: ['proposalType', 'targetItemId', 'proposal'],
+  draftCreate: ['proposalType', 'targetItemId', 'proposal', 'validatorRef'],
   draftUpdate: ['id', 'proposal'],
   draftSubmit: ['id'],
   draftWithdraw: ['id', 'reason'],
@@ -161,8 +161,27 @@ const reason = bounded(DRAFT_REASON_MAX)
   .nullish()
   .transform((v) => (v === undefined || v === null || v.trim() === '' ? null : v.trim()));
 
+/** Validator finding reference (#1198 c): the idempotency key of one finding. Every part trimmed, non-empty, at most 200 code points. */
+export const VALIDATOR_REF_PART_MAX = 200;
+export const VALIDATOR_REF_KEYS = ['sourceSystem', 'runId', 'findingId'] as const;
+const validatorRefSchema = z
+  .object({
+    sourceSystem: requiredText(VALIDATOR_REF_PART_MAX),
+    runId: requiredText(VALIDATOR_REF_PART_MAX),
+    findingId: requiredText(VALIDATOR_REF_PART_MAX),
+  })
+  .strict();
+export type ValidatorRef = z.infer<typeof validatorRefSchema>;
+
+/** Where a draft comes from, derived from the server's view of the caller only (never from input). */
+export type DraftOrigin = 'human' | 'ai' | 'validator';
+export function deriveOrigin(authKind: 'session' | 'token', actorType: string, hasValidatorRef: boolean): DraftOrigin {
+  if (authKind === 'token' && actorType === 'system') return hasValidatorRef ? 'validator' : 'ai';
+  return 'human';
+}
+
 const HEAD_SCHEMAS = {
-  draftCreate: z.object({ proposalType, targetItemId: uuid.nullish(), proposal: z.unknown() }),
+  draftCreate: z.object({ proposalType, targetItemId: uuid.nullish(), proposal: z.unknown(), validatorRef: validatorRefSchema.optional() }),
   draftUpdate: z.object({ id: uuid, proposal: z.unknown() }),
   draftSubmit: z.object({ id: uuid }),
   draftWithdraw: z.object({ id: uuid, reason }),

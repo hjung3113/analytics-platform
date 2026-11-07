@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  deriveOrigin,
   normalizeProposal,
   ownerImmutableErrors,
+  parseDraftHead,
   parseProposal,
   proposalDigest,
   validateDraftInput,
@@ -154,5 +156,42 @@ describe('validateDraftInput', () => {
     expect(validateDraftInput('draftWithdraw', { id: MODEL, reason: 'x'.repeat(500) })).toEqual([]);
     expect(validateDraftInput('draftWithdraw', { id: MODEL, reason: 'x'.repeat(501) })).toEqual([{ path: ['reason'], code: 'too_long' }]);
     expect(validateDraftInput('draftWithdraw', { id: MODEL, reason: 'a\u0000b' })).toEqual([{ path: ['reason'], code: 'malformed' }]);
+  });
+});
+
+describe('validatorRef (#1198 c)', () => {
+  const head = (ref: unknown) => ({ proposalType: 'create', proposal: create(), validatorRef: ref });
+  const ref = { sourceSystem: 'mars-validator', runId: 'run-7', findingId: 'f-1' };
+
+  it('accepts a full ref and parseDraftHead trims every part', () => {
+    expect(validateDraftInput('draftCreate', head(ref))).toEqual([]);
+    const parsed = parseDraftHead('draftCreate', head({ sourceSystem: ' a ', runId: ' b', findingId: 'c ' }));
+    expect(parsed.ok && parsed.value.validatorRef).toEqual({ sourceSystem: 'a', runId: 'b', findingId: 'c' });
+  });
+
+  it.each([
+    ['a missing part', { sourceSystem: 'a', runId: 'b' }, 'validatorRef.findingId:required'],
+    ['a blank part', { ...ref, runId: '   ' }, 'validatorRef.runId:required'],
+    ['a part over 200 characters', { ...ref, findingId: 'x'.repeat(201) }, 'validatorRef.findingId:too_long'],
+    ['a control character', { ...ref, sourceSystem: 'a\u0000b' }, 'validatorRef.sourceSystem:malformed'],
+  ])('refuses %s', (_label, value, expected) => {
+    expect(validateDraftInput('draftCreate', head(value)).map((e) => `${e.path.join('.')}:${e.code}`)).toContain(expected);
+  });
+
+  it('refuses an unknown key inside the ref (strict object)', () => {
+    expect(validateDraftInput('draftCreate', head({ ...ref, origin: 'ai' })).length).toBeGreaterThan(0);
+  });
+});
+
+describe('deriveOrigin (#1198 c)', () => {
+  it.each([
+    ['session', 'internal_member', false, 'human'],
+    ['session', 'system', true, 'human'],
+    ['token', 'internal_member', false, 'human'],
+    ['token', 'internal_member', true, 'human'],
+    ['token', 'system', false, 'ai'],
+    ['token', 'system', true, 'validator'],
+  ] as const)('%s + %s actor + ref %s → %s', (kind, actorType, hasRef, expected) => {
+    expect(deriveOrigin(kind, actorType, hasRef)).toBe(expected);
   });
 });
