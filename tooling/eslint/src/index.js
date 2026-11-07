@@ -69,7 +69,8 @@ const FEATURE_API_SUBPATH = 'feature-bridge/feature-api';
 const NOTIFICATIONS_SLOT_SUBPATH = 'feature-bridge/notifications-slot';
 const VOC_COMPOSE_SLOT_SUBPATH = 'feature-bridge/voc-compose-slot';
 const HOME_TODO_SLOT_SUBPATH = 'feature-bridge/home-todo-slot';
-// Consumer-owned home contribution, composed only in main.tsx (#1328 e2).
+// Consumer-owned contributions, composed only in main.tsx (#1328 e2, #1408).
+const IMPROVEMENT_ANALYSIS_ACTIONS_SUBPATH = 'menu-improvement-items/analysis-actions';
 const IMPROVEMENT_HOME_SLOT_SUBPATH = 'menu-improvement-items/home-todo-slot';
 const SCOPE_CONTROL_SLOT_SUBPATH = 'feature-bridge/scope-control';
 const NAV_COUNTS_SLOT_SUBPATH = 'feature-bridge/nav-counts';
@@ -109,7 +110,7 @@ const MENU_MOCK_RESTRICTION = { allow: ['contracts'], denyReact: true, denyTable
 const APP_RESTRICTION = { allow: null, denyReact: false, denyQueryEngine: true, mockAllowed: false, denyDev: true, denyHttpAdapter: true, denyEqvMockData: true, allowSubpaths: [...UI_THEME_SUBPATHS, DOCK_ENTRY_SUBPATH, HOST_ENTRY_SUBPATH] };
 // src/main.tsx is the composition root: only the screen API and notifications slot subpaths; no mock, no ./dev (#153).
 const APP_REAL_RESTRICTION = { ...APP_RESTRICTION, denyHttpAdapter: false };
-const APP_MAIN_RESTRICTION = { ...APP_RESTRICTION, allowSubpaths: [...UI_THEME_SUBPATHS, DOCK_ENTRY_SUBPATH, HOST_ENTRY_SUBPATH, FEATURE_API_SUBPATH, NOTIFICATIONS_SLOT_SUBPATH, VOC_COMPOSE_SLOT_SUBPATH, HOME_TODO_SLOT_SUBPATH, IMPROVEMENT_HOME_SLOT_SUBPATH, SCOPE_CONTROL_SLOT_SUBPATH, NAV_COUNTS_SLOT_SUBPATH, SAVED_VIEWS_SLOT_SUBPATH] };
+const APP_MAIN_RESTRICTION = { ...APP_RESTRICTION, allowSubpaths: [...UI_THEME_SUBPATHS, DOCK_ENTRY_SUBPATH, HOST_ENTRY_SUBPATH, FEATURE_API_SUBPATH, NOTIFICATIONS_SLOT_SUBPATH, VOC_COMPOSE_SLOT_SUBPATH, HOME_TODO_SLOT_SUBPATH, IMPROVEMENT_HOME_SLOT_SUBPATH, IMPROVEMENT_ANALYSIS_ACTIONS_SUBPATH, SCOPE_CONTROL_SLOT_SUBPATH, NAV_COUNTS_SLOT_SUBPATH, SAVED_VIEWS_SLOT_SUBPATH] };
 // The mock assembly and DevTools: mock-server and the menu `/mock` subpaths.
 const APP_DEV_RESTRICTION = { allow: null, denyReact: false, denyQueryEngine: true, mockAllowed: true, denyHttpAdapter: true, denyEqvMockData: false, allowSubpaths: [...UI_THEME_SUBPATHS, MENU_MOCK_SUBPATH] };
 // The conformance test: mock-server, and from ./dev only the mock assembly's MOCK_ENDPOINTS list (#153 follow-up —

@@ -1,13 +1,14 @@
 {
   "name": "@ap/menu-improvement-items",
   "private": true,
-  "version": "0.1.3",
+  "version": "0.1.5",
   "ap": {
     "sdk": ">=0.30.0 <0.31.0"
   },
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./analysis-actions": "./src/analysis-actions.tsx",
     "./home-todo-slot": "./src/home-todo-slot.tsx",
     "./mock": "./src/mock/index.ts",
     "./styles.css": "./src/styles.css"

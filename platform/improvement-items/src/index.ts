@@ -12,7 +12,7 @@ export const manifests: PlatformMenuEntry[] = [
     description: { ko: '분석에서 발견한 문제와 조치, 효과 확인의 기록', en: 'Problems from analysis, actions and effect checks' },
     path: '/improvement-items', icon: ListChecks, permission: 'platform:view',
     requiresScope: false, context: contextCapabilities(), pageType: 'management', features: NO_FEATURES,
-    pageKeys: ['view', 'q', 'filter', 'page', 'sort', 'focus', 'origin'], repeatedPageKeys: ['filter'], hiddenPageKeys: ['filter'], contextResetKeys: ['page'],
+    pageKeys: ['view', 'q', 'filter', 'page', 'sort', 'focus', 'origin', 'originPage'], repeatedPageKeys: ['filter'], hiddenPageKeys: ['filter'], contextResetKeys: ['page'],
     component: lazy(() => import('./pages/ImprovementItems')),
   },
   {

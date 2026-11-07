@@ -1,11 +1,12 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
-import { encodeFilterParam, type ColumnFilterSpec } from '@ap/contracts';
+import { encodeFilterParam, type ColumnFilterSpec, type Pair } from '@ap/contracts';
 import { PlatformLink, useMenuFetch, usePlatform } from '@ap/kernel';
 import { ManagementLayout, PageKeyWarning, PlatformDataTable, PlatformPage, TableUrlWarning, useTableUrlState, type PlatformColumn, type TableFilterField, type TableUrlState } from '@ap/components';
 import { Button, Input, SearchInput, Tabs, TabsContent, TabsList, TabsTrigger } from '@ap/ui';
 import { MANAGE_PERMISSION, SORT_IDS, filterSpecs, itemsEndpoint, type ItemRow, type Origin } from '../endpoints';
 import { filtersForView, type View } from '../model';
+import { parseOriginPage, snapshotOrigin } from '../origin';
 import { useCopy } from '../copy';
 import { CreateDrawer } from './CreateDrawer';
 import { Field, ItemStatus } from './parts';
@@ -65,7 +66,7 @@ function ItemTable({ q, view, onClear }: { q: string; view: View; onClear: () =>
   </div>;
 }
 export default function ImprovementItems() {
-  const c = useCopy(), { pageParam, pageParams, setPage, can, canOpen, global } = usePlatform();
+  const c = useCopy(), { pageParam, pageParams, setPage, can, canOpen, global, registry, page, url } = usePlatform();
   const view = pageParam('view') ?? 'mine', q = pageParam('q') ?? '';
   const validView = ['mine', 'all', 'unlinked'].includes(view);
   const [initialized, setInitialized] = useState(false);
@@ -82,7 +83,7 @@ export default function ImprovementItems() {
   // An effect does it after the commit, so the unmounting sheet/dialog focus scopes cannot steal it back.
   const createButton = useRef<HTMLButtonElement>(null);
   const returnFocus = useRef(false);
-  const closeCreate = () => { returnFocus.current = true; setPage({ focus: null, origin: null }); };
+  const closeCreate = () => { returnFocus.current = true; setPage({ focus: null, origin: null, originPage: null }); };
   useEffect(() => {
     if (creating || !returnFocus.current) return;
     returnFocus.current = false;
@@ -91,12 +92,16 @@ export default function ImprovementItems() {
   const source = pageParam('origin');
   let validSource = false;
   if (source) { try { validSource = canOpen(source); } catch { /* Unknown menu ids stay rejected and visible. */ } }
-  const origin: Origin | null = source && validSource ? { menuId: source, context: { ...global } } : null;
+  // The legacy origin URL may still carry source-declared keys; include hidden applied pairs too.
+  const visibleSourcePage = [...new URL(url, 'https://platform.invalid').searchParams.entries()].filter(([key]) => !page.some(([name]) => name === key));
+  const separatePage = pageParam('originPage');
+  const sourcePage: Pair[] | null = separatePage === null ? [...page, ...visibleSourcePage].filter(([key]) => key !== 'origin' && !(key === 'focus' && pageParam('focus') === 'new')) : parseOriginPage(separatePage);
+  const origin: Origin | null = source && validSource && sourcePage ? snapshotOrigin(registry.menuById(source), global, sourcePage) : null;
   return <PlatformPage description={c.description} primaryAction={canWrite ? <Button ref={createButton} onClick={() => setPage({ focus: 'new' })}><Plus className="size-4" aria-hidden />{c.create}</Button> : undefined}>
     {!canWrite && <p role="note" className="text-sm text-text-secondary">{c.denied}</p>}
     {!validView && <PageKeyWarning sentences={[c.unsupportedView]} onRecover={clear} />}
-    {creating && source && !validSource && <PageKeyWarning sentences={[c.invalidOrigin]} onRecover={() => setPage({ origin: null })} />}
-    {creating && canWrite && (!source || validSource) && <CreateDrawer origin={origin} onClose={closeCreate} />}
+    {creating && source && (!validSource || !sourcePage) && <PageKeyWarning sentences={[c.invalidOrigin]} onRecover={() => setPage({ origin: null, originPage: null })} />}
+    {creating && canWrite && (!source || (validSource && sourcePage)) && <CreateDrawer origin={origin} onClose={closeCreate} />}
     <Tabs value={validView ? view : 'all'} onValueChange={value => chooseView(value as View)}>
       <TabsList><TabsTrigger value="mine">{c.mine}</TabsTrigger><TabsTrigger value="all">{c.all}</TabsTrigger><TabsTrigger value="unlinked">{c.unlinked}</TabsTrigger></TabsList>
       {view === 'mine' && <p className="py-3 text-xs text-text-secondary">{c.mineHint}</p>}
