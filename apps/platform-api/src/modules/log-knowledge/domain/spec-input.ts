@@ -11,7 +11,7 @@ import { z } from 'zod';
 
 import { REQUIRED, bounded, uuid } from '../../../lib/input/fields.js';
 import type { FieldError } from '../../menu-dispatch/types.js';
-import { unsafeText } from '../../platform-port/text-safety.js';
+import { unsafeText } from '../../../lib/text-safety.js';
 import { NAME_MAX, toCodeKey } from './code-key.js';
 
 export const SPEC_SCHEMA_VERSION = 1;

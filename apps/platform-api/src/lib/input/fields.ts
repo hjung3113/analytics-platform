@@ -7,7 +7,7 @@
 
 import { z } from 'zod';
 
-import { unsafeText } from '../../modules/platform-port/text-safety.js';
+import { unsafeText } from '../text-safety.js';
 
 /** The uuid spelling every input accepts; ids are stored in the DB's lower-case (the modules' `canonical`). */
 export const isUuid = (value: string): boolean =>

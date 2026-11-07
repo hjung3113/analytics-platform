@@ -7,9 +7,9 @@
 
 import { z } from 'zod';
 
-import { REQUIRED, bounded, clearableText, requiredText, uuid } from '../../../lib/input/fields.js';
+import { bounded, clearableText, requiredText, uuid } from '../../../lib/input/fields.js';
 import type { FieldError } from '../../menu-dispatch/types.js';
-import { unsafeText } from '../../platform-port/text-safety.js';
+import { unsafeText } from '../../../lib/text-safety.js';
 import { TARGET_KINDS } from './item-filters.js';
 
 export const PROBLEM_MAX = 500;
@@ -59,7 +59,9 @@ function isCalendarDay(value: string): boolean {
   const date = new Date(Date.UTC(y, mo - 1, d));
   return date.getUTCFullYear() === y && date.getUTCMonth() === mo - 1 && date.getUTCDate() === d;
 }
-const day = z.string(REQUIRED).refine(isCalendarDay, { message: 'malformed' });
+/** Calendar days, arrays and records keep their pre-kit wrong-type code (`malformed`); only uuid/text fields answer `required` (#1411). */
+const NON_TEXT = { required_error: 'required', invalid_type_error: 'malformed' } as const;
+const day = z.string(NON_TEXT).refine(isCalendarDay, { message: 'malformed' });
 const clearableDay = day.nullable().optional();
 
 /** The `origin.context` snapshot is flat data: the context object itself is level 1, and an array or object found
@@ -82,7 +84,7 @@ const safeJson = (node: unknown, depth: number): boolean => {
 const originSchema = z
   .object({
     menuId: requiredText(SHORT_TEXT_MAX),
-    context: z.record(z.unknown(), REQUIRED).superRefine((v, ctx) => {
+    context: z.record(z.unknown(), NON_TEXT).superRefine((v, ctx) => {
       if (new TextEncoder().encode(JSON.stringify(v)).length > ORIGIN_CONTEXT_MAX_BYTES) {
         ctx.addIssue({ code: 'custom', message: 'too_long' });
         return;
@@ -102,7 +104,7 @@ const targetSchema = z
   .strict({ message: 'malformed' });
 export type TargetInput = z.infer<typeof targetSchema>;
 
-const targetsSchema = z.array(targetSchema, REQUIRED).max(TARGETS_MAX, { message: 'too_many' });
+const targetsSchema = z.array(targetSchema, NON_TEXT).max(TARGETS_MAX, { message: 'too_many' });
 
 const effectSchema = z
   .object({

@@ -11,7 +11,7 @@ import {
   updateNoticeInputSchema,
 } from '@ap/contract-schemas';
 
-import { unsafeText } from '../platform-port/text-safety.js';
+import { unsafeText } from '../../lib/text-safety.js';
 import type { FieldError, NoticeDraft } from './types.js';
 
 export type NoticeOperation = 'save' | 'delete';

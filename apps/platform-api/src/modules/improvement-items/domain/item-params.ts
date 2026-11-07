@@ -1,7 +1,7 @@
 // Param judgments of the improvement item reads. Every refusal is a message for the engine's params judgment
 // (`error` outcome), never an empty page.
 
-import { unsafeText } from '../../platform-port/text-safety.js';
+import { unsafeText } from '../../../lib/text-safety.js';
 import { PAGE_SIZE_MAX, parseListParams } from '../../../lib/list-params/list-params.js';
 import type { ListQuery } from '../../../lib/list-params/types.js';
 import { ITEM_FILTER_SPECS, TARGET_KINDS, TEXT_FIELD_MAX } from './item-filters.js';

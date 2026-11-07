@@ -18,6 +18,12 @@ describe('improvement item write input (DB-free)', () => {
     expect((parseItemInput('itemUpdate', { itemId: ID, problem: 'p' }) as { value: object }).value).not.toHaveProperty('action');
   });
 
+  it('keeps `malformed` for a wrong-typed day, array and record (only uuid/text fields answer `required`, #1411)', () => {
+    expect(codes('itemSetStatus', { itemId: ID, status: 'done', action: 'a', actionDate: 5 })).toContain('actionDate:malformed');
+    expect(codes('itemCreate', { problem: 'p', targets: 'bad' })).toContain('targets:malformed');
+    expect(codes('itemCreate', { problem: 'p', origin: { menuId: 'm', context: 5 } })).toContain('origin.context:malformed');
+  });
+
   it('flags a duplicate (kind, externalKey) at the index of the second one', () => {
     const t = (k: string) => ({ kind: 'equipment', externalKey: k, displayName: k });
     expect(codes('itemUpdate', { itemId: ID, targets: [t('a'), t('b'), t('a')] })).toEqual(['targets.2:duplicate']);

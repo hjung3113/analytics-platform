@@ -9,7 +9,7 @@ import type { MenuDispatchContribution } from '../menu-dispatch/types.js';
 import type { CheckService } from '../permissions/check-service.js';
 import { createPlatformNoticeService } from '../platform-notices/index.js';
 import { holdsPlatformPermission } from '../platform-port/permissions.js';
-import { unsafeText } from '../platform-port/text-safety.js';
+import { unsafeText } from '../../lib/text-safety.js';
 
 export const HOME_NOTICES_ENDPOINT = 'home.notices';
 

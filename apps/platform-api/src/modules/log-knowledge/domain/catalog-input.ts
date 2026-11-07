@@ -5,7 +5,7 @@
 
 import { isUuid } from '../../../lib/input/fields.js';
 import type { FieldError } from '../../menu-dispatch/types.js';
-import { unsafeText } from '../../platform-port/text-safety.js';
+import { unsafeText } from '../../../lib/text-safety.js';
 import { CODE_MAX, NAME_MAX } from './code-key.js';
 
 export const PROCESS_IDS_MAX = 200;
