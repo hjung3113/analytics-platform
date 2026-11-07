@@ -192,7 +192,7 @@ export function DatePicker({
       <div className="flex flex-col gap-1">
         <div
           className={cn(
-            'flex h-10 w-full items-center rounded-md border border-border-subtle bg-surface-field px-3 py-2 text-sm text-text-primary',
+            'flex h-10 w-full items-center rounded-md border border-border-control bg-surface-field px-3 py-2 text-sm text-text-primary',
             'focus-within:outline-hidden focus-within:ring-2 focus-within:ring-focus-ring focus-within:ring-offset-2',
             disabled && 'cursor-not-allowed opacity-50',
             showDanger && 'border-accent-danger',
