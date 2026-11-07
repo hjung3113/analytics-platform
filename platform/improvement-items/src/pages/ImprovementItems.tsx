@@ -66,7 +66,7 @@ function ItemTable({ q, view, onClear }: { q: string; view: View; onClear: () =>
   </div>;
 }
 export default function ImprovementItems() {
-  const c = useCopy(), { pageParam, pageParams, setPage, can, canOpen, global, registry, page, url } = usePlatform();
+  const c = useCopy(), { pageParam, pageParams, setPage, can, canOpen, global, registry } = usePlatform();
   const view = pageParam('view') ?? 'mine', q = pageParam('q') ?? '';
   const validView = ['mine', 'all', 'unlinked'].includes(view);
   const [initialized, setInitialized] = useState(false);
@@ -92,10 +92,9 @@ export default function ImprovementItems() {
   const source = pageParam('origin');
   let validSource = false;
   if (source) { try { validSource = canOpen(source); } catch { /* Unknown menu ids stay rejected and visible. */ } }
-  // The legacy origin URL may still carry source-declared keys; include hidden applied pairs too.
-  const visibleSourcePage = [...new URL(url, 'https://platform.invalid').searchParams.entries()].filter(([key]) => !page.some(([name]) => name === key));
   const separatePage = pageParam('originPage');
-  const sourcePage: Pair[] | null = separatePage === null ? [...page, ...visibleSourcePage].filter(([key]) => key !== 'origin' && !(key === 'focus' && pageParam('focus') === 'new')) : parseOriginPage(separatePage);
+  // Without originPage the origin carries global Context only (v0.28.0 shape); the destination's own keys are never source state.
+  const sourcePage: Pair[] | null = separatePage === null ? [] : parseOriginPage(separatePage);
   const origin: Origin | null = source && validSource && sourcePage ? snapshotOrigin(registry.menuById(source), global, sourcePage) : null;
   return <PlatformPage description={c.description} primaryAction={canWrite ? <Button ref={createButton} onClick={() => setPage({ focus: 'new' })}><Plus className="size-4" aria-hidden />{c.create}</Button> : undefined}>
     {!canWrite && <p role="note" className="text-sm text-text-secondary">{c.denied}</p>}

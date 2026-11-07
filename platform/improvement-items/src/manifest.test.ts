@@ -9,7 +9,7 @@ describe('improvement menu and endpoint mirror', () => {
     expect(registry.spaceOf(menu)).toBeNull();
     expect(menu.permission).toBe('platform:view');
     expect(menu.pageKeys).toEqual(['view', 'q', 'filter', 'page', 'sort', 'focus', 'origin', 'originPage']);
-    expect(menu.hiddenPageKeys).toEqual(['filter']);
+    expect(menu.hiddenPageKeys).toEqual(['filter', 'originPage']);
     expect(manifests[1]).toMatchObject({ path: '/improvement-items/:itemId', parent: 'improvement-items', navHidden: true });
   });
   it('mirrors the 3 reads and 6 writes with separate read and manage rights', () => {

@@ -94,6 +94,9 @@ describe('improvement mock dispatch', () => {
     // itemLinkQuest without the key pair is required and never unlinks the stored Quest
     expect(await write(a, 'itemLinkQuest', { itemId: id2 }, '1')).toMatchObject({ outcome: 'invalid', fieldErrors: [{ path: ['questId'], code: 'required' }, { path: ['questTitle'], code: 'required' }] });
     expect(await query(a, 'improvement.itemDetail', { itemId: id2 })).toMatchObject({ data: { quest: { id: 'Q-1' } } });
+    // a wrong-typed text is required like the server (#1411); a wrong-typed itemId too
+    expect(await write(a, 'itemCreate', { problem: 5, targets: [{ kind: 'equipment', externalKey: 'EQ-01', displayName: 'x' }] }))
+      .toMatchObject({ outcome: 'invalid', fieldErrors: [{ path: ['problem'], code: 'required' }] });
     // an oversized problem is too_long, not malformed
     expect(await write(a, 'itemCreate', { problem: '가'.repeat(501), targets: [{ kind: 'equipment', externalKey: 'EQ-01', displayName: 'x' }] }))
       .toMatchObject({ outcome: 'invalid', fieldErrors: [{ path: ['problem'], code: 'too_long' }] });

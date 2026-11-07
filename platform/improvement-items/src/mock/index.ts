@@ -54,28 +54,30 @@ const isDay = (v: unknown): boolean => {
   const date = new Date(Date.UTC(y, mo - 1, d));
   return date.getUTCFullYear() === y && date.getUTCMonth() === mo - 1 && date.getUTCDate() === d;
 };
-/** A required, non-blank text key: absent → required; null/non-string/unsafe → malformed; over the bound → too_long; blank → required. */
+/** A required, non-blank text key: absent/null/non-string → required (#1411); unsafe → malformed; over the bound → too_long; blank → required. */
 const requiredText = (v: unknown, max: number, path: string[]): Check => {
   if (v === undefined) return fieldAt(path);
-  if (v === null || typeof v !== 'string' || unsafe(v)) return fieldAt(path, 'malformed');
+  if (typeof v !== 'string') return fieldAt(path, 'required');
+  if (unsafe(v)) return fieldAt(path, 'malformed');
   if (len(v) > max) return fieldAt(path, 'too_long');
   return v.trim() === '' ? fieldAt(path) : null;
 };
 /** Optional key of a non-nullable text: absent → fine, then `requiredText` rules. */
 const optionalText = (v: unknown, max: number, path: string[]): Check => (v === undefined ? null : requiredText(v, max, path));
-/** `clearableText`: absent → untouched; null or a blank text clears; unsafe/non-string → malformed; over the bound → too_long. */
+/** `clearableText`: absent → untouched; null or a blank text clears; non-string → required; unsafe → malformed; over the bound → too_long. */
 const clearableText = (v: unknown, max: number, path: string[]): Check => {
   if (v === undefined || v === null) return null;
-  if (typeof v !== 'string' || unsafe(v)) return fieldAt(path, 'malformed');
+  if (typeof v !== 'string') return fieldAt(path, 'required');
+  if (unsafe(v)) return fieldAt(path, 'malformed');
   return len(v) > max ? fieldAt(path, 'too_long') : null;
 };
 /** Nullable UUID value: absent → required unless optional; null clears; otherwise a UUID string. */
 const nullableUuid = (v: unknown, path: string[], optional: boolean): Check => {
   if (v === undefined) return optional ? null : fieldAt(path);
   if (v === null) return null;
-  return typeof v !== 'string' || !UUID.test(v) ? fieldAt(path, 'malformed') : null;
+  return typeof v !== 'string' ? fieldAt(path, 'required') : !UUID.test(v) ? fieldAt(path, 'malformed') : null;
 };
-const itemIdCheck = (v: unknown): Check => (v === undefined ? field('itemId') : typeof v !== 'string' || !UUID.test(v) ? field('itemId', 'malformed') : null);
+const itemIdCheck = (v: unknown): Check => (v === undefined || typeof v !== 'string' ? field('itemId') : !UUID.test(v) ? field('itemId', 'malformed') : null);
 const clearableDay = (v: unknown, name: string): Check => (v === undefined || v === null ? null : isDay(v) ? null : field(name, 'malformed'));
 const safeJson = (node: unknown, depth: number): boolean => {
   if (depth > CONTEXT_MAX_DEPTH) return false;

@@ -310,6 +310,27 @@ describe('unsaved-edit guard (#1388)', () => {
     fireEvent.change(problem, { target: { value: '' } });
     await waitFor(() => expect(result.leave()).toBe(true));
   });
+  it('asks before Esc or Cancel drops typed status-move input (UX-4)', async () => {
+    mount({ detail: true });
+    fireEvent.click(await screen.findByRole('button', { name: '조치 중' }));
+    fireEvent.change(screen.getByLabelText('조치 · 필수'), { target: { value: 'repair' } });
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+    fireEvent.click(await screen.findByRole('button', { name: '계속 작성' }));
+    expect((screen.getByLabelText('조치 · 필수') as HTMLTextAreaElement).value).toBe('repair');
+    fireEvent.click(screen.getAllByRole('button', { name: '닫기' })[0]!);
+    fireEvent.click(await screen.findByRole('button', { name: '버리고 닫기' }));
+    await waitFor(() => expect(screen.queryByLabelText('조치 · 필수')).toBeNull());
+  });
+  it('holds a same-menu Back that only drops focus=new while the draft is typed (UX-1)', async () => {
+    mount({ outcome: 'empty' });
+    fireEvent.click(await screen.findByRole('button', { name: '개선 아이템 남기기' }));
+    fireEvent.change(await screen.findByRole('textbox', { name: /문제/ }), { target: { value: 'back test' } });
+    expect(new URLSearchParams(window.location.search).get('focus')).toBe('new');
+    window.history.back();
+    // The guard restores the address it held; without it the drawer would close and the draft vanish.
+    await waitFor(() => expect(new URLSearchParams(window.location.search).get('focus')).toBe('new'));
+    expect((screen.getByRole('textbox', { name: /문제/ }) as HTMLTextAreaElement).value).toBe('back test');
+  });
 });
 
 
@@ -358,12 +379,12 @@ describe('owner-decided create drawer (#1408)', () => {
     expect(screen.getByText('공정 이름, 예: PHOTO')).toBeTruthy();
     expect(screen.queryByText('EquipmentID를 그대로 입력')).toBeNull();
   });
-  it('stores declared origin page keys from the existing origin flow', async () => {
+  it('stores no source page keys when originPage is absent', async () => {
     const action = vi.fn(async () => ({ outcome: 'error' as const, data: null, version: null, fieldErrors: [], replayed: false, correlationId: 'c' }));
     mount({ url: '/improvement-items?v=1&scopeId=MEM&view=all&q=source&focus=new&origin=improvement-items', overrides: { menuAction: action } });
     fireEvent.change(await screen.findByLabelText('문제 · 필수'), { target: { value: 'problem' } });
     fireEvent.click(screen.getByRole('button', { name: '저장' }));
-    await waitFor(() => expect(action).toHaveBeenCalledWith(expect.objectContaining({ input: expect.objectContaining({ origin: expect.objectContaining({ context: expect.objectContaining({ page: { view: 'all', q: 'source' } }) }) }) })));
+    await waitFor(() => expect(action).toHaveBeenCalledWith(expect.objectContaining({ input: expect.objectContaining({ origin: expect.objectContaining({ context: expect.objectContaining({ page: {} }) }) }) })));
   });
   it('shows readable detail fallbacks and restores the saved page keys', async () => {
     const saved = { ...row, origin: { ...source, context: { ...source.context, metricId: 'unknown-id' } } };
@@ -488,7 +509,6 @@ it('rejects a malformed separate source page and recovers by explicitly clearing
   mount({ url: '/improvement-items?v=1&view=all&focus=new&origin=improvement-items&originPage=%7B' });
   await screen.findByText('분석 출처를 확인할 수 없습니다. 출처를 지우고 대상을 입력하세요.');
   expect(screen.queryByRole('dialog')).toBeNull();
-  expect(new URLSearchParams(window.location.search).get('originPage')).toBe('{');
   fireEvent.click(screen.getByRole('button', { name: '초기화' }));
   await screen.findByRole('dialog');
   expect(new URLSearchParams(window.location.search).has('originPage')).toBe(false);

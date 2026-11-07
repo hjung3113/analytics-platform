@@ -34,7 +34,11 @@ export function CreateDrawer({ origin: initialOrigin, onClose }: { origin: Origi
   const [createdId, setCreatedId] = useState<string | null>(null);
   const dirty = (initialOrigin !== null && origin === null) || !!problem || !!action || !!quest || JSON.stringify(targets) !== JSON.stringify(initialTargets) || !!key || !!name;
   // Unsaved-edit guard (#1388): off once the item is saved, so the post-save move to the detail is not held.
-  useUnsavedGuard(dirty && createdId === null);
+  // A confirmed in-drawer discard turns the guard off first and closes after that commit, so the shell never asks a second time (UX-1).
+  const [discarded, setDiscarded] = useState(false);
+  useUnsavedGuard(dirty && createdId === null && !discarded, { leaves: 'address' });
+  const closeAfterDiscard = useEffectEvent(() => onClose());
+  useEffect(() => { if (discarded) closeAfterDiscard(); }, [discarded]);
   const openCreated = useEffectEvent((itemId: string) => navigate(linkTo('improvement-item', { params: { itemId } })));
   useEffect(() => { if (createdId) openCreated(createdId); }, [createdId]);
   const requestClose = () => { if (!create.pending) { if (dirty) setDiscard(true); else onClose(); } };
@@ -86,5 +90,5 @@ export function CreateDrawer({ origin: initialOrigin, onClose }: { origin: Origi
       <div className="flex shrink-0 justify-end gap-2 border-t border-border-subtle pt-3"><Button type="button" variant="secondary" disabled={create.pending} onClick={requestClose}>{c.cancel}</Button><Button type="submit" disabled={create.pending || !create.ready}>{create.pending ? c.saving : c.save}</Button></div>
     </form>
   </SheetContent></Sheet>
-  <Dialog open={discard} onOpenChange={setDiscard}><DialogContent closeLabel={c.cancel}><DialogHeader><DialogTitle>{c.discard}</DialogTitle><DialogDescription>{c.createDescription}</DialogDescription></DialogHeader><DialogFooter><Button variant="secondary" onClick={() => setDiscard(false)}>{c.continueEditing}</Button><Button variant="destructive" onClick={onClose}>{c.discardConfirm}</Button></DialogFooter></DialogContent></Dialog></>;
+  <Dialog open={discard} onOpenChange={setDiscard}><DialogContent closeLabel={c.cancel}><DialogHeader><DialogTitle>{c.discard}</DialogTitle><DialogDescription>{c.createDescription}</DialogDescription></DialogHeader><DialogFooter><Button variant="secondary" onClick={() => setDiscard(false)}>{c.continueEditing}</Button><Button variant="destructive" onClick={() => setDiscarded(true)}>{c.discardConfirm}</Button></DialogFooter></DialogContent></Dialog></>;
 }
