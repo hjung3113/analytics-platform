@@ -196,7 +196,7 @@ log-dev (기존 Space)
 - 열: 모델, 제조사, 공정, 개발 단계, 검증 상태(`검증 전`·`요청 대기`·`실행 중`·`통과`·`실패`·`불완전`·`Gate 승인됨`), 대기 요청, 갱신.
 - 검증 상태는 **가장 최근 Round의 가장 최근 시도 `verdict`와 요청 `state`에서 파생**한 표시값이고 Gate 승인과 구분해 별도 열(`Gate`)로 둔다. `incomplete`·`미지원`을 `통과`로 보이지 않는다.
 - 과제가 없는 모델도 행으로 보인다(`개발 과제 없음`) — 행 동작: 「과제 만들기」(권한 있을 때).
-- 진입은 필터 표(A)다. 트리 탐색은 [ADR-0118](../../../adr/0118-dynamic-hierarchy-navigation-sdk-piece.md)이 열린 결정으로 둔다.
+- 보기는 둘이다: 필터 표(위 열)와 **설비사→공정→모델→SW 계층 보기**. 계층 보기는 [ADR-0118](../../../adr/0118-dynamic-hierarchy-navigation-sdk-piece.md)의 `HierarchyExplorer`(소유자 2026-11-07, 이 릴리스 포함)를 쓰고, 메뉴가 네 단계와 노드 종류를 선언한다. 모델 노드는 개발 단계·검증 상태를 표시하고 선택하면 과제 상세로 간다(과제 없는 모델은 「과제 만들기」). 두 보기는 같은 `logLifecycle.models` 데이터를 쓰되 노드 조회(`listChildren`·`resolveAncestors`)용 읽기 엔드포인트는 노드 f에서 추가한다. 지식 허브 «모델 탐색» 표는 바뀌지 않는다. 최종 화면 배치는 다음 세션에서 확인한다.
 
 **과제 상세 (Management 상세)**
 - 머리: 모델·SW 딥링크(`log-knowledge`), 단계 스테퍼, 담당, 목표일, 현재 Gate 상태. 단계 이동 버튼은 서버가 허용한 다음 단계만 보인다.
@@ -233,10 +233,11 @@ log-dev (기존 Space)
 | d | 검증 요청 큐([ADR-0117](../../../adr/0117-validation-request-queue-claim-lease-heartbeat.md)): `execution_request`·`attempt`·`rule_result`, claim/lease/heartbeat/멱등 결과, 실행 시간대, verdict 계산, 참조 작업자 모의 | full, `impl-complex` | a, c |
 | e | Gate 결정 + 근거 스냅샷 + 단계 연동 | full, `impl-complex`(권한·승인 경계) | c, d |
 | f | 화면: 모델 목록·과제/Round 상세·검증 요청 + 시안(`?variant=`) | full, `ux=required`, 시각 부분은 `impl-complex-sol` high | c(읽기), d·e(쓰기), 시안 컨펌 |
-| g | **#1108 SDK 조각**([ADR-0118](../../../adr/0118-dynamic-hierarchy-navigation-sdk-piece.md)): `HierarchyExplorer` + `HierarchyBreadcrumb`, 합성 소비자 | full, `impl-complex`(공개 API `sdk:api`) | 소유자가 소비자·시안 확정 |
+| g | **#1108 SDK 조각**([ADR-0118](../../../adr/0118-dynamic-hierarchy-navigation-sdk-piece.md)): `HierarchyExplorer` + `HierarchyBreadcrumb`, 합성 소비자 | full, `impl-complex`(공개 API `sdk:api`) | 시안 컨펌(소비자는 확정) |
+| g2 | `log-models` 계층 보기 연결(source 구현, 노드 표시) | full, `ux=required` | g, c |
 | h | 통합: 계약 E2E(토큰 → claim → 결과 → Gate), 문서 소유 갱신, `.planning` 줄 | full | a–f |
 
-병렬: a∥c, g는 독립(파일이 겹치지 않음). 도메인 스키마를 바꾸는 노드(c·d·e)는 마이그레이션 노드의 규칙(전체 백엔드 `test:integration`)을 따른다([traps](../../../../.agents/conductor/addenda/traps.md)).
+병렬: a∥c, g는 독립 (f의 계층 보기는 g2 이후)(파일이 겹치지 않음). 도메인 스키마를 바꾸는 노드(c·d·e)는 마이그레이션 노드의 규칙(전체 백엔드 `test:integration`)을 따른다([traps](../../../../.agents/conductor/addenda/traps.md)).
 
 ## 8. 반례와 대응 (v0.30.0 범위만)
 
