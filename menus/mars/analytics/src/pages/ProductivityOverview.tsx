@@ -84,10 +84,10 @@ export default function ProductivityOverview(_: PageProps) {
   const equipmentQ = useMenuQuery(drillEndpoint, { level: 'equipment', room: room ?? '', stgroup: stgroup ?? '' }, canQuery && room !== null && stgroup !== null);
 
   // While a kept result is shown (#1365), everything that describes or acts on the DATA follows the params it was loaded with, not the current selection.
-  const trendShown = (trendQ.resultParams as { kpi: KpiKey; granularity: Granularity } | undefined) ?? { kpi: selectedKpi, granularity: gran };
+  const trendShown = trendQ.resultParams ?? { kpi: selectedKpi, granularity: gran };
   const shownKpi = trendShown.kpi;
   const shownGranLabel = trendShown.granularity === 'hour' ? (ko ? '시간' : 'hourly') : trendShown.granularity === 'day' ? (ko ? '일별' : 'daily') : (ko ? '주별' : 'weekly');
-  const shownAxis = (breakdownQ.resultParams as { axis: 'room' | 'stgroup' } | undefined)?.axis ?? axis;
+  const shownAxis = breakdownQ.resultParams?.axis ?? axis;
 
   const locale = ko ? 'ko-KR' : 'en-US';
   const n1 = (v: number) => v.toLocaleString(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 });

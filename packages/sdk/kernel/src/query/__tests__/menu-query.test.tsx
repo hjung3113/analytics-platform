@@ -321,11 +321,12 @@ describe('useMenuQuery keepPrevious (#1365)', () => {
     const [page, setPage] = useState(1);
     const [spec, setSpec] = useState(scoped ? scopedEndpoint : endpoint);
     const query = useMenuQuery(spec, { page }, enabled, keepPrevious === undefined ? undefined : { keepPrevious });
+    const shownParams: { page: number } | undefined = query.resultParams; // compile-time: `resultParams` is typed as the endpoint's `P` (#1409)
     return (
       <>
         <p data-testid="query">{query.status}:{query.response?.data?.params.page ?? query.response?.outcome ?? '-'}</p>
         <p data-testid="at">{query.completedAt ?? 'no-at'}</p>
-        <p data-testid="meta">{String(query.showingPrevious)}:{JSON.stringify(query.resultParams) ?? 'none'}</p>
+        <p data-testid="meta">{String(query.showingPrevious)}:{JSON.stringify(shownParams) ?? 'none'}</p>
         {[2, 3].map(n => <button key={n} type="button" data-testid={`page-${n}`} onClick={() => setPage(n)}>page</button>)}
         <button type="button" data-testid="period" onClick={() => setGlobal({ from: '2026-09-25T00:00:00', to: '2026-09-26T00:00:00' })}>period</button>
         <button type="button" data-testid="scope" onClick={() => setGlobal({ scopeId: 'XIA' })}>scope</button>

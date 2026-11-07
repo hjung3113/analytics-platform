@@ -75,9 +75,9 @@ export default function MetricDetailPage({ params }: PageProps) {
   }, [arrival, tab, scrollGate]);
 
   // While a kept result is shown (#1365) the usage rows and the pair verdict belong to the version they were loaded with, not to the URL's.
-  const usageShown = (usage.resultParams as { version: string } | undefined)?.version ?? versionParam;
+  const usageShown = usage.resultParams?.version ?? versionParam;
   const usageStale = usage.showingPrevious === true;
-  const pairShown = pair.resultParams === undefined ? versionParam : (pair.resultParams as { pageVersion: string | null }).pageVersion;
+  const pairShown = pair.resultParams === undefined ? versionParam : pair.resultParams.pageVersion;
 
   const ready = definition.response?.outcome === 'ok' ? definition.response.data : null;
   const selected = ready?.version ?? null;

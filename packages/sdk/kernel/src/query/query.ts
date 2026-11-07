@@ -253,6 +253,9 @@ export function menuRequest<P, T>(spec: EndpointSpec<P, T>, inputs: MenuRequestI
   return { projected, ready: scopeReady && periodReady && queryPolicy.ready && !queryPolicy.idle, send, notReady };
 }
 
+/** `useMenuQuery` result: `QueryState` with `resultParams` typed as the endpoint's `P` (the params the shown result was loaded with). */
+export type MenuQueryState<P, T> = QueryState<T> & { resultParams?: P };
+
 /**
  * Queries one declared menu endpoint through the platform adapter. Results use session identity
  * `[revision, user.id, spec.id, projectContext(spec, global), params]`: Context keys the endpoint does not apply
@@ -271,10 +274,11 @@ export function menuRequest<P, T>(spec: EndpointSpec<P, T>, inputs: MenuRequestI
  * `resultParams` is the params the shown result was loaded with and `showingPrevious` is true while a kept result with other params
  * shows (both are `undefined` unless `keepPrevious` is on): build titles, drill/click handlers, exports and writes from `resultParams` (not the current selection) while it is true.
  */
-export function useMenuQuery<P, T>(spec: EndpointSpec<P, T>, params: NoInfer<P>, enabled = true, options?: MenuQueryOptions): QueryState<T> {
+export function useMenuQuery<P, T>(spec: EndpointSpec<P, T>, params: NoInfer<P>, enabled = true, options?: MenuQueryOptions): MenuQueryState<P, T> {
   const platform = useHostPlatform();
   const { projected, ready, send } = menuRequest(spec, platform);
-  return useQueryLifecycle<T>(['menu', spec.id, projected, params], signal => send(params, signal), enabled && ready, 0, platform.queryPolicy.idle ? platform.queryPolicy.missing : null, options?.keepPrevious ? [spec.id, projected] : undefined, { value: params });
+  // `resultParams` is the `params` object handed to the lifecycle below, so it is a `P`; the engine layer types it `unknown`.
+  return useQueryLifecycle<T>(['menu', spec.id, projected, params], signal => send(params, signal), enabled && ready, 0, platform.queryPolicy.idle ? platform.queryPolicy.missing : null, options?.keepPrevious ? [spec.id, projected] : undefined, { value: params }) as MenuQueryState<P, T>;
 }
 
 export type MenuFetch<P, T> = {

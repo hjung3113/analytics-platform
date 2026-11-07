@@ -29,6 +29,7 @@ MenuEntry | type | type MenuEntry = @ap/kernel#ModuleMenuEntry | @ap/kernel#Plat
 MenuFetch | type | type MenuFetch<P, T> = { fetch: (params: P, signal?: AbortSignal) => Promise<@ap/contracts#ApiResponse<T>>; ready: boolean; }
 MenuPlatform | type | type MenuPlatform = Pick<@ap/kernel/host#HostPlatform, 'absoluteUrl' | 'accessibleSpaces' | 'adapter' | 'can' | 'canOpen' | 'dismissToast' | 'favorites' | 'global' | 'homeTodo' | 'linkTo' | 'location' | 'navigate' | 'page' | 'pageParam' | 'pageParams' | 'pathname' | 'registry' | 'resetContext' | 'resolveLink' | 'revision' | 'route' | 'scope' | 'session' | 'setGlobal' | 'setPage' | 'spaceEntry' | 'toast' | 'toggleFavorite' | 'url' | 'user'>
 MenuQueryOptions | type | type MenuQueryOptions = { keepPrevious?: boolean; }
+MenuQueryState | type | type MenuQueryState<P, T> = @ap/kernel#QueryState<T> & { resultParams?: P; }
 MetricInit | type | type MetricInit = { metricVersion: string; phase: 'confirm'; } | { phase: 'blocked'; reason: 'unknown_metric' | 'unpublished'; } | { phase: 'skip'; }
 Migration | type | type Migration = { apply(): @ap/contracts#SavedView; preview: @ap/contracts#ChangeLine[]; }
 ModuleGroupDef | type | type ModuleGroupDef = GroupBase & { id: @ap/contracts#ModuleScopedId; module: string; }
@@ -106,7 +107,7 @@ useEquipmentSearch | function | function useEquipmentSearch(params?: @ap/kernel#
 useI18n | function | function useI18n(): I18n
 useMenuAction | function | function useMenuAction<I, T>(spec: @ap/contracts#ActionSpec<I, T>): @ap/kernel#MenuActionState<I, T>
 useMenuFetch | function | function useMenuFetch<P, T>(spec: @ap/contracts#EndpointSpec<P, T>): @ap/kernel#MenuFetch<P, T>
-useMenuQuery | function | function useMenuQuery<P, T>(spec: @ap/contracts#EndpointSpec<P, T>, params: NoInfer<P>, enabled?: boolean, options?: @ap/kernel#MenuQueryOptions): @ap/kernel#QueryState<T>
+useMenuQuery | function | function useMenuQuery<P, T>(spec: @ap/contracts#EndpointSpec<P, T>, params: NoInfer<P>, enabled?: boolean, options?: @ap/kernel#MenuQueryOptions): @ap/kernel#MenuQueryState<P, T>
 usePlatform | function | function usePlatform(): @ap/kernel#MenuPlatform
 usePlatformOptional | function | function usePlatformOptional(): @ap/kernel#MenuPlatform | null
 usePlatformQuery | function | function usePlatformQuery<T>(run: (signal: AbortSignal) => Promise<@ap/contracts#ApiResponse<T>>, pageInputs?: unknown, enabled?: boolean, identity?: 'context' | 'session', refreshEpoch?: number): @ap/kernel#QueryState<T>

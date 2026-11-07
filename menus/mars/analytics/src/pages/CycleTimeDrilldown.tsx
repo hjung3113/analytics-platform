@@ -122,7 +122,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
   const dist = useMenuQuery(cycleDistEndpoint, NO_PARAMS, enabled);
   const slowPages = useMenuFetch(cycleSlowPageEndpoint);
   const exports = useMenuFetch(cycleExportEndpoint);
-  const shownGrain = (trend.resultParams as { granularity: Granularity } | undefined)?.granularity ?? granularity;
+  const shownGrain = trend.resultParams?.granularity ?? granularity;
   const listFilter = { tail: tailMode, granularity, bucket, bin };
 
   const columns = useMemo<PlatformColumn<SlowRow>[]>(() => [
