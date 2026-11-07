@@ -80,7 +80,7 @@ packages/feature-ui/src/{badges,data,entity,feedback,forms,identity,indicators,l
 feature-owned badges, `LinkedEntityTrail`,
 and pickers remain local. Rich content (`RichEditor`, `RichContentRenderer`) is
 consumed from `@ap/ui` (platform [ADR-0052](../../../adr/0052-rich-content-stays-in-the-sdk.md)); `packages/feature-ui/src/rich-content/`
-keeps only drift/sanitization helpers. `allowlist-local.ts` is the UI copy of the canonical shared
+has no source of its own. `packages/sdk/ui/src/rich-content/allowlist-local.ts` is the UI copy of the canonical shared
 contract and remains drift-tested.
 
 The shadcn primitives are not wrapped in `packages/feature-ui`; the `@ap/feature-ui` public API (feature-owned

@@ -354,21 +354,3 @@ describe.skipIf(!runIntegration)('Slice 1 #3 auth integration', () => {
     );
   });
 });
-
-describe.skipIf(!runIntegration)(
-  'Slice 1 #3 production guard (now boot-level per HTTP-H-1)',
-  () => {
-    // Review HTTP-H-1 promoted the route-level 404 to a boot-time refusal.
-    // The original two route tests (GET/POST /auth/mock-login → 404 in prod)
-    // are no longer reachable because buildServer refuses to instantiate
-    // with NODE_ENV=production + AUTH_PROVIDER=mock. The boot-refusal
-    // assertion lives in `src/server.test.ts` (`AUTH_PROVIDER switch >
-    // NODE_ENV=production + AUTH_PROVIDER=mock refuses to boot`). The
-    // route-level 404 stays in `auth/routes.ts:36,52` as defense-in-depth
-    // for the case where the boot guard is removed; testing it requires
-    // bypassing the guard, which we deliberately do not do.
-    it('boot-level refusal asserted in src/server.test.ts', () => {
-      expect(true).toBe(true);
-    });
-  },
-);

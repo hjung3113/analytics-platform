@@ -108,7 +108,7 @@ Names in the primitive table and the composed list above are design-time names. 
 | DetailPanel, Panel | `DetailPanelHeader`, `DetailPanelReadingColumn`, `DetailPanelSectionNav` (mount the nav as a sibling above the scroll root; the cover is then the strip's overlap with the root), `PanelTitleBlock` (`inset=none`), `PanelSectionTitle` (`inset=panel`, `size=tiny`), `FieldRow`, `NestedTextBlock`, `Callout` | `@ap/ui` |
 | StatusBadge | shared `ReporterStatusBadge`, `InternalTaskBadge`; feature-local `SurveyStatusBadge`, `LinkStatusBadge`, `MilestoneStatusBadge` | `packages/feature-ui/src/badges/`, `apps/feature-screens/src/features/surveys/components/`, `apps/feature-screens/src/features/integration/components/`, `apps/feature-screens/src/features/tasks/components/` |
 | SignalBadge | `SeverityBadge` (default accessible prefix `심각도`; full `ariaLabel` override for Task `우선순위`), `SeverityIndicator` (full `label` override; from `@ap/ui`), `UnassignedBadge`, `ManagedSystemPill`, `EntityIconBadge`, generic `OutlineBadge` | `packages/feature-ui/src/badges/`, `packages/feature-ui/src/indicators/` |
-| RichContentEditor | `RichEditor` + `RichContentRenderer` (from `@ap/ui`; the feature suite keeps only the drift/sanitization helpers `allowlist-local.ts`, `sanitizeClient.ts`, `fixtures-local.ts` in `packages/feature-ui/src/rich-content/`) | `packages/sdk/ui/src/rich-content/` |
+| RichContentEditor | `RichEditor` + `RichContentRenderer` (from `@ap/ui`; the allowlist drift anchors `allowlist-local.ts`, `sanitizeClient.ts`, `fixtures-local.ts` live in `packages/sdk/ui/src/rich-content/`) | `packages/sdk/ui/src/rich-content/` |
 | PublicUpdateComposer | feature-local `PublicUpdateComposer` | `apps/feature-screens/src/features/voc/components/detail/` |
 | ConversationComposer | feature-local `ComposerSection` + `ComposerTabs` hosting `PublicUpdateComposer`, `ReporterReplyComposer`, `InternalCommentComposer` | `apps/feature-screens/src/features/voc/components/detail/` |
 | Evidence inventory | feature-local `EvidenceContent`, `EvidenceMetadata`, `EvidenceRow`, `EvidencePanel` | `apps/feature-screens/src/features/integration/components/` |
@@ -138,7 +138,7 @@ Never built: `IconButton`, `Table` / `DataTable`, `InboxList`, `ScopeFilterBar`,
 - `CommandPalette` (`packages/sdk/shell/src/routing/CommandPalette.tsx`) — the inventory's `CommandMenu`, hosted by the platform shell. Its dialog and palette treatment use SDK `@ap/ui` primitives.
 - `apps/feature-screens/src/features/cross-system/request-task/TaskRequestDraftCard.tsx` — neutral inline source request form and pending-source read presentation with the contract fields Evidence Summary and Requested Outcome; source mutations stay in their owning features.
 - `ListTabs` — reusable 28px list tab strip with optional bare counts, icons, native title tips, overflow controls, and an optional `maxVisible` that folds the remaining tabs into a 「더보기」 menu; composed by `ListToolbar`.
-- Internal `useHorizontalOverflow` — shared 1px scroll-edge state, resize observation, direct-child rebinding, and cleanup for `ListTabs` and `DetailPanelSectionNav`. Each consumer retains its active-item reveal, fade or scrollspy behavior, and component-specific layout rules.
+- Internal `useHorizontalOverflow` (`@ap/ui`) — shared 1px scroll-edge state, resize observation, direct-child rebinding, and cleanup for `ListTabs` and `DetailPanelSectionNav`. Each consumer retains its active-item reveal, fade or scrollspy behavior, and component-specific layout rules.
 
 ## Status And Signal Catalog
 
