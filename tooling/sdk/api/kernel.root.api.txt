@@ -1,5 +1,5 @@
-AnalysisActionsProps | type | type AnalysisActionsProps = { global: @ap/contracts#GlobalContext; menuId: string; page: Readonly<Record<string, readonly string[] | string>>; }
-AnalysisActionsSlot | type | type AnalysisActionsSlot = { Actions: ComponentType<@ap/kernel#AnalysisActionsProps>; appliesTo?: (menuId: string) => boolean; }
+AnalysisActionsProps | type | type AnalysisActionsProps = { global: @ap/contracts#GlobalContext; menuId: string; page: Readonly<Record<string, readonly string[] | string>>; subject?: Readonly<Partial<Record<'equipment' | 'process', string>>>; }
+AnalysisActionsSlot | type | type AnalysisActionsSlot = { Actions: ComponentType<@ap/kernel#AnalysisActionsProps>; appliesTo?: (menuId: string) => boolean; pageTypes?: readonly @ap/contracts#PageType[]; }
 AnyGroupId | type | type AnyGroupId = @ap/contracts#GroupId | @ap/contracts#ModuleScopedId
 AuditMore | type | type AuditMore = CursorMore
 AuditMoreError | type | type AuditMoreError = CursorMoreError

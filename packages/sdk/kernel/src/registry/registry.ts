@@ -242,6 +242,14 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
         seen.add(key);
       }
     }
+    if (m.subjectPageKeys !== undefined) {
+      if (typeof m.subjectPageKeys !== 'object' || m.subjectPageKeys === null || Array.isArray(m.subjectPageKeys)) fail(`Menu "${m.id}" subjectPageKeys must be an object`);
+      for (const [kind, key] of Object.entries(m.subjectPageKeys)) {
+        if (kind !== 'equipment' && kind !== 'process') fail(`Menu "${m.id}" subjectPageKeys kind "${kind}" must be equipment or process`);
+        if (!m.pageKeys.includes(key)) fail(`Menu "${m.id}" subjectPageKeys ${kind} key "${String(key)}" is not a declared page key`);
+        if (m.repeatedPageKeys?.includes(key)) fail(`Menu "${m.id}" subjectPageKeys ${kind} key "${key}" cannot be a repeated page key`);
+      }
+    }
     const menuCarrySet = m.carrySet === undefined ? undefined : carrySetByIdMap.get(m.carrySet) ?? fail(`Menu "${m.id}" uses undeclared carry set "${String(m.carrySet)}"`);
     const missingCarried = (menuCarrySet?.pageKeys ?? []).find(k => !m.pageKeys.includes(k));
     if (missingCarried) fail(`Menu "${m.id}" does not declare carry set "${menuCarrySet?.id}" page key "${missingCarried}" in pageKeys`);

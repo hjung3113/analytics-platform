@@ -17,7 +17,8 @@ const registry = createRegistry({
   groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
   menus: [
     { ...menu('home', '/'), primary: true },
-    menu('trend', '/trend', { pageType: 'analysis', pageKeys: ['sort', 'tag', 'pick'], repeatedPageKeys: ['tag'], hiddenPageKeys: ['pick'] }),
+    menu('trend', '/trend', { pageType: 'analysis', pageKeys: ['sort', 'tag', 'pick', 'eqp', 'proc'], repeatedPageKeys: ['tag'], hiddenPageKeys: ['pick'], subjectPageKeys: { equipment: 'eqp', process: 'proc' } }),
+    menu('plain', '/plain', { pageType: 'analysis', pageKeys: ['eqp'] }),
     menu('locked', '/locked', { pageType: 'analysis', permission: 'console:access' }),
   ],
 });
@@ -107,6 +108,36 @@ describe('PlatformPage ⋯ for the analysisActions slot (#1424)', () => {
     render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry} slots={slots}>
       <PaneScreenProvider paneId="p1" screen={{ menuId: 'trend', params: {}, query: '' }} onChange={() => {}} onLeave={() => {}}><PlatformPage><p>pane</p></PlatformPage></PaneScreenProvider>
     </PlatformProvider></I18nProvider>);
+    await settle();
+    expect(screen.queryByRole('button', { name: '더보기' })).toBeNull();
+  });
+
+  it('hands over the declared subject keys and omits subject for a menu that declares none (#1429)', async () => {
+    seen.length = 0;
+    mount('/trend?eqp=EQP-1');
+    await settle();
+    fireEvent.click(screen.getByRole('button', { name: '더보기' }));
+    await screen.findByRole('group', { name: '기타 페이지 동작' });
+    expect(seen.at(-1)!.subject).toEqual({ equipment: 'EQP-1' });
+    cleanup(); seen.length = 0;
+    mount('/plain?eqp=EQP-1');
+    await settle();
+    fireEvent.click(screen.getByRole('button', { name: '더보기' }));
+    await screen.findByRole('group', { name: '기타 페이지 동작' });
+    expect(seen.at(-1)!.subject).toBeUndefined();
+  });
+
+  it('attaches to the page types the slot lists, and only analysis by default (#1429)', async () => {
+    mount('/', { analysisActions: { Actions, pageTypes: ['analysis', 'overview'] } });
+    await settle();
+    expect(screen.getByRole('button', { name: '더보기' })).toBeInTheDocument();
+  });
+
+  it.each([
+    ['pageTypes [overview] excludes an analysis page', ['overview'], '/trend'],
+    ['pageTypes [] adds no slot', [], '/'],
+  ])('%s (#1429)', async (_n, pageTypes, url) => {
+    mount(url, { analysisActions: { Actions, pageTypes: pageTypes as never } });
     await settle();
     expect(screen.queryByRole('button', { name: '더보기' })).toBeNull();
   });

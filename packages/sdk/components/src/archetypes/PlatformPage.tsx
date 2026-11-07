@@ -238,9 +238,10 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
   const boardEntry = !inPane && menu.features.board === true && canOpen(menu.id) ? slots.boardEntry : null;
   // Items the app adds to every analysis screen's `⋯` (#1424): the same main-screen gate as the board entry; the page keys are the ones this menu declares.
   const analysisSlot = slots.analysisActions;
-  const AnalysisActions = !inPane && menu.pageType === 'analysis' && (analysisSlot?.appliesTo?.(menu.id) ?? true) ? analysisSlot?.Actions : undefined;
+  const AnalysisActions = !inPane && (analysisSlot?.pageTypes ?? ['analysis']).includes(menu.pageType) && (analysisSlot?.appliesTo?.(menu.id) ?? true) ? analysisSlot?.Actions : undefined;
   const analysisPage = Object.fromEntries(menu.pageKeys.flatMap(key => { const values = pageParams(key); return values.length === 0 ? [] : [[key, menu.repeatedPageKeys?.includes(key) ? values : values[0]!]]; }));
-  const analysisActions = AnalysisActions ? <AnalysisActions menuId={menu.id} global={global} page={analysisPage} /> : null;
+  const analysisSubject = Object.fromEntries(Object.entries(menu.subjectPageKeys ?? {}).flatMap(([kind, key]) => { const value = analysisPage[key]; return typeof value === 'string' ? [[kind, value]] : []; }));
+  const analysisActions = AnalysisActions ? <AnalysisActions menuId={menu.id} global={global} page={analysisPage} {...(Object.keys(analysisSubject).length ? { subject: analysisSubject } : {})} /> : null;
   const favoriteTarget = menu.navHidden ? null : menu;
   const isFavorite = favoriteTarget ? favorites.includes(favoriteTarget.id) : false;
   const parent: MenuEntry | null = menu.parent ? registry.menuById(menu.parent) : null;
