@@ -19,6 +19,8 @@ export const CAPABILITY_LABELS: Readonly<Record<Capability, string>> = {
   'knowledge.item.publish': '지식 Item 게시',
   'knowledge.spec.publish': '모델 명세 발행',
   'improvement.manage': '개선 아이템 관리',
+  'lifecycle.project.manage': '로그 개발 과제 관리',
+  'lifecycle.round.manage': '로그 검증 Round 관리',
 };
 
 export function getCapabilityDisplayLabel(capability: string): string {

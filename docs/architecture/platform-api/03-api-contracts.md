@@ -28,6 +28,7 @@ Detailed schemas may later move into OpenAPI; until they do, `api/*.md` remains 
 | [`api/saved-views.md`](api/saved-views.md) | Saved Views |
 | [`api/log-knowledge.md`](api/log-knowledge.md) | Log knowledge catalog and model/Item reads (menu-query), catalog and Item writes (menu-action) |
 | [`api/improvement-items.md`](api/improvement-items.md) | Improvement item reads (menu-query), tables and CHECK rules (#1328) |
+| [`api/log-lifecycle.md`](api/log-lifecycle.md) | Log lifecycle reads (menu-query) and project/round writes (menu-action), stage table, sampleSet limits, digests (#1444) |
 | [`api/entity-links.md`](api/entity-links.md) | Entity Links; Workspace inventory pagination |
 | [`api/next-actions.md`](api/next-actions.md) | Next Action Contract |
 | [`api/cross-system.md`](api/cross-system.md) | Reporter Summary Contract; Cross-System Endpoint Decisions |

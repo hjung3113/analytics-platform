@@ -100,6 +100,8 @@ The backend returns effective navigation and capability states for the current w
 | Write log knowledge items (`knowledge.item.publish`) | no | permission required (workspace-wide) | yes |
 | Publish log knowledge model specs (`knowledge.spec.publish`) | no | permission required (workspace-wide) | yes |
 | Write improvement items (`improvement.manage`) | no | permission required (workspace-wide) | yes |
+| Manage log development projects (`lifecycle.project.manage`) | no | permission required (workspace-wide) | yes |
+| Manage log validation rounds (`lifecycle.round.manage`) | no | permission required (workspace-wide) | yes |
 | Approve Permission Request | no | no | yes |
 
 Notes:

@@ -23,7 +23,11 @@ export type PlatformPermissionRule =
   /** Admin role, or an active workspace grant of `knowledge.spec.publish` (the write capability of the log knowledge model specs). */
   | 'spec-publish'
   /** Admin role, or an active workspace grant of `improvement.manage` (the write capability of the improvement items). */
-  | 'improvement-manage';
+  | 'improvement-manage'
+  /** Admin role, or an active workspace grant of `lifecycle.project.manage` (the write capability of the development projects). */
+  | 'lifecycle-project-manage'
+  /** Admin role, or an active workspace grant of `lifecycle.round.manage` (the write capability of the validation rounds). */
+  | 'lifecycle-round-manage';
 
 export const PLATFORM_PERMISSION_TABLE = [
   { permission: 'platform:view', rule: 'every-session' },
@@ -41,6 +45,9 @@ export const PLATFORM_PERMISSION_TABLE = [
   { permission: 'knowledge:spec-publish', rule: 'spec-publish' },
   // Menu permission of the improvement item writes (#1328 b); the six write actions declare it.
   { permission: 'improvement:manage', rule: 'improvement-manage' },
+  // Menu permissions of the log lifecycle writes (#1444 c): project actions and round actions.
+  { permission: 'lifecycle:project-manage', rule: 'lifecycle-project-manage' },
+  { permission: 'lifecycle:round-manage', rule: 'lifecycle-round-manage' },
 ] as const satisfies ReadonlyArray<{ permission: string; rule: PlatformPermissionRule }>;
 
 /** Capabilities whose active grant (workspace or Managed-System scoped) opens `features:access`. */
@@ -138,6 +145,26 @@ async function holds(
         options,
       );
       return applyAdminModuleBypass(actor.role_level, 'improvement.manage', decision).allow;
+    }
+    case 'lifecycle-project-manage': {
+      // The same decision the project write actions take (`log-lifecycle/project-actions.ts`).
+      const decision = await checkService.checkCapability(
+        actor,
+        'lifecycle.project.manage',
+        { workspace_id: actor.workspace_id },
+        options,
+      );
+      return applyAdminModuleBypass(actor.role_level, 'lifecycle.project.manage', decision).allow;
+    }
+    case 'lifecycle-round-manage': {
+      // The same decision the round write actions take (`log-lifecycle/round-actions.ts`).
+      const decision = await checkService.checkCapability(
+        actor,
+        'lifecycle.round.manage',
+        { workspace_id: actor.workspace_id },
+        options,
+      );
+      return applyAdminModuleBypass(actor.role_level, 'lifecycle.round.manage', decision).allow;
     }
     case 'features-access': {
       if (actor.role_level === 'developer' || actor.role_level === 'admin') return true;

@@ -32,6 +32,7 @@ export default defineConfig({
     'survey',
     'knowledge',
     'improvement',
+    'log_lifecycle',
     'dashboard',
     'platform',
   ],

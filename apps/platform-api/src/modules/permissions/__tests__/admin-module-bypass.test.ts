@@ -28,6 +28,8 @@ const ALWAYS: Capability[] = [
   'knowledge.item.publish',
   'knowledge.spec.publish',
   'improvement.manage',
+  'lifecycle.project.manage',
+  'lifecycle.round.manage',
 ];
 const UNLESS_DENIED: Capability[] = ['survey.read', 'survey.manage', 'voc.create'];
 const NONE: Capability[] = [

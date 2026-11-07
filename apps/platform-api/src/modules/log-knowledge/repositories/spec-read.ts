@@ -223,20 +223,13 @@ export type EffectiveModelSpecData =
   | (ModelSpecData & { effective: false })
   | ({ revision: ModelSpecData['revision']; effective: true; softwareId: string } & EffectiveSpec);
 
-/** Null when the model has no published revision, or the software version is not a version of this model. */
-export async function getEffectiveModelSpec(
+/** The open changes of a model that apply at one software release order, in apply order `(start order, created_at, id)`. */
+export async function loadApplicableChanges(
   tx: Tx,
   workspaceId: string,
   modelId: string,
-  softwareId: string,
-): Promise<EffectiveModelSpecData | null> {
-  const [software] = await tx
-    .select({ order: softwareVersions.releaseOrder })
-    .from(softwareVersions)
-    .where(and(eq(softwareVersions.workspaceId, workspaceId), eq(softwareVersions.modelId, modelId), eq(softwareVersions.id, softwareId)));
-  if (!software) return null;
-  const spec = await getModelSpec(tx, workspaceId, modelId);
-  if (!spec) return null;
+  softwareOrder: number,
+): Promise<EffectiveChange[]> {
   const c = specSwChanges;
   const end = alias(softwareVersions, 'end_sw');
   // Every open change of the model (bounded by the per-model cap); the range is judged here against the CURRENT order.
@@ -252,9 +245,8 @@ export async function getEffectiveModelSpec(
     .leftJoin(end, and(eq(end.workspaceId, c.workspaceId), eq(end.id, c.endsBeforeSoftwareId)))
     .where(and(eq(c.workspaceId, workspaceId), eq(c.modelId, modelId), isNull(c.retiredAt)))
     .orderBy(asc(softwareVersions.releaseOrder), asc(c.createdAt), asc(c.id));
-  const applicable = rows.filter((r) => appliesAt({ start: r.start, endBefore: r.endBefore }, software.order));
-  if (applicable.length === 0) return { ...spec, effective: false };
-  const changes: EffectiveChange[] = applicable.map((r) => ({
+  const applicable = rows.filter((r) => appliesAt({ start: r.start, endBefore: r.endBefore }, softwareOrder));
+  return applicable.map((r) => ({
     id: r.id,
     targetKind: r.targetKind as SpecTargetKind,
     targetKey: r.targetKey,
@@ -262,6 +254,24 @@ export async function getEffectiveModelSpec(
     change: (r.change ?? {}) as Record<string, unknown>,
     needsRevalidation: r.needsRevalidation,
   }));
+}
+
+/** Null when the model has no published revision, or the software version is not a version of this model. */
+export async function getEffectiveModelSpec(
+  tx: Tx,
+  workspaceId: string,
+  modelId: string,
+  softwareId: string,
+): Promise<EffectiveModelSpecData | null> {
+  const [software] = await tx
+    .select({ order: softwareVersions.releaseOrder })
+    .from(softwareVersions)
+    .where(and(eq(softwareVersions.workspaceId, workspaceId), eq(softwareVersions.modelId, modelId), eq(softwareVersions.id, softwareId)));
+  if (!software) return null;
+  const spec = await getModelSpec(tx, workspaceId, modelId);
+  if (!spec) return null;
+  const changes = await loadApplicableChanges(tx, workspaceId, modelId, software.order);
+  if (changes.length === 0) return { ...spec, effective: false };
   return { revision: spec.revision, effective: true, softwareId, ...applySpecChanges(spec, changes) };
 }
 

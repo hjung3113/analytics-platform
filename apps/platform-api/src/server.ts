@@ -65,8 +65,10 @@ import {
   createApplyRunnerPool,
   LOG_KNOWLEDGE_ROUTE_PREFIX,
   importRoutes as logKnowledgeImportRoutes,
+  knowledgeLookup,
   logKnowledgeContribution,
 } from './modules/log-knowledge/index.js';
+import { logLifecycleContribution } from './modules/log-lifecycle/index.js';
 import {
   createManagedSystemService,
   managedSystemsRoutes,
@@ -878,6 +880,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
       ...(opts.logKnowledgeImport?.hooks ? { applyHooks: opts.logKnowledgeImport.hooks } : {}),
     }),
     improvementItemsContribution({ db: dbHandle.db, checkService, notify }),
+    logLifecycleContribution({ db: dbHandle.db, checkService, knowledgeLookup }),
     ...(opts.menuDispatch ?? []),
   ]);
   // The catalog import upload (#1195 a) is a multipart route, which the menu-action port cannot carry: it is

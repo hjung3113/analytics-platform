@@ -50,6 +50,13 @@ describe('audit action map vs @ap/contracts AuditAction', () => {
     ['knowledge.item.assessed', 'update'],
     ['knowledge.item.restored', 'update'],
     ['knowledge.item.archived', 'retire'],
+    ['lifecycle.project.created', 'create'],
+    ['lifecycle.project.updated', 'update'],
+    ['lifecycle.project.stage_changed', 'update'],
+    ['lifecycle.project.reopened', 'update'],
+    ['lifecycle.project.cancelled', 'retire'],
+    ['lifecycle.round.opened', 'create'],
+    ['lifecycle.round.closed', 'retire'],
   ] as const)('%s → %s', (type, action) => {
     expect(AUDIT_ACTION_BY_EVENT_TYPE[type]).toBe(action);
   });

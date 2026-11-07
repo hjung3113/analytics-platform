@@ -1,6 +1,6 @@
 # Log Lifecycle — v0.30.0 최소 슬라이스 설계 (Decided 설계, 구현 전)
 
-> **Status: Candidate → 구현 착수(2026-11-07), ADR 0116–0118 Decided, 소유자 13개 질문 답 반영. 노드 완료마다 As-built로 바꾼다.** 설계만 있고 구현·DB·API는 없다. 릴리스 묶음(v0.30.0 = #1108 + #1330 P0 + #1419 + #1420, 이후 v0.31.0 = #1198 + #1344)은 소유자 2026-11-07 확정이다. 근거는 [#1330](https://github.com/hjung3113/analytics-platform/issues/1330)(Epic)·[#1346](https://github.com/hjung3113/analytics-platform/issues/1346)(우선순위)·[#1420](https://github.com/hjung3113/analytics-platform/issues/1420)(검증 요청 큐)·[#1419](https://github.com/hjung3113/analytics-platform/issues/1419)(API 토큰)이고, 실제 코드와 Decided ADR이 이 문서보다 우선한다. 결정마다 «소유자 2026-11-07»로 표시한다.
+> **Status: Candidate → 구현 착수(2026-11-07), ADR 0116–0118 Decided, 소유자 13개 질문 답 반영. 노드 완료마다 As-built로 바꾼다. 노드 c(#1444)는 As-built: 과제·이벤트·Round의 스키마·읽기·쓰기, 계약 원본은 [log-lifecycle API](../../../architecture/platform-api/api/log-lifecycle.md).** 설계만 있고 구현·DB·API는 없다. 릴리스 묶음(v0.30.0 = #1108 + #1330 P0 + #1419 + #1420, 이후 v0.31.0 = #1198 + #1344)은 소유자 2026-11-07 확정이다. 근거는 [#1330](https://github.com/hjung3113/analytics-platform/issues/1330)(Epic)·[#1346](https://github.com/hjung3113/analytics-platform/issues/1346)(우선순위)·[#1420](https://github.com/hjung3113/analytics-platform/issues/1420)(검증 요청 큐)·[#1419](https://github.com/hjung3113/analytics-platform/issues/1419)(API 토큰)이고, 실제 코드와 Decided ADR이 이 문서보다 우선한다. 결정마다 «소유자 2026-11-07»로 표시한다.
 >
 > 사내 스크립트 Validator·사내 LLM은 별도 개발 중이다. 인터페이스·출력·권한은 실사 전이므로 **연동 완료로 쓰지 않는다.** 이 슬라이스는 플랫폼 쪽 틀(요청 등록·가져가기·결과 저장·사람 기록)만 만든다.
 
@@ -158,7 +158,7 @@ log-lifecycle/
 | `logLifecycle.projectSetStage` | `id`, `toStage`, `reason?` | version |
 | `logLifecycle.projectReopen` | `id`, `reason` | version |
 | `logLifecycle.projectUpdate` | `id`, `ownerActorId?`, `targetDate?`, `softwareId?` | version |
-| `logLifecycle.roundOpen` | `projectId`, `sampleSet`, `specPin?`, `note?` | none |
+| `logLifecycle.roundOpen` | `projectId`, `sampleSet`, `note?` (`spec_pin`은 입력이 아니라 서버가 열 때 `log-knowledge` 읽기 포트로 고정, #1444) | none |
 | `logLifecycle.roundClose` | `id` | version |
 | `logLifecycle.requestCreate` | `roundId`, `priority`, `immediate?`, `engineProfileRef?` | none (idempotencyKey) |
 | `logLifecycle.requestCancel` | `id`, `reason` | version |
@@ -233,7 +233,7 @@ log-dev (기존 Space)
 | 0 | ADR 0116·0117·0118 확정(소유자 답) + 이 문서 Candidate→As-built 전환 계획 | light | 소유자 답 |
 | a | **API 토큰 코어**([ADR-0116](../../../adr/0116-platform-api-tokens-personal-and-service.md)): 테이블·발급·폐기·인증 훅·scope ∩ 권한 판정·감사·고위험 거절 | full, `impl-complex` (권한 경계) | 0 |
 | b | 토큰 관리 화면(개인 목록·발급·폐기, 관리자 서비스 토큰) + 시안 | full, `ux=required` | a |
-| c | `log-lifecycle` 스키마·마이그레이션·과제·이벤트·Round 쓰기·읽기 | full, `impl-complex`(상태·순서 로직) | 0 (a와 독립) |
+| c | `log-lifecycle` 스키마·마이그레이션·과제·이벤트·Round 쓰기·읽기 — **As-built**(#1444; 수동 Evidence는 c2 #1451) | full, `impl-complex`(상태·순서 로직) | 0 (a와 독립) |
 | d | 검증 요청 큐([ADR-0117](../../../adr/0117-validation-request-queue-claim-lease-heartbeat.md)): `execution_request`·`attempt`·`rule_result`, claim/lease/heartbeat/멱등 결과, 실행 시간대, verdict 계산, 참조 작업자 모의 | full, `impl-complex` | a, c |
 | e | Gate 결정 + 근거 스냅샷 + 단계 연동 | full, `impl-complex`(권한·승인 경계) | c, d |
 | f | 화면: 모델 목록·과제/Round 상세·검증 요청 + 시안(`?variant=`) | full, `ux=required`, 시각 부분은 `impl-complex-sol` high | c(읽기), d·e(쓰기), 시안 컨펌 |

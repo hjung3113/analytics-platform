@@ -16,6 +16,8 @@ const NOT_FOR_USER_ROLE: ReadonlySet<Capability> = new Set([
   'knowledge.item.publish',
   'knowledge.spec.publish',
   'improvement.manage',
+  'lifecycle.project.manage',
+  'lifecycle.round.manage',
 ]);
 
 export async function supportedScopeCandidates(
@@ -30,7 +32,9 @@ export async function supportedScopeCandidates(
     capability === 'knowledge.catalog.import' ||
     capability === 'knowledge.item.publish' ||
     capability === 'knowledge.spec.publish' ||
-    capability === 'improvement.manage'
+    capability === 'improvement.manage' ||
+    capability === 'lifecycle.project.manage' ||
+    capability === 'lifecycle.round.manage'
   ) {
     return [{ managed_system_id: null }];
   }
