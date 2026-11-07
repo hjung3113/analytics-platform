@@ -1,6 +1,6 @@
 // PLAN-22 C9 — client render-time defence-in-depth sanitizer.
 //
-// The backend sanitizer (apps/backend/src/lib/rich-content/sanitize.ts) is
+// The backend sanitizer (apps/platform-api/src/lib/rich-content/sanitize.ts) is
 // authoritative per ADR-0011 and rejects hostile payloads at the API boundary.
 // This module runs in the renderer as a belt-and-suspenders layer that guards
 // against:
@@ -21,7 +21,7 @@
 // on serialized HTML so we would re-render + re-parse, (c) the test surface is
 // the JSON we already validate on the server.
 
-// ADR-0016: @ap/feature-ui MUST NOT import @ap/feature-shared. The allowlist values are
+// ADR-0016: @ap/ui MUST NOT import @ap/feature-shared. The allowlist values are
 // duplicated locally and kept in lockstep via drift tests on both sides
 // (backend↔shared and ui↔inline-fixture).
 import {

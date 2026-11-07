@@ -4,17 +4,17 @@ import { useMenuAction, usePlatform, useUnsavedGuard } from '@ap/kernel';
 import { Button, Callout, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, Textarea } from '@ap/ui';
 import { itemCreate, type Origin, type Target } from '../endpoints';
 import { createErrors, formatTarget } from '../model';
-import { originContextTooLarge, suggestedTargets } from '../origin';
+import { originContextTooLarge, originSubjectKeys, suggestedTargets } from '../origin';
 import { OriginSummary } from './OriginSummary';
 import { useCopy } from '../copy';
 import { Field } from './parts';
 import { QuestPicker, type PickedQuest } from './QuestReference';
 export function CreateDrawer({ origin: initialOrigin, onClose }: { origin: Origin | null; onClose: () => void }) {
   const c = useCopy(), uid = useId();
-  const { navigate, linkTo, toast } = usePlatform();
+  const { navigate, linkTo, toast, registry } = usePlatform();
   const create = useMenuAction(itemCreate);
   const [origin, setOrigin] = useState(() => initialOrigin ? structuredClone(initialOrigin) : null);
-  const [suggestions] = useState(() => suggestedTargets(origin));
+  const [suggestions] = useState(() => suggestedTargets(origin, originSubjectKeys(registry, origin)));
   // Match the existing API/editor limit; keep the full Selection in the origin snapshot.
   const [initialTargets] = useState(() => suggestions.slice(0, 50));
   const [targetOpen, setTargetOpen] = useState(!origin);

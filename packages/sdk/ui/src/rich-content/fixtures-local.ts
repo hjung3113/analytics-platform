@@ -1,5 +1,5 @@
-// ADR-0016 forbids @ap/feature-ui from importing @ap/feature-shared. This file mirrors
-// packages/shared/src/rich-content/fixtures.ts; drift is pinned by
+// ADR-0016 forbids @ap/ui from importing @ap/feature-shared. This file mirrors
+// packages/feature-shared/src/rich-content/fixtures.ts; drift is pinned by
 // __tests__/fixtures-drift.test.ts.
 
 import type { TipTapDoc } from './RichEditor';

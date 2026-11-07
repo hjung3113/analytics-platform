@@ -26,6 +26,7 @@ export const manifests: MenuEntry[] = [
     features: { ...NO_FEATURES, export: true, board: true },
     pageKeys: ['granularity', 'kpi', 'axis', 'sort', 'drillRoom', 'drillStgroup', 'drillEquipment'],
     contextResetKeys: ['drillRoom', 'drillStgroup', 'drillEquipment'],
+    subjectPageKeys: { equipment: 'drillEquipment', process: 'drillRoom' },
     drill: { levels: [
       { key: 'drillRoom', label: { ko: '공정', en: 'Process' } },
       { key: 'drillStgroup', label: { ko: 'StGroup', en: 'StGroup' } },
