@@ -1,5 +1,9 @@
 import type { ColumnFilter, Quest } from '@ap/contracts';
 import type { Effect, Origin, Target } from './endpoints';
+export function formatTarget(target: Target, labels: Record<Target['kind'], string>): string {
+  const name = `${labels[target.kind]} · ${target.displayName}`;
+  return target.displayName === target.externalKey ? name : `${name} · ${target.externalKey}`;
+}
 export type View = 'mine' | 'all' | 'unlinked';
 export const filtersForView = (view: View): ColumnFilter[] => view === 'mine' ? [{ id: 'assignee', op: 'in', value: ['me'] }, { id: 'status', op: 'notIn', value: ['verified', 'dropped'] }] : view === 'unlinked' ? [{ id: 'questLinked', op: 'in', value: ['false'] }] : [];
 export type MoveDraft = { action?: string; actionDate?: string; effect?: Effect; reason?: string };

@@ -14,7 +14,11 @@ function MoveDialog({ item, move, compareLink, onClose }: { item: ItemRow; compa
   const [missing, setMissing] = useState<string[]>([]), [retry, setRetry] = useState<(() => void) | null>(null);
   const [saveComparison, setSaveComparison] = useState(!!compareLink);
   // Unsaved-edit guard (#1388): any field changed from what the dialog opened with.
-  useUnsavedGuard(action !== (item.action ?? '') || actionDate !== (item.actionDate ?? '') || effect !== '' || note !== '' || reason !== '');
+  const dirty = action !== (item.action ?? '') || actionDate !== (item.actionDate ?? '') || effect !== '' || note !== '' || reason !== '';
+  const [discard, setDiscard] = useState(false);
+  useUnsavedGuard(dirty);
+  // Esc, the X and Cancel ask before dropping typed input, like the create and spec drawers (UX-4).
+  const requestClose = () => { if (busy) return; if (dirty) setDiscard(true); else onClose(); };
   const currentComparison = base.actionDate === item.actionDate && JSON.stringify(base.origin) === JSON.stringify(item.origin) ? compareLink : null;
   const busy = statusAction.pending || reopenAction.pending || reviewing;
   const legal = move === 'reopen' ? !!REOPEN[base.status] : FORWARD[base.status].includes(move);
@@ -33,7 +37,7 @@ function MoveDialog({ item, move, compareLink, onClose }: { item: ItemRow; compa
     void promise.then(settle).catch(() => setMessage(c.failed));
   }
   const labels: Record<string, string> = { action: c.action, actionDate: c.actionDate, effect: c.effect, reason: c.reason };
-  return <Dialog open onOpenChange={open => { if (!open && !busy) onClose(); }}><DialogContent closeLabel={c.cancel}><DialogHeader><DialogTitle>{c.moveTitle}</DialogTitle><DialogDescription>IM-{item.itemNo} · {move === 'reopen' ? c.reopen : c.statuses[move]}</DialogDescription></DialogHeader>
+  return <><Dialog open onOpenChange={open => { if (!open) requestClose(); }}><DialogContent closeLabel={c.cancel}><DialogHeader><DialogTitle>{c.moveTitle}</DialogTitle><DialogDescription>IM-{item.itemNo} · {move === 'reopen' ? c.reopen : c.statuses[move]}</DialogDescription></DialogHeader>
     <form className="space-y-4" noValidate onSubmit={e => { e.preventDefault(); if (!busy) confirm(); }}>
       <div className="flex flex-wrap items-center gap-2"><ItemStatus status={base.status} /><span>→ {move === 'reopen' ? c.statuses[REOPEN[base.status] ?? base.status] : c.statuses[move]}</span></div>
       {message && <Callout tone="amber" title={conflict ? c.moveTitle : c.failed}><p role="alert">{message}</p>{conflict && <Button type="button" variant="secondary" disabled={busy} onClick={() => {
@@ -47,9 +51,10 @@ function MoveDialog({ item, move, compareLink, onClose }: { item: ItemRow; compa
       {move === 'done' && <Field id={`${uid}-date`} label={c.requiredDate}><Input id={`${uid}-date`} type="date" value={actionDate} aria-invalid={missing.includes('actionDate')} onChange={e => setDate(e.target.value)} /></Field>}
       {move === 'verified' && <><Field id={`${uid}-effect`} label={c.result}><Select value={effect} onValueChange={v => setEffect(v as Effect)}><SelectTrigger id={`${uid}-effect`} aria-invalid={missing.includes('effect')}><SelectValue placeholder={c.resultPlaceholder} /></SelectTrigger><SelectContent>{Object.entries(c.effects).map(([v, label]) => <SelectItem key={v} value={v}>{label}</SelectItem>)}</SelectContent></Select></Field><Field id={`${uid}-note`} label={c.note}><Textarea id={`${uid}-note`} value={note} maxLength={2000} onChange={e => setNote(e.target.value)} /></Field>{currentComparison && <Field id={`${uid}-compare`} label={c.comparisonSave}><Checkbox id={`${uid}-compare`} checked={saveComparison} onCheckedChange={v => setSaveComparison(v === true)} /></Field>}</>}
       {(move === 'dropped' || move === 'reopen') && <Field id={`${uid}-reason`} label={c.reason}><Textarea id={`${uid}-reason`} value={reason} maxLength={2000} aria-invalid={missing.includes('reason')} onChange={e => setReason(e.target.value)} /></Field>}
-      <DialogFooter><Button type="button" variant="secondary" disabled={busy} onClick={onClose}>{c.cancel}</Button><Button type="submit" disabled={busy || conflict || !legal || !(move === 'reopen' ? reopenAction.ready : statusAction.ready)}>{busy ? c.saving : c.confirm}</Button></DialogFooter>
+      <DialogFooter><Button type="button" variant="secondary" disabled={busy} onClick={requestClose}>{c.cancel}</Button><Button type="submit" disabled={busy || conflict || !legal || !(move === 'reopen' ? reopenAction.ready : statusAction.ready)}>{busy ? c.saving : c.confirm}</Button></DialogFooter>
     </form>
-  </DialogContent></Dialog>;
+  </DialogContent></Dialog>
+  <Dialog open={discard} onOpenChange={setDiscard}><DialogContent closeLabel={c.cancel}><DialogHeader><DialogTitle>{c.discard}</DialogTitle><DialogDescription>{c.discardMoveDescription}</DialogDescription></DialogHeader><DialogFooter><Button variant="secondary" onClick={() => setDiscard(false)}>{c.continueEditing}</Button><Button variant="destructive" onClick={onClose}>{c.discardConfirm}</Button></DialogFooter></DialogContent></Dialog></>;
 }
 export function StatusMoves({ item, compareLink = null }: { item: ItemRow; compareLink?: string | null }) {
   const c = useCopy();

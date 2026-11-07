@@ -3,8 +3,8 @@ import { useI18n, useUnsavedGuard } from '@ap/kernel';
 import { Button, Checkbox, Input, Label } from '@ap/ui';
 
 /**
- * Mock-only stand-in for a screen with unsaved edits (#1388 node c). No real screen adopts `useUnsavedGuard` yet,
- * so reviewers and the black-box E2E open this fixture from the demo tools to reach the shell's leave dialog.
+ * Mock-only stand-in for a screen with unsaved edits (#1388 node c). Real screens (the create drawer, the status move, the model spec drawer)
+ * now adopt `useUnsavedGuard`; this fixture stays until the E2E moves to one of them, and still reaches the shell's leave dialog from the demo tools.
  * It registers exactly like a consumer would: dirty registers, clearing the draft or switching it off unregisters.
  * State lives in `DevTools` (always mounted in the rail), so it survives the popover closing and every navigation.
  */

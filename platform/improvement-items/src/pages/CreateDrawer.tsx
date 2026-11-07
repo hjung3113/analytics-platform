@@ -1,8 +1,9 @@
 import { useEffect, useEffectEvent, useId, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { useMenuAction, usePlatform, useUnsavedGuard } from '@ap/kernel';
 import { Button, Callout, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, Textarea } from '@ap/ui';
 import { itemCreate, type Origin, type Target } from '../endpoints';
-import { createErrors } from '../model';
+import { createErrors, formatTarget } from '../model';
 import { originContextTooLarge, suggestedTargets } from '../origin';
 import { OriginSummary } from './OriginSummary';
 import { useCopy } from '../copy';
@@ -34,7 +35,11 @@ export function CreateDrawer({ origin: initialOrigin, onClose }: { origin: Origi
   const [createdId, setCreatedId] = useState<string | null>(null);
   const dirty = (initialOrigin !== null && origin === null) || !!problem || !!action || !!quest || JSON.stringify(targets) !== JSON.stringify(initialTargets) || !!key || !!name;
   // Unsaved-edit guard (#1388): off once the item is saved, so the post-save move to the detail is not held.
-  useUnsavedGuard(dirty && createdId === null);
+  // A confirmed in-drawer discard turns the guard off first and closes after that commit, so the shell never asks a second time (UX-1).
+  const [discarded, setDiscarded] = useState(false);
+  useUnsavedGuard(dirty && createdId === null && !discarded, { leaves: 'address' });
+  const closeAfterDiscard = useEffectEvent(() => onClose());
+  useEffect(() => { if (discarded) closeAfterDiscard(); }, [discarded]);
   const openCreated = useEffectEvent((itemId: string) => navigate(linkTo('improvement-item', { params: { itemId } })));
   useEffect(() => { if (createdId) openCreated(createdId); }, [createdId]);
   const requestClose = () => { if (!create.pending) { if (dirty) setDiscard(true); else onClose(); } };
@@ -68,23 +73,20 @@ export function CreateDrawer({ origin: initialOrigin, onClose }: { origin: Origi
         <Field id={`${uid}-action`} label={c.action}><Textarea rows={2} id={`${uid}-action`} maxLength={2000} value={action} onChange={e => setAction(e.target.value)} /></Field>
         <section aria-label={c.savedTargets} className="space-y-2"><h3 className="text-sm font-semibold">{c.savedTargets}</h3>
           {suggestions.length > 50 && <p className="text-xs text-text-secondary">{c.targetSuggestionLimit}</p>}
-          <ul className="max-h-40 overflow-y-auto">{targets.map((t, i) => <li key={`${t.kind}:${t.externalKey}`} className="flex items-center justify-between gap-2 text-sm"><span>{t.displayName} · {t.externalKey}</span><Button type="button" variant="ghost" size="sm" aria-label={`${t.displayName} ${c.remove}`} onClick={() => setTargets(ts => ts.filter((_, n) => n !== i))}>{c.remove}</Button></li>)}</ul>
+          <ul className="max-h-40 overflow-y-auto">{targets.map((t, i) => <li key={`${t.kind}:${t.externalKey}`} className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 flex-1 break-all">{formatTarget(t, c)}</span><Button type="button" variant="ghost" size="sm" className="shrink-0" aria-label={`${formatTarget(t, c)} ${c.remove}`} onClick={() => setTargets(ts => ts.filter((_, n) => n !== i))}>{c.remove}</Button></li>)}</ul>
           {targets.length === 0 && <p className="text-sm text-text-secondary">{c.noTarget}</p>}
-        </section>
-        <QuestPicker selected={quest} onSelect={setQuest} />
-        <section aria-label={c.target} className="space-y-3 border-t border-border-subtle pt-3">
-          <Button type="button" variant="ghost" size="sm" aria-expanded={targetOpen} aria-controls={`${uid}-targets`} onClick={() => setTargetOpen(!targetOpen)}>{c.target} · {targets.length || c.noTarget}</Button>
+          <Button type="button" variant="ghost" size="sm" aria-expanded={targetOpen} aria-controls={`${uid}-targets`} onClick={() => setTargetOpen(!targetOpen)}>{c.target} · {targets.length || c.noTarget}<ChevronDown className={targetOpen ? 'size-4 rotate-180' : 'size-4'} aria-hidden /></Button>
           <div id={`${uid}-targets`} hidden={!targetOpen} className="space-y-3">
           <Field id={`${uid}-kind`} label={c.targetKind}><Select value={kind} onValueChange={v => setKind(v as Target['kind'])}><SelectTrigger id={`${uid}-kind`}><SelectValue /></SelectTrigger><SelectContent><SelectItem value="equipment">{c.equipment}</SelectItem><SelectItem value="process">{c.process}</SelectItem></SelectContent></Select></Field>
           <div className="grid grid-cols-2 gap-3"><Field id={`${uid}-key`} label={c.targetKey} error={fields.includes('origin') ? c.targetRequired : undefined}><Input id={`${uid}-key`} maxLength={200} value={key} aria-invalid={fields.includes('origin') || undefined} aria-describedby={[`${uid}-key-help`, ...(fields.includes('origin') ? [`${uid}-key-error`] : [])].join(' ')} onChange={e => setKey(e.target.value)} /><p id={`${uid}-key-help`} className="text-xs text-text-secondary">{kind === 'equipment' ? c.equipmentKeyHelp : c.processKeyHelp}</p></Field><Field id={`${uid}-name`} label={c.targetName}><Input id={`${uid}-name`} maxLength={200} value={name} onChange={e => setName(e.target.value)} /></Field></div>
           <Button type="button" variant="secondary" disabled={targets.length >= 50} onClick={() => { if (!key.trim() || !name.trim()) { setTargetError(true); return; } setTargets(ts => [...ts.filter(t => t.kind !== kind || t.externalKey !== key.trim()), { kind, externalKey: key.trim(), displayName: name.trim() }]); setKey(''); setName(''); setTargetError(false); }}>{c.addTarget}</Button>
           {targetError && <p role="alert">{c.invalidTarget}</p>}
           </div>
-
         </section>
+        <QuestPicker selected={quest} onSelect={setQuest} />
       </div>
       <div className="flex shrink-0 justify-end gap-2 border-t border-border-subtle pt-3"><Button type="button" variant="secondary" disabled={create.pending} onClick={requestClose}>{c.cancel}</Button><Button type="submit" disabled={create.pending || !create.ready}>{create.pending ? c.saving : c.save}</Button></div>
     </form>
   </SheetContent></Sheet>
-  <Dialog open={discard} onOpenChange={setDiscard}><DialogContent closeLabel={c.cancel}><DialogHeader><DialogTitle>{c.discard}</DialogTitle><DialogDescription>{c.createDescription}</DialogDescription></DialogHeader><DialogFooter><Button variant="secondary" onClick={() => setDiscard(false)}>{c.continueEditing}</Button><Button variant="destructive" onClick={onClose}>{c.discardConfirm}</Button></DialogFooter></DialogContent></Dialog></>;
+  <Dialog open={discard} onOpenChange={setDiscard}><DialogContent closeLabel={c.cancel}><DialogHeader><DialogTitle>{c.discard}</DialogTitle><DialogDescription>{c.createDescription}</DialogDescription></DialogHeader><DialogFooter><Button variant="secondary" onClick={() => setDiscard(false)}>{c.continueEditing}</Button><Button variant="destructive" onClick={() => setDiscarded(true)}>{c.discardConfirm}</Button></DialogFooter></DialogContent></Dialog></>;
 }

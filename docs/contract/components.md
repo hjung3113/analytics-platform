@@ -70,6 +70,7 @@ shadcn/ui + Radix 조합은 [04 프론트엔드 기술 스택](../architecture/f
 - StatCard / Panel
 - DrillPath / DrillLayout (드릴다운 경로 바와 단계 본문, §12.7)
 - Inspector (분석 화면 보조 섹션을 한 번 선언해 `stack`·`rail` 두 형태로 보인다, [ADR-0080](../adr/0080-inspector-forms.md))
+- HeaderOverflowItem (`@ap/components`, 페이지 머리 `⋯` 메뉴의 항목 한 줄. `allowed: false`면 숨기지 않고 비활성 + `reason`을 보인다. 셸 슬롯 `analysisActions`의 `Actions`가 이것으로 항목을 그린다, [layout.md](layout.md) 슬롯, §22, #1424)
 - ReturnLink (다른 메뉴에서 출발 화면으로 돌아가는 버튼, §22)
 - FloatingWindow (`@ap/components`, 도메인을 모르는 비모달 창 틀 — 배경 차단막·포커스 가두기·외부 클릭 닫기 없음, 제목줄 끌기·8방향 핸들·방향키(Alt=크기)·`⋯` 메뉴(위치 5·크기 3)의 같은 결과, 호출자가 준 `area` 안에서만 그리고 `mode`(`window`/`fill`/`off`)가 바뀌어도 children은 재마운트되지 않는다. 창으로 못 그리는 폭은 `fitsArea`로 판정해 호출자가 `fill`을 고른다, #893)
 

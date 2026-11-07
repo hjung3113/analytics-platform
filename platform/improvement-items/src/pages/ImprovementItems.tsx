@@ -5,7 +5,7 @@ import { PlatformLink, useMenuFetch, usePlatform } from '@ap/kernel';
 import { ManagementLayout, PageKeyWarning, PlatformDataTable, PlatformPage, TableUrlWarning, useTableUrlState, type PlatformColumn, type TableFilterField, type TableUrlState } from '@ap/components';
 import { Button, Input, SearchInput, Tabs, TabsContent, TabsList, TabsTrigger } from '@ap/ui';
 import { MANAGE_PERMISSION, SORT_IDS, filterSpecs, itemsEndpoint, type ItemRow, type Origin } from '../endpoints';
-import { filtersForView, type View } from '../model';
+import { filtersForView, formatTarget, type View } from '../model';
 import { parseOriginPage, snapshotOrigin } from '../origin';
 import { useCopy } from '../copy';
 import { CreateDrawer } from './CreateDrawer';
@@ -52,7 +52,7 @@ function ItemTable({ q, view, onClear }: { q: string; view: View; onClear: () =>
     { id: 'status', header: c.status, size: 132, minSize: 118, filter: specs.status, filterPinned: 1, cell: row => <ItemStatus status={row.status} /> },
     { id: 'assignee', header: c.assignee, size: 120, minSize: 112, sortable: false, filter: specs.assignee, filterPinned: 2, exportValue: row => row.assignee?.displayName ?? c.unset, cell: row => row.assignee?.displayName ?? c.unset },
     { id: 'quest', header: c.quest, size: 200, minSize: 160, sortable: false, exportValue: row => row.quest?.titleSnapshot ?? c.questNone, cell: row => row.quest ? <QuestReference id={row.quest.id} snapshot={row.quest.titleSnapshot} /> : <span className="text-text-secondary">{c.questNone}</span> },
-    { id: 'targets', header: c.target, size: 150, sortable: false, exportValue: row => row.targets.map(t => t.displayName).join(' · '), cell: row => <span className="whitespace-normal break-words">{row.targets.map(t => t.displayName).join(' · ') || c.unset}</span> },
+    { id: 'targets', header: c.target, size: 150, sortable: false, exportValue: row => row.targets.map(t => formatTarget(t, c)).join(' · '), cell: row => <span className="whitespace-normal break-words">{row.targets.map(t => formatTarget(t, c)).join(' · ') || c.unset}</span> },
     { id: 'actionDate', header: c.actionDate, size: 120, sortable: false, cell: row => row.actionDate ?? c.unset },
   ], [c, linkTo, specs]);
   const fields = useMemo<TableFilterField[]>(() => [{ id: 'questLinked', label: { ko: '과제(Quest) 연결', en: 'Quest link' }, spec: specs.questLinked!, pinned: 3 }, { id: 'origin', label: { ko: '분석 출처', en: 'Analysis source' }, spec: specs.origin! }], [specs]);
@@ -66,7 +66,7 @@ function ItemTable({ q, view, onClear }: { q: string; view: View; onClear: () =>
   </div>;
 }
 export default function ImprovementItems() {
-  const c = useCopy(), { pageParam, pageParams, setPage, can, canOpen, global, registry, page, url } = usePlatform();
+  const c = useCopy(), { pageParam, pageParams, setPage, can, canOpen, global, registry } = usePlatform();
   const view = pageParam('view') ?? 'mine', q = pageParam('q') ?? '';
   const validView = ['mine', 'all', 'unlinked'].includes(view);
   const [initialized, setInitialized] = useState(false);
@@ -92,10 +92,9 @@ export default function ImprovementItems() {
   const source = pageParam('origin');
   let validSource = false;
   if (source) { try { validSource = canOpen(source); } catch { /* Unknown menu ids stay rejected and visible. */ } }
-  // The legacy origin URL may still carry source-declared keys; include hidden applied pairs too.
-  const visibleSourcePage = [...new URL(url, 'https://platform.invalid').searchParams.entries()].filter(([key]) => !page.some(([name]) => name === key));
   const separatePage = pageParam('originPage');
-  const sourcePage: Pair[] | null = separatePage === null ? [...page, ...visibleSourcePage].filter(([key]) => key !== 'origin' && !(key === 'focus' && pageParam('focus') === 'new')) : parseOriginPage(separatePage);
+  // Without originPage the origin carries global Context only (v0.28.0 shape); the destination's own keys are never source state.
+  const sourcePage: Pair[] | null = separatePage === null ? [] : parseOriginPage(separatePage);
   const origin: Origin | null = source && validSource && sourcePage ? snapshotOrigin(registry.menuById(source), global, sourcePage) : null;
   return <PlatformPage description={c.description} primaryAction={canWrite ? <Button ref={createButton} onClick={() => setPage({ focus: 'new' })}><Plus className="size-4" aria-hidden />{c.create}</Button> : undefined}>
     {!canWrite && <p role="note" className="text-sm text-text-secondary">{c.denied}</p>}
