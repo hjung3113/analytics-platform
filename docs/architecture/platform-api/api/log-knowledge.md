@@ -310,6 +310,26 @@ Refusals are `invalid` field errors thrown from `handle` after the locks: `revis
 - **Audit.** Subject type `knowledge_model_spec` (no projection change), subject id = the change id; `knowledge.spec.change_added` (`modelId, changeId, softwareId, endsBeforeSoftwareId, targetKind, changeKind, basedOnRevNo, replacesChangeId?`), `change_retired` (`modelId, changeId, replacementChangeId?`), `change_confirmed` (`modelId, changeId, revalidationRevNo?`). Never `note`, `change_json` or `target_key`.
 - **Table walls.** The runtime role holds `SELECT, INSERT` and `UPDATE (needs_revalidation, revalidation_rev_no, retired_at, retired_by, retired_by_change_id, row_version)`; no `DELETE`. `knowledge.spec_sw_change_guard` (BEFORE UPDATE) rejects any other column change, any `row_version` step other than +1, a `retired_by_change_id` that is the row itself or a row of another target, and any change of a retired row.
 
+## Read port: effective requirement keys (#1493, log-rules R-c)
+
+No HTTP endpoint. A barrel read port for other modules (first consumer: log-rules, node R-d), next to `getModel`, `getSoftware` and `getEffectiveSpecPin` on `knowledgeLookup` (`modules/log-knowledge/knowledge-lookup.ts`; design `docs/design/features/log-rules/README.md` §3.3, §4).
+
+`knowledgeLookup.listEffectiveRequirements(tx, workspaceId, modelId, softwareId | null)` answers `{ state, specPin, requirements }`:
+
+| `state` | When | `specPin` / `requirements` |
+| --- | --- | --- |
+| `ok` | the model has a published model spec revision | the pin and the keys of the effective spec |
+| `no_spec` | the model has no published revision (a draft does not count); never an empty `ok` | `null` / `[]` |
+| `model_unknown` | the model is not in the workspace, or `softwareId` is not a version of that model | `null` / `[]` |
+| `ambiguous_key` | a module or event key of the effective spec is empty or contains `/` | the pin / `[]`, plus `ambiguousKeys: string[]` (the offending keys, `module/event` for an event) |
+
+- **Effective spec.** The latest published revision plus the open changes applicable to `softwareId` in apply order, the same resolution as `getEffectiveSpecPin` and `modelSpec` with `softwareId` (`applySpecChanges`); `null` = the revision as is. A stale change is not applied; a removed module does not remove its events (no cascade, as in the spec reads).
+- **Key format.** A requirement is `{ key, kind: 'module' | 'event', moduleKey, eventKey? }`; `key` = `moduleKey` for a module, `moduleKey/eventKey` for an event, the stored stable keys as they are (no case folding, no trimming). `domain/requirement-key.ts` holds `requirementKey` and `parseRequirementKey`. Order: all modules, then all events, each in the effective spec's order (revision order: key ascending; entries added by a change come last in application order). The result is deterministic.
+- **`/` in a key.** Write validation does not forbid it (`toCodeKey` keeps `/`, and an NFKC fullwidth solidus becomes `/`; a change can add `A/C%2FD`), so `a/b/c` would be ambiguous. The port refuses with `ambiguous_key` instead of returning a key that cannot be parsed back.
+- **Snapshot.** The model advisory lock `getEffectiveSpecPin` takes is held before the revision and the changes are read, and the pin is computed from those same rows: the pin and the keys always describe one effective spec (integration test with a change committed while the read waits on the lock). The lock is taken first, before the requested software's release order is read, so a concurrent reorder cannot pair an order of one moment with the change list of another. A pool-backed `Db` passed by a caller is wrapped in one transaction of the port's own (the lock is a transaction lock); a transaction handle is used as is.
+- **Scope.** Every statement filters by `workspace_id`; reads `knowledge.*` only; writes nothing; one pass over the revision's modules and events plus one change query (no per-key query).
+- **ACL.** The port takes a caller-verified workspace and decides no permission. The caller (log-rules, node R-d) owns the entry permission. Log-knowledge has **no model-level ACL** today: the spec reads are gated by the menu permission only (`platform:view` / the spec menu permission) and no model is restricted, so there is no `readableBy` variant to expose. If restricted models are introduced, the model-level ACL belongs to the spec reads and this port gets a variant applying it in the same change; until then a caller must not assume it is filtered.
+
 ## Concept mapping and Item subjects (#1196 e, f, migration 0098)
 
 Design: `design-v0.6-candidate.md` §15.2/15.4. Migration 0098 adds `knowledge.common_concept`, `knowledge.spec_concept_mapping` (node e) and `knowledge.item_revision_subject` (node f); every PK/FK carries `workspace_id`. No new capability or menu permission: concept writes use `knowledge.spec.publish` / `knowledge:spec-publish`, Item subject writes ride `knowledge.item.publish`. Targets are pointed to by stable key (`domain/spec-target-key.ts`: `module_key` or `module_key/event_key`, `toCodeKey` spelling), never by a spec row id, so links survive new spec revisions.
