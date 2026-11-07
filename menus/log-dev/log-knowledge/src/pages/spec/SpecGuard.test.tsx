@@ -89,6 +89,13 @@ describe('spec editing navigation guard (#1410)', () => {
     expect(moved).toBe(true);
     await waitFor(() => expect(window.location.search).toContain('tab=changes'));
   });
+  it('re-selecting the open draft rewrites nothing: it neither asks nor discards the edits (review C1)', async () => {
+    mount(`&drawer=draft&revision=${rev}`);
+    await dirtyEditor();
+    fireEvent.click(await screen.findByRole('button', { name: /초안 편집/ }));
+    expect(screen.queryByRole('dialog', { name: '저장하지 않은 입력을 버릴까요?' })).toBeNull();
+    expect((screen.getByLabelText('명세 TSV') as HTMLTextAreaElement).value).toContain('Kept');
+  });
   it('writes an in-menu move only after the in-menu dialog was answered, once', async () => {
     mount(`&drawer=draft&revision=${rev}`);
     await dirtyEditor();
