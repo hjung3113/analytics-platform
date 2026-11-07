@@ -185,6 +185,14 @@ const EXPECTED_GRANTS: Record<string, readonly DmlPrivilege[]> = {
   'log_rules.rule_set_revision': ['SELECT', 'INSERT'],
   'log_rules.rule': ['SELECT', 'INSERT'],
   'log_rules.rule_target': ['SELECT', 'INSERT'],
+  // Migration 0108 (#1445 d): requests, attempts, settings and the excerpt readers are inserted and updated by column
+  // (asserted below); rule results and excerpts are append-only; nothing is deleted.
+  'log_lifecycle.execution_request': ['SELECT', 'INSERT'],
+  'log_lifecycle.execution_attempt': ['SELECT', 'INSERT'],
+  'log_lifecycle.rule_result': ['SELECT', 'INSERT'],
+  'log_lifecycle.rule_result_excerpt': ['SELECT', 'INSERT'],
+  'log_lifecycle.queue_settings': ['SELECT', 'INSERT'],
+  'log_lifecycle.excerpt_reader': ['SELECT', 'INSERT'],
   // Migration 0101 (ADR-0116): tokens are issued and revoked, never edited or deleted. UPDATE is column-scoped to
   // the usage and revocation columns (asserted below); no table-wide UPDATE and no DELETE.
   'core.api_tokens': ['SELECT', 'INSERT'],
@@ -421,6 +429,12 @@ describe.skipIf(!runIntegration)('ADR-0008 role grants — product tables (Slice
     ['development_project', ['software_id', 'stage', 'owner_actor_id', 'target_date', 'row_version', 'updated_at', 'updated_by']],
     ['validation_round', ['status', 'closed_at', 'closed_by', 'row_version', 'updated_at', 'updated_by']],
     ['development_event', []],
+    ['execution_request', ['state', 'attempt_count', 'claimed_by_actor_id', 'lease_expires_at', 'last_heartbeat_at', 'cancel_reason', 'row_version', 'updated_at', 'ended_at']],
+    ['execution_attempt', ['outcome', 'ended_at', 'executor_version', 'executor_digest', 'rule_set_revision', 'input_manifest_digest', 'result_digest', 'verdict', 'worker_summary']],
+    ['rule_result', []],
+    ['rule_result_excerpt', []],
+    ['queue_settings', ['run_window', 'lease_seconds', 'immediate_limit', 'excerpt_retention_days', 'updated_at', 'updated_by']],
+    ['excerpt_reader', ['granted_by', 'granted_at', 'revoked_at']],
   ] as const)('platform_app UPDATE on log_lifecycle.%s is limited to the mutable columns', async (table, columns) => {
     const { rows } = await migrateHandle.pool.query<{ column_name: string }>(
       `select column_name
@@ -452,6 +466,34 @@ describe.skipIf(!runIntegration)('ADR-0008 role grants — product tables (Slice
       [table],
     );
     expect(rows.map((row) => row.column_name)).toEqual([...columns].sort());
+  });
+
+  // #1445 d (ADR-0117 decision 7): the only way an excerpt body goes is the definer function; platform_app may run it, PUBLIC may not.
+  it('platform_app erases excerpt bodies only through log_lifecycle.erase_excerpts (definer, EXECUTE for platform_app only)', async () => {
+    const { rows } = await migrateHandle.pool.query<{ definer: boolean; app_exec: boolean; public_exec: boolean; config: string[] | null }>(
+      `select p.prosecdef as definer,
+              has_function_privilege('platform_app', p.oid, 'EXECUTE') as app_exec,
+              has_function_privilege('public', p.oid, 'EXECUTE') as public_exec,
+              p.proconfig as config
+         from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'log_lifecycle' and p.proname = 'erase_excerpts'`,
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ definer: true, app_exec: true, public_exec: false });
+    expect(rows[0]?.config).toEqual(['search_path=pg_catalog']);
+  });
+
+  // The excerpt table keeps its tombstones: one UPDATE guard and one DELETE guard, both enabled.
+  it('log_lifecycle.rule_result_excerpt has an enabled UPDATE guard and an enabled DELETE guard trigger', async () => {
+    const { rows } = await migrateHandle.pool.query<{ tgname: string; tgtype: number; tgenabled: string }>(
+      `select t.tgname, t.tgtype, t.tgenabled from pg_trigger t
+        where t.tgrelid = 'log_lifecycle.rule_result_excerpt'::regclass and not t.tgisinternal order by t.tgname`,
+    );
+    // tgtype bits: 1 row, 2 before, 8 delete, 16 update.
+    expect(rows.map((r) => [r.tgname, (r.tgtype & 8) !== 0, (r.tgtype & 16) !== 0, r.tgenabled])).toEqual([
+      ['rule_result_excerpt_guard', false, true, 'O'],
+      ['rule_result_excerpt_no_delete', true, false, 'O'],
+    ]);
   });
 
   // #1198 a: the `knowledge` schema is not in PRODUCT_SCHEMAS, so the three draft tables are pinned explicitly.

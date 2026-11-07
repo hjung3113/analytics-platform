@@ -1,6 +1,6 @@
 # Log Lifecycle — v0.30.0 최소 슬라이스 설계 (Decided 설계, 구현 전)
 
-> **Status: Candidate → 구현 착수(2026-11-07), ADR 0116–0118 Decided, 소유자 13개 질문 답 반영. 노드 완료마다 As-built로 바꾼다. 노드 c(#1444)는 As-built: 개발 건·이벤트·Round의 스키마·읽기·쓰기, 계약 원본은 [log-lifecycle API](../../../architecture/platform-api/api/log-lifecycle.md).** 설계만 있고 구현·DB·API는 없다. 릴리스 묶음(v0.30.0 = #1108 + #1330 P0 + #1419 + #1420, 이후 v0.31.0 = #1198 + #1344)은 소유자 2026-11-07 확정이다. 근거는 [#1330](https://github.com/hjung3113/analytics-platform/issues/1330)(Epic)·[#1346](https://github.com/hjung3113/analytics-platform/issues/1346)(우선순위)·[#1420](https://github.com/hjung3113/analytics-platform/issues/1420)(검증 요청 큐)·[#1419](https://github.com/hjung3113/analytics-platform/issues/1419)(API 토큰)이고, 실제 코드와 Decided ADR이 이 문서보다 우선한다. 결정마다 «소유자 2026-11-07»로 표시한다.
+> **Status: Candidate → 구현 착수(2026-11-07), ADR 0116–0118 Decided, 소유자 13개 질문 답 반영. 노드 완료마다 As-built로 바꾼다. 노드 c(#1444)는 As-built: 개발 건·이벤트·Round의 스키마·읽기·쓰기, 노드 d(#1445)는 As-built: 검증 요청 큐(요청·시도·규칙 결과·발췌, claim/lease/heartbeat/멱등 결과, 실행 시간대, verdict, 참조 작업자 «합성 fixture»). 계약 원본은 [log-lifecycle API](../../../architecture/platform-api/api/log-lifecycle.md).** 설계만 있고 구현·DB·API는 없다. 릴리스 묶음(v0.30.0 = #1108 + #1330 P0 + #1419 + #1420, 이후 v0.31.0 = #1198 + #1344)은 소유자 2026-11-07 확정이다. 근거는 [#1330](https://github.com/hjung3113/analytics-platform/issues/1330)(Epic)·[#1346](https://github.com/hjung3113/analytics-platform/issues/1346)(우선순위)·[#1420](https://github.com/hjung3113/analytics-platform/issues/1420)(검증 요청 큐)·[#1419](https://github.com/hjung3113/analytics-platform/issues/1419)(API 토큰)이고, 실제 코드와 Decided ADR이 이 문서보다 우선한다. 결정마다 «소유자 2026-11-07»로 표시한다.
 >
 > 사내 스크립트 Validator·사내 LLM은 별도 개발 중이다. 인터페이스·출력·권한은 실사 전이므로 **연동 완료로 쓰지 않는다.** 이 슬라이스는 플랫폼 쪽 틀(요청 등록·가져가기·결과 저장·사람 기록)만 만든다.
 
@@ -236,7 +236,7 @@ log-dev (기존 Space)
 | a | **API 토큰 코어**([ADR-0116](../../../adr/0116-platform-api-tokens-personal-and-service.md)): 테이블·발급·폐기·인증 훅·scope ∩ 권한 판정·감사·고위험 거절. **As-built** #1442(PR #1456): `core.api_tokens`(0101), 토큰은 `menu-query`·`menu-action`만 호출 가능, 계약은 [auth.md](../../../architecture/platform-api/api/auth.md)·[05](../../../architecture/platform-api/05-permission-policy.md) | full, `impl-complex` (권한 경계) | 0 |
 | b | 토큰 관리 화면(개인 목록·발급·폐기, 관리자 서비스 토큰) + 시안 | full, `ux=required` | a |
 | c | `log-lifecycle` 스키마·마이그레이션·개발 건·이벤트·Round 쓰기·읽기 — **As-built**(#1444; 수동 검증 첨부는 c2 #1451, 구현됨) | full, `impl-complex`(상태·순서 로직) | 0 (a와 독립) |
-| d | 검증 요청 큐([ADR-0117](../../../adr/0117-validation-request-queue-claim-lease-heartbeat.md)): `execution_request`·`attempt`·`rule_result`, claim/lease/heartbeat/멱등 결과, 실행 시간대, verdict 계산, 참조 작업자 모의 | full, `impl-complex` | a, c |
+| d **As-built** #1445 | 검증 요청 큐([ADR-0117](../../../adr/0117-validation-request-queue-claim-lease-heartbeat.md)): `execution_request`·`attempt`·`rule_result`, claim/lease/heartbeat/멱등 결과, 실행 시간대, verdict 계산, 참조 작업자 모의 | full, `impl-complex` | a, c |
 | e | Gate 결정 + 근거 스냅샷 + 단계 연동 | full, `impl-complex`(권한·승인 경계) | c, d |
 | f | 화면: 모델 목록·개발 건/Round 상세·검증 요청 + 시안(`?variant=`) | full, `ux=required`, 시각 부분은 `impl-complex-sol` high | c(읽기), d·e(쓰기), 시안 컨펌 |
 | g | **#1108 SDK 조각**([ADR-0118](../../../adr/0118-dynamic-hierarchy-navigation-sdk-piece.md)): `HierarchyExplorer` + `HierarchyBreadcrumb`, 합성 소비자 | full, `impl-complex`(공개 API `sdk:api`) | 시안 컨펌(소비자는 확정) |
@@ -283,3 +283,9 @@ log-dev (기존 Space)
 | D5 | 단계 스테퍼 컴포넌트 | 기존 후보 조사 후 없으면 메뉴 로컬로 시작 | 소비자 2–3곳 확인 전 공통화하지 않음(§24) |
 | D6 | 수동 검증 첨부 = 첨부 + entity link | **결정됨**(소유자 2026-11-07); 첨부 부모 종류 등록은 **구현됨**(#1451 c2). 확인 결과: 첨부는 `voc.voc_attachments`(voc_id/comment_id)만 쓰고 권한이 VOC 읽기에 묶여 있어 종류 레지스트리가 없었다 → 종류 열 + 종류별 reader를 추가 | Entity Link 등록은 **구현됨**(c3 #1466, ADR-0123 — 소유자 2026-11-08 option B: 공통 Entity Link를 Managed System 없는 대상까지 넓힘). |
 | D7 | `observed` 500자·근거 20개·발췌 2,000자·시도당 256KB·보관 90일·「즉시」 동시 5건 | 이 값으로 시작 | 측정 전 시작값, 실제 Validator 출력 확인 후 조정 |
+
+## 11. 노드 d As-built 메모 (#1445)
+
+- 구현 위치와 계약: [log-lifecycle API §Validation request queue](../../../architecture/platform-api/api/log-lifecycle.md). 설계와 달라진 점: 발췌 열람 권한 `lifecycle.excerpt.read`는 «sourceOwner 범위»를 권한 모듈이 표현하지 못해 `log_lifecycle.excerpt_reader` 표로 둔다(관리자가 부여·철회). `validation.worker`는 capability가 아니라 서비스 토큰 전용 scope(`TOKEN_ONLY_SCOPES`)다. 큐 설정(실행 시간대·lease·«즉시» 한도·발췌 보관일)은 `workspace_settings`가 아니라 `log_lifecycle.queue_settings`에 둔다. 요청 우선순위는 숫자가 클수록 먼저 가져간다. 하트비트는 감사하지 않는다. lease가 끝나 `queued`로 돌아갔지만 아무도 가져가지 않은 시도의 하트비트는 같은 시도에 lease를 되돌려 준다(결정 4). 만료된 lease의 복귀는 claim 호출이 처리한다(주기 작업 없음).
+- 발췌 삭제(결정 7)는 구현했다: Round 종료 + `excerptRetentionDays` 뒤 본문을 물리 삭제하는 일일 작업 `lifecycle.excerpt_purge`와 관리자 즉시 삭제 `logLifecycle.excerptDelete`(Round·시도 범위, 사유 필수, 감사에 본문 없음). 아직 없음(다시 여는 조건): `validation` 목록 필터·대기 요청 수(노드 f 화면), `queued` 요청의 우선순위 변경, Round를 닫을 때 대기 요청 자동 취소(지금은 가져가지 않고 사람이 취소).
+

@@ -24,6 +24,7 @@ import { createAuditService } from './modules/core/audit/index.js';
 import { createPlatformSystemsSync } from './modules/managed-systems/index.js';
 import { registerCoreJobs } from './modules/core/jobs/index.js';
 import { registerDashboardJobs } from './modules/dashboard/jobs/index.js';
+import { registerExcerptPurge } from './modules/log-lifecycle/index.js';
 import {
   createNotificationEmailChannel,
   createNotificationNotifier,
@@ -136,6 +137,7 @@ await registerJobsUnlessDisabled(config.JOBS_DISABLED, jobLog, [
       storage: getStorage(undefined, { log: jobLog }),
       log: jobLog,
     }),
+  () => registerExcerptPurge(boss, { db: dbHandle.db, log: jobLog }),
   () =>
     registerVocJobs(boss, {
       db: dbHandle.db,
