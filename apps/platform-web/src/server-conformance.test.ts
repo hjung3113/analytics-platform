@@ -23,6 +23,8 @@ const OCCURRENCE_EQUIPMENT = 'MEM-PHOTO-0103';
 const OCCURRENCE_ANCHOR = jobsForEquipmentDay(EQUIPMENT.find(row => row.equipmentId === OCCURRENCE_EQUIPMENT)!, '2026-09-25')[0].anchor;
 
 const page = { page: 0, pageSize: 10, sorting: [] };
+const EXPLORER_SET = { sourceOwner: 'synthetic-ok', files: [{ fileRef: 'source-b', order: 1, sha256: 'b'.repeat(64) }] };
+const EXPLORER_REF = { fileRef: 'source-b', line: 1, fileSha256: 'b'.repeat(64) };
 // The import wizard's reads and writes need a staged job (#1195 c): the mock's own handlers stage one, so each sample is a fresh job.
 const importHandler = (id: string) => MOCK_ACTIONS.find(action => action.spec.id === `logKnowledge.${id}`)!;
 let importSeq = 0;
@@ -50,6 +52,12 @@ const IMPORT_READ_JOB = stagedImport(true).jobId;
 const slowFilter = { tail: 'p95', granularity: 'hour', bucket: null, bin: null };
 /** One request per endpoint that the granted actor (engineer at MEM) runs successfully. Endpoints with no params default to `{}`. */
 const PARAMS: Record<string, Record<string, unknown>> = {
+  'logExplorer.investigations': { status: 'open', page: 0, pageSize: 50 },
+  'logExplorer.investigationDetail': { investigationId: '14730000-0000-4000-8000-000000000001' },
+  'logExplorer.records': { sampleSet: EXPLORER_SET, query: {}, cursor: null, limit: 50 },
+  'logExplorer.periods': { sampleSet: EXPLORER_SET, query: {}, cursor: null, limit: 50 },
+  'logExplorer.window': { sourceOwner: 'synthetic-ok', fileRef: 'source-b', line: 1, before: 3, after: 3 },
+  'logExplorer.parsed': { sourceOwner: 'synthetic-ok', fileRef: 'source-b', line: 1 },
   'analytics.chartCatalog': { kind: 'line' },
   'clas.operationTime': { eqp: '' },
   'hwTime.levelRows': { drillModule: 'PM1' },
@@ -230,9 +238,24 @@ const improvementSamples: Record<string, () => Record<string, unknown>> = {
   itemAssign: () => ({ itemId: IMPROVEMENT_OPEN, assigneeId: null }),
   itemLinkQuest: () => ({ itemId: IMPROVEMENT_QUESTED, questId: 'Q-1', questTitle: '대기 시간 줄이기' }),
 };
+// Fresh own investigations keep archive and evidence writes repeatable in the conformance kit.
+const explorerHandler = (name: string) => MOCK_ACTIONS.find(a => a.spec.id === `logExplorer.${name}`)!;
+const freshInvestigation = (withEvidence = false): string => {
+  const id = (explorerHandler('investigationCreate').handle({ actor: 'admin', scopeId: null, input: { title: 'Synthetic conformance investigation', origin: 'standalone', sampleSet: EXPLORER_SET } }).data as { id: string }).id;
+  if (withEvidence) explorerHandler('evidenceAdd').handle({ actor: 'admin', scopeId: null, input: { id, ref: EXPLORER_REF } });
+  return id;
+};
+const explorerSamples = {
+  investigationCreate: () => ({ title: 'Synthetic conformance investigation', origin: 'standalone', sampleSet: EXPLORER_SET }),
+  investigationUpdate: () => ({ id: freshInvestigation(), filters: { module: 'Module 1' } }),
+  evidenceAdd: () => ({ id: freshInvestigation(), ref: EXPLORER_REF }),
+  evidenceRemove: () => ({ id: freshInvestigation(true), ref: { fileRef: EXPLORER_REF.fileRef, line: EXPLORER_REF.line } }),
+  investigationArchive: () => ({ id: freshInvestigation() }),
+};
 const writeSamples: Record<string, Record<string, () => Record<string, unknown>>> = {
   logKnowledge: { ...catalogSamples, ...itemSamples, ...importSamples, ...specSamples, ...conceptSamples },
   improvement: improvementSamples,
+  logExplorer: explorerSamples,
 };
 const actionCases = MOCK_ACTIONS.map(action => {
   const dot = action.spec.id.indexOf('.');
@@ -248,6 +271,7 @@ const CATALOG_PERMISSION = menuPermission('knowledge:catalog-manage');
 const ITEM_PUBLISH = menuPermission('knowledge:item-publish');
 const IMPROVEMENT_MANAGE = menuPermission('improvement:manage');
 const SPEC_PUBLISH = menuPermission('knowledge:spec-publish');
+const EXPLORER_INVESTIGATE = menuPermission('explorer:investigate');
 const asRole = async <T,>(role: RoleId, fn: () => Promise<T>): Promise<T> => {
   const previous = getRole();
   setRole(role);
@@ -300,7 +324,7 @@ const conformanceAdapter = Object.assign(Object.create(adapter), {
     try { return adapter.menuQuery(req); } finally { setRole(previous); }
   },
   menuAction: (req: Parameters<typeof adapter.menuAction>[0]) =>
-    req.action.startsWith('logKnowledge.') || req.action.startsWith('improvement.') ? asRole('admin', () => adapter.menuAction(req)) : adapter.menuAction(req),
+    req.action.startsWith('logKnowledge.') || req.action.startsWith('improvement.') || req.action.startsWith('logExplorer.') ? asRole('admin', () => adapter.menuAction(req)) : adapter.menuAction(req),
 }) as typeof adapter;
 
 describeServerConformance('server boundary conformance — mock adapter', {
@@ -351,7 +375,7 @@ describeServerConformance('server boundary conformance — mock adapter', {
   },
   withoutPermission: async (permission: Permission, fn) => {
     const previous = getRole();
-    setRole(permission === CATALOG_PERMISSION || permission === ITEM_PUBLISH || permission === IMPROVEMENT_MANAGE || permission === SPEC_PUBLISH ? 'admin' : GRANTED);
+    setRole(permission === CATALOG_PERMISSION || permission === ITEM_PUBLISH || permission === IMPROVEMENT_MANAGE || permission === SPEC_PUBLISH || permission === EXPLORER_INVESTIGATE ? 'admin' : GRANTED);
     // The adapter's world is built from the vocabulary above, not the default USERS, so the granted role's list is the session's own array.
     const permissions = adapter.session().user.permissions as Permission[];
     const kept = [...permissions];

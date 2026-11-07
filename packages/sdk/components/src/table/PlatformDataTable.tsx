@@ -30,6 +30,7 @@ import { SelectAllBar } from './selectAllBar';
 import { buildGroupedItems, GroupHeaderCells, groupHeaderLayout, groupKeyOf } from './rowGroups';
 import { collapsedControls, GroupMenu, GroupSubmenu, MoreMenu, TableSizeMenu, TableSizeSubmenu, ToolbarDescription, ToolbarTitle } from './tableToolbar';
 import { BASE_ROW_HEIGHT, TABLE_SIZE_STEPS, useTableSize } from './tableSize';
+import { useRegisterPageBound } from '../pageFlow';
 
 export type { GroupedPageResult, PageGroup, PageQuery, PageResult } from '@ap/contracts';
 export { sortAndPage } from '@ap/contracts';
@@ -180,6 +181,8 @@ export type PlatformDataTableProps<T> = {
   externalPagination?: { summary: ReactNode; controls: ReactNode };
   /** Maximum row-area height; default fits the page (content height, up to the room left on the page, never under 240px). */
   height?: number;
+  /** Use the parent flex height budget instead of the page-fit cap; short tables keep their intrinsic height. Default false. Explicit height still caps the row area. */
+  fill?: boolean;
   emptyAction?: ReactNode;
   /** Filterable fields that are not columns (ADR-0105). Ids are unique across columns and these fields; the filter line renders when there is at least one filterable field. */
   filterFields?: TableFilterField[];
@@ -218,6 +221,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const [overlayOpen, setOverlayOpen] = useState({ columns: false, export: false });
   const viewport = useRef<HTMLDivElement | null>(null);
   const section = useRef<HTMLElement>(null);
+  useRegisterPageBound(!!p.fill);
   const fit = useTableFit(section);
   // The status line drops to a one-line trust summary only when the full line does not fit: the available inline space (the status line
   // minus the result count, the refreshing label and their gaps) is compared with a hidden probe of the full content. The probe is
@@ -671,7 +675,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
           ? (lang === 'ko' ? `${data.total.toLocaleString()}건 · ${pageCount}페이지` : `${data.total.toLocaleString()} results · ${pageCount} pages`)
           : (lang === 'ko' ? `${data.total.toLocaleString()}건 · ${shownPage + 1}/${pageCount} 페이지` : `${data.total.toLocaleString()} results · page ${shownPage + 1}/${pageCount}`)}</span>;
   const resultLine = (
-    <div ref={statusLine.ref} data-table-status-line className={cn('relative flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-muted', !mergeToolbar && 'min-h-9 border-t border-border-subtle px-3 py-1.5')} aria-live={groupedOutcome ? 'off' : 'polite'}>
+    <div ref={statusLine.ref} data-table-status-line className={cn('relative flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-muted', p.fill && 'shrink-0', !mergeToolbar && 'min-h-9 border-t border-border-subtle px-3 py-1.5')} aria-live={groupedOutcome ? 'off' : 'polite'}>
       {!mergeToolbar && filterLine}
       {mergeToolbar ? <span className="inline-flex items-center gap-2"><ToolbarDescription subtitle={p.subtitle} lang={lang} descriptionId={descriptionId} />{resultCount}</span> : resultCount}
       <span className="flex min-w-0 flex-wrap items-center gap-2">
@@ -681,9 +685,9 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       </span>
     </div>
   );
-  return <section ref={section} tabIndex={-1} aria-label={p.ariaLabel} aria-describedby={p.subtitle ? descriptionId : undefined} onKeyDown={onShortcut} style={sizeVars} data-table-size={tableSize} className={cn('flex flex-col rounded-lg border border-border-subtle bg-surface-card', embedded && 'rounded-none border-0 shadow-none')}>
+  return <section ref={section} tabIndex={-1} aria-label={p.ariaLabel} aria-describedby={p.subtitle ? descriptionId : undefined} onKeyDown={onShortcut} style={sizeVars} data-table-size={tableSize} className={cn('flex flex-col rounded-lg border border-border-subtle bg-surface-card', embedded && 'rounded-none border-0 shadow-none', p.fill && 'min-h-0 max-h-full shrink')}>
     {/* R2: hideTitle without search merges filters (left) and description/results + controls (right). Titled tables and workspace panels retain two bands. */}
-    <div ref={toolbar.ref} data-table-toolbar className={cn('flex items-center justify-between gap-2', embedded ? 'min-h-10 px-2 py-1.5' : densePage ? 'min-h-14 px-3 py-3' : 'min-h-14 p-4', analysisSection && 'pr-12', mergeToolbar && 'flex-wrap')}>
+    <div ref={toolbar.ref} data-table-toolbar className={cn('flex items-center justify-between gap-2', p.fill && 'shrink-0', embedded ? 'min-h-10 px-2 py-1.5' : densePage ? 'min-h-14 px-3 py-3' : 'min-h-14 p-4', analysisSection && 'pr-12', mergeToolbar && 'flex-wrap')}>
       <div className={cn('flex min-w-0 flex-1 items-center gap-2', mergeToolbar && (filterFields.length > 0 ? 'basis-80' : 'sr-only'))}>
         <ToolbarTitle title={p.title} subtitle={mergeToolbar ? undefined : p.subtitle} srOnly={inPanel || !!p.hideTitle} lang={lang} descriptionId={descriptionId} />
         {mergeToolbar && filterLine}
@@ -713,10 +717,10 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
     </div>}
 
     {/* Stable widget wrapper (like QueryView's): the busy state survives the outcome/rows switch. A grouped table's refresh is announced by the scope only (components.md §공유 위젯 응답). */}
-    <div aria-busy={loading}>
+    <div aria-busy={loading} className={p.fill ? 'flex min-h-0 flex-col' : undefined}>
     {shown && shown.outcome !== 'ok' ? <div ref={outcome} onFocus={() => { focusedRetry.current = true; }} onBlur={() => { focusedRetry.current = false; }} className="border-t border-border-subtle p-3"><OutcomeContent response={shown} onRetry={retry} emptyAction={p.emptyAction} grouped={groupedOutcome} compact={groupedOutcome || undefined} widgetName={p.ariaLabel} hideWidgetName>{() => null}</OutcomeContent></div> :
       // eslint-disable-next-line shadcn/no-inline-styles -- viewport max height comes from the height prop or the measured page fit at runtime
-      <div ref={viewportRef} data-table-auto-fit={p.height === undefined ? '' : undefined} tabIndex={0} aria-label={SCROLLPORT_LABEL[lang]} className={cn('overflow-auto border-t border-border-subtle [overflow-anchor:none]', chainWheel ? 'overscroll-auto' : 'overscroll-contain')} onScroll={updateFade} style={{ maxHeight: p.height ?? fit.cap ?? ROW_AREA_FALLBACK }}>
+      <div ref={viewportRef} data-table-auto-fit={p.height === undefined && !p.fill ? '' : undefined} tabIndex={0} aria-label={SCROLLPORT_LABEL[lang]} className={cn('overflow-auto border-t border-border-subtle [overflow-anchor:none]', p.fill && 'min-h-0', chainWheel ? 'overscroll-auto' : 'overscroll-contain')} onScroll={updateFade} style={{ maxHeight: p.height ?? (p.fill ? undefined : fit.cap ?? ROW_AREA_FALLBACK) }}>
         {/* eslint-disable-next-line shadcn/no-inline-styles -- table width is the total column size computed at runtime */}
         <div role="table" aria-label={p.ariaLabel} aria-rowcount={groupedItems || p.externalPagination ? -1 : data.total + 1} aria-busy={loading} className="min-w-full" style={{ width: tableWidth }}>
           <div role="rowgroup" className="sticky top-0 z-[5]">
@@ -788,7 +792,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       </div>}
     </div>
 
-    <div className="flex items-center justify-end gap-2 border-t border-border-subtle p-2">
+    <div className={cn("flex items-center justify-end gap-2 border-t border-border-subtle p-2", p.fill && "shrink-0")}>
       {p.externalPagination ? p.externalPagination.controls : <><Button ref={previousButton} variant="secondary" size="toolbar" disabled={previousDisabled}
         aria-disabled={loading || undefined} className="aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
         onFocus={() => { focusedPager.current = 'previous'; }} onBlur={() => { focusedPager.current = null; }}

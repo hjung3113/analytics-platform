@@ -4,7 +4,7 @@
  * live in their own menu package (docs/integration/platform-packages.md §5); the app concatenates them.
  */
 import {
-  BarChart3, BookOpen, Boxes, ClipboardCheck, ClipboardList, Cpu, Database, FileSearch, Gauge, Inbox, KeyRound, Server, LayoutDashboard, LineChart, ListChecks, ListTodo, Megaphone, Ruler, Settings, ShieldCheck, SlidersHorizontal, Timer, UserRound, Waves, Workflow, CircleGauge,
+  BarChart3, BookOpen, Boxes, ClipboardCheck, ClipboardList, Cpu, Database, FileSearch, ScrollText, Gauge, Inbox, KeyRound, Server, LayoutDashboard, LineChart, ListChecks, ListTodo, Megaphone, Ruler, Settings, ShieldCheck, SlidersHorizontal, Timer, UserRound, Waves, Workflow, CircleGauge,
 } from 'lucide-react';
 import { carrySetId, groupId, menuPermission, spaceId, type CarrySetDef, type SpaceDef } from '@ap/contracts';
 import { createRegistry, type GroupDef, type MenuEntry } from '@ap/kernel';
@@ -40,10 +40,11 @@ import { manifests as logKnowledge } from '@ap/menu-log-knowledge';
 import { manifests as access } from '@ap/menu-access';
 import { manifests as systems } from '@ap/menu-systems';
 import { manifests as improvementItems } from '@ap/menu-improvement-items';
+import { manifests as logAnalysis } from '@ap/menu-log-analysis';
 // </gen:menu-imports>
 
 /** The menu permissions this app's menus use, on top of the kernel's (ADR-0072). Each menu package spells its own with `menuPermission`; `createRegistry` fails on one missing here. */
-export const PERMISSIONS = [menuPermission('equipment:view'), menuPermission('master:view'), menuPermission('analytics:view'), menuPermission('metrics:view'), menuPermission('knowledge:catalog-manage'), menuPermission('knowledge:item-publish'), menuPermission('knowledge:spec-publish'), menuPermission('improvement:manage')];
+export const PERMISSIONS = [menuPermission('equipment:view'), menuPermission('master:view'), menuPermission('analytics:view'), menuPermission('metrics:view'), menuPermission('knowledge:catalog-manage'), menuPermission('knowledge:item-publish'), menuPermission('knowledge:spec-publish'), menuPermission('improvement:manage'), menuPermission('explorer:investigate')];
 
 export const GROUPS: GroupDef[] = [
   { id: groupId('overview'), label: { ko: '운영 개요', en: 'Overview' }, icon: LayoutDashboard, space: null, hideLabelWhenSingle: true },
@@ -62,6 +63,7 @@ export const GROUPS: GroupDef[] = [
   { id: groupId('clas'), label: { ko: 'CLAS', en: 'CLAS' }, icon: LineChart, space: spaceId('clas') },
   { id: groupId('logMyWork'), label: { ko: '내 작업', en: 'My work' }, icon: Inbox, space: spaceId('log-dev') },
   { id: groupId('logModels'), label: { ko: '모델', en: 'Models' }, icon: Cpu, space: spaceId('log-dev') },
+  { id: groupId('logAnalysis'), label: { ko: '로그 분석', en: 'Log analysis' }, icon: ScrollText, space: spaceId('log-dev') },
   { id: groupId('logCross'), label: { ko: '전체 모아 보기', en: 'Across models' }, icon: FileSearch, space: spaceId('log-dev') },
   { id: groupId('logRules'), label: { ko: '기준', en: 'Rules' }, icon: Ruler, space: spaceId('log-dev') },
   { id: groupId('logKnowledge'), label: { ko: '로그 지식 허브', en: 'Log Knowledge' }, icon: BookOpen, space: spaceId('log-dev') },
@@ -141,6 +143,7 @@ export const MENUS: MenuEntry[] = [
   ...access,
   ...systems,
   ...improvementItems,
+  ...logAnalysis,
   // </gen:menu-spreads>
 ];
 

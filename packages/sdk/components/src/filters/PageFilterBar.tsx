@@ -52,6 +52,8 @@ type PageFilterBarShared = {
 export type PageFilterBarProps = PageFilterBarShared & {
   /** The collapsed summary line replaces the always-visible field row (the row-only form was retired with #1218). */
   collapsible: true;
+  /** Initial state only when no saved preference exists. Default false; a saved preference wins. */
+  defaultCollapsed?: boolean;
   /** Stable per-menu preference id; the collapse preference is stored per key. */
   preferenceKey: string;
   /** Consumer-provided label/value summary of every field; conditions are never dropped. */
@@ -147,19 +149,20 @@ function AppliedConditionChip({ chip, lang, onClear }: { chip: PageFilterApplied
   </span>;
 }
 
-function CollapsiblePageFilterBar({ label, fields, actions, summaryItems, collapsedActions, hasPendingChanges, appliedChips, storageKey }: PageFilterBarShared & {
+function CollapsiblePageFilterBar({ defaultCollapsed = false, label, fields, actions, summaryItems, collapsedActions, hasPendingChanges, appliedChips, storageKey }: PageFilterBarShared & {
   summaryItems: readonly PageFilterSummaryItem[];
   collapsedActions?: ReactNode;
   hasPendingChanges?: boolean;
   appliedChips?: readonly PageFilterAppliedChip[];
   storageKey: string;
+  defaultCollapsed?: boolean;
 }) {
   const { t, lang } = useI18n();
   const id = useId();
   const panelId = `${id}-panel`;
   const summaryId = `${id}-summary`;
   const summaryText = `${summaryItems.map(item => `${item.label} ${item.value}`).join(' · ')}${hasPendingChanges ? ` · ${t('pageFilterPendingChanges')}` : ''}`;
-  const { collapsed, toggle, expandRef, collapseRef, liveText } = useCollapsePreference(storageKey, summaryText);
+  const { collapsed, toggle, expandRef, collapseRef, liveText } = useCollapsePreference(storageKey, summaryText, defaultCollapsed);
   const barRef = useRef<HTMLFieldSetElement>(null);
   const clearedFocus = useRef<{ key: string; index: number } | null>(null);
   const clearChip = (chip: PageFilterAppliedChip, button: HTMLButtonElement) => {

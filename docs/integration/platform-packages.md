@@ -37,6 +37,8 @@
 | `apps/platform-e2e` | (검사) | 조립된 앱을 브라우저로 띄워 플랫폼 계약을 검사하는 Playwright 블랙박스 테스트와 항목별 보고(#44) | 없음 | 없음(`@ap/*` import 금지, 브라우저로만 관찰) |
 | `tooling/*` | 개발 환경 | 공유 tsconfig, lint 설정(경계·계약 규칙), 메뉴 생성기 | — | — |
 
+`@ap/menu-log-analysis` (`menus/log-dev/log-analysis`, #1473) owns the logAnalysis group’s explorer and hidden investigation view. Its `logExplorer.*` reads/actions use the existing menu transport; its `/mock` contributes synthetic reads and versioned writes only to the dev assembly.
+
 ### 플랫폼 기능 Consumer 루트 (Decided 2026-10-28)
 
 [ADR-0097](../adr/0097-platform-features-and-role-based-names.md)이 정한 목표 배치에서 `platform/<feature>/`는 **Consumer 층**이며 SDK가 아니다. 기능 메뉴는 한 단계, 업무 시스템 메뉴 `menus/<system>/<group>/`는 두 단계다. 플랫폼 기능의 공간 소속은 앱의 `GROUPS` 선언에서만 읽으며 폴더에서 추정하지 않는다. 생성기는 `space: null` 그룹을 항상 `platform/<group>/`에 만들고, 공간이 있는 그룹은 `--platform`을 줄 때만 거기에 만든다(없으면 `menus/<space>/<group>/`). `--remove`는 메타데이터로 두 루트 어느 쪽이든 찾는다. `repo-invariants`는 두 루트의 그룹 소유·메뉴 id·경로 모양·패키지 이름 중복을 함께 검사하고, `menus/` 폴더의 공간은 `GROUPS`와 일치하는지 보며 `platform/`은 폴더 이름을 공간으로 읽지 않는다. 용어는 [GLOSSARY](../../GLOSSARY.md)가 소유한다. 폴더 이동은 #1098에서 끝났다(b: 기능 코드, r: 패키지 이름, c: Consumer 폴더). 런타임 그룹 id(`foDashboard` 등)·메뉴 id·경로와 앱 배치는 그대로이며 #1099가 정한다. 패키지 이름은 `@ap/menu-dashboard`·`-voc`·`-findings`·`-tasks`·`-integration`·`-surveys`·`-feature-admin`처럼 폴더 기준 역할 이름이다.
