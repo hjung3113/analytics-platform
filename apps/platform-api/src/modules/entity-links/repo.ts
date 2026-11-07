@@ -14,8 +14,11 @@ import { vocFollowUpRootsSql } from '../voc/read-projections.js';
 
 export interface LinkEndpointRow {
   workspace_id: string;
-  managed_system_id: string;
+  /** NULL only for an endpoint with no Managed System (ADR-0123: Round, 수동 검증 첨부); every other provider returns it. */
+  managed_system_id: string | null;
   reporter_id: string | null;
+  /** Owner-defined parent pointer for an endpoint whose read right is its parent's (the 수동 검증 첨부 provider: parent kind and id). */
+  parent?: { kind: string; id: string } | undefined;
 }
 
 export interface EntityLinkRow {
@@ -28,7 +31,8 @@ export interface EntityLinkRow {
   relation_type: EntityLinkRelationType;
   visibility: 'internal_only' | 'summary_visible' | 'visible_to_reporter' | 'admin_only';
   status: 'active' | 'stale' | 'detached' | 'revoked';
-  managed_system_id: string;
+  /** NULL only for the registered no-Managed-System tuples (ADR-0123). */
+  managed_system_id: string | null;
   created_by: string;
   created_at: Date;
   updated_at: Date | null;
@@ -83,7 +87,7 @@ function mapEntityLinkRow(row: Record<string, unknown>): EntityLinkRow {
     relation_type: row.relation_type as EntityLinkRelationType,
     visibility: row.visibility as EntityLinkRow['visibility'],
     status: row.status as EntityLinkRow['status'],
-    managed_system_id: row.managed_system_id as string,
+    managed_system_id: (row.managed_system_id as string | null) ?? null,
     created_by: row.created_by as string,
     created_at:
       row.created_at instanceof Date ? row.created_at : new Date(row.created_at as string),
@@ -108,7 +112,7 @@ export async function resolveVocEndpoint(
   db: Db | Tx,
   workspaceId: string,
   vocId: string,
-): Promise<LinkEndpointRow | null> {
+): Promise<(LinkEndpointRow & { managed_system_id: string }) | null> {
   const result = await (db as Db).execute<Record<string, unknown>>(sql`
     SELECT workspace_id, primary_managed_system_id AS managed_system_id, reporter_id
     FROM ${vocs}
@@ -134,7 +138,8 @@ export async function insertActiveEntityLink(
     targetType: EntityLinkEntityType;
     targetId: string;
     relationType: EntityLinkRelationType;
-    managedSystemId: string;
+    /** NULL only for the registered no-Managed-System tuples (ADR-0123); the DB check refuses any other mix. */
+    managedSystemId: string | null;
     createdBy: string;
     visibility: 'internal_only' | 'summary_visible';
     /**
@@ -430,6 +435,8 @@ function inventoryPredicates(input: InventoryPredicateInput): { summary: SQL[]; 
   }
   summary.push(
     sql`source_type <> 'survey_response'`,
+    // ADR-0123: no-Managed-System tuples are command-only; the workspace inventory never lists them.
+    sql`source_type <> 'manual_validation_attachment'`,
     sql`NOT (
       source_type = 'voc_cluster'
       AND target_type = 'finding'

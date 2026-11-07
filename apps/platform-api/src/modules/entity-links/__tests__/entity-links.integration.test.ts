@@ -10,6 +10,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import {
   type EntityLinkEntityType,
   type EntityLinkRelationType,
+  type NoManagedSystemEntityType,
+  isNoManagedSystemEntityLinkPair,
   registeredEntityLinkPairs,
 } from '@ap/feature-shared';
 
@@ -316,7 +318,8 @@ describe.skipIf(!runIntegration)('POST/GET /entity-links (#112)', () => {
 
   async function seedRegisteredTupleEndpoints(): Promise<{
     msA: string;
-    endpoints: Record<EntityLinkEntityType, { id: string }>;
+    // The no-Managed-System types (ADR-0123) are command-only and have their own suite (no-managed-system-link.integration.test.ts).
+    endpoints: Record<Exclude<EntityLinkEntityType, NoManagedSystemEntityType>, { id: string }>;
     vocTarget: { id: string };
   }> {
     const { msA, sourceVoc, targetVoc } = await seedVocPair();
@@ -635,6 +638,7 @@ describe.skipIf(!runIntegration)('POST/GET /entity-links (#112)', () => {
     const { endpoints, vocTarget } = await seedRegisteredTupleEndpoints();
 
     for (const tuple of registeredEntityLinkPairs) {
+      if (isNoManagedSystemEntityLinkPair(tuple)) continue; // command-only; covered by no-managed-system-link.integration.test.ts
       const source = endpoints[tuple.source_type];
       const target = tuple.target_type === 'voc' ? vocTarget : endpoints[tuple.target_type];
       await migrateHandle.pool.query('delete from core.rate_limits');
@@ -2900,6 +2904,7 @@ describe.skipIf(!runIntegration)('POST/GET /entity-links (#112)', () => {
     const { msA, endpoints, vocTarget } = await seedRegisteredTupleEndpoints();
 
     for (const tuple of registeredEntityLinkPairs) {
+      if (isNoManagedSystemEntityLinkPair(tuple)) continue; // NULL managed_system_id; covered by no-managed-system-link.integration.test.ts
       const source = endpoints[tuple.source_type];
       const target = tuple.target_type === 'voc' ? vocTarget : endpoints[tuple.target_type];
 

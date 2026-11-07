@@ -11,9 +11,13 @@ import type {
   TaskReporterSummary,
   VocDetailEnvelope,
 } from '@ap/feature-shared';
-import { isRegisteredEntityLinkPair, registeredEntityLinkPairs } from '@ap/feature-shared';
+import {
+  isNoManagedSystemEntityLinkPair,
+  isRegisteredEntityLinkPair,
+  registeredEntityLinkPairs,
+} from '@ap/feature-shared';
 import { lockRecoveryCommand } from '../../db/recovery-command-lock.js';
-import type { RecoveryRecorder } from '../dashboard/recorder.js';
+import type { RecoveryRecorder, RecoverySubject } from '../dashboard/recorder.js';
 import { actorFindingReadScope, isFindingInReadScope } from '../findings/authorization.js';
 import type { FindingExecutionReconciler } from '../findings/execution-projection.js';
 import { readVocClusterMemberships } from '../voc-clusters/read-projections.js';
@@ -32,6 +36,7 @@ import type {
   EntityLinksActor,
   ReporterSummaryResult,
 } from './provider-types.js';
+import { requireEndpointManagedSystemId } from './provider-types.js';
 import {
   type EntityLinkRow,
   type LinkEndpointRow,
@@ -61,6 +66,12 @@ interface EndpointSummaries {
   targetSummary?: EntityLinkTargetSummary;
 }
 
+// Generic surfaces never carry a no-Managed-System tuple (ADR-0123: command-only); a NULL here is a bug, so fail closed.
+function dtoManagedSystemId(row: EntityLinkRow): string {
+  if (row.managed_system_id === null) throw new Error('generic entity link surface reached a no-managed-system link');
+  return row.managed_system_id;
+}
+
 function toAllowedDto(
   row: EntityLinkRow,
   { sourceSummary, targetSummary }: EndpointSummaries = {},
@@ -76,7 +87,7 @@ function toAllowedDto(
     relation_type: row.relation_type,
     visibility: row.visibility,
     status: row.status,
-    managed_system_id: row.managed_system_id,
+    managed_system_id: dtoManagedSystemId(row),
     created_by: row.created_by,
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at ? row.updated_at.toISOString() : null,
@@ -94,7 +105,7 @@ function toAuditMetadataDto(
     target_type: row.target_type,
     relation_type: row.relation_type,
     status: row.status,
-    managed_system_id: row.managed_system_id,
+    managed_system_id: dtoManagedSystemId(row),
     created_by: row.created_by,
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at ? row.updated_at.toISOString() : null,
@@ -109,7 +120,7 @@ function toSummaryVisibleDto(row: EntityLinkRow, summary: TaskReporterSummary): 
     target_type: row.target_type,
     relation_type: row.relation_type,
     status: row.status,
-    managed_system_id: row.managed_system_id,
+    managed_system_id: dtoManagedSystemId(row),
     created_by: row.created_by,
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at ? row.updated_at.toISOString() : null,
@@ -165,17 +176,31 @@ function toDetachedResponse(row: EntityLinkRow): DetachedEntityLinkResponse {
  * as a CHECK/FK.
  */
 export function assertLinkManagedSystemCompatibility(
-  sourceManagedSystemId: string,
-  targetManagedSystemId: string,
+  sourceManagedSystemId: string | null,
+  targetManagedSystemId: string | null,
   field: { path: (string | number)[] } = { path: ['target', 'id'] },
 ): void {
-  if (sourceManagedSystemId !== targetManagedSystemId) {
+  // ADR-0123: a Managed System end paired with a no-Managed-System end (or two NULLs on a generic tuple) never matches.
+  if (
+    sourceManagedSystemId === null ||
+    targetManagedSystemId === null ||
+    sourceManagedSystemId !== targetManagedSystemId
+  ) {
     throw new HttpError(
       'validation.failed',
       'entity link source and target must belong to the same managed system',
       { fields: [{ path: field.path, code: 'managed_system_mismatch' }] },
     );
   }
+}
+
+// Recovery projections know the Managed-System entity types only; the no-Managed-System ends (ADR-0123) are written by
+// `createNoManagedSystemLink` and never reach the generic create/detach paths that call this.
+function recoverySubjectOf(ref: EntityLinkRef): RecoverySubject {
+  if (ref.type === 'validation_round' || ref.type === 'manual_validation_attachment') {
+    throw new Error('no-managed-system entity link end reached a recovery subject');
+  }
+  return { type: ref.type, id: ref.id };
 }
 
 function providerFor(
@@ -197,7 +222,9 @@ const genericEntityLinkPairs = registeredEntityLinkPairs.filter(
     ) &&
     // Survey-response tuples are command-only until C4 owns their compound
     // authorization, audit, and privacy obligations.
-    pair.source_type !== 'survey_response',
+    pair.source_type !== 'survey_response' &&
+    // ADR-0123: no-Managed-System tuples are written only by the owning module's command.
+    !isNoManagedSystemEntityLinkPair(pair),
 );
 // #760: /vocs/:id/request-task and /voc-clusters/:id/request-task own these writes.
 const creatableEntityLinkPairs = genericEntityLinkPairs.filter(
@@ -655,7 +682,7 @@ export function createEntityLinksService(deps: EntityLinksServiceDeps) {
       if (!args.tx) await lockRecoveryCommand(tx, actor.workspace_id);
       const recovery = args.tx
         ? undefined
-        : await deps.recoveryRecorder?.capture(tx, actor.workspace_id, [source, target]);
+        : await deps.recoveryRecorder?.capture(tx, actor.workspace_id, [recoverySubjectOf(source), recoverySubjectOf(target)]);
       const inserted = await insertActiveEntityLink(tx, {
         workspaceId: actor.workspace_id,
         sourceType: source.type,
@@ -663,7 +690,7 @@ export function createEntityLinksService(deps: EntityLinksServiceDeps) {
         targetType: target.type,
         targetId: target.id,
         relationType: args.relation_type,
-        managedSystemId: sourceRow.managed_system_id,
+        managedSystemId: requireEndpointManagedSystemId(sourceRow),
         createdBy: actor.actor_id,
         visibility,
         ...(args.internalWritePath !== undefined
@@ -948,7 +975,7 @@ export function createEntityLinksService(deps: EntityLinksServiceDeps) {
         !subject ||
         !isFindingInReadScope(
           await actorFindingReadScope(db, actor, { requireElevatedRole: true }),
-          subject.managed_system_id,
+          requireEndpointManagedSystemId(subject),
         )
       )
         continue;
@@ -1199,8 +1226,8 @@ export function createEntityLinksService(deps: EntityLinksServiceDeps) {
     const detached = await deps.db.transaction(async (tx) => {
       await lockRecoveryCommand(tx, actor.workspace_id);
       const recovery = await deps.recoveryRecorder?.capture(tx, actor.workspace_id, [
-        { type: link.source_type, id: link.source_id },
-        { type: link.target_type, id: link.target_id },
+        recoverySubjectOf({ type: link.source_type, id: link.source_id }),
+        recoverySubjectOf({ type: link.target_type, id: link.target_id }),
       ]);
       const updated = await detachEntityLink(tx, {
         workspaceId: actor.workspace_id,
@@ -1246,8 +1273,87 @@ export function createEntityLinksService(deps: EntityLinksServiceDeps) {
     return toDetachedResponse(detached);
   }
 
+  /**
+   * ADR-0123: the one write path for the registered no-Managed-System tuples, called by the owning module's command inside
+   * its transaction (`tx` is required: a failed link write must roll the caller back). Judged by the owning modules'
+   * read permission at BOTH ends (provider `canRead`; a missing provider or an unresolved end denies), never by Managed
+   * System. A tuple that is not registered as a no-Managed-System pair, or an end that carries a Managed System, is
+   * refused: the Managed-System rule of `createLink` is not available here. An existing active link is returned
+   * (`inserted: false`); the audit row is written only for a new link.
+   */
+  async function createNoManagedSystemLink(args: {
+    actor: EntityLinksActor;
+    source: EntityLinkRef;
+    target: EntityLinkRef;
+    relation_type: EntityLinkRelationType;
+    tx: Tx;
+  }): Promise<{ id: string; inserted: boolean }> {
+    const { actor, source, target, tx } = args;
+    if (
+      !isNoManagedSystemEntityLinkPair({
+        source_type: source.type,
+        target_type: target.type,
+        relation_type: args.relation_type,
+      })
+    ) {
+      throw new HttpError('validation.failed', 'unsupported entity link tuple', {
+        fields: [{ path: [], code: 'unsupported_tuple' }],
+      });
+    }
+    const bound = readDependencies(tx);
+    const sourceProvider = providerFor(bound.providers, source.type);
+    const targetProvider = providerFor(bound.providers, target.type);
+    const [sourceRow, targetRow] = await Promise.all([
+      sourceProvider.assertExists(bound.db, actor.workspace_id, source.id),
+      targetProvider.assertExists(bound.db, actor.workspace_id, target.id),
+    ]);
+    // Existence is not revealed apart from readability: an unresolved end and an unreadable end answer the same.
+    const [sourceAllowed, targetAllowed] = await Promise.all([
+      sourceRow ? sourceProvider.canRead(bound, actor, sourceRow) : false,
+      targetRow ? targetProvider.canRead(bound, actor, targetRow) : false,
+    ]);
+    if (!sourceRow || !targetRow || !sourceAllowed || !targetAllowed) {
+      throw new HttpError('not_found.record', 'entity link endpoint not found');
+    }
+    if (sourceRow.managed_system_id !== null || targetRow.managed_system_id !== null) {
+      throw new HttpError('validation.failed', 'entity link ends must not carry a managed system', {
+        fields: [{ path: ['target', 'id'], code: 'managed_system_mismatch' }],
+      });
+    }
+    const inserted = await insertActiveEntityLink(tx, {
+      workspaceId: actor.workspace_id,
+      sourceType: source.type,
+      sourceId: source.id,
+      targetType: target.type,
+      targetId: target.id,
+      relationType: args.relation_type,
+      managedSystemId: null,
+      createdBy: actor.actor_id,
+      visibility: 'internal_only',
+    });
+    if (inserted.inserted) {
+      await deps.auditService.record(tx, {
+        workspace_id: actor.workspace_id,
+        actor_id: actor.actor_id,
+        event_type: 'entity_link.created',
+        subject_type: 'entity_link',
+        subject_id: inserted.row.id,
+        summary: 'Entity link created',
+        detail: {
+          link_id: inserted.row.id,
+          source,
+          target,
+          relation_type: args.relation_type,
+          visibility: 'internal_only',
+        },
+      });
+    }
+    return { id: inserted.row.id, inserted: inserted.inserted };
+  }
+
   return {
     createLink,
+    createNoManagedSystemLink,
     canReadEndpoint,
     resolveReadableEndpointSummary,
     listLinks,

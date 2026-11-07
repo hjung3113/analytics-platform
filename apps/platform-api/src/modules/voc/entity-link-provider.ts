@@ -1,5 +1,8 @@
 import { resolveVocEndpoint } from '../entity-links/index.js';
-import type { EntityLinkProvider } from '../entity-links/provider-types.js';
+import {
+  type EntityLinkProvider,
+  requireEndpointManagedSystemId,
+} from '../entity-links/provider-types.js';
 import { canReadVocAsSource } from './authorization.js';
 
 export const vocEntityLinkProvider: EntityLinkProvider = {
@@ -8,7 +11,7 @@ export const vocEntityLinkProvider: EntityLinkProvider = {
   getPermissionSubject: resolveVocEndpoint,
   canRead: async (deps, actor, subject) => {
     return canReadVocAsSource(deps.checkService, actor, {
-      managedSystemId: subject.managed_system_id,
+      managedSystemId: requireEndpointManagedSystemId(subject),
       reporterId: subject.reporter_id,
     });
   },

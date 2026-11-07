@@ -205,6 +205,7 @@ describe.skipIf(!runIntegration)('log lifecycle manual validation attachment (#1
   }, 60_000);
 
   afterAll(async () => {
+    await sql('delete from core.entity_links where created_by = any($1)', [actorIds]);
     await sql('delete from voc.voc_attachments where id = any($1)', [attachmentIds]);
     const client = await migrate.pool.connect();
     try {
@@ -330,5 +331,107 @@ describe.skipIf(!runIntegration)('log lifecycle manual validation attachment (#1
     expect((await act('roundClose', { id: round.roundId }, admin, round.version)).outcome).toBe('ok');
     expect(fe(await act('roundEvidenceAttach', { roundId: round.roundId, attachmentIds: [id] }, grantee))).toEqual(['roundId:illegal_transition']);
     expect((await attachmentRow(id)).parent_kind).toBeNull();
+  });
+  // ── #1466 (ADR-0123): the 수동 검증 첨부 is also an Entity Link, written in the attach transaction. Needs migration 0107.
+  const linksOf = async (roundId: string) =>
+    (
+      await sql(
+        `select source_type, source_id, target_type, target_id, relation_type, visibility, status, managed_system_id, created_by
+           from core.entity_links where target_type = 'validation_round' and target_id = $1 order by source_id`,
+        [roundId],
+      )
+    ).rows as Record<string, unknown>[];
+
+  it('creates one attachment → round evidence_of link per attachment (no Managed System) with an entity_link.created audit, in the attach transaction', async () => {
+    const round = await makeRound();
+    const [a, b] = [await upload(grantee), await upload(grantee)];
+    expect((await act('roundEvidenceAttach', { roundId: round.roundId, attachmentIds: [a, b] }, grantee)).outcome).toBe('ok');
+    expect(await linksOf(round.roundId)).toEqual(
+      [a, b].sort().map((id) => ({
+        source_type: 'manual_validation_attachment',
+        source_id: id,
+        target_type: 'validation_round',
+        target_id: round.roundId,
+        relation_type: 'evidence_of',
+        visibility: 'internal_only',
+        status: 'active',
+        managed_system_id: null,
+        created_by: grantee.id,
+      })),
+    );
+    const { rows } = await sql(
+      `select subject_type, actor_id, detail from core.audit_log where event_type = 'entity_link.created' and detail->'target'->>'id' = $1 order by detail->'source'->>'id'`,
+      [round.roundId],
+    );
+    expect(rows).toHaveLength(2);
+    for (const row of rows) {
+      expect(row).toMatchObject({ subject_type: 'entity_link', actor_id: grantee.id });
+      expect(row.detail).toMatchObject({ target: { type: 'validation_round', id: round.roundId }, relation_type: 'evidence_of', visibility: 'internal_only' });
+    }
+  });
+
+  it('refuses attaching the same attachment twice and leaves exactly one link', async () => {
+    const round = await makeRound();
+    const id = await upload(grantee);
+    expect((await act('roundEvidenceAttach', { roundId: round.roundId, attachmentIds: [id] }, grantee)).outcome).toBe('ok');
+    const again = await makeRound();
+    expect(fe(await act('roundEvidenceAttach', { roundId: round.roundId, attachmentIds: [id] }, grantee))).toEqual(['attachmentIds.0:invalid']);
+    expect(fe(await act('roundEvidenceAttach', { roundId: again.roundId, attachmentIds: [id] }, grantee))).toEqual(['attachmentIds.0:invalid']);
+    expect(await linksOf(round.roundId)).toHaveLength(1);
+    expect(await linksOf(again.roundId)).toHaveLength(0);
+  });
+
+  it('rolls the attach back when the link write fails: attachment unlinked, no link, no evidence_attached audit', async () => {
+    const round = await makeRound();
+    const id = await upload(grantee);
+    await sql(
+      `create or replace function core.it1466_fail_link() returns trigger language plpgsql as $$ begin raise exception 'it1466 forced link failure'; end $$`,
+    );
+    await sql(`create trigger it1466_fail_link before insert on core.entity_links for each row execute function core.it1466_fail_link()`);
+    try {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v1/menu-action',
+        headers: { 'content-type': 'application/json', ...cookieHeader(grantee.cookie), 'x-csrf-token': grantee.csrf },
+        payload: JSON.stringify({
+          action: 'logLifecycle.roundEvidenceAttach',
+          context: {},
+          input: { roundId: round.roundId, attachmentIds: [id] },
+          idempotencyKey: randomUUID(),
+        }),
+      });
+      expect(res.statusCode).toBeGreaterThanOrEqual(500);
+    } finally {
+      await sql('drop trigger if exists it1466_fail_link on core.entity_links');
+      await sql('drop function if exists core.it1466_fail_link()');
+    }
+    expect(await attachmentRow(id)).toMatchObject({ voc_id: null, comment_id: null, parent_kind: null, parent_id: null });
+    expect(await linksOf(round.roundId)).toHaveLength(0);
+    const audit = await sql(`select 1 from core.audit_log where event_type = 'lifecycle.round.evidence_attached' and subject_id = $1`, [round.roundId]);
+    expect(audit.rows).toHaveLength(0);
+  });
+
+  it('keeps the new tuple off the generic surfaces: POST /entity-links refuses it, the workspace inventory and endpoint listing do not show it', async () => {
+    const round = await makeRound();
+    const id = await upload(grantee);
+    await act('roundEvidenceAttach', { roundId: round.roundId, attachmentIds: [id] }, grantee);
+    const post = await app.inject({
+      method: 'POST',
+      url: '/entity-links',
+      headers: { 'content-type': 'application/json', ...cookieHeader(admin.cookie), 'x-csrf-token': admin.csrf },
+      payload: JSON.stringify({ source: { type: 'manual_validation_attachment', id }, target: { type: 'validation_round', id: round.roundId }, relation_type: 'evidence_of' }),
+    });
+    expect(post.statusCode).toBe(422);
+    expect(post.json<{ detail: { fields: { code: string }[] } }>().detail.fields).toEqual([{ path: [], code: 'unsupported_tuple' }]);
+    for (const url of [
+      '/entity-links?scope=workspace&limit=100',
+      `/entity-links?source_type=manual_validation_attachment&source_id=${id}`,
+      `/entity-links?target_type=validation_round&target_id=${round.roundId}`,
+    ]) {
+      const res = await app.inject({ method: 'GET', url, headers: cookieHeader(admin.cookie) });
+      expect(res.statusCode, url).toBe(200);
+      expect(res.body, url).not.toContain(id);
+      expect(res.body, url).not.toContain(round.roundId);
+    }
   });
 });

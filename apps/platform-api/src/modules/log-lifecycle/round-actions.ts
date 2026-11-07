@@ -6,6 +6,7 @@
 // event kinds have no round kind): the history of rounds is the round rows plus the audit rows.
 
 import { LinkAttachmentsRejected, linkAttachments } from '../attachments/index.js';
+import type { EntityLinksActor, EntityLinksService } from '../entity-links/index.js';
 import { createAuditService } from '../core/audit/audit-service.js';
 import type { Tx } from '../../db/tx.js';
 import {
@@ -39,6 +40,7 @@ const INVALIDATES = ['logLifecycle.models', 'logLifecycle.projectDetail', 'logLi
 export interface RoundActionDeps {
   checkService: CheckService;
   knowledgeLookup: KnowledgeLookup;
+  entityLinks: Pick<EntityLinksService, 'createNoManagedSystemLink'>;
 }
 
 const invalid = (...errors: FieldError[]) => new MenuActionInvalidError(errors);
@@ -145,7 +147,8 @@ export function roundActions(deps: RoundActionDeps): MenuActionDeclaration[] {
   // Manual validation attachment (#1451, D6): link pre-uploaded attachments (`POST /attachments`, uploaded by the caller) to a round
   // as parent kind `validation_round`. Write right = `lifecycle.round.manage` like the other round writes; only an open
   // round takes Evidence (a closed round is final). The link guard (unlinked, not archived, uploaded by the caller)
-  // is the attachments module's; any miss rolls the whole call back.
+  // is the attachments module's; any miss rolls the whole call back. Each attachment also gets its Entity Link
+  // (attachment -> round, `evidence_of`, ADR-0123) in the same transaction: a failed link write rolls the attach back.
   const roundEvidenceAttach: MenuActionDeclaration = {
     spec: base('roundEvidenceAttach', 'none'),
     authorize,
@@ -169,6 +172,20 @@ export function roundActions(deps: RoundActionDeps): MenuActionDeclaration[] {
           throw invalid({ path: ['attachmentIds', String(err.index)], code: 'invalid' });
         }
         throw err;
+      }
+      const linkActor: EntityLinksActor = {
+        actor_id: actor.actor_id,
+        workspace_id: ws,
+        role_level: actor.role_level as EntityLinksActor['role_level'],
+      };
+      for (const attachmentId of attachmentIds) {
+        await deps.entityLinks.createNoManagedSystemLink({
+          actor: linkActor,
+          source: { type: 'manual_validation_attachment', id: attachmentId },
+          target: { type: 'validation_round', id: round.id },
+          relation_type: 'evidence_of',
+          tx,
+        });
       }
       await audit.record(tx, {
         workspace_id: ws,

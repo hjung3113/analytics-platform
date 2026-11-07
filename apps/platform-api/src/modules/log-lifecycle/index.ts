@@ -18,3 +18,4 @@ export type { SampleSet } from './domain/sample-set.js';
 export { LOG_MODELS_MENU_ID } from './menu.js';
 export { LIFECYCLE_PROJECT_MENU_PERMISSION, LIFECYCLE_PROJECT_PERMISSION } from './project-actions.js';
 export { LIFECYCLE_ROUND_MENU_PERMISSION, LIFECYCLE_ROUND_PERMISSION } from './round-actions.js';
+export { readRoundEvidenceLinks, type RoundEvidenceLink } from './round-evidence-links.js';

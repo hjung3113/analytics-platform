@@ -15,6 +15,9 @@ const ENTITY_TYPE_LABEL: Record<EntityLinkDto['source_type'], string> = {
   voc_cluster: '반복 VOC',
   task_request: 'Task 요청',
   task: 'Task',
+  // ADR-0123: command-only ends, never in a generic list; the maps stay exhaustive over the entity types.
+  validation_round: 'Round',
+  manual_validation_attachment: '수동 검증 첨부',
 };
 
 function endpointIdentity(
@@ -42,6 +45,7 @@ function iconTypeFor(type: EntityLinkDto['source_type']): EntityIconType {
   if (type === 'task_request') return 'request';
   if (type === 'voc_cluster') return 'voc';
   if (type === 'survey_response') return 'survey';
+  if (type === 'validation_round' || type === 'manual_validation_attachment') return 'evidence';
   return type;
 }
 

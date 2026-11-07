@@ -504,9 +504,8 @@ export const entityLinks = coreSchema.table(
     relationType: text('relation_type').notNull(),
     visibility: text('visibility').notNull().default('internal_only'),
     status: text('status').notNull().default('active'),
-    managedSystemId: uuid('managed_system_id')
-      .notNull()
-      .references(() => managedSystems.id),
+    // ADR-0123: NULL only for the registered no-Managed-System tuples (entity_links_managed_system_check).
+    managedSystemId: uuid('managed_system_id').references(() => managedSystems.id),
     createdBy: uuid('created_by')
       .notNull()
       .references(() => actors.id),
@@ -519,7 +518,12 @@ export const entityLinks = coreSchema.table(
   (t) => ({
     tupleCheck: check(
       'entity_links_tuple_check',
-      sql`(${t.sourceType}, ${t.targetType}, ${t.relationType}) in (('voc','voc','related_to'), ('voc','finding','created_finding'), ('voc','finding','evidence_of'), ('voc_cluster','finding','created_finding'), ('voc_cluster','finding','evidence_of'), ('finding','task_request','requested_task'), ('task_request','task','converted_to'), ('finding','task','requested_task'), ('voc','task','evidence_of'), ('voc','task_request','requested_task'), ('voc_cluster','task_request','requested_task'), ('survey_response','finding','generated_finding'), ('survey_response','finding','evidence_of'))`,
+      sql`(${t.sourceType}, ${t.targetType}, ${t.relationType}) in (('voc','voc','related_to'), ('voc','finding','created_finding'), ('voc','finding','evidence_of'), ('voc_cluster','finding','created_finding'), ('voc_cluster','finding','evidence_of'), ('finding','task_request','requested_task'), ('task_request','task','converted_to'), ('finding','task','requested_task'), ('voc','task','evidence_of'), ('voc','task_request','requested_task'), ('voc_cluster','task_request','requested_task'), ('survey_response','finding','generated_finding'), ('survey_response','finding','evidence_of'), ('manual_validation_attachment','validation_round','evidence_of'))`,
+    ),
+    // ADR-0123: a registered no-Managed-System tuple carries NULL, every other tuple requires a Managed System.
+    managedSystemCheck: check(
+      'entity_links_managed_system_check',
+      sql`((${t.sourceType}, ${t.targetType}, ${t.relationType}) in (('manual_validation_attachment','validation_round','evidence_of'))) = (${t.managedSystemId} is null)`,
     ),
     visibilityCheck: check(
       'entity_links_visibility_check',
