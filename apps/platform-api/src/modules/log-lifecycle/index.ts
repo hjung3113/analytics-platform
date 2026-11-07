@@ -25,3 +25,5 @@ export { LIFECYCLE_PROJECT_MENU_PERMISSION, LIFECYCLE_PROJECT_PERMISSION } from 
 export { LIFECYCLE_ROUND_MENU_PERMISSION, LIFECYCLE_ROUND_PERMISSION } from './round-actions.js';
 export { readRoundEvidenceLinks, type RoundEvidenceLink } from './round-evidence-links.js';
 export { EXCERPT_PURGE_CRON, EXCERPT_PURGE_QUEUE, purgeExpiredExcerpts, registerExcerptPurge } from './excerpt-purge-job.js';
+export { lifecycleRoundRead } from './round-read-port.js';
+export type { LifecycleRoundRead } from './round-read-port.js';

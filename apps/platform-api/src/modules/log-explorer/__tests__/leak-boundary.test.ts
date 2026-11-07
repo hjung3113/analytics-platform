@@ -59,13 +59,16 @@ describe('leak boundary', () => {
   // `read-service.ts` is the one audit writer (#1469): it records counts, the Source owner, a digest, filter KEYS and a result code only;
   // `read-endpoints.test.ts` pins that the written row holds no body, no filter value and no file reference. `export-service.ts` (#1472) is the
   // second writer, for `explorer.export`; `export.test.ts` pins its rows the same way.
-  it('module source has no console/logger use, and no audit write outside read-service.ts and export-service.ts', () => {
+  // Node b (#1468) audits investigation changes (filter keys, counts, note length; never Source text): those files may write audit too.
+  // Everything that touches Source text (ports, adapters, domain, errors, testing) must not.
+  const INVESTIGATION_AUDIT_OK = /^(investigation-[a-z-]+\.ts|repositories\/|domain\/(evidence|investigation-input|investigation-params|ref-state)\.ts)/;
+  it('module source has no console/logger use, and no audit write outside the read, export and investigation writers', () => {
     const offenders: string[] = [];
     for (const file of sources(ROOT)) {
       const text = readFileSync(file, 'utf8').replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
       const rel = relative(ROOT, file);
       if (/\bconsole\s*\./.test(text) || /\b(?:logger|log|request\.log|app\.log)\s*\.(?:info|warn|error|debug|trace)\b/.test(text)) offenders.push(`${rel}: logging`);
-      if (rel !== 'read-service.ts' && rel !== 'export-service.ts' && /\baudit\.record\b|\bauditLog\b/.test(text)) offenders.push(`${rel}: audit write`);
+      if (rel !== 'read-service.ts' && rel !== 'export-service.ts' && !INVESTIGATION_AUDIT_OK.test(rel) && /\baudit\.record\b|\bauditLog\b/.test(text)) offenders.push(`${rel}: audit write`);
     }
     expect(offenders).toEqual([]);
   });

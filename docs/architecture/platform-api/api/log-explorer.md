@@ -62,3 +62,47 @@ Each read writes one `core.audit_log` row, event `explorer.source.read`, subject
 - **No LLM / index path:** the module imports nothing that reaches an LLM, embedding, search index or notification; `leak-boundary.test.ts` pins it.
 
 Assembly seams (`buildServer({ logExplorer })`, tests only): `usage` (counter store), `exportChunkBytes`, `beforeExportChunk`, `exportTotalMs`.
+
+## Investigations (node b, #1468)
+
+Index and global rules: [03-api-contracts.md](../03-api-contracts.md). This file is the normative contract for the log explorer investigation state (#1468 node b): two reads and five writes of menu `log-analysis`. Design and decisions: the log-explorer design (`docs/design/features/log-explorer/`) §3.2, §4, §5 and ADR-0119. Not in this node: `SourceReadPort` and the record reads (`records`, `window`, `parsed`, `periods`; nodes a/c), `evidenceLinks` (node d), export and token scope (node f), `evidenceHandoff` (node h), screens (node g).
+
+### Transport and permission
+
+- Owning menu id `log-analysis` (`INVESTIGATION_MENU_ID`; its manifest comes with node g). Reads: `permission: 'platform:view'`, `requiresScope: false`, `context: {}`, `mergeTimeDomain: false`; every active workspace session may read. The workspace AND the owner are the session actor's; no param names either.
+- A bad param is an `error` outcome (HTTP 200, `data: null`, `message`). The outcome set has no `not_found`: an unknown id, another workspace's id and another owner's id all answer `ok` with `data: null` (the list answers an empty page), so existence never leaks.
+- Writes: `POST /api/v1/menu-action`, `requiresScope: false`, menu permission `explorer:investigate` (capability `explorer.investigate`: workspace-scoped, sensitive, `adminModuleBypass: 'none'` (registered by #1472), requestable with no Managed System, refused for a User recipient). The investigation belongs to its creator: every write other than create finds only the caller's own row, so another owner's id (an admin's too) answers `not_found`, never `forbidden`.
+- Refusals use the dispatch envelope: `outcome: 'invalid'` with `fieldErrors: [{ path, code }]`; `outcome: 'conflict'` is only an `expectedVersion` mismatch (`version` = the current one), nothing is written; creates replay by `idempotencyKey`. Unknown input keys are refused by the engine.
+
+### Reads
+
+| Endpoint id | Params | Data |
+| --- | --- | --- |
+| `logExplorer.investigations` | `status?` (`open`\|`archived`), `page` (0-based), `pageSize` (50 default, 200 max) | `{ rows: InvestigationSummary[], total }`, own investigations, newest update first |
+| `logExplorer.investigationDetail` | `investigationId` (uuid) | `InvestigationDetail` or `null` |
+
+`InvestigationSummary`: `{ id, title, origin, roundId, status, version, evidenceCount, createdAt, updatedAt }`. `InvestigationDetail`: the summary fields without `evidenceCount`, plus `filters`, `sampleSet`, `sampleSetState`, `canInvestigate` and `evidence`.
+
+- `sampleSet` is `{ files: [{ fileRef, order, sha256 }], sourceOwner }` (the shape is defined once by the log-lifecycle `validation_round.sample_set`, [log-lifecycle.md](log-lifecycle.md)). `origin: 'standalone'` returns the stored set (`sampleSetState: 'inline'`). `origin: 'round'` stores only `roundId` and the read resolves the Round's set through the lifecycle read port in the caller's workspace (`'round'`); a Round that cannot be resolved answers `sampleSet: null`, `sampleSetState: 'round_unavailable'`.
+- `evidence` is `[{ ref: { fileRef, line, fileSha256, note? }, state, sourceAccess }]` in stored order. A stored ref is never deleted when access is lost; it comes back with a `state`: `{ code: 'available' }` or `{ code: 'no_access', reason }` with `reason` `capability_lost` (the reader no longer holds `explorer.investigate`; `canInvestigate: false`) or `round_not_visible` (the Round could not be resolved). The state applies to all refs of one investigation alike and never fails the read. **Seam (node c):** `sourceAccess` is always `'unchecked'`: the Source ACL (`explorer.source.read` on the `sourceOwner`) needs the `SourceReadPort`, so `available` means «not refused by this node», not «the Source would open it». Opening a ref re-reads the Source with the reader's rights at that moment (design §3.2).
+
+### Writes
+
+| Action | `input` | Concurrency |
+| --- | --- | --- |
+| `logExplorer.investigationCreate` | `title`, `origin` (`standalone`\|`round`), `sampleSet` (standalone) or `roundId` (round) | none (`idempotencyKey`) |
+| `logExplorer.investigationUpdate` | `id`, `title?`, `filters?` (at least one) | `expectedVersion` |
+| `logExplorer.evidenceAdd` | `id`, `ref` `{ fileRef, line, fileSha256, note? }` | `expectedVersion` |
+| `logExplorer.evidenceRemove` | `id`, `ref` `{ fileRef, line }` | `expectedVersion` |
+| `logExplorer.investigationArchive` | `id` | `expectedVersion` |
+
+- `title`: 1–200 characters, trimmed, no control character. `sampleSet` is parsed by the log-lifecycle parser (codes under `sampleSet.*`). `roundId` must be a Round of the caller's workspace (`roundId: not_found`); the origin, the round reference and the sample set never change after create.
+- A write on a round-origin investigation requires the Round to resolve through the lifecycle read port on the write transaction: `investigationCreate` judges the `roundId` input, and the four versioned actions re-judge the referenced Round before mutating. After the Round is gone — or belongs to another workspace — every versioned action answers `roundId: not_found` like create, changing nothing, bumping no version and writing no audit row. Standalone investigations are unaffected; the stored refs are kept and the detail still answers `round_not_visible`.
+- `filters`: an object of at most 50 keys; a key is an identifier (`^[A-Za-z][A-Za-z0-9_.-]{0,63}$`, anything else `filters.<key>: malformed`), a value is a scalar (string up to 500 characters, finite number, boolean, null) or a list of at most 50 scalars; nested objects are `malformed`. Saved whole: `filters: {}` clears.
+- `ref`: `fileRef` up to 1024 characters; `line` an integer from 1; `fileSha256` 64 lower-case hex; `note` up to 500 characters (blank is dropped). **No body or excerpt is ever stored**: any other key is `ref.<key>: malformed`. A location `(fileRef, line)` is held once (`ref: duplicate`), at most **100** per investigation (`ref: too_many`; the DB also checks the cap), removing a location not held is `ref: not_found`.
+- An archived investigation is final. The engine compares `expectedVersion` before the row is judged: a stale version answers `conflict` (`version` = the archived row's current one) for every action; only a current version reaches the row, and every write, `investigationArchive` included, then answers `id: illegal_transition`.
+- Every write is one transaction: the row change (`row_version + 1`) and one `core.audit_log` row, subject type `investigation`. Event types and detail (strict, body-free): `explorer.investigation.created` `{ origin, roundId, fileCount, filterKeys }`, `explorer.investigation.updated` `{ changed[], filterKeys }`, `explorer.investigation.archived` `{ evidenceCount }`, `explorer.evidence.added` `{ evidenceCount, noteLength }`, `explorer.evidence.removed` `{ evidenceCount }`. Filter **keys** only, never a value, a file location, a hash or a note's text (ADR-0020 spirit).
+
+### Storage
+
+Schema `log_explorer` (migration 0109), table `investigation`: `id, workspace_id, title, owner_actor_id, origin, round_id (plain uuid, no cross-schema FK), sample_set (null for a round origin), filters, evidence (jsonb array), status, row_version, created_at, updated_at`. CHECKs: title length, origin and status sets, origin shape (`round` ⇒ `round_id` set and `sample_set` null; `standalone` ⇒ `round_id` null and `sample_set` an object), filters an object, evidence an array of at most 100. `platform_app`: SELECT, INSERT and a column-limited UPDATE (`title, filters, evidence, status, row_version, updated_at`), no DELETE; trigger `investigation_guard` refuses a changed identity/origin column, a `row_version` that does not rise by exactly 1 and any edit of an archived row.

@@ -83,6 +83,7 @@ import {
   logLifecycleContribution,
   roundAttachmentParent,
   workerRoutes,
+  lifecycleRoundRead,
 } from './modules/log-lifecycle/index.js';
 import {
   type SourceOwnerAccess,
@@ -93,6 +94,7 @@ import {
   LOG_EXPLORER_ROUTE_PREFIX,
   denyAllSourceOwners,
   guardSourceReadPort,
+  investigationContribution,
   logExplorerContribution,
   logExplorerExportRoutes,
 } from './modules/log-explorer/index.js';
@@ -992,6 +994,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     logLifecycleContribution({ db: dbHandle.db, checkService, knowledgeLookup, entityLinks: entityLinksService }),
     logExplorerContribution(logExplorerDeps),
     logRulesContribution({ db: dbHandle.db, checkService }),
+    investigationContribution({ db: dbHandle.db, checkService, lifecycleRead: lifecycleRoundRead }),
     ...(opts.menuDispatch ?? []),
   ]);
   // The catalog import upload (#1195 a) is a multipart route, which the menu-action port cannot carry: it is
