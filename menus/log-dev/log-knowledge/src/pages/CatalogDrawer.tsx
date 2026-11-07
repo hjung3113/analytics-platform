@@ -71,9 +71,9 @@ function Field({ id, label, error, hint, required, children }: { id: string; lab
 }
 
 type PickerProps = { id: string; invalid: boolean; describedBy: string | undefined };
-/** 제조사 / 모델 chooser of a new row: server search over the declared read, the chosen one kept visible while the text changes. */
+/** 설비사 / 모델 chooser of a new row: server search over the declared read, the chosen one kept visible while the text changes. */
 function ParentPicker({ kind, value, onChange, id, invalid, describedBy }: PickerProps & { kind: 'model' | 'software'; value: string; onChange: (value: string) => void }) {
-  const label = kind === 'model' ? '제조사' : '모델';
+  const label = kind === 'model' ? '설비사' : '모델';
   const picker = useOptionPicker(kind === 'model' ? vendorsEndpoint : modelsEndpoint);
   const [picked, setPicked] = useState<Option | null>(null);
   const options = picked && !picker.options.some(o => o.value === picked.value) ? [picked, ...picker.options] : picker.options;
@@ -171,7 +171,7 @@ function CatalogForm({ kind, row, options, onWritten, onReload, onClose }: {
   const err = (field: string) => errors[field];
   const describedBy = (field: string) => (err(field) ? `${uid}-${field}-error` : undefined);
   const parentField = kind === 'model' ? 'vendorId' : 'modelId';
-  const parentLabel = kind === 'model' ? '제조사' : '모델';
+  const parentLabel = kind === 'model' ? '설비사' : '모델';
   const knownProcesses = new Map((model?.processes ?? []).map(p => [p.id, p.name] as const));
   return <form className="flex min-h-full flex-col gap-4" noValidate onSubmit={event => { event.preventDefault(); if (!busy) save(); }}>
     {row && !row.active && <div role="status" className="grid gap-2 rounded-md border border-border-subtle bg-surface-sunken p-3">

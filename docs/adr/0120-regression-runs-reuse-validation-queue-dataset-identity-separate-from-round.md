@@ -4,7 +4,7 @@
 
 ## 배경
 
-테스트 Dataset·Expected Baseline은 여러 모델·Round·Validator 버전에서 되풀이해 쓰는 자산이고, 회귀 실행은 개발 건나 Round 없이 그 Dataset을 고정 프로파일로 다시 돌린다. 현재 설계는 `execution_request.round_id`를 필수로 두었다([log-lifecycle §3](../design/features/log-lifecycle/README.md)). 실행·claim·lease·멱등 결과는 ADR-0117이 이미 정했다.
+테스트 Dataset·Expected Baseline은 여러 모델·Round·Validator 버전에서 되풀이해 쓰는 자산이고, 회귀 실행은 개발 건이나 Round 없이 그 Dataset을 고정 프로파일로 다시 돌린다. 현재 설계는 `execution_request.round_id`를 필수로 두었다([log-lifecycle §3](../design/features/log-lifecycle/README.md)). 실행·claim·lease·멱등 결과는 ADR-0117이 이미 정했다.
 
 ## 결정
 
@@ -16,7 +16,7 @@
 
 ## 대안과 버리는 이유
 
-- **A. 회귀마다 «회귀 Round»를 만들어 기존 필수 `round_id`를 그대로 쓴다:** 개발 건가 없는 Round를 만들어야 하고 Round 목록·모델 개발 단계 화면이 회귀 실행으로 오염된다. 기각.
+- **A. 회귀마다 «회귀 Round»를 만들어 기존 필수 `round_id`를 그대로 쓴다:** 개발 건이 없는 Round를 만들어야 하고 Round 목록·모델 개발 단계 화면이 회귀 실행으로 오염된다. 기각.
 - **C. 회귀 전용 큐를 따로 만든다:** claim/lease/멱등 로직을 중복 구현하고 작업자 두 갈래를 유지해야 한다. 기각.
 - **Dataset을 Round의 `sample_set`의 부분 타입으로 둔다:** 재사용 수요(여러 Round·모델)와 Baseline 이력을 Round 수명에 묶는다. 기각.
 - **Baseline을 마지막 성공 시도로 자동 갱신(스냅샷 테스트 방식):** 회귀가 조용히 기준이 되어 Baseline의 목적이 사라진다. 기각.

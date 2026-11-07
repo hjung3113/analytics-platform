@@ -14,8 +14,8 @@ import type { Option } from './useCatalogOptions';
 const ENDPOINTS = { vendor: vendorsEndpoint, process: processesEndpoint, model: modelsEndpoint, software: softwareVersionsEndpoint } as const;
 const SORT_IDS = { vendor: VENDOR_SORT_IDS, process: PROCESS_SORT_IDS, model: MODEL_SORT_IDS, software: SOFTWARE_SORT_IDS } as const;
 const SPECS = { vendor: vendorFilterSpecs, process: processFilterSpecs, model: modelFilterSpecs, software: softwareFilterSpecs } as const;
-const FIELD_NAME = { active: '상태', vendorId: '제조사', processes: '공정', modelId: '모델' } as const;
-const NOUN = { vendor: '제조사', process: '공정', model: '모델', software: 'SW 버전' } as const;
+const FIELD_NAME = { active: '상태', vendorId: '설비사', processes: '공정', modelId: '모델' } as const;
+const NOUN = { vendor: '설비사', process: '공정', model: '모델', software: 'SW 버전' } as const;
 
 /**
  * The ids the URL codec and the filter line know for a tab: the wire specs with the lists the screen reads for the id fields. Each list is bounded
@@ -83,7 +83,7 @@ export function CatalogTable({ kind, q, focus, rowsRef, options, labels, remembe
     if (kind === 'model') {
       const models = (r: CatalogRow) => r as ModelRow;
       return [code, status, name,
-        { id: 'vendorName', header: '제조사', size: 140, cell: r => models(r).vendorName },
+        { id: 'vendorName', header: '설비사', size: 140, cell: r => models(r).vendorName },
         { id: 'processNames', header: '공정', size: 200, sortable: false, exportValue: r => models(r).processes.map(p => p.name).join(', '),
           cell: r => models(r).processes.length === 0 ? <span className="text-text-muted">미분류</span>
             : <span className="flex flex-wrap gap-1">{models(r).processes.map(p => <StatusBadge key={p.id} tone="info">{p.name}</StatusBadge>)}</span> },

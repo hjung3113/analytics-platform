@@ -331,7 +331,7 @@ function ImportWizardFor({ userId, onExit }: { userId: string; onExit: (changed:
     body = <div className="grid gap-3">
       <Notice tone="blue" title="아직 아무것도 저장되지 않았습니다">검사만 한 상태입니다. 카탈로그는 마지막 단계에서 「적용」을 누른 뒤에만 바뀝니다. 오류 행은 적용에서 빠집니다.</Notice>
       <Counts items={[['새로 추가', counts.new, 'success'], ['변경', counts.update, 'info'], ['그대로', counts.unchanged, 'neutral'], ['확인 필요', counts.conflict, 'warning'], ['오류', counts.error, 'danger']]} />
-      {(parents.vendors > 0 || parents.processes > 0) && <p className="text-sm text-text-secondary">새로 만들 메이커 <span className="tabular font-semibold">{parents.vendors}</span> · 공정 <span className="tabular font-semibold">{parents.processes}</span></p>}
+      {(parents.vendors > 0 || parents.processes > 0) && <p className="text-sm text-text-secondary">새로 만들 설비사 <span className="tabular font-semibold">{parents.vendors}</span> · 공정 <span className="tabular font-semibold">{parents.processes}</span></p>}
       <ImportRowsTable key={`plan:${revision}`} mode="plan" title="검사 결과 행" jobId={job.id} mapping={job.mapping} fetchDetail={fetchDetail} onDetail={() => undefined} />
     </div>;
   } else if (step === 3 && job) {
@@ -372,7 +372,7 @@ function ImportWizardFor({ userId, onExit }: { userId: string; onExit: (changed:
       {phase === 'ready' && <>
         <Notice tone="blue" title="아직 아무것도 저장되지 않았습니다">「적용」을 누르면 카탈로그가 바뀝니다.</Notice>
         <p className="text-sm">새로 추가 <span className="tabular font-semibold">{counts.new}</span>행 · 변경 <span className="tabular font-semibold">{counts.update}</span>행을 반영합니다.
-          {parents.vendors + parents.processes > 0 && <> 새 메이커 {parents.vendors} · 공정 {parents.processes}도 함께 만듭니다.</>}
+          {parents.vendors + parents.processes > 0 && <> 새 설비사 {parents.vendors} · 공정 {parents.processes}도 함께 만듭니다.</>}
           {' '}건너뜀 {conflicts.length} · 오류 제외 {counts.error} · 그대로 {counts.unchanged}행은 반영하지 않습니다.</p>
         {writes === 0 && <p className="text-sm text-text-muted">반영할 행이 없습니다. 적용해도 카탈로그는 바뀌지 않습니다.</p>}
       </>}

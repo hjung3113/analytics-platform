@@ -91,7 +91,7 @@ Round에 묶이지 않고 여러 모델·Round·Validator 버전에서 되풀이
 | `missing` | 기대한 `rule_id`가 결과에 없음(미검사) |
 
 - **Rule coverage**: `expected_scope` 대비 실행된 Rule / 미검사 Rule 수와 목록. 필수 Rule 미검사는 비교 요약 맨 위에 보인다.
-- `false positive`/`false negative`는 **계산 값이 아니라 사람의 결과 검토 라벨**이다: `suite_review_label`(추가 전용: `suite_run_id`, `rule_id`, `dataset_revision_id`, `label`(`false_positive`·`false_negative`·`accepted_change`·`needs_review`), `reason`, `actor_id`, `at`). triage가 Baseline이나 Rule 결과를 바꾸지 않는다. 기대를 바꾸려면 새 Baseline draft → 승인.
+- `false positive`/`false negative`는 **계산 값이 아니라 사람의 결과 검토 라벨**이다: `suite_review_label`(추가 전용: `suite_run_id`, `rule_id`, `dataset_revision_id`, `label`(`false_positive`·`false_negative`·`accepted_change`·`needs_review`), `reason`, `actor_id`, `at`). 결과 검토 라벨이 Baseline이나 규칙 결과를 바꾸지 않는다. 기대를 바꾸려면 새 Baseline draft → 승인.
 - 스크립트 판정과 LLM 가설은 별도 열이다. 이 슬라이스에는 LLM 열이 없고 자리만 정한다(§9).
 
 ### 3.7 dataset_candidate (회귀 자산화, draft)

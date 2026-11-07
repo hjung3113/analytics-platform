@@ -186,7 +186,7 @@ Log Knowledge Hub (독립 웹)
 | 분석/의견 | 추정 원인, 기술적 해석, 논의 | 사실로 승격하지 않음 |
 | 개선 방향 | 조치 제안, 재확인 포인트 | 실제 조치 완료는 별도 이력 |
 | 연결 | 유사·파생·관련·중복 후보 Item(출처 Item Revision 포함), 참조 문서/모듈 | 다른 SW 복사 시 새 Item만 생성 |
-| 상태·판단 이력 | 게시 상태/기술 검증 상태/처리 상태 분리; 판단 변경의 행위자·시각·근거·사유 | 이견·정정·이전 판단 보존 |
+| 상태·판단 이력 | 발행 상태/기술 검증 상태/처리 상태 분리; 판단 변경의 행위자·시각·근거·사유 | 이견·정정·이전 판단 보존 |
 
 **유형/카테고리/태그/그룹은 서로 다른 축**이다. 예: 유형 `확인 필요`, 카테고리 `이벤트 순서`, 태그 `PM1, START_END`, 수동 그룹 `설비사 확인 대기`, 동적 저장 뷰 `미해결+순서문제`. 그룹 변경은 Item의 소유 범위/존재에 영향을 주지 않는다.
 
@@ -197,7 +197,7 @@ Log Knowledge Hub (독립 웹)
 - 허브는 자동 판정 불가능한 예외·설비 물리 동작·운영 맥락·담당자 경험을 **기술 지식으로 관리**한다. 수동 의견을 기계 검증 점수로 둔갑시키지 않는다.
 - 검증 결과가 필요하면 `검증 결과 확인 → 검토 후보 제안 → 인간 판단·Item 발행` 흐름으로 연결한다. 모든 Validator finding을 자동 Item화하지 않는다.
 - 기존 Item 기반 신규 작성 시 제목/분석은 참고 초안으로 복사하되, **새 SW의 관찰·근거·검증 상태는 초기 미확인**으로 시작한다.
-- 게시 승인(`published`)은 기술적 사실 확정(`verified`)이 아니다.
+- 발행 승인(`published`)은 기술적 사실 확정(`verified`)이 아니다.
 
 ---
 
@@ -213,8 +213,8 @@ Log Knowledge Hub (독립 웹)
 - **KnowledgeItem**: **소유 대상 1개 = 특정 Model 또는 특정 SW 버전**. 별개의 Model/SW 현상은 독립 Item 생성. 다른 시스템이나 모델의 관련 사항은 `ItemLink`로 참조한다.
 - **ItemSubjectRef**: 소유 Model/SW의 여러 Module/Event에 붙는 N:M 설명·분류 링크. 링크 자체가 Item의 추가 소유권을 부여하지 않음.
 - **ItemLink**: `similar`, `related`, `derived_from`, `duplicate_candidate`, 필요하면 `supersedes`. 방향/대칭성이 다른 관계를 구분하고 수동 검토를 통해 확정. `derived_from`은 원본 Item **특정 Revision**을 참조.
-- **KnowledgeDraft / ReviewDecision / ItemRevision**: 일반 작성자·AI·Validator 유래 후보, 심사/수정 및 게시 스냅샷. 발행 권한이 있는 사람의 직접 게시도 Revision과 Audit은 동일하게 기록.
-- **ItemAssessmentHistory (판단 변경 이력)**: 게시 Revision과는 별도로 `검증 판단`, `처리 상태`, `판단 근거`, `이견`, `변경 사유`, `작성자·시간`을 불변으로 기록. 현재 상태는 최신 유효 판단에서 파생.
+- **KnowledgeDraft / ReviewDecision / ItemRevision**: 일반 작성자·AI·Validator 유래 후보, 심사/수정 및 발행 스냅샷. 발행 권한이 있는 사람의 직접 발행도 Revision과 Audit은 동일하게 기록.
+- **ItemAssessmentHistory (판단 변경 이력)**: 발행 Revision과는 별도로 `검증 판단`, `처리 상태`, `판단 근거`, `이견`, `변경 사유`, `작성자·시간`을 불변으로 기록. 현재 상태는 최신 유효 판단에서 파생.
 - **ValidationFindingRef**: 별도 Validator가 생성한 Run/Rule/샘플/Result의 **참조**. 자동 검증 결과로부터 검토 후보 제안을 생성할 수 있으나 자동으로 Item의 검증 상태를 확정하지 않는다.
 - **SourceAsset / Evidence**: 외부 원본 포인터 + 선택적 첨부 보관의 출처/버전/좌표/해시/ACL. 사실 근거와 해석을 구분.
 - **ItemCategory / Tag / ManualGroup / SavedView**: 표준 분류·자유 키워드·사용자 구성 그룹·저장된 필터를 분리. 그룹은 원본 Item의 소유자가 아니다.
@@ -245,7 +245,7 @@ Human/Ai Draft ─사람 또는 권한자 발행─► KnowledgeItem
 2. SW Item은 오직 그 SW의 기술 사실을 나타낸다. 모델 공통 Item은 **모델 수준의 지식**을 나타내고 하위 SW의 모든 현상이 확인되었다는 뜻이 아니다.
 3. 하나의 Item이 다수 Event/Module에 참조되어도 동일 소유 범위 내의 주제 연결이다. 다른 SW의 Module/Event를 참고로 표시할 때는 명시적으로 `external_reference`처럼 분리하고 그 범위에서 결론을 주장하지 않는다.
 4. SW별 명세의 수정·재추출이 모델 공통의 승인 기록을 자동 덮어쓰지 않는다. 모델 공통 후보와 승인된 모델 프로파일은 출처 스냅샷과 검토 시각을 가진다.
-5. 판단(관측/검증/이견/해결)과 발행(초안/심사/게시)은 다른 상태 축이다. 과거 판단을 수정/삭제하지 않고 추가 판단 기록으로 정정한다.
+5. 판단(관측/검증/이견/해결)과 발행(초안/심사/발행)은 다른 상태 축이다. 과거 판단을 수정/삭제하지 않고 추가 판단 기록으로 정정한다.
 6. 사용자가 기존 Item을 파생해 새 SW Item을 만들면 `derived_from(source_item_id, source_revision)` 관계를 남기고, 새 Evidence/검증은 **미확인**에서 시작한다.
 
 ### 4.4 프로그램 책임 경계
@@ -333,7 +333,7 @@ Validator의 룰이 잡은 위반은 `검토가 필요한 신호`일 수 있다.
 | `common_extraction_candidate`, `model_common_profile_revision` | SW 명세 비교 결과와 **사람이 승인한 공통 파생정보** | 사용 SW Spec Revision 목록, 후보 상태, 승인자·시각, `needs_revalidation` |
 | `common_concept`, `sw_concept_mapping` | 서로 다른 SW의 Module/Event 의미 관계 | SW별 Definition ID와 concept ID; 관계 kind, evidence, reviewer; AI 후보 분리 |
 | `knowledge_item` | Model **또는** SW **단일 소유**의 정식 Item | `item_id`, `owner_kind`, `owner_id`, `latest_revision`; 소유 참조 유효성은 서버/DB로 보장 |
-| `knowledge_item_revision` | 정식 게시 본문/분류의 불변 스냅샷 | `(item_id, revision)` unique, actor, time, workflow source |
+| `knowledge_item_revision` | 정식 발행 본문/분류의 불변 스냅샷 | `(item_id, revision)` unique, actor, time, workflow source |
 | `item_subject_ref` | 같은 Owner 범위 Module/Event 다중 참조 | `(item_id, subject_kind, subject_id)`; 외부 범위 참조는 별도 링크 타입 |
 | `item_link` | 관련·유사·파생·중복 후보 링크 | `source_item_id`, `target_item_id`, `kind`, `source_revision?`, reviewer; 방향성 명시 |
 | `item_assessment_history` | **기술 판단 변경** 별도 불변 이벤트 | prior/new state, 사실/해석 구분, rationale, evidence_ids, author, recorded_at |
@@ -343,14 +343,14 @@ Validator의 룰이 잡은 위반은 `검토가 필요한 신호`일 수 있다.
 | `knowledge_draft`, `draft_revision`, `draft_review` | 사람/AI/Validator 초안·검토 | origin, proposed owner, schema version, payload digest, reviewer/time |
 | `catalog_import_job`, `catalog_import_row`, `catalog_import_resolution`, `external_identity_map` | 수동/Excel/CSV/외부 연동의 출처·ID 매핑 + **행별 검증·충돌 해결·적용 결과** | source_system, external_key, internal_id, conflict_state, row_status, review_version; staging 데이터를 승인 전 카탈로그 원본에 반영 금지 |
 | `term_alias`, `knowledge_search_document`, `search_outbox` | 기술어 사전·FTS/trigram·색인 outbox | 승인된 공개 범위만 색인; 권한 변경 시 무효화 |
-| `audit_event` | 사람 게시·검토·AI 제출·권한 변경·Evidence 행위 | actor/action/object/revision/timestamp; 원본 기밀 본문 미복제 |
+| `audit_event` | 사람 발행·검토·AI 제출·권한 변경·Evidence 행위 | actor/action/object/revision/timestamp; 원본 기밀 본문 미복제 |
 
 ### 6.2 도메인 및 검색 제약
 
 1. **Item 단일 소유:** (`owner_kind='model'` XOR `owner_kind='software'`)에 대응하는 실재 객체를 참조. `item_scope` M:N으로 동일 Item을 여러 Model/SW에 귀속하던 v0.2 구조는 **폐기**. 물리적 polymorphic FK 처리는 DB 설계 시 트리거/분리 FK 등에서 선택한다.
 2. **SW 독립 명세:** 특정 SW 버전의 Spec Revision이 원본이고 `model_profile_revision + SW override` 합성은 **폐기**. 승인된 모델 공통 파생정보는 원본 SW Spec Revision의 집합 및 해시를 보관한다.
 3. **Build 보류:** 초기 `software_version`만 정의. 사용자에게 Build를 필수 입력시키거나 SW Build마다 별도 Item·명세 소유를 강제하지 않는다. Build 식별이 필요한 경우 향후 분리/마이그레이션할 확장 경계를 문서로 둔다.
-4. **상태축 분리:** 게시 Workflow vs 사실 검증 vs 기술 Item 처리 상태는 별개. 판단 변경은 `item_assessment_history` append-only. 본문 편집은 `knowledge_item_revision`으로 기록.
+4. **상태축 분리:** 발행 Workflow vs 사실 검증 vs 기술 Item 처리 상태는 별개. 판단 변경은 `item_assessment_history` append-only. 본문 편집은 `knowledge_item_revision`으로 기록.
 5. **검색 소유:** 유사 사례는 Item을 독립적으로 보여 주며, 인덱스/태그/모듈 때문에 중복 발생한 **동일 item_id만** 중복 제거. 교차 SW 자동 통합 금지.
 6. **승인 정보만 투영:** 검색·모델 공통 명세에는 승인되지 않은 AI 초안/공통 후보/미확정 개념 매핑을 확정 데이터로 포함하지 않는다. 검토자 전용 API는 별도.
 7. **색인과 권한:** `search_outbox` 재처리/idempotent upsert, 접근권한 회수 시 자동완성·목록 수·스니펫·캐시 무효화. 각 조회에서 최종 객체 ACL 재검사.
@@ -388,7 +388,7 @@ Evidence
 
 ## 7. AI 분석 결과 접수와 사람 승인 (Human-in-the-Loop)
 
-### 7.1 사람·AI·Validator 유래 제안과 게시 권한
+### 7.1 사람·AI·Validator 유래 제안과 발행 권한
 
 지식 허브의 정식 Item 생성 경로는 권한에 따라 분리된다. `KnowledgeDraft`는 제안/검토 대기 기록이고 `KnowledgeItem`은 발행된 기술 지식이다.
 
@@ -403,8 +403,8 @@ Evidence
 
 - **AI는 반드시 사람 검토·승인**, 서비스 계정으로 `publish/approve` 수행 불가.
 - **Validator의 결과는 단순한 자동 신호/증거**다. 전체 위반을 자동 Item화하지 않고 선별·중복검토·사람의 해석을 거쳐서 등록한다.
-- **일반 작성자는** 자신의 초안 작성·제출·수정 요청을 수행할 수 있지만 정식 게시 전 승인 필요.
-- **발행권자는** 사람 세션에서 직접 작성·수정·게시 가능. 직접 발행이어도 Revision, 작성자, 발행 시점, 감사 흔적은 동일하게 남긴다.
+- **일반 작성자는** 자신의 초안 작성·제출·수정 요청을 수행할 수 있지만 정식 발행 전 승인 필요.
+- **발행권자는** 사람 세션에서 직접 작성·수정·발행 가능. 직접 발행이어도 Revision, 작성자, 발행 시점, 감사 흔적은 동일하게 남긴다.
 - **검토권자**의 초안 승인, 반려, 수정 후 승인 권한은 명시적 ACL. 작성자=검토자가 가능한지 등 상세 분리 정책은 운영/보안 검토 대상.
 - 신규 Draft/Item은 반드시 단일 Model 또는 단일 SW를 소유 대상으로 선택한다. 기존 Item 파생 작성은 새 Item ID를 만들고 원본 Item의 특정 Revision과 `derived_from` 링크를 기록한다.
 
@@ -413,13 +413,13 @@ Evidence
 | 상태 축 | 의미 | 초기 상태 예시(정확한 ENUM은 구현 전 확정) |
 |---|---|---|
 | 초안 처리 | 제출/검토/보류/승인/반려 | `submitted`, `in_review`, `changes_requested`, `approved`, `rejected`, `withdrawn` |
-| 게시/접근 | 사용자에게 발행된 Item인지 | `draft`, `published`, `archived` |
+| 발행/접근 | 사용자에게 발행된 Item인지 | `draft`, `published`, `archived` |
 | 기술적 사실 검증 | 관찰·판단의 확인 수준 | `not_checked`, `observed`, `verified`, `disputed` |
 | 문제 처리 | 조치 중/종결 등 업무 진행 상태 | `open`, `under_investigation`, `resolved` |
 | 모델 공통 추출 | 승인 전 후보/재검토/확정 | `candidate`, `needs_revalidation`, `approved` |
 | 개념 매핑 | SW Event/Module 의미관계 확인 | `proposed`, `confirmed`, `rejected` |
 
-**승인(Published/Approved) ≠ 기술적 검증(Verified).** 사람이 게시한 미확인 지식도 가능하다. 판단이 바뀌면 `ItemAssessmentHistory`에 새 기록을 추가하고 과거 판단/이견은 남긴다.
+**승인(Published/Approved) ≠ 기술적 검증(Verified).** 사람이 발행한 미확인 지식도 가능하다. 판단이 바뀌면 `ItemAssessmentHistory`에 새 기록을 추가하고 과거 판단/이견은 남긴다.
 
 ### 7.3 API 안전 규칙
 
@@ -432,7 +432,7 @@ Evidence
 7. 승인자는 저장할 **정확한 payload digest/버전**을 확인한다. AI가 제출 후 수정한 내용이 검토자 승인 시점에 바뀌지 않게 한다.
 8. 검토 승인/반려 또는 직접 발행은 서버가 **사람의 인증 세션과 발행·검토 권한**으로 판단. AI/Validator 서비스 계정이 UI 또는 API를 우회해 자기 승인할 수 없음.
 9. 초안 원본, 수정 내용, 판단·사유·승인자·시각, 생성 모델/실행 ID(식별 가능한 범위)를 감사 가능하게 기록한다.
-10. 사람 검토 후에도 **근거가 부족한 주장**은 `미검증` 상태로 게시하거나 승인 자체를 보류할 수 있다. 검토 UI가 출처 문제를 명시적으로 표시한다.
+10. 사람 검토 후에도 **근거가 부족한 주장**은 `미검증` 상태로 발행하거나 승인 자체를 보류할 수 있다. 검토 UI가 출처 문제를 명시적으로 표시한다.
 11. AI/Validator 유래 후보는 자동 **분류/연관 추천**만 가능하며, 기술 결함/원인을 자동 확정하거나 검증 규칙을 변경하지 않는다.
 12. 카탈로그·공통 명세·SW 개념 매핑의 AI 자동 제안도 해당 객체별 별도 승인 게이트를 거쳐야 한다.
 
@@ -486,7 +486,7 @@ Evidence
 | 유사 Item | `POST /api/v1/knowledge/similar` | `similar/related/derived_from` 링크 후보 |
 | Item 파생 초안 | `POST /api/v1/knowledge/items/{itemId}/derive-draft` | 새 Model/SW owner와 Item ID, 원본 Revision provenance |
 | 수동 그룹·저장 뷰 | `/api/v1/knowledge/groups`, `/api/v1/knowledge/views` | Item 독립, 뷰 호출 시 ACL 재평가 |
-| AI/사람/Validator 초안 | `POST /api/v1/knowledge/drafts` | origin 및 서비스 신원별 생성 권한; 게시권 없음 |
+| AI/사람/Validator 초안 | `POST /api/v1/knowledge/drafts` | origin 및 서비스 신원별 생성 권한; 발행권 없음 |
 | 초안 목록·수정 | `GET/PATCH /api/v1/knowledge/drafts/{draftId}` | 작성자·검토자 권한, 변경 이력/충돌 보호 |
 | 사람의 초안 검토 | `POST /api/v1/knowledge/drafts/{draftId}/review` | 승인/반려/보류; 사람 독립 세션 필요 |
 | 발행권자의 직접 Item | `POST /api/v1/knowledge/items` | 사람 `publish` 권한 필요, Revision+Audit 원자적 저장 |
@@ -689,11 +689,11 @@ log-knowledge-hub/
 ### Phase 1 — 지식 허브 본래 기능의 실사용 단계
 
 - [ ] **단일 Model 또는 SW에 귀속되는 Item** CRUD + 수동 그룹/저장된 뷰/표준 유형·카테고리/태그.
-- [ ] 판단 변경 **별도 이력**, 게시 Revision, 관찰·기대·해석·이견·개선 구분.
+- [ ] 판단 변경 **별도 이력**, 발행 Revision, 관찰·기대·해석·이견·개선 구분.
 - [ ] 외부 Evidence 포인터 및 정책 허용 첨부 파일; 권한·보관·출처·해시.
 - [ ] 전체 독립 Item 검색(FTS/pg_trgm/별칭/관계 방향), 유사 사례 연결·역방향 반례, 검색 이유 표시.
 - [ ] 기존 Item 기반 **새 Item 파생 초안** 및 `derived_from(source revision)` 관계. 근거/검증 상태 자동 승계 금지.
-- [ ] 일반 작성자 검토/발행권자 직접 게시/AI Draft Intake+Skill, 검토·수정·승인·반려, 역할별 테스트.
+- [ ] 일반 작성자 검토/발행권자 직접 발행/AI Draft Intake+Skill, 검토·수정·승인·반려, 역할별 테스트.
 - [ ] Validator의 Run/Rule/Finding을 **선택적 검토 후보**로 받아 사람이 지식화하는 연동 계약. 실제 Validator 구현은 별도 프로젝트.
 - [ ] SW 공통 후보 자동 비교·사람 확정, SW별 ID와 개념 매핑 후보/사람 승인(데이터 공급 여건에 따라 최소 구현부터).
 - [ ] 실측 검색 성능·ACL 누출·AI/Validator 무단 발행 금지 테스트.
@@ -724,7 +724,7 @@ log-knowledge-hub/
 6. 한 Item이 모듈/이벤트/그룹 여러 곳에 표시돼도 동일 item_id 중복 표기만 제거하고 원본은 1개로 유지한다.
 7. Item A를 기반으로 Item B 초안 생성 시 원본 Revision 링크는 유지하되, Item B의 원본 근거·검증 상태는 자동 확정되지 않는다.
 8. 기술 판단이 `비정상 추정 → 정상 조건 확인`으로 바뀌면 이전 판단·새 판단·근거·판단자·시점을 모두 추적할 수 있다.
-9. Contributor는 초안만 제출하고 Publisher는 사람 인증으로 직접 게시 가능하며, AI/Validator 서비스 신원으로 발행 API를 호출하면 거부된다.
+9. Contributor는 초안만 제출하고 Publisher는 사람 인증으로 직접 발행 가능하며, AI/Validator 서비스 신원으로 발행 API를 호출하면 거부된다.
 10. Validator가 규칙 위반 100건을 생성해도 100개 정식 Item을 자동 생성하지 않는다. 선별된 후보만 사람 검토 후 발행할 수 있다.
 11. 외부 Evidence 링크와 관리형 첨부를 모두 저장할 수 있고, 원본 권한 회수 시 비인가 사용자는 발췌·첨부·검색 힌트에서도 접근 불가다.
 12. `stepprcess가 process start보다 먼저 발생` 검색은 오타/동의어 후보·Event 방향성을 구분하고 역방향 사례를 같은 결함으로 단정하지 않는다.
@@ -768,7 +768,7 @@ log-knowledge-hub/
 2. **v0.2:** Model 공통 명세 + SW Override가 원본 → **v0.3:** SW별 Spec이 독립 원본. Model 공통정보는 자동 추출 후 사람 확정하는 파생 리비전.
 3. **v0.2:** `software_release`의 Build 정체성까지 필수 고려 → **v0.3:** 초기 `SW 버전`만 필수, Build 후속 설계.
 4. **v0.2:** 로그 현황/검증 수치를 Parser 책임처럼 혼재할 여지 → **v0.3:** Parser=변환, Validator=규칙 검증, Hub=휴리스틱 지식. Validator Finding을 Review Candidate로 연결.
-5. **v0.2:** AI 검토에 무게를 둔 초안 UI → **v0.3:** 일반 작성자·AI·Validator를 통합 검토하되, 발행권자의 직접 게시는 허용.
+5. **v0.2:** AI 검토에 무게를 둔 초안 UI → **v0.3:** 일반 작성자·AI·Validator를 통합 검토하되, 발행권자의 직접 발행는 허용.
 6. **v0.2:** 모델/SW 스코프 다대다/중복 검색 통합 가정 → **v0.3:** 소유 단일, subject/group N:M, 교차 SW Item 병합 금지. 검색은 같은 ID의 기술적 중복만 제거.
 7. **v0.2:** Top View Viewer는 임시 링크 수준도 완료 가능해 보이는 표현 → **v0.3:** 최종 Viewer 내장 확정, Studio가 편집 책임. 초기 링크는 임시.
 8. **v0.2:** 확정 여부가 섞인 몇몇 Candidate 표기 → **v0.3:** 사용자 정책과 기술 구현 후보를 명확히 분리.
@@ -880,7 +880,7 @@ log-knowledge-hub/
 - 검증 실패는 해당 필드 바로 아래 오류 텍스트+`aria-describedby`; 페이지 최상단 단일 오류만 내고 필드를 찾게 하지 않는다. 제출 실패 시 입력값을 보존한다.
 - 삭제 확인은 실제 삭제가 허용된 경우만 별도 `Dialog`; 연결 항목이 있으면 비활성화 옵션과 영향 수치(접근 권한 범위 내) 제공. 기본값은 비파괴적.
 - 저장 진행 중 버튼 `저장 중…`/중복 제출 방지; 실패 시 서버 `error_code`/재시도 안내, 성공 후 목록 데이터·선택 행 갱신. `expectedVersion`으로 **동시 수정 충돌**을 감지하여 병합 비교/새로고침 안내.
-- 등록 도중 `모델 탐색`으로 이동해도 데이터가 등록되지 않은 초안을 게시/승인된 것으로 보이지 않는다.
+- 등록 도중 `모델 탐색`으로 이동해도 데이터가 등록되지 않은 초안을 발행/승인된 것으로 보이지 않는다.
 
 ### 15.4 CSV/XLSX 일괄 등록 — 반드시 5단계 화면
 
@@ -1234,7 +1234,7 @@ STEP_PROCESS 선행 발생 확인 필요
 
 - 목록: `[출처(사람/AI/Validator), 제목, 소유 Model/SW, 제출자, 검증 경고, 제출 시각, 검토 상태]`를 기본으로 하고, **검토 권한 내 자료만** 표시.
 - 상세: **좌 Evidence/원본 주장 45% : 우 제안 편집 55%**의 비교 레이아웃(권장), 좁은 화면에서 탭 `근거 / 수정안 / Diff`로 전환.
-- 상단 `검토 대기`, `출처: AI 제안` 같은 태그를 보여 주되, `승인`은 **게시 승인**이라는 설명을 붙이고 기술적 `verified`를 임의 설정하지 않는다.
+- 상단 `검토 대기`, `출처: AI 제안` 같은 태그를 보여 주되, `승인`은 **발행 승인**이라는 설명을 붙이고 기술적 `verified`를 임의 설정하지 않는다.
 - 경고를 하단에 묻지 않는다. `출처 검증 불가`, `유사 Item 3건`, `Revision 충돌`을 편집/확정 영역 바로 앞에 표시.
 - 버튼: `승인(발행)` Primary 1개(권한 있는 인간에게만), `수정 요청`, `보류`, `반려`는 Secondary/메뉴. 검토 사유는 관련 작업에서 필수로 입력.
 - 승인 직전 **정확히 발행할 Diff/Revision/digest**를 확인. 승인 후 현재 목록에서 상태 갱신, 원본 초안 및 AI 생성 결과 감사로 보존.

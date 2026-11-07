@@ -63,7 +63,7 @@ SourceReadPort (capability discovery 후 지원하는 것만 노출)
 
 `id`, `workspace_id`, `title`, `owner_actor_id`, `origin`(`standalone`·`round`), `round_id?`, `sample_set`(샘플 목록 jsonb — 모양은 [log-lifecycle §3 `validation_round.sample_set`](../log-lifecycle/README.md#validation_round) 한 곳이 정의하고 여기서 다시 정의하지 않는다), `filters`(jsonb), `evidence`(jsonb 배열 `EvidenceRef`, 최대 100), `status`(`open`·`archived`), `row_version`, 생성·수정 시각.
 
-- `EvidenceRef` = `{ fileRef, line, fileSha256, note? }`. **본문·발췌를 담지 않는다.** 담긴 근거 위치를 다시 열면 Source에서 그 순간 권한으로 다시 읽는다.
+- `EvidenceRef`는 [log-lifecycle §3 `rule_result.evidence`](../log-lifecycle/README.md#rule_result)가 정의한 공통 근거 위치(`fileRef`, `line`, `fileSha256`)이고, 조사 상태에서만 `note?`를 더해 저장한다(규칙 결과 쪽의 `hasExcerpt`는 그 결과 항목의 메타데이터다). **본문·발췌를 담지 않는다.** 담긴 근거 위치를 다시 열면 Source에서 그 순간 권한으로 다시 읽는다.
 - `origin='round'`는 Round의 `sample_set`을 복사하지 않고 `round_id`로 참조한다(Round가 요청을 가진 뒤에는 불변이므로 안전). 독립 조사는 사용자가 지정한 순서 있는 파일 목록이다.
 - 권한이 철회되면 저장된 `EvidenceRef`는 남지만 열 때 `권한 없음`으로 보인다(삭제하지 않음).
 - 필터 값은 감사·사용 이벤트에 **키만** 남기고 값은 넣지 않는다([ADR-0020](../../../adr/0020-usage-events-identity-fields-only.md) 정신).
