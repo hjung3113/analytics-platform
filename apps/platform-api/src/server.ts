@@ -993,7 +993,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     improvementItemsContribution({ db: dbHandle.db, checkService, notify }),
     logLifecycleContribution({ db: dbHandle.db, checkService, knowledgeLookup, entityLinks: entityLinksService }),
     logExplorerContribution(logExplorerDeps),
-    logRulesContribution({ db: dbHandle.db, checkService }),
+    logRulesContribution({ db: dbHandle.db, checkService, knowledgeLookup }),
     investigationContribution({ db: dbHandle.db, checkService, lifecycleRead: lifecycleRoundRead }),
     ...(opts.menuDispatch ?? []),
   ]);

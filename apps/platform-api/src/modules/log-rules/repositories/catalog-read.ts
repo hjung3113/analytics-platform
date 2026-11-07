@@ -27,7 +27,7 @@ const rv = ruleSetRevisions;
 const rl = rules;
 const tg = ruleTargets;
 
-interface RevisionRow {
+export interface RevisionRow {
   id: string;
   revision: string;
   resultRef: string;
@@ -35,7 +35,7 @@ interface RevisionRow {
   supersedes: string | null;
 }
 /** One RuleSet of the current catalog: its Revisions in order, the current one and the report it came from. */
-interface RuleSetGroup {
+export interface RuleSetGroup {
   ruleSetKey: string;
   reportId: string;
   sourceSystem: string;
@@ -50,7 +50,7 @@ interface RuleSetGroup {
  * Every RuleSet of the current catalog (optionally one key). A key reported by two sources in the current reports is
  * shown from the most recently reported one (a key is the stable id; the Validator is expected to be one source).
  */
-async function loadGroups(tx: Tx, workspaceId: string, ruleSetKey?: string): Promise<RuleSetGroup[]> {
+export async function loadGroups(tx: Tx, workspaceId: string, ruleSetKey?: string): Promise<RuleSetGroup[]> {
   const rows = await tx
     .select({
       id: rv.id,
