@@ -40,7 +40,7 @@ export function EditorExtras({ editor, surface }: { editor: Editor; surface: Ric
           return false;
         } };
       },
-    }));
+    }), (plugin, plugins) => [plugin, ...plugins]); // before the keymap, or Enter splits the block instead of running the command
     return () => { editor.off('transaction', update); editor.unregisterPlugin(slashKey); };
   }, [editor, surface]);
   const outline = capabilities.includes('tableOfContents') ? richContentOutline(editor.getJSON()) : [];

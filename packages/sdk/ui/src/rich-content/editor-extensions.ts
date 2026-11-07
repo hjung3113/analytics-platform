@@ -45,7 +45,12 @@ export function buildExtensionsForSurface(surface: RichEditorSurface, placeholde
           return { dom };
         }
         const element = document.createElement('img'); element.src = url; element.alt = 'attachment';
-        if (node.attrs.width) element.width = node.attrs.width;
+        const syncWidth = (width: unknown) => {
+          // Resize writes inline CSS px; clear it so the width attribute (the stored value) is the only source.
+          element.style.width = ''; element.style.height = '';
+          if (typeof width === 'number' && width > 0) element.width = width; else element.removeAttribute('width');
+        };
+        syncWidth(node.attrs.width);
         return new ResizableNodeView({ element, node, editor, getPos,
           onResize: width => { element.width = Math.round(width); },
           onCommit: width => {
@@ -54,7 +59,7 @@ export function buildExtensionsForSurface(surface: RichEditorSurface, placeholde
           },
           onUpdate: next => {
             if (next.type !== node.type || next.attrs.id !== node.attrs.id) return false;
-            if (next.attrs.width) element.width = next.attrs.width;
+            syncWidth(next.attrs.width);
             return true;
           },
           options: { directions: ['bottom-right'], min: { width: RICH_CONTENT_IMAGE_WIDTH.min }, max: { width: RICH_CONTENT_IMAGE_WIDTH.max }, preserveAspectRatio: true },

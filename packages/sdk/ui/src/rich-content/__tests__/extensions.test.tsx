@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, createEvent, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { Editor } from '@tiptap/core';
 import { describe, expect, it, vi } from 'vitest';
 import { RichEditor, type TipTapDoc } from '../RichEditor';
@@ -25,7 +25,9 @@ describe('SDK rich editor extensions', () => {
     expect(container.querySelector('details')).toHaveAttribute('open');
     expect(container.querySelector('pre .hljs-keyword')).toHaveTextContent('const');
     expect(container.querySelector('script')).toBeNull();
-    expect(container.querySelector('nav a')).toHaveAttribute('href', '#rich-heading-0');
+    const anchor = container.querySelector('nav a')?.getAttribute('href') ?? '';
+    expect(anchor).toMatch(/^#rich-heading-[\w-]+-0$/);
+    expect(container.querySelector(`[id="${anchor.slice(1)}"]`)).toHaveTextContent('개요');
     expect(container.querySelector('img')).toHaveAttribute('src', `/api/features/attachments/${id}/download`);
     expect(container.querySelector('[contenteditable]')).toBeNull();
   });
@@ -93,8 +95,47 @@ describe('SDK rich editor extensions', () => {
   });
 });
 
+it('two readers on one page keep their TOC targets inside their own document', () => {
+  const { container } = render(<><div data-reader="a"><RichContentRenderer doc={doc} surface="voc-description" mode="internal" /></div><div data-reader="b"><RichContentRenderer doc={doc} surface="voc-description" mode="internal" /></div></>);
+  const hrefs = ['a', 'b'].map(key => {
+    const reader = container.querySelector(`[data-reader="${key}"]`) as HTMLElement;
+    const href = reader.querySelector('nav a')?.getAttribute('href') ?? '';
+    expect(reader.querySelector(`[id="${href.slice(1)}"]`)).toHaveTextContent('개요');
+    return href;
+  });
+  expect(hrefs[0]).not.toBe(hrefs[1]);
+  expect(container.querySelectorAll('h2[id]')).toHaveLength(2);
+  expect(new Set([...container.querySelectorAll('h2[id]')].map(h => h.id)).size).toBe(2);
+});
+
+describe('image resize dimensions stay in sync with the document', () => {
+  it('clears stale inline CSS on undo and redo, including an initially unset width', async () => {
+    let editor: Editor | null = null;
+    render(<RichEditor surface="voc-description" defaultValue={{ type: 'doc', content: [{ type: 'image', attrs: { id } }] }} resolveAttachmentUrl={id => `/attachments/${id}`} toolbar={e => { editor = e; return null; }} />);
+    await waitFor(() => expect(editor).not.toBeNull());
+    const live = editor as unknown as Editor;
+    const img = () => live.view.dom.querySelector('img') as HTMLImageElement;
+    const docWidth = () => live.getJSON().content?.[0]?.attrs?.width ?? null;
+    expect(img().hasAttribute('width')).toBe(false);
+    act(() => { img().style.width = '200px'; img().style.height = '100px'; live.chain().setNodeSelection(0).updateAttributes('image', { width: 200 }).run(); });
+    act(() => { live.commands.undo(); });
+    expect(docWidth()).toBeNull();
+    expect(img().hasAttribute('width')).toBe(false);
+    expect([img().style.width, img().style.height]).toEqual(['', '']);
+    act(() => { live.commands.redo(); });
+    expect(docWidth()).toBe(200);
+    expect(img().getAttribute('width')).toBe('200');
+    expect([img().style.width, img().style.height]).toEqual(['', '']);
+    act(() => { img().style.width = '300px'; live.chain().setNodeSelection(0).updateAttributes('image', { width: 300 }).run(); });
+    act(() => { live.commands.undo(); });
+    expect(docWidth()).toBe(200);
+    expect(img().getAttribute('width')).toBe('200');
+    expect(img().style.width).toBe('');
+  });
+});
+
 describe('simulated composition boundaries (jsdom, not native Korean IME)', () => {
-  it.each(['paragraph', 'list', 'table', 'slash', 'backspace'])('preserves committed Korean in %s while composing keys do not execute slash commands', async kind => {
+  it.each(['paragraph', 'list', 'table', 'backspace'])('preserves committed Korean in %s; composing keys leave blocks and selection untouched', async kind => {
     let editor: Editor | null = null;
     render(<RichEditor surface="voc-description" toolbar={e => { editor = e; return null; }} />);
     await waitFor(() => expect(editor).not.toBeNull());
@@ -102,14 +143,50 @@ describe('simulated composition boundaries (jsdom, not native Korean IME)', () =
     act(() => {
       if (kind === 'list') live.commands.toggleBulletList();
       if (kind === 'table') live.commands.insertTable({ rows: 1, cols: 2 });
+      if (kind === 'backspace') live.commands.setContent(paragraph('앞'));
+      if (kind === 'backspace') live.commands.focus('end');
     });
+    const before = { json: JSON.stringify(live.getJSON()), from: live.state.selection.from, to: live.state.selection.to };
     fireEvent.compositionStart(live.view.dom, { data: '' });
     fireEvent.compositionUpdate(live.view.dom, { data: '한글' });
-    fireEvent.keyDown(live.view.dom, { key: kind === 'backspace' ? 'Backspace' : kind === 'table' ? 'Tab' : kind === 'slash' ? '/' : 'Enter', keyCode: 229, isComposing: true });
+    fireEvent.keyDown(live.view.dom, { key: kind === 'backspace' ? 'Backspace' : kind === 'table' ? 'Tab' : 'Enter', keyCode: 229, isComposing: true });
+    expect({ json: JSON.stringify(live.getJSON()), from: live.state.selection.from, to: live.state.selection.to }).toEqual(before);
     act(() => { live.commands.insertContent('한글'); });
     fireEvent.compositionEnd(live.view.dom, { data: '한글' });
     expect(live.getText()).toContain('한글');
     expect(live.getText().match(/한글/g)).toHaveLength(1);
     expect(screen.queryByRole('listbox', { name: '블록 추가' })).toBeNull();
+  });
+  it('composing Enter/arrows do not drive an open slash menu; ending composition restores it', async () => {
+    let editor: Editor | null = null;
+    render(<RichEditor surface="voc-description" toolbar={e => { editor = e; return null; }} />);
+    await waitFor(() => expect(editor).not.toBeNull());
+    const live = editor as unknown as Editor;
+    await waitFor(() => expect(live.view.state.plugins.some(p => (p as unknown as { key: string }).key.startsWith('richContentSlash'))).toBe(true));
+    act(() => { live.commands.focus(); live.commands.insertContent('/'); });
+    const menu = await screen.findByRole('listbox', { name: '블록 추가' });
+    const options = () => screen.getAllByRole('option');
+    expect(options()[0]).toHaveAttribute('aria-selected', 'true');
+    fireEvent.compositionStart(live.view.dom, { data: '' });
+    for (const key of ['ArrowDown', 'Enter']) fireEvent.keyDown(live.view.dom, { key, keyCode: 229, isComposing: true });
+    expect(menu).toBeInTheDocument();
+    expect(options()[0]).toHaveAttribute('aria-selected', 'true');
+    expect(live.getText()).toBe('/');
+    fireEvent.compositionEnd(live.view.dom, { data: '' });
+    await waitFor(() => expect(live.view.composing).toBe(false));
+    // Browsers can report keydown.isComposing without ProseMirror seeing composition (view.composing false);
+    // only the EditorExtras guard stops these, so this is the step that fails if the guard is removed.
+    await act(async () => { await new Promise(r => setTimeout(r, 600)); });
+    const late = createEvent.keyDown(live.view.dom, { key: 'ArrowDown', keyCode: 229 });
+    Object.defineProperty(late, 'isComposing', { value: true }); // jsdom drops isComposing from the init dict
+    fireEvent(live.view.dom, late);
+    expect(options()[0]).toHaveAttribute('aria-selected', 'true');
+    expect(live.getText()).toBe('/');
+    // jsdom: the first key after compositionend is consumed while ProseMirror settles, so press twice.
+    for (let i = 0; i < 2; i++) fireEvent.keyDown(live.view.dom, { key: 'ArrowDown', keyCode: 40 });
+    expect(options()[0]).toHaveAttribute('aria-selected', 'false');
+    fireEvent.keyDown(live.view.dom, { key: 'Enter' });
+    expect(live.getText()).not.toContain('/');
+    await waitFor(() => expect(screen.queryByRole('listbox', { name: '블록 추가' })).toBeNull());
   });
 });

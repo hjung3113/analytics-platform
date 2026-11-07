@@ -89,6 +89,8 @@ export function RichContentRenderer({
   size = 'default',
   className,
 }: RichContentRendererProps) {
+  // Unique per renderer instance so two readers on one page never share heading anchors.
+  const anchorPrefix = `rich-heading-${React.useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
   const html = React.useMemo(() => {
     // PLAN-22 C9: defence-in-depth client sanitize before TipTap render.
     // Mode is the public/internal split (drives mention stripping); `surface`
@@ -102,9 +104,9 @@ export function RichContentRenderer({
     // when doc or mode actually change — not on every parent render.
     const safe = mode === 'reporter_visible' ? stripMentions(sanitized) : sanitized;
     const names = new Map((attachments ?? []).map((a) => [a.id, a.name]));
-    return generateHTML(withOutlineAnchors(safe) as JSONContent, [
+    return generateHTML(withOutlineAnchors(safe, anchorPrefix) as JSONContent, [
       ...readerBaseSchemas(extended),
-      ...(extended ? readerBlockSchemas(safe) : []),
+      ...(extended ? readerBlockSchemas(safe, anchorPrefix) : []),
       ...(extended ? [AttachmentImage.configure({ resolveAttachmentUrl, label: id => names.get(id) ?? attachmentFallbackLabel ?? 'attachment' })] : []),
       ExternalAwareLink,
       AttachmentRef.configure({
@@ -112,7 +114,7 @@ export function RichContentRenderer({
       }),
       Mention,
     ]);
-  }, [doc, mode, surface, attachments, attachmentFallbackLabel, resolveAttachmentUrl]);
+  }, [doc, mode, surface, attachments, attachmentFallbackLabel, resolveAttachmentUrl, anchorPrefix]);
 
   return (
     <div

@@ -62,7 +62,7 @@ function highlightedCode(text: string, language: unknown): DOMOutputSpec[] {
   });
   return render(lowlight.highlight(language, text).children as HNode[]);
 }
-export function readerBlockSchemas(doc: JSONContent) {
+export function readerBlockSchemas(doc: JSONContent, anchorPrefix?: string) {
   const container = (name: string, tag: string, content: string, group?: string) => Node.create({
     name, content, ...(group ? { group } : {}),
     parseHTML() { return [{ tag }]; }, renderHTML() { return [tag, {}, 0]; },
@@ -90,7 +90,7 @@ export function readerBlockSchemas(doc: JSONContent) {
     Node.create({ name: 'details', group: 'block', content: 'detailsSummary detailsContent', addAttributes() { return { open: { default: false } }; }, renderHTML({ node }) { return ['details', node.attrs.open ? { open: '' } : {}, 0]; } }),
     container('detailsSummary', 'summary', 'text*'), container('detailsContent', 'div', 'block+'),
     Node.create({ name: 'codeBlock', group: 'block', content: 'text*', marks: '', code: true, addAttributes() { return { language: { default: null } }; }, renderHTML({ node }) { return ['pre', {}, ['code', { class: node.attrs.language ? `language-${node.attrs.language}` : '' }, ...highlightedCode(node.textContent, node.attrs.language)]]; } }),
-    OutlineNode.configure({ entries: richContentOutline(doc) }), PaletteHighlight, PaletteColor,
+    OutlineNode.configure({ entries: richContentOutline(doc, anchorPrefix) }), PaletteHighlight, PaletteColor,
   ];
 }
 

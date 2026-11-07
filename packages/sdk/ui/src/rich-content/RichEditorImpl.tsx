@@ -1,4 +1,5 @@
 import { type Editor, EditorContent, useEditor } from '@tiptap/react';
+import { Node as ProseNode } from '@tiptap/pm/model';
 import * as React from 'react';
 import { cn } from '../utils/cn';
 import type { RichEditorProps, RichEditorToolbarApi, TipTapDoc } from './RichEditor';
@@ -100,9 +101,16 @@ export default function RichEditorImpl({
     if (!wasControlledRef.current) return;
     const incoming: TipTapDoc = value ?? { type: 'doc', content: [{ type: 'paragraph' }] };
     const targetDoc = getExtensionsForSurface(surface).includes('image') ? sanitizeClient(incoming, surface) : incoming;
-    const current = editor.getJSON();
-    if (JSON.stringify(current) !== JSON.stringify(targetDoc)) {
-      editor.commands.setContent(targetDoc);
+    // Compare as schema documents: raw getJSON() and the sanitized value differ in key order and
+    // default attrs even when identical, and a needless setContent moves the caret.
+    let same = false;
+    try {
+      same = ProseNode.fromJSON(editor.schema, targetDoc).eq(editor.state.doc);
+    } catch {
+      same = false;
+    }
+    if (!same) {
+      editor.commands.setContent(targetDoc, { emitUpdate: false });
     }
   }, [editor, value, surface]);
 
