@@ -69,6 +69,15 @@ LocalFieldFailure | type | type LocalFieldFailure = 'calendar' | 'fold' | 'forma
 LocalFieldResult | type | type LocalFieldResult = { instant: string; ok: true; } | { ok: false; reason: @ap/components#LocalFieldFailure; }
 ManagementLayout | function | function ManagementLayout({ table, drawer }: @ap/components#ManagementLayoutProps): import("react").JSX.Element
 ManagementLayoutProps | type | type ManagementLayoutProps = { drawer?: ReactNode; table: ReactNode; }
+ORDERED_TRACK_RESPONSE_LIMIT | const | const ORDERED_TRACK_RESPONSE_LIMIT: 10000
+OrderedIntervalTrack | function | function OrderedIntervalTrack(props: @ap/components#OrderedIntervalTrackProps): import("react").JSX.Element
+OrderedIntervalTrackProps | type | type OrderedIntervalTrackProps = { ariaLabel: string; axis?: 'order' | 'time'; description?: ReactNode; domain: [ number, number ]; formatTick?: (order: number) => string; formatTime?: (order: number) => string; height?: number; initialView?: [ number, number ]; items: readonly @ap/components#OrderedTrackItem[]; lanes: readonly @ap/components#OrderedTrackLane[]; markers?: readonly @ap/components#OrderedTrackMarker[]; onLoadStateChange?: (state: @ap/components#OrderedTrackLoadState) => void; onRangeRequest?: (orderFrom: number, orderTo: number, signal: AbortSignal) => Promise<readonly @ap/components#OrderedTrackItem[]>; onSelect?: (item: @ap/components#OrderedTrackItem | null) => void; selectedId?: null | string; state?: { body?: ReactNode; kind: @ap/components#OrderedTrackStatus; onRetry?: () => void; retryLabel?: string; title: string; }; states: Readonly<Record<string, @ap/components#OrderedTrackState>>; trust?: { coverage: string; source: string; updated: string; }; }
+OrderedTrackItem | type | type OrderedTrackItem = { id: string; label: string; laneKey: string; orderStart: number; state: string; } & ({ carryover?: boolean; kind?: 'interval'; orderEnd?: number; } | { carryover?: never; kind: 'point'; orderEnd?: never; })
+OrderedTrackLane | type | type OrderedTrackLane = { label: string; laneKey: string; }
+OrderedTrackLoadState | type | type OrderedTrackLoadState = 'error' | 'loading' | 'ready'
+OrderedTrackMarker | type | type OrderedTrackMarker = { kind: 'boundary' | 'inversion' | 'partial'; label: string; order: number; }
+OrderedTrackState | type | type OrderedTrackState = { colorToken: @ap/ui/theme#ThemeColorToken; label: string; }
+OrderedTrackStatus | type | type OrderedTrackStatus = 'empty' | 'error' | 'forbidden' | 'loading' | 'partial' | 'ready' | 'unsupported'
 OutcomeView | function | function OutcomeView<T>({ response, onRetry, emptyAction, compact, children }: { children: (data: T) => ReactNode; compact?: boolean; emptyAction?: ReactNode; onRetry: () => void; response: @ap/contracts#ApiResponse<T>; }): import("react").JSX.Element
 PageFilterAppliedChip | type | type PageFilterAppliedChip = @ap/components#PageFilterSummaryItem & { clearLabel?: string; onClear?: () => void; title?: string; }
 PageFilterBar | function | function PageFilterBar(props: @ap/components#PageFilterBarProps): import("react").JSX.Element

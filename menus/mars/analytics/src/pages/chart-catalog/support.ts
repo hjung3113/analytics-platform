@@ -2,6 +2,7 @@ import type { CatalogKind } from '../../endpoints';
 
 type Label = { ko: string; en: string };
 export const kindLabels: Record<CatalogKind, Label> = {
+  sequence: { ko: '순서 트랙 · 합성', en: 'Order track · Synthetic' },
   topNBar: { ko: 'TopN 막대', en: 'TopN bar' }, lane: { ko: 'Lane 시간선', en: 'Lane timeline' },
   line: { ko: '선', en: 'Line' }, bar: { ko: '막대', en: 'Bar' }, heatmap: { ko: '히트맵', en: 'Heatmap' },
   donut: { ko: '도넛', en: 'Donut' }, scatter: { ko: '산점도', en: 'Scatter' },
@@ -17,14 +18,15 @@ const noReason: Label = { ko: '', en: '' };
 /** The only capability table: tabs and support rows derive from this projection of 06 §16. */
 export function supportFor(kind: CatalogKind, features: Features | undefined): SupportCell[] {
   const frame = kind === 'line' || kind === 'bar';
-  const lane = kind === 'lane';
+  const sequence = kind === 'sequence';
+  const lane = kind === 'lane' || sequence;
   const breakdown = kind === 'breakdown';
   const cell = (id: string, label: Label, status: SupportCell['status'], reason = noReason): SupportCell => ({ id, label, status, reason, reference: '06 §16' });
   const unavailable = { ko: '이 종류의 차트 계약에서 제공하지 않음', en: 'Not provided by this chart kind' };
   const featureOff = { ko: '메뉴 기능이 꺼져 있음', en: 'Disabled by the menu features' };
   return [
     cell('zoom', { ko: 'Zoom', en: 'Zoom' }, frame || lane || breakdown ? 'supported' : 'unsupported', frame || lane || breakdown ? noReason : unavailable),
-    cell('selection', { ko: 'Brush·선택', en: 'Brush / selection' }, 'supported', lane ? { ko: '클릭·방향키·Enter로 구간 선택, Escape로 해제', en: 'Click or arrows/Enter to select; Escape to clear' } : breakdown
+    cell('selection', { ko: 'Brush·선택', en: 'Brush / selection' }, 'supported', sequence ? { ko: '끌기·Shift+방향키 구간 선택, 항목은 클릭·Enter로 선택', en: 'Drag or Shift+arrows to brush; click/Enter to select items' } : lane ? { ko: '클릭·방향키·Enter로 구간 선택, Escape로 해제', en: 'Click or arrows/Enter to select; Escape to clear' } : breakdown
       ? { ko: '구간 선택으로 범주 구간 끌기(시간 입력은 시간 축 전용)', en: 'Drag a category range with Brush (time inputs are for time axes only)' }
       : frame
       ? { ko: '구간 끌기·키보드 시간 입력', en: 'Drag a range or use time inputs' }
@@ -35,12 +37,12 @@ export function supportFor(kind: CatalogKind, features: Features | undefined): S
     cell('compare', { ko: 'Compare', en: 'Compare' }, frame && features?.compare ? 'supported' : 'unsupported', frame ? features?.compare ? { ko: '이전 동일 기간 시리즈 제공', en: 'Previous equal-period series supplied' } : featureOff : unavailable),
     cell('annotate', { ko: 'Annotate', en: 'Annotate' }, (frame || breakdown) && features?.annotate ? 'conditional' : 'unsupported', frame || breakdown ? features?.annotate ? { ko: 'Scope·구간 선택 후 주석 작성', en: 'Requires Scope and a selected range' } : featureOff : unavailable),
     cell('export', { ko: 'Export', en: 'Export' }, !lane && features?.export ? 'supported' : 'unsupported', lane ? unavailable : features?.export ? noReason : featureOff),
-    cell('drill', { ko: 'Drill', en: 'Drill' }, breakdown ? 'supported' : frame || lane ? 'unsupported' : 'conditional', breakdown
+    cell('drill', { ko: 'Drill', en: 'Drill' }, breakdown ? 'supported' : frame || kind === 'lane' ? 'unsupported' : 'conditional', breakdown
       ? { ko: '범례 트리에서 Enter로 단계 이동, 보이는 시리즈는 유지', en: 'Enter in the legend tree moves to that level; visible series are kept' }
-      : lane ? unavailable : frame
+      : sequence ? { ko: '선택한 합성 항목의 상세 보기', en: 'Details for the selected synthetic item' } : lane ? unavailable : frame
       ? { ko: '이 견본은 지점 활성화를 드릴 목적지에 연결하지 않음', en: 'This sample does not connect point activation to a drill destination' }
       : { ko: '단일 실제 항목의 요약·표 상세 버튼, 기타·미분류 제외', en: 'Details in summary/table for one real target; excludes Other/Unclassified' }),
-    cell('table', { ko: '표로 보기', en: 'Show as table' }, lane ? 'unsupported' : 'supported', lane ? { ko: '방향키 탐색과 텍스트 요약 제공', en: 'Arrow navigation and text summaries provided' } : breakdown ? { ko: '쌓은 막대의 표에 합계 열 제공, 값 라벨은 최소·최대 중에 끔', en: 'The stacked bar table has a total column; segment labels are off while Min/Max is on' } : noReason),
+    cell('table', { ko: '표로 보기', en: 'Show as table' }, sequence ? 'supported' : lane ? 'unsupported' : 'supported', sequence ? { ko: '현재 범위 항목 목록, 20개씩 표시', en: 'Visible-range item list, 20 per page' } : lane ? { ko: '방향키 탐색과 텍스트 요약 제공', en: 'Arrow navigation and text summaries provided' } : breakdown ? { ko: '쌓은 막대의 표에 합계 열 제공, 값 라벨은 최소·최대 중에 끔', en: 'The stacked bar table has a total column; segment labels are off while Min/Max is on' } : noReason),
   ];
 }
 export function supportCounts(row: SupportCell[]) {

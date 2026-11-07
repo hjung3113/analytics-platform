@@ -42,6 +42,8 @@ export { formatQuerySummary, presetOutsideAxes, querySummaryItems, summaryPreset
 export { useReportQueryBarStatus, type QueryBarStatus } from './filters/QueryBarStatus';
 export { useCompactPageDensity } from './pageDensity';
 export { QueryBarExtensionContext, QueryBarExtensionsProvider, useQueryBarExtension, type QueryBarExtension } from './filters/QueryBarExtension';
+export { OrderedIntervalTrack } from './chart/OrderedIntervalTrack';
+export { ORDERED_TRACK_RESPONSE_LIMIT, type OrderedIntervalTrackProps, type OrderedTrackLane, type OrderedTrackState, type OrderedTrackItem, type OrderedTrackMarker, type OrderedTrackStatus, type OrderedTrackLoadState } from './chart/orderedIntervalTypes';
 export { LaneTimeline, type LaneTimelineProps, type LaneTimelineHandle, type TimelineLane, type TimelineSegment } from './chart/LaneTimeline';
 export { Inspector, type InspectorProps, type InspectorSection } from './inspector/Inspector';
 

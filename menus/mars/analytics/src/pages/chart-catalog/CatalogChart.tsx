@@ -27,7 +27,7 @@ export function CatalogChart({ kind, data, height }: { kind: CatalogKind; data: 
   const spec = useMemo<ChartSpec | null>(() => {
     const show = (target: string) => setDetail({ identity, target });
     switch (kind) {
-      case 'line': case 'bar': case 'lane': case 'breakdown': return null;
+      case 'line': case 'bar': case 'lane': case 'breakdown': case 'sequence': return null;
       case 'topNBar': return { kind, items: data.topNBar ?? [], defaultExpanded: true, onItemClick: show, legend: [{ label: tx({ ko: '그룹 A', en: 'Group A' }), colorToken: 'chart-series-1' }, { label: tx({ ko: '그룹 B', en: 'Group B' }), colorToken: 'chart-series-2' }] };
       case 'heatmap': return { kind, ...data.heatmap,
         xLabels: data.heatmap.xLabels.map(displayTime),
