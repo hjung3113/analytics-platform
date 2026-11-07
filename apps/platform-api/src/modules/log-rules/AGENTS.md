@@ -1,6 +1,6 @@
 # log-rules module
 
-Owns the validation rule catalog the external Validator reports over a service token (#1491 node R-a; design `docs/design/features/log-rules/README.md`, ADR-0122, API `docs/architecture/platform-api/api/log-rules.md`). Not here yet: catalog reads (R-b), the spec-requirement port (R-c), coverage (R-d), screens.
+Owns the validation rule catalog the external Validator reports over a service token (#1491 node R-a; design `docs/design/features/log-rules/README.md`, ADR-0122, API `docs/architecture/platform-api/api/log-rules.md`). Catalog reads: R-b (#1492, `catalog-endpoints.ts`). Not here yet: the spec-requirement port (R-c), coverage and `RuleCoveragePort` (R-d), screens (R-e).
 
 ## Invariants
 
@@ -12,3 +12,6 @@ Owns the validation rule catalog the external Validator reports over a service t
 - Rows are insert-only (trigger on every role); the only UPDATE is the supersede marker. Test teardown disables the triggers with the migrate role, production code never does.
 - `result_ref` is stored resolved (`resultRef ?? revision`); matching of an attempt's `rule_set_revision` to it, and the `ambiguous` rule, belong to the read nodes (design §2 identification contract). Identifiers are compared exactly.
 - The synthetic reporter (`tooling/scripts/log-rules-synthetic-reporter.mjs`) is test/dev only; no `src/` file may import it.
+- Catalog reads (`logRules.ruleSets|ruleSetDetail|rules|ruleDetail|catalogStatus`) are menu-dispatch declarations on the existing `log-rules` menu id (`menu.ts`): `platform:view`, `requiresScope: false`, workspace = the session Actor's, unknown or other-workspace id → `ok` with `data: null` / an empty page, never 403. They write nothing and return no rule body.
+- «Current catalog» = accepted, not superseded reports (`repositories/catalog-read.ts` `loadGroups`); a rejected or superseded report never reaches a read. Revision order, current Revision and the Revision diff are pure functions in `domain/revision-order.ts`, driven only by the reported `supersedes`.
+- Sort and filter keys are allow-lists in `domain/catalog-params.ts`; every order ends with the stable keys (`ruleSetKey`, `ruleKey`, id). Targets and requirement ids are returned as stored and never parsed or matched against a spec here (R-d).
