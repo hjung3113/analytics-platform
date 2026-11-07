@@ -1,5 +1,5 @@
-import { useId, useState } from 'react';
-import { useMenuAction, usePlatform } from '@ap/kernel';
+import { useEffect, useEffectEvent, useId, useState } from 'react';
+import { useMenuAction, usePlatform, useUnsavedGuard } from '@ap/kernel';
 import { Button, Callout, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, Textarea } from '@ap/ui';
 import { itemCreate, type Origin, type Target } from '../endpoints';
 import { createErrors, originPeriod } from '../model';
@@ -15,10 +15,15 @@ export function CreateDrawer({ origin, onClose }: { origin: Origin | null; onClo
   const [quest, setQuest] = useState<PickedQuest | null>(null), [error, setError] = useState(''), [targetError, setTargetError] = useState(false), [discard, setDiscard] = useState(false);
   const [fields, setFields] = useState<string[]>([]);
   const [retry, setRetry] = useState<(() => void) | null>(null);
+  const [createdId, setCreatedId] = useState<string | null>(null);
   const dirty = !!problem || !!action || !!quest || targets.length > 0 || !!key || !!name;
+  // Unsaved-edit guard (#1388): off once the item is saved, so the post-save move to the detail is not held.
+  useUnsavedGuard(dirty && createdId === null);
+  const openCreated = useEffectEvent((itemId: string) => navigate(linkTo('improvement-item', { params: { itemId } })));
+  useEffect(() => { if (createdId) openCreated(createdId); }, [createdId]);
   const requestClose = () => { if (!create.pending) { if (dirty) setDiscard(true); else onClose(); } };
   function settle(result: Awaited<ReturnType<typeof create.run>>) {
-    if (result.outcome === 'ok' && result.data) { toast(c.created, 'info'); navigate(linkTo('improvement-item', { params: { itemId: result.data.itemId } })); return; }
+    if (result.outcome === 'ok' && result.data) { toast(c.created, 'info'); setCreatedId(result.data.itemId); return; }
     setError(result.outcome === 'unknown' ? c.unknown : result.outcome === 'forbidden' ? c.denied : c.failed);
     setRetry(result.retry ? () => () => { void result.retry!().then(settle).catch(() => setError(c.failed)); } : null);
   }
