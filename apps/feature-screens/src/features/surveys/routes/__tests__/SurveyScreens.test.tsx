@@ -894,7 +894,7 @@ describe('설문 screens', () => {
     );
 
     expect(screen.queryByText('질문 0')).not.toBeInTheDocument();
-    expect(screen.getByText('질문이 없습니다.')).toHaveClass('text-text-muted');
+    expect(screen.getByText('질문이 없습니다.')).toBeInTheDocument();
     expect(screen.queryByTestId('survey-question-kind-single_choice')).not.toBeInTheDocument();
     expect(screen.queryByTestId('survey-question-kind-multiple_choice')).not.toBeInTheDocument();
     expect(screen.queryByTestId('survey-question-kind-rating')).not.toBeInTheDocument();

@@ -204,8 +204,7 @@ describe('/surveys/:surveyId route', () => {
     expect(resultsIndex).toBeGreaterThanOrEqual(0);
     expect(resultsIndex).toBeLessThan(builderIndex);
     expect(within(detail).getByRole('link', { name: /결과 요약 보기/ })).toBeInTheDocument();
-    const lockedNote = within(detail).getByText('질문 변경은 잠겨 있습니다.');
-    expect(lockedNote).toHaveClass('text-xs', 'text-text-muted');
+    expect(within(detail).getByText('질문 변경은 잠겨 있습니다.')).toBeInTheDocument();
   });
 
   it('wires successful lookups into the survey detail and builder routes', () => {

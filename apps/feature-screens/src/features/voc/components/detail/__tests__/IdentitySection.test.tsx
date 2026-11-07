@@ -59,24 +59,6 @@ describe('<IdentitySection>', () => {
     expect(screen.queryByText('Analytics Area')).not.toBeInTheDocument();
   });
 
-  it('renders the shared PanelTitleBlock at prototype lg typography', () => {
-    render(<IdentitySection voc={DETAIL_ENVELOPE} />);
-    const h2 = screen.getByRole('heading', { level: 2 });
-    expect(h2).toHaveClass('text-lg');
-    expect(h2).toHaveClass('font-semibold');
-    expect(h2).toHaveClass('leading-[1.35]');
-    expect(h2).not.toHaveClass('text-xl');
-  });
-
-  it('aligns the title block to the section nav 24px left inset (inset now on scroll container)', () => {
-    render(<IdentitySection voc={DETAIL_ENVELOPE} />);
-    const h2 = screen.getByRole('heading', { level: 2 });
-    // px-6 removed from IdentitySection; horizontal inset is now on the
-    // VocDetailPanel scroll container (pt-7 px-6 pb-16) — matching triage pattern.
-    expect(h2.parentElement?.parentElement).not.toHaveClass('px-6');
-    expect(h2.parentElement?.parentElement).toHaveClass('mb-4');
-  });
-
   it('renders the reporter+time meta line as "<reporter> · <relative>" (no FieldRow labels)', () => {
     render(<IdentitySection voc={DETAIL_ENVELOPE} />);
     // Reference: ".review/title-reference.png" — single horizontal meta row

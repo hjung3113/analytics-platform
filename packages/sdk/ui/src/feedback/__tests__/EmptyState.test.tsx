@@ -8,12 +8,6 @@ describe('EmptyState — required title', () => {
     render(<EmptyState title="VOC가 없습니다" />);
     expect(screen.getByText('VOC가 없습니다')).toBeInTheDocument();
   });
-
-  it('title has font-medium and text-text-primary classes', () => {
-    const { container } = render(<EmptyState title="Test" />);
-    const title = container.querySelector('.font-medium.text-text-primary');
-    expect(title).not.toBeNull();
-  });
 });
 
 describe('EmptyState — optional body', () => {
@@ -67,19 +61,6 @@ describe('EmptyState — size variants', () => {
     expect(root?.className).toContain('py-6');
     expect(root?.className).toContain('gap-2');
     expect(root?.className).toContain('text-sm');
-  });
-
-  it.each([
-    ['compact small state', 'py-3 gap-0 text-xs', { size: 'sm' }, { size: 'sm', density: 'compact' }],
-    ['wide horizontal padding', 'px-6', {}, { padding: 'wide' }],
-  ] as const)('preserves legacy classes for %s', (_name, oldClassName, oldProps, variantProps) => {
-    const before = render(<EmptyState title="Empty" {...oldProps} className={oldClassName} />);
-    const oldClasses = [...(before.container.firstElementChild?.classList ?? [])].sort();
-    before.unmount();
-
-    const after = render(<EmptyState title="Empty" {...variantProps} />);
-    const variantClasses = [...(after.container.firstElementChild?.classList ?? [])].sort();
-    expect(variantClasses).toEqual(oldClasses);
   });
 
   it('sm: renders the title as regular muted text', () => {

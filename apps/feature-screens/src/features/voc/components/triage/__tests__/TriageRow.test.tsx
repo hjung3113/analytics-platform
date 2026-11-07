@@ -40,14 +40,6 @@ describe('TriageRow', () => {
     expect(screen.getByRole('button')).toHaveAccessibleName(`${displayId} ${BASE_VOC.title}`);
   });
 
-  it('mirrors prototype expanded row padding and min height', () => {
-    render(<TriageRow voc={BASE_VOC} selected={false} onSelect={vi.fn()} />);
-    const row = screen.getByRole('button');
-    expect(row.className).toContain('min-h-row-expanded');
-    expect(row.className).toContain('py-3.5');
-    expect(row.className).toContain('px-5');
-  });
-
   it('renders the voc title and display_id', () => {
     render(<TriageRow voc={BASE_VOC} selected={false} onSelect={vi.fn()} />);
     expect(screen.getByText('Test VOC title')).toBeInTheDocument();

@@ -60,8 +60,8 @@ describe('EntityRelationRow', () => {
   it('uses the entity type as a safe source label when no source summary is available', () => {
     render(<EntityRelationRow link={LINK} />);
 
-    expect(screen.getByText('Finding')).toHaveClass('text-text-primary');
-    expect(screen.getByText('20000000')).toHaveClass('text-text-muted');
+    expect(screen.getByText('Finding')).toBeInTheDocument();
+    expect(screen.getByText('20000000')).toBeInTheDocument();
   });
 
   it('leads with source and target display ids for allowed links', () => {

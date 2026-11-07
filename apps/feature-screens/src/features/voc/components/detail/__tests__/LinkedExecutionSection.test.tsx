@@ -40,10 +40,10 @@ describe('<LinkedExecutionSection>', () => {
       reason: '권한 없음',
     });
     render(<LinkedExecutionSection voc={DETAIL_ENVELOPE} />);
-    // PermissionBlockedPanel renders state-based text; check section title still present
-    expect(screen.getByText('연결된 실행')).toBeInTheDocument();
-    // EmptyState should NOT appear
-    expect(screen.queryByText('아직 연결된 Finding/Task가 없습니다.')).not.toBeInTheDocument();
+    // Denied body text comes only from the blocked branch (description ?? reason ?? fallback).
+    expect(screen.getByText('권한 없음')).toBeInTheDocument();
+    // The empty-branch EmptyState must not render.
+    expect(screen.queryByText('연결된 실행 없음')).not.toBeInTheDocument();
   });
 
   it('does not show the machine reason code of a request_access decision (#564)', () => {

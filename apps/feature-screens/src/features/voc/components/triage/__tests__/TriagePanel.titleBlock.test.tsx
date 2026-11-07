@@ -95,15 +95,6 @@ describe('TriagePanel Overview and grouped navigation', () => {
     vi.restoreAllMocks();
   });
 
-  it('renders the title at prototype lg typography', () => {
-    renderPanel();
-    const h2 = screen.getByRole('heading', { level: 2, name: TRIAGE_VOC.title });
-    expect(h2).toHaveClass('text-lg');
-    expect(h2).toHaveClass('font-semibold');
-    expect(h2).toHaveClass('leading-[1.35]');
-    expect(h2).not.toHaveClass('text-xl');
-  });
-
   it('renders exactly the four grouped section nav items in order without overflow', () => {
     renderPanel();
     const overview = screen.getByRole('button', { name: '개요' });

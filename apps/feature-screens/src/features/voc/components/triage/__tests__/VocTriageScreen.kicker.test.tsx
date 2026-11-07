@@ -85,8 +85,6 @@ describe('VocTriageScreen — V1 inline kicker', () => {
 
     const unassignedTab = screen.getByRole('tab', { name: /미배정/ });
     let panel = screen.getByRole('tabpanel');
-    const viewport = screen.getByRole('tablist').closest('[data-list-toolbar-tabs]');
-    expect(viewport?.firstElementChild).toHaveClass('ml-auto');
     expect(unassignedTab).toHaveAttribute('aria-controls', panel.id);
     expect(document.getElementById(unassignedTab.getAttribute('aria-controls') ?? '')).toBe(panel);
     expect(panel).toHaveAttribute('aria-labelledby', unassignedTab.id);

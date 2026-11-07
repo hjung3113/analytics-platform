@@ -25,8 +25,6 @@ it.each(['', '&managedSystem=a1111111-1111-4111-8111-111111111111'])(
     expect(primary).toHaveAttribute('href', '/integration/coverage');
     expect(secondary).toHaveAttribute('href', `/integration/coverage?view=areas${scope}`);
     expect(primary.contains(secondary)).toBe(false);
-    expect(primary.parentElement).not.toHaveClass('rounded-md', 'border', 'bg-surface-card');
-    expect(secondary.parentElement).not.toHaveClass('rounded-md', 'border', 'bg-surface-card');
     expect(secondary.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
   },
 );

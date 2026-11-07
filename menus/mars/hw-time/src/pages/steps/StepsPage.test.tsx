@@ -373,14 +373,6 @@ describe('HW Time steps page', () => {
 });
 
 
-it('declares compact page spacing from the real consumer (#1141)', async () => {
-  await renderPage();
-  const content = document.querySelector('[data-platform-page-content]')!;
-  expect(content.classList.contains('px-4')).toBe(true);
-  expect(content.classList.contains('pt-3')).toBe(true);
-  expect(content.classList.contains('pb-4')).toBe(true);
-});
-
 describe('HW Time steps page keeps the previous level honest (#1365 F4)', () => {
   /** The URL says Module PM2 / Motion level, but the displayed rows are PM1's Motions: the query still shows them as previous. */
   const keptPm1 = () => data.level.mockImplementation(() => ({

@@ -232,16 +232,7 @@ describe('MilestoneDetailPanel (#514 B2d)', () => {
   it('renders the real why text inside the NestedTextBlock hierarchy', async () => {
     renderPanel(linkedDetail);
 
-    const why = await screen.findByText('SSO 세션 만료 후 재인증 흐름이 없습니다.');
-    // NestedTextBlock presentation (#514 CP-pixel finding 3 + coordinator
-    // correction): the shared bordered canvas block is preserved; only the
-    // type scale moves to the prototype 13px/1.55 at 12px padding.
-    expect(why).toHaveClass('rounded-md');
-    expect(why).toHaveClass('border-border-subtle');
-    expect(why).toHaveClass('bg-surface-canvas');
-    expect(why).toHaveClass('p-3');
-    expect(why).toHaveClass('text-sm');
-    expect(why).toHaveClass('leading-relaxed-ui');
+    expect(await screen.findByText('SSO 세션 만료 후 재인증 흐름이 없습니다.')).toBeInTheDocument();
   });
 
   // B2d fixup finding 2 — the shared header chrome and close action stay

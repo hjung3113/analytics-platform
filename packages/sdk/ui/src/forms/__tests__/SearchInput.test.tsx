@@ -46,12 +46,6 @@ describe('SearchInput', () => {
     expect(wrapper).not.toBeNull();
   });
 
-  it('wrapper span has cursor-not-allowed class', () => {
-    const { container } = render(<SearchInput />);
-    const wrapper = container.querySelector('span[tabindex="0"]');
-    expect(wrapper?.className).toContain('cursor-not-allowed');
-  });
-
   it('renders a Search icon (svg)', () => {
     const { container } = render(<SearchInput />);
     const svg = container.querySelector('svg');

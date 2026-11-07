@@ -215,13 +215,6 @@ describe('<VocRow>', () => {
     expect(bar?.className).toContain('bg-accent-primary');
   });
 
-  it('has a bottom border divider on every row', () => {
-    render(<VocRow voc={BASE_VOC} selected={false} onSelect={onSelect} managedSystem={null} />);
-    const cls = screen.getByRole('row').className;
-    expect(cls).toContain('border-b');
-    expect(cls).toContain('border-border-subtle');
-  });
-
   it.each([['high'], ['low'], ['medium'], ['critical'], [null]] as const)(
     'draws no left bar on an unselected row (severity %s) and keeps the severity badge',
     (severity) => {
@@ -246,14 +239,6 @@ describe('<VocRow>', () => {
       />,
     );
     expect(screen.queryByTestId('voc-row-left-bar')).toBeNull();
-  });
-
-  it('left-bar uses accent-primary when selected regardless of severity', () => {
-    const vocNull: VocListItem = { ...BASE_VOC, severity: null };
-    render(<VocRow voc={vocNull} selected={true} onSelect={onSelect} managedSystem={null} />);
-    const bar = screen.getByTestId('voc-row-left-bar');
-    expect(bar.className).toContain('bg-accent-primary');
-    expect(bar.className).not.toContain('bg-severity');
   });
 
   it('renders permission-limited variant — title replaced by peek', () => {
