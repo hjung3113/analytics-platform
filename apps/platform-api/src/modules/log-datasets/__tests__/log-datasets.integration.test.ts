@@ -398,7 +398,7 @@ describe.skipIf(!runIntegration)('log test datasets (#1477 D-a)', () => {
       expect(a.outcome, JSON.stringify(a)).toBe('ok');
       expect(a.data).toMatchObject({ availability: 'unverified', availabilityChecked: false });
       const d = await read('datasetDetail', { datasetId: ds.id }, admin, noPort);
-      expect(d.data.revisions[0]).toMatchObject({ availability: 'unverified', availabilityChecked: true });
+      expect(d.data.revisions[0]).toMatchObject({ availability: 'unverified', availabilityChecked: false });
     });
 
     it('availability is computed at read time for the latest revision; older ones are not checked', async () => {
