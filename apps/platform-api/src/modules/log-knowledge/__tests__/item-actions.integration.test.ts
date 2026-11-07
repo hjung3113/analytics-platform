@@ -267,6 +267,18 @@ describe.skipIf(!runIntegration)('log knowledge item write actions (#1197 w)', (
       expect(await countItems(`bad-owner-${label}`)).toBe(0);
     });
 
+    // #1411 pins the shared input kit's wrong-type code through the wire: `required`, never `malformed`.
+    it.each([
+      ['a non-string uuid', { ownerModelId: 5 }, ['ownerModelId:required']],
+      ['a non-string title', { title: 5 }, ['title:required']],
+    ])('refuses %s as required with no row', async (_label, over, expected) => {
+      const label = `wrong-type-${n++}`;
+      const a = await act('itemCreate', { ...body(label), ...over });
+      expect(a.outcome).toBe('invalid');
+      expect(fe(a)).toEqual(expected);
+      expect(await countItems(label)).toBe(0);
+    });
+
     it.each([
       ['unknown model', 'ownerModelId', () => randomUUID(), 'not_found'],
       ['other-workspace model', 'ownerModelId', () => ids.foreignModel, 'not_found'],

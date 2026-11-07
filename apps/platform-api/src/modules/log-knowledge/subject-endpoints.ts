@@ -10,7 +10,7 @@ import { LOG_KNOWLEDGE_MODELS_MENU_ID } from './catalog-menu.js';
 import type { LogKnowledgeDeps } from './deps.js';
 import { listSubjectItems } from './repositories/item-read.js';
 import { TARGET_KEY_MAX } from './domain/spec-target-key.js';
-import { unsafeText } from '../platform-port/text-safety.js';
+import { unsafeText } from '../../lib/text-safety.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

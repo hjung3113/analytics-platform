@@ -7,7 +7,7 @@
 // EXISTS element in the values, `notIn` = at least one element AND NOT EXISTS element in the values,
 // `isEmpty` = no element.
 
-import { unsafeText } from '../../modules/platform-port/text-safety.js';
+import { unsafeText } from '../text-safety.js';
 
 export const FILTER_VALUES_MAX = 200;
 export const FILTER_TEXT_MAX = 200;
