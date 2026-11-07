@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import { existsSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -18,9 +18,21 @@ export function repoRoot(): string {
 
 export type CliResult = { status: number; stdout: string; stderr: string };
 
-export function runCli(args: string[], root: string): CliResult {
-  const res = spawnSync(process.execPath, [CLI_PATH, '--root', root, ...args], { encoding: 'utf8' });
-  return { status: res.status ?? -1, stdout: res.stdout ?? '', stderr: res.stderr ?? '' };
+/**
+ * Async on purpose: a synchronous spawn blocks the Vitest worker's event loop for the whole CLI run, which starves
+ * its onTaskUpdate RPC heartbeat on a loaded runner (#1433, same class as #771/#1311).
+ */
+export function spawnNode(args: string[], opts: { env?: NodeJS.ProcessEnv } = {}): Promise<CliResult> {
+  return new Promise(resolve => {
+    execFile(process.execPath, args, { encoding: 'utf8', env: opts.env }, (error, stdout, stderr) => {
+      const code = (error as (Error & { code?: unknown }) | null)?.code;
+      resolve({ status: error === null ? 0 : typeof code === 'number' ? code : -1, stdout, stderr });
+    });
+  });
+}
+
+export function runCli(args: string[], root: string): Promise<CliResult> {
+  return spawnNode([CLI_PATH, '--root', root, ...args]);
 }
 
 /** The four files the generator edits, as a path → bytes snapshot. */

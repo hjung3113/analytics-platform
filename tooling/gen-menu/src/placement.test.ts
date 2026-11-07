@@ -24,9 +24,9 @@ describe('placement roots', () => {
     writeFileSync(path, readFileSync(path, 'utf8').replace("icon: LayoutDashboard, space: spaceId('mars')", 'icon: LayoutDashboard, space: null'));
   };
 
-  it('--platform places a named-space group in platform/<folder> and keeps its GROUPS space', () => {
+  it('--platform places a named-space group in platform/<folder> and keeps its GROUPS space', async () => {
     const root = fresh();
-    const res = runCli([FIXTURE_GROUP, ...GEN_ARGS, '--platform'], root);
+    const res = await runCli([FIXTURE_GROUP, ...GEN_ARGS, '--platform'], root);
     expect(res.status, res.stderr).toBe(0);
     expect(res.stdout).toContain(`created platform/${FIXTURE_FOLDER}/src/index.ts`);
     expect(res.stdout).not.toContain('menus/mars/gen-probe');
@@ -36,15 +36,15 @@ describe('placement roots', () => {
     expect(existsSync(join(root, 'menus/mars', FIXTURE_FOLDER))).toBe(false);
   });
 
-  it('keeps a named-space group in menus/<space>/<folder> without --platform, and a null-space group in platform/ either way', () => {
+  it('keeps a named-space group in menus/<space>/<folder> without --platform, and a null-space group in platform/ either way', async () => {
     const named = fresh();
-    expect(runCli([FIXTURE_GROUP, ...GEN_ARGS], named).status).toBe(0);
+    expect((await runCli([FIXTURE_GROUP, ...GEN_ARGS], named)).status).toBe(0);
     expect(existsSync(join(named, 'menus/mars', FIXTURE_FOLDER, 'src/index.ts'))).toBe(true);
     expect(JSON.parse(readFileSync(join(named, 'menus/mars', FIXTURE_FOLDER, '.gen-menu.json'), 'utf8')).placement).toBe('menus');
     for (const extra of [[], ['--platform']]) {
       const root = fresh();
       nullSpace(root);
-      expect(runCli([FIXTURE_GROUP, ...GEN_ARGS, ...extra], root).status).toBe(0);
+      expect((await runCli([FIXTURE_GROUP, ...GEN_ARGS, ...extra], root)).status).toBe(0);
       expect(existsSync(join(root, 'platform', FIXTURE_FOLDER, 'src/index.ts'))).toBe(true);
       expect(existsSync(join(root, 'menus/_global'))).toBe(false);
     }
@@ -53,11 +53,11 @@ describe('placement roots', () => {
   it.each([
     ['menus', [], 'menus/mars/gen-probe'],
     ['platform', ['--platform'], 'platform/gen-probe'],
-  ])('dry-run prints the %s path it would use and writes nothing', (_root, extra, dir) => {
+  ])('dry-run prints the %s path it would use and writes nothing', async (_root, extra, dir) => {
     const root = fresh();
     const before = appSnapshot(root);
     const tree = menusTree(root);
-    const res = runCli([FIXTURE_GROUP, ...GEN_ARGS, ...extra, '--dry-run'], root);
+    const res = await runCli([FIXTURE_GROUP, ...GEN_ARGS, ...extra, '--dry-run'], root);
     expect(res.status, res.stderr).toBe(0);
     expect(res.stdout).toContain(`  create ${dir}/package.json`);
     expect(res.stdout).toContain(`  create ${dir}/.gen-menu.json`);
@@ -69,37 +69,37 @@ describe('placement roots', () => {
     ['menus', [] as string[]],
     ['platform', ['--platform']],
     ['platform (null space)', ['--platform']],
-  ])('generates then removes a %s package, restoring the app files and the tree', (label, extra) => {
+  ])('generates then removes a %s package, restoring the app files and the tree', async (label, extra) => {
     const root = fresh();
     if (label.includes('null')) nullSpace(root);
     const before = appSnapshot(root);
     const tree = menusTree(root);
-    expect(runCli([FIXTURE_GROUP, ...GEN_ARGS, ...extra], root).status).toBe(0);
+    expect((await runCli([FIXTURE_GROUP, ...GEN_ARGS, ...extra], root)).status).toBe(0);
     expect(menusTree(root).length).toBeGreaterThan(tree.length);
-    const res = runCli(['--remove', FIXTURE_GROUP], root);
+    const res = await runCli(['--remove', FIXTURE_GROUP], root);
     expect(res.status, res.stderr).toBe(0);
     expect(res.stdout).toContain(label.startsWith('menus') ? 'deleted menus/mars/gen-probe/' : 'deleted platform/gen-probe/');
     expect(appSnapshot(root)).toEqual(before);
     expect(menusTree(root)).toEqual(tree);
   });
 
-  it('keeps pre-existing metadata without a placement field removable as a menus package', () => {
+  it('keeps pre-existing metadata without a placement field removable as a menus package', async () => {
     const root = fresh();
-    expect(runCli([FIXTURE_GROUP, ...GEN_ARGS], root).status).toBe(0);
+    expect((await runCli([FIXTURE_GROUP, ...GEN_ARGS], root)).status).toBe(0);
     const metaPath = join(root, 'menus/mars', FIXTURE_FOLDER, '.gen-menu.json');
     const meta = JSON.parse(readFileSync(metaPath, 'utf8'));
     delete meta.placement;
     writeFileSync(metaPath, `${JSON.stringify(meta, null, 2)}\n`);
-    expect(runCli(['--remove', FIXTURE_GROUP], root).status).toBe(0);
+    expect((await runCli(['--remove', FIXTURE_GROUP], root)).status).toBe(0);
     expect(existsSync(join(root, 'menus/mars', FIXTURE_FOLDER))).toBe(false);
   });
 
-  it('--remove takes no --platform and writes nothing', () => {
+  it('--remove takes no --platform and writes nothing', async () => {
     const root = fresh();
-    expect(runCli([FIXTURE_GROUP, ...GEN_ARGS, '--platform'], root).status).toBe(0);
+    expect((await runCli([FIXTURE_GROUP, ...GEN_ARGS, '--platform'], root)).status).toBe(0);
     const before = appSnapshot(root);
     const tree = menusTree(root);
-    const res = runCli(['--remove', FIXTURE_GROUP, '--platform'], root);
+    const res = await runCli(['--remove', FIXTURE_GROUP, '--platform'], root);
     expect(res.status).toBe(1);
     expect(res.stderr).toMatch(/--remove does not take --platform/);
     expect(appSnapshot(root)).toEqual(before);
@@ -111,23 +111,23 @@ describe('placement roots', () => {
     ['menu id', `{ id: 'gen-probe', group: 'metrics', path: '/other' }`, undefined, /menu id 'gen-probe' is already used by platform\/other/],
     ['path shape', `{ id: 'other-x', group: 'metrics', path: '/gen-probe' }`, undefined, /path shape '\/gen-probe' collides with platform\/other/],
     ['package name', `{ id: 'other-x', group: 'metrics', path: '/other' }`, `${PACKAGE_PREFIX}menu-gen-probe`, /package name '.*menu-gen-probe' is already used by platform\/other/],
-  ])('refuses a duplicate %s held by a platform package when generating into menus/', (_label, manifest, name, error) => {
+  ])('refuses a duplicate %s held by a platform package when generating into menus/', async (_label, manifest, name, error) => {
     const root = fresh();
     addPlatformPackage(root, 'other', manifest, name);
     const before = appSnapshot(root);
     const tree = menusTree(root);
-    const res = runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
+    const res = await runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
     expect(res.status).toBe(1);
     expect(res.stderr).toMatch(error);
     expect(appSnapshot(root)).toEqual(before);
     expect(menusTree(root)).toEqual(tree);
   });
 
-  it('refuses a duplicate held by a menus package when generating into platform/', () => {
+  it('refuses a duplicate held by a menus package when generating into platform/', async () => {
     const root = fresh();
     writeFileSync(join(root, 'menus/mars/metric-catalog/src/index.ts'), `export const manifests = [{ id: 'gen-probe', group: 'metrics', path: '/metrics' }];\n`);
     const before = appSnapshot(root);
-    const res = runCli([FIXTURE_GROUP, ...GEN_ARGS, '--platform'], root);
+    const res = await runCli([FIXTURE_GROUP, ...GEN_ARGS, '--platform'], root);
     expect(res.status).toBe(1);
     expect(res.stderr).toMatch(/menu id 'gen-probe' is already used by menus\/mars\/metric-catalog/);
     expect(appSnapshot(root)).toEqual(before);
@@ -135,9 +135,9 @@ describe('placement roots', () => {
   });
 
   describe('metadata is never trusted past the discovered folder', () => {
-    const generated = (): string => {
+    const generated = async (): Promise<string> => {
       const root = fresh();
-      expect(runCli([FIXTURE_GROUP, ...GEN_ARGS, '--platform'], root).status).toBe(0);
+      expect((await runCli([FIXTURE_GROUP, ...GEN_ARGS, '--platform'], root)).status).toBe(0);
       return root;
     };
     const metaOf = (root: string): string => join(root, 'platform', FIXTURE_FOLDER, '.gen-menu.json');
@@ -150,20 +150,20 @@ describe('placement roots', () => {
       ['unknown placement', { placement: 'elsewhere' }],
       ['folder differs', { folder: 'other-folder' }],
       ['space is not an id', { space: '../escape' }],
-    ])('refuses a platform package whose metadata has %s', (_label, change) => {
-      const root = generated();
+    ])('refuses a platform package whose metadata has %s', async (_label, change) => {
+      const root = await generated();
       patch(root, change);
       const before = appSnapshot(root);
       const tree = menusTree(root);
-      const res = runCli(['--remove', FIXTURE_GROUP], root);
+      const res = await runCli(['--remove', FIXTURE_GROUP], root);
       expect(res.status).toBe(1);
       expect(res.stderr).toMatch(/metadata path mismatch/);
       expect(appSnapshot(root)).toEqual(before);
       expect(menusTree(root)).toEqual(tree);
     });
 
-    it('refuses a consistently forged folder (metadata, physical folder, files, wiring) whose group is not that folder\'s name', () => {
-      const root = generated();
+    it('refuses a consistently forged folder (metadata, physical folder, files, wiring) whose group is not that folder\'s name', async () => {
+      const root = await generated();
       const dir = join(root, 'platform', FIXTURE_FOLDER);
       const forged = { ...JSON.parse(readFileSync(metaOf(root), 'utf8')), folder: 'other' } as MenuInputs;
       const date = /^## 0\.1\.0 — (\d{4}-\d{2}-\d{2})$/m.exec(readFileSync(join(dir, 'CHANGELOG.md'), 'utf8'))?.[1] as string;
@@ -175,49 +175,49 @@ describe('placement roots', () => {
         writeFileSync(path, readFileSync(path, 'utf8').split(`${PACKAGE_PREFIX}menu-${FIXTURE_FOLDER}`).join(`${PACKAGE_PREFIX}menu-other`));
       }
       const before = appSnapshot(root);
-      const res = runCli(['--remove', FIXTURE_GROUP], root);
+      const res = await runCli(['--remove', FIXTURE_GROUP], root);
       expect(res.status).toBe(1);
       expect(res.stderr).toMatch(/metadata path mismatch: platform\/other\/\.gen-menu\.json/);
       expect(appSnapshot(root)).toEqual(before);
       expect(existsSync(join(root, 'platform/other'))).toBe(true);
     });
 
-    it.each([['malformed JSON', '{'], ['non-object JSON', 'null']])('refuses %s', (_label, text) => {
-      const root = generated();
+    it.each([['malformed JSON', '{'], ['non-object JSON', 'null']])('refuses %s', async (_label, text) => {
+      const root = await generated();
       writeFileSync(metaOf(root), text);
       const before = appSnapshot(root);
-      const res = runCli(['--remove', FIXTURE_GROUP], root);
+      const res = await runCli(['--remove', FIXTURE_GROUP], root);
       expect(res.status).toBe(1);
       expect(res.stderr).toMatch(/not a generated package/);
       expect(appSnapshot(root)).toEqual(before);
       expect(existsSync(join(root, 'platform', FIXTURE_FOLDER))).toBe(true);
     });
 
-    it('refuses platform metadata copied into menus/ and a platform package nested one level deeper', () => {
-      const root = generated();
+    it('refuses platform metadata copied into menus/ and a platform package nested one level deeper', async () => {
+      const root = await generated();
       const moved = join(root, 'menus/mars', FIXTURE_FOLDER);
       cpSync(join(root, 'platform', FIXTURE_FOLDER), moved, { recursive: true });
       renameSync(join(root, 'platform', FIXTURE_FOLDER), join(root, 'platform', 'gone'));
-      const wrongRoot = runCli(['--remove', FIXTURE_GROUP], root);
+      const wrongRoot = await runCli(['--remove', FIXTURE_GROUP], root);
       expect(wrongRoot.status).toBe(1);
       expect(wrongRoot.stderr).toMatch(/exactly one|metadata path mismatch/);
 
-      const nested = generated();
+      const nested = await generated();
       mkdirSync(join(nested, 'platform/group'), { recursive: true });
       renameSync(join(nested, 'platform', FIXTURE_FOLDER), join(nested, 'platform/group', FIXTURE_FOLDER));
       const before = appSnapshot(nested);
-      const res = runCli(['--remove', FIXTURE_GROUP], nested);
+      const res = await runCli(['--remove', FIXTURE_GROUP], nested);
       expect(res.status).toBe(1);
       expect(res.stderr).toMatch(/metadata path mismatch/);
       expect(appSnapshot(nested)).toEqual(before);
       expect(existsSync(join(nested, 'platform/group', FIXTURE_FOLDER))).toBe(true);
     });
 
-    it('refuses a user-edited platform page', () => {
-      const root = generated();
+    it('refuses a user-edited platform page', async () => {
+      const root = await generated();
       const page = join(root, 'platform', FIXTURE_FOLDER, 'src/pages/GenProbe.tsx');
       writeFileSync(page, `${readFileSync(page, 'utf8')} `);
-      const res = runCli(['--remove', FIXTURE_GROUP], root);
+      const res = await runCli(['--remove', FIXTURE_GROUP], root);
       expect(res.status).toBe(1);
       expect(res.stderr).toMatch(/was edited/);
       expect(existsSync(page)).toBe(true);
@@ -231,31 +231,31 @@ describe('placement roots', () => {
       return dir;
     };
 
-    it('refuses a symlinked platform/ pointing outside the root on generate and remove', () => {
+    it('refuses a symlinked platform/ pointing outside the root on generate and remove', async () => {
       const root = fresh();
       const outside = outsideDir();
       symlinkSync(outside, join(root, 'platform'), 'dir');
       const before = appSnapshot(root);
-      const gen = runCli([FIXTURE_GROUP, ...GEN_ARGS, '--platform'], root);
+      const gen = await runCli([FIXTURE_GROUP, ...GEN_ARGS, '--platform'], root);
       expect(gen.status).toBe(1);
       expect(gen.stderr).toMatch(/outside the workspace root/);
       expect(existsSync(join(outside, FIXTURE_FOLDER))).toBe(false);
-      const rm = runCli(['--remove', FIXTURE_GROUP], root);
+      const rm = await runCli(['--remove', FIXTURE_GROUP], root);
       expect(rm.status).toBe(1);
       expect(rm.stderr).toMatch(/outside the workspace root/);
       expect(appSnapshot(root)).toEqual(before);
     });
 
-    it('refuses a package folder symlinked out of the root on remove, and deletes nothing outside', () => {
+    it('refuses a package folder symlinked out of the root on remove, and deletes nothing outside', async () => {
       const root = fresh();
       const outside = outsideDir();
       mkdirSync(join(root, 'platform'), { recursive: true });
       const target = join(outside, FIXTURE_FOLDER);
-      expect(runCli([FIXTURE_GROUP, ...GEN_ARGS, '--platform'], root).status).toBe(0);
+      expect((await runCli([FIXTURE_GROUP, ...GEN_ARGS, '--platform'], root)).status).toBe(0);
       renameSync(join(root, 'platform', FIXTURE_FOLDER), target);
       symlinkSync(target, join(root, 'platform', FIXTURE_FOLDER), 'dir');
       const before = appSnapshot(root);
-      const res = runCli(['--remove', FIXTURE_GROUP], root);
+      const res = await runCli(['--remove', FIXTURE_GROUP], root);
       expect(res.status).toBe(1);
       expect(res.stderr).toMatch(/outside the workspace root/);
       expect(existsSync(join(target, '.gen-menu.json'))).toBe(true);

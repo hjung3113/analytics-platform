@@ -1,10 +1,9 @@
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { spawnSync } from 'node:child_process';
 import { afterAll, describe, expect, it } from 'vitest';
 import { APP_PKG, MOCK_ASSEMBLY_TSX, MENUS_TS, STYLE_CSS } from './generate.ts';
-import { FIXTURE_GROUP, GEN_ARGS, CLI_PATH, appSnapshot, makeFixture, removeFixture, runCli } from './fixture.ts';
+import { FIXTURE_GROUP, GEN_ARGS, CLI_PATH, appSnapshot, makeFixture, removeFixture, runCli, spawnNode } from './fixture.ts';
 
 const APP_WRITE_MODULE = join(dirname(CLI_PATH), 'app-write.ts');
 
@@ -35,14 +34,13 @@ setAppFileWriter((path, data) => {
 
 const keepPreloads: string[] = [];
 
-function runFaulty(root: string, faultPath: string, args: string[]): { status: number; stderr: string } {
+async function runFaulty(root: string, faultPath: string, args: string[]): Promise<{ status: number; stderr: string }> {
   const preload = makePreload();
-  const res = spawnSync(
-    process.execPath,
+  const res = await spawnNode(
     ['--import', `file://${preload}`, CLI_PATH, '--root', root, ...args],
-    { encoding: 'utf8', env: { ...process.env, FAULT_PATH: faultPath } },
+    { env: { ...process.env, FAULT_PATH: faultPath } },
   );
-  return { status: res.status ?? -1, stderr: res.stderr ?? '' };
+  return { status: res.status, stderr: res.stderr };
 }
 
 const TARGETS = [['menus.ts', MENUS_TS], ['mock-assembly.tsx', MOCK_ASSEMBLY_TSX], ['style.css', STYLE_CSS], ['package.json', APP_PKG]] as const;
@@ -59,20 +57,20 @@ describe('partial-write faults restore every snapshot (R1)', () => {
   });
 
   for (const [place, extra, dir] of PLACEMENTS) for (const [label, rel] of TARGETS) {
-    it(`generate (${place}): partial write of ${label} is restored from its snapshot`, () => {
+    it(`generate (${place}): partial write of ${label} is restored from its snapshot`, async () => {
       const root = fresh();
       const pristine = appSnapshot(root);
-      const res = runFaulty(root, join(root, rel), [FIXTURE_GROUP, ...GEN_ARGS, ...extra]);
+      const res = await runFaulty(root, join(root, rel), [FIXTURE_GROUP, ...GEN_ARGS, ...extra]);
       expect(res.status, res.stderr).toBe(1);
       expect(appSnapshot(root), label).toEqual(pristine);
       expect(existsSync(join(root, dir))).toBe(false);
     });
 
-    it(`remove (${place}): partial write of ${label} is restored and the package is kept`, () => {
+    it(`remove (${place}): partial write of ${label} is restored and the package is kept`, async () => {
       const root = fresh();
-      expect(runCli([FIXTURE_GROUP, ...GEN_ARGS, ...extra], root).status).toBe(0);
+      expect((await runCli([FIXTURE_GROUP, ...GEN_ARGS, ...extra], root)).status).toBe(0);
       const wired = appSnapshot(root);
-      const res = runFaulty(root, join(root, rel), ['--remove', FIXTURE_GROUP]);
+      const res = await runFaulty(root, join(root, rel), ['--remove', FIXTURE_GROUP]);
       expect(res.status, res.stderr).toBe(1);
       expect(appSnapshot(root), label).toEqual(wired);
       expect(existsSync(join(root, dir))).toBe(true);

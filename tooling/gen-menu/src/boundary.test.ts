@@ -9,7 +9,7 @@ describe('physical workspace boundary (F9)', () => {
   const fresh = (): string => { const root = makeFixture(); keep.push(root); return root; };
   afterAll(() => { for (const path of keep) removeFixture(path); });
 
-  it('refuses a symlinked menus/ pointing outside the root and writes nothing outside', () => {
+  it('refuses a symlinked menus/ pointing outside the root and writes nothing outside', async () => {
     const root = fresh();
     const outsideBase = mkdtempSync(join(tmpdir(), 'gen-menu-outside-'));
     keep.push(outsideBase);
@@ -18,7 +18,7 @@ describe('physical workspace boundary (F9)', () => {
     symlinkSync(outside, join(root, 'menus'), 'dir');
     const before = appSnapshot(root);
 
-    const res = runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
+    const res = await runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
     expect(res.status).toBe(1);
     expect(res.stderr).toMatch(/outside the workspace root/);
     expect(existsSync(join(outside, 'mars', 'gen-probe'))).toBe(false);
@@ -26,14 +26,14 @@ describe('physical workspace boundary (F9)', () => {
     expect(appSnapshot(root)).toEqual(before);
     expect(dirname(outside)).toBe(outsideBase);
   });
-  it('refuses a space symlink pointing outside the root', () => {
+  it('refuses a space symlink pointing outside the root', async () => {
     const root = fresh();
     const outside = mkdtempSync(join(tmpdir(), 'gen-menu-space-outside-'));
     keep.push(outside);
     renameSync(join(root, 'menus/mars'), join(outside, 'mars'));
     symlinkSync(join(outside, 'mars'), join(root, 'menus/mars'), 'dir');
     const before = appSnapshot(root);
-    const res = runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
+    const res = await runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
     expect(res.status).toBe(1);
     expect(res.stderr).toMatch(/outside the workspace root/);
     expect(existsSync(join(outside, 'mars/gen-probe'))).toBe(false);

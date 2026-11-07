@@ -55,55 +55,55 @@ describe('marker context validation (F7)', () => {
   const fresh = (variants: { menusTs?: string; mockAssemblyTsx?: string }): string => { const root = makeFixture(variants); keep.push(root); return root; };
   afterAll(() => { for (const root of keep) removeFixture(root); });
 
-  it('refuses mock spread markers moved outside the MOCK_ENDPOINTS array', () => {
+  it('refuses mock spread markers moved outside the MOCK_ENDPOINTS array', async () => {
     const root = fresh({ mockAssemblyTsx: mockSpreadOutsideEndpoints });
     const before = appSnapshot(root);
-    const res = runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
+    const res = await runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
     expect(res.status).toBe(1);
     expect(res.stderr).toMatch(/not inside the MOCK_ENDPOINTS array/);
     expect(appSnapshot(root)).toEqual(before);
   });
 
-  it('refuses a missing mock-assembly.tsx mock marker pair', () => {
+  it('refuses a missing mock-assembly.tsx mock marker pair', async () => {
     const root = fresh({ mockAssemblyTsx: mockMarkersMissing });
     const before = appSnapshot(root);
-    const res = runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
+    const res = await runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
     expect(res.status).toBe(1);
     expect(res.stderr).toMatch(/missing marker '\/\/ <gen:menu-mock-imports>'/);
     expect(appSnapshot(root)).toEqual(before);
   });
 
-  it('refuses a spread end marker moved outside the MENUS array', () => {
+  it('refuses a spread end marker moved outside the MENUS array', async () => {
     const root = fresh({ menusTs: movedSpreadEnd });
     const before = appSnapshot(root);
-    const res = runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
+    const res = await runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
     expect(res.status).toBe(1);
     expect(res.stderr).toMatch(/not inside the 'MENUS' array literal/);
     expect(appSnapshot(root)).toEqual(before);
   });
 
-  it('refuses a duplicated marker', () => {
+  it('refuses a duplicated marker', async () => {
     const root = fresh({ menusTs: duplicatedImportEnd });
     const before = appSnapshot(root);
-    const res = runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
+    const res = await runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
     expect(res.status).toBe(1);
     expect(res.stderr).toMatch(/expected exactly once/);
     expect(appSnapshot(root)).toEqual(before);
   });
 
-  it('refuses a reversed marker pair', () => {
+  it('refuses a reversed marker pair', async () => {
     const root = fresh({ menusTs: reversedSpreads });
     const before = appSnapshot(root);
-    const res = runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
+    const res = await runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
     expect(res.status).toBe(1);
     expect(res.stderr).toMatch(/must precede/);
     expect(appSnapshot(root)).toEqual(before);
   });
 
-  it('refuses import markers hidden inside a block comment (R3)', () => {
+  it('refuses import markers hidden inside a block comment (R3)', async () => {
     const root = fresh({ menusTs: commentedImportMarkers });
     const before = appSnapshot(root);
-    const res = runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
+    const res = await runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
     expect(res.status).toBe(1);
     expect(res.stderr).toMatch(/missing marker '\/\/ <gen:menu-imports>'/);
     expect(appSnapshot(root)).toEqual(before);

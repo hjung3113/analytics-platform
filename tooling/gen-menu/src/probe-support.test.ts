@@ -1,4 +1,5 @@
-import { spawnSync } from 'node:child_process';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -43,9 +44,9 @@ describe('probe support helpers (F8)', () => {
     expect(() => gitPorcelain(plain)).toThrow(/git status failed/);
   });
 
-  it('gitPorcelain lists hidden untracked files', () => {
+  it('gitPorcelain lists hidden untracked files', async () => {
     const repo = mkdtempSync(join(tmpdir(), 'gen-menu-git-'));
-    git(['init', '-q'], repo);
+    await git(['init', '-q'], repo);
     writeFileSync(join(repo, 'untracked.txt'), 'x\n');
     expect(gitPorcelain(repo)).toContain('?? untracked.txt');
   });
@@ -128,7 +129,13 @@ describe('revert ordering (runRevert)', () => {
   });
 });
 
-function git(args: string[], cwd: string): void {
-  const res = spawnSync('git', args, { cwd, encoding: 'utf8' });
-  if (res.status !== 0) throw new Error(`git ${args.join(' ')} failed: ${res.stderr ?? ''}`);
+const execFileAsync = promisify(execFile);
+
+/** Async so a git call never blocks the Vitest worker's event loop (#1433). */
+async function git(args: string[], cwd: string): Promise<void> {
+  try {
+    await execFileAsync('git', args, { cwd, encoding: 'utf8' });
+  } catch (error) {
+    throw new Error(`git ${args.join(' ')} failed: ${(error as { stderr?: string }).stderr ?? ''}`);
+  }
 }

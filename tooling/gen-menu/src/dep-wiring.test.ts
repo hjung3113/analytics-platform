@@ -16,7 +16,7 @@ describe('dependency block wiring (real-shape regressions)', () => {
   };
   afterAll(() => { for (const root of keep) removeFixture(root); });
 
-  it('inserts before, inside and after the real block lexicographically', () => {
+  it('inserts before, inside and after the real block lexicographically', async () => {
     const extra = ['aaaProbe', 'zZulu'];
     for (const [group, folder, prev, next] of [
       ['aaaProbe', 'aaa-probe', `${PACKAGE_PREFIX}kernel`, `${PACKAGE_PREFIX}menu-admin`],
@@ -24,7 +24,7 @@ describe('dependency block wiring (real-shape regressions)', () => {
       ['zZulu', 'z-zulu', `${PACKAGE_PREFIX}menu-notice-voc`, `${PACKAGE_PREFIX}mock-server`],
     ] as const) {
       const root = fresh(REAL_SHAPE_APP_PKG, extra);
-      const res = runCli([group, ...GEN_ARGS], root);
+      const res = await runCli([group, ...GEN_ARGS], root);
       expect(res.status, res.stderr).toBe(0);
       const lines = readFileSync(join(root, APP_PKG), 'utf8').split('\n');
       const at = lines.findIndex(l => l.includes(`"${PACKAGE_PREFIX}menu-${folder}"`));
@@ -35,20 +35,20 @@ describe('dependency block wiring (real-shape regressions)', () => {
     }
   });
 
-  it('preserves CRLF endings across generate and remove', () => {
+  it('preserves CRLF endings across generate and remove', async () => {
     const root = fresh(EOL_APP_PKG);
-    expect(runCli([FIXTURE_GROUP, ...GEN_ARGS], root).status).toBe(0);
+    expect((await runCli([FIXTURE_GROUP, ...GEN_ARGS], root)).status).toBe(0);
     const after = readFileSync(join(root, APP_PKG), 'utf8');
     expect(after).toContain(`"${PACKAGE_PREFIX}menu-gen-probe": "workspace:*",`);
     expect(after.replace(/\r\n/g, '').includes('\n')).toBe(false);
     expect(() => JSON.parse(after)).not.toThrow();
-    expect(runCli(['--remove', FIXTURE_GROUP], root).status).toBe(0);
+    expect((await runCli(['--remove', FIXTURE_GROUP], root)).status).toBe(0);
     const restored = readFileSync(join(root, APP_PKG), 'utf8');
     expect(restored).toBe(EOL_APP_PKG);
     expect(appSnapshot(root)['apps/platform-web/package.json']).toBe(EOL_APP_PKG);
   });
 
-  it('adds and moves commas when the block ends the object', () => {
+  it('adds and moves commas when the block ends the object', async () => {
     const appPkg = `{
   "name": "fixture-app",
   "private": true,
@@ -59,7 +59,7 @@ describe('dependency block wiring (real-shape regressions)', () => {
 }
 `;
     const root = fresh(appPkg);
-    expect(runCli([FIXTURE_GROUP, ...GEN_ARGS], root).status).toBe(0);
+    expect((await runCli([FIXTURE_GROUP, ...GEN_ARGS], root)).status).toBe(0);
     const text = readFileSync(join(root, APP_PKG), 'utf8');
     expect(() => JSON.parse(text)).not.toThrow();
     const lines = text.split('\n');
@@ -69,11 +69,11 @@ describe('dependency block wiring (real-shape regressions)', () => {
     // Inserted before the comma-less last entry: the new line takes the comma, the last stays last.
     expect(lines[at].trimEnd().endsWith(',')).toBe(true);
     expect(lines[at + 1].trimEnd().endsWith(',')).toBe(false);
-    expect(runCli(['--remove', FIXTURE_GROUP], root).status).toBe(0);
+    expect((await runCli(['--remove', FIXTURE_GROUP], root)).status).toBe(0);
     expect(readFileSync(join(root, APP_PKG), 'utf8')).toBe(appPkg);
   });
 
-  it('appends after a comma-less last entry keeping the JSON valid', () => {
+  it('appends after a comma-less last entry keeping the JSON valid', async () => {
     const appPkg = `{
   "name": "fixture-app",
   "private": true,
@@ -83,7 +83,7 @@ describe('dependency block wiring (real-shape regressions)', () => {
 }
 `;
     const root = fresh(appPkg, ['masterData']);
-    expect(runCli(['masterData', '--label-ko', 'm', '--label-en', 'm'], root).status).toBe(0);
+    expect((await runCli(['masterData', '--label-ko', 'm', '--label-en', 'm'], root)).status).toBe(0);
     const text = readFileSync(join(root, APP_PKG), 'utf8');
     expect(() => JSON.parse(text)).not.toThrow();
     const lines = text.split('\n');
@@ -91,7 +91,7 @@ describe('dependency block wiring (real-shape regressions)', () => {
     expect(lines[at]).toBe(`    "${PACKAGE_PREFIX}menu-master-data": "workspace:*"`);
     expect(lines[at - 1]).toBe(`    "${PACKAGE_PREFIX}menu-home": "workspace:*",`);
     expect(lines[at + 1]?.trimStart().startsWith('}')).toBe(true);
-    const rem = runCli(['--remove', 'masterData'], root);
+    const rem = await runCli(['--remove', 'masterData'], root);
     expect(rem.status, rem.stderr).toBe(0);
     expect(readFileSync(join(root, APP_PKG), 'utf8')).toBe(appPkg);
   });

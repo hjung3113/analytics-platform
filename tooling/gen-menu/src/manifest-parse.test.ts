@@ -14,58 +14,58 @@ describe('manifest parsing and route shapes (F6)', () => {
   const fresh = (index: string): string => { const root = makeFixture({ existingMenuIndex: index }); keep.push(root); return root; };
   afterAll(() => { for (const root of keep) removeFixture(root); });
 
-  it('refuses an object spread overriding the path', () => {
+  it('refuses an object spread overriding the path', async () => {
     const root = fresh(SPREAD_OVERRIDE_INDEX);
-    const res = runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
+    const res = await runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
     expect(res.status).toBe(1);
     expect(res.stderr).toMatch(/unsupported manifest form/);
   });
 
-  it('refuses a computed property name', () => {
+  it('refuses a computed property name', async () => {
     const root = fresh(COMPUTED_INDEX);
-    const res = runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
+    const res = await runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
     expect(res.status).toBe(1);
     expect(res.stderr).toMatch(/unsupported manifest form/);
   });
 
-  it('refuses a re-exported manifests declaration', () => {
+  it('refuses a re-exported manifests declaration', async () => {
     const root = fresh(REEXPORT_INDEX);
-    const res = runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
+    const res = await runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
     expect(res.status).toBe(1);
     expect(res.stderr).toMatch(/unsupported manifest form/);
   });
 
-  it('sees ids and groups in double-quoted index files', () => {
+  it('sees ids and groups in double-quoted index files', async () => {
     const root = fresh(DOUBLE_QUOTED_INDEX);
-    const res = runCli([FIXTURE_GROUP, ...GEN_ARGS, '--menu', 'metric-catalog'], root);
+    const res = await runCli([FIXTURE_GROUP, ...GEN_ARGS, '--menu', 'metric-catalog'], root);
     expect(res.status).toBe(1);
     expect(res.stderr).toMatch(/already used by menus\/mars\/metric-catalog/);
   });
 
-  it('sees path shapes in double-quoted index files', () => {
+  it('sees path shapes in double-quoted index files', async () => {
     const root = fresh(DOUBLE_QUOTED_INDEX);
-    const res = runCli([FIXTURE_GROUP, ...GEN_ARGS, '--path', '/metrics/:other'], root);
+    const res = await runCli([FIXTURE_GROUP, ...GEN_ARGS, '--path', '/metrics/:other'], root);
     expect(res.status).toBe(1);
     expect(res.stderr).toMatch(/collides with menus\/mars\/metric-catalog/);
   });
 
-  it('normalizes underscore parameter names like the kernel', () => {
+  it('normalizes underscore parameter names like the kernel', async () => {
     const root = fresh(UNDERSCORE_INDEX);
-    const res = runCli([FIXTURE_GROUP, ...GEN_ARGS, '--path', '/metrics/:other'], root);
+    const res = await runCli([FIXTURE_GROUP, ...GEN_ARGS, '--path', '/metrics/:other'], root);
     expect(res.status).toBe(1);
     expect(res.stderr).toMatch(/collides with menus\/mars\/metric-catalog/);
   });
 
-  it('normalizes trailing slashes like the kernel', () => {
+  it('normalizes trailing slashes like the kernel', async () => {
     const root = fresh(TRAILING_SLASH_INDEX);
-    const res = runCli([FIXTURE_GROUP, ...GEN_ARGS, '--path', '/metrics'], root);
+    const res = await runCli([FIXTURE_GROUP, ...GEN_ARGS, '--path', '/metrics'], root);
     expect(res.status).toBe(1);
     expect(res.stderr).toMatch(/collides with menus\/mars\/metric-catalog/);
   });
 
-  it('refuses manifest forms it cannot parse instead of skipping them', () => {
+  it('refuses manifest forms it cannot parse instead of skipping them', async () => {
     const root = fresh(SPREAD_INDEX);
-    const res = runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
+    const res = await runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
     expect(res.status).toBe(1);
     expect(res.stderr).toMatch(/unsupported manifest form in menus\/mars\/metric-catalog\/src\/index\.ts/);
   });
