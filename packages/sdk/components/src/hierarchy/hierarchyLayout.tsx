@@ -10,7 +10,7 @@ export function ClippedLabel({ label, className = '' }: { label: string; classNa
     const element = ref.current;
     if (!element) return;
     const measure = () => setClipped(element.scrollWidth > element.clientWidth);
-    const owner = element.closest<HTMLElement>('a, button, [role=treeitem]');
+    const owner = element.closest<HTMLElement>('[role=treeitem]') ?? element.closest<HTMLElement>('a, button');
     const focus = () => { if (owner?.matches(':focus-visible')) setOpen(true); };
     const blur = () => setOpen(false);
     owner?.addEventListener('focus', focus); owner?.addEventListener('blur', blur);

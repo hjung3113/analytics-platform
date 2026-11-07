@@ -134,6 +134,41 @@ describe('HierarchyNav (#1448)', () => {
     expect(link.querySelector('[title]')).toBeNull();
   });
 
+  it('opens the clipped-label tooltip when the tree row (focus owner) is keyboard-focused, not for fitting labels', async () => {
+    vi.spyOn(Element.prototype, 'scrollWidth', 'get').mockReturnValue(600);
+    mount({ resolveAncestors: async () => [], listChildren: async () => ({ nodes: [node('long-label')] }) }, { mode: 'tree' });
+    const row = await screen.findByRole('treeitem', { name: 'long-label' });
+    act(() => row.focus());
+    await screen.findByRole('tooltip');
+    act(() => row.blur());
+    await waitFor(() => expect(screen.queryByRole('tooltip')).toBeNull());
+  });
+
+  it('does not open a tooltip on tree-row focus when the label fits', async () => {
+    mount({ resolveAncestors: async () => [], listChildren: async () => ({ nodes: [node('short')] }) }, { mode: 'tree' });
+    const short = await screen.findByRole('treeitem', { name: 'short' });
+    act(() => short.focus());
+    expect(screen.queryByRole('tooltip')).toBeNull();
+  });
+
+  it('uses the secondary text token (>= 4.5:1 on default/hover/selected rows) for the search ancestor path', async () => {
+    const source: HierarchySource = { resolveAncestors: async () => [node('parent', true)], listChildren: async () => ({ nodes: [] }), searchNodes: async () => ({ nodes: [node('hit')] }) };
+    mount(source);
+    fireEvent.change(await screen.findByRole('searchbox'), { target: { value: 'hit' } });
+    await screen.findByRole('link', { name: 'hit' });
+    const path = await screen.findByText('parent');
+    expect(path.className).toContain('text-text-secondary');
+    expect(path.className).not.toContain('text-text-muted');
+  });
+
+  it('renders tree root loading/error status at content height outside the fixed virtual list', async () => {
+    const { container } = mount({ resolveAncestors: async () => [], listChildren: () => new Promise(() => {}) }, { mode: 'tree' });
+    const status = await screen.findByRole('status');
+    const tree = container.querySelector<HTMLElement>('[role=tree]')!;
+    expect(tree.contains(status)).toBe(false);
+    expect(tree.style.getPropertyValue('--hierarchy-height')).toBe('0px');
+  });
+
   it('reveals a deep target outside the initial virtual window without focus', async () => {
     const source = createSyntheticHierarchySource();
     mount(source, { currentNodeId: 'node-0125' });

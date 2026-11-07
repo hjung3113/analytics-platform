@@ -84,7 +84,11 @@ export function HierarchyNav({ menuId, label, source, mode = 'drill', currentNod
 
   const rows = useMemo<Row[]>(() => {
     if (restoring || waitingSearch) return [];
-    if (!searching && mode === 'tree') return treeRows(snapshot);
+    if (!searching && mode === 'tree') {
+      const tree = treeRows(snapshot);
+      // Root-only status (loading/error/forbidden/…) is content-height, not a fixed virtual row.
+      return tree.length === 1 && tree[0].kind === 'state' ? [] : tree;
+    }
     return (activePage?.value?.nodes ?? []).map((node, index) => ({ kind: 'node', node, depth: 0, index: index + 1, total: activePage?.value?.totalCount }));
   }, [restoring, waitingSearch, searching, mode, snapshot, activePage]);
   const pitch = searching ? 42 : 34;
@@ -226,7 +230,7 @@ export function HierarchyNav({ menuId, label, source, mode = 'drill', currentNod
             const expanded = snapshot.expanded.has(node.id);
             const Icon = levelIcon?.(node.kind);
             const isTree = mode === 'tree' && !searching;
-            const primaryContent = <>{Icon && <Icon className="size-4 shrink-0" />}<span className="flex min-w-0 flex-1 flex-col"><ClippedLabel label={node.label} />{searching && <ClippedLabel label={snapshot.ancestors[node.id]?.value?.map(parent => parent.label).join(' › ') ?? ''} className="text-xs text-text-muted" />}</span></>;
+            const primaryContent = <>{Icon && <Icon className="size-4 shrink-0" />}<span className="flex min-w-0 flex-1 flex-col"><ClippedLabel label={node.label} />{searching && <ClippedLabel label={snapshot.ancestors[node.id]?.value?.map(parent => parent.label).join(' › ') ?? ''} className="text-xs text-text-secondary" />}</span></>;
             return <div key={node.id} ref={element => { if (element) elements.current.set(node.id, element); else elements.current.delete(node.id); }} data-hierarchy-node={node.id} role={isTree ? 'treeitem' : 'listitem'} aria-label={isTree ? node.label : undefined} aria-level={isTree ? depth + 1 : undefined} aria-posinset={isTree ? row.index : undefined} aria-setsize={isTree ? row.total ?? -1 : undefined} aria-expanded={isTree && node.hasChildren ? expanded : undefined} aria-current={isTree && current ? 'location' : undefined} tabIndex={isTree ? (entryId === node.id ? 0 : -1) : undefined} onFocus={isTree ? () => setFocusId(node.id) : undefined} onKeyDown={isTree ? event => onKey(event, row) : undefined}
               className={cn(navRowVariants({ active: current }), 'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-inset absolute left-0 top-0 h-(--hierarchy-row) w-full translate-y-(--hierarchy-offset) break-keep', isTree && INDENT[Math.min(depth, INDENT.length - 1)], searching && 'min-h-10')}
               style={{ '--hierarchy-offset': `${item.start}px`, '--hierarchy-row': `${pitch - 2}px` } as CSSProperties}>
@@ -240,7 +244,7 @@ export function HierarchyNav({ menuId, label, source, mode = 'drill', currentNod
           })}
         </div>
       </div>
-      {(mode !== 'tree' || searching) && pageState(currentKey, parentId, searching ? snapshot.readyQuery : null)}
+      {(mode !== 'tree' || searching) ? pageState(currentKey, parentId, searching ? snapshot.readyQuery : null) : rows.length === 0 && pageState(childrenKey(null), null, null)}
       {rows.length === 0 && activePage?.status === 'ready' && <p className={MESSAGE}>{t('hierarchyEmpty')}</p>}
     </>}
     <p className={MESSAGE}>{t('hierarchyPermission')}</p>
