@@ -174,6 +174,15 @@ export function draftActions(deps: DraftActionDeps): MenuActionDeclaration[] {
     return owner.ownerModelId ?? (owner.ownerSoftwareId ? await softwareModelId(tx, ws, owner.ownerSoftwareId) : null);
   }
 
+  /**
+   * A resend of a validator ref answers its draft only to that draft's author (review C3): another actor's draft is
+   * private, so another caller learns only that the ref is taken — never its id, status, digest or version.
+   */
+  async function replayOwn(tx: Tx, ws: string, actorId: string, existing: DraftRow): Promise<ActionHandlerResult> {
+    if (existing.submitterActorId !== actorId) throw invalid({ path: ['validatorRef'], code: 'taken' });
+    return answer(existing, await latestDigest(tx, ws, existing));
+  }
+
   // ---- create -------------------------------------------------------------------------------------------------
   const draftCreate: MenuActionDeclaration = {
     spec: base('draftCreate', 'none'),
@@ -191,7 +200,7 @@ export function draftActions(deps: DraftActionDeps): MenuActionDeclaration[] {
       // Same finding again (any idempotency key): the existing draft, no new row, revision or audit.
       if (ref) {
         const existing = await findDraftByValidatorRef(tx, ws, ref);
-        if (existing) return answer(existing, await latestDigest(tx, ws, existing));
+        if (existing) return replayOwn(tx, ws, actor.actor_id, existing);
       }
       const parsed = parseProposal(value.proposalType, value.proposal);
       if (!parsed.ok) throw new Error('action draftCreate: validate passed but parse failed');
@@ -226,7 +235,7 @@ export function draftActions(deps: DraftActionDeps): MenuActionDeclaration[] {
         // A racing create won the ref's unique index between the lookup and the insert: answer as the replay does.
         const winner = ref ? await findDraftByValidatorRef(tx, ws, ref) : null;
         if (!winner) throw new Error('action draftCreate: validator ref conflict but no draft found');
-        return answer(winner, await latestDigest(tx, ws, winner));
+        return replayOwn(tx, ws, actor.actor_id, winner);
       }
       const digest = await insertDraftRevision(tx, ws, draft.id, 1, actor.actor_id, proposal, authKind);
       await record(tx, actor, 'created', draft, digest, null);

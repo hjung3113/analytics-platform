@@ -164,11 +164,15 @@ const reason = bounded(DRAFT_REASON_MAX)
 /** Validator finding reference (#1198 c): the idempotency key of one finding. Every part trimmed, non-empty, at most 200 code points. */
 export const VALIDATOR_REF_PART_MAX = 200;
 export const VALIDATOR_REF_KEYS = ['sourceSystem', 'runId', 'findingId'] as const;
+// An idempotency key part: no control character at all (review C4; `requiredText` alone lets C0/C1 controls other than NUL through).
+// eslint-disable-next-line no-control-regex -- the class matches the control characters this key must refuse
+const CONTROL = /[\u0000-\u001f\u007f-\u009f]/u;
+const refPart = requiredText(VALIDATOR_REF_PART_MAX).refine((v) => !CONTROL.test(v), { message: 'malformed' });
 const validatorRefSchema = z
   .object({
-    sourceSystem: requiredText(VALIDATOR_REF_PART_MAX),
-    runId: requiredText(VALIDATOR_REF_PART_MAX),
-    findingId: requiredText(VALIDATOR_REF_PART_MAX),
+    sourceSystem: refPart,
+    runId: refPart,
+    findingId: refPart,
   })
   .strict();
 export type ValidatorRef = z.infer<typeof validatorRefSchema>;

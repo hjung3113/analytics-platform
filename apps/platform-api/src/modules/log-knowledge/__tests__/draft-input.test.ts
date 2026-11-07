@@ -174,6 +174,8 @@ describe('validatorRef (#1198 c)', () => {
     ['a blank part', { ...ref, runId: '   ' }, 'validatorRef.runId:required'],
     ['a part over 200 characters', { ...ref, findingId: 'x'.repeat(201) }, 'validatorRef.findingId:too_long'],
     ['a control character', { ...ref, sourceSystem: 'a\u0000b' }, 'validatorRef.sourceSystem:malformed'],
+    ['a tab', { ...ref, runId: 'a\tb' }, 'validatorRef.runId:malformed'],
+    ['a C1 control', { ...ref, findingId: 'a\u0085b' }, 'validatorRef.findingId:malformed'],
   ])('refuses %s', (_label, value, expected) => {
     expect(validateDraftInput('draftCreate', head(value)).map((e) => `${e.path.join('.')}:${e.code}`)).toContain(expected);
   });

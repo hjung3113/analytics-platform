@@ -97,7 +97,7 @@ describe.skipIf(!runIntegration)('knowledge draft submission over API tokens (#1
     const res = await sql(
       `insert into core.api_tokens (workspace_id, actor_id, kind, name, prefix, secret_hash, scopes, expires_at, revoked_at, created_by)
        values ($1,$2,$3,'raw',$4,$5,$6,$7,$8,$9) returning id`,
-      [WORKSPACE_ID, over.actorId, over.kind ?? 'service', prefix, hashToken(value), over.scopes, over.expiresAt ?? null, over.revoked ? new Date() : null, admin.id],
+      [WORKSPACE_ID, over.actorId, over.kind ?? 'service', prefix, hashToken(value), over.scopes, over.expiresAt ?? null, over.revoked ? new Date() : null, over.kind === 'personal' ? over.actorId : admin.id],
     );
     const id = res.rows[0].id as string;
     tokenIds.push(id);
@@ -256,6 +256,23 @@ describe.skipIf(!runIntegration)('knowledge draft submission over API tokens (#1
       expect(await counts()).toEqual(before);
     });
 
+    it('another system actor resending a taken ref learns only that it is taken, never the draft (review C3)', async () => {
+      const t = await serviceToken();
+      const r = ref();
+      const first = await tokenAct(t, 'draftCreate', { proposalType: 'create', proposal: proposal('val-taken'), validatorRef: r });
+      expect(first.outcome).toBe('ok');
+      const otherActor = await systemActor(['knowledge.draft.create']);
+      const other = await rawToken({ actorId: otherActor, scopes: ['knowledge.draft.create', 'workspace.read'] });
+      const before = await counts();
+      const stolen = await tokenAct(other, 'draftCreate', { proposalType: 'create', proposal: proposal('val-taken'), validatorRef: r });
+      expect(stolen.outcome).toBe('invalid');
+      expect(stolen.fieldErrors).toEqual([{ path: ['validatorRef'], code: 'taken' }]);
+      expect(stolen.data).toBeNull();
+      expect(stolen.version).toBeNull();
+      expect(JSON.stringify(stolen)).not.toContain(first.data.id);
+      expect(await counts()).toEqual(before);
+    });
+
     it('the ref index is workspace-scoped and unique only where set (DB-enforced)', async () => {
       const idx = await one(`select indexdef from pg_indexes where schemaname = 'knowledge' and indexname = 'draft_validator_ref_uq'`, []);
       expect(String(idx?.indexdef)).toMatch(/UNIQUE.*\(workspace_id, validator_source_system, validator_run_id, validator_finding_id\)/);
@@ -375,7 +392,8 @@ describe.skipIf(!runIntegration)('knowledge draft submission over API tokens (#1
       expect(ids).toContain(mine.data.id);
       expect(ids).not.toContain(theirs.data.id);
       const detail = await tokenRead(t, 'logKnowledge.draftDetail', { draftId: theirs.data.id });
-      expect(detail.outcome).toBe('not_found');
+      expect(detail.outcome).toBe('ok');
+      expect(detail.data).toBeNull();
     });
   });
 });
