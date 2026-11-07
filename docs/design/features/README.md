@@ -8,6 +8,8 @@ Surface specs live under `docs/design/features/specs/`:
 - `docs/design/features/specs/actors.md`: the general `GET /actors` workspace identity list contract. Triage owner candidates follow `docs/architecture/platform-api/api/voc.md`.
 
 - `docs/design/features/improvement-items.md`: Design for the improvement item platform feature (implemented except the node f editable table) (#1328, ADR-0106 amendment 2).
+- `docs/design/features/log-explorer/README.md`: Design for the general log explorer workbench (source read port, sequence piece, token/export, evidence handoff) — v0.31.0, not implemented (#1344, ADR-0119, ADR-0121).
+- `docs/design/features/log-test-datasets/README.md`: Design for reusable log test datasets and expected baselines with regression comparison — v0.31.0, not implemented (#1345, ADR-0120).
 
 The current user-facing text guide is [Feature manual](../../user-guide/features/manual.md). Historical interactive guides and captures are retained as history; they do not require synchronized new captures for this release.
 

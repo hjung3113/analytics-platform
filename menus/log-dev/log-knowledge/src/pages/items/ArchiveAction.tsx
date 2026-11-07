@@ -22,7 +22,7 @@ function ArchiveDialog({ item, archive, onClose, onCloseAutoFocus, onChanged }: 
       <AlertDialogHeader>
         <AlertDialogTitle>{itemNoLabel(item.itemNo)}을(를) {archive ? '보관할까요?' : '보관 해제할까요?'}</AlertDialogTitle>
         <AlertDialogDescription>
-          {archive ? '보관해도 Item은 읽을 수 있고 리비전·판단 변경 이력은 그대로 남습니다. 수정과 판단 변경은 보관을 해제한 뒤에 할 수 있습니다.' : '보관을 해제하면 다시 게시된 Item이 되어 수정과 판단 변경을 할 수 있습니다. 이력은 그대로 남아 있습니다.'}
+          {archive ? '보관해도 Item은 읽을 수 있고 리비전·판단 변경 이력은 그대로 남습니다. 수정과 판단 변경은 보관을 해제한 뒤에 할 수 있습니다.' : '보관을 해제하면 다시 발행된 Item이 되어 수정과 판단 변경을 할 수 있습니다. 이력은 그대로 남아 있습니다.'}
         </AlertDialogDescription>
       </AlertDialogHeader>
       <AlertDialogFooter>

@@ -22,7 +22,7 @@ export function ProcessBadgeList({ processes }: { processes: ModelProfileData['m
   return <span className="flex flex-wrap items-center gap-1">{processes.map(p => <StatusBadge key={p.id} tone="info">{p.name}</StatusBadge>)}</span>;
 }
 
-/** Meta line under the title: `코드 · 제조사 · 공정 배지 · 활성 상태`. */
+/** Meta line under the title: `코드 · 설비사 · 공정 배지 · 활성 상태`. */
 export function ModelMeta({ model }: { model: ModelProfileData['model'] }) {
   return <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-text-secondary">
     <span className="t-mono text-text-primary">{model.code}</span><span aria-hidden>·</span>
@@ -35,7 +35,7 @@ export function ModelMeta({ model }: { model: ModelProfileData['model'] }) {
 export function ModelSummary({ model }: { model: ModelProfileData['model'] }) {
   return <dl className="grid grid-cols-[7rem_minmax(0,1fr)] gap-x-4 gap-y-2 text-sm">
     <dt className="text-text-muted">모델 코드</dt><dd className="t-mono">{model.code}</dd>
-    <dt className="text-text-muted">제조사</dt><dd>{model.vendor.name}{!model.vendor.active && <StatusBadge tone="neutral" className="ml-2">비활성</StatusBadge>}</dd>
+    <dt className="text-text-muted">설비사</dt><dd>{model.vendor.name}{!model.vendor.active && <StatusBadge tone="neutral" className="ml-2">비활성</StatusBadge>}</dd>
     <dt className="text-text-muted">공정</dt><dd><ProcessBadgeList processes={model.processes} /></dd>
     <dt className="text-text-muted">상태</dt><dd><StatusBadge tone={model.active ? 'success' : 'neutral'}>{statusText(model.active)}</StatusBadge></dd>
     <dt className="text-text-muted">등록 시각</dt><dd className="tabular">{instantText(model.createdAt)}</dd>

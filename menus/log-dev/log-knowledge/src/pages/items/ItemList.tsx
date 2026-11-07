@@ -10,8 +10,8 @@ import { ItemWriteDrawer } from './ItemWriteDrawer';
 import { chosenOwnerModelIds, defaultFilterParams, instantText, isRowMuted, itemNoLabel, ownerText, stateLabel, typeLabel } from './itemModel';
 
 /** Column sizes (px) sum to 88+220+170+92+136+136+140 = 982; with the 128 px row-end 열기 column that is 1110, inside the ~1180 px content width at 1440×900 (sidebar beside it), so no horizontal scroll. */
-const FIELD_NAME = { ownerKind: '소유', ownerModelId: '모델', typeCode: '유형', verificationState: '검증 상태', processingState: '처리 상태', publicationState: '게시 상태' } as const;
-/** Filter row order: 소유, 유형, 검증 상태, 처리 상태, 게시 상태. A field that is also a column (유형, 검증, 처리) rides on its column; the shared id space allows no second declaration. */
+const FIELD_NAME = { ownerKind: '소유', ownerModelId: '모델', typeCode: '유형', verificationState: '검증 상태', processingState: '처리 상태', publicationState: '발행 상태' } as const;
+/** Filter row order: 소유, 유형, 검증 상태, 처리 상태, 발행 상태. A field that is also a column (유형, 검증, 처리) rides on its column; the shared id space allows no second declaration. */
 const FIELD_PINNED = { ownerKind: 1, publicationState: 5 } as const;
 const SPECS: Record<string, ColumnFilterSpec> = Object.fromEntries(Object.keys(FIELD_NAME).map(id => [id, itemFilterSpecs[id]!]));
 
@@ -81,7 +81,7 @@ function ItemTable({ q }: { q: string }) {
   const columns = useMemo<PlatformColumn<ItemRow>[]>(() => [
     { id: 'itemNo', header: 'Item ID', size: 100, exportValue: r => itemNoLabel(r.itemNo),
       cell: r => <PlatformLink className="t-mono text-accent-primary hover:underline" href={href(r)}>{itemNoLabel(r.itemNo)}</PlatformLink> },
-    // A muted row alone would not say why: an archived item carries its 게시 state next to the title (no extra column).
+    // A muted row alone would not say why: an archived item carries its 발행 state next to the title (no extra column).
     { id: 'title', header: '제목', size: 172, cell: r => <span className="flex min-w-0 items-center gap-1.5"><span className="truncate" title={r.title}>{r.title}</span>{r.publicationState !== 'published' && <StateBadge axis="publication" value={r.publicationState} />}</span> },
     { id: 'owner', header: '소유', size: 160, sortable: false, exportValue: r => `${r.owner.kind === 'software' ? 'SW' : '모델'} ${ownerText(r.owner)}`, cell: r => <OwnerChip owner={r.owner} /> },
     { id: 'typeCode', header: '유형', size: 92, sortable: false, filter: SPECS.typeCode, filterPinned: 2, exportValue: r => typeLabel(r.typeCode), cell: r => <TypeBadge code={r.typeCode} /> },
@@ -108,7 +108,7 @@ function ItemTable({ q }: { q: string }) {
 
 /**
  * 전체 기술 Item (#1197 s2, owner-confirmed variant A): one server-paged table of every model's and SW version's items. A bare address
- * opens with the 게시 상태 filter at 게시됨 (the server's default made visible); archived items show, muted, only when the filter asks.
+ * opens with the 발행 상태 filter at 발행됨 (the server's default made visible); archived items show, muted, only when the filter asks.
  */
 export default function ItemList() {
   const { pageParam, pageParams, setPage } = usePlatform();

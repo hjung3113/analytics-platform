@@ -33,19 +33,85 @@ _Avoid_: 범위, 조회 범위(단독) — 화면 문구도 `Scope`로 쓴다. �
 특정 SW부터, 선택적으로 어느 SW 전까지 적용되는 지우지 않는 차이 기록. 끝 SW는 적용 구간에 포함하지 않는다.
 
 **재검토 필요**:
-새 Revision이 변경점의 대상을 건드려 다시 확인해야 하는 열린 변경점의 표시.
+새 Revision이 변경점의 대상을 건드려 다시 확인해야 하는 열린 변경점의 표시. **변경점에만** 쓴다. 테스트 Baseline은 `기준 낡음`, Gate는 `재검증 필요`로 따로 부른다(소유자 2026-11-07).
+_Avoid_: Baseline·Gate에 같은 이름을 쓰는 것
 
 **안정 키**:
 Revision이 바뀌어도 유지되는 Module·Event 식별자.
 
+### 표준 로그 개발 (log-dev)
+
+설계 원본은 [log-lifecycle](docs/design/features/log-lifecycle/README.md)·[log-explorer](docs/design/features/log-explorer/README.md)·[log-test-datasets](docs/design/features/log-test-datasets/README.md). 소유자 용어 결정 2026-11-07(#1463).
+
+**개발 건** (코드 `development_project`):
+한 모델의 로그 개발 단위. 개발 단계를 따라 옮기고 그 아래 Round를 연다. 화면 이름은 `개발 건`(예: 개발 건 #12).
+_Avoid_: 과제 — «과제» 단독은 Quest 전용이다. 모델 카탈로그의 Model, 개선 아이템과도 다른 객체다.
+
+**개발 단계** (코드 `stage`):
+개발 건이 놓인 닫힌 단계 집합 `registered → kickoff → alpha → beta → completed`와 어느 단계에서든 `cancelled`. 되돌림은 reopen 한 동작만, 이력에 남긴다.
+
+**Round** (검증 Round, 코드 `validation_round`):
+한 개발 건 안에서 샘플 목록과 명세 고정값(`spec_pin`)을 고정하고 검증 요청을 거는 한 회차. Round를 열 때 샘플 목록과 명세 고정값이 고정되고(삽입 뒤 불변), 바꾸려면 새 Round를 연다.
+
+**샘플 목록** (코드 `sample_set`):
+순서 있는 파일 참조(`fileRef`)·순서·해시와 Source 소유자. 사용자가 확정한 순서를 시간순으로 다시 정렬하지 않는다. 모양 정의는 log-lifecycle 설계 §3 한 곳이고 다른 설계는 링크한다.
+_Avoid_: 조사 세트, SampleSet
+
+**Source** (Source 소유자, 코드 `sourceOwner`):
+원본 로그와 Parser 결과를 가진 사내 시스템. 플랫폼은 원본을 저장하지 않고 위치·해시만 두며, 열람은 요청마다 Source 소유자의 ACL을 따른다. 로그 탐색은 서버의 `SourceReadPort`로 읽는다.
+_Avoid_: 수집 Source — 이 말은 데이터 수집 원천이며 이 항목이 아니다.
+
+**Validator** (검증 엔진):
+사내에서 따로 개발 중인 스크립트 검증 엔진. 규칙 판정 로직은 이쪽이 소유하고 플랫폼은 다시 구현하지 않는다. 어떤 엔진·버전으로 돌릴지는 **실행 프로파일**(`engine_profile_ref`) 하나로 가리킨다.
+_Avoid_: 검사 프로파일, validator_profile
+
+**검증 작업자**:
+API 토큰으로 검증 요청을 가져가 Validator를 돌리고 결과를 올리는 외부 프로세스. 사람 세션 권한(`validation.worker`)을 갖지 않는다.
+
+**검증 요청** (`execution_request`) · **시도** (`execution_attempt`) · **lease**:
+검증 요청은 Round(또는 회귀 실행 항목) 하나에 대한 한 번의 실행 의뢰다. 작업자가 요청을 가져가면(claim) 시도가 하나 생기고, 시도는 lease(기한 있는 점유)를 하트비트로 연장한다. lease가 끊기면 요청은 대기로 돌아가 다음 시도가 생긴다.
+_Avoid_: 단독 «Run» — 의미에 따라 시도·검증 요청·회귀 실행으로 쓴다.
+
+**실행 시간대**:
+서버가 판단하는, 작업자가 요청을 가져갈 수 있는 시간대(Workspace 설정). `즉시` 요청은 요청자 권한 안에서 시간대 밖에서도 가져가게 한다.
+_Avoid_: 유휴 시간(설명 문장 밖에서)
+
+**규칙 결과** (코드 `rule_result`) · **verdict**:
+한 시도에서 규칙 하나가 낸 결과(`PASS`·`FAIL`·`WARN`·`NOT_CHECKED`·`SKIPPED`·`NOT_APPLICABLE`·`ERROR`)와 근거 위치. verdict(`pass`·`fail`·`incomplete`)는 규칙 결과에서 **서버가 계산**한 시도 요약이고 작업자 요약으로 대체하지 않는다. 필수 규칙의 미검사·오류는 `pass`에 섞이지 않는다.
+_Avoid_: 검증 Finding — Finding은 다른 객체다(아래 Finding).
+
+**근거 위치** (`EvidenceRef`: 파일·줄·해시):
+원본 로그의 한 줄을 가리키는 참조. 규칙 결과와 로그 탐색이 **같은 타입**을 쓰고 본문을 담지 않는다. 같은 이름 계열이지만 다른 항목: Finding에 붙는 근거 조각(Evidence Highlight), 로그 지식 허브의 지식 근거(Evidence Ref). 사람이 올린 파일은 `수동 검증 첨부`로 부른다. **발췌**는 근거 위치에 딸린 짧은 로그 본문으로 별도 상한·권한·보관 기한을 갖는다.
+_Avoid_: 증거(화면 문구), 근거 위치를 첨부와 같은 이름으로 부르는 것
+
+**Gate** · **Gate 결정**:
+개발 건이 다음 단계로 들어가기 전 사람이 하는 결정(`approved`·`rejected`·`exception`)과 그 근거 스냅샷. 검증 판정(verdict)과 업무 승인은 다른 행이며, 승인이 판정을 바꾸지 않는다. 근거 digest가 달라져 다시 돌려야 하면 Gate는 `재검증 필요`로 표시한다.
+
+**API 토큰** · **scope**:
+사람이 아닌 호출자가 기존 업무 API를 부르는 불투명 토큰. 개인 토큰은 발급자의 Actor로, 관리자가 발급한 서비스 토큰은 귀속된 system Actor로 동작한다. 유효 권한은 해당 Actor의 현재 권한과 scope(capability 이름 목록)의 교집합이다. 고위험 동작은 토큰으로 못 하고 사람 세션 전용이다.
+
+**Carryover**:
+시간 순서로 나뉜 로그 파일의 경계에서 앞 파일에서 시작해 다음 파일에서 끝나는 이벤트. 열린 시작을 오류로 확정하지 않고 불완전(`incomplete`/미검증)으로 표시한다.
+
+**Dataset** (테스트 데이터셋) · **Baseline** (기대 결과):
+Dataset은 목적·범위·시나리오 태그를 가진 샘플 목록의 이름 붙은 묶음이고 revision마다 불변이다. Baseline은 한 Dataset revision에 대해 사람이 승인한 Rule별 기대 결과와 적용 버전 고정값이며, 실행 결과로 자동 갱신하지 않는다. 고정값이나 원본이 바뀌면 `기준 낡음`으로 표시한다. 지표 Baseline과 다른 객체다.
+
+**회귀 실행** (코드 `suite_run`):
+Dataset 묶음을 고정 실행 프로파일로 다시 돌리도록 거는 한 번의 의뢰. 각 항목은 검증 요청이 되고 결과는 Baseline과 읽을 때 비교한다.
+_Avoid_: 단독 «Run»
+
+**결과 검토 라벨** (코드 `suite_review_label`):
+회귀 비교에서 사람이 규칙 결과에 붙이는 판단(`false_positive`·`false_negative`·`accepted_change`·`needs_review`). 추가 전용이며 Baseline이나 규칙 결과를 바꾸지 않는다.
+_Avoid_: Triage — VOC 수신함 전용 용어다.
+
 ### 설비 식별 계층
 
-**Maker**:
-설비를 만든 제조사. Model의 상위 개념이며, 하나의 Maker가 여러 room_name에 걸쳐 설비를 공급할 수 있다.
-_Avoid_: 벤더, Vendor
+**설비사** (Maker, 코드 `vendorId`):
+설비를 만든 회사. Model의 상위 개념이며, 하나의 설비사가 여러 room_name에 걸쳐 설비를 공급할 수 있다. 화면·문서는 `설비사`로 쓰고 코드 식별자 `vendorId`·`vendor`는 그대로 둔다(소유자 2026-11-07, #1463).
+_Avoid_: 제조사, 벤더, Vendor, Maker(화면·문서 문구에서)
 
 **Model**:
-특정 Maker가 만든 설비 기종. Maker 아래, ChamberType 위의 계층.
+특정 설비사가 만든 설비 기종. 설비사 아래, ChamberType 위의 계층.
 
 **ChamberType**:
 Model보다 더 세부적으로 설비를 분류하는 값. 외부 시스템에서 공급되며, 이 플랫폼이 직접 산출하지 않는다.
@@ -264,13 +330,13 @@ _Avoid_: 전체 공개 — 범위 없이 모두에게 여는 안은 채택하지
 **피드백 운영** (폐기된 업무 시스템 이름):
 FeedbackOps의 운영 화면(수신함·Triage·Finding·Task·설문 관리·설정 등)을 올릴 업무 시스템으로 계획했으나 만들지 않는다. 그 화면들은 역할로 묶은 `업무 흐름` 공간에 있다([ADR-0110](docs/adr/0110-platform-feature-roles-and-scope.md)). 모든 사용자가 쓰는 VOC 등록·내 VOC·설문 응답은 여기가 아니라 플랫폼 메뉴와 레일이다.
 
-**발행** (지표 버전, en `Released`):
-지표 버전 하나를 분석이 기본으로 쓰는 버전으로 공개하는 것. BRAVO가 소유한다.
-_Avoid_: 게시, Published — 같은 동작을 두 이름으로 부르지 않는다(사용자 2026-10-23, 2026-10-27 `발행`/`Released`로 통일).
+**발행** (지표 버전·지식 Item·모델 명세, en `Released`):
+버전이 있는 산출물 하나를 사용자가 기본으로 쓰는 판으로 공개하는 것. 지표 버전은 BRAVO가, 지식 Item과 모델 명세 Revision은 로그 지식 허브가 소유한다. 토큰으로 못 하는 고위험 동작 목록은 단어가 아니라 capability 이름으로 적는다([ADR-0116](docs/adr/0116-platform-api-tokens-personal-and-service.md) 결정 4).
+_Avoid_: 게시, Published — 같은 동작을 두 이름으로 부르지 않는다(사용자 2026-10-23, 2026-10-27 `발행`/`Released`로 통일, 2026-11-07 지식 Item·모델 명세로 넓힘).
 
 **과제** (Quest):
 BRAVO가 발행한 이상 현상 하나. MARS·CLAS에서 그 원인을 찾고, 그 아래 개선 아이템을 모은 뒤 효과를 확인하고 닫는다. 화면·문서 표기는 `과제(Quest)`이며 `과제`와 `Quest`는 같은 객체다([ADR-0106](docs/adr/0106-improvement-task-is-quest.md) 결정 5). BRAVO가 소유한다([ADR-0106 개정 2](docs/adr/0106-improvement-task-is-quest.md#개정-2-2026-11-04-1323-개선-아이템은-플랫폼-db-개선-실행-공간은-접는다), 소유자 2026-11-04).
-_Avoid_: Task, Finding — 각각 Managed System 내부 실행 작업, VOC·설문 근거로 다른 객체다.
+_Avoid_: Task, Finding, 개발 건 — 각각 Managed System 내부 실행 작업, VOC·설문 근거, 로그 개발 단위로 다른 객체다. «과제» 단독은 Quest 전용이다.
 
 **개선 아이템**:
 분석으로 추론한 문제 하나와 그 조치·조치일·상태를 담은 기록. 과제(Quest) 연결은 선택이며, 분석 출처나 대상 설비·공정 중 하나를 갖는다([ADR-0106 개정 2](docs/adr/0106-improvement-task-is-quest.md#개정-2-2026-11-04-1323-개선-아이템은-플랫폼-db-개선-실행-공간은-접는다)).
@@ -430,7 +496,7 @@ The outermost tenant boundary for platform feature-domain records. Every domain 
 _Avoid_: Tenant, Organization, Account, Instance, 「워크스페이스」(한국어 문서·화면 어디에도 쓰지 않는다)
 
 **Actor**:
-An AD-authenticated internal person whose permissions are evaluated inside a workspace.
+A human or system identity whose permissions are evaluated inside one Workspace. Human Actors authenticate through the internal sign-in flow; system Actors act through service API tokens and do not receive interactive sessions.
 _Avoid_: External user, anonymous user
 
 **Role Level**:
@@ -698,6 +764,10 @@ A **VOC** selected as a target of a cluster-scoped bulk action; bulk actions app
 _Avoid_: Cluster member as a single bulk target, merged record, bare "candidate" (the code also uses it for a candidate peer in the cluster membership picker, a similar-VOC recommendation candidate, and a Public Update review candidate created when a linked **Task** is released; name which one)
 
 ## Relationships
+
+- 개발 건 하나는 여러 Round를 갖고, Round는 샘플 목록 하나와 여러 검증 요청을 가지며, 검증 요청은 시도마다 규칙 결과를 남긴다. Gate 결정은 최근 시도의 verdict를 근거로 개발 단계를 옮긴다.
+- Dataset revision은 Baseline과 회귀 실행의 대상이다. 회귀 실행 항목은 Round 없이 검증 요청이 된다.
+- 규칙 결과와 로그 탐색은 같은 근거 위치 타입을 쓴다. 근거 위치는 원본을 가리킬 뿐 Finding·지식 근거와 같은 객체가 아니다.
 
 - A **Workspace** contains many **Managed Systems** via its **Managed System Registry**.
 - **VOC**, **Finding**, **Task Request**, **Task**, **Survey**, **Analytics Area**, Permission Request, and Entity Link all carry exactly one **Workspace** in MVP.

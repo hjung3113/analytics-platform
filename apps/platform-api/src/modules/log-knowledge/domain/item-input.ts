@@ -28,7 +28,7 @@ export const CHANGE_NOTE_MAX = 500;
 export const RATIONALE_MAX = 2000;
 const REVISION_NO_MAX = 1_000_000;
 
-const optionalUuid = uuid.nullish();
+export const optionalUuid = uuid.nullish();
 
 function oneOf<const T extends readonly [string, ...string[]]>(values: T) {
   return z.enum(values, { errorMap: (_issue, ctx) => ({ message: ctx.data === undefined ? 'required' : 'malformed' }) });
@@ -56,21 +56,21 @@ export const evidencePointerSchema = z.object({
 });
 export type EvidencePointer = z.infer<typeof evidencePointerSchema>;
 
-const evidenceList = z
+export const evidenceList = z
   .array(evidencePointerSchema, REQUIRED)
   .max(EVIDENCE_MAX, { message: 'too_long' })
   .nullish()
   .transform((v) => v ?? []);
 
 /** `subjects` (#1196 f; zod prefixes the field name to the issue paths): omitted = a revise carries the previous revision's subjects; a list (even empty) replaces them. */
-const subjectsField = z.unknown().transform((raw, ctx) => {
+export const subjectsField = z.unknown().transform((raw, ctx) => {
   const parsed = parseSubjects(raw);
   if (parsed.ok) return parsed.value;
   for (const e of parsed.errors) ctx.addIssue({ code: 'custom', path: e.path.slice(1), message: e.code });
   return z.NEVER;
 });
 
-const contentFields = {
+export const contentFields = {
   typeCode: oneOf(ITEM_TYPE_CODES),
   title: requiredText(TITLE_MAX),
   observation: bodyText,
@@ -80,14 +80,14 @@ const contentFields = {
 };
 
 type Content = { observation: string | null; expected: string | null };
-function requireContent(value: Content, ctx: z.RefinementCtx) {
+export function requireContent(value: Content, ctx: z.RefinementCtx) {
   if (value.observation === null && value.expected === null) {
     ctx.addIssue({ code: 'custom', path: ['observation'], message: 'required_one' });
   }
 }
 
 type Owner = { ownerModelId?: string | null | undefined; ownerSoftwareId?: string | null | undefined };
-function requireOneOwner(value: Owner, ctx: z.RefinementCtx) {
+export function requireOneOwner(value: Owner, ctx: z.RefinementCtx) {
   const set = [value.ownerModelId, value.ownerSoftwareId].filter((v) => v !== undefined && v !== null);
   if (set.length !== 1) ctx.addIssue({ code: 'custom', path: ['owner'], message: 'required_one' });
 }
@@ -145,7 +145,7 @@ export type ItemOp = keyof typeof ITEM_INPUT_SCHEMAS;
 export type ItemInput<Op extends ItemOp> = z.infer<(typeof ITEM_INPUT_SCHEMAS)[Op]>;
 
 /** One error per path (the first); an issue without one of our codes (a wrong type) is `required`. */
-function fieldErrors(error: z.ZodError): FieldError[] {
+export function fieldErrors(error: z.ZodError): FieldError[] {
   const seen = new Set<string>();
   const out: FieldError[] = [];
   for (const issue of error.issues) {

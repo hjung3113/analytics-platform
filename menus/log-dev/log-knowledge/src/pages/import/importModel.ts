@@ -46,15 +46,15 @@ export const PLAN_ERROR_SENTENCE: Record<string, string> = {
   malformed: '쓸 수 없는 문자가 들어 있습니다.',
   too_long: '이름이 너무 깁니다. 64자 이하로 줄여 주세요.',
   duplicate: '이미 같은 이름이 있습니다.',
-  duplicate_in_file: '붙여넣은 목록에 같은 메이커·모델이 이미 있습니다.',
+  duplicate_in_file: '붙여넣은 목록에 같은 설비사·모델이 이미 있습니다.',
   not_found: '카탈로그에서 찾을 수 없습니다.',
   inactive: '비활성 항목입니다.',
-  parent_missing: '카탈로그에 없는 메이커입니다.',
+  parent_missing: '카탈로그에 없는 설비사입니다.',
   parent_inactive: '비활성 상태인 항목입니다.',
   process_missing: '카탈로그에 없는 공정입니다.',
   process_inactive: '비활성 상태인 공정입니다.',
   ambiguous_name: '같은 이름으로 읽히는 모델이 카탈로그에 둘 이상 있습니다.',
-  ambiguous_parent: '같은 이름으로 읽히는 메이커·공정이 카탈로그에 둘 이상 있습니다.',
+  ambiguous_parent: '같은 이름으로 읽히는 설비사·공정이 카탈로그에 둘 이상 있습니다.',
   formula: '수식 칸은 읽지 않습니다.',
   merged: '병합된 칸은 읽지 않습니다.',
   unsupported_cell: '읽을 수 없는 칸입니다.',
@@ -65,11 +65,11 @@ export const PLAN_FALLBACK = '이 행은 확인이 필요합니다.';
 /** Apply-time failure codes of a row (`applyError`). */
 export const APPLY_ERROR_SENTENCE: Record<string, string> = {
   plan_changed: '검사 뒤에 목록이 바뀌어 반영하지 않았습니다. 다시 검사하세요.',
-  parent_missing: '메이커가 카탈로그에 없어 반영하지 못했습니다.',
-  parent_inactive: '메이커가 비활성이라 반영하지 못했습니다.',
+  parent_missing: '설비사가 카탈로그에 없어 반영하지 못했습니다.',
+  parent_inactive: '설비사가 비활성이라 반영하지 못했습니다.',
   process_missing: '공정이 카탈로그에 없어 반영하지 못했습니다.',
   process_inactive: '공정이 비활성이라 반영하지 못했습니다.',
-  ambiguous_parent: '같은 이름의 메이커·공정이 둘 이상이라 반영하지 못했습니다.',
+  ambiguous_parent: '같은 이름의 설비사·공정이 둘 이상이라 반영하지 못했습니다.',
   taken: '같은 이름이 그 사이 먼저 등록되었습니다.',
   stale_target: '카탈로그의 모델이 그 사이 바뀌었습니다.',
   target_missing: '반영할 카탈로그 모델이 그 사이 없어졌습니다.',
@@ -138,7 +138,7 @@ export function cellOf(row: Pick<ImportRowView, 'raw'>, kind: keyof typeof ALIAS
 /** The server's comparison key of a name (ADR-0107): NFKC, trim, inner whitespace runs to one space, upper case. */
 export const toCodeKey = (value: string): string => value.normalize('NFKC').trim().replace(/\s+/gu, ' ').toUpperCase();
 
-/** 「새로 만들 메이커 N · 공정 M」: distinct planned parents over every row of the plan. Error and conflict rows write nothing. */
+/** 「새로 만들 설비사 N · 공정 M」: distinct planned parents over every row of the plan. Error and conflict rows write nothing. */
 export function countNewParents(rows: readonly Pick<ImportRowView, 'planState' | 'creates'>[]): { vendors: number; processes: number } {
   const vendors = new Set<string>(), processes = new Set<string>();
   for (const row of rows) {
@@ -166,12 +166,12 @@ export const CONFLICT_GUIDE: Record<ConflictKind, { why: string; fix: string }> 
     fix: '카탈로그에서 두 모델 중 하나의 이름을 바꾼 뒤 「다시 검사」를 누르세요.',
   },
   ambiguous_parent: {
-    why: '카탈로그에 같은 이름으로 읽히는 메이커 또는 공정이 둘 이상 있어 어느 쪽인지 정할 수 없습니다.',
-    fix: '카탈로그에서 이름이 겹치는 메이커·공정 중 하나의 이름을 바꾼 뒤 「다시 검사」를 누르세요.',
+    why: '카탈로그에 같은 이름으로 읽히는 설비사 또는 공정이 둘 이상 있어 어느 쪽인지 정할 수 없습니다.',
+    fix: '카탈로그에서 이름이 겹치는 설비사·공정 중 하나의 이름을 바꾼 뒤 「다시 검사」를 누르세요.',
   },
   parent_inactive: {
-    why: '이름이 같은 메이커 또는 공정이 카탈로그에 있지만 비활성입니다. 비활성 항목은 새로 만들지 않습니다.',
-    fix: '카탈로그에서 그 메이커·공정을 다시 활성화한 뒤 「다시 검사」를 누르세요.',
+    why: '이름이 같은 설비사 또는 공정이 카탈로그에 있지만 비활성입니다. 비활성 항목은 새로 만들지 않습니다.',
+    fix: '카탈로그에서 그 설비사·공정을 다시 활성화한 뒤 「다시 검사」를 누르세요.',
   },
   inactive_model: {
     why: '같은 모델이 카탈로그에 있지만 비활성입니다.',

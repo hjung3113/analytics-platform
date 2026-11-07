@@ -18,7 +18,7 @@
 3. **API/서버:** 단일 브라우저 입구 `apps/platform-api`(Fastify), 내부 도메인 모듈 `modules/log-knowledge`. 분석 전용 FastAPI는 지식 콘텐츠 CRUD·검색의 소유자가 아니다. 대량 Parser/Validator/자산 분석 데이터는 외부 소유자 포트/API/승인된 읽기 투영으로 소비한다.
 4. **DB:** 기존 PostgreSQL `platform` 인스턴스에 **`knowledge` 스키마(후보)**. Fastify 도메인이 Drizzle 마이그레이션 및 데이터 정합성 소유. 감사는 기존 Core `core.audit_log`, 첨부 바이너리는 플랫폼 Attachments, 공통 Idempotency/Permission/Notification 서비스 사용. 기존 원본 로그/설비 마스터/Validator 결과를 중복 소유하지 않는다.
 5. **분리 경계:** 정식 기술 Item/Revision, SW별 Spec, 승인된 모델 공통 파생정보는 Knowledge Hub 소유. 원본 로그·Parser Raw·Validator Run·Top View Layout은 **각 원천 시스템 소유**, 허브는 버전 고정 참조/증거를 저장.
-6. **AI:** 사내 Agent/Skill은 **초안 제출 전용**. 승인·직접 게시·기술적 검증 자동 확정 불가. 일반 Contributor는 검토 경유, 인간 Publisher는 권한에 따라 직접 발행 가능.
+6. **AI:** 사내 Agent/Skill은 **초안 제출 전용**. 승인·직접 발행·기술적 검증 자동 확정 불가. 일반 Contributor는 검토 경유, 인간 Publisher는 권한에 따라 직접 발행 가능.
 7. **기능 우선순위:** 초기 카탈로그 등록/관리 및 Import **필수**, 이후 독립 SW Spec·Item·검토/검색. Top View Viewer 통합은 최종 요구, Studio 편집은 별도.
 
 ### 0.2 기존 v0.4에서 그대로 유지할 17개 사용자 결정
@@ -399,7 +399,7 @@ SQL은 **핵심 제약의 예시**이고 전체 실행 migration은 아니다. �
 
 > **대체됨(2026-11-04, [ADR-0111](../../../adr/0111-log-knowledge-model-spec-is-the-source.md)).** 모델 명세가 원본이고 SW 버전별 차이는 보조 변경점이다. 아래 «SW 독립 Spec이 원본, 모델 공통은 승인된 파생본» 흐름은 §15가 대체한다. 모델 명세가 원본인 설계는 ADR-0111과 [§15](#15-모델-명세가-원본-1196-설계-초안-candidate)를 따른다.
 
-- 특정 SW의 `sw_spec_revision`을 **독립 불변 Revision**으로 게시. 각 Module/Event 정의 ID는 그 SW Spec Revision의 namespace로 한정한다. 다른 SW와 이름·키가 같아도 동일 객체로 취급하지 않는다.
+- 특정 SW의 `sw_spec_revision`을 **독립 불변 Revision**으로 발행. 각 Module/Event 정의 ID는 그 SW Spec Revision의 namespace로 한정한다. 다른 SW와 이름·키가 같아도 동일 객체로 취급하지 않는다.
 - `CommonExtractionCandidate`는 승인된 SW Spec Revision 집합을 명시적 입력으로 받고 추출 결과와 해시/모델 버전을 저장. 후보가 들어온다고 `model_common_profile_revision`을 자동 갱신하지 않는다.
 - 사람이 후보 diff/근거를 검토하여 승인하면 `model_common_profile_revision` 생성. 현재 최신 승인본은 바꾸지 않고 새 Revision 추가. 출처 SW Spec이 추가/변경되면 **현재 profile은 유지**하고 기존 승인 출처와 현재 SW 발행 Revision의 차이로 `needs_revalidation`을 읽기 시점에 계산/다음 후보 생성.
 - `sw_concept_mapping` 자동 유사도는 제안 상태에서만 검색 도움말로 표시하고 **confirmed**만 정확 의미 동치 검색에 사용. 서로 다른 이름이라도 의미 동치일 수 있으며 같은 이름이어도 의미 동일이라 가정하지 않는다.
@@ -429,9 +429,9 @@ Human UI: GET Draft(DraftVersion+Digest), 편집/근거 Diff 확인
     → response itemId,revision,reviewId,actionVersion
 ```
 
-- `approved`는 **게시 승인**이지 `verified` 판정 아님. `verified`는 별도 근거와 판단 이벤트에서만.
+- `approved`는 **발행 승인**이지 `verified` 판정 아님. `verified`는 별도 근거와 판단 이벤트에서만.
 - Reviewer가 열어놓고 AI가 수정한 경우 `digest/version` 불일치 → 409, 재검토 화면. 다른 편집자가 같은 Item을 수정한 경우 `expectedItemVersion` 불일치 → 409, 자동 병합 금지.
-- 중복 승인/네트워크 재시도: 플랫폼 Idempotency Key+DB unique Review 결과가 정확히 한 번 게시되도록 보호. Replay는 원래 성공 응답을 돌려줌.
+- 중복 승인/네트워크 재시도: 플랫폼 Idempotency Key+DB unique Review 결과가 정확히 한 번 발행되도록 보호. Replay는 원래 성공 응답을 돌려줌.
 - `rejected/changes_requested/withdrawn`은 감사되나 정식 Item을 생성하지 않음. 민감 Evidence는 검토자에게도 원본 ACL이 필요.
 
 ### 6.6 Agent/Validator 서비스 API 최소 권한
@@ -440,7 +440,7 @@ Human UI: GET Draft(DraftVersion+Digest), 편집/근거 Diff 확인
 - 서비스 자격으로 `publish/approve/updatePublished`, Catalog 직접 업데이트, Spec/Common/Concept 자동 확정은 금지. 권한 요청 범위도 실제 제출이 허용된 Model/SW로 제한.
 - `actorId/approvedBy/timestamps/visibility` 같은 신원·승인 필드를 요청에서 신뢰하지 않고 서버가 부여. 원문 로그를 요청에 실어 무분별하게 복제하지 않고 검증 가능한 `sourceId/version/locator/hash` 참조 및 정책 허용 발췌만.
 - 서비스 응답은 `202 Accepted`(후보) + `draftId/status/reviewUrl/duplicateCandidates/warnings`; **publishedItemId 없음**. `Skill`은 스키마 조회 → 허용된 자료 확인 → 전체 Item 유사 검색 → Draft 작성 → 제출 → human review 링크 기록. MCP 서버는 P0 필수 아님.
-- Validator 후보는 `(sourceSystem,runId,findingId)` 멱등 키로 수집하되 자동 게시하지 않으며, 같은 Run에서 여러 Finding이 있더라도 일괄 Item 발행 금지.
+- Validator 후보는 `(sourceSystem,runId,findingId)` 멱등 키로 수집하되 자동 발행하지 않으며, 같은 Run에서 여러 Finding이 있더라도 일괄 Item 발행 금지.
 
 ## 7. 플랫폼 API·SDK 계약 (Candidate)
 
@@ -478,7 +478,7 @@ Human UI: GET Draft(DraftVersion+Digest), 편집/근거 Diff 확인
 | `knowledge.common.propose/Approve` | 각각 `knowledge.common.propose` / `knowledge.common.approve` | 승인 시 candidate digest/버전 필수 | modelDetail |
 | `knowledge.concept.propose/Confirm` | `knowledge.concept.propose` / `knowledge.concept.approve` | Confirm 필요 | Spec/search |
 | `knowledge.draftCreate/Update/Submit` | `knowledge.draft.create` | Update/Submit 필요 | drafts.queue/detail |
-| `knowledge.draftReview` | `knowledge.review` 및 게시 권한 정책 | draft digest+item current version | drafts.queue/items/detail/search |
+| `knowledge.draftReview` | `knowledge.review` 및 발행 권한 정책 | draft digest+item current version | drafts.queue/items/detail/search |
 | `knowledge.itemPublish/Revise` | `knowledge.publish` (인간 전용) | revise 필요 | items/detail/search |
 | `knowledge.itemAssess` | `knowledge.assess` | 기반 Item Revision 필수 | items/detail |
 | `knowledge.itemDerive` | `knowledge.draft.create` | source revision 지정 | draft detail |
@@ -498,7 +498,7 @@ Human UI: GET Draft(DraftVersion+Digest), 편집/근거 Diff 확인
 
 ## 8. 권한·ACL 상세 정책 (Candidate)
 
-| 사용자·서비스 유형 | 읽기 | 초안 | 직접 게시 | 검토·승인 | 카탈로그 관리 |
+| 사용자·서비스 유형 | 읽기 | 초안 | 직접 발행 | 검토·승인 | 카탈로그 관리 |
 |---|---|---|---|---|---|
 | 사내 기본 Viewer | 접근 가능한 공개 내부 Model/SW/Item | X | X | X | X |
 | 사람 Contributor | 권한 범위 내 | O | X | X | 별도 부여 필요 |
@@ -562,7 +562,7 @@ Human UI: GET Draft(DraftVersion+Digest), 편집/근거 Diff 확인
 | 판단 `이상 추정→정상 조건` | 과거 판단/해석/작성자/근거 모두 보존 | append-only DB test |
 | 사람 Publisher 직접 발행 | 정식 Item+Revision+Audit+outbox 생성 | integration |
 | AI/Validator service publish API 호출 | server-side forbidden; UI 우회 불가 | security integration |
-| AI Draft 제출 후 사람 검토 중 payload 바꿈 | digest/expectedVersion conflict, 게시 없음 | concurrent integration |
+| AI Draft 제출 후 사람 검토 중 payload 바꿈 | digest/expectedVersion conflict, 발행 없음 | concurrent integration |
 | 동일 Draft 승인 재전송 | 단일 Item/Revision, replay same result | integration/idempotency |
 | CSV/XLSX preview | catalog row 0변경; staging만 | DB wire integration |
 | Import 적용 중 일부 row 실패 | partial_failure, row replay 안전, 덮어쓰기 없음 | integration |
@@ -623,7 +623,7 @@ Human UI: GET Draft(DraftVersion+Digest), 편집/근거 Diff 확인
 
 P0 #1193 구현됨: 스키마 표 1–6(`knowledge` 스키마, migration 0080)과 카탈로그 조회 4종(`logKnowledge.*`). 쓰기·화면은 #1194, Import 표 7–9는 #1195.
 
-#1194 화면 구현: A안(탭 + 오른쪽 서랍, 소유자 확정). 제조사·공정·모델·SW 버전 4탭(`tab`, 기본 모델), 탭마다 서버 페이징 표와 열 필터(`filter`), 만들기·수정은 서랍(`focus` = 행 id 또는 `new`), 비활성화는 확인 대화상자, 모델 표에 B안의 SW 버전 열(최신 표기 + `외 n`). Import 단추는 #1195가 표 툴바에 더한다.
+#1194 화면 구현: A안(탭 + 오른쪽 서랍, 소유자 확정). 설비사·공정·모델·SW 버전 4탭(`tab`, 기본 모델), 탭마다 서버 페이징 표와 열 필터(`filter`), 만들기·수정은 서랍(`focus` = 행 id 또는 `new`), 비활성화는 확인 대화상자, 모델 표에 B안의 SW 버전 열(최신 표기 + `외 n`). Import 단추는 #1195가 표 툴바에 더한다.
 
 
 ## 15. 모델 명세가 원본 (#1196 설계 초안, Candidate)

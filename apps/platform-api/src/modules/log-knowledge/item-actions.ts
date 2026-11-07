@@ -7,7 +7,6 @@
 // `MenuActionInvalidError` (field errors, never a 500). SetArchived to the value an item already has changes
 // nothing and answers `ok` with the current version.
 
-import { createAuditService } from '../core/audit/audit-service.js';
 import type { Tx } from '../../db/tx.js';
 import {
   type ActionHandlerResult,
@@ -19,18 +18,10 @@ import { type CheckService, applyAdminModuleBypass } from '../permissions/check-
 import type { PlatformActor } from '../platform-port/permissions.js';
 import { LOG_KNOWLEDGE_ITEMS_MENU_ID } from './catalog-menu.js';
 import { type ItemInput, parseItemInput, validateItemInput } from './domain/item-input.js';
-import {
-  carrySubjects,
-  insertSubjects,
-  judgeSubjects,
-  ownerModelOf,
-  softwareModelId,
-} from './repositories/item-subject.js';
+import { type ItemAuditType, ownerErrors, publishCreate, publishRevise, recordItemAudit } from './repositories/item-publish.js';
 import {
   type ItemRow,
   appendAssessment,
-  appendRevision,
-  checkOwner,
   insertDerivedLink,
   insertItem,
   itemExists,
@@ -66,13 +57,9 @@ export interface ItemActionDeps {
   checkService: CheckService;
 }
 
-type AuditType = 'created' | 'revised' | 'assessed' | 'derived' | 'archived' | 'restored';
-
 const invalid = (path: string, code: string) => new MenuActionInvalidError([{ path: [path], code }]);
 
 export function itemActions(deps: ItemActionDeps): MenuActionDeclaration[] {
-  const audit = createAuditService();
-
   const authorize = async (actor: PlatformActor, tx: Tx) =>
     applyAdminModuleBypass(
       actor.role_level,
@@ -88,38 +75,17 @@ export function itemActions(deps: ItemActionDeps): MenuActionDeclaration[] {
   const record = (
     tx: Tx,
     actor: PlatformActor,
-    type: AuditType,
+    type: ItemAuditType,
     item: ItemRow,
     title: string,
     extra: Record<string, unknown> = {},
-  ) =>
-    audit.record(tx, {
-      workspace_id: actor.workspace_id,
-      actor_id: actor.actor_id,
-      event_type: `knowledge.item.${type}`,
-      subject_type: 'knowledge_item',
-      subject_id: item.id,
-      summary: `KI-${item.itemNo} ${type}`,
-      detail: { itemNo: item.itemNo, title, ...extra },
-    });
+  ) => recordItemAudit(tx, actor, type, item, title, extra);
 
   /** The parsed, normalised input; `validate` ran before the handler, so a failure here is a bug. */
   function parsed<Op extends keyof typeof INPUT_KEYS>(op: Op, input: Record<string, unknown>): ItemInput<Op> {
     const result = parseItemInput(op, input);
     if (!result.ok) throw new Error(`action item ${op}: validate passed but parse failed`);
     return result.value;
-  }
-
-  /** The owner of a new item: unknown → `not_found`, inactive → `inactive`, on the owner field the caller set. */
-  async function ownerErrors(
-    tx: Tx,
-    workspaceId: string,
-    value: { ownerModelId?: string | null | undefined; ownerSoftwareId?: string | null | undefined },
-  ): Promise<FieldError[]> {
-    const [path, check] = value.ownerModelId
-      ? (['ownerModelId', await checkOwner(tx, workspaceId, { modelId: value.ownerModelId })] as const)
-      : (['ownerSoftwareId', await checkOwner(tx, workspaceId, { softwareId: value.ownerSoftwareId ?? '' })] as const);
-    return check === 'ok' ? [] : [{ path: [path], code: check }];
   }
 
   const currentVersion = async (tx: Tx, actor: PlatformActor, input: Record<string, unknown>) => {
@@ -148,25 +114,9 @@ export function itemActions(deps: ItemActionDeps): MenuActionDeclaration[] {
     authorize,
     validate: (input) => validateItemInput('create', input),
     async handle(tx, actor, input): Promise<ActionHandlerResult> {
-      const ws = actor.workspace_id;
       const value = parsed('create', input);
-      const errors = await ownerErrors(tx, ws, value);
-      if (errors.length > 0) throw new MenuActionInvalidError(errors);
       const { evidence, subjects, ownerModelId, ownerSoftwareId, ...content } = value;
-      // #1196 f: the subjects name the owner's model (a SW-owned item: its SW version's model) and a target of its spec.
-      const subjectModelId = ownerModelId ?? (await softwareModelId(tx, ws, ownerSoftwareId ?? ''));
-      const judged = await judgeSubjects(tx, ws, subjectModelId ?? '', subjects ?? []);
-      if (judged.errors.length > 0) throw new MenuActionInvalidError(judged.errors);
-      const item = await insertItem(tx, {
-        workspaceId: ws,
-        actorId: actor.actor_id,
-        ownerModelId: ownerModelId ?? null,
-        ownerSoftwareId: ownerSoftwareId ?? null,
-        content,
-        evidence,
-      });
-      await insertSubjects(tx, ws, item.id, 1, judged.rows);
-      await record(tx, actor, 'created', item, content.title, { revisionNo: 1 });
+      const item = await publishCreate(tx, actor, { ownerModelId, ownerSoftwareId, content, evidence, subjects });
       return { data: { id: item.id, itemNo: item.itemNo }, version: String(item.rowVersion) };
     },
   };
@@ -181,16 +131,7 @@ export function itemActions(deps: ItemActionDeps): MenuActionDeclaration[] {
       const before = await lockExisting(tx, actor, value.id, 'itemRevise');
       if (before.publicationState === 'archived') throw invalid('id', 'archived');
       const { id: _id, evidence, subjects, changeNote, ...content } = value;
-      // #1196 f: `subjects` omitted keeps the previous revision's links; a list (even empty) replaces them.
-      const judged =
-        subjects === undefined
-          ? null
-          : await judgeSubjects(tx, actor.workspace_id, (await ownerModelOf(tx, actor.workspace_id, before.id)) ?? '', subjects);
-      if (judged && judged.errors.length > 0) throw new MenuActionInvalidError(judged.errors);
-      const item = await appendRevision(tx, actor.workspace_id, actor.actor_id, before, content, changeNote, evidence);
-      if (judged) await insertSubjects(tx, actor.workspace_id, item.id, item.latestRevisionNo, judged.rows);
-      else await carrySubjects(tx, actor.workspace_id, item.id, before.latestRevisionNo, item.latestRevisionNo);
-      await record(tx, actor, 'revised', item, content.title, { revisionNo: item.latestRevisionNo });
+      const item = await publishRevise(tx, actor, before, { content, evidence, subjects, changeNote });
       return {
         data: { id: item.id, itemNo: item.itemNo, revisionNo: item.latestRevisionNo },
         version: String(item.rowVersion),

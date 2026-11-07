@@ -12,7 +12,7 @@ export type CatalogKind = (typeof CATALOG_TABS)[number];
 export const DEFAULT_TAB: CatalogKind = 'model';
 export type CatalogRow = VendorRow | ProcessRow | ModelRow | SoftwareRow;
 
-export const TAB_LABEL: Record<CatalogKind, string> = { vendor: '제조사', process: '공정', model: '모델', software: 'SW 버전' };
+export const TAB_LABEL: Record<CatalogKind, string> = { vendor: '설비사', process: '공정', model: '모델', software: 'SW 버전' };
 /** Page key `tab`: only the four ids; an absent key is the default tab. */
 export const isCatalogTab = (raw: string): raw is CatalogKind => (CATALOG_TABS as readonly string[]).includes(raw);
 export const tabOf = (raw: string | null): CatalogKind | 'invalid' => (raw === null ? DEFAULT_TAB : isCatalogTab(raw) ? raw : 'invalid');
@@ -49,7 +49,7 @@ export function childLink(row: CatalogRow, from: CatalogKind): TabLink {
 export const tabPatch = (link: TabLink) => ({ tab: link.tab, filter: link.filter, q: null, sort: null, page: null, focus: null });
 
 export const FIELD_LABEL: Record<string, string> = {
-  code: '코드', name: '이름', vendorId: '제조사', processIds: '공정', modelId: '모델', versionLabel: '버전 표기',
+  code: '코드', name: '이름', vendorId: '설비사', processIds: '공정', modelId: '모델', versionLabel: '버전 표기',
 };
 const CODE_TEXT: Record<string, Record<string, string>> = {
   required: { '*': '필수 항목입니다' },
@@ -76,7 +76,7 @@ export function mapFieldErrors(errors: readonly FieldError[], fields: readonly s
 
 /** ADR-0107 decision 4: only active children count, and they are not changed by deactivating the parent. */
 export function impactText(kind: CatalogKind, row: CatalogRow): string {
-  if (kind === 'vendor') return `이 제조사의 활성 모델 ${(row as VendorRow).modelCount}개가 있습니다. 모델은 바뀌지 않고 그대로 남습니다.`;
+  if (kind === 'vendor') return `이 설비사의 활성 모델 ${(row as VendorRow).modelCount}개가 있습니다. 모델은 바뀌지 않고 그대로 남습니다.`;
   if (kind === 'process') return `이 공정에 연결된 활성 모델 ${(row as ProcessRow).modelCount}개가 있습니다. 모델은 바뀌지 않고 그대로 남습니다.`;
   if (kind === 'model') return `이 모델의 활성 SW 버전 ${(row as ModelRow).softwareCount}개가 있습니다. SW 버전은 바뀌지 않고 그대로 남습니다.`;
   return '이 SW 버전은 하위 항목이 없습니다.';

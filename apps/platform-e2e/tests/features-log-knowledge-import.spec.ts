@@ -51,7 +51,7 @@ test.describe('카탈로그 가져오기 마법사(#1195 c)', () => {
     await expect(page.getByText('아직 아무것도 저장되지 않았습니다').first()).toBeVisible();
     await expect(step(page)).toContainText('검사 결과');
     await expect(page.getByRole('heading', { name: '2. 검사 결과' })).toBeFocused();
-    await expect(page.getByText(/새로 만들 메이커 1 · 공정 1/)).toBeVisible();
+    await expect(page.getByText(/새로 만들 설비사 1 · 공정 1/)).toBeVisible();
     await page.getByRole('button', { name: '다음 단계' }).click();
     await expect(step(page)).toContainText('확인 필요 행 정리');
     await expect(page.getByText('확인이 필요한 행 3개')).toBeVisible();

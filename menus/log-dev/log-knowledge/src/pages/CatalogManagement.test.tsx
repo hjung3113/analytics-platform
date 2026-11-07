@@ -81,7 +81,7 @@ describe('catalog management URL state', () => {
 
   it('round-trips tab, filter and the open row from the address', async () => {
     mount(`&tab=vendor${activeOnly()}&focus=${vendorRow.id}`);
-    expect((await screen.findByRole('tab', { name: /제조사/ }, slow)).getAttribute('aria-selected')).toBe('true');
+    expect((await screen.findByRole('tab', { name: /설비사/ }, slow)).getAttribute('aria-selected')).toBe('true');
     expect(await screen.findByRole('heading', { name: 'ALPHA' }, slow)).toBeTruthy();
     expect((screen.getByLabelText(/^코드/) as HTMLInputElement).value).toBe('ALPHA');
     expect(lastRead('logKnowledge.vendors')?.filters).toEqual([{ id: 'active', op: 'in', value: ['true'] }]);
@@ -156,9 +156,9 @@ describe('catalog drawer writes', () => {
     await waitFor(() => expect(writes.at(-1)).toMatchObject({ action: 'logKnowledge.modelSetActive', input: { id: modelRow.id, active: false }, expectedVersion: '3' }));
   });
 
-  it('shows the model\'s fixed 제조사 with its hint on an existing model', async () => {
+  it('shows the model\'s fixed 설비사 with its hint on an existing model', async () => {
     mount(`&tab=model${activeOnly()}&focus=${modelRow.id}`);
-    expect(await screen.findByText('등록 후에는 제조사를 바꿀 수 없습니다', {}, slow)).toBeTruthy();
+    expect(await screen.findByText('등록 후에는 설비사를 바꿀 수 없습니다', {}, slow)).toBeTruthy();
   });
 });
 
@@ -252,10 +252,10 @@ describe('conflict reload (F5)', () => {
 });
 
 describe('option pickers search the server (F3)', () => {
-  it('finds a 제조사 beyond the first page by typing, the text going to the read as q', async () => {
+  it('finds a 설비사 beyond the first page by typing, the text going to the read as q', async () => {
     mount(`&tab=model${activeOnly()}&focus=new`);
-    fireEvent.click(await screen.findByRole('combobox', { name: /제조사/ }, slow));
-    fireEvent.change(await screen.findByPlaceholderText('제조사 검색'), { target: { value: 'zeta' } });
+    fireEvent.click(await screen.findByRole('combobox', { name: /설비사/ }, slow));
+    fireEvent.change(await screen.findByPlaceholderText('설비사 검색'), { target: { value: 'zeta' } });
     expect(await screen.findByRole('option', { name: 'Zeta Corp' }, slow)).toBeTruthy();
     const read = queries.find(q => q.endpoint === 'logKnowledge.vendors' && (q.params as Params).q === 'zeta')!.params as Params;
     expect(read.filters).toEqual([{ id: 'active', op: 'in', value: ['true'] }]);

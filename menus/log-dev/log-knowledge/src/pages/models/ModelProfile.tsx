@@ -40,7 +40,7 @@ function Sections({ profile, modelId, canEdit }: { profile: ModelProfileData; mo
 
 /**
  * 모델 공통 프로파일 (#1197 s1, owner-confirmed variant A): the sections of one model stacked in reading order under a section nav. The path names
- * the model (`modelId`); the crumb names its 제조사. The read answers `null` for an unknown id, shown as a not-found state.
+ * the model (`modelId`); the crumb names its 설비사. The read answers `null` for an unknown id, shown as a not-found state.
  */
 export default function ModelProfile({ params }: PageProps) {
   const modelId = params.modelId ?? '';

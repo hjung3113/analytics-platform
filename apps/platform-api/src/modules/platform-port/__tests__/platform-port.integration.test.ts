@@ -154,6 +154,7 @@ describe.skipIf(!runIntegration)('platform port /api/v1/platform (#620)', () => 
           'features:access',
           'improvement:manage',
           'knowledge:catalog-manage',
+          'knowledge:draft-create',
           'knowledge:item-publish',
           'knowledge:spec-publish',
           'lifecycle:project-manage',
@@ -272,6 +273,18 @@ describe.skipIf(!runIntegration)('platform port /api/v1/platform (#620)', () => 
       expect(await has(plain.cookie)).toBe(false);
       await grantCapability(dbHandle, WORKSPACE_ID, developer.id, capability, null, admin.id);
       expect(await has(developer.cookie)).toBe(true);
+    });
+
+    it('knowledge:draft-create is listed for Admin and for a workspace grant of knowledge.draft.create (Developer or User), not without one', async () => {
+      const admin = await newActor('admin');
+      const has = async (cookie: string) => (await bootstrap(cookie)).session.user.permissions.includes('knowledge:draft-create');
+      expect(await has(admin.cookie)).toBe(true);
+      for (const role of ['developer', 'user'] as const) {
+        const actor = await newActor(role);
+        expect(await has(actor.cookie)).toBe(false);
+        await grantCapability(dbHandle, WORKSPACE_ID, actor.id, 'knowledge.draft.create', null, admin.id);
+        expect(await has(actor.cookie)).toBe(true);
+      }
     });
 
     it('features:access follows grants, workspace denies, revocation and expiry for a user-level actor', async () => {

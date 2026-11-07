@@ -10,7 +10,7 @@ import { filterSpecsFor } from '../CatalogTable';
 import { useCatalogOptions } from '../useCatalogOptions';
 import { DEFAULT_SORT, instantText, splitProcesses, statusText } from './modelPresentation';
 
-const FIELD_NAME = { active: '활성', vendorId: '제조사', processes: '공정' } as const;
+const FIELD_NAME = { active: '활성', vendorId: '설비사', processes: '공정' } as const;
 
 function ProcessBadges({ processes }: { processes: ExploreModelRow['processes'] }) {
   if (processes.length === 0) return <span className="text-text-muted">미분류</span>;
@@ -23,7 +23,7 @@ function ProcessBadges({ processes }: { processes: ExploreModelRow['processes'] 
 }
 
 /**
- * 모델 탐색 (#1197 s1, owner-confirmed variant A): one server-paged table of equipment models. 제조사·공정·활성 narrow it through the
+ * 모델 탐색 (#1197 s1, owner-confirmed variant A): one server-paged table of equipment models. 설비사·공정·활성 narrow it through the
  * filter row (repeated hidden page key `filter`); a row opens the 모델 공통 프로파일 and returns here with the same table state.
  */
 export default function ModelExplore() {
@@ -54,7 +54,7 @@ export default function ModelExplore() {
   const columns = useMemo<PlatformColumn<ExploreModelRow>[]>(() => [
     { id: 'code', header: '모델 코드', size: 100, cell: r => <PlatformLink className="t-mono text-accent-primary hover:underline" href={linkTo('log-knowledge-model', { params: { modelId: r.id }, returnTo: true })}>{r.code}</PlatformLink> },
     { id: 'name', header: '모델명', size: 134 },
-    { id: 'vendorName', header: '제조사', size: 124 },
+    { id: 'vendorName', header: '설비사', size: 124 },
     { id: 'processNames', header: '공정', size: 148, sortable: false, exportValue: r => r.processes.map(p => p.name).join(', '), cell: r => <ProcessBadges processes={r.processes} /> },
     { id: 'softwareCount', header: '활성 SW', size: 100, align: 'right', exportValue: r => r.softwareCount,
       cell: r => (r.softwareCount === 0 ? <span className="font-semibold text-text-warning-label">활성 SW 0</span> : <span className="tabular">{r.softwareCount}</span>) },
@@ -69,10 +69,10 @@ export default function ModelExplore() {
     return spec ? [{ id, label: { ko: FIELD_NAME[id], en: FIELD_NAME[id] }, spec, pinned: i + 2 }] : [];
   }), [specs]);
 
-  if (invalid) return <PlatformPage description="설비 모델을 제조사·공정으로 좁혀 찾고, 모델 공통 프로파일을 엽니다."><TableUrlWarning search={search} sentences={sentences} recoverKeys={recoverKeys} cause={cause} /></PlatformPage>;
+  if (invalid) return <PlatformPage description="설비 모델을 설비사·공정으로 좁혀 찾고, 모델 공통 프로파일을 엽니다."><TableUrlWarning search={search} sentences={sentences} recoverKeys={recoverKeys} cause={cause} /></PlatformPage>;
   const loadPage = async (query: TableQuery, signal: AbortSignal): Promise<ApiResponse<GroupedPageResult<ExploreModelRow>>> =>
     pages.fetch({ q: q === '' ? null : q, ...query, sorting: query.sorting.length > 0 ? query.sorting : [DEFAULT_SORT] }, signal);
-  return <PlatformPage description="설비 모델을 제조사·공정으로 좁혀 찾고, 모델 공통 프로파일을 엽니다."
+  return <PlatformPage description="설비 모델을 설비사·공정으로 좁혀 찾고, 모델 공통 프로파일을 엽니다."
     primaryAction={can(CATALOG_MANAGE_PERMISSION) && <Button asChild><PlatformLink href={linkTo('log-knowledge-catalog', { page: { tab: 'model', filter: defaultFilterParams() } })}>모델 등록</PlatformLink></Button>}>
     <ManagementLayout table={<PlatformDataTable<ExploreModelRow>
       title="모델 목록" ariaLabel="모델 목록" columns={columns} getRowId={r => r.id} filterKey={q} preferenceKey="log-knowledge-models:v1" pageSize={25}
