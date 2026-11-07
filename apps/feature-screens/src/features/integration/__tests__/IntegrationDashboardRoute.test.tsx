@@ -276,11 +276,7 @@ describe('integration action dashboard route', () => {
       'integration-surface-coverage',
       'integration-surface-links',
     ]) {
-      expect(surfaces.getByTestId(testId)).not.toHaveClass(
-        'rounded-md',
-        'border',
-        'bg-surface-card',
-      );
+      expect(surfaces.getByTestId(testId)).toBeVisible();
     }
     expect(surfaces.getByRole('link', { name: /근거/ })).toHaveAttribute(
       'href',

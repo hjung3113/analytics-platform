@@ -157,7 +157,7 @@ components:
 
 ### Typography roles
 
-공유 font family·본문·font loading은 [기능 화면 타이포 원본](docs/design/features/tokens.md#tokens--typography)과 [ADR-0058 §2](docs/adr/history/feedbackops/0058-tailwind-v4-css-first-theme.md#2-theme-inline-because-theme-namespaces-overlap-token-names)을 따른다. 라틴/한글은 공유 `--font-sans`(Inter + Pretendard), 기술 문자열은 공유 `--font-mono`를 상속한다. 플랫폼은 별도 body scale을 만들지 않는다.
+공유 font family·본문·font loading은 [기능 화면 타이포 원본](docs/design/features/tokens.md#tokens--typography)과 [ADR-0058 §2](docs/adr/history/feedbackops/0058-tailwind-v4-css-first-theme.md#2-theme-inline-because-theme-namespaces-overlap-token-names)을 따른다. 라틴/한글은 공유 `--font-sans`(Inter + Pretendard), 기술 문자열은 공유 `--font-mono`를 상속한다. 플랫폼은 별도 body scale을 만들지 않는다. 한국어 UI 문구는 단어 단위 줄바꿈(`break-keep`)을 쓴다 (근거 #1167).
 
 아래 역할 값은 플랫폼 literal이며 [index.css](packages/sdk/ui/src/styles/index.css)의 클래스와 일치한다. line-height는 px 표기 또는 unitless 배수다. 지정하지 않은 font family·weight·tracking은 공유/상위 값을 상속한다.
 

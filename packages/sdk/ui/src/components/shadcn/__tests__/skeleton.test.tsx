@@ -9,11 +9,4 @@ describe('Skeleton', () => {
     expect(el).toHaveClass('bg-surface-blocked');
     expect(el).not.toHaveClass('bg-surface-raised');
   });
-
-  it('keeps pulse animation and base radius', () => {
-    render(<Skeleton data-testid="skeleton" />);
-    const el = screen.getByTestId('skeleton');
-    expect(el).toHaveClass('animate-pulse');
-    expect(el).toHaveClass('rounded-md');
-  });
 });

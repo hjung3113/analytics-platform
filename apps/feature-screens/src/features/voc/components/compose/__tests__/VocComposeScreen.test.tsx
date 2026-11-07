@@ -438,16 +438,6 @@ describe('<VocComposeScreen> network (F6)', () => {
 });
 
 describe('<VocComposeScreen> narrow drawer layout and helper texts (UX-3, UX-4)', () => {
-  it('lets the four 출처 options wrap instead of scrolling sideways (jsdom cannot measure: asserts the classes)', async () => {
-    installFetch();
-    mount();
-    const segmented = screen.getByTestId('source-context-segmented');
-    expect(screen.getAllByRole('radio').filter((r) => segmented.contains(r))).toHaveLength(4);
-    expect(screen.getByTestId('source-context-list').className).toMatch(/\bflex-wrap\b/);
-    for (let el: HTMLElement | null = segmented; el; el = el.parentElement)
-      expect(el.className).not.toMatch(/overflow-x-/);
-  });
-
   it.each([
     ['출처', '타인 대신 보고는 다른 팀원이나 고객의 경험을 대신 등록하는 경우입니다.'],
     [

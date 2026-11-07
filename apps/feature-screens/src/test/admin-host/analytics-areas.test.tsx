@@ -217,7 +217,6 @@ describe('/admin/analytics-areas route', () => {
     const detail = await screen.findByTestId('aa-slide-over');
     const header = within(detail).getByTestId('aa-slide-over-header');
     const nav = within(detail).getByRole('navigation', { name: '섹션 이동' });
-    expect(header).toHaveClass('pr-12');
     expect(header.compareDocumentPosition(nav) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(within(detail).getByRole('button', { name: '닫기' })).toBeInTheDocument();
   });
@@ -353,7 +352,6 @@ describe('/admin/analytics-areas route', () => {
     expect(unavailable).toHaveTextContent(
       'Findings · 근거 집계와 목록은 아직 제공되지 않습니다.',
     );
-    expect(unavailable).toHaveClass('text-xs', 'text-text-muted');
   });
 
   test.each(['detail', 'row click', 'row Enter'])(

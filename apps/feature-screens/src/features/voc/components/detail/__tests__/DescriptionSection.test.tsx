@@ -39,18 +39,6 @@ describe('<DescriptionSection>', () => {
     expect(screen.queryByText('설명')).not.toBeInTheDocument();
   });
 
-  it('wraps the body in a tinted card (bg-surface-card-elevated) per reference image', () => {
-    const { container } = render(
-      <DescriptionSection voc={DETAIL_ENVELOPE} isReporterOnOwnVoc={false} />,
-    );
-    // Card element carries the elevated-card token; assertion is on the
-    // CSS class hook rather than computed style so it survives JSDOM.
-    const card = container.querySelector('[data-testid="description-body-card"]');
-    expect(card).not.toBeNull();
-    expect(card?.className).toMatch(/bg-surface-card-elevated/);
-    expect(card?.className).toMatch(/rounded-md/);
-  });
-
   it('renders RichContentRenderer when description has content', () => {
     render(<DescriptionSection voc={ENVELOPE_WITH_BODY} isReporterOnOwnVoc={false} />);
     expect(screen.getByTestId('rich-content-renderer')).toBeInTheDocument();

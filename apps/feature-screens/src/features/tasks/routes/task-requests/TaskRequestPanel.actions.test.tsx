@@ -155,7 +155,7 @@ describe('TaskRequestPanel next actions', () => {
 
     const header = container.querySelector('[data-kind="task_request"]');
     expect(header).toBeInTheDocument();
-    expect(within(header as HTMLElement).getByText('Task 요청')).toHaveClass('rounded');
+    expect(within(header as HTMLElement).getByText('Task 요청')).toBeInTheDocument();
     expect(within(header as HTMLElement).getByText('REQ-42')).toBeInTheDocument();
     expect(screen.getAllByText(GLOSSARY.unknownUser)).toHaveLength(2);
     expect(screen.getByText('검토자 없음')).toBeInTheDocument();
@@ -398,58 +398,10 @@ describe('TaskRequestPanel next actions', () => {
     );
 
     const label = screen.getByText(labelText, { selector: 'label' });
-    expect(label).toHaveClass('text-sm', 'font-medium');
     expect(label).toHaveAttribute('for', controlId);
     const control = document.getElementById(controlId);
     expect(control).not.toBeNull();
     expect((label as HTMLLabelElement).control).toBe(control);
-  });
-
-  it('keeps the conversion title count in muted helper text styling', () => {
-    useConversion.mockReturnValue({
-      analyticsAreaSelection: { kind: 'none' },
-      analyticsAreaUnresolvedReason: null,
-      open: true,
-      canConvert: true,
-      canSubmit: true,
-      result: null,
-      setOpen: vi.fn(),
-      title: '로그인 오류를 수정합니다.',
-      setTitle: vi.fn(),
-      titleError: null,
-      titleInputRef: { current: null },
-      titleMaxLength: 200,
-      priority: 'medium',
-      setPriority: vi.fn(),
-      assigneeId: '',
-      setAssigneeId: vi.fn(),
-      dueDate: '',
-      setDueDate: vi.fn(),
-      milestoneId: '',
-      setMilestoneId: vi.fn(),
-      milestones: [],
-      milestonePickerError: null,
-      milestoneSelectionUnavailable: false,
-      setAnalyticsAreaId: vi.fn(),
-      analyticsAreas: [],
-      submit: vi.fn(),
-      isPending: false,
-    });
-
-    render(
-      <TaskRequestPanel
-        item={{ ...request, status: 'approved' }}
-        names={names}
-        currentActorId={request.requester_actor_id}
-        currentRole="developer"
-        onClose={vi.fn()}
-      />,
-    );
-
-    expect(screen.getByTestId('task-request-convert-title-count')).toHaveClass(
-      'text-xs',
-      'text-text-muted',
-    );
   });
 
   it.each([

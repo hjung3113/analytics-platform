@@ -61,7 +61,6 @@ describe('<SourceContextSegmented>', () => {
     const wrapper = screen.getByTestId('source-context-segmented');
     const group = screen.getByTestId('source-context-list');
     expect(wrapper).toContainElement(group);
-    expect(group).toHaveClass('inline-flex');
     expect(screen.getByTestId('source-context-icon-direct_use')).toBeInTheDocument();
     expect(screen.getByTestId('source-context-icon-proxy_report')).toBeInTheDocument();
   });

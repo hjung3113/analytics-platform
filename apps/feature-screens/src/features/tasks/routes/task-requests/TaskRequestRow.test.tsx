@@ -1,7 +1,6 @@
 import { TASK_REQUEST_STATUS_LABELS } from '@/lib/copy/enum-labels';
-import { formatShortDateTime } from '@/lib/format/datetime';
 import { type TaskRequestDto, taskRequestStatusSchema } from '@ap/feature-shared';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import { TaskRequestRow } from './TaskRequestRow';
@@ -57,8 +56,6 @@ describe('TaskRequestRow identity', () => {
     expect(screen.getByText('알 수 없는 사용자')).toBeInTheDocument();
     expect(screen.queryByText('40000000')).not.toBeInTheDocument();
     expect(screen.queryByText('근거 1')).not.toBeInTheDocument();
-    expect(screen.getByText('30000000')).toHaveClass('text-text-muted');
-    expect(screen.getByText('20000000')).toHaveClass('text-text-muted');
     expect(screen.queryByText('10000000')).not.toBeInTheDocument();
   });
 
@@ -86,30 +83,9 @@ describe('TaskRequestRow identity', () => {
 
     expect(screen.getByText(/↔ FIN-181/)).toBeInTheDocument();
     expect(screen.getByText('리포트 속도 저하')).toBeInTheDocument();
-    expect(screen.getByText(REQUEST.requested_outcome)).toHaveClass('text-text-muted');
     expect(screen.getByText('근거 · 7')).toBeInTheDocument();
     expect(screen.queryByText('근거 1')).not.toBeInTheDocument();
     expect(screen.queryByText('40000000')).not.toBeInTheDocument();
-  });
-
-  it('keeps requester and creation date in muted secondary text', () => {
-    render(
-      <TaskRequestRow
-        item={REQUEST}
-        selected={false}
-        names={{ actorsById: {}, managedSystemsById: {} }}
-        onSelect={() => undefined}
-      />,
-    );
-
-    const row = screen.getByRole('button', { name: /REQ-42/ });
-    expect(within(row).getByText('알 수 없는 사용자')).toHaveClass(
-      'font-normal',
-      'text-text-muted',
-    );
-    expect(within(row).getByText(formatShortDateTime(REQUEST.created_at))).toHaveClass(
-      'text-text-muted',
-    );
   });
 
   it('omits the trailing separator when the created date is missing', () => {

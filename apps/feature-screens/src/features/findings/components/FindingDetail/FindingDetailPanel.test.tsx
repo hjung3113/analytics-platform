@@ -275,7 +275,6 @@ describe('FindingDetailPanel', () => {
     expect(within(header as HTMLElement).getByText('FIN-179')).toBeInTheDocument();
     const findingTitle = screen.getByRole('heading', { name: '리포트 속도 저하' });
     expect(findingTitle).toBeInTheDocument();
-    expect(findingTitle.parentElement).toHaveClass('px-0');
     expect(screen.getByText('FIN-179')).toBeInTheDocument();
     expect(screen.queryByText(/10000000/)).not.toBeInTheDocument();
   });

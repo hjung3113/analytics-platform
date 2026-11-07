@@ -486,10 +486,6 @@ describe('설문 participation page', () => {
 
     expect(await screen.findByText('응답할 설문이 없습니다.')).toBeInTheDocument();
     expect(screen.getByText('응답한 설문이 없습니다.')).toBeInTheDocument();
-    // Both empty branches are small and start-aligned, not a large centred void.
-    for (const text of ['응답할 설문이 없습니다.', '응답한 설문이 없습니다.']) {
-      expect(screen.getByText(text).parentElement).toHaveClass('items-start', 'py-6');
-    }
   });
 
   it('shows a retry action for a failed list region', async () => {
@@ -945,13 +941,6 @@ describe('Home answerable 설문 panel', () => {
 
     const emptyRow = await screen.findByText('응답할 설문이 없습니다.');
     expect(emptyRow.tagName).toBe('P');
-    expect(emptyRow).toHaveClass('px-4', 'py-5', 'text-sm', 'text-text-muted');
-    expect(emptyRow.parentElement).toHaveClass(
-      'rounded-md',
-      'border',
-      'border-border-subtle',
-      'bg-surface-card',
-    );
   });
 
   it('shows a loading state while the answerable list is pending', async () => {

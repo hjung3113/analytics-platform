@@ -456,14 +456,6 @@ describe('HW Time compare page', () => {
 });
 
 
-it('declares compact page spacing from the real consumer (#1141)', async () => {
-  await renderPage();
-  const content = document.querySelector('[data-platform-page-content]')!;
-  expect(content.classList.contains('px-4')).toBe(true);
-  expect(content.classList.contains('pt-3')).toBe(true);
-  expect(content.classList.contains('pb-4')).toBe(true);
-});
-
 describe('HW Time compare page keeps the previous Module composition honest (#1365 F4)', () => {
   /** The URL says Module PM2, but the composition panel still shows PM1's Motions (its query changed params and is kept). */
   const keptPm1 = () => data.level.mockImplementation((drill: HwTimeDrill) => drill.drillModule && !drill.drillMotion

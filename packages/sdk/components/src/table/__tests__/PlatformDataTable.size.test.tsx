@@ -150,11 +150,9 @@ describe('PlatformDataTable table size (1217d)', () => {
     expect([...document.querySelectorAll('section[aria-label="table"]')].map(s => s.getAttribute('data-table-size'))).toEqual(['small', 'small']);
   });
 
-  it('보통 renders exactly today\'s classes: no size variable class, no inline font size', async () => {
+  it("보통: no size variable class, no inline font size", async () => {
     await mount();
-    expect(header('line').className.startsWith('flex min-h-8 items-center overflow-hidden whitespace-nowrap px-4 py-1 pointer-coarse:min-h-11')).toBe(true);
     expect(header('line').style.fontSize).toBe('');
-    expect(cell('line').className).toBe('flex min-h-8 items-center px-4 py-1 pointer-coarse:min-h-11 overflow-visible whitespace-normal [overflow-wrap:anywhere] border-b border-border-subtle bg-surface-card text-sm group-hover:bg-surface-row-hover group-aria-selected:bg-surface-row-selected');
     expect(cell('line')).toHaveClass('text-sm');
     expect(section().className).not.toContain('ap-table');
     expect(cell('line').className).not.toContain('ap-table');

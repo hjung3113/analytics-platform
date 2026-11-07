@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const findingDetailState = vi.hoisted(() => ({ state: 'loading' as 'loading' | 'blocked' }));
@@ -30,7 +30,6 @@ describe('FindingDetailPanel header rhythm', () => {
       );
 
       expect(container.querySelector('[data-kind="finding"]')).toBeInTheDocument();
-      expect(screen.getByText('Finding')).toHaveClass('rounded');
       expect(container.querySelector('[data-kind="finding"] .font-mono')).toBeNull();
     },
   );

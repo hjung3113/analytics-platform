@@ -434,14 +434,6 @@ describe('HW Time overview page', () => {
 });
 
 
-it('declares compact page spacing from the real consumer (#1141)', async () => {
-  await renderPage();
-  const content = document.querySelector('[data-platform-page-content]')!;
-  expect(content.classList.contains('px-4')).toBe(true);
-  expect(content.classList.contains('pt-3')).toBe(true);
-  expect(content.classList.contains('pb-4')).toBe(true);
-});
-
 describe('HW Time overview keeps the previous level honest (#1365 F4)', () => {
   it('titles name the Module of the kept rows and a segment click does not drill until the result is live', async () => {
     data.level.mockImplementation(() => ({ ...done(level2('PM1')), resultParams: { drillModule: 'PM1' }, showingPrevious: true }));

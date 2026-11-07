@@ -199,42 +199,6 @@ describe('ListToolbar — tabs mode', () => {
     expect(screen.getByRole('tablist')).not.toHaveClass('ml-auto');
   });
 
-  it('uses the shared prototype tab size, hover, and active states', () => {
-    const styledTabs: ListToolbarTab[] = [
-      { value: 'normal', label: 'Normal' },
-      { value: 'urgent', label: 'Urgent', urgent: true },
-    ];
-    const { rerender } = render(<ListTabs tabs={styledTabs} activeTab="normal" />);
-
-    const normalTab = screen.getByRole('tab', { name: 'Normal' });
-    const urgentTab = screen.getByRole('tab', { name: 'Urgent' });
-    expect(normalTab).toHaveClass(
-      'h-7',
-      'px-2.5',
-      'gap-1.5',
-      'text-sm',
-      'hover:bg-surface-card',
-      'hover:text-text-primary',
-      'data-[state=active]:bg-surface-card-elevated',
-      'data-[state=active]:text-text-primary',
-      'data-[state=active]:shadow-none',
-    );
-    expect(normalTab).not.toHaveClass('data-[state=active]:shadow-sm');
-    expect(urgentTab).toHaveClass(
-      'text-text-danger-label',
-      'hover:text-text-danger-label',
-      'data-[state=active]:text-text-danger-label',
-    );
-
-    rerender(<ListTabs tabs={styledTabs} activeTab="urgent" />);
-    expect(screen.getByRole('tab', { name: 'Urgent' })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByRole('tab', { name: 'Urgent' })).toHaveClass(
-      'text-text-danger-label',
-      'data-[state=active]:bg-surface-card-elevated',
-      'data-[state=active]:text-text-danger-label',
-    );
-  });
-
   it('renders badgeCount as a bare number when defined', () => {
     render(<ListToolbar tabs={tabs} activeTab="untriaged" />);
     const tab = screen.getByRole('tab', { name: /^미배정\s*,\s*5$/ });

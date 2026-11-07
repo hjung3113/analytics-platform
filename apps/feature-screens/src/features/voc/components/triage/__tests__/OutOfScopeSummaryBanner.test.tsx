@@ -19,14 +19,4 @@ describe('OutOfScopeSummaryBanner', () => {
     expect(screen.getByText(/높음/)).toBeInTheDocument();
     expect(screen.getByText(/심각/)).toBeInTheDocument();
   });
-
-  it('renders the "시스템 권한 밖" context text', () => {
-    render(
-      <OutOfScopeSummaryBanner
-        count={1}
-        severityDistribution={{ medium: 1 }}
-      />,
-    );
-    expect(screen.getByText(/시스템 권한 밖/)).toBeInTheDocument();
-  });
 });

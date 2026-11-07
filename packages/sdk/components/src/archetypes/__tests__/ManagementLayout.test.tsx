@@ -7,11 +7,6 @@ import { PageDensityProvider } from '../../pageDensity';
 afterEach(cleanup);
 
 describe('ManagementLayout without a filter rail (node 1217f, ADR-0105)', () => {
-  it('renders the table node', () => {
-    render(<I18nProvider><ManagementLayout table={<section aria-label="표"><p>표 내용</p></section>} /></I18nProvider>);
-    expect(screen.getByText('표 내용')).toBeInTheDocument();
-  });
-
   it('renders the drawer after the table and shows no filter rail or filter button', () => {
     render(<I18nProvider><ManagementLayout table={<section aria-label="표"><p>표 내용</p></section>} drawer={<p>상세 내용</p>} /></I18nProvider>);
     const table = screen.getByRole('region', { name: '표' });

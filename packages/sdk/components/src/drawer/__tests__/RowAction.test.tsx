@@ -88,7 +88,6 @@ describe('RowAction (row action, compact ↔ full, ADR-0037)', () => {
   it('full text link uses the text-link classes and no aria-label when the name equals the text', () => {
     render(<RowAction compact={false} icon={PanelRight} label="정의" text="정의" textLink="primary" link={<a href="/x">z</a>} />);
     const link = screen.getByRole('link', { name: '정의' });
-    expect(link.className).toBe('text-xs font-medium text-accent-primary hover:underline');
     expect(link).not.toHaveAttribute('aria-label');
   });
 

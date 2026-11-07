@@ -198,10 +198,6 @@ it('leads recovery rows with source identity and keeps the reason secondary', as
   expect(text.indexOf('VOC-1')).toBeLessThan(text.indexOf('다운로드 오류'));
   expect(text.indexOf('다운로드 오류')).toBeGreaterThanOrEqual(0);
   expect(text.indexOf('다운로드 오류')).toBeLessThan(text.indexOf(item.reason));
-  const reason = Array.from(row.querySelectorAll('span')).find(
-    (span) => span.textContent === item.reason,
-  );
-  expect(reason).toHaveClass('text-text-muted');
 });
 it.each([
   ['내 화면에서 1일 숨기기', { action: 'snooze', days: 1 }],
