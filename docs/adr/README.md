@@ -129,6 +129,7 @@
 | [0117](0117-validation-request-queue-claim-lease-heartbeat.md) | 검증 요청 큐: pull 모델 claim·lease·heartbeat·멱등 결과, 서버가 실행 시간대 판단 | Decided(2026-11-07) |
 | [0118](0118-dynamic-hierarchy-navigation-sdk-piece.md) | 동적 계층 탐색을 SDK 범용 조각으로 제공, 메뉴가 단계 선언 | Decided(2026-11-07) |
 | [0119](0119-log-explorer-source-read-port-and-evidence-refs.md) | 로그 탐색: 서버 `SourceReadPort`로 원본을 요청 때 읽고 플랫폼에는 근거 위치 참조·조사 상태만 저장, 토큰 호출·내보내기 허용(scope 분리·예산·감사), 근거 위치 넘기기는 참조 전달 | Decided(2026-11-07) |
+| [0120](0120-regression-runs-reuse-validation-queue-dataset-identity-separate-from-round.md) | 테스트 Dataset·Baseline은 Round와 별도 ID, 회귀 실행은 검증 요청 큐를 요청 주체 확장으로 재사용(ADR-0117 개정 포함), Baseline 자동 갱신 금지 | Decided(2026-11-07) |
 | [0121](0121-ordered-interval-track-sdk-piece.md) | 시퀀스 보기는 도메인을 모르는 SDK 범용 조각 `OrderedIntervalTrack`(순서 축 기본, 열린 구간 표시) | Decided(2026-11-07) |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
