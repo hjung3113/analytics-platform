@@ -10,7 +10,7 @@ subscribeServer(() => { authorizationRevision++; });
 const defaults: readonly EquipmentAxisDescriptor[] = [
   { id: 'stgroup', label: { ko: 'StGroup', en: 'StGroup' }, membershipHistory: false },
   { id: 'team', label: { ko: 'Team', en: 'Team' }, membershipHistory: false },
-  { id: 'maker', label: { ko: 'Maker', en: 'Maker' }, membershipHistory: false },
+  { id: 'maker', label: { ko: '설비사', en: 'Maker' }, membershipHistory: false },
   { id: 'model', label: { ko: 'Model', en: 'Model' }, membershipHistory: false, dependsOn: 'maker' },
 ];
 const fieldValues = (e: Equipment): Record<string, string> => ({ stgroup: e.stgroup, team: e.team, maker: e.maker, model: e.model, chamberType: e.chamberType });

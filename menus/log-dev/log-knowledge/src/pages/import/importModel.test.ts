@@ -31,7 +31,7 @@ describe('code to sentence maps', () => {
     expect(pasteRefusalText([{ path: ['text'], code }]).text).not.toContain(code);
   });
   it('never shows a raw code, even for an unknown one', () => {
-    expect(rowErrorText({ field: 'vendor_name', code: 'brand_new_code' })).toBe(`‘메이커명’ ${PLAN_FALLBACK}`);
+    expect(rowErrorText({ field: 'vendor_name', code: 'brand_new_code' })).toBe(`‘설비사명’ ${PLAN_FALLBACK}`);
     expect(applyErrorText('brand_new_code')).toBe(APPLY_FALLBACK);
     expect(pasteRefusalText([{ path: ['text'], code: 'brand_new_code' }]).text).not.toContain('brand_new_code');
     expect(Object.keys(APPLY_ERROR_SENTENCE)).toEqual(expect.arrayContaining(['taken']));

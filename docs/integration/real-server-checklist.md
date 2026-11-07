@@ -18,7 +18,7 @@
 | `session()` | 동기 스냅샷(사용자 + 접근 가능한 Scope). 세션이 바뀔 때까지 **같은 객체**를 돌려준다 — Kernel이 객체 identity로 Scope 재검증 여부를 정한다. 실어댑터는 Provider 마운트 전에 세션을 받아 둔다(부트스트랩). |
 | `subscribe(onChange)` | 재로그인·권한 변경·서버 상태 변경을 알린다. Kernel은 알림마다 `session()`을 다시 읽고 revision을 올려 이전 결과를 한 프레임도 보이지 않게 숨긴다(`kernel/adapter.test.tsx`가 고정). Candidate: 세대 신호는 별도 경로 — #165, [전송 형식 초안](http-adapter-contract.md) §4(합의 전에는 이 행이 원본). |
 | `validateScope(scopeId)` | 그 사용자에게 site가 부여됐는지와 부여된 room. 클라이언트 상태가 아니라 서버 판정이다(06 §6.2). |
-| `publishedMetrics()` | 지표별 게시 버전 스냅샷 — `metricId`만 온 진입점을 보완한다. |
+| `publishedMetrics()` | 지표별 발행 버전 스냅샷 — `metricId`만 온 진입점을 보완한다. |
 | `contextOptions`·`evaluateSelection` | 조건 축 선택지, 조건 결과·조건 밖 선택. 조건 판정은 서버 책임이다. |
 | `defaultRangeTo()` | 기본 기간의 기준 시각(wall-clock, 06 §6.3). 기준점이 없으면 `null`(브라우저 시계·epoch·지어낸 날짜로 채우지 않는다, [ADR-0098](../adr/0098-adapter-preferences-people-notices-ports.md)). |
 | `readPreferences`·`patchPreferences`·`importPreferences` | 세션 사용자의 설정(사용자 id를 받지 않는다 — 알 수 없는 키는 거부). 키 문법·크기 상한은 ADR-0098. 쓰기는 키 패치(`null`은 값, `remove`는 삭제, 겹침 거부). 가져오기는 한 커밋에서 없는 키만 저장하고 `importedAt`을 찍으며 완료 뒤 영구 no-op. 답은 `ApiResponse`(trust `null`, assessments `[]`), 판정 실패는 `error`/`too_large`. 사용자 간 격리. 상태: 이 레포 코어 서버가 구현(`platform.preferences`, 키 200개·값 64KiB·요청 256KiB, 계정 합계 키 200개 초과는 `too_large`, 한 트랜잭션 행 잠금, #1104 서버 단계). 브라우저 쪽 수명주기(로컬 저장소 이전·`Kernel` 저장 포트)는 #1104b에서 구현됐다. 실서버 조립은 `PlatformProvider.serverPreferences`를 켜고 사용자 설정 포트를 연결하며, 브라우저 로컬 설정의 일회 이전을 수행한다. 설정별 동작과 이전 범위는 ADR-0098 §6을 따른다. |
@@ -113,7 +113,7 @@ platform-api의 `menuQuery`·`menuAction`은 `apps/platform-api/src/modules/menu
 
 전송은 `POST` + `Idempotency-Key`·`If-Match` 헤더가 기본 후보지만 정하는 주체는 HTTP 어댑터(#149)다 — 이 문서는 라우트나 헤더를 확정하지 않는다.
 
-**등록 검증 (서버 기동 시)** — 동작도 엔드포인트처럼 검증하고 하나라도 어긋나면 기동을 거부한다: 동작 id 중복 없음, `menuId`가 Registry에 있음, 권한 이름이 어떤 메뉴가 선언한 권한임(앱이 권한 어휘 `permissions`를 넘기면 그 어휘의 권한도 허용 — 메뉴의 진입 권한이 아닌 게시 권한 같은 쓰기 권한용이고, 오타는 여전히 거부함. 어휘를 넘기지 않으면 메뉴가 선언한 권한만 허용), 메뉴가 Scope를 요구하면 동작도 요구, `invalidates`의 각 항목이 같은 `menuId`의 등록된 엔드포인트임, `concurrency: 'version'` 동작에는 현재 버전을 읽는 핸들러가 있음. 원본: `packages/adapters/mock-server/src/adapter.ts` `createMockAdapter`.
+**등록 검증 (서버 기동 시)** — 동작도 엔드포인트처럼 검증하고 하나라도 어긋나면 기동을 거부한다: 동작 id 중복 없음, `menuId`가 Registry에 있음, 권한 이름이 어떤 메뉴가 선언한 권한임(앱이 권한 어휘 `permissions`를 넘기면 그 어휘의 권한도 허용 — 메뉴의 진입 권한이 아닌 발행 권한 같은 쓰기 권한용이고, 오타는 여전히 거부함. 어휘를 넘기지 않으면 메뉴가 선언한 권한만 허용), 메뉴가 Scope를 요구하면 동작도 요구, `invalidates`의 각 항목이 같은 `menuId`의 등록된 엔드포인트임, `concurrency: 'version'` 동작에는 현재 버전을 읽는 핸들러가 있음. 원본: `packages/adapters/mock-server/src/adapter.ts` `createMockAdapter`.
 
 ## 4. 적합성 묶음으로 확인하기
 

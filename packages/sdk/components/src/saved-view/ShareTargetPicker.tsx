@@ -105,7 +105,7 @@ function PickerBody({ onOpenChange, value, groups, currentUserId, searchPeople, 
 
   const toggleGroup = (id: string) => setDraft(d => ({ ...d, groupIds: d.groupIds.includes(id) ? d.groupIds.filter(x => x !== id) : [...d.groupIds, id] }));
   const summary = draft.mode === 'private' ? '나만 볼 수 있습니다.'
-    : draft.mode === 'official' ? '공식 게시를 신청합니다. 신청해도 지금 보는 사람은 바뀌지 않습니다.'
+    : draft.mode === 'official' ? '공식 등록을 신청합니다. 신청해도 지금 보는 사람은 바뀌지 않습니다.'
       : draft.mode === 'people' ? `사람 ${draft.people.length}명 선택`
         : `그룹 ${draft.groupIds.length}개 선택${selectedGroups.length > 0 ? `: ${selectedGroups.join(', ')}` : ''}`;
   const incomplete = (draft.mode === 'people' && draft.people.length === 0) || (draft.mode === 'groups' && draft.groupIds.length === 0);

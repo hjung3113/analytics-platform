@@ -220,7 +220,7 @@ export function ReporterStatusChangeBlock({
           <span data-testid="reporter-status-forbidden-reason">
             이 VOC의 현재 상태가 그 사이 &lsquo;{REPORTER_STATUS_LABELS[currentStatus]}
             &rsquo;(으)로 바뀌어, 먼저 고른 &lsquo;{REPORTER_STATUS_LABELS[nextStatus]}
-            &rsquo;(으)로는 전환할 수 없습니다. 다음 상태를 다시 선택해야 게시할 수 있습니다.
+            &rsquo;(으)로는 전환할 수 없습니다. 다음 상태를 다시 선택해야 공개할 수 있습니다.
             {forbidden[nextStatus] != null && ` ${forbidden[nextStatus]}`}
           </span>
         </Callout>

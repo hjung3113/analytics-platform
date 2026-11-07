@@ -884,7 +884,7 @@ test.describe('조건 묶음 (06 §6.4·§11, ADR-0083)', () => {
     await expect(page.getByRole('region', { name: '적용된 조회 조건' })).toContainText('요약 조회 완료');
     await expect(switcher(bar).getByRole('radio', { name: '설비 기준' })).toBeChecked();
     await expect(bar.getByText(/StGroup .* · 설비 기준에서 미적용/)).toBeVisible();
-    await expect(bar.getByRole('button', { name: 'Maker', exact: true })).toBeVisible();
+    await expect(bar.getByRole('button', { name: '설비사', exact: true })).toBeVisible();
     await expect(bar.getByRole('button', { name: 'StGroup', exact: true })).toHaveCount(0);
     await evidence(page, testInfo, 'condition-preset-default');
 
@@ -904,7 +904,7 @@ test.describe('조건 묶음 (06 §6.4·§11, ADR-0083)', () => {
     await expect(page.getByRole('region', { name: '적용된 조회 조건' })).toContainText('요약 조회 완료');
     await page.waitForTimeout(1000);
     expect(await kpiRequests(page)).toBe(before + 1);
-    await expect(bar.getByText(/Maker .* · 조직 기준에서 미적용/)).toBeVisible();
+    await expect(bar.getByText(/설비사 .* · 조직 기준에서 미적용/)).toBeVisible();
     // The global Condition is untouched: both axes stay in the URL.
     expect(condition(page)).toEqual({ maker: ['TEL'], stgroup: ['STG-PHOTO-A'] });
     await evidence(page, testInfo, 'condition-preset-organization');

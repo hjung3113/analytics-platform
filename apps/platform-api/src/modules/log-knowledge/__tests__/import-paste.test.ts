@@ -14,17 +14,17 @@ import { createSlots } from '../import-admission.js';
 import { importIntakeActions } from '../import-intake-actions.js';
 
 const paste = (text: string) => parsePastedText(text, { recognizeHeaders: modelHeaderFailure });
-const HEADER = ['메이커명', '모델명', '공정명'];
+const HEADER = ['설비사명', '모델명', '공정명'];
 const sheet = (sep: string, n = 2) =>
   [HEADER.join(sep), ...Array.from({ length: n }, (_, i) => [`M${i}`, `Model ${i}`, 'A, B'].join(sep))].join('\n');
 
 describe('importPaste: delimiter and parse', () => {
   it.each([
-    ['tab on the first line', '메이커명\t모델명\n', '\t'],
-    ['comma only', '메이커명,모델명\n', ','],
-    ['a leading blank line is skipped', '\n\n메이커명\t모델명\n', '\t'],
-    ['a BOM before a tab header', '\uFEFF메이커명\t모델명\n', '\t'],
-    ['a tab only in a later line does not count', '메이커명,모델명\na\tb\n', ','],
+    ['tab on the first line', '설비사명\t모델명\n', '\t'],
+    ['comma only', '설비사명,모델명\n', ','],
+    ['a leading blank line is skipped', '\n\n설비사명\t모델명\n', '\t'],
+    ['a BOM before a tab header', '\uFEFF설비사명\t모델명\n', '\t'],
+    ['a tab only in a later line does not count', '설비사명,모델명\na\tb\n', ','],
   ])('%s', (_label, text, expected) => {
     expect(pasteDelimiter(text)).toBe(expected);
   });
@@ -90,22 +90,22 @@ describe('importPaste: header refusals as field errors', () => {
   it('missing_header names the file-level code and each expected header', async () => {
     expect(await run('모델명\nM\n')).toEqual([
       { path: ['text'], code: 'missing_header' },
-      { path: ['text', 'headers', '메이커명'], code: 'missing_header' },
+      { path: ['text', 'headers', '설비사명'], code: 'missing_header' },
     ]);
   });
 
   it('duplicate_header names the code and each header text that resolves to one field', async () => {
-    expect(await run('메이커명\t제조사\t모델명\nA\tB\tC\n')).toEqual([
+    expect(await run('설비사명\t제조사\t모델명\nA\tB\tC\n')).toEqual([
       { path: ['text'], code: 'duplicate_header' },
-      { path: ['text', 'headers', '메이커명'], code: 'duplicate_header' },
+      { path: ['text', 'headers', '설비사명'], code: 'duplicate_header' },
       { path: ['text', 'headers', '제조사'], code: 'duplicate_header' },
     ]);
   });
 
   it.each([
     ['', 'empty'],
-    ['메이커명,,모델명\nA,B,C\n', 'invalid_headers'],
-    ['메이커명,모델명\nA\n', 'unreadable'],
+    ['설비사명,,모델명\nA,B,C\n', 'invalid_headers'],
+    ['설비사명,모델명\nA\n', 'unreadable'],
   ])('refuses %j as %s', async (text, code) => {
     expect(await run(text)).toEqual([{ path: ['text'], code }]);
   });

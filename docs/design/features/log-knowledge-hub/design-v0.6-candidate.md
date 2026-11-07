@@ -17,7 +17,7 @@
 2. **UI:** `apps/platform-web`이 조립하는 `menus/log-dev/log-knowledge` 메뉴 패키지. 기존 `@ap/ui`, `@ap/components`, `@ap/kernel`·`@ap/shell`, `menuQuery`·`menuAction`을 소비. 제품 고유 페이지와 업무 컴포넌트만 추가한다.
 3. **API/서버:** 단일 브라우저 입구 `apps/platform-api`(Fastify), 내부 도메인 모듈 `modules/log-knowledge`. 분석 전용 FastAPI는 지식 콘텐츠 CRUD·검색의 소유자가 아니다. 대량 Parser/Validator/자산 분석 데이터는 외부 소유자 포트/API/승인된 읽기 투영으로 소비한다.
 4. **DB:** 기존 PostgreSQL `platform` 인스턴스에 **`knowledge` 스키마(후보)**. Fastify 도메인이 Drizzle 마이그레이션 및 데이터 정합성 소유. 감사는 기존 Core `core.audit_log`, 첨부 바이너리는 플랫폼 Attachments, 공통 Idempotency/Permission/Notification 서비스 사용. 기존 원본 로그/설비 마스터/Validator 결과를 중복 소유하지 않는다.
-5. **분리 경계:** 정식 기술 Item/Revision, SW별 Spec, 승인된 모델 공통 파생정보는 Knowledge Hub 소유. 원본 로그·Parser Raw·Validator Run·Top View Layout은 **각 원천 시스템 소유**, 허브는 버전 고정 참조/증거를 저장.
+5. **분리 경계:** 정식 기술 Item/Revision, 모델 명세 Revision(원본)과 SW 버전부터 적용되는 변경점은 Knowledge Hub 소유. 원본 로그·Parser Raw·Validator Run·Top View Layout은 **각 원천 시스템 소유**, 허브는 버전 고정 참조/증거를 저장.
 6. **AI:** 사내 Agent/Skill은 **초안 제출 전용**. 승인·직접 발행·기술적 검증 자동 확정 불가. 일반 Contributor는 검토 경유, 인간 Publisher는 권한에 따라 직접 발행 가능.
 7. **기능 우선순위:** 초기 카탈로그 등록/관리 및 Import **필수**, 이후 독립 SW Spec·Item·검토/검색. Top View Viewer 통합은 최종 요구, Studio 편집은 별도.
 
@@ -26,7 +26,7 @@
 | 번호 | 보존할 불변조건 | 핵심 구현 영향 |
 |---|---|---|
 | 1 | **Item은 단일 Model 또는 단일 SW의 소유** | 다른 모델/SW의 유사 사건은 독립 Item+링크; 공동 소유 M:N 금지 |
-| 2 | **각 SW 버전의 명세가 독립 원본** | Model 공통 명세는 원본이 아닌 승인된 파생정보; Model common+SW override 기각 |
+| 2 | **모델 명세 Revision이 원본, SW 버전 차이는 «X 버전부터» 변경점만** | 변경점 없는 SW는 모델 명세를 따름; 모델 공통 «승인 파생본» 흐름 없음([ADR-0111](../../../adr/0111-log-knowledge-model-spec-is-the-source.md)) |
 | 3 | 사람 Contributor=Draft, 사람 Publisher=직접 발행 가능, AI=항상 사람 승인 | 별도 Actor/Workflow/권한 게이트 |
 | 4 | Parser·Validator·Knowledge Hub 책임 분리 | 자동 Finding은 정식 Item이 아닌 후보 |
 | 5 | Evidence 외부 참조+선택적 첨부 | 원본 포인터와 플랫폼 Attachment 결합 |
@@ -36,8 +36,8 @@
 | 9 | SW별 Module/Event ID 독립, 공통 개념은 검토된 매핑 | 원본 키 공유·자동 동치판정 금지 |
 | 10 | 기술 판단 변경 이력과 본문 Revision은 별개 | append-only `item_assessment_event` |
 | 11 | SW 버전까지 관리, **Build 제외** | Build 필수 키/자식 테이블/화면 금지 |
-| 12 | 핵심 Spec 구조화+상세 문서 병행 | SW별 Revision/Module/Event/필드·관계·문서 링크 |
-| 13 | Model 공통 후보는 SW 명세로 추출하고 **사람 확정** | 출처 SW Revision 집합, stale/revalidation 관리 |
+| 12 | 핵심 Spec 구조화+상세 문서 병행 | 모델 명세 Revision/Module/Event/필드·관계·문서 링크, SW는 변경점만 |
+| 13 | 모델 명세가 원본이라 «후보 추출 → 승인 파생본» 흐름 없음 | 열린 변경점의 `재검토 필요` 표시([ADR-0111](../../../adr/0111-log-knowledge-model-spec-is-the-source.md)) |
 | 14 | Model↔Process **N:M** | 독립 공정 사전과 조인, 모델 중복 없이 탐색 |
 | 15 | 표준 유형·카테고리 + 수동 그룹 + 저장 검색 | 데이터 소유/분류/개인 뷰 분리 |
 | 16 | 기존 Item의 특정 Revision으로부터 **독립 신규 Item 파생** | `derived_from` provenance, 근거·검증 자동 승계 금지 |
@@ -112,7 +112,7 @@ Space: log-dev  (기존)
 | 밝은/중립 톤·차분한 강조·밀도 있는 테이블 | `@ap/ui` 실제 semantic token, 32px 이상 테이블 계약 및 화면별 40px 후보, 불필요한 카드 제거 |
 | 카탈로그 관리 4탭+등록/수정 패널 | 플랫폼 Page Header·Detail/Drawer 슬롯 안에서 구현; 기존 Shell/Sidebar **중첩 금지** |
 | Import 5단계 | 파일→열 매핑→검증→충돌 해결→적용 결과, 명시적 적용 전 원본 무변경 |
-| 모델 상세 | Model 공통정보 **승인된 파생본**/재검토 후보 분리; SW 목록·Model 단일 Owner Item |
+| 모델 상세 | 모델 명세(원본)와 SW 변경점 분리, 열린 변경점의 `재검토 필요` 표시; SW 목록·Model 단일 Owner Item |
 | SW 상세 | 독립 Spec Revision·Module/Event·Top View Viewer·SW 전용 Item; Build 필드 없음 |
 | Item 상세/검색 | 관찰/기대/해석/개선/Evidence/판단 이력 분리; 교차 SW 유사 Item 별개 결과 |
 | 검토 | 사람/AI/Validator 출처 구분, Evidence–제안 Diff 비교, digest/expectedVersion 확인 |
@@ -391,7 +391,7 @@ SQL은 **핵심 제약의 예시**이고 전체 실행 migration은 아니다. �
 - `map`은 `external_identity_map`에 `catalog_import` 별칭을 `accepted`로 쓴다. 키는 JSON 배열(vendor/process `[code]`, model `[vendor, code]`, software `[vendor, model, version]`). 같은 키가 다른 대상이면 `conflict identity_conflict`.
 - 감사: 적용한 쓰기는 기존 `knowledge.catalog.created|updated`에 `source:{importJobId,rowNo}`를 담고, 별칭 쓰기는 `knowledge.catalog.identity_mapped`.
 
-**구현 상태(#1195 node b2·b3, 규범):** P0 메뉴 Import는 **4단계**다 — 붙여넣기/CSV 텍스트 → 검사 결과 → 확인 필요 행 정리(충돌이 있을 때만) → 적용 결과. 메뉴는 서버에 메뉴 조회·메뉴 액션으로만 닿으므로 첫 단계 입력은 **엑셀에서 복사한 행을 붙여넣거나 브라우저가 연 CSV 텍스트**(`logKnowledge.importPaste`, 모델 시트 전용)이고 적용은 `logKnowledge.importApply`(진행 상황을 돌려주며 `remaining = 0`까지 새 멱등 키로 다시 부른다)다. 결과는 화면 안에서 보여 주고 표에서 내보낸다. 파일은 이름만 담고(메이커명·모델명·공정명) 헤더를 서버가 알아보므로 «열 매핑» 단계가 없고, 없는 메이커·공정은 같은 계획에서 새 행으로 만든다. 제품 기준 §15.4 «반드시 5단계»를 P0에서 대신한다. XLSX 파일 선택은 구현하지 않았다. 업로드·raw API와 한도·멱등/적용 규칙은 `api/log-knowledge.md` §Catalog import by names 및 관련 Import 절을 따르고, 코드는 이름에서 정한다([ADR-0107](../../../adr/0107-log-knowledge-catalog-authority-keys-and-edit-rights.md) 결정 2 보충).
+**구현 상태(#1195 node b2·b3, 규범):** P0 메뉴 Import는 **4단계**다 — 붙여넣기/CSV 텍스트 → 검사 결과 → 확인 필요 행 정리(충돌이 있을 때만) → 적용 결과. 메뉴는 서버에 메뉴 조회·메뉴 액션으로만 닿으므로 첫 단계 입력은 **엑셀에서 복사한 행을 붙여넣거나 브라우저가 연 CSV 텍스트**(`logKnowledge.importPaste`, 모델 시트 전용)이고 적용은 `logKnowledge.importApply`(진행 상황을 돌려주며 `remaining = 0`까지 새 멱등 키로 다시 부른다)다. 결과는 화면 안에서 보여 주고 표에서 내보낸다. 파일은 이름만 담고(설비사명·모델명·공정명) 헤더를 서버가 알아보므로 «열 매핑» 단계가 없고, 없는 메이커·공정은 같은 계획에서 새 행으로 만든다. 제품 기준 §15.4 «반드시 5단계»를 P0에서 대신한다. XLSX 파일 선택은 구현하지 않았다. 업로드·raw API와 한도·멱등/적용 규칙은 `api/log-knowledge.md` §Catalog import by names 및 관련 Import 절을 따르고, 코드는 이름에서 정한다([ADR-0107](../../../adr/0107-log-knowledge-catalog-authority-keys-and-edit-rights.md) 결정 2 보충).
 
 **원자성 후보:** 전체 파일을 하나의 거대한 트랜잭션으로 처리하지 않는다. Job 적용 승인을 하나의 고정된 Plan Snapshot으로 봉인한 뒤, `Vendor/Process → Model → SW` 위상순으로 **행/참조 묶음 단위 트랜잭션** 적용. 각 행 `(job_id,row_no,plan_hash)`로 정확히 한 번 적용; 실패 행만 재시도하되 `expected_target_version`이 바뀌면 `conflict`로 재검토. 미해결 충돌 자동 덮어쓰기/자동 신규 생성 금지. 일부 성공이면 `partial_failure`이며 집계는 성공·기존 유지·skip·실패를 구분. 내보내기 CSV 수식 주입 방어.
 

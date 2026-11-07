@@ -7,7 +7,7 @@ import { signInAs } from './support';
  * a pasted list is checked, conflicts are skipped, the apply runs in several calls, and nothing reaches the catalog before 「적용」.
  */
 const FIXTURE = [
-  '메이커명\t공정명\t모델명', 'Alpha Semicap\tEtch\tAlpha 100', 'Alpha Semicap\tEtch, Planarization\tAlpha 200', 'Delta Corp\tEtch, Dry Clean\tDelta 1', 'Delta Corp\t\tDelta 2',
+  '설비사명\t공정명\t모델명', 'Alpha Semicap\tEtch\tAlpha 100', 'Alpha Semicap\tEtch, Planarization\tAlpha 200', 'Delta Corp\tEtch, Dry Clean\tDelta 1', 'Delta Corp\t\tDelta 2',
   'Beta Systems\tDeposition\tBeta 30 (retired)', 'Gamma Tech (retired)\tEtch\tGamma 2', 'Alpha Semicap\t\tAlpha', '\tEtch\tNo Maker',
 ].join('\n');
 const step = (page: Page) => page.locator('[aria-label="가져오기 단계"] [aria-current="step"]');
@@ -69,7 +69,7 @@ test.describe('카탈로그 가져오기 마법사(#1195 c)', () => {
 
   test('머리글이 빠지면 어느 머리글인지 알려 주고 다시 검사할 수 있다', async ({ page }) => {
     await openWizard(page);
-    await check(page, '메이커명\t공정명\nAlpha Semicap\tEtch');
+    await check(page, '설비사명\t공정명\nAlpha Semicap\tEtch');
     await expect(page.getByText(/‘모델명’ 머리글이 없습니다/)).toBeVisible();
     await expect(step(page)).toContainText('목록 붙여넣기');
     await expect(page.getByRole('button', { name: '검사' })).toBeEnabled();
@@ -78,7 +78,7 @@ test.describe('카탈로그 가져오기 마법사(#1195 c)', () => {
   test('200행을 넘는 작업도 결과 표 내보내기에 모든 행이 들어 있다', async ({ page }, testInfo) => {
     const rows = Array.from({ length: 250 }, (_, i) => `Bulk Co\tEtch\tBulk ${String(i + 1).padStart(3, '0')}`);
     await openWizard(page);
-    await check(page, ['메이커명\t공정명\t모델명', ...rows].join('\n'));
+    await check(page, ['설비사명\t공정명\t모델명', ...rows].join('\n'));
     await expect(step(page)).toContainText('검사 결과');
     await page.getByRole('button', { name: '다음 단계' }).click();
     await page.getByRole('button', { name: '적용' }).click();

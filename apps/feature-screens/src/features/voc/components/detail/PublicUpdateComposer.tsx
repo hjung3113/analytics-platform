@@ -35,7 +35,7 @@
 //           <strong>{window.ReporterStatusLabels[voc.reporterStatus].label}</strong>
 //           <span style={{ color: 'var(--text-muted)' }}>→</span>
 //           <strong>{window.ReporterStatusLabels[nextReporterStatus].label}</strong>
-//           <span style={{ color: 'var(--text-muted)' }}>로 함께 게시</span>
+//           <span style={{ color: 'var(--text-muted)' }}>로 함께 공개</span>
 //         </span>
 //       )}
 //     </div>
@@ -54,7 +54,7 @@
 //   body-only:   nextStatus === voc.reporter_facing_status  →  status field sent unchanged
 //   body+status: nextStatus !== voc.reporter_facing_status  →  new status sent
 //
-// On success: invalidate ['voc', voc.id], clear draft, toast 담당자 답변이 게시되었습니다.
+// On success: invalidate ['voc', voc.id], clear draft, toast 답변이 공개되었습니다.
 //
 // Error matrix (D-5.6: Callout copy sourced from backend detail.reason, not errorMapper):
 //   reporter_facing_status.invalid_transition → red Callout inline
@@ -202,7 +202,7 @@ export function PublicUpdateComposer({
       // through onChange, so attachmentIds clears along the one path it always
       // travels — clearing it here as well would be a second, silent writer.
       setAttachmentResetToken((n) => n + 1);
-      notifySuccess('담당자 답변이 게시되었습니다.');
+      notifySuccess('답변이 공개되었습니다.');
       onPosted?.('public');
       focusEditor();
     },
@@ -263,7 +263,7 @@ export function PublicUpdateComposer({
       <strong>{REPORTER_STATUS_LABELS[currentStatus]}</strong>
       <span className="text-text-muted">→</span>
       <strong>{REPORTER_STATUS_LABELS[nextStatus]}</strong>
-      <span className="text-text-muted">로 함께 게시</span>
+      <span className="text-text-muted">로 함께 공개</span>
     </span>
   ) : (
     <span className="text-xs text-text-muted">공개 상태는 그대로 유지됩니다.</span>
@@ -337,7 +337,7 @@ export function PublicUpdateComposer({
 
       {/* ComposerFooter — shared across all three composer surfaces */}
       <ComposerFooter
-        submitLabel="담당자 답변 게시"
+        submitLabel="답변 공개"
         onPreview={() => setPreviewOpen(true)}
         onSubmit={handleSubmit}
         isEmpty={isEmpty}
@@ -370,7 +370,7 @@ export function PublicUpdateComposer({
             disabled={isSubmitBlocked}
             onClick={handlePreviewPublish}
           >
-            담당자 답변 게시
+            답변 공개
           </Button>
         </div>
       </PreviewModal>

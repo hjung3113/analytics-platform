@@ -178,7 +178,7 @@ describe('pending proposal and approved copy are separate', () => {
 
   it('plain lines say what the application changes', () => {
     expect(proposalChanges(official)).toEqual(['이름 "Mine" → "Proposed"', '레이아웃 변경']);
-    expect(proposalChanges(view({ approval: 'pending' }))).toEqual(['공식 게시 신청: "Mine"']);
+    expect(proposalChanges(view({ approval: 'pending' }))).toEqual(['공식 등록 신청: "Mine"']);
   });
 });
 

@@ -24,7 +24,7 @@ const CODE_MAX = 64;
 /** Rows one apply call works before it answers `applying` (the server's budget is time; a small count makes the loop visible). */
 export const MOCK_APPLY_BATCH = 40;
 const ALIASES = {
-  vendor: ['메이커명', '메이커', '제조사', 'vendor_name'], model: ['모델명', '모델', 'model_name'], process: ['공정명', '공정', 'process_names'],
+  vendor: ['설비사명', '설비사', '메이커명', '메이커', '제조사', 'vendor_name'], model: ['모델명', '모델', 'model_name'], process: ['공정명', '공정', 'process_names'],
 } as const;
 const ambiguousFixtureName = 'alpha';
 
@@ -85,7 +85,7 @@ function pasteRefusal(text: string): { errors: FieldError[] } | { header: string
     if (found.length > 1) return { errors: refusal('duplicate_header', found) };
     if (found[0] !== undefined) mapping[field] = found[0];
   }
-  const missing = [!mapping['vendor_name'] ? '메이커명' : null, !mapping['model_name'] ? '모델명' : null].filter((h): h is string => h !== null);
+  const missing = [!mapping['vendor_name'] ? '설비사명' : null, !mapping['model_name'] ? '모델명' : null].filter((h): h is string => h !== null);
   if (missing.length > 0) return { errors: refusal('missing_header', missing) };
   const rows = table.slice(1);
   if (rows.length > MOCK_IMPORT_MAX_ROWS) return { errors: refusal('too_many_rows') };

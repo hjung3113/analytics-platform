@@ -101,7 +101,7 @@ test.describe('06 §21 저장된 뷰', () => {
     await saveShared(page, 'E2E 그룹 공유', { groups: ['포토공정1팀 (3명)', '주간 리뷰 모임 (3명)'] });
     await expect(toast(page, /"E2E 그룹 공유" 뷰를 저장하고 공유 대상을 정했습니다/)).toBeVisible();
     await saveShared(page, 'E2E 공식 신청', { official: true });
-    await expect(toast(page, /"E2E 공식 신청" 뷰를 저장하고 공식 게시를 신청했습니다/)).toBeVisible();
+    await expect(toast(page, /"E2E 공식 신청" 뷰를 저장하고 공식 등록을 신청했습니다/)).toBeVisible();
 
     const list = await openList(page);
     await expect(rowOf(list, 'E2E 그룹 공유')).toContainText('포토공정1팀 외 1');

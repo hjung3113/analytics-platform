@@ -223,7 +223,7 @@ GET /api/v1/platform/bootstrap
 2. 배열·객체가 있는 읽기를 `POST` 본문으로 받는 것이 FastAPI·사내 프록시·감사 규칙에 문제가 없는가? (§1)
 3. 판정된 결과(권한 거부, fire-and-forget의 거부 포함)를 전부 200 + envelope(또는 `accepted` 0/false)로 답하는 것이 가능한가? 사내 표준이 403을 요구하는가? FastAPI 기본 422를 envelope·fire-and-forget 경로에서 원시 dict 판정이나 `RequestValidationError` 핸들러로 바꾸는 데 동의하는가? (§2)
 4. 200이 아닌 응답 본문을 FO ADR-0012 모양(`{ code, message }`)으로 둘 것인가? 서버 `message`에 예외 문자열·SQL·스택·개인 값을 싣지 않는 규칙에 동의하는가? (§2)
-5. 부트스트랩 한 번에 세션·게시 지표·`defaultRangeTo`·`sessionVersion`·`csrfToken`을 줄 수 있는가? `sessionVersion`을 `Session` 정규화 JSON 해시로 만드는 데 동의하는가? 세션이 갱신(재로그인)될 때 `csrfToken`도 바뀌는가? (§3)
+5. 부트스트랩 한 번에 세션·발행 지표·`defaultRangeTo`·`sessionVersion`·`csrfToken`을 줄 수 있는가? `sessionVersion`을 `Session` 정규화 JSON 해시로 만드는 데 동의하는가? 세션이 갱신(재로그인)될 때 `csrfToken`도 바뀌는가? (§3)
 6. 5분마다 `session-state`를 읽는 부하가 괜찮은가(동시 ~100명)? 그 폴링을 세션 유휴 시간 연장에서 뺄 수 있는가(#150 세션 정책과 연결)? 세대 신호를 거기에 실을 수 있는가, 세대는 전역 하나인가 site·mart별인가? (§4, #165·#155·#150)
 7. 서버 쿼리 타임아웃 예산(제안 25초)과 DB 쿼리 취소가 가능한가? 클라이언트 30초에 동의하는가? (§5)
 8. CSRF를 세션 저장 토큰 + `X-CSRF-Token` 헤더로 할 것인가, 기능과 같은 정책(SameSite만)으로 맞출 것인가? "SameSite만"을 고르면 형제 서브도메인에서 오는 쓰기 위험을 받아들이는 것이다. 세션이 갱신될 때 토큰도 바뀌는가? `saveAnnotation`에 `Idempotency-Key`가 필요한가(타임아웃 뒤 중복 저장 — §6)? (§6)

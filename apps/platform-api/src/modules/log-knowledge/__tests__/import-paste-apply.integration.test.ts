@@ -57,7 +57,7 @@ describe.skipIf(!runIntegration)('catalog import by menu actions: paste and appl
   const key = (label: string) => toCodeKey(name(label));
   const sql = (text: string, params: unknown[] = []) => migrate.pool.query(text, params);
   const cookieHeader = (cookie: string) => ({ cookie: `${SESSION_COOKIE_NAME}=${cookie}` });
-  const HEADER = ['메이커명', '모델명', '공정명'];
+  const HEADER = ['설비사명', '모델명', '공정명'];
 
   let hooks: Hooks = {};
   const delegating: Hooks = {
@@ -206,7 +206,7 @@ describe.skipIf(!runIntegration)('catalog import by menu actions: paste and appl
       expect(job.headers).toEqual(HEADER);
       const stored = (await sql('select row_no, raw_json from knowledge.catalog_import_row where job_id = $1 order by row_no', [job.id])).rows;
       expect(stored).toHaveLength(3);
-      expect(stored[0].raw_json).toEqual({ 메이커명: name('MK0'), 모델명: name('MD0'), 공정명: `${name('P0')}, ${name('PX')}` });
+      expect(stored[0].raw_json).toEqual({ 설비사명: name('MK0'), 모델명: name('MD0'), 공정명: `${name('P0')}, ${name('PX')}` });
       // Staging only: the catalog is untouched.
       expect(await countBy('vendor')).toBe(0);
     });
@@ -265,12 +265,12 @@ describe.skipIf(!runIntegration)('catalog import by menu actions: paste and appl
       expect(missing).toMatchObject({ outcome: 'invalid', data: null });
       expect(missing.fieldErrors).toEqual([
         { path: ['text'], code: 'missing_header' },
-        { path: ['text', 'headers', '메이커명'], code: 'missing_header' },
+        { path: ['text', 'headers', '설비사명'], code: 'missing_header' },
       ]);
-      const dup = await act(admin, 'importPaste', { text: '메이커명\t제조사\t모델명\nA\tB\tC\n' });
+      const dup = await act(admin, 'importPaste', { text: '설비사명\t제조사\t모델명\nA\tB\tC\n' });
       expect(dup.fieldErrors).toEqual([
         { path: ['text'], code: 'duplicate_header' },
-        { path: ['text', 'headers', '메이커명'], code: 'duplicate_header' },
+        { path: ['text', 'headers', '설비사명'], code: 'duplicate_header' },
         { path: ['text', 'headers', '제조사'], code: 'duplicate_header' },
       ]);
       expect((await act(admin, 'importPaste', { text: '   \n' })).fieldErrors).toEqual([{ path: ['text'], code: 'empty' }]);

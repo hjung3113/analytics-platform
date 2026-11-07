@@ -8,8 +8,8 @@ import { EQUIPMENT, USERS, type RoleId } from '../../world';
 
 // Metric events are menu-owned seeds (ADR-0048); these three stand in for the metrics menu's seeds here.
 const METRIC_SEEDS: readonly AuditEvent[] = [
-  { id: 'metric:cycle_time:update', at: '2026-09-26T02:00:00.000Z', actor: 'park.seo', action: 'update', source: 'user', target: { type: 'metric', id: 'cycle_time', scopeId: null }, changes: { publicationState: ['draft', 'published'] }, reason: '게시 확정. mart 재계산 완료가 아닙니다.' },
-  { id: 'metric:cycle_time:create', at: '2026-09-20T02:00:00.000Z', actor: 'park.seo', action: 'create', source: 'user', target: { type: 'metric', id: 'cycle_time', scopeId: null }, changes: { metricVersion: [null, '4'] }, reason: '공정 구간으로 grain 설명 수정. 게시 포인터.' },
+  { id: 'metric:cycle_time:update', at: '2026-09-26T02:00:00.000Z', actor: 'park.seo', action: 'update', source: 'user', target: { type: 'metric', id: 'cycle_time', scopeId: null }, changes: { publicationState: ['draft', 'published'] }, reason: '발행 확정. mart 재계산 완료가 아닙니다.' },
+  { id: 'metric:cycle_time:create', at: '2026-09-20T02:00:00.000Z', actor: 'park.seo', action: 'create', source: 'user', target: { type: 'metric', id: 'cycle_time', scopeId: null }, changes: { metricVersion: [null, '4'] }, reason: '공정 구간으로 grain 설명 수정. 발행 포인터.' },
   { id: 'metric:wafer_move_count:retire', at: '2026-04-02T02:00:00.000Z', actor: 'choi.min', action: 'retire', source: 'user', target: { type: 'metric', id: 'wafer_move_count', scopeId: null }, changes: { publicationState: ['published', 'deprecated'] }, reason: '폐기. 기존 참조는 유지하고 최신으로 대체하지 않습니다.' },
 ];
 const auditTrail = (query: AuditTrailQuery, signal?: AbortSignal, opts?: AuditOptions) => auditTrailRead(query, signal, { seeds: METRIC_SEEDS, ...opts });
@@ -136,7 +136,7 @@ describe('auditTrail (issue #50: the console audit log)', () => {
     const res = await auditTrail(query, undefined, { role: 'admin', latency: 0 });
     expect(res.outcome).toBe('error');
     expect(res.message).toBe('Invalid audit filter');
-    expect(body(res)).not.toContain('게시 확정');
+    expect(body(res)).not.toContain('발행 확정');
   });
 
   it.each([['nope'], ['voc'], ['Future.Type:v2-x']])('answers the well-formed unknown type %s with empty and null data, not an error', async type => {

@@ -23,9 +23,11 @@ const NAMES = { vendor_name: 'maker', model_name: 'model', process_names: 'proc'
 
 describe('model header recognition', () => {
   it.each([
-    [['메이커명', '모델명', '공정명'], { vendor_name: '메이커명', model_name: '모델명', process_names: '공정명' }],
+    [['설비사명', '모델명', '공정명'], { vendor_name: '설비사명', model_name: '모델명', process_names: '공정명' }],
     [['제조사', '모델', '공정'], { vendor_name: '제조사', model_name: '모델', process_names: '공정' }],
     [['메이커', '모델명'], { vendor_name: '메이커', model_name: '모델명' }],
+    [['메이커명', '모델명'], { vendor_name: '메이커명', model_name: '모델명' }],
+    [['설비사', '모델명'], { vendor_name: '설비사', model_name: '모델명' }],
     [['vendor_name', 'model_name', 'process_names', 'memo'], { vendor_name: 'vendor_name', model_name: 'model_name', process_names: 'process_names' }],
     // trim + NFKC: a full-width ASCII alias and padding still match
     [[' ｖｅｎｄｏｒ＿ｎａｍｅ ', 'model_name'], { vendor_name: ' ｖｅｎｄｏｒ＿ｎａｍｅ ', model_name: 'model_name' }],
@@ -36,14 +38,14 @@ describe('model header recognition', () => {
   });
 
   it('reports a missing required header by its expected name', () => {
-    expect(recognizeModelHeaders(['모델명', '공정명'])).toEqual({ kind: 'failed', code: 'missing_header', headers: ['메이커명'] });
-    expect(recognizeModelHeaders(['메이커명'])).toEqual({ kind: 'failed', code: 'missing_header', headers: ['모델명'] });
-    expect(recognizeModelHeaders(['공정명'])).toEqual({ kind: 'failed', code: 'missing_header', headers: ['메이커명', '모델명'] });
+    expect(recognizeModelHeaders(['모델명', '공정명'])).toEqual({ kind: 'failed', code: 'missing_header', headers: ['설비사명'] });
+    expect(recognizeModelHeaders(['설비사명'])).toEqual({ kind: 'failed', code: 'missing_header', headers: ['모델명'] });
+    expect(recognizeModelHeaders(['공정명'])).toEqual({ kind: 'failed', code: 'missing_header', headers: ['설비사명', '모델명'] });
   });
 
   it('reports identical and alias-equivalent headers as duplicate_header naming them', () => {
-    expect(recognizeModelHeaders(['메이커명', '메이커명', '모델명'])).toEqual({ kind: 'failed', code: 'duplicate_header', headers: ['메이커명', '메이커명'] });
-    expect(recognizeModelHeaders(['메이커명', '제조사', '모델명'])).toEqual({ kind: 'failed', code: 'duplicate_header', headers: ['메이커명', '제조사'] });
+    expect(recognizeModelHeaders(['설비사명', '설비사명', '모델명'])).toEqual({ kind: 'failed', code: 'duplicate_header', headers: ['설비사명', '설비사명'] });
+    expect(recognizeModelHeaders(['설비사명', '제조사', '모델명'])).toEqual({ kind: 'failed', code: 'duplicate_header', headers: ['설비사명', '제조사'] });
   });
 
   it('leaves a sheet with no known header to importMap', () => {
@@ -55,24 +57,24 @@ describe('model header recognition', () => {
 describe('model upload: header failures are file-level and name the headers', () => {
   const opts = { recognizeHeaders: modelHeaderFailure };
   it('refuses a csv with a missing or duplicate header', async () => {
-    expect(await parseImportFile(enc('모델명,공정명\nX,CMP\n'), 'm.csv', opts)).toMatchObject({ ok: false, code: 'missing_header', status: 400, detail: ['메이커명'] });
-    expect(await parseImportFile(enc('메이커명,메이커명,모델명\nA,A,X\n'), 'm.csv', opts)).toMatchObject({ ok: false, code: 'duplicate_header', detail: ['메이커명', '메이커명'] });
-    expect(await parseImportFile(enc('메이커명,제조사,모델명\nA,A,X\n'), 'm.csv', opts)).toMatchObject({ ok: false, code: 'duplicate_header', detail: ['메이커명', '제조사'] });
+    expect(await parseImportFile(enc('모델명,공정명\nX,CMP\n'), 'm.csv', opts)).toMatchObject({ ok: false, code: 'missing_header', status: 400, detail: ['설비사명'] });
+    expect(await parseImportFile(enc('설비사명,설비사명,모델명\nA,A,X\n'), 'm.csv', opts)).toMatchObject({ ok: false, code: 'duplicate_header', detail: ['설비사명', '설비사명'] });
+    expect(await parseImportFile(enc('설비사명,제조사,모델명\nA,A,X\n'), 'm.csv', opts)).toMatchObject({ ok: false, code: 'duplicate_header', detail: ['설비사명', '제조사'] });
   });
   it('keeps blank-header refusal, and other entities refuse identical headers as before', async () => {
-    expect(await parseImportFile(enc('메이커명,,모델명\nA,B,X\n'), 'm.csv', opts)).toMatchObject({ ok: false, code: 'invalid_headers' });
+    expect(await parseImportFile(enc('설비사명,,모델명\nA,B,X\n'), 'm.csv', opts)).toMatchObject({ ok: false, code: 'invalid_headers' });
     expect(await parseImportFile(enc('a,b,a\n1,2,3\n'), 'v.csv')).toMatchObject({ ok: false, code: 'invalid_headers' });
     expect(await parseImportFile(enc('a,b,a\n1,2,3\n'), 'm.csv', opts)).toMatchObject({ ok: false, code: 'duplicate_header', detail: ['a', 'a'] });
-    expect(await parseImportFile(enc('메이커명,모델명,memo,memo\nA,X,1,2\n'), 'm.csv', opts)).toMatchObject({ ok: false, code: 'duplicate_header', detail: ['memo', 'memo'] });
+    expect(await parseImportFile(enc('설비사명,모델명,memo,memo\nA,X,1,2\n'), 'm.csv', opts)).toMatchObject({ ok: false, code: 'duplicate_header', detail: ['memo', 'memo'] });
     expect(await parseImportFile(enc('v,c,n,n\n1,2,3,4\n'), 'm.csv', opts)).toMatchObject({ ok: false, code: 'duplicate_header', detail: ['n', 'n'] });
   });
   it('refuses an xlsx the same way', async () => {
     const wb = new ExcelJS.Workbook();
     const sheet = wb.addWorksheet('s');
-    sheet.addRow(['메이커명', '메이커명', '모델명']);
+    sheet.addRow(['설비사명', '설비사명', '모델명']);
     sheet.addRow(['A', 'A', 'X']);
     const bytes = new Uint8Array(await wb.xlsx.writeBuffer());
-    const failure: Extract<Awaited<ReturnType<typeof parseImportFile>>, { ok: false }> = { ok: false, code: 'duplicate_header', status: 400, detail: ['메이커명', '메이커명'] };
+    const failure: Extract<Awaited<ReturnType<typeof parseImportFile>>, { ok: false }> = { ok: false, code: 'duplicate_header', status: 400, detail: ['설비사명', '설비사명'] };
     expect(await parseImportFile(bytes, 'm.xlsx', opts)).toEqual(failure satisfies { detail?: HeaderFailure['headers'] });
   });
 });

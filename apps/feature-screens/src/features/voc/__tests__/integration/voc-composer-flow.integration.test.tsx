@@ -353,7 +353,7 @@ describe('Composer flow — integration (C6.3)', () => {
     fireEvent.click(await screen.findByRole('option', { name: '해결됨' }));
 
     // Find the Publish button on the ComposerFooter and click it
-    const publishBtn = screen.getByRole('button', { name: /담당자 답변 게시/ });
+    const publishBtn = screen.getByRole('button', { name: /답변 공개/ });
     expect(publishBtn).not.toBeDisabled();
 
     await act(async () => {
@@ -373,7 +373,7 @@ describe('Composer flow — integration (C6.3)', () => {
 
     // Success toast fired
     await waitFor(() => {
-      expect(toast.success).toHaveBeenCalledWith('담당자 답변이 게시되었습니다.');
+      expect(toast.success).toHaveBeenCalledWith('답변이 공개되었습니다.');
     });
   });
 
@@ -431,7 +431,7 @@ describe('Composer flow — integration (C6.3)', () => {
     const editor = screen.getByTestId('rich-editor-public-update');
     fireEvent.change(editor, { target: { value: '쿼리 무효화 테스트' } });
 
-    const publishBtn = screen.getByRole('button', { name: /담당자 답변 게시/ });
+    const publishBtn = screen.getByRole('button', { name: /답변 공개/ });
     await act(async () => {
       fireEvent.click(publishBtn);
     });
@@ -457,12 +457,12 @@ describe('Composer flow — integration (C6.3)', () => {
       </Wrapper>,
     );
 
-    fillPublicUpdate('미리보기에서 게시합니다.');
+    fillPublicUpdate('미리보기에서 공개합니다.');
     fireEvent.click(screen.getByRole('button', { name: '미리보기' }));
     const preview = await previewDialog();
 
     await act(async () => {
-      fireEvent.click(within(preview).getByRole('button', { name: '담당자 답변 게시' }));
+      fireEvent.click(within(preview).getByRole('button', { name: '답변 공개' }));
     });
 
     await waitFor(() => expect(requests).toHaveLength(1));
@@ -479,7 +479,7 @@ describe('Composer flow — integration (C6.3)', () => {
       body_rich_content: {
         type: 'doc',
         content: [
-          { type: 'paragraph', content: [{ type: 'text', text: '미리보기에서 게시합니다.' }] },
+          { type: 'paragraph', content: [{ type: 'text', text: '미리보기에서 공개합니다.' }] },
         ],
       },
       next_reporter_facing_status: 'progress',
@@ -524,7 +524,7 @@ describe('Composer flow — integration (C6.3)', () => {
     await screen.findByTestId('rich-editor-public-update');
     fireEvent.click(screen.getByRole('button', { name: '미리보기' }));
     const preview = await previewDialog();
-    const publish = within(preview).getByRole('button', { name: '담당자 답변 게시' });
+    const publish = within(preview).getByRole('button', { name: '답변 공개' });
     expect(publish).toBeDisabled();
     fireEvent.click(publish);
     await flushMutations();
@@ -543,7 +543,7 @@ describe('Composer flow — integration (C6.3)', () => {
     fillPublicUpdate('게이트가 막은 업데이트');
     fireEvent.click(screen.getByRole('button', { name: '미리보기' }));
     const preview = await previewDialog();
-    const publish = within(preview).getByRole('button', { name: '담당자 답변 게시' });
+    const publish = within(preview).getByRole('button', { name: '답변 공개' });
     expect(publish).toBeDisabled();
     fireEvent.click(publish);
     await flushMutations();
@@ -572,7 +572,7 @@ describe('Composer flow — integration (C6.3)', () => {
     await screen.findByText(/업로드 중/);
     fireEvent.click(screen.getByRole('button', { name: '미리보기' }));
     const preview = await previewDialog();
-    const publish = within(preview).getByRole('button', { name: '담당자 답변 게시' });
+    const publish = within(preview).getByRole('button', { name: '답변 공개' });
     expect(publish).toBeDisabled();
     fireEvent.click(publish);
     await flushMutations();
@@ -584,7 +584,7 @@ describe('Composer flow — integration (C6.3)', () => {
     // Once the upload settles the same control becomes publishable — proving the
     // assertion above was blocked by the upload, not by a permanently dead button.
     await waitFor(() =>
-      expect(within(preview).getByRole('button', { name: '담당자 답변 게시' })).toBeEnabled(),
+      expect(within(preview).getByRole('button', { name: '답변 공개' })).toBeEnabled(),
     );
   });
 
@@ -610,7 +610,7 @@ describe('Composer flow — integration (C6.3)', () => {
     fillPublicUpdate('프리뷰 연타 방지');
     fireEvent.click(screen.getByRole('button', { name: '미리보기' }));
     const preview = await previewDialog();
-    const publish = within(preview).getByRole('button', { name: '담당자 답변 게시' });
+    const publish = within(preview).getByRole('button', { name: '답변 공개' });
     await act(async () => {
       fireEvent.click(publish);
       fireEvent.click(publish);
@@ -642,7 +642,7 @@ describe('Composer flow — integration (C6.3)', () => {
     );
 
     fillPublicUpdate('푸터 발행 회귀 방지');
-    fireEvent.click(screen.getByRole('button', { name: '담당자 답변 게시' }));
+    fireEvent.click(screen.getByRole('button', { name: '답변 공개' }));
 
     await waitFor(() => expect(capturedBody).toBeTruthy());
     expect(String(capturedRequest?.input)).toContain(`/vocs/${VOC_ADMIN_VIEW.id}/public-updates`);

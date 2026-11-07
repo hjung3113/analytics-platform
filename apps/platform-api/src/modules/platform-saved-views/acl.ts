@@ -17,7 +17,7 @@ const TRANSITIONS: Readonly<Record<ApprovalAction, readonly ApprovalState[]>> = 
 export const canTransition = (approval: ApprovalState, action: ApprovalAction): boolean =>
   TRANSITIONS[action].includes(approval);
 
-export const REVOKE_NOTE = '공식 게시가 회수되어 개인 비공개로 돌아왔습니다.';
+export const REVOKE_NOTE = '공식 등록이 회수되어 개인 비공개로 돌아왔습니다.';
 
 export interface ViewBody {
   context: Record<string, unknown>;
@@ -140,7 +140,7 @@ export function capabilitiesOf(
       ? {}
       : {
           reason: published
-            ? '공식 게시본은 직접 편집할 수 없습니다. 변경하면 재승인을 요청합니다.'
+            ? '공식 등록본은 직접 편집할 수 없습니다. 변경하면 재승인을 요청합니다.'
             : '다른 사람의 뷰입니다. 복제해서 편집하세요.',
         }),
   };
@@ -210,7 +210,7 @@ const differs = (x: unknown, y: unknown) => JSON.stringify(x) !== JSON.stringify
 /** Plain lines for what an approval would publish: the fields a pending edit changes, or the plain request for a first publication. */
 export function proposalChanges(view: ViewRecord): string[] {
   const pending = view.pending;
-  if (!pending) return [`공식 게시 신청: "${view.name}"`];
+  if (!pending) return [`공식 등록 신청: "${view.name}"`];
   const lines: string[] = [];
   if (pending.name !== view.name) lines.push(`이름 "${view.name}" → "${pending.name}"`);
   if (differs(pending.content.context, view.content.context)) lines.push('조회 조건 변경');

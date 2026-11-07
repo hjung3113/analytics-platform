@@ -11,9 +11,9 @@ export const DETAIL_PAGE_SIZE = 200;
 export const RESOLVE_BATCH = 500;
 export const BUSY_WAIT_MS = 2000;
 export const BUSY_TRIES = 30;
-export const TEMPLATE_HEADER = '메이커명\t공정명\t모델명';
+export const TEMPLATE_HEADER = '설비사명\t공정명\t모델명';
 export const EXAMPLE = {
-  header: ['메이커명', '공정명', '모델명'],
+  header: ['설비사명', '공정명', '모델명'],
   rows: [['Alpha Semicap', 'Etch, Deposition', 'Alpha 300'], ['Beta Systems', 'Planarization', 'Beta 40']],
 } as const;
 
@@ -37,7 +37,7 @@ export const JOB_STATUS_LABEL: Record<ImportJobStatus, string> = {
 };
 /** Column names as the owner's sheet writes them; the server's field ids never show. */
 export const FIELD_LABEL: Record<string, string> = {
-  vendor_name: '메이커명', vendor_code: '메이커명', model_name: '모델명', model_code: '모델명', process_names: '공정명', process_codes: '공정명', process_name: '공정명', process_code: '공정명',
+  vendor_name: '설비사명', vendor_code: '설비사명', model_name: '모델명', model_code: '모델명', process_names: '공정명', process_codes: '공정명', process_name: '공정명', process_code: '공정명',
 };
 
 /** Row error and conflict codes of the plan (contract §Catalog import: validate, §by names). */
@@ -99,11 +99,11 @@ export function actionFailureText(outcome: string): string {
 
 /** File-level refusal codes of `importPaste` (contract §paste). */
 const PASTE_SENTENCE: Record<string, (headers: string[]) => string> = {
-  missing_header: headers => (headers.length > 0 ? `${headers.map(h => `‘${h}’`).join(', ')} 머리글이 없습니다. 첫 줄에 메이커명, 모델명(공정명은 선택) 머리글이 있어야 합니다.` : '필요한 머리글이 없습니다.'),
+  missing_header: headers => (headers.length > 0 ? `${headers.map(h => `‘${h}’`).join(', ')} 머리글이 없습니다. 첫 줄에 설비사명, 모델명(공정명은 선택) 머리글이 있어야 합니다.` : '필요한 머리글이 없습니다.'),
   duplicate_header: headers => `${headers.map(h => `‘${h}’`).join(', ')} 머리글이 같은 열로 겹칩니다. 한 열만 남겨 주세요.`,
   invalid_headers: () => '비어 있는 머리글이 있습니다. 첫 줄의 모든 칸에 열 이름을 적어 주세요.',
   empty: () => '붙여넣은 내용이 없습니다.',
-  too_many_columns: () => '열이 너무 많습니다. 메이커명 · 공정명 · 모델명 열만 복사해 주세요.',
+  too_many_columns: () => '열이 너무 많습니다. 설비사명 · 공정명 · 모델명 열만 복사해 주세요.',
   unreadable: () => '줄마다 칸 수가 달라 읽을 수 없습니다. 엑셀에서 열을 그대로 복사했는지 확인하세요.',
   too_many_rows: () => `한 번에 ${PASTE_ROW_LIMIT.toLocaleString('ko-KR')}행까지 가져올 수 있습니다. 나누어 붙여넣어 주세요.`,
   file_too_large: () => '내용이 너무 큽니다. 나누어 붙여넣어 주세요.',
@@ -123,7 +123,7 @@ export function pasteRefusalText(errors: readonly FieldError[]): { text: string;
 
 // ---- row cells ---------------------------------------------------------------------------------------------------
 
-const ALIASES = { vendor: ['vendor_name', '메이커명', '메이커', '제조사'], model: ['model_name', '모델명', '모델'], process: ['process_names', '공정명', '공정'] } as const;
+const ALIASES = { vendor: ['vendor_name', '설비사명', '설비사', '메이커명', '메이커', '제조사'], model: ['model_name', '모델명', '모델'], process: ['process_names', '공정명', '공정'] } as const;
 const fold = (value: string): string => value.normalize('NFKC').trim().toLowerCase();
 
 /** The pasted maker / model / process text of a row: the job's own header mapping first, else the alias list. */

@@ -14,7 +14,7 @@ export const savedViewDefaultStorageKey = (userId: string, menuId: string | null
 export const savedViewGroupsStorageKey = () => 'platform:saved-view-groups:v1:' + tuple();
 /** One origin lock serializes every mutation of every key (views, defaults, groups) across tabs. */
 const LOCK = 'platform:saved-views:v1';
-const REVOKE_NOTE = '공식 게시가 회수되어 개인 비공개로 돌아왔습니다.';
+const REVOKE_NOTE = '공식 등록이 회수되어 개인 비공개로 돌아왔습니다.';
 
 const fail = (reason: 'conflict' | 'forbidden' | 'unavailable' | 'invalid', detail?: string): Result<never> => ({ ok: false, reason, ...(detail ? { detail } : {}) });
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -117,7 +117,7 @@ function evaluate(stored: Stored, a: Actor, groups: readonly GroupRecord[], perm
     canShare: (owner || manager) && !isOfficial(shown),
     canApprove: a.admin && canTransition(shown.approval, 'approve'),
     canRevoke: a.admin && isOfficial(v) && canTransition(v.approval, 'revoke'),
-    ...(canEdit ? {} : { reason: published ? '공식 게시본은 직접 편집할 수 없습니다. 변경하면 재승인을 요청합니다.' : '다른 사람의 뷰입니다. 복제해서 편집하세요.' }),
+    ...(canEdit ? {} : { reason: published ? '공식 등록본은 직접 편집할 수 없습니다. 변경하면 재승인을 요청합니다.' : '다른 사람의 뷰입니다. 복제해서 편집하세요.' }),
   };
   return { view: shown, capabilities };
 }
@@ -125,7 +125,7 @@ function evaluate(stored: Stored, a: Actor, groups: readonly GroupRecord[], perm
 /** Plain lines for what an approval would publish: the fields a pending edit changes, or the plain request for a first publication. */
 function proposalChanges(stored: Stored): string[] {
   const { pending, ...published } = stored;
-  if (!pending) return [`공식 게시 신청: "${published.name}"`];
+  if (!pending) return [`공식 등록 신청: "${published.name}"`];
   const lines: string[] = [];
   const differs = (x: unknown, y: unknown) => JSON.stringify(x) !== JSON.stringify(y);
   if (pending.name !== published.name) lines.push(`이름 "${published.name}" → "${pending.name}"`);

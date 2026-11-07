@@ -28,7 +28,7 @@ export function importColumns(mode: 'plan' | 'result', mapping: Record<string, s
   const text = (kind: 'vendor' | 'model' | 'process') => (r: ImportRowView) => cellOf(r, kind, mapping);
   const first: PlatformColumn<ImportRowView>[] = [
     { id: 'rowNo', header: '행', size: 64, align: 'right', cell: r => <span className="tabular">{r.rowNo}</span>, exportValue: r => r.rowNo },
-    { id: 'vendor', header: '메이커명', size: 150, sortable: false, cell: text('vendor'), exportValue: text('vendor') },
+    { id: 'vendor', header: '설비사명', size: 150, sortable: false, cell: text('vendor'), exportValue: text('vendor') },
     { id: 'process', header: '공정명', size: 170, sortable: false, cell: text('process'), exportValue: text('process') },
     { id: 'model', header: '모델명', size: 170, sortable: false, cell: text('model'), exportValue: text('model') },
   ];

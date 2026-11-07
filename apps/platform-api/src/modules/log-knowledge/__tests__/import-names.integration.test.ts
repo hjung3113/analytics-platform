@@ -192,7 +192,7 @@ describe.skipIf(!runIntegration)('catalog import by names (#1195 b2)', () => {
     await seedNamed('vendor', a, name('Alpha'), 'Alpha'); // code = name: found by code_key
     await seedNamed('vendor', a, `${TAG}-BETA-CODE`, 'Beta'); // code differs: found by name
     await seedNamed('process_category', a, name('CMP'), 'CMP');
-    const header = '메이커명,모델명,공정명';
+    const header = '설비사명,모델명,공정명';
     const lines: string[] = [];
     const makers = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']; // Gamma, Delta, Epsilon are new
     const processes = [['CMP'], ['CMP', 'Etch'], ['Etch', 'Clean'], ['Litho']]; // Etch, Clean, Litho are new
@@ -203,7 +203,7 @@ describe.skipIf(!runIntegration)('catalog import by names (#1195 b2)', () => {
 
     const jobId = await stage(a, csv);
     const shown = await detail(a, jobId);
-    expect(shown.job.mapping).toEqual({ vendor_name: '메이커명', model_name: '모델명', process_names: '공정명' });
+    expect(shown.job.mapping).toEqual({ vendor_name: '설비사명', model_name: '모델명', process_names: '공정명' });
     expect(shown.rows.map((r) => r.planState)).toEqual(Array(12).fill('new'));
     expect(shown.rows[2]?.creates).toEqual({ vendor: name('Gamma'), processes: [name('Etch'), name('Clean')] });
     expect(shown.rows[0]?.creates).toBeNull();
@@ -252,13 +252,13 @@ describe.skipIf(!runIntegration)('catalog import by names (#1195 b2)', () => {
     const a = await admin();
     const missing = await uploadRaw(a, '모델명,공정명\nX,CMP\n');
     expect(missing.statusCode).toBe(400);
-    expect(missing.json()).toMatchObject({ code: 'missing_header', detail: { headers: ['메이커명'] } });
-    const dup = await uploadRaw(a, '메이커명,제조사,모델명\nA,A,X\n');
+    expect(missing.json()).toMatchObject({ code: 'missing_header', detail: { headers: ['설비사명'] } });
+    const dup = await uploadRaw(a, '설비사명,제조사,모델명\nA,A,X\n');
     expect(dup.statusCode).toBe(400);
-    expect(dup.json()).toMatchObject({ code: 'duplicate_header', detail: { headers: ['메이커명', '제조사'] } });
-    const same = await uploadRaw(a, '메이커명,메이커명,모델명\nA,A,X\n');
-    expect(same.json()).toMatchObject({ code: 'duplicate_header', detail: { headers: ['메이커명', '메이커명'] } });
-    const unknownDup = await uploadRaw(a, '메이커명,모델명,memo,memo\nA,X,1,2\n');
+    expect(dup.json()).toMatchObject({ code: 'duplicate_header', detail: { headers: ['설비사명', '제조사'] } });
+    const same = await uploadRaw(a, '설비사명,설비사명,모델명\nA,A,X\n');
+    expect(same.json()).toMatchObject({ code: 'duplicate_header', detail: { headers: ['설비사명', '설비사명'] } });
+    const unknownDup = await uploadRaw(a, '설비사명,모델명,memo,memo\nA,X,1,2\n');
     expect(unknownDup.statusCode).toBe(400);
     expect(unknownDup.json()).toMatchObject({ code: 'duplicate_header', detail: { headers: ['memo', 'memo'] } });
     // Vendor uploads keep the old refusal and start unmapped.
@@ -271,8 +271,8 @@ describe.skipIf(!runIntegration)('catalog import by names (#1195 b2)', () => {
     const a = await admin();
     const b = await admin();
     const shared = 'Shared Maker';
-    const jobA = await stage(a, `메이커명,모델명\n${name(shared)},${name('SM-A')}\n`);
-    const jobB = await stage(b, `메이커명,모델명\n${name(shared)},${name('SM-B')}\n`);
+    const jobA = await stage(a, `설비사명,모델명\n${name(shared)},${name('SM-A')}\n`);
+    const jobB = await stage(b, `설비사명,모델명\n${name(shared)},${name('SM-B')}\n`);
     let calls = 0;
     let release: () => void = () => undefined;
     const gate = new Promise<void>((resolve) => {
@@ -350,13 +350,13 @@ describe.skipIf(!runIntegration)('catalog import by names (#1195 b2)', () => {
     let sheetA: string;
     let sheetB: string;
     if (which === 'maker') {
-      sheetA = `메이커명,모델명\n${shared},${modelA}\n`;
-      sheetB = `메이커명,모델명\n${shared},${modelB}\n`;
+      sheetA = `설비사명,모델명\n${shared},${modelA}\n`;
+      sheetB = `설비사명,모델명\n${shared},${modelB}\n`;
     } else {
       const maker = await seedNamed('vendor', a, name('Raced host'), 'Raced host');
       expect(maker).toBeTruthy();
-      sheetA = `메이커명,모델명,공정명\n${name('Raced host')},${modelA},${shared}\n`;
-      sheetB = `메이커명,모델명,공정명\n${name('Raced host')},${modelB},${shared}\n`;
+      sheetA = `설비사명,모델명,공정명\n${name('Raced host')},${modelA},${shared}\n`;
+      sheetB = `설비사명,모델명,공정명\n${name('Raced host')},${modelB},${shared}\n`;
     }
     const jobA = await stage(a, sheetA);
     const jobB = await stage(b, sheetB);
@@ -411,7 +411,7 @@ describe.skipIf(!runIntegration)('catalog import by names (#1195 b2)', () => {
     const a = await admin();
     const shared = name('Late inactive process');
     const model = name('LR-Model');
-    const jobId = await stage(a, `메이커명,모델명,공정명\n${name('LR-Maker')},${model},"${name('LR-Early')}, ${shared}"\n`);
+    const jobId = await stage(a, `설비사명,모델명,공정명\n${name('LR-Maker')},${model},"${name('LR-Early')}, ${shared}"\n`);
     const result = await loseProcessRaceToInactive(a, jobId, shared);
     expect(await rowOutcome(jobId)).toEqual([{ apply_status: 'conflict', apply_error: 'process_inactive' }]);
     expect(result).toMatchObject({ status: 'partial_failure', counts: { conflict: 1 } });
@@ -432,7 +432,7 @@ describe.skipIf(!runIntegration)('catalog import by names (#1195 b2)', () => {
     const m1 = await seed('equipment_model', { ...stamp(a), vendor_id: keeper, code: `${TAG}-L1`, code_key: toCodeKey(`${TAG}-L1`), name: dup });
     await seed('equipment_model', { ...stamp(a), vendor_id: keeper, code: `${TAG}-L2`, code_key: toCodeKey(`${TAG}-L2`), name: dup });
     const shared = name('LR2-Late inactive');
-    const jobId = await stage(a, `메이커명,모델명,공정명\n${name('LR2-Keeper')},${dup},"${name('LR2-Early')}, ${shared}"\n`);
+    const jobId = await stage(a, `설비사명,모델명,공정명\n${name('LR2-Keeper')},${dup},"${name('LR2-Early')}, ${shared}"\n`);
     expect((await detail(a, jobId)).rows[0]).toMatchObject({ planState: 'conflict' });
     expect((await act(a, 'importResolve', { jobId, resolutions: [{ rowNo: 1, resolution: 'map', mapTargetId: m1 }] })).outcome).toBe('ok');
     const result = await loseProcessRaceToInactive(a, jobId, shared);
@@ -448,7 +448,7 @@ describe.skipIf(!runIntegration)('catalog import by names (#1195 b2)', () => {
   it('a process named twice in one cell (case and spacing differ) is created once and linked once', async () => {
     const a = await admin();
     const model = name('Dd-Model');
-    const jobId = await stage(a, `메이커명,모델명,공정명\n${name('Dd-Maker')},${model},"${name('Dd-Proc')},  ${name('dd-proc')} "\n`);
+    const jobId = await stage(a, `설비사명,모델명,공정명\n${name('Dd-Maker')},${model},"${name('Dd-Proc')},  ${name('dd-proc')} "\n`);
     expect((await detail(a, jobId)).rows[0]).toMatchObject({ planState: 'new', creates: { processes: [name('Dd-Proc')] } });
     expect(await apply(a, jobId)).toMatchObject({ status: 'completed', counts: { applied: 1 } });
     expect((await sql(`select name from knowledge.process_category where workspace_id = $1 and lower(name) = lower($2)`, [WORKSPACE_ID, name('Dd-Proc')])).rows).toEqual([{ name: name('Dd-Proc') }]);
@@ -468,7 +468,7 @@ describe.skipIf(!runIntegration)('catalog import by names (#1195 b2)', () => {
     const m1 = await seed('equipment_model', { ...stamp(a), vendor_id: keeper, code: `${TAG}-K1`, code_key: toCodeKey(`${TAG}-K1`), name: name('Dup Model') });
     await seed('equipment_model', { ...stamp(a), vendor_id: keeper, code: `${TAG}-K2`, code_key: toCodeKey(`${TAG}-K2`), name: name('Dup Model') });
     const csv = [
-      '메이커명,모델명',
+      '설비사명,모델명',
       `${name('Dormant')},${name('D1')}`, // parent_inactive
       `${name('Twin')},${name('T1')}`, // ambiguous_parent
       `${name('Keeper')},${name('Dup Model')}`, // ambiguous_name
