@@ -7,6 +7,7 @@ import { and, eq } from 'drizzle-orm';
 import { equipmentModels, softwareVersions } from '../../db/schema/knowledge.js';
 import type { Tx } from '../../db/tx.js';
 import { type SpecPin, changeSetDigest } from './domain/spec-pin.js';
+import { lockModelChanges } from './repositories/spec-change.js';
 import { getModelSpec, loadApplicableChanges } from './repositories/spec-read.js';
 
 export type { SpecPin };
@@ -49,6 +50,9 @@ export const knowledgeLookup: KnowledgeLookup = {
     return row ?? null;
   },
   async getEffectiveSpecPin(tx, workspaceId, modelId, softwareId) {
+    // The model lock publish and SW-change writes take: the revision and the change list below are read as one
+    // committed state, never a revision of one moment with the changes of the next (review C1).
+    await lockModelChanges(tx, workspaceId, modelId);
     const spec = await getModelSpec(tx, workspaceId, modelId);
     if (!spec) return null;
     let changes: Awaited<ReturnType<typeof loadApplicableChanges>> = [];

@@ -503,6 +503,28 @@ describe.skipIf(!runIntegration)('log lifecycle (#1444 c)', () => {
       expect(await events(project.id)).toHaveLength(2); // rounds write no development_event
     });
 
+    it('waits for the model change lock (publish / SW change) before reading the pin, so revision and changes are one state', async () => {
+      const model = await newModel();
+      await publishSpec(model);
+      const project = await makeProject({ modelId: model });
+      const holder = await migrate.pool.connect();
+      try {
+        await holder.query('begin');
+        await holder.query('select pg_advisory_xact_lock(hashtextextended($1, 0))', [`spec-change:${WORKSPACE_ID.toLowerCase()}:${model.toLowerCase()}`]);
+        let settled = false;
+        const pending = openRound(project.id).then((a) => {
+          settled = true;
+          return a;
+        });
+        await new Promise((r) => setTimeout(r, 300));
+        expect(settled).toBe(false);
+        await holder.query('commit');
+        expect((await pending).outcome).toBe('ok');
+      } finally {
+        holder.release();
+      }
+    });
+
     it('pins the published revision and the digest of the applicable changes; a client specPin is not an input', async () => {
       const model = await newModel();
       const rev = await publishSpec(model);
@@ -686,7 +708,9 @@ describe.skipIf(!runIntegration)('log lifecycle (#1444 c)', () => {
       expect(await ids([])).toEqual([none, reg.modelId, kick.modelId, inactive].sort());
       expect(await ids([{ id: 'stage', op: 'in', value: ['kickoff'] }])).toEqual([kick.modelId]);
       expect(await ids([{ id: 'stage', op: 'in', value: ['registered', 'kickoff'] }])).toEqual([reg.modelId, kick.modelId].sort());
-      expect(await ids([{ id: 'stage', op: 'notIn', value: ['kickoff'] }])).toEqual([none, reg.modelId, inactive].sort());
+      expect(await ids([{ id: 'stage', op: 'notIn', value: ['kickoff'] }])).toEqual([reg.modelId]);
+      expect(await ids([{ id: 'stage', op: 'notIn', value: ['completed'] }])).toEqual([reg.modelId, kick.modelId].sort());
+      expect(await ids([{ id: 'stage', op: 'in', value: ['completed', 'cancelled'] }])).toEqual([]);
       expect(await ids([{ id: 'stage', op: 'isEmpty' }])).toEqual([none, inactive].sort());
       expect(await ids([{ id: 'stage', op: 'isNotEmpty' }])).toEqual([reg.modelId, kick.modelId].sort());
       expect(await ids([{ id: 'processes', op: 'in', value: [processId] }])).toEqual([kick.modelId]);
@@ -697,10 +721,10 @@ describe.skipIf(!runIntegration)('log lifecycle (#1444 c)', () => {
       await sql('delete from knowledge.process_category where id = $1', [processId]);
     });
 
-    it('models refuses unknown params, unknown filter fields, a completed stage value and does not show another workspace\'s models', async () => {
+    it('models refuses unknown params, unknown filter fields, an unknown stage value and does not show another workspace\'s models', async () => {
       expect((await read('models', { nope: 1 })).outcome).toBe('error');
       expect((await read('models', { filters: [{ id: 'validation', op: 'in', value: ['x'] }] })).outcome).toBe('error');
-      expect((await read('models', { filters: [{ id: 'stage', op: 'in', value: ['completed'] }] })).outcome).toBe('error');
+      expect((await read('models', { filters: [{ id: 'stage', op: 'in', value: ['shipped'] }] })).outcome).toBe('error');
       expect((await read('models', { sorting: [{ id: 'nope', desc: false }] })).outcome).toBe('error');
       const page = await read('models', { filters: [{ id: 'id', op: 'in', value: [foreignModel] }] });
       expect(page.data.total).toBe(0);

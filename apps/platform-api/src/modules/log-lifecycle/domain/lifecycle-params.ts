@@ -4,7 +4,7 @@
 import type { CatalogFilterFieldSpec } from '../../../lib/list-params/catalog-filters.js';
 import { PAGE_SIZE_MAX, parseListParams } from '../../../lib/list-params/list-params.js';
 import type { ListQuery } from '../../../lib/list-params/types.js';
-import { OPEN_STAGES } from './stage-transitions.js';
+import { STAGES } from './stage-transitions.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 type Fail = { ok: false; message: string };
@@ -27,7 +27,7 @@ export const MODEL_FILTER_SPECS = {
     multiple: true,
     cell: 'scalar',
     values: 'enum',
-    allowed: OPEN_STAGES,
+    allowed: STAGES,
   },
 } as const satisfies Record<string, CatalogFilterFieldSpec>;
 

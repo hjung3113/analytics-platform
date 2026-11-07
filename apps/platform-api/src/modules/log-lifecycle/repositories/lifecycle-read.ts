@@ -52,14 +52,14 @@ function columnFilter(column: AnyPgColumn, condition: FilterCondition | undefine
   return condition.op === 'notIn' ? notInArray(column, values) : inArray(column, values);
 }
 
-/** `stage` of the open project: `isEmpty` = no open project; `notIn` also keeps the models without one. */
+/** `stage` of the open project: `isEmpty` = no open project; `notIn` excludes models without one (ADR-0105: a negative operator excludes empty). */
 function stageFilter(condition: FilterCondition | undefined): SQL | undefined {
   if (!condition) return undefined;
   switch (condition.op) {
     case 'in':
       return inArray(p.stage, condition.values);
     case 'notIn':
-      return or(isNull(p.id), notInArray(p.stage, condition.values));
+      return and(isNotNull(p.id), notInArray(p.stage, condition.values));
     case 'isEmpty':
       return isNull(p.id);
     default:
