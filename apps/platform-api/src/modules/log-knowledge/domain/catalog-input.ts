@@ -3,12 +3,12 @@
 // Codes: `required` (missing, wrong type or blank), `too_long`, `malformed` (not a uuid, control
 // character), `duplicate` (the same id twice in `processIds`). Lengths count code points, like the DB CHECKs.
 
+import { isUuid } from '../../../lib/input/fields.js';
 import type { FieldError } from '../../menu-dispatch/types.js';
 import { unsafeText } from '../../platform-port/text-safety.js';
 import { CODE_MAX, NAME_MAX } from './code-key.js';
 
 export const PROCESS_IDS_MAX = 200;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const length = (value: string): number => [...value].length;
 
@@ -30,7 +30,7 @@ function textErrors(
 const idErrors = (input: Record<string, unknown>, field: string): FieldError[] => {
   const value = input[field];
   if (typeof value !== 'string' || value === '') return [{ path: [field], code: 'required' }];
-  return UUID.test(value) ? [] : [{ path: [field], code: 'malformed' }];
+  return isUuid(value) ? [] : [{ path: [field], code: 'malformed' }];
 };
 
 function processIdsErrors(input: Record<string, unknown>): FieldError[] {
@@ -40,7 +40,7 @@ function processIdsErrors(input: Record<string, unknown>): FieldError[] {
   const errors: FieldError[] = [];
   const seen = new Set<string>();
   value.forEach((entry: unknown, index) => {
-    if (typeof entry !== 'string' || !UUID.test(entry)) {
+    if (typeof entry !== 'string' || !isUuid(entry)) {
       errors.push({ path: ['processIds', String(index)], code: 'malformed' });
     } else if (seen.has(entry.toLowerCase())) {
       errors.push({ path: ['processIds', String(index)], code: 'duplicate' });

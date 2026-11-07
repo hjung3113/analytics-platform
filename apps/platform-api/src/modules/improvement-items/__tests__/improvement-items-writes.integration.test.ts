@@ -298,6 +298,9 @@ describe.skipIf(!runIntegration)('improvement item writes (#1328 b)', () => {
       ['a quest id without a title', { questId: 'q' }, 'questTitle:required'],
       ['a malformed date', { actionDate: '2026-02-30' }, 'actionDate:malformed'],
       ['an unknown target kind', { targets: [{ kind: 'room', externalKey: 'k', displayName: 'n' }] }, 'targets.0.kind:malformed'],
+      // #1411: a wrong type is `required` (aligned with log-knowledge), not `malformed`.
+      ['a non-string problem', { problem: 5 }, 'problem:required'],
+      ['a non-string assignee id', { assigneeId: 5 }, 'assigneeId:required'],
     ])('refuses %s as a field error', async (_name, over, code) => {
       const a = await act('itemCreate', { problem: `v ${TAG}`, origin: ORIGIN, ...over });
       expect(a.outcome).toBe('invalid');

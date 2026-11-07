@@ -1,25 +1,19 @@
 // Zod building blocks shared by the log-knowledge action inputs that spell spec targets (spec change #1196 c,
 // concept mapping and Item subject #1196 e/f). Pure; the value rules (codes `required`, `too_long`, `malformed`)
-// live here once so the two parsers cannot drift. Other log-knowledge inputs keep their own copies for now (backlog).
+// and the uuid spelling live in `src/lib/input/fields.ts` (#1411) once, so no log-knowledge input keeps a copy.
+// What remains here is this module's own spelling of the shared pieces: normalised spec-target names and the
+// target schemas.
 
 import { z } from 'zod';
 
+import { bounded, uuid } from '../../../lib/input/fields.js';
 import type { FieldError } from '../../menu-dispatch/types.js';
-import { unsafeText } from '../../platform-port/text-safety.js';
 import { NAME_MAX, toCodeKey } from './code-key.js';
 import { normalizeSpecName } from './spec-input.js';
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** Ids are accepted in any spelling and always handled in the DB's lower-case. */
 export const canonical = (v: string): string => v.toLowerCase();
-const REQUIRED = { required_error: 'required', invalid_type_error: 'required' };
-const length = (value: string): number => [...value].length;
-export const uuidText = z.string(REQUIRED).refine((v) => UUID.test(v), { message: 'malformed' });
-export const bounded = (max: number) =>
-  z.string(REQUIRED).superRefine((value, ctx) => {
-    if (unsafeText(value)) ctx.addIssue({ code: 'custom', message: 'malformed' });
-    else if (length(value) > max) ctx.addIssue({ code: 'custom', message: 'too_long' });
-  });
+export { bounded, uuid as uuidText };
 export const nameText = (max: number) =>
   bounded(max)
     .refine((v) => normalizeSpecName(v) !== '', { message: 'required' })

@@ -9,6 +9,7 @@
 
 import { z } from 'zod';
 
+import { REQUIRED, bounded, uuid } from '../../../lib/input/fields.js';
 import type { FieldError } from '../../menu-dispatch/types.js';
 import { unsafeText } from '../../platform-port/text-safety.js';
 import { NAME_MAX, toCodeKey } from './code-key.js';
@@ -24,20 +25,8 @@ const FIELDS_MAX = 200;
 const ALLOWED_VALUES_MAX = 200;
 const LINK_MAX = 2000;
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const length = (value: string): number => [...value].length;
-const REQUIRED = { required_error: 'required', invalid_type_error: 'required' };
-
 /** Names: NFC, trimmed, inner whitespace runs collapsed to one space. */
 export const normalizeSpecName = (value: string): string => value.normalize('NFC').trim().replace(/\s+/gu, ' ');
-
-const uuid = z.string(REQUIRED).refine((v) => UUID.test(v), { message: 'malformed' });
-
-const bounded = (max: number) =>
-  z.string(REQUIRED).superRefine((value, ctx) => {
-    if (unsafeText(value)) ctx.addIssue({ code: 'custom', message: 'malformed' });
-    else if (length(value) > max) ctx.addIssue({ code: 'custom', message: 'too_long' });
-  });
 
 /** A required name: normalised, non-blank. */
 const nameText = (max: number) =>

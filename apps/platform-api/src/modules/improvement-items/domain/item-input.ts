@@ -2,11 +2,12 @@
 // docs/design/features/improvement-items.md §1/§3). Pure and DB-free: one zod schema per action, shared by the
 // engine's `validate`, the handler (which parses again for the typed value) and the tests. What needs the row or the
 // database (status pairs, cumulative rules against the stored item, the assignee, the Q2 last-target rule) is the
-// handler's. Codes: `required`, `too_long`, `malformed`, `too_many`, `duplicate`, `not_applicable`.
-// An optional key that is ABSENT leaves the field alone; `null` (or a blank text) clears it.
+// handler's. Codes: `required` (a missing value or a wrong type, #1411), `too_long`, `malformed`, `too_many`,
+// `duplicate`, `not_applicable`. An optional key that is ABSENT leaves the field alone; `null` (or a blank text) clears it.
 
 import { z } from 'zod';
 
+import { REQUIRED, bounded, clearableText, requiredText, uuid } from '../../../lib/input/fields.js';
 import type { FieldError } from '../../menu-dispatch/types.js';
 import { unsafeText } from '../../platform-port/text-safety.js';
 import { TARGET_KINDS } from './item-filters.js';
@@ -50,32 +51,7 @@ export const appRelativePath = (value: string): boolean => {
   return !path.includes(':');
 };
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DAY = /^(\d{4})-(\d{2})-(\d{2})$/;
-const length = (value: string): number => [...value].length;
-const REQUIRED = { required_error: 'required', invalid_type_error: 'malformed' };
-
-const uuid = z.string(REQUIRED).refine((v) => UUID.test(v), { message: 'malformed' });
-
-const bounded = (max: number) =>
-  z.string(REQUIRED).superRefine((value, ctx) => {
-    if (unsafeText(value)) ctx.addIssue({ code: 'custom', message: 'malformed' });
-    else if (length(value) > max) ctx.addIssue({ code: 'custom', message: 'too_long' });
-  });
-
-/** A required, non-blank text. */
-const requiredText = (max: number) =>
-  bounded(max)
-    .refine((v) => v.trim() !== '', { message: 'required' })
-    .transform((v) => v.trim());
-
-/** Optional text: absent → undefined (untouched); null or blank → null (cleared). */
-const clearableText = (max: number) =>
-  bounded(max)
-    .nullable()
-    .optional()
-    .transform((v) => (v === undefined ? undefined : v === null || v.trim() === '' ? null : v.trim()));
-
 function isCalendarDay(value: string): boolean {
   const m = DAY.exec(value);
   if (!m) return false;

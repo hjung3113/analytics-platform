@@ -24,6 +24,15 @@ describe('improvement item write input (DB-free)', () => {
     expect(codes('itemUpdate', { itemId: ID, targets: [t('a'), { ...t('a'), kind: 'process' }] })).toEqual([]);
   });
 
+  // #1411: a wrong type is `required` like log-knowledge, not `malformed` as this module used to answer.
+  it.each([
+    ['a non-string uuid', 'itemAssign', { itemId: 5, assigneeId: ID }, ['itemId:required']],
+    ['a non-string required text', 'itemCreate', { problem: 5 }, ['problem:required']],
+    ['a non-string clearable text', 'itemUpdate', { itemId: ID, action: 5 }, ['action:required']],
+  ] as const)('refuses %s as required, not malformed', (_label, op, input, expected) => {
+    expect(codes(op, input)).toEqual(expected);
+  });
+
   it.each([
     ['https://x.example/a', 1],
     ['//x.example', 1],

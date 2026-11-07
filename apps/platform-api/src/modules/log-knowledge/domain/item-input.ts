@@ -8,8 +8,8 @@
 
 import { z } from 'zod';
 
+import { REQUIRED, bounded, requiredText, uuid } from '../../../lib/input/fields.js';
 import type { FieldError } from '../../menu-dispatch/types.js';
-import { unsafeText } from '../../platform-port/text-safety.js';
 import { parseSubjects } from './item-subject-input.js';
 
 export const ITEM_TYPE_CODES = ['anomaly', 'needs_check', 'behavior_note', 'guideline'] as const;
@@ -28,29 +28,11 @@ export const CHANGE_NOTE_MAX = 500;
 export const RATIONALE_MAX = 2000;
 const REVISION_NO_MAX = 1_000_000;
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const length = (value: string): number => [...value].length;
-const REQUIRED = { required_error: 'required', invalid_type_error: 'required' };
-
-const uuid = z.string(REQUIRED).refine((v) => UUID.test(v), { message: 'malformed' });
-const optionalUuid = z.string(REQUIRED).refine((v) => UUID.test(v), { message: 'malformed' }).nullish();
+const optionalUuid = uuid.nullish();
 
 function oneOf<const T extends readonly [string, ...string[]]>(values: T) {
   return z.enum(values, { errorMap: (_issue, ctx) => ({ message: ctx.data === undefined ? 'required' : 'malformed' }) });
 }
-
-/** A string within `max` code points with no control character; blank is allowed here (callers add `nonBlank`). */
-const bounded = (max: number) =>
-  z.string(REQUIRED).superRefine((value, ctx) => {
-    if (unsafeText(value)) ctx.addIssue({ code: 'custom', message: 'malformed' });
-    else if (length(value) > max) ctx.addIssue({ code: 'custom', message: 'too_long' });
-  });
-
-/** A required, non-blank text; the stored value is trimmed. */
-const requiredText = (max: number) =>
-  bounded(max)
-    .refine((v) => v.trim() !== '', { message: 'required' })
-    .transform((v) => v.trim());
 
 /** An optional body text: absent, null or blank → null; otherwise the text as written. */
 const bodyText = bounded(BODY_MAX)
