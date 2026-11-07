@@ -238,12 +238,12 @@ describe('generate in a temp workspace', () => {
   const keep: string[] = [];
   afterAll(() => { for (const root of keep) removeFixture(root); });
 
-  it.each([null, 'mars'])('creates a package in the declared space %s', space => {
+  it.each([null, 'mars'])('creates a package in the declared space %s', async space => {
     const root = makeFixture();
     keep.push(root);
     const path = join(root, MENUS_TS);
     writeFileSync(path, readFileSync(path, 'utf8').replace("icon: LayoutDashboard, space: spaceId('mars')", `icon: LayoutDashboard, space: ${space === null ? 'null' : "spaceId('mars')"}`));
-    const result = runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
+    const result = await runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
     expect(result.status, result.stderr).toBe(0);
     const location = space === null ? `platform/${FIXTURE_FOLDER}` : `menus/${space}/${FIXTURE_FOLDER}`;
     expect(result.stdout).toContain(`${location}/src/index.ts`);
@@ -252,10 +252,10 @@ describe('generate in a temp workspace', () => {
     expect(meta.placement).toBe(space === null ? 'platform' : 'menus');
   });
 
-  it('writes the file set and the six edits, bytes equal the templates', () => {
+  it('writes the file set and the six edits, bytes equal the templates', async () => {
     const root = makeFixture();
     keep.push(root);
-    const res = runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
+    const res = await runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
     expect(res.status).toBe(0);
     expect(res.stdout.endsWith('next: pnpm install\n')).toBe(true);
 
@@ -293,10 +293,10 @@ describe('generate in a temp workspace', () => {
     }
   });
 
-  it('inserts the mock import/spread lines with exactly the existing region indentation (pins the #126 original bug)', () => {
+  it('inserts the mock import/spread lines with exactly the existing region indentation (pins the #126 original bug)', async () => {
     const root = makeFixture();
     keep.push(root);
-    expect(runCli([FIXTURE_GROUP, ...GEN_ARGS], root).status).toBe(0);
+    expect((await runCli([FIXTURE_GROUP, ...GEN_ARGS], root)).status).toBe(0);
     const lines = readFileSync(join(root, MOCK_ASSEMBLY_TSX), 'utf8').split('\n');
     const region = (start: string, end: string): string[] =>
       lines.slice(lines.findIndex(l => l.trim() === start) + 1, lines.findIndex(l => l.trim() === end));
@@ -308,24 +308,24 @@ describe('generate in a temp workspace', () => {
     expect(leadOf(importRegion[1]), 'inserted import row must match the analytics row indentation').toBe(leadOf(importRegion[0]));
   });
 
-  it('refuses a second generate without changing bytes', () => {
+  it('refuses a second generate without changing bytes', async () => {
     const root = makeFixture();
     keep.push(root);
-    expect(runCli([FIXTURE_GROUP, ...GEN_ARGS], root).status).toBe(0);
+    expect((await runCli([FIXTURE_GROUP, ...GEN_ARGS], root)).status).toBe(0);
     const snapshot = appSnapshot(root);
     const tree = menusTree(root);
-    const res = runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
+    const res = await runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
     expect(res.status).toBe(1);
     expect(res.stderr).toMatch(/already (owned|exists)/);
     expect(appSnapshot(root)).toEqual(snapshot);
     expect(menusTree(root)).toEqual(tree);
   });
 
-  it('dry-run prints the paths and edit lines and writes nothing', () => {
+  it('dry-run prints the paths and edit lines and writes nothing', async () => {
     const root = makeFixture();
     keep.push(root);
     const snapshot = appSnapshot(root);
-    const res = runCli([FIXTURE_GROUP, ...GEN_ARGS, '--dry-run'], root);
+    const res = await runCli([FIXTURE_GROUP, ...GEN_ARGS, '--dry-run'], root);
     expect(res.status).toBe(0);
     expect(res.stdout).toContain('dry run');
     expect(res.stdout.endsWith('next: pnpm install\n')).toBe(true);

@@ -32,17 +32,17 @@ describe('blank line before the dependencies closer (R4)', () => {
 
   for (const [eolName, eol] of [['LF', '\n'], ['CRLF', '\r\n']] as const) {
     for (const eofNewline of [true, false]) {
-      it(`generate + remove restore exact bytes and valid JSON (${eolName}, eof newline: ${eofNewline})`, () => {
+      it(`generate + remove restore exact bytes and valid JSON (${eolName}, eof newline: ${eofNewline})`, async () => {
         const appPkg = gapAppPkg(eol, eofNewline);
         const root = fresh(appPkg);
         const pristine = appSnapshot(root);
 
-        expect(runCli(['masterData', '--label-ko', 'm', '--label-en', 'm'], root).status).toBe(0);
+        expect((await runCli(['masterData', '--label-ko', 'm', '--label-en', 'm'], root)).status).toBe(0);
         const afterGen = readFileSync(join(root, APP_PKG), 'utf8');
         expect(() => JSON.parse(afterGen), 'planned package.json must be valid JSON').not.toThrow();
         if (eol === '\r\n') expect(afterGen.replace(/\r\n/g, '').includes('\n')).toBe(false);
 
-        expect(runCli(['--remove', 'masterData'], root).status).toBe(0);
+        expect((await runCli(['--remove', 'masterData'], root)).status).toBe(0);
         expect(readFileSync(join(root, APP_PKG), 'utf8')).toBe(appPkg);
         expect(appSnapshot(root)).toEqual(pristine);
         expect(() => JSON.parse(readFileSync(join(root, APP_PKG), 'utf8'))).not.toThrow();

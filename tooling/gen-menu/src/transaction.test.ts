@@ -14,20 +14,20 @@ describe('generate rollback on write faults (F3)', () => {
     }
   });
 
-  it('unwritable style.css: exits 1, app files pristine, package dir absent', () => {
+  it('unwritable style.css: exits 1, app files pristine, package dir absent', async () => {
     const root = fresh();
     const before = appSnapshot(root);
     const css = join(root, STYLE_CSS);
     chmodSync(css, 0o444);
     keep[keep.length - 1].css = css;
-    const res = runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
+    const res = await runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
     expect(res.status).toBe(1);
     expect(appSnapshot(root)).toEqual(before);
     expect(existsSync(join(root, 'menus', 'mars', 'gen-probe'))).toBe(false);
     expect(menusHasOnlyCatalog(root)).toBe(true);
   });
 
-  it('unwritable app package.json: earlier completed writes are restored too', () => {
+  it('unwritable app package.json: earlier completed writes are restored too', async () => {
     const root = fresh();
     const before = appSnapshot(root);
     const pkg = join(root, 'apps/platform-web/package.json');
@@ -35,7 +35,7 @@ describe('generate rollback on write faults (F3)', () => {
     keep[keep.length - 1].css = undefined;
     const closer = (): void => chmodSync(pkg, 0o644);
     try {
-      const res = runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
+      const res = await runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
       expect(res.status).toBe(1);
       expect(appSnapshot(root)).toEqual(before);
       expect(existsSync(join(root, 'menus', 'mars', 'gen-probe'))).toBe(false);
