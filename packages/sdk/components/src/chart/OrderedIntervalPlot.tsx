@@ -17,13 +17,14 @@ type PlotProps = Pick<
   | 'ariaLabel'
   | 'states'
   | 'lanes'
-  | 'formatTick'
   | 'formatTime'
   | 'markers'
   | 'axis'
+  | 'axisLabel'
   | 'height'
   | 'partialGaps'
 > & {
+  formatTick: (order: number) => string;
   items: readonly OrderedTrackItem[];
   view: [number, number];
   selected: string | null;
@@ -136,7 +137,9 @@ export function OrderedIntervalPlot(props: PlotProps) {
       return ctx;
     };
     const ctx = setup(element, height);
-    const head = setup(header, AXIS_HEIGHT);
+    const captionOffset = props.timeLabels && props.axis !== 'time' ? 20 : 0;
+    const axisHeight = AXIS_HEIGHT + (captionOffset ? 24 : 0);
+    const head = setup(header, axisHeight);
     if (!ctx || !head) return;
     const colors = new Map<ThemeColorToken, string>();
     const color = (name: ThemeColorToken | `--${ThemeColorToken}`) => {
@@ -148,11 +151,10 @@ export function OrderedIntervalPlot(props: PlotProps) {
     const computed = getComputedStyle(element);
     ctx.font = head.font = `${computed.fontWeight} ${computed.fontSize} ${computed.fontFamily}`;
     head.fillStyle = color('--text-secondary');
+    if (props.axisLabel) head.fillText(props.axisLabel, 8, 13, ORDER_GUTTER - 16);
     let previousEnd = ORDER_GUTTER;
     for (const tick of orderTicks(props.view, plotWidth)) {
-      const text =
-        props.formatTick?.(tick) ??
-        (props.axis === 'time' ? (props.formatTime?.(tick) ?? String(tick)) : String(tick));
+      const text = props.formatTick(tick);
       const extra =
         props.timeLabels && props.axis !== 'time' ? (props.formatTime?.(tick) ?? '') : '';
       const w = Math.max(head.measureText(text).width, head.measureText(extra).width);
@@ -192,7 +194,7 @@ export function OrderedIntervalPlot(props: PlotProps) {
     bins.forEach((count, i) =>
       head.fillRect(
         ORDER_GUTTER + (i * plotWidth) / bins.length,
-        AXIS_HEIGHT - (count / max) * 8,
+        axisHeight - (count / max) * 8,
         plotWidth / bins.length,
         (count / max) * 8,
       ),
@@ -210,7 +212,7 @@ export function OrderedIntervalPlot(props: PlotProps) {
       ctx.fillStyle = color('surface-sunken');
       ctx.fillRect(start, 0, gapWidth, height);
       head.fillStyle = color('--text-secondary');
-      head.fillText(tx({ ko: '미수신', en: 'Unreceived' }), start + 4, 30, gapWidth);
+      head.fillText(tx({ ko: '미수신', en: 'Unreceived' }), start + 4, 24 + captionOffset, gapWidth);
     }
     const pointCounts = new Map<string, number>();
     for (const item of visible)
@@ -274,12 +276,20 @@ export function OrderedIntervalPlot(props: PlotProps) {
           ctx.setLineDash([]);
         }
         if (selected) {
-          ctx.strokeStyle = color('surface-card');
-          ctx.lineWidth = 6;
-          ctx.strokeRect(shape.x + 3, y + 3, Math.max(0, shape.width - 6), ORDER_ROW_HEIGHT - 6);
+          if (shape.width >= 10) {
+            ctx.strokeStyle = color('surface-card');
+            ctx.lineWidth = 2;
+            ctx.strokeRect(shape.x + 3, y + 3, shape.width - 6, ORDER_ROW_HEIGHT - 6);
+          }
           ctx.strokeStyle = color('chart-selection-outline');
           ctx.lineWidth = 2;
-          ctx.strokeRect(shape.x + 3, y + 3, Math.max(0, shape.width - 6), ORDER_ROW_HEIGHT - 6);
+          const selectionWidth = Math.max(8, shape.width);
+          ctx.strokeRect(
+            shape.x - (selectionWidth - shape.width) / 2 + 1,
+            y + 1,
+            selectionWidth - 2,
+            ORDER_ROW_HEIGHT - 2,
+          );
         }
       }
       if (focused) {
@@ -319,7 +329,7 @@ export function OrderedIntervalPlot(props: PlotProps) {
             ORDER_GUTTER,
             Math.min(width - head.measureText(text).width, x(marker.order) + 3),
           ),
-          nearBoundary ? 30 : 40,
+          (nearBoundary ? 24 : 40) + captionOffset,
           plotWidth,
         );
       }

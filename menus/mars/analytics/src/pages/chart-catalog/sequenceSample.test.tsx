@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { I18nProvider } from '@ap/kernel';
 import { afterEach, expect, it, vi } from 'vitest';
 import {
@@ -79,4 +80,38 @@ it('forwards range failures to the consumer page-head assessment callback', asyn
   fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
   await act(async () => {});
   expect(onLoadStateChange.mock.calls.filter((call) => call[0] === 'error')).toHaveLength(2);
+});
+async function mountSampleDrawer() {
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      disconnect() {}
+    },
+  );
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
+  function SlotHost() {
+    const slot = useDetailPanelSlotHost();
+    return <aside ref={slot.ref} aria-label="상세 패널" />;
+  }
+  render(
+    <I18nProvider>
+      <DetailPanelSlotProvider>
+        <SlotHost />
+        <SequenceSample height={288} loader={async () => sequenceItems} />
+      </DetailPanelSlotProvider>
+    </I18nProvider>,
+  );
+  await act(async () => {});
+  fireEvent.keyDown(screen.getByRole('region', { name: '순서 트랙' }), { key: 'Enter' });
+}
+it('declares the consumer order axis name in the range summary', async () => {
+  await mountSampleDrawer();
+  expect(screen.getByText(/순번 1–12,000 · 12개 줄/)).toBeTruthy();
+});
+it('keeps the synthetic drawer badge at its content width', async () => {
+  await mountSampleDrawer();
+  const badge = await screen.findByText('합성 데이터', { exact: true });
+  expect(badge.parentElement?.classList.contains('items-start')).toBe(true);
+  expect(badge.parentElement?.classList.contains('flex-col')).toBe(true);
 });

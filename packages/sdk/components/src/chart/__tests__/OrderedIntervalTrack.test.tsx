@@ -87,8 +87,8 @@ it('aborts superseded requests and ignores stale successes, even when the loader
     ]),
   );
   fireEvent.click(screen.getByRole('button', { name: '항목 목록' }));
-  expect(screen.getByRole('list')).toHaveTextContent('Fresh');
-  expect(screen.getByRole('list')).not.toHaveTextContent('Stale');
+  expect(screen.getByRole('table')).toHaveTextContent('Fresh');
+  expect(screen.getByRole('table')).not.toHaveTextContent('Stale');
   unmount();
   expect(pending[1].signal.aborted).toBe(true);
 });
@@ -128,10 +128,10 @@ it('moves by item and lane with keys, selects and clears, and supplies paged tex
   fireEvent.keyDown(root, { key: 'Escape' });
   expect(onSelect).toHaveBeenLastCalledWith(null);
   fireEvent.click(screen.getByRole('button', { name: '항목 목록' }));
-  expect(within(screen.getByRole('list')).getAllByRole('listitem')).toHaveLength(20);
-  expect(screen.getByRole('list')).toHaveTextContent('완료');
+  expect(within(screen.getByRole('table')).getAllByRole('row').slice(1)).toHaveLength(20);
+  expect(screen.getByRole('table')).toHaveTextContent('완료');
   fireEvent.click(screen.getByRole('button', { name: '다음 쪽' }));
-  expect(within(screen.getByRole('list')).getAllByRole('listitem')).toHaveLength(5);
+  expect(within(screen.getByRole('table')).getAllByRole('row').slice(1)).toHaveLength(5);
 });
 it.each(['loading', 'empty', 'error', 'partial', 'forbidden', 'unsupported'] as const)(
   'frames consumer copy for %s and hides restricted content',
@@ -304,7 +304,7 @@ it('never submits the containing form from toolbar, help, retry, list, paging or
     expect(submit, name).not.toHaveBeenCalled();
     expect(button, name).toHaveAttribute('type', 'button');
   }
-  const item = within(screen.getByRole('list')).getAllByRole('button')[0];
+  const item = within(screen.getByRole('table')).getAllByRole('button')[0];
   fireEvent.click(item);
   expect(item).toHaveAttribute('type', 'button');
   fireEvent.keyDown(screen.getByRole('region', { name: 'Track' }), {
@@ -358,7 +358,7 @@ it('shades only declared visible partial gaps and describes their ranges in the 
   expect(document.querySelector('output')).toHaveTextContent('미수신: 60–100');
   expect(document.querySelector('output')).not.toHaveTextContent('-30');
   fireEvent.click(screen.getByRole('button', { name: '항목 목록' }));
-  expect(screen.getByRole('list')).toHaveAccessibleDescription(
+  expect(screen.getByRole('table')).toHaveAccessibleDescription(
     expect.stringContaining('미수신: 60–100'),
   );
 });
@@ -375,7 +375,7 @@ it('includes declared marker labels, kinds and order positions for only the curr
   expect(screen.getByRole('status')).toHaveTextContent('시간 역전 · Clock reversal · 45');
   expect(screen.getByRole('status')).not.toHaveTextContent('Outside');
   fireEvent.click(screen.getByRole('button', { name: '항목 목록' }));
-  expect(screen.getByRole('list')).toHaveAccessibleDescription(
+  expect(screen.getByRole('table')).toHaveAccessibleDescription(
     expect.stringContaining('Clock reversal · 45'),
   );
 });
@@ -396,10 +396,11 @@ it('keeps the item tooltip outside paint containment with a stable token width',
   fireEvent.pointerMove(screen.getByRole('img'), { clientX: 115, clientY: 12 });
   const tooltip = screen.getByRole('tooltip');
   expect(screen.getByTestId('paint')).not.toContainElement(tooltip);
-  expect(tooltip).toHaveClass('w-80', 'max-w-xs');
+  expect(tooltip).toHaveClass('text-xs', 'max-w-xs');
+  expect(tooltip).not.toHaveClass('w-80');
 });
 it.each(['interval', 'point'] as const)(
-  'separates the selected %s outline from the state fill with a wider neutral halo',
+  'separates the selected %s outline from the state fill with a neutral halo',
   (kind) => {
     const strokes: { color: string | CanvasGradient | CanvasPattern; width: number }[] = [];
     const record = () =>
@@ -414,7 +415,7 @@ it.each(['interval', 'point'] as const)(
       selectedId: '0',
     });
     const index = strokes.findIndex(
-      (stroke) => stroke.width === 6 && stroke.color === 'rgb(251,253,255)',
+      (stroke) => stroke.width === (kind === 'point' ? 6 : 2) && stroke.color === 'rgb(251,253,255)',
     );
     expect(index).toBeGreaterThanOrEqual(0);
     expect(strokes[index + 1]).toEqual({ color: 'rgb(20,40,160)', width: 2 });
@@ -456,4 +457,153 @@ it('does not suppress a new consumer error after retrying an internal loader fai
   );
   expect(screen.getByText('New failure')).toBeVisible();
   expect(loader).toHaveBeenCalledTimes(2);
+});
+it('uses compact table semantics, named columns, selection and twenty-item paging', () => {
+  const onSelect = vi.fn();
+  mount({ onSelect });
+  fireEvent.click(screen.getByRole('button', { name: '항목 목록' }));
+  const table = screen.getByRole('table');
+  expect(table).toHaveClass('w-full', 'text-xs', 'tabular');
+  expect(
+    within(table)
+      .getAllByRole('columnheader')
+      .map((cell) => cell.textContent),
+  ).toEqual(['줄', '항목', '상태', '순번']);
+  expect(within(table).getAllByRole('row')).toHaveLength(21);
+  const select = within(table).getByRole('button', { name: '항목 0' });
+  expect(select.closest('tr')).toHaveAttribute('aria-selected', 'false');
+  expect(select).toHaveAttribute('aria-pressed', 'false');
+  fireEvent.click(select);
+  expect(onSelect).toHaveBeenLastCalledWith(items[0]);
+  expect(select).toHaveAttribute('aria-pressed', 'true');
+  expect(select.closest('tr')).toHaveAttribute('aria-selected', 'true');
+  expect(select.closest('tr')).toHaveClass('bg-surface-row-selected');
+  expect(table.parentElement).toHaveClass(
+    'mx-4',
+    'mb-2',
+    'rounded-md',
+    'border',
+    'border-border-subtle',
+  );
+  expect(table.parentElement).not.toHaveClass('max-h-56', 'overflow-auto');
+  expect(screen.getByText('현재 범위 항목 목록 · 1/2')).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: '다음 쪽' }));
+  expect(within(table).getAllByRole('row')).toHaveLength(6);
+  fireEvent.click(screen.getByRole('button', { name: '이전 쪽' }));
+  expect(within(table).getAllByRole('row')).toHaveLength(21);
+});
+it.each(['구간 선택', '시간 라벨', '항목 목록'])(
+  'gives the %s toggle a secondary pressed surface and restores ghost when released',
+  (name) => {
+    mount({ formatTime: String });
+    const toggle = screen.getByRole('button', { name });
+    expect(toggle).not.toHaveClass('bg-surface-raised');
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    expect(toggle).toHaveClass('bg-surface-raised', 'border-border-subtle');
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    expect(toggle).not.toHaveClass('bg-surface-raised');
+  },
+);
+it('uses the consumer axis label and one integer formatter for ticks and zoomed range text', () => {
+  mount({ domain: [1, 12000], initialView: [3543.1, 8457.9], axisLabel: '순번' });
+  expect(screen.getByText('순번 3,543–8,458 · 2개 줄 · 0개 항목')).toBeVisible();
+  expect(context.fillText).toHaveBeenCalledWith('순번', 8, 13, 96);
+  expect(context.fillText.mock.calls.some((call) => call[0] === '4,000')).toBe(true);
+  expect(context.fillText.mock.calls.some((call) => call[0] === '4000')).toBe(false);
+});
+it('omits an unspecified axis label and shares a consumer formatter between ticks and summary', () => {
+  const formatTick = (value: number) => `#${Math.round(value)}`;
+  mount({ domain: [0, 12000], initialView: [3543.1, 8457.9], formatTick });
+  expect(screen.getByText('#3543–#8458 · 2개 줄 · 0개 항목')).toBeVisible();
+  expect(context.fillText.mock.calls.some((call) => call[0] === '#4000')).toBe(true);
+  expect(context.fillText.mock.calls.some((call) => call[1] === 8 && call[2] === 13)).toBe(
+    false,
+  );
+});
+it('retains fractional formatting for a noninteger domain', () => {
+  mount({ domain: [0.5, 100.5], initialView: [10.25, 90.75] });
+  expect(screen.getByText('10.25–90.75 · 2개 줄 · 22개 항목')).toBeVisible();
+});
+it.each([false, true])(
+  'keeps marker caption baselines sixteen pixels apart with time labels %s',
+  (timeLabels) => {
+    mount({
+      markers: [
+        { kind: 'boundary', label: 'File B', order: 40 },
+        { kind: 'inversion', label: 'Clock reversal', order: 42 },
+      ],
+      partialGaps: [{ orderStart: 60, orderEnd: 70 }],
+      formatTime: () => '12:00',
+    });
+    if (timeLabels) {
+      context.fillText.mockClear();
+      fireEvent.click(screen.getByRole('button', { name: '시간 라벨' }));
+    }
+    const baseline = (text: string) => {
+      const call = context.fillText.mock.calls.find((call) => call[0] === text);
+      expect(call, text).toBeDefined();
+      return Number(call?.[2]);
+    };
+    expect(Math.abs(baseline('File B') - baseline('↶ Clock reversal'))).toBeGreaterThanOrEqual(
+      16,
+    );
+    if (timeLabels)
+      for (const caption of ['File B', '↶ Clock reversal', '미수신'])
+        expect(baseline(caption) - baseline('12:00')).toBeGreaterThanOrEqual(16);
+  },
+);
+it('shows a neutral diamond with a one-pixel outline in the point legend', () => {
+  mount();
+  const legend = screen.getByText('점 이벤트').querySelector('svg');
+  expect(legend).toHaveClass('fill-chart-no-data', 'stroke-text-secondary');
+  expect(legend).toHaveAttribute('stroke-width', '1');
+  expect(legend?.querySelector('path')).toHaveAttribute('d', 'M4 1 7 4 4 7 1 4Z');
+});
+it.each([1, 9, 10, 30])(
+  'draws a two-pixel interval halo only at widths of at least ten pixels (%s)',
+  (width) => {
+    const strokes: { color: unknown; width: number; rect: unknown[] }[] = [];
+    context.strokeRect.mockImplementation((...rect) => {
+      const ctx = context as unknown as CanvasRenderingContext2D;
+      strokes.push({ color: ctx.strokeStyle, width: ctx.lineWidth, rect });
+    });
+    mount({
+      items: [{ ...items[0], orderStart: 20, orderEnd: 20 + (width * 100) / 488 }],
+      selectedId: '0',
+    });
+    const halos = strokes.filter((stroke) => stroke.color === 'rgb(251,253,255)');
+    const outline = strokes.find((stroke) => stroke.color === 'rgb(20,40,160)');
+    expect(outline?.width).toBe(2);
+    const x = 112 + (20 / 100) * 488;
+    if (width >= 10) {
+      expect(halos).toEqual([
+        { color: 'rgb(251,253,255)', width: 2, rect: [x + 3, 3, width - 6, 18] },
+      ]);
+      expect(outline?.rect).toEqual([x + 1, 1, width - 2, 22]);
+    } else {
+      expect(halos).toHaveLength(0);
+      expect(Number(outline?.rect[2])).toBeGreaterThanOrEqual(6);
+      expect(outline?.rect[1]).toBe(1);
+      expect(outline?.rect[3]).toBe(22);
+    }
+  },
+);
+it('keeps range annotations in the accessible summary and shows them above the table only', () => {
+  mount({
+    markers: [{ kind: 'boundary', label: 'File B', order: 40 }],
+    partialGaps: [{ orderStart: 60, orderEnd: 70 }],
+  });
+  const summary = screen.getByRole('status');
+  const marker = within(summary).getByText('파일 경계 · File B · 40');
+  expect(marker.parentElement).toHaveClass('sr-only');
+  expect(marker.closest('[aria-hidden="true"]')).toBeNull();
+  expect(summary).toHaveTextContent('미수신: 60–70');
+  fireEvent.click(screen.getByRole('button', { name: '항목 목록' }));
+  const table = screen.getByRole('table');
+  expect(table).toHaveAccessibleDescription(expect.stringContaining('파일 경계 · File B · 40'));
+  expect(within(table).getByText('파일 경계 · File B · 40').closest('caption')).toBeVisible();
+  expect(within(table).getByText('미수신: 60–70').closest('caption')).toBeVisible();
 });

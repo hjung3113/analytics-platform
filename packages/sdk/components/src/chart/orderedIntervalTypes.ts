@@ -40,6 +40,8 @@ export type OrderedIntervalTrackProps = {
   initialView?: [number, number];
   height?: number;
   axis?: 'order' | 'time';
+  /** Consumer-supplied axis name/unit; omitted when not supplied. */
+  axisLabel?: string;
   formatTick?: (order: number) => string;
   /** Optional display only: never used for sorting or placement. */
   formatTime?: (order: number) => string;

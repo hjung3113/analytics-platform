@@ -78,6 +78,7 @@ export function SequenceSample({
         items={items}
         states={states}
         domain={sequenceDomain}
+        axisLabel={tx({ ko: '순번', en: 'Order' })}
         height={Math.min(height, 288)}
         markers={
           lang === 'ko'
@@ -125,7 +126,7 @@ export function SequenceSample({
               id: 'detail',
               label: tx({ ko: '상세', en: 'Details' }),
               content: (
-                <div className="flex flex-col gap-3 break-keep p-4 text-sm">
+                <div className="flex flex-col items-start gap-3 break-keep p-4 text-sm">
                   <StatusBadge tone="neutral">
                     {tx({ ko: '합성 데이터', en: 'Synthetic data' })}
                   </StatusBadge>
