@@ -61,6 +61,7 @@ shadcn/ui + Radix 조합은 [04 프론트엔드 기술 스택](../architecture/f
 - PageFilterBar
 - DataTrustIndicator
 - AnalysisChartFrame
+- OrderedIntervalTrack (순서 축 구간·점의 범용 트랙, 선언·상태·성능 경계는 아래, 상호작용은 [§16](chart.md#orderedintervaltrack-순서-트랙-decided-adr-0121))
 - AnalysisChart (종류별 데이터·로컬 선택·표·CSV 프레임, [§16](chart.md#16-analysis-chart-contract), [ADR-0058](../adr/0058-analysis-chart-spec-union.md))
 - LegendTree (계층 범례의 보이기·단일 현재 항목 또는 드릴 현재 단계(`onDrill`·`currentId`·`drillOnly`·`canDrill`, 보이기와 분리)·키보드 행 이동, [§16](chart.md#16-analysis-chart-contract), [ADR-0057](../adr/0057-legend-tree-arrow-key-row-navigation.md))
 - PlatformDataTable
@@ -89,6 +90,14 @@ shadcn/ui + Radix 조합은 [04 프론트엔드 기술 스택](../architecture/f
 `AuditTimeline`이 보이는 이벤트 타입은 `@ap/contracts`의 `AuditEvent`다. `at`은 실제 시점이라 `formatInstant`로 표시한다(§6.3). `target`은 목적지 참조(§22)이지 분석 Context가 아니다. 전역 감사 조회(`auditTrail`)와 목적지 감사 — 설비 상세 감사 탭, 지표 상세 변경 이력(`entityAudit`, 지표는 `scopeId: null`) — 는 같은 저장소를 어댑터 포트([패키지 경계](../integration/platform-packages.md) §4)로 읽으며 셸 위젯이 아니다(#50, #90). 메뉴가 소유한 대상의 감사 기록은 mock에서 메뉴가 시드로 내고 앱 조립이 넣는다([ADR-0048](../adr/0048-menu-audit-seeds-join-shared-mock-audit-store.md)); 사유·값은 기록된 문자열 그대로다.
 
 `AuditTimeline`의 페이지 계약([ADR-0085](../adr/0085-entity-audit-cursor-pages.md), #826): 목적지 감사(`entityAudit`)는 서버가 쪽 크기를 정하고(상한 `ENTITY_AUDIT_PAGE_MAX` = 50, 클라이언트 `limit` 없음) `at` 내림차순(instant)·같으면 `id` 오름차순으로 keyset 커서(`nextCursor`, 불투명 문자열)를 준다. 마지막 쪽은 `nextCursor: null`이고 키가 없는 응답은 끝으로 읽는다. `AuditTimeline({ events, more? })`의 `more`는 Kernel `useEntityAudit`이 만든 `AuditMore`(`status` idle·loading·error·end, `load()`, `error`, `last`)다. 첫 쪽이 끝이면 버튼도 캡션도 없고(지금 모양), 더 있으면 목록 끝에 `이전 변경 이력 더 보기` 버튼(secondary·sm)을 둔다. 불러오는 동안은 `aria-disabled`·`aria-busy`로 라벨·폭을 유지하고, 성공하면 포커스가 아직 그 버튼에 있을 때만 붙인 첫 항목(없으면 끝 캡션)으로 옮기며 polite 상태 영역이 `변경 이력 N건을 더 불러왔습니다.`를 알린다. 끝에는 캡션 `더 이전 변경 이력이 없습니다.`, 실패는 목록을 그대로 둔 채 같은 버튼이 `다시 시도`로 바뀌고 `role=alert`(+ Correlation ID)가 뜬다. `forbidden`이면 버튼 없이 권한 안내 문장이다(첫 쪽 §19 배너에는 넣지 않는다). 붙인 쪽 수는 URL에 두지 않고, ref·Scope·세션이 바뀌거나 같은 대상을 다시 조회하면 첫 쪽부터 다시 읽는다.
+
+### OrderedIntervalTrack — 선언과 상태 (Decided, ADR-0121)
+
+`@ap/components`의 선택 조각 `OrderedIntervalTrack`은 `lanes`(`laneKey`, `label`), `items`(공통 `id`, `laneKey`, `orderStart`, `state`, `label`; 구간은 `kind?: 'interval'`, `orderEnd?`, `carryover?`; 점은 `kind: 'point'`), `states`(키 → `label`, `ThemeColorToken`), 명시적 유한 증가 `domain`을 받는다. 선택 입력 `axisLabel?: string`은 소비자가 주는 축 이름·단위이며 생략하면 이름을 그리지 않는다. 짝 맞추기·전이 판정·도메인 용어를 알지 않는다. `orderEnd` 없음은 열린 구간이고 점선 끝과 텍스트 «종료 미확인 · 불완전», `carryover`는 꺾쇠와 이월 문구로 구분한다. 잘못된 범위·비유한 좌표·중복 항목 ID는 표시하지 않는다. 무효 색 토큰은 `chart-no-data`로 대체한다. 선택 입력 `partialGaps?: readonly { orderStart: number; orderEnd: number }[]`는 소비자가 선언한 미수신 순서 범위다. 유한 증가 범위만 현재 창으로 잘라 쓰며 생략·빈 배열이면 미수신 표시를 추가하지 않는다. 항목 부재만으로 미수신을 추론하지 않는다. 시각·텍스트 표현은 [§16](chart.md#orderedintervaltrack-순서-트랙-decided-adr-0121)을 따른다.
+
+`state`는 소비자의 `kind`(`ready`, `loading`, `empty`, `error`, `partial`, `forbidden`, `unsupported`)·`title`·이유 `body`·`retryLabel`·`onRetry`를 받는다. 빈 결과의 이유와 부분 결과의 범위 설명은 소비자가 제공한다. 권한 없음은 항목·범례·요약·신뢰 footer를 가린다. 첫 로딩은 보이는 `LoadingBlock`, 범위 갱신은 받은 항목을 흐리게 유지하고 `aria-busy`와 범위 요약 옆 «불러오는 중»으로 알린다. 오류는 받은 항목을 유지하며 재시도한다. 소비자 `error`에서 `onRetry`가 없어도 `onRangeRequest`가 있으면 재시도는 현재 범위를 다시 요청하고 이전 오류·취소 상태를 지운다. `onLoadStateChange`(`loading`, `ready`, `error`)로 소비자가 페이지 머리 신뢰 지표에도 범위 요청 실패를 반영한다. 프레임은 LaneTimeline과 같은 제목·도구줄·선택 요약·신뢰 footer 문법이다.
+
+**성능 경계:** 초기 `items`와 각 `onRangeRequest(orderFrom, orderTo, signal)` 응답은 `ORDERED_TRACK_RESPONSE_LIMIT = 10,000`항목 이하이다. 초과 응답은 성공으로 자르지 않고 오류로 처리하며 받은 결과를 유지한다. 이 상한은 DOM·캔버스·텍스트 대안의 응답 처리 비용을 제한하기 위한 것이며 줄 수·계층·도메인 제한은 없다. 창이 바뀌거나 unmount·권한/지원 상태가 바뀌면 앞 요청을 abort하고, 취소를 무시한 오래된 응답·실패도 현재 창을 덮지 않는다. 가로·세로 가시 창만 그린다. 공개 타입은 `OrderedIntervalTrackProps`, `OrderedTrackLane`, `OrderedTrackItem`, `OrderedTrackState`, `OrderedTrackMarker`, `OrderedTrackStatus`, `OrderedTrackLoadState`다. [ADR-0121](../adr/0121-ordered-interval-track-sdk-piece.md).
 
 ### DetailDrawer — docked shell slot (Decided, ADR-0013)
 

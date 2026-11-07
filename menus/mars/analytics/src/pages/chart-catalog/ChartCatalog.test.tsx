@@ -10,6 +10,7 @@ import ChartCatalog from './ChartCatalog';
 import { groupId, menuPermission, spaceId } from '@ap/contracts';
 import { TEST_AXES } from '../../test-axes';
 import { supportFor } from './support';
+import * as sequenceData from './sequenceSampleData';
 
 // Canvas is an external rendering boundary; keep the real public chart components and controls.
 const canvas = vi.hoisted(() => ({ init: vi.fn(), dispose: vi.fn(), options: [] as unknown[] }));
@@ -267,4 +268,18 @@ describe('breakdown support rows match the controls on the screen (#580h)', () =
       if (cell.status === 'unsupported') expect(found, id).toHaveLength(0); else expect(found.length, id).toBeGreaterThan(0);
     }
   });
+});
+
+// #1471: the asynchronous sequence request is independent of the catalogue envelope.
+it('restores sequence from the declared kind key and reflects request errors in page-head trust', async () => {
+  vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
+  vi.spyOn(sequenceData, 'loadSequenceRange').mockRejectedValue(new Error('range unavailable'));
+  query.mockResolvedValueOnce({ outcome: 'ok', data: fixture, assessments: [{ kind: 'collection', state: 'clear' as never }, { kind: 'coverage', state: 'clear' as never }], trust: { updatedAt: '2026-11-08T09:00:00', dataThrough: null, coverage: 1, provisional: false, source: 'Synthetic' } as never, correlationId: 'sequence' });
+  mount('sequence');
+  expect((await screen.findByRole('tab', { name: /^순서 트랙/ })).getAttribute('aria-selected')).toBe('true');
+  await screen.findByText('구간 불러오기 실패');
+  await waitFor(() => expect(screen.getAllByRole('button', { name: '데이터 신뢰' }).some(button => button.title.includes('확인된 이슈 1건'))).toBe(true));
+  expect(new URLSearchParams(window.location.search).get('kind')).toBe('sequence');
+  expect(manifests.find(menu => menu.id === 'chart-catalog')?.pageKeys).toContain('kind');
 });

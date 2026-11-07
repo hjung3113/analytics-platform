@@ -1,12 +1,13 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { useI18n, useMenuQuery, usePlatform, type QueryState } from '@ap/kernel';
-import { DataTrustIndicator, PlatformPage, QueryView } from '@ap/components';
+import { DataTrustIndicator, PlatformPage, QueryView, type OrderedTrackLoadState } from '@ap/components';
 import { PanelRightOpen } from 'lucide-react';
 import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from '@ap/ui';
 import { CHART_KINDS, chartCatalogEndpoint, isCatalogKind, type CatalogData } from '../../endpoints';
 import { BreakdownNodeRejection, invalidBreakdownNode } from './BreakdownBars';
 import { CatalogChart } from './CatalogChart';
 import { kindLabels, statusLabels, supportCounts, supportFor } from './support';
+import { SequenceSample } from './SequenceSample';
 import { useWorkspace } from './useWorkspace';
 
 type Preference = { open: boolean; width: number };
@@ -17,19 +18,21 @@ function readPreference(): Preference {
 }
 
 export default function ChartCatalog() {
+  const { tx } = useI18n();
   const { pageParam } = usePlatform();
+  const [sequenceLoad, setSequenceLoad] = useState<OrderedTrackLoadState>('ready');
   const rawKind = pageParam('kind');
   const kind = isCatalogKind(rawKind) ? rawKind : 'line';
   // An invalid breakdown node is rejected before, and without, the catalogue query (06 §6.4).
   const rejectedNode = kind === 'breakdown' ? invalidBreakdownNode(pageParam('node')) : null;
   // keepPrevious OFF (#1365, ADR-0114): `kind` selects a different chart, so the previous result would be another subject under the new label.
   const query = useMenuQuery(chartCatalogEndpoint, { kind }, rejectedNode === null);
-  return <PlatformPage dataTrustSummary={query.response ? <DataTrustIndicator trust={query.response.trust} assessments={query.response.assessments} /> : undefined}>
-    <CatalogWorkspace query={query} rejectedNode={rejectedNode} />
+  return <PlatformPage dataTrustSummary={query.response ? <DataTrustIndicator trust={query.response.trust} assessments={kind === 'sequence' && sequenceLoad === 'error' ? [...query.response.assessments.filter(item => item.kind !== 'collection'), { kind: 'collection', state: 'confirmed', reason: 'check_failed', detail: tx({ ko: '합성 구간 불러오기 실패', en: 'Synthetic range request failed' }) }] : query.response.assessments} /> : undefined}>
+    <CatalogWorkspace query={query} rejectedNode={rejectedNode} onSequenceLoad={setSequenceLoad} />
   </PlatformPage>;
 }
 
-function CatalogWorkspace({ query, rejectedNode }: { query: QueryState<CatalogData>; rejectedNode: string | null }) {
+function CatalogWorkspace({ query, rejectedNode, onSequenceLoad }: { query: QueryState<CatalogData>; rejectedNode: string | null; onSequenceLoad: (state: OrderedTrackLoadState) => void }) {
   const { tx } = useI18n();
   const { pageParam, setPage, route } = usePlatform();
   const rawKind = pageParam('kind');
@@ -102,7 +105,7 @@ function CatalogWorkspace({ query, rejectedNode }: { query: QueryState<CatalogDa
             {/* One stable panel/QueryView path: layout never changes chart identity. */}
             <TabsContent value={kind} className="m-0">
               {rejectedNode !== null ? <BreakdownNodeRejection node={rejectedNode} /> : <QueryView query={query} widgetName={tx({ ko: '차트 데이터', en: 'Chart data' })}>
-                {data => <CatalogChart key={kind} kind={kind} data={data} height={plotHeight} />}
+                {data => kind === 'sequence' ? <SequenceSample height={plotHeight} onLoadStateChange={onSequenceLoad} /> : <CatalogChart key={kind} kind={kind} data={data} height={plotHeight} />}
               </QueryView>}
             </TabsContent>
           </div>
