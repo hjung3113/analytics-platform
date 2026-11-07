@@ -24,6 +24,7 @@ The lead writes the planned tier in the assignment comment (`tier=full|light`). 
 | **light** | everything else: pure renames (R100), moves, docs, copy, generator output, sample-menu changes without permission or URL/Context logic | none — the lane edits directly | none — the host reads the diff and records `tier=light` plus `git diff --numstat` in VERIFY | — |
 
 - Do not widen `light` without a new replay measurement (#1041).
+- **Domain-noun docs (`review-doc` terms):** a light PR that adds domain nouns under `docs/design/**`, a new ADR, `docs/product/**`, a new API contract file or `GLOSSARY.md` gets one `review-doc` terms run (persona `doc-steward`). Design PRs of the same domain opened the same day share one run. Skip it when the changed lines add no bold term outside the glossary, no new enum/table/capability name and no new menu label. Reason: terms caught before code avoid renames that need migrations; sharing a run keeps the cost at one run per design batch.
 - **PR count:** at most 3 PRs per issue. Bundle mechanical work into one PR. Split only where a full-tier review needs isolation.
 - **Copy-only edits under full paths:** the lead may mark the PR light with a numstat line ("copy only"), unless `flags.permission` fires.
 - **Round cap (the only place; replaces global skill step 7f):** the full row allows one fix round; a blocker or major still open after it sends the second round to `impl-complex` with a fix-diff check. More than 2 `review-final` runs on one issue need an `over-cap: <reason>` line in VERIFY (`ship-check.sh` blocks without it); the lane asks `질문 #n 한도 <rounds>`. A minor or nit never starts a round past the cap.
@@ -86,6 +87,7 @@ Every step must exit 0 before commit.
 - UX skip: when `ux=required` but no `review-ux` runs, record the skip reason and the substitute browser evidence in the PR body and add `ux-skip: <evidence path>` to VERIFY (reason on another line); `ship-check.sh` blocks without it.
 - Impeccable check: a PR with a new screen, new component visuals or a layout change gets a separate `impl-complex-sol` run at effort `high` (never the implementer judging its own work) doing `impeccable critique` + `audit` on the branch preview (1440×900), alongside review-final and before the PR opens; its findings join the one fix round. VERIFY: `impeccable: <report path>` or the skip reason. `?variant=` prototypes get one critique pass on all variants; apply its fixes, then capture, and name the report in the confirmation Artifact and question. Reason: review-ux checks flow, not visual craft.
 - Platform-consistency check: every `?variant=` prototype and every screen-look PR passes [`addenda/prototype-consistency.md`](addenda/prototype-consistency.md) (named components to reuse in the brief, token classes only, a non-builder reviewer comparing each capture with `*-current`, the filled checklist in the Artifact) before the Artifact is sent or the PR opens. VERIFY: `consistency: <report path>`. Reason: prototypes drifted from the platform look while every other gate passed (owner 2026-11-07).
+- `conflict` terms from `review-doc`: no dependent implementation node (screen copy, new table names) starts until the owner list is answered. Reason: a name that reaches schema or API contracts costs a migration to change.
 - Flags: `permission` / `instructions` → SKILL 7a. `e2e` → Verify step 3. `submodule` → the screen gates. `contract` → give the changed 06 sections and ADRs to the code reviewer.
 - Code reviewers use the global `templates/review-rules.md` + [`addenda/review-rules.md`](addenda/review-rules.md). UX and quality reviewers use the global personas plus the lenses below. `review-perf` only after a measured regression.
 - Conflict order: SKILL 7f repo invariants = permission and data-leak rules, then 06 contracts.
@@ -104,6 +106,16 @@ Reports are in Korean.
   - Copy: Korean, existing i18n wording, `GLOSSARY.md` terms.
   - Visuals: 50px page header, tokens, `@ap/ui`/`@ap/components`.
 - **Severity:** blocker = data from another Scope is visible. major = 06 violation.
+
+## Review lens: docs
+
+Reports are in Korean.
+
+- **Authority:** `GLOSSARY.md` (bold entries, `_Avoid_`, Flagged Ambiguities); `docs/AGENTS.md` (status words, single ownership, no process history); `docs/agents/domain.md` (glossary changes); `docs/INDEX.md` (a new owner document needs a row).
+- **Code names:** `apps/platform-api/src/db/schema/*`, `docs/architecture/platform-api/api/*`, menu manifests and i18n labels under `menus/*/*/src`, capability names.
+- **`conflict` examples:** a menu's own "project" or "task" noun beside the glossary's 과제(Quest), Finding or Task; the Korean "워크스페이스" where the glossary bans it; "게시" where the glossary says 발행; a term that blurs a permission or security boundary.
+- **Modes:** `terms` for a design PR (report path and PR number from the task file); `release-audit` follows [`addenda/doc-audit.md`](addenda/doc-audit.md).
+- **Out of scope:** `site/`, `.agents/`, `docs/agents/`, `archive/`, `docs/*/history/`; link and anchor checks (`pnpm docs:links`); screen copy against the glossary (`review-ux` Copy).
 
 ## Review lens: quality
 
