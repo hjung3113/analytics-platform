@@ -43,17 +43,17 @@ DIALOG_CONTENT_MOTION | const | const DIALOG_CONTENT_MOTION: "data-[state=open]:
 DatePicker | function | function DatePicker({ value, onChange, min, max, emptyValue, showValidation, onValidityChange, appearance, className, disabled, 'aria-invalid': ariaInvalid, 'aria-describedby': ariaDescribedBy, onBlur, onInvalid, placeholder, ...inputProps }: @ap/ui#DatePickerProps): React.JSX.Element
 DatePickerProps | interface | interface DatePickerProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'max' | 'min' | 'onChange' | 'type' | 'value'> { appearance?: 'default' | 'detail'; emptyValue?: '' | null; max?: string; min?: string; onChange: (value: null | string) => void; onValidityChange?: (valid: boolean) => void; showValidation?: boolean; value: null | string; }
 DetailPanelFullscreenContext | const | const DetailPanelFullscreenContext: React.Context<@ap/ui#DetailPanelFullscreenValue | null>
-DetailPanelFullscreenToggle | function | function DetailPanelFullscreenToggle(): React.ReactElement | null
+DetailPanelFullscreenToggle | function | function DetailPanelFullscreenToggle({ expandLabel, collapseLabel }?: { collapseLabel?: string; expandLabel?: string; }): React.ReactElement | null
 DetailPanelFullscreenValue | interface | interface DetailPanelFullscreenValue { expanded: boolean; toggle: () => void; }
 DetailPanelHeader | function | function DetailPanelHeader({ kind, id, onClose, extras, className, }: @ap/ui#DetailPanelHeaderProps): React.JSX.Element
 DetailPanelHeaderActions | function | function DetailPanelHeaderActions({ entityKind: _entityKind, entityId: _entityId, copyUrl, extraMore, notify, }: @ap/ui#DetailPanelHeaderActionsProps): React.JSX.Element
 DetailPanelHeaderActionsProps | interface | interface DetailPanelHeaderActionsProps { copyUrl: string; entityId: string; entityKind: @ap/ui#DetailPanelKind; extraMore?: React.ReactNode; notify?: { error: (message: string) => void; success: (message: string) => void; }; }
 DetailPanelHeaderProps | interface | interface DetailPanelHeaderProps { className?: string; extras?: React.ReactNode; id?: string; kind: @ap/ui#DetailPanelKind; onClose?: () => void; }
 DetailPanelKind | type | type DetailPanelKind = 'cluster' | 'finding' | 'milestone' | 'survey' | 'task' | 'task_request' | 'voc'
-DetailPanelReadingColumn | function | function DetailPanelReadingColumn({ children, ...dataAttrs }: React.PropsWithChildren<{ 'data-testid'?: string; }>): React.ReactElement
+DetailPanelReadingColumn | function | function DetailPanelReadingColumn({ children, asChild, ...dataAttrs }: React.PropsWithChildren<{ 'data-testid'?: string; asChild?: boolean; }>): React.ReactElement
 DetailPanelSectionNav | function | function DetailPanelSectionNav({ sections, scrollRef, className, navigationLabel, }: @ap/ui#DetailPanelSectionNavProps): React.ReactElement | null
 DetailPanelSectionNavProps | interface | interface DetailPanelSectionNavProps { className?: string; navigationLabel?: string; scrollRef?: React.RefObject<HTMLElement | null>; sections: @ap/ui#PanelSection[]; }
-DetailPanelSlotProvider | function | function DetailPanelSlotProvider({ children }: { children: ReactNode; }): import("react").JSX.Element
+DetailPanelSlotProvider | function | function DetailPanelSlotProvider({ children, expanded: controlledExpanded, onExpandedChange }: { children: ReactNode; expanded?: boolean; onExpandedChange?: (expanded: boolean) => void; }): import("react").JSX.Element
 Dialog | const | const Dialog: React.FC<DialogPrimitive.DialogProps>
 DialogClose | const | const DialogClose: React.ForwardRefExoticComponent<DialogPrimitive.DialogCloseProps & React.RefAttributes<HTMLButtonElement>>
 DialogContent | const | const DialogContent: React.ForwardRefExoticComponent<DialogContentProps & React.RefAttributes<HTMLDivElement>>
@@ -236,8 +236,9 @@ readMotionTiming | function | function readMotionTiming(duration: 'base' | 'fast
 shortcutLabel | function | function shortcutLabel(key: string): string
 toast | const | const toast: ((message: titleT, data?: ExternalToast) => number | string) & { custom: (jsx: (id: number | string) => React.ReactElement, data?: ExternalToast) => number | string; dismiss: (id?: number | string) => number | string; error: (message: React.ReactNode | titleT, data?: ExternalToast) => number | string; info: (message: React.ReactNode | titleT, data?: ExternalToast) => number | string; loading: (message: React.ReactNode | titleT, data?: ExternalToast) => number | string; message: (message: React.ReactNode | titleT, data?: ExternalToast) => number | string; promise: <ToastData>(promise: PromiseT<ToastData>, data?: PromiseData<ToastData>) => (number & { unwrap: () => Promise<ToastData>; }) | (string & { unwrap: () => Promise<ToastData>; }) | { unwrap: () => Promise<ToastData>; }; success: (message: React.ReactNode | titleT, data?: ExternalToast) => number | string; warning: (message: React.ReactNode | titleT, data?: ExternalToast) => number | string; } & { getHistory: () => (ToastT | ToastToDismiss)[]; getToasts: () => (ToastT | ToastToDismiss)[]; }
 useDetailPanelContent | function | function useDetailPanelContent(node: ReactNode | undefined): void
-useDetailPanelSlot | function | function useDetailPanelSlot(options?: { onSuperseded?: () => void; }): HTMLElement | null
-useDetailPanelSlotHost | function | function useDetailPanelSlotHost(): { activation: number; expanded: boolean; open: boolean; ref: (host: HTMLElement | null) => void; toggle: () => void; }
+useDetailPanelEscape | function | function useDetailPanelEscape(onClose: () => void): (event: React.KeyboardEvent<HTMLElement>) => void
+useDetailPanelSlot | function | function useDetailPanelSlot(options?: { localExpansion?: boolean; onSuperseded?: () => void; }): HTMLElement | null
+useDetailPanelSlotHost | function | function useDetailPanelSlotHost(): { activation: number; expanded: boolean; open: boolean; ref: (host: HTMLElement | null) => void; setSurfaceVisible: (visible: boolean) => void; toggle: () => void; }
 useListMotion | function | function useListMotion(): RefCallback<HTMLElement>
 useSurfacePaused | function | function useSurfacePaused(): boolean
 writeLocalStorage | function | function writeLocalStorage(key: string, value: null | string): boolean
