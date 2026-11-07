@@ -93,6 +93,16 @@ describe('SDK rich editor extensions', () => {
     expect(await screen.findByRole('alert')).toBeInTheDocument();
     expect((editor as unknown as Editor).getJSON().content?.some(n => n.type === 'image')).toBe(false);
   });
+
+  it('clears the failed-upload warning once the author edits the document again', async () => {
+    let editor: Editor | null = null;
+    render(<RichEditor surface="voc-description" onAttach={async () => { throw new Error('upload failed'); }} toolbar={e => { editor = e; return null; }} />);
+    await waitFor(() => expect(editor).not.toBeNull());
+    fireEvent.paste((editor as unknown as Editor).view.dom, { clipboardData: { files: [new File(['x'], 'x.png', { type: 'image/png' })], items: [], getData: () => '' } });
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    act(() => { (editor as unknown as Editor).commands.insertContent('계속 작성'); });
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
+  });
 });
 
 it('two readers on one page keep their TOC targets inside their own document', () => {

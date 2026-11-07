@@ -85,6 +85,15 @@ export default function RichEditorImpl({
     immediatelyRender: false,
   });
 
+  // A failed paste/drop warning belongs to that attempt: once the author edits again it is stale (the consumer's attachment
+  // list keeps its own failed row and retry), so the next document change clears it.
+  React.useEffect(() => {
+    if (!editor || !uploadError) return;
+    const clear = () => setUploadError(false);
+    editor.on('update', clear);
+    return () => { editor.off('update', clear); };
+  }, [editor, uploadError]);
+
   // Re-sync value when controlled.
   // REV-3 Cluster Z: an explicit `null`/`undefined` from a controlled parent
   // must visually clear the editor. The prior implementation bailed on any
