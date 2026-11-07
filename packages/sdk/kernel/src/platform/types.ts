@@ -97,7 +97,7 @@ export type NavCountsSlot = { For: (spaceId: SpaceId, menu: MenuEntry | null) =>
 export type SpaceNavSectionSlot = { For: (spaceId: SpaceId, menu: MenuEntry | null) => { label: Text; Body: ComponentType } | null };
 /**
  * What `AnalysisActionsSlot.Actions` is told about the screen whose `⋯` menu it fills: the menu id, the global Context and a snapshot of the
- * page keys the menu declares (`pageKeys`; a key absent from the address is absent here, a repeated key is a list). A snapshot, not the address.
+ * page state of the keys the menu declares (`pageKeys`, hidden keys included; a key with no value is absent, a repeated key is a list). A snapshot of the state, not of the address.
  */
 export type AnalysisActionsProps = { menuId: string; global: GlobalContext; page: Readonly<Record<string, string | readonly string[]>> };
 /**
@@ -105,8 +105,10 @@ export type AnalysisActionsProps = { menuId: string; global: GlobalContext; page
  * `secondaryActions` and the board entry (#1424, same idea as `boardEntry`). `Actions` is rendered inside the menu, so it may use hooks and
  * `useHeaderOverflowDialog`; it must be module-level (stable identity). Draw each item with `HeaderOverflowItem` (`@ap/components`) so the row looks
  * like the other items and a user who may not use it sees it disabled with a reason, not hidden (06 §22 `allowed`). Absent slot → nothing added.
+ * `appliesTo` (optional, a plain function called while rendering, never a hook) lets the app decline a menu: false → no item and no `⋯` of the slot's making.
+ * Once it says true (or is absent), `Actions` must render at least one row (a not-allowed one is disabled, not omitted); a component that renders nothing leaves an empty menu.
  */
-export type AnalysisActionsSlot = { Actions: ComponentType<AnalysisActionsProps> };
+export type AnalysisActionsSlot = { Actions: ComponentType<AnalysisActionsProps>; appliesTo?: (menuId: string) => boolean };
 export type PlatformSlots = { analysisActions?: AnalysisActionsSlot; scopeControl?: ScopeControlSlot; contextBar?: ReactNode; topBarTools?: ReactNode; features?: FeatureSlot; plannedSpaces?: readonly PlannedSpace[]; boardEntry?: ReactNode; notifications?: NotificationsSlot; vocCompose?: VocComposeSlot; homeTodo?: HomeTodoSlot; navCounts?: NavCountsSlot; spaceNavSection?: SpaceNavSectionSlot };
 export type LinkOptions = { params?: Record<string, string>; /** A value may be a list for a repeated page key of the destination: one pair per item, in order. */ page?: Record<string, string | readonly string[] | null>; global?: Partial<GlobalContext>; returnTo?: boolean };
 export type LinkResolution = {

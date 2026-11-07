@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { I18nProvider, PlatformProvider, createRegistry, type AnalysisActionsProps } from '@ap/kernel';
+import { I18nProvider, PlatformProvider, createRegistry, usePlatform, type AnalysisActionsProps } from '@ap/kernel';
 import { PaneScreenProvider } from '@ap/kernel/host';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { HeaderOverflowItem, PlatformPage } from '../PlatformPage';
@@ -17,7 +17,7 @@ const registry = createRegistry({
   groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
   menus: [
     { ...menu('home', '/'), primary: true },
-    menu('trend', '/trend', { pageType: 'analysis', pageKeys: ['sort', 'tag'], repeatedPageKeys: ['tag'] }),
+    menu('trend', '/trend', { pageType: 'analysis', pageKeys: ['sort', 'tag', 'pick'], repeatedPageKeys: ['tag'], hiddenPageKeys: ['pick'] }),
     menu('locked', '/locked', { pageType: 'analysis', permission: 'console:access' }),
   ],
 });
@@ -57,6 +57,27 @@ describe('PlatformPage ⋯ for the analysisActions slot (#1424)', () => {
     expect(last.global).toBeDefined();
     fireEvent.click(within(group).getByRole('button', { name: '개선 아이템 남기기' }));
     expect(onPick).toHaveBeenCalledTimes(1);
+  });
+
+  it('hands over a hidden page key that is not in the address', async () => {
+    seen.length = 0;
+    function Setter() { const { setPage } = usePlatform(); return <button type="button" onClick={() => setPage({ pick: 'row-7' })}>숨김 키 쓰기</button>; }
+    window.history.replaceState(null, '', '/trend?sort=asc');
+    const session = testSession(['platform:view'] as never);
+    render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry} slots={slots}><PlatformPage><Setter /></PlatformPage></PlatformProvider></I18nProvider>);
+    await settle();
+    fireEvent.click(screen.getByRole('button', { name: '숨김 키 쓰기' }));
+    await settle();
+    expect(window.location.search).not.toContain('pick');
+    fireEvent.click(screen.getByRole('button', { name: '더보기' }));
+    await screen.findByRole('group', { name: '기타 페이지 동작' });
+    expect(seen.at(-1)!.page).toEqual({ sort: 'asc', pick: 'row-7' });
+  });
+
+  it('lets the app decline a menu with appliesTo, leaving no ⋯', async () => {
+    mount('/trend', { analysisActions: { Actions, appliesTo: id => id !== 'trend' } });
+    await settle();
+    expect(screen.queryByRole('button', { name: '더보기' })).toBeNull();
   });
 
   it('keeps a not-allowed item as a disabled row with its reason, and a click does nothing', async () => {

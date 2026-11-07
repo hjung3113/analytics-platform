@@ -237,7 +237,8 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
   // `분석 보드에 열기…` (docs/16 §6): the app's slot item, only on the main screen of a menu that declares board support and the user can open.
   const boardEntry = !inPane && menu.features.board === true && canOpen(menu.id) ? slots.boardEntry : null;
   // Items the app adds to every analysis screen's `⋯` (#1424): the same main-screen gate as the board entry; the page keys are the ones this menu declares.
-  const AnalysisActions = !inPane && menu.pageType === 'analysis' ? slots.analysisActions?.Actions : undefined;
+  const analysisSlot = slots.analysisActions;
+  const AnalysisActions = !inPane && menu.pageType === 'analysis' && (analysisSlot?.appliesTo?.(menu.id) ?? true) ? analysisSlot?.Actions : undefined;
   const analysisPage = Object.fromEntries(menu.pageKeys.flatMap(key => { const values = pageParams(key); return values.length === 0 ? [] : [[key, menu.repeatedPageKeys?.includes(key) ? values : values[0]!]]; }));
   const analysisActions = AnalysisActions ? <AnalysisActions menuId={menu.id} global={global} page={analysisPage} /> : null;
   const favoriteTarget = menu.navHidden ? null : menu;

@@ -1,5 +1,5 @@
 AnalysisActionsProps | type | type AnalysisActionsProps = { global: @ap/contracts#GlobalContext; menuId: string; page: Readonly<Record<string, readonly string[] | string>>; }
-AnalysisActionsSlot | type | type AnalysisActionsSlot = { Actions: ComponentType<@ap/kernel#AnalysisActionsProps>; }
+AnalysisActionsSlot | type | type AnalysisActionsSlot = { Actions: ComponentType<@ap/kernel#AnalysisActionsProps>; appliesTo?: (menuId: string) => boolean; }
 AnyGroupId | type | type AnyGroupId = @ap/contracts#GroupId | @ap/contracts#ModuleScopedId
 AuditMore | type | type AuditMore = CursorMore
 AuditMoreError | type | type AuditMoreError = CursorMoreError
