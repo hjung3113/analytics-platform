@@ -24,7 +24,7 @@ describe('모델 프로파일 sections', () => {
     mount();
     expect(await screen.findByRole('heading', { level: 1, name: 'Alpha 100' }, slow)).toBeTruthy();
     expect(kit.queries.find(q => q.endpoint === 'logKnowledge.modelProfile')?.params).toEqual({ modelId: MODEL_ID });
-    // 모델 탐색 › 제조사 › 모델명: the parent menu and the (link-less) 제조사 crumb, then the title.
+    // 모델 탐색 › 설비사 › 모델명: the parent menu and the (link-less) 설비사 crumb, then the title.
     const crumbs = screen.getAllByRole('navigation').find(nav => nav.textContent?.includes('모델 탐색'))!;
     expect(within(crumbs).getByRole('link', { name: '모델 탐색' })).toBeTruthy();
     const vendor = within(crumbs).getByText('Alpha Semicap');
@@ -40,7 +40,7 @@ describe('모델 프로파일 sections', () => {
     const nav = screen.getByRole('navigation', { name: '섹션 이동' });
     expect(within(nav).getAllByRole('button').map(b => b.textContent)).toEqual(['모델 요약', 'SW 버전', '모델 공통 Item', 'Top View']);
     const summary = section('모델 요약');
-    for (const label of ['모델 코드', '제조사', '공정', '상태', '등록 시각', '변경 시각']) expect(within(summary).getByText(label)).toBeTruthy();
+    for (const label of ['모델 코드', '설비사', '공정', '상태', '등록 시각', '변경 시각']) expect(within(summary).getByText(label)).toBeTruthy();
     expect(within(summary).getByText(instantText('2026-10-01T00:00:00.000Z'))).toBeTruthy();
     expect(within(summary).getByText(instantText('2026-10-02T09:30:00.000Z'))).toBeTruthy();
     expect(await within(section('모델 공통 Item')).findByText('이 모델이 소유한 Item이 없습니다', {}, slow)).toBeTruthy();
@@ -66,7 +66,7 @@ describe('모델 프로파일 sections', () => {
     expect(await screen.findByText('최근 500개만 표시', {}, slow)).toBeTruthy();
   });
 
-  it('marks an inactive 제조사', async () => {
+  it('marks an inactive 설비사', async () => {
     const base = profileOf();
     kit.profile = () => ({ ...base, model: { ...base.model, vendor: { ...base.model.vendor, active: false } } });
     mount();

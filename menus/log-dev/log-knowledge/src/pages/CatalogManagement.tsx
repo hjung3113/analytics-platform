@@ -48,7 +48,7 @@ export default function CatalogManagement() {
     <CatalogTable key={`${kind}:${revision}`} kind={kind} onImport={kind === 'software' ? undefined : () => setImporting(true)} q={q} focus={focus} rowsRef={rowsRef} options={options} labels={options.labels} remember={options.remember}
       onTotal={(k, total) => setCounts(c => (c[k] === total ? c : { ...c, [k]: total }))} />
   </div>;
-  return <PlatformPage description="제조사·공정·모델·SW 버전 기준 목록을 관리합니다. 비활성화해도 기존 연결은 그대로 남습니다."
+  return <PlatformPage description="설비사·공정·모델·SW 버전 기준 목록을 관리합니다. 비활성화해도 기존 연결은 그대로 남습니다."
     primaryAction={kind && !importing && <Button type="button" onClick={() => setPage({ focus: 'new' })}>{TAB_LABEL[kind]} 추가</Button>}>
     {importing ? <ImportWizard onExit={changed => { setImporting(false); if (changed) setRevision(n => n + 1); }} /> : <ManagementLayout table={body}
       drawer={!keys.invalid && kind && focus && <CatalogDrawer kind={kind} focus={focus} rowsRef={rowsRef} options={options} onWritten={() => setRevision(n => n + 1)} />} />}

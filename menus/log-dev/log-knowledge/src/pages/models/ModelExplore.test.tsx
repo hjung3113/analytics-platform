@@ -100,13 +100,13 @@ describe('모델 탐색 URL state', () => {
 });
 
 describe('모델 탐색 table', () => {
-  it('shows the columns, 활성/제조사/공정 on the filter row and the search placeholder', async () => {
+  it('shows the columns, 활성/설비사/공정 on the filter row and the search placeholder', async () => {
     mount(`&sort=name:asc${filterQuery([ACTIVE])}`);
     await screen.findByText('A-100', {}, slow);
     const table = screen.getByRole('table', { name: '모델 목록' });
-    for (const header of ['모델 코드', '모델명', '제조사', '공정', '활성 SW', '공통 Item', '상태', '최근 변경']) expect(within(table).getByText(header)).toBeTruthy();
+    for (const header of ['모델 코드', '모델명', '설비사', '공정', '활성 SW', '공통 Item', '상태', '최근 변경']) expect(within(table).getByText(header)).toBeTruthy();
     expect(screen.getByPlaceholderText('모델 코드·이름 검색')).toBeTruthy();
-    for (const label of ['활성', '제조사', '공정']) expect(screen.getAllByText(label).length).toBeGreaterThan(0);
+    for (const label of ['활성', '설비사', '공정']) expect(screen.getAllByText(label).length).toBeGreaterThan(0);
   });
 
   it('shows at most two process badges and a +N that names the rest; 활성 SW 0 is emphasized; an unmapped model reads 미분류', async () => {
