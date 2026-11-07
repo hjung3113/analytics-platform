@@ -120,10 +120,11 @@ export const improvementItems = improvementSchema.table(
       'improvement_item_effect_note_check',
       sql`coalesce(char_length(${t.effectNote}), 0) <= ${sql.raw(String(LONG_TEXT_MAX))}`,
     ),
-    // Same-origin relative path only: one leading slash, then neither another slash nor a backslash.
+    // Same-origin relative path only: one leading slash, then neither another slash nor a backslash, and no
+    // C0 control or DEL (a URL parser strips TAB/CR/LF, so `/<TAB>/evil` would become `//evil`).
     effectLinkCheck: check(
       'improvement_item_effect_compare_link_check',
-      sql`${t.effectCompareLink} is null or (char_length(${t.effectCompareLink}) <= ${sql.raw(String(LONG_TEXT_MAX))} and ${t.effectCompareLink} ~ ${sql.raw(String.raw`'^/[^/\\]'`)})`,
+      sql`${t.effectCompareLink} is null or (char_length(${t.effectCompareLink}) <= ${sql.raw(String(LONG_TEXT_MAX))} and ${t.effectCompareLink} ~ ${sql.raw(String.raw`'^/[^/\\]'`)} and ${t.effectCompareLink} !~ ${sql.raw(String.raw`'[\u0001-\u001f\u007f]'`)})`,
     ),
     dropReasonCheck: check(
       'improvement_item_drop_reason_check',

@@ -22,8 +22,8 @@ export const EFFECT_RESULTS = ['effective', 'ineffective', 'inconclusive'] as co
  * mirror to the SDK original): an app-relative, same-origin path. The SDK stays test-only for the backend
  * (ADR-0073, boundary rule 11), so the rule is mirrored here. A browser URL parser strips TAB, CR and LF, so
  * without the control-character check `"/\t/evil.example/x"` would normalise into the protocol-relative
- * `//evil.example/x`. Stricter than the merged 0093 CHECK `improvement_item_effect_compare_link_check`, which keeps
- * its looser `^/[^/\\]` shape as the DB backstop; tightening it needs a new migration and is a recorded follow-up. */
+ * `//evil.example/x`. The DB CHECK `improvement_item_effect_compare_link_check` (0093, control characters added in 0099) is the
+ * looser backstop: leading `/`, no `//` or backslash start, no control characters. */
 export const appRelativePath = (value: string): boolean => {
   if (!value.startsWith('/') || value.startsWith('//')) return false;
   if (value.includes('#') || value.includes('\\') || value.includes('//')) return false;
