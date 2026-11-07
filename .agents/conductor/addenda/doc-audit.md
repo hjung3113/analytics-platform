@@ -1,6 +1,6 @@
 # Pre-release document audit — reviewer work order
 
-Under [`LANES.md`](../LANES.md) §Lead, the lead uses this file to create a one-time reviewer's (`review-quality`) work order for release step 3. The first line must be "Read `~/.agents/agents/review-quality.md` and follow it as your role definition". If this work order conflicts with the persona, follow this work order. Read-only `gh issue view|list` and `gh pr view` are allowed. The reviewer writes only the report and does not edit files. The lead puts fixes in the release-docs PR (site findings go in the site PR).
+Under [`LANES.md`](../LANES.md) §Lead, the lead uses this file to create a one-time reviewer's (`review-doc`) work order for release step 3. The first line must be "Read `~/.agents/agents/doc-steward.md` and follow it as your role definition" (mode `release-audit`). If this work order conflicts with the persona, follow this work order. Read-only `gh issue view|list` and `gh pr view` are allowed. The reviewer writes only the report and does not edit files. The lead puts fixes in the release-docs PR (site findings go in the site PR).
 
 ## Inputs for the lead
 
@@ -20,7 +20,8 @@ Do not scan all of `docs/`. Review only: ① changed documents in the range (`gi
 3. **Contents and ownership.** Does each contract appear in only one place, as required by the ownership table in [`docs/AGENTS.md`](../../../docs/AGENTS.md) (no conflicting versions of the same rule)? Does `docs/INDEX.md` match the actual file structure? Are folder `AGENTS.md` files paired with `CLAUDE.md` symlinks?
 4. **Process history.** Do contract documents contain worker reports, review rounds, or "previously ..." narratives (`docs/AGENTS.md` rules)?
 5. **Release docs.** Do the current-version change-log row and board release row in the release-docs PR draft match the merged PRs in the range? Also check the site PR draft for app releases.
+6. **Terminology ledger.** For terms that entered the range (new bold terms, enum/table/capability names, menu labels in changed documents and issues), list those missing from `GLOSSARY.md` or still waiting for an owner answer (`ready-for-human` issues). Backlog rows count only when they point at an issue closed in the range (an extension of item 2).
 
 ## Report
 
-This format takes precedence over the persona's slice-report format. `## Summary` (no more than 25 lines, `Verdict: ready|fix-before-release`, table `ID | Category (navigation|staleness|contents and ownership|process history|release docs) | file:line | problem | proposal`), `## Patch` (Replace/With), and `## Details`. Group deletion proposals separately. Do not write "probably" without evidence; list the commands used to verify.
+This format takes precedence over the persona's slice-report format. `## Summary` (no more than 25 lines, `Verdict: ready|fix-before-release`, table `ID | Category (navigation|staleness|contents and ownership|process history|release docs|terminology) | file:line | problem | proposal`), `## Patch` (Replace/With), and `## Details`. Group deletion proposals separately. Do not write "probably" without evidence; list the commands used to verify.
