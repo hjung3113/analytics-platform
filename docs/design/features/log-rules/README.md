@@ -9,7 +9,7 @@
 기존 `logRules`(라벨 «기준»)를 **조회·연결 전용**으로 실구현하기 위한 계약이다.
 
 1. **조회**: Validator가 실제로 지원한다고 보고한 Rule·RuleSet·Revision 목록과 **지원 범위**를 본다.
-2. **연결**: 모델 명세의 **명세 요구사항**(모듈·이벤트 키)과 Rule을 잇고, 요구사항별 **명세 커버리지**를 계산해 보인다. 연결 없는 요구사항은 성공처럼 보이지 않고 «규칙 없음»으로 보인다.
+2. **연결**: 모델 명세의 **명세 요구사항**(모듈·이벤트 키)과 Rule을 잇고, 요구사항별 **명세 커버리지**를 계산해 보인다. 연결 없는 요구사항은 성공처럼 보이지 않고 «확인된 연결 없음»으로 보인다.
 3. **읽기 포트**: 나중에 Gate의 필수 Rule 커버리지 계산([log-lifecycle §9](../log-lifecycle/README.md#9-미구현-목록-다시-여는-조건))이 이 연결을 읽는 포트를 정해 둔다. 계산 자체는 하지 않는다.
 
 하지 않는 것(§9에 다시 여는 조건): Rule 편집기·실행·규칙 엔진 이관(P2 — Validator가 안전한 편집 API를 내놓고 권위 일치가 확인될 때), Rule 정의 본문·파라미터·판정 로직의 저장, 플랫폼에서 Validator로 나가는 호출, LLM이 제안한 연결, Gate 필수 Rule 정책 계산, 실행 결과(`rule_result`)의 재판정.
@@ -27,8 +27,8 @@
 - **카탈로그는 Validator의 보고를 받은 투영이다.** Rule 정의를 독립으로 복제하지 않는다. 저장하는 표시 필드는 닫힌 목록이다(§3.2) — 식별자·짧은 이름·짧은 요약·지원 범위·상태·digest뿐.
 - **판정 축 분리.** 이 문서의 연결·커버리지는 «이 요구사항을 검사하는 규칙이 있다»는 **구성 정보**이고 검증 결과가 아니다. 커버리지 100%는 통과를 뜻하지 않는다. 규칙 결과, 사람 Gate 결정과 서로 덮지 않는다.
 - **명세 커버리지 ≠ 실행 커버리지.** 명세 커버리지는 *명세 요구사항 ↔ Rule 연결*이고(이 문서), 실행 커버리지는 *한 회귀 실행/시도에서 기대한 Rule 중 실제로 돈 것*이다([log-test-datasets](../log-test-datasets/README.md)). 두 문서는 각각 이 이름만 쓴다.
-- **«규칙 없음» ≠ «미검증».** 요구사항에 연결된 Rule이 없을 때 이 설계의 표시는 «규칙 없음»이다. «미검증»은 지식 Item의 기술 검증 상태 이름과 겹치고 `NOT_CHECKED` 규칙 결과와도 다르므로 쓰지 않는다(이슈 본문의 «미검증 표시» = 이 표시, 질문 4).
-- **ID 보존.** `rule_key`·`rule_set_key`는 Validator가 정한 불투명 식별자이고 플랫폼은 이름을 해석하지 않는다. 같은 `rule_key`가 Revision마다 같은 의도를 가진다는 가정은 Validator가 보고한 `supersedes` 관계가 있을 때만 쓴다.
+- **커버리지와 검증 상태를 구분한다.** 이슈 본문의 «미검증 표시»는 명세 요구사항에 **확인된 Rule 연결이 있는지**를 나타내는 표시이고, 이 설계는 «확인된 연결 없음»으로 쓴다(질문 4). 지식 Item의 기술 검증 상태 `not_checked`(현재 표시 «미확인»), 한 시도의 규칙 결과 `NOT_CHECKED`, 명세 요구사항의 연결 부재는 서로 다른 축이고 이 표시로 지식 Item 상태나 규칙 결과를 바꾸지 않는다.
+- **ID 보존.** 기존 규칙 결과의 `rule_id`와 Dataset `expected_scope`의 `rule_id`는 외부 규칙 식별자다([log-lifecycle §3](../log-lifecycle/README.md#rule_result)). 카탈로그의 `rule.id`는 보고별 투영 행 ID이며 외부 규칙 식별자를 대신하지 않는다. `rule_key`·`rule_set_key`는 Validator가 정한 불투명 식별자 후보로, 기존 `rule_id`와의 대응 및 RuleSet·Revision 식별 조건을 노드 0에서 명시한 뒤 §5.3의 Dataset 존재 확인에 적용한다. 실사 전에는 `rule_id = rule_key`라고 단정하지 않는다. Revision 사이 동일성은 Validator가 보고한 `supersedes` 관계가 있을 때만 쓴다.
 - **용어.** `RuleSet`·`Rule`은 Validator 쪽 용어 그대로. `규칙 결과`·`실행 프로파일`·`근거 위치`는 GLOSSARY. 새 용어 `규칙 카탈로그`, `명세 요구사항`, `명세 커버리지`, `실행 커버리지`는 구현 노드 0에서 GLOSSARY에 등재한다.
 
 ## 3. 데이터 모델 (확정 DDL 아님)
@@ -40,7 +40,7 @@
 `id`, `workspace_id`, `source_system`(Validator 식별 문자열, 닫힌 길이), `reported_by_actor_id`(서비스 토큰의 system Actor), `validator_version`, `report_digest`(정규 직렬화 SHA-256), `reported_at`, `outcome`(`accepted`·`rejected`), `reject_reason?`.
 
 - 같은 `report_digest` 재전송은 새 행을 만들지 않고 같은 응답을 준다(멱등, [ADR-0117](../../../adr/0117-validation-request-queue-claim-lease-heartbeat.md) 결정 5와 같은 방식). 거절 사유(`unknown_field`·`too_large`·`duplicate_key`·`secret_pattern`)는 기록한다.
-- 보고는 **전체 스냅샷**이다(증분 아님). 새 보고가 `accepted`되면 이전 보고는 `superseded`로 표시될 뿐 지워지지 않는다. Round의 `rule_set_revision`이 옛 보고를 가리킬 수 있기 때문이다.
+- 보고는 **전체 스냅샷**이다(증분 아님). 새 보고가 `accepted`되면 이전 보고는 `superseded`로 표시될 뿐 지워지지 않는다. Round에 속한 시도의 `execution_attempt.rule_set_revision`이 옛 RuleSet Revision을 참조할 수 있기 때문이다.
 
 ### 3.2 rule_set_revision · rule (보고의 정규화 행, 불변)
 
@@ -54,13 +54,13 @@
 
 ### 3.3 requirement_link (연결)
 
-`id`, `workspace_id`, `model_id`, `requirement_key`, `rule_set_key`, `rule_key`, `source`(`validator_declared`·`manual`), `state`(`proposed`·`confirmed`·`retired`), `requirement_digest`(연결 시점 요구사항 정의의 digest), `linked_rule_revision`(연결 시점에 본 Revision), `reason?`(수동일 때 필수), `created_by_actor_id`, `created_at`, `row_version`.
+`id`, `workspace_id`, `model_id`, `requirement_key`, `rule_set_key`, `rule_key`, `source`(`validator_declared`·`manual`), `state`(`proposed`·`confirmed`·`retired`·`unresolved`), `requirement_digest`(연결 시점 요구사항 정의의 digest), `linked_rule_revision`(연결 시점에 본 Revision), `reason?`(수동일 때 필수), `created_by_actor_id`, `created_at`, `row_version`.
 
 - `requirement_key`는 **명세 요구사항 키**다: `moduleKey` 또는 `moduleKey/eventKey`(기본, 질문 3). `log-knowledge`의 `spec_module`·`spec_event` 키를 그대로 쓰고 새 식별자를 만들지 않는다. 명세 Revision이 바뀌어도 키가 유지되는 한 연결이 이어진다([GLOSSARY 안정 키](../../../../GLOSSARY.md)).
 - `validator_declared`: 보고의 `covers`에서 서버가 만든다. Validator 선언이므로 `confirmed`로 시작하되 표시는 «Validator 선언»이다. 보고에서 사라지면 `retired`가 된다(삭제 없음).
 - `manual`: 사람이 만든다. `proposed`로 시작해 사람이 `confirmed`해야 커버리지에 센다. 표시는 «수동 연결(Validator 미확인)»으로 선언 연결과 구분한다. 자기 확인은 막지 않고 이력에 표시한다([log-lifecycle D3](../log-lifecycle/README.md#10-open-decisions-이-문서)와 같은 원칙).
 - 모든 상태 변경은 추가 전용 `requirement_link_event`(`before`·`after`·`reason`·`actor`·`at`)와 Core 감사에 같은 트랜잭션으로 쓴다.
-- 대상 `model_id`·`requirement_key`는 쓰기 때 `log-knowledge` 읽기 포트로 존재를 확인하고, 없으면 `unresolved`로 저장하지 않고 거절한다(선언 연결은 `unresolved`로 보존하되 커버리지에 세지 않음).
+- 대상 `model_id`·`requirement_key`는 쓰기 때 `log-knowledge` 읽기 포트로 존재를 확인한다. 수동 연결은 대상이 없으면 거절한다. 선언 연결은 대상 키를 해석할 수 없다는 연결 상태 `unresolved`로 보존하고 커버리지에서 제외한다. 이는 Rule의 `support=unknown`과 다른 개념이다. 명세에서 사라진 키로 낡은 연결은 `orphan`이라 부르는 **표시용 행 분류**(§3.4·§8)이며 연결 `state`가 아니다.
 
 ### 3.4 커버리지는 저장하지 않고 읽을 때 계산한다
 
@@ -70,10 +70,10 @@
 | --- | --- |
 | `covered` | 확인된 연결이 있고 그 Rule이 현재 `active` Revision에서 `supported`(또는 `partial`이면 `partial`) |
 | `partial` | 연결된 Rule이 모두 `partial`이거나 `scope`가 이 모델·SW를 일부만 덮음 |
-| `no_rule` | 확인된 연결이 없음 → 표시 «규칙 없음» |
+| `no_rule` | 확인된 연결이 없음 → 표시 «확인된 연결 없음» |
 | `unsupported` | 연결은 있으나 Rule이 `unsupported` |
 | `unknown` | 연결은 있으나 Rule의 `support`가 `unknown`, 또는 카탈로그를 아직 받지 못함 |
-| `stale` | 연결 시점의 `requirement_digest`가 현재와 다르거나 Rule이 새 Revision에서 사라짐/`supersedes` 없이 바뀜 → 재확인 필요 |
+| `stale` | 연결 시점의 `requirement_digest`가 현재와 다르거나 Rule이 새 Revision에서 사라짐/`supersedes` 없이 바뀜 → 연결 재확인 필요 |
 
 - 명세가 없는 모델(발행된 모델 명세 Revision 없음)은 «명세 없음»이고 0%로 계산하지 않는다. 카탈로그를 받은 적 없으면 «카탈로그 미수신»이다.
 - 응답에는 `coverageDigest`(요구사항 키·상태·연결 ID·`spec_pin`·RuleSet Revision digest의 정규 직렬화 SHA-256)를 둔다. Gate가 나중에 이 digest를 `basis`에 고정하면 과거 행을 고치지 않고 낡음을 비교할 수 있다.
@@ -95,7 +95,7 @@ log-rules/
 ```
 
 - **플랫폼 → Validator 호출은 없다.** Validator(또는 그 보고자)가 토큰으로 보고를 올린다([log-lifecycle §4](../log-lifecycle/README.md#4-서버-모듈-경계)의 «Validator로 나가는 호출은 없다»와 같은 원칙, ADR-0122).
-- **교차 모듈.** `log-knowledge`(실효 명세 요구사항 읽기 — 새 읽기 포트가 필요하다, 노드 c), `log-lifecycle`(Round의 `rule_set_revision` 해석은 이 모듈의 읽기). 다른 모듈 DB에 쓰지 않는다.
+- **교차 모듈.** `log-knowledge`(실효 명세 요구사항 읽기 — 새 읽기 포트가 필요하다, 노드 c), `log-lifecycle`(시도의 `execution_attempt.rule_set_revision` 해석은 이 모듈의 읽기이며 Round 화면은 시도를 통해 조회). 다른 모듈 DB에 쓰지 않는다.
 - **합성 보고자.** 통합 테스트와 dev 시드를 위한 참조 보고 스크립트를 `tooling` 아래에 둔다(참조 작업자와 같은 규칙: 문서·PR에 «합성 fixture», 운영 연동 증거 아님).
 - **계약 산출물.** 보고 스키마는 `@ap/contract-schemas`에 `v0`(잠정)로 낸다.
 
@@ -174,8 +174,8 @@ log-dev > 기준 (logRules)
 - RuleSet 이력: Revision 사이 추가·제거·지원 변경(읽기).
 
 **명세 커버리지 탭**
-- 상단: 모델·SW 선택(안정 ID, `log-knowledge` 딥링크), `spec_pin`, 상태별 개수 띠(`규칙 있음`·`일부`·`규칙 없음`·`미지원`·`확인 불가`·`재확인 필요`).
-- 본문: 요구사항 표(모듈/이벤트 키, 상태, 연결된 Rule 수, 출처 배지). **`규칙 없음`을 가장 먼저 보이게 정렬 기본값**으로 하고 색만으로 구분하지 않는다. 100%여도 «통과가 아니라 구성 정보입니다» 문구를 둔다.
+- 상단: 모델·SW 선택(안정 ID, `log-knowledge` 딥링크), `spec_pin`, 상태별 개수 띠(`규칙 있음`·`일부`·`확인된 연결 없음`·`미지원`·`확인 불가`·`연결 재확인 필요`).
+- 본문: 요구사항 표(모듈/이벤트 키, 상태, 연결된 Rule 수, 출처 배지). **`확인된 연결 없음`을 가장 먼저 보이게 정렬 기본값**으로 하고 색만으로 구분하지 않는다. 100%여도 «통과가 아니라 구성 정보입니다» 문구를 둔다.
 - 행 서랍: 연결된 Rule(출처, 확인자, 연결 시점 Revision), 낡음 사유, 「연결 추가/확인/폐기」.
 - 명세가 없는 모델은 «발행된 모델 명세가 없습니다»(0%로 보이지 않음).
 
@@ -191,7 +191,7 @@ log-dev > 기준 (logRules)
 
 | 노드 | 내용 | 기대 티어 | 선행 |
 | --- | --- | --- | --- |
-| 0 | [ADR-0122](../../../adr/0122-rule-catalog-is-a-token-submitted-read-only-snapshot.md) 확정 + GLOSSARY 용어(`규칙 카탈로그`·`명세 요구사항`·`명세 커버리지`·`실행 커버리지`) + log-test-datasets의 «Rule coverage» → «실행 커버리지» 정리 | light | 소유자 답 |
+| 0 | 외부 `rule_id` ↔ `rule_key`·`rule_set_key`·Revision 식별 계약 확인 + [ADR-0122](../../../adr/0122-rule-catalog-is-a-token-submitted-read-only-snapshot.md) 확정 + GLOSSARY 용어(`규칙 카탈로그`·`명세 요구사항`·`명세 커버리지`·`실행 커버리지`) + log-test-datasets의 «Rule coverage» → «실행 커버리지» 정리 | light | 소유자 답 |
 | a | `log_rules` 스키마·마이그레이션, 보고 REST(토큰 scope, 멱등, 상한, 닫힌 필드, 비밀 패턴 거절), 합성 보고자 | full, `impl-complex` (권한·입력 경계) | 0, v0.30.0 a |
 | b | 카탈로그 읽기: ruleSets·ruleSetDetail·rules·ruleDetail·catalogStatus | full | a |
 | c | `log-knowledge` 실효 명세 요구사항 읽기 포트(모델·SW → 키 목록·`spec_pin`·ACL) | full, `impl-complex` | — (a와 독립) |
@@ -207,10 +207,10 @@ log-dev > 기준 (logRules)
 | 위험 | 대응 |
 | --- | --- |
 | Rule 정의를 플랫폼이 복제해 Validator와 어긋남 | 본문·파라미터 저장 금지, 허용 키 밖 필드 거절, 모든 행에 `source_system`·보고 시각 |
-| 연결 없는 요구사항이 «문제 없음»으로 보임 | `규칙 없음`을 기본 정렬 맨 위, 0%·100% 모두 «통과 아님» 문구 |
+| 연결 없는 요구사항이 «문제 없음»으로 보임 | `확인된 연결 없음`을 기본 정렬 맨 위, 0%·100% 모두 «통과 아님» 문구 |
 | 커버리지 100%를 통과로 오인(Gate 소비자) | 응답에 구성 정보임을 표시, Gate는 규칙 결과·verdict로만 판정 |
 | 카탈로그를 한 번도 못 받았는데 «0개 Rule» | `catalogStatus`로 «카탈로그 미수신», 빈 표 문구 구분 |
-| 새 Revision에서 Rule 이름·의미가 바뀜 | `supersedes` 없으면 연결을 `stale`(재확인 필요)로, 자동 승계 없음 |
+| 새 Revision에서 Rule 이름·의미가 바뀜 | `supersedes` 없으면 연결을 `stale`(연결 재확인 필요)로, 자동 승계 없음 |
 | Rule이 사라지거나 `retired` | 연결은 보존하고 `stale`/`unsupported`, 삭제 없음 |
 | 명세 요구사항이 새 Revision에서 사라짐/정의 변경 | `requirement_digest` 불일치 → `stale`, 사라진 키는 `orphan` 행으로 목록 끝에 보임 |
 | 사람이 수동으로 거짓 커버리지를 만듦 | `proposed`→사람 확인 필요, 출처 배지 «수동(Validator 미확인)», 이력·감사, 선언 연결과 구분해 집계 |
@@ -240,7 +240,9 @@ log-dev > 기준 (logRules)
 | D2 | `scope` 키 집합 | 후보 5키로 시작, 실사 뒤 확정 | Validator 실제 지원 차원을 모름 |
 | D3 | 요구사항 단위 | 모듈·이벤트(이벤트 기본), 필드는 이후 | 명세 키가 모듈·이벤트까지 안정적 |
 | D4 | 연결 작성자 | Validator 선언 + 사람 수동(확인 필요, 출처 구분) | 선언만이면 Validator 쪽 누락을 사람이 메울 수 없음 |
-| D5 | 표시 이름 | «규칙 없음»(요구사항), 명세 커버리지/실행 커버리지 구분 | «미검증»은 지식 Item·`NOT_CHECKED`와 충돌 |
+| D5 | 표시 이름 | «확인된 연결 없음»(요구사항), 명세 커버리지/실행 커버리지 구분 | 연결 유무와 지식 Item의 기술 검증 상태(«미확인»)·규칙 결과 `NOT_CHECKED`를 구분(`no_rule`은 확인된 연결 부재, 확인 전 수동 연결의 존재는 따로 보임) |
 | D6 | 화면 범위 | `log-rules` 한 화면 두 탭, 새 메뉴 없음 | 신규 화면 수 최소 |
 | D7 | 보고 상한(RuleSet 50·Rule 5,000·2MB, 요약 300자) | 이 값으로 시작 | 측정 전 시작값 |
-| D8 | 카탈로그 보존 | 모든 보고 추가 전용 보존 | Round의 `rule_set_revision` 참조 |
+| D8 | 카탈로그 보존 | 모든 보고 추가 전용 보존 | 시도의 `execution_attempt.rule_set_revision` 참조 |
+| D9 | 연결 낡음 이름 | «연결 재확인 필요»(변경점 «재검토 필요»·Baseline «기준 낡음»·Gate «재검증 필요»는 #1463대로 유지) | 코드 `stale`을 화면 공통 이름으로 쓰지 않음 |
+| D10 | Rule/규칙 이름 | 화면은 기존 `검증 규칙`·`규칙`, 외부 이름·코드 설명은 `Rule`·`RuleSet` 유지(같은 개념으로 용어집에 등재) | 영문 객체 이름과 한국어 메뉴 이름의 대응을 한 곳에 둠 |
