@@ -67,9 +67,11 @@ describe('FeatureDetailDrawer', () => {
   it('draws the one-tab content area as a region holding .fo-detail-body as a direct child, and styles.css targets that region', () => {
     const { aside } = mount(vi.fn());
     const region = aside.querySelector('[role="dialog"] [role="region"]')!;
-    expect(region.querySelector(':scope > .fo-detail-body')).toBeTruthy();
+    // #1459: the SDK reading column (display: contents while docked) may sit between the region and the body.
+    expect(region.querySelector(':scope > .fo-detail-body, :scope > [data-detail-reading-column] > .fo-detail-body')).toBeTruthy();
     const css = readFileSync(resolve(process.cwd(), 'src/styles.css'), 'utf8');
     const rule = css.split('}').find(block => block.includes(':has(> .fo-detail-body)'))!;
+    expect(rule).toContain(':has(> [data-detail-reading-column] > .fo-detail-body)');
     expect(rule).toContain('[role="region"]');
     expect(rule).toContain('[role="tabpanel"]');
   });

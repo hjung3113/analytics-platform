@@ -31,6 +31,7 @@ export function DetailPanelReadingColumn({
     // toggle and drop unsaved input.
     <div
       {...dataAttrs}
+      data-detail-reading-column=""
       className={cn(
         expanded ? readingClass : 'contents',
       )}
