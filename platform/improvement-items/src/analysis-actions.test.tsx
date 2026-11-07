@@ -34,6 +34,7 @@ describe('improvement analysis overflow entry (#1408)', () => {
     render(<I18nProvider><ImprovementAnalysisActions {...props} /></I18nProvider>);
     const button = screen.getByRole('button', { name: '개선 아이템 남기기' });
     expect((button as HTMLButtonElement).disabled).toBe(true);
+    expect(document.getElementById(button.getAttribute('aria-describedby')!)?.textContent).toBe('개선 아이템을 만들 권한이 없습니다.');
     fireEvent.click(button);
     expect(platform.navigate).not.toHaveBeenCalled();
   });

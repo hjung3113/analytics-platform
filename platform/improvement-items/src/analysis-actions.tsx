@@ -10,6 +10,6 @@ export function ImprovementAnalysisActions({ menuId, global, page }: AnalysisAct
   const resolution = resolveLink(IMPROVEMENT_ITEMS_MENU_ID, { global, page: { focus: 'new', origin: menuId, originPage: JSON.stringify(sourcePage) } });
   // Same UI gate as the list's create button; the server stays the authority (improvement:manage).
   const allowed = resolution.allowed && can(MANAGE_PERMISSION);
-  return <HeaderOverflowItem label={c.create} allowed={allowed} reason={c.entryDenied} onSelect={() => { if (allowed) navigate(resolution.href); }} />;
+  return <HeaderOverflowItem label={c.create} allowed={allowed} reason={resolution.allowed ? c.entryNoManage : c.entryDenied} onSelect={() => { if (allowed) navigate(resolution.href); }} />;
 }
 export const improvementAnalysisActions: AnalysisActionsSlot = { Actions: ImprovementAnalysisActions };
