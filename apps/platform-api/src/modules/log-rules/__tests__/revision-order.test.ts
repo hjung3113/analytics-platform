@@ -44,6 +44,14 @@ describe('currentRevision', () => {
     expect(currentRevision(orderRevisions([rev('1', null, 'retired')]))).toEqual({ current: null, headCount: 0 });
   });
 
+  it('ignores a self reference: the Revision naming itself is still a head', () => {
+    expect(currentRevision(orderRevisions([rev('a'), rev('z', 'z')]))).toMatchObject({ current: { revision: 'z' }, headCount: 2 });
+  });
+
+  it('has no current Revision when active Revisions only supersede each other', () => {
+    expect(currentRevision(orderRevisions([rev('x', 'y'), rev('y', 'x')]))).toEqual({ current: null, headCount: 0 });
+  });
+
   it('reports parallel active heads and takes the last in order', () => {
     expect(currentRevision(orderRevisions([rev('1'), rev('2')]))).toMatchObject({ current: { revision: '2' }, headCount: 2 });
   });

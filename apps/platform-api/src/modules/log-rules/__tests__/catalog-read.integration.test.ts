@@ -513,12 +513,12 @@ describe.skipIf(!runIntegration)('catalog reads (#1492)', () => {
       expect(await getCatalogStatus(dbFor(), ws.workspaceId)).toMatchObject({ received: true, requirementIdsDeclared: false, ruleSetCount: 1, ruleCount: 2 });
     });
 
-    it('a retired Revision\'s requirement ids do not count as declared', async () => {
+    it('a retired Revision\'s requirement ids count as declared for the catalog', async () => {
       const ws = await workspaceWithActor();
       await seed(ws, key('src-retreq'), [
         { ruleSetKey: 'rs', revisions: [{ revision: '1', status: 'retired', rules: [{ ruleKey: 'a', targets: [{ format: 'f', target: 't', requirementIds: ['M/E'] }] }] }, { revision: '2', supersedes: '1', rules: [{ ruleKey: 'a' }] }] },
       ]);
-      expect((await getCatalogStatus(dbFor(), ws.workspaceId)).requirementIdsDeclared).toBe(false);
+      expect(await getCatalogStatus(dbFor(), ws.workspaceId)).toMatchObject({ requirementIdsDeclared: true, ruleCount: 1 });
     });
 
     it('another workspace\'s catalog is invisible on every read: null or empty, never a refusal', async () => {

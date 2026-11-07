@@ -507,11 +507,16 @@ export async function getCatalogStatus(tx: Tx, workspaceId: string): Promise<Cat
   if (currentIds.length > 0) {
     const [n] = await tx.select({ n: count() }).from(rl).where(and(eq(rl.workspaceId, workspaceId), inArray(rl.ruleSetRevisionId, currentIds)));
     ruleCount = Number(n?.n ?? 0);
+  }
+  // Declaration is a catalog-wide fact: every Revision of the accepted catalog counts, retired ones too (the Rule
+  // detail returns their ids). `ruleCount` stays current-only.
+  const allIds = groups.flatMap((g) => g.revisions.map((r) => r.id));
+  if (allIds.length > 0) {
     const hit = await tx
       .select({ one: sql`1` })
       .from(tg)
       .innerJoin(rl, and(eq(rl.workspaceId, tg.workspaceId), eq(rl.id, tg.ruleId)))
-      .where(and(eq(tg.workspaceId, workspaceId), inArray(rl.ruleSetRevisionId, currentIds), sql`coalesce(array_length(${tg.requirementIds}, 1), 0) > 0`))
+      .where(and(eq(tg.workspaceId, workspaceId), inArray(rl.ruleSetRevisionId, allIds), sql`coalesce(array_length(${tg.requirementIds}, 1), 0) > 0`))
       .limit(1);
     declared = hit.length > 0;
   }

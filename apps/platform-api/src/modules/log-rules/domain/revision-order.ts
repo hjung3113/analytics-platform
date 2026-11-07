@@ -49,14 +49,15 @@ export function predecessorOf<T extends RevisionNode>(revisions: readonly T[], r
 
 /**
  * The current Revision: an `active` one that no other `active` one supersedes. Several heads (the Validator reported
- * parallel active Revisions) resolve to the last in order; `headCount > 1` lets a caller say so. None active = null.
+ * parallel active Revisions) resolve to the last in order; `headCount > 1` lets a caller say so. No head (none active, or
+ * active Revisions that only supersede each other in a cycle) = null.
  */
 export function currentRevision<T extends RevisionNode>(ordered: readonly T[]): { current: T | null; headCount: number } {
   const active = ordered.filter((r) => r.status === 'active');
-  const superseded = new Set(active.map((r) => r.supersedes).filter((s): s is string => s !== null));
+  // A Revision naming itself does not supersede itself: self edges are ignored.
+  const superseded = new Set(active.filter((r) => r.supersedes !== r.revision).map((r) => r.supersedes).filter((s): s is string => s !== null));
   const heads = active.filter((r) => !superseded.has(r.revision));
-  const pool = heads.length > 0 ? heads : active;
-  return { current: pool[pool.length - 1] ?? null, headCount: heads.length };
+  return { current: heads[heads.length - 1] ?? null, headCount: heads.length };
 }
 
 export interface RevisionChanges {
