@@ -4,7 +4,7 @@ import {
   DetailPanelReadingColumn,
 } from '../DetailPanelFullscreenContext.js';
 
-const EXPANDED_CLASS = 'mx-auto h-full w-full max-w-[60rem] border-x border-border-subtle';
+const EXPANDED_CLASS = 'mx-auto h-full w-full max-w-[48rem]';
 
 describe('DetailPanelReadingColumn', () => {
   it.each([

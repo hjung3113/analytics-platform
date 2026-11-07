@@ -6,6 +6,7 @@ import { isBoardPath, pathFor, type MenuEntry } from '../registry/registry';
 import { useI18n } from '../i18n';
 import { hasDotSegment } from '../context/location';
 import { readReturnHidden, rememberReturnHidden, type ReturnHiddenOwner } from '../context/returnHidden';
+import { DETAIL_EXPAND_KEY, stripDetailExpansion, withDetailExpansion } from '../links/detail-expansion';
 import { sameParams } from './preferences';
 import { dropResetKeys } from '../context/paneContext';
 import { dropDrillResetKeys } from '../context/drillReset';
@@ -57,10 +58,18 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   const userId = user.id;
 
   const pathname = url.split('?')[0] || '/';
-  const search = url.includes('?') ? url.slice(url.indexOf('?')) : '';
+  const appliedUrl = useMemo(() => stripDetailExpansion(url), [url]);
+  const search = appliedUrl.includes('?') ? appliedUrl.slice(appliedUrl.indexOf('?')) : '';
   const outsideDeployment = url === '';
 
   const platformScreen = mode === 'main' && !outsideDeployment && isBoardPath(pathname) ? 'board' : null;
+  const detailExpanded = mode === 'main' && platformScreen === null && new URLSearchParams(url.split('?')[1] ?? '').get(DETAIL_EXPAND_KEY) === '1';
+  const setDetailExpanded = useCallback((on: boolean) => {
+    if (mode !== 'main' || platformScreen !== null) return;
+    commit(withDetailExpansion(url, on), 'replace');
+  }, [mode, platformScreen, url, commit]);
+  // All same-screen writers (including Apply and materialization) retain presentation state.
+  const commitState = useCallback<typeof commit>((next, how, options) => commit(withDetailExpansion(next, detailExpanded), how, options), [commit, detailExpanded]);
   const route = useMemo(() => {
     if (outsideDeployment || platformScreen !== null) return null;
     const matched = matchRoute(pathname);
@@ -110,14 +119,15 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     if (mode === 'main') {
       // The return link names only the visible address (ADR-0105): leaving with this screen as the origin parks its hidden pairs in the session, following the return link takes them back.
       const q = next.indexOf('?');
-      if (q !== -1 && new URLSearchParams(next.slice(q + 1)).get(RETURN_TO_KEY) === visibleUrl) { const owner = returnOwner(visibleUrl); if (owner !== null) rememberReturnHidden(visibleUrl, hidden ?? [], owner); }
+      if (q !== -1 && new URLSearchParams(next.slice(q + 1)).get(RETURN_TO_KEY) === stripDetailExpansion(visibleUrl)) { const owner = returnOwner(visibleUrl); if (owner !== null) rememberReturnHidden(stripDetailExpansion(visibleUrl), hidden ?? [], owner); }
       const origin = safeReturnTo(page.find(([k]) => k === RETURN_TO_KEY)?.[1] ?? null);
       if (origin !== null && origin === next) { const owner = returnOwner(origin); if (owner !== null) restoreHidden = readReturnHidden(origin, owner); }
     }
+    if (next.split('?')[0] !== pathname) next = stripDetailExpansion(next);
     const moved = go(next, restoreHidden && restoreHidden.length > 0 ? { ...options, restoreHidden } : options);
     if (mode === 'main' && !moved) trail.via = before;
     return moved;
-  }, [go, mode, usageNav, visibleUrl, hidden, safeReturnTo, page, returnOwner]);
+  }, [go, mode, usageNav, visibleUrl, hidden, safeReturnTo, page, returnOwner, pathname]);
 
   // A deliberate global-Context change drops the manifest's contextResetKeys (e.g. the result-set page index)
   // from the page pairs in the SAME navigation — one history entry, so Back returns to the pre-change URL
@@ -127,8 +137,8 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   // Writers commit this screen's own address; they are not cross-menu navigation (a pane keeps writing to itself
   // even after its menu lost permission or board support).
   const write = useCallback((next: string, options?: { replace?: boolean; focus?: PageFocus; bypassGuard?: boolean }) => {
-    commit(next, options?.replace ? 'replace' : 'push', { focus: options?.focus, bypassGuard: options?.bypassGuard });
-  }, [commit]);
+    commitState(next, options?.replace ? 'replace' : 'push', { focus: options?.focus, bypassGuard: options?.bypassGuard });
+  }, [commitState]);
 
   const setGlobal = useCallback((patch: Partial<GlobalContext>, options?: { replace?: boolean; silent?: boolean }) => {
     let next: GlobalContext = { ...global, ...patch };
@@ -144,6 +154,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
 
   // A patch that changes a drill level value also drops the menu's `drill.resetKeys` in the same write (one history entry, 06 §6.4).
   const setPage = useCallback((requested: Record<string, string | readonly string[] | null>, options?: { replace?: boolean; focus?: PageFocus }) => {
+    if (Object.hasOwn(requested, DETAIL_EXPAND_KEY)) throw new RangeError('expand is a reserved platform key');
     for (const [key, value] of Object.entries(requested)) {
       if (typeof value === 'object' && value !== null && value.filter(v => v !== '').length > 1 && !route?.menu.repeatedPageKeys?.includes(key)) throw new RangeError(`setPage: "${key}" is not a repeated page key`);
     }
@@ -193,9 +204,9 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
         for (const pair of target.repeatedPageKeys?.includes(k) ? values : values.slice(0, 1)) pagePairs.push(pair);
       }
     }
-    if (options.returnTo && !sameCarryingSet && target.pageKeys.includes(RETURN_TO_KEY) && !pagePairs.some(([k]) => k === RETURN_TO_KEY) && options.page?.[RETURN_TO_KEY] === undefined) pagePairs.push([RETURN_TO_KEY, visibleUrl]);
+    if (options.returnTo && !sameCarryingSet && target.pageKeys.includes(RETURN_TO_KEY) && !pagePairs.some(([k]) => k === RETURN_TO_KEY) && options.page?.[RETURN_TO_KEY] === undefined) pagePairs.push([RETURN_TO_KEY, stripDetailExpansion(visibleUrl)]);
     return {
-      href: pathFor(target, options.params) + buildQuery(g, pagePairs),
+      href: pathFor(target, options.params) + buildQuery(g, pagePairs.map(([key, value]) => [key, key === RETURN_TO_KEY ? stripDetailExpansion(value) : value])),
       allowed: canOpen(menuId),
       droppedPageKeys: requested.map(([k]) => k).filter(k => !target.pageKeys.includes(k)),
     };
@@ -273,8 +284,8 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     const key = `${url}\0${target}`;
     if (proposed.current === key) return;
     proposed.current = key;
-    commit(target, 'replace', { materialize: true });
-  }, [mode, search, route, routeContractError, global, metricInit, page, extras, pathname, url, commit, defaultRangeTo]);
+    commitState(target, 'replace', { materialize: true });
+  }, [mode, search, route, routeContractError, global, metricInit, page, extras, pathname, url, commit, commitState, defaultRangeTo]);
 
   useLayoutEffect(() => {
     // A platform screen takes its own arrival focus; "no route" must not cancel the request for it.
@@ -350,7 +361,8 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   const pageParam = useCallback((key: string) => page.find(([k]) => k === key)?.[1] ?? null, [page]);
   const pageParams = useCallback((key: string) => page.filter(([k]) => k === key).map(([, v]) => v), [page]);
   const resolveReturnOrigin = useCallback((): ReturnOrigin => {
-    const safe = safeReturnTo(pageParam(RETURN_TO_KEY));
+    const original = safeReturnTo(pageParam(RETURN_TO_KEY));
+    const safe = original === null ? null : stripDetailExpansion(original);
     if (safe) {
       const q = safe.indexOf('?');
       const path = q === -1 ? safe : safe.slice(0, q);
@@ -401,12 +413,12 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
 
   const queryPolicy = useStable({ ...appliedQueryPolicy(route?.menu ?? null, global, page, routeContractError !== null || metricInit.phase !== 'skip'),
     ready: route?.menu.query?.mode !== 'apply' || !route.menu.requiresScope || (scopeView.status === 'valid' && scopeView.scopeId === global.scopeId && scopeView.validatedFor === session) }, sameQueryPolicy);
-  const { queryDraft, queryHistory } = useScreenDraft({ store: source.draftStore, menu: route?.menu ?? null, identity: `${route?.menu.id ?? ''}\0${pathname}`, session, url: hidden && hidden.length > 0 && parsed ? pathname + buildQuery(global, page, extras) : url,
+  const { queryDraft, queryHistory } = useScreenDraft({ store: source.draftStore, menu: route?.menu ?? null, identity: `${route?.menu.id ?? ''}\0${pathname}`, session, url: hidden && hidden.length > 0 && parsed ? pathname + buildQuery(global, page, extras) : appliedUrl,
     global, page, extras, defaultRangeTo, scope: scopeView, adapter, axes: equipmentAxes, invalid: routeContractError !== null,
-    commit, setGlobal, setPage, history: app.pub.queryHistoryStore, revision: app.pub.revision, currentRevision: app.internal.currentRevision, allowed: route !== null && app.pub.canOpen(route.menu.id) });
+    commit: commitState, setGlobal, setPage, history: app.pub.queryHistoryStore, revision: app.pub.revision, currentRevision: app.internal.currentRevision, allowed: route !== null && app.pub.canOpen(route.menu.id) });
   const screen = useMemo((): ScreenState => ({ queryDraft, queryHistory, queryPolicy,
-    url: visibleUrl, appliedUrl: url, pathname, route, platformScreen, pageNavigation, contractError: routeContractError, metricInit, global, page, extras, pageParam, pageParams, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, reportError, returnTarget, returnOrigin,
+    detailExpanded, setDetailExpanded, url: visibleUrl, appliedUrl, pathname, route, platformScreen, pageNavigation, contractError: routeContractError, metricInit, global, page, extras, pageParam, pageParams, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, reportError, returnTarget, returnOrigin,
     currentSpace, scope: scopeView, retryScope, screenMode: mode, paneId, paneLabel,
-  }), [queryDraft, queryHistory, queryPolicy, visibleUrl, url, pathname, route, platformScreen, pageNavigation, routeContractError, metricInit, global, page, extras, pageParam, pageParams, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, reportError, returnTarget, returnOrigin, currentSpace, scopeView, retryScope, mode, paneId, paneLabel]);
+  }), [queryDraft, queryHistory, queryPolicy, detailExpanded, setDetailExpanded, visibleUrl, appliedUrl, pathname, route, platformScreen, pageNavigation, routeContractError, metricInit, global, page, extras, pageParam, pageParams, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, reportError, returnTarget, returnOrigin, currentSpace, scopeView, retryScope, mode, paneId, paneLabel]);
   return { screen, sidebarSpace, resolveEntryLink };
 }

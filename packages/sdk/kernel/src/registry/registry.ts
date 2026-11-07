@@ -1,3 +1,4 @@
+import { DETAIL_EXPAND_KEY } from '../links/detail-expansion';
 import type { ComponentType, LazyExoticComponent } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { GLOBAL_KEYS, KERNEL_PERMISSIONS, isAppRelativePath, parseQuery, requiredContextError, RETURN_TO_KEY, menuPermissions, type CarrySetDef, type CarrySetId, type ContextKey, type GroupId, type HostFeature, type MenuMeta, type MenuPermission, type ModuleScopedId, type ModuleScreenProps, type PageType, type Permission, type SpaceDef, type SpaceId, type Text } from '@ap/contracts';
@@ -128,6 +129,7 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
     const seenCarried = new Set<string>();
     for (const key of c.pageKeys) {
       if (!isIdShape(key)) fail(`Carry set "${c.id}" page key "${String(key)}" must be non-empty without whitespace or ? # & /`);
+      if (key === DETAIL_EXPAND_KEY) fail(`Carry set "${c.id}" page key "expand" is reserved for the platform`);
       if (GLOBAL_KEYS.has(key)) fail(`Carry set "${c.id}" page key "${key}" collides with a global Context key`);
       if (seenCarried.has(key)) fail(`Carry set "${c.id}" page key "${key}" is declared twice`);
       seenCarried.add(key);
@@ -219,6 +221,7 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
       const parentSpace = groupSpace.get(parent.group);
       if (parentSpace !== undefined && parentSpace !== groupSpace.get(m.group)) fail(`Menu "${m.id}" parent "${parent.id}" is in another space`);
     }
+    if (m.pageKeys.includes(DETAIL_EXPAND_KEY) || m.hiddenPageKeys?.includes(DETAIL_EXPAND_KEY) || m.navViews?.some(view => Object.hasOwn(view.page, DETAIL_EXPAND_KEY))) fail(`Menu "${m.id}" key "expand" is reserved for the platform`);
     const clash = m.pageKeys.find(k => GLOBAL_KEYS.has(k));
     if (m.query) {
       if (m.query.mode !== 'apply' || m.context.time !== 'apply') fail(`Menu "${m.id}" apply mode requires time: apply`);

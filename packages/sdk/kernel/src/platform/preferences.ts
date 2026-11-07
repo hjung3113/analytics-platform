@@ -1,3 +1,4 @@
+import { stripDetailExpansion } from '../links/detail-expansion';
 import { stripReturnToFromUrl } from '../links/return-to';
 import { isAppRelativePath } from '@ap/contracts';
 import type { Recent } from './types';
@@ -27,7 +28,7 @@ export function decodeRecent(value: unknown): Recent[] | undefined {
     const r = entry as Record<string, unknown>;
     return typeof r.menuId === 'string' && typeof r.url === 'string' && isAppRelativePath(r.url)
       && typeof r.at === 'number' && Number.isFinite(r.at);
-  });
+  }).map(entry => ({ ...entry, url: stripDetailExpansion(entry.url) }));
 }
 export function decodeScopeId(value: unknown): string | null | undefined {
   return typeof value === 'string' ? value : undefined;
@@ -50,7 +51,7 @@ export function readSpaceLast(userId: string, migrations?: Readonly<Record<strin
     if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
     const out: Record<string, string> = {};
     for (const [key, value] of Object.entries(parsed)) {
-      if (typeof value === 'string') out[key] = value;
+      if (typeof value === 'string') out[key] = stripDetailExpansion(value);
     }
     if (migrations === undefined) return out;
     let moved = false;
@@ -77,7 +78,7 @@ export function sameParams(a: Record<string, string>, b: Record<string, string>)
 export function writeSpaceLast(userId: string, spaceId: string, url: string, migrations?: Readonly<Record<string, string>>) {
   try {
     const next = readSpaceLast(userId, migrations);
-    next[spaceId] = stripReturnToFromUrl(url);
+    next[spaceId] = stripDetailExpansion(stripReturnToFromUrl(url));
     sessionStorage.setItem(spaceLastKey(userId), JSON.stringify(next));
   } catch { /* memory-only */ }
 }

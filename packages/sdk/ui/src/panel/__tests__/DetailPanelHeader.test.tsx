@@ -188,7 +188,7 @@ describe('DetailPanelHeader — onClose', () => {
 describe('DetailPanelHeader — fullscreen toggle', () => {
   it('does not render a toggle without a provider', () => {
     render(<DetailPanelHeader kind="voc" onClose={() => {}} />);
-    expect(screen.queryByRole('button', { name: '전체 화면 전환' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '크게 보기' })).not.toBeInTheDocument();
   });
 
   it('renders before close, reflects expanded state, and calls the provider toggle', async () => {
@@ -200,9 +200,9 @@ describe('DetailPanelHeader — fullscreen toggle', () => {
       </DetailPanelFullscreenContext.Provider>,
     );
 
-    const fullscreen = screen.getByRole('button', { name: '전체 화면 전환' });
+    const fullscreen = screen.getByRole('button', { name: '크게 보기' });
     const close = screen.getByRole('button', { name: '패널 닫기' });
-    expect(fullscreen).toHaveAttribute('title', '전체 화면 전환');
+    expect(fullscreen).toHaveAttribute('aria-label', '크게 보기');
     expect(fullscreen).toHaveAttribute('aria-pressed', 'false');
     expect(
       fullscreen.compareDocumentPosition(close) & Node.DOCUMENT_POSITION_FOLLOWING,
@@ -220,7 +220,7 @@ describe('DetailPanelHeader — fullscreen toggle', () => {
       </DetailPanelFullscreenContext.Provider>,
     );
 
-    expect(screen.getByRole('button', { name: '전체 화면 전환' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: '원래 크기로' })).toHaveAttribute(
       'aria-pressed',
       'true',
     );

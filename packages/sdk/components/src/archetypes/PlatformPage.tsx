@@ -9,7 +9,7 @@ import { ChevronRight, Info, Loader2, MapPinOff, MoreHorizontal, RotateCw, Serve
 import { cloneElement, createContext, isValidElement, useCallback, useContext, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement, type ReactNode } from 'react';
 import { type MenuEntry, PlatformLink, useConditionPreset, useI18n } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
-import { Button, cn, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
+import { Button, cn, DetailPanelFullscreenContext, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { DataTrustIndicator } from '../state/DataTrustIndicator';
 import { useReturnNavigation } from './DrillLayout';
 import { type HeaderYield, nextHeaderYield, openHeaderYield } from './headerYield';
@@ -144,6 +144,8 @@ export type PlatformPageProps = {
 /** §8 Shell Slots. Pages never insert global UI outside these slots. */
 export function PlatformPage({ title, description, primaryAction, secondaryActions, contextExtension, contextNotes, dataTrustSummary, queryBarExtension, queryResult, crumbs = [], layout = 'flow', density = 'compact', bodyInset = 'default', arrivalTarget, children }: PlatformPageProps) {
   const { global, page, equipmentAxes, route, favorites, toggleFavorite, scope, retryScope, setGlobal, lastScope, linkTo, registry, slots, url, pathname, pageNavigation, currentSpace, screenMode, canOpen, queryDraft, pageParams } = useHostPlatform();
+  const detailFullscreen = useContext(DetailPanelFullscreenContext);
+  const covered = detailFullscreen?.expanded === true;
   const conditionPreset = useConditionPreset();
   // A board pane draws content only: the board owns the pane head and the Context bar, and no arrival focus moves here (ADR-0049).
   const inPane = screenMode === 'pane';
@@ -335,8 +337,9 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
           {!gate && primaryAction}
         </div>
       </header>
-      {menu.query?.mode !== 'apply' && slots.contextBar}
+      {menu.query?.mode !== 'apply' && <div className="contents" inert={covered || undefined}>{slots.contextBar}</div>}
     </div>}
+    <div data-platform-page-body className="contents" inert={covered || undefined}>
     {!inPane && menu.query?.mode === 'apply' && slots.contextBar}
     {!gate && menu.query?.mode === 'apply' && queryResult && (appliedValuesShown || completionShown) && <section role="region" aria-label={lang === 'ko' ? '적용된 조회 조건' : 'Applied query conditions'} className="flex flex-wrap gap-2 border-b border-border-subtle px-4 py-2 text-xs text-text-secondary">
       {appliedValuesShown && <span className="min-w-0 [overflow-wrap:anywhere]">{formatQuerySummary(global, page, { lang, axes: equipmentAxes, context: menu.context, pageSummary: queryBarExtension?.appliedPageSummary, preset: summaryPreset(conditionPreset, 'applied') })}</span>}
@@ -356,6 +359,7 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
           : <OutcomeBanners compact={layout === 'fill'} />}
         {layout === 'fill' ? <div data-platform-page-fill className={fixedFill ? 'flex min-h-[520px] flex-1 flex-col' : 'flex flex-1 flex-col'}>{children}</div> : children}
       </OutcomeScope>}</div>
+    </div>
   </div></PageFlowContext.Provider></QueryBarStatusContext.Provider></QueryBarExtensionContext.Provider></PageDensityProvider>;
 }
 

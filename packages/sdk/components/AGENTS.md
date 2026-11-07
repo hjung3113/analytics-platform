@@ -58,3 +58,7 @@ Platform Component 층(06 §13) + 차트 계약(§16) + 페이지 archetype 골�
 
 `pnpm --filter @ap/components test`로 좁혀 본 뒤 루트 검사(루트 `AGENTS.md`). 소비 화면을 `pnpm dev`로 확인.
 
+
+## Detail expansion (ADR-0122, #1459)
+
+`DetailDrawer` consumes the existing UI slot context and shared toggle/Escape handler; do not add a second expansion owner or per-menu option. Preserve DOM nodes, editor values and scroll through toggles. The reading column is 48rem when expanded; the footer remains outside the scroll body. A pane-owned drawer declares `localExpansion` when registering so it cannot write the main URL or pane query. `PlatformPage` alone marks the covered body below its sticky page header inert; leave header, rail and sidebar available. Restoring an expanded address must not claim toggle focus. Labels come from Kernel i18n. Contracts: components §13 and kernel §6.4.

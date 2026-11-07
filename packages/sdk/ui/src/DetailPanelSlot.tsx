@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useInsertionEffect, useLayoutEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { DetailPanelFullscreenContext } from './panel/DetailPanelFullscreenContext';
+import { DetailPanelFullscreenContext, focusDetailPanelToggle, popupOwnsEscape, rememberPopupEscape } from './panel/DetailPanelFullscreenContext';
 import { useSurfacePaused } from './SurfacePauseScope';
 import { isProductionEnv } from './utils/isProductionEnv';
 
@@ -14,7 +14,7 @@ interface DetailPanelSlot {
   expanded: boolean;
   toggle: () => void;
   setHost: (host: HTMLElement | null) => void;
-  register: (key: string, onSuperseded: (winner: string) => void, paused?: boolean) => () => void;
+  register: (key: string, onSuperseded: (winner: string) => void, paused?: boolean, localExpansion?: boolean) => () => void;
 }
 
 /** Stable callbacks for content registrants; never changes, so `useDetailPanelContent` callers do not re-render with the slot state. */
@@ -38,14 +38,15 @@ function warnOnOverlap(registrants: number) {
 /**
  * Shell-scoped DOM slot. Portal registrants (`useDetailPanelSlot`) preserve the registering page's React context;
  * content registrants (`useDetailPanelContent`) are rendered here, so they see the provider's context (ADR-0047).
- * A `null` content registrant is closed: it wins the slot but nothing renders. The portaled content (not `children`)
- * gets `DetailPanelFullscreenContext`; the expanded state is reset when the active registrant changes, closes, pauses or clears.
+ * A `null` content registrant is closed: it wins the slot but nothing renders. Provider-rendered content and portal
+ * registrants through the children tree get `DetailPanelFullscreenContext`. An open replacement inherits expansion; closing, pausing or clearing ends it (ADR-0122).
  * A paused registrant (its owning surface is covered, `SurfacePauseScope`) keeps its place in the list but the slot reports `open` false, so the
  * shell hides the host; it gets no `onSuperseded` and no `activation`. Provider-rendered content is not rendered while paused; a portal registrant
  * stays mounted in the hidden host and scopes its own transient UI. A newer registrant still supersedes it, and a resume shows it again only if
  * it is still the winner (ADR-0088).
  */
-export function DetailPanelSlotProvider({ children }: { children: ReactNode }) {
+export function DetailPanelSlotProvider({ children, expanded: controlledExpanded, onExpandedChange }: { children: ReactNode; expanded?: boolean; onExpandedChange?: (expanded: boolean) => void }) {
+  const [localKeys, setLocalKeys] = useState<ReadonlySet<string>>(() => new Set());
   const [host, setHost] = useState<HTMLElement | null>(null);
   const [activeKey, setActiveKey] = useState<string>();
   const [contents, setContents] = useState<ReadonlyMap<string, ReactNode>>(() => new Map());
@@ -62,6 +63,7 @@ export function DetailPanelSlotProvider({ children }: { children: ReactNode }) {
   const syncPaused = useCallback(() => setPausedKeys(new Set(pausedRef.current)), []);
   const unregister = useCallback((key: string) => {
     portals.current.delete(key);
+    setLocalKeys(previous => { if (!previous.has(key)) return previous; const next = new Set(previous); next.delete(key); return next; });
     if (pausedRef.current.delete(key)) syncPaused();
     keys.current = keys.current.filter(existing => existing !== key);
     setActiveKey(keys.current.at(-1));
@@ -86,7 +88,8 @@ export function DetailPanelSlotProvider({ children }: { children: ReactNode }) {
     // No deferred delivery: neither source nor winner can disappear between takeover and notification.
     if (outgoing !== undefined) portals.current.get(outgoing)?.(key);
   }, [syncPaused]);
-  const register = useCallback((key: string, onSuperseded: (winner: string) => void, paused = false) => {
+  const register = useCallback((key: string, onSuperseded: (winner: string) => void, paused = false, localExpansion = false) => {
+    if (localExpansion) setLocalKeys(previous => new Set(previous).add(key));
     portals.current.set(key, onSuperseded);
     takeSlot(key, true, paused);
     return () => unregister(key);
@@ -129,25 +132,43 @@ export function DetailPanelSlotProvider({ children }: { children: ReactNode }) {
   }), [takeSlot, unregister, syncPaused]);
   // A closed registrant is a content registrant whose node is `null`: it wins the slot but renders nothing.
   const open = activeKey !== undefined && contents.get(activeKey) !== null && !pausedKeys.has(activeKey);
-  const [expandedKey, setExpandedKey] = useState<string | null>(null);
-  const expanded = open && expandedKey !== null && expandedKey === activeKey;
-  // Render-phase reset: expansion ends when the active key changes, closes, or clears.
-  if (expandedKey !== null && !expanded) setExpandedKey(null);
-  const toggle = useCallback(() => setExpandedKey(prev => (prev !== null ? null : activeKey ?? null)), [activeKey]);
+  const [localExpanded, setLocalExpanded] = useState(false);
+  const controlled = controlledExpanded !== undefined && !localKeys.has(activeKey ?? '');
+  const expanded = controlled ? controlledExpanded : open && localExpanded;
+  const changeExpanded = useCallback((next: boolean) => {
+    if (controlled) onExpandedChange?.(next);
+    else setLocalExpanded(next);
+  }, [controlled, onExpandedChange]);
+  // An open replacement inherits the presentation. Close/clear/pause ends it; an empty initial slot never clears a restored URL.
+  const previous = useRef({ open: false, local: false });
+  useLayoutEffect(() => {
+    if (previous.current.open && !open) {
+      if (previous.current.local) setLocalExpanded(false);
+      // Use the CURRENT screen's controller; navigation may already have removed the key.
+      else if (controlledExpanded) onExpandedChange?.(false);
+    }
+    previous.current = { open, local: !controlled };
+  }, [open, controlled, controlledExpanded, onExpandedChange]);
+  const toggle = useCallback(() => changeExpanded(!expanded), [changeExpanded, expanded]);
   useEffect(() => {
-    if (!expanded) return;
+    // Capture the popup's claim before Radix dismisses/unmounts it. Its Escape must not also collapse the panel at window bubble.
+    document.addEventListener('keydown', rememberPopupEscape, true);
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !event.defaultPrevented) setExpandedKey(null);
+      if (open && expanded && event.key === 'Escape' && !event.defaultPrevented && !popupOwnsEscape(event)) {
+        event.preventDefault();
+        changeExpanded(false);
+        focusDetailPanelToggle(host);
+      }
     };
     window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [expanded]);
+    return () => { document.removeEventListener('keydown', rememberPopupEscape, true); window.removeEventListener('keydown', onKeyDown); };
+  }, [open, expanded, changeExpanded, host]);
   const fullscreen = useMemo(() => ({ expanded, toggle }), [expanded, toggle]);
   const value = useMemo(() => ({ host, activeKey, open, activation, expanded, toggle, setHost, register }), [host, activeKey, open, activation, expanded, toggle, register]);
   const activeContent = activeKey !== undefined && host && !pausedKeys.has(activeKey) ? contents.get(activeKey) : undefined;
   return <DetailPanelSlotActionsContext.Provider value={actions}>
     <DetailPanelSlotContext.Provider value={value}>
-      {children}
+      <DetailPanelFullscreenContext.Provider value={fullscreen}>{children}</DetailPanelFullscreenContext.Provider>
       {activeContent != null && host ? createPortal(
         <DetailPanelFullscreenContext.Provider value={fullscreen}>{activeContent}</DetailPanelFullscreenContext.Provider>,
         host,
@@ -157,13 +178,14 @@ export function DetailPanelSlotProvider({ children }: { children: ReactNode }) {
 }
 
 /** Register once per mounted consumer. Without onSuperseded, the previous registrant resumes when the winner unmounts. */
-export function useDetailPanelSlot(options?: { onSuperseded?: () => void }): HTMLElement | null {
+export function useDetailPanelSlot(options?: { onSuperseded?: () => void; /** A host surface whose presentation must stay in memory (e.g. a board pane). */ localExpansion?: boolean }): HTMLElement | null {
   const slot = useContext(DetailPanelSlotContext);
   const actions = useContext(DetailPanelSlotActionsContext);
   const paused = useSurfacePaused();
   const key = useId();
   const register = slot?.register;
   // Registration reads the pause state of the moment but must not re-run (and so re-order the list) when it changes.
+  const localExpansion = options?.localExpansion === true;
   const pausedAtRegister = useRef(paused);
   useInsertionEffect(() => { pausedAtRegister.current = paused; });
   const latest = useRef(options?.onSuperseded);
@@ -177,7 +199,7 @@ export function useDetailPanelSlot(options?: { onSuperseded?: () => void }): HTM
     latest.current?.();
   }, []);
   // Register before paint so a deep link does not briefly show a full-width main without its detail.
-  useLayoutEffect(() => register?.(key, supersede, pausedAtRegister.current), [register, key, supersede]);
+  useLayoutEffect(() => register?.(key, supersede, pausedAtRegister.current, localExpansion), [register, key, supersede, localExpansion]);
   const setPaused = actions?.setPaused;
   useLayoutEffect(() => { setPaused?.(key, paused); }, [setPaused, key, paused]);
   if (!slot) throw new Error('Detail panel requires DetailPanelSlotProvider (provided by AppShell).');

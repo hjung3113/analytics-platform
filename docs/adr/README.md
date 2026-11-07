@@ -22,7 +22,7 @@
 | [0010](0010-feedbackops-design-system-shared-on-tailwind-v4.md) | FeedbackOps 디자인 시스템 공유(Tailwind v4, `@fops/ui` 직접 참조) | Decided(2026-10-03) — 원본 소유는 0043이 플랫폼으로 바꿈(2026-10-19, 코드는 #441에서 `@ap/ui`로 이전, 본문은 당시 기록 그대로) |
 | [0011](0011-design-direction-feedbackops-shell.md) | 디자인 방향: FeedbackOps 토큰 + FeedbackOps 셸 구조(C안) | Decided(2026-10-04) — 원본 소유는 0043이 플랫폼으로 바꿈(2026-10-19, 코드는 #441에서 `@ap/ui`로 이전, 본문은 당시 기록 그대로) |
 | [0012](0012-chart-thin-line-stroke-aliases.md) | 차트 얇은 선은 전용 진한 stroke 별칭 | Decided(2026-10-04) |
-| [0013](0013-detail-panel-shell-docked-slot.md) | 상세 패널은 셸 소유 오른쪽 고정 슬롯(B안) | Decided(2026-10-04) |
+| [0013](0013-detail-panel-shell-docked-slot.md) | 상세 패널은 셸 소유 오른쪽 고정 슬롯(B안) | Decided(2026-10-04), 크게 보기는 0122 보완 |
 | [0014](0014-chart-legend-period-grouping.md) | 차트 범례는 비교 기간별로 묶음 | Decided(2026-10-04) |
 | [0015](0015-context-bar-priority-overflow.md) | Context 바는 우선순위 넘침으로 한 줄 유지(B안) | Decided(2026-10-04) |
 | [0016](0016-page-filter-bar.md) | 페이지 필터는 공통 PageFilterBar 한 줄 | Decided(2026-10-04) |
@@ -135,6 +135,7 @@
 | [0123](0123-entity-links-extend-to-targets-without-managed-system.md) | Entity Link는 Managed System 없는 끝(Round·수동 검증 첨부)까지 넓히고, 그 끝은 소유 모듈의 읽기 권한으로 판단(FO ADR-0064 규칙 개정) | Decided(2026-11-08, 소유자) — #1466 |
 | [0124](0124-knowledge-search-evaluates-acl-at-query-time-and-reads-display-live.md) | 지식 검색은 접근 권한을 조회 때 현재 규칙으로 판정하고 색인에 담지 않으며, 표시 값은 최신 Revision에서 그때 읽는다 | Decided(2026-11-08) |
 | [0125](0125-event-order-search-uses-structured-event-relation-records.md) | Event 순서 검색은 본문 해석이 아니라 Revision이 구조화해 적은 Event 관계 기록으로 한다 | Decided(2026-11-08) |
+| [0126](0126-detail-panel-content-region-expansion.md) | 상세 패널 크게 보기: 같은 패널을 본문 영역으로 펼치고 입력·포커스·주소 상태를 유지 | Decided(2026-11-07), 0013 보완 |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 

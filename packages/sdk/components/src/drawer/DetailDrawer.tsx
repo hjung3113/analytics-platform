@@ -6,7 +6,7 @@ import { createPortal } from 'react-dom';
 import { buildQuery } from '@ap/contracts';
 import { useI18n } from '@ap/kernel';
 import { useHostPlatformOptional } from '@ap/kernel/host';
-import { Tabs, TabsContent, TabsList, TabsTrigger, TransientOverlayScope, useDetailPanelSlot, useSurfacePaused } from '@ap/ui';
+import { DetailPanelFullscreenToggle, DetailPanelReadingColumn, useDetailPanelEscape, Tabs, TabsContent, TabsList, TabsTrigger, TransientOverlayScope, useDetailPanelSlot, useSurfacePaused } from '@ap/ui';
 
 /** §13: URL-controlled detail content rendered into the shell-owned docked slot. */
 export function DetailDrawer({ title, subtitle, headerActions, context, footer, tabs, onClose, tab, onTabChange }: {
@@ -19,7 +19,7 @@ export function DetailDrawer({ title, subtitle, headerActions, context, footer, 
   useInsertionEffect(() => { closeLatest.current = onClose; });
   // A terminal reason for this drawer lifetime, including every outgoing content cleanup/replay.
   const superseded = useRef(false);
-  const host = useDetailPanelSlot(paneId != null ? { onSuperseded: () => {
+  const host = useDetailPanelSlot(paneId != null ? { localExpansion: true, onSuperseded: () => {
     superseded.current = true;
     closeLatest.current();
   } } : undefined);
@@ -49,7 +49,8 @@ function useCloseOnPaneChange(onClose: () => void) {
 }
 
 function DetailContent({ superseded, title, subtitle, headerActions, context, footer, tabs, onClose, tab, onTabChange }: Parameters<typeof DetailDrawer>[0] & { superseded: MutableRefObject<boolean> }) {
-  const { lang } = useI18n();
+  const { lang, t } = useI18n();
+  const onKeyDown = useDetailPanelEscape(onClose);
   const close = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
   // #353: whether focus lives inside the panel. Unmount blur has no relatedTarget, so it must not
@@ -118,7 +119,7 @@ function DetailContent({ superseded, title, subtitle, headerActions, context, fo
     onFocus={() => { focusInside.current = true; }}
     onPointerDownCapture={() => { focusInside.current = true; }}
     onBlur={e => { const to = e.relatedTarget as Node | null; if (to && !panel.current?.contains(to)) focusInside.current = false; }}
-    onKeyDown={e => { if (e.key === 'Escape' && !e.defaultPrevented) { e.preventDefault(); e.stopPropagation(); onClose(); } }}
+    onKeyDown={onKeyDown}
     className="flex h-full min-h-0 w-full flex-col bg-surface-detail">
     <header className="flex items-start justify-between gap-3 border-b border-border-subtle px-5 py-4">
       <div className="min-w-0">
@@ -128,6 +129,7 @@ function DetailContent({ superseded, title, subtitle, headerActions, context, fo
       </div>
       <div className="flex items-center gap-1">
         {headerActions}
+        <DetailPanelFullscreenToggle expandLabel={t('detailExpand')} collapseLabel={t('detailCollapse')} />
         <button ref={close} type="button" onClick={onClose} aria-label={lang === 'ko' ? '상세 닫기' : 'Close details'} className="grid size-8 place-items-center rounded-sm text-text-muted hover:bg-surface-sunken hover:text-text-primary"><X className="size-4" aria-hidden /></button>
       </div>
     </header>
@@ -135,16 +137,16 @@ function DetailContent({ superseded, title, subtitle, headerActions, context, fo
     <OutcomeBanners />
     {/* One tab draws no tab row (06 §13, #886 UX-8); the content stays a focusable, named scroll region like a tabpanel. */}
     {tabs.length === 1
-      ? <div role="region" tabIndex={0} aria-labelledby={`${id}-t`} className="min-h-0 flex-1 overflow-auto px-5 py-3 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring focus-visible:ring-offset-0">{tabs[0].content}</div>
+      ? <div role="region" tabIndex={0} aria-labelledby={`${id}-t`} className="min-h-0 flex-1 overflow-auto px-5 py-3 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring focus-visible:ring-offset-0"><DetailPanelReadingColumn>{tabs[0].content}</DetailPanelReadingColumn></div>
       : <Tabs value={tab} defaultValue={tab ? undefined : tabs[0].id} onValueChange={onTabChange} className="flex min-h-0 flex-1 flex-col">
         <TabsList aria-label={lang === 'ko' ? '상세 탭' : 'Detail tabs'} className="mx-5 mt-3 w-auto">
           {tabs.map(tb => <TabsTrigger key={tb.id} value={tb.id}>{tb.label}</TabsTrigger>)}
         </TabsList>
         {tabs.map(tb => (
           // eslint-disable-next-line shadcn/no-restyle -- the aside clips overflow, so the focus ring must sit inside the panel (#914 A1)
-          <TabsContent key={tb.id} value={tb.id} className="min-h-0 flex-1 overflow-auto px-5 py-3 focus-visible:ring-inset focus-visible:ring-offset-0">{tb.content}</TabsContent>
+          <TabsContent key={tb.id} value={tb.id} className="min-h-0 flex-1 overflow-auto px-5 py-3 focus-visible:ring-inset focus-visible:ring-offset-0"><DetailPanelReadingColumn>{tb.content}</DetailPanelReadingColumn></TabsContent>
         ))}
       </Tabs>}
-    {footer !== undefined && <div className="shrink-0 border-t border-border-subtle px-5 py-3">{footer}</div>}
+    {footer !== undefined && <DetailPanelReadingColumn asChild><div className="shrink-0 border-t border-border-subtle px-5 py-3">{footer}</div></DetailPanelReadingColumn>}
     </div>;
 }
