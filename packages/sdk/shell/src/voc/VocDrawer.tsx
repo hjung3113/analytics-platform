@@ -1,7 +1,8 @@
 import { X } from 'lucide-react';
-import { createContext, useCallback, useEffect, useId, useLayoutEffect, useMemo, useReducer, useRef, type KeyboardEvent, type RefObject } from 'react';
-import type { Lang, VocComposeContext, VocComposeSlot } from '@ap/kernel';
-import { Button, cn, TransientOverlayScope } from '@ap/ui';
+import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useReducer, useRef, type CSSProperties, type RefObject } from 'react';
+import { useI18n, type Lang, type VocComposeContext, type VocComposeSlot } from '@ap/kernel';
+import { Button, cn, DetailPanelFullscreenContext, DetailPanelFullscreenToggle, DetailPanelReadingColumn, TransientOverlayScope, useDetailPanelEscape } from '@ap/ui';
+import { expandedDetailClass } from '../frame/expandedDetailClass';
 import { freezeVocContext, type VocFreezeInput } from './vocContext';
 
 const TEXT = {
@@ -168,23 +169,23 @@ export function useVocDrawer(slot: VocComposeSlot | undefined, snapshot: () => V
 }
 
 /** The shell-owned right position for the VOC form: pushes the body, no overlay or scrim, and keeps the content mounted while hidden. */
-export function VocDrawer({ voc, lang }: { voc: VocDrawerController; lang: Lang }) {
+export function VocDrawer({ voc, lang, expandedStyle }: { voc: VocDrawerController; lang: Lang; expandedStyle?: Record<'--detail-left' | '--detail-top' | '--detail-width' | '--detail-height', string> }) {
   const text = TEXT[lang];
+  const { t } = useI18n();
   const { context, slot } = voc;
-  const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
-    // Portaled overlays (Popover, Select) bubble through React: only keys whose DOM target is inside the aside count.
-    if (event.key !== 'Escape' || event.defaultPrevented || !event.currentTarget.contains(event.target as Node)) return;
-    event.preventDefault();
-    voc.requestClose();
-  };
-  return <aside id={voc.panelId} aria-label={text.title} hidden={!voc.visible} data-open={voc.visible} onKeyDown={onKeyDown}
-    className={cn('flex h-full max-w-[520px] shrink-0 flex-col overflow-hidden border-border-subtle bg-surface-detail',
+  const expanded = useContext(DetailPanelFullscreenContext)?.expanded === true && voc.visible;
+  const onKeyDown = useDetailPanelEscape(voc.requestClose);
+  return <aside id={voc.panelId} aria-label={text.title} hidden={!voc.visible} data-open={voc.visible} data-expanded={expanded} onKeyDown={onKeyDown} style={expanded ? { '--detail-left': expandedStyle?.['--detail-left'], '--detail-top': expandedStyle?.['--detail-top'], '--detail-width': expandedStyle?.['--detail-width'], '--detail-height': expandedStyle?.['--detail-height'] } as CSSProperties : undefined}
+    className={expanded ? expandedDetailClass : cn('flex h-full max-w-[520px] shrink-0 flex-col overflow-hidden border-border-subtle bg-surface-detail',
       voc.visible ? 'w-[clamp(360px,var(--detail-panel-width,440px),520px)] min-w-[360px] border-l' : 'w-0 min-w-0 border-l-0')}>
     <header className="flex h-[50px] shrink-0 items-center justify-between gap-2 border-b border-border-subtle px-4">
       <h2 ref={voc.heading} tabIndex={-1} className="t-card-title outline-none focus-visible:ring-2 focus-visible:ring-focus-ring">{text.title}</h2>
-      <Button type="button" variant="ghost" size="sm" onClick={voc.requestClose}>{text.close}</Button>
+      <div className="flex items-center gap-1">
+        <DetailPanelFullscreenToggle expandLabel={t('detailExpand')} collapseLabel={t('detailCollapse')} />
+        <Button type="button" variant="ghost" size="sm" onClick={voc.requestClose}>{text.close}</Button>
+      </div>
     </header>
-    {context !== null && <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+    {context !== null && <div className={cn('flex min-h-0 flex-1 flex-col', !expanded && 'overflow-y-auto')}>
       <section aria-label={text.chips} className="shrink-0 border-b border-border-subtle px-4 py-2">
         <p className="mb-1 text-caption text-text-muted">{text.chips}</p>
         <ul className="flex flex-wrap gap-1.5">
@@ -203,11 +204,11 @@ export function VocDrawer({ voc, lang }: { voc: VocDrawerController; lang: Lang 
           <Button ref={voc.keepButton} type="button" variant="outline" size="sm" onClick={voc.keepWriting}>{text.keep}</Button>
         </div>
       </div>}
-      <div className="min-h-0 flex-1">
+      <div className="min-h-0 flex-1"><DetailPanelReadingColumn>
         <TransientOverlayScope active={voc.visible}>
           <slot.Compose key={voc.generation} context={context} onSubmitted={voc.onSubmitted} onCancel={voc.onCancel} onDirtyChange={voc.onDirtyChange} />
         </TransientOverlayScope>
-      </div>
+      </DetailPanelReadingColumn></div>
     </div>}
   </aside>;
 }

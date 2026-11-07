@@ -144,6 +144,10 @@ export type HostPlatform = {
   url: string;
   /** `url` plus the hidden page pairs (ADR-0105): the identity of the applied state. Equal to `url` when the entry carries no hidden pair. Host-only. */
   appliedUrl: string;
+  /** Host-only presentation state for the main screen; board and pane expansion stays in the shell's memory. */
+  detailExpanded: boolean;
+  /** Same-entry replace, never held by the unsaved guard. No-op on board/pane screens. */
+  setDetailExpanded: (on: boolean) => void;
   pathname: string;
   route: RouteMatch | null;
   /**

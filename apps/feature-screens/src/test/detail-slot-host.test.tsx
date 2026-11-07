@@ -311,7 +311,7 @@ describe('AppFrame', () => {
     const slot = screen.getByTestId('app-detail-slot');
     const main = screen.getByTestId('app-main');
     await waitFor(() => expect(slot).toHaveAttribute('data-open', 'true'));
-    const toggle = screen.getByRole('button', { name: '전체 화면 전환' });
+    const toggle = screen.getByRole('button', { name: '크게 보기' });
 
     expect(slot).toHaveAttribute('data-expanded', 'false');
     fireEvent.click(toggle);
@@ -338,14 +338,14 @@ describe('AppFrame', () => {
     await waitFor(() => expect(slot).toHaveAttribute('data-open', 'true'));
 
     const panelBefore = screen.getByTestId('header-panel');
-    const toggle = screen.getByRole('button', { name: '전체 화면 전환' });
+    const toggle = screen.getByRole('button', { name: '크게 보기' });
     expect(screen.getByTestId('app-detail-slot-column')).toBeInTheDocument();
     fireEvent.click(toggle);
     expect(slot).toHaveAttribute('data-expanded', 'true');
 
     // Toggling must not remount the panel (unsaved input would be lost).
     expect(screen.getByTestId('header-panel')).toBe(panelBefore);
-    expect(screen.getByRole('button', { name: '전체 화면 전환' })).toBe(toggle);
+    expect(screen.getByRole('button', { name: '원래 크기로' })).toBe(toggle);
     expect(screen.getByTestId('app-detail-slot-column')).toBeInTheDocument();
   });
 
@@ -383,7 +383,7 @@ describe('AppFrame', () => {
       const slot = screen.getByTestId('app-detail-slot');
       await waitFor(() => expect(slot).toHaveAttribute('data-open', 'true'));
       if (expand) {
-        fireEvent.click(screen.getByRole('button', { name: '전체 화면 전환' }));
+        fireEvent.click(screen.getByRole('button', { name: '크게 보기' }));
         expect(slot).toHaveAttribute('data-expanded', 'true');
       }
       expect(slot.classList.contains('border-l')).toBe(hasSeam);
@@ -397,7 +397,7 @@ describe('AppFrame', () => {
     await waitFor(() =>
       expect(screen.getByTestId('app-detail-slot')).toHaveAttribute('data-open', 'true'),
     );
-    fireEvent.click(screen.getByRole('button', { name: '전체 화면 전환' }));
+    fireEvent.click(screen.getByRole('button', { name: '크게 보기' }));
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(screen.getByTestId('app-detail-slot')).toHaveAttribute('data-expanded', 'false');
 
@@ -412,7 +412,7 @@ describe('AppFrame', () => {
     await waitFor(() =>
       expect(screen.getByTestId('app-detail-slot')).toHaveAttribute('data-open', 'true'),
     );
-    fireEvent.click(screen.getByRole('button', { name: '전체 화면 전환' }));
+    fireEvent.click(screen.getByRole('button', { name: '크게 보기' }));
     fireEvent.keyDown(screen.getByTestId('prevent-escape'), { key: 'Escape' });
     expect(screen.getByTestId('app-detail-slot')).toHaveAttribute('data-expanded', 'true');
   });
@@ -431,7 +431,7 @@ describe('AppFrame', () => {
       );
       const slot = screen.getByTestId('app-detail-slot');
       await waitFor(() => expect(screen.getByTestId('close-first-panel')).toBeInTheDocument());
-      fireEvent.click(screen.getByRole('button', { name: '전체 화면 전환' }));
+      fireEvent.click(screen.getByRole('button', { name: '크게 보기' }));
       expect(slot).toHaveAttribute('data-expanded', 'true');
 
       fireEvent.click(screen.getByRole('button', { name: '패널 닫기' }));
@@ -444,7 +444,7 @@ describe('AppFrame', () => {
     },
   );
 
-  it('starts a different shell registrant collapsed on its first slot render', async () => {
+  it('keeps the expansion when a different shell registrant replaces the open one, from its first slot render (ADR-0126)', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
@@ -454,13 +454,13 @@ describe('AppFrame', () => {
     );
     const slot = screen.getByTestId('app-detail-slot');
     await waitFor(() => expect(screen.getByTestId('route-panel-a')).toBeInTheDocument());
-    fireEvent.click(screen.getByRole('button', { name: '전체 화면 전환' }));
+    fireEvent.click(screen.getByRole('button', { name: '크게 보기' }));
     expect(slot).toHaveAttribute('data-expanded', 'true');
 
     fireEvent.click(screen.getByRole('button', { name: 'mount second registrant' }));
     expect(await screen.findByTestId('route-panel-b')).toBeInTheDocument();
-    expect(slot).toHaveAttribute('data-expanded', 'false');
-    expect(routeBFirstCommitExpanded).toEqual(['false']);
+    expect(slot).toHaveAttribute('data-expanded', 'true');
+    expect(routeBFirstCommitExpanded).toEqual(['true']);
     warn.mockRestore();
   });
 
@@ -473,7 +473,7 @@ describe('AppFrame', () => {
     );
     const slot = screen.getByTestId('app-detail-slot');
     await waitFor(() => expect(screen.getByTestId('record-panel-a')).toBeInTheDocument());
-    fireEvent.click(screen.getByRole('button', { name: '전체 화면 전환' }));
+    fireEvent.click(screen.getByRole('button', { name: '크게 보기' }));
     expect(slot).toHaveAttribute('data-expanded', 'true');
 
     fireEvent.click(screen.getByRole('button', { name: 'switch record' }));

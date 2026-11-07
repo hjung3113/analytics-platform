@@ -101,14 +101,14 @@ it('a registrant keeps its place when its content changes between node and null'
   expect(screen.queryByRole('button', { name: 'a:false' })).toBeNull();
 });
 
-it('toggle and Escape switch expanded; the context reaches the portaled content only, not the provider children', () => {
+it('toggle and Escape switch expanded; the context reaches content and portal registrants', () => {
   render(<ContentFixture slots={{ a: panel() }} />);
   expect(host().getAttribute('data-expanded')).toBe('false');
-  expect(screen.getByRole('button', { name: 'children:none' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'children:false' })).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'panel:false' }));
   expect(host().getAttribute('data-expanded')).toBe('true');
   expect(screen.getByRole('button', { name: 'panel:true' })).toBeTruthy();
-  expect(screen.getByRole('button', { name: 'children:none' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'children:true' })).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'panel:true' }));
   expect(host().getAttribute('data-expanded')).toBe('false');
   fireEvent.click(screen.getByRole('button', { name: 'panel:false' }));
@@ -128,7 +128,6 @@ it('Escape with a defaultPrevented event does not collapse', () => {
 });
 
 it.each([
-  ['the active key changes to another registrant', { a: panel('a'), b: panel('b') }],
   ['the active content becomes null', { a: null }],
   ['the registrant clears', { a: undefined }],
 ] as const)('expanded resets when %s', (_name, next) => {
@@ -150,7 +149,7 @@ it('expanded resets when the registrant unmounts', () => {
   expect(host().getAttribute('data-open')).toBe('false');
 });
 
-it('portal registrants are open, never expanded, and see no fullscreen context', () => {
+it('portal registrants start open and collapsed', () => {
   render(<Fixture />);
   expect(host().getAttribute('data-open')).toBe('true');
   expect(host().getAttribute('data-expanded')).toBe('false');

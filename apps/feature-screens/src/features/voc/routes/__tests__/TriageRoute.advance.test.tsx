@@ -321,7 +321,7 @@ it.each(['confirm', 'postpone'])(
 it('keeps fullscreen and focuses the next panel title after confirm', async () => {
   mount();
   await screen.findByRole('heading', { name: second.title });
-  fireEvent.click(screen.getByRole('button', { name: '전체 화면 전환' }));
+  fireEvent.click(screen.getByRole('button', { name: '크게 보기' }));
   await confirm();
   await waitFor(() => expect(screen.getByRole('heading', { name: third.title })).toHaveFocus());
   expect(document.getElementById('triage-queue-panel')).toHaveAttribute('hidden');

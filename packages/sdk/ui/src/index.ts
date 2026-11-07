@@ -63,6 +63,7 @@ export { DetailPanelHeader, type DetailPanelHeaderProps, type DetailPanelKind } 
 export {
   DetailPanelFullscreenContext,
   DetailPanelFullscreenToggle,
+  useDetailPanelEscape,
   DetailPanelReadingColumn,
   type DetailPanelFullscreenValue,
 } from './panel/DetailPanelFullscreenContext';

@@ -1,3 +1,4 @@
+import { stripDetailExpansion } from '../links/detail-expansion';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { createPortCache } from '../scope/selection-port-cache';
 import { createBrowserLocation, type PlatformLocation } from '../context/location';
@@ -249,7 +250,7 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
     preferences.set('recents', queue.visits.reduce<Recent[]>((list, visit) => mergeVisit(list, visit), decodeRecent(preferences.get('recents')) ?? []));
   }, [preferences, preferenceState.status, preferenceState.version]);
   const recordVisit = useCallback((menuId: string, url: string) => {
-    const visit: Recent = { menuId, url: stripReturnToFromUrl(url), at: Date.now() };
+    const visit: Recent = { menuId, url: stripDetailExpansion(stripReturnToFromUrl(url)), at: Date.now() };
     if (preferences) {
       if (preferences.state().status !== 'ready') {
         const queue = queuedVisits.current;

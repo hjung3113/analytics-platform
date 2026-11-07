@@ -314,7 +314,7 @@ describe('VocTriageScreen — V1 inline kicker', () => {
     );
 
     const queue = screen.getByRole('tabpanel');
-    const expand = screen.getByRole('button', { name: '전체 화면 전환' });
+    const expand = screen.getByRole('button', { name: '크게 보기' });
     expect(expand).toBeEnabled();
     expect(screen.getByRole('button', { name: '링크 복사' })).toBeInTheDocument();
 

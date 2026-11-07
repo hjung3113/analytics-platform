@@ -13,6 +13,8 @@ const dict = {
   appTagline: { ko: '설비 로그 분석 플랫폼', en: 'Equipment log analytics' },
   searchPlaceholder: { ko: '메뉴 검색…', en: 'Search menus…' },
   collapse: { ko: '사이드바 접기', en: 'Collapse sidebar' },
+  detailExpand: { ko: '크게 보기', en: 'Expand details' },
+  detailCollapse: { ko: '원래 크기로', en: 'Restore size' },
   expand: { ko: '사이드바 펼치기', en: 'Expand sidebar' },
   filters: { ko: '필터', en: 'Filters' },
   collapsedSections: { ko: '접힌 항목', en: 'Collapsed' },

@@ -70,13 +70,13 @@ describe('VocTriageScreen — #852 expanded reading column', () => {
       </Wrapper>,
     );
 
-    const toggle = screen.getByRole('button', { name: '전체 화면 전환' });
+    const toggle = screen.getByRole('button', { name: '크게 보기' });
     const panel = screen.getByTestId('triage-description-region');
     expect(screen.getByTestId('triage-panel-column')).toBeInTheDocument();
 
     // The column wrapper is always present, so toggling never remounts the panel.
     fireEvent.click(toggle);
-    expect(screen.getByRole('button', { name: '전체 화면 전환' })).toBe(toggle);
+    expect(screen.getByRole('button', { name: '원래 크기로' })).toBe(toggle);
     expect(screen.getByTestId('triage-description-region')).toBe(panel);
     expect(screen.getByTestId('triage-panel-column')).toBeInTheDocument();
   });

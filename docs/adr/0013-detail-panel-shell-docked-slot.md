@@ -13,6 +13,8 @@
 - **DetailDrawer의 props·URL 계약은 유지한다.** `focus`·`tab`의 소유권, 닫기·Esc, 딥링크·Back/Forward, 전체 화면 이동은 유지하고 렌더 위치만 바꾼다. modal overlay는 제거한다.
 - 컨펌된 스펙은 `hjung3113/proto-m2-chart-drawer`의 B안과 `drawer-B-1440.png`·`drawer-B-1280.png`다(`.agents/reports/design/shots/m2-chart-drawer/`, 원격 브랜치 `hjung3113/proto-m2-chart-drawer`의 커밋에만 있다). 프로토타입 코드 자체는 버린다.
 
+2026-11-07 보완: [ADR-0126](0126-detail-panel-content-region-expansion.md)는 기본 도킹 배치를 유지하면서 같은 패널을 본문 영역으로 펼치는 «상세 패널 크게 보기»를 추가한다. 펼친 상태의 본문 inert·페이지 머리 아래 fixed 배치는 그 결정을 따른다.
+
 ## Considered Options
 
 - **(A) overlay 유지**: 변경 비용이 없다. 대신 FeedbackOps 셸 편입 때 상세 패널 방식이 다르고 좁은 데스크톱에서는 목록 조작을 막는다.

@@ -317,8 +317,8 @@ describe('MilestonesRoute create (#514 B2e)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Milestone 생성' }));
     expect(await screen.findByTestId('milestone-create-panel')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '전체 화면 전환' }));
-    expect(screen.getByRole('button', { name: '전체 화면 전환' })).toHaveAttribute(
+    fireEvent.click(screen.getByRole('button', { name: '크게 보기' }));
+    expect(screen.getByRole('button', { name: '원래 크기로' })).toHaveAttribute(
       'aria-pressed',
       'true',
     );
@@ -328,7 +328,7 @@ describe('MilestonesRoute create (#514 B2e)', () => {
     // The slot resets expansion when its registrant changes; one registrant spans create and detail.
     expect(await screen.findByRole('heading', { name: 'Launch review hardening' })).toBeVisible();
     expect(screen.queryByTestId('milestone-create-panel')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '전체 화면 전환' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: '원래 크기로' })).toHaveAttribute(
       'aria-pressed',
       'true',
     );

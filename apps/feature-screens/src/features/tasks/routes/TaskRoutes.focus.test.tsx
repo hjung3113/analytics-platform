@@ -402,7 +402,7 @@ it('returns focus to the row after closing a fullscreen panel in the real AppFra
   };
   document.addEventListener('focusin', onFocusIn);
   try {
-    fireEvent.click(await screen.findByRole('button', { name: '전체 화면 전환' }));
+    fireEvent.click(await screen.findByRole('button', { name: '크게 보기' }));
     expect(screen.getByTestId('app-main')).toHaveProperty('hidden', true);
     fireEvent.click(screen.getByRole('button', { name: '패널 닫기' }));
     await waitFor(() => {
@@ -420,7 +420,7 @@ it('cancels the pending focus return when another row is selected before a frame
   await screen.findByRole('heading', { name: task.title });
   await settleQueries(mounted.client);
   const firstRow = listRow('TASK-1000');
-  fireEvent.click(await screen.findByRole('button', { name: '전체 화면 전환' }));
+  fireEvent.click(await screen.findByRole('button', { name: '크게 보기' }));
   expect(screen.getByTestId('app-main')).toHaveProperty('hidden', true);
   // Hold frames back so the pending return cannot fire between close and selection.
   const frames: Array<FrameRequestCallback> = [];
@@ -567,7 +567,7 @@ it.each(
           'true',
         ),
       );
-      if (expanded) fireEvent.click(screen.getByRole('button', { name: '전체 화면 전환' }));
+      if (expanded) fireEvent.click(screen.getByRole('button', { name: '크게 보기' }));
       const action = status === 'approved' ? '승인' : '반려';
       fireEvent.click(screen.getByRole('button', { name: action }));
       dialog = await screen.findByRole('dialog');
@@ -622,7 +622,7 @@ it('collapses an expanded decision panel before the next row receives focus', as
       </QueryClientProvider>,
     );
     await screen.findByRole('heading', { name: '검토 결정' });
-    fireEvent.click(screen.getByRole('button', { name: '전체 화면 전환' }));
+    fireEvent.click(screen.getByRole('button', { name: '크게 보기' }));
     expect(screen.getByTestId('app-main')).toHaveProperty('hidden', true);
     fireEvent.click(screen.getByRole('button', { name: '승인' }));
     const dialog = await screen.findByRole('dialog');

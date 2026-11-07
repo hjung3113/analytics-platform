@@ -1,11 +1,11 @@
 import { QueryBarExtensionsProvider } from '@ap/components';
 import { useEquipmentAxes } from '@ap/kernel';
 import { PaneQueryDraftProvider } from '@ap/kernel/host';
-import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties } from 'react';
+import { useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties } from 'react';
 import { AppWindow, HardDrive, Minus, X } from 'lucide-react';
 import { UNDO_WINDOW_MS, useI18n, type MenuEntry } from '@ap/kernel';
 import { paneHref, useHostPlatform, type PaneScreen } from '@ap/kernel/host';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, cn, Popover, PopoverContent, PopoverTrigger, SurfacePauseScope, ToggleGroup, ToggleGroupItem, TransientOverlayScope } from '@ap/ui';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, cn, DetailPanelFullscreenContext, Popover, PopoverContent, PopoverTrigger, SurfacePauseScope, ToggleGroup, ToggleGroupItem, TransientOverlayScope } from '@ap/ui';
 import { BoardContextBar } from './BoardContextBar';
 import { BoardDock, type DockPaneProps } from './BoardDock';
 import { BoardPane } from './BoardPane';
@@ -415,6 +415,7 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
 
   // A covered board keeps its state (selection, drafts, drill, scroll) but not its transient UI: menus and dialogs close, and the detail slot is told
   // that the surface owning its registrants is paused (ADR-0088).
+  const covered = useContext(DetailPanelFullscreenContext)?.expanded === true;
   return <SurfacePauseScope paused={!visible}><TransientOverlayScope active={visible}><div ref={root} data-board className="@container relative flex h-full min-h-0 flex-col"
     onFocusCapture={event => { if (visible && event.target instanceof HTMLElement && !event.target.closest('[data-board-leave]')) rememberFocus(user.id, event.target); }}>
     <header className="flex h-[50px] shrink-0 items-center justify-between gap-3 overflow-x-auto border-b border-border-subtle bg-surface-canvas px-4">
@@ -452,6 +453,8 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
         </>}
       </div>}
     </header>
+    {/* Below the preserved header, an expanded detail covers the board's own body (Context bar, panes, sheet tabs): make it inert like PlatformPage does for a menu body. */}
+    <div data-board-body className="contents" inert={covered || undefined}>
     <PaneQueryDraftProvider key={sheetId} screens={Object.fromEntries(paneScreens.map((screen, index) => [paneKey(index), screen]))}>
     <QueryBarExtensionsProvider>
     <BoardContextBar key={paneKey(selected)} paneId={paneKey(selected)} number={selected + 1} screen={paneScreens[selected]} onChange={(next, how) => update(b => editPane(b, sheetId, selected, next, how))} onLeave={onLeave} />
@@ -489,6 +492,7 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
       onSwitch={id => { if (id !== sheetId) onSheetChange(id); }} onAdd={addNewSheet}
       onCopyContext={copyContext}
       onRename={(id, name) => update(b => renameSheet(b, id, name))} onMove={(id, to) => update(b => moveSheet(b, id, to))} onDelete={deleteSheet} />
+    </div>
     {dock && <PanePicker open={groupAdd !== null} title={text.groupAddTitle(groupAdd?.number ?? 1)} notice={groupAdd?.notice}
       onOpenChange={open => { if (!open) setGroupAdd(null); }} onPick={pickInGroup}
       onCloseAutoFocus={event => { event.preventDefault(); returnToGroupAdd(); }} />}

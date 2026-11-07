@@ -29,9 +29,13 @@ App Shell(06 §8–9, 화면 설계 [07](../../../docs/wireframes/app-shell.md))
 - 개발 전용 도구(역할 전환, 응답 시나리오)는 셸에 넣지 않는다. 앱이 `slots.topBarTools`로 주입하고 레일 아래에 렌더한다(ADR-0009 슬롯 이름 유지).
 - 레이아웃 치수·IA 변경은 07/06 §9 변경이다. 워크스페이스 층(06 §9.1)도 여기와 Registry에 얹는다.
 
-- 상세 슬롯 aside는 셸이 소유한다. 상세가 없으면 폭 0, 열리면 공유 폭 토큰을 06 §7 범위로 clamp하며 본문을 overlay·scrim·inert로 막지 않는다(ADR-0013, 06 §13).
+- The shell owns the detail aside: width zero when closed, shared width clamped to §7 when docked. Docked detail leaves the body available (ADR-0013, §13); expansion follows ADR-0126 below and covers only the body below the page header, which PlatformPage makes inert.
 
 ## 검증
 
 `pnpm --filter @ap/shell test`(경계 단위 테스트)로 좁혀 본 뒤 루트 검사(루트 `AGENTS.md`)에 더해 `pnpm dev`로 사이드바·레일·Context Bar·역할 전환 후 메뉴 노출을 직접 확인.
 
+
+## Detail expansion (ADR-0126, #1459)
+
+`AppShell` controls the UI slot provider from host `detailExpanded`/`setDetailExpanded`; `/board` uses local state. VOC and detail share that value and the shared UI toggle/Escape rules. Only an open-to-closed surface transition clears expansion; an initially empty slot keeps a restored key for late registration. Expanded detail/VOC stay mounted and leave the flex row to cover the content box below the actual sticky page header. Observe content/header resize and remeasure on scroll/resize; do not hard-code a 50px top edge. Geometry uses CSS custom properties and the shared token-class constant. PlatformPage owns covered-body inert. Existing docked classes and VOC draft/close confirmation semantics stay intact.

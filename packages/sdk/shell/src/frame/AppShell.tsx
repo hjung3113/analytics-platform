@@ -1,9 +1,9 @@
 import { AlertTriangle, Info, X, XCircle } from 'lucide-react';
-import { Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useEquipmentAxes, useI18n, type Toast } from '@ap/kernel';
 import { useHostPlatform, useToastList } from '@ap/kernel/host';
 import { LoadingBlock } from '@ap/components';
-import { cn, DetailPanelSlotProvider, readLocalStorage, useDetailPanelSlotHost, writeLocalStorage } from '@ap/ui';
+import { cn, DetailPanelFullscreenContext, DetailPanelSlotProvider, readLocalStorage, useDetailPanelSlotHost, writeLocalStorage } from '@ap/ui';
 import { CommandPalette } from '../routing/CommandPalette';
 import { LeaveConfirmDialog } from '../routing/LeaveConfirmDialog';
 import { AppSidebar } from './AppSidebar';
@@ -12,13 +12,16 @@ import { AppRail } from './AppRail';
 import { useVocDrawer, VocDrawer, VocDrawerContext } from '../voc/VocDrawer';
 import { BoardRestoreChip } from '../board/BoardRestoreChip';
 import { useBoardPresentation } from '../board/boardPresentation';
+import { expandedDetailClass } from './expandedDetailClass';
 import type { ToastBottom } from '../board/windowLayout';
 
 const COLLAPSE_KEY = 'platform:sidebar-collapsed';
 
 /** Application Shell (§7): 52px rail, 240/56px sidebar, page-owned 50px header; pages render into content and the registered detail slot. */
 export function AppShell({ children }: { children: ReactNode }) {
-  return <DetailPanelSlotProvider><ShellLayout>{children}</ShellLayout></DetailPanelSlotProvider>;
+  const { detailExpanded, setDetailExpanded, platformScreen } = useHostPlatform();
+  const inBoard = platformScreen === 'board';
+  return <DetailPanelSlotProvider expanded={inBoard ? undefined : detailExpanded} onExpandedChange={inBoard ? undefined : setDetailExpanded}><ShellLayout>{children}</ShellLayout></DetailPanelSlotProvider>;
 }
 
 function ShellLayout({ children }: { children: ReactNode }) {
@@ -37,6 +40,20 @@ function ShellLayout({ children }: { children: ReactNode }) {
   const axes = useEquipmentAxes();
   const voc = useVocDrawer(slots.vocCompose, () => ({ route, platformScreen, global, page, absoluteUrl, registry, lang, axes, asOf: t('membershipAsOf') }), detail.activation, session);
   const detailShown = detail.open && !voc?.visible;
+  const surfaceOpen = detailShown || voc?.visible === true;
+  const expanded = surfaceOpen && detail.expanded;
+  const fullscreen = useMemo(() => ({ expanded, toggle: detail.toggle }), [expanded, detail.toggle]);
+  const { expanded: slotExpanded, toggle: toggleExpanded, setSurfaceVisible } = detail;
+  // The VOC drawer registers no detail, so the slot learns its visibility here (in-memory expansion on the board).
+  const vocVisible = voc?.visible === true;
+  useLayoutEffect(() => { setSurfaceVisible(vocVisible); }, [setSurfaceVisible, vocVisible]);
+  const wasOpen = useRef(false);
+  useLayoutEffect(() => {
+    if (wasOpen.current && !surfaceOpen && slotExpanded) toggleExpanded();
+    wasOpen.current = surfaceOpen;
+  }, [surfaceOpen, slotExpanded, toggleExpanded]);
+  const mainArea = useRef<HTMLDivElement>(null);
+  const expandedStyle = useExpandedDetailArea(mainArea, expanded);
   const board = useBoardPresentation();
   const toggle = () => setCollapsed(c => { writeLocalStorage(COLLAPSE_KEY, c ? '0' : '1'); return !c; });
   useEffect(() => {
@@ -49,7 +66,7 @@ function ShellLayout({ children }: { children: ReactNode }) {
   }, []);
 
   // The provider wraps the whole layout (not only the rail), so a screen's error view can open the drawer too (#606).
-  return <VocDrawerContext.Provider value={voc}><div className="flex h-full overflow-hidden">
+  return <DetailPanelFullscreenContext.Provider value={fullscreen}><VocDrawerContext.Provider value={voc}><div className="flex h-full overflow-hidden">
     <a href="#platform-main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-sm focus:bg-surface-card focus:px-3 focus:py-2">{t('skipToContent')}</a>
     <AppRail />
     {showSidebar && <AppSidebar collapsed={collapsed} onToggle={toggle} />}
@@ -57,7 +74,7 @@ function ShellLayout({ children }: { children: ReactNode }) {
     {/* The column stays unpositioned: a `relative` column would become the containing block of every `absolute` element inside main (sr-only text, popovers) and let them overflow it unclipped. */}
     <div data-shell-content className="flex min-w-0 flex-1 flex-col">
       {/* The board window's area (893d2): a positioned box around main only, so a window is placed against main, not against its scrolling content, and never covers the rail, sidebar, or the chip row. It is `relative`, so every `absolute` element inside main (sr-only text, …) now has it as containing block: `contain: paint` clips what overflows it (as the root's clipping did before) without an `overflow` clip, which `contract-components` (PageFilterBar 접힘 요약) reads as a clipped ancestor of text. */}
-      <div data-board-window-area className="relative min-h-0 min-w-0 flex-1 [contain:paint]">
+      <div ref={mainArea} data-board-window-area className="relative min-h-0 min-w-0 flex-1 [contain:paint]">
         <main id="platform-main" tabIndex={-1} className="h-full min-h-0 min-w-0 overflow-y-auto outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring">
           <Suspense fallback={<div className="p-5"><LoadingBlock rows={6} height={320} /></div>}>{children}</Suspense>
         </main>
@@ -66,13 +83,40 @@ function ShellLayout({ children }: { children: ReactNode }) {
       {/* The toast anchor: a zero-height positioned strip at the column's bottom edge, so the stack centres on the content column and never reaches the detail aside or the VOC drawer (06 Toast). */}
       <div data-toast-anchor className="relative h-0"><Toasts bottom={platformScreen === 'board' ? 'bottom-14' : board.minimized ? 'bottom-16' : 'bottom-4'} /></div>
     </div>
-    <aside ref={detail.ref} hidden={!detailShown} aria-label={lang === 'ko' ? '상세 패널' : 'Detail panel'} data-open={detailShown}
-      className={cn('h-full max-w-[520px] shrink-0 overflow-hidden border-border-subtle bg-surface-detail',
+    <aside ref={detail.ref} hidden={!detailShown} aria-label={lang === 'ko' ? '상세 패널' : 'Detail panel'} data-open={detailShown} data-expanded={detailShown && expanded} style={expanded && detailShown ? { '--detail-left': expandedStyle['--detail-left'], '--detail-top': expandedStyle['--detail-top'], '--detail-width': expandedStyle['--detail-width'], '--detail-height': expandedStyle['--detail-height'] } as CSSProperties : undefined}
+      className={expanded && detailShown ? expandedDetailClass : cn('h-full max-w-[520px] shrink-0 overflow-hidden border-border-subtle bg-surface-detail',
         detailShown ? 'w-[clamp(360px,var(--detail-panel-width,440px),520px)] min-w-[360px] border-l' : 'w-0 min-w-0 border-l-0')} />
-    {voc && <VocDrawer voc={voc} lang={lang} />}
+    {voc && <VocDrawer voc={voc} lang={lang} expandedStyle={expandedStyle} />}
     <CommandPalette />
     <LeaveConfirmDialog />
-  </div></VocDrawerContext.Provider>;
+  </div></VocDrawerContext.Provider></DetailPanelFullscreenContext.Provider>;
+}
+
+/** Measure the actual header and content box; the page owns inert below its header. */
+type DetailAreaStyle = Record<'--detail-left' | '--detail-top' | '--detail-width' | '--detail-height', string>;
+
+function useExpandedDetailArea(areaRef: { current: HTMLDivElement | null }, expanded: boolean): DetailAreaStyle {
+  const [area, setArea] = useState({ left: 0, top: 0, width: 0, height: 0 });
+  useLayoutEffect(() => {
+    const areaNode = areaRef.current;
+    if (!expanded || !areaNode) return;
+    let header: HTMLElement | null = null;
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => measure());
+    const measure = () => {
+      const nextHeader = areaNode.querySelector<HTMLElement>('[data-page-sticky-header] > header') ?? areaNode.querySelector('[data-board-heading]')?.closest('header') ?? null;
+      if (nextHeader !== header) { if (header) observer?.unobserve(header); header = nextHeader; if (header) observer?.observe(header); }
+      const rect = areaNode.getBoundingClientRect();
+      const top = Math.min(rect.bottom, Math.max(rect.top, header?.getBoundingClientRect().bottom ?? rect.top));
+      const next = { left: rect.left, top, width: rect.width, height: Math.max(0, rect.bottom - top) };
+      setArea(previous => Object.keys(next).every(key => previous[key as keyof typeof next] === next[key as keyof typeof next]) ? previous : next);
+    };
+    measure(); observer?.observe(areaNode);
+    const mutation = new MutationObserver(measure);
+    mutation.observe(areaNode, { childList: true, subtree: true });
+    window.addEventListener('resize', measure); window.addEventListener('scroll', measure, true);
+    return () => { observer?.disconnect(); mutation.disconnect(); window.removeEventListener('resize', measure); window.removeEventListener('scroll', measure, true); };
+  }, [areaRef, expanded]);
+  return { '--detail-left': `${area.left}px`, '--detail-top': `${area.top}px`, '--detail-width': `${area.width}px`, '--detail-height': `${area.height}px` };
 }
 
 /**

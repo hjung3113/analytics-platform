@@ -14,9 +14,18 @@
  * The shared drawer pads its content area by 12px (a one-tab drawer draws a region, not a tabpanel), which lets the body show above the tabs and below the bar (UX-3); this panel keeps only the side padding
  * and lets the body fill it.
  */
-:is([role="tabpanel"], [role="region"]):not([hidden]):has(> .fo-detail-body) {
+/* #1459: the SDK wraps drawer content in a reading column (`display: contents` until expanded), so the body may sit one level down. */
+:is([role="tabpanel"], [role="region"]):not([hidden]):has(> .fo-detail-body),
+:is([role="tabpanel"], [role="region"]):not([hidden]):has(> [data-detail-reading-column] > .fo-detail-body) {
   display: flex;
   flex-direction: column;
   overflow: hidden;
   padding-block: 0;
+}
+
+/* Expanded, the reading column is a real box between the panel and the body: give it the same column so the body still fills it. */
+[data-detail-reading-column]:not(.contents):has(> .fo-detail-body) {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
