@@ -201,7 +201,7 @@ export function RichEditor({
     <div
       className={cn(
         // `rich-editor` is the marker the empty-text rule in styles/compat.css selects (#1167); kept verbatim from FeedbackOps.
-        'rich-editor border border-border-subtle rounded-md bg-surface-canvas',
+        'rich-editor border border-border-control rounded-md bg-surface-canvas',
         className,
       )}
       data-surface={surface}

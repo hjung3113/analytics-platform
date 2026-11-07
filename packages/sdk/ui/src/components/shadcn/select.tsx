@@ -49,9 +49,9 @@ interface SelectTriggerProps
 }
 
 const SELECT_APPEARANCE_CLASSES: Record<Exclude<SelectAppearance, 'default'>, string> = {
-  canvas: 'rounded border-border-subtle bg-surface-canvas p-2',
+  canvas: 'rounded border-border-control bg-surface-canvas p-2',
   field:
-    'h-9 w-full rounded-md border-border-default bg-surface-field px-3 py-1 text-sm text-text-primary',
+    'h-9 w-full rounded-md border-border-control bg-surface-field px-3 py-1 text-sm text-text-primary',
 };
 
 export const SelectTrigger = React.forwardRef<
@@ -61,7 +61,7 @@ export const SelectTrigger = React.forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      'flex h-10 w-full items-center justify-between rounded-md border border-border-subtle bg-surface-field px-3 py-2 text-sm text-text-primary placeholder:text-text-muted',
+      'flex h-10 w-full items-center justify-between rounded-md border border-border-control bg-surface-field px-3 py-2 text-sm text-text-primary placeholder:text-text-muted',
       'focus:outline-hidden focus:ring-2 focus:ring-focus-ring focus:ring-offset-2',
       'disabled:cursor-not-allowed disabled:opacity-50',
       '[&>span]:line-clamp-1',

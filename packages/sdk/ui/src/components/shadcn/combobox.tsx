@@ -202,7 +202,7 @@ export function Combobox({
           disabled={disabled}
           onKeyDown={handleTriggerKeyDown}
           className={cn(
-            'flex h-10 w-full items-center justify-between rounded-md border border-border-subtle bg-surface-field px-3 py-2 text-sm text-text-primary',
+            'flex h-10 w-full items-center justify-between rounded-md border border-border-control bg-surface-field px-3 py-2 text-sm text-text-primary',
             'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2',
             'disabled:cursor-not-allowed disabled:opacity-50',
             !selected && 'text-text-muted',
