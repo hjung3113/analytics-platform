@@ -40,7 +40,7 @@ import {
   mapUnique,
   patchDataset,
 } from './repositories/dataset-write.js';
-import { checkSampleSetFiles } from './source-check.js';
+import { checkSampleSetFilesFor } from './source-check.js';
 
 export const DATASET_MANAGE_PERMISSION = 'dataset.manage';
 /** The menu permission the actions declare: bootstrap lists it exactly for the users `DATASET_MANAGE_PERMISSION` lets write (`platform-port/permissions.ts`). */
@@ -208,7 +208,7 @@ export function datasetActions(deps: LogDatasetsDeps): MenuActionDeclaration[] {
       const value = result.value;
       // The Source is asked BEFORE the dataset row is locked, so a slow adapter never holds the lock. No port = no check = `unverified`;
       // a check that could not settle never blocks the revision (it is created, and shown unconfirmed).
-      const states = await checkSampleSetFiles(deps.sourceRead, value.sampleSet);
+      const states = await checkSampleSetFilesFor(deps.sourceRead, deps.sourceOwnerAccess, actor, value.sampleSet);
       const summary = summarizeAvailability(states, value.sampleSet.files.length);
       const dataset = await lockDataset(tx, ws, actor.actor_id, value.datasetId);
       if (!dataset) throw invalid({ path: ['datasetId'], code: 'not_found' });

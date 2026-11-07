@@ -1,8 +1,9 @@
 // The log test dataset reads (#1477 D-a, design log-test-datasets §6): the dataset list and one dataset with its revisions. Same read
 // right and workspace rule as the other direct list menus (`platform:view`, `requiresScope: false`, the workspace is the session actor's,
-// never a param). A `private` dataset is visible to its owner only. The dispatch outcome set has no `not_found`, so an unknown,
+// never a param). Session-only: a token call is refused. A `private` dataset is visible to its owner only. The dispatch outcome set has no `not_found`, so an unknown,
 // other-workspace or invisible id answers `ok` with `data: null`. The reads write nothing.
 
+import { currentAuthContext, noteSessionOnlyDenial } from '../../lib/auth-context.js';
 import type { EndpointResult, MenuEndpointDeclaration, ParamsJudgment } from '../menu-dispatch/types.js';
 import { holdsPlatformPermission } from '../platform-port/permissions.js';
 import type { LogDatasetsDeps } from './deps.js';
@@ -14,7 +15,7 @@ import {
 } from './domain/dataset-params.js';
 import { LOG_DATASETS_MENU_ID } from './menu.js';
 import { getDatasetHead, listDatasets, toRevisionDetail } from './repositories/dataset-read.js';
-import { checkSampleSetFiles } from './source-check.js';
+import { checkSampleSetFilesFor } from './source-check.js';
 import type { SampleSet } from './domain/sample-manifest.js';
 
 type Judge = (params: Record<string, unknown>) => ParamsJudgment;
@@ -37,7 +38,15 @@ function declareRead(
       context: {},
       mergeTimeDomain: false,
     },
-    authorize: (actor, tx) => holdsPlatformPermission(deps.checkService, actor, 'platform:view', tx ? { tx } : {}),
+    authorize: async (actor, tx) => {
+      // Session-only (design §9 defers token calls): a token never reads datasets, even one holding `workspace.read`. The denial is noted so the
+      // token gate audits it like a session-only capability refusal.
+      if (currentAuthContext().kind === 'token') {
+        noteSessionOnlyDenial('dataset.manage');
+        return false;
+      }
+      return holdsPlatformPermission(deps.checkService, actor, 'platform:view', tx ? { tx } : {});
+    },
     validate: (params) => judge(params),
     async handle(args) {
       const judged = judge(args.params);
@@ -62,7 +71,7 @@ export function datasetEndpoints(deps: LogDatasetsDeps): MenuEndpointDeclaration
       // Availability is computed now, from the Source, for the latest revision only (a check is one call per file; older revisions are
       // shown as not checked). With no port every file is unchecked and the revision is `unverified`.
       const [latest, ...older] = head.revisions;
-      const states = latest ? await checkSampleSetFiles(deps.sourceRead, latest.sampleSet as SampleSet) : undefined;
+      const states = latest ? await checkSampleSetFilesFor(deps.sourceRead, deps.sourceOwnerAccess, actor, latest.sampleSet as SampleSet) : undefined;
       const revisions = [
         ...(latest ? [toRevisionDetail(latest, states)] : []),
         ...older.map((row) => toRevisionDetail(row, undefined)),

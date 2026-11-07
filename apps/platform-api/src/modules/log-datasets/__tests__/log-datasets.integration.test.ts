@@ -13,6 +13,7 @@ import { SESSION_COOKIE_NAME } from '../../../middleware/require-session.js';
 import { buildServer } from '../../../server.js';
 import { insertActorRow } from '../../../test-support/actor-fixtures.js';
 import { loginAs } from '../../../test-support/auth.js';
+import { hashToken } from '../../api-tokens/token-format.js';
 import type { DatasetSourceRead, DescribeFileResponse } from '../source-check.js';
 
 const APP_URL = process.env.DATABASE_URL ?? '';
@@ -62,6 +63,9 @@ describe.skipIf(!runIntegration)('log test datasets (#1477 D-a)', () => {
   // The mock Source port: the answer per fileRef; an absent key is `source_absent`.
   let portAnswers: PortMode = {};
   const portCalls: string[] = [];
+  // The Source-owner ACL the `withPort` server asks (default open; a test closes it). Every owner asked is recorded.
+  let ownerAllowed = true;
+  const ownersAsked: string[] = [];
 
   const mockPort: DatasetSourceRead = {
     describe: () => Promise.reject(new Error('unused')),
@@ -119,8 +123,8 @@ describe.skipIf(!runIntegration)('log test datasets (#1477 D-a)', () => {
     return res.json<Answer>();
   }
   const act = (action: string, input: Record<string, unknown>, who: Person, expectedVersion?: string) => actOn(withPort, action, input, who, expectedVersion);
-  async function read(endpoint: string, params: Record<string, unknown>, who: Person): Promise<Answer> {
-    const res = await withPort.inject({
+  async function read(endpoint: string, params: Record<string, unknown>, who: Person, app: FastifyInstance = withPort): Promise<Answer> {
+    const res = await app.inject({
       method: 'POST',
       url: '/api/v1/menu-query',
       headers: { 'content-type': 'application/json', ...cookieHeader(who.cookie) },
@@ -144,17 +148,33 @@ describe.skipIf(!runIntegration)('log test datasets (#1477 D-a)', () => {
       detail: Record<string, unknown>;
     }[];
 
+  const candidateInput = (over: Record<string, unknown> = {}) => ({
+    origin: 'manual',
+    name: `${TAG}-cand-${n++}`,
+    sampleSet: sampleSet('c1.log', 'c2.log'),
+    scenarioTags: ['regression'],
+    ...over,
+  });
+
   beforeEach(async () => {
     await sql('delete from core.rate_limits');
     portAnswers = {};
     portCalls.length = 0;
+    ownerAllowed = true;
+    ownersAsked.length = 0;
   });
 
   beforeAll(async () => {
     process.env.NODE_ENV = 'test';
     dbHandle = createDb(APP_URL);
     migrate = createDb(MIGRATE_URL);
-    withPort = await buildServer({ config: loadConfig(), dbHandle, logDatasets: { sourceRead: mockPort } });
+    withPort = await buildServer({ config: loadConfig(), dbHandle, logDatasets: { sourceRead: mockPort, sourceOwnerAccess: {
+        allows: async (_actor, owner) => {
+          ownersAsked.push(owner);
+          return ownerAllowed;
+        },
+      },
+    } });
     noPort = await buildServer({ config: loadConfig(), dbHandle });
     await Promise.all([withPort.ready(), noPort.ready()]);
     admin = await person('admin');
@@ -377,7 +397,7 @@ describe.skipIf(!runIntegration)('log test datasets (#1477 D-a)', () => {
       const a = await create(noPort, ds.id, ['np.log']);
       expect(a.outcome, JSON.stringify(a)).toBe('ok');
       expect(a.data).toMatchObject({ availability: 'unverified', availabilityChecked: false });
-      const d = await read('datasetDetail', { datasetId: ds.id }, admin);
+      const d = await read('datasetDetail', { datasetId: ds.id }, admin, noPort);
       expect(d.data.revisions[0]).toMatchObject({ availability: 'unverified', availabilityChecked: true });
     });
 
@@ -491,14 +511,6 @@ describe.skipIf(!runIntegration)('log test datasets (#1477 D-a)', () => {
   });
 
   describe('candidates', () => {
-    const candidateInput = (over: Record<string, unknown> = {}) => ({
-      origin: 'manual',
-      name: `${TAG}-cand-${n++}`,
-      sampleSet: sampleSet('c1.log', 'c2.log'),
-      scenarioTags: ['regression'],
-      ...over,
-    });
-
     it('creates a draft with data references only and audits counts', async () => {
       const a = await act('candidateCreate', candidateInput({ note: 'why' }), grantee);
       expect(a.outcome, JSON.stringify(a)).toBe('ok');
@@ -611,6 +623,145 @@ describe.skipIf(!runIntegration)('log test datasets (#1477 D-a)', () => {
       ]);
       expect(answers.map((a) => a.outcome).sort()).toEqual(['conflict', 'ok']);
       expect((await sql('select count(*)::int as n from log_datasets.dataset where name = $1', [(await sql('select proposal->>\'name\' as name from log_datasets.dataset_candidate where id = $1', [c.data.candidateId])).rows[0].name])).rows[0].n).toBe(1);
+    });
+  });
+  describe('the Source-owner ACL gates every availability probe', () => {
+    it('a visible shared dataset whose owner the actor is denied: no port call on read, files permission_denied, unavailable', async () => {
+      const ds = await makeDataset(admin, { shareScope: 'workspace' });
+      const set = sampleSet('acl1.log');
+      portAnswers[at(set.files, 0).fileRef] = { status: 'ok', sha256: at(set.files, 0).sha256 };
+      const created = await act('revisionCreate', { datasetId: ds.id, sampleSet: set }, admin);
+      expect(created.data.availability).toBe('available');
+      portCalls.length = 0;
+      ownerAllowed = false;
+      const d = await detail(ds.id, admin2);
+      expect(d.data.revisions[0]).toMatchObject({ availability: 'unavailable', availabilityChecked: true });
+      expect(d.data.revisions[0].files[0]).toMatchObject({ state: 'permission_denied' });
+      expect(portCalls).toEqual([]);
+      expect(ownersAsked).toContain('fab-team');
+    });
+
+    it('a revisionCreate naming an arbitrary owner the actor is denied makes no port call; the revision is created `unavailable`', async () => {
+      const ds = await makeDataset(admin);
+      ownerAllowed = false;
+      const set = { sourceOwner: 'someone-elses-owner', files: files('acl2.log') };
+      const a = await act('revisionCreate', { datasetId: ds.id, sampleSet: set }, admin);
+      expect(a.outcome, JSON.stringify(a)).toBe('ok');
+      expect(a.data).toMatchObject({ availability: 'unavailable', availabilityChecked: true, counts: { permission_denied: 1 } });
+      expect(portCalls).toEqual([]);
+      expect(ownersAsked).toEqual(['someone-elses-owner']);
+    });
+  });
+
+  describe('session-only: tokens are refused (design §9 defers token calls)', () => {
+    const tokenIds: string[] = [];
+    async function rawToken(kind: 'personal' | 'service', scopes: string[]): Promise<string> {
+      // A service token's owner is a system Actor (the Admin's grants do not matter: the call is refused before any grant is read).
+      let ownerId = admin.id;
+      if (kind === 'service') {
+        const externalId = `${TAG}-sys-${n++}`;
+        ownerId = (
+          await sql(
+            `insert into core.actors (workspace_id, external_id, email, display_name, role_level, actor_type) values ($1,$2,$3,$2,'user','system') returning id`,
+            [WORKSPACE_ID, externalId, `${externalId}@local`],
+          )
+        ).rows[0].id as string;
+        actorIds.push(ownerId);
+      }
+      const prefix = randomUUID().replace(/-/g, '').slice(0, 8);
+      const value = `ap_${prefix}_${Buffer.from(randomUUID() + randomUUID()).toString('base64url').slice(0, 43)}`;
+      const res = await sql(
+        `insert into core.api_tokens (workspace_id, actor_id, kind, name, prefix, secret_hash, scopes, expires_at, revoked_at, created_by)
+         values ($1,$2,$3,'raw',$4,$5,$6,null,null,$7) returning id`,
+        [WORKSPACE_ID, ownerId, kind, prefix, hashToken(value), scopes, kind === 'personal' ? ownerId : admin.id],
+      );
+      tokenIds.push(res.rows[0].id as string);
+      return value;
+    }
+    const bearer = (value: string) => ({ 'content-type': 'application/json', authorization: `Bearer ${value}` });
+    const tokenAct = async (value: string, action: string, input: Record<string, unknown>, expectedVersion?: string): Promise<Answer> => {
+      const res = await withPort.inject({
+        method: 'POST',
+        url: '/api/v1/menu-action',
+        headers: bearer(value),
+        payload: JSON.stringify({ action: `logDataset.${action}`, context: {}, input, idempotencyKey: randomUUID(), ...(expectedVersion === undefined ? {} : { expectedVersion }) }),
+      });
+      expect(res.statusCode, res.body).toBe(200);
+      return res.json<Answer>();
+    };
+    const tokenRead = async (value: string, endpoint: string, params: Record<string, unknown>): Promise<Answer> => {
+      const res = await withPort.inject({
+        method: 'POST',
+        url: '/api/v1/menu-query',
+        headers: bearer(value),
+        payload: JSON.stringify({ endpoint: `logDataset.${endpoint}`, context: {}, params }),
+      });
+      expect(res.statusCode, res.body).toBe(200);
+      return res.json<Answer>();
+    };
+    afterAll(async () => {
+      if (tokenIds.length > 0) await sql('delete from core.api_tokens where id = any($1)', [tokenIds]);
+    });
+
+    it.each([
+      ['a personal token', 'personal' as const],
+      ['a service token', 'service' as const],
+    ])('%s, even holding the legacy dataset.manage and workspace.read scopes (inserted directly), is refused for reads and every write', async (_label, kind) => {
+      const token = await rawToken(kind, ['dataset.manage', 'workspace.read']);
+      const ds = await makeDataset(admin, { shareScope: 'workspace' });
+      const cand = await act('candidateCreate', candidateInput(), admin);
+      await sql('delete from core.rate_limits');
+      expect((await tokenRead(token, 'datasets', {})).outcome).toBe('forbidden');
+      await sql('delete from core.rate_limits');
+      expect((await tokenRead(token, 'datasetDetail', { datasetId: ds.id })).outcome).toBe('forbidden');
+      const writes: [string, Record<string, unknown>, string | undefined][] = [
+        ['datasetCreate', { name: `${TAG}-tok` }, undefined],
+        ['datasetUpdate', { id: ds.id, name: `${TAG}-tok2` }, ds.version],
+        ['datasetArchive', { id: ds.id }, ds.version],
+        ['revisionCreate', { datasetId: ds.id, sampleSet: sampleSet('tok.log') }, undefined],
+        ['candidateCreate', candidateInput(), undefined],
+        ['candidateDecide', { id: cand.data.candidateId, decision: 'approve' }, cand.data.version],
+      ];
+      for (const [action, input, version] of writes) {
+        await sql('delete from core.rate_limits');
+        expect((await tokenAct(token, action, input, version)).outcome, action).toBe('forbidden');
+      }
+      expect((await sql('select status, row_version from log_datasets.dataset where id = $1', [ds.id])).rows[0]).toEqual({ status: 'active', row_version: 1 });
+      expect((await sql('select status from log_datasets.dataset_candidate where id = $1', [cand.data.candidateId])).rows[0]).toEqual({ status: 'draft' });
+    });
+
+    it('a token can no longer be issued with the dataset.manage scope', async () => {
+      const res = await withPort.inject({
+        method: 'POST',
+        url: '/api-tokens',
+        headers: cookieHeader(admin.cookie),
+        payload: { name: `${TAG}-scope`, scopes: ['dataset.manage'], expiresAt: null },
+      });
+      expect(res.statusCode).toBe(422);
+      expect(res.body).toContain('session_only');
+    });
+  });
+
+  describe('audit trail does not leak private datasets', () => {
+    it('another Admin searching by dataset / dataset_revision / dataset_candidate subject type finds nothing of a private dataset', async () => {
+      const ds = await makeDataset(admin);
+      const rev = await act('revisionCreate', { datasetId: ds.id, sampleSet: sampleSet('aud.log') }, admin);
+      const cand = await act('candidateCreate', candidateInput(), admin);
+      expect((await audit(ds.id)).length).toBeGreaterThan(0); // the events exist in core.audit_log
+      const search = async (query: Record<string, unknown>) => {
+        const res = await withPort.inject({
+          method: 'POST',
+          url: '/api/v1/platform/audit-trail/search',
+          headers: { 'content-type': 'application/json', ...cookieHeader(admin2.cookie) },
+          payload: JSON.stringify(query),
+        });
+        expect(res.statusCode, res.body).toBe(200);
+        return JSON.stringify(res.json());
+      };
+      for (const query of [{ type: 'dataset' }, { type: 'dataset_revision' }, { type: 'dataset_candidate' }, { targetId: ds.id }, {}]) {
+        const body = await search(query);
+        for (const id of [ds.id, rev.data.revisionId, cand.data.candidateId]) expect(body, JSON.stringify(query)).not.toContain(id);
+      }
     });
   });
 });

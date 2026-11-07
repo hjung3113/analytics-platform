@@ -7,7 +7,8 @@ Index and global rules: [03-api-contracts.md](../03-api-contracts.md). This file
 - Owning menu id `log-datasets` (`LOG_DATASETS_MENU_ID`). Reads: `permission: 'platform:view'`, `requiresScope: false`, `context: {}`, `mergeTimeDomain: false`; the workspace is the session actor's and no param names it.
 - A bad param is an `error` outcome (HTTP 200, `data: null`, `message`), never an empty page. The outcome set has no `not_found`: an unknown, other-workspace or invisible id answers `ok` with `data: null` (the list answers an empty page).
 - **Visibility.** `share_scope = 'workspace'` is visible to every member of the workspace; `private` to its owner only (not to an Admin either). A write on a dataset the actor cannot see is `not_found` (versioned actions) or `invalid` `datasetId:not_found` (`revisionCreate`) — the same answer as another workspace's id. Only the owner changes `shareScope` (`invalid` `shareScope:owner_only`).
-- Writes: `POST /api/v1/menu-action`, `requiresScope: false`, menu permission `dataset:manage`, capability `dataset.manage` (workspace-scoped, non-sensitive, `adminModuleBypass: 'always'`, refused for a User recipient like `lifecycle.*`). Developers receive it by grant.
+- Writes: `POST /api/v1/menu-action`, `requiresScope: false`, menu permission `dataset:manage`, capability `dataset.manage` (workspace-scoped, non-sensitive, **session-only**: design §9 defers token calls, so a personal or service token is refused for writes and, by the endpoints' `authorize`, for both reads too; it cannot be listed as a token scope; `adminModuleBypass: 'always'`, refused for a User recipient like `lifecycle.*`). Developers receive it by grant.
+- **Availability probes** ask the Source owner's ACL first: `LogDatasetsDeps.sourceOwnerAccess` is the log-explorer `SourceOwnerAccess` seam (`denyAllSourceOwners` by default; `buildServer({ logDatasets: { sourceRead, sourceOwnerAccess } })`). A denied owner means no Source call and every file `permission_denied` (revision availability `unavailable`). The per-call (2 s) and total (10 s) deadlines are enforced by timers of the check itself, so an adapter that ignores the abort signal or never settles leaves its file `error` (availability `unverified`).
 - Refusals use the dispatch envelope: HTTP 200 `{ outcome: 'invalid', fieldErrors: [{ path, code }] }`; `conflict` is only an `expectedVersion` mismatch; creates replay by `idempotencyKey`. Codes: `required`, `too_long`, `malformed`, `too_many`, `duplicate`, `not_found`, `illegal_transition`, `owner_only`, `unexpected_field`.
 
 ## Reads
@@ -56,7 +57,7 @@ The check uses the injected `SourceReadPort` (log-explorer, ADR-0119); productio
 
 ## Audit
 
-One `core.audit_log` row per write, in the same transaction, body-free (`packages/feature-shared/src/audit/log-datasets.ts`, strict schemas). Subject types `dataset`, `dataset_revision`, `dataset_candidate`:
+One `core.audit_log` row per write, in the same transaction, body-free (`packages/feature-shared/src/audit/log-datasets.ts`, strict schemas). Subject types `dataset`, `dataset_revision`, `dataset_candidate`. They are **not** in the `core.platform_audit_events` projection (migration 0110 adds only the capability `dataset.manage` to its permission-row allow-list): the platform audit trail (`POST /api/v1/platform/audit-trail/search`) never returns them, so a private dataset's existence does not reach `console:access` Admins. Not implemented: a dataset audit view needs a caller-aware projection (reopen when one is requested).
 
 | Event | Subject | Detail |
 | --- | --- | --- |

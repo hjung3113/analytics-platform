@@ -147,7 +147,7 @@ $fn$;
 --> statement-breakpoint
 CREATE TRIGGER dataset_candidate_guard BEFORE UPDATE ON log_datasets.dataset_candidate FOR EACH ROW EXECUTE FUNCTION log_datasets.candidate_guard();
 --> statement-breakpoint
--- #1477 D-a audit projection: the 0109 body + the subject types `dataset` / `dataset_revision` / `dataset_candidate` and the capability `dataset.manage` (non-sensitive).
+-- #1477 D-a audit projection: the 0109 body + the capability `dataset.manage` (non-sensitive) in the permission-row allow-list ONLY. The dataset subject types (`dataset`, `dataset_revision`, `dataset_candidate`) are deliberately NOT projected: a private dataset's ids must not reach `console:access` Admins; its events stay in `core.audit_log` until a caller-aware projection exists.
 GRANT CREATE ON SCHEMA core TO platform_core_audit_reader_owner;
 --> statement-breakpoint
 SET ROLE platform_core_audit_reader_owner;
@@ -175,7 +175,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog AS $$
         'managed_system','analytics_area','milestone','attachment','public_update_review_candidate',
         'voc_cluster_suggestion','workspace','knowledge_vendor','knowledge_process',
         'knowledge_model','knowledge_software','knowledge_item','knowledge_model_spec','improvement_item',
-        'development_project','validation_round','knowledge_draft','catalog_report','execution_request','queue_settings','excerpt_reader','investigation','dataset','dataset_revision','dataset_candidate'])
+        'development_project','validation_round','knowledge_draft','catalog_report','execution_request','queue_settings','excerpt_reader','investigation'])
       AND left(l.event_type, 15) <> 'survey_response'
       AND (l.detail ->> 'sensitive') IS DISTINCT FROM 'true'
       -- Permission rows: only the non-sensitive capabilities (CAPABILITY_META.sensitive = false in
