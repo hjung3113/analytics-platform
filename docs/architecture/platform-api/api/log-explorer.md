@@ -1,6 +1,6 @@
 # Log Explorer
 
-Index and global rules: [03-api-contracts.md](../03-api-contracts.md). Normative contract for the four read endpoints of the log explorer (#1469, node c of [the design](../../../design/features/log-explorer/README.md), [ADR-0119](../../../adr/0119-log-explorer-source-read-port-and-evidence-refs.md)). Tokens, the daily body budget, the export REST and the admin usage read are node f (#1472, sections at the end). Investigation state (tables, actions), `evidenceLinks` and handoff are other nodes.
+Index and global rules: [03-api-contracts.md](../03-api-contracts.md). Normative contract for the four read endpoints of the log explorer (#1469, node c of [the design](../../../design/features/log-explorer/README.md), [ADR-0119](../../../adr/0119-log-explorer-source-read-port-and-evidence-refs.md)). Tokens, the daily body budget, the export REST and the admin usage read are node f (#1472, sections at the end). Investigation state (tables, actions), `evidenceLinks` is node d (#1470, section «`logExplorer.evidenceLinks`»); handoff is another node.
 
 ## Transport and permission
 
@@ -26,6 +26,16 @@ Every answer is `{ state, reason, synthetic, label, … }`:
 - `RecordsPage`: `rows[]` (`fileRef`, `fileOrder`, `line`, `text`, `truncated`, `timestamp`, `timeReversal`, `synthetic`), `nextCursor`, `partial`, `truncated`. `PeriodsPage`: `rows[]` (`fileRef`, `startLine`, `endLine`, `state`, `incomplete`, `synthetic`), `nextCursor`. `WindowPage`: `rows[]`, `truncated`. `ParsedLine`: `extractedFields`, `parserIn`, `parserOut`, `truncated`.
 - **Order is the Source's file order, then line.** Nothing re-sorts by timestamp; `timeReversal` only marks a row whose timestamp is earlier than the previous row's.
 - A page holds at most 200 rows; the platform stores none of the text.
+
+### `logExplorer.evidenceLinks` (node d, #1470)
+
+Reverse lookup of one evidence location: which rule results (and so which Rounds) cite `(fileRef, line, fileSha256)`. Same menu (`log-explorer`) and entry right as the other reads (`platform:view`); it needs no Source access and no data right, because it answers only ids and locations the caller's workspace already holds, through the log-lifecycle barrel read port (`lifecycleEvidenceRead`), never lifecycle repositories.
+
+- Params (strict, unknown key = `error`; a refused value is named by field, never echoed): `fileRef` (1–1024 characters, no control characters), `line` (integer ≥ 1), `fileSha256` (64 lowercase hex), `page?` (0-based), `pageSize?` (1–100, default 50).
+- Data: `results { total, rows[] }` — `ruleResultId`, `ruleKey`, `result` (PASS/FAIL/…), `required`, `attemptId`, `requestId`, `roundId`, `verdict` (the attempt's, or null), `at` (attempt end, else start; ISO); newest first. `rounds { total, rows[] }` — `roundId`, `projectId`, `seq`, `status`, `citingResults`, `lastCitedAt`; newest citation first. Ids and locations only: no excerpt, no log text.
+- Visibility is the lifecycle request reads' rule: the session workspace. A location only another workspace cites, an unknown location and a wrong line/hash all answer the same empty page (`total: 0`).
+- Reads write nothing: no audit row (the endpoint names no body and opens no Source; the lifecycle reads audit only the excerpt read).
+- Declared only when the assembly injects `lifecycleEvidence` (`buildServer` always does).
 
 ## Page cursor
 

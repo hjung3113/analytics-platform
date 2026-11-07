@@ -1,7 +1,7 @@
 import type { Db } from '../../db/client.js';
 import type { createAuditService } from '../core/audit/audit-service.js';
 import type { SourceSampleSet } from '@ap/contract-schemas';
-import type { LifecycleRoundRead } from '../log-lifecycle/index.js';
+import type { LifecycleEvidenceRead, LifecycleRoundRead } from '../log-lifecycle/index.js';
 import type { CheckService } from '../permissions/check-service.js';
 import type { SourceReadPort } from './ports/source-read.js';
 import type { UsageStore } from './usage-store.js';
@@ -46,6 +46,8 @@ export interface LogExplorerReadDeps {
    */
   sourceReadPort: SourceReadPort | null;
   sourceOwnerAccess: SourceOwnerAccess;
+  /** The lifecycle read port of `logExplorer.evidenceLinks` (#1470); absent = the endpoint is not declared. */
+  lifecycleEvidence?: LifecycleEvidenceRead;
   /** HMAC key of the page cursors; absent = a random key per process. */
   cursorKey?: Buffer;
   /** Counters of the token budget and export count (#1472); absent = the `core.rate_limits` store over `db`. A test injects the in-memory one. */

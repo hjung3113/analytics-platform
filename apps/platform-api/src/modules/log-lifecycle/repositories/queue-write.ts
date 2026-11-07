@@ -11,6 +11,7 @@ import {
   executionAttempts,
   executionRequests,
   queueSettings,
+  ruleResultEvidence,
   ruleResultExcerpts,
   ruleResults,
   validationRounds,
@@ -373,6 +374,13 @@ export async function insertRuleResults(tx: Tx, workspaceId: string, attemptId: 
       })
       .returning({ id: ruleResults.id });
     if (!row) throw new Error('rule result insert returned no row');
+    // The normalized evidence locations (#1470): the same transaction as the result, deduped per location (a repeated
+    // location in the array would break the side table's key). A failing insert aborts the whole result.
+    const locations = new Map<string, { fileRef: string; line: number; fileSha256: string }>();
+    for (const e of r.evidence) locations.set(`${e.fileSha256}\u0000${e.line}\u0000${e.fileRef}`, { fileRef: e.fileRef, line: e.line, fileSha256: e.fileSha256 });
+    if (locations.size > 0) {
+      await tx.insert(ruleResultEvidence).values([...locations.values()].map((l) => ({ ruleResultId: row.id, workspaceId, ...l })));
+    }
     for (let i = 0; i < r.excerpts.length; i += 1) {
       const excerpt = r.excerpts[i];
       if (excerpt === null || excerpt === undefined) continue;

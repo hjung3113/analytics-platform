@@ -83,6 +83,7 @@ import {
   logLifecycleContribution,
   roundAttachmentParent,
   workerRoutes,
+  lifecycleEvidenceRead,
   lifecycleRoundRead,
 } from './modules/log-lifecycle/index.js';
 import {
@@ -981,6 +982,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     clock: opts.logExplorer?.clock ?? (() => new Date()),
     sourceReadPort: opts.logExplorer?.sourceReadPort ?? null,
     sourceOwnerAccess: opts.logExplorer?.sourceOwnerAccess ?? denyAllSourceOwners,
+    lifecycleEvidence: lifecycleEvidenceRead,
     ...(opts.logExplorer?.cursorKey ? { cursorKey: opts.logExplorer.cursorKey } : {}),
     ...(opts.logExplorer?.usage ? { usage: opts.logExplorer.usage } : {}),
   };
