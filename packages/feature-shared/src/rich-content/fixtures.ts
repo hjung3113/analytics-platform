@@ -171,7 +171,7 @@ export const invalidDocs: Record<SharedSurface, InvalidRichContentFixture[]> = {
   ],
 };
 
-// ADR-0123 bounded attribute fixtures (also consumed directly by the server suites).
+// ADR-0127 bounded attribute fixtures (also consumed directly by the server suites).
 validDocs['voc-description'].push(doc(
   { type: 'heading', attrs: { level: 3 }, content: [{ type: 'text', text: '개요' }] },
   { type: 'image', attrs: { id: ATTACHMENT_ID, width: 320 } },

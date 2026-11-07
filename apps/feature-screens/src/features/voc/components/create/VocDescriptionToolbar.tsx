@@ -82,7 +82,7 @@ export function vocDescriptionToolbar(opts?: {
 }): (editor: Editor | null, api: RichEditorToolbarApi) => React.ReactElement | null {
   return (editor, api) => {
     if (!editor) return null;
-    // ADR-0123: real SDK editors own the confirmed controls; the old adapter stays compatible with older SDKs.
+    // ADR-0127: real SDK editors own the confirmed controls; the old adapter stays compatible with older SDKs.
     if (api.renderControls) return <>{api.renderControls(opts)}</>;
     return (
       <div

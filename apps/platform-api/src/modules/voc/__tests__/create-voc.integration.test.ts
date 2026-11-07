@@ -971,7 +971,7 @@ describe.skipIf(!runIntegration)('POST /vocs (#13)', () => {
       'disallowed_node',
     ],
     [
-      // strike is allowed on voc-description since ADR-0123; superscript stays outside every allowlist.
+      // strike is allowed on voc-description since ADR-0127; superscript stays outside every allowlist.
       'superscript mark',
       () => ({
         type: 'doc',

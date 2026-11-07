@@ -83,7 +83,7 @@
   }
 }
 
-/* ADR-0123: Tiptap-owned DOM; both supported CSS entry recipes include this file. */
+/* ADR-0127: Tiptap-owned DOM; both supported CSS entry recipes include this file. */
 @layer base {
   :is(.rich-editor[data-surface="voc-description"] .ProseMirror, .rich-content[data-rich-extended]) {
     @apply text-sm leading-relaxed break-keep;

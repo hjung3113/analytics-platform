@@ -215,7 +215,7 @@ describe.skipIf(!runIntegration)('POST /vocs blank required fields (#327)', () =
   });
 
   it('accepts a textless attachmentRef description', async () => {
-    // A body attachment must be one the VOC links (ADR-0123): seed an unlinked upload owned by the reporter.
+    // A body attachment must be one the VOC links (ADR-0127): seed an unlinked upload owned by the reporter.
     const actor = await dbHandle.pool.query<{ id: string }>(
       'select id from core.actors where workspace_id = $1 and external_id = $2',
       [WORKSPACE_ID, 'mock-user-1'],

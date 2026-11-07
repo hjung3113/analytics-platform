@@ -891,7 +891,7 @@ describe.skipIf(!runIntegration)('PATCH /vocs/:id/description (#17)', () => {
     expect(row.rows[0]?.linked_at).not.toBeNull();
   });
 
-  it.each(['image', 'attachmentRef'])('ADR-0123: %s must belong to this VOC on create and edit', async type => {
+  it.each(['image', 'attachmentRef'])('ADR-0127: %s must belong to this VOC on create and edit', async type => {
     const admin = await loginAs(app, 'mock-admin-1');
     const msId = await createMs(app, admin, `it-pd-image-${type.toLowerCase()}`, 'Inline attachment');
     const reporter = await loginAs(app, 'mock-user-1');

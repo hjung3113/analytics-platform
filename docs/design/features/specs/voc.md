@@ -421,7 +421,7 @@ Backend sanitization is authoritative (FO ADR-0011): the editor enforces the too
 
 The canonical surface → rich-editor extension capability map lives in `packages/feature-shared/src/rich-content/allowlist.ts`. `apps/platform-api/src/lib/rich-content/surface-allowlists.ts` may re-export it, while `packages/sdk/ui/src/rich-content/allowlist-local.ts` mirrors it locally because the SDK must not import `@ap/feature-shared`.
 
-[ADR-0123](../../../adr/0123-sdk-rich-editor-extensions-and-inline-attachment-images.md) supersedes FO ADR-0011's image ban only for opted-in surfaces. `voc-description` adds capabilities `heading`, `strike`, `highlight`, `color`, `blockquote`, `horizontalRule`, `codeBlock`, `taskList`, `table`, `details`, `tableOfContents`, and `image`; mention remains off. Other surfaces retain their node/mark/toolbar contracts.
+[ADR-0127](../../../adr/0127-sdk-rich-editor-extensions-and-inline-attachment-images.md) supersedes FO ADR-0011's image ban only for opted-in surfaces. `voc-description` adds capabilities `heading`, `strike`, `highlight`, `color`, `blockquote`, `horizontalRule`, `codeBlock`, `taskList`, `table`, `details`, `tableOfContents`, and `image`; mention remains off. Other surfaces retain their node/mark/toolbar contracts.
 
 | Added nodes / marks | Stored attrs (all other attrs rejected) |
 |---|---|
