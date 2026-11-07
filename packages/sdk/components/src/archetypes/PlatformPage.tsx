@@ -6,7 +6,7 @@ import { QueryBarStatusContext, useQueryBarStatus, type QueryBarStatus } from '.
 import { OutcomeBanners, OutcomeScope } from '../filters/OutcomeScope';
 import { PageContextHead, PageHeadBody } from './PageContextHead';
 import { ChevronRight, Info, Loader2, MapPinOff, MoreHorizontal, RotateCw, ServerCrash, Star } from 'lucide-react';
-import { cloneElement, createContext, isValidElement, useCallback, useContext, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement, type ReactNode } from 'react';
+import { cloneElement, createContext, isValidElement, useCallback, useContext, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement, type ReactNode } from 'react';
 import { type MenuEntry, PlatformLink, useConditionPreset, useI18n } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
@@ -38,6 +38,19 @@ const HeaderOverflowDialogContext = createContext<ShowHeaderDialog | null>(null)
  */
 export function useHeaderOverflowDialog(): ShowHeaderDialog | null {
   return useContext(HeaderOverflowDialogContext);
+}
+
+/**
+ * One row of a page's `⋯` menu, the shape of `분석 보드에 열기…`. `allowed: false` keeps the row, disabled, with `reason` read as its description
+ * (06 §22: a link the user may not follow is shown disabled with the reason, not hidden). The menu closes after `onSelect` runs.
+ */
+export function HeaderOverflowItem({ label, onSelect, allowed = true, reason }: { label: ReactNode; onSelect: () => void; allowed?: boolean; reason?: ReactNode }) {
+  const reasonId = useId();
+  const blocked = !allowed;
+  return <div className="grid gap-0.5">
+    <Button type="button" variant="ghost" size="sm" className="w-full justify-start" disabled={blocked} aria-describedby={blocked && reason ? reasonId : undefined} onClick={onSelect}>{label}</Button>
+    {blocked && reason && <span id={reasonId} className="px-2 text-tiny text-text-muted">{reason}</span>}
+  </div>;
 }
 
 function HeaderOverflow({ actions }: { actions: ReactNode }) {
@@ -130,7 +143,7 @@ export type PlatformPageProps = {
 
 /** §8 Shell Slots. Pages never insert global UI outside these slots. */
 export function PlatformPage({ title, description, primaryAction, secondaryActions, contextExtension, contextNotes, dataTrustSummary, queryBarExtension, queryResult, crumbs = [], layout = 'flow', density = 'compact', bodyInset = 'default', arrivalTarget, children }: PlatformPageProps) {
-  const { global, page, equipmentAxes, route, favorites, toggleFavorite, scope, retryScope, setGlobal, lastScope, linkTo, registry, slots, url, pathname, pageNavigation, currentSpace, screenMode, canOpen, queryDraft } = useHostPlatform();
+  const { global, page, equipmentAxes, route, favorites, toggleFavorite, scope, retryScope, setGlobal, lastScope, linkTo, registry, slots, url, pathname, pageNavigation, currentSpace, screenMode, canOpen, queryDraft, pageParams } = useHostPlatform();
   const conditionPreset = useConditionPreset();
   // A board pane draws content only: the board owns the pane head and the Context bar, and no arrival focus moves here (ADR-0049).
   const inPane = screenMode === 'pane';
@@ -223,6 +236,11 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
   const menu = route!.menu;
   // `분석 보드에 열기…` (docs/16 §6): the app's slot item, only on the main screen of a menu that declares board support and the user can open.
   const boardEntry = !inPane && menu.features.board === true && canOpen(menu.id) ? slots.boardEntry : null;
+  // Items the app adds to every analysis screen's `⋯` (#1424): the same main-screen gate as the board entry; the page keys are the ones this menu declares.
+  const analysisSlot = slots.analysisActions;
+  const AnalysisActions = !inPane && menu.pageType === 'analysis' && (analysisSlot?.appliesTo?.(menu.id) ?? true) ? analysisSlot?.Actions : undefined;
+  const analysisPage = Object.fromEntries(menu.pageKeys.flatMap(key => { const values = pageParams(key); return values.length === 0 ? [] : [[key, menu.repeatedPageKeys?.includes(key) ? values : values[0]!]]; }));
+  const analysisActions = AnalysisActions ? <AnalysisActions menuId={menu.id} global={global} page={analysisPage} /> : null;
   const favoriteTarget = menu.navHidden ? null : menu;
   const isFavorite = favoriteTarget ? favorites.includes(favoriteTarget.id) : false;
   const parent: MenuEntry | null = menu.parent ? registry.menuById(menu.parent) : null;
@@ -312,7 +330,7 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
         </div>
         <div className="flex shrink-0 flex-nowrap items-center gap-2 whitespace-nowrap">
           {!gate && dataTrustSummary && withTrustYield(dataTrustSummary, headerYield)}
-          {!gate && (secondaryActions || boardEntry) && <HeaderOverflow actions={<>{secondaryActions}{boardEntry}</>} />}
+          {!gate && (secondaryActions || boardEntry || analysisActions) && <HeaderOverflow actions={<>{secondaryActions}{boardEntry}{analysisActions}</>} />}
           {!gate && primaryAction}
         </div>
       </header>
